@@ -1,5 +1,5 @@
-// Simple console dashboard for MERN project
-// Uses Node 18+ global fetch
+// Console dashboard for local stack checks (API + Web).
+// Uses Node 18+ global fetch and reads VITE_API_BASE_URL/WEB_URL.
 
 const apiBase = process.env.VITE_API_BASE_URL || 'http://localhost:4000/api';
 const apiHealth = apiBase.endsWith('/health') ? apiBase : `${apiBase.replace(/\/$/, '')}/health`;

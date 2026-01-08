@@ -1,3 +1,4 @@
+# Local stack: MongoDB + API + Web.
 services:
   mongo:
     image: mongo:latest

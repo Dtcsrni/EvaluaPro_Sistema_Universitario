@@ -1,3 +1,4 @@
+# Build stage: install deps and compile TypeScript to dist/.
 FROM node:20-alpine AS builder
 WORKDIR /app
 COPY package*.json ./
@@ -6,6 +7,7 @@ COPY tsconfig.json ./
 COPY src ./src
 RUN npm run build
 
+# Runtime stage: minimal image with production deps only.
 FROM node:20-alpine AS runner
 WORKDIR /app
 ENV NODE_ENV=production

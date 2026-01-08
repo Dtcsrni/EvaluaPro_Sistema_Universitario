@@ -1,3 +1,10 @@
+/**
+ * Express API entry point.
+ * - Loads environment variables
+ * - Configures middleware and routes
+ * - Optionally connects to MongoDB
+ * - Starts the HTTP server
+ */
 import cors from 'cors';
 import dotenv from 'dotenv';
 import express from 'express';

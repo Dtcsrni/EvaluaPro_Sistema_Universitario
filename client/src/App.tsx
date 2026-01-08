@@ -1,3 +1,6 @@
+/**
+ * Main UI view (copy of frontend/src/App.tsx).
+ */
 import { useEffect, useMemo, useState } from 'react';
 
 function App() {

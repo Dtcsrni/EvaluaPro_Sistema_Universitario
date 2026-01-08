@@ -1,3 +1,4 @@
+// ESLint config for the client copy (React + TypeScript).
 module.exports = {
   env: {
     browser: true,

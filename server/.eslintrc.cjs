@@ -1,3 +1,4 @@
+// ESLint config for the server copy (TypeScript + Node).
 module.exports = {
   env: {
     node: true,

@@ -1,3 +1,7 @@
+/**
+ * Express API entry point (copy of backend/src/index.ts).
+ * Not used by root scripts unless referenced explicitly.
+ */
 import cors from 'cors';
 import dotenv from 'dotenv';
 import express from 'express';

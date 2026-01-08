@@ -1,3 +1,6 @@
+/**
+ * Health endpoint for monitoring API and database state.
+ */
 import { Router } from 'express';
 import mongoose from 'mongoose';
 

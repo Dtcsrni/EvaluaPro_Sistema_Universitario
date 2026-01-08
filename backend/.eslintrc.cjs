@@ -1,3 +1,4 @@
+// ESLint config for the backend (TypeScript + Node).
 module.exports = {
   env: {
     node: true,

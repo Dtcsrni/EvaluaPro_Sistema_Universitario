@@ -1,3 +1,6 @@
+/**
+ * Main UI view: checks API health and shows a status message.
+ */
 import { useEffect, useMemo, useState } from 'react';
 
 function App() {
