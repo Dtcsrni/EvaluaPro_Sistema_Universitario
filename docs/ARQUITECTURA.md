@@ -15,14 +15,85 @@ La plataforma se divide en dos piezas:
 - `infraestructura/`: adaptadores externos (DB, archivos, correo).
 - `compartido/`: errores, validaciones, tipos y utilidades.
 
-## Diagrama (texto)
+## Diagrama de arquitectura (logico)
 
-[Frontend docente] -> /api/* (backend docente) -> [MongoDB local]
-                                |\
-                                | \-> [almacen local PDFs]
-                                |  \-> [sync -> cloud]
+```mermaid
+flowchart LR
+  classDef user fill:#fff6e5,stroke:#f59e0b,color:#7c2d12;
+  classDef svc fill:#e0f2fe,stroke:#0284c7,color:#0c4a6e;
+  classDef db fill:#ecfccb,stroke:#65a30d,color:#365314;
+  classDef store fill:#f5f5f4,stroke:#78716c,color:#1c1917;
+  classDef cloud fill:#ede9fe,stroke:#7c3aed,color:#4c1d95;
+  classDef ext fill:#fde2e2,stroke:#dc2626,color:#7f1d1d;
 
-[Frontend alumno] -> /api_portal/* (portal cloud) -> [MongoDB cloud]
+  subgraph Local["Entorno local (Docente)"]
+    userDoc[Docente]:::user
+    webDoc[Web Docente<br/>React + Vite]:::svc
+    apiDoc[API Docente<br/>Express + TS]:::svc
+    mongo[(MongoDB Local)]:::db
+    pdfStore[[PDFs locales<br/>data/examenes]]:::store
+    omr[Modulo OMR/PDF/QR<br/>sharp + pdf-lib + qrcode]:::svc
+  end
+
+  subgraph Cloud["Nube (Portal Alumno)"]
+    userAlu[Alumno]:::user
+    webAlu[Web Alumno<br/>React (app_alumno)]:::svc
+    apiPortal[API Portal Alumno<br/>Express + TS]:::cloud
+    mongoCloud[(MongoDB Cloud)]:::db
+  end
+
+  userDoc --> webDoc
+  webDoc -->|HTTP JSON| apiDoc
+  apiDoc -->|CRUD| mongo
+  apiDoc -->|genera PDF| pdfStore
+  apiDoc -->|procesa imagenes| omr
+
+  apiDoc -->|publicacion resultados<br/>API Key| apiPortal
+  apiPortal -->|persistencia| mongoCloud
+
+  userAlu --> webAlu
+  webAlu -->|HTTP JSON| apiPortal
+
+  extMail[Correo (opcional)]:::ext
+  apiDoc -.->|codigo acceso| extMail
+```
+
+## Diagrama de despliegue (local + nube)
+
+```mermaid
+flowchart TB
+  classDef svc fill:#e0f2fe,stroke:#0284c7,color:#0c4a6e;
+  classDef db fill:#ecfccb,stroke:#65a30d,color:#365314;
+  classDef store fill:#f5f5f4,stroke:#78716c,color:#1c1917;
+  classDef cloud fill:#ede9fe,stroke:#7c3aed,color:#4c1d95;
+  classDef user fill:#fff6e5,stroke:#f59e0b,color:#7c2d12;
+
+  subgraph Docker["Docker Compose (local)"]
+    mongo_local[(mongo_local)]:::db
+    api_docente_local[api_docente_local]:::svc
+    web_docente_local[web_docente_local]:::svc
+    pdf_local[[data/examenes]]:::store
+  end
+
+  docente[Docente]:::user --> web_docente_local
+  web_docente_local --> api_docente_local
+  api_docente_local --> mongo_local
+  api_docente_local --> pdf_local
+
+  subgraph CloudRun["Nube (Cloud Run / similar)"]
+    portal_api[portal_alumno_cloud]:::cloud
+    mongo_cloud[(MongoDB Cloud)]:::db
+  end
+
+  subgraph Static["Hosting estatico"]
+    web_alumno[web_alumno (build app_alumno)]:::svc
+  end
+
+  alumno[Alumno]:::user --> web_alumno
+  web_alumno --> portal_api
+  api_docente_local -->|sync + API Key| portal_api
+  portal_api --> mongo_cloud
+```
 
 ## Decisiones clave
 - Monolito modular local: menos complejidad, facil mantenimiento.
