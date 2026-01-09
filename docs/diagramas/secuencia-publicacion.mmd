@@ -1,0 +1,19 @@
+sequenceDiagram
+  actor Docente
+  participant Web as Web Docente
+  participant API as API Docente
+  participant DB as MongoDB Local
+  participant FS as PDFs locales
+  participant Portal as API Portal Alumno
+  participant CloudDB as MongoDB Cloud
+
+  Docente->>Web: Publicar resultados
+  Web->>API: POST /api/sincronizaciones/publicar
+  API->>DB: Cargar periodo, alumnos, calificaciones, banderas, examenes
+  API->>FS: Leer PDFs opcional
+  API->>API: Comprimir PDF (gzip + base64)
+  API->>Portal: POST /api/portal/sincronizar (API Key)
+  Portal->>CloudDB: Upsert resultados + codigo acceso
+  Portal-->>API: OK
+  API->>DB: Guardar sincronizacion
+  API-->>Web: OK

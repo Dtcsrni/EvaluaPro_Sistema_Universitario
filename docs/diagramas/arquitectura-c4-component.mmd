@@ -1,0 +1,49 @@
+%%{init: {'theme':'base','themeVariables':{ 'primaryColor':'#e0f2fe', 'primaryTextColor':'#0c4a6e', 'primaryBorderColor':'#0284c7', 'lineColor':'#334155' }}}%%
+C4Component
+title Sistema de Evaluacion Universitaria - Componentes API Docente
+
+Person(docente, "Docente", "Opera el panel local")
+Container(webDoc, "Web Docente", "React + Vite", "UI docente")
+
+Container_Boundary(api, "API Docente") {
+  Component(auth, "Modulo Autenticacion", "Express handlers", "Login, JWT y perfil")
+  Component(alumnos, "Modulo Alumnos", "Express handlers", "Periodos y alumnos")
+  Component(banco, "Modulo Banco Preguntas", "Express handlers", "Versionado de preguntas")
+  Component(plantillas, "Modulo Generacion PDF", "Express handlers", "Plantillas, PDFs y QR")
+  Component(omr, "Modulo Escaneo OMR", "Servicio", "Lectura de marcas")
+  Component(vinculacion, "Modulo Vinculacion Entrega", "Express handlers", "Folio-alumno")
+  Component(calificacion, "Modulo Calificacion", "Express handlers", "Calculo y resultados")
+  Component(analiticas, "Modulo Analiticas", "Express handlers", "CSV y banderas")
+  Component(sync, "Modulo Sincronizacion Nube", "Express handlers", "Publicacion a portal")
+}
+
+ContainerDb(mongoLocal, "MongoDB Local", "MongoDB", "Datos docentes")
+System_Ext(pdfStore, "PDFs locales", "Filesystem")
+System_Ext(portalApi, "API Portal Alumno", "HTTP")
+System_Ext(mail, "Correo", "Opcional")
+
+Rel(docente, webDoc, "Usa", "HTTP")
+Rel(webDoc, auth, "Login", "HTTP JSON")
+Rel(webDoc, alumnos, "CRUD", "HTTP JSON")
+Rel(webDoc, banco, "CRUD", "HTTP JSON")
+Rel(webDoc, plantillas, "CRUD", "HTTP JSON")
+Rel(webDoc, omr, "Analiza", "HTTP JSON")
+Rel(webDoc, vinculacion, "Vincula", "HTTP JSON")
+Rel(webDoc, calificacion, "Califica", "HTTP JSON")
+Rel(webDoc, analiticas, "Consulta", "HTTP JSON")
+Rel(webDoc, sync, "Publica", "HTTP JSON")
+
+Rel(auth, mongoLocal, "Lee/Escribe")
+Rel(alumnos, mongoLocal, "Lee/Escribe")
+Rel(banco, mongoLocal, "Lee/Escribe")
+Rel(plantillas, mongoLocal, "Lee/Escribe")
+Rel(omr, mongoLocal, "Lee")
+Rel(vinculacion, mongoLocal, "Lee/Escribe")
+Rel(calificacion, mongoLocal, "Lee/Escribe")
+Rel(analiticas, mongoLocal, "Lee")
+Rel(sync, mongoLocal, "Lee/Escribe")
+
+Rel(plantillas, pdfStore, "Genera PDF")
+Rel(omr, pdfStore, "Lee PDF")
+Rel(sync, portalApi, "Publica resultados", "HTTP + API Key")
+Rel(sync, mail, "Envia codigo", "SMTP")

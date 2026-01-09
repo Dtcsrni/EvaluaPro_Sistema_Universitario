@@ -1,0 +1,20 @@
+sequenceDiagram
+  actor Docente
+  participant Web as Web Docente
+  participant API as API Docente
+  participant DB as MongoDB Local
+
+  Docente->>Web: Ingresa correo + contrasena
+  Web->>API: POST /api/autenticacion/ingresar
+  API->>DB: Buscar docente y validar hash
+  DB-->>API: Docente
+  API-->>Web: JWT + perfil
+  Web->>Web: Guarda token
+
+  alt Registrar docente
+    Docente->>Web: Captura nombre + correo + contrasena
+    Web->>API: POST /api/autenticacion/registrar
+    API->>DB: Crear docente
+    DB-->>API: Docente
+    API-->>Web: JWT + perfil
+  end

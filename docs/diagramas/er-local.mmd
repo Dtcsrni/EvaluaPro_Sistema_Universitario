@@ -1,0 +1,75 @@
+erDiagram
+  DOCENTE {
+    ObjectId _id PK
+    string correo
+    string hashContrasena
+  }
+  PERIODO {
+    ObjectId _id PK
+    string nombre
+    date fechaInicio
+    date fechaFin
+  }
+  ALUMNO {
+    ObjectId _id PK
+    string matricula
+    string nombreCompleto
+  }
+  BANCO_PREGUNTA {
+    ObjectId _id PK
+    string tema
+    int versionActual
+  }
+  EXAMEN_PLANTILLA {
+    ObjectId _id PK
+    string titulo
+    string tipo
+  }
+  EXAMEN_GENERADO {
+    ObjectId _id PK
+    string folio
+    string estado
+  }
+  ENTREGA {
+    ObjectId _id PK
+    string estado
+    date fechaEntrega
+  }
+  CALIFICACION {
+    ObjectId _id PK
+    string tipoExamen
+    int aciertos
+  }
+  BANDERA_REVISION {
+    ObjectId _id PK
+    string tipo
+    string severidad
+  }
+  CODIGO_ACCESO {
+    ObjectId _id PK
+    string codigo
+    date expiraEn
+  }
+  SINCRONIZACION {
+    ObjectId _id PK
+    string estado
+    string tipo
+  }
+
+  DOCENTE ||--o{ PERIODO : crea
+  DOCENTE ||--o{ ALUMNO : registra
+  PERIODO ||--o{ ALUMNO : contiene
+  DOCENTE ||--o{ BANCO_PREGUNTA : define
+  PERIODO ||--o{ BANCO_PREGUNTA : agrupa
+  DOCENTE ||--o{ EXAMEN_PLANTILLA : define
+  PERIODO ||--o{ EXAMEN_PLANTILLA : aplica
+  EXAMEN_PLANTILLA ||--o{ EXAMEN_GENERADO : instancia
+  ALUMNO ||--o{ EXAMEN_GENERADO : asigna
+  EXAMEN_GENERADO ||--o{ ENTREGA : entrega
+  ALUMNO ||--o{ ENTREGA : recibe
+  EXAMEN_GENERADO ||--o{ CALIFICACION : califica
+  ALUMNO ||--o{ CALIFICACION : recibe
+  EXAMEN_GENERADO ||--o{ BANDERA_REVISION : marca
+  DOCENTE ||--o{ CODIGO_ACCESO : genera
+  PERIODO ||--o{ CODIGO_ACCESO : acceso
+  DOCENTE ||--o{ SINCRONIZACION : ejecuta

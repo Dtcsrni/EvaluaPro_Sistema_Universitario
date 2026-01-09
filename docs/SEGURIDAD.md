@@ -2,7 +2,7 @@
 
 ## Checklist base
 - Autorizacion por objeto: cada docente solo accede a su grupo/periodo.
-- Autenticacion simple y robusta: tokens cortos y expiracion.
+- Autenticacion simple y robusta: JWT para docentes y codigos temporales para alumnos.
 - Validacion de payload: Zod en rutas criticas.
 - Rate limiting: express-rate-limit.
 - Sanitizacion de entradas: express-mongo-sanitize.
@@ -11,9 +11,10 @@
 - Transporte seguro: HTTPS en cloud y en red local confiable.
 - Manejo de errores: sin filtrar detalles internos.
 - Backup y retencion: politicas claras y purga controlada.
+- Sync cloud protegido con API key.
 
 ## Recomendaciones adicionales
 - Hash de contrasenas con Argon2/bcrypt.
-- Tokens con expiracion corta (15 min, 1 uso).
+- Codigo alumno: 12h y 1 uso (configurable).
 - CORS restringido a origenes autorizados.
 - Monitoreo de intentos fallidos y bloqueo temporal.

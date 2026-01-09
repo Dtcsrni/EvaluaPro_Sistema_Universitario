@@ -1,0 +1,18 @@
+sequenceDiagram
+  actor Alumno
+  participant Web as Web Alumno
+  participant Portal as API Portal Alumno
+  participant CloudDB as MongoDB Cloud
+
+  Alumno->>Web: Ingresa codigo + matricula
+  Web->>Portal: POST /api/portal/ingresar
+  Portal->>CloudDB: Validar codigo y buscar resultado
+  Portal-->>Web: Token + expira
+
+  Web->>Portal: GET /api/portal/resultados (Bearer)
+  Portal->>CloudDB: Consultar resultados
+  Portal-->>Web: Lista de resultados
+
+  Web->>Portal: GET /api/portal/examen/:folio (Bearer)
+  Portal->>CloudDB: Leer PDF base64
+  Portal-->>Web: PDF

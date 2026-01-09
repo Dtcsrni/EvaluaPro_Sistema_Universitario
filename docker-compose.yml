@@ -12,12 +12,11 @@ services:
       interval: 10s
       timeout: 5s
       retries: 5
-    profiles: ["dev", "prod"]
 
   api_docente_local:
     build:
-      context: ./backend
-      dockerfile: Dockerfile
+      context: .
+      dockerfile: apps/backend/Dockerfile
     env_file:
       - .env
     environment:
@@ -33,12 +32,11 @@ services:
       interval: 15s
       timeout: 5s
       retries: 5
-    profiles: ["dev"]
 
   web_docente_local:
     build:
-      context: ./frontend
-      dockerfile: Dockerfile
+      context: .
+      dockerfile: apps/frontend/Dockerfile
       args:
         - VITE_API_BASE_URL=${VITE_API_BASE_URL:-http://localhost:4000/api}
         - VITE_APP_DESTINO=docente
@@ -47,12 +45,11 @@ services:
         condition: service_healthy
     ports:
       - "4173:4173"
-    profiles: ["dev"]
 
   api_docente_prod:
     build:
-      context: ./backend
-      dockerfile: Dockerfile
+      context: .
+      dockerfile: apps/backend/Dockerfile
     env_file:
       - .env
     environment:
@@ -67,8 +64,8 @@ services:
 
   web_docente_prod:
     build:
-      context: ./frontend
-      dockerfile: Dockerfile
+      context: .
+      dockerfile: apps/frontend/Dockerfile
       args:
         - VITE_API_BASE_URL=${VITE_API_BASE_URL:-http://localhost:4000/api}
         - VITE_APP_DESTINO=docente

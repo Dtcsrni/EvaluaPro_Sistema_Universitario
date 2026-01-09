@@ -1,0 +1,10 @@
+flowchart TD
+  A[Docente crea periodo y alumnos] --> B[Docente crea banco de preguntas]
+  B --> C[Crear plantilla de examen]
+  C --> D[Generar examen + PDF + QR]
+  D --> E[Entrega y vinculacion folio-alumno]
+  E --> F[Escaneo OMR]
+  F --> G[Calificar examen]
+  G --> H[Analiticas + export CSV]
+  G --> I[Publicar resultados a portal]
+  I --> J[Alumno consulta resultados y PDF]

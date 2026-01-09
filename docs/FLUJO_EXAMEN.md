@@ -28,6 +28,7 @@
 - Se detecta QR y pagina.
 - Se corrige perspectiva con marcas.
 - Se detectan burbujas y se genera vista de verificacion.
+- Docente puede ajustar respuestas antes de calificar.
 
 ## 7) Calificar
 - Se compara con clave real segun `mapaVariante`.
@@ -40,7 +41,10 @@
 ## 8) Publicar y portal alumno
 - Docente publica resultados hacia nube.
 - Alumno consulta resultados en portal siempre disponible.
+- Codigo de acceso con vigencia 12h y un solo uso.
+- Acceso alumno: codigo + matricula.
 
 ## 9) Exportar CSV
 - Exportacion CSV sin dependencias de Excel.
-- Endpoint: `POST /api/analiticas/exportar-csv`.
+- Endpoint: `GET /api/analiticas/calificaciones-csv?periodoId=...`.
+- Columnas por defecto: `matricula,nombre,grupo,parcial1,parcial2,global,final,banderas`.

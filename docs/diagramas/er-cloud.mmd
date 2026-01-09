@@ -1,0 +1,21 @@
+erDiagram
+  CODIGO_ACCESO {
+    ObjectId _id PK
+    string codigo
+    date expiraEn
+    bool usado
+  }
+  RESULTADO_ALUMNO {
+    ObjectId _id PK
+    string matricula
+    string folio
+    string tipoExamen
+  }
+  SESION_ALUMNO {
+    ObjectId _id PK
+    string tokenHash
+    date expiraEn
+  }
+
+  CODIGO_ACCESO ||--o{ RESULTADO_ALUMNO : periodoId
+  RESULTADO_ALUMNO ||--o{ SESION_ALUMNO : alumnoId

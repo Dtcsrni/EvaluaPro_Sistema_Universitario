@@ -1,13 +1,13 @@
-# Plataforma MERN para examenes
+# Sistema de Evaluacion Universitaria
 
-Monorepo MERN con backend docente local (Express + MongoDB) y frontend React.
+Monorepo MERN del Sistema de Evaluacion Universitaria con backend docente local (Express + MongoDB) y frontend React.
 Incluye generacion de PDFs, vinculacion por QR, escaneo OMR (pipeline base) y
 calificacion exacta sin redondeos.
 
 ## Arquitectura
-- `backend/`: API docente modular en TypeScript con MongoDB.
-- `frontend/`: UI React con apps docente y alumno.
-- `portal_alumno_cloud/`: API del portal alumno (solo lectura).
+- `apps/backend/`: API docente modular en TypeScript con MongoDB.
+- `apps/frontend/`: UI React con apps docente y alumno.
+- `apps/portal_alumno_cloud/`: API del portal alumno (solo lectura).
 - `docs/`: decisiones de arquitectura, flujo de examen, seguridad y PDF.
 - `scripts/`: utilidades de consola para revisar estado del stack.
 - `docker-compose.yml`: stack local con Mongo, API y Web.
@@ -15,7 +15,7 @@ calificacion exacta sin redondeos.
 ## Requisitos
 - Node.js 24+ (LTS)
 - npm 9+
-- Docker (opcional para MongoDB local)
+- Docker (requerido para backend local)
 
 ## Configuracion
 1) Crea `.env` con los valores necesarios.
@@ -38,21 +38,36 @@ calificacion exacta sin redondeos.
 - `LIMITE_JSON`: limite del body JSON en la API docente.
 - `VITE_API_BASE_URL`: base URL de la API para el frontend.
 - `VITE_APP_DESTINO`: `docente` o `alumno` para seleccionar app.
+- `VITE_PORTAL_BASE_URL`: base URL del portal alumno (Cloud Run).
+- `JWT_SECRETO`: secreto para JWT de docentes.
+- `JWT_EXPIRA_HORAS`: expiracion de tokens docentes.
+- `CODIGO_ACCESO_HORAS`: vigencia del codigo de acceso alumno (default 12).
+- `PORTAL_ALUMNO_URL`: URL del portal cloud para sincronizacion.
+- `PORTAL_ALUMNO_API_KEY`: API key para publicar resultados (backend local).
+- `PORTAL_API_KEY`: API key de validacion en el portal cloud.
 - `WEB_URL`: usado por `scripts/dashboard.mjs` para verificar la web.
 
 ## Scripts principales (raiz)
-- Desarrollo full-stack: `npm run dev`
-- Solo API: `npm run dev:backend`
+- Desarrollo full-stack: `npm run dev` (API en Docker + web local)
+- Solo API (Docker): `npm run dev:backend`
 - Solo web: `npm run dev:frontend`
 - Solo portal alumno: `npm run dev:portal`
+- Pruebas backend: `npm run test`
+- Pruebas portal alumno: `npm run test:portal`
+- Pruebas frontend: `npm run test:frontend`
 - Lint: `npm run lint`
 - Build: `npm run build`
-- Produccion API: `npm start`
+- Produccion API (Docker): `npm start`
 - Produccion portal alumno: `npm run start:portal`
 - Estado de servicios: `npm run status`
 
+## Pruebas automatizadas
+- Backend (unitarias + smoke): `npm run test`
+- Backend directo: `npm --prefix apps/backend run test`
+
 ## API base
 - GET `/api/salud` devuelve `{ estado, tiempoActivo, db }`.
+- GET `/api/analiticas/calificaciones-csv?periodoId=...` exporta CSV.
 
 ## Documentacion
 - Arquitectura: `docs/ARQUITECTURA.md`
@@ -60,4 +75,7 @@ calificacion exacta sin redondeos.
 - Despliegue local y cloud: `docs/DESPLIEGUE.md`
 - Seguridad: `docs/SEGURIDAD.md`
 - Formato PDF y OMR: `docs/FORMATO_PDF.md`
+- Pruebas automatizadas: `docs/PRUEBAS.md`
 - Mapa de archivos: `docs/FILES.md`
+
+
