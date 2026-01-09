@@ -4,6 +4,7 @@
 import { Router } from 'express';
 import rutasSalud from './compartido/salud/rutasSalud';
 import rutasAutenticacion from './modulos/modulo_autenticacion/rutasAutenticacion';
+import { requerirDocente } from './modulos/modulo_autenticacion/middlewareAutenticacion';
 import rutasAlumnos from './modulos/modulo_alumnos/rutasAlumnos';
 import rutasPeriodos from './modulos/modulo_alumnos/rutasPeriodos';
 import rutasBancoPreguntas from './modulos/modulo_banco_preguntas/rutasBancoPreguntas';
@@ -19,6 +20,8 @@ export function crearRouterApi() {
 
   router.use('/salud', rutasSalud);
   router.use('/autenticacion', rutasAutenticacion);
+
+  router.use(requerirDocente);
   router.use('/alumnos', rutasAlumnos);
   router.use('/periodos', rutasPeriodos);
   router.use('/banco-preguntas', rutasBancoPreguntas);

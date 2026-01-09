@@ -10,7 +10,6 @@ const esquemaOpcion = z.object({
 
 export const esquemaCrearPregunta = z
   .object({
-    docenteId: z.string().min(1),
     periodoId: z.string().optional(),
     tema: z.string().optional(),
     enunciado: z.string().min(1),

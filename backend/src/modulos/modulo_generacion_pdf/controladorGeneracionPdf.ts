@@ -1,37 +1,46 @@
 /**
  * Controlador para plantillas y examenes generados.
  */
-import type { Request, Response } from 'express';
+import type { Response } from 'express';
 import { randomUUID } from 'crypto';
 import { BancoPregunta } from '../modulo_banco_preguntas/modeloBancoPregunta';
 import { barajar } from '../../compartido/utilidades/aleatoriedad';
 import { ErrorAplicacion } from '../../compartido/errores/errorAplicacion';
 import { guardarPdfExamen } from '../../infraestructura/archivos/almacenLocal';
+import { obtenerDocenteId } from '../modulo_autenticacion/middlewareAutenticacion';
+import type { SolicitudDocente } from '../modulo_autenticacion/middlewareAutenticacion';
 import { ExamenGenerado } from './modeloExamenGenerado';
 import { ExamenPlantilla } from './modeloExamenPlantilla';
 import { generarPdfExamen } from './servicioGeneracionPdf';
 import { generarVariante } from './servicioVariantes';
 
-export async function listarPlantillas(req: Request, res: Response) {
-  const filtro: Record<string, string> = {};
-  if (req.query.docenteId) filtro.docenteId = String(req.query.docenteId);
+export async function listarPlantillas(req: SolicitudDocente, res: Response) {
+  const docenteId = obtenerDocenteId(req);
+  const filtro: Record<string, string> = { docenteId };
   if (req.query.periodoId) filtro.periodoId = String(req.query.periodoId);
 
-  const plantillas = await ExamenPlantilla.find(filtro).limit(100).lean();
+  const limite = Number(req.query.limite ?? 0);
+  const consulta = ExamenPlantilla.find(filtro);
+  const plantillas = await (limite > 0 ? consulta.limit(limite) : consulta).lean();
   res.json({ plantillas });
 }
 
-export async function crearPlantilla(req: Request, res: Response) {
-  const plantilla = await ExamenPlantilla.create(req.body);
+export async function crearPlantilla(req: SolicitudDocente, res: Response) {
+  const docenteId = obtenerDocenteId(req);
+  const plantilla = await ExamenPlantilla.create({ ...req.body, docenteId });
   res.status(201).json({ plantilla });
 }
 
-export async function generarExamen(req: Request, res: Response) {
-  const { plantillaId, docenteId, alumnoId } = req.body;
+export async function generarExamen(req: SolicitudDocente, res: Response) {
+  const docenteId = obtenerDocenteId(req);
+  const { plantillaId, alumnoId } = req.body;
   const plantilla = await ExamenPlantilla.findById(plantillaId).lean();
 
   if (!plantilla) {
     throw new ErrorAplicacion('PLANTILLA_NO_ENCONTRADA', 'Plantilla no encontrada', 404);
+  }
+  if (String(plantilla.docenteId) !== String(docenteId)) {
+    throw new ErrorAplicacion('NO_AUTORIZADO', 'Sin acceso a la plantilla', 403);
   }
 
   const preguntasIds = plantilla.preguntasIds ?? [];
@@ -39,6 +48,9 @@ export async function generarExamen(req: Request, res: Response) {
 
   if (preguntasDb.length === 0) {
     throw new ErrorAplicacion('SIN_PREGUNTAS', 'La plantilla no tiene preguntas asociadas', 400);
+  }
+  if (plantilla.totalReactivos > preguntasDb.length) {
+    throw new ErrorAplicacion('REACTIVOS_INSUFICIENTES', 'No hay suficientes preguntas en el banco', 400);
   }
 
   const preguntasBase = preguntasDb.map((pregunta) => {
@@ -55,7 +67,7 @@ export async function generarExamen(req: Request, res: Response) {
   const mapaVariante = generarVariante(preguntasSeleccionadas);
   const folio = randomUUID().split('-')[0].toUpperCase();
 
-  const { pdfBytes, paginas } = await generarPdfExamen({
+  const { pdfBytes, paginas, mapaOmr } = await generarPdfExamen({
     titulo: plantilla.titulo,
     folio,
     preguntas: preguntasSeleccionadas,
@@ -76,6 +88,7 @@ export async function generarExamen(req: Request, res: Response) {
     estado: 'generado',
     mapaVariante,
     paginas,
+    mapaOmr,
     rutaPdf
   });
 

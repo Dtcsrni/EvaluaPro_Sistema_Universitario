@@ -12,6 +12,7 @@ const ExamenGeneradoSchema = new Schema(
     folio: { type: String, required: true, unique: true },
     estado: { type: String, enum: ['generado', 'entregado', 'calificado'], default: 'generado' },
     mapaVariante: { type: Schema.Types.Mixed, required: true },
+    mapaOmr: { type: Schema.Types.Mixed },
     paginas: [{ numero: Number, qrTexto: String }],
     rutaPdf: { type: String },
     generadoEn: { type: Date, default: Date.now }

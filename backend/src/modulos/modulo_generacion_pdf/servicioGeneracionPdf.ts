@@ -76,11 +76,24 @@ export async function generarPdfExamen({
   let indicePregunta = 0;
   let numeroPagina = 1;
   const paginasMeta: { numero: number; qrTexto: string }[] = [];
+  const paginasOmr: Array<{
+    numeroPagina: number;
+    preguntas: Array<{
+      numeroPregunta: number;
+      idPregunta: string;
+      opciones: Array<{ letra: string; x: number; y: number }>;
+    }>;
+  }> = [];
 
   while (indicePregunta < preguntasOrdenadas.length || numeroPagina <= paginasMinimas) {
     const page = pdfDoc.addPage([ANCHO_CARTA, ALTO_CARTA]);
     const qrTexto = `EXAMEN:${folio}:P${numeroPagina}`;
     paginasMeta.push({ numero: numeroPagina, qrTexto });
+    const mapaPagina: Array<{
+      numeroPregunta: number;
+      idPregunta: string;
+      opciones: Array<{ letra: string; x: number; y: number }>;
+    }> = [];
 
     agregarMarcasRegistro(page, margen);
     await agregarQr(pdfDoc, page, qrTexto, margen);
@@ -109,21 +122,27 @@ export async function generarPdfExamen({
       }
 
       const ordenOpciones = mapaVariante.ordenOpcionesPorPregunta[pregunta.id] ?? [0, 1, 2, 3, 4];
+      const opcionesOmr: Array<{ letra: string; x: number; y: number }> = [];
       ordenOpciones.forEach((indiceOpcion, idx) => {
         const opcion = pregunta.opciones[indiceOpcion];
         const letra = String.fromCharCode(65 + idx);
-        page.drawCircle({ x: margen + 6, y: cursorY + 3, size: 4, borderWidth: 0.8, borderColor: rgb(0, 0, 0) });
+        const xBurbuja = margen + 6;
+        const yBurbuja = cursorY + 3;
+        page.drawCircle({ x: xBurbuja, y: yBurbuja, size: 4, borderWidth: 0.8, borderColor: rgb(0, 0, 0) });
         page.drawText(`${letra}) ${opcion.texto}`, { x: margen + 16, y: cursorY, size: 10, font: fuente });
+        opcionesOmr.push({ letra, x: xBurbuja, y: yBurbuja });
         cursorY -= espacioLinea;
       });
 
       cursorY -= espacioLinea / 2;
       indicePregunta += 1;
+      mapaPagina.push({ numeroPregunta: numero, idPregunta: pregunta.id, opciones: opcionesOmr });
     }
 
+    paginasOmr.push({ numeroPagina, preguntas: mapaPagina });
     numeroPagina += 1;
   }
 
   const pdfBytes = await pdfDoc.save();
-  return { pdfBytes: Buffer.from(pdfBytes), paginas: paginasMeta };
+  return { pdfBytes: Buffer.from(pdfBytes), paginas: paginasMeta, mapaOmr: { margenMm, paginas: paginasOmr } };
 }

@@ -25,6 +25,17 @@ export function calcularCalificacionParcial(
   };
 }
 
+export function calcularCalificacionGlobal(calificacionExamenTexto: string, proyecto: number) {
+  const examen = new Decimal(calificacionExamenTexto || 0);
+  const proyectoSeguro = Decimal.min(new Decimal(5), new Decimal(proyecto || 0));
+  const total = Decimal.min(new Decimal(10), examen.add(proyectoSeguro));
+
+  return {
+    proyectoTexto: proyectoSeguro.toString(),
+    calificacionGlobalTexto: total.toString()
+  };
+}
+
 export function calcularCalificacionExacta(
   aciertos: number,
   totalReactivos: number,

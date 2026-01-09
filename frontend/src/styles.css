@@ -22,7 +22,7 @@ main.page {
 }
 
 .card {
-  max-width: 600px;
+  max-width: 900px;
   width: 100%;
   background: #ffffffcc;
   backdrop-filter: blur(6px);
@@ -32,6 +32,13 @@ main.page {
   box-shadow: 0 30px 80px -40px rgba(15, 23, 42, 0.4);
   display: grid;
   gap: 0.9rem;
+}
+
+.cabecera {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
 }
 
 .eyebrow {
@@ -50,6 +57,33 @@ h1 {
 p {
   margin: 0;
   color: #334155;
+}
+
+.panel {
+  display: grid;
+  gap: 1rem;
+}
+
+.tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.tab {
+  border: 1px solid #cbd5f5;
+  background: #f8fafc;
+  color: #1f2937;
+  border-radius: 999px;
+  padding: 0.45rem 0.9rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.tab.activa {
+  background: #1f3a8a;
+  color: #ffffff;
+  border-color: #1f3a8a;
 }
 
 .meta {
@@ -76,11 +110,23 @@ p {
   color: #1f2937;
 }
 
-.campo input {
+.campo input,
+.campo textarea,
+.campo select {
   padding: 0.6rem 0.75rem;
   border-radius: 10px;
   border: 1px solid #cbd5f5;
   font-size: 1rem;
+}
+
+.campo textarea {
+  min-height: 90px;
+  resize: vertical;
+}
+
+.campo.opcion {
+  grid-template-columns: 1fr auto auto;
+  align-items: center;
 }
 
 .boton {
@@ -95,4 +141,56 @@ p {
 
 .boton:hover {
   background: #1e40af;
+}
+
+.boton.secundario {
+  background: #e2e8f0;
+  color: #1f2937;
+}
+
+.boton.secundario:hover {
+  background: #cbd5f5;
+}
+
+.acciones {
+  display: flex;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+}
+
+.lista {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: grid;
+  gap: 0.4rem;
+  color: #1f2937;
+}
+
+.lista li {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.lista select {
+  padding: 0.3rem 0.5rem;
+  border-radius: 8px;
+  border: 1px solid #cbd5f5;
+}
+
+.resultado {
+  padding: 1rem;
+  border-radius: 14px;
+  border: 1px solid #e2e8f0;
+  background: #f8fafc;
+}
+
+.alerta {
+  margin-top: 0.75rem;
+  padding: 0.75rem;
+  border-radius: 12px;
+  background: #fee2e2;
+  color: #7f1d1d;
 }

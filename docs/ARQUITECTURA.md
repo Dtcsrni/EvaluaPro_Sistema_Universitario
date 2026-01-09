@@ -30,6 +30,10 @@ La plataforma se divide en dos piezas:
 - Calificacion exacta: Decimal.js y fraccion almacenada.
 - PDF carta: baja tinta, margenes seguros y QR en cada pagina.
 - PDFs locales se almacenan en `data/examenes` (ignorado por git).
+- Autenticacion docente con JWT y validacion por objeto.
+- Portal alumno con codigo de acceso temporal (12h, 1 uso).
+- OMR guiado por mapa de posiciones generado junto al PDF.
+- Sincronizacion local -> cloud protegida por API key.
 
 ## Nomenclatura
 - Rutas, variables y modulos en espanol mexicano con camelCase.

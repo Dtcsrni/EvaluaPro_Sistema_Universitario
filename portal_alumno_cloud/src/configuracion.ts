@@ -11,9 +11,13 @@ const corsOrigenes = (process.env.CORS_ORIGENES ?? '*')
   .split(',')
   .map((origen) => origen.trim())
   .filter(Boolean);
+const portalApiKey = process.env.PORTAL_API_KEY ?? '';
+const codigoAccesoHoras = Number(process.env.CODIGO_ACCESO_HORAS ?? 12);
 
 export const configuracion = {
   puerto,
   mongoUri,
-  corsOrigenes
+  corsOrigenes,
+  portalApiKey,
+  codigoAccesoHoras
 };

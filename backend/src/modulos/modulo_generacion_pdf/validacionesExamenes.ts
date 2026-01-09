@@ -4,7 +4,6 @@
 import { z } from 'zod';
 
 export const esquemaCrearPlantilla = z.object({
-  docenteId: z.string().min(1),
   periodoId: z.string().optional(),
   tipo: z.enum(['parcial', 'global']),
   titulo: z.string().min(1),
@@ -21,6 +20,5 @@ export const esquemaCrearPlantilla = z.object({
 
 export const esquemaGenerarExamen = z.object({
   plantillaId: z.string().min(1),
-  docenteId: z.string().min(1),
   alumnoId: z.string().optional()
 });

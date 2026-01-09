@@ -4,7 +4,6 @@
 import { z } from 'zod';
 
 export const esquemaCrearAlumno = z.object({
-  docenteId: z.string().min(1),
   periodoId: z.string().min(1),
   matricula: z.string().min(1),
   nombreCompleto: z.string().min(1),

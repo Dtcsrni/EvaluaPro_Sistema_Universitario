@@ -28,3 +28,4 @@
 3) Segmentar zona de respuestas.
 4) Detectar burbuja marcada.
 5) Mostrar verificacion manual al docente.
+6) Guardar `mapaOmr` (posiciones exactas por pagina).
