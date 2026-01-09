@@ -1,3 +1,4 @@
+// Configuracion Vitest del frontend React.
 import { defineConfig } from 'vitest/config';
 import react from '@vitejs/plugin-react';
 import { baseVitestConfig } from '../../vitest.base';

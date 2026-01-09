@@ -1,3 +1,4 @@
+// Configuracion TypeScript del portal alumno.
 {
   "extends": "../../tsconfig.base.json",
   "compilerOptions": {

@@ -1,3 +1,4 @@
+// Pruebas del endpoint de salud.
 import request from 'supertest';
 import { describe, expect, it } from 'vitest';
 import { crearApp } from '../src/app';
@@ -15,3 +16,4 @@ describe('salud', () => {
     );
   });
 });
+

@@ -1,3 +1,4 @@
+// Pruebas de integracion del portal alumno.
 import request from 'supertest';
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { gzipSync } from 'zlib';
@@ -82,3 +83,4 @@ describe('portal alumno', () => {
     expect(respuesta.body.error.codigo).toBe('NO_AUTORIZADO');
   });
 });
+

@@ -1,3 +1,4 @@
+// Pruebas basicas de la app docente.
 import { render, screen } from '@testing-library/react';
 import { describe, expect, it } from 'vitest';
 import { AppDocente } from '../src/apps/app_docente/AppDocente';
@@ -17,3 +18,4 @@ describe('AppDocente', () => {
     expect(await screen.findByText('Panel Docente')).toBeInTheDocument();
   });
 });
+

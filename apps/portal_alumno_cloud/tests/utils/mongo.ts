@@ -1,3 +1,4 @@
+// Helpers de Mongo en memoria para portal.
 import mongoose from 'mongoose';
 import { MongoMemoryServer } from 'mongodb-memory-server';
 
@@ -22,3 +23,4 @@ export async function cerrarMongoTest() {
     servidor = null;
   }
 }
+

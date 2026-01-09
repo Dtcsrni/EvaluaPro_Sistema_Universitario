@@ -1,3 +1,4 @@
+// Pruebas de calculo exacto de calificaciones.
 import { describe, expect, it } from 'vitest';
 import {
   calcularCalificacionExacta,
@@ -32,3 +33,4 @@ describe('calculoCalificacion', () => {
     expect(global.calificacionParcialTexto).toBeUndefined();
   });
 });
+

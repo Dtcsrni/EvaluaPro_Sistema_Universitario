@@ -15,6 +15,7 @@ export async function requerirSesionAlumno(req: SolicitudAlumno, res: Response, 
     return;
   }
 
+  // Se compara hash para evitar guardar tokens en texto plano.
   const tokenHash = hashToken(token);
   const sesion = await SesionAlumno.findOne({ tokenHash }).lean();
   if (!sesion || sesion.expiraEn < new Date()) {

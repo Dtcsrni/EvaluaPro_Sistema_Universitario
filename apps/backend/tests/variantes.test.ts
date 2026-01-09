@@ -1,3 +1,4 @@
+// Pruebas de variantes y ordenes aleatorios.
 import { describe, expect, it } from 'vitest';
 import { generarVariante } from '../src/modulos/modulo_generacion_pdf/servicioVariantes';
 
@@ -16,3 +17,4 @@ describe('generarVariante', () => {
     expect(variante.ordenOpcionesPorPregunta.p2.sort()).toEqual([0, 1, 2, 3, 4]);
   });
 });
+

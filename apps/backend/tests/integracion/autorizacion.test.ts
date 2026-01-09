@@ -1,3 +1,4 @@
+// Pruebas de autorizacion JWT.
 import request from 'supertest';
 import { describe, expect, it } from 'vitest';
 import { crearApp } from '../../src/app';
@@ -18,3 +19,4 @@ describe('autorizacion', () => {
     expect(respuesta.body.error.codigo).toBe('TOKEN_INVALIDO');
   });
 });
+

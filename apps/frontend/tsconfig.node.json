@@ -1,3 +1,4 @@
+// Configuracion TypeScript para tooling del frontend.
 {
   "extends": "../../tsconfig.base.json",
   "compilerOptions": {

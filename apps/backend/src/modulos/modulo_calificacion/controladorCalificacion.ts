@@ -18,6 +18,7 @@ type RespuestaDetectada = {
 function obtenerLetraCorrecta(opciones: Array<{ esCorrecta: boolean }>, orden: number[]) {
   const indiceCorrecto = opciones.findIndex((opcion) => opcion.esCorrecta);
   if (indiceCorrecto < 0) return null;
+  // Se traduce el indice real al orden mostrado en el examen.
   const posicion = orden.findIndex((idx) => idx === indiceCorrecto);
   if (posicion < 0) return null;
   return String.fromCharCode(65 + posicion);

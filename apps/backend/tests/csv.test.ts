@@ -1,3 +1,4 @@
+// Pruebas del generador CSV.
 import { describe, expect, it } from 'vitest';
 import { generarCsv } from '../src/modulos/modulo_analiticas/servicioExportacionCsv';
 
@@ -11,3 +12,4 @@ describe('generarCsv', () => {
     expect(csv).toBe('nombre,nota\n"Ana, ""A""\nGrupo 1",5');
   });
 });
+

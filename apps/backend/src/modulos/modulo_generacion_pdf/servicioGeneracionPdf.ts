@@ -76,6 +76,7 @@ export async function generarPdfExamen({
   let indicePregunta = 0;
   let numeroPagina = 1;
   const paginasMeta: { numero: number; qrTexto: string }[] = [];
+  // Se guarda el mapa de posiciones para el escaneo OMR posterior.
   const paginasOmr: Array<{
     numeroPagina: number;
     preguntas: Array<{

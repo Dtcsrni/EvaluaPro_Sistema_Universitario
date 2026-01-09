@@ -1,3 +1,4 @@
+// Pruebas del flujo completo de examen.
 import request from 'supertest';
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { crearApp } from '../../src/app';
@@ -131,3 +132,4 @@ describe('flujo de examen', () => {
     expect(csvResp.text).toContain('matricula,nombre,grupo,parcial1,parcial2,global,final,banderas');
   });
 });
+

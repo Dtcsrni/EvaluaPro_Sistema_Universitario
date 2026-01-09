@@ -1,3 +1,4 @@
+// Pruebas basicas de la app alumno.
 import { render, screen } from '@testing-library/react';
 import { describe, expect, it } from 'vitest';
 import { AppAlumno } from '../src/apps/app_alumno/AppAlumno';
@@ -17,3 +18,4 @@ describe('AppAlumno', () => {
     expect(screen.getByText('Salir')).toBeInTheDocument();
   });
 });
+

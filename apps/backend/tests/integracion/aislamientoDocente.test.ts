@@ -1,3 +1,4 @@
+// Pruebas de aislamiento por docente.
 import request from 'supertest';
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { crearApp } from '../../src/app';
@@ -86,3 +87,4 @@ describe('aislamiento por docente', () => {
     expect(respuesta.body.mensaje ?? respuesta.body.error?.codigo).toBeDefined();
   });
 });
+

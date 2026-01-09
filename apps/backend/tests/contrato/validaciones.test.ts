@@ -1,3 +1,4 @@
+// Pruebas de validacion de payloads.
 import request from 'supertest';
 import { describe, expect, it } from 'vitest';
 import { crearApp } from '../../src/app';
@@ -43,3 +44,4 @@ describe('validaciones de payload', () => {
     expect(respuesta.body.error.codigo).toBe('VALIDACION');
   });
 });
+

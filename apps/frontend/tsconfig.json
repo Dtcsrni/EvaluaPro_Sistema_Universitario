@@ -1,3 +1,4 @@
+// Configuracion TypeScript del frontend.
 {
   "extends": "./tsconfig.node.json",
   "compilerOptions": {

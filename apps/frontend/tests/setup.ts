@@ -1,3 +1,4 @@
+// Setup comun de pruebas React.
 import '@testing-library/jest-dom/vitest';
 import { beforeEach, vi } from 'vitest';
 
@@ -20,3 +21,4 @@ vi.stubGlobal(
 beforeEach(() => {
   localStorage.clear();
 });
+

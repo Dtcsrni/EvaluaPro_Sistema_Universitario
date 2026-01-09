@@ -1,3 +1,4 @@
+// Configuracion base de TypeScript para el monorepo.
 {
   "compilerOptions": {
     "strict": true,

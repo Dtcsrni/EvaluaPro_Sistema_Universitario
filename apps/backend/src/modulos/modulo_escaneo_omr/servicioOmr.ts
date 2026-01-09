@@ -69,6 +69,7 @@ function detectarMarca(data: Uint8ClampedArray, width: number, height: number, r
   let sumaY = 0;
   let conteo = 0;
 
+  // Muestreo ligero para ubicar el centro de la marca negra sin procesar cada pixel.
   for (let y = region.y0; y < region.y1; y += 2) {
     for (let x = region.x0; x < region.x1; x += 2) {
       const intensidad = obtenerIntensidad(data, width, height, x, y);
@@ -164,6 +165,7 @@ function obtenerTransformacion(
   const br = detectarMarca(data, width, height, regiones.br);
 
   if (!tl || !tr || !bl || !br) {
+    // Sin marcas completas, se aproxima con escala simple para no bloquear el flujo.
     advertencias.push('No se detectaron todas las marcas de registro; usando escala simple');
     const escalaX = width / ANCHO_CARTA;
     const escalaY = height / ALTO_CARTA;
@@ -200,6 +202,7 @@ function detectarOpcion(
   let pixeles = 0;
   let oscuros = 0;
 
+  // Cuenta pixeles oscuros dentro de un radio fijo para estimar marca.
   for (let y = -radio; y <= radio; y += 1) {
     for (let x = -radio; x <= radio; x += 1) {
       const intensidad = obtenerIntensidad(data, width, height, centro.x + x, centro.y + y);

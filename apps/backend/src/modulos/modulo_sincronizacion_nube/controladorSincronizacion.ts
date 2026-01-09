@@ -88,6 +88,7 @@ export async function publicarResultados(req: SolicitudDocente, res: Response) {
   for (const examen of examenes) {
     let pdfComprimidoBase64: string | undefined;
     if (examen.rutaPdf) {
+      // El PDF se comprime para reducir payload; si falla, se omite.
       try {
         const contenido = await fs.readFile(examen.rutaPdf);
         pdfComprimidoBase64 = comprimirBase64(contenido);
