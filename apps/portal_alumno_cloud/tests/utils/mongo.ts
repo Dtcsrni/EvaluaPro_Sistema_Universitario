@@ -6,7 +6,7 @@ let servidor: MongoMemoryServer | null = null;
 
 export async function conectarMongoTest() {
   if (mongoose.connection.readyState === 1) return;
-  servidor = await MongoMemoryServer.create();
+  servidor = await MongoMemoryServer.create({ instance: { ip: '127.0.0.1' } });
   await mongoose.connect(servidor.getUri());
 }
 

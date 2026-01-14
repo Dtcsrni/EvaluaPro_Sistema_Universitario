@@ -99,7 +99,7 @@
 
     main {
       padding: 16px 20px 30px;
-      max-width: 1400px;
+      max-width: 1600px;
       margin: 0 auto;
     }
 
@@ -192,6 +192,103 @@
     }
 
     .card + .card { margin-top: 0; }
+
+    .alert-card { border-left: 4px solid #f59e0b; }
+    .alert-card.ok { border-left-color: #22c55e; }
+    .alert-card.error { border-left-color: #ef4444; }
+    .alert-body { display: flex; gap: 16px; align-items: flex-start; }
+    .alert-icon {
+      width: 42px;
+      height: 42px;
+      border-radius: 14px;
+      display: grid;
+      place-items: center;
+      background: rgba(245, 158, 11, 0.14);
+      color: #b45309;
+      font-weight: 800;
+      font-size: 18px;
+    }
+    .alert-card.ok .alert-icon { background: rgba(34, 197, 94, 0.14); color: #166534; }
+    .alert-card.error .alert-icon { background: rgba(239, 68, 68, 0.14); color: #b91c1c; }
+    .alert-content { flex: 1; min-width: 0; }
+    .alert-content h3 { margin: 0; font-size: 15px; }
+    .alert-content p { margin: 6px 0 0; color: var(--ink-soft); font-size: 13px; }
+    .alert-meta {
+      margin-top: 8px;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      font-size: 11px;
+      color: var(--ink-soft);
+    }
+    .alert-actions { display: flex; gap: 8px; align-items: center; }
+    .ghost-btn {
+      border: 1px solid var(--border);
+      background: #ffffff;
+      color: var(--ink);
+      border-radius: 999px;
+      padding: 6px 12px;
+      font-size: 12px;
+      font-weight: 700;
+      cursor: pointer;
+    }
+    .ghost-btn:hover { box-shadow: 0 8px 16px rgba(15, 23, 42, 0.12); }
+
+    .signal-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+      gap: 12px;
+      margin-bottom: 12px;
+    }
+    .signal-pill {
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      padding: 10px 12px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      font-size: 12px;
+      font-weight: 700;
+      color: var(--ink-soft);
+      background: #f8fbff;
+    }
+    .signal-pill span { font-size: 16px; color: var(--ink); }
+    .signal-pill.error { background: #fff1f2; border-color: #fecdd3; color: #b91c1c; }
+    .signal-pill.warn { background: #fff7ed; border-color: #fed7aa; color: #9a3412; }
+    .signal-pill.ok { background: #ecfdf3; border-color: #bbf7d0; color: #166534; }
+    .signal-pill.info { background: #eef6ff; border-color: #c7ddf5; color: #1d4f91; }
+
+    .event-feed { list-style: none; margin: 0; padding: 0; display: grid; gap: 10px; }
+    .event-item {
+      display: flex;
+      align-items: flex-start;
+      gap: 10px;
+      padding: 10px 12px;
+      border-radius: 12px;
+      border: 1px solid var(--border);
+      background: #ffffff;
+    }
+    .event-dot {
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+      margin-top: 6px;
+      background: #94a3b8;
+      box-shadow: 0 0 0 4px rgba(148, 163, 184, 0.2);
+    }
+    .event-item.error .event-dot { background: #ef4444; box-shadow: 0 0 0 4px rgba(239, 68, 68, 0.2); }
+    .event-item.warn .event-dot { background: #f59e0b; box-shadow: 0 0 0 4px rgba(245, 158, 11, 0.2); }
+    .event-item.ok .event-dot { background: #22c55e; box-shadow: 0 0 0 4px rgba(34, 197, 94, 0.2); }
+    .event-item.info .event-dot { background: #0ea5e9; box-shadow: 0 0 0 4px rgba(14, 165, 233, 0.2); }
+    .event-text { flex: 1; font-size: 13px; color: var(--ink); }
+    .event-meta { margin-top: 4px; font-size: 11px; color: var(--ink-soft); display: flex; gap: 10px; flex-wrap: wrap; }
+    .event-time { margin-left: auto; font-size: 11px; color: var(--ink-soft); }
+    .event-empty { padding: 12px; border: 1px dashed var(--border); border-radius: 12px; color: var(--ink-soft); font-size: 12px; }
+
+    @media (max-width: 900px) {
+      .alert-body { flex-direction: column; }
+      .alert-actions { width: 100%; justify-content: flex-start; }
+    }
 
     .card h2 {
       font-size: 12px;
@@ -912,12 +1009,26 @@
     }
 
     @media (min-width: 1200px) {
-      .right-grid .card { grid-column: span 6; }
-      .right-grid .card.wide { grid-column: 1 / -1; }
+      .right-grid {
+        grid-template-areas:
+          "stack stack stack stack stack stack stack stack stack stack stack stack"
+          "alerts alerts alerts alerts alerts alerts alerts alerts alerts alerts alerts alerts"
+          "analytics analytics analytics analytics analytics analytics activity activity activity activity activity activity"
+          "events events events events events events events events events events events events"
+          "links links links links links links links links links links links links";
+      }
+
+      .stack-card { grid-area: stack; }
+      .alert-card { grid-area: alerts; }
+      .analytics-card { grid-area: analytics; }
+      .activity-card { grid-area: activity; }
+      .events-card { grid-area: events; }
+      .links-card { grid-area: links; }
+
       .analytics-grid { grid-template-columns: repeat(4, minmax(0, 1fr)); }
     }
 
-    @media (max-width: 900px) {
+    @media (max-width: 900px) { {
       header {
         flex-direction: column;
         align-items: flex-start;
@@ -1025,7 +1136,7 @@
         </div>
 
         <div class="right-grid">
-          <div class="card wide">
+          <div class="card wide stack-card">
             <h2>
               <svg class="icon" viewBox="0 0 24 24" aria-hidden="true">
                 <path d="M4 4h16v16H4V4zm2 2v4h12V6H6zm0 6v6h12v-6H6z"/>
@@ -1055,7 +1166,7 @@
             </div>
           </div>
 
-          <div class="card">
+          <div class="card analytics-card">
             <h2>
               <svg class="icon" viewBox="0 0 24 24" aria-hidden="true">
                 <path d="M4 19h16v2H4v-2zM5 5h4v11H5V5zm7 3h4v8h-4V8z"/>
@@ -1123,7 +1234,7 @@
             </div>
           </div>
 
-          <div class="card">
+          <div class="card activity-card">
             <h2>
               <svg class="icon" viewBox="0 0 24 24" aria-hidden="true">
                 <path d="M12 8a4 4 0 100 8 4 4 0 000-8zm0-6a10 10 0 11-7.1 2.9A10 10 0 0112 2zm0 2a8 8 0 100 16 8 8 0 000-16z"/>
@@ -1136,7 +1247,7 @@
             </ul>
           </div>
 
-          <div class="card wide">
+          <div class="card wide links-card">
             <h2>
               <svg class="icon" viewBox="0 0 24 24" aria-hidden="true">
                 <path d="M10 6h8v8h-2V9.4l-9.3 9.3-1.4-1.4L14.6 8H10V6z"/>
@@ -1316,6 +1427,14 @@
     const MAX_EVENTS = 6;
     const MAX_HEALTH_HISTORY = 16;
     const RECENT_EVENT_WINDOW_MS = 15 * 60 * 1000;
+    const SIGNAL_LIMIT = 8;
+    const LEVEL_MAP = {
+      error: 'error',
+      warn: 'warn',
+      ok: 'ok',
+      info: 'info',
+      system: 'info'
+    };
 
     async function api(path, body) {
       const res = await fetch(path, {
@@ -1338,6 +1457,139 @@
 
     function formatTime(ts) {
       return new Date(ts).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    }
+
+    function normalizeLevel(level) {
+      return LEVEL_MAP[level] || 'info';
+    }
+
+    function truncateMessage(text, limit = 140) {
+      if (!text) return '';
+      if (text.length <= limit) return text;
+      return text.slice(0, limit).trim() + '...';
+    }
+
+    function renderAlert(entry) {
+      const card = $('alert-card');
+      if (!card) return;
+      const icon = $('alert-icon');
+      const title = $('alert-title');
+      const message = $('alert-message');
+      const source = $('alert-source');
+      const time = $('alert-time');
+      if (!icon || !title || !message || !source || !time) return;
+
+      if (!entry) {
+        card.className = 'card wide alert-card ok';
+        icon.textContent = 'OK';
+        title.textContent = 'Sin alertas activas';
+        message.textContent = 'No hay errores recientes en los servicios monitoreados.';
+        source.textContent = 'Origen: -';
+        time.textContent = 'Hora: -';
+        return;
+      }
+
+      const level = normalizeLevel(entry.level);
+      const isError = level === 'error';
+      card.className = `card wide alert-card ${isError ? 'error' : ''}`.trim();
+      icon.textContent = isError ? 'X' : '!';
+      title.textContent = isError ? 'Error detectado' : 'Advertencia detectada';
+      message.textContent = truncateMessage(entry.text, 220);
+      source.textContent = `Origen: ${entry.source || '-'}`;
+      time.textContent = `Hora: ${entry.time || '-'}`;
+    }
+
+    function renderSignalCounts(counts) {
+      setText('signal-error', String(counts.error || 0));
+      setText('signal-warn', String(counts.warn || 0));
+      setText('signal-ok', String(counts.ok || 0));
+      setText('signal-info', String(counts.info || 0));
+    }
+
+    function renderEventFeed(entries) {
+      const feed = $('event-feed');
+      if (!feed) return;
+      feed.innerHTML = '';
+
+      if (!entries.length) {
+        const empty = document.createElement('li');
+        empty.className = 'event-empty';
+        empty.textContent = 'Sin mensajes recientes.';
+        feed.appendChild(empty);
+        return;
+      }
+
+      entries.forEach((entry) => {
+        const level = normalizeLevel(entry.level);
+        const item = document.createElement('li');
+        item.className = `event-item ${level}`.trim();
+
+        const dot = document.createElement('span');
+        dot.className = 'event-dot';
+
+        const text = document.createElement('div');
+        text.className = 'event-text';
+
+        const title = document.createElement('div');
+        title.textContent = truncateMessage(entry.text, 160);
+
+        const meta = document.createElement('div');
+        meta.className = 'event-meta';
+
+        const metaLevel = document.createElement('span');
+        metaLevel.textContent = `Nivel: ${level.toUpperCase()}`;
+        const metaSource = document.createElement('span');
+        metaSource.textContent = `Origen: ${entry.source || '-'}`;
+
+        meta.appendChild(metaLevel);
+        meta.appendChild(metaSource);
+        text.appendChild(title);
+        text.appendChild(meta);
+
+        const time = document.createElement('span');
+        time.className = 'event-time';
+        time.textContent = entry.time || '-';
+
+        item.appendChild(dot);
+        item.appendChild(text);
+        item.appendChild(time);
+        feed.appendChild(item);
+      });
+    }
+
+    function updateSignals(entries) {
+      const counts = { error: 0, warn: 0, ok: 0, info: 0 };
+      const safeEntries = Array.isArray(entries) ? entries : [];
+
+      safeEntries.forEach((entry) => {
+        const level = normalizeLevel(entry.level);
+        if (level === 'error') counts.error += 1;
+        else if (level === 'warn') counts.warn += 1;
+        else if (level === 'ok') counts.ok += 1;
+        else counts.info += 1;
+      });
+
+      renderSignalCounts(counts);
+
+      const latestEntries = safeEntries.slice(-SIGNAL_LIMIT).reverse();
+      renderEventFeed(latestEntries);
+
+      const critical = [...safeEntries].reverse().find((entry) => {
+        const level = normalizeLevel(entry.level);
+        return level === 'error' || level === 'warn';
+      });
+
+      renderAlert(critical || null);
+    }
+
+    async function refreshSignals() {
+      try {
+        const res = await fetch('/api/logs');
+        const data = await res.json();
+        updateSignals(data.entries || []);
+      } catch {
+        updateSignals([]);
+      }
     }
 
     function setRunningDot(active) {
@@ -1666,6 +1918,7 @@
       shell.classList.toggle('collapsed', !visible);
       toggle.innerHTML = '<svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5l7 7-7 7-1.4-1.4L15.2 13H5v-2h10.2l-4.6-4.6L12 5z"/></svg> ' + (visible ? 'Ocultar salida' : 'Mostrar salida');
       if (visible) refreshLogs();
+      else refreshSignals();
     }
 
     function setTab(name) {
@@ -1832,7 +2085,9 @@
       const query = state.showFull ? '/api/logs?full=1' : '/api/logs';
       const res = await fetch(query);
       const data = await res.json();
-      renderLogs(data.entries || []);
+      const entries = data.entries || [];
+      renderLogs(entries);
+      updateSignals(entries);
     }
 
     // Tab switching.
@@ -1880,6 +2135,7 @@
         showToast('Logs limpiados', 'ok');
         refreshLogs();
         refreshStatus();
+        refreshSignals();
       });
     }
 
@@ -1887,6 +2143,14 @@
     if (toggleLogsButton) {
       toggleLogsButton.addEventListener('click', () => {
         setLogsVisible(!state.logsVisible);
+      });
+    }
+
+    const alertOpenLogs = $('alert-open-logs');
+    if (alertOpenLogs) {
+      alertOpenLogs.addEventListener('click', () => {
+        setTab('status');
+        setLogsVisible(true);
       });
     }
 
@@ -1926,15 +2190,33 @@
     renderActivity();
     renderHealthHistory();
     refreshStatus();
+    refreshSignals();
 
     setInterval(() => {
       if (state.paused) return;
       refreshStatus();
-      refreshLogs();
+      if (state.logsVisible) refreshLogs();
+      else refreshSignals();
     }, 3000);
   </script>
 </body>
 </html>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 

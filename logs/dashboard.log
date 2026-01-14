@@ -1,4 +1,10 @@
-[22:10:49] [dashboard] Dashboard listo: http://127.0.0.1:4520
-[22:10:49] [dashboard] [dev] iniciar: npm run dev
-[22:10:49] [dashboard] [dev] PID 38924
-[22:10:54] [dashboard] [dev] finalizo con codigo 1
+[16:28:31] [dashboard] Dashboard listo: http://127.0.0.1:4519
+[16:28:31] [dashboard] [dev] iniciar: npm run dev
+[16:28:31] [dashboard] [dev] PID 7276
+[16:28:33] [dashboard] [dev] finalizo con codigo 1
+[16:28:41] [dashboard] [dev] iniciar: npm run dev
+[16:28:41] [dashboard] [dev] PID 39300
+[16:28:42] [dashboard] [dev] finalizo con codigo 1
+[16:28:57] [dashboard] [dev] iniciar: npm run dev
+[16:28:57] [dashboard] [dev] PID 39340
+[16:28:58] [dashboard] [dev] finalizo con codigo 1
