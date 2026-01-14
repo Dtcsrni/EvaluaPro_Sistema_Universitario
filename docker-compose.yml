@@ -2,8 +2,12 @@
 services:
   mongo_local:
     image: mongo:latest
-    # Reduce noisy connection logs for local use.
-    command: ["mongod", "--quiet"]
+    # Reduce noisy logs for local use (network + WiredTiger chatter).
+    command:
+      - mongod
+      - --quiet
+      - --setParameter
+      - logComponentVerbosity={"storage":{"verbosity":0,"wiredTiger":{"verbosity":0}}}
     restart: unless-stopped
     ports:
       - "27017:27017"
@@ -80,4 +84,5 @@ services:
 
 volumes:
   mongo-data:
+
 

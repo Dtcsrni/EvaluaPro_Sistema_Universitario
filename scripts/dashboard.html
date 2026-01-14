@@ -99,6 +99,8 @@
 
     main {
       padding: 16px 20px 30px;
+      max-width: 1400px;
+      margin: 0 auto;
     }
 
     .tabs {
@@ -139,19 +141,31 @@
 
     .panel-grid {
       display: grid;
-      grid-template-columns: minmax(260px, 360px) minmax(0, 1fr);
-      gap: 18px;
+      grid-template-columns: minmax(240px, 320px) minmax(0, 1fr);
+      gap: 20px;
       align-items: start;
+    }
+
+    .left-col {
+      display: grid;
+      gap: 16px;
+      align-content: start;
     }
 
     .right-grid {
       display: grid;
       gap: 16px;
-      grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+      grid-template-columns: repeat(12, minmax(0, 1fr));
+      grid-auto-flow: row dense;
       align-items: start;
     }
 
-    .right-grid .card { margin-top: 0; }
+    .right-grid .card {
+      grid-column: span 12;
+      margin-top: 0;
+    }
+
+    .right-grid .card.wide { grid-column: 1 / -1; }
 
     .card.wide { grid-column: 1 / -1; }
 
@@ -177,7 +191,7 @@
       pointer-events: none;
     }
 
-    .card + .card { margin-top: 16px; }
+    .card + .card { margin-top: 0; }
 
     .card h2 {
       font-size: 12px;
@@ -511,16 +525,15 @@
       height: 72px;
       padding: 6px 0;
     }
-
     .mini-bar {
       width: 10px;
       border-radius: 6px 6px 4px 4px;
-      background: linear-gradient(180deg, #1d6fb8, #4fb5e6);
+      background: linear-gradient(180deg, #16a34a, #4ade80);
       opacity: 0.85;
     }
 
     .mini-bar.down {
-      background: linear-gradient(180deg, #ef4444, #f97316);
+      background: linear-gradient(180deg, #f59e0b, #f97316);
       opacity: 0.75;
     }
 
@@ -587,6 +600,124 @@
       background: #f8fbff;
     }
 
+    .chart-empty {
+      font-size: 12px;
+      color: var(--ink-soft);
+      padding: 10px;
+      border: 1px dashed var(--border);
+      border-radius: 12px;
+      width: 100%;
+      text-align: center;
+      background: #f8fbff;
+    }
+
+    .service-list {
+      display: grid;
+      gap: 10px;
+    }
+
+    .service-item {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 10px 12px;
+      border-radius: 12px;
+      border: 1px solid var(--border);
+      background: #f8fbff;
+    }
+
+    .service-dot {
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+      background: #94a3b8;
+      box-shadow: 0 0 0 3px rgba(148, 163, 184, 0.16);
+    }
+
+    .service-dot.ok {
+      background: #22c55e;
+      box-shadow: 0 0 0 3px rgba(34, 197, 94, 0.2);
+    }
+
+    .service-dot.down {
+      background: #ef4444;
+      box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.18);
+    }
+
+    .service-copy {
+      display: grid;
+      gap: 2px;
+    }
+
+    .service-title {
+      font-weight: 700;
+      font-size: 13px;
+    }
+
+    .service-meta {
+      font-size: 12px;
+      color: var(--ink-soft);
+      font-weight: 600;
+    }
+
+    .service-badge {
+      margin-left: auto;
+      padding: 4px 10px;
+      border-radius: 999px;
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 0.4px;
+      text-transform: uppercase;
+      border: 1px solid var(--border);
+      background: #eef3f9;
+      color: var(--ink-soft);
+    }
+
+    .service-badge.ok {
+      background: #e9f7ef;
+      color: #1f6b3a;
+      border-color: #bde6cd;
+    }
+
+    .service-badge.down {
+      background: #fff1f2;
+      color: #9f1239;
+      border-color: #fecdd3;
+    }
+
+    .legend {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      margin-top: 6px;
+    }
+
+    .legend-item {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 12px;
+      color: var(--ink-soft);
+      font-weight: 600;
+    }
+
+    .legend-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: #94a3b8;
+      box-shadow: 0 0 0 3px rgba(148, 163, 184, 0.16);
+    }
+
+    .legend-dot.ok {
+      background: #22c55e;
+      box-shadow: 0 0 0 3px rgba(34, 197, 94, 0.2);
+    }
+
+    .legend-dot.down {
+      background: #f59e0b;
+      box-shadow: 0 0 0 3px rgba(245, 158, 11, 0.2);
+    }
     .quote {
       background: linear-gradient(135deg, #edf4ff, #ffffff);
       border: 1px solid rgba(29, 111, 184, 0.18);
@@ -773,17 +904,47 @@
       to { transform: translateY(0); opacity: 1; }
     }
 
-    @media (max-width: 1050px) {
+    @media (max-width: 1100px) {
       .panel-grid { grid-template-columns: 1fr; }
       .right-grid { grid-template-columns: 1fr; }
+      .right-grid .card { grid-column: 1 / -1; }
       header { position: static; }
     }
 
     @media (min-width: 1200px) {
+      .right-grid .card { grid-column: span 6; }
+      .right-grid .card.wide { grid-column: 1 / -1; }
       .analytics-grid { grid-template-columns: repeat(4, minmax(0, 1fr)); }
     }
 
-@media (prefers-reduced-motion: reduce) {
+    @media (max-width: 900px) {
+      header {
+        flex-direction: column;
+        align-items: flex-start;
+      }
+
+      .header-chips {
+        width: 100%;
+        justify-content: flex-start;
+      }
+
+      .tabs {
+        gap: 8px;
+      }
+
+      .tab-btn {
+        width: 100%;
+        justify-content: center;
+      }
+    }
+
+    @media (max-width: 700px) {
+      main { padding: 12px; }
+      .card { padding: 14px; }
+      .toggle-btn { height: auto; }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
       * { animation: none !important; transition: none !important; }
     }
   </style>
@@ -823,7 +984,7 @@
 
     <section class="tab-panel active" data-panel="main">
       <div class="panel-grid">
-        <div>
+        <div class="left-col">
           <div class="card">
             <h2>
               <svg class="icon" viewBox="0 0 24 24" aria-hidden="true">
@@ -860,20 +1021,7 @@
             </div>
           </div>
 
-          <div class="card">
-            <h2>
-              <svg class="icon" viewBox="0 0 24 24" aria-hidden="true">
-                <path d="M6 7h12v2H6V7zm0 4h12v2H6v-2zm0 4h8v2H6v-2z"/>
-              </svg>
-              Acciones principales
-            </h2>
-            <div class="stack">
-              <button class="danger" data-run="docker-down" data-hold-ms="1400">
-                <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16v10H4zM7 10h4v4H7z"/></svg>
-                Docker compose down (mantener)
-              </button>
-            </div>
-          </div>
+
         </div>
 
         <div class="right-grid">
@@ -914,10 +1062,10 @@
               </svg>
               Analitica rapida
             </h2>
-            <p class="hint">Indicadores de salud y actividad recientes (ventana de 15 min).</p>
+            <p class="hint">Salud y actividad recientes (ventana de 15 min).</p>
             <div class="summary-grid analytics-grid">
               <div class="summary-card">
-                <div class="label">Servicios OK</div>
+                <div class="label">Servicios activos</div>
                 <div class="value" id="health-ok">-</div>
               </div>
               <div class="summary-card">
@@ -925,7 +1073,7 @@
                 <div class="value" id="health-down">-</div>
               </div>
               <div class="summary-card">
-                <div class="label">Eventos recientes</div>
+                <div class="label">Eventos recientes (inicio/detencion)</div>
                 <div class="value" id="recent-events">-</div>
               </div>
               <div class="summary-card">
@@ -933,9 +1081,44 @@
                 <div class="value" id="session-mins">-</div>
               </div>
             </div>
+            <p class="hint">Tiempo de sesion = minutos desde que abriste este dashboard en tu navegador.</p>
+            <div class="chart-block">
+              <div class="chart-title">Servicios monitorizados</div>
+              <div class="service-list" id="service-list">
+                <div class="service-item" id="service-web-docente">
+                  <span class="service-dot" id="service-web-docente-dot"></span>
+                  <div class="service-copy">
+                    <div class="service-title">Web docente</div>
+                    <div class="service-meta">UI local (5173/4173)</div>
+                  </div>
+                  <span class="service-badge" id="service-web-docente-badge">Sin comprobar</span>
+                </div>
+                <div class="service-item" id="service-api-docente">
+                  <span class="service-dot" id="service-api-docente-dot"></span>
+                  <div class="service-copy">
+                    <div class="service-title">API docente</div>
+                    <div class="service-meta">Backend local (4000)</div>
+                  </div>
+                  <span class="service-badge" id="service-api-docente-badge">Sin comprobar</span>
+                </div>
+                <div class="service-item" id="service-api-portal">
+                  <span class="service-dot" id="service-api-portal-dot"></span>
+                  <div class="service-copy">
+                    <div class="service-title">API portal alumno</div>
+                    <div class="service-meta">Portal alumno (8080)</div>
+                  </div>
+                  <span class="service-badge" id="service-api-portal-badge">Sin comprobar</span>
+                </div>
+              </div>
+            </div>
             <div class="chart-block">
               <div class="chart-title">Salud reciente (ultimos ciclos)</div>
               <div class="mini-chart" id="health-history"></div>
+              <div class="legend">
+                <span class="legend-item"><span class="legend-dot ok"></span>OK</span>
+                <span class="legend-item"><span class="legend-dot down"></span>Caida detectada</span>
+              </div>
+              <div class="hint">Cada barra representa un ciclo (~3s). Altura = % de servicios OK. Naranja = hubo caida.</div>
               <div class="hint" id="last-event">Sin actividad reciente.</div>
             </div>
           </div>
@@ -947,6 +1130,7 @@
               </svg>
               Actividad reciente
             </h2>
+            <p class="hint">Registra inicios y detenciones de entornos (dev, prod, portal) detectados por el dashboard.</p>
             <ul class="activity-list" id="activity-list">
               <li class="activity-empty">Sin actividad reciente.</li>
             </ul>
@@ -1124,7 +1308,8 @@
       events: [],
       healthHistory: [],
       sessionStarted: Date.now(),
-      hasLoaded: false
+      hasLoaded: false,
+      webDocenteInfoKey: 'webDocenteDev'
     };
 
     const HOLD_DEFAULT = 1200;
@@ -1161,11 +1346,18 @@
       dot.classList.toggle('active', active);
     }
 
-    function setHealthItem(prefix, info) {
+    function setHealthItem(prefix, info, expected = true) {
       const dot = $(`health-${prefix}-dot`);
       const text = $(`health-${prefix}-text`);
       const latency = $(`health-${prefix}-latency`);
       if (!dot || !text || !latency) return;
+
+      if (!expected) {
+        dot.className = 'health-dot';
+        text.textContent = 'Detenido';
+        latency.textContent = '--';
+        return;
+      }
 
       if (!info || typeof info.ok !== 'boolean') {
         dot.className = 'health-dot';
@@ -1175,7 +1367,7 @@
       }
 
       const ok = info.ok;
-      const statusLabel = ok ? 'OK' : (info.status ? `HTTP ${info.status}` : 'Sin respuesta');
+      const statusLabel = ok ? 'Activo' : (info.status ? `Caido (HTTP ${info.status})` : 'Sin respuesta');
       dot.className = `health-dot ${ok ? 'ok' : 'down'}`;
       text.textContent = statusLabel;
       latency.textContent = typeof info.ms === 'number' ? `${info.ms} ms` : '--';
@@ -1270,6 +1462,76 @@
       }
     }
 
+    function getServiceSnapshot() {
+      const runningDevOrProd = state.running.has('dev') || state.running.has('prod');
+      const webInfoKey = state.webDocenteInfoKey || 'webDocenteDev';
+      const items = [
+        {
+          id: 'web-docente',
+          expected: runningDevOrProd,
+          info: state.health?.[webInfoKey]
+        },
+        {
+          id: 'api-docente',
+          expected: runningDevOrProd,
+          info: state.health?.apiDocente
+        },
+        {
+          id: 'api-portal',
+          expected: state.running.has('portal'),
+          info: state.health?.apiPortal
+        }
+      ];
+
+      let okCount = 0;
+      let downCount = 0;
+
+      items.forEach((item) => {
+        if (!item.expected) return;
+        if (!item.info || typeof item.info.ok !== 'boolean') return;
+        if (item.info.ok) okCount += 1;
+        else downCount += 1;
+      });
+
+      return { items, okCount, downCount };
+    }
+
+    function updateServiceSummary() {
+      const snapshot = getServiceSnapshot();
+
+      snapshot.items.forEach((item) => {
+        const dot = $(`service-${item.id}-dot`);
+        const badge = $(`service-${item.id}-badge`);
+        if (!dot || !badge) return;
+
+        if (!item.expected) {
+          dot.className = 'service-dot';
+          badge.className = 'service-badge';
+          badge.textContent = 'Detenido';
+          return;
+        }
+
+        if (!item.info || typeof item.info.ok !== 'boolean') {
+          dot.className = 'service-dot';
+          badge.className = 'service-badge';
+          badge.textContent = 'Sin comprobar';
+          return;
+        }
+
+        if (item.info.ok) {
+          dot.className = 'service-dot ok';
+          badge.className = 'service-badge ok';
+          badge.textContent = 'Activo';
+        } else {
+          dot.className = 'service-dot down';
+          badge.className = 'service-badge down';
+          badge.textContent = 'Caido';
+        }
+      });
+
+      return snapshot;
+    }
+
     function renderHealthHistory() {
       const container = $('health-history');
       if (!container) return;
@@ -1296,34 +1558,30 @@
     }
 
     function updateAnalytics() {
-      const entries = Object.values(state.health || {}).filter(Boolean);
-      const okCount = entries.filter((item) => item.ok).length;
-      const downCount = entries.filter((item) => item.ok === false).length;
-      const hasHealth = entries.length > 0;
+      const snapshot = updateServiceSummary();
+      const expectedTotal = snapshot.items.filter((item) => item.expected).length;
 
-      setText('health-ok', hasHealth ? String(okCount) : '-');
-      setText('health-down', hasHealth ? String(downCount) : '-');
+      setText('health-ok', expectedTotal ? String(snapshot.okCount) : '-');
+      setText('health-down', expectedTotal ? String(snapshot.downCount) : '-');
 
       const now = Date.now();
       const recentEvents = state.events.filter((entry) => now - entry.time <= RECENT_EVENT_WINDOW_MS).length;
       setText('recent-events', String(recentEvents));
 
-      const minutes = Math.max(1, Math.floor((now - state.sessionStarted) / 60000));
-      setText('session-mins', `${minutes} min`);
+      const minutes = Math.floor((now - state.sessionStarted) / 60000);
+      setText('session-mins', minutes < 1 ? '<1 min' : `${minutes} min`);
     }
 
     function buildHealthSnapshot() {
-      const entries = Object.values(state.health || {}).filter(Boolean);
-      if (entries.length === 0) return null;
-
-      const okCount = entries.filter((item) => item.ok).length;
-      const downCount = entries.filter((item) => item.ok === false).length;
+      const snapshot = getServiceSnapshot();
+      const expectedTotal = snapshot.items.filter((item) => item.expected).length;
+      if (!expectedTotal) return null;
 
       return {
         ts: Date.now(),
-        okCount,
-        downCount,
-        total: entries.length
+        okCount: snapshot.okCount,
+        downCount: snapshot.downCount,
+        total: expectedTotal
       };
     }
 
@@ -1365,7 +1623,8 @@
       }
 
       const infoKey = isProd ? 'webDocenteProd' : 'webDocenteDev';
-      setHealthItem('web-docente', state.health?.[infoKey]);
+      state.webDocenteInfoKey = infoKey;
+      setHealthItem('web-docente', state.health?.[infoKey], any);
     }
 
     async function refreshHealth(force = false) {
@@ -1392,8 +1651,9 @@
         }
       }
 
-      setHealthItem('api-docente', state.health.apiDocente);
-      setHealthItem('api-portal', state.health.apiPortal);
+      const runningDevOrProd = state.running.has('dev') || state.running.has('prod');
+      setHealthItem('api-docente', state.health.apiDocente, runningDevOrProd);
+      setHealthItem('api-portal', state.health.apiPortal, state.running.has('portal'));
       updateWebDocenteLink(state.mode);
       updateAnalytics();
     }
@@ -1675,6 +1935,31 @@
   </script>
 </body>
 </html>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 

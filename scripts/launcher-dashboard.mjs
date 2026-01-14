@@ -9,6 +9,7 @@ import http from 'http';
 import fs from 'fs';
 import path from 'path';
 import net from 'net';
+import process from 'node:process';
 import { spawn, execSync } from 'child_process';
 import { fileURLToPath } from 'url';
 
@@ -187,11 +188,14 @@ function classifyLine(text) {
   const isMongoNoise = isJson && (
     normalized.includes('"c":"NETWORK"') ||
     normalized.includes('"c":"ACCESS"') ||
+    normalized.includes('"c":"WTCHKPT"') ||
     normalized.includes('"msg":"Connection ended"') ||
     normalized.includes('"msg":"Connection accepted"') ||
     normalized.includes('"msg":"Received first command"') ||
     normalized.includes('"msg":"client metadata"') ||
-    normalized.includes('"msg":"Connection not authenticating"')
+    normalized.includes('"msg":"Connection not authenticating"') ||
+    normalized.includes('"msg":"WiredTiger message"') ||
+    normalized.includes('WT_VERB_CHECKPOINT_PROGRESS')
   );
 
   const isMongoVerbose = (lower.includes('mongo') || lower.includes('mongo_local')) && (
@@ -199,7 +203,10 @@ function classifyLine(text) {
     lower.includes('connection accepted') ||
     lower.includes('received first command') ||
     lower.includes('client metadata') ||
-    lower.includes('not authenticating')
+    lower.includes('not authenticating') ||
+    lower.includes('wiredtiger') ||
+    lower.includes('wtchkpt') ||
+    lower.includes('checkpoint')
   );
 
   let level = 'info';
@@ -538,4 +545,5 @@ function isPortFree(port) {
       .listen(port, '127.0.0.1');
   });
 }
+
 
