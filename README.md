@@ -60,6 +60,8 @@ Incluye generacion de PDFs, vinculacion por QR, escaneo OMR (pipeline base) para
 - Docs auto (validar en CI): `npm run docs:check`
 - Diagramas (actualizar fuentes Mermaid): `npm run diagramas:generate`
 - Diagramas (validar en CI): `npm run diagramas:check`
+- Diagramas (render SVG): `npm run diagramas:render`
+- Diagramas (validar SVG en CI): `npm run diagramas:render:check`
 - Lint: `npm run lint`
 - Build: `npm run build`
 - Produccion API (Docker): `npm start`
@@ -86,6 +88,9 @@ Nota CI:
 Opcional (flags para `routes:check`):
 - `ROUTES_CHECK_STRICT_PATHS=0`: desactiva la regla que exige paths literales (string) en `router.post/put/patch`.
 - `ROUTES_CHECK_STRICT_PORTAL_METHODS=0`: desactiva la regla "solo POST" para endpoints sensibles del portal (`/sincronizar`, `/limpiar`, `/eventos-uso`).
+
+Opcional (flags para diagramas):
+- `DIAGRAMAS_RENDER_CHECK=0`: desactiva temporalmente `npm run diagramas:render:check` (si el entorno no puede ejecutar Chromium/Puppeteer).
 
 Estos flags son utiles si necesitas una excepcion temporal (idealmente, mantenerlos encendidos en CI).
 

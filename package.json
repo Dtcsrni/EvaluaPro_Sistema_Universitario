@@ -22,8 +22,10 @@
     "docs:check": "node scripts/docs.mjs --check",
     "diagramas:generate": "node scripts/diagramas.mjs --write",
     "diagramas:check": "node scripts/diagramas.mjs --check",
+    "diagramas:render": "node scripts/diagramas-render.mjs --write",
+    "diagramas:render:check": "node scripts/diagramas-render.mjs --check",
     "routes:check": "node scripts/routes-check.mjs",
-    "test:ci": "npm run lint && npm run docs:check && npm run diagramas:check && npm run routes:check && npm run test:backend:ci && npm run test:portal:ci && npm run test:frontend:ci",
+    "test:ci": "npm run lint && npm run docs:check && npm run diagramas:check && npm run diagramas:render:check && npm run routes:check && npm run test:backend:ci && npm run test:portal:ci && npm run test:frontend:ci",
     "build": "npm run --workspaces --if-present build",
     "lint": "npm run --workspaces --if-present lint",
     "start": "docker compose --profile prod up --build mongo_local api_docente_prod",
@@ -31,6 +33,7 @@
     "status": "node scripts/dashboard.mjs"
   },
   "devDependencies": {
+    "@mermaid-js/mermaid-cli": "^11.12.0",
     "@types/bcryptjs": "^2.4.6",
     "@types/cors": "^2.8.17",
     "@types/express": "^4.17.25",

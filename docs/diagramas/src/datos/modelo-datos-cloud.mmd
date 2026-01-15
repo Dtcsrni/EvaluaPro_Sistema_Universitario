@@ -19,7 +19,7 @@ flowchart TB
     CodigoAcceso[CodigoAcceso<br/>Coleccion]:::collection
     SesionAlumno[SesionAlumno<br/>Coleccion]:::collection
     ResultadoAlumno[ResultadoAlumno<br/>Coleccion]:::collection
-    Banderas{{BanderasRevision<br/>Embebido}}:::embedded
+    Banderas[BanderasRevision<br/>Embebido]:::embedded
   end
 
   External[(IDs externos<br/>periodoId, alumnoId, docenteId)]:::note
@@ -36,7 +36,7 @@ flowchart TB
   subgraph Leyenda["Leyenda de color"]
     direction TB
     lgCollection[Documento]:::collection
-    lgEmbedded{{Embebido}}:::embedded
+    lgEmbedded[Embebido]:::embedded
     lgNote[Nota]:::note
   end
   style Leyenda fill:#f8fafc,stroke:#e2e8f0,stroke-width:1px,rx:6,ry:6

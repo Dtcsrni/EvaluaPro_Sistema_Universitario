@@ -28,8 +28,8 @@ flowchart LR
   subgraph Banco["Banco de preguntas"]
     direction TB
     BancoPregunta[BancoPregunta<br/>Coleccion]:::collection
-    VersionPregunta{{VersionPregunta<br/>Embebido}}:::embedded
-    Opcion{{Opcion<br/>Embebido}}:::embedded
+    VersionPregunta[VersionPregunta<br/>Embebido]:::embedded
+    Opcion[Opcion<br/>Embebido]:::embedded
     BancoPregunta -->|embed versiones array| VersionPregunta
     VersionPregunta -->|embed opciones 5| Opcion
   end
@@ -38,9 +38,9 @@ flowchart LR
     direction TB
     ExamenPlantilla[ExamenPlantilla<br/>Coleccion]:::collection
     ExamenGenerado[ExamenGenerado<br/>Coleccion]:::collection
-    Pagina{{Pagina<br/>Embebido}}:::embedded
-    MapaVariante{{MapaVariante<br/>Embebido}}:::embedded
-    MapaOmr{{MapaOmr<br/>Embebido}}:::embedded
+    Pagina[Pagina<br/>Embebido]:::embedded
+    MapaVariante[MapaVariante<br/>Embebido]:::embedded
+    MapaOmr[MapaOmr<br/>Embebido]:::embedded
     ExamenPlantilla -->|ref plantillaId| ExamenGenerado
     ExamenGenerado -->|embed paginas array| Pagina
     ExamenGenerado -->|embed mapas| MapaVariante
@@ -52,8 +52,8 @@ flowchart LR
     Entrega[Entrega<br/>Coleccion]:::collection
     Calificacion[Calificacion<br/>Coleccion]:::collection
     BanderaRevision[BanderaRevision<br/>Coleccion]:::collection
-    Fraccion{{Fraccion<br/>Embebido}}:::embedded
-    Respuestas{{RespuestasDetectadas<br/>Embebido}}:::embedded
+    Fraccion[Fraccion<br/>Embebido]:::embedded
+    Respuestas[RespuestasDetectadas<br/>Embebido]:::embedded
     Calificacion -->|embed fraccion| Fraccion
     Calificacion -->|embed respuestasDetectadas| Respuestas
   end
@@ -95,7 +95,7 @@ flowchart LR
   subgraph Leyenda["Leyenda de color"]
     direction TB
     lgCollection[Documento]:::collection
-    lgEmbedded{{Embebido}}:::embedded
+    lgEmbedded[Embebido]:::embedded
     lgNote[Nota]:::note
   end
   style Leyenda fill:#f8fafc,stroke:#e2e8f0,stroke-width:1px,rx:6,ry:6

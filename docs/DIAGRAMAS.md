@@ -14,8 +14,17 @@ los diagramas sincronizados con el estado real del sistema.
 - Generar/actualizar: `npm run diagramas:generate`
 - Verificar en CI: `npm run diagramas:check`
 
-Nota: este subsistema actualiza el **codigo** de las fuentes Mermaid. El render a SVG depende del flujo
-de trabajo local (si necesitas automatizar el render, lo podemos agregar despues).
+## Render a SVG (automatizado)
+
+Para mantener `docs/diagramas/rendered/**` en sync con las fuentes Mermaid:
+
+- Renderizar SVG: `npm run diagramas:render`
+- Verificar SVG en CI: `npm run diagramas:render:check`
+
+Si tu entorno no puede ejecutar Chromium/Puppeteer (raro, pero puede pasar en CI),
+puedes desactivar temporalmente el check con `DIAGRAMAS_RENDER_CHECK=0`.
+
+Nota: el bloque `system_model` actualiza el **codigo** de las fuentes Mermaid; el render produce los SVG.
 
 ## Arquitectura general
 

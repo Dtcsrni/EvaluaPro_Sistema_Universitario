@@ -43,6 +43,7 @@ este documento se actualiza automáticamente al regenerar.
 - `DASHBOARD_LOG_FLUSH_MS` (usado en: scripts/launcher-dashboard.mjs)
 - `DASHBOARD_LOG_KEEP` (usado en: scripts/launcher-dashboard.mjs)
 - `DASHBOARD_LOG_MAX_BYTES` (usado en: scripts/launcher-dashboard.mjs)
+- `DIAGRAMAS_RENDER_CHECK` (usado en: scripts/diagramas-render.mjs)
 - `VITE_API_BASE_URL` (usado en: scripts/dashboard.mjs)
 - `WEB_URL` (usado en: scripts/dashboard.mjs)
 

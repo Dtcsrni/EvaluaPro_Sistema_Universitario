@@ -1,0 +1,7 @@
+{
+  "deterministicIds": true,
+  "deterministicIDSeed": "sistema-evaluacion-universitaria",
+  "themeVariables": {
+    "handDrawnSeed": 1
+  }
+}
