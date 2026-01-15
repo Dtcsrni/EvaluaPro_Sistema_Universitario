@@ -3,10 +3,29 @@
  */
 import type { Response } from 'express';
 import { BanderaRevision } from './modeloBanderaRevision';
+import { EventoUso } from './modeloEventoUso';
 import { generarCsv } from './servicioExportacionCsv';
 import { Calificacion } from '../modulo_calificacion/modeloCalificacion';
 import { Alumno } from '../modulo_alumnos/modeloAlumno';
 import { obtenerDocenteId, type SolicitudDocente } from '../modulo_autenticacion/middlewareAutenticacion';
+
+export async function registrarEventosUso(req: SolicitudDocente, res: Response) {
+  const docenteId = obtenerDocenteId(req);
+  const eventos = Array.isArray(req.body?.eventos) ? req.body.eventos : [];
+
+  const docs = eventos.map((evento: any) => ({
+    docenteId,
+    sessionId: typeof evento.sessionId === 'string' ? evento.sessionId : undefined,
+    pantalla: typeof evento.pantalla === 'string' ? evento.pantalla : undefined,
+    accion: String(evento.accion || ''),
+    exito: typeof evento.exito === 'boolean' ? evento.exito : undefined,
+    duracionMs: typeof evento.duracionMs === 'number' ? evento.duracionMs : undefined,
+    meta: evento.meta
+  }));
+
+  await EventoUso.insertMany(docs, { ordered: false });
+  res.status(201).json({ ok: true, recibidos: docs.length });
+}
 
 export async function listarBanderas(req: SolicitudDocente, res: Response) {
   const docenteId = obtenerDocenteId(req);

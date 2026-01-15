@@ -54,6 +54,30 @@ export function limpiarTokenAlumno() {
 }
 
 export function crearClientePortal() {
+  async function registrarEventosUso(payload: {
+    eventos: Array<{
+      sessionId?: string;
+      pantalla?: string;
+      accion: string;
+      exito?: boolean;
+      duracionMs?: number;
+      meta?: unknown;
+    }>;
+  }) {
+    const token = obtenerTokenAlumno();
+    if (!token) return;
+    try {
+      await fetch(`${basePortal}/eventos-uso`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify(payload),
+        keepalive: true
+      });
+    } catch {
+      // best-effort
+    }
+  }
+
   async function enviar<T>(ruta: string, payload: unknown): Promise<T> {
     let respuesta: Response;
     try {
@@ -121,5 +145,5 @@ export function crearClientePortal() {
     return respuesta.json() as Promise<T>;
   }
 
-  return { basePortal, enviar, obtener };
+  return { basePortal, enviar, obtener, registrarEventosUso };
 }

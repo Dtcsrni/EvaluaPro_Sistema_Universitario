@@ -10,6 +10,7 @@ import {
   limpiarTokenDocente,
   obtenerTokenDocente
 } from '../../servicios_api/clienteApi';
+import { emitToast } from '../../ui/toast/toastBus';
 import { Icono, Spinner } from '../../ui/iconos';
 
 const clienteApi = crearClienteApi();
@@ -103,6 +104,14 @@ export function AppDocente() {
       .obtener<{ docente: Docente }>('/autenticacion/perfil')
       .then((payload) => setDocente(payload.docente))
       .catch(() => setDocente(null));
+  }, []);
+
+  // Sesion de UI (no sensible) para analiticas best-effort.
+  useEffect(() => {
+    if (!obtenerTokenDocente()) return;
+    if (!sessionStorage.getItem('sesionDocenteId')) {
+      sessionStorage.setItem('sesionDocenteId', `${Date.now()}-${Math.random().toString(16).slice(2)}`);
+    }
   }, []);
 
   useEffect(() => {
@@ -298,6 +307,10 @@ export function AppDocente() {
             onClick={() => {
               limpiarTokenDocente();
               setDocente(null);
+              emitToast({ level: 'info', title: 'Sesion', message: 'Sesion cerrada', durationMs: 2200 });
+              void clienteApi.registrarEventosUso({
+                eventos: [{ sessionId: sessionStorage.getItem('sesionDocenteId') ?? undefined, pantalla: 'docente', accion: 'logout', exito: true }]
+              });
             }}
           >
             <Icono nombre="salir" /> Salir
@@ -320,26 +333,62 @@ function SeccionAutenticacion({ onIngresar }: { onIngresar: (token: string) => v
   const [nombreCompleto, setNombreCompleto] = useState('');
   const [mensaje, setMensaje] = useState('');
   const [modo, setModo] = useState<'ingresar' | 'registrar'>('ingresar');
+  const [enviando, setEnviando] = useState(false);
+
+  function obtenerSesionId() {
+    const clave = 'sesionDocenteId';
+    const existente = sessionStorage.getItem(clave);
+    if (existente) return existente;
+    const nuevo = `${Date.now()}-${Math.random().toString(16).slice(2)}`;
+    sessionStorage.setItem(clave, nuevo);
+    return nuevo;
+  }
 
   async function ingresar() {
     try {
+      const inicio = Date.now();
+      setEnviando(true);
       const respuesta = await clienteApi.enviar<{ token: string }>('/autenticacion/ingresar', { correo, contrasena });
       onIngresar(respuesta.token);
+      emitToast({ level: 'ok', title: 'Sesion', message: 'Bienvenido/a', durationMs: 2200 });
+      void clienteApi.registrarEventosUso({
+        eventos: [{ sessionId: obtenerSesionId(), pantalla: 'docente', accion: 'login', exito: true, duracionMs: Date.now() - inicio }]
+      });
     } catch (error) {
-      setMensaje(mensajeDeError(error, 'No se pudo ingresar'));
+      const msg = mensajeDeError(error, 'No se pudo ingresar');
+      setMensaje(msg);
+      emitToast({ level: 'error', title: 'No se pudo ingresar', message: msg, durationMs: 5200 });
+      void clienteApi.registrarEventosUso({
+        eventos: [{ sessionId: obtenerSesionId(), pantalla: 'docente', accion: 'login', exito: false }]
+      });
+    } finally {
+      setEnviando(false);
     }
   }
 
   async function registrar() {
     try {
+      const inicio = Date.now();
+      setEnviando(true);
       const respuesta = await clienteApi.enviar<{ token: string }>('/autenticacion/registrar', {
         nombreCompleto,
         correo,
         contrasena
       });
       onIngresar(respuesta.token);
+      emitToast({ level: 'ok', title: 'Cuenta creada', message: 'Sesion iniciada', durationMs: 2800 });
+      void clienteApi.registrarEventosUso({
+        eventos: [{ sessionId: obtenerSesionId(), pantalla: 'docente', accion: 'registrar', exito: true, duracionMs: Date.now() - inicio }]
+      });
     } catch (error) {
-      setMensaje(mensajeDeError(error, 'No se pudo registrar'));
+      const msg = mensajeDeError(error, 'No se pudo registrar');
+      setMensaje(msg);
+      emitToast({ level: 'error', title: 'No se pudo registrar', message: msg, durationMs: 5200 });
+      void clienteApi.registrarEventosUso({
+        eventos: [{ sessionId: obtenerSesionId(), pantalla: 'docente', accion: 'registrar', exito: false }]
+      });
+    } finally {
+      setEnviando(false);
     }
   }
 
@@ -405,16 +454,16 @@ function SeccionAutenticacion({ onIngresar }: { onIngresar: (token: string) => v
         <button
           className="boton"
           type="button"
-          disabled={modo === 'ingresar' ? !puedeIngresar : !puedeRegistrar}
+          disabled={enviando || (modo === 'ingresar' ? !puedeIngresar : !puedeRegistrar)}
           onClick={modo === 'ingresar' ? ingresar : registrar}
         >
           {modo === 'ingresar' ? (
             <>
-              <Icono nombre="entrar" /> Ingresar
+              <Icono nombre="entrar" /> {enviando ? 'Ingresando…' : 'Ingresar'}
             </>
           ) : (
             <>
-              <Icono nombre="nuevo" /> Crear cuenta
+              <Icono nombre="nuevo" /> {enviando ? 'Creando…' : 'Crear cuenta'}
             </>
           )}
         </button>
@@ -440,6 +489,7 @@ function SeccionBanco({ preguntas, onRefrescar }: { preguntas: Pregunta[]; onRef
     { texto: '', esCorrecta: false }
   ]);
   const [mensaje, setMensaje] = useState('');
+  const [guardando, setGuardando] = useState(false);
 
   const puedeGuardar = Boolean(
     enunciado.trim() &&
@@ -450,8 +500,14 @@ function SeccionBanco({ preguntas, onRefrescar }: { preguntas: Pregunta[]; onRef
 
   async function guardar() {
     try {
+      const inicio = Date.now();
+      setGuardando(true);
       await clienteApi.enviar('/banco-preguntas', { enunciado, tema, opciones });
       setMensaje('Pregunta guardada');
+      emitToast({ level: 'ok', title: 'Banco', message: 'Pregunta guardada', durationMs: 2200 });
+      void clienteApi.registrarEventosUso({
+        eventos: [{ sessionId: sessionStorage.getItem('sesionDocenteId') ?? undefined, pantalla: 'docente', accion: 'crear_pregunta', exito: true, duracionMs: Date.now() - inicio }]
+      });
       setEnunciado('');
       setOpciones([
         { texto: '', esCorrecta: true },
@@ -462,7 +518,14 @@ function SeccionBanco({ preguntas, onRefrescar }: { preguntas: Pregunta[]; onRef
       ]);
       onRefrescar();
     } catch (error) {
-      setMensaje(mensajeDeError(error, 'No se pudo guardar'));
+      const msg = mensajeDeError(error, 'No se pudo guardar');
+      setMensaje(msg);
+      emitToast({ level: 'error', title: 'No se pudo guardar', message: msg, durationMs: 5200 });
+      void clienteApi.registrarEventosUso({
+        eventos: [{ sessionId: sessionStorage.getItem('sesionDocenteId') ?? undefined, pantalla: 'docente', accion: 'crear_pregunta', exito: false }]
+      });
+    } finally {
+      setGuardando(false);
     }
   }
 
@@ -501,8 +564,8 @@ function SeccionBanco({ preguntas, onRefrescar }: { preguntas: Pregunta[]; onRef
           Correcta
         </label>
       ))}
-      <button className="boton" type="button" disabled={!puedeGuardar} onClick={guardar}>
-        <Icono nombre="ok" /> Guardar
+      <button className="boton" type="button" disabled={!puedeGuardar || guardando} onClick={guardar}>
+        <Icono nombre="ok" /> {guardando ? 'Guardando…' : 'Guardar'}
       </button>
       {mensaje && (
         <p className={esMensajeError(mensaje) ? 'mensaje error' : 'mensaje ok'} role="status">
@@ -531,11 +594,14 @@ function SeccionPeriodos({
   const [fechaFin, setFechaFin] = useState('');
   const [grupos, setGrupos] = useState('');
   const [mensaje, setMensaje] = useState('');
+  const [creando, setCreando] = useState(false);
 
-  const puedeCrear = Boolean(nombre.trim());
+  const puedeCrear = Boolean(nombre.trim() && fechaInicio && fechaFin && fechaFin >= fechaInicio);
 
   async function crearPeriodo() {
     try {
+      const inicio = Date.now();
+      setCreando(true);
       await clienteApi.enviar('/periodos', {
         nombre,
         fechaInicio,
@@ -543,9 +609,20 @@ function SeccionPeriodos({
         grupos: grupos ? grupos.split(',').map((item) => item.trim()) : []
       });
       setMensaje('Periodo creado');
+      emitToast({ level: 'ok', title: 'Periodos', message: 'Periodo creado', durationMs: 2200 });
+      void clienteApi.registrarEventosUso({
+        eventos: [{ sessionId: sessionStorage.getItem('sesionDocenteId') ?? undefined, pantalla: 'docente', accion: 'crear_periodo', exito: true, duracionMs: Date.now() - inicio }]
+      });
       onRefrescar();
     } catch (error) {
-      setMensaje(mensajeDeError(error, 'No se pudo crear el periodo'));
+      const msg = mensajeDeError(error, 'No se pudo crear el periodo');
+      setMensaje(msg);
+      emitToast({ level: 'error', title: 'No se pudo crear', message: msg, durationMs: 5200 });
+      void clienteApi.registrarEventosUso({
+        eventos: [{ sessionId: sessionStorage.getItem('sesionDocenteId') ?? undefined, pantalla: 'docente', accion: 'crear_periodo', exito: false }]
+      });
+    } finally {
+      setCreando(false);
     }
   }
 
@@ -566,12 +643,17 @@ function SeccionPeriodos({
         Fecha fin
         <input type="date" value={fechaFin} onChange={(event) => setFechaFin(event.target.value)} />
       </label>
+      {fechaInicio && fechaFin && fechaFin < fechaInicio && (
+        <p className="mensaje error" role="status">
+          <Icono nombre="alerta" /> La fecha fin debe ser igual o posterior a la fecha inicio.
+        </p>
+      )}
       <label className="campo">
         Grupos (separados por coma)
         <input value={grupos} onChange={(event) => setGrupos(event.target.value)} />
       </label>
-      <button className="boton" type="button" disabled={!puedeCrear} onClick={crearPeriodo}>
-        <Icono nombre="nuevo" /> Crear periodo
+      <button className="boton" type="button" disabled={!puedeCrear || creando} onClick={crearPeriodo}>
+        <Icono nombre="nuevo" /> {creando ? 'Creando…' : 'Crear periodo'}
       </button>
       {mensaje && (
         <p className={esMensajeError(mensaje) ? 'mensaje error' : 'mensaje ok'} role="status">
@@ -603,11 +685,14 @@ function SeccionAlumnos({
   const [grupo, setGrupo] = useState('');
   const [periodoId, setPeriodoId] = useState('');
   const [mensaje, setMensaje] = useState('');
+  const [creando, setCreando] = useState(false);
 
   const puedeCrear = Boolean(matricula.trim() && nombreCompleto.trim() && periodoId);
 
   async function crearAlumno() {
     try {
+      const inicio = Date.now();
+      setCreando(true);
       await clienteApi.enviar('/alumnos', {
         matricula,
         nombreCompleto,
@@ -616,9 +701,20 @@ function SeccionAlumnos({
         periodoId
       });
       setMensaje('Alumno creado');
+      emitToast({ level: 'ok', title: 'Alumnos', message: 'Alumno creado', durationMs: 2200 });
+      void clienteApi.registrarEventosUso({
+        eventos: [{ sessionId: sessionStorage.getItem('sesionDocenteId') ?? undefined, pantalla: 'docente', accion: 'crear_alumno', exito: true, duracionMs: Date.now() - inicio }]
+      });
       onRefrescar();
     } catch (error) {
-      setMensaje(mensajeDeError(error, 'No se pudo crear el alumno'));
+      const msg = mensajeDeError(error, 'No se pudo crear el alumno');
+      setMensaje(msg);
+      emitToast({ level: 'error', title: 'No se pudo crear', message: msg, durationMs: 5200 });
+      void clienteApi.registrarEventosUso({
+        eventos: [{ sessionId: sessionStorage.getItem('sesionDocenteId') ?? undefined, pantalla: 'docente', accion: 'crear_alumno', exito: false }]
+      });
+    } finally {
+      setCreando(false);
     }
   }
 
@@ -654,8 +750,8 @@ function SeccionAlumnos({
           ))}
         </select>
       </label>
-      <button className="boton" type="button" disabled={!puedeCrear} onClick={crearAlumno}>
-        <Icono nombre="nuevo" /> Crear alumno
+      <button className="boton" type="button" disabled={!puedeCrear || creando} onClick={crearAlumno}>
+        <Icono nombre="nuevo" /> {creando ? 'Creando…' : 'Crear alumno'}
       </button>
       {mensaje && (
         <p className={esMensajeError(mensaje) ? 'mensaje error' : 'mensaje ok'} role="status">
@@ -696,12 +792,16 @@ function SeccionPlantillas({
   const [plantillaId, setPlantillaId] = useState('');
   const [alumnoId, setAlumnoId] = useState('');
   const [mensajeGeneracion, setMensajeGeneracion] = useState('');
+  const [creando, setCreando] = useState(false);
+  const [generando, setGenerando] = useState(false);
 
   const puedeCrear = Boolean(titulo.trim() && periodoId && seleccion.length > 0 && totalReactivos > 0);
   const puedeGenerar = Boolean(plantillaId);
 
   async function crear() {
     try {
+      const inicio = Date.now();
+      setCreando(true);
       await clienteApi.enviar('/examenes/plantillas', {
         periodoId,
         tipo,
@@ -710,9 +810,20 @@ function SeccionPlantillas({
         preguntasIds: seleccion
       });
       setMensaje('Plantilla creada');
+      emitToast({ level: 'ok', title: 'Plantillas', message: 'Plantilla creada', durationMs: 2200 });
+      void clienteApi.registrarEventosUso({
+        eventos: [{ sessionId: sessionStorage.getItem('sesionDocenteId') ?? undefined, pantalla: 'docente', accion: 'crear_plantilla', exito: true, duracionMs: Date.now() - inicio }]
+      });
       onRefrescar();
     } catch (error) {
-      setMensaje(mensajeDeError(error, 'No se pudo crear'));
+      const msg = mensajeDeError(error, 'No se pudo crear');
+      setMensaje(msg);
+      emitToast({ level: 'error', title: 'No se pudo crear', message: msg, durationMs: 5200 });
+      void clienteApi.registrarEventosUso({
+        eventos: [{ sessionId: sessionStorage.getItem('sesionDocenteId') ?? undefined, pantalla: 'docente', accion: 'crear_plantilla', exito: false }]
+      });
+    } finally {
+      setCreando(false);
     }
   }
 
@@ -767,8 +878,8 @@ function SeccionPlantillas({
           ))}
         </select>
       </label>
-      <button className="boton" type="button" disabled={!puedeCrear} onClick={crear}>
-        <Icono nombre="nuevo" /> Crear plantilla
+      <button className="boton" type="button" disabled={!puedeCrear || creando} onClick={crear}>
+        <Icono nombre="nuevo" /> {creando ? 'Creando…' : 'Crear plantilla'}
       </button>
       {mensaje && (
         <p className={esMensajeError(mensaje) ? 'mensaje error' : 'mensaje ok'} role="status">
@@ -807,17 +918,30 @@ function SeccionPlantillas({
       <button
         className="boton"
         type="button"
-        disabled={!puedeGenerar}
+        disabled={!puedeGenerar || generando}
         onClick={async () => {
           try {
+            const inicio = Date.now();
+            setGenerando(true);
             await clienteApi.enviar('/examenes/generados', { plantillaId, alumnoId: alumnoId || undefined });
             setMensajeGeneracion('Examen generado');
+            emitToast({ level: 'ok', title: 'Examen', message: 'Examen generado', durationMs: 2200 });
+            void clienteApi.registrarEventosUso({
+              eventos: [{ sessionId: sessionStorage.getItem('sesionDocenteId') ?? undefined, pantalla: 'docente', accion: 'generar_examen', exito: true, duracionMs: Date.now() - inicio }]
+            });
           } catch (error) {
-            setMensajeGeneracion(mensajeDeError(error, 'No se pudo generar'));
+            const msg = mensajeDeError(error, 'No se pudo generar');
+            setMensajeGeneracion(msg);
+            emitToast({ level: 'error', title: 'No se pudo generar', message: msg, durationMs: 5200 });
+            void clienteApi.registrarEventosUso({
+              eventos: [{ sessionId: sessionStorage.getItem('sesionDocenteId') ?? undefined, pantalla: 'docente', accion: 'generar_examen', exito: false }]
+            });
+          } finally {
+            setGenerando(false);
           }
         }}
       >
-        <Icono nombre="pdf" /> Generar
+        <Icono nombre="pdf" /> {generando ? 'Generando…' : 'Generar'}
       </button>
       {mensajeGeneracion && (
         <p className={esMensajeError(mensajeGeneracion) ? 'mensaje error' : 'mensaje ok'} role="status">
@@ -838,15 +962,29 @@ function SeccionRecepcion({
   const [folio, setFolio] = useState('');
   const [alumnoId, setAlumnoId] = useState('');
   const [mensaje, setMensaje] = useState('');
+  const [vinculando, setVinculando] = useState(false);
 
   const puedeVincular = Boolean(folio.trim() && alumnoId);
 
   async function vincular() {
     try {
+      const inicio = Date.now();
+      setVinculando(true);
       await onVincular(folio, alumnoId);
       setMensaje('Entrega vinculada');
+      emitToast({ level: 'ok', title: 'Recepcion', message: 'Entrega vinculada', durationMs: 2200 });
+      void clienteApi.registrarEventosUso({
+        eventos: [{ sessionId: sessionStorage.getItem('sesionDocenteId') ?? undefined, pantalla: 'docente', accion: 'vincular_entrega', exito: true, duracionMs: Date.now() - inicio }]
+      });
     } catch (error) {
-      setMensaje(mensajeDeError(error, 'No se pudo vincular'));
+      const msg = mensajeDeError(error, 'No se pudo vincular');
+      setMensaje(msg);
+      emitToast({ level: 'error', title: 'No se pudo vincular', message: msg, durationMs: 5200 });
+      void clienteApi.registrarEventosUso({
+        eventos: [{ sessionId: sessionStorage.getItem('sesionDocenteId') ?? undefined, pantalla: 'docente', accion: 'vincular_entrega', exito: false }]
+      });
+    } finally {
+      setVinculando(false);
     }
   }
 
@@ -870,8 +1008,8 @@ function SeccionRecepcion({
           ))}
         </select>
       </label>
-      <button className="boton" type="button" disabled={!puedeVincular} onClick={vincular}>
-        <Icono nombre="recepcion" /> Vincular
+      <button className="boton" type="button" disabled={!puedeVincular || vinculando} onClick={vincular}>
+        <Icono nombre="recepcion" /> {vinculando ? 'Vinculando…' : 'Vincular'}
       </button>
       {mensaje && (
         <p className={esMensajeError(mensaje) ? 'mensaje error' : 'mensaje ok'} role="status">
@@ -897,6 +1035,7 @@ function SeccionEscaneo({
   const [numeroPagina, setNumeroPagina] = useState(1);
   const [imagenBase64, setImagenBase64] = useState('');
   const [mensaje, setMensaje] = useState('');
+  const [analizando, setAnalizando] = useState(false);
 
   const puedeAnalizar = Boolean(folio.trim() && imagenBase64);
 
@@ -912,10 +1051,23 @@ function SeccionEscaneo({
 
   async function analizar() {
     try {
+      const inicio = Date.now();
+      setAnalizando(true);
       await onAnalizar(folio, numeroPagina, imagenBase64);
       setMensaje('Analisis completado');
+      emitToast({ level: 'ok', title: 'Escaneo', message: 'Analisis completado', durationMs: 2200 });
+      void clienteApi.registrarEventosUso({
+        eventos: [{ sessionId: sessionStorage.getItem('sesionDocenteId') ?? undefined, pantalla: 'docente', accion: 'analizar_omr', exito: true, duracionMs: Date.now() - inicio }]
+      });
     } catch (error) {
-      setMensaje(mensajeDeError(error, 'No se pudo analizar'));
+      const msg = mensajeDeError(error, 'No se pudo analizar');
+      setMensaje(msg);
+      emitToast({ level: 'error', title: 'No se pudo analizar', message: msg, durationMs: 5200 });
+      void clienteApi.registrarEventosUso({
+        eventos: [{ sessionId: sessionStorage.getItem('sesionDocenteId') ?? undefined, pantalla: 'docente', accion: 'analizar_omr', exito: false }]
+      });
+    } finally {
+      setAnalizando(false);
     }
   }
 
@@ -940,8 +1092,8 @@ function SeccionEscaneo({
         Imagen
         <input type="file" accept="image/*" onChange={cargarArchivo} />
       </label>
-      <button className="boton" type="button" disabled={!puedeAnalizar} onClick={analizar}>
-        <Icono nombre="escaneo" /> Analizar
+      <button className="boton" type="button" disabled={!puedeAnalizar || analizando} onClick={analizar}>
+        <Icono nombre="escaneo" /> {analizando ? 'Analizando…' : 'Analizar'}
       </button>
       {mensaje && (
         <p className={esMensajeError(mensaje) ? 'mensaje error' : 'mensaje ok'} role="status">
@@ -1013,6 +1165,7 @@ function SeccionCalificar({
   const [evaluacionContinua, setEvaluacionContinua] = useState(0);
   const [proyecto, setProyecto] = useState(0);
   const [mensaje, setMensaje] = useState('');
+  const [guardando, setGuardando] = useState(false);
 
   const puedeCalificar = Boolean(examenId && alumnoId);
 
@@ -1022,6 +1175,8 @@ function SeccionCalificar({
       return;
     }
     try {
+      const inicio = Date.now();
+      setGuardando(true);
       await onCalificar({
         examenGeneradoId: examenId,
         alumnoId,
@@ -1031,8 +1186,19 @@ function SeccionCalificar({
         respuestasDetectadas
       });
       setMensaje('Calificacion guardada');
+      emitToast({ level: 'ok', title: 'Calificacion', message: 'Calificacion guardada', durationMs: 2200 });
+      void clienteApi.registrarEventosUso({
+        eventos: [{ sessionId: sessionStorage.getItem('sesionDocenteId') ?? undefined, pantalla: 'docente', accion: 'calificar', exito: true, duracionMs: Date.now() - inicio }]
+      });
     } catch (error) {
-      setMensaje(mensajeDeError(error, 'No se pudo calificar'));
+      const msg = mensajeDeError(error, 'No se pudo calificar');
+      setMensaje(msg);
+      emitToast({ level: 'error', title: 'No se pudo calificar', message: msg, durationMs: 5200 });
+      void clienteApi.registrarEventosUso({
+        eventos: [{ sessionId: sessionStorage.getItem('sesionDocenteId') ?? undefined, pantalla: 'docente', accion: 'calificar', exito: false }]
+      });
+    } finally {
+      setGuardando(false);
     }
   }
 
@@ -1066,8 +1232,8 @@ function SeccionCalificar({
         Proyecto (global)
         <input type="number" value={proyecto} onChange={(event) => setProyecto(Math.max(0, Number(event.target.value)))} />
       </label>
-      <button className="boton" type="button" disabled={!puedeCalificar} onClick={calificar}>
-        <Icono nombre="calificar" /> Calificar
+      <button className="boton" type="button" disabled={!puedeCalificar || guardando} onClick={calificar}>
+        <Icono nombre="calificar" /> {guardando ? 'Guardando…' : 'Calificar'}
       </button>
       {mensaje && (
         <p className={esMensajeError(mensaje) ? 'mensaje error' : 'mensaje ok'} role="status">
@@ -1091,25 +1257,53 @@ function SeccionPublicar({
   const [mensaje, setMensaje] = useState('');
   const [codigo, setCodigo] = useState('');
   const [expiraEn, setExpiraEn] = useState('');
+  const [publicando, setPublicando] = useState(false);
+  const [generando, setGenerando] = useState(false);
 
   const puedeAccionar = Boolean(periodoId);
 
   async function publicar() {
     try {
+      const inicio = Date.now();
+      setPublicando(true);
       await onPublicar(periodoId);
       setMensaje('Resultados publicados');
+      emitToast({ level: 'ok', title: 'Publicacion', message: 'Resultados publicados', durationMs: 2800 });
+      void clienteApi.registrarEventosUso({
+        eventos: [{ sessionId: sessionStorage.getItem('sesionDocenteId') ?? undefined, pantalla: 'docente', accion: 'publicar_resultados', exito: true, duracionMs: Date.now() - inicio }]
+      });
     } catch (error) {
-      setMensaje(mensajeDeError(error, 'No se pudo publicar'));
+      const msg = mensajeDeError(error, 'No se pudo publicar');
+      setMensaje(msg);
+      emitToast({ level: 'error', title: 'No se pudo publicar', message: msg, durationMs: 5200 });
+      void clienteApi.registrarEventosUso({
+        eventos: [{ sessionId: sessionStorage.getItem('sesionDocenteId') ?? undefined, pantalla: 'docente', accion: 'publicar_resultados', exito: false }]
+      });
+    } finally {
+      setPublicando(false);
     }
   }
 
   async function generarCodigo() {
     try {
+      const inicio = Date.now();
+      setGenerando(true);
       const respuesta = await onCodigo(periodoId);
       setCodigo(respuesta.codigo ?? '');
       setExpiraEn(respuesta.expiraEn ?? '');
+      emitToast({ level: 'ok', title: 'Codigo', message: 'Codigo generado', durationMs: 2200 });
+      void clienteApi.registrarEventosUso({
+        eventos: [{ sessionId: sessionStorage.getItem('sesionDocenteId') ?? undefined, pantalla: 'docente', accion: 'generar_codigo', exito: true, duracionMs: Date.now() - inicio }]
+      });
     } catch (error) {
-      setMensaje(mensajeDeError(error, 'No se pudo generar codigo'));
+      const msg = mensajeDeError(error, 'No se pudo generar codigo');
+      setMensaje(msg);
+      emitToast({ level: 'error', title: 'No se pudo generar', message: msg, durationMs: 5200 });
+      void clienteApi.registrarEventosUso({
+        eventos: [{ sessionId: sessionStorage.getItem('sesionDocenteId') ?? undefined, pantalla: 'docente', accion: 'generar_codigo', exito: false }]
+      });
+    } finally {
+      setGenerando(false);
     }
   }
 
@@ -1130,11 +1324,11 @@ function SeccionPublicar({
         </select>
       </label>
       <div className="acciones">
-        <button className="boton" type="button" disabled={!puedeAccionar} onClick={publicar}>
-          <Icono nombre="publicar" /> Publicar
+        <button className="boton" type="button" disabled={!puedeAccionar || publicando} onClick={publicar}>
+          <Icono nombre="publicar" /> {publicando ? 'Publicando…' : 'Publicar'}
         </button>
-        <button className="boton secundario" type="button" disabled={!puedeAccionar} onClick={generarCodigo}>
-          <Icono nombre="info" /> Generar codigo
+        <button className="boton secundario" type="button" disabled={!puedeAccionar || generando} onClick={generarCodigo}>
+          <Icono nombre="info" /> {generando ? 'Generando…' : 'Generar codigo'}
         </button>
       </div>
       {codigo && (

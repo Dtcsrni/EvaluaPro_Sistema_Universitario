@@ -54,6 +54,30 @@ export function limpiarTokenDocente() {
 }
 
 export function crearClienteApi() {
+  async function registrarEventosUso(payload: {
+    eventos: Array<{
+      sessionId?: string;
+      pantalla?: string;
+      accion: string;
+      exito?: boolean;
+      duracionMs?: number;
+      meta?: unknown;
+    }>;
+  }) {
+    const token = obtenerTokenDocente();
+    if (!token) return;
+    try {
+      await fetch(`${baseApi}/analiticas/eventos-uso`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify(payload),
+        keepalive: true
+      });
+    } catch {
+      // Telemetria best-effort.
+    }
+  }
+
   async function obtener<T>(ruta: string): Promise<T> {
     const token = obtenerTokenDocente();
     let respuesta: Response;
@@ -122,5 +146,5 @@ export function crearClienteApi() {
     return respuesta.json() as Promise<T>;
   }
 
-  return { baseApi, obtener, enviar };
+  return { baseApi, obtener, enviar, registrarEventosUso };
 }

@@ -5,10 +5,11 @@ import { Router } from 'express';
 import { gunzipSync } from 'zlib';
 import { configuracion } from './configuracion';
 import { CodigoAcceso } from './modelos/modeloCodigoAcceso';
+import { EventoUsoAlumno } from './modelos/modeloEventoUsoAlumno';
 import { ResultadoAlumno } from './modelos/modeloResultadoAlumno';
 import { SesionAlumno } from './modelos/modeloSesionAlumno';
 import { generarTokenSesion } from './servicios/servicioSesion';
-import { requerirSesionAlumno } from './servicios/middlewareSesion';
+import { requerirSesionAlumno, type SolicitudAlumno } from './servicios/middlewareSesion';
 
 const router = Router();
 
@@ -38,10 +39,18 @@ router.post('/sincronizar', async (req, res) => {
     );
   }
 
-  const alumnosMap = new Map(alumnos.map((alumno: any) => [String(alumno._id), alumno]));
-  const examenesMap = new Map((examenes || []).map((examen: any) => [String(examen.examenGeneradoId), examen]));
-  const banderasMap = new Map<string, any[]>();
-  (banderas || []).forEach((bandera: any) => {
+  type AlumnoSync = { _id?: unknown; matricula?: string; nombreCompleto?: string; grupo?: string };
+  type ExamenSync = { examenGeneradoId?: unknown; folio?: string; pdfComprimidoBase64?: string };
+  type BanderaSync = { examenGeneradoId?: unknown } & Record<string, unknown>;
+
+  const alumnosMap = new Map<string, AlumnoSync>(
+    (alumnos as AlumnoSync[]).map((alumno) => [String(alumno._id), alumno])
+  );
+  const examenesMap = new Map<string, ExamenSync>(
+    ((examenes || []) as ExamenSync[]).map((examen) => [String(examen.examenGeneradoId), examen])
+  );
+  const banderasMap = new Map<string, BanderaSync[]>();
+  ((banderas || []) as BanderaSync[]).forEach((bandera) => {
     const clave = String(bandera.examenGeneradoId);
     const lista = banderasMap.get(clave) ?? [];
     lista.push(bandera);
@@ -115,12 +124,43 @@ router.post('/ingresar', async (req, res) => {
   res.json({ token, expiraEn, alumno: { nombreCompleto: resultado.nombreCompleto, matricula: resultado.matricula } });
 });
 
-router.get('/resultados', requerirSesionAlumno, async (req, res) => {
+router.post('/eventos-uso', requerirSesionAlumno, async (req: SolicitudAlumno, res) => {
+  const eventos = Array.isArray(req.body?.eventos) ? req.body.eventos : [];
+  if (!eventos.length) {
+    res.status(400).json({ error: { codigo: 'DATOS_INVALIDOS', mensaje: 'eventos requerido' } });
+    return;
+  }
+
+  type EventoUsoSync = {
+    sessionId?: unknown;
+    pantalla?: unknown;
+    accion?: unknown;
+    exito?: unknown;
+    duracionMs?: unknown;
+    meta?: unknown;
+  };
+
+  const docs = (eventos as EventoUsoSync[]).slice(0, 100).map((evento) => ({
+    periodoId: req.periodoId,
+    alumnoId: req.alumnoId,
+    sessionId: typeof evento.sessionId === 'string' ? evento.sessionId : undefined,
+    pantalla: typeof evento.pantalla === 'string' ? evento.pantalla : undefined,
+    accion: String(evento.accion || ''),
+    exito: typeof evento.exito === 'boolean' ? evento.exito : undefined,
+    duracionMs: typeof evento.duracionMs === 'number' ? evento.duracionMs : undefined,
+    meta: evento.meta
+  }));
+
+  await EventoUsoAlumno.insertMany(docs, { ordered: false });
+  res.status(201).json({ ok: true, recibidos: docs.length });
+});
+
+router.get('/resultados', requerirSesionAlumno, async (req: SolicitudAlumno, res) => {
   const resultados = await ResultadoAlumno.find({ periodoId: req.periodoId, alumnoId: req.alumnoId }).lean();
   res.json({ resultados });
 });
 
-router.get('/resultados/:folio', requerirSesionAlumno, async (req, res) => {
+router.get('/resultados/:folio', requerirSesionAlumno, async (req: SolicitudAlumno, res) => {
   const resultado = await ResultadoAlumno.findOne({ folio: req.params.folio, periodoId: req.periodoId, alumnoId: req.alumnoId }).lean();
   if (!resultado) {
     res.status(404).json({ error: { codigo: 'NO_ENCONTRADO', mensaje: 'Resultado no encontrado' } });
@@ -129,7 +169,7 @@ router.get('/resultados/:folio', requerirSesionAlumno, async (req, res) => {
   res.json({ resultado });
 });
 
-router.get('/examen/:folio', requerirSesionAlumno, async (req, res) => {
+router.get('/examen/:folio', requerirSesionAlumno, async (req: SolicitudAlumno, res) => {
   const resultado = await ResultadoAlumno.findOne({ folio: req.params.folio, periodoId: req.periodoId, alumnoId: req.alumnoId }).lean();
   if (!resultado || !resultado.pdfComprimidoBase64) {
     res.status(404).json({ error: { codigo: 'PDF_NO_DISPONIBLE', mensaje: 'PDF no disponible' } });

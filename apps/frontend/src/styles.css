@@ -356,6 +356,22 @@ p {
   color: #1f2937;
 }
 
+.campo .ayuda {
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--muted);
+}
+
+.campo .ayuda.error {
+  color: var(--peligroTexto);
+}
+
+.campo input[aria-invalid="true"],
+.campo textarea[aria-invalid="true"],
+.campo select[aria-invalid="true"] {
+  border-color: rgba(239, 68, 68, 0.55);
+}
+
 .campo input,
 .campo textarea,
 .campo select {

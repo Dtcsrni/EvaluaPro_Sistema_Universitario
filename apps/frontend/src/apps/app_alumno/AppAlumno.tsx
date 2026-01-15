@@ -9,6 +9,7 @@ import {
   limpiarTokenAlumno,
   obtenerTokenAlumno
 } from '../../servicios_api/clientePortal';
+import { emitToast } from '../../ui/toast/toastBus';
 import { Icono, IlustracionSinResultados, Spinner } from '../../ui/iconos';
 
 const clientePortal = crearClientePortal();
@@ -29,6 +30,15 @@ export function AppAlumno() {
   const [resultados, setResultados] = useState<Resultado[]>([]);
   const [cargando, setCargando] = useState(false);
 
+  function obtenerSesionId() {
+    const clave = 'sesionAlumnoId';
+    const existente = sessionStorage.getItem(clave);
+    if (existente) return existente;
+    const nuevo = `${Date.now()}-${Math.random().toString(16).slice(2)}`;
+    sessionStorage.setItem(clave, nuevo);
+    return nuevo;
+  }
+
   function mensajeDeError(error: unknown, fallback: string) {
     if (error instanceof ErrorRemoto) {
       const detalle = error.detalle;
@@ -42,14 +52,31 @@ export function AppAlumno() {
 
   async function ingresar() {
     try {
+      const inicio = Date.now();
       setCargando(true);
       setMensaje('');
       const respuesta = await clientePortal.enviar<{ token: string }>('/ingresar', { codigo, matricula });
       guardarTokenAlumno(respuesta.token);
-      setMensaje('Sesion iniciada');
+      emitToast({ level: 'ok', title: 'Bienvenido', message: 'Sesion iniciada', durationMs: 2200 });
+      void clientePortal.registrarEventosUso({
+        eventos: [
+          {
+            sessionId: obtenerSesionId(),
+            pantalla: 'alumno',
+            accion: 'login',
+            exito: true,
+            duracionMs: Date.now() - inicio
+          }
+        ]
+      });
       await cargarResultados();
     } catch (error) {
-      setMensaje(mensajeDeError(error, 'No se pudo ingresar'));
+      const msg = mensajeDeError(error, 'No se pudo ingresar');
+      setMensaje(msg);
+      emitToast({ level: 'error', title: 'No se pudo ingresar', message: msg, durationMs: 5200 });
+      void clientePortal.registrarEventosUso({
+        eventos: [{ sessionId: obtenerSesionId(), pantalla: 'alumno', accion: 'login', exito: false }]
+      });
     } finally {
       setCargando(false);
     }
@@ -57,11 +84,28 @@ export function AppAlumno() {
 
   async function cargarResultados() {
     try {
+      const inicio = Date.now();
       setCargando(true);
       const respuesta = await clientePortal.obtener<{ resultados: Resultado[] }>('/resultados');
       setResultados(respuesta.resultados);
+      void clientePortal.registrarEventosUso({
+        eventos: [
+          {
+            sessionId: obtenerSesionId(),
+            pantalla: 'alumno',
+            accion: 'cargar_resultados',
+            exito: true,
+            duracionMs: Date.now() - inicio
+          }
+        ]
+      });
     } catch (error) {
-      setMensaje(mensajeDeError(error, 'No se pudieron cargar resultados'));
+      const msg = mensajeDeError(error, 'No se pudieron cargar resultados');
+      setMensaje(msg);
+      emitToast({ level: 'error', title: 'No se pudieron cargar', message: msg, durationMs: 5200 });
+      void clientePortal.registrarEventosUso({
+        eventos: [{ sessionId: obtenerSesionId(), pantalla: 'alumno', accion: 'cargar_resultados', exito: false }]
+      });
     } finally {
       setCargando(false);
     }
@@ -69,6 +113,8 @@ export function AppAlumno() {
 
   const token = obtenerTokenAlumno();
   const puedeIngresar = Boolean(codigo.trim() && matricula.trim());
+  const codigoValido = !codigo.trim() || /^[a-zA-Z0-9]{4,12}$/.test(codigo.trim());
+  const matriculaValida = !matricula.trim() || /^[A-Za-z0-9\-]{3,20}$/.test(matricula.trim());
 
   return (
     <section className="card anim-entrada">
@@ -83,7 +129,11 @@ export function AppAlumno() {
             onClick={() => {
               limpiarTokenAlumno();
               setResultados([]);
-              setMensaje('Sesion cerrada');
+              setMensaje('');
+              emitToast({ level: 'info', title: 'Sesion', message: 'Sesion cerrada', durationMs: 2200 });
+              void clientePortal.registrarEventosUso({
+                eventos: [{ sessionId: obtenerSesionId(), pantalla: 'alumno', accion: 'logout', exito: true }]
+              });
             }}
           >
             <Icono nombre="salir" /> Salir
@@ -120,25 +170,54 @@ export function AppAlumno() {
         <>
           <label className="campo">
             Codigo de acceso
-            <input
-              value={codigo}
-              onChange={(event) => setCodigo(event.target.value)}
-              placeholder="ABC123"
-              autoComplete="one-time-code"
-              inputMode="text"
-            />
+            {codigoValido ? (
+              <input
+                value={codigo}
+                onChange={(event) => setCodigo(event.target.value)}
+                placeholder="ABC123"
+                autoComplete="one-time-code"
+                inputMode="text"
+              />
+            ) : (
+              <input
+                value={codigo}
+                onChange={(event) => setCodigo(event.target.value)}
+                placeholder="ABC123"
+                autoComplete="one-time-code"
+                inputMode="text"
+                aria-invalid="true"
+              />
+            )}
+            {!codigoValido && <small className="ayuda error">Usa 4-12 caracteres alfanumericos.</small>}
           </label>
           <label className="campo">
             Matricula
-            <input
-              value={matricula}
-              onChange={(event) => setMatricula(event.target.value)}
-              placeholder="2024-001"
-              autoComplete="username"
-              inputMode="text"
-            />
+            {matriculaValida ? (
+              <input
+                value={matricula}
+                onChange={(event) => setMatricula(event.target.value)}
+                placeholder="2024-001"
+                autoComplete="username"
+                inputMode="text"
+              />
+            ) : (
+              <input
+                value={matricula}
+                onChange={(event) => setMatricula(event.target.value)}
+                placeholder="2024-001"
+                autoComplete="username"
+                inputMode="text"
+                aria-invalid="true"
+              />
+            )}
+            {!matriculaValida && <small className="ayuda error">Usa 3-20 caracteres (letras/numeros/guion).</small>}
           </label>
-          <button type="button" className="boton" disabled={!puedeIngresar || cargando} onClick={ingresar}>
+          <button
+            type="button"
+            className="boton"
+            disabled={!puedeIngresar || !codigoValido || !matriculaValida || cargando}
+            onClick={ingresar}
+          >
             <Icono nombre="entrar" /> Consultar
           </button>
         </>
@@ -171,13 +250,47 @@ export function AppAlumno() {
                   type="button"
                   onClick={async () => {
                     if (!token) return;
-                    const respuesta = await fetch(`${basePortal}/examen/${resultado.folio}`, {
-                      headers: { Authorization: `Bearer ${token}` }
-                    });
-                    if (!respuesta.ok) return;
-                    const blob = await respuesta.blob();
-                    const url = URL.createObjectURL(blob);
-                    window.open(url, '_blank', 'noopener,noreferrer');
+                    const inicio = Date.now();
+                    try {
+                      const respuesta = await fetch(`${basePortal}/examen/${resultado.folio}`, {
+                        headers: { Authorization: `Bearer ${token}` }
+                      });
+                      if (!respuesta.ok) {
+                        emitToast({ level: 'error', title: 'PDF no disponible', message: `HTTP ${respuesta.status}`, durationMs: 5200 });
+                        void clientePortal.registrarEventosUso({
+                          eventos: [
+                            {
+                              sessionId: obtenerSesionId(),
+                              pantalla: 'alumno',
+                              accion: 'ver_pdf',
+                              exito: false,
+                              meta: { folio: resultado.folio, status: respuesta.status }
+                            }
+                          ]
+                        });
+                        return;
+                      }
+                      const blob = await respuesta.blob();
+                      const url = URL.createObjectURL(blob);
+                      window.open(url, '_blank', 'noopener,noreferrer');
+                      void clientePortal.registrarEventosUso({
+                        eventos: [
+                          {
+                            sessionId: obtenerSesionId(),
+                            pantalla: 'alumno',
+                            accion: 'ver_pdf',
+                            exito: true,
+                            duracionMs: Date.now() - inicio,
+                            meta: { folio: resultado.folio }
+                          }
+                        ]
+                      });
+                    } catch (error) {
+                      emitToast({ level: 'error', title: 'Error al abrir PDF', message: String((error as any)?.message || error), durationMs: 5200 });
+                      void clientePortal.registrarEventosUso({
+                        eventos: [{ sessionId: obtenerSesionId(), pantalla: 'alumno', accion: 'ver_pdf', exito: false, meta: { folio: resultado.folio } }]
+                      });
+                    }
                   }}
                 >
                   <Icono nombre="pdf" /> Ver PDF
