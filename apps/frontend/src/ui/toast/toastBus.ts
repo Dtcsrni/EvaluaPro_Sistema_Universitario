@@ -2,6 +2,7 @@ export type ToastLevel = 'info' | 'ok' | 'warn' | 'error';
 
 export type ToastAction = {
   label: string;
+  onClick?: () => void;
 };
 
 export type ToastPayload = {

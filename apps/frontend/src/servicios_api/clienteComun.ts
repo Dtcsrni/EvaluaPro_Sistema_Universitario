@@ -1,4 +1,35 @@
-import { emitToast } from '../ui/toast/toastBus';
+import { emitToast, type ToastAction } from '../ui/toast/toastBus';
+
+export type TipoSesion = 'docente' | 'alumno';
+
+const EVENT_SESION_INVALIDADA = 'app:sesion-invalidada';
+
+export function emitirSesionInvalidada(tipo: TipoSesion) {
+  if (typeof window === 'undefined') return;
+  try {
+    window.dispatchEvent(new CustomEvent(EVENT_SESION_INVALIDADA, { detail: { tipo } }));
+  } catch {
+    // ignore
+  }
+}
+
+export function accionCerrarSesion(tipo: TipoSesion): ToastAction {
+  return {
+    label: 'Cerrar sesion',
+    onClick: () => emitirSesionInvalidada(tipo)
+  };
+}
+
+export function accionToastSesionParaError(error: unknown, tipo: TipoSesion): ToastAction | undefined {
+  if (error instanceof ErrorRemoto) {
+    const detalle = error.detalle;
+    const status = detalle?.status;
+    const codigo = detalle?.codigo?.toUpperCase();
+    if (status === 401) return accionCerrarSesion(tipo);
+    if (codigo?.includes('TOKEN')) return accionCerrarSesion(tipo);
+  }
+  return undefined;
+}
 
 export type DetalleErrorRemoto = {
   status?: number;
@@ -203,6 +234,18 @@ export function mensajeUsuarioDeErrorConSugerencia(error: unknown, fallback: str
   if (!tip) return base;
   if (base.toLowerCase().includes(tip.toLowerCase())) return base;
   return `${base} ${tip}`;
+}
+
+export function onSesionInvalidada(handler: (tipo: TipoSesion) => void) {
+  if (typeof window === 'undefined') return () => {};
+  const listener = (event: Event) => {
+    const custom = event as CustomEvent;
+    const detail = (custom.detail || {}) as { tipo?: unknown };
+    const tipo = detail.tipo;
+    if (tipo === 'docente' || tipo === 'alumno') handler(tipo);
+  };
+  window.addEventListener(EVENT_SESION_INVALIDADA, listener);
+  return () => window.removeEventListener(EVENT_SESION_INVALIDADA, listener);
 }
 
 export async function fetchConManejoErrores<T>(opts: {

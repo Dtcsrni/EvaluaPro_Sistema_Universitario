@@ -1,7 +1,7 @@
 /**
  * App alumno: consulta de resultados en la nube.
  */
-import { useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import {
   crearClientePortal,
   guardarTokenAlumno,
@@ -14,7 +14,12 @@ import { Boton } from '../../ui/ux/componentes/Boton';
 import { CampoTexto } from '../../ui/ux/componentes/CampoTexto';
 import { InlineMensaje } from '../../ui/ux/componentes/InlineMensaje';
 import { obtenerSessionId } from '../../ui/ux/sesion';
-import { mensajeUsuarioDeErrorConSugerencia } from '../../servicios_api/clienteComun';
+import {
+  accionCerrarSesion,
+  accionToastSesionParaError,
+  mensajeUsuarioDeErrorConSugerencia,
+  onSesionInvalidada
+} from '../../servicios_api/clienteComun';
 
 const clientePortal = crearClientePortal();
 const basePortal = import.meta.env.VITE_PORTAL_BASE_URL || 'http://localhost:8080/api/portal';
@@ -34,7 +39,24 @@ export function AppAlumno() {
   const [resultados, setResultados] = useState<Resultado[]>([]);
   const [cargando, setCargando] = useState(false);
 
-  const obtenerSesionId = () => obtenerSessionId('sesionAlumnoId');
+  const obtenerSesionId = useCallback(() => obtenerSessionId('sesionAlumnoId'), []);
+
+  const cerrarSesion = useCallback(() => {
+    limpiarTokenAlumno();
+    setResultados([]);
+    setMensaje('');
+    emitToast({ level: 'info', title: 'Sesion', message: 'Sesion cerrada', durationMs: 2200 });
+    void clientePortal.registrarEventosUso({
+      eventos: [{ sessionId: obtenerSesionId(), pantalla: 'alumno', accion: 'logout', exito: true }]
+    });
+  }, [obtenerSesionId]);
+
+  useEffect(() => {
+    return onSesionInvalidada((tipo) => {
+      if (tipo !== 'alumno') return;
+      cerrarSesion();
+    });
+  }, [cerrarSesion]);
 
   function mensajeDeError(error: unknown, fallback: string) {
     return mensajeUsuarioDeErrorConSugerencia(error, fallback);
@@ -63,7 +85,13 @@ export function AppAlumno() {
     } catch (error) {
       const msg = mensajeDeError(error, 'No se pudo ingresar');
       setMensaje(msg);
-      emitToast({ level: 'error', title: 'No se pudo ingresar', message: msg, durationMs: 5200 });
+      emitToast({
+        level: 'error',
+        title: 'No se pudo ingresar',
+        message: msg,
+        durationMs: 5200,
+        action: accionToastSesionParaError(error, 'alumno')
+      });
       void clientePortal.registrarEventosUso({
         eventos: [{ sessionId: obtenerSesionId(), pantalla: 'alumno', accion: 'login', exito: false }]
       });
@@ -92,7 +120,13 @@ export function AppAlumno() {
     } catch (error) {
       const msg = mensajeDeError(error, 'No se pudieron cargar resultados');
       setMensaje(msg);
-      emitToast({ level: 'error', title: 'No se pudieron cargar', message: msg, durationMs: 5200 });
+      emitToast({
+        level: 'error',
+        title: 'No se pudieron cargar',
+        message: msg,
+        durationMs: 5200,
+        action: accionToastSesionParaError(error, 'alumno')
+      });
       void clientePortal.registrarEventosUso({
         eventos: [{ sessionId: obtenerSesionId(), pantalla: 'alumno', accion: 'cargar_resultados', exito: false }]
       });
@@ -116,15 +150,7 @@ export function AppAlumno() {
           <button
             className="boton secundario"
             type="button"
-            onClick={() => {
-              limpiarTokenAlumno();
-              setResultados([]);
-              setMensaje('');
-              emitToast({ level: 'info', title: 'Sesion', message: 'Sesion cerrada', durationMs: 2200 });
-              void clientePortal.registrarEventosUso({
-                eventos: [{ sessionId: obtenerSesionId(), pantalla: 'alumno', accion: 'logout', exito: true }]
-              });
-            }}
+            onClick={() => cerrarSesion()}
           >
             <Icono nombre="salir" /> Salir
           </button>
@@ -217,7 +243,13 @@ export function AppAlumno() {
                         headers: { Authorization: `Bearer ${token}` }
                       });
                       if (!respuesta.ok) {
-                        emitToast({ level: 'error', title: 'PDF no disponible', message: `HTTP ${respuesta.status}`, durationMs: 5200 });
+                        emitToast({
+                          level: 'error',
+                          title: 'PDF no disponible',
+                          message: `HTTP ${respuesta.status}`,
+                          durationMs: 5200,
+                          action: respuesta.status === 401 ? accionCerrarSesion('alumno') : undefined
+                        });
                         void clientePortal.registrarEventosUso({
                           eventos: [
                             {
@@ -251,7 +283,8 @@ export function AppAlumno() {
                         level: 'error',
                         title: 'Error al abrir PDF',
                         message: mensajeDeError(error, 'Error al abrir PDF'),
-                        durationMs: 5200
+                        durationMs: 5200,
+                        action: accionToastSesionParaError(error, 'alumno')
                       });
                       void clientePortal.registrarEventosUso({
                         eventos: [{ sessionId: obtenerSesionId(), pantalla: 'alumno', accion: 'ver_pdf', exito: false, meta: { folio: resultado.folio } }]

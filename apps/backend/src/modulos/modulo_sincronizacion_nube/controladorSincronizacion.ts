@@ -58,7 +58,7 @@ export async function generarCodigoAcceso(req: SolicitudDocente, res: Response) 
 
   try {
     await enviarCorreo('destinatario@ejemplo.com', 'Codigo de acceso', `Tu codigo es ${codigo}`);
-  } catch (error) {
+  } catch {
     // Se permite continuar si el servicio de correo no esta configurado.
   }
 
@@ -92,7 +92,7 @@ export async function publicarResultados(req: SolicitudDocente, res: Response) {
       try {
         const contenido = await fs.readFile(examen.rutaPdf);
         pdfComprimidoBase64 = comprimirBase64(contenido);
-      } catch (error) {
+      } catch {
         // Continuar sin PDF si no se encuentra.
       }
     }

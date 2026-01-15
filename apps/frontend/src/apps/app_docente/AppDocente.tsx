@@ -9,7 +9,7 @@ import {
   limpiarTokenDocente,
   obtenerTokenDocente
 } from '../../servicios_api/clienteApi';
-import { mensajeUsuarioDeErrorConSugerencia } from '../../servicios_api/clienteComun';
+import { accionToastSesionParaError, mensajeUsuarioDeErrorConSugerencia, onSesionInvalidada } from '../../servicios_api/clienteComun';
 import { emitToast } from '../../ui/toast/toastBus';
 import { Icono, Spinner } from '../../ui/iconos';
 import { Boton } from '../../ui/ux/componentes/Boton';
@@ -81,6 +81,20 @@ export function AppDocente() {
   const [examenAlumnoId, setExamenAlumnoId] = useState<string | null>(null);
   const [cargandoDatos, setCargandoDatos] = useState(false);
 
+  function cerrarSesion() {
+    limpiarTokenDocente();
+    setDocente(null);
+    emitToast({ level: 'info', title: 'Sesion', message: 'Sesion cerrada', durationMs: 2200 });
+    registrarAccionDocente('logout', true);
+  }
+
+  useEffect(() => {
+    return onSesionInvalidada((tipo) => {
+      if (tipo !== 'docente') return;
+      cerrarSesion();
+    });
+  }, []);
+
   const itemsVista = useMemo(
     () =>
       [
@@ -128,7 +142,11 @@ export function AppDocente() {
 
   useEffect(() => {
     if (!docente) return;
-    setCargandoDatos(true);
+    let activo = true;
+    Promise.resolve().then(() => {
+      if (!activo) return;
+      setCargandoDatos(true);
+    });
     Promise.all([
       clienteApi.obtener<{ alumnos: Alumno[] }>('/alumnos'),
       clienteApi.obtener<{ periodos: Periodo[] }>('/periodos'),
@@ -141,7 +159,16 @@ export function AppDocente() {
         setPlantillas(pl.plantillas);
         setPreguntas(pr.preguntas);
       })
-      .finally(() => setCargandoDatos(false));
+      .finally(() => {
+        Promise.resolve().then(() => {
+          if (!activo) return;
+          setCargandoDatos(false);
+        });
+      });
+
+    return () => {
+      activo = false;
+    };
   }, [docente]);
 
   const contenido = docente ? (
@@ -316,12 +343,7 @@ export function AppDocente() {
             variante="secundario"
             type="button"
             icono={<Icono nombre="salir" />}
-            onClick={() => {
-              limpiarTokenDocente();
-              setDocente(null);
-              emitToast({ level: 'info', title: 'Sesion', message: 'Sesion cerrada', durationMs: 2200 });
-              registrarAccionDocente('logout', true);
-            }}
+            onClick={() => cerrarSesion()}
           >
             Salir
           </Boton>
@@ -357,7 +379,13 @@ function SeccionAutenticacion({ onIngresar }: { onIngresar: (token: string) => v
     } catch (error) {
       const msg = mensajeDeError(error, 'No se pudo ingresar');
       setMensaje(msg);
-      emitToast({ level: 'error', title: 'No se pudo ingresar', message: msg, durationMs: 5200 });
+      emitToast({
+        level: 'error',
+        title: 'No se pudo ingresar',
+        message: msg,
+        durationMs: 5200,
+        action: accionToastSesionParaError(error, 'docente')
+      });
       registrarAccionDocente('login', false);
     } finally {
       setEnviando(false);
@@ -380,7 +408,13 @@ function SeccionAutenticacion({ onIngresar }: { onIngresar: (token: string) => v
     } catch (error) {
       const msg = mensajeDeError(error, 'No se pudo registrar');
       setMensaje(msg);
-      emitToast({ level: 'error', title: 'No se pudo registrar', message: msg, durationMs: 5200 });
+      emitToast({
+        level: 'error',
+        title: 'No se pudo registrar',
+        message: msg,
+        durationMs: 5200,
+        action: accionToastSesionParaError(error, 'docente')
+      });
       registrarAccionDocente('registrar', false);
     } finally {
       setEnviando(false);
@@ -508,7 +542,13 @@ function SeccionBanco({ preguntas, onRefrescar }: { preguntas: Pregunta[]; onRef
     } catch (error) {
       const msg = mensajeDeError(error, 'No se pudo guardar');
       setMensaje(msg);
-      emitToast({ level: 'error', title: 'No se pudo guardar', message: msg, durationMs: 5200 });
+      emitToast({
+        level: 'error',
+        title: 'No se pudo guardar',
+        message: msg,
+        durationMs: 5200,
+        action: accionToastSesionParaError(error, 'docente')
+      });
       registrarAccionDocente('crear_pregunta', false);
     } finally {
       setGuardando(false);
@@ -607,7 +647,13 @@ function SeccionPeriodos({
     } catch (error) {
       const msg = mensajeDeError(error, 'No se pudo crear el periodo');
       setMensaje(msg);
-      emitToast({ level: 'error', title: 'No se pudo crear', message: msg, durationMs: 5200 });
+      emitToast({
+        level: 'error',
+        title: 'No se pudo crear',
+        message: msg,
+        durationMs: 5200,
+        action: accionToastSesionParaError(error, 'docente')
+      });
       registrarAccionDocente('crear_periodo', false);
     } finally {
       setCreando(false);
@@ -694,7 +740,13 @@ function SeccionAlumnos({
     } catch (error) {
       const msg = mensajeDeError(error, 'No se pudo crear el alumno');
       setMensaje(msg);
-      emitToast({ level: 'error', title: 'No se pudo crear', message: msg, durationMs: 5200 });
+      emitToast({
+        level: 'error',
+        title: 'No se pudo crear',
+        message: msg,
+        durationMs: 5200,
+        action: accionToastSesionParaError(error, 'docente')
+      });
       registrarAccionDocente('crear_alumno', false);
     } finally {
       setCreando(false);
@@ -800,7 +852,13 @@ function SeccionPlantillas({
     } catch (error) {
       const msg = mensajeDeError(error, 'No se pudo crear');
       setMensaje(msg);
-      emitToast({ level: 'error', title: 'No se pudo crear', message: msg, durationMs: 5200 });
+      emitToast({
+        level: 'error',
+        title: 'No se pudo crear',
+        message: msg,
+        durationMs: 5200,
+        action: accionToastSesionParaError(error, 'docente')
+      });
       registrarAccionDocente('crear_plantilla', false);
     } finally {
       setCreando(false);
@@ -913,7 +971,13 @@ function SeccionPlantillas({
           } catch (error) {
             const msg = mensajeDeError(error, 'No se pudo generar');
             setMensajeGeneracion(msg);
-            emitToast({ level: 'error', title: 'No se pudo generar', message: msg, durationMs: 5200 });
+            emitToast({
+              level: 'error',
+              title: 'No se pudo generar',
+              message: msg,
+              durationMs: 5200,
+              action: accionToastSesionParaError(error, 'docente')
+            });
             registrarAccionDocente('generar_examen', false);
           } finally {
             setGenerando(false);
@@ -957,7 +1021,13 @@ function SeccionRecepcion({
     } catch (error) {
       const msg = mensajeDeError(error, 'No se pudo vincular');
       setMensaje(msg);
-      emitToast({ level: 'error', title: 'No se pudo vincular', message: msg, durationMs: 5200 });
+      emitToast({
+        level: 'error',
+        title: 'No se pudo vincular',
+        message: msg,
+        durationMs: 5200,
+        action: accionToastSesionParaError(error, 'docente')
+      });
       registrarAccionDocente('vincular_entrega', false);
     } finally {
       setVinculando(false);
@@ -1037,7 +1107,13 @@ function SeccionEscaneo({
     } catch (error) {
       const msg = mensajeDeError(error, 'No se pudo analizar');
       setMensaje(msg);
-      emitToast({ level: 'error', title: 'No se pudo analizar', message: msg, durationMs: 5200 });
+      emitToast({
+        level: 'error',
+        title: 'No se pudo analizar',
+        message: msg,
+        durationMs: 5200,
+        action: accionToastSesionParaError(error, 'docente')
+      });
       registrarAccionDocente('analizar_omr', false);
     } finally {
       setAnalizando(false);
@@ -1165,7 +1241,13 @@ function SeccionCalificar({
     } catch (error) {
       const msg = mensajeDeError(error, 'No se pudo calificar');
       setMensaje(msg);
-      emitToast({ level: 'error', title: 'No se pudo calificar', message: msg, durationMs: 5200 });
+      emitToast({
+        level: 'error',
+        title: 'No se pudo calificar',
+        message: msg,
+        durationMs: 5200,
+        action: accionToastSesionParaError(error, 'docente')
+      });
       registrarAccionDocente('calificar', false);
     } finally {
       setGuardando(false);
@@ -1244,7 +1326,13 @@ function SeccionPublicar({
     } catch (error) {
       const msg = mensajeDeError(error, 'No se pudo publicar');
       setMensaje(msg);
-      emitToast({ level: 'error', title: 'No se pudo publicar', message: msg, durationMs: 5200 });
+      emitToast({
+        level: 'error',
+        title: 'No se pudo publicar',
+        message: msg,
+        durationMs: 5200,
+        action: accionToastSesionParaError(error, 'docente')
+      });
       registrarAccionDocente('publicar_resultados', false);
     } finally {
       setPublicando(false);
@@ -1264,7 +1352,13 @@ function SeccionPublicar({
     } catch (error) {
       const msg = mensajeDeError(error, 'No se pudo generar codigo');
       setMensaje(msg);
-      emitToast({ level: 'error', title: 'No se pudo generar', message: msg, durationMs: 5200 });
+      emitToast({
+        level: 'error',
+        title: 'No se pudo generar',
+        message: msg,
+        durationMs: 5200,
+        action: accionToastSesionParaError(error, 'docente')
+      });
       registrarAccionDocente('generar_codigo', false);
     } finally {
       setGenerando(false);

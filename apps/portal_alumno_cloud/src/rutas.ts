@@ -226,7 +226,7 @@ router.get('/examen/:folio', requerirSesionAlumno, async (req: SolicitudAlumno, 
     const buffer = gunzipSync(Buffer.from(resultado.pdfComprimidoBase64, 'base64'));
     res.setHeader('Content-Type', 'application/pdf');
     res.send(buffer);
-  } catch (error) {
+  } catch {
     responderError(res, 500, 'PDF_INVALIDO', 'No se pudo abrir el PDF');
   }
 });

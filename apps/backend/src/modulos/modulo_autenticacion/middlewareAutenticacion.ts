@@ -20,7 +20,7 @@ export function requerirDocente(req: SolicitudDocente, _res: Response, next: Nex
     const payload = verificarTokenDocente(token);
     req.docenteId = payload.docenteId;
     next();
-  } catch (error) {
+  } catch {
     next(new ErrorAplicacion('TOKEN_INVALIDO', 'Token invalido o expirado', 401));
   }
 }

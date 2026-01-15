@@ -11,6 +11,7 @@ export type ToastItem = {
   message: string;
   durationMs: number;
   actionLabel?: string;
+  actionOnClick?: () => void;
 };
 
 export type ToastApi = {
@@ -93,10 +94,11 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
     const title = typeof payload.title === 'string' ? payload.title : defaultTitle(level);
     const message = String(payload.message || '').trim();
     const actionLabel = payload.action?.label;
+    const actionOnClick = payload.action?.onClick;
 
     setToasts((prev) => {
       const withoutDup = id ? prev.filter((t) => t.id !== id) : prev;
-      const next = [{ key, id, level, title, message, durationMs, actionLabel }, ...withoutDup];
+      const next = [{ key, id, level, title, message, durationMs, actionLabel, actionOnClick }, ...withoutDup];
       return next.slice(0, 4);
     });
 
@@ -165,7 +167,17 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
             </div>
             <div className="toast-actions">
               {t.actionLabel ? (
-                <button className="toast-btn action" type="button" onClick={() => dismiss(t.key)}>
+                <button
+                  className="toast-btn action"
+                  type="button"
+                  onClick={() => {
+                    try {
+                      t.actionOnClick?.();
+                    } finally {
+                      dismiss(t.key);
+                    }
+                  }}
+                >
                   {t.actionLabel}
                 </button>
               ) : null}
