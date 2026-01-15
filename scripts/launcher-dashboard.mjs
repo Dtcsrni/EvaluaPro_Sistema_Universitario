@@ -51,9 +51,19 @@ const noiseStats = new Map();
 // Track spawned processes by task name.
 const processes = new Map();
 
+// Dev convenience: auto-restart tasks when source files change.
+let autoRestart = mode === 'dev';
+let restartTimer = null;
+
 // HTML template loaded once at startup.
 const dashboardPath = path.join(__dirname, 'dashboard.html');
 const dashboardHtml = fs.readFileSync(dashboardPath, 'utf8');
+
+// PWA assets (manifest + icon) for "instalar como app" (Edge/Chrome).
+const manifestPath = path.join(__dirname, 'dashboard.webmanifest');
+const manifestJson = fs.readFileSync(manifestPath, 'utf8');
+const iconPath = path.join(__dirname, 'dashboard-icon.svg');
+const iconSvg = fs.readFileSync(iconPath, 'utf8');
 
 function writeConsole(line) {
   if (!verbose) return;
@@ -76,6 +86,14 @@ function formatEntry(entry) {
   return `[${entry.time}] [${entry.source}] ${entry.text}`;
 }
 
+function persistEntry(entry) {
+  try {
+    fs.appendFileSync(logFile, formatEntry(entry) + '\n');
+  } catch {
+    // ignore file write errors
+  }
+}
+
 function pushEntry(buffer, entry, max) {
   buffer.push(entry);
   if (buffer.length > max) buffer.shift();
@@ -83,6 +101,7 @@ function pushEntry(buffer, entry, max) {
 
 function shouldConsole(entry, options) {
   if (entry.level === 'error') return true;
+  if (options && options.console === true) return true;
   if (!verbose) return false;
   if (options && options.console === false) return false;
   return true;
@@ -94,11 +113,7 @@ function logSystem(text, level = 'system', options = {}) {
   pushEntry(rawLines, entry, maxRaw);
   pushEntry(logLines, entry, maxFiltered);
   if (shouldConsole(entry, options)) writeConsole(formatEntry(entry));
-  try {
-    fs.appendFileSync(logFile, formatEntry(entry) + '\n');
-  } catch {
-    // ignore file write errors
-  }
+  persistEntry(entry);
 }
 
 function ensureDir(dirPath) {
@@ -240,6 +255,7 @@ function logTaskOutput(source, data) {
       continue;
     }
     pushEntry(logLines, entry, maxFiltered);
+    persistEntry(entry);
   }
 }
 
@@ -308,12 +324,86 @@ function noiseSnapshot() {
 // Known commands exposed via the dashboard.
 const commands = {
   dev: 'npm run dev',
+  'dev-frontend': 'npm run dev:frontend',
+  'dev-backend': 'npm run dev:backend',
   prod: 'npm start',
   portal: 'npm run dev:portal',
   status: 'npm run status',
   'docker-ps': 'docker ps',
   'docker-down': 'docker compose down'
 };
+
+function isRunning(name) {
+  const entry = processes.get(name);
+  return Boolean(entry && entry.proc && entry.proc.exitCode === null);
+}
+
+function restartTask(name, delayMs = 700) {
+  const command = commands[name];
+  if (!command) {
+    logSystem(`[${name}] reinicio solicitado pero no existe comando`, 'warn');
+    return;
+  }
+
+  const wasRunning = isRunning(name);
+  if (wasRunning) stopTask(name);
+  setTimeout(() => startTask(name, command), wasRunning ? delayMs : 0);
+}
+
+function restartAll(runningNames) {
+  const unique = Array.from(new Set(runningNames)).filter(Boolean);
+  if (unique.length === 0) return;
+  logSystem(`Reiniciando: ${unique.join(', ')}`, 'system');
+  unique.forEach((name) => restartTask(name));
+}
+
+function requestAutoRestart(reason) {
+  if (mode !== 'dev' || !autoRestart) return;
+  if (restartTimer) clearTimeout(restartTimer);
+  restartTimer = setTimeout(() => {
+    restartTimer = null;
+    const running = runningTasks();
+    if (running.length === 0) return;
+
+    // In dev we prefer restarting the whole dev stack if it's running.
+    if (running.includes('dev')) {
+      logSystem(`Auto-reinicio (dev): cambio detectado (${reason}).`, 'warn');
+      restartTask('dev');
+      return;
+    }
+
+    // Otherwise restart granular tasks if they are running.
+    const toRestart = [];
+    if (running.includes('dev-backend')) toRestart.push('dev-backend');
+    if (running.includes('dev-frontend')) toRestart.push('dev-frontend');
+    restartAll(toRestart);
+  }, 650);
+}
+
+function setupDevWatchers() {
+  if (mode !== 'dev') return;
+
+  const targets = [
+    { label: 'frontend', dir: path.join(root, 'apps', 'frontend', 'src') },
+    { label: 'backend', dir: path.join(root, 'apps', 'backend', 'src') }
+  ];
+
+  targets.forEach(({ label, dir }) => {
+    try {
+      if (!fs.existsSync(dir)) return;
+      fs.watch(dir, { recursive: true }, (eventType, filename) => {
+        if (!filename) return;
+        const lower = String(filename).toLowerCase();
+        if (lower.includes('node_modules')) return;
+        if (lower.endsWith('.map') || lower.endsWith('.tsbuildinfo')) return;
+        requestAutoRestart(`${label}:${eventType}:${filename}`);
+      });
+      logSystem(`Watcher dev activo: ${label} (${dir})`, 'ok');
+    } catch (error) {
+      logSystem(`No se pudo activar watcher para ${label}: ${error?.message || 'error'}`, 'warn');
+    }
+  });
+}
 
 // Read a JSON body safely with a size cap.
 function readBody(req) {
@@ -423,6 +513,24 @@ const server = http.createServer(async (req, res) => {
     return;
   }
 
+  if (req.method === 'GET' && pathName === '/manifest.webmanifest') {
+    res.writeHead(200, {
+      'Content-Type': 'application/manifest+json; charset=utf-8',
+      'Cache-Control': 'no-store'
+    });
+    res.end(manifestJson);
+    return;
+  }
+
+  if (req.method === 'GET' && pathName === '/assets/dashboard-icon.svg') {
+    res.writeHead(200, {
+      'Content-Type': 'image/svg+xml; charset=utf-8',
+      'Cache-Control': 'no-store'
+    });
+    res.end(iconSvg);
+    return;
+  }
+
   if (req.method === 'GET' && pathName === '/api/status') {
     const noise = noiseSnapshot();
     const noiseTotal = Object.values(noise).reduce((acc, val) => acc + val, 0);
@@ -436,9 +544,24 @@ const server = http.createServer(async (req, res) => {
       logSize: logLines.length,
       rawSize: rawLines.length,
       noise,
-      noiseTotal
+      noiseTotal,
+      autoRestart
     };
     sendJson(res, 200, payload);
+    return;
+  }
+
+  if (req.method === 'GET' && pathName === '/api/config') {
+    sendJson(res, 200, { autoRestart });
+    return;
+  }
+
+  if (req.method === 'POST' && pathName === '/api/config') {
+    const body = await readBody(req);
+    const next = Boolean(body.autoRestart);
+    autoRestart = mode === 'dev' ? next : false;
+    logSystem(`Auto-reinicio: ${autoRestart ? 'ACTIVO' : 'DESACTIVADO'}`, autoRestart ? 'ok' : 'warn');
+    sendJson(res, 200, { ok: true, autoRestart });
     return;
   }
 
@@ -452,6 +575,22 @@ const server = http.createServer(async (req, res) => {
     const wantFull = reqUrl.searchParams.get('full') === '1';
     const entries = wantFull ? rawLines : logLines;
     sendJson(res, 200, { entries });
+    return;
+  }
+
+  if (req.method === 'GET' && pathName === '/api/logfile') {
+    let content = '';
+    try {
+      content = fs.readFileSync(logFile, 'utf8');
+    } catch {
+      content = '';
+    }
+    res.writeHead(200, {
+      'Content-Type': 'text/plain; charset=utf-8',
+      'Content-Disposition': 'inline; filename="dashboard.log"',
+      'Cache-Control': 'no-store'
+    });
+    res.end(content);
     return;
   }
 
@@ -480,6 +619,31 @@ const server = http.createServer(async (req, res) => {
     return sendJson(res, 200, { ok: true });
   }
 
+  if (req.method === 'POST' && pathName === '/api/restart') {
+    const body = await readBody(req);
+    const task = String(body.task || '').trim();
+
+    if (!task) return sendJson(res, 400, { error: 'Tarea requerida' });
+
+    if (task === 'all') {
+      const running = runningTasks();
+      restartAll(running);
+      return sendJson(res, 200, { ok: true, restarted: running });
+    }
+
+    if (task === 'stack') {
+      const running = runningTasks();
+      const candidates = ['dev', 'prod', 'portal', 'dev-frontend', 'dev-backend'];
+      const toRestart = candidates.filter((name) => running.includes(name));
+      restartAll(toRestart);
+      return sendJson(res, 200, { ok: true, restarted: toRestart });
+    }
+
+    if (!commands[task]) return sendJson(res, 400, { error: 'Tarea desconocida' });
+    restartTask(task);
+    return sendJson(res, 200, { ok: true, restarted: [task] });
+  }
+
   if (req.method === 'POST' && pathName === '/api/run') {
     const body = await readBody(req);
     const task = String(body.task || '').trim();
@@ -503,8 +667,8 @@ const server = http.createServer(async (req, res) => {
     return;
   }
 
-  const basePort = portArg ? Number(portArg) : 4519;
-  const port = Number.isFinite(basePort) ? await findPort(basePort) : await findPort(4519);
+  const requestedPort = portArg ? Number(portArg) : null;
+  const port = Number.isFinite(requestedPort) ? requestedPort : await findPort(4519);
   server.on('error', async (err) => {
     if (err.code === 'EADDRINUSE') {
       const url = `http://127.0.0.1:${port}`;
@@ -513,6 +677,11 @@ const server = http.createServer(async (req, res) => {
         logSystem(`Dashboard ya esta activo: ${url}`, 'ok', { console: true });
         if (!noOpen) openBrowser(url);
         process.exit(0);
+      }
+
+      if (Number.isFinite(requestedPort)) {
+        logSystem(`Puerto ocupado: ${port}. Cierra la instancia previa o cambia --port.`, 'error', { console: true });
+        process.exit(1);
       }
     }
     logSystem(`Error del servidor: ${err.message}`, 'error', { console: true });
@@ -524,6 +693,8 @@ const server = http.createServer(async (req, res) => {
     if (!noOpen) openBrowser(url);
     if (mode === 'dev') startTask('dev', commands.dev);
     if (mode === 'prod') startTask('prod', commands.prod);
+
+    setupDevWatchers();
   });
 })();
 

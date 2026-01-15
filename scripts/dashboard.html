@@ -9,6 +9,13 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <link
+    rel="icon"
+    type="image/svg+xml"
+    href="data:image/svg+xml,%3Csvg%20xmlns='http://www.w3.org/2000/svg'%20viewBox='0%200%2064%2064'%3E%3Cdefs%3E%3ClinearGradient%20id='g'%20x1='10'%20y1='6'%20x2='54'%20y2='58'%20gradientUnits='userSpaceOnUse'%3E%3Cstop%20offset='0'%20stop-color='%230b3a6b'/%3E%3Cstop%20offset='0.6'%20stop-color='%231d6fb8'/%3E%3Cstop%20offset='1'%20stop-color='%232fa4dd'/%3E%3C/linearGradient%3E%3C/defs%3E%3Crect%20x='6'%20y='6'%20width='52'%20height='52'%20rx='14'%20fill='url(%23g)'/%3E%3Cpath%20d='M22%2018h16l6%206v22a4%204%200%200%201-4%204H22a4%204%200%200%201-4-4V22a4%204%200%200%201%204-4Z'%20fill='%23ffffff'%20fill-opacity='0.96'/%3E%3Cpath%20d='M38%2018v8h8'%20fill='none'%20stroke='%23c7d2fe'%20stroke-width='3'%20stroke-linejoin='round'/%3E%3Cpath%20d='M24%2030h16'%20stroke='%2394a3b8'%20stroke-width='3'%20stroke-linecap='round'/%3E%3Cpath%20d='M24%2036h14'%20stroke='%2394a3b8'%20stroke-width='3'%20stroke-linecap='round'/%3E%3Cpath%20d='M25.5%2044.5l4.2%204.2L39%2039.4'%20fill='none'%20stroke='%2316a34a'%20stroke-width='4'%20stroke-linecap='round'%20stroke-linejoin='round'/%3E%3C/svg%3E"
+  />
+  <link rel="apple-touch-icon" href="/assets/dashboard-icon.svg" />
+  <link rel="manifest" href="/manifest.webmanifest" />
   <title>Dashboard - Sistema de Evaluacion Universitaria</title>
   <style>
     :root {
@@ -88,7 +95,8 @@
 
     .subtitle {
       font-size: 12px;
-      opacity: 0.88;
+      opacity: 0.96;
+      text-shadow: 0 1px 1px rgba(0, 0, 0, 0.28);
     }
 
     .header-chips {
@@ -98,33 +106,31 @@
     }
 
     .chip {
-      background: rgba(255, 255, 255, 0.16);
-      border: 1px solid rgba(255, 255, 255, 0.2);
+      background: rgba(0, 0, 0, 0.24);
+      border: 1px solid rgba(255, 255, 255, 0.22);
       color: #ffffff;
       border-radius: 999px;
       padding: 6px 12px;
       font-size: 12px;
       font-weight: 600;
+      text-shadow: 0 1px 1px rgba(0, 0, 0, 0.28);
     }
 
     .chip.ok {
-      background: rgba(34, 197, 94, 0.18);
-      border-color: rgba(34, 197, 94, 0.35);
+      border-color: rgba(34, 197, 94, 0.7);
     }
 
     .chip.warn {
-      background: rgba(245, 158, 11, 0.2);
-      border-color: rgba(245, 158, 11, 0.35);
+      border-color: rgba(245, 158, 11, 0.75);
     }
 
     .chip.error {
-      background: rgba(239, 68, 68, 0.18);
-      border-color: rgba(239, 68, 68, 0.35);
+      border-color: rgba(239, 68, 68, 0.75);
     }
 
     main {
-      padding: 16px 20px 30px;
-      max-width: 1800px;
+      padding: clamp(12px, 2vw, 22px) clamp(12px, 2.6vw, 28px) 30px;
+      max-width: 2200px;
       margin: 0 auto;
     }
 
@@ -171,6 +177,14 @@
       grid-template-columns: minmax(240px, 320px) minmax(0, 1fr);
       gap: 20px;
       align-items: start;
+    }
+
+    @media (min-width: 1101px) {
+      .panel-grid { grid-template-columns: minmax(320px, 420px) minmax(0, 1fr); }
+    }
+
+    @media (min-width: 1500px) {
+      .panel-grid { grid-template-columns: minmax(360px, 480px) minmax(0, 1fr); }
     }
 
     .left-col {
@@ -249,7 +263,7 @@
       color: var(--ink-soft);
     }
     .alert-actions { display: flex; gap: 8px; align-items: center; }
-    .ghost-btn {
+    button.ghost-btn {
       border: 1px solid var(--border);
       background: #ffffff;
       color: var(--ink);
@@ -258,8 +272,102 @@
       font-size: 12px;
       font-weight: 700;
       cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      line-height: 1.2;
+      transition: transform 90ms ease, box-shadow 140ms ease, background 140ms ease, border-color 140ms ease, color 140ms ease;
     }
-    .ghost-btn:hover { box-shadow: 0 8px 16px rgba(15, 23, 42, 0.12); }
+    button.ghost-btn:hover { box-shadow: 0 8px 16px rgba(15, 23, 42, 0.12); }
+    button.ghost-btn:active { transform: translateY(1px) scale(0.995); }
+
+    button.ghost-btn[data-hold-ms] {
+      position: relative;
+      overflow: hidden;
+    }
+
+    button.ghost-btn[data-hold-ms]::before {
+      content: '';
+      position: absolute;
+      inset: -1px;
+      background:
+        radial-gradient(circle at 20% 50%, rgba(47, 164, 221, 0.18), transparent 55%),
+        radial-gradient(circle at 80% 30%, rgba(13, 58, 107, 0.10), transparent 60%);
+      opacity: 0;
+      transition: opacity 140ms ease;
+      pointer-events: none;
+      z-index: 0;
+    }
+
+    button.ghost-btn.is-holding::before { opacity: 1; }
+
+    button.ghost-btn > * {
+      position: relative;
+      z-index: 1;
+    }
+
+    button.ghost-btn[data-hold-ms]::after {
+      content: '';
+      position: absolute;
+      inset: 0;
+      width: calc(var(--hold, 0) * 1%);
+      background: linear-gradient(90deg, rgba(13, 58, 107, 0.16), rgba(13, 58, 107, 0.06));
+      z-index: 0;
+      pointer-events: none;
+      transition: width 0.05s linear;
+    }
+
+    button.ghost-btn.is-holding {
+      box-shadow: 0 10px 22px rgba(13, 58, 107, 0.18);
+    }
+
+    button.ghost-btn.hold-btn {
+      padding: 10px 14px;
+      gap: 2px;
+      flex-direction: column;
+      border-radius: 16px;
+      min-width: 150px;
+    }
+
+    button.ghost-btn.hold-btn .btn-row {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+    }
+
+    button.ghost-btn.hold-btn .btn-sub {
+      font-size: 11px;
+      font-weight: 700;
+      color: var(--ink-soft);
+      opacity: 0.95;
+    }
+
+    button.ghost-btn.restart-btn {
+      background: #fff7ed;
+      border-color: #fed7aa;
+      color: #7c2d12;
+    }
+
+    button.ghost-btn.restart-btn:hover {
+      background: #ffedd5;
+      border-color: #fdba74;
+    }
+
+    button.ghost-btn.restart-btn.is-holding {
+      box-shadow: 0 12px 24px rgba(124, 45, 18, 0.18);
+    }
+
+    button.ghost-btn.hold-done {
+      animation: holdDone 0.36s ease both;
+    }
+
+    @keyframes holdDone {
+      0% { transform: translateY(0) scale(1); }
+      45% { transform: translateY(-1px) scale(1.02); }
+      100% { transform: translateY(0) scale(1); }
+    }
 
     .signal-grid {
       display: grid;
@@ -336,6 +444,32 @@
 
     .stack { display: grid; gap: 12px; }
 
+    .actions {
+      margin-top: 12px;
+      padding-top: 12px;
+      border-top: 1px dashed var(--border);
+      display: grid;
+      gap: 10px;
+    }
+
+    .actions-grid {
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 10px;
+    }
+
+    .actions-grid .ghost-btn {
+      width: 100%;
+    }
+
+    @media (min-width: 360px) {
+      .actions-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    }
+
+    @media (min-width: 620px) {
+      .actions-grid.env { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+    }
+
     .hint {
       font-size: 12px;
       color: var(--ink-soft);
@@ -366,10 +500,10 @@
       position: relative;
       overflow: hidden;
       display: grid;
-      grid-template-columns: 28px 1fr auto;
+      grid-template-columns: 28px minmax(0, 1fr) auto;
       align-items: center;
       gap: 12px;
-      height: 72px;
+      min-height: 72px;
       background: #f4f9ff;
     }
 
@@ -390,11 +524,29 @@
       display: flex;
       flex-direction: column;
       gap: 4px;
+      min-width: 0;
       z-index: 1;
     }
 
-    .toggle-title { font-size: 15px; font-weight: 700; }
-    .toggle-sub { font-size: 12px; color: var(--ink-soft); }
+    .toggle-title {
+      font-size: 15px;
+      font-weight: 700;
+      line-height: 1.2;
+    }
+    .toggle-sub {
+      font-size: 12px;
+      color: var(--ink-soft);
+      line-height: 1.2;
+    }
+
+    @media (min-width: 620px) {
+      .toggle-title,
+      .toggle-sub {
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+    }
 
     .toggle-state {
       font-size: 12px;
@@ -911,7 +1063,7 @@
 
     .log-body {
       padding: 14px;
-      height: 440px;
+      height: clamp(360px, 46vh, 720px);
       overflow: auto;
       font-family: Consolas, monospace;
       font-size: 12px;
@@ -932,9 +1084,74 @@
     .toolbar {
       display: flex;
       align-items: center;
-      gap: 12px;
+      gap: 10px;
       flex-wrap: wrap;
       margin-bottom: 12px;
+    }
+
+    .toolbar-grid {
+      display: grid;
+      gap: 10px;
+      align-items: center;
+      grid-template-columns: 1fr;
+    }
+
+    .toolbar-group {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      flex-wrap: wrap;
+      min-width: 0;
+    }
+
+    .toolbar-group.actions button {
+      flex: 1 1 160px;
+    }
+
+    .toolbar-group.switches {
+      row-gap: 8px;
+    }
+
+    .toolbar-group.filter {
+      width: 100%;
+    }
+
+    .toolbar-group.filter .search {
+      flex: 999 1 260px;
+      min-width: 160px;
+    }
+
+    .toolbar-group.filter button {
+      flex: 0 0 auto;
+    }
+
+    @media (min-width: 720px) {
+      .toolbar-grid {
+        grid-template-columns: minmax(0, 1fr);
+      }
+      .toolbar-group.actions button {
+        flex: 0 0 auto;
+      }
+    }
+
+    @media (min-width: 1101px) {
+      .toolbar-grid {
+        grid-template-columns: auto minmax(320px, 1fr) minmax(360px, 520px);
+        column-gap: 12px;
+      }
+      .toolbar-group.filter {
+        justify-content: flex-end;
+      }
+    }
+
+    @media (min-width: 1500px) {
+      .toolbar-grid {
+        grid-template-columns: auto minmax(420px, 1fr) minmax(520px, 720px);
+      }
+    }
+
+    .toolbar.top-space {
+      margin-top: 12px;
     }
 
     .toggle {
@@ -953,7 +1170,8 @@
       border-radius: 999px;
       padding: 8px 12px;
       font-size: 12px;
-      min-width: 200px;
+      min-width: 180px;
+      flex: 999 1 320px;
     }
 
     .pills { display: flex; gap: 10px; flex-wrap: wrap; }
@@ -996,17 +1214,80 @@
       background: #ffffff;
       color: var(--ink);
       border-radius: 12px;
-      padding: 12px 14px;
+      padding: 12px 12px;
       border: 1px solid var(--border);
       box-shadow: var(--shadow);
-      min-width: 220px;
-      animation: toastIn 0.3s ease both;
+      min-width: 260px;
+      max-width: min(440px, calc(100vw - 40px));
+      display: grid;
+      grid-template-columns: 34px 1fr auto;
+      gap: 10px;
+      align-items: start;
+      animation: toastIn 0.26s ease both;
+      position: relative;
+      overflow: hidden;
     }
+
+    .toast::after {
+      content: '';
+      position: absolute;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      height: 3px;
+      transform-origin: left;
+      transform: scaleX(1);
+      background: linear-gradient(90deg, rgba(13, 58, 107, 0.35), rgba(47, 164, 221, 0.25));
+      animation: toastLife var(--toast-duration, 2600ms) linear forwards;
+    }
+
+    .toast.paused::after { animation-play-state: paused; }
+
+    .toast.out { animation: toastOut 0.18s ease forwards; }
+
+    .toast-icon {
+      width: 34px;
+      height: 34px;
+      border-radius: 12px;
+      display: grid;
+      place-items: center;
+      font-weight: 900;
+      font-size: 14px;
+      user-select: none;
+    }
+
+    .toast-body { min-width: 0; }
+    .toast-title { margin: 0; font-size: 12px; font-weight: 900; letter-spacing: 0.01em; }
+    .toast-text { margin: 3px 0 0; font-size: 13px; color: var(--ink-soft); }
+    .toast-actions { display: inline-flex; gap: 8px; align-items: center; }
+
+    .toast-btn {
+      border: 1px solid var(--border);
+      background: #ffffff;
+      color: var(--ink);
+      border-radius: 10px;
+      padding: 6px 10px;
+      font-size: 12px;
+      font-weight: 800;
+      cursor: pointer;
+      transition: transform 90ms ease, box-shadow 140ms ease, background 140ms ease, border-color 140ms ease;
+    }
+
+    .toast-btn:hover { box-shadow: 0 10px 18px rgba(15, 23, 42, 0.12); }
+    .toast-btn:active { transform: translateY(1px); }
+
+    .toast-btn.action { border-color: rgba(13, 58, 107, 0.25); background: rgba(13, 58, 107, 0.05); }
+    .toast-btn.close { padding: 6px 8px; }
 
     .toast.ok { border-left: 4px solid #22c55e; }
     .toast.warn { border-left: 4px solid #f59e0b; }
     .toast.error { border-left: 4px solid #ef4444; }
     .toast.info { border-left: 4px solid #0ea5e9; }
+
+    .toast.ok .toast-icon { background: rgba(34, 197, 94, 0.14); color: #166534; }
+    .toast.warn .toast-icon { background: rgba(245, 158, 11, 0.14); color: #9a3412; }
+    .toast.error .toast-icon { background: rgba(239, 68, 68, 0.14); color: #b91c1c; }
+    .toast.info .toast-icon { background: rgba(14, 165, 233, 0.14); color: #1d4f91; }
 
     @keyframes fadeUp {
       from { transform: translateY(8px); opacity: 0; }
@@ -1028,6 +1309,26 @@
       to { transform: translateY(0); opacity: 1; }
     }
 
+    @keyframes toastOut {
+      from { transform: translateY(0); opacity: 1; }
+      to { transform: translateY(-6px); opacity: 0; }
+    }
+
+    @keyframes toastLife {
+      from { transform: scaleX(1); }
+      to { transform: scaleX(0); }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      .toast,
+      .toast::after,
+      button.ghost-btn.hold-done,
+      .dot.active {
+        animation: none !important;
+        transition: none !important;
+      }
+    }
+
     @media (max-width: 1100px) {
       .panel-grid { grid-template-columns: 1fr; }
       .right-grid { grid-template-columns: 1fr; }
@@ -1035,21 +1336,25 @@
       header { position: static; }
     }
 
+    @media (min-width: 1101px) and (max-width: 1199px) {
+      .right-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+      }
+      .right-grid .card { grid-column: auto; }
+      .right-grid .card.wide { grid-column: 1 / -1; }
+    }
+
     @media (min-width: 1200px) {
       .right-grid {
         grid-template-areas:
           "stack stack stack stack stack stack stack stack stack stack stack stack"
-          "alerts alerts alerts alerts alerts alerts alerts alerts alerts alerts alerts alerts"
           "analytics analytics analytics analytics analytics analytics activity activity activity activity activity activity"
-          "events events events events events events events events events events events events"
           "links links links links links links links links links links links links";
       }
 
       .stack-card { grid-area: stack; }
-      .alert-card { grid-area: alerts; }
       .analytics-card { grid-area: analytics; }
       .activity-card { grid-area: activity; }
-      .events-card { grid-area: events; }
       .links-card { grid-area: links; }
 
       .analytics-grid { grid-template-columns: repeat(4, minmax(0, 1fr)); }
@@ -1057,6 +1362,22 @@
       .metrics { grid-template-columns: repeat(3, minmax(0, 1fr)); }
       .links { grid-template-columns: repeat(2, minmax(0, 1fr)); }
       .service-list { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    }
+
+    @media (min-width: 1500px) {
+      .links { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+    }
+
+    #panel-status .panel-grid {
+      grid-template-columns: minmax(0, 1fr);
+    }
+
+    @media (min-width: 1101px) {
+      #panel-status .panel-grid { grid-template-columns: minmax(320px, 420px) minmax(0, 1fr); }
+    }
+
+    @media (min-width: 1500px) {
+      #panel-status .panel-grid { grid-template-columns: minmax(360px, 520px) minmax(0, 1fr); }
     }
 
     @media (max-width: 900px) {
@@ -1088,6 +1409,17 @@
 
     @media (prefers-reduced-motion: reduce) {
       * { animation: none !important; transition: none !important; }
+    }
+
+    @media (prefers-contrast: more) {
+      .subtitle { opacity: 1; }
+      .chip {
+        background: rgba(0, 0, 0, 0.42);
+        border-color: rgba(255, 255, 255, 0.35);
+      }
+      .chip.ok { border-color: rgba(34, 197, 94, 0.95); }
+      .chip.warn { border-color: rgba(245, 158, 11, 0.95); }
+      .chip.error { border-color: rgba(239, 68, 68, 0.95); }
     }
   </style>
 </head>
@@ -1152,9 +1484,9 @@
               </svg>
               Entornos
             </h2>
-            <p class="hint">Mantener presionado 1.2s para alternar el estado. Evita clics accidentales.</p>
+            <p class="hint" id="hint-hold">Mantener presionado 1.2s para iniciar/detener o reiniciar. Evita clics accidentales.</p>
             <div class="stack">
-              <button class="toggle-btn" data-env="dev" data-hold-ms="1200" aria-pressed="false">
+              <button class="toggle-btn" data-env="dev" data-hold-ms="1200" aria-pressed="false" aria-describedby="hint-hold">
                 <span class="status-dot" data-dot></span>
                 <span class="toggle-meta">
                   <span class="toggle-title">Dev local (Docker + Web)</span>
@@ -1162,7 +1494,7 @@
                 </span>
                 <span class="toggle-state" data-state>Detenido</span>
               </button>
-              <button class="toggle-btn" data-env="prod" data-hold-ms="1200" aria-pressed="false">
+              <button class="toggle-btn" data-env="prod" data-hold-ms="1200" aria-pressed="false" aria-describedby="hint-hold">
                 <span class="status-dot" data-dot></span>
                 <span class="toggle-meta">
                   <span class="toggle-title">Prod local (Docker API)</span>
@@ -1170,7 +1502,7 @@
                 </span>
                 <span class="toggle-state" data-state>Detenido</span>
               </button>
-              <button class="toggle-btn" data-env="portal" data-hold-ms="1200" aria-pressed="false">
+              <button class="toggle-btn" data-env="portal" data-hold-ms="1200" aria-pressed="false" aria-describedby="hint-hold">
                 <span class="status-dot" data-dot></span>
                 <span class="toggle-meta">
                   <span class="toggle-title">Portal alumno (API)</span>
@@ -1178,6 +1510,48 @@
                 </span>
                 <span class="toggle-state" data-state>Detenido</span>
               </button>
+            </div>
+
+            <div class="actions" aria-label="Reinicios">
+              <div class="actions-grid env">
+                <button class="ghost-btn hold-btn restart-btn" data-restart="dev" data-hold-ms="1200" aria-describedby="hint-hold" type="button" title="Reinicia el entorno dev (Docker + Web)">
+                  <span class="btn-row">
+                    <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M21 12a9 9 0 1 1-3-6.7V3h-6v6h6V6.4A7 7 0 1 0 19 12h2Z"/></svg>
+                    <span class="btn-text">Reiniciar dev</span>
+                  </span>
+                  <span class="btn-sub">Mantener 1.2s</span>
+                </button>
+                <button class="ghost-btn hold-btn restart-btn" data-restart="prod" data-hold-ms="1200" aria-describedby="hint-hold" type="button" title="Reinicia el entorno prod (Docker API)">
+                  <span class="btn-row">
+                    <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M21 12a9 9 0 1 1-3-6.7V3h-6v6h6V6.4A7 7 0 1 0 19 12h2Z"/></svg>
+                    <span class="btn-text">Reiniciar prod</span>
+                  </span>
+                  <span class="btn-sub">Mantener 1.2s</span>
+                </button>
+                <button class="ghost-btn hold-btn restart-btn" data-restart="portal" data-hold-ms="1200" aria-describedby="hint-hold" type="button" title="Reinicia la API del portal alumno">
+                  <span class="btn-row">
+                    <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M21 12a9 9 0 1 1-3-6.7V3h-6v6h6V6.4A7 7 0 1 0 19 12h2Z"/></svg>
+                    <span class="btn-text">Reiniciar portal</span>
+                  </span>
+                  <span class="btn-sub">Mantener 1.2s</span>
+                </button>
+              </div>
+              <div class="actions-grid">
+                <button class="ghost-btn hold-btn restart-btn" data-restart="stack" data-hold-ms="1200" aria-describedby="hint-hold" type="button" title="Reinicia los servicios activos">
+                  <span class="btn-row">
+                    <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M21 12a9 9 0 1 1-3-6.7V3h-6v6h6V6.4A7 7 0 1 0 19 12h2Z"/></svg>
+                    <span class="btn-text">Reiniciar stack</span>
+                  </span>
+                  <span class="btn-sub">Mantener 1.2s</span>
+                </button>
+                <button class="ghost-btn hold-btn restart-btn" data-restart="all" data-hold-ms="1200" aria-describedby="hint-hold" type="button" title="Reinicia todos los procesos activos">
+                  <span class="btn-row">
+                    <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 6V3L8 7l4 4V8c2.8 0 5 2.2 5 5a5 5 0 0 1-9.7 1.6l-1.8.8A7 7 0 1 0 12 6Z"/></svg>
+                    <span class="btn-text">Reiniciar todo</span>
+                  </span>
+                  <span class="btn-sub">Mantener 1.2s</span>
+                </button>
+              </div>
             </div>
           </div>
 
@@ -1402,29 +1776,44 @@
               </svg>
               Salida y consola
             </h2>
-            <div class="toolbar">
-              <button class="ok" id="toggle-logs" aria-expanded="false" aria-controls="log-shell">
-                <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5l7 7-7 7-1.4-1.4L15.2 13H5v-2h10.2l-4.6-4.6L12 5z"/></svg>
-                Mostrar salida
-              </button>
-              <button class="danger" id="clear-logs">
-                <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 7h12v2H6V7zm2 3h8l-1 9H9l-1-9zm3-6h2l1 2H10l1-2z"/></svg>
-                Limpiar salida
-              </button>
-              <label class="toggle">
-                <input type="checkbox" id="full-logs" />
-                Logs detallados
-              </label>
-              <label class="toggle">
-                <input type="checkbox" id="auto-scroll" checked />
-                Auto-scroll
-              </label>
-              <label class="toggle">
-                <input type="checkbox" id="pause-updates" />
-                Pausar actualizaciones
-              </label>
-              <input class="search" id="log-filter" placeholder="Filtrar texto" aria-label="Filtrar salida" />
-              <button class="ghost-btn" id="clear-filter" type="button">Limpiar filtro</button>
+            <div class="toolbar toolbar-grid" aria-label="Controles de salida">
+              <div class="toolbar-group actions" aria-label="Acciones de salida">
+                <button class="ok" id="toggle-logs" aria-expanded="false" aria-controls="log-shell">
+                  <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5l7 7-7 7-1.4-1.4L15.2 13H5v-2h10.2l-4.6-4.6L12 5z"/></svg>
+                  Mostrar salida
+                </button>
+                <button class="ghost-btn" id="open-logfile" type="button" title="Abrir logs/dashboard.log (log persistente)">
+                  Abrir dashboard.log
+                </button>
+                <button class="danger" id="clear-logs">
+                  <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 7h12v2H6V7zm2 3h8l-1 9H9l-1-9zm3-6h2l1 2H10l1-2z"/></svg>
+                  Limpiar salida
+                </button>
+              </div>
+
+              <div class="toolbar-group switches" aria-label="Opciones de salida">
+                <label class="toggle">
+                  <input type="checkbox" id="full-logs" />
+                  Logs detallados
+                </label>
+                <label class="toggle">
+                  <input type="checkbox" id="auto-scroll" checked />
+                  Auto-scroll
+                </label>
+                <label class="toggle">
+                  <input type="checkbox" id="pause-updates" />
+                  Pausar actualizaciones
+                </label>
+                <label class="toggle" title="En modo dev, reinicia el stack cuando cambien archivos del front/back">
+                  <input type="checkbox" id="auto-restart" />
+                  Auto-reinicio (dev)
+                </label>
+              </div>
+
+              <div class="toolbar-group filter" aria-label="Filtro de salida">
+                <input class="search" id="log-filter" placeholder="Filtrar texto" aria-label="Filtrar salida" />
+                <button class="ghost-btn" id="clear-filter" type="button">Limpiar filtro</button>
+              </div>
             </div>
             <div class="pills">
               <span class="pill" id="log-size">0 lineas</span>
@@ -1478,7 +1867,8 @@
       lastConnectionError: '',
       lastErrorToastAt: 0,
       lastLogsOk: true,
-      lastLogsError: ''
+      lastLogsError: '',
+      autoRestart: false
     };
 
     const HOLD_DEFAULT = 1200;
@@ -1529,7 +1919,7 @@
       const now = Date.now();
       if (now - state.lastErrorToastAt < 9000) return;
       state.lastErrorToastAt = now;
-      showToast(text, 'error');
+      showToast(text, 'error', { title: 'Error', id: 'error-generic', duration: 5200 });
     }
 
     async function api(path, body) {
@@ -1548,13 +1938,126 @@
     }
 
     function showToast(text, type = 'info') {
+      return showToastAdvanced(String(text || ''), type);
+    }
+
+    function toastIcon(type) {
+      if (type === 'ok') return 'OK';
+      if (type === 'warn') return '!';
+      if (type === 'error') return 'X';
+      return 'i';
+    }
+
+    function cssEscape(value) {
+      if (typeof value !== 'string') return '';
+      if (window.CSS && typeof window.CSS.escape === 'function') return window.CSS.escape(value);
+      return value.replace(/"/g, '\\"');
+    }
+
+    function dismissToast(toast) {
+      if (!toast || toast.classList.contains('out')) return;
+      toast.classList.add('out');
+      const remove = () => toast.remove();
+      toast.addEventListener('animationend', remove, { once: true });
+      setTimeout(remove, 260);
+    }
+
+    function showToastAdvanced(text, type = 'info', options = {}) {
       const wrap = $('toast-wrap');
       if (!wrap) return;
+
+      const title = typeof options.title === 'string' ? options.title : null;
+      const id = typeof options.id === 'string' ? options.id : null;
+      const actionLabel = typeof options.actionLabel === 'string' ? options.actionLabel : null;
+      const onAction = typeof options.onAction === 'function' ? options.onAction : null;
+      const duration = Math.max(1200, Number(options.duration || 2800));
+      const maxToasts = 4;
+
+      if (id) {
+        const existing = wrap.querySelector(`.toast[data-id="${cssEscape(id)}"]`);
+        if (existing) existing.remove();
+      }
+
       const toast = document.createElement('div');
       toast.className = `toast ${type}`;
-      toast.textContent = text;
+      toast.style.setProperty('--toast-duration', `${duration}ms`);
+      if (id) toast.dataset.id = id;
+
+      const safeTitle = title || (type === 'error' ? 'Error' : type === 'warn' ? 'Atencion' : type === 'ok' ? 'Listo' : 'Info');
+
+      toast.innerHTML = `
+        <div class="toast-icon" aria-hidden="true">${toastIcon(type)}</div>
+        <div class="toast-body">
+          <div class="toast-title">${safeTitle}</div>
+          <div class="toast-text"></div>
+        </div>
+        <div class="toast-actions">
+          ${actionLabel ? '<button class="toast-btn action" type="button" data-toast-action></button>' : ''}
+          <button class="toast-btn close" type="button" aria-label="Cerrar" data-toast-close>×</button>
+        </div>
+      `.trim();
+
+      const textEl = toast.querySelector('.toast-text');
+      if (textEl) textEl.textContent = String(text || '').trim();
+      const actionBtn = toast.querySelector('[data-toast-action]');
+      if (actionBtn && actionLabel) actionBtn.textContent = actionLabel;
+
+      const closeBtn = toast.querySelector('[data-toast-close]');
+      if (closeBtn) closeBtn.addEventListener('click', () => dismissToast(toast));
+      if (actionBtn && onAction) {
+        actionBtn.addEventListener('click', () => {
+          try { onAction(); } finally { dismissToast(toast); }
+        });
+      }
+
       wrap.appendChild(toast);
-      setTimeout(() => toast.remove(), 2600);
+      while (wrap.children.length > maxToasts) {
+        const first = wrap.firstElementChild;
+        if (first) first.remove();
+      }
+
+      let remaining = duration;
+      let startedAt = Date.now();
+      let timer = setTimeout(() => dismissToast(toast), remaining);
+
+      const pause = () => {
+        if (!timer) return;
+        clearTimeout(timer);
+        timer = null;
+        remaining -= Date.now() - startedAt;
+        toast.classList.add('paused');
+      };
+
+      const resume = () => {
+        if (timer) return;
+        remaining = Math.max(450, remaining);
+        startedAt = Date.now();
+        toast.classList.remove('paused');
+        timer = setTimeout(() => dismissToast(toast), remaining);
+      };
+
+      toast.addEventListener('pointerenter', pause);
+      toast.addEventListener('pointerleave', resume);
+
+      return toast;
+    }
+
+    function showToastAdvancedEntry(text, type, options) {
+      return showToastAdvanced(text, type, options);
+    }
+
+    function refreshAfterAction({ forceHealth = true } = {}) {
+      refreshStatus();
+      if (forceHealth) refreshHealth(true);
+      if (state.logsVisible) refreshLogs();
+      refreshSignals();
+    }
+
+    function scheduleRefreshPulse() {
+      refreshAfterAction({ forceHealth: true });
+      setTimeout(() => refreshAfterAction({ forceHealth: true }), 900);
+      setTimeout(() => refreshAfterAction({ forceHealth: true }), 2400);
+      setTimeout(() => refreshAfterAction({ forceHealth: true }), 5200);
     }
 
     function formatTime(ts) {
@@ -2052,6 +2555,7 @@
 
       const reset = () => {
         button.style.setProperty('--hold', 0);
+        button.classList.remove('is-holding');
         active = false;
         if (rafId) cancelAnimationFrame(rafId);
         rafId = null;
@@ -2061,6 +2565,8 @@
         const progress = Math.min(1, (now - start) / holdMs);
         button.style.setProperty('--hold', (progress * 100).toFixed(2));
         if (progress >= 1) {
+          button.classList.add('hold-done');
+          setTimeout(() => button.classList.remove('hold-done'), 420);
           reset();
           onTrigger();
           return;
@@ -2070,8 +2576,11 @@
 
       const startHold = (event) => {
         event.preventDefault();
+        const cooldownUntil = Number(button.dataset.cooldownUntil || 0);
+        if (cooldownUntil && Date.now() < cooldownUntil) return;
         if (active) return;
         active = true;
+        button.classList.add('is-holding');
         start = performance.now();
         rafId = requestAnimationFrame(step);
       };
@@ -2131,6 +2640,13 @@
       setText('raw-size', `${data.rawSize} en bruto`);
       setText('last-refresh-status', `Actualizado ${new Date().toLocaleTimeString()}`);
 
+      state.autoRestart = Boolean(data.autoRestart);
+      const autoRestartToggle = $('auto-restart');
+      if (autoRestartToggle) {
+        autoRestartToggle.disabled = String(data.mode || '').toLowerCase() !== 'dev';
+        autoRestartToggle.checked = state.autoRestart;
+      }
+
       setRunningDot(runningCount > 0);
       updateEnvButtons();
 
@@ -2184,6 +2700,11 @@
           time: new Date().toLocaleTimeString()
         });
       }
+    }
+
+    async function setAutoRestart(value) {
+      await api('/api/config', { autoRestart: Boolean(value) });
+      refreshStatus();
     }
 
     function renderLogs(entries) {
@@ -2305,6 +2826,15 @@
       });
     });
 
+    // Restart buttons (hold-to-run).
+    document.querySelectorAll('[data-restart][data-hold-ms]').forEach((button) => {
+      attachHold(button, () => {
+        const what = button.dataset.restart;
+        showToast(`Reiniciando ${what}...`, 'warn');
+        api('/api/restart', { task: what });
+      });
+    });
+
     // Hold-to-run for destructive actions.
     document.querySelectorAll('[data-run][data-hold-ms]').forEach((button) => {
       attachHold(button, () => {
@@ -2372,6 +2902,15 @@
       });
     }
 
+    const autoRestartToggle = $('auto-restart');
+    if (autoRestartToggle) {
+      autoRestartToggle.addEventListener('change', (event) => {
+        const value = event.target.checked;
+        showToast(value ? 'Auto-reinicio activado' : 'Auto-reinicio desactivado', value ? 'ok' : 'warn');
+        setAutoRestart(value);
+      });
+    }
+
     const logFilter = $('log-filter');
     if (logFilter) {
       logFilter.addEventListener('input', (event) => {
@@ -2387,6 +2926,13 @@
         const input = $('log-filter');
         if (input) input.value = '';
         refreshLogs();
+      });
+    }
+
+    const openLogFile = $('open-logfile');
+    if (openLogFile) {
+      openLogFile.addEventListener('click', () => {
+        window.open('/api/logfile', '_blank', 'noopener,noreferrer');
       });
     }
 

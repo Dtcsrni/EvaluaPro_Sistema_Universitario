@@ -1,0 +1,17 @@
+{
+  "name": "Dashboard - Sistema de Evaluacion Universitaria",
+  "short_name": "Dashboard SEU",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#f5f7fb",
+  "theme_color": "#0b3a6b",
+  "icons": [
+    {
+      "src": "/assets/dashboard-icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    }
+  ]
+}
