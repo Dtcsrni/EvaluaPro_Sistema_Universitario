@@ -633,9 +633,15 @@ function SeccionAutenticacion({ onIngresar }: { onIngresar: (token: string) => v
           <li>
             <Icono nombre="ok" /> Sesion persistente segura (refresh token httpOnly).
           </li>
-          <li>
-            <Icono nombre="inicio" /> Acceso rapido con Google (opcional).
-          </li>
+          {googleDisponible ? (
+            <li>
+              <Icono nombre="inicio" /> Acceso rapido con Google (correo institucional).
+            </li>
+          ) : (
+            <li>
+              <Icono nombre="info" /> Google no configurado (define VITE_GOOGLE_CLIENT_ID).
+            </li>
+          )}
           <li>
             <Icono nombre="banco" /> Todo en un solo panel.
           </li>
