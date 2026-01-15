@@ -389,6 +389,26 @@ function SeccionAutenticacion({ onIngresar }: { onIngresar: (token: string) => v
   const [mensaje, setMensaje] = useState('');
   const [modo, setModo] = useState<'ingresar' | 'registrar'>('ingresar');
   const [enviando, setEnviando] = useState(false);
+  const [credentialRegistroGoogle, setCredentialRegistroGoogle] = useState<string | null>(null);
+
+  function hayGoogleConfigurado() {
+    return Boolean(String(import.meta.env.VITE_GOOGLE_CLIENT_ID || '').trim());
+  }
+
+  function decodificarPayloadJwt(jwt: string): Record<string, unknown> | null {
+    const partes = String(jwt || '').split('.');
+    if (partes.length < 2) return null;
+    try {
+      const base64 = partes[1]
+        .replace(/-/g, '+')
+        .replace(/_/g, '/')
+        .padEnd(Math.ceil(partes[1].length / 4) * 4, '=');
+      const json = atob(base64);
+      return JSON.parse(json) as Record<string, unknown>;
+    } catch {
+      return null;
+    }
+  }
 
   async function ingresar() {
     try {
@@ -445,14 +465,23 @@ function SeccionAutenticacion({ onIngresar }: { onIngresar: (token: string) => v
       const inicio = Date.now();
       setEnviando(true);
       setMensaje('');
-      const respuesta = await clienteApi.enviar<{ token: string }>('/autenticacion/registrar', {
-        nombreCompleto: nombreCompleto.trim(),
-        correo: correo.trim(),
-        contrasena
-      });
+      const nombre = nombreCompleto.trim();
+      const correoFinal = correo.trim();
+
+      const respuesta = credentialRegistroGoogle
+        ? await clienteApi.enviar<{ token: string }>('/autenticacion/registrar-google', {
+            credential: credentialRegistroGoogle,
+            nombreCompleto: nombre,
+            contrasena
+          })
+        : await clienteApi.enviar<{ token: string }>('/autenticacion/registrar', {
+            nombreCompleto: nombre,
+            correo: correoFinal,
+            contrasena
+          });
       onIngresar(respuesta.token);
       emitToast({ level: 'ok', title: 'Cuenta creada', message: 'Sesion iniciada', durationMs: 2800 });
-      registrarAccionDocente('registrar', true, Date.now() - inicio);
+      registrarAccionDocente(credentialRegistroGoogle ? 'registrar_google' : 'registrar', true, Date.now() - inicio);
     } catch (error) {
       const msg = mensajeDeError(error, 'No se pudo registrar');
       setMensaje(msg);
@@ -473,93 +502,168 @@ function SeccionAutenticacion({ onIngresar }: { onIngresar: (token: string) => v
   const puedeRegistrar = Boolean(nombreCompleto.trim() && correo.trim() && contrasena.trim());
 
   return (
-    <div className="panel">
-      <h2>
-        <Icono nombre="docente" /> Acceso docente
-      </h2>
-      {String(import.meta.env.VITE_GOOGLE_CLIENT_ID || '').trim() && (
-        <div style={{ marginBottom: 12 }}>
-          <GoogleLogin
-            onSuccess={(cred) => {
-              const token = cred.credential;
-              if (!token) {
-                setMensaje('No se recibio credencial de Google.');
-                return;
-              }
-              void ingresarConGoogle(token);
-            }}
-            onError={() => setMensaje('No se pudo iniciar sesion con Google.')}
-            useOneTap
-          />
-          <p className="nota" style={{ marginTop: 8 }}>
-            Opcional: acceso rapido con Google (mantiene seguridad con refresh token httpOnly).
-          </p>
+    <div className="auth-grid">
+      <div className="auth-hero">
+        <p className="eyebrow">Acceso</p>
+        <h2>
+          <Icono nombre="docente" /> Acceso docente
+        </h2>
+        <p className="auth-subtitulo">Entra al banco, examenes y calificacion.</p>
+        <ul className="auth-beneficios" aria-label="Beneficios">
+          <li>
+            <Icono nombre="ok" /> Sesion persistente segura (refresh token httpOnly).
+          </li>
+          <li>
+            <Icono nombre="inicio" /> Acceso rapido con Google (opcional).
+          </li>
+          <li>
+            <Icono nombre="banco" /> Todo en un solo panel.
+          </li>
+        </ul>
+        <div className="auth-ilustracion" aria-hidden="true">
+          <div className="auth-blob" />
+          <div className="auth-blob auth-blob--2" />
         </div>
-      )}
-      <div className="acciones">
-        <button
-          className={modo === 'ingresar' ? 'boton' : 'boton secundario'}
-          type="button"
-          onClick={() => {
-            setModo('ingresar');
-            setMensaje('');
-          }}
-        >
-          Ingresar
-        </button>
-        <button
-          className={modo === 'registrar' ? 'boton' : 'boton secundario'}
-          type="button"
-          onClick={() => {
-            setModo('registrar');
-            setMensaje('');
-          }}
-        >
-          Registrar
-        </button>
       </div>
-      {modo === 'registrar' && (
-        <label className="campo">
-          Nombre completo
-          <input value={nombreCompleto} onChange={(event) => setNombreCompleto(event.target.value)} autoComplete="name" />
-        </label>
-      )}
-      <label className="campo">
-        Correo
-        <input type="email" value={correo} onChange={(event) => setCorreo(event.target.value)} autoComplete="email" />
-      </label>
-      <label className="campo">
-        Contrasena
-        {modo === 'ingresar' ? (
-          <input
-            type="password"
-            value={contrasena}
-            onChange={(event) => setContrasena(event.target.value)}
-            autoComplete="current-password"
-          />
-        ) : (
-          <input
-            type="password"
-            value={contrasena}
-            onChange={(event) => setContrasena(event.target.value)}
-            autoComplete="new-password"
-          />
+
+      <div className="auth-form">
+        {hayGoogleConfigurado() && modo === 'ingresar' && (
+          <div className="auth-google auth-google--mb">
+            <GoogleLogin
+              onSuccess={(cred) => {
+                const token = cred.credential;
+                if (!token) {
+                  setMensaje('No se recibio credencial de Google.');
+                  return;
+                }
+                void ingresarConGoogle(token);
+              }}
+              onError={() => setMensaje('No se pudo iniciar sesion con Google.')}
+              useOneTap
+            />
+            <p className="nota nota--mt">
+              Opcional: acceso rapido con Google.
+            </p>
+          </div>
         )}
-      </label>
-      <div className="acciones">
-        <Boton
-          type="button"
-          icono={<Icono nombre={modo === 'ingresar' ? 'entrar' : 'nuevo'} />}
-          cargando={enviando}
-          disabled={modo === 'ingresar' ? !puedeIngresar : !puedeRegistrar}
-          onClick={modo === 'ingresar' ? ingresar : registrar}
-        >
-          {modo === 'ingresar' ? (enviando ? 'Ingresando…' : 'Ingresar') : enviando ? 'Creando…' : 'Crear cuenta'}
-        </Boton>
+
+        <div className="acciones">
+          <button
+            className={modo === 'ingresar' ? 'boton' : 'boton secundario'}
+            type="button"
+            onClick={() => {
+              setModo('ingresar');
+              setCredentialRegistroGoogle(null);
+              setMensaje('');
+            }}
+          >
+            Ingresar
+          </button>
+          <button
+            className={modo === 'registrar' ? 'boton' : 'boton secundario'}
+            type="button"
+            onClick={() => {
+              setModo('registrar');
+              setMensaje('');
+            }}
+          >
+            Registrar
+          </button>
+        </div>
+
+        {hayGoogleConfigurado() && modo === 'registrar' && (
+          <div className="auth-google auth-google--mb">
+            <GoogleLogin
+              onSuccess={(cred) => {
+                const token = cred.credential;
+                if (!token) {
+                  setMensaje('No se recibio credencial de Google.');
+                  return;
+                }
+
+                const payload = decodificarPayloadJwt(token);
+                const email = typeof payload?.email === 'string' ? payload.email : undefined;
+                const name = typeof payload?.name === 'string' ? payload.name : undefined;
+
+                if (email) setCorreo(email);
+                if (name && !nombreCompleto.trim()) setNombreCompleto(name);
+                setCredentialRegistroGoogle(token);
+                setMensaje('Correo tomado de Google. Completa tus datos para crear la cuenta.');
+              }}
+              onError={() => setMensaje('No se pudo obtener datos de Google.')}
+            />
+            <div className="acciones acciones--mt">
+              <button
+                className={credentialRegistroGoogle ? 'chip' : 'chip'}
+                type="button"
+                onClick={() => {
+                  setCredentialRegistroGoogle(null);
+                  setCorreo('');
+                  setMensaje('');
+                }}
+                disabled={!credentialRegistroGoogle}
+              >
+                Cambiar correo
+              </button>
+            </div>
+            <p className="nota nota--mt">
+              Registro con Google: el correo se obtiene automaticamente.
+            </p>
+          </div>
+        )}
+
+        {modo === 'registrar' && (
+          <label className="campo">
+            Nombre completo
+            <input value={nombreCompleto} onChange={(event) => setNombreCompleto(event.target.value)} autoComplete="name" />
+          </label>
+        )}
+
+        <label className="campo">
+          Correo
+          <input
+            type="email"
+            value={correo}
+            onChange={(event) => setCorreo(event.target.value)}
+            autoComplete="email"
+            readOnly={modo === 'registrar' && Boolean(credentialRegistroGoogle)}
+          />
+          {modo === 'registrar' && credentialRegistroGoogle && <span className="ayuda">Correo bloqueado por Google.</span>}
+        </label>
+
+        <label className="campo">
+          Contrasena
+          {modo === 'ingresar' ? (
+            <input
+              type="password"
+              value={contrasena}
+              onChange={(event) => setContrasena(event.target.value)}
+              autoComplete="current-password"
+            />
+          ) : (
+            <input
+              type="password"
+              value={contrasena}
+              onChange={(event) => setContrasena(event.target.value)}
+              autoComplete="new-password"
+            />
+          )}
+        </label>
+
+        <div className="acciones">
+          <Boton
+            type="button"
+            icono={<Icono nombre={modo === 'ingresar' ? 'entrar' : 'nuevo'} />}
+            cargando={enviando}
+            disabled={modo === 'ingresar' ? !puedeIngresar : !puedeRegistrar}
+            onClick={modo === 'ingresar' ? ingresar : registrar}
+          >
+            {modo === 'ingresar' ? (enviando ? 'Ingresando…' : 'Ingresar') : enviando ? 'Creando…' : 'Crear cuenta'}
+          </Boton>
+        </div>
+
+        {mensaje && <InlineMensaje tipo={esMensajeError(mensaje) ? 'error' : 'ok'}>{mensaje}</InlineMensaje>}
       </div>
-      {mensaje && (
-        <InlineMensaje tipo={esMensajeError(mensaje) ? 'error' : 'ok'}>{mensaje}</InlineMensaje>
-      )}
     </div>
   );
 }

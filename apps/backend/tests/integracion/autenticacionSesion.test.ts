@@ -75,4 +75,27 @@ describe('autenticacion (sesiones)', () => {
     expect(setCookie).toBeTruthy();
     expect(String(setCookie)).toContain('refreshDocente=');
   });
+
+  it('permite registrar con Google y luego ingresar con Google', async () => {
+    const registro = await request(app)
+      .post('/api/autenticacion/registrar-google')
+      .send({
+        credential: 'fake-id-token',
+        nombreCompleto: 'Docente Registro Google',
+        contrasena: 'Secreto123!'
+      })
+      .expect(201);
+
+    expect(registro.body.token).toBeTruthy();
+    const setCookie = registro.headers['set-cookie'];
+    expect(setCookie).toBeTruthy();
+    expect(String(setCookie)).toContain('refreshDocente=');
+
+    const login = await request(app)
+      .post('/api/autenticacion/google')
+      .send({ credential: 'fake-id-token' })
+      .expect(200);
+
+    expect(login.body.token).toBeTruthy();
+  });
 });

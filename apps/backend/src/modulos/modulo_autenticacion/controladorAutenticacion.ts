@@ -31,6 +31,36 @@ export async function registrarDocente(req: Request, res: Response) {
   res.status(201).json({ token, docente: { id: docente._id, nombreCompleto: docente.nombreCompleto, correo: docente.correo } });
 }
 
+export async function registrarDocenteGoogle(req: Request, res: Response) {
+  const { credential, nombreCompleto, contrasena } = req.body as {
+    credential?: unknown;
+    nombreCompleto?: unknown;
+    contrasena?: unknown;
+  };
+
+  const perfil = await verificarCredencialGoogle(String(credential ?? ''));
+  const correo = perfil.correo.toLowerCase();
+
+  const existente = await Docente.findOne({ correo }).lean();
+  if (existente) {
+    throw new ErrorAplicacion('DOCENTE_EXISTE', 'El correo ya esta registrado', 409);
+  }
+
+  const hashContrasena = await crearHash(String(contrasena ?? ''));
+  const docente = await Docente.create({
+    nombreCompleto: String(nombreCompleto ?? perfil.nombreCompleto ?? '').trim(),
+    correo,
+    hashContrasena,
+    googleSub: perfil.sub,
+    activo: true,
+    ultimoAcceso: new Date()
+  });
+
+  await emitirSesionDocente(res, String(docente._id));
+  const token = crearTokenDocente({ docenteId: String(docente._id) });
+  res.status(201).json({ token, docente: { id: docente._id, nombreCompleto: docente.nombreCompleto, correo: docente.correo } });
+}
+
 export async function ingresarDocente(req: Request, res: Response) {
   const { correo, contrasena } = req.body;
   const docente = await Docente.findOne({ correo: correo.toLowerCase() });
