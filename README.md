@@ -54,6 +54,7 @@ Incluye generacion de PDFs, vinculacion por QR, escaneo OMR (pipeline base) para
 - Solo API (Docker): `npm run dev:backend`
 - Solo web: `npm run dev:frontend`
 - Solo portal alumno: `npm run dev:portal`
+- Reset local (DB + PDFs + logs + build): `npm run reset:local`
 - Pruebas backend: `npm run test`
 - Pruebas portal alumno: `npm run test:portal`
 - Pruebas frontend: `npm run test:frontend`

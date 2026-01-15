@@ -32,7 +32,9 @@
     "lint": "npm run --workspaces --if-present lint",
     "start": "docker compose --profile prod up --build mongo_local api_docente_prod",
     "start:portal": "npm -C apps/portal_alumno_cloud run start",
-    "status": "node scripts/dashboard.mjs"
+    "status": "node scripts/dashboard.mjs",
+    "reset:local": "node scripts/reset-local.mjs",
+    "reset:local:yes": "node scripts/reset-local.mjs --yes"
   },
   "devDependencies": {
     "@mermaid-js/mermaid-cli": "^11.12.0",
