@@ -99,7 +99,7 @@
 
     main {
       padding: 16px 20px 30px;
-      max-width: 1600px;
+      max-width: 1800px;
       margin: 0 auto;
     }
 
@@ -1026,9 +1026,13 @@
       .links-card { grid-area: links; }
 
       .analytics-grid { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+      .summary-grid { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+      .metrics { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+      .links { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+      .service-list { grid-template-columns: repeat(2, minmax(0, 1fr)); }
     }
 
-    @media (max-width: 900px) { {
+    @media (max-width: 900px) {
       header {
         flex-direction: column;
         align-items: flex-start;

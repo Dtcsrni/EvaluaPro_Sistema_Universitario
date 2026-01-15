@@ -3,6 +3,7 @@ node_modules/
 dist/
 .vscode/
 data/
+logs/
 .env
 .env.*
 .DS_Store

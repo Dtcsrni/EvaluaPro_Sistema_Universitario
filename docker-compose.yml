@@ -7,7 +7,7 @@ services:
       - mongod
       - --quiet
       - --setParameter
-      - logComponentVerbosity={"storage":{"verbosity":0,"wiredTiger":{"verbosity":0}}}
+      - logComponentVerbosity={"storage":{"verbosity":0}}
     restart: unless-stopped
     ports:
       - "27017:27017"
