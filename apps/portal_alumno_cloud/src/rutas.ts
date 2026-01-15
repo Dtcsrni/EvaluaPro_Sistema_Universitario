@@ -82,6 +82,68 @@ router.post('/sincronizar', async (req, res) => {
     return;
   }
 
+  if (!tieneSoloClavesPermitidas(periodo, ['_id'])) {
+    responderError(res, 400, 'PAYLOAD_INVALIDO', 'Payload invalido');
+    return;
+  }
+
+  if (!Array.isArray(examenes) && examenes != null) {
+    responderError(res, 400, 'PAYLOAD_INVALIDO', 'Payload invalido');
+    return;
+  }
+
+  if (!Array.isArray(banderas) && banderas != null) {
+    responderError(res, 400, 'PAYLOAD_INVALIDO', 'Payload invalido');
+    return;
+  }
+
+  if (codigoAcceso != null && !tieneSoloClavesPermitidas(codigoAcceso, ['codigo', 'expiraEn'])) {
+    responderError(res, 400, 'PAYLOAD_INVALIDO', 'Payload invalido');
+    return;
+  }
+
+  const clavesAlumnoPermitidas = ['_id', 'matricula', 'nombreCompleto', 'grupo'];
+  for (const alumno of alumnos) {
+    if (!tieneSoloClavesPermitidas(alumno, clavesAlumnoPermitidas)) {
+      responderError(res, 400, 'PAYLOAD_INVALIDO', 'Payload invalido');
+      return;
+    }
+  }
+
+  const clavesCalificacionPermitidas = [
+    'docenteId',
+    'alumnoId',
+    'examenGeneradoId',
+    'tipoExamen',
+    'calificacionExamenFinalTexto',
+    'calificacionParcialTexto',
+    'calificacionGlobalTexto',
+    'evaluacionContinuaTexto',
+    'proyectoTexto'
+  ];
+  for (const calificacion of calificaciones) {
+    if (!tieneSoloClavesPermitidas(calificacion, clavesCalificacionPermitidas)) {
+      responderError(res, 400, 'PAYLOAD_INVALIDO', 'Payload invalido');
+      return;
+    }
+  }
+
+  const clavesExamenPermitidas = ['examenGeneradoId', 'folio', 'pdfComprimidoBase64'];
+  for (const examen of ((examenes || []) as unknown[])) {
+    if (!tieneSoloClavesPermitidas(examen, clavesExamenPermitidas)) {
+      responderError(res, 400, 'PAYLOAD_INVALIDO', 'Payload invalido');
+      return;
+    }
+  }
+
+  const clavesBanderaPermitidas = ['examenGeneradoId', 'alumnoId', 'tipo', 'severidad', 'descripcion', 'sugerencia'];
+  for (const bandera of ((banderas || []) as unknown[])) {
+    if (!tieneSoloClavesPermitidas(bandera, clavesBanderaPermitidas)) {
+      responderError(res, 400, 'PAYLOAD_INVALIDO', 'Payload invalido');
+      return;
+    }
+  }
+
   if (codigoAcceso?.codigo) {
     const expira = new Date(codigoAcceso.expiraEn);
     if (!(expira instanceof Date) || Number.isNaN(expira.getTime())) {

@@ -33,7 +33,7 @@ describe('portal alumno', () => {
       .post('/api/portal/sincronizar')
       .set({ 'x-api-key': apiKey })
       .send({
-        periodo: { _id: periodoId, nombre: 'Periodo 2025' },
+        periodo: { _id: periodoId },
         alumnos: [{ _id: alumnoId, matricula: '2025-001', nombreCompleto: 'Alumno Uno', grupo: 'A' }],
         calificaciones: [
           {

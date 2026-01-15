@@ -115,20 +115,44 @@ export async function publicarResultados(req: SolicitudDocente, res: Response) {
     examenesPayload.push({
       examenGeneradoId: examen._id,
       folio: examen.folio,
-      alumnoId: examen.alumnoId,
-      periodoId: examen.periodoId,
-      pdfComprimidoBase64,
-      paginas: examen.paginas
+      pdfComprimidoBase64
     });
   }
 
+  const periodoPayload = { _id: periodo._id };
+  const alumnosPayload = alumnos.map((alumno) => ({
+    _id: alumno._id,
+    matricula: alumno.matricula,
+    nombreCompleto: alumno.nombreCompleto,
+    grupo: alumno.grupo
+  }));
+  const calificacionesPayload = calificaciones.map((calificacion) => ({
+    docenteId: calificacion.docenteId,
+    alumnoId: calificacion.alumnoId,
+    examenGeneradoId: calificacion.examenGeneradoId,
+    tipoExamen: calificacion.tipoExamen,
+    calificacionExamenFinalTexto: calificacion.calificacionExamenFinalTexto,
+    calificacionParcialTexto: calificacion.calificacionParcialTexto,
+    calificacionGlobalTexto: calificacion.calificacionGlobalTexto,
+    evaluacionContinuaTexto: calificacion.evaluacionContinuaTexto,
+    proyectoTexto: calificacion.proyectoTexto
+  }));
+  const banderasPayload = banderas.map((bandera) => ({
+    examenGeneradoId: bandera.examenGeneradoId,
+    alumnoId: bandera.alumnoId,
+    tipo: bandera.tipo,
+    severidad: bandera.severidad,
+    descripcion: bandera.descripcion,
+    sugerencia: bandera.sugerencia
+  }));
+
   const payload = {
     docenteId,
-    periodo,
-    alumnos,
-    calificaciones,
+    periodo: periodoPayload,
+    alumnos: alumnosPayload,
+    calificaciones: calificacionesPayload,
     examenes: examenesPayload,
-    banderas,
+    banderas: banderasPayload,
     codigoAcceso: codigo
       ? { codigo: codigo.codigo, expiraEn: codigo.expiraEn }
       : null

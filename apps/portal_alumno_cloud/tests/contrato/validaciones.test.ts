@@ -128,6 +128,56 @@ describe('contrato (portal)', () => {
     vi.resetModules();
   });
 
+  it('rechaza sincronizar con campos extra en calificacion y no escribe en DB', async () => {
+    const anterior = { PORTAL_API_KEY: process.env.PORTAL_API_KEY };
+    process.env.PORTAL_API_KEY = 'SECRETA_TEST';
+
+    const actualizarResultado = vi.fn().mockResolvedValue({});
+
+    vi.resetModules();
+    vi.doMock('../../src/modelos/modeloResultadoAlumno', () => {
+      return {
+        ResultadoAlumno: {
+          updateOne: actualizarResultado
+        }
+      };
+    });
+
+    const { crearApp } = await import('../../src/app');
+    const app = crearApp();
+
+    const periodoId = '507f1f77bcf86cd799439011';
+    const alumnoId = '507f1f77bcf86cd799439012';
+    const docenteId = '507f1f77bcf86cd799439013';
+    const examenId = '507f1f77bcf86cd799439014';
+
+    const respuesta = await request(app)
+      .post('/api/portal/sincronizar')
+      .set('x-api-key', 'SECRETA_TEST')
+      .send({
+        docenteId,
+        periodo: { _id: periodoId },
+        alumnos: [{ _id: alumnoId, matricula: 'A001', nombreCompleto: 'Alumno Prueba', grupo: 'A' }],
+        calificaciones: [
+          {
+            docenteId,
+            alumnoId,
+            examenGeneradoId: examenId,
+            tipoExamen: 'parcial',
+            calificacionExamenFinalTexto: '10',
+            extra: 'NO'
+          }
+        ]
+      })
+      .expect(400);
+
+    expect(respuesta.body.error.codigo).toBe('PAYLOAD_INVALIDO');
+    expect(actualizarResultado).not.toHaveBeenCalled();
+
+    process.env.PORTAL_API_KEY = anterior.PORTAL_API_KEY;
+    vi.resetModules();
+  });
+
   it('rechaza eventos-uso con campos extra (top-level)', async () => {
     const insertar = vi.fn().mockResolvedValue([]);
 
