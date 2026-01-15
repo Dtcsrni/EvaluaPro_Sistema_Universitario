@@ -1,7 +1,7 @@
 /**
  * Sesiones de alumnos para el portal cloud.
  */
-import { Schema, model } from 'mongoose';
+import { Schema, model, models } from 'mongoose';
 
 const SesionAlumnoSchema = new Schema(
   {
@@ -15,4 +15,4 @@ const SesionAlumnoSchema = new Schema(
 
 SesionAlumnoSchema.index({ tokenHash: 1 }, { unique: true });
 
-export const SesionAlumno = model('SesionAlumno', SesionAlumnoSchema);
+export const SesionAlumno = models.SesionAlumno ?? model('SesionAlumno', SesionAlumnoSchema);

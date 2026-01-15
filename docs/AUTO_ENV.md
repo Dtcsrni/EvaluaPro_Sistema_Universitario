@@ -28,7 +28,7 @@ este documento se actualiza automáticamente al regenerar.
 - `MONGODB_URI` (usado en: apps/portal_alumno_cloud/src/configuracion.ts)
 - `NODE_ENV` (usado en: apps/portal_alumno_cloud/src/compartido/errores/manejadorErrores.ts, apps/portal_alumno_cloud/src/configuracion.ts, apps/portal_alumno_cloud/tests/errores.test.ts, apps/portal_alumno_cloud/tests/setup.ts)
 - `PORT` (usado en: apps/portal_alumno_cloud/src/configuracion.ts)
-- `PORTAL_API_KEY` (usado en: apps/portal_alumno_cloud/src/configuracion.ts, apps/portal_alumno_cloud/tests/integracion/portal.test.ts, apps/portal_alumno_cloud/tests/setup.ts)
+- `PORTAL_API_KEY` (usado en: apps/portal_alumno_cloud/src/configuracion.ts, apps/portal_alumno_cloud/tests/contrato/validaciones.test.ts, apps/portal_alumno_cloud/tests/integracion/portal.test.ts, apps/portal_alumno_cloud/tests/setup.ts)
 - `PUERTO_PORTAL` (usado en: apps/portal_alumno_cloud/src/configuracion.ts)
 - `RATE_LIMIT_LIMIT` (usado en: apps/portal_alumno_cloud/src/configuracion.ts, apps/portal_alumno_cloud/tests/rateLimit.test.ts)
 - `RATE_LIMIT_WINDOW_MS` (usado en: apps/portal_alumno_cloud/src/configuracion.ts, apps/portal_alumno_cloud/tests/rateLimit.test.ts)

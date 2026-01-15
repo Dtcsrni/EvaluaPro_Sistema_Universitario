@@ -1,7 +1,7 @@
 /**
  * Resultado publicado para portal alumno.
  */
-import { Schema, model } from 'mongoose';
+import { Schema, model, models } from 'mongoose';
 
 const ResultadoAlumnoSchema = new Schema(
   {
@@ -28,4 +28,4 @@ const ResultadoAlumnoSchema = new Schema(
 ResultadoAlumnoSchema.index({ folio: 1 }, { unique: true });
 ResultadoAlumnoSchema.index({ matricula: 1, periodoId: 1 });
 
-export const ResultadoAlumno = model('ResultadoAlumno', ResultadoAlumnoSchema);
+export const ResultadoAlumno = models.ResultadoAlumno ?? model('ResultadoAlumno', ResultadoAlumnoSchema);

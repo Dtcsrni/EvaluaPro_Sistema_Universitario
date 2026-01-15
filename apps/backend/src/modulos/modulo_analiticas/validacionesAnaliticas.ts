@@ -13,6 +13,6 @@ export const esquemaCrearBandera = z.object({
 });
 
 export const esquemaExportarCsv = z.object({
-  columnas: z.array(z.string().min(1)),
-  filas: z.array(z.record(z.any()))
+  columnas: z.array(z.string().trim().min(1)).min(1),
+  filas: z.array(z.record(z.string(), z.unknown()))
 });

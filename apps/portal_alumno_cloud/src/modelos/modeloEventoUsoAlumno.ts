@@ -1,7 +1,7 @@
 /**
  * Eventos de uso del portal alumno (telemetria ligera).
  */
-import { Schema, model } from 'mongoose';
+import { Schema, model, models } from 'mongoose';
 
 const EventoUsoAlumnoSchema = new Schema(
   {
@@ -20,4 +20,4 @@ const EventoUsoAlumnoSchema = new Schema(
 EventoUsoAlumnoSchema.index({ periodoId: 1, alumnoId: 1, createdAt: -1 });
 EventoUsoAlumnoSchema.index({ accion: 1, createdAt: -1 });
 
-export const EventoUsoAlumno = model('EventoUsoAlumno', EventoUsoAlumnoSchema);
+export const EventoUsoAlumno = models.EventoUsoAlumno ?? model('EventoUsoAlumno', EventoUsoAlumnoSchema);

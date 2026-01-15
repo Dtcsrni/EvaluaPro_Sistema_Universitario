@@ -76,7 +76,13 @@ export async function crearBandera(req: SolicitudDocente, res: Response) {
  */
 export function exportarCsv(req: SolicitudDocente, res: Response) {
   obtenerDocenteId(req);
-  const { columnas, filas } = req.body;
+  const { columnas, filas } = (req.body ?? {}) as { columnas?: unknown; filas?: unknown };
+  if (!Array.isArray(columnas) || columnas.length === 0 || columnas.some((c) => typeof c !== 'string' || !c.trim())) {
+    throw new ErrorAplicacion('VALIDACION', 'Payload invalido', 400);
+  }
+  if (!Array.isArray(filas)) {
+    throw new ErrorAplicacion('VALIDACION', 'Payload invalido', 400);
+  }
   const csv = generarCsv(columnas, filas);
   res.setHeader('Content-Type', 'text/csv; charset=utf-8');
   res.setHeader('Content-Disposition', 'attachment; filename="exportacion.csv"');
