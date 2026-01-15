@@ -26,6 +26,15 @@ Para mantener `docs/diagramas/rendered/**` en sync con las fuentes Mermaid:
 Si tu entorno no puede ejecutar Chromium/Puppeteer (raro, pero puede pasar en CI),
 puedes desactivar temporalmente el check con `DIAGRAMAS_RENDER_CHECK=0`.
 
+## Consistencia semantica (rutas)
+
+Valida que las rutas HTTP mencionadas en los diagramas de secuencia correspondan con el codigo:
+
+- Portal alumno cloud: valida metodo + path exacto.
+- Backend: valida que el montaje (primer segmento tras `/api`) exista.
+
+Comando: `npm run diagramas:consistencia:check`
+
 Nota: el bloque `system_model` actualiza el **codigo** de las fuentes Mermaid; el render produce los SVG.
 
 ## Arquitectura general
