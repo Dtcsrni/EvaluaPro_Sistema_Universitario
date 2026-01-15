@@ -38,6 +38,24 @@ type EstadoApi =
   | { estado: 'ok'; texto: string; tiempoActivo: number }
   | { estado: 'error'; texto: string };
 
+function obtenerSesionDocenteId(): string {
+  return obtenerSessionId('sesionDocenteId');
+}
+
+function registrarAccionDocente(accion: string, exito: boolean, duracionMs?: number) {
+  void clienteApi.registrarEventosUso({
+    eventos: [
+      {
+        sessionId: obtenerSesionDocenteId() ?? undefined,
+        pantalla: 'docente',
+        accion,
+        exito,
+        duracionMs
+      }
+    ]
+  });
+}
+
 function esMensajeError(texto: string) {
   const lower = texto.toLowerCase();
   return lower.includes('no se pudo') || lower.includes('falta') || lower.includes('inval') || lower.includes('error');
@@ -313,16 +331,7 @@ export function AppDocente() {
               limpiarTokenDocente();
               setDocente(null);
               emitToast({ level: 'info', title: 'Sesion', message: 'Sesion cerrada', durationMs: 2200 });
-              void clienteApi.registrarEventosUso({
-                eventos: [
-                  {
-                    sessionId: sessionStorage.getItem('sesionDocenteId') ?? undefined,
-                    pantalla: 'docente',
-                    accion: 'logout',
-                    exito: true
-                  }
-                ]
-              });
+              registrarAccionDocente('logout', true);
             }}
           >
             Salir
@@ -347,25 +356,20 @@ function SeccionAutenticacion({ onIngresar }: { onIngresar: (token: string) => v
   const [modo, setModo] = useState<'ingresar' | 'registrar'>('ingresar');
   const [enviando, setEnviando] = useState(false);
 
-  const obtenerSesionId = () => obtenerSessionId('sesionDocenteId');
-
   async function ingresar() {
     try {
       const inicio = Date.now();
       setEnviando(true);
+      setMensaje('');
       const respuesta = await clienteApi.enviar<{ token: string }>('/autenticacion/ingresar', { correo, contrasena });
       onIngresar(respuesta.token);
       emitToast({ level: 'ok', title: 'Sesion', message: 'Bienvenido/a', durationMs: 2200 });
-      void clienteApi.registrarEventosUso({
-        eventos: [{ sessionId: obtenerSesionId(), pantalla: 'docente', accion: 'login', exito: true, duracionMs: Date.now() - inicio }]
-      });
+      registrarAccionDocente('login', true, Date.now() - inicio);
     } catch (error) {
       const msg = mensajeDeError(error, 'No se pudo ingresar');
       setMensaje(msg);
       emitToast({ level: 'error', title: 'No se pudo ingresar', message: msg, durationMs: 5200 });
-      void clienteApi.registrarEventosUso({
-        eventos: [{ sessionId: obtenerSesionId(), pantalla: 'docente', accion: 'login', exito: false }]
-      });
+      registrarAccionDocente('login', false);
     } finally {
       setEnviando(false);
     }
@@ -375,23 +379,20 @@ function SeccionAutenticacion({ onIngresar }: { onIngresar: (token: string) => v
     try {
       const inicio = Date.now();
       setEnviando(true);
+      setMensaje('');
       const respuesta = await clienteApi.enviar<{ token: string }>('/autenticacion/registrar', {
-        nombreCompleto,
-        correo,
+        nombreCompleto: nombreCompleto.trim(),
+        correo: correo.trim(),
         contrasena
       });
       onIngresar(respuesta.token);
       emitToast({ level: 'ok', title: 'Cuenta creada', message: 'Sesion iniciada', durationMs: 2800 });
-      void clienteApi.registrarEventosUso({
-        eventos: [{ sessionId: obtenerSesionId(), pantalla: 'docente', accion: 'registrar', exito: true, duracionMs: Date.now() - inicio }]
-      });
+      registrarAccionDocente('registrar', true, Date.now() - inicio);
     } catch (error) {
       const msg = mensajeDeError(error, 'No se pudo registrar');
       setMensaje(msg);
       emitToast({ level: 'error', title: 'No se pudo registrar', message: msg, durationMs: 5200 });
-      void clienteApi.registrarEventosUso({
-        eventos: [{ sessionId: obtenerSesionId(), pantalla: 'docente', accion: 'registrar', exito: false }]
-      });
+      registrarAccionDocente('registrar', false);
     } finally {
       setEnviando(false);
     }
@@ -497,12 +498,15 @@ function SeccionBanco({ preguntas, onRefrescar }: { preguntas: Pregunta[]; onRef
     try {
       const inicio = Date.now();
       setGuardando(true);
-      await clienteApi.enviar('/banco-preguntas', { enunciado, tema, opciones });
+      setMensaje('');
+      await clienteApi.enviar('/banco-preguntas', {
+        enunciado: enunciado.trim(),
+        tema: tema.trim(),
+        opciones: opciones.map((item) => ({ ...item, texto: item.texto.trim() }))
+      });
       setMensaje('Pregunta guardada');
       emitToast({ level: 'ok', title: 'Banco', message: 'Pregunta guardada', durationMs: 2200 });
-      void clienteApi.registrarEventosUso({
-        eventos: [{ sessionId: sessionStorage.getItem('sesionDocenteId') ?? undefined, pantalla: 'docente', accion: 'crear_pregunta', exito: true, duracionMs: Date.now() - inicio }]
-      });
+      registrarAccionDocente('crear_pregunta', true, Date.now() - inicio);
       setEnunciado('');
       setOpciones([
         { texto: '', esCorrecta: true },
@@ -516,9 +520,7 @@ function SeccionBanco({ preguntas, onRefrescar }: { preguntas: Pregunta[]; onRef
       const msg = mensajeDeError(error, 'No se pudo guardar');
       setMensaje(msg);
       emitToast({ level: 'error', title: 'No se pudo guardar', message: msg, durationMs: 5200 });
-      void clienteApi.registrarEventosUso({
-        eventos: [{ sessionId: sessionStorage.getItem('sesionDocenteId') ?? undefined, pantalla: 'docente', accion: 'crear_pregunta', exito: false }]
-      });
+      registrarAccionDocente('crear_pregunta', false);
     } finally {
       setGuardando(false);
     }
@@ -597,25 +599,27 @@ function SeccionPeriodos({
     try {
       const inicio = Date.now();
       setCreando(true);
+      setMensaje('');
       await clienteApi.enviar('/periodos', {
-        nombre,
+        nombre: nombre.trim(),
         fechaInicio,
         fechaFin,
-        grupos: grupos ? grupos.split(',').map((item) => item.trim()) : []
+        grupos: grupos
+          ? grupos
+              .split(',')
+              .map((item) => item.trim())
+              .filter(Boolean)
+          : []
       });
       setMensaje('Periodo creado');
       emitToast({ level: 'ok', title: 'Periodos', message: 'Periodo creado', durationMs: 2200 });
-      void clienteApi.registrarEventosUso({
-        eventos: [{ sessionId: sessionStorage.getItem('sesionDocenteId') ?? undefined, pantalla: 'docente', accion: 'crear_periodo', exito: true, duracionMs: Date.now() - inicio }]
-      });
+      registrarAccionDocente('crear_periodo', true, Date.now() - inicio);
       onRefrescar();
     } catch (error) {
       const msg = mensajeDeError(error, 'No se pudo crear el periodo');
       setMensaje(msg);
       emitToast({ level: 'error', title: 'No se pudo crear', message: msg, durationMs: 5200 });
-      void clienteApi.registrarEventosUso({
-        eventos: [{ sessionId: sessionStorage.getItem('sesionDocenteId') ?? undefined, pantalla: 'docente', accion: 'crear_periodo', exito: false }]
-      });
+      registrarAccionDocente('crear_periodo', false);
     } finally {
       setCreando(false);
     }
@@ -686,26 +690,23 @@ function SeccionAlumnos({
     try {
       const inicio = Date.now();
       setCreando(true);
+      setMensaje('');
       await clienteApi.enviar('/alumnos', {
-        matricula,
-        nombreCompleto,
-        correo,
-        grupo,
+        matricula: matricula.trim(),
+        nombreCompleto: nombreCompleto.trim(),
+        ...(correo.trim() ? { correo: correo.trim() } : {}),
+        ...(grupo.trim() ? { grupo: grupo.trim() } : {}),
         periodoId
       });
       setMensaje('Alumno creado');
       emitToast({ level: 'ok', title: 'Alumnos', message: 'Alumno creado', durationMs: 2200 });
-      void clienteApi.registrarEventosUso({
-        eventos: [{ sessionId: sessionStorage.getItem('sesionDocenteId') ?? undefined, pantalla: 'docente', accion: 'crear_alumno', exito: true, duracionMs: Date.now() - inicio }]
-      });
+      registrarAccionDocente('crear_alumno', true, Date.now() - inicio);
       onRefrescar();
     } catch (error) {
       const msg = mensajeDeError(error, 'No se pudo crear el alumno');
       setMensaje(msg);
       emitToast({ level: 'error', title: 'No se pudo crear', message: msg, durationMs: 5200 });
-      void clienteApi.registrarEventosUso({
-        eventos: [{ sessionId: sessionStorage.getItem('sesionDocenteId') ?? undefined, pantalla: 'docente', accion: 'crear_alumno', exito: false }]
-      });
+      registrarAccionDocente('crear_alumno', false);
     } finally {
       setCreando(false);
     }
@@ -795,26 +796,23 @@ function SeccionPlantillas({
     try {
       const inicio = Date.now();
       setCreando(true);
+      setMensaje('');
       await clienteApi.enviar('/examenes/plantillas', {
         periodoId,
         tipo,
-        titulo,
-        totalReactivos,
+        titulo: titulo.trim(),
+        totalReactivos: Math.max(1, Math.floor(totalReactivos)),
         preguntasIds: seleccion
       });
       setMensaje('Plantilla creada');
       emitToast({ level: 'ok', title: 'Plantillas', message: 'Plantilla creada', durationMs: 2200 });
-      void clienteApi.registrarEventosUso({
-        eventos: [{ sessionId: sessionStorage.getItem('sesionDocenteId') ?? undefined, pantalla: 'docente', accion: 'crear_plantilla', exito: true, duracionMs: Date.now() - inicio }]
-      });
+      registrarAccionDocente('crear_plantilla', true, Date.now() - inicio);
       onRefrescar();
     } catch (error) {
       const msg = mensajeDeError(error, 'No se pudo crear');
       setMensaje(msg);
       emitToast({ level: 'error', title: 'No se pudo crear', message: msg, durationMs: 5200 });
-      void clienteApi.registrarEventosUso({
-        eventos: [{ sessionId: sessionStorage.getItem('sesionDocenteId') ?? undefined, pantalla: 'docente', accion: 'crear_plantilla', exito: false }]
-      });
+      registrarAccionDocente('crear_plantilla', false);
     } finally {
       setCreando(false);
     }
@@ -918,19 +916,16 @@ function SeccionPlantillas({
           try {
             const inicio = Date.now();
             setGenerando(true);
+            setMensajeGeneracion('');
             await clienteApi.enviar('/examenes/generados', { plantillaId, alumnoId: alumnoId || undefined });
             setMensajeGeneracion('Examen generado');
             emitToast({ level: 'ok', title: 'Examen', message: 'Examen generado', durationMs: 2200 });
-            void clienteApi.registrarEventosUso({
-              eventos: [{ sessionId: sessionStorage.getItem('sesionDocenteId') ?? undefined, pantalla: 'docente', accion: 'generar_examen', exito: true, duracionMs: Date.now() - inicio }]
-            });
+            registrarAccionDocente('generar_examen', true, Date.now() - inicio);
           } catch (error) {
             const msg = mensajeDeError(error, 'No se pudo generar');
             setMensajeGeneracion(msg);
             emitToast({ level: 'error', title: 'No se pudo generar', message: msg, durationMs: 5200 });
-            void clienteApi.registrarEventosUso({
-              eventos: [{ sessionId: sessionStorage.getItem('sesionDocenteId') ?? undefined, pantalla: 'docente', accion: 'generar_examen', exito: false }]
-            });
+            registrarAccionDocente('generar_examen', false);
           } finally {
             setGenerando(false);
           }
@@ -965,19 +960,16 @@ function SeccionRecepcion({
     try {
       const inicio = Date.now();
       setVinculando(true);
-      await onVincular(folio, alumnoId);
+      setMensaje('');
+      await onVincular(folio.trim(), alumnoId);
       setMensaje('Entrega vinculada');
       emitToast({ level: 'ok', title: 'Recepcion', message: 'Entrega vinculada', durationMs: 2200 });
-      void clienteApi.registrarEventosUso({
-        eventos: [{ sessionId: sessionStorage.getItem('sesionDocenteId') ?? undefined, pantalla: 'docente', accion: 'vincular_entrega', exito: true, duracionMs: Date.now() - inicio }]
-      });
+      registrarAccionDocente('vincular_entrega', true, Date.now() - inicio);
     } catch (error) {
       const msg = mensajeDeError(error, 'No se pudo vincular');
       setMensaje(msg);
       emitToast({ level: 'error', title: 'No se pudo vincular', message: msg, durationMs: 5200 });
-      void clienteApi.registrarEventosUso({
-        eventos: [{ sessionId: sessionStorage.getItem('sesionDocenteId') ?? undefined, pantalla: 'docente', accion: 'vincular_entrega', exito: false }]
-      });
+      registrarAccionDocente('vincular_entrega', false);
     } finally {
       setVinculando(false);
     }
@@ -1048,19 +1040,16 @@ function SeccionEscaneo({
     try {
       const inicio = Date.now();
       setAnalizando(true);
-      await onAnalizar(folio, numeroPagina, imagenBase64);
+      setMensaje('');
+      await onAnalizar(folio.trim(), Math.max(1, Math.floor(numeroPagina)), imagenBase64);
       setMensaje('Analisis completado');
       emitToast({ level: 'ok', title: 'Escaneo', message: 'Analisis completado', durationMs: 2200 });
-      void clienteApi.registrarEventosUso({
-        eventos: [{ sessionId: sessionStorage.getItem('sesionDocenteId') ?? undefined, pantalla: 'docente', accion: 'analizar_omr', exito: true, duracionMs: Date.now() - inicio }]
-      });
+      registrarAccionDocente('analizar_omr', true, Date.now() - inicio);
     } catch (error) {
       const msg = mensajeDeError(error, 'No se pudo analizar');
       setMensaje(msg);
       emitToast({ level: 'error', title: 'No se pudo analizar', message: msg, durationMs: 5200 });
-      void clienteApi.registrarEventosUso({
-        eventos: [{ sessionId: sessionStorage.getItem('sesionDocenteId') ?? undefined, pantalla: 'docente', accion: 'analizar_omr', exito: false }]
-      });
+      registrarAccionDocente('analizar_omr', false);
     } finally {
       setAnalizando(false);
     }
@@ -1172,6 +1161,7 @@ function SeccionCalificar({
     try {
       const inicio = Date.now();
       setGuardando(true);
+      setMensaje('');
       await onCalificar({
         examenGeneradoId: examenId,
         alumnoId,
@@ -1182,16 +1172,12 @@ function SeccionCalificar({
       });
       setMensaje('Calificacion guardada');
       emitToast({ level: 'ok', title: 'Calificacion', message: 'Calificacion guardada', durationMs: 2200 });
-      void clienteApi.registrarEventosUso({
-        eventos: [{ sessionId: sessionStorage.getItem('sesionDocenteId') ?? undefined, pantalla: 'docente', accion: 'calificar', exito: true, duracionMs: Date.now() - inicio }]
-      });
+      registrarAccionDocente('calificar', true, Date.now() - inicio);
     } catch (error) {
       const msg = mensajeDeError(error, 'No se pudo calificar');
       setMensaje(msg);
       emitToast({ level: 'error', title: 'No se pudo calificar', message: msg, durationMs: 5200 });
-      void clienteApi.registrarEventosUso({
-        eventos: [{ sessionId: sessionStorage.getItem('sesionDocenteId') ?? undefined, pantalla: 'docente', accion: 'calificar', exito: false }]
-      });
+      registrarAccionDocente('calificar', false);
     } finally {
       setGuardando(false);
     }
@@ -1261,19 +1247,16 @@ function SeccionPublicar({
     try {
       const inicio = Date.now();
       setPublicando(true);
+      setMensaje('');
       await onPublicar(periodoId);
       setMensaje('Resultados publicados');
       emitToast({ level: 'ok', title: 'Publicacion', message: 'Resultados publicados', durationMs: 2800 });
-      void clienteApi.registrarEventosUso({
-        eventos: [{ sessionId: sessionStorage.getItem('sesionDocenteId') ?? undefined, pantalla: 'docente', accion: 'publicar_resultados', exito: true, duracionMs: Date.now() - inicio }]
-      });
+      registrarAccionDocente('publicar_resultados', true, Date.now() - inicio);
     } catch (error) {
       const msg = mensajeDeError(error, 'No se pudo publicar');
       setMensaje(msg);
       emitToast({ level: 'error', title: 'No se pudo publicar', message: msg, durationMs: 5200 });
-      void clienteApi.registrarEventosUso({
-        eventos: [{ sessionId: sessionStorage.getItem('sesionDocenteId') ?? undefined, pantalla: 'docente', accion: 'publicar_resultados', exito: false }]
-      });
+      registrarAccionDocente('publicar_resultados', false);
     } finally {
       setPublicando(false);
     }
@@ -1283,20 +1266,17 @@ function SeccionPublicar({
     try {
       const inicio = Date.now();
       setGenerando(true);
+      setMensaje('');
       const respuesta = await onCodigo(periodoId);
       setCodigo(respuesta.codigo ?? '');
       setExpiraEn(respuesta.expiraEn ?? '');
       emitToast({ level: 'ok', title: 'Codigo', message: 'Codigo generado', durationMs: 2200 });
-      void clienteApi.registrarEventosUso({
-        eventos: [{ sessionId: sessionStorage.getItem('sesionDocenteId') ?? undefined, pantalla: 'docente', accion: 'generar_codigo', exito: true, duracionMs: Date.now() - inicio }]
-      });
+      registrarAccionDocente('generar_codigo', true, Date.now() - inicio);
     } catch (error) {
       const msg = mensajeDeError(error, 'No se pudo generar codigo');
       setMensaje(msg);
       emitToast({ level: 'error', title: 'No se pudo generar', message: msg, durationMs: 5200 });
-      void clienteApi.registrarEventosUso({
-        eventos: [{ sessionId: sessionStorage.getItem('sesionDocenteId') ?? undefined, pantalla: 'docente', accion: 'generar_codigo', exito: false }]
-      });
+      registrarAccionDocente('generar_codigo', false);
     } finally {
       setGenerando(false);
     }

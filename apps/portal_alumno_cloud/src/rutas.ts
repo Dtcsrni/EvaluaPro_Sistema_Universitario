@@ -1,7 +1,7 @@
 /**
  * Rutas del portal alumno (solo lectura + sync).
  */
-import { Router } from 'express';
+import { Router, type Request, type Response } from 'express';
 import { gunzipSync } from 'zlib';
 import { configuracion } from './configuracion';
 import { CodigoAcceso } from './modelos/modeloCodigoAcceso';
@@ -13,28 +13,53 @@ import { requerirSesionAlumno, type SolicitudAlumno } from './servicios/middlewa
 
 const router = Router();
 
+function responderError(res: Response, status: number, codigo: string, mensaje: string) {
+  res.status(status).json({ error: { codigo, mensaje } });
+}
+
+function requerirApiKey(req: Request, res: Response): boolean {
+  const apiKey = req.headers['x-api-key'];
+  if (!configuracion.portalApiKey || apiKey !== configuracion.portalApiKey) {
+    responderError(res, 401, 'NO_AUTORIZADO', 'API key invalida');
+    return false;
+  }
+  return true;
+}
+
+function normalizarString(valor: unknown): string {
+  return typeof valor === 'string' ? valor.trim() : String(valor ?? '').trim();
+}
+
+function parsearDiasRetencion(valor: unknown, porDefecto: number) {
+  const n = typeof valor === 'number' ? valor : Number(valor);
+  if (!Number.isFinite(n)) return porDefecto;
+  // Evita valores peligrosos (negativos o extremos) que podrían borrar demasiado.
+  return Math.min(3650, Math.max(1, Math.floor(n)));
+}
+
 router.get('/salud', (_req, res) => {
   res.json({ estado: 'ok', tiempoActivo: process.uptime() });
 });
 
 router.post('/sincronizar', async (req, res) => {
-  const apiKey = req.headers['x-api-key'];
-  if (!configuracion.portalApiKey || apiKey !== configuracion.portalApiKey) {
-    res.status(401).json({ error: { codigo: 'NO_AUTORIZADO', mensaje: 'API key invalida' } });
-    return;
-  }
+  if (!requerirApiKey(req, res)) return;
 
   const { periodo, alumnos, calificaciones, examenes, banderas, codigoAcceso } = req.body ?? {};
 
   if (!periodo || !Array.isArray(alumnos) || !Array.isArray(calificaciones)) {
-    res.status(400).json({ error: { codigo: 'PAYLOAD_INVALIDO', mensaje: 'Payload incompleto' } });
+    responderError(res, 400, 'PAYLOAD_INVALIDO', 'Payload incompleto');
     return;
   }
 
   if (codigoAcceso?.codigo) {
+    const expira = new Date(codigoAcceso.expiraEn);
+    if (!(expira instanceof Date) || Number.isNaN(expira.getTime())) {
+      responderError(res, 400, 'PAYLOAD_INVALIDO', 'codigoAcceso.expiraEn invalido');
+      return;
+    }
     await CodigoAcceso.updateOne(
       { codigo: codigoAcceso.codigo },
-      { codigo: codigoAcceso.codigo, periodoId: periodo._id, expiraEn: new Date(codigoAcceso.expiraEn), usado: false },
+      { codigo: codigoAcceso.codigo, periodoId: periodo._id, expiraEn: expira, usado: false },
       { upsert: true }
     );
   }
@@ -64,16 +89,19 @@ router.post('/sincronizar', async (req, res) => {
     const examen = examenesMap.get(String(calificacion.examenGeneradoId));
     const banderasExamen = banderasMap.get(String(calificacion.examenGeneradoId)) ?? [];
 
+    const folioNormalizado =
+      typeof examen?.folio === 'string' && examen.folio.trim() ? examen.folio.trim() : String(calificacion.examenGeneradoId);
+
     await ResultadoAlumno.updateOne(
-      { folio: examen?.folio ?? calificacion.examenGeneradoId },
+      { folio: folioNormalizado },
       {
         periodoId: periodo._id,
         docenteId: calificacion.docenteId,
         alumnoId: calificacion.alumnoId,
-        matricula: alumno.matricula,
-        nombreCompleto: alumno.nombreCompleto,
-        grupo: alumno.grupo,
-        folio: examen?.folio ?? String(calificacion.examenGeneradoId),
+        matricula: typeof alumno.matricula === 'string' ? alumno.matricula.trim() : undefined,
+        nombreCompleto: typeof alumno.nombreCompleto === 'string' ? alumno.nombreCompleto.trim() : undefined,
+        grupo: typeof alumno.grupo === 'string' ? alumno.grupo.trim() : undefined,
+        folio: folioNormalizado,
         tipoExamen: calificacion.tipoExamen,
         calificacionExamenFinalTexto: calificacion.calificacionExamenFinalTexto,
         calificacionParcialTexto: calificacion.calificacionParcialTexto,
@@ -81,7 +109,7 @@ router.post('/sincronizar', async (req, res) => {
         evaluacionContinuaTexto: calificacion.evaluacionContinuaTexto,
         proyectoTexto: calificacion.proyectoTexto,
         banderas: banderasExamen,
-        pdfComprimidoBase64: examen?.pdfComprimidoBase64
+        pdfComprimidoBase64: typeof examen?.pdfComprimidoBase64 === 'string' ? examen.pdfComprimidoBase64 : undefined
       },
       { upsert: true }
     );
@@ -93,19 +121,21 @@ router.post('/sincronizar', async (req, res) => {
 router.post('/ingresar', async (req, res) => {
   const { codigo, matricula } = req.body ?? {};
   if (!codigo || !matricula) {
-    res.status(400).json({ error: { codigo: 'DATOS_INVALIDOS', mensaje: 'Codigo y matricula requeridos' } });
+    responderError(res, 400, 'DATOS_INVALIDOS', 'Codigo y matricula requeridos');
     return;
   }
 
-  const registro = await CodigoAcceso.findOne({ codigo: String(codigo).toUpperCase(), usado: false });
+  const codigoNormalizado = normalizarString(codigo).toUpperCase();
+  const matriculaNormalizada = normalizarString(matricula);
+  const registro = await CodigoAcceso.findOne({ codigo: codigoNormalizado, usado: false });
   if (!registro || registro.expiraEn < new Date()) {
-    res.status(401).json({ error: { codigo: 'CODIGO_INVALIDO', mensaje: 'Codigo invalido o expirado' } });
+    responderError(res, 401, 'CODIGO_INVALIDO', 'Codigo invalido o expirado');
     return;
   }
 
-  const resultado = await ResultadoAlumno.findOne({ periodoId: registro.periodoId, matricula }).lean();
+  const resultado = await ResultadoAlumno.findOne({ periodoId: registro.periodoId, matricula: matriculaNormalizada }).lean();
   if (!resultado) {
-    res.status(404).json({ error: { codigo: 'ALUMNO_NO_ENCONTRADO', mensaje: 'No hay resultados para la matricula' } });
+    responderError(res, 404, 'ALUMNO_NO_ENCONTRADO', 'No hay resultados para la matricula');
     return;
   }
 
@@ -127,7 +157,7 @@ router.post('/ingresar', async (req, res) => {
 router.post('/eventos-uso', requerirSesionAlumno, async (req: SolicitudAlumno, res) => {
   const eventos = Array.isArray(req.body?.eventos) ? req.body.eventos : [];
   if (!eventos.length) {
-    res.status(400).json({ error: { codigo: 'DATOS_INVALIDOS', mensaje: 'eventos requerido' } });
+    responderError(res, 400, 'DATOS_INVALIDOS', 'eventos requerido');
     return;
   }
 
@@ -140,19 +170,35 @@ router.post('/eventos-uso', requerirSesionAlumno, async (req: SolicitudAlumno, r
     meta?: unknown;
   };
 
-  const docs = (eventos as EventoUsoSync[]).slice(0, 100).map((evento) => ({
-    periodoId: req.periodoId,
-    alumnoId: req.alumnoId,
-    sessionId: typeof evento.sessionId === 'string' ? evento.sessionId : undefined,
-    pantalla: typeof evento.pantalla === 'string' ? evento.pantalla : undefined,
-    accion: String(evento.accion || ''),
-    exito: typeof evento.exito === 'boolean' ? evento.exito : undefined,
-    duracionMs: typeof evento.duracionMs === 'number' ? evento.duracionMs : undefined,
-    meta: evento.meta
-  }));
+  const docs = (eventos as EventoUsoSync[])
+    .slice(0, 100)
+    .map((evento) => {
+      const accion = normalizarString(evento.accion);
+      return {
+        periodoId: req.periodoId,
+        alumnoId: req.alumnoId,
+        sessionId: typeof evento.sessionId === 'string' ? evento.sessionId : undefined,
+        pantalla: typeof evento.pantalla === 'string' ? evento.pantalla : undefined,
+        accion,
+        exito: typeof evento.exito === 'boolean' ? evento.exito : undefined,
+        duracionMs: typeof evento.duracionMs === 'number' ? evento.duracionMs : undefined,
+        meta: evento.meta
+      };
+    })
+    .filter((doc) => Boolean(doc.accion));
 
-  await EventoUsoAlumno.insertMany(docs, { ordered: false });
-  res.status(201).json({ ok: true, recibidos: docs.length });
+  if (!docs.length) {
+    responderError(res, 400, 'DATOS_INVALIDOS', 'eventos sin accion');
+    return;
+  }
+
+  try {
+    await EventoUsoAlumno.insertMany(docs, { ordered: false });
+    res.status(201).json({ ok: true, recibidos: docs.length });
+  } catch {
+    // Best-effort: telemetria nunca debe tumbar el portal.
+    res.status(201).json({ ok: true, recibidos: docs.length, advertencia: 'Algunos eventos no se pudieron guardar' });
+  }
 });
 
 router.get('/resultados', requerirSesionAlumno, async (req: SolicitudAlumno, res) => {
@@ -163,7 +209,7 @@ router.get('/resultados', requerirSesionAlumno, async (req: SolicitudAlumno, res
 router.get('/resultados/:folio', requerirSesionAlumno, async (req: SolicitudAlumno, res) => {
   const resultado = await ResultadoAlumno.findOne({ folio: req.params.folio, periodoId: req.periodoId, alumnoId: req.alumnoId }).lean();
   if (!resultado) {
-    res.status(404).json({ error: { codigo: 'NO_ENCONTRADO', mensaje: 'Resultado no encontrado' } });
+    responderError(res, 404, 'NO_ENCONTRADO', 'Resultado no encontrado');
     return;
   }
   res.json({ resultado });
@@ -172,7 +218,7 @@ router.get('/resultados/:folio', requerirSesionAlumno, async (req: SolicitudAlum
 router.get('/examen/:folio', requerirSesionAlumno, async (req: SolicitudAlumno, res) => {
   const resultado = await ResultadoAlumno.findOne({ folio: req.params.folio, periodoId: req.periodoId, alumnoId: req.alumnoId }).lean();
   if (!resultado || !resultado.pdfComprimidoBase64) {
-    res.status(404).json({ error: { codigo: 'PDF_NO_DISPONIBLE', mensaje: 'PDF no disponible' } });
+    responderError(res, 404, 'PDF_NO_DISPONIBLE', 'PDF no disponible');
     return;
   }
 
@@ -181,22 +227,18 @@ router.get('/examen/:folio', requerirSesionAlumno, async (req: SolicitudAlumno, 
     res.setHeader('Content-Type', 'application/pdf');
     res.send(buffer);
   } catch (error) {
-    res.status(500).json({ error: { codigo: 'PDF_INVALIDO', mensaje: 'No se pudo abrir el PDF' } });
+    responderError(res, 500, 'PDF_INVALIDO', 'No se pudo abrir el PDF');
   }
 });
 
 router.post('/limpiar', async (req, res) => {
-  const apiKey = req.headers['x-api-key'];
-  if (!configuracion.portalApiKey || apiKey !== configuracion.portalApiKey) {
-    res.status(401).json({ error: { codigo: 'NO_AUTORIZADO', mensaje: 'API key invalida' } });
-    return;
-  }
+  if (!requerirApiKey(req, res)) return;
 
   const { dias } = req.body ?? {};
-  const diasRetencion = Number(dias ?? 60);
+  const diasRetencion = parsearDiasRetencion(dias, 60);
   const limite = new Date(Date.now() - diasRetencion * 24 * 60 * 60 * 1000);
   await ResultadoAlumno.deleteMany({ publicadoEn: { $lt: limite } });
-  res.json({ mensaje: 'Datos purgados' });
+  res.json({ mensaje: 'Datos purgados', diasRetencion });
 });
 
 export default router;
