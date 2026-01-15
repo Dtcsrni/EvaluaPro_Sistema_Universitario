@@ -351,6 +351,15 @@ function checarPortal() {
       }
 
       if (ruta === '/eventos-uso') {
+        // Este endpoint del alumno debe existir solo como POST.
+        if (metodo !== 'post') {
+          violaciones.push({
+            archivo: normalizarRuta(path.relative(repoRoot, archivo)),
+            metodo,
+            razon: 'no permitido: /eventos-uso solo debe existir como POST'
+          });
+        }
+
         // Debe exigir sesión (middleware) para el alumno.
         if (!call.includes('requerirSesionAlumno')) {
           violaciones.push({
