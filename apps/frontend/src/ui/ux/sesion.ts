@@ -5,10 +5,9 @@ export function obtenerSessionId(clave: string) {
   let nuevo = '';
   try {
     // Navegadores modernos.
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const cryptoAny = (globalThis as any).crypto;
-    if (cryptoAny?.randomUUID) {
-      nuevo = String(cryptoAny.randomUUID());
+    const cryptoGlobal = (globalThis as unknown as { crypto?: { randomUUID?: () => string } }).crypto;
+    if (cryptoGlobal?.randomUUID) {
+      nuevo = String(cryptoGlobal.randomUUID());
     }
   } catch {
     // Ignorar.

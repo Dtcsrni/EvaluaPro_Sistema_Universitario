@@ -254,7 +254,12 @@ export function AppAlumno() {
                         ]
                       });
                     } catch (error) {
-                      emitToast({ level: 'error', title: 'Error al abrir PDF', message: String((error as any)?.message || error), durationMs: 5200 });
+                      emitToast({
+                        level: 'error',
+                        title: 'Error al abrir PDF',
+                        message: mensajeDeError(error, 'Error al abrir PDF'),
+                        durationMs: 5200
+                      });
                       void clientePortal.registrarEventosUso({
                         eventos: [{ sessionId: obtenerSesionId(), pantalla: 'alumno', accion: 'ver_pdf', exito: false, meta: { folio: resultado.folio } }]
                       });

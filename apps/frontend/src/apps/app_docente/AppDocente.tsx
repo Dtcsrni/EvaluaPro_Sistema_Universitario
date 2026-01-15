@@ -274,8 +274,8 @@ export function AppDocente() {
             setResultadoOmr(respuesta.resultado);
             setRespuestasEditadas(respuesta.resultado.respuestasDetectadas);
             setExamenIdOmr(respuesta.examenId);
-            const detalle = await clienteApi.obtener<{ examen: any }>(`/examenes/generados/folio/${folio}`);
-            setExamenAlumnoId(detalle.examen.alumnoId ?? null);
+            const detalle = await clienteApi.obtener<{ examen?: { alumnoId?: string | null } }>(`/examenes/generados/folio/${folio}`);
+            setExamenAlumnoId(detalle.examen?.alumnoId ?? null);
           }}
           resultado={resultadoOmr}
           respuestas={respuestasEditadas}

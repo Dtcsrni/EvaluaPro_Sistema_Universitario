@@ -22,17 +22,21 @@ export class ErrorRemoto extends Error {
   }
 }
 
+function esObjeto(valor: unknown): valor is Record<string, unknown> {
+  return typeof valor === 'object' && valor !== null;
+}
+
 async function leerErrorRemoto(respuesta: Response): Promise<DetalleErrorRemoto> {
   const base: DetalleErrorRemoto = { status: respuesta.status };
   try {
-    const data = (await respuesta.json().catch(() => null)) as any;
-    const err = data?.error;
-    if (err && typeof err === 'object') {
+    const data: unknown = await respuesta.json().catch(() => null);
+    const err = esObjeto(data) ? data['error'] : undefined;
+    if (esObjeto(err)) {
       return {
         ...base,
-        codigo: typeof err.codigo === 'string' ? err.codigo : undefined,
-        mensaje: typeof err.mensaje === 'string' ? err.mensaje : undefined,
-        detalles: err.detalles
+        codigo: typeof err['codigo'] === 'string' ? err['codigo'] : undefined,
+        mensaje: typeof err['mensaje'] === 'string' ? err['mensaje'] : undefined,
+        detalles: err['detalles']
       };
     }
     return base;
