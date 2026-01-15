@@ -3,6 +3,18 @@ import path from 'node:path';
 
 const repoRoot = path.resolve(process.cwd());
 
+function envFlag(nombre, defaultValue = true) {
+  const v = process.env[nombre];
+  if (v == null) return defaultValue;
+  if (v === '0' || v.toLowerCase() === 'false' || v.toLowerCase() === 'off') return false;
+  if (v === '1' || v.toLowerCase() === 'true' || v.toLowerCase() === 'on') return true;
+  return defaultValue;
+}
+
+// Flags “estrictos” (se pueden apagar temporalmente en CI/local sin tocar el script)
+const STRICT_PATHS = envFlag('ROUTES_CHECK_STRICT_PATHS', true);
+const STRICT_PORTAL_METHODS = envFlag('ROUTES_CHECK_STRICT_PORTAL_METHODS', true);
+
 function listarArchivosRecursivo(dir, filtro) {
   const out = [];
   const entradas = fs.readdirSync(dir, { withFileTypes: true });
@@ -195,14 +207,16 @@ function checarBackend() {
     const txt = leerTexto(archivo);
     const calls = extraerLlamadasRouter(txt, metodos);
     for (const call of calls) {
-      const m = call.match(/^router\.(post|put|patch)\(\s*(['"`])([^'"`]+)\2/);
-      if (!m) {
-        violaciones.push({
-          archivo: normalizarRuta(path.relative(repoRoot, archivo)),
-          metodo: metodos.find((mm) => call.startsWith(`router.${mm}(`)) ?? '?',
-          razon: 'ruta no literal: el path debe ser string literal en router.post/put/patch'
-        });
-        continue;
+      if (STRICT_PATHS) {
+        const m = call.match(/^router\.(post|put|patch)\(\s*(['"`])([^'"`]+)\2/);
+        if (!m) {
+          violaciones.push({
+            archivo: normalizarRuta(path.relative(repoRoot, archivo)),
+            metodo: metodos.find((mm) => call.startsWith(`router.${mm}(`)) ?? '?',
+            razon: 'ruta no literal: el path debe ser string literal en router.post/put/patch'
+          });
+          continue;
+        }
       }
 
       const tieneValidar = call.includes('validarCuerpo(');
@@ -318,6 +332,19 @@ function checarPortal() {
     for (const call of calls) {
       const m = call.match(/^router\.(post|put|patch)\(\s*(['"`])([^'"`]+)\2/);
       if (!m) {
+        if (!STRICT_PATHS) {
+          // Si no exigimos paths literales, no intentamos inferir reglas por ruta.
+          // Igual exigimos allowlist (tieneSoloClavesPermitidas) por seguridad.
+          if (!call.includes('tieneSoloClavesPermitidas(')) {
+            violaciones.push({
+              archivo: normalizarRuta(path.relative(repoRoot, archivo)),
+              metodo: metodos.find((mm) => call.startsWith(`router.${mm}(`)) ?? '?',
+              razon: 'falta tieneSoloClavesPermitidas(...)'
+            });
+          }
+          continue;
+        }
+
         violaciones.push({
           archivo: normalizarRuta(path.relative(repoRoot, archivo)),
           metodo: metodos.find((mm) => call.startsWith(`router.${mm}(`)) ?? '?',
@@ -341,7 +368,7 @@ function checarPortal() {
       // Reglas de auth específicas (anti-regresión)
       if (ruta === '/sincronizar' || ruta === '/limpiar') {
         // Estos endpoints internos deben existir solo como POST.
-        if (metodo !== 'post') {
+        if (STRICT_PORTAL_METHODS && metodo !== 'post') {
           violaciones.push({
             archivo: normalizarRuta(path.relative(repoRoot, archivo)),
             metodo,
@@ -362,7 +389,7 @@ function checarPortal() {
 
       if (ruta === '/eventos-uso') {
         // Este endpoint del alumno debe existir solo como POST.
-        if (metodo !== 'post') {
+        if (STRICT_PORTAL_METHODS && metodo !== 'post') {
           violaciones.push({
             archivo: normalizarRuta(path.relative(repoRoot, archivo)),
             metodo,
