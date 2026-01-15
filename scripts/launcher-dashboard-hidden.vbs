@@ -29,6 +29,10 @@ Set splashExec = Nothing
 If port <> "0" And port <> "" Then
   On Error Resume Next
   Set splashExec = shell.Exec("mshta.exe " & q & rootDir & "\scripts\dashboard-splash.hta?port=" & port & "&mode=" & mode & q)
+  If Err.Number = 0 Then
+    ' Try to bring splash to foreground.
+    shell.AppActivate splashExec.ProcessID
+  End If
   On Error GoTo 0
 End If
 
@@ -47,6 +51,9 @@ shell.Run cmd, 0, False
 ' Wait until the dashboard HTTP endpoint responds, then open browser and close splash.
 If port <> "0" And port <> "" Then
   Dim ok, tries, maxTries, url
+  Dim splashStartMs, minSplashMs
+  splashStartMs = Timer
+  minSplashMs = 1.2 ' seconds
   ok = False
   tries = 0
   maxTries = 120 ' ~24s with 200ms sleep
@@ -66,6 +73,12 @@ If port <> "0" And port <> "" Then
 
   ' Close splash only if the dashboard is reachable; otherwise let the HTA show a helpful error.
   If ok = True Then
+    ' Ensure the splash stays visible briefly (avoid instant close when already running).
+    Dim elapsed
+    elapsed = Timer - splashStartMs
+    If elapsed < minSplashMs Then
+      WScript.Sleep CLng((minSplashMs - elapsed) * 1000)
+    End If
     On Error Resume Next
     If Not (splashExec Is Nothing) Then
       splashExec.Terminate
