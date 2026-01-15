@@ -10,6 +10,7 @@
  * Uso:
  * - node scripts/retry.mjs --attempts 3 --delay-ms 750 --name frontend --command "npm --prefix apps/frontend run test -- --pool=forks --reporter=verbose"
  * - node scripts/retry.mjs --attempts 3 --delay-ms 750 --name backend -- npm --prefix apps/backend run test
+ * - node scripts/retry.mjs --attempts 5 --delay-ms 1000 --fallback-command "..." --command "..."
  */
 
 import { spawn } from 'node:child_process';
@@ -21,6 +22,7 @@ function parseArgs(argv) {
     name: 'command',
     cwd: undefined,
     command: undefined,
+    fallbackCommand: undefined,
     commandArgs: []
   };
 
@@ -66,6 +68,12 @@ function parseArgs(argv) {
       continue;
     }
 
+    if (arg === '--fallback-command') {
+      out.fallbackCommand = String(argv[i + 1] ?? '');
+      i += 1;
+      continue;
+    }
+
     // Compat: si el usuario pasa args sin flags, los tratamos como comando.
     if (!sawDoubleDash) rest.push(arg);
   }
@@ -93,6 +101,14 @@ function quoteForShell(value) {
 
 function sleep(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+function backoffDelayMs(baseDelayMs, attempt) {
+  // Backoff simple (lineal) + jitter, para evitar colisiones de locks/IO.
+  const base = Math.max(0, Number(baseDelayMs) || 0);
+  const multiplier = Math.max(1, attempt);
+  const jitter = Math.floor(Math.random() * 250);
+  return base * multiplier + jitter;
 }
 
 async function runOnce({ command, name, attempt, attempts, cwd }) {
@@ -140,9 +156,15 @@ async function main() {
     process.exit(2);
   }
 
+  const primaryCommand = String(opts.command);
+  const fallbackCommand = opts.fallbackCommand && String(opts.fallbackCommand).trim().length > 0 ? String(opts.fallbackCommand) : undefined;
+
   for (let attempt = 1; attempt <= opts.attempts; attempt += 1) {
+    const useFallback = Boolean(fallbackCommand && attempt > 1);
+    const command = useFallback ? fallbackCommand : primaryCommand;
+
     const { code } = await runOnce({
-      command: opts.command,
+      command,
       name: opts.name,
       attempt,
       attempts: opts.attempts,
@@ -156,9 +178,12 @@ async function main() {
     }
 
     if (attempt < opts.attempts) {
+      const waitMs = backoffDelayMs(opts.delayMs, attempt);
       // eslint-disable-next-line no-console
-      console.warn(`[retry:${opts.name}] fallo (code=${code}); reintentando en ${opts.delayMs}ms...`);
-      await sleep(opts.delayMs);
+      console.warn(
+        `[retry:${opts.name}] fallo (code=${code}); reintentando en ${waitMs}ms...${useFallback ? ' (fallback activo)' : ''}`
+      );
+      await sleep(waitMs);
     } else {
       // eslint-disable-next-line no-console
       console.error(`[retry:${opts.name}] fallo final (code=${code})`);

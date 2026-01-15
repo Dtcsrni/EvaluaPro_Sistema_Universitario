@@ -74,6 +74,10 @@ Incluye generacion de PDFs, vinculacion por QR, escaneo OMR (pipeline base) para
 - Backend directo: `npm --prefix apps/backend run test`
 - CI (robusto en Windows, con reintentos): `npm run test:ci`
 
+Nota CI:
+- `test:frontend:ci` reintenta y, si detecta fallo intermitente con `--pool=forks`,
+  reintenta usando `--pool=threads` como fallback.
+
 ## API base
 - GET `/api/salud` devuelve `{ estado, tiempoActivo, db }`.
 - GET `/api/analiticas/calificaciones-csv?periodoId=...` exporta CSV.
