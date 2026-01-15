@@ -282,6 +282,12 @@
     button.ghost-btn:hover { box-shadow: 0 8px 16px rgba(15, 23, 42, 0.12); }
     button.ghost-btn:active { transform: translateY(1px) scale(0.995); }
 
+    button.ghost-btn.pending {
+      opacity: 0.88;
+      box-shadow: 0 10px 22px rgba(15, 23, 42, 0.10);
+      border-color: rgba(15, 23, 42, 0.12);
+    }
+
     button.ghost-btn[data-hold-ms] {
       position: relative;
       overflow: hidden;
@@ -1253,6 +1259,7 @@
       place-items: center;
       font-weight: 900;
       font-size: 14px;
+      -webkit-user-select: none;
       user-select: none;
     }
 
@@ -1937,8 +1944,8 @@
       }
     }
 
-    function showToast(text, type = 'info') {
-      return showToastAdvanced(String(text || ''), type);
+    function showToast(text, type = 'info', options = {}) {
+      return showToastAdvanced(String(text || ''), type, options || {});
     }
 
     function toastIcon(type) {
@@ -2814,15 +2821,41 @@
       attachHold(button, () => {
         const env = button.dataset.env;
         const running = state.running.has(env);
+        button.dataset.cooldownUntil = String(Date.now() + 2200);
         button.dataset.pending = running ? 'stop' : 'start';
         button.classList.add('pending');
-        showToast(running ? `Deteniendo ${env}...` : `Iniciando ${env}...`, 'info');
-        if (running) {
-          api('/api/stop', { task: env });
-        } else {
-          api('/api/start', { task: env });
-        }
-        updateEnvButton(button, running);
+        const subEl = button.querySelector('[data-sub]');
+        if (subEl) subEl.textContent = running ? 'Deteniendo...' : 'Iniciando...';
+
+        showToast(running ? `Deteniendo ${env}...` : `Iniciando ${env}...`, 'info', {
+          id: `env-${env}-pending`,
+          title: 'Accion solicitada',
+          duration: 3200,
+          actionLabel: 'Abrir logs',
+          onAction: () => {
+            setTab('status');
+            setLogsVisible(true);
+            refreshLogs();
+          }
+        });
+
+        const endpoint = running ? '/api/stop' : '/api/start';
+        api(endpoint, { task: env }).then((res) => {
+          if (res && res.ok === false) {
+            showToast(`No se pudo ejecutar la accion en ${env}.`, 'error', {
+              id: `env-${env}-error`,
+              title: 'Error',
+              duration: 5200
+            });
+            return;
+          }
+          showToast('Solicitud enviada. Actualizando estado...', 'ok', {
+            id: `env-${env}-sent`,
+            title: 'Listo',
+            duration: 2200
+          });
+          scheduleRefreshPulse();
+        });
       });
     });
 
@@ -2830,24 +2863,86 @@
     document.querySelectorAll('[data-restart][data-hold-ms]').forEach((button) => {
       attachHold(button, () => {
         const what = button.dataset.restart;
-        showToast(`Reiniciando ${what}...`, 'warn');
-        api('/api/restart', { task: what });
+        button.dataset.cooldownUntil = String(Date.now() + 6500);
+        button.classList.add('pending');
+
+        showToast(`Reiniciando ${what}...`, 'warn', {
+          id: `restart-${what}-pending`,
+          title: 'Reinicio',
+          duration: 4200,
+          actionLabel: 'Ver estado',
+          onAction: () => {
+            setTab('status');
+            refreshStatus();
+            refreshHealth(true);
+          }
+        });
+
+        api('/api/restart', { task: what }).then((res) => {
+          if (res && res.ok === false) {
+            showToast(`No se pudo reiniciar ${what}.`, 'error', {
+              id: `restart-${what}-error`,
+              title: 'Error',
+              duration: 5200
+            });
+            button.classList.remove('pending');
+            return;
+          }
+          showToast('Reinicio solicitado. Actualizando...', 'ok', {
+            id: `restart-${what}-sent`,
+            title: 'Listo',
+            duration: 2400
+          });
+          scheduleRefreshPulse();
+          setTimeout(() => button.classList.remove('pending'), 6500);
+        });
       });
     });
 
     // Hold-to-run for destructive actions.
     document.querySelectorAll('[data-run][data-hold-ms]').forEach((button) => {
       attachHold(button, () => {
-        showToast('Ejecutando accion segura...', 'warn');
-        api('/api/run', { task: button.dataset.run });
+        const task = button.dataset.run;
+        button.dataset.cooldownUntil = String(Date.now() + 2500);
+        button.classList.add('pending');
+        showToast('Ejecutando accion segura...', 'warn', {
+          id: `run-${task}-pending`,
+          title: 'Accion segura',
+          duration: 3800,
+          actionLabel: 'Abrir logs',
+          onAction: () => {
+            setTab('status');
+            setLogsVisible(true);
+            refreshLogs();
+          }
+        });
+        api('/api/run', { task }).then((res) => {
+          if (res && res.ok === false) {
+            showToast('No se pudo ejecutar la accion.', 'error', { id: `run-${task}-error`, title: 'Error', duration: 5200 });
+            button.classList.remove('pending');
+            return;
+          }
+          showToast('Accion enviada. Actualizando...', 'ok', { id: `run-${task}-sent`, title: 'Listo', duration: 2200 });
+          scheduleRefreshPulse();
+          setTimeout(() => button.classList.remove('pending'), 2500);
+        });
       });
     });
 
     // Immediate run for non-destructive actions.
     document.querySelectorAll('[data-run]:not([data-hold-ms])').forEach((button) => {
       button.addEventListener('click', () => {
-        showToast('Ejecutando...', 'info');
-        api('/api/run', { task: button.dataset.run });
+        const task = button.dataset.run;
+        button.dataset.cooldownUntil = String(Date.now() + 1200);
+        showToast('Ejecutando...', 'info', { id: `run-${task}-pending`, title: 'Accion', duration: 2600 });
+        api('/api/run', { task }).then((res) => {
+          if (res && res.ok === false) {
+            showToast('No se pudo ejecutar.', 'error', { id: `run-${task}-error`, title: 'Error', duration: 5200 });
+            return;
+          }
+          showToast('Accion enviada. Actualizando...', 'ok', { id: `run-${task}-sent`, title: 'Listo', duration: 2000 });
+          scheduleRefreshPulse();
+        });
       });
     });
 
