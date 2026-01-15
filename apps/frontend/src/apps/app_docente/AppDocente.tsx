@@ -5,11 +5,11 @@ import type { ChangeEvent } from 'react';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   crearClienteApi,
-  ErrorRemoto,
   guardarTokenDocente,
   limpiarTokenDocente,
   obtenerTokenDocente
 } from '../../servicios_api/clienteApi';
+import { mensajeUsuarioDeError } from '../../servicios_api/clienteComun';
 import { emitToast } from '../../ui/toast/toastBus';
 import { Icono, Spinner } from '../../ui/iconos';
 import { Boton } from '../../ui/ux/componentes/Boton';
@@ -62,14 +62,7 @@ function esMensajeError(texto: string) {
 }
 
 function mensajeDeError(error: unknown, fallback: string) {
-  if (error instanceof ErrorRemoto) {
-    const detalle = error.detalle;
-    if (detalle?.mensaje) return detalle.mensaje;
-    if (detalle?.codigo) return `Error: ${detalle.codigo}`;
-    return fallback;
-  }
-  if (error instanceof Error && error.message) return error.message;
-  return fallback;
+  return mensajeUsuarioDeError(error, fallback);
 }
 
 export function AppDocente() {

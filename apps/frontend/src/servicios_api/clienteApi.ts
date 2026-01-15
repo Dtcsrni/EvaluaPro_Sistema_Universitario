@@ -1,7 +1,13 @@
 /**
  * Cliente API simple para frontend docente/alumno.
  */
-import { crearGestorEventosUso, DetalleErrorRemoto, ErrorRemoto, fetchConManejoErrores } from './clienteComun';
+import {
+  crearGestorEventosUso,
+  DetalleErrorRemoto,
+  ErrorRemoto,
+  fetchConManejoErrores,
+  mensajeUsuarioDeError
+} from './clienteComun';
 
 const baseApi = import.meta.env.VITE_API_BASE_URL || 'http://localhost:4000/api';
 const claveToken = 'tokenDocente';
@@ -34,27 +40,43 @@ export function crearClienteApi() {
   const { registrarEventosUso } = crearGestorEventosUso<EventoUso>({
     obtenerToken: obtenerTokenDocente,
     publicarLote: async (lote, token) => {
-      await fetch(`${baseApi}/analiticas/eventos-uso`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-        body: JSON.stringify({ eventos: lote }),
-        keepalive: true
-      });
+      const controller = new AbortController();
+      const timer = globalThis.setTimeout(() => controller.abort(), 2500);
+      try {
+        await fetch(`${baseApi}/analiticas/eventos-uso`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+          body: JSON.stringify({ eventos: lote }),
+          keepalive: true,
+          signal: controller.signal
+        });
+      } finally {
+        globalThis.clearTimeout(timer);
+      }
     }
   });
 
-  async function obtener<T>(ruta: string): Promise<T> {
+  type RequestOptions = { timeoutMs?: number };
+
+  async function obtener<T>(ruta: string, opciones?: RequestOptions): Promise<T> {
     const token = obtenerTokenDocente();
     return fetchConManejoErrores<T>({
-      fetcher: () =>
+      fetcher: (signal) =>
         fetch(`${baseApi}${ruta}`, {
-          headers: token ? { Authorization: `Bearer ${token}` } : undefined
+          headers: token ? { Authorization: `Bearer ${token}` } : undefined,
+          signal
         }),
       mensajeServicio: 'API no disponible',
+      timeoutMs: opciones?.timeoutMs ?? 12_000,
       toastUnreachable: {
         id: 'api-unreachable',
         title: 'Sin conexion',
         message: 'No se pudo contactar la API docente.'
+      },
+      toastTimeout: {
+        id: 'api-timeout',
+        title: 'Tiempo de espera',
+        message: 'La API tardo demasiado en responder.'
       },
       toastServerError: {
         id: 'api-server-error',
@@ -64,20 +86,27 @@ export function crearClienteApi() {
     });
   }
 
-  async function enviar<T>(ruta: string, payload: unknown): Promise<T> {
+  async function enviar<T>(ruta: string, payload: unknown, opciones?: RequestOptions): Promise<T> {
     const token = obtenerTokenDocente();
     return fetchConManejoErrores<T>({
-      fetcher: () =>
+      fetcher: (signal) =>
         fetch(`${baseApi}${ruta}`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) },
-          body: JSON.stringify(payload)
+          body: JSON.stringify(payload),
+          signal
         }),
       mensajeServicio: 'API no disponible',
+      timeoutMs: opciones?.timeoutMs ?? 15_000,
       toastUnreachable: {
         id: 'api-unreachable',
         title: 'Sin conexion',
         message: 'No se pudo contactar la API docente.'
+      },
+      toastTimeout: {
+        id: 'api-timeout',
+        title: 'Tiempo de espera',
+        message: 'La API tardo demasiado en responder.'
       },
       toastServerError: {
         id: 'api-server-error',
@@ -87,5 +116,5 @@ export function crearClienteApi() {
     });
   }
 
-  return { baseApi, obtener, enviar, registrarEventosUso };
+  return { baseApi, obtener, enviar, registrarEventosUso, mensajeUsuarioDeError };
 }

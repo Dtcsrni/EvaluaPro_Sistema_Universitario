@@ -1,7 +1,13 @@
 /**
  * Cliente API del portal alumno (Cloud Run).
  */
-import { crearGestorEventosUso, DetalleErrorRemoto, ErrorRemoto, fetchConManejoErrores } from './clienteComun';
+import {
+  crearGestorEventosUso,
+  DetalleErrorRemoto,
+  ErrorRemoto,
+  fetchConManejoErrores,
+  mensajeUsuarioDeError
+} from './clienteComun';
 
 const basePortal = import.meta.env.VITE_PORTAL_BASE_URL || 'http://localhost:8080/api/portal';
 const claveTokenAlumno = 'tokenAlumno';
@@ -34,28 +40,44 @@ export function crearClientePortal() {
   const { registrarEventosUso } = crearGestorEventosUso<EventoUso>({
     obtenerToken: obtenerTokenAlumno,
     publicarLote: async (lote, token) => {
-      await fetch(`${basePortal}/eventos-uso`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-        body: JSON.stringify({ eventos: lote }),
-        keepalive: true
-      });
+      const controller = new AbortController();
+      const timer = globalThis.setTimeout(() => controller.abort(), 2500);
+      try {
+        await fetch(`${basePortal}/eventos-uso`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+          body: JSON.stringify({ eventos: lote }),
+          keepalive: true,
+          signal: controller.signal
+        });
+      } finally {
+        globalThis.clearTimeout(timer);
+      }
     }
   });
 
-  async function enviar<T>(ruta: string, payload: unknown): Promise<T> {
+  type RequestOptions = { timeoutMs?: number };
+
+  async function enviar<T>(ruta: string, payload: unknown, opciones?: RequestOptions): Promise<T> {
     return fetchConManejoErrores<T>({
-      fetcher: () =>
+      fetcher: (signal) =>
         fetch(`${basePortal}${ruta}`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(payload)
+          body: JSON.stringify(payload),
+          signal
         }),
       mensajeServicio: 'Portal no disponible',
+      timeoutMs: opciones?.timeoutMs ?? 15_000,
       toastUnreachable: {
         id: 'portal-unreachable',
         title: 'Sin conexion',
         message: 'No se pudo contactar el portal alumno.'
+      },
+      toastTimeout: {
+        id: 'portal-timeout',
+        title: 'Tiempo de espera',
+        message: 'El portal tardo demasiado en responder.'
       },
       toastServerError: {
         id: 'portal-server-error',
@@ -65,18 +87,25 @@ export function crearClientePortal() {
     });
   }
 
-  async function obtener<T>(ruta: string): Promise<T> {
+  async function obtener<T>(ruta: string, opciones?: RequestOptions): Promise<T> {
     const token = obtenerTokenAlumno();
     return fetchConManejoErrores<T>({
-      fetcher: () =>
+      fetcher: (signal) =>
         fetch(`${basePortal}${ruta}`, {
-          headers: token ? { Authorization: `Bearer ${token}` } : undefined
+          headers: token ? { Authorization: `Bearer ${token}` } : undefined,
+          signal
         }),
       mensajeServicio: 'Portal no disponible',
+      timeoutMs: opciones?.timeoutMs ?? 12_000,
       toastUnreachable: {
         id: 'portal-unreachable',
         title: 'Sin conexion',
         message: 'No se pudo contactar el portal alumno.'
+      },
+      toastTimeout: {
+        id: 'portal-timeout',
+        title: 'Tiempo de espera',
+        message: 'El portal tardo demasiado en responder.'
       },
       toastServerError: {
         id: 'portal-server-error',
@@ -86,5 +115,5 @@ export function crearClientePortal() {
     });
   }
 
-  return { basePortal, enviar, obtener, registrarEventosUso };
+  return { basePortal, enviar, obtener, registrarEventosUso, mensajeUsuarioDeError };
 }
