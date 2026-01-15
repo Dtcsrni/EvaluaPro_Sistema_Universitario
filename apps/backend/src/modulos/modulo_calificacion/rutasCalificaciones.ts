@@ -8,6 +8,6 @@ import { esquemaCalificarExamen } from './validacionesCalificacion';
 
 const router = Router();
 
-router.post('/calificar', validarCuerpo(esquemaCalificarExamen), calificarExamen);
+router.post('/calificar', validarCuerpo(esquemaCalificarExamen, { strict: true }), calificarExamen);
 
 export default router;

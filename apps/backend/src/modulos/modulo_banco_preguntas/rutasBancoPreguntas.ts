@@ -9,6 +9,6 @@ import { esquemaCrearPregunta } from './validacionesBancoPreguntas';
 const router = Router();
 
 router.get('/', listarBancoPreguntas);
-router.post('/', validarCuerpo(esquemaCrearPregunta), crearPregunta);
+router.post('/', validarCuerpo(esquemaCrearPregunta, { strict: true }), crearPregunta);
 
 export default router;

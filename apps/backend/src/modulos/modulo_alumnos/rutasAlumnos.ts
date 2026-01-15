@@ -9,6 +9,6 @@ import { esquemaCrearAlumno } from './validacionesAlumnos';
 const router = Router();
 
 router.get('/', listarAlumnos);
-router.post('/', validarCuerpo(esquemaCrearAlumno), crearAlumno);
+router.post('/', validarCuerpo(esquemaCrearAlumno, { strict: true }), crearAlumno);
 
 export default router;

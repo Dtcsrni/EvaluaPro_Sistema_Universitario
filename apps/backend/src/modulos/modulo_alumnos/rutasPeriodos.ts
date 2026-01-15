@@ -9,6 +9,6 @@ import { esquemaCrearPeriodo } from './validacionesPeriodos';
 const router = Router();
 
 router.get('/', listarPeriodos);
-router.post('/', validarCuerpo(esquemaCrearPeriodo), crearPeriodo);
+router.post('/', validarCuerpo(esquemaCrearPeriodo, { strict: true }), crearPeriodo);
 
 export default router;

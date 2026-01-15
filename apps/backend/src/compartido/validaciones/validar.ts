@@ -10,9 +10,14 @@ import type { NextFunction, Request, Response } from 'express';
 import type { ZodSchema } from 'zod';
 import { ErrorAplicacion } from '../errores/errorAplicacion';
 
-export function validarCuerpo(schema: ZodSchema) {
+export function validarCuerpo(schema: ZodSchema, opciones?: { strict?: boolean }) {
   return (req: Request, _res: Response, next: NextFunction) => {
-    const resultado = schema.safeParse(req.body);
+    const schemaEfectivo =
+      opciones?.strict && typeof (schema as unknown as { strict?: unknown }).strict === 'function'
+        ? (schema as unknown as { strict: () => ZodSchema }).strict()
+        : schema;
+
+    const resultado = schemaEfectivo.safeParse(req.body);
     if (!resultado.success) {
       next(new ErrorAplicacion('VALIDACION', 'Payload invalido', 400, resultado.error.flatten()));
       return;

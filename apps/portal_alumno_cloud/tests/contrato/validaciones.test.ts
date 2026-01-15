@@ -10,6 +10,18 @@ describe('contrato (portal)', () => {
     expect(respuesta.body.error.codigo).toBe('DATOS_INVALIDOS');
   });
 
+  it('rechaza ingresar con campos extra', async () => {
+    const { crearApp } = await import('../../src/app');
+    const app = crearApp();
+
+    const respuesta = await request(app)
+      .post('/api/portal/ingresar')
+      .send({ codigo: 'ABC123', matricula: 'A001', extra: 'NO' })
+      .expect(400);
+
+    expect(respuesta.body.error.codigo).toBe('DATOS_INVALIDOS');
+  });
+
   it('protege limpiar con x-api-key y normaliza dias', async () => {
     const anterior = { PORTAL_API_KEY: process.env.PORTAL_API_KEY };
     process.env.PORTAL_API_KEY = 'SECRETA_TEST';

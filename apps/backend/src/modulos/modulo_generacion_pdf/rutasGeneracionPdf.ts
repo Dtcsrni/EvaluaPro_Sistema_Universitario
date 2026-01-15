@@ -14,10 +14,10 @@ import { descargarPdf, listarExamenesGenerados, obtenerExamenPorFolio } from './
 const router = Router();
 
 router.get('/plantillas', listarPlantillas);
-router.post('/plantillas', validarCuerpo(esquemaCrearPlantilla), crearPlantilla);
+router.post('/plantillas', validarCuerpo(esquemaCrearPlantilla, { strict: true }), crearPlantilla);
 router.get('/generados', listarExamenesGenerados);
 router.get('/generados/folio/:folio', obtenerExamenPorFolio);
 router.get('/generados/:id/pdf', descargarPdf);
-router.post('/generados', validarCuerpo(esquemaGenerarExamen), generarExamen);
+router.post('/generados', validarCuerpo(esquemaGenerarExamen, { strict: true }), generarExamen);
 
 export default router;

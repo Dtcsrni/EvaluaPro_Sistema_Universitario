@@ -13,7 +13,7 @@ import { esquemaGenerarCodigoAcceso, esquemaPublicarResultados } from './validac
 const router = Router();
 
 router.get('/', listarSincronizaciones);
-router.post('/publicar', validarCuerpo(esquemaPublicarResultados), publicarResultados);
-router.post('/codigo-acceso', validarCuerpo(esquemaGenerarCodigoAcceso), generarCodigoAcceso);
+router.post('/publicar', validarCuerpo(esquemaPublicarResultados, { strict: true }), publicarResultados);
+router.post('/codigo-acceso', validarCuerpo(esquemaGenerarCodigoAcceso, { strict: true }), generarCodigoAcceso);
 
 export default router;

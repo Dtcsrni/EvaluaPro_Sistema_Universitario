@@ -56,6 +56,12 @@ function parsearDiasRetencion(valor: unknown, porDefecto: number) {
   return Math.min(3650, Math.max(1, Math.floor(n)));
 }
 
+function tieneSoloClavesPermitidas(valor: unknown, clavesPermitidas: string[]): boolean {
+  if (!valor || typeof valor !== 'object' || Array.isArray(valor)) return false;
+  const claves = Object.keys(valor as Record<string, unknown>);
+  return claves.every((clave) => clavesPermitidas.includes(clave));
+}
+
 router.get('/salud', (_req, res) => {
   res.json({ estado: 'ok', tiempoActivo: process.uptime() });
 });
@@ -139,6 +145,11 @@ router.post('/sincronizar', async (req, res) => {
 });
 
 router.post('/ingresar', async (req, res) => {
+  if (!tieneSoloClavesPermitidas(req.body ?? {}, ['codigo', 'matricula'])) {
+    responderError(res, 400, 'DATOS_INVALIDOS', 'Payload invalido');
+    return;
+  }
+
   const { codigo, matricula } = req.body ?? {};
   if (!codigo || !matricula) {
     responderError(res, 400, 'DATOS_INVALIDOS', 'Codigo y matricula requeridos');

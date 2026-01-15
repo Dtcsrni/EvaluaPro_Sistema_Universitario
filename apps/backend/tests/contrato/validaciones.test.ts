@@ -16,6 +16,15 @@ describe('validaciones de payload', () => {
     expect(respuesta.body.error.codigo).toBe('VALIDACION');
   });
 
+  it('rechaza registro con campos extra', async () => {
+    const respuesta = await request(app)
+      .post('/api/autenticacion/registrar')
+      .send({ nombreCompleto: 'Ana', correo: 'ana@campos.test', contrasena: '12345678', extra: 'NO' })
+      .expect(400);
+
+    expect(respuesta.body.error.codigo).toBe('VALIDACION');
+  });
+
   it('rechaza banco de preguntas con opciones invalidas', async () => {
     const token = tokenDocentePrueba();
     const respuesta = await request(app)
@@ -27,6 +36,90 @@ describe('validaciones de payload', () => {
           { texto: 'A', esCorrecta: true },
           { texto: 'B', esCorrecta: false }
         ]
+      })
+      .expect(400);
+
+    expect(respuesta.body.error.codigo).toBe('VALIDACION');
+  });
+
+  it('rechaza crear alumno con campos extra', async () => {
+    const token = tokenDocentePrueba();
+    const respuesta = await request(app)
+      .post('/api/alumnos')
+      .set({ Authorization: `Bearer ${token}` })
+      .send({
+        periodoId: '507f1f77bcf86cd799439011',
+        matricula: 'A001',
+        nombreCompleto: 'Alumno Prueba',
+        extra: 'NO'
+      })
+      .expect(400);
+
+    expect(respuesta.body.error.codigo).toBe('VALIDACION');
+  });
+
+  it('rechaza crear periodo con campos extra', async () => {
+    const token = tokenDocentePrueba();
+    const respuesta = await request(app)
+      .post('/api/periodos')
+      .set({ Authorization: `Bearer ${token}` })
+      .send({
+        nombre: 'Periodo',
+        fechaInicio: '2026-01-01',
+        fechaFin: '2026-12-31',
+        extra: 'NO'
+      })
+      .expect(400);
+
+    expect(respuesta.body.error.codigo).toBe('VALIDACION');
+  });
+
+  it('rechaza crear banco de preguntas con campos extra', async () => {
+    const token = tokenDocentePrueba();
+    const respuesta = await request(app)
+      .post('/api/banco-preguntas')
+      .set({ Authorization: `Bearer ${token}` })
+      .send({
+        enunciado: 'Pregunta valida',
+        opciones: [
+          { texto: 'A', esCorrecta: true },
+          { texto: 'B', esCorrecta: false },
+          { texto: 'C', esCorrecta: false },
+          { texto: 'D', esCorrecta: false },
+          { texto: 'E', esCorrecta: false }
+        ],
+        extra: 'NO'
+      })
+      .expect(400);
+
+    expect(respuesta.body.error.codigo).toBe('VALIDACION');
+  });
+
+  it('rechaza vincular entrega con campos extra', async () => {
+    const token = tokenDocentePrueba();
+    const respuesta = await request(app)
+      .post('/api/entregas/vincular')
+      .set({ Authorization: `Bearer ${token}` })
+      .send({
+        examenGeneradoId: '507f1f77bcf86cd799439011',
+        alumnoId: '507f1f77bcf86cd799439011',
+        extra: 'NO'
+      })
+      .expect(400);
+
+    expect(respuesta.body.error.codigo).toBe('VALIDACION');
+  });
+
+  it('rechaza calificar examen con campos extra', async () => {
+    const token = tokenDocentePrueba();
+    const respuesta = await request(app)
+      .post('/api/calificaciones/calificar')
+      .set({ Authorization: `Bearer ${token}` })
+      .send({
+        examenGeneradoId: '507f1f77bcf86cd799439011',
+        aciertos: 1,
+        totalReactivos: 10,
+        extra: 'NO'
       })
       .expect(400);
 

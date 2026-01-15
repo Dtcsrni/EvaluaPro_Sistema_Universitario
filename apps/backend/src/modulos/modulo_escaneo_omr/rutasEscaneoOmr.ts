@@ -8,6 +8,6 @@ import { esquemaAnalizarOmr } from './validacionesOmr';
 
 const router = Router();
 
-router.post('/analizar', validarCuerpo(esquemaAnalizarOmr), analizarImagen);
+router.post('/analizar', validarCuerpo(esquemaAnalizarOmr, { strict: true }), analizarImagen);
 
 export default router;

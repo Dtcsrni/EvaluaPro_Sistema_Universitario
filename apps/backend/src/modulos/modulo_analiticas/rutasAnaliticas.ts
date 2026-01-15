@@ -10,9 +10,9 @@ import { esquemaRegistrarEventosUso } from './validacionesEventosUso';
 const router = Router();
 
 router.get('/banderas', listarBanderas);
-router.post('/banderas', validarCuerpo(esquemaCrearBandera), crearBandera);
-router.post('/eventos-uso', validarCuerpo(esquemaRegistrarEventosUso), registrarEventosUso);
-router.post('/exportar-csv', validarCuerpo(esquemaExportarCsv), exportarCsv);
+router.post('/banderas', validarCuerpo(esquemaCrearBandera, { strict: true }), crearBandera);
+router.post('/eventos-uso', validarCuerpo(esquemaRegistrarEventosUso, { strict: true }), registrarEventosUso);
+router.post('/exportar-csv', validarCuerpo(esquemaExportarCsv, { strict: true }), exportarCsv);
 router.get('/calificaciones-csv', exportarCsvCalificaciones);
 
 export default router;

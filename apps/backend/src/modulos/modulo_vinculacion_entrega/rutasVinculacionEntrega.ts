@@ -8,7 +8,8 @@ import { esquemaVincularEntrega, esquemaVincularEntregaPorFolio } from './valida
 
 const router = Router();
 
-router.post('/vincular', validarCuerpo(esquemaVincularEntrega), vincularEntrega);
-router.post('/vincular-folio', validarCuerpo(esquemaVincularEntregaPorFolio), vincularEntregaPorFolio);
+router.post('/vincular', validarCuerpo(esquemaVincularEntrega, { strict: true }), vincularEntrega);
+router.post('/vincular-folio', validarCuerpo(esquemaVincularEntregaPorFolio, { strict: true }), vincularEntregaPorFolio);
+
 
 export default router;

@@ -9,8 +9,8 @@ import { esquemaIngresarDocente, esquemaRegistrarDocente } from './validacionesA
 
 const router = Router();
 
-router.post('/registrar', validarCuerpo(esquemaRegistrarDocente), registrarDocente);
-router.post('/ingresar', validarCuerpo(esquemaIngresarDocente), ingresarDocente);
+router.post('/registrar', validarCuerpo(esquemaRegistrarDocente, { strict: true }), registrarDocente);
+router.post('/ingresar', validarCuerpo(esquemaIngresarDocente, { strict: true }), ingresarDocente);
 router.get('/perfil', requerirDocente, perfilDocente);
 
 export default router;
