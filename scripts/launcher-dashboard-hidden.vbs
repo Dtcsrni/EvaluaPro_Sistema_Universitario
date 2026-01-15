@@ -7,6 +7,9 @@ Dim shell, fso
 Set shell = CreateObject("WScript.Shell")
 Set fso = CreateObject("Scripting.FileSystemObject")
 
+Dim q
+q = Chr(34)
+
 Dim scriptDir, rootDir
 scriptDir = fso.GetParentFolderName(WScript.ScriptFullName)
 rootDir = fso.GetParentFolderName(scriptDir)
@@ -25,13 +28,13 @@ Dim splashExec
 Set splashExec = Nothing
 If port <> "0" And port <> "" Then
   On Error Resume Next
-  Set splashExec = shell.Exec("mshta.exe \"" & rootDir & "\scripts\dashboard-splash.hta?port=" & port & "&mode=" & mode & "\"")
+  Set splashExec = shell.Exec("mshta.exe " & q & rootDir & "\scripts\dashboard-splash.hta?port=" & port & "&mode=" & mode & q)
   On Error GoTo 0
 End If
 
 Dim psExe, psArgs, cmd
-psExe = """" & shell.ExpandEnvironmentStrings("%WINDIR%") & "\System32\WindowsPowerShell\v1.0\powershell.exe""""
-psArgs = "-NoProfile -ExecutionPolicy Bypass -STA -WindowStyle Hidden -File """ & rootDir & "\scripts\launcher-dashboard.ps1""" & " -Mode " & mode & " -NoOpen"
+psExe = q & shell.ExpandEnvironmentStrings("%WINDIR%") & "\System32\WindowsPowerShell\v1.0\powershell.exe" & q
+psArgs = "-NoProfile -ExecutionPolicy Bypass -STA -WindowStyle Hidden -File " & q & rootDir & "\scripts\launcher-dashboard.ps1" & q & " -Mode " & mode & " -NoOpen"
 If port <> "0" And port <> "" Then
   psArgs = psArgs & " -Port " & port
 End If
@@ -58,7 +61,7 @@ If port <> "0" And port <> "" Then
   Loop
 
   If ok = True Then
-    shell.Run "cmd.exe /c start \"\" \"http://127.0.0.1:" & port & "/\"", 0, False
+    shell.Run "cmd.exe /c start " & q & q & " " & q & "http://127.0.0.1:" & port & "/" & q, 0, False
   End If
 
   ' Close splash only if the dashboard is reachable; otherwise let the HTA show a helpful error.
