@@ -9,7 +9,6 @@ $target = Join-Path $env:WINDIR "System32\wscript.exe"
 $iconDir = Join-Path $root "scripts\icons"
 $iconDev = Join-Path $iconDir "dashboard-dev.ico"
 $iconProd = Join-Path $iconDir "dashboard-prod.ico"
-.
 
 $outPath = Join-Path $root $OutputDir
 if (-not (Test-Path $outPath)) {
@@ -39,6 +38,8 @@ function New-DashboardIcon([string]$path, [string]$label, [string]$bgHexA, [stri
   $accent = [System.Drawing.ColorTranslator]::FromHtml($accentHex)
   $white = [System.Drawing.Color]::FromArgb(245, 255, 255, 255)
   $muted = [System.Drawing.Color]::FromArgb(180, 226, 232, 240)
+  $glowA = [System.Drawing.Color]::FromArgb(140, 255, 255, 255)
+  $glowB = [System.Drawing.Color]::FromArgb(0, 255, 255, 255)
 
   $graphics.Clear([System.Drawing.Color]::Transparent)
 
@@ -59,38 +60,75 @@ function New-DashboardIcon([string]$path, [string]$label, [string]$bgHexA, [stri
   $penSoft = New-Object System.Drawing.Pen ([System.Drawing.Color]::FromArgb(40, 15, 23, 42), 6)
   $graphics.DrawPath($penSoft, $pathRound)
 
-  # Tarjeta (simula hoja).
-  $card = New-Object System.Drawing.RectangleF 70, 64, 116, 150
-  $cardRadius = 22
-  $cardPath = New-Object System.Drawing.Drawing2D.GraphicsPath
-  $cardPath.AddArc($card.X, $card.Y, $cardRadius, $cardRadius, 180, 90) | Out-Null
-  $cardPath.AddArc($card.Right - $cardRadius, $card.Y, $cardRadius, $cardRadius, 270, 90) | Out-Null
-  $cardPath.AddArc($card.Right - $cardRadius, $card.Bottom - $cardRadius, $cardRadius, $cardRadius, 0, 90) | Out-Null
-  $cardPath.AddArc($card.X, $card.Bottom - $cardRadius, $cardRadius, $cardRadius, 90, 90) | Out-Null
-  $cardPath.CloseFigure() | Out-Null
+  # Emblema: labor docente + toque tecnológico (cap + pizarra + circuitos).
 
-  $cardBrush = New-Object System.Drawing.SolidBrush $white
-  $graphics.FillPath($cardBrush, $cardPath)
-  $cardPen = New-Object System.Drawing.Pen ($muted, 3)
-  $graphics.DrawPath($cardPen, $cardPath)
+  # Glow sutil.
+  $glowRect = New-Object System.Drawing.RectangleF 38, 44, 180, 172
+  $tmpGlowPath = $null
+  $glowBrush = $null
+  try {
+    $tmpGlowPath = New-Object System.Drawing.Drawing2D.GraphicsPath
+    $tmpGlowPath.AddEllipse($glowRect) | Out-Null
+    $glowBrush = New-Object System.Drawing.Drawing2D.PathGradientBrush($tmpGlowPath)
+    $glowBrush.CenterColor = $glowA
+    $glowBrush.SurroundColors = @($glowB)
+    $graphics.FillEllipse($glowBrush, $glowRect)
+  } catch {
+    # Si el glow falla por recursos, se omite.
+  }
 
-  # Lineas de "contenido".
-  $linePen = New-Object System.Drawing.Pen ([System.Drawing.Color]::FromArgb(170, 148, 163, 184), 6)
-  $linePen.StartCap = [System.Drawing.Drawing2D.LineCap]::Round
-  $linePen.EndCap = [System.Drawing.Drawing2D.LineCap]::Round
-  $graphics.DrawLine($linePen, 88, 108, 170, 108)
-  $graphics.DrawLine($linePen, 88, 132, 160, 132)
+  # Pizarra.
+  $boardRect = New-Object System.Drawing.RectangleF 62, 92, 140, 110
+  $boardRadius = 22
+  $boardPath = New-Object System.Drawing.Drawing2D.GraphicsPath
+  $boardPath.AddArc($boardRect.X, $boardRect.Y, $boardRadius, $boardRadius, 180, 90) | Out-Null
+  $boardPath.AddArc($boardRect.Right - $boardRadius, $boardRect.Y, $boardRadius, $boardRadius, 270, 90) | Out-Null
+  $boardPath.AddArc($boardRect.Right - $boardRadius, $boardRect.Bottom - $boardRadius, $boardRadius, $boardRadius, 0, 90) | Out-Null
+  $boardPath.AddArc($boardRect.X, $boardRect.Bottom - $boardRadius, $boardRadius, $boardRadius, 90, 90) | Out-Null
+  $boardPath.CloseFigure() | Out-Null
 
-  # Marca (check) en acento.
-  $checkPen = New-Object System.Drawing.Pen ($accent, 10)
-  $checkPen.StartCap = [System.Drawing.Drawing2D.LineCap]::Round
-  $checkPen.EndCap = [System.Drawing.Drawing2D.LineCap]::Round
-  $checkPen.LineJoin = [System.Drawing.Drawing2D.LineJoin]::Round
-  $graphics.DrawLines($checkPen, @(
-    (New-Object System.Drawing.PointF 92, 168),
-    (New-Object System.Drawing.PointF 116, 190),
-    (New-Object System.Drawing.PointF 168, 146)
+  $boardBrush = New-Object System.Drawing.SolidBrush ([System.Drawing.Color]::FromArgb(236, 255, 255, 255))
+  $graphics.FillPath($boardBrush, $boardPath)
+  $boardPen = New-Object System.Drawing.Pen ([System.Drawing.Color]::FromArgb(170, 226, 232, 240), 3)
+  $graphics.DrawPath($boardPen, $boardPath)
+
+  # Mortero (birrete).
+  $capFill = New-Object System.Drawing.SolidBrush ([System.Drawing.Color]::FromArgb(235, 11, 58, 107))
+  $capShadow = New-Object System.Drawing.SolidBrush ([System.Drawing.Color]::FromArgb(60, 15, 23, 42))
+  $cap = New-Object System.Drawing.PointF[] 4
+  $cap[0] = New-Object System.Drawing.PointF 88, 84
+  $cap[1] = New-Object System.Drawing.PointF 132, 64
+  $cap[2] = New-Object System.Drawing.PointF 176, 84
+  $cap[3] = New-Object System.Drawing.PointF 132, 104
+  $graphics.FillPolygon($capShadow, @(
+    (New-Object System.Drawing.PointF 90, 86),
+    (New-Object System.Drawing.PointF 132, 68),
+    (New-Object System.Drawing.PointF 174, 86),
+    (New-Object System.Drawing.PointF 132, 106)
   ))
+  $graphics.FillPolygon($capFill, $cap)
+  $capBandRect = New-Object System.Drawing.RectangleF 104, 102, 56, 16
+  $capBandBrush = New-Object System.Drawing.SolidBrush ([System.Drawing.Color]::FromArgb(235, 29, 111, 184))
+  $graphics.FillRectangle($capBandBrush, $capBandRect)
+
+  # Circuitos (líneas + nodos) en acento.
+  $cPen = New-Object System.Drawing.Pen ([System.Drawing.Color]::FromArgb(210, $accent.R, $accent.G, $accent.B), 6)
+  $cPen.StartCap = [System.Drawing.Drawing2D.LineCap]::Round
+  $cPen.EndCap = [System.Drawing.Drawing2D.LineCap]::Round
+  $graphics.DrawLine($cPen, 90, 140, 120, 140)
+  $graphics.DrawLine($cPen, 120, 140, 120, 170)
+  $graphics.DrawLine($cPen, 120, 170, 170, 170)
+  $nodeBrush = New-Object System.Drawing.SolidBrush ([System.Drawing.Color]::FromArgb(240, $accent.R, $accent.G, $accent.B))
+  $graphics.FillEllipse($nodeBrush, 84, 134, 12, 12)
+  $graphics.FillEllipse($nodeBrush, 114, 134, 12, 12)
+  $graphics.FillEllipse($nodeBrush, 114, 164, 12, 12)
+  $graphics.FillEllipse($nodeBrush, 164, 164, 12, 12)
+
+  # Tiza/indicador.
+  $chalkPen = New-Object System.Drawing.Pen ([System.Drawing.Color]::FromArgb(160, 148, 163, 184), 6)
+  $chalkPen.StartCap = [System.Drawing.Drawing2D.LineCap]::Round
+  $chalkPen.EndCap = [System.Drawing.Drawing2D.LineCap]::Round
+  $graphics.DrawLine($chalkPen, 90, 118, 160, 118)
 
   # Etiqueta DEV/PROD.
   $font = New-Object System.Drawing.Font -ArgumentList "Segoe UI", 34, ([System.Drawing.FontStyle]::Bold), ([System.Drawing.GraphicsUnit]::Pixel)
@@ -114,11 +152,17 @@ function New-DashboardIcon([string]$path, [string]$label, [string]$bgHexA, [stri
   $brushBg.Dispose()
   $pathRound.Dispose()
   $penSoft.Dispose()
-  $cardBrush.Dispose()
-  $cardPen.Dispose()
-  $cardPath.Dispose()
-  $linePen.Dispose()
-  $checkPen.Dispose()
+  if ($tmpGlowPath) { $tmpGlowPath.Dispose() }
+  if ($glowBrush) { $glowBrush.Dispose() }
+  $boardBrush.Dispose()
+  $boardPen.Dispose()
+  $boardPath.Dispose()
+  $capFill.Dispose()
+  $capShadow.Dispose()
+  $capBandBrush.Dispose()
+  $cPen.Dispose()
+  $nodeBrush.Dispose()
+  $chalkPen.Dispose()
   $font.Dispose()
   $textBrush.Dispose()
   $format.Dispose()

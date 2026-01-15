@@ -26,6 +26,9 @@ const noOpen = args.includes('--no-open');
 const verbose = args.includes('--verbose');
 const fullLogs = args.includes('--full-logs');
 
+const dashboardStartedAt = Date.now();
+let listeningPort = 0;
+
 // Persist recent logs to disk to aid troubleshooting.
 const logDir = path.join(root, 'logs');
 const logFile = path.join(logDir, 'dashboard.log');
@@ -75,6 +78,19 @@ const manifestPath = path.join(__dirname, 'dashboard.webmanifest');
 const manifestJson = fs.readFileSync(manifestPath, 'utf8');
 const iconPath = path.join(__dirname, 'dashboard-icon.svg');
 const iconSvg = fs.readFileSync(iconPath, 'utf8');
+
+function readRootPackageInfo() {
+  try {
+    const raw = fs.readFileSync(path.join(root, 'package.json'), 'utf8');
+    const parsed = JSON.parse(raw);
+    return {
+      name: typeof parsed.name === 'string' ? parsed.name : '',
+      version: typeof parsed.version === 'string' ? parsed.version : ''
+    };
+  } catch {
+    return { name: '', version: '' };
+  }
+}
 
 function writeConsole(line) {
   if (!verbose) return;
@@ -692,6 +708,7 @@ const server = http.createServer(async (req, res) => {
     const payload = {
       root,
       mode,
+      port: listeningPort,
       node: safeExec('node -v', 'No detectado'),
       npm: safeExec('npm -v', 'No detectado'),
       docker: safeExec('docker version --format "{{.Server.Version}}"', 'No disponible'),
@@ -701,6 +718,49 @@ const server = http.createServer(async (req, res) => {
       noise,
       noiseTotal,
       autoRestart
+    };
+    sendJson(res, 200, payload);
+    return;
+  }
+
+  if (req.method === 'GET' && pathName === '/api/install') {
+    const pkg = readRootPackageInfo();
+    const payload = {
+      app: {
+        name: pkg.name || 'sistema-evaluacion-universitaria',
+        version: pkg.version || ''
+      },
+      dashboard: {
+        mode,
+        port: listeningPort,
+        pid: process.pid,
+        startedAt: dashboardStartedAt,
+        noOpen,
+        verbose,
+        fullLogs
+      },
+      paths: {
+        root,
+        logDir,
+        logFile,
+        lockPath,
+        dashboardHtml: dashboardPath,
+        manifestPath,
+        iconPath
+      },
+      logs: {
+        persistMode,
+        enabled: diskWriter.enabled,
+        flushMs: diskWriter.flushMs,
+        maxBytes: diskWriter.maxBytes,
+        keepFiles: diskWriter.keepFiles
+      },
+      runtime: {
+        nodeVersion: process.version,
+        execPath: process.execPath,
+        platform: process.platform,
+        arch: process.arch
+      }
     };
     sendJson(res, 200, payload);
     return;
@@ -852,6 +912,7 @@ const server = http.createServer(async (req, res) => {
     logSystem(`Error del servidor: ${err.message}`, 'error', { console: true });
   });
   server.listen(port, '127.0.0.1', () => {
+    listeningPort = port;
     const url = `http://127.0.0.1:${port}`;
     writeLock(port);
     logSystem(`Dashboard listo: ${url}`, 'ok', { console: true });
