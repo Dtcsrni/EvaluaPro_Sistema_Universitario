@@ -12,6 +12,7 @@ const ExamenPlantillaSchema = new Schema(
     instrucciones: { type: String },
     totalReactivos: { type: Number, required: true },
     preguntasIds: [{ type: Schema.Types.ObjectId, ref: 'BancoPregunta' }],
+    temas: [{ type: String }],
     configuracionPdf: {
       margenMm: { type: Number, default: 10 },
       layout: { type: String, default: 'parcial' }

@@ -12,6 +12,23 @@ import type { SolicitudDocente } from '../modulo_autenticacion/middlewareAutenti
 import { Periodo } from '../modulo_alumnos/modeloPeriodo';
 import { BancoPregunta } from './modeloBancoPregunta';
 
+function normalizarTema(valor: unknown): string | undefined {
+  const texto = String(valor ?? '')
+    .trim()
+    .replace(/\s+/g, ' ');
+  return texto ? texto : undefined;
+}
+
+type OpcionBanco = { texto: string; esCorrecta: boolean };
+type VersionBanco = { numeroVersion: number; enunciado: string; imagenUrl?: string; opciones: OpcionBanco[] };
+type BancoPreguntaDoc = { versiones?: VersionBanco[]; versionActual?: number; tema?: string; activo?: boolean };
+
+function obtenerVersionActiva(pregunta: BancoPreguntaDoc): VersionBanco | undefined {
+  const versiones = Array.isArray(pregunta?.versiones) ? pregunta.versiones : [];
+  const actual = versiones.find((item) => item.numeroVersion === pregunta?.versionActual);
+  return actual ?? versiones[0];
+}
+
 /**
  * Lista preguntas del docente (opcionalmente por periodo).
  */
@@ -78,7 +95,7 @@ export async function crearPregunta(req: SolicitudDocente, res: Response) {
   const pregunta = await BancoPregunta.create({
     docenteId,
     periodoId,
-    tema,
+    tema: normalizarTema(tema),
     versionActual: 1,
     versiones: [
       {
@@ -91,4 +108,72 @@ export async function crearPregunta(req: SolicitudDocente, res: Response) {
   });
 
   res.status(201).json({ pregunta });
+}
+
+/**
+ * Actualiza una pregunta creando una nueva version (versionado).
+ */
+export async function actualizarPregunta(req: SolicitudDocente, res: Response) {
+  const docenteId = obtenerDocenteId(req);
+  const preguntaId = String(req.params.preguntaId ?? '').trim();
+  const { tema, enunciado, imagenUrl, opciones } = req.body as {
+    tema?: string;
+    enunciado?: string;
+    imagenUrl?: string | null;
+    opciones?: Array<{ texto: string; esCorrecta: boolean }>;
+  };
+
+  const pregunta = await BancoPregunta.findOne({ _id: preguntaId, docenteId });
+  if (!pregunta) {
+    throw new ErrorAplicacion('PREGUNTA_NO_ENCONTRADA', 'Pregunta no encontrada', 404);
+  }
+
+  const preguntaDoc = pregunta as unknown as BancoPreguntaDoc & {
+    versiones: VersionBanco[];
+    versionActual: number;
+  };
+
+  const versionActual = obtenerVersionActiva(preguntaDoc);
+  if (!versionActual) {
+    throw new ErrorAplicacion('PREGUNTA_INVALIDA', 'La pregunta no tiene versiones', 500);
+  }
+
+  const versiones = Array.isArray(preguntaDoc.versiones) ? preguntaDoc.versiones : [];
+  const maxNumero = versiones.reduce((max, v) => Math.max(max, Number(v?.numeroVersion ?? 0)), 0);
+  const siguienteNumero = Math.max(maxNumero, Number(preguntaDoc.versionActual ?? 0)) + 1;
+
+  if (tema !== undefined) {
+    preguntaDoc.tema = normalizarTema(tema);
+  }
+
+  const nueva = {
+    numeroVersion: siguienteNumero,
+    enunciado: enunciado ?? versionActual.enunciado,
+    imagenUrl: imagenUrl === undefined ? versionActual.imagenUrl : imagenUrl ?? undefined,
+    opciones: opciones ?? versionActual.opciones
+  };
+
+  preguntaDoc.versiones = [...versiones, nueva];
+  preguntaDoc.versionActual = siguienteNumero;
+  await pregunta.save();
+
+  res.json({ pregunta });
+}
+
+/**
+ * Elimina (desactiva) una pregunta del banco.
+ */
+export async function eliminarPregunta(req: SolicitudDocente, res: Response) {
+  const docenteId = obtenerDocenteId(req);
+  const preguntaId = String(req.params.preguntaId ?? '').trim();
+
+  const pregunta = await BancoPregunta.findOne({ _id: preguntaId, docenteId });
+  if (!pregunta) {
+    throw new ErrorAplicacion('PREGUNTA_NO_ENCONTRADA', 'Pregunta no encontrada', 404);
+  }
+
+  const preguntaDoc = pregunta as unknown as BancoPreguntaDoc;
+  preguntaDoc.activo = false;
+  await pregunta.save();
+  res.json({ pregunta });
 }

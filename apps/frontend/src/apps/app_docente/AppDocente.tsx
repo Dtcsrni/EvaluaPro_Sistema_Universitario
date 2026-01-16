@@ -61,9 +61,37 @@ type Periodo = {
   };
 };
 
-type Plantilla = { _id: string; titulo: string; tipo: 'parcial' | 'global'; totalReactivos: number };
+type Plantilla = {
+  _id: string;
+  titulo: string;
+  tipo: 'parcial' | 'global';
+  totalReactivos: number;
+  periodoId?: string;
+  preguntasIds?: string[];
+  temas?: string[];
+};
 
-type Pregunta = { _id: string; versiones: Array<{ enunciado: string }>; periodoId?: string; createdAt?: string };
+type Pregunta = {
+  _id: string;
+  periodoId?: string;
+  tema?: string;
+  activo?: boolean;
+  versionActual?: number;
+  versiones: Array<{
+    numeroVersion?: number;
+    enunciado: string;
+    imagenUrl?: string;
+    opciones?: Array<{ texto: string; esCorrecta: boolean }>;
+  }>;
+  createdAt?: string;
+};
+
+function obtenerVersionPregunta(pregunta: Pregunta): Pregunta['versiones'][number] | null {
+  const versiones = Array.isArray(pregunta.versiones) ? pregunta.versiones : [];
+  if (versiones.length === 0) return null;
+  const actual = versiones.find((v) => v.numeroVersion === pregunta.versionActual);
+  return actual ?? versiones[versiones.length - 1] ?? null;
+}
 
 type ResultadoOmr = {
   respuestasDetectadas: Array<{ numeroPregunta: number; opcion: string | null; confianza: number }>;
@@ -1364,6 +1392,18 @@ function SeccionBanco({
   const [mensaje, setMensaje] = useState('');
   const [guardando, setGuardando] = useState(false);
   const [asignandoId, setAsignandoId] = useState<string | null>(null);
+  const [editandoId, setEditandoId] = useState<string | null>(null);
+  const [editEnunciado, setEditEnunciado] = useState('');
+  const [editTema, setEditTema] = useState('');
+  const [editOpciones, setEditOpciones] = useState([
+    { texto: '', esCorrecta: true },
+    { texto: '', esCorrecta: false },
+    { texto: '', esCorrecta: false },
+    { texto: '', esCorrecta: false },
+    { texto: '', esCorrecta: false }
+  ]);
+  const [editando, setEditando] = useState(false);
+  const [borrandoId, setBorrandoId] = useState<string | null>(null);
 
   useEffect(() => {
     if (periodoId) return;
@@ -1391,6 +1431,33 @@ function SeccionBanco({
       opciones.every((opcion) => opcion.texto.trim()) &&
       opciones.some((opcion) => opcion.esCorrecta)
   );
+
+  const puedeGuardarEdicion = Boolean(
+    editandoId && editEnunciado.trim() && editTema.trim() && editOpciones.every((o) => o.texto.trim())
+  );
+
+  function iniciarEdicion(pregunta: Pregunta) {
+    const version = obtenerVersionPregunta(pregunta);
+    setEditandoId(pregunta._id);
+    setEditEnunciado(version?.enunciado ?? '');
+    setEditTema(String(pregunta.tema ?? '').trim());
+    const opcionesActuales = Array.isArray(version?.opciones) ? version?.opciones : [];
+    const base = opcionesActuales.length === 5 ? opcionesActuales : editOpciones;
+    setEditOpciones(base.map((o) => ({ texto: String(o.texto ?? ''), esCorrecta: Boolean(o.esCorrecta) })));
+  }
+
+  function cancelarEdicion() {
+    setEditandoId(null);
+    setEditEnunciado('');
+    setEditTema('');
+    setEditOpciones([
+      { texto: '', esCorrecta: true },
+      { texto: '', esCorrecta: false },
+      { texto: '', esCorrecta: false },
+      { texto: '', esCorrecta: false },
+      { texto: '', esCorrecta: false }
+    ]);
+  }
 
   async function guardar() {
     try {
@@ -1457,6 +1524,67 @@ function SeccionBanco({
       registrarAccionDocente('asignar_pregunta_materia', false);
     } finally {
       setAsignandoId(null);
+    }
+  }
+
+  async function guardarEdicion() {
+    if (!editandoId) return;
+    try {
+      const inicio = Date.now();
+      setEditando(true);
+      setMensaje('');
+      await clienteApi.enviar(`/banco-preguntas/${editandoId}/actualizar`, {
+        enunciado: editEnunciado.trim(),
+        tema: editTema.trim(),
+        opciones: editOpciones.map((o) => ({ ...o, texto: o.texto.trim() }))
+      });
+      setMensaje('Pregunta actualizada');
+      emitToast({ level: 'ok', title: 'Banco', message: 'Pregunta actualizada', durationMs: 2200 });
+      registrarAccionDocente('actualizar_pregunta', true, Date.now() - inicio);
+      cancelarEdicion();
+      onRefrescar();
+    } catch (error) {
+      const msg = mensajeDeError(error, 'No se pudo actualizar');
+      setMensaje(msg);
+      emitToast({
+        level: 'error',
+        title: 'No se pudo actualizar',
+        message: msg,
+        durationMs: 5200,
+        action: accionToastSesionParaError(error, 'docente')
+      });
+      registrarAccionDocente('actualizar_pregunta', false);
+    } finally {
+      setEditando(false);
+    }
+  }
+
+  async function eliminar(preguntaId: string) {
+    const ok = globalThis.confirm('¿Eliminar esta pregunta? Se desactivará del banco.');
+    if (!ok) return;
+    try {
+      const inicio = Date.now();
+      setBorrandoId(preguntaId);
+      setMensaje('');
+      await clienteApi.eliminar(`/banco-preguntas/${preguntaId}`);
+      setMensaje('Pregunta eliminada');
+      emitToast({ level: 'ok', title: 'Banco', message: 'Pregunta eliminada', durationMs: 2200 });
+      registrarAccionDocente('eliminar_pregunta', true, Date.now() - inicio);
+      if (editandoId === preguntaId) cancelarEdicion();
+      onRefrescar();
+    } catch (error) {
+      const msg = mensajeDeError(error, 'No se pudo eliminar');
+      setMensaje(msg);
+      emitToast({
+        level: 'error',
+        title: 'No se pudo eliminar',
+        message: msg,
+        durationMs: 5200,
+        action: accionToastSesionParaError(error, 'docente')
+      });
+      registrarAccionDocente('eliminar_pregunta', false);
+    } finally {
+      setBorrandoId(null);
     }
   }
 
@@ -1548,37 +1676,145 @@ function SeccionBanco({
           {mensaje}
         </p>
       )}
+
+      {editandoId && (
+        <div className="resultado">
+          <h3>Editando pregunta</h3>
+          <label className="campo">
+            Enunciado
+            <textarea value={editEnunciado} onChange={(event) => setEditEnunciado(event.target.value)} />
+          </label>
+          <label className="campo">
+            Tema
+            <input value={editTema} onChange={(event) => setEditTema(event.target.value)} />
+          </label>
+          {editOpciones.map((opcion, idx) => (
+            <label key={idx} className="campo opcion">
+              Opcion {String.fromCharCode(65 + idx)}
+              <input
+                value={opcion.texto}
+                onChange={(event) => {
+                  const copia = [...editOpciones];
+                  copia[idx] = { ...copia[idx], texto: event.target.value };
+                  setEditOpciones(copia);
+                }}
+              />
+              <input
+                type="radio"
+                name="correctaEdit"
+                checked={opcion.esCorrecta}
+                onChange={() => setEditOpciones(editOpciones.map((item, index) => ({ ...item, esCorrecta: index === idx })))}
+              />
+              Correcta
+            </label>
+          ))}
+          <div className="acciones">
+            <Boton type="button" icono={<Icono nombre="ok" />} cargando={editando} disabled={!puedeGuardarEdicion} onClick={guardarEdicion}>
+              {editando ? 'Guardando…' : 'Guardar cambios'}
+            </Boton>
+            <Boton type="button" variante="secundario" onClick={cancelarEdicion}>
+              Cancelar
+            </Boton>
+          </div>
+        </div>
+      )}
       <h3>Preguntas sin materia</h3>
       <div className="ayuda">
         Preguntas legacy que quedaron sin materia asignada. Selecciona una materia y pulsa &quot;Asignar&quot;.
       </div>
-      <ul className="lista">
+      <ul className="lista lista-items">
         {!periodoId && <li>Selecciona una materia para poder asignar preguntas.</li>}
         {periodoId && preguntasSinMateria.length === 0 && <li>No hay preguntas sin materia.</li>}
         {periodoId &&
           preguntasSinMateria.slice(0, 30).map((pregunta) => (
             <li key={pregunta._id}>
-              <span className="item-principal">{pregunta.versiones?.[0]?.enunciado ?? 'Pregunta'}</span>
-              <div className="acciones">
-                <Boton
-                  variante="secundario"
-                  type="button"
-                  cargando={asignandoId === pregunta._id}
-                  onClick={() => asignarPreguntaSinMateria(pregunta._id)}
-                >
-                  Asignar a esta materia
-                </Boton>
-              </div>
+              {(() => {
+                const version = obtenerVersionPregunta(pregunta);
+                const opcionesActuales = Array.isArray(version?.opciones) ? version?.opciones : [];
+                return (
+                  <div className="item-glass">
+                    <div className="item-row">
+                      <div>
+                        <div className="item-title">{version?.enunciado ?? 'Pregunta'}</div>
+                        <div className="item-meta">
+                          <span>ID: {idCortoMateria(pregunta._id)}</span>
+                          {pregunta.tema ? <span>Tema: {pregunta.tema}</span> : <span>Tema: -</span>}
+                        </div>
+                      </div>
+                      <div className="item-actions">
+                        <Boton
+                          variante="secundario"
+                          type="button"
+                          cargando={asignandoId === pregunta._id}
+                          onClick={() => asignarPreguntaSinMateria(pregunta._id)}
+                        >
+                          Asignar a esta materia
+                        </Boton>
+                        <Boton variante="secundario" type="button" onClick={() => iniciarEdicion(pregunta)}>
+                          Editar
+                        </Boton>
+                        <Boton type="button" cargando={borrandoId === pregunta._id} onClick={() => eliminar(pregunta._id)}>
+                          Eliminar
+                        </Boton>
+                      </div>
+                    </div>
+                    {opcionesActuales.length === 5 && (
+                      <ul className="item-options">
+                        {opcionesActuales.map((op, idx) => (
+                          <li key={idx} className={`item-option${op.esCorrecta ? ' item-option--correcta' : ''}`}>
+                            <span className="item-option__letra">{String.fromCharCode(65 + idx)}.</span> {op.texto}
+                          </li>
+                        ))}
+                      </ul>
+                    )}
+                  </div>
+                );
+              })()}
             </li>
           ))}
       </ul>
       <h3>Preguntas recientes</h3>
-      <ul className="lista">
+      <ul className="lista lista-items">
         {!periodoId && <li>Selecciona una materia para ver sus preguntas.</li>}
         {periodoId && preguntasMateria.length === 0 && <li>No hay preguntas en esta materia.</li>}
         {periodoId &&
           preguntasMateria.map((pregunta) => (
-            <li key={pregunta._id}>{pregunta.versiones?.[0]?.enunciado ?? 'Pregunta'}</li>
+            <li key={pregunta._id}>
+              {(() => {
+                const version = obtenerVersionPregunta(pregunta);
+                const opcionesActuales = Array.isArray(version?.opciones) ? version?.opciones : [];
+                return (
+                  <div className="item-glass">
+                    <div className="item-row">
+                      <div>
+                        <div className="item-title">{version?.enunciado ?? 'Pregunta'}</div>
+                        <div className="item-meta">
+                          <span>ID: {idCortoMateria(pregunta._id)}</span>
+                          <span>Tema: {pregunta.tema ? pregunta.tema : '-'}</span>
+                        </div>
+                      </div>
+                      <div className="item-actions">
+                        <Boton variante="secundario" type="button" onClick={() => iniciarEdicion(pregunta)}>
+                          Editar
+                        </Boton>
+                        <Boton type="button" cargando={borrandoId === pregunta._id} onClick={() => eliminar(pregunta._id)}>
+                          Eliminar
+                        </Boton>
+                      </div>
+                    </div>
+                    {opcionesActuales.length === 5 && (
+                      <ul className="item-options">
+                        {opcionesActuales.map((op, idx) => (
+                          <li key={idx} className={`item-option${op.esCorrecta ? ' item-option--correcta' : ''}`}>
+                            <span className="item-option__letra">{String.fromCharCode(65 + idx)}.</span> {op.texto}
+                          </li>
+                        ))}
+                      </ul>
+                    )}
+                  </div>
+                );
+              })()}
+            </li>
           ))}
       </ul>
     </div>
@@ -2313,7 +2549,7 @@ function SeccionPlantillas({
   const [tipo, setTipo] = useState<'parcial' | 'global'>('parcial');
   const [periodoId, setPeriodoId] = useState('');
   const [totalReactivos, setTotalReactivos] = useState(10);
-  const [seleccion, setSeleccion] = useState<string[]>([]);
+  const [temasSeleccionados, setTemasSeleccionados] = useState<string[]>([]);
   const [mensaje, setMensaje] = useState('');
   const [plantillaId, setPlantillaId] = useState('');
   const [alumnoId, setAlumnoId] = useState('');
@@ -2327,11 +2563,41 @@ function SeccionPlantillas({
     return lista.filter((p) => p.periodoId === periodoId);
   }, [preguntas, periodoId]);
 
+  const temasDisponibles = useMemo(() => {
+    const mapa = new Map<string, { tema: string; total: number }>();
+    for (const pregunta of preguntasDisponibles) {
+      const tema = String(pregunta.tema ?? '').trim().replace(/\s+/g, ' ');
+      if (!tema) continue;
+      const key = tema.toLowerCase();
+      const actual = mapa.get(key);
+      if (actual) {
+        actual.total += 1;
+      } else {
+        mapa.set(key, { tema, total: 1 });
+      }
+    }
+    return Array.from(mapa.values()).sort((a, b) => a.tema.localeCompare(b.tema));
+  }, [preguntasDisponibles]);
+
+  const totalDisponiblePorTemas = useMemo(() => {
+    if (temasSeleccionados.length === 0) return 0;
+    const seleccion = new Set(temasSeleccionados.map((t) => t.toLowerCase()));
+    return temasDisponibles
+      .filter((t) => seleccion.has(t.tema.toLowerCase()))
+      .reduce((acc, item) => acc + item.total, 0);
+  }, [temasDisponibles, temasSeleccionados]);
+
   useEffect(() => {
-    setSeleccion([]);
+    setTemasSeleccionados([]);
   }, [periodoId]);
 
-  const puedeCrear = Boolean(titulo.trim() && periodoId && seleccion.length > 0 && totalReactivos > 0);
+  const puedeCrear = Boolean(
+    titulo.trim() &&
+      periodoId &&
+      temasSeleccionados.length > 0 &&
+      totalReactivos > 0 &&
+      totalReactivos <= totalDisponiblePorTemas
+  );
   const puedeGenerar = Boolean(plantillaId);
 
   async function crear() {
@@ -2344,7 +2610,7 @@ function SeccionPlantillas({
         tipo,
         titulo: titulo.trim(),
         totalReactivos: Math.max(1, Math.floor(totalReactivos)),
-        preguntasIds: seleccion
+        temas: temasSeleccionados
       });
       setMensaje('Plantilla creada');
       emitToast({ level: 'ok', title: 'Plantillas', message: 'Plantilla creada', durationMs: 2200 });
@@ -2389,11 +2655,11 @@ function SeccionPlantillas({
             <b>Total reactivos:</b> numero de preguntas del examen (entero mayor o igual a 1).
           </li>
           <li>
-            <b>Preguntas:</b> seleccion multiple; en Windows usa Ctrl + clic.
+            <b>Temas:</b> selecciona uno o mas; el examen toma preguntas al azar de esos temas.
           </li>
         </ul>
         <p>
-          Ejemplo: titulo <code>Parcial 1 - Programacion</code>, tipo <code>parcial</code>, total reactivos <code>10</code>, preguntas: selecciona 10+ del banco.
+          Ejemplo: titulo <code>Parcial 1 - Programacion</code>, tipo <code>parcial</code>, total reactivos <code>10</code>, temas: <code>Arreglos</code> + <code>Funciones</code>.
         </p>
       </AyudaFormulario>
       <label className="campo">
@@ -2427,22 +2693,52 @@ function SeccionPlantillas({
         />
       </label>
       <label className="campo">
-        Preguntas
-        <select
-          multiple
-          value={seleccion}
-          onChange={(event) =>
-            setSeleccion(Array.from(event.target.selectedOptions).map((option) => option.value))
-          }
-        >
-          {preguntasDisponibles.map((pregunta) => (
-            <option key={pregunta._id} value={pregunta._id}>
-              {pregunta.versiones?.[0]?.enunciado?.slice(0, 40) ?? 'Pregunta'}
-            </option>
-          ))}
-        </select>
-        {periodoId && preguntasDisponibles.length === 0 && (
-          <span className="ayuda">No hay preguntas para esta materia. Ve a &quot;Banco&quot; para agregarlas.</span>
+        Temas
+        {periodoId && temasDisponibles.length === 0 && (
+          <span className="ayuda">No hay temas para esta materia. Ve a &quot;Banco&quot; y crea preguntas con tema.</span>
+        )}
+        {temasDisponibles.length > 0 && (
+          <ul className="lista lista-items">
+            {temasDisponibles.map((item) => {
+              const checked = temasSeleccionados.some((t) => t.toLowerCase() === item.tema.toLowerCase());
+              return (
+                <li key={item.tema}>
+                  <div className="item-glass">
+                    <div className="item-row">
+                      <div>
+                        <div className="item-title">{item.tema}</div>
+                        <div className="item-sub">Preguntas disponibles: {item.total}</div>
+                      </div>
+                      <div className="item-actions">
+                        <label className="campo campo-inline">
+                          <input
+                            type="checkbox"
+                            checked={checked}
+                            onChange={() => {
+                              setTemasSeleccionados((prev) =>
+                                checked
+                                  ? prev.filter((t) => t.toLowerCase() !== item.tema.toLowerCase())
+                                  : [...prev, item.tema]
+                              );
+                            }}
+                          />
+                          Usar
+                        </label>
+                      </div>
+                    </div>
+                  </div>
+                </li>
+              );
+            })}
+          </ul>
+        )}
+        {temasSeleccionados.length > 0 && (
+          <span className="ayuda">
+            Total disponible en temas seleccionados: {totalDisponiblePorTemas}. Reactivos solicitados: {Math.max(1, Math.floor(totalReactivos))}.
+          </span>
+        )}
+        {temasSeleccionados.length > 0 && totalReactivos > totalDisponiblePorTemas && (
+          <span className="ayuda error">No hay suficientes preguntas en esos temas para cubrir el total de reactivos.</span>
         )}
       </label>
       <Boton type="button" icono={<Icono nombre="nuevo" />} cargando={creando} disabled={!puedeCrear} onClick={crear}>
@@ -2454,10 +2750,30 @@ function SeccionPlantillas({
         </p>
       )}
       <h3>Plantillas existentes</h3>
-      <ul className="lista">
-        {plantillas.map((plantilla) => (
-          <li key={plantilla._id}>{plantilla.titulo}</li>
-        ))}
+      <ul className="lista lista-items">
+        {plantillas.map((plantilla) => {
+          const materia = periodos.find((p) => p._id === plantilla.periodoId);
+          const temas = Array.isArray(plantilla.temas) ? plantilla.temas : [];
+          const modo = temas.length > 0 ? `Temas: ${temas.join(', ')}` : 'Modo legacy: preguntasIds';
+          return (
+            <li key={plantilla._id}>
+              <div className="item-glass">
+                <div className="item-row">
+                  <div>
+                    <div className="item-title">{plantilla.titulo}</div>
+                    <div className="item-meta">
+                      <span>ID: {idCortoMateria(plantilla._id)}</span>
+                      <span>Tipo: {plantilla.tipo}</span>
+                      <span>Reactivos: {plantilla.totalReactivos}</span>
+                      <span>Materia: {materia ? etiquetaMateria(materia) : '-'}</span>
+                    </div>
+                    <div className="item-sub">{modo}</div>
+                  </div>
+                </div>
+              </div>
+            </li>
+          );
+        })}
       </ul>
       <h3>Generar examen</h3>
       <AyudaFormulario titulo="Generar examen (PDF)">
