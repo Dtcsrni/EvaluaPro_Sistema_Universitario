@@ -624,13 +624,83 @@ async function pingDashboard(port) {
   });
 }
 
+async function fetchDashboardStatus(port) {
+  return new Promise((resolve) => {
+    const req = http.get({
+      hostname: '127.0.0.1',
+      port,
+      path: '/api/status',
+      timeout: 900
+    }, (res) => {
+      let body = '';
+      res.setEncoding('utf8');
+      res.on('data', (chunk) => {
+        body += chunk;
+        if (body.length > 250_000) {
+          try { req.destroy(); } catch {}
+        }
+      });
+      res.on('end', () => {
+        try {
+          resolve(JSON.parse(body));
+        } catch {
+          resolve(null);
+        }
+      });
+    });
+    req.on('error', () => resolve(null));
+    req.on('timeout', () => {
+      try { req.destroy(); } catch {}
+      resolve(null);
+    });
+  });
+}
+
+function sleep(ms) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+function terminateProcess(pid) {
+  if (!pid || !Number.isFinite(Number(pid))) return;
+  const id = String(pid);
+  try {
+    if (process.platform === 'win32') {
+      spawn('taskkill', ['/T', '/F', '/PID', id], { windowsHide: true });
+      return;
+    }
+    process.kill(Number(pid), 'SIGTERM');
+  } catch {
+    // ignore
+  }
+}
+
 async function findExistingInstance() {
   if (!fs.existsSync(lockPath)) return null;
   try {
     const lock = JSON.parse(fs.readFileSync(lockPath, 'utf8'));
     if (!lock || !lock.port) return null;
     const ok = await pingDashboard(lock.port);
-    if (ok) return { port: lock.port };
+    if (ok) {
+      const status = await fetchDashboardStatus(lock.port);
+      const hasModeConfig = Boolean(status && typeof status === 'object' && 'modeConfig' in status);
+      const running = status && Array.isArray(status.running) ? status.running : [];
+      const inconsistent = status && status.mode === 'none' && (running.includes('dev') || running.includes('prod'));
+
+      // If instance is old (no modeConfig) or inconsistent, restart it so UI updates apply.
+      if (!hasModeConfig || inconsistent) {
+        logSystem('Instancia previa desactualizada detectada. Reiniciando...', 'warn', { console: true });
+        terminateProcess(Number(lock.pid || 0));
+        try { fs.unlinkSync(lockPath); } catch {}
+        for (let i = 0; i < 7; i++) {
+          await sleep(250);
+          const stillUp = await pingDashboard(lock.port);
+          if (!stillUp) break;
+        }
+        return null;
+      }
+
+      return { port: lock.port };
+    }
   } catch {
     // ignore
   }
