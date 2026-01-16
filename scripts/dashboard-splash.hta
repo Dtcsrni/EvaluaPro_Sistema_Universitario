@@ -1,6 +1,6 @@
 <html>
 <head>
-  <title>Iniciando Dashboard…</title>
+  <title>Iniciando Dashboard...</title>
   <hta:application
     id="app"
     applicationname="DashboardSplash"
@@ -17,38 +17,72 @@
     icon="icons\\dashboard-dev.ico"
   />
   <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+  <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
   <style>
     :root{
-      --bgA:#0b3a6b;
-      --bgB:#1d6fb8;
+      --bgA:#0b1530;
+      --bgB:#0b3a6b;
       --bgC:#2fa4dd;
-      --card:rgba(255,255,255,0.10);
-      --card2:rgba(255,255,255,0.06);
-      --text:rgba(255,255,255,0.92);
-      --muted:rgba(226,232,240,0.84);
-      --ring:rgba(255,255,255,0.22);
+      --ink:#0b1220;
+
+      --cardA:rgba(255,255,255,0.92);
+      --cardB:rgba(255,255,255,0.82);
+      --stroke:rgba(15,23,42,0.10);
+
+      --text:#0b1220;
+      --muted:rgba(30,41,59,0.78);
+      --muted2:rgba(30,41,59,0.60);
+
+      --brand:#2563eb;
       --ok:#22c55e;
       --bad:#ef4444;
     }
     html,body{height:100%;margin:0;overflow:hidden;font-family:Segoe UI, system-ui, -apple-system, sans-serif;}
     body{
-      background: radial-gradient(circle at 20% 20%, rgba(255,255,255,0.22) 0, transparent 55%),
-                  linear-gradient(135deg, var(--bgA), var(--bgB), var(--bgC));
+      background:
+        radial-gradient(1200px 520px at 15% 18%, rgba(47,164,221,0.28) 0, rgba(47,164,221,0.00) 60%),
+        radial-gradient(900px 520px at 92% 82%, rgba(34,197,94,0.20) 0, rgba(34,197,94,0.00) 62%),
+        radial-gradient(900px 520px at 90% 20%, rgba(37,99,235,0.26) 0, rgba(37,99,235,0.00) 60%),
+        linear-gradient(135deg, var(--bgA), var(--bgB));
     }
     .wrap{height:100%;display:grid;place-items:center;padding:18px;}
     .card{
-      width: 440px;
+      width: 560px;
       border-radius: 22px;
       padding: 18px 18px 16px;
-      border: 1px solid rgba(255,255,255,0.22);
-      background: linear-gradient(180deg, var(--card), var(--card2));
-      box-shadow: 0 30px 80px rgba(0,0,0,0.28);
+      border: 1px solid rgba(255,255,255,0.18);
+      background:
+        linear-gradient(180deg, rgba(255,255,255,0.22), rgba(255,255,255,0.08)),
+        linear-gradient(180deg, var(--cardA), var(--cardB));
+      box-shadow: 0 26px 70px rgba(0,0,0,0.35);
+      position:relative;
+      overflow:hidden;
     }
+    .card:before{
+      content:"";
+      position:absolute;
+      inset:-2px;
+      background:
+        radial-gradient(640px 220px at 20% 0%, rgba(37,99,235,0.22), rgba(37,99,235,0.00) 62%),
+        radial-gradient(560px 240px at 100% 20%, rgba(34,197,94,0.18), rgba(34,197,94,0.00) 60%);
+      opacity:0.65;
+      pointer-events:none;
+      filter: blur(0.2px);
+    }
+    .card:after{
+      content:"";
+      position:absolute;
+      inset:0;
+      border: 1px solid rgba(255,255,255,0.24);
+      border-radius: 22px;
+      pointer-events:none;
+    }
+    .card > *{position:relative;z-index:1;}
     .row{display:flex;gap:14px;align-items:center;}
     .mark{
-      width: 46px; height: 46px; border-radius: 18px;
-      background: rgba(255,255,255,0.14);
-      border: 1px solid rgba(255,255,255,0.22);
+      width: 50px; height: 50px; border-radius: 16px;
+      background: rgba(255,255,255,0.74);
+      border: 1px solid rgba(15,23,42,0.10);
       display:grid;place-items:center;
       position:relative;
       overflow:hidden;
@@ -57,64 +91,83 @@
       content:"";
       position:absolute;
       inset:-40px;
-      background: radial-gradient(circle at 30% 35%, rgba(255,255,255,0.35), transparent 55%);
-      animation: glow 1.6s ease-in-out infinite;
+      background: radial-gradient(circle at 30% 35%, rgba(37,99,235,0.22), rgba(37,99,235,0.00) 58%);
+      animation: glow 1.8s ease-in-out infinite;
     }
     .mark svg{position:relative;display:block;}
-    h1{margin:0;color:var(--text);font-size:16px;font-weight:900;letter-spacing:0.01em;}
+    h1{margin:0;color:rgba(15,23,42,0.94);font-size:17px;font-weight:900;letter-spacing:0.01em;}
     p{margin:6px 0 0;color:var(--muted);font-size:12px;line-height:1.35;}
 
     .errorBox{
       margin-top: 12px;
       padding: 10px 12px;
       border-radius: 14px;
-      border: 1px solid rgba(255,255,255,0.22);
-      background: rgba(15,23,42,0.20);
+      border: 1px solid rgba(15,23,42,0.10);
+      background: rgba(255,255,255,0.78);
       display:none;
     }
-    .errorTitle{color:rgba(255,255,255,0.95);font-weight:900;font-size:12px;margin:0 0 6px;}
-    .errorText{color:rgba(226,232,240,0.92);font-size:12px;line-height:1.35;margin:0;}
-    code{font-family:Consolas, ui-monospace, SFMono-Regular, Menlo, monospace;color:rgba(255,255,255,0.92);}
-    .actions{display:flex;gap:8px;margin-top:12px;}
-    .btn{flex:1;border-radius: 12px; padding: 9px 10px; cursor:pointer; border:1px solid rgba(255,255,255,0.22);
-      background: rgba(255,255,255,0.10); color: rgba(255,255,255,0.92); font-weight:900; font-size:12px;
+    .errorTitle{color:rgba(15,23,42,0.92);font-weight:900;font-size:12px;margin:0 0 6px;}
+    .errorText{color:rgba(30,41,59,0.88);font-size:12px;line-height:1.35;margin:0;}
+    code{font-family:Consolas, ui-monospace, SFMono-Regular, Menlo, monospace;color:rgba(15,23,42,0.92);}
+    .actions{display:flex;flex-wrap:wrap;gap:8px;margin-top:12px;}
+    .btn{flex:1;min-width:120px;border-radius: 12px; padding: 9px 10px; cursor:pointer; border:1px solid rgba(15,23,42,0.10);
+      background: rgba(255,255,255,0.90); color: rgba(15,23,42,0.92); font-weight:900; font-size:12px;
     }
-    .btn:hover{background: rgba(255,255,255,0.14);}
-    .btn.primary{background: rgba(34,197,94,0.18); border-color: rgba(34,197,94,0.35);}
-    .btn.danger{background: rgba(239,68,68,0.18); border-color: rgba(239,68,68,0.35);}
+    .btn:hover{background: rgba(255,255,255,0.98);}
+    .btn.primary{background: rgba(34,197,94,0.18); border-color: rgba(34,197,94,0.32);}
+    .btn.danger{background: rgba(239,68,68,0.14); border-color: rgba(239,68,68,0.28);}
 
     .loader{
       margin-top: 14px;
       height: 10px;
       border-radius: 999px;
-      background: rgba(255,255,255,0.10);
-      border: 1px solid rgba(255,255,255,0.18);
+      background: rgba(15,23,42,0.08);
+      border: 1px solid rgba(15,23,42,0.08);
       overflow:hidden;
       position:relative;
     }
     .bar{
       position:absolute; inset:0;
       width: 38%;
-      background: linear-gradient(90deg, rgba(255,255,255,0.10), rgba(255,255,255,0.55), rgba(255,255,255,0.10));
+      background: linear-gradient(90deg, rgba(37,99,235,0.10), rgba(37,99,235,0.55), rgba(34,197,94,0.35), rgba(37,99,235,0.10));
       transform: translateX(-60%);
       animation: move 1.05s ease-in-out infinite;
     }
 
     .steps{display:flex;gap:8px;align-items:center;margin-top:12px;}
-    .dot{width:8px;height:8px;border-radius:999px;background:rgba(255,255,255,0.20);border:1px solid rgba(255,255,255,0.20);}
-    .dot.on{background:rgba(255,255,255,0.70);}
-    .status{color:var(--muted);font-size:12px;flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+    .dot{width:8px;height:8px;border-radius:999px;background:rgba(15,23,42,0.14);border:1px solid rgba(15,23,42,0.08);}
+    .dot.on{background:rgba(37,99,235,0.70);border-color:rgba(37,99,235,0.18);}
+    .status{color:rgba(15,23,42,0.74);font-size:12px;flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
 
+    .top{display:flex;align-items:flex-start;gap:14px;}
+    .right{margin-left:auto;display:flex;align-items:center;gap:10px;}
+    .spin{
+      width: 18px;
+      height: 18px;
+      border-radius: 999px;
+      border: 2px solid rgba(15,23,42,0.12);
+      border-top-color: rgba(37,99,235,0.85);
+      border-right-color: rgba(34,197,94,0.70);
+      animation: spin 0.9s linear infinite;
+    }
+
+    @keyframes spin{0%{transform:rotate(0deg);}100%{transform:rotate(360deg);}}
     @keyframes move{0%{transform:translateX(-60%);}50%{transform:translateX(130%);}100%{transform:translateX(130%);}}
     @keyframes glow{0%,100%{opacity:0.45;}50%{opacity:1;}}
+
+    .meta{margin-top:8px;color:rgba(15,23,42,0.80);font-size:11px;display:flex;gap:8px;align-items:center;}
+    .pill{display:inline-flex;gap:6px;align-items:center;padding:4px 10px;border-radius:999px;border:1px solid rgba(15,23,42,0.10);background:rgba(255,255,255,0.72);}
+    .pill strong{font-weight:900;letter-spacing:0.02em;color:rgba(15,23,42,0.92);}
+    .mono{font-family:Consolas, ui-monospace, SFMono-Regular, Menlo, monospace;}
   </style>
 </head>
 <body>
   <div class="wrap">
     <div class="card">
-      <div class="row">
-        <div class="mark" aria-hidden="true">
-          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="34" height="34" role="img" aria-label="Sistema de Evaluación">
+      <div class="top">
+        <div class="row">
+          <div class="mark" aria-hidden="true">
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="34" height="34" role="img" aria-label="Sistema de Evaluacion">
             <defs>
               <linearGradient id="bg" x1="10" y1="6" x2="54" y2="58" gradientUnits="userSpaceOnUse">
                 <stop offset="0" stop-color="#0b3a6b"/>
@@ -150,10 +203,14 @@
             <path d="M48 21v7" stroke="#f8fafc" stroke-width="2.2" stroke-linecap="round" opacity="0.9"/>
             <circle cx="48" cy="29" r="2.2" fill="#f8fafc" opacity="0.95"/>
           </svg>
+          </div>
+          <div>
+            <h1>Iniciando Sistema de Evaluaci&#243;n</h1>
+            <p id="subtitle">Preparando dashboard local y verificando servicios...</p>
+          </div>
         </div>
-        <div>
-          <h1>Iniciando Sistema de Evaluación</h1>
-          <p id="subtitle">Preparando dashboard local y verificando servicios…</p>
+        <div class="right" aria-hidden="true">
+          <div class="spin"></div>
         </div>
       </div>
 
@@ -164,7 +221,13 @@
         <span class="dot" id="d2"></span>
         <span class="dot" id="d3"></span>
         <span class="dot" id="d4"></span>
-        <div class="status" id="status">Cargando…</div>
+        <div class="status" id="status">Cargando...</div>
+      </div>
+
+      <div class="meta" id="meta">
+        <span class="pill"><strong id="metaMode">DEV</strong></span>
+        <span class="pill mono" id="metaUrl">http://127.0.0.1:4519/</span>
+        <span class="pill" id="metaTime">0.0s</span>
       </div>
 
       <div class="errorBox" id="errorBox" role="status" aria-live="polite">
@@ -172,6 +235,8 @@
         <p class="errorText" id="errorText"></p>
         <div class="actions">
           <button class="btn primary" type="button" id="btnRetry">Reintentar</button>
+          <button class="btn" type="button" id="btnOpen">Abrir dashboard</button>
+          <button class="btn" type="button" id="btnCopy">Copiar URL</button>
           <button class="btn" type="button" id="btnLogs">Abrir logs</button>
           <button class="btn danger" type="button" id="btnClose">Cerrar</button>
         </div>
@@ -180,12 +245,14 @@
   </div>
 
   <script>
-    window.resizeTo(480, 290);
+    window.resizeTo(600, 330);
     try {
-      var x = (screen.availWidth - 480) / 2;
-      var y = (screen.availHeight - 290) / 2;
+      var x = (screen.availWidth - 600) / 2;
+      var y = (screen.availHeight - 330) / 2;
       window.moveTo(x, y);
     } catch (e) {}
+
+    try { window.focus(); } catch (e) {}
 
     function parseQuery() {
       var q = (document.location.search || '').replace(/^\?/, '');
@@ -238,19 +305,23 @@
     }
 
     var msgs = [
-      'Inicializando dashboard…',
-      'Levantando servidor local…',
-      'Verificando conexión…',
-      'Cargando interfaz…'
+      'Inicializando dashboard...',
+      'Levantando servidor local...',
+      'Verificando conexi\u00f3n...',
+      'Cargando interfaz...'
     ];
 
     var idx = 0;
+    var baseStatus = msgs[0];
     var dots = [document.getElementById('d1'), document.getElementById('d2'), document.getElementById('d3'), document.getElementById('d4')];
     var status = document.getElementById('status');
+    var metaMode = document.getElementById('metaMode');
+    var metaUrl = document.getElementById('metaUrl');
+    var metaTime = document.getElementById('metaTime');
 
     function tick(){
       idx = (idx + 1) % msgs.length;
-      status.textContent = msgs[idx];
+      baseStatus = msgs[idx];
       for (var i=0;i<dots.length;i++) dots[i].className = 'dot' + (i<=idx ? ' on' : '');
     }
 
@@ -265,10 +336,31 @@
     var urlHome = 'http://127.0.0.1:' + port + '/';
     var startedAt = new Date().getTime();
     var timeoutMs = 24000;
+    var attempts = 0;
     var errorBox = document.getElementById('errorBox');
     var errorTitle = document.getElementById('errorTitle');
     var errorText = document.getElementById('errorText');
     var subtitle = document.getElementById('subtitle');
+
+    function setMeta() {
+      try {
+        metaMode.innerText = String(mode || 'dev').toUpperCase();
+        metaUrl.innerText = urlHome;
+      } catch (e) {}
+    }
+
+    function elapsedSec() {
+      return (new Date().getTime() - startedAt) / 1000;
+    }
+
+    function renderStatus() {
+      try {
+        var t = elapsedSec();
+        metaTime.innerText = (t < 10 ? t.toFixed(1) : t.toFixed(0)) + 's';
+        status.innerText = baseStatus + '  -  ' + (attempts > 0 ? (attempts + ' intentos') : '...');
+        document.title = 'Iniciando Dashboard... (' + metaTime.innerText + ')';
+      } catch (e) {}
+    }
 
     function showError(last) {
       try { clearInterval(intervalId); } catch (e) {}
@@ -284,8 +376,26 @@
         (detalles ? (detalles + '<br/>') : '') +
         'Puedes reintentar o abrir la carpeta de logs para ver el detalle.';
       errorBox.style.display = 'block';
-      status.textContent = 'Sin conexion.';
+      status.textContent = 'Sin conexi\u00f3n.';
+      try { metaTime.innerText = (elapsedSec()).toFixed(1) + 's'; } catch (e) {}
       for (var i=0;i<dots.length;i++) dots[i].className = 'dot';
+    }
+
+    function openDashboard() {
+      try {
+        var sh = new ActiveXObject('WScript.Shell');
+        sh.Run('cmd.exe /c start "" "' + urlHome + '"', 0, false);
+      } catch (e) {}
+    }
+
+    function copyUrl() {
+      try {
+        if (window.clipboardData && window.clipboardData.setData) {
+          window.clipboardData.setData('Text', urlHome);
+          subtitle.textContent = 'URL copiada al portapapeles.';
+          setTimeout(function(){ subtitle.textContent = 'Preparando dashboard local y verificando servicios...'; }, 1400);
+        }
+      } catch (e) {}
     }
 
     function openLogs() {
@@ -298,21 +408,49 @@
 
     function retry() {
       errorBox.style.display = 'none';
-      subtitle.textContent = 'Preparando dashboard local y verificando servicios…';
+      subtitle.textContent = 'Preparando dashboard local y verificando servicios...';
       startedAt = new Date().getTime();
       intervalId = setInterval(tick, 650);
       poll();
     }
 
     document.getElementById('btnRetry').onclick = retry;
+    document.getElementById('btnOpen').onclick = openDashboard;
+    document.getElementById('btnCopy').onclick = copyUrl;
     document.getElementById('btnLogs').onclick = openLogs;
     document.getElementById('btnClose').onclick = function(){ try { window.close(); } catch (e) {} };
 
+    document.onkeydown = function(e){
+      e = e || window.event;
+      var code = e.keyCode || 0;
+      // ESC
+      if (code === 27) {
+        try { window.close(); } catch (ex) {}
+        return;
+      }
+      // Enter -> reintentar (solo si ya hay error visible)
+      if (code === 13) {
+        try {
+          if (errorBox && errorBox.style && errorBox.style.display === 'block') retry();
+        } catch (ex2) {}
+      }
+    };
+
     function poll() {
       var now = new Date().getTime();
+      attempts = attempts + 1;
+      renderStatus();
       var last = httpOk(urlStatus);
       if (last.ok) {
-        // El launcher VBS abre el navegador y cierra este splash.
+        // El launcher VBS abre el navegador, pero por robustez nos autocerramos.
+        try {
+          baseStatus = 'Listo. Abriendo portal...';
+          for (var i=0;i<dots.length;i++) dots[i].className = 'dot on';
+          status.innerText = baseStatus;
+        } catch (e) {}
+        setTimeout(function(){
+          try { window.close(); } catch (ex) {}
+        }, 450);
         return;
       }
       if ((now - startedAt) >= timeoutMs) {
@@ -323,6 +461,8 @@
     }
 
     // Start polling immediately.
+    setMeta();
+    renderStatus();
     poll();
   </script>
 </body>
