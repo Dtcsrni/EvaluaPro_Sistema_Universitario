@@ -407,7 +407,7 @@ export function AppDocente() {
         )}
       </div>
       {docente && (
-        <InlineMensaje tipo="ok">
+        <InlineMensaje tipo="info">
           Sesion: {[docente.nombres, docente.apellidos].filter(Boolean).join(' ').trim() || docente.nombreCompleto} ({docente.correo})
         </InlineMensaje>
       )}
