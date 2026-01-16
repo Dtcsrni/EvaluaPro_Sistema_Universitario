@@ -530,11 +530,25 @@ export function AppDocente() {
       )}
 
       {vista === 'publicar' && (
-        <SeccionPublicar
+        <SeccionSincronizacion
           periodos={periodos}
           onPublicar={(periodoId) => clienteApi.enviar('/sincronizaciones/publicar', { periodoId })}
           onCodigo={(periodoId) =>
             clienteApi.enviar<{ codigo?: string; expiraEn?: string }>('/sincronizaciones/codigo-acceso', { periodoId })
+          }
+          onExportarPaquete={(payload) =>
+            clienteApi.enviar<{
+              paqueteBase64: string;
+              checksumSha256: string;
+              exportadoEn: string;
+              conteos: Record<string, number>;
+            }>('/sincronizaciones/paquete/exportar', payload)
+          }
+          onImportarPaquete={(paqueteBase64) =>
+            clienteApi.enviar<{ mensaje?: string; resultados?: unknown[]; pdfsGuardados?: number }>(
+              '/sincronizaciones/paquete/importar',
+              { paqueteBase64 }
+            )
           }
         />
       )}
@@ -5057,6 +5071,230 @@ function SeccionPublicar({
           {mensaje}
         </p>
       )}
+    </div>
+  );
+}
+
+function SeccionPaqueteSincronizacion({
+  periodos,
+  onExportar,
+  onImportar
+}: {
+  periodos: Periodo[];
+  onExportar: (payload: { periodoId?: string; desde?: string; incluirPdfs?: boolean }) => Promise<{
+    paqueteBase64: string;
+    checksumSha256: string;
+    exportadoEn: string;
+    conteos: Record<string, number>;
+  }>;
+  onImportar: (paqueteBase64: string) => Promise<{ mensaje?: string; resultados?: unknown[]; pdfsGuardados?: number }>;
+}) {
+  const [periodoId, setPeriodoId] = useState('');
+  const [desde, setDesde] = useState('');
+  const [incluirPdfs, setIncluirPdfs] = useState(false);
+  const [exportando, setExportando] = useState(false);
+  const [importando, setImportando] = useState(false);
+  const [mensaje, setMensaje] = useState('');
+  const [ultimoResumen, setUltimoResumen] = useState<Record<string, number> | null>(null);
+
+  function descargarJson(nombreArchivo: string, data: unknown) {
+    const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = nombreArchivo;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(url);
+  }
+
+  async function exportar() {
+    try {
+      const inicio = Date.now();
+      setExportando(true);
+      setMensaje('');
+      setUltimoResumen(null);
+
+      const payload: { periodoId?: string; desde?: string; incluirPdfs?: boolean } = {
+        incluirPdfs
+      };
+      if (periodoId) payload.periodoId = periodoId;
+      if (desde) payload.desde = new Date(desde).toISOString();
+
+      const resp = await onExportar(payload);
+      setUltimoResumen(resp.conteos);
+
+      const nombre = `sincronizacion_${(resp.exportadoEn || new Date().toISOString()).replace(/[:.]/g, '-')}.seu-sync.json`;
+      descargarJson(nombre, {
+        version: 1,
+        exportadoEn: resp.exportadoEn,
+        checksumSha256: resp.checksumSha256,
+        conteos: resp.conteos,
+        paqueteBase64: resp.paqueteBase64
+      });
+
+      setMensaje('Paquete exportado (descarga iniciada)');
+      emitToast({ level: 'ok', title: 'Sincronizacion', message: 'Paquete exportado', durationMs: 2400 });
+      registrarAccionDocente('sync_paquete_exportar', true, Date.now() - inicio);
+    } catch (error) {
+      const msg = mensajeDeError(error, 'No se pudo exportar el paquete');
+      setMensaje(msg);
+      emitToast({
+        level: 'error',
+        title: 'No se pudo exportar',
+        message: msg,
+        durationMs: 5200,
+        action: accionToastSesionParaError(error, 'docente')
+      });
+      registrarAccionDocente('sync_paquete_exportar', false);
+    } finally {
+      setExportando(false);
+    }
+  }
+
+  async function importar(event: React.ChangeEvent<HTMLInputElement>) {
+    const archivo = event.target.files?.[0];
+    event.target.value = '';
+    if (!archivo) return;
+
+    try {
+      const inicio = Date.now();
+      setImportando(true);
+      setMensaje('');
+
+      const texto = await archivo.text();
+      const json = JSON.parse(texto) as { paqueteBase64?: string };
+      const paqueteBase64 = String(json?.paqueteBase64 || '').trim();
+      if (!paqueteBase64) {
+        throw new Error('Archivo invalido: no contiene paqueteBase64');
+      }
+
+      const resp = await onImportar(paqueteBase64);
+      setMensaje(resp.mensaje || 'Paquete importado');
+      emitToast({ level: 'ok', title: 'Sincronizacion', message: 'Paquete importado', durationMs: 2600 });
+      registrarAccionDocente('sync_paquete_importar', true, Date.now() - inicio);
+    } catch (error) {
+      const msg = mensajeDeError(error, 'No se pudo importar el paquete');
+      setMensaje(msg);
+      emitToast({
+        level: 'error',
+        title: 'No se pudo importar',
+        message: msg,
+        durationMs: 5200,
+        action: accionToastSesionParaError(error, 'docente')
+      });
+      registrarAccionDocente('sync_paquete_importar', false);
+    } finally {
+      setImportando(false);
+    }
+  }
+
+  return (
+    <div className="panel">
+      <h2>
+        <Icono nombre="recargar" /> Sincronizar entre computadoras
+      </h2>
+      <AyudaFormulario titulo="Como funciona">
+        <p>
+          <b>Objetivo:</b> mover tus materias/alumnos/banco/plantillas/examenes entre instalaciones del sistema (por archivo).
+        </p>
+        <ul className="lista">
+          <li>
+            <b>Exportar:</b> genera un archivo <code>.seu-sync.json</code> (guardalo en USB/Drive).
+          </li>
+          <li>
+            <b>Importar:</b> selecciona ese archivo en la otra computadora (misma cuenta docente).
+          </li>
+          <li>
+            <b>Conflictos:</b> se conserva el registro mas nuevo (por fecha de actualizacion).
+          </li>
+        </ul>
+      </AyudaFormulario>
+
+      <label className="campo">
+        Materia (opcional)
+        <select value={periodoId} onChange={(event) => setPeriodoId(event.target.value)}>
+          <option value="">Todas</option>
+          {periodos.map((periodo) => (
+            <option key={periodo._id} value={periodo._id} title={periodo._id}>
+              {etiquetaMateria(periodo)}
+            </option>
+          ))}
+        </select>
+      </label>
+
+      <div className="grid">
+        <label className="campo">
+          Desde (opcional)
+          <input
+            type="datetime-local"
+            value={desde}
+            onChange={(event) => setDesde(event.target.value)}
+            placeholder="YYYY-MM-DDThh:mm"
+          />
+        </label>
+        <label className="campo campo--checkbox">
+          <input type="checkbox" checked={incluirPdfs} onChange={(e) => setIncluirPdfs(e.target.checked)} />
+          Incluir PDFs (puede ser pesado)
+        </label>
+      </div>
+
+      <div className="acciones">
+        <Boton type="button" icono={<Icono nombre="publicar" />} cargando={exportando} onClick={exportar}>
+          {exportando ? 'Exportando…' : 'Exportar paquete'}
+        </Boton>
+        <label className="boton boton--secundario" aria-disabled={importando}>
+          <Icono nombre="entrar" /> {importando ? 'Importando…' : 'Importar paquete'}
+          <input
+            type="file"
+            accept="application/json,.json,.seu-sync.json"
+            onChange={importar}
+            disabled={importando}
+            style={{ display: 'none' }}
+          />
+        </label>
+      </div>
+
+      {ultimoResumen && (
+        <InlineMensaje tipo="info">
+          Ultimo export: {Object.entries(ultimoResumen)
+            .map(([k, v]) => `${k}: ${v}`)
+            .join(' | ')}
+        </InlineMensaje>
+      )}
+
+      {mensaje && (
+        <p className={esMensajeError(mensaje) ? 'mensaje error' : 'mensaje ok'} role="status">
+          {mensaje}
+        </p>
+      )}
+    </div>
+  );
+}
+
+function SeccionSincronizacion({
+  periodos,
+  onPublicar,
+  onCodigo,
+  onExportarPaquete,
+  onImportarPaquete
+}: {
+  periodos: Periodo[];
+  onPublicar: (periodoId: string) => Promise<unknown>;
+  onCodigo: (periodoId: string) => Promise<{ codigo?: string; expiraEn?: string }>;
+  onExportarPaquete: (payload: { periodoId?: string; desde?: string; incluirPdfs?: boolean }) => Promise<{
+    paqueteBase64: string;
+    checksumSha256: string;
+    exportadoEn: string;
+    conteos: Record<string, number>;
+  }>;
+  onImportarPaquete: (paqueteBase64: string) => Promise<{ mensaje?: string; resultados?: unknown[]; pdfsGuardados?: number }>;
+}) {
+  return (
+    <div className="grid" style={{ gap: 12 }}>
+      <SeccionPublicar periodos={periodos} onPublicar={onPublicar} onCodigo={onCodigo} />
+      <SeccionPaqueteSincronizacion periodos={periodos} onExportar={onExportarPaquete} onImportar={onImportarPaquete} />
     </div>
   );
 }
