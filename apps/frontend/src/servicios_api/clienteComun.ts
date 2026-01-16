@@ -25,8 +25,22 @@ export function accionToastSesionParaError(error: unknown, tipo: TipoSesion): To
     const detalle = error.detalle;
     const status = detalle?.status;
     const codigo = detalle?.codigo?.toUpperCase();
-    if (status === 401) return accionCerrarSesion(tipo);
+    // No mostrar accion de "Cerrar sesion" para flujos de login/registro que
+    // pueden devolver 401 (credenciales invalidas, cuenta no registrada, etc.).
+    const sinAccionCerrarSesion = new Set([
+      'CREDENCIALES_INVALIDAS',
+      'DOCENTE_NO_REGISTRADO',
+      'DOCENTE_SIN_CONTRASENA',
+      'GOOGLE_SUB_MISMATCH'
+    ]);
+
+    if (status === 401) {
+      if (codigo && sinAccionCerrarSesion.has(codigo)) return undefined;
+      return accionCerrarSesion(tipo);
+    }
+
     if (codigo?.includes('TOKEN')) return accionCerrarSesion(tipo);
+    if (codigo?.includes('NO_AUTORIZ') && status === 401) return accionCerrarSesion(tipo);
   }
   return undefined;
 }
@@ -167,7 +181,9 @@ export function crearGestorEventosUso<EventoUso>(opts: {
 }
 
 function mensajeAmigablePorStatus(status?: number): string | undefined {
-  if (status === 401) return 'Tu sesion expiro. Inicia sesion de nuevo.';
+  // 401 puede ser: sesion/token expiro o credenciales invalidas. Preferimos
+  // resolver por `codigo` cuando este disponible y dejar aqui un fallback neutro.
+  if (status === 401) return 'No se pudo autenticar. Verifica tus datos e intenta de nuevo.';
   if (status === 403) return 'No tienes permiso para realizar esta accion.';
   if (status === 404) return 'No se encontro el recurso solicitado.';
   if (status === 408) return 'La solicitud tardo demasiado. Intenta de nuevo.';
@@ -182,9 +198,12 @@ function mensajeAmigablePorStatus(status?: number): string | undefined {
 function mensajeAmigablePorCodigo(codigo?: string): string | undefined {
   if (!codigo) return undefined;
   const c = codigo.toUpperCase();
+  if (c.includes('CREDENCIALES_INVALIDAS')) return 'Correo o contrasena incorrectos.';
+  if (c.includes('DOCENTE_NO_REGISTRADO')) return 'No existe una cuenta de docente para ese correo.';
+  if (c.includes('DOCENTE_SIN_CONTRASENA')) return 'Esta cuenta no tiene contrasena. Ingresa con Google o define una contrasena.';
+  if (c.includes('GOOGLE_SUB_MISMATCH')) return 'La cuenta de Google no coincide con el docente.';
   if (c.includes('TOKEN') && c.includes('INVALID')) return 'Tu sesion expiro. Inicia sesion de nuevo.';
   if (c.includes('TOKEN') && c.includes('EXPIR')) return 'Tu sesion expiro. Inicia sesion de nuevo.';
-  if (c.includes('NO_AUTORIZ')) return 'No tienes permiso para realizar esta accion.';
   if (c.includes('DATOS_INVALID')) return 'Datos invalidos. Revisa los campos e intenta de nuevo.';
   if (c.includes('EXAMEN_NO_ENCONTR')) return 'No se encontro el examen solicitado.';
   if (c.includes('PDF_NO_DISPON')) return 'El PDF no esta disponible aun.';
@@ -195,6 +214,16 @@ function mensajeAmigablePorCodigo(codigo?: string): string | undefined {
 export function mensajeUsuarioDeError(error: unknown, fallback: string): string {
   if (error instanceof ErrorRemoto) {
     const detalle = error.detalle;
+    const status = detalle?.status;
+    const codigo = typeof detalle?.codigo === 'string' ? detalle.codigo.toUpperCase() : undefined;
+
+    // Caso especial: "NO_AUTORIZADO" se usa tanto para 401 (sesion requerida)
+    // como para 403 (sin permisos). Lo resolvemos considerando el status.
+    if (codigo?.includes('NO_AUTORIZ')) {
+      if (status === 401) return 'Tu sesion expiro. Inicia sesion de nuevo.';
+      if (status === 403) return 'No tienes permiso para realizar esta accion.';
+    }
+
     const porCodigo = mensajeAmigablePorCodigo(detalle?.codigo);
     if (porCodigo) return porCodigo;
 
