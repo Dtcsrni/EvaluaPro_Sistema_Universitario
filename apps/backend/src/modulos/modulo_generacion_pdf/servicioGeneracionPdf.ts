@@ -554,14 +554,13 @@ export async function generarPdfExamen({
   }> = [];
 
   // Indicaciones completas (fluye al inicio del examen, sin recortes).
-  const sizeIndicaciones = 9;
-  const lineaIndicaciones = 11;
+  const sizeIndicacionesBase = 9;
+  const lineaIndicacionesBase = 11;
   const maxWidthIndicaciones = Math.max(120, xDerechaTexto - (margen + 10));
   const lineasIndicaciones = mostrarInstrucciones
-    ? partirEnLineas({ texto: instrucciones, maxWidth: maxWidthIndicaciones, font: fuente, size: sizeIndicaciones })
+    ? partirEnLineas({ texto: instrucciones, maxWidth: maxWidthIndicaciones, font: fuente, size: sizeIndicacionesBase })
     : [];
-  let indiceLineaIndicaciones = 0;
-  let indicacionesPendientes = mostrarInstrucciones && lineasIndicaciones.length > 0;
+  const indicacionesPendientes = mostrarInstrucciones && lineasIndicaciones.length > 0;
 
   while (numeroPagina <= paginasObjetivo) {
     const page = pdfDoc.addPage([ANCHO_CARTA, ALTO_CARTA]);
@@ -730,36 +729,50 @@ export async function generarPdfExamen({
       return alto;
     };
 
-    // Indicaciones completas antes de la primera pregunta (pueden fluir a la pagina 2..N).
-    if (indicacionesPendientes && cursorY > alturaDisponibleMin + 40) {
+    // Indicaciones: SOLO en pagina 1, pero siempre completas.
+    // Regla: si no caben, se reduce tipografia/leading; si aun asi son largas,
+    // las preguntas se empujan a pagina 2 (no se parte el bloque).
+    if (esPrimera && indicacionesPendientes && cursorY > alturaDisponibleMin + 40) {
       const xInd = margen + 10;
       const yTopInd = cursorY;
       const wInd = Math.min(ANCHO_CARTA - margen - xInd - (anchoColRespuesta + gutterRespuesta), maxWidthIndicaciones + 20);
 
-      // Cuantas lineas caben en esta pagina.
       const hDisponible = yTopInd - (alturaDisponibleMin + 10);
-      const hMin = 28;
+      const hMin = 34;
       const hMax = Math.max(hMin, hDisponible);
-      const lineasMax = Math.max(1, Math.floor((hMax - 24) / lineaIndicaciones));
 
-      const lineas = lineasIndicaciones.slice(indiceLineaIndicaciones, indiceLineaIndicaciones + lineasMax);
-      const hCaja = Math.max(hMin, 20 + lineas.length * lineaIndicaciones);
+      // Ajuste dinamico para asegurar que todas las lineas entren.
+      let sizeIndicaciones = sizeIndicacionesBase;
+      let lineaIndicaciones = lineaIndicacionesBase;
+      const hLabel = 24;
+      const paddingY = 10;
+      const maxIter = 10;
+      for (let i = 0; i < maxIter; i += 1) {
+        const hNecesaria = hLabel + paddingY + lineasIndicaciones.length * lineaIndicaciones;
+        if (hNecesaria <= hMax) break;
+        sizeIndicaciones = Math.max(6.5, sizeIndicaciones - 0.4);
+        lineaIndicaciones = Math.max(8.0, lineaIndicaciones - 0.5);
+      }
+
+      const hCaja = Math.min(hMax, Math.max(hMin, hLabel + paddingY + lineasIndicaciones.length * lineaIndicaciones));
 
       page.drawRectangle({ x: xInd, y: yTopInd - hCaja, width: wInd, height: hCaja, borderWidth: 1, borderColor: colorLinea, color: rgb(1, 1, 1) });
       page.drawRectangle({ x: xInd, y: yTopInd - 6, width: wInd, height: 3, color: colorPrimario });
       page.drawText('Indicaciones', { x: xInd + 8, y: yTopInd - 18, size: 10, font: fuenteBold, color: colorPrimario });
 
       let yLinea = yTopInd - 30;
-      for (const linea of lineas) {
+      const yMinTexto = yTopInd - hCaja + 10;
+      for (const linea of lineasIndicaciones) {
+        if (yLinea < yMinTexto) break;
         page.drawText(linea, { x: xInd + 8, y: yLinea, size: sizeIndicaciones, font: fuente, color: rgb(0.1, 0.1, 0.1) });
         yLinea -= lineaIndicaciones;
-        if (yLinea < yTopInd - hCaja + 8) break;
       }
 
-      indiceLineaIndicaciones += lineas.length;
-      indicacionesPendientes = indiceLineaIndicaciones < lineasIndicaciones.length;
-
+      // Como el bloque es “solo pagina 1”, si no hay espacio para preguntas, se van a pagina 2.
       cursorY = yTopInd - hCaja - 10;
+      if (cursorY < alturaDisponibleMin + 40) {
+        cursorY = alturaDisponibleMin - 1;
+      }
     }
 
     while (indicePregunta < preguntasOrdenadas.length && cursorY > alturaDisponibleMin) {
