@@ -11,6 +11,7 @@ const DocenteSchema = new Schema(
     correo: { type: String, required: true, unique: true, lowercase: true },
     hashContrasena: { type: String },
     googleSub: { type: String },
+    roles: { type: [String], default: [] },
     activo: { type: Boolean, default: true },
     ultimoAcceso: { type: Date }
   },

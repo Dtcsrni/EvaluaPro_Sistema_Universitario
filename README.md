@@ -33,6 +33,8 @@ Incluye generacion de PDFs, vinculacion por QR, escaneo OMR (pipeline base) para
 - `PUERTO_API` (o `PORT`): puerto de la API (default 4000).
 - `PUERTO_PORTAL`: puerto del portal alumno (default 8080).
 - `MONGODB_URI`: URI de MongoDB. Si no esta definido, la API no conecta.
+- `MONGOEXPRESS_USER`: usuario Basic Auth para el panel web de Mongo (mongo-express). Default: `admin`.
+- `MONGOEXPRESS_PASS`: password Basic Auth para el panel web de Mongo (mongo-express). Default: `admin`.
 - `CORS_ORIGENES`: lista separada por comas para CORS.
 - `LIMITE_JSON`: limite del body JSON en la API docente.
 - `VITE_API_BASE_URL`: base URL de la API para el frontend.
@@ -48,6 +50,16 @@ Incluye generacion de PDFs, vinculacion por QR, escaneo OMR (pipeline base) para
 - `PORTAL_ALUMNO_API_KEY`: API key para publicar resultados (backend local).
 - `PORTAL_API_KEY`: API key de validacion en el portal cloud.
 - `WEB_URL`: usado por `scripts/dashboard.mjs` para verificar la web.
+
+Seed de cuenta admin/docente (solo para entornos locales o controlados):
+- `SEED_ADMIN_EMAIL`: correo del docente a crear/asegurar.
+- `SEED_ADMIN_PASSWORD`: password inicial (se guarda hasheado).
+- `SEED_ADMIN_NOMBRE_COMPLETO`: nombre a mostrar (opcional).
+- `SEED_ADMIN_FORCE`: si es `true`, permite ejecutar el seed aun si `NODE_ENV=production`.
+
+Panel web de Mongo (mongo-express):
+- Si levantas el stack con Docker, se expone en http://127.0.0.1:8081/ (protegido por Basic Auth).
+- El dashboard local incluye una pestaña "Base de datos" para abrirlo o embeberlo en un iframe.
 
 ## Scripts principales (raiz)
 - Desarrollo full-stack: `npm run dev` (API en Docker + web local)

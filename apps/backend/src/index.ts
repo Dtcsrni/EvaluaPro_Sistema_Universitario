@@ -6,9 +6,11 @@ import { crearApp } from './app';
 import { configuracion } from './configuracion';
 import { conectarBaseDatos } from './infraestructura/baseDatos/mongoose';
 import { logError, log } from './infraestructura/logging/logger';
+import { seedAdminDocente } from './modulos/modulo_autenticacion/seedAdmin';
 
 async function iniciar() {
   await conectarBaseDatos();
+  await seedAdminDocente();
 
   const app = crearApp();
   app.listen(configuracion.puerto, () => {

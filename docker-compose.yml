@@ -19,6 +19,21 @@ services:
       timeout: 5s
       retries: 5
 
+  mongo_express_local:
+    image: mongo-express:latest
+    restart: unless-stopped
+    depends_on:
+      mongo_local:
+        condition: service_healthy
+    environment:
+      - ME_CONFIG_MONGODB_SERVER=mongo_local
+      - ME_CONFIG_MONGODB_PORT=27017
+      # Proteccion basica (cambia estos valores via variables de entorno si lo deseas).
+      - ME_CONFIG_BASICAUTH_USERNAME=${MONGOEXPRESS_USER:-admin}
+      - ME_CONFIG_BASICAUTH_PASSWORD=${MONGOEXPRESS_PASS:-admin}
+    ports:
+      - "127.0.0.1:8081:8081"
+
   api_docente_local:
     build:
       context: .

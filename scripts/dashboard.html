@@ -1661,6 +1661,24 @@
       .chip.ok { border-color: rgba(34, 197, 94, 0.95); }
       .chip.warn { border-color: rgba(245, 158, 11, 0.95); }
       .chip.error { border-color: rgba(239, 68, 68, 0.95); }
+
+      .toolbar-spaced { margin-top: 12px; }
+      .toolbar-right { justify-content: flex-end; }
+
+      .db-embed-wrap {
+        margin-top: 12px;
+        border: 1px solid rgba(148, 163, 184, 0.2);
+        border-radius: 14px;
+        overflow: hidden;
+        background: rgba(2, 6, 23, 0.6);
+      }
+      .db-iframe {
+        width: 100%;
+        height: 680px;
+        border: 0;
+        display: block;
+      }
+      .hint-spaced { margin-top: 10px; }
     }
   </style>
 </head>
@@ -1730,6 +1748,18 @@
       >
         <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 19h16v2H4v-2zM6 4h4v11H6V4zm6 3h4v8h-4V7z"/></svg>
         Estado y logs
+      </button>
+      <button
+        id="tab-db"
+        class="tab-btn"
+        data-tab="db"
+        role="tab"
+        aria-selected="false"
+        aria-controls="panel-db"
+        tabindex="-1"
+      >
+        <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2C7.6 2 4 3.8 4 6v12c0 2.2 3.6 4 8 4s8-1.8 8-4V6c0-2.2-3.6-4-8-4zm0 2c3.9 0 6 .9 6 2s-2.1 2-6 2-6-.9-6-2 2.1-2 6-2zm0 16c-3.9 0-6-.9-6-2v-2c1.5 1.1 4.1 1.7 6 1.7s4.5-.6 6-1.7v2c0 1.1-2.1 2-6 2zm0-6c-3.9 0-6-.9-6-2V9.9C7.5 11 10.1 11.6 12 11.6s4.5-.6 6-1.7V12c0 1.1-2.1 2-6 2z"/></svg>
+        Base de datos
       </button>
     </div>
 
@@ -2039,7 +2069,7 @@
               <div class="install-row"><div class="k">Logs</div><div class="v mono" id="install-logs">-</div></div>
               <div class="install-row"><div class="k">Runtime</div><div class="v mono" id="install-runtime">-</div></div>
             </div>
-            <div class="toolbar" aria-label="Acciones de instalacion" style="margin-top: 12px; justify-content: flex-end;">
+            <div class="toolbar toolbar-spaced toolbar-right" aria-label="Acciones de instalacion">
               <button class="ghost-btn" id="refresh-install" type="button">Actualizar</button>
               <button class="ok" id="copy-install" type="button">Copiar</button>
             </div>
@@ -2117,6 +2147,47 @@
         </div>
       </div>
     </section>
+
+    <section id="panel-db" class="tab-panel" data-panel="db" role="tabpanel" tabindex="0" aria-labelledby="tab-db" hidden>
+      <div class="panel-grid">
+        <div class="left-col">
+          <div class="card">
+            <h2>
+              <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2C7.6 2 4 3.8 4 6v12c0 2.2 3.6 4 8 4s8-1.8 8-4V6c0-2.2-3.6-4-8-4zm0 2c3.9 0 6 .9 6 2s-2.1 2-6 2-6-.9-6-2 2.1-2 6-2zm0 16c-3.9 0-6-.9-6-2v-2c1.5 1.1 4.1 1.7 6 1.7s4.5-.6 6-1.7v2c0 1.1-2.1 2-6 2zm0-6c-3.9 0-6-.9-6-2V9.9C7.5 11 10.1 11.6 12 11.6s4.5-.6 6-1.7V12c0 1.1-2.1 2-6 2z"/></svg>
+              Base de datos (MongoDB)
+            </h2>
+            <p class="hint">Panel recomendado: <strong>mongo-express</strong>. Se protege con Basic Auth (configurable via <code>MONGOEXPRESS_USER</code>/<code>MONGOEXPRESS_PASS</code>).</p>
+
+            <div class="pills" aria-label="Estado de mongo-express">
+              <span class="pill"><span class="dot" id="db-dot"></span> mongo-express</span>
+              <span class="pill" id="db-state">Sin comprobar</span>
+              <span class="pill"><a id="db-url" href="http://127.0.0.1:8081/" target="_blank" rel="noopener noreferrer">http://127.0.0.1:8081/</a></span>
+            </div>
+
+            <div class="toolbar toolbar-spaced">
+              <div class="toolbar-group" aria-label="Acciones de base de datos">
+                <button class="ghost-btn" id="refresh-db" type="button">Actualizar</button>
+                <button class="ghost-btn" id="open-db" type="button">Abrir en navegador</button>
+                <button class="ghost-btn" id="toggle-db-embed" type="button">Mostrar panel aqui</button>
+              </div>
+            </div>
+
+            <div id="db-embed-wrap" class="db-embed-wrap" hidden>
+              <iframe
+                id="db-iframe"
+                title="mongo-express"
+                src="about:blank"
+                class="db-iframe"
+                loading="lazy"
+                referrerpolicy="no-referrer"
+              ></iframe>
+            </div>
+
+            <p class="hint hint-spaced">Si no aparece, inicia el stack (dev o prod) y vuelve a presionar <em>Actualizar</em>.</p>
+          </div>
+        </div>
+      </div>
+    </section>
   </main>
 
     <script>
@@ -2187,7 +2258,15 @@
       lastLogsOk: true,
       lastLogsError: '',
       autoRestart: false,
-      install: null
+      install: null,
+      mongoExpress: {
+        url: 'http://127.0.0.1:8081/',
+        reachable: false,
+        status: 0,
+        lastCheckedAt: 0,
+        error: ''
+      },
+      dbEmbed: false
     };
 
     const HOLD_DEFAULT = 1200;
@@ -2900,6 +2979,77 @@
       updateAnalytics();
     }
 
+    function updateMongoExpressUi() {
+      const dot = $('db-dot');
+      const stateEl = $('db-state');
+      const urlEl = $('db-url');
+      const openBtn = $('open-db');
+      const iframe = $('db-iframe');
+      const wrap = $('db-embed-wrap');
+
+      const url = state.mongoExpress?.url || 'http://127.0.0.1:8081/';
+      const reachable = Boolean(state.mongoExpress?.reachable);
+      const status = Number(state.mongoExpress?.status || 0);
+      const error = String(state.mongoExpress?.error || '');
+
+      if (urlEl) {
+        urlEl.textContent = url;
+        urlEl.href = url;
+      }
+
+      if (dot) dot.classList.toggle('active', reachable);
+
+      if (stateEl) {
+        if (reachable) {
+          stateEl.textContent = status ? `Disponible (HTTP ${status})` : 'Disponible';
+        } else {
+          stateEl.textContent = error ? `No disponible (${error})` : 'No disponible';
+        }
+      }
+
+      if (openBtn) {
+        openBtn.disabled = !reachable;
+        openBtn.title = reachable ? 'Abrir mongo-express en una pestaña' : 'mongo-express no esta disponible';
+      }
+
+      if (wrap) {
+        wrap.hidden = !state.dbEmbed;
+      }
+
+      if (iframe && state.dbEmbed) {
+        if (reachable) {
+          const current = iframe.getAttribute('src') || '';
+          if (current !== url) iframe.setAttribute('src', url);
+        } else {
+          iframe.setAttribute('src', 'about:blank');
+        }
+      }
+    }
+
+    async function refreshMongoExpress(force = false) {
+      const now = Date.now();
+      const reuse = !force && now - (state.mongoExpress?.lastCheckedAt || 0) < 5000;
+      if (reuse) {
+        updateMongoExpressUi();
+        return;
+      }
+
+      state.mongoExpress.lastCheckedAt = now;
+      try {
+        const res = await fetch('/api/mongo-express');
+        const data = await res.json();
+        state.mongoExpress.url = typeof data.url === 'string' ? data.url : state.mongoExpress.url;
+        state.mongoExpress.reachable = Boolean(data.reachable);
+        state.mongoExpress.status = Number(data.status || 0);
+        state.mongoExpress.error = '';
+      } catch (error) {
+        state.mongoExpress.reachable = false;
+        state.mongoExpress.status = 0;
+        state.mongoExpress.error = normalizeErrorMessage(error);
+      }
+      updateMongoExpressUi();
+    }
+
     function setLogsVisible(visible) {
       state.logsVisible = visible;
       const shell = $('log-shell');
@@ -2929,6 +3079,8 @@
         refreshEvents();
         refreshInstallInfo();
         if (state.logsVisible) refreshLogs();
+      } else if (name === 'db') {
+        refreshMongoExpress(true);
       }
     }
 
@@ -3525,6 +3677,29 @@
       refreshInstallBtn.addEventListener('click', () => refreshInstallInfo());
     }
 
+    const refreshDbBtn = $('refresh-db');
+    if (refreshDbBtn) {
+      refreshDbBtn.addEventListener('click', () => refreshMongoExpress(true));
+    }
+
+    const openDbBtn = $('open-db');
+    if (openDbBtn) {
+      openDbBtn.addEventListener('click', () => {
+        if (!state.mongoExpress?.reachable) return;
+        window.open(state.mongoExpress.url || 'http://127.0.0.1:8081/', '_blank', 'noopener,noreferrer');
+      });
+    }
+
+    const toggleEmbedBtn = $('toggle-db-embed');
+    if (toggleEmbedBtn) {
+      toggleEmbedBtn.addEventListener('click', () => {
+        state.dbEmbed = !state.dbEmbed;
+        toggleEmbedBtn.textContent = state.dbEmbed ? 'Ocultar panel aqui' : 'Mostrar panel aqui';
+        updateMongoExpressUi();
+        if (state.activeTab === 'db') refreshMongoExpress(true);
+      });
+    }
+
     const copyInstallBtn = $('copy-install');
     if (copyInstallBtn) {
       copyInstallBtn.addEventListener('click', async () => {
@@ -3559,6 +3734,7 @@
     refreshStatus();
     refreshInstallInfo();
     refreshSignals();
+    updateMongoExpressUi();
 
     setInterval(() => {
       if (state.paused) return;
@@ -3566,6 +3742,7 @@
       if (state.logsVisible) refreshLogs();
       else refreshSignals();
       if (state.activeTab === 'status') refreshEvents();
+      if (state.activeTab === 'db') refreshMongoExpress();
     }, 3000);
   </script>
 </body>

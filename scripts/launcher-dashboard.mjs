@@ -605,6 +605,30 @@ function sendJson(res, status, payload) {
   res.end(data);
 }
 
+async function probeHttp(url, timeoutMs = 900) {
+  return new Promise((resolve) => {
+    try {
+      const u = new URL(url);
+      const req = http.get({
+        hostname: u.hostname,
+        port: u.port ? Number(u.port) : 80,
+        path: u.pathname + (u.search || ''),
+        timeout: timeoutMs
+      }, (res) => {
+        res.resume();
+        resolve({ ok: true, status: res.statusCode || 0 });
+      });
+      req.on('error', () => resolve({ ok: false, status: 0 }));
+      req.on('timeout', () => {
+        try { req.destroy(); } catch {}
+        resolve({ ok: false, status: 0 });
+      });
+    } catch {
+      resolve({ ok: false, status: 0 });
+    }
+  });
+}
+
 async function pingDashboard(port) {
   return new Promise((resolve) => {
     const req = http.get({
@@ -861,6 +885,19 @@ const server = http.createServer(async (req, res) => {
       }
     };
     sendJson(res, 200, payload);
+    return;
+  }
+
+  if (req.method === 'GET' && pathName === '/api/mongo-express') {
+    const url = 'http://127.0.0.1:8081/';
+    const probe = await probeHttp(url);
+    // 401/403 suele indicar que el servicio esta arriba con basic auth.
+    const reachable = probe.ok && probe.status >= 100;
+    sendJson(res, 200, {
+      url,
+      reachable,
+      status: probe.status || 0
+    });
     return;
   }
 
