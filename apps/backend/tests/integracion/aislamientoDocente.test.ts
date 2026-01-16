@@ -44,7 +44,7 @@ describe('aislamiento por docente', () => {
     const alumnoResp = await request(app)
       .post('/api/alumnos')
       .set({ Authorization: `Bearer ${token}` })
-      .send({ periodoId, matricula: 'A001', nombreCompleto: 'Alumno A', grupo: 'G1' })
+      .send({ periodoId, matricula: 'CUH512410168', nombreCompleto: 'Alumno A', grupo: 'G1' })
       .expect(201);
     return alumnoResp.body.alumno._id as string;
   }

@@ -52,7 +52,7 @@ describe('flujo de examen', () => {
       .set(auth)
       .send({
         periodoId,
-        matricula: '2025-001',
+        matricula: 'CUH512410168',
         nombreCompleto: 'Alumno Prueba',
         correo: 'alumno@prueba.test',
         grupo: 'A'

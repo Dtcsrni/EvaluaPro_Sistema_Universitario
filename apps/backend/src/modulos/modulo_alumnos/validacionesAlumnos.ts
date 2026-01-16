@@ -4,6 +4,7 @@
 import { z } from 'zod';
 import { esquemaObjectId } from '../../compartido/validaciones/esquemas';
 import { esCorreoDeDominioPermitido } from '../../compartido/utilidades/correo';
+import { esMatriculaValida, normalizarEspacios, normalizarMatricula } from '../../compartido/utilidades/texto';
 import { configuracion } from '../../configuracion';
 
 function partirNombreCompleto(nombreCompleto: string): { nombres: string; apellidos: string } {
@@ -28,6 +29,16 @@ export const esquemaCrearAlumno = z
   })
   .strict()
   .superRefine((data, ctx) => {
+    const matriculaNormalizada = normalizarMatricula(String(data.matricula || ''));
+    if (!esMatriculaValida(matriculaNormalizada)) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['matricula'],
+        message: 'Matricula invalida. Formato esperado: CUH######### (ej. CUH512410168).'
+      });
+      return;
+    }
+
     const nombres = typeof data.nombres === 'string' ? data.nombres.trim() : '';
     const apellidos = typeof data.apellidos === 'string' ? data.apellidos.trim() : '';
     const nombreCompleto = typeof data.nombreCompleto === 'string' ? data.nombreCompleto.trim() : '';
@@ -56,12 +67,12 @@ export const esquemaCrearAlumno = z
     }
 
     const correo = typeof data.correo === 'string' ? data.correo : '';
-    if (!correo.trim()) return;
+    const correoEfectivo = correo.trim() ? correo.trim() : `${matriculaNormalizada}@cuh.mx`;
 
     if (
       Array.isArray(configuracion.dominiosCorreoPermitidos) &&
       configuracion.dominiosCorreoPermitidos.length > 0 &&
-      !esCorreoDeDominioPermitido(correo, configuracion.dominiosCorreoPermitidos)
+      !esCorreoDeDominioPermitido(correoEfectivo, configuracion.dominiosCorreoPermitidos)
     ) {
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
@@ -71,11 +82,14 @@ export const esquemaCrearAlumno = z
     }
   })
   .transform((data) => {
-    const matricula = String(data.matricula || '').trim();
+    const matricula = normalizarMatricula(String(data.matricula || ''));
 
-    const nombres = typeof data.nombres === 'string' ? data.nombres.trim().replace(/\s+/g, ' ') : '';
-    const apellidos = typeof data.apellidos === 'string' ? data.apellidos.trim().replace(/\s+/g, ' ') : '';
-    const nombreCompleto = typeof data.nombreCompleto === 'string' ? data.nombreCompleto.trim().replace(/\s+/g, ' ') : '';
+    const nombres = typeof data.nombres === 'string' ? normalizarEspacios(data.nombres) : '';
+    const apellidos = typeof data.apellidos === 'string' ? normalizarEspacios(data.apellidos) : '';
+    const nombreCompleto = typeof data.nombreCompleto === 'string' ? normalizarEspacios(data.nombreCompleto) : '';
+
+    const correo = typeof data.correo === 'string' ? data.correo.trim() : '';
+    const correoFinal = correo ? correo : `${matricula}@cuh.mx`;
 
     if (nombres && apellidos) {
       return {
@@ -83,7 +97,8 @@ export const esquemaCrearAlumno = z
         matricula,
         nombres,
         apellidos,
-        nombreCompleto: nombreCompleto || `${nombres} ${apellidos}`.trim()
+        nombreCompleto: nombreCompleto || `${nombres} ${apellidos}`.trim(),
+        correo: correoFinal
       };
     }
 
@@ -93,6 +108,7 @@ export const esquemaCrearAlumno = z
       matricula,
       nombres: derivados.nombres,
       apellidos: derivados.apellidos,
-      nombreCompleto: nombreCompleto || `${derivados.nombres} ${derivados.apellidos}`.trim()
+      nombreCompleto: nombreCompleto || `${derivados.nombres} ${derivados.apellidos}`.trim(),
+      correo: correoFinal
     };
   });

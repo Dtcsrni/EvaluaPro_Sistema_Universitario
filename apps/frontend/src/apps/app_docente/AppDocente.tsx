@@ -30,9 +30,34 @@ type Docente = {
   tieneGoogle?: boolean;
 };
 
-type Alumno = { _id: string; matricula: string; nombreCompleto: string; nombres?: string; apellidos?: string; grupo?: string };
+type Alumno = {
+  _id: string;
+  matricula: string;
+  nombreCompleto: string;
+  periodoId?: string;
+  nombres?: string;
+  apellidos?: string;
+  grupo?: string;
+};
 
-type Periodo = { _id: string; nombre: string };
+type Periodo = {
+  _id: string;
+  nombre: string;
+  fechaInicio?: string;
+  fechaFin?: string;
+  grupos?: string[];
+  activo?: boolean;
+  createdAt?: string;
+  archivadoEn?: string;
+  resumenArchivado?: {
+    alumnos?: number;
+    bancoPreguntas?: number;
+    plantillas?: number;
+    examenesGenerados?: number;
+    calificaciones?: number;
+    codigosAcceso?: number;
+  };
+};
 
 type Plantilla = { _id: string; titulo: string; tipo: 'parcial' | 'global'; totalReactivos: number };
 
@@ -118,6 +143,7 @@ export function AppDocente() {
   const [vista, setVista] = useState('inicio');
   const [alumnos, setAlumnos] = useState<Alumno[]>([]);
   const [periodos, setPeriodos] = useState<Periodo[]>([]);
+  const [periodosArchivados, setPeriodosArchivados] = useState<Periodo[]>([]);
   const [plantillas, setPlantillas] = useState<Plantilla[]>([]);
   const [preguntas, setPreguntas] = useState<Pregunta[]>([]);
   const [resultadoOmr, setResultadoOmr] = useState<ResultadoOmr | null>(null);
@@ -149,6 +175,7 @@ export function AppDocente() {
       [
         { id: 'inicio', label: 'Inicio', icono: 'inicio' as const },
         { id: 'periodos', label: 'Materias', icono: 'periodos' as const },
+        { id: 'periodos_archivados', label: 'Archivadas', icono: 'periodos' as const },
         { id: 'alumnos', label: 'Alumnos', icono: 'alumnos' as const },
         { id: 'banco', label: 'Banco', icono: 'banco' as const },
         { id: 'plantillas', label: 'Plantillas', icono: 'plantillas' as const },
@@ -219,16 +246,34 @@ export function AppDocente() {
     });
     Promise.all([
       clienteApi.obtener<{ alumnos: Alumno[] }>('/alumnos'),
-      clienteApi.obtener<{ periodos: Periodo[] }>('/periodos'),
+      clienteApi.obtener<{ periodos?: Periodo[]; materias?: Periodo[] }>('/periodos?activo=1'),
+      clienteApi.obtener<{ periodos?: Periodo[]; materias?: Periodo[] }>('/periodos?activo=0'),
       clienteApi.obtener<{ plantillas: Plantilla[] }>('/examenes/plantillas'),
       clienteApi.obtener<{ preguntas: Pregunta[] }>('/banco-preguntas')
     ])
-      .then(([al, pe, pl, pr]) => {
+      .then(([al, peActivas, peArchivadas, pl, pr]) => {
         setAlumnos(al.alumnos);
-        const materias = (pe as unknown as { periodos?: Periodo[]; materias?: Periodo[] }).periodos ??
-          (pe as unknown as { periodos?: Periodo[]; materias?: Periodo[] }).materias ??
+        const activas = (peActivas as unknown as { periodos?: Periodo[]; materias?: Periodo[] }).periodos ??
+          (peActivas as unknown as { periodos?: Periodo[]; materias?: Periodo[] }).materias ??
           [];
-        setPeriodos(Array.isArray(materias) ? materias : []);
+        const archivadas = (peArchivadas as unknown as { periodos?: Periodo[]; materias?: Periodo[] }).periodos ??
+          (peArchivadas as unknown as { periodos?: Periodo[]; materias?: Periodo[] }).materias ??
+          [];
+
+        const activasArray = Array.isArray(activas) ? activas : [];
+        const archivadasArray = Array.isArray(archivadas) ? archivadas : [];
+
+        const ids = (lista: Periodo[]) => lista.map((m) => m._id).filter(Boolean).sort().join('|');
+        const mismoContenido = activasArray.length > 0 && ids(activasArray) === ids(archivadasArray);
+
+        // Fallback: si el backend ignora ?activo y devuelve lo mismo, separa localmente.
+        if (mismoContenido) {
+          setPeriodos(activasArray.filter((m) => m.activo !== false));
+          setPeriodosArchivados(activasArray.filter((m) => m.activo === false));
+        } else {
+          setPeriodos(activasArray);
+          setPeriodosArchivados(archivadasArray);
+        }
         setPlantillas(pl.plantillas);
         setPreguntas(pr.preguntas);
       })
@@ -243,6 +288,30 @@ export function AppDocente() {
       activo = false;
     };
   }, [docente]);
+
+  function refrescarMaterias() {
+    return Promise.all([
+      clienteApi.obtener<{ periodos?: Periodo[]; materias?: Periodo[] }>('/periodos?activo=1'),
+      clienteApi.obtener<{ periodos?: Periodo[]; materias?: Periodo[] }>('/periodos?activo=0')
+    ]).then(([peActivas, peArchivadas]) => {
+      const activas = peActivas.periodos ?? peActivas.materias ?? [];
+      const archivadas = peArchivadas.periodos ?? peArchivadas.materias ?? [];
+
+      const activasArray = Array.isArray(activas) ? activas : [];
+      const archivadasArray = Array.isArray(archivadas) ? archivadas : [];
+
+      const ids = (lista: Periodo[]) => lista.map((m) => m._id).filter(Boolean).sort().join('|');
+      const mismoContenido = activasArray.length > 0 && ids(activasArray) === ids(archivadasArray);
+
+      if (mismoContenido) {
+        setPeriodos(activasArray.filter((m) => m.activo !== false));
+        setPeriodosArchivados(activasArray.filter((m) => m.activo === false));
+      } else {
+        setPeriodos(activasArray);
+        setPeriodosArchivados(archivadasArray);
+      }
+    });
+  }
 
   const contenido = docente ? (
     <div className="panel">
@@ -326,19 +395,24 @@ export function AppDocente() {
       {vista === 'periodos' && (
         <SeccionPeriodos
           periodos={periodos}
-          onRefrescar={() =>
-            clienteApi.obtener<{ periodos?: Periodo[]; materias?: Periodo[] }>('/periodos').then((p) => {
-              const materias = p.periodos ?? p.materias ?? [];
-              setPeriodos(Array.isArray(materias) ? materias : []);
-            })
-          }
+          onRefrescar={refrescarMaterias}
+          onVerArchivadas={() => setVista('periodos_archivados')}
+        />
+      )}
+
+      {vista === 'periodos_archivados' && (
+        <SeccionPeriodosArchivados
+          periodos={periodosArchivados}
+          onRefrescar={refrescarMaterias}
+          onVerActivas={() => setVista('periodos')}
         />
       )}
 
       {vista === 'alumnos' && (
         <SeccionAlumnos
           alumnos={alumnos}
-          periodos={periodos}
+          periodosActivos={periodos}
+          periodosTodos={[...periodos, ...periodosArchivados]}
           onRefrescar={() => clienteApi.obtener<{ alumnos: Alumno[] }>('/alumnos').then((p) => setAlumnos(p.alumnos))}
         />
       )}
@@ -1385,10 +1459,12 @@ function SeccionBanco({ preguntas, onRefrescar }: { preguntas: Pregunta[]; onRef
 
 function SeccionPeriodos({
   periodos,
-  onRefrescar
+  onRefrescar,
+  onVerArchivadas
 }: {
   periodos: Periodo[];
   onRefrescar: () => void;
+  onVerArchivadas: () => void;
 }) {
   const [nombre, setNombre] = useState('');
   const [fechaInicio, setFechaInicio] = useState('');
@@ -1396,7 +1472,15 @@ function SeccionPeriodos({
   const [grupos, setGrupos] = useState('');
   const [mensaje, setMensaje] = useState('');
   const [creando, setCreando] = useState(false);
+  const [archivandoId, setArchivandoId] = useState<string | null>(null);
   const [borrandoId, setBorrandoId] = useState<string | null>(null);
+
+  function formatearFecha(valor?: string) {
+    if (!valor) return '-';
+    const d = new Date(valor);
+    if (Number.isNaN(d.getTime())) return String(valor);
+    return d.toLocaleDateString();
+  }
 
   function normalizarNombreMateria(valor: string): string {
     return String(valor || '')
@@ -1432,6 +1516,10 @@ function SeccionPeriodos({
       setMensaje('Materia creada');
       emitToast({ level: 'ok', title: 'Materias', message: 'Materia creada', durationMs: 2200 });
       registrarAccionDocente('crear_periodo', true, Date.now() - inicio);
+      setNombre('');
+      setFechaInicio('');
+      setFechaFin('');
+      setGrupos('');
       onRefrescar();
     } catch (error) {
       const msg = mensajeDeError(error, 'No se pudo crear la materia');
@@ -1450,10 +1538,14 @@ function SeccionPeriodos({
   }
 
   async function borrarMateria(periodo: Periodo) {
-    const confirmado = globalThis.confirm(
+    const paso1 = globalThis.confirm(
       `¿Borrar la materia "${periodo.nombre}"?\n\nSe borrara TODO lo asociado: alumnos, banco de preguntas, plantillas, examenes generados, calificaciones y codigos.`
     );
-    if (!confirmado) return;
+    if (!paso1) return;
+    const paso2 = globalThis.confirm(
+      `CONFIRMACION FINAL:\n\nEsta accion NO se puede deshacer.\n\n¿Seguro que deseas borrar definitivamente "${periodo.nombre}"?`
+    );
+    if (!paso2) return;
 
     try {
       const inicio = Date.now();
@@ -1480,11 +1572,47 @@ function SeccionPeriodos({
     }
   }
 
+  async function archivarMateria(periodo: Periodo) {
+    const confirmado = globalThis.confirm(
+      `¿Archivar la materia "${periodo.nombre}"?\n\nSe ocultara de la lista de activas, pero NO se borraran sus datos.`
+    );
+    if (!confirmado) return;
+
+    try {
+      const inicio = Date.now();
+      setArchivandoId(periodo._id);
+      setMensaje('');
+      await clienteApi.enviar(`/periodos/${periodo._id}/archivar`, {});
+      setMensaje('Materia archivada');
+      emitToast({ level: 'ok', title: 'Materias', message: 'Materia archivada', durationMs: 2200 });
+      registrarAccionDocente('archivar_periodo', true, Date.now() - inicio);
+      onRefrescar();
+    } catch (error) {
+      const msg = mensajeDeError(error, 'No se pudo archivar la materia');
+      setMensaje(msg);
+      emitToast({
+        level: 'error',
+        title: 'No se pudo archivar',
+        message: msg,
+        durationMs: 5200,
+        action: accionToastSesionParaError(error, 'docente')
+      });
+      registrarAccionDocente('archivar_periodo', false);
+    } finally {
+      setArchivandoId(null);
+    }
+  }
+
   return (
     <div className="panel">
       <h2>
         <Icono nombre="periodos" /> Materias
       </h2>
+      <div className="acciones">
+        <Boton variante="secundario" type="button" onClick={onVerArchivadas}>
+          Ver materias archivadas
+        </Boton>
+      </div>
       <AyudaFormulario titulo="Para que sirve y como llenarlo">
         <p>
           <b>Proposito:</b> definir cada <b>materia</b> (unidad de trabajo) a la que pertenecen alumnos, plantillas, examenes y publicaciones.
@@ -1539,6 +1667,18 @@ function SeccionPeriodos({
         {periodos.map((periodo) => (
           <li key={periodo._id}>
             <span className="item-principal">{periodo.nombre}</span>
+            <div className="ayuda">
+              Inicio: {formatearFecha(periodo.fechaInicio)} · Fin: {formatearFecha(periodo.fechaFin)}
+              {Array.isArray(periodo.grupos) && periodo.grupos.length > 0 ? ` · Grupos: ${periodo.grupos.join(', ')}` : ''}
+            </div>
+            <Boton
+              variante="secundario"
+              type="button"
+              cargando={archivandoId === periodo._id}
+              onClick={() => archivarMateria(periodo)}
+            >
+              Archivar
+            </Boton>
             <Boton
               variante="secundario"
               type="button"
@@ -1555,29 +1695,158 @@ function SeccionPeriodos({
   );
 }
 
+function SeccionPeriodosArchivados({
+  periodos,
+  onRefrescar,
+  onVerActivas
+}: {
+  periodos: Periodo[];
+  onRefrescar: () => void;
+  onVerActivas: () => void;
+}) {
+  const [mensaje, setMensaje] = useState('');
+  const [borrandoId, setBorrandoId] = useState<string | null>(null);
+
+  function formatearFechaHora(valor?: string) {
+    if (!valor) return '-';
+    const d = new Date(valor);
+    if (Number.isNaN(d.getTime())) return String(valor);
+    return d.toLocaleString();
+  }
+
+  async function borrarMateria(periodo: Periodo) {
+    const paso1 = globalThis.confirm(
+      `¿Borrar DEFINITIVAMENTE la materia archivada "${periodo.nombre}"?\n\nSe borrara TODO lo asociado: alumnos, banco de preguntas, plantillas, examenes generados, calificaciones y codigos.`
+    );
+    if (!paso1) return;
+    const paso2 = globalThis.confirm(
+      `CONFIRMACION FINAL:\n\nEsta accion NO se puede deshacer.\n\n¿Seguro que deseas borrar definitivamente "${periodo.nombre}"?`
+    );
+    if (!paso2) return;
+
+    try {
+      const inicio = Date.now();
+      setBorrandoId(periodo._id);
+      setMensaje('');
+      await clienteApi.eliminar(`/periodos/${periodo._id}`);
+      setMensaje('Materia borrada');
+      emitToast({ level: 'ok', title: 'Materias', message: 'Materia borrada', durationMs: 2200 });
+      registrarAccionDocente('borrar_periodo', true, Date.now() - inicio);
+      onRefrescar();
+    } catch (error) {
+      const msg = mensajeDeError(error, 'No se pudo borrar la materia');
+      setMensaje(msg);
+      emitToast({
+        level: 'error',
+        title: 'No se pudo borrar',
+        message: msg,
+        durationMs: 5200,
+        action: accionToastSesionParaError(error, 'docente')
+      });
+      registrarAccionDocente('borrar_periodo', false);
+    } finally {
+      setBorrandoId(null);
+    }
+  }
+
+  return (
+    <div className="panel">
+      <h2>
+        <Icono nombre="periodos" /> Materias archivadas
+      </h2>
+      <div className="acciones">
+        <Boton variante="secundario" type="button" onClick={onVerActivas}>
+          Volver a materias activas
+        </Boton>
+      </div>
+
+      <AyudaFormulario titulo="Que significa archivar">
+        <p>
+          Archivar una materia la marca como <b>inactiva</b> para que no aparezca en listas de trabajo diarias.
+          Los datos quedan guardados (solo se ocultan), y se registra un resumen de lo asociado.
+        </p>
+      </AyudaFormulario>
+
+      {mensaje && (
+        <p className={esMensajeError(mensaje) ? 'mensaje error' : 'mensaje ok'} role="status">
+          {mensaje}
+        </p>
+      )}
+
+      {periodos.length === 0 ? (
+        <InlineMensaje tipo="info">No hay materias archivadas.</InlineMensaje>
+      ) : (
+        <ul className="lista">
+          {periodos.map((periodo) => (
+            <li key={periodo._id}>
+              <span className="item-principal">{periodo.nombre}</span>
+              <div className="ayuda">
+                Creada: {formatearFechaHora(periodo.createdAt)} · Archivada: {formatearFechaHora(periodo.archivadoEn)}
+              </div>
+              {periodo.resumenArchivado && (
+                <div className="ayuda">
+                  Resumen: alumnos {periodo.resumenArchivado.alumnos ?? 0}, banco {periodo.resumenArchivado.bancoPreguntas ?? 0},
+                  plantillas {periodo.resumenArchivado.plantillas ?? 0}, generados {periodo.resumenArchivado.examenesGenerados ?? 0},
+                  calificaciones {periodo.resumenArchivado.calificaciones ?? 0}, codigos {periodo.resumenArchivado.codigosAcceso ?? 0}
+                </div>
+              )}
+
+              <Boton
+                variante="secundario"
+                type="button"
+                icono={<Icono nombre="alerta" />}
+                cargando={borrandoId === periodo._id}
+                onClick={() => borrarMateria(periodo)}
+              >
+                Borrar definitivamente
+              </Boton>
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
+  );
+}
+
 function SeccionAlumnos({
   alumnos,
-  periodos,
+  periodosActivos,
+  periodosTodos,
   onRefrescar
 }: {
   alumnos: Alumno[];
-  periodos: Periodo[];
+  periodosActivos: Periodo[];
+  periodosTodos: Periodo[];
   onRefrescar: () => void;
 }) {
   const [matricula, setMatricula] = useState('');
   const [nombres, setNombres] = useState('');
   const [apellidos, setApellidos] = useState('');
   const [correo, setCorreo] = useState('');
+  const [correoAuto, setCorreoAuto] = useState(true);
   const [grupo, setGrupo] = useState('');
   const [periodoId, setPeriodoId] = useState('');
   const [mensaje, setMensaje] = useState('');
   const [creando, setCreando] = useState(false);
 
+  function normalizarMatricula(valor: string): string {
+    return String(valor || '')
+      .trim()
+      .replace(/\s+/g, '')
+      .toUpperCase();
+  }
+
+  const matriculaNormalizada = useMemo(() => normalizarMatricula(matricula), [matricula]);
+  const matriculaValida = useMemo(() => {
+    if (!matricula.trim()) return true;
+    return /^CUH\d{9}$/.test(matriculaNormalizada);
+  }, [matricula, matriculaNormalizada]);
+
   const dominiosPermitidos = obtenerDominiosCorreoPermitidosFrontend();
   const politicaDominiosTexto = dominiosPermitidos.length > 0 ? textoDominiosPermitidos(dominiosPermitidos) : '';
   const correoValido = !correo.trim() || esCorreoDeDominioPermitidoFrontend(correo, dominiosPermitidos);
 
-  const puedeCrear = Boolean(matricula.trim() && nombres.trim() && apellidos.trim() && periodoId && correoValido);
+  const puedeCrear = Boolean(matricula.trim() && matriculaValida && nombres.trim() && apellidos.trim() && periodoId && correoValido);
 
   async function crearAlumno() {
     try {
@@ -1592,7 +1861,7 @@ function SeccionAlumnos({
       setCreando(true);
       setMensaje('');
       await clienteApi.enviar('/alumnos', {
-        matricula: matricula.trim(),
+        matricula: matriculaNormalizada,
         nombres: nombres.trim(),
         apellidos: apellidos.trim(),
         ...(correo.trim() ? { correo: correo.trim() } : {}),
@@ -1602,6 +1871,13 @@ function SeccionAlumnos({
       setMensaje('Alumno creado');
       emitToast({ level: 'ok', title: 'Alumnos', message: 'Alumno creado', durationMs: 2200 });
       registrarAccionDocente('crear_alumno', true, Date.now() - inicio);
+      setMatricula('');
+      setNombres('');
+      setApellidos('');
+      setCorreo('');
+      setCorreoAuto(true);
+      setGrupo('');
+      setPeriodoId('');
       onRefrescar();
     } catch (error) {
       const msg = mensajeDeError(error, 'No se pudo crear el alumno');
@@ -1630,7 +1906,7 @@ function SeccionAlumnos({
         </p>
         <ul className="lista">
           <li>
-            <b>Matricula:</b> identificador del alumno (ej. <code>2024-001</code>).
+            <b>Matricula:</b> identificador del alumno con formato <code>CUH#########</code> (ej. <code>CUH512410168</code>).
           </li>
           <li>
             <b>Nombres/Apellidos:</b> como aparecen en lista oficial.
@@ -1651,8 +1927,22 @@ function SeccionAlumnos({
       </AyudaFormulario>
       <label className="campo">
         Matricula
-        <input value={matricula} onChange={(event) => setMatricula(event.target.value)} />
+        <input
+          value={matricula}
+          onChange={(event) => {
+            const valor = event.target.value;
+            setMatricula(valor);
+            if (correoAuto) {
+              const m = normalizarMatricula(valor);
+              setCorreo(m ? `${m}@cuh.mx` : '');
+            }
+          }}
+        />
+        <span className="ayuda">Formato: CUH######### (ej. CUH512410168).</span>
       </label>
+      {matricula.trim() && !matriculaValida && (
+        <InlineMensaje tipo="error">Matricula invalida. Usa el formato CUH#########.</InlineMensaje>
+      )}
       <label className="campo">
         Nombres
         <input value={nombres} onChange={(event) => setNombres(event.target.value)} />
@@ -1663,7 +1953,16 @@ function SeccionAlumnos({
       </label>
       <label className="campo">
         Correo
-        <input value={correo} onChange={(event) => setCorreo(event.target.value)} />
+        <input
+          value={correo}
+          onChange={(event) => {
+            setCorreoAuto(false);
+            setCorreo(event.target.value);
+          }}
+        />
+        {correoAuto && matriculaNormalizada && (
+          <span className="ayuda">Sugerido automaticamente: {matriculaNormalizada}@cuh.mx</span>
+        )}
         {dominiosPermitidos.length > 0 && <span className="ayuda">Opcional. Solo se permiten: {politicaDominiosTexto}</span>}
       </label>
       {dominiosPermitidos.length > 0 && correo.trim() && !correoValido && (
@@ -1677,7 +1976,7 @@ function SeccionAlumnos({
         Materia
         <select value={periodoId} onChange={(event) => setPeriodoId(event.target.value)}>
           <option value="">Selecciona</option>
-          {periodos.map((periodo) => (
+          {periodosActivos.map((periodo) => (
             <option key={periodo._id} value={periodo._id}>
               {periodo.nombre}
             </option>
@@ -1697,6 +1996,7 @@ function SeccionAlumnos({
         {alumnos.slice(0, 10).map((alumno) => (
           <li key={alumno._id}>
             {alumno.matricula} - {alumno.nombreCompleto}
+            {alumno.periodoId ? ` (Materia: ${periodosTodos.find((p) => p._id === alumno.periodoId)?.nombre ?? '—'})` : ''}
           </li>
         ))}
       </ul>

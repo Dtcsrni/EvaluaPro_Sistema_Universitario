@@ -44,7 +44,7 @@ describe('periodos (materias)', () => {
     const alumnoResp = await request(app)
       .post('/api/alumnos')
       .set({ Authorization: `Bearer ${token}` })
-      .send({ periodoId, matricula: 'A001', nombreCompleto: 'Alumno A', grupo: 'G1' })
+      .send({ periodoId, matricula: 'CUH512410168', nombreCompleto: 'Alumno A', grupo: 'G1' })
       .expect(201);
     return alumnoResp.body.alumno._id as string;
   }
@@ -155,5 +155,51 @@ describe('periodos (materias)', () => {
       .set({ Authorization: `Bearer ${token}` })
       .expect(200);
     expect(generados.body.examenes).toEqual([]);
+  });
+
+  it('archiva una materia (la oculta de activas) y guarda resumen', async () => {
+    const token = await registrar('docente-arch@local.test');
+
+    const periodoId = await crearPeriodo(token, 'Materia Archivable');
+    await crearAlumno(token, periodoId);
+    await crearPregunta(token, periodoId);
+
+    const archivar = await request(app)
+      .post(`/api/periodos/${periodoId}/archivar`)
+      .set({ Authorization: `Bearer ${token}` })
+      .expect(200);
+
+    expect(archivar.body.ok).toBe(true);
+    expect(archivar.body.periodo?.activo).toBe(false);
+    expect(typeof archivar.body.periodo?.archivadoEn).toBe('string');
+
+    const activas = await request(app)
+      .get('/api/periodos')
+      .set({ Authorization: `Bearer ${token}` })
+      .expect(200);
+    expect(activas.body.periodos).toEqual([]);
+
+    const archivadas = await request(app)
+      .get('/api/periodos?activo=0')
+      .set({ Authorization: `Bearer ${token}` })
+      .expect(200);
+    expect(archivadas.body.periodos.length).toBe(1);
+    expect(archivadas.body.periodos[0]._id).toBe(periodoId);
+    expect(archivadas.body.periodos[0].resumenArchivado?.alumnos).toBe(1);
+    expect(archivadas.body.periodos[0].resumenArchivado?.bancoPreguntas).toBe(1);
+
+    const alumnos = await request(app)
+      .get('/api/alumnos')
+      .set({ Authorization: `Bearer ${token}` })
+      .expect(200);
+    expect(alumnos.body.alumnos.length).toBe(1);
+    expect(alumnos.body.alumnos[0].activo).toBe(false);
+
+    const banco = await request(app)
+      .get('/api/banco-preguntas')
+      .set({ Authorization: `Bearer ${token}` })
+      .expect(200);
+    expect(banco.body.preguntas.length).toBe(1);
+    expect(banco.body.preguntas[0].activo).toBe(false);
   });
 });

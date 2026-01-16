@@ -50,7 +50,7 @@ describe('escaneo OMR: QR asociado a examen', () => {
       .set(auth)
       .send({
         periodoId,
-        matricula: '2025-001',
+        matricula: 'CUH512410168',
         nombreCompleto: 'Alumno Prueba',
         correo: 'alumno@prueba.test',
         grupo: 'A'

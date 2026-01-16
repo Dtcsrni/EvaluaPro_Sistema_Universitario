@@ -44,6 +44,16 @@ function normalizarString(valor: unknown): string {
   return typeof valor === 'string' ? valor.trim() : String(valor ?? '').trim();
 }
 
+function normalizarMatricula(valor: unknown): string {
+  return normalizarString(valor)
+    .replace(/\s+/g, '')
+    .toUpperCase();
+}
+
+function esMatriculaValida(valor: string): boolean {
+  return /^CUH\d{9}$/.test(normalizarMatricula(valor));
+}
+
 /**
  * Normaliza el numero de dias de retencion para evitar valores peligrosos.
  *
@@ -228,7 +238,7 @@ router.post('/sincronizar', async (req, res) => {
         periodoId: periodo._id,
         docenteId: calificacion.docenteId,
         alumnoId: calificacion.alumnoId,
-        matricula: typeof alumno.matricula === 'string' ? alumno.matricula.trim() : undefined,
+        matricula: typeof alumno.matricula === 'string' ? normalizarMatricula(alumno.matricula) : undefined,
         nombreCompleto: typeof alumno.nombreCompleto === 'string' ? alumno.nombreCompleto.trim() : undefined,
         grupo: typeof alumno.grupo === 'string' ? alumno.grupo.trim() : undefined,
         folio: folioNormalizado,
@@ -261,7 +271,11 @@ router.post('/ingresar', async (req, res) => {
   }
 
   const codigoNormalizado = normalizarString(codigo).toUpperCase();
-  const matriculaNormalizada = normalizarString(matricula);
+  const matriculaNormalizada = normalizarMatricula(matricula);
+  if (!esMatriculaValida(matriculaNormalizada)) {
+    responderError(res, 400, 'DATOS_INVALIDOS', 'Matricula invalida. Formato esperado: CUH######### (ej. CUH512410168).');
+    return;
+  }
   const registro = await CodigoAcceso.findOne({ codigo: codigoNormalizado, usado: false });
   if (!registro || registro.expiraEn < new Date()) {
     responderError(res, 401, 'CODIGO_INVALIDO', 'Codigo invalido o expirado');

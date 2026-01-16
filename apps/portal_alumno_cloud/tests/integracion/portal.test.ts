@@ -34,7 +34,7 @@ describe('portal alumno', () => {
       .set({ 'x-api-key': apiKey })
       .send({
         periodo: { _id: periodoId },
-        alumnos: [{ _id: alumnoId, matricula: '2025-001', nombreCompleto: 'Alumno Uno', grupo: 'A' }],
+        alumnos: [{ _id: alumnoId, matricula: 'CUH512410168', nombreCompleto: 'Alumno Uno', grupo: 'A' }],
         calificaciones: [
           {
             docenteId,
@@ -53,7 +53,7 @@ describe('portal alumno', () => {
 
     const ingreso = await request(app)
       .post('/api/portal/ingresar')
-      .send({ codigo: 'ABC123', matricula: '2025-001' })
+      .send({ codigo: 'ABC123', matricula: 'CUH512410168' })
       .expect(200);
 
     const token = ingreso.body.token as string;

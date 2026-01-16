@@ -69,7 +69,7 @@ describe('validaciones de payload', () => {
       .set({ Authorization: `Bearer ${token}` })
       .send({
         periodoId: '507f1f77bcf86cd799439011',
-        matricula: 'A001',
+        matricula: 'CUH512410168',
         nombreCompleto: 'Alumno Prueba',
         extra: 'NO'
       })
