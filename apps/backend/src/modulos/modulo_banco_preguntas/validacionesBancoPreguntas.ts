@@ -26,3 +26,9 @@ export const esquemaCrearPregunta = z
   .refine((data) => data.opciones.filter((opcion) => opcion.esCorrecta).length === 1, {
     message: 'Debe existir exactamente 1 opcion correcta'
   });
+
+export const esquemaAsignarMateriaPregunta = z
+  .object({
+    periodoId: esquemaObjectId
+  })
+  .strict();

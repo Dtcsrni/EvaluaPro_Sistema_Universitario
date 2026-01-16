@@ -1181,6 +1181,7 @@ function SeccionCuenta({ docente }: { docente: Docente }) {
   const [credentialReauth, setCredentialReauth] = useState<string | null>(null);
   const [mensaje, setMensaje] = useState('');
   const [guardando, setGuardando] = useState(false);
+  const [asignandoId, setAsignandoId] = useState<string | null>(null);
 
   const coincide = contrasenaNueva && contrasenaNueva === contrasenaNueva2;
   const requierePwdActual = Boolean(docente.tieneContrasena);
@@ -1363,6 +1364,7 @@ function SeccionBanco({
   ]);
   const [mensaje, setMensaje] = useState('');
   const [guardando, setGuardando] = useState(false);
+  const [asignandoId, setAsignandoId] = useState<string | null>(null);
 
   useEffect(() => {
     if (periodoId) return;
@@ -1375,6 +1377,13 @@ function SeccionBanco({
     const filtradas = periodoId ? lista.filter((p) => p.periodoId === periodoId) : [];
     return [...filtradas].sort((a, b) => String(b.createdAt || '').localeCompare(String(a.createdAt || '')));
   }, [preguntas, periodoId]);
+
+  const preguntasSinMateria = useMemo(() => {
+    const lista = Array.isArray(preguntas) ? preguntas : [];
+    return [...lista]
+      .filter((p) => !p.periodoId)
+      .sort((a, b) => String(b.createdAt || '').localeCompare(String(a.createdAt || '')));
+  }, [preguntas]);
 
   const puedeGuardar = Boolean(
     periodoId &&
@@ -1421,6 +1430,34 @@ function SeccionBanco({
       registrarAccionDocente('crear_pregunta', false);
     } finally {
       setGuardando(false);
+    }
+  }
+
+  async function asignarPreguntaSinMateria(preguntaId: string) {
+    if (!periodoId) return;
+
+    try {
+      const inicio = Date.now();
+      setAsignandoId(preguntaId);
+      setMensaje('');
+      await clienteApi.enviar(`/banco-preguntas/${preguntaId}/asignar-materia`, { periodoId });
+      setMensaje('Pregunta asignada a la materia');
+      emitToast({ level: 'ok', title: 'Banco', message: 'Pregunta asignada a la materia', durationMs: 2200 });
+      registrarAccionDocente('asignar_pregunta_materia', true, Date.now() - inicio);
+      onRefrescar();
+    } catch (error) {
+      const msg = mensajeDeError(error, 'No se pudo asignar la pregunta');
+      setMensaje(msg);
+      emitToast({
+        level: 'error',
+        title: 'No se pudo asignar',
+        message: msg,
+        durationMs: 5200,
+        action: accionToastSesionParaError(error, 'docente')
+      });
+      registrarAccionDocente('asignar_pregunta_materia', false);
+    } finally {
+      setAsignandoId(null);
     }
   }
 
@@ -1512,6 +1549,30 @@ function SeccionBanco({
           {mensaje}
         </p>
       )}
+      <h3>Preguntas sin materia</h3>
+      <div className="ayuda">
+        Preguntas legacy que quedaron sin materia asignada. Selecciona una materia y pulsa "Asignar".
+      </div>
+      <ul className="lista">
+        {!periodoId && <li>Selecciona una materia para poder asignar preguntas.</li>}
+        {periodoId && preguntasSinMateria.length === 0 && <li>No hay preguntas sin materia.</li>}
+        {periodoId &&
+          preguntasSinMateria.slice(0, 30).map((pregunta) => (
+            <li key={pregunta._id}>
+              <span className="item-principal">{pregunta.versiones?.[0]?.enunciado ?? 'Pregunta'}</span>
+              <div className="acciones">
+                <Boton
+                  variante="secundario"
+                  type="button"
+                  cargando={asignandoId === pregunta._id}
+                  onClick={() => asignarPreguntaSinMateria(pregunta._id)}
+                >
+                  Asignar a esta materia
+                </Boton>
+              </div>
+            </li>
+          ))}
+      </ul>
       <h3>Preguntas recientes</h3>
       <ul className="lista">
         {!periodoId && <li>Selecciona una materia para ver sus preguntas.</li>}
