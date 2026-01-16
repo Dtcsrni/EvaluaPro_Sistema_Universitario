@@ -111,7 +111,7 @@ describe('escaneo OMR: QR asociado a examen', () => {
     expect(paginas.length).toBeGreaterThan(0);
     expect(paginas[0].numero).toBe(1);
 
-    const qrEsperado = `EXAMEN:${folio}:P1`;
+    const qrEsperado = folio;
     expect(paginas[0].qrTexto).toBe(qrEsperado);
 
     const imagenBase64 = await QRCode.toDataURL(qrEsperado, { margin: 1, width: 800 });
@@ -138,7 +138,7 @@ describe('escaneo OMR: QR asociado a examen', () => {
 
     const { folio } = await prepararExamenBasico(auth);
 
-    const qrIncorrecto = 'EXAMEN:OTROFOLIO:P1';
+    const qrIncorrecto = 'OTROFOLIO';
     const imagenBase64 = await QRCode.toDataURL(qrIncorrecto, { margin: 1, width: 800 });
 
     const resp = await request(app)

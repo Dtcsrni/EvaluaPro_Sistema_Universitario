@@ -20,6 +20,7 @@ import { Periodo } from '../modulo_alumnos/modeloPeriodo';
 import { normalizarParaNombreArchivo } from '../../compartido/utilidades/texto';
 import { obtenerDocenteId } from '../modulo_autenticacion/middlewareAutenticacion';
 import type { SolicitudDocente } from '../modulo_autenticacion/middlewareAutenticacion';
+import { Docente } from '../modulo_autenticacion/modeloDocente';
 import { ExamenGenerado } from './modeloExamenGenerado';
 import { ExamenPlantilla } from './modeloExamenPlantilla';
 import { generarPdfExamen } from './servicioGeneracionPdf';
@@ -369,13 +370,22 @@ export async function previsualizarPlantilla(req: SolicitudDocente, res: Respons
   const preguntasSeleccionadas = barajarDeterminista(preguntasBase, seed).slice(0, totalUsados);
   const mapaVarianteDet = generarVarianteDeterminista(preguntasSeleccionadas, `plantilla:${plantilla._id}`);
 
+  const [periodo, docenteDb] = await Promise.all([
+    plantilla.periodoId ? Periodo.findById(plantilla.periodoId).lean() : Promise.resolve(null),
+    Docente.findById(docenteId).lean()
+  ]);
+
   const { paginas } = await generarPdfExamen({
     titulo: String(plantilla.titulo ?? ''),
     folio: 'PREVIEW',
     preguntas: preguntasSeleccionadas,
     mapaVariante: mapaVarianteDet as unknown as ReturnType<typeof generarVariante>,
     tipoExamen: plantilla.tipo as 'parcial' | 'global',
-    margenMm: plantilla.configuracionPdf?.margenMm ?? 10
+    margenMm: plantilla.configuracionPdf?.margenMm ?? 10,
+    encabezado: {
+      materia: String((periodo as unknown as { nombre?: unknown })?.nombre ?? ''),
+      docente: String((docenteDb as unknown as { nombreCompleto?: unknown })?.nombreCompleto ?? '')
+    }
   });
 
   const porId = new Map<string, (typeof preguntasSeleccionadas)[number]>();
@@ -496,13 +506,22 @@ export async function previsualizarPlantillaPdf(req: SolicitudDocente, res: Resp
   const preguntasSeleccionadas = barajarDeterminista(preguntasBase, seed).slice(0, totalUsados);
   const mapaVarianteDet = generarVarianteDeterminista(preguntasSeleccionadas, `plantilla:${plantilla._id}`);
 
+  const [periodo, docenteDb] = await Promise.all([
+    plantilla.periodoId ? Periodo.findById(plantilla.periodoId).lean() : Promise.resolve(null),
+    Docente.findById(docenteId).lean()
+  ]);
+
   const { pdfBytes } = await generarPdfExamen({
     titulo: String(plantilla.titulo ?? ''),
     folio: 'PREVIEW',
     preguntas: preguntasSeleccionadas,
     mapaVariante: mapaVarianteDet as unknown as ReturnType<typeof generarVariante>,
     tipoExamen: plantilla.tipo as 'parcial' | 'global',
-    margenMm: plantilla.configuracionPdf?.margenMm ?? 10
+    margenMm: plantilla.configuracionPdf?.margenMm ?? 10,
+    encabezado: {
+      materia: String((periodo as unknown as { nombre?: unknown })?.nombre ?? ''),
+      docente: String((docenteDb as unknown as { nombreCompleto?: unknown })?.nombreCompleto ?? '')
+    }
   });
 
   res.setHeader('Content-Type', 'application/pdf');
@@ -581,16 +600,24 @@ export async function generarExamen(req: SolicitudDocente, res: Response) {
   const loteId = randomUUID().split('-')[0].toUpperCase();
   const folio = randomUUID().split('-')[0].toUpperCase();
 
+  const [periodo, docenteDb] = await Promise.all([
+    plantilla.periodoId ? Periodo.findById(plantilla.periodoId).lean() : Promise.resolve(null),
+    Docente.findById(docenteId).lean()
+  ]);
+
   const { pdfBytes, paginas, mapaOmr } = await generarPdfExamen({
     titulo: plantilla.titulo,
     folio,
     preguntas: preguntasSeleccionadas,
     mapaVariante,
     tipoExamen: plantilla.tipo as 'parcial' | 'global',
-    margenMm: plantilla.configuracionPdf?.margenMm ?? 10
+    margenMm: plantilla.configuracionPdf?.margenMm ?? 10,
+    encabezado: {
+      materia: String((periodo as unknown as { nombre?: unknown })?.nombre ?? ''),
+      docente: String((docenteDb as unknown as { nombreCompleto?: unknown })?.nombreCompleto ?? '')
+    }
   });
 
-  const periodo = plantilla.periodoId ? await Periodo.findById(plantilla.periodoId).lean() : null;
   const nombreArchivo = construirNombrePdfExamen({
     folio,
     loteId,
@@ -640,6 +667,7 @@ export async function generarExamenesLote(req: SolicitudDocente, res: Response) 
 
   const loteId = randomUUID().split('-')[0].toUpperCase();
   const periodo = await Periodo.findById(plantilla.periodoId).lean();
+  const docenteDb = await Docente.findById(docenteId).lean();
 
   const alumnos = await Alumno.find({ docenteId, periodoId: plantilla.periodoId, activo: true }).lean();
   const totalAlumnos = Array.isArray(alumnos) ? alumnos.length : 0;
@@ -710,7 +738,11 @@ export async function generarExamenesLote(req: SolicitudDocente, res: Response) 
           preguntas: preguntasSeleccionadas,
           mapaVariante,
           tipoExamen: plantilla.tipo as 'parcial' | 'global',
-          margenMm: plantilla.configuracionPdf?.margenMm ?? 10
+          margenMm: plantilla.configuracionPdf?.margenMm ?? 10,
+          encabezado: {
+            materia: String((periodo as unknown as { nombre?: unknown })?.nombre ?? ''),
+            docente: String((docenteDb as unknown as { nombreCompleto?: unknown })?.nombreCompleto ?? '')
+          }
         });
 
         const nombreArchivo = construirNombrePdfExamen({

@@ -18,6 +18,7 @@ import { Periodo } from '../modulo_alumnos/modeloPeriodo';
 import { normalizarParaNombreArchivo } from '../../compartido/utilidades/texto';
 import { Calificacion } from '../modulo_calificacion/modeloCalificacion';
 import { Entrega } from '../modulo_vinculacion_entrega/modeloEntrega';
+import { Docente } from '../modulo_autenticacion/modeloDocente';
 
 type BancoPreguntaLean = {
   _id: unknown;
@@ -232,6 +233,13 @@ export async function regenerarPdfExamen(req: SolicitudDocente, res: Response) {
     };
   });
 
+  const [periodo, docenteDb] = await Promise.all([
+    (examen as unknown as { periodoId?: unknown })?.periodoId
+      ? Periodo.findById(String((examen as unknown as { periodoId?: unknown })?.periodoId ?? '')).lean()
+      : Promise.resolve(null),
+    Docente.findById(docenteId).lean()
+  ]);
+
   const { pdfBytes, paginas, mapaOmr } = await generarPdfExamen({
     titulo: String(plantilla.titulo ?? ''),
     folio,
@@ -239,12 +247,12 @@ export async function regenerarPdfExamen(req: SolicitudDocente, res: Response) {
     // Reutiliza la variante para mantener el orden de preguntas/opciones.
     mapaVariante: (examen as unknown as { mapaVariante?: unknown })?.mapaVariante as never,
     tipoExamen: plantilla.tipo as 'parcial' | 'global',
-    margenMm: (plantilla as unknown as { configuracionPdf?: { margenMm?: number } })?.configuracionPdf?.margenMm ?? 10
+    margenMm: (plantilla as unknown as { configuracionPdf?: { margenMm?: number } })?.configuracionPdf?.margenMm ?? 10,
+    encabezado: {
+      materia: String((periodo as unknown as { nombre?: unknown })?.nombre ?? ''),
+      docente: String((docenteDb as unknown as { nombreCompleto?: unknown })?.nombreCompleto ?? '')
+    }
   });
-
-  const periodo = (examen as unknown as { periodoId?: unknown })?.periodoId
-    ? await Periodo.findById(String((examen as unknown as { periodoId?: unknown })?.periodoId ?? '')).lean()
-    : null;
 
   const temas = Array.isArray((plantilla as unknown as { temas?: unknown[] })?.temas)
     ? (((plantilla as unknown as { temas?: unknown[] })?.temas ?? []) as unknown[]).map((t) => String(t ?? '').trim()).filter(Boolean)

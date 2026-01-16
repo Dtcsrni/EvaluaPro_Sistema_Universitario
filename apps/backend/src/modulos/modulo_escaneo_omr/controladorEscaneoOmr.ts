@@ -35,7 +35,7 @@ export async function analizarImagen(req: SolicitudDocente, res: Response) {
     throw new ErrorAplicacion('PAGINA_NO_VALIDA', 'No hay mapa OMR para la pagina', 400);
   }
 
-  const qrEsperado = `EXAMEN:${examen.folio}:P${pagina}`;
+  const qrEsperado = [String(examen.folio ?? ''), `EXAMEN:${String(examen.folio ?? '')}:P${pagina}`];
   const margenMm = examen.mapaOmr?.margenMm ?? 10;
   const resultado = await analizarOmr(imagenBase64 ?? '', mapaOmr, qrEsperado, margenMm);
   res.json({ resultado, examenId: examen._id });

@@ -36,7 +36,7 @@ describe('analizarOmr', () => {
       ]
     };
 
-    const resultado = await analizarOmr(imagenBase64, mapaPagina, 'EXAMEN:TEST:P1', 10);
+    const resultado = await analizarOmr(imagenBase64, mapaPagina, ['TEST', 'EXAMEN:TEST:P1'], 10);
 
     expect(resultado.qrTexto).toBeUndefined();
     expect(resultado.advertencias).toEqual(

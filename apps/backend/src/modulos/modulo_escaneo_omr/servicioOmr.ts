@@ -218,7 +218,7 @@ function detectarOpcion(
 export async function analizarOmr(
   imagenBase64: string,
   mapaPagina: MapaOmrPagina,
-  qrEsperado?: string,
+  qrEsperado?: string | string[],
   margenMm = 10
 ): Promise<ResultadoOmr> {
   const advertencias: string[] = [];
@@ -228,7 +228,8 @@ export async function analizarOmr(
   if (!qrTexto) {
     advertencias.push('No se detecto QR en la imagen');
   }
-  if (qrEsperado && qrTexto && qrTexto !== qrEsperado) {
+  const qrEsperados = Array.isArray(qrEsperado) ? qrEsperado : qrEsperado ? [qrEsperado] : [];
+  if (qrEsperados.length > 0 && qrTexto && !qrEsperados.includes(qrTexto)) {
     advertencias.push('El QR no coincide con el examen esperado');
   }
 
