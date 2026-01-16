@@ -222,6 +222,31 @@ main.page {
   padding: 3rem 1.25rem;
 }
 
+.error-boundary__acciones {
+  margin-top: 0.5rem;
+}
+
+.error-boundary__detalles {
+  margin-top: 0.75rem;
+}
+
+.error-boundary__summary {
+  cursor: pointer;
+  color: var(--muted);
+  font-weight: 700;
+}
+
+.error-boundary__pre {
+  margin-top: 0.75rem;
+  padding: 0.75rem;
+  border: 1px solid var(--borde);
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.75);
+  overflow: auto;
+  white-space: pre-wrap;
+  color: var(--texto);
+}
+
 .card {
   max-width: 900px;
   width: 100%;

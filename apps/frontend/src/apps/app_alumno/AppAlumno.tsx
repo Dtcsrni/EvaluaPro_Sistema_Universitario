@@ -221,7 +221,7 @@ export function AppAlumno() {
               !matriculaValida && matricula.trim() ? 'Usa 3-20 caracteres (letras/numeros/guion).' : undefined
             }
           />
-          <p className="nota">Si no ves resultados tras ingresar, intenta "Recargar". Si el codigo expiro, solicita uno nuevo al docente.</p>
+          <p className="nota">Si no ves resultados tras ingresar, intenta &quot;Recargar&quot;. Si el codigo expiro, solicita uno nuevo al docente.</p>
           <Boton
             type="button"
             icono={<Icono nombre="entrar" />}

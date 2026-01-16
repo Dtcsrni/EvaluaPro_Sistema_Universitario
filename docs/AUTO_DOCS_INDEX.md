@@ -10,6 +10,7 @@ No editar a mano: los cambios se pisan al regenerar.
 - [FILES.md](FILES.md) — Mapa de archivos
 - [FLUJO_EXAMEN.md](FLUJO_EXAMEN.md) — Flujo de examen
 - [FORMATO_PDF.md](FORMATO_PDF.md) — Formato PDF y OMR
+- [GUIA_FORMULARIOS.md](GUIA_FORMULARIOS.md) — Guía para llenar formularios (UI)
 - [PRUEBAS.md](PRUEBAS.md) — Pruebas automatizadas
 - [SEGURIDAD.md](SEGURIDAD.md) — Seguridad (OWASP API Top 10 2023)
 - [VERSIONADO.md](VERSIONADO.md) — Versionado (alpha / beta / estable)

@@ -823,7 +823,7 @@ function SeccionAutenticacion({ onIngresar }: { onIngresar: (token: string) => v
             generar examenes y calificar.
           </p>
           <p>
-            <b>Ingresar:</b> usa tu correo y contrasena (o Google si esta habilitado). Si el boton "Ingresar" no se habilita,
+            <b>Ingresar:</b> usa tu correo y contrasena (o Google si esta habilitado). Si el boton &quot;Ingresar&quot; no se habilita,
             revisa que ambos campos esten completos.
           </p>
           <p>
@@ -1181,7 +1181,6 @@ function SeccionCuenta({ docente }: { docente: Docente }) {
   const [credentialReauth, setCredentialReauth] = useState<string | null>(null);
   const [mensaje, setMensaje] = useState('');
   const [guardando, setGuardando] = useState(false);
-  const [asignandoId, setAsignandoId] = useState<string | null>(null);
 
   const coincide = contrasenaNueva && contrasenaNueva === contrasenaNueva2;
   const requierePwdActual = Boolean(docente.tieneContrasena);
@@ -1551,7 +1550,7 @@ function SeccionBanco({
       )}
       <h3>Preguntas sin materia</h3>
       <div className="ayuda">
-        Preguntas legacy que quedaron sin materia asignada. Selecciona una materia y pulsa "Asignar".
+        Preguntas legacy que quedaron sin materia asignada. Selecciona una materia y pulsa &quot;Asignar&quot;.
       </div>
       <ul className="lista">
         {!periodoId && <li>Selecciona una materia para poder asignar preguntas.</li>}
@@ -2170,7 +2169,7 @@ function SeccionAlumnos({
       </AyudaFormulario>
       {editandoId && (
         <InlineMensaje tipo="info">
-          Editando alumno. Modifica los campos y pulsa "Guardar cambios".
+          Editando alumno. Modifica los campos y pulsa &quot;Guardar cambios&quot;.
         </InlineMensaje>
       )}
       <label className="campo">
@@ -2443,7 +2442,7 @@ function SeccionPlantillas({
           ))}
         </select>
         {periodoId && preguntasDisponibles.length === 0 && (
-          <span className="ayuda">No hay preguntas para esta materia. Ve a "Banco" para agregarlas.</span>
+          <span className="ayuda">No hay preguntas para esta materia. Ve a &quot;Banco&quot; para agregarlas.</span>
         )}
       </label>
       <Boton type="button" icono={<Icono nombre="nuevo" />} cargando={creando} disabled={!puedeCrear} onClick={crear}>
@@ -2846,7 +2845,7 @@ function SeccionCalificar({
       <AyudaFormulario titulo="Para que sirve y como llenarlo">
         <p>
           <b>Proposito:</b> guardar la calificacion del examen ya identificado por folio/OMR.
-          Esta seccion usa el examen y alumno detectados en "Escaneo OMR".
+          Esta seccion usa el examen y alumno detectados en &quot;Escaneo OMR&quot;.
         </p>
         <ul className="lista">
           <li>
@@ -2990,7 +2989,7 @@ function SeccionPublicar({
           </li>
         </ul>
         <p>
-          Ejemplo de mensaje a alumnos: "Tu codigo es <code>ABC123</code>. Entra al portal y usa tu matricula <code>2024-001</code>."
+          Ejemplo de mensaje a alumnos: &quot;Tu codigo es <code>ABC123</code>. Entra al portal y usa tu matricula <code>2024-001</code>.&quot;
         </p>
       </AyudaFormulario>
       <label className="campo">

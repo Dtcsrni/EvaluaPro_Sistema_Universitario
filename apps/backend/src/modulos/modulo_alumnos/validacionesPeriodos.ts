@@ -10,3 +10,5 @@ export const esquemaCrearPeriodo = z.object({
   grupos: z.array(z.string()).optional(),
   activo: z.boolean().optional()
 });
+
+export const esquemaBodyVacioOpcional = z.object({}).strict().optional();

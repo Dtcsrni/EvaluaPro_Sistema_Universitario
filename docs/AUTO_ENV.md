@@ -16,7 +16,7 @@ este documento se actualiza automáticamente al regenerar.
 - `LIMITE_JSON` (usado en: apps/backend/src/configuracion.ts, apps/backend/tests/contrato/limitesPayload.test.ts)
 - `MONGO_URI` (usado en: apps/backend/src/configuracion.ts)
 - `MONGODB_URI` (usado en: apps/backend/src/configuracion.ts)
-- `NODE_ENV` (usado en: apps/backend/src/compartido/errores/manejadorErrores.ts, apps/backend/src/configuracion.ts, apps/backend/src/modulos/modulo_autenticacion/rutasAutenticacion.ts, apps/backend/tests/errores.test.ts, apps/backend/tests/setup.ts)
+- `NODE_ENV` (usado en: apps/backend/scripts/debugCrearPeriodo.ts, apps/backend/src/compartido/errores/manejadorErrores.ts, apps/backend/src/configuracion.ts, apps/backend/src/modulos/modulo_autenticacion/rutasAutenticacion.ts, apps/backend/src/modulos/modulo_autenticacion/seedAdmin.ts, apps/backend/tests/errores.test.ts, apps/backend/tests/setup.ts)
 - `OMR_IMAGEN_BASE64_MAX_CHARS` (usado en: apps/backend/src/configuracion.ts, apps/backend/tests/contrato/limitesPayload.test.ts)
 - `PORT` (usado en: apps/backend/src/configuracion.ts)
 - `PORTAL_ALUMNO_API_KEY` (usado en: apps/backend/src/configuracion.ts)
@@ -25,6 +25,10 @@ este documento se actualiza automáticamente al regenerar.
 - `RATE_LIMIT_LIMIT` (usado en: apps/backend/src/configuracion.ts, apps/backend/tests/rateLimit.test.ts)
 - `RATE_LIMIT_WINDOW_MS` (usado en: apps/backend/src/configuracion.ts, apps/backend/tests/rateLimit.test.ts)
 - `REFRESH_TOKEN_DIAS` (usado en: apps/backend/src/configuracion.ts)
+- `SEED_ADMIN_EMAIL` (usado en: apps/backend/src/modulos/modulo_autenticacion/seedAdmin.ts)
+- `SEED_ADMIN_FORCE` (usado en: apps/backend/src/modulos/modulo_autenticacion/seedAdmin.ts)
+- `SEED_ADMIN_NOMBRE_COMPLETO` (usado en: apps/backend/src/modulos/modulo_autenticacion/seedAdmin.ts)
+- `SEED_ADMIN_PASSWORD` (usado en: apps/backend/src/modulos/modulo_autenticacion/seedAdmin.ts)
 
 ## Portal alumno cloud
 - `CODIGO_ACCESO_HORAS` (usado en: apps/portal_alumno_cloud/src/configuracion.ts)
@@ -38,6 +42,7 @@ este documento se actualiza automáticamente al regenerar.
 - `RATE_LIMIT_WINDOW_MS` (usado en: apps/portal_alumno_cloud/src/configuracion.ts, apps/portal_alumno_cloud/tests/rateLimit.test.ts)
 
 ## Frontend
+- `DEV` (usado en: apps/frontend/src/apps/app_docente/AppDocente.tsx, apps/frontend/src/ui/errores/ErrorBoundary.tsx)
 - `VITE_API_BASE_URL` (usado en: apps/frontend/src/servicios_api/clienteApi.ts)
 - `VITE_APP_DESTINO` (usado en: apps/frontend/src/App.tsx)
 - `VITE_DOMINIOS_CORREO_PERMITIDOS` (usado en: apps/frontend/src/apps/app_docente/AppDocente.tsx)
