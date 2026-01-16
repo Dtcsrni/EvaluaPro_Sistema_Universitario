@@ -70,6 +70,9 @@ type Plantilla = {
   periodoId?: string;
   preguntasIds?: string[];
   temas?: string[];
+  instrucciones?: string;
+  configuracionPdf?: { margenMm?: number; layout?: string };
+  createdAt?: string;
 };
 
 type Pregunta = {
@@ -1390,7 +1393,6 @@ function SeccionBanco({
 
     const sizePregunta = 11;
     const sizeOpcion = 10;
-    const sizeNota = 9;
     const lineaPregunta = 13;
     const lineaOpcion = 12;
     const lineaNota = 12;
@@ -1606,7 +1608,6 @@ function SeccionBanco({
   }, [preguntasMateria]);
 
   function estimarAltoPregunta(pregunta: Pregunta): number {
-    const ALTO_CARTA = 792;
     const mmAPuntos = (mm: number) => mm * (72 / 25.4);
     const margen = mmAPuntos(10);
     const ANCHO_CARTA = 612;
@@ -3304,6 +3305,7 @@ function SeccionPlantillas({
     folio: string;
     plantillaId: string;
     alumnoId?: string | null;
+    estado?: string;
     generadoEn?: string;
     descargadoEn?: string;
     paginas?: Array<{ numero: number; qrTexto?: string; preguntasDel?: number; preguntasAl?: number }>;
@@ -3314,6 +3316,8 @@ function SeccionPlantillas({
   const [periodoId, setPeriodoId] = useState('');
   const [totalReactivos, setTotalReactivos] = useState(10);
   const [temasSeleccionados, setTemasSeleccionados] = useState<string[]>([]);
+  const [instrucciones, setInstrucciones] = useState('');
+  const [margenMm, setMargenMm] = useState<number>(10);
   const [mensaje, setMensaje] = useState('');
   const [plantillaId, setPlantillaId] = useState('');
   const [alumnoId, setAlumnoId] = useState('');
@@ -3322,13 +3326,47 @@ function SeccionPlantillas({
   const [examenesGenerados, setExamenesGenerados] = useState<ExamenGeneradoResumen[]>([]);
   const [cargandoExamenesGenerados, setCargandoExamenesGenerados] = useState(false);
   const [descargandoExamenId, setDescargandoExamenId] = useState<string | null>(null);
+  const [regenerandoExamenId, setRegenerandoExamenId] = useState<string | null>(null);
   const [creando, setCreando] = useState(false);
   const [generando, setGenerando] = useState(false);
   const [generandoLote, setGenerandoLote] = useState(false);
+  const [modoEdicion, setModoEdicion] = useState(false);
+  const [plantillaEditandoId, setPlantillaEditandoId] = useState<string | null>(null);
+  const [guardandoPlantilla, setGuardandoPlantilla] = useState(false);
+  const [eliminandoPlantillaId, setEliminandoPlantillaId] = useState<string | null>(null);
+  const [filtroPlantillas, setFiltroPlantillas] = useState('');
+
+  type PreviewPlantilla = {
+    plantillaId: string;
+    totalReactivos: number;
+    totalSolicitados?: number;
+    totalDisponibles?: number;
+    totalUsados?: number;
+    advertencias?: string[];
+    conteoPorTema?: Array<{ tema: string; disponibles: number }>;
+    temasDisponiblesEnMateria?: Array<{ tema: string; disponibles: number }>;
+    paginas: Array<{
+      numero: number;
+      preguntasDel: number;
+      preguntasAl: number;
+      elementos: string[];
+      preguntas: Array<{ numero: number; id: string; tieneImagen: boolean; enunciadoCorto: string }>;
+    }>;
+  };
+  const [previewPorPlantillaId, setPreviewPorPlantillaId] = useState<Record<string, PreviewPlantilla>>({});
+  const [cargandoPreviewPlantillaId, setCargandoPreviewPlantillaId] = useState<string | null>(null);
+  const [plantillaPreviewId, setPlantillaPreviewId] = useState<string | null>(null);
+  const [previewPdfUrlPorPlantillaId, setPreviewPdfUrlPorPlantillaId] = useState<Record<string, string>>({});
+  const [cargandoPreviewPdfPlantillaId, setCargandoPreviewPdfPlantillaId] = useState<string | null>(null);
 
   const plantillaSeleccionada = useMemo(() => {
     return (Array.isArray(plantillas) ? plantillas : []).find((p) => p._id === plantillaId) ?? null;
   }, [plantillas, plantillaId]);
+
+  const plantillaEditando = useMemo(() => {
+    if (!plantillaEditandoId) return null;
+    return (Array.isArray(plantillas) ? plantillas : []).find((p) => p._id === plantillaEditandoId) ?? null;
+  }, [plantillas, plantillaEditandoId]);
 
   const alumnosPorId = useMemo(() => {
     const mapa = new Map<string, Alumno>();
@@ -3399,10 +3437,15 @@ function SeccionPlantillas({
         }
 
         const blob = await resp.blob();
+        const cd = resp.headers.get('Content-Disposition') || '';
+        const match = cd.match(/filename\*=UTF-8''([^;]+)|filename="([^"]+)"|filename=([^;]+)/i);
+        const nombreDesdeHeader = match
+          ? decodeURIComponent(String(match[1] || match[2] || match[3] || '').trim().replace(/^"|"$/g, ''))
+          : '';
         const url = URL.createObjectURL(blob);
         const a = document.createElement('a');
         a.href = url;
-        a.download = `examen_${String(examen.folio || 'examen')}.pdf`;
+        a.download = nombreDesdeHeader || `examen_${String(examen.folio || 'examen')}.pdf`;
         document.body.appendChild(a);
         a.click();
         a.remove();
@@ -3422,6 +3465,56 @@ function SeccionPlantillas({
         });
       } finally {
         setDescargandoExamenId(null);
+      }
+    },
+    [cargarExamenesGenerados]
+  );
+
+  const regenerarPdfExamen = useCallback(
+    async (examen: ExamenGeneradoResumen) => {
+      try {
+        setMensajeGeneracion('');
+        setRegenerandoExamenId(examen._id);
+
+        const yaDescargado = Boolean(String(examen.descargadoEn || '').trim());
+        const estado = String(examen.estado || 'generado');
+        if (estado && estado !== 'generado') {
+          emitToast({
+            level: 'error',
+            title: 'No se puede regenerar',
+            message: 'El examen ya fue entregado o calificado.',
+            durationMs: 4200
+          });
+          return;
+        }
+
+        let forzar = false;
+        if (yaDescargado) {
+          const ok = globalThis.confirm(
+            'Este examen ya fue descargado. Regenerarlo puede cambiar el PDF (y tu copia descargada).\n\n¿Deseas continuar?'
+          );
+          if (!ok) return;
+          forzar = true;
+        }
+
+        await clienteApi.enviar(`/examenes/generados/${encodeURIComponent(examen._id)}/regenerar`, {
+          ...(forzar ? { forzar: true } : {})
+        });
+
+        emitToast({ level: 'ok', title: 'Examen', message: 'PDF regenerado', durationMs: 2000 });
+        await cargarExamenesGenerados();
+      } catch (error) {
+        const msg = mensajeDeError(error, 'No se pudo regenerar el PDF');
+        setMensajeGeneracion(msg);
+        emitToast({
+          level: 'error',
+          title: 'No se pudo regenerar',
+          message: msg,
+          durationMs: 5200,
+          action: accionToastSesionParaError(error, 'docente')
+        });
+      } finally {
+        setRegenerandoExamenId(null);
       }
     },
     [cargarExamenesGenerados]
@@ -3461,6 +3554,14 @@ function SeccionPlantillas({
     setTemasSeleccionados([]);
   }, [periodoId]);
 
+  useEffect(() => {
+    // Defaults para creacion.
+    if (!modoEdicion) {
+      setInstrucciones('');
+      setMargenMm(10);
+    }
+  }, [modoEdicion]);
+
   const puedeCrear = Boolean(
     titulo.trim() &&
       periodoId &&
@@ -3469,6 +3570,206 @@ function SeccionPlantillas({
       totalReactivos <= totalDisponiblePorTemas
   );
   const puedeGenerar = Boolean(plantillaId);
+
+  const plantillasFiltradas = useMemo(() => {
+    const q = String(filtroPlantillas || '').trim().toLowerCase();
+    const lista = Array.isArray(plantillas) ? plantillas : [];
+    const base = q
+      ? lista.filter((p) => {
+          const t = String(p.titulo || '').toLowerCase();
+          const id = String(p._id || '').toLowerCase();
+          const temas = (Array.isArray(p.temas) ? p.temas : []).join(' ').toLowerCase();
+          return t.includes(q) || id.includes(q) || temas.includes(q);
+        })
+      : lista;
+    return base;
+  }, [plantillas, filtroPlantillas]);
+
+  function iniciarEdicion(plantilla: Plantilla) {
+    setModoEdicion(true);
+    setPlantillaEditandoId(plantilla._id);
+    setTitulo(String(plantilla.titulo || ''));
+    setTipo(plantilla.tipo);
+    setPeriodoId(String(plantilla.periodoId || ''));
+    setTotalReactivos(Number(plantilla.totalReactivos || 1));
+    setTemasSeleccionados(Array.isArray(plantilla.temas) ? plantilla.temas : []);
+    setInstrucciones(String(plantilla.instrucciones || ''));
+    setMargenMm(Number(plantilla.configuracionPdf?.margenMm ?? 10));
+    setMensaje('');
+  }
+
+  function cancelarEdicion() {
+    setModoEdicion(false);
+    setPlantillaEditandoId(null);
+    setTitulo('');
+    setTipo('parcial');
+    setPeriodoId('');
+    setTotalReactivos(10);
+    setTemasSeleccionados([]);
+    setInstrucciones('');
+    setMargenMm(10);
+    setMensaje('');
+  }
+
+  async function guardarEdicion() {
+    if (!plantillaEditandoId) return;
+    try {
+      const inicio = Date.now();
+      setGuardandoPlantilla(true);
+      setMensaje('');
+
+      const payload: Record<string, unknown> = {
+        titulo: titulo.trim(),
+        tipo,
+        totalReactivos: Math.max(1, Math.floor(totalReactivos)),
+        instrucciones: String(instrucciones || '').trim() || undefined,
+        configuracionPdf: { margenMm: Math.max(1, Math.floor(Number(margenMm) || 10)) }
+      };
+      if (periodoId) payload.periodoId = periodoId;
+
+      // Solo enviar temas si hay seleccion o si la plantilla ya estaba en modo temas.
+      const temasPrevios =
+        plantillaEditando && Array.isArray(plantillaEditando.temas) ? plantillaEditando.temas : [];
+      const estabaEnTemas = temasPrevios.length > 0;
+      if (temasSeleccionados.length > 0 || estabaEnTemas) {
+        payload.temas = temasSeleccionados;
+      }
+
+      await clienteApi.enviar(`/examenes/plantillas/${encodeURIComponent(plantillaEditandoId)}`, payload);
+      emitToast({ level: 'ok', title: 'Plantillas', message: 'Plantilla actualizada', durationMs: 2200 });
+      registrarAccionDocente('actualizar_plantilla', true, Date.now() - inicio);
+      cancelarEdicion();
+      onRefrescar();
+    } catch (error) {
+      const msg = mensajeDeError(error, 'No se pudo actualizar la plantilla');
+      setMensaje(msg);
+      emitToast({
+        level: 'error',
+        title: 'No se pudo actualizar',
+        message: msg,
+        durationMs: 5200,
+        action: accionToastSesionParaError(error, 'docente')
+      });
+      registrarAccionDocente('actualizar_plantilla', false);
+    } finally {
+      setGuardandoPlantilla(false);
+    }
+  }
+
+  async function eliminarPlantilla(plantilla: Plantilla) {
+    const ok = globalThis.confirm(
+      `¿Eliminar la plantilla "${String(plantilla.titulo || '').trim()}"?\n\nEsta accion no se puede deshacer.`
+    );
+    if (!ok) return;
+    try {
+      const inicio = Date.now();
+      setEliminandoPlantillaId(plantilla._id);
+      setMensaje('');
+      await clienteApi.eliminar(`/examenes/plantillas/${encodeURIComponent(plantilla._id)}`);
+      emitToast({ level: 'ok', title: 'Plantillas', message: 'Plantilla eliminada', durationMs: 2200 });
+      registrarAccionDocente('eliminar_plantilla', true, Date.now() - inicio);
+      if (plantillaId === plantilla._id) setPlantillaId('');
+      if (plantillaEditandoId === plantilla._id) cancelarEdicion();
+      if (plantillaPreviewId === plantilla._id) setPlantillaPreviewId(null);
+      onRefrescar();
+    } catch (error) {
+      const msg = mensajeDeError(error, 'No se pudo eliminar la plantilla');
+      setMensaje(msg);
+      emitToast({
+        level: 'error',
+        title: 'No se pudo eliminar',
+        message: msg,
+        durationMs: 5200,
+        action: accionToastSesionParaError(error, 'docente')
+      });
+      registrarAccionDocente('eliminar_plantilla', false);
+    } finally {
+      setEliminandoPlantillaId(null);
+    }
+  }
+
+  async function cargarPreviewPlantilla(id: string) {
+    try {
+      setCargandoPreviewPlantillaId(id);
+      const payload = await clienteApi.obtener<PreviewPlantilla>(
+        `/examenes/plantillas/${encodeURIComponent(id)}/previsualizar`
+      );
+      setPreviewPorPlantillaId((prev) => ({ ...prev, [id]: payload }));
+    } catch (error) {
+      const msg = mensajeDeError(error, 'No se pudo generar la previsualizacion de la plantilla');
+      emitToast({
+        level: 'error',
+        title: 'Previsualizacion',
+        message: msg,
+        durationMs: 5200,
+        action: accionToastSesionParaError(error, 'docente')
+      });
+    } finally {
+      setCargandoPreviewPlantillaId(null);
+    }
+  }
+
+  async function togglePreviewPlantilla(id: string) {
+    setPlantillaPreviewId((prev) => (prev === id ? null : id));
+    if (!previewPorPlantillaId[id]) {
+      await cargarPreviewPlantilla(id);
+    }
+  }
+
+  async function cargarPreviewPdfPlantilla(id: string) {
+    const token = obtenerTokenDocente();
+    if (!token) {
+      emitToast({ level: 'error', title: 'Sesion no valida', message: 'Vuelve a iniciar sesion.', durationMs: 4200 });
+      return;
+    }
+
+    const intentar = async (t: string) =>
+      fetch(`${clienteApi.baseApi}/examenes/plantillas/${encodeURIComponent(id)}/previsualizar/pdf`, {
+        credentials: 'include',
+        headers: { Authorization: `Bearer ${t}` }
+      });
+
+    try {
+      setCargandoPreviewPdfPlantillaId(id);
+      let resp = await intentar(token);
+      if (resp.status === 401) {
+        const nuevo = await clienteApi.intentarRefrescarToken();
+        if (nuevo) resp = await intentar(nuevo);
+      }
+      if (!resp.ok) {
+        throw new Error(`HTTP ${resp.status}`);
+      }
+
+      const blob = await resp.blob();
+      const url = URL.createObjectURL(blob);
+      setPreviewPdfUrlPorPlantillaId((prev) => {
+        const anterior = prev[id];
+        if (anterior) URL.revokeObjectURL(anterior);
+        return { ...prev, [id]: url };
+      });
+    } catch (error) {
+      const msg = mensajeDeError(error, 'No se pudo generar el PDF de previsualizacion');
+      emitToast({
+        level: 'error',
+        title: 'Previsualizacion PDF',
+        message: msg,
+        durationMs: 5200,
+        action: accionToastSesionParaError(error, 'docente')
+      });
+    } finally {
+      setCargandoPreviewPdfPlantillaId(null);
+    }
+  }
+
+  function cerrarPreviewPdfPlantilla(id: string) {
+    setPreviewPdfUrlPorPlantillaId((prev) => {
+      const actual = prev[id];
+      if (actual) URL.revokeObjectURL(actual);
+      const copia = { ...prev };
+      delete copia[id];
+      return copia;
+    });
+  }
 
   async function crear() {
     try {
@@ -3479,8 +3780,11 @@ function SeccionPlantillas({
         periodoId,
         tipo,
         titulo: titulo.trim(),
+        instrucciones: String(instrucciones || '').trim() || undefined,
         totalReactivos: Math.max(1, Math.floor(totalReactivos)),
         temas: temasSeleccionados
+        ,
+        configuracionPdf: { margenMm: Math.max(1, Math.floor(Number(margenMm) || 10)) }
       });
       setMensaje('Plantilla creada');
       emitToast({ level: 'ok', title: 'Plantillas', message: 'Plantilla creada', durationMs: 2200 });
@@ -3532,6 +3836,16 @@ function SeccionPlantillas({
           Ejemplo: titulo <code>Parcial 1 - Programacion</code>, tipo <code>parcial</code>, total reactivos <code>10</code>, temas: <code>Arreglos</code> + <code>Funciones</code>.
         </p>
       </AyudaFormulario>
+      <div className="ayuda">
+        {modoEdicion && plantillaEditando ? (
+          <>
+            Editando: <b>{plantillaEditando.titulo}</b> (ID: {idCortoMateria(plantillaEditando._id)})
+          </>
+        ) : (
+          'Crea plantillas por temas, o edita una existente.'
+        )}
+      </div>
+
       <label className="campo">
         Titulo
         <input value={titulo} onChange={(event) => setTitulo(event.target.value)} />
@@ -3561,6 +3875,16 @@ function SeccionPlantillas({
           value={totalReactivos}
           onChange={(event) => setTotalReactivos(Number(event.target.value))}
         />
+      </label>
+
+      <label className="campo">
+        Instrucciones (opcional)
+        <textarea value={instrucciones} onChange={(event) => setInstrucciones(event.target.value)} rows={3} />
+      </label>
+
+      <label className="campo">
+        Margen PDF (mm)
+        <input type="number" value={margenMm} onChange={(event) => setMargenMm(Number(event.target.value))} />
       </label>
       <label className="campo">
         Temas
@@ -3611,20 +3935,46 @@ function SeccionPlantillas({
           <span className="ayuda error">No hay suficientes preguntas en esos temas para cubrir el total de reactivos.</span>
         )}
       </label>
-      <Boton type="button" icono={<Icono nombre="nuevo" />} cargando={creando} disabled={!puedeCrear} onClick={crear}>
-        {creando ? 'Creando…' : 'Crear plantilla'}
-      </Boton>
+      <div className="acciones acciones--mt">
+        {!modoEdicion && (
+          <Boton type="button" icono={<Icono nombre="nuevo" />} cargando={creando} disabled={!puedeCrear} onClick={crear}>
+            {creando ? 'Creando…' : 'Crear plantilla'}
+          </Boton>
+        )}
+        {modoEdicion && (
+          <>
+            <Boton
+              type="button"
+              cargando={guardandoPlantilla}
+              disabled={!titulo.trim() || guardandoPlantilla}
+              onClick={() => void guardarEdicion()}
+            >
+              {guardandoPlantilla ? 'Guardando…' : 'Guardar cambios'}
+            </Boton>
+            <Boton type="button" variante="secundario" onClick={cancelarEdicion}>
+              Cancelar
+            </Boton>
+          </>
+        )}
+      </div>
       {mensaje && (
         <p className={esMensajeError(mensaje) ? 'mensaje error' : 'mensaje ok'} role="status">
           {mensaje}
         </p>
       )}
       <h3>Plantillas existentes</h3>
+      <label className="campo">
+        Buscar
+        <input value={filtroPlantillas} onChange={(e) => setFiltroPlantillas(e.target.value)} placeholder="Titulo, tema o ID…" />
+      </label>
       <ul className="lista lista-items">
-        {plantillas.map((plantilla) => {
+        {plantillasFiltradas.map((plantilla) => {
           const materia = periodos.find((p) => p._id === plantilla.periodoId);
           const temas = Array.isArray(plantilla.temas) ? plantilla.temas : [];
           const modo = temas.length > 0 ? `Temas: ${temas.join(', ')}` : 'Modo legacy: preguntasIds';
+          const preview = previewPorPlantillaId[plantilla._id];
+          const previewAbierta = plantillaPreviewId === plantilla._id;
+          const pdfUrl = previewPdfUrlPorPlantillaId[plantilla._id];
           return (
             <li key={plantilla._id}>
               <div className="item-glass">
@@ -3638,6 +3988,141 @@ function SeccionPlantillas({
                       <span>Materia: {materia ? etiquetaMateria(materia) : '-'}</span>
                     </div>
                     <div className="item-sub">{modo}</div>
+                    {previewAbierta && (
+                      <div className="resultado plantillas-preview">
+                        <h4 className="plantillas-preview__titulo">Previsualizacion (boceto por pagina)</h4>
+                        {!preview && (
+                          <div className="ayuda">
+                            Esta previsualizacion usa una seleccion determinista de preguntas (para que no cambie cada vez) y bosqueja el contenido por pagina.
+                          </div>
+                        )}
+                        {!preview && (
+                          <Boton
+                            type="button"
+                            variante="secundario"
+                            cargando={cargandoPreviewPlantillaId === plantilla._id}
+                            onClick={() => void cargarPreviewPlantilla(plantilla._id)}
+                          >
+                            {cargandoPreviewPlantillaId === plantilla._id ? 'Generando…' : 'Generar previsualizacion'}
+                          </Boton>
+                        )}
+                        {preview && (
+                          <>
+                            {Array.isArray(preview.advertencias) && preview.advertencias.length > 0 && (
+                              <InlineMensaje tipo="alerta">{preview.advertencias.join(' ')}</InlineMensaje>
+                            )}
+
+                            {Array.isArray(preview.conteoPorTema) && preview.conteoPorTema.length > 0 && (
+                              <div className="resultado plantillas-preview__bloque">
+                                <h4 className="plantillas-preview__subtitulo">Disponibles por tema</h4>
+                                <ul className="lista">
+                                  {preview.conteoPorTema.map((t) => (
+                                    <li key={t.tema}>
+                                      <b>{t.tema}:</b> {t.disponibles}
+                                    </li>
+                                  ))}
+                                </ul>
+                              </div>
+                            )}
+
+                            {Array.isArray(preview.temasDisponiblesEnMateria) && preview.temasDisponiblesEnMateria.length > 0 && (
+                              <div className="resultado plantillas-preview__bloque">
+                                <h4 className="plantillas-preview__subtitulo">Temas con preguntas en la materia (top)</h4>
+                                <div className="ayuda">Sirve para detectar temas mal escritos o con 0 reactivos.</div>
+                                <ul className="lista">
+                                  {preview.temasDisponiblesEnMateria.map((t) => (
+                                    <li key={`${t.tema}-${t.disponibles}`}>
+                                      <b>{t.tema}:</b> {t.disponibles}
+                                    </li>
+                                  ))}
+                                </ul>
+                              </div>
+                            )}
+                            <div className="acciones acciones--mt">
+                              {!pdfUrl ? (
+                                <Boton
+                                  type="button"
+                                  variante="secundario"
+                                  cargando={cargandoPreviewPdfPlantillaId === plantilla._id}
+                                  onClick={() => void cargarPreviewPdfPlantilla(plantilla._id)}
+                                >
+                                  {cargandoPreviewPdfPlantillaId === plantilla._id ? 'Generando PDF…' : 'Ver PDF exacto'}
+                                </Boton>
+                              ) : (
+                                <Boton type="button" variante="secundario" onClick={() => cerrarPreviewPdfPlantilla(plantilla._id)}>
+                                  Ocultar PDF
+                                </Boton>
+                              )}
+                            </div>
+
+                            {pdfUrl && (
+                              <div className="plantillas-preview__pdfWrap">
+                                <iframe className="plantillas-preview__pdf" title="Previsualizacion PDF" src={pdfUrl} />
+                              </div>
+                            )}
+                          <ul className="lista lista-items plantillas-preview__lista">
+                            {preview.paginas.map((p) => (
+                              <li key={p.numero}>
+                                <div className="item-glass">
+                                  <div className="item-row">
+                                    <div>
+                                      <div className="item-title">Pagina {p.numero}</div>
+                                      <div className="item-meta">
+                                        <span>
+                                          Preguntas: {p.preguntasDel && p.preguntasAl ? `${p.preguntasDel}–${p.preguntasAl}` : '—'}
+                                        </span>
+                                        <span>Elementos: {Array.isArray(p.elementos) ? p.elementos.length : 0}</span>
+                                      </div>
+                                      {Array.isArray(p.elementos) && p.elementos.length > 0 && (
+                                        <div className="item-sub">{p.elementos.join(' · ')}</div>
+                                      )}
+                                      {Array.isArray(p.preguntas) && p.preguntas.length > 0 ? (
+                                        <ul className="lista plantillas-preview__preguntas">
+                                          {p.preguntas.map((q) => (
+                                            <li key={q.numero}>
+                                              <span>
+                                                <b>{q.numero}.</b> {q.enunciadoCorto}{' '}
+                                                {q.tieneImagen ? (
+                                                  <span className="badge plantillas-preview__badgeImagen">Imagen</span>
+                                                ) : null}
+                                              </span>
+                                            </li>
+                                          ))}
+                                        </ul>
+                                      ) : (
+                                        <div className="ayuda">Sin preguntas (pagina extra o rangos no disponibles).</div>
+                                      )}
+                                    </div>
+                                  </div>
+                                </div>
+                              </li>
+                            ))}
+                          </ul>
+                          </>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                  <div className="item-actions">
+                    <Boton
+                      type="button"
+                      variante="secundario"
+                      cargando={cargandoPreviewPlantillaId === plantilla._id}
+                      onClick={() => void togglePreviewPlantilla(plantilla._id)}
+                    >
+                      {previewAbierta ? 'Ocultar previsualizacion' : 'Previsualizar'}
+                    </Boton>
+                    <Boton type="button" variante="secundario" onClick={() => iniciarEdicion(plantilla)}>
+                      Editar
+                    </Boton>
+                    <Boton
+                      type="button"
+                      variante="secundario"
+                      cargando={eliminandoPlantillaId === plantilla._id}
+                      onClick={() => void eliminarPlantilla(plantilla)}
+                    >
+                      Eliminar
+                    </Boton>
                   </div>
                 </div>
               </div>
@@ -3839,6 +4324,7 @@ function SeccionPlantillas({
             {examenesGenerados.map((examen) => {
               const alumno = examen.alumnoId ? alumnosPorId.get(String(examen.alumnoId)) : null;
               const descargado = Boolean(String(examen.descargadoEn || '').trim());
+              const regenerable = !examen.estado || String(examen.estado) === 'generado';
               return (
                 <li key={examen._id}>
                   <div className="item-glass">
@@ -3889,11 +4375,24 @@ function SeccionPlantillas({
                         )}
                       </div>
                       <div className="item-actions">
+                        {regenerable && (
+                          <Boton
+                            type="button"
+                            variante="secundario"
+                            icono={<Icono nombre="recargar" />}
+                            cargando={regenerandoExamenId === examen._id}
+                            disabled={descargandoExamenId === examen._id}
+                            onClick={() => void regenerarPdfExamen(examen)}
+                          >
+                            Regenerar
+                          </Boton>
+                        )}
                         <Boton
                           type="button"
                           variante="secundario"
                           icono={<Icono nombre="pdf" />}
                           cargando={descargandoExamenId === examen._id}
+                          disabled={regenerandoExamenId === examen._id}
                           onClick={() => void descargarPdfExamen(examen)}
                         >
                           Descargar

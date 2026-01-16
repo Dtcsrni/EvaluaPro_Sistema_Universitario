@@ -603,6 +603,7 @@ p {
   border-radius: 16px;
   border: 1px solid rgba(148, 163, 184, 0.35);
   background: rgba(255, 255, 255, 0.55);
+  -webkit-backdrop-filter: blur(10px);
   backdrop-filter: blur(10px);
   box-shadow: 0 10px 30px rgba(15, 23, 42, 0.08);
 }
@@ -732,6 +733,46 @@ p {
 .badge.error {
   background: var(--peligroBg);
   color: var(--peligroTexto);
+
+.plantillas-preview {
+  margin-top: 10px;
+}
+
+.plantillas-preview__titulo {
+  margin-top: 0;
+}
+
+.plantillas-preview__subtitulo {
+  margin-top: 0;
+}
+
+.plantillas-preview__bloque {
+  margin-top: 10px;
+}
+
+.plantillas-preview__lista {
+  margin-top: 8px;
+}
+
+.plantillas-preview__preguntas {
+  margin-top: 8px;
+}
+
+.plantillas-preview__badgeImagen {
+  margin-left: 8px;
+}
+
+.plantillas-preview__pdfWrap {
+  margin-top: 10px;
+}
+
+.plantillas-preview__pdf {
+  width: 100%;
+  height: 70vh;
+  border: 1px solid rgba(148, 163, 184, 0.35);
+  border-radius: 12px;
+  background: #fff;
+}
   border-color: rgba(239, 68, 68, 0.35);
 }
 

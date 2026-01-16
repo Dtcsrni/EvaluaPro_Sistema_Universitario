@@ -227,10 +227,13 @@ export function mensajeUsuarioDeError(error: unknown, fallback: string): string 
     const porCodigo = mensajeAmigablePorCodigo(detalle?.codigo);
     if (porCodigo) return porCodigo;
 
+    // Preferimos el mensaje específico del backend (cuando existe)
+    // antes de caer en un mensaje genérico por status (ej: 409).
+    if (detalle?.mensaje) return detalle.mensaje;
+
     const porStatus = mensajeAmigablePorStatus(detalle?.status);
     if (porStatus) return porStatus;
 
-    if (detalle?.mensaje) return detalle.mensaje;
     if (detalle?.codigo) return `Error: ${detalle.codigo}`;
     return fallback;
   }

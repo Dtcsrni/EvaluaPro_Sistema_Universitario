@@ -10,11 +10,14 @@
  */
 import type { Response } from 'express';
 import { randomUUID } from 'crypto';
+import { Types } from 'mongoose';
 import { BancoPregunta } from '../modulo_banco_preguntas/modeloBancoPregunta';
 import { Alumno } from '../modulo_alumnos/modeloAlumno';
 import { barajar } from '../../compartido/utilidades/aleatoriedad';
 import { ErrorAplicacion } from '../../compartido/errores/errorAplicacion';
 import { guardarPdfExamen } from '../../infraestructura/archivos/almacenLocal';
+import { Periodo } from '../modulo_alumnos/modeloPeriodo';
+import { normalizarParaNombreArchivo } from '../../compartido/utilidades/texto';
 import { obtenerDocenteId } from '../modulo_autenticacion/middlewareAutenticacion';
 import type { SolicitudDocente } from '../modulo_autenticacion/middlewareAutenticacion';
 import { ExamenGenerado } from './modeloExamenGenerado';
@@ -22,8 +25,14 @@ import { ExamenPlantilla } from './modeloExamenPlantilla';
 import { generarPdfExamen } from './servicioGeneracionPdf';
 import { generarVariante } from './servicioVariantes';
 
+type MapaVariante = {
+  ordenPreguntas: string[];
+  ordenOpcionesPorPregunta: Record<string, number[]>;
+};
+
 type BancoPreguntaLean = {
   _id: unknown;
+  tema?: string;
   versionActual: number;
   versiones: Array<{
     numeroVersion: number;
@@ -32,6 +41,48 @@ type BancoPreguntaLean = {
     opciones: Array<{ texto: string; esCorrecta: boolean }>;
   }>;
 };
+
+function normalizarNombreTemaPreview(valor: unknown): string {
+  return String(valor ?? '')
+    .trim()
+    .replace(/\s+/g, ' ');
+}
+
+function claveTemaPreview(valor: unknown): string {
+  return normalizarNombreTemaPreview(valor).toLowerCase();
+}
+
+function construirNombrePdfExamen(parametros: {
+  folio: string;
+  loteId?: string;
+  materiaNombre?: string;
+  temas?: string[];
+  plantillaTitulo?: string;
+}): string {
+  const materia = normalizarParaNombreArchivo(parametros.materiaNombre, { maxLen: 42 });
+  const titulo = normalizarParaNombreArchivo(parametros.plantillaTitulo, { maxLen: 42 });
+  const folio = normalizarParaNombreArchivo(parametros.folio, { maxLen: 16 });
+  const lote = normalizarParaNombreArchivo(parametros.loteId, { maxLen: 16 });
+
+  const temas = Array.isArray(parametros.temas) ? parametros.temas.map((t) => String(t ?? '').trim()).filter(Boolean) : [];
+  let tema = '';
+  if (temas.length === 1) {
+    tema = normalizarParaNombreArchivo(temas[0], { maxLen: 36 });
+  } else if (temas.length > 1) {
+    const primero = normalizarParaNombreArchivo(temas[0], { maxLen: 26 });
+    tema = primero ? `${primero}_mas-${temas.length - 1}` : `mas-${temas.length}`;
+  }
+
+  const partes = ['examen'];
+  if (materia) partes.push(materia);
+  if (tema) partes.push(`tema-${tema}`);
+  if (titulo) partes.push(titulo);
+  if (lote) partes.push(`lote-${lote}`);
+  if (folio) partes.push(`folio-${folio}`);
+
+  const nombre = partes.filter(Boolean).join('_');
+  return `${nombre}.pdf`;
+}
 
 /**
  * Lista plantillas del docente autenticado (opcionalmente filtradas por periodo).
@@ -67,6 +118,396 @@ export async function crearPlantilla(req: SolicitudDocente, res: Response) {
 
   const plantilla = await ExamenPlantilla.create({ ...req.body, temas, docenteId });
   res.status(201).json({ plantilla });
+}
+
+function normalizarTemas(temasRaw: unknown): string[] | undefined {
+  const temas = Array.isArray(temasRaw)
+    ? Array.from(
+        new Set(
+          temasRaw
+            .map((t) => String(t ?? '').trim())
+            .filter(Boolean)
+            .map((t) => t.replace(/\s+/g, ' '))
+        )
+      )
+    : undefined;
+  return temas && temas.length > 0 ? temas : undefined;
+}
+
+function hash32(input: string) {
+  // FNV-1a 32-bit
+  let h = 0x811c9dc5;
+  for (let i = 0; i < input.length; i += 1) {
+    h ^= input.charCodeAt(i);
+    h = Math.imul(h, 0x01000193);
+  }
+  return h >>> 0;
+}
+
+function mulberry32(seed: number) {
+  return function () {
+    let t = (seed += 0x6d2b79f5);
+    t = Math.imul(t ^ (t >>> 15), t | 1);
+    t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+
+function barajarDeterminista<T>(items: T[], seed: number): T[] {
+  const rand = mulberry32(seed);
+  const copia = items.slice();
+  for (let i = copia.length - 1; i > 0; i -= 1) {
+    const j = Math.floor(rand() * (i + 1));
+    const tmp = copia[i];
+    copia[i] = copia[j];
+    copia[j] = tmp;
+  }
+  return copia;
+}
+
+function generarVarianteDeterminista(preguntas: Array<{ id: string; opciones: Array<unknown> }>, seedTexto: string): MapaVariante {
+  const seedBase = hash32(seedTexto);
+  const ordenPreguntas = barajarDeterminista(
+    preguntas.map((p) => p.id),
+    seedBase
+  );
+  const ordenOpcionesPorPregunta: Record<string, number[]> = {};
+  for (const pregunta of preguntas) {
+    const indices = Array.from({ length: pregunta.opciones.length }, (_v, i) => i);
+    ordenOpcionesPorPregunta[pregunta.id] = barajarDeterminista(indices, hash32(`${seedTexto}:${pregunta.id}`));
+  }
+  return { ordenPreguntas, ordenOpcionesPorPregunta };
+}
+
+/**
+ * Actualiza una plantilla del docente autenticado.
+ *
+ * Nota: se hace merge con valores actuales para validar invariantes (temas/preguntasIds).
+ */
+export async function actualizarPlantilla(req: SolicitudDocente, res: Response) {
+  const docenteId = obtenerDocenteId(req);
+  const plantillaId = String(req.params.id || '').trim();
+  const actual = await ExamenPlantilla.findById(plantillaId).lean();
+  if (!actual) {
+    throw new ErrorAplicacion('PLANTILLA_NO_ENCONTRADA', 'Plantilla no encontrada', 404);
+  }
+  if (String(actual.docenteId) !== String(docenteId)) {
+    throw new ErrorAplicacion('NO_AUTORIZADO', 'Sin acceso a la plantilla', 403);
+  }
+
+  const temas = normalizarTemas((req.body as { temas?: unknown })?.temas);
+  const patch = { ...(req.body as Record<string, unknown>), ...(temas !== undefined ? { temas } : {}) };
+  // Si se manda explicitamente temas=[] vacio, se respeta como vacio.
+  if (Array.isArray((req.body as { temas?: unknown })?.temas) && (temas === undefined || temas.length === 0)) {
+    (patch as Record<string, unknown>).temas = [];
+  }
+
+  const merged = {
+    periodoId: (patch as { periodoId?: unknown }).periodoId ?? actual.periodoId,
+    tipo: (patch as { tipo?: unknown }).tipo ?? actual.tipo,
+    titulo: (patch as { titulo?: unknown }).titulo ?? actual.titulo,
+    instrucciones: (patch as { instrucciones?: unknown }).instrucciones ?? actual.instrucciones,
+    totalReactivos: (patch as { totalReactivos?: unknown }).totalReactivos ?? actual.totalReactivos,
+    preguntasIds: (patch as { preguntasIds?: unknown }).preguntasIds ?? actual.preguntasIds,
+    temas: (patch as { temas?: unknown }).temas ?? (actual as unknown as { temas?: unknown }).temas,
+    configuracionPdf: (patch as { configuracionPdf?: unknown }).configuracionPdf ?? actual.configuracionPdf
+  };
+
+  const preguntasIds = Array.isArray(merged.preguntasIds) ? merged.preguntasIds : [];
+  const temasMerged = Array.isArray(merged.temas) ? merged.temas : [];
+  if (preguntasIds.length === 0 && temasMerged.length === 0) {
+    throw new ErrorAplicacion('PLANTILLA_INVALIDA', 'La plantilla debe incluir preguntasIds o temas', 400);
+  }
+  if (temasMerged.length > 0 && !merged.periodoId) {
+    throw new ErrorAplicacion('PLANTILLA_INVALIDA', 'periodoId es obligatorio cuando se usan temas', 400);
+  }
+
+  const actualizado = await ExamenPlantilla.findOneAndUpdate(
+    { _id: plantillaId, docenteId },
+    { $set: patch },
+    { new: true }
+  ).lean();
+
+  res.json({ plantilla: actualizado });
+}
+
+/**
+ * Elimina una plantilla si no tiene examenes generados asociados.
+ */
+export async function eliminarPlantilla(req: SolicitudDocente, res: Response) {
+  const docenteId = obtenerDocenteId(req);
+  const plantillaId = String(req.params.id || '').trim();
+  const plantilla = await ExamenPlantilla.findById(plantillaId).lean();
+  if (!plantilla) {
+    throw new ErrorAplicacion('PLANTILLA_NO_ENCONTRADA', 'Plantilla no encontrada', 404);
+  }
+  if (String(plantilla.docenteId) !== String(docenteId)) {
+    throw new ErrorAplicacion('NO_AUTORIZADO', 'Sin acceso a la plantilla', 403);
+  }
+
+  const totalGenerados = await ExamenGenerado.countDocuments({ docenteId, plantillaId });
+  if (totalGenerados > 0) {
+    throw new ErrorAplicacion(
+      'PLANTILLA_CON_EXAMENES',
+      `No se puede eliminar: hay ${totalGenerados} examenes generados con esta plantilla.`,
+      409
+    );
+  }
+
+  await ExamenPlantilla.deleteOne({ _id: plantillaId, docenteId });
+  res.json({ ok: true });
+}
+
+/**
+ * Genera un boceto de previsualizacion para una plantilla (por pagina), usando una seleccion determinista.
+ */
+export async function previsualizarPlantilla(req: SolicitudDocente, res: Response) {
+  const docenteId = obtenerDocenteId(req);
+  const plantillaId = String(req.params.id || '').trim();
+
+  const plantilla = await ExamenPlantilla.findById(plantillaId).lean();
+  if (!plantilla) {
+    throw new ErrorAplicacion('PLANTILLA_NO_ENCONTRADA', 'Plantilla no encontrada', 404);
+  }
+  if (String(plantilla.docenteId) !== String(docenteId)) {
+    throw new ErrorAplicacion('NO_AUTORIZADO', 'Sin acceso a la plantilla', 403);
+  }
+
+  const preguntasIds = Array.isArray(plantilla.preguntasIds) ? plantilla.preguntasIds : [];
+  const temas = Array.isArray((plantilla as unknown as { temas?: unknown[] }).temas)
+    ? ((plantilla as unknown as { temas?: unknown[] }).temas ?? []).map((t) => String(t ?? '').trim()).filter(Boolean)
+    : [];
+
+  const temasNormalizados = temas.map((t) => normalizarNombreTemaPreview(t)).filter(Boolean);
+  const conteoPorTema = [] as Array<{ tema: string; disponibles: number }>;
+  const temasDisponiblesEnMateria = [] as Array<{ tema: string; disponibles: number }>;
+
+  let preguntasDb: BancoPreguntaLean[] = [];
+  if (temas.length > 0) {
+    if (!plantilla.periodoId) {
+      throw new ErrorAplicacion('PLANTILLA_INVALIDA', 'La plantilla por temas requiere materia (periodoId)', 400);
+    }
+    preguntasDb = (await BancoPregunta.find({
+      docenteId,
+      activo: true,
+      periodoId: plantilla.periodoId,
+      tema: { $in: temas }
+    })
+      .sort({ updatedAt: -1, _id: -1 })
+      .lean()) as BancoPreguntaLean[];
+
+    // Desglose por tema (solo aplica en modo por temas)
+    const mapaConteo = new Map<string, number>();
+    for (const p of preguntasDb) {
+      const k = claveTemaPreview((p as unknown as { tema?: unknown })?.tema);
+      if (!k) continue;
+      mapaConteo.set(k, (mapaConteo.get(k) ?? 0) + 1);
+    }
+    for (const tema of temasNormalizados) {
+      const k = claveTemaPreview(tema);
+      conteoPorTema.push({ tema, disponibles: mapaConteo.get(k) ?? 0 });
+    }
+
+    // Además, para diagnosticar: temas disponibles en la materia (top)
+    try {
+      const docenteObjectId = new Types.ObjectId(String(docenteId));
+      const periodoObjectId = new Types.ObjectId(String(plantilla.periodoId));
+      const filas = (await BancoPregunta.aggregate([
+        { $match: { docenteId: docenteObjectId, activo: true, periodoId: periodoObjectId } },
+        { $project: { tema: { $ifNull: ['$tema', ''] } } },
+        { $group: { _id: '$tema', disponibles: { $sum: 1 } } },
+        { $sort: { disponibles: -1, _id: 1 } },
+        { $limit: 30 }
+      ])) as Array<{ _id: unknown; disponibles: number }>;
+
+      for (const fila of filas) {
+        const tema = normalizarNombreTemaPreview(fila._id);
+        temasDisponiblesEnMateria.push({ tema: tema || 'Sin tema', disponibles: Number(fila.disponibles ?? 0) });
+      }
+    } catch {
+      // Best-effort: no bloquea la previsualizacion.
+    }
+  } else {
+    preguntasDb = (await BancoPregunta.find({
+      docenteId,
+      activo: true,
+      ...(plantilla.periodoId ? { periodoId: plantilla.periodoId } : {}),
+      _id: { $in: preguntasIds }
+    })
+      .sort({ updatedAt: -1, _id: -1 })
+      .lean()) as BancoPreguntaLean[];
+  }
+
+  if (preguntasDb.length === 0) {
+    throw new ErrorAplicacion('SIN_PREGUNTAS', 'La plantilla no tiene preguntas disponibles para previsualizar', 400);
+  }
+
+  const totalSolicitados = Math.max(1, Math.floor(Number(plantilla.totalReactivos ?? 0)));
+  const totalDisponibles = preguntasDb.length;
+  const totalUsados = Math.min(totalSolicitados, totalDisponibles);
+  const advertencias: string[] = [];
+  if (totalDisponibles < totalSolicitados) {
+    advertencias.push(
+      `Plantilla solicita ${totalSolicitados} reactivos, pero solo hay ${totalDisponibles} disponibles. ` +
+        `La previsualizacion usara ${totalUsados}.`
+    );
+  }
+
+  const preguntasBase = preguntasDb.map((pregunta) => {
+    const version =
+      pregunta.versiones.find((item: { numeroVersion: number }) => item.numeroVersion === pregunta.versionActual) ??
+      pregunta.versiones[0];
+    return {
+      id: String(pregunta._id),
+      enunciado: version.enunciado,
+      imagenUrl: version.imagenUrl ?? undefined,
+      opciones: version.opciones
+    };
+  });
+
+  const seed = hash32(String(plantilla._id));
+  const preguntasSeleccionadas = barajarDeterminista(preguntasBase, seed).slice(0, totalUsados);
+  const mapaVarianteDet = generarVarianteDeterminista(preguntasSeleccionadas, `plantilla:${plantilla._id}`);
+
+  const { paginas } = await generarPdfExamen({
+    titulo: String(plantilla.titulo ?? ''),
+    folio: 'PREVIEW',
+    preguntas: preguntasSeleccionadas,
+    mapaVariante: mapaVarianteDet as unknown as ReturnType<typeof generarVariante>,
+    tipoExamen: plantilla.tipo as 'parcial' | 'global',
+    margenMm: plantilla.configuracionPdf?.margenMm ?? 10
+  });
+
+  const porId = new Map<string, (typeof preguntasSeleccionadas)[number]>();
+  for (const p of preguntasSeleccionadas) porId.set(p.id, p);
+  const ordenadas = (mapaVarianteDet.ordenPreguntas || []).map((id) => porId.get(id)).filter(Boolean) as Array<
+    (typeof preguntasSeleccionadas)[number]
+  >;
+
+  const elementosBase = [
+    'Titulo',
+    'Folio (placeholder)',
+    'QR por pagina',
+    'Marcas de registro',
+    'OMR (burbujas por opcion)'
+  ];
+
+  const paginasSketch = (Array.isArray(paginas) ? paginas : []).map((p) => {
+    const del = Number((p as { preguntasDel?: number }).preguntasDel ?? 0);
+    const al = Number((p as { preguntasAl?: number }).preguntasAl ?? 0);
+    const preguntasPagina = del > 0 && al > 0 ? ordenadas.slice(del - 1, al) : [];
+    return {
+      numero: (p as { numero: number }).numero,
+      preguntasDel: del,
+      preguntasAl: al,
+      elementos: elementosBase,
+      preguntas: preguntasPagina.map((pr, idx) => {
+        const n = del + idx;
+        const enunciado = String(pr.enunciado ?? '').trim().replace(/\s+/g, ' ');
+        return {
+          numero: n,
+          id: pr.id,
+          tieneImagen: Boolean(String(pr.imagenUrl ?? '').trim()),
+          enunciadoCorto: enunciado.length > 120 ? `${enunciado.slice(0, 117)}…` : enunciado
+        };
+      })
+    };
+  });
+
+  res.json({
+    plantillaId: String(plantilla._id),
+    totalReactivos: plantilla.totalReactivos,
+    totalSolicitados,
+    totalDisponibles,
+    totalUsados,
+    advertencias,
+    conteoPorTema,
+    temasDisponiblesEnMateria,
+    paginas: paginasSketch
+  });
+}
+
+/**
+ * Genera un PDF real de previsualizacion para una plantilla.
+ * Esto permite ver el documento exactamente como se renderizara (layout, QR/OMR, etc.).
+ */
+export async function previsualizarPlantillaPdf(req: SolicitudDocente, res: Response) {
+  const docenteId = obtenerDocenteId(req);
+  const plantillaId = String(req.params.id || '').trim();
+
+  const plantilla = await ExamenPlantilla.findById(plantillaId).lean();
+  if (!plantilla) {
+    throw new ErrorAplicacion('PLANTILLA_NO_ENCONTRADA', 'Plantilla no encontrada', 404);
+  }
+  if (String(plantilla.docenteId) !== String(docenteId)) {
+    throw new ErrorAplicacion('NO_AUTORIZADO', 'Sin acceso a la plantilla', 403);
+  }
+
+  const preguntasIds = Array.isArray(plantilla.preguntasIds) ? plantilla.preguntasIds : [];
+  const temas = Array.isArray((plantilla as unknown as { temas?: unknown[] }).temas)
+    ? ((plantilla as unknown as { temas?: unknown[] }).temas ?? []).map((t) => String(t ?? '').trim()).filter(Boolean)
+    : [];
+
+  let preguntasDb: BancoPreguntaLean[] = [];
+  if (temas.length > 0) {
+    if (!plantilla.periodoId) {
+      throw new ErrorAplicacion('PLANTILLA_INVALIDA', 'La plantilla por temas requiere materia (periodoId)', 400);
+    }
+    preguntasDb = (await BancoPregunta.find({
+      docenteId,
+      activo: true,
+      periodoId: plantilla.periodoId,
+      tema: { $in: temas }
+    })
+      .sort({ updatedAt: -1, _id: -1 })
+      .lean()) as BancoPreguntaLean[];
+  } else {
+    preguntasDb = (await BancoPregunta.find({
+      docenteId,
+      activo: true,
+      ...(plantilla.periodoId ? { periodoId: plantilla.periodoId } : {}),
+      _id: { $in: preguntasIds }
+    })
+      .sort({ updatedAt: -1, _id: -1 })
+      .lean()) as BancoPreguntaLean[];
+  }
+
+  if (preguntasDb.length === 0) {
+    throw new ErrorAplicacion('SIN_PREGUNTAS', 'La plantilla no tiene preguntas disponibles para previsualizar', 400);
+  }
+
+  const totalSolicitados = Math.max(1, Math.floor(Number(plantilla.totalReactivos ?? 0)));
+  const totalDisponibles = preguntasDb.length;
+  const totalUsados = Math.min(totalSolicitados, totalDisponibles);
+
+  const preguntasBase = preguntasDb.map((pregunta) => {
+    const version =
+      pregunta.versiones.find((item: { numeroVersion: number }) => item.numeroVersion === pregunta.versionActual) ??
+      pregunta.versiones[0];
+    return {
+      id: String(pregunta._id),
+      enunciado: version.enunciado,
+      imagenUrl: version.imagenUrl ?? undefined,
+      opciones: version.opciones
+    };
+  });
+
+  const seed = hash32(String(plantilla._id));
+  const preguntasSeleccionadas = barajarDeterminista(preguntasBase, seed).slice(0, totalUsados);
+  const mapaVarianteDet = generarVarianteDeterminista(preguntasSeleccionadas, `plantilla:${plantilla._id}`);
+
+  const { pdfBytes } = await generarPdfExamen({
+    titulo: String(plantilla.titulo ?? ''),
+    folio: 'PREVIEW',
+    preguntas: preguntasSeleccionadas,
+    mapaVariante: mapaVarianteDet as unknown as ReturnType<typeof generarVariante>,
+    tipoExamen: plantilla.tipo as 'parcial' | 'global',
+    margenMm: plantilla.configuracionPdf?.margenMm ?? 10
+  });
+
+  res.setHeader('Content-Type', 'application/pdf');
+  res.setHeader('Content-Disposition', `inline; filename="preview_${String(plantillaId).slice(-8)}.pdf"`);
+  res.send(Buffer.from(pdfBytes));
 }
 
 /**
@@ -137,6 +578,7 @@ export async function generarExamen(req: SolicitudDocente, res: Response) {
 
   const preguntasSeleccionadas = barajar(preguntasBase).slice(0, plantilla.totalReactivos);
   const mapaVariante = generarVariante(preguntasSeleccionadas);
+  const loteId = randomUUID().split('-')[0].toUpperCase();
   const folio = randomUUID().split('-')[0].toUpperCase();
 
   const { pdfBytes, paginas, mapaOmr } = await generarPdfExamen({
@@ -148,7 +590,14 @@ export async function generarExamen(req: SolicitudDocente, res: Response) {
     margenMm: plantilla.configuracionPdf?.margenMm ?? 10
   });
 
-  const nombreArchivo = `examen_${folio}.pdf`;
+  const periodo = plantilla.periodoId ? await Periodo.findById(plantilla.periodoId).lean() : null;
+  const nombreArchivo = construirNombrePdfExamen({
+    folio,
+    loteId,
+    materiaNombre: String((periodo as unknown as { nombre?: unknown })?.nombre ?? ''),
+    temas,
+    plantillaTitulo: String(plantilla.titulo ?? '')
+  });
   const rutaPdf = await guardarPdfExamen(nombreArchivo, pdfBytes);
 
   const examenGenerado = await ExamenGenerado.create({
@@ -156,8 +605,10 @@ export async function generarExamen(req: SolicitudDocente, res: Response) {
     periodoId: plantilla.periodoId,
     plantillaId: plantilla._id,
     alumnoId,
+    loteId,
     folio,
     estado: 'generado',
+    preguntasIds: preguntasSeleccionadas.map((p) => p.id),
     mapaVariante,
     paginas,
     mapaOmr,
@@ -186,6 +637,9 @@ export async function generarExamenesLote(req: SolicitudDocente, res: Response) 
   if (!plantilla.periodoId) {
     throw new ErrorAplicacion('PLANTILLA_INVALIDA', 'La plantilla requiere materia (periodoId) para generar en lote', 400);
   }
+
+  const loteId = randomUUID().split('-')[0].toUpperCase();
+  const periodo = await Periodo.findById(plantilla.periodoId).lean();
 
   const alumnos = await Alumno.find({ docenteId, periodoId: plantilla.periodoId, activo: true }).lean();
   const totalAlumnos = Array.isArray(alumnos) ? alumnos.length : 0;
@@ -259,7 +713,13 @@ export async function generarExamenesLote(req: SolicitudDocente, res: Response) 
           margenMm: plantilla.configuracionPdf?.margenMm ?? 10
         });
 
-        const nombreArchivo = `examen_${folio}.pdf`;
+        const nombreArchivo = construirNombrePdfExamen({
+          folio,
+          loteId,
+          materiaNombre: String((periodo as unknown as { nombre?: unknown })?.nombre ?? ''),
+          temas,
+          plantillaTitulo: String(plantilla.titulo ?? '')
+        });
         const rutaPdf = await guardarPdfExamen(nombreArchivo, pdfBytes);
 
         const examenGenerado = await ExamenGenerado.create({
@@ -267,8 +727,10 @@ export async function generarExamenesLote(req: SolicitudDocente, res: Response) 
           periodoId: plantilla.periodoId,
           plantillaId: plantilla._id,
           alumnoId,
+          loteId,
           folio,
           estado: 'generado',
+          preguntasIds: preguntasSeleccionadas.map((p) => p.id),
           mapaVariante,
           paginas,
           mapaOmr,
@@ -296,6 +758,6 @@ export async function generarExamenesLote(req: SolicitudDocente, res: Response) 
     examenesGenerados.push({ _id: String(creado._id), folio: creado.folio, alumnoId, generadoEn: creado.generadoEn });
   }
 
-  res.status(201).json({ totalAlumnos, examenesGenerados });
+  res.status(201).json({ loteId, totalAlumnos, examenesGenerados });
 }
 

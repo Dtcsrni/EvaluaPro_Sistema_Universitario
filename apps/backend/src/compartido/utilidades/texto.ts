@@ -27,3 +27,40 @@ export function normalizarMatricula(valor: string): string {
 export function esMatriculaValida(valor: string): boolean {
   return REGEX_MATRICULA.test(normalizarMatricula(valor));
 }
+
+/**
+ * Normaliza un texto para usarlo como parte de un nombre de archivo.
+ * - Elimina acentos/diacríticos.
+ * - Reemplaza espacios por guiones bajos.
+ * - Remueve caracteres inválidos (Windows/macOS/Linux).
+ */
+export function normalizarParaNombreArchivo(
+  valor: unknown,
+  opciones?: {
+    maxLen?: number;
+  }
+): string {
+  const maxLen = Math.max(8, Math.floor(opciones?.maxLen ?? 80));
+  const base = String(valor ?? '')
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .trim();
+  if (!base) return '';
+
+  let salida = base
+    .replace(/\s+/g, '_')
+    // caracteres prohibidos en Windows: <>:"/\|?* y controles
+    .replace(/[<>:"/\\|?*\x00-\x1F]/g, '')
+    // deja solo un set seguro; lo demás se convierte en '-'
+    .replace(/[^a-zA-Z0-9._-]+/g, '-')
+    .replace(/-+/g, '-')
+    .replace(/_+/g, '_')
+    .replace(/^[-_.]+/, '')
+    .replace(/[-_.]+$/, '');
+
+  if (!salida) return '';
+  if (salida.length > maxLen) {
+    salida = salida.slice(0, maxLen).replace(/[-_.]+$/, '');
+  }
+  return salida;
+}

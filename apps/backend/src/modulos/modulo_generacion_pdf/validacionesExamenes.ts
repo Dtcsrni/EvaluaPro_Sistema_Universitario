@@ -45,3 +45,29 @@ export const esquemaGenerarExamenesLote = z.object({
   plantillaId: esquemaObjectId,
   confirmarMasivo: z.boolean().optional()
 });
+
+export const esquemaRegenerarExamenGenerado = z
+  .object({
+    // Si el examen ya fue descargado, se requiere confirmación explícita.
+    forzar: z.boolean().optional()
+  })
+  .strict();
+
+export const esquemaActualizarPlantilla = z
+  .object({
+    periodoId: esquemaObjectId.optional(),
+    tipo: z.enum(['parcial', 'global']).optional(),
+    titulo: z.string().min(1).optional(),
+    instrucciones: z.string().optional(),
+    totalReactivos: z.number().int().positive().optional(),
+    preguntasIds: z.array(esquemaObjectId).optional(),
+    temas: z.array(z.string().min(1)).optional(),
+    configuracionPdf: z
+      .object({
+        margenMm: z.number().positive().optional(),
+        layout: z.string().optional()
+      })
+      .strict()
+      .optional()
+  })
+  .strict();
