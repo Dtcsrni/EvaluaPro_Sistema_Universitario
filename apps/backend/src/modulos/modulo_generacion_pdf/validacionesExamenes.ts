@@ -40,3 +40,8 @@ export const esquemaGenerarExamen = z.object({
   plantillaId: esquemaObjectId,
   alumnoId: esquemaObjectId.optional()
 });
+
+export const esquemaGenerarExamenesLote = z.object({
+  plantillaId: esquemaObjectId,
+  confirmarMasivo: z.boolean().optional()
+});

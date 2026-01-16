@@ -423,6 +423,51 @@ p {
   align-items: center;
 }
 
+.colapsable {
+  margin: 0.75rem 0;
+  padding: 0.6rem 0.8rem;
+  border: 1px solid var(--bordeSuave);
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.55);
+}
+
+.colapsable > summary {
+  cursor: pointer;
+  font-size: 1rem;
+  color: #1f2937;
+}
+
+.opciones-grid {
+  display: grid;
+  grid-template-columns: 70px 1fr 120px;
+  gap: 0.45rem 0.6rem;
+  align-items: center;
+}
+
+.opciones-header {
+  font-size: 0.82rem;
+  font-weight: 800;
+  color: var(--muted);
+  padding-top: 0.2rem;
+}
+
+.opcion-fila {
+  display: contents;
+}
+
+.opcion-letra {
+  font-weight: 900;
+  color: #111827;
+}
+
+.opcion-correcta {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-weight: 700;
+  color: #111827;
+}
+
 .boton {
   border: none;
   border-radius: 12px;

@@ -11,12 +11,30 @@ import { obtenerDocenteId } from '../modulo_autenticacion/middlewareAutenticacio
 import type { SolicitudDocente } from '../modulo_autenticacion/middlewareAutenticacion';
 import { Periodo } from '../modulo_alumnos/modeloPeriodo';
 import { BancoPregunta } from './modeloBancoPregunta';
+import { TemaBanco } from './modeloTemaBanco';
+import { ExamenPlantilla } from '../modulo_generacion_pdf/modeloExamenPlantilla';
 
 function normalizarTema(valor: unknown): string | undefined {
   const texto = String(valor ?? '')
     .trim()
     .replace(/\s+/g, ' ');
   return texto ? texto : undefined;
+}
+
+function claveTema(valor: string): string {
+  return String(valor).trim().toLowerCase();
+}
+
+function normalizarTextoComparable(valor: unknown): string {
+  return String(valor ?? '')
+    .trim()
+    .replace(/\s+/g, ' ')
+    .toLowerCase();
+}
+
+function firmaOpciones(opciones: { texto: string }[]): string {
+  const normalizadas = (Array.isArray(opciones) ? opciones : []).map((o) => normalizarTextoComparable(o.texto)).sort();
+  return JSON.stringify(normalizadas);
 }
 
 type OpcionBanco = { texto: string; esCorrecta: boolean };
@@ -37,14 +55,8 @@ export async function listarBancoPreguntas(req: SolicitudDocente, res: Response)
   const queryActivo = String(req.query.activo ?? '').trim().toLowerCase();
   const activo = queryActivo === '' ? true : !(queryActivo === '0' || queryActivo === 'false');
 
-  const querySinMateria = String(req.query.sinMateria ?? '').trim().toLowerCase();
-  const sinMateria = querySinMateria === '1' || querySinMateria === 'true';
-
   const filtro: Record<string, unknown> = { docenteId, activo };
-  if (sinMateria) {
-    // Soporta preguntas legacy sin periodoId (backfill).
-    (filtro as Record<string, unknown>).$or = [{ periodoId: { $exists: false } }, { periodoId: null }];
-  } else if (req.query.periodoId) {
+  if (req.query.periodoId) {
     filtro.periodoId = String(req.query.periodoId);
   }
 
@@ -55,47 +67,42 @@ export async function listarBancoPreguntas(req: SolicitudDocente, res: Response)
 }
 
 /**
- * Asigna una materia (periodo) a una pregunta legacy que no tiene periodoId.
- */
-export async function asignarMateriaPregunta(req: SolicitudDocente, res: Response) {
-  const docenteId = obtenerDocenteId(req);
-  const preguntaId = String(req.params.preguntaId ?? '').trim();
-  const { periodoId } = req.body as { periodoId?: string };
-
-  const materia = await Periodo.findOne({ _id: periodoId, docenteId }).lean();
-  if (!materia) {
-    throw new ErrorAplicacion('MATERIA_NO_ENCONTRADA', 'Materia no encontrada', 404);
-  }
-
-  const pregunta = await BancoPregunta.findOne({ _id: preguntaId, docenteId });
-  if (!pregunta) {
-    throw new ErrorAplicacion('PREGUNTA_NO_ENCONTRADA', 'Pregunta no encontrada', 404);
-  }
-
-  const periodoActual = (pregunta as unknown as { periodoId?: unknown }).periodoId;
-  if (periodoActual) {
-    if (String(periodoActual) === String(periodoId)) {
-      return res.json({ pregunta });
-    }
-    throw new ErrorAplicacion('PREGUNTA_YA_ASIGNADA', 'La pregunta ya tiene una materia asignada', 409);
-  }
-
-  (pregunta as unknown as { periodoId: unknown }).periodoId = periodoId as unknown;
-  await pregunta.save();
-  res.json({ pregunta });
-}
-
-/**
  * Crea una pregunta en el banco del docente.
  */
 export async function crearPregunta(req: SolicitudDocente, res: Response) {
   const docenteId = obtenerDocenteId(req);
   const { periodoId, tema, enunciado, imagenUrl, opciones } = req.body;
 
+  const temaFinal = normalizarTema(tema);
+  if (temaFinal) {
+    const existeTema = await TemaBanco.findOne({ docenteId, periodoId: String(periodoId), clave: claveTema(temaFinal), activo: true }).lean();
+    if (!existeTema) {
+      throw new ErrorAplicacion('TEMA_NO_ENCONTRADO', 'Tema no encontrado', 404);
+    }
+
+    const candidatos = await BancoPregunta.find({ docenteId, periodoId: String(periodoId), tema: temaFinal, activo: true })
+      .select({ versiones: 1, versionActual: 1 })
+      .lean();
+
+    const enunciadoNuevo = normalizarTextoComparable(enunciado);
+    const opcionesNuevaFirma = firmaOpciones(opciones as OpcionBanco[]);
+
+    for (const cand of candidatos as unknown as BancoPreguntaDoc[]) {
+      const v = obtenerVersionActiva(cand);
+      if (!v) continue;
+      if (normalizarTextoComparable(v.enunciado) === enunciadoNuevo) {
+        throw new ErrorAplicacion('PREGUNTA_DUPLICADA', 'Ya existe una pregunta con ese enunciado en este tema', 409);
+      }
+      if (firmaOpciones(v.opciones) === opcionesNuevaFirma) {
+        throw new ErrorAplicacion('RESPUESTAS_DUPLICADAS', 'Ya existe una pregunta con las mismas opciones en este tema', 409);
+      }
+    }
+  }
+
   const pregunta = await BancoPregunta.create({
     docenteId,
     periodoId,
-    tema: normalizarTema(tema),
+    tema: temaFinal,
     versionActual: 1,
     versiones: [
       {
@@ -133,6 +140,8 @@ export async function actualizarPregunta(req: SolicitudDocente, res: Response) {
     versionActual: number;
   };
 
+  const periodoActual = String((pregunta as unknown as { periodoId?: unknown }).periodoId ?? '');
+
   const versionActual = obtenerVersionActiva(preguntaDoc);
   if (!versionActual) {
     throw new ErrorAplicacion('PREGUNTA_INVALIDA', 'La pregunta no tiene versiones', 500);
@@ -143,7 +152,14 @@ export async function actualizarPregunta(req: SolicitudDocente, res: Response) {
   const siguienteNumero = Math.max(maxNumero, Number(preguntaDoc.versionActual ?? 0)) + 1;
 
   if (tema !== undefined) {
-    preguntaDoc.tema = normalizarTema(tema);
+    const temaFinal = normalizarTema(tema);
+    if (temaFinal) {
+      const existeTema = await TemaBanco.findOne({ docenteId, periodoId: periodoActual, clave: claveTema(temaFinal), activo: true }).lean();
+      if (!existeTema) {
+        throw new ErrorAplicacion('TEMA_NO_ENCONTRADO', 'Tema no encontrado', 404);
+      }
+    }
+    preguntaDoc.tema = temaFinal;
   }
 
   const nueva = {
@@ -152,6 +168,33 @@ export async function actualizarPregunta(req: SolicitudDocente, res: Response) {
     imagenUrl: imagenUrl === undefined ? versionActual.imagenUrl : imagenUrl ?? undefined,
     opciones: opciones ?? versionActual.opciones
   };
+
+  const temaFinal = normalizarTema(preguntaDoc.tema);
+  if (temaFinal) {
+    const candidatos = await BancoPregunta.find({
+      docenteId,
+      periodoId: periodoActual,
+      tema: temaFinal,
+      activo: true,
+      _id: { $ne: preguntaId }
+    })
+      .select({ versiones: 1, versionActual: 1 })
+      .lean();
+
+    const enunciadoNuevo = normalizarTextoComparable(nueva.enunciado);
+    const opcionesNuevaFirma = firmaOpciones(nueva.opciones);
+
+    for (const cand of candidatos as unknown as BancoPreguntaDoc[]) {
+      const v = obtenerVersionActiva(cand);
+      if (!v) continue;
+      if (normalizarTextoComparable(v.enunciado) === enunciadoNuevo) {
+        throw new ErrorAplicacion('PREGUNTA_DUPLICADA', 'Ya existe una pregunta con ese enunciado en este tema', 409);
+      }
+      if (firmaOpciones(v.opciones) === opcionesNuevaFirma) {
+        throw new ErrorAplicacion('RESPUESTAS_DUPLICADAS', 'Ya existe una pregunta con las mismas opciones en este tema', 409);
+      }
+    }
+  }
 
   preguntaDoc.versiones = [...versiones, nueva];
   preguntaDoc.versionActual = siguienteNumero;
@@ -176,4 +219,133 @@ export async function eliminarPregunta(req: SolicitudDocente, res: Response) {
   preguntaDoc.activo = false;
   await pregunta.save();
   res.json({ pregunta });
+}
+
+/**
+ * Lista temas del banco para una materia.
+ */
+export async function listarTemasBanco(req: SolicitudDocente, res: Response) {
+  const docenteId = obtenerDocenteId(req);
+  const periodoId = String(req.query.periodoId ?? '').trim();
+  if (!periodoId) {
+    throw new ErrorAplicacion('PERIODO_REQUERIDO', 'Materia requerida', 400);
+  }
+
+  const materia = await Periodo.findOne({ _id: periodoId, docenteId }).lean();
+  if (!materia) {
+    throw new ErrorAplicacion('MATERIA_NO_ENCONTRADA', 'Materia no encontrada', 404);
+  }
+
+  const temas = await TemaBanco.find({ docenteId, periodoId, activo: true }).sort({ nombre: 1 }).lean();
+  res.json({ temas });
+}
+
+/**
+ * Crea un tema para una materia.
+ */
+export async function crearTemaBanco(req: SolicitudDocente, res: Response) {
+  const docenteId = obtenerDocenteId(req);
+  const { periodoId, nombre } = req.body as { periodoId?: string; nombre?: string };
+  const nombreFinal = normalizarTema(nombre);
+  if (!periodoId) {
+    throw new ErrorAplicacion('PERIODO_REQUERIDO', 'Materia requerida', 400);
+  }
+  if (!nombreFinal) {
+    throw new ErrorAplicacion('TEMA_INVALIDO', 'Tema invalido', 400);
+  }
+
+  const materia = await Periodo.findOne({ _id: periodoId, docenteId }).lean();
+  if (!materia) {
+    throw new ErrorAplicacion('MATERIA_NO_ENCONTRADA', 'Materia no encontrada', 404);
+  }
+
+  const clave = claveTema(nombreFinal);
+  const existente = await TemaBanco.findOne({ docenteId, periodoId, clave });
+  if (existente) {
+    const doc = existente as unknown as { activo?: boolean; nombre?: string; clave?: string };
+    if (doc.activo === false) {
+      doc.activo = true;
+      doc.nombre = nombreFinal;
+      doc.clave = clave;
+      await existente.save();
+      return res.status(201).json({ tema: existente });
+    }
+    throw new ErrorAplicacion('TEMA_DUPLICADO', 'Ya existe un tema con ese nombre', 409);
+  }
+
+  const tema = await TemaBanco.create({ docenteId, periodoId, nombre: nombreFinal, clave, activo: true });
+  res.status(201).json({ tema });
+}
+
+/**
+ * Renombra un tema y actualiza referencias en preguntas/plantillas.
+ */
+export async function actualizarTemaBanco(req: SolicitudDocente, res: Response) {
+  const docenteId = obtenerDocenteId(req);
+  const temaId = String(req.params.temaId ?? '').trim();
+  const { nombre } = req.body as { nombre?: string };
+  const nombreFinal = normalizarTema(nombre);
+  if (!nombreFinal) {
+    throw new ErrorAplicacion('TEMA_INVALIDO', 'Tema invalido', 400);
+  }
+
+  const tema = await TemaBanco.findOne({ _id: temaId, docenteId });
+  if (!tema) {
+    throw new ErrorAplicacion('TEMA_NO_ENCONTRADO', 'Tema no encontrado', 404);
+  }
+
+  const doc = tema as unknown as { periodoId: unknown; nombre: string; clave: string; activo?: boolean };
+  const periodoId = String(doc.periodoId);
+  const nombreAnterior = doc.nombre;
+  const claveNueva = claveTema(nombreFinal);
+
+  const duplicado = await TemaBanco.findOne({ docenteId, periodoId, clave: claveNueva, _id: { $ne: temaId } }).lean();
+  if (duplicado) {
+    throw new ErrorAplicacion('TEMA_DUPLICADO', 'Ya existe un tema con ese nombre', 409);
+  }
+
+  doc.nombre = nombreFinal;
+  doc.clave = claveNueva;
+  doc.activo = true;
+  await tema.save();
+
+  if (nombreAnterior !== nombreFinal) {
+    await Promise.all([
+      BancoPregunta.updateMany({ docenteId, periodoId, tema: nombreAnterior }, { $set: { tema: nombreFinal } }),
+      ExamenPlantilla.updateMany(
+        { docenteId, periodoId, temas: nombreAnterior },
+        { $set: { 'temas.$[t]': nombreFinal } },
+        { arrayFilters: [{ t: nombreAnterior }] }
+      )
+    ]);
+  }
+
+  res.json({ tema });
+}
+
+/**
+ * Elimina (desactiva) un tema y remueve referencias en preguntas/plantillas.
+ */
+export async function eliminarTemaBanco(req: SolicitudDocente, res: Response) {
+  const docenteId = obtenerDocenteId(req);
+  const temaId = String(req.params.temaId ?? '').trim();
+
+  const tema = await TemaBanco.findOne({ _id: temaId, docenteId });
+  if (!tema) {
+    throw new ErrorAplicacion('TEMA_NO_ENCONTRADO', 'Tema no encontrado', 404);
+  }
+
+  const doc = tema as unknown as { periodoId: unknown; nombre: string; activo?: boolean };
+  const periodoId = String(doc.periodoId);
+  const nombreTema = doc.nombre;
+
+  doc.activo = false;
+  await tema.save();
+
+  await Promise.all([
+    BancoPregunta.updateMany({ docenteId, periodoId, tema: nombreTema }, { $unset: { tema: 1 } }),
+    ExamenPlantilla.updateMany({ docenteId, periodoId, temas: nombreTema }, { $pull: { temas: nombreTema } })
+  ]);
+
+  res.json({ tema });
 }

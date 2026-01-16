@@ -13,6 +13,9 @@ export default defineConfig({
   // Esto permite que `VITE_*` se tome del mismo archivo que usa docker compose.
   envDir: path.resolve(__dirname, '..', '..'),
   server: {
-    port: 5173
+    port: 5173,
+    hmr: {
+      overlay: false
+    }
   }
 });

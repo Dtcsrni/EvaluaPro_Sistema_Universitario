@@ -75,7 +75,7 @@ export async function generarPdfExamen({
   const preguntasOrdenadas = ordenarPreguntas(preguntas, mapaVariante);
   let indicePregunta = 0;
   let numeroPagina = 1;
-  const paginasMeta: { numero: number; qrTexto: string }[] = [];
+  const paginasMeta: { numero: number; qrTexto: string; preguntasDel: number; preguntasAl: number }[] = [];
   // Se guarda el mapa de posiciones para el escaneo OMR posterior.
   const paginasOmr: Array<{
     numeroPagina: number;
@@ -89,7 +89,8 @@ export async function generarPdfExamen({
   while (indicePregunta < preguntasOrdenadas.length || numeroPagina <= paginasMinimas) {
     const page = pdfDoc.addPage([ANCHO_CARTA, ALTO_CARTA]);
     const qrTexto = `EXAMEN:${folio}:P${numeroPagina}`;
-    paginasMeta.push({ numero: numeroPagina, qrTexto });
+    let preguntasDel = 0;
+    let preguntasAl = 0;
     const mapaPagina: Array<{
       numeroPregunta: number;
       idPregunta: string;
@@ -113,6 +114,9 @@ export async function generarPdfExamen({
     while (indicePregunta < preguntasOrdenadas.length && cursorY > margen + 60) {
       const pregunta = preguntasOrdenadas[indicePregunta];
       const numero = indicePregunta + 1;
+
+      if (!preguntasDel) preguntasDel = numero;
+      preguntasAl = numero;
 
       page.drawText(`${numero}. ${pregunta.enunciado}`, { x: margen, y: cursorY, size: 11, font: fuente });
       cursorY -= espacioLinea;
@@ -139,6 +143,8 @@ export async function generarPdfExamen({
       indicePregunta += 1;
       mapaPagina.push({ numeroPregunta: numero, idPregunta: pregunta.id, opciones: opcionesOmr });
     }
+
+    paginasMeta.push({ numero: numeroPagina, qrTexto, preguntasDel, preguntasAl });
 
     paginasOmr.push({ numeroPagina, preguntas: mapaPagina });
     numeroPagina += 1;

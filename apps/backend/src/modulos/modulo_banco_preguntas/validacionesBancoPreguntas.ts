@@ -25,13 +25,13 @@ export const esquemaCrearPregunta = z
   })
   .refine((data) => data.opciones.filter((opcion) => opcion.esCorrecta).length === 1, {
     message: 'Debe existir exactamente 1 opcion correcta'
-  });
-
-export const esquemaAsignarMateriaPregunta = z
-  .object({
-    periodoId: esquemaObjectId
   })
-  .strict();
+  .refine((data) => {
+    const normalizadas = data.opciones.map((o) => String(o.texto ?? '').trim().replace(/\s+/g, ' ').toLowerCase());
+    return new Set(normalizadas).size === normalizadas.length;
+  }, {
+    message: 'Las opciones no deben repetirse'
+  });
 
 export const esquemaActualizarPregunta = z
   .object({
@@ -49,4 +49,24 @@ export const esquemaActualizarPregunta = z
   })
   .refine((data) => !data.opciones || data.opciones.filter((opcion) => opcion.esCorrecta).length === 1, {
     message: 'Debe existir exactamente 1 opcion correcta'
+  })
+  .refine((data) => {
+    if (!data.opciones) return true;
+    const normalizadas = data.opciones.map((o) => String(o.texto ?? '').trim().replace(/\s+/g, ' ').toLowerCase());
+    return new Set(normalizadas).size === normalizadas.length;
+  }, {
+    message: 'Las opciones no deben repetirse'
   });
+
+export const esquemaCrearTemaBanco = z
+  .object({
+    periodoId: esquemaObjectId,
+    nombre: z.string().min(1)
+  })
+  .strict();
+
+export const esquemaActualizarTemaBanco = z
+  .object({
+    nombre: z.string().min(1)
+  })
+  .strict();

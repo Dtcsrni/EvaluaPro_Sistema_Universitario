@@ -19,10 +19,11 @@ export async function listarExamenesGenerados(req: SolicitudDocente, res: Respon
   const filtro: Record<string, string> = { docenteId };
   if (req.query.periodoId) filtro.periodoId = String(req.query.periodoId).trim();
   if (req.query.alumnoId) filtro.alumnoId = String(req.query.alumnoId).trim();
+  if (req.query.plantillaId) filtro.plantillaId = String(req.query.plantillaId).trim();
   if (req.query.folio) filtro.folio = String(req.query.folio).trim().toUpperCase();
 
   const limite = Number(req.query.limite ?? 0);
-  const consulta = ExamenGenerado.find(filtro);
+  const consulta = ExamenGenerado.find(filtro).sort({ generadoEn: -1, _id: -1 });
   const examenes = await (limite > 0 ? consulta.limit(limite) : consulta).lean();
   res.json({ examenes });
 }
@@ -56,7 +57,15 @@ export async function descargarPdf(req: SolicitudDocente, res: Response) {
 
   try {
     const buffer = await fs.readFile(examen.rutaPdf);
+
+    // Best-effort: marca el momento de descarga (se actualiza aunque el PDF ya se haya descargado antes).
+    // Si la actualizacion falla, no se bloquea la descarga.
+    void ExamenGenerado.updateOne({ _id: examenId, docenteId }, { $set: { descargadoEn: new Date() } }).catch(() => {
+      // no-op
+    });
+
     res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader('Content-Disposition', `attachment; filename="examen_${String(examen.folio ?? 'examen')}.pdf"`);
     res.send(buffer);
   } catch {
     throw new ErrorAplicacion('PDF_INVALIDO', 'No se pudo leer el PDF', 500);

@@ -159,34 +159,9 @@ export function AppAlumno() {
       <h1>Resultados de examen</h1>
 
       {!token && (
-        <>
-          <p className="nota">
-            Ingresa con el codigo de acceso que te compartio tu docente y tu matricula. Ejemplos: codigo <b>ABC123</b> (4-12 alfanumericos) y matricula <b>2024-001</b>.
-          </p>
-          <div className="panel">
-            <h3>
-              <Icono nombre="info" /> Como llenar este formulario
-            </h3>
-            <p className="nota">
-              <b>Proposito:</b> consultar tus resultados y descargar tu examen en PDF.
-              Para entrar necesitas un <b>codigo</b> (temporal) y tu <b>matricula</b>.
-            </p>
-            <ul className="lista">
-              <li>
-                <b>Codigo:</b> lo genera el docente al publicar. Suele ser alfanumerico y sensible a mayusculas/minusculas.
-              </li>
-              <li>
-                <b>Matricula:</b> tu identificador escolar (debe coincidir con el registro del docente).
-              </li>
-            </ul>
-            <p className="nota">
-              <b>Ejemplos:</b> codigo <code>ABC123</code> y matricula <code>2024-001</code>.
-            </p>
-            <p className="nota">
-              Si el codigo <b>expiro</b> o fue cambiado, solicita uno nuevo. El boton “Recargar” sirve para actualizar la sesion si el docente volvio a publicar.
-            </p>
-          </div>
-        </>
+        <p className="nota">
+          Ingresa con el codigo de acceso que te compartio tu docente y tu matricula.
+        </p>
       )}
 
       {mensaje && <InlineMensaje tipo="error">{mensaje}</InlineMensaje>}

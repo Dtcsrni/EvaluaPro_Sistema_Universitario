@@ -2,7 +2,7 @@
  * App docente: panel basico para banco, examenes, recepcion, escaneo y calificacion.
  */
 import type { ChangeEvent, ReactNode } from 'react';
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { GoogleLogin } from '@react-oauth/google';
 import {
   crearClienteApi,
@@ -40,6 +40,7 @@ type Alumno = {
   correo?: string;
   grupo?: string;
   activo?: boolean;
+  createdAt?: string;
 };
 
 type Periodo = {
@@ -98,10 +99,6 @@ type ResultadoOmr = {
   advertencias: string[];
 };
 
-type EstadoApi =
-  | { estado: 'cargando'; texto: string }
-  | { estado: 'ok'; texto: string; tiempoActivo: number }
-  | { estado: 'error'; texto: string };
 
 function obtenerSesionDocenteId(): string {
   return obtenerSessionId('sesionDocenteId');
@@ -189,7 +186,6 @@ function AyudaFormulario({ titulo, children }: { titulo: string; children: React
 }
 
 export function AppDocente() {
-  const [estadoApi, setEstadoApi] = useState<EstadoApi>({ estado: 'cargando', texto: 'Verificando API...' });
   const [docente, setDocente] = useState<Docente | null>(null);
   const [vista, setVista] = useState('inicio');
   const [alumnos, setAlumnos] = useState<Alumno[]>([]);
@@ -241,18 +237,7 @@ export function AppDocente() {
 
   const tabsRef = useRef<Array<HTMLButtonElement | null>>([]);
 
-  useEffect(() => {
-    clienteApi
-      .obtener<{ tiempoActivo: number }>('/salud')
-      .then((payload) =>
-        setEstadoApi({
-          estado: 'ok',
-          tiempoActivo: payload.tiempoActivo,
-          texto: `API lista (tiempo activo ${Math.round(payload.tiempoActivo)}s)`
-        })
-      )
-      .catch(() => setEstadoApi({ estado: 'error', texto: 'No se pudo contactar la API' }));
-  }, []);
+  // Nota UX: ocultamos el badge de estado API (no aporta al flujo docente).
 
   useEffect(() => {
     let activo = true;
@@ -407,10 +392,6 @@ export function AppDocente() {
       </nav>
 
       <div className="panel" aria-live="polite">
-        <div className={estadoApi.estado === 'ok' ? 'badge ok' : estadoApi.estado === 'error' ? 'badge error' : 'badge'}>
-          <span className="dot" aria-hidden="true" />
-          <span>{estadoApi.texto}</span>
-        </div>
         {cargandoDatos && (
           <InlineMensaje tipo="info" leading={<Spinner />}>
             Cargando datos…
@@ -445,6 +426,9 @@ export function AppDocente() {
           periodos={periodos}
           onRefrescar={() =>
             clienteApi.obtener<{ preguntas: Pregunta[] }>('/banco-preguntas').then((p) => setPreguntas(p.preguntas))
+          }
+          onRefrescarPlantillas={() =>
+            clienteApi.obtener<{ plantillas: Plantilla[] }>('/examenes/plantillas').then((p) => setPlantillas(p.plantillas))
           }
         />
       )}
@@ -845,31 +829,16 @@ function SeccionAutenticacion({ onIngresar }: { onIngresar: (token: string) => v
       </div>
 
       <div className="auth-form">
-        <AyudaFormulario titulo="Como llenar este formulario">
-          <p>
-            <b>Proposito:</b> ingresar o crear tu cuenta de docente para administrar materias, alumnos, banco de preguntas,
-            generar examenes y calificar.
-          </p>
-          <p>
-            <b>Ingresar:</b> usa tu correo y contrasena (o Google si esta habilitado). Si el boton &quot;Ingresar&quot; no se habilita,
-            revisa que ambos campos esten completos.
-          </p>
-          <p>
-            <b>Registrar:</b> completa nombres, apellidos y correo. La contrasena requiere minimo 8 caracteres.
-            Si registras con Google, el correo puede quedar bloqueado (tomado de Google) y la contrasena puede ser opcional.
-          </p>
-          <ul className="lista">
-            <li>
-              Ejemplo de correo: <code>docente@universidad.edu</code>
-            </li>
-            <li>
-              Ejemplo de nombres/apellidos: <code>Juan Carlos</code> / <code>Perez Lopez</code>
-            </li>
-          </ul>
-          <p>
-            <b>Politica institucional:</b> si se configuro una lista de dominios permitidos, solo podras usar correos de esos dominios.
-          </p>
-        </AyudaFormulario>
+        {modo === 'registrar' && (
+          <div className="panel" aria-label="Ayuda de registro">
+            <p className="nota">
+              Para registrar tu cuenta completa <b>nombres</b>, <b>apellidos</b> y <b>correo</b>. La contrasena requiere minimo 8 caracteres.
+            </p>
+            {dominiosPermitidos.length > 0 && (
+              <p className="nota">Correo institucional requerido: {politicaDominiosTexto}</p>
+            )}
+          </div>
+        )}
 
         {!googleDisponible && esDev && (
           <InlineMensaje tipo="info">
@@ -1373,12 +1342,16 @@ function SeccionCuenta({ docente }: { docente: Docente }) {
 function SeccionBanco({
   preguntas,
   periodos,
-  onRefrescar
+  onRefrescar,
+  onRefrescarPlantillas
 }: {
   preguntas: Pregunta[];
   periodos: Periodo[];
   onRefrescar: () => void;
+  onRefrescarPlantillas: () => void;
 }) {
+  type TemaBanco = { _id: string; nombre: string; periodoId: string; createdAt?: string };
+
   const [periodoId, setPeriodoId] = useState('');
   const [enunciado, setEnunciado] = useState('');
   const [tema, setTema] = useState('');
@@ -1391,7 +1364,6 @@ function SeccionBanco({
   ]);
   const [mensaje, setMensaje] = useState('');
   const [guardando, setGuardando] = useState(false);
-  const [asignandoId, setAsignandoId] = useState<string | null>(null);
   const [editandoId, setEditandoId] = useState<string | null>(null);
   const [editEnunciado, setEditEnunciado] = useState('');
   const [editTema, setEditTema] = useState('');
@@ -1405,24 +1377,102 @@ function SeccionBanco({
   const [editando, setEditando] = useState(false);
   const [borrandoId, setBorrandoId] = useState<string | null>(null);
 
+  const [temasBanco, setTemasBanco] = useState<TemaBanco[]>([]);
+  const [cargandoTemas, setCargandoTemas] = useState(false);
+  const [temaNuevo, setTemaNuevo] = useState('');
+  const [creandoTema, setCreandoTema] = useState(false);
+  const [temaEditandoId, setTemaEditandoId] = useState<string | null>(null);
+  const [temaEditandoNombre, setTemaEditandoNombre] = useState('');
+  const [guardandoTema, setGuardandoTema] = useState(false);
+  const [borrandoTemaId, setBorrandoTemaId] = useState<string | null>(null);
+  const [temasAbierto, setTemasAbierto] = useState(true);
+  const temasPrevLenRef = useRef(0);
+
   useEffect(() => {
     if (periodoId) return;
     if (!Array.isArray(periodos) || periodos.length === 0) return;
     setPeriodoId(periodos[0]._id);
   }, [periodoId, periodos]);
 
+  useEffect(() => {
+    setTema('');
+  }, [periodoId]);
+
+  const refrescarTemas = useCallback(async () => {
+    if (!periodoId) {
+      setTemasBanco([]);
+      return;
+    }
+    try {
+      setCargandoTemas(true);
+      const payload = await clienteApi.obtener<{ temas: TemaBanco[] }>(
+        `/banco-preguntas/temas?periodoId=${encodeURIComponent(periodoId)}`
+      );
+      setTemasBanco(Array.isArray(payload.temas) ? payload.temas : []);
+    } catch (error) {
+      const msg = mensajeDeError(error, 'No se pudieron cargar temas');
+      setMensaje(msg);
+    } finally {
+      setCargandoTemas(false);
+    }
+  }, [periodoId]);
+
+  useEffect(() => {
+    void refrescarTemas();
+  }, [refrescarTemas]);
+
+  // UX: cuando ya existe al menos 1 tema, colapsa la seccion automaticamente.
+  useEffect(() => {
+    const len = Array.isArray(temasBanco) ? temasBanco.length : 0;
+    const prev = temasPrevLenRef.current;
+
+    // Si la materia cambia o se queda sin temas, abre para guiar.
+    if (len === 0) setTemasAbierto(true);
+    // Si pasamos de 0 -> 1+ (primer tema creado), colapsa.
+    if (prev === 0 && len > 0) setTemasAbierto(false);
+
+    temasPrevLenRef.current = len;
+  }, [temasBanco]);
+
   const preguntasMateria = useMemo(() => {
     const lista = Array.isArray(preguntas) ? preguntas : [];
     const filtradas = periodoId ? lista.filter((p) => p.periodoId === periodoId) : [];
-    return [...filtradas].sort((a, b) => String(b.createdAt || '').localeCompare(String(a.createdAt || '')));
+    return [...filtradas].sort((a, b) => {
+      const porFecha = String(b.createdAt || '').localeCompare(String(a.createdAt || ''));
+      if (porFecha !== 0) return porFecha;
+      return String(b._id).localeCompare(String(a._id));
+    });
   }, [preguntas, periodoId]);
 
-  const preguntasSinMateria = useMemo(() => {
-    const lista = Array.isArray(preguntas) ? preguntas : [];
-    return [...lista]
-      .filter((p) => !p.periodoId)
-      .sort((a, b) => String(b.createdAt || '').localeCompare(String(a.createdAt || '')));
-  }, [preguntas]);
+  const conteoPorTema = useMemo(() => {
+    const mapa = new Map<string, number>();
+    for (const pregunta of preguntasMateria) {
+      const nombre = String(pregunta.tema ?? '').trim().replace(/\s+/g, ' ');
+      if (!nombre) continue;
+      mapa.set(nombre, (mapa.get(nombre) ?? 0) + 1);
+    }
+    return mapa;
+  }, [preguntasMateria]);
+
+  const temaPorDefecto = useMemo(() => {
+    const lista = Array.isArray(temasBanco) ? temasBanco : [];
+    if (lista.length === 0) return '';
+    const masReciente = lista.reduce((acc, item) => {
+      if (!acc) return item;
+      const cmp = String(item.createdAt || '').localeCompare(String(acc.createdAt || ''));
+      if (cmp > 0) return item;
+      if (cmp < 0) return acc;
+      return String(item._id).localeCompare(String(acc._id)) > 0 ? item : acc;
+    }, null as TemaBanco | null);
+    return masReciente?.nombre ?? '';
+  }, [temasBanco]);
+
+  useEffect(() => {
+    if (!periodoId) return;
+    if (tema.trim()) return;
+    if (!temaPorDefecto.trim()) return;
+    setTema(temaPorDefecto);
+  }, [periodoId, tema, temaPorDefecto]);
 
   const puedeGuardar = Boolean(
     periodoId &&
@@ -1444,6 +1494,76 @@ function SeccionBanco({
     const opcionesActuales = Array.isArray(version?.opciones) ? version?.opciones : [];
     const base = opcionesActuales.length === 5 ? opcionesActuales : editOpciones;
     setEditOpciones(base.map((o) => ({ texto: String(o.texto ?? ''), esCorrecta: Boolean(o.esCorrecta) })));
+  }
+
+  async function crearTemaBanco() {
+    if (!periodoId) return;
+    const nombre = temaNuevo.trim();
+    if (!nombre) return;
+    try {
+      setCreandoTema(true);
+      setMensaje('');
+      await clienteApi.enviar('/banco-preguntas/temas', { periodoId, nombre });
+      setTemaNuevo('');
+      await refrescarTemas();
+      emitToast({ level: 'ok', title: 'Temas', message: 'Tema creado', durationMs: 1800 });
+    } catch (error) {
+      const msg = mensajeDeError(error, 'No se pudo crear el tema');
+      setMensaje(msg);
+      emitToast({ level: 'error', title: 'No se pudo crear', message: msg, durationMs: 5200, action: accionToastSesionParaError(error, 'docente') });
+    } finally {
+      setCreandoTema(false);
+    }
+  }
+
+  function iniciarEdicionTema(item: TemaBanco) {
+    setTemaEditandoId(item._id);
+    setTemaEditandoNombre(item.nombre);
+  }
+
+  function cancelarEdicionTema() {
+    setTemaEditandoId(null);
+    setTemaEditandoNombre('');
+  }
+
+  async function guardarEdicionTema() {
+    if (!temaEditandoId) return;
+    const nombre = temaEditandoNombre.trim();
+    if (!nombre) return;
+    try {
+      setGuardandoTema(true);
+      setMensaje('');
+      await clienteApi.enviar(`/banco-preguntas/temas/${temaEditandoId}/actualizar`, { nombre });
+      cancelarEdicionTema();
+      await Promise.all([refrescarTemas(), Promise.resolve().then(() => onRefrescar()), Promise.resolve().then(() => onRefrescarPlantillas())]);
+      emitToast({ level: 'ok', title: 'Temas', message: 'Tema actualizado', durationMs: 1800 });
+    } catch (error) {
+      const msg = mensajeDeError(error, 'No se pudo actualizar el tema');
+      setMensaje(msg);
+      emitToast({ level: 'error', title: 'No se pudo actualizar', message: msg, durationMs: 5200, action: accionToastSesionParaError(error, 'docente') });
+    } finally {
+      setGuardandoTema(false);
+    }
+  }
+
+  async function eliminarTemaBanco(item: TemaBanco) {
+    const ok = globalThis.confirm(`¿Eliminar el tema "${item.nombre}"? Se removera de plantillas y preguntas.`);
+    if (!ok) return;
+    try {
+      setBorrandoTemaId(item._id);
+      setMensaje('');
+      await clienteApi.eliminar(`/banco-preguntas/temas/${item._id}`);
+      if (tema.trim().toLowerCase() === item.nombre.trim().toLowerCase()) setTema('');
+      if (editTema.trim().toLowerCase() === item.nombre.trim().toLowerCase()) setEditTema('');
+      await Promise.all([refrescarTemas(), Promise.resolve().then(() => onRefrescar()), Promise.resolve().then(() => onRefrescarPlantillas())]);
+      emitToast({ level: 'ok', title: 'Temas', message: 'Tema eliminado', durationMs: 1800 });
+    } catch (error) {
+      const msg = mensajeDeError(error, 'No se pudo eliminar el tema');
+      setMensaje(msg);
+      emitToast({ level: 'error', title: 'No se pudo eliminar', message: msg, durationMs: 5200, action: accionToastSesionParaError(error, 'docente') });
+    } finally {
+      setBorrandoTemaId(null);
+    }
   }
 
   function cancelarEdicion() {
@@ -1496,34 +1616,6 @@ function SeccionBanco({
       registrarAccionDocente('crear_pregunta', false);
     } finally {
       setGuardando(false);
-    }
-  }
-
-  async function asignarPreguntaSinMateria(preguntaId: string) {
-    if (!periodoId) return;
-
-    try {
-      const inicio = Date.now();
-      setAsignandoId(preguntaId);
-      setMensaje('');
-      await clienteApi.enviar(`/banco-preguntas/${preguntaId}/asignar-materia`, { periodoId });
-      setMensaje('Pregunta asignada a la materia');
-      emitToast({ level: 'ok', title: 'Banco', message: 'Pregunta asignada a la materia', durationMs: 2200 });
-      registrarAccionDocente('asignar_pregunta_materia', true, Date.now() - inicio);
-      onRefrescar();
-    } catch (error) {
-      const msg = mensajeDeError(error, 'No se pudo asignar la pregunta');
-      setMensaje(msg);
-      emitToast({
-        level: 'error',
-        title: 'No se pudo asignar',
-        message: msg,
-        durationMs: 5200,
-        action: accionToastSesionParaError(error, 'docente')
-      });
-      registrarAccionDocente('asignar_pregunta_materia', false);
-    } finally {
-      setAsignandoId(null);
     }
   }
 
@@ -1644,30 +1736,123 @@ function SeccionBanco({
       </label>
       <label className="campo">
         Tema
-        <input value={tema} onChange={(event) => setTema(event.target.value)} />
+        <select value={tema} onChange={(event) => setTema(event.target.value)}>
+          <option value="">Selecciona</option>
+          {temasBanco.map((t) => (
+            <option key={t._id} value={t.nombre}>
+              {t.nombre}
+            </option>
+          ))}
+        </select>
+        {periodoId && !cargandoTemas && temasBanco.length === 0 && (
+          <span className="ayuda">Primero crea un tema (seccion “Temas”) para poder asignarlo a preguntas.</span>
+        )}
       </label>
-      {opciones.map((opcion, idx) => (
-        <label key={idx} className="campo opcion">
-          Opcion {String.fromCharCode(65 + idx)}
+
+      <details
+        className="colapsable"
+        open={temasAbierto}
+        onToggle={(event) => setTemasAbierto((event.currentTarget as HTMLDetailsElement).open)}
+      >
+        <summary>
+          <b>Temas</b>
+          {periodoId ? ` (${temasBanco.length})` : ''}
+        </summary>
+        <div className="ayuda">Crea, renombra o elimina temas de esta materia. Luego asigna cada pregunta desde el selector de “Tema”.</div>
+        <div className="campo-inline">
           <input
-            value={opcion.texto}
-            onChange={(event) => {
-              const copia = [...opciones];
-              copia[idx] = { ...copia[idx], texto: event.target.value };
-              setOpciones(copia);
-            }}
+            value={temaNuevo}
+            onChange={(event) => setTemaNuevo(event.target.value)}
+            placeholder="Nuevo tema (ej. Funciones)"
+            aria-label="Nuevo tema"
           />
-          <input
-            type="radio"
-            name="correcta"
-            checked={opcion.esCorrecta}
-            onChange={() => {
-              setOpciones(opciones.map((item, index) => ({ ...item, esCorrecta: index === idx })));
-            }}
-          />
-          Correcta
-        </label>
-      ))}
+          <Boton type="button" variante="secundario" cargando={creandoTema} disabled={!periodoId || !temaNuevo.trim()} onClick={crearTemaBanco}>
+            Agregar
+          </Boton>
+        </div>
+        {cargandoTemas && (
+          <InlineMensaje tipo="info" leading={<Spinner />}>
+            Cargando temas…
+          </InlineMensaje>
+        )}
+        <ul className="lista lista-items">
+          {periodoId && !cargandoTemas && temasBanco.length === 0 && <li>No hay temas. Crea el primero arriba.</li>}
+          {temasBanco.map((t) => (
+            <li key={t._id}>
+              <div className="item-glass">
+                <div className="item-row">
+                  <div>
+                    <div className="item-title">{t.nombre}</div>
+                    <div className="item-meta">
+                      <span>Preguntas: {conteoPorTema.get(t.nombre) ?? 0}</span>
+                    </div>
+                  </div>
+                  <div className="item-actions">
+                    {temaEditandoId === t._id ? (
+                      <>
+                        <input
+                          value={temaEditandoNombre}
+                          onChange={(event) => setTemaEditandoNombre(event.target.value)}
+                          aria-label="Nombre del tema"
+                        />
+                        <Boton type="button" variante="secundario" cargando={guardandoTema} disabled={!temaEditandoNombre.trim()} onClick={guardarEdicionTema}>
+                          Guardar
+                        </Boton>
+                        <Boton type="button" variante="secundario" onClick={cancelarEdicionTema}>
+                          Cancelar
+                        </Boton>
+                      </>
+                    ) : (
+                      <>
+                        <Boton type="button" variante="secundario" onClick={() => iniciarEdicionTema(t)}>
+                          Renombrar
+                        </Boton>
+                        <Boton type="button" cargando={borrandoTemaId === t._id} onClick={() => eliminarTemaBanco(t)}>
+                          Eliminar
+                        </Boton>
+                      </>
+                    )}
+                  </div>
+                </div>
+              </div>
+            </li>
+          ))}
+        </ul>
+      </details>
+
+      <div className="campo">
+        <div className="ayuda">Opciones (marca una sola como correcta)</div>
+        <div className="opciones-grid" role="group" aria-label="Opciones de respuesta">
+          <div className="opciones-header">Opcion</div>
+          <div className="opciones-header">Texto</div>
+          <div className="opciones-header">Correcta</div>
+          {opciones.map((opcion, idx) => (
+            <div key={idx} className="opcion-fila">
+              <div className="opcion-letra">{String.fromCharCode(65 + idx)}</div>
+              <input
+                value={opcion.texto}
+                onChange={(event) => {
+                  const copia = [...opciones];
+                  copia[idx] = { ...copia[idx], texto: event.target.value };
+                  setOpciones(copia);
+                }}
+                aria-label={`Texto opcion ${String.fromCharCode(65 + idx)}`}
+              />
+              <label className="opcion-correcta">
+                <input
+                  type="radio"
+                  name="correcta"
+                  checked={opcion.esCorrecta}
+                  onChange={() => {
+                    setOpciones(opciones.map((item, index) => ({ ...item, esCorrecta: index === idx })));
+                  }}
+                />
+                <span>Correcta</span>
+              </label>
+            </div>
+          ))}
+        </div>
+      </div>
       <Boton type="button" icono={<Icono nombre="ok" />} cargando={guardando} disabled={!puedeGuardar} onClick={guardar}>
         {guardando ? 'Guardando…' : 'Guardar'}
       </Boton>
@@ -1686,28 +1871,49 @@ function SeccionBanco({
           </label>
           <label className="campo">
             Tema
-            <input value={editTema} onChange={(event) => setEditTema(event.target.value)} />
+            <select value={editTema} onChange={(event) => setEditTema(event.target.value)}>
+              <option value="">Selecciona</option>
+              {editTema.trim() && !temasBanco.some((t) => t.nombre.toLowerCase() === editTema.trim().toLowerCase()) && (
+                <option value={editTema}>{editTema} (no existe)</option>
+              )}
+              {temasBanco.map((t) => (
+                <option key={t._id} value={t.nombre}>
+                  {t.nombre}
+                </option>
+              ))}
+            </select>
           </label>
-          {editOpciones.map((opcion, idx) => (
-            <label key={idx} className="campo opcion">
-              Opcion {String.fromCharCode(65 + idx)}
-              <input
-                value={opcion.texto}
-                onChange={(event) => {
-                  const copia = [...editOpciones];
-                  copia[idx] = { ...copia[idx], texto: event.target.value };
-                  setEditOpciones(copia);
-                }}
-              />
-              <input
-                type="radio"
-                name="correctaEdit"
-                checked={opcion.esCorrecta}
-                onChange={() => setEditOpciones(editOpciones.map((item, index) => ({ ...item, esCorrecta: index === idx })))}
-              />
-              Correcta
-            </label>
-          ))}
+          <div className="campo">
+            <div className="ayuda">Opciones (marca una sola como correcta)</div>
+            <div className="opciones-grid" role="group" aria-label="Opciones de respuesta">
+              <div className="opciones-header">Opcion</div>
+              <div className="opciones-header">Texto</div>
+              <div className="opciones-header">Correcta</div>
+              {editOpciones.map((opcion, idx) => (
+                <div key={idx} className="opcion-fila">
+                  <div className="opcion-letra">{String.fromCharCode(65 + idx)}</div>
+                  <input
+                    value={opcion.texto}
+                    onChange={(event) => {
+                      const copia = [...editOpciones];
+                      copia[idx] = { ...copia[idx], texto: event.target.value };
+                      setEditOpciones(copia);
+                    }}
+                    aria-label={`Texto opcion ${String.fromCharCode(65 + idx)}`}
+                  />
+                  <label className="opcion-correcta">
+                    <input
+                      type="radio"
+                      name="correctaEdit"
+                      checked={opcion.esCorrecta}
+                      onChange={() => setEditOpciones(editOpciones.map((item, index) => ({ ...item, esCorrecta: index === idx })))}
+                    />
+                    <span>Correcta</span>
+                  </label>
+                </div>
+              ))}
+            </div>
+          </div>
           <div className="acciones">
             <Boton type="button" icono={<Icono nombre="ok" />} cargando={editando} disabled={!puedeGuardarEdicion} onClick={guardarEdicion}>
               {editando ? 'Guardando…' : 'Guardar cambios'}
@@ -1718,62 +1924,7 @@ function SeccionBanco({
           </div>
         </div>
       )}
-      <h3>Preguntas sin materia</h3>
-      <div className="ayuda">
-        Preguntas legacy que quedaron sin materia asignada. Selecciona una materia y pulsa &quot;Asignar&quot;.
-      </div>
-      <ul className="lista lista-items">
-        {!periodoId && <li>Selecciona una materia para poder asignar preguntas.</li>}
-        {periodoId && preguntasSinMateria.length === 0 && <li>No hay preguntas sin materia.</li>}
-        {periodoId &&
-          preguntasSinMateria.slice(0, 30).map((pregunta) => (
-            <li key={pregunta._id}>
-              {(() => {
-                const version = obtenerVersionPregunta(pregunta);
-                const opcionesActuales = Array.isArray(version?.opciones) ? version?.opciones : [];
-                return (
-                  <div className="item-glass">
-                    <div className="item-row">
-                      <div>
-                        <div className="item-title">{version?.enunciado ?? 'Pregunta'}</div>
-                        <div className="item-meta">
-                          <span>ID: {idCortoMateria(pregunta._id)}</span>
-                          {pregunta.tema ? <span>Tema: {pregunta.tema}</span> : <span>Tema: -</span>}
-                        </div>
-                      </div>
-                      <div className="item-actions">
-                        <Boton
-                          variante="secundario"
-                          type="button"
-                          cargando={asignandoId === pregunta._id}
-                          onClick={() => asignarPreguntaSinMateria(pregunta._id)}
-                        >
-                          Asignar a esta materia
-                        </Boton>
-                        <Boton variante="secundario" type="button" onClick={() => iniciarEdicion(pregunta)}>
-                          Editar
-                        </Boton>
-                        <Boton type="button" cargando={borrandoId === pregunta._id} onClick={() => eliminar(pregunta._id)}>
-                          Eliminar
-                        </Boton>
-                      </div>
-                    </div>
-                    {opcionesActuales.length === 5 && (
-                      <ul className="item-options">
-                        {opcionesActuales.map((op, idx) => (
-                          <li key={idx} className={`item-option${op.esCorrecta ? ' item-option--correcta' : ''}`}>
-                            <span className="item-option__letra">{String.fromCharCode(65 + idx)}.</span> {op.texto}
-                          </li>
-                        ))}
-                      </ul>
-                    )}
-                  </div>
-                );
-              })()}
-            </li>
-          ))}
-      </ul>
-      <h3>Preguntas recientes</h3>
+      <h3>Preguntas recientes{periodoId ? ` (${preguntasMateria.length})` : ''}</h3>
       <ul className="lista lista-items">
         {!periodoId && <li>Selecciona una materia para ver sus preguntas.</li>}
         {periodoId && preguntasMateria.length === 0 && <li>No hay preguntas en esta materia.</li>}
@@ -2263,7 +2414,11 @@ function SeccionAlumnos({
     if (!periodoIdLista) return [];
     return lista
       .filter((a) => a.periodoId === periodoIdLista)
-      .sort((a, b) => String(a.matricula).localeCompare(String(b.matricula)));
+      .sort((a, b) => {
+        const porFecha = String(b.createdAt || '').localeCompare(String(a.createdAt || ''));
+        if (porFecha !== 0) return porFecha;
+        return String(b._id).localeCompare(String(a._id));
+      });
   }, [alumnos, periodoIdLista]);
 
   const nombreMateriaSeleccionada = useMemo(() => {
@@ -2577,6 +2732,16 @@ function SeccionPlantillas({
   alumnos: Alumno[];
   onRefrescar: () => void;
 }) {
+  type ExamenGeneradoResumen = {
+    _id: string;
+    folio: string;
+    plantillaId: string;
+    alumnoId?: string | null;
+    generadoEn?: string;
+    descargadoEn?: string;
+    paginas?: Array<{ numero: number; qrTexto?: string; preguntasDel?: number; preguntasAl?: number }>;
+  };
+
   const [titulo, setTitulo] = useState('');
   const [tipo, setTipo] = useState<'parcial' | 'global'>('parcial');
   const [periodoId, setPeriodoId] = useState('');
@@ -2586,8 +2751,114 @@ function SeccionPlantillas({
   const [plantillaId, setPlantillaId] = useState('');
   const [alumnoId, setAlumnoId] = useState('');
   const [mensajeGeneracion, setMensajeGeneracion] = useState('');
+  const [ultimoGenerado, setUltimoGenerado] = useState<ExamenGeneradoResumen | null>(null);
+  const [examenesGenerados, setExamenesGenerados] = useState<ExamenGeneradoResumen[]>([]);
+  const [cargandoExamenesGenerados, setCargandoExamenesGenerados] = useState(false);
+  const [descargandoExamenId, setDescargandoExamenId] = useState<string | null>(null);
   const [creando, setCreando] = useState(false);
   const [generando, setGenerando] = useState(false);
+  const [generandoLote, setGenerandoLote] = useState(false);
+
+  const plantillaSeleccionada = useMemo(() => {
+    return (Array.isArray(plantillas) ? plantillas : []).find((p) => p._id === plantillaId) ?? null;
+  }, [plantillas, plantillaId]);
+
+  const alumnosPorId = useMemo(() => {
+    const mapa = new Map<string, Alumno>();
+    for (const a of Array.isArray(alumnos) ? alumnos : []) {
+      mapa.set(a._id, a);
+    }
+    return mapa;
+  }, [alumnos]);
+
+  const formatearFechaHora = useCallback((valor?: string) => {
+    const v = String(valor || '').trim();
+    if (!v) return '-';
+    const d = new Date(v);
+    if (!Number.isFinite(d.getTime())) return v;
+    return d.toLocaleString();
+  }, []);
+
+  const cargarExamenesGenerados = useCallback(async () => {
+    if (!plantillaId) {
+      setExamenesGenerados([]);
+      return;
+    }
+    try {
+      setCargandoExamenesGenerados(true);
+      const payload = await clienteApi.obtener<{ examenes: ExamenGeneradoResumen[] }>(
+        `/examenes/generados?plantillaId=${encodeURIComponent(plantillaId)}&limite=50`
+      );
+      setExamenesGenerados(Array.isArray(payload.examenes) ? payload.examenes : []);
+    } catch (error) {
+      const msg = mensajeDeError(error, 'No se pudo cargar el listado de examenes generados');
+      setMensajeGeneracion(msg);
+    } finally {
+      setCargandoExamenesGenerados(false);
+    }
+  }, [plantillaId]);
+
+  useEffect(() => {
+    setUltimoGenerado(null);
+    void cargarExamenesGenerados();
+  }, [cargarExamenesGenerados]);
+
+  const descargarPdfExamen = useCallback(
+    async (examen: ExamenGeneradoResumen) => {
+      const token = obtenerTokenDocente();
+      if (!token) {
+        setMensajeGeneracion('Sesion no valida. Vuelve a iniciar sesion.');
+        return;
+      }
+
+      const intentar = async (t: string) =>
+        fetch(`${clienteApi.baseApi}/examenes/generados/${encodeURIComponent(examen._id)}/pdf`, {
+          credentials: 'include',
+          headers: { Authorization: `Bearer ${t}` }
+        });
+
+      try {
+        setDescargandoExamenId(examen._id);
+        setMensajeGeneracion('');
+
+        let resp = await intentar(token);
+        if (resp.status === 401) {
+          const nuevo = await clienteApi.intentarRefrescarToken();
+          if (nuevo) resp = await intentar(nuevo);
+        }
+
+        if (!resp.ok) {
+          throw new Error(`HTTP ${resp.status}`);
+        }
+
+        const blob = await resp.blob();
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `examen_${String(examen.folio || 'examen')}.pdf`;
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+        URL.revokeObjectURL(url);
+
+        emitToast({ level: 'ok', title: 'PDF', message: 'Descarga iniciada', durationMs: 1800 });
+        await cargarExamenesGenerados();
+      } catch (error) {
+        const msg = mensajeDeError(error, 'No se pudo descargar el PDF');
+        setMensajeGeneracion(msg);
+        emitToast({
+          level: 'error',
+          title: 'No se pudo descargar',
+          message: msg,
+          durationMs: 5200,
+          action: accionToastSesionParaError(error, 'docente')
+        });
+      } finally {
+        setDescargandoExamenId(null);
+      }
+    },
+    [cargarExamenesGenerados]
+  );
 
   const preguntasDisponibles = useMemo(() => {
     if (!periodoId) return [];
@@ -2857,10 +3128,16 @@ function SeccionPlantillas({
             const inicio = Date.now();
             setGenerando(true);
             setMensajeGeneracion('');
-            await clienteApi.enviar('/examenes/generados', { plantillaId, alumnoId: alumnoId || undefined });
-            setMensajeGeneracion('Examen generado');
+            const payload = await clienteApi.enviar<{ examenGenerado: ExamenGeneradoResumen }>('/examenes/generados', {
+              plantillaId,
+              alumnoId: alumnoId || undefined
+            });
+            const ex = payload?.examenGenerado ?? null;
+            setUltimoGenerado(ex);
+            setMensajeGeneracion(ex ? `Examen generado. Folio: ${ex.folio} (ID: ${idCortoMateria(ex._id)})` : 'Examen generado');
             emitToast({ level: 'ok', title: 'Examen', message: 'Examen generado', durationMs: 2200 });
             registrarAccionDocente('generar_examen', true, Date.now() - inicio);
+            await cargarExamenesGenerados();
           } catch (error) {
             const msg = mensajeDeError(error, 'No se pudo generar');
             setMensajeGeneracion(msg);
@@ -2879,10 +3156,157 @@ function SeccionPlantillas({
       >
         {generando ? 'Generando…' : 'Generar'}
       </Boton>
+
+      <Boton
+        type="button"
+        variante="secundario"
+        icono={<Icono nombre="pdf" />}
+        cargando={generandoLote}
+        disabled={!plantillaId || !plantillaSeleccionada?.periodoId}
+        onClick={async () => {
+          const ok = globalThis.confirm(
+            '¿Generar examenes para TODOS los alumnos activos de la materia de esta plantilla? Esto puede tardar.'
+          );
+          if (!ok) return;
+          try {
+            const inicio = Date.now();
+            setGenerandoLote(true);
+            setMensajeGeneracion('');
+            const payload = await clienteApi.enviar<{ totalAlumnos: number; examenesGenerados: Array<{ folio: string }> }>(
+              '/examenes/generados/lote',
+              { plantillaId, confirmarMasivo: true },
+              { timeoutMs: 120_000 }
+            );
+            const total = Number(payload?.totalAlumnos ?? 0);
+            const generados = Array.isArray(payload?.examenesGenerados) ? payload.examenesGenerados.length : 0;
+            setMensajeGeneracion(`Generacion masiva lista. Alumnos: ${total}. Examenes creados: ${generados}.`);
+            emitToast({ level: 'ok', title: 'Examenes', message: 'Generacion masiva completada', durationMs: 2200 });
+            registrarAccionDocente('generar_examenes_lote', true, Date.now() - inicio);
+            await cargarExamenesGenerados();
+          } catch (error) {
+            const msg = mensajeDeError(error, 'No se pudo generar en lote');
+            setMensajeGeneracion(msg);
+            emitToast({
+              level: 'error',
+              title: 'No se pudo generar en lote',
+              message: msg,
+              durationMs: 5200,
+              action: accionToastSesionParaError(error, 'docente')
+            });
+            registrarAccionDocente('generar_examenes_lote', false);
+          } finally {
+            setGenerandoLote(false);
+          }
+        }}
+      >
+        {generandoLote ? 'Generando para todos…' : 'Generar para todos los alumnos'}
+      </Boton>
+
+      {plantillaId && !plantillaSeleccionada?.periodoId && (
+        <div className="ayuda error">Esta plantilla no tiene materia (periodoId). No se puede generar en lote.</div>
+      )}
       {mensajeGeneracion && (
         <p className={esMensajeError(mensajeGeneracion) ? 'mensaje error' : 'mensaje ok'} role="status">
           {mensajeGeneracion}
         </p>
+      )}
+
+      {ultimoGenerado && (
+        <div className="resultado" aria-label="Detalle del ultimo examen generado">
+          <h4>Ultimo examen generado</h4>
+          <div className="item-meta">
+            <span>Folio: {ultimoGenerado.folio}</span>
+            <span>ID: {idCortoMateria(ultimoGenerado._id)}</span>
+            <span>Generado: {formatearFechaHora(ultimoGenerado.generadoEn)}</span>
+          </div>
+          {Array.isArray(ultimoGenerado.paginas) && ultimoGenerado.paginas.length > 0 && (
+            <details>
+              <summary>Previsualizacion por pagina ({ultimoGenerado.paginas.length})</summary>
+              <ul className="lista">
+                {ultimoGenerado.paginas.map((p) => {
+                  const del = Number(p.preguntasDel ?? 0);
+                  const al = Number(p.preguntasAl ?? 0);
+                  const rango = del && al ? `Preguntas ${del}–${al}` : 'Pagina extra (sin preguntas)';
+                  return (
+                    <li key={p.numero}>
+                      Pagina {p.numero}: {rango}
+                    </li>
+                  );
+                })}
+              </ul>
+            </details>
+          )}
+        </div>
+      )}
+
+      {plantillaSeleccionada && (
+        <div className="resultado">
+          <h3>Examenes generados (plantilla seleccionada)</h3>
+          <div className="ayuda">
+            Mostrando hasta 50, del mas reciente al mas antiguo. Al descargar se marca como descargado.
+          </div>
+          {cargandoExamenesGenerados && (
+            <InlineMensaje tipo="info" leading={<Spinner />}>
+              Cargando examenes generados…
+            </InlineMensaje>
+          )}
+          <ul className="lista lista-items">
+            {!cargandoExamenesGenerados && examenesGenerados.length === 0 && <li>No hay examenes generados para esta plantilla.</li>}
+            {examenesGenerados.map((examen) => {
+              const alumno = examen.alumnoId ? alumnosPorId.get(String(examen.alumnoId)) : null;
+              const descargado = Boolean(String(examen.descargadoEn || '').trim());
+              return (
+                <li key={examen._id}>
+                  <div className="item-glass">
+                    <div className="item-row">
+                      <div>
+                        <div className="item-title">Folio: {examen.folio}</div>
+                        <div className="item-meta">
+                          <span>ID: {idCortoMateria(examen._id)}</span>
+                          <span>Generado: {formatearFechaHora(examen.generadoEn)}</span>
+                          <span>
+                            Descargado: {descargado ? formatearFechaHora(examen.descargadoEn) : 'No'}
+                          </span>
+                        </div>
+                        <div className="item-sub">
+                          Alumno: {alumno ? `${alumno.matricula} - ${alumno.nombreCompleto}` : examen.alumnoId ? `ID ${idCortoMateria(String(examen.alumnoId))}` : 'Sin alumno'}
+                        </div>
+                        {Array.isArray(examen.paginas) && examen.paginas.length > 0 && (
+                          <details>
+                            <summary>Previsualizacion por pagina ({examen.paginas.length})</summary>
+                            <ul className="lista">
+                              {examen.paginas.map((p) => {
+                                const del = Number(p.preguntasDel ?? 0);
+                                const al = Number(p.preguntasAl ?? 0);
+                                const rango = del && al ? `Preguntas ${del}–${al}` : 'Pagina extra (sin preguntas)';
+                                return (
+                                  <li key={p.numero}>
+                                    Pagina {p.numero}: {rango}
+                                  </li>
+                                );
+                              })}
+                            </ul>
+                          </details>
+                        )}
+                      </div>
+                      <div className="item-actions">
+                        <Boton
+                          type="button"
+                          variante="secundario"
+                          icono={<Icono nombre="pdf" />}
+                          cargando={descargandoExamenId === examen._id}
+                          onClick={() => void descargarPdfExamen(examen)}
+                        >
+                          Descargar
+                        </Boton>
+                      </div>
+                    </div>
+                  </div>
+                </li>
+              );
+            })}
+          </ul>
+        </div>
       )}
     </div>
   );
