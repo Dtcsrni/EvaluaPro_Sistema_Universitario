@@ -440,6 +440,13 @@ export async function generarPdfExamen({
   const lineaCodigoInline = lineaPregunta; // mismo alto para no afectar layout
   const lineaCodigoBloque = 10;
 
+  // OMR: burbujas A–E con espaciado fijo para evitar superposiciones.
+  const OMR_TOTAL_LETRAS = 5;
+  const omrRadio = 5.2;
+  const omrPasoY = 13;
+  const omrPadding = 8;
+  const omrExtraTitulo = 18;
+
   const anchoColRespuesta = 120;
   const gutterRespuesta = 10;
   const xColRespuesta = ANCHO_CARTA - margen - anchoColRespuesta;
@@ -669,7 +676,9 @@ export async function generarPdfExamen({
           alturasCols[colIdx] += lineasOpcion.reduce((acc, l) => acc + l.lineHeight, 0) + 2;
         }
       });
-      alto += Math.max(alturasCols[0], alturasCols[1]);
+      const altoOpciones = Math.max(alturasCols[0], alturasCols[1]);
+      const altoOmrMin = (OMR_TOTAL_LETRAS - 1) * omrPasoY + (omrExtraTitulo + omrPadding);
+      alto += Math.max(altoOpciones, altoOmrMin);
       alto += separacionPregunta;
       // Reserva extra para evitar quedar demasiado pegado al limite.
       alto += 4;
@@ -729,7 +738,6 @@ export async function generarPdfExamen({
       let yCol1 = yInicioOpciones;
       let yCol2 = yInicioOpciones;
 
-      const yPrimeraLinea: Record<string, number> = {};
       const opcionesOmr: Array<{ letra: string; x: number; y: number }> = [];
 
       const itemsCol1 = ordenOpciones.slice(0, mitad).map((indiceOpcion, idx) => ({ indiceOpcion, letra: String.fromCharCode(65 + idx) }));
@@ -737,7 +745,6 @@ export async function generarPdfExamen({
 
       const dibujarItem = (xCol: number, yLocal: number, item: { indiceOpcion: number; letra: string }) => {
         page.drawText(`${item.letra})`, { x: xCol, y: yLocal, size: sizeOpcion, font: fuenteBold, color: rgb(0.12, 0.12, 0.12) });
-        yPrimeraLinea[item.letra] = yLocal;
         const opcion = pregunta.opciones[item.indiceOpcion];
         const lineasOpcion = envolverTextoMixto({
           texto: opcion?.texto ?? '',
@@ -757,32 +764,29 @@ export async function generarPdfExamen({
       for (const item of itemsCol1) yCol1 = dibujarItem(xCol1, yCol1, item);
       for (const item of itemsCol2) yCol2 = dibujarItem(xCol2, yCol2, item);
 
-      // Caja de OMR (burbujas) en columna derecha, alineada por letra.
-      const letras = [...itemsCol1.map((x) => x.letra), ...itemsCol2.map((x) => x.letra)];
-      const ys = letras.map((l) => yPrimeraLinea[l]).filter((v) => typeof v === 'number');
-      if (ys.length > 0) {
-        // Reservar espacio superior para el título "RESPUESTA" y evitar tapar la primera burbuja.
-        const top = Math.max(...ys) + 30;
-        const bottom = Math.min(...ys) - 16;
-        const hCaja = Math.max(40, top - bottom);
-        const padding = 8;
-        page.drawRectangle({ x: xColRespuesta, y: bottom, width: anchoColRespuesta, height: hCaja, borderWidth: 1, borderColor: colorLinea, color: rgb(1, 1, 1) });
-        page.drawText('RESPUESTA', { x: xColRespuesta + padding, y: top - 14, size: 9, font: fuenteBold, color: colorPrimario });
+      // Caja de OMR (burbujas) en columna derecha.
+      // Importante: NO se alinea por columnas de opciones, porque si hay 2 columnas algunas letras comparten Y.
+      // En su lugar, se dibuja A–E con espaciado fijo. Esto evita superposiciones siempre.
+      const letras = Array.from({ length: OMR_TOTAL_LETRAS }, (_v, i) => String.fromCharCode(65 + i));
+      const yPrimeraBurbuja = yInicioOpciones + 3.5;
+      const top = yPrimeraBurbuja + omrRadio + omrExtraTitulo;
+      const yUltimaBurbuja = yPrimeraBurbuja - (OMR_TOTAL_LETRAS - 1) * omrPasoY;
+      const bottom = yUltimaBurbuja - omrRadio - 10;
+      const hCaja = Math.max(40, top - bottom);
 
-        for (const letra of letras) {
-          const yLinea = yPrimeraLinea[letra];
-          const yBurbuja = yLinea + 3.5;
-          const xBurbuja = xColRespuesta + padding + 8;
-          page.drawCircle({ x: xBurbuja, y: yBurbuja, size: 5.2, borderWidth: 1.1, borderColor: rgb(0, 0, 0) });
-          // Letra alineada verticalmente al centro de la burbuja.
-          page.drawText(letra, { x: xBurbuja + 12, y: yBurbuja - 3.5, size: 9, font: fuente, color: rgb(0.12, 0.12, 0.12) });
-          opcionesOmr.push({ letra, x: xBurbuja, y: yBurbuja });
-        }
+      page.drawRectangle({ x: xColRespuesta, y: bottom, width: anchoColRespuesta, height: hCaja, borderWidth: 1, borderColor: colorLinea, color: rgb(1, 1, 1) });
+      page.drawText('RESPUESTA', { x: xColRespuesta + omrPadding, y: top - 14, size: 9, font: fuenteBold, color: colorPrimario });
 
-        cursorY = Math.min(yCol1, yCol2, bottom - 6);
-      } else {
-        cursorY = Math.min(yCol1, yCol2);
+      const xBurbuja = xColRespuesta + omrPadding + 8;
+      for (let i = 0; i < letras.length; i += 1) {
+        const letra = letras[i];
+        const yBurbuja = yPrimeraBurbuja - i * omrPasoY;
+        page.drawCircle({ x: xBurbuja, y: yBurbuja, size: omrRadio, borderWidth: 1.1, borderColor: rgb(0, 0, 0) });
+        page.drawText(letra, { x: xBurbuja + 12, y: yBurbuja - 3.5, size: 9, font: fuente, color: rgb(0.12, 0.12, 0.12) });
+        opcionesOmr.push({ letra, x: xBurbuja, y: yBurbuja });
       }
+
+      cursorY = Math.min(yCol1, yCol2, bottom - 6);
 
       cursorY -= separacionPregunta;
       indicePregunta += 1;
