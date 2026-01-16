@@ -33,25 +33,44 @@ function agregarMarcasRegistro(page: PDFPage, margen: number) {
 }
 
 async function agregarQr(pdfDoc: PDFDocument, page: PDFPage, qrTexto: string, margen: number) {
+  // QR de alta calidad: genera a mayor resolucion y con ECC alto para mejorar deteccion,
+  // pero se incrusta al mismo tamaño final (evita pixeles borrosos por submuestreo pobre).
   const qrDataUrl = await QRCode.toDataURL(qrTexto, {
-    margin: 2,
-    width: 220,
-    errorCorrectionLevel: 'M',
+    margin: 4,
+    width: 520,
+    errorCorrectionLevel: 'H',
     color: { dark: '#000000', light: '#FFFFFF' }
   });
   const base64 = qrDataUrl.replace(/^data:image\/png;base64,/, '');
   const qrBytes = Uint8Array.from(Buffer.from(base64, 'base64'));
   const qrImage = await pdfDoc.embedPng(qrBytes);
   const qrSize = 96;
+  const padding = 6;
+  const boxW = qrSize + padding * 2;
+  const boxH = qrSize + padding * 2;
+
+  const x = ANCHO_CARTA - margen - qrSize;
+  const y = ALTO_CARTA - margen - qrSize;
+
+  // Fondo blanco (quiet zone) y borde sutil para asegurar legibilidad.
+  page.drawRectangle({
+    x: x - padding,
+    y: y - padding,
+    width: boxW,
+    height: boxH,
+    color: rgb(1, 1, 1),
+    borderWidth: 1,
+    borderColor: rgb(0.75, 0.79, 0.84)
+  });
 
   page.drawImage(qrImage, {
-    x: ANCHO_CARTA - margen - qrSize,
-    y: ALTO_CARTA - margen - qrSize,
+    x,
+    y,
     width: qrSize,
     height: qrSize
   });
 
-  return { qrSize };
+  return { qrSize, x, y, padding, boxW, boxH };
 }
 
 type LogoEmbed = {
@@ -445,21 +464,22 @@ export async function generarPdfExamen({
   const colorGris = rgb(0.38, 0.38, 0.38);
   const colorLinea = rgb(0.75, 0.79, 0.84);
 
-  // Tipografías más compactas para encajar más preguntas sin sacrificar legibilidad.
+  // Tipografías compactas (pero legibles) para encajar más preguntas.
   const sizeTitulo = 14;
   const sizeMeta = 9;
   const sizePregunta = 10;
   const sizeOpcion = 9;
   const sizeNota = 8.5;
 
-  // Codigo: monospace ligeramente mas pequeno y con interlineado mas compacto.
+  // Codigo: monospace ligeramente mas pequeno.
   const sizeCodigoInline = 9;
   const sizeCodigoBloque = 8.5;
 
   const lineaPregunta = 12;
   const lineaOpcion = 11;
   const lineaNota = 11;
-  const separacionPregunta = 4;
+  // Reduce el “aire” entre preguntas para compactar.
+  const separacionPregunta = 2;
 
   const lineaCodigoInline = lineaPregunta; // mismo alto para no afectar layout
   const lineaCodigoBloque = 10;
@@ -485,10 +505,11 @@ export async function generarPdfExamen({
     'Rellene el círculo de la respuesta más adecuada, evitando salirse del mismo. ' +
     'Cada pregunta vale 10 puntos si está completa y es correcta.';
 
-  const institucion = String(
-    encabezado?.institucion ?? process.env.EXAMEN_INSTITUCION ?? 'Sistema de Evaluacion Universitaria'
-  ).trim();
-  const lema = String(encabezado?.lema ?? process.env.EXAMEN_LEMA ?? '').trim();
+  const DEFAULT_INSTITUCION = 'Centro Universitario Hidalguense';
+  const DEFAULT_LEMA = 'La sabiduria es nuestra fuerza';
+
+  const institucion = String(encabezado?.institucion ?? process.env.EXAMEN_INSTITUCION ?? DEFAULT_INSTITUCION).trim();
+  const lema = String(encabezado?.lema ?? process.env.EXAMEN_LEMA ?? DEFAULT_LEMA).trim();
   const materia = String(encabezado?.materia ?? '').trim();
   const docente = String(encabezado?.docente ?? '').trim();
   const mostrarInstrucciones = encabezado?.mostrarInstrucciones !== false;
@@ -496,15 +517,22 @@ export async function generarPdfExamen({
   const alumnoGrupo = String(encabezado?.alumno?.grupo ?? '').trim();
   const instrucciones = String(encabezado?.instrucciones ?? '').trim() || INSTRUCCIONES_DEFAULT;
 
-  const logoIzqSrc = encabezado?.logos?.izquierdaPath ?? process.env.EXAMEN_LOGO_IZQ_PATH ?? 'logos/cuh.png';
-  const logoDerSrc = encabezado?.logos?.derechaPath ?? process.env.EXAMEN_LOGO_DER_PATH ?? 'logos/isc.png';
+  // Defaults apuntan a archivos reales del repo (carpeta logos/).
+  const logoIzqSrc = encabezado?.logos?.izquierdaPath ?? process.env.EXAMEN_LOGO_IZQ_PATH ?? 'logos/logo_cuh.png';
+  const logoDerSrc = encabezado?.logos?.derechaPath ?? process.env.EXAMEN_LOGO_DER_PATH ?? 'logos/logo_sys.png';
 
   const izquierda =
     (await intentarEmbedImagen(pdfDoc, logoIzqSrc)) ??
+    (await intentarEmbedImagen(pdfDoc, 'logos/logo_cuh.jpg')) ??
+    (await intentarEmbedImagen(pdfDoc, 'logos/logo_cuh.jpeg')) ??
+    (await intentarEmbedImagen(pdfDoc, 'logos/cuh.png')) ??
     (await intentarEmbedImagen(pdfDoc, 'logos/cuh.jpg')) ??
     (await intentarEmbedImagen(pdfDoc, 'logos/cuh.jpeg'));
   const derecha =
     (await intentarEmbedImagen(pdfDoc, logoDerSrc)) ??
+    (await intentarEmbedImagen(pdfDoc, 'logos/logo_sys.jpg')) ??
+    (await intentarEmbedImagen(pdfDoc, 'logos/logo_sys.jpeg')) ??
+    (await intentarEmbedImagen(pdfDoc, 'logos/isc.png')) ??
     (await intentarEmbedImagen(pdfDoc, 'logos/isc.jpg')) ??
     (await intentarEmbedImagen(pdfDoc, 'logos/isc.jpeg'));
 
@@ -525,6 +553,16 @@ export async function generarPdfExamen({
     }>;
   }> = [];
 
+  // Indicaciones completas (fluye al inicio del examen, sin recortes).
+  const sizeIndicaciones = 9;
+  const lineaIndicaciones = 11;
+  const maxWidthIndicaciones = Math.max(120, xDerechaTexto - (margen + 10));
+  const lineasIndicaciones = mostrarInstrucciones
+    ? partirEnLineas({ texto: instrucciones, maxWidth: maxWidthIndicaciones, font: fuente, size: sizeIndicaciones })
+    : [];
+  let indiceLineaIndicaciones = 0;
+  let indicacionesPendientes = mostrarInstrucciones && lineasIndicaciones.length > 0;
+
   while (numeroPagina <= paginasObjetivo) {
     const page = pdfDoc.addPage([ANCHO_CARTA, ALTO_CARTA]);
     const qrTexto = String(folio ?? '').trim().toUpperCase();
@@ -538,80 +576,80 @@ export async function generarPdfExamen({
 
     const yTop = ALTO_CARTA - margen;
     const esPrimera = numeroPagina === 1;
-    const altoEncabezado = esPrimera ? 118 : 70;
+    const altoEncabezado = 118;
     const xCaja = margen + 2;
     const wCaja = ANCHO_CARTA - 2 * margen - 4;
     const yCaja = yTop - altoEncabezado;
 
-    // Fondo sutil dentro del area util (no tapa marcas)
-    page.drawRectangle({ x: xCaja, y: yCaja, width: wCaja, height: altoEncabezado, color: rgb(0.97, 0.98, 0.99) });
-    page.drawLine({ start: { x: xCaja, y: yCaja }, end: { x: xCaja + wCaja, y: yCaja }, color: colorLinea, thickness: 1 });
+    // Encabezado institucional SOLO en la primera pagina.
+    if (esPrimera) {
+      page.drawRectangle({ x: xCaja, y: yCaja, width: wCaja, height: altoEncabezado, color: rgb(0.97, 0.98, 0.99) });
+      page.drawLine({ start: { x: xCaja, y: yCaja }, end: { x: xCaja + wCaja, y: yCaja }, color: colorLinea, thickness: 1 });
+      // Barra superior moderna.
+      page.drawRectangle({ x: xCaja, y: yTop - 8, width: wCaja, height: 3, color: colorPrimario });
+    }
 
     // Marcas y QR (OMR/escaneo)
     agregarMarcasRegistro(page, margen);
-    const { qrSize } = await agregarQr(pdfDoc, page, qrTexto, margen);
+    const { qrSize, x: xQr, y: yQr, padding: qrPadding } = await agregarQr(pdfDoc, page, qrTexto, margen);
 
-    // Folio impreso debajo del QR
-    const xQr = ANCHO_CARTA - margen - qrSize;
-    const yQr = ALTO_CARTA - margen - qrSize;
-    page.drawText(qrTexto, { x: xQr, y: yQr - 12, size: 9, font: fuenteBold, color: colorPrimario });
+    // Folio impreso debajo del QR (sin invadir el quiet-zone)
+    page.drawText(qrTexto, { x: xQr, y: yQr - 14, size: 9, font: fuenteBold, color: colorPrimario });
 
-    // Logos opcionales
-    const logoMaxH = esPrimera ? 44 : 34;
-    if (logos.izquierda) {
-      const escala = Math.min(1, logoMaxH / Math.max(1, logos.izquierda.height));
-      const w = logos.izquierda.width * escala;
-      const h = logos.izquierda.height * escala;
-      page.drawImage(logos.izquierda.image, { x: margen + 8, y: yTop - h - 8, width: w, height: h });
-    }
-    if (logos.derecha) {
-      const escala = Math.min(1, logoMaxH / Math.max(1, logos.derecha.height));
-      const w = logos.derecha.width * escala;
-      const h = logos.derecha.height * escala;
-      // Intenta colocar a la izquierda del QR sin invadir el area
-      const xMax = xQr - 10;
-      const x = Math.max(margen + 8, xMax - w);
-      if (x + w <= xMax) {
-        page.drawImage(logos.derecha.image, { x, y: yTop - h - 8, width: w, height: h });
-      }
-    }
+    // Numero de pagina discreto (no es encabezado): pie.
+    page.drawText(`Pagina ${numeroPagina} de ${paginasObjetivo}`, {
+      x: ANCHO_CARTA - margen - 120,
+      y: margen - 16,
+      size: 8.5,
+      font: fuente,
+      color: colorGris
+    });
 
-    // Texto del encabezado
-    const xTexto = margen + 70;
+    // Logos SOLO en primera pagina.
     if (esPrimera) {
-      // Reservar placeholders de logo si no hay imagen para evitar "huecos" y mantener consistencia visual.
-      const logoPlaceholderW = 56;
-      const logoPlaceholderH = 36;
-      if (!logos.izquierda) {
-        page.drawRectangle({ x: margen + 8, y: yTop - logoPlaceholderH - 8, width: logoPlaceholderW, height: logoPlaceholderH, borderWidth: 1, borderColor: colorLinea, color: rgb(1, 1, 1) });
-        page.drawText('LOGO', { x: margen + 18, y: yTop - 30, size: 9, font: fuenteBold, color: colorGris });
+      const logoMaxH = 44;
+      if (logos.izquierda) {
+        const escala = Math.min(1, logoMaxH / Math.max(1, logos.izquierda.height));
+        const w = logos.izquierda.width * escala;
+        const h = logos.izquierda.height * escala;
+        page.drawImage(logos.izquierda.image, { x: margen + 10, y: yTop - h - 12, width: w, height: h });
       }
-      if (!logos.derecha) {
-        const xMax = xQr - 10;
-        const x = Math.max(margen + 8, xMax - logoPlaceholderW);
-        if (x + logoPlaceholderW <= xMax) {
-          page.drawRectangle({ x, y: yTop - logoPlaceholderH - 8, width: logoPlaceholderW, height: logoPlaceholderH, borderWidth: 1, borderColor: colorLinea, color: rgb(1, 1, 1) });
-          page.drawText('LOGO', { x: x + 10, y: yTop - 30, size: 9, font: fuenteBold, color: colorGris });
+      if (logos.derecha) {
+        const escala = Math.min(1, logoMaxH / Math.max(1, logos.derecha.height));
+        const w = logos.derecha.width * escala;
+        const h = logos.derecha.height * escala;
+        // Coloca a la izquierda del QR sin invadirlo.
+        const xMax = xQr - (qrPadding + 10);
+        const x = Math.max(margen + 10, xMax - w);
+        if (x + w <= xMax) {
+          page.drawImage(logos.derecha.image, { x, y: yTop - h - 12, width: w, height: h });
         }
       }
+    }
 
-      const maxWidthEnc = Math.max(120, xQr - 12 - xTexto);
-      const lineasInsti = partirEnLineas({ texto: institucion, maxWidth: maxWidthEnc, font: fuenteBold, size: 12 });
-      page.drawText(lineasInsti[0] ?? '', { x: xTexto, y: yTop - 22, size: 12, font: fuenteBold, color: colorPrimario });
+    // Texto del encabezado (solo primera pagina, centrado y limpio).
+    const xTexto = margen + 70;
+    if (esPrimera) {
+      const xMaxEnc = xQr - 12;
+      const maxWidthEnc = Math.max(160, xMaxEnc - xTexto);
 
-      const lineasTitulo = partirEnLineas({ texto: titulo, maxWidth: maxWidthEnc, font: fuenteBold, size: sizeTitulo });
-      page.drawText(lineasTitulo[0] ?? '', { x: xTexto, y: yTop - 42, size: sizeTitulo, font: fuenteBold, color: rgb(0.1, 0.1, 0.1) });
-      if (lema) {
-        const lineasLema = partirEnLineas({ texto: lema, maxWidth: maxWidthEnc, font: fuenteItalica, size: 9 });
-        page.drawText(lineasLema[0] ?? '', { x: xTexto, y: yTop - 58, size: 9, font: fuenteItalica, color: colorGris });
+      const insti = (partirEnLineas({ texto: institucion, maxWidth: maxWidthEnc, font: fuenteBold, size: 12 })[0] ?? '').trim();
+      const tit = (partirEnLineas({ texto: titulo, maxWidth: maxWidthEnc, font: fuenteBold, size: sizeTitulo })[0] ?? '').trim();
+      const lem = lema ? (partirEnLineas({ texto: lema, maxWidth: maxWidthEnc, font: fuenteItalica, size: 9 })[0] ?? '').trim() : '';
+
+      const yInsti = yTop - 24;
+      page.drawText(insti, { x: xTexto, y: yInsti, size: 12, font: fuenteBold, color: colorPrimario });
+      page.drawText(tit, { x: xTexto, y: yInsti - 20, size: sizeTitulo, font: fuenteBold, color: rgb(0.08, 0.08, 0.08) });
+      if (lem) {
+        page.drawText(lem, { x: xTexto, y: yInsti - 36, size: 9, font: fuenteItalica, color: colorGris });
       }
 
-      const metaY = yTop - 70;
-      const meta = [materia ? `Materia: ${materia}` : '', docente ? `Docente: ${docente}` : '', `Pagina: ${numeroPagina}`].filter(Boolean).join('   |   ');
+      const metaY = yTop - 72;
+      const meta = [materia ? `Materia: ${materia}` : '', docente ? `Docente: ${docente}` : ''].filter(Boolean).join('   |   ');
       const metaLineas = partirEnLineas({ texto: meta, maxWidth: maxWidthEnc, font: fuente, size: sizeMeta });
-      page.drawText(metaLineas[0] ?? '', { x: xTexto, y: metaY, size: sizeMeta, font: fuente, color: colorGris });
+      if (metaLineas[0]) page.drawText(metaLineas[0], { x: xTexto, y: metaY, size: sizeMeta, font: fuente, color: colorGris });
 
-      // Campos de alumno/grupo (subidos un poco para no chocar con instrucciones)
+      // Campos alumno/grupo
       const yCampos = metaY - 12;
       page.drawText('Alumno:', { x: xTexto, y: yCampos, size: 10, font: fuenteBold, color: rgb(0.15, 0.15, 0.15) });
       page.drawLine({ start: { x: xTexto + 52, y: yCampos + 3 }, end: { x: xTexto + 300, y: yCampos + 3 }, color: colorLinea, thickness: 1 });
@@ -626,44 +664,13 @@ export async function generarPdfExamen({
         const grupoLinea = partirEnLineas({ texto: alumnoGrupo, maxWidth: 100, font: fuente, size: 10 })[0] ?? '';
         page.drawText(grupoLinea, { x: xTexto + 370, y: yCampos, size: 10, font: fuente, color: rgb(0.1, 0.1, 0.1) });
       }
-
-      if (mostrarInstrucciones) {
-        const xInst = margen + 10;
-        const wInst = Math.min(420, xDerechaTexto - xInst - 10);
-        const textoInst = instrucciones;
-        const lineasInst = partirEnLineas({ texto: textoInst, maxWidth: wInst - 16, font: fuente, size: 8 });
-        const yInst = yCaja + 6;
-
-        // No permitir que la caja invada el area de Alumno/Grupo.
-        const espacioDisponible = yCampos - 6 - yInst;
-        if (espacioDisponible >= 18) {
-          const maxH = espacioDisponible;
-          const hDeseada = Math.max(18, 22 + lineasInst.length * 9.5);
-          const hInst = Math.min(maxH, hDeseada);
-
-          // Recortar lineas para que quepan.
-          const lineasMax = Math.max(1, Math.floor((hInst - 22) / 9.5));
-          const lineasVisibles = lineasInst.slice(0, Math.min(3, lineasMax));
-
-          page.drawRectangle({ x: xInst, y: yInst, width: wInst, height: hInst, borderWidth: 1, borderColor: colorLinea, color: rgb(1, 1, 1) });
-          page.drawText('Instrucciones:', { x: xInst + 8, y: yInst + hInst - 14, size: 8.5, font: fuenteBold, color: colorPrimario });
-          // Texto debajo del label
-          let yTexto = yInst + hInst - 24;
-          for (const linea of lineasVisibles) {
-            page.drawText(linea, { x: xInst + 8, y: yTexto, size: 8, font: fuente, color: colorGris });
-            yTexto -= 9.5;
-            if (yTexto < yInst + 6) break;
-          }
-        }
-      }
-    } else {
-      page.drawText(titulo, { x: margen + 10, y: yTop - 26, size: 12, font: fuenteBold, color: colorPrimario });
-      const meta = [`Pagina: ${numeroPagina}`, materia ? `Materia: ${materia}` : ''].filter(Boolean).join('   |   ');
-      page.drawText(meta, { x: margen + 10, y: yTop - 42, size: 9, font: fuente, color: colorGris });
     }
 
-  const cursorYInicio = yTop - altoEncabezado - 10;
-  let cursorY = cursorYInicio;
+    // Zona segura inferior del QR (incluye folio debajo).
+    const yZonaSeguraQr = yQr - 28;
+    const altoZonaSuperior = esPrimera ? altoEncabezado : yTop - yZonaSeguraQr;
+    const cursorYInicio = yTop - altoZonaSuperior - 10;
+    let cursorY = cursorYInicio;
 
   const alturaDisponibleMin = margen + 60;
 
@@ -723,6 +730,38 @@ export async function generarPdfExamen({
       return alto;
     };
 
+    // Indicaciones completas antes de la primera pregunta (pueden fluir a la pagina 2..N).
+    if (indicacionesPendientes && cursorY > alturaDisponibleMin + 40) {
+      const xInd = margen + 10;
+      const yTopInd = cursorY;
+      const wInd = Math.min(ANCHO_CARTA - margen - xInd - (anchoColRespuesta + gutterRespuesta), maxWidthIndicaciones + 20);
+
+      // Cuantas lineas caben en esta pagina.
+      const hDisponible = yTopInd - (alturaDisponibleMin + 10);
+      const hMin = 28;
+      const hMax = Math.max(hMin, hDisponible);
+      const lineasMax = Math.max(1, Math.floor((hMax - 24) / lineaIndicaciones));
+
+      const lineas = lineasIndicaciones.slice(indiceLineaIndicaciones, indiceLineaIndicaciones + lineasMax);
+      const hCaja = Math.max(hMin, 20 + lineas.length * lineaIndicaciones);
+
+      page.drawRectangle({ x: xInd, y: yTopInd - hCaja, width: wInd, height: hCaja, borderWidth: 1, borderColor: colorLinea, color: rgb(1, 1, 1) });
+      page.drawRectangle({ x: xInd, y: yTopInd - 6, width: wInd, height: 3, color: colorPrimario });
+      page.drawText('Indicaciones', { x: xInd + 8, y: yTopInd - 18, size: 10, font: fuenteBold, color: colorPrimario });
+
+      let yLinea = yTopInd - 30;
+      for (const linea of lineas) {
+        page.drawText(linea, { x: xInd + 8, y: yLinea, size: sizeIndicaciones, font: fuente, color: rgb(0.1, 0.1, 0.1) });
+        yLinea -= lineaIndicaciones;
+        if (yLinea < yTopInd - hCaja + 8) break;
+      }
+
+      indiceLineaIndicaciones += lineas.length;
+      indicacionesPendientes = indiceLineaIndicaciones < lineasIndicaciones.length;
+
+      cursorY = yTopInd - hCaja - 10;
+    }
+
     while (indicePregunta < preguntasOrdenadas.length && cursorY > alturaDisponibleMin) {
       const pregunta = preguntasOrdenadas[indicePregunta];
       const numero = indicePregunta + 1;
@@ -733,8 +772,15 @@ export async function generarPdfExamen({
       if (!preguntasDel) preguntasDel = numero;
       preguntasAl = numero;
 
-      // Numero + enunciado con wrap (el numero se dibuja aparte para alinear correctamente).
-      page.drawText(`${numero}.`, { x: xNumeroPregunta, y: cursorY, size: sizePregunta, font: fuenteBold, color: rgb(0.15, 0.15, 0.15) });
+      // Numero de pregunta en recuadro.
+      const textoNumero = String(numero);
+      const wNum = 18;
+      const hNum = 14;
+      const xNum = xNumeroPregunta;
+      const yNum = cursorY - 1;
+      page.drawRectangle({ x: xNum, y: yNum, width: wNum, height: hNum, borderWidth: 1, borderColor: colorLinea, color: rgb(1, 1, 1) });
+      const sizeNum = textoNumero.length >= 3 ? 8 : 9;
+      page.drawText(textoNumero, { x: xNum + 5, y: yNum + 3.2, size: sizeNum, font: fuenteBold, color: colorPrimario });
       const lineasEnunciado = envolverTextoMixto({
         texto: pregunta.enunciado,
         maxWidth: anchoTextoPregunta,
@@ -811,7 +857,12 @@ export async function generarPdfExamen({
       const hCaja = Math.max(40, top - bottom);
 
       page.drawRectangle({ x: xColRespuesta, y: bottom, width: anchoColRespuesta, height: hCaja, borderWidth: 1, borderColor: colorLinea, color: rgb(1, 1, 1) });
-      page.drawText('RESPUESTA', { x: xColRespuesta + omrPadding, y: top - 14, size: 9, font: fuenteBold, color: colorPrimario });
+      // Etiqueta con numero de pregunta (recuadro).
+      const hTag = 16;
+      const wTag = 44;
+      page.drawRectangle({ x: xColRespuesta, y: top - hTag - 2, width: wTag, height: hTag, color: colorPrimario });
+      page.drawText(`#${numero}`, { x: xColRespuesta + 8, y: top - hTag + 2, size: 9, font: fuenteBold, color: rgb(1, 1, 1) });
+      page.drawText('RESPUESTA', { x: xColRespuesta + wTag + 8, y: top - 14, size: 9, font: fuenteBold, color: colorPrimario });
 
       const xBurbuja = xColRespuesta + omrPadding + 8;
       for (let i = 0; i < letras.length; i += 1) {

@@ -14,7 +14,15 @@ const DocenteSchema = new Schema(
     googleSub: { type: String },
     roles: { type: [String], default: [] },
     activo: { type: Boolean, default: true },
-    ultimoAcceso: { type: Date }
+    ultimoAcceso: { type: Date },
+    preferenciasPdf: {
+      institucion: { type: String },
+      lema: { type: String },
+      logos: {
+        izquierdaPath: { type: String },
+        derechaPath: { type: String }
+      }
+    }
   },
   { timestamps: true, collection: 'docentes' }
 );

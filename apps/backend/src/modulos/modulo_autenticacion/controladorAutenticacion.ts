@@ -315,7 +315,57 @@ export async function perfilDocente(req: SolicitudDocente, res: Response) {
       nombreCompleto: docente.nombreCompleto,
       correo: docente.correo,
       tieneContrasena: Boolean(docente.hashContrasena),
-      tieneGoogle: Boolean(docente.googleSub)
+      tieneGoogle: Boolean(docente.googleSub),
+      preferenciasPdf: {
+        institucion: String((docente as unknown as { preferenciasPdf?: { institucion?: unknown } })?.preferenciasPdf?.institucion ?? '').trim() || undefined,
+        lema: String((docente as unknown as { preferenciasPdf?: { lema?: unknown } })?.preferenciasPdf?.lema ?? '').trim() || undefined,
+        logos: {
+          izquierdaPath:
+            String((docente as unknown as { preferenciasPdf?: { logos?: { izquierdaPath?: unknown } } })?.preferenciasPdf?.logos?.izquierdaPath ?? '').trim() ||
+            undefined,
+          derechaPath:
+            String((docente as unknown as { preferenciasPdf?: { logos?: { derechaPath?: unknown } } })?.preferenciasPdf?.logos?.derechaPath ?? '').trim() ||
+            undefined
+        }
+      }
+    }
+  });
+}
+
+export async function actualizarPreferenciasPdfDocente(req: SolicitudDocente, res: Response) {
+  const docenteId = obtenerDocenteId(req);
+  const body = req.body as { institucion?: unknown; lema?: unknown; logos?: { izquierdaPath?: unknown; derechaPath?: unknown } };
+
+  const set: Record<string, unknown> = {};
+  if (typeof body.institucion === 'string') set['preferenciasPdf.institucion'] = body.institucion.trim();
+  if (typeof body.lema === 'string') set['preferenciasPdf.lema'] = body.lema.trim();
+  if (body.logos && typeof body.logos === 'object') {
+    if (typeof body.logos.izquierdaPath === 'string') set['preferenciasPdf.logos.izquierdaPath'] = body.logos.izquierdaPath.trim();
+    if (typeof body.logos.derechaPath === 'string') set['preferenciasPdf.logos.derechaPath'] = body.logos.derechaPath.trim();
+  }
+
+  const actualizado = await Docente.findOneAndUpdate(
+    { _id: docenteId },
+    { $set: set },
+    { new: true }
+  ).lean();
+
+  if (!actualizado) {
+    throw new ErrorAplicacion('DOCENTE_NO_ENCONTRADO', 'Docente no encontrado', 404);
+  }
+
+  res.json({
+    preferenciasPdf: {
+      institucion: String((actualizado as unknown as { preferenciasPdf?: { institucion?: unknown } })?.preferenciasPdf?.institucion ?? '').trim() || undefined,
+      lema: String((actualizado as unknown as { preferenciasPdf?: { lema?: unknown } })?.preferenciasPdf?.lema ?? '').trim() || undefined,
+      logos: {
+        izquierdaPath:
+          String((actualizado as unknown as { preferenciasPdf?: { logos?: { izquierdaPath?: unknown } } })?.preferenciasPdf?.logos?.izquierdaPath ?? '').trim() ||
+          undefined,
+        derechaPath:
+          String((actualizado as unknown as { preferenciasPdf?: { logos?: { derechaPath?: unknown } } })?.preferenciasPdf?.logos?.derechaPath ?? '').trim() ||
+          undefined
+      }
     }
   });
 }

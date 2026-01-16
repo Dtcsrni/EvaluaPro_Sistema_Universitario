@@ -164,3 +164,19 @@ export const esquemaRecuperarContrasenaGoogle = z.object({
   credential: z.string().min(10),
   contrasenaNueva: z.string().min(8)
 });
+
+export const esquemaActualizarPreferenciasPdf = z
+  .object({
+    institucion: z.string().min(1).max(120).optional(),
+    lema: z.string().min(1).max(160).optional(),
+    logos: z
+      .object({
+        izquierdaPath: z.string().min(1).max(500).optional(),
+        derechaPath: z.string().min(1).max(500).optional()
+      })
+      .optional()
+  })
+  .strict()
+  .refine((data) => Boolean(data.institucion || data.lema || data.logos), {
+    message: 'Nada para actualizar'
+  });

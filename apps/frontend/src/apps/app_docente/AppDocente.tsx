@@ -28,6 +28,11 @@ type Docente = {
   correo: string;
   tieneContrasena?: boolean;
   tieneGoogle?: boolean;
+  preferenciasPdf?: {
+    institucion?: string;
+    lema?: string;
+    logos?: { izquierdaPath?: string; derechaPath?: string };
+  };
 };
 
 type Alumno = {
@@ -554,7 +559,7 @@ export function AppDocente() {
         />
       )}
 
-      {vista === 'cuenta' && <SeccionCuenta docente={docente} />}
+      {vista === 'cuenta' && <SeccionCuenta docente={docente} onDocenteActualizado={setDocente} />}
     </div>
   ) : (
     <SeccionAutenticacion
@@ -1214,13 +1219,18 @@ function SeccionAutenticacion({ onIngresar }: { onIngresar: (token: string) => v
   );
 }
 
-function SeccionCuenta({ docente }: { docente: Docente }) {
+function SeccionCuenta({ docente, onDocenteActualizado }: { docente: Docente; onDocenteActualizado: (d: Docente) => void }) {
   const [contrasenaNueva, setContrasenaNueva] = useState('');
   const [contrasenaNueva2, setContrasenaNueva2] = useState('');
   const [contrasenaActual, setContrasenaActual] = useState('');
   const [credentialReauth, setCredentialReauth] = useState<string | null>(null);
   const [mensaje, setMensaje] = useState('');
   const [guardando, setGuardando] = useState(false);
+
+  const [institucionPdf, setInstitucionPdf] = useState(docente.preferenciasPdf?.institucion ?? '');
+  const [lemaPdf, setLemaPdf] = useState(docente.preferenciasPdf?.lema ?? '');
+  const [logoIzqPdf, setLogoIzqPdf] = useState(docente.preferenciasPdf?.logos?.izquierdaPath ?? '');
+  const [logoDerPdf, setLogoDerPdf] = useState(docente.preferenciasPdf?.logos?.derechaPath ?? '');
 
   const coincide = contrasenaNueva && contrasenaNueva === contrasenaNueva2;
   const requierePwdActual = Boolean(docente.tieneContrasena);
@@ -1267,6 +1277,47 @@ function SeccionCuenta({ docente }: { docente: Docente }) {
     }
   }
 
+  async function guardarPreferenciasPdf() {
+    try {
+      const inicio = Date.now();
+      setGuardando(true);
+      setMensaje('');
+
+      const payload: Record<string, unknown> = {};
+      if (institucionPdf.trim()) payload.institucion = institucionPdf.trim();
+      if (lemaPdf.trim()) payload.lema = lemaPdf.trim();
+      if (logoIzqPdf.trim() || logoDerPdf.trim()) {
+        payload.logos = {
+          ...(logoIzqPdf.trim() ? { izquierdaPath: logoIzqPdf.trim() } : {}),
+          ...(logoDerPdf.trim() ? { derechaPath: logoDerPdf.trim() } : {})
+        };
+      }
+
+      const resp = await clienteApi.enviar<{ preferenciasPdf: Docente['preferenciasPdf'] }>('/autenticacion/preferencias/pdf', payload);
+      onDocenteActualizado({
+        ...docente,
+        preferenciasPdf: resp.preferenciasPdf
+      });
+
+      setMensaje('Preferencias de PDF guardadas');
+      emitToast({ level: 'ok', title: 'PDF', message: 'Preferencias guardadas', durationMs: 2400 });
+      registrarAccionDocente('preferencias_pdf', true, Date.now() - inicio);
+    } catch (error) {
+      const msg = mensajeDeError(error, 'No se pudieron guardar las preferencias de PDF');
+      setMensaje(msg);
+      emitToast({
+        level: 'error',
+        title: 'PDF',
+        message: msg,
+        durationMs: 5200,
+        action: accionToastSesionParaError(error, 'docente')
+      });
+      registrarAccionDocente('preferencias_pdf', false);
+    } finally {
+      setGuardando(false);
+    }
+  }
+
   return (
     <div className="panel">
       <h2>
@@ -1302,6 +1353,56 @@ function SeccionCuenta({ docente }: { docente: Docente }) {
         <span className={docente.tieneContrasena ? 'badge ok' : 'badge'}>
           <span className="dot" aria-hidden="true" /> Contrasena {docente.tieneContrasena ? 'definida' : 'no definida'}
         </span>
+      </div>
+
+      <div className="subpanel">
+        <h3>
+          <Icono nombre="pdf" /> PDF institucional
+        </h3>
+        <AyudaFormulario titulo="Como se usa">
+          <p>
+            Estas preferencias se usan para el <b>encabezado institucional</b> del PDF (solo pagina 1). Si no configuras nada,
+            se usan los defaults del sistema.
+          </p>
+          <ul className="lista">
+            <li>
+              <b>Institucion:</b> ej. Centro Universitario Hidalguense
+            </li>
+            <li>
+              <b>Lema:</b> ej. La sabiduria es nuestra fuerza
+            </li>
+            <li>
+              <b>Logos:</b> ruta relativa (ej. <code>logos/logo_cuh.png</code>) o absoluta.
+            </li>
+          </ul>
+        </AyudaFormulario>
+
+        <label className="campo">
+          Institucion
+          <input value={institucionPdf} onChange={(e) => setInstitucionPdf(e.target.value)} placeholder="Centro Universitario Hidalguense" />
+        </label>
+        <label className="campo">
+          Lema
+          <input value={lemaPdf} onChange={(e) => setLemaPdf(e.target.value)} placeholder="La sabiduria es nuestra fuerza" />
+        </label>
+        <div className="grid grid--2">
+          <label className="campo">
+            Logo izquierda (path)
+            <input value={logoIzqPdf} onChange={(e) => setLogoIzqPdf(e.target.value)} placeholder="logos/logo_cuh.png" />
+          </label>
+          <label className="campo">
+            Logo derecha (path)
+            <input value={logoDerPdf} onChange={(e) => setLogoDerPdf(e.target.value)} placeholder="logos/logo_sys.png" />
+          </label>
+        </div>
+
+        <div className="acciones acciones--mt">
+          <Boton onClick={guardarPreferenciasPdf} disabled={guardando}>
+            Guardar PDF
+          </Boton>
+        </div>
+
+        {mensaje && <InlineMensaje tipo={tipoMensajeInline(mensaje)}>{mensaje}</InlineMensaje>}
       </div>
 
       {Boolean(docente.tieneGoogle && hayGoogleConfigurado()) && (

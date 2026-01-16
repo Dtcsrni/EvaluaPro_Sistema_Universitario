@@ -7,6 +7,7 @@ import { configuracion } from '../../configuracion';
 import { validarCuerpo } from '../../compartido/validaciones/validar';
 import {
 	definirContrasenaDocente,
+	actualizarPreferenciasPdfDocente,
 	ingresarDocente,
 	ingresarDocenteGoogle,
 	perfilDocente,
@@ -19,6 +20,7 @@ import {
 import { requerirDocente } from './middlewareAutenticacion';
 import {
 	esquemaBodyVacioOpcional,
+	esquemaActualizarPreferenciasPdf,
 	esquemaDefinirContrasenaDocente,
 	esquemaIngresarDocente,
 	esquemaIngresarDocenteGoogle,
@@ -81,5 +83,12 @@ router.post(
 	definirContrasenaDocente
 );
 router.get('/perfil', requerirDocente, perfilDocente);
+
+router.post(
+	'/preferencias/pdf',
+	requerirDocente,
+	validarCuerpo(esquemaActualizarPreferenciasPdf, { strict: true }),
+	actualizarPreferenciasPdfDocente
+);
 
 export default router;

@@ -259,7 +259,18 @@ export async function regenerarPdfExamen(req: SolicitudDocente, res: Response) {
     margenMm: (plantilla as unknown as { configuracionPdf?: { margenMm?: number } })?.configuracionPdf?.margenMm ?? 10,
     encabezado: {
       materia: String((periodo as unknown as { nombre?: unknown })?.nombre ?? ''),
-      docente: String((docenteDb as unknown as { nombreCompleto?: unknown })?.nombreCompleto ?? '')
+      docente: String((docenteDb as unknown as { nombreCompleto?: unknown })?.nombreCompleto ?? ''),
+      instrucciones: String((plantilla as unknown as { instrucciones?: unknown })?.instrucciones ?? '').trim() || undefined,
+      institucion: String((docenteDb as unknown as { preferenciasPdf?: { institucion?: unknown } })?.preferenciasPdf?.institucion ?? '').trim() || undefined,
+      lema: String((docenteDb as unknown as { preferenciasPdf?: { lema?: unknown } })?.preferenciasPdf?.lema ?? '').trim() || undefined,
+      logos: {
+        izquierdaPath:
+          String((docenteDb as unknown as { preferenciasPdf?: { logos?: { izquierdaPath?: unknown } } })?.preferenciasPdf?.logos?.izquierdaPath ?? '').trim() ||
+          undefined,
+        derechaPath:
+          String((docenteDb as unknown as { preferenciasPdf?: { logos?: { derechaPath?: unknown } } })?.preferenciasPdf?.logos?.derechaPath ?? '').trim() ||
+          undefined
+      }
     }
   });
 
