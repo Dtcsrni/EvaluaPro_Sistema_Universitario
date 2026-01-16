@@ -222,6 +222,101 @@ export async function eliminarPregunta(req: SolicitudDocente, res: Response) {
 }
 
 /**
+ * Mueve (reasigna) multiples preguntas a otro tema.
+ * Util para "quitar" preguntas de un tema sin borrarlas.
+ */
+export async function moverPreguntasTemaBanco(req: SolicitudDocente, res: Response) {
+  const docenteId = obtenerDocenteId(req);
+  const { periodoId, temaIdDestino, preguntasIds } = req.body as {
+    periodoId?: string;
+    temaIdDestino?: string;
+    preguntasIds?: string[];
+  };
+
+  const periodoIdFinal = String(periodoId ?? '').trim();
+  const temaIdDestinoFinal = String(temaIdDestino ?? '').trim();
+  const ids = Array.isArray(preguntasIds) ? preguntasIds.map((id) => String(id).trim()).filter(Boolean) : [];
+
+  if (!periodoIdFinal) {
+    throw new ErrorAplicacion('PERIODO_REQUERIDO', 'Materia requerida', 400);
+  }
+  if (!temaIdDestinoFinal) {
+    throw new ErrorAplicacion('TEMA_REQUERIDO', 'Tema destino requerido', 400);
+  }
+  if (ids.length === 0) {
+    throw new ErrorAplicacion('PREGUNTAS_REQUERIDAS', 'Debes enviar al menos una pregunta', 400);
+  }
+
+  const materia = await Periodo.findOne({ _id: periodoIdFinal, docenteId }).lean();
+  if (!materia) {
+    throw new ErrorAplicacion('MATERIA_NO_ENCONTRADA', 'Materia no encontrada', 404);
+  }
+
+  const temaDestino = await TemaBanco.findOne({ _id: temaIdDestinoFinal, docenteId, periodoId: periodoIdFinal, activo: true }).lean();
+  if (!temaDestino) {
+    throw new ErrorAplicacion('TEMA_NO_ENCONTRADO', 'Tema destino no encontrado', 404);
+  }
+  const nombreDestino = normalizarTema((temaDestino as unknown as { nombre?: unknown }).nombre);
+
+  const preguntasMover = await BancoPregunta.find({ _id: { $in: ids }, docenteId, periodoId: periodoIdFinal, activo: true })
+    .select({ _id: 1, versiones: 1, versionActual: 1, tema: 1 })
+    .lean();
+
+  if (preguntasMover.length !== ids.length) {
+    throw new ErrorAplicacion('PREGUNTA_NO_ENCONTRADA', 'Alguna pregunta no existe (o no pertenece a esta materia)', 404);
+  }
+
+  // Validar duplicados en destino (y dentro del propio lote)
+  const existentesDestino = await BancoPregunta.find({
+    docenteId,
+    periodoId: periodoIdFinal,
+    tema: nombreDestino,
+    activo: true,
+    _id: { $nin: ids }
+  })
+    .select({ versiones: 1, versionActual: 1 })
+    .lean();
+
+  const enunciadosDestino = new Set<string>();
+  const opcionesDestino = new Set<string>();
+
+  for (const cand of existentesDestino as unknown as BancoPreguntaDoc[]) {
+    const v = obtenerVersionActiva(cand);
+    if (!v) continue;
+    enunciadosDestino.add(normalizarTextoComparable(v.enunciado));
+    opcionesDestino.add(firmaOpciones(v.opciones));
+  }
+
+  const enunciadosLote = new Set<string>();
+  const opcionesLote = new Set<string>();
+
+  for (const cand of preguntasMover as unknown as BancoPreguntaDoc[]) {
+    const v = obtenerVersionActiva(cand);
+    if (!v) continue;
+
+    const enunciadoN = normalizarTextoComparable(v.enunciado);
+    const firma = firmaOpciones(v.opciones);
+
+    if (enunciadosDestino.has(enunciadoN) || enunciadosLote.has(enunciadoN)) {
+      throw new ErrorAplicacion('PREGUNTA_DUPLICADA', 'Ya existe una pregunta con ese enunciado en el tema destino', 409);
+    }
+    if (opcionesDestino.has(firma) || opcionesLote.has(firma)) {
+      throw new ErrorAplicacion('RESPUESTAS_DUPLICADAS', 'Ya existe una pregunta con las mismas opciones en el tema destino', 409);
+    }
+
+    enunciadosLote.add(enunciadoN);
+    opcionesLote.add(firma);
+  }
+
+  const resultado = await BancoPregunta.updateMany(
+    { _id: { $in: ids }, docenteId, periodoId: periodoIdFinal, activo: true },
+    { $set: { tema: nombreDestino } }
+  );
+
+  res.json({ movidas: Number((resultado as unknown as { modifiedCount?: number }).modifiedCount ?? 0) });
+}
+
+/**
  * Lista temas del banco para una materia.
  */
 export async function listarTemasBanco(req: SolicitudDocente, res: Response) {

@@ -468,6 +468,57 @@ p {
   color: #111827;
 }
 
+.ajuste-tema {
+  margin-top: 10px;
+}
+
+.ajuste-controles {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  align-items: flex-end;
+}
+
+.ajuste-campo {
+  margin: 0;
+}
+
+.ajuste-campo--paginas {
+  min-width: 220px;
+}
+
+.ajuste-campo--tema {
+  min-width: 260px;
+}
+
+.ajuste-meta {
+  margin-top: 6px;
+}
+
+.ajuste-ayuda {
+  margin-top: 6px;
+}
+
+.ajuste-scroll {
+  margin-top: 8px;
+  max-height: 220px;
+  overflow: auto;
+  border: 1px solid var(--borde);
+  border-radius: 12px;
+  padding: 0.5rem;
+  background: rgba(255, 255, 255, 0.55);
+}
+
+.ajuste-check {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+}
+
+.ajuste-acciones {
+  margin-top: 10px;
+}
+
 .boton {
   border: none;
   border-radius: 12px;

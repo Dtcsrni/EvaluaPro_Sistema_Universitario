@@ -70,3 +70,11 @@ export const esquemaActualizarTemaBanco = z
     nombre: z.string().min(1)
   })
   .strict();
+
+export const esquemaMoverPreguntasTemaBanco = z
+  .object({
+    periodoId: esquemaObjectId,
+    temaIdDestino: esquemaObjectId,
+    preguntasIds: z.array(esquemaObjectId).min(1)
+  })
+  .strict();

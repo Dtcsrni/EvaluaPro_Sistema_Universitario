@@ -1479,6 +1479,12 @@ function SeccionBanco({
   const [temasAbierto, setTemasAbierto] = useState(true);
   const temasPrevLenRef = useRef(0);
 
+  const [ajusteTemaId, setAjusteTemaId] = useState<string | null>(null);
+  const [ajustePaginasObjetivo, setAjustePaginasObjetivo] = useState<number>(1);
+  const [ajusteTemaDestinoId, setAjusteTemaDestinoId] = useState<string>('');
+  const [ajusteSeleccion, setAjusteSeleccion] = useState<Set<string>>(new Set());
+  const [moviendoTema, setMoviendoTema] = useState(false);
+
   useEffect(() => {
     if (periodoId) return;
     if (!Array.isArray(periodos) || periodos.length === 0) return;
@@ -1565,6 +1571,145 @@ function SeccionBanco({
     }
     return mapa;
   }, [preguntasMateria]);
+
+  function estimarAltoPregunta(pregunta: Pregunta): number {
+    const ALTO_CARTA = 792;
+    const mmAPuntos = (mm: number) => mm * (72 / 25.4);
+    const margen = mmAPuntos(10);
+    const ANCHO_CARTA = 612;
+
+    const sizePregunta = 11;
+    const sizeOpcion = 10;
+    const sizeNota = 9;
+    const lineaPregunta = 13;
+    const lineaOpcion = 12;
+    const lineaNota = 12;
+    const separacionPregunta = 6;
+
+    const xTextoPregunta = margen + 18;
+    const xTextoOpcion = margen + 32;
+    const anchoTextoPregunta = ANCHO_CARTA - margen - xTextoPregunta;
+    const anchoTextoOpcion = ANCHO_CARTA - margen - xTextoOpcion;
+
+    function estimarLineasPorAncho(texto: string, maxWidthPts: number, fontSize: number): number {
+      const limpio = String(texto ?? '').trim().replace(/\s+/g, ' ');
+      if (!limpio) return 1;
+      const charWidth = fontSize * 0.52;
+      const maxChars = Math.max(10, Math.floor(maxWidthPts / charWidth));
+      const palabras = limpio.split(' ');
+
+      let lineas = 1;
+      let actual = '';
+      for (const palabra of palabras) {
+        const candidato = actual ? `${actual} ${palabra}` : palabra;
+        if (candidato.length <= maxChars) {
+          actual = candidato;
+          continue;
+        }
+        if (!actual) {
+          const trozos = Math.ceil(palabra.length / maxChars);
+          lineas += Math.max(0, trozos - 1);
+          actual = palabra.slice((trozos - 1) * maxChars);
+        } else {
+          lineas += 1;
+          actual = palabra;
+        }
+      }
+      return Math.max(1, lineas);
+    }
+
+    const version = obtenerVersionPregunta(pregunta);
+    const tieneImagen = Boolean(String(version?.imagenUrl ?? '').trim());
+    const lineasEnunciado = estimarLineasPorAncho(String(version?.enunciado ?? ''), anchoTextoPregunta, sizePregunta);
+    let altoNecesario = lineasEnunciado * lineaPregunta;
+    if (tieneImagen) altoNecesario += lineaNota;
+
+    const opcionesActuales = Array.isArray(version?.opciones) ? version!.opciones : [];
+    const opciones = opcionesActuales.length === 5 ? opcionesActuales : [];
+    for (const opcion of opciones) {
+      altoNecesario += estimarLineasPorAncho(String(opcion?.texto ?? ''), anchoTextoOpcion, sizeOpcion) * lineaOpcion;
+    }
+    altoNecesario += separacionPregunta + 4;
+
+    // Evitar alturas absurdamente chicas
+    return Math.max(sizeNota + 10, altoNecesario);
+  }
+
+  const preguntasPorTemaId = useMemo(() => {
+    const mapa = new Map<string, Pregunta[]>();
+    const temas = Array.isArray(temasBanco) ? temasBanco : [];
+    const porNombre = new Map<string, string>();
+    for (const t of temas) porNombre.set(normalizarNombreTema(t.nombre).toLowerCase(), t._id);
+
+    for (const pregunta of preguntasMateria) {
+      const nombre = normalizarNombreTema(pregunta.tema);
+      if (!nombre) continue;
+      const id = porNombre.get(nombre.toLowerCase());
+      if (!id) continue;
+      const arr = mapa.get(id);
+      if (arr) arr.push(pregunta);
+      else mapa.set(id, [pregunta]);
+    }
+
+    return mapa;
+  }, [preguntasMateria, temasBanco]);
+
+  function sugerirPreguntasARecortar(preguntasTema: Pregunta[], paginasObjetivo: number): string[] {
+    const objetivo = Math.max(1, Math.floor(Number(paginasObjetivo) || 1));
+    const orden = [...(Array.isArray(preguntasTema) ? preguntasTema : [])];
+    // La lista ya viene en orden reciente -> antiguo; recortamos de abajo (antiguas) para no tocar lo ultimo agregado.
+    const seleccion: string[] = [];
+    let paginas = estimarPaginasParaPreguntas(orden);
+    while (orden.length > 0 && paginas > objetivo) {
+      const quitada = orden.pop();
+      if (!quitada) break;
+      seleccion.push(quitada._id);
+      paginas = estimarPaginasParaPreguntas(orden);
+    }
+    return seleccion;
+  }
+
+  function abrirAjusteTema(t: TemaBanco) {
+    const id = t._id;
+    const key = normalizarNombreTema(t.nombre).toLowerCase();
+    const actuales = paginasPorTema.get(key) ?? 1;
+    setAjusteTemaId(id);
+    setAjustePaginasObjetivo(Math.max(1, Number(actuales || 1)));
+    setAjusteSeleccion(new Set());
+    setAjusteTemaDestinoId('');
+  }
+
+  function cerrarAjusteTema() {
+    setAjusteTemaId(null);
+    setAjusteSeleccion(new Set());
+    setAjusteTemaDestinoId('');
+  }
+
+  async function moverSeleccionATema() {
+    if (!periodoId) return;
+    if (!ajusteTemaId) return;
+    if (!ajusteTemaDestinoId) return;
+    const ids = Array.from(ajusteSeleccion);
+    if (ids.length === 0) return;
+    try {
+      setMoviendoTema(true);
+      setMensaje('');
+      await clienteApi.enviar('/banco-preguntas/mover-tema', {
+        periodoId,
+        temaIdDestino: ajusteTemaDestinoId,
+        preguntasIds: ids
+      });
+      emitToast({ level: 'ok', title: 'Banco', message: `Movidas ${ids.length} preguntas`, durationMs: 2200 });
+      cerrarAjusteTema();
+      onRefrescar();
+    } catch (error) {
+      const msg = mensajeDeError(error, 'No se pudieron mover las preguntas');
+      setMensaje(msg);
+      emitToast({ level: 'error', title: 'No se pudo mover', message: msg, durationMs: 5200, action: accionToastSesionParaError(error, 'docente') });
+    } finally {
+      setMoviendoTema(false);
+    }
+  }
 
   const temaPorDefecto = useMemo(() => {
     const lista = Array.isArray(temasBanco) ? temasBanco : [];
@@ -1917,6 +2062,9 @@ function SeccionBanco({
                       </>
                     ) : (
                       <>
+                        <Boton type="button" variante="secundario" onClick={() => abrirAjusteTema(t)}>
+                          Ajustar paginas
+                        </Boton>
                         <Boton type="button" variante="secundario" onClick={() => iniciarEdicionTema(t)}>
                           Renombrar
                         </Boton>
@@ -1927,6 +2075,126 @@ function SeccionBanco({
                     )}
                   </div>
                 </div>
+
+                {ajusteTemaId === t._id && (
+                  <div className="ajuste-tema">
+                    <div className="ayuda">
+                      Objetivo: reducir este tema a un numero de paginas estimado. Sugerencia: mueve preguntas a un tema "extra".
+                    </div>
+                    <div className="ajuste-controles">
+                      <label className="campo ajuste-campo ajuste-campo--paginas">
+                        Paginas objetivo
+                        <input
+                          type="number"
+                          min={1}
+                          value={String(ajustePaginasObjetivo)}
+                          onChange={(event) => setAjustePaginasObjetivo(Math.max(1, Number(event.target.value || 1)))}
+                        />
+                      </label>
+                      <label className="campo ajuste-campo ajuste-campo--tema">
+                        Tema destino
+                        <select value={ajusteTemaDestinoId} onChange={(event) => setAjusteTemaDestinoId(event.target.value)}>
+                          <option value="">Selecciona</option>
+                          {temasBanco
+                            .filter((x) => x._id !== t._id)
+                            .map((x) => (
+                              <option key={x._id} value={x._id}>
+                                {x.nombre}
+                              </option>
+                            ))}
+                        </select>
+                      </label>
+
+                      <Boton
+                        type="button"
+                        variante="secundario"
+                        disabled={!ajusteTemaId}
+                        onClick={() => {
+                          const preguntasTema = preguntasPorTemaId.get(t._id) ?? [];
+                          const sugeridas = sugerirPreguntasARecortar(preguntasTema, ajustePaginasObjetivo);
+                          setAjusteSeleccion(new Set(sugeridas));
+                        }}
+                      >
+                        Sugerir
+                      </Boton>
+                      <Boton type="button" variante="secundario" onClick={() => setAjusteSeleccion(new Set())}>
+                        Limpiar
+                      </Boton>
+                      <Boton type="button" variante="secundario" onClick={cerrarAjusteTema}>
+                        Cerrar
+                      </Boton>
+                    </div>
+
+                    {(() => {
+                      const preguntasTema = preguntasPorTemaId.get(t._id) ?? [];
+                      const actuales = paginasPorTema.get(normalizarNombreTema(t.nombre).toLowerCase()) ?? 0;
+                      const objetivo = Math.max(1, Math.floor(Number(ajustePaginasObjetivo) || 1));
+                      const seleccion = ajusteSeleccion;
+                      const seleccionadas = preguntasTema.filter((p) => seleccion.has(p._id));
+                      const restantes = preguntasTema.filter((p) => !seleccion.has(p._id));
+                      const paginasRestantes = restantes.length ? estimarPaginasParaPreguntas(restantes) : 0;
+                      const altoSeleccion = seleccionadas.reduce((acc, p) => acc + estimarAltoPregunta(p), 0);
+                      const texto =
+                        actuales && objetivo
+                          ? `Actual: ${actuales} pag. | Objetivo: ${objetivo} pag. | Quedaria: ${paginasRestantes} pag.`
+                          : '';
+
+                      return (
+                        <>
+                          <div className="item-meta ajuste-meta">
+                            <span>{texto}</span>
+                            <span>
+                              Seleccionadas: {seleccionadas.length} (peso aprox: {Math.round(altoSeleccion)}pt)
+                            </span>
+                          </div>
+                          <div className="ayuda ajuste-ayuda">
+                            Marca manualmente o usa “Sugerir”. Se recortan preguntas antiguas primero.
+                          </div>
+                          <div className="ajuste-scroll">
+                            <ul className="lista">
+                              {preguntasTema.length === 0 && <li>No hay preguntas en este tema.</li>}
+                              {preguntasTema.map((p) => {
+                                const version = obtenerVersionPregunta(p);
+                                const marcado = ajusteSeleccion.has(p._id);
+                                const titulo = String(version?.enunciado ?? 'Pregunta').slice(0, 120);
+                                return (
+                                  <li key={p._id}>
+                                    <label className="ajuste-check">
+                                      <input
+                                        type="checkbox"
+                                        checked={marcado}
+                                        onChange={() => {
+                                          setAjusteSeleccion((prev) => {
+                                            const next = new Set(prev);
+                                            if (next.has(p._id)) next.delete(p._id);
+                                            else next.add(p._id);
+                                            return next;
+                                          });
+                                        }}
+                                      />
+                                      <span>{titulo}</span>
+                                    </label>
+                                  </li>
+                                );
+                              })}
+                            </ul>
+                          </div>
+                          <div className="acciones ajuste-acciones">
+                            <Boton
+                              type="button"
+                              icono={<Icono nombre="ok" />}
+                              cargando={moviendoTema}
+                              disabled={!ajusteTemaDestinoId || ajusteSeleccion.size === 0}
+                              onClick={moverSeleccionATema}
+                            >
+                              {moviendoTema ? 'Moviendo…' : 'Mover seleccionadas'}
+                            </Boton>
+                          </div>
+                        </>
+                      );
+                    })()}
+                  </div>
+                )}
               </div>
             </li>
           ))}

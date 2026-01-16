@@ -10,6 +10,7 @@ import {
 	crearPregunta,
 	eliminarTemaBanco,
 	eliminarPregunta,
+	moverPreguntasTemaBanco,
 	listarTemasBanco,
 	listarBancoPreguntas
 } from './controladorBancoPreguntas';
@@ -17,7 +18,8 @@ import {
 	esquemaActualizarPregunta,
 	esquemaActualizarTemaBanco,
 	esquemaCrearTemaBanco,
-	esquemaCrearPregunta
+	esquemaCrearPregunta,
+	esquemaMoverPreguntasTemaBanco
 } from './validacionesBancoPreguntas';
 
 const router = Router();
@@ -31,6 +33,7 @@ router.delete('/temas/:temaId', eliminarTemaBanco);
 
 router.post('/', validarCuerpo(esquemaCrearPregunta, { strict: true }), crearPregunta);
 router.post('/:preguntaId/actualizar', validarCuerpo(esquemaActualizarPregunta, { strict: true }), actualizarPregunta);
+router.post('/mover-tema', validarCuerpo(esquemaMoverPreguntasTemaBanco, { strict: true }), moverPreguntasTemaBanco);
 router.delete('/:preguntaId', eliminarPregunta);
 
 export default router;
