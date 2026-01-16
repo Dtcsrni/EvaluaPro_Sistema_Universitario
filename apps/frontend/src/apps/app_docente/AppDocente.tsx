@@ -1529,6 +1529,13 @@ function SeccionPeriodos({
     return d.toLocaleDateString();
   }
 
+  function formatearIdMateria(id?: string) {
+    const valor = String(id || '').trim();
+    if (!valor) return '-';
+    if (valor.length <= 8) return valor;
+    return valor.slice(-8);
+  }
+
   function normalizarNombreMateria(valor: string): string {
     return String(valor || '')
       .trim()
@@ -1715,7 +1722,8 @@ function SeccionPeriodos({
           <li key={periodo._id}>
             <span className="item-principal">{periodo.nombre}</span>
             <div className="ayuda">
-              Inicio: {formatearFecha(periodo.fechaInicio)} · Fin: {formatearFecha(periodo.fechaFin)}
+              ID: <span title={periodo._id}>{formatearIdMateria(periodo._id)}</span> · Inicio: {formatearFecha(periodo.fechaInicio)} · Fin:{' '}
+              {formatearFecha(periodo.fechaFin)}
               {Array.isArray(periodo.grupos) && periodo.grupos.length > 0 ? ` · Grupos: ${periodo.grupos.join(', ')}` : ''}
             </div>
             <Boton
@@ -1759,6 +1767,13 @@ function SeccionPeriodosArchivados({
     const d = new Date(valor);
     if (Number.isNaN(d.getTime())) return String(valor);
     return d.toLocaleString();
+  }
+
+  function formatearIdMateria(id?: string) {
+    const valor = String(id || '').trim();
+    if (!valor) return '-';
+    if (valor.length <= 8) return valor;
+    return valor.slice(-8);
   }
 
   async function borrarMateria(periodo: Periodo) {
@@ -1828,7 +1843,8 @@ function SeccionPeriodosArchivados({
             <li key={periodo._id}>
               <span className="item-principal">{periodo.nombre}</span>
               <div className="ayuda">
-                Creada: {formatearFechaHora(periodo.createdAt)} · Archivada: {formatearFechaHora(periodo.archivadoEn)}
+                ID: <span title={periodo._id}>{formatearIdMateria(periodo._id)}</span> · Creada: {formatearFechaHora(periodo.createdAt)} ·
+                Archivada: {formatearFechaHora(periodo.archivadoEn)}
               </div>
               {periodo.resumenArchivado && (
                 <div className="ayuda">
