@@ -206,9 +206,7 @@ export function AppAlumno() {
             placeholder="ABC123"
             autoComplete="one-time-code"
             inputMode="text"
-            error={
-              !codigoValido && codigo.trim() ? 'Usa 4-12 caracteres alfanumericos.' : undefined
-            }
+            error={!codigoValido && codigo.trim() ? 'Usa 4-12 caracteres alfanumericos.' : undefined}
           />
           <CampoTexto
             etiqueta="Matricula"
@@ -217,11 +215,11 @@ export function AppAlumno() {
             placeholder="2024-001"
             autoComplete="username"
             inputMode="text"
-            error={
-              !matriculaValida && matricula.trim() ? 'Usa 3-20 caracteres (letras/numeros/guion).' : undefined
-            }
+            error={!matriculaValida && matricula.trim() ? 'Usa 3-20 caracteres (letras/numeros/guion).' : undefined}
           />
-          <p className="nota">Si no ves resultados tras ingresar, intenta &quot;Recargar&quot;. Si el codigo expiro, solicita uno nuevo al docente.</p>
+          <p className="nota">
+            Si no ves resultados tras ingresar, intenta &quot;Recargar&quot;. Si el codigo expiro, solicita uno nuevo al docente.
+          </p>
           <Boton
             type="button"
             icono={<Icono nombre="entrar" />}
@@ -250,74 +248,94 @@ export function AppAlumno() {
       {token && resultados.length > 0 && (
         <div className="resultado">
           <h3>Resultados disponibles</h3>
-          <ul className="lista">
+          <ul className="lista lista-items">
             {resultados.map((resultado) => (
               <li key={resultado.folio}>
-                Folio {resultado.folio} - {resultado.tipoExamen} - Examen {resultado.calificacionExamenFinalTexto}
-                {resultado.calificacionParcialTexto && ` / Parcial ${resultado.calificacionParcialTexto}`}
-                {resultado.calificacionGlobalTexto && ` / Global ${resultado.calificacionGlobalTexto}`}
-                <button
-                  className="boton secundario"
-                  type="button"
-                  onClick={async () => {
-                    if (!token) return;
-                    const inicio = Date.now();
-                    try {
-                      const respuesta = await fetch(`${basePortal}/examen/${resultado.folio}`, {
-                        headers: { Authorization: `Bearer ${token}` }
-                      });
-                      if (!respuesta.ok) {
-                        emitToast({
-                          level: 'error',
-                          title: 'PDF no disponible',
-                          message: `HTTP ${respuesta.status}`,
-                          durationMs: 5200,
-                          action: respuesta.status === 401 ? accionCerrarSesion('alumno') : undefined
-                        });
-                        void clientePortal.registrarEventosUso({
-                          eventos: [
-                            {
-                              sessionId: obtenerSesionId(),
-                              pantalla: 'alumno',
-                              accion: 'ver_pdf',
-                              exito: false,
-                              meta: { folio: resultado.folio, status: respuesta.status }
+                <div className="item-glass">
+                  <div className="item-row">
+                    <div>
+                      <div className="item-title">Folio {resultado.folio}</div>
+                      <div className="item-meta">
+                        <span>Tipo: {resultado.tipoExamen}</span>
+                        <span>Examen: {resultado.calificacionExamenFinalTexto}</span>
+                        {resultado.calificacionParcialTexto && <span>Parcial: {resultado.calificacionParcialTexto}</span>}
+                        {resultado.calificacionGlobalTexto && <span>Global: {resultado.calificacionGlobalTexto}</span>}
+                      </div>
+                    </div>
+                    <div className="item-actions">
+                      <button
+                        className="boton secundario"
+                        type="button"
+                        onClick={async () => {
+                          if (!token) return;
+                          const inicio = Date.now();
+                          try {
+                            const respuesta = await fetch(`${basePortal}/examen/${resultado.folio}`, {
+                              headers: { Authorization: `Bearer ${token}` }
+                            });
+                            if (!respuesta.ok) {
+                              emitToast({
+                                level: 'error',
+                                title: 'PDF no disponible',
+                                message: `HTTP ${respuesta.status}`,
+                                durationMs: 5200,
+                                action: respuesta.status === 401 ? accionCerrarSesion('alumno') : undefined
+                              });
+                              void clientePortal.registrarEventosUso({
+                                eventos: [
+                                  {
+                                    sessionId: obtenerSesionId(),
+                                    pantalla: 'alumno',
+                                    accion: 'ver_pdf',
+                                    exito: false,
+                                    meta: { folio: resultado.folio, status: respuesta.status }
+                                  }
+                                ]
+                              });
+                              return;
                             }
-                          ]
-                        });
-                        return;
-                      }
-                      const blob = await respuesta.blob();
-                      const url = URL.createObjectURL(blob);
-                      window.open(url, '_blank', 'noopener,noreferrer');
-                      void clientePortal.registrarEventosUso({
-                        eventos: [
-                          {
-                            sessionId: obtenerSesionId(),
-                            pantalla: 'alumno',
-                            accion: 'ver_pdf',
-                            exito: true,
-                            duracionMs: Date.now() - inicio,
-                            meta: { folio: resultado.folio }
+                            const blob = await respuesta.blob();
+                            const url = URL.createObjectURL(blob);
+                            window.open(url, '_blank', 'noopener,noreferrer');
+                            void clientePortal.registrarEventosUso({
+                              eventos: [
+                                {
+                                  sessionId: obtenerSesionId(),
+                                  pantalla: 'alumno',
+                                  accion: 'ver_pdf',
+                                  exito: true,
+                                  duracionMs: Date.now() - inicio,
+                                  meta: { folio: resultado.folio }
+                                }
+                              ]
+                            });
+                          } catch (error) {
+                            emitToast({
+                              level: 'error',
+                              title: 'Error al abrir PDF',
+                              message: mensajeDeError(error, 'Error al abrir PDF'),
+                              durationMs: 5200,
+                              action: accionToastSesionParaError(error, 'alumno')
+                            });
+                            void clientePortal.registrarEventosUso({
+                              eventos: [
+                                {
+                                  sessionId: obtenerSesionId(),
+                                  pantalla: 'alumno',
+                                  accion: 'ver_pdf',
+                                  exito: false,
+                                  meta: { folio: resultado.folio }
+                                }
+                              ]
+                            });
                           }
-                        ]
-                      });
-                    } catch (error) {
-                      emitToast({
-                        level: 'error',
-                        title: 'Error al abrir PDF',
-                        message: mensajeDeError(error, 'Error al abrir PDF'),
-                        durationMs: 5200,
-                        action: accionToastSesionParaError(error, 'alumno')
-                      });
-                      void clientePortal.registrarEventosUso({
-                        eventos: [{ sessionId: obtenerSesionId(), pantalla: 'alumno', accion: 'ver_pdf', exito: false, meta: { folio: resultado.folio } }]
-                      });
-                    }
-                  }}
-                >
-                  <Icono nombre="pdf" /> Ver PDF
-                </button>
+                        }}
+                      >
+                        <Icono nombre="pdf" /> Ver PDF
+                      </button>
+                    </div>
+                  </div>
+                </div>
               </li>
             ))}
           </ul>
