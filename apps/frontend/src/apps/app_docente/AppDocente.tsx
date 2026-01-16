@@ -1360,9 +1360,56 @@ function SeccionBanco({
     const ALTO_CARTA = 792;
     const mmAPuntos = (mm: number) => mm * (72 / 25.4);
     const margen = mmAPuntos(10);
+    const ANCHO_CARTA = 612;
+
     const cursorInicial = ALTO_CARTA - margen - 70;
     const limiteInferior = margen + 60;
-    const espacioLinea = 14;
+
+    const sizePregunta = 11;
+    const sizeOpcion = 10;
+    const sizeNota = 9;
+    const lineaPregunta = 13;
+    const lineaOpcion = 12;
+    const lineaNota = 12;
+    const separacionPregunta = 6;
+
+    const xTextoPregunta = margen + 18;
+    const xTextoOpcion = margen + 32;
+    const anchoTextoPregunta = ANCHO_CARTA - margen - xTextoPregunta;
+    const anchoTextoOpcion = ANCHO_CARTA - margen - xTextoOpcion;
+
+    function estimarLineasPorAncho(texto: string, maxWidthPts: number, fontSize: number): number {
+      const limpio = String(texto ?? '').trim().replace(/\s+/g, ' ');
+      if (!limpio) return 1;
+
+      // Aproximacion para Helvetica: ancho promedio ~0.52em.
+      const charWidth = fontSize * 0.52;
+      const maxChars = Math.max(10, Math.floor(maxWidthPts / charWidth));
+      const palabras = limpio.split(' ');
+
+      let lineas = 1;
+      let actual = '';
+
+      for (const palabra of palabras) {
+        const candidato = actual ? `${actual} ${palabra}` : palabra;
+        if (candidato.length <= maxChars) {
+          actual = candidato;
+          continue;
+        }
+
+        if (!actual) {
+          // palabra demasiado larga: trocea
+          const trozos = Math.ceil(palabra.length / maxChars);
+          lineas += Math.max(0, trozos - 1);
+          actual = palabra.slice((trozos - 1) * maxChars);
+        } else {
+          lineas += 1;
+          actual = palabra;
+        }
+      }
+
+      return Math.max(1, lineas);
+    }
 
     const lista = Array.isArray(preguntasTema) ? preguntasTema : [];
     if (lista.length === 0) return 0;
@@ -1371,22 +1418,26 @@ function SeccionBanco({
     let cursorY = cursorInicial;
 
     for (const pregunta of lista) {
-      if (cursorY <= limiteInferior) {
+      const version = obtenerVersionPregunta(pregunta);
+      const tieneImagen = Boolean(String(version?.imagenUrl ?? '').trim());
+
+      const lineasEnunciado = estimarLineasPorAncho(String(version?.enunciado ?? ''), anchoTextoPregunta, sizePregunta);
+      let altoNecesario = lineasEnunciado * lineaPregunta;
+      if (tieneImagen) altoNecesario += lineaNota;
+
+      const opcionesActuales = Array.isArray(version?.opciones) ? version!.opciones : [];
+      const opciones = opcionesActuales.length === 5 ? opcionesActuales : [];
+      for (const opcion of opciones) {
+        altoNecesario += estimarLineasPorAncho(String(opcion?.texto ?? ''), anchoTextoOpcion, sizeOpcion) * lineaOpcion;
+      }
+      altoNecesario += separacionPregunta + 4;
+
+      if (cursorY - altoNecesario < limiteInferior) {
         paginas += 1;
         cursorY = cursorInicial;
       }
 
-      const version = obtenerVersionPregunta(pregunta);
-      const tieneImagen = Boolean(String(version?.imagenUrl ?? '').trim());
-
-      // Enunciado
-      cursorY -= espacioLinea;
-      // Marca de imagen (si existe)
-      if (tieneImagen) cursorY -= espacioLinea;
-      // 5 opciones A-E
-      cursorY -= espacioLinea * 5;
-      // Separacion entre preguntas
-      cursorY -= espacioLinea / 2;
+      cursorY -= altoNecesario;
     }
 
     return paginas;

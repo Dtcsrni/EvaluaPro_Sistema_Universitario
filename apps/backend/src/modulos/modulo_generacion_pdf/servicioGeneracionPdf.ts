@@ -1,7 +1,7 @@
 /**
  * Generacion de PDFs en formato carta con marcas y QR por pagina.
  */
-import { PDFDocument, StandardFonts, rgb, type PDFPage } from 'pdf-lib';
+import { PDFDocument, StandardFonts, rgb, type PDFPage, type PDFFont } from 'pdf-lib';
 import QRCode from 'qrcode';
 import type { MapaVariante, PreguntaBase } from './servicioVariantes';
 
@@ -52,6 +52,51 @@ function ordenarPreguntas(preguntas: PreguntaBase[], mapa: MapaVariante) {
     .filter((pregunta): pregunta is PreguntaBase => Boolean(pregunta));
 }
 
+function normalizarEspacios(valor: string) {
+  return valor.replace(/\s+/g, ' ').trim();
+}
+
+function partirEnLineas({ texto, maxWidth, font, size }: { texto: string; maxWidth: number; font: PDFFont; size: number }) {
+  const limpio = normalizarEspacios(String(texto ?? ''));
+  if (!limpio) return [''];
+
+  const palabras = limpio.split(' ');
+  const lineas: string[] = [];
+  let actual = '';
+
+  const cabe = (t: string) => font.widthOfTextAtSize(t, size) <= maxWidth;
+
+  for (const palabra of palabras) {
+    const candidato = actual ? `${actual} ${palabra}` : palabra;
+    if (cabe(candidato)) {
+      actual = candidato;
+      continue;
+    }
+
+    if (actual) lineas.push(actual);
+
+    // Si la palabra sola no cabe, se trocea por caracteres.
+    if (!cabe(palabra)) {
+      let chunk = '';
+      for (const ch of palabra) {
+        const c2 = chunk + ch;
+        if (cabe(c2)) {
+          chunk = c2;
+        } else {
+          if (chunk) lineas.push(chunk);
+          chunk = ch;
+        }
+      }
+      actual = chunk;
+    } else {
+      actual = palabra;
+    }
+  }
+
+  if (actual) lineas.push(actual);
+  return lineas.length > 0 ? lineas : [''];
+}
+
 export async function generarPdfExamen({
   titulo,
   folio,
@@ -71,6 +116,26 @@ export async function generarPdfExamen({
   const fuente = await pdfDoc.embedFont(StandardFonts.Helvetica);
   const margen = mmAPuntos(margenMm);
   const paginasMinimas = tipoExamen === 'parcial' ? 2 : 4;
+
+  const sizeTitulo = 16;
+  const sizeMeta = 10;
+  const sizePregunta = 11;
+  const sizeOpcion = 10;
+  const sizeNota = 9;
+
+  const lineaPregunta = 13;
+  const lineaOpcion = 12;
+  const lineaNota = 12;
+  const separacionPregunta = 6;
+
+  const xNumeroPregunta = margen;
+  const xTextoPregunta = margen + 18;
+  const xBurbuja = margen + 6;
+  const xEtiquetaOpcion = margen + 16;
+  const xTextoOpcion = margen + 32;
+
+  const anchoTextoPregunta = ANCHO_CARTA - margen - xTextoPregunta;
+  const anchoTextoOpcion = ANCHO_CARTA - margen - xTextoOpcion;
 
   const preguntasOrdenadas = ordenarPreguntas(preguntas, mapaVariante);
   let indicePregunta = 0;
@@ -100,30 +165,65 @@ export async function generarPdfExamen({
     agregarMarcasRegistro(page, margen);
     await agregarQr(pdfDoc, page, qrTexto, margen);
 
-    page.drawText(titulo, { x: margen, y: ALTO_CARTA - margen - 24, size: 16, font: fuente });
+    page.drawText(titulo, { x: margen, y: ALTO_CARTA - margen - 24, size: sizeTitulo, font: fuente });
     page.drawText(`Folio: ${folio} | Pagina ${numeroPagina}`, {
       x: margen,
       y: ALTO_CARTA - margen - 44,
-      size: 10,
+      size: sizeMeta,
       font: fuente
     });
 
     let cursorY = ALTO_CARTA - margen - 70;
-    const espacioLinea = 14;
 
-    while (indicePregunta < preguntasOrdenadas.length && cursorY > margen + 60) {
+    const alturaDisponibleMin = margen + 60;
+
+    const calcularAlturaPregunta = (pregunta: PreguntaBase, numero: number) => {
+      const lineasEnunciado = partirEnLineas({ texto: pregunta.enunciado, maxWidth: anchoTextoPregunta, font: fuente, size: sizePregunta });
+      const tieneImagen = Boolean(String(pregunta.imagenUrl ?? '').trim());
+      let alto = lineasEnunciado.length * lineaPregunta;
+      if (tieneImagen) alto += lineaNota;
+
+      const ordenOpciones = mapaVariante.ordenOpcionesPorPregunta[pregunta.id] ?? [0, 1, 2, 3, 4];
+      for (const indiceOpcion of ordenOpciones) {
+        const opcion = pregunta.opciones[indiceOpcion];
+        const lineasOpcion = partirEnLineas({ texto: opcion?.texto ?? '', maxWidth: anchoTextoOpcion, font: fuente, size: sizeOpcion });
+        alto += Math.max(1, lineasOpcion.length) * lineaOpcion;
+      }
+      alto += separacionPregunta;
+      // Reserva extra para evitar quedar demasiado pegado al limite.
+      alto += 4;
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars
+      void numero;
+      return alto;
+    };
+
+    while (indicePregunta < preguntasOrdenadas.length && cursorY > alturaDisponibleMin) {
       const pregunta = preguntasOrdenadas[indicePregunta];
       const numero = indicePregunta + 1;
+
+      const alturaNecesaria = calcularAlturaPregunta(pregunta, numero);
+      if (cursorY - alturaNecesaria < alturaDisponibleMin) break;
 
       if (!preguntasDel) preguntasDel = numero;
       preguntasAl = numero;
 
-      page.drawText(`${numero}. ${pregunta.enunciado}`, { x: margen, y: cursorY, size: 11, font: fuente });
-      cursorY -= espacioLinea;
+      // Numero + enunciado con wrap (el numero se dibuja aparte para alinear correctamente).
+      page.drawText(`${numero}.`, { x: xNumeroPregunta, y: cursorY, size: sizePregunta, font: fuente });
+      const lineasEnunciado = partirEnLineas({ texto: pregunta.enunciado, maxWidth: anchoTextoPregunta, font: fuente, size: sizePregunta });
+      for (const linea of lineasEnunciado) {
+        page.drawText(linea, { x: xTextoPregunta, y: cursorY, size: sizePregunta, font: fuente });
+        cursorY -= lineaPregunta;
+      }
 
       if (pregunta.imagenUrl) {
-        page.drawText('(Imagen adjunta)', { x: margen, y: cursorY, size: 9, font: fuente, color: rgb(0.4, 0.4, 0.4) });
-        cursorY -= espacioLinea;
+        page.drawText('(Imagen adjunta)', {
+          x: xTextoPregunta,
+          y: cursorY,
+          size: sizeNota,
+          font: fuente,
+          color: rgb(0.4, 0.4, 0.4)
+        });
+        cursorY -= lineaNota;
       }
 
       const ordenOpciones = mapaVariante.ordenOpcionesPorPregunta[pregunta.id] ?? [0, 1, 2, 3, 4];
@@ -131,15 +231,20 @@ export async function generarPdfExamen({
       ordenOpciones.forEach((indiceOpcion, idx) => {
         const opcion = pregunta.opciones[indiceOpcion];
         const letra = String.fromCharCode(65 + idx);
-        const xBurbuja = margen + 6;
         const yBurbuja = cursorY + 3;
         page.drawCircle({ x: xBurbuja, y: yBurbuja, size: 4, borderWidth: 0.8, borderColor: rgb(0, 0, 0) });
-        page.drawText(`${letra}) ${opcion.texto}`, { x: margen + 16, y: cursorY, size: 10, font: fuente });
+        page.drawText(`${letra})`, { x: xEtiquetaOpcion, y: cursorY, size: sizeOpcion, font: fuente });
+
+        const lineasOpcion = partirEnLineas({ texto: opcion?.texto ?? '', maxWidth: anchoTextoOpcion, font: fuente, size: sizeOpcion });
+        for (const linea of lineasOpcion) {
+          page.drawText(linea, { x: xTextoOpcion, y: cursorY, size: sizeOpcion, font: fuente });
+          cursorY -= lineaOpcion;
+        }
+
         opcionesOmr.push({ letra, x: xBurbuja, y: yBurbuja });
-        cursorY -= espacioLinea;
       });
 
-      cursorY -= espacioLinea / 2;
+      cursorY -= separacionPregunta;
       indicePregunta += 1;
       mapaPagina.push({ numeroPregunta: numero, idPregunta: pregunta.id, opciones: opcionesOmr });
     }
