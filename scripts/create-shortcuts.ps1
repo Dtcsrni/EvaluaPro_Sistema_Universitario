@@ -185,7 +185,22 @@ function New-Shortcut([string]$name, [string]$mode, [string]$iconPath) {
   $shortcut.Save()
 }
 
+function New-TrayShortcut([string]$name, [string]$mode, [string]$iconPath) {
+  $lnkPath = Join-Path $outPath ($name + ".lnk")
+  $shortcut = $wsh.CreateShortcut($lnkPath)
+  $shortcut.TargetPath = $target
+  $shortcut.Arguments = "//nologo `"scripts\launcher-tray-hidden.vbs`" $mode 4519"
+  $shortcut.WorkingDirectory = $root
+  $shortcut.Description = "Bandeja (tray) $name"
+  $shortcut.IconLocation = $iconPath
+  $shortcut.Save()
+}
+
 New-Shortcut "Sistema Evaluacion - Dev" "dev" $iconDev
 New-Shortcut "Sistema Evaluacion - Prod" "prod" $iconProd
+
+New-TrayShortcut "Sistema Evaluacion - Bandeja (Dev)" "dev" $iconDev
+New-TrayShortcut "Sistema Evaluacion - Bandeja (Prod)" "prod" $iconProd
+New-TrayShortcut "Sistema Evaluacion - Bandeja (Manual)" "none" $iconDev
 
 Write-Host "Accesos directos creados en: $outPath"
