@@ -892,7 +892,7 @@ const server = http.createServer(async (req, res) => {
     }
     const payload = {
       app: {
-        name: pkg.name || 'sistema-evaluacion-universitaria',
+        name: pkg.name || 'evaluapro',
         version: pkg.version || ''
       },
       dashboard: {

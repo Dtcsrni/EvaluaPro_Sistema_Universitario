@@ -5,7 +5,7 @@
   - Cachea assets estáticos (JS/CSS/SVG) con stale-while-revalidate.
 */
 
-const CACHE = 'seu-portal-assets-v2026-01-17.1';
+const CACHE = 'ep-portal-assets-v2026-01-17.1';
 
 self.addEventListener('install', (event) => {
   event.waitUntil((async () => {

@@ -33,7 +33,7 @@ El paquete incluye (según disponibilidad):
    - (Opcional) elige una Materia
    - (Opcional) define "Desde" para export incremental
    - (Opcional) marca "Incluir PDFs"
-   - Presiona **Exportar paquete** y guarda el archivo `.seu-sync.json`
+  - Presiona **Exportar paquete** y guarda el archivo `.ep-sync.json` (compatible con `.seu-sync.json`)
 3. Copia el archivo a la otra computadora (USB/Drive).
 4. En la computadora destino, entra a la misma vista y usa **Importar paquete**.
 

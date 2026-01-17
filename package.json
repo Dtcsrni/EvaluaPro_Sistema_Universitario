@@ -1,11 +1,11 @@
 {
-  "name": "sistema-evaluacion-universitaria",
+  "name": "evaluapro",
   "description": "Plataforma MERN para evaluación universitaria: generación de exámenes en PDF, vinculación por QR, calificación asistida (OMR) y operación local con Docker + dashboard.",
   "version": "0.1.0",
   "private": true,
   "repository": {
     "type": "git",
-    "url": "https://github.com/Dtcsrni/sistema-evaluacion-universitaria"
+    "url": "https://github.com/Dtcsrni/evaluapro"
   },
   "keywords": [
     "mern",

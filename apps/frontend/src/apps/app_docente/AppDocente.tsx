@@ -5231,7 +5231,7 @@ function SeccionPaqueteSincronizacion({
       const resp = await onExportar(payload);
       setUltimoResumen(resp.conteos);
 
-      const nombre = `sincronizacion_${(resp.exportadoEn || new Date().toISOString()).replace(/[:.]/g, '-')}.seu-sync.json`;
+      const nombre = `sincronizacion_${(resp.exportadoEn || new Date().toISOString()).replace(/[:.]/g, '-')}.ep-sync.json`;
       descargarJson(nombre, {
         version: 1,
         exportadoEn: resp.exportadoEn,
@@ -5327,7 +5327,7 @@ function SeccionPaqueteSincronizacion({
         </p>
         <ul className="lista">
           <li>
-            <b>Exportar:</b> genera un archivo <code>.seu-sync.json</code> (guardalo en USB/Drive).
+            <b>Exportar:</b> genera un archivo <code>.ep-sync.json</code> (compatible con <code>.seu-sync.json</code>).
           </li>
           <li>
             <b>Importar:</b> selecciona ese archivo en la otra computadora (misma cuenta docente).
@@ -5377,7 +5377,7 @@ function SeccionPaqueteSincronizacion({
           <Icono nombre="entrar" /> {importando ? 'Importando…' : 'Importar paquete'}
           <input
             type="file"
-            accept="application/json,.json,.seu-sync.json"
+            accept="application/json,.json,.ep-sync.json,.seu-sync.json"
             onChange={importar}
             disabled={importando}
             className="input-file-oculto"

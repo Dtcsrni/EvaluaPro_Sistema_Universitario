@@ -1,6 +1,6 @@
 {
   "deterministicIds": true,
-  "deterministicIDSeed": "sistema-evaluacion-universitaria",
+  "deterministicIDSeed": "evaluapro",
   "themeVariables": {
     "handDrawnSeed": 1
   }

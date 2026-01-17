@@ -5,7 +5,7 @@
   - /api/* siempre network-only.
 */
 
-const CACHE_NAME = 'seu-dashboard-assets-v2026-01-17.7';
+const CACHE_NAME = 'ep-dashboard-assets-v2026-01-17.7';
 const PRECACHE_URLS = ['/assets/dashboard-icon.svg', '/manifest.webmanifest'];
 
 function offlineHtml() {
