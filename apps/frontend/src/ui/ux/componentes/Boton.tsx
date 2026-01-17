@@ -7,6 +7,7 @@ export function Boton({
   icono,
   children,
   className,
+  type = 'button',
   disabled,
   ...props
 }: ButtonHTMLAttributes<HTMLButtonElement> & {
@@ -24,7 +25,7 @@ export function Boton({
     .join(' ');
 
   return (
-    <button {...props} className={clases} disabled={Boolean(disabled) || cargando}>
+    <button {...props} type={type} className={clases} disabled={Boolean(disabled) || cargando}>
       {cargando ? <Spinner /> : icono}
       {children}
     </button>

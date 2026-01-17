@@ -16,9 +16,10 @@ export function InlineMensaje({
 }) {
   const clase = `mensaje${tipo === 'ok' ? ' ok' : tipo === 'error' ? ' error' : ''}`;
   const icono = tipo === 'error' ? 'alerta' : tipo === 'ok' ? 'ok' : 'info';
+  const role = tipo === 'error' ? 'alert' : 'status';
 
   return (
-    <p className={clase} role="status">
+    <p className={clase} role={role}>
       {leading ? leading : mostrarIcono ? <Icono nombre={icono} /> : null} {children}
     </p>
   );
