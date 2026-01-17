@@ -34,6 +34,45 @@ function Log([string]$msg) {
 Add-Type -AssemblyName System.Windows.Forms
 Add-Type -AssemblyName System.Drawing
 
+# Evita cuadros JIT por excepciones no controladas en eventos WinForms (Timer/Clicks).
+# En vez de crashear el tray (y dejar íconos duplicados/fantasma), registramos y continuamos.
+try {
+  [System.Windows.Forms.Application]::SetUnhandledExceptionMode([System.Windows.Forms.UnhandledExceptionMode]::CatchException)
+  [System.Windows.Forms.Application]::add_ThreadException({
+    param($sender, $e)
+    try {
+      $ex = $e.Exception
+      if ($ex) {
+        Log("ThreadException: $($ex.GetType().FullName): $($ex.Message)")
+      } else {
+        Log('ThreadException: (sin Exception)')
+      }
+    } catch {
+      # ignore
+    }
+  })
+} catch {
+  # ignore
+}
+
+try {
+  [AppDomain]::CurrentDomain.add_UnhandledException({
+    param($sender, $e)
+    try {
+      $ex = $e.ExceptionObject
+      if ($ex) {
+        Log("UnhandledException: $($ex.GetType().FullName): $($ex.Message)")
+      } else {
+        Log('UnhandledException: (sin ExceptionObject)')
+      }
+    } catch {
+      # ignore
+    }
+  })
+} catch {
+  # ignore
+}
+
 $iconDir = Join-Path $root 'scripts\icons'
 if (-not (Test-Path $iconDir)) {
   New-Item -ItemType Directory -Path $iconDir | Out-Null
@@ -243,13 +282,23 @@ function Load-TrayIcon([string]$mood) {
 
 # Enforce single tray instance (avoid multiple notification icons).
 # Mutex is per dashboard port, so DEV/PROD shortcuts that target the same port share one tray.
-$mutexName = "Global\\SEU_TRAY_$Port"
 $createdNew = $false
 $mutex = $null
+
+# Nota: "Global\" puede fallar sin privilegios (y permitir múltiples instancias).
+# Preferimos "Local\" para asegurar el singleton por sesión de usuario.
+$mutexName = "Local\\EP_TRAY_$Port"
 try {
   $mutex = New-Object System.Threading.Mutex($true, $mutexName, [ref]$createdNew)
 } catch {
-  $createdNew = $true
+  try {
+    $mutexName = "EP_TRAY_$Port"
+    $mutex = New-Object System.Threading.Mutex($true, $mutexName, [ref]$createdNew)
+  } catch {
+    # Si no podemos crear mutex, seguimos (degradación), pero al menos lo registramos.
+    Log('Tray singleton: no se pudo crear mutex; podría haber múltiples íconos.')
+    $createdNew = $true
+  }
 }
 
 if (-not $createdNew) {

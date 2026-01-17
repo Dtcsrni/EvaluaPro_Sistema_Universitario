@@ -272,7 +272,8 @@ function New-Shortcut([string]$name, [string]$mode, [string]$iconPath) {
   $shortcut.Arguments = "//nologo `"scripts\launcher-tray-hidden.vbs`" $mode 4519"
   $shortcut.WorkingDirectory = $root
   $shortcut.Description = "Bandeja (tray) $name"
-  $shortcut.IconLocation = $iconPath
+  # Nota: algunos entornos de Explorer muestran icono en blanco si no se especifica índice.
+  $shortcut.IconLocation = "$iconPath,0"
   $shortcut.Save()
 }
 
