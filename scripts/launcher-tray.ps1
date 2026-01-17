@@ -34,6 +34,23 @@ function Log([string]$msg) {
 Add-Type -AssemblyName System.Windows.Forms
 Add-Type -AssemblyName System.Drawing
 
+# Enforce single tray instance (avoid multiple notification icons).
+# Mutex is per dashboard port, so DEV/PROD shortcuts that target the same port share one tray.
+$mutexName = "Global\\SEU_TRAY_$Port"
+$createdNew = $false
+$mutex = $null
+try {
+  $mutex = New-Object System.Threading.Mutex($true, $mutexName, [ref]$createdNew)
+} catch {
+  $createdNew = $true
+}
+
+if (-not $createdNew) {
+  Log("Tray singleton: instancia ya existe (mutex=$mutexName). Abriendo dashboard y saliendo.")
+  try { Start-Process ((Get-ApiBase) + '/') | Out-Null } catch {}
+  return
+}
+
 function Get-NodePath {
   $cmd = Get-Command node -ErrorAction SilentlyContinue
   if ($cmd -and $cmd.Source) { return $cmd.Source }
@@ -253,6 +270,8 @@ $miExit.add_Click({
   $timer.Stop()
   $notify.Visible = $false
   $notify.Dispose()
+
+  try { if ($mutex) { $mutex.ReleaseMutex(); $mutex.Dispose() } } catch {}
 
   # Si nosotros lo lanzamos, intentamos cerrarlo.
   if ($launch.started -and $launch.pid) {

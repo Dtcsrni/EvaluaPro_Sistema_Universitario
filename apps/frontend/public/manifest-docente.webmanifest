@@ -1,0 +1,29 @@
+{
+  "name": "Plataforma Docente - Sistema de Evaluacion",
+  "short_name": "Docente",
+  "description": "Panel docente local: banco, exámenes, recepción, escaneo y calificación.",
+  "lang": "es-MX",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "display_override": ["window-controls-overlay", "standalone"],
+  "orientation": "portrait-primary",
+  "theme_color": "#000000",
+  "background_color": "#000000",
+  "icons": [
+    {
+      "src": "/favicon-docente.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "Abrir Docente",
+      "short_name": "Docente",
+      "url": "/",
+      "icons": [{ "src": "/favicon-docente.svg", "sizes": "any", "type": "image/svg+xml" }]
+    }
+  ]
+}

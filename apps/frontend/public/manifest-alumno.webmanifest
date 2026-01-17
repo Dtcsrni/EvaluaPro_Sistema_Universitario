@@ -1,0 +1,29 @@
+{
+  "name": "Portal Alumno - Sistema de Evaluacion",
+  "short_name": "Alumno",
+  "description": "Consulta de resultados y descarga de PDFs en la nube.",
+  "lang": "es-MX",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "display_override": ["window-controls-overlay", "standalone"],
+  "orientation": "portrait-primary",
+  "theme_color": "#000000",
+  "background_color": "#000000",
+  "icons": [
+    {
+      "src": "/favicon-alumno.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "Abrir Alumno",
+      "short_name": "Alumno",
+      "url": "/",
+      "icons": [{ "src": "/favicon-alumno.svg", "sizes": "any", "type": "image/svg+xml" }]
+    }
+  ]
+}

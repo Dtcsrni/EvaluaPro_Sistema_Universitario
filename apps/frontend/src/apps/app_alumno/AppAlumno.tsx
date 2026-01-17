@@ -39,6 +39,8 @@ export function AppAlumno() {
   const [mensaje, setMensaje] = useState('');
   const [resultados, setResultados] = useState<Resultado[]>([]);
   const [cargando, setCargando] = useState(false);
+  const [intentosFallidos, setIntentosFallidos] = useState(0);
+  const [cooldownHasta, setCooldownHasta] = useState(0);
 
   const obtenerSesionId = useCallback(() => obtenerSessionId('sesionAlumnoId'), []);
 
@@ -64,12 +66,21 @@ export function AppAlumno() {
   }
 
   async function ingresar() {
+    if (Date.now() < cooldownHasta) {
+      const s = Math.max(1, Math.ceil((cooldownHasta - Date.now()) / 1000));
+      const msg = `Espera ${s}s antes de intentar de nuevo.`;
+      setMensaje(msg);
+      emitToast({ level: 'warn', title: 'Espera un momento', message: msg, durationMs: Math.min(5200, 800 + s * 250) });
+      return;
+    }
     try {
       const inicio = Date.now();
       setCargando(true);
       setMensaje('');
       const respuesta = await clientePortal.enviar<{ token: string }>('/ingresar', { codigo, matricula });
       guardarTokenAlumno(respuesta.token);
+      setIntentosFallidos(0);
+      setCooldownHasta(0);
       emitToast({ level: 'ok', title: 'Bienvenido', message: 'Sesion iniciada', durationMs: 2200 });
       void clientePortal.registrarEventosUso({
         eventos: [
@@ -84,6 +95,15 @@ export function AppAlumno() {
       });
       await cargarResultados();
     } catch (error) {
+      setIntentosFallidos((n) => {
+        const nuevo = n + 1;
+        if (nuevo >= 3) {
+          const base = 15_000;
+          const extra = Math.min(120_000, base * Math.pow(2, Math.min(4, nuevo - 3)));
+          setCooldownHasta(Date.now() + extra);
+        }
+        return nuevo;
+      });
       const msg = mensajeDeError(error, 'No se pudo ingresar');
       setMensaje(msg);
       emitToast({
@@ -138,8 +158,10 @@ export function AppAlumno() {
 
   const token = obtenerTokenAlumno();
   const puedeIngresar = Boolean(codigo.trim() && matricula.trim());
-  const codigoValido = !codigo.trim() || /^[a-zA-Z0-9]{4,12}$/.test(codigo.trim());
-  const matriculaValida = !matricula.trim() || /^[A-Za-z0-9-]{3,20}$/.test(matricula.trim());
+  // Valida sin bloquear el flujo (hay códigos reales con '-' / '_' y longitudes variables).
+  const codigoValido = !codigo.trim() || /^[a-zA-Z0-9_-]{3,24}$/.test(codigo.trim());
+  const matriculaValida = !matricula.trim() || /^[A-Za-z0-9._-]{3,32}$/.test(matricula.trim());
+  const cooldownActivo = Date.now() < cooldownHasta;
 
   return (
     <section className="card anim-entrada">
@@ -150,28 +172,23 @@ export function AppAlumno() {
         <div className="cabecera__acciones">
           <TemaBoton />
           {token && (
-            <button
-              className="boton secundario"
-              type="button"
-              onClick={() => cerrarSesion()}
-            >
+            <button className="boton secundario" type="button" onClick={cerrarSesion}>
               <Icono nombre="salir" /> Salir
             </button>
           )}
         </div>
       </div>
-      <h1>Resultados de examen</h1>
-
       {!token && (
         <div className="auth-grid">
-          <div className="auth-hero auth-hero--alumno">
+          <div>
             <p className="eyebrow">Acceso</p>
             <h2>
               <Icono nombre="alumno" /> Consulta de resultados
             </h2>
-            <p className="auth-subtitulo">
-              Ingresa con el codigo de acceso que te compartio tu docente y tu matricula.
-            </p>
+            {cooldownActivo && (
+              <InlineMensaje tipo="info">Por seguridad, espera unos segundos antes de reintentar.</InlineMensaje>
+            )}
+            <p className="auth-subtitulo">Ingresa con el codigo de acceso que te compartio tu docente y tu matricula.</p>
             <ul className="auth-beneficios" aria-label="Beneficios">
               <li>
                 <Icono nombre="ok" /> Consulta rapida y segura.
@@ -200,20 +217,32 @@ export function AppAlumno() {
             <CampoTexto
               etiqueta="Codigo de acceso"
               value={codigo}
-              onChange={(event) => setCodigo(event.target.value)}
+              onChange={(event) => {
+                const limpio = event.target.value.replace(/\s+/g, '').toUpperCase();
+                setCodigo(limpio);
+              }}
               placeholder="ABC123"
               autoComplete="one-time-code"
               inputMode="text"
-              error={!codigoValido && codigo.trim() ? 'Usa 4-12 caracteres alfanumericos.' : undefined}
+              autoCapitalize="characters"
+              autoCorrect="off"
+              spellCheck={false}
+              error={!codigoValido && codigo.trim() ? 'Usa 3-24 caracteres (letras/numeros/guion/guion_bajo).' : undefined}
             />
             <CampoTexto
               etiqueta="Matricula"
               value={matricula}
-              onChange={(event) => setMatricula(event.target.value)}
+              onChange={(event) => {
+                const limpio = event.target.value.replace(/\s+/g, '');
+                setMatricula(limpio);
+              }}
               placeholder="2024-001"
               autoComplete="username"
               inputMode="text"
-              error={!matriculaValida && matricula.trim() ? 'Usa 3-20 caracteres (letras/numeros/guion).' : undefined}
+              autoCapitalize="none"
+              autoCorrect="off"
+              spellCheck={false}
+              error={!matriculaValida && matricula.trim() ? 'Usa 3-32 caracteres (letras/numeros/punto/guion/guion_bajo).' : undefined}
             />
             <p className="nota">
               Si no ves resultados tras ingresar, intenta &quot;Recargar&quot;. Si el codigo expiro, solicita uno nuevo al docente.
@@ -222,7 +251,7 @@ export function AppAlumno() {
               type="button"
               icono={<Icono nombre="entrar" />}
               cargando={cargando}
-              disabled={!puedeIngresar || !codigoValido || !matriculaValida}
+              disabled={!puedeIngresar || cargando || cooldownActivo}
               onClick={ingresar}
             >
               Consultar

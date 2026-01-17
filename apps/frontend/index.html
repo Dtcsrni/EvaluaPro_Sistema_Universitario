@@ -4,8 +4,11 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <link rel="icon" href="/favicon-docente.svg" type="image/svg+xml" />
-    <meta name="theme-color" content="#1f3a8a" />
+    <link id="app-favicon" rel="icon" href="/favicon-docente.svg" type="image/svg+xml" />
+    <!-- Por defecto: oscuro (se actualiza dinámicamente según tema/hora). -->
+    <meta name="theme-color" content="#000000" />
+    <!-- Por defecto: docente. Runtime ajusta manifest/favicon según destino (docente/alumno). -->
+    <link id="app-manifest" rel="manifest" href="/manifest-docente.webmanifest" />
     <title>Sistema de Evaluacion Universitaria</title>
   </head>
   <body>

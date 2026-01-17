@@ -12,9 +12,12 @@ export function normalizarPreferenciaTema(valor: unknown): PreferenciaTema {
 export function leerPreferenciaTema(): PreferenciaTema {
   if (typeof window === 'undefined') return 'auto';
   try {
-    return normalizarPreferenciaTema(window.localStorage.getItem(CLAVE_TEMA_PREFERENCIA));
+    const raw = window.localStorage.getItem(CLAVE_TEMA_PREFERENCIA);
+    // Requisito UX: por defecto oscuro, a menos que el usuario lo cambie.
+    if (raw === null) return 'dark';
+    return normalizarPreferenciaTema(raw);
   } catch {
-    return 'auto';
+    return 'dark';
   }
 }
 
@@ -70,6 +73,32 @@ export function aplicarTemaDocumento(preferencia: PreferenciaTema): { tema: Tema
     } catch {
       // noop
     }
+
+    // Actualiza el theme-color para PWA/barras del sistema.
+    try {
+      const meta = document.querySelector('meta[name="theme-color"]') as HTMLMetaElement | null;
+      if (meta) {
+        const color =
+          tema === 'dark'
+            ? bucket === 'night'
+              ? '#000000'
+              : bucket === 'dusk'
+                ? '#05060a'
+                : bucket === 'dawn'
+                  ? '#0b1220'
+                  : '#0b1220'
+            : bucket === 'night'
+              ? '#0f172a'
+              : bucket === 'dusk'
+                ? '#111827'
+                : bucket === 'dawn'
+                  ? '#eef2ff'
+                  : '#f8fafc';
+        meta.setAttribute('content', color);
+      }
+    } catch {
+      // noop
+    }
   }
 
   return { tema, bucket };
@@ -77,11 +106,11 @@ export function aplicarTemaDocumento(preferencia: PreferenciaTema): { tema: Tema
 
 export function siguientePreferenciaTema(actual: PreferenciaTema): PreferenciaTema {
   switch (actual) {
+    case 'dark':
+      return 'auto';
     case 'auto':
       return 'light';
-    case 'light':
-      return 'dark';
     default:
-      return 'auto';
+      return 'dark';
   }
 }
