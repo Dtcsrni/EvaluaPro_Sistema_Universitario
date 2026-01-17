@@ -709,13 +709,15 @@
       height: 12px;
       border-radius: 50%;
       background: #94a3b8;
-      box-shadow: 0 0 0 4px rgba(148, 163, 184, 0.15);
+      border: 1px solid rgba(15, 23, 42, 0.12);
+      box-shadow: 0 0 0 3px rgba(148, 163, 184, 0.10);
       z-index: 1;
     }
 
     .toggle-btn.active .status-dot {
       background: #22c55e;
-      box-shadow: 0 0 0 4px rgba(34, 197, 94, 0.2);
+      border-color: rgba(34, 197, 94, 0.35);
+      box-shadow: 0 0 0 3px rgba(34, 197, 94, 0.14);
       animation: pulse 1.6s ease-in-out infinite;
     }
 
@@ -1799,7 +1801,7 @@
                 <span class="status-dot" data-dot></span>
                 <span class="toggle-meta">
                   <span class="toggle-title">Dev local (Docker + Web)</span>
-                  <span class="toggle-sub" data-sub>Mantener presionado para iniciar</span>
+                  <span class="toggle-sub" data-sub>Mantener 1.2s para iniciar</span>
                 </span>
                 <span class="toggle-state" data-state>Detenido</span>
               </button>
@@ -1807,7 +1809,7 @@
                 <span class="status-dot" data-dot></span>
                 <span class="toggle-meta">
                   <span class="toggle-title">Prod local (Docker API)</span>
-                  <span class="toggle-sub" data-sub>Mantener presionado para iniciar</span>
+                  <span class="toggle-sub" data-sub>Mantener 1.2s para iniciar</span>
                 </span>
                 <span class="toggle-state" data-state>Detenido</span>
               </button>
@@ -1815,7 +1817,7 @@
                 <span class="status-dot" data-dot></span>
                 <span class="toggle-meta">
                   <span class="toggle-title">Portal alumno (API)</span>
-                  <span class="toggle-sub" data-sub>Mantener presionado para iniciar</span>
+                  <span class="toggle-sub" data-sub>Mantener 1.2s para iniciar</span>
                 </span>
                 <span class="toggle-state" data-state>Detenido</span>
               </button>
@@ -2731,8 +2733,8 @@
       if (stateEl) stateEl.textContent = running ? 'Activo' : 'Detenido';
       if (subEl) {
         subEl.textContent = running
-          ? 'Mantener presionado para detener'
-          : 'Mantener presionado para iniciar';
+          ? 'Mantener 1.2s para detener'
+          : 'Mantener 1.2s para iniciar';
       }
 
       button.setAttribute('aria-pressed', running ? 'true' : 'false');
