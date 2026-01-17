@@ -588,9 +588,10 @@
 
     .actions-grid {
       display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+      grid-template-columns: repeat(auto-fit, minmax(170px, 220px));
       gap: 10px;
       align-items: stretch;
+      justify-content: center;
     }
 
     .actions-grid .ghost-btn {
@@ -602,7 +603,7 @@
     }
 
     .actions-grid.env {
-      grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+      grid-template-columns: repeat(auto-fit, minmax(170px, 220px));
     }
 
     .hint {
