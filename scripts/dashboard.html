@@ -17,6 +17,18 @@
     :root {
       color-scheme: light;
 
+      /* Motion (consistente y suave) */
+      --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+      --ease-in-out: cubic-bezier(0.45, 0, 0.55, 1);
+      --dur-xxs: 90ms;
+      --dur-xs: 140ms;
+      --dur-sm: 220ms;
+      --dur-md: 320ms;
+      --dur-ambient-1: 2200ms;
+      --dur-ambient-2: 3200ms;
+      --dur-ambient-3: 4200ms;
+      --dur-hold: 120ms;
+
       /* Base */
       --bg: #f5f7fb;
       --panel: #ffffff;
@@ -83,7 +95,7 @@
 
       /* UI accents (menos azules) */
       --accent: var(--neon-cyan);
-      --accent-2: rgba(191, 219, 254, 0.96);
+      --accent-2: var(--neon-lime);
       --accent-3: var(--neon-magenta);
       --accent-soft: rgba(34, 232, 255, 0.12);
 
@@ -212,7 +224,7 @@
       inset: -40px;
       background: radial-gradient(circle at 30% 35%, rgba(255,255,255,0.26), transparent 60%);
       opacity: 0.85;
-      animation: logoGlow 1.9s ease-in-out infinite;
+      animation: logoGlow var(--dur-ambient-2) var(--ease-in-out) infinite;
     }
 
     .logo:after {
@@ -221,7 +233,7 @@
       inset: -120% -120% -120% -120%;
       background: linear-gradient(120deg, transparent, rgba(255,255,255,0.22), transparent);
       transform: translateX(-30%) rotate(12deg);
-      animation: logoSheen 2.8s ease-in-out infinite;
+      animation: logoSheen var(--dur-ambient-3) var(--ease-in-out) infinite;
       opacity: 0.75;
       pointer-events: none;
     }
@@ -248,13 +260,13 @@
       stroke-linecap: round;
       stroke-linejoin: round;
       stroke-dasharray: 26 52;
-      animation: circuitDash 1.15s ease-in-out infinite;
+      animation: circuitDash var(--dur-ambient-1) var(--ease-in-out) infinite;
     }
 
     .logo .node {
       fill: var(--neon-lime);
       opacity: 0.95;
-      animation: nodePulse 1.15s ease-in-out infinite;
+      animation: nodePulse var(--dur-ambient-1) var(--ease-in-out) infinite;
     }
 
     .logo .node.n2 { animation-delay: 0.12s; }
@@ -262,8 +274,8 @@
     .logo .node.n4 { animation-delay: 0.36s; }
 
     @keyframes logoGlow {
-      0%,100% { transform: scale(1); opacity: 0.72; }
-      50% { transform: scale(1.05); opacity: 1; }
+      0%,100% { transform: scale(1); opacity: 0.68; }
+      50% { transform: scale(1.035); opacity: 0.92; }
     }
 
     @keyframes logoSheen {
@@ -280,8 +292,8 @@
     }
 
     @keyframes nodePulse {
-      0%,100% { transform: scale(1); opacity: 0.85; }
-      50% { transform: scale(1.15); opacity: 1; }
+      0%,100% { transform: scale(1); opacity: 0.86; }
+      50% { transform: scale(1.11); opacity: 1; }
     }
 
     .title {
@@ -412,7 +424,7 @@
       display: inline-flex;
       align-items: center;
       gap: 8px;
-      transition: all 0.2s ease;
+      transition: transform var(--dur-xs) var(--ease-out), box-shadow var(--dur-sm) var(--ease-out), background var(--dur-sm) var(--ease-out), border-color var(--dur-sm) var(--ease-out), color var(--dur-sm) var(--ease-out);
     }
 
     .tab-btn.active {
@@ -430,7 +442,7 @@
 
     .tab-panel {
       display: none;
-      animation: fadeUp 0.35s ease both;
+      animation: fadeUp var(--dur-md) var(--ease-out) both;
     }
 
     .tab-panel[hidden] { display: none; }
@@ -487,11 +499,13 @@
       box-shadow: var(--shadow);
       position: relative;
       overflow: hidden;
-      animation: fadeUp 0.35s ease both;
+      animation: fadeUp var(--dur-md) var(--ease-out) both;
+      transition: transform var(--dur-xs) var(--ease-out), box-shadow var(--dur-sm) var(--ease-out), border-color var(--dur-sm) var(--ease-out), background var(--dur-sm) var(--ease-out);
       word-wrap: break-word;
     }
 
     .card:hover {
+      transform: translateY(-1px);
       box-shadow:
         0 20px 44px rgba(0, 0, 0, 0.10),
         0 0 0 1px rgba(0, 213, 255, 0.10),
@@ -499,6 +513,7 @@
     }
 
     :root[data-theme="dark"] .card:hover {
+      transform: translateY(-1px);
       box-shadow:
         0 26px 64px rgba(0, 0, 0, 0.65),
         0 0 0 1px rgba(34, 232, 255, 0.18),
@@ -576,7 +591,7 @@
       justify-content: center;
       gap: 8px;
       line-height: 1.2;
-      transition: transform 90ms ease, box-shadow 140ms ease, background 140ms ease, border-color 140ms ease, color 140ms ease;
+      transition: transform var(--dur-xxs) var(--ease-out), box-shadow var(--dur-xs) var(--ease-out), background var(--dur-xs) var(--ease-out), border-color var(--dur-xs) var(--ease-out), color var(--dur-xs) var(--ease-out);
     }
     button.ghost-btn:hover { box-shadow: 0 8px 16px rgba(15, 23, 42, 0.12); }
     button.ghost-btn:active { transform: translateY(1px) scale(0.995); }
@@ -605,7 +620,7 @@
         radial-gradient(circle at 20% 50%, rgba(0, 213, 255, 0.18), transparent 55%),
         radial-gradient(circle at 80% 30%, rgba(255, 43, 214, 0.12), transparent 60%);
       opacity: 0;
-      transition: opacity 140ms ease;
+      transition: opacity var(--dur-xs) var(--ease-out);
       pointer-events: none;
       z-index: 0;
     }
@@ -625,7 +640,7 @@
       background: linear-gradient(90deg, rgba(0, 213, 255, 0.16), rgba(255, 43, 214, 0.06));
       z-index: 0;
       pointer-events: none;
-      transition: width 0.05s linear;
+      transition: width var(--dur-hold) linear;
     }
 
     button.ghost-btn.is-holding {
@@ -695,12 +710,12 @@
     }
 
     button.ghost-btn.hold-done {
-      animation: holdDone 0.36s ease both;
+      animation: holdDone var(--dur-md) var(--ease-out) both;
     }
 
     @keyframes holdDone {
       0% { transform: translateY(0) scale(1); }
-      45% { transform: translateY(-1px) scale(1.02); }
+      45% { transform: translateY(-1px) scale(1.015); }
       100% { transform: translateY(0) scale(1); }
     }
 
@@ -861,7 +876,7 @@
       display: flex;
       align-items: center;
       gap: 10px;
-      transition: transform 0.08s ease, background 0.2s ease, box-shadow 0.2s ease;
+      transition: transform var(--dur-xxs) var(--ease-out), background var(--dur-sm) var(--ease-out), box-shadow var(--dur-sm) var(--ease-out), border-color var(--dur-sm) var(--ease-out), color var(--dur-sm) var(--ease-out);
     }
 
     button:hover {
@@ -895,7 +910,7 @@
       width: calc(var(--hold, 0) * 1%);
       background: linear-gradient(90deg, rgba(0, 213, 255, 0.18), rgba(255, 43, 214, 0.06));
       pointer-events: none;
-      transition: width 0.05s linear;
+      transition: width var(--dur-hold) linear;
     }
 
     .toggle-btn.active { background: var(--surface-2); }
@@ -979,7 +994,7 @@
       background: #22c55e;
       border-color: rgba(34, 197, 94, 0.35);
       box-shadow: 0 0 0 3px rgba(34, 197, 94, 0.14);
-      animation: pulse 1.6s ease-in-out infinite;
+      animation: pulse var(--dur-ambient-2) var(--ease-in-out) infinite;
     }
 
     .links {
@@ -1774,7 +1789,7 @@
 
     .dot.active {
       background: #22c55e;
-      animation: pulse 1.6s ease-in-out infinite;
+      animation: pulse var(--dur-ambient-2) var(--ease-in-out) infinite;
     }
 
     .toast-wrap {
@@ -1799,7 +1814,7 @@
       grid-template-columns: 34px 1fr auto;
       gap: 10px;
       align-items: start;
-      animation: toastIn 0.26s ease both;
+      animation: toastIn var(--dur-sm) var(--ease-out) both;
       position: relative;
       overflow: hidden;
     }
@@ -1819,7 +1834,7 @@
 
     .toast.paused::after { animation-play-state: paused; }
 
-    .toast.out { animation: toastOut 0.18s ease forwards; }
+    .toast.out { animation: toastOut var(--dur-xs) var(--ease-out) forwards; }
 
     .toast-icon {
       width: 34px;
@@ -1847,7 +1862,7 @@
       font-size: 12px;
       font-weight: 800;
       cursor: pointer;
-      transition: transform 90ms ease, box-shadow 140ms ease, background 140ms ease, border-color 140ms ease;
+      transition: transform var(--dur-xxs) var(--ease-out), box-shadow var(--dur-xs) var(--ease-out), background var(--dur-xs) var(--ease-out), border-color var(--dur-xs) var(--ease-out);
     }
 
     :root[data-theme="dark"] .toast-btn.action {
@@ -1874,7 +1889,9 @@
     .toast.ok .toast-icon { background: rgba(34, 197, 94, 0.14); color: #166534; }
     .toast.warn .toast-icon { background: rgba(245, 158, 11, 0.14); color: #9a3412; }
     .toast.error .toast-icon { background: rgba(239, 68, 68, 0.14); color: #b91c1c; }
-    .toast.info .toast-icon { background: rgba(14, 165, 233, 0.14); color: #1d4f91; }
+    .toast.info .toast-icon { background: rgba(0, 213, 255, 0.14); color: rgba(2, 67, 82, 0.92); }
+
+    :root[data-theme="dark"] .toast.info .toast-icon { background: rgba(34, 232, 255, 0.14); }
 
     @keyframes fadeUp {
       from { transform: translateY(8px); opacity: 0; }
@@ -1888,7 +1905,7 @@
 
     @keyframes pulse {
       0%, 100% { transform: scale(1); opacity: 1; }
-      50% { transform: scale(1.35); opacity: 0.7; }
+      50% { transform: scale(1.18); opacity: 0.78; }
     }
 
     @keyframes toastIn {
@@ -2536,7 +2553,7 @@
 
     // Identificador de UI (útil para confirmar que el HTML recargó cambios).
     // Nota: actualiza este valor cuando hagas cambios visibles al dashboard.
-    const UI_REV = '2026-01-17.5';
+    const UI_REV = '2026-01-17.6';
 
     const THEME_STORAGE_KEY = 'seuDashboardTheme';
 
