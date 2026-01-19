@@ -4825,7 +4825,6 @@ function SeccionRecepcion({
 
 function QrAccesoMovil({ vista }: { vista: 'recepcion' | 'escaneo' }) {
   const [urlMovil, setUrlMovil] = useState('');
-  const [origenMostrado, setOrigenMostrado] = useState('');
   const [cargando, setCargando] = useState(true);
   const [error, setError] = useState('');
 
@@ -4844,7 +4843,6 @@ function QrAccesoMovil({ vista }: { vista: 'recepcion' | 'escaneo' }) {
       const timer = window.setTimeout(() => {
         if (!activo) return;
         setUrlMovil(url);
-        setOrigenMostrado(window.location.host);
         setCargando(false);
       }, 0);
       return () => {
@@ -4860,13 +4858,11 @@ function QrAccesoMovil({ vista }: { vista: 'recepcion' | 'escaneo' }) {
         const ip = String(data?.preferida || (Array.isArray(data?.ips) ? data.ips[0] : '')).trim();
         if (!ip) throw new Error('Sin IP local');
         setUrlMovil(construirUrl(ip));
-        setOrigenMostrado(ip);
       })
       .catch(() => {
         if (!activo) return;
         setError('No se pudo detectar la IP local. Usa la IP de tu PC en lugar de localhost.');
         setUrlMovil(`${window.location.protocol}//${window.location.host}${ruta}${qs ? `?${qs}` : ''}`);
-        setOrigenMostrado(window.location.host);
       })
       .finally(() => {
         if (!activo) return;
@@ -4895,10 +4891,11 @@ function QrAccesoMovil({ vista }: { vista: 'recepcion' | 'escaneo' }) {
       {!cargando && urlQr && (
         <div className="guia-qr">
           <img className="guia-qr__img" src={urlQr} alt="QR para abrir en movil" />
-          <div className="nota">
-            Abre en el movil: <span className="guia-qr__url">{urlMovil}</span>
-          </div>
-          {origenMostrado && <div className="nota">Origen detectado: {origenMostrado}</div>}
+          {error && (
+            <div className="nota">
+              Fallback manual: <span className="guia-qr__url">{urlMovil}</span>
+            </div>
+          )}
         </div>
       )}
       {error && <InlineMensaje tipo="warning">{error}</InlineMensaje>}
