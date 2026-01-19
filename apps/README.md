@@ -2,6 +2,8 @@
 
 Carpeta de aplicaciones del monorepo (workspaces).
 
+Estado: MVP en Beta. La definición de versión estable está en `../docs/VERSIONADO.md`.
+
 - `backend/`: API Docente Local (Express + TypeScript).
 - `frontend/`: UI (React + Vite) para Docente y Alumno.
 - `portal_alumno_cloud/`: API del Portal Alumno (solo lectura / cloud).

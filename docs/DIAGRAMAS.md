@@ -1,14 +1,14 @@
 # Diagramas
 
-Este catalogo incluye los diagramas necesarios para entender el sistema end-to-end.
+Este catálogo incluye los diagramas necesarios para entender el sistema end-to-end.
 
 Fuentes Mermaid: `docs/diagramas/src/`.
 SVG renderizados: `docs/diagramas/rendered/`.
 
-## Actualizacion automatica (fuentes)
+## Actualización automática (fuentes)
 
 Los `.mmd` incluyen un bloque comentado `%% AUTO:START system_model ... %% AUTO:END system_model`.
-Ese bloque se genera desde el codigo (prefijos y superficies de rutas) para ayudar a mantener
+Ese bloque se genera desde el código (prefijos y superficies de rutas) para ayudar a mantener
 los diagramas sincronizados con el estado real del sistema.
 
 - Generar/actualizar: `npm run diagramas:generate`
@@ -28,14 +28,14 @@ puedes desactivar temporalmente el check con `DIAGRAMAS_RENDER_CHECK=0`.
 
 ## Consistencia semantica (rutas)
 
-Valida que las rutas HTTP mencionadas en los diagramas de secuencia correspondan con el codigo:
+Valida que las rutas HTTP mencionadas en los diagramas de secuencia correspondan con el código:
 
-- Portal alumno cloud: valida metodo + path exacto.
-- Backend: valida metodo + path exacto (derivado de los routers montados); si no puede resolver algun router, hace fallback a validar el montaje.
+- Portal alumno cloud: valida método + path exacto.
+- Backend: valida método + path exacto (derivado de los routers montados); si no puede resolver algún router, hace fallback a validar el montaje.
 
 Comando: `npm run diagramas:consistencia:check`
 
-Nota: el bloque `system_model` actualiza el **codigo** de las fuentes Mermaid; el render produce los SVG.
+Nota: el bloque `system_model` actualiza el **código** de las fuentes Mermaid; el render produce los SVG.
 
 ## Arquitectura general
 

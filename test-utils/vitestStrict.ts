@@ -64,6 +64,9 @@ export function instalarTestHardening(opts: StrictHarnessOptions = {}) {
   if (globalState[globalKey]) return;
   globalState[globalKey] = true;
 
+  const vitestWorker = (globalThis as unknown as { __vitest_worker__?: unknown }).__vitest_worker__;
+  if (!vitestWorker) return;
+
   const allowConsole = Boolean(opts.allowConsole) || process.env.ALLOW_TEST_CONSOLE === '1';
   const allowNodeWarnings = Boolean(opts.allowNodeWarnings) || process.env.ALLOW_NODE_WARNINGS === '1';
   const allowConsolePatterns = opts.allowConsolePatterns ?? [];

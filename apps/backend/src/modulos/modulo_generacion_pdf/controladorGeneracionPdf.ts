@@ -123,6 +123,17 @@ export async function listarPlantillas(req: SolicitudDocente, res: Response) {
 export async function crearPlantilla(req: SolicitudDocente, res: Response) {
   const docenteId = obtenerDocenteId(req);
 
+  const periodoId = (req.body as { periodoId?: string }).periodoId;
+  if (periodoId) {
+    const periodo = await Periodo.findOne({ _id: String(periodoId).trim(), docenteId }).lean();
+    if (!periodo) {
+      throw new ErrorAplicacion('PERIODO_NO_ENCONTRADO', 'Materia no encontrada', 404);
+    }
+    if ((periodo as unknown as { activo?: boolean }).activo === false) {
+      throw new ErrorAplicacion('PERIODO_INACTIVO', 'La materia esta archivada', 409);
+    }
+  }
+
   const temasRaw = (req.body as { temas?: unknown }).temas;
   const temas = Array.isArray(temasRaw)
     ? Array.from(
@@ -221,6 +232,17 @@ export async function actualizarPlantilla(req: SolicitudDocente, res: Response) 
     (patch as Record<string, unknown>).temas = [];
   }
 
+  if ((patch as { periodoId?: unknown }).periodoId) {
+    const periodoId = String((patch as { periodoId?: unknown }).periodoId ?? '').trim();
+    const periodo = await Periodo.findOne({ _id: periodoId, docenteId }).lean();
+    if (!periodo) {
+      throw new ErrorAplicacion('PERIODO_NO_ENCONTRADO', 'Materia no encontrada', 404);
+    }
+    if ((periodo as unknown as { activo?: boolean }).activo === false) {
+      throw new ErrorAplicacion('PERIODO_INACTIVO', 'La materia esta archivada', 409);
+    }
+  }
+
   const merged = {
     periodoId: (patch as { periodoId?: unknown }).periodoId ?? actual.periodoId,
     tipo: (patch as { tipo?: unknown }).tipo ?? actual.tipo,
@@ -256,7 +278,7 @@ export async function actualizarPlantilla(req: SolicitudDocente, res: Response) 
 }
 
 /**
- * Elimina una plantilla si no tiene examenes generados asociados.
+ * Archiva una plantilla sin borrar sus datos.
  */
 export async function archivarPlantilla(req: SolicitudDocente, res: Response) {
   const docenteId = obtenerDocenteId(req);
@@ -603,6 +625,31 @@ export async function generarExamen(req: SolicitudDocente, res: Response) {
   if (String(plantilla.docenteId) !== String(docenteId)) {
     throw new ErrorAplicacion('NO_AUTORIZADO', 'Sin acceso a la plantilla', 403);
   }
+  if ((plantilla as unknown as { archivadoEn?: unknown }).archivadoEn) {
+    throw new ErrorAplicacion('PLANTILLA_ARCHIVADA', 'La plantilla esta archivada', 409);
+  }
+
+  const periodo = plantilla.periodoId ? await Periodo.findById(plantilla.periodoId).lean() : null;
+  if (plantilla.periodoId && !periodo) {
+    throw new ErrorAplicacion('PERIODO_NO_ENCONTRADO', 'Materia no encontrada', 404);
+  }
+  if (periodo && (periodo as unknown as { activo?: boolean }).activo === false) {
+    throw new ErrorAplicacion('PERIODO_INACTIVO', 'La materia esta archivada', 409);
+  }
+
+  const alumno = alumnoId
+    ? await Alumno.findOne({
+        _id: String(alumnoId).trim(),
+        docenteId,
+        ...(plantilla.periodoId ? { periodoId: plantilla.periodoId } : {}),
+        activo: true
+      }).lean()
+    : null;
+  if (alumnoId && !alumno) {
+    throw new ErrorAplicacion('ALUMNO_INVALIDO', 'Alumno no encontrado en la materia', 400);
+  }
+
+  const docenteDb = await Docente.findById(docenteId).lean();
 
   const preguntasIds = Array.isArray(plantilla.preguntasIds) ? plantilla.preguntasIds : [];
   const temas = Array.isArray((plantilla as unknown as { temas?: unknown[] }).temas)
@@ -656,12 +703,6 @@ export async function generarExamen(req: SolicitudDocente, res: Response) {
   const mapaVariante = generarVariante(preguntasCandidatas);
   const loteId = randomUUID().split('-')[0].toUpperCase();
   const folio = randomUUID().split('-')[0].toUpperCase();
-
-  const [periodo, docenteDb, alumno] = await Promise.all([
-    plantilla.periodoId ? Periodo.findById(plantilla.periodoId).lean() : Promise.resolve(null),
-    Docente.findById(docenteId).lean(),
-    alumnoId ? Alumno.findById(String(alumnoId)).lean() : Promise.resolve(null)
-  ]);
 
   const { pdfBytes, paginas, metricasPaginas, mapaOmr } = await generarPdfExamen({
     titulo: plantilla.titulo,
@@ -761,12 +802,21 @@ export async function generarExamenesLote(req: SolicitudDocente, res: Response) 
   if (String(plantilla.docenteId) !== String(docenteId)) {
     throw new ErrorAplicacion('NO_AUTORIZADO', 'Sin acceso a la plantilla', 403);
   }
+  if ((plantilla as unknown as { archivadoEn?: unknown }).archivadoEn) {
+    throw new ErrorAplicacion('PLANTILLA_ARCHIVADA', 'La plantilla esta archivada', 409);
+  }
   if (!plantilla.periodoId) {
     throw new ErrorAplicacion('PLANTILLA_INVALIDA', 'La plantilla requiere materia (periodoId) para generar en lote', 400);
   }
 
   const loteId = randomUUID().split('-')[0].toUpperCase();
   const periodo = await Periodo.findById(plantilla.periodoId).lean();
+  if (!periodo) {
+    throw new ErrorAplicacion('PERIODO_NO_ENCONTRADO', 'Materia no encontrada', 404);
+  }
+  if ((periodo as unknown as { activo?: boolean }).activo === false) {
+    throw new ErrorAplicacion('PERIODO_INACTIVO', 'La materia esta archivada', 409);
+  }
   const docenteDb = await Docente.findById(docenteId).lean();
 
   const alumnos = await Alumno.find({ docenteId, periodoId: plantilla.periodoId, activo: true }).lean();

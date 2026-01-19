@@ -15,6 +15,7 @@ import {
 } from './controladorGeneracionPdf';
 import {
   esquemaActualizarPlantilla,
+  esquemaBodyVacioOpcional,
   esquemaCrearPlantilla,
   esquemaGenerarExamen,
   esquemaGenerarExamenesLote,
@@ -33,14 +34,14 @@ const router = Router();
 router.get('/plantillas', listarPlantillas);
 router.post('/plantillas', validarCuerpo(esquemaCrearPlantilla, { strict: true }), crearPlantilla);
 router.post('/plantillas/:id', validarCuerpo(esquemaActualizarPlantilla, { strict: true }), actualizarPlantilla);
-router.post('/plantillas/:id/archivar', archivarPlantilla);
+router.post('/plantillas/:id/archivar', validarCuerpo(esquemaBodyVacioOpcional, { strict: true }), archivarPlantilla);
 router.get('/plantillas/:id/previsualizar', previsualizarPlantilla);
 router.get('/plantillas/:id/previsualizar/pdf', previsualizarPlantillaPdf);
 router.get('/generados', listarExamenesGenerados);
 router.get('/generados/folio/:folio', obtenerExamenPorFolio);
 router.get('/generados/:id/pdf', descargarPdf);
 router.post('/generados/:id/regenerar', validarCuerpo(esquemaRegenerarExamenGenerado, { strict: true }), regenerarPdfExamen);
-router.post('/generados/:id/archivar', archivarExamenGenerado);
+router.post('/generados/:id/archivar', validarCuerpo(esquemaBodyVacioOpcional, { strict: true }), archivarExamenGenerado);
 router.post('/generados', validarCuerpo(esquemaGenerarExamen, { strict: true }), generarExamen);
 router.post('/generados/lote', validarCuerpo(esquemaGenerarExamenesLote, { strict: true }), generarExamenesLote);
 

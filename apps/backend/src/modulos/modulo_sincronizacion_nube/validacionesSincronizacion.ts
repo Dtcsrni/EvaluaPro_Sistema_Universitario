@@ -1,9 +1,9 @@
 /**
- * Validaciones de sincronizacion a nube.
+ * Validaciones de sincronización a nube.
  *
  * Nota:
- * - Se valida lo minimo necesario para mantener contract tests estables.
- * - La autorizacion por objeto (docenteId) se aplica via middleware JWT y
+ * - Se valida lo mínimo necesario para mantener contract tests estables.
+ * - La autorización por objeto (docenteId) se aplica vía middleware JWT y
  *   filtros en queries (ver `controladorSincronizacion.ts`).
  */
 import { z } from 'zod';
@@ -17,7 +17,7 @@ export const esquemaGenerarCodigoAcceso = z.object({
   periodoId: esquemaObjectId
 });
 
-// Paquete de sincronizacion (entre computadoras). Permite export/import manual (USB/Drive).
+// Paquete de sincronización (entre computadoras). Permite export/import manual (USB/Drive).
 export const esquemaExportarPaquete = z.object({
   periodoId: esquemaObjectId.optional(),
   desde: z.string().datetime().optional(),

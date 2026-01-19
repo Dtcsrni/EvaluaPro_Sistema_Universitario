@@ -4,6 +4,8 @@ Frontend de **Sistema EvaluaPro (EP)** (React + Vite) con dos destinos:
 - **Docente**: operación/gestión, generación, sincronización.
 - **Alumno**: consulta de resultados.
 
+Estado: MVP en Beta. Ver criterios de versión estable en `../../docs/VERSIONADO.md`.
+
 ## Desarrollo
 Desde la raíz:
 - `npm run dev:frontend`

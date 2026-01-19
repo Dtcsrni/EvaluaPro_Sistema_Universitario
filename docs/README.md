@@ -2,6 +2,9 @@
 
 Documentación de **Sistema EvaluaPro (EP)**.
 
+Estado actual: MVP en **Beta**. La definición de versión estable y criterios de salida de Beta
+están en `VERSIONADO.md` y `PRUEBAS.md`.
+
 ## Lecturas recomendadas
 - Arquitectura: `ARQUITECTURA.md`
 - Arquitectura C4: `ARQUITECTURA_C4.md`

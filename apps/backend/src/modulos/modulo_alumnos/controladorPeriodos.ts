@@ -57,13 +57,14 @@ export async function crearPeriodo(req: SolicitudDocente, res: Response) {
     throw new ErrorAplicacion('PERIODO_DUPLICADO', 'Ya existe una materia con ese nombre', 409);
   }
 
+  const { fechaInicio, fechaFin } = req.body as { fechaInicio: Date; fechaFin: Date };
   const periodo = await Periodo.create({
     ...req.body,
     nombre,
     nombreNormalizado,
     docenteId,
-    fechaInicio: new Date(req.body.fechaInicio),
-    fechaFin: new Date(req.body.fechaFin)
+    fechaInicio,
+    fechaFin
   });
   res.status(201).json({ periodo });
 }

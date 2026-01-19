@@ -6,7 +6,7 @@ Esta opción permite mover datos del sistema entre instalaciones (por ejemplo, d
 
 El paquete incluye (según disponibilidad):
 
-- Materias (periodos)
+- Materias (períodos)
 - Alumnos
 - Banco de preguntas
 - Plantillas de examen

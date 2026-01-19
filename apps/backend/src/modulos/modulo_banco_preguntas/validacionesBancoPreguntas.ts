@@ -85,3 +85,5 @@ export const esquemaQuitarTemaBanco = z
     preguntasIds: z.array(esquemaObjectId).min(1)
   })
   .strict();
+
+export const esquemaBodyVacioOpcional = z.object({}).strict().optional();

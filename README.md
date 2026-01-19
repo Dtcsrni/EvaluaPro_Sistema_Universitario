@@ -16,6 +16,11 @@ Este repositorio está pensado para crecer desde un uso “local/operativo” (d
 - Frontend moderno (React/Vite) orientado a UX y flujos de docente/alumno.
 - Paneles de operación: dashboard local para salud/logs y panel web de Mongo para inspección.
 
+## Estado de versión (MVP Beta)
+- Esta versión se considera MVP en estado Beta.
+- La “versión estable más reciente” es la última que pasa todas las suites de pruebas y checks críticos.
+- La salida de Beta ocurre cuando se completa y valida automáticamente el primer ciclo docente/alumno (crear materia, generar plantilla, vincular examen, escanear y calificar).
+
 ## Arquitectura
 - `apps/backend/`: API docente modular en TypeScript (Express + Mongoose).
 - `apps/frontend/`: UI React (docente/alumno) construida con Vite.
@@ -76,9 +81,9 @@ docker compose --profile dev up --build
 - `REFRESH_TOKEN_DIAS`: dias de vigencia del refresh token (cookie httpOnly, rotatorio) para no re-loguear tan seguido.
 - `GOOGLE_OAUTH_CLIENT_ID`: client id de Google para validar ID tokens (login opcional en backend).
 - `CODIGO_ACCESO_HORAS`: vigencia del codigo de acceso alumno (default 12).
-- `PORTAL_ALUMNO_URL`: URL del portal cloud para sincronizacion.
+- `PORTAL_ALUMNO_URL`: URL del portal cloud para sincronización.
 - `PORTAL_ALUMNO_API_KEY`: API key para publicar resultados (backend local).
-- `PORTAL_API_KEY`: API key de validacion en el portal cloud.
+- `PORTAL_API_KEY`: API key de validación en el portal cloud.
 - `WEB_URL`: usado por `scripts/dashboard.mjs` para verificar la web.
 
 Branding del PDF (opcional):
@@ -109,7 +114,7 @@ Nota: para una lista más completa (y actualizada automáticamente), revisa `doc
 - Pruebas portal alumno: `npm run test:portal`
 - Pruebas frontend: `npm run test:frontend`
 - Pruebas CI (con reintentos + lint): `npm run test:ci`
-- Guardarrail de rutas (anti-regresion validacion/auth): `npm run routes:check`
+- Guardarrail de rutas (anti-regresión validación/auth): `npm run routes:check`
 - Docs auto (generar): `npm run docs:generate`
 - Docs auto (validar en CI): `npm run docs:check`
 - Diagramas (actualizar fuentes Mermaid): `npm run diagramas:generate`
@@ -156,7 +161,7 @@ Si configuras `GOOGLE_OAUTH_CLIENT_ID` (backend) y `VITE_GOOGLE_CLIENT_ID` (fron
 de acceso con Google. El backend emite un JWT de acceso y un refresh token rotatorio en cookie httpOnly para mantener
 sesion sin pedir login tan seguido (sin exponer el refresh token a JavaScript).
 
-Tambien hay registro con Google: el correo se toma desde Google (verificado). La contrasena es opcional en ese flujo;
+También hay registro con Google: el correo se toma desde Google (verificado). La contraseña es opcional en ese flujo;
 si no la defines al registrarte, puedes definirla despues desde la seccion "Cuenta" dentro del portal docente.
 
 ## API base

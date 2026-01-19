@@ -20,6 +20,7 @@ import { TemaBoton } from '../../tema/TemaBoton';
 import { tipoMensajeInline } from './mensajeInline';
 
 const clienteApi = crearClienteApi();
+const patronNombreMateria = /^[\p{L}\p{N}][\p{L}\p{N}\s\-_.()#&/]*$/u;
 
 type Docente = {
   id: string;
@@ -460,7 +461,6 @@ export function AppDocente() {
       {vista === 'periodos_archivados' && (
         <SeccionPeriodosArchivados
           periodos={periodosArchivados}
-          onRefrescar={refrescarMaterias}
           onVerActivas={() => setVista('periodos')}
         />
       )}
@@ -1987,7 +1987,7 @@ function SeccionBanco({
   }
 
   async function archivarTemaBanco(item: TemaBanco) {
-    const ok = globalThis.confirm(`¿Archivar el tema "${item.nombre}"? Se removera de plantillas y preguntas.`);
+    const ok = globalThis.confirm(`¿Archivar el tema "${item.nombre}"? Se removerá de plantillas y preguntas.`);
     if (!ok) return;
     try {
       setArchivandoTemaId(item._id);
@@ -2252,7 +2252,7 @@ function SeccionBanco({
                           Renombrar
                         </Boton>
                         <Boton type="button" cargando={archivandoTemaId === t._id} onClick={() => archivarTemaBanco(t)}>
-                          Eliminar
+                          Archivar
                         </Boton>
                       </>
                     )}
@@ -2621,7 +2621,7 @@ function SeccionBanco({
                           Editar
                         </Boton>
                         <Boton type="button" cargando={archivandoPreguntaId === pregunta._id} onClick={() => archivarPregunta(pregunta._id)}>
-                          Eliminar
+                          Archivar
                         </Boton>
                       </div>
                     </div>
@@ -2675,13 +2675,56 @@ function SeccionPeriodos({
       .toLowerCase();
   }
 
+  function normalizarTextoCorto(valor: string): string {
+    return String(valor || '')
+      .trim()
+      .replace(/\s+/g, ' ');
+  }
+
+  const nombreValido = useMemo(() => {
+    const limpio = normalizarTextoCorto(nombre);
+    if (!limpio) return false;
+    if (limpio.length < 3 || limpio.length > 80) return false;
+    return patronNombreMateria.test(limpio);
+  }, [nombre]);
+
   const nombreNormalizado = useMemo(() => normalizarNombreMateria(nombre), [nombre]);
   const nombreDuplicado = useMemo(() => {
     if (!nombreNormalizado) return false;
     return periodos.some((p) => normalizarNombreMateria(p.nombre) === nombreNormalizado);
   }, [nombreNormalizado, periodos]);
 
-  const puedeCrear = Boolean(nombre.trim() && fechaInicio && fechaFin && fechaFin >= fechaInicio && !nombreDuplicado);
+  const gruposNormalizados = useMemo(
+    () =>
+      (grupos || '')
+        .split(',')
+        .map((item) => normalizarTextoCorto(item))
+        .filter(Boolean),
+    [grupos]
+  );
+  const gruposDuplicados = useMemo(() => {
+    const vistos = new Set<string>();
+    for (const grupo of gruposNormalizados) {
+      const clave = grupo.toLowerCase();
+      if (vistos.has(clave)) return true;
+      vistos.add(clave);
+    }
+    return false;
+  }, [gruposNormalizados]);
+  const gruposValidos = useMemo(() => {
+    if (gruposNormalizados.length > 50) return false;
+    return gruposNormalizados.every((g) => g.length >= 1 && g.length <= 40);
+  }, [gruposNormalizados]);
+
+  const puedeCrear = Boolean(
+    nombreValido &&
+      fechaInicio &&
+      fechaFin &&
+      fechaFin >= fechaInicio &&
+      !nombreDuplicado &&
+      gruposValidos &&
+      !gruposDuplicados
+  );
 
   async function crearPeriodo() {
     try {
@@ -2689,15 +2732,10 @@ function SeccionPeriodos({
       setCreando(true);
       setMensaje('');
       await clienteApi.enviar('/periodos', {
-        nombre: nombre.trim(),
+        nombre: normalizarTextoCorto(nombre),
         fechaInicio,
         fechaFin,
-        grupos: grupos
-          ? grupos
-              .split(',')
-              .map((item) => item.trim())
-              .filter(Boolean)
-          : []
+        grupos: gruposNormalizados
       });
       setMensaje('Materia creada');
       emitToast({ level: 'ok', title: 'Materias', message: 'Materia creada', durationMs: 2200 });
@@ -2724,7 +2762,7 @@ function SeccionPeriodos({
   }
   async function archivarMateria(periodo: Periodo) {
     const confirmado = globalThis.confirm(
-      `¿Archivar la materia "${etiquetaMateria(periodo)}"?\n\nSe ocultara de la lista de activas, pero NO se borraran sus datos.`
+      `¿Archivar la materia "${etiquetaMateria(periodo)}"?\n\nSe ocultará de la lista de activas, pero NO se borrarán sus datos.`
     );
     if (!confirmado) return;
 
@@ -2781,11 +2819,17 @@ function SeccionPeriodos({
         <p>
           Ejemplos de grupos: <code>3A,3B,3C</code> o <code>A1,B1</code>.
         </p>
+        <p>
+          Reglas: nombre entre 3 y 80 caracteres; grupos unicos (max 50) y cada grupo max 40 caracteres.
+        </p>
       </AyudaFormulario>
       <label className="campo">
         Nombre de la materia
         <input value={nombre} onChange={(event) => setNombre(event.target.value)} />
       </label>
+      {nombre.trim() && !nombreValido && (
+        <InlineMensaje tipo="error">El nombre debe tener entre 3 y 80 caracteres.</InlineMensaje>
+      )}
       {nombre.trim() && nombreDuplicado && (
         <InlineMensaje tipo="error">Ya existe una materia con ese nombre. Cambia el nombre para crearla.</InlineMensaje>
       )}
@@ -2804,6 +2848,10 @@ function SeccionPeriodos({
         Grupos (separados por coma)
         <input value={grupos} onChange={(event) => setGrupos(event.target.value)} />
       </label>
+      {!gruposValidos && grupos.trim() && (
+        <InlineMensaje tipo="error">Revisa grupos: max 50 y hasta 40 caracteres por grupo.</InlineMensaje>
+      )}
+      {gruposDuplicados && <InlineMensaje tipo="error">Hay grupos repetidos.</InlineMensaje>}
       <Boton type="button" icono={<Icono nombre="nuevo" />} cargando={creando} disabled={!puedeCrear} onClick={crearPeriodo}>
         {creando ? 'Creando…' : 'Crear materia'}
       </Boton>
@@ -2853,21 +2901,17 @@ function SeccionPeriodos({
 
 function SeccionPeriodosArchivados({
   periodos,
-  onRefrescar,
   onVerActivas
 }: {
   periodos: Periodo[];
-  onRefrescar: () => void;
   onVerActivas: () => void;
 }) {
-  const [mensaje, setMensaje] = useState('');
 
   function formatearFechaHora(valor?: string) {
     if (!valor) return '-';
     const d = new Date(valor);
     if (Number.isNaN(d.getTime())) return String(valor);
     return d.toLocaleString();
-  }
   }
 
   return (
@@ -2887,12 +2931,6 @@ function SeccionPeriodosArchivados({
           Los datos quedan guardados (solo se ocultan), y se registra un resumen de lo asociado.
         </p>
       </AyudaFormulario>
-
-      {mensaje && (
-        <p className={esMensajeError(mensaje) ? 'mensaje error' : 'mensaje ok'} role="status">
-          {mensaje}
-        </p>
-      )}
 
       {periodos.length === 0 ? (
         <InlineMensaje tipo="info">No hay materias archivadas.</InlineMensaje>
@@ -3547,7 +3585,7 @@ function SeccionPlantillas({
         setArchivandoExamenId(examen._id);
 
         const ok = globalThis.confirm(
-          `¿EArchivar el examen generado (folio: ${String(examen.folio || '').trim() || 'sin folio'})?\n\nSe ocultara del listado activo, pero no se borraran sus datos.`
+          `¿Archivar el examen generado (folio: ${String(examen.folio || '').trim() || 'sin folio'})?\n\nSe ocultará del listado activo, pero no se borrarán sus datos.`
         );
         if (!ok) return;
 
@@ -3709,7 +3747,7 @@ function SeccionPlantillas({
 
   async function archivarPlantilla(plantilla: Plantilla) {
     const ok = globalThis.confirm(
-      `¿Archivar la plantilla "${String(plantilla.titulo || '').trim()}"?\n\nSe ocultara del listado activo, pero no se borraran sus datos.`
+      `¿Archivar la plantilla "${String(plantilla.titulo || '').trim()}"?\n\nSe ocultará del listado activo, pero no se borrarán sus datos.`
     );
     if (!ok) return;
     try {
@@ -4234,7 +4272,7 @@ function SeccionPlantillas({
                       cargando={archivandoPlantillaId === plantilla._id}
                       onClick={() => void archivarPlantilla(plantilla)}
                     >
-                      Eliminar
+                      Archivar
                     </Boton>
                   </div>
                 </div>
@@ -4537,7 +4575,7 @@ function SeccionPlantillas({
                             disabled={descargandoExamenId === examen._id || regenerandoExamenId === examen._id}
                             onClick={() => void archivarExamenGenerado(examen)}
                           >
-                            Eliminar
+                            Archivar
                           </Boton>
                         )}
                       </div>
@@ -5319,6 +5357,11 @@ function SeccionSincronizacion({
     </div>
   );
 }
+
+
+
+
+
 
 
 

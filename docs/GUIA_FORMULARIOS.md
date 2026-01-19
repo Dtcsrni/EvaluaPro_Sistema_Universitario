@@ -31,7 +31,7 @@ Pantalla: **Acceso docente**.
 Campos:
 - **Correo** (requerido): correo del docente.
   - Si hay política de dominios, debe ser institucional (por ejemplo `@universidad.edu`).
-- **Contrasena** (requerido): contraseña actual.
+- **Contraseña** (requerido): contraseña actual.
 
 Cómo llenarlo:
 1) Escribe tu correo.
@@ -40,7 +40,7 @@ Cómo llenarlo:
 
 Errores comunes:
 - **Correo no permitido**: usa el dominio institucional admitido.
-- **Correo o contrasena incorrectos**: revisa que el correo sea el mismo con el que te registraste.
+- **Correo o contraseña incorrectos**: revisa que el correo sea el mismo con el que te registraste.
 
 #### Ingresar con Google (si está habilitado)
 - Usa el botón de Google.
@@ -52,7 +52,7 @@ Campos:
 - **Apellidos** (requerido)
 - **Correo** (requerido)
   - Si registras con Google, el correo puede quedar **bloqueado** (tomado de Google).
-- **Contrasena**
+- **Contraseña**
   - En registro con correo/contraseña: requerida.
   - En registro con Google: puede ser **opcional** (puedes definirla después en “Cuenta”).
 
@@ -60,33 +60,33 @@ Cómo llenarlo (recomendado):
 1) Presiona **Registrar**.
 2) Si está disponible, usa **Google** para autocompletar correo.
 3) Completa nombres/apellidos.
-4) (Opcional) activa **Crear contrasena ahora** y define una contraseña (mínimo 8 caracteres).
+4) (Opcional) activa **Crear contraseña ahora** y define una contraseña (mínimo 8 caracteres).
 5) Presiona **Crear cuenta**.
 
-#### Recuperar contrasena con Google (si aplica)
+#### Recuperar contraseña con Google (si aplica)
 Esta opción aparece cuando el acceso con Google está habilitado.
 
 Campos:
-- **Nueva contrasena** (mínimo 8 caracteres).
+- **Nueva contraseña** (mínimo 8 caracteres).
 
 Cómo llenarlo:
-1) Abre **Recuperar contrasena con Google**.
+1) Abre **Recuperar contraseña con Google**.
 2) Reautentica con Google.
 3) Escribe la nueva contraseña.
-4) Presiona **Actualizar contrasena**.
+4) Presiona **Actualizar contraseña**.
 
 ---
 
-### Cuenta (Definir o cambiar contrasena)
+### Cuenta (Definir o cambiar contraseña)
 
 Sección: **Cuenta**.
 
 Objetivo: establecer o cambiar la contraseña del docente.
 
 Campos:
-- **Contrasena actual** (solo si tu cuenta ya tiene contraseña definida).
-- **Nueva contrasena** (requerido, mínimo 8 caracteres).
-- **Confirmar contrasena** (requerido, debe coincidir).
+- **Contraseña actual** (solo si tu cuenta ya tiene contraseña definida).
+- **Nueva contraseña** (requerido, mínimo 8 caracteres).
+- **Confirmar contraseña** (requerido, debe coincidir).
 - **Reautenticación**:
   - Si tu cuenta tiene Google vinculado, puedes reautenticar con Google (recomendado).
 
@@ -94,7 +94,7 @@ Cómo llenarlo:
 1) Si está disponible, reautentica con Google.
 2) (Si corresponde) escribe tu contraseña actual.
 3) Escribe la nueva contraseña y confírmala.
-4) Presiona **Guardar contrasena**.
+4) Presiona **Guardar contraseña**.
 
 ---
 
@@ -200,7 +200,7 @@ Qué obtienes:
 
 ### Recepción de exámenes (Vincular entrega)
 
-Sección: **Recepcion de examenes**.
+Sección: **Recepción de exámenes**.
 
 Objetivo: asociar un folio (examen entregado) a un alumno.
 

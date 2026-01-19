@@ -18,6 +18,7 @@ import {
 import {
 	esquemaActualizarPregunta,
 	esquemaActualizarTemaBanco,
+	esquemaBodyVacioOpcional,
 	esquemaCrearTemaBanco,
 	esquemaCrearPregunta,
 	esquemaMoverPreguntasTemaBanco,
@@ -31,12 +32,12 @@ router.get('/', listarBancoPreguntas);
 router.get('/temas', listarTemasBanco);
 router.post('/temas', validarCuerpo(esquemaCrearTemaBanco, { strict: true }), crearTemaBanco);
 router.post('/temas/:temaId/actualizar', validarCuerpo(esquemaActualizarTemaBanco, { strict: true }), actualizarTemaBanco);
-router.post('/temas/:temaId/archivar', archivarTemaBanco);
+router.post('/temas/:temaId/archivar', validarCuerpo(esquemaBodyVacioOpcional, { strict: true }), archivarTemaBanco);
 
 router.post('/', validarCuerpo(esquemaCrearPregunta, { strict: true }), crearPregunta);
 router.post('/:preguntaId/actualizar', validarCuerpo(esquemaActualizarPregunta, { strict: true }), actualizarPregunta);
 router.post('/mover-tema', validarCuerpo(esquemaMoverPreguntasTemaBanco, { strict: true }), moverPreguntasTemaBanco);
 router.post('/quitar-tema', validarCuerpo(esquemaQuitarTemaBanco, { strict: true }), quitarTemaBanco);
-router.post('/:preguntaId/archivar', archivarPregunta);
+router.post('/:preguntaId/archivar', validarCuerpo(esquemaBodyVacioOpcional, { strict: true }), archivarPregunta);
 
 export default router;

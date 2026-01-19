@@ -2,6 +2,8 @@
 
 API Docente Local de **Sistema EvaluaPro (EP)**.
 
+Estado: MVP en Beta. Ver criterios de versión estable en `../../docs/VERSIONADO.md`.
+
 ## Stack
 - Node.js + TypeScript
 - Express

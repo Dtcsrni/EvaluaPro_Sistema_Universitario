@@ -2,6 +2,8 @@
 
 API del **Portal Alumno** (enfoque cloud / solo lectura) para **Sistema EvaluaPro (EP)**.
 
+Estado: MVP en Beta. Ver criterios de versión estable en `../../docs/VERSIONADO.md`.
+
 ## Desarrollo
 Desde la raíz:
 - `npm run dev:portal`

@@ -3,15 +3,15 @@
 Este documento describe cada archivo del repositorio. Los archivos
 generados o lockfiles no deben editarse manualmente.
 
-## Raiz
+## Raíz
 - `.gitignore`: artefactos y archivos ignorados.
-- `.github/copilot-instructions.md`: guias de estilo para el repo.
+- `.github/copilot-instructions.md`: guías de estilo para el repo.
 - `apps/`: aplicaciones del monorepo (backend, frontend, portal).
 - `CHANGELOG.md`: historial de cambios (SemVer).
 - `docker-compose.yml`: stack local con perfiles dev/prod.
 - `package.json`: scripts y workspaces.
 - `package-lock.json`: lockfile de npm (generado).
-- `README.md`: guia principal del proyecto.
+- `README.md`: guía principal del proyecto.
 
 ## docs/
 - `docs/ARQUITECTURA.md`: decisiones, responsabilidades y diagramas texto.
@@ -19,12 +19,12 @@ generados o lockfiles no deben editarse manualmente.
 - `docs/DESPLIEGUE.md`: Docker Compose local y Cloud Run.
 - `docs/SEGURIDAD.md`: checklist OWASP API 2023.
 - `docs/FORMATO_PDF.md`: reglas de PDF carta y OMR.
-- `docs/PRUEBAS.md`: alcance y ejecucion de pruebas.
+- `docs/PRUEBAS.md`: alcance y ejecución de pruebas.
 - `docs/VERSIONADO.md`: convenciones alpha/beta/estable y releases.
 - `docs/AUTO_ENV.md`: variables de entorno detectadas (auto-generado).
-- `docs/AUTO_DOCS_INDEX.md`: indice de docs (auto-generado).
+- `docs/AUTO_DOCS_INDEX.md`: índice de docs (auto-generado).
 - `docs/FILES.md`: este mapa de archivos.
-- `docs/diagramas/src/`: fuentes Mermaid (codigo).
+- `docs/diagramas/src/`: fuentes Mermaid (código).
 - `docs/diagramas/rendered/`: SVG renderizados.
 
 ## scripts/
@@ -35,17 +35,17 @@ generados o lockfiles no deben editarse manualmente.
 - `apps/backend/.eslintrc.cjs`: reglas ESLint backend.
 - `apps/backend/Dockerfile`: imagen Docker API.
 - `apps/backend/package.json`: dependencias y scripts backend.
-- `apps/backend/tsconfig.json`: configuracion TypeScript backend.
-- `apps/backend/vitest.config.ts`: configuracion de pruebas Vitest.
+- `apps/backend/tsconfig.json`: configuración TypeScript backend.
+- `apps/backend/vitest.config.ts`: configuración de pruebas Vitest.
 
 ### apps/backend/src
 - `apps/backend/src/index.ts`: entrypoint del servidor.
-- `apps/backend/src/app.ts`: configuracion Express y middlewares.
+- `apps/backend/src/app.ts`: configuración Express y middlewares.
 - `apps/backend/src/configuracion.ts`: lectura de env y defaults.
 - `apps/backend/src/rutas.ts`: registro de rutas API.
 
 ### apps/backend/src/infraestructura
-- `apps/backend/src/infraestructura/baseDatos/mongoose.ts`: conexion Mongo.
+- `apps/backend/src/infraestructura/baseDatos/mongoose.ts`: conexión Mongo.
 - `apps/backend/src/infraestructura/archivos/almacenLocal.ts`: guardado local de PDFs.
 - `apps/backend/src/infraestructura/correo/servicioCorreo.ts`: placeholder envio de correo.
 
@@ -72,19 +72,19 @@ generados o lockfiles no deben editarse manualmente.
 - `apps/backend/src/modulos/modulo_autenticacion/middlewareAutenticacion.ts`: JWT y helper de docente.
 - `apps/backend/src/modulos/modulo_autenticacion/modeloDocente.ts`: esquema Docente.
 - `apps/backend/src/modulos/modulo_autenticacion/rutasAutenticacion.ts`: rutas de auth.
-- `apps/backend/src/modulos/modulo_autenticacion/servicioHash.ts`: hash de contrasena.
+- `apps/backend/src/modulos/modulo_autenticacion/servicioHash.ts`: hash de contraseña.
 - `apps/backend/src/modulos/modulo_autenticacion/servicioTokens.ts`: JWT docente.
 - `apps/backend/src/modulos/modulo_autenticacion/validacionesAutenticacion.ts`: validaciones Zod.
 
 ### apps/backend/src/modulos/modulo_alumnos
 - `apps/backend/src/modulos/modulo_alumnos/controladorAlumnos.ts`: CRUD alumnos.
-- `apps/backend/src/modulos/modulo_alumnos/controladorPeriodos.ts`: CRUD periodos.
+- `apps/backend/src/modulos/modulo_alumnos/controladorPeriodos.ts`: CRUD períodos.
 - `apps/backend/src/modulos/modulo_alumnos/modeloAlumno.ts`: esquema Alumno.
 - `apps/backend/src/modulos/modulo_alumnos/modeloPeriodo.ts`: esquema Periodo.
 - `apps/backend/src/modulos/modulo_alumnos/rutasAlumnos.ts`: rutas alumnos.
-- `apps/backend/src/modulos/modulo_alumnos/rutasPeriodos.ts`: rutas periodos.
+- `apps/backend/src/modulos/modulo_alumnos/rutasPeriodos.ts`: rutas períodos.
 - `apps/backend/src/modulos/modulo_alumnos/validacionesAlumnos.ts`: validaciones Zod alumnos.
-- `apps/backend/src/modulos/modulo_alumnos/validacionesPeriodos.ts`: validaciones Zod periodos.
+- `apps/backend/src/modulos/modulo_alumnos/validacionesPeriodos.ts`: validaciones Zod períodos.
 
 ### apps/backend/src/modulos/modulo_banco_preguntas
 - `apps/backend/src/modulos/modulo_banco_preguntas/controladorBancoPreguntas.ts`: CRUD banco preguntas.
@@ -109,36 +109,36 @@ generados o lockfiles no deben editarse manualmente.
 - `apps/backend/src/modulos/modulo_vinculacion_entrega/validacionesVinculacion.ts`: validaciones Zod.
 
 ### apps/backend/src/modulos/modulo_escaneo_omr
-- `apps/backend/src/modulos/modulo_escaneo_omr/controladorEscaneoOmr.ts`: escaneo y revision OMR.
+- `apps/backend/src/modulos/modulo_escaneo_omr/controladorEscaneoOmr.ts`: escaneo y revisión OMR.
 - `apps/backend/src/modulos/modulo_escaneo_omr/rutasEscaneoOmr.ts`: rutas OMR.
 - `apps/backend/src/modulos/modulo_escaneo_omr/servicioOmr.ts`: pipeline QR + marcas + burbujas.
 - `apps/backend/src/modulos/modulo_escaneo_omr/validacionesOmr.ts`: validaciones Zod OMR.
 
 ### apps/backend/src/modulos/modulo_calificacion
 - `apps/backend/src/modulos/modulo_calificacion/controladorCalificacion.ts`: calcular y guardar.
-- `apps/backend/src/modulos/modulo_calificacion/modeloCalificacion.ts`: esquema Calificacion.
-- `apps/backend/src/modulos/modulo_calificacion/rutasCalificaciones.ts`: rutas calificacion.
-- `apps/backend/src/modulos/modulo_calificacion/servicioCalificacion.ts`: calculo exacto y topes.
+- `apps/backend/src/modulos/modulo_calificacion/modeloCalificacion.ts`: esquema Calificación.
+- `apps/backend/src/modulos/modulo_calificacion/rutasCalificaciones.ts`: rutas calificación.
+- `apps/backend/src/modulos/modulo_calificacion/servicioCalificacion.ts`: cálculo exacto y topes.
 - `apps/backend/src/modulos/modulo_calificacion/validacionesCalificacion.ts`: validaciones Zod.
 
 ### apps/backend/src/modulos/modulo_analiticas
 - `apps/backend/src/modulos/modulo_analiticas/controladorAnaliticas.ts`: banderas y exportaciones.
 - `apps/backend/src/modulos/modulo_analiticas/modeloBanderaRevision.ts`: esquema BanderaRevision.
-- `apps/backend/src/modulos/modulo_analiticas/rutasAnaliticas.ts`: rutas analiticas.
-- `apps/backend/src/modulos/modulo_analiticas/servicioExportacionCsv.ts`: CSV generico.
+- `apps/backend/src/modulos/modulo_analiticas/rutasAnaliticas.ts`: rutas analíticas.
+- `apps/backend/src/modulos/modulo_analiticas/servicioExportacionCsv.ts`: CSV genérico.
 - `apps/backend/src/modulos/modulo_analiticas/validacionesAnaliticas.ts`: validaciones Zod.
 
 ### apps/backend/src/modulos/modulo_sincronizacion_nube
-- `apps/backend/src/modulos/modulo_sincronizacion_nube/controladorSincronizacion.ts`: publicacion cloud.
-- `apps/backend/src/modulos/modulo_sincronizacion_nube/modeloCodigoAcceso.ts`: esquema CodigoAcceso.
-- `apps/backend/src/modulos/modulo_sincronizacion_nube/modeloSincronizacion.ts`: esquema Sincronizacion.
+- `apps/backend/src/modulos/modulo_sincronizacion_nube/controladorSincronizacion.ts`: publicación cloud.
+- `apps/backend/src/modulos/modulo_sincronizacion_nube/modeloCodigoAcceso.ts`: esquema CódigoAcceso.
+- `apps/backend/src/modulos/modulo_sincronizacion_nube/modeloSincronizacion.ts`: esquema Sincronización.
 - `apps/backend/src/modulos/modulo_sincronizacion_nube/rutasSincronizacionNube.ts`: rutas sync.
 - `apps/backend/src/modulos/modulo_sincronizacion_nube/validacionesSincronizacion.ts`: validaciones Zod.
 
 ### apps/backend/tests
 - `apps/backend/tests/setup.ts`: setup de entorno para pruebas.
-- `apps/backend/tests/calificacion.test.ts`: pruebas de calculo exacto y topes.
-- `apps/backend/tests/csv.test.ts`: pruebas de exportacion CSV.
+- `apps/backend/tests/calificacion.test.ts`: pruebas de cálculo exacto y topes.
+- `apps/backend/tests/csv.test.ts`: pruebas de exportación CSV.
 - `apps/backend/tests/variantes.test.ts`: pruebas de variantes aleatorias.
 - `apps/backend/tests/salud.test.ts`: prueba de salud API.
 - `apps/backend/tests/contrato/validaciones.test.ts`: validaciones de payload.
@@ -155,7 +155,7 @@ generados o lockfiles no deben editarse manualmente.
 - `apps/frontend/tsconfig.json`: config TS React.
 - `apps/frontend/tsconfig.node.json`: config TS tooling.
 - `apps/frontend/vite.config.ts`: config Vite.
-- `apps/frontend/vitest.config.ts`: configuracion de pruebas frontend.
+- `apps/frontend/vitest.config.ts`: configuración de pruebas frontend.
 
 ### apps/frontend/src
 - `apps/frontend/src/App.tsx`: selector de app docente/alumno.
@@ -178,15 +178,15 @@ generados o lockfiles no deben editarse manualmente.
 ## apps/portal_alumno_cloud/
 - `apps/portal_alumno_cloud/Dockerfile`: imagen Docker portal alumno.
 - `apps/portal_alumno_cloud/package.json`: dependencias y scripts.
-- `apps/portal_alumno_cloud/tsconfig.json`: configuracion TypeScript.
-- `apps/portal_alumno_cloud/vitest.config.ts`: configuracion de pruebas portal alumno.
+- `apps/portal_alumno_cloud/tsconfig.json`: configuración TypeScript.
+- `apps/portal_alumno_cloud/vitest.config.ts`: configuración de pruebas portal alumno.
 
 ### apps/portal_alumno_cloud/src
 - `apps/portal_alumno_cloud/src/index.ts`: entrypoint del portal.
 - `apps/portal_alumno_cloud/src/app.ts`: middlewares del portal.
 - `apps/portal_alumno_cloud/src/configuracion.ts`: lectura de env y defaults.
 - `apps/portal_alumno_cloud/src/rutas.ts`: rutas de consulta y sync.
-- `apps/portal_alumno_cloud/src/infraestructura/baseDatos/mongoose.ts`: conexion Mongo cloud.
+- `apps/portal_alumno_cloud/src/infraestructura/baseDatos/mongoose.ts`: conexión Mongo cloud.
 - `apps/portal_alumno_cloud/src/modelos/modeloCodigoAcceso.ts`: esquema CodigoAcceso cloud.
 - `apps/portal_alumno_cloud/src/modelos/modeloResultadoAlumno.ts`: esquema ResultadoAlumno.
 - `apps/portal_alumno_cloud/src/modelos/modeloSesionAlumno.ts`: esquema SesionAlumno.
