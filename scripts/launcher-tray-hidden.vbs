@@ -55,6 +55,12 @@ If port <> "0" And port <> "" Then
 
 	Do While (tries < maxTries) And (ok = False)
 		tries = tries + 1
+		Dim lockPort
+		lockPort = ReadLockPort(rootDir)
+		If lockPort <> "" And lockPort <> port Then
+			port = lockPort
+			url = "http://127.0.0.1:" & port & "/api/status"
+		End If
 		ok = HttpOk(url)
 		If ok = False Then
 			WScript.Sleep 200
@@ -115,5 +121,31 @@ Function HttpOk(ByVal u)
 			HttpOk = False
 		End If
 	End If
+	On Error GoTo 0
+End Function
+
+Function ReadLockPort(ByVal rootDir)
+	On Error Resume Next
+	Dim fso, p, f, text, re, matches
+	Set fso = CreateObject("Scripting.FileSystemObject")
+	p = rootDir & "\logs\dashboard.lock.json"
+	If Not fso.FileExists(p) Then
+		ReadLockPort = ""
+		Exit Function
+	End If
+	Set f = fso.OpenTextFile(p, 1, False)
+	text = f.ReadAll
+	f.Close
+	Set re = New RegExp
+	re.Pattern = """port""\s*:\s*([0-9]+)"
+	re.IgnoreCase = True
+	If re.Test(text) Then
+		Set matches = re.Execute(text)
+		If matches.Count > 0 Then
+			ReadLockPort = matches(0).SubMatches(0)
+			Exit Function
+		End If
+	End If
+	ReadLockPort = ""
 	On Error GoTo 0
 End Function

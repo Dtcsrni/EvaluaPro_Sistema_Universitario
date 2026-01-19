@@ -364,10 +364,10 @@ function setDockerAutostart(patch) {
 function dockerDisplayString() {
   if (dockerAutostart.state === 'starting') return 'Iniciando Docker...';
   if (dockerAutostart.state === 'checking') return 'Comprobando Docker...';
-  if (dockerAutostart.state === 'error') return 'No disponible';
+  if (dockerAutostart.state === 'error') return dockerAutostart.lastError || 'Docker no responde.';
   if (dockerAutostart.ready && dockerAutostart.version) return dockerAutostart.version;
-  const v = safeExecFast('docker version --format "{{.Server.Version}}"', 'No disponible', 900);
-  return v;
+  const v = safeExecFast('docker version --format "{{.Server.Version}}"', '', 900);
+  return v || 'No disponible';
 }
 
 function tryGetDockerVersion() {
@@ -476,7 +476,7 @@ function requestDockerAutostart(reason = 'startup') {
     }
 
     if (!version) {
-      setDockerAutostart({ state: 'error', ready: false, version: '', lastError: 'Docker no responde (daemon no listo).' });
+      setDockerAutostart({ state: 'error', ready: false, version: '', lastError: 'Docker no responde.' });
       dockerAutostart.stack.state = 'error';
       dockerAutostart.stack.lastError = 'Docker no responde.';
       logSystem('Docker no responde. No se pudo iniciar el stack automaticamente.', 'error', { console: true });
@@ -710,6 +710,22 @@ const commands = {
 function isRunning(name) {
   const entry = processes.get(name);
   return Boolean(entry && entry.proc && entry.proc.exitCode === null);
+}
+
+function stackDisplayString(runningList = []) {
+  const stack = dockerAutostart.stack || {};
+  const state = stack.state || 'unknown';
+  const lastError = stack.lastError || '';
+  const running = Array.isArray(runningList) ? runningList : [];
+  const hasStackTask = running.includes('dev') || running.includes('prod') || running.includes('dev-backend');
+  const stackRunning = Boolean(stack.running) || hasStackTask;
+
+  if (state === 'error') return lastError || 'Error iniciando stack.';
+  if (state === 'checking') return 'Comprobando stack Docker...';
+  if (state === 'skipped') return 'Stack Docker ya esta activo.';
+  if (stackRunning) return 'Stack activo (procesos en ejecucion).';
+  if (state === 'starting') return 'Iniciando stack Docker...';
+  return 'Stack detenido.';
 }
 
 function restartTask(name, delayMs = 700) {
@@ -1039,6 +1055,8 @@ const server = http.createServer(async (req, res) => {
     const noise = noiseSnapshot();
     const noiseTotal = Object.values(noise).reduce((acc, val) => acc + val, 0);
     const running = runningTasks();
+    const dockerDisplay = dockerDisplayString();
+    const stackDisplay = stackDisplayString(running);
 
     const hasDev = running.includes('dev');
     const hasProd = running.includes('prod');
@@ -1057,7 +1075,9 @@ const server = http.createServer(async (req, res) => {
       port: listeningPort,
       node: safeExec('node -v', 'No detectado'),
       npm: safeExec('npm -v', 'No detectado'),
-      docker: dockerDisplayString(),
+      docker: dockerDisplay,
+      dockerDisplay,
+      stackDisplay,
       dockerState: {
         state: dockerAutostart.state,
         ready: dockerAutostart.ready,
@@ -1271,22 +1291,41 @@ const server = http.createServer(async (req, res) => {
   }
 
   const requestedPort = portArg ? Number(portArg) : null;
-  const port = Number.isFinite(requestedPort) ? requestedPort : await findPort(4519);
-  server.on('error', async (err) => {
-    if (err.code === 'EADDRINUSE') {
-      const url = `http://127.0.0.1:${port}`;
-      const ok = await pingDashboard(port);
-      if (ok) {
-        logSystem(`Dashboard ya esta activo: ${url}`, 'ok', { console: true });
-        if (!noOpen) openBrowser(url);
-        process.exit(0);
-      }
+  const hasRequestedPort = Number.isFinite(requestedPort);
+  let port = hasRequestedPort ? requestedPort : await findPort(4519);
 
-      if (Number.isFinite(requestedPort)) {
+  if (!await isPortFree(port)) {
+    const url = `http://127.0.0.1:${port}`;
+    const ok = await pingDashboard(port);
+    if (ok) {
+      logSystem(`Dashboard ya esta activo: ${url}`, 'ok', { console: true });
+      if (!noOpen) openBrowser(url);
+      return;
+    }
+
+    if (hasRequestedPort) {
+      const fallback = await findPort(port + 1);
+      const fallbackOk = fallback !== port && await isPortFree(fallback);
+      if (fallbackOk) {
+        logSystem(`Puerto ocupado: ${port}. Usando ${fallback}.`, 'warn', { console: true });
+        port = fallback;
+      } else {
         logSystem(`Puerto ocupado: ${port}. Cierra la instancia previa o cambia --port.`, 'error', { console: true });
-        process.exit(1);
+        return;
+      }
+    } else {
+      const fallback = await findPort(port + 1);
+      const fallbackOk = fallback !== port && await isPortFree(fallback);
+      if (fallbackOk) {
+        port = fallback;
+      } else {
+        logSystem('No se encontro puerto libre para dashboard.', 'error', { console: true });
+        return;
       }
     }
+  }
+
+  server.on('error', (err) => {
     logSystem(`Error del servidor: ${err.message}`, 'error', { console: true });
   });
   server.listen(port, '127.0.0.1', () => {
@@ -1320,5 +1359,3 @@ function isPortFree(port) {
       .listen(port, '127.0.0.1');
   });
 }
-
-

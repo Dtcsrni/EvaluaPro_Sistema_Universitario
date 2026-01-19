@@ -21,6 +21,8 @@ if (-not (Test-Path $logDir)) {
   New-Item -ItemType Directory -Path $logDir | Out-Null
 }
 $logFile = Join-Path $logDir 'tray.log'
+$lockPath = Join-Path $logDir 'dashboard.lock.json'
+$script:Port = $Port
 
 function Log([string]$msg) {
   try {
@@ -29,6 +31,43 @@ function Log([string]$msg) {
   } catch {
     # ignore logging failures
   }
+}
+
+function Read-LockPort {
+  try {
+    if (-not (Test-Path $lockPath)) { return $null }
+    $raw = Get-Content -LiteralPath $lockPath -Raw -ErrorAction Stop
+    if (-not $raw) { return $null }
+    $json = $raw | ConvertFrom-Json -ErrorAction Stop
+    if ($json -and $json.port) { return [int]$json.port }
+  } catch {
+    Log("Lock read failed: $($_.Exception.Message)")
+  }
+  return $null
+}
+
+function Test-StatusPort([int]$port) {
+  if (-not $port -or $port -le 0) { return $false }
+  try {
+    Invoke-RestMethod -Uri ("http://127.0.0.1:$port/api/status") -TimeoutSec 1 | Out-Null
+    return $true
+  } catch {
+    return $false
+  }
+}
+
+function Sync-PortFromLock {
+  param([switch]$RequireReachable)
+
+  $lockPort = Read-LockPort
+  if (-not $lockPort) { return $false }
+  if ($lockPort -eq $script:Port) { return $false }
+  if ($RequireReachable -and -not (Test-StatusPort $lockPort)) { return $false }
+
+  $prev = $script:Port
+  $script:Port = $lockPort
+  Log("Dashboard port updated: $prev -> $lockPort")
+  return $true
 }
 
 Add-Type -AssemblyName System.Windows.Forms
@@ -303,7 +342,10 @@ try {
 
 if (-not $createdNew) {
   Log("Tray singleton: instancia ya existe (mutex=$mutexName). Abriendo dashboard y saliendo.")
-  try { Start-Process ("http://127.0.0.1:$Port/") | Out-Null } catch {}
+  $openPort = $Port
+  $lockPort = Read-LockPort
+  if ($lockPort) { $openPort = $lockPort }
+  try { Start-Process ("http://127.0.0.1:$openPort/") | Out-Null } catch {}
   return
 }
 
@@ -314,7 +356,7 @@ function Get-NodePath {
 }
 
 function Get-ApiBase {
-  return "http://127.0.0.1:$Port"
+  return "http://127.0.0.1:$script:Port"
 }
 
 function Format-ApiException([object]$err) {
@@ -389,7 +431,8 @@ function Invoke-PostJsonOrNull([string]$path, [hashtable]$body) {
 }
 
 function Start-DashboardIfNeeded {
-  Log("Tray start. Mode=$Mode Port=$Port Attach=$Attach")
+  Log("Tray start. Mode=$Mode Port=$script:Port Attach=$Attach")
+  Sync-PortFromLock -RequireReachable | Out-Null
   $status = Get-JsonOrNull '/api/status'
   if ($status) { return @{ started = $false; pid = $null } }
 
@@ -407,7 +450,7 @@ function Start-DashboardIfNeeded {
   Log("Node: $node")
 
   $script = Join-Path $root 'scripts\launcher-dashboard.mjs'
-  $dashArgs = @($script, '--mode', $Mode, '--port', [string]$Port, '--no-open')
+  $dashArgs = @($script, '--mode', $Mode, '--port', [string]$script:Port, '--no-open')
 
   $p = Start-Process -FilePath $node -WorkingDirectory $root -ArgumentList $dashArgs -PassThru -WindowStyle Hidden
   Log("Dashboard spawn PID=$($p.Id)")
@@ -418,6 +461,12 @@ function Start-DashboardIfNeeded {
     Start-Sleep -Milliseconds 250
     $status = Get-JsonOrNull '/api/status'
   } while (-not $status -and (Get-Date) -lt $deadline)
+
+  if (-not $status) {
+    if (Sync-PortFromLock -RequireReachable) {
+      $status = Get-JsonOrNull '/api/status'
+    }
+  }
 
   if ($status) { Log('Dashboard OK (api/status responde)') }
   else { Log('Dashboard NO responde en el tiempo esperado') }
@@ -550,6 +599,11 @@ $timer.add_Tick({
     }
 
     $st = Get-JsonOrNull '/api/status'
+    if (-not $st) {
+      if (Sync-PortFromLock -RequireReachable) {
+        $st = Get-JsonOrNull '/api/status'
+      }
+    }
     $hl = Get-JsonOrNull '/api/health'
 
     $mood = Get-SystemMood $st $hl
@@ -628,6 +682,9 @@ if (-not $NoOpen) {
   do {
     Start-Sleep -Milliseconds 250
     $st = Get-JsonOrNull '/api/status'
+    if (-not $st) {
+      Sync-PortFromLock -RequireReachable | Out-Null
+    }
   } while (-not $st -and (Get-Date) -lt $deadline)
 
   if ($st) {

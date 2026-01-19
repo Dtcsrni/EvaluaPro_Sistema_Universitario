@@ -2337,7 +2337,26 @@
               </div>
             </div>
             <div class="status-grid">
+              <div>Docker: <span id="docker-state-main">-</span></div>
+              <div>Stack Docker: <span id="stack-state-main">-</span></div>
               <div>Proyecto: <span id="root">-</span></div>
+            </div>
+          </div>
+
+          <div class="card wide alert-card ok" id="alert-card">
+            <div class="alert-body">
+              <div class="alert-icon" id="alert-icon">OK</div>
+              <div class="alert-content">
+                <h3 id="alert-title">Sin alertas activas</h3>
+                <p id="alert-message">No hay errores recientes en los servicios monitoreados.</p>
+                <div class="alert-meta">
+                  <span id="alert-source">Origen: -</span>
+                  <span id="alert-time">Hora: -</span>
+                </div>
+              </div>
+              <div class="alert-actions">
+                <button class="ghost-btn" id="alert-open-logs" type="button">Abrir logs</button>
+              </div>
             </div>
           </div>
 
@@ -2513,6 +2532,7 @@
               <div>Procesos: <span id="running-status">-</span></div>
               <div>Modo: <span id="mode-status">-</span></div>
               <div>Proyecto: <span id="root-status">-</span></div>
+              <div>Stack Docker: <span id="stack-state-status">-</span></div>
               <div>Conexion: <span id="connection-status">-</span></div>
               <div>Ultimo error: <span id="connection-error">-</span></div>
             </div>
@@ -2665,7 +2685,7 @@
 
     // Identificador de UI (útil para confirmar que el HTML recargó cambios).
     // Nota: actualiza este valor cuando hagas cambios visibles al dashboard.
-    const UI_REV = '2026-01-17.7';
+    const UI_REV = '2026-01-17.8';
 
     const THEME_STORAGE_KEY = 'seuDashboardTheme';
 
@@ -3322,6 +3342,29 @@
       return list.map((item) => ENV_LABELS[item] || item).join(', ');
     }
 
+    function resolveDockerDisplay(data) {
+      if (data && typeof data.dockerDisplay === 'string' && data.dockerDisplay.trim()) return data.dockerDisplay;
+      if (data && typeof data.docker === 'string' && data.docker.trim()) return data.docker;
+      return '-';
+    }
+
+    function resolveStackDisplay(data, runningList) {
+      if (data && typeof data.stackDisplay === 'string' && data.stackDisplay.trim()) return data.stackDisplay;
+      const stack = data && data.dockerState && data.dockerState.stack ? data.dockerState.stack : null;
+      const state = stack && stack.state ? String(stack.state) : 'unknown';
+      const lastError = stack && stack.lastError ? String(stack.lastError) : '';
+      const running = Array.isArray(runningList) ? runningList : [];
+      const hasStackTask = running.includes('dev') || running.includes('prod') || running.includes('dev-backend');
+      const stackRunning = Boolean(stack && stack.running) || hasStackTask;
+
+      if (state === 'error') return lastError || 'Error iniciando stack.';
+      if (state === 'starting') return 'Iniciando stack Docker...';
+      if (state === 'checking') return 'Comprobando stack Docker...';
+      if (state === 'skipped') return 'Stack Docker ya esta activo.';
+      if (stackRunning) return 'Stack activo (procesos en ejecucion).';
+      return 'Stack detenido.';
+    }
+
     function updateEnvButton(button, running) {
       if (!button) return;
       const stateEl = button.querySelector('[data-state]');
@@ -3862,6 +3905,8 @@
       const runningList = Array.isArray(data.running) ? data.running : [];
       const runningCount = runningList.length;
       const previousRunning = new Set(state.running);
+      const dockerDisplay = resolveDockerDisplay(data);
+      const stackDisplay = resolveStackDisplay(data, runningList);
 
       const displayMode = deriveDisplayMode(data.mode, runningList);
       state.mode = displayMode;
@@ -3878,7 +3923,10 @@
       setText('running-status', renderRunning(runningList));
       setText('node', data.node);
       setText('npm', data.npm);
-      setText('docker', data.dockerDisplay || data.docker);
+      setText('docker', dockerDisplay);
+      setText('docker-state-main', dockerDisplay);
+      setText('stack-state-main', stackDisplay);
+      setText('stack-state-status', stackDisplay);
       setText('mode-chip', `Modo: ${formatModeLabel(displayMode)}`);
       setText('running-chip', `Procesos: ${runningCount}`);
       setText('port-chip', `Puerto: ${data.port || '-'}`);
@@ -3932,6 +3980,9 @@
         setText('node', '-');
         setText('npm', '-');
         setText('docker', '-');
+        setText('docker-state-main', '-');
+        setText('stack-state-main', '-');
+        setText('stack-state-status', '-');
         setText('mode-chip', 'Modo: -');
         setText('running-chip', 'Procesos: -');
 
