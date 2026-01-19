@@ -30,6 +30,8 @@
   --peligroTexto: #7f1d1d;
   --exitoBg: #dcfce7;
   --exitoTexto: #14532d;
+  --avisoBg: #ffedd5;
+  --avisoTexto: #7c2d12;
 
   --campoBg: rgba(255, 255, 255, 0.92);
   --campoBorde: rgba(148, 163, 184, 0.55);
@@ -78,6 +80,8 @@
   --peligroTexto: #fecaca;
   --exitoBg: rgba(34, 197, 94, 0.16);
   --exitoTexto: #bbf7d0;
+  --avisoBg: rgba(245, 158, 11, 0.18);
+  --avisoTexto: #fed7aa;
 
   --campoBg: rgba(2, 6, 23, 0.55);
   --campoBorde: rgba(148, 163, 184, 0.22);
@@ -1142,6 +1146,12 @@ p {
   background: var(--exitoBg);
   color: var(--exitoTexto);
   border-color: rgba(34, 197, 94, 0.35);
+}
+
+.mensaje.warning {
+  background: var(--avisoBg);
+  color: var(--avisoTexto);
+  border-color: rgba(245, 158, 11, 0.35);
 }
 
 .mensaje.error {

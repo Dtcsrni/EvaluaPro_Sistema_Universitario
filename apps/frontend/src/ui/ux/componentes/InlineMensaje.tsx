@@ -1,7 +1,7 @@
 import type { ReactNode } from 'react';
 import { Icono } from '../../iconos';
 
-export type TipoMensaje = 'info' | 'ok' | 'error';
+export type TipoMensaje = 'info' | 'ok' | 'warning' | 'error';
 
 export function InlineMensaje({
   tipo = 'info',
@@ -14,8 +14,9 @@ export function InlineMensaje({
   mostrarIcono?: boolean;
   children: ReactNode;
 }) {
-  const clase = `mensaje${tipo === 'ok' ? ' ok' : tipo === 'error' ? ' error' : ''}`;
-  const icono = tipo === 'error' ? 'alerta' : tipo === 'ok' ? 'ok' : 'info';
+  const clase =
+    `mensaje${tipo === 'ok' ? ' ok' : tipo === 'error' ? ' error' : tipo === 'warning' ? ' warning' : ''}`;
+  const icono = tipo === 'error' ? 'alerta' : tipo === 'ok' ? 'ok' : tipo === 'warning' ? 'alerta' : 'info';
 
   if (tipo === 'error') {
     return (
