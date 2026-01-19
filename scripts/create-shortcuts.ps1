@@ -109,129 +109,104 @@ function New-ModernDashboardBitmap([int]$size, [string]$label, [string]$bgHexA, 
   $bgB = [System.Drawing.ColorTranslator]::FromHtml($bgHexB)
   $accent = [System.Drawing.ColorTranslator]::FromHtml($accentHex)
   $ink = [System.Drawing.Color]::FromArgb(238, 255, 255, 255)
-  $inkSoft = [System.Drawing.Color]::FromArgb(210, 226, 232, 240)
-  $shadow = [System.Drawing.Color]::FromArgb(85, 0, 0, 0)
+  $inkSoft = [System.Drawing.Color]::FromArgb(200, 226, 232, 240)
+  $shadow = [System.Drawing.Color]::FromArgb(70, 0, 0, 0)
 
   $graphics.Clear([System.Drawing.Color]::Transparent)
 
-  $pad = [Math]::Max(2, [int]($size * 0.07))
-  $rect = New-Object System.Drawing.RectangleF $pad, $pad, ($size - 2*$pad), ($size - 2*$pad)
-  $radius = [Math]::Max(6, [int]($size * 0.22))
+  $pad = [Math]::Max(2, [int]($size * 0.08))
+  $rect = New-Object System.Drawing.RectangleF $pad, $pad, ($size - 2 * $pad), ($size - 2 * $pad)
+  $radius = [Math]::Max(8, [int]($size * 0.24))
   $bgPath = New-RoundedRectPath $rect $radius
   try {
-    # Fondo base (oscuro) + glow neón
-    $brushBg = New-Object System.Drawing.Drawing2D.LinearGradientBrush($rect, $bgA, $bgB, 35)
+    # Base background
+    $brushBg = New-Object System.Drawing.Drawing2D.LinearGradientBrush($rect, $bgA, $bgB, 45)
     $graphics.FillPath($brushBg, $bgPath)
 
-    $glowRect = New-Object System.Drawing.RectangleF ($pad * -0.2), ($pad * -0.1), ($size * 1.1), ($size * 1.0)
-    $glowPath = New-Object System.Drawing.Drawing2D.GraphicsPath
-    $glowPath.AddEllipse($glowRect) | Out-Null
-    $glow = New-Object System.Drawing.Drawing2D.PathGradientBrush($glowPath)
-    $glow.CenterColor = [System.Drawing.Color]::FromArgb(70, $accent.R, $accent.G, $accent.B)
-    $glow.SurroundColors = @([System.Drawing.Color]::FromArgb(0, $accent.R, $accent.G, $accent.B))
-    $graphics.FillRectangle($glow, 0, 0, $size, $size)
+    # Soft highlight
+    $highlight = New-Object System.Drawing.Drawing2D.LinearGradientBrush(
+      $rect,
+      [System.Drawing.Color]::FromArgb(55, 255, 255, 255),
+      [System.Drawing.Color]::FromArgb(0, 255, 255, 255),
+      120
+    )
+    $graphics.FillPath($highlight, $bgPath)
 
-    # Borde/ring moderno
-    $penOuter = New-Object System.Drawing.Pen ([System.Drawing.Color]::FromArgb(80, 0, 0, 0), [Math]::Max(1, [int]($size * 0.03)))
+    # Outer border
+    $penOuter = New-Object System.Drawing.Pen ([System.Drawing.Color]::FromArgb(85, 0, 0, 0), [Math]::Max(1, [int]($size * 0.02)))
     $graphics.DrawPath($penOuter, $bgPath)
-    $penRing = New-Object System.Drawing.Pen ([System.Drawing.Color]::FromArgb(205, $accent.R, $accent.G, $accent.B), [Math]::Max(2, [int]($size * 0.06)))
-    $penRing.StartCap = [System.Drawing.Drawing2D.LineCap]::Round
-    $penRing.EndCap = [System.Drawing.Drawing2D.LineCap]::Round
-    $graphics.DrawPath($penRing, $bgPath)
 
-    # Highlight "glass" (arco superior)
-    $penGlass = New-Object System.Drawing.Pen ([System.Drawing.Color]::FromArgb(45, 255, 255, 255), [Math]::Max(2, [int]($size * 0.10)))
-    $penGlass.StartCap = [System.Drawing.Drawing2D.LineCap]::Round
-    $penGlass.EndCap = [System.Drawing.Drawing2D.LineCap]::Round
-    $arcRect = New-Object System.Drawing.RectangleF ($pad + $size * 0.02), ($pad + $size * 0.02), ($size - 2*$pad - $size * 0.04), ($size - 2*$pad - $size * 0.04)
-    $graphics.DrawArc($penGlass, $arcRect, 205, 80)
+    # Inner border
+    $innerRect = $rect
+    $innerRect.Inflate(-[Math]::Max(2, [int]($size * 0.06)), -[Math]::Max(2, [int]($size * 0.06)))
+    $innerPath = New-RoundedRectPath $innerRect ([Math]::Max(6, [int]($size * 0.18)))
+    $penInner = New-Object System.Drawing.Pen ([System.Drawing.Color]::FromArgb(80, $accent.R, $accent.G, $accent.B), [Math]::Max(1, [int]($size * 0.012)))
+    $graphics.DrawPath($penInner, $innerPath)
 
-    # Panel central sutil (más "moderno" que una tarjeta blanca sólida)
-    $panelPad = [Math]::Max(2, [int]($size * 0.20))
-    $panelRect = New-Object System.Drawing.RectangleF ($panelPad), ([int]($size * 0.33)), ($size - 2*$panelPad), ([int]($size * 0.34))
-    $panelRadius = [Math]::Max(6, [int]($size * 0.12))
-    $panelPath = New-RoundedRectPath $panelRect $panelRadius
-    $panelFill = New-Object System.Drawing.SolidBrush ([System.Drawing.Color]::FromArgb(55, 255, 255, 255))
-    $panelBorder = New-Object System.Drawing.Pen ([System.Drawing.Color]::FromArgb(65, $accent.R, $accent.G, $accent.B), [Math]::Max(1, [int]($size * 0.012)))
-    $graphics.FillPath($panelFill, $panelPath)
-    $graphics.DrawPath($panelBorder, $panelPath)
+    # Central glyph: stacked panels
+    $glyphW = [Math]::Max(26, [int]($size * 0.44))
+    $glyphH = [Math]::Max(22, [int]($size * 0.30))
+    $glyphX = [int](($size - $glyphW) / 2)
+    $glyphY = [int]($size * 0.30)
+    $offset = [Math]::Max(3, [int]($size * 0.05))
+    $corner = [Math]::Max(6, [int]($size * 0.10))
 
-    # Glyph (docente): planilla/hoja con checks (evaluación)
-    $cx = $size * 0.50
-    $cy = $size * 0.50
+    $backRect = New-Object System.Drawing.RectangleF ($glyphX + $offset), ($glyphY + $offset), $glyphW, $glyphH
+    $frontRect = New-Object System.Drawing.RectangleF $glyphX, $glyphY, $glyphW, $glyphH
+    $backPath = New-RoundedRectPath $backRect $corner
+    $frontPath = New-RoundedRectPath $frontRect $corner
 
-    $docW = [Math]::Max(24, [int]($size * 0.34))
-    $docH = [Math]::Max(26, [int]($size * 0.36))
-    $docX = [int]($cx - $docW / 2)
-    $docY = [int]($cy - $docH / 2)
-    $docRect = New-Object System.Drawing.RectangleF $docX, $docY, $docW, $docH
-    $docRadius = [Math]::Max(6, [int]($size * 0.08))
+    $backFill = New-Object System.Drawing.SolidBrush ([System.Drawing.Color]::FromArgb(90, 255, 255, 255))
+    $backBorder = New-Object System.Drawing.Pen ([System.Drawing.Color]::FromArgb(90, $accent.R, $accent.G, $accent.B), [Math]::Max(1, [int]($size * 0.012)))
+    $graphics.FillPath($backFill, $backPath)
+    $graphics.DrawPath($backBorder, $backPath)
 
-    $docShadowRect = New-Object System.Drawing.RectangleF ($docX + [Math]::Max(1, [int]($size * 0.012))), ($docY + [Math]::Max(1, [int]($size * 0.012))), $docW, $docH
-    $docShadowPath = New-RoundedRectPath $docShadowRect $docRadius
-    $docShadowBrush = New-Object System.Drawing.SolidBrush $shadow
-    $graphics.FillPath($docShadowBrush, $docShadowPath)
+    $frontFill = New-Object System.Drawing.SolidBrush ([System.Drawing.Color]::FromArgb(190, 255, 255, 255))
+    $frontBorder = New-Object System.Drawing.Pen ([System.Drawing.Color]::FromArgb(170, $accent.R, $accent.G, $accent.B), [Math]::Max(1, [int]($size * 0.016)))
+    $graphics.FillPath($frontFill, $frontPath)
+    $graphics.DrawPath($frontBorder, $frontPath)
 
-    $docPath = New-RoundedRectPath $docRect $docRadius
-    $docFill = New-Object System.Drawing.SolidBrush ([System.Drawing.Color]::FromArgb(140, 255, 255, 255))
-    $docBorder = New-Object System.Drawing.Pen ($inkSoft, [Math]::Max(2, [int]($size * 0.018)))
-    $graphics.FillPath($docFill, $docPath)
-    $graphics.DrawPath($docBorder, $docPath)
+    # Network line + nodes
+    $linePen = New-Object System.Drawing.Pen ([System.Drawing.Color]::FromArgb(235, $accent.R, $accent.G, $accent.B), [Math]::Max(2, [int]($size * 0.03)))
+    $linePen.StartCap = [System.Drawing.Drawing2D.LineCap]::Round
+    $linePen.EndCap = [System.Drawing.Drawing2D.LineCap]::Round
+    $linePen.LineJoin = [System.Drawing.Drawing2D.LineJoin]::Round
 
-    # “Clip” superior (sugiere portapapeles/rúbrica)
-    $clipW = [int]($docW * 0.44)
-    $clipH = [Math]::Max(10, [int]($docH * 0.16))
-    $clipX = [int]($docX + ($docW - $clipW) / 2)
-    $clipY = [int]($docY + $docH * 0.05)
-    $clipRect = New-Object System.Drawing.RectangleF $clipX, $clipY, $clipW, $clipH
-    $clipPath = New-RoundedRectPath $clipRect ([Math]::Max(6, [int]($clipH * 0.45)))
-    $clipFill = New-Object System.Drawing.SolidBrush ([System.Drawing.Color]::FromArgb(220, $accent.R, $accent.G, $accent.B))
-    $graphics.FillPath($clipFill, $clipPath)
+    $gx = $frontRect.X
+    $gy = $frontRect.Y
+    $gw = $frontRect.Width
+    $gh = $frontRect.Height
 
-    # Líneas + checks
-    $penLine = New-Object System.Drawing.Pen ($inkSoft, [Math]::Max(1, [int]($size * 0.012)))
-    $penLine.StartCap = [System.Drawing.Drawing2D.LineCap]::Round
-    $penLine.EndCap = [System.Drawing.Drawing2D.LineCap]::Round
+    $p1 = New-Object System.Drawing.PointF ($gx + $gw * 0.22), ($gy + $gh * 0.35)
+    $p2 = New-Object System.Drawing.PointF ($gx + $gw * 0.55), ($gy + $gh * 0.35)
+    $p3 = New-Object System.Drawing.PointF ($gx + $gw * 0.55), ($gy + $gh * 0.68)
+    $p4 = New-Object System.Drawing.PointF ($gx + $gw * 0.78), ($gy + $gh * 0.68)
+    $graphics.DrawLine($linePen, $p1, $p2)
+    $graphics.DrawLine($linePen, $p2, $p3)
+    $graphics.DrawLine($linePen, $p3, $p4)
 
-    $penCheck = New-Object System.Drawing.Pen ([System.Drawing.Color]::FromArgb(245, $accent.R, $accent.G, $accent.B), [Math]::Max(2, [int]($size * 0.028)))
-    $penCheck.StartCap = [System.Drawing.Drawing2D.LineCap]::Round
-    $penCheck.EndCap = [System.Drawing.Drawing2D.LineCap]::Round
-    $penCheck.LineJoin = [System.Drawing.Drawing2D.LineJoin]::Round
-
-    $lineX1 = [int]($docX + $docW * 0.26)
-    $lineX2 = [int]($docX + $docW * 0.88)
-    $y1 = [int]($docY + $docH * 0.40)
-    $y2 = [int]($docY + $docH * 0.58)
-    $y3 = [int]($docY + $docH * 0.76)
-
-    foreach ($yy in @($y1, $y2, $y3)) {
-      $graphics.DrawLine($penLine, $lineX1, $yy, $lineX2, $yy)
-
-      $mx = [int]($docX + $docW * 0.12)
-      $m = [Math]::Max(8, [int]($docW * 0.12))
-      $pA = New-Object System.Drawing.PointF ($mx), ($yy)
-      $pB = New-Object System.Drawing.PointF ($mx + $m * 0.35), ($yy + $m * 0.25)
-      $pC = New-Object System.Drawing.PointF ($mx + $m), ($yy - $m * 0.35)
-      $graphics.DrawLine($penCheck, $pA, $pB)
-      $graphics.DrawLine($penCheck, $pB, $pC)
+    $node = [Math]::Max(2, [int]($size * 0.035))
+    $nodeBrush = New-Object System.Drawing.SolidBrush ([System.Drawing.Color]::FromArgb(250, $accent.R, $accent.G, $accent.B))
+    foreach ($p in @($p1, $p2, $p3, $p4)) {
+      $graphics.FillEllipse($nodeBrush, ($p.X - $node / 2), ($p.Y - $node / 2), $node, $node)
     }
 
-    # Badge pequeño (DEV/PROD) en esquina, sin tapar el icono
+    # Badge (DEV/PROD)
     if ($size -ge 96) {
-      $badgeW = [int]($size * 0.44)
-      $badgeH = [int]($size * 0.18)
+      $badgeW = [int]($size * 0.40)
+      $badgeH = [int]($size * 0.16)
       $badgeX = [int]($pad)
       $badgeY = [int]($size - $pad - $badgeH)
 
       $badgeRect = New-Object System.Drawing.RectangleF $badgeX, $badgeY, $badgeW, $badgeH
       $badgePath = New-RoundedRectPath $badgeRect ([Math]::Max(6, [int]($badgeH * 0.45)))
 
-      $badgeFill = New-Object System.Drawing.SolidBrush ([System.Drawing.Color]::FromArgb(130, 0, 0, 0))
-      $badgeBorder = New-Object System.Drawing.Pen ([System.Drawing.Color]::FromArgb(190, $accent.R, $accent.G, $accent.B), [Math]::Max(1, [int]($size * 0.012)))
+      $badgeFill = New-Object System.Drawing.SolidBrush ([System.Drawing.Color]::FromArgb(140, 0, 0, 0))
+      $badgeBorder = New-Object System.Drawing.Pen ([System.Drawing.Color]::FromArgb(180, $accent.R, $accent.G, $accent.B), [Math]::Max(1, [int]($size * 0.012)))
       $graphics.FillPath($badgeFill, $badgePath)
       $graphics.DrawPath($badgeBorder, $badgePath)
 
-      $fontSize = [int]([Math]::Max(11, $size * 0.12))
+      $fontSize = [int]([Math]::Max(11, $size * 0.11))
       $font = New-Object System.Drawing.Font -ArgumentList "Segoe UI", $fontSize, ([System.Drawing.FontStyle]::Bold), ([System.Drawing.GraphicsUnit]::Pixel)
       $format = New-Object System.Drawing.StringFormat
       $format.Alignment = "Center"
@@ -241,7 +216,6 @@ function New-ModernDashboardBitmap([int]$size, [string]$label, [string]$bgHexA, 
 
       $textBrush.Dispose(); $format.Dispose(); $font.Dispose(); $badgeBorder.Dispose(); $badgeFill.Dispose(); $badgePath.Dispose()
     } else {
-      # Punto de estado esquina para tamaños chicos
       $dot = [Math]::Max(3, [int]($size * 0.16))
       $dotRect = New-Object System.Drawing.RectangleF ($size - $pad - $dot), ($pad), $dot, $dot
       $dotShadow = New-Object System.Drawing.SolidBrush $shadow
@@ -252,23 +226,18 @@ function New-ModernDashboardBitmap([int]$size, [string]$label, [string]$bgHexA, 
     }
 
     # Cleanup (local)
-    $penCheck.Dispose()
-    $penLine.Dispose()
-    $clipFill.Dispose()
-    $clipPath.Dispose()
-    $docBorder.Dispose()
-    $docFill.Dispose()
-    $docPath.Dispose()
-    $docShadowBrush.Dispose()
-    $docShadowPath.Dispose()
-    $panelBorder.Dispose()
-    $panelFill.Dispose()
-    $panelPath.Dispose()
-    $penGlass.Dispose()
-    $penRing.Dispose()
+    $nodeBrush.Dispose()
+    $linePen.Dispose()
+    $frontBorder.Dispose()
+    $frontFill.Dispose()
+    $frontPath.Dispose()
+    $backBorder.Dispose()
+    $backFill.Dispose()
+    $backPath.Dispose()
+    $penInner.Dispose()
+    $innerPath.Dispose()
     $penOuter.Dispose()
-    $glow.Dispose()
-    $glowPath.Dispose()
+    $highlight.Dispose()
     $brushBg.Dispose()
   } finally {
     $bgPath.Dispose()
@@ -277,7 +246,6 @@ function New-ModernDashboardBitmap([int]$size, [string]$label, [string]$bgHexA, 
 
   return $bitmap
 }
-
 function New-DashboardIcon([string]$path, [string]$label, [string]$bgHexA, [string]$bgHexB, [string]$accentHex) {
   if (-not $Force -and (Test-Path $path)) {
     return
@@ -293,8 +261,8 @@ function New-DashboardIcon([string]$path, [string]$label, [string]$bgHexA, [stri
 }
 
 # Paleta (oscuro + neón), consistente con los favicons.
-New-DashboardIcon $iconDev "DEV" "#02030a" "#0b1220" "#22e8ff"
-New-DashboardIcon $iconProd "PROD" "#02030a" "#0b1220" "#35ff93"
+New-DashboardIcon $iconDev "DEV" "#0b1020" "#151b2e" "#38bdf8"
+New-DashboardIcon $iconProd "PROD" "#0b1020" "#151b2e" "#22c55e"
 
 $iconDevForLnk = $iconDev
 $iconProdForLnk = $iconProd

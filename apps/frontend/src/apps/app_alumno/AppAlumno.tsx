@@ -1,7 +1,7 @@
 /**
  * App alumno: consulta de resultados en la nube.
  */
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   crearClientePortal,
   guardarTokenAlumno,
@@ -39,7 +39,7 @@ export function AppAlumno() {
   const [mensaje, setMensaje] = useState('');
   const [resultados, setResultados] = useState<Resultado[]>([]);
   const [cargando, setCargando] = useState(false);
-  const [intentosFallidos, setIntentosFallidos] = useState(0);
+  const intentosFallidosRef = useRef(0);
   const [cooldownHasta, setCooldownHasta] = useState(0);
 
   const obtenerSesionId = useCallback(() => obtenerSessionId('sesionAlumnoId'), []);
@@ -79,7 +79,7 @@ export function AppAlumno() {
       setMensaje('');
       const respuesta = await clientePortal.enviar<{ token: string }>('/ingresar', { codigo, matricula });
       guardarTokenAlumno(respuesta.token);
-      setIntentosFallidos(0);
+      intentosFallidosRef.current = 0;
       setCooldownHasta(0);
       emitToast({ level: 'ok', title: 'Bienvenido', message: 'Sesion iniciada', durationMs: 2200 });
       void clientePortal.registrarEventosUso({
@@ -95,15 +95,13 @@ export function AppAlumno() {
       });
       await cargarResultados();
     } catch (error) {
-      setIntentosFallidos((n) => {
-        const nuevo = n + 1;
-        if (nuevo >= 3) {
-          const base = 15_000;
-          const extra = Math.min(120_000, base * Math.pow(2, Math.min(4, nuevo - 3)));
-          setCooldownHasta(Date.now() + extra);
-        }
-        return nuevo;
-      });
+      const nuevo = intentosFallidosRef.current + 1;
+      intentosFallidosRef.current = nuevo;
+      if (nuevo >= 3) {
+        const base = 15_000;
+        const extra = Math.min(120_000, base * Math.pow(2, Math.min(4, nuevo - 3)));
+        setCooldownHasta(Date.now() + extra);
+      }
       const msg = mensajeDeError(error, 'No se pudo ingresar');
       setMensaje(msg);
       emitToast({

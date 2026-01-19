@@ -453,6 +453,7 @@ export async function generarPdfExamen({
   };
 }) {
   const pdfDoc = await PDFDocument.create();
+  void tipoExamen;
   const fuente = await pdfDoc.embedFont(StandardFonts.Helvetica);
   const fuenteBold = await pdfDoc.embedFont(StandardFonts.HelveticaBold);
   const fuenteItalica = await pdfDoc.embedFont(StandardFonts.HelveticaOblique);
@@ -481,7 +482,6 @@ export async function generarPdfExamen({
   // Reduce el “aire” entre preguntas para compactar.
   const separacionPregunta = 2;
 
-  const lineaCodigoInline = lineaPregunta; // mismo alto para no afectar layout
   const lineaCodigoBloque = 10;
 
   // OMR: burbujas A–E con espaciado fijo para evitar superposiciones.
@@ -590,7 +590,7 @@ export async function generarPdfExamen({
 
     // Marcas y QR (OMR/escaneo)
     agregarMarcasRegistro(page, margen);
-    const { qrSize, x: xQr, y: yQr, padding: qrPadding } = await agregarQr(pdfDoc, page, qrTexto, margen);
+    const { x: xQr, y: yQr, padding: qrPadding } = await agregarQr(pdfDoc, page, qrTexto, margen);
 
     // Folio impreso debajo del QR (sin invadir el quiet-zone)
     page.drawText(qrTexto, { x: xQr, y: yQr - 14, size: 9, font: fuenteBold, color: colorPrimario });

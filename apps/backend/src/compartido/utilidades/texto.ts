@@ -49,8 +49,10 @@ export function normalizarParaNombreArchivo(
 
   let salida = base
     .replace(/\s+/g, '_')
-    // caracteres prohibidos en Windows: <>:"/\|?* y controles
-    .replace(/[<>:"/\\|?*\x00-\x1F]/g, '')
+    // caracteres prohibidos en Windows: <>:"/\|?*
+    .replace(/[<>:"/\\|?*]/g, '')
+    // elimina caracteres de control (categoria Unicode Cc)
+    .replace(/[\p{Cc}]/gu, '')
     // deja solo un set seguro; lo demás se convierte en '-'
     .replace(/[^a-zA-Z0-9._-]+/g, '-')
     .replace(/-+/g, '-')

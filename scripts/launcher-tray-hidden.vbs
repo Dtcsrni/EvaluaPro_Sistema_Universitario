@@ -45,11 +45,13 @@ shell.Run cmd, 0, False
 ' Wait until the dashboard HTTP endpoint responds, then open browser and close splash.
 If port <> "0" And port <> "" Then
 	Dim ok, tries, maxTries, url
+	Dim startedFallback
 	Dim splashStartMs, minSplashMs
 	splashStartMs = Timer
 	minSplashMs = 1.2 ' seconds
 	ok = False
 	tries = 0
+	startedFallback = False
 	maxTries = 120 ' ~24s with 200ms sleep
 	url = "http://127.0.0.1:" & port & "/api/status"
 
@@ -63,6 +65,10 @@ If port <> "0" And port <> "" Then
 		End If
 		ok = HttpOk(url)
 		If ok = False Then
+			If (startedFallback = False) And (tries >= 6) Then
+				StartDashboardFallback rootDir, mode, port
+				startedFallback = True
+			End If
 			WScript.Sleep 200
 		End If
 	Loop
@@ -123,6 +129,19 @@ Function HttpOk(ByVal u)
 	End If
 	On Error GoTo 0
 End Function
+
+Sub StartDashboardFallback(ByVal rootDir, ByVal mode, ByVal port)
+	On Error Resume Next
+	Dim psExe, psArgs, cmd
+	psExe = q & shell.ExpandEnvironmentStrings("%WINDIR%") & "\System32\WindowsPowerShell\v1.0\powershell.exe" & q
+	psArgs = "-NoProfile -ExecutionPolicy Bypass -STA -WindowStyle Hidden -File " & q & rootDir & "\scripts\launcher-dashboard.ps1" & q & " -Mode " & mode & " -NoOpen"
+	If port <> "0" And port <> "" Then
+		psArgs = psArgs & " -Port " & port
+	End If
+	cmd = psExe & " " & psArgs
+	shell.Run cmd, 0, False
+	On Error GoTo 0
+End Sub
 
 Function ReadLockPort(ByVal rootDir)
 	On Error Resume Next

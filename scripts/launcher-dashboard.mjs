@@ -51,6 +51,7 @@ let dockerAutostartPromise = null;
 const logDir = path.join(root, 'logs');
 const logFile = path.join(logDir, 'dashboard.log');
 const lockPath = path.join(logDir, 'dashboard.lock.json');
+const singletonPath = path.join(logDir, 'dashboard.singleton.json');
 ensureDir(logDir);
 
 // Logging persistence mode:
@@ -76,6 +77,10 @@ const rawLines = [];
 // In-memory event buffer for structured activity (small + diagnostic).
 const maxEvents = 450;
 const events = [];
+
+// Singleton lock to avoid multiple dashboard instances.
+let singletonOwned = false;
+let singletonPayload = null;
 
 // Track suppressed noisy lines per task.
 const noiseStats = new Map();
@@ -208,6 +213,105 @@ function logSystem(text, level = 'system', options = {}) {
   if (level === 'error' || level === 'warn' || level === 'system') {
     pushEvent('system', 'dashboard', level, text);
   }
+}
+
+function readJsonFile(filePath) {
+  try {
+    const raw = fs.readFileSync(filePath, 'utf8');
+    return JSON.parse(raw);
+  } catch {
+    return null;
+  }
+}
+
+function isPidAlive(pid) {
+  const id = Number(pid);
+  if (!Number.isFinite(id) || id <= 0) return false;
+  try {
+    process.kill(id, 0);
+    return true;
+  } catch (err) {
+    if (err && err.code === 'ESRCH') return false;
+    return true;
+  }
+}
+
+function writeSingletonLock(payload, exclusive = false) {
+  try {
+    const data = JSON.stringify(payload, null, 2);
+    fs.writeFileSync(singletonPath, data, { flag: exclusive ? 'wx' : 'w' });
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+function updateSingletonLock(patch) {
+  if (!singletonOwned) return;
+  const next = Object.assign({}, singletonPayload || {}, patch);
+  if (!writeSingletonLock(next, false)) return;
+  singletonPayload = next;
+}
+
+function clearSingletonLock() {
+  if (!singletonOwned) return;
+  singletonOwned = false;
+  singletonPayload = null;
+  try {
+    if (fs.existsSync(singletonPath)) fs.unlinkSync(singletonPath);
+  } catch {
+    // ignore
+  }
+}
+
+async function ensureSingletonLock() {
+  const payload = {
+    pid: process.pid,
+    port: 0,
+    mode,
+    state: 'starting',
+    startedAt: new Date().toISOString()
+  };
+
+  if (writeSingletonLock(payload, true)) {
+    singletonOwned = true;
+    singletonPayload = payload;
+    return { ok: true };
+  }
+
+  const existing = readJsonFile(singletonPath);
+  if (existing && isPidAlive(existing.pid)) {
+    const port = Number(existing.port);
+    if (port > 0) {
+      const ok = await pingDashboard(port);
+      if (ok) {
+        const url = `http://127.0.0.1:${port}`;
+        logSystem(`Dashboard ya esta activo: ${url}`, 'ok', { console: true });
+        if (!noOpen) openBrowser(url);
+      } else {
+        logSystem('Otra instancia del dashboard ya esta iniciando.', 'warn', { console: true });
+      }
+    } else {
+      logSystem('Otra instancia del dashboard ya esta iniciando.', 'warn', { console: true });
+    }
+    return { ok: false, existing };
+  }
+
+  try {
+    if (fs.existsSync(singletonPath)) fs.unlinkSync(singletonPath);
+  } catch {
+    logSystem('No se pudo eliminar lock singleton obsoleto.', 'warn');
+    return { ok: true, degraded: true };
+  }
+
+  if (writeSingletonLock(payload, true)) {
+    singletonOwned = true;
+    singletonPayload = payload;
+    return { ok: true, recovered: true };
+  }
+
+  logSystem('No se pudo adquirir lock singleton.', 'error', { console: true });
+  return { ok: false };
 }
 
 function createDiskWriter(filePath, options) {
@@ -971,6 +1075,7 @@ function writeLock(port) {
   } catch {
     // ignore
   }
+  updateSingletonLock({ port, state: 'ready', lastSeenAt: new Date().toISOString() });
 }
 
 function clearLock() {
@@ -984,12 +1089,16 @@ function clearLock() {
 function handleExit(signal) {
   if (signal) logSystem(`Cierre solicitado: ${signal}`, 'system');
   clearLock();
+  clearSingletonLock();
   process.exit(0);
 }
 
 process.on('SIGINT', () => handleExit('SIGINT'));
 process.on('SIGTERM', () => handleExit('SIGTERM'));
-process.on('exit', () => clearLock());
+process.on('exit', () => {
+  clearLock();
+  clearSingletonLock();
+});
 
 // Main HTTP server for UI and API.
 const server = http.createServer(async (req, res) => {
@@ -1282,11 +1391,15 @@ const server = http.createServer(async (req, res) => {
 
 // Start server on a free port and auto-start tasks for the chosen mode.
 (async () => {
+  const singleton = await ensureSingletonLock();
+  if (!singleton.ok) return;
+
   const existing = await findExistingInstance();
   if (existing) {
     const url = `http://127.0.0.1:${existing.port}`;
     logSystem(`Dashboard ya esta activo: ${url}`, 'ok', { console: true });
     if (!noOpen) openBrowser(url);
+    clearSingletonLock();
     return;
   }
 
@@ -1311,6 +1424,7 @@ const server = http.createServer(async (req, res) => {
         port = fallback;
       } else {
         logSystem(`Puerto ocupado: ${port}. Cierra la instancia previa o cambia --port.`, 'error', { console: true });
+        clearSingletonLock();
         return;
       }
     } else {
@@ -1320,6 +1434,7 @@ const server = http.createServer(async (req, res) => {
         port = fallback;
       } else {
         logSystem('No se encontro puerto libre para dashboard.', 'error', { console: true });
+        clearSingletonLock();
         return;
       }
     }

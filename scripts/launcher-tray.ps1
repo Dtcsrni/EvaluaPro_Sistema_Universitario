@@ -479,7 +479,7 @@ function Get-SystemMood($status, $health) {
 
   $running = @()
   try { $running = @($status.running) } catch { $running = @() }
-  $hasDevOrProd = $running -contains 'dev' -or $running -contains 'prod'
+  $hasDevOrProd = $running -contains 'dev' -or $running -contains 'prod' -or $running -contains 'dev-backend' -or $running -contains 'dev-frontend'
   $hasPortal = $running -contains 'portal'
 
   $mode = ("$($status.mode)").ToLowerInvariant()
@@ -488,6 +488,35 @@ function Get-SystemMood($status, $health) {
   $services = $null
   try { $services = $health.services } catch { $services = $null }
 
+  $stackState = ''
+  $stackRunning = $false
+  $dockerState = ''
+  try { $stackState = ("$($status.dockerState.stack.state)").ToLowerInvariant() } catch { $stackState = '' }
+  try { $stackRunning = [bool]$status.dockerState.stack.running } catch { $stackRunning = $false }
+  try { $dockerState = ("$($status.dockerState.state)").ToLowerInvariant() } catch { $dockerState = '' }
+
+  if ($dockerState -eq 'error' -or $stackState -eq 'error') { return 'error' }
+
+  $stackHint = $stackRunning -or $stackState -eq 'starting' -or $stackState -eq 'checking' -or $stackState -eq 'skipped'
+  $healthStackUp = $false
+  $healthPortalUp = $false
+  if ($services) {
+    foreach ($key in @('apiDocente', 'webDocenteDev', 'webDocenteProd')) {
+      try {
+        if ($services.$key -and $services.$key.ok -eq $true) {
+          $healthStackUp = $true
+          break
+        }
+      } catch {}
+    }
+    try {
+      if ($services.apiPortal -and $services.apiPortal.ok -eq $true) { $healthPortalUp = $true }
+    } catch {}
+  }
+
+  if (-not $hasDevOrProd -and ($stackHint -or $healthStackUp)) { $hasDevOrProd = $true }
+  if (-not $hasPortal -and $healthPortalUp) { $hasPortal = $true }
+
   $expected = @()
   if ($hasDevOrProd) {
     $expected += @('apiDocente')
@@ -495,7 +524,10 @@ function Get-SystemMood($status, $health) {
   }
   if ($hasPortal) { $expected += @('apiPortal') }
 
-  if ($expected.Count -eq 0) { return 'info' }
+  if ($expected.Count -eq 0) {
+    if ($stackState -eq 'starting' -or $stackState -eq 'checking') { return 'warn' }
+    return 'info'
+  }
 
   $ok = 0
   $down = 0
@@ -513,7 +545,10 @@ function Get-SystemMood($status, $health) {
     if ($info.ok) { $ok += 1 } else { $down += 1 }
   }
 
-  if ($down -gt 0) { return 'error' }
+  if ($down -gt 0) {
+    if ($stackState -eq 'starting' -or $stackState -eq 'checking') { return 'warn' }
+    return 'error'
+  }
   if ($unknown -gt 0) { return 'warn' }
   return 'ok'
 }
@@ -589,6 +624,10 @@ $timer = New-Object System.Windows.Forms.Timer
 $timer.Interval = 1500
 
 $lastMood = 'info'
+$script:ApiFailCount = 0
+$script:LastRestartAttempt = 0
+$script:RestartCooldownMs = 20000
+$script:RestartInFlight = $false
 
 $timer.add_Tick({
   # Durante el cierre del runspace/app, Windows Forms puede disparar un tick tardío.
@@ -603,6 +642,25 @@ $timer.add_Tick({
       if (Sync-PortFromLock -RequireReachable) {
         $st = Get-JsonOrNull '/api/status'
       }
+    }
+
+    if (-not $st) {
+      $script:ApiFailCount += 1
+      if (-not $Attach -and $script:ApiFailCount -ge 3) {
+        $now = [Environment]::TickCount64
+        if (($now - $script:LastRestartAttempt) -ge $script:RestartCooldownMs -and -not $script:RestartInFlight) {
+          $script:LastRestartAttempt = $now
+          $script:RestartInFlight = $true
+          Log('Dashboard no responde. Intentando relanzar...')
+          try {
+            Start-DashboardIfNeeded | Out-Null
+          } finally {
+            $script:RestartInFlight = $false
+          }
+        }
+      }
+    } else {
+      $script:ApiFailCount = 0
     }
     $hl = Get-JsonOrNull '/api/health'
 

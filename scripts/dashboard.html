@@ -884,13 +884,13 @@
     button:hover .icon,
     a:hover .icon {
       transform: translateY(-1px) scale(1.06);
-      filter: drop-shadow(0 14px 26px rgba(0, 213, 255, 0.18));
+      filtro: drop-shadow(0 14px 26px rgba(0, 213, 255, 0.18));
     }
 
     button:active .icon,
     a:active .icon {
       transform: translateY(0) scale(0.98);
-      filter: none;
+      filtro: none;
     }
 
     @keyframes iconSpin {
@@ -1336,23 +1336,184 @@
       color: var(--ink-soft);
     }
 
+    .chart-title-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+
+    .health-block {
+      padding: 12px;
+      border-radius: 16px;
+      border: 1px solid var(--border);
+      background: linear-gradient(135deg, rgba(0, 213, 255, 0.08), rgba(255, 255, 255, 0) 60%), var(--surface-4);
+    }
+
+    :root[data-theme="dark"] .health-block {
+      background: linear-gradient(135deg, rgba(34, 232, 255, 0.12), rgba(8, 10, 14, 0.86));
+    }
+
+    .health-stats {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+
+    .health-chip {
+      padding: 4px 10px;
+      border-radius: 999px;
+      border: 1px solid var(--border);
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 0.4px;
+      text-transform: uppercase;
+      background: var(--surface);
+      color: var(--ink-soft);
+    }
+
+    .health-chip.ok {
+      background: #ecfdf3;
+      border-color: #bbf7d0;
+      color: #166534;
+    }
+
+    .health-chip.down {
+      background: #fff7ed;
+      border-color: #fed7aa;
+      color: #9a3412;
+    }
+
+    .health-chip.time {
+      background: var(--surface-2);
+      color: var(--ink-soft);
+    }
+
+    :root[data-theme="dark"] .health-chip.ok {
+      background: rgba(34, 197, 94, 0.14);
+      border-color: rgba(34, 197, 94, 0.32);
+      color: rgba(187, 247, 208, 0.96);
+    }
+
+    :root[data-theme="dark"] .health-chip.down {
+      background: rgba(245, 158, 11, 0.14);
+      border-color: rgba(245, 158, 11, 0.32);
+      color: rgba(253, 230, 138, 0.96);
+    }
+
+    :root[data-theme="dark"] .health-chip.time {
+      background: rgba(15, 23, 42, 0.7);
+      border-color: rgba(148, 163, 184, 0.22);
+      color: rgba(226, 232, 240, 0.88);
+    }
+
     .mini-chart {
       display: flex;
       align-items: flex-end;
-      gap: 6px;
-      height: 72px;
-      padding: 6px 0;
+      gap: 8px;
+      height: 94px;
+      padding: 10px 12px 8px;
+      border-radius: 14px;
+      border: 1px solid var(--border);
+      background: linear-gradient(180deg, rgba(0, 213, 255, 0.08), transparent 60%), var(--surface);
+      position: relative;
+      overflow: hidden;
     }
+
+    .mini-chart::before {
+      content: '';
+      position: absolute;
+      inset: 10px;
+      background: repeating-linear-gradient(
+        0deg,
+        rgba(148, 163, 184, 0.18) 0px,
+        rgba(148, 163, 184, 0.18) 1px,
+        transparent 1px,
+        transparent 18px
+      );
+      opacity: 0.6;
+      pointer-events: none;
+    }
+
+    :root[data-theme="dark"] .mini-chart::before {
+      background: repeating-linear-gradient(
+        0deg,
+        rgba(148, 163, 184, 0.22) 0px,
+        rgba(148, 163, 184, 0.22) 1px,
+        transparent 1px,
+        transparent 18px
+      );
+      opacity: 0.4;
+    }
+
+    .mini-chart-wrap {
+      display: grid;
+      grid-template-columns: 36px 1fr;
+      align-items: end;
+      gap: 10px;
+    }
+
+    .mini-axis {
+      height: 94px;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      font-size: 10px;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: var(--ink-soft);
+    }
+
     .mini-bar {
-      width: 10px;
-      border-radius: 6px 6px 4px 4px;
-      background: linear-gradient(180deg, #16a34a, #4ade80);
-      opacity: 0.85;
+      width: 12px;
+      border-radius: 8px;
+      background: linear-gradient(180deg, #22c55e 0%, #4ade80 100%);
+      opacity: 0.95;
+      position: relative;
+      z-index: 1;
+      box-shadow: 0 0 0 1px rgba(34, 197, 94, 0.18), 0 8px 18px rgba(34, 197, 94, 0.18);
+      animation: barRise var(--dur-xs) var(--ease-out) both;
+      transform-origin: bottom;
     }
 
     .mini-bar.down {
-      background: linear-gradient(180deg, #f59e0b, #f97316);
-      opacity: 0.75;
+      background: linear-gradient(180deg, #f59e0b 0%, #f97316 100%);
+      box-shadow: 0 0 0 1px rgba(245, 158, 11, 0.22), 0 8px 18px rgba(245, 158, 11, 0.18);
+      opacity: 0.85;
+    }
+
+    .mini-bar::after {
+      content: '';
+      position: absolute;
+      left: 2px;
+      right: 2px;
+      top: 2px;
+      height: 3px;
+      border-radius: 999px;
+      background: rgba(255, 255, 255, 0.65);
+      opacity: 0.4;
+    }
+
+    .mini-bar.latest {
+      outline: 1px solid var(--accent);
+      box-shadow: 0 0 0 2px rgba(0, 213, 255, 0.18), 0 10px 22px rgba(0, 213, 255, 0.18);
+    }
+
+    @keyframes barRise {
+      from { transform: scaleY(0.25); opacity: 0.35; }
+      to { transform: scaleY(1); opacity: 0.95; }
+    }
+
+    @media (max-width: 520px) {
+      .mini-chart-wrap {
+        grid-template-columns: 1fr;
+      }
+
+      .mini-axis {
+        display: none;
+      }
     }
 
     .activity-list {
@@ -1522,6 +1683,11 @@
       margin-top: 6px;
     }
 
+    .legend.health-legend {
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+
     .legend-item {
       display: inline-flex;
       align-items: center;
@@ -1547,6 +1713,23 @@
     .legend-dot.down {
       background: #f59e0b;
       box-shadow: 0 0 0 3px rgba(245, 158, 11, 0.2);
+    }
+
+    .health-hint {
+      margin-top: 8px;
+    }
+
+    .health-last-event {
+      margin-top: 10px;
+      padding: 8px 10px;
+      border-radius: 10px;
+      border: 1px dashed var(--border);
+      background: var(--surface);
+      font-weight: 600;
+    }
+
+    :root[data-theme="dark"] .health-last-event {
+      background: rgba(8, 10, 14, 0.6);
     }
     .quote {
       background: linear-gradient(135deg, rgba(0, 213, 255, 0.10), #ffffff);
@@ -1629,7 +1812,7 @@
       word-break: break-word;
     }
 
-    .status-events {
+    .eventos-estado {
       border: 1px solid var(--border);
       border-radius: 16px;
       background: var(--panel);
@@ -1638,11 +1821,11 @@
       box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.6);
     }
 
-    :root[data-theme="dark"] .status-events {
+    :root[data-theme="dark"] .eventos-estado {
       box-shadow: inset 0 0 0 1px rgba(2, 6, 23, 0.55);
     }
 
-    .status-events-head {
+    .eventos-estado-cabecera {
       display: flex;
       align-items: center;
       justify-content: space-between;
@@ -1650,46 +1833,109 @@
       margin-bottom: 8px;
     }
 
-    .status-events-title {
+    .eventos-estado-titulo {
       font-weight: 900;
       color: var(--ink);
       font-size: 13px;
     }
 
-    .status-events-sub {
+    .eventos-estado-subtitulo {
       font-size: 12px;
       color: var(--ink-soft);
       margin-bottom: 10px;
     }
 
-    .status-events-list {
+    .eventos-estado-lista {
       display: grid;
       gap: 8px;
     }
 
-    .status-event {
+    .evento-estado {
       border: 1px solid var(--border);
       border-radius: 14px;
-      padding: 10px 12px;
+      padding: 12px 12px 12px 16px;
       background: var(--surface);
       display: grid;
-      gap: 4px;
+      gap: 8px;
+      position: relative;
+      overflow: hidden;
+      --event-accent: rgba(148, 163, 184, 0.7);
     }
 
-    .status-event .top {
+    .evento-estado::before {
+      content: '';
+      position: absolute;
+      left: 6px;
+      top: 10px;
+      bottom: 10px;
+      width: 3px;
+      border-radius: 999px;
+      background: var(--event-accent);
+      opacity: 0.9;
+    }
+
+    .evento-estado .encabezado {
       display: flex;
-      gap: 10px;
-      align-items: baseline;
+      gap: 8px;
+      align-items: center;
       flex-wrap: wrap;
     }
 
-    .status-event .time {
+    .evento-estado .hora {
       font-weight: 900;
       color: var(--ink);
       font-size: 12px;
     }
 
-    .status-event .tag {
+    .evento-estado .pildora-nivel {
+      font-size: 10px;
+      font-weight: 900;
+      padding: 3px 9px;
+      border-radius: 999px;
+      border: 1px solid var(--border);
+      background: var(--surface-2);
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      color: var(--ink-soft);
+    }
+
+    .evento-estado .pildora-nivel.ok {
+      background: rgba(34, 197, 94, 0.16);
+      border-color: rgba(34, 197, 94, 0.32);
+      color: #166534;
+    }
+
+    .evento-estado .pildora-nivel.warn {
+      background: rgba(245, 158, 11, 0.18);
+      border-color: rgba(245, 158, 11, 0.32);
+      color: #9a3412;
+    }
+
+    .evento-estado .pildora-nivel.error {
+      background: rgba(239, 68, 68, 0.18);
+      border-color: rgba(239, 68, 68, 0.32);
+      color: #b91c1c;
+    }
+
+    :root[data-theme="dark"] .evento-estado .pildora-nivel.ok {
+      background: rgba(34, 197, 94, 0.18);
+      border-color: rgba(34, 197, 94, 0.36);
+      color: rgba(187, 247, 208, 0.95);
+    }
+
+    :root[data-theme="dark"] .evento-estado .pildora-nivel.warn {
+      background: rgba(245, 158, 11, 0.2);
+      border-color: rgba(245, 158, 11, 0.36);
+      color: rgba(253, 230, 138, 0.96);
+    }
+
+    :root[data-theme="dark"] .evento-estado .pildora-nivel.error {
+      background: rgba(239, 68, 68, 0.2);
+      border-color: rgba(239, 68, 68, 0.36);
+      color: rgba(254, 202, 202, 0.96);
+    }
+
+    .evento-estado .etiqueta {
       font-size: 11px;
       font-weight: 900;
       padding: 3px 9px;
@@ -1697,33 +1943,81 @@
       border: 1px solid var(--border);
       background: var(--panel);
       color: var(--ink-soft);
+      letter-spacing: 0.02em;
     }
 
-    .status-event.error { border-color: rgba(239, 68, 68, 0.28); background: rgba(254, 226, 226, 0.40); }
-    .status-event.warn { border-color: rgba(245, 158, 11, 0.28); background: rgba(255, 237, 213, 0.45); }
-    .status-event.ok { border-color: rgba(34, 197, 94, 0.26); background: rgba(220, 252, 231, 0.45); }
+    .evento-estado .etiqueta.codigo {
+      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace;
+      text-transform: none;
+    }
 
-    :root[data-theme="dark"] .status-event.error { border-color: rgba(239, 68, 68, 0.28); background: rgba(239, 68, 68, 0.12); }
-    :root[data-theme="dark"] .status-event.warn { border-color: rgba(245, 158, 11, 0.28); background: rgba(245, 158, 11, 0.14); }
-    :root[data-theme="dark"] .status-event.ok { border-color: rgba(34, 197, 94, 0.26); background: rgba(34, 197, 94, 0.12); }
+    .evento-estado.error { border-color: rgba(239, 68, 68, 0.28); background: rgba(254, 226, 226, 0.40); }
+    .evento-estado.warn { border-color: rgba(245, 158, 11, 0.28); background: rgba(255, 237, 213, 0.45); }
+    .evento-estado.ok { border-color: rgba(34, 197, 94, 0.26); background: rgba(220, 252, 231, 0.45); }
 
-    .status-event .msg {
+    :root[data-theme="dark"] .evento-estado.error { border-color: rgba(239, 68, 68, 0.28); background: rgba(239, 68, 68, 0.12); }
+    :root[data-theme="dark"] .evento-estado.warn { border-color: rgba(245, 158, 11, 0.28); background: rgba(245, 158, 11, 0.14); }
+    :root[data-theme="dark"] .evento-estado.ok { border-color: rgba(34, 197, 94, 0.26); background: rgba(34, 197, 94, 0.12); }
+
+    .evento-estado.error { --event-accent: rgba(239, 68, 68, 0.8); }
+    .evento-estado.warn { --event-accent: rgba(245, 158, 11, 0.85); }
+    .evento-estado.ok { --event-accent: rgba(34, 197, 94, 0.8); }
+
+    .evento-estado .mensaje {
+      display: grid;
+      gap: 4px;
+    }
+
+    .evento-estado .mensaje-titulo {
       font-size: 12px;
       color: var(--ink);
       font-weight: 700;
     }
 
-    .status-event .meta {
+    .evento-estado .mensaje-subtitulo {
       font-size: 11px;
       color: var(--ink-soft);
-      white-space: pre-wrap;
-      word-break: break-word;
-      display: none;
+      font-weight: 600;
     }
 
-    .status-event.has-meta { cursor: pointer; }
-    .status-event.has-meta:hover { box-shadow: 0 10px 18px rgba(15, 23, 42, 0.08); }
-    .status-event.open .meta { display: block; }
+    .evento-estado .mensaje-meta {
+      font-size: 10.5px;
+      color: var(--ink-soft);
+      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace;
+      opacity: 0.9;
+    }
+
+    .evento-estado .detalles {
+      display: none;
+      gap: 6px;
+      border-top: 1px dashed var(--border);
+      padding-top: 8px;
+    }
+
+    .evento-estado .detalles-titulo {
+      font-size: 10px;
+      font-weight: 800;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: var(--ink-soft);
+    }
+
+    .evento-estado .detalles-cuerpo {
+      margin: 0;
+      font-size: 11px;
+      color: var(--ink-soft);
+      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace;
+      white-space: pre-wrap;
+      word-break: break-word;
+      background: var(--surface-2);
+      border-radius: 10px;
+      padding: 8px 10px;
+      border: 1px solid var(--border);
+    }
+
+    .evento-estado.con-detalles { cursor: pointer; }
+    .evento-estado.con-detalles:hover { box-shadow: 0 12px 20px rgba(15, 23, 42, 0.08); }
+    .evento-estado.abierto .detalles { display: grid; }
 
     .log-line {
       padding: 4px 0;
@@ -1937,7 +2231,7 @@
       animation: toastLife var(--toast-duration, 2600ms) linear forwards;
     }
 
-    .toast.paused::after { animation-play-state: paused; }
+    .toast.pausado::after { animation-play-state: paused; }
 
     .toast.out { animation: toastOut var(--dur-xs) var(--ease-out) forwards; }
 
@@ -2190,8 +2484,8 @@
       <span class="chip" id="port-chip">Puerto: -</span>
       <span class="chip" id="mode-chip">Modo: -</span>
       <span class="chip" id="running-chip">Procesos: -</span>
-      <span class="chip" id="paused-chip">Actualizacion: Activa</span>
-      <span class="chip" id="connection-chip">Conexion: -</span>
+      <span class="chip" id="pausado-chip">Actualización: Activa</span>
+      <span class="chip" id="connection-chip">Conexión: -</span>
       <button class="sys-indicator" id="system-indicator" type="button" title="Estado del sistema" aria-label="Estado del sistema">
         <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
           <path d="M12 2l7 3v6c0 5-3 9-7 11C8 20 5 16 5 11V5l7-3z" fill="none" stroke="currentColor" stroke-width="1.8" />
@@ -2332,7 +2626,7 @@
                 <div class="value" id="running">-</div>
               </div>
               <div class="summary-card">
-                <div class="label">Ultima actualizacion</div>
+                <div class="label">Última actualización</div>
                 <div class="value" id="last-refresh">-</div>
               </div>
             </div>
@@ -2378,7 +2672,7 @@
                 <div class="value" id="health-down">-</div>
               </div>
               <div class="summary-card">
-                <div class="label">Eventos recientes (inicio/detencion)</div>
+                <div class="label">Eventos recientes (inicio/detención)</div>
                 <div class="value" id="recent-events">-</div>
               </div>
               <div class="summary-card">
@@ -2416,15 +2710,29 @@
                 </div>
               </div>
             </div>
-            <div class="chart-block">
-              <div class="chart-title">Salud reciente (ultimos ciclos)</div>
-              <div class="mini-chart" id="health-history"></div>
-              <div class="legend">
+            <div class="chart-block health-block">
+              <div class="chart-title-row">
+                <div class="chart-title">Salud reciente (ultimos ciclos)</div>
+                <div class="health-stats">
+                  <span class="health-chip ok" id="health-last-ok">OK -</span>
+                  <span class="health-chip down" id="health-last-down">Caidas -</span>
+                  <span class="health-chip time" id="health-last-time">Ultimo: --</span>
+                </div>
+              </div>
+              <div class="mini-chart-wrap">
+                <div class="mini-axis">
+                  <span>100%</span>
+                  <span>50%</span>
+                  <span>0%</span>
+                </div>
+                <div class="mini-chart" id="health-history"></div>
+              </div>
+              <div class="legend health-legend">
                 <span class="legend-item"><span class="legend-dot ok"></span>OK</span>
                 <span class="legend-item"><span class="legend-dot down"></span>Caida detectada</span>
               </div>
-              <div class="hint">Cada barra representa un ciclo (~3s). Altura = % de servicios OK. Naranja = hubo caida.</div>
-              <div class="hint" id="last-event">Sin actividad reciente.</div>
+              <div class="hint health-hint">Cada barra representa un ciclo (~3s). Altura = % de servicios OK. Naranja = hubo caida.</div>
+              <div class="hint health-last-event" id="last-event">Sin actividad reciente.</div>
             </div>
           </div>
 
@@ -2533,7 +2841,7 @@
               <div>Modo: <span id="mode-status">-</span></div>
               <div>Proyecto: <span id="root-status">-</span></div>
               <div>Stack Docker: <span id="stack-state-status">-</span></div>
-              <div>Conexion: <span id="connection-status">-</span></div>
+              <div>Conexión: <span id="connection-status">-</span></div>
               <div>Ultimo error: <span id="connection-error">-</span></div>
             </div>
           </div>
@@ -2552,7 +2860,7 @@
               <div class="install-row"><div class="k">Logs</div><div class="v mono" id="install-logs">-</div></div>
               <div class="install-row"><div class="k">Runtime</div><div class="v mono" id="install-runtime">-</div></div>
             </div>
-            <div class="toolbar toolbar-spaced toolbar-right" aria-label="Acciones de instalacion">
+            <div class="toolbar toolbar-spaced toolbar-right" aria-label="Acciones de instalación">
               <button class="ghost-btn" id="refresh-install" type="button">Actualizar</button>
               <button class="ok" id="copy-install" type="button">Copiar</button>
             </div>
@@ -2607,20 +2915,20 @@
               </div>
             </div>
             <div class="pills">
-              <span class="pill" id="log-size">0 lineas</span>
+              <span class="pill" id="log-size">0 líneas</span>
               <span class="pill" id="raw-size">0 en bruto</span>
               <span class="pill" id="last-refresh-status">-</span>
               <span class="pill"><span class="dot" id="running-dot"></span> activo</span>
             </div>
 
-            <div class="status-events" aria-label="Eventos recientes del sistema">
-              <div class="status-events-head">
-                <div class="status-events-title">Eventos recientes</div>
-                <button class="ghost-btn" id="refresh-events" type="button">Actualizar</button>
+            <div class="eventos-estado" aria-label="Eventos recientes del sistema">
+              <div class="eventos-estado-cabecera">
+                <div class="eventos-estado-titulo">Eventos recientes</div>
+                <button class="ghost-btn" id="refrescar-eventos" type="button">Actualizar</button>
               </div>
-              <div class="status-events-sub">Acciones y alertas detectadas por el dashboard (inicio/detencion/reinicio/errores). Click para ver detalles.</div>
-              <div class="status-events-list" id="status-events">
-                <div class="status-event"><div class="msg">Cargando eventos...</div></div>
+              <div class="eventos-estado-subtitulo">Acciones y alertas detectadas por el dashboard (inicio/detención/reinicio/errores). Clic para ver detalles.</div>
+              <div class="eventos-estado-lista" id="eventos-estado">
+                <div class="evento-estado"><div class="mensaje"><div class="mensaje-titulo">Cargando eventos...</div></div></div>
               </div>
             </div>
             <div class="log-shell collapsed" id="log-shell">
@@ -2651,7 +2959,7 @@
               <div class="toolbar-group" aria-label="Acciones de base de datos">
                 <button class="ghost-btn" id="refresh-db" type="button">Actualizar</button>
                 <button class="ghost-btn" id="open-db" type="button">Abrir en navegador</button>
-                <button class="ghost-btn" id="toggle-db-embed" type="button">Mostrar panel aqui</button>
+                <button class="ghost-btn" id="toggle-db-embed" type="button">Mostrar panel aquí</button>
               </div>
             </div>
 
@@ -2678,23 +2986,23 @@
     const $ = (id) => document.getElementById(id);
 
     // Small helper to set text safely.
-    const setText = (id, value) => {
+    const establecerTexto = (id, value) => {
       const el = $(id);
       if (el) el.textContent = value;
     };
 
     // Identificador de UI (útil para confirmar que el HTML recargó cambios).
     // Nota: actualiza este valor cuando hagas cambios visibles al dashboard.
-    const UI_REV = '2026-01-17.8';
+    const UI_REV = '2026-01-19.1';
 
     const THEME_STORAGE_KEY = 'seuDashboardTheme';
 
-    function setThemeMetaColor(color) {
+    function establecerColorMetaTema(color) {
       const meta = document.querySelector('meta[name="theme-color"]');
       if (meta) meta.setAttribute('content', String(color || ''));
     }
 
-    function computeTimeBucket(date = new Date()) {
+    function calcularBloqueTiempo(date = new Date()) {
       const h = date.getHours();
       if (h >= 6 && h < 10) return 'dawn';
       if (h >= 10 && h < 17) return 'day';
@@ -2702,13 +3010,13 @@
       return 'night';
     }
 
-    function applyTimeBucket() {
-      document.documentElement.dataset.time = computeTimeBucket();
+    function aplicarBloqueTiempo() {
+      document.documentElement.dataset.time = calcularBloqueTiempo();
     }
 
-    function computeMood() {
-      if (state.connection === 'error') return 'error';
-      const snapshot = getServiceSnapshot();
+    function calcularAnimo() {
+      if (state.conexion === 'error') return 'error';
+      const snapshot = obtenerSnapshotServicios();
       const expectedTotal = snapshot.items.filter((item) => item.expected).length;
       if (!expectedTotal) return 'info';
       if (snapshot.downCount > 0) return 'error';
@@ -2716,7 +3024,7 @@
       return 'warn';
     }
 
-    function updateSystemIndicator(mood) {
+    function actualizarIndicadorSistema(mood) {
       const btn = $('system-indicator');
       if (!btn) return;
 
@@ -2732,26 +3040,26 @@
       btn.setAttribute('title', `${map[m].label}. ${map[m].hint} Click para ir a Status.`);
     }
 
-    function applyMood() {
-      const mood = computeMood();
+    function aplicarAnimo() {
+      const mood = calcularAnimo();
       document.documentElement.dataset.mood = mood;
-      updateSystemIndicator(mood);
+      actualizarIndicadorSistema(mood);
     }
 
-    function syncThemeMetaFromCurrent() {
+    function sincronizarMetaTemaActual() {
       const theme = document.documentElement.getAttribute('data-theme') === 'dark' ? 'dark' : 'light';
-      setThemeMetaColor(theme === 'dark' ? '#02030a' : '#f8fafc');
+      establecerColorMetaTema(theme === 'dark' ? '#02030a' : '#f8fafc');
     }
 
-    function applyTheme(theme) {
+    function aplicarTema(theme) {
       const t = theme === 'dark' ? 'dark' : 'light';
       document.documentElement.setAttribute('data-theme', t);
-      syncThemeMetaFromCurrent();
+      sincronizarMetaTemaActual();
       const btn = $('theme-toggle');
       if (btn) btn.textContent = t === 'dark' ? 'Tema: Oscuro' : 'Tema: Claro';
     }
 
-    function getPreferredTheme() {
+    function obtenerTemaPreferido() {
       try {
         const stored = String(localStorage.getItem(THEME_STORAGE_KEY) || '').trim();
         if (stored === 'dark' || stored === 'light') return stored;
@@ -2759,17 +3067,17 @@
       return window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
     }
 
-    function initTheme() {
-      applyTheme(getPreferredTheme());
-      applyTimeBucket();
-      applyMood();
+    function iniciarTema() {
+      aplicarTema(obtenerTemaPreferido());
+      aplicarBloqueTiempo();
+      aplicarAnimo();
 
       // Si no hay preferencia guardada, reaccionar a cambios del sistema.
       try {
         const stored = String(localStorage.getItem(THEME_STORAGE_KEY) || '').trim();
         if (!stored && window.matchMedia) {
           const mq = window.matchMedia('(prefers-color-scheme: dark)');
-          const onChange = () => applyTheme(getPreferredTheme());
+          const onChange = () => aplicarTema(obtenerTemaPreferido());
           if (typeof mq.addEventListener === 'function') mq.addEventListener('change', onChange);
           else if (typeof mq.addListener === 'function') mq.addListener(onChange);
         }
@@ -2781,11 +3089,11 @@
         const current = document.documentElement.getAttribute('data-theme') === 'dark' ? 'dark' : 'light';
         const next = current === 'dark' ? 'light' : 'dark';
         try { localStorage.setItem(THEME_STORAGE_KEY, next); } catch {}
-        applyTheme(next);
+        aplicarTema(next);
       });
     }
 
-    function getTabFromHash() {
+    function obtenerPestanaDesdeHash() {
       const raw = String(location.hash || '').replace(/^#/, '').trim();
       if (!raw) return null;
       const params = new URLSearchParams(raw.includes('=') ? raw : `tab=${raw}`);
@@ -2794,7 +3102,7 @@
       return null;
     }
 
-    function setHashTab(tabId) {
+    function establecerHashPestana(tabId) {
       try {
         const next = `tab=${encodeURIComponent(String(tabId || ''))}`;
         const current = String(location.hash || '').replace(/^#/, '');
@@ -2803,14 +3111,14 @@
       } catch {}
     }
 
-    function registerServiceWorker() {
+    function registrarServiceWorker() {
       if (!('serviceWorker' in navigator)) return;
       navigator.serviceWorker
         .register('/sw.js', { scope: '/' })
         .then((reg) => {
           const promptUpdate = () => {
             if (!reg.waiting) return;
-            showToastAdvanced('Hay una actualización del dashboard lista.', 'info', {
+            mostrarToastAvanzado('Hay una actualización del dashboard lista.', 'info', {
               id: 'sw-update',
               title: 'Actualización',
               actionLabel: 'Actualizar',
@@ -2839,81 +3147,81 @@
         .catch(() => undefined);
     }
 
-    function normalizeModeValue(value) {
-      const v = String(value || '').toLowerCase();
+    function normalizarValorModo(valor) {
+      const v = String(valor || '').toLowerCase();
       return v === 'dev' || v === 'prod' || v === 'none' ? v : 'none';
     }
 
-    function deriveDisplayMode(configMode, runningList) {
-      const cfg = normalizeModeValue(configMode);
-      const running = new Set(Array.isArray(runningList) ? runningList : []);
-      const hasDev = running.has('dev');
-      const hasProd = running.has('prod');
+    function derivarModoVista(modoConfig, listaEjecucion) {
+      const modoConfigNormalizado = normalizarValorModo(modoConfig);
+      const enEjecucion = new Set(Array.isArray(listaEjecucion) ? listaEjecucion : []);
+      const tieneDev = enEjecucion.has('dev');
+      const tieneProd = enEjecucion.has('prod');
 
-      // If config explicitly sets dev/prod, respect it.
-      if (cfg === 'dev' || cfg === 'prod') return cfg;
+      // Si config indica dev/prod explicitamente, respetarlo.
+      if (modoConfigNormalizado === 'dev' || modoConfigNormalizado === 'prod') return modoConfigNormalizado;
 
-      // Otherwise, infer from what's running.
-      if (hasDev && !hasProd) return 'dev';
-      if (hasProd && !hasDev) return 'prod';
+      // Si no, inferir segun lo que este en ejecucion.
+      if (tieneDev && !tieneProd) return 'dev';
+      if (tieneProd && !tieneDev) return 'prod';
       if (hasDev && hasProd) return 'dev';
       return 'none';
     }
 
-    function formatModeLabel(modeValue) {
-      const m = normalizeModeValue(modeValue);
+    function formatearEtiquetaModo(modeValue) {
+      const m = normalizarValorModo(modeValue);
       if (m === 'none') return 'Sin modo';
       return m.toUpperCase();
     }
 
-    const ENV_LABELS = {
+    const ETIQUETAS_ENTORNO = {
       dev: 'Dev local',
       prod: 'Prod local',
       portal: 'Portal alumno'
     };
 
     const state = {
-      showFull: false,
-      autoScroll: true,
-      paused: false,
-      filter: '',
-      running: new Set(),
-      logsVisible: false,
-      activeTab: 'main',
-      mode: 'none',
-      health: {},
-      lastHealthAt: 0,
-      events: [],
-      healthHistory: [],
-      sessionStarted: Date.now(),
-      hasLoaded: false,
-      webDocenteInfoKey: 'webDocenteDev',
-      connection: 'unknown',
-      lastConnectionAt: 0,
-      lastConnectionError: '',
-      lastErrorToastAt: 0,
-      lastEventsOk: true,
-      lastEventsError: '',
-      lastLogsOk: true,
-      lastLogsError: '',
-      autoRestart: false,
-      install: null,
+      mostrarCompleto: false,
+      autoDesplazamiento: true,
+      pausado: false,
+      filtro: '',
+      enEjecucion: new Set(),
+      logsVisibles: false,
+      pestanaActiva: 'main',
+      modo: 'none',
+      salud: {},
+      ultimaSaludEn: 0,
+      eventos: [],
+      historialSalud: [],
+      sesionIniciadaEn: Date.now(),
+      haCargado: false,
+      claveInfoWebDocente: 'webDocenteDev',
+      conexion: 'unknown',
+      ultimaConexionEn: 0,
+      ultimoErrorConexion: '',
+      ultimoToastErrorEn: 0,
+      eventosOkRecientes: true,
+      ultimoErrorEventos: '',
+      logsOkRecientes: true,
+      ultimoErrorLogs: '',
+      autoReinicio: false,
+      instalacion: null,
       mongoExpress: {
         url: 'http://127.0.0.1:8081/',
-        reachable: false,
-        status: 0,
-        lastCheckedAt: 0,
+        alcanzable: false,
+        estado: 0,
+        ultimaRevisionEn: 0,
         error: ''
       },
-      dbEmbed: false
+      dbEmpotrada: false
     };
 
-    const HOLD_DEFAULT = 1200;
-    const MAX_EVENTS = 6;
-    const MAX_HEALTH_HISTORY = 16;
-    const RECENT_EVENT_WINDOW_MS = 15 * 60 * 1000;
-    const SIGNAL_LIMIT = 8;
-    const LEVEL_MAP = {
+    const TIEMPO_MANTENER_MS = 1200;
+    const MAX_EVENTOS = 6;
+    const MAX_HISTORIAL_SALUD = 16;
+    const VENTANA_EVENTOS_RECIENTES_MS = 15 * 60 * 1000;
+    const LIMITE_SENALES = 8;
+    const MAPA_NIVELES = {
       error: 'error',
       warn: 'warn',
       ok: 'ok',
@@ -2921,44 +3229,44 @@
       system: 'info'
     };
 
-    function normalizeErrorMessage(error) {
+    function normalizarMensajeError(error) {
       if (error && typeof error === 'object' && 'message' in error && typeof error.message === 'string') {
         return error.message;
       }
       return 'Sin respuesta';
     }
 
-    function setConnection(stateName, detail = '') {
-      state.connection = stateName;
-      state.lastConnectionAt = Date.now();
-      state.lastConnectionError = stateName === 'error' ? String(detail || 'Sin respuesta') : '';
+    function establecerConexion(stateName, detail = '') {
+      state.conexion = stateName;
+      state.ultimaConexionEn = Date.now();
+      state.ultimoErrorConexion = stateName === 'error' ? String(detail || 'Sin respuesta') : '';
 
       const chip = $('connection-chip');
       if (chip) {
         chip.className = `chip ${stateName === 'ok' ? 'ok' : stateName === 'error' ? 'error' : 'warn'}`;
-        chip.textContent = `Conexion: ${stateName === 'ok' ? 'OK' : stateName === 'error' ? 'Error' : '-'}`;
+        chip.textContent = `Conexión: ${stateName === 'ok' ? 'OK' : stateName === 'error' ? 'Error' : '-'}`;
       }
 
-      setText('connection-status', stateName === 'ok' ? 'OK' : stateName === 'error' ? 'Error' : '-');
-      setText('connection-error', stateName === 'error'
-        ? truncateMessage(state.lastConnectionError, 90)
+      establecerTexto('connection-status', stateName === 'ok' ? 'OK' : stateName === 'error' ? 'Error' : '-');
+      establecerTexto('connection-error', stateName === 'error'
+        ? recortarMensaje(state.ultimoErrorConexion, 90)
         : '-');
 
-      applyMood();
+      aplicarAnimo();
     }
 
-    function setPausedChip(paused) {
-      const chip = $('paused-chip');
+    function establecerChipPausa(pausado) {
+      const chip = $('pausado-chip');
       if (!chip) return;
-      chip.className = `chip ${paused ? 'warn' : 'ok'}`;
-      chip.textContent = paused ? 'Actualizacion: Pausada' : 'Actualizacion: Activa';
+      chip.className = `chip ${pausado ? 'warn' : 'ok'}`;
+      chip.textContent = pausado ? 'Actualización: Pausada' : 'Actualización: Activa';
     }
 
-    function maybeToastError(text) {
+    function mostrarToastErrorSiAplica(text) {
       const now = Date.now();
-      if (now - state.lastErrorToastAt < 9000) return;
-      state.lastErrorToastAt = now;
-      showToast(text, 'error', { title: 'Error', id: 'error-generic', duration: 5200 });
+      if (now - state.ultimoToastErrorEn < 9000) return;
+      state.ultimoToastErrorEn = now;
+      mostrarToast(text, 'error', { title: 'Error', id: 'error-generic', duration: 5200 });
     }
 
     async function api(path, body) {
@@ -2970,13 +3278,13 @@
         });
         return await res.json();
       } catch (error) {
-        maybeToastError('No se pudo contactar al dashboard.');
-        setConnection('error', normalizeErrorMessage(error));
+        mostrarToastErrorSiAplica('No se pudo contactar al dashboard.');
+        establecerConexion('error', normalizarMensajeError(error));
         return { ok: false };
       }
     }
 
-    function formatMs(ms) {
+    function formatearMs(ms) {
       if (!Number.isFinite(ms)) return '-';
       if (ms < 1000) return `${Math.round(ms)}ms`;
       const s = Math.round(ms / 100) / 10;
@@ -2985,19 +3293,19 @@
       return `${m}m`;
     }
 
-    function truncatePath(p, max = 88) {
+    function recortarRuta(p, max = 88) {
       const s = String(p || '');
       if (!s) return '-';
       if (s.length <= max) return s;
       return s.slice(0, 22) + '…' + s.slice(-Math.max(10, max - 26));
     }
 
-    async function refreshInstallInfo() {
+    async function refrescarInfoInstalacion() {
       try {
         const res = await fetch('/api/install');
         if (!res.ok) throw new Error('No se pudo cargar /api/install');
         const info = await res.json();
-        state.install = info;
+        state.instalacion = info;
 
         const version = (info && info.app && info.app.version) ? String(info.app.version) : '-';
         const name = (info && info.app && info.app.name) ? String(info.app.name) : '';
@@ -3016,47 +3324,47 @@
         const keep = logCfg ? Number(logCfg.keepFiles || 0) : 0;
         const maxBytes = logCfg ? Number(logCfg.maxBytes || 0) : 0;
 
-        const startedAgo = startedAt ? formatMs(Date.now() - startedAt) : '-';
+        const startedAgo = startedAt ? formatearMs(Date.now() - startedAt) : '-';
 
-        const modeLabel = mode === '-' ? '-' : formatModeLabel(normalizeModeValue(mode));
+        const modeLabel = mode === '-' ? '-' : formatearEtiquetaModo(normalizarValorModo(mode));
 
-        setText('install-version', name && version !== '-' ? `${name} v${version}` : (version !== '-' ? `v${version}` : '-'));
-        setText('install-dashboard', `Modo: ${modeLabel} · Puerto: ${port || '-'} · PID: ${pid} · Inicio: hace ${startedAgo}`);
-        setText('install-root', truncatePath(root, 96));
-        setText('install-logs', `${truncatePath(logs, 96)}\nPersistencia: ${persist} · Flush: ${flushMs ? flushMs + 'ms' : '-'} · Rotacion: ${maxBytes ? Math.round(maxBytes/1000) + 'KB' : '-'} · Keep: ${keep || '-'}`);
-        setText('install-runtime', truncatePath(runtime, 110));
+        establecerTexto('install-version', name && version !== '-' ? `${name} v${version}` : (version !== '-' ? `v${version}` : '-'));
+        establecerTexto('install-dashboard', `Modo: ${modeLabel} · Puerto: ${port || '-'} · PID: ${pid} · Inicio: hace ${startedAgo}`);
+        establecerTexto('install-root', recortarRuta(root, 96));
+        establecerTexto('install-logs', `${recortarRuta(logs, 96)}\nPersistencia: ${persist} · Vaciado: ${flushMs ? flushMs + 'ms' : '-'} · Rotación: ${maxBytes ? Math.round(maxBytes/1000) + 'KB' : '-'} · Retención: ${keep || '-'}`);
+        establecerTexto('install-runtime', recortarRuta(runtime, 110));
 
         const versionChip = $('version-chip');
-        if (versionChip) versionChip.textContent = `Version: ${version !== '-' ? version : '-'}`;
+        if (versionChip) versionChip.textContent = `Versión: ${version !== '-' ? version : '-'}`;
         const uiChip = $('ui-chip');
         if (uiChip) uiChip.textContent = `UI: ${UI_REV}`;
         const portChip = $('port-chip');
         if (portChip) portChip.textContent = `Puerto: ${port || '-'}`;
       } catch (error) {
-        setText('install-version', '-');
-        setText('install-dashboard', 'No se pudo cargar la info de instalacion.');
-        maybeToastError('No se pudo cargar la info de instalacion.');
+        establecerTexto('install-version', '-');
+        establecerTexto('install-dashboard', 'No se pudo cargar la info de instalación.');
+        mostrarToastErrorSiAplica('No se pudo cargar la info de instalación.');
       }
     }
 
-    function showToast(text, type = 'info', options = {}) {
-      return showToastAdvanced(String(text || ''), type, options || {});
+    function mostrarToast(text, type = 'info', options = {}) {
+      return mostrarToastAvanzado(String(text || ''), type, options || {});
     }
 
-    function toastIcon(type) {
+    function iconoToast(type) {
       if (type === 'ok') return 'OK';
       if (type === 'warn') return '!';
       if (type === 'error') return 'X';
       return 'i';
     }
 
-    function cssEscape(value) {
+    function escaparCss(value) {
       if (typeof value !== 'string') return '';
       if (window.CSS && typeof window.CSS.escape === 'function') return window.CSS.escape(value);
       return value.replace(/"/g, '\\"');
     }
 
-    function dismissToast(toast) {
+    function cerrarToast(toast) {
       if (!toast || toast.classList.contains('out')) return;
       toast.classList.add('out');
       const remove = () => toast.remove();
@@ -3064,7 +3372,7 @@
       setTimeout(remove, 260);
     }
 
-    function showToastAdvanced(text, type = 'info', options = {}) {
+    function mostrarToastAvanzado(text, type = 'info', options = {}) {
       const wrap = $('toast-wrap');
       if (!wrap) return;
 
@@ -3076,7 +3384,7 @@
       const maxToasts = 4;
 
       if (id) {
-        const existing = wrap.querySelector(`.toast[data-id="${cssEscape(id)}"]`);
+        const existing = wrap.querySelector(`.toast[data-id="${escaparCss(id)}"]`);
         if (existing) existing.remove();
       }
 
@@ -3088,7 +3396,7 @@
       const safeTitle = title || (type === 'error' ? 'Error' : type === 'warn' ? 'Atencion' : type === 'ok' ? 'Listo' : 'Info');
 
       toast.innerHTML = `
-        <div class="toast-icon" aria-hidden="true">${toastIcon(type)}</div>
+        <div class="toast-icon" aria-hidden="true">${iconoToast(type)}</div>
         <div class="toast-body">
           <div class="toast-title">${safeTitle}</div>
           <div class="toast-text"></div>
@@ -3105,10 +3413,10 @@
       if (actionBtn && actionLabel) actionBtn.textContent = actionLabel;
 
       const closeBtn = toast.querySelector('[data-toast-close]');
-      if (closeBtn) closeBtn.addEventListener('click', () => dismissToast(toast));
+      if (closeBtn) closeBtn.addEventListener('click', () => cerrarToast(toast));
       if (actionBtn && onAction) {
         actionBtn.addEventListener('click', () => {
-          try { onAction(); } finally { dismissToast(toast); }
+          try { onAction(); } finally { cerrarToast(toast); }
         });
       }
 
@@ -3120,22 +3428,22 @@
 
       let remaining = duration;
       let startedAt = Date.now();
-      let timer = setTimeout(() => dismissToast(toast), remaining);
+      let timer = setTimeout(() => cerrarToast(toast), remaining);
 
       const pause = () => {
         if (!timer) return;
         clearTimeout(timer);
         timer = null;
         remaining -= Date.now() - startedAt;
-        toast.classList.add('paused');
+        toast.classList.add('pausado');
       };
 
       const resume = () => {
         if (timer) return;
         remaining = Math.max(450, remaining);
         startedAt = Date.now();
-        toast.classList.remove('paused');
-        timer = setTimeout(() => dismissToast(toast), remaining);
+        toast.classList.remove('pausado');
+        timer = setTimeout(() => cerrarToast(toast), remaining);
       };
 
       toast.addEventListener('pointerenter', pause);
@@ -3144,40 +3452,40 @@
       return toast;
     }
 
-    function showToastAdvancedEntry(text, type, options) {
-      return showToastAdvanced(text, type, options);
+    function mostrarEntradaToastAvanzado(text, type, options) {
+      return mostrarToastAvanzado(text, type, options);
     }
 
-    function refreshAfterAction({ forceHealth = true } = {}) {
-      refreshStatus();
-      if (forceHealth) refreshHealth(true);
-      if (state.logsVisible) refreshLogs();
-      refreshSignals();
-      if (state.activeTab === 'status') refreshEvents();
+    function refrescarTrasAccion({ forzarSalud = true } = {}) {
+      refrescarEstado();
+      if (forzarSalud) refrescarSalud(true);
+      if (state.logsVisibles) refrescarLogs();
+      refrescarSenales();
+      if (state.pestanaActiva === 'status') refrescarEventos();
     }
 
-    function scheduleRefreshPulse() {
-      refreshAfterAction({ forceHealth: true });
-      setTimeout(() => refreshAfterAction({ forceHealth: true }), 900);
-      setTimeout(() => refreshAfterAction({ forceHealth: true }), 2400);
-      setTimeout(() => refreshAfterAction({ forceHealth: true }), 5200);
+    function programarPulsoRefresco() {
+      refrescarTrasAccion({ forzarSalud: true });
+      setTimeout(() => refrescarTrasAccion({ forzarSalud: true }), 900);
+      setTimeout(() => refrescarTrasAccion({ forzarSalud: true }), 2400);
+      setTimeout(() => refrescarTrasAccion({ forzarSalud: true }), 5200);
     }
 
-    function formatTime(ts) {
+    function formatearHora(ts) {
       return new Date(ts).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
     }
 
-    function normalizeLevel(level) {
-      return LEVEL_MAP[level] || 'info';
+    function normalizarNivel(level) {
+      return MAPA_NIVELES[level] || 'info';
     }
 
-    function truncateMessage(text, limit = 140) {
+    function recortarMensaje(text, limit = 140) {
       if (!text) return '';
       if (text.length <= limit) return text;
       return text.slice(0, limit).trim() + '...';
     }
 
-    function renderAlert(entry) {
+    function renderizarAlerta(entry) {
       const card = $('alert-card');
       if (!card) return;
       const icon = $('alert-icon');
@@ -3197,24 +3505,24 @@
         return;
       }
 
-      const level = normalizeLevel(entry.level);
+      const level = normalizarNivel(entry.level);
       const isError = level === 'error';
       card.className = `card wide alert-card ${isError ? 'error' : ''}`.trim();
       icon.textContent = isError ? 'X' : '!';
       title.textContent = isError ? 'Error detectado' : 'Advertencia detectada';
-      message.textContent = truncateMessage(entry.text, 220);
+      message.textContent = recortarMensaje(entry.text, 220);
       source.textContent = `Origen: ${entry.source || '-'}`;
       time.textContent = `Hora: ${entry.time || '-'}`;
     }
 
-    function renderSignalCounts(counts) {
-      setText('signal-error', String(counts.error || 0));
-      setText('signal-warn', String(counts.warn || 0));
-      setText('signal-ok', String(counts.ok || 0));
-      setText('signal-info', String(counts.info || 0));
+    function renderizarConteosSenales(counts) {
+      establecerTexto('signal-error', String(counts.error || 0));
+      establecerTexto('signal-warn', String(counts.warn || 0));
+      establecerTexto('signal-ok', String(counts.ok || 0));
+      establecerTexto('signal-info', String(counts.info || 0));
     }
 
-    function renderEventFeed(entries) {
+    function renderizarFeedEventos(entries) {
       const feed = $('event-feed');
       if (!feed) return;
       feed.innerHTML = '';
@@ -3228,7 +3536,7 @@
       }
 
       entries.forEach((entry) => {
-        const level = normalizeLevel(entry.level);
+        const level = normalizarNivel(entry.level);
         const item = document.createElement('li');
         item.className = `event-item ${level}`.trim();
 
@@ -3239,7 +3547,7 @@
         text.className = 'event-text';
 
         const title = document.createElement('div');
-        title.textContent = truncateMessage(entry.text, 160);
+        title.textContent = recortarMensaje(entry.text, 160);
 
         const meta = document.createElement('div');
         meta.className = 'event-meta';
@@ -3265,52 +3573,52 @@
       });
     }
 
-    function updateSignals(entries) {
+    function actualizarSenales(entries) {
       const counts = { error: 0, warn: 0, ok: 0, info: 0 };
       const safeEntries = Array.isArray(entries) ? entries : [];
 
       safeEntries.forEach((entry) => {
-        const level = normalizeLevel(entry.level);
+        const level = normalizarNivel(entry.level);
         if (level === 'error') counts.error += 1;
         else if (level === 'warn') counts.warn += 1;
         else if (level === 'ok') counts.ok += 1;
         else counts.info += 1;
       });
 
-      renderSignalCounts(counts);
+      renderizarConteosSenales(counts);
 
-      const latestEntries = safeEntries.slice(-SIGNAL_LIMIT).reverse();
-      renderEventFeed(latestEntries);
+      const latestEntries = safeEntries.slice(-LIMITE_SENALES).reverse();
+      renderizarFeedEventos(latestEntries);
 
       const critical = [...safeEntries].reverse().find((entry) => {
-        const level = normalizeLevel(entry.level);
+        const level = normalizarNivel(entry.level);
         return level === 'error' || level === 'warn';
       });
 
-      renderAlert(critical || null);
+      renderizarAlerta(critical || null);
     }
 
-    async function refreshSignals() {
+    async function refrescarSenales() {
       try {
         const res = await fetch('/api/logs');
         const data = await res.json();
-        state.lastLogsOk = true;
-        state.lastLogsError = '';
-        updateSignals(data.entries || []);
+        state.logsOkRecientes = true;
+        state.ultimoErrorLogs = '';
+        actualizarSenales(data.entries || []);
       } catch (error) {
-        state.lastLogsOk = false;
-        state.lastLogsError = normalizeErrorMessage(error);
-        updateSignals([]);
+        state.logsOkRecientes = false;
+        state.ultimoErrorLogs = normalizarMensajeError(error);
+        actualizarSenales([]);
       }
     }
 
-    function setRunningDot(active) {
+    function establecerPuntoEjecucion(active) {
       const dot = $('running-dot');
       if (!dot) return;
       dot.classList.toggle('active', active);
     }
 
-    function setHealthItem(prefix, info, expected = true) {
+    function establecerItemSalud(prefix, info, expected = true) {
       const dot = $(`health-${prefix}-dot`);
       const text = $(`health-${prefix}-text`);
       const latency = $(`health-${prefix}-latency`);
@@ -3337,92 +3645,92 @@
       latency.textContent = typeof info.ms === 'number' ? `${info.ms} ms` : '--';
     }
 
-    function renderRunning(list) {
+    function renderizarEnEjecucion(list) {
       if (!Array.isArray(list) || list.length === 0) return '-';
-      return list.map((item) => ENV_LABELS[item] || item).join(', ');
+      return list.map((item) => ETIQUETAS_ENTORNO[item] || item).join(', ');
     }
 
-    function resolveDockerDisplay(data) {
-      if (data && typeof data.dockerDisplay === 'string' && data.dockerDisplay.trim()) return data.dockerDisplay;
-      if (data && typeof data.docker === 'string' && data.docker.trim()) return data.docker;
+    function resolverVistaDocker(datos) {
+      if (datos && typeof datos.dockerDisplay === 'string' && datos.dockerDisplay.trim()) return datos.dockerDisplay;
+      if (datos && typeof datos.docker === 'string' && datos.docker.trim()) return datos.docker;
       return '-';
     }
 
-    function resolveStackDisplay(data, runningList) {
-      if (data && typeof data.stackDisplay === 'string' && data.stackDisplay.trim()) return data.stackDisplay;
-      const stack = data && data.dockerState && data.dockerState.stack ? data.dockerState.stack : null;
-      const state = stack && stack.state ? String(stack.state) : 'unknown';
-      const lastError = stack && stack.lastError ? String(stack.lastError) : '';
-      const running = Array.isArray(runningList) ? runningList : [];
-      const hasStackTask = running.includes('dev') || running.includes('prod') || running.includes('dev-backend');
-      const stackRunning = Boolean(stack && stack.running) || hasStackTask;
+    function resolverVistaStack(datos, listaEjecucion) {
+      if (datos && typeof datos.stackDisplay === 'string' && datos.stackDisplay.trim()) return datos.stackDisplay;
+      const stack = datos && datos.dockerState && datos.dockerState.stack ? datos.dockerState.stack : null;
+      const estadoStack = stack && stack.state ? String(stack.state) : 'unknown';
+      const ultimoError = stack && stack.lastError ? String(stack.lastError) : '';
+      const enEjecucion = Array.isArray(listaEjecucion) ? listaEjecucion : [];
+      const tieneTareaStack = enEjecucion.includes('dev') || enEjecucion.includes('prod') || enEjecucion.includes('dev-backend');
+      const stackEnEjecucion = Boolean(stack && stack.running) || tieneTareaStack;
 
-      if (state === 'error') return lastError || 'Error iniciando stack.';
-      if (state === 'starting') return 'Iniciando stack Docker...';
-      if (state === 'checking') return 'Comprobando stack Docker...';
-      if (state === 'skipped') return 'Stack Docker ya esta activo.';
-      if (stackRunning) return 'Stack activo (procesos en ejecucion).';
+      if (estadoStack === 'error') return ultimoError || 'Error iniciando stack.';
+      if (estadoStack === 'starting') return 'Iniciando stack Docker...';
+      if (estadoStack === 'checking') return 'Comprobando stack Docker...';
+      if (estadoStack === 'skipped') return 'Stack Docker ya está activo.';
+      if (stackEnEjecucion) return 'Stack activo (procesos en ejecución).';
       return 'Stack detenido.';
     }
 
-    function updateEnvButton(button, running) {
-      if (!button) return;
-      const stateEl = button.querySelector('[data-state]');
-      const subEl = button.querySelector('[data-sub]');
+    function actualizarBotonEntorno(boton, enEjecucion) {
+      if (!boton) return;
+      const estadoEl = boton.querySelector('[data-state]');
+      const subElemento = boton.querySelector('[data-sub]');
 
-      button.classList.toggle('active', running);
-      button.classList.remove('pending');
-      button.removeAttribute('data-pending');
+      boton.classList.toggle('active', enEjecucion);
+      boton.classList.remove('pending');
+      boton.removeAttribute('data-pending');
 
-      if (stateEl) stateEl.textContent = running ? 'Activo' : 'Detenido';
-      if (subEl) {
-        subEl.textContent = running
+      if (estadoEl) estadoEl.textContent = enEjecucion ? 'Activo' : 'Detenido';
+      if (subElemento) {
+        subElemento.textContent = enEjecucion
           ? 'Mantener 1.2s para detener'
           : 'Mantener 1.2s para iniciar';
       }
 
-      button.setAttribute('aria-pressed', running ? 'true' : 'false');
+      boton.setAttribute('aria-pressed', enEjecucion ? 'true' : 'false');
     }
 
-    function updateEnvButtons() {
-      document.querySelectorAll('[data-env]').forEach((button) => {
-        updateEnvButton(button, state.running.has(button.dataset.env));
+    function actualizarBotonesEntorno() {
+      document.querySelectorAll('[data-env]').forEach((boton) => {
+        actualizarBotonEntorno(boton, state.enEjecucion.has(boton.dataset.env));
       });
     }
 
-    function recordEvent(type, label) {
+    function registrarEvento(tipo, etiqueta) {
       const entry = {
         id: `${Date.now()}-${Math.random().toString(16).slice(2)}`,
-        type,
-        label,
+        type: tipo,
+        label: etiqueta,
         time: Date.now()
       };
 
-      state.events.unshift(entry);
-      if (state.events.length > MAX_EVENTS) {
-        state.events.splice(MAX_EVENTS);
+      state.eventos.unshift(entry);
+      if (state.eventos.length > MAX_EVENTOS) {
+        state.eventos.splice(MAX_EVENTOS);
       }
 
-      renderActivity();
-      updateAnalytics();
+      renderizarActividad();
+      actualizarAnalitica();
     }
 
-    function renderActivity() {
+    function renderizarActividad() {
       const list = $('activity-list');
       if (!list) return;
 
       list.innerHTML = '';
 
-      if (state.events.length === 0) {
+      if (state.eventos.length === 0) {
         const empty = document.createElement('li');
         empty.className = 'activity-empty';
         empty.textContent = 'Sin actividad reciente.';
         list.appendChild(empty);
-        setText('last-event', 'Sin actividad reciente.');
+        establecerTexto('last-event', 'Sin actividad reciente.');
         return;
       }
 
-      state.events.forEach((entry) => {
+      state.eventos.forEach((entry) => {
         const li = document.createElement('li');
         li.className = 'activity-item';
 
@@ -3435,7 +3743,7 @@
 
         const time = document.createElement('span');
         time.className = 'activity-time';
-        time.textContent = formatTime(entry.time);
+        time.textContent = formatearHora(entry.time);
 
         li.appendChild(dot);
         li.appendChild(text);
@@ -3443,30 +3751,30 @@
         list.appendChild(li);
       });
 
-      const last = state.events[0];
+      const last = state.eventos[0];
       if (last) {
-        setText('last-event', `Ultima accion: ${last.label} (${last.type === 'start' ? 'inicio' : 'detenido'})`);
+        establecerTexto('last-event', `Última acción: ${last.label} (${last.type === 'start' ? 'inicio' : 'detenido'})`);
       }
     }
 
-    function getServiceSnapshot() {
-      const runningDevOrProd = state.running.has('dev') || state.running.has('prod');
-      const webInfoKey = state.webDocenteInfoKey || 'webDocenteDev';
+    function obtenerSnapshotServicios() {
+      const runningDevOrProd = state.enEjecucion.has('dev') || state.enEjecucion.has('prod');
+      const webInfoKey = state.claveInfoWebDocente || 'webDocenteDev';
       const items = [
         {
           id: 'web-docente',
           expected: runningDevOrProd,
-          info: state.health?.[webInfoKey]
+          info: state.salud?.[webInfoKey]
         },
         {
           id: 'api-docente',
           expected: runningDevOrProd,
-          info: state.health?.apiDocente
+          info: state.salud?.apiDocente
         },
         {
           id: 'api-portal',
-          expected: state.running.has('portal'),
-          info: state.health?.apiPortal
+          expected: state.enEjecucion.has('portal'),
+          info: state.salud?.apiPortal
         }
       ];
 
@@ -3483,8 +3791,8 @@
       return { items, okCount, downCount };
     }
 
-    function updateServiceSummary() {
-      const snapshot = getServiceSnapshot();
+    function actualizarResumenServicios() {
+      const snapshot = obtenerSnapshotServicios();
 
       snapshot.items.forEach((item) => {
         const dot = $(`service-${item.id}-dot`);
@@ -3519,48 +3827,72 @@
       return snapshot;
     }
 
-    function renderHealthHistory() {
+    function renderizarHistorialSalud() {
       const container = $('health-history');
       if (!container) return;
 
+      const okChip = $('health-last-ok');
+      const downChip = $('health-last-down');
+      const timeChip = $('health-last-time');
+
       container.innerHTML = '';
 
-      if (state.healthHistory.length === 0) {
+      if (state.historialSalud.length === 0) {
         const empty = document.createElement('div');
         empty.className = 'chart-empty';
         empty.textContent = 'Sin historial de salud por ahora.';
         container.appendChild(empty);
+        if (okChip) okChip.textContent = 'OK -';
+        if (downChip) downChip.textContent = 'Caidas -';
+        if (timeChip) timeChip.textContent = 'Ultimo: --';
+        if (okChip) okChip.className = 'health-chip ok';
+        if (downChip) downChip.className = 'health-chip down';
         return;
       }
 
-      state.healthHistory.forEach((entry) => {
+      const lastIndex = state.historialSalud.length - 1;
+      state.historialSalud.forEach((entry, index) => {
         const ratio = entry.total ? entry.okCount / entry.total : 0;
-        const height = Math.max(10, Math.round(12 + ratio * 52));
+        const height = Math.max(12, Math.round(14 + ratio * 60));
         const bar = document.createElement('div');
-        bar.className = `mini-bar ${entry.downCount > 0 ? 'down' : ''}`.trim();
+        const statusClass = entry.downCount > 0 ? 'down' : 'ok';
+        const latestClass = index === lastIndex ? 'latest' : '';
+        bar.className = `mini-bar ${statusClass} ${latestClass}`.trim();
         bar.style.height = `${height}px`;
-        bar.title = `${formatTime(entry.ts)} | OK ${entry.okCount}/${entry.total}`;
+        bar.title = `${formatearHora(entry.ts)} | OK ${entry.okCount}/${entry.total}`;
         container.appendChild(bar);
       });
+
+      const last = state.historialSalud[lastIndex];
+      if (last) {
+        const ratio = last.total ? last.okCount / last.total : 0;
+        const ratioPct = Math.round(ratio * 100);
+        if (okChip) okChip.textContent = `OK ${last.okCount}/${last.total} (${ratioPct}%)`;
+        if (downChip) {
+          downChip.textContent = `Caidas ${last.downCount}`;
+          downChip.className = `health-chip ${last.downCount > 0 ? 'down' : 'ok'}`;
+        }
+        if (timeChip) timeChip.textContent = `Ultimo: ${formatearHora(last.ts)}`;
+      }
     }
 
-    function updateAnalytics() {
-      const snapshot = updateServiceSummary();
+    function actualizarAnalitica() {
+      const snapshot = actualizarResumenServicios();
       const expectedTotal = snapshot.items.filter((item) => item.expected).length;
 
-      setText('health-ok', expectedTotal ? String(snapshot.okCount) : '-');
-      setText('health-down', expectedTotal ? String(snapshot.downCount) : '-');
+      establecerTexto('health-ok', expectedTotal ? String(snapshot.okCount) : '-');
+      establecerTexto('health-down', expectedTotal ? String(snapshot.downCount) : '-');
 
       const now = Date.now();
-      const recentEvents = state.events.filter((entry) => now - entry.time <= RECENT_EVENT_WINDOW_MS).length;
-      setText('recent-events', String(recentEvents));
+      const recentEvents = state.eventos.filter((entry) => now - entry.time <= VENTANA_EVENTOS_RECIENTES_MS).length;
+      establecerTexto('recent-events', String(recentEvents));
 
-      const minutes = Math.floor((now - state.sessionStarted) / 60000);
-      setText('session-mins', minutes < 1 ? '<1 min' : `${minutes} min`);
+      const minutes = Math.floor((now - state.sesionIniciadaEn) / 60000);
+      establecerTexto('session-mins', minutes < 1 ? '<1 min' : `${minutes} min`);
     }
 
-    function buildHealthSnapshot() {
-      const snapshot = getServiceSnapshot();
+    function construirSnapshotSalud() {
+      const snapshot = obtenerSnapshotServicios();
       const expectedTotal = snapshot.items.filter((item) => item.expected).length;
       if (!expectedTotal) return null;
 
@@ -3572,7 +3904,7 @@
       };
     }
 
-    function updateWebDocenteLink(mode) {
+    function actualizarEnlaceWebDocente(mode) {
       const item = $('web-docente-item');
       const link = $('web-docente-link');
       const meta = $('web-docente-meta');
@@ -3580,8 +3912,8 @@
       const note = $('web-docente-note');
       if (!item || !link || !meta || !chip || !note) return;
 
-      const runningDev = state.running.has('dev');
-      const runningProd = state.running.has('prod');
+      const runningDev = state.enEjecucion.has('dev');
+      const runningProd = state.enEjecucion.has('prod');
       const normalized = String(mode || '').toLowerCase();
 
       let target = 'dev';
@@ -3604,49 +3936,49 @@
       if (!any) {
         note.textContent = 'No hay UI web activa. Inicia dev (5173) o prod (4173).';
       } else if (runningDev && runningProd) {
-        note.textContent = `Dev y prod activos. Mostrando ${isProd ? 'prod' : 'dev'} segun el modo actual.`;
+        note.textContent = `Dev y prod activos. Mostrando ${isProd ? 'prod' : 'dev'} según el modo actual.`;
       } else {
         note.textContent = `Detectado ${isProd ? 'prod' : 'dev'} activo. Acceso listo.`;
       }
 
       const infoKey = isProd ? 'webDocenteProd' : 'webDocenteDev';
-      state.webDocenteInfoKey = infoKey;
-      setHealthItem('web-docente', state.health?.[infoKey], any);
+      state.claveInfoWebDocente = infoKey;
+      establecerItemSalud('web-docente', state.salud?.[infoKey], any);
     }
 
-    async function refreshHealth(force = false) {
+    async function refrescarSalud(forzar = false) {
       const now = Date.now();
-      const reuse = !force && now - state.lastHealthAt < 4000;
-      if (!reuse) state.lastHealthAt = now;
+      const reuse = !forzar && now - state.ultimaSaludEn < 4000;
+      if (!reuse) state.ultimaSaludEn = now;
 
       if (!reuse) {
         try {
           const res = await fetch('/api/health');
           const data = await res.json();
-          state.health = data.services || {};
+          state.salud = data.services || {};
         } catch {
-          state.health = {};
+          state.salud = {};
         }
 
-        const snapshot = buildHealthSnapshot();
+        const snapshot = construirSnapshotSalud();
         if (snapshot) {
-          state.healthHistory.push(snapshot);
-          if (state.healthHistory.length > MAX_HEALTH_HISTORY) {
-            state.healthHistory.splice(0, state.healthHistory.length - MAX_HEALTH_HISTORY);
+          state.historialSalud.push(snapshot);
+          if (state.historialSalud.length > MAX_HISTORIAL_SALUD) {
+            state.historialSalud.splice(0, state.historialSalud.length - MAX_HISTORIAL_SALUD);
           }
-          renderHealthHistory();
+          renderizarHistorialSalud();
         }
       }
 
-      const runningDevOrProd = state.running.has('dev') || state.running.has('prod');
-      setHealthItem('api-docente', state.health.apiDocente, runningDevOrProd);
-      setHealthItem('api-portal', state.health.apiPortal, state.running.has('portal'));
-      updateWebDocenteLink(state.mode);
-      updateAnalytics();
-      applyMood();
+      const runningDevOrProd = state.enEjecucion.has('dev') || state.enEjecucion.has('prod');
+      establecerItemSalud('api-docente', state.salud.apiDocente, runningDevOrProd);
+      establecerItemSalud('api-portal', state.salud.apiPortal, state.enEjecucion.has('portal'));
+      actualizarEnlaceWebDocente(state.modo);
+      actualizarAnalitica();
+      aplicarAnimo();
     }
 
-    function updateMongoExpressUi() {
+    function actualizarUiMongoExpress() {
       const dot = $('db-dot');
       const stateEl = $('db-state');
       const urlEl = $('db-url');
@@ -3655,8 +3987,8 @@
       const wrap = $('db-embed-wrap');
 
       const url = state.mongoExpress?.url || 'http://127.0.0.1:8081/';
-      const reachable = Boolean(state.mongoExpress?.reachable);
-      const status = Number(state.mongoExpress?.status || 0);
+      const alcanzable = Boolean(state.mongoExpress?.alcanzable);
+      const estado = Number(state.mongoExpress?.estado || 0);
       const error = String(state.mongoExpress?.error || '');
 
       if (urlEl) {
@@ -3664,11 +3996,11 @@
         urlEl.href = url;
       }
 
-      if (dot) dot.classList.toggle('active', reachable);
+      if (dot) dot.classList.toggle('active', alcanzable);
 
       if (stateEl) {
-        if (reachable) {
-          stateEl.textContent = status ? `Disponible (HTTP ${status})` : 'Disponible';
+        if (alcanzable) {
+          stateEl.textContent = estado ? `Disponible (HTTP ${estado})` : 'Disponible';
         } else {
           stateEl.textContent = error ? `No disponible (${error})` : 'No disponible';
         }
@@ -3680,10 +4012,10 @@
       }
 
       if (wrap) {
-        wrap.hidden = !state.dbEmbed;
+        wrap.hidden = !state.dbEmpotrada;
       }
 
-      if (iframe && state.dbEmbed) {
+      if (iframe && state.dbEmpotrada) {
         if (reachable) {
           const current = iframe.getAttribute('src') || '';
           if (current !== url) iframe.setAttribute('src', url);
@@ -3693,425 +4025,547 @@
       }
     }
 
-    async function refreshMongoExpress(force = false) {
+    async function refrescarMongoExpress(forzar = false) {
       const now = Date.now();
-      const reuse = !force && now - (state.mongoExpress?.lastCheckedAt || 0) < 5000;
+      const reuse = !forzar && now - (state.mongoExpress?.ultimaRevisionEn || 0) < 5000;
       if (reuse) {
-        updateMongoExpressUi();
+        actualizarUiMongoExpress();
         return;
       }
 
-      state.mongoExpress.lastCheckedAt = now;
+      state.mongoExpress.ultimaRevisionEn = now;
       try {
         const res = await fetch('/api/mongo-express');
         const data = await res.json();
         state.mongoExpress.url = typeof data.url === 'string' ? data.url : state.mongoExpress.url;
-        state.mongoExpress.reachable = Boolean(data.reachable);
-        state.mongoExpress.status = Number(data.status || 0);
+        state.mongoExpress.alcanzable = Boolean(data.reachable);
+        state.mongoExpress.estado = Number(data.status || 0);
         state.mongoExpress.error = '';
       } catch (error) {
-        state.mongoExpress.reachable = false;
-        state.mongoExpress.status = 0;
-        state.mongoExpress.error = normalizeErrorMessage(error);
+        state.mongoExpress.alcanzable = false;
+        state.mongoExpress.estado = 0;
+        state.mongoExpress.error = normalizarMensajeError(error);
       }
-      updateMongoExpressUi();
+      actualizarUiMongoExpress();
     }
 
-    function setLogsVisible(visible) {
-      state.logsVisible = visible;
+    function establecerLogsVisibles(visible) {
+      state.logsVisibles = visible;
       const shell = $('log-shell');
       const toggle = $('toggle-logs');
       if (!shell || !toggle) return;
       shell.classList.toggle('collapsed', !visible);
       toggle.setAttribute('aria-expanded', visible ? 'true' : 'false');
       toggle.innerHTML = '<svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5l7 7-7 7-1.4-1.4L15.2 13H5v-2h10.2l-4.6-4.6L12 5z"/></svg> ' + (visible ? 'Ocultar salida' : 'Mostrar salida');
-      if (visible) refreshLogs();
-      else refreshSignals();
+      if (visible) refrescarLogs();
+      else refrescarSenales();
     }
 
-    function setTab(name) {
-      state.activeTab = name;
+    function establecerPestana(nombre) {
+      state.pestanaActiva = nombre;
       document.querySelectorAll('.tab-btn').forEach((btn) => {
-        const isActive = btn.dataset.tab === name;
+        const isActive = btn.dataset.tab === nombre;
         btn.classList.toggle('active', isActive);
         btn.setAttribute('aria-selected', isActive ? 'true' : 'false');
         btn.tabIndex = isActive ? 0 : -1;
       });
       document.querySelectorAll('.tab-panel').forEach((panel) => {
-        const isActive = panel.dataset.panel === name;
+        const isActive = panel.dataset.panel === nombre;
         panel.classList.toggle('active', isActive);
         panel.hidden = !isActive;
       });
-      if (name === 'status') {
-        refreshEvents();
-        refreshInstallInfo();
-        if (state.logsVisible) refreshLogs();
-      } else if (name === 'db') {
-        refreshMongoExpress(true);
+      if (nombre === 'status') {
+        refrescarEventos();
+        refrescarInfoInstalacion();
+        if (state.logsVisibles) refrescarLogs();
+      } else if (nombre === 'db') {
+        refrescarMongoExpress(true);
       }
 
-      setHashTab(name);
+      establecerHashPestana(nombre);
     }
 
-    function renderStatusEvents(entries) {
-      const wrap = $('status-events');
-      if (!wrap) return;
-      wrap.innerHTML = '';
+    function formatearEtiquetaEvento(valor) {
+      if (!valor) return '-';
+      return String(valor).replace(/_/g, ' ');
+    }
 
-      if (!state.lastEventsOk) {
+    function parsearLogEstructurado(texto) {
+      const crudo = String(texto || '').trim();
+      if (!crudo) return null;
+      const indiceLlave = crudo.indexOf('{');
+      if (indiceLlave < 0) return null;
+      const prefijo = crudo.slice(0, indiceLlave).replace(/\|\s*$/, '').trim();
+      const parteJson = crudo.slice(indiceLlave).trim();
+      if (!parteJson.startsWith('{')) return null;
+      let carga = null;
+      try {
+        carga = JSON.parse(parteJson);
+      } catch {
+        return null;
+      }
+
+      const mensaje = typeof carga.msg === 'string' ? carga.msg.trim() : '';
+      const componente = typeof carga.c === 'string' ? carga.c.trim() : '';
+      const contexto = typeof carga.ctx === 'string' ? carga.ctx.trim() : '';
+      const etiquetas = Array.isArray(carga.tags) ? carga.tags.map((tag) => String(tag)) : [];
+      const atributos = carga.attr && typeof carga.attr === 'object' ? carga.attr : null;
+
+      const partesSubtitulo = [];
+      if (prefijo) partesSubtitulo.push(prefijo);
+      if (componente) partesSubtitulo.push(componente);
+      if (contexto) partesSubtitulo.push(contexto);
+      if (etiquetas.length) partesSubtitulo.push(etiquetas.join(', '));
+
+      const partesAtributos = [];
+      if (atributos) {
+        const entradas = Object.entries(atributos);
+        for (const [clave, valor] of entradas) {
+          if (partesAtributos.length >= 3) break;
+          if (valor === null || typeof valor === 'undefined') continue;
+          let formateado = '';
+          if (typeof valor === 'string') formateado = valor;
+          else if (typeof valor === 'number' || typeof valor === 'boolean') formateado = String(valor);
+          else {
+            try { formateado = JSON.stringify(valor); } catch { formateado = String(valor); }
+          }
+          formateado = recortarMensaje(formateado, 80);
+          partesAtributos.push(`${clave}=${formateado}`);
+        }
+      }
+
+      let detalle = '';
+      try { detalle = JSON.stringify(carga, null, 2); } catch { detalle = parteJson; }
+
+      return {
+        titulo: mensaje || crudo,
+        subtitulo: partesSubtitulo.join(' · '),
+        resumenAtributos: partesAtributos.join(' · '),
+        detalle,
+        origen: prefijo
+      };
+    }
+
+    function renderizarEventosEstado(entradas) {
+      const contenedor = $('eventos-estado');
+      if (!contenedor) return;
+      contenedor.innerHTML = '';
+
+      if (!state.eventosOkRecientes) {
         const item = document.createElement('div');
-        item.className = 'status-event error';
-        item.innerHTML = `<div class="msg">Sin conexion: no se pudieron obtener eventos.</div>`;
-        wrap.appendChild(item);
+        item.className = 'evento-estado error';
+        item.innerHTML = `<div class="mensaje"><div class="mensaje-titulo">Sin conexión: no se pudieron obtener eventos.</div></div>`;
+        contenedor.appendChild(item);
         return;
       }
 
-      const safe = Array.isArray(entries) ? entries : [];
-      const max = 10;
-      const sliced = safe.slice(0, max);
-      if (sliced.length === 0) {
+      const listaSegura = Array.isArray(entradas) ? entradas : [];
+      const maximo = 10;
+      const recortados = listaSegura.slice(0, maximo);
+      if (recortados.length === 0) {
         const item = document.createElement('div');
-        item.className = 'status-event';
-        item.innerHTML = `<div class="msg">Aun no hay eventos.</div>`;
-        wrap.appendChild(item);
+        item.className = 'evento-estado';
+        item.innerHTML = `<div class="mensaje"><div class="mensaje-titulo">Aún no hay eventos.</div></div>`;
+        contenedor.appendChild(item);
         return;
       }
 
-      const fragment = document.createDocumentFragment();
-      sliced.forEach((evt) => {
-        const level = evt.level || 'info';
-        const el = document.createElement('div');
-        const hasMeta = evt.meta && typeof evt.meta === 'object';
-        el.className = `status-event ${level} ${hasMeta ? 'has-meta' : ''}`.trim();
+      const fragmento = document.createDocumentFragment();
+      recortados.forEach((evento) => {
+        const nivel = normalizarNivel(evento.level);
+        const elemento = document.createElement('div');
+        const tieneMeta = evento.meta && typeof evento.meta === 'object';
 
-        const type = typeof evt.type === 'string' ? evt.type : 'evento';
-        const source = typeof evt.source === 'string' ? evt.source : '-';
-        const time = typeof evt.time === 'string' ? evt.time : '-';
-        const text = typeof evt.text === 'string' ? evt.text : '';
+        const tipo = typeof evento.type === 'string' ? evento.type : 'evento';
+        const origen = typeof evento.source === 'string' ? evento.source : '-';
+        const hora = typeof evento.time === 'string' ? evento.time : '-';
+        const texto = typeof evento.text === 'string' ? evento.text : '';
 
-        el.innerHTML = `
-          <div class="top">
-            <span class="time">${time}</span>
-            <span class="tag">${type}</span>
-            <span class="tag">${source}</span>
-          </div>
-          <div class="msg"></div>
-          <div class="meta"></div>
-        `.trim();
+        const estructurado = parsearLogEstructurado(texto);
+        const titulo = estructurado ? estructurado.titulo : texto;
+        const subtitulo = estructurado ? estructurado.subtitulo : '';
+        const resumenAtributos = estructurado ? estructurado.resumenAtributos : '';
 
-        const msg = el.querySelector('.msg');
-        if (msg) msg.textContent = text;
+        const bloquesDetalle = [];
+        if (estructurado && estructurado.detalle) bloquesDetalle.push(estructurado.detalle);
+        if (tieneMeta) {
+          try { bloquesDetalle.push(JSON.stringify(evento.meta, null, 2)); } catch {}
+        }
+        const textoDetalle = bloquesDetalle.join('\n\n').trim();
+        const tieneDetalles = Boolean(textoDetalle);
 
-        const meta = el.querySelector('.meta');
-        if (meta && hasMeta) {
-          try { meta.textContent = JSON.stringify(evt.meta, null, 2); } catch { meta.textContent = ''; }
+        const etiquetaNivel = nivel.toUpperCase();
+        const etiquetaTipo = formatearEtiquetaEvento(tipo);
+        const etiquetaOrigen = formatearEtiquetaEvento(origen);
+        elemento.className = `evento-estado ${nivel} ${tieneDetalles ? 'con-detalles' : ''}`.trim();
+        if (tieneDetalles) {
+          elemento.setAttribute('tabindex', '0');
+          elemento.setAttribute('role', 'button');
+          elemento.setAttribute('aria-expanded', 'false');
         }
 
-        if (hasMeta) {
-          el.addEventListener('click', () => {
-            el.classList.toggle('open');
+        elemento.innerHTML = `
+          <div class="encabezado">
+            <span class="hora">${hora}</span>
+            <span class="pildora-nivel ${nivel}">${etiquetaNivel}</span>
+            <span class="etiqueta">${etiquetaTipo}</span>
+            <span class="etiqueta">${etiquetaOrigen}</span>
+          </div>
+          <div class="mensaje">
+            <div class="mensaje-titulo"></div>
+            <div class="mensaje-subtitulo"></div>
+            <div class="mensaje-meta"></div>
+          </div>
+          <div class="detalles">
+            <div class="detalles-titulo">Detalles</div>
+            <pre class="detalles-cuerpo"></pre>
+          </div>
+        `.trim();
+
+        const mensajeTitulo = elemento.querySelector('.mensaje-titulo');
+        if (mensajeTitulo) mensajeTitulo.textContent = recortarMensaje(titulo, 200);
+
+        const mensajeSubtitulo = elemento.querySelector('.mensaje-subtitulo');
+        if (mensajeSubtitulo) {
+          if (subtitulo) mensajeSubtitulo.textContent = subtitulo;
+          else mensajeSubtitulo.remove();
+        }
+
+        const mensajeMeta = elemento.querySelector('.mensaje-meta');
+        if (mensajeMeta) {
+          if (resumenAtributos) mensajeMeta.textContent = resumenAtributos;
+          else mensajeMeta.remove();
+        }
+
+        const encabezado = elemento.querySelector('.encabezado');
+        if (encabezado && estructurado && estructurado.origen && estructurado.origen !== origen) {
+          const origenExtra = document.createElement('span');
+          origenExtra.className = 'etiqueta codigo';
+          origenExtra.textContent = estructurado.origen;
+          encabezado.appendChild(origenExtra);
+        }
+
+        const detalles = elemento.querySelector('.detalles');
+        const detallesCuerpo = elemento.querySelector('.detalles-cuerpo');
+        if (detalles && detallesCuerpo) {
+          if (tieneDetalles) detallesCuerpo.textContent = textoDetalle;
+          else detalles.remove();
+        }
+
+        if (tieneDetalles) {
+          const alternar = () => {
+            const siguiente = !elemento.classList.contains('abierto');
+            elemento.classList.toggle('abierto', siguiente);
+            elemento.setAttribute('aria-expanded', siguiente ? 'true' : 'false');
+          };
+          elemento.addEventListener('click', alternar);
+          elemento.addEventListener('keydown', (eventoTecla) => {
+            if (eventoTecla.key === 'Enter' || eventoTecla.key === ' ') {
+              eventoTecla.preventDefault();
+              alternar();
+            }
           });
         }
 
-        fragment.appendChild(el);
+        fragmento.appendChild(elemento);
       });
 
-      wrap.appendChild(fragment);
+      contenedor.appendChild(fragmento);
     }
 
-    async function refreshEvents() {
-      if (state.activeTab !== 'status') return;
+    async function refrescarEventos() {
+      if (state.pestanaActiva !== 'status') return;
       try {
-        const res = await fetch('/api/events');
-        const data = await res.json();
-        state.lastEventsOk = true;
-        state.lastEventsError = '';
-        renderStatusEvents(data.entries || []);
+        const respuesta = await fetch('/api/events');
+        const datos = await respuesta.json();
+        state.eventosOkRecientes = true;
+        state.ultimoErrorEventos = '';
+        renderizarEventosEstado(datos.entries || []);
       } catch (error) {
-        state.lastEventsOk = false;
-        state.lastEventsError = normalizeErrorMessage(error);
-        renderStatusEvents([]);
+        state.eventosOkRecientes = false;
+        state.ultimoErrorEventos = normalizarMensajeError(error);
+        renderizarEventosEstado([]);
       }
     }
 
-    function attachHold(button, onTrigger) {
-      let rafId = null;
-      let start = 0;
-      const holdMs = Number(button.dataset.holdMs || HOLD_DEFAULT);
-      let active = false;
+    function vincularMantener(boton, alDisparar) {
+      let idRaf = null;
+      let inicio = 0;
+      const mantenerMs = Number(boton.dataset.holdMs || TIEMPO_MANTENER_MS);
+      let activo = false;
 
-      const reset = () => {
-        button.style.setProperty('--hold', 0);
-        button.classList.remove('is-holding');
-        active = false;
-        if (rafId) cancelAnimationFrame(rafId);
-        rafId = null;
+      const reiniciar = () => {
+        boton.style.setProperty('--hold', 0);
+        boton.classList.remove('is-holding');
+        activo = false;
+        if (idRaf) cancelAnimationFrame(idRaf);
+        idRaf = null;
       };
 
-      const step = (now) => {
-        const progress = Math.min(1, (now - start) / holdMs);
-        button.style.setProperty('--hold', (progress * 100).toFixed(2));
-        if (progress >= 1) {
-          button.classList.add('hold-done');
-          setTimeout(() => button.classList.remove('hold-done'), 420);
-          reset();
-          onTrigger();
+      const paso = (ahora) => {
+        const progreso = Math.min(1, (ahora - inicio) / mantenerMs);
+        boton.style.setProperty('--hold', (progreso * 100).toFixed(2));
+        if (progreso >= 1) {
+          boton.classList.add('hold-done');
+          setTimeout(() => boton.classList.remove('hold-done'), 420);
+          reiniciar();
+          alDisparar();
           return;
         }
-        rafId = requestAnimationFrame(step);
+        idRaf = requestAnimationFrame(paso);
       };
 
-      const startHold = (event) => {
-        event.preventDefault();
-        const cooldownUntil = Number(button.dataset.cooldownUntil || 0);
-        if (cooldownUntil && Date.now() < cooldownUntil) return;
-        if (active) return;
-        active = true;
-        button.classList.add('is-holding');
-        start = performance.now();
-        rafId = requestAnimationFrame(step);
+      const iniciarMantener = (evento) => {
+        evento.preventDefault();
+        const enfriamientoHasta = Number(boton.dataset.cooldownUntil || 0);
+        if (enfriamientoHasta && Date.now() < enfriamientoHasta) return;
+        if (activo) return;
+        activo = true;
+        boton.classList.add('is-holding');
+        inicio = performance.now();
+        idRaf = requestAnimationFrame(paso);
       };
 
-      const cancelHold = () => {
-        if (!active) return;
-        reset();
+      const cancelarMantener = () => {
+        if (!activo) return;
+        reiniciar();
       };
 
-      button.addEventListener('pointerdown', startHold);
-      button.addEventListener('pointerup', cancelHold);
-      button.addEventListener('pointerleave', cancelHold);
-      button.addEventListener('pointercancel', cancelHold);
-      button.addEventListener('keydown', (event) => {
-        if (event.key === 'Enter' || event.key === ' ') startHold(event);
+      boton.addEventListener('pointerdown', iniciarMantener);
+      boton.addEventListener('pointerup', cancelarMantener);
+      boton.addEventListener('pointerleave', cancelarMantener);
+      boton.addEventListener('pointercancel', cancelarMantener);
+      boton.addEventListener('keydown', (evento) => {
+        if (evento.key === 'Enter' || evento.key === ' ') iniciarMantener(evento);
       });
-      button.addEventListener('keyup', cancelHold);
+      boton.addEventListener('keyup', cancelarMantener);
     }
 
-    function syncEnvEvents(previous, current) {
-      previous.forEach((env) => {
-        if (!current.has(env)) recordEvent('stop', ENV_LABELS[env] || env);
+    function sincronizarEventosEntorno(previo, actual) {
+      previo.forEach((entorno) => {
+        if (!actual.has(entorno)) registrarEvento('stop', ETIQUETAS_ENTORNO[entorno] || entorno);
       });
-      current.forEach((env) => {
-        if (!previous.has(env)) recordEvent('start', ENV_LABELS[env] || env);
+      actual.forEach((entorno) => {
+        if (!previo.has(entorno)) registrarEvento('start', ETIQUETAS_ENTORNO[entorno] || entorno);
       });
     }
 
-    async function refreshStatus() {
+    async function refrescarEstado() {
       try {
-        const res = await fetch('/api/status');
-        const data = await res.json();
-        setConnection('ok');
+        const respuesta = await fetch('/api/status');
+        const datos = await respuesta.json();
+        establecerConexion('ok');
 
-      const runningList = Array.isArray(data.running) ? data.running : [];
-      const runningCount = runningList.length;
-      const previousRunning = new Set(state.running);
-      const dockerDisplay = resolveDockerDisplay(data);
-      const stackDisplay = resolveStackDisplay(data, runningList);
+      const listaEjecucion = Array.isArray(datos.running) ? datos.running : [];
+      const conteoEjecucion = listaEjecucion.length;
+      const ejecucionPrevia = new Set(state.enEjecucion);
+      const vistaDocker = resolverVistaDocker(datos);
+      const vistaStack = resolverVistaStack(datos, listaEjecucion);
 
-      const displayMode = deriveDisplayMode(data.mode, runningList);
-      state.mode = displayMode;
-      state.running = new Set(runningList);
+      const modoMostrar = derivarModoVista(datos.mode, listaEjecucion);
+      state.modo = modoMostrar;
+      state.enEjecucion = new Set(listaEjecucion);
 
-      setText('root', data.root);
-      setText('mode', formatModeLabel(displayMode));
-      setText('running-count', String(runningCount));
-      setText('running', renderRunning(runningList));
-      setText('last-refresh', `Actualizado ${new Date().toLocaleTimeString()}`);
+      establecerTexto('root', datos.root);
+      establecerTexto('mode', formatearEtiquetaModo(modoMostrar));
+      establecerTexto('running-count', String(conteoEjecucion));
+      establecerTexto('running', renderizarEnEjecucion(listaEjecucion));
+      establecerTexto('last-refresh', `Actualizado ${new Date().toLocaleTimeString()}`);
 
-      setText('root-status', data.root);
-      setText('mode-status', formatModeLabel(displayMode));
-      setText('running-status', renderRunning(runningList));
-      setText('node', data.node);
-      setText('npm', data.npm);
-      setText('docker', dockerDisplay);
-      setText('docker-state-main', dockerDisplay);
-      setText('stack-state-main', stackDisplay);
-      setText('stack-state-status', stackDisplay);
-      setText('mode-chip', `Modo: ${formatModeLabel(displayMode)}`);
-      setText('running-chip', `Procesos: ${runningCount}`);
-      setText('port-chip', `Puerto: ${data.port || '-'}`);
-      setText('log-size', `${data.logSize} lineas`);
-      setText('raw-size', `${data.rawSize} en bruto`);
-      setText('last-refresh-status', `Actualizado ${new Date().toLocaleTimeString()}`);
+      establecerTexto('root-status', datos.root);
+      establecerTexto('mode-status', formatearEtiquetaModo(modoMostrar));
+      establecerTexto('running-status', renderizarEnEjecucion(listaEjecucion));
+      establecerTexto('node', datos.node);
+      establecerTexto('npm', datos.npm);
+      establecerTexto('docker', vistaDocker);
+      establecerTexto('docker-state-main', vistaDocker);
+      establecerTexto('stack-state-main', vistaStack);
+      establecerTexto('stack-state-status', vistaStack);
+      establecerTexto('mode-chip', `Modo: ${formatearEtiquetaModo(modoMostrar)}`);
+      establecerTexto('running-chip', `Procesos: ${conteoEjecucion}`);
+      establecerTexto('port-chip', `Puerto: ${datos.port || '-'}`);
+      establecerTexto('log-size', `${datos.logSize} líneas`);
+      establecerTexto('raw-size', `${datos.rawSize} en bruto`);
+      establecerTexto('last-refresh-status', `Actualizado ${new Date().toLocaleTimeString()}`);
 
-      state.autoRestart = Boolean(data.autoRestart);
-      const autoRestartToggle = $('auto-restart');
-      if (autoRestartToggle) {
-        autoRestartToggle.disabled = String(data.modeConfig || data.mode || '').toLowerCase() !== 'dev';
-        autoRestartToggle.checked = state.autoRestart;
+      state.autoReinicio = Boolean(datos.autoRestart);
+      const toggleAutoReinicio = $('auto-restart');
+      if (toggleAutoReinicio) {
+        toggleAutoReinicio.disabled = String(datos.modeConfig || datos.mode || '').toLowerCase() !== 'dev';
+        toggleAutoReinicio.checked = state.autoReinicio;
       }
 
-      setRunningDot(runningCount > 0);
-      updateEnvButtons();
+      establecerPuntoEjecucion(conteoEjecucion > 0);
+      actualizarBotonesEntorno();
 
-      if (state.hasLoaded) {
-        syncEnvEvents(previousRunning, state.running);
+      if (state.haCargado) {
+        sincronizarEventosEntorno(ejecucionPrevia, state.enEjecucion);
       }
-      state.hasLoaded = true;
+      state.haCargado = true;
 
-      const apiDocenteItem = $('api-docente-item');
-      if (apiDocenteItem) {
-        apiDocenteItem.classList.toggle('inactive', !(state.running.has('dev') || state.running.has('prod')));
+      const itemApiDocente = $('api-docente-item');
+      if (itemApiDocente) {
+        itemApiDocente.classList.toggle('inactive', !(state.enEjecucion.has('dev') || state.enEjecucion.has('prod')));
       }
-      const apiPortalItem = $('api-portal-item');
-      if (apiPortalItem) {
-        apiPortalItem.classList.toggle('inactive', !state.running.has('portal'));
+      const itemApiPortal = $('api-portal-item');
+      if (itemApiPortal) {
+        itemApiPortal.classList.toggle('inactive', !state.enEjecucion.has('portal'));
       }
 
-        await refreshHealth();
-        applyMood();
+        await refrescarSalud();
+        aplicarAnimo();
       } catch (error) {
-        setConnection('error', normalizeErrorMessage(error));
-        maybeToastError('Sin conexion: no se pudo leer /api/status.');
+        establecerConexion('error', normalizarMensajeError(error));
+        mostrarToastErrorSiAplica('Sin conexión: no se pudo leer /api/status.');
 
-        state.running = new Set();
-        state.mode = 'none';
-        state.health = {};
+        state.enEjecucion = new Set();
+        state.modo = 'none';
+        state.salud = {};
 
-        setText('root', '-');
-        setText('mode', '-');
-        setText('running-count', '0');
-        setText('running', '-');
-        setText('last-refresh', '-');
+        establecerTexto('root', '-');
+        establecerTexto('mode', '-');
+        establecerTexto('running-count', '0');
+        establecerTexto('running', '-');
+        establecerTexto('last-refresh', '-');
 
-        setText('root-status', '-');
-        setText('mode-status', '-');
-        setText('running-status', '-');
-        setText('node', '-');
-        setText('npm', '-');
-        setText('docker', '-');
-        setText('docker-state-main', '-');
-        setText('stack-state-main', '-');
-        setText('stack-state-status', '-');
-        setText('mode-chip', 'Modo: -');
-        setText('running-chip', 'Procesos: -');
+        establecerTexto('root-status', '-');
+        establecerTexto('mode-status', '-');
+        establecerTexto('running-status', '-');
+        establecerTexto('node', '-');
+        establecerTexto('npm', '-');
+        establecerTexto('docker', '-');
+        establecerTexto('docker-state-main', '-');
+        establecerTexto('stack-state-main', '-');
+        establecerTexto('stack-state-status', '-');
+        establecerTexto('mode-chip', 'Modo: -');
+        establecerTexto('running-chip', 'Procesos: -');
 
-        setRunningDot(false);
-        updateEnvButtons();
-        updateWebDocenteLink(state.mode);
-        updateAnalytics();
+        establecerPuntoEjecucion(false);
+        actualizarBotonesEntorno();
+        actualizarEnlaceWebDocente(state.modo);
+        actualizarAnalitica();
 
-        renderAlert({
+        renderizarAlerta({
           level: 'error',
-          text: 'No hay conexion con el servidor del dashboard. Inicia scripts/launcher-dashboard para habilitar /api/*.',
+          text: 'No hay conexión con el servidor del dashboard. Inicia scripts/launcher-dashboard para habilitar /api/*.',
           source: 'dashboard',
           time: new Date().toLocaleTimeString()
         });
 
-        applyMood();
+        aplicarAnimo();
       }
     }
 
-    async function setAutoRestart(value) {
-      await api('/api/config', { autoRestart: Boolean(value) });
-      refreshStatus();
+    async function establecerAutoReinicio(valor) {
+      await api('/api/config', { autoRestart: Boolean(valor) });
+      refrescarEstado();
     }
 
-    function renderLogs(entries) {
-      const filter = state.filter.trim().toLowerCase();
-      const log = $('log');
-      if (!log) return;
-      log.innerHTML = '';
+    function renderizarLogs(entradas) {
+      const filtro = state.filtro.trim().toLowerCase();
+      const contenedorLog = $('log');
+      if (!contenedorLog) return;
+      contenedorLog.innerHTML = '';
 
-      if (!state.lastLogsOk) {
+      if (!state.logsOkRecientes) {
         const offline = document.createElement('div');
         offline.className = 'log-line';
-        offline.textContent = 'Sin conexion: no se pudo obtener la salida de logs.';
-        log.appendChild(offline);
+        offline.textContent = 'Sin conexión: no se pudo obtener la salida de logs.';
+        contenedorLog.appendChild(offline);
         return;
       }
 
-      const safeEntries = Array.isArray(entries) ? entries : [];
-      const totalEntries = safeEntries.length;
+      const entradasSeguras = Array.isArray(entradas) ? entradas : [];
+      const totalEntradas = entradasSeguras.length;
 
-      const fragment = document.createDocumentFragment();
-      let visible = 0;
+      const fragmento = document.createDocumentFragment();
+      let visibles = 0;
 
-      safeEntries.forEach((entry) => {
-        const metaText = entry && entry.meta && typeof entry.meta === 'object'
-          ? (() => { try { return JSON.stringify(entry.meta); } catch { return ''; } })()
+      entradasSeguras.forEach((entrada) => {
+        const textoMeta = entrada && entrada.meta && typeof entrada.meta === 'object'
+          ? (() => { try { return JSON.stringify(entrada.meta); } catch { return ''; } })()
           : '';
-        const text = `${entry.time} ${entry.source} ${entry.level} ${entry.text} ${metaText}`;
-        if (filter && !text.toLowerCase().includes(filter)) return;
+        const texto = `${entrada.time} ${entrada.source} ${entrada.level} ${entrada.text} ${textoMeta}`;
+        if (filtro && !texto.toLowerCase().includes(filtro)) return;
 
-        const line = document.createElement('div');
-        const hasMeta = entry && entry.meta && typeof entry.meta === 'object';
-        line.className = `log-line ${entry.level} ${hasMeta ? 'has-meta' : ''}`.trim();
+        const linea = document.createElement('div');
+        const tieneMeta = entrada && entrada.meta && typeof entrada.meta === 'object';
+        linea.className = `log-line ${entrada.level} ${tieneMeta ? 'has-meta' : ''}`.trim();
 
         const meta = document.createElement('span');
         meta.className = 'meta';
-        meta.textContent = `[${entry.time}] [${entry.source}]`;
+        meta.textContent = `[${entrada.time}] [${entrada.source}]`;
 
-        const tags = document.createElement('span');
-        tags.className = 'meta-tag';
-        const pill = document.createElement('span');
-        pill.className = 'pill';
-        pill.textContent = String(entry.level || 'info').toUpperCase();
-        tags.appendChild(pill);
+        const etiquetas = document.createElement('span');
+        etiquetas.className = 'meta-tag';
+        const pildora = document.createElement('span');
+        pildora.className = 'pill';
+        pildora.textContent = String(entrada.level || 'info').toUpperCase();
+        etiquetas.appendChild(pildora);
 
-        const content = document.createElement('span');
-        content.textContent = ` ${entry.text}`;
+        const contenido = document.createElement('span');
+        contenido.textContent = ` ${entrada.text}`;
 
-        line.appendChild(meta);
-        line.appendChild(tags);
-        line.appendChild(content);
+        linea.appendChild(meta);
+        linea.appendChild(etiquetas);
+        linea.appendChild(contenido);
 
-        if (hasMeta) {
-          const details = document.createElement('div');
-          details.className = 'meta-json';
-          try { details.textContent = JSON.stringify(entry.meta, null, 2); } catch { details.textContent = ''; }
-          line.appendChild(details);
-          line.addEventListener('click', () => {
-            line.classList.toggle('open');
+        if (tieneMeta) {
+          const detalles = document.createElement('div');
+          detalles.className = 'meta-json';
+          try { detalles.textContent = JSON.stringify(entrada.meta, null, 2); } catch { detalles.textContent = ''; }
+          linea.appendChild(detalles);
+          linea.addEventListener('click', () => {
+            linea.classList.toggle('open');
           });
         }
 
-        fragment.appendChild(line);
-        visible += 1;
+        fragmento.appendChild(linea);
+        visibles += 1;
       });
 
-      if (visible === 0) {
+      if (visibles === 0) {
         const empty = document.createElement('div');
         empty.className = 'log-line';
-        if (totalEntries === 0 && !filter) {
-          empty.textContent = 'Aun no hay logs. Inicia un entorno o espera actividad.';
+        if (totalEntradas === 0 && !filtro) {
+          empty.textContent = 'Aún no hay logs. Inicia un entorno o espera actividad.';
         } else {
           empty.textContent = 'Sin salida para el filtro actual.';
         }
-        fragment.appendChild(empty);
+        fragmento.appendChild(empty);
       }
 
-      log.appendChild(fragment);
+      contenedorLog.appendChild(fragmento);
 
-      if (state.autoScroll) {
-        log.scrollTop = log.scrollHeight;
+      if (state.autoDesplazamiento) {
+        contenedorLog.scrollTop = contenedorLog.scrollHeight;
       }
     }
 
-    async function refreshLogs() {
-      if (!state.logsVisible) return;
+    async function refrescarLogs() {
+      if (!state.logsVisibles) return;
       try {
-        const query = state.showFull ? '/api/logs?full=1' : '/api/logs';
+        const query = state.mostrarCompleto ? '/api/logs?full=1' : '/api/logs';
         const res = await fetch(query);
         const data = await res.json();
         const entries = data.entries || [];
-        state.lastLogsOk = true;
-        state.lastLogsError = '';
-        renderLogs(entries);
-        updateSignals(entries);
+        state.logsOkRecientes = true;
+        state.ultimoErrorLogs = '';
+        renderizarLogs(entries);
+        actualizarSenales(entries);
       } catch (error) {
-        state.lastLogsOk = false;
-        state.lastLogsError = normalizeErrorMessage(error);
-        maybeToastError('No se pudo obtener la salida de logs.');
-        renderLogs([]);
-        updateSignals([]);
+        state.logsOkRecientes = false;
+        state.ultimoErrorLogs = normalizarMensajeError(error);
+        mostrarToastErrorSiAplica('No se pudo obtener la salida de logs.');
+        renderizarLogs([]);
+        actualizarSenales([]);
       }
     }
 
     // Tab switching.
     const tabButtons = Array.from(document.querySelectorAll('.tab-btn'));
     tabButtons.forEach((button, index) => {
-      button.addEventListener('click', () => setTab(button.dataset.tab));
+      button.addEventListener('click', () => establecerPestana(button.dataset.tab));
       button.addEventListener('keydown', (event) => {
         const key = event.key;
         if (!['ArrowLeft', 'ArrowRight', 'Home', 'End', 'Enter', ' '].includes(key)) return;
@@ -4121,277 +4575,277 @@
         const go = (nextIndex) => {
           const next = tabButtons[nextIndex];
           next.focus();
-          setTab(next.dataset.tab);
+          establecerPestana(next.dataset.tab);
         };
 
         if (key === 'ArrowLeft') go(index === 0 ? last : index - 1);
         if (key === 'ArrowRight') go(index === last ? 0 : index + 1);
         if (key === 'Home') go(0);
         if (key === 'End') go(last);
-        if (key === 'Enter' || key === ' ') setTab(button.dataset.tab);
+        if (key === 'Enter' || key === ' ') establecerPestana(button.dataset.tab);
       });
     });
 
-    // Toggle buttons for environments (hold to start/stop).
-    document.querySelectorAll('[data-env]').forEach((button) => {
-      attachHold(button, () => {
-        const env = button.dataset.env;
-        const running = state.running.has(env);
-        button.dataset.cooldownUntil = String(Date.now() + 2200);
-        button.dataset.pending = running ? 'stop' : 'start';
-        button.classList.add('pending');
-        const subEl = button.querySelector('[data-sub]');
-        if (subEl) subEl.textContent = running ? 'Deteniendo...' : 'Iniciando...';
+    // Botones de entornos (mantener para iniciar/detener).
+    document.querySelectorAll('[data-env]').forEach((boton) => {
+      vincularMantener(boton, () => {
+        const entorno = boton.dataset.env;
+        const enEjecucion = state.enEjecucion.has(entorno);
+        boton.dataset.cooldownUntil = String(Date.now() + 2200);
+        boton.dataset.pending = enEjecucion ? 'stop' : 'start';
+        boton.classList.add('pending');
+        const subElemento = boton.querySelector('[data-sub]');
+        if (subElemento) subElemento.textContent = enEjecucion ? 'Deteniendo...' : 'Iniciando...';
 
-        showToast(running ? `Deteniendo ${env}...` : `Iniciando ${env}...`, 'info', {
-          id: `env-${env}-pending`,
-          title: 'Accion solicitada',
+        mostrarToast(enEjecucion ? `Deteniendo ${entorno}...` : `Iniciando ${entorno}...`, 'info', {
+          id: `env-${entorno}-pending`,
+          title: 'Acción solicitada',
           duration: 3200,
           actionLabel: 'Abrir logs',
           onAction: () => {
-            setTab('status');
-            setLogsVisible(true);
-            refreshLogs();
+            establecerPestana('status');
+            establecerLogsVisibles(true);
+            refrescarLogs();
           }
         });
 
-        const endpoint = running ? '/api/stop' : '/api/start';
-        api(endpoint, { task: env }).then((res) => {
+        const endpoint = enEjecucion ? '/api/stop' : '/api/start';
+        api(endpoint, { task: entorno }).then((res) => {
           if (res && res.ok === false) {
-            showToast(`No se pudo ejecutar la accion en ${env}.`, 'error', {
-              id: `env-${env}-error`,
+            mostrarToast(`No se pudo ejecutar la acciónón en ${entorno}.`, 'error', {
+              id: `env-${entorno}-error`,
               title: 'Error',
               duration: 5200
             });
             return;
           }
-          showToast('Solicitud enviada. Actualizando estado...', 'ok', {
-            id: `env-${env}-sent`,
+          mostrarToast('Solicitud enviada. Actualizando estado...', 'ok', {
+            id: `env-${entorno}-sent`,
             title: 'Listo',
             duration: 2200
           });
-          scheduleRefreshPulse();
+          programarPulsoRefresco();
         });
       });
     });
 
-    // Restart buttons (hold-to-run).
-    document.querySelectorAll('[data-restart][data-hold-ms]').forEach((button) => {
-      attachHold(button, () => {
-        const what = button.dataset.restart;
-        button.dataset.cooldownUntil = String(Date.now() + 6500);
-        button.classList.add('pending');
+    // Botones de reinicio (mantener para ejecutar).
+    document.querySelectorAll('[data-restart][data-hold-ms]').forEach((boton) => {
+      vincularMantener(boton, () => {
+        const objetivo = boton.dataset.restart;
+        boton.dataset.cooldownUntil = String(Date.now() + 6500);
+        boton.classList.add('pending');
 
-        showToast(`Reiniciando ${what}...`, 'warn', {
-          id: `restart-${what}-pending`,
+        mostrarToast(`Reiniciando ${objetivo}...`, 'warn', {
+          id: `restart-${objetivo}-pending`,
           title: 'Reinicio',
           duration: 4200,
           actionLabel: 'Ver estado',
           onAction: () => {
-            setTab('status');
-            refreshStatus();
-            refreshHealth(true);
+            establecerPestana('status');
+            refrescarEstado();
+            refrescarSalud(true);
           }
         });
 
-        api('/api/restart', { task: what }).then((res) => {
+        api('/api/restart', { task: objetivo }).then((res) => {
           if (res && res.ok === false) {
-            showToast(`No se pudo reiniciar ${what}.`, 'error', {
-              id: `restart-${what}-error`,
+            mostrarToast(`No se pudo reiniciar ${objetivo}.`, 'error', {
+              id: `restart-${objetivo}-error`,
               title: 'Error',
               duration: 5200
             });
-            button.classList.remove('pending');
+            boton.classList.remove('pending');
             return;
           }
-          showToast('Reinicio solicitado. Actualizando...', 'ok', {
-            id: `restart-${what}-sent`,
+          mostrarToast('Reinicio solicitado. Actualizando...', 'ok', {
+            id: `restart-${objetivo}-sent`,
             title: 'Listo',
             duration: 2400
           });
-          scheduleRefreshPulse();
-          setTimeout(() => button.classList.remove('pending'), 6500);
+          programarPulsoRefresco();
+          setTimeout(() => boton.classList.remove('pending'), 6500);
         });
       });
     });
 
-    // Hold-to-run for destructive actions.
-    document.querySelectorAll('[data-run][data-hold-ms]').forEach((button) => {
-      attachHold(button, () => {
-        const task = button.dataset.run;
-        button.dataset.cooldownUntil = String(Date.now() + 2500);
-        button.classList.add('pending');
-        showToast('Ejecutando accion segura...', 'warn', {
-          id: `run-${task}-pending`,
-          title: 'Accion segura',
+    // Mantener para ejecutar acciones destructivas.
+    document.querySelectorAll('[data-run][data-hold-ms]').forEach((boton) => {
+      vincularMantener(boton, () => {
+        const tarea = boton.dataset.run;
+        boton.dataset.cooldownUntil = String(Date.now() + 2500);
+        boton.classList.add('pending');
+        mostrarToast('Ejecutando acción segura...', 'warn', {
+          id: `run-${tarea}-pending`,
+          title: 'Acción segura',
           duration: 3800,
           actionLabel: 'Abrir logs',
           onAction: () => {
-            setTab('status');
-            setLogsVisible(true);
-            refreshLogs();
+            establecerPestana('status');
+            establecerLogsVisibles(true);
+            refrescarLogs();
           }
         });
-        api('/api/run', { task }).then((res) => {
+        api('/api/run', { task: tarea }).then((res) => {
           if (res && res.ok === false) {
-            showToast('No se pudo ejecutar la accion.', 'error', { id: `run-${task}-error`, title: 'Error', duration: 5200 });
-            button.classList.remove('pending');
+            mostrarToast('No se pudo ejecutar la acción.', 'error', { id: `run-${tarea}-error`, title: 'Error', duration: 5200 });
+            boton.classList.remove('pending');
             return;
           }
-          showToast('Accion enviada. Actualizando...', 'ok', { id: `run-${task}-sent`, title: 'Listo', duration: 2200 });
-          scheduleRefreshPulse();
-          setTimeout(() => button.classList.remove('pending'), 2500);
+          mostrarToast('Acción enviada. Actualizando...', 'ok', { id: `run-${tarea}-sent`, title: 'Listo', duration: 2200 });
+          programarPulsoRefresco();
+          setTimeout(() => boton.classList.remove('pending'), 2500);
         });
       });
     });
 
-    // Immediate run for non-destructive actions.
-    document.querySelectorAll('[data-run]:not([data-hold-ms])').forEach((button) => {
-      button.addEventListener('click', () => {
-        const task = button.dataset.run;
-        button.dataset.cooldownUntil = String(Date.now() + 1200);
-        showToast('Ejecutando...', 'info', { id: `run-${task}-pending`, title: 'Accion', duration: 2600 });
-        api('/api/run', { task }).then((res) => {
+    // Ejecución inmediata para acciones no destructivas.
+    document.querySelectorAll('[data-run]:not([data-hold-ms])').forEach((boton) => {
+      boton.addEventListener('click', () => {
+        const tarea = boton.dataset.run;
+        boton.dataset.cooldownUntil = String(Date.now() + 1200);
+        mostrarToast('Ejecutando...', 'info', { id: `run-${tarea}-pending`, title: 'Acción', duration: 2600 });
+        api('/api/run', { task: tarea }).then((res) => {
           if (res && res.ok === false) {
-            showToast('No se pudo ejecutar.', 'error', { id: `run-${task}-error`, title: 'Error', duration: 5200 });
+            mostrarToast('No se pudo ejecutar.', 'error', { id: `run-${tarea}-error`, title: 'Error', duration: 5200 });
             return;
           }
-          showToast('Accion enviada. Actualizando...', 'ok', { id: `run-${task}-sent`, title: 'Listo', duration: 2000 });
-          scheduleRefreshPulse();
+          mostrarToast('Acción enviada. Actualizando...', 'ok', { id: `run-${tarea}-sent`, title: 'Listo', duration: 2000 });
+          programarPulsoRefresco();
         });
       });
     });
 
-    const clearButton = $('clear-logs');
-    if (clearButton) {
-      clearButton.addEventListener('click', async () => {
+    const botonLimpiar = $('clear-logs');
+    if (botonLimpiar) {
+      botonLimpiar.addEventListener('click', async () => {
         await api('/api/logs/clear');
-        showToast('Logs limpiados', 'ok');
-        refreshLogs();
-        refreshStatus();
-        refreshSignals();
+        mostrarToast('Logs limpiados', 'ok');
+        refrescarLogs();
+        refrescarEstado();
+        refrescarSenales();
       });
     }
 
-    const toggleLogsButton = $('toggle-logs');
-    if (toggleLogsButton) {
-      toggleLogsButton.addEventListener('click', () => {
-        setLogsVisible(!state.logsVisible);
+    const botonAlternarLogs = $('toggle-logs');
+    if (botonAlternarLogs) {
+      botonAlternarLogs.addEventListener('click', () => {
+        establecerLogsVisibles(!state.logsVisibles);
       });
     }
 
-    const alertOpenLogs = $('alert-open-logs');
-    if (alertOpenLogs) {
-      alertOpenLogs.addEventListener('click', () => {
-        setTab('status');
-        setLogsVisible(true);
+    const alertaAbrirLogs = $('alert-open-logs');
+    if (alertaAbrirLogs) {
+      alertaAbrirLogs.addEventListener('click', () => {
+        establecerPestana('status');
+        establecerLogsVisibles(true);
       });
     }
 
-    // UI toggles.
-    const fullLogs = $('full-logs');
-    if (fullLogs) {
-      fullLogs.addEventListener('change', (event) => {
-        state.showFull = event.target.checked;
-        refreshLogs();
+    // Controles de UI.
+    const logsCompletos = $('full-logs');
+    if (logsCompletos) {
+      logsCompletos.addEventListener('change', (event) => {
+        state.mostrarCompleto = event.target.checked;
+        refrescarLogs();
       });
     }
 
-    const autoScroll = $('auto-scroll');
-    if (autoScroll) {
-      autoScroll.addEventListener('change', (event) => {
-        state.autoScroll = event.target.checked;
+    const autoDesplazamiento = $('auto-scroll');
+    if (autoDesplazamiento) {
+      autoDesplazamiento.addEventListener('change', (event) => {
+        state.autoDesplazamiento = event.target.checked;
       });
     }
 
-    const pauseUpdates = $('pause-updates');
-    if (pauseUpdates) {
-      pauseUpdates.addEventListener('change', (event) => {
-        state.paused = event.target.checked;
-        setPausedChip(state.paused);
-        showToast(state.paused ? 'Actualizaciones pausadas' : 'Actualizaciones reanudadas', state.paused ? 'warn' : 'ok');
+    const pausarActualizaciones = $('pause-updates');
+    if (pausarActualizaciones) {
+      pausarActualizaciones.addEventListener('change', (event) => {
+        state.pausado = event.target.checked;
+        establecerChipPausa(state.pausado);
+        mostrarToast(state.pausado ? 'Actualizaciones pausadas' : 'Actualizaciones reanudadas', state.pausado ? 'warn' : 'ok');
       });
     }
 
-    const autoRestartToggle = $('auto-restart');
-    if (autoRestartToggle) {
-      autoRestartToggle.addEventListener('change', (event) => {
+    const toggleAutoReinicio = $('auto-restart');
+    if (toggleAutoReinicio) {
+      toggleAutoReinicio.addEventListener('change', (event) => {
         const value = event.target.checked;
-        showToast(value ? 'Auto-reinicio activado' : 'Auto-reinicio desactivado', value ? 'ok' : 'warn');
-        setAutoRestart(value);
+        mostrarToast(value ? 'Auto-reinicio activado' : 'Auto-reinicio desactivado', value ? 'ok' : 'warn');
+        establecerAutoReinicio(value);
       });
     }
 
-    const systemIndicator = $('system-indicator');
-    if (systemIndicator) {
-      systemIndicator.addEventListener('click', () => {
-        setTab('status');
+    const indicadorSistema = $('system-indicator');
+    if (indicadorSistema) {
+      indicadorSistema.addEventListener('click', () => {
+        establecerPestana('status');
       });
     }
 
-    const logFilter = $('log-filter');
-    if (logFilter) {
-      logFilter.addEventListener('input', (event) => {
-        state.filter = event.target.value;
-        refreshLogs();
+    const filtroLogs = $('log-filter');
+    if (filtroLogs) {
+      filtroLogs.addEventListener('input', (event) => {
+        state.filtro = event.target.value;
+        refrescarLogs();
       });
     }
 
-    const clearFilter = $('clear-filter');
-    if (clearFilter) {
-      clearFilter.addEventListener('click', () => {
-        state.filter = '';
+    const limpiarFiltro = $('clear-filter');
+    if (limpiarFiltro) {
+      limpiarFiltro.addEventListener('click', () => {
+        state.filtro = '';
         const input = $('log-filter');
         if (input) input.value = '';
-        refreshLogs();
+        refrescarLogs();
       });
     }
 
-    const openLogFile = $('open-logfile');
-    if (openLogFile) {
-      openLogFile.addEventListener('click', () => {
+    const botonAbrirLog = $('open-logfile');
+    if (botonAbrirLog) {
+      botonAbrirLog.addEventListener('click', () => {
         window.open('/api/logfile', '_blank', 'noopener,noreferrer');
       });
     }
 
-    const refreshEventsBtn = $('refresh-events');
-    if (refreshEventsBtn) {
-      refreshEventsBtn.addEventListener('click', () => refreshEvents());
+    const botonRefrescarEventos = $('refrescar-eventos');
+    if (botonRefrescarEventos) {
+      botonRefrescarEventos.addEventListener('click', () => refrescarEventos());
     }
 
-    const refreshInstallBtn = $('refresh-install');
-    if (refreshInstallBtn) {
-      refreshInstallBtn.addEventListener('click', () => refreshInstallInfo());
+    const botonRefrescarInstalacion = $('refresh-install');
+    if (botonRefrescarInstalacion) {
+      botonRefrescarInstalacion.addEventListener('click', () => refrescarInfoInstalacion());
     }
 
-    const refreshDbBtn = $('refresh-db');
-    if (refreshDbBtn) {
-      refreshDbBtn.addEventListener('click', () => refreshMongoExpress(true));
+    const botonRefrescarDb = $('refresh-db');
+    if (botonRefrescarDb) {
+      botonRefrescarDb.addEventListener('click', () => refrescarMongoExpress(true));
     }
 
-    const openDbBtn = $('open-db');
-    if (openDbBtn) {
-      openDbBtn.addEventListener('click', () => {
-        if (!state.mongoExpress?.reachable) return;
+    const botonAbrirDb = $('open-db');
+    if (botonAbrirDb) {
+      botonAbrirDb.addEventListener('click', () => {
+        if (!state.mongoExpress?.alcanzable) return;
         window.open(state.mongoExpress.url || 'http://127.0.0.1:8081/', '_blank', 'noopener,noreferrer');
       });
     }
 
-    const toggleEmbedBtn = $('toggle-db-embed');
-    if (toggleEmbedBtn) {
-      toggleEmbedBtn.addEventListener('click', () => {
-        state.dbEmbed = !state.dbEmbed;
-        toggleEmbedBtn.textContent = state.dbEmbed ? 'Ocultar panel aqui' : 'Mostrar panel aqui';
-        updateMongoExpressUi();
-        if (state.activeTab === 'db') refreshMongoExpress(true);
+    const botonAlternarDbEmpotrada = $('toggle-db-embed');
+    if (botonAlternarDbEmpotrada) {
+      botonAlternarDbEmpotrada.addEventListener('click', () => {
+        state.dbEmpotrada = !state.dbEmpotrada;
+        botonAlternarDbEmpotrada.textContent = state.dbEmpotrada ? 'Ocultar panel aquí' : 'Mostrar panel aquí';
+        actualizarUiMongoExpress();
+        if (state.pestanaActiva === 'db') refrescarMongoExpress(true);
       });
     }
 
-    const copyInstallBtn = $('copy-install');
-    if (copyInstallBtn) {
-      copyInstallBtn.addEventListener('click', async () => {
+    const botonCopiarInstalacion = $('copy-install');
+    if (botonCopiarInstalacion) {
+      botonCopiarInstalacion.addEventListener('click', async () => {
         try {
-          const info = state.install ? JSON.stringify(state.install, null, 2) : 'Sin datos de instalacion.';
+          const info = state.instalacion ? JSON.stringify(state.instalacion, null, 2) : 'Sin datos de instalación.';
           if (navigator.clipboard && navigator.clipboard.writeText) {
             await navigator.clipboard.writeText(info);
           } else {
@@ -4404,51 +4858,81 @@
             document.execCommand('copy');
             ta.remove();
           }
-          showToast('Datos de instalacion copiados', 'ok', { id: 'install-copied', title: 'Copiado', duration: 2200 });
+          mostrarToast('Datos de instalación copiados', 'ok', { id: 'install-copied', title: 'Copiado', duration: 2200 });
         } catch {
-          showToast('No se pudo copiar al portapapeles', 'warn', { id: 'install-copy-fail', title: 'Aviso', duration: 3200 });
+          mostrarToast('No se pudo copiar al portapapeles', 'warn', { id: 'install-copy-fail', title: 'Aviso', duration: 3200 });
         }
       });
     }
 
-    // Initial load and periodic refresh.
-    initTheme();
-    setText('ui-chip', `UI: ${UI_REV}`);
-    registerServiceWorker();
+    // Carga inicial y refresco periódico.
+    iniciarTema();
+    establecerTexto('ui-chip', `UI: ${UI_REV}`);
+    registrarServiceWorker();
 
-    const initialTab = getTabFromHash();
-    if (initialTab) state.activeTab = initialTab;
-    setTab(state.activeTab);
-    setHashTab(state.activeTab);
+    const initialTab = obtenerPestanaDesdeHash();
+    if (initialTab) state.pestanaActiva = initialTab;
+    establecerPestana(state.pestanaActiva);
+    establecerHashPestana(state.pestanaActiva);
 
     window.addEventListener('hashchange', () => {
-      const tab = getTabFromHash();
-      if (!tab || tab === state.activeTab) return;
-      setTab(tab);
+      const tab = obtenerPestanaDesdeHash();
+      if (!tab || tab === state.pestanaActiva) return;
+      establecerPestana(tab);
     });
 
-    setInterval(() => applyTimeBucket(), 60 * 1000);
-    setPausedChip(false);
-    setConnection('unknown');
-    setLogsVisible(false);
-    renderActivity();
-    renderHealthHistory();
-    refreshStatus();
-    refreshInstallInfo();
-    refreshSignals();
-    updateMongoExpressUi();
+    setInterval(() => aplicarBloqueTiempo(), 60 * 1000);
+    establecerChipPausa(false);
+    establecerConexion('unknown');
+    establecerLogsVisibles(false);
+    renderizarActividad();
+    renderizarHistorialSalud();
+    refrescarEstado();
+    refrescarInfoInstalacion();
+    refrescarSenales();
+    actualizarUiMongoExpress();
 
     setInterval(() => {
-      if (state.paused) return;
-      refreshStatus();
-      if (state.logsVisible) refreshLogs();
-      else refreshSignals();
-      if (state.activeTab === 'status') refreshEvents();
-      if (state.activeTab === 'db') refreshMongoExpress();
+      if (state.pausado) return;
+      refrescarEstado();
+      if (state.logsVisibles) refrescarLogs();
+      else refrescarSenales();
+      if (state.pestanaActiva === 'status') refrescarEventos();
+      if (state.pestanaActiva === 'db') refrescarMongoExpress();
     }, 3000);
   </script>
 </body>
 </html>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 

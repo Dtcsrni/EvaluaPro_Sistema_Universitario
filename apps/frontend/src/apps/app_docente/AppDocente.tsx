@@ -3724,7 +3724,7 @@ function SeccionPlantillas({
       setInstrucciones(INSTRUCCIONES_DEFAULT);
       setMargenMm(10);
     }
-  }, [modoEdicion]);
+  }, [modoEdicion, INSTRUCCIONES_DEFAULT]);
 
   const puedeCrear = Boolean(
     titulo.trim() &&

@@ -10,6 +10,10 @@ este documento se actualiza automáticamente al regenerar.
 - `CODIGO_ACCESO_HORAS` (usado en: apps/backend/src/configuracion.ts)
 - `CORS_ORIGENES` (usado en: apps/backend/src/configuracion.ts)
 - `DOMINIOS_CORREO_PERMITIDOS` (usado en: apps/backend/src/configuracion.ts)
+- `EXAMEN_INSTITUCION` (usado en: apps/backend/src/modulos/modulo_generacion_pdf/servicioGeneracionPdf.ts)
+- `EXAMEN_LEMA` (usado en: apps/backend/src/modulos/modulo_generacion_pdf/servicioGeneracionPdf.ts)
+- `EXAMEN_LOGO_DER_PATH` (usado en: apps/backend/src/modulos/modulo_generacion_pdf/servicioGeneracionPdf.ts)
+- `EXAMEN_LOGO_IZQ_PATH` (usado en: apps/backend/src/modulos/modulo_generacion_pdf/servicioGeneracionPdf.ts)
 - `GOOGLE_OAUTH_CLIENT_ID` (usado en: apps/backend/src/configuracion.ts)
 - `JWT_EXPIRA_HORAS` (usado en: apps/backend/src/configuracion.ts)
 - `JWT_SECRETO` (usado en: apps/backend/src/configuracion.ts)
@@ -22,7 +26,7 @@ este documento se actualiza automáticamente al regenerar.
 - `PORTAL_ALUMNO_API_KEY` (usado en: apps/backend/src/configuracion.ts)
 - `PORTAL_ALUMNO_URL` (usado en: apps/backend/src/configuracion.ts)
 - `PUERTO_API` (usado en: apps/backend/src/configuracion.ts)
-- `RATE_LIMIT_LIMIT` (usado en: apps/backend/src/configuracion.ts, apps/backend/tests/rateLimit.test.ts)
+- `RATE_LIMIT_LIMIT` (usado en: apps/backend/src/configuracion.ts, apps/backend/tests/rateLimit.test.ts, apps/backend/tests/setup.ts)
 - `RATE_LIMIT_WINDOW_MS` (usado en: apps/backend/src/configuracion.ts, apps/backend/tests/rateLimit.test.ts)
 - `REFRESH_TOKEN_DIAS` (usado en: apps/backend/src/configuracion.ts)
 - `SEED_ADMIN_EMAIL` (usado en: apps/backend/src/modulos/modulo_autenticacion/seedAdmin.ts)
@@ -43,18 +47,24 @@ este documento se actualiza automáticamente al regenerar.
 
 ## Frontend
 - `DEV` (usado en: apps/frontend/src/apps/app_docente/AppDocente.tsx, apps/frontend/src/ui/errores/ErrorBoundary.tsx)
+- `PROD` (usado en: apps/frontend/src/pwa.ts)
 - `VITE_API_BASE_URL` (usado en: apps/frontend/src/servicios_api/clienteApi.ts)
-- `VITE_APP_DESTINO` (usado en: apps/frontend/src/App.tsx)
+- `VITE_APP_DESTINO` (usado en: apps/frontend/src/App.tsx, apps/frontend/src/pwa.ts)
 - `VITE_DOMINIOS_CORREO_PERMITIDOS` (usado en: apps/frontend/src/apps/app_docente/AppDocente.tsx)
 - `VITE_GOOGLE_CLIENT_ID` (usado en: apps/frontend/src/App.tsx, apps/frontend/src/apps/app_docente/AppDocente.tsx)
 - `VITE_PORTAL_BASE_URL` (usado en: apps/frontend/src/apps/app_alumno/AppAlumno.tsx, apps/frontend/src/servicios_api/clientePortal.ts)
 
 ## Scripts
+- `APPDATA` (usado en: scripts/vscode-tune.mjs)
+- `DASHBOARD_DOCKER_TIMEOUT_MS` (usado en: scripts/launcher-dashboard.mjs)
 - `DASHBOARD_LOG_FLUSH_MS` (usado en: scripts/launcher-dashboard.mjs)
 - `DASHBOARD_LOG_KEEP` (usado en: scripts/launcher-dashboard.mjs)
 - `DASHBOARD_LOG_MAX_BYTES` (usado en: scripts/launcher-dashboard.mjs)
 - `DIAGRAMAS_RENDER_CHECK` (usado en: scripts/diagramas-render.mjs)
+- `LOCALAPPDATA` (usado en: scripts/vscode-prune-extensions.mjs)
+- `P` (usado en: scripts/launcher-dashboard.mjs)
 - `VITE_API_BASE_URL` (usado en: scripts/dashboard.mjs)
+- `VSCODE_CLI` (usado en: scripts/vscode-prune-extensions.mjs)
 - `WEB_URL` (usado en: scripts/dashboard.mjs)
 
 ## Tests
