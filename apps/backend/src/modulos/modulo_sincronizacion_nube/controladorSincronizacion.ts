@@ -33,6 +33,8 @@ import { createHash, randomBytes } from 'crypto';
 import { promises as fs } from 'fs';
 import { guardarPdfExamen } from '../../infraestructura/archivos/almacenLocal';
 
+const MAX_BASE64_CHARS = 60_000_000; // ~45MB binario aprox
+
 function generarCodigoSimple() {
   // 8 hex chars (A-F0-9) en mayusculas: simple de dictar y transcribir.
   return randomBytes(4).toString('hex').toUpperCase();
@@ -142,6 +144,283 @@ async function upsertLwwPorUpdatedAt({
   }
 
   return { modelName, aplicados, omitidos, recibidos: docs.length };
+}
+
+function parsearFechaIso(valor?: string): Date | null {
+  if (!valor) return null;
+  const fecha = new Date(valor);
+  return Number.isFinite(fecha.getTime()) ? fecha : null;
+}
+
+async function generarPaqueteSincronizacion({
+  docenteId,
+  periodoId,
+  desde,
+  incluirPdfs
+}: {
+  docenteId: string;
+  periodoId?: string;
+  desde?: Date | null;
+  incluirPdfs: boolean;
+}) {
+  const filtroPeriodo = periodoId ? { _id: periodoId, docenteId } : { docenteId };
+  const periodos = await Periodo.find(filtroPeriodo).lean();
+  if (periodoId && periodos.length === 0) {
+    throw new ErrorAplicacion('PERIODO_NO_ENCONTRADO', 'Periodo no encontrado', 404);
+  }
+
+  const periodoIds = periodos.map((p) => obtenerIdTexto(p)).filter(Boolean);
+
+  const filtroDesde = (desde ? { updatedAt: { $gte: desde } } : {}) as Record<string, unknown>;
+  const filtroPeriodoIds = periodoIds.length > 0 ? { periodoId: { $in: periodoIds } } : {};
+
+  const [alumnos, bancoPreguntas, plantillas, examenes, calificaciones] = await Promise.all([
+    Alumno.find({ docenteId, ...filtroPeriodoIds, ...filtroDesde }).lean(),
+    BancoPregunta.find({ docenteId, ...filtroPeriodoIds, ...filtroDesde }).lean(),
+    ExamenPlantilla.find({ docenteId, ...filtroPeriodoIds, ...filtroDesde }).lean(),
+    ExamenGenerado.find({ docenteId, ...filtroPeriodoIds, ...filtroDesde }).lean(),
+    Calificacion.find({ docenteId, ...filtroPeriodoIds, ...filtroDesde }).lean()
+  ]);
+
+  const examenesIds = examenes.map((e) => obtenerIdTexto(e)).filter(Boolean);
+  const [entregas, banderas] = await Promise.all([
+    examenesIds.length > 0
+      ? Entrega.find({ docenteId, examenGeneradoId: { $in: examenesIds }, ...filtroDesde }).lean()
+      : Promise.resolve([]),
+    examenesIds.length > 0
+      ? BanderaRevision.find({ docenteId, examenGeneradoId: { $in: examenesIds }, ...filtroDesde }).lean()
+      : Promise.resolve([])
+  ]);
+
+  const pdfs: Array<{ examenGeneradoId: string; pdfComprimidoBase64: string; pdfSha256?: string }> = [];
+  if (incluirPdfs) {
+    // Guardrail: evita payloads gigantes.
+    const MAX_PDFS = 120;
+    const MAX_TOTAL_COMPRESSED_BYTES = 25 * 1024 * 1024; // 25MB
+    let total = 0;
+
+    for (const examen of examenes.slice(0, MAX_PDFS)) {
+      const examenId = String((examen as unknown as { _id?: unknown })?._id ?? '').trim();
+      const rutaPdf = String((examen as unknown as { rutaPdf?: unknown })?.rutaPdf ?? '').trim();
+      if (!examenId || !rutaPdf) continue;
+      try {
+        const contenido = await fs.readFile(rutaPdf);
+        const pdfSha256 = sha256HexBuffer(contenido);
+        const comprimido = gzipSync(contenido);
+        total += comprimido.length;
+        if (total > MAX_TOTAL_COMPRESSED_BYTES) break;
+        pdfs.push({ examenGeneradoId: examenId, pdfComprimidoBase64: comprimido.toString('base64'), pdfSha256 });
+      } catch {
+        // omitir PDF si no se encuentra/no se puede leer
+      }
+    }
+  }
+
+  const exportadoEn = new Date().toISOString();
+  const paquete: PaqueteSincronizacionV1 = {
+    schemaVersion: 1,
+    exportadoEn,
+    docenteId: String(docenteId),
+    ...(periodoId ? { periodoId } : {}),
+    ...(desde ? { desde: desde.toISOString() } : {}),
+    conteos: {
+      periodos: periodos.length,
+      alumnos: alumnos.length,
+      bancoPreguntas: bancoPreguntas.length,
+      plantillas: plantillas.length,
+      examenes: examenes.length,
+      entregas: (entregas as unknown[]).length,
+      calificaciones: calificaciones.length,
+      banderas: (banderas as unknown[]).length,
+      pdfs: pdfs.length
+    },
+    periodos: periodos as unknown[],
+    alumnos: alumnos as unknown[],
+    bancoPreguntas: bancoPreguntas as unknown[],
+    plantillas: plantillas as unknown[],
+    examenes: (examenes as unknown[]) as Array<Record<string, unknown>>,
+    entregas: entregas as unknown[],
+    calificaciones: calificaciones as unknown[],
+    banderas: banderas as unknown[],
+    pdfs
+  };
+
+  const json = JSON.stringify(paquete);
+  const checksumSha256 = sha256Hex(json);
+  const gzipBytes = gzipSync(Buffer.from(json));
+  const checksumGzipSha256 = sha256HexBuffer(gzipBytes);
+  const paqueteBase64 = gzipBytes.toString('base64');
+
+  return {
+    paquete,
+    paqueteBase64,
+    checksumSha256,
+    checksumGzipSha256,
+    exportadoEn
+  };
+}
+
+async function procesarPaqueteSincronizacion({
+  docenteId,
+  paqueteBase64,
+  checksumEsperado,
+  dryRun,
+  registroId
+}: {
+  docenteId: string;
+  paqueteBase64: string;
+  checksumEsperado?: string;
+  dryRun: boolean;
+  registroId?: unknown;
+}) {
+  const gzipBytes = Buffer.from(paqueteBase64, 'base64');
+  const buffer = gunzipSync(gzipBytes);
+  const json = buffer.toString('utf8');
+  const parsed = JSON.parse(json) as PaqueteSincronizacionV1;
+
+  const checksumActual = sha256Hex(json);
+  if (checksumEsperado && checksumEsperado.toLowerCase() !== checksumActual.toLowerCase()) {
+    throw new ErrorAplicacion('SYNC_CHECKSUM', 'Checksum invalido: el paquete parece corrupto o fue modificado', 400);
+  }
+
+  if (!parsed || parsed.schemaVersion !== 1) {
+    throw new ErrorAplicacion('SYNC_VERSION', 'Version de paquete no soportada', 400);
+  }
+  if (String(parsed.docenteId || '') !== String(docenteId)) {
+    throw new ErrorAplicacion('SYNC_DOCENTE_MISMATCH', 'El paquete no corresponde a este docente', 403);
+  }
+
+  // Validacion minima de que los docs del paquete pertenecen al docente.
+  const assertDocente = (docs: Array<Record<string, unknown>>, nombre: string) => {
+    for (const doc of docs) {
+      const d = String(obtenerCampo(doc, 'docenteId') ?? '');
+      if (d && d !== String(docenteId)) {
+        throw new ErrorAplicacion('SYNC_DOCENTE_MISMATCH', `El paquete contiene ${nombre} de otro docente`, 403);
+      }
+    }
+  };
+
+  const examenesDocs = Array.isArray(parsed.examenes) ? parsed.examenes : [];
+  const examenesIds = examenesDocs.map((e) => obtenerIdTexto(e)).filter(Boolean);
+
+  // Importar en orden para respetar referencias basicas.
+  const resultados = [] as Array<Record<string, unknown>>;
+  const periodosDocs = (Array.isArray(parsed.periodos) ? parsed.periodos : []) as Array<Record<string, unknown>>;
+  const alumnosDocs = (Array.isArray(parsed.alumnos) ? parsed.alumnos : []) as Array<Record<string, unknown>>;
+  const bancoDocs = (Array.isArray(parsed.bancoPreguntas) ? parsed.bancoPreguntas : []) as Array<Record<string, unknown>>;
+  const plantillasDocs = (Array.isArray(parsed.plantillas) ? parsed.plantillas : []) as Array<Record<string, unknown>>;
+  const entregasDocs = (Array.isArray(parsed.entregas) ? parsed.entregas : []) as Array<Record<string, unknown>>;
+  const calificacionesDocs = (Array.isArray(parsed.calificaciones) ? parsed.calificaciones : []) as Array<Record<string, unknown>>;
+  const banderasDocs = (Array.isArray(parsed.banderas) ? parsed.banderas : []) as Array<Record<string, unknown>>;
+
+  assertDocente(periodosDocs, 'periodos');
+  assertDocente(alumnosDocs, 'alumnos');
+  assertDocente(bancoDocs, 'bancoPreguntas');
+  assertDocente(plantillasDocs, 'plantillas');
+  assertDocente(examenesDocs, 'examenes');
+  assertDocente(entregasDocs, 'entregas');
+  assertDocente(calificacionesDocs, 'calificaciones');
+  assertDocente(banderasDocs, 'banderas');
+
+  if (dryRun) {
+    if (registroId) {
+      await Sincronizacion.updateOne(
+        { _id: registroId },
+        {
+          $set: {
+            estado: 'exitoso',
+            tipo: 'paquete_validar',
+            detalles: {
+              checksum: checksumActual,
+              checksumProvisto: checksumEsperado || null,
+              conteos: parsed.conteos
+            }
+          }
+        }
+      );
+    }
+    return {
+      mensaje: 'Paquete valido',
+      checksumSha256: checksumActual,
+      conteos: parsed.conteos
+    };
+  }
+
+  resultados.push(await upsertLwwPorUpdatedAt({ modelName: 'Periodo', Model: Periodo as unknown as ModelLike, docs: periodosDocs }));
+  resultados.push(await upsertLwwPorUpdatedAt({ modelName: 'Alumno', Model: Alumno as unknown as ModelLike, docs: alumnosDocs }));
+  resultados.push(await upsertLwwPorUpdatedAt({ modelName: 'BancoPregunta', Model: BancoPregunta as unknown as ModelLike, docs: bancoDocs }));
+  resultados.push(await upsertLwwPorUpdatedAt({ modelName: 'ExamenPlantilla', Model: ExamenPlantilla as unknown as ModelLike, docs: plantillasDocs }));
+  resultados.push(await upsertLwwPorUpdatedAt({ modelName: 'ExamenGenerado', Model: ExamenGenerado as unknown as ModelLike, docs: examenesDocs }));
+
+  // Entregas/banderas no incluyen periodoId, asi que filtramos por examenes del paquete para evitar basura.
+  const entregasFiltradas = entregasDocs.filter((e) => examenesIds.includes(String(obtenerCampo(e, 'examenGeneradoId') ?? '')));
+  const banderasFiltradas = banderasDocs.filter((b) => examenesIds.includes(String(obtenerCampo(b, 'examenGeneradoId') ?? '')));
+  const calificacionesFiltradas = calificacionesDocs.filter((c) => examenesIds.includes(String(obtenerCampo(c, 'examenGeneradoId') ?? '')));
+
+  resultados.push(await upsertLwwPorUpdatedAt({ modelName: 'Entrega', Model: Entrega as unknown as ModelLike, docs: entregasFiltradas }));
+  resultados.push(await upsertLwwPorUpdatedAt({ modelName: 'Calificacion', Model: Calificacion as unknown as ModelLike, docs: calificacionesFiltradas }));
+  resultados.push(await upsertLwwPorUpdatedAt({ modelName: 'BanderaRevision', Model: BanderaRevision as unknown as ModelLike, docs: banderasFiltradas }));
+
+  // PDFs best-effort: valida checksum y guarda en almacen local.
+  let pdfsGuardados = 0;
+  const pdfs = Array.isArray(parsed.pdfs) ? parsed.pdfs : [];
+  for (const item of pdfs) {
+    const examenGeneradoId = String(obtenerCampo(item, 'examenGeneradoId') ?? '').trim();
+    const pdfB64 = String(obtenerCampo(item, 'pdfComprimidoBase64') ?? '').trim();
+    const pdfSha256Esperado = String(obtenerCampo(item, 'pdfSha256') ?? '').trim();
+    if (!examenGeneradoId || !pdfB64) continue;
+
+    const examen = await ExamenGenerado.findById(examenGeneradoId).lean();
+    if (!examen) continue;
+
+    try {
+      const pdfBytes = gunzipSync(Buffer.from(pdfB64, 'base64'));
+      if (pdfSha256Esperado) {
+        const actual = sha256HexBuffer(Buffer.from(pdfBytes));
+        if (actual.toLowerCase() !== pdfSha256Esperado.toLowerCase()) {
+          continue;
+        }
+      }
+      const folio = String(obtenerCampo(examen, 'folio') ?? 'examen').trim() || 'examen';
+      const nombre = `examen_folio-${folio}.pdf`;
+      const rutaPdf = await guardarPdfExamen(nombre, Buffer.from(pdfBytes));
+      await ExamenGenerado.updateOne({ _id: examenGeneradoId, docenteId }, { $set: { rutaPdf } }).catch(() => {
+        // no-op
+      });
+      pdfsGuardados += 1;
+    } catch {
+      // omitir
+    }
+  }
+
+  if (registroId) {
+    await Sincronizacion.updateOne(
+      { _id: registroId },
+      { $set: { estado: 'exitoso', detalles: { resultados, pdfsGuardados, conteos: parsed.conteos } } }
+    );
+  }
+
+  return { mensaje: 'Paquete importado', resultados, pdfsGuardados };
+}
+
+async function obtenerFechaUltimoPush(docenteId: string): Promise<Date | null> {
+  const ultimo = await Sincronizacion.findOne({ docenteId, tipo: 'sync_push', estado: 'exitoso' })
+    .sort({ createdAt: -1 })
+    .lean();
+  if (!ultimo) return null;
+  const detalles = (ultimo as { detalles?: Record<string, unknown> })?.detalles;
+  const exportadoEn = detalles && typeof detalles.exportadoEn === 'string' ? parsearFechaIso(detalles.exportadoEn) : null;
+  if (exportadoEn) return exportadoEn;
+  return ultimo.ejecutadoEn ? new Date(ultimo.ejecutadoEn) : null;
+}
+
+async function obtenerCursorUltimoPull(docenteId: string): Promise<string | null> {
+  const ultimo = await Sincronizacion.findOne({ docenteId, tipo: 'sync_pull', estado: 'exitoso' })
+    .sort({ createdAt: -1 })
+    .lean();
+  if (!ultimo) return null;
+  const detalles = (ultimo as { detalles?: Record<string, unknown> })?.detalles;
+  return detalles && typeof detalles.cursor === 'string' ? detalles.cursor : null;
 }
 
 export async function listarSincronizaciones(req: SolicitudDocente, res: Response) {
@@ -303,103 +582,17 @@ export async function exportarPaquete(req: SolicitudDocente, res: Response) {
   const desdeRaw = String((req.body as { desde?: unknown })?.desde ?? '').trim();
   const incluirPdfs = (req.body as { incluirPdfs?: unknown })?.incluirPdfs !== false;
 
-  const desde = desdeRaw ? new Date(desdeRaw) : null;
-  if (desde && !Number.isFinite(desde.getTime())) {
+  const desde = desdeRaw ? parsearFechaIso(desdeRaw) : null;
+  if (desdeRaw && !desde) {
     throw new ErrorAplicacion('SYNC_DESDE_INVALIDO', 'Parametro "desde" invalido', 400);
   }
 
-  const filtroPeriodo = periodoId ? { _id: periodoId, docenteId } : { docenteId };
-  const periodos = await Periodo.find(filtroPeriodo).lean();
-  if (periodoId && periodos.length === 0) {
-    throw new ErrorAplicacion('PERIODO_NO_ENCONTRADO', 'Periodo no encontrado', 404);
-  }
-
-  const periodoIds = periodos.map((p) => obtenerIdTexto(p)).filter(Boolean);
-
-  const filtroDesde = (desde ? { updatedAt: { $gte: desde } } : {}) as Record<string, unknown>;
-  const filtroPeriodoIds = periodoIds.length > 0 ? { periodoId: { $in: periodoIds } } : {};
-
-  const [
-    alumnos,
-    bancoPreguntas,
-    plantillas,
-    examenes,
-    calificaciones
-  ] = await Promise.all([
-    Alumno.find({ docenteId, ...filtroPeriodoIds, ...filtroDesde }).lean(),
-    BancoPregunta.find({ docenteId, ...filtroPeriodoIds, ...filtroDesde }).lean(),
-    ExamenPlantilla.find({ docenteId, ...filtroPeriodoIds, ...filtroDesde }).lean(),
-    ExamenGenerado.find({ docenteId, ...filtroPeriodoIds, ...filtroDesde }).lean(),
-    Calificacion.find({ docenteId, ...filtroPeriodoIds, ...filtroDesde }).lean()
-  ]);
-
-  const examenesIds = examenes.map((e) => obtenerIdTexto(e)).filter(Boolean);
-  const [entregas, banderas] = await Promise.all([
-    examenesIds.length > 0
-      ? Entrega.find({ docenteId, examenGeneradoId: { $in: examenesIds }, ...filtroDesde }).lean()
-      : Promise.resolve([]),
-    examenesIds.length > 0
-      ? BanderaRevision.find({ docenteId, examenGeneradoId: { $in: examenesIds }, ...filtroDesde }).lean()
-      : Promise.resolve([])
-  ]);
-
-  const pdfs: Array<{ examenGeneradoId: string; pdfComprimidoBase64: string; pdfSha256?: string }> = [];
-  if (incluirPdfs) {
-    // Guardrail: evita payloads gigantes.
-    const MAX_PDFS = 120;
-    const MAX_TOTAL_COMPRESSED_BYTES = 25 * 1024 * 1024; // 25MB
-    let total = 0;
-
-    for (const examen of examenes.slice(0, MAX_PDFS)) {
-      const examenId = String((examen as unknown as { _id?: unknown })?._id ?? '').trim();
-      const rutaPdf = String((examen as unknown as { rutaPdf?: unknown })?.rutaPdf ?? '').trim();
-      if (!examenId || !rutaPdf) continue;
-      try {
-        const contenido = await fs.readFile(rutaPdf);
-        const pdfSha256 = sha256HexBuffer(contenido);
-        const comprimido = gzipSync(contenido);
-        total += comprimido.length;
-        if (total > MAX_TOTAL_COMPRESSED_BYTES) break;
-        pdfs.push({ examenGeneradoId: examenId, pdfComprimidoBase64: comprimido.toString('base64'), pdfSha256 });
-      } catch {
-        // omitir PDF si no se encuentra/no se puede leer
-      }
-    }
-  }
-
-  const paquete: PaqueteSincronizacionV1 = {
-    schemaVersion: 1,
-    exportadoEn: new Date().toISOString(),
+  const { paquete, paqueteBase64, checksumSha256, checksumGzipSha256, exportadoEn } = await generarPaqueteSincronizacion({
     docenteId: String(docenteId),
-    ...(periodoId ? { periodoId } : {}),
-    ...(desde ? { desde: desde.toISOString() } : {}),
-    conteos: {
-      periodos: periodos.length,
-      alumnos: alumnos.length,
-      bancoPreguntas: bancoPreguntas.length,
-      plantillas: plantillas.length,
-      examenes: examenes.length,
-      entregas: (entregas as unknown[]).length,
-      calificaciones: calificaciones.length,
-      banderas: (banderas as unknown[]).length,
-      pdfs: pdfs.length
-    },
-    periodos: periodos as unknown[],
-    alumnos: alumnos as unknown[],
-    bancoPreguntas: bancoPreguntas as unknown[],
-    plantillas: plantillas as unknown[],
-    examenes: (examenes as unknown[]) as Array<Record<string, unknown>>,
-    entregas: entregas as unknown[],
-    calificaciones: calificaciones as unknown[],
-    banderas: banderas as unknown[],
-    pdfs
-  };
-
-  const json = JSON.stringify(paquete);
-  const checksumSha256 = sha256Hex(json);
-  const gzipBytes = gzipSync(Buffer.from(json));
-  const checksumGzipSha256 = sha256HexBuffer(gzipBytes);
-  const paqueteBase64 = gzipBytes.toString('base64');
+    periodoId: periodoId || undefined,
+    desde: desde || undefined,
+    incluirPdfs
+  });
 
   await Sincronizacion.create({
     docenteId,
@@ -413,7 +606,7 @@ export async function exportarPaquete(req: SolicitudDocente, res: Response) {
     paqueteBase64,
     checksumSha256,
     checksumGzipSha256,
-    exportadoEn: paquete.exportadoEn,
+    exportadoEn,
     conteos: paquete.conteos
   });
 }
@@ -428,7 +621,6 @@ export async function importarPaquete(req: SolicitudDocente, res: Response) {
   }
 
   // Guardrail simple para evitar payloads absurdos (base64 aprox 4/3 del binario).
-  const MAX_BASE64_CHARS = 60_000_000; // ~45MB binario aprox
   if (paqueteBase64.length > MAX_BASE64_CHARS) {
     throw new ErrorAplicacion('SYNC_PAQUETE_GRANDE', 'Paquete demasiado grande', 413);
   }
@@ -443,135 +635,256 @@ export async function importarPaquete(req: SolicitudDocente, res: Response) {
   const registroId = obtenerId(registro);
 
   try {
-    const gzipBytes = Buffer.from(paqueteBase64, 'base64');
-    const buffer = gunzipSync(gzipBytes);
-    const json = buffer.toString('utf8');
-    const parsed = JSON.parse(json) as PaqueteSincronizacionV1;
-
-    const checksumActual = sha256Hex(json);
-    if (checksumEsperado && checksumEsperado.toLowerCase() !== checksumActual.toLowerCase()) {
-      throw new ErrorAplicacion('SYNC_CHECKSUM', 'Checksum invalido: el paquete parece corrupto o fue modificado', 400);
+    const resultado = await procesarPaqueteSincronizacion({
+      docenteId: String(docenteId),
+      paqueteBase64,
+      checksumEsperado: checksumEsperado || undefined,
+      dryRun,
+      registroId
+    });
+    res.json(resultado);
+  } catch (error) {
+    const errorMsg = error instanceof Error ? error.message : String(error);
+    if (registroId) {
+      await Sincronizacion.updateOne(
+        { _id: registroId },
+        { $set: { estado: 'fallido', detalles: { error: errorMsg } } }
+      );
     }
+    throw error;
+  }
+}
 
-    if (!parsed || parsed.schemaVersion !== 1) {
-      throw new ErrorAplicacion('SYNC_VERSION', 'Version de paquete no soportada', 400);
-    }
-    if (String(parsed.docenteId || '') !== String(docenteId)) {
-      throw new ErrorAplicacion('SYNC_DOCENTE_MISMATCH', 'El paquete no corresponde a este docente', 403);
-    }
+export async function enviarPaqueteServidor(req: SolicitudDocente, res: Response) {
+  const docenteId = obtenerDocenteId(req);
+  if (!configuracion.portalAlumnoUrl || !configuracion.portalApiKey) {
+    throw new ErrorAplicacion('SYNC_SERVIDOR_NO_CONFIG', 'Servidor de sincronizacion no configurado', 500);
+  }
 
-    // Validacion minima de que los docs del paquete pertenecen al docente.
-    const assertDocente = (docs: Array<Record<string, unknown>>, nombre: string) => {
-      for (const doc of docs) {
-        const d = String(obtenerCampo(doc, 'docenteId') ?? '');
-        if (d && d !== String(docenteId)) {
-          throw new ErrorAplicacion('SYNC_DOCENTE_MISMATCH', `El paquete contiene ${nombre} de otro docente`, 403);
-        }
-      }
-    };
+  const periodoId = String((req.body as { periodoId?: unknown })?.periodoId ?? '').trim();
+  const desdeRaw = String((req.body as { desde?: unknown })?.desde ?? '').trim();
+  const incluirPdfs = (req.body as { incluirPdfs?: unknown })?.incluirPdfs !== false;
 
-    const examenesDocs = Array.isArray(parsed.examenes) ? parsed.examenes : [];
-    const examenesIds = examenesDocs.map((e) => obtenerIdTexto(e)).filter(Boolean);
+  const desde = desdeRaw ? parsearFechaIso(desdeRaw) : await obtenerFechaUltimoPush(String(docenteId));
+  if (desdeRaw && !desde) {
+    throw new ErrorAplicacion('SYNC_DESDE_INVALIDO', 'Parametro "desde" invalido', 400);
+  }
 
-    // Importar en orden para respetar referencias basicas.
-    const resultados = [] as Array<Record<string, unknown>>;
-    const periodosDocs = (Array.isArray(parsed.periodos) ? parsed.periodos : []) as Array<Record<string, unknown>>;
-    const alumnosDocs = (Array.isArray(parsed.alumnos) ? parsed.alumnos : []) as Array<Record<string, unknown>>;
-    const bancoDocs = (Array.isArray(parsed.bancoPreguntas) ? parsed.bancoPreguntas : []) as Array<Record<string, unknown>>;
-    const plantillasDocs = (Array.isArray(parsed.plantillas) ? parsed.plantillas : []) as Array<Record<string, unknown>>;
-    const entregasDocs = (Array.isArray(parsed.entregas) ? parsed.entregas : []) as Array<Record<string, unknown>>;
-    const calificacionesDocs = (Array.isArray(parsed.calificaciones) ? parsed.calificaciones : []) as Array<Record<string, unknown>>;
-    const banderasDocs = (Array.isArray(parsed.banderas) ? parsed.banderas : []) as Array<Record<string, unknown>>;
+  const registro = await Sincronizacion.create({
+    docenteId,
+    estado: 'pendiente',
+    tipo: 'sync_push',
+    detalles: { periodoId: periodoId || null, desde: desde?.toISOString() || null },
+    ejecutadoEn: new Date()
+  });
+  const registroId = obtenerId(registro);
 
-    assertDocente(periodosDocs, 'periodos');
-    assertDocente(alumnosDocs, 'alumnos');
-    assertDocente(bancoDocs, 'bancoPreguntas');
-    assertDocente(plantillasDocs, 'plantillas');
-    assertDocente(examenesDocs, 'examenes');
-    assertDocente(entregasDocs, 'entregas');
-    assertDocente(calificacionesDocs, 'calificaciones');
-    assertDocente(banderasDocs, 'banderas');
+  try {
+    const { paquete, paqueteBase64, checksumSha256, exportadoEn } = await generarPaqueteSincronizacion({
+      docenteId: String(docenteId),
+      periodoId: periodoId || undefined,
+      desde: desde || undefined,
+      incluirPdfs
+    });
 
-    if (dryRun) {
+    const totalRegistros = Object.values(paquete.conteos).reduce((acc, valor) => acc + (Number(valor) || 0), 0);
+    if (totalRegistros === 0) {
       if (registroId) {
         await Sincronizacion.updateOne(
           { _id: registroId },
           {
             $set: {
               estado: 'exitoso',
-              tipo: 'paquete_validar',
-              detalles: {
-                checksum: checksumActual,
-                checksumProvisto: checksumEsperado || null,
-                conteos: parsed.conteos
-              }
+              detalles: { periodoId: periodoId || null, desde: desde?.toISOString() || null, sinCambios: true, exportadoEn }
             }
           }
         );
       }
-      res.json({
-        mensaje: 'Paquete valido',
-        checksumSha256: checksumActual,
-        conteos: parsed.conteos
-      });
+      res.json({ mensaje: 'Sin cambios para enviar', conteos: paquete.conteos, exportadoEn });
       return;
     }
 
-    resultados.push(await upsertLwwPorUpdatedAt({ modelName: 'Periodo', Model: Periodo as unknown as ModelLike, docs: periodosDocs }));
-    resultados.push(await upsertLwwPorUpdatedAt({ modelName: 'Alumno', Model: Alumno as unknown as ModelLike, docs: alumnosDocs }));
-    resultados.push(await upsertLwwPorUpdatedAt({ modelName: 'BancoPregunta', Model: BancoPregunta as unknown as ModelLike, docs: bancoDocs }));
-    resultados.push(await upsertLwwPorUpdatedAt({ modelName: 'ExamenPlantilla', Model: ExamenPlantilla as unknown as ModelLike, docs: plantillasDocs }));
-    resultados.push(await upsertLwwPorUpdatedAt({ modelName: 'ExamenGenerado', Model: ExamenGenerado as unknown as ModelLike, docs: examenesDocs }));
+    const respuesta = await fetch(`${configuracion.portalAlumnoUrl}/api/portal/sincronizacion-docente/push`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-api-key': configuracion.portalApiKey
+      },
+      body: JSON.stringify({
+        docenteId: String(docenteId),
+        paqueteBase64,
+        checksumSha256,
+        schemaVersion: 1,
+        exportadoEn,
+        ...(desde ? { desde: desde.toISOString() } : {}),
+        ...(periodoId ? { periodoId } : {}),
+        conteos: paquete.conteos
+      })
+    });
 
-    // Entregas/banderas no incluyen periodoId, asi que filtramos por examenes del paquete para evitar basura.
-    const entregasFiltradas = entregasDocs.filter((e) => examenesIds.includes(String(obtenerCampo(e, 'examenGeneradoId') ?? '')));
-    const banderasFiltradas = banderasDocs.filter((b) => examenesIds.includes(String(obtenerCampo(b, 'examenGeneradoId') ?? '')));
-    const calificacionesFiltradas = calificacionesDocs.filter((c) => examenesIds.includes(String(obtenerCampo(c, 'examenGeneradoId') ?? '')));
+    const payload = (await respuesta.json().catch(() => ({}))) as { cursor?: string; error?: { mensaje?: string } };
+    if (!respuesta.ok) {
+      throw new ErrorAplicacion('SYNC_PUSH_FALLIDO', payload?.error?.mensaje || 'No se pudo enviar el paquete', 502);
+    }
 
-    resultados.push(await upsertLwwPorUpdatedAt({ modelName: 'Entrega', Model: Entrega as unknown as ModelLike, docs: entregasFiltradas }));
-    resultados.push(await upsertLwwPorUpdatedAt({ modelName: 'Calificacion', Model: Calificacion as unknown as ModelLike, docs: calificacionesFiltradas }));
-    resultados.push(await upsertLwwPorUpdatedAt({ modelName: 'BanderaRevision', Model: BanderaRevision as unknown as ModelLike, docs: banderasFiltradas }));
-
-    // PDFs best-effort: valida checksum y guarda en almacen local.
-    let pdfsGuardados = 0;
-    const pdfs = Array.isArray(parsed.pdfs) ? parsed.pdfs : [];
-    for (const item of pdfs) {
-      const examenGeneradoId = String(obtenerCampo(item, 'examenGeneradoId') ?? '').trim();
-      const pdfB64 = String(obtenerCampo(item, 'pdfComprimidoBase64') ?? '').trim();
-      const pdfSha256Esperado = String(obtenerCampo(item, 'pdfSha256') ?? '').trim();
-      if (!examenGeneradoId || !pdfB64) continue;
-
-      const examen = await ExamenGenerado.findById(examenGeneradoId).lean();
-      if (!examen) continue;
-
-      try {
-        const pdfBytes = gunzipSync(Buffer.from(pdfB64, 'base64'));
-        if (pdfSha256Esperado) {
-          const actual = sha256HexBuffer(Buffer.from(pdfBytes));
-          if (actual.toLowerCase() !== pdfSha256Esperado.toLowerCase()) {
-            continue;
+    if (registroId) {
+      await Sincronizacion.updateOne(
+        { _id: registroId },
+        {
+          $set: {
+            estado: 'exitoso',
+            detalles: {
+              periodoId: periodoId || null,
+              desde: desde?.toISOString() || null,
+              exportadoEn,
+              conteos: paquete.conteos,
+              cursor: payload?.cursor || null
+            }
           }
         }
-        const folio = String(obtenerCampo(examen, 'folio') ?? 'examen').trim() || 'examen';
-        const nombre = `examen_folio-${folio}.pdf`;
-        const rutaPdf = await guardarPdfExamen(nombre, Buffer.from(pdfBytes));
-        await ExamenGenerado.updateOne({ _id: examenGeneradoId, docenteId }, { $set: { rutaPdf } }).catch(() => {
-          // no-op
-        });
-        pdfsGuardados += 1;
-      } catch {
-        // omitir
+      );
+    }
+
+    res.json({
+      mensaje: 'Paquete enviado',
+      conteos: paquete.conteos,
+      exportadoEn,
+      cursor: payload?.cursor || null
+    });
+  } catch (error) {
+    const errorMsg = error instanceof Error ? error.message : String(error);
+    if (registroId) {
+      await Sincronizacion.updateOne(
+        { _id: registroId },
+        { $set: { estado: 'fallido', detalles: { error: errorMsg } } }
+      );
+    }
+    throw error;
+  }
+}
+
+export async function traerPaquetesServidor(req: SolicitudDocente, res: Response) {
+  const docenteId = obtenerDocenteId(req);
+  if (!configuracion.portalAlumnoUrl || !configuracion.portalApiKey) {
+    throw new ErrorAplicacion('SYNC_SERVIDOR_NO_CONFIG', 'Servidor de sincronizacion no configurado', 500);
+  }
+
+  const desdeRaw = String((req.body as { desde?: unknown })?.desde ?? '').trim();
+  const limiteRaw = (req.body as { limite?: unknown })?.limite;
+  const limite = Math.min(20, Math.max(1, Number(limiteRaw) || 6));
+
+  const cursorDesde = desdeRaw || (await obtenerCursorUltimoPull(String(docenteId))) || undefined;
+  if (desdeRaw && !parsearFechaIso(desdeRaw)) {
+    throw new ErrorAplicacion('SYNC_DESDE_INVALIDO', 'Parametro "desde" invalido', 400);
+  }
+
+  const registro = await Sincronizacion.create({
+    docenteId,
+    estado: 'pendiente',
+    tipo: 'sync_pull',
+    detalles: { desde: cursorDesde || null, limite },
+    ejecutadoEn: new Date()
+  });
+  const registroId = obtenerId(registro);
+
+  try {
+    const respuesta = await fetch(`${configuracion.portalAlumnoUrl}/api/portal/sincronizacion-docente/pull`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-api-key': configuracion.portalApiKey
+      },
+      body: JSON.stringify({
+        docenteId: String(docenteId),
+        ...(cursorDesde ? { desde: cursorDesde } : {}),
+        limite
+      })
+    });
+
+    const payload = (await respuesta.json().catch(() => ({}))) as {
+      paquetes?: Array<{
+        paqueteBase64?: string;
+        checksumSha256?: string;
+        cursor?: string;
+      }>;
+      ultimoCursor?: string | null;
+      error?: { mensaje?: string };
+    };
+
+    if (!respuesta.ok) {
+      throw new ErrorAplicacion('SYNC_PULL_FALLIDO', payload?.error?.mensaje || 'No se pudieron obtener paquetes', 502);
+    }
+
+    const paquetes = Array.isArray(payload.paquetes) ? payload.paquetes : [];
+    if (paquetes.length === 0) {
+      if (registroId) {
+        await Sincronizacion.updateOne(
+          { _id: registroId },
+          {
+            $set: {
+              estado: 'exitoso',
+              detalles: { desde: cursorDesde || null, limite, sinCambios: true, cursor: payload?.ultimoCursor || null }
+            }
+          }
+        );
+      }
+      res.json({ mensaje: 'Sin cambios', paquetesRecibidos: 0, ultimoCursor: payload?.ultimoCursor || null });
+      return;
+    }
+
+    const resultados = [] as Array<Record<string, unknown>>;
+    let pdfsGuardados = 0;
+    let ultimoCursor = payload?.ultimoCursor || null;
+
+    for (const paquete of paquetes) {
+      const paqueteBase64 = String(paquete?.paqueteBase64 ?? '').trim();
+      if (!paqueteBase64) continue;
+      if (paqueteBase64.length > MAX_BASE64_CHARS) {
+        throw new ErrorAplicacion('SYNC_PAQUETE_GRANDE', 'Paquete demasiado grande', 413);
+      }
+
+      const resultado = await procesarPaqueteSincronizacion({
+        docenteId: String(docenteId),
+        paqueteBase64,
+        checksumEsperado: paquete.checksumSha256 ? String(paquete.checksumSha256) : undefined,
+        dryRun: false,
+        registroId: undefined
+      });
+      if (resultado && Array.isArray(resultado.resultados)) {
+        resultados.push(...(resultado.resultados as Array<Record<string, unknown>>));
+      }
+      if (typeof resultado.pdfsGuardados === 'number') {
+        pdfsGuardados += resultado.pdfsGuardados;
+      }
+      if (paquete.cursor) {
+        ultimoCursor = paquete.cursor;
       }
     }
 
     if (registroId) {
       await Sincronizacion.updateOne(
         { _id: registroId },
-        { $set: { estado: 'exitoso', detalles: { resultados, pdfsGuardados } } }
+        {
+          $set: {
+            estado: 'exitoso',
+            detalles: {
+              desde: cursorDesde || null,
+              limite,
+              cursor: ultimoCursor,
+              paquetesRecibidos: paquetes.length,
+              pdfsGuardados
+            }
+          }
+        }
       );
     }
 
-    res.json({ mensaje: 'Paquete importado', resultados, pdfsGuardados });
+    res.json({
+      mensaje: 'Paquetes aplicados',
+      paquetesRecibidos: paquetes.length,
+      ultimoCursor,
+      pdfsGuardados
+    });
   } catch (error) {
     const errorMsg = error instanceof Error ? error.message : String(error);
     if (registroId) {

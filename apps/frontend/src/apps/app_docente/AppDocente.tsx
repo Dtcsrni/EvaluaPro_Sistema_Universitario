@@ -108,6 +108,20 @@ type RegistroSincronizacion = {
   createdAt?: string;
 };
 
+type RespuestaSyncPush = {
+  mensaje?: string;
+  conteos?: Record<string, number>;
+  cursor?: string | null;
+  exportadoEn?: string;
+};
+
+type RespuestaSyncPull = {
+  mensaje?: string;
+  paquetesRecibidos?: number;
+  ultimoCursor?: string | null;
+  pdfsGuardados?: number;
+};
+
 function obtenerVersionPregunta(pregunta: Pregunta): Pregunta['versiones'][number] | null {
   const versiones = Array.isArray(pregunta.versiones) ? pregunta.versiones : [];
   if (versiones.length === 0) return null;
@@ -572,6 +586,8 @@ export function AppDocente() {
               | { mensaje?: string; checksumSha256?: string; conteos?: Record<string, number> }
             >('/sincronizaciones/paquete/importar', payload)
           }
+          onPushServidor={(payload) => clienteApi.enviar<RespuestaSyncPush>('/sincronizaciones/push', payload)}
+          onPullServidor={(payload) => clienteApi.enviar<RespuestaSyncPull>('/sincronizaciones/pull', payload)}
         />
       )}
 
@@ -4898,7 +4914,7 @@ function SeccionEscaneo({
                 <span className="paso-num">2</span>
                 <div>
                   <div className="paso-titulo">Abre la camara</div>
-                  <p className="nota">En "Imagen" elige Tomar foto y captura la hoja.</p>
+                  <p className="nota">En Imagen elige Tomar foto y captura la hoja.</p>
                 </div>
               </li>
               <li className="guia-paso">
@@ -5511,6 +5527,129 @@ function SeccionPaqueteSincronizacion({
   );
 }
 
+function SeccionSincronizacionEquipos({
+  onPushServidor,
+  onPullServidor
+}: {
+  onPushServidor: (payload: { periodoId?: string; desde?: string; incluirPdfs?: boolean }) => Promise<RespuestaSyncPush>;
+  onPullServidor: (payload: { desde?: string; limite?: number }) => Promise<RespuestaSyncPull>;
+}) {
+  const [incluyePdfs, setIncluyePdfs] = useState(false);
+  const [mensaje, setMensaje] = useState('');
+  const [tipoMensaje, setTipoMensaje] = useState<'info' | 'ok' | 'warning' | 'error'>('info');
+  const [ultimoCursor, setUltimoCursor] = useState<string | null>(null);
+  const [enviando, setEnviando] = useState(false);
+  const [trayendo, setTrayendo] = useState(false);
+
+  async function enviarCambios() {
+    try {
+      const inicio = Date.now();
+      setEnviando(true);
+      setMensaje('');
+      const respuesta = await onPushServidor({ incluirPdfs: incluyePdfs });
+      const msg = respuesta.mensaje || 'Paquete enviado';
+      setMensaje(msg);
+      setTipoMensaje(msg.toLowerCase().includes('sin cambios') ? 'info' : 'ok');
+      setUltimoCursor(respuesta.cursor || respuesta.exportadoEn || null);
+      emitToast({ level: 'ok', title: 'Sincronizacion', message: msg, durationMs: 2400 });
+      registrarAccionDocente('sync_push_servidor', true, Date.now() - inicio);
+    } catch (error) {
+      const msg = mensajeDeError(error, 'No se pudo enviar');
+      setMensaje(msg);
+      setTipoMensaje('error');
+      emitToast({
+        level: 'error',
+        title: 'No se pudo enviar',
+        message: msg,
+        durationMs: 5200,
+        action: accionToastSesionParaError(error, 'docente')
+      });
+      registrarAccionDocente('sync_push_servidor', false);
+    } finally {
+      setEnviando(false);
+    }
+  }
+
+  async function traerCambios() {
+    try {
+      const inicio = Date.now();
+      setTrayendo(true);
+      setMensaje('');
+      const respuesta = await onPullServidor({});
+      const msg = respuesta.mensaje || 'Paquetes aplicados';
+      setMensaje(msg);
+      setTipoMensaje(msg.toLowerCase().includes('sin cambios') ? 'info' : 'ok');
+      if (respuesta.ultimoCursor) {
+        setUltimoCursor(respuesta.ultimoCursor);
+      }
+      emitToast({ level: 'ok', title: 'Sincronizacion', message: msg, durationMs: 2400 });
+      registrarAccionDocente('sync_pull_servidor', true, Date.now() - inicio);
+    } catch (error) {
+      const msg = mensajeDeError(error, 'No se pudieron traer cambios');
+      setMensaje(msg);
+      setTipoMensaje('error');
+      emitToast({
+        level: 'error',
+        title: 'No se pudo traer cambios',
+        message: msg,
+        durationMs: 5200,
+        action: accionToastSesionParaError(error, 'docente')
+      });
+      registrarAccionDocente('sync_pull_servidor', false);
+    } finally {
+      setTrayendo(false);
+    }
+  }
+
+  return (
+    <div className="shell">
+      <div className="panel shell-main">
+        <h2>
+          <Icono nombre="recargar" /> Sincronizacion entre equipos
+        </h2>
+        <p className="nota">
+          Usa un servidor intermedio para mantener una sola fuente de verdad por docente, sin requerir que los equipos esten en linea al mismo tiempo.
+        </p>
+        <label className="campo campo--checkbox">
+          <input type="checkbox" checked={incluyePdfs} onChange={(e) => setIncluyePdfs(e.target.checked)} />
+          Incluir PDFs en el envio (mas pesado)
+        </label>
+        <div className="acciones">
+          <Boton type="button" icono={<Icono nombre="publicar" />} cargando={enviando} onClick={enviarCambios}>
+            {enviando ? 'Enviando.' : 'Enviar cambios'}
+          </Boton>
+          <Boton type="button" variante="secundario" icono={<Icono nombre="recargar" />} cargando={trayendo} onClick={traerCambios}>
+            {trayendo ? 'Trayendo.' : 'Traer cambios'}
+          </Boton>
+        </div>
+        {ultimoCursor && <div className="nota">Ultima marca recibida: {new Date(ultimoCursor).toLocaleString()}</div>}
+        {mensaje && <InlineMensaje tipo={tipoMensaje}>{mensaje}</InlineMensaje>}
+      </div>
+
+      <aside className="shell-aside" aria-label="Ayuda de sincronizacion">
+        <div className="shell-asideCard">
+          <AyudaFormulario titulo="Para que sirve y como usarlo">
+            <p>
+              <b>Proposito:</b> sincronizar cambios entre equipos del mismo docente usando un servidor intermedio.
+            </p>
+            <ul className="lista">
+              <li>
+                <b>Enviar cambios:</b> sube tus cambios al servidor para que otros equipos los puedan traer despues.
+              </li>
+              <li>
+                <b>Traer cambios:</b> aplica los cambios pendientes del servidor en esta computadora.
+              </li>
+              <li>
+                <b>Cuenta:</b> usa el mismo docente en todos los equipos para conservar la fuente de verdad.
+              </li>
+            </ul>
+          </AyudaFormulario>
+        </div>
+      </aside>
+    </div>
+  );
+}
+
 function SeccionSincronizacion({
   periodos,
   periodosArchivados,
@@ -5521,7 +5660,9 @@ function SeccionSincronizacion({
   onPublicar,
   onCodigo,
   onExportarPaquete,
-  onImportarPaquete
+  onImportarPaquete,
+  onPushServidor,
+  onPullServidor
 }: {
   periodos: Periodo[];
   periodosArchivados: Periodo[];
@@ -5542,6 +5683,8 @@ function SeccionSincronizacion({
     | { mensaje?: string; resultados?: unknown[]; pdfsGuardados?: number }
     | { mensaje?: string; checksumSha256?: string; conteos?: Record<string, number> }
   >;
+  onPushServidor: (payload: { periodoId?: string; desde?: string; incluirPdfs?: boolean }) => Promise<RespuestaSyncPush>;
+  onPullServidor: (payload: { desde?: string; limite?: number }) => Promise<RespuestaSyncPull>;
 }) {
   const [sincronizaciones, setSincronizaciones] = useState<RegistroSincronizacion[]>([]);
   const [cargandoEstado, setCargandoEstado] = useState(false);
@@ -5704,6 +5847,7 @@ function SeccionSincronizacion({
       <div className="sincronizacion-grid">
         <SeccionPublicar periodos={periodos} onPublicar={onPublicar} onCodigo={onCodigo} />
         <SeccionPaqueteSincronizacion periodos={periodos} onExportar={onExportarPaquete} onImportar={onImportarPaquete} />
+        <SeccionSincronizacionEquipos onPushServidor={onPushServidor} onPullServidor={onPullServidor} />
       </div>
     </div>
   );

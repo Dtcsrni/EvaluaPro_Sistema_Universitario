@@ -29,3 +29,15 @@ export const esquemaImportarPaquete = z.object({
   checksumSha256: z.string().regex(/^[a-f0-9]{64}$/i).optional(),
   dryRun: z.boolean().optional()
 });
+
+// Sincronizacion asincrona push/pull con servidor intermedio.
+export const esquemaEnviarPaqueteServidor = z.object({
+  periodoId: esquemaObjectId.optional(),
+  desde: z.string().datetime().optional(),
+  incluirPdfs: z.boolean().optional()
+});
+
+export const esquemaTraerPaquetesServidor = z.object({
+  desde: z.string().datetime().optional(),
+  limite: z.number().int().min(1).max(20).optional()
+});

@@ -8,17 +8,21 @@
 import { Router } from 'express';
 import { validarCuerpo } from '../../compartido/validaciones/validar';
 import {
+	enviarPaqueteServidor,
 	exportarPaquete,
 	generarCodigoAcceso,
 	importarPaquete,
 	listarSincronizaciones,
-	publicarResultados
+	publicarResultados,
+	traerPaquetesServidor
 } from './controladorSincronizacion';
 import {
+	esquemaEnviarPaqueteServidor,
 	esquemaExportarPaquete,
 	esquemaGenerarCodigoAcceso,
 	esquemaImportarPaquete,
-	esquemaPublicarResultados
+	esquemaPublicarResultados,
+	esquemaTraerPaquetesServidor
 } from './validacionesSincronizacion';
 
 const router = Router();
@@ -30,5 +34,9 @@ router.post('/codigo-acceso', validarCuerpo(esquemaGenerarCodigoAcceso, { strict
 // Sincronizacion entre computadoras (paquete export/import)
 router.post('/paquete/exportar', validarCuerpo(esquemaExportarPaquete, { strict: true }), exportarPaquete);
 router.post('/paquete/importar', validarCuerpo(esquemaImportarPaquete, { strict: true }), importarPaquete);
+
+// Sincronizacion asincrona (push/pull) con servidor intermedio.
+router.post('/push', validarCuerpo(esquemaEnviarPaqueteServidor, { strict: true }), enviarPaqueteServidor);
+router.post('/pull', validarCuerpo(esquemaTraerPaquetesServidor, { strict: true }), traerPaquetesServidor);
 
 export default router;

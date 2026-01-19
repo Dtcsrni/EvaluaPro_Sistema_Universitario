@@ -15,6 +15,7 @@ import { gunzipSync } from 'zlib';
 import { configuracion } from './configuracion';
 import { CodigoAcceso } from './modelos/modeloCodigoAcceso';
 import { EventoUsoAlumno } from './modelos/modeloEventoUsoAlumno';
+import { PaqueteSyncDocente } from './modelos/modeloPaqueteSyncDocente';
 import { ResultadoAlumno } from './modelos/modeloResultadoAlumno';
 import { SesionAlumno } from './modelos/modeloSesionAlumno';
 import { generarTokenSesion } from './servicios/servicioSesion';
@@ -52,6 +53,20 @@ function normalizarMatricula(valor: unknown): string {
 
 function esMatriculaValida(valor: string): boolean {
   return /^CUH\d{9}$/.test(normalizarMatricula(valor));
+}
+
+function parsearFechaIso(valor: unknown): Date | null {
+  if (!valor) return null;
+  const texto = typeof valor === 'string' ? valor : String(valor);
+  const fecha = new Date(texto);
+  if (!Number.isFinite(fecha.getTime())) return null;
+  return fecha;
+}
+
+function parsearLimite(valor: unknown, porDefecto: number) {
+  const n = typeof valor === 'number' ? valor : Number(valor);
+  if (!Number.isFinite(n)) return porDefecto;
+  return Math.min(25, Math.max(1, Math.floor(n)));
 }
 
 /**
@@ -256,6 +271,102 @@ router.post('/sincronizar', async (req, res) => {
   }
 
   res.json({ mensaje: 'Sincronizacion aplicada' });
+});
+
+router.post('/sincronizacion-docente/push', async (req, res) => {
+  if (!requerirApiKey(req, res)) return;
+
+  const clavesPermitidas = [
+    'docenteId',
+    'paqueteBase64',
+    'checksumSha256',
+    'schemaVersion',
+    'exportadoEn',
+    'desde',
+    'periodoId',
+    'conteos'
+  ];
+  if (!tieneSoloClavesPermitidas(req.body ?? {}, clavesPermitidas)) {
+    responderError(res, 400, 'PAYLOAD_INVALIDO', 'Payload invalido');
+    return;
+  }
+
+  const docenteId = normalizarString((req.body ?? {}).docenteId);
+  const paqueteBase64 = normalizarString((req.body ?? {}).paqueteBase64);
+  const checksumSha256 = normalizarString((req.body ?? {}).checksumSha256);
+  const schemaVersion = Number((req.body ?? {}).schemaVersion ?? 1);
+
+  if (!docenteId || !paqueteBase64) {
+    responderError(res, 400, 'PAYLOAD_INVALIDO', 'Payload incompleto');
+    return;
+  }
+  if (paqueteBase64.length > 60_000_000) {
+    responderError(res, 413, 'PAQUETE_GRANDE', 'Paquete demasiado grande');
+    return;
+  }
+  if (schemaVersion !== 1) {
+    responderError(res, 400, 'VERSION_INVALIDA', 'Version de paquete no soportada');
+    return;
+  }
+
+  const exportadoEn = parsearFechaIso((req.body ?? {}).exportadoEn) ?? new Date();
+  const desde = parsearFechaIso((req.body ?? {}).desde);
+  const periodoId = normalizarString((req.body ?? {}).periodoId);
+  const conteos = (req.body ?? {}).conteos;
+
+  const registro = await PaqueteSyncDocente.create({
+    docenteId,
+    paqueteBase64,
+    checksumSha256: checksumSha256 || undefined,
+    schemaVersion,
+    exportadoEn,
+    desde: desde || undefined,
+    periodoId: periodoId || undefined,
+    conteos: conteos ?? undefined
+  });
+
+  res.json({
+    mensaje: 'Paquete recibido',
+    cursor: registro?.createdAt ? new Date(registro.createdAt).toISOString() : null
+  });
+});
+
+router.post('/sincronizacion-docente/pull', async (req, res) => {
+  if (!requerirApiKey(req, res)) return;
+
+  const clavesPermitidas = ['docenteId', 'desde', 'limite'];
+  if (!tieneSoloClavesPermitidas(req.body ?? {}, clavesPermitidas)) {
+    responderError(res, 400, 'PAYLOAD_INVALIDO', 'Payload invalido');
+    return;
+  }
+
+  const docenteId = normalizarString((req.body ?? {}).docenteId);
+  if (!docenteId) {
+    responderError(res, 400, 'PAYLOAD_INVALIDO', 'docenteId requerido');
+    return;
+  }
+
+  const desde = parsearFechaIso((req.body ?? {}).desde);
+  const limite = parsearLimite((req.body ?? {}).limite, 6);
+  const filtro: Record<string, unknown> = { docenteId };
+  if (desde) filtro.createdAt = { $gt: desde };
+
+  const paquetes = await PaqueteSyncDocente.find(filtro).sort({ createdAt: 1 }).limit(limite).lean();
+  const respuesta = paquetes.map((paquete) => ({
+    paqueteBase64: paquete.paqueteBase64,
+    checksumSha256: paquete.checksumSha256,
+    schemaVersion: paquete.schemaVersion,
+    exportadoEn: paquete.exportadoEn ? new Date(paquete.exportadoEn).toISOString() : undefined,
+    desde: paquete.desde ? new Date(paquete.desde).toISOString() : undefined,
+    periodoId: paquete.periodoId ? String(paquete.periodoId) : undefined,
+    conteos: paquete.conteos,
+    cursor: paquete.createdAt ? new Date(paquete.createdAt).toISOString() : undefined
+  }));
+
+  res.json({
+    paquetes: respuesta,
+    ultimoCursor: respuesta.length ? respuesta[respuesta.length - 1].cursor : null
+  });
 });
 
 router.post('/ingresar', async (req, res) => {
