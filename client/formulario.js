@@ -83,6 +83,7 @@ function limpiarFormulario() {
 }
 
 function pintar() {
+
   listaReactivosElemento.textContent = "";
   textoVacio.style.display = listaReactivos.length ? "none" : "block";
 
@@ -116,10 +117,11 @@ function pintar() {
     li.appendChild(texto);
     li.appendChild(acciones);
     listaReactivosElemento.appendChild(li);
+    console.log("Pregunta creada");
   }
 }
 
-/* Delegación 🫧 */
+/* Delegación */
 listaReactivosElemento.addEventListener("click", (e) => {
   const boton = e.target.closest("button");
   if (!boton) return;
@@ -141,6 +143,7 @@ listaReactivosElemento.addEventListener("click", (e) => {
       if (indiceEnEdicion !== null && indice < indiceEnEdicion) {
         indiceEnEdicion -= 1;
       }
+      console.log("Reactivo eliminado");
       mensaje.textContent = "Reactivo eliminado 🗑️";
     }
 
@@ -152,7 +155,7 @@ listaReactivosElemento.addEventListener("click", (e) => {
     indiceEnEdicion = indice;
     textoPregunta.value = listaReactivos[indice].pregunta;
     textoRespuesta.value = listaReactivos[indice].respuesta;
-
+    console.log("Editando indice: " +indiceEnEdicion);
     ponerModoEdicion();
     validar();
 
