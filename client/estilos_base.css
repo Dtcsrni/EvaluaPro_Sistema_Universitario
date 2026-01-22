@@ -1,0 +1,46 @@
+/* estilos_base.css
+   Base mínima + accesibilidad ♿
+*/
+
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
+  line-height: 1.4;
+  padding: 16px;
+}
+
+.contenedor {
+  max-width: 920px;
+  margin: 0 auto;
+}
+
+/* sr-only: oculto visual, accesible a lectores de pantalla ♿ */
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+/* Focusable: cuando navegas con teclado, se vuelve visible ♿ */
+.sr-only-focusable:focus,
+.sr-only-focusable:active {
+  position: static;
+  width: auto;
+  height: auto;
+  margin-bottom: 12px;
+  clip: auto;
+  overflow: visible;
+  padding: 8px 10px;
+  border: 1px solid #333;
+  border-radius: 10px;
+  background: #fff;
+  display: inline-block;
+}

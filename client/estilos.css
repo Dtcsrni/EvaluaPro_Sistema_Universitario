@@ -1,108 +1,80 @@
-/* Estilos minimos para formularios */
+/* estilos.css (Práctica 04)
+   CSS mínimo y relevante (KISS) 🎨🧼
+*/
 
 .panel {
-   border: 1px solid #000;
-   border-radius: 12px;
-   padding: 16px;
+  border: 1px solid #000;
+  border-radius: 12px;
+  padding: 16px;
 }
+
 .panel-separacion {
-   margin-top: 16px;
+  margin-top: 16px;
 }
-textarea, input {
-   width: 100%;
-   margin-top: 6px;
-   padding: 10px;
-   border: 1px solid #bbb;
-   border-radius: 10px;
-   font: inherit
+
+textarea,
+input {
+  width: 100%;
+  margin-top: 6px;
+  padding: 10px;
+  border: 1px solid #bbb;
+  border-radius: 10px;
+  font: inherit;
 }
-.acciones {
-   margin-top: 12px;
-   display: flex;
-   gap: 10px;
-   flex-wrap: wrap;
-}
+
 button {
-   padding: 10px 16px;
-   border: 1px solid #333;
-   border-radius: 8px;
-   background: #fff;
-   cursor: pointer;
+  padding: 10px 16px;
+  border: 1px solid #333;
+  border-radius: 8px;
+  background: #fff;
+  cursor: pointer;
 }
 
 button[disabled] {
-   opacity: 0.6;
-   cursor: not-allowed;
+  opacity: 0.6;
+  cursor: not-allowed;
 }
-.boton-secundario {
-   border-color: #666
-}
+
 .error {
-   color: red;
-   font-weight: bold;
-   margin-top: 10px;
+  color: red;
+  font-weight: bold;
+  margin-top: 10px;
 }
+
 .texto-chico {
-   font-size: 0.9em;
+  font-size: 0.95em;
 }
 
-#contenedor-principal {
-   display: flex;
-   flex-direction: column;
-
-   background-color: #333;
-}
-#contenedor-secundario {
-   display: flex;
-   flex-direction: column;
-
-   background-color: #000;
-}
-#contenedor-terciario {
-   display: flex;
-   flex-direction: column;
-
-   background-color: #03009c;
-}
-.contenido {
-   display: flex;
-   flex-direction: row;
-   justify-content: center;
-   width: 50%;
-   height: 100%;
-   align-items: center;
-   background-color: aquamarine;
-   border: #000 1px solid;
-}
-.texto {
-   text-align: center;
-   font-size: 1.5em;
-   color: white;
-}
-.texto-chico {
-   font-size: 0.5em;
-}
-.canvas {
-   display: flex;
-   flex-direction: row;
-   justify-content: center;
-   width: 100%;   
+/* Lista */
+ul {
+  list-style: none;
+  padding-left: 0;
+  margin: 10px 0 0;
 }
 
-.boton-peligro{
-   border-color: red;
-   color: red;
+li {
+  padding: 10px;
+  border: 1px solid #eee;
+  border-radius: 12px;
+  margin-bottom: 10px;
 }
-.boton-chico{
-   padding: 8px 10px;
-   border-radius: 10px;
-   border: 1px solid #333;
-   background: #fff;
-   cursor: pointer;
+
+.fila-acciones {
+  margin-top: 8px;
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
 }
-.fila-acciones{
-   margin-top: 8px;
-   display: flex;
-   gap: 8px;
-   flex-wrap: wrap;
+
+.boton-chico {
+  padding: 8px 10px;
+  border-radius: 10px;
+  border: 1px solid #333;
+  background: #fff;
+  cursor: pointer;
+}
+
+.boton-peligro {
+  border-color: red;
+  color: red;
 }

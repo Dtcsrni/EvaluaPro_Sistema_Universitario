@@ -1,42 +1,64 @@
 <!DOCTYPE html>
 <html lang="es-MX">
-
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Práctica 04 - CRUD</title>
-    <link rel="stylesheet" href="estilos.css">
-    <link rel="stylesheet" href="estilos_base.css">
-</head>
-<body>
-<h1>CRUD - Práctica 04</h1>
-<p class="texto-chico">Crear / Editar / Eliminar con delegación de funciones</p>
-<section class="panel">
-    <form id="formularioReactivo" novalidate>
-        <label for="textoPregunta">Pregunta </label>
-        <textarea id="textoPregunta" name="textoPregunta" rows="3" placeholder="Minimo 10 caracteres" required>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Práctica 04 - CRUD</title>
 
-        </textarea>
-        <label for="textoRespuesta">Respuesta correcta </label>
-        <input type="text" id="textoRespuesta" name="textoRespuesta" placeholder="Obligatorio" required>
+  <!-- Base primero, específico después (cascada) 🎨 -->
+  <link rel="stylesheet" href="estilos_base.css" />
+  <link rel="stylesheet" href="estilos.css" />
+</head>
+
+<body>
+  <!-- Skip link accesible: salta a la lista en la MISMA página ♿ -->
+  <a class="sr-only sr-only-focusable" href="#listaReactivos">Ir a la lista de reactivos 📋</a>
+
+  <main class="contenedor">
+    <h1>CRUD - Práctica 04 🧺</h1>
+    <p class="texto-chico">Crear / Editar / Eliminar con delegación de eventos 🫧</p>
+
+    <section class="panel">
+      <form id="formularioReactivo" novalidate>
+        <label for="textoPregunta">Pregunta</label>
+        <textarea
+          id="textoPregunta"
+          name="textoPregunta"
+          rows="3"
+          placeholder="Mínimo 10 caracteres..."
+          aria-describedby="textoError"
+        ></textarea>
+
+        <label for="textoRespuesta">Respuesta correcta</label>
+        <input
+          type="text"
+          id="textoRespuesta"
+          name="textoRespuesta"
+          placeholder="Obligatoria..."
+          aria-describedby="textoError"
+          autocomplete="off"
+        />
+
         <div id="textoError" class="error" role="alert"></div>
 
-        <!-- UX: Un solo botón. Decide agregar o actualizar según el estado -->
-        <button type="submit" id="btnGuardar">Guardar</button>
-        <!--UX: mensaje breve y claro  -->
-        <p id="mensaje" class="texto-chico" aria-live="polite"></p>
-    </form>
-</section>
+        <!-- UX: inicia deshabilitado; se habilita al validar ✅ -->
+        <button type="submit" id="btnGuardar" disabled>Guardar</button>
 
-<section class="panel panel-separacion">
-    <h2>Reactivos</h2>
-    <!-- Delegacion: aquí se capturan clicks de Editar/Eliminar -->
-    <a id="listaReactivosAccesible" class="sr-only sr-only-focusable" href="practica_03.html">Ir a la lista de reactivos</a>
-    <ul id="listaReactivos">
-        <!-- Las preguntas se agregarán aquí dinámicamente -->
-    </ul>
-    <p id="textoVacio" class="texto-chico">Aun no hay reactivos</p>
-</section>
-<script src="formulario.js" defer></script>
+        <p id="mensaje" class="texto-chico" aria-live="polite">Listo.</p>
+      </form>
+    </section>
+
+    <section class="panel panel-separacion">
+      <h2>Reactivos 📋</h2>
+
+      <ul id="listaReactivos">
+        <!-- Se genera dinámicamente -->
+      </ul>
+
+      <p id="textoVacio" class="texto-chico">Aún no hay reactivos.</p>
+    </section>
+  </main>
+
+  <script src="formulario.js" defer></script>
 </body>
 </html>
