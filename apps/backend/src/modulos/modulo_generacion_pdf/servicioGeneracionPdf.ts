@@ -73,6 +73,7 @@ async function agregarQr(pdfDoc: PDFDocument, page: PDFPage, qrTexto: string, ma
   return { qrSize, x, y, padding, boxW, boxH };
 }
 
+
 type LogoEmbed = {
   image: Awaited<ReturnType<PDFDocument['embedPng']>>;
   width: number;
@@ -550,8 +551,17 @@ export async function generarPdfExamen({
       numeroPregunta: number;
       idPregunta: string;
       opciones: Array<{ letra: string; x: number; y: number }>;
+      fiduciales?: { top: { x: number; y: number }; bottom: { x: number; y: number } };
     }>;
   }> = [];
+
+  const imagenesPregunta = new Map<string, LogoEmbed>();
+  for (const pregunta of preguntasOrdenadas) {
+    const src = String(pregunta.imagenUrl ?? '').trim();
+    if (!src) continue;
+    const emb = await intentarEmbedImagen(pdfDoc, src);
+    if (emb) imagenesPregunta.set(pregunta.id, emb);
+  }
 
   // Indicaciones completas (fluye al inicio del examen, sin recortes).
   const sizeIndicacionesBase = 9;
@@ -562,15 +572,17 @@ export async function generarPdfExamen({
     : [];
   const indicacionesPendientes = mostrarInstrucciones && lineasIndicaciones.length > 0;
 
-  while (numeroPagina <= paginasObjetivo) {
+  while (numeroPagina <= paginasObjetivo || indicePregunta < preguntasOrdenadas.length) {
     const page = pdfDoc.addPage([ANCHO_CARTA, ALTO_CARTA]);
     const qrTexto = String(folio ?? '').trim().toUpperCase();
+    const qrTextoPagina = `EXAMEN:${qrTexto}:P${numeroPagina}`;
     let preguntasDel = 0;
     let preguntasAl = 0;
     const mapaPagina: Array<{
       numeroPregunta: number;
       idPregunta: string;
       opciones: Array<{ letra: string; x: number; y: number }>;
+      fiduciales?: { top: { x: number; y: number }; bottom: { x: number; y: number } };
     }> = [];
 
     const yTop = ALTO_CARTA - margen;
@@ -590,13 +602,14 @@ export async function generarPdfExamen({
 
     // Marcas y QR (OMR/escaneo)
     agregarMarcasRegistro(page, margen);
-    const { x: xQr, y: yQr, padding: qrPadding } = await agregarQr(pdfDoc, page, qrTexto, margen);
+    const { x: xQr, y: yQr, padding: qrPadding } = await agregarQr(pdfDoc, page, qrTextoPagina, margen);
 
     // Folio impreso debajo del QR (sin invadir el quiet-zone)
     page.drawText(qrTexto, { x: xQr, y: yQr - 14, size: 9, font: fuenteBold, color: colorPrimario });
+    page.drawText(`PAG ${numeroPagina}`, { x: xQr, y: yQr - 26, size: 8.5, font: fuente, color: colorGris });
 
     // Numero de pagina discreto (no es encabezado): pie.
-    page.drawText(`Pagina ${numeroPagina} de ${paginasObjetivo}`, {
+    page.drawText(`Pagina ${numeroPagina}`, {
       x: ANCHO_CARTA - margen - 120,
       y: margen - 16,
       size: 8.5,
@@ -666,7 +679,7 @@ export async function generarPdfExamen({
     }
 
     // Zona segura inferior del QR (incluye folio debajo).
-    const yZonaSeguraQr = yQr - 28;
+    const yZonaSeguraQr = yQr - 32;
     const altoZonaSuperior = esPrimera ? altoEncabezado : yTop - yZonaSeguraQr;
     const cursorYInicio = yTop - altoZonaSuperior - 10;
     let cursorY = cursorYInicio;
@@ -685,9 +698,15 @@ export async function generarPdfExamen({
         lineHeightTexto: lineaPregunta,
         lineHeightCodigo: lineaCodigoBloque
       });
-      const tieneImagen = Boolean(String(pregunta.imagenUrl ?? '').trim());
+      const emb = imagenesPregunta.get(pregunta.id);
+      const tieneImagen = Boolean(emb);
       let alto = lineasEnunciado.reduce((acc, l) => acc + l.lineHeight, 0);
-      if (tieneImagen) alto += lineaNota;
+      if (tieneImagen && emb) {
+        const maxW = anchoTextoPregunta;
+        const maxH = 140;
+        const escala = Math.min(1, maxW / emb.width, maxH / emb.height);
+        alto += emb.height * escala + 6;
+      }
 
       const ordenOpciones = mapaVariante.ordenOpcionesPorPregunta[pregunta.id] ?? [0, 1, 2, 3, 4];
       const totalOpciones = ordenOpciones.length;
@@ -807,15 +826,15 @@ export async function generarPdfExamen({
       });
       cursorY = dibujarLineasMixtas({ page, lineas: lineasEnunciado, x: xTextoPregunta, y: cursorY });
 
-      if (pregunta.imagenUrl) {
-        page.drawText('(Imagen adjunta)', {
-          x: xTextoPregunta,
-          y: cursorY,
-          size: sizeNota,
-          font: fuente,
-          color: rgb(0.4, 0.4, 0.4)
-        });
-        cursorY -= lineaNota;
+      const emb = imagenesPregunta.get(pregunta.id);
+      if (emb) {
+        const maxW = anchoTextoPregunta;
+        const maxH = 140;
+        const escala = Math.min(1, maxW / emb.width, maxH / emb.height);
+        const w = emb.width * escala;
+        const h = emb.height * escala;
+        page.drawImage(emb.image, { x: xTextoPregunta, y: cursorY - h, width: w, height: h });
+        cursorY -= h + 6;
       }
 
       const ordenOpciones = mapaVariante.ordenOpcionesPorPregunta[pregunta.id] ?? [0, 1, 2, 3, 4];
@@ -885,12 +904,23 @@ export async function generarPdfExamen({
         page.drawText(letra, { x: xBurbuja + 12, y: yBurbuja - 3.5, size: 9, font: fuente, color: rgb(0.12, 0.12, 0.12) });
         opcionesOmr.push({ letra, x: xBurbuja, y: yBurbuja });
       }
+      const fidSize = 4;
+      const xFid = xColRespuesta + 6;
+      const yFidTop = yPrimeraBurbuja + omrPasoY * 0.6;
+      const yFidBottom = yUltimaBurbuja - omrPasoY * 0.6;
+      page.drawRectangle({ x: xFid - fidSize / 2, y: yFidTop - fidSize / 2, width: fidSize, height: fidSize, color: rgb(0, 0, 0) });
+      page.drawRectangle({ x: xFid - fidSize / 2, y: yFidBottom - fidSize / 2, width: fidSize, height: fidSize, color: rgb(0, 0, 0) });
 
       cursorY = Math.min(yCol1, yCol2, bottom - 6);
 
       cursorY -= separacionPregunta;
       indicePregunta += 1;
-      mapaPagina.push({ numeroPregunta: numero, idPregunta: pregunta.id, opciones: opcionesOmr });
+      mapaPagina.push({
+        numeroPregunta: numero,
+        idPregunta: pregunta.id,
+        opciones: opcionesOmr,
+        fiduciales: { top: { x: xFid, y: yFidTop }, bottom: { x: xFid, y: yFidBottom } }
+      });
     }
 
     const alturaUtil = Math.max(1, cursorYInicio - alturaDisponibleMin);

@@ -47,7 +47,8 @@ export async function calificarExamen(req: SolicitudDocente, res: Response) {
     evaluacionContinua,
     proyecto,
     retroalimentacion,
-    respuestasDetectadas
+    respuestasDetectadas,
+    soloPreview
   } = req.body;
   const docenteId = obtenerDocenteId(req);
 
@@ -109,6 +110,27 @@ export async function calificarExamen(req: SolicitudDocente, res: Response) {
     proyecto ?? 0,
     plantilla.tipo as 'parcial' | 'global'
   );
+
+  if (soloPreview) {
+    res.status(200).json({
+      preview: {
+        aciertos: aciertosAjustados,
+        totalReactivos: totalFinal,
+        fraccion: {
+          numerador: resultado.numerador,
+          denominador: resultado.denominador
+        },
+        calificacionExamenTexto: resultado.calificacionTexto,
+        bonoTexto: resultado.bonoTexto,
+        calificacionExamenFinalTexto: resultado.calificacionFinalTexto,
+        evaluacionContinuaTexto: resultado.evaluacionContinuaTexto,
+        proyectoTexto: resultado.proyectoTexto,
+        calificacionParcialTexto: resultado.calificacionParcialTexto,
+        calificacionGlobalTexto: resultado.calificacionGlobalTexto
+      }
+    });
+    return;
+  }
 
   const calificacion = await Calificacion.create({
     docenteId,

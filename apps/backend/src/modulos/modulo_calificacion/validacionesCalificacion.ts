@@ -21,5 +21,6 @@ export const esquemaCalificarExamen = z.object({
   evaluacionContinua: z.number().min(0).optional(),
   proyecto: z.number().min(0).optional(),
   retroalimentacion: z.string().optional(),
-  respuestasDetectadas: z.array(esquemaRespuestaDetectada).max(500).optional()
+  respuestasDetectadas: z.array(esquemaRespuestaDetectada).max(500).optional(),
+  soloPreview: z.boolean().optional()
 });
