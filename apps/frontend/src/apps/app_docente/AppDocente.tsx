@@ -105,7 +105,6 @@ type Plantilla = {
   preguntasIds?: string[];
   temas?: string[];
   instrucciones?: string;
-  configuracionPdf?: { margenMm?: number; layout?: string };
   createdAt?: string;
 };
 
@@ -3475,7 +3474,6 @@ function SeccionPlantillas({
   const [numeroPaginas, setNumeroPaginas] = useState(2);
   const [temasSeleccionados, setTemasSeleccionados] = useState<string[]>([]);
   const [instrucciones, setInstrucciones] = useState(INSTRUCCIONES_DEFAULT);
-  const [margenMm, setMargenMm] = useState<number>(10);
   const [mensaje, setMensaje] = useState('');
   const [plantillaId, setPlantillaId] = useState('');
   const [alumnoId, setAlumnoId] = useState('');
@@ -3750,7 +3748,6 @@ function SeccionPlantillas({
     // Defaults para creacion.
     if (!modoEdicion) {
       setInstrucciones(INSTRUCCIONES_DEFAULT);
-      setMargenMm(10);
     }
   }, [modoEdicion, INSTRUCCIONES_DEFAULT]);
 
@@ -3785,7 +3782,6 @@ function SeccionPlantillas({
     setNumeroPaginas(Number((plantilla as unknown as { numeroPaginas?: unknown })?.numeroPaginas ?? 1));
     setTemasSeleccionados(Array.isArray(plantilla.temas) ? plantilla.temas : []);
     setInstrucciones(String(plantilla.instrucciones || ''));
-    setMargenMm(Number(plantilla.configuracionPdf?.margenMm ?? 10));
     setMensaje('');
   }
 
@@ -3798,7 +3794,6 @@ function SeccionPlantillas({
     setNumeroPaginas(2);
     setTemasSeleccionados([]);
     setInstrucciones(INSTRUCCIONES_DEFAULT);
-    setMargenMm(10);
     setMensaje('');
   }
 
@@ -3813,8 +3808,7 @@ function SeccionPlantillas({
         titulo: titulo.trim(),
         tipo,
         numeroPaginas: Math.max(1, Math.floor(numeroPaginas)),
-        instrucciones: String(instrucciones || '').trim() || undefined,
-        configuracionPdf: { margenMm: Math.max(1, Math.floor(Number(margenMm) || 10)) }
+        instrucciones: String(instrucciones || '').trim() || undefined
       };
       if (periodoId) payload.periodoId = periodoId;
 
@@ -4006,8 +4000,7 @@ function SeccionPlantillas({
         tipo,
         titulo: titulo.trim(),
         instrucciones: String(instrucciones || '').trim() || undefined,
-        numeroPaginas: Math.max(1, Math.floor(numeroPaginas)),
-        configuracionPdf: { margenMm: Math.max(1, Math.floor(Number(margenMm) || 10)) }
+        numeroPaginas: Math.max(1, Math.floor(numeroPaginas))
       };
       const periodoIdNorm = String(periodoId || '').trim();
       if (periodoIdNorm) payload.periodoId = periodoIdNorm;
@@ -4110,10 +4103,6 @@ function SeccionPlantillas({
         <textarea value={instrucciones} onChange={(event) => setInstrucciones(event.target.value)} rows={3} />
       </label>
 
-      <label className="campo">
-        Margen PDF (mm)
-        <input type="number" value={margenMm} onChange={(event) => setMargenMm(Number(event.target.value))} />
-      </label>
       <label className="campo">
         Temas
         {periodoId && temasDisponibles.length === 0 && (
@@ -5127,6 +5116,7 @@ function SeccionEntrega({
   const [examenes, setExamenes] = useState<ExamenGeneradoEntrega[]>([]);
   const [cargando, setCargando] = useState(false);
   const [mensaje, setMensaje] = useState('');
+  const [deshaciendoFolio, setDeshaciendoFolio] = useState<string | null>(null);
 
   useEffect(() => {
     if (periodoId || periodos.length === 0) return;
@@ -5180,6 +5170,36 @@ function SeccionEntrega({
       await cargarExamenes();
     },
     [onVincular, cargarExamenes]
+  );
+
+  const deshacerEntrega = useCallback(
+    async (folio: string) => {
+      const confirmar = window.confirm(
+        `¿Deshacer la entrega del folio ${folio}? Esto desvincula al alumno y regresa el examen a "generado".`
+      );
+      if (!confirmar) return;
+      const motivo = window.prompt('Motivo para deshacer la entrega:', '');
+      try {
+        setDeshaciendoFolio(folio);
+        const payload: Record<string, string> = { folio };
+        if (motivo && motivo.trim()) payload.motivo = motivo.trim();
+        await clienteApi.enviar('/entregas/deshacer-folio', payload);
+        emitToast({ level: 'ok', title: 'Entrega', message: 'Entrega revertida', durationMs: 2200 });
+        await cargarExamenes();
+      } catch (error) {
+        const msg = mensajeDeError(error, 'No se pudo deshacer la entrega');
+        emitToast({
+          level: 'error',
+          title: 'No se pudo deshacer',
+          message: msg,
+          durationMs: 5200,
+          action: accionToastSesionParaError(error, 'docente')
+        });
+      } finally {
+        setDeshaciendoFolio((actual) => (actual === folio ? null : actual));
+      }
+    },
+    [cargarExamenes]
   );
 
   const filtroNormalizado = filtro.trim().toLowerCase();
@@ -5286,6 +5306,7 @@ function SeccionEntrega({
             {entregados.map((examen) => {
               const alumno = examen.alumnoId ? alumnosPorId.get(examen.alumnoId) : null;
               const alumnoTexto = alumno ? `${alumno.matricula} - ${alumno.nombreCompleto}` : 'Sin alumno';
+              const bloqueando = deshaciendoFolio === examen.folio;
               return (
                 <li key={examen._id}>
                   <div className="item-glass">
@@ -5297,6 +5318,22 @@ function SeccionEntrega({
                           <span>Entrega: {formatearFechaHora(examen.entregadoEn)}</span>
                           <span>Estado: {String(examen.estado ?? 'entregado')}</span>
                         </div>
+                      </div>
+                      <div className="item-actions">
+                        <Boton
+                          type="button"
+                          variante="secundario"
+                          disabled={bloqueando}
+                          onClick={() => void deshacerEntrega(examen.folio)}
+                        >
+                          {bloqueando ? (
+                            <>
+                              <Spinner /> Deshaciendo…
+                            </>
+                          ) : (
+                            'Deshacer entrega'
+                          )}
+                        </Boton>
                       </div>
                     </div>
                   </div>

@@ -79,3 +79,45 @@ export async function vincularEntregaPorFolio(req: SolicitudDocente, res: Respon
 
   res.status(201).json({ entrega });
 }
+
+/**
+ * Deshace la vinculacion/entrega por folio.
+ *
+ * Reglas:
+ * - El examen debe existir y pertenecer al docente autenticado.
+ * - Regresa el examen a estado "generado", limpiando alumno y fecha de entrega.
+ * - Actualiza la ultima entrega registrada a estado "pendiente".
+ */
+export async function deshacerEntregaPorFolio(req: SolicitudDocente, res: Response) {
+  const folio = String(req.body.folio || '').toUpperCase();
+  const motivo = String(req.body.motivo || '').trim();
+  const docenteId = obtenerDocenteId(req);
+
+  const examen = await ExamenGenerado.findOne({ folio, docenteId });
+  if (!examen) {
+    throw new ErrorAplicacion('EXAMEN_NO_ENCONTRADO', 'Examen no encontrado', 404);
+  }
+
+  const estadoActual = String(examen.estado ?? '').toLowerCase();
+  if (estadoActual === 'calificado') {
+    throw new ErrorAplicacion('ENTREGA_NO_REVERSIBLE', 'No se puede deshacer una entrega calificada', 409);
+  }
+  if (estadoActual !== 'entregado' && estadoActual !== 'calificado') {
+    return res.status(200).json({ actualizado: false, estado: examen.estado });
+  }
+
+  examen.alumnoId = null;
+  examen.estado = 'generado';
+  examen.entregadoEn = undefined;
+  await examen.save();
+
+  const entrega = await Entrega.findOne({ examenGeneradoId: examen._id, docenteId }).sort({ createdAt: -1 });
+  if (entrega) {
+    entrega.estado = 'pendiente';
+    entrega.fechaEntrega = undefined;
+    entrega.motivoDeshacer = motivo ? motivo : undefined;
+    await entrega.save();
+  }
+
+  res.status(200).json({ actualizado: true, estado: examen.estado });
+}
