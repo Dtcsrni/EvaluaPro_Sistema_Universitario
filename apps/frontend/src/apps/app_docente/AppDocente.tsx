@@ -7425,6 +7425,9 @@ function SeccionPaqueteSincronizacion({
   const [importando, setImportando] = useState(false);
   const [mensaje, setMensaje] = useState('');
   const [ultimoResumen, setUltimoResumen] = useState<Record<string, number> | null>(null);
+  const [ultimoExportEn, setUltimoExportEn] = useState<string | null>(null);
+  const [ultimoArchivoExportado, setUltimoArchivoExportado] = useState<string | null>(null);
+  const [ultimoArchivoImportado, setUltimoArchivoImportado] = useState<string | null>(null);
 
   function descargarJson(nombreArchivo: string, data: unknown) {
     const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
@@ -7453,6 +7456,7 @@ function SeccionPaqueteSincronizacion({
 
       const resp = await onExportar(payload);
       setUltimoResumen(resp.conteos);
+      setUltimoExportEn(resp.exportadoEn);
 
       const nombre = `sincronizacion_${(resp.exportadoEn || new Date().toISOString()).replace(/[:.]/g, '-')}.ep-sync.json`;
       descargarJson(nombre, {
@@ -7463,6 +7467,7 @@ function SeccionPaqueteSincronizacion({
         paqueteBase64: resp.paqueteBase64,
         ...(docenteCorreo ? { docenteCorreo } : {})
       });
+      setUltimoArchivoExportado(nombre);
 
       setMensaje('Paquete exportado (descarga iniciada)');
       emitToast({ level: 'ok', title: 'Sincronizacion', message: 'Paquete exportado', durationMs: 2400 });
@@ -7492,6 +7497,7 @@ function SeccionPaqueteSincronizacion({
       const inicio = Date.now();
       setImportando(true);
       setMensaje('');
+      setUltimoArchivoImportado(archivo.name);
 
       const texto = await archivo.text();
       const json = JSON.parse(texto) as {
@@ -7559,15 +7565,18 @@ function SeccionPaqueteSincronizacion({
   return (
     <div className="panel">
       <h2>
-        <Icono nombre="recargar" /> Sincronizar entre computadoras
+        <Icono nombre="recargar" /> Backups y exportaciones
       </h2>
       <AyudaFormulario titulo="Como funciona">
         <p>
-          <b>Objetivo:</b> mover tus materias/alumnos/banco/plantillas/examenes entre instalaciones del sistema (por archivo).
+          <b>Objetivo:</b> crear respaldos locales y mover tus materias/alumnos/banco/plantillas/examenes entre instalaciones (por archivo).
         </p>
         <ul className="lista">
           <li>
             <b>Exportar:</b> genera un archivo <code>.ep-sync.json</code> (compatible con <code>.seu-sync.json</code>).
+          </li>
+          <li>
+            <b>Guardar backup:</b> mueve el archivo exportado a una carpeta de respaldo (sugerido: <code>backups/</code> del proyecto).
           </li>
           <li>
             <b>Importar:</b> selecciona ese archivo en la otra computadora (misma cuenta docente).
@@ -7611,10 +7620,10 @@ function SeccionPaqueteSincronizacion({
 
       <div className="acciones">
         <Boton type="button" icono={<Icono nombre="publicar" />} cargando={exportando} onClick={exportar}>
-          {exportando ? 'Exportando…' : 'Exportar paquete'}
+          {exportando ? 'Exportando…' : 'Exportar backup'}
         </Boton>
         <label className={importando ? 'boton boton--secundario boton--disabled' : 'boton boton--secundario'}>
-          <Icono nombre="entrar" /> {importando ? 'Importando…' : 'Importar paquete'}
+          <Icono nombre="entrar" /> {importando ? 'Importando…' : 'Importar backup'}
           <input
             type="file"
             accept="application/json,.json,.ep-sync.json,.seu-sync.json"
@@ -7627,10 +7636,18 @@ function SeccionPaqueteSincronizacion({
 
       {ultimoResumen && (
         <InlineMensaje tipo="info">
-          Ultimo export: {Object.entries(ultimoResumen)
+          Ultimo export{ultimoExportEn ? ` (${new Date(ultimoExportEn).toLocaleString()})` : ''}: {Object.entries(ultimoResumen)
             .map(([k, v]) => `${k}: ${v}`)
             .join(' | ')}
         </InlineMensaje>
+      )}
+
+      {(ultimoArchivoExportado || ultimoArchivoImportado) && (
+        <div className="nota">
+          {ultimoArchivoExportado ? `Exportado: ${ultimoArchivoExportado}` : ''}
+          {ultimoArchivoExportado && ultimoArchivoImportado ? ' · ' : ''}
+          {ultimoArchivoImportado ? `Importado: ${ultimoArchivoImportado}` : ''}
+        </div>
       )}
 
       {mensaje && (
