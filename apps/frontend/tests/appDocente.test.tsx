@@ -28,6 +28,25 @@ describe('AppDocente', () => {
     expect(await screen.findByRole('navigation', { name: 'Secciones del portal docente' })).toBeInTheDocument();
   });
 
+  it('oculta secciones sin permisos', async () => {
+    localStorage.setItem('tokenDocente', 'token-falso');
+    (globalThis as typeof globalThis & { __TEST_DOCENTE__?: Record<string, unknown> }).__TEST_DOCENTE__ = {
+      permisos: ['periodos:leer', 'cuenta:leer']
+    };
+
+    render(
+      <TemaProvider>
+        <AppDocente />
+      </TemaProvider>
+    );
+
+    const nav = await screen.findByRole('navigation', { name: 'Secciones del portal docente' });
+    expect(within(nav).getByRole('button', { name: 'Materias' })).toBeInTheDocument();
+    expect(within(nav).getByRole('button', { name: 'Cuenta' })).toBeInTheDocument();
+    expect(within(nav).queryByRole('button', { name: 'Banco' })).toBeNull();
+    expect(within(nav).queryByRole('button', { name: 'Plantillas' })).toBeNull();
+  });
+
   it('permite crear materia sin crashear el render', async () => {
     localStorage.setItem('tokenDocente', 'token-falso');
     const user = userEvent.setup();
@@ -52,4 +71,3 @@ describe('AppDocente', () => {
     expect(await screen.findByText('Materia creada')).toBeInTheDocument();
   });
 });
-

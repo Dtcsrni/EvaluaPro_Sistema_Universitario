@@ -20,6 +20,7 @@ import rutasEscaneoOmr from './modulos/modulo_escaneo_omr/rutasEscaneoOmr';
 import rutasCalificaciones from './modulos/modulo_calificacion/rutasCalificaciones';
 import rutasAnaliticas from './modulos/modulo_analiticas/rutasAnaliticas';
 import rutasSincronizacionNube from './modulos/modulo_sincronizacion_nube/rutasSincronizacionNube';
+import rutasAdminDocentes from './modulos/modulo_admin_docentes/rutasAdminDocentes';
 
 export function crearRouterApi() {
   const router = Router();
@@ -39,6 +40,7 @@ export function crearRouterApi() {
   router.use('/calificaciones', rutasCalificaciones);
   router.use('/analiticas', rutasAnaliticas);
   router.use('/sincronizaciones', rutasSincronizacionNube);
+  router.use('/admin', rutasAdminDocentes);
 
   return router;
 }

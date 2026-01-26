@@ -24,19 +24,20 @@ import {
 	esquemaPublicarResultados,
 	esquemaTraerPaquetesServidor
 } from './validacionesSincronizacion';
+import { requerirPermiso } from '../modulo_autenticacion/middlewarePermisos';
 
 const router = Router();
 
-router.get('/', listarSincronizaciones);
-router.post('/publicar', validarCuerpo(esquemaPublicarResultados, { strict: true }), publicarResultados);
-router.post('/codigo-acceso', validarCuerpo(esquemaGenerarCodigoAcceso, { strict: true }), generarCodigoAcceso);
+router.get('/', requerirPermiso('sincronizacion:listar'), listarSincronizaciones);
+router.post('/publicar', requerirPermiso('calificaciones:publicar'), validarCuerpo(esquemaPublicarResultados, { strict: true }), publicarResultados);
+router.post('/codigo-acceso', requerirPermiso('calificaciones:publicar'), validarCuerpo(esquemaGenerarCodigoAcceso, { strict: true }), generarCodigoAcceso);
 
 // Sincronizacion entre computadoras (paquete export/import)
-router.post('/paquete/exportar', validarCuerpo(esquemaExportarPaquete, { strict: true }), exportarPaquete);
-router.post('/paquete/importar', validarCuerpo(esquemaImportarPaquete, { strict: true }), importarPaquete);
+router.post('/paquete/exportar', requerirPermiso('sincronizacion:exportar'), validarCuerpo(esquemaExportarPaquete, { strict: true }), exportarPaquete);
+router.post('/paquete/importar', requerirPermiso('sincronizacion:importar'), validarCuerpo(esquemaImportarPaquete, { strict: true }), importarPaquete);
 
 // Sincronizacion asincrona (push/pull) con servidor intermedio.
-router.post('/push', validarCuerpo(esquemaEnviarPaqueteServidor, { strict: true }), enviarPaqueteServidor);
-router.post('/pull', validarCuerpo(esquemaTraerPaquetesServidor, { strict: true }), traerPaquetesServidor);
+router.post('/push', requerirPermiso('sincronizacion:push'), validarCuerpo(esquemaEnviarPaqueteServidor, { strict: true }), enviarPaqueteServidor);
+router.post('/pull', requerirPermiso('sincronizacion:pull'), validarCuerpo(esquemaTraerPaquetesServidor, { strict: true }), traerPaquetesServidor);
 
 export default router;

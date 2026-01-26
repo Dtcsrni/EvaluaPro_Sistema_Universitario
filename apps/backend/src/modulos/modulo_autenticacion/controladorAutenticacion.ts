@@ -11,6 +11,12 @@ import { crearTokenDocente } from './servicioTokens';
 import { obtenerDocenteId, type SolicitudDocente } from './middlewareAutenticacion';
 import { cerrarSesionDocente, emitirSesionDocente, refrescarSesionDocente, revocarSesionesDocente } from './servicioSesiones';
 import { verificarCredencialGoogle } from './servicioGoogle';
+import { permisosComoLista, normalizarRoles } from '../../infraestructura/seguridad/rbac';
+
+function rolesParaToken(roles: unknown): string[] {
+  const normalizados = normalizarRoles(roles);
+  return normalizados.length > 0 ? normalizados : ['docente'];
+}
 
 export async function registrarDocente(req: Request, res: Response) {
   const { nombres, apellidos, nombreCompleto, correo, contrasena } = req.body;
@@ -40,12 +46,13 @@ export async function registrarDocente(req: Request, res: Response) {
     nombreCompleto: String(nombreCompleto ?? '').trim(),
     correo: correoFinal,
     hashContrasena,
+    roles: ['docente'],
     activo: true,
     ultimoAcceso: new Date()
   });
 
   await emitirSesionDocente(res, String(docente._id));
-  const token = crearTokenDocente({ docenteId: String(docente._id) });
+  const token = crearTokenDocente({ docenteId: String(docente._id), roles: rolesParaToken(docente.roles) });
   res.status(201).json({
     token,
     docente: {
@@ -79,19 +86,20 @@ export async function registrarDocenteGoogle(req: Request, res: Response) {
   const hashContrasena = contrasenaStr.trim() ? await crearHash(contrasenaStr) : undefined;
   const nombreCompletoReq = String(nombreCompleto ?? '').trim();
   const nombreCompletoFinal = nombreCompletoReq || String(perfil.nombreCompleto ?? '').trim();
-  const docente = await Docente.create({
-    ...(typeof nombres === 'string' && String(nombres).trim() ? { nombres: String(nombres).trim() } : {}),
-    ...(typeof apellidos === 'string' && String(apellidos).trim() ? { apellidos: String(apellidos).trim() } : {}),
-    ...(nombreCompletoFinal ? { nombreCompleto: nombreCompletoFinal } : { nombreCompleto: String(perfil.nombreCompleto ?? '').trim() }),
-    correo,
-    ...(hashContrasena ? { hashContrasena } : {}),
-    googleSub: perfil.sub,
-    activo: true,
-    ultimoAcceso: new Date()
-  });
+    const docente = await Docente.create({
+      ...(typeof nombres === 'string' && String(nombres).trim() ? { nombres: String(nombres).trim() } : {}),
+      ...(typeof apellidos === 'string' && String(apellidos).trim() ? { apellidos: String(apellidos).trim() } : {}),
+      ...(nombreCompletoFinal ? { nombreCompleto: nombreCompletoFinal } : { nombreCompleto: String(perfil.nombreCompleto ?? '').trim() }),
+      correo,
+      ...(hashContrasena ? { hashContrasena } : {}),
+      googleSub: perfil.sub,
+      roles: ['docente'],
+      activo: true,
+      ultimoAcceso: new Date()
+    });
 
-  await emitirSesionDocente(res, String(docente._id));
-  const token = crearTokenDocente({ docenteId: String(docente._id) });
+    await emitirSesionDocente(res, String(docente._id));
+    const token = crearTokenDocente({ docenteId: String(docente._id), roles: rolesParaToken(docente.roles) });
   res.status(201).json({
     token,
     docente: {
@@ -144,7 +152,7 @@ export async function ingresarDocente(req: Request, res: Response) {
   await docente.save();
 
   await emitirSesionDocente(res, String(docente._id));
-  const token = crearTokenDocente({ docenteId: String(docente._id) });
+  const token = crearTokenDocente({ docenteId: String(docente._id), roles: rolesParaToken(docente.roles) });
   res.json({
     token,
     docente: {
@@ -181,7 +189,7 @@ export async function ingresarDocenteGoogle(req: Request, res: Response) {
   await docente.save();
 
   await emitirSesionDocente(res, String(docente._id));
-  const token = crearTokenDocente({ docenteId: String(docente._id) });
+  const token = crearTokenDocente({ docenteId: String(docente._id), roles: rolesParaToken(docente.roles) });
   res.json({
     token,
     docente: {
@@ -222,7 +230,7 @@ export async function recuperarContrasenaGoogle(req: Request, res: Response) {
   await revocarSesionesDocente(String(docente._id));
   await emitirSesionDocente(res, String(docente._id));
 
-  const token = crearTokenDocente({ docenteId: String(docente._id) });
+  const token = crearTokenDocente({ docenteId: String(docente._id), roles: rolesParaToken(docente.roles) });
   res.json({ token });
 }
 
@@ -237,7 +245,7 @@ export async function refrescarDocente(req: Request, res: Response) {
   docente.ultimoAcceso = new Date();
   await docente.save();
 
-  const token = crearTokenDocente({ docenteId: String(docente._id) });
+  const token = crearTokenDocente({ docenteId: String(docente._id), roles: rolesParaToken(docente.roles) });
   res.json({ token });
 }
 
@@ -309,11 +317,14 @@ export async function perfilDocente(req: SolicitudDocente, res: Response) {
   if (!docente) {
     throw new ErrorAplicacion('DOCENTE_NO_ENCONTRADO', 'Docente no encontrado', 404);
   }
+  const roles = rolesParaToken((docente as unknown as { roles?: unknown }).roles);
   res.json({
     docente: {
       id: docente._id,
       nombreCompleto: docente.nombreCompleto,
       correo: docente.correo,
+      roles,
+      permisos: permisosComoLista(roles),
       tieneContrasena: Boolean(docente.hashContrasena),
       tieneGoogle: Boolean(docente.googleSub),
       preferenciasPdf: {

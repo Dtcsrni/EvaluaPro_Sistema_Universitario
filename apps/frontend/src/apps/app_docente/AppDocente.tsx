@@ -53,6 +53,8 @@ type Docente = {
   nombres?: string;
   apellidos?: string;
   correo: string;
+  roles?: string[];
+  permisos?: string[];
   tieneContrasena?: boolean;
   tieneGoogle?: boolean;
   preferenciasPdf?: {
@@ -182,6 +184,28 @@ type ResultadoOmr = {
   qrTexto?: string;
 };
 
+type PermisosUI = {
+  periodos: { leer: boolean; gestionar: boolean; archivar: boolean };
+  alumnos: { leer: boolean; gestionar: boolean };
+  banco: { leer: boolean; gestionar: boolean; archivar: boolean };
+  plantillas: { leer: boolean; gestionar: boolean; archivar: boolean; previsualizar: boolean };
+  examenes: { leer: boolean; generar: boolean; archivar: boolean; regenerar: boolean; descargar: boolean };
+  entregas: { gestionar: boolean };
+  omr: { analizar: boolean };
+  calificaciones: { calificar: boolean };
+  publicar: { publicar: boolean };
+  sincronizacion: { listar: boolean; exportar: boolean; importar: boolean; push: boolean; pull: boolean };
+  cuenta: { leer: boolean; actualizar: boolean };
+};
+
+type EnviarConPermiso = <T = unknown>(
+  permiso: string,
+  ruta: string,
+  payload: unknown,
+  mensaje: string,
+  opciones?: { timeoutMs?: number }
+) => Promise<T>;
+
 type PreviewCalificacion = {
   aciertos: number;
   totalReactivos: number;
@@ -303,6 +327,74 @@ function AyudaFormulario({ titulo, children }: { titulo: string; children: React
 export function AppDocente() {
   const [docente, setDocente] = useState<Docente | null>(null);
   const [vista, setVista] = useState(obtenerVistaInicial());
+  const esDev = import.meta.env.DEV;
+  const esAdmin = Boolean(docente?.roles?.includes('admin'));
+  const permisosDocente = useMemo(() => new Set(docente?.permisos ?? []), [docente?.permisos]);
+  const puede = useCallback((permiso: string) => permisosDocente.has(permiso), [permisosDocente]);
+  const permisosUI = useMemo(
+    () => ({
+      periodos: {
+        leer: puede('periodos:leer'),
+        gestionar: puede('periodos:gestionar'),
+        archivar: puede('periodos:archivar')
+      },
+      alumnos: {
+        leer: puede('alumnos:leer'),
+        gestionar: puede('alumnos:gestionar')
+      },
+      banco: {
+        leer: puede('banco:leer'),
+        gestionar: puede('banco:gestionar'),
+        archivar: puede('banco:archivar')
+      },
+      plantillas: {
+        leer: puede('plantillas:leer'),
+        gestionar: puede('plantillas:gestionar'),
+        archivar: puede('plantillas:archivar'),
+        previsualizar: puede('plantillas:previsualizar')
+      },
+      examenes: {
+        leer: puede('examenes:leer'),
+        generar: puede('examenes:generar'),
+        archivar: puede('examenes:archivar'),
+        regenerar: puede('examenes:regenerar'),
+        descargar: puede('examenes:descargar')
+      },
+      entregas: { gestionar: puede('entregas:gestionar') },
+      omr: { analizar: puede('omr:analizar') },
+      calificaciones: { calificar: puede('calificaciones:calificar') },
+      publicar: { publicar: puede('calificaciones:publicar') },
+      sincronizacion: {
+        listar: puede('sincronizacion:listar'),
+        exportar: puede('sincronizacion:exportar'),
+        importar: puede('sincronizacion:importar'),
+        push: puede('sincronizacion:push'),
+        pull: puede('sincronizacion:pull')
+      },
+      cuenta: { leer: puede('cuenta:leer'), actualizar: puede('cuenta:actualizar') }
+    }),
+    [puede]
+  );
+  const puedeEliminarPlantillaDev = esDev && esAdmin && puede('plantillas:eliminar_dev');
+  const avisarSinPermiso = useCallback((mensaje: string) => {
+    emitToast({ level: 'warn', title: 'Sin permisos', message: mensaje, durationMs: 4200 });
+  }, []);
+  const enviarConPermiso = useCallback(
+    <T,>(
+      permiso: string,
+      ruta: string,
+      payload: unknown,
+      mensaje: string,
+      opciones?: { timeoutMs?: number }
+    ): Promise<T> => {
+      if (!puede(permiso)) {
+        avisarSinPermiso(mensaje);
+        return Promise.reject(new Error('SIN_PERMISO'));
+      }
+      return clienteApi.enviar(ruta, payload, opciones);
+    },
+    [avisarSinPermiso, puede]
+  );
   const [alumnos, setAlumnos] = useState<Alumno[]>([]);
   const [periodos, setPeriodos] = useState<Periodo[]>([]);
   const [periodosArchivados, setPeriodosArchivados] = useState<Periodo[]>([]);
@@ -333,25 +425,34 @@ export function AppDocente() {
     });
   }, []);
 
-  const itemsVista = useMemo(
-    () =>
-      [
-        { id: 'periodos', label: 'Materias', icono: 'periodos' as const },
-        { id: 'alumnos', label: 'Alumnos', icono: 'alumnos' as const },
-        { id: 'banco', label: 'Banco', icono: 'banco' as const },
-        { id: 'plantillas', label: 'Plantillas', icono: 'plantillas' as const },
-        { id: 'entrega', label: 'Entrega', icono: 'recepcion' as const },
-        { id: 'calificaciones', label: 'Calificaciones', icono: 'calificar' as const },
-        { id: 'publicar', label: 'Sincronización', icono: 'publicar' as const },
-        { id: 'cuenta', label: 'Cuenta', icono: 'info' as const }
-      ],
-    []
-  );
+  const itemsVista = useMemo(() => {
+    const puedeCalificar = puede('calificaciones:calificar') || puede('omr:analizar');
+    const puedePublicar = puede('sincronizacion:listar') || puede('calificaciones:publicar');
+    const items = [
+      { id: 'periodos', label: 'Materias', icono: 'periodos' as const, mostrar: puede('periodos:leer') },
+      { id: 'alumnos', label: 'Alumnos', icono: 'alumnos' as const, mostrar: puede('alumnos:leer') },
+      { id: 'banco', label: 'Banco', icono: 'banco' as const, mostrar: puede('banco:leer') },
+      { id: 'plantillas', label: 'Plantillas', icono: 'plantillas' as const, mostrar: puede('plantillas:leer') },
+      { id: 'entrega', label: 'Entrega', icono: 'recepcion' as const, mostrar: puede('entregas:gestionar') },
+      { id: 'calificaciones', label: 'Calificaciones', icono: 'calificar' as const, mostrar: puedeCalificar },
+      { id: 'publicar', label: 'Sincronización', icono: 'publicar' as const, mostrar: puedePublicar },
+      { id: 'cuenta', label: 'Cuenta', icono: 'info' as const, mostrar: puede('cuenta:leer') }
+    ];
+    return items.filter((item) => item.mostrar);
+  }, [puede]);
 
   const tabsRef = useRef<Array<HTMLButtonElement | null>>([]);
   const montadoRef = useRef(true);
 
   // Nota UX: ocultamos el badge de estado API (no aporta al flujo docente).
+
+  useEffect(() => {
+    if (itemsVista.length === 0) return;
+    const vistaBase = vista === 'periodos_archivados' ? 'periodos' : vista;
+    if (!itemsVista.some((item) => item.id === vistaBase)) {
+      setVista(itemsVista[0].id);
+    }
+  }, [itemsVista, vista]);
 
   useEffect(() => {
     let activo = true;
@@ -398,51 +499,90 @@ export function AppDocente() {
     if (!docente) return;
     if (montadoRef.current) setCargandoDatos(true);
     try {
-      const [al, peActivas, peArchivadas, pl, pr] = await Promise.all([
-        clienteApi.obtener<{ alumnos: Alumno[] }>('/alumnos'),
-        clienteApi.obtener<{ periodos?: Periodo[]; materias?: Periodo[] }>('/periodos?activo=1'),
-        clienteApi.obtener<{ periodos?: Periodo[]; materias?: Periodo[] }>('/periodos?activo=0'),
-        clienteApi.obtener<{ plantillas: Plantilla[] }>('/examenes/plantillas'),
-        clienteApi.obtener<{ preguntas: Pregunta[] }>('/banco-preguntas')
-      ]);
+      const tareas: Array<Promise<void>> = [];
 
-      if (!montadoRef.current) return;
-
-      setAlumnos(al.alumnos);
-      const activas = (peActivas as unknown as { periodos?: Periodo[]; materias?: Periodo[] }).periodos ??
-        (peActivas as unknown as { periodos?: Periodo[]; materias?: Periodo[] }).materias ??
-        [];
-      const archivadas = (peArchivadas as unknown as { periodos?: Periodo[]; materias?: Periodo[] }).periodos ??
-        (peArchivadas as unknown as { periodos?: Periodo[]; materias?: Periodo[] }).materias ??
-        [];
-
-      const activasArray = Array.isArray(activas) ? activas : [];
-      const archivadasArray = Array.isArray(archivadas) ? archivadas : [];
-
-      const ids = (lista: Periodo[]) => lista.map((m) => m._id).filter(Boolean).sort().join('|');
-      const mismoContenido = activasArray.length > 0 && ids(activasArray) === ids(archivadasArray);
-
-      // Fallback: si el backend ignora ?activo y devuelve lo mismo, separa localmente.
-      if (mismoContenido) {
-        setPeriodos(activasArray.filter((m) => m.activo !== false));
-        setPeriodosArchivados(activasArray.filter((m) => m.activo === false));
+      if (permisosUI.alumnos.leer) {
+        tareas.push(
+          clienteApi.obtener<{ alumnos: Alumno[] }>('/alumnos').then((al) => {
+            if (montadoRef.current) setAlumnos(al.alumnos);
+          })
+        );
       } else {
-        setPeriodos(activasArray);
-        setPeriodosArchivados(archivadasArray);
+        setAlumnos([]);
       }
-      setPlantillas(pl.plantillas);
-      setPreguntas(pr.preguntas);
+
+      if (permisosUI.periodos.leer) {
+        tareas.push(
+          Promise.all([
+            clienteApi.obtener<{ periodos?: Periodo[]; materias?: Periodo[] }>('/periodos?activo=1'),
+            clienteApi.obtener<{ periodos?: Periodo[]; materias?: Periodo[] }>('/periodos?activo=0')
+          ]).then(([peActivas, peArchivadas]) => {
+            if (!montadoRef.current) return;
+            const activas = (peActivas as unknown as { periodos?: Periodo[]; materias?: Periodo[] }).periodos ??
+              (peActivas as unknown as { periodos?: Periodo[]; materias?: Periodo[] }).materias ??
+              [];
+            const archivadas = (peArchivadas as unknown as { periodos?: Periodo[]; materias?: Periodo[] }).periodos ??
+              (peArchivadas as unknown as { periodos?: Periodo[]; materias?: Periodo[] }).materias ??
+              [];
+
+            const activasArray = Array.isArray(activas) ? activas : [];
+            const archivadasArray = Array.isArray(archivadas) ? archivadas : [];
+
+            const ids = (lista: Periodo[]) => lista.map((m) => m._id).filter(Boolean).sort().join('|');
+            const mismoContenido = activasArray.length > 0 && ids(activasArray) === ids(archivadasArray);
+
+            // Fallback: si el backend ignora ?activo y devuelve lo mismo, separa localmente.
+            if (mismoContenido) {
+              setPeriodos(activasArray.filter((m) => m.activo !== false));
+              setPeriodosArchivados(activasArray.filter((m) => m.activo === false));
+            } else {
+              setPeriodos(activasArray);
+              setPeriodosArchivados(archivadasArray);
+            }
+          })
+        );
+      } else {
+        setPeriodos([]);
+        setPeriodosArchivados([]);
+      }
+
+      if (permisosUI.plantillas.leer) {
+        tareas.push(
+          clienteApi.obtener<{ plantillas: Plantilla[] }>('/examenes/plantillas').then((pl) => {
+            if (montadoRef.current) setPlantillas(pl.plantillas);
+          })
+        );
+      } else {
+        setPlantillas([]);
+      }
+
+      if (permisosUI.banco.leer) {
+        tareas.push(
+          clienteApi.obtener<{ preguntas: Pregunta[] }>('/banco-preguntas').then((pr) => {
+            if (montadoRef.current) setPreguntas(pr.preguntas);
+          })
+        );
+      } else {
+        setPreguntas([]);
+      }
+
+      await Promise.all(tareas);
       setUltimaActualizacionDatos(Date.now());
     } finally {
       if (montadoRef.current) setCargandoDatos(false);
     }
-  }, [docente]);
+  }, [docente, permisosUI.alumnos.leer, permisosUI.banco.leer, permisosUI.periodos.leer, permisosUI.plantillas.leer]);
 
   useEffect(() => {
     void refrescarDatos();
   }, [refrescarDatos]);
 
   function refrescarMaterias() {
+    if (!permisosUI.periodos.leer) {
+      setPeriodos([]);
+      setPeriodosArchivados([]);
+      return Promise.resolve();
+    }
     return Promise.all([
       clienteApi.obtener<{ periodos?: Periodo[]; materias?: Periodo[] }>('/periodos?activo=1'),
       clienteApi.obtener<{ periodos?: Periodo[]; materias?: Periodo[] }>('/periodos?activo=0')
@@ -526,12 +666,23 @@ export function AppDocente() {
         <SeccionBanco
           preguntas={preguntas}
           periodos={periodos}
-          onRefrescar={() =>
-            clienteApi.obtener<{ preguntas: Pregunta[] }>('/banco-preguntas').then((p) => setPreguntas(p.preguntas))
-          }
-          onRefrescarPlantillas={() =>
-            clienteApi.obtener<{ plantillas: Plantilla[] }>('/examenes/plantillas').then((p) => setPlantillas(p.plantillas))
-          }
+          permisos={permisosUI}
+          enviarConPermiso={enviarConPermiso}
+          avisarSinPermiso={avisarSinPermiso}
+          onRefrescar={() => {
+            if (!permisosUI.banco.leer) {
+              avisarSinPermiso('No tienes permiso para ver el banco.');
+              return Promise.reject(new Error('SIN_PERMISO'));
+            }
+            return clienteApi.obtener<{ preguntas: Pregunta[] }>('/banco-preguntas').then((p) => setPreguntas(p.preguntas));
+          }}
+          onRefrescarPlantillas={() => {
+            if (!permisosUI.plantillas.leer) {
+              avisarSinPermiso('No tienes permiso para ver plantillas.');
+              return Promise.reject(new Error('SIN_PERMISO'));
+            }
+            return clienteApi.obtener<{ plantillas: Plantilla[] }>('/examenes/plantillas').then((p) => setPlantillas(p.plantillas));
+          }}
         />
       )}
 
@@ -540,6 +691,9 @@ export function AppDocente() {
           periodos={periodos}
           onRefrescar={refrescarMaterias}
           onVerArchivadas={() => setVista('periodos_archivados')}
+          permisos={permisosUI}
+          enviarConPermiso={enviarConPermiso}
+          avisarSinPermiso={avisarSinPermiso}
         />
       )}
 
@@ -555,7 +709,16 @@ export function AppDocente() {
           alumnos={alumnos}
           periodosActivos={periodos}
           periodosTodos={[...periodos, ...periodosArchivados]}
-          onRefrescar={() => clienteApi.obtener<{ alumnos: Alumno[] }>('/alumnos').then((p) => setAlumnos(p.alumnos))}
+          permisos={permisosUI}
+          enviarConPermiso={enviarConPermiso}
+          avisarSinPermiso={avisarSinPermiso}
+          onRefrescar={() => {
+            if (!permisosUI.alumnos.leer) {
+              avisarSinPermiso('No tienes permiso para ver alumnos.');
+              return Promise.reject(new Error('SIN_PERMISO'));
+            }
+            return clienteApi.obtener<{ alumnos: Alumno[] }>('/alumnos').then((p) => setAlumnos(p.alumnos));
+          }}
         />
       )}
 
@@ -564,8 +727,18 @@ export function AppDocente() {
           plantillas={plantillas}
           periodos={periodos}
           preguntas={preguntas}
+          permisos={permisosUI}
+          puedeEliminarPlantillaDev={puedeEliminarPlantillaDev}
+          enviarConPermiso={enviarConPermiso}
+          avisarSinPermiso={avisarSinPermiso}
           alumnos={alumnos}
-          onRefrescar={() => clienteApi.obtener<{ plantillas: Plantilla[] }>('/examenes/plantillas').then((p) => setPlantillas(p.plantillas))}
+          onRefrescar={() => {
+            if (!permisosUI.plantillas.leer) {
+              avisarSinPermiso('No tienes permiso para ver plantillas.');
+              return Promise.reject(new Error('SIN_PERMISO'));
+            }
+            return clienteApi.obtener<{ plantillas: Plantilla[] }>('/examenes/plantillas').then((p) => setPlantillas(p.plantillas));
+          }}
         />
       )}
 
@@ -573,14 +746,29 @@ export function AppDocente() {
         <SeccionEntrega
           alumnos={alumnos}
           periodos={periodos}
-          onVincular={(folio, alumnoId) => clienteApi.enviar('/entregas/vincular-folio', { folio, alumnoId })}
+          permisos={permisosUI}
+          avisarSinPermiso={avisarSinPermiso}
+          enviarConPermiso={enviarConPermiso}
+          onVincular={(folio, alumnoId) => {
+            if (!permisosUI.entregas.gestionar) {
+              avisarSinPermiso('No tienes permiso para vincular entregas.');
+              return Promise.reject(new Error('SIN_PERMISO'));
+            }
+            return clienteApi.enviar('/entregas/vincular-folio', { folio, alumnoId });
+          }}
         />
       )}
 
       {vista === 'calificaciones' && (
         <SeccionCalificaciones
           alumnos={alumnos}
+          permisos={permisosUI}
+          avisarSinPermiso={avisarSinPermiso}
           onAnalizar={async (folio, numeroPagina, imagenBase64) => {
+            if (!permisosUI.omr.analizar) {
+              avisarSinPermiso('No tienes permiso para analizar OMR.');
+              throw new Error('SIN_PERMISO');
+            }
             const respuesta = await clienteApi.enviar<ResultadoAnalisisOmr>('/omr/analizar', {
               folio,
               numeroPagina,
@@ -592,15 +780,25 @@ export function AppDocente() {
             setExamenAlumnoId(respuesta.alumnoId ?? null);
             return respuesta;
           }}
-          onPrevisualizar={async (payload) =>
-            clienteApi.enviar<{ preview: PreviewCalificacion }>('/calificaciones/calificar', { ...payload, soloPreview: true })
-          }
+          onPrevisualizar={async (payload) => {
+            if (!permisosUI.calificaciones.calificar) {
+              avisarSinPermiso('No tienes permiso para calificar.');
+              throw new Error('SIN_PERMISO');
+            }
+            return clienteApi.enviar<{ preview: PreviewCalificacion }>('/calificaciones/calificar', { ...payload, soloPreview: true });
+          }}
           resultado={resultadoOmr}
           respuestas={respuestasEditadas}
           onActualizar={(nuevas) => setRespuestasEditadas(nuevas)}
           examenId={examenIdOmr}
           alumnoId={examenAlumnoId}
-          onCalificar={(payload) => clienteApi.enviar('/calificaciones/calificar', payload)}
+          onCalificar={(payload) => {
+            if (!permisosUI.calificaciones.calificar) {
+              avisarSinPermiso('No tienes permiso para calificar.');
+              return Promise.reject(new Error('SIN_PERMISO'));
+            }
+            return clienteApi.enviar('/calificaciones/calificar', payload);
+          }}
         />
       )}
 
@@ -613,21 +811,39 @@ export function AppDocente() {
           preguntas={preguntas}
           ultimaActualizacionDatos={ultimaActualizacionDatos}
           docenteCorreo={docente?.correo}
-          onPublicar={(periodoId) => clienteApi.enviar('/sincronizaciones/publicar', { periodoId })}
-          onCodigo={(periodoId) =>
-            clienteApi.enviar<{ codigo?: string; expiraEn?: string }>('/sincronizaciones/codigo-acceso', { periodoId })
-          }
-          onExportarPaquete={(payload) =>
-            clienteApi.enviar<{
+          onPublicar={(periodoId) => {
+            if (!permisosUI.publicar.publicar) {
+              avisarSinPermiso('No tienes permiso para publicar resultados.');
+              return Promise.reject(new Error('SIN_PERMISO'));
+            }
+            return clienteApi.enviar('/sincronizaciones/publicar', { periodoId });
+          }}
+          onCodigo={(periodoId) => {
+            if (!permisosUI.publicar.publicar) {
+              avisarSinPermiso('No tienes permiso para generar codigos.');
+              return Promise.reject(new Error('SIN_PERMISO'));
+            }
+            return clienteApi.enviar<{ codigo?: string; expiraEn?: string }>('/sincronizaciones/codigo-acceso', { periodoId });
+          }}
+          onExportarPaquete={(payload) => {
+            if (!permisosUI.sincronizacion.exportar) {
+              avisarSinPermiso('No tienes permiso para exportar.');
+              return Promise.reject(new Error('SIN_PERMISO'));
+            }
+            return clienteApi.enviar<{
               paqueteBase64: string;
               checksumSha256: string;
               checksumGzipSha256?: string;
               exportadoEn: string;
               conteos: Record<string, number>;
-            }>('/sincronizaciones/paquete/exportar', payload)
-          }
+            }>('/sincronizaciones/paquete/exportar', payload);
+          }}
           onImportarPaquete={(payload) =>
             (async () => {
+              if (!permisosUI.sincronizacion.importar) {
+                avisarSinPermiso('No tienes permiso para importar.');
+                throw new Error('SIN_PERMISO');
+              }
               const respuesta = await clienteApi.enviar<
                 | { mensaje?: string; resultados?: unknown[]; pdfsGuardados?: number }
                 | { mensaje?: string; checksumSha256?: string; conteos?: Record<string, number> }
@@ -638,8 +854,20 @@ export function AppDocente() {
               return respuesta;
             })()
           }
-          onPushServidor={(payload) => clienteApi.enviar<RespuestaSyncPush>('/sincronizaciones/push', payload)}
-          onPullServidor={(payload) => clienteApi.enviar<RespuestaSyncPull>('/sincronizaciones/pull', payload)}
+          onPushServidor={(payload) => {
+            if (!permisosUI.sincronizacion.push) {
+              avisarSinPermiso('No tienes permiso para enviar al servidor.');
+              return Promise.reject(new Error('SIN_PERMISO'));
+            }
+            return clienteApi.enviar<RespuestaSyncPush>('/sincronizaciones/push', payload);
+          }}
+          onPullServidor={(payload) => {
+            if (!permisosUI.sincronizacion.pull) {
+              avisarSinPermiso('No tienes permiso para traer del servidor.');
+              return Promise.reject(new Error('SIN_PERMISO'));
+            }
+            return clienteApi.enviar<RespuestaSyncPull>('/sincronizaciones/pull', payload);
+          }}
         />
       )}
 
@@ -1623,11 +1851,17 @@ function SeccionCuenta({ docente, onDocenteActualizado }: { docente: Docente; on
 function SeccionBanco({
   preguntas,
   periodos,
+  permisos,
+  enviarConPermiso,
+  avisarSinPermiso,
   onRefrescar,
   onRefrescarPlantillas
 }: {
   preguntas: Pregunta[];
   periodos: Periodo[];
+  permisos: PermisosUI;
+  enviarConPermiso: EnviarConPermiso;
+  avisarSinPermiso: (mensaje: string) => void;
   onRefrescar: () => void;
   onRefrescarPlantillas: () => void;
 }) {
@@ -1758,6 +1992,10 @@ function SeccionBanco({
   const [archivandoTemaId, setArchivandoTemaId] = useState<string | null>(null);
   const [temasAbierto, setTemasAbierto] = useState(true);
   const temasPrevLenRef = useRef(0);
+  const puedeLeer = permisos.banco.leer;
+  const puedeGestionar = permisos.banco.gestionar;
+  const puedeArchivar = permisos.banco.archivar;
+  const bloqueoEdicion = !puedeGestionar;
 
   const [ajusteTemaId, setAjusteTemaId] = useState<string | null>(null);
   const [ajustePaginasObjetivo, setAjustePaginasObjetivo] = useState<number>(1);
@@ -1782,6 +2020,10 @@ function SeccionBanco({
 
   const refrescarTemas = useCallback(async () => {
     if (!periodoId) {
+      setTemasBanco([]);
+      return;
+    }
+    if (!puedeLeer) {
       setTemasBanco([]);
       return;
     }
@@ -1984,22 +2226,36 @@ function SeccionBanco({
     if (ids.length === 0) return;
 
     if (ajusteAccion === 'mover' && !ajusteTemaDestinoId) return;
+    if (!puedeGestionar) {
+      avisarSinPermiso('No tienes permiso para gestionar el banco.');
+      return;
+    }
     try {
       setMoviendoTema(true);
       setMensaje('');
 
       if (ajusteAccion === 'mover') {
-        await clienteApi.enviar('/banco-preguntas/mover-tema', {
-          periodoId,
-          temaIdDestino: ajusteTemaDestinoId,
-          preguntasIds: ids
-        });
+        await enviarConPermiso(
+          'banco:gestionar',
+          '/banco-preguntas/mover-tema',
+          {
+            periodoId,
+            temaIdDestino: ajusteTemaDestinoId,
+            preguntasIds: ids
+          },
+          'No tienes permiso para mover preguntas.'
+        );
         emitToast({ level: 'ok', title: 'Banco', message: `Movidas ${ids.length} preguntas`, durationMs: 2200 });
       } else {
-        await clienteApi.enviar('/banco-preguntas/quitar-tema', {
-          periodoId,
-          preguntasIds: ids
-        });
+        await enviarConPermiso(
+          'banco:gestionar',
+          '/banco-preguntas/quitar-tema',
+          {
+            periodoId,
+            preguntasIds: ids
+          },
+          'No tienes permiso para quitar tema.'
+        );
         emitToast({ level: 'ok', title: 'Banco', message: `Quitado el tema a ${ids.length} preguntas`, durationMs: 2400 });
       }
 
@@ -2025,14 +2281,23 @@ function SeccionBanco({
     if (!sinTemaDestinoId) return;
     const ids = Array.from(sinTemaSeleccion);
     if (ids.length === 0) return;
+    if (!puedeGestionar) {
+      avisarSinPermiso('No tienes permiso para gestionar el banco.');
+      return;
+    }
     try {
       setMoviendoSinTema(true);
       setMensaje('');
-      await clienteApi.enviar('/banco-preguntas/mover-tema', {
-        periodoId,
-        temaIdDestino: sinTemaDestinoId,
-        preguntasIds: ids
-      });
+      await enviarConPermiso(
+        'banco:gestionar',
+        '/banco-preguntas/mover-tema',
+        {
+          periodoId,
+          temaIdDestino: sinTemaDestinoId,
+          preguntasIds: ids
+        },
+        'No tienes permiso para mover preguntas.'
+      );
       emitToast({ level: 'ok', title: 'Banco', message: `Asignadas ${ids.length} preguntas`, durationMs: 2200 });
       setSinTemaSeleccion(new Set());
       onRefrescar();
@@ -2091,10 +2356,14 @@ function SeccionBanco({
     if (!periodoId) return;
     const nombre = temaNuevo.trim();
     if (!nombre) return;
+    if (!puedeGestionar) {
+      avisarSinPermiso('No tienes permiso para gestionar temas.');
+      return;
+    }
     try {
       setCreandoTema(true);
       setMensaje('');
-      await clienteApi.enviar('/banco-preguntas/temas', { periodoId, nombre });
+      await enviarConPermiso('banco:gestionar', '/banco-preguntas/temas', { periodoId, nombre }, 'No tienes permiso para crear temas.');
       setTemaNuevo('');
       await refrescarTemas();
       emitToast({ level: 'ok', title: 'Temas', message: 'Tema creado', durationMs: 1800 });
@@ -2121,10 +2390,19 @@ function SeccionBanco({
     if (!temaEditandoId) return;
     const nombre = temaEditandoNombre.trim();
     if (!nombre) return;
+    if (!puedeGestionar) {
+      avisarSinPermiso('No tienes permiso para editar temas.');
+      return;
+    }
     try {
       setGuardandoTema(true);
       setMensaje('');
-      await clienteApi.enviar(`/banco-preguntas/temas/${temaEditandoId}/actualizar`, { nombre });
+      await enviarConPermiso(
+        'banco:gestionar',
+        `/banco-preguntas/temas/${temaEditandoId}/actualizar`,
+        { nombre },
+        'No tienes permiso para editar temas.'
+      );
       cancelarEdicionTema();
       await Promise.all([refrescarTemas(), Promise.resolve().then(() => onRefrescar()), Promise.resolve().then(() => onRefrescarPlantillas())]);
       emitToast({ level: 'ok', title: 'Temas', message: 'Tema actualizado', durationMs: 1800 });
@@ -2138,12 +2416,21 @@ function SeccionBanco({
   }
 
   async function archivarTemaBanco(item: TemaBanco) {
+    if (!puedeArchivar) {
+      avisarSinPermiso('No tienes permiso para archivar temas.');
+      return;
+    }
     const ok = globalThis.confirm(`¿Archivar el tema "${item.nombre}"? Se removerá de plantillas y preguntas.`);
     if (!ok) return;
     try {
       setArchivandoTemaId(item._id);
       setMensaje('');
-      await clienteApi.enviar(`/banco-preguntas/temas/${item._id}/archivar`, {});
+      await enviarConPermiso(
+        'banco:archivar',
+        `/banco-preguntas/temas/${item._id}/archivar`,
+        {},
+        'No tienes permiso para archivar temas.'
+      );
       if (tema.trim().toLowerCase() === item.nombre.trim().toLowerCase()) setTema('');
       if (editTema.trim().toLowerCase() === item.nombre.trim().toLowerCase()) setEditTema('');
       await Promise.all([refrescarTemas(), Promise.resolve().then(() => onRefrescar()), Promise.resolve().then(() => onRefrescarPlantillas())]);
@@ -2173,14 +2460,23 @@ function SeccionBanco({
   async function guardar() {
     try {
       const inicio = Date.now();
+      if (!puedeGestionar) {
+        avisarSinPermiso('No tienes permiso para crear preguntas.');
+        return;
+      }
       setGuardando(true);
       setMensaje('');
-      await clienteApi.enviar('/banco-preguntas', {
-        periodoId,
-        enunciado: enunciado.trim(),
-        tema: tema.trim(),
-        opciones: opciones.map((item) => ({ ...item, texto: item.texto.trim() }))
-      });
+      await enviarConPermiso(
+        'banco:gestionar',
+        '/banco-preguntas',
+        {
+          periodoId,
+          enunciado: enunciado.trim(),
+          tema: tema.trim(),
+          opciones: opciones.map((item) => ({ ...item, texto: item.texto.trim() }))
+        },
+        'No tienes permiso para crear preguntas.'
+      );
       setMensaje('Pregunta guardada');
       emitToast({ level: 'ok', title: 'Banco', message: 'Pregunta guardada', durationMs: 2200 });
       registrarAccionDocente('crear_pregunta', true, Date.now() - inicio);
@@ -2214,13 +2510,22 @@ function SeccionBanco({
     if (!editandoId) return;
     try {
       const inicio = Date.now();
+      if (!puedeGestionar) {
+        avisarSinPermiso('No tienes permiso para editar preguntas.');
+        return;
+      }
       setEditando(true);
       setMensaje('');
-      await clienteApi.enviar(`/banco-preguntas/${editandoId}/actualizar`, {
-        enunciado: editEnunciado.trim(),
-        tema: editTema.trim(),
-        opciones: editOpciones.map((o) => ({ ...o, texto: o.texto.trim() }))
-      });
+      await enviarConPermiso(
+        'banco:gestionar',
+        `/banco-preguntas/${editandoId}/actualizar`,
+        {
+          enunciado: editEnunciado.trim(),
+          tema: editTema.trim(),
+          opciones: editOpciones.map((o) => ({ ...o, texto: o.texto.trim() }))
+        },
+        'No tienes permiso para editar preguntas.'
+      );
       setMensaje('Pregunta actualizada');
       emitToast({ level: 'ok', title: 'Banco', message: 'Pregunta actualizada', durationMs: 2200 });
       registrarAccionDocente('actualizar_pregunta', true, Date.now() - inicio);
@@ -2243,13 +2548,22 @@ function SeccionBanco({
   }
 
   async function archivarPregunta(preguntaId: string) {
+    if (!puedeArchivar) {
+      avisarSinPermiso('No tienes permiso para archivar preguntas.');
+      return;
+    }
     const ok = globalThis.confirm('¿¿Archivar esta pregunta? Se desactivara del banco.');
     if (!ok) return;
     try {
       const inicio = Date.now();
       setArchivandoPreguntaId(preguntaId);
       setMensaje('');
-      await clienteApi.enviar(`/banco-preguntas/${preguntaId}/archivar`, {});
+      await enviarConPermiso(
+        'banco:archivar',
+        `/banco-preguntas/${preguntaId}/archivar`,
+        {},
+        'No tienes permiso para archivar preguntas.'
+      );
       setMensaje('Pregunta archivada');
       emitToast({ level: 'ok', title: 'Banco', message: 'Pregunta archivada', durationMs: 2200 });
       registrarAccionDocente('archivar_pregunta', true, Date.now() - inicio);
@@ -2311,7 +2625,7 @@ function SeccionBanco({
       </AyudaFormulario>
       <label className="campo">
         Materia
-        <select value={periodoId} onChange={(event) => setPeriodoId(event.target.value)}>
+        <select value={periodoId} onChange={(event) => setPeriodoId(event.target.value)} disabled={bloqueoEdicion}>
           <option value="">Selecciona</option>
           {periodos.map((periodo) => (
             <option key={periodo._id} value={periodo._id} title={periodo._id}>
@@ -2323,11 +2637,11 @@ function SeccionBanco({
       </label>
       <label className="campo">
         Enunciado
-        <textarea value={enunciado} onChange={(event) => setEnunciado(event.target.value)} />
+        <textarea value={enunciado} onChange={(event) => setEnunciado(event.target.value)} disabled={bloqueoEdicion} />
       </label>
       <label className="campo">
         Tema
-        <select value={tema} onChange={(event) => setTema(event.target.value)}>
+        <select value={tema} onChange={(event) => setTema(event.target.value)} disabled={bloqueoEdicion}>
           <option value="">Selecciona</option>
           {temasBanco.map((t) => (
             <option key={t._id} value={t.nombre}>
@@ -2356,8 +2670,15 @@ function SeccionBanco({
             onChange={(event) => setTemaNuevo(event.target.value)}
             placeholder="Nuevo tema (ej. Funciones)"
             aria-label="Nuevo tema"
+            disabled={bloqueoEdicion}
           />
-          <Boton type="button" variante="secundario" cargando={creandoTema} disabled={!periodoId || !temaNuevo.trim()} onClick={crearTemaBanco}>
+          <Boton
+            type="button"
+            variante="secundario"
+            cargando={creandoTema}
+            disabled={!periodoId || !temaNuevo.trim() || bloqueoEdicion}
+            onClick={crearTemaBanco}
+          >
             Agregar
           </Boton>
         </div>
@@ -2396,13 +2717,18 @@ function SeccionBanco({
                       </>
                     ) : (
                       <>
-                        <Boton type="button" variante="secundario" onClick={() => abrirAjusteTema(t)}>
+                        <Boton type="button" variante="secundario" onClick={() => abrirAjusteTema(t)} disabled={!puedeGestionar}>
                           Ajustar paginas
                         </Boton>
-                        <Boton type="button" variante="secundario" onClick={() => iniciarEdicionTema(t)}>
+                        <Boton type="button" variante="secundario" onClick={() => iniciarEdicionTema(t)} disabled={!puedeGestionar}>
                           Renombrar
                         </Boton>
-                        <Boton type="button" cargando={archivandoTemaId === t._id} onClick={() => archivarTemaBanco(t)}>
+                        <Boton
+                          type="button"
+                          cargando={archivandoTemaId === t._id}
+                          onClick={() => archivarTemaBanco(t)}
+                          disabled={!puedeArchivar}
+                        >
                           Archivar
                         </Boton>
                       </>
@@ -2654,6 +2980,7 @@ function SeccionBanco({
                   setOpciones(copia);
                 }}
                 aria-label={`Texto opcion ${String.fromCharCode(65 + idx)}`}
+                disabled={bloqueoEdicion}
               />
               <label className="opcion-correcta">
                 <input
@@ -2663,6 +2990,7 @@ function SeccionBanco({
                   onChange={() => {
                     setOpciones(opciones.map((item, index) => ({ ...item, esCorrecta: index === idx })));
                   }}
+                  disabled={bloqueoEdicion}
                 />
                 <span>Correcta</span>
               </label>
@@ -2670,7 +2998,13 @@ function SeccionBanco({
           ))}
         </div>
       </div>
-      <Boton type="button" icono={<Icono nombre="ok" />} cargando={guardando} disabled={!puedeGuardar} onClick={guardar}>
+      <Boton
+        type="button"
+        icono={<Icono nombre="ok" />}
+        cargando={guardando}
+        disabled={!puedeGuardar || bloqueoEdicion}
+        onClick={guardar}
+      >
         {guardando ? 'Guardando…' : 'Guardar'}
       </Boton>
       {mensaje && (
@@ -2684,11 +3018,11 @@ function SeccionBanco({
           <h3>Editando pregunta</h3>
           <label className="campo">
             Enunciado
-            <textarea value={editEnunciado} onChange={(event) => setEditEnunciado(event.target.value)} />
+            <textarea value={editEnunciado} onChange={(event) => setEditEnunciado(event.target.value)} disabled={bloqueoEdicion} />
           </label>
           <label className="campo">
             Tema
-            <select value={editTema} onChange={(event) => setEditTema(event.target.value)}>
+            <select value={editTema} onChange={(event) => setEditTema(event.target.value)} disabled={bloqueoEdicion}>
               <option value="">Selecciona</option>
               {editTema.trim() && !temasBanco.some((t) => t.nombre.toLowerCase() === editTema.trim().toLowerCase()) && (
                 <option value={editTema}>{editTema} (no existe)</option>
@@ -2717,6 +3051,7 @@ function SeccionBanco({
                       setEditOpciones(copia);
                     }}
                     aria-label={`Texto opcion ${String.fromCharCode(65 + idx)}`}
+                    disabled={bloqueoEdicion}
                   />
                   <label className="opcion-correcta">
                     <input
@@ -2724,6 +3059,7 @@ function SeccionBanco({
                       name="correctaEdit"
                       checked={opcion.esCorrecta}
                       onChange={() => setEditOpciones(editOpciones.map((item, index) => ({ ...item, esCorrecta: index === idx })))}
+                      disabled={bloqueoEdicion}
                     />
                     <span>Correcta</span>
                   </label>
@@ -2732,7 +3068,13 @@ function SeccionBanco({
             </div>
           </div>
           <div className="acciones">
-            <Boton type="button" icono={<Icono nombre="ok" />} cargando={editando} disabled={!puedeGuardarEdicion} onClick={guardarEdicion}>
+            <Boton
+              type="button"
+              icono={<Icono nombre="ok" />}
+              cargando={editando}
+              disabled={!puedeGuardarEdicion || bloqueoEdicion}
+              onClick={guardarEdicion}
+            >
               {editando ? 'Guardando…' : 'Guardar cambios'}
             </Boton>
             <Boton type="button" variante="secundario" onClick={cancelarEdicion}>
@@ -2768,10 +3110,15 @@ function SeccionBanco({
                         </div>
                       </div>
                       <div className="item-actions">
-                        <Boton variante="secundario" type="button" onClick={() => iniciarEdicion(pregunta)}>
+                        <Boton variante="secundario" type="button" onClick={() => iniciarEdicion(pregunta)} disabled={bloqueoEdicion}>
                           Editar
                         </Boton>
-                        <Boton type="button" cargando={archivandoPreguntaId === pregunta._id} onClick={() => archivarPregunta(pregunta._id)}>
+                        <Boton
+                          type="button"
+                          cargando={archivandoPreguntaId === pregunta._id}
+                          onClick={() => archivarPregunta(pregunta._id)}
+                          disabled={!puedeArchivar}
+                        >
                           Archivar
                         </Boton>
                       </div>
@@ -2798,11 +3145,17 @@ function SeccionBanco({
 function SeccionPeriodos({
   periodos,
   onRefrescar,
-  onVerArchivadas
+  onVerArchivadas,
+  permisos,
+  enviarConPermiso,
+  avisarSinPermiso
 }: {
   periodos: Periodo[];
   onRefrescar: () => void;
   onVerArchivadas: () => void;
+  permisos: PermisosUI;
+  enviarConPermiso: EnviarConPermiso;
+  avisarSinPermiso: (mensaje: string) => void;
 }) {
   const [nombre, setNombre] = useState('');
   const [fechaInicio, setFechaInicio] = useState('');
@@ -2811,6 +3164,9 @@ function SeccionPeriodos({
   const [mensaje, setMensaje] = useState('');
   const [creando, setCreando] = useState(false);
   const [archivandoId, setArchivandoId] = useState<string | null>(null);
+  const puedeGestionar = permisos.periodos.gestionar;
+  const puedeArchivar = permisos.periodos.archivar;
+  const bloqueoEdicion = !puedeGestionar;
 
   function formatearFecha(valor?: string) {
     if (!valor) return '-';
@@ -2880,14 +3236,23 @@ function SeccionPeriodos({
   async function crearPeriodo() {
     try {
       const inicio = Date.now();
+      if (!puedeGestionar) {
+        avisarSinPermiso('No tienes permiso para gestionar materias.');
+        return;
+      }
       setCreando(true);
       setMensaje('');
-      await clienteApi.enviar('/periodos', {
-        nombre: normalizarTextoCorto(nombre),
-        fechaInicio,
-        fechaFin,
-        grupos: gruposNormalizados
-      });
+      await enviarConPermiso(
+        'periodos:gestionar',
+        '/periodos',
+        {
+          nombre: normalizarTextoCorto(nombre),
+          fechaInicio,
+          fechaFin,
+          grupos: gruposNormalizados
+        },
+        'No tienes permiso para crear materias.'
+      );
       setMensaje('Materia creada');
       emitToast({ level: 'ok', title: 'Materias', message: 'Materia creada', durationMs: 2200 });
       registrarAccionDocente('crear_periodo', true, Date.now() - inicio);
@@ -2912,6 +3277,10 @@ function SeccionPeriodos({
     }
   }
   async function archivarMateria(periodo: Periodo) {
+    if (!puedeArchivar) {
+      avisarSinPermiso('No tienes permiso para archivar materias.');
+      return;
+    }
     const confirmado = globalThis.confirm(
       `¿Archivar la materia "${etiquetaMateria(periodo)}"?\n\nSe ocultará de la lista de activas, pero NO se borrarán sus datos.`
     );
@@ -2921,7 +3290,12 @@ function SeccionPeriodos({
       const inicio = Date.now();
       setArchivandoId(periodo._id);
       setMensaje('');
-      await clienteApi.enviar(`/periodos/${periodo._id}/archivar`, {});
+      await enviarConPermiso(
+        'periodos:archivar',
+        `/periodos/${periodo._id}/archivar`,
+        {},
+        'No tienes permiso para archivar materias.'
+      );
       setMensaje('Materia archivada');
       emitToast({ level: 'ok', title: 'Materias', message: 'Materia archivada', durationMs: 2200 });
       registrarAccionDocente('archivar_periodo', true, Date.now() - inicio);
@@ -2976,7 +3350,7 @@ function SeccionPeriodos({
       </AyudaFormulario>
       <label className="campo">
         Nombre de la materia
-        <input value={nombre} onChange={(event) => setNombre(event.target.value)} />
+        <input value={nombre} onChange={(event) => setNombre(event.target.value)} disabled={bloqueoEdicion} />
       </label>
       {nombre.trim() && !nombreValido && (
         <InlineMensaje tipo="warning">El nombre debe tener entre 3 y 80 caracteres para poder crear la materia.</InlineMensaje>
@@ -2986,24 +3360,30 @@ function SeccionPeriodos({
       )}
       <label className="campo">
         Fecha inicio
-        <input type="date" value={fechaInicio} onChange={(event) => setFechaInicio(event.target.value)} />
+        <input type="date" value={fechaInicio} onChange={(event) => setFechaInicio(event.target.value)} disabled={bloqueoEdicion} />
       </label>
       <label className="campo">
         Fecha fin
-        <input type="date" value={fechaFin} onChange={(event) => setFechaFin(event.target.value)} />
+        <input type="date" value={fechaFin} onChange={(event) => setFechaFin(event.target.value)} disabled={bloqueoEdicion} />
       </label>
       {fechaInicio && fechaFin && fechaFin < fechaInicio && (
         <InlineMensaje tipo="error">La fecha fin debe ser igual o posterior a la fecha inicio.</InlineMensaje>
       )}
       <label className="campo">
         Grupos (separados por coma)
-        <input value={grupos} onChange={(event) => setGrupos(event.target.value)} />
+        <input value={grupos} onChange={(event) => setGrupos(event.target.value)} disabled={bloqueoEdicion} />
       </label>
       {!gruposValidos && grupos.trim() && (
         <InlineMensaje tipo="warning">Revisa grupos: máximo 50 y hasta 40 caracteres por grupo para poder crear la materia.</InlineMensaje>
       )}
       {gruposDuplicados && <InlineMensaje tipo="warning">Hay grupos repetidos; corrígelo para poder crear la materia.</InlineMensaje>}
-      <Boton type="button" icono={<Icono nombre="nuevo" />} cargando={creando} disabled={!puedeCrear} onClick={crearPeriodo}>
+      <Boton
+        type="button"
+        icono={<Icono nombre="nuevo" />}
+        cargando={creando}
+        disabled={!puedeCrear || bloqueoEdicion}
+        onClick={crearPeriodo}
+      >
         {creando ? 'Creando…' : 'Crear materia'}
       </Boton>
       {mensaje && (
@@ -3037,6 +3417,7 @@ function SeccionPeriodos({
                     type="button"
                     cargando={archivandoId === periodo._id}
                     onClick={() => archivarMateria(periodo)}
+                    disabled={!puedeArchivar}
                   >
                     Archivar
                   </Boton>
@@ -3123,12 +3504,18 @@ function SeccionAlumnos({
   alumnos,
   periodosActivos,
   periodosTodos,
-  onRefrescar
+  onRefrescar,
+  permisos,
+  enviarConPermiso,
+  avisarSinPermiso
 }: {
   alumnos: Alumno[];
   periodosActivos: Periodo[];
   periodosTodos: Periodo[];
   onRefrescar: () => void;
+  permisos: PermisosUI;
+  enviarConPermiso: EnviarConPermiso;
+  avisarSinPermiso: (mensaje: string) => void;
 }) {
   const [matricula, setMatricula] = useState('');
   const [nombres, setNombres] = useState('');
@@ -3142,6 +3529,8 @@ function SeccionAlumnos({
   const [creando, setCreando] = useState(false);
   const [editandoId, setEditandoId] = useState<string | null>(null);
   const [guardandoEdicion, setGuardandoEdicion] = useState(false);
+  const puedeGestionar = permisos.alumnos.gestionar;
+  const bloqueoEdicion = !puedeGestionar;
 
   function normalizarMatricula(valor: string): string {
     return String(valor || '')
@@ -3200,6 +3589,10 @@ function SeccionAlumnos({
   async function crearAlumno() {
     try {
       const inicio = Date.now();
+      if (!puedeGestionar) {
+        avisarSinPermiso('No tienes permiso para gestionar alumnos.');
+        return;
+      }
       if (dominiosPermitidos.length > 0 && correo.trim() && !correoValido) {
         const msg = `Solo se permiten correos institucionales: ${politicaDominiosTexto}`;
         setMensaje(msg);
@@ -3209,14 +3602,19 @@ function SeccionAlumnos({
       }
       setCreando(true);
       setMensaje('');
-      await clienteApi.enviar('/alumnos', {
-        matricula: matriculaNormalizada,
-        nombres: nombres.trim(),
-        apellidos: apellidos.trim(),
-        ...(correo.trim() ? { correo: correo.trim() } : {}),
-        ...(grupo.trim() ? { grupo: grupo.trim() } : {}),
-        periodoId: periodoIdNuevo
-      });
+      await enviarConPermiso(
+        'alumnos:gestionar',
+        '/alumnos',
+        {
+          matricula: matriculaNormalizada,
+          nombres: nombres.trim(),
+          apellidos: apellidos.trim(),
+          ...(correo.trim() ? { correo: correo.trim() } : {}),
+          ...(grupo.trim() ? { grupo: grupo.trim() } : {}),
+          periodoId: periodoIdNuevo
+        },
+        'No tienes permiso para crear alumnos.'
+      );
       setMensaje('Alumno creado');
       emitToast({ level: 'ok', title: 'Alumnos', message: 'Alumno creado', durationMs: 2200 });
       registrarAccionDocente('crear_alumno', true, Date.now() - inicio);
@@ -3273,6 +3671,10 @@ function SeccionAlumnos({
 
     try {
       const inicio = Date.now();
+      if (!puedeGestionar) {
+        avisarSinPermiso('No tienes permiso para editar alumnos.');
+        return;
+      }
       if (dominiosPermitidos.length > 0 && correo.trim() && !correoValido) {
         const msg = `Solo se permiten correos institucionales: ${politicaDominiosTexto}`;
         setMensaje(msg);
@@ -3283,14 +3685,19 @@ function SeccionAlumnos({
 
       setGuardandoEdicion(true);
       setMensaje('');
-      await clienteApi.enviar(`/alumnos/${editandoId}/actualizar`, {
-        matricula: matriculaNormalizada,
-        nombres: nombres.trim(),
-        apellidos: apellidos.trim(),
-        ...(correo.trim() ? { correo: correo.trim() } : {}),
-        ...(grupo.trim() ? { grupo: grupo.trim() } : {}),
-        periodoId: periodoIdNuevo
-      });
+      await enviarConPermiso(
+        'alumnos:gestionar',
+        `/alumnos/${editandoId}/actualizar`,
+        {
+          matricula: matriculaNormalizada,
+          nombres: nombres.trim(),
+          apellidos: apellidos.trim(),
+          ...(correo.trim() ? { correo: correo.trim() } : {}),
+          ...(grupo.trim() ? { grupo: grupo.trim() } : {}),
+          periodoId: periodoIdNuevo
+        },
+        'No tienes permiso para editar alumnos.'
+      );
 
       setMensaje('Alumno actualizado');
       emitToast({ level: 'ok', title: 'Alumnos', message: 'Alumno actualizado', durationMs: 2200 });
@@ -3367,6 +3774,7 @@ function SeccionAlumnos({
               setCorreo(m ? `${m}@cuh.mx` : '');
             }
           }}
+          disabled={bloqueoEdicion}
         />
         <span className="ayuda">Formato: CUH######### (ej. CUH512410168).</span>
       </label>
@@ -3375,11 +3783,11 @@ function SeccionAlumnos({
       )}
       <label className="campo">
         Nombres
-        <input value={nombres} onChange={(event) => setNombres(event.target.value)} />
+        <input value={nombres} onChange={(event) => setNombres(event.target.value)} disabled={bloqueoEdicion} />
       </label>
       <label className="campo">
         Apellidos
-        <input value={apellidos} onChange={(event) => setApellidos(event.target.value)} />
+        <input value={apellidos} onChange={(event) => setApellidos(event.target.value)} disabled={bloqueoEdicion} />
       </label>
       <label className="campo">
         Correo
@@ -3389,6 +3797,7 @@ function SeccionAlumnos({
             setCorreoAuto(false);
             setCorreo(event.target.value);
           }}
+          disabled={bloqueoEdicion}
         />
         {correoAuto && matriculaNormalizada && (
           <span className="ayuda">Sugerido automaticamente: {matriculaNormalizada}@cuh.mx</span>
@@ -3400,11 +3809,11 @@ function SeccionAlumnos({
       )}
       <label className="campo">
         Grupo
-        <input value={grupo} onChange={(event) => setGrupo(event.target.value)} />
+        <input value={grupo} onChange={(event) => setGrupo(event.target.value)} disabled={bloqueoEdicion} />
       </label>
       <label className="campo">
         Materia
-        <select value={periodoIdNuevo} onChange={(event) => setPeriodoIdNuevo(event.target.value)}>
+        <select value={periodoIdNuevo} onChange={(event) => setPeriodoIdNuevo(event.target.value)} disabled={bloqueoEdicion}>
           <option value="">Selecciona</option>
           {periodosActivos.map((periodo) => (
             <option key={periodo._id} value={periodo._id} title={periodo._id}>
@@ -3415,7 +3824,13 @@ function SeccionAlumnos({
       </label>
       <div className="acciones">
         {!editandoId ? (
-          <Boton type="button" icono={<Icono nombre="nuevo" />} cargando={creando} disabled={!puedeCrear} onClick={crearAlumno}>
+          <Boton
+            type="button"
+            icono={<Icono nombre="nuevo" />}
+            cargando={creando}
+            disabled={!puedeCrear || bloqueoEdicion}
+            onClick={crearAlumno}
+          >
             {creando ? 'Creando…' : 'Crear alumno'}
           </Boton>
         ) : (
@@ -3424,7 +3839,7 @@ function SeccionAlumnos({
               type="button"
               icono={<Icono nombre="ok" />}
               cargando={guardandoEdicion}
-              disabled={!puedeGuardarEdicion}
+              disabled={!puedeGuardarEdicion || bloqueoEdicion}
               onClick={guardarEdicion}
             >
               {guardandoEdicion ? 'Guardando…' : 'Guardar cambios'}
@@ -3476,7 +3891,7 @@ function SeccionAlumnos({
                     </div>
                   </div>
                   <div className="item-actions">
-                    <Boton variante="secundario" type="button" onClick={() => iniciarEdicion(alumno)}>
+                    <Boton variante="secundario" type="button" onClick={() => iniciarEdicion(alumno)} disabled={bloqueoEdicion}>
                       Editar
                     </Boton>
                   </div>
@@ -3494,12 +3909,20 @@ function SeccionPlantillas({
   periodos,
   preguntas,
   alumnos,
+  permisos,
+  puedeEliminarPlantillaDev,
+  enviarConPermiso,
+  avisarSinPermiso,
   onRefrescar
 }: {
   plantillas: Plantilla[];
   periodos: Periodo[];
   preguntas: Pregunta[];
   alumnos: Alumno[];
+  permisos: PermisosUI;
+  puedeEliminarPlantillaDev: boolean;
+  enviarConPermiso: EnviarConPermiso;
+  avisarSinPermiso: (mensaje: string) => void;
   onRefrescar: () => void;
 }) {
   const INSTRUCCIONES_DEFAULT =
@@ -3541,8 +3964,18 @@ function SeccionPlantillas({
   const [plantillaEditandoId, setPlantillaEditandoId] = useState<string | null>(null);
   const [guardandoPlantilla, setGuardandoPlantilla] = useState(false);
   const [archivandoPlantillaId, setArchivandoPlantillaId] = useState<string | null>(null);
+  const [eliminandoPlantillaId, setEliminandoPlantillaId] = useState<string | null>(null);
   const [filtroPlantillas, setFiltroPlantillas] = useState('');
   const [refrescandoPlantillas, setRefrescandoPlantillas] = useState(false);
+  const puedeLeerExamenes = permisos.examenes.leer;
+  const puedeGenerarExamenes = permisos.examenes.generar;
+  const puedeArchivarExamenes = permisos.examenes.archivar;
+  const puedeRegenerarExamenes = permisos.examenes.regenerar;
+  const puedeDescargarExamenes = permisos.examenes.descargar;
+  const puedeGestionarPlantillas = permisos.plantillas.gestionar;
+  const puedeArchivarPlantillas = permisos.plantillas.archivar;
+  const puedePrevisualizarPlantillas = permisos.plantillas.previsualizar;
+  const bloqueoEdicion = !puedeGestionarPlantillas;
 
   type PreviewPlantilla = {
     plantillaId: string;
@@ -3608,6 +4041,10 @@ function SeccionPlantillas({
       setExamenesGenerados([]);
       return;
     }
+    if (!puedeLeerExamenes) {
+      setExamenesGenerados([]);
+      return;
+    }
     try {
       setCargandoExamenesGenerados(true);
       const payload = await clienteApi.obtener<{ examenes: ExamenGeneradoResumen[] }>(
@@ -3620,7 +4057,7 @@ function SeccionPlantillas({
     } finally {
       setCargandoExamenesGenerados(false);
     }
-  }, [plantillaId]);
+  }, [plantillaId, puedeLeerExamenes]);
 
   useEffect(() => {
     setUltimoGenerado(null);
@@ -3630,6 +4067,10 @@ function SeccionPlantillas({
   const descargarPdfExamen = useCallback(
     async (examen: ExamenGeneradoResumen) => {
       if (descargandoExamenId === examen._id) return;
+      if (!puedeDescargarExamenes) {
+        avisarSinPermiso('No tienes permiso para descargar examenes.');
+        return;
+      }
       const token = obtenerTokenDocente();
       if (!token) {
         setMensajeGeneracion('Sesion no valida. Vuelve a iniciar sesion.');
@@ -3687,12 +4128,16 @@ function SeccionPlantillas({
         setDescargandoExamenId(null);
       }
     },
-    [cargarExamenesGenerados]
+    [avisarSinPermiso, cargarExamenesGenerados, puedeDescargarExamenes]
   );
 
   const regenerarPdfExamen = useCallback(
     async (examen: ExamenGeneradoResumen) => {
       if (regenerandoExamenId === examen._id) return;
+      if (!puedeRegenerarExamenes) {
+        avisarSinPermiso('No tienes permiso para regenerar examenes.');
+        return;
+      }
       try {
         setMensajeGeneracion('');
         setRegenerandoExamenId(examen._id);
@@ -3708,9 +4153,12 @@ function SeccionPlantillas({
           forzar = true;
         }
 
-        await clienteApi.enviar(`/examenes/generados/${encodeURIComponent(examen._id)}/regenerar`, {
-          ...(forzar ? { forzar: true } : {})
-        });
+        await enviarConPermiso(
+          'examenes:regenerar',
+          `/examenes/generados/${encodeURIComponent(examen._id)}/regenerar`,
+          { ...(forzar ? { forzar: true } : {}) },
+          'No tienes permiso para regenerar examenes.'
+        );
 
         emitToast({ level: 'ok', title: 'Examen', message: 'PDF regenerado', durationMs: 2000 });
         await cargarExamenesGenerados();
@@ -3728,12 +4176,16 @@ function SeccionPlantillas({
         setRegenerandoExamenId(null);
       }
     },
-    [cargarExamenesGenerados]
+    [avisarSinPermiso, cargarExamenesGenerados, enviarConPermiso, puedeRegenerarExamenes]
   );
 
   const archivarExamenGenerado = useCallback(
     async (examen: ExamenGeneradoResumen) => {
       if (archivandoExamenId === examen._id) return;
+      if (!puedeArchivarExamenes) {
+        avisarSinPermiso('No tienes permiso para archivar examenes.');
+        return;
+      }
       try {
         setMensajeGeneracion('');
         setArchivandoExamenId(examen._id);
@@ -3743,7 +4195,12 @@ function SeccionPlantillas({
         );
         if (!ok) return;
 
-        await clienteApi.enviar(`/examenes/generados/${encodeURIComponent(examen._id)}/archivar`, {});
+        await enviarConPermiso(
+          'examenes:archivar',
+          `/examenes/generados/${encodeURIComponent(examen._id)}/archivar`,
+          {},
+          'No tienes permiso para archivar examenes.'
+        );
 
         emitToast({ level: 'ok', title: 'Examen', message: 'Examen archivado', durationMs: 2000 });
         await cargarExamenesGenerados();
@@ -3761,7 +4218,7 @@ function SeccionPlantillas({
         setArchivandoExamenId(null);
       }
     },
-    [cargarExamenesGenerados]
+    [avisarSinPermiso, cargarExamenesGenerados, enviarConPermiso, puedeArchivarExamenes]
   );
 
   const preguntasDisponibles = useMemo(() => {
@@ -3811,7 +4268,7 @@ function SeccionPlantillas({
       temasSeleccionados.length > 0 &&
       numeroPaginas > 0
   );
-  const puedeGenerar = Boolean(plantillaId);
+  const puedeGenerar = Boolean(plantillaId) && puedeGenerarExamenes;
 
   const plantillasFiltradas = useMemo(() => {
     const q = String(filtroPlantillas || '').trim().toLowerCase();
@@ -3872,6 +4329,10 @@ function SeccionPlantillas({
     if (!plantillaEditandoId || guardandoPlantilla) return;
     try {
       const inicio = Date.now();
+      if (!puedeGestionarPlantillas) {
+        avisarSinPermiso('No tienes permiso para editar plantillas.');
+        return;
+      }
       setGuardandoPlantilla(true);
       setMensaje('');
 
@@ -3891,7 +4352,12 @@ function SeccionPlantillas({
         payload.temas = temasSeleccionados;
       }
 
-      await clienteApi.enviar(`/examenes/plantillas/${encodeURIComponent(plantillaEditandoId)}`, payload);
+      await enviarConPermiso(
+        'plantillas:gestionar',
+        `/examenes/plantillas/${encodeURIComponent(plantillaEditandoId)}`,
+        payload,
+        'No tienes permiso para editar plantillas.'
+      );
       emitToast({ level: 'ok', title: 'Plantillas', message: 'Plantilla actualizada', durationMs: 2200 });
       registrarAccionDocente('actualizar_plantilla', true, Date.now() - inicio);
       cancelarEdicion();
@@ -3914,6 +4380,10 @@ function SeccionPlantillas({
 
   async function archivarPlantilla(plantilla: Plantilla) {
     if (archivandoPlantillaId === plantilla._id) return;
+    if (!puedeArchivarPlantillas) {
+      avisarSinPermiso('No tienes permiso para archivar plantillas.');
+      return;
+    }
     const ok = globalThis.confirm(
       `¿Archivar la plantilla "${String(plantilla.titulo || '').trim()}"?\n\nSe ocultará del listado activo, pero no se borrarán sus datos.`
     );
@@ -3922,7 +4392,12 @@ function SeccionPlantillas({
       const inicio = Date.now();
       setArchivandoPlantillaId(plantilla._id);
       setMensaje('');
-      await clienteApi.enviar(`/examenes/plantillas/${encodeURIComponent(plantilla._id)}/archivar`, {});
+      await enviarConPermiso(
+        'plantillas:archivar',
+        `/examenes/plantillas/${encodeURIComponent(plantilla._id)}/archivar`,
+        {},
+        'No tienes permiso para archivar plantillas.'
+      );
       emitToast({ level: 'ok', title: 'Plantillas', message: 'Plantilla archivada', durationMs: 2200 });
       registrarAccionDocente('archivar_plantilla', true, Date.now() - inicio);
       if (plantillaId === plantilla._id) setPlantillaId('');
@@ -3979,8 +4454,54 @@ function SeccionPlantillas({
     }
   }
 
+  async function eliminarPlantillaDev(plantilla: Plantilla) {
+    if (!puedeEliminarPlantillaDev) {
+      avisarSinPermiso('No tienes permiso para eliminar plantillas en desarrollo.');
+      return;
+    }
+    if (eliminandoPlantillaId === plantilla._id) return;
+    const ok = globalThis.confirm(
+      `¿Eliminar definitivamente la plantilla "${String(plantilla.titulo || '').trim()}"?\n\nEsta acción es solo para desarrollo y no se puede deshacer.`
+    );
+    if (!ok) return;
+    try {
+      const inicio = Date.now();
+      setEliminandoPlantillaId(plantilla._id);
+      setMensaje('');
+      await enviarConPermiso(
+        'plantillas:eliminar_dev',
+        `/examenes/plantillas/${encodeURIComponent(plantilla._id)}/eliminar`,
+        {},
+        'No tienes permiso para eliminar plantillas en desarrollo.'
+      );
+      emitToast({ level: 'ok', title: 'Plantillas', message: 'Plantilla eliminada', durationMs: 2200 });
+      registrarAccionDocente('eliminar_plantilla', true, Date.now() - inicio);
+      if (plantillaId === plantilla._id) setPlantillaId('');
+      if (plantillaEditandoId === plantilla._id) cancelarEdicion();
+      if (plantillaPreviewId === plantilla._id) setPlantillaPreviewId(null);
+      onRefrescar();
+    } catch (error) {
+      const msg = mensajeDeError(error, 'No se pudo eliminar la plantilla');
+      setMensaje(msg);
+      emitToast({
+        level: 'error',
+        title: 'Plantillas',
+        message: msg,
+        durationMs: 5200,
+        action: accionToastSesionParaError(error, 'docente')
+      });
+      registrarAccionDocente('eliminar_plantilla', false);
+    } finally {
+      setEliminandoPlantillaId(null);
+    }
+  }
+
   async function cargarPreviewPlantilla(id: string) {
     if (cargandoPreviewPlantillaId === id) return;
+    if (!puedePrevisualizarPlantillas) {
+      avisarSinPermiso('No tienes permiso para previsualizar plantillas.');
+      return;
+    }
     try {
       setCargandoPreviewPlantillaId(id);
       const payload = await clienteApi.obtener<PreviewPlantilla>(
@@ -4011,6 +4532,10 @@ function SeccionPlantillas({
 
   async function cargarPreviewPdfPlantilla(id: string) {
     if (cargandoPreviewPdfPlantillaId === id) return;
+    if (!puedePrevisualizarPlantillas) {
+      avisarSinPermiso('No tienes permiso para previsualizar plantillas.');
+      return;
+    }
     const token = obtenerTokenDocente();
     if (!token) {
       emitToast({ level: 'error', title: 'Sesion no valida', message: 'Vuelve a iniciar sesion.', durationMs: 4200 });
@@ -4069,6 +4594,10 @@ function SeccionPlantillas({
     if (creando) return;
     try {
       const inicio = Date.now();
+      if (!puedeGestionarPlantillas) {
+        avisarSinPermiso('No tienes permiso para crear plantillas.');
+        return;
+      }
       setCreando(true);
       setMensaje('');
 
@@ -4082,7 +4611,12 @@ function SeccionPlantillas({
       if (periodoIdNorm) payload.periodoId = periodoIdNorm;
       if (temasSeleccionados.length > 0) payload.temas = temasSeleccionados;
 
-      await clienteApi.enviar('/examenes/plantillas', payload);
+      await enviarConPermiso(
+        'plantillas:gestionar',
+        '/examenes/plantillas',
+        payload,
+        'No tienes permiso para crear plantillas.'
+      );
       setMensaje('Plantilla creada');
       emitToast({ level: 'ok', title: 'Plantillas', message: 'Plantilla creada', durationMs: 2200 });
       registrarAccionDocente('crear_plantilla', true, Date.now() - inicio);
@@ -4168,18 +4702,18 @@ function SeccionPlantillas({
       <div className="plantillas-form">
         <label className="campo">
           Titulo
-          <input value={titulo} onChange={(event) => setTitulo(event.target.value)} />
+          <input value={titulo} onChange={(event) => setTitulo(event.target.value)} disabled={bloqueoEdicion} />
         </label>
         <label className="campo">
           Tipo
-          <select value={tipo} onChange={(event) => setTipo(event.target.value as 'parcial' | 'global')}>
+          <select value={tipo} onChange={(event) => setTipo(event.target.value as 'parcial' | 'global')} disabled={bloqueoEdicion}>
             <option value="parcial">Parcial</option>
             <option value="global">Global</option>
           </select>
         </label>
         <label className="campo">
           Materia
-          <select value={periodoId} onChange={(event) => setPeriodoId(event.target.value)}>
+          <select value={periodoId} onChange={(event) => setPeriodoId(event.target.value)} disabled={bloqueoEdicion}>
             <option value="">Selecciona</option>
             {periodos.map((periodo) => (
               <option key={periodo._id} value={periodo._id} title={periodo._id}>
@@ -4196,12 +4730,13 @@ function SeccionPlantillas({
             step={1}
             value={numeroPaginas}
             onChange={(event) => setNumeroPaginas(Number(event.target.value))}
+            disabled={bloqueoEdicion}
           />
         </label>
 
         <label className="campo plantillas-form__full">
           Instrucciones (opcional)
-          <textarea value={instrucciones} onChange={(event) => setInstrucciones(event.target.value)} rows={3} />
+          <textarea value={instrucciones} onChange={(event) => setInstrucciones(event.target.value)} rows={3} disabled={bloqueoEdicion} />
         </label>
 
         <label className="campo plantillas-form__full">
@@ -4233,6 +4768,7 @@ function SeccionPlantillas({
                                     : [...prev, item.tema]
                                 );
                               }}
+                              disabled={bloqueoEdicion}
                             />
                             Usar
                           </label>
@@ -4254,7 +4790,13 @@ function SeccionPlantillas({
       </div>
       <div className="acciones acciones--mt">
         {!modoEdicion && (
-          <Boton type="button" icono={<Icono nombre="nuevo" />} cargando={creando} disabled={!puedeCrear} onClick={crear}>
+          <Boton
+            type="button"
+            icono={<Icono nombre="nuevo" />}
+            cargando={creando}
+            disabled={!puedeCrear || bloqueoEdicion}
+            onClick={crear}
+          >
             {creando ? 'Creando…' : 'Crear plantilla'}
           </Boton>
         )}
@@ -4263,7 +4805,7 @@ function SeccionPlantillas({
             <Boton
               type="button"
               cargando={guardandoPlantilla}
-              disabled={!titulo.trim() || guardandoPlantilla}
+              disabled={!titulo.trim() || guardandoPlantilla || bloqueoEdicion}
               onClick={() => void guardarEdicion()}
             >
               {guardandoPlantilla ? 'Guardando…' : 'Guardar cambios'}
@@ -4327,16 +4869,17 @@ function SeccionPlantillas({
                               Esta previsualizacion usa una seleccion determinista de preguntas (para que no cambie cada vez) y bosqueja el contenido por pagina.
                             </div>
                           )}
-                          {!preview && (
-                            <Boton
-                              type="button"
-                              variante="secundario"
-                              cargando={cargandoPreviewPlantillaId === plantilla._id}
-                              onClick={() => void cargarPreviewPlantilla(plantilla._id)}
-                            >
-                              {cargandoPreviewPlantillaId === plantilla._id ? 'Generando…' : 'Generar previsualizacion'}
-                            </Boton>
-                          )}
+                            {!preview && (
+                              <Boton
+                                type="button"
+                                variante="secundario"
+                                cargando={cargandoPreviewPlantillaId === plantilla._id}
+                                onClick={() => void cargarPreviewPlantilla(plantilla._id)}
+                                disabled={!puedePrevisualizarPlantillas}
+                              >
+                                {cargandoPreviewPlantillaId === plantilla._id ? 'Generando…' : 'Generar previsualizacion'}
+                              </Boton>
+                            )}
                           {preview && (
                             <>
                               {Array.isArray(preview.advertencias) && preview.advertencias.length > 0 && (
@@ -4376,6 +4919,7 @@ function SeccionPlantillas({
                                     variante="secundario"
                                     cargando={cargandoPreviewPdfPlantillaId === plantilla._id}
                                     onClick={() => void cargarPreviewPdfPlantilla(plantilla._id)}
+                                    disabled={!puedePrevisualizarPlantillas}
                                   >
                                     {cargandoPreviewPdfPlantillaId === plantilla._id ? 'Generando PDF…' : 'Ver PDF exacto'}
                                   </Boton>
@@ -4467,17 +5011,30 @@ function SeccionPlantillas({
                         variante="secundario"
                         cargando={cargandoPreviewPlantillaId === plantilla._id}
                         onClick={() => void togglePreviewPlantilla(plantilla._id)}
+                        disabled={!puedePrevisualizarPlantillas}
                       >
                         {previewAbierta ? 'Ocultar previsualizacion' : 'Previsualizar'}
                       </Boton>
-                      <Boton type="button" variante="secundario" onClick={() => iniciarEdicion(plantilla)}>
+                      <Boton type="button" variante="secundario" onClick={() => iniciarEdicion(plantilla)} disabled={!puedeGestionarPlantillas}>
                         Editar
                       </Boton>
+                      {puedeEliminarPlantillaDev && (
+                        <Boton
+                          type="button"
+                          variante="secundario"
+                          cargando={eliminandoPlantillaId === plantilla._id}
+                          onClick={() => void eliminarPlantillaDev(plantilla)}
+                          disabled={!puedeEliminarPlantillaDev}
+                        >
+                          Eliminar (DEV)
+                        </Boton>
+                      )}
                       <Boton
                         type="button"
                         variante="secundario"
                         cargando={archivandoPlantillaId === plantilla._id}
                         onClick={() => void archivarPlantilla(plantilla)}
+                        disabled={!puedeArchivarPlantillas}
                       >
                         Archivar
                       </Boton>
@@ -4545,14 +5102,20 @@ function SeccionPlantillas({
           onClick={async () => {
             try {
               const inicio = Date.now();
+              if (!puedeGenerarExamenes) {
+                avisarSinPermiso('No tienes permiso para generar examenes.');
+                return;
+              }
               setGenerando(true);
               setMensajeGeneracion('');
-              const payload = await clienteApi.enviar<{ examenGenerado: ExamenGeneradoResumen; advertencias?: string[] }>(
+              const payload = await enviarConPermiso<{ examenGenerado: ExamenGeneradoResumen; advertencias?: string[] }>(
+                'examenes:generar',
                 '/examenes/generados',
                 {
-                plantillaId,
-                alumnoId: alumnoId || undefined
-                }
+                  plantillaId,
+                  alumnoId: alumnoId || undefined
+                },
+                'No tienes permiso para generar examenes.'
               );
               const ex = payload?.examenGenerado ?? null;
               const adv = Array.isArray(payload?.advertencias) ? payload.advertencias : [];
@@ -4590,7 +5153,7 @@ function SeccionPlantillas({
           variante="secundario"
           icono={<Icono nombre="pdf" />}
           cargando={generandoLote}
-          disabled={!plantillaId || !plantillaSeleccionada?.periodoId}
+          disabled={!plantillaId || !plantillaSeleccionada?.periodoId || !puedeGenerarExamenes}
           onClick={async () => {
             const ok = globalThis.confirm(
               '¿Generar examenes para TODOS los alumnos activos de la materia de esta plantilla? Esto puede tardar.'
@@ -4598,11 +5161,17 @@ function SeccionPlantillas({
             if (!ok) return;
             try {
               const inicio = Date.now();
+              if (!puedeGenerarExamenes) {
+                avisarSinPermiso('No tienes permiso para generar examenes.');
+                return;
+              }
               setGenerandoLote(true);
               setMensajeGeneracion('');
-              const payload = await clienteApi.enviar<{ totalAlumnos: number; examenesGenerados: Array<{ folio: string }> }>(
+              const payload = await enviarConPermiso<{ totalAlumnos: number; examenesGenerados: Array<{ folio: string }> }>(
+                'examenes:generar',
                 '/examenes/generados/lote',
                 { plantillaId, confirmarMasivo: true },
+                'No tienes permiso para generar examenes.',
                 { timeoutMs: 120_000 }
               );
               const total = Number(payload?.totalAlumnos ?? 0);
@@ -4769,7 +5338,7 @@ function SeccionPlantillas({
                             variante="secundario"
                             icono={<Icono nombre="recargar" />}
                             cargando={regenerandoExamenId === examen._id}
-                            disabled={descargandoExamenId === examen._id || archivandoExamenId === examen._id}
+                            disabled={!puedeRegenerarExamenes || descargandoExamenId === examen._id || archivandoExamenId === examen._id}
                             onClick={() => void regenerarPdfExamen(examen)}
                           >
                             Regenerar
@@ -4780,7 +5349,7 @@ function SeccionPlantillas({
                           variante="secundario"
                           icono={<Icono nombre="pdf" />}
                           cargando={descargandoExamenId === examen._id}
-                          disabled={regenerandoExamenId === examen._id || archivandoExamenId === examen._id}
+                          disabled={!puedeDescargarExamenes || regenerandoExamenId === examen._id || archivandoExamenId === examen._id}
                           onClick={() => void descargarPdfExamen(examen)}
                         >
                           Descargar
@@ -4792,7 +5361,7 @@ function SeccionPlantillas({
                             className="peligro"
                             icono={<Icono nombre="alerta" />}
                             cargando={archivandoExamenId === examen._id}
-                            disabled={descargandoExamenId === examen._id || regenerandoExamenId === examen._id}
+                            disabled={!puedeArchivarExamenes || descargandoExamenId === examen._id || regenerandoExamenId === examen._id}
                             onClick={() => void archivarExamenGenerado(examen)}
                           >
                             Archivar
@@ -4815,10 +5384,14 @@ function SeccionPlantillas({
 
 function SeccionRegistroEntrega({
   alumnos,
-  onVincular
+  onVincular,
+  puedeGestionar,
+  avisarSinPermiso
 }: {
   alumnos: Alumno[];
   onVincular: (folio: string, alumnoId: string) => Promise<unknown>;
+  puedeGestionar: boolean;
+  avisarSinPermiso: (mensaje: string) => void;
 }) {
   const [folio, setFolio] = useState('');
   const [alumnoId, setAlumnoId] = useState('');
@@ -4837,6 +5410,7 @@ function SeccionRegistroEntrega({
   };
 
   const puedeVincular = Boolean(folio.trim() && alumnoId);
+  const bloqueoEdicion = !puedeGestionar;
 
   function extraerFolioDesdeQr(texto: string) {
     const limpio = String(texto ?? '').trim();
@@ -5030,6 +5604,10 @@ function SeccionRegistroEntrega({
   async function vincular() {
     try {
       const inicio = Date.now();
+      if (!puedeGestionar) {
+        avisarSinPermiso('No tienes permiso para vincular entregas.');
+        return;
+      }
       setVinculando(true);
       setMensaje('');
       await onVincular(folio.trim(), alumnoId);
@@ -5198,11 +5776,11 @@ function SeccionRegistroEntrega({
       </div>
       <label className="campo">
         Folio
-        <input value={folio} onChange={(event) => setFolio(event.target.value)} />
+        <input value={folio} onChange={(event) => setFolio(event.target.value)} disabled={bloqueoEdicion} />
       </label>
       <label className="campo">
         Alumno
-        <select value={alumnoId} onChange={(event) => setAlumnoId(event.target.value)}>
+        <select value={alumnoId} onChange={(event) => setAlumnoId(event.target.value)} disabled={bloqueoEdicion}>
           <option value="">Selecciona</option>
           {alumnos.map((alumno) => (
             <option key={alumno._id} value={alumno._id}>
@@ -5211,7 +5789,13 @@ function SeccionRegistroEntrega({
           ))}
         </select>
       </label>
-      <Boton type="button" icono={<Icono nombre="recepcion" />} cargando={vinculando} disabled={!puedeVincular} onClick={vincular}>
+      <Boton
+        type="button"
+        icono={<Icono nombre="recepcion" />}
+        cargando={vinculando}
+        disabled={!puedeVincular || bloqueoEdicion}
+        onClick={vincular}
+      >
         {vinculando ? 'Vinculando…' : 'Vincular'}
       </Boton>
       {mensaje && (
@@ -5226,11 +5810,17 @@ function SeccionRegistroEntrega({
 function SeccionEntrega({
   alumnos,
   periodos,
-  onVincular
+  onVincular,
+  permisos,
+  avisarSinPermiso,
+  enviarConPermiso
 }: {
   alumnos: Alumno[];
   periodos: Periodo[];
   onVincular: (folio: string, alumnoId: string) => Promise<unknown>;
+  permisos: PermisosUI;
+  avisarSinPermiso: (mensaje: string) => void;
+  enviarConPermiso: EnviarConPermiso;
 }) {
   type ExamenGeneradoEntrega = {
     _id: string;
@@ -5248,6 +5838,8 @@ function SeccionEntrega({
   const [cargando, setCargando] = useState(false);
   const [mensaje, setMensaje] = useState('');
   const [deshaciendoFolio, setDeshaciendoFolio] = useState<string | null>(null);
+  const puedeGestionar = permisos.entregas.gestionar;
+  const puedeLeer = permisos.examenes.leer;
 
   useEffect(() => {
     if (periodoId || periodos.length === 0) return;
@@ -5276,6 +5868,10 @@ function SeccionEntrega({
       setExamenes([]);
       return;
     }
+    if (!puedeLeer && !puedeGestionar) {
+      setExamenes([]);
+      return;
+    }
     try {
       setCargando(true);
       setMensaje('');
@@ -5289,7 +5885,7 @@ function SeccionEntrega({
     } finally {
       setCargando(false);
     }
-  }, [periodoId]);
+  }, [periodoId, puedeLeer, puedeGestionar]);
 
   useEffect(() => {
     void cargarExamenes();
@@ -5305,6 +5901,10 @@ function SeccionEntrega({
 
   const deshacerEntrega = useCallback(
     async (folio: string) => {
+      if (!puedeGestionar) {
+        avisarSinPermiso('No tienes permiso para deshacer entregas.');
+        return;
+      }
       const confirmar = window.confirm(
         `¿Deshacer la entrega del folio ${folio}? Esto desvincula al alumno y regresa el examen a "generado".`
       );
@@ -5314,7 +5914,7 @@ function SeccionEntrega({
         setDeshaciendoFolio(folio);
         const payload: Record<string, string> = { folio };
         if (motivo && motivo.trim()) payload.motivo = motivo.trim();
-        await clienteApi.enviar('/entregas/deshacer-folio', payload);
+        await enviarConPermiso('entregas:gestionar', '/entregas/deshacer-folio', payload, 'No tienes permiso para deshacer entregas.');
         emitToast({ level: 'ok', title: 'Entrega', message: 'Entrega revertida', durationMs: 2200 });
         await cargarExamenes();
       } catch (error) {
@@ -5330,7 +5930,7 @@ function SeccionEntrega({
         setDeshaciendoFolio((actual) => (actual === folio ? null : actual));
       }
     },
-    [cargarExamenes]
+    [avisarSinPermiso, cargarExamenes, enviarConPermiso, puedeGestionar]
   );
 
   const filtroNormalizado = filtro.trim().toLowerCase();
@@ -5385,7 +5985,12 @@ function SeccionEntrega({
         </AyudaFormulario>
       </div>
 
-      <SeccionRegistroEntrega alumnos={alumnos} onVincular={vincularYRefrescar} />
+      <SeccionRegistroEntrega
+        alumnos={alumnos}
+        onVincular={vincularYRefrescar}
+        puedeGestionar={puedeGestionar}
+        avisarSinPermiso={avisarSinPermiso}
+      />
 
       <div className="panel">
         <div className="item-row">
@@ -5454,7 +6059,7 @@ function SeccionEntrega({
                         <Boton
                           type="button"
                           variante="secundario"
-                          disabled={bloqueando}
+                          disabled={bloqueando || !puedeGestionar}
                           onClick={() => void deshacerEntrega(examen.folio)}
                         >
                           {bloqueando ? (
@@ -5695,7 +6300,10 @@ function SeccionEscaneo({
   onPrevisualizar,
   resultado,
   respuestas,
-  onActualizar
+  onActualizar,
+  puedeAnalizar,
+  puedeCalificar,
+  avisarSinPermiso
 }: {
   alumnos: Alumno[];
   onAnalizar: (folio: string, numeroPagina: number, imagenBase64: string) => Promise<ResultadoAnalisisOmr>;
@@ -5707,6 +6315,9 @@ function SeccionEscaneo({
   resultado: ResultadoOmr | null;
   respuestas: Array<{ numeroPregunta: number; opcion: string | null; confianza: number }>;
   onActualizar: (respuestas: Array<{ numeroPregunta: number; opcion: string | null; confianza: number }>) => void;
+  puedeAnalizar: boolean;
+  puedeCalificar: boolean;
+  avisarSinPermiso: (mensaje: string) => void;
 }) {
   const [folio, setFolio] = useState('');
   const [numeroPagina, setNumeroPagina] = useState(1);
@@ -5729,7 +6340,8 @@ function SeccionEscaneo({
     }>
   >([]);
 
-  const puedeAnalizar = Boolean(imagenBase64);
+  const puedeAnalizarImagen = Boolean(imagenBase64);
+  const bloqueoAnalisis = !puedeAnalizar;
   const paginaManual = Number.isFinite(numeroPagina) ? Math.max(0, Math.floor(numeroPagina)) : 0;
   const mapaAlumnos = useMemo(() => new Map(alumnos.map((item) => [item._id, item.nombreCompleto])), [alumnos]);
 
@@ -5769,6 +6381,10 @@ function SeccionEscaneo({
   async function analizar() {
     try {
       const inicio = Date.now();
+      if (!puedeAnalizar) {
+        avisarSinPermiso('No tienes permiso para analizar OMR.');
+        return;
+      }
       setAnalizando(true);
       setMensaje('');
       const respuesta = await onAnalizar(folio.trim(), paginaManual > 0 ? paginaManual : 0, imagenBase64);
@@ -5798,6 +6414,14 @@ function SeccionEscaneo({
 
   async function analizarLote() {
     if (procesandoLote || lote.length === 0) return;
+    if (!puedeAnalizar) {
+      avisarSinPermiso('No tienes permiso para analizar OMR.');
+      return;
+    }
+    if (!puedeCalificar) {
+      avisarSinPermiso('No tienes permiso para previsualizar calificaciones.');
+      return;
+    }
     setProcesandoLote(true);
     for (const item of lote) {
       if (item.estado === 'listo') continue;
@@ -5941,7 +6565,7 @@ function SeccionEscaneo({
           value={folio}
           onChange={(event) => setFolio(event.target.value)}
           placeholder="Si se deja vacio, se lee del QR"
-          disabled={bloqueoManual}
+          disabled={bloqueoManual || bloqueoAnalisis}
         />
       </label>
       <label className="campo">
@@ -5952,7 +6576,7 @@ function SeccionEscaneo({
           value={numeroPagina}
           onChange={(event) => setNumeroPagina(Number(event.target.value))}
           placeholder="0 = detectar por QR"
-          disabled={bloqueoManual}
+          disabled={bloqueoManual || bloqueoAnalisis}
         />
       </label>
       {bloqueoManual && (
@@ -5965,17 +6589,29 @@ function SeccionEscaneo({
       )}
       <label className="campo">
         Imagen
-        <input type="file" accept="image/*" capture="environment" onChange={cargarArchivo} />
+        <input type="file" accept="image/*" capture="environment" onChange={cargarArchivo} disabled={bloqueoAnalisis} />
       </label>
-      <Boton type="button" icono={<Icono nombre="escaneo" />} cargando={analizando} disabled={!puedeAnalizar} onClick={analizar}>
+      <Boton
+        type="button"
+        icono={<Icono nombre="escaneo" />}
+        cargando={analizando}
+        disabled={!puedeAnalizar || !puedeAnalizarImagen}
+        onClick={analizar}
+      >
         {analizando ? 'Analizando…' : 'Analizar'}
       </Boton>
       <div className="separador" />
       <label className="campo">
         Lote de imagenes (bulk)
-        <input type="file" accept="image/*" multiple onChange={cargarLote} />
+        <input type="file" accept="image/*" multiple onChange={cargarLote} disabled={bloqueoAnalisis} />
       </label>
-      <Boton type="button" icono={<Icono nombre="escaneo" />} cargando={procesandoLote} disabled={lote.length === 0} onClick={analizarLote}>
+      <Boton
+        type="button"
+        icono={<Icono nombre="escaneo" />}
+        cargando={procesandoLote}
+        disabled={lote.length === 0 || bloqueoAnalisis || !puedeCalificar}
+        onClick={analizarLote}
+      >
         {procesandoLote ? 'Analizando lote…' : `Analizar lote (${lote.length})`}
       </Boton>
       {lote.length > 0 && (
@@ -6094,7 +6730,9 @@ function SeccionCalificaciones({
   onActualizar,
   examenId,
   alumnoId,
-  onCalificar
+  onCalificar,
+  permisos,
+  avisarSinPermiso
 }: {
   alumnos: Alumno[];
   onAnalizar: (folio: string, numeroPagina: number, imagenBase64: string) => Promise<ResultadoAnalisisOmr>;
@@ -6119,7 +6757,11 @@ function SeccionCalificaciones({
     retroalimentacion?: string;
     respuestasDetectadas?: Array<{ numeroPregunta: number; opcion: string | null; confianza?: number }>;
   }) => Promise<unknown>;
+  permisos: PermisosUI;
+  avisarSinPermiso: (mensaje: string) => void;
 }) {
+  const puedeAnalizar = permisos.omr.analizar;
+  const puedeCalificar = permisos.calificaciones.calificar;
   return (
     <>
       <div className="panel">
@@ -6137,12 +6779,17 @@ function SeccionCalificaciones({
         resultado={resultado}
         respuestas={respuestas}
         onActualizar={onActualizar}
+        puedeAnalizar={puedeAnalizar}
+        puedeCalificar={puedeCalificar}
+        avisarSinPermiso={avisarSinPermiso}
       />
       <SeccionCalificar
         examenId={examenId}
         alumnoId={alumnoId}
         respuestasDetectadas={respuestas}
         onCalificar={onCalificar}
+        puedeCalificar={puedeCalificar}
+        avisarSinPermiso={avisarSinPermiso}
       />
     </>
   );
@@ -6152,12 +6799,16 @@ function SeccionCalificar({
   examenId,
   alumnoId,
   respuestasDetectadas,
-  onCalificar
+  onCalificar,
+  puedeCalificar,
+  avisarSinPermiso
 }: {
   examenId: string | null;
   alumnoId: string | null;
   respuestasDetectadas: Array<{ numeroPregunta: number; opcion: string | null }>;
   onCalificar: (payload: Record<string, unknown>) => Promise<unknown>;
+  puedeCalificar: boolean;
+  avisarSinPermiso: (mensaje: string) => void;
 }) {
   const [bono, setBono] = useState(0);
   const [evaluacionContinua, setEvaluacionContinua] = useState(0);
@@ -6165,7 +6816,8 @@ function SeccionCalificar({
   const [mensaje, setMensaje] = useState('');
   const [guardando, setGuardando] = useState(false);
 
-  const puedeCalificar = Boolean(examenId && alumnoId);
+  const puedeCalificarLocal = Boolean(examenId && alumnoId);
+  const bloqueoCalificar = !puedeCalificar;
 
   async function calificar() {
     if (!examenId || !alumnoId) {
@@ -6174,6 +6826,10 @@ function SeccionCalificar({
     }
     try {
       const inicio = Date.now();
+      if (!puedeCalificar) {
+        avisarSinPermiso('No tienes permiso para calificar.');
+        return;
+      }
       setGuardando(true);
       setMensaje('');
       await onCalificar({
@@ -6220,6 +6876,7 @@ function SeccionCalificar({
             max={0.5}
             value={bono}
             onChange={(event) => setBono(Math.max(0, Math.min(0.5, Number(event.target.value))))}
+            disabled={bloqueoCalificar}
           />
         </label>
         <label className="campo">
@@ -6228,13 +6885,25 @@ function SeccionCalificar({
             type="number"
             value={evaluacionContinua}
             onChange={(event) => setEvaluacionContinua(Math.max(0, Number(event.target.value)))}
+            disabled={bloqueoCalificar}
           />
         </label>
         <label className="campo">
           Proyecto (global)
-          <input type="number" value={proyecto} onChange={(event) => setProyecto(Math.max(0, Number(event.target.value)))} />
+          <input
+            type="number"
+            value={proyecto}
+            onChange={(event) => setProyecto(Math.max(0, Number(event.target.value)))}
+            disabled={bloqueoCalificar}
+          />
         </label>
-        <Boton type="button" icono={<Icono nombre="calificar" />} cargando={guardando} disabled={!puedeCalificar} onClick={calificar}>
+        <Boton
+          type="button"
+          icono={<Icono nombre="calificar" />}
+          cargando={guardando}
+          disabled={!puedeCalificarLocal || bloqueoCalificar}
+          onClick={calificar}
+        >
           {guardando ? 'Guardando…' : 'Calificar'}
         </Boton>
         {mensaje && (

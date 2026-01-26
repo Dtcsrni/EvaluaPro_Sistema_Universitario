@@ -26,5 +26,16 @@ describe('AppAlumno', () => {
 
     expect(screen.getByText('Salir')).toBeInTheDocument();
   });
-});
 
+  it('muestra estado sin resultados con token', () => {
+    localStorage.setItem('tokenAlumno', 'token-falso');
+    render(
+      <TemaProvider>
+        <AppAlumno />
+      </TemaProvider>
+    );
+
+    expect(screen.getByText('Sin resultados')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Recargar' })).toBeInTheDocument();
+  });
+});

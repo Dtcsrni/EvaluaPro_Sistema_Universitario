@@ -6,7 +6,7 @@
   "type": "module",
   "repository": {
     "type": "git",
-    "url": "https://github.com/Dtcsrni/evaluapro"
+    "url": "https://github.com/Dtcsrni/EvaluaPro_Sistema_Universitario"
   },
   "keywords": ["react", "vite", "frontend", "docente", "alumno", "evaluacion"],
   "scripts": {

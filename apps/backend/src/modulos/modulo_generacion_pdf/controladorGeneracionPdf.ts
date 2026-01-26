@@ -18,12 +18,16 @@ import { BancoPregunta } from '../modulo_banco_preguntas/modeloBancoPregunta';
 import { Alumno } from '../modulo_alumnos/modeloAlumno';
 import { barajar } from '../../compartido/utilidades/aleatoriedad';
 import { ErrorAplicacion } from '../../compartido/errores/errorAplicacion';
+import { configuracion } from '../../configuracion';
 import { guardarPdfExamen } from '../../infraestructura/archivos/almacenLocal';
 import { Periodo } from '../modulo_alumnos/modeloPeriodo';
 import { normalizarParaNombreArchivo } from '../../compartido/utilidades/texto';
 import { obtenerDocenteId } from '../modulo_autenticacion/middlewareAutenticacion';
 import type { SolicitudDocente } from '../modulo_autenticacion/middlewareAutenticacion';
 import { Docente } from '../modulo_autenticacion/modeloDocente';
+import { BanderaRevision } from '../modulo_analiticas/modeloBanderaRevision';
+import { Calificacion } from '../modulo_calificacion/modeloCalificacion';
+import { Entrega } from '../modulo_vinculacion_entrega/modeloEntrega';
 import { ExamenGenerado } from './modeloExamenGenerado';
 import { ExamenPlantilla } from './modeloExamenPlantilla';
 import { generarPdfExamen } from './servicioGeneracionPdf';
@@ -55,6 +59,12 @@ function normalizarNombreTemaPreview(valor: unknown): string {
 
 function claveTemaPreview(valor: unknown): string {
   return normalizarNombreTemaPreview(valor).toLowerCase();
+}
+
+function validarAdminDev() {
+  if (String(configuracion.entorno).toLowerCase() !== 'development') {
+    throw new ErrorAplicacion('SOLO_DEV', 'Accion disponible solo en modo desarrollo', 403);
+  }
 }
 
 function construirNombrePdfExamen(parametros: {
@@ -367,6 +377,50 @@ export async function archivarPlantilla(req: SolicitudDocente, res: Response) {
   ).lean();
 
   res.json({ ok: true, plantilla: actualizado });
+}
+
+/**
+ * Elimina una plantilla y sus examenes asociados (solo admin en desarrollo).
+ */
+export async function eliminarPlantillaDev(req: SolicitudDocente, res: Response) {
+  const docenteId = obtenerDocenteId(req);
+  validarAdminDev();
+  const plantillaId = String(req.params.id || '').trim();
+  const plantilla = await ExamenPlantilla.findById(plantillaId).lean();
+  if (!plantilla) {
+    throw new ErrorAplicacion('PLANTILLA_NO_ENCONTRADA', 'Plantilla no encontrada', 404);
+  }
+  if (String(plantilla.docenteId) !== String(docenteId)) {
+    throw new ErrorAplicacion('NO_AUTORIZADO', 'Sin acceso a la plantilla', 403);
+  }
+
+  const examenes = await ExamenGenerado.find({ docenteId, plantillaId }).select('_id').lean();
+  const examenesIds = examenes.map((examen) => String(examen._id));
+
+  const [entregasResp, calificacionesResp, banderasResp] = examenesIds.length
+    ? await Promise.all([
+        Entrega.deleteMany({ docenteId, examenGeneradoId: { $in: examenesIds } }),
+        Calificacion.deleteMany({ docenteId, examenGeneradoId: { $in: examenesIds } }),
+        BanderaRevision.deleteMany({ docenteId, examenGeneradoId: { $in: examenesIds } })
+      ])
+    : [{ deletedCount: 0 }, { deletedCount: 0 }, { deletedCount: 0 }];
+
+  const examenesResp = examenesIds.length
+    ? await ExamenGenerado.deleteMany({ docenteId, _id: { $in: examenesIds } })
+    : { deletedCount: 0 };
+
+  const plantillaResp = await ExamenPlantilla.deleteOne({ _id: plantillaId, docenteId });
+
+  res.json({
+    ok: true,
+    eliminados: {
+      plantillas: plantillaResp.deletedCount ?? 0,
+      examenes: examenesResp.deletedCount ?? 0,
+      entregas: (entregasResp as { deletedCount?: number }).deletedCount ?? 0,
+      calificaciones: (calificacionesResp as { deletedCount?: number }).deletedCount ?? 0,
+      banderas: (banderasResp as { deletedCount?: number }).deletedCount ?? 0
+    }
+  });
 }
 
 /**

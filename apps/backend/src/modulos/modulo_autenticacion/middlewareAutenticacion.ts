@@ -9,7 +9,7 @@ import type { NextFunction, Request, Response } from 'express';
 import { ErrorAplicacion } from '../../compartido/errores/errorAplicacion';
 import { verificarTokenDocente } from './servicioTokens';
 
-export type SolicitudDocente = Request & { docenteId?: string };
+export type SolicitudDocente = Request & { docenteId?: string; docenteRoles?: string[] };
 
 export function requerirDocente(req: SolicitudDocente, _res: Response, next: NextFunction) {
   const auth = req.headers.authorization ?? '';
@@ -23,6 +23,7 @@ export function requerirDocente(req: SolicitudDocente, _res: Response, next: Nex
   try {
     const payload = verificarTokenDocente(token);
     req.docenteId = payload.docenteId;
+    req.docenteRoles = Array.isArray(payload.roles) && payload.roles.length > 0 ? payload.roles : ['docente'];
     next();
   } catch {
     // `jsonwebtoken.verify` lanza si el token es invalido o expiro.

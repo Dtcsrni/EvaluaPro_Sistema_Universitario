@@ -28,6 +28,7 @@ import {
 	esquemaRegistrarDocente,
 	esquemaRegistrarDocenteGoogle
 } from './validacionesAutenticacion';
+import { requerirPermiso } from './middlewarePermisos';
 
 const router = Router();
 
@@ -86,14 +87,16 @@ router.post(
 	'/definir-contrasena',
 	limiterCredenciales,
 	requerirDocente,
+	requerirPermiso('cuenta:actualizar'),
 	validarCuerpo(esquemaDefinirContrasenaDocente, { strict: true }),
 	definirContrasenaDocente
 );
-router.get('/perfil', requerirDocente, perfilDocente);
+router.get('/perfil', requerirDocente, requerirPermiso('cuenta:leer'), perfilDocente);
 
 router.post(
 	'/preferencias/pdf',
 	requerirDocente,
+	requerirPermiso('cuenta:actualizar'),
 	validarCuerpo(esquemaActualizarPreferenciasPdf, { strict: true }),
 	actualizarPreferenciasPdfDocente
 );

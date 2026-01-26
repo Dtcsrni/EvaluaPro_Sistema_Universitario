@@ -10,6 +10,7 @@ import { configuracion } from '../../configuracion';
 
 export type TokenDocentePayload = {
   docenteId: string;
+  roles?: string[];
 };
 
 /**

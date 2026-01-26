@@ -9,12 +9,28 @@ import {
   esquemaVincularEntrega,
   esquemaVincularEntregaPorFolio
 } from './validacionesVinculacion';
+import { requerirPermiso } from '../modulo_autenticacion/middlewarePermisos';
 
 const router = Router();
 
-router.post('/vincular', validarCuerpo(esquemaVincularEntrega, { strict: true }), vincularEntrega);
-router.post('/vincular-folio', validarCuerpo(esquemaVincularEntregaPorFolio, { strict: true }), vincularEntregaPorFolio);
-router.post('/deshacer-folio', validarCuerpo(esquemaDeshacerEntregaPorFolio, { strict: true }), deshacerEntregaPorFolio);
+router.post(
+  '/vincular',
+  requerirPermiso('entregas:gestionar'),
+  validarCuerpo(esquemaVincularEntrega, { strict: true }),
+  vincularEntrega
+);
+router.post(
+  '/vincular-folio',
+  requerirPermiso('entregas:gestionar'),
+  validarCuerpo(esquemaVincularEntregaPorFolio, { strict: true }),
+  vincularEntregaPorFolio
+);
+router.post(
+  '/deshacer-folio',
+  requerirPermiso('entregas:gestionar'),
+  validarCuerpo(esquemaDeshacerEntregaPorFolio, { strict: true }),
+  deshacerEntregaPorFolio
+);
 
 
 export default router;
