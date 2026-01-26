@@ -3542,6 +3542,7 @@ function SeccionPlantillas({
   const [guardandoPlantilla, setGuardandoPlantilla] = useState(false);
   const [archivandoPlantillaId, setArchivandoPlantillaId] = useState<string | null>(null);
   const [filtroPlantillas, setFiltroPlantillas] = useState('');
+  const [refrescandoPlantillas, setRefrescandoPlantillas] = useState(false);
 
   type PreviewPlantilla = {
     plantillaId: string;
@@ -3628,6 +3629,7 @@ function SeccionPlantillas({
 
   const descargarPdfExamen = useCallback(
     async (examen: ExamenGeneradoResumen) => {
+      if (descargandoExamenId === examen._id) return;
       const token = obtenerTokenDocente();
       if (!token) {
         setMensajeGeneracion('Sesion no valida. Vuelve a iniciar sesion.');
@@ -3690,6 +3692,7 @@ function SeccionPlantillas({
 
   const regenerarPdfExamen = useCallback(
     async (examen: ExamenGeneradoResumen) => {
+      if (regenerandoExamenId === examen._id) return;
       try {
         setMensajeGeneracion('');
         setRegenerandoExamenId(examen._id);
@@ -3730,6 +3733,7 @@ function SeccionPlantillas({
 
   const archivarExamenGenerado = useCallback(
     async (examen: ExamenGeneradoResumen) => {
+      if (archivandoExamenId === examen._id) return;
       try {
         setMensajeGeneracion('');
         setArchivandoExamenId(examen._id);
@@ -3823,6 +3827,23 @@ function SeccionPlantillas({
     return base;
   }, [plantillas, filtroPlantillas]);
 
+  const totalPlantillas = plantillasFiltradas.length;
+  const totalPlantillasTodas = Array.isArray(plantillas) ? plantillas.length : 0;
+
+  async function refrescarPlantillas() {
+    if (refrescandoPlantillas) return;
+    try {
+      setRefrescandoPlantillas(true);
+      await Promise.resolve(onRefrescar());
+    } finally {
+      setRefrescandoPlantillas(false);
+    }
+  }
+
+  function limpiarFiltroPlantillas() {
+    setFiltroPlantillas('');
+  }
+
   function iniciarEdicion(plantilla: Plantilla) {
     setModoEdicion(true);
     setPlantillaEditandoId(plantilla._id);
@@ -3848,7 +3869,7 @@ function SeccionPlantillas({
   }
 
   async function guardarEdicion() {
-    if (!plantillaEditandoId) return;
+    if (!plantillaEditandoId || guardandoPlantilla) return;
     try {
       const inicio = Date.now();
       setGuardandoPlantilla(true);
@@ -3892,6 +3913,7 @@ function SeccionPlantillas({
   }
 
   async function archivarPlantilla(plantilla: Plantilla) {
+    if (archivandoPlantillaId === plantilla._id) return;
     const ok = globalThis.confirm(
       `¿Archivar la plantilla "${String(plantilla.titulo || '').trim()}"?\n\nSe ocultará del listado activo, pero no se borrarán sus datos.`
     );
@@ -3958,6 +3980,7 @@ function SeccionPlantillas({
   }
 
   async function cargarPreviewPlantilla(id: string) {
+    if (cargandoPreviewPlantillaId === id) return;
     try {
       setCargandoPreviewPlantillaId(id);
       const payload = await clienteApi.obtener<PreviewPlantilla>(
@@ -3979,6 +4002,7 @@ function SeccionPlantillas({
   }
 
   async function togglePreviewPlantilla(id: string) {
+    if (cargandoPreviewPlantillaId === id) return;
     setPlantillaPreviewId((prev) => (prev === id ? null : id));
     if (!previewPorPlantillaId[id]) {
       await cargarPreviewPlantilla(id);
@@ -3986,6 +4010,7 @@ function SeccionPlantillas({
   }
 
   async function cargarPreviewPdfPlantilla(id: string) {
+    if (cargandoPreviewPdfPlantillaId === id) return;
     const token = obtenerTokenDocente();
     if (!token) {
       emitToast({ level: 'error', title: 'Sesion no valida', message: 'Vuelve a iniciar sesion.', durationMs: 4200 });
@@ -4041,6 +4066,7 @@ function SeccionPlantillas({
   }
 
   async function crear() {
+    if (creando) return;
     try {
       const inicio = Date.now();
       setCreando(true);
@@ -4079,9 +4105,32 @@ function SeccionPlantillas({
 
   return (
     <div className="panel">
-      <h2>
-        <Icono nombre="plantillas" /> Plantillas
-      </h2>
+      <div className="plantillas-header">
+        <h2>
+          <Icono nombre="plantillas" /> Plantillas
+        </h2>
+        <div className="plantillas-actions">
+          <Boton
+            type="button"
+            variante="secundario"
+            icono={<Icono nombre="recargar" />}
+            cargando={refrescandoPlantillas}
+            onClick={() => void refrescarPlantillas()}
+          >
+            {refrescandoPlantillas ? 'Actualizando…' : 'Actualizar'}
+          </Boton>
+          <Boton
+            type="button"
+            variante="secundario"
+            disabled={!filtroPlantillas.trim()}
+            onClick={limpiarFiltroPlantillas}
+          >
+            Limpiar filtro
+          </Boton>
+        </div>
+      </div>
+      <div className="plantillas-grid">
+        <div className="subpanel plantillas-panel plantillas-panel--form">
       <AyudaFormulario titulo="Para que sirve y como llenarlo">
         <p>
           <b>Proposito:</b> crear una plantilla de examen (estructura + reactivos) para generar examenes en PDF.
@@ -4116,90 +4165,93 @@ function SeccionPlantillas({
           'Crea plantillas por temas, o edita una existente.'
         )}
       </div>
+      <div className="plantillas-form">
+        <label className="campo">
+          Titulo
+          <input value={titulo} onChange={(event) => setTitulo(event.target.value)} />
+        </label>
+        <label className="campo">
+          Tipo
+          <select value={tipo} onChange={(event) => setTipo(event.target.value as 'parcial' | 'global')}>
+            <option value="parcial">Parcial</option>
+            <option value="global">Global</option>
+          </select>
+        </label>
+        <label className="campo">
+          Materia
+          <select value={periodoId} onChange={(event) => setPeriodoId(event.target.value)}>
+            <option value="">Selecciona</option>
+            {periodos.map((periodo) => (
+              <option key={periodo._id} value={periodo._id} title={periodo._id}>
+                {etiquetaMateria(periodo)}
+              </option>
+            ))}
+          </select>
+        </label>
+        <label className="campo">
+          Numero de paginas
+          <input
+            type="number"
+            min={1}
+            step={1}
+            value={numeroPaginas}
+            onChange={(event) => setNumeroPaginas(Number(event.target.value))}
+          />
+        </label>
 
-      <label className="campo">
-        Titulo
-        <input value={titulo} onChange={(event) => setTitulo(event.target.value)} />
-      </label>
-      <label className="campo">
-        Tipo
-        <select value={tipo} onChange={(event) => setTipo(event.target.value as 'parcial' | 'global')}>
-          <option value="parcial">Parcial</option>
-          <option value="global">Global</option>
-        </select>
-      </label>
-      <label className="campo">
-        Materia
-        <select value={periodoId} onChange={(event) => setPeriodoId(event.target.value)}>
-          <option value="">Selecciona</option>
-          {periodos.map((periodo) => (
-            <option key={periodo._id} value={periodo._id} title={periodo._id}>
-              {etiquetaMateria(periodo)}
-            </option>
-          ))}
-        </select>
-      </label>
-      <label className="campo">
-        Numero de paginas
-        <input
-          type="number"
-          value={numeroPaginas}
-          onChange={(event) => setNumeroPaginas(Number(event.target.value))}
-        />
-      </label>
+        <label className="campo plantillas-form__full">
+          Instrucciones (opcional)
+          <textarea value={instrucciones} onChange={(event) => setInstrucciones(event.target.value)} rows={3} />
+        </label>
 
-      <label className="campo">
-        Instrucciones (opcional)
-        <textarea value={instrucciones} onChange={(event) => setInstrucciones(event.target.value)} rows={3} />
-      </label>
-
-      <label className="campo">
-        Temas
-        {periodoId && temasDisponibles.length === 0 && (
-          <span className="ayuda">No hay temas para esta materia. Ve a &quot;Banco&quot; y crea preguntas con tema.</span>
-        )}
-        {temasDisponibles.length > 0 && (
-          <ul className="lista lista-items">
-            {temasDisponibles.map((item) => {
-              const checked = temasSeleccionados.some((t) => t.toLowerCase() === item.tema.toLowerCase());
-              return (
-                <li key={item.tema}>
-                  <div className="item-glass">
-                    <div className="item-row">
-                      <div>
-                        <div className="item-title">{item.tema}</div>
-                        <div className="item-sub">Preguntas disponibles: {item.total}</div>
-                      </div>
-                      <div className="item-actions">
-                        <label className="campo campo-inline">
-                          <input
-                            type="checkbox"
-                            checked={checked}
-                            onChange={() => {
-                              setTemasSeleccionados((prev) =>
-                                checked
-                                  ? prev.filter((t) => t.toLowerCase() !== item.tema.toLowerCase())
-                                  : [...prev, item.tema]
-                              );
-                            }}
-                          />
-                          Usar
-                        </label>
+        <label className="campo plantillas-form__full">
+          Temas
+          {periodoId && temasDisponibles.length === 0 && (
+            <span className="ayuda">No hay temas para esta materia. Ve a &quot;Banco&quot; y crea preguntas con tema.</span>
+          )}
+          {temasDisponibles.length > 0 && (
+            <ul className="lista lista-items">
+              {temasDisponibles.map((item) => {
+                const checked = temasSeleccionados.some((t) => t.toLowerCase() === item.tema.toLowerCase());
+                return (
+                  <li key={item.tema}>
+                    <div className="item-glass">
+                      <div className="item-row">
+                        <div>
+                          <div className="item-title">{item.tema}</div>
+                          <div className="item-sub">Preguntas disponibles: {item.total}</div>
+                        </div>
+                        <div className="item-actions">
+                          <label className="campo campo-inline">
+                            <input
+                              type="checkbox"
+                              checked={checked}
+                              onChange={() => {
+                                setTemasSeleccionados((prev) =>
+                                  checked
+                                    ? prev.filter((t) => t.toLowerCase() !== item.tema.toLowerCase())
+                                    : [...prev, item.tema]
+                                );
+                              }}
+                            />
+                            Usar
+                          </label>
+                        </div>
                       </div>
                     </div>
-                  </div>
-                </li>
-              );
-            })}
-          </ul>
-        )}
-        {temasSeleccionados.length > 0 && (
-          <span className="ayuda">
-            Total disponible en temas seleccionados: {totalDisponiblePorTemas}. Paginas solicitadas: {Math.max(1, Math.floor(numeroPaginas))}.
-            {' '}Si faltan preguntas, el sistema avisara; solo bloqueara si la ultima pagina queda mas de la mitad vacia.
-          </span>
-        )}
-      </label>
+                  </li>
+                );
+              })}
+            </ul>
+          )}
+          {temasSeleccionados.length > 0 && (
+            <span className="ayuda">
+              Total disponible en temas seleccionados: {totalDisponiblePorTemas}. Paginas solicitadas: {Math.max(1, Math.floor(numeroPaginas))}.
+              {' '}Si faltan preguntas, el sistema avisara; solo bloqueara si la ultima pagina queda mas de la mitad vacia.
+            </span>
+          )}
+        </label>
+      </div>
       <div className="acciones acciones--mt">
         {!modoEdicion && (
           <Boton type="button" icono={<Icono nombre="nuevo" />} cargando={creando} disabled={!puedeCrear} onClick={crear}>
@@ -4227,202 +4279,222 @@ function SeccionPlantillas({
           {mensaje}
         </p>
       )}
-      <h3>Plantillas existentes</h3>
-      <label className="campo">
-        Buscar
-        <input value={filtroPlantillas} onChange={(e) => setFiltroPlantillas(e.target.value)} placeholder="Titulo, tema o ID…" />
-      </label>
-      <ul className="lista lista-items">
-        {plantillasFiltradas.map((plantilla) => {
-          const materia = periodos.find((p) => p._id === plantilla.periodoId);
-          const temas = Array.isArray(plantilla.temas) ? plantilla.temas : [];
-          const modo = temas.length > 0 ? `Temas: ${temas.join(', ')}` : 'Modo legacy: preguntasIds';
-          const preview = previewPorPlantillaId[plantilla._id];
-          const previewAbierta = plantillaPreviewId === plantilla._id;
-          const pdfUrl = previewPdfUrlPorPlantillaId[plantilla._id];
-          return (
-            <li key={plantilla._id}>
-              <div className="item-glass">
-                <div className="item-row">
-                  <div>
-                    <div className="item-title">{plantilla.titulo}</div>
-                    <div className="item-meta">
-                      <span>ID: {idCortoMateria(plantilla._id)}</span>
-                      <span>Tipo: {plantilla.tipo}</span>
-                      <span>Paginas: {Number((plantilla as unknown as { numeroPaginas?: unknown })?.numeroPaginas ?? 0) || '-'}</span>
-                      <span>Materia: {materia ? etiquetaMateria(materia) : '-'}</span>
-                    </div>
-                    <div className="item-sub">{modo}</div>
-                    {previewAbierta && (
-                      <div className="resultado plantillas-preview">
-                        <h4 className="plantillas-preview__titulo">Previsualizacion (boceto por pagina)</h4>
-                        {!preview && (
-                          <div className="ayuda">
-                            Esta previsualizacion usa una seleccion determinista de preguntas (para que no cambie cada vez) y bosqueja el contenido por pagina.
-                          </div>
-                        )}
-                        {!preview && (
-                          <Boton
-                            type="button"
-                            variante="secundario"
-                            cargando={cargandoPreviewPlantillaId === plantilla._id}
-                            onClick={() => void cargarPreviewPlantilla(plantilla._id)}
-                          >
-                            {cargandoPreviewPlantillaId === plantilla._id ? 'Generando…' : 'Generar previsualizacion'}
-                          </Boton>
-                        )}
-                        {preview && (
-                          <>
-                            {Array.isArray(preview.advertencias) && preview.advertencias.length > 0 && (
-                              <InlineMensaje tipo="info">{preview.advertencias.join(' ')}</InlineMensaje>
-                            )}
+        </div>
+        <div className="subpanel plantillas-panel plantillas-panel--lista">
+          <h3>Plantillas existentes</h3>
+          <div className="plantillas-panel__meta">
+            <span>Total: {totalPlantillasTodas}</span>
+            <span>Mostradas: {totalPlantillas}</span>
+          </div>
+      <div className="plantillas-filtro">
+        <label className="campo plantillas-filtro__campo">
+          Buscar
+          <input value={filtroPlantillas} onChange={(e) => setFiltroPlantillas(e.target.value)} placeholder="Titulo, tema o ID…" />
+        </label>
+        <div className="plantillas-filtro__resultado">
+          {filtroPlantillas.trim() ? `Filtro: "${filtroPlantillas.trim()}"` : 'Sin filtros aplicados'}
+        </div>
+      </div>
+      {plantillasFiltradas.length === 0 ? (
+        <InlineMensaje tipo="info">No hay plantillas con ese filtro. Ajusta la busqueda o crea una nueva.</InlineMensaje>
+      ) : (
+        <ul className="lista lista-items plantillas-lista">
+          {plantillasFiltradas.map((plantilla) => {
+            const materia = periodos.find((p) => p._id === plantilla.periodoId);
+            const temas = Array.isArray(plantilla.temas) ? plantilla.temas : [];
+            const modo = temas.length > 0 ? `Temas: ${temas.join(', ')}` : 'Modo legacy: preguntasIds';
+            const preview = previewPorPlantillaId[plantilla._id];
+            const previewAbierta = plantillaPreviewId === plantilla._id;
+            const pdfUrl = previewPdfUrlPorPlantillaId[plantilla._id];
+            return (
+              <li key={plantilla._id}>
+                <div className="item-glass">
+                  <div className="item-row">
+                    <div>
+                      <div className="item-title">{plantilla.titulo}</div>
+                      <div className="item-meta">
+                        <span>ID: {idCortoMateria(plantilla._id)}</span>
+                        <span>Tipo: {plantilla.tipo}</span>
+                        <span>Paginas: {Number((plantilla as unknown as { numeroPaginas?: unknown })?.numeroPaginas ?? 0) || '-'}</span>
+                        <span>Materia: {materia ? etiquetaMateria(materia) : '-'}</span>
+                      </div>
+                      <div className="item-sub">{modo}</div>
+                      {previewAbierta && (
+                        <div className="resultado plantillas-preview">
+                          <h4 className="plantillas-preview__titulo">Previsualizacion (boceto por pagina)</h4>
+                          {!preview && (
+                            <div className="ayuda">
+                              Esta previsualizacion usa una seleccion determinista de preguntas (para que no cambie cada vez) y bosqueja el contenido por pagina.
+                            </div>
+                          )}
+                          {!preview && (
+                            <Boton
+                              type="button"
+                              variante="secundario"
+                              cargando={cargandoPreviewPlantillaId === plantilla._id}
+                              onClick={() => void cargarPreviewPlantilla(plantilla._id)}
+                            >
+                              {cargandoPreviewPlantillaId === plantilla._id ? 'Generando…' : 'Generar previsualizacion'}
+                            </Boton>
+                          )}
+                          {preview && (
+                            <>
+                              {Array.isArray(preview.advertencias) && preview.advertencias.length > 0 && (
+                                <InlineMensaje tipo="info">{preview.advertencias.join(' ')}</InlineMensaje>
+                              )}
 
-                            {Array.isArray(preview.conteoPorTema) && preview.conteoPorTema.length > 0 && (
-                              <div className="resultado plantillas-preview__bloque">
-                                <h4 className="plantillas-preview__subtitulo">Disponibles por tema</h4>
-                                <ul className="lista">
-                                  {preview.conteoPorTema.map((t) => (
-                                    <li key={t.tema}>
-                                      <b>{t.tema}:</b> {t.disponibles}
-                                    </li>
-                                  ))}
-                                </ul>
-                              </div>
-                            )}
+                              {Array.isArray(preview.conteoPorTema) && preview.conteoPorTema.length > 0 && (
+                                <div className="resultado plantillas-preview__bloque">
+                                  <h4 className="plantillas-preview__subtitulo">Disponibles por tema</h4>
+                                  <ul className="lista">
+                                    {preview.conteoPorTema.map((t) => (
+                                      <li key={t.tema}>
+                                        <b>{t.tema}:</b> {t.disponibles}
+                                      </li>
+                                    ))}
+                                  </ul>
+                                </div>
+                              )}
 
-                            {Array.isArray(preview.temasDisponiblesEnMateria) && preview.temasDisponiblesEnMateria.length > 0 && (
-                              <div className="resultado plantillas-preview__bloque">
-                                <h4 className="plantillas-preview__subtitulo">Temas con preguntas en la materia (top)</h4>
-                                <div className="ayuda">Sirve para detectar temas mal escritos o con 0 reactivos.</div>
-                                <ul className="lista">
-                                  {preview.temasDisponiblesEnMateria.map((t) => (
-                                    <li key={`${t.tema}-${t.disponibles}`}>
-                                      <b>{t.tema}:</b> {t.disponibles}
-                                    </li>
-                                  ))}
-                                </ul>
-                              </div>
-                            )}
-                            <div className="acciones acciones--mt">
-                              {!pdfUrl ? (
-                                <Boton
-                                  type="button"
-                                  variante="secundario"
-                                  cargando={cargandoPreviewPdfPlantillaId === plantilla._id}
-                                  onClick={() => void cargarPreviewPdfPlantilla(plantilla._id)}
-                                >
-                                  {cargandoPreviewPdfPlantillaId === plantilla._id ? 'Generando PDF…' : 'Ver PDF exacto'}
-                                </Boton>
-                              ) : (
-                                <>
-                                  <Boton type="button" variante="secundario" onClick={() => cerrarPreviewPdfPlantilla(plantilla._id)}>
-                                    Ocultar PDF
-                                  </Boton>
-                                  <Boton type="button" variante="secundario" onClick={() => abrirPdfFullscreen(pdfUrl)}>
-                                    Ver grande
-                                  </Boton>
+                              {Array.isArray(preview.temasDisponiblesEnMateria) && preview.temasDisponiblesEnMateria.length > 0 && (
+                                <div className="resultado plantillas-preview__bloque">
+                                  <h4 className="plantillas-preview__subtitulo">Temas con preguntas en la materia (top)</h4>
+                                  <div className="ayuda">Sirve para detectar temas mal escritos o con 0 reactivos.</div>
+                                  <ul className="lista">
+                                    {preview.temasDisponiblesEnMateria.map((t) => (
+                                      <li key={`${t.tema}-${t.disponibles}`}>
+                                        <b>{t.tema}:</b> {t.disponibles}
+                                      </li>
+                                    ))}
+                                  </ul>
+                                </div>
+                              )}
+                              <div className="acciones acciones--mt">
+                                {!pdfUrl ? (
                                   <Boton
                                     type="button"
                                     variante="secundario"
-                                    onClick={() => {
-                                      const u = String(pdfUrl || '').trim();
-                                      if (!u) return;
-                                      window.open(u, '_blank', 'noopener,noreferrer');
-                                    }}
+                                    cargando={cargandoPreviewPdfPlantillaId === plantilla._id}
+                                    onClick={() => void cargarPreviewPdfPlantilla(plantilla._id)}
                                   >
-                                    Abrir en pestaña
+                                    {cargandoPreviewPdfPlantillaId === plantilla._id ? 'Generando PDF…' : 'Ver PDF exacto'}
                                   </Boton>
-                                </>
-                              )}
-                            </div>
-
-                            {pdfUrl && (
-                              <div className="plantillas-preview__pdfWrap">
-                                <iframe className="plantillas-preview__pdf" title="Previsualizacion PDF" src={pdfUrl} />
+                                ) : (
+                                  <>
+                                    <Boton type="button" variante="secundario" onClick={() => cerrarPreviewPdfPlantilla(plantilla._id)}>
+                                      Ocultar PDF
+                                    </Boton>
+                                    <Boton type="button" variante="secundario" onClick={() => abrirPdfFullscreen(pdfUrl)}>
+                                      Ver grande
+                                    </Boton>
+                                    <Boton
+                                      type="button"
+                                      variante="secundario"
+                                      onClick={() => {
+                                        const u = String(pdfUrl || '').trim();
+                                        if (!u) return;
+                                        window.open(u, '_blank', 'noopener,noreferrer');
+                                      }}
+                                    >
+                                      Abrir en pestaña
+                                    </Boton>
+                                  </>
+                                )}
                               </div>
-                            )}
 
-                            {pdfFullscreenUrl && (
-                              <div className="pdf-overlay" role="dialog" aria-modal="true">
-                                <div className="pdf-overlay__bar">
-                                  <Boton type="button" variante="secundario" onClick={cerrarPdfFullscreen}>
-                                    Cerrar
-                                  </Boton>
+                              {pdfUrl && (
+                                <div className="plantillas-preview__pdfWrap">
+                                  <iframe className="plantillas-preview__pdf" title="Previsualizacion PDF" src={pdfUrl} />
                                 </div>
-                                <iframe className="pdf-overlay__frame" title="PDF (pantalla completa)" src={pdfFullscreenUrl} />
-                              </div>
-                            )}
-                          <ul className="lista lista-items plantillas-preview__lista">
-                            {preview.paginas.map((p) => (
-                              <li key={p.numero}>
-                                <div className="item-glass">
-                                  <div className="item-row">
-                                    <div>
-                                      <div className="item-title">Pagina {p.numero}</div>
-                                      <div className="item-meta">
-                                        <span>
-                                          Preguntas: {p.preguntasDel && p.preguntasAl ? `${p.preguntasDel}–${p.preguntasAl}` : '—'}
-                                        </span>
-                                        <span>Elementos: {Array.isArray(p.elementos) ? p.elementos.length : 0}</span>
+                              )}
+
+                              {pdfFullscreenUrl && (
+                                <div className="pdf-overlay" role="dialog" aria-modal="true">
+                                  <div className="pdf-overlay__bar">
+                                    <Boton type="button" variante="secundario" onClick={cerrarPdfFullscreen}>
+                                      Cerrar
+                                    </Boton>
+                                  </div>
+                                  <iframe className="pdf-overlay__frame" title="PDF (pantalla completa)" src={pdfFullscreenUrl} />
+                                </div>
+                              )}
+                            <ul className="lista lista-items plantillas-preview__lista">
+                              {preview.paginas.map((p) => (
+                                <li key={p.numero}>
+                                  <div className="item-glass">
+                                    <div className="item-row">
+                                      <div>
+                                        <div className="item-title">Pagina {p.numero}</div>
+                                        <div className="item-meta">
+                                          <span>
+                                            Preguntas: {p.preguntasDel && p.preguntasAl ? `${p.preguntasDel}–${p.preguntasAl}` : '—'}
+                                          </span>
+                                          <span>Elementos: {Array.isArray(p.elementos) ? p.elementos.length : 0}</span>
+                                        </div>
+                                        {Array.isArray(p.elementos) && p.elementos.length > 0 && (
+                                          <div className="item-sub">{p.elementos.join(' · ')}</div>
+                                        )}
+                                        {Array.isArray(p.preguntas) && p.preguntas.length > 0 ? (
+                                          <ul className="lista plantillas-preview__preguntas">
+                                            {p.preguntas.map((q) => (
+                                              <li key={q.numero}>
+                                                <span>
+                                                  <b>{q.numero}.</b> {q.enunciadoCorto}{' '}
+                                                  {q.tieneImagen ? (
+                                                    <span className="badge plantillas-preview__badgeImagen">Imagen</span>
+                                                  ) : null}
+                                                </span>
+                                              </li>
+                                            ))}
+                                          </ul>
+                                        ) : (
+                                          <div className="ayuda">Sin preguntas (pagina extra o rangos no disponibles).</div>
+                                        )}
                                       </div>
-                                      {Array.isArray(p.elementos) && p.elementos.length > 0 && (
-                                        <div className="item-sub">{p.elementos.join(' · ')}</div>
-                                      )}
-                                      {Array.isArray(p.preguntas) && p.preguntas.length > 0 ? (
-                                        <ul className="lista plantillas-preview__preguntas">
-                                          {p.preguntas.map((q) => (
-                                            <li key={q.numero}>
-                                              <span>
-                                                <b>{q.numero}.</b> {q.enunciadoCorto}{' '}
-                                                {q.tieneImagen ? (
-                                                  <span className="badge plantillas-preview__badgeImagen">Imagen</span>
-                                                ) : null}
-                                              </span>
-                                            </li>
-                                          ))}
-                                        </ul>
-                                      ) : (
-                                        <div className="ayuda">Sin preguntas (pagina extra o rangos no disponibles).</div>
-                                      )}
                                     </div>
                                   </div>
-                                </div>
-                              </li>
-                            ))}
-                          </ul>
-                          </>
-                        )}
-                      </div>
-                    )}
-                  </div>
-                  <div className="item-actions">
-                    <Boton
-                      type="button"
-                      variante="secundario"
-                      cargando={cargandoPreviewPlantillaId === plantilla._id}
-                      onClick={() => void togglePreviewPlantilla(plantilla._id)}
-                    >
-                      {previewAbierta ? 'Ocultar previsualizacion' : 'Previsualizar'}
-                    </Boton>
-                    <Boton type="button" variante="secundario" onClick={() => iniciarEdicion(plantilla)}>
-                      Editar
-                    </Boton>
-                    <Boton
-                      type="button"
-                      variante="secundario"
-                      cargando={archivandoPlantillaId === plantilla._id}
-                      onClick={() => void archivarPlantilla(plantilla)}
-                    >
-                      Archivar
-                    </Boton>
+                                </li>
+                              ))}
+                            </ul>
+                            </>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                    <div className="item-actions">
+                      <Boton
+                        type="button"
+                        variante="secundario"
+                        cargando={cargandoPreviewPlantillaId === plantilla._id}
+                        onClick={() => void togglePreviewPlantilla(plantilla._id)}
+                      >
+                        {previewAbierta ? 'Ocultar previsualizacion' : 'Previsualizar'}
+                      </Boton>
+                      <Boton type="button" variante="secundario" onClick={() => iniciarEdicion(plantilla)}>
+                        Editar
+                      </Boton>
+                      <Boton
+                        type="button"
+                        variante="secundario"
+                        cargando={archivandoPlantillaId === plantilla._id}
+                        onClick={() => void archivarPlantilla(plantilla)}
+                      >
+                        Archivar
+                      </Boton>
+                    </div>
                   </div>
                 </div>
-              </div>
-            </li>
-          );
-        })}
-      </ul>
-      <h3>Generar examen</h3>
+              </li>
+            );
+          })}
+        </ul>
+      )}
+        </div>
+      </div>
+
+      <div className="plantillas-grid plantillas-grid--generacion">
+        <div className="subpanel plantillas-panel plantillas-panel--generar">
+          <h3>Generar examen</h3>
       <AyudaFormulario titulo="Generar examen (PDF)">
         <p>
           <b>Proposito:</b> crear un examen en PDF con <b>folio</b> y <b>QR por pagina</b>. Ese folio se usa para entrega y calificacion.
@@ -4439,28 +4511,30 @@ function SeccionPlantillas({
           Ejemplo: plantilla <code>Parcial 1 - Algebra</code>, alumno <code>2024-001 - Ana Maria Gomez Ruiz</code>.
         </p>
       </AyudaFormulario>
-      <label className="campo">
-        Plantilla
-        <select value={plantillaId} onChange={(event) => setPlantillaId(event.target.value)}>
-          <option value="">Selecciona</option>
-          {plantillas.map((plantilla) => (
-            <option key={plantilla._id} value={plantilla._id}>
-              {plantilla.titulo}
-            </option>
-          ))}
-        </select>
-      </label>
-      <label className="campo">
-        Alumno (opcional)
-        <select value={alumnoId} onChange={(event) => setAlumnoId(event.target.value)}>
-          <option value="">Sin alumno</option>
-          {alumnos.map((alumno) => (
-            <option key={alumno._id} value={alumno._id}>
-              {alumno.matricula} - {alumno.nombreCompleto}
-            </option>
-          ))}
-        </select>
-      </label>
+      <div className="plantillas-form">
+        <label className="campo">
+          Plantilla
+          <select value={plantillaId} onChange={(event) => setPlantillaId(event.target.value)}>
+            <option value="">Selecciona</option>
+            {plantillas.map((plantilla) => (
+              <option key={plantilla._id} value={plantilla._id}>
+                {plantilla.titulo}
+              </option>
+            ))}
+          </select>
+        </label>
+        <label className="campo">
+          Alumno (opcional)
+          <select value={alumnoId} onChange={(event) => setAlumnoId(event.target.value)}>
+            <option value="">Sin alumno</option>
+            {alumnos.map((alumno) => (
+              <option key={alumno._id} value={alumno._id}>
+                {alumno.matricula} - {alumno.nombreCompleto}
+              </option>
+            ))}
+          </select>
+        </label>
+      </div>
       <div className="acciones acciones--mt">
         <Boton
           className="boton"
@@ -4565,7 +4639,12 @@ function SeccionPlantillas({
           {mensajeGeneracion}
         </p>
       )}
-
+        </div>
+        <div className="subpanel plantillas-panel plantillas-panel--generados" id="examenes-generados">
+          <h3>Examenes generados</h3>
+          {!plantillaSeleccionada && (
+            <InlineMensaje tipo="info">Selecciona una plantilla para ver los examenes generados y su historial.</InlineMensaje>
+          )}
       {ultimoGenerado && (
         <div className="resultado" aria-label="Detalle del ultimo examen generado">
           <h4>Ultimo examen generado</h4>
@@ -4614,7 +4693,7 @@ function SeccionPlantillas({
       )}
 
       {plantillaSeleccionada && (
-        <div className="resultado" id="examenes-generados">
+        <div className="resultado">
           <h3>Examenes generados (plantilla seleccionada)</h3>
           <div className="ayuda">
             Mostrando hasta 50, del mas reciente al mas antiguo. Al descargar se marca como descargado.
@@ -4728,6 +4807,8 @@ function SeccionPlantillas({
           </ul>
         </div>
       )}
+        </div>
+      </div>
     </div>
   );
 }

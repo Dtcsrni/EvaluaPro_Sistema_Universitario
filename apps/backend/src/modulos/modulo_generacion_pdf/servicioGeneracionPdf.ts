@@ -481,16 +481,16 @@ export async function generarPdfExamen({
   const lineaOpcion = 11;
   const lineaNota = 11;
   // Reduce el “aire” entre preguntas para compactar.
-  const separacionPregunta = 2;
+  const separacionPregunta = 1;
 
   const lineaCodigoBloque = 10;
 
   // OMR: burbujas A–E con espaciado fijo para evitar superposiciones.
   const OMR_TOTAL_LETRAS = 5;
-  const omrRadio = 5.2;
-  const omrPasoY = 13;
-  const omrPadding = 8;
-  const omrExtraTitulo = 18;
+  const omrRadio = 5;
+  const omrPasoY = 12;
+  const omrPadding = 6;
+  const omrExtraTitulo = 14;
 
   const anchoColRespuesta = 120;
   const gutterRespuesta = 10;
@@ -498,7 +498,7 @@ export async function generarPdfExamen({
   const xDerechaTexto = xColRespuesta - gutterRespuesta;
 
   const xNumeroPregunta = margen;
-  const xTextoPregunta = margen + 18;
+  const xTextoPregunta = margen + 22;
   const anchoTextoPregunta = Math.max(60, xDerechaTexto - xTextoPregunta);
 
   const INSTRUCCIONES_DEFAULT =
@@ -528,6 +528,7 @@ export async function generarPdfExamen({
   const logos = { izquierda, derecha };
 
   const preguntasOrdenadas = ordenarPreguntas(preguntas, mapaVariante);
+  const totalPreguntas = preguntasOrdenadas.length;
   let indicePregunta = 0;
   let numeroPagina = 1;
   const paginasMeta: { numero: number; qrTexto: string; preguntasDel: number; preguntasAl: number }[] = [];
@@ -560,7 +561,7 @@ export async function generarPdfExamen({
     : [];
   const indicacionesPendientes = mostrarInstrucciones && lineasIndicaciones.length > 0;
 
-  while (numeroPagina <= paginasObjetivo || indicePregunta < preguntasOrdenadas.length) {
+  while (numeroPagina <= paginasObjetivo && (numeroPagina === 1 || indicePregunta < totalPreguntas)) {
     const page = pdfDoc.addPage([ANCHO_CARTA, ALTO_CARTA]);
     const qrTexto = String(folio ?? '').trim().toUpperCase();
     const qrTextoPagina = `EXAMEN:${qrTexto}:P${numeroPagina}`;
@@ -630,7 +631,7 @@ export async function generarPdfExamen({
     // Texto del encabezado (solo primera pagina, centrado y limpio).
     const xTexto = margen + 70;
     if (esPrimera) {
-      const xMaxEnc = xQr - 12;
+      const xMaxEnc = xQr - (qrPadding + 8);
       const maxWidthEnc = Math.max(160, xMaxEnc - xTexto);
 
       const insti = (partirEnLineas({ texto: institucion, maxWidth: maxWidthEnc, font: fuenteBold, size: 12 })[0] ?? '').trim();
@@ -652,17 +653,32 @@ export async function generarPdfExamen({
       // Campos alumno/grupo
       const yCampos = metaY - 12;
       page.drawText('Alumno:', { x: xTexto, y: yCampos, size: 10, font: fuenteBold, color: rgb(0.15, 0.15, 0.15) });
-      page.drawLine({ start: { x: xTexto + 52, y: yCampos + 3 }, end: { x: xTexto + 300, y: yCampos + 3 }, color: colorLinea, thickness: 1 });
+      const alumnoLineaEnd = Math.min(xTexto + 300, xMaxEnc);
+      if (alumnoLineaEnd > xTexto + 70) {
+        page.drawLine({ start: { x: xTexto + 52, y: yCampos + 3 }, end: { x: alumnoLineaEnd, y: yCampos + 3 }, color: colorLinea, thickness: 1 });
+      }
       if (alumnoNombre) {
-        const alumnoLinea = partirEnLineas({ texto: alumnoNombre, maxWidth: 240, font: fuente, size: 10 })[0] ?? '';
+        const maxAlumno = Math.max(40, alumnoLineaEnd - (xTexto + 56));
+        const alumnoLinea = partirEnLineas({ texto: alumnoNombre, maxWidth: maxAlumno, font: fuente, size: 10 })[0] ?? '';
         page.drawText(alumnoLinea, { x: xTexto + 56, y: yCampos, size: 10, font: fuente, color: rgb(0.1, 0.1, 0.1) });
       }
 
-      page.drawText('Grupo:', { x: xTexto + 320, y: yCampos, size: 10, font: fuenteBold, color: rgb(0.15, 0.15, 0.15) });
-      page.drawLine({ start: { x: xTexto + 365, y: yCampos + 3 }, end: { x: xTexto + 470, y: yCampos + 3 }, color: colorLinea, thickness: 1 });
+      let xGrupo = xTexto + 320;
+      let yGrupo = yCampos;
+      const anchoMinGrupo = 90;
+      if (xGrupo + anchoMinGrupo > xMaxEnc) {
+        xGrupo = xTexto;
+        yGrupo = yCampos - 12;
+      }
+      page.drawText('Grupo:', { x: xGrupo, y: yGrupo, size: 10, font: fuenteBold, color: rgb(0.15, 0.15, 0.15) });
+      const grupoLineaEnd = Math.min(xGrupo + 150, xMaxEnc);
+      if (grupoLineaEnd > xGrupo + 60) {
+        page.drawLine({ start: { x: xGrupo + 45, y: yGrupo + 3 }, end: { x: grupoLineaEnd, y: yGrupo + 3 }, color: colorLinea, thickness: 1 });
+      }
       if (alumnoGrupo) {
-        const grupoLinea = partirEnLineas({ texto: alumnoGrupo, maxWidth: 100, font: fuente, size: 10 })[0] ?? '';
-        page.drawText(grupoLinea, { x: xTexto + 370, y: yCampos, size: 10, font: fuente, color: rgb(0.1, 0.1, 0.1) });
+        const maxGrupo = Math.max(40, grupoLineaEnd - (xGrupo + 50));
+        const grupoLinea = partirEnLineas({ texto: alumnoGrupo, maxWidth: maxGrupo, font: fuente, size: 10 })[0] ?? '';
+        page.drawText(grupoLinea, { x: xGrupo + 50, y: yGrupo, size: 10, font: fuente, color: rgb(0.1, 0.1, 0.1) });
       }
     }
 
@@ -870,10 +886,10 @@ export async function generarPdfExamen({
       // Importante: NO se alinea por columnas de opciones, porque si hay 2 columnas algunas letras comparten Y.
       // En su lugar, se dibuja A–E con espaciado fijo. Esto evita superposiciones siempre.
       const letras = Array.from({ length: OMR_TOTAL_LETRAS }, (_v, i) => String.fromCharCode(65 + i));
-      const yPrimeraBurbuja = yInicioOpciones + 3.5;
+      const yPrimeraBurbuja = yInicioOpciones + 2.5;
       const top = yPrimeraBurbuja + omrRadio + omrExtraTitulo;
       const yUltimaBurbuja = yPrimeraBurbuja - (OMR_TOTAL_LETRAS - 1) * omrPasoY;
-      const bottom = yUltimaBurbuja - omrRadio - 10;
+      const bottom = yUltimaBurbuja - omrRadio - 6;
       const hCaja = Math.max(40, top - bottom);
 
       page.drawRectangle({ x: xColRespuesta, y: bottom, width: anchoColRespuesta, height: hCaja, borderWidth: 1, borderColor: colorLinea, color: rgb(1, 1, 1) });
@@ -923,5 +939,12 @@ export async function generarPdfExamen({
   }
 
   const pdfBytes = await pdfDoc.save();
-  return { pdfBytes: Buffer.from(pdfBytes), paginas: paginasMeta, metricasPaginas, mapaOmr: { margenMm, paginas: paginasOmr } };
+  const preguntasRestantes = Math.max(0, totalPreguntas - indicePregunta);
+  return {
+    pdfBytes: Buffer.from(pdfBytes),
+    paginas: paginasMeta,
+    metricasPaginas,
+    mapaOmr: { margenMm, paginas: paginasOmr },
+    preguntasRestantes
+  };
 }

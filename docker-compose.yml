@@ -47,6 +47,7 @@ services:
       - EXAMEN_LOGO_DER_PATH=${EXAMEN_LOGO_DER_PATH:-logos/isc.png}
     volumes:
       - ./logos:/app/logos:ro
+      - ./apps/backend/data/examenes:/app/data/examenes
     depends_on:
       mongo_local:
         condition: service_healthy
@@ -84,6 +85,7 @@ services:
       - EXAMEN_LOGO_DER_PATH=${EXAMEN_LOGO_DER_PATH:-logos/isc.png}
     volumes:
       - ./logos:/app/logos:ro
+      - ./apps/backend/data/examenes:/app/data/examenes
     depends_on:
       mongo_local:
         condition: service_healthy
@@ -107,5 +109,4 @@ services:
 
 volumes:
   mongo-data:
-
 

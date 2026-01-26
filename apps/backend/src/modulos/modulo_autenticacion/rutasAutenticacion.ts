@@ -1,7 +1,7 @@
 /**
  * Rutas de autenticacion.
  */
-import { Router } from 'express';
+import { Router, type RequestHandler } from 'express';
 import rateLimit from 'express-rate-limit';
 import { configuracion } from '../../configuracion';
 import { validarCuerpo } from '../../compartido/validaciones/validar';
@@ -34,11 +34,9 @@ const router = Router();
 const esTest = process.env.NODE_ENV === 'test';
 const esProduccion = configuracion.entorno === 'production';
 
-const sinRateLimit = (_req: Parameters<typeof router.post>[0], _res: Parameters<typeof router.post>[1], next: Parameters<typeof router.post>[2]) => {
-	next();
-};
+const sinRateLimit: RequestHandler = (_req, _res, next) => next();
 
-const limiterCredenciales = esProduccion
+const limiterCredenciales: RequestHandler = esProduccion
 	? rateLimit({
 		windowMs: configuracion.rateLimitWindowMs,
 		limit: esTest ? 10_000 : configuracion.rateLimitCredencialesLimit,
@@ -55,7 +53,7 @@ const limiterCredenciales = esProduccion
 	})
 	: sinRateLimit;
 
-const limiterRefresco = esProduccion
+const limiterRefresco: RequestHandler = esProduccion
 	? rateLimit({
 		windowMs: configuracion.rateLimitWindowMs,
 		limit: esTest ? 10_000 : configuracion.rateLimitRefrescoLimit,

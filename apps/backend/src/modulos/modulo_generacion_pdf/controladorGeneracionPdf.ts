@@ -10,6 +10,9 @@
  */
 import type { Response } from 'express';
 import { randomUUID } from 'crypto';
+import fs from 'node:fs/promises';
+import os from 'node:os';
+import path from 'node:path';
 import { Types } from 'mongoose';
 import { BancoPregunta } from '../modulo_banco_preguntas/modeloBancoPregunta';
 import { Alumno } from '../modulo_alumnos/modeloAlumno';
@@ -34,6 +37,7 @@ type MapaVariante = {
 type BancoPreguntaLean = {
   _id: unknown;
   tema?: string;
+  updatedAt?: unknown;
   versionActual: number;
   versiones: Array<{
     numeroVersion: number;
@@ -94,6 +98,67 @@ function formatearDocente(nombreCompleto: unknown): string {
 
   // Requerimiento: mostrar con prefijo profesional por defecto.
   return `I.S.C. ${n}`;
+}
+
+const PREVIEW_TTL_MS = 30 * 60 * 1000;
+const PREVIEW_CLEANUP_INTERVAL_MS = 10 * 60 * 1000;
+const PREVIEW_MAX_FILES = 40;
+let ultimoLimpiezaPreview = 0;
+
+function obtenerDirectorioPreview() {
+  return path.resolve(os.tmpdir(), 'evaluapro-preview');
+}
+
+function clavePreviewPlantilla(params: {
+  plantillaId: string;
+  plantillaUpdatedAt?: unknown;
+  numeroPaginas: number;
+  totalPreguntas: number;
+  temas: string[];
+}) {
+  const base = [
+    String(params.plantillaId || ''),
+    String(params.plantillaUpdatedAt || ''),
+    String(params.numeroPaginas || 0),
+    String(params.totalPreguntas || 0),
+    params.temas.join('|')
+  ].join('|');
+  return hash32(base).toString(16);
+}
+
+async function limpiarPreviewTemporales() {
+  const ahora = Date.now();
+  if (ahora - ultimoLimpiezaPreview < PREVIEW_CLEANUP_INTERVAL_MS) return;
+  ultimoLimpiezaPreview = ahora;
+
+  const dir = obtenerDirectorioPreview();
+  try {
+    const archivos = await fs.readdir(dir);
+    const entradas = await Promise.all(
+      archivos.map(async (archivo) => {
+        const full = path.join(dir, archivo);
+        try {
+          const stat = await fs.stat(full);
+          return { full, mtimeMs: stat.mtimeMs, isFile: stat.isFile() };
+        } catch {
+          return null;
+        }
+      })
+    );
+
+    const files = entradas.filter((e): e is { full: string; mtimeMs: number; isFile: boolean } => Boolean(e?.isFile));
+    const vencidos = files.filter((f) => ahora - f.mtimeMs > PREVIEW_TTL_MS);
+    await Promise.allSettled(vencidos.map((f) => fs.unlink(f.full)));
+
+    const restantes = files.filter((f) => !vencidos.some((v) => v.full === f.full));
+    if (restantes.length > PREVIEW_MAX_FILES) {
+      const ordenados = restantes.sort((a, b) => a.mtimeMs - b.mtimeMs);
+      const exceso = ordenados.slice(0, Math.max(0, ordenados.length - PREVIEW_MAX_FILES));
+      await Promise.allSettled(exceso.map((f) => fs.unlink(f.full)));
+    }
+  } catch {
+    // Best-effort: no bloquear la previsualizacion por limpieza.
+  }
 }
 
 /**
@@ -419,7 +484,7 @@ export async function previsualizarPlantilla(req: SolicitudDocente, res: Respons
     Docente.findById(docenteId).lean()
   ]);
 
-  const { paginas, metricasPaginas, mapaOmr } = await generarPdfExamen({
+  const { paginas, metricasPaginas, mapaOmr, preguntasRestantes } = await generarPdfExamen({
     titulo: String(plantilla.titulo ?? ''),
     folio: 'PREVIEW',
     preguntas: preguntasCandidatas,
@@ -456,6 +521,14 @@ export async function previsualizarPlantilla(req: SolicitudDocente, res: Respons
     advertencias.push(
       `No hay suficientes preguntas para llenar ${numeroPaginas} pagina(s). ` +
         `La ultima pagina queda ${(fraccionVaciaUltimaPagina * 100).toFixed(0)}% vacia.`
+    );
+  }
+  if (paginas.length < numeroPaginas) {
+    advertencias.push(`Se generaron ${paginas.length} de ${numeroPaginas} pagina(s) por falta de preguntas.`);
+  }
+  if ((preguntasRestantes ?? 0) > 0) {
+    advertencias.push(
+      `Hay ${preguntasRestantes} pregunta(s) que no caben en ${numeroPaginas} pagina(s). Aumenta el numero de paginas.`
     );
   }
 
@@ -571,6 +644,36 @@ export async function previsualizarPlantillaPdf(req: SolicitudDocente, res: Resp
     };
   });
 
+  await limpiarPreviewTemporales();
+  const previewKey = clavePreviewPlantilla({
+    plantillaId,
+    plantillaUpdatedAt: (plantilla as unknown as { updatedAt?: unknown })?.updatedAt,
+    numeroPaginas,
+    totalPreguntas: preguntasBase.length,
+    temas
+  });
+  const dirPreview = obtenerDirectorioPreview();
+  const archivoPreview = path.join(dirPreview, `preview_${previewKey}.pdf`);
+  try {
+    const stat = await fs.stat(archivoPreview);
+    const expiraEn = stat.mtimeMs + PREVIEW_TTL_MS;
+    if (Date.now() < expiraEn) {
+      res.setHeader('Content-Type', 'application/pdf');
+      const tituloArchivo = normalizarParaNombreArchivo(
+        String((plantilla as unknown as { titulo?: unknown })?.titulo ?? ''),
+        { maxLen: 48 }
+      );
+      const sufijo = String(plantillaId).slice(-8);
+      const nombre = ['preview', tituloArchivo || '', sufijo].filter(Boolean).join('_');
+      res.setHeader('Content-Disposition', `inline; filename="${nombre}.pdf"`);
+      const buffer = await fs.readFile(archivoPreview);
+      res.send(buffer);
+      return;
+    }
+  } catch {
+    // Si no existe o fallo stat, se regenera.
+  }
+
   const seed = hash32(String(plantilla._id));
   const preguntasCandidatas = barajarDeterminista(preguntasBase, seed);
   const mapaVarianteDet = generarVarianteDeterminista(preguntasCandidatas, `plantilla:${plantilla._id}`);
@@ -593,6 +696,13 @@ export async function previsualizarPlantillaPdf(req: SolicitudDocente, res: Resp
       docente: String((docenteDb as unknown as { nombreCompleto?: unknown })?.nombreCompleto ?? '')
     }
   });
+
+  try {
+    await fs.mkdir(dirPreview, { recursive: true });
+    await fs.writeFile(archivoPreview, Buffer.from(pdfBytes));
+  } catch {
+    // Best-effort: si falla el cache, se devuelve el PDF en memoria.
+  }
 
   res.setHeader('Content-Type', 'application/pdf');
   const tituloArchivo = normalizarParaNombreArchivo(String((plantilla as unknown as { titulo?: unknown })?.titulo ?? ''), {
@@ -704,7 +814,7 @@ export async function generarExamen(req: SolicitudDocente, res: Response) {
   const loteId = randomUUID().split('-')[0].toUpperCase();
   const folio = randomUUID().split('-')[0].toUpperCase();
 
-  const { pdfBytes, paginas, metricasPaginas, mapaOmr } = await generarPdfExamen({
+  const { pdfBytes, paginas, metricasPaginas, mapaOmr, preguntasRestantes } = await generarPdfExamen({
     titulo: plantilla.titulo,
     folio,
     preguntas: preguntasCandidatas,
@@ -743,6 +853,14 @@ export async function generarExamen(req: SolicitudDocente, res: Response) {
   const fraccionVaciaUltimaPagina = Number(ultima?.fraccionVacia ?? 0);
   const consumioTodas = usadosSet.size >= preguntasDb.length;
   const advertencias: string[] = [];
+  if ((preguntasRestantes ?? 0) > 0) {
+    throw new ErrorAplicacion(
+      'PAGINAS_INSUFICIENTES_POR_EXCESO',
+      `No caben ${preguntasRestantes} pregunta(s) en ${numeroPaginas} pagina(s). Aumenta el numero de paginas.`,
+      409,
+      { preguntasRestantes, numeroPaginas }
+    );
+  }
   if (consumioTodas && fraccionVaciaUltimaPagina > 0.5) {
     throw new ErrorAplicacion(
       'PAGINAS_INSUFICIENTES',

@@ -253,7 +253,7 @@ export async function regenerarPdfExamen(req: SolicitudDocente, res: Response) {
     return 1;
   })();
 
-  const { pdfBytes, paginas, mapaOmr } = await generarPdfExamen({
+  const { pdfBytes, paginas, mapaOmr, preguntasRestantes } = await generarPdfExamen({
     titulo: String(plantilla.titulo ?? ''),
     folio,
     preguntas: preguntasBase,
@@ -282,6 +282,15 @@ export async function regenerarPdfExamen(req: SolicitudDocente, res: Response) {
   const temas = Array.isArray((plantilla as unknown as { temas?: unknown[] })?.temas)
     ? (((plantilla as unknown as { temas?: unknown[] })?.temas ?? []) as unknown[]).map((t) => String(t ?? '').trim()).filter(Boolean)
     : [];
+
+  if ((preguntasRestantes ?? 0) > 0) {
+    throw new ErrorAplicacion(
+      'PAGINAS_INSUFICIENTES_POR_EXCESO',
+      `No caben ${preguntasRestantes} pregunta(s) en ${numeroPaginas} pagina(s). Aumenta el numero de paginas.`,
+      409,
+      { preguntasRestantes, numeroPaginas }
+    );
+  }
 
   const nombreArchivo = construirNombrePdfExamen({
     folio,
