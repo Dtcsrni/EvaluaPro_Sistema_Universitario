@@ -1544,6 +1544,14 @@ const server = http.createServer(async (req, res) => {
       const running = runningTasks();
       const candidates = ['dev', 'prod', 'portal', 'dev-frontend', 'dev-backend'];
       const toRestart = candidates.filter((name) => running.includes(name));
+      if (toRestart.length === 0) {
+        const preferido = mode === 'prod' ? 'prod' : 'dev';
+        const comando = commands[preferido];
+        if (comando) {
+          startTask(preferido, comando);
+          return sendJson(res, 200, { ok: true, restarted: [], started: [preferido] });
+        }
+      }
       restartAll(toRestart);
       return sendJson(res, 200, { ok: true, restarted: toRestart });
     }

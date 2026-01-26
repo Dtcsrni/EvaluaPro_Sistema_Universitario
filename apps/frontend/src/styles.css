@@ -58,57 +58,59 @@
 
 :root[data-theme="dark"] {
   color-scheme: dark;
-  background: radial-gradient(circle at 18% 12%, rgba(13, 148, 136, 0.18) 0, #05070b 45%, #010307 78%);
+  background:
+    radial-gradient(circle at 16% 10%, rgba(20, 184, 166, 0.22) 0, rgba(2, 6, 23, 0.85) 42%, rgba(2, 6, 23, 0.95) 78%),
+    linear-gradient(160deg, rgba(30, 64, 175, 0.18), rgba(15, 118, 110, 0.12) 45%, rgba(2, 6, 23, 0.2));
   color: #e2e8f0;
 
-  --anillo: rgba(45, 212, 191, 0.35);
-  --sombra: 0 30px 90px -50px rgba(0, 0, 0, 0.78);
-  --sombraSuave: 0 14px 28px rgba(0, 0, 0, 0.38);
+  --anillo: rgba(94, 234, 212, 0.45);
+  --sombra: 0 30px 90px -50px rgba(2, 6, 23, 0.7);
+  --sombraSuave: 0 14px 28px rgba(2, 6, 23, 0.45);
 
-  --texto: #e2e8f0;
-  --textoSuave: #cbd5e1;
-  --muted: #9fb1c7;
-  --borde: rgba(148, 163, 184, 0.18);
-  --bordeSuave: rgba(45, 212, 191, 0.24);
-  --superficie: rgba(12, 18, 26, 0.72);
-  --superficieSolida: #0b1220;
+  --texto: #e5eef9;
+  --textoSuave: #c9d6e6;
+  --muted: #a2b4c9;
+  --borde: rgba(148, 163, 184, 0.28);
+  --bordeSuave: rgba(94, 234, 212, 0.3);
+  --superficie: rgba(15, 23, 42, 0.72);
+  --superficieSolida: #111827;
   --primario: #0f766e;
   --primarioHover: #14b8a6;
   --primarioHover2: #2dd4bf;
   --chipBg: rgba(20, 184, 166, 0.16);
   --chipBorde: rgba(94, 234, 212, 0.28);
   --chipTexto: #ccfbf1;
-  --peligroBg: rgba(239, 68, 68, 0.16);
+  --peligroBg: rgba(239, 68, 68, 0.2);
   --peligroTexto: #fecaca;
-  --exitoBg: rgba(34, 197, 94, 0.16);
+  --exitoBg: rgba(34, 197, 94, 0.2);
   --exitoTexto: #bbf7d0;
-  --avisoBg: rgba(245, 158, 11, 0.18);
+  --avisoBg: rgba(245, 158, 11, 0.22);
   --avisoTexto: #fed7aa;
 
-  --campoBg: rgba(2, 6, 23, 0.65);
-  --campoBorde: rgba(148, 163, 184, 0.22);
-  --campoBordeHover: rgba(45, 212, 191, 0.45);
-  --campoPlaceholder: rgba(148, 163, 184, 0.92);
+  --campoBg: rgba(15, 23, 42, 0.82);
+  --campoBorde: rgba(148, 163, 184, 0.32);
+  --campoBordeHover: rgba(94, 234, 212, 0.5);
+  --campoPlaceholder: rgba(203, 213, 225, 0.85);
 }
 
 :root[data-theme="dark"][data-time="dawn"] {
-  background: radial-gradient(circle at 18% 12%, rgba(45, 212, 191, 0.20) 0, #060a10 44%, #000000 80%);
-  --superficieSolida: #0a111d;
+  background: radial-gradient(circle at 18% 12%, rgba(45, 212, 191, 0.22) 0, #0b1220 44%, #05070f 80%);
+  --superficieSolida: #111827;
 }
 
 :root[data-theme="dark"][data-time="day"] {
-  background: radial-gradient(circle at 18% 12%, rgba(20, 184, 166, 0.16) 0, #05070b 46%, #000000 80%);
+  background: radial-gradient(circle at 18% 12%, rgba(20, 184, 166, 0.18) 0, #0b1220 46%, #05070f 80%);
 }
 
 :root[data-theme="dark"][data-time="dusk"] {
-  background: radial-gradient(circle at 18% 12%, rgba(13, 148, 136, 0.22) 0, #04060c 44%, #000000 80%);
-  --superficieSolida: #0a101b;
+  background: radial-gradient(circle at 18% 12%, rgba(13, 148, 136, 0.24) 0, #0b1220 44%, #05070f 80%);
+  --superficieSolida: #111827;
 }
 
 :root[data-theme="dark"][data-time="night"] {
-  background: radial-gradient(circle at 18% 12%, rgba(13, 148, 136, 0.14) 0, #010106 42%, #000000 82%);
-  --superficie: rgba(10, 16, 24, 0.58);
-  --superficieSolida: #070b14;
+  background: radial-gradient(circle at 18% 12%, rgba(13, 148, 136, 0.16) 0, #0a1220 42%, #04070f 82%);
+  --superficie: rgba(15, 23, 42, 0.62);
+  --superficieSolida: #0b1220;
 }
 
 .icono {
@@ -1354,8 +1356,8 @@ p {
 :root[data-theme="dark"] .ajuste-scroll,
 :root[data-theme="dark"] .item-glass,
 :root[data-theme="dark"] .lista select {
-  background: rgba(2, 6, 23, 0.55);
-  border-color: rgba(148, 163, 184, 0.18);
+  background: rgba(15, 23, 42, 0.75);
+  border-color: rgba(148, 163, 184, 0.24);
 }
 
 :root[data-theme="dark"] .ayuda-formulario {
@@ -1378,8 +1380,8 @@ p {
 }
 
 :root[data-theme="dark"] .tab {
-  background: rgba(2, 6, 23, 0.55);
-  border-color: rgba(148, 163, 184, 0.20);
+  background: rgba(15, 23, 42, 0.7);
+  border-color: rgba(148, 163, 184, 0.28);
 }
 
 :root[data-theme="dark"] .tab:hover {
@@ -1388,13 +1390,13 @@ p {
 }
 
 :root[data-theme="dark"] .boton.secundario {
-  background: rgba(2, 6, 23, 0.55);
-  border-color: rgba(148, 163, 184, 0.26);
-  box-shadow: 0 10px 18px rgba(0, 0, 0, 0.28);
+  background: rgba(15, 23, 42, 0.75);
+  border-color: rgba(148, 163, 184, 0.3);
+  box-shadow: 0 12px 22px rgba(2, 6, 23, 0.35);
 }
 
 :root[data-theme="dark"] .boton.secundario:hover {
-  background: rgba(2, 6, 23, 0.70);
+  background: rgba(15, 23, 42, 0.9);
 }
 
 .item-row {
@@ -1829,4 +1831,73 @@ p {
 
 .acciones--mt {
   margin-top: 0.5rem;
+}
+
+/* Tooltips (custom) */
+:root {
+  --tooltip-bg: rgba(10, 15, 23, 0.94);
+  --tooltip-text: #f8fafc;
+  --tooltip-border: rgba(148, 163, 184, 0.35);
+  --tooltip-shadow: 0 12px 30px rgba(2, 6, 23, 0.28);
+}
+
+:root[data-theme="dark"] {
+  --tooltip-bg: rgba(2, 6, 23, 0.95);
+  --tooltip-text: #e2e8f0;
+  --tooltip-border: rgba(148, 163, 184, 0.25);
+  --tooltip-shadow: 0 16px 36px rgba(0, 0, 0, 0.45);
+}
+
+.tooltip-layer {
+  position: fixed;
+  left: var(--tooltip-x, 50%);
+  top: var(--tooltip-y, 0);
+  width: var(--tooltip-w, 220px);
+  pointer-events: none;
+  z-index: 9999;
+  transform: translate(-50%, calc(-100% - 12px));
+  display: grid;
+  justify-items: center;
+  gap: 6px;
+  animation: tooltipIn 140ms ease-out both;
+}
+
+.tooltip-layer.tooltip-bottom {
+  transform: translate(-50%, 12px);
+}
+
+.tooltip-bubble {
+  background: var(--tooltip-bg);
+  color: var(--tooltip-text);
+  border: 1px solid var(--tooltip-border);
+  border-radius: 12px;
+  padding: 0.5rem 0.7rem;
+  font-size: 0.8rem;
+  font-weight: 700;
+  text-align: center;
+  box-shadow: var(--tooltip-shadow);
+}
+
+.tooltip-arrow {
+  width: 10px;
+  height: 10px;
+  background: var(--tooltip-bg);
+  border-left: 1px solid var(--tooltip-border);
+  border-bottom: 1px solid var(--tooltip-border);
+  transform: rotate(45deg);
+  margin-top: -4px;
+}
+
+.tooltip-layer.tooltip-bottom .tooltip-arrow {
+  transform: rotate(225deg);
+  margin-top: -2px;
+}
+
+@keyframes tooltipIn {
+  from { opacity: 0; transform: translate(-50%, calc(-100% - 6px)) scale(0.98); }
+  to { opacity: 1; transform: translate(-50%, calc(-100% - 12px)) scale(1); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .tooltip-layer { animation: none; }
 }

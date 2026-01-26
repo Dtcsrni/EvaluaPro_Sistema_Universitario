@@ -16,6 +16,7 @@ import { Icono, Spinner } from '../../ui/iconos';
 import { Boton } from '../../ui/ux/componentes/Boton';
 import { InlineMensaje } from '../../ui/ux/componentes/InlineMensaje';
 import { obtenerSessionId } from '../../ui/ux/sesion';
+import { TooltipLayer } from '../../ui/ux/tooltip/TooltipLayer';
 import { TemaBoton } from '../../tema/TemaBoton';
 import { tipoMensajeInline } from './mensajeInline';
 
@@ -482,6 +483,33 @@ export function AppDocente() {
     };
   }, []);
 
+  const refrescarPerfil = useCallback(async () => {
+    if (!obtenerTokenDocente()) return;
+    try {
+      const payload = await clienteApi.obtener<{ docente: Docente }>('/autenticacion/perfil');
+      if (montadoRef.current) setDocente(payload.docente);
+    } catch {
+      // No interrumpir la sesion si falla el refresh.
+    }
+  }, []);
+
+  useEffect(() => {
+    const intervaloMs = 5 * 60 * 1000;
+    const id = window.setInterval(() => {
+      void refrescarPerfil();
+    }, intervaloMs);
+    return () => window.clearInterval(id);
+  }, [refrescarPerfil]);
+
+  useEffect(() => {
+    const onVisible = () => {
+      if (document.visibilityState !== 'visible') return;
+      void refrescarPerfil();
+    };
+    document.addEventListener('visibilitychange', onVisible);
+    return () => document.removeEventListener('visibilitychange', onVisible);
+  }, [refrescarPerfil]);
+
   // Sesion de UI (no sensible) para analiticas best-effort.
   useEffect(() => {
     if (!obtenerTokenDocente()) return;
@@ -913,6 +941,7 @@ export function AppDocente() {
         </InlineMensaje>
       )}
       {contenido}
+      <TooltipLayer />
     </section>
   );
 }
