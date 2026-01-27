@@ -514,7 +514,8 @@
 
     function detectCertState() {
       try {
-        var cmd = 'powershell -NoProfile -Command "Get-ChildItem Cert:\\\\CurrentUser\\\\Root | Where-Object { $_.Subject -eq \\'CN=EvaluaPro, O=Cybersys Tech\\' } | Select-Object -First 1 | ForEach-Object { $_.Thumbprint }"';
+        var ps = "Get-ChildItem Cert:/CurrentUser/Root | Where-Object { $_.Subject -eq 'CN=EvaluaPro, O=Cybersys Tech' } | Select-Object -First 1 | ForEach-Object { $_.Thumbprint }";
+        var cmd = "powershell -NoProfile -Command \"" + ps + "\"";
         var output = runCmd(cmd);
         if (output && String(output).replace(/\s+/g, '').length > 0) return 'installed';
         return 'missing';

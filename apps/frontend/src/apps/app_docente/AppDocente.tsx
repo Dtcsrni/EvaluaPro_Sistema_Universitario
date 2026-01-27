@@ -2027,7 +2027,7 @@ function SeccionBanco({
     const snapToGrid = (y: number) => Math.floor(y / GRID_STEP) * GRID_STEP;
 
     // Mantiene consistencia con el algoritmo del PDF.
-    const anchoColRespuesta = 86;
+    const anchoColRespuesta = 54;
     const gutterRespuesta = 18;
     const xColRespuesta = ANCHO_CARTA - margen - anchoColRespuesta;
     const xDerechaTexto = xColRespuesta - gutterRespuesta;
@@ -2036,6 +2036,11 @@ function SeccionBanco({
 
     const cursorInicial = snapToGrid(ALTO_CARTA - margen - 114);
     const limiteInferior = margen + 32;
+
+    const INSTRUCCIONES_DEFAULT =
+      'Por favor conteste las siguientes preguntas referentes al parcial. ' +
+      'Rellene el círculo de la respuesta más adecuada, evitando salirse del mismo. ' +
+      'Cada pregunta vale 10 puntos si está completa y es correcta.';
 
     const sizePregunta = 9.2;
     const sizeOpcion = 8.2;
@@ -2086,6 +2091,26 @@ function SeccionBanco({
 
     let paginas = 1;
     let cursorY = cursorInicial;
+    let esPrimeraPagina = true;
+
+    const aplicarBloqueIndicaciones = () => {
+      const sizeIndicaciones = 8.5;
+      const lineaIndicaciones = 10.5;
+      const maxWidthIndicaciones = Math.max(120, xDerechaTexto - (margen + 10));
+      const lineasIndicaciones = estimarLineasPorAncho(INSTRUCCIONES_DEFAULT, maxWidthIndicaciones, sizeIndicaciones);
+      const hLabel = 16;
+      const paddingY = 5;
+      const hCaja = hLabel + paddingY + lineasIndicaciones * lineaIndicaciones;
+      cursorY = snapToGrid(cursorY - (hCaja + 12));
+      if (cursorY < limiteInferior + 40) {
+        cursorY = limiteInferior - 1;
+      }
+    };
+
+    if (esPrimeraPagina) {
+      aplicarBloqueIndicaciones();
+      esPrimeraPagina = false;
+    }
 
     for (const pregunta of lista) {
       const version = obtenerVersionPregunta(pregunta);
@@ -2122,6 +2147,10 @@ function SeccionBanco({
       if (cursorY - altoNecesario < limiteInferior) {
         paginas += 1;
         cursorY = cursorInicial;
+        if (esPrimeraPagina) {
+          aplicarBloqueIndicaciones();
+          esPrimeraPagina = false;
+        }
       }
 
       cursorY = snapToGrid(cursorY - altoNecesario);
@@ -2284,18 +2313,18 @@ function SeccionBanco({
     const GRID_STEP = 4;
     const snapToGrid = (y: number) => Math.floor(y / GRID_STEP) * GRID_STEP;
 
-    const anchoColRespuesta = 78;
-    const gutterRespuesta = 20;
+    const anchoColRespuesta = 54;
+    const gutterRespuesta = 18;
     const xColRespuesta = ANCHO_CARTA - margen - anchoColRespuesta;
     const xDerechaTexto = xColRespuesta - gutterRespuesta;
     const xTextoPregunta = margen + 22;
     const anchoTextoPregunta = Math.max(60, xDerechaTexto - xTextoPregunta);
 
-    const sizePregunta = 9.5;
-    const sizeOpcion = 8.5;
+    const sizePregunta = 9.2;
+    const sizeOpcion = 8.2;
     const sizeNota = 8.5;
-    const lineaPregunta = 11;
-    const lineaOpcion = 10;
+    const lineaPregunta = 10.5;
+    const lineaOpcion = 9.5;
     const separacionPregunta = 1;
 
     const omrPasoY = 10.2;
