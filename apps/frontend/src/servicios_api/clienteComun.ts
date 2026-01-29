@@ -352,55 +352,88 @@ export async function fetchConManejoErrores<T>(opts: {
   toastUnreachable: { id: string; title: string; message: string };
   toastTimeout?: { id: string; title: string; message: string };
   toastServerError: { id: string; title: string; message: (status: number | undefined) => string };
+  retry?: { intentos?: number; baseMs?: number; maxMs?: number; jitterMs?: number };
 }): Promise<T> {
-  let respuesta: unknown;
+  const retryCfg = {
+    intentos: opts.retry?.intentos ?? 2,
+    baseMs: opts.retry?.baseMs ?? 250,
+    maxMs: opts.retry?.maxMs ?? 1500,
+    jitterMs: opts.retry?.jitterMs ?? 120
+  };
+  const maxIntentos = Math.max(0, retryCfg.intentos);
+  const retryableStatus = new Set([502, 503, 504, 429]);
 
-  try {
-    const controller = new AbortController();
-    const timeoutMs = opts.timeoutMs ?? 12_000;
-    const timer = timeoutMs > 0 ? globalThis.setTimeout(() => controller.abort(), timeoutMs) : null;
+  const esperar = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+  const calcularEspera = (intento: number) => {
+    const base = retryCfg.baseMs * Math.pow(2, Math.max(0, intento - 1));
+    const cap = Math.min(retryCfg.maxMs, base);
+    const jitter = retryCfg.jitterMs > 0 ? Math.floor(Math.random() * retryCfg.jitterMs) : 0;
+    return cap + jitter;
+  };
+
+  let ultimoError: unknown;
+
+  for (let intento = 0; intento <= maxIntentos; intento += 1) {
+    let respuesta: unknown;
     try {
-      respuesta = await opts.fetcher(controller.signal);
-    } finally {
-      if (timer) globalThis.clearTimeout(timer);
-    }
-  } catch (error) {
-    if (esAbortError(error)) {
-      const toast = opts.toastTimeout ?? {
-        id: `${opts.toastUnreachable.id}-timeout`,
-        title: 'Tiempo de espera',
-        message: 'La solicitud tardo demasiado. Intenta de nuevo.'
-      };
-      emitToast({ id: toast.id, level: 'error', title: toast.title, message: toast.message, durationMs: 5200 });
-      throw new ErrorRemoto(opts.mensajeServicio, { mensaje: toast.message, detalles: 'AbortError', status: 408 });
-    }
+      const controller = new AbortController();
+      const timeoutMs = opts.timeoutMs ?? 12_000;
+      const timer = timeoutMs > 0 ? globalThis.setTimeout(() => controller.abort(), timeoutMs) : null;
+      try {
+        respuesta = await opts.fetcher(controller.signal);
+      } finally {
+        if (timer) globalThis.clearTimeout(timer);
+      }
+    } catch (error) {
+      ultimoError = error;
+      if (intento < maxIntentos) {
+        await esperar(calcularEspera(intento + 1));
+        continue;
+      }
 
-    emitToast({
-      id: opts.toastUnreachable.id,
-      level: 'error',
-      title: opts.toastUnreachable.title,
-      message: opts.toastUnreachable.message,
-      durationMs: 5200
-    });
-    throw new ErrorRemoto(opts.mensajeServicio, { mensaje: 'Sin conexion', detalles: String(error) });
-  }
+      if (esAbortError(error)) {
+        const toast = opts.toastTimeout ?? {
+          id: `${opts.toastUnreachable.id}-timeout`,
+          title: 'Tiempo de espera',
+          message: 'La solicitud tardo demasiado. Intenta de nuevo.'
+        };
+        emitToast({ id: toast.id, level: 'error', title: toast.title, message: toast.message, durationMs: 5200 });
+        throw new ErrorRemoto(opts.mensajeServicio, { mensaje: toast.message, detalles: 'AbortError', status: 408 });
+      }
 
-  const ok = esObjeto(respuesta) && typeof respuesta['ok'] === 'boolean' ? (respuesta['ok'] as boolean) : false;
-  const status = esObjeto(respuesta) && typeof respuesta['status'] === 'number' ? (respuesta['status'] as number) : undefined;
-
-  if (!ok) {
-    const detalle = await leerErrorRemoto(respuesta);
-    if (status !== undefined && status >= 500) {
       emitToast({
-        id: opts.toastServerError.id,
+        id: opts.toastUnreachable.id,
         level: 'error',
-        title: opts.toastServerError.title,
-        message: opts.toastServerError.message(status),
+        title: opts.toastUnreachable.title,
+        message: opts.toastUnreachable.message,
         durationMs: 5200
       });
+      throw new ErrorRemoto(opts.mensajeServicio, { mensaje: 'Sin conexion', detalles: String(error) });
     }
-    throw new ErrorRemoto(opts.mensajeServicio, { ...detalle, status });
+
+    const ok = esObjeto(respuesta) && typeof respuesta['ok'] === 'boolean' ? (respuesta['ok'] as boolean) : false;
+    const status = esObjeto(respuesta) && typeof respuesta['status'] === 'number' ? (respuesta['status'] as number) : undefined;
+
+    if (!ok) {
+      if (status !== undefined && retryableStatus.has(status) && intento < maxIntentos) {
+        await esperar(calcularEspera(intento + 1));
+        continue;
+      }
+      const detalle = await leerErrorRemoto(respuesta);
+      if (status !== undefined && status >= 500) {
+        emitToast({
+          id: opts.toastServerError.id,
+          level: 'error',
+          title: opts.toastServerError.title,
+          message: opts.toastServerError.message(status),
+          durationMs: 5200
+        });
+      }
+      throw new ErrorRemoto(opts.mensajeServicio, { ...detalle, status });
+    }
+
+    return leerJsonOk<T>(respuesta, opts.mensajeServicio);
   }
 
-  return leerJsonOk<T>(respuesta, opts.mensajeServicio);
+  throw new ErrorRemoto(opts.mensajeServicio, { mensaje: 'Sin conexion', detalles: String(ultimoError) });
 }

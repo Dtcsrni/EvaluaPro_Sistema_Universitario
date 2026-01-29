@@ -495,8 +495,8 @@ export async function generarPdfExamen({
   const omrPadding = 2.5;
   const omrExtraTitulo = 17;
 
-  const anchoColRespuesta = 78;
-  const gutterRespuesta = 20;
+  const anchoColRespuesta = 54;
+  const gutterRespuesta = 18;
   const xColRespuesta = ANCHO_CARTA - margen - anchoColRespuesta;
   const xDerechaTexto = xColRespuesta - gutterRespuesta;
 
@@ -893,7 +893,7 @@ export async function generarPdfExamen({
       // Importante: NO se alinea por columnas de opciones, porque si hay 2 columnas algunas letras comparten Y.
       // En su lugar, se dibuja A–E con espaciado fijo. Esto evita superposiciones siempre.
       const letras = Array.from({ length: OMR_TOTAL_LETRAS }, (_v, i) => String.fromCharCode(65 + i));
-      const headerGap = 20;
+      const headerGap = 18;
       const yPrimeraBurbuja = yInicioOpciones - headerGap;
       const top = yPrimeraBurbuja + omrRadio + omrExtraTitulo + 8;
       const yUltimaBurbuja = yPrimeraBurbuja - (OMR_TOTAL_LETRAS - 1) * omrPasoY;
@@ -910,15 +910,15 @@ export async function generarPdfExamen({
         color: rgb(1, 1, 1)
       });
       // Etiqueta con numero de pregunta (recuadro).
-      const hTag = 14;
-      const wTag = 38;
+      const hTag = 13;
+      const wTag = 30;
       const yTag = top - hTag - 2;
       page.drawRectangle({ x: xColRespuesta, y: yTag, width: wTag, height: hTag, color: colorPrimario });
-      page.drawText(`#${numero}`, { x: xColRespuesta + 7, y: yTag + 3, size: 9, font: fuenteBold, color: rgb(1, 1, 1) });
-      const label = 'RESP.';
-      page.drawText(label, { x: xColRespuesta + wTag + 6, y: yTag + 3, size: 8, font: fuenteBold, color: colorPrimario });
+      page.drawText(`#${numero}`, { x: xColRespuesta + 6, y: yTag + 3, size: 8.5, font: fuenteBold, color: rgb(1, 1, 1) });
+      const label = 'RESP';
+      page.drawText(label, { x: xColRespuesta + wTag + 5, y: yTag + 3, size: 7.6, font: fuenteBold, color: colorPrimario });
 
-      const xBurbuja = xColRespuesta + omrPadding + 10;
+      const xBurbuja = xColRespuesta + omrPadding + 8;
       for (let i = 0; i < letras.length; i += 1) {
         const letra = letras[i];
         const yBurbuja = yPrimeraBurbuja - i * omrPasoY;

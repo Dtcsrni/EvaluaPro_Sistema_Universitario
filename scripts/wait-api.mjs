@@ -47,8 +47,8 @@ cargarEnvLocal();
 
 const base = String(process.env.VITE_API_PROXY_TARGET || 'http://localhost:4000').trim();
 const healthPath = String(process.env.API_HEALTHCHECK_PATH || '/api/salud').trim() || '/api/salud';
-const timeoutMs = clampNumber(process.env.API_HEALTHCHECK_TIMEOUT_MS, 120_000, 5_000, 10 * 60_000);
-const intervalMs = clampNumber(process.env.API_HEALTHCHECK_INTERVAL_MS, 500, 150, 10_000);
+const timeoutMs = clampNumber(process.env.API_HEALTHCHECK_TIMEOUT_MS, 90_000, 5_000, 10 * 60_000);
+const intervalMs = clampNumber(process.env.API_HEALTHCHECK_INTERVAL_MS, 250, 100, 10_000);
 const strict = /^(1|true|si|yes)$/i.test(String(process.env.API_HEALTHCHECK_STRICT || '').trim());
 
 function crearUrl() {

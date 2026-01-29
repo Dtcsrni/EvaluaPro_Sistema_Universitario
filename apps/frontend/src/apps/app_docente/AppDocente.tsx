@@ -2027,7 +2027,7 @@ function SeccionBanco({
     const snapToGrid = (y: number) => Math.floor(y / GRID_STEP) * GRID_STEP;
 
     // Mantiene consistencia con el algoritmo del PDF.
-    const anchoColRespuesta = 86;
+    const anchoColRespuesta = 54;
     const gutterRespuesta = 18;
     const xColRespuesta = ANCHO_CARTA - margen - anchoColRespuesta;
     const xDerechaTexto = xColRespuesta - gutterRespuesta;
@@ -2036,6 +2036,11 @@ function SeccionBanco({
 
     const cursorInicial = snapToGrid(ALTO_CARTA - margen - 114);
     const limiteInferior = margen + 32;
+
+    const INSTRUCCIONES_DEFAULT =
+      'Por favor conteste las siguientes preguntas referentes al parcial. ' +
+      'Rellene el círculo de la respuesta más adecuada, evitando salirse del mismo. ' +
+      'Cada pregunta vale 10 puntos si está completa y es correcta.';
 
     const sizePregunta = 9.2;
     const sizeOpcion = 8.2;
@@ -2086,6 +2091,26 @@ function SeccionBanco({
 
     let paginas = 1;
     let cursorY = cursorInicial;
+    let esPrimeraPagina = true;
+
+    const aplicarBloqueIndicaciones = () => {
+      const sizeIndicaciones = 8.5;
+      const lineaIndicaciones = 10.5;
+      const maxWidthIndicaciones = Math.max(120, xDerechaTexto - (margen + 10));
+      const lineasIndicaciones = estimarLineasPorAncho(INSTRUCCIONES_DEFAULT, maxWidthIndicaciones, sizeIndicaciones);
+      const hLabel = 16;
+      const paddingY = 5;
+      const hCaja = hLabel + paddingY + lineasIndicaciones * lineaIndicaciones;
+      cursorY = snapToGrid(cursorY - (hCaja + 12));
+      if (cursorY < limiteInferior + 40) {
+        cursorY = limiteInferior - 1;
+      }
+    };
+
+    if (esPrimeraPagina) {
+      aplicarBloqueIndicaciones();
+      esPrimeraPagina = false;
+    }
 
     for (const pregunta of lista) {
       const version = obtenerVersionPregunta(pregunta);
@@ -2122,6 +2147,10 @@ function SeccionBanco({
       if (cursorY - altoNecesario < limiteInferior) {
         paginas += 1;
         cursorY = cursorInicial;
+        if (esPrimeraPagina) {
+          aplicarBloqueIndicaciones();
+          esPrimeraPagina = false;
+        }
       }
 
       cursorY = snapToGrid(cursorY - altoNecesario);
@@ -2241,6 +2270,12 @@ function SeccionBanco({
     });
   }, [preguntas, periodoId]);
 
+  const preguntasTemaActual = useMemo(() => {
+    const nombre = normalizarNombreTema(tema);
+    if (!nombre) return [];
+    return preguntasMateria.filter((p) => normalizarNombreTema(p.tema) === nombre);
+  }, [preguntasMateria, tema]);
+
   const preguntasSinTema = useMemo(() => {
     const lista = Array.isArray(preguntasMateria) ? preguntasMateria : [];
     return lista.filter((p) => !normalizarNombreTema(p.tema));
@@ -2277,6 +2312,11 @@ function SeccionBanco({
     return mapa;
   }, [preguntasMateria]);
 
+  const paginasTemaActual = useMemo(() => {
+    if (!tema.trim()) return 0;
+    return preguntasTemaActual.length ? estimarPaginasParaPreguntas(preguntasTemaActual) : 0;
+  }, [preguntasTemaActual, tema]);
+
   function estimarAltoPregunta(pregunta: Pregunta): number {
     const mmAPuntos = (mm: number) => mm * (72 / 25.4);
     const margen = mmAPuntos(10);
@@ -2284,18 +2324,18 @@ function SeccionBanco({
     const GRID_STEP = 4;
     const snapToGrid = (y: number) => Math.floor(y / GRID_STEP) * GRID_STEP;
 
-    const anchoColRespuesta = 78;
-    const gutterRespuesta = 20;
+    const anchoColRespuesta = 54;
+    const gutterRespuesta = 18;
     const xColRespuesta = ANCHO_CARTA - margen - anchoColRespuesta;
     const xDerechaTexto = xColRespuesta - gutterRespuesta;
     const xTextoPregunta = margen + 22;
     const anchoTextoPregunta = Math.max(60, xDerechaTexto - xTextoPregunta);
 
-    const sizePregunta = 9.5;
-    const sizeOpcion = 8.5;
+    const sizePregunta = 9.2;
+    const sizeOpcion = 8.2;
     const sizeNota = 8.5;
-    const lineaPregunta = 11;
-    const lineaOpcion = 10;
+    const lineaPregunta = 10.5;
+    const lineaOpcion = 9.5;
     const separacionPregunta = 1;
 
     const omrPasoY = 10.2;
@@ -2497,7 +2537,7 @@ function SeccionBanco({
       );
       emitToast({ level: 'ok', title: 'Banco', message: `Asignadas ${ids.length} preguntas`, durationMs: 2200 });
       setSinTemaSeleccion(new Set());
-      onRefrescar();
+      await Promise.all([refrescarTemas(), Promise.resolve().then(() => onRefrescar())]);
     } catch (error) {
       const msg = mensajeDeError(error, 'No se pudieron asignar las preguntas');
       setMensaje(msg);
@@ -2820,9 +2860,31 @@ function SeccionBanco({
           </li>
         </ul>
       </AyudaFormulario>
+      <div className="banco-resumen" aria-live="polite">
+        <div className="banco-resumen__item" data-tooltip="Total de preguntas activas en la materia seleccionada.">
+          <span>Preguntas</span>
+          <b>{preguntasMateria.length}</b>
+        </div>
+        <div className="banco-resumen__item" data-tooltip="Cantidad de temas activos en la materia.">
+          <span>Temas</span>
+          <b>{temasBanco.length}</b>
+        </div>
+        <div className="banco-resumen__item" data-tooltip="Preguntas sin tema asignado.">
+          <span>Sin tema</span>
+          <b>{preguntasSinTema.length}</b>
+        </div>
+        <div className="banco-resumen__item" data-tooltip="Cantidad de preguntas que pertenecen al tema seleccionado.">
+          <span>Tema actual</span>
+          <b>{tema.trim() ? preguntasTemaActual.length : '-'}</b>
+        </div>
+        <div className="banco-resumen__item" data-tooltip="Estimacion de paginas segun el layout real del PDF.">
+          <span>Paginas est.</span>
+          <b>{tema.trim() ? paginasTemaActual : '-'}</b>
+        </div>
+      </div>
       <label className="campo">
         Materia
-        <select value={periodoId} onChange={(event) => setPeriodoId(event.target.value)} disabled={bloqueoEdicion}>
+        <select value={periodoId} onChange={(event) => setPeriodoId(event.target.value)} disabled={bloqueoEdicion} data-tooltip="Materia sobre la que se gestionan preguntas y temas.">
           <option value="">Selecciona</option>
           {periodos.map((periodo) => (
             <option key={periodo._id} value={periodo._id} title={periodo._id}>
@@ -2834,11 +2896,17 @@ function SeccionBanco({
       </label>
       <label className="campo">
         Enunciado
-        <textarea value={enunciado} onChange={(event) => setEnunciado(event.target.value)} disabled={bloqueoEdicion} />
+        <textarea
+          value={enunciado}
+          onChange={(event) => setEnunciado(event.target.value)}
+          disabled={bloqueoEdicion}
+          placeholder="Escribe el texto completo de la pregunta…"
+          data-tooltip="Redacta el enunciado completo de la pregunta."
+        />
       </label>
       <label className="campo">
         Tema
-        <select value={tema} onChange={(event) => setTema(event.target.value)} disabled={bloqueoEdicion}>
+        <select value={tema} onChange={(event) => setTema(event.target.value)} disabled={bloqueoEdicion} data-tooltip="Tema al que se asignara la pregunta.">
           <option value="">Selecciona</option>
           {temasBanco.map((t) => (
             <option key={t._id} value={t.nombre}>
@@ -2848,6 +2916,11 @@ function SeccionBanco({
         </select>
         {periodoId && !cargandoTemas && temasBanco.length === 0 && (
           <span className="ayuda">Primero crea un tema (seccion “Temas”) para poder asignarlo a preguntas.</span>
+        )}
+        {tema.trim() && (
+          <span className="ayuda">
+            En este tema: {preguntasTemaActual.length} pregunta(s) · {paginasTemaActual} pagina(s) estimada(s).
+          </span>
         )}
       </label>
 
@@ -2868,6 +2941,7 @@ function SeccionBanco({
             placeholder="Nuevo tema (ej. Funciones)"
             aria-label="Nuevo tema"
             disabled={bloqueoEdicion}
+            data-tooltip="Escribe el nombre del tema y luego presiona Agregar."
           />
           <Boton
             type="button"
@@ -2875,6 +2949,7 @@ function SeccionBanco({
             cargando={creandoTema}
             disabled={!periodoId || !temaNuevo.trim() || bloqueoEdicion}
             onClick={crearTemaBanco}
+            data-tooltip="Crea el tema en la materia seleccionada."
           >
             Agregar
           </Boton>
@@ -2914,10 +2989,22 @@ function SeccionBanco({
                       </>
                     ) : (
                       <>
-                        <Boton type="button" variante="secundario" onClick={() => abrirAjusteTema(t)} disabled={!puedeGestionar}>
+                        <Boton
+                          type="button"
+                          variante="secundario"
+                          onClick={() => abrirAjusteTema(t)}
+                          disabled={!puedeGestionar}
+                          data-tooltip="Ajusta el numero de paginas objetivo para este tema."
+                        >
                           Ajustar paginas
                         </Boton>
-                        <Boton type="button" variante="secundario" onClick={() => iniciarEdicionTema(t)} disabled={!puedeGestionar}>
+                        <Boton
+                          type="button"
+                          variante="secundario"
+                          onClick={() => iniciarEdicionTema(t)}
+                          disabled={!puedeGestionar}
+                          data-tooltip="Cambia el nombre del tema."
+                        >
                           Renombrar
                         </Boton>
                         <Boton
@@ -2925,6 +3012,7 @@ function SeccionBanco({
                           cargando={archivandoTemaId === t._id}
                           onClick={() => archivarTemaBanco(t)}
                           disabled={!puedeArchivar}
+                          data-tooltip="Archiva el tema y deja sus preguntas sin tema."
                         >
                           Archivar
                         </Boton>
@@ -2946,6 +3034,7 @@ function SeccionBanco({
                           min={1}
                           value={String(ajustePaginasObjetivo)}
                           onChange={(event) => setAjustePaginasObjetivo(Math.max(1, Number(event.target.value || 1)))}
+                          data-tooltip="Define cuantas paginas quieres que ocupe este tema."
                         />
                       </label>
                       <label className="campo ajuste-campo ajuste-campo--tema">
@@ -2957,6 +3046,7 @@ function SeccionBanco({
                             setAjusteAccion(next);
                             if (next === 'quitar') setAjusteTemaDestinoId('');
                           }}
+                          data-tooltip="Elige mover preguntas a otro tema o dejarlas sin tema."
                         >
                           <option value="mover">Mover a otro tema</option>
                           <option value="quitar">Dejar sin tema</option>
@@ -2964,7 +3054,11 @@ function SeccionBanco({
                       </label>
                       <label className="campo ajuste-campo ajuste-campo--tema">
                         Tema destino
-                        <select value={ajusteTemaDestinoId} onChange={(event) => setAjusteTemaDestinoId(event.target.value)}>
+                        <select
+                          value={ajusteTemaDestinoId}
+                          onChange={(event) => setAjusteTemaDestinoId(event.target.value)}
+                          data-tooltip="Tema al que se moveran las preguntas seleccionadas."
+                        >
                           <option value="">Selecciona</option>
                           {temasBanco
                             .filter((x) => x._id !== t._id)
@@ -2986,13 +3080,14 @@ function SeccionBanco({
                           const sugeridas = sugerirPreguntasARecortar(preguntasTema, ajustePaginasObjetivo);
                           setAjusteSeleccion(new Set(sugeridas));
                         }}
+                        data-tooltip="Marca automaticamente preguntas antiguas para cumplir el objetivo."
                       >
                         Sugerir
                       </Boton>
-                      <Boton type="button" variante="secundario" onClick={() => setAjusteSeleccion(new Set())}>
+                      <Boton type="button" variante="secundario" onClick={() => setAjusteSeleccion(new Set())} data-tooltip="Quita todas las selecciones.">
                         Limpiar
                       </Boton>
-                      <Boton type="button" variante="secundario" onClick={cerrarAjusteTema}>
+                      <Boton type="button" variante="secundario" onClick={cerrarAjusteTema} data-tooltip="Cerrar sin aplicar cambios.">
                         Cerrar
                       </Boton>
                     </div>
@@ -3096,7 +3191,11 @@ function SeccionBanco({
                 <div className="ajuste-controles">
                   <label className="campo ajuste-campo ajuste-campo--tema">
                     Asignar a tema
-                    <select value={sinTemaDestinoId} onChange={(event) => setSinTemaDestinoId(event.target.value)}>
+                    <select
+                      value={sinTemaDestinoId}
+                      onChange={(event) => setSinTemaDestinoId(event.target.value)}
+                      data-tooltip="Tema al que se asignaran las preguntas sin tema."
+                    >
                       <option value="">Selecciona</option>
                       {temasBanco.map((x) => (
                         <option key={x._id} value={x._id}>
@@ -3110,10 +3209,11 @@ function SeccionBanco({
                     variante="secundario"
                     onClick={() => setSinTemaSeleccion(new Set(preguntasSinTema.map((p) => p._id)))}
                     disabled={preguntasSinTema.length === 0}
+                    data-tooltip="Marca todas las preguntas sin tema."
                   >
                     Seleccionar todo
                   </Boton>
-                  <Boton type="button" variante="secundario" onClick={() => setSinTemaSeleccion(new Set())}>
+                  <Boton type="button" variante="secundario" onClick={() => setSinTemaSeleccion(new Set())} data-tooltip="Limpia la seleccion actual.">
                     Limpiar
                   </Boton>
                   <Boton
@@ -3122,6 +3222,7 @@ function SeccionBanco({
                     cargando={moviendoSinTema}
                     disabled={!sinTemaDestinoId || sinTemaSeleccion.size === 0}
                     onClick={asignarSinTemaATema}
+                    data-tooltip="Asigna las preguntas seleccionadas al tema elegido."
                   >
                     {moviendoSinTema ? 'Asignando…' : `Asignar (${sinTemaSeleccion.size})`}
                   </Boton>
@@ -3202,6 +3303,7 @@ function SeccionBanco({
         cargando={guardando}
         disabled={!puedeGuardar || bloqueoEdicion}
         onClick={guardar}
+        data-tooltip="Guarda la pregunta en el banco."
       >
         {guardando ? 'Guardando…' : 'Guardar'}
       </Boton>
@@ -3272,10 +3374,11 @@ function SeccionBanco({
               cargando={editando}
               disabled={!puedeGuardarEdicion || bloqueoEdicion}
               onClick={guardarEdicion}
+              data-tooltip="Guarda los cambios de esta pregunta."
             >
               {editando ? 'Guardando…' : 'Guardar cambios'}
             </Boton>
-            <Boton type="button" variante="secundario" onClick={cancelarEdicion}>
+            <Boton type="button" variante="secundario" onClick={cancelarEdicion} data-tooltip="Descarta los cambios.">
               Cancelar
             </Boton>
           </div>
@@ -3308,7 +3411,13 @@ function SeccionBanco({
                         </div>
                       </div>
                       <div className="item-actions">
-                        <Boton variante="secundario" type="button" onClick={() => iniciarEdicion(pregunta)} disabled={bloqueoEdicion}>
+                        <Boton
+                          variante="secundario"
+                          type="button"
+                          onClick={() => iniciarEdicion(pregunta)}
+                          disabled={bloqueoEdicion}
+                          data-tooltip="Editar esta pregunta."
+                        >
                           Editar
                         </Boton>
                         <Boton
@@ -3316,6 +3425,7 @@ function SeccionBanco({
                           cargando={archivandoPreguntaId === pregunta._id}
                           onClick={() => archivarPregunta(pregunta._id)}
                           disabled={!puedeArchivar}
+                          data-tooltip="Archivar la pregunta (no se borra)."
                         >
                           Archivar
                         </Boton>
@@ -3540,7 +3650,7 @@ function SeccionPeriodos({
       setMensaje('Materia eliminada');
       emitToast({ level: 'ok', title: 'Materias', message: 'Materia eliminada', durationMs: 2200 });
       registrarAccionDocente('eliminar_periodo', true, Date.now() - inicio);
-      onRefrescar();
+      await Promise.all([refrescarTemas(), Promise.resolve().then(() => onRefrescar())]);
     } catch (error) {
       const msg = mensajeDeError(error, 'No se pudo eliminar la materia');
       setMensaje(msg);
