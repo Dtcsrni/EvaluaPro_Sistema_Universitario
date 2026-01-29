@@ -54,9 +54,11 @@ export default function Aplicacion() {
             nombre, 
             estado: 'pendiente',
         };
-        setTareas(prev => [...prev, tarea]);
-        setNuevaTarea("");
+        setTareas(prev =>
+      prev.map(t => (t.id === id ? { ...t, estado: newStatus } : t))
+    );
     };
+    
     //Funcion que detecta si se presiona enter, y registra la tarea
     const manejarKeyDown: 
     React.KeyboardEventHandler<HTMLInputElement> = (e) => {
@@ -81,7 +83,7 @@ export default function Aplicacion() {
         //Validacion de numero en ID
         if(!raw || Number.isNaN(id)) return;
 
-        setTareas(prev => prev.filter(t => t.id !== id));
+        setTareas(prev => [...prev, tarea]);
     };
     //Funcion  que elimina una tarea por ID
     const onDelete = (id:number) => {
