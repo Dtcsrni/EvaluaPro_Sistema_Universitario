@@ -2,58 +2,53 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 
 /**
  * Práctica: Sistemas Visuales (React + TypeScript)
- * Todo en un solo archivo para que sea fácil de estudiar.
+ * Ejemplo didáctico: todos los conceptos clave de React en un solo archivo para facilitar el estudio y la experimentación.
+ * Incluye manejo de formularios, validaciones, eventos, temporizador, renderizado condicional y manipulación del DOM.
  */
 export default function App() {
   // =========================
-  // 1) ESTADO (useState)
+  // 1) ESTADO LOCAL (useState)
   // =========================
-  // Caja de texto (input) -> Formulario controlado: el valor vive en estado
+  // Ejemplo de formulario controlado: el valor de cada input vive en el estado de React
   const [nombre, setNombre] = useState<string>('');
   const [matricula, setMatricula] = useState<string>('');
 
-  // Radio buttons -> seleccion única (solo un valor)
+  // Radio buttons: selección única (solo un valor posible)
   const [turno, setTurno] = useState<'matutino' | 'vespertino'>('matutino');
 
-  // Checkbox -> booleano (activado/desactivado)
+  // Checkbox: booleano (activado/desactivado)
   const [aceptaTerminos, setAceptaTerminos] = useState<boolean>(false);
 
-  // Lista desplegable (select)
+  // Lista desplegable (select): permite elegir una opción de varias
   const [carrera, setCarrera] = useState<string>('ISC');
 
-  // Menú (simulado): qué sección estás viendo
+  // Menú simulado: controla qué sección/pantalla se muestra
   const [seccion, setSeccion] = useState<'registro' | 'ayuda'>('registro');
 
-  // Temporizador y barra de progreso (simulación)
+  // Temporizador y barra de progreso: simulan un proceso visual
   const [progreso, setProgreso] = useState<number>(0);
   const [corriendo, setCorriendo] = useState<boolean>(false);
 
-  // “Ventana”: guardamos tamaño actual
+  // Tamaño de la ventana: se actualiza dinámicamente al cambiar el tamaño del navegador
   const [windowSize, setWindowSize] = useState<{ w: number; h: number }>({
     w: window.innerWidth,
     h: window.innerHeight,
   });
 
-  // Referencia para enfocar una caja de texto (ejemplo básico de interacción con DOM)
+  // Referencia a un input: permite enfocar la caja de texto de nombre desde código (ejemplo de useRef)
   const nombreRef = useRef<HTMLInputElement | null>(null);
 
   // =========================
-  // 2) EVENTOS DE VENTANA (Window)
+  // 2) EVENTOS DE VENTANA (window)
   // =========================
   useEffect(() => {
-    /**
-     * Evento de ventana: resize
-     * React normalmente maneja eventos en componentes, pero “window” es global.
-     */
+    // Evento global: resize. Actualiza el estado con el tamaño de la ventana cada vez que el usuario cambia el tamaño.
     const onResize = () => {
       setWindowSize({ w: window.innerWidth, h: window.innerHeight });
     };
 
-    /**
-     * Evento de ventana: beforeunload
-     * Solo para demostrar: advertir al salir si hay texto escrito.
-     * Nota: navegadores modernos limitan el texto personalizado.
-     */
+    // Evento global: beforeunload. Advierte al usuario si intenta salir de la página con datos escritos en el formulario.
+    // Nota: los navegadores modernos limitan el texto personalizado en este diálogo.
     const onBeforeUnload = (e: BeforeUnloadEvent) => {
       const hayDatos = nombre.trim() !== '' || matricula.trim() !== '';
       if (!hayDatos) return;
@@ -65,7 +60,7 @@ export default function App() {
     window.addEventListener('resize', onResize);
     window.addEventListener('beforeunload', onBeforeUnload);
 
-    // Cleanup: se ejecuta al desmontar el componente (buena práctica)
+    // Cleanup: elimina los listeners al desmontar el componente o al cambiar dependencias (buena práctica para evitar fugas de memoria)
     return () => {
       window.removeEventListener('resize', onResize);
       window.removeEventListener('beforeunload', onBeforeUnload);
@@ -73,15 +68,12 @@ export default function App() {
   }, [nombre, matricula]);
 
   // =========================
-  // 3) TEMPORIZADOR (Timer) + PROGRESS BAR
+  // 3) TEMPORIZADOR (Timer) + BARRA DE PROGRESO
   // =========================
   useEffect(() => {
     if (!corriendo) return;
 
-    /**
-     * setInterval simula un temporizador que aumenta un progreso.
-     * Guardamos el id para poder detenerlo en cleanup.
-     */
+    // setInterval: simula un temporizador que incrementa el progreso cada 500 ms. Guardamos el id para poder detenerlo correctamente.
     const id = window.setInterval(() => {
       setProgreso((prev) => {
         const next = prev + 10;
@@ -89,11 +81,11 @@ export default function App() {
       });
     }, 500);
 
-    // Detener interval al salir o cuando corriendo cambie
+    // Cleanup: detiene el temporizador cuando el componente se desmonta o cuando cambia 'corriendo'.
     return () => window.clearInterval(id);
   }, [corriendo]);
 
-  // Cuando llega a 100, detenemos automáticamente
+  // Cuando el progreso llega a 100%, detenemos automáticamente el temporizador.
   useEffect(() => {
     if (progreso >= 100) setCorriendo(false);
   }, [progreso]);
@@ -101,8 +93,8 @@ export default function App() {
   // =========================
   // 4) VALIDACIONES DERIVADAS (useMemo)
   // =========================
+  // Calcula si el formulario es válido: nombre y matrícula con longitud mínima y términos aceptados.
   const formularioValido = useMemo(() => {
-    // Validación mínima: campos obligatorios + términos
     return (
       nombre.trim().length >= 3 &&
       matricula.trim().length >= 6 &&
@@ -111,8 +103,9 @@ export default function App() {
   }, [nombre, matricula, aceptaTerminos]);
 
   // =========================
-  // 5) ACCIONES (eventos de botón / teclado / formulario)
+  // 5) ACCIONES Y MANEJADORES DE EVENTOS (botón, teclado, formulario)
   // =========================
+  // Limpia todos los campos del formulario y reinicia el progreso. Además, enfoca el input de nombre para mejorar la experiencia de usuario.
   const limpiar = () => {
     setNombre('');
     setMatricula('');
@@ -121,36 +114,27 @@ export default function App() {
     setCarrera('ISC');
     setProgreso(0);
     setCorriendo(false);
-
-    // Enfocar el input de nombre para UX
     nombreRef.current?.focus();
   };
 
+  // Valida el formulario y simula el registro del alumno. Si es válido, muestra confirmación y arranca la barra de progreso.
   const validarYRegistrar = (e?: React.FormEvent) => {
-    // Si viene desde form submit, evitamos recargar página
-    e?.preventDefault();
-
-    // Caja de diálogo (confirmación)
+    e?.preventDefault(); // Evita recargar la página si viene de un submit
     if (!formularioValido) {
       alert('Formulario incompleto: revisa campos y acepta términos.');
       return;
     }
-
     const ok = confirm(
       `¿Registrar alumno?\n\nNombre: ${nombre}\nMatrícula: ${matricula}\nCarrera: ${carrera}\nTurno: ${turno}`
     );
-
     if (!ok) return;
-
     alert('Registro exitoso (simulado).');
-
-    // Simulamos proceso con barra
     setProgreso(0);
     setCorriendo(true);
   };
 
   // =========================
-  // 6) UI: “Menú”
+  // 6) UI: MENÚ DE SECCIONES
   // =========================
   const Menu = (
     <nav style={{ display: 'flex', gap: 10, marginBottom: 16 }}>
@@ -168,7 +152,7 @@ export default function App() {
   );
 
   // =========================
-  // 7) UI: “Etiqueta e imagen”
+  // 7) UI: ENCABEZADO (Etiqueta e imagen)
   // =========================
   const Header = (
     <header style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 12 }}>
@@ -191,7 +175,7 @@ export default function App() {
   );
 
   // =========================
-  // 8) SECCIONES (render condicional)
+  // 8) SECCIONES PRINCIPALES (renderizado condicional)
   // =========================
   const SeccionAyuda = (
     <section style={{ border: '1px solid #ccc', borderRadius: 8, padding: 12 }}>
@@ -210,11 +194,9 @@ export default function App() {
   );
 
   const SeccionRegistro = (
-    /**
-     * Frame + Form:
-     * - “Frame”: contenedor visual (section con borde)
-     * - “Form”: etiqueta <form> con submit
-     */
+    // Frame + Formulario:
+    // - Frame: contenedor visual con borde y padding
+    // - Form: formulario controlado con validación y submit
     <section style={{ border: '1px solid #ccc', borderRadius: 8, padding: 12 }}>
       <h2>Registro</h2>
 
@@ -242,11 +224,11 @@ export default function App() {
               value={matricula}
               onChange={(e) => setMatricula(e.target.value)}
               placeholder="Ej. 202512"
-              // Evento de teclado: Enter en el form ya hace submit,
-              // pero mostramos cómo se capturan teclas si se requiere.
+              // Evento de teclado: Enter ya hace submit por defecto en el form,
+              // pero aquí mostramos cómo capturar otras teclas (Escape para limpiar).
               onKeyDown={(e) => {
                 if (e.key === 'Escape') {
-                  // Escape limpia rápido (ejemplo de evento de teclado)
+                  // Escape: limpia todos los campos rápidamente (ejemplo de evento de teclado personalizado)
                   limpiar();
                 }
               }}
@@ -257,7 +239,7 @@ export default function App() {
           </div>
         </div>
 
-        {/* Lista desplegable (ComboBox/Select) */}
+        {/* Lista desplegable (ComboBox/Select): permite elegir la carrera */}
         <div style={{ marginBottom: 10 }}>
           <label>
             Carrera:
@@ -270,7 +252,7 @@ export default function App() {
           </label>
         </div>
 
-        {/* Radio button (selección única) */}
+        {/* Radio button (selección única): permite elegir el turno */}
         <div style={{ marginBottom: 10 }}>
           <div>Turno:</div>
           <label style={{ marginRight: 10 }}>
@@ -293,7 +275,7 @@ export default function App() {
           </label>
         </div>
 
-        {/* Checkbox */}
+        {/* Checkbox: acepta términos y condiciones */}
         <div style={{ marginBottom: 10 }}>
           <label>
             <input
@@ -305,7 +287,7 @@ export default function App() {
           </label>
         </div>
 
-        {/* Botones (Button) */}
+        {/* Botones: submit para registrar y limpiar para reiniciar el formulario */}
         <div style={{ display: 'flex', gap: 10, marginBottom: 12 }}>
           <button type="submit" disabled={!formularioValido}>
             Registrar
@@ -316,7 +298,7 @@ export default function App() {
           </button>
         </div>
 
-        {/* Validación (render condicional) */}
+        {/* Validación: muestra mensaje si el formulario está incompleto */}
         {!formularioValido && (
           <p style={{ color: 'crimson', marginTop: 0 }}>
             Completa: nombre (≥3), matrícula (≥6) y acepta términos.
@@ -324,12 +306,13 @@ export default function App() {
         )}
       </form>
 
-      {/* Temporizador + barra de progreso */}
+      {/* Temporizador + barra de progreso: simula un proceso visual tras el registro */}
       <div style={{ marginTop: 12 }}>
         <div style={{ marginBottom: 6 }}>
           Proceso (simulado): {progreso}%
         </div>
 
+        {/* Barra de progreso visual */}
         <div
           style={{
             height: 14,
@@ -346,6 +329,7 @@ export default function App() {
           />
         </div>
 
+        {/* Controles de la barra de progreso: iniciar, pausar y reiniciar */}
         <div style={{ display: 'flex', gap: 10, marginTop: 10 }}>
           <button
             type="button"
@@ -384,7 +368,7 @@ export default function App() {
       {Header}
       {Menu}
 
-      {/* Render condicional de secciones (simula “ventanas” o “pantallas”) */}
+      {/* Render condicional de secciones: simula “ventanas” o “pantallas” en la UI */}
       {seccion === 'registro' ? SeccionRegistro : SeccionAyuda}
     </div>
   );
