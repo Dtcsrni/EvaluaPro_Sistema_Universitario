@@ -472,17 +472,17 @@ export async function generarPdfExamen({
   // Tipografías compactas (pero legibles) para encajar más preguntas.
   const sizeTitulo = 13;
   const sizeMeta = 8.3;
-  const sizePregunta = 9.2;
-  const sizeOpcion = 8.2;
-  const sizeNota = 7.8;
+  const sizePregunta = 8.6;
+  const sizeOpcion = 7.6;
+  const sizeNota = 7.2;
 
   // Codigo: monospace ligeramente mas pequeno.
   const sizeCodigoInline = 8.5;
   const sizeCodigoBloque = 8;
 
-  const lineaPregunta = 10.2;
-  const lineaOpcion = 9.2;
-  const lineaNota = 9.2;
+  const lineaPregunta = 9.3;
+  const lineaOpcion = 8.4;
+  const lineaNota = 8.6;
   // Reduce el “aire” entre preguntas para compactar.
   const separacionPregunta = 0;
 
@@ -490,18 +490,18 @@ export async function generarPdfExamen({
 
   // OMR: burbujas A–E con espaciado fijo para evitar superposiciones.
   const OMR_TOTAL_LETRAS = 5;
-  const omrRadio = 4.1;
-  const omrPasoY = 10.2;
-  const omrPadding = 2.5;
-  const omrExtraTitulo = 17;
+  const omrRadio = 3.7;
+  const omrPasoY = 9.2;
+  const omrPadding = 2.0;
+  const omrExtraTitulo = 14;
 
-  const anchoColRespuesta = 54;
-  const gutterRespuesta = 18;
+  const anchoColRespuesta = 52;
+  const gutterRespuesta = 16;
   const xColRespuesta = ANCHO_CARTA - margen - anchoColRespuesta;
   const xDerechaTexto = xColRespuesta - gutterRespuesta;
 
   const xNumeroPregunta = margen;
-  const xTextoPregunta = margen + 22;
+  const xTextoPregunta = margen + 20;
   const anchoTextoPregunta = Math.max(60, xDerechaTexto - xTextoPregunta);
 
   const INSTRUCCIONES_DEFAULT =
@@ -558,17 +558,17 @@ export async function generarPdfExamen({
     if (emb) imagenesPregunta.set(pregunta.id, emb);
   }
 
-  // Indicaciones completas (fluye al inicio del examen, sin recortes).
-  const sizeIndicacionesBase = 8.5;
-  const lineaIndicacionesBase = 10.5;
+  // Indicaciones compactas (prioriza espacio para preguntas).
+  const sizeIndicacionesBase = 7.2;
+  const lineaIndicacionesBase = 8.6;
   const maxWidthIndicaciones = Math.max(120, xDerechaTexto - (margen + 10));
   const lineasIndicaciones = mostrarInstrucciones
     ? partirEnLineas({ texto: instrucciones, maxWidth: maxWidthIndicaciones, font: fuente, size: sizeIndicacionesBase })
     : [];
   const indicacionesPendientes = mostrarInstrucciones && lineasIndicaciones.length > 0;
 
-  const headerHeightFirst = 98;
-  const headerHeightOther = Math.max(64, QR_SIZE + QR_PADDING * 2 + 24);
+  const headerHeightFirst = 92;
+  const headerHeightOther = Math.max(58, QR_SIZE + QR_PADDING * 2 + 22);
 
   while (numeroPagina <= paginasObjetivo && (numeroPagina === 1 || indicePregunta < totalPreguntas)) {
     const page = pdfDoc.addPage([ANCHO_CARTA, ALTO_CARTA]);
@@ -714,9 +714,9 @@ export async function generarPdfExamen({
       let alto = lineasEnunciado.reduce((acc, l) => acc + l.lineHeight, 0);
       if (tieneImagen && emb) {
         const maxW = anchoTextoPregunta;
-        const maxH = 110;
+        const maxH = 60;
         const escala = Math.min(1, maxW / emb.width, maxH / emb.height);
-        alto += emb.height * escala + 6;
+        alto += emb.height * escala + 3;
       }
 
       const ordenOpciones = mapaVariante.ordenOpcionesPorPregunta[pregunta.id] ?? [0, 1, 2, 3, 4];
@@ -724,7 +724,7 @@ export async function generarPdfExamen({
       const mitad = Math.ceil(totalOpciones / 2);
 
       const anchoOpcionesTotal = Math.max(80, xDerechaTexto - xTextoPregunta);
-      const gutterCols = 10;
+      const gutterCols = 8;
       const colWidth = totalOpciones > 1 ? (anchoOpcionesTotal - gutterCols) / 2 : anchoOpcionesTotal;
       const prefixWidth = fuenteBold.widthOfTextAtSize('E) ', sizeOpcion);
       const maxTextWidth = Math.max(30, colWidth - prefixWidth);
@@ -768,20 +768,20 @@ export async function generarPdfExamen({
       const wInd = Math.min(ANCHO_CARTA - margen - xInd - (anchoColRespuesta + gutterRespuesta), maxWidthIndicaciones + 20);
 
       const hDisponible = yTopInd - (alturaDisponibleMin + 2);
-      const hMin = 22;
+      const hMin = 18;
       const hMax = Math.max(hMin, hDisponible);
 
       // Ajuste dinamico para asegurar que todas las lineas entren.
       let sizeIndicaciones = sizeIndicacionesBase;
       let lineaIndicaciones = lineaIndicacionesBase;
-      const hLabel = 16;
-      const paddingY = 5;
+      const hLabel = 12;
+      const paddingY = 2;
       const maxIter = 10;
       for (let i = 0; i < maxIter; i += 1) {
         const hNecesaria = hLabel + paddingY + lineasIndicaciones.length * lineaIndicaciones;
         if (hNecesaria <= hMax) break;
-        sizeIndicaciones = Math.max(6.5, sizeIndicaciones - 0.4);
-        lineaIndicaciones = Math.max(8.0, lineaIndicaciones - 0.5);
+        sizeIndicaciones = Math.max(6.0, sizeIndicaciones - 0.3);
+        lineaIndicaciones = Math.max(6.8, lineaIndicaciones - 0.35);
       }
 
       const hCaja = Math.min(hMax, Math.max(hMin, hLabel + paddingY + lineasIndicaciones.length * lineaIndicaciones));
@@ -840,12 +840,12 @@ export async function generarPdfExamen({
       const emb = imagenesPregunta.get(pregunta.id);
       if (emb) {
         const maxW = anchoTextoPregunta;
-        const maxH = 110;
+        const maxH = 60;
         const escala = Math.min(1, maxW / emb.width, maxH / emb.height);
         const w = emb.width * escala;
         const h = emb.height * escala;
         page.drawImage(emb.image, { x: xTextoPregunta, y: cursorY - h, width: w, height: h });
-        cursorY -= h + 6;
+        cursorY -= h + 3;
       }
 
       const ordenOpciones = mapaVariante.ordenOpcionesPorPregunta[pregunta.id] ?? [0, 1, 2, 3, 4];
@@ -853,7 +853,7 @@ export async function generarPdfExamen({
       const mitad = Math.ceil(totalOpciones / 2);
 
       const anchoOpcionesTotal = Math.max(80, xDerechaTexto - xTextoPregunta);
-      const gutterCols = 10;
+      const gutterCols = 8;
       const colWidth = totalOpciones > 1 ? (anchoOpcionesTotal - gutterCols) / 2 : anchoOpcionesTotal;
       const xCol1 = xTextoPregunta;
       const xCol2 = xTextoPregunta + colWidth + gutterCols;
@@ -871,8 +871,10 @@ export async function generarPdfExamen({
       const dibujarItem = (xCol: number, yLocal: number, item: { indiceOpcion: number; letra: string }) => {
         page.drawText(`${item.letra})`, { x: xCol, y: yLocal, size: sizeOpcion, font: fuenteBold, color: rgb(0.12, 0.12, 0.12) });
         const opcion = pregunta.opciones[item.indiceOpcion];
+        const textoOpcion = String(opcion?.texto ?? '');
+        const textoOpcionLimpio = textoOpcion.includes('```') ? textoOpcion : normalizarEspacios(textoOpcion);
         const lineasOpcion = envolverTextoMixto({
-          texto: opcion?.texto ?? '',
+          texto: textoOpcionLimpio,
           maxWidth: Math.max(30, colWidth - prefixWidth),
           fuente,
           fuenteMono,
@@ -893,7 +895,7 @@ export async function generarPdfExamen({
       // Importante: NO se alinea por columnas de opciones, porque si hay 2 columnas algunas letras comparten Y.
       // En su lugar, se dibuja A–E con espaciado fijo. Esto evita superposiciones siempre.
       const letras = Array.from({ length: OMR_TOTAL_LETRAS }, (_v, i) => String.fromCharCode(65 + i));
-      const headerGap = 18;
+      const headerGap = 16;
       const yPrimeraBurbuja = yInicioOpciones - headerGap;
       const top = yPrimeraBurbuja + omrRadio + omrExtraTitulo + 8;
       const yUltimaBurbuja = yPrimeraBurbuja - (OMR_TOTAL_LETRAS - 1) * omrPasoY;
@@ -910,15 +912,15 @@ export async function generarPdfExamen({
         color: rgb(1, 1, 1)
       });
       // Etiqueta con numero de pregunta (recuadro).
-      const hTag = 13;
-      const wTag = 30;
+      const hTag = 12;
+      const wTag = 28;
       const yTag = top - hTag - 2;
       page.drawRectangle({ x: xColRespuesta, y: yTag, width: wTag, height: hTag, color: colorPrimario });
-      page.drawText(`#${numero}`, { x: xColRespuesta + 6, y: yTag + 3, size: 8.5, font: fuenteBold, color: rgb(1, 1, 1) });
+      page.drawText(`#${numero}`, { x: xColRespuesta + 5, y: yTag + 2.6, size: 8, font: fuenteBold, color: rgb(1, 1, 1) });
       const label = 'RESP';
-      page.drawText(label, { x: xColRespuesta + wTag + 5, y: yTag + 3, size: 7.6, font: fuenteBold, color: colorPrimario });
+      page.drawText(label, { x: xColRespuesta + wTag + 4, y: yTag + 2.6, size: 7.0, font: fuenteBold, color: colorPrimario });
 
-      const xBurbuja = xColRespuesta + omrPadding + 8;
+      const xBurbuja = xColRespuesta + omrPadding + 7;
       for (let i = 0; i < letras.length; i += 1) {
         const letra = letras[i];
         const yBurbuja = yPrimeraBurbuja - i * omrPasoY;

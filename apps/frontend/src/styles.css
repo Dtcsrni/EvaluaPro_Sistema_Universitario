@@ -1927,6 +1927,11 @@ p {
   box-shadow: 0 20px 40px -30px rgba(15, 23, 42, 0.5);
 }
 
+.imagen-preview {
+  display: grid;
+  gap: 0.5rem;
+}
+
 .nota {
   margin: 0;
   font-size: 0.9rem;

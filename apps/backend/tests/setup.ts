@@ -7,5 +7,8 @@ process.env.NODE_ENV = 'test';
 // Subimos el limite para evitar falsos negativos por rate limiting.
 process.env.RATE_LIMIT_LIMIT = '100000';
 
+// En pruebas se permiten correos de cualquier dominio.
+process.env.DOMINIOS_CORREO_PERMITIDOS = '';
+
 instalarTestHardening();
 

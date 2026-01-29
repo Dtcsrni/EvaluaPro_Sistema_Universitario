@@ -3,6 +3,7 @@ import request from 'supertest';
 import { describe, expect, it } from 'vitest';
 import { crearApp } from '../../src/app';
 import { tokenDocentePrueba } from '../utils/token';
+import { esquemaActualizarPregunta, esquemaCrearPregunta } from '../../src/modulos/modulo_banco_preguntas/validacionesBancoPreguntas';
 
 describe('validaciones de payload', () => {
   const app = crearApp();
@@ -23,6 +24,32 @@ describe('validaciones de payload', () => {
       .expect(400);
 
     expect(respuesta.body.error.codigo).toBe('VALIDACION');
+  });
+
+  it('acepta imagenUrl en data URL (webp) para crear pregunta', () => {
+    const resultado = esquemaCrearPregunta.safeParse({
+      periodoId: '507f1f77bcf86cd799439011',
+      tema: 'Tema',
+      enunciado: 'Pregunta con imagen',
+      imagenUrl: 'data:image/webp;base64,AAAA',
+      opciones: [
+        { texto: 'A', esCorrecta: true },
+        { texto: 'B', esCorrecta: false },
+        { texto: 'C', esCorrecta: false },
+        { texto: 'D', esCorrecta: false },
+        { texto: 'E', esCorrecta: false }
+      ]
+    });
+
+    expect(resultado.success).toBe(true);
+  });
+
+  it('acepta imagenUrl en data URL (jpeg) para actualizar pregunta', () => {
+    const resultado = esquemaActualizarPregunta.safeParse({
+      imagenUrl: 'data:image/jpeg;base64,AAAA'
+    });
+
+    expect(resultado.success).toBe(true);
   });
 
   it('rechaza banco de preguntas con opciones invalidas', async () => {
@@ -357,4 +384,3 @@ describe('validaciones de payload', () => {
     expect(respuesta.body.error.codigo).toBe('DATOS_INVALIDOS');
   });
 });
-

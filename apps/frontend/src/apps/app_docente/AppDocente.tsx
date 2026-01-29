@@ -2027,14 +2027,14 @@ function SeccionBanco({
     const snapToGrid = (y: number) => Math.floor(y / GRID_STEP) * GRID_STEP;
 
     // Mantiene consistencia con el algoritmo del PDF.
-    const anchoColRespuesta = 54;
-    const gutterRespuesta = 18;
+    const anchoColRespuesta = 52;
+    const gutterRespuesta = 16;
     const xColRespuesta = ANCHO_CARTA - margen - anchoColRespuesta;
     const xDerechaTexto = xColRespuesta - gutterRespuesta;
-    const xTextoPregunta = margen + 22;
+    const xTextoPregunta = margen + 20;
     const anchoTextoPregunta = Math.max(60, xDerechaTexto - xTextoPregunta);
 
-    const cursorInicial = snapToGrid(ALTO_CARTA - margen - 114);
+    const cursorInicial = snapToGrid(ALTO_CARTA - margen - 104);
     const limiteInferior = margen + 32;
 
     const INSTRUCCIONES_DEFAULT =
@@ -2042,15 +2042,15 @@ function SeccionBanco({
       'Rellene el círculo de la respuesta más adecuada, evitando salirse del mismo. ' +
       'Cada pregunta vale 10 puntos si está completa y es correcta.';
 
-    const sizePregunta = 9.2;
-    const sizeOpcion = 8.2;
-    const lineaPregunta = 10.2;
-    const lineaOpcion = 9.2;
-    const separacionPregunta = 1;
+    const sizePregunta = 8.6;
+    const sizeOpcion = 7.6;
+    const lineaPregunta = 9.3;
+    const lineaOpcion = 8.4;
+    const separacionPregunta = 0;
 
-    const omrPasoY = 10.2;
-    const omrPadding = 2.5;
-    const omrExtraTitulo = 17;
+    const omrPasoY = 9.2;
+    const omrPadding = 2.0;
+    const omrExtraTitulo = 14;
     const omrTotalLetras = 5;
 
     function estimarLineasPorAncho(texto: string, maxWidthPts: number, fontSize: number): number {
@@ -2094,12 +2094,12 @@ function SeccionBanco({
     let esPrimeraPagina = true;
 
     const aplicarBloqueIndicaciones = () => {
-      const sizeIndicaciones = 8.5;
-      const lineaIndicaciones = 10.5;
+    const sizeIndicaciones = 7.2;
+    const lineaIndicaciones = 8.6;
       const maxWidthIndicaciones = Math.max(120, xDerechaTexto - (margen + 10));
       const lineasIndicaciones = estimarLineasPorAncho(INSTRUCCIONES_DEFAULT, maxWidthIndicaciones, sizeIndicaciones);
-      const hLabel = 16;
-      const paddingY = 5;
+    const hLabel = 12;
+    const paddingY = 2;
       const hCaja = hLabel + paddingY + lineasIndicaciones * lineaIndicaciones;
       cursorY = snapToGrid(cursorY - (hCaja + 12));
       if (cursorY < limiteInferior + 40) {
@@ -2118,7 +2118,7 @@ function SeccionBanco({
 
       const lineasEnunciado = estimarLineasPorAncho(String(version?.enunciado ?? ''), anchoTextoPregunta, sizePregunta);
       let altoNecesario = lineasEnunciado * lineaPregunta;
-      if (tieneImagen) altoNecesario += 120;
+      if (tieneImagen) altoNecesario += 63;
 
       const opcionesActuales = Array.isArray(version?.opciones) ? version!.opciones : [];
       const opciones = opcionesActuales.length === 5 ? opcionesActuales : [];
@@ -2126,7 +2126,7 @@ function SeccionBanco({
       const totalOpciones = opciones.length;
       const mitad = Math.ceil(totalOpciones / 2);
       const anchoOpcionesTotal = Math.max(80, xDerechaTexto - xTextoPregunta);
-      const gutterCols = 10;
+      const gutterCols = 8;
       const colWidth = totalOpciones > 1 ? (anchoOpcionesTotal - gutterCols) / 2 : anchoOpcionesTotal;
       const prefixWidth = sizeOpcion * 1.4;
       const maxTextWidth = Math.max(30, colWidth - prefixWidth);
@@ -2161,6 +2161,7 @@ function SeccionBanco({
 
   const [periodoId, setPeriodoId] = useState('');
   const [enunciado, setEnunciado] = useState('');
+  const [imagenUrl, setImagenUrl] = useState('');
   const [tema, setTema] = useState('');
   const [opciones, setOpciones] = useState([
     { texto: '', esCorrecta: true },
@@ -2173,6 +2174,7 @@ function SeccionBanco({
   const [guardando, setGuardando] = useState(false);
   const [editandoId, setEditandoId] = useState<string | null>(null);
   const [editEnunciado, setEditEnunciado] = useState('');
+  const [editImagenUrl, setEditImagenUrl] = useState('');
   const [editTema, setEditTema] = useState('');
   const [editOpciones, setEditOpciones] = useState([
     { texto: '', esCorrecta: true },
@@ -2324,23 +2326,23 @@ function SeccionBanco({
     const GRID_STEP = 4;
     const snapToGrid = (y: number) => Math.floor(y / GRID_STEP) * GRID_STEP;
 
-    const anchoColRespuesta = 54;
-    const gutterRespuesta = 18;
+    const anchoColRespuesta = 52;
+    const gutterRespuesta = 16;
     const xColRespuesta = ANCHO_CARTA - margen - anchoColRespuesta;
     const xDerechaTexto = xColRespuesta - gutterRespuesta;
-    const xTextoPregunta = margen + 22;
+    const xTextoPregunta = margen + 20;
     const anchoTextoPregunta = Math.max(60, xDerechaTexto - xTextoPregunta);
 
-    const sizePregunta = 9.2;
-    const sizeOpcion = 8.2;
-    const sizeNota = 8.5;
-    const lineaPregunta = 10.5;
-    const lineaOpcion = 9.5;
-    const separacionPregunta = 1;
+    const sizePregunta = 8.6;
+    const sizeOpcion = 7.6;
+    const sizeNota = 7.2;
+    const lineaPregunta = 9.3;
+    const lineaOpcion = 8.4;
+    const separacionPregunta = 0;
 
-    const omrPasoY = 10.2;
-    const omrPadding = 2.5;
-    const omrExtraTitulo = 17;
+    const omrPasoY = 9.2;
+    const omrPadding = 2.0;
+    const omrExtraTitulo = 14;
     const omrTotalLetras = 5;
 
     function estimarLineasPorAncho(texto: string, maxWidthPts: number, fontSize: number): number {
@@ -2374,14 +2376,14 @@ function SeccionBanco({
     const tieneImagen = Boolean(String(version?.imagenUrl ?? '').trim());
     const lineasEnunciado = estimarLineasPorAncho(String(version?.enunciado ?? ''), anchoTextoPregunta, sizePregunta);
     let altoNecesario = lineasEnunciado * lineaPregunta;
-    if (tieneImagen) altoNecesario += 110;
+    if (tieneImagen) altoNecesario += 63;
 
     const opcionesActuales = Array.isArray(version?.opciones) ? version!.opciones : [];
     const opciones = opcionesActuales.length === 5 ? opcionesActuales : [];
     const totalOpciones = opciones.length;
     const mitad = Math.ceil(totalOpciones / 2);
     const anchoOpcionesTotal = Math.max(80, xDerechaTexto - xTextoPregunta);
-    const gutterCols = 10;
+    const gutterCols = 8;
     const colWidth = totalOpciones > 1 ? (anchoOpcionesTotal - gutterCols) / 2 : anchoOpcionesTotal;
     const prefixWidth = sizeOpcion * 1.4;
     const maxTextWidth = Math.max(30, colWidth - prefixWidth);
@@ -2583,10 +2585,62 @@ function SeccionBanco({
     const version = obtenerVersionPregunta(pregunta);
     setEditandoId(pregunta._id);
     setEditEnunciado(version?.enunciado ?? '');
+    setEditImagenUrl(String(version?.imagenUrl ?? ''));
     setEditTema(String(pregunta.tema ?? '').trim());
     const opcionesActuales = Array.isArray(version?.opciones) ? version?.opciones : [];
     const base = opcionesActuales.length === 5 ? opcionesActuales : editOpciones;
     setEditOpciones(base.map((o) => ({ texto: String(o.texto ?? ''), esCorrecta: Boolean(o.esCorrecta) })));
+  }
+
+  function cargarImagenArchivo(file: File | null, setter: (value: string) => void) {
+    if (!file) return;
+    const maxBytes = 1024 * 1024 * 1.5;
+    if (file.size > maxBytes) {
+      emitToast({
+        level: 'warning',
+        title: 'Imagen grande',
+        message: 'La imagen supera 1.5MB. Usa una mas ligera para evitar PDFs pesados.',
+        durationMs: 4200
+      });
+    }
+    const objectUrl = URL.createObjectURL(file);
+    const img = new Image();
+    img.onload = () => {
+      try {
+        const maxSide = 1600;
+        const scale = Math.min(1, maxSide / Math.max(img.width, img.height));
+        const w = Math.max(1, Math.round(img.width * scale));
+        const h = Math.max(1, Math.round(img.height * scale));
+
+        const canvas = document.createElement('canvas');
+        canvas.width = w;
+        canvas.height = h;
+        const ctx = canvas.getContext('2d');
+        if (!ctx) throw new Error('No canvas');
+        ctx.drawImage(img, 0, 0, w, h);
+
+        const calidad = 0.8;
+        let dataUrl = '';
+        try {
+          dataUrl = canvas.toDataURL('image/webp', calidad);
+        } catch {
+          dataUrl = '';
+        }
+        if (!dataUrl || dataUrl.startsWith('data:image/png')) {
+          dataUrl = canvas.toDataURL('image/jpeg', calidad);
+        }
+        if (dataUrl) setter(dataUrl);
+      } catch {
+        emitToast({ level: 'error', title: 'Imagen', message: 'No se pudo comprimir la imagen.', durationMs: 3200 });
+      } finally {
+        URL.revokeObjectURL(objectUrl);
+      }
+    };
+    img.onerror = () => {
+      URL.revokeObjectURL(objectUrl);
+      emitToast({ level: 'error', title: 'Imagen', message: 'No se pudo leer la imagen.', durationMs: 3200 });
+    };
+    img.src = objectUrl;
   }
 
   async function crearTemaBanco() {
@@ -2684,6 +2738,7 @@ function SeccionBanco({
   function cancelarEdicion() {
     setEditandoId(null);
     setEditEnunciado('');
+    setEditImagenUrl('');
     setEditTema('');
     setEditOpciones([
       { texto: '', esCorrecta: true },
@@ -2709,6 +2764,7 @@ function SeccionBanco({
         {
           periodoId,
           enunciado: enunciado.trim(),
+          imagenUrl: imagenUrl.trim() ? imagenUrl.trim() : undefined,
           tema: tema.trim(),
           opciones: opciones.map((item) => ({ ...item, texto: item.texto.trim() }))
         },
@@ -2718,6 +2774,7 @@ function SeccionBanco({
       emitToast({ level: 'ok', title: 'Banco', message: 'Pregunta guardada', durationMs: 2200 });
       registrarAccionDocente('crear_pregunta', true, Date.now() - inicio);
       setEnunciado('');
+      setImagenUrl('');
       setTema('');
       setOpciones([
         { texto: '', esCorrecta: true },
@@ -2758,6 +2815,7 @@ function SeccionBanco({
         `/banco-preguntas/${editandoId}/actualizar`,
         {
           enunciado: editEnunciado.trim(),
+          imagenUrl: editImagenUrl.trim() ? editImagenUrl.trim() : null,
           tema: editTema.trim(),
           opciones: editOpciones.map((o) => ({ ...o, texto: o.texto.trim() }))
         },
@@ -2903,6 +2961,24 @@ function SeccionBanco({
           placeholder="Escribe el texto completo de la pregunta…"
           data-tooltip="Redacta el enunciado completo de la pregunta."
         />
+      </label>
+      <label className="campo">
+        Imagen (opcional)
+        <input
+          type="file"
+          accept="image/*"
+          onChange={(event) => cargarImagenArchivo(event.currentTarget.files?.[0] ?? null, setImagenUrl)}
+          disabled={bloqueoEdicion}
+          data-tooltip="Sube una imagen para la pregunta (se guarda en la hoja del examen)."
+        />
+        {imagenUrl && (
+          <div className="imagen-preview">
+            <img className="preview" src={imagenUrl} alt="Imagen de la pregunta" />
+            <Boton type="button" variante="secundario" onClick={() => setImagenUrl('')} data-tooltip="Quita la imagen.">
+              Quitar imagen
+            </Boton>
+          </div>
+        )}
       </label>
       <label className="campo">
         Tema
@@ -3319,6 +3395,24 @@ function SeccionBanco({
           <label className="campo">
             Enunciado
             <textarea value={editEnunciado} onChange={(event) => setEditEnunciado(event.target.value)} disabled={bloqueoEdicion} />
+          </label>
+          <label className="campo">
+            Imagen (opcional)
+            <input
+              type="file"
+              accept="image/*"
+              onChange={(event) => cargarImagenArchivo(event.currentTarget.files?.[0] ?? null, setEditImagenUrl)}
+              disabled={bloqueoEdicion}
+              data-tooltip="Actualiza la imagen de la pregunta."
+            />
+            {editImagenUrl && (
+              <div className="imagen-preview">
+                <img className="preview" src={editImagenUrl} alt="Imagen de la pregunta" />
+                <Boton type="button" variante="secundario" onClick={() => setEditImagenUrl('')} data-tooltip="Quitar imagen">
+                  Quitar imagen
+                </Boton>
+              </div>
+            )}
           </label>
           <label className="campo">
             Tema

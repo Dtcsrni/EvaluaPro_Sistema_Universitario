@@ -1,7 +1,16 @@
 import request from 'supertest';
-import { describe, expect, it, vi } from 'vitest';
+import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
+import { cerrarMongoTest, conectarMongoTest, limpiarMongoTest } from './utils/mongo';
 
 describe('rate limit', () => {
+  beforeAll(async () => {
+    await conectarMongoTest();
+  });
+
+  afterAll(async () => {
+    await cerrarMongoTest();
+  });
+
   it('responde 429 al exceder el limite', async () => {
     const anterior = {
       RATE_LIMIT_LIMIT: process.env.RATE_LIMIT_LIMIT,
@@ -15,9 +24,19 @@ describe('rate limit', () => {
     const { crearApp } = await import('../src/app');
     const app = crearApp();
 
-    await request(app).get('/api/salud').expect(200);
-    await request(app).get('/api/salud').expect(200);
-    const respuesta = await request(app).get('/api/salud').expect(429);
+    await limpiarMongoTest();
+
+    const payload = { nombreCompleto: 'Docente Test', correo: 'docente@prueba.test', contrasena: 'Secreto123!' };
+
+    await request(app).post('/api/autenticacion/registrar').send(payload).expect(201);
+    await request(app)
+      .post('/api/autenticacion/registrar')
+      .send({ ...payload, correo: 'docente2@prueba.test' })
+      .expect(201);
+    const respuesta = await request(app)
+      .post('/api/autenticacion/registrar')
+      .send({ ...payload, correo: 'docente3@prueba.test' })
+      .expect(429);
 
     expect(respuesta.headers['retry-after']).toBeTruthy();
 

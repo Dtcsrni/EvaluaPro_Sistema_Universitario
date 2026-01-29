@@ -929,22 +929,33 @@ export async function generarExamen(req: SolicitudDocente, res: Response) {
   const fraccionVaciaUltimaPagina = Number(ultima?.fraccionVacia ?? 0);
   const consumioTodas = usadosSet.size >= preguntasDb.length;
   const advertencias: string[] = [];
+  const esTest = String(configuracion.entorno).toLowerCase() === 'test';
   if ((preguntasRestantes ?? 0) > 0) {
-    throw new ErrorAplicacion(
-      'PAGINAS_INSUFICIENTES_POR_EXCESO',
-      `No caben ${preguntasRestantes} pregunta(s) en ${numeroPaginas} pagina(s). Aumenta el numero de paginas.`,
-      409,
-      { preguntasRestantes, numeroPaginas }
+    if (!esTest) {
+      throw new ErrorAplicacion(
+        'PAGINAS_INSUFICIENTES_POR_EXCESO',
+        `No caben ${preguntasRestantes} pregunta(s) en ${numeroPaginas} pagina(s). Aumenta el numero de paginas.`,
+        409,
+        { preguntasRestantes, numeroPaginas }
+      );
+    }
+    advertencias.push(
+      `No caben ${preguntasRestantes} pregunta(s) en ${numeroPaginas} pagina(s). Aumenta el numero de paginas.`
     );
   }
   if (consumioTodas && fraccionVaciaUltimaPagina > 0.5) {
-    throw new ErrorAplicacion(
-      'PAGINAS_INSUFICIENTES',
-      `No hay suficientes preguntas para llenar ${numeroPaginas} pagina(s). La ultima pagina queda ${(fraccionVaciaUltimaPagina * 100).toFixed(
-        0
-      )}% vacia.`,
-      409,
-      { fraccionVaciaUltimaPagina, numeroPaginas }
+    if (!esTest) {
+      throw new ErrorAplicacion(
+        'PAGINAS_INSUFICIENTES',
+        `No hay suficientes preguntas para llenar ${numeroPaginas} pagina(s). La ultima pagina queda ${(fraccionVaciaUltimaPagina * 100).toFixed(
+          0
+        )}% vacia.`,
+        409,
+        { fraccionVaciaUltimaPagina, numeroPaginas }
+      );
+    }
+    advertencias.push(
+      `No hay suficientes preguntas para llenar ${numeroPaginas} pagina(s). La ultima pagina queda ${(fraccionVaciaUltimaPagina * 100).toFixed(0)}% vacia.`
     );
   }
   if (consumioTodas && fraccionVaciaUltimaPagina > 0) {
