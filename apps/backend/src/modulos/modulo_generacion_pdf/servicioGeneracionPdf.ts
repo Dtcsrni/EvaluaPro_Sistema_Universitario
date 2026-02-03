@@ -150,6 +150,24 @@ function normalizarEspacios(valor: string) {
   return valor.replace(/\s+/g, ' ').trim();
 }
 
+function sanitizarTextoPdf(valor: string) {
+  return String(valor ?? '')
+    .replace(/\u2192/g, '->')
+    .replace(/\u2190/g, '<-')
+    .replace(/\u2191/g, '^')
+    .replace(/\u2193/g, 'v')
+    .replace(/\u21d2/g, '=>')
+    .replace(/\u21d0/g, '<=')
+    .replace(/\u2265/g, '>=')
+    .replace(/\u2264/g, '<=')
+    .replace(/\u00b7/g, '-')
+    .replace(/\u2022/g, '-')
+    .replace(/\u2014/g, '-')
+    .replace(/\u2013/g, '-')
+    .replace(/\u201c|\u201d/g, '"')
+    .replace(/\u2018|\u2019/g, "'");
+}
+
 type SegmentoTexto = { texto: string; font: PDFFont; size: number; esCodigo?: boolean };
 type LineaSegmentos = { segmentos: SegmentoTexto[]; lineHeight: number };
 
@@ -309,7 +327,7 @@ function envolverTextoMixto({
   lineHeightTexto: number;
   lineHeightCodigo: number;
 }) {
-  const bloques = partirBloquesCodigo(texto);
+  const bloques = partirBloquesCodigo(sanitizarTextoPdf(texto));
   const lineas: LineaSegmentos[] = [];
 
   for (const bloque of bloques) {
@@ -388,7 +406,7 @@ function dibujarLineasMixtas({ page, lineas, x, y, colorTexto }: { page: PDFPage
 }
 
 function partirEnLineas({ texto, maxWidth, font, size }: { texto: string; maxWidth: number; font: PDFFont; size: number }) {
-  const limpio = normalizarEspacios(String(texto ?? ''));
+  const limpio = normalizarEspacios(sanitizarTextoPdf(String(texto ?? '')));
   if (!limpio) return [''];
 
   const palabras = limpio.split(' ');
@@ -556,13 +574,13 @@ export async function generarPdfExamen({
   }
 
   // Indicaciones compactas (prioriza espacio para preguntas).
-  const sizeIndicacionesBase = 6.3;
-  const lineaIndicacionesBase = 7.0;
+  const sizeIndicacionesBase = 6.0;
+  const lineaIndicacionesBase = 6.6;
   const maxWidthIndicaciones = Math.max(120, xDerechaTexto - (margen + 10));
   const indicacionesPendientes = mostrarInstrucciones && instrucciones.length > 0;
 
   const headerHeightFirst = 72;
-  const headerHeightOther = Math.max(48, QR_SIZE + QR_PADDING * 2 + 16);
+  const headerHeightOther = 0;
 
   while (numeroPagina <= paginasObjetivo && (numeroPagina === 1 || indicePregunta < totalPreguntas)) {
     const page = pdfDoc.addPage([ANCHO_CARTA, ALTO_CARTA]);
@@ -695,14 +713,14 @@ export async function generarPdfExamen({
     // Zona de contenido:
     // - Pagina 1: respeta el encabezado completo.
     // - Paginas siguientes: inicia lo mas arriba posible sin invadir el QR.
-    const yZonaContenidoBase = yCaja - 2;
-    const yZonaContenidoSeguro = yQr - (qrPadding + 10);
-    const yZonaContenido = esPrimera ? yZonaContenidoBase : Math.max(yZonaContenidoBase, yZonaContenidoSeguro);
+    const yZonaContenidoBase = esPrimera ? yCaja - 2 : yTop - 2;
+    const yZonaContenidoSeguro = yQr - (qrPadding + 8);
+    const yZonaContenido = esPrimera ? yZonaContenidoBase : Math.min(yZonaContenidoBase, yZonaContenidoSeguro);
     const cursorYInicio = snapToGrid(yZonaContenido);
     let cursorY = cursorYInicio;
     if (esPrimera) cursorY -= 0;
 
-  const alturaDisponibleMin = margen + 20;
+  const alturaDisponibleMin = margen + 12;
 
     const calcularAlturaPregunta = (pregunta: PreguntaBase, numero: number) => {
       const lineasEnunciado = envolverTextoMixto({
@@ -776,12 +794,12 @@ export async function generarPdfExamen({
       const wInd = Math.min(wIndMax, maxWidthIndicaciones + 16);
 
       const hDisponible = yTopInd - (alturaDisponibleMin + 2);
-      const hMin = 18;
+      let hMin = 34;
       const hMax = Math.max(hMin, hDisponible);
 
       // Ajuste dinamico para asegurar que todas las lineas entren.
-      let sizeIndicaciones = Math.max(7.0, sizeIndicacionesBase);
-      let lineaIndicaciones = Math.max(7.6, lineaIndicacionesBase);
+      let sizeIndicaciones = Math.max(6.6, sizeIndicacionesBase);
+      let lineaIndicaciones = Math.max(7.2, lineaIndicacionesBase);
       const hLabel = 9;
       const paddingY = 1;
       let lineasIndicaciones = partirEnLineas({
@@ -794,8 +812,8 @@ export async function generarPdfExamen({
       for (let i = 0; i < maxIter; i += 1) {
         const hNecesaria = hLabel + paddingY + lineasIndicaciones.length * lineaIndicaciones;
         if (hNecesaria <= hMax) break;
-        sizeIndicaciones = Math.max(6.4, sizeIndicaciones - 0.25);
-        lineaIndicaciones = Math.max(7.0, lineaIndicaciones - 0.25);
+        sizeIndicaciones = Math.max(6.0, sizeIndicaciones - 0.25);
+        lineaIndicaciones = Math.max(6.6, lineaIndicaciones - 0.25);
         lineasIndicaciones = partirEnLineas({
           texto: instrucciones,
           maxWidth: wInd - 16,
@@ -804,7 +822,9 @@ export async function generarPdfExamen({
         });
       }
 
-      const hCaja = Math.min(hMax, Math.max(hMin, hLabel + paddingY + lineasIndicaciones.length * lineaIndicaciones));
+      const hNecesariaFinal = hLabel + paddingY + lineasIndicaciones.length * lineaIndicaciones;
+      hMin = Math.max(hMin, hLabel + paddingY + lineaIndicaciones + 12);
+      const hCaja = Math.max(hMin, hNecesariaFinal);
 
       page.drawRectangle({ x: xInd, y: yTopInd - hCaja, width: wInd, height: hCaja, borderWidth: 1, borderColor: colorLinea, color: rgb(1, 1, 1) });
       page.drawRectangle({ x: xInd, y: yTopInd - 6, width: wInd, height: 3, color: colorPrimario });
@@ -812,6 +832,7 @@ export async function generarPdfExamen({
 
       let yLinea = yTopInd - 26;
       const yMinTexto = yTopInd - hCaja + 8;
+      if (yLinea < yMinTexto) yLinea = yMinTexto;
       for (const linea of lineasIndicaciones) {
         if (yLinea < yMinTexto) break;
         page.drawText(linea, { x: xInd + 8, y: yLinea, size: sizeIndicaciones, font: fuente, color: rgb(0.1, 0.1, 0.1) });
@@ -820,9 +841,9 @@ export async function generarPdfExamen({
 
       // Como el bloque es “solo pagina 1”, si no hay espacio para preguntas, se van a pagina 2.
       cursorY = snapToGrid(yTopInd - hCaja - 6);
-        if (cursorY < alturaDisponibleMin + 40) {
-          cursorY = alturaDisponibleMin - 1;
-        }
+      if (hCaja > hDisponible || cursorY < alturaDisponibleMin + 40) {
+        cursorY = alturaDisponibleMin - 1;
+      }
       }
 
     while (indicePregunta < preguntasOrdenadas.length && cursorY > alturaDisponibleMin) {

@@ -1,7 +1,7 @@
 /**
  * App docente: panel basico para banco, examenes, entrega y calificacion.
  */
-import type { ChangeEvent, ReactNode } from 'react';
+import type { ChangeEvent, Dispatch, ReactNode, SetStateAction } from 'react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { GoogleLogin } from '@react-oauth/google';
 import {
@@ -108,6 +108,24 @@ type Plantilla = {
   temas?: string[];
   instrucciones?: string;
   createdAt?: string;
+};
+
+type PreviewPlantilla = {
+  plantillaId: string;
+  numeroPaginas: number;
+  totalDisponibles?: number;
+  totalUsados?: number;
+  fraccionVaciaUltimaPagina?: number;
+  advertencias?: string[];
+  conteoPorTema?: Array<{ tema: string; disponibles: number }>;
+  temasDisponiblesEnMateria?: Array<{ tema: string; disponibles: number }>;
+  paginas: Array<{
+    numero: number;
+    preguntasDel: number;
+    preguntasAl: number;
+    elementos: string[];
+    preguntas: Array<{ numero: number; id: string; tieneImagen: boolean; enunciadoCorto: string }>;
+  }>;
 };
 
 type Pregunta = {
@@ -401,6 +419,29 @@ export function AppDocente() {
   const [periodos, setPeriodos] = useState<Periodo[]>([]);
   const [periodosArchivados, setPeriodosArchivados] = useState<Periodo[]>([]);
   const [plantillas, setPlantillas] = useState<Plantilla[]>([]);
+  const [previewPorPlantillaId, setPreviewPorPlantillaId] = useState<Record<string, PreviewPlantilla>>({});
+  const [cargandoPreviewPlantillaId, setCargandoPreviewPlantillaId] = useState<string | null>(null);
+  const [plantillaPreviewId, setPlantillaPreviewId] = useState<string | null>(null);
+  const [previewPdfUrlPorPlantillaId, setPreviewPdfUrlPorPlantillaId] = useState<Record<string, string>>({});
+  const [cargandoPreviewPdfPlantillaId, setCargandoPreviewPdfPlantillaId] = useState<string | null>(null);
+  const paginasEstimadasBackendPorTema = useMemo(() => {
+    const mapa = new Map<string, number>();
+    for (const plantilla of plantillas) {
+      const temas = Array.isArray((plantilla as unknown as { temas?: unknown[] }).temas)
+        ? (((plantilla as unknown as { temas?: unknown[] }).temas ?? []) as unknown[])
+            .map((t) => String(t ?? '').trim())
+            .filter(Boolean)
+        : [];
+      if (temas.length !== 1) continue;
+      const preview = previewPorPlantillaId[plantilla._id];
+      if (!preview) continue;
+      const paginas = Number((preview as { numeroPaginas?: unknown }).numeroPaginas);
+      if (!Number.isFinite(paginas) || paginas <= 0) continue;
+      const key = String(temas[0] ?? '').trim().replace(/\s+/g, ' ').toLowerCase();
+      mapa.set(key, Math.floor(paginas));
+    }
+    return mapa;
+  }, [plantillas, previewPorPlantillaId]);
   const [preguntas, setPreguntas] = useState<Pregunta[]>([]);
   const [resultadoOmr, setResultadoOmr] = useState<ResultadoOmr | null>(null);
   const [respuestasEditadas, setRespuestasEditadas] = useState<
@@ -698,6 +739,7 @@ export function AppDocente() {
           permisos={permisosUI}
           enviarConPermiso={enviarConPermiso}
           avisarSinPermiso={avisarSinPermiso}
+          paginasEstimadasBackendPorTema={paginasEstimadasBackendPorTema}
           onRefrescar={() => {
             if (!permisosUI.banco.leer) {
               avisarSinPermiso('No tienes permiso para ver el banco.');
@@ -763,6 +805,16 @@ export function AppDocente() {
           enviarConPermiso={enviarConPermiso}
           avisarSinPermiso={avisarSinPermiso}
           alumnos={alumnos}
+          previewPorPlantillaId={previewPorPlantillaId}
+          setPreviewPorPlantillaId={setPreviewPorPlantillaId}
+          cargandoPreviewPlantillaId={cargandoPreviewPlantillaId}
+          setCargandoPreviewPlantillaId={setCargandoPreviewPlantillaId}
+          plantillaPreviewId={plantillaPreviewId}
+          setPlantillaPreviewId={setPlantillaPreviewId}
+          previewPdfUrlPorPlantillaId={previewPdfUrlPorPlantillaId}
+          setPreviewPdfUrlPorPlantillaId={setPreviewPdfUrlPorPlantillaId}
+          cargandoPreviewPdfPlantillaId={cargandoPreviewPdfPlantillaId}
+          setCargandoPreviewPdfPlantillaId={setCargandoPreviewPdfPlantillaId}
           onRefrescar={() => {
             if (!permisosUI.plantillas.leer) {
               avisarSinPermiso('No tienes permiso para ver plantillas.');
@@ -2001,7 +2053,8 @@ function SeccionBanco({
   enviarConPermiso,
   avisarSinPermiso,
   onRefrescar,
-  onRefrescarPlantillas
+  onRefrescarPlantillas,
+  paginasEstimadasBackendPorTema
 }: {
   preguntas: Pregunta[];
   periodos: Periodo[];
@@ -2010,6 +2063,7 @@ function SeccionBanco({
   avisarSinPermiso: (mensaje: string) => void;
   onRefrescar: () => void;
   onRefrescarPlantillas: () => void;
+  paginasEstimadasBackendPorTema: Map<string, number>;
 }) {
   type TemaBanco = { _id: string; nombre: string; periodoId: string; createdAt?: string };
 
@@ -2024,6 +2078,8 @@ function SeccionBanco({
     const ANCHO_CARTA = 612;
     const GRID_STEP = 4;
     const snapToGrid = (y: number) => Math.floor(y / GRID_STEP) * GRID_STEP;
+    const QR_SIZE = 68;
+    const QR_PADDING = 2;
 
     // Mantiene consistencia con el algoritmo del PDF.
     const anchoColRespuesta = 42;
@@ -2033,8 +2089,12 @@ function SeccionBanco({
     const xTextoPregunta = margen + 20;
     const anchoTextoPregunta = Math.max(60, xDerechaTexto - xTextoPregunta);
 
-    const cursorInicial = snapToGrid(ALTO_CARTA - margen - 74);
-    const limiteInferior = margen + 20;
+    const yTop = ALTO_CARTA - margen;
+    const headerHeightFirst = 72;
+    const cursorInicialPrimera = snapToGrid(yTop - headerHeightFirst - 2);
+    const yZonaContenidoSeguro = yTop - QR_SIZE - (QR_PADDING + 8);
+    const cursorInicialOtras = snapToGrid(Math.min(yTop - 2, yZonaContenidoSeguro));
+    const limiteInferior = margen + 12;
 
     const INSTRUCCIONES_DEFAULT =
       'Por favor conteste las siguientes preguntas referentes al parcial. ' +
@@ -2056,8 +2116,8 @@ function SeccionBanco({
       const limpio = String(texto ?? '').trim().replace(/\s+/g, ' ');
       if (!limpio) return 1;
 
-      // Aproximacion para Helvetica: ancho promedio ~0.52em.
-      const charWidth = fontSize * 0.52;
+      // Aproximacion conservadora para Helvetica: ancho promedio ~0.58em.
+      const charWidth = fontSize * 0.58;
       const maxChars = Math.max(10, Math.floor(maxWidthPts / charWidth));
       const palabras = limpio.split(' ');
 
@@ -2082,27 +2142,43 @@ function SeccionBanco({
         }
       }
 
-      return Math.max(1, lineas);
+      return Math.max(1, Math.ceil(lineas * 1.08));
     }
 
     const lista = Array.isArray(preguntasTema) ? preguntasTema : [];
     if (lista.length === 0) return 0;
 
     let paginas = 1;
-    let cursorY = cursorInicial;
+    let cursorY = cursorInicialPrimera;
     let esPrimeraPagina = true;
 
     const aplicarBloqueIndicaciones = () => {
-      const sizeIndicaciones = 6.3;
-      const lineaIndicaciones = 7.0;
       const maxWidthIndicaciones = Math.max(120, xDerechaTexto - (margen + 10));
-      const lineasIndicaciones = estimarLineasPorAncho(INSTRUCCIONES_DEFAULT, maxWidthIndicaciones, sizeIndicaciones);
       const hLabel = 9;
       const paddingY = 1;
-      const hCaja = hLabel + paddingY + lineasIndicaciones * lineaIndicaciones;
-      cursorY = snapToGrid(cursorY - (hCaja + 12));
-      if (cursorY < limiteInferior + 40) {
+      const yTopInd = cursorY - 6;
+      const hDisponible = yTopInd - (limiteInferior + 2);
+      let hMin = 34;
+      const hMax = Math.max(hMin, hDisponible);
+
+      let sizeIndicaciones = 6.6;
+      let lineaIndicaciones = 7.2;
+      let lineasIndicaciones = estimarLineasPorAncho(INSTRUCCIONES_DEFAULT, maxWidthIndicaciones, sizeIndicaciones);
+      for (let i = 0; i < 10; i += 1) {
+        const hNecesaria = hLabel + paddingY + lineasIndicaciones * lineaIndicaciones;
+        if (hNecesaria <= hMax) break;
+        sizeIndicaciones = Math.max(6.0, sizeIndicaciones - 0.25);
+        lineaIndicaciones = Math.max(6.6, lineaIndicaciones - 0.25);
+        lineasIndicaciones = estimarLineasPorAncho(INSTRUCCIONES_DEFAULT, maxWidthIndicaciones, sizeIndicaciones);
+      }
+
+      const hNecesariaFinal = hLabel + paddingY + lineasIndicaciones * lineaIndicaciones;
+      hMin = Math.max(hMin, hLabel + paddingY + lineaIndicaciones + 12);
+      const hCaja = Math.max(hMin, hNecesariaFinal);
+      if (hCaja > hDisponible) {
         cursorY = limiteInferior - 1;
+      } else {
+        cursorY = snapToGrid(yTopInd - hCaja - 6);
       }
     };
 
@@ -2127,7 +2203,7 @@ function SeccionBanco({
       const anchoOpcionesTotal = Math.max(80, xDerechaTexto - xTextoPregunta);
       const gutterCols = 8;
       const colWidth = totalOpciones > 1 ? (anchoOpcionesTotal - gutterCols) / 2 : anchoOpcionesTotal;
-      const prefixWidth = sizeOpcion * 1.4;
+      const prefixWidth = sizeOpcion * 1.6;
       const maxTextWidth = Math.max(30, colWidth - prefixWidth);
       const alturasCols = [0, 0];
 
@@ -2145,7 +2221,7 @@ function SeccionBanco({
 
       if (cursorY - altoNecesario < limiteInferior) {
         paginas += 1;
-        cursorY = cursorInicial;
+        cursorY = cursorInicialOtras;
         if (esPrimeraPagina) {
           aplicarBloqueIndicaciones();
           esPrimeraPagina = false;
@@ -2308,10 +2384,15 @@ function SeccionBanco({
 
     const mapa = new Map<string, number>();
     for (const [key, preguntasTema] of grupos.entries()) {
-      mapa.set(key, estimarPaginasParaPreguntas(preguntasTema));
+      const backend = paginasEstimadasBackendPorTema.get(key);
+      if (typeof backend === 'number' && Number.isFinite(backend)) {
+        mapa.set(key, backend);
+      } else {
+        mapa.set(key, estimarPaginasParaPreguntas(preguntasTema));
+      }
     }
     return mapa;
-  }, [preguntasMateria]);
+  }, [preguntasMateria, paginasEstimadasBackendPorTema]);
 
   const paginasTemaActual = useMemo(() => {
     if (!tema.trim()) return 0;
@@ -2347,7 +2428,7 @@ function SeccionBanco({
     function estimarLineasPorAncho(texto: string, maxWidthPts: number, fontSize: number): number {
       const limpio = String(texto ?? '').trim().replace(/\s+/g, ' ');
       if (!limpio) return 1;
-      const charWidth = fontSize * 0.52;
+      const charWidth = fontSize * 0.58;
       const maxChars = Math.max(10, Math.floor(maxWidthPts / charWidth));
       const palabras = limpio.split(' ');
 
@@ -2368,7 +2449,7 @@ function SeccionBanco({
           actual = palabra;
         }
       }
-      return Math.max(1, lineas);
+      return Math.max(1, Math.ceil(lineas * 1.08));
     }
 
     const version = obtenerVersionPregunta(pregunta);
@@ -2384,7 +2465,7 @@ function SeccionBanco({
     const anchoOpcionesTotal = Math.max(80, xDerechaTexto - xTextoPregunta);
     const gutterCols = 8;
     const colWidth = totalOpciones > 1 ? (anchoOpcionesTotal - gutterCols) / 2 : anchoOpcionesTotal;
-    const prefixWidth = sizeOpcion * 1.4;
+    const prefixWidth = sizeOpcion * 1.6;
     const maxTextWidth = Math.max(30, colWidth - prefixWidth);
     const alturasCols = [0, 0];
 
@@ -2397,7 +2478,7 @@ function SeccionBanco({
     const altoOpciones = Math.max(alturasCols[0], alturasCols[1]);
     const altoOmrMin = (omrTotalLetras - 1) * omrPasoY + (omrExtraTitulo + omrPadding);
     altoNecesario += Math.max(altoOpciones, altoOmrMin);
-    altoNecesario += separacionPregunta + 4;
+      altoNecesario += separacionPregunta + 2;
     altoNecesario = snapToGrid(altoNecesario);
 
     // Evitar alturas absurdamente chicas
@@ -3044,7 +3125,10 @@ function SeccionBanco({
                     <div className="item-title">{t.nombre}</div>
                     <div className="item-meta">
                       <span>Preguntas: {conteoPorTema.get(t.nombre) ?? 0}</span>
-                      <span>Paginas (estimadas): {paginasPorTema.get(normalizarNombreTema(t.nombre).toLowerCase()) ?? 0}</span>
+                      <span>
+                        Paginas (estimadas): {paginasPorTema.get(normalizarNombreTema(t.nombre).toLowerCase()) ?? 0}
+                        {paginasEstimadasBackendPorTema.has(normalizarNombreTema(t.nombre).toLowerCase()) ? ' (preview)' : ''}
+                      </span>
                     </div>
                   </div>
                   <div className="item-actions">
@@ -4422,6 +4506,16 @@ function SeccionPlantillas({
   puedeEliminarPlantillaDev,
   enviarConPermiso,
   avisarSinPermiso,
+  previewPorPlantillaId,
+  setPreviewPorPlantillaId,
+  cargandoPreviewPlantillaId,
+  setCargandoPreviewPlantillaId,
+  plantillaPreviewId,
+  setPlantillaPreviewId,
+  previewPdfUrlPorPlantillaId,
+  setPreviewPdfUrlPorPlantillaId,
+  cargandoPreviewPdfPlantillaId,
+  setCargandoPreviewPdfPlantillaId,
   onRefrescar
 }: {
   plantillas: Plantilla[];
@@ -4432,6 +4526,16 @@ function SeccionPlantillas({
   puedeEliminarPlantillaDev: boolean;
   enviarConPermiso: EnviarConPermiso;
   avisarSinPermiso: (mensaje: string) => void;
+  previewPorPlantillaId: Record<string, PreviewPlantilla>;
+  setPreviewPorPlantillaId: Dispatch<SetStateAction<Record<string, PreviewPlantilla>>>;
+  cargandoPreviewPlantillaId: string | null;
+  setCargandoPreviewPlantillaId: Dispatch<SetStateAction<string | null>>;
+  plantillaPreviewId: string | null;
+  setPlantillaPreviewId: Dispatch<SetStateAction<string | null>>;
+  previewPdfUrlPorPlantillaId: Record<string, string>;
+  setPreviewPdfUrlPorPlantillaId: Dispatch<SetStateAction<Record<string, string>>>;
+  cargandoPreviewPdfPlantillaId: string | null;
+  setCargandoPreviewPdfPlantillaId: Dispatch<SetStateAction<string | null>>;
   onRefrescar: () => void;
 }) {
   const INSTRUCCIONES_DEFAULT =
@@ -4460,6 +4564,7 @@ function SeccionPlantillas({
   const [plantillaId, setPlantillaId] = useState('');
   const [alumnoId, setAlumnoId] = useState('');
   const [mensajeGeneracion, setMensajeGeneracion] = useState('');
+  const [lotePdfUrl, setLotePdfUrl] = useState<string | null>(null);
   const [ultimoGenerado, setUltimoGenerado] = useState<ExamenGeneradoResumen | null>(null);
   const [examenesGenerados, setExamenesGenerados] = useState<ExamenGeneradoResumen[]>([]);
   const [cargandoExamenesGenerados, setCargandoExamenesGenerados] = useState(false);
@@ -4486,28 +4591,6 @@ function SeccionPlantillas({
   const puedePrevisualizarPlantillas = permisos.plantillas.previsualizar;
   const bloqueoEdicion = !puedeGestionarPlantillas;
 
-  type PreviewPlantilla = {
-    plantillaId: string;
-    numeroPaginas: number;
-    totalDisponibles?: number;
-    totalUsados?: number;
-    fraccionVaciaUltimaPagina?: number;
-    advertencias?: string[];
-    conteoPorTema?: Array<{ tema: string; disponibles: number }>;
-    temasDisponiblesEnMateria?: Array<{ tema: string; disponibles: number }>;
-    paginas: Array<{
-      numero: number;
-      preguntasDel: number;
-      preguntasAl: number;
-      elementos: string[];
-      preguntas: Array<{ numero: number; id: string; tieneImagen: boolean; enunciadoCorto: string }>;
-    }>;
-  };
-  const [previewPorPlantillaId, setPreviewPorPlantillaId] = useState<Record<string, PreviewPlantilla>>({});
-  const [cargandoPreviewPlantillaId, setCargandoPreviewPlantillaId] = useState<string | null>(null);
-  const [plantillaPreviewId, setPlantillaPreviewId] = useState<string | null>(null);
-  const [previewPdfUrlPorPlantillaId, setPreviewPdfUrlPorPlantillaId] = useState<Record<string, string>>({});
-  const [cargandoPreviewPdfPlantillaId, setCargandoPreviewPdfPlantillaId] = useState<string | null>(null);
   const [pdfFullscreenUrl, setPdfFullscreenUrl] = useState<string | null>(null);
 
   const abrirPdfFullscreen = useCallback((url: string) => {
@@ -4570,6 +4653,7 @@ function SeccionPlantillas({
 
   useEffect(() => {
     setUltimoGenerado(null);
+    setLotePdfUrl(null);
     void cargarExamenesGenerados();
   }, [cargarExamenesGenerados]);
 
@@ -4639,6 +4723,47 @@ function SeccionPlantillas({
     },
     [avisarSinPermiso, cargarExamenesGenerados, descargandoExamenId, puedeDescargarExamenes]
   );
+
+  const descargarPdfLote = useCallback(async () => {
+    if (!lotePdfUrl) return;
+    if (!puedeDescargarExamenes) {
+      avisarSinPermiso('No tienes permiso para descargar examenes.');
+      return;
+    }
+    const token = obtenerTokenDocente();
+    if (!token) {
+      setMensajeGeneracion('Sesion no valida. Vuelve a iniciar sesion.');
+      return;
+    }
+    try {
+      const resp = await fetch(`${clienteApi.baseApi}${lotePdfUrl}`, {
+        credentials: 'include',
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      if (!resp.ok) {
+        throw new Error(`HTTP ${resp.status}`);
+      }
+      const blob = await resp.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `examenes_lote_${Date.now()}.pdf`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+    } catch (error) {
+      const msg = mensajeDeError(error, 'No se pudo descargar el PDF de lote');
+      setMensajeGeneracion(msg);
+      emitToast({
+        level: 'error',
+        title: 'No se pudo descargar',
+        message: msg,
+        durationMs: 5200,
+        action: accionToastSesionParaError(error, 'docente')
+      });
+    }
+  }, [avisarSinPermiso, lotePdfUrl, puedeDescargarExamenes]);
 
   const regenerarPdfExamen = useCallback(
     async (examen: ExamenGeneradoResumen) => {
@@ -5738,7 +5863,11 @@ function SeccionPlantillas({
               }
               setGenerandoLote(true);
               setMensajeGeneracion('');
-              const payload = await enviarConPermiso<{ totalAlumnos: number; examenesGenerados: Array<{ folio: string }> }>(
+              const payload = await enviarConPermiso<{
+                totalAlumnos: number;
+                examenesGenerados: Array<{ folio: string }>;
+                lotePdfUrl?: string;
+              }>(
                 'examenes:generar',
                 '/examenes/generados/lote',
                 { plantillaId, confirmarMasivo: true },
@@ -5748,6 +5877,27 @@ function SeccionPlantillas({
               const total = Number(payload?.totalAlumnos ?? 0);
               const generados = Array.isArray(payload?.examenesGenerados) ? payload.examenesGenerados.length : 0;
               setMensajeGeneracion(`Generacion masiva lista. Alumnos: ${total}. Examenes creados: ${generados}.`);
+              setLotePdfUrl(payload?.lotePdfUrl ?? null);
+              if (payload?.lotePdfUrl) {
+                const token = obtenerTokenDocente();
+                if (token) {
+                  const resp = await fetch(`${clienteApi.baseApi}${payload.lotePdfUrl}`, {
+                    credentials: 'include',
+                    headers: { Authorization: `Bearer ${token}` }
+                  });
+                  if (resp.ok) {
+                    const blob = await resp.blob();
+                    const url = URL.createObjectURL(blob);
+                    const a = document.createElement('a');
+                    a.href = url;
+                    a.download = `examenes_lote_${Date.now()}.pdf`;
+                    document.body.appendChild(a);
+                    a.click();
+                    a.remove();
+                    URL.revokeObjectURL(url);
+                  }
+                }
+              }
               emitToast({ level: 'ok', title: 'Examenes', message: 'Generacion masiva completada', durationMs: 2200 });
               registrarAccionDocente('generar_examenes_lote', true, Date.now() - inicio);
               await cargarExamenesGenerados();
@@ -5778,6 +5928,20 @@ function SeccionPlantillas({
         <p className={esMensajeError(mensajeGeneracion) ? 'mensaje error' : 'mensaje ok'} role="status">
           {mensajeGeneracion}
         </p>
+      )}
+      {lotePdfUrl && (
+        <div className="acciones acciones--mt">
+          <Boton
+            type="button"
+            variante="secundario"
+            icono={<Icono nombre="pdf" />}
+            onClick={() => void descargarPdfLote()}
+            data-tooltip="Descarga el PDF con todos los examenes del lote."
+          >
+            Descargar PDF completo
+          </Boton>
+          <span className="ayuda">PDF del lote: {lotePdfUrl}</span>
+        </div>
       )}
         </div>
         <div className="subpanel plantillas-panel plantillas-panel--generados" id="examenes-generados">

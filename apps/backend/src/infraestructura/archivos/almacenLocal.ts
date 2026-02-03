@@ -27,3 +27,10 @@ export async function guardarPdfExamen(nombreArchivo: string, buffer: Buffer) {
   await fs.writeFile(rutaCompleta, buffer);
   return rutaCompleta;
 }
+
+/**
+ * Resuelve la ruta absoluta de un PDF guardado (sin validar existencia).
+ */
+export function resolverRutaPdfExamen(nombreArchivo: string) {
+  return path.join(carpetaBase, nombreArchivo);
+}

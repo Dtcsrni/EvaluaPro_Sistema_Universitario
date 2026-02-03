@@ -10,6 +10,7 @@ import {
   eliminarPlantillaDev,
   generarExamen,
   generarExamenesLote,
+  descargarPdfLote,
   listarPlantillas,
   previsualizarPlantilla,
   previsualizarPlantillaPdf
@@ -53,6 +54,7 @@ router.get('/plantillas/:id/previsualizar/pdf', requerirPermiso('plantillas:prev
 router.get('/generados', requerirPermiso('examenes:leer'), listarExamenesGenerados);
 router.get('/generados/folio/:folio', requerirPermiso('examenes:leer'), obtenerExamenPorFolio);
 router.get('/generados/:id/pdf', requerirPermiso('examenes:descargar'), descargarPdf);
+router.get('/generados/lote/:loteId/pdf', requerirPermiso('examenes:descargar'), descargarPdfLote);
 router.post(
   '/generados/:id/regenerar',
   requerirPermiso('examenes:regenerar'),
