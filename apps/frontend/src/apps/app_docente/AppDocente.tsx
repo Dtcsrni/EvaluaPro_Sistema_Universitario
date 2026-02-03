@@ -4655,7 +4655,7 @@ function SeccionPlantillas({
     setUltimoGenerado(null);
     setLotePdfUrl(null);
     void cargarExamenesGenerados();
-  }, [cargarExamenesGenerados]);
+  }, [plantillaId, cargarExamenesGenerados]);
 
   const descargarPdfExamen = useCallback(
     async (examen: ExamenGeneradoResumen) => {
@@ -5866,6 +5866,7 @@ function SeccionPlantillas({
               const payload = await enviarConPermiso<{
                 totalAlumnos: number;
                 examenesGenerados: Array<{ folio: string }>;
+                loteId?: string;
                 lotePdfUrl?: string;
               }>(
                 'examenes:generar',
@@ -5877,11 +5878,14 @@ function SeccionPlantillas({
               const total = Number(payload?.totalAlumnos ?? 0);
               const generados = Array.isArray(payload?.examenesGenerados) ? payload.examenesGenerados.length : 0;
               setMensajeGeneracion(`Generacion masiva lista. Alumnos: ${total}. Examenes creados: ${generados}.`);
-              setLotePdfUrl(payload?.lotePdfUrl ?? null);
-              if (payload?.lotePdfUrl) {
+              const loteUrl =
+                payload?.lotePdfUrl ||
+                (payload?.loteId ? `/examenes/generados/lote/${encodeURIComponent(payload.loteId)}/pdf` : null);
+              setLotePdfUrl(loteUrl);
+              if (loteUrl) {
                 const token = obtenerTokenDocente();
                 if (token) {
-                  const resp = await fetch(`${clienteApi.baseApi}${payload.lotePdfUrl}`, {
+                  const resp = await fetch(`${clienteApi.baseApi}${loteUrl}`, {
                     credentials: 'include',
                     headers: { Authorization: `Bearer ${token}` }
                   });
@@ -5949,9 +5953,25 @@ function SeccionPlantillas({
           {!plantillaSeleccionada && (
             <InlineMensaje tipo="info">Selecciona una plantilla para ver los examenes generados y su historial.</InlineMensaje>
           )}
-      {ultimoGenerado && (
-        <div className="resultado" aria-label="Detalle del ultimo examen generado">
-          <h4>Ultimo examen generado</h4>
+          {lotePdfUrl && (
+            <InlineMensaje tipo="ok">
+              <div className="acciones acciones--mt">
+                <Boton
+                  type="button"
+                  variante="secundario"
+                  icono={<Icono nombre="pdf" />}
+                  onClick={() => void descargarPdfLote()}
+                  data-tooltip="Descarga el PDF con todos los examenes del lote."
+                >
+                  Descargar PDF completo
+                </Boton>
+                <span className="ayuda">PDF del lote: {lotePdfUrl}</span>
+              </div>
+            </InlineMensaje>
+          )}
+          {ultimoGenerado && (
+            <div className="resultado" aria-label="Detalle del ultimo examen generado">
+              <h4>Ultimo examen generado</h4>
           <div className="item-meta">
             <span>Folio: {ultimoGenerado.folio}</span>
             <span>ID: {idCortoMateria(ultimoGenerado._id)}</span>

@@ -826,6 +826,22 @@ export async function generarPdfExamen({
       hMin = Math.max(hMin, hLabel + paddingY + lineaIndicaciones + 12);
       const hCaja = Math.max(hMin, hNecesariaFinal);
 
+      // Alumno/grupo arriba de indicaciones para evitar traslapes.
+      if (alumnoNombre || alumnoGrupo) {
+        const yAlumno = yTopInd + 6;
+        const xAlumno = xInd;
+        const maxAnchoAlumno = Math.max(120, xDerechaTexto - xAlumno - 140);
+        const alumnoLinea = alumnoNombre
+          ? (partirEnLineas({ texto: alumnoNombre, maxWidth: maxAnchoAlumno, font: fuente, size: 9 })[0] ?? '')
+          : '';
+        page.drawText(`Alumno: ${alumnoLinea || '-'}`, { x: xAlumno, y: yAlumno, size: 9, font: fuente, color: colorGris });
+
+        if (alumnoGrupo) {
+          const xGrupo = Math.max(xAlumno + 260, xDerechaTexto - 120);
+          page.drawText(`Grupo: ${alumnoGrupo}`, { x: xGrupo, y: yAlumno, size: 9, font: fuente, color: colorGris });
+        }
+      }
+
       page.drawRectangle({ x: xInd, y: yTopInd - hCaja, width: wInd, height: hCaja, borderWidth: 1, borderColor: colorLinea, color: rgb(1, 1, 1) });
       page.drawRectangle({ x: xInd, y: yTopInd - 6, width: wInd, height: 3, color: colorPrimario });
       page.drawText('Indicaciones', { x: xInd + 8, y: yTopInd - 16, size: 9, font: fuenteBold, color: colorPrimario });

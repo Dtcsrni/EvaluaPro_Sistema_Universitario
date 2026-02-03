@@ -59,6 +59,23 @@ function normalizarNombreTemaPreview(valor: unknown): string {
     .replace(/\s+/g, ' ');
 }
 
+function formatearNombreAlumno(alumno?: unknown): string {
+  if (!alumno) return '';
+  const a = alumno as {
+    nombreCompleto?: unknown;
+    nombres?: unknown;
+    apellidos?: unknown;
+    matricula?: unknown;
+  };
+  const nombreCompleto = String(a.nombreCompleto ?? '').trim();
+  if (nombreCompleto) return nombreCompleto;
+  const nombres = String(a.nombres ?? '').trim();
+  const apellidos = String(a.apellidos ?? '').trim();
+  const combinado = [nombres, apellidos].filter(Boolean).join(' ').trim();
+  if (combinado) return combinado;
+  return String(a.matricula ?? '').trim();
+}
+
 function claveTemaPreview(valor: unknown): string {
   return normalizarNombreTemaPreview(valor).toLowerCase();
 }
@@ -941,16 +958,16 @@ export async function generarExamen(req: SolicitudDocente, res: Response) {
     tipoExamen: plantilla.tipo as 'parcial' | 'global',
     totalPaginas: numeroPaginas,
     margenMm: plantilla.configuracionPdf?.margenMm ?? 10,
-    encabezado: {
-      materia: String((periodo as unknown as { nombre?: unknown })?.nombre ?? ''),
-      docente: formatearDocente((docenteDb as unknown as { nombreCompleto?: unknown })?.nombreCompleto),
-      instrucciones: String((plantilla as unknown as { instrucciones?: unknown })?.instrucciones ?? ''),
-      alumno: {
-        nombre: String((alumno as unknown as { nombreCompleto?: unknown })?.nombreCompleto ?? ''),
+      encabezado: {
+        materia: String((periodo as unknown as { nombre?: unknown })?.nombre ?? ''),
+        docente: formatearDocente((docenteDb as unknown as { nombreCompleto?: unknown })?.nombreCompleto),
+        instrucciones: String((plantilla as unknown as { instrucciones?: unknown })?.instrucciones ?? ''),
+        alumno: {
+        nombre: formatearNombreAlumno(alumno),
         grupo: String((alumno as unknown as { grupo?: unknown })?.grupo ?? '')
+        }
       }
-    }
-  });
+    });
 
   const usadosSet = new Set<string>();
   for (const pag of (mapaOmr?.paginas ?? []) as Array<{ preguntas?: Array<{ idPregunta?: string }> }>) {
@@ -1188,16 +1205,16 @@ export async function generarExamenesLote(req: SolicitudDocente, res: Response) 
           tipoExamen: plantilla.tipo as 'parcial' | 'global',
           totalPaginas: numeroPaginas,
           margenMm: plantilla.configuracionPdf?.margenMm ?? 10,
-          encabezado: {
-            materia: String((periodo as unknown as { nombre?: unknown })?.nombre ?? ''),
-            docente: formatearDocente((docenteDb as unknown as { nombreCompleto?: unknown })?.nombreCompleto),
-            instrucciones: String((plantilla as unknown as { instrucciones?: unknown })?.instrucciones ?? ''),
-            alumno: {
-              nombre: String((alumnosPorId.get(alumnoId) as unknown as { nombreCompleto?: unknown })?.nombreCompleto ?? ''),
+            encabezado: {
+              materia: String((periodo as unknown as { nombre?: unknown })?.nombre ?? ''),
+              docente: formatearDocente((docenteDb as unknown as { nombreCompleto?: unknown })?.nombreCompleto),
+              instrucciones: String((plantilla as unknown as { instrucciones?: unknown })?.instrucciones ?? ''),
+              alumno: {
+              nombre: formatearNombreAlumno(alumnosPorId.get(alumnoId)),
               grupo: String((alumnosPorId.get(alumnoId) as unknown as { grupo?: unknown })?.grupo ?? '')
+              }
             }
-          }
-        });
+          });
 
         const usadosSet = new Set<string>();
         for (const pag of (mapaOmr?.paginas ?? []) as Array<{ preguntas?: Array<{ idPregunta?: string }> }>) {
