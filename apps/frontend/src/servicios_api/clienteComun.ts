@@ -353,6 +353,9 @@ export async function fetchConManejoErrores<T>(opts: {
   toastTimeout?: { id: string; title: string; message: string };
   toastServerError: { id: string; title: string; message: (status: number | undefined) => string };
   retry?: { intentos?: number; baseMs?: number; maxMs?: number; jitterMs?: number };
+  silenciarUnreachable?: boolean;
+  silenciarTimeout?: boolean;
+  silenciarServerError?: boolean;
 }): Promise<T> {
   const retryCfg = {
     intentos: opts.retry?.intentos ?? 2,
@@ -397,17 +400,21 @@ export async function fetchConManejoErrores<T>(opts: {
           title: 'Tiempo de espera',
           message: 'La solicitud tardo demasiado. Intenta de nuevo.'
         };
-        emitToast({ id: toast.id, level: 'error', title: toast.title, message: toast.message, durationMs: 5200 });
+        if (!opts.silenciarTimeout) {
+          emitToast({ id: toast.id, level: 'error', title: toast.title, message: toast.message, durationMs: 5200 });
+        }
         throw new ErrorRemoto(opts.mensajeServicio, { mensaje: toast.message, detalles: 'AbortError', status: 408 });
       }
 
-      emitToast({
-        id: opts.toastUnreachable.id,
-        level: 'error',
-        title: opts.toastUnreachable.title,
-        message: opts.toastUnreachable.message,
-        durationMs: 5200
-      });
+      if (!opts.silenciarUnreachable) {
+        emitToast({
+          id: opts.toastUnreachable.id,
+          level: 'error',
+          title: opts.toastUnreachable.title,
+          message: opts.toastUnreachable.message,
+          durationMs: 5200
+        });
+      }
       throw new ErrorRemoto(opts.mensajeServicio, { mensaje: 'Sin conexion', detalles: String(error) });
     }
 
@@ -421,13 +428,15 @@ export async function fetchConManejoErrores<T>(opts: {
       }
       const detalle = await leerErrorRemoto(respuesta);
       if (status !== undefined && status >= 500) {
-        emitToast({
-          id: opts.toastServerError.id,
-          level: 'error',
-          title: opts.toastServerError.title,
-          message: opts.toastServerError.message(status),
-          durationMs: 5200
-        });
+        if (!opts.silenciarServerError) {
+          emitToast({
+            id: opts.toastServerError.id,
+            level: 'error',
+            title: opts.toastServerError.title,
+            message: opts.toastServerError.message(status),
+            durationMs: 5200
+          });
+        }
       }
       throw new ErrorRemoto(opts.mensajeServicio, { ...detalle, status });
     }

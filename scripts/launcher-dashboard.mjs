@@ -48,6 +48,12 @@ const dockerAutostart = {
 };
 
 let dockerAutostartPromise = null;
+let composeSnapshot = {
+  checkedAt: 0,
+  dev: {},
+  prod: {},
+  error: ''
+};
 
 // Persist recent logs to disk to aid troubleshooting.
 const logDir = path.join(root, 'logs');
@@ -650,6 +656,28 @@ function isStackRunning(desiredMode) {
   );
 }
 
+function readComposeSnapshot() {
+  const now = Date.now();
+  if (now - composeSnapshot.checkedAt < 2500) return composeSnapshot;
+
+  const next = {
+    checkedAt: now,
+    dev: {
+      mongo_local: isComposeServiceRunning('dev', 'mongo_local'),
+      api_docente_local: isComposeServiceRunning('dev', 'api_docente_local')
+    },
+    prod: {
+      mongo_local: isComposeServiceRunning('prod', 'mongo_local'),
+      api_docente_prod: isComposeServiceRunning('prod', 'api_docente_prod'),
+      web_docente_prod: isComposeServiceRunning('prod', 'web_docente_prod')
+    },
+    error: ''
+  };
+
+  composeSnapshot = next;
+  return composeSnapshot;
+}
+
 function requestDockerAutostart(reason = 'startup') {
   if (mode !== 'dev' && mode !== 'prod') return;
   if (dockerAutostartPromise) return;
@@ -1004,18 +1032,28 @@ function isRunning(name) {
   return Boolean(entry && entry.proc && entry.proc.exitCode === null);
 }
 
-function stackDisplayString(runningList = []) {
+function stackDisplayString(runningList = [], compose = null) {
   const stack = dockerAutostart.stack || {};
   const state = stack.state || 'unknown';
   const lastError = stack.lastError || '';
   const running = Array.isArray(runningList) ? runningList : [];
   const hasStackTask = running.includes('dev') || running.includes('prod') || running.includes('dev-backend');
-  const stackRunning = Boolean(stack.running) || hasStackTask;
+  const dockerDetected = compose && (
+    compose.dev?.mongo_local ||
+    compose.dev?.api_docente_local ||
+    compose.prod?.mongo_local ||
+    compose.prod?.api_docente_prod ||
+    compose.prod?.web_docente_prod
+  );
+  const stackRunning = Boolean(stack.running) || hasStackTask || dockerDetected;
 
   if (state === 'error') return lastError || 'Error iniciando stack.';
   if (state === 'checking') return 'Comprobando stack Docker...';
   if (state === 'skipped') return 'Stack Docker ya esta activo.';
-  if (stackRunning) return 'Stack activo (procesos en ejecucion).';
+  if (stackRunning) {
+    if (dockerDetected && !hasStackTask) return 'Stack activo (Docker detectado).';
+    return 'Stack activo (procesos en ejecucion).';
+  }
   if (state === 'starting') return 'Iniciando stack Docker...';
   return 'Stack detenido.';
 }
@@ -1355,7 +1393,8 @@ const server = http.createServer(async (req, res) => {
     const noiseTotal = Object.values(noise).reduce((acc, val) => acc + val, 0);
     const running = runningTasks();
     const dockerDisplay = dockerDisplayString();
-    const stackDisplay = stackDisplayString(running);
+    const compose = readComposeSnapshot();
+    const stackDisplay = stackDisplayString(running, compose);
     const httpsState = resolveHttpsState();
 
     const hasDev = running.includes('dev');
@@ -1378,6 +1417,7 @@ const server = http.createServer(async (req, res) => {
       docker: dockerDisplay,
       dockerDisplay,
       stackDisplay,
+      compose,
       https: httpsState,
       dockerState: {
         state: dockerAutostart.state,

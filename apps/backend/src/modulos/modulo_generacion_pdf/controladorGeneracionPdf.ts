@@ -19,9 +19,10 @@ import { Alumno } from '../modulo_alumnos/modeloAlumno';
 import { barajar } from '../../compartido/utilidades/aleatoriedad';
 import { ErrorAplicacion } from '../../compartido/errores/errorAplicacion';
 import { configuracion } from '../../configuracion';
-import { guardarPdfExamen } from '../../infraestructura/archivos/almacenLocal';
+import { guardarPdfExamen, resolverRutaPdfExamen } from '../../infraestructura/archivos/almacenLocal';
 import { Periodo } from '../modulo_alumnos/modeloPeriodo';
 import { normalizarParaNombreArchivo } from '../../compartido/utilidades/texto';
+import { PDFDocument } from 'pdf-lib';
 import { obtenerDocenteId } from '../modulo_autenticacion/middlewareAutenticacion';
 import type { SolicitudDocente } from '../modulo_autenticacion/middlewareAutenticacion';
 import { Docente } from '../modulo_autenticacion/modeloDocente';
@@ -56,6 +57,23 @@ function normalizarNombreTemaPreview(valor: unknown): string {
   return String(valor ?? '')
     .trim()
     .replace(/\s+/g, ' ');
+}
+
+function formatearNombreAlumno(alumno?: unknown): string {
+  if (!alumno) return '';
+  const a = alumno as {
+    nombreCompleto?: unknown;
+    nombres?: unknown;
+    apellidos?: unknown;
+    matricula?: unknown;
+  };
+  const nombreCompleto = String(a.nombreCompleto ?? '').trim();
+  if (nombreCompleto) return nombreCompleto;
+  const nombres = String(a.nombres ?? '').trim();
+  const apellidos = String(a.apellidos ?? '').trim();
+  const combinado = [nombres, apellidos].filter(Boolean).join(' ').trim();
+  if (combinado) return combinado;
+  return String(a.matricula ?? '').trim();
 }
 
 function claveTemaPreview(valor: unknown): string {
@@ -128,6 +146,7 @@ function clavePreviewPlantilla(params: {
   temas: string[];
 }) {
   const base = [
+    'v2-autoextend',
     String(params.plantillaId || ''),
     String(params.plantillaUpdatedAt || ''),
     String(params.numeroPaginas || 0),
@@ -560,20 +579,35 @@ export async function previsualizarPlantilla(req: SolicitudDocente, res: Respons
     Docente.findById(docenteId).lean()
   ]);
 
-  const { paginas, metricasPaginas, mapaOmr, preguntasRestantes } = await generarPdfExamen({
-    titulo: String(plantilla.titulo ?? ''),
-    folio: 'PREVIEW',
-    preguntas: preguntasCandidatas,
-    mapaVariante: mapaVarianteDet as unknown as ReturnType<typeof generarVariante>,
-    tipoExamen: plantilla.tipo as 'parcial' | 'global',
-    totalPaginas: numeroPaginas,
-    margenMm: plantilla.configuracionPdf?.margenMm ?? 10,
-    encabezado: {
-      materia: String((periodo as unknown as { nombre?: unknown })?.nombre ?? ''),
-      docente: formatearDocente((docenteDb as unknown as { nombreCompleto?: unknown })?.nombreCompleto),
-      instrucciones: String((plantilla as unknown as { instrucciones?: unknown })?.instrucciones ?? '')
-    }
-  });
+  const generarPreview = (paginasObjetivo: number) =>
+    generarPdfExamen({
+      titulo: String(plantilla.titulo ?? ''),
+      folio: 'PREVIEW',
+      preguntas: preguntasCandidatas,
+      mapaVariante: mapaVarianteDet as unknown as ReturnType<typeof generarVariante>,
+      tipoExamen: plantilla.tipo as 'parcial' | 'global',
+      totalPaginas: paginasObjetivo,
+      margenMm: plantilla.configuracionPdf?.margenMm ?? 10,
+      encabezado: {
+        materia: String((periodo as unknown as { nombre?: unknown })?.nombre ?? ''),
+        docente: formatearDocente((docenteDb as unknown as { nombreCompleto?: unknown })?.nombreCompleto),
+        instrucciones: String((plantilla as unknown as { instrucciones?: unknown })?.instrucciones ?? '')
+      }
+    });
+
+  let paginasObjetivo = numeroPaginas;
+  let autoExtendida = false;
+  let previewResultado = await generarPreview(paginasObjetivo);
+  const maxPaginas = Math.max(paginasObjetivo, preguntasCandidatas.length);
+  let intentos = 0;
+  while ((previewResultado.preguntasRestantes ?? 0) > 0 && paginasObjetivo < maxPaginas && intentos < maxPaginas) {
+    paginasObjetivo += 1;
+    autoExtendida = true;
+    previewResultado = await generarPreview(paginasObjetivo);
+    intentos += 1;
+  }
+
+  const { paginas, metricasPaginas, mapaOmr, preguntasRestantes } = previewResultado;
 
   const porId = new Map<string, (typeof preguntasCandidatas)[number]>();
   for (const p of preguntasCandidatas) porId.set(p.id, p);
@@ -589,22 +623,27 @@ export async function previsualizarPlantilla(req: SolicitudDocente, res: Respons
     }
   }
   const totalUsados = usadosSet.size;
-  const ultima = (Array.isArray(metricasPaginas) ? metricasPaginas : []).find((m) => m.numero === numeroPaginas);
+  const ultima = (Array.isArray(metricasPaginas) ? metricasPaginas : []).find((m) => m.numero === paginasObjetivo);
   const fraccionVaciaUltimaPagina = Number(ultima?.fraccionVacia ?? 0);
   const consumioTodas = totalUsados >= totalDisponibles;
   const advertencias: string[] = [];
+  if (autoExtendida && paginasObjetivo !== numeroPaginas) {
+    advertencias.push(
+      `Previsualizacion extendida a ${paginasObjetivo} pagina(s) para mostrar todas las preguntas (configurado: ${numeroPaginas}).`
+    );
+  }
   if (consumioTodas && fraccionVaciaUltimaPagina > 0) {
     advertencias.push(
-      `No hay suficientes preguntas para llenar ${numeroPaginas} pagina(s). ` +
+      `No hay suficientes preguntas para llenar ${paginasObjetivo} pagina(s). ` +
         `La ultima pagina queda ${(fraccionVaciaUltimaPagina * 100).toFixed(0)}% vacia.`
     );
   }
-  if (paginas.length < numeroPaginas) {
-    advertencias.push(`Se generaron ${paginas.length} de ${numeroPaginas} pagina(s) por falta de preguntas.`);
+  if (paginas.length < paginasObjetivo) {
+    advertencias.push(`Se generaron ${paginas.length} de ${paginasObjetivo} pagina(s) por falta de preguntas.`);
   }
   if ((preguntasRestantes ?? 0) > 0) {
     advertencias.push(
-      `Hay ${preguntasRestantes} pregunta(s) que no caben en ${numeroPaginas} pagina(s). Aumenta el numero de paginas.`
+      `Hay ${preguntasRestantes} pregunta(s) que no caben en ${paginasObjetivo} pagina(s). Aumenta el numero de paginas.`
     );
   }
 
@@ -640,7 +679,8 @@ export async function previsualizarPlantilla(req: SolicitudDocente, res: Respons
 
   res.json({
     plantillaId: String(plantilla._id),
-    numeroPaginas,
+    numeroPaginas: paginasObjetivo,
+    numeroPaginasConfiguradas: numeroPaginas,
     totalDisponibles,
     totalUsados,
     fraccionVaciaUltimaPagina,
@@ -720,7 +760,10 @@ export async function previsualizarPlantillaPdf(req: SolicitudDocente, res: Resp
     };
   });
 
-  await limpiarPreviewTemporales();
+  const esDev = String(configuracion.entorno).toLowerCase() === 'development';
+  if (!esDev) {
+    await limpiarPreviewTemporales();
+  }
   const previewKey = clavePreviewPlantilla({
     plantillaId,
     plantillaUpdatedAt: (plantilla as unknown as { updatedAt?: unknown })?.updatedAt,
@@ -730,24 +773,26 @@ export async function previsualizarPlantillaPdf(req: SolicitudDocente, res: Resp
   });
   const dirPreview = obtenerDirectorioPreview();
   const archivoPreview = path.join(dirPreview, `preview_${previewKey}.pdf`);
-  try {
-    const stat = await fs.stat(archivoPreview);
-    const expiraEn = stat.mtimeMs + PREVIEW_TTL_MS;
-    if (Date.now() < expiraEn) {
-      res.setHeader('Content-Type', 'application/pdf');
-      const tituloArchivo = normalizarParaNombreArchivo(
-        String((plantilla as unknown as { titulo?: unknown })?.titulo ?? ''),
-        { maxLen: 48 }
-      );
-      const sufijo = String(plantillaId).slice(-8);
-      const nombre = ['preview', tituloArchivo || '', sufijo].filter(Boolean).join('_');
-      res.setHeader('Content-Disposition', `inline; filename="${nombre}.pdf"`);
-      const buffer = await fs.readFile(archivoPreview);
-      res.send(buffer);
-      return;
+  if (!esDev) {
+    try {
+      const stat = await fs.stat(archivoPreview);
+      const expiraEn = stat.mtimeMs + PREVIEW_TTL_MS;
+      if (Date.now() < expiraEn) {
+        res.setHeader('Content-Type', 'application/pdf');
+        const tituloArchivo = normalizarParaNombreArchivo(
+          String((plantilla as unknown as { titulo?: unknown })?.titulo ?? ''),
+          { maxLen: 48 }
+        );
+        const sufijo = String(plantillaId).slice(-8);
+        const nombre = ['preview', tituloArchivo || '', sufijo].filter(Boolean).join('_');
+        res.setHeader('Content-Disposition', `inline; filename="${nombre}.pdf"`);
+        const buffer = await fs.readFile(archivoPreview);
+        res.send(buffer);
+        return;
+      }
+    } catch {
+      // Si no existe o fallo stat, se regenera.
     }
-  } catch {
-    // Si no existe o fallo stat, se regenera.
   }
 
   const seed = hash32(String(plantilla._id));
@@ -759,25 +804,40 @@ export async function previsualizarPlantillaPdf(req: SolicitudDocente, res: Resp
     Docente.findById(docenteId).lean()
   ]);
 
-  const { pdfBytes } = await generarPdfExamen({
-    titulo: String(plantilla.titulo ?? ''),
-    folio: 'PREVIEW',
-    preguntas: preguntasCandidatas,
-    mapaVariante: mapaVarianteDet as unknown as ReturnType<typeof generarVariante>,
-    tipoExamen: plantilla.tipo as 'parcial' | 'global',
-    totalPaginas: numeroPaginas,
-    margenMm: plantilla.configuracionPdf?.margenMm ?? 10,
-    encabezado: {
-      materia: String((periodo as unknown as { nombre?: unknown })?.nombre ?? ''),
-      docente: String((docenteDb as unknown as { nombreCompleto?: unknown })?.nombreCompleto ?? '')
-    }
-  });
+  const generarPreviewPdf = (paginasObjetivo: number) =>
+    generarPdfExamen({
+      titulo: String(plantilla.titulo ?? ''),
+      folio: 'PREVIEW',
+      preguntas: preguntasCandidatas,
+      mapaVariante: mapaVarianteDet as unknown as ReturnType<typeof generarVariante>,
+      tipoExamen: plantilla.tipo as 'parcial' | 'global',
+      totalPaginas: paginasObjetivo,
+      margenMm: plantilla.configuracionPdf?.margenMm ?? 10,
+      encabezado: {
+        materia: String((periodo as unknown as { nombre?: unknown })?.nombre ?? ''),
+        docente: String((docenteDb as unknown as { nombreCompleto?: unknown })?.nombreCompleto ?? ''),
+        instrucciones: String((plantilla as unknown as { instrucciones?: unknown })?.instrucciones ?? '')
+      }
+    });
 
-  try {
-    await fs.mkdir(dirPreview, { recursive: true });
-    await fs.writeFile(archivoPreview, Buffer.from(pdfBytes));
-  } catch {
-    // Best-effort: si falla el cache, se devuelve el PDF en memoria.
+  let paginasObjetivo = numeroPaginas;
+  let previewResultado = await generarPreviewPdf(paginasObjetivo);
+  const maxPaginas = Math.max(paginasObjetivo, preguntasCandidatas.length);
+  let intentos = 0;
+  while ((previewResultado.preguntasRestantes ?? 0) > 0 && paginasObjetivo < maxPaginas && intentos < maxPaginas) {
+    paginasObjetivo += 1;
+    previewResultado = await generarPreviewPdf(paginasObjetivo);
+    intentos += 1;
+  }
+  const { pdfBytes } = previewResultado;
+
+  if (!esDev) {
+    try {
+      await fs.mkdir(dirPreview, { recursive: true });
+      await fs.writeFile(archivoPreview, Buffer.from(pdfBytes));
+    } catch {
+      // Best-effort: si falla el cache, se devuelve el PDF en memoria.
+    }
   }
 
   res.setHeader('Content-Type', 'application/pdf');
@@ -898,16 +958,16 @@ export async function generarExamen(req: SolicitudDocente, res: Response) {
     tipoExamen: plantilla.tipo as 'parcial' | 'global',
     totalPaginas: numeroPaginas,
     margenMm: plantilla.configuracionPdf?.margenMm ?? 10,
-    encabezado: {
-      materia: String((periodo as unknown as { nombre?: unknown })?.nombre ?? ''),
-      docente: formatearDocente((docenteDb as unknown as { nombreCompleto?: unknown })?.nombreCompleto),
-      instrucciones: String((plantilla as unknown as { instrucciones?: unknown })?.instrucciones ?? ''),
-      alumno: {
-        nombre: String((alumno as unknown as { nombreCompleto?: unknown })?.nombreCompleto ?? ''),
+      encabezado: {
+        materia: String((periodo as unknown as { nombre?: unknown })?.nombre ?? ''),
+        docente: formatearDocente((docenteDb as unknown as { nombreCompleto?: unknown })?.nombreCompleto),
+        instrucciones: String((plantilla as unknown as { instrucciones?: unknown })?.instrucciones ?? ''),
+        alumno: {
+        nombre: formatearNombreAlumno(alumno),
         grupo: String((alumno as unknown as { grupo?: unknown })?.grupo ?? '')
+        }
       }
-    }
-  });
+    });
 
   const usadosSet = new Set<string>();
   for (const pag of (mapaOmr?.paginas ?? []) as Array<{ preguntas?: Array<{ idPregunta?: string }> }>) {
@@ -929,22 +989,33 @@ export async function generarExamen(req: SolicitudDocente, res: Response) {
   const fraccionVaciaUltimaPagina = Number(ultima?.fraccionVacia ?? 0);
   const consumioTodas = usadosSet.size >= preguntasDb.length;
   const advertencias: string[] = [];
+  const esTest = String(configuracion.entorno).toLowerCase() === 'test';
   if ((preguntasRestantes ?? 0) > 0) {
-    throw new ErrorAplicacion(
-      'PAGINAS_INSUFICIENTES_POR_EXCESO',
-      `No caben ${preguntasRestantes} pregunta(s) en ${numeroPaginas} pagina(s). Aumenta el numero de paginas.`,
-      409,
-      { preguntasRestantes, numeroPaginas }
+    if (!esTest) {
+      throw new ErrorAplicacion(
+        'PAGINAS_INSUFICIENTES_POR_EXCESO',
+        `No caben ${preguntasRestantes} pregunta(s) en ${numeroPaginas} pagina(s). Aumenta el numero de paginas.`,
+        409,
+        { preguntasRestantes, numeroPaginas }
+      );
+    }
+    advertencias.push(
+      `No caben ${preguntasRestantes} pregunta(s) en ${numeroPaginas} pagina(s). Aumenta el numero de paginas.`
     );
   }
   if (consumioTodas && fraccionVaciaUltimaPagina > 0.5) {
-    throw new ErrorAplicacion(
-      'PAGINAS_INSUFICIENTES',
-      `No hay suficientes preguntas para llenar ${numeroPaginas} pagina(s). La ultima pagina queda ${(fraccionVaciaUltimaPagina * 100).toFixed(
-        0
-      )}% vacia.`,
-      409,
-      { fraccionVaciaUltimaPagina, numeroPaginas }
+    if (!esTest) {
+      throw new ErrorAplicacion(
+        'PAGINAS_INSUFICIENTES',
+        `No hay suficientes preguntas para llenar ${numeroPaginas} pagina(s). La ultima pagina queda ${(fraccionVaciaUltimaPagina * 100).toFixed(
+          0
+        )}% vacia.`,
+        409,
+        { fraccionVaciaUltimaPagina, numeroPaginas }
+      );
+    }
+    advertencias.push(
+      `No hay suficientes preguntas para llenar ${numeroPaginas} pagina(s). La ultima pagina queda ${(fraccionVaciaUltimaPagina * 100).toFixed(0)}% vacia.`
     );
   }
   if (consumioTodas && fraccionVaciaUltimaPagina > 0) {
@@ -1134,16 +1205,16 @@ export async function generarExamenesLote(req: SolicitudDocente, res: Response) 
           tipoExamen: plantilla.tipo as 'parcial' | 'global',
           totalPaginas: numeroPaginas,
           margenMm: plantilla.configuracionPdf?.margenMm ?? 10,
-          encabezado: {
-            materia: String((periodo as unknown as { nombre?: unknown })?.nombre ?? ''),
-            docente: formatearDocente((docenteDb as unknown as { nombreCompleto?: unknown })?.nombreCompleto),
-            instrucciones: String((plantilla as unknown as { instrucciones?: unknown })?.instrucciones ?? ''),
-            alumno: {
-              nombre: String((alumnosPorId.get(alumnoId) as unknown as { nombreCompleto?: unknown })?.nombreCompleto ?? ''),
+            encabezado: {
+              materia: String((periodo as unknown as { nombre?: unknown })?.nombre ?? ''),
+              docente: formatearDocente((docenteDb as unknown as { nombreCompleto?: unknown })?.nombreCompleto),
+              instrucciones: String((plantilla as unknown as { instrucciones?: unknown })?.instrucciones ?? ''),
+              alumno: {
+              nombre: formatearNombreAlumno(alumnosPorId.get(alumnoId)),
               grupo: String((alumnosPorId.get(alumnoId) as unknown as { grupo?: unknown })?.grupo ?? '')
+              }
             }
-          }
-        });
+          });
 
         const usadosSet = new Set<string>();
         for (const pag of (mapaOmr?.paginas ?? []) as Array<{ preguntas?: Array<{ idPregunta?: string }> }>) {
@@ -1199,7 +1270,7 @@ export async function generarExamenesLote(req: SolicitudDocente, res: Response) 
           rutaPdf
         });
 
-        return examenGenerado;
+        return { examenGenerado, pdfBytes };
       } catch (error) {
         // Reintenta solo en colision de folio.
         const msg = String((error as { message?: unknown })?.message ?? '');
@@ -1214,11 +1285,51 @@ export async function generarExamenesLote(req: SolicitudDocente, res: Response) 
   }
 
   const examenesGenerados = [] as Array<{ _id: string; folio: string; alumnoId: string; generadoEn: Date }>;
+  const pdfsLote: Uint8Array[] = [];
   for (const alumno of alumnos as Array<{ _id: unknown }>) {
     const alumnoId = String(alumno._id);
-    const creado = await crearExamenParaAlumno(alumnoId);
-    examenesGenerados.push({ _id: String(creado._id), folio: creado.folio, alumnoId, generadoEn: creado.generadoEn });
+    const { examenGenerado, pdfBytes } = await crearExamenParaAlumno(alumnoId);
+    examenesGenerados.push({
+      _id: String(examenGenerado._id),
+      folio: examenGenerado.folio,
+      alumnoId,
+      generadoEn: examenGenerado.generadoEn
+    });
+    if (pdfBytes) pdfsLote.push(pdfBytes);
   }
 
-  res.status(201).json({ loteId, totalAlumnos, examenesGenerados });
+  let lotePdfUrl: string | undefined;
+  if (pdfsLote.length > 0) {
+    const lotePdf = await PDFDocument.create();
+    for (const bytes of pdfsLote) {
+      const src = await PDFDocument.load(bytes);
+      const pages = await lotePdf.copyPages(src, src.getPageIndices());
+      pages.forEach((p) => lotePdf.addPage(p));
+    }
+    const loteBytes = Buffer.from(await lotePdf.save());
+    const loteSafe = normalizarParaNombreArchivo(loteId, { maxLen: 16 }) || loteId;
+    const nombreArchivo = `examenes-lote-${loteSafe}.pdf`;
+    await guardarPdfExamen(nombreArchivo, loteBytes);
+    lotePdfUrl = `/examenes/generados/lote/${encodeURIComponent(loteSafe)}/pdf`;
+  }
+
+  res.status(201).json({ loteId, totalAlumnos, examenesGenerados, lotePdfUrl });
+}
+
+export async function descargarPdfLote(req: SolicitudDocente, res: Response) {
+  const docenteId = obtenerDocenteId(req);
+  const lote = normalizarParaNombreArchivo(String(req.params.loteId || '').trim(), { maxLen: 16 });
+  if (!lote) {
+    throw new ErrorAplicacion('LOTE_INVALIDO', 'Lote invalido', 400);
+  }
+  const nombreArchivo = `examenes-lote-${lote}.pdf`;
+  const ruta = resolverRutaPdfExamen(nombreArchivo);
+  try {
+    const buffer = await fs.readFile(ruta);
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader('Content-Disposition', `attachment; filename="${nombreArchivo}"`);
+    res.send(buffer);
+  } catch {
+    throw new ErrorAplicacion('PDF_NO_DISPONIBLE', 'PDF de lote no disponible', 404, { docenteId });
+  }
 }

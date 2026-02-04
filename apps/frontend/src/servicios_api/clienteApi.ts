@@ -28,6 +28,10 @@ export function limpiarTokenDocente() {
 }
 
 export function crearClienteApi() {
+  const inicioApp = Date.now();
+  const silenciarDuranteArranque = () => Date.now() - inicioApp < 15_000;
+  const retryApi = { intentos: 4, baseMs: 400, maxMs: 3000, jitterMs: 150 };
+
   type EventoUso = {
     sessionId?: string;
     pantalla?: string;
@@ -90,7 +94,11 @@ export function crearClienteApi() {
             id: 'api-server-error',
             title: 'API con error',
             message: (status) => `La API respondio con HTTP ${status}.`
-          }
+          },
+          retry: retryApi,
+          silenciarUnreachable: silenciarDuranteArranque(),
+          silenciarTimeout: silenciarDuranteArranque(),
+          silenciarServerError: silenciarDuranteArranque()
         });
 
         if (resp?.token) {
@@ -141,7 +149,11 @@ export function crearClienteApi() {
         id: 'api-server-error',
         title: 'API con error',
         message: (status) => `La API respondio con HTTP ${status}.`
-      }
+      },
+      retry: retryApi,
+      silenciarUnreachable: silenciarDuranteArranque(),
+      silenciarTimeout: silenciarDuranteArranque(),
+      silenciarServerError: silenciarDuranteArranque()
     });
   }
 
@@ -181,7 +193,11 @@ export function crearClienteApi() {
         id: 'api-server-error',
         title: 'API con error',
         message: (status) => `La API respondio con HTTP ${status}.`
-      }
+      },
+      retry: retryApi,
+      silenciarUnreachable: silenciarDuranteArranque(),
+      silenciarTimeout: silenciarDuranteArranque(),
+      silenciarServerError: silenciarDuranteArranque()
     });
   }
 
@@ -220,7 +236,11 @@ export function crearClienteApi() {
         id: 'api-server-error',
         title: 'API con error',
         message: (status) => `La API respondio con HTTP ${status}.`
-      }
+      },
+      retry: retryApi,
+      silenciarUnreachable: silenciarDuranteArranque(),
+      silenciarTimeout: silenciarDuranteArranque(),
+      silenciarServerError: silenciarDuranteArranque()
     });
   }
 

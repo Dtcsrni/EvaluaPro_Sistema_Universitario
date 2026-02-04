@@ -11,12 +11,26 @@ const esquemaOpcion = z
   })
   .strict();
 
+const regexDataUrlImagen = /^data:image\/(png|jpe?g|webp|gif|bmp|svg\+xml);base64,/i;
+
+const esquemaImagenUrl = z.string().trim().refine((value) => {
+  if (value.startsWith('data:')) return regexDataUrlImagen.test(value);
+  try {
+    const url = new URL(value);
+    return url.protocol === 'http:' || url.protocol === 'https:';
+  } catch {
+    return false;
+  }
+}, {
+  message: 'imagenUrl invalida'
+});
+
 export const esquemaCrearPregunta = z
   .object({
     periodoId: esquemaObjectId,
     tema: z.string().optional(),
     enunciado: z.string().min(1),
-    imagenUrl: z.string().url().optional(),
+    imagenUrl: esquemaImagenUrl.optional(),
     opciones: z.array(esquemaOpcion)
   })
   .strict()
@@ -37,7 +51,7 @@ export const esquemaActualizarPregunta = z
   .object({
     tema: z.string().optional(),
     enunciado: z.string().min(1).optional(),
-    imagenUrl: z.string().url().optional().nullable(),
+    imagenUrl: esquemaImagenUrl.optional().nullable(),
     opciones: z.array(esquemaOpcion).optional()
   })
   .strict()
