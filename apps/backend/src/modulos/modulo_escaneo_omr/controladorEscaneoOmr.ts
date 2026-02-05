@@ -46,7 +46,10 @@ export async function analizarImagen(req: SolicitudDocente, res: Response) {
 
   const qrEsperado = [`EXAMEN:${String(examen.folio ?? '')}:P${pagina}`];
   const margenMm = examen.mapaOmr?.margenMm ?? 10;
-  const resultado = await analizarOmr(imagenBase64 ?? '', mapaOmr, qrEsperado, margenMm);
+  const resultado = await analizarOmr(imagenBase64 ?? '', mapaOmr, qrEsperado, margenMm, {
+    folio: folioNormalizado,
+    numeroPagina: pagina
+  });
   await guardarImagenReferencia({
     base64: imagenBase64 ?? '',
     folio: folioNormalizado,

@@ -22,6 +22,8 @@ let generarCodigoAcceso: typeof import('../src/modulos/modulo_sincronizacion_nub
 let publicarResultados: typeof import('../src/modulos/modulo_sincronizacion_nube/controladorSincronizacion').publicarResultados;
 let exportarPaquete: typeof import('../src/modulos/modulo_sincronizacion_nube/controladorSincronizacion').exportarPaquete;
 let importarPaquete: typeof import('../src/modulos/modulo_sincronizacion_nube/controladorSincronizacion').importarPaquete;
+let enviarPaqueteServidor: typeof import('../src/modulos/modulo_sincronizacion_nube/controladorSincronizacion').enviarPaqueteServidor;
+let traerPaquetesServidor: typeof import('../src/modulos/modulo_sincronizacion_nube/controladorSincronizacion').traerPaquetesServidor;
 
 function crearRespuesta() {
   return {
@@ -47,6 +49,8 @@ describe('sincronizacion nube', () => {
     publicarResultados = controlador.publicarResultados;
     exportarPaquete = controlador.exportarPaquete;
     importarPaquete = controlador.importarPaquete;
+    enviarPaqueteServidor = controlador.enviarPaqueteServidor;
+    traerPaquetesServidor = controlador.traerPaquetesServidor;
     await conectarMongoTest();
   });
 
@@ -84,6 +88,23 @@ describe('sincronizacion nube', () => {
 
     await expect(publicarResultados(req, crearRespuesta())).rejects.toMatchObject({
       codigo: 'PORTAL_NO_CONFIG'
+    });
+  });
+
+  it('falla push/pull si el servidor de sincronizacion no esta configurado', async () => {
+    const req = {
+      body: {},
+      docenteId: '507f1f77bcf86cd799439099'
+    } as SolicitudDocente;
+
+    await expect(enviarPaqueteServidor(req, crearRespuesta())).rejects.toMatchObject({
+      codigo: 'SYNC_SERVIDOR_NO_CONFIG',
+      estadoHttp: 503
+    });
+
+    await expect(traerPaquetesServidor(req, crearRespuesta())).rejects.toMatchObject({
+      codigo: 'SYNC_SERVIDOR_NO_CONFIG',
+      estadoHttp: 503
     });
   });
 

@@ -46,6 +46,18 @@ services:
       - NODE_ENV=development
       - EXAMEN_LOGO_IZQ_PATH=${EXAMEN_LOGO_IZQ_PATH:-logos/cuh.png}
       - EXAMEN_LOGO_DER_PATH=${EXAMEN_LOGO_DER_PATH:-logos/isc.png}
+      - OMR_DEBUG=1
+      - OMR_DEBUG_DIR=/app/data/examenes/omr_debug
+      - OMR_OFFSET_X=-14
+      - OMR_OFFSET_Y=0
+      - OMR_ALIGN_RANGE=6
+      - OMR_ALIGN_STEP=2
+      - OMR_VERT_RANGE=6
+      - OMR_VERT_STEP=2
+      - OMR_SECOND_RATIO=0.9
+      - OMR_STRONG_SCORE=0.12
+      - OMR_SCORE_MIN=0.04
+      - OMR_SCORE_STD=0.6
     volumes:
       - ./logos:/app/logos:ro
       - ./apps/backend/data/examenes:/app/data/examenes

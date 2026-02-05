@@ -31,6 +31,10 @@ export async function vincularEntrega(req: SolicitudDocente, res: Response) {
   if (String(examen.docenteId) !== String(docenteId)) {
     throw new ErrorAplicacion('NO_AUTORIZADO', 'Sin acceso a este examen', 403);
   }
+  const estadoActual = String(examen.estado ?? '').toLowerCase();
+  if (estadoActual === 'entregado' || estadoActual === 'calificado') {
+    throw new ErrorAplicacion('EXAMEN_YA_ENTREGADO', 'Este examen ya fue entregado', 409);
+  }
 
   examen.alumnoId = alumnoId;
   examen.estado = 'entregado';
@@ -62,6 +66,10 @@ export async function vincularEntregaPorFolio(req: SolicitudDocente, res: Respon
   const examen = await ExamenGenerado.findOne({ folio, docenteId });
   if (!examen) {
     throw new ErrorAplicacion('EXAMEN_NO_ENCONTRADO', 'Examen no encontrado', 404);
+  }
+  const estadoActual = String(examen.estado ?? '').toLowerCase();
+  if (estadoActual === 'entregado' || estadoActual === 'calificado') {
+    throw new ErrorAplicacion('EXAMEN_YA_ENTREGADO', 'Este examen ya fue entregado', 409);
   }
 
   examen.alumnoId = alumnoId;

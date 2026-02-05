@@ -1,0 +1,444 @@
+{
+  "generadoEn": "2026-02-05T09:37:44.413Z",
+  "baseApi": "http://localhost:4000/api",
+  "imagenes": 8,
+  "folios": [
+    "EDCD030C",
+    "364207B6",
+    "24255CF0",
+    "41E11592",
+    "44FB6D76",
+    "4ABDD6B5"
+  ],
+  "totalReactivos": 59,
+  "totalContestadas": 57,
+  "totalCorrectas": 23,
+  "precisionGlobal": 0.3898,
+  "deteccionGlobal": 0.9661,
+  "comparaciones": [
+    {
+      "archivo": "1770215756348.jpg",
+      "folio": "EDCD030C",
+      "pagina": 1,
+      "alumnoId": "696a012b3f961d983e4981a9",
+      "advertencias": [],
+      "total": 7,
+      "contestadas": 7,
+      "enBlanco": 0,
+      "correctas": 2,
+      "precision": 0.2857,
+      "deteccion": 1,
+      "detalle": [
+        {
+          "numero": 1,
+          "esperada": "B",
+          "marcada": "B"
+        },
+        {
+          "numero": 2,
+          "esperada": "A",
+          "marcada": "B"
+        },
+        {
+          "numero": 3,
+          "esperada": "E",
+          "marcada": "E"
+        },
+        {
+          "numero": 4,
+          "esperada": "E",
+          "marcada": "C"
+        },
+        {
+          "numero": 5,
+          "esperada": "B",
+          "marcada": "A"
+        },
+        {
+          "numero": 6,
+          "esperada": "B",
+          "marcada": "A"
+        },
+        {
+          "numero": 7,
+          "esperada": "D",
+          "marcada": "B"
+        }
+      ]
+    },
+    {
+      "archivo": "1770215756460.jpg",
+      "folio": "364207B6",
+      "pagina": 2,
+      "alumnoId": "6969ffa33f961d983e498181",
+      "advertencias": [],
+      "total": 8,
+      "contestadas": 8,
+      "enBlanco": 0,
+      "correctas": 3,
+      "precision": 0.375,
+      "deteccion": 1,
+      "detalle": [
+        {
+          "numero": 8,
+          "esperada": "C",
+          "marcada": "E"
+        },
+        {
+          "numero": 9,
+          "esperada": "B",
+          "marcada": "B"
+        },
+        {
+          "numero": 10,
+          "esperada": "E",
+          "marcada": "A"
+        },
+        {
+          "numero": 11,
+          "esperada": "C",
+          "marcada": "A"
+        },
+        {
+          "numero": 12,
+          "esperada": "A",
+          "marcada": "A"
+        },
+        {
+          "numero": 13,
+          "esperada": "D",
+          "marcada": "A"
+        },
+        {
+          "numero": 14,
+          "esperada": "D",
+          "marcada": "A"
+        },
+        {
+          "numero": 15,
+          "esperada": "C",
+          "marcada": "C"
+        }
+      ]
+    },
+    {
+      "archivo": "1770215756614.jpg",
+      "folio": "24255CF0",
+      "pagina": 1,
+      "alumnoId": "696a02fb3f961d983e4981b8",
+      "advertencias": [],
+      "total": 7,
+      "contestadas": 6,
+      "enBlanco": 1,
+      "correctas": 3,
+      "precision": 0.4286,
+      "deteccion": 0.8571,
+      "detalle": [
+        {
+          "numero": 1,
+          "esperada": "E",
+          "marcada": null
+        },
+        {
+          "numero": 2,
+          "esperada": "A",
+          "marcada": "A"
+        },
+        {
+          "numero": 3,
+          "esperada": "D",
+          "marcada": "B"
+        },
+        {
+          "numero": 4,
+          "esperada": "B",
+          "marcada": "B"
+        },
+        {
+          "numero": 5,
+          "esperada": "E",
+          "marcada": "B"
+        },
+        {
+          "numero": 6,
+          "esperada": "E",
+          "marcada": "B"
+        },
+        {
+          "numero": 7,
+          "esperada": "B",
+          "marcada": "B"
+        }
+      ]
+    },
+    {
+      "archivo": "1770215756699.jpg",
+      "folio": "364207B6",
+      "pagina": 1,
+      "alumnoId": "6969ffa33f961d983e498181",
+      "advertencias": [
+        "Se eligio transformacion por escala por mayor coherencia de marcas"
+      ],
+      "total": 7,
+      "contestadas": 7,
+      "enBlanco": 0,
+      "correctas": 3,
+      "precision": 0.4286,
+      "deteccion": 1,
+      "detalle": [
+        {
+          "numero": 1,
+          "esperada": "C",
+          "marcada": "B"
+        },
+        {
+          "numero": 2,
+          "esperada": "A",
+          "marcada": "A"
+        },
+        {
+          "numero": 3,
+          "esperada": "C",
+          "marcada": "A"
+        },
+        {
+          "numero": 4,
+          "esperada": "E",
+          "marcada": "C"
+        },
+        {
+          "numero": 5,
+          "esperada": "A",
+          "marcada": "A"
+        },
+        {
+          "numero": 6,
+          "esperada": "D",
+          "marcada": "A"
+        },
+        {
+          "numero": 7,
+          "esperada": "B",
+          "marcada": "B"
+        }
+      ]
+    },
+    {
+      "archivo": "1770215756767.jpg",
+      "folio": "41E11592",
+      "pagina": 1,
+      "alumnoId": "696a03613f961d983e4981c2",
+      "advertencias": [
+        "Se eligio transformacion por escala por mayor coherencia de marcas"
+      ],
+      "total": 7,
+      "contestadas": 7,
+      "enBlanco": 0,
+      "correctas": 3,
+      "precision": 0.4286,
+      "deteccion": 1,
+      "detalle": [
+        {
+          "numero": 1,
+          "esperada": "C",
+          "marcada": "E"
+        },
+        {
+          "numero": 2,
+          "esperada": "E",
+          "marcada": "E"
+        },
+        {
+          "numero": 3,
+          "esperada": "C",
+          "marcada": "C"
+        },
+        {
+          "numero": 4,
+          "esperada": "E",
+          "marcada": "B"
+        },
+        {
+          "numero": 5,
+          "esperada": "D",
+          "marcada": "E"
+        },
+        {
+          "numero": 6,
+          "esperada": "A",
+          "marcada": "D"
+        },
+        {
+          "numero": 7,
+          "esperada": "E",
+          "marcada": "E"
+        }
+      ]
+    },
+    {
+      "archivo": "1770215756923.jpg",
+      "folio": "EDCD030C",
+      "pagina": 2,
+      "alumnoId": "696a012b3f961d983e4981a9",
+      "advertencias": [],
+      "total": 8,
+      "contestadas": 8,
+      "enBlanco": 0,
+      "correctas": 2,
+      "precision": 0.25,
+      "deteccion": 1,
+      "detalle": [
+        {
+          "numero": 8,
+          "esperada": "A",
+          "marcada": "A"
+        },
+        {
+          "numero": 9,
+          "esperada": "E",
+          "marcada": "A"
+        },
+        {
+          "numero": 10,
+          "esperada": "C",
+          "marcada": "A"
+        },
+        {
+          "numero": 11,
+          "esperada": "E",
+          "marcada": "A"
+        },
+        {
+          "numero": 12,
+          "esperada": "A",
+          "marcada": "A"
+        },
+        {
+          "numero": 13,
+          "esperada": "C",
+          "marcada": "A"
+        },
+        {
+          "numero": 14,
+          "esperada": "B",
+          "marcada": "A"
+        },
+        {
+          "numero": 15,
+          "esperada": "D",
+          "marcada": "E"
+        }
+      ]
+    },
+    {
+      "archivo": "1770215757000.jpg",
+      "folio": "44FB6D76",
+      "pagina": 2,
+      "alumnoId": "696a03363f961d983e4981bd",
+      "advertencias": [
+        "No se detecto QR en la imagen"
+      ],
+      "total": 8,
+      "contestadas": 7,
+      "enBlanco": 1,
+      "correctas": 1,
+      "precision": 0.125,
+      "deteccion": 0.875,
+      "detalle": [
+        {
+          "numero": 8,
+          "esperada": "A",
+          "marcada": "C"
+        },
+        {
+          "numero": 9,
+          "esperada": "D",
+          "marcada": "A"
+        },
+        {
+          "numero": 10,
+          "esperada": "D",
+          "marcada": null
+        },
+        {
+          "numero": 11,
+          "esperada": "C",
+          "marcada": "A"
+        },
+        {
+          "numero": 12,
+          "esperada": "C",
+          "marcada": "B"
+        },
+        {
+          "numero": 13,
+          "esperada": "C",
+          "marcada": "B"
+        },
+        {
+          "numero": 14,
+          "esperada": "D",
+          "marcada": "A"
+        },
+        {
+          "numero": 15,
+          "esperada": "B",
+          "marcada": "B"
+        }
+      ]
+    },
+    {
+      "archivo": "1770215757334.jpg",
+      "folio": "4ABDD6B5",
+      "pagina": 1,
+      "alumnoId": "696a02903f961d983e4981ae",
+      "advertencias": [
+        "No se detecto QR en la imagen",
+        "Se eligio transformacion por escala por mayor coherencia de marcas"
+      ],
+      "total": 7,
+      "contestadas": 7,
+      "enBlanco": 0,
+      "correctas": 6,
+      "precision": 0.8571,
+      "deteccion": 1,
+      "detalle": [
+        {
+          "numero": 1,
+          "esperada": "B",
+          "marcada": "B"
+        },
+        {
+          "numero": 2,
+          "esperada": "E",
+          "marcada": "E"
+        },
+        {
+          "numero": 3,
+          "esperada": "A",
+          "marcada": "A"
+        },
+        {
+          "numero": 4,
+          "esperada": "C",
+          "marcada": "C"
+        },
+        {
+          "numero": 5,
+          "esperada": "E",
+          "marcada": "A"
+        },
+        {
+          "numero": 6,
+          "esperada": "E",
+          "marcada": "E"
+        },
+        {
+          "numero": 7,
+          "esperada": "E",
+          "marcada": "E"
+        }
+      ]
+    }
+  ]
+}

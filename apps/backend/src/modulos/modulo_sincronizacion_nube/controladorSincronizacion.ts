@@ -168,6 +168,26 @@ function parsearFechaIso(valor?: string): Date | null {
   return Number.isFinite(fecha.getTime()) ? fecha : null;
 }
 
+function crearErrorServidorSincronizacionNoConfigurado(codigo: 'SYNC_SERVIDOR_NO_CONFIG' | 'PORTAL_NO_CONFIG') {
+  return new ErrorAplicacion(
+    codigo,
+    'Servidor de sincronizacion no configurado. Define PORTAL_ALUMNO_URL y PORTAL_ALUMNO_API_KEY.',
+    503
+  );
+}
+
+function normalizarErrorServidorSincronizacion(error: unknown) {
+  if (error instanceof ErrorAplicacion) return error;
+  return new ErrorAplicacion(
+    'SYNC_SERVIDOR_INALCANZABLE',
+    'No se pudo conectar al servidor de sincronizacion. Verifica PORTAL_ALUMNO_URL y que el portal este en linea.',
+    502,
+    {
+      causa: error instanceof Error ? error.message : String(error)
+    }
+  );
+}
+
 async function generarPaqueteSincronizacion({
   docenteId,
   docenteCorreo,
@@ -523,7 +543,7 @@ export async function publicarResultados(req: SolicitudDocente, res: Response) {
   const docenteId = obtenerDocenteId(req);
 
   if (!configuracion.portalAlumnoUrl || !configuracion.portalApiKey) {
-    throw new ErrorAplicacion('PORTAL_NO_CONFIG', 'Portal alumno no configurado', 500);
+    throw crearErrorServidorSincronizacionNoConfigurado('PORTAL_NO_CONFIG');
   }
 
   const periodo = await Periodo.findOne({ _id: periodoId, docenteId }).lean();
@@ -715,7 +735,7 @@ export async function importarPaquete(req: SolicitudDocente, res: Response) {
 export async function enviarPaqueteServidor(req: SolicitudDocente, res: Response) {
   const docenteId = obtenerDocenteId(req);
   if (!configuracion.portalAlumnoUrl || !configuracion.portalApiKey) {
-    throw new ErrorAplicacion('SYNC_SERVIDOR_NO_CONFIG', 'Servidor de sincronizacion no configurado', 500);
+    throw crearErrorServidorSincronizacionNoConfigurado('SYNC_SERVIDOR_NO_CONFIG');
   }
 
   const periodoId = String((req.body as { periodoId?: unknown })?.periodoId ?? '').trim();
@@ -816,14 +836,14 @@ export async function enviarPaqueteServidor(req: SolicitudDocente, res: Response
         { $set: { estado: 'fallido', detalles: { error: errorMsg } } }
       );
     }
-    throw error;
+    throw normalizarErrorServidorSincronizacion(error);
   }
 }
 
 export async function traerPaquetesServidor(req: SolicitudDocente, res: Response) {
   const docenteId = obtenerDocenteId(req);
   if (!configuracion.portalAlumnoUrl || !configuracion.portalApiKey) {
-    throw new ErrorAplicacion('SYNC_SERVIDOR_NO_CONFIG', 'Servidor de sincronizacion no configurado', 500);
+    throw crearErrorServidorSincronizacionNoConfigurado('SYNC_SERVIDOR_NO_CONFIG');
   }
 
   const desdeRaw = String((req.body as { desde?: unknown })?.desde ?? '').trim();
@@ -950,6 +970,6 @@ export async function traerPaquetesServidor(req: SolicitudDocente, res: Response
         { $set: { estado: 'fallido', detalles: { error: errorMsg } } }
       );
     }
-    throw error;
+    throw normalizarErrorServidorSincronizacion(error);
   }
 }

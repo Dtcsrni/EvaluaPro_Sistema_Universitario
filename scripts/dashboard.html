@@ -1833,6 +1833,24 @@
       word-break: break-word;
     }
 
+    .status-section {
+      margin-top: 12px;
+      padding: 12px;
+      border-radius: 16px;
+      border: 1px solid var(--border);
+      background: var(--surface);
+      display: grid;
+      gap: 12px;
+    }
+
+    .status-section-title {
+      font-size: 12px;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: var(--ink-soft);
+      font-weight: 800;
+    }
+
     .health-check {
       margin-top: 12px;
       padding: 10px 12px;
@@ -1959,6 +1977,31 @@
       font-family: Consolas, monospace;
       font-size: clamp(10px, 1.2vw, 12px);
       word-break: break-word;
+    }
+
+    .log-summary {
+      display: grid;
+      gap: 10px;
+      margin: 10px 0 14px;
+    }
+
+    .log-meta {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      align-items: center;
+    }
+
+    .log-meta .pill {
+      background: var(--surface-2);
+      border: 1px solid var(--border);
+      color: var(--ink);
+      font-weight: 700;
+    }
+
+    .log-meta .pill .dot {
+      background: var(--accent);
+      box-shadow: 0 0 0 3px rgba(34, 232, 255, 0.16);
     }
 
     .eventos-estado {
@@ -2818,7 +2861,9 @@
               </div>
             </div>
             <div class="status-grid">
-              <div class="status-list">
+              <div class="status-section">
+                <div class="status-section-title">Detalles del stack</div>
+                <div class="status-list">
                 <div class="status-item">
                   <div class="status-icon">DK</div>
                   <div class="status-copy">
@@ -2868,17 +2913,20 @@
                     <div class="status-value" id="root">-</div>
                   </div>
                 </div>
+                </div>
               </div>
             </div>
             <div class="health-check" id="health-check-main" aria-live="polite">
               <div class="health-check-header">
-                <div class="health-check-title">Health check</div>
+                <div class="health-check-title">Salud automática</div>
                 <div class="health-check-badge" id="health-check-badge-main">-</div>
               </div>
               <div class="health-check-bar"><span id="health-check-progress-main"></span></div>
               <div class="health-check-meta">
                 <div>Último: <span id="health-check-last-main">-</span></div>
                 <div>Siguiente: <span id="health-check-next-main">-</span></div>
+                <div>Progreso: <span id="health-check-progress-text-main">-</span></div>
+                <div>Intervalo: <span id="health-check-interval-main">-</span></div>
               </div>
             </div>
           </div>
@@ -3084,7 +3132,9 @@
               </div>
             </div>
             <div class="status-grid">
-              <div class="status-list">
+              <div class="status-section">
+                <div class="status-section-title">Detalle operativo</div>
+                <div class="status-list">
                 <div class="status-item">
                   <div class="status-icon">PR</div>
                   <div class="status-copy">
@@ -3155,17 +3205,20 @@
                     <div class="status-value" id="connection-error">-</div>
                   </div>
                 </div>
+                </div>
               </div>
             </div>
             <div class="health-check" id="health-check-status" aria-live="polite">
               <div class="health-check-header">
-                <div class="health-check-title">Health check</div>
+                <div class="health-check-title">Salud automática</div>
                 <div class="health-check-badge" id="health-check-badge-status">-</div>
               </div>
               <div class="health-check-bar"><span id="health-check-progress-status"></span></div>
               <div class="health-check-meta">
                 <div>Último: <span id="health-check-last-status">-</span></div>
                 <div>Siguiente: <span id="health-check-next-status">-</span></div>
+                <div>Progreso: <span id="health-check-progress-text-status">-</span></div>
+                <div>Intervalo: <span id="health-check-interval-status">-</span></div>
               </div>
             </div>
           </div>
@@ -3199,6 +3252,20 @@
               </svg>
               Salida y consola
             </h2>
+            <div class="log-summary" aria-label="Resumen de logs">
+              <div class="signal-grid">
+                <div class="signal-pill error">Errores <span id="signal-error">0</span></div>
+                <div class="signal-pill warn">Advertencias <span id="signal-warn">0</span></div>
+                <div class="signal-pill ok">OK <span id="signal-ok">0</span></div>
+                <div class="signal-pill info">Info <span id="signal-info">0</span></div>
+              </div>
+              <div class="log-meta">
+                <span class="pill" id="log-size">0 líneas</span>
+                <span class="pill" id="raw-size">0 en bruto</span>
+                <span class="pill" id="last-refresh-status">-</span>
+                <span class="pill"><span class="dot" id="running-dot"></span> activo</span>
+              </div>
+            </div>
             <div class="toolbar toolbar-grid" aria-label="Controles de salida">
               <div class="toolbar-group actions" aria-label="Acciones de salida">
                 <button class="ok" id="toggle-logs" aria-expanded="false" aria-controls="log-shell">
@@ -3237,12 +3304,6 @@
                 <input class="search" id="log-filter" placeholder="Filtrar texto" aria-label="Filtrar salida" />
                 <button class="ghost-btn" id="clear-filter" type="button">Limpiar filtro</button>
               </div>
-            </div>
-            <div class="pills">
-              <span class="pill" id="log-size">0 líneas</span>
-              <span class="pill" id="raw-size">0 en bruto</span>
-              <span class="pill" id="last-refresh-status">-</span>
-              <span class="pill"><span class="dot" id="running-dot"></span> activo</span>
             </div>
 
             <div class="eventos-estado" aria-label="Eventos recientes del sistema">
@@ -3317,7 +3378,7 @@
 
     // Identificador de UI (útil para confirmar que el HTML recargó cambios).
     // Nota: actualiza este valor cuando hagas cambios visibles al dashboard.
-    const UI_REV = '2026-01-19.1';
+    const UI_REV = '2026-02-04.1';
 
     const CLAVE_ALMACEN_TEMA = 'seuDashboardTheme';
 
@@ -3653,12 +3714,16 @@
       }
 
       const progreso = ultimo ? Math.min(1, Math.max(0, (ahora - ultimo) / HEALTH_CHECK_MS)) : 0;
-      const width = `${Math.round(progreso * 100)}%`;
+      const progresoPct = Math.round(progreso * 100);
+      const width = `${progresoPct}%`;
+      const intervalo = `${Math.round(HEALTH_CHECK_MS / 100) / 10}s`;
 
       const targets = ['main', 'status'];
       targets.forEach((suffix) => {
         establecerTexto(`health-check-last-${suffix}`, hace);
         establecerTexto(`health-check-next-${suffix}`, en);
+        establecerTexto(`health-check-progress-text-${suffix}`, ultimo ? `${progresoPct}%` : '-');
+        establecerTexto(`health-check-interval-${suffix}`, intervalo);
         const badge = $(`health-check-badge-${suffix}`);
         if (badge) {
           badge.textContent = badgeTexto;
@@ -4055,15 +4120,16 @@
       const compose = state.compose || {};
       const dev = compose.dev || {};
       const prod = compose.prod || {};
+      const modo = String(state.modo || '').toLowerCase();
       const hasDevTask = state.enEjecucion.has('dev');
       const hasDevBackendTask = state.enEjecucion.has('dev-backend');
       const hasDevFrontendTask = state.enEjecucion.has('dev-frontend');
       const hasProdTask = state.enEjecucion.has('prod');
       const hasPortalTask = state.enEjecucion.has('portal');
 
-      const devBackendExpected = hasDevTask || hasDevBackendTask || dev.api_docente_local || dev.mongo_local;
-      const devFrontendExpected = hasDevTask || hasDevFrontendTask;
-      const prodExpected = hasProdTask || prod.api_docente_prod || prod.web_docente_prod || prod.mongo_local;
+      const devBackendExpected = hasDevTask || hasDevBackendTask || dev.api_docente_local || dev.mongo_local || modo === 'dev';
+      const devFrontendExpected = hasDevTask || hasDevFrontendTask || modo === 'dev';
+      const prodExpected = hasProdTask || prod.api_docente_prod || prod.web_docente_prod || prod.mongo_local || modo === 'prod';
 
       const expected = [];
       if (devBackendExpected || prodExpected) expected.push('apiDocente');
@@ -4153,6 +4219,10 @@
     }
 
     function actualizarEstadoStackReal() {
+      const estado = construirEstadoStackReal();
+      const stackRealTexto = estado.texto;
+      const stackOkTexto = formatearListaServicios(estado.ok);
+      const stackDetectadoTexto = formatearListaServicios(estado.detected);
 
       establecerTexto('stack-real', stackRealTexto);
       establecerTexto('stack-real-status', stackRealTexto);
@@ -4176,15 +4246,31 @@
       const estadoEl = boton.querySelector('[data-state]');
       const subElemento = boton.querySelector('[data-sub]');
 
-      boton.classList.toggle('active', enEjecucion);
-      boton.classList.remove('pending');
-      boton.removeAttribute('data-pending');
+      const pendiente = boton.classList.contains('pending') ? String(boton.dataset.pending || '') : '';
+      const iniciando = pendiente === 'start' && !enEjecucion;
+      const deteniendo = pendiente === 'stop' && enEjecucion;
 
-      if (estadoEl) estadoEl.textContent = enEjecucion ? 'Activo' : 'Detenido';
+      boton.classList.toggle('active', enEjecucion);
+      if (!iniciando && !deteniendo) {
+        boton.classList.remove('pending');
+        boton.removeAttribute('data-pending');
+      }
+
+      if (estadoEl) {
+        if (iniciando) estadoEl.textContent = 'Iniciando';
+        else if (deteniendo) estadoEl.textContent = 'Deteniendo';
+        else estadoEl.textContent = enEjecucion ? 'Activo' : 'Detenido';
+      }
       if (subElemento) {
-        subElemento.textContent = enEjecucion
-          ? 'Mantener 1.2s para detener'
-          : 'Mantener 1.2s para iniciar';
+        if (iniciando) {
+          subElemento.textContent = 'Iniciando...';
+        } else if (deteniendo) {
+          subElemento.textContent = 'Deteniendo...';
+        } else {
+          subElemento.textContent = enEjecucion
+            ? 'Mantener 1.2s para detener'
+            : 'Mantener 1.2s para iniciar';
+        }
       }
 
       boton.setAttribute('aria-pressed', enEjecucion ? 'true' : 'false');
@@ -4457,14 +4543,16 @@
 
     async function refrescarSalud(forzar = false) {
       const now = Date.now();
-      const reuse = !forzar && now - state.ultimaSaludEn < HEALTH_CHECK_MS;
+      const clavesEsperadas = ['apiDocente', 'apiPortal', 'webDocenteDev', 'webDocenteProd'];
+      const sinDatos = !state.salud || clavesEsperadas.some((clave) => !(clave in state.salud));
+      const reuse = !forzar && !sinDatos && now - state.ultimaSaludEn < HEALTH_CHECK_MS;
       if (!reuse) state.ultimaSaludEn = now;
 
       if (!reuse) {
         try {
           const res = await fetch('/api/health');
           const data = await res.json();
-          state.salud = data.services || {};
+          state.salud = data.services || data || {};
           state.ultimoHealthCheckEn = Number(data.checkedAt || 0) || Date.now();
         } catch {
           state.salud = {};
@@ -4953,84 +5041,85 @@
       const enEjecucionPrevio = new Set(state.enEjecucion);
       try {
         const respuesta = await fetch('/api/status');
+        if (!respuesta.ok) throw new Error(`HTTP ${respuesta.status || 0}`);
         const datos = await respuesta.json();
         establecerConexion('ok');
 
-      const listaEjecucion = Array.isArray(datos.running) ? datos.running : [];
-      const conteoEjecucion = listaEjecucion.length;
-      const ejecucionPrevia = new Set(state.enEjecucion);
-      const vistaDocker = resolverVistaDocker(datos);
-      const vistaStack = resolverVistaStack(datos, listaEjecucion);
-      const vistaHttps = resolverEstadoHttps(datos.https);
-      const ahoraRefresco = Date.now();
+        const listaEjecucion = Array.isArray(datos.running) ? datos.running : [];
+        const conteoEjecucion = listaEjecucion.length;
+        const ejecucionPrevia = new Set(state.enEjecucion);
+        const vistaDocker = resolverVistaDocker(datos);
+        const vistaStack = resolverVistaStack(datos, listaEjecucion);
+        const vistaHttps = resolverEstadoHttps(datos.https);
+        const ahoraRefresco = Date.now();
 
-      const modoMostrar = derivarModoVista(datos.mode, listaEjecucion);
-      state.modo = modoMostrar;
-      state.https = datos.https || null;
-      state.compose = datos.compose || null;
-      state.enEjecucion = new Set(listaEjecucion);
+        const modoMostrar = derivarModoVista(datos.mode, listaEjecucion);
+        state.modo = modoMostrar;
+        state.https = datos.https || null;
+        state.compose = datos.compose || null;
+        state.enEjecucion = new Set(listaEjecucion);
 
-      const stackReal = construirEstadoStackReal();
-      const stackRealTexto = stackReal.texto;
-      const stackOkTexto = formatearListaServicios(stackReal.ok);
-      const stackDetectadoTexto = formatearListaServicios(stackReal.detected);
+        try {
+          establecerTexto('root', datos.root);
+          establecerTexto('mode', formatearEtiquetaModo(modoMostrar));
+          establecerTexto('running-count', String(conteoEjecucion));
+          establecerTexto('running', renderizarEnEjecucion(listaEjecucion));
+          establecerTexto('last-refresh', `Actualizado ${new Date().toLocaleTimeString()}`);
 
-      establecerTexto('root', datos.root);
-      establecerTexto('mode', formatearEtiquetaModo(modoMostrar));
-      establecerTexto('running-count', String(conteoEjecucion));
-      establecerTexto('running', renderizarEnEjecucion(listaEjecucion));
-      establecerTexto('last-refresh', `Actualizado ${new Date().toLocaleTimeString()}`);
+          establecerTexto('root-status', datos.root);
+          establecerTexto('mode-status', formatearEtiquetaModo(modoMostrar));
+          establecerTexto('running-status', renderizarEnEjecucion(listaEjecucion));
+          establecerTexto('node', datos.node);
+          establecerTexto('npm', datos.npm);
+          establecerTexto('docker', vistaDocker);
+          establecerTexto('docker-state-main', vistaDocker);
+          establecerTexto('stack-state-main', vistaStack);
+          establecerTexto('stack-state-status', vistaStack);
+          actualizarEstadoStackReal();
+          actualizarTiemposHealth(ahoraRefresco);
+          establecerTexto('https-state-main', vistaHttps);
+          establecerTexto('https-status', vistaHttps);
+          establecerTexto('mode-chip', `Modo: ${formatearEtiquetaModo(modoMostrar)}`);
+          establecerTexto('running-chip', `Procesos: ${conteoEjecucion}`);
+          establecerTexto('port-chip', `Puerto: ${datos.port || '-'}`);
+          establecerTexto('log-size', `${datos.logSize} líneas`);
+          establecerTexto('raw-size', `${datos.rawSize} en bruto`);
+          establecerTexto('last-refresh-status', `Actualizado ${new Date().toLocaleTimeString()}`);
 
-      establecerTexto('root-status', datos.root);
-      establecerTexto('mode-status', formatearEtiquetaModo(modoMostrar));
-      establecerTexto('running-status', renderizarEnEjecucion(listaEjecucion));
-      establecerTexto('node', datos.node);
-      establecerTexto('npm', datos.npm);
-      establecerTexto('docker', vistaDocker);
-      establecerTexto('docker-state-main', vistaDocker);
-      establecerTexto('stack-state-main', vistaStack);
-      establecerTexto('stack-state-status', vistaStack);
-      actualizarEstadoStackReal();
-      actualizarTiemposHealth(ahoraRefresco);
-      establecerTexto('https-state-main', vistaHttps);
-      establecerTexto('https-status', vistaHttps);
-      establecerTexto('mode-chip', `Modo: ${formatearEtiquetaModo(modoMostrar)}`);
-      establecerTexto('running-chip', `Procesos: ${conteoEjecucion}`);
-      establecerTexto('port-chip', `Puerto: ${datos.port || '-'}`);
-      establecerTexto('log-size', `${datos.logSize} líneas`);
-      establecerTexto('raw-size', `${datos.rawSize} en bruto`);
-      establecerTexto('last-refresh-status', `Actualizado ${new Date().toLocaleTimeString()}`);
+          state.autoReinicio = Boolean(datos.autoRestart);
+          const toggleAutoReinicio = $('auto-restart');
+          if (toggleAutoReinicio) {
+            toggleAutoReinicio.disabled = String(datos.modeConfig || datos.mode || '').toLowerCase() !== 'dev';
+            toggleAutoReinicio.checked = state.autoReinicio;
+          }
 
-      state.autoReinicio = Boolean(datos.autoRestart);
-      const toggleAutoReinicio = $('auto-restart');
-      if (toggleAutoReinicio) {
-        toggleAutoReinicio.disabled = String(datos.modeConfig || datos.mode || '').toLowerCase() !== 'dev';
-        toggleAutoReinicio.checked = state.autoReinicio;
-      }
+          establecerPuntoEjecucion(conteoEjecucion > 0);
+          actualizarBotonesEntorno();
 
-      establecerPuntoEjecucion(conteoEjecucion > 0);
-      actualizarBotonesEntorno();
+          if (state.haCargado) {
+            sincronizarEventosEntorno(ejecucionPrevia, state.enEjecucion);
+          }
+          state.haCargado = true;
 
-      if (state.haCargado) {
-        sincronizarEventosEntorno(ejecucionPrevia, state.enEjecucion);
-      }
-      state.haCargado = true;
+          const itemApiDocente = $('api-docente-item');
+          if (itemApiDocente) {
+            const apiDocenteActivo = state.enEjecucion.has('dev') ||
+              state.enEjecucion.has('prod') ||
+              Boolean(state.compose?.dev?.api_docente_local) ||
+              Boolean(state.compose?.prod?.api_docente_prod);
+            itemApiDocente.classList.toggle('inactive', !apiDocenteActivo);
+          }
+          const itemApiPortal = $('api-portal-item');
+          if (itemApiPortal) {
+            itemApiPortal.classList.toggle('inactive', !state.enEjecucion.has('portal'));
+          }
+        } catch (renderError) {
+          console.error('Error actualizando UI del dashboard:', renderError);
+        }
 
-      const itemApiDocente = $('api-docente-item');
-      if (itemApiDocente) {
-        const apiDocenteActivo = state.enEjecucion.has('dev') ||
-          state.enEjecucion.has('prod') ||
-          Boolean(state.compose?.dev?.api_docente_local) ||
-          Boolean(state.compose?.prod?.api_docente_prod);
-        itemApiDocente.classList.toggle('inactive', !apiDocenteActivo);
-      }
-      const itemApiPortal = $('api-portal-item');
-      if (itemApiPortal) {
-        itemApiPortal.classList.toggle('inactive', !state.enEjecucion.has('portal'));
-      }
-
-        await refrescarSalud();
-        aplicarAnimo();
+        const fuerzaSalud = Object.keys(state.salud || {}).length === 0 || state.modo !== 'none';
+        await refrescarSalud(fuerzaSalud);
+        actualizarEstadoStackReal();
       } catch (error) {
         establecerConexion('error', normalizarMensajeError(error));
         if (enEjecucionPrevio.size > 0) {
@@ -5067,6 +5156,8 @@
         ['main', 'status'].forEach((suffix) => {
           establecerTexto(`health-check-last-${suffix}`, '-');
           establecerTexto(`health-check-next-${suffix}`, '-');
+          establecerTexto(`health-check-progress-text-${suffix}`, '-');
+          establecerTexto(`health-check-interval-${suffix}`, '-');
           const badge = $(`health-check-badge-${suffix}`);
           if (badge) {
             badge.textContent = '-';

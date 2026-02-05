@@ -828,6 +828,7 @@ export function AppDocente() {
       {vista === 'entrega' && (
         <SeccionEntrega
           alumnos={alumnos}
+          plantillas={plantillas}
           periodos={periodos}
           permisos={permisosUI}
           avisarSinPermiso={avisarSinPermiso}
@@ -6141,12 +6142,14 @@ function SeccionRegistroEntrega({
   alumnos,
   onVincular,
   puedeGestionar,
-  avisarSinPermiso
+  avisarSinPermiso,
+  examenesPorFolio
 }: {
   alumnos: Alumno[];
   onVincular: (folio: string, alumnoId: string) => Promise<unknown>;
   puedeGestionar: boolean;
   avisarSinPermiso: (mensaje: string) => void;
+  examenesPorFolio: Map<string, { alumnoId?: string | null }>;
 }) {
   const [folio, setFolio] = useState('');
   const [alumnoId, setAlumnoId] = useState('');
@@ -6159,6 +6162,7 @@ function SeccionRegistroEntrega({
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const mediaStreamRef = useRef<MediaStream | null>(null);
   const rafRef = useRef<number | null>(null);
+  const audioCtxRef = useRef<AudioContext | null>(null);
   const jsQrRef = useRef<((data: Uint8ClampedArray, width: number, height: number, options?: { inversionAttempts?: 'dontInvert' | 'onlyInvert' | 'attemptBoth' | 'invertFirst' }) => { data: string } | null) | null>(null);
   type BarcodeDetectorCtor = new (opts: { formats: string[] }) => {
     detect: (img: ImageBitmapSource) => Promise<Array<{ rawValue?: string }>>;
@@ -6166,6 +6170,111 @@ function SeccionRegistroEntrega({
 
   const puedeVincular = Boolean(folio.trim() && alumnoId);
   const bloqueoEdicion = !puedeGestionar;
+
+  function prepararAudio() {
+    if (typeof window === 'undefined') return;
+    try {
+      const ctx = audioCtxRef.current ?? new AudioContext();
+      audioCtxRef.current = ctx;
+      if (ctx.state === 'suspended') void ctx.resume();
+    } catch {
+      // ignore
+    }
+  }
+
+  function reproducirSonido(tipo: 'scan' | 'ok') {
+    if (typeof window === 'undefined') return;
+    try {
+      const ctx = audioCtxRef.current ?? new AudioContext();
+      audioCtxRef.current = ctx;
+      if (ctx.state === 'suspended') void ctx.resume();
+      if (ctx.state === 'suspended') return;
+      const ahora = ctx.currentTime;
+      const salida = ctx.createGain();
+      salida.gain.setValueAtTime(0.0001, ahora);
+      salida.gain.exponentialRampToValueAtTime(0.08, ahora + 0.02);
+      salida.gain.exponentialRampToValueAtTime(0.0001, ahora + 0.35);
+      salida.connect(ctx.destination);
+
+      const frecuencias = tipo === 'scan' ? [523.25, 659.25] : [440, 554.37, 659.25];
+      const duracion = tipo === 'scan' ? 0.28 : 0.38;
+      for (const freq of frecuencias) {
+        const osc = ctx.createOscillator();
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(freq, ahora);
+        osc.connect(salida);
+        osc.start(ahora);
+        osc.stop(ahora + duracion);
+      }
+    } catch {
+      // ignore
+    }
+  }
+
+  useEffect(() => {
+    const folioLimpio = folio.trim().toUpperCase();
+    if (!folioLimpio) return;
+    const examen = examenesPorFolio.get(folioLimpio);
+    const alumnoDetectado = String(examen?.alumnoId ?? '').trim();
+    if (alumnoDetectado && alumnoDetectado !== alumnoId) {
+      setAlumnoId(alumnoDetectado);
+    }
+  }, [alumnoId, examenesPorFolio, folio]);
+
+  async function ejecutarVinculacion(folioValor: string, alumnoValor: string, origen: 'manual' | 'auto') {
+    if (!folioValor || !alumnoValor) return;
+    try {
+      const inicio = Date.now();
+      if (!puedeGestionar) {
+        avisarSinPermiso('No tienes permiso para vincular entregas.');
+        return;
+      }
+      setVinculando(true);
+      setMensaje('');
+      await onVincular(folioValor.trim(), alumnoValor);
+      setMensaje('Entrega vinculada');
+      emitToast({ level: 'ok', title: 'Entrega', message: origen === 'auto' ? 'Entrega vinculada automaticamente' : 'Entrega vinculada', durationMs: 2200 });
+      reproducirSonido('ok');
+      registrarAccionDocente('vincular_entrega', true, Date.now() - inicio);
+    } catch (error) {
+      const msg = mensajeDeError(error, 'No se pudo vincular');
+      setMensaje(msg);
+      emitToast({
+        level: 'error',
+        title: 'No se pudo vincular',
+        message: msg,
+        durationMs: 5200,
+        action: accionToastSesionParaError(error, 'docente')
+      });
+      registrarAccionDocente('vincular_entrega', false);
+    } finally {
+      setVinculando(false);
+    }
+  }
+
+  async function manejarFolioDetectado(folioDetectado: string) {
+    setScanError('');
+    setFolio(folioDetectado);
+    reproducirSonido('scan');
+    const folioNormalizado = folioDetectado.toUpperCase();
+    let alumnoDetectado = String(examenesPorFolio.get(folioNormalizado)?.alumnoId ?? '').trim();
+    if (!alumnoDetectado) {
+      try {
+        const payload = await clienteApi.obtener<{ examen?: { alumnoId?: string | null } }>(
+          `/examenes/generados/folio/${encodeURIComponent(folioNormalizado)}`
+        );
+        alumnoDetectado = String(payload?.examen?.alumnoId ?? '').trim();
+      } catch {
+        // ignore
+      }
+    }
+    if (alumnoDetectado) {
+      setAlumnoId(alumnoDetectado);
+      await ejecutarVinculacion(folioDetectado, alumnoDetectado, 'auto');
+      return;
+    }
+    emitToast({ level: 'ok', title: 'QR', message: 'Folio capturado. Selecciona el alumno para vincular.', durationMs: 2400 });
+  }
 
   function extraerFolioDesdeQr(texto: string) {
     const limpio = String(texto ?? '').trim();
@@ -6253,6 +6362,15 @@ function SeccionRegistroEntrega({
     setEscaneando(false);
   }
 
+  async function esperarVideoRef() {
+    for (let intento = 0; intento < 8; intento += 1) {
+      const video = videoRef.current;
+      if (video) return video;
+      await new Promise<void>((resolve) => window.requestAnimationFrame(() => resolve()));
+    }
+    return null;
+  }
+
   async function iniciarCamara() {
     setScanError('');
     if (!navigator?.mediaDevices?.getUserMedia) {
@@ -6267,8 +6385,16 @@ function SeccionRegistroEntrega({
       const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } });
       mediaStreamRef.current = stream;
       setEscaneando(true);
-      const video = videoRef.current;
-      if (!video) return;
+      const video = await esperarVideoRef();
+      if (!video) {
+        detenerCamara();
+        setScanError('No se pudo iniciar la vista previa de la camara. Usa foto.');
+        inputCamRef.current?.click();
+        return;
+      }
+      video.muted = true;
+      video.autoplay = true;
+      video.playsInline = true;
       video.srcObject = stream;
       await video.play();
       const jsQR = await asegurarJsQr();
@@ -6300,9 +6426,7 @@ function SeccionRegistroEntrega({
         const valor = String(resultado?.data ?? '').trim();
         const folioDetectado = extraerFolioDesdeQr(valor);
         if (folioDetectado) {
-          setScanError('');
-          setFolio(folioDetectado);
-          emitToast({ level: 'ok', title: 'QR', message: 'Folio capturado', durationMs: 2000 });
+          void manejarFolioDetectado(folioDetectado);
           detenerCamara();
           return;
         }
@@ -6336,9 +6460,7 @@ function SeccionRegistroEntrega({
           : 'No se detecto un folio valido. Escanea el QR del examen.');
         return;
       }
-      setScanError('');
-      setFolio(folioDetectado);
-      emitToast({ level: 'ok', title: 'QR', message: 'Folio capturado', durationMs: 2000 });
+      await manejarFolioDetectado(folioDetectado);
     } catch (error) {
       const msg = mensajeUsuarioDeErrorConSugerencia(error, 'No se pudo leer el QR. Intenta de nuevo o captura el folio manualmente.');
       setScanError(msg);
@@ -6347,6 +6469,7 @@ function SeccionRegistroEntrega({
 
   function abrirCamara() {
     setScanError('');
+    prepararAudio();
     void iniciarCamara();
   }
 
@@ -6357,32 +6480,7 @@ function SeccionRegistroEntrega({
   }, []);
 
   async function vincular() {
-    try {
-      const inicio = Date.now();
-      if (!puedeGestionar) {
-        avisarSinPermiso('No tienes permiso para vincular entregas.');
-        return;
-      }
-      setVinculando(true);
-      setMensaje('');
-      await onVincular(folio.trim(), alumnoId);
-      setMensaje('Entrega vinculada');
-      emitToast({ level: 'ok', title: 'Entrega', message: 'Entrega vinculada', durationMs: 2200 });
-      registrarAccionDocente('vincular_entrega', true, Date.now() - inicio);
-    } catch (error) {
-      const msg = mensajeDeError(error, 'No se pudo vincular');
-      setMensaje(msg);
-      emitToast({
-        level: 'error',
-        title: 'No se pudo vincular',
-        message: msg,
-        durationMs: 5200,
-        action: accionToastSesionParaError(error, 'docente')
-      });
-      registrarAccionDocente('vincular_entrega', false);
-    } finally {
-      setVinculando(false);
-    }
+    await ejecutarVinculacion(folio.trim(), alumnoId, 'manual');
   }
 
   return (
@@ -6564,6 +6662,7 @@ function SeccionRegistroEntrega({
 
 function SeccionEntrega({
   alumnos,
+  plantillas,
   periodos,
   onVincular,
   permisos,
@@ -6571,6 +6670,7 @@ function SeccionEntrega({
   enviarConPermiso
 }: {
   alumnos: Alumno[];
+  plantillas: Plantilla[];
   periodos: Periodo[];
   onVincular: (folio: string, alumnoId: string) => Promise<unknown>;
   permisos: PermisosUI;
@@ -6583,6 +6683,7 @@ function SeccionEntrega({
     alumnoId?: string | null;
     estado?: string;
     periodoId?: string;
+    plantillaId?: string;
     generadoEn?: string;
     entregadoEn?: string;
   };
@@ -6609,6 +6710,25 @@ function SeccionEntrega({
     }
     return mapa;
   }, [alumnos]);
+
+  const plantillasPorId = useMemo(() => {
+    const mapa = new Map<string, Plantilla>();
+    for (const plantilla of Array.isArray(plantillas) ? plantillas : []) {
+      mapa.set(plantilla._id, plantilla);
+    }
+    return mapa;
+  }, [plantillas]);
+
+  const examenesPorFolio = useMemo(() => {
+    const mapa = new Map<string, ExamenGeneradoEntrega>();
+    for (const examen of Array.isArray(examenes) ? examenes : []) {
+      const folio = String(examen.folio ?? '').trim().toUpperCase();
+      if (folio) {
+        mapa.set(folio, examen);
+      }
+    }
+    return mapa;
+  }, [examenes]);
 
   const formatearFechaHora = useCallback((valor?: string) => {
     const v = String(valor || '').trim();
@@ -6708,6 +6828,10 @@ function SeccionEntrega({
     return examenesFiltrados.filter((examen) => {
       const estado = String(examen.estado ?? '').toLowerCase();
       return estado === 'entregado' || estado === 'calificado';
+    }).sort((a, b) => {
+      const aTime = a.entregadoEn ? new Date(a.entregadoEn).getTime() : 0;
+      const bTime = b.entregadoEn ? new Date(b.entregadoEn).getTime() : 0;
+      return bTime - aTime;
     });
   }, [examenesFiltrados]);
 
@@ -6745,6 +6869,7 @@ function SeccionEntrega({
         onVincular={vincularYRefrescar}
         puedeGestionar={puedeGestionar}
         avisarSinPermiso={avisarSinPermiso}
+        examenesPorFolio={examenesPorFolio}
       />
 
       <div className="panel">
@@ -6797,6 +6922,12 @@ function SeccionEntrega({
             {entregados.map((examen) => {
               const alumno = examen.alumnoId ? alumnosPorId.get(examen.alumnoId) : null;
               const alumnoTexto = alumno ? `${alumno.matricula} - ${alumno.nombreCompleto}` : 'Sin alumno';
+              const plantilla = examen.plantillaId ? plantillasPorId.get(examen.plantillaId) : null;
+              const parcialTexto = plantilla
+                ? (plantilla.tipo === 'parcial'
+                  ? (plantilla.titulo || 'Parcial')
+                  : (plantilla.titulo ? `Global: ${plantilla.titulo}` : 'Global'))
+                : '-';
               const bloqueando = deshaciendoFolio === examen.folio;
               return (
                 <li key={examen._id}>
@@ -6806,6 +6937,7 @@ function SeccionEntrega({
                         <div className="item-title">Folio {examen.folio}</div>
                         <div className="item-meta">
                           <span>Alumno: {alumnoTexto}</span>
+                          <span>Parcial: {parcialTexto}</span>
                           <span>Entrega: {formatearFechaHora(examen.entregadoEn)}</span>
                           <span>Estado: {String(examen.estado ?? 'entregado')}</span>
                         </div>
@@ -6841,6 +6973,12 @@ function SeccionEntrega({
             {pendientes.map((examen) => {
               const alumno = examen.alumnoId ? alumnosPorId.get(examen.alumnoId) : null;
               const alumnoTexto = alumno ? `${alumno.matricula} - ${alumno.nombreCompleto}` : 'Sin alumno';
+              const plantilla = examen.plantillaId ? plantillasPorId.get(examen.plantillaId) : null;
+              const parcialTexto = plantilla
+                ? (plantilla.tipo === 'parcial'
+                  ? (plantilla.titulo || 'Parcial')
+                  : (plantilla.titulo ? `Global: ${plantilla.titulo}` : 'Global'))
+                : '-';
               return (
                 <li key={examen._id}>
                   <div className="item-glass">
@@ -6849,6 +6987,7 @@ function SeccionEntrega({
                         <div className="item-title">Folio {examen.folio}</div>
                         <div className="item-meta">
                           <span>Alumno: {alumnoTexto}</span>
+                          <span>Parcial: {parcialTexto}</span>
                           <span>Generado: {formatearFechaHora(examen.generadoEn)}</span>
                           <span>Estado: {String(examen.estado ?? 'generado')}</span>
                         </div>
@@ -7099,12 +7238,43 @@ function SeccionEscaneo({
   const mapaAlumnos = useMemo(() => new Map(alumnos.map((item) => [item._id, item.nombreCompleto])), [alumnos]);
 
   async function leerArchivoBase64(archivo: File): Promise<string> {
-    return new Promise((resolve, reject) => {
-      const lector = new FileReader();
-      lector.onload = () => resolve(String(lector.result || ''));
-      lector.onerror = () => reject(new Error('No se pudo leer el archivo'));
-      lector.readAsDataURL(archivo);
+    const leer = () =>
+      new Promise<string>((resolve, reject) => {
+        const lector = new FileReader();
+        lector.onload = () => resolve(String(lector.result || ''));
+        lector.onerror = () => reject(new Error('No se pudo leer el archivo'));
+        lector.readAsDataURL(archivo);
+      });
+
+    const dataUrl = await leer();
+    if (!dataUrl.startsWith('data:image/')) return dataUrl;
+
+    const img = await new Promise<HTMLImageElement>((resolve, reject) => {
+      const imagen = new Image();
+      imagen.onload = () => resolve(imagen);
+      imagen.onerror = () => reject(new Error('No se pudo cargar la imagen'));
+      imagen.src = dataUrl;
     });
+
+    const maxDimension = 1600;
+    const escala = Math.min(1, maxDimension / Math.max(img.width, img.height));
+    const ancho = Math.max(1, Math.round(img.width * escala));
+    const alto = Math.max(1, Math.round(img.height * escala));
+    const canvas = document.createElement('canvas');
+    canvas.width = ancho;
+    canvas.height = alto;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return dataUrl;
+    ctx.drawImage(img, 0, 0, ancho, alto);
+
+    const maxChars = 1_900_000;
+    let calidad = 0.85;
+    let comprimida = canvas.toDataURL('image/jpeg', calidad);
+    while (comprimida.length > maxChars && calidad > 0.55) {
+      calidad = Math.max(0.55, calidad - 0.1);
+      comprimida = canvas.toDataURL('image/jpeg', calidad);
+    }
+    return comprimida.length > maxChars ? dataUrl : comprimida;
   }
 
   async function cargarArchivo(event: ChangeEvent<HTMLInputElement>) {
@@ -7180,7 +7350,9 @@ function SeccionEscaneo({
       if (item.estado === 'listo') continue;
       setLote((prev) => prev.map((i) => (i.id === item.id ? { ...i, estado: 'analizando', mensaje: '' } : i)));
       try {
-        const respuesta = await onAnalizar(folio.trim(), paginaManual, item.imagenBase64);
+        const folioEnvio = folio.trim();
+        const paginaEnvio = paginaManual > 0 ? paginaManual : 0;
+        const respuesta = await onAnalizar(folioEnvio, paginaEnvio, item.imagenBase64);
         setLote((prev) => prev.map((i) => (i.id === item.id ? { ...i, estado: 'precalificando' } : i)));
         const preview = await onPrevisualizar({
           examenGeneradoId: respuesta.examenId,

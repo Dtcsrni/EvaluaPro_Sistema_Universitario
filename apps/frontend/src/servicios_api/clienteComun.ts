@@ -262,7 +262,14 @@ function mensajeAmigablePorCodigo(codigo?: string): string | undefined {
   if (c.includes('TOKEN') && c.includes('INVALID')) return 'Tu sesion expiro. Inicia sesion de nuevo.';
   if (c.includes('TOKEN') && c.includes('EXPIR')) return 'Tu sesion expiro. Inicia sesion de nuevo.';
   if (c.includes('DATOS_INVALID')) return 'Datos invalidos. Revisa los campos e intenta de nuevo.';
+  if (c.includes('SYNC_SERVIDOR_NO_CONFIG') || c.includes('PORTAL_NO_CONFIG')) {
+    return 'Servidor de sincronizacion no configurado. Define PORTAL_ALUMNO_URL y PORTAL_ALUMNO_API_KEY.';
+  }
+  if (c.includes('SYNC_SERVIDOR_INALCANZABLE')) {
+    return 'No se pudo conectar al servidor de sincronizacion. Verifica la URL y que el portal este en linea.';
+  }
   if (c.includes('EXAMEN_NO_ENCONTR')) return 'No se encontro el examen solicitado.';
+  if (c.includes('EXAMEN_YA_ENTREGAD')) return 'Este examen ya fue entregado.';
   if (c.includes('PDF_NO_DISPON')) return 'El PDF no esta disponible aun.';
   if (c.includes('ERROR_INTERNO')) return 'Ocurrio un error interno. Intenta mas tarde.';
   return undefined;
@@ -305,6 +312,13 @@ export function sugerenciaUsuarioDeError(error: unknown): string | undefined {
     const status = detalle?.status;
     const codigo = typeof detalle?.codigo === 'string' ? detalle.codigo.toUpperCase() : undefined;
 
+    if (codigo?.includes('SYNC_SERVIDOR_NO_CONFIG') || codigo?.includes('PORTAL_NO_CONFIG')) {
+      return 'Tip: configura PORTAL_ALUMNO_URL y PORTAL_ALUMNO_API_KEY.';
+    }
+    if (codigo?.includes('SYNC_SERVIDOR_INALCANZABLE')) {
+      return 'Tip: verifica la URL del portal y su conectividad.';
+    }
+
     if (status === 401) {
       if (codigo?.includes('CREDENCIALES_INVALIDAS')) return undefined;
       if (codigo?.includes('DOCENTE_NO_REGISTRADO')) return 'Tip: crea tu cuenta desde "Registrar".';
@@ -325,11 +339,23 @@ export function sugerenciaUsuarioDeError(error: unknown): string | undefined {
   return undefined;
 }
 
+function normalizarTextoComparacion(texto: string): string {
+  return String(texto || '')
+    .toLowerCase()
+    .replace(/^tip:\s*/i, '')
+    .replace(/[.!?:;,]/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
 export function mensajeUsuarioDeErrorConSugerencia(error: unknown, fallback: string): string {
   const base = mensajeUsuarioDeError(error, fallback);
   const tip = sugerenciaUsuarioDeError(error);
   if (!tip) return base;
-  if (base.toLowerCase().includes(tip.toLowerCase())) return base;
+  const baseNorm = normalizarTextoComparacion(base);
+  const tipNorm = normalizarTextoComparacion(tip);
+  if (!tipNorm) return base;
+  if (baseNorm.includes(tipNorm) || tipNorm.includes(baseNorm)) return base;
   return `${base} ${tip}`;
 }
 
