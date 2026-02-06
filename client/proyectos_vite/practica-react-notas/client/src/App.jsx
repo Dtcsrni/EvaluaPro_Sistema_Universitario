@@ -15,12 +15,12 @@ export default function App() {
   const guardarNota = async (e) => {
     e.preventDefault();
     try {
-      await fetch(`${URL_API}/api/notas`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ texto }),
-      });
-      console.log("Nota guardada", texto);
+    await fetch(`${URL_API}/api/notas`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ texto }),
+    });
+    console.log("Nota guardada", texto);
     } catch (error) {
       console.error("Error al guardar la nota:", error);
     }
