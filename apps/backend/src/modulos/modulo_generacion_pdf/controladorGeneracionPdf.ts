@@ -97,15 +97,45 @@ function construirNombrePdfExamen(parametros: {
     tema = primero ? `${primero}_mas-${temas.length - 1}` : `mas-${temas.length}`;
   }
 
-  const partes = ['examen'];
+  const partes = ['evaluapro', 'examen'];
   if (materia) partes.push(materia);
   if (tema) partes.push(`tema-${tema}`);
-  if (titulo) partes.push(titulo);
+  if (titulo) partes.push(`plantilla-${titulo}`);
   if (lote) partes.push(`lote-${lote}`);
   if (folio) partes.push(`folio-${folio}`);
 
   const nombre = partes.filter(Boolean).join('_');
   return `${nombre}.pdf`;
+}
+
+function construirNombrePdfPreviewPlantilla(parametros: {
+  plantillaId: string;
+  plantillaTitulo?: string;
+  previewKey?: string;
+}): string {
+  const titulo = normalizarParaNombreArchivo(parametros.plantillaTitulo, { maxLen: 42 });
+  const pid = normalizarParaNombreArchivo(String(parametros.plantillaId ?? '').slice(-8), { maxLen: 8 }) || 'sinid';
+  const sig = normalizarParaNombreArchivo(parametros.previewKey, { maxLen: 16 });
+  const partes = ['evaluapro', 'preview', 'plantilla'];
+  if (titulo) partes.push(`titulo-${titulo}`);
+  partes.push(`pid-${pid}`);
+  if (sig) partes.push(`sig-${sig}`);
+  return `${partes.join('_')}.pdf`;
+}
+
+function construirNombrePdfLote(parametros: {
+  loteId: string;
+  materiaNombre?: string;
+  plantillaTitulo?: string;
+}): string {
+  const lote = normalizarParaNombreArchivo(parametros.loteId, { maxLen: 16 }) || 'sinlote';
+  const materia = normalizarParaNombreArchivo(parametros.materiaNombre, { maxLen: 36 });
+  const titulo = normalizarParaNombreArchivo(parametros.plantillaTitulo, { maxLen: 36 });
+  const partes = ['evaluapro', 'lote', 'examenes'];
+  if (materia) partes.push(`materia-${materia}`);
+  if (titulo) partes.push(`plantilla-${titulo}`);
+  partes.push(`lote-${lote}`);
+  return `${partes.join('_')}.pdf`;
 }
 
 function formatearDocente(nombreCompleto: unknown): string {
@@ -788,6 +818,7 @@ export async function previsualizarPlantilla(req: SolicitudDocente, res: Respons
   const totalUsados = extraerPreguntasUsadasMapaOmr(mapaOmr as never).size;
   const ultima = (Array.isArray(metricasPaginas) ? metricasPaginas : []).find((m) => m.numero === paginasObjetivo);
   const fraccionVaciaUltimaPagina = Number(ultima?.fraccionVacia ?? 0);
+  const umbralVacioResidual = 0.05;
   const consumioTodas = totalUsados >= totalDisponibles;
   const advertencias: string[] = [];
   if (autoExtendida && paginasObjetivo !== numeroPaginas) {
@@ -795,7 +826,7 @@ export async function previsualizarPlantilla(req: SolicitudDocente, res: Respons
       `Previsualizacion extendida a ${paginasObjetivo} pagina(s) para mostrar todas las preguntas (configurado: ${numeroPaginas}).`
     );
   }
-  if (consumioTodas && fraccionVaciaUltimaPagina > 0) {
+  if (consumioTodas && fraccionVaciaUltimaPagina > umbralVacioResidual) {
     advertencias.push(
       `No hay suficientes preguntas para llenar ${paginasObjetivo} pagina(s). ` +
         `La ultima pagina queda ${(fraccionVaciaUltimaPagina * 100).toFixed(0)}% vacia.`
@@ -931,20 +962,19 @@ export async function previsualizarPlantillaPdf(req: SolicitudDocente, res: Resp
     temas
   });
   const dirPreview = obtenerDirectorioPreview();
-  const archivoPreview = path.join(dirPreview, `preview_${previewKey}.pdf`);
+  const nombreArchivoPreview = construirNombrePdfPreviewPlantilla({
+    plantillaId,
+    plantillaTitulo: String((plantilla as unknown as { titulo?: unknown })?.titulo ?? ''),
+    previewKey
+  });
+  const archivoPreview = path.join(dirPreview, nombreArchivoPreview);
   if (!esDev) {
     try {
       const stat = await fs.stat(archivoPreview);
       const expiraEn = stat.mtimeMs + PREVIEW_TTL_MS;
       if (Date.now() < expiraEn) {
         res.setHeader('Content-Type', 'application/pdf');
-        const tituloArchivo = normalizarParaNombreArchivo(
-          String((plantilla as unknown as { titulo?: unknown })?.titulo ?? ''),
-          { maxLen: 48 }
-        );
-        const sufijo = String(plantillaId).slice(-8);
-        const nombre = ['preview', tituloArchivo || '', sufijo].filter(Boolean).join('_');
-        res.setHeader('Content-Disposition', `inline; filename="${nombre}.pdf"`);
+        res.setHeader('Content-Disposition', `inline; filename="${nombreArchivoPreview}"`);
         const buffer = await fs.readFile(archivoPreview);
         res.send(buffer);
         return;
@@ -1007,12 +1037,7 @@ export async function previsualizarPlantillaPdf(req: SolicitudDocente, res: Resp
   }
 
   res.setHeader('Content-Type', 'application/pdf');
-  const tituloArchivo = normalizarParaNombreArchivo(String((plantilla as unknown as { titulo?: unknown })?.titulo ?? ''), {
-    maxLen: 48
-  });
-  const sufijo = String(plantillaId).slice(-8);
-  const nombre = ['preview', tituloArchivo || '', sufijo].filter(Boolean).join('_');
-  res.setHeader('Content-Disposition', `inline; filename="${nombre}.pdf"`);
+  res.setHeader('Content-Disposition', `inline; filename="${nombreArchivoPreview}"`);
   res.send(Buffer.from(pdfBytes));
 }
 
@@ -1099,6 +1124,7 @@ export async function generarExamen(req: SolicitudDocente, res: Response) {
   const mapaVariante = generarVariante(preguntasCandidatas);
   const loteId = randomUUID().split('-')[0].toUpperCase();
   const folio = randomUUID().split('-')[0].toUpperCase();
+  const examenGeneradoId = new Types.ObjectId();
   const templateVersionOmr = resolverTemplateVersionOmr({
     docenteId,
     periodoId: plantilla.periodoId,
@@ -1109,6 +1135,7 @@ export async function generarExamen(req: SolicitudDocente, res: Response) {
     generarPdfExamen({
       titulo: plantilla.titulo,
       folio,
+      examId: String(examenGeneradoId),
       preguntas: preguntasCandidatas,
       mapaVariante,
       tipoExamen: plantilla.tipo as 'parcial' | 'global',
@@ -1143,6 +1170,7 @@ export async function generarExamen(req: SolicitudDocente, res: Response) {
   const consumioTodas = usadosSet.size >= preguntasDb.length;
   const paginasExpandidaAutomaticamente = paginasObjetivo > numeroPaginas;
   const advertencias: string[] = [];
+  const umbralVacioResidual = 0.05;
   const esTest = String(configuracion.entorno).toLowerCase() === 'test';
   if (paginasExpandidaAutomaticamente) {
     advertencias.push(
@@ -1177,7 +1205,7 @@ export async function generarExamen(req: SolicitudDocente, res: Response) {
       `No hay suficientes preguntas para llenar ${paginasObjetivo} pagina(s). La ultima pagina queda ${(fraccionVaciaUltimaPagina * 100).toFixed(0)}% vacia.`
     );
   }
-  if (consumioTodas && fraccionVaciaUltimaPagina > 0) {
+  if (consumioTodas && fraccionVaciaUltimaPagina > umbralVacioResidual) {
     advertencias.push(
       `La ultima pagina queda ${(fraccionVaciaUltimaPagina * 100).toFixed(0)}% vacia por falta de preguntas.`
     );
@@ -1193,6 +1221,7 @@ export async function generarExamen(req: SolicitudDocente, res: Response) {
   const rutaPdf = await guardarPdfExamen(nombreArchivo, pdfBytes);
 
   const examenGenerado = await ExamenGenerado.create({
+    _id: examenGeneradoId,
     docenteId,
     periodoId: plantilla.periodoId,
     plantillaId: plantilla._id,
@@ -1439,7 +1468,11 @@ export async function generarExamenesLote(req: SolicitudDocente, res: Response) 
     }
     const loteBytes = Buffer.from(await lotePdf.save());
     const loteSafe = normalizarParaNombreArchivo(loteId, { maxLen: 16 }) || loteId;
-    const nombreArchivo = `examenes-lote-${loteSafe}.pdf`;
+    const nombreArchivo = construirNombrePdfLote({
+      loteId: loteSafe,
+      materiaNombre: String((periodo as unknown as { nombre?: unknown })?.nombre ?? ''),
+      plantillaTitulo: String((plantilla as unknown as { titulo?: unknown })?.titulo ?? '')
+    });
     await guardarPdfExamen(nombreArchivo, loteBytes);
     lotePdfUrl = `/examenes/generados/lote/${encodeURIComponent(loteSafe)}/pdf`;
   }
@@ -1453,10 +1486,33 @@ export async function descargarPdfLote(req: SolicitudDocente, res: Response) {
   if (!lote) {
     throw new ErrorAplicacion('LOTE_INVALIDO', 'Lote invalido', 400);
   }
-  const nombreArchivo = `examenes-lote-${lote}.pdf`;
+  const examenLote = await ExamenGenerado.findOne({ docenteId, loteId: lote })
+    .sort({ generadoEn: -1, _id: -1 })
+    .select({ plantillaId: 1, periodoId: 1 })
+    .lean();
+  const [plantilla, periodo] = await Promise.all([
+    (examenLote as unknown as { plantillaId?: unknown })?.plantillaId
+      ? ExamenPlantilla.findById(String((examenLote as unknown as { plantillaId?: unknown })?.plantillaId ?? '')).lean()
+      : Promise.resolve(null),
+    (examenLote as unknown as { periodoId?: unknown })?.periodoId
+      ? Periodo.findById(String((examenLote as unknown as { periodoId?: unknown })?.periodoId ?? '')).lean()
+      : Promise.resolve(null)
+  ]);
+
+  const nombreArchivo = construirNombrePdfLote({
+    loteId: lote,
+    materiaNombre: String((periodo as unknown as { nombre?: unknown })?.nombre ?? ''),
+    plantillaTitulo: String((plantilla as unknown as { titulo?: unknown })?.titulo ?? '')
+  });
   const ruta = resolverRutaPdfExamen(nombreArchivo);
+  const rutaLegacy = resolverRutaPdfExamen(`examenes-lote-${lote}.pdf`);
   try {
-    const buffer = await fs.readFile(ruta);
+    let buffer: Buffer;
+    try {
+      buffer = await fs.readFile(ruta);
+    } catch {
+      buffer = await fs.readFile(rutaLegacy);
+    }
     res.setHeader('Content-Type', 'application/pdf');
     res.setHeader('Content-Disposition', `attachment; filename="${nombreArchivo}"`);
     res.send(buffer);

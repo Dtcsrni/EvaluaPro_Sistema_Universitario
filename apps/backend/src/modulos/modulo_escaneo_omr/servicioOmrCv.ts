@@ -31,6 +31,7 @@ export type ScoreOpcionOmr = {
   strokeLeakPenalty: number;
   shapeCompactness: number;
   markConfidence: number;
+  estadoMarca: 'no_marcada' | 'parcial' | 'marcada' | 'tachada';
 };
 
 export type RespuestaDetectadaOmr = {
@@ -38,7 +39,7 @@ export type RespuestaDetectadaOmr = {
   opcion: OpcionRespuestaOmr | null;
   confianza: number;
   scoresPorOpcion: ScoreOpcionOmr[];
-  flags: Array<'doble_marca' | 'bajo_contraste' | 'fuera_roi'>;
+  flags: Array<'doble_marca' | 'bajo_contraste' | 'fuera_roi' | 'parcial_detectada' | 'tachada_detectada'>;
 };
 
 export type ResultadoOmr = {
@@ -98,6 +99,8 @@ type MapaOmrPagina = {
           leftBottom: { x: number; y: number };
           rightTop: { x: number; y: number };
           rightBottom: { x: number; y: number };
+          leftMid?: { x: number; y: number };
+          rightMid?: { x: number; y: number };
         };
   }>;
 };
@@ -898,12 +901,15 @@ function ajustarCentrosPorFiduciales(
   fidBottom: Punto,
   fidSizePx: number,
   fidTopRight?: Punto,
-  fidBottomRight?: Punto
+  fidBottomRight?: Punto,
+  fidMidLeft?: Punto,
+  fidMidRight?: Punto
 ): AjusteFiducialesResultado | null {
   const radio = Math.max(18, fidSizePx * 3.6);
   const detTop = localizarMarcaLocal(gray, integral, width, height, fidTop, radio, fidSizePx);
   const detBottom = localizarMarcaLocal(gray, integral, width, height, fidBottom, radio, fidSizePx);
   if (!detTop || !detBottom) return null;
+  const detMidLeft = fidMidLeft ? localizarMarcaLocal(gray, integral, width, height, fidMidLeft, Math.max(14, radio * 0.85), fidSizePx) : null;
 
   const dyEsperado = fidBottom.y - fidTop.y;
   const dyReal = detBottom.y - detTop.y;
@@ -917,26 +923,42 @@ function ajustarCentrosPorFiduciales(
   const yBottomDet = Math.max(detTop.y, detBottom.y) + fidSizePx;
   let detTopR: Punto | null = null;
   let detBottomR: Punto | null = null;
+  const detMidR = fidMidRight ? localizarMarcaLocal(gray, integral, width, height, fidMidRight, Math.max(14, radio * 0.85), fidSizePx) : null;
 
   if (fidTopRight && fidBottomRight) {
     detTopR = localizarMarcaLocal(gray, integral, width, height, fidTopRight, radio, fidSizePx);
     detBottomR = localizarMarcaLocal(gray, integral, width, height, fidBottomRight, radio, fidSizePx);
-    if (detTopR && detBottomR) {
-      const dxEsperado = fidTopRight.x - fidTop.x;
-      const dxReal = ((detTopR.x - detTop.x) + (detBottomR.x - detBottom.x)) / 2;
-      if (Math.abs(dxEsperado) > 1) {
-        scaleX = dxReal / dxEsperado;
+    if (detTopR || detBottomR || (detMidLeft && detMidR && fidMidLeft && fidMidRight)) {
+      const scaleCandidates: number[] = [];
+      const offsetCandidates: number[] = [];
+      const incluirPar = (leftDet: Punto | null, rightDet: Punto | null, leftRef: Punto | undefined, rightRef: Punto | undefined) => {
+        if (!leftDet || !rightDet || !leftRef || !rightRef) return;
+        const dxEsperado = rightRef.x - leftRef.x;
+        if (Math.abs(dxEsperado) <= 1) return;
+        const s = (rightDet.x - leftDet.x) / dxEsperado;
+        if (!Number.isFinite(s)) return;
+        scaleCandidates.push(s);
+        offsetCandidates.push(leftDet.x - leftRef.x * s);
+        offsetCandidates.push(rightDet.x - rightRef.x * s);
+      };
+
+      incluirPar(detTop, detTopR, fidTop, fidTopRight);
+      incluirPar(detBottom, detBottomR, fidBottom, fidBottomRight);
+      incluirPar(detMidLeft, detMidR, fidMidLeft, fidMidRight);
+
+      if (scaleCandidates.length > 0) {
+        scaleX = scaleCandidates.reduce((acc, val) => acc + val, 0) / scaleCandidates.length;
       }
-      const offsetLeft = detTop.x - fidTop.x * scaleX;
-      const offsetRight = detTopR.x - fidTopRight.x * scaleX;
-      offsetX = (offsetLeft + offsetRight) / 2;
+      if (offsetCandidates.length > 0) {
+        offsetX = offsetCandidates.reduce((acc, val) => acc + val, 0) / offsetCandidates.length;
+      }
     } else {
       const bordeIzq = localizarBordeVertical(integral, width, height, detTop.x, yTopDet, yBottomDet, Math.max(10, fidSizePx * 2));
       const bordeDer = localizarBordeVertical(
         integral,
         width,
         height,
-        fidTopRight.x,
+        fidMidRight?.x ?? fidTopRight.x,
         yTopDet,
         yBottomDet,
         Math.max(14, fidSizePx * 3)
@@ -967,6 +989,10 @@ function ajustarCentrosPorFiduciales(
     }
   }));
   const errores: number[] = [distancia(detTop, fidTop), distancia(detBottom, fidBottom)];
+  if (fidMidLeft) {
+    if (detMidLeft) errores.push(distancia(detMidLeft, fidMidLeft));
+    else errores.push(8);
+  }
   if (fidTopRight) {
     if (detTopR) errores.push(distancia(detTopR, fidTopRight));
     else errores.push(8);
@@ -979,8 +1005,8 @@ function ajustarCentrosPorFiduciales(
   return {
     centros: centrosAjustados,
     reprojectionErrorPx,
-    puntosDetectados: 2 + (detTopR ? 1 : 0) + (detBottomR ? 1 : 0),
-    puntosEsperados: 2 + (fidTopRight ? 1 : 0) + (fidBottomRight ? 1 : 0)
+    puntosDetectados: 2 + (detMidLeft ? 1 : 0) + (detTopR ? 1 : 0) + (detBottomR ? 1 : 0) + (detMidR ? 1 : 0),
+    puntosEsperados: 2 + (fidMidLeft ? 1 : 0) + (fidTopRight ? 1 : 0) + (fidBottomRight ? 1 : 0) + (fidMidRight ? 1 : 0)
   };
 }
 
@@ -1085,6 +1111,8 @@ type FiducialesNormalizados = {
   leftBottom: Punto;
   rightTop: Punto;
   rightBottom: Punto;
+  leftMid?: Punto;
+  rightMid?: Punto;
 };
 
 type PreparacionPregunta = {
@@ -1106,14 +1134,22 @@ function normalizarFiducialesPregunta(
       leftTop: transformar(fid.leftTop),
       leftBottom: transformar(fid.leftBottom),
       rightTop: transformar(fid.rightTop),
-      rightBottom: transformar(fid.rightBottom)
+      rightBottom: transformar(fid.rightBottom),
+      leftMid: fid.leftMid ? transformar(fid.leftMid) : undefined,
+      rightMid: fid.rightMid ? transformar(fid.rightMid) : undefined
     };
   }
+  const leftTop = transformar(fid.top);
+  const leftBottom = transformar(fid.bottom);
+  const rightTop = transformar({ x: fid.top.x + OMR_FID_RIGHT_OFFSET_PTS, y: fid.top.y });
+  const rightBottom = transformar({ x: fid.bottom.x + OMR_FID_RIGHT_OFFSET_PTS, y: fid.bottom.y });
   return {
-    leftTop: transformar(fid.top),
-    leftBottom: transformar(fid.bottom),
-    rightTop: transformar({ x: fid.top.x + OMR_FID_RIGHT_OFFSET_PTS, y: fid.top.y }),
-    rightBottom: transformar({ x: fid.bottom.x + OMR_FID_RIGHT_OFFSET_PTS, y: fid.bottom.y })
+    leftTop,
+    leftBottom,
+    rightTop,
+    rightBottom,
+    leftMid: { x: (leftTop.x + leftBottom.x) / 2, y: (leftTop.y + leftBottom.y) / 2 },
+    rightMid: { x: (rightTop.x + rightBottom.x) / 2, y: (rightTop.y + rightBottom.y) / 2 }
   };
 }
 
@@ -1148,7 +1184,9 @@ function prepararCentrosPregunta(
         fiduciales.leftBottom,
         fidSizePx,
         fiduciales.rightTop,
-        fiduciales.rightBottom
+        fiduciales.rightBottom,
+        fiduciales.leftMid,
+        fiduciales.rightMid
       )
     : null;
   const centrosCaja = !ajusteFid
@@ -1272,6 +1310,15 @@ function construirScoresPorOpcion(args: {
           rasgos.ratioCore * 0.25 -
           rasgos.ringOnlyPenalty * 0.32
       );
+      const gapCentro = rasgos.ringMean - rasgos.centerMean;
+      const estadoMarca: ScoreOpcionOmr['estadoMarca'] =
+        scoreItem.score >= 0.088 && rasgos.ratioRing >= 0.34 && rasgos.ratioCore < 0.2 && rasgos.anisotropy >= 2.75
+          ? 'tachada'
+          : scoreItem.score >= 0.09 || (rasgos.ratioCore >= 0.24 && gapCentro >= 12)
+            ? 'marcada'
+            : scoreItem.score >= 0.055 || rasgos.ratioCore >= 0.16 || rasgos.fillDelta >= 0.05
+              ? 'parcial'
+              : 'no_marcada';
 
       return {
         opcion: (String(scoreItem.letra ?? '').trim().toUpperCase() || 'A') as OpcionRespuestaOmr,
@@ -1281,7 +1328,8 @@ function construirScoresPorOpcion(args: {
         centerDarknessDelta,
         strokeLeakPenalty: rasgos.ringOnlyPenalty,
         shapeCompactness,
-        markConfidence
+        markConfidence,
+        estadoMarca
       };
     })
     .filter((item) => ['A', 'B', 'C', 'D', 'E'].includes(item.opcion))
@@ -1631,9 +1679,14 @@ export async function analizarOmr(
       mejorDx,
       mejorDy
     });
-    const flags: Array<'doble_marca' | 'bajo_contraste' | 'fuera_roi'> = [];
+    const flags: Array<'doble_marca' | 'bajo_contraste' | 'fuera_roi' | 'parcial_detectada' | 'tachada_detectada'> = [];
     if (metricas.dobleMarcada) flags.push('doble_marca');
     if (!metricas.suficiente || metricas.confianza < umbralRespuestaConf) flags.push('bajo_contraste');
+    if (scoresPorOpcion.some((item) => item.estadoMarca === 'tachada')) {
+      flags.push('tachada_detectada');
+    } else if (scoresPorOpcion.some((item) => item.estadoMarca === 'parcial')) {
+      flags.push('parcial_detectada');
+    }
     respuestasDetectadas.push({
       numeroPregunta: pregunta.numeroPregunta,
       opcion: opcionDetectada,

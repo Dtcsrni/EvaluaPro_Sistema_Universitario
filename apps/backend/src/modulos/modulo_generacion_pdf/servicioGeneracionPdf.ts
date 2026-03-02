@@ -15,6 +15,7 @@ import { TEMPLATE_VERSION_TV3 } from './domain/tv3Compat';
 export async function generarPdfExamen({
   titulo,
   folio,
+  examId,
   preguntas,
   mapaVariante,
   tipoExamen,
@@ -25,6 +26,7 @@ export async function generarPdfExamen({
 }: {
   titulo: string;
   folio: string;
+  examId?: string;
   preguntas: PreguntaBase[];
   mapaVariante: MapaVariante;
   tipoExamen: 'parcial' | 'global';
@@ -52,6 +54,7 @@ export async function generarPdfExamen({
   const resultado = await generarExamenIndividual({
     titulo,
     folio,
+    examId,
     preguntas,
     mapaVariante,
     tipoExamen,

@@ -91,14 +91,32 @@ export type Plantilla = {
 };
 
 export type PreviewPlantilla = {
-  omrRuntimeVersion: 1;
-  assessmentTemplateId: string;
-  questionCount: number;
-  proposedGenerationSeed: string;
-  previewFingerprint: string;
-  recommendedSheetFamily: string;
-  previewState: 'ready' | 'warning' | 'blocked';
-  bookletPreview: {
+  // Clasico (previsualizar plantilla tradicional)
+  plantillaId?: string;
+  numeroPaginas?: number;
+  totalDisponibles?: number;
+  totalUsados?: number;
+  fraccionVaciaUltimaPagina?: number;
+  advertencias?: string[];
+  conteoPorTema?: Array<{ tema: string; disponibles: number }>;
+  temasDisponiblesEnMateria?: Array<{ tema: string; disponibles: number }>;
+  paginas?: Array<{
+    numero: number;
+    preguntasDel: number;
+    preguntasAl: number;
+    elementos: string[];
+    preguntas: Array<{ numero: number; id: string; tieneImagen: boolean; enunciadoCorto: string }>;
+  }>;
+
+  // OMR V1 (previsualizacion de assessment)
+  omrRuntimeVersion?: 1;
+  assessmentTemplateId?: string;
+  questionCount?: number;
+  proposedGenerationSeed?: string;
+  previewFingerprint?: string;
+  recommendedSheetFamily?: string;
+  previewState?: 'ready' | 'warning' | 'blocked';
+  bookletPreview?: {
     pagesConfigured: number;
     pagesEstimated: number;
     questionsPerPage: number[];
@@ -106,7 +124,7 @@ export type PreviewPlantilla = {
     layoutWarnings: string[];
     pdfUrl?: string;
   };
-  omrSheetPreview: {
+  omrSheetPreview?: {
     familyCode: string;
     familyRevision: number;
     questionCapacity: number;
@@ -117,7 +135,7 @@ export type PreviewPlantilla = {
     identityMode: 'qr_plus_bubbled_id';
     pdfUrl?: string;
   };
-  diagnostics: {
+  diagnostics?: {
     bookletDensityScore: number;
     omrReadabilityScore: number;
     anchorFootprintRatio: number;
@@ -126,8 +144,8 @@ export type PreviewPlantilla = {
     pagesWithLowDensity: number[];
     hardLayoutWarnings: string[];
   };
-  blockingIssues: string[];
-  warnings: string[];
+  blockingIssues?: string[];
+  warnings?: string[];
 };
 
 export type GeneratedAssessmentDetalle = {

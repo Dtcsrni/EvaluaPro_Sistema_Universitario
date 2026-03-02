@@ -143,17 +143,14 @@ export function PlantillasGenerados({
             variante="secundario"
             icono={<Icono nombre="pdf" />}
             cargando={generandoLote}
-            disabled={!plantillaId || !plantillaSeleccionada?.periodoId || !puedeGenerarExamenes}
-            data-tooltip="Genera examenes para todos los alumnos activos de la materia."
+            disabled={!plantillaId || !puedeGenerarExamenes}
+            data-tooltip="Genera un paquete de examenes sin vincular alumnos; la entrega define la asociación."
             onClick={() => void onGenerarExamenesLote()}
           >
-            {generandoLote ? 'Generando para todos…' : 'Generar para todos los alumnos'}
+            {generandoLote ? 'Generando paquete…' : 'Generar paquete de examenes'}
           </Boton>
         </div>
 
-        {plantillaId && !plantillaSeleccionada?.periodoId && (
-          <div className="ayuda error">Esta plantilla no tiene materia (periodoId). No se puede generar en lote.</div>
-        )}
         {mensajeGeneracion && (
           <p className={esMensajeError(mensajeGeneracion) ? 'mensaje error' : 'mensaje ok'} role="status">
             {mensajeGeneracion}

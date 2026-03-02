@@ -21,6 +21,7 @@ export interface EncabezadoExamen {
 export interface ParametrosGeneracionPdf {
   titulo: string;
   folio: string;
+  examId?: string;
   preguntas: PreguntaBase[];
   mapaVariante: MapaVariante;
   tipoExamen: TipoExamen;
@@ -180,6 +181,8 @@ export interface PaginaOmr {
       leftBottom: { x: number; y: number };
       rightTop: { x: number; y: number };
       rightBottom: { x: number; y: number };
+      leftMid?: { x: number; y: number };
+      rightMid?: { x: number; y: number };
     };
   }>;
   layoutDebug?: {

@@ -213,6 +213,10 @@ async function generarBookletPdfVersion(args: {
         layoutWarnings.push(`El cuadernillo quedó denso en la pagina ${pageIdx + 1} de la version ${args.versionCode}.`);
         break;
       }
+      if (y < mm(30)) {
+        layoutWarnings.push(`El cuadernillo quedó denso en la pagina ${pageIdx + 1} de la version ${args.versionCode}.`);
+        break;
+      }
     }
   }
 

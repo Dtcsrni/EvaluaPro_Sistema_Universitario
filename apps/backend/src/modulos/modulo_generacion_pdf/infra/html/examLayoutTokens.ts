@@ -86,9 +86,29 @@ function aplicarReglasFormatoPregunta(value: string): string {
 }
 
 function markdownBasicoAHtml(value: string): string {
-  let html = escapeHtml(aplicarReglasFormatoPregunta(value ?? ''));
-  html = html.replace(/```([\s\S]*?)```/g, (_m, code) => `<pre class="q-code">${String(code ?? '').trim()}</pre>`);
-  html = html.replace(/`([^`]+)`/g, '<code>$1</code>');
+  const blocks: string[] = [];
+  const putBlock = (htmlBlock: string) => {
+    const token = `@@BLOCK_${blocks.length}@@`;
+    blocks.push(htmlBlock);
+    return token;
+  };
+
+  let source = aplicarReglasFormatoPregunta(value ?? '');
+
+  source = source.replace(/```(?:([a-zA-Z0-9_-]+)\n)?([\s\S]*?)```/g, (_m, lang: string, code: string) => {
+    const language = String(lang ?? '').trim();
+    const codeEscaped = escapeHtml(String(code ?? '').trim());
+    return putBlock(`<pre class="q-code-block"><code class="q-code${language ? ` lang-${language.toLowerCase()}` : ''}">${codeEscaped}</code></pre>`);
+  });
+
+  source = source.replace(/\$\$([\s\S]*?)\$\$/g, (_m, expr: string) => {
+    const expression = escapeHtml(String(expr ?? '').trim());
+    return putBlock(`<div class="q-math-block"><span class="q-math-expr">${expression}</span></div>`);
+  });
+
+  let html = escapeHtml(source);
+  html = html.replace(/`([^`]+)`/g, '<code class="q-code-inline">$1</code>');
+  html = html.replace(/\$(?!\$)([^$\n]+?)\$/g, '<span class="q-math-inline">$1</span>');
   html = html.replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>');
   html = html.replace(/\*([^*]+)\*/g, '<em>$1</em>');
   html = html.replace(/\r\n?/g, '\n');
@@ -97,12 +117,24 @@ function markdownBasicoAHtml(value: string): string {
     .map((linea) => {
       const trim = linea.trim();
       if (!trim) return '<div class="q-spacer"></div>';
+      if (/^@@BLOCK_\d+@@$/.test(trim)) return trim;
       if (/^(?:-|\*)\s+/.test(trim)) return `<li>${trim.replace(/^(?:-|\*)\s+/, '')}</li>`;
       if (/^\d+\.\s+/.test(trim)) return `<li>${trim.replace(/^\d+\.\s+/, '')}</li>`;
+      if (/^(algoritmo|inicio|fin|para|mientras|si|sino|entonces|hacer|finsi|finpara|finmientras|retornar|leer|escribir)\b/i.test(trim)) {
+        const pseudo = trim.replace(
+          /^(algoritmo|inicio|fin|para|mientras|si|sino|entonces|hacer|finsi|finpara|finmientras|retornar|leer|escribir)\b/i,
+          '<span class="q-pseudo-kw">$1</span>'
+        );
+        return `<p class="q-pseudo-line">${pseudo}</p>`;
+      }
+      if (/([=+\-*/^<>]|≤|≥|≈|≠|√|∑|∫)/.test(trim) && /\d|[a-zA-Z]/.test(trim)) {
+        return `<p class="q-math-line">${trim}</p>`;
+      }
       return `<p>${trim}</p>`;
     })
     .join('');
   html = html.replace(/(?:<li>.*?<\/li>)+/g, (chunk) => `<ul>${chunk}</ul>`);
+  html = html.replace(/@@BLOCK_(\d+)@@/g, (_m, idx: string) => blocks[Number(idx)] ?? '');
   return html;
 }
 
@@ -169,12 +201,14 @@ function buildEngineHints(): EngineHintsOmr {
 }
 
 function buildCornerMarks(pageWidthPx: number, pageHeightPx: number) {
-  const s = 12;
-  const inset = 4;
+  const mmAPx = pageWidthPx / 612;
+  const margenMm = 10;
+  const s = 14;
+  const inset = Math.max(12, Math.round((72 / 25.4) * margenMm * mmAPx));
   return {
     tipo: 'cuadrados' as const,
     size: pxAPuntos(s),
-    quietZone: pxAPuntos(2),
+    quietZone: pxAPuntos(3),
     tl: { x: pxAPuntos(inset), y: pxAPuntos(inset) },
     tr: { x: pxAPuntos(pageWidthPx - inset - s), y: pxAPuntos(inset) },
     bl: { x: pxAPuntos(inset), y: pxAPuntos(pageHeightPx - inset - s) },
@@ -210,8 +244,8 @@ export async function buildExamLayoutTokens({
   const contentLeft = pageShell.x;
   const contentRight = pageShell.x + pageShell.width;
   const questionColumnWidth = contentWidth - tpl.omrColumnWidthPx - tpl.contentGapPx;
-  const maxImageWidthPx = 154;
-  const maxImageHeightPx = 60;
+  const maxImageWidthPx = 166;
+  const maxImageHeightPx = 70;
 
   const resolvedImages = await Promise.all(examen.preguntas.map((p) => resolverImagenPregunta(p.imagenUrl)));
 
@@ -433,9 +467,15 @@ export async function buildExamLayoutTokens({
     const pageOmrQuestions: PaginaOmr['preguntas'] = questionTokens.map((token) => {
       const omr = tpl.omr;
       const bubbleLeft = token.omrBox.x + omr.bubbleColumnX;
-      const bubbleTop = token.omrBox.y + omr.headerBandHeightPx + 8;
+      const bubbleTop = token.omrBox.y + omr.headerBandHeightPx + omr.bubbleTopOffsetPx;
       const fidInset = omr.fiducialInsetPx;
       const fidSize = omr.fiducialSizePx;
+      const fidHalf = fidSize / 2;
+      const fidLeftCenterX = token.omrBox.x + fidInset + fidHalf;
+      const fidRightCenterX = token.omrBox.x + token.omrBox.width - fidInset - fidHalf;
+      const fidTopCenterY = token.omrBox.y + fidInset + fidHalf;
+      const fidBottomCenterY = token.omrBox.y + token.omrBox.height - fidInset - fidHalf;
+      const fidMidCenterY = token.omrBox.y + token.omrBox.height / 2;
       return {
         numeroPregunta: token.numero,
         idPregunta: token.id,
@@ -463,10 +503,12 @@ export async function buildExamLayoutTokens({
         cajaOmr: { x: pxAPuntos(token.omrBox.x), y: pxAPuntos(token.omrBox.y), width: pxAPuntos(token.omrBox.width), height: pxAPuntos(token.omrBox.height) },
         perfilOmr: { radio: pxAPuntos(omr.bubbleRadiusPx), pasoY: pxAPuntos(omr.bubbleStepYPx), cajaAncho: pxAPuntos(omr.panelWidthPx) },
         fiduciales: {
-          leftTop: { x: pxAPuntos(token.omrBox.x + fidInset), y: pxAPuntos(token.omrBox.y + fidInset) },
-          leftBottom: { x: pxAPuntos(token.omrBox.x + fidInset), y: pxAPuntos(token.omrBox.y + token.omrBox.height - fidInset - fidSize) },
-          rightTop: { x: pxAPuntos(token.omrBox.x + token.omrBox.width - fidInset - fidSize), y: pxAPuntos(token.omrBox.y + fidInset) },
-          rightBottom: { x: pxAPuntos(token.omrBox.x + token.omrBox.width - fidInset - fidSize), y: pxAPuntos(token.omrBox.y + token.omrBox.height - fidInset - fidSize) }
+          leftTop: { x: pxAPuntos(fidLeftCenterX), y: pxAPuntos(fidTopCenterY) },
+          leftBottom: { x: pxAPuntos(fidLeftCenterX), y: pxAPuntos(fidBottomCenterY) },
+          rightTop: { x: pxAPuntos(fidRightCenterX), y: pxAPuntos(fidTopCenterY) },
+          rightBottom: { x: pxAPuntos(fidRightCenterX), y: pxAPuntos(fidBottomCenterY) },
+          leftMid: { x: pxAPuntos(fidLeftCenterX), y: pxAPuntos(fidMidCenterY) },
+          rightMid: { x: pxAPuntos(fidRightCenterX), y: pxAPuntos(fidMidCenterY) }
         }
       };
     });
@@ -539,8 +581,8 @@ export async function buildExamLayoutTokens({
         qrPadding: pxAPuntos(8),
         qrMarginModulos: perfilOmr.qrMarginModulos,
         marcasEsquina: 'cuadrados',
-        marcaCuadradoSize: pxAPuntos(12),
-        marcaCuadradoQuietZone: pxAPuntos(2),
+        marcaCuadradoSize: pxAPuntos(14),
+        marcaCuadradoQuietZone: pxAPuntos(3),
         burbujaRadio: pxAPuntos(LAYOUT_TEMPLATE_V9.omr.bubbleRadiusPx),
         burbujaPasoY: pxAPuntos(LAYOUT_TEMPLATE_V9.omr.bubbleStepYPx),
         cajaOmrAncho: pxAPuntos(LAYOUT_TEMPLATE_V9.omr.panelWidthPx),

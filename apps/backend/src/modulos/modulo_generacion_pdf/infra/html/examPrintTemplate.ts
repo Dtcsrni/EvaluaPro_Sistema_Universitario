@@ -16,24 +16,94 @@ function escapeHtml(value: string): string {
     .replace(/"/g, '&quot;');
 }
 
+function transformOutsideTags(html: string, transform: (text: string) => string): string {
+  return String(html ?? '')
+    .split(/(<[^>]+>)/g)
+    .map((part) => (part.startsWith('<') ? part : transform(part)))
+    .join('');
+}
+
+function applyTechnicalFormatting(text: string): string {
+  let output = String(text ?? '');
+  output = transformOutsideTags(output, (segment) =>
+    segment.replace(/\b(int|integer|float|double|decimal|char|string|str|boolean|bool|byte|short|long|real|void|array|vector|list|tuple|set|map|dict|objeto|registro)\b/gi, '<span class="q-tech-type">$1</span>')
+  );
+  output = transformOutsideTags(output, (segment) =>
+    segment.replace(/\b(for|while|if|else|switch|case|break|continue|return|class|struct|public|private|protected|static|const|let|var|new|try|catch|finally|throw|throws|import|from|def|function|lambda)\b/gi, '<span class="q-tech-kw">$1</span>')
+  );
+  output = transformOutsideTags(output, (segment) =>
+    segment.replace(/\b(true|false|null|none|undefined|nan|infinito|infinity)\b/gi, '<span class="q-tech-lit">$1</span>')
+  );
+  output = transformOutsideTags(output, (segment) =>
+    segment.replace(/\b(para|hasta|si|sino|entonces|mientras|hacer|finsi|finpara|finmientras|algoritmo|inicio|fin|retornar|leer|escribir)\b/gi, '<span class="q-pseudo-kw">$1</span>')
+  );
+  output = transformOutsideTags(output, (segment) =>
+    segment.replace(/\b([a-zA-Z_]\w*(?:\[[^\]\n]{1,20}\])+)\b/g, '<code class="q-code-inline">$1</code>')
+  );
+  output = transformOutsideTags(output, (segment) =>
+    segment.replace(/\b([a-zA-Z_][\w\[\]\(\)]*\s*(?:=|==|!=|<=|>=|<|>|:=)\s*[^,;\n]{1,40})/g, '<span class="q-code-frag">$1</span>')
+  );
+  output = transformOutsideTags(output, (segment) =>
+    segment.replace(/\b([a-zA-Z0-9_]+(?:\s*[+\-*/×÷^]\s*[a-zA-Z0-9_]+){1,})\b/g, '<span class="q-math-inline">$1</span>')
+  );
+  return output;
+}
+
+function applySemanticColorToHtml(value: string): string {
+  let html = transformOutsideTags(String(value ?? ''), applyTechnicalFormatting);
+
+  html = html.replace(/<strong>(Importante:)<\/strong>/gi, '<strong class="tone-label tone-important">$1</strong>');
+  html = html.replace(/<strong>(Advertencia:)<\/strong>/gi, '<strong class="tone-label tone-warning">$1</strong>');
+  html = html.replace(/<strong>(Nota:)<\/strong>/gi, '<strong class="tone-label tone-note">$1</strong>');
+  html = html.replace(/<strong>(Clave:)<\/strong>/gi, '<strong class="tone-label tone-key">$1</strong>');
+
+  html = html.replace(/\b(NUNCA|EXCEPTO|INCORRECTA|FALSO)\b/gi, '<span class="tone-danger">$1</span>');
+  html = html.replace(/\b(SIEMPRE|CORRECTA|VERDADERO)\b/gi, '<span class="tone-success">$1</span>');
+  html = html.replace(/\b(UNICA|ÚNICA|UNICAMENTE|ÚNICAMENTE|SOLO|SÓLO)\b/gi, '<span class="tone-focus">$1</span>');
+
+  return html;
+}
+
+function applySemanticColorToPlainText(value: string): string {
+  let html = escapeHtml(value ?? '');
+  html = applyTechnicalFormatting(html);
+  html = html.replace(/\b(nunca|excepto|incorrecta|falso)\b/gi, '<span class="tone-danger">$1</span>');
+  html = html.replace(/\b(siempre|correcta|verdadero)\b/gi, '<span class="tone-success">$1</span>');
+  html = html.replace(/\b(unica|única|unicamente|únicamente|solo|sólo)\b/gi, '<span class="tone-focus">$1</span>');
+  return html;
+}
+
+function renderQuickOmrInstruction(page: PageToken): string {
+  if (page.numeroPagina !== 1) return '';
+  const text = 'Instrucción: rellena un solo círculo por pregunta; evita tachones y marcas fuera.';
+  const x = page.contentBox.x;
+  const y = Math.max(0, page.contentBox.y - 14);
+  const width = page.contentBox.width;
+  return `<div class="quick-omr-instruction" style="left:${x}px;top:${y}px;width:${width}px;">${escapeHtml(text)}</div>`;
+}
+
 function renderHeader(page: PageToken, examen: ExamenPdf, logos: { izquierda?: string; derecha?: string }): string {
   if (!page.headerBox || page.numeroPagina !== 1) return '';
   const qrLeft = Math.max(0, page.qrBox.x - page.headerBox.x);
   const qrTop = Math.max(0, page.qrBox.y - page.headerBox.y);
   const carrera = 'Ingeniería en sistemas computacionales';
-  const textLeft = 98;
-  const textMaxWidth = Math.max(420, qrLeft - textLeft - 10);
-  const captureLabelWidth = 110;
-  const captureGroupLabelWidth = 44;
-  const captureGroupWidth = 58;
-  const captureNameWidth = Math.max(
-    220,
-    textMaxWidth - captureLabelWidth - captureGroupLabelWidth - captureGroupWidth - 24
-  );
+  const leftLogoLeft = 8;
+  const logoWidth = 78;
+  const rightLogoRightInset = 136;
+  const rightLogoLeft = page.headerBox.width - rightLogoRightInset - logoWidth;
+  const textLeft = leftLogoLeft + logoWidth + 12;
+  const textRight = Math.min(rightLogoLeft - 12, qrLeft - 12);
+  const textMaxWidth = Math.max(360, textRight - textLeft);
+  const captureLabelWidth = 102;
+  const captureGroupLabelWidth = 32;
+  const captureGroupWidth = 38;
+  const captureGapWidth = 8 * 3;
+  const captureFixedWidth = captureLabelWidth + captureGroupLabelWidth + captureGroupWidth + captureGapWidth;
+  const captureNameWidth = Math.max(300, textMaxWidth - captureFixedWidth);
   const desiredMetaTop = 80;
   const desiredCareerTop = 96;
   const desiredCaptureTop = 112;
-  const captureBoxHeight = 24;
+  const captureBoxHeight = 26;
   const maxCaptureTop = Math.max(0, page.headerBox.height - captureBoxHeight - 4);
   const captureTop = Math.min(desiredCaptureTop, maxCaptureTop);
   const careerTop = Math.min(desiredCareerTop, Math.max(0, captureTop - 18));
@@ -48,7 +118,7 @@ function renderHeader(page: PageToken, examen: ExamenPdf, logos: { izquierda?: s
     <section class="header-shell" style="left:${page.headerBox.x}px;top:${page.headerBox.y}px;width:${page.headerBox.width}px;height:${page.headerBox.height}px;">
       <div class="header-band"></div>
       ${leftLogo}
-      <div class="title-box" style="left:${textLeft}px;top:8px;width:${textMaxWidth}px;">
+      <div class="title-box" style="left:${textLeft}px;top:10px;width:${textMaxWidth}px;">
         <div class="institution">${escapeHtml(examen.encabezado?.institucion ?? 'Centro Universitario Hidalguense')}</div>
         <div class="exam-title">${escapeHtml(examen.titulo)}</div>
         <div class="motto">${escapeHtml(examen.encabezado?.lema ?? 'La sabiduria es nuestra fuerza')}</div>
@@ -81,8 +151,8 @@ function renderQuestion(page: PageToken, index: number): string {
     : '';
   const omrMarks = question.opciones
     .map((option, optionIndex) => {
-      const bubbleTop = OMR.headerBandHeightPx + 8 + optionIndex * OMR.bubbleStepYPx;
-      const labelTop = bubbleTop + 1;
+      const bubbleTop = OMR.headerBandHeightPx + OMR.bubbleTopOffsetPx + optionIndex * OMR.bubbleStepYPx;
+      const labelTop = bubbleTop + Math.max(1, Math.round((OMR.bubbleRadiusPx * 2 - 12) / 2));
       return `<span class="bubble" style="top:${bubbleTop}px;"></span><span class="choice" style="top:${labelTop}px;">${option.letra}</span>`;
     })
     .join('');
@@ -92,9 +162,9 @@ function renderQuestion(page: PageToken, index: number): string {
       <div class="question-text" style="left:${question.textBox.x - question.box.x}px;top:${question.textBox.y - question.box.y}px;width:${question.textBox.width}px;height:${question.textBox.height}px;">
         <div class="question-row">
           <div class="${contentClass}">
-            <div class="question-stem">${question.stemHtml}</div>
+            <div class="question-stem">${applySemanticColorToHtml(question.stemHtml)}</div>
             <div class="question-options ${optionColumns}">
-              ${optionGroups.map((group) => `<div class="option-column">${group.map((option) => `<div class="option-item"><span class="option-prefix">${option.letra})</span> <span>${option.texto}</span></div>`).join('')}</div>`).join('')}
+              ${optionGroups.map((group) => `<div class="option-column">${group.map((option) => `<div class="option-item"><span class="option-prefix">${option.letra})</span> <span>${applySemanticColorToPlainText(option.texto)}</span></div>`).join('')}</div>`).join('')}
             </div>
           </div>
           ${imageHtml}
@@ -108,6 +178,8 @@ function renderQuestion(page: PageToken, index: number): string {
           <span class="fid fid-tr"></span>
           <span class="fid fid-bl"></span>
           <span class="fid fid-br"></span>
+          <span class="fid fid-lm"></span>
+          <span class="fid fid-rm"></span>
           ${omrMarks}
         </div>
       </div>
@@ -138,16 +210,23 @@ export function renderExamHtml({
       background: #ffffff;
       border-color: #b8bec8;
     }
+    body.print-profile-epson-l1250 .staple-zone {
+      border-color: rgba(55, 65, 81, 0.4);
+      background: #ffffff;
+    }
+    body.print-profile-epson-l1250 .staple-zone::after {
+      color: rgba(55, 65, 81, 0.62);
+    }
     body.print-profile-epson-l1250 .header-shell {
       background: #ffffff;
       background-image:
-        repeating-linear-gradient(60deg, rgba(31,41,55,0.09) 0 1px, transparent 1px 16px),
-        repeating-linear-gradient(-60deg, rgba(31,41,55,0.09) 0 1px, transparent 1px 16px),
-        repeating-linear-gradient(0deg, rgba(31,41,55,0.06) 0 1px, transparent 1px 16px);
+        repeating-linear-gradient(60deg, rgba(31,41,55,0.045) 0 1px, transparent 1px 18px),
+        repeating-linear-gradient(-60deg, rgba(31,41,55,0.045) 0 1px, transparent 1px 18px),
+        repeating-linear-gradient(0deg, rgba(31,41,55,0.03) 0 1px, transparent 1px 18px);
       border-color: #8e99a9;
     }
     body.print-profile-epson-l1250 .header-band {
-      background: linear-gradient(90deg, #374151, #4b5563, #374151);
+      background: linear-gradient(90deg, #3b82f6, #6366f1, #06b6d4, #3b82f6);
     }
     body.print-profile-epson-l1250 .institution,
     body.print-profile-epson-l1250 .exam-title,
@@ -161,6 +240,43 @@ export function renderExamHtml({
     body.print-profile-epson-l1250 .omr-label,
     body.print-profile-epson-l1250 .question-image-caption {
       color: #1f2937;
+    }
+    body.print-profile-epson-l1250 .footer-exam,
+    body.print-profile-epson-l1250 .footer-id,
+    body.print-profile-epson-l1250 .footer-subject,
+    body.print-profile-epson-l1250 .footer-page-badge {
+      color: #1f2937;
+    }
+    body.print-profile-epson-l1250 .footer-page-badge {
+      border-color: #4b5563;
+      background: #ffffff;
+    }
+    body.print-profile-epson-l1250 .footer-id {
+      border-color: #4b5563;
+      background: #ffffff;
+      color: #1f2937;
+    }
+    body.print-profile-epson-l1250 .tone-danger,
+    body.print-profile-epson-l1250 .tone-success,
+    body.print-profile-epson-l1250 .tone-focus,
+    body.print-profile-epson-l1250 .tone-label,
+    body.print-profile-epson-l1250 .tone-important,
+    body.print-profile-epson-l1250 .tone-warning,
+    body.print-profile-epson-l1250 .tone-note,
+    body.print-profile-epson-l1250 .tone-key {
+      color: #1f2937 !important;
+    }
+    body.print-profile-epson-l1250 .q-math-inline,
+    body.print-profile-epson-l1250 .q-math-line,
+    body.print-profile-epson-l1250 .q-code-inline,
+    body.print-profile-epson-l1250 .q-code-frag,
+    body.print-profile-epson-l1250 .q-tech-type,
+    body.print-profile-epson-l1250 .q-tech-kw,
+    body.print-profile-epson-l1250 .q-tech-lit,
+    body.print-profile-epson-l1250 .q-pseudo-kw {
+      color: #111827 !important;
+      background: transparent !important;
+      border-color: #374151 !important;
     }
     body.print-profile-epson-l1250 .capture-box,
     body.print-profile-epson-l1250 .qr-box {
@@ -178,10 +294,7 @@ export function renderExamHtml({
     }
     body.print-profile-epson-l1250 .question-image {
       background: #ffffff;
-      background-image:
-        repeating-linear-gradient(60deg, rgba(31,41,55,0.08) 0 1px, transparent 1px 14px),
-        repeating-linear-gradient(-60deg, rgba(31,41,55,0.08) 0 1px, transparent 1px 14px),
-        repeating-linear-gradient(0deg, rgba(31,41,55,0.05) 0 1px, transparent 1px 14px);
+      background-image: none;
       border: none;
     }
     body.print-profile-epson-l1250 .omr-id {
@@ -221,6 +334,13 @@ export function renderExamHtml({
       --edu-text-muted: #475569;
       --edu-surface: #ffffff;
       --edu-ink-soft: #64748b;
+      --tone-danger: #b42318;
+      --tone-success: #157347;
+      --tone-focus: #7c3aed;
+      --tone-important: #0a67d8;
+      --tone-warning: #b54708;
+      --tone-note: #0369a1;
+      --tone-key: #7c3aed;
     }
     * { box-sizing: border-box; }
     body {
@@ -234,6 +354,28 @@ export function renderExamHtml({
     }
     .page { position: relative; width: 816px; height: 1056px; background: var(--edu-surface); page-break-after: always; overflow: hidden; }
     .page:last-child { page-break-after: auto; }
+    .staple-zone {
+      position: absolute;
+      left: 8px;
+      top: 8px;
+      width: 22px;
+      height: 22px;
+      border: 1px dashed rgba(71, 85, 105, 0.38);
+      border-radius: 5px;
+      background: rgba(255, 255, 255, 0.9);
+      z-index: 3;
+      pointer-events: none;
+    }
+    .staple-zone::after {
+      content: '⦿';
+      position: absolute;
+      left: 50%;
+      top: 50%;
+      transform: translate(-50%, -50%);
+      font-size: 8px;
+      line-height: 1;
+      color: rgba(51, 65, 85, 0.55);
+    }
     .page-shell {
       position: absolute;
       inset: 32px;
@@ -245,35 +387,44 @@ export function renderExamHtml({
       border: 1px solid var(--edu-border);
       background-color: var(--edu-bg-soft);
       background-image:
-        repeating-linear-gradient(60deg, rgba(10, 132, 255, 0.1) 0 1px, transparent 1px 16px),
-        repeating-linear-gradient(-60deg, rgba(99, 102, 241, 0.09) 0 1px, transparent 1px 16px),
-        repeating-linear-gradient(0deg, rgba(6, 182, 212, 0.07) 0 1px, transparent 1px 16px),
-        linear-gradient(90deg, rgba(10, 132, 255, 0.11), rgba(99, 102, 241, 0.09), rgba(6, 182, 212, 0.08));
-      background-size: 16px 16px, 16px 16px, 16px 16px, auto;
+        repeating-linear-gradient(60deg, rgba(10, 132, 255, 0.055) 0 1px, transparent 1px 18px),
+        repeating-linear-gradient(-60deg, rgba(99, 102, 241, 0.05) 0 1px, transparent 1px 18px),
+        repeating-linear-gradient(0deg, rgba(6, 182, 212, 0.04) 0 1px, transparent 1px 18px),
+        linear-gradient(90deg, rgba(10, 132, 255, 0.06), rgba(99, 102, 241, 0.05), rgba(6, 182, 212, 0.04));
+      background-size: 18px 18px, 18px 18px, 18px 18px, auto;
       background-position: 0 0, 0 0;
     }
-    .header-band { position: absolute; left: 0; top: 10px; width: 100%; height: 2px; background: linear-gradient(90deg, var(--edu-blue), var(--edu-violet), var(--edu-cyan), var(--edu-blue)); }
-    .header-logo { position: absolute; object-fit: contain; background: transparent; }
-    .header-logo-left { left: 8px; top: 10px; width: 72px; height: 72px; }
-    .header-logo-right { left: 572px; top: 10px; width: 72px; height: 72px; }
+    .header-shell > * { position: absolute; z-index: 1; }
+    .header-band {
+      left: 2px;
+      right: 2px;
+      top: 2px;
+      height: 1.5px;
+      background: linear-gradient(90deg, var(--edu-blue-soft), var(--edu-violet), var(--edu-cyan));
+      opacity: 0.9;
+      border-radius: 999px;
+    }
+    .header-logo { object-fit: contain; object-position: center; background: transparent; }
+    .header-logo-left { left: 8px; top: 50%; transform: translateY(-50%); width: 78px; height: 78px; }
+    .header-logo-right { right: 136px; top: 50%; transform: translateY(-50%); width: 78px; height: 78px; }
     .logo-placeholder { border: 1px dashed var(--edu-border); background: transparent; }
-    .title-box { position: absolute; width: 376px; }
+    .title-box { position: absolute; width: 376px; text-align: center; }
     .institution { font-size: 17px; line-height: 21px; font-weight: 800; color: #0a67d8; letter-spacing: 0.15px; }
     .exam-title { margin-top: 3px; font-size: 21px; line-height: 25px; font-weight: 800; letter-spacing: 0.2px; color: #1f3b63; }
     .motto { margin-top: 4px; font-size: 11px; line-height: 13px; font-style: italic; color: var(--edu-ink-soft); }
-    .meta { margin-top: 0; font-size: 12px; line-height: 15px; color: var(--edu-text-muted); font-weight: 650; letter-spacing: 0.1px; }
+    .meta { margin-top: 0; font-size: 12px; line-height: 15px; color: var(--edu-text-muted); font-weight: 650; letter-spacing: 0.1px; text-align: center; }
     .meta-slot { position: absolute; margin-top: 0; }
     .meta-career { position: absolute; margin-top: 0; }
     .qr-box { position: absolute; border: 1px solid var(--edu-border); background: #ffffff; padding: 10px; }
     .qr-box img { width: 100%; height: 100%; object-fit: contain; }
     .capture-row { position: absolute; display: flex; align-items: center; gap: 10px; overflow: hidden; }
     .capture-row-inline { gap: 8px; }
-    .capture-label { font-size: 11px; line-height: 14px; font-weight: 700; min-width: 110px; flex: 0 0 110px; color: #2a4262; }
-    .capture-label-group { min-width: 44px; flex: 0 0 44px; text-align: right; }
+    .capture-label { font-size: 11px; line-height: 14px; font-weight: 700; min-width: 104px; flex: 0 0 104px; color: #2a4262; }
+    .capture-label-group { min-width: 42px; flex: 0 0 42px; text-align: right; }
     .capture-box {
       border: 1.6px solid var(--edu-border-strong);
       background: #ffffff;
-      height: 24px;
+      height: 26px;
     }
     .capture-box-name { flex: 0 0 auto; }
     .capture-box-group { flex: 0 0 auto; }
@@ -283,10 +434,10 @@ export function renderExamHtml({
       border: 1.8px solid #3a5fa3;
       background-color: #eaf4ff;
       background-image:
-        repeating-linear-gradient(60deg, rgba(10,132,255,0.11) 0 1px, transparent 1px 12px),
-        repeating-linear-gradient(-60deg, rgba(99,102,241,0.1) 0 1px, transparent 1px 12px),
-        repeating-linear-gradient(0deg, rgba(6,182,212,0.08) 0 1px, transparent 1px 12px),
-        linear-gradient(180deg, rgba(255,255,255,0.93), rgba(10,132,255,0.14), rgba(99,102,241,0.12));
+        repeating-linear-gradient(60deg, rgba(10,132,255,0.06) 0 1px, transparent 1px 14px),
+        repeating-linear-gradient(-60deg, rgba(99,102,241,0.055) 0 1px, transparent 1px 14px),
+        repeating-linear-gradient(0deg, rgba(6,182,212,0.045) 0 1px, transparent 1px 14px),
+        linear-gradient(180deg, rgba(255,255,255,0.95), rgba(10,132,255,0.09), rgba(99,102,241,0.08));
       font-size: 17px;
       line-height: 20px;
       font-weight: 800;
@@ -297,21 +448,54 @@ export function renderExamHtml({
     .question-text { position: absolute; padding-right: 12px; }
     .question-row { display: flex; align-items: flex-start; gap: 8px; width: 100%; }
     .question-content { min-width: 0; flex: 1 1 auto; }
-    .question-content.has-image { max-width: calc(100% - 162px); }
+    .question-content.has-image { max-width: calc(100% - 176px); }
     .question-stem { font-size: 13px; line-height: 16.6px; font-weight: 680; letter-spacing: 0.05px; }
     .question-stem p { margin: 0 0 3px 0; }
     .question-stem ul { margin: 3px 0 3px 18px; padding: 0; }
     .question-stem li { margin: 0 0 2px 0; }
     .question-stem code, .q-code { font-family: Consolas, 'Courier New', monospace; }
+    .q-math-inline { color: #1d4ed8; font-weight: 760; letter-spacing: 0.02px; }
+    .q-math-line { color: #1d4ed8; font-weight: 760; }
+    .q-code-inline {
+      font-family: Consolas, 'Courier New', monospace;
+      background: rgba(15, 23, 42, 0.06);
+      border: 1px solid rgba(15, 23, 42, 0.18);
+      border-radius: 3px;
+      padding: 0 2px;
+      color: #0f172a;
+      font-weight: 650;
+    }
+    .q-code-frag {
+      font-family: Consolas, 'Courier New', monospace;
+      color: #0f3a66;
+      background: rgba(14, 116, 144, 0.08);
+      border-radius: 3px;
+      padding: 0 2px;
+      font-weight: 650;
+    }
+    .q-tech-type {
+      color: #0f4da8;
+      font-weight: 800;
+      font-style: italic;
+      letter-spacing: 0.02px;
+    }
+    .q-tech-kw {
+      color: #5b21b6;
+      font-weight: 800;
+      font-style: italic;
+      letter-spacing: 0.02px;
+    }
+    .q-tech-lit {
+      color: #0369a1;
+      font-weight: 760;
+      font-style: italic;
+    }
+    .q-pseudo-kw { color: #7c3aed; font-weight: 800; letter-spacing: 0.02px; }
     .question-image {
       margin: 2px 0 0 0;
       border: none;
-      background-color: var(--edu-bg-quiet);
-      background-image:
-        repeating-linear-gradient(60deg, rgba(10,132,255,0.1) 0 1px, transparent 1px 14px),
-        repeating-linear-gradient(-60deg, rgba(99,102,241,0.09) 0 1px, transparent 1px 14px),
-        repeating-linear-gradient(0deg, rgba(6,182,212,0.07) 0 1px, transparent 1px 14px);
-      background-size: 14px 14px, 14px 14px, 14px 14px;
+      background-color: #ffffff;
+      background-image: none;
       display: flex;
       flex-direction: column;
       overflow: hidden;
@@ -324,6 +508,14 @@ export function renderExamHtml({
     .options-single { grid-template-columns: minmax(0, 1fr); }
     .option-item { font-size: 11.2px; line-height: 13.2px; margin-bottom: 1px; break-inside: avoid; font-weight: 520; color: #233249; }
     .option-prefix { font-weight: 750; color: #1f5f9f; }
+    .tone-label { font-weight: 800; letter-spacing: 0.12px; }
+    .tone-danger { color: var(--tone-danger); font-weight: 760; }
+    .tone-success { color: var(--tone-success); font-weight: 760; }
+    .tone-focus { color: var(--tone-focus); font-weight: 760; }
+    .tone-important { color: var(--tone-important); }
+    .tone-warning { color: var(--tone-warning); }
+    .tone-note { color: var(--tone-note); }
+    .tone-key { color: var(--tone-key); }
     .omr-panel { position: absolute; }
     .omr-id {
       position: absolute;
@@ -351,28 +543,140 @@ export function renderExamHtml({
         radial-gradient(circle, rgba(10,132,255,0.12) 0.65px, transparent 0.9px);
       background-size: 8px 8px;
     }
-    .fid { position: absolute; width: 6px; height: 6px; background: #000000; }
-    .fid-tl { left: 2px; top: 2px; }
-    .fid-tr { right: 2px; top: 2px; }
-    .fid-bl { left: 2px; bottom: 2px; }
-    .fid-br { right: 2px; bottom: 2px; }
-    .bubble { position: absolute; left: 12px; width: 14px; height: 14px; border: 1.8px solid #244b74; border-radius: 50%; background: #ffffff; display: inline-block; }
-    .choice { position: absolute; left: 33px; font-size: 10px; line-height: 12px; font-weight: 720; color: #244b74; }
-    .footer { position: absolute; left: 32px; right: 32px; bottom: 32px; height: 44px; border-top: 1px solid #d7e0ea; display: flex; align-items: flex-end; justify-content: space-between; padding: 0 6px 4px; font-size: 11px; letter-spacing: 0.2px; color: #4a678f; }
-    .corner { position: absolute; width: 12px; height: 12px; background: #000; }
-    .corner.tl { left: 4px; top: 4px; }
-    .corner.tr { right: 4px; top: 4px; }
-    .corner.bl { left: 4px; bottom: 4px; }
-    .corner.br { right: 4px; bottom: 4px; }
+    .fid {
+      position: absolute;
+      width: ${OMR.fiducialSizePx}px;
+      height: ${OMR.fiducialSizePx}px;
+      background: #000000;
+      box-sizing: content-box;
+      border: 1px solid #ffffff;
+    }
+    .fid-tl { left: ${OMR.fiducialInsetPx}px; top: ${OMR.fiducialInsetPx}px; }
+    .fid-tr { right: ${OMR.fiducialInsetPx}px; top: ${OMR.fiducialInsetPx}px; }
+    .fid-bl { left: ${OMR.fiducialInsetPx}px; bottom: ${OMR.fiducialInsetPx}px; }
+    .fid-br { right: ${OMR.fiducialInsetPx}px; bottom: ${OMR.fiducialInsetPx}px; }
+    .fid-lm { left: ${OMR.fiducialInsetPx}px; top: calc(50% - ${Math.round(OMR.fiducialSizePx / 2)}px); }
+    .fid-rm { right: ${OMR.fiducialInsetPx}px; top: calc(50% - ${Math.round(OMR.fiducialSizePx / 2)}px); }
+    .bubble { position: absolute; left: ${OMR.bubbleColumnX}px; width: ${OMR.bubbleRadiusPx * 2}px; height: ${OMR.bubbleRadiusPx * 2}px; border: 1.8px solid #244b74; border-radius: 50%; background: #ffffff; display: inline-block; }
+    .choice { position: absolute; left: ${OMR.labelColumnX}px; font-size: 10px; line-height: 12px; font-weight: 720; color: #244b74; }
+    .footer {
+      position: absolute;
+      left: 56px;
+      right: 56px;
+      bottom: 32px;
+      height: 28px;
+      border-top: 1px solid #d7e0ea;
+      display: flex;
+      align-items: center;
+      justify-content: flex-start;
+      gap: 10px;
+      padding: 0 8px;
+      font-size: 9.6px;
+      letter-spacing: 0.16px;
+      color: #4a678f;
+    }
+    .footer-exam,
+    .footer-id,
+    .footer-subject {
+      min-width: 0;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      font-weight: 620;
+    }
+    .footer-exam {
+      flex: 1 1 auto;
+      max-width: calc(100% - 226px);
+      color: #334e72;
+    }
+    .footer-id {
+      flex: 0 0 auto;
+      max-width: 170px;
+      font-size: 8.8px;
+      font-weight: 760;
+      color: #2f557f;
+      letter-spacing: 0.12px;
+      padding: 2px 8px;
+      border-radius: 999px;
+      border: 1px solid #9eb9dd;
+      background: linear-gradient(90deg, rgba(10,132,255,0.1), rgba(99,102,241,0.08));
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      text-align: center;
+    }
+    .footer-subject {
+      position: absolute;
+      left: 50%;
+      top: 50%;
+      transform: translate(-50%, -50%);
+      width: min(45%, 280px);
+      text-align: center;
+      color: #48658f;
+      font-weight: 700;
+      pointer-events: none;
+    }
+    .footer-page-badge {
+      margin-left: auto;
+      flex: 0 0 auto;
+      min-width: 74px;
+      text-align: center;
+      padding: 3px 10px;
+      border-radius: 999px;
+      border: 1px solid #5f8fc9;
+      background: linear-gradient(90deg, rgba(10,132,255,0.2), rgba(99,102,241,0.16));
+      font-size: 9.8px;
+      font-weight: 800;
+      letter-spacing: 0.22px;
+      color: #154475;
+      line-height: 1.1;
+    }
+    .corner {
+      position: absolute;
+      width: 14px;
+      height: 14px;
+      background: #000;
+      box-sizing: content-box;
+      border: 3px solid #fff;
+      z-index: 0;
+      pointer-events: none;
+    }
+    .corner.tl { left: 38px; top: 38px; }
+    .corner.tr { right: 38px; top: 38px; }
+    .corner.bl { left: 38px; bottom: 38px; }
+    .corner.br { right: 38px; bottom: 38px; }
+    .corner.tm { left: calc(50% - 7px); top: 12px; }
+    .corner.bm { left: calc(50% - 7px); bottom: 12px; }
+    .quick-omr-instruction {
+      position: absolute;
+      z-index: 8;
+      font-size: 9px;
+      line-height: 11px;
+      font-weight: 700;
+      letter-spacing: 0.08px;
+      text-align: center;
+      color: #223f60;
+      background: rgba(255, 255, 255, 0.96);
+      border: 1px solid #b7c8db;
+      border-radius: 3px;
+      padding: 1px 6px;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      pointer-events: none;
+    }
     ${printerProfileCss}
   `;
 
   const pagesHtml = pages
     .map((page) => {
-      let html = `<section class="page"><div class="page-shell"></div><span class="corner tl"></span><span class="corner tr"></span><span class="corner bl"></span><span class="corner br"></span>`;
+      let html = `<section class="page"><div class="staple-zone" aria-hidden="true"></div><div class="page-shell"></div><span class="corner tl"></span><span class="corner tr"></span><span class="corner bl"></span><span class="corner br"></span><span class="corner tm"></span><span class="corner bm"></span>`;
       html += renderHeader(page, examen, logos).replace(`{{QR:${page.numeroPagina}}}`, qrDataUrls[page.numeroPagina] ?? '');
+      html += renderQuickOmrInstruction(page);
       html += page.preguntas.map((_q, idx) => renderQuestion(page, idx)).join('');
-      html += `<footer class="footer"><span>${escapeHtml(examen.folio)}</span><span>Pagina ${page.numeroPagina}</span></footer>`;
+      const materiaFooter = escapeHtml(examen.encabezado?.materia ?? 'Materia no especificada');
+      const examIdFooter = escapeHtml(String(examen.examId ?? examen.folio).trim().toUpperCase());
+      html += `<footer class="footer"><span class="footer-exam">${escapeHtml(examen.titulo)}</span><span class="footer-id">ID: ${examIdFooter}</span><span class="footer-subject">${materiaFooter}</span><span class="footer-page-badge">Página ${page.numeroPagina}</span></footer>`;
       html += '</section>';
       return html;
     })

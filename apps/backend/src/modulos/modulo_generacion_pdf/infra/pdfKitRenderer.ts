@@ -62,7 +62,7 @@ const PERFIL_OMR_V3_RENDER: PerfilPlantillaRender = {
   marcaCuadradoSize: 5.8 * MM_A_PUNTOS,
   marcaCuadradoQuietZone: 0.8 * MM_A_PUNTOS,
   burbujaRadio: (3.1 * MM_A_PUNTOS) / 2,
-  burbujaPasoY: 3.35 * MM_A_PUNTOS,
+  burbujaPasoY: 3.9 * MM_A_PUNTOS,
   burbujaStroke: 1,
   burbujaOffsetX: 4.4,
   omrHeaderGap: 4,
@@ -959,8 +959,14 @@ export class PdfKitRenderer {
         const logoDerechoSlotX = qrSlotLeft - logoDerechoSlotWidth - 8;
         const xMaxEnc = logoDerechoSlotX - 10;
         const maxWidthEnc = Math.max(220, xMaxEnc - xTextoHeader);
+        const xCentroHeader = xTextoHeader + maxWidthEnc / 2;
         const innerTop = yTop - PLANTILLA_PX.headerPadTop;
         const innerBottom = yCaja + PLANTILLA_PX.headerPadBottom;
+        const xTextoCentrado = (texto: string, font: PDFFont, size: number) => {
+          const ancho = font.widthOfTextAtSize(texto, size);
+          const xObjetivo = xCentroHeader - ancho / 2;
+          return Math.max(xTextoHeader, Math.min(xMaxEnc - ancho, xObjetivo));
+        };
 
         const ajustarLinea = (texto: string, font: PDFFont, size: number) =>
           (partirEnLineas({ texto, maxWidth: maxWidthEnc, font, size })[0] ?? '').trim();
@@ -1010,27 +1016,30 @@ export class PdfKitRenderer {
         const yLema = lem ? yTitulo - PLANTILLA_PX.lemaGap * escala : yTitulo - 2;
         const yMeta = yLema - PLANTILLA_PX.metaGapTop * escala;
 
-        page.drawText(insti, { x: xTextoHeader, y: yInsti, size: sizeInst, font: fuenteBold, color: colorAcento });
+        const xInsti = xTextoCentrado(insti, fuenteBold, sizeInst);
+        page.drawText(insti, { x: xInsti, y: yInsti, size: sizeInst, font: fuenteBold, color: colorAcento });
         headerTextBlocks.push({
           id: 'institucion',
-          x: xTextoHeader,
+          x: xInsti,
           y: yInsti,
           width: fuenteBold.widthOfTextAtSize(insti, sizeInst),
           height: sizeInst + 2
         });
-        page.drawText(tit, { x: xTextoHeader, y: yTitulo, size: sizeTit, font: fuenteBold, color: colorPrimario });
+        const xTitulo = xTextoCentrado(tit, fuenteBold, sizeTit);
+        page.drawText(tit, { x: xTitulo, y: yTitulo, size: sizeTit, font: fuenteBold, color: colorPrimario });
         headerTextBlocks.push({
           id: 'titulo',
-          x: xTextoHeader,
+          x: xTitulo,
           y: yTitulo,
           width: fuenteBold.widthOfTextAtSize(tit, sizeTit),
           height: sizeTit + 2
         });
         if (lem) {
-          page.drawText(lem, { x: xTextoHeader, y: yLema, size: sizeLem, font: fuenteItalica, color: colorGris });
+          const xLema = xTextoCentrado(lem, fuenteItalica, sizeLem);
+          page.drawText(lem, { x: xLema, y: yLema, size: sizeLem, font: fuenteItalica, color: colorGris });
           headerTextBlocks.push({
             id: 'lema',
-            x: xTextoHeader,
+            x: xLema,
             y: yLema,
             width: fuenteItalica.widthOfTextAtSize(lem, sizeLem),
             height: sizeLem + 2
@@ -1040,8 +1049,9 @@ export class PdfKitRenderer {
         metaLineas.forEach((linea, indice) => {
           if (!linea) return;
           const yLinea = yMeta - indice * PLANTILLA_PX.metaLine * escala;
+          const xMeta = xTextoCentrado(linea, fuente, sizeMetaEsc);
           page.drawText(linea, {
-            x: xTextoHeader,
+            x: xMeta,
             y: yLinea,
             size: sizeMetaEsc,
             font: fuente,
@@ -1049,7 +1059,7 @@ export class PdfKitRenderer {
           });
           headerTextBlocks.push({
             id: `meta-${indice + 1}`,
-            x: xTextoHeader,
+            x: xMeta,
             y: yLinea,
             width: fuente.widthOfTextAtSize(linea, sizeMetaEsc),
             height: sizeMetaEsc + 2
@@ -1060,9 +1070,9 @@ export class PdfKitRenderer {
         const etiquetaGrupo = 'Grupo:';
         const anchoEtiquetaNombre = fuenteBold.widthOfTextAtSize(etiquetaNombre, sizeCampo);
         const anchoEtiquetaGrupo = fuenteBold.widthOfTextAtSize(etiquetaGrupo, sizeCampo);
-        const xLineaNombre = Math.min(xTextoHeader + anchoEtiquetaNombre + 12, xMaxEnc - 180);
+        const xLineaNombre = Math.min(xTextoHeader + anchoEtiquetaNombre + 6, xMaxEnc - 260);
         const xLineaGrupo = xTextoHeader + anchoEtiquetaGrupo + 12;
-        const xLineaGrupoFin = Math.min(xMaxEnc, xLineaGrupo + 62);
+        const xLineaGrupoFin = Math.min(xMaxEnc, xLineaGrupo + 42);
 
         page.drawText(etiquetaNombre, { x: xTextoHeader, y: yNombre, size: sizeCampo, font: fuenteBold, color: colorPrimario });
         headerTextBlocks.push({
@@ -1125,6 +1135,29 @@ export class PdfKitRenderer {
         throw new Error('Layout invalido: el contenido invade el encabezado de la primera pagina');
       }
       let cursorY = cursorYInicio;
+
+      if (esPrimera) {
+        const instruccionCorta = 'Instrucción: rellena un solo círculo por pregunta; evita tachones y marcas fuera.';
+        const yInstruccion = Math.min(yCaja - 6.8, yZonaContenido + 1.2);
+        const xInstruccion = margen + 8;
+        const wInstruccion = Math.max(180, ANCHO_CARTA - margen * 2 - 16);
+        page.drawRectangle({
+          x: xInstruccion,
+          y: yInstruccion - 1.5,
+          width: wInstruccion,
+          height: 9.4,
+          borderWidth: 0.7,
+          borderColor: rgb(0.72, 0.79, 0.86),
+          color: rgb(1, 1, 1)
+        });
+        page.drawText(instruccionCorta, {
+          x: xInstruccion + 4,
+          y: yInstruccion,
+          size: 6.4,
+          font: fuenteBold,
+          color: colorPrimario
+        });
+      }
 
       const alturaDisponibleMin = margen + this.perfilLayout.bottomSafePt;
       const maxImagenPreguntaAncho = Math.min(anchoTextoPregunta * 0.5, 160);

@@ -52,10 +52,10 @@ function construirNombrePdfExamen(parametros: {
     tema = primero ? `${primero}_mas-${temas.length - 1}` : `mas-${temas.length}`;
   }
 
-  const partes = ['examen'];
+  const partes = ['evaluapro', 'examen'];
   if (materia) partes.push(materia);
   if (tema) partes.push(`tema-${tema}`);
-  if (titulo) partes.push(titulo);
+  if (titulo) partes.push(`plantilla-${titulo}`);
   if (lote) partes.push(`lote-${lote}`);
   if (folio) partes.push(`folio-${folio}`);
 

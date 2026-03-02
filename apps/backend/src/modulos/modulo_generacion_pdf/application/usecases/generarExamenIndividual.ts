@@ -45,6 +45,7 @@ export async function generarExamenIndividual(
   const examen = new ExamenPdf(
     params.titulo?.trim() || 'Examen',
     params.folio?.trim() || 'SIN-FOLIO',
+    params.examId?.trim(),
     preguntas,
     mapaVariante,
     params.tipoExamen,

@@ -22,6 +22,7 @@ export class ExamenPdf {
   constructor(
     public readonly titulo: string,
     public readonly folio: string,
+    public readonly examId: string | undefined,
     public readonly preguntas: PreguntaBase[],
     public readonly mapaVariante: MapaVariante,
     public readonly tipoExamen: TipoExamen,
@@ -48,10 +49,15 @@ export class ExamenPdf {
     return this.folio.trim().toUpperCase();
   }
 
+  get examIdNormalizado(): string {
+    return String(this.examId ?? '').trim().toUpperCase();
+  }
+
   /**
    * Genera el texto QR para una pagina especifica.
    */
   generarTextoQrPagina(numeroPagina: number): string {
-    return `EXAMEN:${this.folioNormalizado}:P${numeroPagina}:TV${this.layout.templateVersion}`;
+    const base = `EXAMEN:${this.folioNormalizado}:P${numeroPagina}:TV${this.layout.templateVersion}`;
+    return this.examIdNormalizado ? `${base}:ID:${this.examIdNormalizado}` : base;
   }
 }

@@ -13,7 +13,7 @@ export const LAYOUT_TEMPLATE_V9 = {
   firstHeaderHeightPx: 136,
   otherHeaderHeightPx: 28,
   footerHeightPx: 44,
-  interQuestionGapPx: 1,
+  interQuestionGapPx: 0,
   contentGapPx: 16,
   omrColumnWidthPx: 96,
   questionNumberWidthPx: 30,
@@ -37,20 +37,21 @@ export const LAYOUT_TEMPLATE_V9 = {
   },
   omr: {
     panelWidthPx: 76,
-    panelHeightPx: 90,
+    panelHeightPx: 100,
     framePaddingPx: 6,
     headerBandHeightPx: 10,
+    bubbleTopOffsetPx: 2,
     panelIdWidthPx: 18,
     panelIdHeightPx: 14,
     bubbleRadiusPx: 7,
     bubbleStrokePx: 2,
-    bubbleStepYPx: 13,
-    bubbleColumnX: 12,
-    labelColumnX: 31,
+    bubbleStepYPx: 15,
+    bubbleColumnX: 15,
+    labelColumnX: 34,
     labelsTopOffsetPx: 11,
-    labelStepYPx: 13,
-    fiducialSizePx: 6,
-    fiducialInsetPx: 2
+    labelStepYPx: 15,
+    fiducialSizePx: 7,
+    fiducialInsetPx: 3
   }
 };
 

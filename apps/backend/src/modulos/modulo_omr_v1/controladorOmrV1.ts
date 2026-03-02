@@ -13,7 +13,6 @@ import { validarCuerpo } from '../../compartido/validaciones/validar';
 import { BancoPregunta } from '../modulo_banco_preguntas/modeloBancoPregunta';
 import { Docente } from '../modulo_autenticacion/modeloDocente';
 import { Periodo } from '../modulo_alumnos/modeloPeriodo';
-import { Alumno } from '../modulo_alumnos/modeloAlumno';
 import { ExamenPlantilla } from '../modulo_generacion_pdf/modeloExamenPlantilla';
 import { ExamenGenerado } from '../modulo_generacion_pdf/modeloExamenGenerado';
 import { analizarOmr, leerQrDesdeImagen } from '../modulo_escaneo_omr/servicioOmr';
@@ -163,6 +162,19 @@ function resolvePreviewState(args: { blockingIssues: string[]; warnings: string[
   return 'ready' as const;
 }
 
+function normalizarTextoPreviewOmrV1(value: unknown) {
+  return String(value ?? '')
+    .replace(/[→⇒⟶]/g, '->')
+    .replace(/[←⇐⟵]/g, '<-')
+    .replace(/[“”]/g, '"')
+    .replace(/[‘’]/g, "'")
+    .replace(/[–—]/g, '-')
+    .replace(/…/g, '...')
+    .replace(/[^	\n\r\x20-\x7E\u00A1-\u00FF]/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
 function extraerBase64ContenidoOmrV1(base64: string): { mimeType: string; contenido: string } {
   const limpio = String(base64 || '').trim();
   const match = /^data:([a-z0-9/+.-]+\/[a-z0-9.+-]+);base64,([\s\S]+)$/i.exec(limpio);
@@ -260,11 +272,11 @@ async function construirPreguntasPlantillaV1(plantilla: Record<string, unknown>,
       pregunta.versiones[0];
     return {
       id: String(pregunta._id),
-      enunciado: String(version?.enunciado ?? ''),
+      enunciado: normalizarTextoPreviewOmrV1(version?.enunciado),
       imagenUrl: String(version?.imagenUrl ?? '').trim() || undefined,
       opciones: Array.isArray(version?.opciones)
         ? version.opciones.map((opcion: { texto?: unknown; esCorrecta?: unknown }) => ({
-            texto: String(opcion.texto ?? ''),
+            texto: normalizarTextoPreviewOmrV1(opcion.texto),
             esCorrecta: Boolean(opcion.esCorrecta)
           }))
         : []
@@ -628,21 +640,16 @@ export async function generarAssessment(req: SolicitudDocente, res: Response) {
   const requestedVersionCount = Number((req.body as { versionCount?: unknown }).versionCount ?? 0);
   const versionCount = Math.max(1, requestedVersionCount || Number((plantilla as { defaultVersionCount?: unknown }).defaultVersionCount ?? 1));
   const versions = generarVersionesDeterministasV1({ preguntas, versionCount, generationSeed });
-  const requestedPrefillMode = String((req.body as { prefillMode?: unknown }).prefillMode ?? '').trim();
-  const prefillMode = (requestedPrefillMode ||
-    String((plantilla as { omrConfig?: { prefillMode?: unknown } }).omrConfig?.prefillMode ?? 'none')) as 'none' | 'roster' | 'per-student';
-  const [docente, periodo, alumnos] = await Promise.all([
+  const prefillMode: 'none' = 'none';
+  const [docente, periodo] = await Promise.all([
     Docente.findById(docenteId).lean(),
-    plantilla.periodoId ? Periodo.findById(plantilla.periodoId).lean() : Promise.resolve(null),
-    prefillMode === 'none' || !plantilla.periodoId
-      ? Promise.resolve([])
-      : Alumno.find({ docenteId, periodoId: plantilla.periodoId, activo: { $ne: false } }).sort({ nombreCompleto: 1 }).lean()
+    plantilla.periodoId ? Periodo.findById(plantilla.periodoId).lean() : Promise.resolve(null)
   ]);
   const folio = createHash('sha1').update(`${String(plantilla._id)}:${generationSeed}`).digest('hex').slice(0, 10).toUpperCase();
   const bindings = resolverBindingsOmrV1({
     prefillMode,
     folio,
-    students: alumnos as Array<{ _id?: unknown; matricula?: unknown; nombreCompleto?: unknown }>,
+    students: [],
     versionCodes: versions.map((version) => version.versionCode)
   });
   const bundle = await generarBundleAssessmentOmrV1({

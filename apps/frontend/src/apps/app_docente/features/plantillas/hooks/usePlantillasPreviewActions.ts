@@ -50,7 +50,7 @@ export function usePlantillasPreviewActions({
       try {
         setCargandoPreviewPlantillaId(id);
         const payload = await clienteApi.obtener<PreviewPlantilla>(
-          `/assessments/templates/${encodeURIComponent(id)}/preview`
+          `/examenes/plantillas/${encodeURIComponent(id)}/previsualizar`
         );
         setPreviewPorPlantillaId((prev) => ({ ...prev, [id]: payload }));
       } catch (error) {
@@ -99,17 +99,8 @@ export function usePlantillasPreviewActions({
         return;
       }
 
-      const path =
-        kind === 'omrSheet'
-          ? `/assessments/templates/${encodeURIComponent(id)}/preview/omr-sheet.pdf`
-          : `/assessments/templates/${encodeURIComponent(id)}/preview/booklet.pdf`;
-      const preview = previewPorPlantillaId[id];
-      const params = new URLSearchParams();
-      if (preview?.proposedGenerationSeed) params.set('generationSeed', preview.proposedGenerationSeed);
-      const pathConQuery = params.size > 0 ? `${path}?${params.toString()}` : path;
-
       const intentar = async (t: string) =>
-        fetch(`${clienteApi.baseApi}${pathConQuery}`, {
+        fetch(`${clienteApi.baseApi}/examenes/plantillas/${encodeURIComponent(id)}/previsualizar/pdf`, {
           credentials: 'include',
           headers: { Authorization: `Bearer ${t}` }
         });
@@ -128,13 +119,13 @@ export function usePlantillasPreviewActions({
         setPreviewPdfUrlPorPlantillaId((prev) => {
           const anterior = prev[id]?.[kind];
           if (anterior) URL.revokeObjectURL(anterior);
-          return { ...prev, [id]: { ...prev[id], [kind]: url } };
+          return { ...prev, [id]: { ...prev[id], booklet: url } };
         });
       } catch (error) {
-        const msg = mensajeDeError(error, `No se pudo generar el PDF de ${kind === 'omrSheet' ? 'hoja OMR' : 'cuadernillo'}`);
+        const msg = mensajeDeError(error, 'No se pudo generar el PDF de previsualizacion');
         emitToast({
           level: 'error',
-          title: kind === 'omrSheet' ? 'Hoja OMR' : 'Cuadernillo',
+          title: 'Previsualizacion PDF',
           message: msg,
           durationMs: 5200,
           action: accionToastSesionParaError(error, 'docente')

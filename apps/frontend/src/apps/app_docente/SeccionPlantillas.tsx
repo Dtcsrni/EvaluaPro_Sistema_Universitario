@@ -647,7 +647,7 @@ export function SeccionPlantillas({
   ]);
 
   const generarExamenesLote = useCallback(async () => {
-    const ok = globalThis.confirm('¿Generar examenes para TODOS los alumnos activos de la materia de esta plantilla? Esto puede tardar.');
+    const ok = globalThis.confirm('¿Generar paquete de examenes genéricos para esta plantilla? La vinculación con alumnos se realiza al entregar.');
     if (!ok) return;
     try {
       const inicio = Date.now();
@@ -668,7 +668,7 @@ export function SeccionPlantillas({
         {
           ...(previewActual?.proposedGenerationSeed ? { generationSeed: previewActual.proposedGenerationSeed } : {}),
           ...(previewActual?.previewFingerprint ? { previewFingerprint: previewActual.previewFingerprint } : {}),
-          prefillMode: 'roster',
+          prefillMode: 'none',
           versionCount: Math.max(1, defaultVersionCount),
           sheetFamilyCode
         },
@@ -680,7 +680,7 @@ export function SeccionPlantillas({
       const generatedAssessmentId = String(payload?.generatedAssessment?._id ?? '').trim();
       const folio = String(payload?.generatedAssessment?.folio ?? '').trim();
       setLotePdfUrl(null);
-      setMensajeGeneracion(folio ? `Generación masiva lista. Assessment: ${folio}. Descarga el ZIP de packets desde OMR V1.` : 'Generación masiva lista.');
+      setMensajeGeneracion(folio ? `Generación de paquete lista. Assessment: ${folio}.` : 'Generación de paquete lista.');
       emitToast({ level: 'ok', title: 'Examenes', message: 'Generación masiva completada', durationMs: 2200 });
       registrarAccionDocente('generar_examenes_lote', true, Date.now() - inicio);
       if (generatedAssessmentId) {
