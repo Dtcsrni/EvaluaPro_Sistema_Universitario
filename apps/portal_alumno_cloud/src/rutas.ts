@@ -985,7 +985,11 @@ router.post('/sincronizacion-docente/solicitudes-revision/update', async (req, r
     return;
   }
 
-  const actualizada = await SolicitudRevision.findOneAndUpdate({ externoId }, { $set: update }, { new: true }).lean();
+  const actualizada = await SolicitudRevision.findOneAndUpdate(
+    { externoId },
+    { $set: update },
+    { returnDocument: 'after' }
+  ).lean();
   if (!actualizada) {
     responderError(res, 404, 'NO_ENCONTRADO', 'Solicitud no encontrada');
     return;

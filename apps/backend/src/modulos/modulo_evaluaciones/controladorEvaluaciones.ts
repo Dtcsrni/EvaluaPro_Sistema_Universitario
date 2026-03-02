@@ -356,6 +356,22 @@ export async function listarPoliticasCalificacion(_req: SolicitudDocente, res: R
   res.json({ politicas });
 }
 
+export async function obtenerContextoEvaluacionesV2(req: SolicitudDocente, res: Response) {
+  const docenteId = obtenerDocenteId(req);
+  const periodoId = String(req.query.periodoId ?? '').trim();
+
+  await asegurarPoliticasBase();
+  const [politicas, configuracion] = await Promise.all([
+    PoliticaCalificacion.find({ activa: true }).sort({ codigo: 1, version: -1 }).lean(),
+    periodoId ? ConfiguracionPeriodoEvaluacion.findOne({ docenteId, periodoId }).lean() : Promise.resolve(null)
+  ]);
+
+  res.json({
+    politicas,
+    configuracion: configuracion ?? null
+  });
+}
+
 export async function crearPoliticaCalificacion(req: SolicitudDocente, res: Response) {
   const politica = await PoliticaCalificacion.create(req.body);
   res.status(201).json({ politica });
@@ -419,7 +435,7 @@ export async function guardarConfiguracionPeriodo(req: SolicitudDocente, res: Re
   const configuracion = await ConfiguracionPeriodoEvaluacion.findOneAndUpdate(
     { docenteId, periodoId },
     { $set: update },
-    { upsert: true, new: true }
+    { upsert: true, returnDocument: 'after' }
   ).lean();
 
   res.json({ configuracion });
@@ -483,7 +499,7 @@ export async function upsertComponenteExamen(req: SolicitudDocente, res: Respons
         metadata: payload.metadata ?? undefined
       }
     },
-    { upsert: true, new: true }
+    { upsert: true, returnDocument: 'after' }
   ).lean();
 
   res.status(201).json({ componente });
@@ -506,4 +522,20 @@ export async function obtenerResumenEvaluacionAlumno(req: SolicitudDocente, res:
     : await calcularResumenSv(docenteId, periodoId, alumnoId);
 
   res.json({ resumen });
+}
+
+export async function guardarPoliticaEvaluacionesV2(req: SolicitudDocente, res: Response) {
+  await guardarConfiguracionPeriodo(req, res);
+}
+
+export async function guardarEvidenciaEvaluacionesV2(req: SolicitudDocente, res: Response) {
+  await crearEvidenciaEvaluacion(req, res);
+}
+
+export async function guardarComponenteExamenV2(req: SolicitudDocente, res: Response) {
+  await upsertComponenteExamen(req, res);
+}
+
+export async function obtenerResumenEvaluacionesV2(req: SolicitudDocente, res: Response) {
+  await obtenerResumenEvaluacionAlumno(req, res);
 }

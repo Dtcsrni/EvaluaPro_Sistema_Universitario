@@ -5,6 +5,8 @@ import { InlineMensaje } from '../../ui/ux/componentes/InlineMensaje';
 import { clienteApi } from './clienteApiDocente';
 import type { Alumno, Periodo } from './tipos';
 
+type TabEvaluaciones = 'politica' | 'evidencias' | 'examenes' | 'classroom' | 'resumen';
+
 type Politica = {
   codigo: 'POLICY_SV_EXCEL_2026' | 'POLICY_LISC_ENCUADRE_2026';
   version: number;
@@ -40,13 +42,22 @@ function numeroSeguro(valor: unknown): number {
   return Number.isFinite(n) ? n : 0;
 }
 
+const POLITICAS_FALLBACK: Politica[] = [
+  { codigo: 'POLICY_LISC_ENCUADRE_2026', version: 1, nombre: 'LISC Encuadre 2026' },
+  { codigo: 'POLICY_SV_EXCEL_2026', version: 1, nombre: 'SV Excel 2026' }
+];
+
 export function SeccionEvaluaciones(params: {
   periodos: Periodo[];
   alumnos: Alumno[];
   puedeGestionar: boolean;
-  puedeClassroom: boolean;
+  puedeClassroomConectar: boolean;
+  puedeClassroomPull: boolean;
 }) {
-  const { periodos, alumnos, puedeGestionar, puedeClassroom } = params;
+  const { periodos, alumnos, puedeGestionar, puedeClassroomConectar, puedeClassroomPull } = params;
+  const puedeClassroom = puedeClassroomConectar || puedeClassroomPull;
+
+  const [tabActiva, setTabActiva] = useState<TabEvaluaciones>('politica');
   const [periodoId, setPeriodoId] = useState<string>('');
   const [alumnoId, setAlumnoId] = useState<string>('');
   const [politicas, setPoliticas] = useState<Politica[]>([]);
@@ -79,17 +90,14 @@ export function SeccionEvaluaciones(params: {
     [alumnos, periodoId]
   );
 
-  const cargarPoliticas = useCallback(async () => {
-    const respuesta = await clienteApi.obtener<{ politicas: Politica[] }>('/evaluaciones/politicas');
-    const lista = Array.isArray(respuesta.politicas) ? respuesta.politicas : [];
-    setPoliticas(lista);
-  }, []);
-
-  const cargarConfiguracion = useCallback(async () => {
+  const cargarContexto = useCallback(async () => {
     if (!periodoId) return;
     const respuesta = await clienteApi.obtener<{
+      politicas?: Politica[];
       configuracion?: { politicaCodigo?: 'POLICY_SV_EXCEL_2026' | 'POLICY_LISC_ENCUADRE_2026'; politicaVersion?: number } | null;
-    }>(`/evaluaciones/configuracion-periodo?periodoId=${encodeURIComponent(periodoId)}`);
+    }>(`/evaluaciones/v2/contexto?periodoId=${encodeURIComponent(periodoId)}`);
+
+    setPoliticas(Array.isArray(respuesta.politicas) ? respuesta.politicas : []);
     if (respuesta.configuracion?.politicaCodigo) setPoliticaCodigo(respuesta.configuracion.politicaCodigo);
     if (Number.isFinite(Number(respuesta.configuracion?.politicaVersion))) {
       setPoliticaVersion(Number(respuesta.configuracion?.politicaVersion));
@@ -97,12 +105,12 @@ export function SeccionEvaluaciones(params: {
   }, [periodoId]);
 
   const cargarMapeos = useCallback(async () => {
-    if (!periodoId || !puedeClassroom) return;
+    if (!periodoId || !puedeClassroomPull) return;
     const respuesta = await clienteApi.obtener<{ mapeos?: MapeoClassroom[] }>(
-      `/integraciones/classroom/mapear?periodoId=${encodeURIComponent(periodoId)}`
+      `/evaluaciones/v2/classroom/mapeos?periodoId=${encodeURIComponent(periodoId)}`
     );
     setMapeos(Array.isArray(respuesta.mapeos) ? respuesta.mapeos : []);
-  }, [periodoId, puedeClassroom]);
+  }, [periodoId, puedeClassroomPull]);
 
   useEffect(() => {
     if (!periodoId && periodos.length > 0) {
@@ -111,16 +119,13 @@ export function SeccionEvaluaciones(params: {
   }, [periodos, periodoId]);
 
   useEffect(() => {
-    void cargarPoliticas();
-  }, [cargarPoliticas]);
-
-  useEffect(() => {
     if (!periodoId) return;
-    void cargarConfiguracion();
+    void cargarContexto();
     void cargarMapeos();
-  }, [cargarConfiguracion, cargarMapeos, periodoId]);
+  }, [cargarContexto, cargarMapeos, periodoId]);
 
   useEffect(() => {
+    if (!puedeClassroom) return;
     const listener = (event: MessageEvent) => {
       const data = (event.data || {}) as { source?: unknown; status?: unknown; message?: unknown };
       if (String(data.source || '') !== 'classroom-oauth') return;
@@ -133,20 +138,21 @@ export function SeccionEvaluaciones(params: {
     };
     window.addEventListener('message', listener);
     return () => window.removeEventListener('message', listener);
-  }, [cargarMapeos]);
+  }, [cargarMapeos, puedeClassroom]);
 
-  async function guardarConfiguracion() {
+  async function guardarPoliticaV2() {
     if (!periodoId) return;
     setCargando(true);
     setEstado('');
     try {
-      await clienteApi.enviar('/evaluaciones/configuracion-periodo', {
+      await clienteApi.enviar('/evaluaciones/v2/politica', {
         periodoId,
         politicaCodigo,
         politicaVersion
       });
       setEstado('Configuración guardada');
       emitToast({ level: 'ok', title: 'Evaluaciones', message: 'Configuración de política guardada' });
+      await cargarContexto();
     } catch (error) {
       setEstado('No se pudo guardar la configuración');
       emitToast({ level: 'error', title: 'Evaluaciones', message: String((error as Error)?.message || error) });
@@ -155,11 +161,11 @@ export function SeccionEvaluaciones(params: {
     }
   }
 
-  async function guardarEvidencia() {
+  async function guardarEvidenciaV2() {
     if (!periodoId || !alumnoId) return;
     setCargando(true);
     try {
-      await clienteApi.enviar('/evaluaciones/evidencias', {
+      await clienteApi.enviar('/evaluaciones/v2/evidencias', {
         periodoId,
         alumnoId,
         titulo: evidenciaTitulo || 'Evidencia',
@@ -175,7 +181,7 @@ export function SeccionEvaluaciones(params: {
     }
   }
 
-  async function guardarComponenteExamen() {
+  async function guardarComponenteExamenV2() {
     if (!periodoId || !alumnoId) return;
     const practicas = practicasCsv
       .split(',')
@@ -183,7 +189,7 @@ export function SeccionEvaluaciones(params: {
       .filter((item) => Number.isFinite(item));
     setCargando(true);
     try {
-      await clienteApi.enviar('/evaluaciones/examenes/componentes', {
+      await clienteApi.enviar('/evaluaciones/v2/examenes/componentes', {
         periodoId,
         alumnoId,
         corte: corteExamen,
@@ -198,12 +204,12 @@ export function SeccionEvaluaciones(params: {
     }
   }
 
-  async function consultarResumen() {
+  async function consultarResumenV2() {
     if (!periodoId || !alumnoId) return;
     setCargando(true);
     try {
       const respuesta = await clienteApi.obtener<{ resumen?: ResumenEvaluacion }>(
-        `/evaluaciones/alumnos/${encodeURIComponent(alumnoId)}/resumen?periodoId=${encodeURIComponent(periodoId)}`
+        `/evaluaciones/v2/alumnos/${encodeURIComponent(alumnoId)}/resumen?periodoId=${encodeURIComponent(periodoId)}`
       );
       setResumen(respuesta.resumen ?? null);
     } catch (error) {
@@ -215,9 +221,9 @@ export function SeccionEvaluaciones(params: {
   }
 
   async function conectarClassroom() {
-    if (!puedeClassroom) return;
+    if (!puedeClassroomConectar) return;
     try {
-      const respuesta = await clienteApi.obtener<{ url: string }>('/integraciones/classroom/oauth/iniciar');
+      const respuesta = await clienteApi.obtener<{ url: string }>('/evaluaciones/v2/classroom/oauth/iniciar');
       const url = String(respuesta.url || '').trim();
       if (!url) {
         throw new Error('No se recibió URL de autorización');
@@ -229,10 +235,10 @@ export function SeccionEvaluaciones(params: {
   }
 
   async function guardarMapeo() {
-    if (!periodoId || !courseId || !courseWorkId) return;
+    if (!periodoId || !courseId || !courseWorkId || !puedeClassroomPull) return;
     setCargando(true);
     try {
-      await clienteApi.enviar('/integraciones/classroom/mapear', {
+      await clienteApi.enviar('/evaluaciones/v2/classroom/mapeos', {
         periodoId,
         courseId,
         courseWorkId,
@@ -250,14 +256,14 @@ export function SeccionEvaluaciones(params: {
   }
 
   async function ejecutarPull() {
-    if (!periodoId) return;
+    if (!periodoId || !puedeClassroomPull) return;
     setCargando(true);
     try {
       const respuesta = await clienteApi.enviar<{
         importadas?: number;
         actualizadas?: number;
         omitidas?: number;
-      }>('/integraciones/classroom/pull', {
+      }>('/evaluaciones/v2/classroom/pull', {
         periodoId
       });
       emitToast({
@@ -272,10 +278,31 @@ export function SeccionEvaluaciones(params: {
     }
   }
 
+  const listaPoliticas = politicas.length > 0 ? politicas : POLITICAS_FALLBACK;
+
   return (
     <div className="panel">
       <h3>Evaluaciones y políticas</h3>
       {estado && <InlineMensaje tipo="info">{estado}</InlineMensaje>}
+
+      <div className="item-row">
+        <Boton type="button" onClick={() => setTabActiva('politica')} disabled={tabActiva === 'politica'}>
+          Política
+        </Boton>
+        <Boton type="button" onClick={() => setTabActiva('evidencias')} disabled={tabActiva === 'evidencias'}>
+          Evidencias
+        </Boton>
+        <Boton type="button" onClick={() => setTabActiva('examenes')} disabled={tabActiva === 'examenes'}>
+          Exámenes
+        </Boton>
+        <Boton type="button" onClick={() => setTabActiva('classroom')} disabled={tabActiva === 'classroom'}>
+          Classroom
+        </Boton>
+        <Boton type="button" onClick={() => setTabActiva('resumen')} disabled={tabActiva === 'resumen'}>
+          Resumen
+        </Boton>
+      </div>
+
       <div className="item-row">
         <label>
           Periodo
@@ -301,163 +328,176 @@ export function SeccionEvaluaciones(params: {
         </label>
       </div>
 
-      <div className="item-row">
-        <label>
-          Política
-          <select
-            value={politicaCodigo}
-            onChange={(event) => setPoliticaCodigo(event.target.value as 'POLICY_SV_EXCEL_2026' | 'POLICY_LISC_ENCUADRE_2026')}
-          >
-            {(politicas.length > 0
-              ? politicas
-              : [
-                  { codigo: 'POLICY_LISC_ENCUADRE_2026', version: 1, nombre: 'LISC Encuadre 2026' },
-                  { codigo: 'POLICY_SV_EXCEL_2026', version: 1, nombre: 'SV Excel 2026' }
-                ]
-            ).map((politica) => (
-              <option key={`${politica.codigo}-${politica.version}`} value={politica.codigo}>
-                {politica.nombre}
-              </option>
-            ))}
-          </select>
-        </label>
-        <label>
-          Versión
-          <input type="number" min={1} value={politicaVersion} onChange={(event) => setPoliticaVersion(Number(event.target.value) || 1)} />
-        </label>
-        <Boton type="button" disabled={!puedeGestionar || !periodoId || cargando} onClick={() => void guardarConfiguracion()}>
-          Guardar política
-        </Boton>
-      </div>
-
-      <div className="item-row">
-        <label>
-          Evidencia título
-          <input value={evidenciaTitulo} onChange={(event) => setEvidenciaTitulo(event.target.value)} />
-        </label>
-        <label>
-          Calificación
-          <input value={evidenciaCalificacion} onChange={(event) => setEvidenciaCalificacion(event.target.value)} />
-        </label>
-        <label>
-          Ponderación
-          <input value={evidenciaPonderacion} onChange={(event) => setEvidenciaPonderacion(event.target.value)} />
-        </label>
-        <label>
-          Corte
-          <select value={evidenciaCorte} onChange={(event) => setEvidenciaCorte(event.target.value)}>
-            <option value="1">C1</option>
-            <option value="2">C2</option>
-            <option value="3">C3</option>
-          </select>
-        </label>
-        <Boton type="button" disabled={!puedeGestionar || !periodoId || !alumnoId || cargando} onClick={() => void guardarEvidencia()}>
-          Guardar evidencia
-        </Boton>
-      </div>
-
-      <div className="item-row">
-        <label>
-          Corte examen
-          <select value={corteExamen} onChange={(event) => setCorteExamen(event.target.value as 'parcial1' | 'parcial2' | 'global')}>
-            <option value="parcial1">Parcial 1</option>
-            <option value="parcial2">Parcial 2</option>
-            <option value="global">Global</option>
-          </select>
-        </label>
-        <label>
-          Teórico
-          <input value={teorico} onChange={(event) => setTeorico(event.target.value)} />
-        </label>
-        <label>
-          Prácticas (csv)
-          <input value={practicasCsv} onChange={(event) => setPracticasCsv(event.target.value)} />
-        </label>
-        <Boton type="button" disabled={!puedeGestionar || !periodoId || !alumnoId || cargando} onClick={() => void guardarComponenteExamen()}>
-          Guardar examen
-        </Boton>
-        <Boton type="button" disabled={!periodoId || !alumnoId || cargando} onClick={() => void consultarResumen()}>
-          Ver resumen
-        </Boton>
-      </div>
-
-      {resumen && (
-        <div className="panel">
-          <h4>Resumen alumno</h4>
-          <p>
-            Política: {resumen.politicaCodigo} v{resumen.politicaVersion}
-          </p>
-          <p>
-            Continua: C1 {numeroSeguro(resumen.continuaPorCorte?.c1).toFixed(2)} | C2 {numeroSeguro(resumen.continuaPorCorte?.c2).toFixed(2)} | C3{' '}
-            {numeroSeguro(resumen.continuaPorCorte?.c3).toFixed(2)}
-          </p>
-          <p>
-            Exámenes: P1 {numeroSeguro(resumen.examenesPorCorte?.parcial1).toFixed(2)} | P2 {numeroSeguro(resumen.examenesPorCorte?.parcial2).toFixed(2)} |
-            G {numeroSeguro(resumen.examenesPorCorte?.global).toFixed(2)}
-          </p>
-          <p>
-            Bloque continua: {numeroSeguro(resumen.bloqueContinuaDecimal).toFixed(4)} | Bloque exámenes:{' '}
-            {numeroSeguro(resumen.bloqueExamenesDecimal).toFixed(4)}
-          </p>
-          <p>
-            Final decimal: {numeroSeguro(resumen.finalDecimal).toFixed(4)} | Final redondeada:{' '}
-            {numeroSeguro(resumen.finalRedondeada).toFixed(0)}
-          </p>
-          {Array.isArray(resumen.faltantes) && resumen.faltantes.length > 0 && (
-            <InlineMensaje tipo="warning">Faltantes: {resumen.faltantes.join(', ')}</InlineMensaje>
-          )}
+      {tabActiva === 'politica' && (
+        <div className="item-row">
+          <label>
+            Política
+            <select
+              value={politicaCodigo}
+              onChange={(event) => setPoliticaCodigo(event.target.value as 'POLICY_SV_EXCEL_2026' | 'POLICY_LISC_ENCUADRE_2026')}
+            >
+              {listaPoliticas.map((politica) => (
+                <option key={`${politica.codigo}-${politica.version}`} value={politica.codigo}>
+                  {politica.nombre}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label>
+            Versión
+            <input type="number" min={1} value={politicaVersion} onChange={(event) => setPoliticaVersion(Number(event.target.value) || 1)} />
+          </label>
+          <Boton type="button" disabled={!puedeGestionar || !periodoId || cargando} onClick={() => void guardarPoliticaV2()}>
+            Guardar política
+          </Boton>
         </div>
       )}
 
-      <div className="panel">
-        <h4>Google Classroom (pull)</h4>
-        <div className="item-row">
-          <Boton type="button" disabled={!puedeClassroom || cargando} onClick={() => void conectarClassroom()}>
-            Conectar Google
-          </Boton>
-          <Boton type="button" disabled={!puedeClassroom || !periodoId || cargando} onClick={() => void ejecutarPull()}>
-            Ejecutar pull
-          </Boton>
-        </div>
+      {tabActiva === 'evidencias' && (
         <div className="item-row">
           <label>
-            Course ID
-            <input value={courseId} onChange={(event) => setCourseId(event.target.value)} />
+            Evidencia título
+            <input value={evidenciaTitulo} onChange={(event) => setEvidenciaTitulo(event.target.value)} />
           </label>
           <label>
-            CourseWork ID
-            <input value={courseWorkId} onChange={(event) => setCourseWorkId(event.target.value)} />
-          </label>
-          <label>
-            Título evidencia
-            <input value={mapeoTitulo} onChange={(event) => setMapeoTitulo(event.target.value)} />
+            Calificación
+            <input value={evidenciaCalificacion} onChange={(event) => setEvidenciaCalificacion(event.target.value)} />
           </label>
           <label>
             Ponderación
-            <input value={mapeoPonderacion} onChange={(event) => setMapeoPonderacion(event.target.value)} />
+            <input value={evidenciaPonderacion} onChange={(event) => setEvidenciaPonderacion(event.target.value)} />
           </label>
           <label>
             Corte
-            <select value={mapeoCorte} onChange={(event) => setMapeoCorte(event.target.value)}>
+            <select value={evidenciaCorte} onChange={(event) => setEvidenciaCorte(event.target.value)}>
               <option value="1">C1</option>
               <option value="2">C2</option>
               <option value="3">C3</option>
             </select>
           </label>
-          <Boton type="button" disabled={!puedeClassroom || !periodoId || !courseId || !courseWorkId || cargando} onClick={() => void guardarMapeo()}>
-            Guardar mapeo
+          <Boton type="button" disabled={!puedeGestionar || !periodoId || !alumnoId || cargando} onClick={() => void guardarEvidenciaV2()}>
+            Guardar evidencia
           </Boton>
         </div>
-        {mapeos.length > 0 && (
-          <ul className="lista">
-            {mapeos.map((item) => (
-              <li key={item._id}>
-                {item.courseId} / {item.courseWorkId} - {item.tituloEvidencia || 'Sin título'} (corte {item.corte || '-'})
-              </li>
-            ))}
-          </ul>
-        )}
-      </div>
+      )}
+
+      {tabActiva === 'examenes' && (
+        <div className="item-row">
+          <label>
+            Corte examen
+            <select value={corteExamen} onChange={(event) => setCorteExamen(event.target.value as 'parcial1' | 'parcial2' | 'global')}>
+              <option value="parcial1">Parcial 1</option>
+              <option value="parcial2">Parcial 2</option>
+              <option value="global">Global</option>
+            </select>
+          </label>
+          <label>
+            Teórico
+            <input value={teorico} onChange={(event) => setTeorico(event.target.value)} />
+          </label>
+          <label>
+            Prácticas (csv)
+            <input value={practicasCsv} onChange={(event) => setPracticasCsv(event.target.value)} />
+          </label>
+          <Boton type="button" disabled={!puedeGestionar || !periodoId || !alumnoId || cargando} onClick={() => void guardarComponenteExamenV2()}>
+            Guardar examen
+          </Boton>
+        </div>
+      )}
+
+      {tabActiva === 'classroom' && (
+        <div className="panel">
+          <h4>Google Classroom (pull)</h4>
+          <div className="item-row">
+            <Boton type="button" disabled={!puedeClassroomConectar || cargando} onClick={() => void conectarClassroom()}>
+              Conectar Google
+            </Boton>
+            <Boton type="button" disabled={!puedeClassroomPull || !periodoId || cargando} onClick={() => void ejecutarPull()}>
+              Ejecutar pull
+            </Boton>
+          </div>
+          <div className="item-row">
+            <label>
+              Course ID
+              <input value={courseId} onChange={(event) => setCourseId(event.target.value)} />
+            </label>
+            <label>
+              CourseWork ID
+              <input value={courseWorkId} onChange={(event) => setCourseWorkId(event.target.value)} />
+            </label>
+            <label>
+              Título evidencia
+              <input value={mapeoTitulo} onChange={(event) => setMapeoTitulo(event.target.value)} />
+            </label>
+            <label>
+              Ponderación
+              <input value={mapeoPonderacion} onChange={(event) => setMapeoPonderacion(event.target.value)} />
+            </label>
+            <label>
+              Corte
+              <select value={mapeoCorte} onChange={(event) => setMapeoCorte(event.target.value)}>
+                <option value="1">C1</option>
+                <option value="2">C2</option>
+                <option value="3">C3</option>
+              </select>
+            </label>
+            <Boton
+              type="button"
+              disabled={!puedeClassroomPull || !periodoId || !courseId || !courseWorkId || cargando}
+              onClick={() => void guardarMapeo()}
+            >
+              Guardar mapeo
+            </Boton>
+          </div>
+          {mapeos.length > 0 && (
+            <ul className="lista">
+              {mapeos.map((item) => (
+                <li key={item._id}>
+                  {item.courseId} / {item.courseWorkId} - {item.tituloEvidencia || 'Sin título'} (corte {item.corte || '-'})
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+      )}
+
+      {tabActiva === 'resumen' && (
+        <div className="panel">
+          <h4>Resumen alumno</h4>
+          <div className="item-row">
+            <Boton type="button" disabled={!periodoId || !alumnoId || cargando} onClick={() => void consultarResumenV2()}>
+              Consultar resumen
+            </Boton>
+          </div>
+          {!resumen && <InlineMensaje tipo="info">Consulta el resumen para visualizar resultados del alumno.</InlineMensaje>}
+          {resumen && (
+            <>
+              <p>
+                Política: {resumen.politicaCodigo} v{resumen.politicaVersion}
+              </p>
+              <p>
+                Continua: C1 {numeroSeguro(resumen.continuaPorCorte?.c1).toFixed(2)} | C2 {numeroSeguro(resumen.continuaPorCorte?.c2).toFixed(2)} |
+                C3 {numeroSeguro(resumen.continuaPorCorte?.c3).toFixed(2)}
+              </p>
+              <p>
+                Exámenes: P1 {numeroSeguro(resumen.examenesPorCorte?.parcial1).toFixed(2)} | P2 {numeroSeguro(resumen.examenesPorCorte?.parcial2).toFixed(2)} |
+                G {numeroSeguro(resumen.examenesPorCorte?.global).toFixed(2)}
+              </p>
+              <p>
+                Bloque continua: {numeroSeguro(resumen.bloqueContinuaDecimal).toFixed(4)} | Bloque exámenes:{' '}
+                {numeroSeguro(resumen.bloqueExamenesDecimal).toFixed(4)}
+              </p>
+              <p>
+                Final decimal: {numeroSeguro(resumen.finalDecimal).toFixed(4)} | Final redondeada:{' '}
+                {numeroSeguro(resumen.finalRedondeada).toFixed(0)}
+              </p>
+              {Array.isArray(resumen.faltantes) && resumen.faltantes.length > 0 && (
+                <InlineMensaje tipo="warning">Faltantes: {resumen.faltantes.join(', ')}</InlineMensaje>
+              )}
+            </>
+          )}
+        </div>
+      )}
     </div>
   );
 }

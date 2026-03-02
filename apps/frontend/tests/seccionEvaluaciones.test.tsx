@@ -18,18 +18,16 @@ describe('SeccionEvaluaciones', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     vi.mocked(clienteApi.obtener).mockImplementation(async (ruta: string) => {
-      if (String(ruta).startsWith('/evaluaciones/politicas')) {
+      if (String(ruta).startsWith('/evaluaciones/v2/contexto')) {
         return {
           politicas: [
             { codigo: 'POLICY_LISC_ENCUADRE_2026', version: 1, nombre: 'LISC' },
             { codigo: 'POLICY_SV_EXCEL_2026', version: 1, nombre: 'SV' }
-          ]
+          ],
+          configuracion: { politicaCodigo: 'POLICY_LISC_ENCUADRE_2026', politicaVersion: 1 }
         };
       }
-      if (String(ruta).startsWith('/evaluaciones/configuracion-periodo')) {
-        return { configuracion: { politicaCodigo: 'POLICY_LISC_ENCUADRE_2026', politicaVersion: 1 } };
-      }
-      if (String(ruta).startsWith('/integraciones/classroom/mapear')) {
+      if (String(ruta).startsWith('/evaluaciones/v2/classroom/mapeos')) {
         return { mapeos: [] };
       }
       return {};
@@ -43,20 +41,21 @@ describe('SeccionEvaluaciones', () => {
         periodos={[{ _id: 'per-1', nombre: 'Periodo 1' }]}
         alumnos={[{ _id: 'alu-1', nombreCompleto: 'Alumno 1', matricula: 'A1', periodoId: 'per-1' }]}
         puedeGestionar
-        puedeClassroom
+        puedeClassroomConectar
+        puedeClassroomPull
       />
     );
 
     expect(screen.getByRole('heading', { name: /Evaluaciones y políticas/i })).toBeInTheDocument();
     await waitFor(() => {
-      expect(vi.mocked(clienteApi.obtener)).toHaveBeenCalledWith('/evaluaciones/politicas');
+      expect(vi.mocked(clienteApi.obtener)).toHaveBeenCalledWith('/evaluaciones/v2/contexto?periodoId=per-1');
     });
 
     fireEvent.click(screen.getByRole('button', { name: /Guardar política/i }));
 
     await waitFor(() => {
       expect(vi.mocked(clienteApi.enviar)).toHaveBeenCalledWith(
-        '/evaluaciones/configuracion-periodo',
+        '/evaluaciones/v2/politica',
         expect.objectContaining({
           periodoId: 'per-1',
           politicaCodigo: 'POLICY_LISC_ENCUADRE_2026'

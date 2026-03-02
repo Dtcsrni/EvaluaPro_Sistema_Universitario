@@ -6,6 +6,7 @@ import { Calificacion } from '../../../modulo_calificacion/modeloCalificacion';
 import { BancoPregunta } from '../../../modulo_banco_preguntas/modeloBancoPregunta';
 import { ExamenGenerado } from '../../../modulo_generacion_pdf/modeloExamenGenerado';
 import { BanderaRevision } from '../../../modulo_analiticas/modeloBanderaRevision';
+import { ResumenEvaluacionAlumno } from '../../../modulo_evaluaciones/modeloResumenEvaluacionAlumno';
 import { CodigoAcceso } from '../../modeloCodigoAcceso';
 import { Sincronizacion } from '../../modeloSincronizacion';
 import { comprimirBase64, construirComparativaRespuestas } from '../../sincronizacionInterna';
@@ -25,8 +26,24 @@ export async function publicarResultadosUseCase(params: { docenteId: string; per
 
   const alumnos = await Alumno.find({ docenteId, periodoId }).lean();
   const calificaciones = await Calificacion.find({ docenteId, periodoId }).lean();
+  const resumenesEvaluacion = await ResumenEvaluacionAlumno.find({ docenteId, periodoId }).lean();
   const banderas = await BanderaRevision.find({ docenteId }).lean();
   const examenes = await ExamenGenerado.find({ docenteId, periodoId }).lean();
+
+  const resumenPorAlumno = new Map(
+    resumenesEvaluacion.map((item) => [
+      String(item.alumnoId),
+      {
+        politicaId: String(item.politicaCodigo || '').trim() || undefined,
+        versionPolitica: Number(item.politicaVersion),
+        componentesExamen: item.examenesPorCorte,
+        bloqueContinuaDecimal: Number(item.bloqueContinuaDecimal),
+        bloqueExamenesDecimal: Number(item.bloqueExamenesDecimal),
+        finalDecimal: Number(item.finalDecimal),
+        finalRedondeada: Number(item.finalRedondeada)
+      }
+    ])
+  );
 
   const capturasOmrPorExamen = new Map<string, Awaited<ReturnType<typeof leerCapturasOmrParaPortal>>>();
   for (const examen of examenes) {
@@ -82,6 +99,7 @@ export async function publicarResultadosUseCase(params: { docenteId: string; per
     })),
     calificaciones: calificaciones.map((calificacion) => ({
       ...(() => {
+        const resumenAlumno = resumenPorAlumno.get(String(calificacion.alumnoId));
         const respuestasDetectadas = Array.isArray(calificacion.respuestasDetectadas)
           ? (calificacion.respuestasDetectadas as Array<{ numeroPregunta?: unknown; opcion?: unknown; confianza?: unknown }>)
               .map((respuesta) => ({
@@ -93,6 +111,28 @@ export async function publicarResultadosUseCase(params: { docenteId: string; per
           : [];
 
         return {
+          politicaId: resumenAlumno?.politicaId ?? calificacion.politicaId,
+          versionPolitica:
+            Number.isFinite(Number(resumenAlumno?.versionPolitica)) && Number(resumenAlumno?.versionPolitica) > 0
+              ? Number(resumenAlumno?.versionPolitica)
+              : calificacion.versionPolitica,
+          componentesExamen: resumenAlumno?.componentesExamen ?? calificacion.componentesExamen,
+          bloqueContinuaDecimal:
+            Number.isFinite(Number(resumenAlumno?.bloqueContinuaDecimal))
+              ? Number(resumenAlumno?.bloqueContinuaDecimal)
+              : calificacion.bloqueContinuaDecimal,
+          bloqueExamenesDecimal:
+            Number.isFinite(Number(resumenAlumno?.bloqueExamenesDecimal))
+              ? Number(resumenAlumno?.bloqueExamenesDecimal)
+              : calificacion.bloqueExamenesDecimal,
+          finalDecimal:
+            Number.isFinite(Number(resumenAlumno?.finalDecimal))
+              ? Number(resumenAlumno?.finalDecimal)
+              : calificacion.finalDecimal,
+          finalRedondeada:
+            Number.isFinite(Number(resumenAlumno?.finalRedondeada))
+              ? Number(resumenAlumno?.finalRedondeada)
+              : calificacion.finalRedondeada,
           respuestasDetectadas,
           comparativaRespuestas: construirComparativaRespuestas(
             examenesMap.get(String(calificacion.examenGeneradoId)),
@@ -112,13 +152,6 @@ export async function publicarResultadosUseCase(params: { docenteId: string; per
       calificacionGlobalTexto: calificacion.calificacionGlobalTexto,
       evaluacionContinuaTexto: calificacion.evaluacionContinuaTexto,
       proyectoTexto: calificacion.proyectoTexto,
-      politicaId: calificacion.politicaId,
-      versionPolitica: calificacion.versionPolitica,
-      componentesExamen: calificacion.componentesExamen,
-      bloqueContinuaDecimal: calificacion.bloqueContinuaDecimal,
-      bloqueExamenesDecimal: calificacion.bloqueExamenesDecimal,
-      finalDecimal: calificacion.finalDecimal,
-      finalRedondeada: calificacion.finalRedondeada,
       omrCapturas: capturasOmrPorExamen.get(String(calificacion.examenGeneradoId)) ?? [],
       omrAuditoria: calificacion.omrAuditoria && typeof calificacion.omrAuditoria === 'object' ? calificacion.omrAuditoria : undefined
     })),

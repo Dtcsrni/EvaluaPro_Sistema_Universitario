@@ -211,7 +211,7 @@ export async function mapearClassroomEvidencia(req: SolicitudDocente, res: Respo
           | undefined
       }
     },
-    { upsert: true, new: true }
+    { upsert: true, returnDocument: 'after' }
   ).lean();
 
   res.status(201).json({ mapeo });

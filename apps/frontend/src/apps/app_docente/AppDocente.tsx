@@ -1070,7 +1070,8 @@ export function AppDocente() {
           periodos={periodos}
           alumnos={alumnos}
           puedeGestionar={permisosUI.evaluaciones.gestionar}
-          puedeClassroom={permisosUI.classroom.conectar || permisosUI.classroom.pull}
+          puedeClassroomConectar={permisosUI.classroom.conectar}
+          puedeClassroomPull={permisosUI.classroom.pull}
         />
       )}
       {vista === 'publicar' && (
