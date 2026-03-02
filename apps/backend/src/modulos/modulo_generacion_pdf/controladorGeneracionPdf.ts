@@ -1067,56 +1067,75 @@ export async function generarExamen(req: SolicitudDocente, res: Response) {
     plantillaId: plantilla._id
   });
 
-  const { pdfBytes, paginas, metricasPaginas, mapaOmr, preguntasRestantes } = await generarPdfExamen({
-    titulo: plantilla.titulo,
-    folio,
-    preguntas: preguntasCandidatas,
-    mapaVariante,
-    tipoExamen: plantilla.tipo as 'parcial' | 'global',
-    totalPaginas: numeroPaginas,
-    margenMm: plantilla.configuracionPdf?.margenMm ?? 10,
-    templateVersion: templateVersionOmr,
-    encabezado: {
-      materia: String((periodo as unknown as { nombre?: unknown })?.nombre ?? ''),
-      docente: formatearDocente((docenteDb as unknown as { nombreCompleto?: unknown })?.nombreCompleto),
-      instrucciones: String((plantilla as unknown as { instrucciones?: unknown })?.instrucciones ?? '')
-    }
-  });
+  const generarConPaginas = (paginasObjetivo: number) =>
+    generarPdfExamen({
+      titulo: plantilla.titulo,
+      folio,
+      preguntas: preguntasCandidatas,
+      mapaVariante,
+      tipoExamen: plantilla.tipo as 'parcial' | 'global',
+      totalPaginas: paginasObjetivo,
+      margenMm: plantilla.configuracionPdf?.margenMm ?? 10,
+      templateVersion: templateVersionOmr,
+      encabezado: {
+        materia: String((periodo as unknown as { nombre?: unknown })?.nombre ?? ''),
+        docente: formatearDocente((docenteDb as unknown as { nombreCompleto?: unknown })?.nombreCompleto),
+        instrucciones: String((plantilla as unknown as { instrucciones?: unknown })?.instrucciones ?? '')
+      }
+    });
+
+  let paginasObjetivo = numeroPaginas;
+  let resultadoPdf = await generarConPaginas(paginasObjetivo);
+  const maxPaginas = Math.max(paginasObjetivo, preguntasCandidatas.length);
+  let intentos = 0;
+  while ((resultadoPdf.preguntasRestantes ?? 0) > 0 && paginasObjetivo < maxPaginas && intentos < maxPaginas) {
+    paginasObjetivo += 1;
+    resultadoPdf = await generarConPaginas(paginasObjetivo);
+    intentos += 1;
+  }
+
+  const { pdfBytes, paginas, metricasPaginas, mapaOmr, preguntasRestantes } = resultadoPdf;
 
   const usadosSet = extraerPreguntasUsadasMapaOmr(mapaOmr as never);
   const mapaVarianteUsada = construirMapaVarianteUsadaDesdeOmr(mapaVariante, mapaOmr);
 
-  const ultima = (Array.isArray(metricasPaginas) ? metricasPaginas : []).find((m) => m.numero === numeroPaginas);
+  const ultima = (Array.isArray(metricasPaginas) ? metricasPaginas : []).find((m) => m.numero === paginasObjetivo);
   const fraccionVaciaUltimaPagina = Number(ultima?.fraccionVacia ?? 0);
   const consumioTodas = usadosSet.size >= preguntasDb.length;
+  const paginasExpandidaAutomaticamente = paginasObjetivo > numeroPaginas;
   const advertencias: string[] = [];
   const esTest = String(configuracion.entorno).toLowerCase() === 'test';
+  if (paginasExpandidaAutomaticamente) {
+    advertencias.push(
+      `Se expandió automáticamente de ${numeroPaginas} a ${paginasObjetivo} pagina(s) para acomodar todos los reactivos.`
+    );
+  }
   if ((preguntasRestantes ?? 0) > 0) {
     if (!esTest) {
       throw new ErrorAplicacion(
         'PAGINAS_INSUFICIENTES_POR_EXCESO',
-        `No caben ${preguntasRestantes} pregunta(s) en ${numeroPaginas} pagina(s). Aumenta el numero de paginas.`,
+        `No caben ${preguntasRestantes} pregunta(s) en ${paginasObjetivo} pagina(s). Aumenta el numero de paginas.`,
         409,
-        { preguntasRestantes, numeroPaginas }
+        { preguntasRestantes, numeroPaginas: paginasObjetivo }
       );
     }
     advertencias.push(
-      `No caben ${preguntasRestantes} pregunta(s) en ${numeroPaginas} pagina(s). Aumenta el numero de paginas.`
+      `No caben ${preguntasRestantes} pregunta(s) en ${paginasObjetivo} pagina(s). Aumenta el numero de paginas.`
     );
   }
-  if (consumioTodas && fraccionVaciaUltimaPagina > 0.5) {
+  if (consumioTodas && fraccionVaciaUltimaPagina > 0.5 && !paginasExpandidaAutomaticamente) {
     if (!esTest) {
       throw new ErrorAplicacion(
         'PAGINAS_INSUFICIENTES',
-        `No hay suficientes preguntas para llenar ${numeroPaginas} pagina(s). La ultima pagina queda ${(fraccionVaciaUltimaPagina * 100).toFixed(
+        `No hay suficientes preguntas para llenar ${paginasObjetivo} pagina(s). La ultima pagina queda ${(fraccionVaciaUltimaPagina * 100).toFixed(
           0
         )}% vacia.`,
         409,
-        { fraccionVaciaUltimaPagina, numeroPaginas }
+        { fraccionVaciaUltimaPagina, numeroPaginas: paginasObjetivo }
       );
     }
     advertencias.push(
-      `No hay suficientes preguntas para llenar ${numeroPaginas} pagina(s). La ultima pagina queda ${(fraccionVaciaUltimaPagina * 100).toFixed(0)}% vacia.`
+      `No hay suficientes preguntas para llenar ${paginasObjetivo} pagina(s). La ultima pagina queda ${(fraccionVaciaUltimaPagina * 100).toFixed(0)}% vacia.`
     );
   }
   if (consumioTodas && fraccionVaciaUltimaPagina > 0) {

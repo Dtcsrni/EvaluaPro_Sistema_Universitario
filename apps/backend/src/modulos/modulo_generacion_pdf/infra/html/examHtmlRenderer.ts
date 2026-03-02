@@ -1,0 +1,59 @@
+import QRCode from 'qrcode';
+import type { ExamenPdf } from '../../domain/examenPdf';
+import type { PerfilLayoutImpresion, PerfilPlantillaOmr, ResultadoGeneracionPdf } from '../../shared/tiposPdf';
+import { buildExamLayoutTokens } from './examLayoutTokens';
+import { resolverImagenPregunta } from './examImageResolver';
+import { renderExamHtml } from './examPrintTemplate';
+import { htmlToPdfBuffer } from './examPlaywrightPdf';
+
+export class ExamHtmlRenderer {
+  constructor(
+    private readonly perfilOmr: PerfilPlantillaOmr,
+    private readonly perfilLayout: PerfilLayoutImpresion
+  ) {}
+
+  async generarPdf(examen: ExamenPdf): Promise<ResultadoGeneracionPdf> {
+    const layout = await buildExamLayoutTokens({
+      examen,
+      perfilOmr: this.perfilOmr,
+      perfilLayout: this.perfilLayout
+    });
+
+    const qrDataUrls: Record<number, string> = {};
+    for (const page of layout.pages) {
+      qrDataUrls[page.numeroPagina] = await QRCode.toDataURL(page.qrTexto, {
+        errorCorrectionLevel: 'M',
+        margin: 1,
+        width: Math.round(page.qrBox.width - 20)
+      });
+    }
+
+    const [logoIzquierdo, logoDerecho] = await Promise.all([
+      resolverImagenPregunta(examen.encabezado?.logos?.izquierdaPath),
+      resolverImagenPregunta(examen.encabezado?.logos?.derechaPath)
+    ]);
+
+    const html = renderExamHtml({
+      pages: layout.pages,
+      examen,
+      qrDataUrls,
+      logos: {
+        izquierda: logoIzquierdo.dataUrl,
+        derecha: logoDerecho.dataUrl
+      }
+    });
+    const pdfBytes = await htmlToPdfBuffer(html);
+
+    return {
+      pdfBytes,
+      layoutEngine: 'playwright-html-v1',
+      layoutTemplateVersion: 9,
+      paginas: layout.paginas,
+      metricasPaginas: layout.metricasPaginas,
+      metricasLayout: layout.metricasLayout,
+      renderDiagnostics: layout.renderDiagnostics,
+      mapaOmr: layout.mapaOmr,
+      preguntasRestantes: layout.preguntasRestantes
+    };
+  }
+}

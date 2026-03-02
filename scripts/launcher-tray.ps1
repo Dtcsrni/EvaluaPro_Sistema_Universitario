@@ -26,6 +26,8 @@ $script:Port = $Port
 $script:AutoExit = $true
 $script:AutoExitGraceMs = 20000
 $script:NoStackSince = $null
+$script:DashboardGetTimeoutSec = 3
+$script:DashboardPostTimeoutSec = 4
 
 function Parse-Bool([string]$value) {
   if (-not $value) { return $false }
@@ -70,7 +72,7 @@ function Read-LockPort {
 function Test-StatusPort([int]$port) {
   if (-not $port -or $port -le 0) { return $false }
   try {
-    Invoke-RestMethod -Uri ("http://127.0.0.1:$port/api/status") -TimeoutSec 1 | Out-Null
+    Invoke-RestMethod -Uri ("http://127.0.0.1:$port/api/status") -TimeoutSec $script:DashboardGetTimeoutSec | Out-Null
     return $true
   } catch {
     return $false
@@ -506,7 +508,7 @@ function Log-ApiFailure([string]$key, [string]$msg, [int]$minIntervalMs = 8000) 
 
 function Get-JsonOrNull([string]$path) {
   try {
-    return Invoke-RestMethod -Uri ((Get-ApiBase) + $path) -TimeoutSec 1
+    return Invoke-RestMethod -Uri ((Get-ApiBase) + $path) -TimeoutSec $script:DashboardGetTimeoutSec
   } catch {
     $details = Format-ApiException $_
     Log-ApiFailure "GET:$path" ("GET $path failed: $details")
@@ -517,7 +519,7 @@ function Get-JsonOrNull([string]$path) {
 function Invoke-PostJsonOrNull([string]$path, [hashtable]$body) {
   try {
     $json = ($body | ConvertTo-Json -Depth 5)
-    return Invoke-RestMethod -Method Post -Uri ((Get-ApiBase) + $path) -ContentType 'application/json' -Body $json -TimeoutSec 2
+    return Invoke-RestMethod -Method Post -Uri ((Get-ApiBase) + $path) -ContentType 'application/json' -Body $json -TimeoutSec $script:DashboardPostTimeoutSec
   } catch {
     $details = Format-ApiException $_
     Log-ApiFailure "POST:$path" ("POST $path failed: $details")

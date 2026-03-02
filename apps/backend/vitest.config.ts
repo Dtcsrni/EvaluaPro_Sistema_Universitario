@@ -22,7 +22,6 @@ export default defineConfig({
         ...(baseVitestConfig.coverage?.exclude ?? []),
         'src/modulos/modulo_banco_preguntas/**',
         'src/modulos/modulo_generacion_pdf/**',
-        'src/modulos/modulo_omr_v1/**',
         'src/modulos/modulo_sincronizacion_nube/**',
         'src/modulos/modulo_papelera/**',
         'src/modulos/modulo_vinculacion_entrega/**',

@@ -94,7 +94,10 @@ export type PreviewPlantilla = {
   omrRuntimeVersion: 1;
   assessmentTemplateId: string;
   questionCount: number;
+  proposedGenerationSeed: string;
+  previewFingerprint: string;
   recommendedSheetFamily: string;
+  previewState: 'ready' | 'warning' | 'blocked';
   bookletPreview: {
     pagesConfigured: number;
     pagesEstimated: number;
@@ -125,6 +128,117 @@ export type PreviewPlantilla = {
   };
   blockingIssues: string[];
   warnings: string[];
+};
+
+export type GeneratedAssessmentDetalle = {
+  assessment: {
+    _id: string;
+    folio: string;
+    generationSeed: string;
+    previewFingerprint: string;
+    bookletPdfUrl?: string;
+    omrSheetPdfUrl?: string;
+    studentPacketZipUrl?: string;
+    answerKeyUrl?: string;
+    manifestUrl?: string;
+    versionSet: Array<{ versionCode: string; questionCount: number }>;
+    statisticsSummary: {
+      sheetCount: number;
+      studentPacketCount: number;
+      versionCount: number;
+    };
+  };
+  sheetInstances: Array<{
+    sheetSerial: string;
+    pageIndex: number;
+    versionCode?: string;
+    studentBinding?: {
+      alumnoId?: string | null;
+      studentId?: string | null;
+      studentName?: string | null;
+    };
+  }>;
+  statisticsSummary?: {
+    sheetCount?: number;
+    studentPacketCount?: number;
+    versionCount?: number;
+    warnings?: string[];
+  };
+  versionSet?: Array<{ versionCode: string; questionCount: number }>;
+  studentPacketArtifacts?: Array<{
+    alumnoId?: string | null;
+    studentId?: string | null;
+    studentName?: string | null;
+    sheetSerial: string;
+    versionCode: string;
+    path?: string;
+    fileName?: string;
+  }>;
+};
+
+export type OmrJobDetalle = {
+  jobId: string;
+  sourceType: 'pdf' | 'image_batch' | 'camera_capture';
+  status: 'queued' | 'processing' | 'completed' | 'failed' | 'finalized';
+  pagesTotal: number;
+  pagesProcessed: number;
+  summary?: {
+    accepted?: number;
+    needsReview?: number;
+    rejected?: number;
+    autoGradable?: number;
+    sheets?: number;
+    averageScore?: number;
+    finalizedAt?: string;
+    results?: Array<{
+      sheetSerial: string;
+      studentId?: string | null;
+      versionCode?: string | null;
+      confidence?: number;
+      autoGradable?: boolean;
+      scoreResult?: {
+        totalPreguntas: number;
+        correctas: number;
+        contestadas: number;
+        invalidas: number;
+        porcentaje: number;
+      };
+    }>;
+  };
+  pages: Array<{
+    sheetSerial: string;
+    pageIndex: number;
+    scanStatus: 'accepted' | 'needs_review' | 'rejected';
+    confidence: number;
+    autoGradable?: boolean;
+    manualReviewRequired?: boolean;
+    scoreResult?: {
+      totalPreguntas: number;
+      correctas: number;
+      contestadas: number;
+      invalidas: number;
+      porcentaje: number;
+    };
+    identityResult?: {
+      studentId?: string | null;
+      studentName?: string | null;
+    };
+    versionResult?: {
+      versionCode?: string | null;
+    };
+    responses: Array<{ numeroPregunta: number; opcion: string | null; confianza?: number }>;
+    exceptions: Array<{
+      code: string;
+      severity: 'info' | 'warning' | 'blocking';
+      message: string;
+      recommendedAction?: string;
+    }>;
+  }>;
+  reviewResolutions?: Array<{
+    sheetSerial: string;
+    resolvedAt: string;
+    resolutionReason?: string;
+  }>;
 };
 
 export type Pregunta = {

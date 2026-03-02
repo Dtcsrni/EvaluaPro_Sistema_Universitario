@@ -97,6 +97,19 @@ test('dashboard repair endpoints expose status, run lock and progress', { timeou
   }
   assert.ok(port > 0, 'Dashboard no respondió en tiempo');
 
+  const dashboardStatusRes = await fetch(`http://127.0.0.1:${port}/api/status`);
+  assert.equal(dashboardStatusRes.status, 200);
+  const dashboardStatus = await dashboardStatusRes.json();
+  assert.ok(Array.isArray(dashboardStatus.managedTasks));
+  assert.ok(Array.isArray(dashboardStatus.running));
+
+  const healthRes = await fetch(`http://127.0.0.1:${port}/api/health`);
+  assert.equal(healthRes.status, 200);
+  const healthBody = await healthRes.json();
+  assert.ok(healthBody.services && typeof healthBody.services === 'object');
+  assert.ok(healthBody.services.mongoLocal && typeof healthBody.services.mongoLocal === 'object');
+  assert.equal(typeof healthBody.services.mongoLocal.ok, 'boolean');
+
   const statusRes = await fetch(`http://127.0.0.1:${port}/api/repair/status`);
   assert.equal(statusRes.status, 200);
   const statusBody = await statusRes.json();

@@ -112,6 +112,23 @@ describe('pdf layout visual guard', () => {
           expect(interseca(a, omr)).toBe(true);
         }
 
+        if (omr && actual.perfilOmr && Array.isArray(actual.opciones) && actual.opciones.length > 0) {
+          const radio = Number(actual.perfilOmr.radio ?? 0);
+          const pasoY = Number(actual.perfilOmr.pasoY ?? 0);
+          expect(actual.opciones.length).toBe(5);
+          for (let idx = 0; idx < actual.opciones.length; idx += 1) {
+            const opcion = actual.opciones[idx]!;
+            expect(opcion.x - radio).toBeGreaterThanOrEqual(omr.x - 0.01);
+            expect(opcion.x + radio).toBeLessThanOrEqual(omr.x + omr.width + 0.01);
+            expect(opcion.y - radio).toBeGreaterThanOrEqual(omr.y - 0.01);
+            expect(opcion.y + radio).toBeLessThanOrEqual(omr.y + omr.height + 0.01);
+            if (idx > 0) {
+              const prev = actual.opciones[idx - 1]!;
+              expect(Math.abs((opcion.y - prev.y) - pasoY)).toBeLessThanOrEqual(0.05);
+            }
+          }
+        }
+
         if (i > 0 && preguntas[i - 1]?.bboxPregunta) {
           const prev = preguntas[i - 1]!.bboxPregunta as Rect;
           expect(interseca(prev, a)).toBe(false);

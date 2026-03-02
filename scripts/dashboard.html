@@ -42,33 +42,52 @@
       --border: #d5e2ef;
       --shadow: 0 10px 24px rgba(15, 23, 42, 0.10);
 
-      /* Acentos cyberpunk */
-      --neon-cyan: #00d5ff;
-      --neon-magenta: #ff2bd6;
-      --neon-lime: #2dff8f;
-      --neon-cyan-soft: rgba(0, 213, 255, 0.14);
-      --neon-magenta-soft: rgba(255, 43, 214, 0.14);
-      --neon-lime-soft: rgba(45, 255, 143, 0.14);
+      /* Acentos profesionales */
+      --neon-cyan: #2563eb;
+      --neon-magenta: #0f766e;
+      --neon-lime: #0f766e;
+      --neon-cyan-soft: rgba(37, 99, 235, 0.14);
+      --neon-magenta-soft: rgba(15, 118, 110, 0.14);
+      --neon-lime-soft: rgba(15, 118, 110, 0.14);
 
       /* Acentos de UI */
       --accent: var(--neon-cyan);
       --accent-2: var(--neon-lime);
       --accent-3: var(--neon-magenta);
-      --accent-soft: rgba(0, 213, 255, 0.12);
+      --accent-soft: rgba(37, 99, 235, 0.12);
 
       /* Estado */
       --warn: #fff2f1;
       --ok: #e9f7ef;
+      --state-active-bg: #eaf7ef;
+      --state-active-border: #b7e1c4;
+      --state-active-text: #166534;
+      --state-detected-bg: #eef4ff;
+      --state-detected-border: #bfd2ff;
+      --state-detected-text: #1d4ed8;
+      --state-stopped-bg: #f3f6fa;
+      --state-stopped-border: #d7dee8;
+      --state-stopped-text: #5b6b7e;
+      --state-pending-bg: #fff5e8;
+      --state-pending-border: #f8c98a;
+      --state-pending-text: #9a5b10;
+      --state-error-bg: #fff1f2;
+      --state-error-border: #fecdd3;
+      --state-error-text: #b91c1c;
 
       /* Efectos */
-      --btn-hover: #d9e9ff;
+      --btn-hover: #dde7f7;
       --grid-alpha: 0.06;
       --scan-alpha: 0.035;
 
       /* Encabezado */
-      --header-grad: linear-gradient(120deg, rgba(2, 6, 23, 0.94), rgba(0, 213, 255, 0.16) 55%, rgba(255, 43, 214, 0.22));
+      --header-grad: linear-gradient(120deg, rgba(15, 23, 42, 0.96), rgba(37, 99, 235, 0.18) 54%, rgba(15, 118, 110, 0.18));
       --header-chip-bg: rgba(0, 0, 0, 0.24);
       --header-chip-border: rgba(255, 255, 255, 0.22);
+      --pattern-circuit-svg: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 320 180'%3E%3Cg fill='none' stroke='%23ffffff' stroke-opacity='.18' stroke-width='1.35' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M18 128h72l18-18h56l24-24h114'/%3E%3Cpath d='M62 42h56l24 24h44l14 14h102'/%3E%3Cpath d='M96 164v-30l24-24h42'/%3E%3Cpath d='M226 24v46l26 26v60'/%3E%3C/g%3E%3Cg fill='%23ffffff' fill-opacity='.2'%3E%3Ccircle cx='18' cy='128' r='3.2'/%3E%3Ccircle cx='108' cy='110' r='3.2'/%3E%3Ccircle cx='188' cy='86' r='3.2'/%3E%3Ccircle cx='302' cy='86' r='3.2'/%3E%3Ccircle cx='62' cy='42' r='3.2'/%3E%3Ccircle cx='142' cy='66' r='3.2'/%3E%3Ccircle cx='214' cy='80' r='3.2'/%3E%3Ccircle cx='226' cy='24' r='3.2'/%3E%3Ccircle cx='252' cy='96' r='3.2'/%3E%3C/g%3E%3C/svg%3E");
+      --pattern-orbit-svg: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 260 260'%3E%3Cg fill='none' stroke='%23ffffff' stroke-opacity='.16'%3E%3Ccircle cx='130' cy='130' r='88' stroke-width='1.4'/%3E%3Cellipse cx='130' cy='130' rx='112' ry='58' stroke-width='1.2'/%3E%3Cellipse cx='130' cy='130' rx='60' ry='116' stroke-width='1.2' transform='rotate(-28 130 130)'/%3E%3Cpath d='M48 178c20-30 48-48 82-52 42-6 82 10 118 40' stroke-width='1.2'/%3E%3C/g%3E%3Cg fill='%23ffffff' fill-opacity='.2'%3E%3Ccircle cx='76' cy='86' r='3.4'/%3E%3Ccircle cx='188' cy='88' r='2.8'/%3E%3Ccircle cx='164' cy='172' r='3.2'/%3E%3Ccircle cx='54' cy='176' r='2.6'/%3E%3C/g%3E%3C/svg%3E");
+      --pattern-grid-svg: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 240 160'%3E%3Cg fill='none' stroke='%23ffffff' stroke-opacity='.14' stroke-width='1'%3E%3Cpath d='M0 28h240M0 80h240M0 132h240'/%3E%3Cpath d='M38 0v160M120 0v160M202 0v160'/%3E%3Cpath d='M0 54l54-54M80 160l160-160M162 160l78-78'/%3E%3C/g%3E%3Cg fill='%23ffffff' fill-opacity='.16'%3E%3Ccircle cx='38' cy='28' r='2.5'/%3E%3Ccircle cx='120' cy='80' r='2.5'/%3E%3Ccircle cx='202' cy='132' r='2.5'/%3E%3C/g%3E%3C/svg%3E");
+      --pattern-topo-svg: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 420 220'%3E%3Cg fill='none' stroke='%23ffffff' stroke-opacity='.14' stroke-width='1.2'%3E%3Cpath d='M12 160c38-26 74-38 118-38 58 0 86 34 142 34 46 0 86-10 136-38'/%3E%3Cpath d='M0 112c34-22 76-34 122-34 54 0 96 22 150 22 52 0 94-14 148-44'/%3E%3Cpath d='M28 62c30-14 66-22 102-22 52 0 90 24 138 24 54 0 100-12 142-38'/%3E%3Cpath d='M68 198c30-16 66-24 112-24 54 0 92 14 158 14 28 0 54-2 82-8'/%3E%3C/g%3E%3C/svg%3E");
     }
 
     :root[data-theme="dark"] {
@@ -86,52 +105,67 @@
       --border: rgba(148, 163, 184, 0.18);
       --shadow: 0 22px 56px rgba(0, 0, 0, 0.58);
 
-      /* Acentos cyberpunk */
-      --neon-cyan: #22e8ff;
-      --neon-magenta: #ff38da;
-      --neon-lime: #35ff93;
-      --neon-cyan-soft: rgba(34, 232, 255, 0.14);
-      --neon-magenta-soft: rgba(255, 56, 218, 0.14);
-      --neon-lime-soft: rgba(53, 255, 147, 0.14);
+      /* Acentos profesionales */
+      --neon-cyan: #60a5fa;
+      --neon-magenta: #2dd4bf;
+      --neon-lime: #34d399;
+      --neon-cyan-soft: rgba(96, 165, 250, 0.14);
+      --neon-magenta-soft: rgba(45, 212, 191, 0.14);
+      --neon-lime-soft: rgba(52, 211, 153, 0.14);
 
       /* Acentos de UI (menos azules) */
       --accent: var(--neon-cyan);
       --accent-2: var(--neon-lime);
       --accent-3: var(--neon-magenta);
-      --accent-soft: rgba(34, 232, 255, 0.12);
+      --accent-soft: rgba(96, 165, 250, 0.12);
 
       --warn: rgba(245, 158, 11, 0.14);
       --ok: rgba(34, 197, 94, 0.14);
-      --btn-hover: rgba(34, 232, 255, 0.14);
+      --btn-hover: rgba(96, 165, 250, 0.14);
+      --state-active-bg: rgba(34, 197, 94, 0.12);
+      --state-active-border: rgba(34, 197, 94, 0.34);
+      --state-active-text: rgba(187, 247, 208, 0.98);
+      --state-detected-bg: rgba(59, 130, 246, 0.14);
+      --state-detected-border: rgba(96, 165, 250, 0.34);
+      --state-detected-text: rgba(191, 219, 254, 0.98);
+      --state-stopped-bg: rgba(148, 163, 184, 0.10);
+      --state-stopped-border: rgba(148, 163, 184, 0.24);
+      --state-stopped-text: rgba(203, 213, 225, 0.90);
+      --state-pending-bg: rgba(245, 158, 11, 0.14);
+      --state-pending-border: rgba(245, 158, 11, 0.32);
+      --state-pending-text: rgba(253, 230, 138, 0.96);
+      --state-error-bg: rgba(239, 68, 68, 0.12);
+      --state-error-border: rgba(239, 68, 68, 0.30);
+      --state-error-text: rgba(254, 202, 202, 0.98);
 
       --grid-alpha: 0.07;
       --scan-alpha: 0.045;
 
-      --header-grad: linear-gradient(120deg, rgba(2, 3, 10, 0.96), rgba(15, 23, 42, 0.70) 55%, rgba(255, 56, 218, 0.22));
+      --header-grad: linear-gradient(120deg, rgba(2, 6, 23, 0.97), rgba(30, 41, 59, 0.78) 55%, rgba(45, 212, 191, 0.16));
       --header-chip-bg: rgba(2, 6, 23, 0.46);
       --header-chip-border: rgba(148, 163, 184, 0.22);
     }
 
     /* Estado del sistema (animo) -> afecta acentos y energía visual */
     :root[data-mood="ok"] {
-      --accent: var(--neon-lime);
-      --accent-3: var(--neon-cyan);
-      --accent-soft: var(--neon-lime-soft);
+      --accent: #15803d;
+      --accent-3: #0f766e;
+      --accent-soft: rgba(21, 128, 61, 0.14);
     }
     :root[data-mood="warn"] {
       --accent: #f59e0b;
-      --accent-3: var(--neon-magenta);
+      --accent-3: #92400e;
       --accent-soft: rgba(245, 158, 11, 0.14);
     }
     :root[data-mood="error"] {
       --accent: #ef4444;
-      --accent-3: var(--neon-magenta);
+      --accent-3: #b91c1c;
       --accent-soft: rgba(239, 68, 68, 0.14);
     }
     :root[data-mood="info"] {
-      --accent: var(--neon-cyan);
-      --accent-3: var(--neon-magenta);
-      --accent-soft: var(--neon-cyan-soft);
+      --accent: #2563eb;
+      --accent-3: #0f766e;
+      --accent-soft: rgba(37, 99, 235, 0.14);
     }
 
     /* Hora del día (día/noche/amanecer/atardecer) -> sutil, sin bajar legibilidad */
@@ -141,13 +175,13 @@
     :root[data-time="night"] { --grid-alpha: 0.075; --scan-alpha: 0.055; }
 
     :root[data-theme="light"][data-time="dusk"] {
-      --header-grad: linear-gradient(120deg, rgba(2, 6, 23, 0.84), rgba(255, 43, 214, 0.22) 45%, rgba(0, 213, 255, 0.16));
+      --header-grad: linear-gradient(120deg, rgba(15, 23, 42, 0.9), rgba(15, 118, 110, 0.16) 45%, rgba(37, 99, 235, 0.16));
     }
     :root[data-theme="dark"][data-time="night"] {
-      --header-grad: linear-gradient(120deg, rgba(2, 3, 10, 0.98), rgba(34, 232, 255, 0.14) 55%, rgba(255, 56, 218, 0.20));
+      --header-grad: linear-gradient(120deg, rgba(2, 6, 23, 0.98), rgba(37, 99, 235, 0.16) 55%, rgba(15, 118, 110, 0.18));
     }
     :root[data-theme="dark"][data-time="dawn"] {
-      --header-grad: linear-gradient(120deg, rgba(2, 3, 10, 0.98), rgba(53, 255, 147, 0.10) 55%, rgba(34, 232, 255, 0.16));
+      --header-grad: linear-gradient(120deg, rgba(2, 6, 23, 0.98), rgba(16, 185, 129, 0.10) 55%, rgba(96, 165, 250, 0.16));
     }
 
     * { box-sizing: border-box; }
@@ -157,9 +191,9 @@
     input:focus-visible,
     select:focus-visible,
     textarea:focus-visible {
-      outline: 3px solid var(--neon-cyan);
+      outline: 3px solid var(--accent);
       outline-offset: 3px;
-      box-shadow: 0 0 0 4px rgba(0, 213, 255, 0.18);
+      box-shadow: 0 0 0 4px rgba(37, 99, 235, 0.18);
     }
 
     body {
@@ -167,9 +201,13 @@
       font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, "Noto Sans", "Liberation Sans", sans-serif;
       font-size: clamp(14px, 0.95vw, 16px);
       background:
-        radial-gradient(circle at 10% 12%, rgba(0, 213, 255, 0.10), transparent 42%),
-        radial-gradient(circle at 90% 8%, rgba(255, 43, 214, 0.08), transparent 38%),
+        var(--pattern-topo-svg),
+        radial-gradient(circle at 10% 12%, rgba(37, 99, 235, 0.10), transparent 42%),
+        radial-gradient(circle at 90% 8%, rgba(15, 118, 110, 0.08), transparent 38%),
         linear-gradient(180deg, #ffffff 0%, var(--bg) 72%);
+      background-size: 920px auto, auto, auto, auto;
+      background-position: center 120px, 10% 12%, 90% 8%, 0 0;
+      background-repeat: no-repeat, no-repeat, no-repeat, no-repeat;
       color: var(--ink);
       min-height: 100vh;
       overflow-x: hidden;
@@ -177,10 +215,14 @@
 
     :root[data-theme="dark"] body {
       background:
-        radial-gradient(circle at 10% 12%, rgba(34, 232, 255, 0.12), transparent 44%),
-        radial-gradient(circle at 90% 8%, rgba(255, 56, 218, 0.10), transparent 42%),
-        radial-gradient(circle at 70% 88%, rgba(53, 255, 147, 0.06), transparent 46%),
+        var(--pattern-topo-svg),
+        radial-gradient(circle at 10% 12%, rgba(96, 165, 250, 0.12), transparent 44%),
+        radial-gradient(circle at 90% 8%, rgba(45, 212, 191, 0.10), transparent 42%),
+        radial-gradient(circle at 70% 88%, rgba(52, 211, 153, 0.06), transparent 46%),
         linear-gradient(180deg, #000000 0%, var(--bg) 100%);
+      background-size: 980px auto, auto, auto, auto, auto;
+      background-position: center 140px, 10% 12%, 90% 8%, 70% 88%, 0 0;
+      background-repeat: no-repeat, no-repeat, no-repeat, no-repeat, no-repeat;
     }
 
     body::before {
@@ -237,12 +279,60 @@
       z-index: 3;
       box-shadow: 0 6px 18px rgba(15, 23, 42, 0.25);
       flex-wrap: wrap;
+      overflow: hidden;
+      isolation: isolate;
+    }
+
+    header::before {
+      content: "";
+      position: absolute;
+      inset: -10% -2% -20% 48%;
+      background-image: var(--pattern-circuit-svg);
+      background-repeat: no-repeat;
+      background-size: min(44vw, 620px) auto;
+      background-position: right center;
+      opacity: 0.42;
+      pointer-events: none;
+      z-index: 0;
+      mix-blend-mode: screen;
+    }
+
+    header::after {
+      content: "";
+      position: absolute;
+      width: min(34vw, 360px);
+      aspect-ratio: 1;
+      right: min(22vw, 240px);
+      top: -42%;
+      background-image: var(--pattern-orbit-svg);
+      background-repeat: no-repeat;
+      background-size: contain;
+      opacity: 0.16;
+      pointer-events: none;
+      z-index: 0;
     }
 
     .brand {
       display: flex;
       align-items: center;
       gap: 14px;
+      position: relative;
+      z-index: 1;
+      min-width: 0;
+    }
+
+    .brand::after {
+      content: "";
+      position: absolute;
+      width: 180px;
+      height: 72px;
+      left: 72px;
+      bottom: -18px;
+      background-image: var(--pattern-grid-svg);
+      background-repeat: no-repeat;
+      background-size: contain;
+      opacity: 0.16;
+      pointer-events: none;
     }
 
     .logo {
@@ -357,6 +447,8 @@
       display: flex;
       gap: 8px;
       flex-wrap: wrap;
+      position: relative;
+      z-index: 1;
     }
 
     .chip {
@@ -439,7 +531,7 @@
     :root[data-mood="ok"] .sys-indicator { border-color: rgba(34, 197, 94, 0.85); box-shadow: 0 14px 34px rgba(34, 197, 94, 0.14); }
     :root[data-mood="warn"] .sys-indicator { border-color: rgba(245, 158, 11, 0.9); box-shadow: 0 14px 34px rgba(245, 158, 11, 0.16); }
     :root[data-mood="error"] .sys-indicator { border-color: rgba(239, 68, 68, 0.9); box-shadow: 0 14px 34px rgba(239, 68, 68, 0.16); }
-    :root[data-mood="info"] .sys-indicator { border-color: rgba(34, 232, 255, 0.85); box-shadow: 0 14px 34px rgba(34, 232, 255, 0.14); }
+    :root[data-mood="info"] .sys-indicator { border-color: rgba(96, 165, 250, 0.85); box-shadow: 0 14px 34px rgba(96, 165, 250, 0.14); }
 
     .mono {
       font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace;
@@ -462,7 +554,7 @@
       padding: 10px 12px;
       border: 1px solid var(--border);
       border-radius: 14px;
-      background: linear-gradient(180deg, rgba(0, 213, 255, 0.05), rgba(255, 43, 214, 0.03));
+      background: linear-gradient(180deg, rgba(37, 99, 235, 0.05), rgba(15, 118, 110, 0.04));
     }
 
     .install-row .k {
@@ -484,6 +576,42 @@
       padding: clamp(12px, 2vw, 22px) clamp(12px, 2.6vw, 28px) 30px;
       max-width: 3000px;
       margin: 0 auto;
+      isolation: isolate;
+    }
+
+    main::before {
+      content: "";
+      position: absolute;
+      inset: 120px -80px auto auto;
+      width: min(42vw, 620px);
+      height: min(40vw, 460px);
+      background-image: var(--pattern-topo-svg);
+      background-repeat: no-repeat;
+      background-size: contain;
+      opacity: 0.12;
+      pointer-events: none;
+      z-index: 0;
+    }
+
+    main::after {
+      content: "";
+      position: absolute;
+      left: -120px;
+      bottom: 36px;
+      width: min(34vw, 420px);
+      height: min(34vw, 420px);
+      background-image: var(--pattern-orbit-svg);
+      background-repeat: no-repeat;
+      background-size: contain;
+      opacity: 0.12;
+      pointer-events: none;
+      z-index: 0;
+      filter: blur(0.2px);
+    }
+
+    main > * {
+      position: relative;
+      z-index: 1;
     }
 
     .tabs {
@@ -491,6 +619,22 @@
       gap: 12px;
       margin: 12px 0 18px;
       flex-wrap: wrap;
+      position: relative;
+    }
+
+    .tabs::before {
+      content: "";
+      position: absolute;
+      left: 0;
+      right: 0;
+      bottom: -10px;
+      height: 40px;
+      background-image: var(--pattern-grid-svg);
+      background-repeat: no-repeat;
+      background-size: 320px auto;
+      background-position: left bottom;
+      opacity: 0.12;
+      pointer-events: none;
     }
 
     .tab-btn {
@@ -506,14 +650,35 @@
       align-items: center;
       gap: 8px;
       transition: transform var(--dur-xs) var(--ease-out), box-shadow var(--dur-sm) var(--ease-out), background var(--dur-sm) var(--ease-out), border-color var(--dur-sm) var(--ease-out), color var(--dur-sm) var(--ease-out);
+      position: relative;
+      overflow: hidden;
+      isolation: isolate;
+    }
+
+    .tab-btn::before {
+      content: "";
+      position: absolute;
+      inset: 0;
+      background-image: var(--pattern-orbit-svg);
+      background-repeat: no-repeat;
+      background-size: 120px 120px;
+      background-position: right -26px center;
+      opacity: 0.10;
+      pointer-events: none;
+      z-index: 0;
+    }
+
+    .tab-btn > * {
+      position: relative;
+      z-index: 1;
     }
 
     .tab-btn.active {
       color: #ffffff;
-      background: linear-gradient(120deg, var(--accent), var(--neon-magenta));
+      background: linear-gradient(120deg, var(--accent), var(--accent-3));
       box-shadow:
-        0 10px 22px rgba(0, 213, 255, 0.18),
-        0 0 26px rgba(255, 43, 214, 0.14);
+        0 10px 22px rgba(37, 99, 235, 0.18),
+        0 0 26px rgba(15, 118, 110, 0.12);
       transform: translateY(-1px);
     }
 
@@ -581,25 +746,68 @@
       box-shadow: var(--shadow);
       position: relative;
       overflow: hidden;
+      isolation: isolate;
       animation: fadeUp var(--dur-md) var(--ease-out) both;
       transition: transform var(--dur-xs) var(--ease-out), box-shadow var(--dur-sm) var(--ease-out), border-color var(--dur-sm) var(--ease-out), background var(--dur-sm) var(--ease-out);
       word-wrap: break-word;
+    }
+
+    .card.vector-topo::before,
+    .card.vector-circuit::before,
+    .card.vector-orbit::before,
+    .card.vector-grid::before {
+      content: '';
+      position: absolute;
+      inset: 0;
+      pointer-events: none;
+      z-index: 0;
+      opacity: 0.18;
+      background-repeat: no-repeat;
+    }
+
+    .card.vector-topo::before {
+      background-image: var(--pattern-topo-svg);
+      background-size: 460px auto;
+      background-position: right -120px top -18px;
+    }
+
+    .card.vector-circuit::before {
+      background-image: var(--pattern-circuit-svg);
+      background-size: 360px auto;
+      background-position: right -72px top -10px;
+    }
+
+    .card.vector-orbit::before {
+      background-image: var(--pattern-orbit-svg);
+      background-size: 260px auto;
+      background-position: right -44px top -26px;
+    }
+
+    .card.vector-grid::before {
+      background-image: var(--pattern-grid-svg);
+      background-size: 260px auto;
+      background-position: right -24px top -12px;
+    }
+
+    .card > * {
+      position: relative;
+      z-index: 1;
     }
 
     .card:hover {
       transform: translateY(-1px);
       box-shadow:
         0 20px 44px rgba(0, 0, 0, 0.10),
-        0 0 0 1px rgba(0, 213, 255, 0.10),
-        0 0 28px rgba(255, 43, 214, 0.08);
+        0 0 0 1px rgba(37, 99, 235, 0.10),
+        0 0 28px rgba(15, 118, 110, 0.08);
     }
 
     :root[data-theme="dark"] .card:hover {
       transform: translateY(-1px);
       box-shadow:
         0 26px 64px rgba(0, 0, 0, 0.65),
-        0 0 0 1px rgba(34, 232, 255, 0.18),
-        0 0 36px rgba(255, 56, 218, 0.14);
+        0 0 0 1px rgba(96, 165, 250, 0.18),
+        0 0 36px rgba(45, 212, 191, 0.12);
     }
 
     .card::after {
@@ -699,8 +907,8 @@
       position: absolute;
       inset: -1px;
       background:
-        radial-gradient(circle at 20% 50%, rgba(0, 213, 255, 0.18), transparent 55%),
-        radial-gradient(circle at 80% 30%, rgba(255, 43, 214, 0.12), transparent 60%);
+        radial-gradient(circle at 20% 50%, rgba(37, 99, 235, 0.16), transparent 55%),
+        radial-gradient(circle at 80% 30%, rgba(15, 118, 110, 0.10), transparent 60%);
       opacity: 0;
       transition: opacity var(--dur-xs) var(--ease-out);
       pointer-events: none;
@@ -719,7 +927,7 @@
       position: absolute;
       inset: 0;
       width: calc(var(--hold, 0) * 1%);
-      background: linear-gradient(90deg, rgba(0, 213, 255, 0.16), rgba(255, 43, 214, 0.06));
+      background: linear-gradient(90deg, rgba(37, 99, 235, 0.16), rgba(15, 118, 110, 0.08));
       z-index: 0;
       pointer-events: none;
       transition: width var(--dur-hold) linear;
@@ -727,8 +935,8 @@
 
     button.ghost-btn.is-holding {
       box-shadow:
-        0 12px 26px rgba(0, 213, 255, 0.14),
-        0 0 24px rgba(255, 43, 214, 0.10);
+        0 12px 26px rgba(37, 99, 235, 0.14),
+        0 0 24px rgba(15, 118, 110, 0.08);
     }
 
     button.ghost-btn.hold-btn {
@@ -823,12 +1031,12 @@
     .signal-pill.error { background: #fff1f2; border-color: #fecdd3; color: #b91c1c; }
     .signal-pill.warn { background: #fff7ed; border-color: #fed7aa; color: #9a3412; }
     .signal-pill.ok { background: #ecfdf3; border-color: #bbf7d0; color: #166534; }
-    .signal-pill.info { background: rgba(0, 213, 255, 0.08); border-color: rgba(0, 213, 255, 0.24); color: rgba(2, 67, 82, 0.92); }
+    .signal-pill.info { background: rgba(37, 99, 235, 0.08); border-color: rgba(37, 99, 235, 0.24); color: #1e3a8a; }
 
     :root[data-theme="dark"] .signal-pill.error { background: rgba(239, 68, 68, 0.12); border-color: rgba(239, 68, 68, 0.28); color: rgba(254, 202, 202, 0.95); }
     :root[data-theme="dark"] .signal-pill.warn { background: rgba(245, 158, 11, 0.14); border-color: rgba(245, 158, 11, 0.28); color: rgba(253, 230, 138, 0.95); }
     :root[data-theme="dark"] .signal-pill.ok { background: rgba(34, 197, 94, 0.12); border-color: rgba(34, 197, 94, 0.26); color: rgba(187, 247, 208, 0.95); }
-    :root[data-theme="dark"] .signal-pill.info { background: rgba(34, 232, 255, 0.12); border-color: rgba(34, 232, 255, 0.28); color: rgba(165, 251, 255, 0.95); }
+    :root[data-theme="dark"] .signal-pill.info { background: rgba(96, 165, 250, 0.12); border-color: rgba(96, 165, 250, 0.28); color: rgba(191, 219, 254, 0.95); }
 
     .event-feed { list-style: none; margin: 0; padding: 0; display: grid; gap: 10px; }
     .event-item {
@@ -851,7 +1059,7 @@
     .event-item.error .event-dot { background: #ef4444; box-shadow: 0 0 0 4px rgba(239, 68, 68, 0.2); }
     .event-item.warn .event-dot { background: #f59e0b; box-shadow: 0 0 0 4px rgba(245, 158, 11, 0.2); }
     .event-item.ok .event-dot { background: #22c55e; box-shadow: 0 0 0 4px rgba(34, 197, 94, 0.2); }
-    .event-item.info .event-dot { background: var(--neon-cyan); box-shadow: 0 0 0 4px rgba(0, 213, 255, 0.22); }
+    .event-item.info .event-dot { background: var(--neon-cyan); box-shadow: 0 0 0 4px rgba(37, 99, 235, 0.22); }
     .event-text { flex: 1; font-size: 13px; color: var(--ink); }
     .event-meta { margin-top: 4px; font-size: 12px; color: var(--ink-soft); display: flex; gap: 10px; flex-wrap: wrap; }
     .event-time { margin-left: auto; font-size: 12px; color: var(--ink-soft); }
@@ -885,7 +1093,7 @@
     button:hover .icon,
     a:hover .icon {
       transform: translateY(-1px) scale(1.06);
-      filtro: drop-shadow(0 14px 26px rgba(0, 213, 255, 0.18));
+      filtro: drop-shadow(0 14px 26px rgba(37, 99, 235, 0.18));
     }
 
     button:active .icon,
@@ -911,10 +1119,10 @@
       border-radius: 16px;
       border: 1px solid var(--border);
       background:
-        radial-gradient(circle at 10% 10%, rgba(0, 213, 255, 0.10), transparent 55%),
-        radial-gradient(circle at 90% 0%, rgba(255, 43, 214, 0.07), transparent 60%),
+        radial-gradient(circle at 10% 10%, rgba(37, 99, 235, 0.08), transparent 55%),
+        radial-gradient(circle at 90% 0%, rgba(15, 118, 110, 0.06), transparent 60%),
         var(--surface-4);
-      box-shadow: 0 10px 24px rgba(0, 213, 255, 0.08);
+      box-shadow: 0 10px 24px rgba(37, 99, 235, 0.08);
       display: grid;
       gap: 10px;
     }
@@ -988,8 +1196,8 @@
     button:hover {
       background: var(--btn-hover);
       box-shadow:
-        0 10px 22px rgba(0, 213, 255, 0.12),
-        0 0 20px rgba(255, 43, 214, 0.08);
+        0 10px 22px rgba(37, 99, 235, 0.12),
+        0 0 20px rgba(15, 118, 110, 0.08);
     }
     button:active { transform: translateY(1px); }
 
@@ -1007,6 +1215,20 @@
       border-radius: 14px;
       min-height: clamp(54px, 7vw, 64px);
       background: var(--surface-3);
+      isolation: isolate;
+    }
+
+    .toggle-btn::before {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background-image: var(--pattern-circuit-svg);
+      background-repeat: no-repeat;
+      background-size: 200px auto;
+      background-position: right -62px center;
+      opacity: 0.12;
+      pointer-events: none;
+      z-index: 0;
     }
 
     .toggle-btn::after {
@@ -1014,13 +1236,42 @@
       position: absolute;
       inset: 0;
       width: calc(var(--hold, 0) * 1%);
-      background: linear-gradient(90deg, rgba(0, 213, 255, 0.18), rgba(255, 43, 214, 0.06));
+      background: linear-gradient(90deg, rgba(37, 99, 235, 0.18), rgba(15, 118, 110, 0.08));
       pointer-events: none;
       transition: width var(--dur-hold) linear;
     }
 
-    .toggle-btn.active { background: var(--surface-2); }
-    .toggle-btn.pending { opacity: 0.85; }
+    .toggle-btn {
+      border-color: var(--state-stopped-border);
+      background: linear-gradient(180deg, var(--state-stopped-bg), var(--surface-3));
+      box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.04);
+    }
+
+    .toggle-btn.active {
+      background: linear-gradient(180deg, var(--state-active-bg), var(--surface-2));
+      border-color: var(--state-active-border);
+      box-shadow:
+        inset 0 0 0 1px rgba(255, 255, 255, 0.06),
+        0 8px 20px rgba(22, 101, 52, 0.10);
+    }
+
+    .toggle-btn.detected {
+      background: linear-gradient(180deg, var(--state-detected-bg), var(--surface-2));
+      border-color: var(--state-detected-border);
+      box-shadow:
+        inset 0 0 0 1px rgba(255, 255, 255, 0.06),
+        0 8px 20px rgba(29, 78, 216, 0.10);
+    }
+
+    .toggle-btn.pending {
+      opacity: 0.96;
+      background: linear-gradient(180deg, var(--state-pending-bg), var(--surface-2));
+      border-color: var(--state-pending-border);
+    }
+    .toggle-btn.detected:disabled {
+      opacity: 1;
+      cursor: not-allowed;
+    }
 
     .toggle-meta {
       display: flex;
@@ -1055,52 +1306,59 @@
       color: var(--ink-soft);
       padding: 5px 9px;
       border-radius: 999px;
-      background: var(--surface-2);
-      border: 1px solid var(--border);
+      background: var(--state-stopped-bg);
+      border: 1px solid var(--state-stopped-border);
+      color: var(--state-stopped-text);
       z-index: 1;
       white-space: nowrap;
       justify-self: end;
     }
 
     .toggle-btn.active .toggle-state {
-      background: #e9f7ef;
-      color: #1f6b3a;
-      border-color: #bde6cd;
+      background: var(--state-active-bg);
+      color: var(--state-active-text);
+      border-color: var(--state-active-border);
+    }
+
+    .toggle-btn.detected .toggle-state {
+      background: var(--state-detected-bg);
+      color: var(--state-detected-text);
+      border-color: var(--state-detected-border);
     }
 
     .toggle-btn.pending .toggle-state {
-      background: #fff6e6;
-      color: #8a5800;
-      border-color: #ffd9a8;
-    }
-
-    :root[data-theme="dark"] .toggle-btn.active .toggle-state {
-      background: rgba(34, 197, 94, 0.14);
-      color: rgba(187, 247, 208, 0.96);
-      border-color: rgba(34, 197, 94, 0.32);
-    }
-
-    :root[data-theme="dark"] .toggle-btn.pending .toggle-state {
-      background: rgba(245, 158, 11, 0.14);
-      color: rgba(253, 230, 138, 0.96);
-      border-color: rgba(245, 158, 11, 0.32);
+      background: var(--state-pending-bg);
+      color: var(--state-pending-text);
+      border-color: var(--state-pending-border);
     }
 
     .status-dot {
       width: 11px;
       height: 11px;
       border-radius: 50%;
-      background: #94a3b8;
-      border: 1px solid rgba(15, 23, 42, 0.12);
-      box-shadow: 0 0 0 3px rgba(148, 163, 184, 0.10);
+      background: var(--state-stopped-text);
+      border: 1px solid var(--state-stopped-border);
+      box-shadow: 0 0 0 3px color-mix(in srgb, var(--state-stopped-border) 45%, transparent);
       z-index: 1;
     }
 
     .toggle-btn.active .status-dot {
-      background: #22c55e;
-      border-color: rgba(34, 197, 94, 0.35);
-      box-shadow: 0 0 0 3px rgba(34, 197, 94, 0.14);
+      background: var(--state-active-text);
+      border-color: var(--state-active-border);
+      box-shadow: 0 0 0 3px color-mix(in srgb, var(--state-active-border) 52%, transparent);
       animation: pulse var(--dur-ambient-2) var(--ease-in-out) infinite;
+    }
+
+    .toggle-btn.detected .status-dot {
+      background: var(--state-detected-text);
+      border-color: var(--state-detected-border);
+      box-shadow: 0 0 0 3px color-mix(in srgb, var(--state-detected-border) 52%, transparent);
+    }
+
+    .toggle-btn.pending .status-dot {
+      background: var(--state-pending-text);
+      border-color: var(--state-pending-border);
+      box-shadow: 0 0 0 3px color-mix(in srgb, var(--state-pending-border) 52%, transparent);
     }
 
     .links {
@@ -1114,6 +1372,27 @@
       border-radius: 14px;
       padding: 10px 12px;
       box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.6);
+      position: relative;
+      overflow: hidden;
+      isolation: isolate;
+      transition: border-color var(--dur-sm) var(--ease-out), background var(--dur-sm) var(--ease-out), box-shadow var(--dur-sm) var(--ease-out), opacity var(--dur-sm) var(--ease-out);
+    }
+
+    .link-item::before {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background-image: var(--pattern-circuit-svg);
+      background-repeat: no-repeat;
+      background-size: 220px auto;
+      background-position: right -80px top -6px;
+      opacity: 0.12;
+      pointer-events: none;
+    }
+
+    .link-item > * {
+      position: relative;
+      z-index: 1;
     }
 
     :root[data-theme="dark"] .link-item {
@@ -1122,7 +1401,27 @@
 
     .link-item.inactive {
       border-style: dashed;
-      opacity: 0.6;
+      border-color: var(--state-stopped-border);
+      background: linear-gradient(180deg, var(--state-stopped-bg), var(--surface));
+      opacity: 0.82;
+    }
+
+    .link-item.state-ok {
+      border-color: var(--state-active-border);
+      background: linear-gradient(180deg, color-mix(in srgb, var(--state-active-bg) 78%, var(--surface)), var(--surface));
+      box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--state-active-border) 30%, transparent), 0 10px 24px rgba(22, 101, 52, 0.08);
+    }
+
+    .link-item.state-down {
+      border-color: var(--state-error-border);
+      background: linear-gradient(180deg, color-mix(in srgb, var(--state-error-bg) 82%, var(--surface)), var(--surface));
+      box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--state-error-border) 28%, transparent), 0 10px 24px rgba(185, 28, 28, 0.08);
+    }
+
+    .link-item.state-pending {
+      border-color: var(--state-pending-border);
+      background: linear-gradient(180deg, color-mix(in srgb, var(--state-pending-bg) 82%, var(--surface)), var(--surface));
+      box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--state-pending-border) 28%, transparent);
     }
 
     .link-item a {
@@ -1168,9 +1467,9 @@
     }
 
     :root[data-theme="dark"] .link-chip.dev {
-      background: rgba(34, 232, 255, 0.12);
-      color: rgba(165, 251, 255, 0.96);
-      border-color: rgba(34, 232, 255, 0.30);
+      background: rgba(96, 165, 250, 0.12);
+      color: rgba(191, 219, 254, 0.96);
+      border-color: rgba(96, 165, 250, 0.30);
     }
 
     :root[data-theme="dark"] .link-chip.prod {
@@ -1186,9 +1485,9 @@
     }
 
     .link-chip.dev {
-      background: rgba(0, 213, 255, 0.10);
-      color: rgba(2, 67, 82, 0.92);
-      border-color: rgba(0, 213, 255, 0.26);
+      background: rgba(37, 99, 235, 0.10);
+      color: #1e3a8a;
+      border-color: rgba(37, 99, 235, 0.26);
     }
 
     .link-chip.prod {
@@ -1224,8 +1523,8 @@
       width: 8px;
       height: 8px;
       border-radius: 50%;
-      background: #94a3b8;
-      box-shadow: 0 0 0 3px rgba(148, 163, 184, 0.16);
+      background: var(--state-stopped-text);
+      box-shadow: 0 0 0 3px color-mix(in srgb, var(--state-stopped-border) 55%, transparent);
     }
 
     .health-dot.ok {
@@ -1265,6 +1564,19 @@
       min-height: 78px;
       position: relative;
       overflow: hidden;
+      isolation: isolate;
+    }
+
+    .metric::before {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background-image: var(--pattern-grid-svg);
+      background-repeat: no-repeat;
+      background-size: 180px auto;
+      background-position: right -34px top -22px;
+      opacity: 0.14;
+      pointer-events: none;
     }
 
     .metric::after {
@@ -1272,7 +1584,7 @@
       position: absolute;
       inset: auto -20% -45% -20%;
       height: 70%;
-      background: linear-gradient(120deg, rgba(0, 213, 255, 0.12), transparent 70%);
+      background: linear-gradient(120deg, rgba(37, 99, 235, 0.12), transparent 70%);
     }
 
     .metric .label {
@@ -1296,16 +1608,46 @@
     }
 
     .summary-card {
-      background: linear-gradient(135deg, rgba(0, 213, 255, 0.10), #ffffff);
+      background: linear-gradient(135deg, rgba(37, 99, 235, 0.10), #ffffff);
       border: 1px solid var(--border);
       border-radius: 16px;
       padding: 14px;
       display: grid;
       gap: 6px;
+      position: relative;
+      overflow: hidden;
+      isolation: isolate;
     }
 
     :root[data-theme="dark"] .summary-card {
-      background: linear-gradient(135deg, rgba(34, 232, 255, 0.12), rgba(15, 23, 42, 0.92));
+      background: linear-gradient(135deg, rgba(96, 165, 250, 0.12), rgba(15, 23, 42, 0.92));
+    }
+
+    .summary-card::before {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background-image: var(--pattern-grid-svg);
+      background-repeat: no-repeat;
+      background-size: 180px auto;
+      background-position: right -12px top -18px;
+      opacity: 0.16;
+      pointer-events: none;
+    }
+
+    .summary-card::after {
+      content: '';
+      position: absolute;
+      inset: auto -18% -46% 0;
+      height: 72%;
+      background: radial-gradient(circle at 22% 30%, rgba(255, 255, 255, 0.32), transparent 55%);
+      opacity: 0.42;
+      pointer-events: none;
+    }
+
+    .summary-card > * {
+      position: relative;
+      z-index: 1;
     }
 
     .summary-card .label {
@@ -1349,11 +1691,30 @@
       padding: 12px;
       border-radius: 16px;
       border: 1px solid var(--border);
-      background: linear-gradient(135deg, rgba(0, 213, 255, 0.08), rgba(255, 255, 255, 0) 60%), var(--surface-4);
+      background: linear-gradient(135deg, rgba(37, 99, 235, 0.08), rgba(255, 255, 255, 0) 60%), var(--surface-4);
+      position: relative;
+      overflow: hidden;
     }
 
     :root[data-theme="dark"] .health-block {
-      background: linear-gradient(135deg, rgba(34, 232, 255, 0.12), rgba(8, 10, 14, 0.86));
+      background: linear-gradient(135deg, rgba(96, 165, 250, 0.12), rgba(8, 10, 14, 0.86));
+    }
+
+    .health-block::before {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background-image: var(--pattern-topo-svg);
+      background-repeat: no-repeat;
+      background-size: 420px auto;
+      background-position: right -90px top -10px;
+      opacity: 0.14;
+      pointer-events: none;
+    }
+
+    .health-block > * {
+      position: relative;
+      z-index: 1;
     }
 
     .health-stats {
@@ -1418,7 +1779,7 @@
       padding: 10px 12px 8px;
       border-radius: 14px;
       border: 1px solid var(--border);
-      background: linear-gradient(180deg, rgba(0, 213, 255, 0.08), transparent 60%), var(--surface);
+      background: linear-gradient(180deg, rgba(37, 99, 235, 0.08), transparent 60%), var(--surface);
       position: relative;
       overflow: hidden;
     }
@@ -1499,7 +1860,7 @@
 
     .mini-bar.latest {
       outline: 1px solid var(--accent);
-      box-shadow: 0 0 0 2px rgba(0, 213, 255, 0.18), 0 10px 22px rgba(0, 213, 255, 0.18);
+      box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.18), 0 10px 22px rgba(37, 99, 235, 0.18);
     }
 
     @keyframes barRise {
@@ -1604,14 +1965,60 @@
       border-radius: 12px;
       border: 1px solid var(--border);
       background: var(--surface);
+      position: relative;
+      overflow: hidden;
+      isolation: isolate;
+      transition: border-color var(--dur-sm) var(--ease-out), background var(--dur-sm) var(--ease-out), box-shadow var(--dur-sm) var(--ease-out), opacity var(--dur-sm) var(--ease-out);
+    }
+
+    .service-item::before {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background-image: var(--pattern-grid-svg);
+      background-repeat: no-repeat;
+      background-size: 180px auto;
+      background-position: right -40px center;
+      opacity: 0.12;
+      pointer-events: none;
+    }
+
+    .service-item > * {
+      position: relative;
+      z-index: 1;
+    }
+
+    .service-item.state-ok {
+      border-color: var(--state-active-border);
+      background: linear-gradient(180deg, color-mix(in srgb, var(--state-active-bg) 78%, var(--surface)), var(--surface));
+      box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--state-active-border) 30%, transparent), 0 10px 22px rgba(22, 101, 52, 0.08);
+    }
+
+    .service-item.state-down {
+      border-color: var(--state-error-border);
+      background: linear-gradient(180deg, color-mix(in srgb, var(--state-error-bg) 82%, var(--surface)), var(--surface));
+      box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--state-error-border) 28%, transparent), 0 10px 22px rgba(185, 28, 28, 0.08);
+    }
+
+    .service-item.state-stopped {
+      border-style: dashed;
+      border-color: var(--state-stopped-border);
+      background: linear-gradient(180deg, var(--state-stopped-bg), var(--surface));
+      opacity: 0.88;
+    }
+
+    .service-item.state-pending {
+      border-color: var(--state-pending-border);
+      background: linear-gradient(180deg, color-mix(in srgb, var(--state-pending-bg) 82%, var(--surface)), var(--surface));
+      box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--state-pending-border) 28%, transparent);
     }
 
     .service-dot {
       width: 10px;
       height: 10px;
       border-radius: 50%;
-      background: #94a3b8;
-      box-shadow: 0 0 0 3px rgba(148, 163, 184, 0.16);
+      background: var(--state-stopped-text);
+      box-shadow: 0 0 0 3px color-mix(in srgb, var(--state-stopped-border) 55%, transparent);
     }
 
     .service-dot.ok {
@@ -1649,8 +2056,9 @@
       letter-spacing: 0.4px;
       text-transform: uppercase;
       border: 1px solid var(--border);
-      background: var(--surface-2);
-      color: var(--ink-soft);
+      background: var(--state-stopped-bg);
+      border-color: var(--state-stopped-border);
+      color: var(--state-stopped-text);
     }
 
     :root[data-theme="dark"] .service-badge.ok {
@@ -1733,8 +2141,8 @@
       background: rgba(8, 10, 14, 0.6);
     }
     .quote {
-      background: linear-gradient(135deg, rgba(0, 213, 255, 0.10), #ffffff);
-      border: 1px solid rgba(0, 213, 255, 0.22);
+      background: linear-gradient(135deg, rgba(37, 99, 235, 0.10), #ffffff);
+      border: 1px solid rgba(37, 99, 235, 0.22);
       border-radius: 16px;
       padding: 16px 18px;
       display: grid;
@@ -1744,7 +2152,7 @@
     }
 
     :root[data-theme="dark"] .quote {
-      background: linear-gradient(135deg, rgba(34, 232, 255, 0.10), rgba(15, 23, 42, 0.92));
+      background: linear-gradient(135deg, rgba(96, 165, 250, 0.10), rgba(15, 23, 42, 0.92));
       border-color: rgba(148, 163, 184, 0.22);
     }
 
@@ -1756,7 +2164,7 @@
       letter-spacing: 0.6px;
       color: var(--accent);
       background: var(--accent-soft);
-      border: 1px solid rgba(0, 213, 255, 0.26);
+      border: 1px solid rgba(37, 99, 235, 0.26);
       padding: 4px 10px;
       border-radius: 999px;
     }
@@ -1797,6 +2205,27 @@
       border: 1px solid var(--border);
       background: var(--surface-2);
       box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.04);
+      transition: border-color var(--dur-sm) var(--ease-out), background var(--dur-sm) var(--ease-out), box-shadow var(--dur-sm) var(--ease-out);
+    }
+
+    .status-item.state-ok {
+      border-color: var(--state-active-border);
+      background: linear-gradient(180deg, color-mix(in srgb, var(--state-active-bg) 72%, var(--surface-2)), var(--surface-2));
+    }
+
+    .status-item.state-warn {
+      border-color: var(--state-pending-border);
+      background: linear-gradient(180deg, color-mix(in srgb, var(--state-pending-bg) 72%, var(--surface-2)), var(--surface-2));
+    }
+
+    .status-item.state-error {
+      border-color: var(--state-error-border);
+      background: linear-gradient(180deg, color-mix(in srgb, var(--state-error-bg) 76%, var(--surface-2)), var(--surface-2));
+    }
+
+    .status-item.state-info {
+      border-color: var(--state-detected-border);
+      background: linear-gradient(180deg, color-mix(in srgb, var(--state-detected-bg) 72%, var(--surface-2)), var(--surface-2));
     }
 
     .status-icon {
@@ -1805,7 +2234,7 @@
       border-radius: 12px;
       display: grid;
       place-items: center;
-      background: linear-gradient(135deg, rgba(34, 232, 255, 0.18), rgba(255, 56, 218, 0.14));
+      background: linear-gradient(135deg, rgba(96, 165, 250, 0.18), rgba(45, 212, 191, 0.14));
       color: var(--ink);
       font-weight: 800;
       font-size: 12px;
@@ -1861,6 +2290,19 @@
       gap: 8px;
       position: relative;
       overflow: hidden;
+      isolation: isolate;
+    }
+
+    .health-check::before {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background-image: var(--pattern-topo-svg), var(--pattern-grid-svg);
+      background-repeat: no-repeat, no-repeat;
+      background-size: 360px auto, 180px auto;
+      background-position: right -88px top -18px, left bottom;
+      opacity: 0.14;
+      pointer-events: none;
     }
 
     .health-check::after {
@@ -1868,7 +2310,7 @@
       position: absolute;
       inset: 0;
       pointer-events: none;
-      background: linear-gradient(120deg, transparent, rgba(34, 232, 255, 0.08), transparent);
+      background: linear-gradient(120deg, transparent, rgba(96, 165, 250, 0.08), transparent);
       opacity: 0.4;
     }
 
@@ -1894,9 +2336,9 @@
       font-weight: 800;
       padding: 4px 10px;
       border-radius: 999px;
-      border: 1px solid rgba(148, 163, 184, 0.35);
-      background: rgba(148, 163, 184, 0.12);
-      color: var(--ink);
+      border: 1px solid var(--state-stopped-border);
+      background: var(--state-stopped-bg);
+      color: var(--state-stopped-text);
       text-transform: uppercase;
       letter-spacing: 0.08em;
     }
@@ -1932,8 +2374,8 @@
       position: absolute;
       inset: 0 auto 0 0;
       width: var(--health-progress, 0%);
-      background: linear-gradient(90deg, var(--accent), var(--neon-magenta));
-      box-shadow: 0 0 14px rgba(34, 232, 255, 0.3);
+      background: linear-gradient(90deg, var(--accent), var(--accent-3));
+      box-shadow: 0 0 14px rgba(96, 165, 250, 0.22);
       transition: width 240ms var(--ease-out);
     }
 
@@ -2005,7 +2447,7 @@
 
     .log-meta .pill .dot {
       background: var(--accent);
-      box-shadow: 0 0 0 3px rgba(34, 232, 255, 0.16);
+      box-shadow: 0 0 0 3px rgba(96, 165, 250, 0.16);
     }
 
     .eventos-estado {
@@ -2587,7 +3029,7 @@
       height: 3px;
       transform-origin: left;
       transform: scaleX(1);
-      background: linear-gradient(90deg, rgba(0, 213, 255, 0.26), rgba(255, 43, 214, 0.22));
+      background: linear-gradient(90deg, rgba(37, 99, 235, 0.26), rgba(15, 118, 110, 0.18));
       animation: toastLife var(--toast-duration, 2600ms) linear forwards;
     }
 
@@ -2625,8 +3067,8 @@
     }
 
     :root[data-theme="dark"] .toast-btn.action {
-      border-color: rgba(34, 232, 255, 0.30);
-      background: rgba(34, 232, 255, 0.12);
+      border-color: rgba(96, 165, 250, 0.30);
+      background: rgba(96, 165, 250, 0.12);
     }
 
     :root[data-theme="dark"] .toast.ok .toast-icon { color: rgba(187, 247, 208, 0.96); }
@@ -2637,7 +3079,7 @@
     .toast-btn:hover { box-shadow: 0 10px 18px rgba(15, 23, 42, 0.12); }
     .toast-btn:active { transform: translateY(1px); }
 
-    .toast-btn.action { border-color: rgba(0, 213, 255, 0.28); background: rgba(0, 213, 255, 0.10); }
+    .toast-btn.action { border-color: rgba(37, 99, 235, 0.28); background: rgba(37, 99, 235, 0.10); }
     .toast-btn.close { padding: 6px 8px; }
 
     .toast.ok { border-left: 4px solid #22c55e; }
@@ -2648,9 +3090,9 @@
     .toast.ok .toast-icon { background: rgba(34, 197, 94, 0.14); color: #166534; }
     .toast.warn .toast-icon { background: rgba(245, 158, 11, 0.14); color: #9a3412; }
     .toast.error .toast-icon { background: rgba(239, 68, 68, 0.14); color: #b91c1c; }
-    .toast.info .toast-icon { background: rgba(0, 213, 255, 0.14); color: rgba(2, 67, 82, 0.92); }
+    .toast.info .toast-icon { background: rgba(37, 99, 235, 0.14); color: #1e3a8a; }
 
-    :root[data-theme="dark"] .toast.info .toast-icon { background: rgba(34, 232, 255, 0.14); }
+    :root[data-theme="dark"] .toast.info .toast-icon { background: rgba(96, 165, 250, 0.14); }
 
     @keyframes fadeUp {
       from { transform: translateY(8px); opacity: 0; }
@@ -2699,6 +3141,15 @@
     }
 
     @media (max-width: 1100px) {
+      header::before,
+      header::after,
+      main::before,
+      main::after,
+      .brand::after,
+      .tabs::before {
+        opacity: 0.08;
+      }
+
       .panel-grid { grid-template-columns: 1fr; }
       .right-grid { grid-template-columns: 1fr; }
       .right-grid .card { grid-column: 1 / -1; }
@@ -2868,13 +3319,13 @@
       </div>
     </div>
     <div class="header-chips">
-      <span class="chip" id="version-chip">Versión: -</span>
+      <span class="chip" id="version-chip">v...</span>
       <span class="chip" id="ui-chip">UI: -</span>
       <span class="chip" id="port-chip">Puerto: -</span>
       <span class="chip" id="mode-chip">Modo: -</span>
-      <span class="chip" id="running-chip">Procesos: -</span>
-      <span class="chip" id="pausado-chip">Actualización: Activa</span>
-      <span class="chip" id="connection-chip">Conexión: -</span>
+      <span class="chip" id="running-chip">Tareas: -</span>
+      <span class="chip" id="pausado-chip">Auto-refresh: Activo</span>
+      <span class="chip" id="connection-chip">Dashboard: -</span>
       <button class="sys-indicator" id="system-indicator" type="button" title="Estado del sistema" aria-label="Estado del sistema">
         <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
           <path d="M12 2l7 3v6c0 5-3 9-7 11C8 20 5 16 5 11V5l7-3z" fill="none" stroke="currentColor" stroke-width="1.8" />
@@ -2883,7 +3334,7 @@
         </svg>
       </button>
       <button class="chip" id="theme-toggle" type="button" title="Cambiar tema (claro/oscuro)">Tema</button>
-      <button class="chip" id="version-chip" type="button" title="Abrir información de versión">v...</button>
+      <button class="chip" id="version-info-btn" type="button" title="Abrir información de versión">Versiones</button>
     </div>
   </header>
 
@@ -2944,7 +3395,7 @@
     <section id="panel-main" class="tab-panel active" data-panel="main" role="tabpanel" tabindex="0" aria-labelledby="tab-main">
       <div class="panel-grid">
         <div class="left-col">
-          <div class="card card-entornos">
+          <div class="card card-entornos vector-circuit">
             <h2>
               <svg class="icon" viewBox="0 0 24 24" aria-hidden="true">
                 <path d="M8 5v14l11-7L8 5z"/>
@@ -3000,7 +3451,7 @@
         </div>
 
         <div class="right-grid">
-          <div class="card wide stack-card">
+          <div class="card wide stack-card vector-topo">
             <h2>
               <svg class="icon" viewBox="0 0 24 24" aria-hidden="true">
                 <path d="M4 4h16v16H4V4zm2 2v4h12V6H6zm0 6v6h12v-6H6z"/>
@@ -3017,7 +3468,7 @@
                 <div class="value" id="running-count">-</div>
               </div>
               <div class="summary-card">
-                <div class="label">Procesos activos</div>
+                <div class="label">Tareas gestionadas</div>
                 <div class="value" id="running">-</div>
               </div>
               <div class="summary-card">
@@ -3096,7 +3547,7 @@
             </div>
           </div>
 
-          <div class="card wide links-card">
+          <div class="card wide links-card vector-circuit">
             <h2>
               <svg class="icon" viewBox="0 0 24 24" aria-hidden="true">
                 <path d="M10 6h8v8h-2V9.4l-9.3 9.3-1.4-1.4L14.6 8H10V6z"/>
@@ -3173,7 +3624,7 @@
             </div>
           </div>
 
-          <div class="card analytics-card">
+          <div class="card analytics-card vector-grid">
             <h2>
               <svg class="icon" viewBox="0 0 24 24" aria-hidden="true">
                 <path d="M4 19h16v2H4v-2zM5 5h4v11H5V5zm7 3h4v8h-4V8z"/>
@@ -3219,6 +3670,14 @@
                   </div>
                   <span class="service-badge" id="service-api-docente-badge">Sin comprobar</span>
                 </div>
+                <div class="service-item" id="service-mongo-local">
+                  <span class="service-dot" id="service-mongo-local-dot"></span>
+                  <div class="service-copy">
+                    <div class="service-title">MongoDB</div>
+                    <div class="service-meta">Base de datos local (27017)</div>
+                  </div>
+                  <span class="service-badge" id="service-mongo-local-badge">Sin comprobar</span>
+                </div>
                 <div class="service-item" id="service-api-portal">
                   <span class="service-dot" id="service-api-portal-dot"></span>
                   <div class="service-copy">
@@ -3255,7 +3714,7 @@
             </div>
           </div>
 
-          <div class="card activity-card">
+          <div class="card activity-card vector-orbit">
             <h2>
               <svg class="icon" viewBox="0 0 24 24" aria-hidden="true">
                 <path d="M12 8a4 4 0 100 8 4 4 0 000-8zm0-6a10 10 0 11-7.1 2.9A10 10 0 0112 2zm0 2a8 8 0 100 16 8 8 0 000-16z"/>
@@ -3303,7 +3762,7 @@
                 <div class="status-item">
                   <div class="status-icon">PR</div>
                   <div class="status-copy">
-                    <div class="status-key">Procesos</div>
+                    <div class="status-key">Tareas</div>
                     <div class="status-value" id="running-status">-</div>
                   </div>
                 </div>
@@ -3898,7 +4357,7 @@
       apiPortal: 'API portal alumno',
       webDocenteDev: 'Web docente DEV',
       webDocenteProd: 'Web docente PROD',
-      mongo_local: 'MongoDB'
+      mongoLocal: 'MongoDB'
     };
 
       const state = {
@@ -3909,7 +4368,10 @@
         filtroNivelLog: 'all',
         logsCache: [],
         logFilterDebounceId: 0,
+        tareasGestionadas: [],
         enEjecucion: new Set(),
+        estadoEntornosReales: {},
+        alertaPrincipal: null,
         logsVisibles: false,
         pestanaActiva: 'main',
         modo: 'none',
@@ -3988,6 +4450,7 @@
       info: 'info',
       system: 'info'
     };
+    const RELOAD_FOCUS_GUARD_KEY = 'seuDashboardReloadFocusGuard';
 
     function normalizarMensajeError(error) {
       if (error && typeof error === 'object' && 'message' in error && typeof error.message === 'string') {
@@ -4017,6 +4480,47 @@
       try {
         sessionStorage.setItem(STALE_RELOAD_GUARD_KEY, JSON.stringify(guardia || {}));
       } catch {}
+    }
+
+    function registrarGuardiaFocoRecarga() {
+      try {
+        sessionStorage.setItem(RELOAD_FOCUS_GUARD_KEY, String(Date.now()));
+      } catch {}
+    }
+
+    function consumirGuardiaFocoRecarga() {
+      try {
+        const raw = String(sessionStorage.getItem(RELOAD_FOCUS_GUARD_KEY) || '').trim();
+        if (!raw) return false;
+        sessionStorage.removeItem(RELOAD_FOCUS_GUARD_KEY);
+        const ts = Number(raw);
+        if (!Number.isFinite(ts) || ts <= 0) return false;
+        return Date.now() - ts < 12000;
+      } catch {
+        return false;
+      }
+    }
+
+    function reclamarFocoDashboard(origen = '') {
+      if (document.visibilityState !== 'visible') return;
+
+      const activeTab = document.querySelector('.tab-btn.active');
+      const activePanel = document.querySelector('.tab-panel.active');
+      const target = activeTab || activePanel || $('tab-main') || $('panel-main');
+      if (!target || typeof target.focus !== 'function') return;
+
+      const activeElement = document.activeElement;
+      const activeDentroDashboard = activeElement && document.body.contains(activeElement);
+      const activeEsInteractivo = activeElement && (
+        activeElement.matches?.('input, textarea, select, button, a, [tabindex]:not([tabindex="-1"])')
+      );
+      if (activeDentroDashboard && activeEsInteractivo && origen !== 'reload') return;
+
+      const userAgent = String((navigator && navigator.userAgent) || '');
+      if (!/jsdom/i.test(userAgent)) {
+        try { window.focus(); } catch {}
+      }
+      try { target.focus({ preventScroll: true }); } catch { try { target.focus(); } catch {} }
     }
 
     function puedeRecargarPorStale(ahora = Date.now()) {
@@ -4065,7 +4569,7 @@
       const pildora = $('connection-chip');
       if (pildora) {
         pildora.className = `chip ${nombreEstado === 'ok' ? 'ok' : nombreEstado === 'error' ? 'error' : 'warn'}`;
-        pildora.textContent = `Conexión: ${nombreEstado === 'ok' ? 'OK' : nombreEstado === 'error' ? 'Error' : '-'}`;
+        pildora.textContent = `Dashboard: ${nombreEstado === 'ok' ? 'OK' : nombreEstado === 'error' ? 'Error' : '-'}`;
       }
 
       establecerTexto('connection-status', nombreEstado === 'ok' ? 'OK' : nombreEstado === 'error' ? 'Error' : '-');
@@ -4080,7 +4584,7 @@
       const pildora = $('pausado-chip');
       if (!pildora) return;
       pildora.className = `chip ${pausado ? 'warn' : 'ok'}`;
-      pildora.textContent = pausado ? 'Actualización: Pausada' : 'Actualización: Activa';
+      pildora.textContent = pausado ? 'Auto-refresh: Pausado' : 'Auto-refresh: Activo';
     }
 
     function mostrarToastErrorSiAplica(texto) {
@@ -4209,7 +4713,9 @@
         establecerTexto('install-runtime', recortarRuta(entornoEjecucion, 110));
 
         const chipVersion = $('version-chip');
-        if (chipVersion) chipVersion.textContent = `Versión: ${version !== '-' ? version : '-'}`;
+        if (chipVersion) chipVersion.textContent = version !== '-' ? `v${version}` : 'v...';
+        const botonVersion = $('version-info-btn');
+        if (botonVersion) botonVersion.textContent = 'Versiones';
         const chipUi = $('ui-chip');
         if (chipUi) chipUi.textContent = `UI: ${UI_REV}`;
         const chipPuerto = $('port-chip');
@@ -4490,9 +4996,13 @@
 
       const nivel = normalizarNivel(entrada.level);
       const esError = nivel === 'error';
-      tarjeta.className = `card wide alert-card ${esError ? 'error' : ''}`.trim();
-      icono.textContent = esError ? 'X' : '!';
-      titulo.textContent = esError ? 'Error detectado' : 'Advertencia detectada';
+      const esWarn = nivel === 'warn';
+      const esInfo = nivel === 'info';
+      tarjeta.className = `card wide alert-card ${esError ? 'error' : 'ok'}`.trim();
+      icono.textContent = esError ? 'X' : (esWarn ? '!' : (esInfo ? 'i' : 'OK'));
+      titulo.textContent = esError
+        ? 'Error detectado'
+        : (esWarn ? 'Advertencia detectada' : (esInfo ? 'Estado informativo' : 'Sin alertas activas'));
       mensaje.textContent = recortarMensaje(entrada.text, 220);
       origen.textContent = `Origen: ${entrada.source || '-'}`;
       hora.textContent = `Hora: ${entrada.time || '-'}`;
@@ -4572,13 +5082,6 @@
 
       const entradasRecientes = entradasSeguras.slice(-LIMITE_SENALES).reverse();
       renderizarFeedEventos(entradasRecientes);
-
-      const critico = [...entradasSeguras].reverse().find((entrada) => {
-        const nivel = normalizarNivel(entrada.level);
-        return nivel === 'error' || nivel === 'warn';
-      });
-
-      renderizarAlerta(critico || null);
     }
 
     async function refrescarSenales() {
@@ -4601,16 +5104,24 @@
       punto.classList.toggle('active', activo);
     }
 
+    function aplicarClaseEstado(elemento, estado, clases = ['state-ok', 'state-down', 'state-stopped', 'state-pending', 'state-warn', 'state-error', 'state-info']) {
+      if (!elemento) return;
+      clases.forEach((clase) => elemento.classList.remove(clase));
+      if (estado) elemento.classList.add(estado);
+    }
+
     function establecerItemSalud(prefijo, info, esperado = true) {
       const punto = $(`health-${prefijo}-dot`);
       const texto = $(`health-${prefijo}-text`);
       const latencia = $(`health-${prefijo}-latency`);
+      const contenedor = $(`${prefijo}-item`);
       if (!punto || !texto || !latencia) return;
 
       if (!esperado) {
         punto.className = 'health-dot';
         texto.textContent = 'Detenido';
         latencia.textContent = '--';
+        aplicarClaseEstado(contenedor, 'state-stopped');
         return;
       }
 
@@ -4618,6 +5129,7 @@
         punto.className = 'health-dot';
         texto.textContent = 'Sin comprobar';
         latencia.textContent = '--';
+        aplicarClaseEstado(contenedor, 'state-pending');
         return;
       }
 
@@ -4626,6 +5138,7 @@
       punto.className = `health-dot ${estaOk ? 'ok' : 'down'}`;
       texto.textContent = etiquetaEstado;
       latencia.textContent = typeof info.ms === 'number' ? `${info.ms} ms` : '--';
+      aplicarClaseEstado(contenedor, estaOk ? 'state-ok' : 'state-down');
     }
 
     function renderizarEnEjecucion(lista) {
@@ -4656,35 +5169,108 @@
       return 'Stack detenido.';
     }
 
-    function construirContextoServicios() {
+    function obtenerTareasGestionadas() {
+      if (Array.isArray(state.tareasGestionadas) && state.tareasGestionadas.length > 0) {
+        return [...state.tareasGestionadas];
+      }
+      return Array.from(state.enEjecucion || []);
+    }
+
+    function resolverFuenteEntorno(gestionado, detectado) {
+      if (gestionado && detectado) return 'hybrid';
+      if (gestionado) return 'managed';
+      if (detectado) return 'detected';
+      return 'inactive';
+    }
+
+    function obtenerEstadosEntornosReales() {
       const compose = state.compose || {};
-      const dev = compose.dev || {};
-      const prod = compose.prod || {};
-      const modo = String(state.modo || '').toLowerCase();
-      const hasDevTask = state.enEjecucion.has('dev');
-      const hasDevBackendTask = state.enEjecucion.has('dev-backend');
-      const hasDevFrontendTask = state.enEjecucion.has('dev-frontend');
-      const hasProdTask = state.enEjecucion.has('prod');
-      const hasPortalTask = state.enEjecucion.has('portal');
+      const managedTasks = new Set(obtenerTareasGestionadas());
 
-      const devBackendExpected = hasDevTask || hasDevBackendTask || dev.api_docente_local || dev.mongo_local || modo === 'dev';
-      const devFrontendExpected = hasDevTask || hasDevFrontendTask || modo === 'dev';
-      const prodExpected = hasProdTask || prod.api_docente_prod || prod.web_docente_prod || prod.mongo_local || modo === 'prod';
-
-      const expected = [];
-      if (devBackendExpected || prodExpected) expected.push('apiDocente');
-      if (devFrontendExpected) expected.push('webDocenteDev');
-      if (prodExpected) expected.push('webDocenteProd');
-      if (hasPortalTask) expected.push('apiPortal');
-
-      const healthMap = {
-        apiDocente: state.salud?.apiDocente,
-        apiPortal: state.salud?.apiPortal,
-        webDocenteDev: state.salud?.webDocenteDev,
-        webDocenteProd: state.salud?.webDocenteProd
+      const envs = {
+        dev: {
+          id: 'dev',
+          label: ETIQUETAS_ENTORNO.dev,
+          managed: managedTasks.has('dev') || managedTasks.has('dev-backend') || managedTasks.has('dev-frontend'),
+          detected: Boolean(compose.dev?.api_docente_local) || Boolean(state.salud?.webDocenteDev?.ok)
+        },
+        prod: {
+          id: 'prod',
+          label: ETIQUETAS_ENTORNO.prod,
+          managed: managedTasks.has('prod'),
+          detected: Boolean(compose.prod?.api_docente_prod) || Boolean(compose.prod?.web_docente_prod) || Boolean(state.salud?.webDocenteProd?.ok)
+        },
+        portal: {
+          id: 'portal',
+          label: ETIQUETAS_ENTORNO.portal,
+          managed: managedTasks.has('portal'),
+          detected: Boolean(state.salud?.apiPortal?.ok)
+        }
       };
 
-      return { expected, healthMap, devBackendExpected, devFrontendExpected, prodExpected };
+      Object.values(envs).forEach((entorno) => {
+        entorno.source = resolverFuenteEntorno(entorno.managed, entorno.detected);
+        entorno.active = entorno.source !== 'inactive';
+      });
+
+      return {
+        envs,
+        activeCount: Object.values(envs).filter((entorno) => entorno.active).length
+      };
+    }
+
+    function construirContextoServicios() {
+      const managedTasks = new Set(obtenerTareasGestionadas());
+      const modo = String(state.modo || '').toLowerCase();
+      const { envs } = obtenerEstadosEntornosReales();
+      const devFrontendExpected = envs.dev.active && (
+        managedTasks.has('dev') ||
+        managedTasks.has('dev-frontend') ||
+        Boolean(state.salud?.webDocenteDev?.ok) ||
+        (modo === 'dev' && !envs.prod.active)
+      );
+
+      const services = {
+        mongoLocal: {
+          key: 'mongoLocal',
+          id: 'mongo-local',
+          expected: envs.dev.active || envs.prod.active,
+          info: state.salud?.mongoLocal
+        },
+        apiDocente: {
+          key: 'apiDocente',
+          id: 'api-docente',
+          expected: envs.dev.active || envs.prod.active,
+          info: state.salud?.apiDocente
+        },
+        webDocenteDev: {
+          key: 'webDocenteDev',
+          id: 'web-docente-dev',
+          expected: devFrontendExpected,
+          info: state.salud?.webDocenteDev
+        },
+        webDocenteProd: {
+          key: 'webDocenteProd',
+          id: 'web-docente-prod',
+          expected: envs.prod.active,
+          info: state.salud?.webDocenteProd
+        },
+        apiPortal: {
+          key: 'apiPortal',
+          id: 'api-portal',
+          expected: envs.portal.active,
+          info: state.salud?.apiPortal
+        }
+      };
+
+      const expected = Object.values(services)
+        .filter((service) => service.expected)
+        .map((service) => service.key);
+      const healthMap = Object.fromEntries(
+        Object.values(services).map((service) => [service.key, service.info])
+      );
+
+      return { expected, healthMap, services, environmentStates: envs, devFrontendExpected };
     }
 
     function formatearListaServicios(lista) {
@@ -4698,7 +5284,7 @@
       const compose = state.compose || {};
       const detectados = new Set();
 
-      if (compose.dev?.mongo_local || compose.prod?.mongo_local) detectados.add('mongo_local');
+      if (compose.dev?.mongo_local || compose.prod?.mongo_local || state.salud?.mongoLocal?.ok) detectados.add('mongoLocal');
       if (compose.dev?.api_docente_local || compose.prod?.api_docente_prod) detectados.add('apiDocente');
       if (compose.prod?.web_docente_prod) detectados.add('webDocenteProd');
       if (state.salud?.apiDocente?.ok) detectados.add('apiDocente');
@@ -4710,19 +5296,20 @@
     }
 
     function construirEstadoStackReal() {
-      const { expected, healthMap } = construirContextoServicios();
+      const { expected, services } = construirContextoServicios();
       const ok = [];
       const down = [];
       const pending = [];
 
-      expected.forEach((key) => {
-        const info = healthMap[key];
+      Object.values(services).forEach((service) => {
+        if (!service.expected) return;
+        const info = service.info;
         if (!info || typeof info.ok !== 'boolean') {
-          pending.push(key);
+          pending.push(service.key);
           return;
         }
-        if (info.ok) ok.push(key);
-        else down.push(key);
+        if (info.ok) ok.push(service.key);
+        else down.push(service.key);
       });
 
       const total = expected.length;
@@ -4735,15 +5322,18 @@
         } else if (down.length > 0) {
           nivel = 'warn';
           texto = `Parcial (${ok.length}/${total} OK)`;
+        } else if (pending.length > 0 && ok.length === 0) {
+          nivel = 'warn';
+          texto = 'Arrancando (sin verificación)';
+        } else if (pending.length > 0) {
+          nivel = 'warn';
+          texto = `Parcial (${ok.length}/${total} OK)`;
         } else if (ok.length === total) {
           nivel = 'ok';
           texto = `Arriba (${ok.length}/${total} OK)`;
-        } else if (ok.length > 0) {
-          nivel = 'warn';
-          texto = `Parcial (${ok.length}/${total} OK)`;
         } else {
           nivel = 'warn';
-          texto = 'Arrancando (sin verificación)';
+          texto = `Parcial (${ok.length}/${total} OK)`;
         }
       }
 
@@ -4770,6 +5360,75 @@
       establecerTexto('stack-verified-status', stackOkTexto);
       establecerTexto('stack-detected', stackDetectadoTexto);
       establecerTexto('stack-detected-status', stackDetectadoTexto);
+
+      const stackRealMain = $('stack-real')?.closest('.status-item');
+      const stackRealStatus = $('stack-real-status')?.closest('.status-item');
+      const verifiedMain = $('stack-verified')?.closest('.status-item');
+      const verifiedStatus = $('stack-verified-status')?.closest('.status-item');
+      const detectedMain = $('stack-detected')?.closest('.status-item');
+      const detectedStatus = $('stack-detected-status')?.closest('.status-item');
+
+      const claseStack = estado.nivel === 'ok'
+        ? 'state-ok'
+        : estado.nivel === 'error'
+          ? 'state-error'
+          : estado.nivel === 'warn'
+            ? 'state-warn'
+            : 'state-info';
+
+      aplicarClaseEstado(stackRealMain, claseStack);
+      aplicarClaseEstado(stackRealStatus, claseStack);
+      aplicarClaseEstado(verifiedMain, estado.ok.length > 0 ? 'state-ok' : 'state-stopped');
+      aplicarClaseEstado(verifiedStatus, estado.ok.length > 0 ? 'state-ok' : 'state-stopped');
+      aplicarClaseEstado(detectedMain, estado.detected.length > 0 ? 'state-info' : 'state-stopped');
+      aplicarClaseEstado(detectedStatus, estado.detected.length > 0 ? 'state-info' : 'state-stopped');
+    }
+
+    function construirAlertaPrincipal() {
+      if (state.conexion === 'error') {
+        return {
+          level: 'error',
+          text: 'No hay conexión con el servidor del dashboard.',
+          source: 'dashboard',
+          time: new Date().toLocaleTimeString()
+        };
+      }
+
+      const stack = construirEstadoStackReal();
+      if (stack.expected.length === 0) {
+        return {
+          level: 'info',
+          text: 'Sin servicios activos o detectados.',
+          source: 'stack',
+          time: new Date().toLocaleTimeString()
+        };
+      }
+
+      if (stack.down.length > 0) {
+        return {
+          level: 'error',
+          text: `Servicios caídos: ${formatearListaServicios(stack.down)}`,
+          source: 'health',
+          time: new Date().toLocaleTimeString()
+        };
+      }
+
+      const ahora = Date.now();
+      if (state.ultimoHealthCheckEn && ahora - state.ultimoHealthCheckEn > HEALTH_CHECK_MS * 2.5) {
+        return {
+          level: 'warn',
+          text: 'Salud pendiente o desactualizada.',
+          source: 'health',
+          time: new Date().toLocaleTimeString()
+        };
+      }
+
+      return {
+        level: 'ok',
+        text: 'Servicios monitoreados sin alertas.',
+        source: 'health',
+        time: new Date().toLocaleTimeString()
+      };
     }
 
       function resolverEstadoHttps(info) {
@@ -4781,16 +5440,23 @@
         return '-';
       }
 
-    function actualizarBotonEntorno(boton, enEjecucion) {
+    function actualizarBotonEntorno(boton, estadoEntorno) {
       if (!boton) return;
       const estadoEl = boton.querySelector('[data-state]');
       const subElemento = boton.querySelector('[data-sub]');
 
+      const source = estadoEntorno?.source || 'inactive';
+      const activo = source !== 'inactive';
+      const controlado = source === 'managed' || source === 'hybrid';
+      const soloDetectado = source === 'detected';
       const pendiente = boton.classList.contains('pending') ? String(boton.dataset.pending || '') : '';
-      const iniciando = pendiente === 'start' && !enEjecucion;
-      const deteniendo = pendiente === 'stop' && enEjecucion;
+      const iniciando = pendiente === 'start' && !controlado;
+      const deteniendo = pendiente === 'stop' && controlado;
 
-      boton.classList.toggle('active', enEjecucion);
+      boton.classList.toggle('active', activo);
+      boton.classList.toggle('detected', soloDetectado);
+      boton.disabled = soloDetectado;
+      boton.setAttribute('aria-disabled', soloDetectado ? 'true' : 'false');
       if (!iniciando && !deteniendo) {
         boton.classList.remove('pending');
         boton.removeAttribute('data-pending');
@@ -4799,34 +5465,42 @@
       if (estadoEl) {
         if (iniciando) estadoEl.textContent = 'Iniciando';
         else if (deteniendo) estadoEl.textContent = 'Deteniendo';
-        else estadoEl.textContent = enEjecucion ? 'Activo' : 'Detenido';
+        else if (soloDetectado) estadoEl.textContent = 'Detectado';
+        else estadoEl.textContent = activo ? 'Activo' : 'Detenido';
       }
       if (subElemento) {
         if (iniciando) {
           subElemento.textContent = 'Iniciando...';
         } else if (deteniendo) {
           subElemento.textContent = 'Deteniendo...';
+        } else if (soloDetectado) {
+          subElemento.textContent = 'Activo fuera del dashboard; control limitado';
         } else {
-          subElemento.textContent = enEjecucion
+          subElemento.textContent = controlado
             ? 'Mantener 1.2s para detener'
             : 'Mantener 1.2s para iniciar';
         }
       }
 
-      boton.setAttribute('aria-pressed', enEjecucion ? 'true' : 'false');
+      boton.setAttribute('aria-pressed', controlado ? 'true' : 'false');
+      boton.title = soloDetectado
+        ? 'Entorno detectado por salud o Compose, pero no gestionado por este dashboard.'
+        : '';
     }
 
     function actualizarBotonesEntorno() {
+      const { envs } = obtenerEstadosEntornosReales();
       document.querySelectorAll('[data-env]').forEach((boton) => {
-        actualizarBotonEntorno(boton, state.enEjecucion.has(boton.dataset.env));
+        actualizarBotonEntorno(boton, envs[boton.dataset.env]);
       });
     }
 
-    function registrarEvento(tipo, etiqueta) {
+    function registrarEvento(tipo, etiqueta, detalle = '') {
       const entrada = {
         id: `${Date.now()}-${Math.random().toString(16).slice(2)}`,
         type: tipo,
         label: etiqueta,
+        detail: detalle,
         time: Date.now()
       };
 
@@ -4859,11 +5533,12 @@
         elemento.className = 'activity-item';
 
         const punto = document.createElement('span');
-        punto.className = `activity-dot ${entrada.type === 'start' ? 'ok' : 'down'}`;
+        punto.className = `activity-dot ${entrada.type === 'start' ? 'ok' : entrada.type === 'stop' ? 'down' : 'warn'}`;
 
         const texto = document.createElement('span');
         texto.className = 'activity-text';
-        texto.textContent = `${entrada.type === 'start' ? 'Inicio' : 'Detención'}: ${entrada.label}`;
+        const accion = entrada.type === 'start' ? 'Inicio' : entrada.type === 'stop' ? 'Detención' : 'Cambio de control';
+        texto.textContent = `${accion}: ${entrada.label}${entrada.detail ? ` (${entrada.detail})` : ''}`;
 
         const hora = document.createElement('span');
         hora.className = 'activity-time';
@@ -4877,32 +5552,61 @@
 
       const ultimo = state.eventos[0];
       if (ultimo) {
-        establecerTexto('last-event', `Última acción: ${ultimo.label} (${ultimo.type === 'start' ? 'inicio' : 'detenido'})`);
+        const tipo = ultimo.type === 'start' ? 'inicio' : ultimo.type === 'stop' ? 'detención' : 'cambio';
+        establecerTexto('last-event', `Última acción: ${ultimo.label} (${tipo}${ultimo.detail ? ` · ${ultimo.detail}` : ''})`);
       }
     }
 
     function obtenerSnapshotServicios() {
       const contexto = construirContextoServicios();
       const webInfoKey = state.claveInfoWebDocente || 'webDocenteDev';
-      const expectedWeb =
-        contexto.expected.includes('webDocenteDev') ||
-        contexto.expected.includes('webDocenteProd');
-      const expectedApi = contexto.expected.includes('apiDocente');
-      const expectedPortal = contexto.expected.includes('apiPortal');
       const items = [
         {
+          id: 'mongo-local',
+          expected: contexto.expected.includes('mongoLocal'),
+          info: state.salud?.mongoLocal
+        },
+        {
+          id: 'api-docente',
+          expected: contexto.expected.includes('apiDocente'),
+          info: state.salud?.apiDocente
+        },
+        {
+          id: 'web-docente-dev',
+          expected: contexto.expected.includes('webDocenteDev'),
+          info: state.salud?.webDocenteDev
+        },
+        {
+          id: 'web-docente-prod',
+          expected: contexto.expected.includes('webDocenteProd'),
+          info: state.salud?.webDocenteProd
+        },
+        {
+          id: 'api-portal',
+          expected: contexto.expected.includes('apiPortal'),
+          info: state.salud?.apiPortal
+        }
+      ];
+
+      const displayItems = [
+        {
           id: 'web-docente',
-          expected: expectedWeb,
+          expected: contexto.expected.includes(webInfoKey),
           info: state.salud?.[webInfoKey]
         },
         {
           id: 'api-docente',
-          expected: expectedApi,
+          expected: contexto.expected.includes('apiDocente'),
           info: state.salud?.apiDocente
         },
         {
+          id: 'mongo-local',
+          expected: contexto.expected.includes('mongoLocal'),
+          info: state.salud?.mongoLocal
+        },
+        {
           id: 'api-portal',
-          expected: expectedPortal,
+          expected: contexto.expected.includes('apiPortal'),
           info: state.salud?.apiPortal
         }
       ];
@@ -4917,21 +5621,23 @@
         else downCount += 1;
       });
 
-      return { items, okCount, downCount };
+      return { items, displayItems, okCount, downCount };
     }
 
     function actualizarResumenServicios() {
       const snapshot = obtenerSnapshotServicios();
 
-      snapshot.items.forEach((item) => {
+      snapshot.displayItems.forEach((item) => {
         const dot = $(`service-${item.id}-dot`);
         const badge = $(`service-${item.id}-badge`);
+        const row = $(`service-${item.id}`);
         if (!dot || !badge) return;
 
         if (!item.expected) {
           dot.className = 'service-dot';
           badge.className = 'service-badge';
           badge.textContent = 'Detenido';
+          aplicarClaseEstado(row, 'state-stopped');
           return;
         }
 
@@ -4939,6 +5645,7 @@
           dot.className = 'service-dot';
           badge.className = 'service-badge';
           badge.textContent = 'Sin comprobar';
+          aplicarClaseEstado(row, 'state-pending');
           return;
         }
 
@@ -4946,10 +5653,12 @@
           dot.className = 'service-dot ok';
           badge.className = 'service-badge ok';
           badge.textContent = 'Activo';
+          aplicarClaseEstado(row, 'state-ok');
         } else {
           dot.className = 'service-dot down';
           badge.className = 'service-badge down';
           badge.textContent = 'Caído';
+          aplicarClaseEstado(row, 'state-down');
         }
       });
 
@@ -5041,8 +5750,9 @@
       const note = $('web-docente-note');
       if (!item || !link || !meta || !chip || !note) return;
 
-      const runningDev = state.enEjecucion.has('dev') || state.enEjecucion.has('dev-frontend') || Boolean(state.salud?.webDocenteDev?.ok);
-      const runningProd = state.enEjecucion.has('prod') || Boolean(state.compose?.prod?.web_docente_prod) || Boolean(state.salud?.webDocenteProd?.ok);
+      const { envs } = obtenerEstadosEntornosReales();
+      const runningDev = envs.dev.active;
+      const runningProd = envs.prod.active;
       const normalized = String(mode || '').toLowerCase();
 
       let target = 'dev';
@@ -5083,7 +5793,7 @@
 
     async function refrescarSalud(forzar = false) {
       const now = Date.now();
-      const clavesEsperadas = ['apiDocente', 'apiPortal', 'webDocenteDev', 'webDocenteProd'];
+      const clavesEsperadas = ['mongoLocal', 'apiDocente', 'apiPortal', 'webDocenteDev', 'webDocenteProd'];
       const sinDatos = !state.salud || clavesEsperadas.some((clave) => !(clave in state.salud));
       const reuse = !forzar && !sinDatos && now - state.ultimaSaludEn < HEALTH_CHECK_MS;
       if (!reuse) state.ultimaSaludEn = now;
@@ -5111,15 +5821,17 @@
         }
       }
 
-      const runningDevOrProd = state.enEjecucion.has('dev') ||
-        state.enEjecucion.has('prod') ||
-        Boolean(state.compose?.dev?.api_docente_local) ||
-        Boolean(state.compose?.prod?.api_docente_prod) ||
-        Boolean(state.compose?.prod?.web_docente_prod);
-      establecerItemSalud('api-docente', state.salud.apiDocente, runningDevOrProd);
-      establecerItemSalud('api-portal', state.salud.apiPortal, state.enEjecucion.has('portal'));
+      const contexto = construirContextoServicios();
+      establecerItemSalud('api-docente', state.salud.apiDocente, contexto.expected.includes('apiDocente'));
+      establecerItemSalud('api-portal', state.salud.apiPortal, contexto.expected.includes('apiPortal'));
+      const itemApiDocente = $('api-docente-item');
+      if (itemApiDocente) itemApiDocente.classList.toggle('inactive', !contexto.expected.includes('apiDocente'));
+      const itemApiPortal = $('api-portal-item');
+      if (itemApiPortal) itemApiPortal.classList.toggle('inactive', !contexto.expected.includes('apiPortal'));
       actualizarEnlaceWebDocente(state.modo);
       actualizarEstadoStackReal();
+      state.alertaPrincipal = construirAlertaPrincipal();
+      renderizarAlerta(state.alertaPrincipal);
       actualizarTiemposHealth(now);
       actualizarAnalitica();
       aplicarAnimo();
@@ -5237,6 +5949,10 @@
 
       establecerHashPestana(nombre);
     }
+
+    window.addEventListener('beforeunload', () => {
+      registrarGuardiaFocoRecarga();
+    });
 
     function formatearEtiquetaEvento(valor) {
       if (!valor) return '-';
@@ -5576,11 +6292,23 @@
     }
 
     function sincronizarEventosEntorno(previo, actual) {
-      previo.forEach((entorno) => {
-        if (!actual.has(entorno)) registrarEvento('stop', ETIQUETAS_ENTORNO[entorno] || entorno);
-      });
-      actual.forEach((entorno) => {
-        if (!previo.has(entorno)) registrarEvento('start', ETIQUETAS_ENTORNO[entorno] || entorno);
+      const anterior = previo && typeof previo === 'object' ? previo : {};
+      const siguiente = actual && typeof actual === 'object' ? actual : {};
+
+      Object.keys(ETIQUETAS_ENTORNO).forEach((entorno) => {
+        const previoEstado = anterior[entorno]?.source || 'inactive';
+        const actualEstado = siguiente[entorno]?.source || 'inactive';
+        if (previoEstado === actualEstado) return;
+
+        if (previoEstado === 'inactive' && actualEstado !== 'inactive') {
+          registrarEvento('start', ETIQUETAS_ENTORNO[entorno] || entorno, actualEstado === 'detected' ? 'detectado' : 'gestionado');
+          return;
+        }
+        if (previoEstado !== 'inactive' && actualEstado === 'inactive') {
+          registrarEvento('stop', ETIQUETAS_ENTORNO[entorno] || entorno, 'sin actividad');
+          return;
+        }
+        registrarEvento('change', ETIQUETAS_ENTORNO[entorno] || entorno, `ahora ${actualEstado === 'detected' ? 'detectado' : actualEstado === 'managed' ? 'gestionado' : 'híbrido'}`);
       });
     }
 
@@ -5593,30 +6321,35 @@
         establecerConexion('ok');
         state.ultimoRefrescoExitosoEn = Date.now();
 
-        const listaEjecucion = Array.isArray(datos.running) ? datos.running : [];
-        const conteoEjecucion = listaEjecucion.length;
-        const ejecucionPrevia = new Set(state.enEjecucion);
+        const listaGestionada = Array.isArray(datos.managedTasks)
+          ? datos.managedTasks
+          : (Array.isArray(datos.running) ? datos.running : []);
+        const conteoTareas = listaGestionada.length;
+        const entornosPrevios = state.estadoEntornosReales;
         const vistaDocker = resolverVistaDocker(datos);
-        const vistaStack = resolverVistaStack(datos, listaEjecucion);
+        const vistaStack = resolverVistaStack(datos, listaGestionada);
         const vistaHttps = resolverEstadoHttps(datos.https);
         const ahoraRefresco = Date.now();
 
-        const modoMostrar = derivarModoVista(datos.mode, listaEjecucion);
+        const modoMostrar = derivarModoVista(datos.mode, listaGestionada);
         state.modo = modoMostrar;
         state.https = datos.https || null;
         state.compose = datos.compose || null;
-        state.enEjecucion = new Set(listaEjecucion);
+        state.tareasGestionadas = [...listaGestionada];
+        state.enEjecucion = new Set(listaGestionada);
+        const estadoReal = obtenerEstadosEntornosReales();
+        state.estadoEntornosReales = estadoReal.envs;
 
         try {
           establecerTexto('root', datos.root);
           establecerTexto('mode', formatearEtiquetaModo(modoMostrar));
-          establecerTexto('running-count', String(conteoEjecucion));
-          establecerTexto('running', renderizarEnEjecucion(listaEjecucion));
+          establecerTexto('running-count', String(estadoReal.activeCount));
+          establecerTexto('running', renderizarEnEjecucion(listaGestionada));
           establecerTexto('last-refresh', `Actualizado ${new Date().toLocaleTimeString()}`);
 
           establecerTexto('root-status', datos.root);
           establecerTexto('mode-status', formatearEtiquetaModo(modoMostrar));
-          establecerTexto('running-status', renderizarEnEjecucion(listaEjecucion));
+          establecerTexto('running-status', renderizarEnEjecucion(listaGestionada));
           establecerTexto('node', datos.node);
           establecerTexto('npm', datos.npm);
           establecerTexto('docker', vistaDocker);
@@ -5628,7 +6361,7 @@
           establecerTexto('https-state-main', vistaHttps);
           establecerTexto('https-status', vistaHttps);
           establecerTexto('mode-chip', `Modo: ${formatearEtiquetaModo(modoMostrar)}`);
-          establecerTexto('running-chip', `Procesos: ${conteoEjecucion}`);
+          establecerTexto('running-chip', `Tareas: ${conteoTareas}`);
           establecerTexto('port-chip', `Puerto: ${datos.port || '-'}`);
           establecerTexto('version-chip', `v${String(datos?.app?.version || '?')}`);
           establecerTexto('log-size', `${datos.logSize} líneas`);
@@ -5645,25 +6378,23 @@
             toggleAutoReinicio.disabled = String(datos.modeConfig || datos.mode || '').toLowerCase() !== 'dev';
           }
 
-          establecerPuntoEjecucion(conteoEjecucion > 0);
+          establecerPuntoEjecucion(estadoReal.activeCount > 0 || conteoTareas > 0);
           actualizarBotonesEntorno();
 
           if (state.haCargado) {
-            sincronizarEventosEntorno(ejecucionPrevia, state.enEjecucion);
+            sincronizarEventosEntorno(entornosPrevios, state.estadoEntornosReales);
           }
           state.haCargado = true;
 
           const itemApiDocente = $('api-docente-item');
           if (itemApiDocente) {
-            const apiDocenteActivo = state.enEjecucion.has('dev') ||
-              state.enEjecucion.has('prod') ||
-              Boolean(state.compose?.dev?.api_docente_local) ||
-              Boolean(state.compose?.prod?.api_docente_prod);
-            itemApiDocente.classList.toggle('inactive', !apiDocenteActivo);
+            const contexto = construirContextoServicios();
+            itemApiDocente.classList.toggle('inactive', !contexto.expected.includes('apiDocente'));
           }
           const itemApiPortal = $('api-portal-item');
           if (itemApiPortal) {
-            itemApiPortal.classList.toggle('inactive', !state.enEjecucion.has('portal'));
+            const contexto = construirContextoServicios();
+            itemApiPortal.classList.toggle('inactive', !contexto.expected.includes('apiPortal'));
           }
         } catch (renderError) {
           console.error('Error actualizando UI del dashboard:', renderError);
@@ -5671,14 +6402,18 @@
 
         const fuerzaSalud = Object.keys(state.salud || {}).length === 0 || state.modo !== 'none';
         await refrescarSalud(fuerzaSalud);
+        state.estadoEntornosReales = obtenerEstadosEntornosReales().envs;
         actualizarEstadoStackReal();
+        actualizarBotonesEntorno();
       } catch (error) {
         establecerConexion('error', normalizarMensajeError(error));
         if (enEjecucionPrevio.size > 0) {
           mostrarToastErrorSiAplica('Sin conexión con el dashboard. Verifica que esté en ejecución (scripts/launcher-dashboard).');
         }
 
+        state.tareasGestionadas = [];
         state.enEjecucion = new Set();
+        state.estadoEntornosReales = {};
         state.modo = 'none';
         state.https = null;
         state.compose = null;
@@ -5721,23 +6456,19 @@
         establecerTexto('https-state-main', '-');
         establecerTexto('https-status', '-');
         establecerTexto('mode-chip', 'Modo: -');
-        establecerTexto('running-chip', 'Procesos: -');
+        establecerTexto('running-chip', 'Tareas: -');
 
         establecerPuntoEjecucion(false);
         actualizarBotonesEntorno();
         actualizarEnlaceWebDocente(state.modo);
         actualizarAnalitica();
 
-        if (enEjecucionPrevio.size > 0) {
-          renderizarAlerta({
-            level: 'error',
-            text: 'No hay conexión con el servidor del dashboard. Inicia scripts/launcher-dashboard para habilitar /api/*.',
-            source: 'dashboard',
-            time: new Date().toLocaleTimeString()
-          });
-        } else {
-          renderizarAlerta(null);
-        }
+        renderizarAlerta({
+          level: 'error',
+          text: 'No hay conexión con el servidor del dashboard. Inicia scripts/launcher-dashboard para habilitar /api/*.',
+          source: 'dashboard',
+          time: new Date().toLocaleTimeString()
+        });
 
         aplicarAnimo();
       }
@@ -6153,7 +6884,9 @@
     document.querySelectorAll('[data-env]').forEach((boton) => {
       vincularMantener(boton, () => {
         const entorno = boton.dataset.env;
-        const enEjecucion = state.enEjecucion.has(entorno);
+        const estadoEntorno = obtenerEstadosEntornosReales().envs[entorno];
+        const enEjecucion = estadoEntorno?.source === 'managed' || estadoEntorno?.source === 'hybrid';
+        if (estadoEntorno?.source === 'detected') return;
         boton.dataset.cooldownUntil = String(Date.now() + 2200);
         boton.dataset.pending = enEjecucion ? 'stop' : 'start';
         boton.classList.add('pending');
@@ -6429,9 +7162,9 @@
       });
     }
 
-    const versionChip = $('version-chip');
-    if (versionChip) {
-      versionChip.addEventListener('click', () => abrirVersionInfoDashboard());
+    const versionInfoBtn = $('version-info-btn');
+    if (versionInfoBtn) {
+      versionInfoBtn.addEventListener('click', () => abrirVersionInfoDashboard());
     }
 
     const filtroLogs = $('log-filter');
@@ -6610,10 +7343,16 @@
     establecerTexto('ui-chip', `UI: ${UI_REV}`);
     registrarServiceWorker();
 
+    const recienRecargado = consumirGuardiaFocoRecarga();
+
     const initialTab = obtenerPestanaDesdeHash();
     if (initialTab) state.pestanaActiva = initialTab;
     establecerPestana(state.pestanaActiva);
     establecerHashPestana(state.pestanaActiva);
+    if (recienRecargado) {
+      requestAnimationFrame(() => reclamarFocoDashboard('reload'));
+      setTimeout(() => reclamarFocoDashboard('reload'), 120);
+    }
 
     window.addEventListener('hashchange', () => {
       const tab = obtenerPestanaDesdeHash();
@@ -6624,10 +7363,12 @@
     window.addEventListener('focus', () => {
       aplicarReanudacionAutomaticaSiCorresponde();
       reprogramarRefrescoPeriodico({ refrescarAhora: true });
+      reclamarFocoDashboard('focus');
     });
     window.addEventListener('pageshow', () => {
       aplicarReanudacionAutomaticaSiCorresponde();
       reprogramarRefrescoPeriodico({ refrescarAhora: true });
+      if (recienRecargado) reclamarFocoDashboard('reload');
     });
     document.addEventListener('visibilitychange', () => {
       if (document.visibilityState === 'visible') {

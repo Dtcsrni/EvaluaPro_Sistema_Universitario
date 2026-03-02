@@ -250,32 +250,45 @@ export async function regenerarPdfExamen(req: SolicitudDocente, res: Response) {
   const numeroPaginas = resolverNumeroPaginasPlantilla(plantilla as unknown as { numeroPaginas?: unknown });
   const templateVersion = TEMPLATE_VERSION_TV3;
 
-  const { pdfBytes, paginas, mapaOmr, preguntasRestantes } = await generarPdfExamen({
-    titulo: String(plantilla.titulo ?? ''),
-    folio,
-    preguntas: preguntasBase,
-    // Reutiliza la variante para mantener el orden de preguntas/opciones.
-    mapaVariante: (examen as unknown as { mapaVariante?: unknown })?.mapaVariante as never,
-    tipoExamen: plantilla.tipo as 'parcial' | 'global',
-    totalPaginas: numeroPaginas,
-    margenMm: (plantilla as unknown as { configuracionPdf?: { margenMm?: number } })?.configuracionPdf?.margenMm ?? 10,
-    templateVersion,
-    encabezado: {
-      materia: String((periodo as unknown as { nombre?: unknown })?.nombre ?? ''),
-      docente: String((docenteDb as unknown as { nombreCompleto?: unknown })?.nombreCompleto ?? ''),
-      instrucciones: String((plantilla as unknown as { instrucciones?: unknown })?.instrucciones ?? '').trim() || undefined,
-      institucion: String((docenteDb as unknown as { preferenciasPdf?: { institucion?: unknown } })?.preferenciasPdf?.institucion ?? '').trim() || undefined,
-      lema: String((docenteDb as unknown as { preferenciasPdf?: { lema?: unknown } })?.preferenciasPdf?.lema ?? '').trim() || undefined,
-      logos: {
-        izquierdaPath:
-          String((docenteDb as unknown as { preferenciasPdf?: { logos?: { izquierdaPath?: unknown } } })?.preferenciasPdf?.logos?.izquierdaPath ?? '').trim() ||
-          undefined,
-        derechaPath:
-          String((docenteDb as unknown as { preferenciasPdf?: { logos?: { derechaPath?: unknown } } })?.preferenciasPdf?.logos?.derechaPath ?? '').trim() ||
-          undefined
+  const generarConPaginas = (paginasObjetivo: number) =>
+    generarPdfExamen({
+      titulo: String(plantilla.titulo ?? ''),
+      folio,
+      preguntas: preguntasBase,
+      // Reutiliza la variante para mantener el orden de preguntas/opciones.
+      mapaVariante: (examen as unknown as { mapaVariante?: unknown })?.mapaVariante as never,
+      tipoExamen: plantilla.tipo as 'parcial' | 'global',
+      totalPaginas: paginasObjetivo,
+      margenMm: (plantilla as unknown as { configuracionPdf?: { margenMm?: number } })?.configuracionPdf?.margenMm ?? 10,
+      templateVersion,
+      encabezado: {
+        materia: String((periodo as unknown as { nombre?: unknown })?.nombre ?? ''),
+        docente: String((docenteDb as unknown as { nombreCompleto?: unknown })?.nombreCompleto ?? ''),
+        instrucciones: String((plantilla as unknown as { instrucciones?: unknown })?.instrucciones ?? '').trim() || undefined,
+        institucion: String((docenteDb as unknown as { preferenciasPdf?: { institucion?: unknown } })?.preferenciasPdf?.institucion ?? '').trim() || undefined,
+        lema: String((docenteDb as unknown as { preferenciasPdf?: { lema?: unknown } })?.preferenciasPdf?.lema ?? '').trim() || undefined,
+        logos: {
+          izquierdaPath:
+            String((docenteDb as unknown as { preferenciasPdf?: { logos?: { izquierdaPath?: unknown } } })?.preferenciasPdf?.logos?.izquierdaPath ?? '').trim() ||
+            undefined,
+          derechaPath:
+            String((docenteDb as unknown as { preferenciasPdf?: { logos?: { derechaPath?: unknown } } })?.preferenciasPdf?.logos?.derechaPath ?? '').trim() ||
+            undefined
+        }
       }
-    }
-  });
+    });
+
+  let paginasObjetivo = numeroPaginas;
+  let resultadoPdf = await generarConPaginas(paginasObjetivo);
+  const maxPaginas = Math.max(paginasObjetivo, preguntasBase.length);
+  let intentos = 0;
+  while ((resultadoPdf.preguntasRestantes ?? 0) > 0 && paginasObjetivo < maxPaginas && intentos < maxPaginas) {
+    paginasObjetivo += 1;
+    resultadoPdf = await generarConPaginas(paginasObjetivo);
+    intentos += 1;
+  }
+
+  const { pdfBytes, paginas, mapaOmr, preguntasRestantes } = resultadoPdf;
 
   const temas = Array.isArray((plantilla as unknown as { temas?: unknown[] })?.temas)
     ? (((plantilla as unknown as { temas?: unknown[] })?.temas ?? []) as unknown[]).map((t) => String(t ?? '').trim()).filter(Boolean)
@@ -284,9 +297,9 @@ export async function regenerarPdfExamen(req: SolicitudDocente, res: Response) {
   if ((preguntasRestantes ?? 0) > 0) {
     throw new ErrorAplicacion(
       'PAGINAS_INSUFICIENTES_POR_EXCESO',
-      `No caben ${preguntasRestantes} pregunta(s) en ${numeroPaginas} pagina(s). Aumenta el numero de paginas.`,
+      `No caben ${preguntasRestantes} pregunta(s) en ${paginasObjetivo} pagina(s). Aumenta el numero de paginas.`,
       409,
-      { preguntasRestantes, numeroPaginas }
+      { preguntasRestantes, numeroPaginas: paginasObjetivo }
     );
   }
 

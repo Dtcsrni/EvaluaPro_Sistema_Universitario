@@ -10,10 +10,13 @@ import type {
   ParametrosGeneracionPdf,
   ResultadoGeneracionPdf
 } from '../../shared/tiposPdf';
+import { logError } from '../../../../infraestructura/logging/logger';
 import { ExamenPdf } from '../../domain/examenPdf';
 import { obtenerPerfilPlantilla } from '../../domain/layoutExamen';
 import { resolverPerfilLayout } from '../../infra/configuracionLayoutEnv';
+import { ExamHtmlRenderer } from '../../infra/html/examHtmlRenderer';
 import { PdfKitRenderer } from '../../infra/pdfKitRenderer';
+import { resolverPdfEngine } from '../../infra/resolverPdfEngine';
 import {
   normalizarMapaVarianteTv3,
   normalizarPreguntasParaTv3,
@@ -55,6 +58,32 @@ export async function generarExamenIndividual(
 
   const perfilOmr = obtenerPerfilPlantilla(templateVersion);
   const perfilLayout = resolverPerfilLayout();
-  const renderer = new PdfKitRenderer(perfilOmr, perfilLayout);
-  return renderer.generarPdf(examen);
+  const engine = resolverPdfEngine();
+  if (engine === 'pdf-lib-legacy') {
+    return new PdfKitRenderer(perfilOmr, perfilLayout).generarPdf(examen);
+  }
+
+  try {
+    return await new ExamHtmlRenderer(perfilOmr, perfilLayout).generarPdf(examen);
+  } catch (error) {
+    logError('Fallo renderer playwright-html-v1. Se usa fallback pdf-lib-legacy.', error, {
+      modulo: 'modulo_generacion_pdf',
+      folio: examen.folio,
+      templateVersion
+    });
+    const fallback = await new PdfKitRenderer(perfilOmr, perfilLayout).generarPdf(examen);
+    return {
+      ...fallback,
+      layoutEngine: 'pdf-lib-legacy',
+      renderDiagnostics: {
+        preguntasCalculadas: examen.totalPreguntas,
+        preguntasRenderizadas: examen.totalPreguntas - (fallback.preguntasRestantes ?? 0),
+        pageFillRatios: fallback.metricasPaginas.map((item) => Number((1 - item.fraccionVacia).toFixed(4))),
+        collisionsDetected: [],
+        imagesRequested: fallback.metricasLayout?.imagenesIntentadas ?? 0,
+        imagesRendered: fallback.metricasLayout?.imagenesRenderizadas ?? 0,
+        imagesFailed: fallback.metricasLayout?.imagenesFallidas ?? 0
+      }
+    };
+  }
 }

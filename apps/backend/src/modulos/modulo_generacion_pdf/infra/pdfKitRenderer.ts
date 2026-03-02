@@ -54,29 +54,29 @@ type TextRunDebug = {
 
 const PERFIL_OMR_V3_RENDER: PerfilPlantillaRender = {
   version: 3,
-  qrSize: 27 * MM_A_PUNTOS,
-  qrPadding: 3.8 * MM_A_PUNTOS,
-  qrMarginModulos: 8,
+  qrSize: 22 * MM_A_PUNTOS,
+  qrPadding: 2.2 * MM_A_PUNTOS,
+  qrMarginModulos: 6,
   qrRasterWidth: 780,
   marcasEsquina: 'cuadrados',
-  marcaCuadradoSize: 9.2 * MM_A_PUNTOS,
-  marcaCuadradoQuietZone: 1.4 * MM_A_PUNTOS,
+  marcaCuadradoSize: 5.8 * MM_A_PUNTOS,
+  marcaCuadradoQuietZone: 0.8 * MM_A_PUNTOS,
   burbujaRadio: (3.1 * MM_A_PUNTOS) / 2,
   burbujaPasoY: 3.35 * MM_A_PUNTOS,
   burbujaStroke: 1,
-  burbujaOffsetX: 5.2,
-  omrHeaderGap: 6,
-  omrTagWidth: 14,
-  omrTagHeight: 7,
-  omrTagFontSize: 4.8,
-  omrLabelFontSize: 4.8,
-  omrBoxBorderWidth: 1,
-  omrPanelPadding: 1,
-  cajaOmrAncho: 54,
+  burbujaOffsetX: 4.4,
+  omrHeaderGap: 4,
+  omrTagWidth: 12,
+  omrTagHeight: 6,
+  omrTagFontSize: 4.3,
+  omrLabelFontSize: 4.2,
+  omrBoxBorderWidth: 0.9,
+  omrPanelPadding: 0.8,
+  cajaOmrAncho: 48,
   // Fiduciales compactos para evitar recortes y mejorar deteccion.
-  fiducialSize: 0.95 * MM_A_PUNTOS,
-  fiducialMargin: 1.2,
-  fiducialQuietZone: 0.3 * MM_A_PUNTOS,
+  fiducialSize: 0.78 * MM_A_PUNTOS,
+  fiducialMargin: 0.9,
+  fiducialQuietZone: 0.18 * MM_A_PUNTOS,
   bubbleStrokePt: 1,
   labelToBubbleMm: 2.2,
   preguntasPorBloque: 10,
@@ -721,19 +721,19 @@ export class PdfKitRenderer {
 
     // Plantilla base en puntos (1pt ~= 1px a 72dpi) para posicionamiento estable.
     const PLANTILLA_PX = Object.freeze({
-      headerPadTop: 14,
-      headerPadBottom: 14,
-      titleGap: 22,
-      lemaGap: 18,
-      metaGapTop: 14,
+      headerPadTop: 12,
+      headerPadBottom: 10,
+      titleGap: 18,
+      lemaGap: 14,
+      metaGapTop: 10,
       metaLine: 10.8,
-      camposGapTop: 14,
-      campoRowGap: 20,
+      camposGapTop: 10,
+      campoRowGap: 16,
       campoLineOffsetY: 3.2
     });
 
-    const sizeTitulo = 16.8;
-    const sizeMeta = 8.8;
+    const sizeTitulo = 15.6;
+    const sizeMeta = 8.4;
     const sizePregunta = 10.6;
     const sizeOpcion = 9;
     const sizeCodigoInline = 8.6;
@@ -773,7 +773,7 @@ export class PdfKitRenderer {
     const docente = String(examen.encabezado?.docente ?? '').trim();
     const mostrarInstrucciones = examen.encabezado?.mostrarInstrucciones !== false;
     const instrucciones = String(examen.encabezado?.instrucciones ?? '').trim() || instruccionesDefault;
-    const altoEncabezadoPrimeraMinimo = 126;
+    const altoEncabezadoPrimeraMinimo = 112;
 
     const logoIzqSrc = examen.encabezado?.logos?.izquierdaPath ?? process.env.EXAMEN_LOGO_IZQ_PATH ?? '';
     const logoDerSrc = examen.encabezado?.logos?.derechaPath ?? process.env.EXAMEN_LOGO_DER_PATH ?? '';
@@ -920,12 +920,12 @@ export class PdfKitRenderer {
         br: { x: ANCHO_CARTA - margen, y: margen }
       };
 
-      const yFolio = yQr - qrPadding - 10;
-      const yPag = yFolio - 9;
+      const yFolio = yQr - qrPadding - 8;
+      const yPag = yFolio - 8;
       let folioEnEncabezado = false;
       if (yFolio > yCaja + 4) {
-        page.drawText(folioQr, { x: xQr, y: yFolio, size: 9, font: fuenteBold, color: colorPrimario });
-        page.drawText(`PAG ${numeroPagina}`, { x: xQr, y: yPag, size: 8.5, font: fuente, color: colorGris });
+        page.drawText(folioQr, { x: xQr, y: yFolio, size: 8.1, font: fuenteBold, color: colorPrimario });
+        page.drawText(`PAG ${numeroPagina}`, { x: xQr, y: yPag, size: 7.6, font: fuente, color: colorGris });
         folioEnEncabezado = true;
       }
 
@@ -951,13 +951,13 @@ export class PdfKitRenderer {
       if (esPrimera) {
         const headerLeft = xCaja + 8;
         const logoSlotLeftX = headerLeft + 2;
-        const logoSlotWidth = 52;
-        const logoSlotHeight = 52;
-        const xTextoHeader = logoSlotLeftX + logoSlotWidth + 12;
+        const logoSlotWidth = 46;
+        const logoSlotHeight = 46;
+        const xTextoHeader = logoSlotLeftX + logoSlotWidth + 10;
         const qrSlotLeft = rectQr.x - 10;
-        const logoDerechoSlotWidth = 44;
-        const logoDerechoSlotX = qrSlotLeft - logoDerechoSlotWidth - 12;
-        const xMaxEnc = logoDerechoSlotX - 12;
+        const logoDerechoSlotWidth = 34;
+        const logoDerechoSlotX = qrSlotLeft - logoDerechoSlotWidth - 8;
+        const xMaxEnc = logoDerechoSlotX - 10;
         const maxWidthEnc = Math.max(220, xMaxEnc - xTextoHeader);
         const innerTop = yTop - PLANTILLA_PX.headerPadTop;
         const innerBottom = yCaja + PLANTILLA_PX.headerPadBottom;
@@ -1060,9 +1060,9 @@ export class PdfKitRenderer {
         const etiquetaGrupo = 'Grupo:';
         const anchoEtiquetaNombre = fuenteBold.widthOfTextAtSize(etiquetaNombre, sizeCampo);
         const anchoEtiquetaGrupo = fuenteBold.widthOfTextAtSize(etiquetaGrupo, sizeCampo);
-        const xLineaNombre = Math.min(xTextoHeader + anchoEtiquetaNombre + 8, xMaxEnc - 250);
-        const xLineaGrupo = Math.min(xTextoHeader + anchoEtiquetaGrupo + 8, xMaxEnc - 44);
-        const xLineaGrupoFin = Math.min(xMaxEnc, xLineaGrupo + 44);
+        const xLineaNombre = Math.min(xTextoHeader + anchoEtiquetaNombre + 12, xMaxEnc - 180);
+        const xLineaGrupo = xTextoHeader + anchoEtiquetaGrupo + 12;
+        const xLineaGrupoFin = Math.min(xMaxEnc, xLineaGrupo + 62);
 
         page.drawText(etiquetaNombre, { x: xTextoHeader, y: yNombre, size: sizeCampo, font: fuenteBold, color: colorPrimario });
         headerTextBlocks.push({
@@ -1113,7 +1113,7 @@ export class PdfKitRenderer {
           }
         }
 
-        yFinHeaderPrimera = Math.min(yCaja - 10, yGrupo - 14);
+        yFinHeaderPrimera = Math.min(yCaja - 8, yGrupo - 10);
       }
 
       // Reserva separacion visual clara entre encabezado y primera pregunta.
@@ -1127,6 +1127,8 @@ export class PdfKitRenderer {
       let cursorY = cursorYInicio;
 
       const alturaDisponibleMin = margen + this.perfilLayout.bottomSafePt;
+      const maxImagenPreguntaAncho = Math.min(anchoTextoPregunta * 0.5, 160);
+      const maxImagenPreguntaAlto = 42;
 
       const calcularAlturaPregunta = (pregunta: ExamenPdf['preguntas'][number]) => {
         const lineasEnunciado = envolverTextoMixto({
@@ -1147,8 +1149,8 @@ export class PdfKitRenderer {
 
         const emb = imagenesPregunta.get(pregunta.id);
         if (emb) {
-          const maxW = anchoTextoPregunta;
-          const maxH = 72;
+          const maxW = maxImagenPreguntaAncho;
+          const maxH = maxImagenPreguntaAlto;
           const escala = Math.min(1, maxW / emb.width, maxH / emb.height);
           alto += emb.height * escala + 3;
         }
@@ -1343,8 +1345,8 @@ export class PdfKitRenderer {
 
         const emb = imagenesPregunta.get(pregunta.id);
         if (emb) {
-          const maxW = anchoTextoPregunta;
-          const maxH = 72;
+          const maxW = maxImagenPreguntaAncho;
+          const maxH = maxImagenPreguntaAlto;
           const escala = Math.min(1, maxW / emb.width, maxH / emb.height);
           const w = emb.width * escala;
           const h = emb.height * escala;
@@ -1606,6 +1608,8 @@ export class PdfKitRenderer {
 
     return {
       pdfBytes,
+      layoutEngine: 'pdf-lib-legacy',
+      layoutTemplateVersion: 3,
       paginas: paginasMeta,
       metricasPaginas,
       metricasLayout: {

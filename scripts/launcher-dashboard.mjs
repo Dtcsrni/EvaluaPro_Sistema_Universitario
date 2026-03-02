@@ -1237,22 +1237,45 @@ async function checkHealth(url, timeoutMs = 3000) {
   });
 }
 
+function checkTcpPort(host, port, timeoutMs = 2000) {
+  return new Promise((resolve) => {
+    const started = Date.now();
+    const socket = new net.Socket();
+    let done = false;
+
+    const finish = (result) => {
+      if (done) return;
+      done = true;
+      try { socket.destroy(); } catch {}
+      resolve(result);
+    };
+
+    socket.setTimeout(timeoutMs);
+    socket.once('connect', () => finish({ ok: true, ms: Date.now() - started }));
+    socket.once('timeout', () => finish({ ok: false, error: 'timeout', ms: Date.now() - started }));
+    socket.once('error', (error) => finish({ ok: false, error: error?.code || error?.name || 'error', ms: Date.now() - started }));
+
+    try {
+      socket.connect(Number(port), host);
+    } catch (error) {
+      finish({ ok: false, error: error?.code || error?.name || 'error', ms: Date.now() - started });
+    }
+  });
+}
+
 // Aggregate health checks for the main services used by the dashboard.
 async function collectHealth() {
   const httpsState = resolveHttpsState();
   const devScheme = httpsState.mode === 'https' ? 'https' : 'http';
   const apiPort = Number(process.env.PUERTO_API || process.env.PORT || 4000) || 4000;
   const portalPort = Number(process.env.PUERTO_PORTAL || 8080) || 8080;
-  const targets = {
-    apiDocente: `http://127.0.0.1:${apiPort}/api/salud`,
-    apiPortal: `http://127.0.0.1:${portalPort}/api/portal/salud`,
-    webDocenteDev: `${devScheme}://127.0.0.1:5173`,
-    webDocenteProd: 'http://127.0.0.1:4173'
-  };
-
-  const entries = await Promise.all(
-    Object.entries(targets).map(async ([name, url]) => [name, await checkHealth(url)])
-  );
+  const entries = await Promise.all([
+    Promise.resolve(['mongoLocal', await checkTcpPort('127.0.0.1', 27017, 2200)]),
+    Promise.resolve(['apiDocente', await checkHealth(`http://127.0.0.1:${apiPort}/api/salud`)]),
+    Promise.resolve(['apiPortal', await checkHealth(`http://127.0.0.1:${portalPort}/api/portal/salud`)]),
+    Promise.resolve(['webDocenteDev', await checkHealth(`${devScheme}://127.0.0.1:5173`)]),
+    Promise.resolve(['webDocenteProd', await checkHealth('http://127.0.0.1:4173')])
+  ]);
   return Object.fromEntries(entries);
 }
 
@@ -2364,14 +2387,14 @@ const server = http.createServer(async (req, res) => {
 
     const noise = noiseSnapshot();
     const noiseTotal = Object.values(noise).reduce((acc, val) => acc + val, 0);
-    const running = runningTasks();
+    const managedTasks = runningTasks();
     const dockerDisplay = dockerDisplayString();
     const compose = readComposeSnapshot();
-    const stackDisplay = stackDisplayString(running, compose);
+    const stackDisplay = stackDisplayString(managedTasks, compose);
     const httpsState = resolveHttpsState();
 
-    const hasDev = running.includes('dev');
-    const hasProd = running.includes('prod');
+    const hasDev = managedTasks.includes('dev');
+    const hasProd = managedTasks.includes('prod');
     let uiMode = mode;
     if (mode !== 'dev' && mode !== 'prod') {
       if (hasDev && !hasProd) uiMode = 'dev';
@@ -2405,7 +2428,8 @@ const server = http.createServer(async (req, res) => {
         stack: dockerAutostart.stack,
         lastChangedAt: dockerAutostart.lastChangedAt
       },
-      running,
+      managedTasks,
+      running: managedTasks,
       logSize: logLines.length,
       rawSize: rawLines.length,
       noise,

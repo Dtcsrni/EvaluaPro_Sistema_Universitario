@@ -22,6 +22,10 @@ async function asegurarCarpeta() {
  * Guarda un PDF y devuelve su ruta absoluta en disco.
  */
 export async function guardarPdfExamen(nombreArchivo: string, buffer: Buffer) {
+  return guardarArchivoExamen(nombreArchivo, buffer);
+}
+
+export async function guardarArchivoExamen(nombreArchivo: string, buffer: Buffer | Uint8Array | string) {
   await asegurarCarpeta();
   const rutaCompleta = path.join(carpetaBase, nombreArchivo);
   await fs.writeFile(rutaCompleta, buffer);

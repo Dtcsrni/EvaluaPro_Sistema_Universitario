@@ -26,6 +26,12 @@ const OmrScanPageResultSchema = new Schema(
     scanStatus: { type: String, enum: ['accepted', 'needs_review', 'rejected'], required: true },
     exceptions: { type: [OmrExceptionSchema], default: [] },
     confidence: { type: Number, min: 0, max: 1, default: 0 },
+    autoGradable: { type: Boolean, default: false },
+    scoreResult: { type: Schema.Types.Mixed, default: null },
+    manualReviewRequired: { type: Boolean, default: false },
+    canonicalizationMetrics: { type: Schema.Types.Mixed, default: {} },
+    markMetrics: { type: Schema.Types.Mixed, default: {} },
+    resolvedState: { type: Schema.Types.Mixed, default: null },
     canonicalImageArtifact: { type: String },
     debugArtifacts: { type: [String], default: [] }
   },
@@ -40,6 +46,9 @@ const OmrReviewResolutionSchema = new Schema(
     overrides: { type: Schema.Types.Mixed, default: {} },
     finalResponses: { type: Schema.Types.Mixed, default: [] },
     finalIdentity: { type: Schema.Types.Mixed, default: {} },
+    resolvedVersion: { type: Schema.Types.Mixed, default: {} },
+    rescoredResult: { type: Schema.Types.Mixed, default: null },
+    auditTrail: { type: Schema.Types.Mixed, default: [] },
     resolutionReason: { type: String, trim: true }
   },
   { _id: false }

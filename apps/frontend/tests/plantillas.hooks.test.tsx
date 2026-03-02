@@ -1,6 +1,7 @@
 import { renderHook } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 import { usePlantillasGeneradosActions } from '../src/apps/app_docente/features/plantillas/hooks/usePlantillasGeneradosActions';
+import { usePlantillasOmrV1Actions } from '../src/apps/app_docente/features/plantillas/hooks/usePlantillasOmrV1Actions';
 import { usePlantillasPreviewActions } from '../src/apps/app_docente/features/plantillas/hooks/usePlantillasPreviewActions';
 
 describe('hooks de plantillas', () => {
@@ -50,5 +51,29 @@ describe('hooks de plantillas', () => {
     await result.current.cargarPreviewPlantilla('pla-1');
     expect(avisarSinPermiso).toHaveBeenCalled();
     expect(setPreviewPorPlantillaId).not.toHaveBeenCalled();
+  });
+
+  it('usePlantillasOmrV1Actions avisa cuando no hay permiso para analizar OMR', async () => {
+    const avisarSinPermiso = vi.fn();
+    const { result } = renderHook(() =>
+      usePlantillasOmrV1Actions({
+        avisarSinPermiso,
+        puedeDescargarExamenes: true,
+        puedeAnalizarOmr: false,
+        setCargandoAssessmentId: () => {},
+        setAssessmentDetalle: () => {},
+        setProcesandoOmr: () => {},
+        setJobOmr: () => {},
+        setMensajeGeneracion: () => {}
+      })
+    );
+
+    await result.current.crearJobOmr({
+      assessmentId: 'ass-1',
+      files: [new File(['hola'], 'captura.png', { type: 'image/png' })],
+      sourceType: 'image_batch'
+    });
+
+    expect(avisarSinPermiso).toHaveBeenCalled();
   });
 });

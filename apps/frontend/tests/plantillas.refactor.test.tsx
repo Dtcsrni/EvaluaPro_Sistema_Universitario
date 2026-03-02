@@ -34,7 +34,9 @@ function HarnessPlantillas({
   const [previewPorPlantillaId, setPreviewPorPlantillaId] = useState<Record<string, PreviewPlantilla>>({});
   const [cargandoPreviewPlantillaId, setCargandoPreviewPlantillaId] = useState<string | null>(null);
   const [plantillaPreviewId, setPlantillaPreviewId] = useState<string | null>(null);
-  const [previewPdfUrlPorPlantillaId, setPreviewPdfUrlPorPlantillaId] = useState<Record<string, string>>({});
+  const [previewPdfUrlPorPlantillaId, setPreviewPdfUrlPorPlantillaId] = useState<
+    Record<string, { booklet?: string; omrSheet?: string }>
+  >({});
   const [cargandoPreviewPdfPlantillaId, setCargandoPreviewPdfPlantillaId] = useState<string | null>(null);
 
   return (
@@ -44,7 +46,6 @@ function HarnessPlantillas({
       preguntas={[]}
       alumnos={[]}
       permisos={permisosEntrada}
-      puedeEliminarPlantillaDev={false}
       enviarConPermiso={async () => ({})}
       avisarSinPermiso={() => {}}
       previewPorPlantillaId={previewPorPlantillaId}
@@ -69,6 +70,7 @@ describe('plantillas refactor comportamiento', () => {
     expect(screen.getByRole('heading', { name: /Plantillas existentes/i })).toBeInTheDocument();
     expect(screen.getByRole('heading', { name: /^Generar examen$/i })).toBeInTheDocument();
     expect(screen.getByRole('heading', { name: /Examenes generados/i })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: /Flujo OMR V1/i })).toBeInTheDocument();
   });
 
   it('bloquea crear y generar cuando faltan permisos de gestión/generación', () => {

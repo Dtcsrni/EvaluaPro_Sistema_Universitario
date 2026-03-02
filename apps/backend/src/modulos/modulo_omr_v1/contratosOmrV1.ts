@@ -115,7 +115,10 @@ export type AssessmentPreviewV1 = {
   omrRuntimeVersion: OmrRuntimeVersion;
   assessmentTemplateId: string;
   questionCount: number;
+  proposedGenerationSeed: string;
+  previewFingerprint: string;
   recommendedSheetFamily: OmrSheetFamilyCode;
+  previewState: 'ready' | 'warning' | 'blocked';
   bookletPreview: BookletPreviewV1;
   omrSheetPreview: OmrSheetPreviewV1;
   diagnostics: {
@@ -129,6 +132,38 @@ export type AssessmentPreviewV1 = {
   };
   blockingIssues: string[];
   warnings: string[];
+};
+
+export type GeneratedAssessmentSummaryV1 = {
+  _id: string;
+  folio: string;
+  generationSeed: string;
+  previewFingerprint: string;
+  bookletPdfUrl?: string;
+  omrSheetPdfUrl?: string;
+  studentPacketZipUrl?: string;
+  answerKeyUrl?: string;
+  manifestUrl?: string;
+  versionSet: Array<{ versionCode: string; questionCount: number }>;
+  statisticsSummary: {
+    sheetCount: number;
+    studentPacketCount: number;
+    versionCount: number;
+  };
+};
+
+export type OmrScoreResultV1 = {
+  totalPreguntas: number;
+  correctas: number;
+  contestadas: number;
+  invalidas: number;
+  porcentaje: number;
+  detalles?: Array<{
+    numeroPregunta: number;
+    expected: string | null;
+    detected: string | null;
+    correcta: boolean;
+  }>;
 };
 
 export const OMR_RUNTIME_VERSION_V1: OmrRuntimeVersion = 1;

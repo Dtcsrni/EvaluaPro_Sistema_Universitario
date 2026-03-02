@@ -103,9 +103,13 @@ export function usePlantillasPreviewActions({
         kind === 'omrSheet'
           ? `/assessments/templates/${encodeURIComponent(id)}/preview/omr-sheet.pdf`
           : `/assessments/templates/${encodeURIComponent(id)}/preview/booklet.pdf`;
+      const preview = previewPorPlantillaId[id];
+      const params = new URLSearchParams();
+      if (preview?.proposedGenerationSeed) params.set('generationSeed', preview.proposedGenerationSeed);
+      const pathConQuery = params.size > 0 ? `${path}?${params.toString()}` : path;
 
       const intentar = async (t: string) =>
-        fetch(`${clienteApi.baseApi}${path}`, {
+        fetch(`${clienteApi.baseApi}${pathConQuery}`, {
           credentials: 'include',
           headers: { Authorization: `Bearer ${t}` }
         });
@@ -142,6 +146,7 @@ export function usePlantillasPreviewActions({
     [
       avisarSinPermiso,
       cargandoPreviewPdfPlantillaId,
+      previewPorPlantillaId,
       puedePrevisualizarPlantillas,
       setCargandoPreviewPdfPlantillaId,
       setPreviewPdfUrlPorPlantillaId
