@@ -123,6 +123,35 @@ function Wait-HealthReady([string]$base, [int]$timeoutMs = 120000) {
   return $false
 }
 
+function Test-ServiceOk([pscustomobject]$health, [string]$key) {
+  try {
+    return [bool]$health.services.$key.ok
+  } catch {
+    return $false
+  }
+}
+
+function Ensure-StackReady([string]$base, [string]$effectiveMode, [int]$timeoutMs = 150000) {
+  try {
+    $health = Invoke-JsonGet "$base/api/health" 4
+    $apiOk = Test-ServiceOk -health $health -key 'apiDocente'
+    $portalOk = Test-ServiceOk -health $health -key 'apiPortal'
+    if ($apiOk -and $portalOk) {
+      Write-OpLog("Stack ya saludable; solo se abre dashboard (mode=$effectiveMode).")
+      return
+    }
+  } catch {
+    # Si no se puede leer salud, intentamos iniciar tareas igualmente.
+  }
+
+  Write-OpLog("Stack no saludable; iniciando tareas (mode=$effectiveMode).")
+  $null = Invoke-JsonPost "$base/api/start" @{ task = $effectiveMode } 8
+  $null = Invoke-JsonPost "$base/api/start" @{ task = 'portal' } 8
+  if (-not (Wait-HealthReady -base $base -timeoutMs $timeoutMs)) {
+    throw "Stack/portal no alcanzaron estado saludable."
+  }
+}
+
 function Open-DashboardUrl([string]$base) {
   Start-Process "$base/" | Out-Null
 }
@@ -136,8 +165,9 @@ try {
 
   switch ($Action) {
     'open-dashboard' {
+      Ensure-StackReady -base $base -effectiveMode $effectiveMode -timeoutMs 150000
       Open-DashboardUrl $base
-      Write-OpLog('Dashboard abierto.')
+      Write-OpLog("Dashboard abierto (mode=$effectiveMode).")
     }
     'restart-stack' {
       $null = Invoke-JsonPost "$base/api/restart" @{ task = 'stack' } 8

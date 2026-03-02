@@ -137,7 +137,6 @@ export function usePlantillasPreviewActions({
     [
       avisarSinPermiso,
       cargandoPreviewPdfPlantillaId,
-      previewPorPlantillaId,
       puedePrevisualizarPlantillas,
       setCargandoPreviewPdfPlantillaId,
       setPreviewPdfUrlPorPlantillaId

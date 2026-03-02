@@ -256,7 +256,6 @@ async function main() {
   for (let i = 0; i < matrix.length; i += 1) {
     const profile = matrix[i];
     if (!profile) continue;
-    // eslint-disable-next-line no-await-in-loop
     const result = await runOne({
       cwd,
       dataset: args.dataset,

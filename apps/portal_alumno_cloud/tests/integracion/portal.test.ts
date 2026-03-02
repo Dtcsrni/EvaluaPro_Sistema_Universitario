@@ -11,6 +11,87 @@ import { gzipSync } from 'zlib';
 import { crearApp } from '../../src/app';
 import { cerrarMongoTest, conectarMongoTest, limpiarMongoTest } from '../utils/mongo';
 
+function validarResultadosBasicos(resultadosBody: Record<string, unknown>, folio: string) {
+  const resultados = (resultadosBody as { resultados?: Array<Record<string, unknown>> }).resultados ?? [];
+  expect(resultados).toHaveLength(1);
+  expect(resultados[0]?.folio).toBe(folio);
+  expect(resultados[0]?.aciertos).toBe(2);
+  expect((resultados[0]?.comparativaRespuestas as unknown[] | undefined) ?? []).toHaveLength(3);
+  expect((resultados[0]?.omrAuditoria as { revisionConfirmada?: unknown } | undefined)?.revisionConfirmada).toBe(true);
+}
+
+async function validarVistasPortal(app: ReturnType<typeof crearApp>, token: string, folio: string) {
+  const pdf = await request(app)
+    .get(`/api/portal/examen/${folio}`)
+    .set({ Authorization: `Bearer ${token}` })
+    .expect(200);
+  expect(pdf.header['content-type']).toContain('application/pdf');
+
+  const perfil = await request(app).get('/api/portal/perfil').set({ Authorization: `Bearer ${token}` }).expect(200);
+  expect(perfil.body?.ok).toBe(true);
+  expect(perfil.body?.data?.perfil?.matricula).toBe('CUH512410168');
+
+  const materias = await request(app).get('/api/portal/materias').set({ Authorization: `Bearer ${token}` }).expect(200);
+  expect(Array.isArray(materias.body?.data?.materias)).toBe(true);
+  expect(materias.body?.data?.materias?.[0]?.nombre).toBe('Lógica de Programación');
+
+  const agenda = await request(app).get('/api/portal/agenda').set({ Authorization: `Bearer ${token}` }).expect(200);
+  expect(Array.isArray(agenda.body?.data?.agenda)).toBe(true);
+
+  const avisos = await request(app).get('/api/portal/avisos').set({ Authorization: `Bearer ${token}` }).expect(200);
+  expect(Array.isArray(avisos.body?.data?.avisos)).toBe(true);
+
+  const historial = await request(app).get('/api/portal/historial').set({ Authorization: `Bearer ${token}` }).expect(200);
+  expect(Array.isArray(historial.body?.data?.historial)).toBe(true);
+}
+
+function crearPayloadDesgloseEvaluacion(params: {
+  periodoId: string;
+  alumnoId: string;
+  docenteId: string;
+  examenId: string;
+  folio: string;
+}) {
+  return {
+    schemaVersion: 3,
+    periodo: { _id: params.periodoId },
+    alumnos: [{ _id: params.alumnoId, matricula: 'CUH512410170', nombreCompleto: 'Alumno Evaluaciones', grupo: 'A' }],
+    calificaciones: [
+      {
+        docenteId: params.docenteId,
+        alumnoId: params.alumnoId,
+        examenGeneradoId: params.examenId,
+        tipoExamen: 'global',
+        totalReactivos: 10,
+        aciertos: 8,
+        calificacionExamenFinalTexto: '8',
+        versionPolitica: 1,
+        bloqueContinuaDecimal: 8.75,
+        bloqueExamenesDecimal: 9.25,
+        finalDecimal: 9,
+        finalRedondeada: 9,
+        componentesExamen: {
+          politicaCodigo: 'POLICY_LISC_ENCUADRE_2026',
+          examenesPorCorte: { parcial1: 8, parcial2: 9, global: 10 }
+        }
+      }
+    ],
+    examenes: [{ examenGeneradoId: params.examenId, folio: params.folio }],
+    banderas: [],
+    codigoAcceso: { codigo: 'EVAL001', expiraEn: new Date(Date.now() + 60 * 60 * 1000).toISOString() }
+  };
+}
+
+function validarDesgloseEvaluacion(resultadosBody: Record<string, unknown>) {
+  const primerResultado = ((resultadosBody?.resultados as Array<Record<string, unknown>> | undefined) ?? [])[0] ?? {};
+  expect(primerResultado.versionPolitica).toBe(1);
+  expect(Number(primerResultado.bloqueContinuaDecimal)).toBeCloseTo(8.75, 4);
+  expect(Number(primerResultado.bloqueExamenesDecimal)).toBeCloseTo(9.25, 4);
+  expect(Number(primerResultado.finalDecimal)).toBeCloseTo(9, 4);
+  expect(Number(primerResultado.finalRedondeada)).toBe(9);
+  expect((primerResultado.componentesExamen as { politicaCodigo?: unknown } | undefined)?.politicaCodigo).toBe('POLICY_LISC_ENCUADRE_2026');
+}
+
 describe('portal alumno', () => {
   const app = crearApp();
   const apiKey = process.env.PORTAL_API_KEY ?? 'TEST_PORTAL_KEY';
@@ -88,35 +169,8 @@ describe('portal alumno', () => {
       .get('/api/portal/resultados')
       .set({ Authorization: `Bearer ${token}` })
       .expect(200);
-
-    expect(resultados.body.resultados).toHaveLength(1);
-    expect(resultados.body.resultados[0].folio).toBe(folio);
-    expect(resultados.body.resultados[0].aciertos).toBe(2);
-    expect(resultados.body.resultados[0].comparativaRespuestas).toHaveLength(3);
-    expect(resultados.body.resultados[0].omrAuditoria?.revisionConfirmada).toBe(true);
-
-    const pdf = await request(app)
-      .get(`/api/portal/examen/${folio}`)
-      .set({ Authorization: `Bearer ${token}` })
-      .expect(200);
-    expect(pdf.header['content-type']).toContain('application/pdf');
-
-    const perfil = await request(app).get('/api/portal/perfil').set({ Authorization: `Bearer ${token}` }).expect(200);
-    expect(perfil.body?.ok).toBe(true);
-    expect(perfil.body?.data?.perfil?.matricula).toBe('CUH512410168');
-
-    const materias = await request(app).get('/api/portal/materias').set({ Authorization: `Bearer ${token}` }).expect(200);
-    expect(Array.isArray(materias.body?.data?.materias)).toBe(true);
-    expect(materias.body?.data?.materias?.[0]?.nombre).toBe('Lógica de Programación');
-
-    const agenda = await request(app).get('/api/portal/agenda').set({ Authorization: `Bearer ${token}` }).expect(200);
-    expect(Array.isArray(agenda.body?.data?.agenda)).toBe(true);
-
-    const avisos = await request(app).get('/api/portal/avisos').set({ Authorization: `Bearer ${token}` }).expect(200);
-    expect(Array.isArray(avisos.body?.data?.avisos)).toBe(true);
-
-    const historial = await request(app).get('/api/portal/historial').set({ Authorization: `Bearer ${token}` }).expect(200);
-    expect(Array.isArray(historial.body?.data?.historial)).toBe(true);
+    validarResultadosBasicos(resultados.body as Record<string, unknown>, folio);
+    await validarVistasPortal(app, token, folio);
   });
 
   it('acepta y expone desglose de evaluación (final decimal/redondeada)', async () => {
@@ -129,34 +183,7 @@ describe('portal alumno', () => {
     await request(app)
       .post('/api/portal/sincronizar')
       .set({ 'x-api-key': apiKey })
-      .send({
-        schemaVersion: 3,
-        periodo: { _id: periodoId },
-        alumnos: [{ _id: alumnoId, matricula: 'CUH512410170', nombreCompleto: 'Alumno Evaluaciones', grupo: 'A' }],
-        calificaciones: [
-          {
-            docenteId,
-            alumnoId,
-            examenGeneradoId: examenId,
-            tipoExamen: 'global',
-            totalReactivos: 10,
-            aciertos: 8,
-            calificacionExamenFinalTexto: '8',
-            versionPolitica: 1,
-            bloqueContinuaDecimal: 8.75,
-            bloqueExamenesDecimal: 9.25,
-            finalDecimal: 9,
-            finalRedondeada: 9,
-            componentesExamen: {
-              politicaCodigo: 'POLICY_LISC_ENCUADRE_2026',
-              examenesPorCorte: { parcial1: 8, parcial2: 9, global: 10 }
-            }
-          }
-        ],
-        examenes: [{ examenGeneradoId: examenId, folio }],
-        banderas: [],
-        codigoAcceso: { codigo: 'EVAL001', expiraEn: new Date(Date.now() + 60 * 60 * 1000).toISOString() }
-      })
+      .send(crearPayloadDesgloseEvaluacion({ periodoId, alumnoId, docenteId, examenId, folio }))
       .expect(200);
 
     const ingreso = await request(app)
@@ -169,13 +196,7 @@ describe('portal alumno', () => {
       .get('/api/portal/resultados')
       .set({ Authorization: `Bearer ${token}` })
       .expect(200);
-
-    expect(resultados.body?.resultados?.[0]?.versionPolitica).toBe(1);
-    expect(Number(resultados.body?.resultados?.[0]?.bloqueContinuaDecimal)).toBeCloseTo(8.75, 4);
-    expect(Number(resultados.body?.resultados?.[0]?.bloqueExamenesDecimal)).toBeCloseTo(9.25, 4);
-    expect(Number(resultados.body?.resultados?.[0]?.finalDecimal)).toBeCloseTo(9, 4);
-    expect(Number(resultados.body?.resultados?.[0]?.finalRedondeada)).toBe(9);
-    expect(resultados.body?.resultados?.[0]?.componentesExamen?.politicaCodigo).toBe('POLICY_LISC_ENCUADRE_2026');
+    validarDesgloseEvaluacion(resultados.body as Record<string, unknown>);
   });
 
   it('requiere api key para sincronizar', async () => {

@@ -170,7 +170,8 @@ function normalizarTextoPreviewOmrV1(value: unknown) {
     .replace(/[‘’]/g, "'")
     .replace(/[–—]/g, '-')
     .replace(/…/g, '...')
-    .replace(/[^	\n\r\x20-\x7E\u00A1-\u00FF]/g, ' ')
+    .replace(/[^\t\n\r\x20-\x7E\u00A1-\u00FF]/g, ' ')
+    .replace(/[^\t\n\r -~\u00A1-\u00FF]/g, ' ')
     .replace(/\s+/g, ' ')
     .trim();
 }
@@ -640,7 +641,7 @@ export async function generarAssessment(req: SolicitudDocente, res: Response) {
   const requestedVersionCount = Number((req.body as { versionCount?: unknown }).versionCount ?? 0);
   const versionCount = Math.max(1, requestedVersionCount || Number((plantilla as { defaultVersionCount?: unknown }).defaultVersionCount ?? 1));
   const versions = generarVersionesDeterministasV1({ preguntas, versionCount, generationSeed });
-  const prefillMode: 'none' = 'none';
+  const prefillMode = 'none' as const;
   const [docente, periodo] = await Promise.all([
     Docente.findById(docenteId).lean(),
     plantilla.periodoId ? Periodo.findById(plantilla.periodoId).lean() : Promise.resolve(null)

@@ -214,13 +214,27 @@ button:hover svg[data-icono="ok"].icono,
 
 .sincronizacion-shell {
   display: grid;
-  gap: 0.85rem;
+  gap: 1rem;
+}
+
+.sincronizacion-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.8rem;
+  flex-wrap: wrap;
+}
+
+.sincronizacion-header__chipWrap {
+  display: grid;
+  gap: 0.35rem;
+  justify-items: end;
 }
 
 .sincronizacion-kpi {
   display: grid;
   gap: 0.65rem;
-  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(155px, 1fr));
 }
 
 .sincronizacion-kpi__item {
@@ -258,7 +272,8 @@ button:hover svg[data-icono="ok"].icono,
 }
 
 .estado-datos-card {
-  gap: 0.75rem;
+  display: grid;
+  gap: 0.8rem;
   border-radius: 16px;
 }
 
@@ -277,7 +292,7 @@ button:hover svg[data-icono="ok"].icono,
 
 .estado-datos-cifras {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(110px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
   gap: 0.6rem;
 }
 
@@ -295,7 +310,7 @@ button:hover svg[data-icono="ok"].icono,
 .sincronizacion-toolbar {
   display: grid;
   gap: 0.65rem;
-  margin-top: 0.2rem;
+  margin-top: 0.15rem;
 }
 
 .sincronizacion-toolbar__actions {
@@ -314,6 +329,9 @@ button:hover svg[data-icono="ok"].icono,
   grid-template-columns: auto 1fr;
   gap: 0.6rem;
   align-items: center;
+  border: 1px solid var(--borde);
+  border-radius: 12px;
+  padding: 0.55rem 0.65rem;
 }
 
 .estado-datos-item__titulo {

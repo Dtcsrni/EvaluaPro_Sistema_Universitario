@@ -30,7 +30,7 @@
     "preview:docente": "vite preview --outDir dist-docente",
     "test": "vitest run",
     "test:coverage": "vitest run --coverage --pool=forks --reporter=verbose",
-    "lint": "eslint . --ext .ts,.tsx --max-warnings=0"
+    "lint": "eslint \"src/**/*.{ts,tsx}\" \"tests/**/*.{ts,tsx}\" vite.config.ts --max-warnings=0"
   },
   "dependencies": {
     "@react-oauth/google": "^0.13.4",
@@ -39,6 +39,7 @@
     "react-dom": "^19.2.4"
   },
   "devDependencies": {
+    "@eslint/eslintrc": "^3.3.4",
     "@testing-library/jest-dom": "^6.9.1",
     "@testing-library/react": "^16.3.2",
     "@testing-library/user-event": "^14.6.1",

@@ -10,6 +10,7 @@ import { Icono } from '../../ui/iconos';
 import { Boton } from '../../ui/ux/componentes/Boton';
 import { InlineMensaje } from '../../ui/ux/componentes/InlineMensaje';
 import { AyudaFormulario } from './AyudaFormulario';
+import { convertirFechaLocalAISO, formatearFechaSincronizacion } from './sincronizacionUtils';
 import { registrarAccionDocente } from './telemetriaDocente';
 import type { RespuestaSyncPull, RespuestaSyncPush } from './tipos';
 import { mensajeDeError } from './utilidades';
@@ -24,13 +25,6 @@ type ReporteOperacion = {
   paquetesRecibidos?: number;
   pdfsGuardados?: number;
 };
-
-function formatearFecha(valor?: number | null) {
-  if (!valor) return '-';
-  const d = new Date(valor);
-  if (Number.isNaN(d.getTime())) return '-';
-  return d.toLocaleString();
-}
 
 export function SeccionSincronizacionEquipos({
   onPushServidor,
@@ -59,9 +53,10 @@ export function SeccionSincronizacionEquipos({
     try {
       setEnviando(true);
       setMensaje('');
+      const desdeIso = convertirFechaLocalAISO(desde);
       const respuesta = await onPushServidor({
         incluirPdfs: incluyePdfs,
-        ...(desde ? { desde: new Date(desde).toISOString() } : {})
+        ...(desdeIso ? { desde: desdeIso } : {})
       });
       const msg = respuesta.mensaje || 'Paquete enviado';
       setMensaje(msg);
@@ -99,8 +94,9 @@ export function SeccionSincronizacionEquipos({
     try {
       setTrayendo(true);
       setMensaje('');
+      const desdeIso = convertirFechaLocalAISO(desde);
       const respuesta = await onPullServidor({
-        ...(desde ? { desde: new Date(desde).toISOString() } : {}),
+        ...(desdeIso ? { desde: desdeIso } : {}),
         limite: limiteNormalizado
       });
       const msg = respuesta.mensaje || 'Paquetes aplicados';
@@ -178,14 +174,14 @@ export function SeccionSincronizacionEquipos({
           </Boton>
         </div>
 
-        {ultimoCursor && <div className="nota">Ultima marca de sincronizacion: {new Date(ultimoCursor).toLocaleString()}</div>}
+        {ultimoCursor && <div className="nota">Ultima marca de sincronizacion: {formatearFechaSincronizacion(ultimoCursor)}</div>}
 
         {reporte && (
           <div className="item-glass" aria-live="polite">
             <div className="estado-datos-header">
               <div>
                 <div className="estado-datos-titulo">Ultima operacion: {reporte.tipo.toUpperCase()}</div>
-                <div className="nota">{formatearFecha(reporte.ejecutadoEn)} · {reporte.duracionMs} ms</div>
+                <div className="nota">{formatearFechaSincronizacion(reporte.ejecutadoEn)} · {reporte.duracionMs} ms</div>
               </div>
               <span className={`estado-chip ${tipoMensaje === 'error' ? 'error' : tipoMensaje === 'ok' ? 'ok' : 'info'}`}>
                 {tipoMensaje === 'error' ? 'Error' : tipoMensaje === 'ok' ? 'Ok' : 'Info'}

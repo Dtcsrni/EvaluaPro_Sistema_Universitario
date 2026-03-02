@@ -10,6 +10,7 @@ import { Icono } from '../../ui/iconos';
 import { Boton } from '../../ui/ux/componentes/Boton';
 import { InlineMensaje } from '../../ui/ux/componentes/InlineMensaje';
 import { AyudaFormulario } from './AyudaFormulario';
+import { convertirFechaLocalAISO } from './sincronizacionUtils';
 import { registrarAccionDocente } from './telemetriaDocente';
 import type { Periodo } from './tipos';
 import { esMensajeError, etiquetaMateria, mensajeDeError } from './utilidades';
@@ -133,7 +134,8 @@ export function SeccionPaqueteSincronizacion({
 
       const payload: { periodoId?: string; desde?: string; incluirPdfs?: boolean } = { incluirPdfs };
       if (periodoId) payload.periodoId = periodoId;
-      if (desde) payload.desde = new Date(desde).toISOString();
+      const desdeIso = convertirFechaLocalAISO(desde);
+      if (desdeIso) payload.desde = desdeIso;
 
       const resp = await onExportar(payload);
       setUltimoResumen(resp.conteos);

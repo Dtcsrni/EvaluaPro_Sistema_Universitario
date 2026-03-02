@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useMemo, useState } from 'react';
 import { Boton } from '../../../../../ui/ux/componentes/Boton';
 import { InlineMensaje } from '../../../../../ui/ux/componentes/InlineMensaje';
 import type { GeneratedAssessmentDetalle, OmrJobDetalle } from '../../../tipos';
@@ -21,6 +21,29 @@ type Props = {
   finalizarJobOmr: (jobId: string) => Promise<void>;
 };
 
+type DraftHoja = {
+  studentId: string;
+  versionCode: string;
+  responses: Array<{ numeroPregunta: number; opcion: string | null }>;
+};
+
+function construirDraftHoja(pagina: OmrJobDetalle['pages'][number] | null): DraftHoja {
+  if (!pagina) {
+    return { studentId: '', versionCode: '', responses: [] };
+  }
+
+  return {
+    studentId: String(pagina.identityResult?.studentId ?? ''),
+    versionCode: String(pagina.versionResult?.versionCode ?? ''),
+    responses: Array.isArray(pagina.responses)
+      ? pagina.responses.map((item) => ({
+          numeroPregunta: Number(item.numeroPregunta),
+          opcion: typeof item.opcion === 'string' ? item.opcion : null
+        }))
+      : []
+  };
+}
+
 export function PlantillasOmrWorkflow({
   assessmentDetalle,
   jobOmr,
@@ -37,24 +60,14 @@ export function PlantillasOmrWorkflow({
     () => (Array.isArray(jobOmr?.pages) ? jobOmr!.pages.find((page) => page.sheetSerial === sheetSerialActivo) ?? null : null),
     [jobOmr, sheetSerialActivo]
   );
-  const [studentIdDraft, setStudentIdDraft] = useState('');
-  const [versionDraft, setVersionDraft] = useState('');
+  const [draftsPorHoja, setDraftsPorHoja] = useState<Record<string, DraftHoja>>({});
   const [resolutionReason, setResolutionReason] = useState('Corrección manual de hoja OMR V1');
-  const [responsesDraft, setResponsesDraft] = useState<Array<{ numeroPregunta: number; opcion: string | null }>>([]);
-
-  useEffect(() => {
-    if (!paginaActiva) return;
-    setStudentIdDraft(String(paginaActiva.identityResult?.studentId ?? ''));
-    setVersionDraft(String(paginaActiva.versionResult?.versionCode ?? ''));
-    setResponsesDraft(
-      Array.isArray(paginaActiva.responses)
-        ? paginaActiva.responses.map((item) => ({
-            numeroPregunta: Number(item.numeroPregunta),
-            opcion: typeof item.opcion === 'string' ? item.opcion : null
-          }))
-        : []
-    );
-  }, [paginaActiva]);
+  const draftActivo = useMemo(() => {
+    if (!paginaActiva) return construirDraftHoja(null);
+    const sheetSerial = String(paginaActiva.sheetSerial || '').trim();
+    const existente = draftsPorHoja[sheetSerial];
+    return existente ?? construirDraftHoja(paginaActiva);
+  }, [draftsPorHoja, paginaActiva]);
 
   if (!assessmentDetalle) {
     return (
@@ -205,11 +218,32 @@ export function PlantillasOmrWorkflow({
               <div className="plantillas-omr-v1__review-grid">
                 <label className="campo">
                   Student ID
-                  <input value={studentIdDraft} onChange={(event) => setStudentIdDraft(event.target.value)} />
+                  <input
+                    value={draftActivo.studentId}
+                    onChange={(event) => {
+                      const serial = String(paginaActiva.sheetSerial || '').trim();
+                      if (!serial) return;
+                      setDraftsPorHoja((prev) => ({
+                        ...prev,
+                        [serial]: { ...draftActivo, studentId: event.target.value }
+                      }));
+                    }}
+                  />
                 </label>
                 <label className="campo">
                   Versión
-                  <input value={versionDraft} onChange={(event) => setVersionDraft(event.target.value.toUpperCase())} maxLength={4} />
+                  <input
+                    value={draftActivo.versionCode}
+                    onChange={(event) => {
+                      const serial = String(paginaActiva.sheetSerial || '').trim();
+                      if (!serial) return;
+                      setDraftsPorHoja((prev) => ({
+                        ...prev,
+                        [serial]: { ...draftActivo, versionCode: event.target.value.toUpperCase() }
+                      }));
+                    }}
+                    maxLength={4}
+                  />
                 </label>
                 <label className="campo">
                   Motivo
@@ -217,18 +251,22 @@ export function PlantillasOmrWorkflow({
                 </label>
               </div>
               <div className="plantillas-omr-v1__responses">
-                {responsesDraft.map((response, index) => (
+                {draftActivo.responses.map((response, index) => (
                   <label key={`${paginaActiva.sheetSerial}-${response.numeroPregunta}`} className="campo">
                     P{response.numeroPregunta}
                     <select
                       value={response.opcion ?? ''}
-                      onChange={(event) =>
-                        setResponsesDraft((prev) =>
-                          prev.map((item, itemIndex) =>
-                            itemIndex === index ? { ...item, opcion: event.target.value || null } : item
-                          )
-                        )
-                      }
+                      onChange={(event) => {
+                        const serial = String(paginaActiva.sheetSerial || '').trim();
+                        if (!serial) return;
+                        const siguiente = draftActivo.responses.map((item, itemIndex) =>
+                          itemIndex === index ? { ...item, opcion: event.target.value || null } : item
+                        );
+                        setDraftsPorHoja((prev) => ({
+                          ...prev,
+                          [serial]: { ...draftActivo, responses: siguiente }
+                        }));
+                      }}
                     >
                       <option value="">Sin marca</option>
                       {['A', 'B', 'C', 'D', 'E'].map((option) => (
@@ -250,9 +288,9 @@ export function PlantillasOmrWorkflow({
                       jobId: jobOmr.jobId,
                       sheetSerial: paginaActiva.sheetSerial,
                       resolutionReason,
-                      finalIdentity: { studentId: studentIdDraft },
-                      finalResponses: responsesDraft,
-                      overrides: { versionCode: versionDraft }
+                      finalIdentity: { studentId: draftActivo.studentId },
+                      finalResponses: draftActivo.responses,
+                      overrides: { versionCode: draftActivo.versionCode }
                     })
                   }
                 >

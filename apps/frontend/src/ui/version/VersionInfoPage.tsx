@@ -20,6 +20,50 @@ type VersionInfoPayload = {
 
 type TecnologiaVersion = { id?: string; label?: string; logoUrl?: string; website?: string };
 
+type VersionViewModel = {
+  version: string;
+  nombre: string;
+  developer: string;
+  rol: string;
+  changelog: string;
+  repositoryUrl: string;
+  technologies: TecnologiaVersion[];
+  node: string;
+  platform: string;
+  arch: string;
+  hostname: string;
+  env: string;
+  generatedAt: string;
+};
+
+function comoTexto(valor: unknown, fallback: string) {
+  const texto = typeof valor === 'string' ? valor : '';
+  return texto || fallback;
+}
+
+function viewModelSistema(data: VersionInfoPayload | null) {
+  return {
+    node: comoTexto(data?.system?.node, '-'),
+    platform: comoTexto(data?.system?.platform, '-'),
+    arch: comoTexto(data?.system?.arch, '-'),
+    hostname: comoTexto(data?.system?.hostname, '-'),
+    env: comoTexto(data?.system?.env, '-'),
+    generatedAt: comoTexto(data?.system?.generatedAt, new Date().toISOString())
+  };
+}
+
+function viewModelBase(data: VersionInfoPayload | null, fallbackVersion: string) {
+  return {
+    version: comoTexto(data?.app?.version, fallbackVersion || '0.0.0'),
+    nombre: comoTexto(data?.app?.name, 'evaluapro'),
+    developer: comoTexto(data?.developer?.nombre, comoTexto(import.meta.env.VITE_DEVELOPER_NAME, 'Equipo EvaluaPro')),
+    rol: comoTexto(data?.developer?.rol, comoTexto(import.meta.env.VITE_DEVELOPER_ROLE, 'Desarrollo')),
+    changelog: comoTexto(data?.changelog, 'Sin changelog disponible.'),
+    repositoryUrl: comoTexto(data?.repositoryUrl, 'https://github.com/Dtcsrni'),
+    technologies: Array.isArray(data?.technologies) ? data.technologies : []
+  };
+}
+
 function leerPortalDesdeHash() {
   try {
     const hash = String(window.location.hash || '');
@@ -61,21 +105,10 @@ function VersionTechList({ technologies }: { technologies: TecnologiaVersion[] }
   );
 }
 
-function buildViewModel(data: VersionInfoPayload | null, fallbackVersion: string) {
+function buildViewModel(data: VersionInfoPayload | null, fallbackVersion: string): VersionViewModel {
   return {
-    version: String(data?.app?.version || fallbackVersion || '0.0.0'),
-    nombre: String(data?.app?.name || 'evaluapro'),
-    developer: String(data?.developer?.nombre || import.meta.env.VITE_DEVELOPER_NAME || 'Equipo EvaluaPro'),
-    rol: String(data?.developer?.rol || import.meta.env.VITE_DEVELOPER_ROLE || 'Desarrollo'),
-    changelog: String(data?.changelog || 'Sin changelog disponible.'),
-    repositoryUrl: String(data?.repositoryUrl || 'https://github.com/Dtcsrni'),
-    technologies: Array.isArray(data?.technologies) ? data.technologies : [],
-    node: String(data?.system?.node || '-'),
-    platform: String(data?.system?.platform || '-'),
-    arch: String(data?.system?.arch || '-'),
-    hostname: String(data?.system?.hostname || '-'),
-    env: String(data?.system?.env || '-'),
-    generatedAt: String(data?.system?.generatedAt || new Date().toISOString())
+    ...viewModelBase(data, fallbackVersion),
+    ...viewModelSistema(data)
   };
 }
 

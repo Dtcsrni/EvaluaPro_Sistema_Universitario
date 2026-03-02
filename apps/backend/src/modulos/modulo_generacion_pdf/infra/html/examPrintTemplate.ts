@@ -38,10 +38,10 @@ function applyTechnicalFormatting(text: string): string {
     segment.replace(/\b(para|hasta|si|sino|entonces|mientras|hacer|finsi|finpara|finmientras|algoritmo|inicio|fin|retornar|leer|escribir)\b/gi, '<span class="q-pseudo-kw">$1</span>')
   );
   output = transformOutsideTags(output, (segment) =>
-    segment.replace(/\b([a-zA-Z_]\w*(?:\[[^\]\n]{1,20}\])+)\b/g, '<code class="q-code-inline">$1</code>')
+    segment.replace(/\b([a-zA-Z_]\w*(?:\[[^]\n]{1,20}\])+)/g, '<code class="q-code-inline">$1</code>')
   );
   output = transformOutsideTags(output, (segment) =>
-    segment.replace(/\b([a-zA-Z_][\w\[\]\(\)]*\s*(?:=|==|!=|<=|>=|<|>|:=)\s*[^,;\n]{1,40})/g, '<span class="q-code-frag">$1</span>')
+    segment.replace(/\b([a-zA-Z_][\w[\]()]*\s*(?:=|==|!=|<=|>=|<|>|:=)\s*[^,;\n]{1,40})/g, '<span class="q-code-frag">$1</span>')
   );
   output = transformOutsideTags(output, (segment) =>
     segment.replace(/\b([a-zA-Z0-9_]+(?:\s*[+\-*/×÷^]\s*[a-zA-Z0-9_]+){1,})\b/g, '<span class="q-math-inline">$1</span>')

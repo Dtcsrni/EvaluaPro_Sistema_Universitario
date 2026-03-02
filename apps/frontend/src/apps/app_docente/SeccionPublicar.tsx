@@ -1,62 +1,17 @@
 /**
  * SeccionPublicar
  *
- * Responsabilidad: Seccion funcional del shell docente.
- * Limites: Conservar UX y permisos; extraer logica compleja a hooks/components.
+ * Publicacion de resultados y generacion de codigo para portal alumno.
  */
-/* eslint-disable @typescript-eslint/no-unused-vars */
-/**
- * App docente: panel basico para banco, examenes, entrega y calificacion.
- */
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { guardarTokenDocente, limpiarTokenDocente, obtenerTokenDocente } from '../../servicios_api/clienteApi';
-import { accionToastSesionParaError, mensajeUsuarioDeErrorConSugerencia, onSesionInvalidada } from '../../servicios_api/clienteComun';
+import { useState } from 'react';
+import { accionToastSesionParaError } from '../../servicios_api/clienteComun';
 import { emitToast } from '../../ui/toast/toastBus';
-import { Icono, Spinner } from '../../ui/iconos';
+import { Icono } from '../../ui/iconos';
 import { Boton } from '../../ui/ux/componentes/Boton';
-import { InlineMensaje } from '../../ui/ux/componentes/InlineMensaje';
-import { TemaBoton } from '../../tema/TemaBoton';
 import { AyudaFormulario } from './AyudaFormulario';
-import { clienteApi } from './clienteApiDocente';
-import { SeccionAutenticacion } from './SeccionAutenticacion';
-import { SeccionAlumnos } from './SeccionAlumnos';
-import { SeccionBanco } from './SeccionBanco';
-import { SeccionCuenta } from './SeccionCuenta';
-import { QrAccesoMovil, SeccionEscaneo } from './SeccionEscaneo';
-import { SeccionPlantillas } from './SeccionPlantillas';
-import { SeccionPeriodos, SeccionPeriodosArchivados } from './SeccionPeriodos';
 import { registrarAccionDocente } from './telemetriaDocente';
-import type {
-  Alumno,
-  Docente,
-  EnviarConPermiso,
-  ExamenGeneradoClave,
-  Periodo,
-  PermisosUI,
-  Plantilla,
-  Pregunta,
-  PreviewCalificacion,
-  PreviewPlantilla,
-  RegistroSincronizacion,
-  RespuestaSyncPull,
-  RespuestaSyncPush,
-  ResultadoAnalisisOmr,
-  ResultadoOmr,
-  RevisionExamenOmr,
-  RevisionPaginaOmr
-} from './tipos';
-import {
-  combinarRespuestasOmrPaginas,
-  construirClaveCorrectaExamen,
-  consolidarResultadoOmrExamen,
-  esMensajeError,
-  etiquetaMateria,
-  mensajeDeError,
-  normalizarResultadoOmr,
-  obtenerSesionDocenteId,
-  obtenerVistaInicial,
-} from './utilidades';
-
+import type { Periodo } from './tipos';
+import { esMensajeError, etiquetaMateria, mensajeDeError } from './utilidades';
 
 export function SeccionPublicar({
   periodos,
@@ -109,6 +64,7 @@ export function SeccionPublicar({
       const respuesta = await onCodigo(periodoId);
       setCodigo(respuesta.codigo ?? '');
       setExpiraEn(respuesta.expiraEn ?? '');
+      setMensaje('Código generado');
       emitToast({ level: 'ok', title: 'Codigo', message: 'Codigo generado', durationMs: 2200 });
       registrarAccionDocente('generar_codigo', true, Date.now() - inicio);
     } catch (error) {
@@ -161,7 +117,7 @@ export function SeccionPublicar({
         </div>
         {codigo && (
           <p>
-            Codigo generado: {codigo} {expiraEn ? `(expira ${new Date(expiraEn).toLocaleString()})` : ''}
+            Código generado: {codigo} {expiraEn ? `(expira ${new Date(expiraEn).toLocaleString()})` : ''}
           </p>
         )}
         {mensaje && (

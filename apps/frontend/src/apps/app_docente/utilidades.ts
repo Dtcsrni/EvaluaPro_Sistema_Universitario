@@ -168,27 +168,43 @@ export function consolidarResultadoOmrExamen(paginas: RevisionPaginaOmr[]): Resu
   };
 }
 
+function numeroSeguro(valor: unknown): number {
+  const n = Number(valor);
+  return Number.isFinite(n) ? n : 0;
+}
+
+function opcionOmrSegura(valor: unknown): string | null {
+  return typeof valor === 'string' && valor ? valor : null;
+}
+
+function normalizarEstadoAnalisis(estado: unknown): ResultadoOmr['estadoAnalisis'] {
+  if (estado === 'ok' || estado === 'rechazado_calidad' || estado === 'requiere_revision') return estado;
+  return 'requiere_revision';
+}
+
+function normalizarRespuestasDetectadas(
+  respuestas: Partial<ResultadoOmr>['respuestasDetectadas']
+): ResultadoOmr['respuestasDetectadas'] {
+  if (!Array.isArray(respuestas)) return [];
+  return respuestas.map((item) => ({
+    numeroPregunta: numeroSeguro(item?.numeroPregunta),
+    opcion: opcionOmrSegura(item?.opcion),
+    confianza: numeroSeguro(item?.confianza)
+  }));
+}
+
 export function normalizarResultadoOmr(entrada: Partial<ResultadoOmr> | null | undefined): ResultadoOmr {
-  const respuestasDetectadas = Array.isArray(entrada?.respuestasDetectadas)
-    ? entrada!.respuestasDetectadas.map((item) => ({
-        numeroPregunta: Number(item?.numeroPregunta ?? 0),
-        opcion: typeof item?.opcion === 'string' && item.opcion ? item.opcion : null,
-        confianza: Number.isFinite(Number(item?.confianza)) ? Number(item?.confianza) : 0
-      }))
-    : [];
+  const respuestasDetectadas = normalizarRespuestasDetectadas(entrada?.respuestasDetectadas);
   return {
     respuestasDetectadas,
-    advertencias: Array.isArray(entrada?.advertencias) ? entrada!.advertencias : [],
+    advertencias: Array.isArray(entrada?.advertencias) ? entrada.advertencias : [],
     qrTexto: typeof entrada?.qrTexto === 'string' ? entrada.qrTexto : undefined,
-    calidadPagina: Number.isFinite(Number(entrada?.calidadPagina)) ? Number(entrada?.calidadPagina) : 0,
-    estadoAnalisis:
-      entrada?.estadoAnalisis === 'ok' || entrada?.estadoAnalisis === 'rechazado_calidad' || entrada?.estadoAnalisis === 'requiere_revision'
-        ? entrada.estadoAnalisis
-        : 'requiere_revision',
-    motivosRevision: Array.isArray(entrada?.motivosRevision) ? entrada!.motivosRevision : [],
+    calidadPagina: numeroSeguro(entrada?.calidadPagina),
+    estadoAnalisis: normalizarEstadoAnalisis(entrada?.estadoAnalisis),
+    motivosRevision: Array.isArray(entrada?.motivosRevision) ? entrada.motivosRevision : [],
     templateVersionDetectada: Number(entrada?.templateVersionDetectada) === 3 ? 3 : 1,
-    confianzaPromedioPagina: Number.isFinite(Number(entrada?.confianzaPromedioPagina)) ? Number(entrada?.confianzaPromedioPagina) : 0,
-    ratioAmbiguas: Number.isFinite(Number(entrada?.ratioAmbiguas)) ? Number(entrada?.ratioAmbiguas) : 0
+    confianzaPromedioPagina: numeroSeguro(entrada?.confianzaPromedioPagina),
+    ratioAmbiguas: numeroSeguro(entrada?.ratioAmbiguas)
   };
 }
 

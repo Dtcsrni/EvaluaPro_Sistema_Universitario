@@ -2,7 +2,6 @@
 import type { Dispatch, SetStateAction } from 'react';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { accionToastSesionParaError } from '../../servicios_api/clienteComun';
-import { obtenerTokenDocente } from '../../servicios_api/clienteApi';
 import { emitToast } from '../../ui/toast/toastBus';
 import { Icono } from '../../ui/iconos';
 import { Boton } from '../../ui/ux/componentes/Boton';
@@ -90,8 +89,8 @@ export function SeccionPlantillas({
     'Ejemplos incorrectos: círculo a medias (◐), tachado (✗) o dos círculos marcados en la misma pregunta.';
   const TECNICO_VERSIONES_DEFAULT = 1;
   const TECNICO_FAMILIA_OMR_DEFAULT = 'S50_5A_ID5_VR6';
-  const TECNICO_PREFILL_DEFAULT: 'none' = 'none';
-  const TECNICO_MODO_VERSION_DEFAULT: 'single' = 'single';
+  const TECNICO_PREFILL_DEFAULT = 'none' as const;
+  const TECNICO_MODO_VERSION_DEFAULT = 'single' as const;
 
   const [titulo, setTitulo] = useState('');
   const [tipo, setTipo] = useState<'parcial' | 'global'>('parcial');
@@ -744,8 +743,7 @@ export function SeccionPlantillas({
     cargarExamenesGenerados,
     enviarConPermiso,
     plantillaId,
-    puedeGenerarExamenes,
-    previewPorPlantillaId
+    puedeGenerarExamenes
   ]);
 
   const generarExamenesLote = useCallback(async () => {
@@ -868,7 +866,6 @@ export function SeccionPlantillas({
   }, [
     alumnos,
     avisarSinPermiso,
-    cargarAssessmentDetalle,
     cargarExamenesGenerados,
     enviarConPermiso,
     plantillaSeleccionada,

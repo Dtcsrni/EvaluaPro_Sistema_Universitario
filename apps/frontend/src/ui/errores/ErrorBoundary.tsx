@@ -31,7 +31,6 @@ export class ErrorBoundary extends React.Component<Props, State> {
     this.setState({ info });
     // Mantenerlo simple: consola en dev/prod para poder depurar.
     // Si en el futuro existe un servicio de logs, se integra aqui.
-    // eslint-disable-next-line no-console
     console.error('[UI] Error no capturado', error, info);
   }
 

@@ -142,6 +142,20 @@ Este archivo sigue el formato "Keep a Changelog" (alto nivel) y SemVer.
   - `scripts/build-msi.ps1`
 
 ### Changed
+- Estandarización de lint para ESLint 9 (flat config) en todo el monorepo:
+  - nuevos archivos `eslint.config.cjs` en raíz y workspaces:
+    - `eslint.config.cjs`
+    - `apps/frontend/eslint.config.cjs`
+    - `apps/backend/eslint.config.cjs`
+    - `apps/portal_alumno_cloud/eslint.config.cjs`
+  - scripts `lint` ajustados por workspace para scope explícito TypeScript/TSX:
+    - `apps/frontend/package.json`
+    - `apps/backend/package.json`
+    - `apps/portal_alumno_cloud/package.json`
+  - eliminación del workaround operativo con `ESLINT_USE_FLAT_CONFIG=false` para ejecución normal.
+  - validación final en verde:
+    - `npm run lint`
+    - `npm run typecheck`
 - Workflow backend bloquea por gate mixto OMR:
   - mantiene smoke CV y gate sintético.
   - agrega gate real (`omr:tv3:validate:real`) y upload de artefactos OMR QA.

@@ -14,44 +14,50 @@ import { fileURLToPath } from 'node:url';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-export default defineConfig(({ mode }) => {
-  const envDir = path.resolve(__dirname, '..', '..');
-  const env = loadEnv(mode, envDir, '');
-  let appVersion = '0.0.0';
-  let appName = 'evaluapro';
-  let developerName = '';
+type MetaApp = {
+  appVersion: string;
+  appName: string;
+  developerName: string;
+};
+
+function leerMetaApp(envDir: string): MetaApp {
+  const fallback: MetaApp = { appVersion: '0.0.0', appName: 'evaluapro', developerName: '' };
   try {
     const pkgRaw = fs.readFileSync(path.join(envDir, 'package.json'), 'utf8');
     const pkg = JSON.parse(pkgRaw);
-    appVersion = String(pkg?.version || appVersion);
-    appName = String(pkg?.name || appName);
-    developerName = typeof pkg?.author === 'string'
-      ? String(pkg.author)
-      : String(pkg?.author?.name || '');
+    return {
+      appVersion: String(pkg?.version || fallback.appVersion),
+      appName: String(pkg?.name || fallback.appName),
+      developerName: typeof pkg?.author === 'string' ? String(pkg.author) : String(pkg?.author?.name || '')
+    };
   } catch {
-    // fallback values
+    return fallback;
   }
-  const developerNameResolved = String(env.EVALUAPRO_DEVELOPER_NAME || developerName || 'Equipo EvaluaPro');
-  const developerRoleResolved = String(env.EVALUAPRO_DEVELOPER_ROLE || 'Desarrollo');
+}
+
+function resolverHttps(env: Record<string, string>) {
   const flagHttps = String(env.VITE_HTTPS || '').trim();
   const usarHttps = /^(1|true|si|yes)$/i.test(flagHttps);
+  if (!usarHttps) return false;
 
   const certPath = String(env.VITE_HTTPS_CERT_PATH || '').trim();
   const keyPath = String(env.VITE_HTTPS_KEY_PATH || '').trim();
-  const certReady = Boolean(
-    usarHttps &&
-    certPath &&
-    keyPath &&
-    fs.existsSync(certPath) &&
-    fs.existsSync(keyPath)
-  );
+  const certReady = Boolean(certPath && keyPath && fs.existsSync(certPath) && fs.existsSync(keyPath));
+  if (!certReady) return false;
 
-  const httpsConfig = certReady
-    ? {
-        cert: fs.readFileSync(certPath),
-        key: fs.readFileSync(keyPath)
-      }
-    : false;
+  return {
+    cert: fs.readFileSync(certPath),
+    key: fs.readFileSync(keyPath)
+  };
+}
+
+export default defineConfig(({ mode }) => {
+  const envDir = path.resolve(__dirname, '..', '..');
+  const env = loadEnv(mode, envDir, '');
+  const { appVersion, appName, developerName } = leerMetaApp(envDir);
+  const developerNameResolved = String(env.EVALUAPRO_DEVELOPER_NAME || developerName || 'Equipo EvaluaPro');
+  const developerRoleResolved = String(env.EVALUAPRO_DEVELOPER_ROLE || 'Desarrollo');
+  const httpsConfig = resolverHttps(env);
 
   const plugins = [react()];
 

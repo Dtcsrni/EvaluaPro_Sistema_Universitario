@@ -3,32 +3,17 @@
  *
  * Panel consolidado de estado, sincronizacion con portal y backups entre equipos.
  */
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useMemo } from 'react';
 import { Icono } from '../../ui/iconos';
 import { Boton } from '../../ui/ux/componentes/Boton';
 import { HelperPanel } from '../../ui/ux/componentes/HelperPanel';
 import { InlineMensaje } from '../../ui/ux/componentes/InlineMensaje';
-import { clienteApi } from './clienteApiDocente';
 import { SeccionPaqueteSincronizacion } from './SeccionPaqueteSincronizacion';
 import { SeccionSincronizacionEquipos } from './SeccionSincronizacionEquipos';
 import { SeccionPublicar } from './SeccionPublicar';
 import type { Periodo, Plantilla, Pregunta, Alumno, RegistroSincronizacion, RespuestaSyncPull, RespuestaSyncPush } from './tipos';
-import { mensajeDeError } from './utilidades';
-
-function formatearFecha(valor?: string) {
-  if (!valor) return '-';
-  const d = new Date(valor);
-  if (Number.isNaN(d.getTime())) return '-';
-  return d.toLocaleString();
-}
-
-function normalizarEstado(estado?: string) {
-  const lower = String(estado || '').toLowerCase();
-  if (lower.includes('exitos')) return { clase: 'ok', texto: 'Exitosa' };
-  if (lower.includes('fall')) return { clase: 'error', texto: 'Fallida' };
-  if (lower.includes('pend')) return { clase: 'warn', texto: 'Pendiente' };
-  return { clase: 'info', texto: 'Sin dato' };
-}
+import { useEstadoSincronizacion } from './hooks/useEstadoSincronizacion';
+import { formatearFechaSincronizacion, normalizarEstadoSincronizacion } from './sincronizacionUtils';
 
 export function SeccionSincronizacion({
   periodos,
@@ -85,12 +70,22 @@ export function SeccionSincronizacion({
   const alumnosSeguros = Array.isArray(alumnos) ? alumnos : [];
   const plantillasSeguras = Array.isArray(plantillas) ? plantillas : [];
   const preguntasSeguras = Array.isArray(preguntas) ? preguntas : [];
-  const [sincronizaciones, setSincronizaciones] = useState<RegistroSincronizacion[]>([]);
-  const [cargandoEstado, setCargandoEstado] = useState(false);
-  const [errorEstado, setErrorEstado] = useState('');
-  const [autoRefresh, setAutoRefresh] = useState(true);
-  const [filtroHistorial, setFiltroHistorial] = useState('');
-  const montadoRef = useRef(true);
+
+  const {
+    ordenadas,
+    historialFiltrado,
+    sincronizacionReciente,
+    estadoReciente,
+    totalesEstado,
+    fechaActualizacion,
+    cargandoEstado,
+    errorEstado,
+    autoRefresh,
+    filtroHistorial,
+    setAutoRefresh,
+    setFiltroHistorial,
+    refrescarEstado
+  } = useEstadoSincronizacion({ ultimaActualizacionDatos, limite: 12, autoRefreshMs: 45_000 });
 
   const resumenDatos = useMemo(
     () => ({
@@ -109,86 +104,20 @@ export function SeccionSincronizacion({
     ]
   );
 
-  const ordenadas = useMemo(() => {
-    return [...sincronizaciones].sort((a, b) => {
-      const fechaA = new Date(a.ejecutadoEn || a.createdAt || 0).getTime();
-      const fechaB = new Date(b.ejecutadoEn || b.createdAt || 0).getTime();
-      return fechaB - fechaA;
-    });
-  }, [sincronizaciones]);
-
-  const sincronizacionReciente = ordenadas[0];
-  const totalesEstado = useMemo(() => {
-    let exitosas = 0;
-    let fallidas = 0;
-    let pendientes = 0;
-    for (const item of ordenadas) {
-      const estado = normalizarEstado(item.estado).clase;
-      if (estado === 'ok') exitosas += 1;
-      else if (estado === 'error') fallidas += 1;
-      else if (estado === 'warn') pendientes += 1;
-    }
-    return { exitosas, fallidas, pendientes };
-  }, [ordenadas]);
-
-  const fechaActualizacion = ultimaActualizacionDatos ? new Date(ultimaActualizacionDatos).toLocaleString() : '-';
-  const historialFiltrado = useMemo(() => {
-    const q = String(filtroHistorial ?? '').trim().toLowerCase();
-    if (!q) return ordenadas;
-    return ordenadas.filter((item) => {
-      const texto = [item.estado, item.tipo, item.ejecutadoEn, item.createdAt].join(' ').toLowerCase();
-      return texto.includes(q);
-    });
-  }, [filtroHistorial, ordenadas]);
-
-  const refrescarEstado = useCallback(() => {
-    setCargandoEstado(true);
-    setErrorEstado('');
-    clienteApi
-      .obtener<{ sincronizaciones?: RegistroSincronizacion[] }>('/sincronizaciones?limite=12')
-      .then((payload) => {
-        if (!montadoRef.current) return;
-        const lista = Array.isArray(payload.sincronizaciones) ? payload.sincronizaciones : [];
-        setSincronizaciones(lista);
-      })
-      .catch((error) => {
-        if (!montadoRef.current) return;
-        setSincronizaciones([]);
-        setErrorEstado(mensajeDeError(error, 'No se pudo obtener el estado de sincronización'));
-      })
-      .finally(() => {
-        if (!montadoRef.current) return;
-        setCargandoEstado(false);
-      });
-  }, []);
-
-  useEffect(() => {
-    montadoRef.current = true;
-    // React lint: evita setState sincronico directo dentro del efecto.
-    const id = window.setTimeout(() => {
-      void refrescarEstado();
-    }, 0);
-    return () => {
-      window.clearTimeout(id);
-      montadoRef.current = false;
-    };
-  }, [refrescarEstado]);
-
-  useEffect(() => {
-    if (!autoRefresh) return;
-    const id = window.setInterval(() => {
-      if (!montadoRef.current) return;
-      refrescarEstado();
-    }, 45_000);
-    return () => window.clearInterval(id);
-  }, [autoRefresh, refrescarEstado]);
-
   return (
     <div className="panel sincronizacion-shell">
-      <h2>
-        <Icono nombre="publicar" /> Sincronización, backups y estado de datos
-      </h2>
-      <p className="nota">Consolida sincronización con portal, paquetes entre computadoras y trazabilidad del estado operativo.</p>
+      <div className="sincronizacion-header">
+        <div>
+          <h2>
+            <Icono nombre="publicar" /> Sincronización, backups y estado de datos
+          </h2>
+          <p className="nota">Consolida sincronización con portal, paquetes entre computadoras y trazabilidad del estado operativo.</p>
+        </div>
+        <div className="sincronizacion-header__chipWrap" aria-live="polite">
+          <span className={`estado-chip ${estadoReciente.clase}`}>{estadoReciente.texto}</span>
+          <span className="nota">Último evento: {sincronizacionReciente ? formatearFechaSincronizacion(sincronizacionReciente.ejecutadoEn || sincronizacionReciente.createdAt) : 'Sin registros'}</span>
+        </div>
+      </div>
 
       <div className="sincronizacion-kpi" aria-live="polite">
         <div className="sincronizacion-kpi__item"><span>Materias activas</span><b>{resumenDatos.materiasActivas}</b></div>
@@ -204,14 +133,9 @@ export function SeccionSincronizacion({
           <div className="estado-datos-header">
             <div>
               <div className="estado-datos-titulo">Estado de sincronización</div>
-              <div className="nota">
-                Último evento:{' '}
-                {sincronizacionReciente ? formatearFecha(sincronizacionReciente.ejecutadoEn || sincronizacionReciente.createdAt) : 'Sin registros'}
-              </div>
+              <div className="nota">Monitorea las últimas operaciones de push, pull, publicar y backups.</div>
             </div>
-            <span className={`estado-chip ${normalizarEstado(sincronizacionReciente?.estado).clase}`}>
-              {normalizarEstado(sincronizacionReciente?.estado).texto}
-            </span>
+            <span className={`estado-chip ${estadoReciente.clase}`}>{estadoReciente.texto}</span>
           </div>
 
           <div className="estado-datos-cifras">
@@ -259,13 +183,13 @@ export function SeccionSincronizacion({
                   </div>
                 );
               }
-              const estado = normalizarEstado(item.estado);
+              const estado = normalizarEstadoSincronizacion(item.estado);
               return (
                 <div key={item._id || `sync-${idx}`} className="estado-datos-item">
                   <span className={`estado-chip ${estado.clase}`}>{estado.texto}</span>
                   <div>
                     <div className="estado-datos-item__titulo">{String(item.tipo || 'sincronizacion').toUpperCase()}</div>
-                    <div className="nota">{formatearFecha(item.ejecutadoEn || item.createdAt)}</div>
+                    <div className="nota">{formatearFechaSincronizacion(item.ejecutadoEn || item.createdAt)}</div>
                   </div>
                 </div>
               );

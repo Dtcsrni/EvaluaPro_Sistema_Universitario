@@ -25,7 +25,7 @@
     "start": "node dist/index.js",
     "test": "vitest run",
     "test:coverage": "vitest run --coverage",
-    "lint": "eslint . --ext .ts --max-warnings=0",
+    "lint": "eslint \"src/**/*.ts\" \"tests/**/*.ts\" \"scripts/**/*.ts\" --max-warnings=0",
     "dev:omr:geo-tight": "tsx scripts/omr-run-dev-profile.ts geo_tight_search",
     "dev:omr:actual": "tsx scripts/omr-run-dev-profile.ts actual",
     "auth:reset-password": "tsx scripts/auth-reset-password.ts",
@@ -67,6 +67,8 @@
     "zod": "^4.3.6"
   },
   "devDependencies": {
+    "@eslint/eslintrc": "^3.3.4",
+    "@eslint/js": "^9.39.3",
     "@types/jsonwebtoken": "^9.0.10",
     "@types/qrcode": "^1.5.6"
   }
