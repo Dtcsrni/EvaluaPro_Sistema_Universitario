@@ -40,12 +40,18 @@ async function bufferDesdeFuente(imagenUrl: string): Promise<{ buffer: Buffer; m
   return { buffer };
 }
 
-export async function resolverImagenPregunta(imagenUrl?: string): Promise<ImagenPreguntaResuelta> {
+export async function resolverImagenPregunta(
+  imagenUrl?: string,
+  options?: { preserveTransparency?: boolean }
+): Promise<ImagenPreguntaResuelta> {
   if (!imagenUrl?.trim()) return { status: 'none' };
 
   try {
     const { buffer, mime } = await bufferDesdeFuente(imagenUrl.trim());
-    const normalizada = sharp(buffer, { animated: false }).rotate().flatten({ background: '#ffffff' });
+    const preserveTransparency = options?.preserveTransparency === true;
+    const normalizada = preserveTransparency
+      ? sharp(buffer, { animated: false }).rotate()
+      : sharp(buffer, { animated: false }).rotate().flatten({ background: '#ffffff' });
     const metadata = await normalizada.metadata();
     const pngBuffer = await normalizada.png({ compressionLevel: 9 }).toBuffer();
 

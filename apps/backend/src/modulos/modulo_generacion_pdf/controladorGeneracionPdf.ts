@@ -124,6 +124,42 @@ function resolverTemplateVersionOmr(params: { docenteId: unknown; periodoId?: un
   return 3;
 }
 
+function construirEncabezadoPdf(params: {
+  periodo: unknown;
+  docenteDb: unknown;
+  instrucciones: unknown;
+  incluirPrefijosDocente?: boolean;
+}) {
+  const periodo = params.periodo as { nombre?: unknown } | null | undefined;
+  const docente = params.docenteDb as
+    | {
+        nombreCompleto?: unknown;
+        preferenciasPdf?: {
+          institucion?: unknown;
+          lema?: unknown;
+          logos?: { izquierdaPath?: unknown; derechaPath?: unknown };
+        };
+      }
+    | null
+    | undefined;
+
+  const nombreDocente = params.incluirPrefijosDocente
+    ? formatearDocente(docente?.nombreCompleto)
+    : String(docente?.nombreCompleto ?? '').trim();
+
+  return {
+    materia: String(periodo?.nombre ?? ''),
+    docente: nombreDocente,
+    instrucciones: String(params.instrucciones ?? ''),
+    institucion: String(docente?.preferenciasPdf?.institucion ?? '').trim() || undefined,
+    lema: String(docente?.preferenciasPdf?.lema ?? '').trim() || undefined,
+    logos: {
+      izquierdaPath: String(docente?.preferenciasPdf?.logos?.izquierdaPath ?? '').trim() || undefined,
+      derechaPath: String(docente?.preferenciasPdf?.logos?.derechaPath ?? '').trim() || undefined
+    }
+  };
+}
+
 async function validarTituloPlantillaDisponible(params: {
   docenteId: unknown;
   titulo: unknown;
@@ -721,11 +757,12 @@ export async function previsualizarPlantilla(req: SolicitudDocente, res: Respons
       totalPaginas: paginasObjetivo,
       margenMm: plantilla.configuracionPdf?.margenMm ?? 10,
       templateVersion: templateVersionOmr,
-      encabezado: {
-        materia: String((periodo as unknown as { nombre?: unknown })?.nombre ?? ''),
-        docente: formatearDocente((docenteDb as unknown as { nombreCompleto?: unknown })?.nombreCompleto),
-        instrucciones: String((plantilla as unknown as { instrucciones?: unknown })?.instrucciones ?? '')
-      }
+      encabezado: construirEncabezadoPdf({
+        periodo,
+        docenteDb,
+        instrucciones: (plantilla as unknown as { instrucciones?: unknown })?.instrucciones,
+        incluirPrefijosDocente: true
+      })
     });
 
   let paginasObjetivo = numeroPaginas;
@@ -941,11 +978,12 @@ export async function previsualizarPlantillaPdf(req: SolicitudDocente, res: Resp
       totalPaginas: paginasObjetivo,
       margenMm: plantilla.configuracionPdf?.margenMm ?? 10,
       templateVersion: templateVersionOmr,
-      encabezado: {
-        materia: String((periodo as unknown as { nombre?: unknown })?.nombre ?? ''),
-        docente: String((docenteDb as unknown as { nombreCompleto?: unknown })?.nombreCompleto ?? ''),
-        instrucciones: String((plantilla as unknown as { instrucciones?: unknown })?.instrucciones ?? '')
-      }
+      encabezado: construirEncabezadoPdf({
+        periodo,
+        docenteDb,
+        instrucciones: (plantilla as unknown as { instrucciones?: unknown })?.instrucciones,
+        incluirPrefijosDocente: false
+      })
     });
 
   let paginasObjetivo = numeroPaginas;
@@ -1077,11 +1115,12 @@ export async function generarExamen(req: SolicitudDocente, res: Response) {
       totalPaginas: paginasObjetivo,
       margenMm: plantilla.configuracionPdf?.margenMm ?? 10,
       templateVersion: templateVersionOmr,
-      encabezado: {
-        materia: String((periodo as unknown as { nombre?: unknown })?.nombre ?? ''),
-        docente: formatearDocente((docenteDb as unknown as { nombreCompleto?: unknown })?.nombreCompleto),
-        instrucciones: String((plantilla as unknown as { instrucciones?: unknown })?.instrucciones ?? '')
-      }
+      encabezado: construirEncabezadoPdf({
+        periodo,
+        docenteDb,
+        instrucciones: (plantilla as unknown as { instrucciones?: unknown })?.instrucciones,
+        incluirPrefijosDocente: true
+      })
     });
 
   let paginasObjetivo = numeroPaginas;
@@ -1277,11 +1316,12 @@ export async function generarExamenesLote(req: SolicitudDocente, res: Response) 
       totalPaginas: numeroPaginas,
       margenMm: plantilla.configuracionPdf?.margenMm ?? 10,
       templateVersion: templateVersionOmr,
-      encabezado: {
-        materia: String((periodo as unknown as { nombre?: unknown })?.nombre ?? ''),
-        docente: formatearDocente((docenteDb as unknown as { nombreCompleto?: unknown })?.nombreCompleto),
-        instrucciones: String((plantilla as unknown as { instrucciones?: unknown })?.instrucciones ?? '')
-      }
+      encabezado: construirEncabezadoPdf({
+        periodo,
+        docenteDb,
+        instrucciones: (plantilla as unknown as { instrucciones?: unknown })?.instrucciones,
+        incluirPrefijosDocente: true
+      })
     });
     const usadosSet = extraerPreguntasUsadasMapaOmr(mapaOmr as never);
     const ultima = (Array.isArray(metricasPaginas) ? metricasPaginas : []).find((m) => m.numero === numeroPaginas);
@@ -1315,11 +1355,12 @@ export async function generarExamenesLote(req: SolicitudDocente, res: Response) 
           totalPaginas: numeroPaginas,
           margenMm: plantilla.configuracionPdf?.margenMm ?? 10,
           templateVersion: templateVersionOmr,
-          encabezado: {
-            materia: String((periodo as unknown as { nombre?: unknown })?.nombre ?? ''),
-            docente: formatearDocente((docenteDb as unknown as { nombreCompleto?: unknown })?.nombreCompleto),
-            instrucciones: String((plantilla as unknown as { instrucciones?: unknown })?.instrucciones ?? '')
-          }
+          encabezado: construirEncabezadoPdf({
+            periodo,
+            docenteDb,
+            instrucciones: (plantilla as unknown as { instrucciones?: unknown })?.instrucciones,
+            incluirPrefijosDocente: true
+          })
         });
 
         const usadosSet = extraerPreguntasUsadasMapaOmr(mapaOmr as never);

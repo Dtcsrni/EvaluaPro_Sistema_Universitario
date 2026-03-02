@@ -61,8 +61,32 @@ function escapeHtml(value: string): string {
     .replace(/"/g, '&quot;');
 }
 
+function aplicarReglasFormatoPregunta(value: string): string {
+  let text = String(value ?? '');
+
+  text = text.replace(/\[\[(bi|b|i):([\s\S]*?)\]\]/g, (_m, tipo: 'bi' | 'b' | 'i', contenido: string) => {
+    const clean = String(contenido ?? '').trim();
+    if (!clean) return '';
+    if (tipo === 'b') return `**${clean}**`;
+    if (tipo === 'i') return `*${clean}*`;
+    return `***${clean}***`;
+  });
+
+  text = text.replace(
+    /^(\s*)(Importante|Nota|Advertencia|Instruccion|Instrucción|Observacion|Observación|Clave)(\s*:\s*)/gim,
+    (_m, ws: string, etiqueta: string) => `${ws}**${etiqueta}:** `
+  );
+
+  text = text.replace(
+    /\b(excepto|nunca|siempre|únicamente|unicamente|solo|sólo|correcta|incorrecta|verdadero|falso)\b/gi,
+    (_m) => `**${_m.toUpperCase()}**`
+  );
+
+  return text;
+}
+
 function markdownBasicoAHtml(value: string): string {
-  let html = escapeHtml(value ?? '');
+  let html = escapeHtml(aplicarReglasFormatoPregunta(value ?? ''));
   html = html.replace(/```([\s\S]*?)```/g, (_m, code) => `<pre class="q-code">${String(code ?? '').trim()}</pre>`);
   html = html.replace(/`([^`]+)`/g, '<code>$1</code>');
   html = html.replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>');
@@ -186,8 +210,8 @@ export async function buildExamLayoutTokens({
   const contentLeft = pageShell.x;
   const contentRight = pageShell.x + pageShell.width;
   const questionColumnWidth = contentWidth - tpl.omrColumnWidthPx - tpl.contentGapPx;
-  const maxImageWidthPx = 160;
-  const maxImageHeightPx = 56;
+  const maxImageWidthPx = 154;
+  const maxImageHeightPx = 60;
 
   const resolvedImages = await Promise.all(examen.preguntas.map((p) => resolverImagenPregunta(p.imagenUrl)));
 
@@ -215,14 +239,9 @@ export async function buildExamLayoutTokens({
   let questionIndex = 0;
   let pageNumber = 1;
 
-  while (questionIndex < preguntasOrdenadas.length) {
+  while (questionIndex < preguntasOrdenadas.length && pageNumber <= examen.layout.totalPaginas) {
     const firstPage = pageNumber === 1;
-    const remainingQuestions = preguntasOrdenadas.length - questionIndex;
-    const remainingPages = Math.max(1, examen.layout.totalPaginas - pageNumber + 1);
-    const targetDensity =
-      remainingQuestions >= remainingPages * 8
-        ? Math.min(9, Math.max(8, Math.ceil(remainingQuestions / remainingPages)))
-        : Math.max(1, Math.ceil(remainingQuestions / remainingPages));
+    const maxQuestionsPerPage = 10;
     const headerHeight = firstPage ? headerFirstHeight : headerOtherHeight;
     const footerBox: RectPx = {
       x: pageShell.x,
@@ -283,7 +302,7 @@ export async function buildExamLayoutTokens({
       const stemLines = estimateLines(pregunta.enunciado, charsStem);
       const optionChunks = chunkOptions(opcionesOrdenadas, optionColumns);
       const optionLines = Math.max(
-        ...optionChunks.map((col) => col.reduce((sum, item) => sum + Math.max(1, estimateLines(`${item.letra}) ${item.texto}`, 32)), 0))
+        ...optionChunks.map((col) => col.reduce((sum, item) => sum + Math.max(1, estimateLines(`${item.letra}) ${item.texto}`, 38)), 0))
       );
 
       const imageHeight =
@@ -295,9 +314,8 @@ export async function buildExamLayoutTokens({
           : 0;
       const textHeight =
         stemLines * tpl.stemLineHeightPx +
-        (imageHeight > 0 ? imageHeight + 10 : 0) +
         optionLines * tpl.optionLineHeightPx +
-        14;
+        10;
       const omrHeight = tpl.omr.panelHeightPx;
       const questionHeight = roundGrid(Math.max(omrHeight, textHeight) + tpl.questionPaddingPx * 2, 4);
 
@@ -334,8 +352,8 @@ export async function buildExamLayoutTokens({
       };
       const imageBox = imageHeight > 0
         ? {
-            x: textBox.x,
-            y: questionBox.y + tpl.stemLineHeightPx * stemLines + 8,
+            x: textBox.x + Math.max(0, textBox.width - maxImageWidthPx),
+            y: questionBox.y + 2,
             width: Math.min(textBox.width - 8, maxImageWidthPx),
             height: imageHeight
           }
@@ -367,7 +385,7 @@ export async function buildExamLayoutTokens({
 
       cursorY += questionHeight + tpl.interQuestionGapPx;
       questionIndex += 1;
-      if (questionTokens.length >= targetDensity) break;
+      if (questionTokens.length >= maxQuestionsPerPage) break;
     }
 
     if (questionTokens.length === 0) {
@@ -480,6 +498,8 @@ export async function buildExamLayoutTokens({
     pageNumber += 1;
   }
 
+  const preguntasRestantes = Math.max(0, preguntasOrdenadas.length - questionIndex);
+
   return {
     pages,
     paginas: paginasMeta,
@@ -532,6 +552,6 @@ export async function buildExamLayoutTokens({
       },
       paginas: paginasOmr
     },
-    preguntasRestantes: 0
+    preguntasRestantes
   };
 }

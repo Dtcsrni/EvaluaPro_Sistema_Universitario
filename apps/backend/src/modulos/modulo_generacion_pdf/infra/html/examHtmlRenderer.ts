@@ -28,9 +28,14 @@ export class ExamHtmlRenderer {
       });
     }
 
+    const logoIzquierdaPath =
+      String(examen.encabezado?.logos?.izquierdaPath ?? '').trim() || String(process.env.EXAMEN_LOGO_IZQ_PATH ?? '').trim();
+    const logoDerechaPath =
+      String(examen.encabezado?.logos?.derechaPath ?? '').trim() || String(process.env.EXAMEN_LOGO_DER_PATH ?? '').trim();
+
     const [logoIzquierdo, logoDerecho] = await Promise.all([
-      resolverImagenPregunta(examen.encabezado?.logos?.izquierdaPath),
-      resolverImagenPregunta(examen.encabezado?.logos?.derechaPath)
+      resolverImagenPregunta(logoIzquierdaPath || undefined, { preserveTransparency: true }),
+      resolverImagenPregunta(logoDerechaPath || undefined, { preserveTransparency: true })
     ]);
 
     const html = renderExamHtml({
