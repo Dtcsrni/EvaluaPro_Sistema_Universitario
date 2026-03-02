@@ -2990,6 +2990,10 @@ p {
   margin-top: 0.5rem;
 }
 
+.plantillas-progreso-barra {
+  width: 100%;
+}
+
 @media (min-width: 1200px) {
   .plantillas-grid--generacion {
     grid-template-columns: minmax(0, 1.1fr) minmax(0, 1.4fr);

@@ -1,6 +1,7 @@
 # Etapa de build: compila TypeScript del portal alumno.
 FROM node:24-alpine AS builder
 WORKDIR /app
+RUN npm install -g npm@11.11.0
 COPY package*.json ./
 COPY apps/portal_alumno_cloud/package*.json ./apps/portal_alumno_cloud/
 COPY tsconfig.base.json ./
@@ -13,6 +14,7 @@ RUN npm --workspace apps/portal_alumno_cloud run build
 FROM node:24-alpine AS runner
 WORKDIR /app
 ENV NODE_ENV=production
+RUN npm install -g npm@11.11.0
 COPY package*.json ./
 COPY apps/portal_alumno_cloud/package*.json ./apps/portal_alumno_cloud/
 RUN npm install --omit=dev --workspace apps/portal_alumno_cloud

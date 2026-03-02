@@ -75,9 +75,11 @@ function applySemanticColorToPlainText(value: string): string {
 
 function renderQuickOmrInstruction(page: PageToken): string {
   if (page.numeroPagina !== 1) return '';
-  const text = 'Instrucción: rellena un solo círculo por pregunta; evita tachones y marcas fuera.';
+  const text =
+    'Instrucción: rellena un solo círculo por pregunta. Correcto: círculo completamente lleno (●). ' +
+    'Incorrecto: medio relleno (◐), tachado (✗) o dos opciones marcadas.';
   const x = page.contentBox.x;
-  const y = Math.max(0, page.contentBox.y - 14);
+  const y = Math.max(0, page.contentBox.y - 20);
   const width = page.contentBox.width;
   return `<div class="quick-omr-instruction" style="left:${x}px;top:${y}px;width:${width}px;">${escapeHtml(text)}</div>`;
 }
@@ -93,21 +95,31 @@ function renderHeader(page: PageToken, examen: ExamenPdf, logos: { izquierda?: s
   const rightLogoLeft = page.headerBox.width - rightLogoRightInset - logoWidth;
   const textLeft = leftLogoLeft + logoWidth + 12;
   const textRight = Math.min(rightLogoLeft - 12, qrLeft - 12);
-  const textMaxWidth = Math.max(360, textRight - textLeft);
-  const captureLabelWidth = 102;
-  const captureGroupLabelWidth = 32;
-  const captureGroupWidth = 38;
-  const captureGapWidth = 8 * 3;
-  const captureFixedWidth = captureLabelWidth + captureGroupLabelWidth + captureGroupWidth + captureGapWidth;
-  const captureNameWidth = Math.max(300, textMaxWidth - captureFixedWidth);
-  const desiredMetaTop = 80;
-  const desiredCareerTop = 96;
-  const desiredCaptureTop = 112;
+  const textMaxWidth = Math.max(220, textRight - textLeft);
+  const captureLabelWidth = 110;
+  const captureGroupLabelWidth = 44;
+  const captureGapWidth = 6 * 3;
+  const captureGroupMinWidth = 48;
+  const captureGroupMaxWidth = 72;
+  let captureGroupWidth = Math.max(captureGroupMinWidth, Math.min(captureGroupMaxWidth, Math.floor(textMaxWidth * 0.18)));
+  const captureFixedWidthBase = captureLabelWidth + captureGroupLabelWidth + captureGapWidth;
+  const captureNameMinWidth = 180;
+  let captureNameWidth = textMaxWidth - (captureFixedWidthBase + captureGroupWidth);
+  if (captureNameWidth < captureNameMinWidth) {
+    const deficit = captureNameMinWidth - captureNameWidth;
+    captureGroupWidth = Math.max(captureGroupMinWidth, captureGroupWidth - deficit);
+    captureNameWidth = textMaxWidth - (captureFixedWidthBase + captureGroupWidth);
+  }
+  captureNameWidth = Math.max(captureNameMinWidth, captureNameWidth);
+  const grupoSugerido = String(examen.encabezado?.alumno?.grupo ?? '').trim();
+  const desiredMetaTop = 64;
+  const desiredSecondaryMetaTop = 78;
+  const desiredCaptureTop = 90;
   const captureBoxHeight = 26;
   const maxCaptureTop = Math.max(0, page.headerBox.height - captureBoxHeight - 4);
   const captureTop = Math.min(desiredCaptureTop, maxCaptureTop);
-  const careerTop = Math.min(desiredCareerTop, Math.max(0, captureTop - 18));
-  const metaTop = Math.min(desiredMetaTop, Math.max(0, careerTop - 18));
+  const secondaryMetaTop = Math.min(desiredSecondaryMetaTop, Math.max(0, captureTop - 14));
+  const metaTop = Math.min(desiredMetaTop, Math.max(0, secondaryMetaTop - 14));
   const leftLogo = logos.izquierda
     ? `<img class="header-logo header-logo-left" src="${logos.izquierda}" alt="logo izquierdo" />`
     : '<div class="header-logo header-logo-left logo-placeholder"></div>';
@@ -123,8 +135,10 @@ function renderHeader(page: PageToken, examen: ExamenPdf, logos: { izquierda?: s
         <div class="exam-title">${escapeHtml(examen.titulo)}</div>
         <div class="motto">${escapeHtml(examen.encabezado?.lema ?? 'La sabiduria es nuestra fuerza')}</div>
       </div>
-      <div class="meta meta-slot" style="left:${textLeft}px;top:${metaTop}px;width:${textMaxWidth}px;">Materia: ${escapeHtml(examen.encabezado?.materia ?? '')} | Docente: ${escapeHtml(examen.encabezado?.docente ?? '')}</div>
-      <div class="meta meta-career" style="left:${textLeft}px;top:${careerTop}px;width:${textMaxWidth}px;">Carrera: ${escapeHtml(carrera)}</div>
+      <div class="meta meta-slot" style="left:${textLeft}px;top:${metaTop}px;width:${textMaxWidth}px;">Materia: ${escapeHtml(examen.encabezado?.materia ?? '')}</div>
+      <div class="meta meta-secondary" style="left:${textLeft}px;top:${secondaryMetaTop}px;width:${textMaxWidth}px;">Docente: ${escapeHtml(examen.encabezado?.docente ?? '')} | Carrera: ${escapeHtml(carrera)}${
+    grupoSugerido ? ` | Grupo: ${escapeHtml(grupoSugerido)}` : ''
+  }</div>
       ${rightLogo}
       <div class="qr-box" style="left:${qrLeft}px;top:${qrTop}px;width:${page.qrBox.width}px;height:${page.qrBox.height}px;">
         <img src="{{QR:${page.numeroPagina}}}" alt="QR pagina ${page.numeroPagina}" />
@@ -226,7 +240,8 @@ export function renderExamHtml({
       border-color: #8e99a9;
     }
     body.print-profile-epson-l1250 .header-band {
-      background: linear-gradient(90deg, #3b82f6, #6366f1, #06b6d4, #3b82f6);
+      background: linear-gradient(90deg, #2563eb 0%, #0284c7 24%, #16a34a 50%, #7c3aed 76%, #2563eb 100%);
+      box-shadow: 0 0 0.5px rgba(30, 64, 175, 0.9), 0 0 4px rgba(2, 132, 199, 0.35);
     }
     body.print-profile-epson-l1250 .institution,
     body.print-profile-epson-l1250 .exam-title,
@@ -399,28 +414,41 @@ export function renderExamHtml({
       left: 2px;
       right: 2px;
       top: 2px;
-      height: 1.5px;
-      background: linear-gradient(90deg, var(--edu-blue-soft), var(--edu-violet), var(--edu-cyan));
-      opacity: 0.9;
+      height: 4px;
+      background: linear-gradient(90deg, #2563eb 0%, #0ea5e9 24%, #22c55e 50%, #a855f7 76%, #2563eb 100%);
+      background-size: 220% 100%;
+      box-shadow: 0 0 0.5px rgba(37, 99, 235, 0.9), 0 0 6px rgba(14, 165, 233, 0.45);
+      opacity: 0.98;
       border-radius: 999px;
+    }
+    .header-band::after {
+      content: '';
+      position: absolute;
+      left: 0;
+      right: 0;
+      top: 1px;
+      height: 1px;
+      border-radius: 999px;
+      background: linear-gradient(90deg, rgba(255,255,255,0.72), rgba(255,255,255,0.12), rgba(255,255,255,0.72));
+      opacity: 0.85;
     }
     .header-logo { object-fit: contain; object-position: center; background: transparent; }
     .header-logo-left { left: 8px; top: 50%; transform: translateY(-50%); width: 78px; height: 78px; }
     .header-logo-right { right: 136px; top: 50%; transform: translateY(-50%); width: 78px; height: 78px; }
     .logo-placeholder { border: 1px dashed var(--edu-border); background: transparent; }
     .title-box { position: absolute; width: 376px; text-align: center; }
-    .institution { font-size: 17px; line-height: 21px; font-weight: 800; color: #0a67d8; letter-spacing: 0.15px; }
-    .exam-title { margin-top: 3px; font-size: 21px; line-height: 25px; font-weight: 800; letter-spacing: 0.2px; color: #1f3b63; }
-    .motto { margin-top: 4px; font-size: 11px; line-height: 13px; font-style: italic; color: var(--edu-ink-soft); }
-    .meta { margin-top: 0; font-size: 12px; line-height: 15px; color: var(--edu-text-muted); font-weight: 650; letter-spacing: 0.1px; text-align: center; }
+    .institution { font-size: 16px; line-height: 19px; font-weight: 800; color: #0a67d8; letter-spacing: 0.12px; }
+    .exam-title { margin-top: 2px; font-size: 18px; line-height: 21px; font-weight: 800; letter-spacing: 0.16px; color: #1f3b63; }
+    .motto { margin-top: 2px; font-size: 9.6px; line-height: 11px; font-style: italic; color: var(--edu-ink-soft); }
+    .meta { margin-top: 0; font-size: 10.6px; line-height: 12px; color: var(--edu-text-muted); font-weight: 650; letter-spacing: 0.06px; text-align: center; }
     .meta-slot { position: absolute; margin-top: 0; }
-    .meta-career { position: absolute; margin-top: 0; }
+    .meta-secondary { position: absolute; margin-top: 0; }
     .qr-box { position: absolute; border: 1px solid var(--edu-border); background: #ffffff; padding: 10px; }
     .qr-box img { width: 100%; height: 100%; object-fit: contain; }
-    .capture-row { position: absolute; display: flex; align-items: center; gap: 10px; overflow: hidden; }
+    .capture-row { position: absolute; display: flex; align-items: center; gap: 10px; }
     .capture-row-inline { gap: 8px; }
-    .capture-label { font-size: 11px; line-height: 14px; font-weight: 700; min-width: 104px; flex: 0 0 104px; color: #2a4262; }
-    .capture-label-group { min-width: 42px; flex: 0 0 42px; text-align: right; }
+    .capture-label { font-size: 10px; line-height: 13px; font-weight: 700; min-width: 110px; flex: 0 0 110px; color: #2a4262; }
+    .capture-label-group { min-width: 44px; flex: 0 0 44px; text-align: right; }
     .capture-box {
       border: 1.6px solid var(--edu-border-strong);
       background: #ffffff;
@@ -650,8 +678,8 @@ export function renderExamHtml({
     .quick-omr-instruction {
       position: absolute;
       z-index: 8;
-      font-size: 9px;
-      line-height: 11px;
+      font-size: 8.6px;
+      line-height: 10px;
       font-weight: 700;
       letter-spacing: 0.08px;
       text-align: center;
@@ -659,10 +687,8 @@ export function renderExamHtml({
       background: rgba(255, 255, 255, 0.96);
       border: 1px solid #b7c8db;
       border-radius: 3px;
-      padding: 1px 6px;
-      white-space: nowrap;
-      overflow: hidden;
-      text-overflow: ellipsis;
+      padding: 1px 5px;
+      white-space: normal;
       pointer-events: none;
     }
     ${printerProfileCss}

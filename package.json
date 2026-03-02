@@ -44,6 +44,16 @@
     "portal:prod": "node scripts/start-portal-prod.mjs",
     "stack:dev": "node scripts/start-tray.mjs --mode dev --port 4519 && node scripts/detect-host-ip.mjs && docker compose --profile dev up --build --force-recreate",
     "stack:prod": "node scripts/start-tray.mjs --mode prod --port 4519 && node scripts/detect-host-ip.mjs && docker compose --profile prod up --build --force-recreate mongo_local api_docente_prod web_docente_prod",
+    "api:restart": "docker compose -f docker-compose.yml --profile prod up -d --no-deps api_docente_prod",
+    "api:rebuild": "docker compose -f docker-compose.yml --profile prod up --build -d --no-deps api_docente_prod",
+    "api:rebuild:lite": "docker compose -f docker-compose.yml --profile prod build --build-arg INSTALL_PLAYWRIGHT=0 api_docente_prod && docker compose -f docker-compose.yml --profile prod up -d --no-deps api_docente_prod",
+    "api:rebuild:full": "docker compose -f docker-compose.yml --profile prod build --build-arg INSTALL_PLAYWRIGHT=1 api_docente_prod && docker compose -f docker-compose.yml --profile prod up -d --no-deps api_docente_prod",
+    "web:restart": "docker compose -f docker-compose.yml --profile prod up -d --no-deps web_docente_prod",
+    "web:rebuild": "docker compose -f docker-compose.yml --profile prod up --build -d --no-deps web_docente_prod",
+    "ui:fast": "npm run web:restart",
+    "ui:rebuild": "npm run web:rebuild",
+    "stack:restart": "docker compose -f docker-compose.yml --profile prod up -d api_docente_prod web_docente_prod",
+    "stack:rebuild": "docker compose -f docker-compose.yml --profile prod up --build -d api_docente_prod web_docente_prod",
     "typecheck": "npm run --workspaces --if-present typecheck",
     "test": "npm -C apps/backend run test",
     "test:backend": "npm -C apps/backend run test",
@@ -156,22 +166,35 @@
   },
   "devDependencies": {
     "@mermaid-js/mermaid-cli": "^11.12.0",
-    "@types/bcryptjs": "^2.4.6",
-    "@types/cors": "^2.8.17",
-    "@types/express": "^4.17.25",
-    "@types/node": "^24.10.8",
-    "@types/supertest": "^2.0.16",
-    "@typescript-eslint/eslint-plugin": "^8.53.0",
-    "@typescript-eslint/parser": "^8.53.0",
+    "@playwright/test": "^1.58.2",
+    "@types/cors": "^2.8.19",
+    "@types/express": "^5.0.6",
+    "@types/node": "^25.3.3",
+    "@types/supertest": "^7.2.0",
+    "@typescript-eslint/eslint-plugin": "^8.56.1",
+    "@typescript-eslint/parser": "^8.56.1",
     "@vitest/coverage-v8": "^4.0.18",
-    "eslint": "^8.57.1",
-    "jsdom": "^27.4.0",
-    "mongodb-memory-server": "^9.5.0",
+    "eslint": "^9.39.1",
+    "jsdom": "^28.1.0",
+    "mongodb-memory-server": "^11.0.1",
     "npm-run-all": "^4.1.5",
-    "supertest": "^6.3.4",
-    "tsx": "^4.20.5",
+    "supertest": "^7.2.2",
+    "tsx": "^4.21.0",
     "typescript": "^5.9.3",
-    "vitest": "^4.0.17",
-    "@playwright/test": "^1.54.2"
+    "vitest": "^4.0.18"
+  },
+  "optionalDependencies": {
+    "gcp-metadata": "^7.0.1"
+  },
+  "overrides": {
+    "rollup": "^4.59.0",
+    "ajv": "^6.14.0",
+    "minimatch": "^3.1.4",
+    "google-auth-library": {
+      "gcp-metadata": "8.1.2"
+    },
+    "mongodb": {
+      "gcp-metadata": "7.0.1"
+    }
   }
 }

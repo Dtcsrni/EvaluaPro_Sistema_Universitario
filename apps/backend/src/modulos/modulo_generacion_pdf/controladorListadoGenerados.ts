@@ -278,15 +278,8 @@ export async function regenerarPdfExamen(req: SolicitudDocente, res: Response) {
       }
     });
 
-  let paginasObjetivo = numeroPaginas;
-  let resultadoPdf = await generarConPaginas(paginasObjetivo);
-  const maxPaginas = Math.max(paginasObjetivo, preguntasBase.length);
-  let intentos = 0;
-  while ((resultadoPdf.preguntasRestantes ?? 0) > 0 && paginasObjetivo < maxPaginas && intentos < maxPaginas) {
-    paginasObjetivo += 1;
-    resultadoPdf = await generarConPaginas(paginasObjetivo);
-    intentos += 1;
-  }
+  const paginasObjetivo = numeroPaginas;
+  const resultadoPdf = await generarConPaginas(paginasObjetivo);
 
   const { pdfBytes, paginas, mapaOmr, preguntasRestantes } = resultadoPdf;
 

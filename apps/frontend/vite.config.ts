@@ -86,6 +86,9 @@ export default defineConfig(({ mode }) => {
       port: 4173,
       strictPort: true,
       https: httpsConfig
+    },
+    build: {
+      chunkSizeWarningLimit: 600
     }
   };
 });

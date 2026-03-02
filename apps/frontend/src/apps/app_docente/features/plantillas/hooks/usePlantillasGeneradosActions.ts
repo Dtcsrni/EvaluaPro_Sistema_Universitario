@@ -1,7 +1,7 @@
 /**
  * usePlantillasGeneradosActions
  *
- * Responsabilidad: Encapsular acciones de examenes generados (descargar, regenerar, archivar).
+ * Responsabilidad: Encapsular acciones de examenes generados (descargar, regenerar, eliminar).
  * Limites: No renderiza UI; solo coordina efectos y estado externo.
  */
 import { useCallback } from 'react';
@@ -15,6 +15,7 @@ import type { EnviarConPermiso } from '../../../tipos';
 export type ExamenGeneradoResumen = {
   _id: string;
   folio: string;
+  loteId?: string;
   plantillaId: string;
   alumnoId?: string | null;
   estado?: string;
@@ -202,10 +203,15 @@ export function usePlantillasGeneradosActions({
       });
       if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
       const blob = await resp.blob();
+      const cd = resp.headers.get('Content-Disposition') || '';
+      const match = cd.match(/filename\*=UTF-8''([^;]+)|filename="([^"]+)"|filename=([^;]+)/i);
+      const nombreDesdeHeader = match
+        ? decodeURIComponent(String(match[1] || match[2] || match[3] || '').trim().replace(/^"|"$/g, ''))
+        : '';
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
-      a.download = `examenes_lote_${Date.now()}.pdf`;
+      a.download = nombreDesdeHeader || `paquete_examenes.pdf`;
       document.body.appendChild(a);
       a.click();
       a.remove();
@@ -223,11 +229,59 @@ export function usePlantillasGeneradosActions({
     }
   }, [avisarSinPermiso, lotePdfUrl, puedeDescargarExamenes, setMensajeGeneracion]);
 
-  const archivarExamenGenerado = useCallback(
+  const descargarPdfLotePorId = useCallback(
+    async (loteId: string) => {
+      const lote = String(loteId || '').trim();
+      if (!lote) return;
+      if (!puedeDescargarExamenes) {
+        avisarSinPermiso('No tienes permiso para descargar examenes.');
+        return;
+      }
+      const token = obtenerTokenDocente();
+      if (!token) {
+        setMensajeGeneracion('Sesion no valida. Vuelve a iniciar sesion.');
+        return;
+      }
+      try {
+        const resp = await fetch(`${clienteApi.baseApi}/examenes/generados/lote/${encodeURIComponent(lote)}/pdf`, {
+          credentials: 'include',
+          headers: { Authorization: `Bearer ${token}` }
+        });
+        if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+        const blob = await resp.blob();
+        const cd = resp.headers.get('Content-Disposition') || '';
+        const match = cd.match(/filename\*=UTF-8''([^;]+)|filename="([^"]+)"|filename=([^;]+)/i);
+        const nombreDesdeHeader = match
+          ? decodeURIComponent(String(match[1] || match[2] || match[3] || '').trim().replace(/^"|"$/g, ''))
+          : '';
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = nombreDesdeHeader || `paquete_examenes_${lote}.pdf`;
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+        URL.revokeObjectURL(url);
+      } catch (error) {
+        const msg = mensajeDeError(error, 'No se pudo descargar el PDF del paquete');
+        setMensajeGeneracion(msg);
+        emitToast({
+          level: 'error',
+          title: 'No se pudo descargar',
+          message: msg,
+          durationMs: 5200,
+          action: accionToastSesionParaError(error, 'docente')
+        });
+      }
+    },
+    [avisarSinPermiso, puedeDescargarExamenes, setMensajeGeneracion]
+  );
+
+  const eliminarExamenGenerado = useCallback(
     async (examen: ExamenGeneradoResumen) => {
       if (archivandoExamenId === examen._id) return;
       if (!puedeArchivarExamenes) {
-        avisarSinPermiso('No tienes permiso para archivar examenes.');
+        avisarSinPermiso('No tienes permiso para eliminar examenes.');
         return;
       }
       try {
@@ -235,7 +289,7 @@ export function usePlantillasGeneradosActions({
         setArchivandoExamenId(examen._id);
 
         const ok = globalThis.confirm(
-          `¿Archivar el examen generado (folio: ${String(examen.folio || '').trim() || 'sin folio'})?\n\nSe ocultará del listado activo, pero no se borrarán sus datos.`
+          `¿Eliminar el examen generado (folio: ${String(examen.folio || '').trim() || 'sin folio'})?\n\nSe ocultará del listado activo, pero no se borrarán sus datos.`
         );
         if (!ok) return;
 
@@ -243,17 +297,17 @@ export function usePlantillasGeneradosActions({
           'examenes:archivar',
           `/examenes/generados/${encodeURIComponent(examen._id)}/archivar`,
           {},
-          'No tienes permiso para archivar examenes.'
+          'No tienes permiso para eliminar examenes.'
         );
 
-        emitToast({ level: 'ok', title: 'Examen', message: 'Examen archivado', durationMs: 2000 });
+        emitToast({ level: 'ok', title: 'Examen', message: 'Examen eliminado', durationMs: 2000 });
         await cargarExamenesGenerados();
       } catch (error) {
-        const msg = mensajeDeError(error, 'No se pudo archivar el examen');
+        const msg = mensajeDeError(error, 'No se pudo eliminar el examen');
         setMensajeGeneracion(msg);
         emitToast({
           level: 'error',
-          title: 'No se pudo archivar',
+          title: 'No se pudo eliminar',
           message: msg,
           durationMs: 5200,
           action: accionToastSesionParaError(error, 'docente')
@@ -276,7 +330,8 @@ export function usePlantillasGeneradosActions({
   return {
     descargarPdfExamen,
     descargarPdfLote,
+    descargarPdfLotePorId,
     regenerarPdfExamen,
-    archivarExamenGenerado
+    eliminarExamenGenerado
   };
 }

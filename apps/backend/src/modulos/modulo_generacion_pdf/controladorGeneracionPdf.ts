@@ -127,6 +127,24 @@ function construirNombrePdfLote(parametros: {
   loteId: string;
   materiaNombre?: string;
   plantillaTitulo?: string;
+  totalExamenes?: number;
+}): string {
+  const lote = normalizarParaNombreArchivo(parametros.loteId, { maxLen: 16 }) || 'sinlote';
+  const materia = normalizarParaNombreArchivo(parametros.materiaNombre, { maxLen: 36 });
+  const titulo = normalizarParaNombreArchivo(parametros.plantillaTitulo, { maxLen: 36 });
+  const totalExamenes = Number(parametros.totalExamenes ?? 0);
+  const partes = ['evaluapro', 'paquete', 'examenes'];
+  if (materia) partes.push(`materia-${materia}`);
+  if (titulo) partes.push(`plantilla-${titulo}`);
+  if (Number.isFinite(totalExamenes) && totalExamenes > 0) partes.push(`total-${Math.floor(totalExamenes)}`);
+  partes.push(`lote-${lote}`);
+  return `${partes.join('_')}.pdf`;
+}
+
+function construirNombrePdfLoteAnterior(parametros: {
+  loteId: string;
+  materiaNombre?: string;
+  plantillaTitulo?: string;
 }): string {
   const lote = normalizarParaNombreArchivo(parametros.loteId, { maxLen: 16 }) || 'sinlote';
   const materia = normalizarParaNombreArchivo(parametros.materiaNombre, { maxLen: 36 });
@@ -806,17 +824,8 @@ export async function previsualizarPlantilla(req: SolicitudDocente, res: Respons
       })
     });
 
-  let paginasObjetivo = numeroPaginas;
-  let autoExtendida = false;
-  let previewResultado = await generarPreview(paginasObjetivo);
-  const maxPaginas = Math.max(paginasObjetivo, preguntasCandidatas.length);
-  let intentos = 0;
-  while ((previewResultado.preguntasRestantes ?? 0) > 0 && paginasObjetivo < maxPaginas && intentos < maxPaginas) {
-    paginasObjetivo += 1;
-    autoExtendida = true;
-    previewResultado = await generarPreview(paginasObjetivo);
-    intentos += 1;
-  }
+  const paginasObjetivo = numeroPaginas;
+  const previewResultado = await generarPreview(paginasObjetivo);
 
   const { paginas, metricasPaginas, mapaOmr, preguntasRestantes } = previewResultado;
 
@@ -832,11 +841,6 @@ export async function previsualizarPlantilla(req: SolicitudDocente, res: Respons
   const umbralVacioResidual = 0.05;
   const consumioTodas = totalUsados >= totalDisponibles;
   const advertencias: string[] = [];
-  if (autoExtendida && paginasObjetivo !== numeroPaginas) {
-    advertencias.push(
-      `Previsualizacion extendida a ${paginasObjetivo} pagina(s) para mostrar todas las preguntas (configurado: ${numeroPaginas}).`
-    );
-  }
   if (consumioTodas && fraccionVaciaUltimaPagina > umbralVacioResidual) {
     advertencias.push(
       `No hay suficientes preguntas para llenar ${paginasObjetivo} pagina(s). ` +
@@ -1027,15 +1031,8 @@ export async function previsualizarPlantillaPdf(req: SolicitudDocente, res: Resp
       })
     });
 
-  let paginasObjetivo = numeroPaginas;
-  let previewResultado = await generarPreviewPdf(paginasObjetivo);
-  const maxPaginas = Math.max(paginasObjetivo, preguntasCandidatas.length);
-  let intentos = 0;
-  while ((previewResultado.preguntasRestantes ?? 0) > 0 && paginasObjetivo < maxPaginas && intentos < maxPaginas) {
-    paginasObjetivo += 1;
-    previewResultado = await generarPreviewPdf(paginasObjetivo);
-    intentos += 1;
-  }
+  const paginasObjetivo = numeroPaginas;
+  const previewResultado = await generarPreviewPdf(paginasObjetivo);
   const { pdfBytes } = previewResultado;
 
   if (!esDev) {
@@ -1161,15 +1158,8 @@ export async function generarExamen(req: SolicitudDocente, res: Response) {
       })
     });
 
-  let paginasObjetivo = numeroPaginas;
-  let resultadoPdf = await generarConPaginas(paginasObjetivo);
-  const maxPaginas = Math.max(paginasObjetivo, preguntasCandidatas.length);
-  let intentos = 0;
-  while ((resultadoPdf.preguntasRestantes ?? 0) > 0 && paginasObjetivo < maxPaginas && intentos < maxPaginas) {
-    paginasObjetivo += 1;
-    resultadoPdf = await generarConPaginas(paginasObjetivo);
-    intentos += 1;
-  }
+  const paginasObjetivo = numeroPaginas;
+  const resultadoPdf = await generarConPaginas(paginasObjetivo);
 
   const { pdfBytes, paginas, metricasPaginas, mapaOmr, preguntasRestantes } = resultadoPdf;
 
@@ -1179,15 +1169,9 @@ export async function generarExamen(req: SolicitudDocente, res: Response) {
   const ultima = (Array.isArray(metricasPaginas) ? metricasPaginas : []).find((m) => m.numero === paginasObjetivo);
   const fraccionVaciaUltimaPagina = Number(ultima?.fraccionVacia ?? 0);
   const consumioTodas = usadosSet.size >= preguntasDb.length;
-  const paginasExpandidaAutomaticamente = paginasObjetivo > numeroPaginas;
   const advertencias: string[] = [];
   const umbralVacioResidual = 0.05;
   const esTest = String(configuracion.entorno).toLowerCase() === 'test';
-  if (paginasExpandidaAutomaticamente) {
-    advertencias.push(
-      `Se expandió automáticamente de ${numeroPaginas} a ${paginasObjetivo} pagina(s) para acomodar todos los reactivos.`
-    );
-  }
   if ((preguntasRestantes ?? 0) > 0) {
     if (!esTest) {
       throw new ErrorAplicacion(
@@ -1201,7 +1185,7 @@ export async function generarExamen(req: SolicitudDocente, res: Response) {
       `No caben ${preguntasRestantes} pregunta(s) en ${paginasObjetivo} pagina(s). Aumenta el numero de paginas.`
     );
   }
-  if (consumioTodas && fraccionVaciaUltimaPagina > 0.5 && !paginasExpandidaAutomaticamente) {
+  if (consumioTodas && fraccionVaciaUltimaPagina > 0.5) {
     if (!esTest) {
       throw new ErrorAplicacion(
         'PAGINAS_INSUFICIENTES',
@@ -1256,7 +1240,11 @@ export async function generarExamen(req: SolicitudDocente, res: Response) {
  */
 export async function generarExamenesLote(req: SolicitudDocente, res: Response) {
   const docenteId = obtenerDocenteId(req);
-  const { plantillaId, confirmarMasivo } = req.body as { plantillaId: string; confirmarMasivo?: boolean };
+  const { plantillaId, confirmarMasivo, loteId: loteIdEntrada } = req.body as {
+    plantillaId: string;
+    confirmarMasivo?: boolean;
+    loteId?: string;
+  };
 
   const plantilla = await ExamenPlantilla.findById(plantillaId).lean();
   if (!plantilla) {
@@ -1272,7 +1260,14 @@ export async function generarExamenesLote(req: SolicitudDocente, res: Response) 
     throw new ErrorAplicacion('PLANTILLA_INVALIDA', 'La plantilla requiere materia (periodoId) para generar en lote', 400);
   }
 
-  const loteId = randomUUID().split('-')[0].toUpperCase();
+  const loteIdNormalizado = normalizarParaNombreArchivo(String(loteIdEntrada ?? '').trim(), { maxLen: 16 }).toUpperCase();
+  let loteId = loteIdNormalizado || randomUUID().split('-')[0].toUpperCase();
+  if (loteIdNormalizado) {
+    const loteExistente = await ExamenGenerado.exists({ docenteId, loteId });
+    if (loteExistente) {
+      loteId = randomUUID().split('-')[0].toUpperCase();
+    }
+  }
   const periodo = await Periodo.findById(plantilla.periodoId).lean();
   if (!periodo) {
     throw new ErrorAplicacion('PERIODO_NO_ENCONTRADO', 'Materia no encontrada', 404);
@@ -1338,16 +1333,19 @@ export async function generarExamenesLote(req: SolicitudDocente, res: Response) 
     })
   );
 
-  // Pre-chequeo: si ni usando TODO el banco alcanza para llenar las paginas, bloquea el lote.
+  // Pre-chequeo: fija el set de preguntas del lote para que TODOS los examenes
+  // usen exactamente las mismas preguntas y cantidad de reactivos.
   const templateVersionOmr = resolverTemplateVersionOmr({
     docenteId,
     periodoId: plantilla.periodoId,
     plantillaId: plantilla._id
   });
+  let preguntasBaseLote: ReturnType<typeof normalizarPreguntasParaTv3> = [];
+  let totalReactivosLote = 0;
   {
-    const preguntasCandidatas = ordenarPreguntasDeterminista(preguntasBase, hash32(String(plantilla._id)));
-    const mapaVariante = generarVarianteDeterminista(preguntasCandidatas, `plantilla:${plantilla._id}:lote-precheck`);
-    const { metricasPaginas, mapaOmr } = await generarPdfExamen({
+    const preguntasCandidatas = ordenarPreguntasDeterminista(preguntasBase, hash32(`${String(plantilla._id)}:${loteId}:lote-base`));
+    const mapaVariante = generarVarianteDeterminista(preguntasCandidatas, `plantilla:${plantilla._id}:lote-base:${loteId}`);
+    const { metricasPaginas, mapaOmr, preguntasRestantes } = await generarPdfExamen({
       titulo: plantilla.titulo,
       folio: 'PRECHECK',
       preguntas: preguntasCandidatas,
@@ -1363,10 +1361,48 @@ export async function generarExamenesLote(req: SolicitudDocente, res: Response) 
         incluirPrefijosDocente: true
       })
     });
-    const usadosSet = extraerPreguntasUsadasMapaOmr(mapaOmr as never);
+    if ((preguntasRestantes ?? 0) > 0) {
+      throw new ErrorAplicacion(
+        'PAGINAS_INSUFICIENTES_POR_EXCESO',
+        `No caben ${preguntasRestantes} pregunta(s) en ${numeroPaginas} pagina(s). Aumenta el numero de paginas.`,
+        409,
+        { preguntasRestantes, numeroPaginas }
+      );
+    }
+
+    const mapaVarianteUsada = construirMapaVarianteUsadaDesdeOmr(mapaVariante, mapaOmr);
+    const idsPreguntasLote = Array.from(
+      new Set(
+        (Array.isArray(mapaVarianteUsada.ordenPreguntas) ? mapaVarianteUsada.ordenPreguntas : [])
+          .map((id) => String(id ?? '').trim())
+          .filter(Boolean)
+      )
+    );
+
+    if (idsPreguntasLote.length === 0) {
+      throw new ErrorAplicacion('SIN_PREGUNTAS', 'No se pudo determinar el set de preguntas del lote', 409);
+    }
+
+    const preguntasPorId = new Map(preguntasBase.map((pregunta) => [String(pregunta.id), pregunta]));
+    preguntasBaseLote = normalizarPreguntasParaTv3(
+      idsPreguntasLote
+        .map((id) => preguntasPorId.get(id))
+        .filter((pregunta): pregunta is NonNullable<typeof pregunta> => Boolean(pregunta))
+    );
+    totalReactivosLote = preguntasBaseLote.length;
+
+    if (totalReactivosLote !== idsPreguntasLote.length) {
+      throw new ErrorAplicacion(
+        'PREGUNTAS_NO_DISPONIBLES',
+        'No se pudieron resolver todas las preguntas seleccionadas para el lote.',
+        409
+      );
+    }
+
+    const usadosSet = new Set(idsPreguntasLote);
     const ultima = (Array.isArray(metricasPaginas) ? metricasPaginas : []).find((m) => m.numero === numeroPaginas);
     const fraccionVaciaUltimaPagina = Number(ultima?.fraccionVacia ?? 0);
-    const consumioTodas = usadosSet.size >= preguntasDb.length;
+    const consumioTodas = usadosSet.size >= totalReactivosLote;
     if (consumioTodas && fraccionVaciaUltimaPagina > 0.5) {
       throw new ErrorAplicacion(
         'PAGINAS_INSUFICIENTES',
@@ -1384,12 +1420,12 @@ export async function generarExamenesLote(req: SolicitudDocente, res: Response) 
 
   async function crearExamenSinAlumno() {
     for (let intento = 0; intento < maxIntentosVarianteUnica; intento += 1) {
-      const preguntasCandidatas = ordenarPreguntasAleatorio(preguntasBase);
+      const preguntasCandidatas = ordenarPreguntasAleatorio(preguntasBaseLote);
       const mapaVariante = generarVariante(preguntasCandidatas);
       const esUltimoIntentoVariante = intento + 1 >= maxIntentosVarianteUnica;
       let folio = randomUUID().split('-')[0].toUpperCase();
       try {
-        const { pdfBytes, paginas, metricasPaginas, mapaOmr } = await generarPdfExamen({
+        const { pdfBytes, paginas, metricasPaginas, mapaOmr, preguntasRestantes } = await generarPdfExamen({
           titulo: plantilla.titulo,
           folio,
           preguntas: preguntasCandidatas,
@@ -1408,11 +1444,25 @@ export async function generarExamenesLote(req: SolicitudDocente, res: Response) 
 
         const usadosSet = extraerPreguntasUsadasMapaOmr(mapaOmr as never);
         const mapaVarianteUsada = construirMapaVarianteUsadaDesdeOmr(mapaVariante, mapaOmr);
+        const reactivosUsados = Array.isArray(mapaVarianteUsada.ordenPreguntas) ? mapaVarianteUsada.ordenPreguntas.length : 0;
+
+        if ((preguntasRestantes ?? 0) > 0 || reactivosUsados !== totalReactivosLote) {
+          if (!esUltimoIntentoVariante) {
+            continue;
+          }
+          throw new ErrorAplicacion(
+            'LOTE_VARIANTE_INCONSISTENTE',
+            `No se pudo mantener un lote consistente de ${totalReactivosLote} reactivos en ${numeroPaginas} pagina(s).`,
+            409,
+            { preguntasRestantes, reactivosUsados, totalReactivosLote, numeroPaginas }
+          );
+        }
+
         const firmaVariante = construirFirmaVariante(mapaVarianteUsada);
 
         const ultima = (Array.isArray(metricasPaginas) ? metricasPaginas : []).find((m) => m.numero === numeroPaginas);
         const fraccionVaciaUltimaPagina = Number(ultima?.fraccionVacia ?? 0);
-        const consumioTodas = usadosSet.size >= preguntasDb.length;
+        const consumioTodas = usadosSet.size >= totalReactivosLote;
         if (consumioTodas && fraccionVaciaUltimaPagina > 0.5) {
           throw new ErrorAplicacion(
             'PAGINAS_INSUFICIENTES',
@@ -1492,13 +1542,55 @@ export async function generarExamenesLote(req: SolicitudDocente, res: Response) 
     const nombreArchivo = construirNombrePdfLote({
       loteId: loteSafe,
       materiaNombre: String((periodo as unknown as { nombre?: unknown })?.nombre ?? ''),
-      plantillaTitulo: String((plantilla as unknown as { titulo?: unknown })?.titulo ?? '')
+      plantillaTitulo: String((plantilla as unknown as { titulo?: unknown })?.titulo ?? ''),
+      totalExamenes: totalAlumnos
     });
     await guardarPdfExamen(nombreArchivo, loteBytes);
     lotePdfUrl = `/examenes/generados/lote/${encodeURIComponent(loteSafe)}/pdf`;
   }
 
   res.status(201).json({ loteId, totalAlumnos, examenesGenerados, lotePdfUrl });
+}
+
+export async function obtenerProgresoGeneracionLote(req: SolicitudDocente, res: Response) {
+  const docenteId = obtenerDocenteId(req);
+  const lote = normalizarParaNombreArchivo(String(req.params.loteId || '').trim(), { maxLen: 16 }).toUpperCase();
+  if (!lote) {
+    throw new ErrorAplicacion('LOTE_INVALIDO', 'Lote invalido', 400);
+  }
+
+  const plantillaId = String(req.query.plantillaId || '').trim();
+  let totalEsperado = 0;
+  if (plantillaId) {
+    const plantilla = await ExamenPlantilla.findById(plantillaId).lean();
+    if (plantilla && String(plantilla.docenteId) === String(docenteId) && plantilla.periodoId) {
+      totalEsperado = await Alumno.countDocuments({
+        docenteId,
+        periodoId: plantilla.periodoId,
+        activo: true
+      });
+    }
+  }
+
+  const generados = await ExamenGenerado.countDocuments({
+    docenteId,
+    loteId: lote,
+    archivadoEn: { $exists: false }
+  });
+
+  const porcentajeBase = totalEsperado > 0 ? Math.round((generados / totalEsperado) * 100) : 0;
+  const porcentaje = Math.max(0, Math.min(100, porcentajeBase));
+  const completado = totalEsperado > 0 ? generados >= totalEsperado : false;
+  const estado = completado ? 'completado' : generados > 0 ? 'generando' : 'iniciando';
+
+  res.json({
+    loteId: lote,
+    totalEsperado,
+    generados,
+    porcentaje,
+    completado,
+    estado
+  });
 }
 
 export async function descargarPdfLote(req: SolicitudDocente, res: Response) {
@@ -1511,28 +1603,40 @@ export async function descargarPdfLote(req: SolicitudDocente, res: Response) {
     .sort({ generadoEn: -1, _id: -1 })
     .select({ plantillaId: 1, periodoId: 1 })
     .lean();
-  const [plantilla, periodo] = await Promise.all([
+  const [plantilla, periodo, totalExamenes] = await Promise.all([
     (examenLote as unknown as { plantillaId?: unknown })?.plantillaId
       ? ExamenPlantilla.findById(String((examenLote as unknown as { plantillaId?: unknown })?.plantillaId ?? '')).lean()
       : Promise.resolve(null),
     (examenLote as unknown as { periodoId?: unknown })?.periodoId
       ? Periodo.findById(String((examenLote as unknown as { periodoId?: unknown })?.periodoId ?? '')).lean()
-      : Promise.resolve(null)
+      : Promise.resolve(null),
+    ExamenGenerado.countDocuments({ docenteId, loteId: lote })
   ]);
 
   const nombreArchivo = construirNombrePdfLote({
     loteId: lote,
     materiaNombre: String((periodo as unknown as { nombre?: unknown })?.nombre ?? ''),
+    plantillaTitulo: String((plantilla as unknown as { titulo?: unknown })?.titulo ?? ''),
+    totalExamenes: Number(totalExamenes ?? 0)
+  });
+  const nombreArchivoAnterior = construirNombrePdfLoteAnterior({
+    loteId: lote,
+    materiaNombre: String((periodo as unknown as { nombre?: unknown })?.nombre ?? ''),
     plantillaTitulo: String((plantilla as unknown as { titulo?: unknown })?.titulo ?? '')
   });
   const ruta = resolverRutaPdfExamen(nombreArchivo);
+  const rutaAnterior = resolverRutaPdfExamen(nombreArchivoAnterior);
   const rutaLegacy = resolverRutaPdfExamen(`examenes-lote-${lote}.pdf`);
   try {
     let buffer: Buffer;
     try {
       buffer = await fs.readFile(ruta);
     } catch {
-      buffer = await fs.readFile(rutaLegacy);
+      try {
+        buffer = await fs.readFile(rutaAnterior);
+      } catch {
+        buffer = await fs.readFile(rutaLegacy);
+      }
     }
     res.setHeader('Content-Type', 'application/pdf');
     res.setHeader('Content-Disposition', `attachment; filename="${nombreArchivo}"`);

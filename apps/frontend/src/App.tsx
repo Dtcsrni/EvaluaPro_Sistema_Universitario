@@ -10,6 +10,28 @@ import { TemaProvider } from './tema/TemaProvider';
 import { TooltipLayer } from './ui/ux/tooltip/TooltipLayer';
 import { VersionInfoPage } from './ui/version/VersionInfoPage';
 
+function normalizarRutaAsset(valor: string): string {
+  const limpio = String(valor || '').trim();
+  if (!limpio) return '';
+  try {
+    return new URL(limpio, window.location.origin).pathname;
+  } catch {
+    return limpio.split('?')[0] || '';
+  }
+}
+
+function obtenerAssetPrincipalActual(): string {
+  if (typeof document === 'undefined') return '';
+  const script = document.querySelector<HTMLScriptElement>('script[type="module"][src*="/assets/index-"]');
+  return normalizarRutaAsset(script?.getAttribute('src') || '');
+}
+
+function extraerAssetPrincipalDesdeHtml(html: string): string {
+  const fuente = String(html || '');
+  const match = fuente.match(/<script[^>]+type=["']module["'][^>]+src=["']([^"']*\/assets\/index-[^"']+\.js)["']/i);
+  return normalizarRutaAsset(match?.[1] || '');
+}
+
 function establecerFavicon(href: string) {
   if (typeof document === 'undefined') return;
   const head = document.head;
@@ -38,6 +60,42 @@ function App() {
         : 'Plataforma Docente - EvaluaPro';
     establecerFavicon(esAlumno ? '/favicon-alumno.svg' : '/favicon-docente.svg');
   }, [destino]);
+
+  useEffect(() => {
+    if (!import.meta.env.PROD) return;
+
+    let activo = true;
+    let assetActual = obtenerAssetPrincipalActual();
+
+    const verificarCambios = async () => {
+      if (!activo) return;
+      try {
+        const respuesta = await fetch('/index.html', { cache: 'no-store', credentials: 'same-origin' });
+        if (!respuesta.ok) return;
+        const html = await respuesta.text();
+        const assetPublicado = extraerAssetPrincipalDesdeHtml(html);
+        if (!assetPublicado) return;
+        if (!assetActual) {
+          assetActual = assetPublicado;
+          return;
+        }
+        if (assetPublicado !== assetActual) {
+          window.location.reload();
+        }
+      } catch {
+        // silencioso: siguiente ciclo vuelve a intentar
+      }
+    };
+
+    const intervalo = window.setInterval(() => {
+      void verificarCambios();
+    }, 30_000);
+
+    return () => {
+      activo = false;
+      window.clearInterval(intervalo);
+    };
+  }, []);
 
   const contenido = esVersionInfo
     ? <VersionInfoPage />

@@ -10,8 +10,8 @@ export const LAYOUT_TEMPLATE_V9 = {
   pageHeightPx: 1056,
   pageMarginPx: 32,
   gridPx: 4,
-  firstHeaderHeightPx: 136,
-  otherHeaderHeightPx: 28,
+  firstHeaderHeightPx: 132,
+  otherHeaderHeightPx: 24,
   footerHeightPx: 44,
   interQuestionGapPx: 0,
   contentGapPx: 16,
@@ -37,7 +37,7 @@ export const LAYOUT_TEMPLATE_V9 = {
   },
   omr: {
     panelWidthPx: 76,
-    panelHeightPx: 100,
+    panelHeightPx: 90,
     framePaddingPx: 6,
     headerBandHeightPx: 10,
     bubbleTopOffsetPx: 2,
@@ -45,11 +45,11 @@ export const LAYOUT_TEMPLATE_V9 = {
     panelIdHeightPx: 14,
     bubbleRadiusPx: 7,
     bubbleStrokePx: 2,
-    bubbleStepYPx: 15,
+    bubbleStepYPx: 13,
     bubbleColumnX: 15,
     labelColumnX: 34,
     labelsTopOffsetPx: 11,
-    labelStepYPx: 15,
+    labelStepYPx: 13,
     fiducialSizePx: 7,
     fiducialInsetPx: 3
   }

@@ -128,7 +128,8 @@ export const esquemaGenerarExamen = z.object({
  */
 export const esquemaGenerarExamenesLote = z.object({
   plantillaId: esquemaObjectId,
-  confirmarMasivo: z.boolean().optional()
+  confirmarMasivo: z.boolean().optional(),
+  loteId: z.string().trim().min(4).max(16).regex(/^[A-Za-z0-9_-]+$/).optional()
 });
 
 export const esquemaRegenerarExamenGenerado = z

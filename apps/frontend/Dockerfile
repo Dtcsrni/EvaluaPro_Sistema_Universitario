@@ -1,6 +1,7 @@
 # Etapa de build: compila el bundle estatico del frontend.
 FROM node:24-alpine AS builder
 WORKDIR /app
+RUN npm install -g npm@11.11.0
 COPY package*.json ./
 COPY package-lock.json ./
 COPY tsconfig.base.json ./
@@ -10,7 +11,7 @@ COPY apps/frontend/vite.config.ts ./apps/frontend/
 COPY apps/frontend/index.html ./apps/frontend/
 COPY apps/frontend/public ./apps/frontend/public
 COPY apps/frontend/src ./apps/frontend/src
-RUN npm install
+RUN npm install --workspace apps/frontend --include=dev --include-workspace-root=false
 ARG VITE_API_BASE_URL=http://localhost:4000/api
 ARG VITE_APP_DESTINO=docente
 ARG VITE_PORTAL_BASE_URL=http://localhost:8080/api/portal
@@ -22,6 +23,7 @@ RUN npm --workspace apps/frontend run build
 # Etapa runtime: sirve el bundle estatico con un servidor minimo.
 FROM node:24-alpine AS runner
 WORKDIR /app
+RUN npm install -g npm@11.11.0
 RUN npm install -g serve
 COPY --from=builder /app/apps/frontend/dist ./dist
 EXPOSE 4173
