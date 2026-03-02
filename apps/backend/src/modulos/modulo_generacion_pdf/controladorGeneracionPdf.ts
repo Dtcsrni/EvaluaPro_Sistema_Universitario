@@ -237,6 +237,17 @@ function construirMapaVarianteUsadaDesdeOmr(
   return construirMapaVarianteUsadaTv3(mapaVariante as never, usados);
 }
 
+function construirFirmaVariante(mapaVariante: MapaVariante): string {
+  const ordenPreguntas = Array.isArray(mapaVariante.ordenPreguntas) ? mapaVariante.ordenPreguntas : [];
+  const bloques = ordenPreguntas.map((idPregunta) => {
+    const ordenOpciones = Array.isArray(mapaVariante.ordenOpcionesPorPregunta?.[idPregunta])
+      ? mapaVariante.ordenOpcionesPorPregunta[idPregunta]
+      : [];
+    return `${idPregunta}:${ordenOpciones.join('.')}`;
+  });
+  return `${ordenPreguntas.join('|')}__${bloques.join('|')}`;
+}
+
 const PREVIEW_TTL_MS = 30 * 60 * 1000;
 const PREVIEW_CLEANUP_INTERVAL_MS = 10 * 60 * 1000;
 const PREVIEW_MAX_FILES = 40;
@@ -1368,12 +1379,15 @@ export async function generarExamenesLote(req: SolicitudDocente, res: Response) 
     }
   }
 
-  async function crearExamenSinAlumno() {
-    const preguntasCandidatas = ordenarPreguntasAleatorio(preguntasBase);
-    const mapaVariante = generarVariante(preguntasCandidatas);
+  const firmasVariantesLote = new Set<string>();
+  const maxIntentosVarianteUnica = Math.min(36, Math.max(10, totalAlumnos * 2));
 
-    let folio = randomUUID().split('-')[0].toUpperCase();
-    for (let intento = 0; intento < 3; intento += 1) {
+  async function crearExamenSinAlumno() {
+    for (let intento = 0; intento < maxIntentosVarianteUnica; intento += 1) {
+      const preguntasCandidatas = ordenarPreguntasAleatorio(preguntasBase);
+      const mapaVariante = generarVariante(preguntasCandidatas);
+      const esUltimoIntentoVariante = intento + 1 >= maxIntentosVarianteUnica;
+      let folio = randomUUID().split('-')[0].toUpperCase();
       try {
         const { pdfBytes, paginas, metricasPaginas, mapaOmr } = await generarPdfExamen({
           titulo: plantilla.titulo,
@@ -1394,6 +1408,7 @@ export async function generarExamenesLote(req: SolicitudDocente, res: Response) 
 
         const usadosSet = extraerPreguntasUsadasMapaOmr(mapaOmr as never);
         const mapaVarianteUsada = construirMapaVarianteUsadaDesdeOmr(mapaVariante, mapaOmr);
+        const firmaVariante = construirFirmaVariante(mapaVarianteUsada);
 
         const ultima = (Array.isArray(metricasPaginas) ? metricasPaginas : []).find((m) => m.numero === numeroPaginas);
         const fraccionVaciaUltimaPagina = Number(ultima?.fraccionVacia ?? 0);
@@ -1407,6 +1422,10 @@ export async function generarExamenesLote(req: SolicitudDocente, res: Response) 
             409,
             { fraccionVaciaUltimaPagina, numeroPaginas }
           );
+        }
+
+        if (firmasVariantesLote.has(firmaVariante) && !esUltimoIntentoVariante) {
+          continue;
         }
 
         const nombreArchivo = construirNombrePdfExamen({
@@ -1431,6 +1450,8 @@ export async function generarExamenesLote(req: SolicitudDocente, res: Response) 
           mapaOmr,
           rutaPdf
         });
+
+        firmasVariantesLote.add(firmaVariante);
 
         return { examenGenerado, pdfBytes };
       } catch (error) {

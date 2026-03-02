@@ -77,18 +77,17 @@ export function SeccionPlantillas({
     'Por favor conteste las siguientes preguntas referentes al parcial. ' +
     'Rellene el círculo de la respuesta más adecuada, evitando salirse del mismo. ' +
     'Cada pregunta vale 10 puntos si está completa y es correcta.';
+  const TECNICO_VERSIONES_DEFAULT = 1;
+  const TECNICO_FAMILIA_OMR_DEFAULT = 'S50_5A_ID5_VR6';
+  const TECNICO_PREFILL_DEFAULT: 'none' = 'none';
+  const TECNICO_MODO_VERSION_DEFAULT: 'single' = 'single';
 
   const [titulo, setTitulo] = useState('');
   const [tipo, setTipo] = useState<'parcial' | 'global'>('parcial');
   const [periodoId, setPeriodoId] = useState('');
   const [numeroPaginas, setNumeroPaginas] = useState(2);
   const [reactivosObjetivo, setReactivosObjetivo] = useState(20);
-  const [defaultVersionCount, setDefaultVersionCount] = useState(1);
-  const [sheetFamilyCode, setSheetFamilyCode] = useState('S50_5A_ID5_VR6');
-  const [prefillMode, setPrefillMode] = useState<'none' | 'roster' | 'per-student'>('none');
-  const [versionMode, setVersionMode] = useState<'single' | 'multi_version'>('single');
   const [temasSeleccionados, setTemasSeleccionados] = useState<string[]>([]);
-  const [instrucciones, setInstrucciones] = useState(INSTRUCCIONES_DEFAULT);
   const [mensaje, setMensaje] = useState('');
   const [plantillaId, setPlantillaId] = useState('');
   const [mensajeGeneracion, setMensajeGeneracion] = useState('');
@@ -270,13 +269,6 @@ export function SeccionPlantillas({
     setTemasSeleccionados([]);
   }, [periodoId]);
 
-  useEffect(() => {
-    // Defaults para creacion.
-    if (!modoEdicion) {
-      setInstrucciones(INSTRUCCIONES_DEFAULT);
-    }
-  }, [modoEdicion, INSTRUCCIONES_DEFAULT]);
-
   const puedeCrear = Boolean(
     titulo.trim() &&
       periodoId &&
@@ -346,12 +338,7 @@ export function SeccionPlantillas({
     setPeriodoId(String(plantilla.periodoId || ''));
     setNumeroPaginas(Number((plantilla as unknown as { numeroPaginas?: unknown })?.numeroPaginas ?? 1));
     setReactivosObjetivo(Number(plantilla.reactivosObjetivo ?? 20));
-    setDefaultVersionCount(Number(plantilla.defaultVersionCount ?? 1));
-    setSheetFamilyCode(String(plantilla.omrConfig?.sheetFamilyCode ?? 'S50_5A_ID5_VR6'));
-    setPrefillMode(plantilla.omrConfig?.prefillMode ?? 'none');
-    setVersionMode(plantilla.omrConfig?.versionMode ?? 'single');
     setTemasSeleccionados(Array.isArray(plantilla.temas) ? plantilla.temas : []);
-    setInstrucciones(String(plantilla.instrucciones || ''));
     setMensaje('');
   }
 
@@ -363,12 +350,7 @@ export function SeccionPlantillas({
     setPeriodoId('');
     setNumeroPaginas(2);
     setReactivosObjetivo(20);
-    setDefaultVersionCount(1);
-    setSheetFamilyCode('S50_5A_ID5_VR6');
-    setPrefillMode('none');
-    setVersionMode('single');
     setTemasSeleccionados([]);
-    setInstrucciones(INSTRUCCIONES_DEFAULT);
     setMensaje('');
   }
 
@@ -395,7 +377,7 @@ export function SeccionPlantillas({
         tipo,
         numeroPaginas: Math.max(1, Math.floor(numeroPaginas)),
         reactivosObjetivo: Math.max(1, Math.floor(reactivosObjetivo)),
-        defaultVersionCount: Math.max(1, Math.floor(defaultVersionCount)),
+        defaultVersionCount: TECNICO_VERSIONES_DEFAULT,
         answerKeyMode: 'digital',
         bookletConfig: {
           targetPages: Math.max(1, Math.floor(numeroPaginas)),
@@ -408,15 +390,15 @@ export function SeccionPlantillas({
           separateCoverPage: false
         },
         omrConfig: {
-          sheetFamilyCode,
-          prefillMode,
+          sheetFamilyCode: TECNICO_FAMILIA_OMR_DEFAULT,
+          prefillMode: TECNICO_PREFILL_DEFAULT,
           identityMode: 'qr_plus_bubbled_id',
           allowBlankGenericSheets: true,
-          versionMode,
+          versionMode: TECNICO_MODO_VERSION_DEFAULT,
           ignoreUnusedTrailingQuestions: true,
           captureMode: 'pdf_and_mobile'
         },
-        instrucciones: String(instrucciones || '').trim() || undefined
+        instrucciones: INSTRUCCIONES_DEFAULT
       };
       if (periodoId) payload.periodoId = periodoId;
 
@@ -518,10 +500,10 @@ export function SeccionPlantillas({
       const payload: Record<string, unknown> = {
         tipo,
         titulo: titulo.trim(),
-        instrucciones: String(instrucciones || '').trim() || undefined,
+        instrucciones: INSTRUCCIONES_DEFAULT,
         numeroPaginas: Math.max(1, Math.floor(numeroPaginas)),
         reactivosObjetivo: Math.max(1, Math.floor(reactivosObjetivo)),
-        defaultVersionCount: Math.max(1, Math.floor(defaultVersionCount)),
+        defaultVersionCount: TECNICO_VERSIONES_DEFAULT,
         answerKeyMode: 'digital',
         bookletConfig: {
           targetPages: Math.max(1, Math.floor(numeroPaginas)),
@@ -534,11 +516,11 @@ export function SeccionPlantillas({
           separateCoverPage: false
         },
         omrConfig: {
-          sheetFamilyCode,
-          prefillMode,
+          sheetFamilyCode: TECNICO_FAMILIA_OMR_DEFAULT,
+          prefillMode: TECNICO_PREFILL_DEFAULT,
           identityMode: 'qr_plus_bubbled_id',
           allowBlankGenericSheets: true,
-          versionMode,
+          versionMode: TECNICO_MODO_VERSION_DEFAULT,
           ignoreUnusedTrailingQuestions: true,
           captureMode: 'pdf_and_mobile'
         }
@@ -593,9 +575,9 @@ export function SeccionPlantillas({
         {
           ...(previewActual?.proposedGenerationSeed ? { generationSeed: previewActual.proposedGenerationSeed } : {}),
           ...(previewActual?.previewFingerprint ? { previewFingerprint: previewActual.previewFingerprint } : {}),
-          prefillMode,
-          versionCount: Math.max(1, defaultVersionCount),
-          sheetFamilyCode
+          prefillMode: TECNICO_PREFILL_DEFAULT,
+          versionCount: TECNICO_VERSIONES_DEFAULT,
+          sheetFamilyCode: TECNICO_FAMILIA_OMR_DEFAULT
         },
         'No tienes permiso para generar examenes.'
       );
@@ -637,13 +619,10 @@ export function SeccionPlantillas({
     avisarSinPermiso,
     cargarAssessmentDetalle,
     cargarExamenesGenerados,
-    defaultVersionCount,
     enviarConPermiso,
     plantillaId,
     puedeGenerarExamenes,
-    prefillMode,
-    previewPorPlantillaId,
-    sheetFamilyCode
+    previewPorPlantillaId
   ]);
 
   const generarExamenesLote = useCallback(async () => {
@@ -668,9 +647,9 @@ export function SeccionPlantillas({
         {
           ...(previewActual?.proposedGenerationSeed ? { generationSeed: previewActual.proposedGenerationSeed } : {}),
           ...(previewActual?.previewFingerprint ? { previewFingerprint: previewActual.previewFingerprint } : {}),
-          prefillMode: 'none',
-          versionCount: Math.max(1, defaultVersionCount),
-          sheetFamilyCode
+          prefillMode: TECNICO_PREFILL_DEFAULT,
+          versionCount: TECNICO_VERSIONES_DEFAULT,
+          sheetFamilyCode: TECNICO_FAMILIA_OMR_DEFAULT
         },
         'No tienes permiso para generar examenes.',
         {
@@ -705,12 +684,10 @@ export function SeccionPlantillas({
     avisarSinPermiso,
     cargarAssessmentDetalle,
     cargarExamenesGenerados,
-    defaultVersionCount,
     enviarConPermiso,
     plantillaId,
     puedeGenerarExamenes,
     previewPorPlantillaId,
-    sheetFamilyCode
   ]);
 
   return (
@@ -766,26 +743,10 @@ export function SeccionPlantillas({
           plantillaEditando={plantillaEditando}
           titulo={titulo}
           setTitulo={setTitulo}
-          tipo={tipo}
-          setTipo={setTipo}
           periodoId={periodoId}
           setPeriodoId={setPeriodoId}
           periodos={periodos}
           bloqueoEdicion={bloqueoEdicion}
-          numeroPaginas={numeroPaginas}
-          setNumeroPaginas={setNumeroPaginas}
-          reactivosObjetivo={reactivosObjetivo}
-          setReactivosObjetivo={setReactivosObjetivo}
-          defaultVersionCount={defaultVersionCount}
-          setDefaultVersionCount={setDefaultVersionCount}
-          sheetFamilyCode={sheetFamilyCode}
-          setSheetFamilyCode={setSheetFamilyCode}
-          prefillMode={prefillMode}
-          setPrefillMode={setPrefillMode}
-          versionMode={versionMode}
-          setVersionMode={setVersionMode}
-          instrucciones={instrucciones}
-          setInstrucciones={setInstrucciones}
           temasDisponibles={temasDisponibles}
           temasSeleccionados={temasSeleccionados}
           setTemasSeleccionados={setTemasSeleccionados}

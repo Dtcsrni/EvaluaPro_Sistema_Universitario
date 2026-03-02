@@ -25,6 +25,7 @@ $lockPath = Join-Path $logDir 'dashboard.lock.json'
 $script:Port = $Port
 $script:AutoExit = $true
 $script:AutoExitGraceMs = 20000
+$script:AutoOpenOnStart = $false
 $script:NoStackSince = $null
 $script:DashboardGetTimeoutSec = 3
 $script:DashboardPostTimeoutSec = 4
@@ -45,6 +46,11 @@ try {
     $parsed = [int]$envGrace
     if ($parsed -ge 1000 -and $parsed -le 300000) { $script:AutoExitGraceMs = $parsed }
   }
+} catch {}
+
+try {
+  $envAutoOpen = [string]$env:TRAY_AUTO_OPEN
+  if ($envAutoOpen) { $script:AutoOpenOnStart = Parse-Bool $envAutoOpen }
 } catch {}
 
 function Log([string]$msg) {
@@ -1017,8 +1023,8 @@ $miExit.add_Click({
 
 $timer.Start()
 
-if (-not $NoOpen) {
-  # Abrir dashboard una vez que esté arriba.
+if ((-not $NoOpen) -and $script:AutoOpenOnStart) {
+  # Abrir dashboard una vez que esté arriba (opt-in para no robar foco por defecto).
   $deadline = (Get-Date).AddSeconds(6)
   do {
     Start-Sleep -Milliseconds 250

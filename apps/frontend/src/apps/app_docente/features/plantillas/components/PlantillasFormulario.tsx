@@ -18,26 +18,10 @@ export function PlantillasFormulario({
   plantillaEditando,
   titulo,
   setTitulo,
-  tipo,
-  setTipo,
   periodoId,
   setPeriodoId,
   periodos,
   bloqueoEdicion,
-  numeroPaginas,
-  setNumeroPaginas,
-  reactivosObjetivo,
-  setReactivosObjetivo,
-  defaultVersionCount,
-  setDefaultVersionCount,
-  sheetFamilyCode,
-  setSheetFamilyCode,
-  prefillMode,
-  setPrefillMode,
-  versionMode,
-  setVersionMode,
-  instrucciones,
-  setInstrucciones,
   temasDisponibles,
   temasSeleccionados,
   setTemasSeleccionados,
@@ -54,26 +38,10 @@ export function PlantillasFormulario({
   plantillaEditando: Plantilla | null;
   titulo: string;
   setTitulo: (value: string) => void;
-  tipo: 'parcial' | 'global';
-  setTipo: (value: 'parcial' | 'global') => void;
   periodoId: string;
   setPeriodoId: (value: string) => void;
   periodos: Periodo[];
   bloqueoEdicion: boolean;
-  numeroPaginas: number;
-  setNumeroPaginas: (value: number) => void;
-  reactivosObjetivo: number;
-  setReactivosObjetivo: (value: number) => void;
-  defaultVersionCount: number;
-  setDefaultVersionCount: (value: number) => void;
-  sheetFamilyCode: string;
-  setSheetFamilyCode: (value: string) => void;
-  prefillMode: 'none' | 'roster' | 'per-student';
-  setPrefillMode: (value: 'none' | 'roster' | 'per-student') => void;
-  versionMode: 'single' | 'multi_version';
-  setVersionMode: (value: 'single' | 'multi_version') => void;
-  instrucciones: string;
-  setInstrucciones: (value: string) => void;
   temasDisponibles: TemaDisponible[];
   temasSeleccionados: string[];
   setTemasSeleccionados: Dispatch<SetStateAction<string[]>>;
@@ -97,27 +65,14 @@ export function PlantillasFormulario({
             <b>Titulo:</b> nombre descriptivo (ej. <code>Parcial 1 - Algebra</code>).
           </li>
           <li>
-            <b>Tipo:</b> <code>parcial</code> o <code>global</code> (afecta campos de calificacion).
-          </li>
-          <li>
             <b>Materia:</b> la materia a la que pertenece.
-          </li>
-          <li>
-            <b>Paginas del cuadernillo:</b> cuantas paginas debe tener el contenido del examen.
-          </li>
-          <li>
-            <b>Reactivos objetivo:</b> cuantas preguntas se seleccionan para la evaluación.
-          </li>
-          <li>
-            <b>Familia OMR:</b> define la hoja de respuestas separada para captura y autocalificación.
           </li>
           <li>
             <b>Temas:</b> selecciona uno o mas; el examen toma preguntas al azar de esos temas.
           </li>
         </ul>
         <p>
-          Ejemplo: titulo <code>Parcial 1 - Programacion</code>, cuadernillo de <code>2</code> paginas, <code>15</code> reactivos,
-          familia <code>S50_5A_ID5_VR6</code> y temas <code>Arreglos</code> + <code>Funciones</code>.
+          Ejemplo: titulo <code>Parcial 1 - Programacion</code> y temas <code>Arreglos</code> + <code>Funciones</code>.
         </p>
       </AyudaFormulario>
       <div className="ayuda plantillas-panel__hint">
@@ -141,18 +96,6 @@ export function PlantillasFormulario({
             />
           </label>
           <label className="campo">
-            Tipo
-            <select
-              value={tipo}
-              onChange={(event) => setTipo(event.target.value as 'parcial' | 'global')}
-              disabled={bloqueoEdicion}
-              data-tooltip="Define si es parcial o global."
-            >
-              <option value="parcial">Parcial</option>
-              <option value="global">Global</option>
-            </select>
-          </label>
-          <label className="campo">
             Materia
             <select
               value={periodoId}
@@ -167,92 +110,6 @@ export function PlantillasFormulario({
                 </option>
               ))}
             </select>
-          </label>
-          <label className="campo">
-            Paginas del cuadernillo
-            <input
-              type="number"
-              min={1}
-              step={1}
-              value={numeroPaginas}
-              onChange={(event) => setNumeroPaginas(Number(event.target.value))}
-              disabled={bloqueoEdicion}
-              data-tooltip="Cantidad total de paginas del cuadernillo."
-            />
-          </label>
-          <label className="campo">
-            Reactivos objetivo
-            <input
-              type="number"
-              min={1}
-              step={1}
-              value={reactivosObjetivo}
-              onChange={(event) => setReactivosObjetivo(Number(event.target.value))}
-              disabled={bloqueoEdicion}
-              data-tooltip="Cantidad de reactivos que se seleccionarán para la evaluación."
-            />
-          </label>
-          <label className="campo">
-            Versiones
-            <input
-              type="number"
-              min={1}
-              step={1}
-              value={defaultVersionCount}
-              onChange={(event) => setDefaultVersionCount(Number(event.target.value))}
-              disabled={bloqueoEdicion}
-              data-tooltip="Número de versiones soportadas por la hoja OMR."
-            />
-          </label>
-          <label className="campo">
-            Familia OMR
-            <select
-              value={sheetFamilyCode}
-              onChange={(event) => setSheetFamilyCode(event.target.value)}
-              disabled={bloqueoEdicion}
-              data-tooltip="Hoja de respuestas separada usada para captura."
-            >
-              <option value="S20_5A_BASIC">S20_5A_BASIC</option>
-              <option value="S50_5A_ID5_VR6">S50_5A_ID5_VR6</option>
-              <option value="S100_5A_ID9_VR6_2P">S100_5A_ID9_VR6_2P</option>
-              <option value="CUSTOM_SCHEMA_V1">CUSTOM_SCHEMA_V1</option>
-            </select>
-          </label>
-          <label className="campo">
-            Prefill
-            <select
-              value={prefillMode}
-              onChange={(event) => setPrefillMode(event.target.value as 'none' | 'roster' | 'per-student')}
-              disabled={bloqueoEdicion}
-              data-tooltip="Nivel de precarga de datos en la hoja OMR."
-            >
-              <option value="none">Sin prefill</option>
-              <option value="roster">Roster</option>
-              <option value="per-student">Por alumno</option>
-            </select>
-          </label>
-          <label className="campo">
-            Modo de version
-            <select
-              value={versionMode}
-              onChange={(event) => setVersionMode(event.target.value as 'single' | 'multi_version')}
-              disabled={bloqueoEdicion}
-              data-tooltip="Define si la hoja usa una sola versión o varias."
-            >
-              <option value="single">Single</option>
-              <option value="multi_version">Multi-version</option>
-            </select>
-          </label>
-
-          <label className="campo plantillas-form__full">
-            Instrucciones (opcional)
-            <textarea
-              value={instrucciones}
-              onChange={(event) => setInstrucciones(event.target.value)}
-              rows={3}
-              disabled={bloqueoEdicion}
-              data-tooltip="Texto opcional que aparece en el examen."
-            />
           </label>
         </div>
 
@@ -293,9 +150,8 @@ export function PlantillasFormulario({
           )}
           {temasSeleccionados.length > 0 && (
             <span className="ayuda">
-              Total disponible en temas seleccionados: {totalDisponiblePorTemas}. Paginas solicitadas:{' '}
-              {Math.max(1, Math.floor(numeroPaginas))}. Si faltan preguntas, el sistema avisara; solo bloqueara si la ultima pagina queda
-              mas de la mitad vacia.
+              Total disponible en temas seleccionados: {totalDisponiblePorTemas}. Si faltan preguntas, el sistema avisara antes de
+              generar.
             </span>
           )}
         </div>

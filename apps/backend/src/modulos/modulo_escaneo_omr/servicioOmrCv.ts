@@ -203,6 +203,7 @@ type PerfilDeteccionOmr = {
   version: TemplateVersion;
   qrSizePts: number;
   bubbleRadiusPts: number;
+  bubblePitchYPts: number;
   boxWidthPts: number;
   centerToLeftPts: number;
   alignRange: number;
@@ -230,6 +231,7 @@ function resolverPerfilDeteccion(templateVersion: TemplateVersion): PerfilDetecc
       version: 1,
       qrSizePts: 20 * MM_A_PUNTOS,
       bubbleRadiusPts: (5 * MM_A_PUNTOS) / 2,
+      bubblePitchYPts: 8.8,
       boxWidthPts: Math.max(54, OMR_BOX_WIDTH_PTS * 1.15),
       centerToLeftPts: 9.5,
       alignRange: Math.max(14, OMR_ALIGN_RANGE * 0.72),
@@ -255,6 +257,7 @@ function resolverPerfilDeteccion(templateVersion: TemplateVersion): PerfilDetecc
     version: 3,
     qrSizePts: 30 * MM_A_PUNTOS,
     bubbleRadiusPts: (6.2 * MM_A_PUNTOS) / 2,
+    bubblePitchYPts: 11.2,
     boxWidthPts: Math.max(70, OMR_BOX_WIDTH_PTS * 1.5),
     centerToLeftPts: 14.2,
     alignRange: Math.max(18, OMR_ALIGN_RANGE * 0.92),
@@ -286,19 +289,27 @@ function mediana(valores: number[]) {
 
 function ajustarPerfilConMapa(perfilBase: PerfilDeteccionOmr, mapaPagina: MapaOmrPagina): PerfilDeteccionOmr {
   const radios: number[] = [];
+  const pasosY: number[] = [];
   const anchosCaja: number[] = [];
   const offsetsCentroIzq: number[] = [];
 
   for (const pregunta of mapaPagina.preguntas ?? []) {
     if (Number.isFinite(pregunta.perfilOmr?.radio)) radios.push(Number(pregunta.perfilOmr?.radio));
+    if (Number.isFinite(pregunta.perfilOmr?.pasoY)) pasosY.push(Number(pregunta.perfilOmr?.pasoY));
     if (Number.isFinite(pregunta.cajaOmr?.width)) anchosCaja.push(Number(pregunta.cajaOmr?.width));
     const opcionA = pregunta.opciones?.find((op) => op.letra === 'A');
+    const opcionB = pregunta.opciones?.find((op) => op.letra === 'B');
+    if (opcionA && opcionB && Number.isFinite(opcionA.y) && Number.isFinite(opcionB.y)) {
+      const delta = Math.abs(Number(opcionB.y) - Number(opcionA.y));
+      if (delta > 0.4) pasosY.push(delta);
+    }
     if (opcionA && Number.isFinite(pregunta.cajaOmr?.x)) {
       offsetsCentroIzq.push(Number(opcionA.x) - Number(pregunta.cajaOmr?.x));
     }
   }
 
   const radio = mediana(radios);
+  const pasoY = mediana(pasosY);
   const anchoCaja = mediana(anchosCaja);
   const offset = mediana(offsetsCentroIzq);
 
@@ -306,6 +317,8 @@ function ajustarPerfilConMapa(perfilBase: PerfilDeteccionOmr, mapaPagina: MapaOm
     ...perfilBase,
     bubbleRadiusPts:
       radio !== null ? Math.max(2.6, Math.min(7.2, radio)) : perfilBase.bubbleRadiusPts,
+    bubblePitchYPts:
+      pasoY !== null ? Math.max(6.8, Math.min(16, pasoY)) : perfilBase.bubblePitchYPts,
     boxWidthPts:
       anchoCaja !== null ? Math.max(32, Math.min(84, anchoCaja)) : perfilBase.boxWidthPts,
     centerToLeftPts:
@@ -374,11 +387,12 @@ type ParametrosBurbuja = {
   paso: number;
 };
 
-function crearParametrosBurbuja(escalaX: number, bubbleRadiusPts: number): ParametrosBurbuja {
+function crearParametrosBurbuja(escalaX: number, bubbleRadiusPts: number, bubblePitchYPts: number): ParametrosBurbuja {
   const radio = Math.max(6, bubbleRadiusPts * escalaX);
-  const ringInner = Math.max(radio + 2, radio * 1.4);
-  const ringOuter = Math.max(ringInner + 4, radio * 2.2);
-  const outerOuter = ringOuter + Math.max(3, radio * 0.5);
+  const pasoCentroPx = Math.max(radio * 2.4, bubblePitchYPts * escalaX);
+  const ringInner = Math.max(radio + 2, Math.min(radio * 1.34, pasoCentroPx * 0.31));
+  const ringOuter = Math.max(ringInner + 2, Math.min(radio * 1.88, pasoCentroPx * 0.42));
+  const outerOuter = Math.max(ringOuter + 2, Math.min(ringOuter + Math.max(2, radio * 0.3), pasoCentroPx * 0.48));
   const paso = Math.max(1, Math.round(radio / 4));
   return { radio, ringInner, ringOuter, outerOuter, paso };
 }
@@ -1487,7 +1501,7 @@ export async function analizarOmr(
     qrTexto = qrDetalle?.data;
   }
   const escalaX = width / ANCHO_CARTA;
-  const paramsBurbuja = crearParametrosBurbuja(escalaX, perfil.bubbleRadiusPts);
+  const paramsBurbuja = crearParametrosBurbuja(escalaX, perfil.bubbleRadiusPts, perfil.bubblePitchYPts);
 
   if (!qrTexto) {
     advertencias.push('No se detecto QR en la imagen');

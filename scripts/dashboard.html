@@ -4516,10 +4516,6 @@
       );
       if (activeDentroDashboard && activeEsInteractivo && origen !== 'reload') return;
 
-      const userAgent = String((navigator && navigator.userAgent) || '');
-      if (!/jsdom/i.test(userAgent)) {
-        try { window.focus(); } catch {}
-      }
       try { target.focus({ preventScroll: true }); } catch { try { target.focus(); } catch {} }
     }
 
