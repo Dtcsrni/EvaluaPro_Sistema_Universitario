@@ -79,6 +79,24 @@ export function compareSemver(a, b) {
   return 0;
 }
 
+function hasBetaTag(version) {
+  const parsed = parseSemver(version);
+  if (!parsed || !Array.isArray(parsed.prerelease) || parsed.prerelease.length === 0) return false;
+  return parsed.prerelease.some((part) => /beta/i.test(String(part || '')));
+}
+
+function shouldIncludeReleaseByChannel(channel, entry) {
+  const normalized = String(channel || 'stable').trim().toLowerCase();
+  const isPrerelease = Boolean(entry?.release?.prerelease);
+  if (normalized === 'stable') {
+    return !isPrerelease;
+  }
+  if (normalized === 'beta') {
+    return hasBetaTag(entry?.version);
+  }
+  return true;
+}
+
 function delay(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
@@ -124,6 +142,7 @@ function parseShaFromText(text) {
 
 export function selectLatestRelease(releases, currentVersion, options = {}) {
   const includePrerelease = options.includePrerelease !== false;
+  const channel = String(options.channel || '').trim().toLowerCase();
   const assetName = String(options.assetName || 'EvaluaPro-Setup.exe');
   const sha256AssetName = String(options.sha256AssetName || `${assetName}.sha256`);
 
@@ -137,6 +156,7 @@ export function selectLatestRelease(releases, currentVersion, options = {}) {
     .filter((entry) => entry.parsed)
     .filter((entry) => compareSemver(entry.version, currentVersion) > 0)
     .filter((entry) => includePrerelease || !Boolean(entry.release?.prerelease))
+    .filter((entry) => (channel ? shouldIncludeReleaseByChannel(channel, entry) : true))
     .sort((a, b) => compareSemver(b.version, a.version));
 
   if (candidates.length === 0) {
@@ -262,6 +282,7 @@ export function createUpdateManager(opts = {}) {
       }, config.checkRetries);
       const payload = await response.json();
       const pick = selectLatestRelease(payload, currentVersion, {
+        channel: config.channel,
         includePrerelease: config.channel !== 'stable',
         assetName: config.assetName,
         sha256AssetName: config.sha256AssetName

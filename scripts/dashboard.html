@@ -4474,6 +4474,8 @@
         instalacion: null,
         lifecycle: null,
         continuity: null,
+        update: null,
+        updateNotifiedVersion: '',
         mongoExpress: {
         url: 'http://127.0.0.1:8081/',
         alcanzable: false,
@@ -5012,9 +5014,26 @@
         const status = await res.json();
         state.update = status;
         renderizarEstadoUpdate(status);
+        notificarUpdateDisponible(status, { source: 'poll' });
       } catch (error) {
         renderizarEstadoUpdate({ state: 'error', lastError: normalizarMensajeError(error) });
       }
+    }
+
+    function notificarUpdateDisponible(payload, options = {}) {
+      const estado = payload && typeof payload === 'object' ? payload : {};
+      const source = String(options.source || 'auto');
+      const currentState = String(estado.state || '').toLowerCase();
+      const version = String(estado.availableVersion || '').trim();
+      if (currentState !== 'available' || !version) return;
+      if (state.updateNotifiedVersion === version) return;
+
+      state.updateNotifiedVersion = version;
+      mostrarToast(`Nueva actualización detectada: v${version}.`, 'info', {
+        id: `update-available-${version}`,
+        title: source === 'manual' ? 'Actualización encontrada' : 'Actualización disponible',
+        duration: 4200
+      });
     }
 
     async function ejecutarAccionUpdate(path, options = {}) {
@@ -5029,6 +5048,7 @@
         const datos = await respuesta.json();
         renderizarEstadoUpdate(datos);
         state.update = datos;
+        notificarUpdateDisponible(datos, { source: 'manual' });
         if (!respuesta.ok) {
           mostrarToast(String(datos.lastError || 'No se pudo completar la acción de update.'), 'error', {
             title: 'Actualización',

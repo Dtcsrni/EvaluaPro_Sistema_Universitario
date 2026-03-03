@@ -1,6 +1,28 @@
 name: CI Frontend Module
 
 on:
+  push:
+    paths:
+      - "apps/frontend/**"
+      - "client/**"
+      - "package.json"
+      - "package-lock.json"
+      - "tsconfig.base.json"
+      - "vitest.base.ts"
+      - "scripts/retry.mjs"
+      - "scripts/testing/**"
+      - ".github/workflows/ci-frontend.yml"
+  pull_request:
+    paths:
+      - "apps/frontend/**"
+      - "client/**"
+      - "package.json"
+      - "package-lock.json"
+      - "tsconfig.base.json"
+      - "vitest.base.ts"
+      - "scripts/retry.mjs"
+      - "scripts/testing/**"
+      - ".github/workflows/ci-frontend.yml"
   workflow_dispatch:
 
 concurrency:

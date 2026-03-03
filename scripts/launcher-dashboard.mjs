@@ -224,6 +224,7 @@ const continuityState = {
 
 let continuityTimer = null;
 let continuityRunPromise = null;
+let updateAutoCheckTimer = null;
 
 loadLifecyclePolicy();
 loadContinuityPolicy();
@@ -334,6 +335,7 @@ function readUpdateConfig() {
     assetName: 'EvaluaPro-Setup.exe',
     sha256AssetName: 'EvaluaPro-Setup.exe.sha256',
     requireSha256: false,
+    autoCheckEnabled: true,
     checkIntervalMs: 900_000,
     syncPreflight: {
       enabled: true,
@@ -369,6 +371,15 @@ function readUpdateConfig() {
   if (process.env.EVALUAPRO_UPDATE_SHA_ASSET) cfg.sha256AssetName = String(process.env.EVALUAPRO_UPDATE_SHA_ASSET);
   if (process.env.EVALUAPRO_UPDATE_FEED_URL) cfg.feedUrl = String(process.env.EVALUAPRO_UPDATE_FEED_URL);
   if (process.env.EVALUAPRO_UPDATE_REQUIRE_SHA256) cfg.requireSha256 = /^(1|true|yes|si)$/i.test(String(process.env.EVALUAPRO_UPDATE_REQUIRE_SHA256));
+  if (process.env.EVALUAPRO_UPDATE_AUTOCHECK) cfg.autoCheckEnabled = /^(1|true|yes|si)$/i.test(String(process.env.EVALUAPRO_UPDATE_AUTOCHECK));
+  if (process.env.EVALUAPRO_UPDATE_CHECK_INTERVAL_MS) cfg.checkIntervalMs = Number(process.env.EVALUAPRO_UPDATE_CHECK_INTERVAL_MS);
+
+  cfg.channel = String(cfg.channel || 'stable').trim().toLowerCase();
+  if (!cfg.channel) cfg.channel = 'stable';
+
+  const interval = Number(cfg.checkIntervalMs || 0);
+  cfg.checkIntervalMs = Number.isFinite(interval) && interval >= 60_000 ? Math.round(interval) : defaults.checkIntervalMs;
+
   return cfg;
 }
 
@@ -1571,6 +1582,49 @@ const updateManager = createUpdateManager({
   runInstaller: runInstallerForUpdate,
   healthCheck: healthCheckAfterUpdate
 });
+
+function configureUpdateAutoCheck() {
+  if (updateAutoCheckTimer) {
+    clearInterval(updateAutoCheckTimer);
+    updateAutoCheckTimer = null;
+  }
+
+  if (!updateConfig.autoCheckEnabled) {
+    logSystem('Auto-check de actualizaciones desactivado por configuración.', 'system');
+    return;
+  }
+
+  const intervalMs = Number(updateConfig.checkIntervalMs || 0);
+  if (!Number.isFinite(intervalMs) || intervalMs < 60_000) {
+    logSystem(`Intervalo inválido para auto-check (${updateConfig.checkIntervalMs}).`, 'warn');
+    return;
+  }
+
+  const runCheck = async (reason) => {
+    const status = updateManager.getStatus();
+    const currentState = String(status?.state || 'idle');
+    if (['checking', 'downloading', 'applying', 'ready', 'available'].includes(currentState)) return;
+    try {
+      const next = await updateManager.check();
+      if (String(next?.state || '') === 'available') {
+        logSystem(`Actualización disponible detectada (${next.availableVersion || '?'}) [${reason}]`, 'warn');
+      }
+    } catch (error) {
+      const msg = String(error?.message || error || 'update_check_error');
+      logSystem(`Auto-check de actualización falló [${reason}]: ${msg}`, 'warn');
+    }
+  };
+
+  const startupDelayMs = Math.min(Math.max(Math.floor(intervalMs / 3), 10_000), 60_000);
+  setTimeout(() => {
+    runCheck('startup').catch(() => undefined);
+  }, startupDelayMs);
+
+  updateAutoCheckTimer = setInterval(() => {
+    runCheck('interval').catch(() => undefined);
+  }, intervalMs);
+  logSystem(`Auto-check de actualizaciones activo cada ${Math.round(intervalMs / 1000)}s.`, 'system');
+}
 
 function isShortcutsMissing() {
   if (!process.env.USERPROFILE) return false;
@@ -3766,6 +3820,7 @@ const server = http.createServer(async (req, res) => {
     if (continuityState.enabled) {
       runContinuitySync('startup').catch(() => undefined);
     }
+    configureUpdateAutoCheck();
     startTrayIfNeeded(mode, port);
 
     setupDevWatchers();

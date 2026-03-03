@@ -1,0 +1,54 @@
+name: CI Policy Audit
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "20 5 * * *"
+
+concurrency:
+  group: ci-policy-audit-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  audit:
+    name: CI Policy Audit (Remote)
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+
+    env:
+      GH_TOKEN: ${{ github.token }}
+
+    steps:
+      - name: Descargar código
+        uses: actions/checkout@v4
+
+      - name: Configurar Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: |
+            package-lock.json
+            apps/backend/package-lock.json
+            apps/frontend/package-lock.json
+            apps/portal_alumno_cloud/package-lock.json
+
+      - name: Etapa setup
+        run: npm ci
+
+      - name: Ejecutar auditoría consolidada remota
+        shell: bash
+        run: |
+          mkdir -p reports/ci-policy-audit
+          npm run ci:policy:audit:remote 2>&1 | tee reports/ci-policy-audit/audit.log
+
+      - name: Publicar artefacto de auditoría
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ci-policy-audit-${{ github.run_id }}
+          path: reports/ci-policy-audit/audit.log
+          if-no-files-found: warn

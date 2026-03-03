@@ -23,6 +23,42 @@ test('selectLatestRelease detecta error por asset faltante', () => {
   assert.match(String(pick.error || ''), /no incluye asset requerido/i);
 });
 
+test('selectLatestRelease en canal beta solo acepta tags beta', () => {
+  const releases = [
+    {
+      tag_name: 'v1.2.0-rc.1',
+      prerelease: true,
+      assets: [{ name: 'EvaluaPro-Setup.exe', browser_download_url: 'http://example/rc.exe' }]
+    },
+    {
+      tag_name: 'v1.1.0-beta.3',
+      prerelease: true,
+      assets: [{ name: 'EvaluaPro-Setup.exe', browser_download_url: 'http://example/beta.exe' }]
+    },
+    {
+      tag_name: 'v1.0.1',
+      prerelease: false,
+      assets: [{ name: 'EvaluaPro-Setup.exe', browser_download_url: 'http://example/stable.exe' }]
+    }
+  ];
+
+  const pickBeta = selectLatestRelease(releases, '1.0.0', {
+    channel: 'beta',
+    includePrerelease: true,
+    assetName: 'EvaluaPro-Setup.exe'
+  });
+  assert.equal(pickBeta.found, true);
+  assert.equal(pickBeta.candidate.version, '1.1.0-beta.3');
+
+  const pickStable = selectLatestRelease(releases, '1.0.0', {
+    channel: 'stable',
+    includePrerelease: false,
+    assetName: 'EvaluaPro-Setup.exe'
+  });
+  assert.equal(pickStable.found, true);
+  assert.equal(pickStable.candidate.version, '1.0.1');
+});
+
 test('download soporta reintentos y valida sha256', async () => {
   let calls = 0;
   const bytes = Buffer.from('installer-bytes', 'utf8');

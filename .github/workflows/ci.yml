@@ -128,7 +128,7 @@ jobs:
         run: npm run test:client:proyectos:ci
 
       - name: Etapa ux-quality-check
-        if: steps.changes.outputs.frontend == 'true' || steps.changes.outputs.shared == 'true'
+        if: steps.changes.outputs.frontend == 'true' || steps.changes.outputs.shared_core == 'true'
         run: npm run test:ux-quality:ci
 
       - name: Etapa coverage backend
@@ -220,6 +220,7 @@ jobs:
     if: |
       github.event_name == 'workflow_dispatch' ||
       github.event_name == 'schedule' ||
+      github.ref == 'refs/heads/main' ||
       startsWith(github.ref, 'refs/heads/release/')
 
     steps:

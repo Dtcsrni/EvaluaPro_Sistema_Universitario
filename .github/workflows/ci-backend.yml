@@ -1,6 +1,32 @@
 name: CI Backend Module
 
 on:
+  push:
+    paths:
+      - "apps/backend/**"
+      - "omr_samples_tv3/**"
+      - "omr_samples_tv3_real/**"
+      - "package.json"
+      - "package-lock.json"
+      - "tsconfig.base.json"
+      - "vitest.base.ts"
+      - "scripts/retry.mjs"
+      - "scripts/testing/**"
+      - "scripts/security-env-check.mjs"
+      - ".github/workflows/ci-backend.yml"
+  pull_request:
+    paths:
+      - "apps/backend/**"
+      - "omr_samples_tv3/**"
+      - "omr_samples_tv3_real/**"
+      - "package.json"
+      - "package-lock.json"
+      - "tsconfig.base.json"
+      - "vitest.base.ts"
+      - "scripts/retry.mjs"
+      - "scripts/testing/**"
+      - "scripts/security-env-check.mjs"
+      - ".github/workflows/ci-backend.yml"
   workflow_dispatch:
 
 concurrency:

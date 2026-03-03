@@ -141,6 +141,8 @@
     "ruleset:check": "node scripts/devops/check-ruleset-main.mjs",
     "ruleset:apply": "node scripts/devops/apply-ruleset-main.mjs",
     "pipeline:contract:check": "node -e \"const fs=require('fs');['ci/pipeline.contract.md','ci/pipeline.matrix.json'].forEach(p=>{if(!fs.existsSync(p)){throw new Error('Missing '+p)}});console.log('pipeline contract OK');\"",
+    "ci:policy:audit": "npm-run-all -s pipeline:contract:check test:ruleset:policy test:release:policy test:security:policy",
+    "ci:policy:audit:remote": "npm-run-all -s ci:policy:audit \"ruleset:check -- --repo=Dtcsrni/EvaluaPro_Sistema_Universitario\"",
     "test:ci": "npm run lint && npm run typecheck && npm run build && npm run docs:generate && npm run docs:check && npm run diagramas:check && npm run diagramas:render:check && npm run diagramas:consistencia:check && npm run routes:check && npm run test:backend:ci && npm run test:portal:ci && npm run test:frontend:ci && npm run test:client:proyectos:ci && npm run test:coverage:exclusions:debt && npm run test:compliance:policy",
     "build": "npm run --workspaces --if-present build",
     "build:frontend:alumno": "npm -C apps/frontend run build:alumno",

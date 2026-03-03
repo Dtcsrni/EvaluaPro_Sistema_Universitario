@@ -35,6 +35,7 @@ Asegurar confiabilidad funcional y de seguridad del sistema completo en cada cam
   - `.github/workflows/ci-frontend.yml` (`CI Frontend Module`)
   - `.github/workflows/ci-portal.yml` (`CI Portal Module`)
   - `.github/workflows/ci-docs.yml` (`CI Docs Module`)
+  - `.github/workflows/ci-policy-audit.yml` (`CI Policy Audit`)
 - Objetivo:
   - aislar fallos por dominio y mantener señal de calidad de los demas modulos.
 - Comportamiento esperado:
@@ -60,6 +61,7 @@ Asegurar confiabilidad funcional y de seguridad del sistema completo en cada cam
   - `Security CodeQL (JS/TS)` (`Security CodeQL`).
 - Nota operativa:
   - los workflows modulares por `paths` no se marcan como `required` para evitar PR bloqueados por checks no disparados.
+  - el contrato de ruleset exige reglas base (`deletion`, `non_fast_forward`, `pull_request`, `required_status_checks`) y prohíbe marcar `Backend Module`, `Frontend Module`, `Portal Module` y `Docs Module` como checks requeridos de merge.
 
 ## Flujos criticos cubiertos
 - Flujo de examen end-to-end backend.
@@ -126,6 +128,8 @@ npm run test:wix:bundle
 npm run test:ruleset:policy
 npm run test:release:policy
 npm run test:security:policy
+npm run ci:policy:audit
+npm run ci:policy:audit:remote
 ```
 
 Adicional obligatorio para promover a estable:
@@ -167,6 +171,16 @@ npm run test:ci
 - OMR tiene pruebas unitarias especificas (doble marca, burbuja hueca, trazos lineales, colorimetria).
 - Existen pruebas de integracion para QR/OMR y flujo de examen.
 - OMR en produccion se considera TV3-only para auto-calificacion.
+
+## Evidencia de auditoria instalador/docente (2026-03-03)
+- Reporte consolidado:
+  - `reports/qa/latest/installer-docente-audit-2026-03-03.md`
+- Registro en manifiesto QA:
+  - `reports/qa/latest/manifest.json`
+- Alcance validado en la auditoria:
+  - contrato Installer Hub (fases/codigos/fail-fast/configuracion segura),
+  - dashboard UI y update manager,
+  - E2E responsive docente (desktop/tablet/mobile).
 
 ## Regla de mantenimiento
 Todo cambio en:

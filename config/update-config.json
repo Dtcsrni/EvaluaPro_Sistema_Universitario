@@ -5,6 +5,7 @@
   "assetName": "EvaluaPro-Setup.exe",
   "sha256AssetName": "EvaluaPro-Setup.exe.sha256",
   "requireSha256": false,
+  "autoCheckEnabled": true,
   "checkIntervalMs": 900000,
   "syncPreflight": {
     "enabled": true,

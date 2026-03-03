@@ -20,43 +20,65 @@ function New-GeneratedSecret {
   }
 }
 
+function Get-InstallerHubConfigValue {
+  param(
+    [hashtable]$InputConfig,
+    [Parameter(Mandatory = $true)]
+    [string]$Key,
+    [object]$DefaultValue = ''
+  )
+
+  if ($null -eq $InputConfig) {
+    return $DefaultValue
+  }
+
+  if ($InputConfig.ContainsKey($Key)) {
+    $value = $InputConfig[$Key]
+    if ($null -ne $value) {
+      return $value
+    }
+  }
+
+  return $DefaultValue
+}
+
 function Normalize-OperationalConfig {
   param(
     [hashtable]$InputConfig
   )
   $cfg = [ordered]@{
-    mongoUri = [string]($InputConfig.mongoUri ?? 'mongodb://mongo_local:27017/mern_app')
-    jwtSecreto = [string]($InputConfig.jwtSecreto ?? '')
-    nodeEnv = [string]($InputConfig.nodeEnv ?? 'production')
-    puertoApi = [string]($InputConfig.puertoApi ?? '4000')
-    puertoPortal = [string]($InputConfig.puertoPortal ?? '4518')
-    corsOrigenes = [string]($InputConfig.corsOrigenes ?? 'http://localhost:4173,http://127.0.0.1:4173')
-    portalAlumnoUrl = [string]($InputConfig.portalAlumnoUrl ?? 'https://portal-alumno.example.edu')
-    portalAlumnoApiKey = [string]($InputConfig.portalAlumnoApiKey ?? '')
-    portalApiKey = [string]($InputConfig.portalApiKey ?? '')
-    passwordResetEnabled = ConvertTo-InstallerHubBool -Value ([string]($InputConfig.passwordResetEnabled ?? '1'))
-    passwordResetTokenMinutes = [string]($InputConfig.passwordResetTokenMinutes ?? '30')
-    passwordResetUrlBase = [string]($InputConfig.passwordResetUrlBase ?? '')
-    googleOauthClientId = [string]($InputConfig.googleOauthClientId ?? '')
-    googleClassroomClientId = [string]($InputConfig.googleClassroomClientId ?? '')
-    googleClassroomClientSecret = [string]($InputConfig.googleClassroomClientSecret ?? '')
-    googleClassroomRedirectUri = [string]($InputConfig.googleClassroomRedirectUri ?? '')
-    requireGoogleOAuth = ConvertTo-InstallerHubBool -Value ([string]($InputConfig.requireGoogleOAuth ?? '0'))
-    correoModuloActivo = ConvertTo-InstallerHubBool -Value ([string]($InputConfig.correoModuloActivo ?? '0'))
-    notificacionesWebhookUrl = [string]($InputConfig.notificacionesWebhookUrl ?? '')
-    notificacionesWebhookToken = [string]($InputConfig.notificacionesWebhookToken ?? '')
-    requireLicenseActivation = ConvertTo-InstallerHubBool -Value ([string]($InputConfig.requireLicenseActivation ?? '0'))
-    apiComercialBaseUrl = [string]($InputConfig.apiComercialBaseUrl ?? '')
-    tenantId = [string]($InputConfig.tenantId ?? '')
-    codigoActivacion = [string]($InputConfig.codigoActivacion ?? '')
-    licenciaAccountEmail = [string]($InputConfig.licenciaAccountEmail ?? 'soporte@tu-institucion.mx')
-    updateChannel = [string]($InputConfig.updateChannel ?? 'stable')
-    updateOwner = [string]($InputConfig.updateOwner ?? 'Dtcsrni')
-    updateRepo = [string]($InputConfig.updateRepo ?? 'EvaluaPro_Sistema_Universitario')
-    updateAssetName = [string]($InputConfig.updateAssetName ?? 'EvaluaPro-Setup.exe')
-    updateShaAssetName = [string]($InputConfig.updateShaAssetName ?? 'EvaluaPro-Setup.exe.sha256')
-    updateFeedUrl = [string]($InputConfig.updateFeedUrl ?? '')
-    updateRequireSha256 = ConvertTo-InstallerHubBool -Value ([string]($InputConfig.updateRequireSha256 ?? '1'))
+    mongoUri = [string](Get-InstallerHubConfigValue -InputConfig $InputConfig -Key 'mongoUri' -DefaultValue 'mongodb://mongo_local:27017/mern_app')
+    jwtSecreto = [string](Get-InstallerHubConfigValue -InputConfig $InputConfig -Key 'jwtSecreto' -DefaultValue '')
+    nodeEnv = [string](Get-InstallerHubConfigValue -InputConfig $InputConfig -Key 'nodeEnv' -DefaultValue 'production')
+    puertoApi = [string](Get-InstallerHubConfigValue -InputConfig $InputConfig -Key 'puertoApi' -DefaultValue '4000')
+    puertoPortal = [string](Get-InstallerHubConfigValue -InputConfig $InputConfig -Key 'puertoPortal' -DefaultValue '4518')
+    corsOrigenes = [string](Get-InstallerHubConfigValue -InputConfig $InputConfig -Key 'corsOrigenes' -DefaultValue 'http://localhost:4173,http://127.0.0.1:4173')
+    portalAlumnoUrl = [string](Get-InstallerHubConfigValue -InputConfig $InputConfig -Key 'portalAlumnoUrl' -DefaultValue 'https://portal-alumno.example.edu')
+    portalAlumnoApiKey = [string](Get-InstallerHubConfigValue -InputConfig $InputConfig -Key 'portalAlumnoApiKey' -DefaultValue '')
+    portalApiKey = [string](Get-InstallerHubConfigValue -InputConfig $InputConfig -Key 'portalApiKey' -DefaultValue '')
+    passwordResetEnabled = ConvertTo-InstallerHubBool -Value ([string](Get-InstallerHubConfigValue -InputConfig $InputConfig -Key 'passwordResetEnabled' -DefaultValue '1'))
+    passwordResetTokenMinutes = [string](Get-InstallerHubConfigValue -InputConfig $InputConfig -Key 'passwordResetTokenMinutes' -DefaultValue '30')
+    passwordResetUrlBase = [string](Get-InstallerHubConfigValue -InputConfig $InputConfig -Key 'passwordResetUrlBase' -DefaultValue '')
+    googleOauthClientId = [string](Get-InstallerHubConfigValue -InputConfig $InputConfig -Key 'googleOauthClientId' -DefaultValue '')
+    googleClassroomClientId = [string](Get-InstallerHubConfigValue -InputConfig $InputConfig -Key 'googleClassroomClientId' -DefaultValue '')
+    googleClassroomClientSecret = [string](Get-InstallerHubConfigValue -InputConfig $InputConfig -Key 'googleClassroomClientSecret' -DefaultValue '')
+    googleClassroomRedirectUri = [string](Get-InstallerHubConfigValue -InputConfig $InputConfig -Key 'googleClassroomRedirectUri' -DefaultValue '')
+    requireGoogleOAuth = ConvertTo-InstallerHubBool -Value ([string](Get-InstallerHubConfigValue -InputConfig $InputConfig -Key 'requireGoogleOAuth' -DefaultValue '0'))
+    correoModuloActivo = ConvertTo-InstallerHubBool -Value ([string](Get-InstallerHubConfigValue -InputConfig $InputConfig -Key 'correoModuloActivo' -DefaultValue '0'))
+    notificacionesWebhookUrl = [string](Get-InstallerHubConfigValue -InputConfig $InputConfig -Key 'notificacionesWebhookUrl' -DefaultValue '')
+    notificacionesWebhookToken = [string](Get-InstallerHubConfigValue -InputConfig $InputConfig -Key 'notificacionesWebhookToken' -DefaultValue '')
+    requireLicenseActivation = ConvertTo-InstallerHubBool -Value ([string](Get-InstallerHubConfigValue -InputConfig $InputConfig -Key 'requireLicenseActivation' -DefaultValue '0'))
+    apiComercialBaseUrl = [string](Get-InstallerHubConfigValue -InputConfig $InputConfig -Key 'apiComercialBaseUrl' -DefaultValue '')
+    tenantId = [string](Get-InstallerHubConfigValue -InputConfig $InputConfig -Key 'tenantId' -DefaultValue '')
+    codigoActivacion = [string](Get-InstallerHubConfigValue -InputConfig $InputConfig -Key 'codigoActivacion' -DefaultValue '')
+    licenciaAccountEmail = [string](Get-InstallerHubConfigValue -InputConfig $InputConfig -Key 'licenciaAccountEmail' -DefaultValue 'soporte@tu-institucion.mx')
+    updateChannel = [string](Get-InstallerHubConfigValue -InputConfig $InputConfig -Key 'updateChannel' -DefaultValue 'stable')
+    updateOwner = [string](Get-InstallerHubConfigValue -InputConfig $InputConfig -Key 'updateOwner' -DefaultValue 'Dtcsrni')
+    updateRepo = [string](Get-InstallerHubConfigValue -InputConfig $InputConfig -Key 'updateRepo' -DefaultValue 'EvaluaPro_Sistema_Universitario')
+    updateAssetName = [string](Get-InstallerHubConfigValue -InputConfig $InputConfig -Key 'updateAssetName' -DefaultValue 'EvaluaPro-Setup.exe')
+    updateShaAssetName = [string](Get-InstallerHubConfigValue -InputConfig $InputConfig -Key 'updateShaAssetName' -DefaultValue 'EvaluaPro-Setup.exe.sha256')
+    updateFeedUrl = [string](Get-InstallerHubConfigValue -InputConfig $InputConfig -Key 'updateFeedUrl' -DefaultValue '')
+    updateRequireSha256 = ConvertTo-InstallerHubBool -Value ([string](Get-InstallerHubConfigValue -InputConfig $InputConfig -Key 'updateRequireSha256' -DefaultValue '1'))
   }
   if ([string]::IsNullOrWhiteSpace($cfg.jwtSecreto)) {
     $cfg.jwtSecreto = New-GeneratedSecret

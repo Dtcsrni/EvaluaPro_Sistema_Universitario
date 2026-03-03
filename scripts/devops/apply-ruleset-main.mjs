@@ -4,10 +4,12 @@ import { spawnSync } from 'node:child_process';
 import { pathToFileURL } from 'node:url';
 import {
   DEFAULT_RULESET_NAME,
+  FORBIDDEN_REQUIRED_STATUS_CHECKS_MAIN,
   REQUIRED_STATUS_CHECKS_MAIN,
   extractStatusCheckContexts,
   missingRequiredContexts,
-  normalizeRequiredChecks
+  normalizeRequiredChecks,
+  unexpectedRequiredContexts
 } from './ruleset-main-contract.mjs';
 import { evaluateRulesetCompliance, selectRuleset } from './check-ruleset-main.mjs';
 
@@ -25,26 +27,95 @@ function runGhJson(args, env = process.env, input = '') {
   return result.stdout ? JSON.parse(result.stdout) : {};
 }
 
+function fetchRulesetDetails(repo, rulesetId) {
+  if (!repo) throw new Error('Falta repo para consultar detalle de ruleset.');
+  if (!rulesetId) throw new Error('Falta id de ruleset para consulta de detalle.');
+  return runGhJson(['api', `repos/${repo}/rulesets/${rulesetId}`]);
+}
+
+function sanitizeRuleForPatch(rule) {
+  if (!rule || typeof rule !== 'object') return null;
+  const type = String(rule.type || '').trim();
+  if (!type) return null;
+  const next = { type };
+  if (rule.parameters && typeof rule.parameters === 'object') {
+    next.parameters = rule.parameters;
+  }
+  return next;
+}
+
+function sanitizeRulesForPatch(rules = []) {
+  if (!Array.isArray(rules)) return [];
+  return rules
+    .map((rule) => sanitizeRuleForPatch(rule))
+    .filter(Boolean);
+}
+
+function ensureBaselineProtectionRules(rules = []) {
+  const safeRules = sanitizeRulesForPatch(rules);
+
+  if (!safeRules.some((rule) => rule.type === 'deletion')) {
+    safeRules.push({ type: 'deletion' });
+  }
+
+  if (!safeRules.some((rule) => rule.type === 'non_fast_forward')) {
+    safeRules.push({ type: 'non_fast_forward' });
+  }
+
+  if (!safeRules.some((rule) => rule.type === 'pull_request')) {
+    safeRules.push({
+      type: 'pull_request',
+      parameters: {
+        required_approving_review_count: 1,
+        dismiss_stale_reviews_on_push: true,
+        required_reviewers: [],
+        require_code_owner_review: false,
+        require_last_push_approval: false,
+        required_review_thread_resolution: true,
+        allowed_merge_methods: ['merge', 'squash', 'rebase']
+      }
+    });
+  }
+
+  return safeRules;
+}
+
 function upsertRequiredStatusChecksRule(rules = []) {
-  const safeRules = Array.isArray(rules) ? [...rules] : [];
+  const safeRules = ensureBaselineProtectionRules(rules);
   const ruleIndex = safeRules.findIndex((rule) => rule?.type === 'required_status_checks');
   const existing = ruleIndex >= 0 ? safeRules[ruleIndex] : null;
+  const existingRequiredChecksRaw = Array.isArray(existing?.parameters?.required_status_checks)
+    ? existing.parameters.required_status_checks
+    : [];
   const existingChecks = normalizeRequiredChecks(
-    Array.isArray(existing?.parameters?.required_status_checks)
-      ? existing.parameters.required_status_checks.map((item) => item?.context)
-      : []
+    existingRequiredChecksRaw.map((item) => item?.context)
   );
-  const mergedChecks = normalizeRequiredChecks([...existingChecks, ...REQUIRED_STATUS_CHECKS_MAIN]).map(
-    (context) => ({
-      context,
-      integration_id: null
-    })
+  const filteredExistingChecks = existingChecks.filter(
+    (context) => !FORBIDDEN_REQUIRED_STATUS_CHECKS_MAIN.includes(context)
   );
+  const mergedContexts = normalizeRequiredChecks([...filteredExistingChecks, ...REQUIRED_STATUS_CHECKS_MAIN]);
+  const inheritedIntegrationId = existingRequiredChecksRaw.find(
+    (item) => Number.isInteger(item?.integration_id)
+  )?.integration_id;
+  const mergedChecks = mergedContexts.map((context) => {
+    const existingItem = existingRequiredChecksRaw.find((item) => String(item?.context || '') === context);
+    const integrationId = Number.isInteger(existingItem?.integration_id)
+      ? existingItem.integration_id
+      : inheritedIntegrationId;
+    if (Number.isInteger(integrationId)) {
+      return {
+        context,
+        integration_id: integrationId
+      };
+    }
+    return { context };
+  });
 
   const nextRule = {
     type: 'required_status_checks',
     parameters: {
       strict_required_status_checks_policy: true,
+      do_not_enforce_on_create: Boolean(existing?.parameters?.do_not_enforce_on_create),
       required_status_checks: mergedChecks
     }
   };
@@ -80,10 +151,11 @@ export async function main() {
   if (!repo) throw new Error('Falta --repo=<owner/repo> o GITHUB_REPOSITORY');
 
   const rulesets = runGhJson(['api', `repos/${repo}/rulesets?per_page=100`]);
-  const ruleset = selectRuleset(rulesets, rulesetName);
-  if (!ruleset) {
+  const rulesetRef = selectRuleset(rulesets, rulesetName);
+  if (!rulesetRef) {
     throw new Error(`No se encontro ruleset activo para main. nombre=${rulesetName}`);
   }
+  const ruleset = fetchRulesetDetails(repo, rulesetRef.id);
 
   const before = evaluateRulesetCompliance(ruleset);
   if (before.ok) {
@@ -95,7 +167,7 @@ export async function main() {
   runGhJson(
     [
       'api',
-      `repos/${repo}/rulesets/${ruleset.id}`,
+      `repos/${repo}/rulesets/${rulesetRef.id}`,
       '--method',
       'PUT',
       '--input',
@@ -105,13 +177,16 @@ export async function main() {
     JSON.stringify(payload)
   );
 
-  const updatedRulesets = runGhJson(['api', `repos/${repo}/rulesets?per_page=100`]);
-  const updated = selectRuleset(updatedRulesets, rulesetName);
+  const updated = fetchRulesetDetails(repo, rulesetRef.id);
   const after = evaluateRulesetCompliance(updated);
   if (!after.ok) {
     const currentContexts = extractStatusCheckContexts(updated);
     const missing = missingRequiredContexts(currentContexts, REQUIRED_STATUS_CHECKS_MAIN);
-    throw new Error(`Patch aplicado pero ruleset sigue incompleto: ${missing.join(', ')}`);
+    const unexpected = unexpectedRequiredContexts(currentContexts, FORBIDDEN_REQUIRED_STATUS_CHECKS_MAIN);
+    const reasons = [];
+    if (missing.length > 0) reasons.push(`faltantes: ${missing.join(', ')}`);
+    if (unexpected.length > 0) reasons.push(`forbidden presentes: ${unexpected.join(', ')}`);
+    throw new Error(`Patch aplicado pero ruleset sigue incompleto: ${reasons.join(' | ')}`);
   }
 
   process.stdout.write(`[ruleset:apply] OK. Ruleset ${updated.name} actualizado con checks obligatorios.\n`);
