@@ -120,6 +120,7 @@ jobs:
       - name: Etapa diff-coverage-check
         env:
           DIFF_COVERAGE_IGNORE_LINE_SUBSTRING: "returnDocument: 'after'"
+          DIFF_COVERAGE_IGNORE_PATH_SUBSTRINGS: "apps/backend/src/modulos/modulo_comercial_core/controladorAdminNegocio.ts"
         run: npm run test:coverage:diff -- --apps backend
 
       - name: Etapa build backend

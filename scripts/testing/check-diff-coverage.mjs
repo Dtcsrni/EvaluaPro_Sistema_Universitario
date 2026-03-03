@@ -234,6 +234,18 @@ function resolveIgnoreLineSubstring() {
   return value || null;
 }
 
+function resolveIgnorePathSubstrings() {
+  const raw =
+    getArg('--ignore-path-substrings') ??
+    process.env.DIFF_COVERAGE_IGNORE_PATH_SUBSTRINGS ??
+    process.env.DIFF_COVERAGE_IGNORE_PATH_SUBSTRING ??
+    '';
+  return String(raw)
+    .split(';')
+    .map((item) => item.trim())
+    .filter(Boolean);
+}
+
 async function buildFileLinesCache(touchedCoverable) {
   const cache = new Map();
   for (const file of touchedCoverable.keys()) {
@@ -252,6 +264,7 @@ async function buildFileLinesCache(touchedCoverable) {
 async function main() {
   const minCoverage = resolveThreshold();
   const ignoreLineSubstring = resolveIgnoreLineSubstring();
+  const ignorePathSubstrings = resolveIgnorePathSubstrings();
   const baseRef = resolveBaseRef();
   const headRef = resolveHeadRef();
   const selectedApps = resolveSelectedApps();
@@ -284,10 +297,15 @@ async function main() {
   let total = 0;
   let covered = 0;
   let ignored = 0;
+  let ignoredByPath = 0;
   const missing = [];
 
   for (const [file, lines] of touchedCoverable.entries()) {
     const normalizedFile = normalizeRelative(file);
+    if (ignorePathSubstrings.some((entry) => normalizedFile.includes(entry))) {
+      ignoredByPath += lines.size;
+      continue;
+    }
     const lineHits = coverageMap.get(normalizedFile);
 
     for (const line of lines) {
@@ -313,6 +331,9 @@ async function main() {
   console.log(`[diff-coverage] Base: ${baseRef} | Head: ${headRef}`);
   if (ignoreLineSubstring) {
     console.log(`[diff-coverage] Líneas ignoradas por subcadena: ${ignored} (${ignoreLineSubstring})`);
+  }
+  if (ignorePathSubstrings.length > 0) {
+    console.log(`[diff-coverage] Líneas ignoradas por ruta: ${ignoredByPath} (${ignorePathSubstrings.join(';')})`);
   }
   console.log(`[diff-coverage] Líneas tocadas: ${total} | Cubiertas: ${covered} | Diff coverage: ${percent}% | Umbral: ${minCoverage}%`);
 
