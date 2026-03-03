@@ -44,6 +44,8 @@ services:
     environment:
       - MONGODB_URI=${MONGODB_URI:-mongodb://mongo_local:27017/mern_app}
       - PUERTO_API=${PUERTO_API:-4000}
+      - PORTAL_ALUMNO_URL=${PORTAL_ALUMNO_URL_DOCKER:-http://host.docker.internal:8080}
+      - PORTAL_ALUMNO_API_KEY=${PORTAL_ALUMNO_API_KEY:-local-piloto-api-key}
       - NODE_ENV=development
       - EXAM_PRINT_PROFILE=${EXAM_PRINT_PROFILE:-epson-ecotank-l1250}
       - EXAMEN_LOGO_IZQ_PATH=${EXAMEN_LOGO_IZQ_PATH:-logos/cuh.png}
@@ -97,6 +99,8 @@ services:
     environment:
       - MONGODB_URI=${MONGODB_URI:-mongodb://mongo_local:27017/mern_app}
       - PUERTO_API=${PUERTO_API:-4000}
+      - PORTAL_ALUMNO_URL=${PORTAL_ALUMNO_URL_DOCKER:-http://host.docker.internal:8080}
+      - PORTAL_ALUMNO_API_KEY=${PORTAL_ALUMNO_API_KEY:-local-piloto-api-key}
       - EXAMEN_PDF_ENGINE=playwright-html-v1
       - EXAM_PRINT_PROFILE=${EXAM_PRINT_PROFILE:-epson-ecotank-l1250}
       - EXAMEN_LOGO_IZQ_PATH=${EXAMEN_LOGO_IZQ_PATH:-logos/cuh.png}
