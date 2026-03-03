@@ -217,7 +217,7 @@ test('apply payload desactiva aprobación obligatoria en pull_request', () => {
 
   const pullRequestRule = payload.rules.find((rule) => rule.type === 'pull_request');
   assert.equal(Number(pullRequestRule?.parameters?.required_approving_review_count), 0);
-  assert.equal(Boolean(pullRequestRule?.parameters?.required_review_thread_resolution), true);
+  assert.equal(Boolean(pullRequestRule?.parameters?.required_review_thread_resolution), false);
   assert.equal(Boolean(pullRequestRule?.parameters?.require_last_push_approval), false);
 });
 

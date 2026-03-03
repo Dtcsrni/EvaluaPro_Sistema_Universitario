@@ -74,7 +74,7 @@ function ensureBaselineProtectionRules(rules = []) {
         : [],
       require_code_owner_review: Boolean(existingPullRequestRule?.parameters?.require_code_owner_review),
       require_last_push_approval: false,
-      required_review_thread_resolution: true,
+      required_review_thread_resolution: false,
       allowed_merge_methods: Array.isArray(existingPullRequestRule?.parameters?.allowed_merge_methods)
         ? existingPullRequestRule.parameters.allowed_merge_methods
         : ['merge', 'squash', 'rebase']
@@ -172,8 +172,11 @@ export async function main() {
     ? ruleset.rules.find((rule) => rule?.type === 'pull_request')
     : null;
   const beforeRequiredApprovals = Number(beforePullRequestRule?.parameters?.required_approving_review_count ?? 0);
+  const beforeRequireConversationResolution = Boolean(
+    beforePullRequestRule?.parameters?.required_review_thread_resolution
+  );
 
-  if (before.ok && beforeRequiredApprovals === 0) {
+  if (before.ok && beforeRequiredApprovals === 0 && beforeRequireConversationResolution === false) {
     process.stdout.write(`[ruleset:apply] Sin cambios. Ruleset ${ruleset.name} ya cumple el contrato.\n`);
     return;
   }
@@ -198,6 +201,9 @@ export async function main() {
     ? updated.rules.find((rule) => rule?.type === 'pull_request')
     : null;
   const afterRequiredApprovals = Number(afterPullRequestRule?.parameters?.required_approving_review_count ?? 0);
+  const afterRequireConversationResolution = Boolean(
+    afterPullRequestRule?.parameters?.required_review_thread_resolution
+  );
   if (!after.ok) {
     const currentContexts = extractStatusCheckContexts(updated);
     const missing = missingRequiredContexts(currentContexts, REQUIRED_STATUS_CHECKS_MAIN);
@@ -210,6 +216,12 @@ export async function main() {
 
   if (afterRequiredApprovals !== 0) {
     throw new Error(`Patch aplicado pero required_approving_review_count quedó en ${afterRequiredApprovals} (esperado: 0)`);
+  }
+
+  if (afterRequireConversationResolution !== false) {
+    throw new Error(
+      `Patch aplicado pero required_review_thread_resolution quedó en ${String(afterRequireConversationResolution)} (esperado: false)`
+    );
   }
 
   process.stdout.write(`[ruleset:apply] OK. Ruleset ${updated.name} actualizado con checks obligatorios.\n`);

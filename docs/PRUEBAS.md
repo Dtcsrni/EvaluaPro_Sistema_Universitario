@@ -52,7 +52,7 @@ Asegurar confiabilidad funcional y de seguridad del sistema completo en cada cam
   - bloqueo de force-push (`non_fast_forward`),
   - PR obligatorio sin aprobación mínima,
   - descarte de approvals stale al recibir nuevos commits,
-  - resolucion obligatoria de conversaciones,
+  - resolucion de conversaciones no obligatoria,
   - branch actualizado obligatoriamente antes de merge (`strict required status checks policy`).
 - Checks requeridos para merge:
   - `Verificaciones Core (PR bloqueante)` (`CI Checks`).

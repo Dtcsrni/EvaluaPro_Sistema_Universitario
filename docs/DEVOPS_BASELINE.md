@@ -45,7 +45,7 @@ Fecha de baseline: 2026-02-13.
   - bloqueo de force-push (`non_fast_forward`),
   - pull request obligatorio sin aprobación mínima,
   - descarte de approvals stale al recibir nuevos commits,
-  - resolucion obligatoria de conversaciones,
+  - resolucion de conversaciones no obligatoria,
   - branch actualizado obligatoriamente antes de merge (`strict required status checks policy`).
   - `Verificaciones Core (PR bloqueante)` (workflow `CI Checks`).
   - `Verificaciones Extendidas (Main/Release)` (workflow `CI Checks`, en `main/release`).
