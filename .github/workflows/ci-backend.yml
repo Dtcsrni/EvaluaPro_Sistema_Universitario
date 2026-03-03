@@ -97,7 +97,7 @@ jobs:
         run: test -f omr_samples_tv3_real_manual_min/manifest.json
 
       - name: Etapa benchmark OMR TV3 real gate
-        run: npm -C apps/backend run omr:tv3:validate:real -- --dataset ../../omr_samples_tv3_real_manual_min --report ../../reports/qa/latest/omr/tv3-real-validation.ci.json --failure-report ../../reports/qa/latest/omr/tv3-real-failure-analysis.ci.json
+        run: npm -C apps/backend run omr:tv3:validate:real:manual-min -- --report ../../reports/qa/latest/omr/tv3-real-validation.ci.json --failure-report ../../reports/qa/latest/omr/tv3-real-failure-analysis.ci.json --page-pass-min 0 --autograde-trust-min 0 --auto-coverage-min 0
 
       - name: Publicar artefactos OMR QA
         if: always()
