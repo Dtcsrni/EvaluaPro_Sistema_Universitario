@@ -4,6 +4,7 @@ param(
   [bool]$SyncDesktop = $true,
   [bool]$SyncStartMenu = $true,
   [bool]$IncludeOpsShortcuts = $true,
+  [ValidateRange(1, 65535)]
   [int]$Port = 4519,
   [switch]$Force
 )
@@ -13,8 +14,18 @@ $ErrorActionPreference = "Stop"
 
 $root = (Resolve-Path (Join-Path $PSScriptRoot "..")).Path
 $targetWscript = Join-Path $env:WINDIR "System32\wscript.exe"
+if (-not (Test-Path -LiteralPath $targetWscript)) {
+  $targetWscript = 'wscript.exe'
+}
 $iconDir = Join-Path $root "scripts\icons"
-$outputPath = Join-Path $root $OutputDir
+$outputPath = if ([System.IO.Path]::IsPathRooted($OutputDir)) { $OutputDir } else { Join-Path $root $OutputDir }
+$trayHiddenVbs = Join-Path $root 'scripts\launcher-tray-hidden.vbs'
+$shortcutOpHiddenVbs = Join-Path $root 'scripts\shortcut-op-hidden.vbs'
+foreach ($requiredFile in @($trayHiddenVbs, $shortcutOpHiddenVbs)) {
+  if (-not (Test-Path -LiteralPath $requiredFile)) {
+    throw "No se encontró archivo requerido para accesos directos: $requiredFile"
+  }
+}
 
 $desktopPath = [Environment]::GetFolderPath('Desktop')
 $desktopPathCandidates = New-Object System.Collections.Generic.List[string]
@@ -278,7 +289,7 @@ $shortcuts = @(
     Desktop = $true
     StartMenu = $true
     Target = $targetWscript
-    Arguments = "//nologo `"scripts\launcher-tray-hidden.vbs`" dev $Port"
+    Arguments = "//nologo `"$trayHiddenVbs`" dev $Port"
   },
   @{
     Name = 'EvaluaPro - Prod'
@@ -287,7 +298,7 @@ $shortcuts = @(
     Desktop = $true
     StartMenu = $true
     Target = $targetWscript
-    Arguments = "//nologo `"scripts\launcher-tray-hidden.vbs`" prod $Port"
+    Arguments = "//nologo `"$trayHiddenVbs`" prod $Port"
   },
   @{
     Name = 'EvaluaPro - Abrir Dashboard'
@@ -296,7 +307,7 @@ $shortcuts = @(
     Desktop = $false
     StartMenu = $true
     Target = $targetWscript
-    Arguments = "//nologo `"scripts\shortcut-op-hidden.vbs`" open-dashboard $Port auto"
+    Arguments = "//nologo `"$shortcutOpHiddenVbs`" open-dashboard $Port auto"
   },
   @{
     Name = 'EvaluaPro - Reiniciar Stack'
@@ -305,7 +316,7 @@ $shortcuts = @(
     Desktop = $false
     StartMenu = $true
     Target = $targetWscript
-    Arguments = "//nologo `"scripts\shortcut-op-hidden.vbs`" restart-stack $Port auto"
+    Arguments = "//nologo `"$shortcutOpHiddenVbs`" restart-stack $Port auto"
   },
   @{
     Name = 'EvaluaPro - Detener Todo'
@@ -314,7 +325,7 @@ $shortcuts = @(
     Desktop = $false
     StartMenu = $true
     Target = $targetWscript
-    Arguments = "//nologo `"scripts\shortcut-op-hidden.vbs`" stop-all $Port auto"
+    Arguments = "//nologo `"$shortcutOpHiddenVbs`" stop-all $Port auto"
   },
   @{
     Name = 'EvaluaPro - Reparar Entorno'
@@ -323,7 +334,7 @@ $shortcuts = @(
     Desktop = $false
     StartMenu = $true
     Target = $targetWscript
-    Arguments = "//nologo `"scripts\shortcut-op-hidden.vbs`" repair $Port auto"
+    Arguments = "//nologo `"$shortcutOpHiddenVbs`" repair $Port auto"
   }
 )
 

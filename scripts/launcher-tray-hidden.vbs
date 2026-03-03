@@ -17,8 +17,8 @@ rootDir = fso.GetParentFolderName(scriptDir)
 Dim mode, port
 mode = "none"
 port = "4519"
-If WScript.Arguments.Count >= 1 Then mode = WScript.Arguments(0)
-If WScript.Arguments.Count >= 2 Then port = WScript.Arguments(1)
+If WScript.Arguments.Count >= 1 Then mode = ResolveMode(WScript.Arguments(0))
+If WScript.Arguments.Count >= 2 Then port = ResolvePort(WScript.Arguments(1), "4519")
 
 shell.CurrentDirectory = rootDir
 
@@ -36,8 +36,8 @@ If port <> "0" And port <> "" Then
 End If
 
 Dim psExe, psArgs, cmd
-psExe = q & shell.ExpandEnvironmentStrings("%WINDIR%") & "\System32\WindowsPowerShell\v1.0\powershell.exe" & q
-psArgs = "-NoProfile -ExecutionPolicy Bypass -STA -WindowStyle Hidden -File " & q & rootDir & "\scripts\launcher-tray.ps1" & q & " -Mode " & mode & " -Port " & port & " -NoOpen"
+psExe = ResolvePowerShellExe(shell.ExpandEnvironmentStrings("%WINDIR%"))
+psArgs = "-NoProfile -ExecutionPolicy Bypass -STA -WindowStyle Hidden -File " & q & rootDir & "\scripts\launcher-tray.ps1" & q & " -Mode " & QuoteArg(mode) & " -Port " & QuoteArg(port) & " -NoOpen"
 cmd = psExe & " " & psArgs
 
 shell.Run cmd, 0, False
@@ -220,15 +220,64 @@ End Sub
 Sub StartDashboardFallback(ByVal rootDir, ByVal mode, ByVal port)
 	On Error Resume Next
 	Dim psExe, psArgs, cmd
-	psExe = q & shell.ExpandEnvironmentStrings("%WINDIR%") & "\System32\WindowsPowerShell\v1.0\powershell.exe" & q
-	psArgs = "-NoProfile -ExecutionPolicy Bypass -STA -WindowStyle Hidden -File " & q & rootDir & "\scripts\launcher-dashboard.ps1" & q & " -Mode " & mode & " -NoOpen"
+	psExe = ResolvePowerShellExe(shell.ExpandEnvironmentStrings("%WINDIR%"))
+	psArgs = "-NoProfile -ExecutionPolicy Bypass -STA -WindowStyle Hidden -File " & q & rootDir & "\scripts\launcher-dashboard.ps1" & q & " -Mode " & QuoteArg(mode) & " -NoOpen"
 	If port <> "0" And port <> "" Then
-		psArgs = psArgs & " -Port " & port
+		psArgs = psArgs & " -Port " & QuoteArg(port)
 	End If
 	cmd = psExe & " " & psArgs
 	shell.Run cmd, 0, False
 	On Error GoTo 0
 End Sub
+
+Function QuoteArg(ByVal value)
+	QuoteArg = q & Replace(CStr(value), q, "") & q
+End Function
+
+Function ResolveMode(ByVal value)
+	Dim v
+	v = LCase(Trim(CStr(value)))
+	Select Case v
+		Case "none", "dev", "prod", "auto"
+			ResolveMode = v
+		Case Else
+			ResolveMode = "none"
+	End Select
+End Function
+
+Function ResolvePort(ByVal value, ByVal defaultPort)
+	On Error Resume Next
+	Dim v, re, n
+	v = Trim(CStr(value))
+	If v = "" Then
+		ResolvePort = defaultPort
+		Exit Function
+	End If
+	Set re = New RegExp
+	re.Pattern = "^[0-9]{1,5}$"
+	re.IgnoreCase = True
+	If re.Test(v) Then
+		n = CLng(v)
+		If (n >= 1) And (n <= 65535) Then
+			ResolvePort = CStr(n)
+			Exit Function
+		End If
+	End If
+	ResolvePort = defaultPort
+	On Error GoTo 0
+End Function
+
+Function ResolvePowerShellExe(ByVal winDir)
+	On Error Resume Next
+	Dim candidate
+	candidate = winDir & "\System32\WindowsPowerShell\v1.0\powershell.exe"
+	If fso.FileExists(candidate) Then
+		ResolvePowerShellExe = QuoteArg(candidate)
+		Exit Function
+	End If
+	ResolvePowerShellExe = "powershell.exe"
+	On Error GoTo 0
+End Function
 
 Function ReadLockPort(ByVal rootDir)
 	On Error Resume Next

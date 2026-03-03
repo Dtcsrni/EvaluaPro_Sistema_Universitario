@@ -5,6 +5,7 @@ param(
   [string]$Action = 'open-dashboard',
   [ValidateSet('dev', 'prod', 'auto')]
   [string]$Mode = 'auto',
+  [ValidateRange(1, 65535)]
   [int]$Port = 4519
 )
 
@@ -34,7 +35,13 @@ function Get-LockPort {
     $raw = Get-Content -LiteralPath $lockPath -Raw
     if (-not $raw) { return $null }
     $parsed = $raw | ConvertFrom-Json
-    if ($parsed -and $parsed.port) { return [int]$parsed.port }
+    if ($parsed -and $parsed.port) {
+      $candidate = [int]$parsed.port
+      if ($candidate -ge 1 -and $candidate -le 65535) {
+        return $candidate
+      }
+      Write-OpLog("Puerto inválido en lockfile (port=$candidate); se ignora lockfile.")
+    }
   } catch {
     Write-OpLog("No se pudo leer lockfile: $($_.Exception.Message)")
   }
@@ -43,8 +50,30 @@ function Get-LockPort {
 
 function Get-ApiBase([int]$requestedPort) {
   $lockPort = Get-LockPort
-  $effective = if ($lockPort -and $lockPort -gt 0) { $lockPort } else { $requestedPort }
+  $requested = if ($requestedPort -ge 1 -and $requestedPort -le 65535) { $requestedPort } else { 4519 }
+  $effective = if ($lockPort -and $lockPort -ge 1 -and $lockPort -le 65535) { $lockPort } else { $requested }
   return "http://127.0.0.1:$effective"
+}
+
+function Resolve-PowerShellExecutable {
+  $candidates = @(
+    (Join-Path $env:WINDIR 'System32\WindowsPowerShell\v1.0\powershell.exe'),
+    'powershell.exe',
+    'pwsh.exe'
+  )
+  foreach ($candidate in $candidates) {
+    try {
+      if ([System.IO.Path]::IsPathRooted($candidate)) {
+        if (Test-Path -LiteralPath $candidate) { return $candidate }
+      } else {
+        $null = Get-Command $candidate -ErrorAction Stop
+        return $candidate
+      }
+    } catch {
+      continue
+    }
+  }
+  throw 'No se encontró ejecutable de PowerShell para iniciar dashboard.'
 }
 
 function Invoke-JsonGet([string]$url, [int]$timeoutSec = 2) {
@@ -75,8 +104,10 @@ function Ensure-DashboardRunning([string]$mode, [int]$port) {
   if ($base) { return $base }
 
   $launcher = Join-Path $root 'scripts\launcher-dashboard.ps1'
-  $psExe = Join-Path $env:WINDIR 'System32\WindowsPowerShell\v1.0\powershell.exe'
-  if (-not (Test-Path $psExe)) { $psExe = 'powershell.exe' }
+  if (-not (Test-Path -LiteralPath $launcher)) {
+    throw "No se encontró launcher de dashboard: $launcher"
+  }
+  $psExe = Resolve-PowerShellExecutable
 
   $args = @(
     '-NoProfile',

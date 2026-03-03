@@ -3,6 +3,8 @@
 Accesos directos (Windows) para abrir **Sistema EvaluaPro (EP)** en modo dev/prod.
 
 - Este folder se llena/actualiza con `../scripts/create-shortcuts.ps1`.
+- Los `.lnk` se generan con rutas absolutas a wrappers para evitar fallos por directorio de trabajo.
+- Los wrappers validan modo/acción/puerto (lista permitida + rango 1..65535) antes de invocar PowerShell.
 - Regeneración recomendada (incluye Desktop + Menú Inicio):
   - `powershell -NoProfile -ExecutionPolicy Bypass -File scripts/create-shortcuts.ps1 -Force`
 - Accesos incluidos por defecto:
