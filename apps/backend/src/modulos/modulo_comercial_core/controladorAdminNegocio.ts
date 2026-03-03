@@ -32,6 +32,22 @@ function obtenerIp(req: SolicitudDocente): string {
   return forwarded || req.ip || '';
 }
 
+function normalizarSlugIdentificador(valor: unknown, codigo: string, mensaje: string) {
+  const normalizado = String(valor || '').trim().toLowerCase();
+  if (!/^[a-z0-9][a-z0-9_-]{1,63}$/.test(normalizado)) {
+    throw new ErrorAplicacion(codigo, mensaje, 422);
+  }
+  return normalizado;
+}
+
+function normalizarObjectId(valor: unknown, codigo: string, mensaje: string) {
+  const normalizado = String(valor || '').trim();
+  if (!Types.ObjectId.isValid(normalizado)) {
+    throw new ErrorAplicacion(codigo, mensaje, 422);
+  }
+  return normalizado;
+}
+
 export async function obtenerResumenDashboard(req: SolicitudDocente, res: Response) {
   obtenerDocenteId(req);
   const resumen = await construirResumenDashboard();
@@ -60,7 +76,7 @@ export async function crearTenant(req: SolicitudDocente, res: Response) {
 
 export async function actualizarTenant(req: SolicitudDocente, res: Response) {
   const actorDocenteId = obtenerDocenteId(req);
-  const tenantId = String(req.params.id || '').trim().toLowerCase();
+  const tenantId = normalizarSlugIdentificador(req.params.id, 'TENANT_ID_INVALIDO', 'Identificador de tenant invalido');
   const tenant = await Tenant.findOneAndUpdate({ tenantId }, { $set: req.body }, { returnDocument: 'after' }).lean();
   if (!tenant) throw new ErrorAplicacion('TENANT_NO_ENCONTRADO', 'Tenant no encontrado', 404);
 
@@ -101,7 +117,7 @@ export async function crearPlan(req: SolicitudDocente, res: Response) {
 
 export async function actualizarPlan(req: SolicitudDocente, res: Response) {
   const actorDocenteId = obtenerDocenteId(req);
-  const planId = String(req.params.id || '').trim().toLowerCase();
+  const planId = normalizarSlugIdentificador(req.params.id, 'PLAN_ID_INVALIDO', 'Identificador de plan invalido');
 
   const existente = await PlanComercial.findOne({ planId });
   if (!existente) throw new ErrorAplicacion('PLAN_NO_ENCONTRADO', 'Plan no encontrado', 404);
@@ -326,7 +342,7 @@ export async function crearCupon(req: SolicitudDocente, res: Response) {
 
 export async function actualizarCupon(req: SolicitudDocente, res: Response) {
   const actorDocenteId = obtenerDocenteId(req);
-  const id = String(req.params.id || '').trim();
+  const id = normalizarObjectId(req.params.id, 'CUPON_ID_INVALIDO', 'Identificador de cupon invalido');
   const cupon = await Cupon.findByIdAndUpdate(id, { $set: req.body }, { returnDocument: 'after' }).lean();
   if (!cupon) throw new ErrorAplicacion('CUPON_NO_ENCONTRADO', 'Cupon no encontrado', 404);
 
@@ -365,7 +381,7 @@ export async function crearCampana(req: SolicitudDocente, res: Response) {
 
 export async function actualizarCampana(req: SolicitudDocente, res: Response) {
   const actorDocenteId = obtenerDocenteId(req);
-  const id = String(req.params.id || '').trim();
+  const id = normalizarObjectId(req.params.id, 'CAMPANA_ID_INVALIDO', 'Identificador de campana invalido');
   const campana = await Campana.findByIdAndUpdate(id, { $set: req.body }, { returnDocument: 'after' }).lean();
   if (!campana) throw new ErrorAplicacion('CAMPANA_NO_ENCONTRADA', 'Campana no encontrada', 404);
 
@@ -408,7 +424,7 @@ export async function crearPlantillaNotificacion(req: SolicitudDocente, res: Res
 
 export async function actualizarPlantillaNotificacion(req: SolicitudDocente, res: Response) {
   const actorDocenteId = obtenerDocenteId(req);
-  const id = String(req.params.id || '').trim();
+  const id = normalizarObjectId(req.params.id, 'PLANTILLA_NOTIFICACION_ID_INVALIDO', 'Identificador de plantilla invalido');
   const plantilla = await PlantillaNotificacion.findByIdAndUpdate(id, { $set: req.body }, { returnDocument: 'after' }).lean();
   if (!plantilla) throw new ErrorAplicacion('PLANTILLA_NOTIFICACION_NO_ENCONTRADA', 'Plantilla no encontrada', 404);
 
@@ -512,7 +528,7 @@ export async function generarLicencia(req: SolicitudDocente, res: Response) {
 
 export async function revocarLicencia(req: SolicitudDocente, res: Response) {
   const actorDocenteId = obtenerDocenteId(req);
-  const id = String(req.params.id || '').trim();
+  const id = normalizarObjectId(req.params.id, 'LICENCIA_ID_INVALIDO', 'Identificador de licencia invalido');
   const licencia = await Licencia.findByIdAndUpdate(
     id,
     {

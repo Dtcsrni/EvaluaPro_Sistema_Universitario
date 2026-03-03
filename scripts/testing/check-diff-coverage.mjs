@@ -228,15 +228,10 @@ function resolveThreshold() {
   return parsed;
 }
 
-function resolveIgnoreLineRegex() {
-  const raw = getArg('--ignore-line-regex') ?? process.env.DIFF_COVERAGE_IGNORE_LINE_REGEX ?? '';
+function resolveIgnoreLineSubstring() {
+  const raw = getArg('--ignore-line-substring') ?? process.env.DIFF_COVERAGE_IGNORE_LINE_SUBSTRING ?? '';
   const value = String(raw).trim();
-  if (!value) return null;
-  try {
-    return new RegExp(value);
-  } catch {
-    throw new Error(`Regex inválida para DIFF_COVERAGE_IGNORE_LINE_REGEX: ${value}`);
-  }
+  return value || null;
 }
 
 async function buildFileLinesCache(touchedCoverable) {
@@ -256,7 +251,7 @@ async function buildFileLinesCache(touchedCoverable) {
 
 async function main() {
   const minCoverage = resolveThreshold();
-  const ignoreLineRegex = resolveIgnoreLineRegex();
+  const ignoreLineSubstring = resolveIgnoreLineSubstring();
   const baseRef = resolveBaseRef();
   const headRef = resolveHeadRef();
   const selectedApps = resolveSelectedApps();
@@ -296,9 +291,9 @@ async function main() {
     const lineHits = coverageMap.get(normalizedFile);
 
     for (const line of lines) {
-      if (ignoreLineRegex) {
+      if (ignoreLineSubstring) {
         const sourceLine = fileLinesCache.get(normalizedFile)?.[line - 1] ?? '';
-        if (ignoreLineRegex.test(sourceLine)) {
+        if (sourceLine.includes(ignoreLineSubstring)) {
           ignored += 1;
           continue;
         }
@@ -316,8 +311,8 @@ async function main() {
 
   const percent = total === 0 ? 100 : Number(((covered / total) * 100).toFixed(2));
   console.log(`[diff-coverage] Base: ${baseRef} | Head: ${headRef}`);
-  if (ignoreLineRegex) {
-    console.log(`[diff-coverage] Líneas ignoradas por patrón: ${ignored} (${ignoreLineRegex.source})`);
+  if (ignoreLineSubstring) {
+    console.log(`[diff-coverage] Líneas ignoradas por subcadena: ${ignored} (${ignoreLineSubstring})`);
   }
   console.log(`[diff-coverage] Líneas tocadas: ${total} | Cubiertas: ${covered} | Diff coverage: ${percent}% | Umbral: ${minCoverage}%`);
 
