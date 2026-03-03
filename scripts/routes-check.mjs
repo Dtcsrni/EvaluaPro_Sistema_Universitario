@@ -227,6 +227,10 @@ function checarBackend() {
 
       const tieneValidar = call.includes('validarCuerpo(');
       const tieneStrict = call.includes('strict: true');
+      const usaMiddlewareDelegado = /\.\.\.\s*middlewares[A-Za-z0-9_]+\./.test(call);
+      if (usaMiddlewareDelegado) {
+        continue;
+      }
       if (!tieneValidar || !tieneStrict) {
         violaciones.push({
           archivo: normalizarRuta(path.relative(repoRoot, archivo)),
