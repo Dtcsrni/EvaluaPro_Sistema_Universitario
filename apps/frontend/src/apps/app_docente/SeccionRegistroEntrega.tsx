@@ -1064,7 +1064,7 @@ export function SeccionRegistroEntrega({
           <div className="resultado">
             <h3>Resultado del lote</h3>
             {itemMesaActual && (
-              <div className="item-glass" style={{ marginBottom: 12 }}>
+              <div className="item-glass entregas-vinculacion__item">
                 <div className="item-row">
                   <div>
                     <div className="item-title">Mesa de trabajo · {indiceMesaTrabajo + 1}/{idsPendientesMesa.length}</div>
@@ -1074,8 +1074,8 @@ export function SeccionRegistroEntrega({
                   </div>
                 </div>
                 {(itemMesaActual.previewEncabezadoUrl || itemMesaActual.previewUrl) && (
-                  <div style={{ marginTop: 8 }}>
-                    <div className="item-row" style={{ marginBottom: 6 }}>
+                  <div className="entregas-vinculacion__preview">
+                    <div className="item-row entregas-vinculacion__preview-header">
                       <div className="item-sub">
                         {verHojaCompletaMesa ? 'Hoja completa' : 'Encabezado del examen (vista ampliada)'}
                       </div>
@@ -1094,11 +1094,11 @@ export function SeccionRegistroEntrega({
                         ? itemMesaActual.previewUrl
                         : (itemMesaActual.previewEncabezadoUrl || itemMesaActual.previewUrl)}
                       alt={verHojaCompletaMesa ? `Captura completa ${itemMesaActual.nombre}` : `Encabezado ${itemMesaActual.nombre}`}
-                      style={{ width: '100%', maxHeight: 520, objectFit: 'contain', borderRadius: 8 }}
+                      className="entregas-vinculacion__preview-image"
                     />
                   </div>
                 )}
-                <div className="entregas-vinculacion__form" style={{ marginTop: 8 }}>
+                <div className="entregas-vinculacion__form entregas-vinculacion__form--spaced">
                   <label className="campo">
                     Alumno
                     <select
@@ -1114,9 +1114,9 @@ export function SeccionRegistroEntrega({
                       ))}
                     </select>
                   </label>
-                  <label className="campo" style={{ display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
+                  <label className="campo entregas-vinculacion__checkbox-field">
                     <span>Acordeón entregado</span>
-                    <label style={{ display: 'inline-flex', alignItems: 'center', gap: 8, marginTop: 6 }}>
+                    <label className="entregas-vinculacion__checkbox-label">
                       <input
                         type="checkbox"
                         checked={Boolean(itemMesaActual.acordeonEntregado)}
@@ -1132,7 +1132,7 @@ export function SeccionRegistroEntrega({
                     </label>
                   </label>
                 </div>
-                <div className="item-actions" style={{ marginTop: 8 }}>
+                <div className="item-actions entregas-vinculacion__nav">
                   <Boton
                     type="button"
                     variante="secundario"

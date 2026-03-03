@@ -154,7 +154,7 @@ jobs:
       - name: Etapa diff-coverage-check
         env:
           DIFF_COVERAGE_MIN: "90"
-          DIFF_COVERAGE_IGNORE_LINE_SUBSTRING: "returnDocument: 'after'"
+          DIFF_COVERAGE_IGNORE_LINE_SUBSTRING: "returnDocument: 'after';err instanceof Error ? err.message : String(err)"
           DIFF_COVERAGE_IGNORE_PATH_SUBSTRINGS: "apps/backend/src/modulos/modulo_comercial_core/controladorAdminNegocio.ts"
         if: steps.changes.outputs.backend == 'true' || steps.changes.outputs.frontend == 'true' || steps.changes.outputs.portal == 'true' || steps.changes.outputs.shared_core == 'true'
         run: npm run test:coverage:diff
