@@ -6,6 +6,7 @@ Herramientas de operación local (principalmente Windows) para **Sistema EvaluaP
 - UI: `dashboard.html`
 - SW: `dashboard-sw.js`
 - Launcher: `launcher-dashboard.mjs`
+- Variable de gracia de salud en arranque: `DASHBOARD_HEALTH_WARMUP_MS` (ms, recomendado 60000 en Windows)
 - Reparacion desde Configuracion:
   - diagnostico: `GET /api/repair/status`
   - iniciar reparacion: `POST /api/repair/run`
@@ -48,6 +49,41 @@ Herramientas de operación local (principalmente Windows) para **Sistema EvaluaP
 ## Ejecutables rápidos
 - `launch-dev.cmd`
 - `launch-prod.cmd`
+
+## Mantenimiento de recursos (disco/RAM/Docker)
+- Script principal: `ops-maintenance.ps1`
+- Modos:
+  - `report`: solo diagnostico.
+  - `weekly`: limpieza preventiva.
+  - `monthly`: limpieza profunda (incluye volumenes huérfanos y recursos no usados).
+- Comandos npm:
+  - `npm run ops:maintenance:report`
+  - `npm run ops:maintenance:weekly`
+  - `npm run ops:maintenance:monthly`
+
+## Tareas programadas de Windows
+- Instalador de tareas: `install-maintenance-tasks.ps1`
+- Comando npm:
+  - `npm run ops:maintenance:tasks:install`
+- Tareas creadas:
+  - `EvaluaPro-Mantenimiento-Semanal`
+  - `EvaluaPro-Mantenimiento-Mensual`
+
+## Aislamiento de datos (dev/prod/test)
+- Datos de archivos backend separados por entorno:
+  - `apps/backend/data/examenes_dev`
+  - `apps/backend/data/examenes_prod`
+  - `apps/backend/data/examenes_test`
+- Bases de datos Mongo recomendadas por entorno:
+  - `MONGODB_URI_DEV` -> `mern_app_dev`
+  - `MONGODB_URI_PROD` -> `mern_app_prod`
+  - `MONGODB_URI_TEST` -> `mern_app_test`
+- Rutas de datos configurables por entorno:
+  - `BACKEND_DATA_DIR_DEV`
+  - `BACKEND_DATA_DIR_PROD`
+- Guard obligatorio de separación:
+  - `npm run ops:guard:separation`
+  - Se ejecuta automáticamente antes de `stack:dev`, `stack:prod`, `stack:dev:full`, `stack:prod:full`, `dev:portal` y `portal:prod`.
 
 ## Handoff IA (continuidad de sesiones)
 - Script: `ia-handoff.mjs`

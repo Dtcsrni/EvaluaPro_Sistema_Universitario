@@ -20,6 +20,7 @@ import { ExamenPlantilla } from '../modulo_generacion_pdf/modeloExamenPlantilla'
 import { evaluarAutoCalificableOmr } from '../modulo_escaneo_omr/politicaAutoCalificacionOmr';
 import { EscaneoOmrArchivado } from '../modulo_escaneo_omr/modeloEscaneoOmrArchivado';
 import { leerCapturasOmrParaPortal } from '../modulo_sincronizacion_nube/infra/omrCapturas';
+import { Entrega } from '../modulo_vinculacion_entrega/modeloEntrega';
 import { Calificacion } from './modeloCalificacion';
 import { SolicitudRevisionAlumno } from './modeloSolicitudRevisionAlumno';
 import { calcularCalificacion } from './servicioCalificacion';
@@ -416,10 +417,24 @@ export async function calificarExamen(req: SolicitudDocente, res: Response) {
   const totalFinal = total || totalReactivos || aciertosFinal || 1;
   const aciertosAjustados = Math.min(aciertosFinal, totalFinal);
 
+  const entrega = await Entrega.findOne({
+    examenGeneradoId,
+    docenteId,
+    estado: 'entregado'
+  })
+    .sort({ createdAt: -1 })
+    .lean();
+  const bonoAcordeon = Boolean((entrega as { acordeonEntregado?: unknown } | null)?.acordeonEntregado)
+    ? Number.isFinite(Number((entrega as { bonoAcordeon?: unknown } | null)?.bonoAcordeon))
+      ? Math.max(0, Math.min(0.5, Number((entrega as { bonoAcordeon?: unknown } | null)?.bonoAcordeon)))
+      : 0.25
+    : 0;
+  const bonoSolicitadoTotal = (Number(bonoSolicitado) || 0) + bonoAcordeon;
+
   const resultado = calcularCalificacion(
     aciertosAjustados,
     totalFinal,
-    bonoSolicitado ?? 0,
+    bonoSolicitadoTotal,
     evaluacionContinua ?? 0,
     proyecto ?? 0,
     plantilla.tipo as 'parcial' | 'global'

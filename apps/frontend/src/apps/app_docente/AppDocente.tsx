@@ -786,12 +786,18 @@ export function AppDocente() {
           permisos={permisosUI}
           avisarSinPermiso={avisarSinPermiso}
           enviarConPermiso={enviarConPermiso}
-          onVincular={(folio, alumnoId) => {
+          onVincular={(folio, alumnoId, opciones) => {
             if (!permisosUI.entregas.gestionar) {
               avisarSinPermiso('No tienes permiso para vincular entregas.');
               return Promise.reject(new Error('SIN_PERMISO'));
             }
-            return clienteApi.enviar('/entregas/vincular-folio', { folio, alumnoId });
+            return clienteApi.enviar('/entregas/vincular-folio', {
+              folio,
+              alumnoId,
+              ...(opciones?.acordeonEntregado
+                ? { acordeonEntregado: true, bonoAcordeon: Number(opciones.bonoAcordeon ?? 0.25) }
+                : { acordeonEntregado: false, bonoAcordeon: 0 })
+            });
           }}
         />
       )}

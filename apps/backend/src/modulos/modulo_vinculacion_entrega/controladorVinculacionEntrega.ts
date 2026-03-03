@@ -21,7 +21,7 @@ import { Entrega } from './modeloEntrega';
  * - Marca el examen como `entregado`.
  */
 export async function vincularEntrega(req: SolicitudDocente, res: Response) {
-  const { examenGeneradoId, alumnoId } = req.body;
+  const { examenGeneradoId, alumnoId, acordeonEntregado, bonoAcordeon } = req.body;
   const docenteId = obtenerDocenteId(req);
 
   const examen = await ExamenGenerado.findById(examenGeneradoId);
@@ -46,7 +46,13 @@ export async function vincularEntrega(req: SolicitudDocente, res: Response) {
     alumnoId,
     docenteId,
     estado: 'entregado',
-    fechaEntrega: new Date()
+    fechaEntrega: new Date(),
+    acordeonEntregado: Boolean(acordeonEntregado),
+    bonoAcordeon: Boolean(acordeonEntregado)
+      ? Number.isFinite(Number(bonoAcordeon))
+        ? Math.max(0, Math.min(0.5, Number(bonoAcordeon)))
+        : 0.25
+      : 0
   });
 
   res.status(201).json({ entrega });
@@ -60,7 +66,7 @@ export async function vincularEntrega(req: SolicitudDocente, res: Response) {
  */
 export async function vincularEntregaPorFolio(req: SolicitudDocente, res: Response) {
   const folio = String(req.body.folio || '').toUpperCase();
-  const { alumnoId } = req.body;
+  const { alumnoId, acordeonEntregado, bonoAcordeon } = req.body;
   const docenteId = obtenerDocenteId(req);
 
   const examen = await ExamenGenerado.findOne({ folio, docenteId });
@@ -82,7 +88,13 @@ export async function vincularEntregaPorFolio(req: SolicitudDocente, res: Respon
     alumnoId,
     docenteId,
     estado: 'entregado',
-    fechaEntrega: new Date()
+    fechaEntrega: new Date(),
+    acordeonEntregado: Boolean(acordeonEntregado),
+    bonoAcordeon: Boolean(acordeonEntregado)
+      ? Number.isFinite(Number(bonoAcordeon))
+        ? Math.max(0, Math.min(0.5, Number(bonoAcordeon)))
+        : 0.25
+      : 0
   });
 
   res.status(201).json({ entrega });

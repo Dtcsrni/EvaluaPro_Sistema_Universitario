@@ -19,6 +19,7 @@ import { normalizarParaNombreArchivo } from '../../compartido/utilidades/texto';
 import { Docente } from '../modulo_autenticacion/modeloDocente';
 import { resolverNumeroPaginasPlantilla } from './domain/resolverNumeroPaginasPlantilla';
 import { TEMPLATE_VERSION_TV3 } from './domain/tv3Compat';
+import { Entrega } from '../modulo_vinculacion_entrega/modeloEntrega';
 
 type BancoPreguntaLean = {
   _id: unknown;
@@ -84,7 +85,44 @@ export async function listarExamenesGenerados(req: SolicitudDocente, res: Respon
   const limite = Number(req.query.limite ?? 0);
   const consulta = ExamenGenerado.find(filtro).sort({ generadoEn: -1, _id: -1 });
   const examenes = await (limite > 0 ? consulta.limit(limite) : consulta).lean();
-  res.json({ examenes });
+
+  const examenesIds = examenes
+    .map((examen) => String((examen as unknown as { _id?: unknown })?._id ?? '').trim())
+    .filter(Boolean);
+
+  const entregas = examenesIds.length
+    ? await Entrega.find({ docenteId, examenGeneradoId: { $in: examenesIds } })
+      .sort({ createdAt: -1 })
+      .lean()
+    : [];
+
+  const entregaPorExamenId = new Map<string, { acordeonEntregado: boolean; bonoAcordeon: number }>();
+  for (const entrega of entregas) {
+    const examenId = String((entrega as unknown as { examenGeneradoId?: unknown })?.examenGeneradoId ?? '').trim();
+    if (!examenId || entregaPorExamenId.has(examenId)) continue;
+    const acordeonEntregado = Boolean((entrega as unknown as { acordeonEntregado?: unknown })?.acordeonEntregado);
+    const bonoAcordeonRaw = Number((entrega as unknown as { bonoAcordeon?: unknown })?.bonoAcordeon ?? 0);
+    entregaPorExamenId.set(examenId, {
+      acordeonEntregado,
+      bonoAcordeon: acordeonEntregado
+        ? Number.isFinite(bonoAcordeonRaw)
+          ? Math.max(0, Math.min(0.5, bonoAcordeonRaw))
+          : 0.25
+        : 0
+    });
+  }
+
+  const examenesConEntrega = examenes.map((examen) => {
+    const examenId = String((examen as unknown as { _id?: unknown })?._id ?? '').trim();
+    const entrega = entregaPorExamenId.get(examenId);
+    return {
+      ...examen,
+      acordeonEntregado: Boolean(entrega?.acordeonEntregado),
+      bonoAcordeon: Number(entrega?.bonoAcordeon ?? 0)
+    };
+  });
+
+  res.json({ examenes: examenesConEntrega });
 }
 
 /**
