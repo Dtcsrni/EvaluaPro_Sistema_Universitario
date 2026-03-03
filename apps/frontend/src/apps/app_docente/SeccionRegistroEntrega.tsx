@@ -118,6 +118,10 @@ export function SeccionRegistroEntrega({
   const bloqueoEdicion = !puedeGestionar;
   const inputCarpetaRef = useRef<HTMLInputElement | null>(null);
   const ocrModuloRef = useRef<unknown>(null);
+  type OcrResult = { data?: { text?: string } };
+  type OcrModule = {
+    recognize?: (image: string, languages?: string) => Promise<OcrResult>;
+  };
 
   function prepararAudio() {
     if (typeof window === 'undefined') return;
@@ -272,13 +276,13 @@ export function SeccionRegistroEntrega({
       cropCtx.drawImage(canvas, 0, topY, ancho, cropH, 0, 0, ancho, cropH);
 
       const dataUrl = cropCanvas.toDataURL('image/png');
-      const modulo = (ocrModuloRef.current as { recognize?: Function } | null) ?? (await import('tesseract.js'));
+      const modulo = (ocrModuloRef.current as OcrModule | null) ?? (await import('tesseract.js'));
       ocrModuloRef.current = modulo;
-      const recognize = (modulo as { recognize?: Function }).recognize;
+      const recognize = modulo.recognize;
       if (typeof recognize !== 'function') return '';
 
       const resultado = await recognize(dataUrl, 'spa+eng');
-      const text = String((resultado as { data?: { text?: string } })?.data?.text ?? '').trim();
+      const text = String(resultado?.data?.text ?? '').trim();
       return text;
     } catch {
       return '';
@@ -360,7 +364,7 @@ export function SeccionRegistroEntrega({
     });
   }
 
-  async function crearPreviewEncabezadoUrl(file: File): Promise<string> {
+  const crearPreviewEncabezadoUrl = useCallback(async (file: File): Promise<string> => {
     const img = await cargarImagen(file);
     const ancho = Number((img as HTMLImageElement).naturalWidth || img.width || 0);
     const alto = Number((img as HTMLImageElement).naturalHeight || img.height || 0);
@@ -380,7 +384,7 @@ export function SeccionRegistroEntrega({
     });
     if (!blob) return URL.createObjectURL(file);
     return URL.createObjectURL(blob);
-  }
+  }, []);
 
   async function leerQrConBarcodeDetector(file: File) {
     if (typeof window === 'undefined') return '';
@@ -788,6 +792,10 @@ export function SeccionRegistroEntrega({
     };
   }, []);
 
+  const actualizarItemLote = useCallback((itemId: string, patch: Partial<ResultadoLote>) => {
+    setResultadosLote((prev) => prev.map((item) => (item.id === itemId ? { ...item, ...patch } : item)));
+  }, []);
+
   useEffect(() => {
     if (!itemMesaActual || itemMesaActual.previewEncabezadoUrl || !itemMesaActual.archivo) return;
     let cancelado = false;
@@ -807,11 +815,7 @@ export function SeccionRegistroEntrega({
     return () => {
       cancelado = true;
     };
-  }, [itemMesaActual]);
-
-  function actualizarItemLote(itemId: string, patch: Partial<ResultadoLote>) {
-    setResultadosLote((prev) => prev.map((item) => (item.id === itemId ? { ...item, ...patch } : item)));
-  }
+  }, [actualizarItemLote, crearPreviewEncabezadoUrl, itemMesaActual]);
 
   async function vincularItemMesaTrabajoActual() {
     if (!itemMesaActual) return;
@@ -829,7 +833,7 @@ export function SeccionRegistroEntrega({
     try {
       await onVincular(folioValor, alumnoValor, {
         acordeonEntregado: Boolean(itemMesaActual.acordeonEntregado),
-        bonoAcordeon: Boolean(itemMesaActual.acordeonEntregado)
+        bonoAcordeon: itemMesaActual.acordeonEntregado
           ? Number(itemMesaActual.bonoAcordeon || BONUS_ACORDEON)
           : 0
       });

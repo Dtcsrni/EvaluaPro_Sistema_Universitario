@@ -355,7 +355,7 @@ export async function regenerarPdfExamen(req: SolicitudDocente, res: Response) {
   try {
     resultadoPdf = await generarConPaginas(paginasObjetivo);
   } catch (err) {
-    const msg = (err && typeof err.message === 'string') ? err.message : String(err);
+    const msg = err instanceof Error ? err.message : String(err);
     if (msg.includes('Layout invalido: densidad insuficiente')) {
       throw new ErrorAplicacion(
         'LAYOUT_DENSIDAD_INSUFICIENTE',
