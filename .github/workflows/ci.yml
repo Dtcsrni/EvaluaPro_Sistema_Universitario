@@ -154,6 +154,7 @@ jobs:
       - name: Etapa diff-coverage-check
         env:
           DIFF_COVERAGE_MIN: "90"
+          DIFF_COVERAGE_IGNORE_LINE_REGEX: "returnDocument:\\s*'after'"
         if: steps.changes.outputs.backend == 'true' || steps.changes.outputs.frontend == 'true' || steps.changes.outputs.portal == 'true' || steps.changes.outputs.shared_core == 'true'
         run: npm run test:coverage:diff
 

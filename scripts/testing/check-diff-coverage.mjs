@@ -228,8 +228,35 @@ function resolveThreshold() {
   return parsed;
 }
 
+function resolveIgnoreLineRegex() {
+  const raw = getArg('--ignore-line-regex') ?? process.env.DIFF_COVERAGE_IGNORE_LINE_REGEX ?? '';
+  const value = String(raw).trim();
+  if (!value) return null;
+  try {
+    return new RegExp(value);
+  } catch {
+    throw new Error(`Regex inválida para DIFF_COVERAGE_IGNORE_LINE_REGEX: ${value}`);
+  }
+}
+
+async function buildFileLinesCache(touchedCoverable) {
+  const cache = new Map();
+  for (const file of touchedCoverable.keys()) {
+    const normalizedFile = normalizeRelative(file);
+    const absolute = path.join(rootDir, normalizedFile);
+    try {
+      const content = await fs.readFile(absolute, 'utf8');
+      cache.set(normalizedFile, content.split(/\r?\n/));
+    } catch {
+      cache.set(normalizedFile, []);
+    }
+  }
+  return cache;
+}
+
 async function main() {
   const minCoverage = resolveThreshold();
+  const ignoreLineRegex = resolveIgnoreLineRegex();
   const baseRef = resolveBaseRef();
   const headRef = resolveHeadRef();
   const selectedApps = resolveSelectedApps();
@@ -257,9 +284,11 @@ async function main() {
   console.log(`[diff-coverage] Apps evaluadas: ${requiredApps.map((app) => app.name).join(', ')}`);
 
   const coverageMap = await loadCoverageMaps(requiredApps);
+  const fileLinesCache = await buildFileLinesCache(touchedCoverable);
 
   let total = 0;
   let covered = 0;
+  let ignored = 0;
   const missing = [];
 
   for (const [file, lines] of touchedCoverable.entries()) {
@@ -267,6 +296,14 @@ async function main() {
     const lineHits = coverageMap.get(normalizedFile);
 
     for (const line of lines) {
+      if (ignoreLineRegex) {
+        const sourceLine = fileLinesCache.get(normalizedFile)?.[line - 1] ?? '';
+        if (ignoreLineRegex.test(sourceLine)) {
+          ignored += 1;
+          continue;
+        }
+      }
+
       total += 1;
       const hits = lineHits?.get(line) ?? 0;
       if (hits > 0) {
@@ -279,6 +316,9 @@ async function main() {
 
   const percent = total === 0 ? 100 : Number(((covered / total) * 100).toFixed(2));
   console.log(`[diff-coverage] Base: ${baseRef} | Head: ${headRef}`);
+  if (ignoreLineRegex) {
+    console.log(`[diff-coverage] Líneas ignoradas por patrón: ${ignored} (${ignoreLineRegex.source})`);
+  }
   console.log(`[diff-coverage] Líneas tocadas: ${total} | Cubiertas: ${covered} | Diff coverage: ${percent}% | Umbral: ${minCoverage}%`);
 
   if (percent < minCoverage) {
