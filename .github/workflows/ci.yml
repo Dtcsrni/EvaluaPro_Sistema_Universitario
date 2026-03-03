@@ -68,7 +68,7 @@ jobs:
             apps/portal_alumno_cloud/package-lock.json
 
       - name: Etapa setup
-        run: npm ci
+        run: npm ci --foreground-scripts
 
       - name: Preparar runtime sharp (linux-x64)
         if: steps.changes.outputs.backend == 'true' || steps.changes.outputs.portal == 'true' || steps.changes.outputs.shared_core == 'true'
@@ -243,7 +243,7 @@ jobs:
             apps/portal_alumno_cloud/package-lock.json
 
       - name: Etapa setup
-        run: npm ci
+        run: npm ci --foreground-scripts
 
       - name: Preparar runtime sharp (linux-x64)
         run: npm install --no-save --include=optional --os=linux --cpu=x64 sharp

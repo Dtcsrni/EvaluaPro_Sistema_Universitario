@@ -67,7 +67,7 @@ jobs:
             pkg-config
 
       - name: Etapa setup
-        run: npm ci
+        run: npm ci --foreground-scripts
 
       - name: Preparar runtime CV nativo (linux-x64)
         run: npm install --no-save --include=optional --os=linux --cpu=x64 sharp

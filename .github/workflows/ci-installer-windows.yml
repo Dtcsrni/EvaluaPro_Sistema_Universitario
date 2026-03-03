@@ -35,7 +35,7 @@ jobs:
             apps/portal_alumno_cloud/package-lock.json
 
       - name: Etapa setup
-        run: npm ci
+        run: npm ci --foreground-scripts
 
       - name: Instalar WiX CLI estable (v6+)
         shell: powershell
