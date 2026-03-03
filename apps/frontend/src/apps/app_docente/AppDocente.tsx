@@ -45,6 +45,11 @@ import {
 } from './utilidades';
 export function AppDocente() {
   const [docente, setDocente] = useState<Docente | null>(null);
+  const [capacidadesIntegraciones, setCapacidadesIntegraciones] = useState<{
+    oauthGoogleBackend: boolean;
+    classroomBackend: boolean;
+    smtpBackend: boolean;
+  } | null>(null);
   const [vista, setVista] = useState(obtenerVistaInicial());
   const {
     puede,
@@ -144,6 +149,26 @@ export function AppDocente() {
       montadoRef.current = false;
     };
   }, []);
+  useEffect(() => {
+    void clienteApi
+      .obtener<{ capacidadesIntegraciones?: { oauthGoogleBackend?: boolean; classroomBackend?: boolean; smtpBackend?: boolean } }>('/autenticacion/capacidades-integraciones')
+      .then((respuesta) => {
+        const caps = respuesta?.capacidadesIntegraciones;
+        setCapacidadesIntegraciones({
+          oauthGoogleBackend: Boolean(caps?.oauthGoogleBackend),
+          classroomBackend: Boolean(caps?.classroomBackend),
+          smtpBackend: Boolean(caps?.smtpBackend)
+        });
+      })
+      .catch(() => {
+        setCapacidadesIntegraciones({ oauthGoogleBackend: false, classroomBackend: false, smtpBackend: false });
+      });
+  }, []);
+
+  const oauthGoogleDisponible =
+    Boolean(String(import.meta.env.VITE_GOOGLE_CLIENT_ID || '').trim()) && Boolean(capacidadesIntegraciones?.oauthGoogleBackend);
+  const classroomDisponible = Boolean(capacidadesIntegraciones?.classroomBackend);
+  const smtpDisponible = Boolean(capacidadesIntegraciones?.smtpBackend);
   const refrescarDatos = useCallback(async () => {
     if (!docente) return;
     if (montadoRef.current) setCargandoDatos(true);
@@ -1072,6 +1097,7 @@ export function AppDocente() {
           puedeGestionar={permisosUI.evaluaciones.gestionar}
           puedeClassroomConectar={permisosUI.classroom.conectar}
           puedeClassroomPull={permisosUI.classroom.pull}
+          classroomDisponible={classroomDisponible}
         />
       )}
       {vista === 'publicar' && (
@@ -1148,11 +1174,16 @@ export function AppDocente() {
           onDocenteActualizado={setDocente}
           esAdmin={esAdmin}
           esDev={esDev}
+          oauthGoogleDisponible={oauthGoogleDisponible}
+          classroomDisponible={classroomDisponible}
+          smtpDisponible={smtpDisponible}
         />
       )}
     </div>
   ) : (
     <SeccionAutenticacion
+      oauthGoogleDisponible={oauthGoogleDisponible}
+      smtpDisponible={smtpDisponible}
       onIngresar={(token) => {
         guardarTokenDocente(token);
         clienteApi

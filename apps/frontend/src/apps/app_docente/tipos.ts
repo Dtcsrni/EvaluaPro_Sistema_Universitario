@@ -14,6 +14,11 @@ export type Docente = {
   permisos?: string[];
   tieneContrasena?: boolean;
   tieneGoogle?: boolean;
+  capacidadesIntegraciones?: {
+    oauthGoogleBackend?: boolean;
+    classroomBackend?: boolean;
+    smtpBackend?: boolean;
+  };
   preferenciasPdf?: {
     institucion?: string;
     lema?: string;

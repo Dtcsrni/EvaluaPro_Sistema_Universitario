@@ -3751,6 +3751,16 @@ p {
   color: var(--texto);
 }
 
+.admin-negocio__editor-title {
+  margin-top: 18px;
+}
+
+.admin-negocio__payload-json {
+  white-space: pre-wrap;
+  max-height: 520px;
+  overflow: auto;
+}
+
 .cuenta-resumen {
   display: grid;
   gap: 0.65rem;
@@ -3782,10 +3792,17 @@ p {
 
 .cuenta-seguridad,
 .cuenta-pdf,
+.cuenta-oauth,
 .cuenta-papelera {
   display: grid;
   gap: 0.7rem;
   border-radius: 16px;
+}
+
+.cuenta-oauth__comando {
+  min-height: 84px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', 'Courier New', monospace;
+  font-size: 0.82rem;
 }
 
 .cuenta-seguridad__form {

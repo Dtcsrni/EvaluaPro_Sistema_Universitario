@@ -20,7 +20,15 @@ import {
   obtenerDominiosCorreoPermitidosFrontend,
   textoDominiosPermitidos
 } from './utilidades';
-export function SeccionAutenticacion({ onIngresar }: { onIngresar: (token: string) => void }) {
+export function SeccionAutenticacion({
+  onIngresar,
+  oauthGoogleDisponible,
+  smtpDisponible
+}: {
+  onIngresar: (token: string) => void;
+  oauthGoogleDisponible?: boolean;
+  smtpDisponible?: boolean;
+}) {
   const [correo, setCorreo] = useState('');
   const [contrasena, setContrasena] = useState('');
   const [nombres, setNombres] = useState('');
@@ -42,7 +50,7 @@ export function SeccionAutenticacion({ onIngresar }: { onIngresar: (token: strin
     return Boolean(String(import.meta.env.VITE_GOOGLE_CLIENT_ID || '').trim());
   }
 
-  const googleDisponible = hayGoogleConfigurado();
+  const googleDisponible = typeof oauthGoogleDisponible === 'boolean' ? oauthGoogleDisponible : hayGoogleConfigurado();
   const esDev = import.meta.env.DEV;
   const mostrarFormulario = modo === 'ingresar'
     ? (!googleDisponible || mostrarFormularioIngresar)
@@ -362,7 +370,8 @@ export function SeccionAutenticacion({ onIngresar }: { onIngresar: (token: strin
         <div className="auth-hero-stats" aria-label="Estado de plataforma">
           <span>Sesion segura</span>
           <span>Flujo guiado</span>
-          <span>Soporte Google</span>
+          {googleDisponible && <span>Soporte Google</span>}
+          {Boolean(smtpDisponible) && <span>Soporte SMTP</span>}
         </div>
         <ul className="auth-beneficios" aria-label="Beneficios">
           <li>

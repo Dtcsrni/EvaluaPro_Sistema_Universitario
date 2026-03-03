@@ -109,6 +109,27 @@ function ipSolicitud(req: Request): string {
   return String(req.ip || req.socket?.remoteAddress || '').trim();
 }
 
+function obtenerCapacidadesOauthClassroom() {
+  const oauthGoogleBackend = Boolean(String(configuracion.googleOauthClientId || '').trim());
+  const classroomBackend = Boolean(
+    String(configuracion.googleClassroomClientId || '').trim() &&
+      String(configuracion.googleClassroomClientSecret || '').trim() &&
+      String(configuracion.googleClassroomRedirectUri || '').trim() &&
+      String(configuracion.classroomTokenCipherKey || '').trim()
+  );
+  const smtpBackend = Boolean(
+    configuracion.correoModuloActivo &&
+      String(configuracion.notificacionesWebhookUrl || '').trim() &&
+      String(configuracion.notificacionesWebhookToken || '').trim()
+  );
+
+  return {
+    oauthGoogleBackend,
+    classroomBackend,
+    smtpBackend
+  };
+}
+
 export async function registrarDocente(req: Request, res: Response) {
   const { nombres, apellidos, nombreCompleto, correo, contrasena } = req.body;
   const correoFinal = String(correo || '').toLowerCase();
@@ -514,6 +535,7 @@ export async function perfilDocente(req: SolicitudDocente, res: Response) {
       permisos: permisosComoLista(roles),
       tieneContrasena: Boolean(docente.hashContrasena),
       tieneGoogle: Boolean(docente.googleSub),
+      capacidadesIntegraciones: obtenerCapacidadesOauthClassroom(),
       preferenciasPdf: {
         institucion: String((docente as unknown as { preferenciasPdf?: { institucion?: unknown } })?.preferenciasPdf?.institucion ?? '').trim() || undefined,
         lema: String((docente as unknown as { preferenciasPdf?: { lema?: unknown } })?.preferenciasPdf?.lema ?? '').trim() || undefined,
@@ -528,6 +550,10 @@ export async function perfilDocente(req: SolicitudDocente, res: Response) {
       }
     }
   });
+}
+
+export async function capacidadesIntegracionesPublicas(_req: Request, res: Response) {
+  res.json({ capacidadesIntegraciones: obtenerCapacidadesOauthClassroom() });
 }
 
 export async function actualizarPreferenciasPdfDocente(req: SolicitudDocente, res: Response) {

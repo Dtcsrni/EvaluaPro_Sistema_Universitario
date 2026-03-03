@@ -8,6 +8,7 @@ import { validarCuerpo } from '../../compartido/validaciones/validar';
 import {
 	definirContrasenaDocente,
 	actualizarPreferenciasPdfDocente,
+	capacidadesIntegracionesPublicas,
 	ingresarDocente,
 	ingresarDocenteGoogle,
 	perfilDocente,
@@ -77,6 +78,7 @@ const limiterRefresco: RequestHandler = esProduccion
 	: sinRateLimit;
 
 router.post('/registrar', limiterCredenciales, validarCuerpo(esquemaRegistrarDocente, { strict: true }), registrarDocente);
+router.get('/capacidades-integraciones', capacidadesIntegracionesPublicas);
 router.post('/registrar-google', limiterCredenciales, validarCuerpo(esquemaRegistrarDocenteGoogle, { strict: true }), registrarDocenteGoogle);
 router.post('/ingresar', limiterCredenciales, validarCuerpo(esquemaIngresarDocente, { strict: true }), ingresarDocente);
 router.post('/google', limiterCredenciales, validarCuerpo(esquemaIngresarDocenteGoogle, { strict: true }), ingresarDocenteGoogle);

@@ -274,6 +274,9 @@ function mensajeAmigablePorCodigo(codigo?: string): string | undefined {
   if (c.includes('SYNC_SERVIDOR_INALCANZABLE')) {
     return 'No se pudo conectar al servidor de sincronizacion. Verifica la URL y que el portal este en linea.';
   }
+  if (c.includes('CLASSROOM_NO_CONFIG')) {
+    return 'Google Classroom no esta configurado en el backend. Define GOOGLE_CLASSROOM_CLIENT_ID, GOOGLE_CLASSROOM_CLIENT_SECRET, GOOGLE_CLASSROOM_REDIRECT_URI y CLASSROOM_TOKEN_CIPHER_KEY.';
+  }
   if (c.includes('EXAMEN_NO_ENCONTR')) return 'No se encontro el examen solicitado.';
   if (c.includes('EXAMEN_YA_ENTREGAD')) return 'Este examen ya fue entregado.';
   if (c.includes('PDF_NO_DISPON')) return 'El PDF no esta disponible aun.';
@@ -323,6 +326,9 @@ export function sugerenciaUsuarioDeError(error: unknown): string | undefined {
     }
     if (codigo?.includes('SYNC_SERVIDOR_INALCANZABLE')) {
       return 'Tip: verifica la URL del portal y su conectividad.';
+    }
+    if (codigo?.includes('CLASSROOM_NO_CONFIG')) {
+      return 'Tip: configura credenciales OAuth de Classroom y reinicia el backend.';
     }
 
     if (status === 401) {

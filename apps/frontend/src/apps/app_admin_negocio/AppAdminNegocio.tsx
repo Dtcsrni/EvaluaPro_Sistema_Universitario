@@ -59,6 +59,7 @@ const VISTAS: Array<{ id: Vista; label: string }> = [
 
 export function AppAdminNegocio() {
   const [perfil, setPerfil] = useState<Perfil | null>(null);
+  const [capacidadesIntegraciones, setCapacidadesIntegraciones] = useState<{ smtpBackend: boolean } | null>(null);
   const [vista, setVista] = useState<Vista>('dashboard');
   const [data, setData] = useState<unknown>(null);
   const [mensaje, setMensaje] = useState('');
@@ -135,6 +136,8 @@ export function AppAdminNegocio() {
 
   const permisos = useMemo(() => new Set(perfil?.docente?.permisos ?? []), [perfil]);
   const puedeVer = permisos.has('comercial:metricas:leer') || permisos.has('comercial:tenants:leer');
+  const smtpDisponible = Boolean(capacidadesIntegraciones?.smtpBackend);
+  const canalesDisponibles = useMemo(() => (smtpDisponible ? ['email', 'whatsapp', 'crm'] : ['whatsapp', 'crm']), [smtpDisponible]);
   const plantillasNotificacion = useMemo(() => {
     const payload = data as { plantillas?: PlantillaNotificacion[] } | null;
     return Array.isArray(payload?.plantillas) ? payload.plantillas : [];
@@ -147,6 +150,15 @@ export function AppAdminNegocio() {
       setMensaje('');
     } catch {
       setMensaje('No hay sesion activa. Ingresa con tu cuenta Google y rol comercial.');
+    }
+  }
+
+  async function cargarCapacidadesIntegraciones() {
+    try {
+      const payload = await clienteAdminNegocioApi.obtener<{ capacidadesIntegraciones?: { smtpBackend?: boolean } }>('/autenticacion/capacidades-integraciones');
+      setCapacidadesIntegraciones({ smtpBackend: Boolean(payload?.capacidadesIntegraciones?.smtpBackend) });
+    } catch {
+      setCapacidadesIntegraciones({ smtpBackend: false });
     }
   }
 
@@ -304,7 +316,7 @@ export function AppAdminNegocio() {
     setPlantillaSeleccionadaId(id);
     setEdicionPlantillaNotificacion({
       evento: String(plantilla.evento || 'cobranza_recordatorio'),
-      canal: String(plantilla.canal || 'email'),
+      canal: String(plantilla.canal || 'whatsapp'),
       idioma: String(plantilla.idioma || 'es-MX'),
       asunto: String(plantilla.asunto || ''),
       contenido: String(plantilla.contenido || ''),
@@ -382,7 +394,21 @@ export function AppAdminNegocio() {
 
   useEffect(() => {
     void cargarPerfil();
+    void cargarCapacidadesIntegraciones();
   }, []);
+
+  useEffect(() => {
+    if (smtpDisponible) return;
+    if (nuevaCampana.canal === 'email') {
+      setNuevaCampana((prev) => ({ ...prev, canal: 'whatsapp' }));
+    }
+    if (nuevaPlantillaNotificacion.canal === 'email') {
+      setNuevaPlantillaNotificacion((prev) => ({ ...prev, canal: 'whatsapp' }));
+    }
+    if (edicionPlantillaNotificacion.canal === 'email') {
+      setEdicionPlantillaNotificacion((prev) => ({ ...prev, canal: 'whatsapp' }));
+    }
+  }, [smtpDisponible, nuevaCampana.canal, nuevaPlantillaNotificacion.canal, edicionPlantillaNotificacion.canal]);
 
   useEffect(() => {
     if (!puedeVer) return;
@@ -576,6 +602,13 @@ export function AppAdminNegocio() {
             <div className="subpanel">
               <h3>Nueva campana</h3>
               <label className="campo">Nombre<input value={nuevaCampana.nombre} onChange={(e) => setNuevaCampana({ ...nuevaCampana, nombre: e.target.value })} /></label>
+              <label className="campo">Canal
+                <select value={nuevaCampana.canal} onChange={(e) => setNuevaCampana({ ...nuevaCampana, canal: e.target.value })}>
+                  {canalesDisponibles.map((canal) => (
+                    <option key={canal} value={canal}>{canal}</option>
+                  ))}
+                </select>
+              </label>
               <div className="acciones"><button type="button" className="chip" onClick={() => void crearCampana()}>Crear campana</button></div>
             </div>
           )}
@@ -583,6 +616,9 @@ export function AppAdminNegocio() {
           {vista === 'plantillas_notificacion' && (
             <div className="subpanel">
               <h3>Nueva plantilla de notificación</h3>
+              {!smtpDisponible ? (
+                <p className="nota">SMTP no configurado: el canal email está oculto y deshabilitado.</p>
+              ) : null}
               <label className="campo">Clave<input value={nuevaPlantillaNotificacion.clave} onChange={(e) => setNuevaPlantillaNotificacion({ ...nuevaPlantillaNotificacion, clave: e.target.value })} /></label>
               <label className="campo">Evento
                 <select value={nuevaPlantillaNotificacion.evento} onChange={(e) => setNuevaPlantillaNotificacion({ ...nuevaPlantillaNotificacion, evento: e.target.value })}>
@@ -593,9 +629,9 @@ export function AppAdminNegocio() {
               </label>
               <label className="campo">Canal
                 <select value={nuevaPlantillaNotificacion.canal} onChange={(e) => setNuevaPlantillaNotificacion({ ...nuevaPlantillaNotificacion, canal: e.target.value })}>
-                  <option value="email">email</option>
-                  <option value="whatsapp">whatsapp</option>
-                  <option value="crm">crm</option>
+                  {canalesDisponibles.map((canal) => (
+                    <option key={canal} value={canal}>{canal}</option>
+                  ))}
                 </select>
               </label>
               <label className="campo">Idioma<input value={nuevaPlantillaNotificacion.idioma} onChange={(e) => setNuevaPlantillaNotificacion({ ...nuevaPlantillaNotificacion, idioma: e.target.value })} /></label>
@@ -604,7 +640,7 @@ export function AppAdminNegocio() {
                 <textarea value={nuevaPlantillaNotificacion.contenido} onChange={(e) => setNuevaPlantillaNotificacion({ ...nuevaPlantillaNotificacion, contenido: e.target.value })} rows={4} />
               </label>
               <div className="acciones"><button type="button" className="chip" onClick={() => void crearPlantillaNotificacion()}>Crear plantilla</button></div>
-              <h3 style={{ marginTop: 18 }}>Editor de plantilla existente</h3>
+              <h3 className="admin-negocio__editor-title">Editor de plantilla existente</h3>
               <label className="campo">Plantilla
                 <select value={plantillaSeleccionadaId} onChange={(e) => seleccionarPlantillaNotificacion(e.target.value)}>
                   {plantillasNotificacion.length === 0 ? <option value="">Sin plantillas</option> : null}
@@ -624,9 +660,9 @@ export function AppAdminNegocio() {
               </label>
               <label className="campo">Canal
                 <select value={edicionPlantillaNotificacion.canal} onChange={(e) => setEdicionPlantillaNotificacion({ ...edicionPlantillaNotificacion, canal: e.target.value })}>
-                  <option value="email">email</option>
-                  <option value="whatsapp">whatsapp</option>
-                  <option value="crm">crm</option>
+                  {canalesDisponibles.map((canal) => (
+                    <option key={canal} value={canal}>{canal}</option>
+                  ))}
                 </select>
               </label>
               <label className="campo">Idioma<input value={edicionPlantillaNotificacion.idioma} onChange={(e) => setEdicionPlantillaNotificacion({ ...edicionPlantillaNotificacion, idioma: e.target.value })} /></label>
@@ -698,7 +734,7 @@ export function AppAdminNegocio() {
 
           <div className="subpanel">
             <h3>Datos</h3>
-            {cargando ? <p className="nota">Cargando...</p> : <pre style={{ whiteSpace: 'pre-wrap', maxHeight: 520, overflow: 'auto' }}>{JSON.stringify(data, null, 2)}</pre>}
+            {cargando ? <p className="nota">Cargando...</p> : <pre className="admin-negocio__payload-json">{JSON.stringify(data, null, 2)}</pre>}
           </div>
         </>
       )}

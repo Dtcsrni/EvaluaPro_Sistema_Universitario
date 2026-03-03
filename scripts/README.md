@@ -29,6 +29,15 @@ Herramientas de operación local (principalmente Windows) para **Sistema EvaluaP
 - Signing gate opcional:
   - `npm run installer:sign`
 
+## Configuracion automatica OAuth + Classroom
+- Script: `configurar-oauth-classroom.ps1`
+- Uso rapido:
+  - `pwsh -File scripts/configurar-oauth-classroom.ps1 -GoogleOauthClientId "<id>" -GoogleClassroomClientId "<id>" -GoogleClassroomClientSecret "<secret>" -GoogleClassroomRedirectUri "http://localhost:4000/api/integraciones/classroom/oauth/callback" -AlsoSetViteGoogleClientId`
+- El script:
+  - actualiza/crea variables en `.env` sin borrar comentarios,
+  - garantiza `CLASSROOM_TOKEN_CIPHER_KEY` valida (base64 de 32 bytes),
+  - ajusta `REQUIRE_GOOGLE_OAUTH` (por defecto `1`, o `0` con `-DisableRequireGoogleOAuth`).
+
 ## Accesos directos / bandeja
 - Generación de accesos: `create-shortcuts.ps1`
 - Operaciones por acceso directo: `shortcut-ops.ps1`

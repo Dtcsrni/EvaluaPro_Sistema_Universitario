@@ -4,6 +4,7 @@ import { Boton } from '../../ui/ux/componentes/Boton';
 import { InlineMensaje } from '../../ui/ux/componentes/InlineMensaje';
 import { clienteApi } from './clienteApiDocente';
 import type { Alumno, Periodo } from './tipos';
+import { mensajeDeError } from './utilidades';
 
 type TabEvaluaciones = 'politica' | 'evidencias' | 'examenes' | 'classroom' | 'resumen';
 
@@ -53,9 +54,10 @@ export function SeccionEvaluaciones(params: {
   puedeGestionar: boolean;
   puedeClassroomConectar: boolean;
   puedeClassroomPull: boolean;
+  classroomDisponible?: boolean;
 }) {
-  const { periodos, alumnos, puedeGestionar, puedeClassroomConectar, puedeClassroomPull } = params;
-  const puedeClassroom = puedeClassroomConectar || puedeClassroomPull;
+  const { periodos, alumnos, puedeGestionar, puedeClassroomConectar, puedeClassroomPull, classroomDisponible = true } = params;
+  const puedeClassroom = classroomDisponible && (puedeClassroomConectar || puedeClassroomPull);
 
   const [tabActiva, setTabActiva] = useState<TabEvaluaciones>('politica');
   const [periodoId, setPeriodoId] = useState<string>('');
@@ -123,6 +125,12 @@ export function SeccionEvaluaciones(params: {
     void cargarContexto();
     void cargarMapeos();
   }, [cargarContexto, cargarMapeos, periodoId]);
+
+  useEffect(() => {
+    if (!puedeClassroom && tabActiva === 'classroom') {
+      setTabActiva('politica');
+    }
+  }, [puedeClassroom, tabActiva]);
 
   useEffect(() => {
     if (!puedeClassroom) return;
@@ -230,7 +238,7 @@ export function SeccionEvaluaciones(params: {
       }
       window.open(url, 'oauth_classroom', 'width=980,height=760');
     } catch (error) {
-      emitToast({ level: 'error', title: 'Classroom', message: String((error as Error)?.message || error) });
+      emitToast({ level: 'error', title: 'Classroom', message: mensajeDeError(error, 'No se pudo conectar Google Classroom.') });
     }
   }
 
@@ -249,7 +257,7 @@ export function SeccionEvaluaciones(params: {
       emitToast({ level: 'ok', title: 'Classroom', message: 'Mapeo guardado' });
       await cargarMapeos();
     } catch (error) {
-      emitToast({ level: 'error', title: 'Classroom', message: String((error as Error)?.message || error) });
+      emitToast({ level: 'error', title: 'Classroom', message: mensajeDeError(error, 'No se pudo guardar el mapeo Classroom.') });
     } finally {
       setCargando(false);
     }
@@ -272,7 +280,7 @@ export function SeccionEvaluaciones(params: {
         message: `Importadas: ${respuesta.importadas ?? 0}, actualizadas: ${respuesta.actualizadas ?? 0}, omitidas: ${respuesta.omitidas ?? 0}`
       });
     } catch (error) {
-      emitToast({ level: 'error', title: 'Classroom pull', message: String((error as Error)?.message || error) });
+      emitToast({ level: 'error', title: 'Classroom pull', message: mensajeDeError(error, 'No se pudo ejecutar el pull de Classroom.') });
     } finally {
       setCargando(false);
     }
@@ -295,9 +303,11 @@ export function SeccionEvaluaciones(params: {
         <Boton type="button" onClick={() => setTabActiva('examenes')} disabled={tabActiva === 'examenes'}>
           Exámenes
         </Boton>
-        <Boton type="button" onClick={() => setTabActiva('classroom')} disabled={tabActiva === 'classroom'}>
-          Classroom
-        </Boton>
+        {puedeClassroom && (
+          <Boton type="button" onClick={() => setTabActiva('classroom')} disabled={tabActiva === 'classroom'}>
+            Classroom
+          </Boton>
+        )}
         <Boton type="button" onClick={() => setTabActiva('resumen')} disabled={tabActiva === 'resumen'}>
           Resumen
         </Boton>

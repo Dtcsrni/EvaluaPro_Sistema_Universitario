@@ -4,7 +4,7 @@
  * Responsabilidad: Seccion funcional del shell docente.
  * Limites: Conservar UX y permisos; extraer logica compleja a hooks/components.
  */
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { GoogleLogin } from '@react-oauth/google';
 import { accionToastSesionParaError } from '../../servicios_api/clienteComun';
 import { emitToast } from '../../ui/toast/toastBus';
@@ -21,12 +21,18 @@ export function SeccionCuenta({
   docente,
   onDocenteActualizado,
   esAdmin,
-  esDev
+  esDev,
+  oauthGoogleDisponible,
+  classroomDisponible,
+  smtpDisponible
 }: {
   docente: Docente;
   onDocenteActualizado: (d: Docente) => void;
   esAdmin: boolean;
   esDev: boolean;
+  oauthGoogleDisponible?: boolean;
+  classroomDisponible?: boolean;
+  smtpDisponible?: boolean;
 }) {
   const [contrasenaNueva, setContrasenaNueva] = useState('');
   const [contrasenaNueva2, setContrasenaNueva2] = useState('');
@@ -43,17 +49,46 @@ export function SeccionCuenta({
   const [papelera, setPapelera] = useState<Array<Record<string, unknown>>>([]);
   const [cargandoPapelera, setCargandoPapelera] = useState(false);
   const [restaurandoId, setRestaurandoId] = useState<string | null>(null);
+  const [oauthClientId, setOauthClientId] = useState(String(import.meta.env.VITE_GOOGLE_CLIENT_ID || '').trim());
+  const [classroomClientId, setClassroomClientId] = useState(String(import.meta.env.VITE_GOOGLE_CLIENT_ID || '').trim());
+  const [classroomClientSecret, setClassroomClientSecret] = useState('');
+  const [classroomRedirectUri, setClassroomRedirectUri] = useState('http://localhost:4000/api/integraciones/classroom/oauth/callback');
+  const [oauthRequerido, setOauthRequerido] = useState(true);
+  const [copiandoComandoOauth, setCopiandoComandoOauth] = useState(false);
+  const [probandoOauthClassroom, setProbandoOauthClassroom] = useState(false);
 
   const coincide = contrasenaNueva && contrasenaNueva === contrasenaNueva2;
   const requiereContrasenaActual = Boolean(docente.tieneContrasena);
   const requiereGoogle = Boolean(docente.tieneGoogle && !docente.tieneContrasena);
+  const puedeConfigurarOauth = esAdmin;
 
   const reautenticacionValida = requiereContrasenaActual ? Boolean(contrasenaActual.trim()) : requiereGoogle ? Boolean(credentialReauth) : Boolean(contrasenaActual.trim() || credentialReauth);
   const puedeGuardar = Boolean(contrasenaNueva.trim().length >= 8 && coincide && reautenticacionValida);
+  const faltanCamposOauth = Boolean(
+    !oauthClientId.trim() || !classroomClientId.trim() || !classroomClientSecret.trim() || !classroomRedirectUri.trim()
+  );
 
-  function hayGoogleConfigurado() {
-    return Boolean(String(import.meta.env.VITE_GOOGLE_CLIENT_ID || '').trim());
-  }
+  const comandoOauthClassroom = useMemo(() => {
+    const escapar = (valor: string) => `'${String(valor || '').replace(/'/g, "''")}'`;
+    const partes = [
+      'pwsh -File scripts/configurar-oauth-classroom.ps1',
+      `-GoogleOauthClientId ${escapar(oauthClientId.trim())}`,
+      `-GoogleClassroomClientId ${escapar(classroomClientId.trim())}`,
+      `-GoogleClassroomClientSecret ${escapar(classroomClientSecret.trim())}`,
+      `-GoogleClassroomRedirectUri ${escapar(classroomRedirectUri.trim())}`,
+      '-AlsoSetViteGoogleClientId'
+    ];
+    if (!oauthRequerido) {
+      partes.push('-DisableRequireGoogleOAuth');
+    }
+    return partes.join(' ');
+  }, [oauthClientId, classroomClientId, classroomClientSecret, classroomRedirectUri, oauthRequerido]);
+
+  const googleDisponible = typeof oauthGoogleDisponible === 'boolean'
+    ? oauthGoogleDisponible
+    : Boolean(String(import.meta.env.VITE_GOOGLE_CLIENT_ID || '').trim());
+  const classroomConfigDisponible = typeof classroomDisponible === 'boolean' ? classroomDisponible : true;
+  const smtpConfigDisponible = Boolean(smtpDisponible);
 
   async function guardar() {
     try {
@@ -160,6 +195,46 @@ export function SeccionCuenta({
     }
   }
 
+  async function copiarComandoOauth() {
+    try {
+      if (faltanCamposOauth) {
+        setMensaje('Completa Client ID/Secret y Redirect URI para generar el comando.');
+        return;
+      }
+      setCopiandoComandoOauth(true);
+      if (!navigator?.clipboard?.writeText) {
+        throw new Error('Tu navegador no permite copiar al portapapeles automáticamente.');
+      }
+      await navigator.clipboard.writeText(comandoOauthClassroom);
+      emitToast({ level: 'ok', title: 'OAuth + Classroom', message: 'Comando copiado al portapapeles.', durationMs: 2500 });
+    } catch (error) {
+      const msg = mensajeDeError(error, 'No se pudo copiar el comando de configuración.');
+      setMensaje(msg);
+      emitToast({ level: 'error', title: 'OAuth + Classroom', message: msg, durationMs: 5200 });
+    } finally {
+      setCopiandoComandoOauth(false);
+    }
+  }
+
+  async function probarOauthClassroom() {
+    try {
+      setProbandoOauthClassroom(true);
+      const respuesta = await clienteApi.obtener<{ url?: string }>('/evaluaciones/v2/classroom/oauth/iniciar');
+      const url = String(respuesta.url || '').trim();
+      if (!url) {
+        throw new Error('La API no devolvio URL de autorizacion OAuth.');
+      }
+      window.open(url, 'oauth_classroom', 'width=980,height=760');
+      emitToast({ level: 'ok', title: 'OAuth + Classroom', message: 'Abriendo Google OAuth...', durationMs: 2400 });
+    } catch (error) {
+      const msg = mensajeDeError(error, 'No se pudo iniciar OAuth de Classroom.');
+      setMensaje(msg);
+      emitToast({ level: 'error', title: 'OAuth + Classroom', message: msg, durationMs: 5200 });
+    } finally {
+      setProbandoOauthClassroom(false);
+    }
+  }
+
   const cargarPapelera = useCallback(async () => {
     if (!esAdmin || !esDev) return;
     setCargandoPapelera(true);
@@ -253,6 +328,10 @@ export function SeccionCuenta({
           <span>Rol</span>
           <b>{esAdmin ? 'Administrador' : 'Docente'}</b>
         </div>
+        <div className="cuenta-resumen__item">
+          <span>SMTP</span>
+          <b>{smtpConfigDisponible ? 'Disponible' : 'No configurado'}</b>
+        </div>
       </div>
 
       <div className="subpanel cuenta-seguridad">
@@ -268,7 +347,7 @@ export function SeccionCuenta({
           </span>
         </div>
 
-        {Boolean(docente.tieneGoogle && hayGoogleConfigurado()) && (
+        {Boolean(docente.tieneGoogle && googleDisponible) && (
           <div className="auth-google auth-google--mb">
             <p className="nota">Reautenticacion con Google (recomendado).</p>
             <GoogleLogin
@@ -389,6 +468,126 @@ export function SeccionCuenta({
           <Boton onClick={guardarPreferenciasPdf} disabled={guardando}>
             Guardar PDF
           </Boton>
+        </div>
+      </div>
+
+      <div className="subpanel cuenta-oauth">
+        <h3>
+          <Icono nombre="info" /> OAuth + Google Classroom
+        </h3>
+        <AyudaFormulario titulo="Configuracion operativa">
+          <p>
+            Configura las credenciales de Google para login y Classroom desde esta seccion. El sistema genera el comando
+            automático para aplicar cambios en <code>.env</code>.
+          </p>
+          <ul className="lista">
+            <li>
+              <b>Google OAuth Client ID:</b> se usa para inicio de sesion Google.
+            </li>
+            <li>
+              <b>Classroom Client ID / Secret:</b> se usan para sincronizacion Classroom.
+            </li>
+            <li>
+              <b>Redirect URI:</b> debe coincidir exactamente con Google Console.
+            </li>
+          </ul>
+        </AyudaFormulario>
+
+        {!puedeConfigurarOauth && (
+          <InlineMensaje tipo="info">Solo administradores pueden aplicar configuración operativa OAuth/Classroom.</InlineMensaje>
+        )}
+
+        <div className="grid grid--2">
+          <label className="campo">
+            Google OAuth Client ID
+            <input
+              value={oauthClientId}
+              onChange={(event) => setOauthClientId(event.target.value)}
+              placeholder="1234567890-xxxx.apps.googleusercontent.com"
+              disabled={!puedeConfigurarOauth}
+            />
+          </label>
+
+          <label className="campo">
+            Google Classroom Client ID
+            <input
+              value={classroomClientId}
+              onChange={(event) => setClassroomClientId(event.target.value)}
+              placeholder="1234567890-xxxx.apps.googleusercontent.com"
+              disabled={!puedeConfigurarOauth}
+            />
+          </label>
+        </div>
+
+        <div className="grid grid--2">
+          <label className="campo">
+            Google Classroom Client Secret
+            <input
+              type="password"
+              value={classroomClientSecret}
+              onChange={(event) => setClassroomClientSecret(event.target.value)}
+              placeholder="GOCSPX-..."
+              autoComplete="off"
+              disabled={!puedeConfigurarOauth}
+            />
+          </label>
+
+          <label className="campo">
+            Google Classroom Redirect URI
+            <input
+              value={classroomRedirectUri}
+              onChange={(event) => setClassroomRedirectUri(event.target.value)}
+              placeholder="http://localhost:4000/api/integraciones/classroom/oauth/callback"
+              disabled={!puedeConfigurarOauth}
+            />
+          </label>
+        </div>
+
+        <label className="campo campo--inline">
+          <input
+            type="checkbox"
+            checked={oauthRequerido}
+            onChange={(event) => setOauthRequerido(Boolean(event.target.checked))}
+            disabled={!puedeConfigurarOauth}
+          />
+          <span>Habilitar y requerir OAuth Google (REQUIRE_GOOGLE_OAUTH=1)</span>
+        </label>
+
+        <label className="campo">
+          Comando automatico (PowerShell)
+          <textarea
+            className="cuenta-oauth__comando"
+            readOnly
+            value={comandoOauthClassroom}
+            rows={4}
+            aria-label="Comando de configuración OAuth Classroom"
+          />
+          <span className="ayuda">Pega y ejecuta este comando en la raíz del proyecto para aplicar la configuración.</span>
+        </label>
+
+        <div className="acciones acciones--mt">
+          <Boton
+            type="button"
+            variante="secundario"
+            icono={<Icono nombre="ok" />}
+            disabled={!puedeConfigurarOauth || faltanCamposOauth || copiandoComandoOauth}
+            cargando={copiandoComandoOauth}
+            onClick={copiarComandoOauth}
+          >
+            {copiandoComandoOauth ? 'Copiando...' : 'Copiar comando de configuración'}
+          </Boton>
+
+          {classroomConfigDisponible && (
+            <Boton
+              type="button"
+              icono={<Icono nombre="entrar" />}
+              disabled={probandoOauthClassroom}
+              cargando={probandoOauthClassroom}
+              onClick={probarOauthClassroom}
+            >
+              {probandoOauthClassroom ? 'Probando...' : 'Probar conexión OAuth Classroom'}
+            </Boton>
+          )}
         </div>
       </div>
 
