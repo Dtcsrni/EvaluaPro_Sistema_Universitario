@@ -46,7 +46,11 @@ function parseArgs(argv: string[]) {
 
 function sanitizeFileName(value: string) {
   return value
-    .replace(/[<>:"/\\|?*\x00-\x1F]/g, '_')
+    .replace(/[<>:"/\\|?*]/g, '_')
+    .replace(/[\r\n\t]/g, '_')
+    .split('')
+    .map((char) => (char.charCodeAt(0) < 32 ? '_' : char))
+    .join('')
     .replace(/\s+/g, ' ')
     .trim();
 }

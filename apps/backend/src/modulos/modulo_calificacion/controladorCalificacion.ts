@@ -424,7 +424,7 @@ export async function calificarExamen(req: SolicitudDocente, res: Response) {
   })
     .sort({ createdAt: -1 })
     .lean();
-  const bonoAcordeon = Boolean((entrega as { acordeonEntregado?: unknown } | null)?.acordeonEntregado)
+  const bonoAcordeon = (entrega as { acordeonEntregado?: unknown } | null)?.acordeonEntregado
     ? Number.isFinite(Number((entrega as { bonoAcordeon?: unknown } | null)?.bonoAcordeon))
       ? Math.max(0, Math.min(0.5, Number((entrega as { bonoAcordeon?: unknown } | null)?.bonoAcordeon)))
       : 0.25

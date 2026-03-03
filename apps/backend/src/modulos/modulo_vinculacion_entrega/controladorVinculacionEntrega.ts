@@ -48,7 +48,7 @@ export async function vincularEntrega(req: SolicitudDocente, res: Response) {
     estado: 'entregado',
     fechaEntrega: new Date(),
     acordeonEntregado: Boolean(acordeonEntregado),
-    bonoAcordeon: Boolean(acordeonEntregado)
+    bonoAcordeon: acordeonEntregado
       ? Number.isFinite(Number(bonoAcordeon))
         ? Math.max(0, Math.min(0.5, Number(bonoAcordeon)))
         : 0.25
@@ -90,7 +90,7 @@ export async function vincularEntregaPorFolio(req: SolicitudDocente, res: Respon
     estado: 'entregado',
     fechaEntrega: new Date(),
     acordeonEntregado: Boolean(acordeonEntregado),
-    bonoAcordeon: Boolean(acordeonEntregado)
+    bonoAcordeon: acordeonEntregado
       ? Number.isFinite(Number(bonoAcordeon))
         ? Math.max(0, Math.min(0.5, Number(bonoAcordeon)))
         : 0.25
