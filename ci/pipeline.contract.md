@@ -136,7 +136,7 @@ Policy:
 - Commands:
   - `npm run docs:check`
   - `npm run diagramas:check`
-  - `npm run diagramas:render:check`
+  - `npm run diagramas:render`
   - `npm run diagramas:consistencia:check`
   - `npm run routes:check`
 

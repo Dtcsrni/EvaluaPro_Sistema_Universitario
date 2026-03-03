@@ -632,9 +632,6 @@ exports[`UX visual regression > docente sin token mantiene layout de acceso 1`] 
           <span>
             Flujo guiado
           </span>
-          <span>
-            Soporte Google
-          </span>
         </div>
         <ul
           aria-label="Beneficios"

@@ -6,9 +6,14 @@ import path from 'node:path';
 import { pathToFileURL } from 'node:url';
 import {
   DEFAULT_RULESET_NAME,
+  FORBIDDEN_REQUIRED_STATUS_CHECKS_MAIN,
+  REQUIRED_RULE_TYPES_MAIN,
   REQUIRED_STATUS_CHECKS_MAIN,
+  extractRuleTypes,
   extractStatusCheckContexts,
-  missingRequiredContexts
+  missingRequiredRuleTypes,
+  missingRequiredContexts,
+  unexpectedRequiredContexts
 } from './ruleset-main-contract.mjs';
 
 function getArg(name, fallback = '') {
@@ -23,6 +28,12 @@ function runGhJson(args, env = process.env) {
     throw new Error(`gh fallo (${args.join(' ')}): ${result.stderr || result.stdout}`);
   }
   return JSON.parse(result.stdout);
+}
+
+function fetchRulesetDetails(repo, rulesetId) {
+  if (!repo) throw new Error('Falta repo para consultar detalle de ruleset.');
+  if (!rulesetId) throw new Error('Falta id de ruleset para consulta de detalle.');
+  return runGhJson(['api', `repos/${repo}/rulesets/${rulesetId}`]);
 }
 
 function loadRulesetsFromFixture(fixturePath) {
@@ -49,12 +60,18 @@ export function selectRuleset(rulesets, desiredName = DEFAULT_RULESET_NAME) {
 }
 
 export function evaluateRulesetCompliance(ruleset) {
+  const ruleTypes = extractRuleTypes(ruleset);
+  const missingRuleTypes = missingRequiredRuleTypes(ruleTypes, REQUIRED_RULE_TYPES_MAIN);
   const current = extractStatusCheckContexts(ruleset);
   const missing = missingRequiredContexts(current, REQUIRED_STATUS_CHECKS_MAIN);
+  const unexpected = unexpectedRequiredContexts(current, FORBIDDEN_REQUIRED_STATUS_CHECKS_MAIN);
   return {
-    ok: missing.length === 0,
+    ok: missingRuleTypes.length === 0 && missing.length === 0 && unexpected.length === 0,
+    ruleTypes,
+    missingRuleTypes,
     current,
-    missing
+    missing,
+    unexpected
   };
 }
 
@@ -76,16 +93,30 @@ export async function main() {
     throw new Error(`No se encontro ruleset activo para main. nombre=${rulesetName}`);
   }
 
-  const compliance = evaluateRulesetCompliance(ruleset);
+  const rulesetResolved = fixturePath
+    ? ruleset
+    : fetchRulesetDetails(repo, ruleset.id);
+
+  const compliance = evaluateRulesetCompliance(rulesetResolved);
   if (!compliance.ok) {
+    const details = [];
+    if (compliance.missingRuleTypes.length > 0) {
+      details.push(`missing required rule types: ${compliance.missingRuleTypes.join(', ')}`);
+    }
+    if (compliance.missing.length > 0) {
+      details.push(`missing required checks: ${compliance.missing.join(', ')}`);
+    }
+    if (compliance.unexpected.length > 0) {
+      details.push(`forbidden required checks present: ${compliance.unexpected.join(', ')}`);
+    }
     process.stderr.write(
-      `[ruleset:check] FAIL missing required checks: ${compliance.missing.join(', ')}\n`
+      `[ruleset:check] FAIL ${details.join(' | ')}\n`
     );
     process.exit(1);
   }
 
   process.stdout.write(
-    `[ruleset:check] OK (${ruleset.name}) checks requeridos presentes: ${REQUIRED_STATUS_CHECKS_MAIN.join(', ')}\n`
+    `[ruleset:check] OK (${rulesetResolved.name}) checks requeridos presentes: ${REQUIRED_STATUS_CHECKS_MAIN.join(', ')}\n`
   );
 }
 

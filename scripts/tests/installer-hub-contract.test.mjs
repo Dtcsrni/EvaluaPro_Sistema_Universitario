@@ -2,8 +2,64 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import path from 'node:path';
+import os from 'node:os';
+import { execFileSync } from 'node:child_process';
 
 const root = process.cwd();
+const installerHubPath = path.join(root, 'scripts', 'installer-hub', 'InstallerHub.ps1');
+const operationalConfigModulePath = path.join(root, 'scripts', 'installer-hub', 'modules', 'OperationalConfig.psm1');
+const licenseSecurityModulePath = path.join(root, 'scripts', 'installer-hub', 'modules', 'LicenseClientSecurity.psm1');
+
+function getAvailablePowerShell() {
+  const candidates = process.platform === 'win32'
+    ? ['pwsh.exe', 'pwsh', 'powershell.exe']
+    : ['pwsh', 'powershell'];
+
+  for (const command of candidates) {
+    try {
+      const versionOutput = execFileSync(command, ['-NoProfile', '-Command', '$PSVersionTable.PSVersion.Major'], {
+        encoding: 'utf8',
+        stdio: ['ignore', 'pipe', 'ignore'],
+        timeout: 12_000
+      });
+      const major = Number.parseInt(String(versionOutput || '').trim(), 10);
+      if (!Number.isFinite(major) || major < 7) {
+        continue;
+      }
+      return command;
+    } catch {
+      // try next candidate
+    }
+  }
+
+  return '';
+}
+
+function runPowerShell(command) {
+  const shell = getAvailablePowerShell();
+  if (!shell) {
+    return { skipped: true, stdout: '' };
+  }
+
+  const stdout = execFileSync(shell, ['-NoProfile', '-ExecutionPolicy', 'Bypass', '-Command', command], {
+    encoding: 'utf8',
+    stdio: ['ignore', 'pipe', 'pipe'],
+    timeout: 20_000
+  });
+  return { skipped: false, stdout: String(stdout || '').trim() };
+}
+
+function parseJsonOutput(stdout) {
+  const text = String(stdout || '').trim();
+  if (!text) return {};
+  try {
+    return JSON.parse(text);
+  } catch {
+    const start = text.lastIndexOf('{');
+    if (start < 0) return {};
+    return JSON.parse(text.slice(start));
+  }
+}
 
 test('installer prereq manifest incluye contrato minimo', () => {
   const manifestPath = path.join(root, 'config', 'installer-prereqs.manifest.json');
@@ -47,7 +103,7 @@ test('workflow de installer publica contratos nuevos de release', () => {
 });
 
 test('installer hub incluye fase de configuracion operativa y blindaje de licencia configurable', () => {
-  const hub = fs.readFileSync(path.join(root, 'scripts', 'installer-hub', 'InstallerHub.ps1'), 'utf8');
+  const hub = fs.readFileSync(installerHubPath, 'utf8');
   assert.match(hub, /OperationalConfig\.psm1/);
   assert.match(hub, /configuracion_operativa/);
   assert.match(hub, /MONGODB_URI|MongoUri/);
@@ -66,6 +122,146 @@ test('installer hub incluye fase de configuracion operativa y blindaje de licenc
   assert.match(hub, /UpdateShaAssetName/);
   assert.match(hub, /UpdateFeedUrl/);
   assert.match(hub, /UpdateRequireSha256/);
+});
+
+test('flujo del installer hub conserva fases y codigos de salida criticos', () => {
+  const hub = fs.readFileSync(installerHubPath, 'utf8');
+
+  const orderedPhases = [
+    'analisis_requisitos',
+    'carpeta_recursos',
+    'prerequisitos',
+    'release_estable',
+    'accion_producto',
+    'configuracion_operativa',
+    'verificacion_final',
+    'blindaje_licencia_local'
+  ];
+
+  let lastIndex = -1;
+  for (const phase of orderedPhases) {
+    const index = hub.indexOf(`Invoke-FlowPhase -Name '${phase}'`);
+    assert.ok(index > lastIndex, `fase fuera de orden o ausente: ${phase}`);
+    lastIndex = index;
+  }
+
+  assert.match(hub, /'analisis_requisitos'\s+-FailCode\s+10/);
+  assert.match(hub, /'prerequisitos'\s+-FailCode\s+10/);
+  assert.match(hub, /'release_estable'\s+-FailCode\s+20/);
+  assert.match(hub, /'accion_producto'\s+-FailCode\s+30/);
+  assert.match(hub, /'configuracion_operativa'\s+-FailCode\s+35/);
+  assert.match(hub, /'verificacion_final'\s+-FailCode\s+40/);
+  assert.match(hub, /'blindaje_licencia_local'\s+-FailCode\s+50/);
+  assert.match(hub, /if \(\$Headless\)\s*\{[\s\S]*Invoke-HeadlessFlow/);
+  assert.match(hub, /result = \[pscustomobject\]@\{[\s\S]*exitCode = 0[\s\S]*\}/);
+});
+
+test('configuracion operativa rechaza ajustes inseguros o invalidos (fail-fast)', () => {
+  const script = `
+Import-Module -Force -WarningAction SilentlyContinue '${operationalConfigModulePath.replace(/'/g, "''")}'
+$cfg = @{
+  mongoUri='mongodb://mongo_local:27017/mern_app'
+  jwtSecreto='abc123'
+  nodeEnv='production'
+  puertoApi='0'
+  puertoPortal='4518'
+  corsOrigenes='*'
+  portalAlumnoUrl='https://portal-alumno.example.edu'
+  portalAlumnoApiKey='portal-key'
+  portalApiKey='portal-key'
+  passwordResetEnabled='0'
+  requireGoogleOAuth='0'
+  correoModuloActivo='0'
+  requireLicenseActivation='0'
+  updateChannel='stable'
+  updateOwner='Dtcsrni'
+  updateRepo='EvaluaPro_Sistema_Universitario'
+}
+$normalized = Normalize-OperationalConfig -InputConfig $cfg
+$r = Test-OperationalConfig -Mode install -Config $normalized
+$r | ConvertTo-Json -Depth 8
+`.trim();
+
+  const result = runPowerShell(script);
+  if (result.skipped) {
+    return;
+  }
+
+  const parsed = parseJsonOutput(result.stdout);
+  assert.equal(parsed.ok, false);
+  assert.equal(Array.isArray(parsed.errors), true);
+  assert.equal(parsed.errors.some((entry) => String(entry).includes('Puerto invalido para puertoApi')), true);
+  assert.equal(parsed.errors.some((entry) => String(entry).includes('CORS no puede ser "*"')), true);
+});
+
+test('configuracion operativa escribe .env y update-config endurecido para docente', () => {
+  const tempRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'evaluapro-installerhub-'));
+  const installDir = path.join(tempRoot, 'EvaluaPro');
+  fs.mkdirSync(path.join(installDir, 'config'), { recursive: true });
+
+  const script = `
+Import-Module -Force -WarningAction SilentlyContinue '${operationalConfigModulePath.replace(/'/g, "''")}'
+$cfg = @{
+  mongoUri='mongodb://mongo_local:27017/mern_app'
+  jwtSecreto=''
+  nodeEnv='production'
+  puertoApi='4000'
+  puertoPortal='4518'
+  corsOrigenes='http://localhost:4173,http://127.0.0.1:4173'
+  portalAlumnoUrl='https://portal.ejemplo.edu'
+  portalAlumnoApiKey='portal-key-shared'
+  portalApiKey='portal-key-shared'
+  passwordResetEnabled='0'
+  passwordResetTokenMinutes='30'
+  passwordResetUrlBase=''
+  requireGoogleOAuth='0'
+  correoModuloActivo='0'
+  requireLicenseActivation='0'
+  updateChannel='stable'
+  updateOwner='Dtcsrni'
+  updateRepo='EvaluaPro_Sistema_Universitario'
+  updateAssetName='EvaluaPro-Setup.exe'
+  updateShaAssetName='EvaluaPro-Setup.exe.sha256'
+  updateRequireSha256='1'
+}
+$r = Invoke-EvaluaProOperationalConfiguration -Mode install -InstallDir '${installDir.replace(/'/g, "''")}' -Config $cfg
+$r | ConvertTo-Json -Depth 8
+`.trim();
+
+  const result = runPowerShell(script);
+  try {
+    if (result.skipped) {
+      return;
+    }
+    const parsed = parseJsonOutput(result.stdout);
+    assert.equal(parsed.ok, true);
+    assert.equal(typeof parsed.envPath, 'string');
+
+    const envRaw = fs.readFileSync(parsed.envPath, 'utf8');
+    assert.match(envRaw, /MONGODB_URI=/);
+    assert.match(envRaw, /JWT_SECRETO=/);
+    assert.match(envRaw, /PORTAL_ALUMNO_API_KEY=portal-key-shared/);
+    assert.match(envRaw, /PORTAL_API_KEY=portal-key-shared/);
+
+    const updateConfigPath = path.join(path.dirname(parsed.envPath), 'config', 'update-config.json');
+    const updateConfigRaw = fs.readFileSync(updateConfigPath, 'utf8').replace(/^\uFEFF/, '');
+    const updateConfig = JSON.parse(updateConfigRaw);
+    assert.equal(updateConfig.channel, 'stable');
+    assert.equal(updateConfig.owner, 'Dtcsrni');
+    assert.equal(updateConfig.repo, 'EvaluaPro_Sistema_Universitario');
+    assert.equal(updateConfig.requireSha256, true);
+  } finally {
+    fs.rmSync(tempRoot, { recursive: true, force: true });
+  }
+});
+
+test('blindaje de licencia exige DPAPI local machine e integridad MAC', () => {
+  const securityModule = fs.readFileSync(licenseSecurityModulePath, 'utf8');
+  assert.match(securityModule, /System\.Security\.Cryptography\.ProtectedData/);
+  assert.match(securityModule, /DataProtectionScope\]::LocalMachine/);
+  assert.match(securityModule, /Get-HmacSha256Hex/);
+  assert.match(securityModule, /Envelope de licencia alterado \(MAC invalido\)/);
+  assert.match(securityModule, /Baseline alterado \(MAC invalido\)/);
 });
 
 test('script de release manifest incluye contrato extendido de build/deployment/artifacts', () => {

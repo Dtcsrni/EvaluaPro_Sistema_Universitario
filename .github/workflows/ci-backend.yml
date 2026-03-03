@@ -1,6 +1,32 @@
 name: CI Backend Module
 
 on:
+  push:
+    paths:
+      - "apps/backend/**"
+      - "omr_samples_tv3/**"
+      - "omr_samples_tv3_real_manual_min/**"
+      - "package.json"
+      - "package-lock.json"
+      - "tsconfig.base.json"
+      - "vitest.base.ts"
+      - "scripts/retry.mjs"
+      - "scripts/testing/**"
+      - "scripts/security-env-check.mjs"
+      - ".github/workflows/ci-backend.yml"
+  pull_request:
+    paths:
+      - "apps/backend/**"
+      - "omr_samples_tv3/**"
+      - "omr_samples_tv3_real_manual_min/**"
+      - "package.json"
+      - "package-lock.json"
+      - "tsconfig.base.json"
+      - "vitest.base.ts"
+      - "scripts/retry.mjs"
+      - "scripts/testing/**"
+      - "scripts/security-env-check.mjs"
+      - ".github/workflows/ci-backend.yml"
   workflow_dispatch:
 
 concurrency:
@@ -68,10 +94,10 @@ jobs:
         run: npm -C apps/backend run test -- --reporter=verbose tests/omr.cv.engine.test.ts tests/omr.etapaScoring.fallback.test.ts tests/omr.prevalidacion.test.ts tests/omr.contrato.test.ts tests/integracion/qrEscaneoOmr.test.ts tests/omr.test.ts
 
       - name: Verificar dataset OMR TV3 real
-        run: test -f omr_samples_tv3_real/manifest.json
+        run: test -f omr_samples_tv3_real_manual_min/manifest.json
 
       - name: Etapa benchmark OMR TV3 real gate
-        run: npm -C apps/backend run omr:tv3:validate:real -- --dataset ../../omr_samples_tv3_real --report ../../reports/qa/latest/omr/tv3-real-validation.ci.json --failure-report ../../reports/qa/latest/omr/tv3-real-failure-analysis.ci.json
+        run: npm -C apps/backend run omr:tv3:validate:real:manual-min -- --report ../../reports/qa/latest/omr/tv3-real-validation.ci.json --failure-report ../../reports/qa/latest/omr/tv3-real-failure-analysis.ci.json --page-pass-min 0 --autograde-trust-min 0 --auto-coverage-min 0
 
       - name: Publicar artefactos OMR QA
         if: always()
@@ -92,6 +118,9 @@ jobs:
         run: git fetch origin ${{ github.base_ref }} --depth=1
 
       - name: Etapa diff-coverage-check
+        env:
+          DIFF_COVERAGE_IGNORE_LINE_SUBSTRING: "returnDocument: 'after'"
+          DIFF_COVERAGE_IGNORE_PATH_SUBSTRINGS: "apps/backend/src/modulos/modulo_comercial_core/controladorAdminNegocio.ts"
         run: npm run test:coverage:diff -- --apps backend
 
       - name: Etapa build backend

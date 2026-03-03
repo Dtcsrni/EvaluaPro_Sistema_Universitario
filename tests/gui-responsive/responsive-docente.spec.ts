@@ -98,12 +98,13 @@ test.describe('GUI responsive e2e · docente', () => {
       await expect(page.getByRole('navigation', { name: /Secciones del portal docente/i })).toBeVisible();
       await page.getByRole('button', { name: 'Calificaciones' }).click();
       await expect(page.getByRole('heading', { name: /Calificaciones/i })).toBeVisible();
-      await expect(page.getByRole('heading', { name: /Calificar examen/i })).toBeVisible();
-      await expect(page.getByRole('button', { name: /Guardar calificación/i })).toBeVisible();
+      await expect(page.getByRole('heading', { name: /Escaneo y revisión OMR/i })).toBeVisible();
+      await expect(page.getByRole('heading', { name: /Selección manual por entregado/i })).toBeVisible();
+      await expect(page.getByRole('button', { name: /Usar examen para calificación manual/i })).toBeVisible();
 
       await assertNoHorizontalOverflow(page, `Docente ${viewport.name}`);
 
-      const actionButton = page.getByRole('button', { name: /Guardar calificación/i });
+      const actionButton = page.getByRole('button', { name: /Usar examen para calificación manual/i });
       const box = await actionButton.boundingBox();
       expect(box).not.toBeNull();
       if (box) {

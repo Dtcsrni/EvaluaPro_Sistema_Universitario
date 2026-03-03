@@ -68,7 +68,7 @@ describe('plantillas refactor comportamiento', () => {
     render(<HarnessPlantillas />);
     expect(screen.getByRole('heading', { name: /^Plantillas$/i })).toBeInTheDocument();
     expect(screen.getByRole('heading', { name: /Plantillas existentes/i })).toBeInTheDocument();
-    expect(screen.getByRole('heading', { name: /^Generar examen$/i })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: /^Generación de exámenes$/i })).toBeInTheDocument();
     expect(screen.getByRole('heading', { name: /Examenes generados/i })).toBeInTheDocument();
     expect(screen.getByRole('heading', { name: /Flujo OMR V1/i })).toBeInTheDocument();
   });
@@ -82,7 +82,7 @@ describe('plantillas refactor comportamiento', () => {
 
     render(<HarnessPlantillas permisosEntrada={permisosLimitados} />);
     expect(screen.getByRole('button', { name: /Crear plantilla/i })).toBeDisabled();
-    expect(screen.getByRole('button', { name: /^Generar$/i })).toBeDisabled();
+    expect(screen.getByRole('button', { name: /^Generar paquete de examenes$/i })).toBeDisabled();
   });
 
   it('aplica filtro de listado por título', () => {

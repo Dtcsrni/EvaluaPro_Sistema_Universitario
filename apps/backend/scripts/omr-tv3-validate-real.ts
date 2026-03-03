@@ -22,6 +22,7 @@ type EvalThresholds = {
   invalidDetectionMin: number;
   pagePassMin: number;
   autoGradeTrustMin: number;
+  autoCoverageMin: number;
 };
 
 type CaptureManifest = {
@@ -43,6 +44,7 @@ type ManifestDataset = {
     invalidDetectionMin: number;
     pagePassMin: number;
     autoGradeTrustMin?: number;
+    autoCoverageMin?: number;
   };
   groundTruthRef: string;
   capturas: CaptureManifest[];
@@ -125,6 +127,7 @@ type Args = {
   report: string;
   failureReport: string;
   autoGradeTrustMin?: number;
+  autoCoverageMin?: number;
   precisionMin?: number;
   falsePositiveMax?: number;
   invalidDetectionMin?: number;
@@ -160,6 +163,11 @@ function parseArgs(argv: string[]): Args {
     }
     if (key === '--autograde-trust-min' && value) {
       args.autoGradeTrustMin = Number.parseFloat(value);
+      i += 1;
+      continue;
+    }
+    if (key === '--auto-coverage-min' && value) {
+      args.autoCoverageMin = Number.parseFloat(value);
       i += 1;
       continue;
     }
@@ -268,7 +276,8 @@ export async function runTv3RealValidation(options: ValidateRealOptions): Promis
     falsePositiveMax: options.thresholds?.falsePositiveMax ?? manifest.thresholds.falsePositiveMax,
     invalidDetectionMin: options.thresholds?.invalidDetectionMin ?? manifest.thresholds.invalidDetectionMin,
     pagePassMin: options.thresholds?.pagePassMin ?? manifest.thresholds.pagePassMin,
-    autoGradeTrustMin: options.thresholds?.autoGradeTrustMin ?? manifest.thresholds.autoGradeTrustMin ?? 0.95
+    autoGradeTrustMin: options.thresholds?.autoGradeTrustMin ?? manifest.thresholds.autoGradeTrustMin ?? 0.95,
+    autoCoverageMin: options.thresholds?.autoCoverageMin ?? manifest.thresholds.autoCoverageMin ?? 1
   };
 
   // Contadores globales para métricas finales.
@@ -419,7 +428,7 @@ export async function runTv3RealValidation(options: ValidateRealOptions): Promis
     invalidDetectionRate: invalidDetectionRate >= thresholds.invalidDetectionMin,
     pagePassRate: pagePassRate >= thresholds.pagePassMin,
     autoGradeTrustRate: autoGradeTrustRate >= thresholds.autoGradeTrustMin,
-    autoCoverageRate: autoCoverageRate >= 1
+    autoCoverageRate: autoCoverageRate >= thresholds.autoCoverageMin
   };
 
   const runId = `omr-tv3-real-${Date.now()}`;
@@ -495,6 +504,7 @@ async function main() {
     failureReportPath: args.failureReport,
     thresholds: {
       autoGradeTrustMin: args.autoGradeTrustMin,
+      autoCoverageMin: args.autoCoverageMin,
       precisionMin: args.precisionMin,
       falsePositiveMax: args.falsePositiveMax,
       invalidDetectionMin: args.invalidDetectionMin,

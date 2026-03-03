@@ -126,7 +126,7 @@ export async function actualizarPeriodo(req: SolicitudDocente, res: Response) {
   if (payload.fechaFin !== undefined) cambios.fechaFin = payload.fechaFin;
   if (payload.grupos !== undefined) cambios.grupos = payload.grupos;
 
-  const actualizado = await Periodo.findOneAndUpdate({ _id: periodoId, docenteId }, { $set: cambios }, { new: true }).lean();
+  const actualizado = await Periodo.findOneAndUpdate({ _id: periodoId, docenteId }, { $set: cambios }, { returnDocument: 'after' }).lean();
   res.json({ ok: true, periodo: actualizado });
 }
 

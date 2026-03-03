@@ -7,7 +7,7 @@ export async function seedFamiliasOmrV1() {
     const familyDoc = await OmrSheetFamily.findOneAndUpdate(
       { familyCode: family.familyCode },
       { $set: family },
-      { upsert: true, new: true, setDefaultsOnInsert: true }
+      { upsert: true, returnDocument: 'after', setDefaultsOnInsert: true }
     );
 
     await OmrSheetRevision.findOneAndUpdate(
@@ -26,7 +26,7 @@ export async function seedFamiliasOmrV1() {
           isActive: true
         }
       },
-      { upsert: true, new: true, setDefaultsOnInsert: true }
+      { upsert: true, returnDocument: 'after', setDefaultsOnInsert: true }
     );
   }
 }

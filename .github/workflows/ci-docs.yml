@@ -1,6 +1,22 @@
 name: CI Docs Module
 
 on:
+  push:
+    paths:
+      - "docs/**"
+      - "ci/pipeline.contract.md"
+      - "ci/pipeline.matrix.json"
+      - "package.json"
+      - "package-lock.json"
+      - ".github/workflows/ci-docs.yml"
+  pull_request:
+    paths:
+      - "docs/**"
+      - "ci/pipeline.contract.md"
+      - "ci/pipeline.matrix.json"
+      - "package.json"
+      - "package-lock.json"
+      - ".github/workflows/ci-docs.yml"
   workflow_dispatch:
 
 concurrency:

@@ -1,6 +1,6 @@
 {
   "version": "1",
-  "generadoEn": "2026-02-27T07:59:00.510Z",
+  "generadoEn": "2026-03-03T10:59:19.9732491Z",
   "artefactos": [
     {
       "archivo": "reports/qa/latest/dataset-prodlike.json",
@@ -49,11 +49,17 @@
       "existe": true,
       "bytes": 1031,
       "actualizadoEn": "2026-02-27T07:48:00.162Z"
+    },
+    {
+      "archivo": "reports/qa/latest/installer-docente-audit-2026-03-03.md",
+      "existe": true,
+      "bytes": 3591,
+      "actualizadoEn": "2026-03-03T10:59:19.9732491Z"
     }
   ],
   "resumen": {
-    "total": 8,
-    "presentes": 8,
+    "total": 9,
+    "presentes": 9,
     "faltantes": 0,
     "estado": "ok"
   }

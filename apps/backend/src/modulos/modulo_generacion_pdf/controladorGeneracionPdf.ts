@@ -594,7 +594,7 @@ export async function actualizarPlantilla(req: SolicitudDocente, res: Response) 
         tituloNormalizado: normalizarTituloPlantilla(String(merged.titulo ?? ''))
       }
     },
-    { new: true }
+    { returnDocument: 'after' }
   ).lean();
 
   res.json({ plantilla: actualizado });
@@ -621,7 +621,7 @@ export async function archivarPlantilla(req: SolicitudDocente, res: Response) {
   const actualizado = await ExamenPlantilla.findOneAndUpdate(
     { _id: plantillaId, docenteId },
     { $set: { archivadoEn: new Date() } },
-    { new: true }
+    { returnDocument: 'after' }
   ).lean();
 
   res.json({ ok: true, plantilla: actualizado });

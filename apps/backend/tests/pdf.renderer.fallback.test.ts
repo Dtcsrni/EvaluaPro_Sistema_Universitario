@@ -8,7 +8,7 @@ describe('pdf renderer fallback', () => {
     const prevChannel = process.env.PLAYWRIGHT_BROWSER_CHANNEL;
     const prevNodeEnv = process.env.NODE_ENV;
 
-    process.env.EXAMEN_PDF_ENGINE = 'playwright-html-v1';
+    process.env.EXAMEN_PDF_ENGINE = 'auto';
     delete process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE;
     delete process.env.PLAYWRIGHT_BROWSER_CHANNEL;
     process.env.NODE_ENV = 'production';

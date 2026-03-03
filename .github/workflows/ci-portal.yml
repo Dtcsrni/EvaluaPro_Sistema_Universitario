@@ -1,6 +1,28 @@
 name: CI Portal Module
 
 on:
+  push:
+    paths:
+      - "apps/portal_alumno_cloud/**"
+      - "package.json"
+      - "package-lock.json"
+      - "tsconfig.base.json"
+      - "vitest.base.ts"
+      - "scripts/retry.mjs"
+      - "scripts/testing/**"
+      - "scripts/security-env-check.mjs"
+      - ".github/workflows/ci-portal.yml"
+  pull_request:
+    paths:
+      - "apps/portal_alumno_cloud/**"
+      - "package.json"
+      - "package-lock.json"
+      - "tsconfig.base.json"
+      - "vitest.base.ts"
+      - "scripts/retry.mjs"
+      - "scripts/testing/**"
+      - "scripts/security-env-check.mjs"
+      - ".github/workflows/ci-portal.yml"
   workflow_dispatch:
 
 concurrency:
