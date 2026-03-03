@@ -1,0 +1,71 @@
+{
+  "loteId": "OMRTV3FM26",
+  "encontrado": true,
+  "total": 15,
+  "periodos": [
+    "69a6f63dc2c6e9f7684bdf7d"
+  ],
+  "plantillas": [
+    "69a6f849c2c6e9f7684bdfd8"
+  ],
+  "integridad": {
+    "conFolio": 15,
+    "conPreguntasIds": 15,
+    "conOrdenPreguntas": 15,
+    "idsVsOrdenIguales": 15
+  },
+  "regeneracion": {
+    "solicitado": false,
+    "ok": 0,
+    "fail": 0,
+    "failIds": [],
+    "equivalenciaFuncionalOk": null
+  },
+  "detalleMuestra": [
+    {
+      "examenId": "69a6f935c2c6e9f7684be0cc",
+      "folio": "07BE7982",
+      "tieneFolio": true,
+      "preguntasIdsCount": 50,
+      "ordenPreguntasCount": 50,
+      "idsVsOrdenIguales": true,
+      "estado": "generado"
+    },
+    {
+      "examenId": "69a6f939c2c6e9f7684be0cf",
+      "folio": "0E994CBA",
+      "tieneFolio": true,
+      "preguntasIdsCount": 50,
+      "ordenPreguntasCount": 50,
+      "idsVsOrdenIguales": true,
+      "estado": "generado"
+    },
+    {
+      "examenId": "69a6f93cc2c6e9f7684be0d2",
+      "folio": "503CF7FA",
+      "tieneFolio": true,
+      "preguntasIdsCount": 50,
+      "ordenPreguntasCount": 50,
+      "idsVsOrdenIguales": true,
+      "estado": "generado"
+    },
+    {
+      "examenId": "69a6f93fc2c6e9f7684be0d5",
+      "folio": "54BC4954",
+      "tieneFolio": true,
+      "preguntasIdsCount": 50,
+      "ordenPreguntasCount": 50,
+      "idsVsOrdenIguales": true,
+      "estado": "generado"
+    },
+    {
+      "examenId": "69a6f941c2c6e9f7684be0d8",
+      "folio": "5EA00A22",
+      "tieneFolio": true,
+      "preguntasIdsCount": 50,
+      "ordenPreguntasCount": 50,
+      "idsVsOrdenIguales": true,
+      "estado": "generado"
+    }
+  ]
+}
