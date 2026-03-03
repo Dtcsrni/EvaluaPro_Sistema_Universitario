@@ -68,6 +68,8 @@ const logFile = path.join(logDir, 'dashboard.log');
 const lockPath = path.join(logDir, 'dashboard.lock.json');
 const singletonPath = path.join(logDir, 'dashboard.singleton.json');
 const dashboardConfigPath = path.join(logDir, 'dashboard.config.json');
+const lifecycleConfigPath = path.join(logDir, 'lifecycle.config.json');
+const continuityConfigPath = path.join(logDir, 'continuity.config.json');
 const updateStatePath = path.join(logDir, 'update-state.json');
 const updateConfigPath = path.join(root, 'config', 'update-config.json');
 ensureDir(logDir);
@@ -128,6 +130,7 @@ const iconPath = path.join(__dirname, 'dashboard-icon.svg');
 const swPath = path.join(__dirname, 'dashboard-sw.js');
 const shortcutsScriptPath = path.join(root, 'scripts', 'create-shortcuts.ps1');
 const portalDistEntry = path.join(root, 'apps', 'portal_alumno_cloud', 'dist', 'index.js');
+const installerHubScriptPath = path.join(root, 'scripts', 'installer-hub', 'InstallerHub.ps1');
 
 const cachedDashboardHtml = fs.readFileSync(dashboardPath, 'utf8');
 const cachedManifestJson = fs.readFileSync(manifestPath, 'utf8');
@@ -144,6 +147,86 @@ const repairState = {
   issues: [],
   lastRun: null
 };
+
+const lifecyclePolicyDefaults = Object.freeze({
+  desiredMode: mode === 'dev' ? 'dev' : 'prod',
+  supervisorEnabled: mode === 'dev' || mode === 'prod',
+  autoRepairEnabled: true,
+  supervisorIntervalMs: 15000,
+  failureThreshold: 3,
+  repairCooldownMs: 180000
+});
+
+const lifecycleState = {
+  desiredMode: lifecyclePolicyDefaults.desiredMode,
+  supervisorEnabled: lifecyclePolicyDefaults.supervisorEnabled,
+  autoRepairEnabled: lifecyclePolicyDefaults.autoRepairEnabled,
+  supervisorIntervalMs: lifecyclePolicyDefaults.supervisorIntervalMs,
+  failureThreshold: lifecyclePolicyDefaults.failureThreshold,
+  repairCooldownMs: lifecyclePolicyDefaults.repairCooldownMs,
+  reconcile: {
+    running: false,
+    lastRunAt: 0,
+    nextRunAt: 0,
+    lastReason: '',
+    lastAction: '',
+    lastResult: '',
+    failureCount: 0,
+    lastRepairTriggeredAt: 0,
+    lastError: ''
+  },
+  operation: {
+    running: false,
+    kind: '',
+    startedAt: 0,
+    finishedAt: 0,
+    lastExitCode: 0,
+    lastError: ''
+  },
+  installation: {
+    installed: false,
+    installDir: '',
+    checkedAt: 0
+  },
+  lastChangedAt: Date.now()
+};
+
+let lifecycleSupervisorTimer = null;
+let lifecycleReconcilePromise = null;
+let lifecycleOperationPromise = null;
+
+const continuityPolicyDefaults = Object.freeze({
+  enabled: false,
+  intervalMs: 10 * 60_000,
+  exportBeforePush: true,
+  doPush: true,
+  doPull: true,
+  maxConsecutiveFailures: 6
+});
+
+const continuityState = {
+  enabled: continuityPolicyDefaults.enabled,
+  intervalMs: continuityPolicyDefaults.intervalMs,
+  exportBeforePush: continuityPolicyDefaults.exportBeforePush,
+  doPush: continuityPolicyDefaults.doPush,
+  doPull: continuityPolicyDefaults.doPull,
+  maxConsecutiveFailures: continuityPolicyDefaults.maxConsecutiveFailures,
+  running: false,
+  lastRunAt: 0,
+  nextRunAt: 0,
+  lastResult: 'idle',
+  lastError: '',
+  lastDetails: [],
+  consecutiveFailures: 0,
+  history: [],
+  updatedAt: Date.now()
+};
+
+let continuityTimer = null;
+let continuityRunPromise = null;
+
+loadLifecyclePolicy();
+loadContinuityPolicy();
 
 function shouldLiveReloadUi() {
   // En prod: UI estable (cache en memoria).
@@ -1741,6 +1824,699 @@ async function startRepairRun() {
   return { ok: true, runId: repairState.runId };
 }
 
+function setLifecycleState(patch = {}) {
+  Object.assign(lifecycleState, patch || {});
+  lifecycleState.lastChangedAt = Date.now();
+}
+
+function getDesiredLifecycleMode() {
+  return lifecycleState.desiredMode === 'dev' ? 'dev' : 'prod';
+}
+
+function normalizeLifecycleIntervalMs(value) {
+  const n = Number(value);
+  if (!Number.isFinite(n)) return lifecycleState.supervisorIntervalMs;
+  return Math.min(120000, Math.max(5000, Math.round(n)));
+}
+
+function normalizeLifecycleFailureThreshold(value) {
+  const n = Number(value);
+  if (!Number.isFinite(n)) return lifecycleState.failureThreshold;
+  return Math.min(8, Math.max(1, Math.round(n)));
+}
+
+function normalizeLifecycleRepairCooldownMs(value) {
+  const n = Number(value);
+  if (!Number.isFinite(n)) return lifecycleState.repairCooldownMs;
+  return Math.min(30 * 60_000, Math.max(30_000, Math.round(n)));
+}
+
+function sanitizeLifecyclePolicy(raw = null) {
+  const source = raw && typeof raw === 'object' ? raw : {};
+  const candidateMode = String(source.desiredMode || lifecyclePolicyDefaults.desiredMode).trim().toLowerCase();
+  const desiredMode = candidateMode === 'dev' ? 'dev' : 'prod';
+
+  const intervalRaw = Number(source.supervisorIntervalMs);
+  const failureRaw = Number(source.failureThreshold);
+  const cooldownRaw = Number(source.repairCooldownMs);
+
+  const supervisorIntervalMs = Number.isFinite(intervalRaw)
+    ? Math.min(120000, Math.max(5000, Math.round(intervalRaw)))
+    : lifecyclePolicyDefaults.supervisorIntervalMs;
+  const failureThreshold = Number.isFinite(failureRaw)
+    ? Math.min(8, Math.max(1, Math.round(failureRaw)))
+    : lifecyclePolicyDefaults.failureThreshold;
+  const repairCooldownMs = Number.isFinite(cooldownRaw)
+    ? Math.min(30 * 60_000, Math.max(30_000, Math.round(cooldownRaw)))
+    : lifecyclePolicyDefaults.repairCooldownMs;
+
+  return {
+    desiredMode,
+    supervisorEnabled: source.supervisorEnabled === undefined
+      ? lifecyclePolicyDefaults.supervisorEnabled
+      : Boolean(source.supervisorEnabled),
+    autoRepairEnabled: source.autoRepairEnabled === undefined
+      ? lifecyclePolicyDefaults.autoRepairEnabled
+      : Boolean(source.autoRepairEnabled),
+    supervisorIntervalMs,
+    failureThreshold,
+    repairCooldownMs
+  };
+}
+
+function saveLifecyclePolicy(partial = null) {
+  const merged = sanitizeLifecyclePolicy({
+    desiredMode: lifecycleState.desiredMode,
+    supervisorEnabled: lifecycleState.supervisorEnabled,
+    autoRepairEnabled: lifecycleState.autoRepairEnabled,
+    supervisorIntervalMs: lifecycleState.supervisorIntervalMs,
+    failureThreshold: lifecycleState.failureThreshold,
+    repairCooldownMs: lifecycleState.repairCooldownMs,
+    ...(partial && typeof partial === 'object' ? partial : {})
+  });
+
+  lifecycleState.desiredMode = merged.desiredMode;
+  lifecycleState.supervisorEnabled = merged.supervisorEnabled;
+  lifecycleState.autoRepairEnabled = merged.autoRepairEnabled;
+  lifecycleState.supervisorIntervalMs = merged.supervisorIntervalMs;
+  lifecycleState.failureThreshold = merged.failureThreshold;
+  lifecycleState.repairCooldownMs = merged.repairCooldownMs;
+  lifecycleState.lastChangedAt = Date.now();
+
+  try {
+    fs.writeFileSync(lifecycleConfigPath, JSON.stringify(merged, null, 2), 'utf8');
+  } catch (error) {
+    logSystem(`No se pudo guardar lifecycle config: ${error?.message || 'error'}`, 'warn');
+  }
+
+  return merged;
+}
+
+function loadLifecyclePolicy() {
+  try {
+    if (!fs.existsSync(lifecycleConfigPath)) {
+      return saveLifecyclePolicy(lifecyclePolicyDefaults);
+    }
+    const raw = fs.readFileSync(lifecycleConfigPath, 'utf8');
+    const parsed = raw ? JSON.parse(raw) : {};
+    return saveLifecyclePolicy(parsed);
+  } catch (error) {
+    logSystem(`Lifecycle config inválida, usando defaults: ${error?.message || 'error'}`, 'warn');
+    return saveLifecyclePolicy(lifecyclePolicyDefaults);
+  }
+}
+
+function normalizeContinuityIntervalMs(value) {
+  const n = Number(value);
+  if (!Number.isFinite(n)) return continuityState.intervalMs;
+  return Math.min(2 * 60 * 60_000, Math.max(60_000, Math.round(n)));
+}
+
+function normalizeContinuityFailureLimit(value) {
+  const n = Number(value);
+  if (!Number.isFinite(n)) return continuityState.maxConsecutiveFailures;
+  return Math.min(20, Math.max(1, Math.round(n)));
+}
+
+function sanitizeContinuityPolicy(raw = null) {
+  const source = raw && typeof raw === 'object' ? raw : {};
+  return {
+    enabled: source.enabled === undefined ? continuityPolicyDefaults.enabled : Boolean(source.enabled),
+    intervalMs: normalizeContinuityIntervalMs(
+      source.intervalMs === undefined ? continuityPolicyDefaults.intervalMs : source.intervalMs
+    ),
+    exportBeforePush: source.exportBeforePush === undefined
+      ? continuityPolicyDefaults.exportBeforePush
+      : Boolean(source.exportBeforePush),
+    doPush: source.doPush === undefined ? continuityPolicyDefaults.doPush : Boolean(source.doPush),
+    doPull: source.doPull === undefined ? continuityPolicyDefaults.doPull : Boolean(source.doPull),
+    maxConsecutiveFailures: normalizeContinuityFailureLimit(
+      source.maxConsecutiveFailures === undefined
+        ? continuityPolicyDefaults.maxConsecutiveFailures
+        : source.maxConsecutiveFailures
+    )
+  };
+}
+
+function saveContinuityPolicy(partial = null) {
+  const merged = sanitizeContinuityPolicy({
+    enabled: continuityState.enabled,
+    intervalMs: continuityState.intervalMs,
+    exportBeforePush: continuityState.exportBeforePush,
+    doPush: continuityState.doPush,
+    doPull: continuityState.doPull,
+    maxConsecutiveFailures: continuityState.maxConsecutiveFailures,
+    ...(partial && typeof partial === 'object' ? partial : {})
+  });
+
+  continuityState.enabled = merged.enabled;
+  continuityState.intervalMs = merged.intervalMs;
+  continuityState.exportBeforePush = merged.exportBeforePush;
+  continuityState.doPush = merged.doPush;
+  continuityState.doPull = merged.doPull;
+  continuityState.maxConsecutiveFailures = merged.maxConsecutiveFailures;
+  continuityState.updatedAt = Date.now();
+
+  try {
+    fs.writeFileSync(continuityConfigPath, JSON.stringify(merged, null, 2), 'utf8');
+  } catch (error) {
+    logSystem(`No se pudo guardar continuity config: ${error?.message || 'error'}`, 'warn');
+  }
+
+  return merged;
+}
+
+function loadContinuityPolicy() {
+  try {
+    if (!fs.existsSync(continuityConfigPath)) {
+      return saveContinuityPolicy(continuityPolicyDefaults);
+    }
+    const raw = fs.readFileSync(continuityConfigPath, 'utf8');
+    const parsed = raw ? JSON.parse(raw) : {};
+    return saveContinuityPolicy(parsed);
+  } catch (error) {
+    logSystem(`Continuity config inválida, usando defaults: ${error?.message || 'error'}`, 'warn');
+    return saveContinuityPolicy(continuityPolicyDefaults);
+  }
+}
+
+function continuitySnapshot() {
+  return {
+    enabled: continuityState.enabled,
+    intervalMs: continuityState.intervalMs,
+    exportBeforePush: continuityState.exportBeforePush,
+    doPush: continuityState.doPush,
+    doPull: continuityState.doPull,
+    maxConsecutiveFailures: continuityState.maxConsecutiveFailures,
+    running: continuityState.running,
+    lastRunAt: continuityState.lastRunAt,
+    nextRunAt: continuityState.nextRunAt,
+    lastResult: continuityState.lastResult,
+    lastError: continuityState.lastError,
+    lastDetails: Array.isArray(continuityState.lastDetails) ? continuityState.lastDetails.slice(0, 12) : [],
+    consecutiveFailures: continuityState.consecutiveFailures,
+    history: Array.isArray(continuityState.history) ? continuityState.history.slice(0, 20) : [],
+    updatedAt: continuityState.updatedAt
+  };
+}
+
+async function runContinuitySync(reason = 'manual') {
+  if (continuityRunPromise) return continuityRunPromise;
+
+  continuityRunPromise = (async () => {
+    continuityState.running = true;
+    continuityState.lastError = '';
+    continuityState.lastRunAt = Date.now();
+    continuityState.lastResult = 'running';
+    continuityState.updatedAt = Date.now();
+
+    const syncCfg = updateConfig?.syncPreflight && typeof updateConfig.syncPreflight === 'object'
+      ? updateConfig.syncPreflight
+      : {};
+    const tokenEnv = String(syncCfg.tokenEnv || 'EVALUAPRO_SYNC_BEARER');
+    const token = String(process.env[tokenEnv] || '').trim();
+    const baseUrl = String(syncCfg.baseUrl || 'http://127.0.0.1:4000/api/sincronizaciones').replace(/\/$/, '');
+    const details = [];
+    let ok = true;
+    let errorText = '';
+
+    try {
+      if (!continuityState.enabled) {
+        continuityState.lastResult = 'disabled';
+        continuityState.nextRunAt = 0;
+        continuityState.lastDetails = ['Continuidad desactivada por política.'];
+        return { ok: true, skipped: true, reason: 'disabled' };
+      }
+
+      if (!token) {
+        ok = false;
+        errorText = `Falta token en ${tokenEnv}`;
+      } else {
+        if (continuityState.exportBeforePush) {
+          const exportRes = await postJsonWithAuth(`${baseUrl}/paquete/exportar`, token, syncCfg.exportPayload || {}, 35_000);
+          details.push(`exportar:${exportRes.status}`);
+          if (!exportRes.ok) {
+            ok = false;
+            errorText = 'Falló exportar paquete de sincronización.';
+          }
+        }
+
+        if (ok && continuityState.doPush) {
+          const pushRes = await postJsonWithAuth(`${baseUrl}/push`, token, syncCfg.pushPayload || {}, 35_000);
+          details.push(`push:${pushRes.status}`);
+          if (!pushRes.ok) {
+            ok = false;
+            errorText = 'Falló push de sincronización.';
+          }
+        }
+
+        if (ok && continuityState.doPull) {
+          const pullRes = await postJsonWithAuth(`${baseUrl}/pull`, token, syncCfg.pullPayload || {}, 35_000);
+          details.push(`pull:${pullRes.status}`);
+          if (!pullRes.ok) {
+            ok = false;
+            errorText = 'Falló pull de sincronización.';
+          }
+        }
+      }
+
+      continuityState.lastDetails = details;
+      continuityState.lastError = ok ? '' : errorText;
+      continuityState.lastResult = ok ? 'ok' : 'error';
+      continuityState.consecutiveFailures = ok ? 0 : (continuityState.consecutiveFailures + 1);
+      continuityState.nextRunAt = continuityState.enabled ? Date.now() + continuityState.intervalMs : 0;
+      continuityState.updatedAt = Date.now();
+
+      const eventEntry = {
+        ts: Date.now(),
+        reason,
+        ok,
+        details: details.slice(0, 8),
+        error: ok ? '' : errorText
+      };
+      continuityState.history.unshift(eventEntry);
+      if (continuityState.history.length > 40) continuityState.history.length = 40;
+
+      pushEvent('continuity', 'dashboard', ok ? 'ok' : 'error', ok ? 'Sync continuidad OK' : 'Sync continuidad con error', {
+        reason,
+        details,
+        error: errorText
+      });
+
+      if (!ok && continuityState.consecutiveFailures >= continuityState.maxConsecutiveFailures) {
+        continuityState.enabled = false;
+        continuityState.nextRunAt = 0;
+        continuityState.lastResult = 'paused';
+        continuityState.lastError = `Pausado por ${continuityState.consecutiveFailures} fallos consecutivos.`;
+        saveContinuityPolicy();
+        configureContinuityScheduler();
+      }
+
+      return {
+        ok,
+        reason,
+        details,
+        error: errorText
+      };
+    } catch (error) {
+      const msg = String(error?.message || 'continuity_error');
+      continuityState.lastResult = 'error';
+      continuityState.lastError = msg;
+      continuityState.consecutiveFailures += 1;
+      continuityState.nextRunAt = continuityState.enabled ? Date.now() + continuityState.intervalMs : 0;
+      continuityState.updatedAt = Date.now();
+      logSystem(`Continuity sync falló: ${msg}`, 'error');
+      return { ok: false, reason, error: msg };
+    } finally {
+      continuityState.running = false;
+      continuityState.updatedAt = Date.now();
+    }
+  })().finally(() => {
+    continuityRunPromise = null;
+  });
+
+  return continuityRunPromise;
+}
+
+function configureContinuityScheduler() {
+  if (continuityTimer) {
+    clearInterval(continuityTimer);
+    continuityTimer = null;
+  }
+
+  if (!continuityState.enabled) {
+    continuityState.nextRunAt = 0;
+    continuityState.updatedAt = Date.now();
+    return;
+  }
+
+  const intervalMs = normalizeContinuityIntervalMs(continuityState.intervalMs);
+  continuityState.intervalMs = intervalMs;
+  continuityState.nextRunAt = Date.now() + intervalMs;
+  continuityState.updatedAt = Date.now();
+
+  continuityTimer = setInterval(() => {
+    runContinuitySync('scheduler').catch(() => undefined);
+  }, intervalMs);
+}
+
+function detectInstalledProduct() {
+  const checkedAt = Date.now();
+  if (process.platform !== 'win32') {
+    lifecycleState.installation = {
+      installed: false,
+      installDir: '',
+      checkedAt
+    };
+    return lifecycleState.installation;
+  }
+
+  const candidates = [
+    path.join(process.env.ProgramFiles || 'C:\\Program Files', 'EvaluaPro'),
+    path.join(process.env['ProgramFiles(x86)'] || 'C:\\Program Files (x86)', 'EvaluaPro')
+  ];
+
+  const installDir = candidates.find((dir) => {
+    try {
+      if (!fs.existsSync(dir)) return false;
+      const hasEnv = fs.existsSync(path.join(dir, '.env'));
+      const hasConfig = fs.existsSync(path.join(dir, 'config', 'update-config.json'));
+      const hasLauncher = fs.existsSync(path.join(dir, 'scripts', 'launcher-dashboard-hidden.vbs'));
+      return hasEnv || hasConfig || hasLauncher;
+    } catch {
+      return false;
+    }
+  }) || '';
+
+  lifecycleState.installation = {
+    installed: Boolean(installDir),
+    installDir,
+    checkedAt
+  };
+  return lifecycleState.installation;
+}
+
+function isStackHealthyFromServices(services) {
+  const apiOk = Boolean(services?.apiDocente?.ok);
+  const portalOk = Boolean(services?.apiPortal?.ok);
+  return apiOk && portalOk;
+}
+
+async function buildLifecycleStatus(includeHealth = true) {
+  const running = runningTasks();
+  const desiredMode = getDesiredLifecycleMode();
+  const installInfo = detectInstalledProduct();
+  const services = includeHealth ? await collectHealth() : {};
+  const healthy = includeHealth ? isStackHealthyFromServices(services) : false;
+  const stackManagedRunning = running.includes('dev') || running.includes('prod');
+  const desiredRunning = running.includes(desiredMode);
+  const portalRunning = running.includes('portal');
+
+  return {
+    desiredMode,
+    installed: installInfo.installed,
+    installDir: installInfo.installDir,
+    running,
+    stackManagedRunning,
+    desiredRunning,
+    portalRunning,
+    healthy,
+    services,
+    supervisor: {
+      enabled: lifecycleState.supervisorEnabled,
+      autoRepairEnabled: lifecycleState.autoRepairEnabled,
+      intervalMs: lifecycleState.supervisorIntervalMs,
+      nextRunAt: lifecycleState.reconcile.nextRunAt,
+      failureThreshold: lifecycleState.failureThreshold,
+      repairCooldownMs: lifecycleState.repairCooldownMs
+    },
+    reconcile: { ...lifecycleState.reconcile },
+    operation: { ...lifecycleState.operation },
+    lastChangedAt: lifecycleState.lastChangedAt
+  };
+}
+
+function ensureTaskRunning(taskName) {
+  const command = getCommand(taskName);
+  if (!command) return false;
+  if (isRunning(taskName)) return false;
+  startTask(taskName, command);
+  return true;
+}
+
+async function reconcileLifecycle(reason = 'manual') {
+  if (lifecycleReconcilePromise) return lifecycleReconcilePromise;
+
+  lifecycleReconcilePromise = (async () => {
+    const startedAt = Date.now();
+    lifecycleState.reconcile.running = true;
+    lifecycleState.reconcile.lastReason = reason;
+    lifecycleState.reconcile.lastError = '';
+    lifecycleState.reconcile.lastAction = 'none';
+    lifecycleState.reconcile.lastResult = 'running';
+    lifecycleState.reconcile.lastRunAt = startedAt;
+    lifecycleState.reconcile.nextRunAt = startedAt + lifecycleState.supervisorIntervalMs;
+    lifecycleState.lastChangedAt = Date.now();
+
+    let action = 'none';
+    try {
+      if (lifecycleState.operation.running) {
+        action = 'operation_running';
+        lifecycleState.reconcile.lastAction = action;
+        lifecycleState.reconcile.lastResult = 'busy';
+        lifecycleState.reconcile.nextRunAt = Date.now() + lifecycleState.supervisorIntervalMs;
+        lifecycleState.lastChangedAt = Date.now();
+        return {
+          ok: true,
+          action,
+          result: 'busy',
+          durationMs: Date.now() - startedAt
+        };
+      }
+
+      const desiredMode = getDesiredLifecycleMode();
+      const servicesBefore = await collectHealth();
+      const healthyBefore = isStackHealthyFromServices(servicesBefore);
+
+      if (!healthyBefore) {
+        if (process.platform === 'win32') {
+          requestDockerAutostart('lifecycle_reconcile');
+        }
+
+        const startedDesired = ensureTaskRunning(desiredMode);
+        const startedPortal = ensureTaskRunning('portal');
+        if (startedDesired && startedPortal) action = `start:${desiredMode}+portal`;
+        else if (startedDesired) action = `start:${desiredMode}`;
+        else if (startedPortal) action = 'start:portal';
+        else action = 'verify';
+
+        if (startedDesired || startedPortal) {
+          await sleep(1800);
+        }
+
+        const servicesAfter = await collectHealth();
+        const healthyAfter = isStackHealthyFromServices(servicesAfter);
+        if (!healthyAfter) {
+          lifecycleState.reconcile.failureCount += 1;
+          const now = Date.now();
+          const threshold = normalizeLifecycleFailureThreshold(lifecycleState.failureThreshold);
+          const cooldownMs = normalizeLifecycleRepairCooldownMs(lifecycleState.repairCooldownMs);
+          const elapsedFromLastRepair = now - Number(lifecycleState.reconcile.lastRepairTriggeredAt || 0);
+          const canTriggerRepair = elapsedFromLastRepair >= cooldownMs;
+          if (
+            lifecycleState.autoRepairEnabled &&
+            lifecycleState.reconcile.failureCount >= threshold &&
+            canTriggerRepair &&
+            repairState.state !== 'running'
+          ) {
+            const startedRepair = await startRepairRun();
+            if (startedRepair?.ok) {
+              action = action === 'none' ? 'repair:run' : `${action}+repair`;
+              lifecycleState.reconcile.lastRepairTriggeredAt = now;
+            }
+            lifecycleState.reconcile.failureCount = 0;
+          } else if (
+            lifecycleState.autoRepairEnabled &&
+            lifecycleState.reconcile.failureCount >= threshold &&
+            !canTriggerRepair
+          ) {
+            action = action === 'none' ? 'repair:cooldown' : `${action}+repair_cooldown`;
+          }
+          lifecycleState.reconcile.lastResult = 'degraded';
+        } else {
+          lifecycleState.reconcile.failureCount = 0;
+          lifecycleState.reconcile.lastResult = 'healthy';
+        }
+      } else {
+        lifecycleState.reconcile.failureCount = 0;
+        lifecycleState.reconcile.lastResult = 'healthy';
+      }
+
+      lifecycleState.reconcile.lastAction = action;
+      lifecycleState.reconcile.nextRunAt = Date.now() + lifecycleState.supervisorIntervalMs;
+      lifecycleState.lastChangedAt = Date.now();
+
+      pushEvent('lifecycle', 'dashboard', 'info', 'Lifecycle reconcile', {
+        reason,
+        action,
+        result: lifecycleState.reconcile.lastResult
+      });
+
+      return {
+        ok: true,
+        action,
+        result: lifecycleState.reconcile.lastResult,
+        durationMs: Date.now() - startedAt
+      };
+    } catch (error) {
+      const message = String(error?.message || 'reconcile_error');
+      lifecycleState.reconcile.lastError = message;
+      lifecycleState.reconcile.lastResult = 'error';
+      lifecycleState.reconcile.failureCount += 1;
+      lifecycleState.reconcile.lastAction = action;
+      lifecycleState.reconcile.nextRunAt = Date.now() + lifecycleState.supervisorIntervalMs;
+      lifecycleState.lastChangedAt = Date.now();
+      logSystem(`Lifecycle reconcile falló: ${message}`, 'error');
+      return {
+        ok: false,
+        action,
+        result: 'error',
+        error: message,
+        durationMs: Date.now() - startedAt
+      };
+    } finally {
+      lifecycleState.reconcile.running = false;
+      lifecycleState.lastChangedAt = Date.now();
+    }
+  })().finally(() => {
+    lifecycleReconcilePromise = null;
+  });
+
+  return lifecycleReconcilePromise;
+}
+
+function configureLifecycleSupervisor() {
+  if (lifecycleSupervisorTimer) {
+    clearInterval(lifecycleSupervisorTimer);
+    lifecycleSupervisorTimer = null;
+  }
+
+  if (!lifecycleState.supervisorEnabled) {
+    lifecycleState.reconcile.nextRunAt = 0;
+    lifecycleState.lastChangedAt = Date.now();
+    return;
+  }
+
+  const intervalMs = normalizeLifecycleIntervalMs(lifecycleState.supervisorIntervalMs);
+  lifecycleState.supervisorIntervalMs = intervalMs;
+  lifecycleState.reconcile.nextRunAt = Date.now() + intervalMs;
+  lifecycleState.lastChangedAt = Date.now();
+
+  lifecycleSupervisorTimer = setInterval(() => {
+    reconcileLifecycle('supervisor_tick').catch(() => undefined);
+  }, intervalMs);
+}
+
+function getPowerShellPath() {
+  const systemPs = path.join(process.env.WINDIR || 'C:\\Windows', 'System32', 'WindowsPowerShell', 'v1.0', 'powershell.exe');
+  if (fs.existsSync(systemPs)) return systemPs;
+  return 'powershell.exe';
+}
+
+function quoteCmdArg(text) {
+  return `"${String(text || '').replace(/"/g, '\\"')}"`;
+}
+
+async function runInstallerHubMode(modeName) {
+  if (process.platform !== 'win32') {
+    return { ok: false, code: 1, stdout: '', stderr: 'Installer Hub soportado solo en Windows.' };
+  }
+  if (!fs.existsSync(installerHubScriptPath)) {
+    return { ok: false, code: 1, stdout: '', stderr: 'No se encontró scripts/installer-hub/InstallerHub.ps1.' };
+  }
+
+  const ps = getPowerShellPath();
+  const command = `${quoteCmdArg(ps)} -NoProfile -ExecutionPolicy Bypass -File ${quoteCmdArg(installerHubScriptPath)} -Mode ${modeName} -Headless -NoElevation`;
+  return runCommandCapture(command, 15 * 60_000);
+}
+
+async function runLifecycleOperation(kind) {
+  if (lifecycleOperationPromise) {
+    return { ok: false, error: 'operation_running' };
+  }
+
+  lifecycleOperationPromise = (async () => {
+    lifecycleState.operation.running = true;
+    lifecycleState.operation.kind = String(kind || '');
+    lifecycleState.operation.startedAt = Date.now();
+    lifecycleState.operation.finishedAt = 0;
+    lifecycleState.operation.lastExitCode = 0;
+    lifecycleState.operation.lastError = '';
+    lifecycleState.lastChangedAt = Date.now();
+
+    const result = await runInstallerHubMode(kind);
+    lifecycleState.operation.running = false;
+    lifecycleState.operation.finishedAt = Date.now();
+    lifecycleState.operation.lastExitCode = Number(result?.code || 0);
+    lifecycleState.operation.lastError = result?.ok ? '' : String(result?.stderr || 'installer_hub_failed').trim();
+    lifecycleState.lastChangedAt = Date.now();
+
+    if (result?.ok && (kind === 'install' || kind === 'repair')) {
+      await reconcileLifecycle(`operation_${kind}`);
+    }
+
+    if (result?.ok && kind === 'uninstall') {
+      const active = runningTasks();
+      active.forEach((task) => {
+        try { stopTask(task); } catch {}
+      });
+    }
+
+    const out = String(result?.stdout || '').trim();
+    const err = String(result?.stderr || '').trim();
+    const detail = out || err;
+    return {
+      ok: Boolean(result?.ok),
+      code: Number(result?.code || 0),
+      detail: detail.slice(0, 1200)
+    };
+  })().finally(() => {
+    lifecycleOperationPromise = null;
+  });
+
+  return lifecycleOperationPromise;
+}
+
+async function runLifecycleComponentAction(action, component) {
+  const target = String(component || '').trim().toLowerCase();
+  if (!target) return { ok: false, error: 'component_required' };
+
+  if (action === 'install') {
+    if (target === 'stack') {
+      const modeName = getDesiredLifecycleMode();
+      const started = ensureTaskRunning(modeName);
+      await reconcileLifecycle('component_stack_install');
+      return { ok: true, started, component: target, mode: modeName };
+    }
+    if (target === 'portal') {
+      const started = ensureTaskRunning('portal');
+      await reconcileLifecycle('component_portal_install');
+      return { ok: true, started, component: target };
+    }
+    if (target === 'shortcuts') {
+      if (process.platform !== 'win32') return { ok: false, error: 'unsupported_platform' };
+      if (!fs.existsSync(shortcutsScriptPath)) return { ok: false, error: 'shortcuts_script_missing' };
+      const result = await runCommandCapture('powershell -NoProfile -ExecutionPolicy Bypass -File scripts/create-shortcuts.ps1 -Force', 90_000);
+      return {
+        ok: result.ok,
+        component: target,
+        detail: String(result.ok ? 'Accesos regenerados.' : (result.stderr || 'No se pudieron regenerar accesos.')).slice(0, 800)
+      };
+    }
+    return { ok: false, error: 'component_unknown' };
+  }
+
+  if (action === 'uninstall') {
+    if (target === 'portal') {
+      try { stopTask('portal'); } catch {}
+      return { ok: true, component: target, stopped: true };
+    }
+    if (target === 'stack') {
+      ['dev', 'prod', 'dev-backend', 'dev-frontend', 'portal'].forEach((task) => {
+        try { stopTask(task); } catch {}
+      });
+      const dockerDown = getCommand('docker-down');
+      if (dockerDown) {
+        try { startTask('docker-down', dockerDown); } catch {}
+      }
+      return { ok: true, component: target, stopped: true };
+    }
+    return { ok: false, error: 'component_uninstall_not_supported' };
+  }
+
+  return { ok: false, error: 'action_unknown' };
+}
+
 function truncateLine(text) {
   const limit = 900;
   if (text.length <= limit) return text;
@@ -2302,6 +3078,14 @@ function clearLock() {
 
 function handleExit(signal) {
   if (signal) logSystem(`Cierre solicitado: ${signal}`, 'system');
+  if (lifecycleSupervisorTimer) {
+    clearInterval(lifecycleSupervisorTimer);
+    lifecycleSupervisorTimer = null;
+  }
+  if (continuityTimer) {
+    clearInterval(continuityTimer);
+    continuityTimer = null;
+  }
   clearLock();
   clearSingletonLock();
   process.exit(0);
@@ -2310,6 +3094,14 @@ function handleExit(signal) {
 process.on('SIGINT', () => handleExit('SIGINT'));
 process.on('SIGTERM', () => handleExit('SIGTERM'));
 process.on('exit', () => {
+  if (lifecycleSupervisorTimer) {
+    clearInterval(lifecycleSupervisorTimer);
+    lifecycleSupervisorTimer = null;
+  }
+  if (continuityTimer) {
+    clearInterval(continuityTimer);
+    continuityTimer = null;
+  }
   clearLock();
   clearSingletonLock();
 });
@@ -2436,6 +3228,17 @@ const server = http.createServer(async (req, res) => {
       noiseTotal,
       autoRestart,
       config: dashboardConfig,
+      lifecycle: {
+        desiredMode: getDesiredLifecycleMode(),
+        supervisorEnabled: lifecycleState.supervisorEnabled,
+        autoRepairEnabled: lifecycleState.autoRepairEnabled,
+        supervisorIntervalMs: lifecycleState.supervisorIntervalMs,
+        reconcile: lifecycleState.reconcile,
+        operation: lifecycleState.operation,
+        installation: lifecycleState.installation,
+        lastChangedAt: lifecycleState.lastChangedAt
+      },
+      continuity: continuitySnapshot(),
       update: updateManager.getStatus()
     };
     sendJson(res, 200, payload);
@@ -2608,6 +3411,141 @@ const server = http.createServer(async (req, res) => {
       lastRun: repairState.lastRun
     });
     return;
+  }
+
+  if (req.method === 'GET' && pathName === '/api/lifecycle/status') {
+    const status = await buildLifecycleStatus(true);
+    return sendJson(res, 200, status);
+  }
+
+  if (req.method === 'POST' && pathName === '/api/lifecycle/reconcile') {
+    const result = await reconcileLifecycle('api_reconcile');
+    return sendJson(res, 200, result);
+  }
+
+  if (req.method === 'POST' && pathName === '/api/lifecycle/supervisor') {
+    const body = await readBody(req);
+    if (Object.prototype.hasOwnProperty.call(body || {}, 'enabled')) {
+      lifecycleState.supervisorEnabled = Boolean(body.enabled);
+    }
+    if (Object.prototype.hasOwnProperty.call(body || {}, 'autoRepairEnabled')) {
+      lifecycleState.autoRepairEnabled = Boolean(body.autoRepairEnabled);
+    }
+    if (Object.prototype.hasOwnProperty.call(body || {}, 'intervalMs')) {
+      lifecycleState.supervisorIntervalMs = normalizeLifecycleIntervalMs(body.intervalMs);
+    }
+    if (Object.prototype.hasOwnProperty.call(body || {}, 'failureThreshold')) {
+      lifecycleState.failureThreshold = normalizeLifecycleFailureThreshold(body.failureThreshold);
+    }
+    if (Object.prototype.hasOwnProperty.call(body || {}, 'repairCooldownMs')) {
+      lifecycleState.repairCooldownMs = normalizeLifecycleRepairCooldownMs(body.repairCooldownMs);
+    }
+    if (Object.prototype.hasOwnProperty.call(body || {}, 'desiredMode')) {
+      const candidate = String(body.desiredMode || '').trim().toLowerCase();
+      if (candidate === 'dev' || candidate === 'prod') {
+        lifecycleState.desiredMode = candidate;
+      }
+    }
+    saveLifecyclePolicy();
+    setLifecycleState({});
+    configureLifecycleSupervisor();
+    return sendJson(res, 200, {
+      ok: true,
+      supervisor: {
+        enabled: lifecycleState.supervisorEnabled,
+        autoRepairEnabled: lifecycleState.autoRepairEnabled,
+        intervalMs: lifecycleState.supervisorIntervalMs,
+        desiredMode: lifecycleState.desiredMode,
+        failureThreshold: lifecycleState.failureThreshold,
+        repairCooldownMs: lifecycleState.repairCooldownMs
+      }
+    });
+  }
+
+  if (req.method === 'POST' && pathName === '/api/lifecycle/supervisor/reset') {
+    const policy = saveLifecyclePolicy(lifecyclePolicyDefaults);
+    setLifecycleState({});
+    configureLifecycleSupervisor();
+    return sendJson(res, 200, {
+      ok: true,
+      supervisor: {
+        enabled: policy.supervisorEnabled,
+        autoRepairEnabled: policy.autoRepairEnabled,
+        intervalMs: policy.supervisorIntervalMs,
+        desiredMode: policy.desiredMode,
+        failureThreshold: policy.failureThreshold,
+        repairCooldownMs: policy.repairCooldownMs
+      }
+    });
+  }
+
+  if (req.method === 'POST' && pathName === '/api/lifecycle/install') {
+    const result = await runLifecycleOperation('install');
+    const status = result?.ok ? 200 : 500;
+    return sendJson(res, status, result);
+  }
+
+  if (req.method === 'POST' && pathName === '/api/lifecycle/repair') {
+    const result = await runLifecycleOperation('repair');
+    const status = result?.ok ? 200 : 500;
+    return sendJson(res, status, result);
+  }
+
+  if (req.method === 'POST' && pathName === '/api/lifecycle/uninstall') {
+    const result = await runLifecycleOperation('uninstall');
+    const status = result?.ok ? 200 : 500;
+    return sendJson(res, status, result);
+  }
+
+  if (req.method === 'POST' && pathName === '/api/lifecycle/component/install') {
+    const body = await readBody(req);
+    const result = await runLifecycleComponentAction('install', body?.component);
+    const status = result?.ok ? 200 : 400;
+    return sendJson(res, status, result);
+  }
+
+  if (req.method === 'POST' && pathName === '/api/lifecycle/component/uninstall') {
+    const body = await readBody(req);
+    const result = await runLifecycleComponentAction('uninstall', body?.component);
+    const status = result?.ok ? 200 : 400;
+    return sendJson(res, status, result);
+  }
+
+  if (req.method === 'GET' && pathName === '/api/continuity/status') {
+    return sendJson(res, 200, continuitySnapshot());
+  }
+
+  if (req.method === 'POST' && pathName === '/api/continuity/run') {
+    const result = await runContinuitySync('api_manual');
+    const status = result?.ok ? 200 : 502;
+    return sendJson(res, status, result);
+  }
+
+  if (req.method === 'POST' && pathName === '/api/continuity/config') {
+    const body = await readBody(req);
+    const next = saveContinuityPolicy(body && typeof body === 'object' ? body : {});
+    configureContinuityScheduler();
+    return sendJson(res, 200, {
+      ok: true,
+      config: next,
+      state: continuitySnapshot()
+    });
+  }
+
+  if (req.method === 'POST' && pathName === '/api/continuity/config/reset') {
+    const next = saveContinuityPolicy(continuityPolicyDefaults);
+    continuityState.consecutiveFailures = 0;
+    continuityState.lastError = '';
+    continuityState.lastDetails = [];
+    continuityState.lastResult = 'idle';
+    continuityState.nextRunAt = 0;
+    continuityState.history = [];
+    configureContinuityScheduler();
+    return sendJson(res, 200, {
+      ok: true,
+      config: next,
+      state: continuitySnapshot()
+    });
   }
 
   if (req.method === 'POST' && pathName === '/api/shortcuts/regenerate') {
@@ -2820,6 +3758,14 @@ const server = http.createServer(async (req, res) => {
     if (!noOpen) openBrowser(url);
     // En accesos directos/tray: primero confirma Docker y luego inicia el stack.
     if (mode === 'dev' || mode === 'prod') requestDockerAutostart('startup');
+    configureLifecycleSupervisor();
+    configureContinuityScheduler();
+    if (lifecycleState.supervisorEnabled) {
+      reconcileLifecycle('startup').catch(() => undefined);
+    }
+    if (continuityState.enabled) {
+      runContinuitySync('startup').catch(() => undefined);
+    }
     startTrayIfNeeded(mode, port);
 
     setupDevWatchers();

@@ -11,7 +11,7 @@
   - /api/* siempre network-only.
 */
 
-const CACHE_NAME = 'ep-dashboard-assets-v2026-01-17.7';
+const CACHE_NAME = 'ep-dashboard-assets-v2026-03-02.3';
 const PRECACHE_URLS = ['/assets/dashboard-icon.svg', '/manifest.webmanifest'];
 
 function offlineHtml() {
@@ -26,14 +26,135 @@ function offlineHtml() {
   h1{margin:0 0 8px;font-size:18px}
   p{margin:0;color:rgba(175,186,210,.92);line-height:1.45}
   .hint{margin-top:12px;font-size:13px}
+  .actions{margin-top:16px;display:flex;gap:10px;flex-wrap:wrap}
+  .btn{appearance:none;border:1px solid rgba(148,163,184,.28);border-radius:10px;background:rgba(34,232,255,.16);color:rgba(235,248,255,.96);padding:10px 14px;font-weight:600;cursor:pointer}
+  .btn.secondary{background:rgba(148,163,184,.12)}
+  .btn[disabled]{opacity:.62;cursor:wait}
+  .status{margin-top:10px;font-size:13px;min-height:20px}
   a{color:#22e8ff}
 </style>
 </head><body>
   <div class="card">
     <h1>Sin conexión</h1>
     <p>No se pudo contactar al servidor local del dashboard. Verifica que esté corriendo en este equipo.</p>
+    <div class="actions">
+      <button id="start-system" class="btn" type="button">Iniciar sistema</button>
+      <button id="retry-connection" class="btn secondary" type="button">Reintentar conexión</button>
+    </div>
+    <p id="start-status" class="status" aria-live="polite"></p>
     <p class="hint">Tip: abre <a href="/">/</a> cuando vuelva la conexión.</p>
   </div>
+  <script>
+    (function () {
+      const button = document.getElementById('start-system');
+      const retryButton = document.getElementById('retry-connection');
+      const status = document.getElementById('start-status');
+      if (!button || !status) return;
+
+      const setStatus = (text) => {
+        status.textContent = text;
+      };
+
+      const wait = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+
+      const postStart = async (task) => {
+        const response = await fetch('/api/start', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ task })
+        });
+        if (!response.ok) throw new Error('start_failed');
+      };
+
+      const getJson = async (url) => {
+        const response = await fetch(url, { cache: 'no-store' });
+        if (!response.ok) throw new Error('request_failed');
+        return response.json();
+      };
+
+      const stackHealthy = async () => {
+        const health = await getJson('/api/health');
+        const services = health && health.services ? health.services : {};
+        const apiOk = Boolean(services.apiDocente && services.apiDocente.ok);
+        const portalOk = Boolean(services.apiPortal && services.apiPortal.ok);
+        return apiOk && portalOk;
+      };
+
+      const waitForHealthyStack = async (timeoutMs) => {
+        const deadline = Date.now() + Math.max(5000, timeoutMs || 90000);
+        while (Date.now() < deadline) {
+          try {
+            if (await stackHealthy()) return true;
+          } catch (_) {}
+          await wait(1400);
+        }
+        return false;
+      };
+
+      let suggestedShortcut = 'EvaluaPro - Prod';
+
+      const startFlow = async () => {
+        try {
+          if (await stackHealthy()) {
+            setStatus('El sistema ya está activo. Reabriendo dashboard...');
+            setTimeout(() => {
+              window.location.href = '/';
+            }, 900);
+            return;
+          }
+        } catch (_) {}
+
+        setStatus('Iniciando stack Docker y servicios...');
+
+        let desiredMode = 'prod';
+        try {
+          const statusInfo = await getJson('/api/status');
+          if (statusInfo && (statusInfo.mode === 'dev' || statusInfo.modeConfig === 'dev')) {
+            desiredMode = 'dev';
+          }
+        } catch (_) {}
+
+        suggestedShortcut = desiredMode === 'dev' ? 'EvaluaPro - Dev' : 'EvaluaPro - Prod';
+
+        await postStart(desiredMode);
+        try {
+          await postStart('portal');
+        } catch (_) {}
+
+        setStatus('Esperando que el stack quede operativo...');
+        const healthy = await waitForHealthyStack(90000);
+        if (!healthy) throw new Error('stack_not_ready');
+
+        setStatus('Sistema iniciado. Reabriendo dashboard...');
+        setTimeout(() => {
+          window.location.href = '/';
+        }, 900);
+      };
+
+      button.addEventListener('click', async () => {
+        if (button.disabled) return;
+        button.disabled = true;
+        if (retryButton) retryButton.disabled = true;
+        setStatus('Solicitando inicio del sistema...');
+
+        try {
+          await startFlow();
+          return;
+        } catch (_) {
+          setStatus(`No fue posible iniciarlo desde esta pantalla. Usa el acceso directo "${suggestedShortcut}" y vuelve a intentar.`);
+        }
+
+        button.disabled = false;
+        if (retryButton) retryButton.disabled = false;
+      });
+
+      if (retryButton) {
+        retryButton.addEventListener('click', () => {
+          window.location.href = '/';
+        });
+      }
+    })();
+  </script>
 </body></html>`;
   return new Response(html, { headers: { 'Content-Type': 'text/html; charset=utf-8' } });
 }

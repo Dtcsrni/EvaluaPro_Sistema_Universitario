@@ -546,6 +546,10 @@
       margin-top: 10px;
     }
 
+    #update-grid {
+      margin-top: 14px;
+    }
+
     .install-row {
       display: grid;
       grid-template-columns: 140px minmax(0, 1fr);
@@ -3866,7 +3870,7 @@
               <button class="ghost-btn" id="regenerate-shortcuts" type="button">Regenerar accesos</button>
               <button class="ok" id="copy-install" type="button">Copiar</button>
             </div>
-            <div class="install-grid" id="update-grid" aria-live="polite" style="margin-top:14px">
+            <div class="install-grid" id="update-grid" aria-live="polite">
               <div class="install-row"><div class="k">Estado update</div><div class="v" id="update-state">-</div></div>
               <div class="install-row"><div class="k">Versión disponible</div><div class="v mono" id="update-version">-</div></div>
               <div class="install-row"><div class="k">Descarga</div><div class="v mono" id="update-download">-</div></div>
@@ -3878,6 +3882,60 @@
               <button class="ghost-btn" id="update-download-btn" type="button">Descargar</button>
               <button class="ghost-btn" id="update-cancel-btn" type="button">Cancelar descarga</button>
               <button class="ok" id="update-apply-btn" type="button">Aplicar actualización</button>
+            </div>
+
+            <div class="install-grid" id="hub-grid" aria-live="polite">
+              <div class="install-row"><div class="k">Hub lifecycle</div><div class="v" id="hub-state">-</div></div>
+              <div class="install-row"><div class="k">Instalación</div><div class="v mono" id="hub-installed">-</div></div>
+              <div class="install-row"><div class="k">Salud stack</div><div class="v" id="hub-health">-</div></div>
+              <div class="install-row"><div class="k">Supervisor</div><div class="v" id="hub-supervisor">-</div></div>
+              <div class="install-row"><div class="k">Modo deseado</div><div class="v" id="hub-desired-mode">-</div></div>
+              <div class="install-row"><div class="k">Intervalo</div><div class="v" id="hub-interval">-</div></div>
+              <div class="install-row"><div class="k">Umbral fallos</div><div class="v" id="hub-failure-threshold">-</div></div>
+              <div class="install-row"><div class="k">Cooldown autorepair</div><div class="v" id="hub-repair-cooldown">-</div></div>
+              <div class="install-row"><div class="k">Próxima reconciliación</div><div class="v" id="hub-next-run">-</div></div>
+              <div class="install-row"><div class="k">Última acción</div><div class="v" id="hub-last-action">-</div></div>
+            </div>
+            <div class="toolbar toolbar-spaced toolbar-right" aria-label="Acciones Hub lifecycle">
+              <button class="ghost-btn" id="hub-reconcile" type="button">Reconciliar ahora</button>
+              <button class="ghost-btn" id="hub-install" type="button">Instalar</button>
+              <button class="ghost-btn" id="hub-repair" type="button">Reparar</button>
+              <button class="danger" id="hub-uninstall" type="button">Eliminar</button>
+            </div>
+            <div class="toolbar toolbar-spaced toolbar-right" aria-label="Acciones por componente">
+              <button class="ghost-btn" id="hub-start-stack" type="button">Levantar stack</button>
+              <button class="ghost-btn" id="hub-start-portal" type="button">Levantar portal</button>
+              <button class="ghost-btn" id="hub-stop-stack" type="button">Detener stack</button>
+              <button class="ghost-btn" id="hub-regenerate-shortcuts" type="button">Reinstalar accesos</button>
+            </div>
+            <div class="toolbar toolbar-spaced toolbar-right" aria-label="Políticas de autosalud">
+              <button class="ghost-btn" id="hub-supervisor-toggle" type="button">Supervisor</button>
+              <button class="ghost-btn" id="hub-auto-repair-toggle" type="button">AutoRepair</button>
+              <button class="ghost-btn" id="hub-mode-dev" type="button">Modo DEV</button>
+              <button class="ghost-btn" id="hub-mode-prod" type="button">Modo PROD</button>
+              <button class="ghost-btn" id="hub-interval-10s" type="button">Intervalo 10s</button>
+              <button class="ghost-btn" id="hub-interval-30s" type="button">Intervalo 30s</button>
+              <button class="ghost-btn" id="hub-threshold-2" type="button">Umbral 2</button>
+              <button class="ghost-btn" id="hub-threshold-4" type="button">Umbral 4</button>
+              <button class="ghost-btn" id="hub-cooldown-3m" type="button">Cooldown 3m</button>
+              <button class="ghost-btn" id="hub-cooldown-10m" type="button">Cooldown 10m</button>
+              <button class="ghost-btn" id="hub-policy-reset" type="button">Restaurar políticas</button>
+            </div>
+
+            <div class="install-grid" id="continuity-grid" aria-live="polite">
+              <div class="install-row"><div class="k">Continuidad entre equipos</div><div class="v" id="continuity-state">-</div></div>
+              <div class="install-row"><div class="k">Última sync</div><div class="v" id="continuity-last-run">-</div></div>
+              <div class="install-row"><div class="k">Próxima sync</div><div class="v" id="continuity-next-run">-</div></div>
+              <div class="install-row"><div class="k">Detalle</div><div class="v" id="continuity-detail">-</div></div>
+              <div class="install-row"><div class="k">Fallos consecutivos</div><div class="v" id="continuity-failures">-</div></div>
+              <div class="install-row"><div class="k">Intervalo</div><div class="v" id="continuity-interval">-</div></div>
+            </div>
+            <div class="toolbar toolbar-spaced toolbar-right" aria-label="Acciones de continuidad">
+              <button class="ghost-btn" id="continuity-run" type="button">Sincronizar ahora</button>
+              <button class="ghost-btn" id="continuity-toggle" type="button">Activar continuidad</button>
+              <button class="ghost-btn" id="continuity-interval-5m" type="button">Intervalo 5m</button>
+              <button class="ghost-btn" id="continuity-interval-15m" type="button">Intervalo 15m</button>
+              <button class="ghost-btn" id="continuity-reset" type="button">Reset continuidad</button>
             </div>
           </div>
         </div>
@@ -4095,7 +4153,7 @@
 
     // Identificador de UI (útil para confirmar que el HTML recargó cambios).
     // Nota: actualiza este valor cuando hagas cambios visibles al dashboard.
-    const UI_REV = '2026-02-25.10';
+    const UI_REV = '2026-03-03.1';
 
     const CLAVE_ALMACEN_TEMA = 'seuDashboardTheme';
     const CONFIG_DASHBOARD_DEFAULT = {
@@ -4414,6 +4472,8 @@
         https: null,
         compose: null,
         instalacion: null,
+        lifecycle: null,
+        continuity: null,
         mongoExpress: {
         url: 'http://127.0.0.1:8081/',
         alcanzable: false,
@@ -4721,6 +4781,192 @@
         establecerTexto('install-dashboard', 'No se pudo cargar la info de instalación.');
         mostrarToastErrorSiAplica('No se pudo cargar la info de instalación.');
       }
+    }
+
+    function renderizarEstadoHub(payload) {
+      const status = payload && typeof payload === 'object' ? payload : {};
+      state.lifecycle = status;
+
+      const installDir = String(status.installDir || '').trim();
+      const installed = Boolean(status.installed);
+      const healthy = Boolean(status.healthy);
+      const desiredMode = String(status.desiredMode || '-').toUpperCase();
+      const reconcile = status.reconcile && typeof status.reconcile === 'object' ? status.reconcile : {};
+      const operation = status.operation && typeof status.operation === 'object' ? status.operation : {};
+      const supervisor = status.supervisor && typeof status.supervisor === 'object' ? status.supervisor : {};
+      const nextRunAt = Number(supervisor.nextRunAt || 0);
+      const intervalo = Number(supervisor.intervalMs || 0);
+      const failureThreshold = Number(supervisor.failureThreshold || 0);
+      const repairCooldownMs = Number(supervisor.repairCooldownMs || 0);
+      const nextRunTexto = nextRunAt > 0 ? `en ${formatearMs(Math.max(0, nextRunAt - Date.now()))}` : '-';
+
+      const op = operation.running ? `Operación: ${operation.kind || 'en curso'}...` : 'Operación: inactiva';
+      const result = reconcile.lastResult ? ` · Reconcile: ${reconcile.lastResult}` : '';
+      establecerTexto('hub-state', `${op}${result}`);
+      establecerTexto('hub-installed', installed ? (installDir || 'Detectada') : 'No detectada');
+      establecerTexto('hub-health', healthy ? 'Saludable (API+Portal)' : 'Degradado / en recuperación');
+      establecerTexto(
+        'hub-supervisor',
+        `${supervisor.enabled ? 'Activo' : 'Pausado'} · AutoRepair: ${supervisor.autoRepairEnabled ? 'Sí' : 'No'} · ${intervalo ? Math.round(intervalo / 1000) + 's' : '-'}`
+      );
+      establecerTexto('hub-desired-mode', desiredMode || '-');
+      establecerTexto('hub-interval', intervalo ? `${Math.round(intervalo / 1000)}s` : '-');
+      establecerTexto('hub-failure-threshold', failureThreshold ? `${failureThreshold} fallos` : '-');
+      establecerTexto('hub-repair-cooldown', repairCooldownMs ? `${Math.round(repairCooldownMs / 60000)}m` : '-');
+      establecerTexto('hub-next-run', nextRunTexto);
+      establecerTexto('hub-last-action', reconcile.lastAction ? `${reconcile.lastAction} (${reconcile.lastReason || '-'})` : '-');
+
+      const busy = Boolean(operation.running || reconcile.running);
+      ['hub-reconcile', 'hub-install', 'hub-repair', 'hub-uninstall', 'hub-start-stack', 'hub-start-portal', 'hub-stop-stack', 'hub-regenerate-shortcuts', 'hub-supervisor-toggle', 'hub-auto-repair-toggle', 'hub-mode-dev', 'hub-mode-prod', 'hub-interval-10s', 'hub-interval-30s', 'hub-threshold-2', 'hub-threshold-4', 'hub-cooldown-3m', 'hub-cooldown-10m', 'hub-policy-reset']
+        .forEach((id) => {
+          const btn = $(id);
+          if (btn) btn.disabled = busy;
+        });
+
+      const btnUninstall = $('hub-uninstall');
+      if (btnUninstall) btnUninstall.disabled = busy || !installed;
+
+      const btnSupervisor = $('hub-supervisor-toggle');
+      if (btnSupervisor) btnSupervisor.textContent = supervisor.enabled ? 'Pausar supervisor' : 'Activar supervisor';
+
+      const btnAutoRepair = $('hub-auto-repair-toggle');
+      if (btnAutoRepair) btnAutoRepair.textContent = supervisor.autoRepairEnabled ? 'AutoRepair: ON' : 'AutoRepair: OFF';
+    }
+
+    async function refrescarEstadoHub() {
+      try {
+        const res = await fetch('/api/lifecycle/status');
+        if (!res.ok) throw new Error(`HTTP ${res.status || 0}`);
+        const data = await res.json();
+        renderizarEstadoHub(data);
+      } catch (error) {
+        establecerTexto('hub-state', 'Sin conexión con lifecycle API.');
+        establecerTexto('hub-installed', '-');
+        establecerTexto('hub-health', '-');
+        establecerTexto('hub-supervisor', '-');
+        establecerTexto('hub-desired-mode', '-');
+        establecerTexto('hub-interval', '-');
+        establecerTexto('hub-failure-threshold', '-');
+        establecerTexto('hub-repair-cooldown', '-');
+        establecerTexto('hub-next-run', '-');
+        establecerTexto('hub-last-action', String(normalizarMensajeError(error) || '-'));
+      }
+    }
+
+    async function ejecutarAccionHub(path, body, options = {}) {
+      const pending = String(options.pending || 'Ejecutando acción...');
+      const okText = String(options.okText || 'Acción completada.');
+      const failText = String(options.failText || 'No se pudo completar la acción.');
+
+      mostrarToast(pending, 'info', {
+        id: `hub-action-${path}`,
+        title: 'Hub lifecycle',
+        duration: 2200
+      });
+
+      const result = await api(path, body || {});
+      if (!result || result.ok === false) {
+        const detail = String((result && (result.error || result.detail)) || failText);
+        mostrarToast(detail, 'error', { title: 'Hub lifecycle', duration: 5200 });
+        await refrescarEstadoHub();
+        return false;
+      }
+
+      mostrarToast(okText, 'ok', { title: 'Hub lifecycle', duration: 2600 });
+      await refrescarEstadoHub();
+      await refrescarEstado();
+      await refrescarSalud(true);
+      return true;
+    }
+
+    async function aplicarPoliticaHub(parcial, mensaje = 'Política de supervisor actualizada.') {
+      const ok = await ejecutarAccionHub('/api/lifecycle/supervisor', parcial || {}, {
+        pending: 'Aplicando política de autosalud...',
+        okText: mensaje,
+        failText: 'No se pudo actualizar la política del supervisor.'
+      });
+      if (!ok) return false;
+      await refrescarEstadoHub();
+      return true;
+    }
+
+    function renderizarEstadoContinuidad(payload) {
+      const data = payload && typeof payload === 'object' ? payload : {};
+      state.continuity = data;
+
+      const enabled = Boolean(data.enabled);
+      const running = Boolean(data.running);
+      const intervalMs = Number(data.intervalMs || 0);
+      const lastRunAt = Number(data.lastRunAt || 0);
+      const nextRunAt = Number(data.nextRunAt || 0);
+      const lastResult = String(data.lastResult || '-');
+      const lastError = String(data.lastError || '').trim();
+      const failures = Number(data.consecutiveFailures || 0);
+      const details = Array.isArray(data.lastDetails) ? data.lastDetails : [];
+
+      const estado = running
+        ? 'Sincronizando...'
+        : (enabled ? `Activa · ${lastResult}` : 'Pausada');
+      const lastRunText = lastRunAt > 0 ? `hace ${formatearMs(Math.max(0, Date.now() - lastRunAt))}` : '-';
+      const nextRunText = enabled && nextRunAt > 0 ? `en ${formatearMs(Math.max(0, nextRunAt - Date.now()))}` : '-';
+      const detailText = lastError || (details.length ? details.join(' · ') : '-');
+
+      establecerTexto('continuity-state', estado);
+      establecerTexto('continuity-last-run', lastRunText);
+      establecerTexto('continuity-next-run', nextRunText);
+      establecerTexto('continuity-detail', detailText);
+      establecerTexto('continuity-failures', `${failures}`);
+      establecerTexto('continuity-interval', intervalMs ? `${Math.round(intervalMs / 60000)}m` : '-');
+
+      const busy = running;
+      ['continuity-run', 'continuity-toggle', 'continuity-interval-5m', 'continuity-interval-15m', 'continuity-reset']
+        .forEach((id) => {
+          const btn = $(id);
+          if (btn) btn.disabled = busy;
+        });
+
+      const btnToggle = $('continuity-toggle');
+      if (btnToggle) btnToggle.textContent = enabled ? 'Pausar continuidad' : 'Activar continuidad';
+    }
+
+    async function refrescarContinuidad() {
+      try {
+        const res = await fetch('/api/continuity/status');
+        if (!res.ok) throw new Error(`HTTP ${res.status || 0}`);
+        const data = await res.json();
+        renderizarEstadoContinuidad(data);
+      } catch (error) {
+        establecerTexto('continuity-state', 'Sin conexión con continuidad API.');
+        establecerTexto('continuity-last-run', '-');
+        establecerTexto('continuity-next-run', '-');
+        establecerTexto('continuity-detail', String(normalizarMensajeError(error) || '-'));
+        establecerTexto('continuity-failures', '-');
+        establecerTexto('continuity-interval', '-');
+      }
+    }
+
+    async function ejecutarAccionContinuidad(path, body, options = {}) {
+      const pending = String(options.pending || 'Ejecutando continuidad...');
+      const okText = String(options.okText || 'Continuidad actualizada.');
+      const failText = String(options.failText || 'No se pudo completar la acción de continuidad.');
+
+      mostrarToast(pending, 'info', {
+        id: `continuity-action-${path}`,
+        title: 'Continuidad',
+        duration: 2200
+      });
+
+      const result = await api(path, body || {});
+      if (!result || result.ok === false) {
+        const detail = String((result && (result.error || result.detail)) || failText);
+        mostrarToast(detail, 'error', { title: 'Continuidad', duration: 5200 });
+        await refrescarContinuidad();
+        return false;
+      }
+
+      mostrarToast(okText, 'ok', { title: 'Continuidad', duration: 2400 });
+      await refrescarContinuidad();
+      return true;
     }
 
     function renderizarEstadoUpdate(payload) {
@@ -7334,6 +7580,199 @@
       });
     }
 
+    const botonHubReconcile = $('hub-reconcile');
+    if (botonHubReconcile) {
+      botonHubReconcile.addEventListener('click', () => ejecutarAccionHub('/api/lifecycle/reconcile', {}, {
+        pending: 'Reconciliando stack...',
+        okText: 'Reconciliación ejecutada.'
+      }));
+    }
+
+    const botonHubInstall = $('hub-install');
+    if (botonHubInstall) {
+      botonHubInstall.addEventListener('click', async () => {
+        const confirmar = window.confirm('Esto ejecutará el Installer Hub en modo instalar. ¿Continuar?');
+        if (!confirmar) return;
+        await ejecutarAccionHub('/api/lifecycle/install', {}, {
+          pending: 'Instalando con Installer Hub... (puede tardar varios minutos)',
+          okText: 'Instalación finalizada.'
+        });
+        refrescarInfoInstalacion();
+      });
+    }
+
+    const botonHubRepair = $('hub-repair');
+    if (botonHubRepair) {
+      botonHubRepair.addEventListener('click', async () => {
+        await ejecutarAccionHub('/api/lifecycle/repair', {}, {
+          pending: 'Ejecutando reparación integral...',
+          okText: 'Reparación finalizada.'
+        });
+        refrescarInfoInstalacion();
+      });
+    }
+
+    const botonHubUninstall = $('hub-uninstall');
+    if (botonHubUninstall) {
+      botonHubUninstall.addEventListener('click', async () => {
+        const confirmar = window.confirm('Se iniciará la eliminación del sistema. Esta acción puede ser destructiva. ¿Continuar?');
+        if (!confirmar) return;
+        await ejecutarAccionHub('/api/lifecycle/uninstall', {}, {
+          pending: 'Eliminando instalación...',
+          okText: 'Proceso de eliminación ejecutado.'
+        });
+        refrescarInfoInstalacion();
+      });
+    }
+
+    const botonHubStartStack = $('hub-start-stack');
+    if (botonHubStartStack) {
+      botonHubStartStack.addEventListener('click', () => ejecutarAccionHub('/api/lifecycle/component/install', { component: 'stack' }, {
+        pending: 'Solicitando arranque del stack...',
+        okText: 'Stack solicitado.'
+      }));
+    }
+
+    const botonHubStartPortal = $('hub-start-portal');
+    if (botonHubStartPortal) {
+      botonHubStartPortal.addEventListener('click', () => ejecutarAccionHub('/api/lifecycle/component/install', { component: 'portal' }, {
+        pending: 'Solicitando arranque de portal...',
+        okText: 'Portal solicitado.'
+      }));
+    }
+
+    const botonHubStopStack = $('hub-stop-stack');
+    if (botonHubStopStack) {
+      botonHubStopStack.addEventListener('click', () => ejecutarAccionHub('/api/lifecycle/component/uninstall', { component: 'stack' }, {
+        pending: 'Deteniendo stack...',
+        okText: 'Detención de stack solicitada.'
+      }));
+    }
+
+    const botonHubRegenShortcuts = $('hub-regenerate-shortcuts');
+    if (botonHubRegenShortcuts) {
+      botonHubRegenShortcuts.addEventListener('click', () => ejecutarAccionHub('/api/lifecycle/component/install', { component: 'shortcuts' }, {
+        pending: 'Reinstalando accesos directos...',
+        okText: 'Accesos directos regenerados.'
+      }));
+    }
+
+    const botonSupervisorToggle = $('hub-supervisor-toggle');
+    if (botonSupervisorToggle) {
+      botonSupervisorToggle.addEventListener('click', async () => {
+        const enabled = Boolean(state.lifecycle?.supervisor?.enabled);
+        await aplicarPoliticaHub({ enabled: !enabled }, enabled ? 'Supervisor pausado.' : 'Supervisor activado.');
+      });
+    }
+
+    const botonAutoRepairToggle = $('hub-auto-repair-toggle');
+    if (botonAutoRepairToggle) {
+      botonAutoRepairToggle.addEventListener('click', async () => {
+        const enabled = Boolean(state.lifecycle?.supervisor?.autoRepairEnabled);
+        await aplicarPoliticaHub({ autoRepairEnabled: !enabled }, !enabled ? 'AutoRepair activado.' : 'AutoRepair pausado.');
+      });
+    }
+
+    const botonModoDev = $('hub-mode-dev');
+    if (botonModoDev) {
+      botonModoDev.addEventListener('click', () => aplicarPoliticaHub({ desiredMode: 'dev' }, 'Modo deseado cambiado a DEV.'));
+    }
+
+    const botonModoProd = $('hub-mode-prod');
+    if (botonModoProd) {
+      botonModoProd.addEventListener('click', () => aplicarPoliticaHub({ desiredMode: 'prod' }, 'Modo deseado cambiado a PROD.'));
+    }
+
+    const botonIntervalo10 = $('hub-interval-10s');
+    if (botonIntervalo10) {
+      botonIntervalo10.addEventListener('click', () => aplicarPoliticaHub({ intervalMs: 10000 }, 'Intervalo de supervisor: 10s.'));
+    }
+
+    const botonIntervalo30 = $('hub-interval-30s');
+    if (botonIntervalo30) {
+      botonIntervalo30.addEventListener('click', () => aplicarPoliticaHub({ intervalMs: 30000 }, 'Intervalo de supervisor: 30s.'));
+    }
+
+    const botonThreshold2 = $('hub-threshold-2');
+    if (botonThreshold2) {
+      botonThreshold2.addEventListener('click', () => aplicarPoliticaHub({ failureThreshold: 2 }, 'Umbral de fallos configurado a 2.'));
+    }
+
+    const botonThreshold4 = $('hub-threshold-4');
+    if (botonThreshold4) {
+      botonThreshold4.addEventListener('click', () => aplicarPoliticaHub({ failureThreshold: 4 }, 'Umbral de fallos configurado a 4.'));
+    }
+
+    const botonCooldown3m = $('hub-cooldown-3m');
+    if (botonCooldown3m) {
+      botonCooldown3m.addEventListener('click', () => aplicarPoliticaHub({ repairCooldownMs: 3 * 60 * 1000 }, 'Cooldown de autorepair: 3 minutos.'));
+    }
+
+    const botonCooldown10m = $('hub-cooldown-10m');
+    if (botonCooldown10m) {
+      botonCooldown10m.addEventListener('click', () => aplicarPoliticaHub({ repairCooldownMs: 10 * 60 * 1000 }, 'Cooldown de autorepair: 10 minutos.'));
+    }
+
+    const botonPoliticaReset = $('hub-policy-reset');
+    if (botonPoliticaReset) {
+      botonPoliticaReset.addEventListener('click', async () => {
+        const confirmar = window.confirm('Esto restaurará todas las políticas de autosalud a valores por defecto. ¿Continuar?');
+        if (!confirmar) return;
+        await ejecutarAccionHub('/api/lifecycle/supervisor/reset', {}, {
+          pending: 'Restaurando políticas por defecto...',
+          okText: 'Políticas restauradas a defaults.',
+          failText: 'No se pudieron restaurar las políticas.'
+        });
+      });
+    }
+
+    const botonContinuityRun = $('continuity-run');
+    if (botonContinuityRun) {
+      botonContinuityRun.addEventListener('click', () => ejecutarAccionContinuidad('/api/continuity/run', {}, {
+        pending: 'Sincronizando entre equipos...',
+        okText: 'Sincronización ejecutada.'
+      }));
+    }
+
+    const botonContinuityToggle = $('continuity-toggle');
+    if (botonContinuityToggle) {
+      botonContinuityToggle.addEventListener('click', async () => {
+        const enabled = Boolean(state.continuity?.enabled);
+        await ejecutarAccionContinuidad('/api/continuity/config', { enabled: !enabled }, {
+          pending: 'Actualizando continuidad...',
+          okText: !enabled ? 'Continuidad activada.' : 'Continuidad pausada.'
+        });
+      });
+    }
+
+    const botonContinuityInterval5 = $('continuity-interval-5m');
+    if (botonContinuityInterval5) {
+      botonContinuityInterval5.addEventListener('click', () => ejecutarAccionContinuidad('/api/continuity/config', { intervalMs: 5 * 60 * 1000 }, {
+        pending: 'Aplicando intervalo de continuidad...',
+        okText: 'Intervalo de continuidad: 5m.'
+      }));
+    }
+
+    const botonContinuityInterval15 = $('continuity-interval-15m');
+    if (botonContinuityInterval15) {
+      botonContinuityInterval15.addEventListener('click', () => ejecutarAccionContinuidad('/api/continuity/config', { intervalMs: 15 * 60 * 1000 }, {
+        pending: 'Aplicando intervalo de continuidad...',
+        okText: 'Intervalo de continuidad: 15m.'
+      }));
+    }
+
+    const botonContinuityReset = $('continuity-reset');
+    if (botonContinuityReset) {
+      botonContinuityReset.addEventListener('click', async () => {
+        const confirmar = window.confirm('Esto restaurará la política de continuidad y limpiará su historial local. ¿Continuar?');
+        if (!confirmar) return;
+        await ejecutarAccionContinuidad('/api/continuity/config/reset', {}, {
+          pending: 'Restaurando continuidad...',
+          okText: 'Continuidad restaurada a defaults.'
+        });
+      });
+    }
+
     // Carga inicial y refresco periódico.
     iniciarTema();
     establecerTexto('ui-chip', `UI: ${UI_REV}`);
@@ -7386,6 +7825,8 @@
     refrescarRepairProgress();
     refrescarEstado();
     refrescarInfoInstalacion();
+    refrescarEstadoHub();
+    refrescarContinuidad();
     refrescarEstadoUpdate();
     refrescarSenales();
     actualizarUiMongoExpress();
@@ -7398,6 +7839,14 @@
 
     setInterval(() => {
       refrescarEstadoUpdate();
+    }, 12000);
+
+    setInterval(() => {
+      refrescarEstadoHub();
+    }, 12000);
+
+    setInterval(() => {
+      refrescarContinuidad();
     }, 12000);
 
     setInterval(() => {
