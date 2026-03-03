@@ -48,6 +48,23 @@ function normalizarObjectId(valor: unknown, codigo: string, mensaje: string) {
   return normalizado;
 }
 
+function construirSetSeguro(body: unknown, camposPermitidos: readonly string[]) {
+  const fuente = body && typeof body === 'object' ? (body as Record<string, unknown>) : {};
+  const set: Record<string, unknown> = {};
+
+  for (const campo of camposPermitidos) {
+    if (Object.prototype.hasOwnProperty.call(fuente, campo)) {
+      set[campo] = fuente[campo];
+    }
+  }
+
+  if (Object.keys(set).length === 0) {
+    throw new ErrorAplicacion('ACTUALIZACION_SIN_CAMBIOS', 'No se recibieron campos validos para actualizar', 422);
+  }
+
+  return set;
+}
+
 export async function obtenerResumenDashboard(req: SolicitudDocente, res: Response) {
   obtenerDocenteId(req);
   const resumen = await construirResumenDashboard();
@@ -77,7 +94,19 @@ export async function crearTenant(req: SolicitudDocente, res: Response) {
 export async function actualizarTenant(req: SolicitudDocente, res: Response) {
   const actorDocenteId = obtenerDocenteId(req);
   const tenantId = normalizarSlugIdentificador(req.params.id, 'TENANT_ID_INVALIDO', 'Identificador de tenant invalido');
-  const tenant = await Tenant.findOneAndUpdate({ tenantId }, { $set: req.body }, { returnDocument: 'after' }).lean();
+  const set = construirSetSeguro(req.body, [
+    'nombre',
+    'lineaPersona',
+    'tamInstitucion',
+    'matriculaAprox',
+    'pais',
+    'moneda',
+    'estado',
+    'contacto',
+    'fuenteAlta',
+    'metadata'
+  ]);
+  const tenant = await Tenant.findOneAndUpdate({ tenantId }, { $set: set }, { returnDocument: 'after' }).lean();
   if (!tenant) throw new ErrorAplicacion('TENANT_NO_ENCONTRADO', 'Tenant no encontrado', 404);
 
   await registrarAuditoriaComercial({
@@ -127,7 +156,18 @@ export async function actualizarPlan(req: SolicitudDocente, res: Response) {
   const margenMinimo = typeof req.body.margenObjetivoMinimo === 'number' ? req.body.margenObjetivoMinimo : existente.margenObjetivoMinimo;
   validarMargenMinimo(precioMensual, costoMensual, margenMinimo);
 
-  const plan = await PlanComercial.findOneAndUpdate({ planId }, { $set: req.body }, { returnDocument: 'after' }).lean();
+  const set = construirSetSeguro(req.body, [
+    'nombre',
+    'descripcion',
+    'lineaPersona',
+    'nivel',
+    'precioMensual',
+    'precioAnual',
+    'costoMensualEstimado',
+    'margenObjetivoMinimo',
+    'activo'
+  ]);
+  const plan = await PlanComercial.findOneAndUpdate({ planId }, { $set: set }, { returnDocument: 'after' }).lean();
   await registrarAuditoriaComercial({
     actorDocenteId,
     accion: 'actualizar_plan',
@@ -343,7 +383,19 @@ export async function crearCupon(req: SolicitudDocente, res: Response) {
 export async function actualizarCupon(req: SolicitudDocente, res: Response) {
   const actorDocenteId = obtenerDocenteId(req);
   const id = normalizarObjectId(req.params.id, 'CUPON_ID_INVALIDO', 'Identificador de cupon invalido');
-  const cupon = await Cupon.findByIdAndUpdate(id, { $set: req.body }, { returnDocument: 'after' }).lean();
+  const set = construirSetSeguro(req.body, [
+    'codigo',
+    'tipo',
+    'valor',
+    'maxRedenciones',
+    'redencionesUsadas',
+    'expiraEn',
+    'lineasPersonaPermitidas',
+    'planesPermitidos',
+    'activo',
+    'metadata'
+  ]);
+  const cupon = await Cupon.findByIdAndUpdate(id, { $set: set }, { returnDocument: 'after' }).lean();
   if (!cupon) throw new ErrorAplicacion('CUPON_NO_ENCONTRADO', 'Cupon no encontrado', 404);
 
   await registrarAuditoriaComercial({
@@ -382,7 +434,17 @@ export async function crearCampana(req: SolicitudDocente, res: Response) {
 export async function actualizarCampana(req: SolicitudDocente, res: Response) {
   const actorDocenteId = obtenerDocenteId(req);
   const id = normalizarObjectId(req.params.id, 'CAMPANA_ID_INVALIDO', 'Identificador de campana invalido');
-  const campana = await Campana.findByIdAndUpdate(id, { $set: req.body }, { returnDocument: 'after' }).lean();
+  const set = construirSetSeguro(req.body, [
+    'nombre',
+    'canal',
+    'segmento',
+    'estado',
+    'mensaje',
+    'iniciaEn',
+    'terminaEn',
+    'metadata'
+  ]);
+  const campana = await Campana.findByIdAndUpdate(id, { $set: set }, { returnDocument: 'after' }).lean();
   if (!campana) throw new ErrorAplicacion('CAMPANA_NO_ENCONTRADA', 'Campana no encontrada', 404);
 
   await registrarAuditoriaComercial({
@@ -425,7 +487,17 @@ export async function crearPlantillaNotificacion(req: SolicitudDocente, res: Res
 export async function actualizarPlantillaNotificacion(req: SolicitudDocente, res: Response) {
   const actorDocenteId = obtenerDocenteId(req);
   const id = normalizarObjectId(req.params.id, 'PLANTILLA_NOTIFICACION_ID_INVALIDO', 'Identificador de plantilla invalido');
-  const plantilla = await PlantillaNotificacion.findByIdAndUpdate(id, { $set: req.body }, { returnDocument: 'after' }).lean();
+  const set = construirSetSeguro(req.body, [
+    'evento',
+    'canal',
+    'idioma',
+    'clave',
+    'asunto',
+    'cuerpo',
+    'activo',
+    'metadata'
+  ]);
+  const plantilla = await PlantillaNotificacion.findByIdAndUpdate(id, { $set: set }, { returnDocument: 'after' }).lean();
   if (!plantilla) throw new ErrorAplicacion('PLANTILLA_NOTIFICACION_NO_ENCONTRADA', 'Plantilla no encontrada', 404);
 
   await registrarAuditoriaComercial({
