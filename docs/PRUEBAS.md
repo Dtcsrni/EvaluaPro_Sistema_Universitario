@@ -50,7 +50,7 @@ Asegurar confiabilidad funcional y de seguridad del sistema completo en cada cam
 - Reglas activas:
   - bloqueo de borrado de rama (`deletion`),
   - bloqueo de force-push (`non_fast_forward`),
-  - PR obligatorio con 1 aprobación mínima,
+  - PR obligatorio sin aprobación mínima,
   - descarte de approvals stale al recibir nuevos commits,
   - resolucion obligatoria de conversaciones,
   - branch actualizado obligatoriamente antes de merge (`strict required status checks policy`).

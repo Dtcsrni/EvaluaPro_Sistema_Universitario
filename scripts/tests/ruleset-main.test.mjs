@@ -188,3 +188,36 @@ test('apply payload repone reglas base cuando faltan', () => {
   assert.equal(ruleTypes.includes('required_status_checks'), true);
 });
 
+test('apply payload desactiva aprobación obligatoria en pull_request', () => {
+  const payload = buildRulesetPatchPayload({
+    name: 'main-v1b-minimo',
+    target: 'branch',
+    enforcement: 'active',
+    conditions: {
+      ref_name: {
+        include: ['~DEFAULT_BRANCH'],
+        exclude: []
+      }
+    },
+    rules: [
+      {
+        type: 'pull_request',
+        parameters: {
+          required_approving_review_count: 2,
+          dismiss_stale_reviews_on_push: true,
+          required_reviewers: [],
+          require_code_owner_review: true,
+          require_last_push_approval: true,
+          required_review_thread_resolution: true,
+          allowed_merge_methods: ['merge', 'squash', 'rebase']
+        }
+      }
+    ]
+  });
+
+  const pullRequestRule = payload.rules.find((rule) => rule.type === 'pull_request');
+  assert.equal(Number(pullRequestRule?.parameters?.required_approving_review_count), 0);
+  assert.equal(Boolean(pullRequestRule?.parameters?.required_review_thread_resolution), true);
+  assert.equal(Boolean(pullRequestRule?.parameters?.require_last_push_approval), false);
+});
+

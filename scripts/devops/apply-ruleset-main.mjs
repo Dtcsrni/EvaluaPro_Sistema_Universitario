@@ -62,19 +62,29 @@ function ensureBaselineProtectionRules(rules = []) {
     safeRules.push({ type: 'non_fast_forward' });
   }
 
-  if (!safeRules.some((rule) => rule.type === 'pull_request')) {
-    safeRules.push({
-      type: 'pull_request',
-      parameters: {
-        required_approving_review_count: 1,
-        dismiss_stale_reviews_on_push: true,
-        required_reviewers: [],
-        require_code_owner_review: false,
-        require_last_push_approval: false,
-        required_review_thread_resolution: true,
-        allowed_merge_methods: ['merge', 'squash', 'rebase']
-      }
-    });
+  const pullRequestIndex = safeRules.findIndex((rule) => rule.type === 'pull_request');
+  const existingPullRequestRule = pullRequestIndex >= 0 ? safeRules[pullRequestIndex] : null;
+  const nextPullRequestRule = {
+    type: 'pull_request',
+    parameters: {
+      required_approving_review_count: 0,
+      dismiss_stale_reviews_on_push: true,
+      required_reviewers: Array.isArray(existingPullRequestRule?.parameters?.required_reviewers)
+        ? existingPullRequestRule.parameters.required_reviewers
+        : [],
+      require_code_owner_review: Boolean(existingPullRequestRule?.parameters?.require_code_owner_review),
+      require_last_push_approval: false,
+      required_review_thread_resolution: true,
+      allowed_merge_methods: Array.isArray(existingPullRequestRule?.parameters?.allowed_merge_methods)
+        ? existingPullRequestRule.parameters.allowed_merge_methods
+        : ['merge', 'squash', 'rebase']
+    }
+  };
+
+  if (pullRequestIndex >= 0) {
+    safeRules[pullRequestIndex] = nextPullRequestRule;
+  } else {
+    safeRules.push(nextPullRequestRule);
   }
 
   return safeRules;
@@ -158,7 +168,12 @@ export async function main() {
   const ruleset = fetchRulesetDetails(repo, rulesetRef.id);
 
   const before = evaluateRulesetCompliance(ruleset);
-  if (before.ok) {
+  const beforePullRequestRule = Array.isArray(ruleset.rules)
+    ? ruleset.rules.find((rule) => rule?.type === 'pull_request')
+    : null;
+  const beforeRequiredApprovals = Number(beforePullRequestRule?.parameters?.required_approving_review_count ?? 0);
+
+  if (before.ok && beforeRequiredApprovals === 0) {
     process.stdout.write(`[ruleset:apply] Sin cambios. Ruleset ${ruleset.name} ya cumple el contrato.\n`);
     return;
   }
@@ -179,6 +194,10 @@ export async function main() {
 
   const updated = fetchRulesetDetails(repo, rulesetRef.id);
   const after = evaluateRulesetCompliance(updated);
+  const afterPullRequestRule = Array.isArray(updated.rules)
+    ? updated.rules.find((rule) => rule?.type === 'pull_request')
+    : null;
+  const afterRequiredApprovals = Number(afterPullRequestRule?.parameters?.required_approving_review_count ?? 0);
   if (!after.ok) {
     const currentContexts = extractStatusCheckContexts(updated);
     const missing = missingRequiredContexts(currentContexts, REQUIRED_STATUS_CHECKS_MAIN);
@@ -187,6 +206,10 @@ export async function main() {
     if (missing.length > 0) reasons.push(`faltantes: ${missing.join(', ')}`);
     if (unexpected.length > 0) reasons.push(`forbidden presentes: ${unexpected.join(', ')}`);
     throw new Error(`Patch aplicado pero ruleset sigue incompleto: ${reasons.join(' | ')}`);
+  }
+
+  if (afterRequiredApprovals !== 0) {
+    throw new Error(`Patch aplicado pero required_approving_review_count quedó en ${afterRequiredApprovals} (esperado: 0)`);
   }
 
   process.stdout.write(`[ruleset:apply] OK. Ruleset ${updated.name} actualizado con checks obligatorios.\n`);
