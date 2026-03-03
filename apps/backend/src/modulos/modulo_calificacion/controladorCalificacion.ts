@@ -750,7 +750,7 @@ export async function resolverSolicitudRevision(req: SolicitudDocente, res: Resp
         cerradoEn: estado === 'rechazada' ? new Date() : null
       }
     },
-    { new: true }
+    { returnDocument: 'after' }
   ).lean();
 
   if (!actualizada) {

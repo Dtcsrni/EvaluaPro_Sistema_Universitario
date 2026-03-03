@@ -340,7 +340,7 @@ export async function archivarExamenGenerado(req: SolicitudDocente, res: Respons
   const actualizado = await ExamenGenerado.findOneAndUpdate(
     { _id: examenId, docenteId },
     { $set: { archivadoEn: new Date() } },
-    { new: true }
+    { returnDocument: 'after' }
   ).lean();
 
   res.json({ ok: true, examen: actualizado });

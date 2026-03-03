@@ -61,7 +61,7 @@ export async function crearTenant(req: SolicitudDocente, res: Response) {
 export async function actualizarTenant(req: SolicitudDocente, res: Response) {
   const actorDocenteId = obtenerDocenteId(req);
   const tenantId = String(req.params.id || '').trim().toLowerCase();
-  const tenant = await Tenant.findOneAndUpdate({ tenantId }, { $set: req.body }, { new: true }).lean();
+  const tenant = await Tenant.findOneAndUpdate({ tenantId }, { $set: req.body }, { returnDocument: 'after' }).lean();
   if (!tenant) throw new ErrorAplicacion('TENANT_NO_ENCONTRADO', 'Tenant no encontrado', 404);
 
   await registrarAuditoriaComercial({
@@ -111,7 +111,7 @@ export async function actualizarPlan(req: SolicitudDocente, res: Response) {
   const margenMinimo = typeof req.body.margenObjetivoMinimo === 'number' ? req.body.margenObjetivoMinimo : existente.margenObjetivoMinimo;
   validarMargenMinimo(precioMensual, costoMensual, margenMinimo);
 
-  const plan = await PlanComercial.findOneAndUpdate({ planId }, { $set: req.body }, { new: true }).lean();
+  const plan = await PlanComercial.findOneAndUpdate({ planId }, { $set: req.body }, { returnDocument: 'after' }).lean();
   await registrarAuditoriaComercial({
     actorDocenteId,
     accion: 'actualizar_plan',
@@ -327,7 +327,7 @@ export async function crearCupon(req: SolicitudDocente, res: Response) {
 export async function actualizarCupon(req: SolicitudDocente, res: Response) {
   const actorDocenteId = obtenerDocenteId(req);
   const id = String(req.params.id || '').trim();
-  const cupon = await Cupon.findByIdAndUpdate(id, { $set: req.body }, { new: true }).lean();
+  const cupon = await Cupon.findByIdAndUpdate(id, { $set: req.body }, { returnDocument: 'after' }).lean();
   if (!cupon) throw new ErrorAplicacion('CUPON_NO_ENCONTRADO', 'Cupon no encontrado', 404);
 
   await registrarAuditoriaComercial({
@@ -366,7 +366,7 @@ export async function crearCampana(req: SolicitudDocente, res: Response) {
 export async function actualizarCampana(req: SolicitudDocente, res: Response) {
   const actorDocenteId = obtenerDocenteId(req);
   const id = String(req.params.id || '').trim();
-  const campana = await Campana.findByIdAndUpdate(id, { $set: req.body }, { new: true }).lean();
+  const campana = await Campana.findByIdAndUpdate(id, { $set: req.body }, { returnDocument: 'after' }).lean();
   if (!campana) throw new ErrorAplicacion('CAMPANA_NO_ENCONTRADA', 'Campana no encontrada', 404);
 
   await registrarAuditoriaComercial({
@@ -409,7 +409,7 @@ export async function crearPlantillaNotificacion(req: SolicitudDocente, res: Res
 export async function actualizarPlantillaNotificacion(req: SolicitudDocente, res: Response) {
   const actorDocenteId = obtenerDocenteId(req);
   const id = String(req.params.id || '').trim();
-  const plantilla = await PlantillaNotificacion.findByIdAndUpdate(id, { $set: req.body }, { new: true }).lean();
+  const plantilla = await PlantillaNotificacion.findByIdAndUpdate(id, { $set: req.body }, { returnDocument: 'after' }).lean();
   if (!plantilla) throw new ErrorAplicacion('PLANTILLA_NOTIFICACION_NO_ENCONTRADA', 'Plantilla no encontrada', 404);
 
   await registrarAuditoriaComercial({
@@ -522,7 +522,7 @@ export async function revocarLicencia(req: SolicitudDocente, res: Response) {
         puntajeAnomalia: 100
       }
     },
-    { new: true }
+    { returnDocument: 'after' }
   ).lean();
   if (!licencia) throw new ErrorAplicacion('LICENCIA_NO_ENCONTRADA', 'Licencia no encontrada', 404);
 

@@ -571,7 +571,7 @@ export async function actualizarPreferenciasPdfDocente(req: SolicitudDocente, re
   const actualizado = await Docente.findOneAndUpdate(
     { _id: docenteId },
     { $set: set },
-    { new: true }
+    { returnDocument: 'after' }
   ).lean();
 
   if (!actualizado) {
