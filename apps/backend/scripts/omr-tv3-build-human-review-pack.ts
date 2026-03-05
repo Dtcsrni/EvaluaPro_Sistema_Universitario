@@ -181,6 +181,10 @@ function toVscodeFileUri(filePath: string) {
   return `vscode://file/${encodeURI(normalized)}`;
 }
 
+function toPsSingleQuoted(value: string) {
+  return `'${String(value).replace(/'/g, "''")}'`;
+}
+
 async function main() {
   const args = parseArgs(process.argv);
   const repoRoot = await findRepoRoot(process.cwd());
@@ -349,6 +353,60 @@ async function main() {
     }))
   };
 
+  const topCriticalRows = reviewRows
+    .slice()
+    .sort((a, b) => a.ocrOnly.aggregateConfidence - b.ocrOnly.aggregateConfidence)
+    .slice(0, 5);
+
+  const batchTemplate = {
+    generatedAt: packet.generatedAt,
+    status: 'pendiente_revision_humana_batch_01',
+    scope: 'preguntas_criticas_baja_confianza',
+    instructions: [
+      'Si el enunciado canónico coincide con la foto, deja promptApproved=true.',
+      'Si detectas diferencia, pon promptApproved=false y llena promptCorrection.',
+      'Si las opciones canónicas coinciden, deja optionsApproved=true.',
+      'Si hay diferencia en alguna opción, pon optionsApproved=false y llena solo opciones corregidas.',
+      'Si la respuesta correcta canónica coincide, deja correctOptionApproved=true.',
+      'Si no coincide, pon correctOptionApproved=false y llena correctOptionCorrection con A|B|C|D|E.'
+    ],
+    questions: topCriticalRows.map((row) => {
+      const primaryEvidence = row.visualEvidence[0] ?? null;
+      const backupEvidence = row.visualEvidence.slice(1, 3);
+      return {
+        numeroPregunta: row.numeroPregunta,
+        pagina: row.pagina,
+        prioridad: 'alta',
+        confidence: row.ocrOnly.aggregateConfidence,
+        canonical: {
+          prompt: row.canonical.prompt,
+          options: row.canonical.options,
+          correctOption: row.canonical.correctOption
+        },
+        imagenPrimaria: primaryEvidence,
+        imagenesRespaldo: backupEvidence,
+        visualEvidence: row.visualEvidence.slice(0, 3),
+        humanReview: {
+          promptApproved: true,
+          promptCorrection: null,
+          optionsApproved: true,
+          optionsCorrection: {
+            A: null,
+            B: null,
+            C: null,
+            D: null,
+            E: null
+          },
+          correctOptionApproved: true,
+          correctOptionCorrection: null,
+          reviewer: '',
+          reviewedAt: '',
+          notes: ''
+        }
+      };
+    })
+  };
+
   const markdownLines: string[] = [];
   markdownLines.push('# Paquete de Revision Humana Por Folio');
   markdownLines.push('');
@@ -357,7 +415,22 @@ async function main() {
   markdownLines.push('## Abrir Archivos En VS Code');
   markdownLines.push(`- review_packet.json: ${toVscodeFileUri(path.join(outDir, 'review_packet.json'))}`);
   markdownLines.push(`- review_template.json: ${toVscodeFileUri(path.join(outDir, 'review_template.json'))}`);
+  markdownLines.push(`- review_template_batch_01_prefill.json: ${toVscodeFileUri(path.join(outDir, 'review_template_batch_01_prefill.json'))}`);
+  markdownLines.push(`- VISUAL_GUIDE_BATCH_01.md: ${toVscodeFileUri(path.join(outDir, 'VISUAL_GUIDE_BATCH_01.md'))}`);
   markdownLines.push(`- README.md: ${toVscodeFileUri(path.join(outDir, 'README.md'))}`);
+  markdownLines.push('');
+  markdownLines.push('## Confirmacion Visual Batch 01 (orden sugerido)');
+  for (const row of topCriticalRows) {
+    const primary = row.visualEvidence[0];
+    const backup = row.visualEvidence.slice(1, 3);
+    markdownLines.push(`- Q${row.numeroPregunta} (pagina ${row.pagina})`);
+    if (primary?.vscodeUri) {
+      markdownLines.push(`  - abrir primero: ${primary.vscodeUri}`);
+    }
+    for (const ev of backup) {
+      if (ev.vscodeUri) markdownLines.push(`  - respaldo: ${ev.vscodeUri}`);
+    }
+  }
   markdownLines.push('');
   markdownLines.push('## Instrucciones');
   for (const step of packet.reviewInstructions) markdownLines.push(`- ${step}`);
@@ -386,14 +459,55 @@ async function main() {
 
   await fs.writeFile(path.join(outDir, 'review_packet.json'), `${JSON.stringify(packet, null, 2)}\n`, 'utf8');
   await fs.writeFile(path.join(outDir, 'review_template.json'), `${JSON.stringify(template, null, 2)}\n`, 'utf8');
+  await fs.writeFile(path.join(outDir, 'review_template_batch_01_prefill.json'), `${JSON.stringify(batchTemplate, null, 2)}\n`, 'utf8');
   await fs.writeFile(path.join(outDir, 'README.md'), `${markdownLines.join('\n')}\n`, 'utf8');
+
+  const visualGuideLines: string[] = [];
+  visualGuideLines.push('# Visual Guide Batch 01');
+  visualGuideLines.push('');
+  visualGuideLines.push('Orden de validacion visual recomendado:');
+  visualGuideLines.push('1) Abre imagen primaria de la pregunta.');
+  visualGuideLines.push('2) Si hay duda, abre los dos respaldos.');
+  visualGuideLines.push('3) Decide en review_template_batch_01_prefill.json.');
+  visualGuideLines.push('');
+  for (const row of topCriticalRows) {
+    const primary = row.visualEvidence[0];
+    const backup = row.visualEvidence.slice(1, 3);
+    visualGuideLines.push(`## Q${row.numeroPregunta} (pagina ${row.pagina})`);
+    visualGuideLines.push(`- Confianza OCR agregada: ${row.ocrOnly.aggregateConfidence}`);
+    visualGuideLines.push(`- Prompt canonico: ${row.canonical.prompt}`);
+    if (primary?.vscodeUri) {
+      visualGuideLines.push(`- Imagen primaria: [${primary.captureId}](${primary.vscodeUri})`);
+    } else {
+      visualGuideLines.push('- Imagen primaria: (sin ruta)');
+    }
+    for (const ev of backup) {
+      if (ev.vscodeUri) {
+        visualGuideLines.push(`- Imagen respaldo: [${ev.captureId}](${ev.vscodeUri})`);
+      }
+    }
+    visualGuideLines.push('');
+  }
+  await fs.writeFile(path.join(outDir, 'VISUAL_GUIDE_BATCH_01.md'), `${visualGuideLines.join('\n')}\n`, 'utf8');
 
   const openLinksLines: string[] = [];
   openLinksLines.push('# Open In VS Code');
   openLinksLines.push('');
   openLinksLines.push(`- [review_packet.json](${toVscodeFileUri(path.join(outDir, 'review_packet.json'))})`);
   openLinksLines.push(`- [review_template.json](${toVscodeFileUri(path.join(outDir, 'review_template.json'))})`);
+  openLinksLines.push(`- [review_template_batch_01_prefill.json](${toVscodeFileUri(path.join(outDir, 'review_template_batch_01_prefill.json'))})`);
+  openLinksLines.push(`- [VISUAL_GUIDE_BATCH_01.md](${toVscodeFileUri(path.join(outDir, 'VISUAL_GUIDE_BATCH_01.md'))})`);
   openLinksLines.push(`- [README.md](${toVscodeFileUri(path.join(outDir, 'README.md'))})`);
+  openLinksLines.push('');
+  openLinksLines.push('## Batch 01: Abrir Imagen Primaria Por Pregunta');
+  for (const row of topCriticalRows) {
+    const primary = row.visualEvidence[0];
+    if (primary?.vscodeUri) {
+      openLinksLines.push(`- Q${row.numeroPregunta}: [${primary.captureId}](${primary.vscodeUri})`);
+    } else {
+      openLinksLines.push(`- Q${row.numeroPregunta}: (sin imagen primaria)`);
+    }
+  }
   openLinksLines.push('');
   openLinksLines.push('## Top Questions (Low OCR Confidence)');
   for (const row of reviewRows.slice().sort((a, b) => a.ocrOnly.aggregateConfidence - b.ocrOnly.aggregateConfidence).slice(0, 10)) {
@@ -407,6 +521,42 @@ async function main() {
   }
   openLinksLines.push('');
   await fs.writeFile(path.join(outDir, 'OPEN_IN_VSCODE.md'), `${openLinksLines.join('\n')}\n`, 'utf8');
+
+  const topRows = reviewRows
+    .slice()
+    .sort((a, b) => a.ocrOnly.aggregateConfidence - b.ocrOnly.aggregateConfidence)
+    .slice(0, 10);
+  const launcherTargets = unique([
+    path.join(outDir, 'OPEN_IN_VSCODE.md'),
+    path.join(outDir, 'review_packet.json'),
+    path.join(outDir, 'review_template.json'),
+    path.join(outDir, 'review_template_batch_01_prefill.json'),
+    path.join(outDir, 'VISUAL_GUIDE_BATCH_01.md'),
+    path.join(outDir, 'README.md'),
+    ...topRows.flatMap((row) => row.visualEvidence.slice(0, 3).map((ev) => ev.imagePath).filter((p): p is string => Boolean(p)))
+  ]).filter((target) => Boolean(target));
+
+  const launcherLines: string[] = [];
+  launcherLines.push("$ErrorActionPreference = 'Stop'");
+  launcherLines.push("$codeCmd = Get-Command code -ErrorAction SilentlyContinue");
+  launcherLines.push("if (-not $codeCmd) {");
+  launcherLines.push("  Write-Error \"No se encontro el comando 'code'. Abre VS Code y ejecuta: Shell Command: Install 'code' command in PATH\";");
+  launcherLines.push('  exit 1');
+  launcherLines.push('}');
+  launcherLines.push('$targets = @(');
+  for (const target of launcherTargets) launcherLines.push(`  ${toPsSingleQuoted(path.resolve(target))}`);
+  launcherLines.push(')');
+  launcherLines.push('$opened = 0');
+  launcherLines.push('foreach ($target in $targets) {');
+  launcherLines.push('  if (Test-Path -LiteralPath $target) {');
+  launcherLines.push('    & code --reuse-window $target | Out-Null');
+  launcherLines.push('    $opened += 1');
+  launcherLines.push('  } else {');
+  launcherLines.push('    Write-Warning \"No existe: $target\"');
+  launcherLines.push('  }');
+  launcherLines.push('}');
+  launcherLines.push('Write-Host \"Archivos abiertos en VS Code: $opened\"');
+  await fs.writeFile(path.join(outDir, 'open_in_vscode.ps1'), `${launcherLines.join('\n')}\n`, 'utf8');
 
   process.stdout.write(
     `${JSON.stringify(

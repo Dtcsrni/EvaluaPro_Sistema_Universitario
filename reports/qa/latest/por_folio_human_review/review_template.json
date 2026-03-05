@@ -1,13 +1,13 @@
 {
-  "generatedAt": "2026-03-05T08:52:31.641Z",
+  "generatedAt": "2026-03-05T11:17:00.081Z",
   "status": "pendiente_revision_humana",
   "questions": [
     {
       "numeroPregunta": 1,
       "humanReview": {
-        "promptApproved": null,
+        "promptApproved": true,
         "promptCorrection": null,
-        "optionsApproved": null,
+        "optionsApproved": true,
         "optionsCorrection": {
           "A": null,
           "B": null,
@@ -15,11 +15,11 @@
           "D": null,
           "E": null
         },
-        "correctOptionApproved": null,
+        "correctOptionApproved": true,
         "correctOptionCorrection": null,
-        "reviewer": null,
-        "reviewedAt": null,
-        "notes": null
+        "reviewer": "",
+        "reviewedAt": "",
+        "notes": ""
       }
     },
     {
@@ -45,9 +45,9 @@
     {
       "numeroPregunta": 3,
       "humanReview": {
-        "promptApproved": null,
+        "promptApproved": true,
         "promptCorrection": null,
-        "optionsApproved": null,
+        "optionsApproved": true,
         "optionsCorrection": {
           "A": null,
           "B": null,
@@ -55,11 +55,11 @@
           "D": null,
           "E": null
         },
-        "correctOptionApproved": null,
+        "correctOptionApproved": true,
         "correctOptionCorrection": null,
-        "reviewer": null,
-        "reviewedAt": null,
-        "notes": null
+        "reviewer": "",
+        "reviewedAt": "",
+        "notes": ""
       }
     },
     {
@@ -105,9 +105,9 @@
     {
       "numeroPregunta": 6,
       "humanReview": {
-        "promptApproved": null,
+        "promptApproved": true,
         "promptCorrection": null,
-        "optionsApproved": null,
+        "optionsApproved": true,
         "optionsCorrection": {
           "A": null,
           "B": null,
@@ -115,11 +115,11 @@
           "D": null,
           "E": null
         },
-        "correctOptionApproved": null,
+        "correctOptionApproved": true,
         "correctOptionCorrection": null,
-        "reviewer": null,
-        "reviewedAt": null,
-        "notes": null
+        "reviewer": "",
+        "reviewedAt": "",
+        "notes": ""
       }
     },
     {

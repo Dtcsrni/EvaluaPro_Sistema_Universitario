@@ -2,7 +2,16 @@
 
 - [review_packet.json](vscode://file/v:/Software/Generador_Examenes_Universitarios_MERN/sistema-evaluacion-universitaria/reports/qa/latest/por_folio_human_review/review_packet.json)
 - [review_template.json](vscode://file/v:/Software/Generador_Examenes_Universitarios_MERN/sistema-evaluacion-universitaria/reports/qa/latest/por_folio_human_review/review_template.json)
+- [review_template_batch_01_prefill.json](vscode://file/v:/Software/Generador_Examenes_Universitarios_MERN/sistema-evaluacion-universitaria/reports/qa/latest/por_folio_human_review/review_template_batch_01_prefill.json)
+- [VISUAL_GUIDE_BATCH_01.md](vscode://file/v:/Software/Generador_Examenes_Universitarios_MERN/sistema-evaluacion-universitaria/reports/qa/latest/por_folio_human_review/VISUAL_GUIDE_BATCH_01.md)
 - [README.md](vscode://file/v:/Software/Generador_Examenes_Universitarios_MERN/sistema-evaluacion-universitaria/reports/qa/latest/por_folio_human_review/README.md)
+
+## Batch 01: Abrir Imagen Primaria Por Pregunta
+- Q9: [503CF7FA-P2-P02_CamScanner 03-03-2026 02.24_24](vscode://file/v:/Software/Generador_Examenes_Universitarios_MERN/sistema-evaluacion-universitaria/omr_samples_tv3_real_por_folio/images/503CF7FA-P2-C1.jpg)
+- Q10: [A327335F-P2-P02_CamScanner 03-03-2026 02.24_10](vscode://file/v:/Software/Generador_Examenes_Universitarios_MERN/sistema-evaluacion-universitaria/omr_samples_tv3_real_por_folio/images/A327335F-P2-C1.jpg)
+- Q7: [0E994CBA-P1-P01_CamScanner 03-03-2026 02.24_5](vscode://file/v:/Software/Generador_Examenes_Universitarios_MERN/sistema-evaluacion-universitaria/omr_samples_tv3_real_por_folio/images/0E994CBA-P1-C1.jpg)
+- Q16: [A327335F-P2-P02_CamScanner 03-03-2026 02.24_10](vscode://file/v:/Software/Generador_Examenes_Universitarios_MERN/sistema-evaluacion-universitaria/omr_samples_tv3_real_por_folio/images/A327335F-P2-C1.jpg)
+- Q12: [07BE7982-P2-P02_CamScanner 02-03-2026 10.38_02](vscode://file/v:/Software/Generador_Examenes_Universitarios_MERN/sistema-evaluacion-universitaria/omr_samples_tv3_real_por_folio/images/07BE7982-P2-C1.jpg)
 
 ## Top Questions (Low OCR Confidence)
 - Q9 (conf=0.4341)

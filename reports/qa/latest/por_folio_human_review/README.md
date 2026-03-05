@@ -1,11 +1,35 @@
 # Paquete de Revision Humana Por Folio
 
-Generado: 2026-03-05T08:52:31.641Z
+Generado: 2026-03-05T09:04:11.293Z
 
 ## Abrir Archivos En VS Code
 - review_packet.json: vscode://file/v:/Software/Generador_Examenes_Universitarios_MERN/sistema-evaluacion-universitaria/reports/qa/latest/por_folio_human_review/review_packet.json
 - review_template.json: vscode://file/v:/Software/Generador_Examenes_Universitarios_MERN/sistema-evaluacion-universitaria/reports/qa/latest/por_folio_human_review/review_template.json
+- review_template_batch_01_prefill.json: vscode://file/v:/Software/Generador_Examenes_Universitarios_MERN/sistema-evaluacion-universitaria/reports/qa/latest/por_folio_human_review/review_template_batch_01_prefill.json
+- VISUAL_GUIDE_BATCH_01.md: vscode://file/v:/Software/Generador_Examenes_Universitarios_MERN/sistema-evaluacion-universitaria/reports/qa/latest/por_folio_human_review/VISUAL_GUIDE_BATCH_01.md
 - README.md: vscode://file/v:/Software/Generador_Examenes_Universitarios_MERN/sistema-evaluacion-universitaria/reports/qa/latest/por_folio_human_review/README.md
+
+## Confirmacion Visual Batch 01 (orden sugerido)
+- Q9 (pagina 2)
+  - abrir primero: vscode://file/v:/Software/Generador_Examenes_Universitarios_MERN/sistema-evaluacion-universitaria/omr_samples_tv3_real_por_folio/images/503CF7FA-P2-C1.jpg
+  - respaldo: vscode://file/v:/Software/Generador_Examenes_Universitarios_MERN/sistema-evaluacion-universitaria/omr_samples_tv3_real_por_folio/images/5EA00A22-P2-C1.jpg
+  - respaldo: vscode://file/v:/Software/Generador_Examenes_Universitarios_MERN/sistema-evaluacion-universitaria/omr_samples_tv3_real_por_folio/images/54BC4954-P2-C1.jpg
+- Q10 (pagina 2)
+  - abrir primero: vscode://file/v:/Software/Generador_Examenes_Universitarios_MERN/sistema-evaluacion-universitaria/omr_samples_tv3_real_por_folio/images/A327335F-P2-C1.jpg
+  - respaldo: vscode://file/v:/Software/Generador_Examenes_Universitarios_MERN/sistema-evaluacion-universitaria/omr_samples_tv3_real_por_folio/images/6A98D91E-P2-C1.jpg
+  - respaldo: vscode://file/v:/Software/Generador_Examenes_Universitarios_MERN/sistema-evaluacion-universitaria/omr_samples_tv3_real_por_folio/images/75D5292B-P2-C1.jpg
+- Q7 (pagina 1)
+  - abrir primero: vscode://file/v:/Software/Generador_Examenes_Universitarios_MERN/sistema-evaluacion-universitaria/omr_samples_tv3_real_por_folio/images/0E994CBA-P1-C1.jpg
+  - respaldo: vscode://file/v:/Software/Generador_Examenes_Universitarios_MERN/sistema-evaluacion-universitaria/omr_samples_tv3_real_por_folio/images/5EA00A22-P1-C1.jpg
+  - respaldo: vscode://file/v:/Software/Generador_Examenes_Universitarios_MERN/sistema-evaluacion-universitaria/omr_samples_tv3_real_por_folio/images/66BB5FBD-P1-C1.jpg
+- Q16 (pagina 2)
+  - abrir primero: vscode://file/v:/Software/Generador_Examenes_Universitarios_MERN/sistema-evaluacion-universitaria/omr_samples_tv3_real_por_folio/images/A327335F-P2-C1.jpg
+  - respaldo: vscode://file/v:/Software/Generador_Examenes_Universitarios_MERN/sistema-evaluacion-universitaria/omr_samples_tv3_real_por_folio/images/ECF3E587-P2-C1.jpg
+  - respaldo: vscode://file/v:/Software/Generador_Examenes_Universitarios_MERN/sistema-evaluacion-universitaria/omr_samples_tv3_real_por_folio/images/503CF7FA-P2-C1.jpg
+- Q12 (pagina 2)
+  - abrir primero: vscode://file/v:/Software/Generador_Examenes_Universitarios_MERN/sistema-evaluacion-universitaria/omr_samples_tv3_real_por_folio/images/07BE7982-P2-C1.jpg
+  - respaldo: vscode://file/v:/Software/Generador_Examenes_Universitarios_MERN/sistema-evaluacion-universitaria/omr_samples_tv3_real_por_folio/images/5EA00A22-P2-C1.jpg
+  - respaldo: vscode://file/v:/Software/Generador_Examenes_Universitarios_MERN/sistema-evaluacion-universitaria/omr_samples_tv3_real_por_folio/images/66BB5FBD-P2-C1.jpg
 
 ## Instrucciones
 - Revisar prompt y opciones contra evidencia visual de las capturas.
