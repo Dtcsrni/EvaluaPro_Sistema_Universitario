@@ -5,6 +5,15 @@ Este archivo sigue el formato "Keep a Changelog" (alto nivel) y SemVer.
 ## [Unreleased]
 
 ### Added
+- Baseline real OMR TV3 `Por Folio` autocontenido:
+  - dataset committed `omr_samples_tv3_real_por_folio/`
+  - builder `apps/backend/scripts/omr-tv3-build-por-folio-dataset.ts`
+  - validator `apps/backend/scripts/omr-tv3-validate-por-folio.ts`
+  - diagnóstico reproducible `apps/backend/scripts/omr-tv3-diagnose-por-folio.ts`
+  - utilidades de derivación `apps/backend/src/modulos/modulo_escaneo_omr/porFolioDataset.ts`
+- Nuevas pruebas OMR para baseline `Por Folio`:
+  - `apps/backend/tests/omr.porFolioDataset.test.ts`
+  - `apps/backend/tests/omr.tv3.porFolioValidation.test.ts`
 - Installer Hub Windows para flujo docente desde cero:
   - UI guiada con splash introductorio en `scripts/installer-hub/InstallerHub.ps1`.
   - arquitectura modular (`ReleaseResolver`, `PrereqDetector`, `PrereqInstaller`, `ProductInstaller`, `PostInstallVerifier`).
@@ -142,6 +151,9 @@ Este archivo sigue el formato "Keep a Changelog" (alto nivel) y SemVer.
   - `scripts/build-msi.ps1`
 
 ### Changed
+- Gate real OMR TV3 migrado de baseline simulado/manual al baseline `Por Folio` en scripts raíz, runbook y workflows CI.
+- `servicioOmrCv.ts` incorpora hints de mapa (`forceSimpleScale`, `useMapCoordinatesStrict`, `localSearchRadiusPx`) para mapas derivados desde imagen.
+- `omrCore.ts` permite desactivar búsqueda local por opción cuando el mapa exige coordenadas fijas.
 - Estandarización de lint para ESLint 9 (flat config) en todo el monorepo:
   - nuevos archivos `eslint.config.cjs` en raíz y workspaces:
     - `eslint.config.cjs`

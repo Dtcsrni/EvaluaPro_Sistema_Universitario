@@ -1,0 +1,233 @@
+{
+  "generatedAt": "2026-03-04",
+  "sourceReport": "reports/qa/latest/por_folio_analysis_from_zero.json",
+  "scope": {
+    "questionRange": [
+      1,
+      16
+    ],
+    "pagesCovered": [
+      1,
+      2
+    ],
+    "notes": [
+      "La determinacion se hizo sobre los 16 reactivos visibles en Por Folio.",
+      "El examen visible corresponde a un solo impreso; no se detectaron variantes de texto entre folios.",
+      "La respuesta correcta se decide por semantica de programacion basica y por la convencion de pseudocodigo impresa en el propio examen cuando aplica."
+    ]
+  },
+  "answerKeyWithRationale": [
+    {
+      "numeroPregunta": 1,
+      "correctOption": "E",
+      "confidence": "alta",
+      "reasoning": "Una constante es un valor que no debe cambiar durante la ejecucion. Las otras opciones describen conceptos incorrectos: alcance, mutabilidad automatica, instrucciones o almacenamiento en arreglos.",
+      "distractorNotes": {
+        "A": "Confunde constante con variable global y alcance de bloque.",
+        "B": "Describe comportamiento inexistente para una constante.",
+        "C": "No es una instruccion de control.",
+        "D": "Una constante no depende de arreglos."
+      }
+    },
+    {
+      "numeroPregunta": 2,
+      "correctOption": "D",
+      "confidence": "alta",
+      "reasoning": "En un arreglo de 5 elementos indexado desde 0, los indices validos son 0, 1, 2, 3 y 4. El ultimo indice valido es 4.",
+      "distractorNotes": {
+        "A": "Es el primer indice, no el ultimo.",
+        "B": "5 queda fuera de rango.",
+        "C": "No corresponde al ultimo indice.",
+        "E": "El ultimo indice no depende del contenido."
+      }
+    },
+    {
+      "numeroPregunta": 3,
+      "correctOption": "B",
+      "confidence": "alta",
+      "reasoning": "Un valor es invalido si queda por debajo de 0 o por encima de 100. Esa condicion se expresa con OR entre ambos extremos invalidos.",
+      "distractorNotes": {
+        "A": "Describe valores validos estrictamente internos, no invalidos.",
+        "C": "Es una tautologia; siempre seria verdadera.",
+        "D": "Marca como invalidos dos valores que en realidad si son validos.",
+        "E": "No puede ser simultaneamente menor que 0 y mayor que 100."
+      }
+    },
+    {
+      "numeroPregunta": 4,
+      "correctOption": "C",
+      "confidence": "alta",
+      "reasoning": "Un grupo sanguineo modelado como un unico simbolo se representa mejor con un caracter simple, es decir, tipo char.",
+      "distractorNotes": {
+        "A": "float es numerico decimal.",
+        "B": "string serviria pero no es el primitivo mas adecuado para un solo caracter.",
+        "D": "int no modela el dato semantico pedido.",
+        "E": "boolean solo representa verdadero o falso."
+      }
+    },
+    {
+      "numeroPregunta": 5,
+      "correctOption": "B",
+      "confidence": "media-alta",
+      "reasoning": "x >= 8 es verdadero porque 8 >= 8. y < 3 es falso porque 3 < 3 no se cumple. z = 3, en contexto de pseudocodigo/logica del examen, funciona como comparacion y es verdadero. Entonces falso OR verdadero da verdadero, y verdadero AND verdadero da verdadero.",
+      "ambiguityNote": "La unica posible duda seria interpretar '=' como asignacion, pero en este examen la asignacion se diferencia con ':=' en otra pregunta, por lo que aqui '=' queda como comparacion.",
+      "distractorNotes": {
+        "A": "No requiere x > 8; con x = 8 ya se satisface x >= 8.",
+        "C": "El lenguaje no cambia el resultado bajo la convencion usada por el examen.",
+        "D": "La evaluacion logica correcta no da falso.",
+        "E": "No hay error de tipos bajo la semantica del reactivo."
+      }
+    },
+    {
+      "numeroPregunta": 6,
+      "correctOption": "C",
+      "confidence": "alta",
+      "reasoning": "La multiplicacion tiene prioridad sobre la suma. Primero se calcula 3 x 4 = 12 y luego 2 + 12 = 14.",
+      "distractorNotes": {
+        "A": "No corresponde a ninguna evaluacion razonable del enunciado.",
+        "B": "Equivaldria a sumar ignorando la multiplicacion.",
+        "D": "No respeta precedencia de operadores.",
+        "E": "Tampoco coincide con la precedencia correcta."
+      }
+    },
+    {
+      "numeroPregunta": 7,
+      "correctOption": "D",
+      "confidence": "alta",
+      "reasoning": "La dimension 1 debe ser parcial con tamano 3, la 2 materia con tamano 5 y la 3 alumno con tamano N. Por eso la declaracion correcta es calif[3][5][N].",
+      "distractorNotes": {
+        "A": "Pone alumnos en la primera dimension.",
+        "B": "Intercambia materia y alumno.",
+        "C": "Invierte el orden pedido.",
+        "E": "Tambien invierte el orden de las dos primeras dimensiones."
+      }
+    },
+    {
+      "numeroPregunta": 8,
+      "correctOption": "A",
+      "confidence": "alta",
+      "reasoning": "La definicion clasica de algoritmo es una serie finita, ordenada y no ambigua de pasos para resolver un problema.",
+      "distractorNotes": {
+        "B": "Describe una base de datos.",
+        "C": "Describe declaracion de variables, no un algoritmo.",
+        "D": "Un diagrama puede representar un algoritmo, pero no lo define ni siempre usa simbolos geometricos.",
+        "E": "Un programa compilable no es la definicion de algoritmo."
+      }
+    },
+    {
+      "numeroPregunta": 9,
+      "correctOption": "D",
+      "confidence": "alta",
+      "reasoning": "En Imprimir \"Hola\", el argumento es el dato que se envía a la salida, es decir, la cadena \"Hola\".",
+      "distractorNotes": {
+        "A": "Si existe argumento: el valor a imprimir.",
+        "B": "El argumento no es toda la sentencia completa.",
+        "C": "Imprimir es la accion o instruccion, no el argumento.",
+        "E": "El punto y coma no es el argumento."
+      }
+    },
+    {
+      "numeroPregunta": 10,
+      "correctOption": "C",
+      "confidence": "alta",
+      "reasoning": "La estructura do-while ejecuta el bloque primero y evalua la condicion despues, garantizando al menos una iteracion.",
+      "distractorNotes": {
+        "A": "switch selecciona casos, no garantiza una ejecucion por condicion booleana.",
+        "B": "while puede no ejecutar ninguna vez si la condicion inicia falsa.",
+        "D": "if-then no es un ciclo.",
+        "E": "for normalmente evalua su condicion antes de entrar."
+      }
+    },
+    {
+      "numeroPregunta": 11,
+      "correctOption": "D",
+      "confidence": "alta",
+      "reasoning": "Para i = 1 hasta 10 ejecuta el bloque una vez por cada valor entero desde 1 hasta 10 inclusive. Eso suma 10 iteraciones.",
+      "distractorNotes": {
+        "A": "No es cero porque el ciclo si entra.",
+        "B": "9 supondria excluir un extremo.",
+        "C": "11 seria contar un valor extra.",
+        "E": "La cantidad de iteraciones si queda determinada por el rango."
+      }
+    },
+    {
+      "numeroPregunta": 12,
+      "correctOption": "D",
+      "confidence": "media-alta",
+      "reasoning": "El enunciado dice pseudocodigo y aclara sin asignar. En esa convencion, '=' compara igualdad y ':=' asigna. Por eso x = 10 es la comparacion correcta.",
+      "ambiguityNote": "En lenguajes tipo C o Java se usaria '==', pero el reactivo pregunta explicitamente por pseudocodigo. Ademas, el propio examen usa ':=' como distractor de asignacion.",
+      "distractorNotes": {
+        "A": "Seria correcto en varios lenguajes, pero no es la notacion de pseudocodigo esperada aqui.",
+        "B": "No es una comparacion valida en este contexto.",
+        "C": "Compara menor o igual, no igualdad exacta.",
+        "E": "Es asignacion, justo lo que el enunciado excluye."
+      }
+    },
+    {
+      "numeroPregunta": 13,
+      "correctOption": "B",
+      "confidence": "alta",
+      "reasoning": "Al sumar un int con un float, la operacion suele promover el entero al tipo con decimales y el resultado queda float.",
+      "distractorNotes": {
+        "A": "No existe esa regla de que int 'mande' sobre float en la suma habitual.",
+        "C": "La expresion no es logica.",
+        "D": "No se convierte a string por sumar numeros.",
+        "E": "char no es el tipo resultante normal de una suma numerica."
+      }
+    },
+    {
+      "numeroPregunta": 14,
+      "correctOption": "E",
+      "confidence": "alta",
+      "reasoning": "Para recorrer calif[3][5] sin salir de rango se necesita p de 0 a 2 y m de 0 a 4, accediendo como calif[p][m]. Eso coincide exactamente con la opcion E.",
+      "distractorNotes": {
+        "A": "p llega a 3 y se sale de rango.",
+        "B": "m llega a 5 y se sale de rango.",
+        "C": "Invierte los indices al acceder.",
+        "D": "Usa rangos 1..3 y 1..5, incompatibles con indices 0..2 y 0..4."
+      }
+    },
+    {
+      "numeroPregunta": 15,
+      "correctOption": "C",
+      "confidence": "alta",
+      "reasoning": "Un conteo de alumnos es un numero entero discreto. El tipo mas adecuado es int.",
+      "distractorNotes": {
+        "A": "boolean solo representa dos estados.",
+        "B": "string no es el tipo natural para conteos.",
+        "D": "char representa un caracter, no un conteo.",
+        "E": "float es innecesario para cantidades enteras."
+      }
+    },
+    {
+      "numeroPregunta": 16,
+      "correctOption": "C",
+      "confidence": "alta",
+      "reasoning": "El requisito exacto es: si calif >= 70 entonces Aprobado; en caso contrario No aprobado. La opcion C replica literalmente esa logica.",
+      "distractorNotes": {
+        "A": "Excluye el caso 70, que debe aprobar.",
+        "B": "Solo aprueba si es exactamente 70.",
+        "D": "Invierte los mensajes.",
+        "E": "Tambien invierte la condicion respecto al mensaje."
+      }
+    }
+  ],
+  "canonicalAnswerKey": {
+    "1": "E",
+    "2": "D",
+    "3": "B",
+    "4": "C",
+    "5": "B",
+    "6": "C",
+    "7": "D",
+    "8": "A",
+    "9": "D",
+    "10": "C",
+    "11": "D",
+    "12": "D",
+    "13": "B",
+    "14": "E",
+    "15": "C",
+    "16": "C"
+  }
+}

@@ -97,7 +97,7 @@
     "test:pdf-print:ci": "node scripts/testing/run-gate-with-report.mjs --gate=pdf-print --report=reports/qa/latest/pdf-print.json --command=\"npm -C apps/backend run test -- --reporter=verbose tests/integracion/pdfImpresionContrato.test.ts\"",
     "test:pdf-visual:ci": "npm run test:pdf-print:ci",
     "test:ux-visual:ci": "node scripts/testing/run-gate-with-report.mjs --gate=ux-visual --report=reports/qa/latest/ux-visual.json --command=\"npm -C apps/frontend run test -- --reporter=verbose tests/ux.visual.test.tsx\"",
-    "test:omr:tv3:gate:ci": "node scripts/testing/run-gate-with-report.mjs --gate=omr-tv3-real --report=reports/qa/latest/omr-tv3-gate-wrapper.real.json --command=\"npm -C apps/backend run omr:tv3:validate:real -- --dataset ../../omr_samples_tv3_real --report ../../reports/qa/latest/omr/tv3-real-validation.ci.json --failure-report ../../reports/qa/latest/omr/tv3-real-failure-analysis.ci.json\"",
+    "test:omr:tv3:gate:ci": "node scripts/testing/run-gate-with-report.mjs --gate=omr-tv3-por-folio --report=reports/qa/latest/omr-tv3-gate-wrapper.por-folio.json --command=\"npm -C apps/backend run omr:tv3:validate:por-folio -- --dataset ../../omr_samples_tv3_real_por_folio --report ../../reports/qa/latest/omr/tv3-por-folio-validation.ci.json --failure-report ../../reports/qa/latest/omr/tv3-por-folio-failures.ci.json\"",
     "test:ux-quality:ci": "npm -C apps/frontend run test -- --reporter=verbose tests/ux.quality.test.tsx",
     "test:e2e:journeys:ci": "npm run test:ux-visual:ci",
     "test:dataset-prodlike:ci": "node scripts/testing/export-anon-fixture.mjs && node scripts/testing/validate-anon-fixture.mjs && node scripts/testing/import-anon-fixture.mjs",

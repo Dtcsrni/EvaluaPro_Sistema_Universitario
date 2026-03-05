@@ -1,0 +1,25 @@
+{
+  "rightStripStartRatio": 0.78,
+  "topCutRatio": 0.06,
+  "bottomCutRatio": 0.94,
+  "panelMinWidthRatio": 0.06,
+  "panelMaxWidthRatio": 0.15,
+  "panelMinHeightRatio": 0.05,
+  "panelMaxHeightRatio": 0.12,
+  "panelFooterCutRatio": 0.8,
+  "bubbleYFractions": [
+    0.211,
+    0.356,
+    0.5,
+    0.644,
+    0.789
+  ],
+  "bubbleXSearchStartRatio": 0.18,
+  "bubbleXSearchEndRatio": 0.42,
+  "bubbleYSearchRatio": 0.045,
+  "panelDarkPercentile": 0.18,
+  "panelDarkLift": 18,
+  "markScoreMin": 0.19,
+  "markGapMin": 0.08,
+  "doubleRatioMin": 0.9
+}

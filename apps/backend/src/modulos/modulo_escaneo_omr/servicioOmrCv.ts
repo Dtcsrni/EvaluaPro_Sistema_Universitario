@@ -79,6 +79,9 @@ type MapaOmrPagina = {
   engineHints?: {
     preferredEngine?: 'cv';
     conservativeDecision?: boolean;
+    forceSimpleScale?: boolean;
+    useMapCoordinatesStrict?: boolean;
+    localSearchRadiusPx?: number;
   };
   perfilLayout?: {
     gridStepPt?: number;
@@ -179,22 +182,24 @@ const OMR_PATCH_DIR = process.env.OMR_PATCH_DIR || path.resolve(process.cwd(), '
 const OMR_PATCH_SIZE = Math.max(24, Number.parseInt(process.env.OMR_PATCH_SIZE || '56', 10));
 const OMR_DEBUG = String(process.env.OMR_DEBUG || '').toLowerCase() === 'true' || process.env.OMR_DEBUG === '1';
 const OMR_DEBUG_DIR = process.env.OMR_DEBUG_DIR || path.resolve(process.cwd(), 'storage', 'omr_debug');
-const OMR_COLORIMETRY_ENABLED =
-  String(process.env.OMR_COLORIMETRY_ENABLED || '1').toLowerCase() !== 'false' && process.env.OMR_COLORIMETRY_ENABLED !== '0';
+function leerBanderaEnv(nombre: string, porDefecto: boolean): boolean {
+  const valor = process.env[nombre];
+  if (valor == null || valor.trim() === '') return porDefecto;
+  const normalizado = valor.trim().toLowerCase();
+  if (normalizado === '1' || normalizado === 'true' || normalizado === 'yes' || normalizado === 'on') return true;
+  if (normalizado === '0' || normalizado === 'false' || normalizado === 'no' || normalizado === 'off') return false;
+  return porDefecto;
+}
+const OMR_COLORIMETRY_ENABLED = leerBanderaEnv('OMR_COLORIMETRY_ENABLED', true);
 const OMR_COLORIMETRY_WHITE_PERCENTILE = Math.max(
   0.85,
   Math.min(0.99, Number.parseFloat(process.env.OMR_COLORIMETRY_WHITE_PERCENTILE || '0.96'))
 );
-const OMR_SECOND_PASS_ENABLED =
-  String(process.env.OMR_SECOND_PASS_ENABLED || '1').toLowerCase() !== 'false' && process.env.OMR_SECOND_PASS_ENABLED !== '0';
+const OMR_SECOND_PASS_ENABLED = leerBanderaEnv('OMR_SECOND_PASS_ENABLED', true);
 const OMR_SECOND_PASS_QUALITY_MAX = Number.parseFloat(process.env.OMR_SECOND_PASS_QUALITY_MAX || '0.72');
 const OMR_SECOND_PASS_CONF_MAX = Number.parseFloat(process.env.OMR_SECOND_PASS_CONF_MAX || '0.5');
-const OMR_SECOND_PASS_FIDUCIALES_RESCUE =
-  String(process.env.OMR_SECOND_PASS_FIDUCIALES_RESCUE || '1').toLowerCase() !== 'false' &&
-  process.env.OMR_SECOND_PASS_FIDUCIALES_RESCUE !== '0';
-const OMR_LOCAL_GEOMETRY_ENABLED =
-  String(process.env.OMR_LOCAL_GEOMETRY_ENABLED || '0').toLowerCase() === 'true' ||
-  process.env.OMR_LOCAL_GEOMETRY_ENABLED === '1';
+const OMR_SECOND_PASS_FIDUCIALES_RESCUE = leerBanderaEnv('OMR_SECOND_PASS_FIDUCIALES_RESCUE', true);
+const OMR_LOCAL_GEOMETRY_ENABLED = leerBanderaEnv('OMR_LOCAL_GEOMETRY_ENABLED', false);
 const OMR_REJECT_KEEP_RESPONSES_MIN_DETECTION = Number.parseFloat(
   process.env.OMR_REJECT_KEEP_RESPONSES_MIN_DETECTION || '0.22'
 );
@@ -399,6 +404,70 @@ function crearParametrosBurbuja(escalaX: number, bubbleRadiusPts: number, bubble
 
 function clamp01(v: number) {
   return Math.max(0, Math.min(1, v));
+}
+
+function round6(v: number) {
+  return Number(v.toFixed(6));
+}
+
+function rescatarOpcionDominantePorScores(
+  scoresPorOpcion: ScoreOpcionOmr[],
+  opcionActual: OpcionRespuestaOmr | null,
+  confianzaActual: number
+) {
+  if (opcionActual || confianzaActual > 0) return null;
+  const orden = [...scoresPorOpcion].sort((a, b) => b.score - a.score || a.opcion.localeCompare(b.opcion));
+  const top = orden[0];
+  const second = orden[1];
+  if (!top) return null;
+
+  const topScore = top.score;
+  const secondScore = second?.score ?? 0;
+  const gap = topScore - secondScore;
+  const ratio = secondScore / Math.max(0.0001, topScore);
+  const secondStrong = Boolean(
+    second &&
+      (second.score >= 0.68 ||
+        second.markConfidence >= 0.9 ||
+        second.fillRatioCore >= 0.58 ||
+        second.centerDarknessDelta >= 0.24)
+  );
+  if (secondStrong && (gap < 0.2 || ratio > 0.82)) return null;
+  const dominantConfidence = clamp01(
+    top.markConfidence * 0.28 +
+      clamp01((topScore - 0.52) / 0.42) * 0.32 +
+      clamp01((gap - 0.12) / 0.42) * 0.26 +
+      clamp01((top.centerDarknessDelta - 0.18) / 0.48) * 0.14
+  );
+
+  const dominantePorGap =
+    topScore >= 0.55 &&
+    gap >= 0.08 &&
+    ratio <= 0.82 &&
+    top.centerDarknessDelta >= 0.06 &&
+    top.markConfidence >= 0.45 &&
+    top.fillRatioCore >= 0.12;
+  const dominantePorScore =
+    topScore >= 0.8 &&
+    gap >= 0.06 &&
+    ratio <= 0.86 &&
+    top.centerDarknessDelta >= 0.04 &&
+    top.markConfidence >= 0.4;
+  const dominantePorCore =
+    top.fillRatioCore >= 0.58 &&
+    gap >= 0.1 &&
+    ratio <= 0.84 &&
+    top.centerDarknessDelta >= 0.08 &&
+    top.shapeCompactness >= 0.62;
+
+  if (!(dominantePorGap || dominantePorScore || dominantePorCore)) return null;
+  if (dominantConfidence < 0.34) return null;
+
+  return {
+    opcion: top.opcion,
+    confianza: round6(Math.max(0.34, dominantConfidence)),
+    motivo: `Rescate por dominancia local (${top.opcion}, gap=${gap.toFixed(3)})`
+  };
 }
 
 function calcularCalidadPagina(args: {
@@ -1024,6 +1093,73 @@ function ajustarCentrosPorFiduciales(
   };
 }
 
+function ajustarCentrosPorPanelDerechoFiduciales(
+  gray: Uint8ClampedArray,
+  integral: Uint32Array,
+  width: number,
+  height: number,
+  centros: Array<{ letra: string; punto: Punto }>,
+  fidTopRight: Punto,
+  fidBottomRight: Punto,
+  fidSizePx: number,
+  fidMidRight?: Punto
+): AjusteFiducialesResultado | null {
+  const radio = Math.max(16, fidSizePx * 3.2);
+  const detTopR = localizarMarcaLocal(gray, integral, width, height, fidTopRight, radio, fidSizePx);
+  const detBottomR = localizarMarcaLocal(gray, integral, width, height, fidBottomRight, radio, fidSizePx);
+  const detMidR = fidMidRight
+    ? localizarMarcaLocal(gray, integral, width, height, fidMidRight, Math.max(12, radio * 0.8), fidSizePx)
+    : null;
+
+  const pares: Array<{ exp: Punto; det: Punto }> = [];
+  if (detTopR) pares.push({ exp: fidTopRight, det: detTopR });
+  if (detBottomR) pares.push({ exp: fidBottomRight, det: detBottomR });
+  if (fidMidRight && detMidR) pares.push({ exp: fidMidRight, det: detMidR });
+  if (pares.length < 2) return null;
+
+  const dxs = pares.map((p) => p.det.x - p.exp.x);
+  const dys = pares.map((p) => p.det.y - p.exp.y);
+  const shiftX = dxs.reduce((acc, v) => acc + v, 0) / dxs.length;
+  const shiftY = dys.reduce((acc, v) => acc + v, 0) / dys.length;
+  if (!Number.isFinite(shiftX) || !Number.isFinite(shiftY)) return null;
+  if (Math.abs(shiftX) > width * 0.22 || Math.abs(shiftY) > height * 0.22) return null;
+
+  const dyEsperado = fidBottomRight.y - fidTopRight.y;
+  const puedeEscalarY = detTopR && detBottomR && Math.abs(dyEsperado) > 1;
+  const scaleY = puedeEscalarY ? (detBottomR.y - detTopR.y) / dyEsperado : 1;
+  if (!Number.isFinite(scaleY) || scaleY < 0.86 || scaleY > 1.16) return null;
+  const offsetY = detTopR && detBottomR ? detTopR.y - fidTopRight.y * scaleY : shiftY;
+
+  const dxEsperadoLinea = fidBottomRight.x - fidTopRight.x;
+  const dxDetectadoLinea = detTopR && detBottomR ? detBottomR.x - detTopR.x : dxEsperadoLinea;
+
+  const mapPoint = (p: Punto): Punto => {
+    if (!(detTopR && detBottomR) || Math.abs(dyEsperado) <= 1) {
+      return { x: p.x + shiftX, y: p.y * scaleY + offsetY };
+    }
+    const t = (p.y - fidTopRight.y) / dyEsperado;
+    const xLineaEsperada = fidTopRight.x + dxEsperadoLinea * t;
+    const xLineaDetectada = detTopR.x + dxDetectadoLinea * t;
+    const deltaLineaX = xLineaDetectada - xLineaEsperada;
+    return { x: p.x + deltaLineaX, y: p.y * scaleY + offsetY };
+  };
+
+  const centrosAjustados = centros.map((opcion) => ({
+    letra: opcion.letra,
+    punto: mapPoint(opcion.punto)
+  }));
+
+  const errores = pares.map(({ exp, det }) => distancia(mapPoint(exp), det));
+  const reprojectionErrorPx = errores.reduce((acc, e) => acc + e, 0) / Math.max(1, errores.length);
+  const puntosEsperados = 2 + (fidMidRight ? 1 : 0);
+  return {
+    centros: centrosAjustados,
+    reprojectionErrorPx,
+    puntosDetectados: pares.length,
+    puntosEsperados
+  };
+}
+
 function ajustarCentrosVertical(
   gray: Uint8ClampedArray,
   integral: Uint32Array,
@@ -1203,7 +1339,40 @@ function prepararCentrosPregunta(
         fiduciales.rightMid
       )
     : null;
-  const centrosCaja = !ajusteFid
+  const ajustePanelDerecho = fiduciales
+    ? ajustarCentrosPorPanelDerechoFiduciales(
+        gray,
+        integral,
+        width,
+        height,
+        centrosBase,
+        fiduciales.rightTop,
+        fiduciales.rightBottom,
+        fidSizePx,
+        fiduciales.rightMid
+      )
+    : null;
+  const esAjusteConfiable = (ajuste: AjusteFiducialesResultado, coberturaMin: number, errorMax: number) => {
+    const cobertura = ajuste.puntosDetectados / Math.max(1, ajuste.puntosEsperados);
+    return Number.isFinite(ajuste.reprojectionErrorPx) && ajuste.reprojectionErrorPx <= errorMax && cobertura >= coberturaMin;
+  };
+  let ajusteSeleccionado: AjusteFiducialesResultado | null = null;
+  let panelDerechoPreferido = false;
+  if (ajusteFid && ajustePanelDerecho) {
+    const fidConfiable = esAjusteConfiable(ajusteFid, 0.5, 6.4);
+    const panelConfiable = esAjusteConfiable(ajustePanelDerecho, 0.66, 5.2);
+    const panelClaramenteMejor =
+      panelConfiable &&
+      (!fidConfiable || ajustePanelDerecho.reprojectionErrorPx + 0.7 < ajusteFid.reprojectionErrorPx);
+    ajusteSeleccionado = panelClaramenteMejor ? ajustePanelDerecho : ajusteFid;
+    panelDerechoPreferido = panelClaramenteMejor;
+  } else if (ajusteFid) {
+    ajusteSeleccionado = ajusteFid;
+  } else if (ajustePanelDerecho) {
+    ajusteSeleccionado = ajustePanelDerecho;
+    panelDerechoPreferido = true;
+  }
+  const centrosCaja = !ajusteSeleccionado
     ? ajustarCentrosPorCaja(
         integral,
         width,
@@ -1220,7 +1389,7 @@ function prepararCentrosPregunta(
     integral,
     width,
     height,
-    centrosCaja ?? ajusteFid?.centros ?? centrosBase,
+    centrosCaja ?? ajusteSeleccionado?.centros ?? centrosBase,
     paramsBurbuja,
     perfil.vertRange
   );
@@ -1234,7 +1403,7 @@ function prepararCentrosPregunta(
       motivo: 'Sin fiduciales por pregunta'
     };
   }
-  if (!ajusteFid) {
+  if (!ajusteSeleccionado) {
     if (centrosCaja) {
       return {
         centros,
@@ -1254,12 +1423,23 @@ function prepararCentrosPregunta(
       motivo: 'No se pudieron localizar fiduciales'
     };
   }
+  if (panelDerechoPreferido && !ajusteFid) {
+    return {
+      centros,
+      reprojectionErrorPx: ajusteSeleccionado.reprojectionErrorPx,
+      puntosFidDetectados: ajusteSeleccionado.puntosDetectados,
+      puntosFidEsperados: ajusteSeleccionado.puntosEsperados,
+      usaRescateCaja: false,
+      motivo: 'Rescate por panel OMR derecho (fiduciales)'
+    };
+  }
   return {
     centros,
-    reprojectionErrorPx: ajusteFid.reprojectionErrorPx,
-    puntosFidDetectados: ajusteFid.puntosDetectados,
-    puntosFidEsperados: ajusteFid.puntosEsperados,
-    usaRescateCaja: false
+    reprojectionErrorPx: ajusteSeleccionado.reprojectionErrorPx,
+    puntosFidDetectados: ajusteSeleccionado.puntosDetectados,
+    puntosFidEsperados: ajusteSeleccionado.puntosEsperados,
+    usaRescateCaja: false,
+    motivo: panelDerechoPreferido ? 'Ajuste por panel OMR derecho (fiduciales preferido)' : undefined
   };
 }
 
@@ -1530,10 +1710,24 @@ export async function analizarOmr(
     const escalaY = height / ALTO_CARTA;
     return { x: punto.x * escalaX, y: height - punto.y * escalaY };
   };
+  const forceSimpleScale = mapaPagina.engineHints?.forceSimpleScale === true;
+  const useMapCoordinatesStrict =
+    typeof mapaPagina.engineHints?.useMapCoordinatesStrict === 'boolean'
+      ? mapaPagina.engineHints.useMapCoordinatesStrict
+      : false;
+  const localSearchRadiusPx = useMapCoordinatesStrict
+    ? 0
+    : (mapaPagina.engineHints?.localSearchRadiusPx ??
+      (templateVersionDetectada === 3 ? Math.max(2, Math.round(paramsBurbuja.radio * 0.55)) : undefined));
   let transformar = transformacionBase.transformar;
-  if (!OMR_LOCAL_GEOMETRY_ENABLED) {
+  if (forceSimpleScale) {
     transformar = transformarEscala;
-    advertencias.push('Modo geometria simple: transformacion global por escala');
+    advertencias.push('Mapa OMR derivado desde imagen: transformacion global por escala forzada');
+  } else if (transformacionBase.tipo === 'escala') {
+    motivosRevision.push('Alineacion global no rectificada (escala simple)');
+    advertencias.push('Rectificacion CV no confiable; se mantiene escala simple con ajuste local');
+  } else if (!OMR_LOCAL_GEOMETRY_ENABLED) {
+    advertencias.push('OMR_LOCAL_GEOMETRY_ENABLED=0: se desactiva ajuste local por pregunta');
   }
 
   const evaluarTransformacion = (transformador: (p: Punto) => Punto) => {
@@ -1561,6 +1755,7 @@ export async function analizarOmr(
             dy,
             params: paramsBurbuja,
             localSearchRatio: perfil.localSearchRatio,
+            localSearchRadiusPx,
             localDriftPenalty: perfil.localDriftPenalty,
             detectarOpcion
           });
@@ -1584,13 +1779,18 @@ export async function analizarOmr(
     const calidadEscala = evaluarTransformacion(transformarEscala);
     const puntajeHom = calidadHom.score + calidadHom.delta * 0.6;
     const puntajeEscala = calidadEscala.score + calidadEscala.delta * 0.6;
-    if (puntajeEscala > puntajeHom + 0.03) {
-      advertencias.push('Se eligio transformacion por escala por mayor coherencia de marcas');
-      motivosRevision.push('Alineacion global inestable (se uso escala simple)');
-      if (opcionesInternas?.rescueFiduciales) {
+    const ventajaEscala = puntajeEscala - puntajeHom;
+    const escalaMejor = ventajaEscala > 0.03;
+    const escalaMuyMejor = ventajaEscala > 0.08;
+    if (escalaMejor) {
+      motivosRevision.push('Alineacion global inestable (escala simple puntuo mejor)');
+      if (forceSimpleScale || !OMR_LOCAL_GEOMETRY_ENABLED || escalaMuyMejor || !opcionesInternas?.rescueFiduciales) {
+        advertencias.push('Se eligio transformacion por escala por mayor coherencia de marcas');
+        transformar = transformarEscala;
+      } else if (opcionesInternas?.rescueFiduciales) {
         advertencias.push('Rescate fiduciales: se mantiene transformacion base para ajuste local');
       } else {
-        transformar = transformarEscala;
+        advertencias.push('Escala simple puntuo mejor, pero se conserva rectificacion CV y ajuste local');
       }
     }
   }
@@ -1620,7 +1820,7 @@ export async function analizarOmr(
   mapaPagina.preguntas.forEach((pregunta) => {
     const prep = prepararCentrosPregunta(estado, pregunta, transformar, perfil);
     const centros = prep.centros;
-    if (prep.usaRescateCaja && prep.motivo) {
+    if ((prep.usaRescateCaja || /panel OMR derecho/i.test(String(prep.motivo ?? ''))) && prep.motivo) {
       advertencias.push(`P${pregunta.numeroPregunta}: ${prep.motivo}`);
     }
     if (prep.reprojectionErrorPx !== null && Number.isFinite(prep.reprojectionErrorPx)) {
@@ -1633,13 +1833,18 @@ export async function analizarOmr(
       reprojectionError === Number.POSITIVE_INFINITY ||
       (reprojectionDisponible && reprojectionError > perfil.reprojectionMaxErrorPx);
     const bloqueoPorFiducial = prep.puntosFidDetectados >= 2 && !prep.usaRescateCaja;
+    const fiducialConfiable =
+      prep.puntosFidDetectados >= 3 &&
+      reprojectionDisponible &&
+      (reprojectionError as number) <= perfil.reprojectionMaxErrorPx;
+    const habilitarAjusteLocalPregunta = OMR_LOCAL_GEOMETRY_ENABLED && fiducialConfiable;
     if (perfil.reprojectionMaxErrorPx < Number.POSITIVE_INFINITY && reprojectionFueraDeRango && bloqueoPorFiducial) {
       motivosRevision.push(`P${pregunta.numeroPregunta}: error geometrico local (fiduciales)`);
       if (opcionesInternas?.rescueFiduciales) {
         advertencias.push(`P${pregunta.numeroPregunta}: rescate fiduciales por error geométrico local`);
       }
     }
-    const { mejorDx, mejorDy } = OMR_LOCAL_GEOMETRY_ENABLED
+    const { mejorDx, mejorDy } = habilitarAjusteLocalPregunta
       ? buscarMejorOffsetPregunta({
           estado,
           centros,
@@ -1649,6 +1854,11 @@ export async function analizarOmr(
           evaluarAlineacionOffset
         })
       : { mejorDx: 0, mejorDy: 0 };
+    const localSearchRadiusPregunta = !OMR_LOCAL_GEOMETRY_ENABLED
+      ? localSearchRadiusPx
+      : habilitarAjusteLocalPregunta
+        ? localSearchRadiusPx
+        : 0;
     const resultado = evaluarConOffset({
       gray,
       integral,
@@ -1659,6 +1869,7 @@ export async function analizarOmr(
       dy: mejorDy,
       params: paramsBurbuja,
       localSearchRatio: perfil.localSearchRatio,
+      localSearchRadiusPx: localSearchRadiusPregunta,
       localDriftPenalty: perfil.localDriftPenalty,
       detectarOpcion
     });
@@ -1682,7 +1893,7 @@ export async function analizarOmr(
       },
       detectarOpcion
     });
-    const opcionDetectada =
+    let opcionDetectada =
       metricas.suficiente && metricas.confianza >= umbralRespuestaConf
         ? (metricas.mejorOpcion as OpcionRespuestaOmr | null)
         : null;
@@ -1693,9 +1904,17 @@ export async function analizarOmr(
       mejorDx,
       mejorDy
     });
+    const rescateDominante = rescatarOpcionDominantePorScores(scoresPorOpcion, opcionDetectada, metricas.confianza);
+    let confianzaPregunta = metricas.confianza;
+    if (!opcionDetectada && rescateDominante) {
+      opcionDetectada = rescateDominante.opcion;
+      confianzaPregunta = Math.max(metricas.confianza, rescateDominante.confianza);
+      advertencias.push(`P${pregunta.numeroPregunta}: ${rescateDominante.motivo}`);
+    }
+
     const flags: Array<'doble_marca' | 'bajo_contraste' | 'fuera_roi' | 'parcial_detectada' | 'tachada_detectada'> = [];
-    if (metricas.dobleMarcada) flags.push('doble_marca');
-    if (!metricas.suficiente || metricas.confianza < umbralRespuestaConf) flags.push('bajo_contraste');
+    if (metricas.dobleMarcada && !rescateDominante) flags.push('doble_marca');
+    if ((!metricas.suficiente || confianzaPregunta < umbralRespuestaConf) && !rescateDominante) flags.push('bajo_contraste');
     if (scoresPorOpcion.some((item) => item.estadoMarca === 'tachada')) {
       flags.push('tachada_detectada');
     } else if (scoresPorOpcion.some((item) => item.estadoMarca === 'parcial')) {
@@ -1704,18 +1923,18 @@ export async function analizarOmr(
     respuestasDetectadas.push({
       numeroPregunta: pregunta.numeroPregunta,
       opcion: opcionDetectada,
-      confianza: metricas.confianza,
+      confianza: confianzaPregunta,
       scoresPorOpcion,
       flags
     });
-    sumaConfianza += metricas.confianza;
+    sumaConfianza += confianzaPregunta;
     if (opcionDetectada) respuestasContestadas += 1;
-    if (metricas.dobleMarcada || !metricas.suficiente || metricas.confianza < umbralRespuestaConf) {
+    if ((metricas.dobleMarcada && !rescateDominante) || (!rescateDominante && (!metricas.suficiente || confianzaPregunta < umbralRespuestaConf))) {
       preguntasAmbiguas += 1;
-      if (metricas.dobleMarcada) {
+      if (metricas.dobleMarcada && !rescateDominante) {
         motivosRevision.push(`P${pregunta.numeroPregunta}: multiple marca / ambiguedad`);
-      } else if (metricas.suficiente && metricas.confianza < OMR_RESPUESTA_CONF_MIN) {
-        motivosRevision.push(`P${pregunta.numeroPregunta}: confianza baja (${metricas.confianza.toFixed(2)})`);
+      } else if (metricas.suficiente && confianzaPregunta < OMR_RESPUESTA_CONF_MIN) {
+        motivosRevision.push(`P${pregunta.numeroPregunta}: confianza baja (${confianzaPregunta.toFixed(2)})`);
       }
     }
 

@@ -144,6 +144,7 @@ export function evaluarConOffset(args: {
   dy: number;
   params: ParametrosBurbujaCore;
   localSearchRatio: number;
+  localSearchRadiusPx?: number;
   localDriftPenalty: number;
   detectarOpcion: (
     gray: Uint8ClampedArray,
@@ -154,16 +155,42 @@ export function evaluarConOffset(args: {
     params: ParametrosBurbujaCore
   ) => { score: number };
 }): EvaluarConOffsetResultado {
-  const { gray, integral, width, height, centros, dx, dy, params, localSearchRatio, localDriftPenalty, detectarOpcion } = args;
+  const {
+    gray,
+    integral,
+    width,
+    height,
+    centros,
+    dx,
+    dy,
+    params,
+    localSearchRatio,
+    localSearchRadiusPx,
+    localDriftPenalty,
+    detectarOpcion
+  } = args;
   let mejorOpcion: string | null = null;
   let mejorScore = 0;
   let segundoScore = 0;
   const scores: OpcionScore[] = [];
-  const rangoLocal = calcularRangoLocalBusqueda(centros, params, localSearchRatio);
+  const rangoLocalCalculado = calcularRangoLocalBusqueda(centros, params, localSearchRatio);
+  const rangoLocal = Math.max(0, Math.round(localSearchRadiusPx ?? rangoLocalCalculado));
   const pasoLocal = Math.max(1, Math.round(rangoLocal / 4));
 
   for (const opcion of centros) {
     const base = { x: opcion.punto.x + dx, y: opcion.punto.y + dy };
+    if (rangoLocal <= 0) {
+      const { score } = detectarOpcion(gray, integral, width, height, base, params);
+      scores.push({ letra: opcion.letra, score: Math.max(0, score), x: base.x, y: base.y });
+      if (score > mejorScore) {
+        segundoScore = mejorScore;
+        mejorScore = score;
+        mejorOpcion = opcion.letra;
+      } else if (score > segundoScore) {
+        segundoScore = score;
+      }
+      continue;
+    }
     let mejorLocal = -Infinity;
     let mejorLocalAjustado = -Infinity;
     let mejorX = base.x;

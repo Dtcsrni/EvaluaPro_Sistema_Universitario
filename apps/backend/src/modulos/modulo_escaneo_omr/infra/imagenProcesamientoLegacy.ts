@@ -511,6 +511,7 @@ export function detectarOpcion(
   centro: Punto,
   params: ParametrosBurbuja
 ) {
+  const clamp01 = (value: number) => Math.max(0, Math.min(1, value));
   const { radio, ringInner, ringOuter, outerOuter, paso } = params;
   const coreRadio = Math.max(2, radio * 0.58);
   const coreSq = coreRadio * coreRadio;
@@ -630,9 +631,14 @@ export function detectarOpcion(
   }
   const radialPenalty = Math.max(0, 0.36 - radialMassRatio);
   const anisoPenalty = Math.max(0, (anisotropy - 2.8) / 4);
+  const fillThreshold = Math.min(185, Math.max(60, promedioOuter - 18));
+  const intensityFillRatio = clamp01((fillThreshold - promedio + 24) / 96);
+  const intensityFillDelta = clamp01((promedioRing - promedio) / 90);
+  const intensityCenterContrast = clamp01((promedioOuter - promedio) / 120);
+  const intensityRingPenalty = clamp01((promedioOuter - promedioRing) / 110);
 
   // Puntaje fotométrico robusto: prioriza núcleo/medio rellenos y penaliza burbuja hueca.
-  const score =
+  const scoreLegacy =
     fillDelta * 0.48 +
     contraste * 0.2 +
     ratioCore * 0.34 +
@@ -644,6 +650,13 @@ export function detectarOpcion(
     ringOnlyPenalty * 0.32 -
     radialPenalty * 0.2 -
     anisoPenalty * 0.18;
+  const scoreIntensity = clamp01(
+    intensityFillDelta * 0.62 +
+      intensityFillRatio * 0.28 +
+      intensityCenterContrast * 0.18 -
+      intensityRingPenalty * 0.16
+  );
+  const score = scoreIntensity * 0.72 + clamp01(scoreLegacy) * 0.28;
   return {
     ratio,
     ratioCore,

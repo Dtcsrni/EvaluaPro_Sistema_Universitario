@@ -42,15 +42,18 @@ Ruta: `apps/backend/src/modulos/modulo_escaneo_omr`.
 - Verificación local:
   - `npm -C apps/backend run omr:cv:smoke`
   - `npm -C apps/backend run omr:tv3:eval:synthetic`
-  - `npm -C apps/backend run omr:tv3:validate:real -- --dataset ../../omr_samples_tv3_real`
+  - `npm -C apps/backend run omr:tv3:build:por-folio-dataset`
+  - `npm -C apps/backend run omr:tv3:validate:por-folio -- --dataset ../../omr_samples_tv3_real_por_folio`
+  - `npm -C apps/backend run omr:tv3:diagnose:por-folio`
   - `npm -C apps/backend run omr:tv3:generate:real:manual-min`
   - `npm -C apps/backend run omr:tv3:validate:real:manual-min`
 
 ## Gate mixto (release)
 - Gate sintético: `omr:tv3:eval:synthetic` (guardrail de regresión controlada).
-- Gate real simulado: `omr:tv3:validate:real`.
-- Gate real manual mínimo: `omr:tv3:validate:real:manual-min`.
-- Ambos son bloqueantes en CI backend.
+- Gate real principal: `omr:tv3:validate:por-folio`.
+- Dataset real principal: `omr_samples_tv3_real_por_folio/`.
+- Gate real manual mínimo: `omr:tv3:validate:real:manual-min` como herramienta legacy de diagnóstico.
+- El gate bloqueante en CI backend es `por-folio`.
 
 ## Troubleshooting rápido
 - `falsePositiveRate` alto:

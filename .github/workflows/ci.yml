@@ -43,6 +43,7 @@ jobs:
               - "apps/backend/**"
               - "omr_samples_tv3/**"
               - "omr_samples_tv3_real/**"
+              - "omr_samples_tv3_real_por_folio/**"
             frontend:
               - "apps/frontend/**"
               - "client/**"
@@ -254,8 +255,8 @@ jobs:
       - name: Etapa dataset-prodlike-check
         run: npm run test:dataset-prodlike:ci
 
-      - name: Verificar dataset OMR TV3 real (extendido)
-        run: test -f omr_samples_tv3_real/manifest.json
+      - name: Verificar dataset OMR TV3 por folio (extendido)
+        run: test -f omr_samples_tv3_real_por_folio/manifest.json
 
       - name: Etapa omr-tv3-real-gate
         run: npm run test:omr:tv3:gate:ci
