@@ -7,11 +7,60 @@
 import { useCallback, useMemo } from 'react';
 import type { Docente } from '../tipos';
 
+function valorVerdadero(value: unknown): boolean {
+  if (typeof value === 'boolean') return value;
+  const texto = String(value ?? '').trim().toLowerCase();
+  return ['1', 'true', 'si', 'yes', 'paid', 'active', 'activo', 'activa', 'vigente'].includes(texto);
+}
+
+function docenteTienePlanPagoActivo(docente: Docente | null): boolean {
+  const extendido = (docente ?? {}) as Docente & {
+    plan?: Record<string, unknown>;
+    suscripcion?: Record<string, unknown>;
+    licencia?: Record<string, unknown>;
+    planCodigo?: unknown;
+    planNivel?: unknown;
+    suscripcionActiva?: unknown;
+    pagoActivo?: unknown;
+  };
+  if (valorVerdadero(extendido.suscripcionActiva) || valorVerdadero(extendido.pagoActivo)) return true;
+  const contenedores = [extendido.plan, extendido.suscripcion, extendido.licencia].filter(Boolean) as Array<Record<string, unknown>>;
+  const nivelesPago = new Set(['pro', 'premium', 'enterprise', 'business', 'institucional', 'paid']);
+  for (const item of contenedores) {
+    if (
+      valorVerdadero(item?.esDePago) ||
+      valorVerdadero(item?.paid) ||
+      valorVerdadero(item?.activa) ||
+      valorVerdadero(item?.activo) ||
+      valorVerdadero(item?.active) ||
+      valorVerdadero(item?.vigente)
+    ) {
+      return true;
+    }
+    const textos = [item?.codigo, item?.nivel, item?.tier, item?.plan, item?.status, item?.estado]
+      .map((valor) => String(valor ?? '').trim().toLowerCase())
+      .filter(Boolean);
+    if (textos.some((texto) => nivelesPago.has(texto))) return true;
+    if (textos.some((texto) => ['active', 'activo', 'activa', 'paid', 'vigente', 'trialing'].includes(texto))) return true;
+  }
+  const textosDocente = [extendido.planCodigo, extendido.planNivel]
+    .map((valor) => String(valor ?? '').trim().toLowerCase())
+    .filter(Boolean);
+  return textosDocente.some((texto) => nivelesPago.has(texto));
+}
+
 export function usePermisosDocente(docente: Docente | null) {
   const esDev = import.meta.env.DEV;
   const esAdmin = Boolean(docente?.roles?.includes('admin'));
   const permisosDocente = useMemo(() => new Set(docente?.permisos ?? []), [docente?.permisos]);
   const puede = useCallback((permiso: string) => permisosDocente.has(permiso), [permisosDocente]);
+  const permisoRecuperacion =
+    puede('omr:rehidratar_lotes') ||
+    puede('omr:rehidratar_lote') ||
+    puede('rehidratacion:usar') ||
+    puede('recuperacion:lotes:usar');
+  const planPagoActivo = docenteTienePlanPagoActivo(docente);
+  const puedeRehidratarLotes = esAdmin || permisoRecuperacion || planPagoActivo;
 
   const permisosUI = useMemo(
     () => ({
@@ -45,6 +94,7 @@ export function usePermisosDocente(docente: Docente | null) {
       entregas: { gestionar: puede('entregas:gestionar') },
       omr: { analizar: puede('omr:analizar') },
       calificaciones: { calificar: puede('calificaciones:calificar') },
+      rehidratacion: { usar: puedeRehidratarLotes },
       evaluaciones: { leer: puede('evaluaciones:leer'), gestionar: puede('evaluaciones:gestionar') },
       classroom: { conectar: puede('classroom:conectar'), pull: puede('classroom:pull') },
       publicar: { publicar: puede('calificaciones:publicar') },
@@ -57,7 +107,7 @@ export function usePermisosDocente(docente: Docente | null) {
       },
       cuenta: { leer: puede('cuenta:leer'), actualizar: puede('cuenta:actualizar') }
     }),
-    [puede]
+    [puede, puedeRehidratarLotes]
   );
 
   const puedeEliminarMateriaDev = esDev && esAdmin && puede('periodos:eliminar_dev');
@@ -73,12 +123,13 @@ export function usePermisosDocente(docente: Docente | null) {
       { id: 'plantillas', label: 'Plantillas', icono: 'plantillas' as const, mostrar: puede('plantillas:leer') },
       { id: 'entrega', label: 'Entrega', icono: 'recepcion' as const, mostrar: puede('entregas:gestionar') },
       { id: 'calificaciones', label: 'Calificaciones', icono: 'calificar' as const, mostrar: puedeCalificar },
+      { id: 'rehidratacion', label: 'Rehidratacion', icono: 'pdf' as const, mostrar: puedeRehidratarLotes },
       { id: 'evaluaciones', label: 'Evaluaciones', icono: 'calificar' as const, mostrar: puede('evaluaciones:leer') },
       { id: 'publicar', label: 'Sincronización', icono: 'publicar' as const, mostrar: puedePublicar },
       { id: 'cuenta', label: 'Cuenta', icono: 'info' as const, mostrar: puede('cuenta:leer') }
     ];
     return items.filter((item) => item.mostrar);
-  }, [puede]);
+  }, [puede, puedeRehidratarLotes]);
 
   return {
     puede,

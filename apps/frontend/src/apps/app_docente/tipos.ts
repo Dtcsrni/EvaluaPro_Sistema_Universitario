@@ -323,6 +323,7 @@ export type PermisosUI = {
   entregas: { gestionar: boolean };
   omr: { analizar: boolean };
   calificaciones: { calificar: boolean };
+  rehidratacion: { usar: boolean };
   evaluaciones: { leer: boolean; gestionar: boolean };
   classroom: { conectar: boolean; pull: boolean };
   publicar: { publicar: boolean };
@@ -404,3 +405,4 @@ export type SolicitudRevisionAlumno = {
   conformidadAlumno?: boolean;
   conformidadActualizadaEn?: string | null;
 };
+

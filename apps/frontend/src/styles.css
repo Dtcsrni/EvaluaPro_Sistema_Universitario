@@ -2585,12 +2585,96 @@ p {
   gap: 0.6rem;
 }
 
+.calificaciones-human-review-panel,
 .calificaciones-manual-panel,
 .calificaciones-revision-panel,
 .calif-grade-card {
   min-width: 0;
 }
 
+.calificaciones-human-review-panel {
+  display: grid;
+  gap: 0.8rem;
+  border-radius: 18px;
+  border: 1px solid color-mix(in srgb, var(--campoBorde) 78%, rgba(56, 189, 248, 0.22));
+  background:
+    radial-gradient(circle at top right, rgba(56, 189, 248, 0.14), transparent 34%),
+    radial-gradient(circle at bottom left, rgba(20, 184, 166, 0.12), transparent 42%),
+    color-mix(in srgb, var(--superficie) 92%, rgba(2, 6, 23, 0.35));
+  box-shadow: 0 18px 42px rgba(2, 6, 23, 0.16);
+}
+
+.calificaciones-human-review-panel__head {
+  display: flex;
+  justify-content: space-between;
+  gap: 0.85rem;
+  align-items: flex-start;
+  flex-wrap: wrap;
+}
+
+.calificaciones-human-review-panel__title {
+  display: grid;
+  gap: 0.3rem;
+}
+
+.calificaciones-human-review-panel__summary {
+  display: grid;
+  gap: 0.65rem;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+}
+
+.calificaciones-human-review-panel__summary-card {
+  display: grid;
+  gap: 0.28rem;
+  padding: 0.8rem 0.9rem;
+  border-radius: 14px;
+  border: 1px solid color-mix(in srgb, var(--campoBorde) 82%, rgba(56, 189, 248, 0.18));
+  background: color-mix(in srgb, var(--superficie) 82%, rgba(15, 23, 42, 0.26));
+}
+
+.calificaciones-human-review-panel__summary-card span {
+  font-size: 0.76rem;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.calificaciones-human-review-panel__summary-card strong {
+  font-size: 0.96rem;
+  line-height: 1.4;
+  color: var(--texto);
+}
+
+.calificaciones-human-review-panel__meta {
+  gap: 0.45rem;
+}
+
+.calificaciones-human-review-panel__actions {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 0.65rem;
+}
+
+.calificaciones-human-review-panel__actions .boton {
+  width: 100%;
+  justify-content: center;
+}
+
+.calificaciones-human-review-panel__frame-wrap {
+  border-radius: 16px;
+  overflow: hidden;
+  border: 1px solid color-mix(in srgb, var(--campoBorde) 84%, rgba(56, 189, 248, 0.2));
+  background: #020617;
+  min-height: 820px;
+}
+
+.calificaciones-human-review-panel__frame {
+  width: 100%;
+  min-height: 820px;
+  border: 0;
+  background: #020617;
+}
 .calificaciones-manual-panel {
   display: grid;
   gap: 0.65rem;
@@ -4174,3 +4258,4 @@ p {
     transition: none !important;
   }
 }
+

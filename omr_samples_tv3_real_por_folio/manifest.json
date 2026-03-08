@@ -11,6 +11,11 @@
   },
   "groundTruthRef": "ground_truth.jsonl",
   "answerKeyPath": "answer_key.json",
+  "structureBaselinePath": "source/pdf_structure_truth_snapshot.json",
+  "canonicalPageMappingPath": "source/folio_exam_page_mapping_snapshot.json",
+  "answerKeySourcePath": "source/answer_key_canonical_snapshot.json",
+  "answerKeyReconciliationPath": "source/answer_key_reconciliation_snapshot.json",
+  "answerKeyMethod": "canonical_visible_reconciliation",
   "capturas": [
     {
       "captureId": "07BE7982-P1-C1",

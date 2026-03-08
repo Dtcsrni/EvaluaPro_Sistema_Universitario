@@ -1,0 +1,15 @@
+{
+  "streams": 8819,
+  "decompressed": 2580,
+  "readableChunks": 1904,
+  "sample": [
+    "{pop\ndup truncate sub\ndup 0 le {1 add} if\ndup 0 le {pop .0314 .0314 .0314 0} if\ndup dup 0 gt exch 1 le and {\ndup .055555552 le {\n0 sub pop .0314 .0314 .0314 \n}{\n.055555552 sub pop 0 0 0 \n} ifelse\n0} if\n0 gt {0 0 0} if\n}",
+    "{pop\ndup truncate sub\ndup 0 le {1 add} if\ndup 0 le {pop .0038 .005 .0068 .0314 0} if\ndup dup 0 gt exch 1 le and {\ndup .055555552 le {\n0 sub pop .0038 .005 .0068 .0314 \n}{\n.055555552 sub pop 0 0 0 0 \n} ifelse\n0} if\n0 gt {0 0 0 0} if\ndup abs 0.00001 lt{ pop pop pop pop 0 0 0 }{ dup 3 1 roll div 4 1 roll dup 3 1 roll div 4 1 roll div 3 1 roll} ifelse\n}",
+    "{pop\ndup truncate sub\ndup 0 le {1 add} if\ndup 0 le {pop .0431 .0431 .0431 0} if\ndup dup 0 gt exch 1 le and {\ndup .055555552 le {\n0 sub pop .0431 .0431 .0431 \n}{\n.055555552 sub pop 0 0 0 \n} ifelse\n0} if\n0 gt {0 0 0} if\n}",
+    "{pop\ndup truncate sub\ndup 0 le {1 add} if\ndup 0 le {pop .0052 .0069 .0093 .0431 0} if\ndup dup 0 gt exch 1 le and {\ndup .055555552 le {\n0 sub pop .0052 .0069 .0093 .0431 \n}{\n.055555552 sub pop 0 0 0 0 \n} ifelse\n0} if\n0 gt {0 0 0 0} if\ndup abs 0.00001 lt{ pop pop pop pop 0 0 0 }{ dup 3 1 roll div 4 1 roll dup 3 1 roll div 4 1 roll div 3 1 roll} ifelse\n}",
+    "{pop\ndup truncate sub\ndup 0 le {1 add} if\ndup 0 le {pop .0431 .0431 .0431 0} if\ndup dup 0 gt exch 1 le and {\ndup .055555552 le {\n0 sub pop .0431 .0431 .0431 \n}{\n.055555552 sub pop 0 0 0 \n} ifelse\n0} if\n0 gt {0 0 0} if\n}",
+    "{pop\ndup truncate sub\ndup 0 le {1 add} if\ndup 0 le {pop .0052 .0069 .0093 .0431 0} if\ndup dup 0 gt exch 1 le and {\ndup .055555552 le {\n0 sub pop .0052 .0069 .0093 .0431 \n}{\n.055555552 sub pop 0 0 0 0 \n} ifelse\n0} if\n0 gt {0 0 0 0} if\ndup abs 0.00001 lt{ pop pop pop pop 0 0 0 }{ dup 3 1 roll div 4 1 roll dup 3 1 roll div 4 1 roll div 3 1 roll} ifelse\n}",
+    "{pop\ndup truncate sub\ndup 0 le {1 add} if\ndup 0 le {pop .051 .051 .051 0} if\ndup dup 0 gt exch 1 le and {\ndup .083333336 le {\n0 sub pop .051 .051 .051 \n}{\n.083333336 sub pop 0 0 0 \n} ifelse\n0} if\n0 gt {0 0 0} if\n}",
+    "{pop\ndup truncate sub\ndup 0 le {1 add} if\ndup 0 le {pop .0062 .0082 .011 .051 0} if\ndup dup 0 gt exch 1 le and {\ndup .083333336 le {\n0 sub pop .0062 .0082 .011 .051 \n}{\n.083333336 sub pop 0 0 0 0 \n} ifelse\n0} if\n0 gt {0 0 0 0} if\ndup abs 0.00001 lt{ pop pop pop pop 0 0 0 }{ dup 3 1 roll div 4 1 roll dup 3 1 roll div 4 1 roll div 3 1 roll} ifelse\n}"
+  ]
+}

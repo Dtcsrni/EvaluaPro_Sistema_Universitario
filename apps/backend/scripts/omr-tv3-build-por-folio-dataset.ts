@@ -1,4 +1,4 @@
-import path from 'node:path';
+﻿import path from 'node:path';
 import { buildPorFolioDataset } from '../src/modulos/modulo_escaneo_omr/porFolioDataset';
 
 type Args = {
@@ -6,6 +6,7 @@ type Args = {
   organization?: string;
   assignments?: string;
   pdfSnapshot?: string;
+  canonicalAnswerKey?: string;
 };
 
 function parseArgs(argv: string[]): Args {
@@ -33,6 +34,11 @@ function parseArgs(argv: string[]): Args {
     if (key === '--pdf-snapshot' && value) {
       args.pdfSnapshot = value;
       i += 1;
+      continue;
+    }
+    if (key === '--answer-key-snapshot' && value) {
+      args.canonicalAnswerKey = value;
+      i += 1;
     }
   }
   return args;
@@ -46,7 +52,8 @@ async function main() {
     datasetRoot: args.dataset,
     organizationPath: args.organization,
     assignmentSnapshotPath: args.assignments,
-    pdfSnapshotPath: args.pdfSnapshot
+    pdfSnapshotPath: args.pdfSnapshot,
+    canonicalAnswerKeyPath: args.canonicalAnswerKey
   });
   process.stdout.write(`${JSON.stringify(summary)}\n`);
 }
@@ -55,3 +62,5 @@ main().catch((error) => {
   process.stderr.write(`${JSON.stringify({ error: error instanceof Error ? error.message : String(error) })}\n`);
   process.exit(1);
 });
+
+

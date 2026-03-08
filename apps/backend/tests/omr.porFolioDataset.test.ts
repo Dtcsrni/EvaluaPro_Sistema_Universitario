@@ -1,3 +1,6 @@
+import { mkdtempSync, mkdirSync, rmSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import path from 'node:path';
 import { describe, expect, it } from 'vitest';
 import {
   buildAnswerKey,
@@ -93,6 +96,40 @@ describe('porFolioDataset', () => {
       sourcePath: 'omr_samples_tv3/images/Por Folio/FOLIO1/cam1.jpg'
     });
     expect(captures[1]?.expectedQr).toBe('EXAMEN:FOLIO1:P1:TV3');
+  });
+
+  it('usa imagen fallback del dataset cuando la fuente historica ya no existe', () => {
+    const tempRoot = mkdtempSync(path.join(tmpdir(), 'por-folio-fallback-'));
+    try {
+      const fallbackDatasetRoot = path.join(tempRoot, 'dataset');
+      mkdirSync(path.join(fallbackDatasetRoot, 'images'), { recursive: true });
+      writeFileSync(path.join(fallbackDatasetRoot, 'images', 'FOLIO1-P1-C1.jpg'), 'fake-image');
+
+      const snapshot = parseOrganizationSnapshot({
+        total: 1,
+        items: [
+          {
+            archivoOriginal: 'cam1.jpg',
+            qrTexto: 'EXAMEN:FOLIO1:P1:TV3',
+            folioId: 'folio1',
+            pagina: 1,
+            metodo: 'qr',
+            destino: '../../omr_samples_tv3/images/Por Folio/FOLIO1/cam1.jpg'
+          }
+        ]
+      });
+
+      const captures = buildCaptureSources(snapshot, tempRoot, { fallbackDatasetRoot });
+
+      expect(captures).toHaveLength(1);
+      expect(captures[0]).toMatchObject({
+        captureId: 'FOLIO1-P1-C1',
+        sourcePath: 'omr_samples_tv3/images/Por Folio/FOLIO1/cam1.jpg'
+      });
+      expect(captures[0]?.absoluteImagePath).toBe(path.join(fallbackDatasetRoot, 'images', 'FOLIO1-P1-C1.jpg'));
+    } finally {
+      rmSync(tempRoot, { recursive: true, force: true });
+    }
   });
 
   it('consolida answer key por mayoria y omite blanks/doubles', () => {

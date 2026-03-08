@@ -17,6 +17,7 @@ const VISTAS_VALIDAS = new Set([
   'plantillas',
   'entrega',
   'calificaciones',
+  'rehidratacion',
   'evaluaciones',
   'publicar',
   'cuenta'
@@ -267,3 +268,4 @@ function etiquetaMateriaConId(nombre?: string, id?: string): string {
 export function etiquetaMateria(periodo?: { _id?: string; nombre?: string } | null): string {
   return etiquetaMateriaConId(periodo?.nombre, periodo?._id);
 }
+

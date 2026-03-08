@@ -1,0 +1,24 @@
+﻿{
+    "generatedAt":  "2026-03-08",
+    "loteId":  "A050929D",
+    "sourceReport":  "reports/qa/latest/pdf_analysis_079d38a9/a050929d_answer_key_reconciliation_report.json",
+    "rationale":  "Clave canonica visible reconciliada contra el PDF estructural del lote A050929D y el contenido impreso observado en las fotos Por Folio. No deriva de marcas de alumnos.",
+    "answers":  {
+                    "101":  "E",
+                    "102":  "D",
+                    "103":  "B",
+                    "104":  "C",
+                    "105":  "B",
+                    "106":  "C",
+                    "107":  "D",
+                    "201":  "D",
+                    "202":  "C",
+                    "203":  "D",
+                    "204":  "D",
+                    "205":  "B",
+                    "206":  "E",
+                    "207":  "C",
+                    "208":  "C"
+                }
+}
+

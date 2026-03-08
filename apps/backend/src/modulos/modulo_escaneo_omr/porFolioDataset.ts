@@ -1,4 +1,5 @@
-import fs from 'node:fs/promises';
+﻿import fs from 'node:fs/promises';
+import fsSync from 'node:fs';
 import path from 'node:path';
 import sharp from 'sharp';
 
@@ -241,7 +242,9 @@ function percentile(values: Uint8Array, q: number) {
 }
 
 async function readJsonFile<T>(filePath: string) {
-  return JSON.parse(await fs.readFile(filePath, 'utf8')) as T;
+  const raw = await fs.readFile(filePath, 'utf8');
+  const sanitized = raw.charCodeAt(0) === 0xfeff ? raw.slice(1) : raw;
+  return JSON.parse(sanitized) as T;
 }
 
 function resolveFromRepoRoot(repoRoot: string, targetPath: string) {
@@ -600,7 +603,26 @@ export async function loadOrganizationSnapshot(filePath: string) {
   return parseOrganizationSnapshot(await readJsonFile<unknown>(filePath));
 }
 
-export function buildCaptureSources(snapshot: OrganizacionPorAlumnoSnapshot, repoRoot: string) {
+function resolveCaptureImagePath(args: {
+  repoRoot: string;
+  relativeSource: string;
+  captureId: string;
+  fallbackDatasetRoot?: string;
+}) {
+  const primaryImagePath = path.resolve(args.repoRoot, args.relativeSource);
+  if (fsSync.existsSync(primaryImagePath)) return primaryImagePath;
+  if (args.fallbackDatasetRoot) {
+    const fallbackImagePath = path.resolve(args.fallbackDatasetRoot, 'images', `${args.captureId}.jpg`);
+    if (fsSync.existsSync(fallbackImagePath)) return fallbackImagePath;
+  }
+  return primaryImagePath;
+}
+
+export function buildCaptureSources(
+  snapshot: OrganizacionPorAlumnoSnapshot,
+  repoRoot: string,
+  options: { fallbackDatasetRoot?: string } = {}
+) {
   const baseByGroup = new Map<string, OrganizacionPorAlumnoItem[]>();
   for (const item of snapshot.items) {
     const key = `${item.folioId}:P${item.pagina}`;
@@ -615,14 +637,20 @@ export function buildCaptureSources(snapshot: OrganizacionPorAlumnoSnapshot, rep
     const pageNumber = Number(pageToken?.replace(/^P/i, '') || 0);
     sorted.forEach((item, index) => {
       const captureOrdinal = index + 1;
+      const captureId = deriveCaptureId(folio!, pageNumber, captureOrdinal);
       const relativeSource = item.destino.replace(/^(\.\.\/)+/, '').replace(/\\/g, '/');
-      const absoluteImagePath = path.resolve(repoRoot, relativeSource);
+      const absoluteImagePath = resolveCaptureImagePath({
+        repoRoot,
+        relativeSource,
+        captureId,
+        fallbackDatasetRoot: options.fallbackDatasetRoot
+      });
       captures.push({
-        captureId: deriveCaptureId(folio!, pageNumber, captureOrdinal),
+        captureId,
         folio: folio!,
         numeroPagina: pageNumber,
         captureOrdinal,
-        sourcePath: relativeToRepo(repoRoot, absoluteImagePath),
+        sourcePath: relativeSource,
         absoluteImagePath,
         sourceGroup: groupKey,
         templateVersion: 3,
@@ -737,6 +765,18 @@ export async function deriveCaptureOmrFromImage(
   };
 }
 
+type CanonicalAnswerKeySnapshotPorFolio = {
+  generatedAt?: string;
+  loteId?: string;
+  sourceReport?: string;
+  rationale?: string;
+  answers: Record<string, OpcionOmr | null>;
+};
+
+function isOpcionOmr(value: unknown): value is OpcionOmr {
+  return value === 'A' || value === 'B' || value === 'C' || value === 'D' || value === 'E';
+}
+
 export function buildAnswerKey(rows: GroundTruthRowPorFolio[]) {
   const groups = new Map<number, Map<OpcionOmr, number>>();
   for (const row of rows) {
@@ -753,44 +793,96 @@ export function buildAnswerKey(rows: GroundTruthRowPorFolio[]) {
   return answerKey;
 }
 
+async function loadCanonicalAnswerKeySnapshot(filePath: string) {
+  const snapshot = await readJsonFile<CanonicalAnswerKeySnapshotPorFolio>(filePath);
+  if (!snapshot || typeof snapshot !== 'object' || !snapshot.answers || typeof snapshot.answers !== 'object') {
+    throw new Error(`Snapshot de answer key invalido: ${filePath}`);
+  }
+
+  const answerKey: Record<number, OpcionOmr | null> = {};
+  for (const [questionNumberRaw, option] of Object.entries(snapshot.answers)) {
+    const questionNumber = Number(questionNumberRaw);
+    if (!Number.isInteger(questionNumber) || questionNumber <= 0) {
+      throw new Error(`Numero de pregunta invalido en answer key canonica: ${questionNumberRaw}`);
+    }
+    if (option !== null && !isOpcionOmr(option)) {
+      throw new Error(`Opcion invalida en answer key canonica para ${questionNumberRaw}: ${String(option)}`);
+    }
+    answerKey[questionNumber] = option;
+  }
+
+  if (Object.keys(answerKey).length === 0) {
+    throw new Error(`Snapshot de answer key canonica sin respuestas: ${filePath}`);
+  }
+
+  return {
+    snapshot,
+    answerKey
+  };
+}
+
 export async function buildPorFolioDataset(args: {
   repoRoot: string;
   datasetRoot: string;
   organizationPath?: string;
   assignmentSnapshotPath?: string;
   pdfSnapshotPath?: string;
+  structureTruthPath?: string;
+  canonicalPageMappingPath?: string;
+  answerKeyReconciliationPath?: string;
+  canonicalAnswerKeyPath?: string;
   profile?: DetectionProfilePorFolio;
 }) {
   const repoRoot = path.resolve(args.repoRoot);
   const datasetRoot = resolveFromRepoRoot(repoRoot, args.datasetRoot);
-  const organizationPath = resolveFromRepoRoot(
-    repoRoot,
-    args.organizationPath ?? 'omr_samples_tv3/images/Por Folio/_organizacion_por_alumno.json'
-  );
+  const outputDatasetRoot = `${datasetRoot}.__tmp_build`;
+  const defaultOrganizationPath = path.resolve(repoRoot, 'omr_samples_tv3/images/Por Folio/_organizacion_por_alumno.json');
+  const organizationPath = args.organizationPath
+    ? resolveFromRepoRoot(repoRoot, args.organizationPath)
+    : fsSync.existsSync(defaultOrganizationPath)
+      ? defaultOrganizationPath
+      : path.join(datasetRoot, 'source', 'organization_snapshot.json');
   const assignmentSnapshotPath = args.assignmentSnapshotPath
     ? resolveFromRepoRoot(repoRoot, args.assignmentSnapshotPath)
     : path.resolve(repoRoot, 'reports/qa/latest/rebuild_lote_from_pdf_asignaciones.json');
   const pdfSnapshotPath = args.pdfSnapshotPath
     ? resolveFromRepoRoot(repoRoot, args.pdfSnapshotPath)
     : path.resolve(repoRoot, 'reports/qa/latest/folios_extraidos_pdf.json');
+  const structureTruthPath = args.structureTruthPath
+    ? resolveFromRepoRoot(repoRoot, args.structureTruthPath)
+    : path.resolve(repoRoot, 'reports/qa/latest/pdf_analysis_079d38a9/a050929d_structure_truth.json');
+  const canonicalPageMappingPath = args.canonicalPageMappingPath
+    ? resolveFromRepoRoot(repoRoot, args.canonicalPageMappingPath)
+    : path.resolve(repoRoot, 'reports/qa/latest/pdf_analysis_079d38a9/a050929d_canonical_page_mapping.json');
+  const answerKeyReconciliationPath = args.answerKeyReconciliationPath
+    ? resolveFromRepoRoot(repoRoot, args.answerKeyReconciliationPath)
+    : path.resolve(repoRoot, 'reports/qa/latest/pdf_analysis_079d38a9/a050929d_answer_key_reconciliation_report.json');
+  const canonicalAnswerKeyPath = args.canonicalAnswerKeyPath
+    ? resolveFromRepoRoot(repoRoot, args.canonicalAnswerKeyPath)
+    : path.resolve(repoRoot, 'reports/qa/latest/pdf_analysis_079d38a9/a050929d_answer_key_canonical.json');
   const profile = args.profile ?? DEFAULT_POR_FOLIO_PROFILE;
 
   await fs.access(organizationPath);
-  await fs.rm(datasetRoot, { recursive: true, force: true });
-  await fs.mkdir(path.join(datasetRoot, 'images'), { recursive: true });
-  await fs.mkdir(path.join(datasetRoot, 'maps'), { recursive: true });
-  await fs.mkdir(path.join(datasetRoot, 'source'), { recursive: true });
+  await fs.access(canonicalAnswerKeyPath);
+  await fs.access(structureTruthPath);
+  await fs.access(canonicalPageMappingPath);
+  await fs.access(answerKeyReconciliationPath);
 
   const organization = await loadOrganizationSnapshot(organizationPath);
-  const captures = buildCaptureSources(organization, repoRoot);
+  const captures = buildCaptureSources(organization, repoRoot, { fallbackDatasetRoot: datasetRoot });
   const manifestCaptures: CaptureManifestPorFolio[] = [];
   const truthRows: GroundTruthRowPorFolio[] = [];
+
+  await fs.rm(outputDatasetRoot, { recursive: true, force: true });
+  await fs.mkdir(path.join(outputDatasetRoot, 'images'), { recursive: true });
+  await fs.mkdir(path.join(outputDatasetRoot, 'maps'), { recursive: true });
+  await fs.mkdir(path.join(outputDatasetRoot, 'source'), { recursive: true });
 
   for (const capture of captures) {
     const imageName = `${capture.captureId}.jpg`;
     const mapName = `${capture.captureId}.json`;
-    const imagePath = path.join(datasetRoot, 'images', imageName);
-    const mapPath = path.join(datasetRoot, 'maps', mapName);
+    const imagePath = path.join(outputDatasetRoot, 'images', imageName);
+    const mapPath = path.join(outputDatasetRoot, 'maps', mapName);
     await fs.copyFile(capture.absoluteImagePath, imagePath);
     const derived = await deriveCaptureOmrFromImage(capture, profile);
     derived.mapPage.engineHints = {
@@ -820,7 +912,8 @@ export async function buildPorFolioDataset(args: {
     });
   }
 
-  const answerKey = buildAnswerKey(truthRows);
+  const derivedAnswerKey = buildAnswerKey(truthRows);
+  const canonicalAnswerKey = await loadCanonicalAnswerKeySnapshot(canonicalAnswerKeyPath);
   const manifest = {
     version: '1',
     datasetType: 'tv3_real_por_folio',
@@ -834,30 +927,55 @@ export async function buildPorFolioDataset(args: {
     },
     groundTruthRef: 'ground_truth.jsonl',
     answerKeyPath: 'answer_key.json',
+    structureBaselinePath: 'source/pdf_structure_truth_snapshot.json',
+    canonicalPageMappingPath: 'source/folio_exam_page_mapping_snapshot.json',
+    answerKeySourcePath: 'source/answer_key_canonical_snapshot.json',
+    answerKeyReconciliationPath: 'source/answer_key_reconciliation_snapshot.json',
+    answerKeyMethod: 'canonical_visible_reconciliation',
     capturas: manifestCaptures
   };
 
-  await fs.writeFile(path.join(datasetRoot, 'manifest.json'), `${JSON.stringify(manifest, null, 2)}\n`, 'utf8');
-  await fs.writeFile(path.join(datasetRoot, 'answer_key.json'), `${JSON.stringify(answerKey, null, 2)}\n`, 'utf8');
+  await fs.writeFile(path.join(outputDatasetRoot, 'manifest.json'), `${JSON.stringify(manifest, null, 2)}\n`, 'utf8');
   await fs.writeFile(
-    path.join(datasetRoot, 'ground_truth.jsonl'),
+    path.join(outputDatasetRoot, 'answer_key.json'),
+    `${JSON.stringify(canonicalAnswerKey.answerKey, null, 2)}\n`,
+    'utf8'
+  );
+  await fs.writeFile(
+    path.join(outputDatasetRoot, 'ground_truth.jsonl'),
     `${truthRows.map((row) => JSON.stringify(row)).join('\n')}\n`,
     'utf8'
   );
 
-  await fs.copyFile(organizationPath, path.join(datasetRoot, 'source', 'organization_snapshot.json'));
+  await fs.copyFile(organizationPath, path.join(outputDatasetRoot, 'source', 'organization_snapshot.json'));
   try {
-    await fs.copyFile(assignmentSnapshotPath, path.join(datasetRoot, 'source', 'folio_assignment_snapshot.json'));
+    await fs.copyFile(assignmentSnapshotPath, path.join(outputDatasetRoot, 'source', 'folio_assignment_snapshot.json'));
   } catch {
     // Best effort: repo puede no tener snapshot si se ejecuta fuera del contexto QA.
   }
   try {
-    await fs.copyFile(pdfSnapshotPath, path.join(datasetRoot, 'source', 'pdf_folios_snapshot.json'));
+    await fs.copyFile(pdfSnapshotPath, path.join(outputDatasetRoot, 'source', 'pdf_folios_snapshot.json'));
   } catch {
     // Best effort.
   }
+  await fs.copyFile(structureTruthPath, path.join(outputDatasetRoot, 'source', 'pdf_structure_truth_snapshot.json'));
+  await fs.copyFile(canonicalPageMappingPath, path.join(outputDatasetRoot, 'source', 'folio_exam_page_mapping_snapshot.json'));
+  await fs.copyFile(
+    answerKeyReconciliationPath,
+    path.join(outputDatasetRoot, 'source', 'answer_key_reconciliation_snapshot.json')
+  );
   await fs.writeFile(
-    path.join(datasetRoot, 'source', 'layout_detection_profile.json'),
+    path.join(outputDatasetRoot, 'source', 'answer_key_canonical_snapshot.json'),
+    `${JSON.stringify(canonicalAnswerKey.snapshot, null, 2)}\n`,
+    'utf8'
+  );
+  await fs.writeFile(
+    path.join(outputDatasetRoot, 'source', 'answer_key_derived_from_marks.json'),
+    `${JSON.stringify(derivedAnswerKey, null, 2)}\n`,
+    'utf8'
+  );
+  await fs.writeFile(
+    path.join(outputDatasetRoot, 'source', 'layout_detection_profile.json'),
     `${JSON.stringify(profile, null, 2)}\n`,
     'utf8'
   );
@@ -869,8 +987,9 @@ export async function buildPorFolioDataset(args: {
     '',
     '- `images/`: copias de las capturas originales.',
     '- `maps/`: mapa OMR por captura derivado por deteccion de paneles laterales.',
-    '- `ground_truth.jsonl`: truth por burbuja derivado con `panel_darkness_v1`.',
-    '- `source/`: snapshots usados para trazabilidad de folios y perfil de deteccion.',
+    '- `ground_truth.jsonl`: verdad de marcas por burbuja derivada con `panel_darkness_v1`.',
+    '- `answer_key.json`: clave correcta canonica del examen, no derivada de marcas estudiantiles.',
+    '- `source/`: snapshots usados para trazabilidad de folios, estructura PDF, mapeo canonico, reconciliacion y perfil de deteccion.',
     '',
     'Regeneracion:',
     '',
@@ -879,12 +998,15 @@ export async function buildPorFolioDataset(args: {
     '```',
     ''
   ].join('\n');
-  await fs.writeFile(path.join(datasetRoot, 'README.md'), readme, 'utf8');
+  await fs.writeFile(path.join(outputDatasetRoot, 'README.md'), readme, 'utf8');
+
+  await fs.rm(datasetRoot, { recursive: true, force: true });
+  await fs.rename(outputDatasetRoot, datasetRoot);
 
   return {
     datasetRoot,
     captures: manifestCaptures.length,
     truthRows: truthRows.length,
-    answerKeySize: Object.keys(answerKey).length
+    answerKeySize: Object.keys(canonicalAnswerKey.answerKey).length
   };
 }

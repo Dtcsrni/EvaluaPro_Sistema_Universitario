@@ -14,6 +14,7 @@ import { SeccionPlantillas } from './SeccionPlantillas';
 import { SeccionPeriodos, SeccionPeriodosArchivados } from './SeccionPeriodos';
 import { SeccionEntrega } from './SeccionEntregaInterna';
 import { SeccionCalificaciones } from './SeccionCalificaciones';
+import { SeccionRehidratacionLotes } from './SeccionRehidratacionLotes';
 import { SeccionSincronizacion } from './SeccionSincronizacion';
 import { SeccionEvaluaciones } from './SeccionEvaluaciones';
 import { usePermisosDocente } from './hooks/usePermisosDocente';
@@ -1096,6 +1097,13 @@ export function AppDocente() {
           onCargarRevisionHistoricaCalificada={cargarRevisionHistoricaCalificada}
         />
       )}
+      {vista === 'rehidratacion' && (
+        <SeccionRehidratacionLotes
+          docente={docente}
+          esAdmin={esAdmin}
+          puedeUsar={permisosUI.rehidratacion.usar}
+        />
+      )}
       {vista === 'evaluaciones' && (
         <SeccionEvaluaciones
           periodos={periodos}
@@ -1200,3 +1208,4 @@ export function AppDocente() {
   );
   return <ShellDocente docente={docente} onCerrarSesion={cerrarSesion}>{contenido}</ShellDocente>;
 }
+
