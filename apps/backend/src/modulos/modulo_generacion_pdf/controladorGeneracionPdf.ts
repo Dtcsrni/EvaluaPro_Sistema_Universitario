@@ -30,16 +30,21 @@ import { BanderaRevision } from '../modulo_analiticas/modeloBanderaRevision';
 import { Calificacion } from '../modulo_calificacion/modeloCalificacion';
 import { Entrega } from '../modulo_vinculacion_entrega/modeloEntrega';
 import { ExamenGenerado } from './modeloExamenGenerado';
+import { ExamenRecoveryBundle } from './modeloExamenRecoveryBundle';
+import { ExamenRecoveryManifest } from './modeloExamenRecoveryManifest';
 import { ExamenPlantilla, normalizarTituloPlantilla } from './modeloExamenPlantilla';
 import { generarPdfExamen } from './servicioGeneracionPdf';
 import { generarVariante } from './servicioVariantes';
 import { resolverNumeroPaginasPlantilla } from './domain/resolverNumeroPaginasPlantilla';
 import { guardarEnPapelera } from '../modulo_papelera/servicioPapelera';
 import {
-  construirMapaVarianteUsadaTv3,
+  construirMapaVarianteUsadaParaTemplate,
   extraerPreguntasUsadasMapaOmr,
-  normalizarPreguntasParaTv3
-} from './domain/tv3Compat';
+  normalizarPreguntasParaTemplate,
+  TEMPLATE_VERSION_DEFAULT
+} from './domain/templateCompat';
+import { construirRecoveryBundle, construirRecoveryManifest } from './domain/recoveryManifest';
+import type { TemplateVersion } from './shared/tiposPdf';
 
 type MapaVariante = {
   ordenPreguntas: string[];
@@ -167,9 +172,9 @@ function formatearDocente(nombreCompleto: unknown): string {
   return `I.S.C. ${n}`;
 }
 
-function resolverTemplateVersionOmr(params: { docenteId: unknown; periodoId?: unknown; plantillaId?: unknown }): 3 {
+function resolverTemplateVersionOmr(params: { docenteId: unknown; periodoId?: unknown; plantillaId?: unknown }): TemplateVersion {
   void params;
-  return 3;
+  return TEMPLATE_VERSION_DEFAULT;
 }
 
 function construirEncabezadoPdf(params: {
@@ -252,7 +257,7 @@ function construirMapaVarianteUsadaDesdeOmr(
   mapaOmr: { paginas?: Array<{ preguntas?: Array<{ idPregunta?: string }> }> }
 ) {
   const usados = extraerPreguntasUsadasMapaOmr(mapaOmr as never);
-  return construirMapaVarianteUsadaTv3(mapaVariante as never, usados);
+  return construirMapaVarianteUsadaParaTemplate(mapaVariante as never, usados);
 }
 
 function construirFirmaVariante(mapaVariante: MapaVariante): string {
@@ -777,8 +782,13 @@ export async function previsualizarPlantilla(req: SolicitudDocente, res: Respons
 
   const totalDisponibles = preguntasDb.length;
   const numeroPaginas = resolverNumeroPaginasPlantilla(plantilla as unknown as { numeroPaginas?: unknown });
+  const templateVersionOmr = resolverTemplateVersionOmr({
+    docenteId,
+    periodoId: plantilla.periodoId,
+    plantillaId: plantilla._id
+  });
 
-  const preguntasBase = normalizarPreguntasParaTv3(
+  const preguntasBase = normalizarPreguntasParaTemplate(
     preguntasDb.map((pregunta) => {
       const version =
         pregunta.versiones.find((item: { numeroVersion: number }) => item.numeroVersion === pregunta.versionActual) ??
@@ -789,7 +799,8 @@ export async function previsualizarPlantilla(req: SolicitudDocente, res: Respons
         imagenUrl: version.imagenUrl ?? undefined,
         opciones: version.opciones
       };
-    })
+    }),
+    templateVersionOmr
   );
 
   const seed = hash32(String(plantilla._id));
@@ -800,11 +811,6 @@ export async function previsualizarPlantilla(req: SolicitudDocente, res: Respons
     plantilla.periodoId ? Periodo.findById(plantilla.periodoId).lean() : Promise.resolve(null),
     Docente.findById(docenteId).lean()
   ]);
-  const templateVersionOmr = resolverTemplateVersionOmr({
-    docenteId,
-    periodoId: plantilla.periodoId,
-    plantillaId: plantilla._id
-  });
 
   const generarPreview = (paginasObjetivo: number) =>
     generarPdfExamen({
@@ -950,8 +956,13 @@ export async function previsualizarPlantillaPdf(req: SolicitudDocente, res: Resp
   }
 
   const numeroPaginas = resolverNumeroPaginasPlantilla(plantilla as unknown as { numeroPaginas?: unknown });
+  const templateVersionOmr = resolverTemplateVersionOmr({
+    docenteId,
+    periodoId: plantilla.periodoId,
+    plantillaId: plantilla._id
+  });
 
-  const preguntasBase = normalizarPreguntasParaTv3(
+  const preguntasBase = normalizarPreguntasParaTemplate(
     preguntasDb.map((pregunta) => {
       const version =
         pregunta.versiones.find((item: { numeroVersion: number }) => item.numeroVersion === pregunta.versionActual) ??
@@ -962,7 +973,8 @@ export async function previsualizarPlantillaPdf(req: SolicitudDocente, res: Resp
         imagenUrl: version.imagenUrl ?? undefined,
         opciones: version.opciones
       };
-    })
+    }),
+    templateVersionOmr
   );
 
   const esDev = String(configuracion.entorno).toLowerCase() === 'development';
@@ -1007,11 +1019,6 @@ export async function previsualizarPlantillaPdf(req: SolicitudDocente, res: Resp
     plantilla.periodoId ? Periodo.findById(plantilla.periodoId).lean() : Promise.resolve(null),
     Docente.findById(docenteId).lean()
   ]);
-  const templateVersionOmr = resolverTemplateVersionOmr({
-    docenteId,
-    periodoId: plantilla.periodoId,
-    plantillaId: plantilla._id
-  });
 
   const generarPreviewPdf = (paginasObjetivo: number) =>
     generarPdfExamen({
@@ -1113,8 +1120,13 @@ export async function generarExamen(req: SolicitudDocente, res: Response) {
     throw new ErrorAplicacion('SIN_PREGUNTAS', 'La plantilla no tiene preguntas asociadas', 400);
   }
   const numeroPaginas = resolverNumeroPaginasPlantilla(plantilla as unknown as { numeroPaginas?: unknown });
+  const templateVersionOmr = resolverTemplateVersionOmr({
+    docenteId,
+    periodoId: plantilla.periodoId,
+    plantillaId: plantilla._id
+  });
 
-  const preguntasBase = normalizarPreguntasParaTv3(
+  const preguntasBase = normalizarPreguntasParaTemplate(
     preguntasDb.map((pregunta) => {
       const version =
         pregunta.versiones.find((item: { numeroVersion: number }) => item.numeroVersion === pregunta.versionActual) ??
@@ -1125,7 +1137,8 @@ export async function generarExamen(req: SolicitudDocente, res: Response) {
         imagenUrl: version.imagenUrl ?? undefined,
         opciones: version.opciones
       };
-    })
+    }),
+    templateVersionOmr
   );
 
   const preguntasCandidatas = ordenarPreguntasAleatorio(preguntasBase);
@@ -1133,11 +1146,6 @@ export async function generarExamen(req: SolicitudDocente, res: Response) {
   const loteId = randomUUID().split('-')[0].toUpperCase();
   const folio = randomUUID().split('-')[0].toUpperCase();
   const examenGeneradoId = new Types.ObjectId();
-  const templateVersionOmr = resolverTemplateVersionOmr({
-    docenteId,
-    periodoId: plantilla.periodoId,
-    plantillaId: plantilla._id
-  });
 
   const generarConPaginas = (paginasObjetivo: number) =>
     generarPdfExamen({
@@ -1214,6 +1222,19 @@ export async function generarExamen(req: SolicitudDocente, res: Response) {
     plantillaTitulo: String(plantilla.titulo ?? '')
   });
   const rutaPdf = await guardarPdfExamen(nombreArchivo, pdfBytes);
+  const recoveryManifest = construirRecoveryManifest({
+    examId: String(examenGeneradoId),
+    docenteId: String(docenteId),
+    periodoId: String(plantilla.periodoId ?? ''),
+    plantillaId: String(plantilla._id ?? ''),
+    loteId,
+    folio,
+    templateVersion: templateVersionOmr,
+    preguntas: preguntasCandidatas,
+    mapaVariante: mapaVarianteUsada,
+    mapaOmr,
+    paginas
+  });
 
   const examenGenerado = await ExamenGenerado.create({
     _id: examenGeneradoId,
@@ -1227,8 +1248,28 @@ export async function generarExamen(req: SolicitudDocente, res: Response) {
     mapaVariante: mapaVarianteUsada,
     paginas,
     mapaOmr,
-    rutaPdf
+    rutaPdf,
+    recoveryKeyId: recoveryManifest.keyId,
+    recoveryManifestHash: recoveryManifest.manifestHash,
+    recoveryManifest
   });
+  await ExamenRecoveryManifest.updateOne(
+    { manifestHash: recoveryManifest.manifestHash },
+    {
+      $set: {
+        docenteId,
+        periodoId: plantilla.periodoId,
+        plantillaId: plantilla._id,
+        examId: String(examenGeneradoId),
+        folio,
+        loteId,
+        keyId: recoveryManifest.keyId,
+        manifestHash: recoveryManifest.manifestHash,
+        manifest: recoveryManifest
+      }
+    },
+    { upsert: true }
+  );
 
   res.status(201).json({ examenGenerado, advertencias });
 }
@@ -1318,8 +1359,13 @@ export async function generarExamenesLote(req: SolicitudDocente, res: Response) 
     throw new ErrorAplicacion('SIN_PREGUNTAS', 'La plantilla no tiene preguntas asociadas', 400);
   }
   const numeroPaginas = resolverNumeroPaginasPlantilla(plantilla as unknown as { numeroPaginas?: unknown });
+  const templateVersionOmr = resolverTemplateVersionOmr({
+    docenteId,
+    periodoId: plantilla.periodoId,
+    plantillaId: plantilla._id
+  });
 
-  const preguntasBase = normalizarPreguntasParaTv3(
+  const preguntasBase = normalizarPreguntasParaTemplate(
     preguntasDb.map((pregunta) => {
       const version =
         pregunta.versiones.find((item: { numeroVersion: number }) => item.numeroVersion === pregunta.versionActual) ??
@@ -1330,17 +1376,13 @@ export async function generarExamenesLote(req: SolicitudDocente, res: Response) 
         imagenUrl: version.imagenUrl ?? undefined,
         opciones: version.opciones
       };
-    })
+    }),
+    templateVersionOmr
   );
 
   // Pre-chequeo: fija el set de preguntas del lote para que TODOS los examenes
   // usen exactamente las mismas preguntas y cantidad de reactivos.
-  const templateVersionOmr = resolverTemplateVersionOmr({
-    docenteId,
-    periodoId: plantilla.periodoId,
-    plantillaId: plantilla._id
-  });
-  let preguntasBaseLote: ReturnType<typeof normalizarPreguntasParaTv3> = [];
+  let preguntasBaseLote: typeof preguntasBase = [];
   let totalReactivosLote = 0;
   {
     const preguntasCandidatas = ordenarPreguntasDeterminista(preguntasBase, hash32(`${String(plantilla._id)}:${loteId}:lote-base`));
@@ -1384,10 +1426,11 @@ export async function generarExamenesLote(req: SolicitudDocente, res: Response) 
     }
 
     const preguntasPorId = new Map(preguntasBase.map((pregunta) => [String(pregunta.id), pregunta]));
-    preguntasBaseLote = normalizarPreguntasParaTv3(
+    preguntasBaseLote = normalizarPreguntasParaTemplate(
       idsPreguntasLote
         .map((id) => preguntasPorId.get(id))
-        .filter((pregunta): pregunta is NonNullable<typeof pregunta> => Boolean(pregunta))
+        .filter((pregunta): pregunta is NonNullable<typeof pregunta> => Boolean(pregunta)),
+      templateVersionOmr
     );
     totalReactivosLote = preguntasBaseLote.length;
 
@@ -1417,6 +1460,8 @@ export async function generarExamenesLote(req: SolicitudDocente, res: Response) 
 
   const firmasVariantesLote = new Set<string>();
   const maxIntentosVarianteUnica = Math.min(36, Math.max(10, totalAlumnos * 2));
+  const recoveryManifestsLote = [] as Array<ReturnType<typeof construirRecoveryManifest>>;
+  const examenesPersistidosLote = [] as Array<{ _id: string; folio: string }>;
 
   async function crearExamenSinAlumno() {
     for (let intento = 0; intento < maxIntentosVarianteUnica; intento += 1) {
@@ -1424,10 +1469,12 @@ export async function generarExamenesLote(req: SolicitudDocente, res: Response) 
       const mapaVariante = generarVariante(preguntasCandidatas);
       const esUltimoIntentoVariante = intento + 1 >= maxIntentosVarianteUnica;
       let folio = randomUUID().split('-')[0].toUpperCase();
+      const examenGeneradoId = new Types.ObjectId();
       try {
         const { pdfBytes, paginas, metricasPaginas, mapaOmr, preguntasRestantes } = await generarPdfExamen({
           titulo: plantilla.titulo,
           folio,
+          examId: String(examenGeneradoId),
           preguntas: preguntasCandidatas,
           mapaVariante,
           tipoExamen: plantilla.tipo as 'parcial' | 'global',
@@ -1486,8 +1533,22 @@ export async function generarExamenesLote(req: SolicitudDocente, res: Response) 
           plantillaTitulo: String(plantilla.titulo ?? '')
         });
         const rutaPdf = await guardarPdfExamen(nombreArchivo, pdfBytes);
+        const recoveryManifest = construirRecoveryManifest({
+          examId: String(examenGeneradoId),
+          docenteId: String(docenteId),
+          periodoId: String(plantilla.periodoId ?? ''),
+          plantillaId: String(plantilla._id ?? ''),
+          loteId,
+          folio,
+          templateVersion: templateVersionOmr,
+          preguntas: preguntasCandidatas,
+          mapaVariante: mapaVarianteUsada,
+          mapaOmr,
+          paginas
+        });
 
         const examenGenerado = await ExamenGenerado.create({
+          _id: examenGeneradoId,
           docenteId,
           periodoId: plantilla.periodoId,
           plantillaId: plantilla._id,
@@ -1498,10 +1559,32 @@ export async function generarExamenesLote(req: SolicitudDocente, res: Response) 
           mapaVariante: mapaVarianteUsada,
           paginas,
           mapaOmr,
-          rutaPdf
+          rutaPdf,
+          recoveryKeyId: recoveryManifest.keyId,
+          recoveryManifestHash: recoveryManifest.manifestHash,
+          recoveryManifest
         });
+        await ExamenRecoveryManifest.updateOne(
+          { manifestHash: recoveryManifest.manifestHash },
+          {
+            $set: {
+              docenteId,
+              periodoId: plantilla.periodoId,
+              plantillaId: plantilla._id,
+              examId: String(examenGeneradoId),
+              folio,
+              loteId,
+              keyId: recoveryManifest.keyId,
+              manifestHash: recoveryManifest.manifestHash,
+              manifest: recoveryManifest
+            }
+          },
+          { upsert: true }
+        );
 
         firmasVariantesLote.add(firmaVariante);
+        recoveryManifestsLote.push(recoveryManifest);
+        examenesPersistidosLote.push({ _id: String(examenGenerado._id), folio: String(examenGenerado.folio) });
 
         return { examenGenerado, pdfBytes };
       } catch (error) {
@@ -1527,6 +1610,41 @@ export async function generarExamenesLote(req: SolicitudDocente, res: Response) 
       generadoEn: examenGenerado.generadoEn
     });
     if (pdfBytes) pdfsLote.push(pdfBytes);
+  }
+
+  if (recoveryManifestsLote.length > 0) {
+    const recoveryBundle = construirRecoveryBundle({
+      loteId,
+      docenteId: String(docenteId),
+      periodoId: String(plantilla.periodoId ?? ''),
+      plantillaId: String(plantilla._id ?? ''),
+      templateVersion: templateVersionOmr,
+      manifests: recoveryManifestsLote
+    });
+    const bundleDoc = await ExamenRecoveryBundle.findOneAndUpdate(
+      { docenteId, loteId },
+      {
+        $set: {
+          docenteId,
+          periodoId: plantilla.periodoId,
+          plantillaId: plantilla._id,
+          loteId,
+          keyId: recoveryBundle.keyId,
+          bundleHash: recoveryBundle.bundleHash,
+          bundle: recoveryBundle
+        }
+      },
+      { upsert: true, returnDocument: 'after', setDefaultsOnInsert: true }
+    );
+    await ExamenGenerado.updateMany(
+      { _id: { $in: examenesPersistidosLote.map((exam) => exam._id) } },
+      {
+        $set: {
+          recoveryBundleId: bundleDoc._id,
+          recoveryBundleHash: recoveryBundle.bundleHash
+        }
+      }
+    );
   }
 
   let lotePdfUrl: string | undefined;

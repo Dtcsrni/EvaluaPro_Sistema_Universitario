@@ -2,6 +2,7 @@ import fs from 'node:fs/promises';
 import path from 'node:path';
 import sharp from 'sharp';
 import { leerQrDesdeImagen } from '../src/modulos/modulo_escaneo_omr/servicioOmr';
+import { extraerResumenQrExamen } from '../src/modulos/modulo_generacion_pdf/domain/qrExamen';
 
 type ItemReporte = {
   archivoOriginal: string;
@@ -59,11 +60,11 @@ function extractFolioAndPage(qrTexto?: string): { folioId: string; pagina?: numb
   const clean = String(qrTexto ?? '').trim();
   if (!clean) return { folioId: 'SIN_QR' };
 
-  const examenMatch = /^EXAMEN:([A-Z0-9-]+):P(\d+):TV\d+$/i.exec(clean);
-  if (examenMatch) {
+  const resumenExamen = extraerResumenQrExamen(clean);
+  if (resumenExamen) {
     return {
-      folioId: String(examenMatch[1] ?? '').toUpperCase(),
-      pagina: Number.parseInt(String(examenMatch[2] ?? ''), 10)
+      folioId: String(resumenExamen.folio ?? '').toUpperCase(),
+      pagina: Number.parseInt(String(resumenExamen.numeroPagina ?? ''), 10)
     };
   }
 

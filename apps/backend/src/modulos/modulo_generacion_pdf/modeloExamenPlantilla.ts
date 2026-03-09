@@ -46,6 +46,13 @@ const ExamenPlantillaSchema = new Schema(
       ignoreUnusedTrailingQuestions: { type: Boolean, default: true },
       captureMode: { type: String, enum: ['pdf_and_mobile'], default: 'pdf_and_mobile' }
     },
+    recoverySource: {
+      origen: { type: String, enum: ['recovery_manifest', 'recovery_bundle'] },
+      recoveryBundleHash: { type: String },
+      recoveryManifestHash: { type: String },
+      reconstructedAt: { type: Date },
+      reconstructedBy: { type: Schema.Types.ObjectId, ref: 'Docente' }
+    },
     configuracionPdf: {
       margenMm: { type: Number, default: 10 },
       layout: { type: String, default: 'parcial' }

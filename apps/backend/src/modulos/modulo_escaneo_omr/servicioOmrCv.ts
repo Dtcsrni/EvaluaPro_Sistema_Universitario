@@ -10,6 +10,8 @@ import {
   evaluarConOffset,
   type EstadoImagenOmr
 } from './omrCore';
+import * as porFolioDatasetModule from './porFolioDataset';
+import type { PanelDarknessDetection } from './porFolioDataset';
 import { UMBRALES_OMR_AUTO, evaluarRescateAltaPrecisionOmr } from './politicaAutoCalificacionOmr';
 import {
   calcularIntegral,
@@ -42,6 +44,25 @@ export type RespuestaDetectadaOmr = {
   flags: Array<'doble_marca' | 'bajo_contraste' | 'fuera_roi' | 'parcial_detectada' | 'tachada_detectada'>;
 };
 
+type FlagRespuestaOmr = RespuestaDetectadaOmr['flags'][number];
+type AnalyzePanelsFn = (imageBuffer: Buffer, questionNumbers: number[]) => Promise<PanelDarknessDetection[]>;
+
+const analyzeOmrPanelsFromImageBuffer = (
+  (porFolioDatasetModule as {
+    analyzeOmrPanelsFromImageBuffer?: AnalyzePanelsFn;
+    default?: {
+      analyzeOmrPanelsFromImageBuffer?: AnalyzePanelsFn;
+    };
+    'module.exports'?: {
+      analyzeOmrPanelsFromImageBuffer?: AnalyzePanelsFn;
+    };
+  }).analyzeOmrPanelsFromImageBuffer ??
+  (porFolioDatasetModule as { default?: { analyzeOmrPanelsFromImageBuffer?: AnalyzePanelsFn } }).default
+    ?.analyzeOmrPanelsFromImageBuffer ??
+  (porFolioDatasetModule as { 'module.exports'?: { analyzeOmrPanelsFromImageBuffer?: AnalyzePanelsFn } })['module.exports']
+    ?.analyzeOmrPanelsFromImageBuffer
+) as AnalyzePanelsFn;
+
 export type ResultadoOmr = {
   respuestasDetectadas: RespuestaDetectadaOmr[];
   advertencias: string[];
@@ -52,14 +73,14 @@ export type ResultadoOmr = {
   templateVersionDetectada: TemplateVersion;
   confianzaPromedioPagina: number;
   ratioAmbiguas: number;
-  engineVersion: 'omr-v1-cv' | 'omr-v3-cv';
+  engineVersion: 'omr-v1-cv' | 'omr-v3-cv' | 'omr-v4-cv';
   geomQuality: number;
   photoQuality: number;
   decisionPolicy: 'conservadora_v1';
 };
 
 type Punto = { x: number; y: number };
-type TemplateVersion = 1 | 3;
+type TemplateVersion = 1 | 3 | 4;
 type PerfilGeometriaOmr = 'actual' | 'geo_tight_search';
 
 type MapaOmrPagina = {
@@ -199,7 +220,7 @@ const OMR_SECOND_PASS_ENABLED = leerBanderaEnv('OMR_SECOND_PASS_ENABLED', true);
 const OMR_SECOND_PASS_QUALITY_MAX = Number.parseFloat(process.env.OMR_SECOND_PASS_QUALITY_MAX || '0.72');
 const OMR_SECOND_PASS_CONF_MAX = Number.parseFloat(process.env.OMR_SECOND_PASS_CONF_MAX || '0.5');
 const OMR_SECOND_PASS_FIDUCIALES_RESCUE = leerBanderaEnv('OMR_SECOND_PASS_FIDUCIALES_RESCUE', true);
-const OMR_LOCAL_GEOMETRY_ENABLED = leerBanderaEnv('OMR_LOCAL_GEOMETRY_ENABLED', false);
+const OMR_LOCAL_GEOMETRY_ENABLED = leerBanderaEnv('OMR_LOCAL_GEOMETRY_ENABLED', true);
 const OMR_REJECT_KEEP_RESPONSES_MIN_DETECTION = Number.parseFloat(
   process.env.OMR_REJECT_KEEP_RESPONSES_MIN_DETECTION || '0.22'
 );
@@ -256,6 +277,33 @@ function resolverPerfilDeteccion(templateVersion: TemplateVersion): PerfilDetecc
       minCenterGap: Math.max(8.5, OMR_MIN_CENTER_GAP * 0.82),
       minHybridConf: Math.max(0.2, OMR_MIN_HYBRID_CONF * 0.74),
       reprojectionMaxErrorPx: 3.6
+    };
+  }
+  if (templateVersion === 4) {
+    return {
+      version: 4,
+      qrSizePts: 31 * MM_A_PUNTOS,
+      bubbleRadiusPts: (6.6 * MM_A_PUNTOS) / 2,
+      bubblePitchYPts: 12.6,
+      boxWidthPts: Math.max(78, OMR_BOX_WIDTH_PTS * 1.72),
+      centerToLeftPts: 15.8,
+      alignRange: Math.max(20, OMR_ALIGN_RANGE),
+      vertRange: Math.max(12, OMR_VERT_RANGE),
+      localSearchRatio: Math.max(0.24, OMR_LOCAL_SEARCH_RATIO * 0.96),
+      localDriftPenalty: Math.max(0.08, OMR_LOCAL_DRIFT_PENALTY),
+      maxCenterDriftRatio: Math.max(0.22, OMR_MAX_CENTER_DRIFT_RATIO * 0.8),
+      minSafeRange: Math.max(4, OMR_MIN_SAFE_RANGE),
+      scoreMin: Math.max(0.038, OMR_SCORE_MIN * 0.96),
+      scoreStd: Math.max(0.56, OMR_SCORE_STD * 0.98),
+      strongScore: Math.max(0.058, OMR_STRONG_SCORE * 0.97),
+      secondRatio: Math.max(0.7, OMR_SECOND_RATIO * 0.96),
+      deltaMin: Math.max(0.009, OMR_DELTA_MIN * 0.96),
+      minTopZScore: 0.88,
+      ambiguityRatio: Math.max(0.94, OMR_AMBIGUITY_RATIO * 0.98),
+      minFillDelta: Math.max(0.085, OMR_MIN_FILL_DELTA * 0.94),
+      minCenterGap: Math.max(10.2, OMR_MIN_CENTER_GAP * 0.94),
+      minHybridConf: Math.max(0.22, OMR_MIN_HYBRID_CONF * 0.82),
+      reprojectionMaxErrorPx: 4
     };
   }
   return {
@@ -345,6 +393,7 @@ type OpcionesAnalisisInterno = {
   aggressivePreprocess?: boolean;
   noRetry?: boolean;
   rescueFiduciales?: boolean;
+  rawImageBase64?: string;
 };
 
 type DebugPregunta = {
@@ -1359,11 +1408,11 @@ function prepararCentrosPregunta(
   let ajusteSeleccionado: AjusteFiducialesResultado | null = null;
   let panelDerechoPreferido = false;
   if (ajusteFid && ajustePanelDerecho) {
-    const fidConfiable = esAjusteConfiable(ajusteFid, 0.5, 6.4);
-    const panelConfiable = esAjusteConfiable(ajustePanelDerecho, 0.66, 5.2);
+    const fidConfiable = esAjusteConfiable(ajusteFid, 0.5, 7.2);
+    const panelConfiable = esAjusteConfiable(ajustePanelDerecho, 0.5, 5.8);
     const panelClaramenteMejor =
       panelConfiable &&
-      (!fidConfiable || ajustePanelDerecho.reprojectionErrorPx + 0.7 < ajusteFid.reprojectionErrorPx);
+      (!fidConfiable || ajustePanelDerecho.reprojectionErrorPx <= ajusteFid.reprojectionErrorPx + 0.35);
     ajusteSeleccionado = panelClaramenteMejor ? ajustePanelDerecho : ajusteFid;
     panelDerechoPreferido = panelClaramenteMejor;
   } else if (ajusteFid) {
@@ -1448,6 +1497,7 @@ function extraerTemplateVersionDesdeQr(qrTexto?: string): TemplateVersion | unde
   if (/^OMR1:/i.test(qrTexto)) return 1;
   if (/:TV1\b/i.test(qrTexto)) return 1;
   if (/:TV3\b/i.test(qrTexto)) return 3;
+  if (/:TV4\b/i.test(qrTexto)) return 4;
   return undefined;
 }
 
@@ -1497,20 +1547,23 @@ function construirScoresPorOpcion(args: {
       const y = scoreItem.y ?? (centroBase ? centroBase.punto.y + mejorDy : 0);
       const rasgos = detectarOpcion(gray, integral, width, height, { x, y }, paramsBurbuja);
       const centerDarknessDelta = clamp01((rasgos.ringMean - rasgos.centerMean) / 255);
-      const shapeCompactness = clamp01(1 / Math.max(1, rasgos.anisotropy));
+      const shapeCompactness = clamp01((1 / Math.max(1, rasgos.anisotropy)) * (1 - Math.min(0.6, rasgos.centroidOffsetRatio)));
       const markConfidence = clamp01(
-        scoreItem.score * 2.05 +
-          centerDarknessDelta * 0.35 +
-          rasgos.ratioCore * 0.25 -
-          rasgos.ringOnlyPenalty * 0.32
+        scoreItem.score * 1.55 +
+          centerDarknessDelta * 0.32 +
+          rasgos.ratioCore * 0.28 -
+          rasgos.ringOnlyPenalty * 0.34 -
+          rasgos.centroidOffsetRatio * 0.18
       );
       const gapCentro = rasgos.ringMean - rasgos.centerMean;
       const estadoMarca: ScoreOpcionOmr['estadoMarca'] =
-        scoreItem.score >= 0.088 && rasgos.ratioRing >= 0.34 && rasgos.ratioCore < 0.2 && rasgos.anisotropy >= 2.75
+        scoreItem.score >= 0.16 && rasgos.ratioRing >= 0.32 && rasgos.ratioCore < 0.22 && rasgos.anisotropy >= 2.45
           ? 'tachada'
-          : scoreItem.score >= 0.09 || (rasgos.ratioCore >= 0.24 && gapCentro >= 12)
+          : (scoreItem.score >= 0.18 && rasgos.ratioCore >= 0.18 && gapCentro >= 16 && rasgos.centroidOffsetRatio <= 0.42) ||
+              (scoreItem.score >= 0.14 && rasgos.ratioCore >= 0.26 && gapCentro >= 12) ||
+              markConfidence >= 0.72
             ? 'marcada'
-            : scoreItem.score >= 0.055 || rasgos.ratioCore >= 0.16 || rasgos.fillDelta >= 0.05
+            : scoreItem.score >= 0.1 || rasgos.ratioCore >= 0.14 || rasgos.fillDelta >= 0.06
               ? 'parcial'
               : 'no_marcada';
 
@@ -1562,10 +1615,138 @@ function puntuarResultadoOmr(resultado: ResultadoOmr) {
 function debeIntentarSegundoPase(resultado: ResultadoOmr) {
   if (!OMR_SECOND_PASS_ENABLED) return false;
   if (resultado.estadoAnalisis === 'ok') return false;
+  if (resultado.geomQuality < 0.52) return false;
+  if (
+    resultado.motivosRevision.some((motivo) =>
+      /error geometrico|sin fiduciales|escala simple|no rectificada|rectificacion cv no confiable/i.test(motivo)
+    )
+  ) {
+    return false;
+  }
   if (resultado.calidadPagina <= OMR_SECOND_PASS_QUALITY_MAX) return true;
   if (resultado.confianzaPromedioPagina <= OMR_SECOND_PASS_CONF_MAX) return true;
   if (resultado.motivosRevision.some((m) => /alineacion global inestable/i.test(m))) return true;
   return false;
+}
+
+function computePanelRescueConfidence(detection: PanelDarknessDetection) {
+  const topScore = Math.max(...Object.values(detection.rawScores));
+  if (detection.markType === 'valid') {
+    return round6(clamp01(0.72 + topScore * 0.22 + detection.dominantGap * 0.18));
+  }
+  if (detection.markType === 'double') {
+    return round6(clamp01(0.68 + topScore * 0.16));
+  }
+  return round6(clamp01(0.74 + Math.max(0, 0.18 - topScore) * 0.6));
+}
+
+function esRespuestaInvalidaResuelta(respuesta: Pick<RespuestaDetectadaOmr, 'opcion' | 'confianza' | 'flags'>) {
+  if (respuesta.opcion) return true;
+  if (respuesta.flags.includes('bajo_contraste')) return false;
+  if (respuesta.flags.includes('doble_marca')) return respuesta.confianza >= 0.62;
+  return respuesta.confianza >= 0.62;
+}
+
+function buildPanelDarknessScores(detection: PanelDarknessDetection): ScoreOpcionOmr[] {
+  const selected = new Set(detection.selectedOptions);
+  const topScore = Math.max(...Object.values(detection.rawScores));
+  return (['A', 'B', 'C', 'D', 'E'] as const)
+    .map((option) => {
+      const score = detection.rawScores[option] ?? 0;
+      const isSelected = selected.has(option);
+      const estadoMarca: ScoreOpcionOmr['estadoMarca'] =
+        detection.markType === 'double' && isSelected
+          ? 'marcada'
+          : detection.markType === 'valid' && detection.option === option
+            ? 'marcada'
+            : score >= Math.max(0.16, topScore * 0.42) && score > 0
+              ? 'parcial'
+              : 'no_marcada';
+      return {
+        opcion: option,
+        score: round6(score),
+        fillRatioCore: round6(score),
+        fillRatioRing: 0,
+        centerDarknessDelta: round6(score),
+        strokeLeakPenalty: 0,
+        shapeCompactness: detection.markType === 'valid' && detection.option === option ? 1 : isSelected ? 0.75 : 0.5,
+        markConfidence: round6(
+          clamp01(
+            isSelected ? score * 1.35 + detection.dominantGap * 0.55 : score * 1.15 + Math.min(0.08, detection.dominantGap * 0.12)
+          )
+        ),
+        estadoMarca
+      };
+    })
+    .sort((a, b) => b.score - a.score || a.opcion.localeCompare(b.opcion));
+}
+
+async function aplicarRescatePanelDarkness(
+  buffer: Buffer,
+  mapaPagina: MapaOmrPagina,
+  respuestasDetectadas: ResultadoOmr['respuestasDetectadas'],
+  advertencias: string[]
+) {
+  if (!([3, 4].includes(mapaPagina.templateVersion ?? 3)) || mapaPagina.preguntas.length === 0) return respuestasDetectadas;
+  const preguntas = mapaPagina.preguntas.map((pregunta) => pregunta.numeroPregunta);
+  const detections = await analyzeOmrPanelsFromImageBuffer(buffer, preguntas);
+  if (detections.length === 0) return respuestasDetectadas;
+  const detectionsByQuestion = new Map(detections.map((item) => [item.questionNumber, item]));
+  let cambios = 0;
+
+  const merged = respuestasDetectadas.map((respuesta) => {
+    const rescue = detectionsByQuestion.get(respuesta.numeroPregunta);
+    if (!rescue) return respuesta;
+
+    const tieneFlagParcial = respuesta.flags.includes('parcial_detectada');
+    const rescueTopScore = Math.max(...Object.values(rescue.rawScores));
+    const blankLimpio = rescue.markType === 'blank' && rescueTopScore <= 0.03;
+    const debeRescatarValida =
+      rescue.markType === 'valid' &&
+      rescue.option &&
+      (respuesta.opcion == null ||
+        respuesta.opcion !== rescue.option ||
+        tieneFlagParcial ||
+        respuesta.confianza < 0.9);
+    const debeRescatarBlank =
+      (rescue.markType === 'blank' || rescue.markType === 'double') &&
+      ((respuesta.opcion != null && (blankLimpio || tieneFlagParcial || respuesta.confianza < 0.86)) ||
+        respuesta.opcion == null);
+
+    if (debeRescatarValida) {
+      cambios += 1;
+      const flags = respuesta.flags.filter(
+        (flag) => flag !== 'bajo_contraste' && flag !== 'doble_marca' && flag !== 'parcial_detectada'
+      ) as FlagRespuestaOmr[];
+      return {
+        numeroPregunta: respuesta.numeroPregunta,
+        opcion: rescue.option,
+        confianza: Math.max(respuesta.confianza, computePanelRescueConfidence(rescue)),
+        scoresPorOpcion: buildPanelDarknessScores(rescue),
+        flags
+      };
+    }
+    if (debeRescatarBlank) {
+      cambios += 1;
+      const blankFlags =
+        rescue.markType === 'double'
+          ? (['doble_marca'] as FlagRespuestaOmr[])
+          : ([] as FlagRespuestaOmr[]);
+      return {
+        numeroPregunta: respuesta.numeroPregunta,
+        opcion: null,
+        confianza: computePanelRescueConfidence(rescue),
+        scoresPorOpcion: buildPanelDarknessScores(rescue),
+        flags: Array.from(new Set(blankFlags)) as FlagRespuestaOmr[]
+      };
+    }
+    return respuesta;
+  });
+
+  if (cambios > 0) {
+    advertencias.push(`Rescate panel_darkness_v1 aplicado en ${cambios} preguntas`);
+  }
+  return merged;
 }
 
 function fusionarResultadosOmr(base: ResultadoOmr, rescate: ResultadoOmr): ResultadoOmr {
@@ -1655,10 +1836,13 @@ export async function analizarOmr(
 ): Promise<ResultadoOmr> {
   const advertencias: string[] = [];
   const motivosRevision: string[] = [];
-  const { data, gray, integral, width, height, metricasColor } = await decodificarImagen(
+  const { data, gray, integral, width, height, metricasColor, buffer } = await decodificarImagen(
     imagenBase64,
     Boolean(opcionesInternas?.aggressivePreprocess)
   );
+  const bufferRescatePanel = opcionesInternas?.rawImageBase64
+    ? Buffer.from(limpiarBase64(opcionesInternas.rawImageBase64), 'base64')
+    : buffer;
   const templateInicial = debugInfo?.templateVersionDetectada ?? mapaPagina.templateVersion ?? 1;
   const perfilInicial = ajustarPerfilConMapa(resolverPerfilDeteccion(templateInicial), mapaPagina);
   let qrDetalle = detectarQrMejorado(data, gray, width, height, {
@@ -1718,7 +1902,10 @@ export async function analizarOmr(
   const localSearchRadiusPx = useMapCoordinatesStrict
     ? 0
     : (mapaPagina.engineHints?.localSearchRadiusPx ??
-      (templateVersionDetectada === 3 ? Math.max(2, Math.round(paramsBurbuja.radio * 0.55)) : undefined));
+      (templateVersionDetectada === 3 || templateVersionDetectada === 4
+        ? Math.max(2, Math.round(paramsBurbuja.radio * 0.55))
+        : undefined));
+  const localBubbleSearchRadiusPx = OMR_LOCAL_GEOMETRY_ENABLED ? 0 : localSearchRadiusPx;
   let transformar = transformacionBase.transformar;
   if (forceSimpleScale) {
     transformar = transformarEscala;
@@ -1752,13 +1939,13 @@ export async function analizarOmr(
             height,
             centros,
             dx,
-            dy,
-            params: paramsBurbuja,
-            localSearchRatio: perfil.localSearchRatio,
-            localSearchRadiusPx,
-            localDriftPenalty: perfil.localDriftPenalty,
-            detectarOpcion
-          });
+          dy,
+          params: paramsBurbuja,
+          localSearchRatio: perfil.localSearchRatio,
+          localSearchRadiusPx: localBubbleSearchRadiusPx,
+          localDriftPenalty: perfil.localDriftPenalty,
+          detectarOpcion
+        });
           if (resultado.mejorScore > mejorScore) {
             segundoScore = resultado.segundoScore;
             mejorScore = resultado.mejorScore;
@@ -1781,13 +1968,18 @@ export async function analizarOmr(
     const puntajeEscala = calidadEscala.score + calidadEscala.delta * 0.6;
     const ventajaEscala = puntajeEscala - puntajeHom;
     const escalaMejor = ventajaEscala > 0.03;
-    const escalaMuyMejor = ventajaEscala > 0.08;
+    const escalaMuyMejor = ventajaEscala > 0.14;
     if (escalaMejor) {
       motivosRevision.push('Alineacion global inestable (escala simple puntuo mejor)');
-      if (forceSimpleScale || !OMR_LOCAL_GEOMETRY_ENABLED || escalaMuyMejor || !opcionesInternas?.rescueFiduciales) {
+      const permitirFallbackEscala =
+        forceSimpleScale ||
+        !OMR_LOCAL_GEOMETRY_ENABLED ||
+        (!opcionesInternas?.rescueFiduciales && escalaMuyMejor) ||
+        (transformacionBase.tipo === 'homografia' && escalaMuyMejor && ventajaEscala > 0.18);
+      if (permitirFallbackEscala) {
         advertencias.push('Se eligio transformacion por escala por mayor coherencia de marcas');
         transformar = transformarEscala;
-      } else if (opcionesInternas?.rescueFiduciales) {
+      } else if (opcionesInternas?.rescueFiduciales !== false) {
         advertencias.push('Rescate fiduciales: se mantiene transformacion base para ajuste local');
       } else {
         advertencias.push('Escala simple puntuo mejor, pero se conserva rectificacion CV y ajuste local');
@@ -1845,19 +2037,19 @@ export async function analizarOmr(
       }
     }
     const { mejorDx, mejorDy } = habilitarAjusteLocalPregunta
-      ? buscarMejorOffsetPregunta({
+      ? { mejorDx: 0, mejorDy: 0 }
+      : buscarMejorOffsetPregunta({
           estado,
           centros,
-          alignRange: perfil.alignRange,
-          maxCenterDriftRatio: perfil.maxCenterDriftRatio,
+          alignRange: Math.max(4, Math.min(perfil.alignRange, 8)),
+          maxCenterDriftRatio: Math.min(perfil.maxCenterDriftRatio, 0.18),
           minSafeRange: perfil.minSafeRange,
           evaluarAlineacionOffset
-        })
-      : { mejorDx: 0, mejorDy: 0 };
+        });
     const localSearchRadiusPregunta = !OMR_LOCAL_GEOMETRY_ENABLED
       ? localSearchRadiusPx
       : habilitarAjusteLocalPregunta
-        ? localSearchRadiusPx
+        ? 0
         : 0;
     const resultado = evaluarConOffset({
       gray,
@@ -2030,8 +2222,19 @@ export async function analizarOmr(
       // No bloquea flujo si falla el debug.
     }
   }
-  const confianzaMedia = respuestasDetectadas.length ? sumaConfianza / respuestasDetectadas.length : 0;
-  const ratioAmbiguas = respuestasDetectadas.length > 0 ? preguntasAmbiguas / respuestasDetectadas.length : 1;
+  let respuestasFinales = await aplicarRescatePanelDarkness(bufferRescatePanel, mapaPagina, respuestasDetectadas, advertencias);
+  if (respuestasFinales !== respuestasDetectadas) {
+    sumaConfianza = respuestasFinales.reduce((acc, item) => acc + item.confianza, 0);
+    respuestasContestadas = respuestasFinales.filter((item) => esRespuestaInvalidaResuelta(item)).length;
+    preguntasAmbiguas = respuestasFinales.filter((item) => !esRespuestaInvalidaResuelta(item)).length;
+  } else {
+    respuestasFinales = respuestasDetectadas;
+    respuestasContestadas = respuestasFinales.filter((item) => esRespuestaInvalidaResuelta(item)).length;
+    preguntasAmbiguas = respuestasFinales.filter((item) => !esRespuestaInvalidaResuelta(item)).length;
+  }
+
+  const confianzaMedia = respuestasFinales.length ? sumaConfianza / respuestasFinales.length : 0;
+  const ratioAmbiguas = respuestasFinales.length > 0 ? preguntasAmbiguas / respuestasFinales.length : 1;
   const reprojectionErrorPromedio =
     reprojectionErrorConteo > 0 ? reprojectionErrorAcumulado / reprojectionErrorConteo : 2.8;
   const metricasImagen = calcularMetricasImagen(gray, width, height);
@@ -2083,7 +2286,7 @@ export async function analizarOmr(
 
   const motivosUnicos = Array.from(new Set(motivosRevision)).slice(0, 24);
   const resultadoBase: ResultadoOmr = {
-    respuestasDetectadas,
+    respuestasDetectadas: respuestasFinales,
     advertencias,
     qrTexto,
     calidadPagina,
@@ -2092,7 +2295,8 @@ export async function analizarOmr(
     templateVersionDetectada,
     confianzaPromedioPagina: confianzaMedia,
     ratioAmbiguas,
-    engineVersion: templateVersionDetectada === 1 ? 'omr-v1-cv' : 'omr-v3-cv',
+    engineVersion:
+      templateVersionDetectada === 1 ? 'omr-v1-cv' : templateVersionDetectada === 4 ? 'omr-v4-cv' : 'omr-v3-cv',
     geomQuality,
     photoQuality: clamp01(photoQuality),
     decisionPolicy: 'conservadora_v1'
@@ -2116,8 +2320,15 @@ export async function analizarOmr(
     const scoreRescate = puntuarResultadoOmr(resultadoRescate);
     const scoreFusion = puntuarResultadoOmr(fusion);
     if (scoreFusion >= scoreBase || scoreRescate > scoreBase) {
-      return scoreFusion >= scoreRescate ? fusion : resultadoRescate;
+      const elegido = scoreFusion >= scoreRescate ? fusion : resultadoRescate;
+      elegido.advertencias = Array.from(
+        new Set([...elegido.advertencias, scoreFusion >= scoreRescate ? 'Segundo pase OMR fusionado por mejora' : 'Segundo pase OMR rescato detecciones'])
+      );
+      return elegido;
     }
+    resultadoBase.advertencias.push('Segundo pase OMR descartado por no mejorar');
+  } else if (!opcionesInternas?.noRetry && resultadoBase.estadoAnalisis !== 'ok') {
+    resultadoBase.advertencias.push('Segundo pase OMR omitido: geometria o señal no apta para rescate');
   }
 
   return resultadoBase;

@@ -30,6 +30,18 @@ const ExamenGeneradoSchema = new Schema(
     answerKeySet: { type: Schema.Types.Mixed },
     versionSet: { type: [Schema.Types.Mixed], default: [] },
     sheetInstances: { type: [Schema.Types.Mixed], default: [] },
+    recoveryKeyId: { type: String },
+    recoveryManifestHash: { type: String },
+    recoveryManifest: { type: Schema.Types.Mixed },
+    recoveryBundleId: { type: Schema.Types.ObjectId, ref: 'ExamenRecoveryBundle' },
+    recoveryBundleHash: { type: String },
+    reconstructedFrom: {
+      origen: { type: String, enum: ['recovery_manifest', 'recovery_bundle'] },
+      recoveryBundleHash: { type: String },
+      recoveryManifestHash: { type: String },
+      reconstructedAt: { type: Date },
+      reconstructedBy: { type: Schema.Types.ObjectId, ref: 'Docente' }
+    },
     generationSeed: { type: String },
     previewFingerprint: { type: String },
     statisticsSummary: { type: Schema.Types.Mixed },

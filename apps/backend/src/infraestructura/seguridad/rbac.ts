@@ -61,7 +61,9 @@ export const PERMISOS = [
   'comercial:metricas:leer',
   'comercial:cobranza:leer',
   'comercial:cobranza:gestionar',
-  'comercial:auditoria:leer'
+  'comercial:auditoria:leer',
+  'recuperacion:leer',
+  'recuperacion:reconstruir'
 ] as const;
 
 export type Permiso = (typeof PERMISOS)[number];
@@ -114,7 +116,9 @@ const PERMISOS_DOCENTE: Permiso[] = [
   'compliance:leer',
   'compliance:gestionar',
   'cuenta:leer',
-  'cuenta:actualizar'
+  'cuenta:actualizar',
+  'recuperacion:leer',
+  'recuperacion:reconstruir'
 ];
 
 const PERMISOS_COORDINADOR: Permiso[] = [

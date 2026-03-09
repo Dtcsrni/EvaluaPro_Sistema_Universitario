@@ -9,7 +9,12 @@ import request from 'supertest';
 import QRCode from 'qrcode';
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { crearApp } from '../../src/app';
+import { extraerResumenQrExamen } from '../../src/modulos/modulo_generacion_pdf/domain/qrExamen';
 import { cerrarMongoTest, conectarMongoTest, limpiarMongoTest } from '../utils/mongo';
+
+function invalidarFirmaQr(textoQr: string) {
+  return String(textoQr).replace(/:SG:[A-Z0-9]+$/i, ':SG:H1AAAAAAAAAAAAAAAAAAAAAAAA');
+}
 
 describe('escaneo OMR: QR asociado a examen', () => {
   const app = crearApp();
@@ -122,8 +127,18 @@ describe('escaneo OMR: QR asociado a examen', () => {
     expect(paginas.length).toBeGreaterThan(0);
     expect(paginas[0].numero).toBe(1);
 
-    const qrEsperado = `EXAMEN:${folio}:P1`;
-    expect(String(paginas[0].qrTexto || '')).toMatch(new RegExp(`^EXAMEN:${folio}:P1:TV3(?::ID:[^:]+)?$`));
+    const qrEsperado = `EXAMEN:${folio}:P1:TV4`;
+    const resumenQr = extraerResumenQrExamen(String(paginas[0].qrTexto || ''));
+    expect(resumenQr).not.toBeNull();
+    expect(resumenQr?.folio).toBe(folio);
+    expect(resumenQr?.numeroPagina).toBe(1);
+    expect(resumenQr?.templateVersion).toBe(4);
+    expect(resumenQr?.keyId).toBeTruthy();
+    expect(resumenQr?.variantHash).toBeTruthy();
+    expect(resumenQr?.answerKeyHash).toBeTruthy();
+    expect(resumenQr?.payloadSignature).toBeTruthy();
+    expect((resumenQr?.questionRefs ?? []).length).toBeGreaterThan(0);
+    expect((resumenQr?.optionOrders ?? []).length).toBeGreaterThan(0);
 
     const qrParaImagen = String(paginas[0].qrTexto || qrEsperado);
     const imagenBase64 = await QRCode.toDataURL(qrParaImagen, { margin: 1, width: QR_IMAGE_WIDTH });
@@ -179,6 +194,27 @@ describe('escaneo OMR: QR asociado a examen', () => {
     const resultado = resp.body.resultado as { qrTexto?: string; advertencias: string[] };
     expect(resultado.qrTexto).toBe(qrIncorrecto);
     expect(resultado.advertencias).toContain('El QR no coincide con el examen esperado');
+  }, TEST_TIMEOUT_QR_MS);
+
+  it('rechaza un QR con firma de integridad invalida', async () => {
+    const token = await registrarDocente();
+    const auth = { Authorization: `Bearer ${token}` };
+
+    const { folio, paginas } = await prepararExamenBasico(auth);
+    const qrManipulado = invalidarFirmaQr(String(paginas[0]?.qrTexto ?? ''));
+    const imagenBase64 = await QRCode.toDataURL(qrManipulado, { margin: 1, width: QR_IMAGE_WIDTH });
+
+    const resp = await request(app)
+      .post('/api/omr/analizar')
+      .set(auth)
+      .send({
+        folio,
+        numeroPagina: 1,
+        imagenBase64
+      })
+      .expect(409);
+
+    expect(resp.body.error.codigo).toBe('OMR_QR_FIRMA_INVALIDA');
   }, TEST_TIMEOUT_QR_MS);
 });
 

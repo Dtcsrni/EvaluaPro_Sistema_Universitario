@@ -14,7 +14,15 @@ const AlumnoSchema = new Schema(
     nombreCompleto: { type: String, required: true },
     correo: { type: String },
     grupo: { type: String },
-    activo: { type: Boolean, default: true }
+    activo: { type: Boolean, default: true },
+    recoverySource: {
+      origen: { type: String, enum: ['recovery_manifest', 'recovery_bundle'] },
+      recoveryBundleHash: { type: String },
+      recoveryManifestHash: { type: String },
+      sourceFolio: { type: String },
+      reconstructedAt: { type: Date },
+      reconstructedBy: { type: Schema.Types.ObjectId, ref: 'Docente' }
+    }
   },
   { timestamps: true, collection: 'alumnos' }
 );

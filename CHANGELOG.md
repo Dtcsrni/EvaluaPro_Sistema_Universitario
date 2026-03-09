@@ -5,6 +5,39 @@ Este archivo sigue el formato "Keep a Changelog" (alto nivel) y SemVer.
 ## [Unreleased]
 
 ### Added
+- Recuperacion operativa desde `recoveryManifest` y `recoveryBundle`:
+  - nuevo modulo backend `modulo_recuperacion_examenes/`
+  - verificacion de artefactos firmados y reconstruccion idempotente por examen o lote
+  - persistencia de ejecuciones con estados `pendiente`, `verificada`, `reconstruida`, `conflicto`, `fallida`
+  - modelos dedicados:
+    - `modeloExamenRecoveryManifest.ts`
+    - `modeloExamenRecoveryBundle.ts`
+    - `modeloReconstruccionExamen.ts`
+  - rutas protegidas:
+    - `GET /api/recuperacion/bundles`
+    - `POST /api/recuperacion/verificar`
+    - `POST /api/recuperacion/manifest/reconstruir`
+    - `POST /api/recuperacion/bundle/reconstruir`
+  - comandos CLI:
+    - `recovery:bundles:list`
+    - `recovery:verify`
+    - `recovery:manifest:reconstruct`
+    - `recovery:bundle:reconstruct`
+- Seguridad de recovery endurecida:
+  - soporte a multiples `keyId` de verificacion para QR y recovery artifacts
+  - resolucion de secretos sin sensibilidad a mayusculas/minusculas
+  - rechazo explicito cuando el `keyId` no es reconocible o la firma no valida
+- TV4 marcado operativamente como `ready for validation`:
+  - baseline sintético y piloto real con comandos dedicados ya disponibles
+  - sin rollout final como default de producto hasta cerrar piloto real
+  - `omr:tv4:build:pilot-real` ya construye un dataset real importando capturas/mapas TV4 desde `pilot_import.json`, valida `templateVersion=4` y genera `manifest.json`, `ground_truth.jsonl` y `answer_key.json`
+  - el bloqueo restante para declarar TV4 productivo es disponibilidad de capturas reales del piloto, no falta de builder ni de gate sintético
+- OMR TV3 endurecido contra baseline real `Por Folio`:
+  - `omr:tv3:validate:por-folio` ya pasa con métricas perfectas (`precision`, `falsePositiveRate`, `invalidDetectionRate`, `pagePassRate`, `autoGradeTrustRate`, `autoCoverageRate` = `1`).
+  - rescate `panel_darkness_v1` ejecutado sobre imagen original aunque el scoring principal use preproceso CV.
+  - resolución confiable de `blank` y `double` integrada al cálculo de cobertura/autocalificación del baseline real.
+  - `failureReport` de `por-folio` ajustado para resumir causas de capturas fallidas, no advertencias benignas de páginas correctas.
+  - guardrail sintético restaurado con regeneración de `omr_samples_tv3/` y `answer_key.json`.
 - Baseline real OMR TV3 `Por Folio` autocontenido:
   - dataset committed `omr_samples_tv3_real_por_folio/`
   - builder `apps/backend/scripts/omr-tv3-build-por-folio-dataset.ts`

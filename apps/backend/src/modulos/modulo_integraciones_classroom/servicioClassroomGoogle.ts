@@ -43,10 +43,35 @@ function crearClienteOauth() {
 type EstadoOauthPayload = {
   docenteId: string;
   purpose: 'classroom_oauth';
+  frontendOrigin?: string;
 };
 
-function crearEstadoOauth(docenteId: string) {
-  const payload: EstadoOauthPayload = { docenteId, purpose: 'classroom_oauth' };
+function normalizarOrigin(valor: unknown): string | undefined {
+  try {
+    const origin = new URL(String(valor || '')).origin;
+    if (!origin || origin === 'null') return undefined;
+    return origin;
+  } catch {
+    return undefined;
+  }
+}
+
+function validarOriginFrontend(frontendOrigin: string | undefined) {
+  if (!frontendOrigin) return undefined;
+  const origin = normalizarOrigin(frontendOrigin);
+  if (!origin) return undefined;
+  if (configuracion.corsOrigenes.includes(origin)) {
+    return origin;
+  }
+  return undefined;
+}
+
+function crearEstadoOauth(docenteId: string, frontendOrigin?: string) {
+  const payload: EstadoOauthPayload = {
+    docenteId,
+    purpose: 'classroom_oauth',
+    ...(validarOriginFrontend(frontendOrigin) ? { frontendOrigin: validarOriginFrontend(frontendOrigin) } : {})
+  };
   return jwt.sign(payload, configuracion.jwtSecreto, { expiresIn: STATE_EXPIRA_SEGUNDOS });
 }
 
@@ -56,7 +81,11 @@ function validarEstadoOauth(state: string): EstadoOauthPayload {
     if (!payload || payload.purpose !== 'classroom_oauth' || !payload.docenteId) {
       throw new ErrorAplicacion('CLASSROOM_OAUTH_ESTADO_INVALIDO', 'Estado OAuth inválido', 400);
     }
-    return { docenteId: payload.docenteId, purpose: 'classroom_oauth' };
+    return {
+      docenteId: payload.docenteId,
+      purpose: 'classroom_oauth',
+      ...(validarOriginFrontend(payload.frontendOrigin) ? { frontendOrigin: validarOriginFrontend(payload.frontendOrigin) } : {})
+    };
   } catch {
     throw new ErrorAplicacion('CLASSROOM_OAUTH_ESTADO_INVALIDO', 'Estado OAuth inválido o expirado', 400);
   }
@@ -76,9 +105,9 @@ async function obtenerPerfilGoogle(accessToken: string): Promise<{ email?: strin
   };
 }
 
-export function construirUrlOauthClassroom(docenteId: string) {
+export function construirUrlOauthClassroom(docenteId: string, opciones?: { frontendOrigin?: string }) {
   const cliente = crearClienteOauth();
-  const state = crearEstadoOauth(docenteId);
+  const state = crearEstadoOauth(docenteId, opciones?.frontendOrigin);
   const url = cliente.generateAuthUrl({
     access_type: 'offline',
     prompt: 'consent',
@@ -96,7 +125,7 @@ export async function completarOauthClassroom(params: { code: string; state: str
     throw new ErrorAplicacion('CLASSROOM_OAUTH_CODIGO_INVALIDO', 'OAuth callback incompleto', 400);
   }
 
-  const { docenteId } = validarEstadoOauth(state);
+  const { docenteId, frontendOrigin } = validarEstadoOauth(state);
   const cliente = crearClienteOauth();
   const tokensRespuesta = await cliente.getToken(code);
   const tokens = tokensRespuesta.tokens || {};
@@ -142,7 +171,8 @@ export async function completarOauthClassroom(params: { code: string; state: str
   return {
     docenteId,
     correoGoogle: perfil.email || existente?.correoGoogle || null,
-    conectado: true
+    conectado: true,
+    frontendOrigin: frontendOrigin || null
   };
 }
 
@@ -200,4 +230,46 @@ export async function classroomGet(
     throw new ErrorAplicacion('CLASSROOM_API_ERROR', mensaje, 502);
   }
   return payload;
+}
+
+export async function classroomGetAll<T extends Record<string, unknown>>(
+  accessToken: string,
+  path: string,
+  listKey: string,
+  query?: Record<string, string | number | undefined>
+): Promise<T[]> {
+  const out: T[] = [];
+  let pageToken: string | undefined;
+
+  do {
+    const payload = await classroomGet(accessToken, path, {
+      ...(query || {}),
+      ...(pageToken ? { pageToken } : {})
+    });
+    const items = Array.isArray(payload[listKey]) ? (payload[listKey] as T[]) : [];
+    out.push(...items);
+    pageToken = typeof payload.nextPageToken === 'string' && payload.nextPageToken.trim() ? payload.nextPageToken.trim() : undefined;
+  } while (pageToken);
+
+  return out;
+}
+
+export async function listarCursosClassroom(accessToken: string): Promise<Array<Record<string, unknown>>> {
+  return classroomGetAll<Record<string, unknown>>(accessToken, 'courses', 'courses', {
+    teacherId: 'me',
+    pageSize: 100
+  });
+}
+
+export async function listarActividadesClassroom(accessToken: string, courseId: string): Promise<Array<Record<string, unknown>>> {
+  return classroomGetAll<Record<string, unknown>>(
+    accessToken,
+    `courses/${encodeURIComponent(courseId)}/courseWork`,
+    'courseWork',
+    { pageSize: 100 }
+  );
+}
+
+export async function desconectarOauthClassroom(docenteId: string): Promise<void> {
+  await IntegracionClassroom.deleteOne({ docenteId });
 }

@@ -55,6 +55,7 @@ import {
   etiquetaMateria,
   mensajeDeError,
   normalizarResultadoOmr,
+  normalizarTemplateVersionOmrDetectada,
   obtenerSesionDocenteId,
   obtenerVistaInicial,
 } from './utilidades';
@@ -142,9 +143,10 @@ export function SeccionCalificaciones({
       calidadPagina: number;
       confianzaPromedioPagina: number;
       ratioAmbiguas: number;
-      templateVersionDetectada: 1 | 3;
+      templateVersionDetectada: 1 | 3 | 4;
       motivosRevision: string[];
       revisionConfirmada: boolean;
+      qrTexto?: string;
     };
   }) => Promise<unknown>;
   solicitudesRevision?: SolicitudRevisionAlumno[];
@@ -641,6 +643,9 @@ export function SeccionCalificaciones({
         : [];
       const paginasReconstruidas = paginasExamen.length
         ? paginasExamen.map((pagina) => {
+            const templateVersionDetectada = normalizarTemplateVersionOmrDetectada(
+              (examenDetalle as { mapaOmr?: { templateVersion?: unknown } }).mapaOmr?.templateVersion
+            );
             const rangoValido =
               Number.isFinite(pagina.preguntasDel) &&
               Number.isFinite(pagina.preguntasAl) &&
@@ -666,7 +671,7 @@ export function SeccionCalificaciones({
                 calidadPagina: 1,
                 estadoAnalisis: 'ok' as const,
                 motivosRevision: [],
-                templateVersionDetectada: 1 as const,
+                templateVersionDetectada,
                 confianzaPromedioPagina: confianzaPagina,
                 ratioAmbiguas: 0
               },
@@ -709,13 +714,15 @@ export function SeccionCalificaciones({
         paginasReconstruidas.find((pagina) => pagina.numeroPagina === paginaInicial)?.respuestas ?? respuestasCompletas;
       const resultadoPaginaInicial =
         paginasReconstruidas.find((pagina) => pagina.numeroPagina === paginaInicial)?.resultado ?? {
+          templateVersionDetectada: normalizarTemplateVersionOmrDetectada(
+            (examenDetalle as { mapaOmr?: { templateVersion?: unknown } }).mapaOmr?.templateVersion
+          ),
           respuestasDetectadas: respuestasCompletas,
           advertencias: [],
           qrTexto: String(examenDetalle.folio ?? examenPersistido.folio),
           calidadPagina: 1,
           estadoAnalisis: 'ok' as const,
           motivosRevision: [],
-          templateVersionDetectada: 1 as const,
           confianzaPromedioPagina: promedioConfianza,
           ratioAmbiguas: 0
         };

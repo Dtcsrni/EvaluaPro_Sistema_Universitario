@@ -18,7 +18,7 @@ import { Periodo } from '../modulo_alumnos/modeloPeriodo';
 import { normalizarParaNombreArchivo } from '../../compartido/utilidades/texto';
 import { Docente } from '../modulo_autenticacion/modeloDocente';
 import { resolverNumeroPaginasPlantilla } from './domain/resolverNumeroPaginasPlantilla';
-import { TEMPLATE_VERSION_TV3 } from './domain/tv3Compat';
+import { resolverTemplateVersionCompatible } from './domain/templateCompat';
 import { Entrega } from '../modulo_vinculacion_entrega/modeloEntrega';
 
 type BancoPreguntaLean = {
@@ -320,7 +320,9 @@ export async function regenerarPdfExamen(req: SolicitudDocente, res: Response) {
   ]);
 
   const numeroPaginas = resolverNumeroPaginasPlantilla(plantilla as unknown as { numeroPaginas?: unknown });
-  const templateVersion = TEMPLATE_VERSION_TV3;
+  const templateVersion = resolverTemplateVersionCompatible(
+    Number((examen as unknown as { mapaOmr?: { templateVersion?: unknown } })?.mapaOmr?.templateVersion ?? 4)
+  );
 
   const generarConPaginas = (paginasObjetivo: number) =>
     generarPdfExamen({

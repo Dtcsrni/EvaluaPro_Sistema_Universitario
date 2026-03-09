@@ -18,6 +18,13 @@ const PeriodoSchema = new Schema(
     grupos: [{ type: String }],
     activo: { type: Boolean, default: true },
     archivadoEn: { type: Date },
+    recoverySource: {
+      origen: { type: String, enum: ['recovery_manifest', 'recovery_bundle'] },
+      recoveryBundleHash: { type: String },
+      recoveryManifestHash: { type: String },
+      reconstructedAt: { type: Date },
+      reconstructedBy: { type: Schema.Types.ObjectId, ref: 'Docente' }
+    },
     resumenArchivado: {
       alumnos: { type: Number },
       bancoPreguntas: { type: Number },

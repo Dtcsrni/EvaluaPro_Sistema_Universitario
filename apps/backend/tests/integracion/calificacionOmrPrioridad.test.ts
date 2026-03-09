@@ -101,6 +101,8 @@ describe('calificacion OMR prioriza respuestas detectadas', () => {
 
     const examenId = examenResp.body.examenGenerado._id as string;
     const folio = examenResp.body.examenGenerado.folio as string;
+    const qrTexto = String(examenResp.body.examenGenerado.paginas?.[0]?.qrTexto ?? '');
+    const templateVersion = Number(examenResp.body.examenGenerado.mapaOmr?.templateVersion ?? 3) as 3 | 4;
 
     await request(app)
       .post('/api/entregas/vincular-folio')
@@ -124,12 +126,13 @@ describe('calificacion OMR prioriza respuestas detectadas', () => {
           calidadPagina: 0.95,
           confianzaPromedioPagina: 0.92,
           ratioAmbiguas: 0,
-          templateVersionDetectada: 3,
+          templateVersionDetectada: templateVersion,
           engineVersion: 'omr-v3-cv',
           geomQuality: 0.9,
           photoQuality: 0.9,
           decisionPolicy: 'conservadora_v1',
-          motivosRevision: []
+          motivosRevision: [],
+          qrTexto
         }
       })
       .expect(201);

@@ -109,6 +109,15 @@ function ipSolicitud(req: Request): string {
   return String(req.ip || req.socket?.remoteAddress || '').trim();
 }
 
+function assertPasswordAuthDisponible() {
+  if (!configuracion.requireGoogleOAuth) return;
+  throw new ErrorAplicacion(
+    'GOOGLE_OAUTH_REQUIRED',
+    'Esta instalación requiere inicio de sesión con Google.',
+    403
+  );
+}
+
 function obtenerCapacidadesOauthClassroom() {
   const oauthGoogleBackend = Boolean(String(configuracion.googleOauthClientId || '').trim());
   const classroomBackend = Boolean(
@@ -126,11 +135,40 @@ function obtenerCapacidadesOauthClassroom() {
   return {
     oauthGoogleBackend,
     classroomBackend,
-    smtpBackend
+    smtpBackend,
+    requireGoogleOAuth: configuracion.requireGoogleOAuth,
+    passwordLoginAllowed: !configuracion.requireGoogleOAuth
   };
 }
 
+async function responderSesionDocente(
+  res: Response,
+  docente: {
+    _id: unknown;
+    nombreCompleto: string;
+    nombres?: string;
+    apellidos?: string;
+    correo: string;
+    roles?: unknown;
+  },
+  status = 200
+) {
+  await emitirSesionDocente(res, String(docente._id));
+  const token = crearTokenDocente({ docenteId: String(docente._id), roles: rolesParaToken(docente.roles) });
+  res.status(status).json({
+    token,
+    docente: {
+      id: docente._id,
+      nombreCompleto: docente.nombreCompleto,
+      ...(docente.nombres ? { nombres: docente.nombres } : {}),
+      ...(docente.apellidos ? { apellidos: docente.apellidos } : {}),
+      correo: docente.correo
+    }
+  });
+}
+
 export async function registrarDocente(req: Request, res: Response) {
+  assertPasswordAuthDisponible();
   const { nombres, apellidos, nombreCompleto, correo, contrasena } = req.body;
   const correoFinal = String(correo || '').toLowerCase();
 
@@ -163,18 +201,7 @@ export async function registrarDocente(req: Request, res: Response) {
     ultimoAcceso: new Date()
   });
 
-  await emitirSesionDocente(res, String(docente._id));
-  const token = crearTokenDocente({ docenteId: String(docente._id), roles: rolesParaToken(docente.roles) });
-  res.status(201).json({
-    token,
-    docente: {
-      id: docente._id,
-      nombreCompleto: docente.nombreCompleto,
-      ...(docente.nombres ? { nombres: docente.nombres } : {}),
-      ...(docente.apellidos ? { apellidos: docente.apellidos } : {}),
-      correo: docente.correo
-    }
-  });
+  await responderSesionDocente(res, docente, 201);
 }
 
 export async function registrarDocenteGoogle(req: Request, res: Response) {
@@ -189,13 +216,28 @@ export async function registrarDocenteGoogle(req: Request, res: Response) {
   const perfil = await verificarCredencialGoogle(String(credential ?? ''));
   const correo = perfil.correo.toLowerCase();
 
-  const existente = await Docente.findOne({ correo }).lean();
+  const existente = await Docente.findOne({ correo });
   if (existente) {
-    throw new ErrorAplicacion('DOCENTE_EXISTE', 'El correo ya esta registrado', 409);
+    if (!existente.activo) {
+      throw new ErrorAplicacion('DOCENTE_INACTIVO', 'Docente inactivo', 403);
+    }
+    if (existente.googleSub && existente.googleSub !== perfil.sub) {
+      throw new ErrorAplicacion('GOOGLE_SUB_MISMATCH', 'Cuenta Google no coincide con el docente', 401);
+    }
+    if (!existente.googleSub) {
+      existente.googleSub = perfil.sub;
+    }
+    const rolesFinales = fusionarRolesGoogleConSuperadmin(existente.roles, perfil.correo);
+    existente.roles = rolesFinales;
+    existente.ultimoAcceso = new Date();
+    await existente.save();
+    await responderSesionDocente(res, existente, 200);
+    return;
   }
 
   const contrasenaStr = typeof contrasena === 'string' ? contrasena : '';
-  const hashContrasena = contrasenaStr.trim() ? await crearHash(contrasenaStr) : undefined;
+  const hashContrasena =
+    contrasenaStr.trim() && !configuracion.requireGoogleOAuth ? await crearHash(contrasenaStr) : undefined;
   const nombreCompletoReq = String(nombreCompleto ?? '').trim();
   const nombreCompletoFinal = nombreCompletoReq || String(perfil.nombreCompleto ?? '').trim();
   const roles = fusionarRolesGoogleConSuperadmin([], correo);
@@ -211,21 +253,11 @@ export async function registrarDocenteGoogle(req: Request, res: Response) {
       ultimoAcceso: new Date()
     });
 
-    await emitirSesionDocente(res, String(docente._id));
-    const token = crearTokenDocente({ docenteId: String(docente._id), roles: rolesParaToken(docente.roles) });
-  res.status(201).json({
-    token,
-    docente: {
-      id: docente._id,
-      nombreCompleto: docente.nombreCompleto,
-      ...(docente.nombres ? { nombres: docente.nombres } : {}),
-      ...(docente.apellidos ? { apellidos: docente.apellidos } : {}),
-      correo: docente.correo
-    }
-  });
+  await responderSesionDocente(res, docente, 201);
 }
 
 export async function ingresarDocente(req: Request, res: Response) {
+  assertPasswordAuthDisponible();
   const { correo, contrasena } = req.body;
   const correoFinal = String(correo || '').toLowerCase();
 
@@ -264,18 +296,7 @@ export async function ingresarDocente(req: Request, res: Response) {
   docente.ultimoAcceso = new Date();
   await docente.save();
 
-  await emitirSesionDocente(res, String(docente._id));
-  const token = crearTokenDocente({ docenteId: String(docente._id), roles: rolesParaToken(docente.roles) });
-  res.json({
-    token,
-    docente: {
-      id: docente._id,
-      nombreCompleto: docente.nombreCompleto,
-      ...(docente.nombres ? { nombres: docente.nombres } : {}),
-      ...(docente.apellidos ? { apellidos: docente.apellidos } : {}),
-      correo: docente.correo
-    }
-  });
+  await responderSesionDocente(res, docente, 200);
 }
 
 export async function ingresarDocenteGoogle(req: Request, res: Response) {
@@ -305,21 +326,11 @@ export async function ingresarDocenteGoogle(req: Request, res: Response) {
   docente.ultimoAcceso = new Date();
   await docente.save();
 
-  await emitirSesionDocente(res, String(docente._id));
-  const token = crearTokenDocente({ docenteId: String(docente._id), roles: rolesParaToken(docente.roles) });
-  res.json({
-    token,
-    docente: {
-      id: docente._id,
-      nombreCompleto: docente.nombreCompleto,
-      ...(docente.nombres ? { nombres: docente.nombres } : {}),
-      ...(docente.apellidos ? { apellidos: docente.apellidos } : {}),
-      correo: docente.correo
-    }
-  });
+  await responderSesionDocente(res, docente, 200);
 }
 
 export async function recuperarContrasenaGoogle(req: Request, res: Response) {
+  assertPasswordAuthDisponible();
   const { credential, contrasenaNueva } = req.body as { credential?: unknown; contrasenaNueva?: unknown };
   const perfil = await verificarCredencialGoogle(String(credential ?? ''));
 
@@ -352,6 +363,7 @@ export async function recuperarContrasenaGoogle(req: Request, res: Response) {
 }
 
 export async function solicitarRecuperacionContrasena(req: Request, res: Response) {
+  assertPasswordAuthDisponible();
   if (!configuracion.passwordResetEnabled) {
     throw new ErrorAplicacion(
       'RECUPERACION_NO_DISPONIBLE',
@@ -402,6 +414,7 @@ export async function solicitarRecuperacionContrasena(req: Request, res: Respons
 }
 
 export async function restablecerContrasena(req: Request, res: Response) {
+  assertPasswordAuthDisponible();
   if (!configuracion.passwordResetEnabled) {
     throw new ErrorAplicacion(
       'RECUPERACION_NO_DISPONIBLE',
@@ -463,6 +476,7 @@ export async function salirDocente(req: Request, res: Response) {
 }
 
 export async function definirContrasenaDocente(req: SolicitudDocente, res: Response) {
+  assertPasswordAuthDisponible();
   const docenteId = obtenerDocenteId(req);
   const { contrasenaNueva, contrasenaActual, credential } = req.body as {
     contrasenaNueva?: unknown;

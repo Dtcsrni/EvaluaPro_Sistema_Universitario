@@ -1,8 +1,7 @@
 import type { ExamenPdf } from '../../domain/examenPdf';
 import type { PageToken } from './examLayoutTokens';
 import { LAYOUT_TEMPLATE_V9 } from '../../domain/layoutTemplateV9';
-
-const OMR = LAYOUT_TEMPLATE_V9.omr;
+import { LAYOUT_TEMPLATE_V10 } from '../../domain/layoutTemplateV10';
 const PRINT_PROFILE = String(process.env.EXAM_PRINT_PROFILE ?? process.env.PDF_PRINT_PROFILE ?? '')
   .trim()
   .toLowerCase();
@@ -154,6 +153,10 @@ function renderHeader(page: PageToken, examen: ExamenPdf, logos: { izquierda?: s
 
 function renderQuestion(page: PageToken, index: number): string {
   const question = page.preguntas[index]!;
+  const layoutTemplate = page.numeroPagina && question.omrBox.width >= LAYOUT_TEMPLATE_V10.omr.panelWidthPx
+    ? LAYOUT_TEMPLATE_V10
+    : LAYOUT_TEMPLATE_V9;
+  const omr = layoutTemplate.omr;
   const optionColumns = question.optionColumns === 1 ? 'options-single' : 'options-double';
   const optionGroups = question.optionColumns === 1
     ? [question.opciones]
@@ -165,8 +168,8 @@ function renderQuestion(page: PageToken, index: number): string {
     : '';
   const omrMarks = question.opciones
     .map((option, optionIndex) => {
-      const bubbleTop = OMR.headerBandHeightPx + OMR.bubbleTopOffsetPx + optionIndex * OMR.bubbleStepYPx;
-      const labelTop = bubbleTop + Math.max(1, Math.round((OMR.bubbleRadiusPx * 2 - 12) / 2));
+      const bubbleTop = omr.headerBandHeightPx + omr.bubbleTopOffsetPx + optionIndex * omr.bubbleStepYPx;
+      const labelTop = bubbleTop + Math.max(1, Math.round((omr.bubbleRadiusPx * 2 - 12) / 2));
       return `<span class="bubble" style="top:${bubbleTop}px;"></span><span class="choice" style="top:${labelTop}px;">${option.letra}</span>`;
     })
     .join('');
@@ -211,6 +214,8 @@ export function renderExamHtml({
   qrDataUrls: Record<number, string>;
   logos: { izquierda?: string; derecha?: string };
 }): string {
+  const layoutTemplate = examen.layout.templateVersion === 4 ? LAYOUT_TEMPLATE_V10 : LAYOUT_TEMPLATE_V9;
+  const OMR = layoutTemplate.omr;
   const bodyClass = IS_EPSON_ECOTANK_L1250 ? 'print-profile-epson-l1250' : '';
   const printerProfileCss = IS_EPSON_ECOTANK_L1250
     ? `
@@ -367,7 +372,7 @@ export function renderExamHtml({
       -webkit-font-smoothing: antialiased;
       font-kerning: normal;
     }
-    .page { position: relative; width: 816px; height: 1056px; background: var(--edu-surface); page-break-after: always; overflow: hidden; }
+    .page { position: relative; width: ${layoutTemplate.pageWidthPx}px; height: ${layoutTemplate.pageHeightPx}px; background: var(--edu-surface); page-break-after: always; overflow: hidden; }
     .page:last-child { page-break-after: auto; }
     .staple-zone {
       position: absolute;

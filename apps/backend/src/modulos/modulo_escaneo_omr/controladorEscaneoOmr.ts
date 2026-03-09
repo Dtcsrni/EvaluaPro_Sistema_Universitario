@@ -13,6 +13,7 @@ import sharp from 'sharp';
 import { ErrorAplicacion } from '../../compartido/errores/errorAplicacion';
 import { registrarOmrResultadoAnalisis } from '../../compartido/observabilidad/metrics';
 import { obtenerDocenteId, type SolicitudDocente } from '../modulo_autenticacion/middlewareAutenticacion';
+import { construirQrExamenLegacy, extraerResumenQrExamen } from '../modulo_generacion_pdf/domain/qrExamen';
 import { ExamenGenerado } from '../modulo_generacion_pdf/modeloExamenGenerado';
 import { ExamenPlantilla } from '../modulo_generacion_pdf/modeloExamenPlantilla';
 import { Periodo } from '../modulo_alumnos/modeloPeriodo';
@@ -41,10 +42,20 @@ export async function analizarImagen(req: SolicitudDocente, res: Response) {
       throw new ErrorAplicacion('OMR_IMAGEN_INVALIDA', 'Imagen OMR invalida o corrupta', 400);
     }
   }
-  const match = textoQr ? /EXAMEN:([A-Z0-9-]+):P(\d+):TV(3)/i.exec(textoQr) : null;
-  const folioDetectado = match?.[1]?.toUpperCase() ?? '';
-  const paginaDetectada = match?.[2] ? Number(match[2]) : undefined;
-  const templateQr = match?.[3] ? Number(match[3]) : undefined;
+  const qrResumen = extraerResumenQrExamen(textoQr);
+  if (qrResumen?.payloadSignature && qrResumen.payloadSignatureValid === false) {
+    throw new ErrorAplicacion(
+      'OMR_QR_FIRMA_INVALIDA',
+      'El QR detectado en la imagen no supera la validación de integridad',
+      409,
+      {
+        signatureMode: qrResumen.payloadSignatureMode ?? 'desconocido'
+      }
+    );
+  }
+  const folioDetectado = qrResumen?.folio ?? '';
+  const paginaDetectada = qrResumen?.numeroPagina;
+  const templateQr = qrResumen?.templateVersion;
 
   const folioNormalizado = String(folio || folioDetectado || '').toUpperCase();
   const paginaSolicitada = Number(numeroPagina);
@@ -61,15 +72,29 @@ export async function analizarImagen(req: SolicitudDocente, res: Response) {
   }
 
   const templateMapa = Number(examen.mapaOmr?.templateVersion);
-  const templateVersionDetectada = templateQr === 3 ? 3 : templateMapa === 3 ? 3 : null;
-  if (templateVersionDetectada !== 3) {
+  const templateVersionDetectada =
+    templateQr === 3 || templateQr === 4
+      ? templateQr
+      : templateMapa === 3 || templateMapa === 4
+        ? templateMapa
+        : null;
+  if (templateVersionDetectada !== 3 && templateVersionDetectada !== 4) {
     throw new ErrorAplicacion(
       'OMR_TEMPLATE_NO_COMPATIBLE',
-      'Solo la plantilla TV3 es compatible con el motor OMR actual',
+      'Solo las plantillas TV3/TV4 son compatibles con el motor OMR actual',
       422
     );
   }
-  const qrEsperado = `EXAMEN:${String(examen.folio ?? '')}:P${pagina}:TV${templateVersionDetectada}`;
+  const paginaExamen = Array.isArray((examen as { paginas?: unknown[] }).paginas)
+    ? ((examen as { paginas?: Array<{ numero?: number; qrTexto?: string }> }).paginas ?? []).find(
+        (item) => Number(item?.numero) === pagina
+      )
+    : undefined;
+  const qrEsperado = [
+    String(paginaExamen?.qrTexto ?? '').trim(),
+    String((mapaOmr as { qr?: { texto?: string } }).qr?.texto ?? '').trim(),
+    construirQrExamenLegacy(String(examen.folio ?? ''), pagina, templateVersionDetectada)
+  ].filter((valor): valor is string => Boolean(valor));
   const margenMm = examen.mapaOmr?.margenMm ?? 10;
   const requestId = (req as SolicitudDocente & { requestId?: string }).requestId;
   let resultado;
@@ -81,6 +106,17 @@ export async function analizarImagen(req: SolicitudDocente, res: Response) {
     }, requestId);
   } catch {
     throw new ErrorAplicacion('OMR_IMAGEN_INVALIDA', 'No se pudo procesar la imagen OMR', 400);
+  }
+  const qrResultado = extraerResumenQrExamen(String(resultado?.qrTexto ?? '').trim());
+  if (qrResultado?.payloadSignature && qrResultado.payloadSignatureValid === false) {
+    throw new ErrorAplicacion(
+      'OMR_QR_FIRMA_INVALIDA',
+      'El QR detectado en la imagen no supera la validación de integridad',
+      409,
+      {
+        signatureMode: qrResultado.payloadSignatureMode ?? 'desconocido'
+      }
+    );
   }
   registrarOmrResultadoAnalisis({
     estadoAnalisis: resultado.estadoAnalisis,
@@ -261,7 +297,7 @@ async function archivarEscaneoOmrIntento({
     plantillaId?: unknown;
   };
   estadoAnalisis?: 'ok' | 'rechazado_calidad' | 'requiere_revision' | string;
-  templateVersionDetectada: 1 | 3;
+  templateVersionDetectada: 1 | 3 | 4;
   engineVersion?: string;
   motivosRevision?: string[];
 }) {

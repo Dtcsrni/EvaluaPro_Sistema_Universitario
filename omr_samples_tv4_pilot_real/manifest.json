@@ -1,0 +1,16 @@
+{
+  "version": "1",
+  "datasetType": "tv4_pilot_real",
+  "templateVersion": 4,
+  "thresholds": {
+    "precisionMin": 0.98,
+    "falsePositiveMax": 0.01,
+    "invalidDetectionMin": 0.95,
+    "pagePassMin": 0.95,
+    "autoGradeTrustMin": 0.95,
+    "autoCoverageMin": 0.95
+  },
+  "groundTruthRef": "ground_truth.jsonl",
+  "answerKeyPath": "answer_key.json",
+  "capturas": []
+}

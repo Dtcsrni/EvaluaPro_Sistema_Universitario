@@ -37,7 +37,8 @@ export function accionToastSesionParaError(error: unknown, tipo: TipoSesion): To
       'CREDENCIALES_INVALIDAS',
       'DOCENTE_NO_REGISTRADO',
       'DOCENTE_SIN_CONTRASENA',
-      'GOOGLE_SUB_MISMATCH'
+      'GOOGLE_SUB_MISMATCH',
+      'GOOGLE_OAUTH_REQUIRED'
     ]);
 
     if (status === 401) {
@@ -265,6 +266,7 @@ function mensajeAmigablePorCodigo(codigo?: string): string | undefined {
   if (c.includes('DOCENTE_NO_REGISTRADO')) return 'No existe una cuenta de docente para ese correo.';
   if (c.includes('DOCENTE_SIN_CONTRASENA')) return 'Esta cuenta no tiene contrasena. Ingresa con Google o define una contrasena.';
   if (c.includes('GOOGLE_SUB_MISMATCH')) return 'La cuenta de Google no coincide con el docente.';
+  if (c.includes('GOOGLE_OAUTH_REQUIRED')) return 'Esta instalación requiere inicio de sesión con Google.';
   if (c.includes('TOKEN') && c.includes('INVALID')) return 'Tu sesion expiro. Inicia sesion de nuevo.';
   if (c.includes('TOKEN') && c.includes('EXPIR')) return 'Tu sesion expiro. Inicia sesion de nuevo.';
   if (c.includes('DATOS_INVALID')) return 'Datos invalidos. Revisa los campos e intenta de nuevo.';
@@ -336,6 +338,7 @@ export function sugerenciaUsuarioDeError(error: unknown): string | undefined {
       if (codigo?.includes('DOCENTE_NO_REGISTRADO')) return 'Tip: crea tu cuenta desde "Registrar".';
       if (codigo?.includes('DOCENTE_SIN_CONTRASENA')) return 'Tip: ingresa con Google o define una contrasena.';
       if (codigo?.includes('GOOGLE_SUB_MISMATCH')) return 'Tip: usa la misma cuenta de Google vinculada.';
+      if (codigo?.includes('GOOGLE_OAUTH_REQUIRED')) return 'Tip: usa el botón de Google.';
       return 'Tip: inicia sesion de nuevo.';
     }
     if (status === 403) return 'Tip: revisa tus permisos o el rol.';

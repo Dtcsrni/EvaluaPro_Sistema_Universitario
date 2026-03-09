@@ -83,6 +83,14 @@ function round6(value: number) {
   return Number(value.toFixed(6));
 }
 
+function isResolvedDetection(current?: { opcion: string | null; flags: string[]; confianza: number }) {
+  if (!current) return false;
+  if (current.opcion) return true;
+  if (current.flags.includes('bajo_contraste')) return false;
+  if (current.flags.includes('doble_marca')) return current.confianza >= 0.62;
+  return current.confianza >= 0.62;
+}
+
 function groupTruth(rows: GroundTruthRowPorFolio[]) {
   const grouped = new Map<string, Map<number, GroundTruthRowPorFolio>>();
   for (const row of rows) {
@@ -161,26 +169,26 @@ export async function runTv3PorFolioValidation(args: {
 
     totalCaptures += 1;
     estadoCounts[result.estadoAnalisis] += 1;
-    for (const warning of result.advertencias) bump(causeCounts, `warning:${warning}`);
-    for (const motivo of result.motivosRevision) bump(causeCounts, `motivo:${motivo}`);
 
-    const detected = new Map<number, { opcion: string | null; flags: string[] }>();
+    const detected = new Map<number, { opcion: string | null; flags: string[]; confianza: number }>();
+    const captureCauseTokens: string[] = [];
     for (const respuesta of result.respuestasDetectadas) {
       detected.set(respuesta.numeroPregunta, {
         opcion: respuesta.opcion,
-        flags: respuesta.flags
+        flags: respuesta.flags,
+        confianza: Number(respuesta.confianza ?? 0)
       });
-      for (const flag of respuesta.flags) bump(causeCounts, `flag:${flag}`);
+      for (const flag of respuesta.flags) captureCauseTokens.push(`flag:${flag}`);
     }
 
     let mismatches = 0;
-    let respuestasPositivas = 0;
+    let respuestasResueltas = 0;
     for (const [questionNumber, row] of expected.entries()) {
       const current = detected.get(questionNumber);
       const detectedOption = (current?.opcion as string | null | undefined) ?? null;
       const selected = row.selectedOptions ?? [];
       totalPreguntasEvaluadas += 1;
-      if (detectedOption) respuestasPositivas += 1;
+      if (isResolvedDetection(current)) respuestasResueltas += 1;
 
       if (row.markType === 'double' || row.markType === 'smudge') {
         invalidTotal += 1;
@@ -210,7 +218,7 @@ export async function runTv3PorFolioValidation(args: {
     }
 
     const totalPreguntas = expected.size;
-    const coberturaDeteccion = totalPreguntas > 0 ? respuestasPositivas / totalPreguntas : 0;
+    const coberturaDeteccion = totalPreguntas > 0 ? respuestasResueltas / totalPreguntas : 0;
     const auto = evaluarAutoCalificableOmr({
       estadoAnalisis: result.estadoAnalisis,
       calidadPagina: result.calidadPagina,
@@ -220,6 +228,11 @@ export async function runTv3PorFolioValidation(args: {
     });
 
     const pagePass = mismatches === 0 && result.estadoAnalisis === 'ok';
+    if (!pagePass) {
+      for (const warning of result.advertencias) captureCauseTokens.push(`warning:${warning}`);
+      for (const motivo of result.motivosRevision) captureCauseTokens.push(`motivo:${motivo}`);
+      for (const token of captureCauseTokens) bump(causeCounts, token);
+    }
     if (pagePass) pagePassCount += 1;
     if (auto.autoCalificableOmr) {
       autoPages += 1;

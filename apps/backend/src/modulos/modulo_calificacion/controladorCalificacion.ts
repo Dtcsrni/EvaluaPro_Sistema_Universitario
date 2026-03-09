@@ -15,6 +15,7 @@ import { configuracion } from '../../configuracion';
 import { obtenerDocenteId, type SolicitudDocente } from '../modulo_autenticacion/middlewareAutenticacion';
 import { Periodo } from '../modulo_alumnos/modeloPeriodo';
 import { BancoPregunta } from '../modulo_banco_preguntas/modeloBancoPregunta';
+import { extraerResumenQrExamen } from '../modulo_generacion_pdf/domain/qrExamen';
 import { ExamenGenerado } from '../modulo_generacion_pdf/modeloExamenGenerado';
 import { ExamenPlantilla } from '../modulo_generacion_pdf/modeloExamenPlantilla';
 import { evaluarAutoCalificableOmr } from '../modulo_escaneo_omr/politicaAutoCalificacionOmr';
@@ -49,7 +50,7 @@ type AnalisisOmrCalificacion = {
   calidadPagina: number;
   confianzaPromedioPagina?: number;
   ratioAmbiguas?: number;
-  templateVersionDetectada?: 3;
+  templateVersionDetectada?: 3 | 4;
   motivosRevision?: string[];
   revisionConfirmada?: boolean;
   usuarioRevisor?: string;
@@ -59,13 +60,14 @@ type AnalisisOmrCalificacion = {
   geomQuality?: number;
   photoQuality?: number;
   decisionPolicy?: string;
+  qrTexto?: string;
 };
 
 type PaginaOmrCalificacionEntrada = {
   numeroPagina: number;
   imagenBase64: string;
   estadoAnalisis?: 'ok' | 'rechazado_calidad' | 'requiere_revision';
-  templateVersionDetectada?: 3;
+  templateVersionDetectada?: 3 | 4;
 };
 
 function extraerBase64Imagen(base64: string): { mimeType: string; contenido: string } {
@@ -103,7 +105,7 @@ async function archivarPaginasOmrEnCalificacion({
   };
   folio: string;
   estadoAnalisisDefault?: 'ok' | 'rechazado_calidad' | 'requiere_revision';
-  templateVersionDetectadaDefault?: 3;
+  templateVersionDetectadaDefault?: 3 | 4;
   engineVersionDefault?: string;
   motivosRevisionDefault?: string[];
 }) {
@@ -149,7 +151,9 @@ async function archivarPaginasOmrEnCalificacion({
         ? pagina.estadoAnalisis
         : estadoAnalisisDefault ?? 'ok';
     const templateVersionDetectada =
-      pagina.templateVersionDetectada === 3 ? 3 : templateVersionDetectadaDefault;
+      pagina.templateVersionDetectada === 3 || pagina.templateVersionDetectada === 4
+        ? pagina.templateVersionDetectada
+        : templateVersionDetectadaDefault;
     for (let reintento = 0; reintento < 3; reintento += 1) {
       const intento = await calcularSiguienteIntentoOmr(numeroPagina);
       try {
@@ -192,6 +196,133 @@ function obtenerLetraCorrecta(opciones: Array<{ esCorrecta: boolean }>, orden: n
   return String.fromCharCode(65 + posicion);
 }
 
+function resolverPaginasQrEsperadas(examen: {
+  paginas?: Array<{ qrTexto?: unknown }>;
+}) {
+  return (Array.isArray(examen.paginas) ? examen.paginas : [])
+    .map((pagina) => String((pagina as { qrTexto?: unknown } | null)?.qrTexto ?? '').trim())
+    .filter((qrTexto) => qrTexto.length > 0);
+}
+
+function validarResumenQrContraExamen(params: {
+  qrTexto: string;
+  folioExamen: string;
+  templateVersionOmr: number;
+  paginasQrEsperadas: string[];
+}) {
+  const { qrTexto, folioExamen, templateVersionOmr, paginasQrEsperadas } = params;
+  const resumenQr = extraerResumenQrExamen(qrTexto);
+  if (!resumenQr) {
+    throw new ErrorAplicacion(
+      'OMR_QR_INVALIDO',
+      'El QR incluido en omrAnalisis no tiene un formato válido para verificar la variante del examen',
+      422
+    );
+  }
+  if (resumenQr.payloadSignature && resumenQr.payloadSignatureValid === false) {
+    throw new ErrorAplicacion(
+      'OMR_QR_FIRMA_INVALIDA',
+      'El QR incluido en omrAnalisis no supera la validación de integridad',
+      409,
+      {
+        signatureMode: resumenQr.payloadSignatureMode ?? 'desconocido'
+      }
+    );
+  }
+
+  const folioQr = String(resumenQr.folio ?? '').trim().toUpperCase();
+  const folioDb = String(folioExamen ?? '').trim().toUpperCase();
+  if (folioQr && folioDb && folioQr !== folioDb) {
+    throw new ErrorAplicacion('OMR_QR_FOLIO_NO_COINCIDE', 'El QR analizado no corresponde al folio del examen', 409, {
+      folioQr,
+      folioExamen: folioDb
+    });
+  }
+
+  if (
+    (resumenQr.templateVersion === 3 || resumenQr.templateVersion === 4) &&
+    (templateVersionOmr === 3 || templateVersionOmr === 4) &&
+    resumenQr.templateVersion !== templateVersionOmr
+  ) {
+    throw new ErrorAplicacion(
+      'OMR_QR_TEMPLATE_NO_COINCIDE',
+      'La plantilla detectada por el QR no coincide con la plantilla del examen',
+      409,
+      {
+        templateVersionQr: resumenQr.templateVersion,
+        templateVersionExamen: templateVersionOmr
+      }
+    );
+  }
+
+  const resumenesEsperados = paginasQrEsperadas
+    .map((texto) => extraerResumenQrExamen(texto))
+    .filter(
+      (
+        resumen
+      ): resumen is NonNullable<ReturnType<typeof extraerResumenQrExamen>> =>
+        Boolean(resumen?.variantHash) && Boolean(resumen?.answerKeyHash) && resumen?.payloadSignatureValid !== false
+    );
+  if (resumenesEsperados.length === 0) {
+    return resumenQr;
+  }
+
+  if (!resumenQr.variantHash || !resumenQr.answerKeyHash) {
+    throw new ErrorAplicacion(
+      'OMR_QR_HASHES_REQUERIDOS',
+      'El QR analizado no incluye hashes de variante y clave requeridos para validar la calificación',
+      422
+    );
+  }
+
+  const candidatos =
+    resumenesEsperados.filter((item) => item.numeroPagina === resumenQr.numeroPagina).length > 0
+      ? resumenesEsperados.filter((item) => item.numeroPagina === resumenQr.numeroPagina)
+      : resumenesEsperados;
+
+  const coincideVariante = candidatos.some((item) => item.variantHash === resumenQr.variantHash);
+  if (!coincideVariante) {
+    throw new ErrorAplicacion(
+      'OMR_QR_VARIANTE_NO_COINCIDE',
+      'El QR analizado no coincide con la variante de preguntas del examen generado',
+      409,
+      {
+        numeroPaginaQr: resumenQr.numeroPagina,
+        variantHashQr: resumenQr.variantHash
+      }
+    );
+  }
+
+  const coincideClave = candidatos.some((item) => item.answerKeyHash === resumenQr.answerKeyHash);
+  if (!coincideClave) {
+    throw new ErrorAplicacion(
+      'OMR_QR_CLAVE_NO_COINCIDE',
+      'El QR analizado no coincide con la clave correcta del examen generado',
+      409,
+      {
+        numeroPaginaQr: resumenQr.numeroPagina,
+        answerKeyHashQr: resumenQr.answerKeyHash
+      }
+    );
+  }
+
+  if (resumenQr.examId) {
+    const coincideExamId = candidatos.some((item) => !item.examId || item.examId === resumenQr.examId);
+    if (!coincideExamId) {
+      throw new ErrorAplicacion(
+        'OMR_QR_EXAM_ID_NO_COINCIDE',
+        'El QR analizado no corresponde al identificador del examen generado',
+        409,
+        {
+          examIdQr: resumenQr.examId
+        }
+      );
+    }
+  }
+
+  return resumenQr;
+}
+
 function validarPayloadCalificacionOmr(params: {
   folioPayload?: string;
   folioExamen: string;
@@ -199,6 +330,7 @@ function validarPayloadCalificacionOmr(params: {
   totalPreguntasEsperadas: number;
   respuestas: RespuestaDetectada[];
   analisisOmr?: AnalisisOmrCalificacion;
+  paginasQrEsperadas?: string[];
 }) {
   const {
     folioPayload,
@@ -206,7 +338,8 @@ function validarPayloadCalificacionOmr(params: {
     templateVersionOmr,
     totalPreguntasEsperadas,
     respuestas,
-    analisisOmr
+    analisisOmr,
+    paginasQrEsperadas = []
   } = params;
 
   const folioReq = String(folioPayload ?? '').trim().toUpperCase();
@@ -218,8 +351,8 @@ function validarPayloadCalificacionOmr(params: {
     });
   }
 
-  if (respuestas.length > 0 && templateVersionOmr !== 3) {
-    throw new ErrorAplicacion('OMR_TEMPLATE_NO_COMPATIBLE', 'Solo TV3 puede guardar calificación OMR automática', 422);
+  if (respuestas.length > 0 && templateVersionOmr !== 3 && templateVersionOmr !== 4) {
+    throw new ErrorAplicacion('OMR_TEMPLATE_NO_COMPATIBLE', 'Solo TV3/TV4 pueden guardar calificación OMR automática', 422);
   }
   if (respuestas.length > 0 && totalPreguntasEsperadas <= 0) {
     throw new ErrorAplicacion(
@@ -275,8 +408,12 @@ function validarPayloadCalificacionOmr(params: {
     throw new ErrorAplicacion('OMR_ANALISIS_REQUERIDO', 'Se requiere omrAnalisis cuando se envían respuestasDetectadas', 422);
   }
   if (!analisisOmr) return;
-  if (analisisOmr.templateVersionDetectada !== undefined && analisisOmr.templateVersionDetectada !== 3) {
-    throw new ErrorAplicacion('OMR_TEMPLATE_NO_COMPATIBLE', 'El análisis OMR recibido no corresponde a TV3', 422);
+  if (
+    analisisOmr.templateVersionDetectada !== undefined &&
+    analisisOmr.templateVersionDetectada !== 3 &&
+    analisisOmr.templateVersionDetectada !== 4
+  ) {
+    throw new ErrorAplicacion('OMR_TEMPLATE_NO_COMPATIBLE', 'El análisis OMR recibido no corresponde a TV3/TV4', 422);
   }
   if (analisisOmr.estadoAnalisis !== 'ok' && analisisOmr.revisionConfirmada) {
     const usuarioRevisor = String(analisisOmr.usuarioRevisor ?? '').trim();
@@ -289,6 +426,23 @@ function validarPayloadCalificacionOmr(params: {
         422
       );
     }
+  }
+
+  if (respuestas.length > 0 && paginasQrEsperadas.length > 0) {
+    const qrTexto = String(analisisOmr.qrTexto ?? '').trim();
+    if (!qrTexto) {
+      throw new ErrorAplicacion(
+        'OMR_QR_ANALISIS_REQUERIDO',
+        'Se requiere el qrTexto analizado para validar variante y clave del examen',
+        422
+      );
+    }
+    validarResumenQrContraExamen({
+      qrTexto,
+      folioExamen,
+      templateVersionOmr,
+      paginasQrEsperadas
+    });
   }
 }
 
@@ -357,14 +511,20 @@ export async function calificarExamen(req: SolicitudDocente, res: Response) {
   const confianzaPromedioPagina = Number(analisisOmr?.confianzaPromedioPagina ?? 1);
   const ratioAmbiguas = Number(analisisOmr?.ratioAmbiguas ?? 0);
   const totalPreguntasEsperadas = Array.isArray(ordenPreguntas) ? ordenPreguntas.length : 0;
+  const paginasQrEsperadas = resolverPaginasQrEsperadas(examen);
   validarPayloadCalificacionOmr({
     folioPayload: String(folio ?? ''),
     folioExamen: String(examen.folio ?? ''),
     templateVersionOmr: Number(examen.mapaOmr?.templateVersion ?? 0),
     totalPreguntasEsperadas,
     respuestas,
-    analisisOmr
+    analisisOmr,
+    paginasQrEsperadas
   });
+  const qrResumenAnalisis =
+    analisisOmr && String(analisisOmr.qrTexto ?? '').trim()
+      ? extraerResumenQrExamen(String(analisisOmr.qrTexto ?? '').trim())
+      : null;
   const coberturaDeteccion = totalPreguntasEsperadas > 0 ? respuestas.length / totalPreguntasEsperadas : 0;
   const { autoCalificableOmr } = evaluarAutoCalificableOmr({
     estadoAnalisis: analisisOmr?.estadoAnalisis,
@@ -508,6 +668,9 @@ export async function calificarExamen(req: SolicitudDocente, res: Response) {
           geomQuality: analisisOmr.geomQuality ?? null,
           photoQuality: analisisOmr.photoQuality ?? null,
           decisionPolicy: analisisOmr.decisionPolicy ?? null,
+          qrTexto: analisisOmr.qrTexto ?? null,
+          variantHash: qrResumenAnalisis?.variantHash ?? null,
+          answerKeyHash: qrResumenAnalisis?.answerKeyHash ?? null,
           motivosRevision: analisisOmr.motivosRevision ?? [],
           autoCalificableOmr,
           contestadasTotal,

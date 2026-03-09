@@ -146,6 +146,18 @@ type BubbleMarkScore = {
   fillRatio: number;
 };
 
+export type PanelDarknessDetection = {
+  panelIndex: number;
+  questionNumber: number;
+  panelBounds: { x: number; y: number; width: number; height: number };
+  optionCentersImage: Array<{ letra: OpcionOmr; x: number; y: number }>;
+  markType: MarkTypePorFolio;
+  option: OpcionOmr | null;
+  selectedOptions: OpcionOmr[];
+  dominantGap: number;
+  rawScores: Record<OpcionOmr, number>;
+};
+
 type DerivedPanel = {
   panelIndex: number;
   bounds: ConnectedBox;
@@ -253,6 +265,15 @@ function resolveFromRepoRoot(repoRoot: string, targetPath: string) {
 
 async function loadGrayImage(filePath: string): Promise<GrayImage> {
   const { data, info } = await sharp(filePath).rotate().greyscale().raw().toBuffer({ resolveWithObject: true });
+  return {
+    width: info.width,
+    height: info.height,
+    gray: new Uint8ClampedArray(data.buffer, data.byteOffset, data.byteLength)
+  };
+}
+
+async function loadGrayImageFromBuffer(imageBuffer: Buffer): Promise<GrayImage> {
+  const { data, info } = await sharp(imageBuffer).rotate().greyscale().raw().toBuffer({ resolveWithObject: true });
   return {
     width: info.width,
     height: info.height,
@@ -530,6 +551,44 @@ function resolvePanelTruth(scores: BubbleMarkScore[], profile = DEFAULT_POR_FOLI
     selectedOptions,
     dominantGap
   };
+}
+
+function analyzePanelsFromGrayImage(
+  grayImage: GrayImage,
+  questionNumbers: number[],
+  profile = DEFAULT_POR_FOLIO_PROFILE
+): PanelDarknessDetection[] {
+  const panels = detectOmrPanels(grayImage, profile);
+  return panels.slice(0, questionNumbers.length).map((panel, index) => {
+    const centersImage = detectBubbleCenters(grayImage, panel, profile);
+    const scores = centersImage.map((center) => scoreBubbleMark(grayImage, center, panel));
+    const truth = resolvePanelTruth(scores, profile);
+    return {
+      panelIndex: index,
+      questionNumber: questionNumbers[index] ?? buildCanonicalQuestionNumber(0, index),
+      panelBounds: {
+        x: panel.x,
+        y: panel.y,
+        width: panel.width,
+        height: panel.height
+      },
+      optionCentersImage: centersImage,
+      markType: truth.markType,
+      option: truth.option,
+      selectedOptions: truth.selectedOptions,
+      dominantGap: truth.dominantGap,
+      rawScores: Object.fromEntries(scores.map((score) => [score.option, score.score])) as Record<OpcionOmr, number>
+    };
+  });
+}
+
+export async function analyzeOmrPanelsFromImageBuffer(
+  imageBuffer: Buffer,
+  questionNumbers: number[],
+  profile = DEFAULT_POR_FOLIO_PROFILE
+): Promise<PanelDarknessDetection[]> {
+  const grayImage = await loadGrayImageFromBuffer(imageBuffer);
+  return analyzePanelsFromGrayImage(grayImage, questionNumbers, profile);
 }
 
 function buildCanonicalQuestionNumber(pageNumber: number, panelIndex: number) {

@@ -106,9 +106,10 @@ export function SeccionCalificar({
       calidadPagina: number;
       confianzaPromedioPagina: number;
       ratioAmbiguas: number;
-      templateVersionDetectada: 1 | 3;
+      templateVersionDetectada: 1 | 3 | 4;
       motivosRevision: string[];
       revisionConfirmada: boolean;
+      qrTexto?: string;
     };
   }) => Promise<unknown>;
   puedeCalificar: boolean;
@@ -277,7 +278,8 @@ export function SeccionCalificar({
               ratioAmbiguas: resultadoOmr.ratioAmbiguas,
               templateVersionDetectada: resultadoOmr.templateVersionDetectada,
               motivosRevision: Array.isArray(resultadoOmr.motivosRevision) ? resultadoOmr.motivosRevision : [],
-              revisionConfirmada: revisionOmrConfirmada
+              revisionConfirmada: revisionOmrConfirmada,
+              qrTexto: typeof resultadoOmr.qrTexto === 'string' ? resultadoOmr.qrTexto : undefined
             }
           : undefined
       });

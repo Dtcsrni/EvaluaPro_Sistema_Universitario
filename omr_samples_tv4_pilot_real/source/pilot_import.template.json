@@ -1,0 +1,52 @@
+{
+  "version": "1",
+  "datasetType": "tv4_pilot_real_import",
+  "answerKey": {
+    "1": "A"
+  },
+  "captures": [
+    {
+      "captureId": "TV4-PILOT-001-P1-C1",
+      "folio": "TV4PILOT001",
+      "numeroPagina": 1,
+      "captureOrdinal": 1,
+      "imageSourcePath": "capturas/TV4-PILOT-001-P1-C1.jpg",
+      "mapaOmrSourcePath": "maps/TV4-PILOT-001-P1.json",
+      "questionRange": {
+        "from": 1,
+        "to": 8
+      },
+      "sourcePath": "capturas/TV4-PILOT-001-P1-C1.jpg",
+      "sourceGroup": "pilot_real_batch_01",
+      "expectedQr": "EXAMEN:TV4PILOT001:P1:TV4",
+      "truthRows": [
+        {
+          "numeroPregunta": 1,
+          "opcionEsperada": "A",
+          "markType": "valid",
+          "selectedOptions": [
+            "A"
+          ],
+          "sourceEvidence": {
+            "detector": "panel_darkness_v1",
+            "panelIndex": 0,
+            "panelBounds": {
+              "x": 0,
+              "y": 0,
+              "width": 0,
+              "height": 0
+            },
+            "rawScores": {
+              "A": 1,
+              "B": 0,
+              "C": 0,
+              "D": 0,
+              "E": 0
+            },
+            "dominantGap": 1
+          }
+        }
+      ]
+    }
+  ]
+}

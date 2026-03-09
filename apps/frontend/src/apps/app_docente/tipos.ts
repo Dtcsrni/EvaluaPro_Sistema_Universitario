@@ -18,6 +18,8 @@ export type Docente = {
     oauthGoogleBackend?: boolean;
     classroomBackend?: boolean;
     smtpBackend?: boolean;
+    requireGoogleOAuth?: boolean;
+    passwordLoginAllowed?: boolean;
   };
   preferenciasPdf?: {
     institucion?: string;
@@ -309,7 +311,7 @@ export type ResultadoOmr = {
   calidadPagina: number;
   estadoAnalisis: 'ok' | 'rechazado_calidad' | 'requiere_revision';
   motivosRevision: string[];
-  templateVersionDetectada: 1 | 3;
+  templateVersionDetectada: 1 | 3 | 4;
   confianzaPromedioPagina: number;
   ratioAmbiguas: number;
 };
@@ -354,7 +356,113 @@ export type ResultadoAnalisisOmr = {
   folio: string;
   numeroPagina: number;
   alumnoId?: string | null;
-  templateVersionDetectada?: 1 | 3;
+  templateVersionDetectada?: 1 | 3 | 4;
+};
+
+export type ClassroomEstado = {
+  conectado: boolean;
+  correoGoogle?: string | null;
+  googleUserId?: string | null;
+  ultimaSincronizacionEn?: string | null;
+  ultimoError?: string | null;
+};
+
+export type ClassroomCurso = {
+  id: string;
+  name: string;
+  section?: string;
+  descriptionHeading?: string;
+  updateTime?: string;
+  courseState?: string;
+};
+
+export type ClassroomActividad = {
+  id: string;
+  title: string;
+  description?: string;
+  maxPoints?: number;
+  state?: string;
+  updateTime?: string;
+  alternateLink?: string;
+  mapeo?: {
+    tituloEvidencia?: string;
+    descripcionEvidencia?: string;
+    ponderacion?: number;
+    corte?: number;
+    activo?: boolean;
+  } | null;
+};
+
+export type ClassroomAlumnoLocal = {
+  _id: string;
+  nombreCompleto: string;
+  matricula?: string;
+  correo?: string;
+};
+
+export type ClassroomAlumnoCurso = {
+  classroomUserId: string;
+  fullName?: string;
+  emailAddress?: string;
+  alumnoIdConfirmado?: string | null;
+  alumnoConfirmado?: ClassroomAlumnoLocal | null;
+  alumnoIdSugerido?: string | null;
+  alumnoSugerido?: ClassroomAlumnoLocal | null;
+  matchStrategy: 'manual' | 'email' | 'matricula' | 'none';
+};
+
+export type ClassroomPreviewSubmission = {
+  submissionId: string;
+  classroomUserId: string;
+  studentName?: string;
+  studentEmail?: string;
+  alumnoId?: string | null;
+  alumnoNombre?: string | null;
+  matchStrategy: 'manual' | 'email' | 'matricula' | 'none';
+  estadoCaptura: 'pendiente' | 'calificada';
+  graded: boolean;
+  pending: boolean;
+  wouldCreate: boolean;
+  wouldUpdate: boolean;
+  calificacionDecimal?: number;
+};
+
+export type ClassroomPreviewActividad = {
+  courseId: string;
+  courseName?: string;
+  courseWorkId: string;
+  courseWorkTitle?: string;
+  tituloEvidencia?: string;
+  submissionsProcesadas: number;
+  matched: number;
+  unmatched: number;
+  pending: number;
+  graded: number;
+  wouldCreate: number;
+  wouldUpdate: number;
+  importadas: number;
+  actualizadas: number;
+  omitidas: number;
+  submissions: ClassroomPreviewSubmission[];
+  errors: Array<{ mensaje: string }>;
+};
+
+export type ClassroomPreviewResultado = {
+  tipo: 'preview' | 'ejecucion';
+  periodoId: string;
+  totalActividades: number;
+  submissionsProcesadas: number;
+  matched: number;
+  unmatched: number;
+  pending: number;
+  graded: number;
+  wouldCreate: number;
+  wouldUpdate: number;
+  importadas: number;
+  actualizadas: number;
+  omitidas: number;
+  actividades: ClassroomPreviewActividad[];
+  errores: Array<{ courseId: string; courseWorkId: string; mensaje: string }>;
 };
 
 export type RevisionPaginaOmr = {

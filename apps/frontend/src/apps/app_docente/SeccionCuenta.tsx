@@ -24,7 +24,8 @@ export function SeccionCuenta({
   esDev,
   oauthGoogleDisponible,
   classroomDisponible,
-  smtpDisponible
+  smtpDisponible,
+  requireGoogleOAuth
 }: {
   docente: Docente;
   onDocenteActualizado: (d: Docente) => void;
@@ -33,6 +34,7 @@ export function SeccionCuenta({
   oauthGoogleDisponible?: boolean;
   classroomDisponible?: boolean;
   smtpDisponible?: boolean;
+  requireGoogleOAuth?: boolean;
 }) {
   const [contrasenaNueva, setContrasenaNueva] = useState('');
   const [contrasenaNueva2, setContrasenaNueva2] = useState('');
@@ -61,6 +63,7 @@ export function SeccionCuenta({
   const requiereContrasenaActual = Boolean(docente.tieneContrasena);
   const requiereGoogle = Boolean(docente.tieneGoogle && !docente.tieneContrasena);
   const puedeConfigurarOauth = esAdmin;
+  const googleOnly = Boolean(requireGoogleOAuth);
 
   const reautenticacionValida = requiereContrasenaActual ? Boolean(contrasenaActual.trim()) : requiereGoogle ? Boolean(credentialReauth) : Boolean(contrasenaActual.trim() || credentialReauth);
   const puedeGuardar = Boolean(contrasenaNueva.trim().length >= 8 && coincide && reautenticacionValida);
@@ -338,6 +341,11 @@ export function SeccionCuenta({
         <h3>
           <Icono nombre="ok" /> Seguridad de acceso
         </h3>
+        {googleOnly && (
+          <InlineMensaje tipo="info">
+            Modo Google-only activo: la contraseña local está deshabilitada mientras `REQUIRE_GOOGLE_OAUTH=1`.
+          </InlineMensaje>
+        )}
         <div className="meta">
           <span className={docente.tieneGoogle ? 'badge ok' : 'badge'}>
             <span className="dot" aria-hidden="true" /> Google {docente.tieneGoogle ? 'vinculado' : 'no vinculado'}
@@ -347,7 +355,7 @@ export function SeccionCuenta({
           </span>
         </div>
 
-        {Boolean(docente.tieneGoogle && googleDisponible) && (
+        {Boolean(!googleOnly && docente.tieneGoogle && googleDisponible) && (
           <div className="auth-google auth-google--mb">
             <p className="nota">Reautenticacion con Google (recomendado).</p>
             <GoogleLogin
@@ -370,7 +378,7 @@ export function SeccionCuenta({
           </div>
         )}
 
-        <div className="cuenta-seguridad__form">
+        {!googleOnly && <div className="cuenta-seguridad__form">
           {docente.tieneContrasena && (
             <label className="campo">
               Contrasena actual
@@ -414,13 +422,15 @@ export function SeccionCuenta({
             )}
             {contrasenaNueva2 && !coincide && <span className="ayuda error">Las contrasenas no coinciden.</span>}
           </label>
-        </div>
+        </div>}
 
-        <div className="acciones">
-          <Boton type="button" icono={<Icono nombre="ok" />} cargando={guardando} disabled={!puedeGuardar} onClick={guardar}>
-            {guardando ? 'Guardando…' : 'Guardar contrasena'}
-          </Boton>
-        </div>
+        {!googleOnly && (
+          <div className="acciones">
+            <Boton type="button" icono={<Icono nombre="ok" />} cargando={guardando} disabled={!puedeGuardar} onClick={guardar}>
+              {guardando ? 'Guardando…' : 'Guardar contrasena'}
+            </Boton>
+          </div>
+        )}
       </div>
 
       <div className="subpanel cuenta-pdf">

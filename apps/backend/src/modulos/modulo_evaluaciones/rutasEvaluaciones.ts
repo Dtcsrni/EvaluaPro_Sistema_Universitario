@@ -2,10 +2,20 @@ import { Router } from 'express';
 import { validarCuerpo } from '../../compartido/validaciones/validar';
 import { requerirPermiso } from '../modulo_autenticacion/middlewarePermisos';
 import {
+  actualizarMapeoAlumnosCursoController,
+  desconectarOauthClassroomController,
   ejecutarPullClassroom,
+  ejecutarImportacionClassroom,
   iniciarOauthClassroom,
+  listarActividadesClassroomController,
+  listarCursosClassroomController,
+  listarHistorialSyncClassroomController,
   listarMapeosClassroom,
   mapearClassroomEvidencia
+  ,
+  obtenerAlumnosCursoClassroomController,
+  obtenerEstadoClassroomController,
+  previewImportacionClassroom
 } from '../modulo_integraciones_classroom/controladorIntegracionesClassroom';
 import {
   crearEvidenciaEvaluacion,
@@ -28,7 +38,13 @@ import {
   esquemaCrearEvidencia,
   esquemaCrearPolitica
 } from './validacionesEvaluaciones';
-import { esquemaMapearClassroom, esquemaPullClassroom } from '../modulo_integraciones_classroom/validacionesClassroom';
+import {
+  esquemaActualizarMapeoAlumnosCurso,
+  esquemaEjecutarImportacionClassroom,
+  esquemaMapearClassroom,
+  esquemaPreviewImportacionClassroom,
+  esquemaPullClassroom
+} from '../modulo_integraciones_classroom/validacionesClassroom';
 
 const router = Router();
 
@@ -81,7 +97,31 @@ router.post(
   guardarComponenteExamenV2
 );
 router.get('/v2/alumnos/:alumnoId/resumen', requerirPermiso('evaluaciones:leer'), obtenerResumenEvaluacionesV2);
+router.get('/v2/classroom/estado', requerirPermiso('classroom:pull'), obtenerEstadoClassroomController);
 router.get('/v2/classroom/oauth/iniciar', requerirPermiso('classroom:conectar'), iniciarOauthClassroom);
+router.post('/v2/classroom/oauth/desconectar', requerirPermiso('classroom:conectar'), desconectarOauthClassroomController);
+router.get('/v2/classroom/cursos', requerirPermiso('classroom:pull'), listarCursosClassroomController);
+router.get('/v2/classroom/cursos/:courseId/actividades', requerirPermiso('classroom:pull'), listarActividadesClassroomController);
+router.get('/v2/classroom/cursos/:courseId/alumnos', requerirPermiso('classroom:pull'), obtenerAlumnosCursoClassroomController);
+router.put(
+  '/v2/classroom/cursos/:courseId/mapeo-alumnos',
+  requerirPermiso('classroom:pull'),
+  validarCuerpo(esquemaActualizarMapeoAlumnosCurso, { strict: true }),
+  actualizarMapeoAlumnosCursoController
+);
+router.get('/v2/classroom/importaciones/historial', requerirPermiso('classroom:pull'), listarHistorialSyncClassroomController);
+router.post(
+  '/v2/classroom/importaciones/preview',
+  requerirPermiso('classroom:pull'),
+  validarCuerpo(esquemaPreviewImportacionClassroom, { strict: true }),
+  previewImportacionClassroom
+);
+router.post(
+  '/v2/classroom/importaciones/ejecutar',
+  requerirPermiso('classroom:pull'),
+  validarCuerpo(esquemaEjecutarImportacionClassroom, { strict: true }),
+  ejecutarImportacionClassroom
+);
 router.get('/v2/classroom/mapeos', requerirPermiso('classroom:pull'), listarMapeosClassroom);
 router.post(
   '/v2/classroom/mapeos',
