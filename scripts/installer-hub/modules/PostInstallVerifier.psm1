@@ -78,7 +78,7 @@ function Invoke-PostInstallVerification {
       $issues += "No se encontro configuracion de update: $updateConfigPath"
     } else {
       try {
-        $updateCfg = Get-Content -Path $updateConfigPath -Raw -Encoding utf8 | ConvertFrom-Json -Depth 8
+        $updateCfg = Get-Content -Path $updateConfigPath -Raw -Encoding utf8 | ConvertFrom-Json
         if ($Flavor) {
           if ([string]$updateCfg.flavorId -ne [string]$Flavor.flavorId) {
             $issues += "Flavor update-config inconsistente. Esperado=$($Flavor.flavorId) Actual=$([string]$updateCfg.flavorId)"

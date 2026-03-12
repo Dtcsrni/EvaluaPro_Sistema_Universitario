@@ -16,7 +16,7 @@ if (-not (Test-Path $InstallerDir)) {
 
 $root = (Resolve-Path (Join-Path $PSScriptRoot '..')).Path
 $catalogPath = Join-Path $root 'config\installer-flavors.json'
-$catalog = Get-Content -Path $catalogPath -Raw -Encoding utf8 | ConvertFrom-Json -Depth 8
+$catalog = Get-Content -Path $catalogPath -Raw -Encoding utf8 | ConvertFrom-Json
 
 $certBase64 = [string]$env:EVALUAPRO_SIGN_CERT_BASE64
 $certPassword = [string]$env:EVALUAPRO_SIGN_CERT_PASSWORD

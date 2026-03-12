@@ -244,7 +244,7 @@ function Read-JsonMap {
   try {
     $raw = Get-Content -Path $Path -Encoding utf8 -Raw
     if ([string]::IsNullOrWhiteSpace($raw)) { return @{} }
-    $parsed = $raw | ConvertFrom-Json -Depth 12
+    $parsed = $raw | ConvertFrom-Json
     if ($null -eq $parsed) { return @{} }
     return $parsed
   } catch {

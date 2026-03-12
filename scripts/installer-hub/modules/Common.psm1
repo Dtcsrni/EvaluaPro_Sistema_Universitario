@@ -145,7 +145,22 @@ function Get-InstallerHubFileSha256 {
   if (-not (Test-Path $Path)) {
     throw "Archivo no encontrado para hash: $Path"
   }
-  return (Get-FileHash -Path $Path -Algorithm SHA256).Hash.ToLowerInvariant()
+  if (Get-Command Get-FileHash -ErrorAction SilentlyContinue) {
+    return (Get-FileHash -Path $Path -Algorithm SHA256).Hash.ToLowerInvariant()
+  }
+
+  $stream = [System.IO.File]::OpenRead($Path)
+  try {
+    $sha = [System.Security.Cryptography.SHA256]::Create()
+    try {
+      $hashBytes = $sha.ComputeHash($stream)
+      return ([BitConverter]::ToString($hashBytes) -replace '-', '').ToLowerInvariant()
+    } finally {
+      $sha.Dispose()
+    }
+  } finally {
+    $stream.Dispose()
+  }
 }
 
 function Resolve-InstallerHubSha256FromText {
@@ -224,7 +239,7 @@ function Get-InstallerFlavorCatalog {
   }
 
   $raw = Get-Content -Path $catalogPath -Raw -Encoding utf8
-  $json = $raw | ConvertFrom-Json -Depth 8
+  $json = $raw | ConvertFrom-Json
   if (-not $json.flavors -or @($json.flavors).Count -eq 0) {
     throw 'El catalogo de flavors no define entries.'
   }

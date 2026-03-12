@@ -65,7 +65,7 @@ function Get-SelectedFlavors {
     throw "No existe catalogo de flavors: $CatalogPath"
   }
 
-  $catalog = Get-Content -Path $CatalogPath -Raw -Encoding utf8 | ConvertFrom-Json -Depth 8
+  $catalog = Get-Content -Path $CatalogPath -Raw -Encoding utf8 | ConvertFrom-Json
   $flavors = @($catalog.flavors)
   if ($RequestedFlavor -eq 'all') { return $flavors }
   return @($flavors | Where-Object { [string]$_.flavorId -eq $RequestedFlavor })

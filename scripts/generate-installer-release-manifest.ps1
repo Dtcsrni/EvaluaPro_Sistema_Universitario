@@ -9,6 +9,42 @@ param(
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
 
+function Get-Sha256Hex {
+  param([Parameter(Mandatory = $true)][string]$Path)
+
+  if (Get-Command Get-FileHash -ErrorAction SilentlyContinue) {
+    return (Get-FileHash -Path $Path -Algorithm SHA256).Hash.ToLowerInvariant()
+  }
+
+  $stream = [System.IO.File]::OpenRead($Path)
+  try {
+    $sha = [System.Security.Cryptography.SHA256]::Create()
+    try {
+      $hashBytes = $sha.ComputeHash($stream)
+      return ([BitConverter]::ToString($hashBytes) -replace '-', '').ToLowerInvariant()
+    } finally {
+      $sha.Dispose()
+    }
+  } finally {
+    $stream.Dispose()
+  }
+}
+
+function Test-ArtifactSigned {
+  param([Parameter(Mandatory = $true)][string]$Path)
+
+  if (Get-Command Get-AuthenticodeSignature -ErrorAction SilentlyContinue) {
+    try {
+      $signature = Get-AuthenticodeSignature -FilePath $Path
+      return ($signature.Status -eq 'Valid')
+    } catch {
+      return $false
+    }
+  }
+
+  return $false
+}
+
 $root = (Resolve-Path (Join-Path $PSScriptRoot '..')).Path
 if (-not $Version) {
   $pkgPath = Join-Path $root 'package.json'
@@ -34,10 +70,7 @@ if (-not $commit) {
 
 $installerDir = Split-Path -Parent $OutputPath
 $catalogPath = Join-Path $root 'config\installer-flavors.json'
-$catalog = Get-Content -Path $catalogPath -Raw -Encoding utf8 | ConvertFrom-Json -Depth 8
-$unsignedMarker = Join-Path $installerDir 'SIGNING-NOT-PRODUCTION.txt'
-$isSigned = -not (Test-Path $unsignedMarker)
-
+$catalog = Get-Content -Path $catalogPath -Raw -Encoding utf8 | ConvertFrom-Json
 $artifactIndex = @{}
 $artifacts = @()
 $allArtifactNames = @('EvaluaPro-release-manifest.json')
@@ -48,11 +81,11 @@ foreach ($flavor in $catalog.flavors) {
 foreach ($name in ($allArtifactNames | Select-Object -Unique)) {
   $artifactPath = Join-Path $installerDir $name
   if (-not (Test-Path $artifactPath)) { continue }
-  $sha256 = (Get-FileHash -Path $artifactPath -Algorithm SHA256).Hash.ToLowerInvariant()
+  $sha256 = Get-Sha256Hex -Path $artifactPath
   $entry = [ordered]@{
     name = $name
     sha256 = $sha256
-    signed = $isSigned
+    signed = (Test-ArtifactSigned -Path $artifactPath)
   }
   $artifacts += $entry
   $artifactIndex[$name] = $entry

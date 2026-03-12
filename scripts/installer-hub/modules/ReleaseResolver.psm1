@@ -72,7 +72,7 @@ function Get-LatestStableReleaseAssets {
 
     try {
       $manifestResponse = Invoke-InstallerHubWebRequest -Url ([string]$manifestAsset.browser_download_url) -Method GET -Headers $headers -TimeoutSec 25 -RetryCount 2
-      $manifest = $manifestResponse.Content | ConvertFrom-Json -Depth 10
+      $manifest = $manifestResponse.Content | ConvertFrom-Json
       $flavor = @($manifest.flavors | Where-Object { [string]$_.flavorId -eq $FlavorId } | Select-Object -First 1)
       if ($flavor.Count -eq 0) { continue }
       $flavorItem = $flavor[0]

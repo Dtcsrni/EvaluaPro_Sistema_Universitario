@@ -8,19 +8,40 @@ param(
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
 
+function Get-Sha256Hex {
+  param([Parameter(Mandatory = $true)][string]$Path)
+
+  if (Get-Command Get-FileHash -ErrorAction SilentlyContinue) {
+    return (Get-FileHash -Path $Path -Algorithm SHA256).Hash.ToLowerInvariant()
+  }
+
+  $stream = [System.IO.File]::OpenRead($Path)
+  try {
+    $sha = [System.Security.Cryptography.SHA256]::Create()
+    try {
+      $hashBytes = $sha.ComputeHash($stream)
+      return ([BitConverter]::ToString($hashBytes) -replace '-', '').ToLowerInvariant()
+    } finally {
+      $sha.Dispose()
+    }
+  } finally {
+    $stream.Dispose()
+  }
+}
+
 $root = (Resolve-Path (Join-Path $PSScriptRoot '..')).Path
 if (-not $InstallerDir) {
   $InstallerDir = Join-Path $root 'dist\installer'
 }
 
 $catalogPath = Join-Path $root 'config\installer-flavors.json'
-$catalog = Get-Content -Path $catalogPath -Raw -Encoding utf8 | ConvertFrom-Json -Depth 8
+$catalog = Get-Content -Path $catalogPath -Raw -Encoding utf8 | ConvertFrom-Json
 
 foreach ($flavor in $catalog.flavors) {
   foreach ($artifactName in @([string]$flavor.msiName, [string]$flavor.bundleName, [string]$flavor.installerHubExeName)) {
     $artifactPath = Join-Path $InstallerDir $artifactName
     if (-not (Test-Path $artifactPath)) { continue }
-    $hash = (Get-FileHash -Path $artifactPath -Algorithm SHA256).Hash.ToLowerInvariant()
+    $hash = Get-Sha256Hex -Path $artifactPath
     $hashPath = Join-Path $InstallerDir ($artifactName + '.sha256')
     "$hash  $artifactName" | Set-Content -Path $hashPath -Encoding ascii
     Write-Host "[installer-hash] Generado: $hashPath"

@@ -20,7 +20,7 @@ $catalogPath = Join-Path $root 'config\installer-flavors.json'
 if (-not (Test-Path $catalogPath)) {
   throw "No existe catalogo de flavors: $catalogPath"
 }
-$catalog = Get-Content -Path $catalogPath -Raw -Encoding utf8 | ConvertFrom-Json -Depth 8
+$catalog = Get-Content -Path $catalogPath -Raw -Encoding utf8 | ConvertFrom-Json
 $flavors = @($catalog.flavors)
 if ($Flavor -ne 'all') {
   $flavors = @($flavors | Where-Object { [string]$_.flavorId -eq $Flavor })

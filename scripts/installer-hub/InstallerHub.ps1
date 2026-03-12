@@ -99,7 +99,7 @@ function Resolve-InstallerHubDefaults {
   $path = $candidates | Where-Object { Test-Path $_ } | Select-Object -First 1
   if (-not $path) { return @{} }
   try {
-    return Get-Content -Path $path -Raw -Encoding utf8 | ConvertFrom-Json -Depth 6
+    return Get-Content -Path $path -Raw -Encoding utf8 | ConvertFrom-Json
   } catch {
     return @{}
   }
@@ -152,7 +152,7 @@ function Resolve-DetectedUpdateConfig {
   try {
     $raw = Get-Content -Path $cfgPath -Encoding utf8 -Raw
     if ([string]::IsNullOrWhiteSpace($raw)) { return @{} }
-    $parsed = $raw | ConvertFrom-Json -Depth 12
+    $parsed = $raw | ConvertFrom-Json
     return @{
       channel = [string]($parsed.channel ?? '')
       flavorId = [string]($parsed.flavorId ?? '')
