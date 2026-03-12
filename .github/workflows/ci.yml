@@ -49,6 +49,21 @@ jobs:
               - "client/**"
             portal:
               - "apps/portal_alumno_cloud/**"
+            installer:
+              - "scripts/installer-hub/**"
+              - "scripts/build-msi.ps1"
+              - "scripts/build-installer-hub.ps1"
+              - "scripts/generate-installer-hashes.ps1"
+              - "scripts/generate-installer-release-manifest.ps1"
+              - "scripts/sign-installer-artifacts.ps1"
+              - "scripts/Install-EvaluaPro.ps1"
+              - "packaging/**"
+              - "config/installer-*.json"
+              - "config/update-config.json"
+            release:
+              - "scripts/release/**"
+              - ".github/workflows/ci-installer-windows.yml"
+              - "ci/**"
             docs:
               - "docs/**"
               - "ci/pipeline.contract.md"
@@ -71,6 +86,9 @@ jobs:
       - name: Etapa setup
         run: npm ci --foreground-scripts
 
+      - name: Resolver mapa de suites afectadas
+        run: npm run test:ci:affected:resolve > reports.affected-ci.json
+
       - name: Preparar runtime sharp (linux-x64)
         if: steps.changes.outputs.backend == 'true' || steps.changes.outputs.portal == 'true' || steps.changes.outputs.shared_core == 'true'
         run: npm install --no-save --include=optional --os=linux --cpu=x64 sharp
@@ -83,10 +101,17 @@ jobs:
         run: npm run pipeline:contract:check
 
       - name: Etapa governance-policy-check
+        if: steps.changes.outputs.release == 'true' || steps.changes.outputs.installer == 'true' || steps.changes.outputs.shared_core == 'true'
         run: |
           npm run test:ruleset:policy
           npm run test:release:policy
           npm run test:security:policy
+
+      - name: Etapa installer-contract-check
+        if: steps.changes.outputs.installer == 'true' || steps.changes.outputs.shared_core == 'true'
+        run: |
+          npm run test:installer-hub:contract
+          npm run test:wix:policy
 
       - name: Etapa lint backend
         if: steps.changes.outputs.backend == 'true' || steps.changes.outputs.shared_core == 'true'
@@ -212,7 +237,9 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: npm-audit-report
-          path: npm-audit-report.json
+          path: |
+            npm-audit-report.json
+            reports.affected-ci.json
 
   verificaciones_ext:
     name: Verificaciones Extendidas (Main/Release)

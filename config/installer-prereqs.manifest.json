@@ -1,5 +1,24 @@
 {
   "version": "1.0.0",
+  "defaultProfile": "docente-local",
+  "profiles": [
+    {
+      "profileId": "saas-completo",
+      "description": "Prerequisitos para despliegue local SaaS completo",
+      "prerequisites": [
+        "Node.js",
+        "Docker Desktop"
+      ]
+    },
+    {
+      "profileId": "docente-local",
+      "description": "Prerequisitos para operacion docente local completa",
+      "prerequisites": [
+        "Node.js",
+        "Docker Desktop"
+      ]
+    }
+  ],
   "prerequisites": [
     {
       "name": "Node.js",

@@ -47,6 +47,20 @@ export function evaluateStablePromotion(options) {
     checks.push({ id: 'release-evidence', ok: false, detail: String(error?.message || error) });
   }
 
+  try {
+    const manifestPath = path.resolve(process.cwd(), options.installerManifestPath || 'dist/installer/EvaluaPro-release-manifest.json');
+    const manifest = JSON.parse(fs.readFileSync(manifestPath, 'utf8'));
+    const flavors = Array.isArray(manifest?.flavors) ? manifest.flavors : [];
+    const required = ['saas-completo', 'docente-local'];
+    const missing = required.filter((flavorId) => !flavors.some((item) => String(item?.flavorId || '') === flavorId));
+    if (missing.length > 0) {
+      throw new Error(`Manifest multi-flavor incompleto: ${missing.join(', ')}`);
+    }
+    checks.push({ id: 'installer-multi-flavor', ok: true, detail: manifestPath });
+  } catch (error) {
+    checks.push({ id: 'installer-multi-flavor', ok: false, detail: String(error?.message || error) });
+  }
+
   if (options.prodFlowResult) {
     checks.push({
       id: 'prod-flow',
@@ -105,7 +119,8 @@ export async function main() {
     requiredStreak,
     runs,
     evidenceDir,
-    prodFlowResult
+    prodFlowResult,
+    installerManifestPath: getArg('installer-manifest', '')
   });
 
   const decision = {

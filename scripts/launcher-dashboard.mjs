@@ -331,10 +331,11 @@ function readUpdateConfig() {
   const defaults = {
     owner: 'Dtcsrni',
     repo: 'EvaluaPro_Sistema_Universitario',
+    flavorId: 'docente-local',
     channel: 'stable',
-    assetName: 'EvaluaPro-Setup.exe',
-    sha256AssetName: 'EvaluaPro-Setup.exe.sha256',
-    requireSha256: false,
+    assetName: 'EvaluaPro-docente-local-Setup.exe',
+    sha256AssetName: 'EvaluaPro-docente-local-Setup.exe.sha256',
+    requireSha256: true,
     autoCheckEnabled: true,
     checkIntervalMs: 900_000,
     syncPreflight: {
@@ -366,6 +367,7 @@ function readUpdateConfig() {
 
   if (process.env.EVALUAPRO_UPDATE_OWNER) cfg.owner = String(process.env.EVALUAPRO_UPDATE_OWNER);
   if (process.env.EVALUAPRO_UPDATE_REPO) cfg.repo = String(process.env.EVALUAPRO_UPDATE_REPO);
+  if (process.env.EVALUAPRO_UPDATE_FLAVOR) cfg.flavorId = String(process.env.EVALUAPRO_UPDATE_FLAVOR);
   if (process.env.EVALUAPRO_UPDATE_CHANNEL) cfg.channel = String(process.env.EVALUAPRO_UPDATE_CHANNEL);
   if (process.env.EVALUAPRO_UPDATE_ASSET) cfg.assetName = String(process.env.EVALUAPRO_UPDATE_ASSET);
   if (process.env.EVALUAPRO_UPDATE_SHA_ASSET) cfg.sha256AssetName = String(process.env.EVALUAPRO_UPDATE_SHA_ASSET);
@@ -376,6 +378,7 @@ function readUpdateConfig() {
 
   cfg.channel = String(cfg.channel || 'stable').trim().toLowerCase();
   if (!cfg.channel) cfg.channel = 'stable';
+  cfg.flavorId = String(cfg.flavorId || 'docente-local').trim().toLowerCase();
 
   const interval = Number(cfg.checkIntervalMs || 0);
   cfg.checkIntervalMs = Number.isFinite(interval) && interval >= 60_000 ? Math.round(interval) : defaults.checkIntervalMs;
@@ -1604,6 +1607,7 @@ const updateManager = createUpdateManager({
   repo: updateConfig.repo,
   channel: updateConfig.channel,
   assetName: updateConfig.assetName,
+  flavorId: updateConfig.flavorId,
   sha256AssetName: updateConfig.sha256AssetName,
   requireSha256: updateConfig.requireSha256,
   feedUrl: updateConfig.feedUrl,

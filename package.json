@@ -162,6 +162,7 @@
     "installer:sign:internal:trust": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/signing/install-internal-signing-cert.ps1",
     "installer:run:safe": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/Install-EvaluaPro.ps1",
     "test:installer-hub:contract": "node --test scripts/tests/installer-hub-contract.test.mjs",
+    "test:ci:affected:resolve": "node scripts/testing/resolve-affected-ci.mjs",
     "status": "node scripts/dashboard.mjs",
     "vscode:tune": "node scripts/vscode-tune.mjs",
     "vscode:prune-extensions": "node scripts/vscode-prune-extensions.mjs",

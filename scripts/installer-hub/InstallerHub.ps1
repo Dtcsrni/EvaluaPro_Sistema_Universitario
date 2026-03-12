@@ -1,6 +1,7 @@
 param(
   [ValidateSet('auto', 'install', 'repair', 'uninstall')]
   [string]$Mode = 'auto',
+  [string]$FlavorId = '',
   [string]$InstallDir = '',
   [string]$RepoOwner = 'Dtcsrni',
   [string]$RepoName = 'EvaluaPro_Sistema_Universitario',
@@ -72,10 +73,6 @@ if (-not $NoElevation) {
   }
 }
 
-if (-not $InstallDir) {
-  $InstallDir = Join-Path ${env:ProgramFiles} 'EvaluaPro'
-}
-
 $manifestCandidates = @(
   (Join-Path $scriptRoot 'installer-prereqs.manifest.json'),
   (Join-Path $scriptRoot 'config\installer-prereqs.manifest.json'),
@@ -90,6 +87,23 @@ if (-not $prereqManifestPath) {
 $logContext = New-InstallerHubLogContext
 $tempRoot = Join-Path $env:TEMP ('EvaluaProInstallerHub-' + $logContext.SessionId)
 New-Item -ItemType Directory -Path $tempRoot -Force | Out-Null
+
+function Resolve-InstallerHubDefaults {
+  $candidates = @(
+    (Join-Path $scriptRoot 'installer-hub.defaults.json'),
+    (Join-Path $scriptRoot 'config\installer-hub.defaults.json'),
+    (Join-Path (Split-Path -Parent $scriptRoot) 'config\installer-hub.defaults.json'),
+    (Join-Path (Split-Path -Parent (Split-Path -Parent $scriptRoot)) 'config\installer-hub.defaults.json')
+  )
+
+  $path = $candidates | Where-Object { Test-Path $_ } | Select-Object -First 1
+  if (-not $path) { return @{} }
+  try {
+    return Get-Content -Path $path -Raw -Encoding utf8 | ConvertFrom-Json -Depth 6
+  } catch {
+    return @{}
+  }
+}
 
 function Read-EnvValueMap {
   param([string]$Path)
@@ -141,6 +155,7 @@ function Resolve-DetectedUpdateConfig {
     $parsed = $raw | ConvertFrom-Json -Depth 12
     return @{
       channel = [string]($parsed.channel ?? '')
+      flavorId = [string]($parsed.flavorId ?? '')
       owner = [string]($parsed.owner ?? '')
       repo = [string]($parsed.repo ?? '')
       assetName = [string]($parsed.assetName ?? '')
@@ -154,16 +169,22 @@ function Resolve-DetectedUpdateConfig {
 }
 
 function New-FlowState {
+  $defaults = Resolve-InstallerHubDefaults
   $installation = Get-EvaluaProInstallationInfo
   $resolvedMode = Resolve-InstallerMode -RequestedMode $Mode -Installation $installation
   $detected = Resolve-DetectedOperationalConfig -InstallDir $InstallDir -Installation $installation
   $detectedUpdate = Resolve-DetectedUpdateConfig -InstallDir $InstallDir -Installation $installation
+  $catalog = Get-InstallerFlavorCatalog
+  $effectiveFlavorId = if ($FlavorId) { $FlavorId } elseif ($detectedUpdate.flavorId) { [string]$detectedUpdate.flavorId } elseif ($defaults.flavorId) { [string]$defaults.flavorId } else { [string]$catalog.defaultFlavorId }
+  $flavor = Get-InstallerFlavorDefinition -FlavorId $effectiveFlavorId
 
   return [pscustomobject]@{
+    flavor = $flavor
+    flavorId = [string]$flavor.flavorId
     requestedMode = $Mode
     resolvedMode = $resolvedMode
     installation = $installation
-    installDir = $InstallDir
+    installDir = if ($InstallDir) { $InstallDir } else { (Join-Path ${env:ProgramFiles} ([string]$flavor.productName -replace '[\\/:*?"<>|]', '-')) }
     repoOwner = $RepoOwner
     repoName = $RepoName
     apiComercialBaseUrl = $ApiComercialBaseUrl
@@ -194,8 +215,8 @@ function New-FlowState {
     updateChannel = if ($UpdateChannel) { $UpdateChannel } else { [string]($detectedUpdate.channel ?? 'stable') }
     updateOwner = if ($UpdateOwner) { $UpdateOwner } else { [string]($detectedUpdate.owner ?? 'Dtcsrni') }
     updateRepo = if ($UpdateRepo) { $UpdateRepo } else { [string]($detectedUpdate.repo ?? 'EvaluaPro_Sistema_Universitario') }
-    updateAssetName = if ($UpdateAssetName) { $UpdateAssetName } else { [string]($detectedUpdate.assetName ?? 'EvaluaPro-Setup.exe') }
-    updateShaAssetName = if ($UpdateShaAssetName) { $UpdateShaAssetName } else { [string]($detectedUpdate.sha256AssetName ?? 'EvaluaPro-Setup.exe.sha256') }
+    updateAssetName = if ($UpdateAssetName) { $UpdateAssetName } else { [string]($detectedUpdate.assetName ?? [string]$flavor.bundleName) }
+    updateShaAssetName = if ($UpdateShaAssetName) { $UpdateShaAssetName } else { [string]($detectedUpdate.sha256AssetName ?? ([string]$flavor.bundleName + '.sha256')) }
     updateFeedUrl = if ($UpdateFeedUrl) { $UpdateFeedUrl } else { [string]($detectedUpdate.feedUrl ?? '') }
     updateRequireSha256 = if ($UpdateRequireSha256) { $UpdateRequireSha256 } else { [string]($detectedUpdate.requireSha256 ?? '1') }
     internetOk = $false
@@ -261,11 +282,12 @@ function Invoke-InstallerFlowCore {
   )
 
   $flow.prereqManifest = Read-PrereqManifest -ManifestPath $prereqManifestPath
+  $flow.prereqManifest = Resolve-PrereqProfile -Manifest $flow.prereqManifest -ProfileId ([string]$flow.flavor.prerequisitesProfile)
 
   Invoke-FlowPhase -Name 'analisis_requisitos' -FailCode 10 -Action {
     if ($OnStepUpdate) { & $OnStepUpdate 2 'running' 'Analizando requisitos del equipo...' }
     $flow.internetOk = Test-InstallerHubInternet
-    $flow.requirementReport = Get-SystemRequirementReport -InstallPath $flow.installDir -MinDiskGb 6 -InternetOk $flow.internetOk
+    $flow.requirementReport = Get-SystemRequirementReport -InstallPath $flow.installDir -MinDiskGb ([int]$flow.flavor.minDiskGb) -InternetOk $flow.internetOk
 
     if (-not $flow.requirementReport.IsReadyForFlow) {
       $joined = ($flow.requirementReport.Issues -join ' | ')
@@ -320,7 +342,7 @@ function Invoke-InstallerFlowCore {
     Invoke-FlowPhase -Name 'release_estable' -FailCode 20 -Action {
       if ($OnStepUpdate) { & $OnStepUpdate 5 'running' 'Resolviendo release estable y MSI...' }
 
-      $flow.release = Get-LatestStableReleaseAssets -Owner $flow.repoOwner -Repo $flow.repoName -OnLog {
+      $flow.release = Get-LatestStableReleaseAssets -Owner $flow.repoOwner -Repo $flow.repoName -FlavorId $flow.flavorId -OnLog {
         param($lvl, $msg)
         if ($OnUiLog) { & $OnUiLog $lvl $msg }
       }
@@ -399,6 +421,7 @@ function Invoke-InstallerFlowCore {
         notificacionesWebhookToken = $flow.notificacionesWebhookToken
         requireLicenseActivation = $flow.requireLicenseActivation
         licenciaAccountEmail = $flow.licenciaAccountEmail
+        flavorId = $flow.flavorId
         updateChannel = $flow.updateChannel
         updateOwner = $flow.updateOwner
         updateRepo = $flow.updateRepo
@@ -421,7 +444,7 @@ function Invoke-InstallerFlowCore {
   Invoke-FlowPhase -Name 'verificacion_final' -FailCode 40 -Action {
     if ($OnStepUpdate) { & $OnStepUpdate 8 'running' 'Validando estado final del sistema...' }
 
-    $flow.postVerify = Invoke-PostInstallVerification -Mode $flow.resolvedMode -InstallDir $flow.installDir -OnLog {
+    $flow.postVerify = Invoke-PostInstallVerification -Mode $flow.resolvedMode -InstallDir $flow.installDir -Flavor $flow.flavor -OnLog {
       param($lvl, $msg)
       if ($OnUiLog) { & $OnUiLog $lvl $msg }
     }
@@ -490,6 +513,7 @@ function Invoke-HeadlessFlow {
     $result = [pscustomobject]@{
       ok = $true
       exitCode = 0
+      flavorId = $flow.flavorId
       mode = $flow.resolvedMode
       rebootRequired = $flow.rebootRequired
       logPath = $flow.logPath
@@ -502,6 +526,7 @@ function Invoke-HeadlessFlow {
     $result = [pscustomobject]@{
       ok = $false
       exitCode = $code
+      flavorId = $flow.flavorId
       mode = $flow.resolvedMode
       logPath = $flow.logPath
       phase = $flow.lastPhase
@@ -630,46 +655,71 @@ $comboMode.Width = 230
 $comboMode.SelectedItem = $flow.resolvedMode
 $configGroup.Controls.Add($comboMode)
 
+$lblFlavor = New-Object System.Windows.Forms.Label
+$lblFlavor.Text = 'Flavor:'
+$lblFlavor.AutoSize = $true
+$lblFlavor.Location = New-Object System.Drawing.Point(390, 34)
+$configGroup.Controls.Add($lblFlavor)
+
+$comboFlavor = New-Object System.Windows.Forms.ComboBox
+$comboFlavor.DropDownStyle = 'DropDownList'
+$comboFlavor.Location = New-Object System.Drawing.Point(450, 30)
+$comboFlavor.Width = 220
+$flavorCatalog = Get-InstallerFlavorCatalog
+foreach ($item in $flavorCatalog.flavors) {
+  [void]$comboFlavor.Items.Add([string]$item.flavorId)
+}
+$comboFlavor.SelectedItem = [string]$flow.flavorId
+if (-not $comboFlavor.SelectedItem) { $comboFlavor.SelectedItem = [string]$flavorCatalog.defaultFlavorId }
+$configGroup.Controls.Add($comboFlavor)
+
+$lblFlavorHint = New-Object System.Windows.Forms.Label
+$lblFlavorHint.Text = [string]$flow.flavor.description
+$lblFlavorHint.AutoSize = $true
+$lblFlavorHint.Location = New-Object System.Drawing.Point(18, 56)
+$lblFlavorHint.ForeColor = [System.Drawing.Color]::FromArgb(136, 184, 226)
+$configGroup.Controls.Add($lblFlavorHint)
+
 $lblInstallPath = New-Object System.Windows.Forms.Label
 $lblInstallPath.Text = 'Carpeta destino:'
 $lblInstallPath.AutoSize = $true
-$lblInstallPath.Location = New-Object System.Drawing.Point(18, 75)
+$lblInstallPath.Location = New-Object System.Drawing.Point(18, 92)
 $configGroup.Controls.Add($lblInstallPath)
 
 $textInstallPath = New-Object System.Windows.Forms.TextBox
-$textInstallPath.Location = New-Object System.Drawing.Point(130, 70)
+$textInstallPath.Location = New-Object System.Drawing.Point(130, 87)
 $textInstallPath.Width = 600
 $textInstallPath.Text = $flow.installDir
 $configGroup.Controls.Add($textInstallPath)
 
 $btnBrowse = New-Object System.Windows.Forms.Button
 $btnBrowse.Text = 'Explorar'
-$btnBrowse.Location = New-Object System.Drawing.Point(742, 67)
+$btnBrowse.Location = New-Object System.Drawing.Point(742, 84)
 $btnBrowse.Width = 95
 $configGroup.Controls.Add($btnBrowse)
 
 $script:uiCleanupCheckbox = New-Object System.Windows.Forms.CheckBox
 $script:uiCleanupCheckbox.Text = 'Desinstalacion con limpieza total de datos residuales'
 $script:uiCleanupCheckbox.AutoSize = $true
-$script:uiCleanupCheckbox.Location = New-Object System.Drawing.Point(130, 110)
+$script:uiCleanupCheckbox.Location = New-Object System.Drawing.Point(130, 127)
 $script:uiCleanupCheckbox.Checked = $false
 $configGroup.Controls.Add($script:uiCleanupCheckbox)
 
 $lblRepo = New-Object System.Windows.Forms.Label
 $lblRepo.Text = "Repositorio release: $($flow.repoOwner)/$($flow.repoName)"
 $lblRepo.AutoSize = $true
-$lblRepo.Location = New-Object System.Drawing.Point(18, 145)
+$lblRepo.Location = New-Object System.Drawing.Point(18, 162)
 $lblRepo.ForeColor = [System.Drawing.Color]::FromArgb(136, 184, 226)
 $configGroup.Controls.Add($lblRepo)
 
 $lblApiComercial = New-Object System.Windows.Forms.Label
 $lblApiComercial.Text = 'API comercial:'
 $lblApiComercial.AutoSize = $true
-$lblApiComercial.Location = New-Object System.Drawing.Point(18, 175)
+$lblApiComercial.Location = New-Object System.Drawing.Point(18, 192)
 $configGroup.Controls.Add($lblApiComercial)
 
 $textApiComercial = New-Object System.Windows.Forms.TextBox
-$textApiComercial.Location = New-Object System.Drawing.Point(130, 170)
+$textApiComercial.Location = New-Object System.Drawing.Point(130, 187)
 $textApiComercial.Width = 320
 $textApiComercial.Text = $flow.apiComercialBaseUrl
 $configGroup.Controls.Add($textApiComercial)
@@ -677,11 +727,11 @@ $configGroup.Controls.Add($textApiComercial)
 $lblTenantId = New-Object System.Windows.Forms.Label
 $lblTenantId.Text = 'TenantId (opt):'
 $lblTenantId.AutoSize = $true
-$lblTenantId.Location = New-Object System.Drawing.Point(470, 175)
+$lblTenantId.Location = New-Object System.Drawing.Point(470, 192)
 $configGroup.Controls.Add($lblTenantId)
 
 $textTenantId = New-Object System.Windows.Forms.TextBox
-$textTenantId.Location = New-Object System.Drawing.Point(570, 170)
+$textTenantId.Location = New-Object System.Drawing.Point(570, 187)
 $textTenantId.Width = 160
 $textTenantId.Text = $flow.tenantId
 $configGroup.Controls.Add($textTenantId)
@@ -689,11 +739,11 @@ $configGroup.Controls.Add($textTenantId)
 $lblCodigoActivacion = New-Object System.Windows.Forms.Label
 $lblCodigoActivacion.Text = 'Codigo activacion (opt):'
 $lblCodigoActivacion.AutoSize = $true
-$lblCodigoActivacion.Location = New-Object System.Drawing.Point(18, 206)
+$lblCodigoActivacion.Location = New-Object System.Drawing.Point(18, 223)
 $configGroup.Controls.Add($lblCodigoActivacion)
 
 $textCodigoActivacion = New-Object System.Windows.Forms.TextBox
-$textCodigoActivacion.Location = New-Object System.Drawing.Point(180, 201)
+$textCodigoActivacion.Location = New-Object System.Drawing.Point(180, 218)
 $textCodigoActivacion.Width = 280
 $textCodigoActivacion.Text = $flow.codigoActivacion
 $configGroup.Controls.Add($textCodigoActivacion)
@@ -701,11 +751,11 @@ $configGroup.Controls.Add($textCodigoActivacion)
 $lblLicenciaCuenta = New-Object System.Windows.Forms.Label
 $lblLicenciaCuenta.Text = 'Cuenta licencia (correo):'
 $lblLicenciaCuenta.AutoSize = $true
-$lblLicenciaCuenta.Location = New-Object System.Drawing.Point(470, 206)
+$lblLicenciaCuenta.Location = New-Object System.Drawing.Point(470, 223)
 $configGroup.Controls.Add($lblLicenciaCuenta)
 
 $textLicenciaCuenta = New-Object System.Windows.Forms.TextBox
-$textLicenciaCuenta.Location = New-Object System.Drawing.Point(620, 201)
+$textLicenciaCuenta.Location = New-Object System.Drawing.Point(620, 218)
 $textLicenciaCuenta.Width = 217
 $textLicenciaCuenta.Text = $flow.licenciaAccountEmail
 $configGroup.Controls.Add($textLicenciaCuenta)
@@ -1268,6 +1318,20 @@ $comboMode.Add_SelectedIndexChanged({
   $script:uiCleanupCheckbox.Enabled = ($selected -eq 'uninstall')
 })
 
+$comboFlavor.Add_SelectedIndexChanged({
+  try {
+    $selectedFlavor = Get-InstallerFlavorDefinition -FlavorId ([string]$comboFlavor.SelectedItem)
+    $lblFlavorHint.Text = [string]$selectedFlavor.description
+    if (-not [string]::IsNullOrWhiteSpace([string]$selectedFlavor.bundleName)) {
+      $textUpdateAsset.Text = [string]$selectedFlavor.bundleName
+      $textUpdateShaAsset.Text = ([string]$selectedFlavor.bundleName + '.sha256')
+    }
+    if (-not $flow.installation -or -not $flow.installation.Installed) {
+      $textInstallPath.Text = Join-Path ${env:ProgramFiles} ([string]$selectedFlavor.productName -replace '[\\/:*?"<>|]', '-')
+    }
+  } catch {}
+})
+
 function Run-InstallerFlowUi {
   try {
     $btnRun.Enabled = $false
@@ -1279,6 +1343,8 @@ function Run-InstallerFlowUi {
     }
 
     $flow.installDir = [string]$textInstallPath.Text
+    $flow.flavor = Get-InstallerFlavorDefinition -FlavorId ([string]$comboFlavor.SelectedItem)
+    $flow.flavorId = [string]$flow.flavor.flavorId
     $flow.requestedMode = [string]$comboMode.SelectedItem
     $flow.apiComercialBaseUrl = [string]$textApiComercial.Text
     $flow.tenantId = [string]$textTenantId.Text
@@ -1305,6 +1371,7 @@ function Run-InstallerFlowUi {
     $flow.notificacionesWebhookToken = [string]$textWebhookToken.Text
     $flow.requireLicenseActivation = if ($checkRequireLicense.Checked) { '1' } else { '0' }
     $flow.licenciaAccountEmail = [string]$textLicenciaCuenta.Text
+    $flow.flavorId = [string]$comboFlavor.SelectedItem
     $flow.updateChannel = [string]$comboUpdateChannel.SelectedItem
     $flow.updateOwner = [string]$textUpdateOwner.Text
     $flow.updateRepo = [string]$textUpdateRepo.Text
@@ -1315,7 +1382,7 @@ function Run-InstallerFlowUi {
     $flow.installation = Get-EvaluaProInstallationInfo
     $flow.resolvedMode = Resolve-InstallerMode -RequestedMode $flow.requestedMode -Installation $flow.installation
 
-    Add-UiLog 'system' ("Modo solicitado: $($flow.requestedMode) | modo efectivo: $($flow.resolvedMode)")
+    Add-UiLog 'system' ("Flavor: $($flow.flavorId) | modo solicitado: $($flow.requestedMode) | modo efectivo: $($flow.resolvedMode)")
 
     Update-StepUi -Index 1 -State 'running' -StatusText 'Determinando modo efectivo de operacion...'
     Start-Sleep -Milliseconds 250

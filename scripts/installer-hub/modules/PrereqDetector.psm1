@@ -156,6 +156,7 @@ function Read-PrereqManifest {
   $raw = Get-Content -Path $ManifestPath -Raw
   $json = $raw | ConvertFrom-Json
   $list = @($json.prerequisites)
+  $profiles = @($json.profiles)
 
   if ($list.Count -eq 0) {
     throw 'El manifiesto de prerequisitos esta vacio.'
@@ -163,7 +164,44 @@ function Read-PrereqManifest {
 
   return [pscustomobject]@{
     version = [string]$json.version
+    defaultProfile = [string]($json.defaultProfile ?? '')
+    profiles = $profiles
     prerequisites = $list
+  }
+}
+
+function Resolve-PrereqProfile {
+  param(
+    [Parameter(Mandatory = $true)]
+    [pscustomobject]$Manifest,
+    [string]$ProfileId = ''
+  )
+
+  $effectiveProfileId = [string]$ProfileId
+  if ([string]::IsNullOrWhiteSpace($effectiveProfileId)) {
+    $effectiveProfileId = [string]($Manifest.defaultProfile ?? '')
+  }
+
+  if ([string]::IsNullOrWhiteSpace($effectiveProfileId)) {
+    return $Manifest
+  }
+
+  $profile = @($Manifest.profiles | Where-Object { [string]$_.profileId -eq $effectiveProfileId } | Select-Object -First 1)
+  if ($profile.Count -eq 0) {
+    throw "Perfil de prerequisitos no soportado: $effectiveProfileId"
+  }
+
+  $names = @($profile[0].prerequisites)
+  $selected = @($Manifest.prerequisites | Where-Object { $names -contains [string]$_.name })
+  if ($selected.Count -eq 0) {
+    throw "Perfil $effectiveProfileId no resolvio prerequisitos."
+  }
+
+  return [pscustomobject]@{
+    version = [string]$Manifest.version
+    defaultProfile = $effectiveProfileId
+    profiles = @($profile[0])
+    prerequisites = $selected
   }
 }
 
@@ -209,5 +247,6 @@ Export-ModuleMember -Function @(
   'Resolve-InstallerMode',
   'Get-SystemRequirementReport',
   'Read-PrereqManifest',
+  'Resolve-PrereqProfile',
   'Test-PrerequisiteStatus'
 )

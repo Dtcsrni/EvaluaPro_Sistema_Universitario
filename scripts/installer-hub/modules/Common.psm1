@@ -213,6 +213,50 @@ function Invoke-InstallerHubProcess {
   return [int]$proc.ExitCode
 }
 
+function Get-InstallerFlavorCatalog {
+  param(
+    [string]$RootPath = (Resolve-Path (Join-Path $PSScriptRoot '..\..\..')).Path
+  )
+
+  $catalogPath = Join-Path $RootPath 'config\installer-flavors.json'
+  if (-not (Test-Path $catalogPath)) {
+    throw "No existe catalogo de flavors: $catalogPath"
+  }
+
+  $raw = Get-Content -Path $catalogPath -Raw -Encoding utf8
+  $json = $raw | ConvertFrom-Json -Depth 8
+  if (-not $json.flavors -or @($json.flavors).Count -eq 0) {
+    throw 'El catalogo de flavors no define entries.'
+  }
+
+  return [pscustomobject]@{
+    version = [int]($json.version ?? 1)
+    defaultFlavorId = [string]($json.defaultFlavorId ?? '')
+    flavors = @($json.flavors)
+  }
+}
+
+function Get-InstallerFlavorDefinition {
+  param(
+    [Parameter(Mandatory = $true)]
+    [string]$FlavorId,
+    [string]$RootPath = (Resolve-Path (Join-Path $PSScriptRoot '..\..\..')).Path
+  )
+
+  $catalog = Get-InstallerFlavorCatalog -RootPath $RootPath
+  $normalized = [string]$FlavorId
+  if ([string]::IsNullOrWhiteSpace($normalized)) {
+    $normalized = [string]$catalog.defaultFlavorId
+  }
+
+  $match = @($catalog.flavors | Where-Object { [string]$_.flavorId -eq $normalized } | Select-Object -First 1)
+  if ($match.Count -eq 0) {
+    throw "Flavor no soportado: $normalized"
+  }
+
+  return $match[0]
+}
+
 Export-ModuleMember -Function @(
   'Test-IsAdministrator',
   'Ensure-ElevatedSession',
@@ -223,5 +267,7 @@ Export-ModuleMember -Function @(
   'Get-InstallerHubFileSha256',
   'Resolve-InstallerHubSha256FromText',
   'Test-InstallerHubInternet',
-  'Invoke-InstallerHubProcess'
+  'Invoke-InstallerHubProcess',
+  'Get-InstallerFlavorCatalog',
+  'Get-InstallerFlavorDefinition'
 )

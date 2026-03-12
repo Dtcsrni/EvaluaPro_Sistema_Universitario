@@ -2,7 +2,9 @@ param(
   [string]$Configuration = "Release",
   [string]$Version = "",
   [switch]$SkipStabilityChecks,
-  [switch]$IncludeBundle
+  [switch]$IncludeBundle,
+  [ValidateSet('all', 'saas-completo', 'docente-local')]
+  [string]$Flavor = 'all'
 )
 
 Set-StrictMode -Version Latest
@@ -11,6 +13,7 @@ $ErrorActionPreference = "Stop"
 $root = (Resolve-Path (Join-Path $PSScriptRoot "..")).Path
 $wix = Join-Path $root "packaging\wix"
 $out = Join-Path $root "dist\installer"
+$flavorCatalogPath = Join-Path $root 'config\installer-flavors.json'
 
 function Invoke-CheckedStep {
   param(
@@ -50,6 +53,22 @@ function Resolve-BalExtensionDll {
   }
 
   return $balDll
+}
+
+function Get-SelectedFlavors {
+  param(
+    [string]$CatalogPath,
+    [string]$RequestedFlavor
+  )
+
+  if (-not (Test-Path $CatalogPath)) {
+    throw "No existe catalogo de flavors: $CatalogPath"
+  }
+
+  $catalog = Get-Content -Path $CatalogPath -Raw -Encoding utf8 | ConvertFrom-Json -Depth 8
+  $flavors = @($catalog.flavors)
+  if ($RequestedFlavor -eq 'all') { return $flavors }
+  return @($flavors | Where-Object { [string]$_.flavorId -eq $RequestedFlavor })
 }
 
 if (-not (Test-Path $wix)) {
@@ -120,37 +139,77 @@ if (-not $SkipStabilityChecks) {
 }
 
 $buildBundle = $IncludeBundle -or ($env:EVALUAPRO_BUILD_BUNDLE -match '^(1|true|yes|si)$')
-$buildSteps = 1
-if ($buildBundle) { $buildSteps = 2 }
-$totalSteps = $checks.Count + $buildSteps
+$selectedFlavors = @(Get-SelectedFlavors -CatalogPath $flavorCatalogPath -RequestedFlavor $Flavor)
+if ($selectedFlavors.Count -eq 0) {
+  throw "No se resolvieron flavors para '$Flavor'."
+}
+
+$stepsPerFlavor = if ($buildBundle) { 2 } else { 1 }
+$totalSteps = $checks.Count + ($selectedFlavors.Count * $stepsPerFlavor)
 $idx = 1
 
-if ($checks.Count -gt 0) {
-  foreach ($check in $checks) {
-    Invoke-CheckedStep -Index $idx -Total $totalSteps -Title $check.Title -Command $check.Cmd
+foreach ($check in $checks) {
+  Invoke-CheckedStep -Index $idx -Total $totalSteps -Title $check.Title -Command $check.Cmd
+  $idx += 1
+}
+
+$balExtDll = $null
+if ($buildBundle) {
+  $balExtDll = Resolve-BalExtensionDll -WixExecutable $wixExe -WixVersion $wixVersion -RootPath $root
+}
+
+foreach ($flavorDef in $selectedFlavors) {
+  $flavorId = [string]$flavorDef.flavorId
+  $productName = [string]$flavorDef.productName
+  $msiName = [string]$flavorDef.msiName
+  $bundleName = [string]$flavorDef.bundleName
+  $upgradeCode = [string]$flavorDef.upgradeCode
+  $bundleUpgradeCode = [string]$flavorDef.bundleUpgradeCode
+
+  Write-Progress -Activity "EvaluaPro MSI (estable)" -Status "Compilar MSI $flavorId" -PercentComplete ([Math]::Floor((($idx - 1) * 100) / [Math]::Max(1, $totalSteps)))
+  Write-Host "[msi][step $idx/$totalSteps] Compilar MSI $flavorId"
+  $productArgs = @(
+    "build", $product
+  ) + $fragmentFiles + @(
+    "-arch", "x64",
+    "-d", "SourceRoot=$root",
+    "-d", "FlavorId=$flavorId",
+    "-d", "ProductName=$productName",
+    "-d", "UpgradeCode=$upgradeCode",
+    "-d", "BundleName=$bundleName",
+    "-o", (Join-Path $out $msiName)
+  )
+  if ($Version) { $productArgs += @("-d", "Version=$Version") }
+  & $wixExe @productArgs
+  if ($LASTEXITCODE -ne 0) { throw "Falló build de Product.wxs para $flavorId" }
+  $idx += 1
+
+  if ($buildBundle) {
+    Write-Progress -Activity "EvaluaPro MSI (estable)" -Status "Compilar bundle $flavorId" -PercentComplete ([Math]::Floor((($idx - 1) * 100) / [Math]::Max(1, $totalSteps)))
+    Write-Host "[msi][step $idx/$totalSteps] Compilar bundle $flavorId"
+    $bundleArgs = @(
+      "build", $bundle,
+      "-arch", "x64",
+      "-ext", $balExtDll,
+      "-d", "SourceRoot=$root",
+      "-d", "FlavorId=$flavorId",
+      "-d", "ProductName=$productName",
+      "-d", "UpgradeCode=$upgradeCode",
+      "-d", "BundleUpgradeCode=$bundleUpgradeCode",
+      "-d", "BundleName=$bundleName",
+      "-d", "MsiName=$msiName",
+      "-o", (Join-Path $out $bundleName)
+    )
+    if ($Version) { $bundleArgs += @("-d", "Version=$Version") }
+    & $wixExe @bundleArgs
+    if ($LASTEXITCODE -ne 0) { throw "Falló build de Bundle.wxs para $flavorId" }
     $idx += 1
   }
 }
 
-Write-Progress -Activity "EvaluaPro MSI (estable)" -Status "Compilar MSI Product.wxs" -PercentComplete ([Math]::Floor((($idx - 1) * 100) / [Math]::Max(1, $totalSteps)))
-Write-Host "[msi][step $idx/$totalSteps] Compilar MSI Product.wxs"
-$productArgs = @("build", $product) + $fragmentFiles + @("-arch", "x64", "-d", "SourceRoot=$root", "-o", (Join-Path $out "EvaluaPro.msi"))
-if ($Version) { $productArgs += @("-d", "Version=$Version") }
-& $wixExe @productArgs
-if ($LASTEXITCODE -ne 0) { throw "Falló build de Product.wxs" }
-$idx += 1
-
-if ($buildBundle) {
-  Write-Progress -Activity "EvaluaPro MSI (estable)" -Status "Compilar EXE Bundle.wxs" -PercentComplete ([Math]::Floor((($idx - 1) * 100) / [Math]::Max(1, $totalSteps)))
-  Write-Host "[msi][step $idx/$totalSteps] Compilar EXE Bundle.wxs"
-  $balExtDll = Resolve-BalExtensionDll -WixExecutable $wixExe -WixVersion $wixVersion -RootPath $root
-  $bundleArgs = @("build", $bundle, "-arch", "x64", "-ext", $balExtDll, "-d", "SourceRoot=$root", "-o", (Join-Path $out "EvaluaPro-Setup.exe"))
-  if ($Version) { $bundleArgs += @("-d", "Version=$Version") }
-  & $wixExe @bundleArgs
-  if ($LASTEXITCODE -ne 0) { throw "Falló build de Bundle.wxs" }
-} else {
+if (-not $buildBundle) {
   Write-Host "[msi] Bundle EXE omitido por defecto (migración Burn WiX v6 en progreso). Usa -IncludeBundle o EVALUAPRO_BUILD_BUNDLE=1 para intentarlo."
 }
 
 Write-Progress -Activity "EvaluaPro MSI (estable)" -Status "Completado" -PercentComplete 100
-Write-Host "[msi] Artefactos generados en $out"
+Write-Host "[msi] Artefactos generados en $out para flavors: $($selectedFlavors.flavorId -join ', ')"

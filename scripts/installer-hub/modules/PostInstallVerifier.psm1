@@ -7,6 +7,7 @@ function Invoke-PostInstallVerification {
     [ValidateSet('install', 'repair', 'uninstall')]
     [string]$Mode,
     [string]$InstallDir,
+    [pscustomobject]$Flavor,
     [scriptblock]$OnLog
   )
 
@@ -63,8 +64,32 @@ function Invoke-PostInstallVerification {
       $issues += 'Node.js 24+ no disponible tras instalacion.'
     }
 
-    if (-not (Test-DockerDesktopInstalled)) {
+    $requireDocker = $true
+    if ($Flavor -and $Flavor.PSObject.Properties.Match('requireDockerDesktop').Count -gt 0) {
+      $requireDocker = [bool]$Flavor.requireDockerDesktop
+    }
+
+    if ($requireDocker -and -not (Test-DockerDesktopInstalled)) {
       $issues += 'Docker Desktop no disponible tras instalacion.'
+    }
+
+    $updateConfigPath = Join-Path $effectiveDir 'config\update-config.json'
+    if (-not (Test-Path $updateConfigPath)) {
+      $issues += "No se encontro configuracion de update: $updateConfigPath"
+    } else {
+      try {
+        $updateCfg = Get-Content -Path $updateConfigPath -Raw -Encoding utf8 | ConvertFrom-Json -Depth 8
+        if ($Flavor) {
+          if ([string]$updateCfg.flavorId -ne [string]$Flavor.flavorId) {
+            $issues += "Flavor update-config inconsistente. Esperado=$($Flavor.flavorId) Actual=$([string]$updateCfg.flavorId)"
+          }
+          if ([string]$updateCfg.assetName -ne [string]$Flavor.bundleName) {
+            $issues += "Asset updater inconsistente. Esperado=$($Flavor.bundleName) Actual=$([string]$updateCfg.assetName)"
+          }
+        }
+      } catch {
+        $issues += 'No se pudo leer config/update-config.json tras instalacion.'
+      }
     }
   }
 

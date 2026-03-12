@@ -72,11 +72,12 @@ function Normalize-OperationalConfig {
     tenantId = [string](Get-InstallerHubConfigValue -InputConfig $InputConfig -Key 'tenantId' -DefaultValue '')
     codigoActivacion = [string](Get-InstallerHubConfigValue -InputConfig $InputConfig -Key 'codigoActivacion' -DefaultValue '')
     licenciaAccountEmail = [string](Get-InstallerHubConfigValue -InputConfig $InputConfig -Key 'licenciaAccountEmail' -DefaultValue 'soporte@tu-institucion.mx')
+    flavorId = [string](Get-InstallerHubConfigValue -InputConfig $InputConfig -Key 'flavorId' -DefaultValue 'docente-local')
     updateChannel = [string](Get-InstallerHubConfigValue -InputConfig $InputConfig -Key 'updateChannel' -DefaultValue 'stable')
     updateOwner = [string](Get-InstallerHubConfigValue -InputConfig $InputConfig -Key 'updateOwner' -DefaultValue 'Dtcsrni')
     updateRepo = [string](Get-InstallerHubConfigValue -InputConfig $InputConfig -Key 'updateRepo' -DefaultValue 'EvaluaPro_Sistema_Universitario')
-    updateAssetName = [string](Get-InstallerHubConfigValue -InputConfig $InputConfig -Key 'updateAssetName' -DefaultValue 'EvaluaPro-Setup.exe')
-    updateShaAssetName = [string](Get-InstallerHubConfigValue -InputConfig $InputConfig -Key 'updateShaAssetName' -DefaultValue 'EvaluaPro-Setup.exe.sha256')
+    updateAssetName = [string](Get-InstallerHubConfigValue -InputConfig $InputConfig -Key 'updateAssetName' -DefaultValue 'EvaluaPro-docente-local-Setup.exe')
+    updateShaAssetName = [string](Get-InstallerHubConfigValue -InputConfig $InputConfig -Key 'updateShaAssetName' -DefaultValue 'EvaluaPro-docente-local-Setup.exe.sha256')
     updateFeedUrl = [string](Get-InstallerHubConfigValue -InputConfig $InputConfig -Key 'updateFeedUrl' -DefaultValue '')
     updateRequireSha256 = ConvertTo-InstallerHubBool -Value ([string](Get-InstallerHubConfigValue -InputConfig $InputConfig -Key 'updateRequireSha256' -DefaultValue '1'))
   }
@@ -180,6 +181,9 @@ function Test-OperationalConfig {
 
   if ([string]::IsNullOrWhiteSpace([string]$Config.updateChannel)) {
     $errors += 'Falta updateChannel para actualizaciones automaticas.'
+  }
+  if ([string]::IsNullOrWhiteSpace([string]$Config.flavorId)) {
+    $errors += 'Falta flavorId para actualizaciones automaticas.'
   }
   if ([string]::IsNullOrWhiteSpace([string]$Config.updateOwner)) {
     $errors += 'Falta updateOwner para actualizaciones automaticas.'
@@ -336,6 +340,7 @@ function Invoke-EvaluaProOperationalConfiguration {
   $newUpdateCfg = [ordered]@{
     owner = $normalized.updateOwner
     repo = $normalized.updateRepo
+    flavorId = $normalized.flavorId
     channel = $normalized.updateChannel
     assetName = $normalized.updateAssetName
     sha256AssetName = $normalized.updateShaAssetName
@@ -380,6 +385,7 @@ function Invoke-EvaluaProOperationalConfiguration {
       tenantId = $normalized.tenantId
       codigoActivacionSet = -not [string]::IsNullOrWhiteSpace($normalized.codigoActivacion)
       licenciaAccountEmail = $normalized.licenciaAccountEmail
+      flavorId = $normalized.flavorId
       nodeEnv = $normalized.nodeEnv
       puertoApi = $normalized.puertoApi
       puertoPortal = $normalized.puertoPortal
