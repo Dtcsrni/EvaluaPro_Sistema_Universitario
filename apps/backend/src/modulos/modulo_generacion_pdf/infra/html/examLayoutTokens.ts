@@ -1,6 +1,5 @@
 import type { ExamenPdf } from '../../domain/examenPdf';
 import { LAYOUT_TEMPLATE_V9, pxAPuntos, roundGrid } from '../../domain/layoutTemplateV9';
-import { LAYOUT_TEMPLATE_V10, pxAPuntosV10, roundGridV10 } from '../../domain/layoutTemplateV10';
 import type {
   BlockSpecOmr,
   EngineHintsOmr,
@@ -53,25 +52,6 @@ export type LayoutBuildResult = {
   renderDiagnostics: NonNullable<ResultadoGeneracionPdf['renderDiagnostics']>;
   preguntasRestantes: number;
 };
-
-type LayoutTemplateProfile = typeof LAYOUT_TEMPLATE_V9 | typeof LAYOUT_TEMPLATE_V10;
-
-function resolverLayoutTemplate(templateVersion: number): LayoutTemplateProfile {
-  return templateVersion === 4 ? LAYOUT_TEMPLATE_V10 : LAYOUT_TEMPLATE_V9;
-}
-
-function resolverConvertidores(templateVersion: number) {
-  if (templateVersion === 4) {
-    return {
-      aPuntos: pxAPuntosV10,
-      ajustarGrid: roundGridV10
-    };
-  }
-  return {
-    aPuntos: pxAPuntos,
-    ajustarGrid: roundGrid
-  };
-}
 
 function escapeHtml(value: string): string {
   return String(value ?? '')
@@ -220,19 +200,19 @@ function buildEngineHints(): EngineHintsOmr {
   };
 }
 
-function buildCornerMarks(pageWidthPx: number, pageHeightPx: number, aPuntos: (px: number) => number) {
+function buildCornerMarks(pageWidthPx: number, pageHeightPx: number) {
   const mmAPx = pageWidthPx / 612;
   const margenMm = 10;
   const s = 14;
   const inset = Math.max(12, Math.round((72 / 25.4) * margenMm * mmAPx));
   return {
     tipo: 'cuadrados' as const,
-    size: aPuntos(s),
-    quietZone: aPuntos(3),
-    tl: { x: aPuntos(inset), y: aPuntos(inset) },
-    tr: { x: aPuntos(pageWidthPx - inset - s), y: aPuntos(inset) },
-    bl: { x: aPuntos(inset), y: aPuntos(pageHeightPx - inset - s) },
-    br: { x: aPuntos(pageWidthPx - inset - s), y: aPuntos(pageHeightPx - inset - s) }
+    size: pxAPuntos(s),
+    quietZone: pxAPuntos(3),
+    tl: { x: pxAPuntos(inset), y: pxAPuntos(inset) },
+    tr: { x: pxAPuntos(pageWidthPx - inset - s), y: pxAPuntos(inset) },
+    bl: { x: pxAPuntos(inset), y: pxAPuntos(pageHeightPx - inset - s) },
+    br: { x: pxAPuntos(pageWidthPx - inset - s), y: pxAPuntos(pageHeightPx - inset - s) }
   };
 }
 
@@ -249,8 +229,7 @@ export async function buildExamLayoutTokens({
   perfilOmr: PerfilPlantillaOmr;
   perfilLayout: PerfilLayoutImpresion;
 }): Promise<LayoutBuildResult> {
-  const tpl = resolverLayoutTemplate(examen.layout.templateVersion);
-  const { aPuntos, ajustarGrid } = resolverConvertidores(examen.layout.templateVersion);
+  const tpl = LAYOUT_TEMPLATE_V9;
   const pageShell: RectPx = {
     x: tpl.pageMarginPx,
     y: tpl.pageMarginPx,
@@ -267,7 +246,6 @@ export async function buildExamLayoutTokens({
   const questionColumnWidth = contentWidth - tpl.omrColumnWidthPx - tpl.contentGapPx;
   const maxImageWidthPx = 166;
   const maxImageHeightPx = 70;
-  const preguntasPorBloque = Math.max(1, perfilOmr.preguntasPorBloque ?? (examen.layout.templateVersion === 4 ? 8 : 10));
 
   const resolvedImages = await Promise.all(examen.preguntas.map((p) => resolverImagenPregunta(p.imagenUrl)));
 
@@ -297,6 +275,7 @@ export async function buildExamLayoutTokens({
 
   while (questionIndex < preguntasOrdenadas.length && pageNumber <= examen.layout.totalPaginas) {
     const firstPage = pageNumber === 1;
+    const maxQuestionsPerPage = 10;
     const headerHeight = firstPage ? headerFirstHeight : headerOtherHeight;
     const footerBox: RectPx = {
       x: pageShell.x,
@@ -364,7 +343,7 @@ export async function buildExamLayoutTokens({
         image.status === 'ok'
           ? Math.min(
               maxImageHeightPx,
-              ajustarGrid(((image.heightPx ?? maxImageHeightPx) / Math.max(1, image.widthPx ?? maxImageWidthPx)) * maxImageWidthPx, 4)
+              roundGrid(((image.heightPx ?? maxImageHeightPx) / Math.max(1, image.widthPx ?? maxImageWidthPx)) * maxImageWidthPx, 4)
             )
           : 0;
       const textHeight =
@@ -372,7 +351,7 @@ export async function buildExamLayoutTokens({
         optionLines * tpl.optionLineHeightPx +
         10;
       const omrHeight = tpl.omr.panelHeightPx;
-      const questionHeight = ajustarGrid(Math.max(omrHeight, textHeight) + tpl.questionPaddingPx * 2, 4);
+      const questionHeight = roundGrid(Math.max(omrHeight, textHeight) + tpl.questionPaddingPx * 2, 4);
 
       if (cursorY + questionHeight > contentBox.y + contentBox.height) {
         if (questionTokens.length === 0) {
@@ -440,7 +419,7 @@ export async function buildExamLayoutTokens({
 
       cursorY += questionHeight + tpl.interQuestionGapPx;
       questionIndex += 1;
-      if (questionTokens.length >= preguntasPorBloque) break;
+      if (questionTokens.length >= maxQuestionsPerPage) break;
     }
 
     if (questionTokens.length === 0) {
@@ -449,11 +428,7 @@ export async function buildExamLayoutTokens({
 
     const firstQuestion = questionTokens[0];
     const lastQuestion = questionTokens[questionTokens.length - 1];
-    const qrTexto = examen.generarTextoQrPagina(pageNumber, {
-      preguntaDesde: firstQuestion?.numero,
-      preguntaHasta: lastQuestion?.numero,
-      questionIdsPagina: questionTokens.map((question) => question.id)
-    });
+    const qrTexto = examen.generarTextoQrPagina(pageNumber);
 
     const pageToken: PageToken = {
       numeroPagina: pageNumber,
@@ -506,58 +481,58 @@ export async function buildExamLayoutTokens({
         idPregunta: token.id,
         opciones: token.opciones.map((opcion, idx) => ({
           letra: opcion.letra,
-          x: aPuntos(bubbleLeft + omr.bubbleRadiusPx),
-          y: aPuntos(bubbleTop + idx * omr.bubbleStepYPx + omr.bubbleRadiusPx)
+          x: pxAPuntos(bubbleLeft + omr.bubbleRadiusPx),
+          y: pxAPuntos(bubbleTop + idx * omr.bubbleStepYPx + omr.bubbleRadiusPx)
         })),
         textRuns: [
           {
             tipo: 'texto',
             fuente: 'Helvetica-Bold',
-            size: aPuntos(tpl.textFontPx),
-            lineHeight: aPuntos(token.lineHeightStem),
+            size: pxAPuntos(tpl.textFontPx),
+            lineHeight: pxAPuntos(token.lineHeightStem),
             bbox: {
-              x: aPuntos(token.textBox.x),
-              y: aPuntos(token.textBox.y),
-              width: aPuntos(token.textBox.width),
-              height: aPuntos(Math.min(token.box.height, token.lineHeightStem * 3))
+              x: pxAPuntos(token.textBox.x),
+              y: pxAPuntos(token.textBox.y),
+              width: pxAPuntos(token.textBox.width),
+              height: pxAPuntos(Math.min(token.box.height, token.lineHeightStem * 3))
             }
           }
         ],
         imageRenderStatus: token.image?.status === 'ok' ? 'ok' : token.image?.status === 'error' ? 'error' : undefined,
-        bboxPregunta: { x: aPuntos(token.box.x), y: aPuntos(token.box.y), width: aPuntos(token.box.width), height: aPuntos(token.box.height) },
-        cajaOmr: { x: aPuntos(token.omrBox.x), y: aPuntos(token.omrBox.y), width: aPuntos(token.omrBox.width), height: aPuntos(token.omrBox.height) },
-        perfilOmr: { radio: aPuntos(omr.bubbleRadiusPx), pasoY: aPuntos(omr.bubbleStepYPx), cajaAncho: aPuntos(omr.panelWidthPx) },
+        bboxPregunta: { x: pxAPuntos(token.box.x), y: pxAPuntos(token.box.y), width: pxAPuntos(token.box.width), height: pxAPuntos(token.box.height) },
+        cajaOmr: { x: pxAPuntos(token.omrBox.x), y: pxAPuntos(token.omrBox.y), width: pxAPuntos(token.omrBox.width), height: pxAPuntos(token.omrBox.height) },
+        perfilOmr: { radio: pxAPuntos(omr.bubbleRadiusPx), pasoY: pxAPuntos(omr.bubbleStepYPx), cajaAncho: pxAPuntos(omr.panelWidthPx) },
         fiduciales: {
-          leftTop: { x: aPuntos(fidLeftCenterX), y: aPuntos(fidTopCenterY) },
-          leftBottom: { x: aPuntos(fidLeftCenterX), y: aPuntos(fidBottomCenterY) },
-          rightTop: { x: aPuntos(fidRightCenterX), y: aPuntos(fidTopCenterY) },
-          rightBottom: { x: aPuntos(fidRightCenterX), y: aPuntos(fidBottomCenterY) },
-          leftMid: { x: aPuntos(fidLeftCenterX), y: aPuntos(fidMidCenterY) },
-          rightMid: { x: aPuntos(fidRightCenterX), y: aPuntos(fidMidCenterY) }
+          leftTop: { x: pxAPuntos(fidLeftCenterX), y: pxAPuntos(fidTopCenterY) },
+          leftBottom: { x: pxAPuntos(fidLeftCenterX), y: pxAPuntos(fidBottomCenterY) },
+          rightTop: { x: pxAPuntos(fidRightCenterX), y: pxAPuntos(fidTopCenterY) },
+          rightBottom: { x: pxAPuntos(fidRightCenterX), y: pxAPuntos(fidBottomCenterY) },
+          leftMid: { x: pxAPuntos(fidLeftCenterX), y: pxAPuntos(fidMidCenterY) },
+          rightMid: { x: pxAPuntos(fidRightCenterX), y: pxAPuntos(fidMidCenterY) }
         }
       };
     });
 
     paginasOmr.push({
       numeroPagina: pageNumber,
-      qr: { texto: qrTexto, x: aPuntos(qrBox.x), y: aPuntos(qrBox.y), size: aPuntos(qrBox.width), padding: aPuntos(8) },
-      marcasPagina: buildCornerMarks(tpl.pageWidthPx, tpl.pageHeightPx, aPuntos),
+      qr: { texto: qrTexto, x: pxAPuntos(qrBox.x), y: pxAPuntos(qrBox.y), size: pxAPuntos(qrBox.width), padding: pxAPuntos(8) },
+      marcasPagina: buildCornerMarks(tpl.pageWidthPx, tpl.pageHeightPx),
       preguntas: pageOmrQuestions,
       layoutDebug: {
         engine: 'playwright-html-v1',
         layoutTemplateVersion: tpl.version,
-        pageShell: { x: aPuntos(pageShell.x), y: aPuntos(pageShell.y), width: aPuntos(pageShell.width), height: aPuntos(pageShell.height) },
-        header: headerBox ? { x: aPuntos(headerBox.x), y: aPuntos(headerBox.y), width: aPuntos(headerBox.width), height: aPuntos(headerBox.height) } : undefined,
-        qr: { x: aPuntos(qrBox.x), y: aPuntos(qrBox.y), width: aPuntos(qrBox.width), height: aPuntos(qrBox.height) },
-        headerTextBlocks: headerSlots.map((slot) => ({ id: slot.id, x: aPuntos(slot.x), y: aPuntos(slot.y), width: aPuntos(slot.width), height: aPuntos(slot.height) })),
+        pageShell: { x: pxAPuntos(pageShell.x), y: pxAPuntos(pageShell.y), width: pxAPuntos(pageShell.width), height: pxAPuntos(pageShell.height) },
+        header: headerBox ? { x: pxAPuntos(headerBox.x), y: pxAPuntos(headerBox.y), width: pxAPuntos(headerBox.width), height: pxAPuntos(headerBox.height) } : undefined,
+        qr: { x: pxAPuntos(qrBox.x), y: pxAPuntos(qrBox.y), width: pxAPuntos(qrBox.width), height: pxAPuntos(qrBox.height) },
+        headerTextBlocks: headerSlots.map((slot) => ({ id: slot.id, x: pxAPuntos(slot.x), y: pxAPuntos(slot.y), width: pxAPuntos(slot.width), height: pxAPuntos(slot.height) })),
         lineHeightViolations: lineHeightViolations.filter((item) => questionTokens.some((token) => token.id === item.preguntaId)),
-        contentStartY: aPuntos(contentBox.y),
-        contentEndY: aPuntos(cursorY),
-        headerSlots: headerSlots.map((slot) => ({ id: slot.id, x: aPuntos(slot.x), y: aPuntos(slot.y), width: aPuntos(slot.width), height: aPuntos(slot.height) })),
-        contentShell: { x: aPuntos(contentBox.x), y: aPuntos(contentBox.y), width: aPuntos(contentBox.width), height: aPuntos(contentBox.height) },
-        footerShell: { x: aPuntos(footerBox.x), y: aPuntos(footerBox.y), width: aPuntos(footerBox.width), height: aPuntos(footerBox.height) },
-        questionBlockBoxes: questionTokens.map((token) => ({ id: token.id, x: aPuntos(token.box.x), y: aPuntos(token.box.y), width: aPuntos(token.box.width), height: aPuntos(token.box.height) })),
-        omrPanelBoxes: questionTokens.map((token) => ({ id: token.id, x: aPuntos(token.omrBox.x), y: aPuntos(token.omrBox.y), width: aPuntos(token.omrBox.width), height: aPuntos(token.omrBox.height) })),
+        contentStartY: pxAPuntos(contentBox.y),
+        contentEndY: pxAPuntos(cursorY),
+        headerSlots: headerSlots.map((slot) => ({ id: slot.id, x: pxAPuntos(slot.x), y: pxAPuntos(slot.y), width: pxAPuntos(slot.width), height: pxAPuntos(slot.height) })),
+        contentShell: { x: pxAPuntos(contentBox.x), y: pxAPuntos(contentBox.y), width: pxAPuntos(contentBox.width), height: pxAPuntos(contentBox.height) },
+        footerShell: { x: pxAPuntos(footerBox.x), y: pxAPuntos(footerBox.y), width: pxAPuntos(footerBox.width), height: pxAPuntos(footerBox.height) },
+        questionBlockBoxes: questionTokens.map((token) => ({ id: token.id, x: pxAPuntos(token.box.x), y: pxAPuntos(token.box.y), width: pxAPuntos(token.box.width), height: pxAPuntos(token.box.height) })),
+        omrPanelBoxes: questionTokens.map((token) => ({ id: token.id, x: pxAPuntos(token.omrBox.x), y: pxAPuntos(token.omrBox.y), width: pxAPuntos(token.omrBox.width), height: pxAPuntos(token.omrBox.height) })),
         collisionBoxes: collisionsDetected.filter((c) => c.pagina === pageNumber)
       }
     });
@@ -594,27 +569,27 @@ export async function buildExamLayoutTokens({
       blockSpec: buildBlockSpec(perfilOmr),
       engineHints: buildEngineHints(),
       perfilLayout: {
-        gridStepPt: aPuntos(tpl.gridPx),
-        headerHeightFirst: aPuntos(tpl.firstHeaderHeightPx),
-        headerHeightOther: aPuntos(tpl.otherHeaderHeightPx),
-        bottomSafePt: aPuntos(tpl.footerHeightPx),
+        gridStepPt: pxAPuntos(LAYOUT_TEMPLATE_V9.gridPx),
+        headerHeightFirst: pxAPuntos(LAYOUT_TEMPLATE_V9.firstHeaderHeightPx),
+        headerHeightOther: pxAPuntos(LAYOUT_TEMPLATE_V9.otherHeaderHeightPx),
+        bottomSafePt: pxAPuntos(LAYOUT_TEMPLATE_V9.footerHeightPx),
         usarRellenosDecorativos: perfilLayout.usarRellenosDecorativos,
         usarEtiquetaOmrSolida: perfilLayout.usarEtiquetaOmrSolida
       },
       perfil: {
-        qrSize: aPuntos(tpl.header.qrBox.width),
-        qrPadding: aPuntos(8),
+        qrSize: pxAPuntos(LAYOUT_TEMPLATE_V9.header.qrBox.width),
+        qrPadding: pxAPuntos(8),
         qrMarginModulos: perfilOmr.qrMarginModulos,
         marcasEsquina: 'cuadrados',
-        marcaCuadradoSize: aPuntos(14),
-        marcaCuadradoQuietZone: aPuntos(3),
-        burbujaRadio: aPuntos(tpl.omr.bubbleRadiusPx),
-        burbujaPasoY: aPuntos(tpl.omr.bubbleStepYPx),
-        cajaOmrAncho: aPuntos(tpl.omr.panelWidthPx),
-        fiducialSize: aPuntos(tpl.omr.fiducialSizePx),
-        bubbleStrokePt: aPuntos(tpl.omr.bubbleStrokePx),
+        marcaCuadradoSize: pxAPuntos(14),
+        marcaCuadradoQuietZone: pxAPuntos(3),
+        burbujaRadio: pxAPuntos(LAYOUT_TEMPLATE_V9.omr.bubbleRadiusPx),
+        burbujaPasoY: pxAPuntos(LAYOUT_TEMPLATE_V9.omr.bubbleStepYPx),
+        cajaOmrAncho: pxAPuntos(LAYOUT_TEMPLATE_V9.omr.panelWidthPx),
+        fiducialSize: pxAPuntos(LAYOUT_TEMPLATE_V9.omr.fiducialSizePx),
+        bubbleStrokePt: pxAPuntos(LAYOUT_TEMPLATE_V9.omr.bubbleStrokePx),
         labelToBubbleMm: perfilOmr.labelToBubbleMm,
-        preguntasPorBloque,
+        preguntasPorBloque: 9,
         opcionesPorPregunta: 5
       },
       paginas: paginasOmr

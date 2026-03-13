@@ -48,12 +48,11 @@ export class ExamHtmlRenderer {
       }
     });
     const pdfBytes = await htmlToPdfBuffer(html);
-    const layoutTemplateVersion = examen.layout.templateVersion === 4 ? 10 : 9;
 
     return {
       pdfBytes,
       layoutEngine: 'playwright-html-v1',
-      layoutTemplateVersion,
+      layoutTemplateVersion: 9,
       paginas: layout.paginas,
       metricasPaginas: layout.metricasPaginas,
       metricasLayout: layout.metricasLayout,

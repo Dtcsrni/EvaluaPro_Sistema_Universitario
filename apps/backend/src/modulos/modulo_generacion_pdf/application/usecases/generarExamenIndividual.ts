@@ -18,10 +18,10 @@ import { ExamHtmlRenderer } from '../../infra/html/examHtmlRenderer';
 import { PdfKitRenderer } from '../../infra/pdfKitRenderer';
 import { resolverPdfEngine } from '../../infra/resolverPdfEngine';
 import {
-  normalizarMapaVarianteParaTemplate,
-  normalizarPreguntasParaTemplate,
-  resolverTemplateVersionCompatible
-} from '../../domain/templateCompat';
+  normalizarMapaVarianteTv3,
+  normalizarPreguntasParaTv3,
+  TEMPLATE_VERSION_TV3
+} from '../../domain/tv3Compat';
 
 /**
  * Genera un PDF de examen individual.
@@ -31,10 +31,10 @@ import {
 export async function generarExamenIndividual(
   params: ParametrosGeneracionPdf
 ): Promise<ResultadoGeneracionPdf> {
-  const templateVersion = resolverTemplateVersionCompatible(params.templateVersion);
-  const preguntas = normalizarPreguntasParaTemplate(params.preguntas, templateVersion);
-  const mapaVariante = normalizarMapaVarianteParaTemplate(preguntas, params.mapaVariante, templateVersion);
+  const preguntas = normalizarPreguntasParaTv3(params.preguntas);
+  const mapaVariante = normalizarMapaVarianteTv3(preguntas, params.mapaVariante);
 
+  const templateVersion = TEMPLATE_VERSION_TV3;
   const totalPaginas = Number.isFinite(params.totalPaginas)
     ? Math.max(1, Math.floor(params.totalPaginas))
     : 1;

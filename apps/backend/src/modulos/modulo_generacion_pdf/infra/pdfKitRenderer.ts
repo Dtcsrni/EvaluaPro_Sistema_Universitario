@@ -4,7 +4,6 @@ import { PDFDocument, StandardFonts, rgb, type PDFFont, type PDFImage, type PDFP
 import QRCode from 'qrcode';
 import sharp from 'sharp';
 import type { ExamenPdf } from '../domain/examenPdf';
-import { construirTextoQrExamenPagina } from '../domain/qrExamen';
 import {
   ALTO_CARTA,
   ANCHO_CARTA,
@@ -17,10 +16,10 @@ import {
   type PerfilPlantillaOmr,
   type ResultadoGeneracionPdf
 } from '../shared/tiposPdf';
-import { TEMPLATE_VERSION_TV3, TEMPLATE_VERSION_TV4 } from '../domain/templateCompat';
+import { TEMPLATE_VERSION_TV3 } from '../domain/tv3Compat';
 
 type PerfilPlantillaRender = PerfilPlantillaOmr & {
-  version: 1 | 3 | 4;
+  version: 1 | 3;
   qrRasterWidth: number;
   burbujaStroke: number;
   burbujaOffsetX: number;
@@ -82,37 +81,6 @@ const PERFIL_OMR_V3_RENDER: PerfilPlantillaRender = {
   labelToBubbleMm: 2.2,
   preguntasPorBloque: 10,
   opcionesPorPregunta: 5
-};
-
-const PERFIL_OMR_V4_RENDER: PerfilPlantillaRender = {
-  ...PERFIL_OMR_V3_RENDER,
-  version: 4,
-  qrSize: 29 * MM_A_PUNTOS,
-  qrPadding: 4.4 * MM_A_PUNTOS,
-  marcaCuadradoSize: 6.4 * MM_A_PUNTOS,
-  marcaCuadradoQuietZone: 1 * MM_A_PUNTOS,
-  burbujaRadio: (3.3 * MM_A_PUNTOS) / 2,
-  burbujaPasoY: 3.35 * MM_A_PUNTOS,
-  burbujaStroke: 1.15,
-  burbujaOffsetX: 5.2,
-  omrHeaderGap: 5,
-  omrTagWidth: 14,
-  omrTagHeight: 7,
-  omrTagFontSize: 4.7,
-  omrLabelFontSize: 4.5,
-  omrBoxBorderWidth: 1,
-  omrPanelPadding: 1.1,
-  cajaOmrAncho: 52,
-  fiducialSize: 0.92 * MM_A_PUNTOS,
-  fiducialMargin: 1.15,
-  fiducialQuietZone: 0.2 * MM_A_PUNTOS,
-  bubbleStrokePt: 1.15,
-  labelToBubbleMm: 2.2,
-  preguntasPorBloque: 8,
-  opcionesPorPregunta: 5,
-  gutterDerechoMm: 19,
-  zonaMuertaBurbujaMm: 1.2,
-  fiducialesCentrales: true
 };
 
 function mmAPuntos(mm: number) {
@@ -540,11 +508,11 @@ function partirEnLineas({
   return lineas.length > 0 ? lineas : [''];
 }
 
-function resolverPerfilRender(templateVersion: 1 | 3 | 4, perfilBase: PerfilPlantillaOmr): PerfilPlantillaRender {
-  if (templateVersion !== 1 && templateVersion !== TEMPLATE_VERSION_TV3 && templateVersion !== TEMPLATE_VERSION_TV4) {
+function resolverPerfilRender(templateVersion: 1 | 3, perfilBase: PerfilPlantillaOmr): PerfilPlantillaRender {
+  if (templateVersion !== 1 && templateVersion !== TEMPLATE_VERSION_TV3) {
     throw new Error(`Template version ${String(templateVersion)} no compatible para renderer legacy`);
   }
-  const base = templateVersion === TEMPLATE_VERSION_TV4 ? PERFIL_OMR_V4_RENDER : PERFIL_OMR_V3_RENDER;
+  const base = PERFIL_OMR_V3_RENDER;
   return {
     ...base,
     version: templateVersion,
@@ -650,14 +618,6 @@ async function agregarQr(pdfDoc: PDFDocument, page: PDFPage, qrTexto: string, ma
     height: qrSize
   });
 
-  return { qrSize, x, y, padding };
-}
-
-function resolverCajaQr(margen: number, perfil: PerfilPlantillaRender) {
-  const qrSize = perfil.qrSize;
-  const padding = perfil.qrPadding;
-  const x = ANCHO_CARTA - margen - qrSize;
-  const y = ALTO_CARTA - margen - qrSize;
   return { qrSize, x, y, padding };
 }
 
@@ -889,6 +849,7 @@ export class PdfKitRenderer {
     while (numeroPagina <= paginasObjetivo && (numeroPagina === 1 || indicePregunta < totalPreguntas)) {
       const page = pdfDoc.addPage([ANCHO_CARTA, ALTO_CARTA]);
       const folioQr = String(examen.folio ?? '').trim().toUpperCase();
+      const qrTextoPagina = `EXAMEN:${folioQr}:P${numeroPagina}:TV${perfilOmr.version}`;
 
       let preguntasDel = 0;
       let preguntasAl = 0;
@@ -935,7 +896,7 @@ export class PdfKitRenderer {
       }
 
       agregarMarcasRegistro(page, margen, perfilOmr);
-      const { x: xQr, y: yQr, padding: qrPadding, qrSize } = resolverCajaQr(margen, perfilOmr);
+      const { x: xQr, y: yQr, padding: qrPadding, qrSize } = await agregarQr(pdfDoc, page, qrTextoPagina, margen, perfilOmr);
       const rectHeader: RectBox = { x: xCaja, y: yCaja, width: wCaja, height: altoEncabezado };
       const rectQr: RectBox = {
         x: xQr - qrPadding,
@@ -1632,20 +1593,6 @@ export class PdfKitRenderer {
           );
         }
       }
-
-      const qrTextoPagina = construirTextoQrExamenPagina({
-        folio: folioQr,
-        numeroPagina,
-        templateVersion: perfilOmr.version,
-        examId: String(examen.examId ?? '').trim().toUpperCase() || undefined,
-        totalPreguntas: totalPreguntas,
-        preguntaDesde: preguntasDel,
-        preguntaHasta: preguntasAl,
-        questionIdsPagina: mapaPagina.map((pregunta) => pregunta.idPregunta),
-        mapaVariante: examen.mapaVariante,
-        preguntas: examen.preguntas
-      });
-      await agregarQr(pdfDoc, page, qrTextoPagina, margen, perfilOmr);
 
       paginasMeta.push({ numero: numeroPagina, qrTexto: qrTextoPagina, preguntasDel, preguntasAl });
       paginasOmr.push({
