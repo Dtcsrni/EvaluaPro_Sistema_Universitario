@@ -61,8 +61,9 @@ function ordenOpcionesDefault() {
 export function normalizarMapaVarianteParaTemplate(
   preguntas: PreguntaBase[],
   mapaVariante: MapaVariante | undefined,
-  _templateVersion: TemplateVersion
+  templateVersion: TemplateVersion
 ): MapaVariante {
+  void templateVersion;
   const ids = preguntas.map((p) => p.id);
   const ordenPreguntasBruto = Array.isArray(mapaVariante?.ordenPreguntas) ? mapaVariante?.ordenPreguntas ?? [] : [];
   const setIds = new Set(ids);

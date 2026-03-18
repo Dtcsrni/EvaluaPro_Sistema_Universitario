@@ -549,8 +549,9 @@ export async function sincronizarImportacionClassroom(params: {
         courseId: actividad.courseId,
         courseWorkId: actividad.courseWorkId
       }).lean();
+      const asignacionesLegacy = Array.isArray(mapeoLegacyDoc?.asignacionesAlumnos) ? mapeoLegacyDoc.asignacionesAlumnos : [];
       const mapeoLegacy = new Map<string, string>(
-        (Array.isArray(mapeoLegacyDoc?.asignacionesAlumnos) ? mapeoLegacyDoc?.asignacionesAlumnos : [])
+        asignacionesLegacy
           .map((item: { classroomUserId?: unknown; alumnoId?: unknown }) => [
             normalizarTexto(item.classroomUserId),
             normalizarTexto(item.alumnoId)

@@ -4,7 +4,7 @@
  * Define DTOs, types y constantes compartidas entre capas del modulo.
  */
 
-export type TemplateVersion = 1 | 3;
+export type TemplateVersion = 1 | 3 | 4;
 export type TipoExamen = 'parcial' | 'global';
 
 export interface EncabezadoExamen {

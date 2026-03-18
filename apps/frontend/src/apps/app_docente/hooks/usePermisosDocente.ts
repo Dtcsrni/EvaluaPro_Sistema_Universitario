@@ -13,6 +13,28 @@ function valorVerdadero(value: unknown): boolean {
   return ['1', 'true', 'si', 'yes', 'paid', 'active', 'activo', 'activa', 'vigente'].includes(texto);
 }
 
+const NIVELES_PAGO = new Set(['pro', 'premium', 'enterprise', 'business', 'institucional', 'paid']);
+const ESTADOS_PAGO = ['active', 'activo', 'activa', 'paid', 'vigente', 'trialing'];
+
+function itemTieneBanderaPago(item: Record<string, unknown>): boolean {
+  return (
+    valorVerdadero(item.esDePago) ||
+    valorVerdadero(item.paid) ||
+    valorVerdadero(item.activa) ||
+    valorVerdadero(item.activo) ||
+    valorVerdadero(item.active) ||
+    valorVerdadero(item.vigente)
+  );
+}
+
+function normalizarTextosPlan(...values: unknown[]): string[] {
+  return values.map((valor) => String(valor ?? '').trim().toLowerCase()).filter(Boolean);
+}
+
+function textosIndicanPlanPago(textos: string[]): boolean {
+  return textos.some((texto) => NIVELES_PAGO.has(texto)) || textos.some((texto) => ESTADOS_PAGO.includes(texto));
+}
+
 function docenteTienePlanPagoActivo(docente: Docente | null): boolean {
   const extendido = (docente ?? {}) as Docente & {
     plan?: Record<string, unknown>;
@@ -25,28 +47,12 @@ function docenteTienePlanPagoActivo(docente: Docente | null): boolean {
   };
   if (valorVerdadero(extendido.suscripcionActiva) || valorVerdadero(extendido.pagoActivo)) return true;
   const contenedores = [extendido.plan, extendido.suscripcion, extendido.licencia].filter(Boolean) as Array<Record<string, unknown>>;
-  const nivelesPago = new Set(['pro', 'premium', 'enterprise', 'business', 'institucional', 'paid']);
   for (const item of contenedores) {
-    if (
-      valorVerdadero(item?.esDePago) ||
-      valorVerdadero(item?.paid) ||
-      valorVerdadero(item?.activa) ||
-      valorVerdadero(item?.activo) ||
-      valorVerdadero(item?.active) ||
-      valorVerdadero(item?.vigente)
-    ) {
-      return true;
-    }
-    const textos = [item?.codigo, item?.nivel, item?.tier, item?.plan, item?.status, item?.estado]
-      .map((valor) => String(valor ?? '').trim().toLowerCase())
-      .filter(Boolean);
-    if (textos.some((texto) => nivelesPago.has(texto))) return true;
-    if (textos.some((texto) => ['active', 'activo', 'activa', 'paid', 'vigente', 'trialing'].includes(texto))) return true;
+    if (itemTieneBanderaPago(item)) return true;
+    const textos = normalizarTextosPlan(item.codigo, item.nivel, item.tier, item.plan, item.status, item.estado);
+    if (textosIndicanPlanPago(textos)) return true;
   }
-  const textosDocente = [extendido.planCodigo, extendido.planNivel]
-    .map((valor) => String(valor ?? '').trim().toLowerCase())
-    .filter(Boolean);
-  return textosDocente.some((texto) => nivelesPago.has(texto));
+  return textosIndicanPlanPago(normalizarTextosPlan(extendido.planCodigo, extendido.planNivel));
 }
 
 export function usePermisosDocente(docente: Docente | null) {

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { emitToast } from '../../ui/toast/toastBus';
 import { Boton } from '../../ui/ux/componentes/Boton';
 import { InlineMensaje } from '../../ui/ux/componentes/InlineMensaje';
@@ -68,7 +68,7 @@ export function CentroClassroom({
     [actividadIdsSeleccionados, actividades]
   );
 
-  async function cargarEstado() {
+  const cargarEstado = useCallback(async () => {
     if (!puedeClassroomPull) return;
     setCargandoEstado(true);
     try {
@@ -79,9 +79,9 @@ export function CentroClassroom({
     } finally {
       setCargandoEstado(false);
     }
-  }
+  }, [puedeClassroomPull]);
 
-  async function cargarCursos() {
+  const cargarCursos = useCallback(async () => {
     if (!puedeClassroomPull || !classroomDisponible) return;
     setCargandoCursos(true);
     try {
@@ -92,9 +92,9 @@ export function CentroClassroom({
     } finally {
       setCargandoCursos(false);
     }
-  }
+  }, [classroomDisponible, puedeClassroomPull]);
 
-  async function cargarActividades(courseId: string) {
+  const cargarActividades = useCallback(async (courseId: string) => {
     if (!periodoId || !courseId) return;
     setCargandoActividades(true);
     try {
@@ -124,9 +124,9 @@ export function CentroClassroom({
     } finally {
       setCargandoActividades(false);
     }
-  }
+  }, [periodoId]);
 
-  async function cargarRoster(courseId: string) {
+  const cargarRoster = useCallback(async (courseId: string) => {
     if (!periodoId || !courseId) return;
     setCargandoRoster(true);
     try {
@@ -151,9 +151,9 @@ export function CentroClassroom({
     } finally {
       setCargandoRoster(false);
     }
-  }
+  }, [periodoId]);
 
-  async function cargarHistorial() {
+  const cargarHistorial = useCallback(async () => {
     if (!periodoId || !puedeClassroomPull) return;
     try {
       const respuesta = await clienteApi.obtener<{
@@ -163,7 +163,7 @@ export function CentroClassroom({
     } catch {
       setHistorial([]);
     }
-  }
+  }, [periodoId, puedeClassroomPull]);
 
   useEffect(() => {
     if (!classroomDisponible || !puedeClassroomPull) return;
@@ -171,7 +171,7 @@ export function CentroClassroom({
     if (periodoId) {
       void cargarHistorial();
     }
-  }, [classroomDisponible, puedeClassroomPull, periodoId]);
+  }, [cargarEstado, cargarHistorial, classroomDisponible, puedeClassroomPull, periodoId]);
 
   useEffect(() => {
     if (!classroomDisponible || !estado?.conectado) {
@@ -179,7 +179,7 @@ export function CentroClassroom({
       return;
     }
     void cargarCursos();
-  }, [classroomDisponible, estado?.conectado]);
+  }, [cargarCursos, classroomDisponible, estado?.conectado]);
 
   useEffect(() => {
     setPreview(null);
@@ -190,7 +190,7 @@ export function CentroClassroom({
     if (!courseIdSeleccionado || !periodoId || !estado?.conectado) return;
     void cargarActividades(courseIdSeleccionado);
     void cargarRoster(courseIdSeleccionado);
-  }, [courseIdSeleccionado, periodoId, estado?.conectado]);
+  }, [cargarActividades, cargarRoster, courseIdSeleccionado, periodoId, estado?.conectado]);
 
   useEffect(() => {
     const listener = (event: MessageEvent) => {
@@ -206,7 +206,7 @@ export function CentroClassroom({
     };
     window.addEventListener('message', listener);
     return () => window.removeEventListener('message', listener);
-  }, []);
+  }, [cargarEstado]);
 
   function toggleActividad(actividadId: string) {
     setActividadIdsSeleccionados((prev) =>

@@ -168,12 +168,13 @@ function unique<T>(items: T[]) {
 }
 
 function sanitizeFileName(value: string) {
-  return String(value ?? '')
-    .replace(/[<>:"/\\|?*\x00-\x1F]/g, '_')
+  const sanitized = String(value ?? '')
+    .replace(/[<>:"/\\|?*]+/g, '_')
     .replace(/\s+/g, '_')
     .replace(/_+/g, '_')
     .replace(/^_+|_+$/g, '')
     .slice(0, 120);
+  return [...sanitized].filter((char) => char >= ' ').join('');
 }
 
 function toVscodeFileUri(filePath: string) {
@@ -552,10 +553,10 @@ async function main() {
   launcherLines.push('    & code --reuse-window $target | Out-Null');
   launcherLines.push('    $opened += 1');
   launcherLines.push('  } else {');
-  launcherLines.push('    Write-Warning \"No existe: $target\"');
+    launcherLines.push('    Write-Warning "No existe: $target"');
   launcherLines.push('  }');
   launcherLines.push('}');
-  launcherLines.push('Write-Host \"Archivos abiertos en VS Code: $opened\"');
+  launcherLines.push('Write-Host "Archivos abiertos en VS Code: $opened"');
   await fs.writeFile(path.join(outDir, 'open_in_vscode.ps1'), `${launcherLines.join('\n')}\n`, 'utf8');
 
   process.stdout.write(

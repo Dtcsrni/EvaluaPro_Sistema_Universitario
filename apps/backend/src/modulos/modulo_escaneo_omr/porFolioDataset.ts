@@ -222,10 +222,6 @@ function clamp01(value: number) {
   return clamp(value, 0, 1);
 }
 
-function relativeToRepo(repoRoot: string, absolutePath: string) {
-  return path.relative(repoRoot, absolutePath).replace(/\\/g, '/');
-}
-
 function sanitizeCaptureLabel(value: string) {
   return String(value).replace(/[^A-Za-z0-9_-]+/g, '_');
 }

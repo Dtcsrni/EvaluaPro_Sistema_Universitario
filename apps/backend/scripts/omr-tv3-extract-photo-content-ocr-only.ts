@@ -173,7 +173,7 @@ function tokenSimilarity(aRaw: string, bRaw: string) {
 function cleanLineArtifacts(raw: string) {
   return raw
     .replace(/[|]+/g, ' ')
-    .replace(/[\[\]{}]/g, ' ')
+    .replace(/[[\]{}]/g, ' ')
     .replace(/[_~`]+/g, ' ')
     .replace(/\s+/g, ' ')
     .trim();

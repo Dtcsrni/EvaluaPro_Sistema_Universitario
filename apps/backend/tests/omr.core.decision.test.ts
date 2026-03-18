@@ -69,8 +69,7 @@ function detectarDesdeMapa(rasgos: Record<string, RasgoMock>) {
     _integral: Uint32Array,
     _width: number,
     _height: number,
-    centro: { x: number; y: number },
-    _params: ParametrosBurbujaCore
+    centro: { x: number; y: number }
   ) => {
     const letra = ['A', 'B', 'C', 'D', 'E'][Math.max(0, Math.min(4, Math.round(centro.x) - 1))]!;
     return rasgos[letra];

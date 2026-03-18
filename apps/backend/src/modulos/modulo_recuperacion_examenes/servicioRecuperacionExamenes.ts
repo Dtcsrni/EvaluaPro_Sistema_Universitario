@@ -15,8 +15,7 @@ import { ExamenPlantilla, normalizarTituloPlantilla } from '../modulo_generacion
 import { ExamenRecoveryBundle } from '../modulo_generacion_pdf/modeloExamenRecoveryBundle';
 import { ExamenRecoveryManifest } from '../modulo_generacion_pdf/modeloExamenRecoveryManifest';
 import {
-  extraerResumenQrExamen,
-  type ResumenQrExamen
+  extraerResumenQrExamen
 } from '../modulo_generacion_pdf/domain/qrExamen';
 import {
   verificarRecoveryBundle,

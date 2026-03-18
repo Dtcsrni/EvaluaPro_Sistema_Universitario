@@ -5,7 +5,6 @@ import { InlineMensaje } from '../../ui/ux/componentes/InlineMensaje';
 import { clienteApi } from './clienteApiDocente';
 import { CentroClassroom } from './CentroClassroom';
 import type { Alumno, Periodo } from './tipos';
-import { mensajeDeError } from './utilidades';
 
 type TabEvaluaciones = 'politica' | 'evidencias' | 'examenes' | 'classroom' | 'resumen';
 

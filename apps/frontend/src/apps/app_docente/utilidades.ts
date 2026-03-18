@@ -132,7 +132,8 @@ export function combinarRespuestasOmrPaginas(
 
 export function normalizarTemplateVersionOmrDetectada(valor: unknown): ResultadoOmr['templateVersionDetectada'] {
   const version = Number(valor);
-  if (version === 3 || version === 4) return version;
+  if (version === 2 || version === 3) return 3;
+  if (version === 4) return 4;
   return 1;
 }
 

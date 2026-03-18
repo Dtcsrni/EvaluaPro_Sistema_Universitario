@@ -255,7 +255,7 @@ export function SeccionRehidratacionLotes({
           </span>
         </div>
 
-        <div className="item-actions" style={{ marginBottom: 16 }}>
+        <div className="item-actions rehidratacion-lotes__actions">
           <Boton type="button" variante="secundario" onClick={() => void cargarBundles()} cargando={cargandoBundles}>
             <Icono nombre="recargar" />
             Actualizar inventario
@@ -303,28 +303,20 @@ export function SeccionRehidratacionLotes({
         </div>
 
         {bundles.length ? (
-          <div style={{ display: 'grid', gap: 12, marginTop: 16 }}>
+          <div className="rehidratacion-lotes__grid">
             {bundles.map((bundle) => {
               const activo = bundle.bundleHash === bundleActivoHash;
               return (
                 <button
                   key={bundle.bundleHash}
                   type="button"
-                  className={`item-glass${activo ? ' activo' : ''}`}
                   onClick={() => {
                     setBundleActivoHash(bundle.bundleHash);
                     setVerificacionActual(null);
                     setReconstruccionActual(null);
                     setErrorOperacion('');
                   }}
-                  style={{
-                    textAlign: 'left',
-                    border: activo ? '1px solid var(--accent, #1ea7ff)' : undefined,
-                    padding: 16,
-                    background: 'transparent',
-                    color: 'inherit',
-                    cursor: 'pointer'
-                  }}
+                  className={`item-glass rehidratacion-lotes__bundle${activo ? ' activo' : ''}`}
                 >
                   <div className="item-meta">
                     <span className={bundle.signatureValid ? 'badge ok' : 'badge warning'}>
@@ -335,14 +327,14 @@ export function SeccionRehidratacionLotes({
                     </span>
                     <span className="badge">Template {bundle.templateVersion ? `TV${bundle.templateVersion}` : 'N/D'}</span>
                   </div>
-                  <div style={{ fontWeight: 700, marginTop: 8 }}>{bundle.loteId}</div>
-                  <div className="item-meta" style={{ marginTop: 8 }}>
+                  <div className="rehidratacion-lotes__bundle-title">{bundle.loteId}</div>
+                  <div className="item-meta rehidratacion-lotes__bundle-meta">
                     <span>Bundle hash: {bundle.bundleHash}</span>
                     <span>{bundle.examCount} examenes</span>
                     <span>{bundle.questionBankCount} reactivos</span>
                   </div>
                   {bundle.causes.length ? (
-                    <div style={{ marginTop: 8 }}>
+                    <div className="rehidratacion-lotes__bundle-warnings">
                       <InlineMensaje tipo="warning">{bundle.causes.join(' | ')}</InlineMensaje>
                     </div>
                   ) : null}
@@ -357,7 +349,7 @@ export function SeccionRehidratacionLotes({
         )}
 
         {verificacionActual ? (
-          <div className="subpanel" style={{ marginTop: 16 }}>
+          <div className="subpanel rehidratacion-lotes__subpanel">
             <h4>Resultado de verificacion</h4>
             <div className="item-meta">
               <span className={verificacionActual.signatureValid ? 'badge ok' : 'badge warning'}>
@@ -379,7 +371,7 @@ export function SeccionRehidratacionLotes({
         ) : null}
 
         {reconstruccionActual ? (
-          <div className="subpanel" style={{ marginTop: 16 }}>
+          <div className="subpanel rehidratacion-lotes__subpanel">
             <h4>Resultado de reconstruccion</h4>
             <div className="item-meta">
               <span className={reconstruccionActual.status === 'reconstruida' ? 'badge ok' : 'badge warning'}>

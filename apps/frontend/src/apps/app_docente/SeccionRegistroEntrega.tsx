@@ -276,7 +276,9 @@ export function SeccionRegistroEntrega({
       cropCtx.drawImage(canvas, 0, topY, ancho, cropH, 0, 0, ancho, cropH);
 
       const dataUrl = cropCanvas.toDataURL('image/png');
-      const modulo = (ocrModuloRef.current as OcrModule | null) ?? (await import('tesseract.js'));
+      const specifier = 'tesseract.js';
+      const modulo =
+        (ocrModuloRef.current as OcrModule | null) ?? (await import(/* @vite-ignore */ specifier));
       ocrModuloRef.current = modulo;
       const recognize = modulo.recognize;
       if (typeof recognize !== 'function') return '';

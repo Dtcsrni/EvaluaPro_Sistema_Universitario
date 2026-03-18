@@ -88,6 +88,8 @@ describe('classroom v2', () => {
     };
   }
 
+  // Cobertura integral del flujo Classroom v2 en un solo escenario end-to-end.
+  // eslint-disable-next-line complexity
   it('lista cursos, actividades, mapea alumnos y ejecuta preview/importación con historial', async () => {
     const { docente, periodo, alumno3, auth } = await crearContexto();
 

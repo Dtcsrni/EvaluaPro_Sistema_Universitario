@@ -317,7 +317,7 @@ export function SeccionCalificaciones({
     const folio = String(examenActivoMeta?.folio ?? '').trim();
     const plantillaTitulo = String(examenActivoMeta?.plantillaTitulo ?? '').trim();
     const partes = [folio ? `Folio ${folio}` : '', plantillaTitulo || ''].filter((parte) => parte.length > 0);
-    return partes.length > 0 ? partes.join(' Â· ') : null;
+    return partes.length > 0 ? partes.join(' · ') : null;
   }, [examenActivoMeta]);
   const alumnoActivoNombre = useMemo(() => {
     const id = String(alumnoId ?? examenActivoMeta?.alumnoId ?? '').trim();
@@ -464,13 +464,13 @@ export function SeccionCalificaciones({
         });
         setExamenesManual(entregados);
         setExamenManualId((prev) => (entregados.some((item) => item._id === prev) ? prev : ''));
-        setManualMensaje(entregados.length === 0 ? 'No hay exÃ¡menes entregados para el alumno seleccionado.' : '');
+        setManualMensaje(entregados.length === 0 ? 'No hay exámenes entregados para el alumno seleccionado.' : '');
       })
       .catch((error) => {
         if (cancelado) return;
         setExamenesManual([]);
         setExamenManualId('');
-        setManualMensaje(mensajeDeError(error, 'No se pudo cargar la lista de exÃ¡menes entregados'));
+        setManualMensaje(mensajeDeError(error, 'No se pudo cargar la lista de exámenes entregados'));
       })
       .finally(() => {
         if (!cancelado) setCargandoExamenesManual(false);
@@ -504,7 +504,7 @@ export function SeccionCalificaciones({
     }
     const examenSeleccionado = examenesManual.find((item) => item._id === examenManualId);
     if (!examenSeleccionado) {
-      setManualMensaje('No se encontrÃ³ el examen seleccionado.');
+      setManualMensaje('No se encontró el examen seleccionado.');
       return;
     }
     try {
@@ -523,7 +523,7 @@ export function SeccionCalificaciones({
       const preguntasBanco = await obtenerBancoPreguntas(periodoId);
       const clave = construirClaveCorrectaExamen(examenDetalle, preguntasBanco);
       if (clave.ordenPreguntas.length === 0) {
-        setManualMensaje('No se pudo construir la clave del examen para calificaciÃ³n manual.');
+        setManualMensaje('No se pudo construir la clave del examen para calificación manual.');
         return;
       }
 
@@ -546,7 +546,7 @@ export function SeccionCalificaciones({
       });
       setManualMensaje('Modo manual activado para el examen seleccionado.');
     } catch (error) {
-      setManualMensaje(mensajeDeError(error, 'No se pudo activar la calificaciÃ³n manual'));
+      setManualMensaje(mensajeDeError(error, 'No se pudo activar la calificación manual'));
     } finally {
       setActivandoManual(false);
     }
@@ -559,13 +559,13 @@ export function SeccionCalificaciones({
     if (id && ahora - ultimoIntento < 5000) return;
     if (!id) return;
     if (examenesSinCalificacionRef.current.has(id)) {
-      setManualMensaje('AÃºn no hay calificaciÃ³n guardada para el examen seleccionado.');
+      setManualMensaje('Aún no hay calificación guardada para el examen seleccionado.');
       return;
     }
     if (cargasCalificacionEnCursoRef.current.has(id)) return;
     const examenPersistido = examenesCalificadosPersistidos.find((item) => String(item._id ?? '').trim() === id);
     if (!examenPersistido) {
-      emitToast({ level: 'warn', title: 'Examen', message: 'No se encontrÃ³ el examen calificado seleccionado.', durationMs: 3200 });
+      emitToast({ level: 'warn', title: 'Examen', message: 'No se encontró el examen calificado seleccionado.', durationMs: 3200 });
       return;
     }
     try {
@@ -742,7 +742,7 @@ export function SeccionCalificaciones({
       const status = Number((error as { detalle?: { status?: unknown } } | null | undefined)?.detalle?.status ?? NaN);
       if (status === 404) {
         examenesSinCalificacionRef.current.add(id);
-        setManualMensaje('AÃºn no hay calificaciÃ³n guardada para el examen seleccionado.');
+        setManualMensaje('Aún no hay calificación guardada para el examen seleccionado.');
         return;
       }
       setManualMensaje(mensajeDeError(error, 'No se pudo cargar el examen calificado'));
@@ -801,15 +801,15 @@ export function SeccionCalificaciones({
             <Icono nombre="calificar" /> Calificaciones
           </h2>
           <p className="nota">
-            Escanea por pÃ¡gina, revisa por examen y guarda solo cuando la revisiÃ³n estÃ© confirmada.
+            Escanea por página, revisa por examen y guarda solo cuando la revisión esté confirmada.
           </p>
         </div>
         <div className="calificaciones-kpi" aria-live="polite">
-          <div className="calificaciones-kpi__item"><span>ExÃ¡menes en flujo</span><b>{revisionesSeguras.length}</b></div>
-          <div className="calificaciones-kpi__item"><span>PÃ¡ginas procesadas</span><b>{totalPaginas}</b></div>
-          <div className="calificaciones-kpi__item"><span>PÃ¡ginas pendientes</span><b>{paginasPendientes}</b></div>
+          <div className="calificaciones-kpi__item"><span>Exámenes en flujo</span><b>{revisionesSeguras.length}</b></div>
+          <div className="calificaciones-kpi__item"><span>Páginas procesadas</span><b>{totalPaginas}</b></div>
+          <div className="calificaciones-kpi__item"><span>Páginas pendientes</span><b>{paginasPendientes}</b></div>
           <div className="calificaciones-kpi__item"><span>Revisados/Calificados</span><b>{examenesListos}</b></div>
-          <div className="calificaciones-kpi__item"><span>Solicitudes revisiÃ³n</span><b>{resumenSolicitudes.total}</b></div>
+          <div className="calificaciones-kpi__item"><span>Solicitudes revisión</span><b>{resumenSolicitudes.total}</b></div>
         </div>
         <div className="item-meta calificaciones-hero__meta">
           {examenIdActivo ? (
@@ -820,7 +820,7 @@ export function SeccionCalificaciones({
         </div>
         <div className="item-actions calificaciones-hero__actions">
           <label className="campo calificaciones-revisados-select">
-            ExÃ¡menes revisados/calificados
+            Exámenes revisados/calificados
             <select
               value={examenRevisadoSeleccionadoId}
               onChange={(event) => {
@@ -848,11 +848,11 @@ export function SeccionCalificaciones({
               disabled={opcionesExamenesRevisados.length === 0}
             >
               <option value="">
-                {opcionesExamenesRevisados.length === 0 ? 'Sin exÃ¡menes revisados/calificados' : 'Selecciona examen revisado/calificado'}
+                {opcionesExamenesRevisados.length === 0 ? 'Sin exámenes revisados/calificados' : 'Selecciona examen revisado/calificado'}
               </option>
               {opcionesExamenesRevisados.map((examen) => (
                 <option key={examen.id} value={examen.id}>
-                  {`Folio ${examen.folio} Â· ${examen.fuente === 'cola' ? `${examen.paginas} pÃ¡gina(s)` : 'calificado'}`}
+                  {`Folio ${examen.folio} · ${examen.fuente === 'cola' ? `${examen.paginas} página(s)` : 'calificado'}`}
                 </option>
               ))}
             </select>
@@ -892,14 +892,14 @@ export function SeccionCalificaciones({
             avisarSinPermiso={avisarSinPermiso}
           />
         </div>
-        <aside className="calificaciones-layout__aside" aria-label="Panel de calificaciÃ³n">
+        <aside className="calificaciones-layout__aside" aria-label="Panel de calificación">
           <section className="panel calificaciones-manual-panel">
             <h3>
-              <Icono nombre="alumno" /> SelecciÃ³n manual por entregado
+              <Icono nombre="alumno" /> Selección manual por entregado
             </h3>
             <p className="nota">Selecciona alumno y examen entregado para calificar manualmente cada pregunta.</p>
             <div className="item-meta">
-              <span>ExÃ¡menes entregados del alumno: {examenesManual.length}</span>
+              <span>Exámenes entregados del alumno: {examenesManual.length}</span>
               <span>Filtrados: {examenesManualFiltrados.length}</span>
             </div>
             <label className="campo">
@@ -939,7 +939,7 @@ export function SeccionCalificaciones({
                       String(examen.estado ?? 'entregado')
                     ]
                       .filter((valor) => String(valor ?? '').trim().length > 0)
-                      .join(' Â· ')}
+                      .join(' · ')}
                   </option>
                 ))}
               </select>
@@ -952,7 +952,7 @@ export function SeccionCalificaciones({
               </div>
             )}
             {filtroFolioManual && examenesManualFiltrados.length === 0 && (
-              <InlineMensaje tipo="info">No hay exÃ¡menes que coincidan con el folio buscado.</InlineMensaje>
+              <InlineMensaje tipo="info">No hay exámenes que coincidan con el folio buscado.</InlineMensaje>
             )}
             <div className="item-actions calificaciones-manual-panel__actions">
               <Boton
@@ -967,7 +967,7 @@ export function SeccionCalificaciones({
                   void activarManualDesdeEntregado();
                 }}
               >
-                {activandoManual ? 'Activando modo manualâ€¦' : cargandoExamenesManual ? 'Cargandoâ€¦' : 'Usar examen para calificaciÃ³n manual'}
+                {activandoManual ? 'Activando modo manual...' : cargandoExamenesManual ? 'Cargando...' : 'Usar examen para calificación manual'}
               </Boton>
               {manualContexto && (
                 <Boton
@@ -978,7 +978,7 @@ export function SeccionCalificaciones({
                     setManualMensaje('Modo manual desactivado.');
                   }}
                 >
-                  Limpiar selecciÃ³n manual
+                  Limpiar selección manual
                 </Boton>
               )}
             </div>
@@ -990,7 +990,7 @@ export function SeccionCalificaciones({
             <SeccionCalificar
               examenId={manualContexto?.examenId ?? examenId}
               alumnoId={manualContexto?.alumnoId ?? alumnoId}
-              examenEtiqueta={manualContexto ? `Folio ${manualContexto.folio}${manualContexto.plantillaTitulo ? ` Â· ${manualContexto.plantillaTitulo}` : ''}` : examenActivoEtiqueta}
+              examenEtiqueta={manualContexto ? `Folio ${manualContexto.folio}${manualContexto.plantillaTitulo ? ` · ${manualContexto.plantillaTitulo}` : ''}` : examenActivoEtiqueta}
               alumnoNombre={manualContexto ? (mapaAlumnos.get(String(manualContexto.alumnoId ?? '').trim()) ?? null) : alumnoActivoNombre}
               resultadoOmr={manualContexto ? null : resultadoParaCalificar}
               revisionOmrConfirmada={manualContexto ? true : revisionOmrConfirmada}
@@ -1006,7 +1006,7 @@ export function SeccionCalificaciones({
                     manualContexto.plantillaTitulo ? `Plantilla ${manualContexto.plantillaTitulo}` : ''
                   ]
                     .filter((parte) => String(parte ?? '').trim().length > 0)
-                    .join(' Â· ')
+                    .join(' · ')
                 : null}
               soloLectura={Boolean(manualContexto?.soloLectura)}
               resumenPersistido={manualContexto?.resumenPersistido}
@@ -1016,11 +1016,11 @@ export function SeccionCalificaciones({
             />
           ) : null}
           {!mostrarSeccionCalificar ? (
-            <InlineMensaje tipo="info">Confirma la revisiÃ³n OMR en la mesa superior para habilitar la calificaciÃ³n.</InlineMensaje>
+            <InlineMensaje tipo="info">Confirma la revisión OMR en la mesa superior para habilitar la calificación.</InlineMensaje>
           ) : null}
           <section className="panel calificaciones-revision-panel">
             <h3>
-              <Icono nombre="info" /> Solicitudes de revisiÃ³n del alumno
+              <Icono nombre="info" /> Solicitudes de revisión del alumno
             </h3>
             <div className="calificaciones-revision-panel__stats item-meta">
               <span>Pendientes: {resumenSolicitudes.pendientes}</span>
@@ -1040,7 +1040,7 @@ export function SeccionCalificaciones({
                   void sincronizarSolicitudesRevision();
                 }}
               >
-                <Icono nombre="recargar" /> {cargandoSolicitudes ? 'Sincronizandoâ€¦' : 'Sincronizar solicitudes'}
+                <Icono nombre="recargar" /> {cargandoSolicitudes ? 'Sincronizando...' : 'Sincronizar solicitudes'}
               </button>
             </div>
             <label className="campo">
@@ -1055,7 +1055,7 @@ export function SeccionCalificaciones({
             {mensajeRevision && (
               <InlineMensaje tipo={esMensajeError(mensajeRevision) ? 'error' : 'info'}>{mensajeRevision}</InlineMensaje>
             )}
-            {solicitudesSeguras.length === 0 && <InlineMensaje tipo="info">Sin solicitudes pendientes de revisiÃ³n.</InlineMensaje>}
+            {solicitudesSeguras.length === 0 && <InlineMensaje tipo="info">Sin solicitudes pendientes de revisión.</InlineMensaje>}
             {solicitudesSeguras.length > 0 && solicitudesFiltradas.length === 0 && (
               <InlineMensaje tipo="info">No hay solicitudes que coincidan con el filtro.</InlineMensaje>
             )}
@@ -1066,7 +1066,7 @@ export function SeccionCalificaciones({
                     <div className="item-row">
                       <div>
                         <div className="item-title">
-                          Folio {solicitud.folio} Â· Pregunta {solicitud.numeroPregunta}
+                          Folio {solicitud.folio} · Pregunta {solicitud.numeroPregunta}
                         </div>
                         <div className="item-meta">
                           <span className={`badge ${solicitud.estado === 'pendiente' ? 'warning' : solicitud.estado === 'atendida' ? 'ok' : 'error'}`}>
@@ -1081,7 +1081,7 @@ export function SeccionCalificaciones({
                     <textarea
                       className="calificaciones-revision-panel__respuesta"
                       rows={2}
-                      placeholder="Respuesta obligatoria para el alumno (mÃ­nimo 8 caracteres)"
+                      placeholder="Respuesta obligatoria para el alumno (mínimo 8 caracteres)"
                       value={respuestaPorSolicitudId[solicitud.externoId] ?? ''}
                       onChange={(event) =>
                         setRespuestaPorSolicitudId((prev) => ({ ...prev, [solicitud.externoId]: event.target.value }))
@@ -1100,7 +1100,7 @@ export function SeccionCalificaciones({
                           void resolverSolicitud(solicitud, 'atendida');
                         }}
                       >
-                        <Icono nombre="ok" /> {resolviendoSolicitudId === solicitud._id ? 'Procesandoâ€¦' : 'Marcar atendida'}
+                        <Icono nombre="ok" /> {resolviendoSolicitudId === solicitud._id ? 'Procesando...' : 'Marcar atendida'}
                       </button>
                       <button
                         className="boton secundario"
@@ -1114,7 +1114,7 @@ export function SeccionCalificaciones({
                           void resolverSolicitud(solicitud, 'rechazada');
                         }}
                       >
-                        <Icono nombre="salir" /> {resolviendoSolicitudId === solicitud._id ? 'Procesandoâ€¦' : 'Rechazar'}
+                        <Icono nombre="salir" /> {resolviendoSolicitudId === solicitud._id ? 'Procesando...' : 'Rechazar'}
                       </button>
                     </div>
                   </div>
