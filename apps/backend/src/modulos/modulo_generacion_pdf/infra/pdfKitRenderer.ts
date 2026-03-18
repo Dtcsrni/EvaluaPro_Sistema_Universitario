@@ -852,8 +852,7 @@ export class PdfKitRenderer {
 
     while (numeroPagina <= paginasObjetivo && (numeroPagina === 1 || indicePregunta < totalPreguntas)) {
       const page = pdfDoc.addPage([ANCHO_CARTA, ALTO_CARTA]);
-      const folioQr = String(examen.folio ?? '').trim().toUpperCase();
-      const qrTextoPagina = `EXAMEN:${folioQr}:P${numeroPagina}:TV${perfilOmr.version}`;
+      const qrTextoPagina = examen.generarTextoQrPagina(numeroPagina);
 
       let preguntasDel = 0;
       let preguntasAl = 0;

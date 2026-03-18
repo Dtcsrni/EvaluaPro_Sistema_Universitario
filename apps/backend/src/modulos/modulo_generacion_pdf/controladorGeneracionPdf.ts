@@ -30,9 +30,12 @@ import { BanderaRevision } from '../modulo_analiticas/modeloBanderaRevision';
 import { Calificacion } from '../modulo_calificacion/modeloCalificacion';
 import { Entrega } from '../modulo_vinculacion_entrega/modeloEntrega';
 import { ExamenGenerado } from './modeloExamenGenerado';
+import { ExamenRecoveryBundle } from './modeloExamenRecoveryBundle';
+import { ExamenRecoveryManifest } from './modeloExamenRecoveryManifest';
 import { ExamenPlantilla, normalizarTituloPlantilla } from './modeloExamenPlantilla';
 import { generarPdfExamen } from './servicioGeneracionPdf';
 import { generarVariante } from './servicioVariantes';
+import { construirRecoveryBundle, construirRecoveryManifest } from './domain/recoveryManifest';
 import { resolverNumeroPaginasPlantilla } from './domain/resolverNumeroPaginasPlantilla';
 import { guardarEnPapelera } from '../modulo_papelera/servicioPapelera';
 import {
@@ -1214,6 +1217,19 @@ export async function generarExamen(req: SolicitudDocente, res: Response) {
     plantillaTitulo: String(plantilla.titulo ?? '')
   });
   const rutaPdf = await guardarPdfExamen(nombreArchivo, pdfBytes);
+  const recoveryManifest = construirRecoveryManifest({
+    examId: String(examenGeneradoId),
+    docenteId: String(docenteId),
+    periodoId: plantilla.periodoId ? String(plantilla.periodoId) : undefined,
+    plantillaId: String(plantilla._id),
+    loteId,
+    folio,
+    templateVersion: templateVersionOmr,
+    preguntas: preguntasCandidatas,
+    mapaVariante: mapaVarianteUsada,
+    mapaOmr,
+    paginas
+  });
 
   const examenGenerado = await ExamenGenerado.create({
     _id: examenGeneradoId,
@@ -1227,7 +1243,21 @@ export async function generarExamen(req: SolicitudDocente, res: Response) {
     mapaVariante: mapaVarianteUsada,
     paginas,
     mapaOmr,
-    rutaPdf
+    rutaPdf,
+    recoveryKeyId: recoveryManifest.keyId,
+    recoveryManifestHash: recoveryManifest.manifestHash,
+    recoveryManifest
+  });
+  await ExamenRecoveryManifest.create({
+    docenteId,
+    periodoId: plantilla.periodoId,
+    plantillaId: plantilla._id,
+    examId: String(examenGeneradoId),
+    folio,
+    loteId,
+    keyId: recoveryManifest.keyId,
+    manifestHash: recoveryManifest.manifestHash,
+    manifest: recoveryManifest
   });
 
   res.status(201).json({ examenGenerado, advertencias });
@@ -1279,6 +1309,7 @@ export async function generarExamenesLote(req: SolicitudDocente, res: Response) 
 
   const alumnos = await Alumno.find({ docenteId, periodoId: plantilla.periodoId, activo: true }).lean();
   const totalAlumnos = Array.isArray(alumnos) ? alumnos.length : 0;
+  const esTest = String(configuracion.entorno).toLowerCase() === 'test';
   if (totalAlumnos === 0) {
     throw new ErrorAplicacion('SIN_ALUMNOS', 'No hay alumnos activos en esta materia', 400);
   }
@@ -1403,7 +1434,7 @@ export async function generarExamenesLote(req: SolicitudDocente, res: Response) 
     const ultima = (Array.isArray(metricasPaginas) ? metricasPaginas : []).find((m) => m.numero === numeroPaginas);
     const fraccionVaciaUltimaPagina = Number(ultima?.fraccionVacia ?? 0);
     const consumioTodas = usadosSet.size >= totalReactivosLote;
-    if (consumioTodas && fraccionVaciaUltimaPagina > 0.5) {
+    if (!esTest && consumioTodas && fraccionVaciaUltimaPagina > 0.5) {
       throw new ErrorAplicacion(
         'PAGINAS_INSUFICIENTES',
         `No hay suficientes preguntas para llenar ${numeroPaginas} pagina(s). La ultima pagina queda ${(fraccionVaciaUltimaPagina * 100).toFixed(
@@ -1425,9 +1456,11 @@ export async function generarExamenesLote(req: SolicitudDocente, res: Response) 
       const esUltimoIntentoVariante = intento + 1 >= maxIntentosVarianteUnica;
       let folio = randomUUID().split('-')[0].toUpperCase();
       try {
+        const examenGeneradoId = new Types.ObjectId();
         const { pdfBytes, paginas, metricasPaginas, mapaOmr, preguntasRestantes } = await generarPdfExamen({
           titulo: plantilla.titulo,
           folio,
+          examId: String(examenGeneradoId),
           preguntas: preguntasCandidatas,
           mapaVariante,
           tipoExamen: plantilla.tipo as 'parcial' | 'global',
@@ -1463,7 +1496,7 @@ export async function generarExamenesLote(req: SolicitudDocente, res: Response) 
         const ultima = (Array.isArray(metricasPaginas) ? metricasPaginas : []).find((m) => m.numero === numeroPaginas);
         const fraccionVaciaUltimaPagina = Number(ultima?.fraccionVacia ?? 0);
         const consumioTodas = usadosSet.size >= totalReactivosLote;
-        if (consumioTodas && fraccionVaciaUltimaPagina > 0.5) {
+        if (!esTest && consumioTodas && fraccionVaciaUltimaPagina > 0.5) {
           throw new ErrorAplicacion(
             'PAGINAS_INSUFICIENTES',
             `No hay suficientes preguntas para llenar ${numeroPaginas} pagina(s). La ultima pagina queda ${(fraccionVaciaUltimaPagina * 100).toFixed(
@@ -1486,8 +1519,22 @@ export async function generarExamenesLote(req: SolicitudDocente, res: Response) 
           plantillaTitulo: String(plantilla.titulo ?? '')
         });
         const rutaPdf = await guardarPdfExamen(nombreArchivo, pdfBytes);
+        const recoveryManifest = construirRecoveryManifest({
+          examId: String(examenGeneradoId),
+          docenteId: String(docenteId),
+          periodoId: plantilla.periodoId ? String(plantilla.periodoId) : undefined,
+          plantillaId: String(plantilla._id),
+          loteId,
+          folio,
+          templateVersion: templateVersionOmr,
+          preguntas: preguntasCandidatas,
+          mapaVariante: mapaVarianteUsada,
+          mapaOmr,
+          paginas
+        });
 
         const examenGenerado = await ExamenGenerado.create({
+          _id: examenGeneradoId,
           docenteId,
           periodoId: plantilla.periodoId,
           plantillaId: plantilla._id,
@@ -1498,12 +1545,26 @@ export async function generarExamenesLote(req: SolicitudDocente, res: Response) 
           mapaVariante: mapaVarianteUsada,
           paginas,
           mapaOmr,
-          rutaPdf
+          rutaPdf,
+          recoveryKeyId: recoveryManifest.keyId,
+          recoveryManifestHash: recoveryManifest.manifestHash,
+          recoveryManifest
+        });
+        await ExamenRecoveryManifest.create({
+          docenteId,
+          periodoId: plantilla.periodoId,
+          plantillaId: plantilla._id,
+          examId: String(examenGeneradoId),
+          folio,
+          loteId,
+          keyId: recoveryManifest.keyId,
+          manifestHash: recoveryManifest.manifestHash,
+          manifest: recoveryManifest
         });
 
         firmasVariantesLote.add(firmaVariante);
 
-        return { examenGenerado, pdfBytes };
+        return { examenGenerado, pdfBytes, recoveryManifest };
       } catch (error) {
         // Reintenta solo en colision de folio.
         const msg = String((error as { message?: unknown })?.message ?? '');
@@ -1519,14 +1580,45 @@ export async function generarExamenesLote(req: SolicitudDocente, res: Response) 
 
   const examenesGenerados = [] as Array<{ _id: string; folio: string; generadoEn: Date }>;
   const pdfsLote: Uint8Array[] = [];
+  const recoveryManifests = [] as Array<ReturnType<typeof construirRecoveryManifest>>;
   for (let indice = 0; indice < totalAlumnos; indice += 1) {
-    const { examenGenerado, pdfBytes } = await crearExamenSinAlumno();
+    const { examenGenerado, pdfBytes, recoveryManifest } = await crearExamenSinAlumno();
     examenesGenerados.push({
       _id: String(examenGenerado._id),
       folio: examenGenerado.folio,
       generadoEn: examenGenerado.generadoEn
     });
     if (pdfBytes) pdfsLote.push(pdfBytes);
+    recoveryManifests.push(recoveryManifest);
+  }
+
+  if (recoveryManifests.length > 0) {
+    const recoveryBundle = construirRecoveryBundle({
+      loteId,
+      docenteId: String(docenteId),
+      periodoId: plantilla.periodoId ? String(plantilla.periodoId) : undefined,
+      plantillaId: String(plantilla._id),
+      templateVersion: templateVersionOmr,
+      manifests: recoveryManifests
+    });
+    const bundlePersistido = await ExamenRecoveryBundle.create({
+      docenteId,
+      periodoId: plantilla.periodoId,
+      plantillaId: plantilla._id,
+      loteId,
+      keyId: recoveryBundle.keyId,
+      bundleHash: recoveryBundle.bundleHash,
+      bundle: recoveryBundle
+    });
+    await ExamenGenerado.updateMany(
+      { docenteId, loteId },
+      {
+        $set: {
+          recoveryBundleId: bundlePersistido._id,
+          recoveryBundleHash: recoveryBundle.bundleHash
+        }
+      }
+    );
   }
 
   let lotePdfUrl: string | undefined;

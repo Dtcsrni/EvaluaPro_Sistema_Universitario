@@ -3,12 +3,21 @@ import request from 'supertest';
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { crearApp } from '../src/app';
 import { configuracion } from '../src/configuracion';
+import { extraerResumenQrExamen } from '../src/modulos/modulo_generacion_pdf/domain/qrExamen';
 import { cerrarMongoTest, conectarMongoTest, limpiarMongoTest } from './utils/mongo';
 
 function refirmarQr(textoQr: string) {
   const limpio = String(textoQr ?? '').trim();
   const sinFirma = limpio.replace(/:SG:[A-Z0-9]+$/i, '');
-  const firma = `H1${createHmac('sha256', configuracion.omrQrHmacSecret)
+  const qrResumen = extraerResumenQrExamen(limpio);
+  const keyId = String(qrResumen?.keyId ?? '').trim();
+  const secreto =
+    (keyId
+      ? configuracion.omrQrHmacSecrets[keyId] ??
+        configuracion.omrQrHmacSecrets[keyId.toLowerCase()] ??
+        configuracion.omrQrHmacSecrets[keyId.toUpperCase()]
+      : null) ?? configuracion.omrQrHmacSecret;
+  const firma = `H1${createHmac('sha256', secreto)
     .update(sinFirma)
     .digest('hex')
     .slice(0, 24)

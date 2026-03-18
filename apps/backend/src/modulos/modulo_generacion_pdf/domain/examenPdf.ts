@@ -11,6 +11,7 @@ import type {
   TemplateVersion,
   TipoExamen
 } from '../shared/tiposPdf';
+import { construirTextoQrExamenPagina } from './qrExamen';
 
 export interface LayoutExamenConfig {
   margenMm: number;
@@ -57,7 +58,15 @@ export class ExamenPdf {
    * Genera el texto QR para una pagina especifica.
    */
   generarTextoQrPagina(numeroPagina: number): string {
-    const base = `EXAMEN:${this.folioNormalizado}:P${numeroPagina}:TV${this.layout.templateVersion}`;
-    return this.examIdNormalizado ? `${base}:ID:${this.examIdNormalizado}` : base;
+    return construirTextoQrExamenPagina({
+      folio: this.folioNormalizado,
+      numeroPagina,
+      templateVersion: this.layout.templateVersion,
+      examId: this.examIdNormalizado || undefined,
+      totalPreguntas: this.totalPreguntas,
+      mapaVariante: this.mapaVariante,
+      preguntas: this.preguntas,
+      questionIdsPagina: this.mapaVariante.ordenPreguntas
+    });
   }
 }
