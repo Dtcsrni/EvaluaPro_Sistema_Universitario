@@ -16,7 +16,7 @@ const root = path.resolve(__dirname, '..');
 function resolveMongoUri(rawValue) {
   const value = String(rawValue ?? '').trim();
   if (!value) {
-    return 'mongodb://127.0.0.1:27017/mern_app';
+    return 'mongodb://127.0.0.1:27017/mern_app_dev';
   }
   if (value.includes('mongo_local')) {
     return value.replaceAll('mongo_local', '127.0.0.1');
@@ -26,7 +26,7 @@ function resolveMongoUri(rawValue) {
 
 const env = {
   ...process.env,
-  MONGODB_URI: resolveMongoUri(process.env.MONGODB_URI)
+  MONGODB_URI: resolveMongoUri(process.env.MONGODB_URI_DEV)
 };
 
 console.log(`[portal-dev] MONGODB_URI=${env.MONGODB_URI}`);

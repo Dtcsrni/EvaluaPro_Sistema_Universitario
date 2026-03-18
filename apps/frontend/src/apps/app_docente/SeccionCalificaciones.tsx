@@ -55,6 +55,7 @@ import {
   etiquetaMateria,
   mensajeDeError,
   normalizarResultadoOmr,
+  normalizarTemplateVersionOmrDetectada,
   obtenerSesionDocenteId,
   obtenerVistaInicial,
 } from './utilidades';
@@ -142,9 +143,10 @@ export function SeccionCalificaciones({
       calidadPagina: number;
       confianzaPromedioPagina: number;
       ratioAmbiguas: number;
-      templateVersionDetectada: 1 | 3;
+      templateVersionDetectada: 1 | 3 | 4;
       motivosRevision: string[];
       revisionConfirmada: boolean;
+      qrTexto?: string;
     };
   }) => Promise<unknown>;
   solicitudesRevision?: SolicitudRevisionAlumno[];
@@ -239,7 +241,6 @@ export function SeccionCalificaciones({
   const mostrarSeccionCalificar = Boolean(
     manualContexto || (revisionOmrConfirmada && examenId && alumnoId)
   );
-
   function seleccionarAlumnoManual(valor: string) {
     if (valor === alumnoManualId) return;
     setAlumnoManualId(valor);
@@ -642,6 +643,9 @@ export function SeccionCalificaciones({
         : [];
       const paginasReconstruidas = paginasExamen.length
         ? paginasExamen.map((pagina) => {
+            const templateVersionDetectada = normalizarTemplateVersionOmrDetectada(
+              (examenDetalle as { mapaOmr?: { templateVersion?: unknown } }).mapaOmr?.templateVersion
+            );
             const rangoValido =
               Number.isFinite(pagina.preguntasDel) &&
               Number.isFinite(pagina.preguntasAl) &&
@@ -667,7 +671,7 @@ export function SeccionCalificaciones({
                 calidadPagina: 1,
                 estadoAnalisis: 'ok' as const,
                 motivosRevision: [],
-                templateVersionDetectada: 1 as const,
+                templateVersionDetectada,
                 confianzaPromedioPagina: confianzaPagina,
                 ratioAmbiguas: 0
               },
@@ -710,13 +714,15 @@ export function SeccionCalificaciones({
         paginasReconstruidas.find((pagina) => pagina.numeroPagina === paginaInicial)?.respuestas ?? respuestasCompletas;
       const resultadoPaginaInicial =
         paginasReconstruidas.find((pagina) => pagina.numeroPagina === paginaInicial)?.resultado ?? {
+          templateVersionDetectada: normalizarTemplateVersionOmrDetectada(
+            (examenDetalle as { mapaOmr?: { templateVersion?: unknown } }).mapaOmr?.templateVersion
+          ),
           respuestasDetectadas: respuestasCompletas,
           advertencias: [],
           qrTexto: String(examenDetalle.folio ?? examenPersistido.folio),
           calidadPagina: 1,
           estadoAnalisis: 'ok' as const,
           motivosRevision: [],
-          templateVersionDetectada: 1 as const,
           confianzaPromedioPagina: promedioConfianza,
           ratioAmbiguas: 0
         };
@@ -961,7 +967,7 @@ export function SeccionCalificaciones({
                   void activarManualDesdeEntregado();
                 }}
               >
-                {activandoManual ? 'Activando modo manual…' : cargandoExamenesManual ? 'Cargando…' : 'Usar examen para calificación manual'}
+                {activandoManual ? 'Activando modo manual...' : cargandoExamenesManual ? 'Cargando...' : 'Usar examen para calificación manual'}
               </Boton>
               {manualContexto && (
                 <Boton
@@ -1034,7 +1040,7 @@ export function SeccionCalificaciones({
                   void sincronizarSolicitudesRevision();
                 }}
               >
-                <Icono nombre="recargar" /> {cargandoSolicitudes ? 'Sincronizando…' : 'Sincronizar solicitudes'}
+                <Icono nombre="recargar" /> {cargandoSolicitudes ? 'Sincronizando...' : 'Sincronizar solicitudes'}
               </button>
             </div>
             <label className="campo">
@@ -1094,7 +1100,7 @@ export function SeccionCalificaciones({
                           void resolverSolicitud(solicitud, 'atendida');
                         }}
                       >
-                        <Icono nombre="ok" /> {resolviendoSolicitudId === solicitud._id ? 'Procesando…' : 'Marcar atendida'}
+                        <Icono nombre="ok" /> {resolviendoSolicitudId === solicitud._id ? 'Procesando...' : 'Marcar atendida'}
                       </button>
                       <button
                         className="boton secundario"
@@ -1108,7 +1114,7 @@ export function SeccionCalificaciones({
                           void resolverSolicitud(solicitud, 'rechazada');
                         }}
                       >
-                        <Icono nombre="salir" /> {resolviendoSolicitudId === solicitud._id ? 'Procesando…' : 'Rechazar'}
+                        <Icono nombre="salir" /> {resolviendoSolicitudId === solicitud._id ? 'Procesando...' : 'Rechazar'}
                       </button>
                     </div>
                   </div>
@@ -1121,3 +1127,5 @@ export function SeccionCalificaciones({
     </>
   );
 }
+
+

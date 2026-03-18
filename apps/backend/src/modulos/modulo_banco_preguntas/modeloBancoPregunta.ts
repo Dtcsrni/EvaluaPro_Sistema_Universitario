@@ -38,6 +38,14 @@ const BancoPreguntaSchema = new Schema(
     tema: { type: String },
     activo: { type: Boolean, default: true },
     archivadoEn: { type: Date },
+    recoverySource: {
+      origen: { type: String, enum: ['recovery_manifest', 'recovery_bundle'] },
+      recoveryBundleHash: { type: String },
+      recoveryManifestHash: { type: String },
+      sourceQuestionId: { type: String },
+      reconstructedAt: { type: Date },
+      reconstructedBy: { type: Schema.Types.ObjectId, ref: 'Docente' }
+    },
     versionActual: { type: Number, default: 1 },
     versiones: { type: [VersionPreguntaSchema], required: true }
   },

@@ -1,0 +1,46 @@
+name: Tag Release Guard
+
+on:
+  push:
+    tags:
+      - "v*"
+
+concurrency:
+  group: tag-release-guard-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: write
+
+jobs:
+  tag_release_guard:
+    name: Validar tag con release asociado
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - name: Esperar release para el tag
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG_NAME: ${{ github.ref_name }}
+          REPOSITORY: ${{ github.repository }}
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          max_attempts=20
+          sleep_seconds=30
+
+          for attempt in $(seq 1 "$max_attempts"); do
+            if gh release view "$TAG_NAME" --repo "$REPOSITORY" > /dev/null 2>&1; then
+              echo "Release encontrado para $TAG_NAME"
+              exit 0
+            fi
+
+            echo "[$attempt/$max_attempts] Aun no existe release para $TAG_NAME; reintentando en ${sleep_seconds}s"
+            sleep "$sleep_seconds"
+          done
+
+          echo "No se encontro release para $TAG_NAME. Eliminando tag remoto para evitar tag huerfano."
+          gh api --method DELETE "repos/$REPOSITORY/git/refs/tags/$TAG_NAME"
+          exit 1

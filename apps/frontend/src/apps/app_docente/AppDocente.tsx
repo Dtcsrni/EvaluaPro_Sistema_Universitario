@@ -14,6 +14,7 @@ import { SeccionPlantillas } from './SeccionPlantillas';
 import { SeccionPeriodos, SeccionPeriodosArchivados } from './SeccionPeriodos';
 import { SeccionEntrega } from './SeccionEntregaInterna';
 import { SeccionCalificaciones } from './SeccionCalificaciones';
+import { SeccionRehidratacionLotes } from './SeccionRehidratacionLotes';
 import { SeccionSincronizacion } from './SeccionSincronizacion';
 import { SeccionEvaluaciones } from './SeccionEvaluaciones';
 import { usePermisosDocente } from './hooks/usePermisosDocente';
@@ -41,6 +42,7 @@ import {
   consolidarResultadoOmrExamen,
   construirClaveCorrectaExamen,
   normalizarResultadoOmr,
+  normalizarTemplateVersionOmrDetectada,
   obtenerVistaInicial
 } from './utilidades';
 export function AppDocente() {
@@ -49,6 +51,8 @@ export function AppDocente() {
     oauthGoogleBackend: boolean;
     classroomBackend: boolean;
     smtpBackend: boolean;
+    requireGoogleOAuth: boolean;
+    passwordLoginAllowed: boolean;
   } | null>(null);
   const [vista, setVista] = useState(obtenerVistaInicial());
   const {
@@ -151,17 +155,33 @@ export function AppDocente() {
   }, []);
   useEffect(() => {
     void clienteApi
-      .obtener<{ capacidadesIntegraciones?: { oauthGoogleBackend?: boolean; classroomBackend?: boolean; smtpBackend?: boolean } }>('/autenticacion/capacidades-integraciones')
+      .obtener<{
+        capacidadesIntegraciones?: {
+          oauthGoogleBackend?: boolean;
+          classroomBackend?: boolean;
+          smtpBackend?: boolean;
+          requireGoogleOAuth?: boolean;
+          passwordLoginAllowed?: boolean;
+        };
+      }>('/autenticacion/capacidades-integraciones')
       .then((respuesta) => {
         const caps = respuesta?.capacidadesIntegraciones;
         setCapacidadesIntegraciones({
           oauthGoogleBackend: Boolean(caps?.oauthGoogleBackend),
           classroomBackend: Boolean(caps?.classroomBackend),
-          smtpBackend: Boolean(caps?.smtpBackend)
+          smtpBackend: Boolean(caps?.smtpBackend),
+          requireGoogleOAuth: Boolean(caps?.requireGoogleOAuth),
+          passwordLoginAllowed: caps?.passwordLoginAllowed !== false
         });
       })
       .catch(() => {
-        setCapacidadesIntegraciones({ oauthGoogleBackend: false, classroomBackend: false, smtpBackend: false });
+        setCapacidadesIntegraciones({
+          oauthGoogleBackend: false,
+          classroomBackend: false,
+          smtpBackend: false,
+          requireGoogleOAuth: false,
+          passwordLoginAllowed: true
+        });
       });
   }, []);
 
@@ -169,6 +189,8 @@ export function AppDocente() {
     Boolean(String(import.meta.env.VITE_GOOGLE_CLIENT_ID || '').trim()) && Boolean(capacidadesIntegraciones?.oauthGoogleBackend);
   const classroomDisponible = Boolean(capacidadesIntegraciones?.classroomBackend);
   const smtpDisponible = Boolean(capacidadesIntegraciones?.smtpBackend);
+  const requireGoogleOAuth = Boolean(capacidadesIntegraciones?.requireGoogleOAuth);
+  const passwordLoginAllowed = capacidadesIntegraciones?.passwordLoginAllowed !== false;
   const refrescarDatos = useCallback(async () => {
     if (!docente) return;
     if (montadoRef.current) setCargandoDatos(true);
@@ -786,12 +808,18 @@ export function AppDocente() {
           permisos={permisosUI}
           avisarSinPermiso={avisarSinPermiso}
           enviarConPermiso={enviarConPermiso}
-          onVincular={(folio, alumnoId) => {
+          onVincular={(folio, alumnoId, opciones) => {
             if (!permisosUI.entregas.gestionar) {
               avisarSinPermiso('No tienes permiso para vincular entregas.');
               return Promise.reject(new Error('SIN_PERMISO'));
             }
-            return clienteApi.enviar('/entregas/vincular-folio', { folio, alumnoId });
+            return clienteApi.enviar('/entregas/vincular-folio', {
+              folio,
+              alumnoId,
+              ...(opciones?.acordeonEntregado
+                ? { acordeonEntregado: true, bonoAcordeon: Number(opciones.bonoAcordeon ?? 0.25) }
+                : { acordeonEntregado: false, bonoAcordeon: 0 })
+            });
           }}
         />
       )}
@@ -1018,9 +1046,10 @@ export function AppDocente() {
                 calidadPagina: number;
                 confianzaPromedioPagina?: number;
                 ratioAmbiguas?: number;
-                templateVersionDetectada?: 1 | 3;
+                templateVersionDetectada?: 1 | 3 | 4;
                 motivosRevision?: string[];
                 revisionConfirmada?: boolean;
+                qrTexto?: string;
               };
               paginasOmr?: Array<{ numeroPagina: number; imagenBase64: string }>;
             } = {
@@ -1045,14 +1074,20 @@ export function AppDocente() {
                   calidadPagina: Number(payload.omrAnalisis.calidadPagina ?? 0),
                   confianzaPromedioPagina: Number(payload.omrAnalisis.confianzaPromedioPagina ?? 0),
                   ratioAmbiguas: Number(payload.omrAnalisis.ratioAmbiguas ?? 0),
-                  templateVersionDetectada: payload.omrAnalisis.templateVersionDetectada ?? 1,
+                  templateVersionDetectada: normalizarTemplateVersionOmrDetectada(
+                    payload.omrAnalisis.templateVersionDetectada
+                  ),
                   motivosRevision: Array.isArray(payload.omrAnalisis.motivosRevision)
                     ? payload.omrAnalisis.motivosRevision
                         .map((motivo) => String(motivo ?? '').trim())
                         .filter((motivo) => motivo.length > 0)
                         .slice(0, 50)
                     : [],
-                  revisionConfirmada: Boolean(payload.omrAnalisis.revisionConfirmada)
+                  revisionConfirmada: Boolean(payload.omrAnalisis.revisionConfirmada),
+                  qrTexto:
+                    typeof payload.omrAnalisis.qrTexto === 'string' && payload.omrAnalisis.qrTexto.trim().length > 0
+                      ? payload.omrAnalisis.qrTexto.trim()
+                      : undefined
                 };
               }
             }
@@ -1088,6 +1123,13 @@ export function AppDocente() {
           }}
           onLimpiarColaEscaneos={limpiarColaEscaneosOmr}
           onCargarRevisionHistoricaCalificada={cargarRevisionHistoricaCalificada}
+        />
+      )}
+      {vista === 'rehidratacion' && (
+        <SeccionRehidratacionLotes
+          docente={docente}
+          esAdmin={esAdmin}
+          puedeUsar={permisosUI.rehidratacion.usar}
         />
       )}
       {vista === 'evaluaciones' && (
@@ -1177,6 +1219,7 @@ export function AppDocente() {
           oauthGoogleDisponible={oauthGoogleDisponible}
           classroomDisponible={classroomDisponible}
           smtpDisponible={smtpDisponible}
+          requireGoogleOAuth={requireGoogleOAuth}
         />
       )}
     </div>
@@ -1184,6 +1227,8 @@ export function AppDocente() {
     <SeccionAutenticacion
       oauthGoogleDisponible={oauthGoogleDisponible}
       smtpDisponible={smtpDisponible}
+      requireGoogleOAuth={requireGoogleOAuth}
+      passwordLoginAllowed={passwordLoginAllowed}
       onIngresar={(token) => {
         guardarTokenDocente(token);
         clienteApi
@@ -1194,3 +1239,4 @@ export function AppDocente() {
   );
   return <ShellDocente docente={docente} onCerrarSesion={cerrarSesion}>{contenido}</ShellDocente>;
 }
+

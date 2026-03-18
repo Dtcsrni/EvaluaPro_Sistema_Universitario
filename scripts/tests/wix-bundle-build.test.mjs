@@ -6,7 +6,7 @@ import { spawnSync } from 'node:child_process';
 
 const root = process.cwd();
 
-test('build-msi compila MSI + Bundle con -IncludeBundle (solo Windows)', () => {
+test('build-msi compila MSI + Bundle multi-flavor con -IncludeBundle (solo Windows)', () => {
   if (process.platform !== 'win32') {
     test.skip('Prueba solo valida en Windows.');
     return;
@@ -22,7 +22,9 @@ test('build-msi compila MSI + Bundle con -IncludeBundle (solo Windows)', () => {
       '-File',
       scriptPath,
       '-SkipStabilityChecks',
-      '-IncludeBundle'
+      '-IncludeBundle',
+      '-Flavor',
+      'all'
     ],
     { cwd: root, encoding: 'utf8' }
   );
@@ -34,6 +36,8 @@ test('build-msi compila MSI + Bundle con -IncludeBundle (solo Windows)', () => {
   );
 
   const installerDir = path.join(root, 'dist', 'installer');
-  assert.equal(fs.existsSync(path.join(installerDir, 'EvaluaPro.msi')), true);
-  assert.equal(fs.existsSync(path.join(installerDir, 'EvaluaPro-Setup.exe')), true);
+  assert.equal(fs.existsSync(path.join(installerDir, 'EvaluaPro-saas-completo.msi')), true);
+  assert.equal(fs.existsSync(path.join(installerDir, 'EvaluaPro-saas-completo-Setup.exe')), true);
+  assert.equal(fs.existsSync(path.join(installerDir, 'EvaluaPro-docente-local.msi')), true);
+  assert.equal(fs.existsSync(path.join(installerDir, 'EvaluaPro-docente-local-Setup.exe')), true);
 });

@@ -47,7 +47,7 @@ jobs:
             apps/portal_alumno_cloud/package-lock.json
 
       - name: Instalar dependencias
-        run: npm ci
+        run: npm ci --foreground-scripts
 
       - name: Resolver version objetivo
         id: resolve_version
@@ -78,4 +78,3 @@ jobs:
           name: stable-gate-decision-${{ steps.resolve_version.outputs.target }}
           path: reports/release/stable-gate/${{ steps.resolve_version.outputs.target }}/decision.json
           if-no-files-found: warn
-

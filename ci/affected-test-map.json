@@ -1,0 +1,116 @@
+{
+  "version": 1,
+  "groups": {
+    "backend": {
+      "paths": [
+        "apps/backend/**"
+      ],
+      "commands": [
+        "npm -C apps/backend run lint",
+        "npm -C apps/backend run typecheck",
+        "npm run test:backend:ci",
+        "npm -C apps/backend run test:coverage",
+        "npm -C apps/backend run build"
+      ]
+    },
+    "frontend": {
+      "paths": [
+        "apps/frontend/**",
+        "client/**"
+      ],
+      "commands": [
+        "npm -C apps/frontend run lint",
+        "npm -C apps/frontend run typecheck",
+        "npm run test:frontend:ci",
+        "npm run test:client:proyectos:ci",
+        "npm run test:ux-quality:ci",
+        "npm run test:frontend:coverage:min",
+        "npm -C apps/frontend run build"
+      ]
+    },
+    "portal": {
+      "paths": [
+        "apps/portal_alumno_cloud/**"
+      ],
+      "commands": [
+        "npm -C apps/portal_alumno_cloud run lint",
+        "npm -C apps/portal_alumno_cloud run typecheck",
+        "npm run test:portal:ci",
+        "npm -C apps/portal_alumno_cloud run test:coverage",
+        "npm -C apps/portal_alumno_cloud run build"
+      ]
+    },
+    "installer": {
+      "paths": [
+        "scripts/installer-hub/**",
+        "scripts/build-msi.ps1",
+        "scripts/build-installer-hub.ps1",
+        "scripts/generate-installer-hashes.ps1",
+        "scripts/generate-installer-release-manifest.ps1",
+        "scripts/sign-installer-artifacts.ps1",
+        "scripts/Install-EvaluaPro.ps1",
+        "packaging/**",
+        "config/installer-*.json",
+        "config/update-config.json"
+      ],
+      "commands": [
+        "npm run test:installer-hub:contract",
+        "npm run test:wix:policy"
+      ]
+    },
+    "release": {
+      "paths": [
+        "scripts/release/**",
+        ".github/workflows/ci-installer-windows.yml",
+        ".github/workflows/ci.yml",
+        "ci/**"
+      ],
+      "commands": [
+        "npm run test:release:policy",
+        "npm run test:ruleset:policy",
+        "npm run test:security:policy"
+      ]
+    },
+    "docs": {
+      "paths": [
+        "docs/**"
+      ],
+      "commands": [
+        "npm run docs:generate",
+        "npm run docs:check",
+        "npm run diagramas:check",
+        "npm run diagramas:render",
+        "npm run diagramas:consistencia:check",
+        "npm run routes:check"
+      ]
+    },
+    "compliance": {
+      "paths": [
+        "docs/legal/**",
+        "scripts/compliance/**"
+      ],
+      "commands": [
+        "npm run test:compliance:legal-docs",
+        "npm run test:compliance:pii",
+        "npm run test:compliance:retention"
+      ]
+    },
+    "shared": {
+      "paths": [
+        "package.json",
+        "package-lock.json",
+        "docker-compose.yml",
+        "apps/backend/src/compartido/**",
+        "scripts/testing/**",
+        "scripts/retry.mjs",
+        "tsconfig.base.json",
+        "vitest.base.ts"
+      ],
+      "commands": [
+        "npm run test:coverage:exclusions:debt",
+        "npm run test:coverage:diff"
+      ],
+      "escalate": "full-release"
+    }
+  }
+}

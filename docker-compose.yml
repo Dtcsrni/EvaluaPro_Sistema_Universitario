@@ -15,9 +15,10 @@ services:
       - mongo-data:/data/db
     healthcheck:
       test: ["CMD", "mongosh", "--eval", "db.adminCommand('ping')"]
-      interval: 10s
-      timeout: 5s
+      interval: 5s
+      timeout: 3s
       retries: 5
+      start_period: 5s
 
   mongo_express_local:
     image: mongo-express:latest
@@ -42,7 +43,7 @@ services:
     env_file:
       - .env
     environment:
-      - MONGODB_URI=${MONGODB_URI:-mongodb://mongo_local:27017/mern_app}
+      - MONGODB_URI=${MONGODB_URI_DEV:-mongodb://mongo_local:27017/mern_app_dev}
       - PUERTO_API=${PUERTO_API:-4000}
       - PORTAL_ALUMNO_URL=${PORTAL_ALUMNO_URL_DOCKER:-http://host.docker.internal:8080}
       - PORTAL_ALUMNO_API_KEY=${PORTAL_ALUMNO_API_KEY:-local-piloto-api-key}
@@ -65,7 +66,7 @@ services:
       - OMR_CV_ENGINE_ENABLED=1
     volumes:
       - ./logos:/app/logos:ro
-      - ./apps/backend/data/examenes:/app/data/examenes
+      - ${BACKEND_DATA_DIR_DEV:-./apps/backend/data/examenes_dev}:/app/data/examenes
     depends_on:
       mongo_local:
         condition: service_healthy
@@ -73,9 +74,10 @@ services:
       - "4000:4000"
     healthcheck:
       test: ["CMD", "node", "-e", "fetch('http://localhost:4000/api/salud').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
-      interval: 15s
-      timeout: 5s
-      retries: 5
+      interval: 5s
+      timeout: 3s
+      retries: 8
+      start_period: 10s
 
   web_docente_local:
     build:
@@ -94,10 +96,11 @@ services:
     build:
       context: .
       dockerfile: apps/backend/Dockerfile
+    restart: unless-stopped
     env_file:
       - .env
     environment:
-      - MONGODB_URI=${MONGODB_URI:-mongodb://mongo_local:27017/mern_app}
+      - MONGODB_URI=${MONGODB_URI_PROD:-mongodb://mongo_local:27017/mern_app_prod}
       - PUERTO_API=${PUERTO_API:-4000}
       - PORTAL_ALUMNO_URL=${PORTAL_ALUMNO_URL_DOCKER:-http://host.docker.internal:8080}
       - PORTAL_ALUMNO_API_KEY=${PORTAL_ALUMNO_API_KEY:-local-piloto-api-key}
@@ -108,7 +111,7 @@ services:
       - OMR_CV_ENGINE_ENABLED=1
     volumes:
       - ./logos:/app/logos:ro
-      - ./apps/backend/data/examenes:/app/data/examenes
+      - ${BACKEND_DATA_DIR_PROD:-./apps/backend/data/examenes_prod}:/app/data/examenes
     depends_on:
       mongo_local:
         condition: service_healthy
@@ -116,9 +119,10 @@ services:
       - "4000:4000"
     healthcheck:
       test: ["CMD", "node", "-e", "fetch('http://localhost:4000/api/salud').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
-      interval: 15s
-      timeout: 5s
-      retries: 5
+      interval: 5s
+      timeout: 3s
+      retries: 8
+      start_period: 10s
     profiles: ["prod"]
 
   web_docente_prod:
@@ -128,6 +132,7 @@ services:
       args:
         - VITE_API_BASE_URL=http://localhost:4000/api
         - VITE_APP_DESTINO=docente
+    restart: unless-stopped
     depends_on:
       api_docente_prod:
         condition: service_healthy

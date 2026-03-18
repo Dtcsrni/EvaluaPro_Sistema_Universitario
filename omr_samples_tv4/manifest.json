@@ -1,0 +1,162 @@
+{
+  "version": "1",
+  "datasetType": "synthetic_tv4",
+  "examSpec": {
+    "totalQuestions": 16,
+    "totalPages": 2,
+    "optionsPerQuestion": 5,
+    "templateVersion": 4,
+    "questionsPerPage": 8
+  },
+  "renderSpec": {
+    "width": 612,
+    "height": 792,
+    "marginPt": 28.35,
+    "cornerMarkerSizePt": 22,
+    "qrSizePt": 96
+  },
+  "noiseSpec": {
+    "profile": "tv4_mobile_mix",
+    "rotationDegMax": 0.55,
+    "blurSigmaMax": 0.26,
+    "brightnessMin": 0.97,
+    "brightnessMax": 1.04,
+    "contrastMin": 0.95,
+    "contrastMax": 1.05,
+    "jpegQualityMin": 89,
+    "jpegQualityMax": 96,
+    "shadowOpacityMax": 0.05
+  },
+  "thresholds": {
+    "precisionMin": 0.95,
+    "falsePositiveMax": 0.02,
+    "invalidDetectionMin": 0.8,
+    "pagePassMin": 0.8,
+    "autoGradeTrustMin": 0.95
+  },
+  "answerKeyPath": "answer_key.json",
+  "groundTruthRef": "ground_truth.jsonl",
+  "capturas": [
+    {
+      "captureId": "TV4-SYNTH-001-P1",
+      "imagePath": "images/TV4-SYNTH-001-P1.jpg",
+      "mapaOmrPath": "maps/TV4-SYNTH-001-P1.json",
+      "folio": "TV4-SYNTH-001",
+      "numeroPagina": 1,
+      "templateVersion": 4,
+      "seed": 20260308,
+      "variantIndex": 0
+    },
+    {
+      "captureId": "TV4-SYNTH-001-P2",
+      "imagePath": "images/TV4-SYNTH-001-P2.jpg",
+      "mapaOmrPath": "maps/TV4-SYNTH-001-P2.json",
+      "folio": "TV4-SYNTH-001",
+      "numeroPagina": 2,
+      "templateVersion": 4,
+      "seed": 20260308,
+      "variantIndex": 0
+    },
+    {
+      "captureId": "TV4-SYNTH-002-P1",
+      "imagePath": "images/TV4-SYNTH-002-P1.jpg",
+      "mapaOmrPath": "maps/TV4-SYNTH-002-P1.json",
+      "folio": "TV4-SYNTH-002",
+      "numeroPagina": 1,
+      "templateVersion": 4,
+      "seed": 20261321,
+      "variantIndex": 1
+    },
+    {
+      "captureId": "TV4-SYNTH-002-P2",
+      "imagePath": "images/TV4-SYNTH-002-P2.jpg",
+      "mapaOmrPath": "maps/TV4-SYNTH-002-P2.json",
+      "folio": "TV4-SYNTH-002",
+      "numeroPagina": 2,
+      "templateVersion": 4,
+      "seed": 20261321,
+      "variantIndex": 1
+    },
+    {
+      "captureId": "TV4-SYNTH-003-P1",
+      "imagePath": "images/TV4-SYNTH-003-P1.jpg",
+      "mapaOmrPath": "maps/TV4-SYNTH-003-P1.json",
+      "folio": "TV4-SYNTH-003",
+      "numeroPagina": 1,
+      "templateVersion": 4,
+      "seed": 20262334,
+      "variantIndex": 2
+    },
+    {
+      "captureId": "TV4-SYNTH-003-P2",
+      "imagePath": "images/TV4-SYNTH-003-P2.jpg",
+      "mapaOmrPath": "maps/TV4-SYNTH-003-P2.json",
+      "folio": "TV4-SYNTH-003",
+      "numeroPagina": 2,
+      "templateVersion": 4,
+      "seed": 20262334,
+      "variantIndex": 2
+    },
+    {
+      "captureId": "TV4-SYNTH-004-P1",
+      "imagePath": "images/TV4-SYNTH-004-P1.jpg",
+      "mapaOmrPath": "maps/TV4-SYNTH-004-P1.json",
+      "folio": "TV4-SYNTH-004",
+      "numeroPagina": 1,
+      "templateVersion": 4,
+      "seed": 20263347,
+      "variantIndex": 3
+    },
+    {
+      "captureId": "TV4-SYNTH-004-P2",
+      "imagePath": "images/TV4-SYNTH-004-P2.jpg",
+      "mapaOmrPath": "maps/TV4-SYNTH-004-P2.json",
+      "folio": "TV4-SYNTH-004",
+      "numeroPagina": 2,
+      "templateVersion": 4,
+      "seed": 20263347,
+      "variantIndex": 3
+    },
+    {
+      "captureId": "TV4-SYNTH-005-P1",
+      "imagePath": "images/TV4-SYNTH-005-P1.jpg",
+      "mapaOmrPath": "maps/TV4-SYNTH-005-P1.json",
+      "folio": "TV4-SYNTH-005",
+      "numeroPagina": 1,
+      "templateVersion": 4,
+      "seed": 20264360,
+      "variantIndex": 4
+    },
+    {
+      "captureId": "TV4-SYNTH-005-P2",
+      "imagePath": "images/TV4-SYNTH-005-P2.jpg",
+      "mapaOmrPath": "maps/TV4-SYNTH-005-P2.json",
+      "folio": "TV4-SYNTH-005",
+      "numeroPagina": 2,
+      "templateVersion": 4,
+      "seed": 20264360,
+      "variantIndex": 4
+    },
+    {
+      "captureId": "TV4-SYNTH-006-P1",
+      "imagePath": "images/TV4-SYNTH-006-P1.jpg",
+      "mapaOmrPath": "maps/TV4-SYNTH-006-P1.json",
+      "folio": "TV4-SYNTH-006",
+      "numeroPagina": 1,
+      "templateVersion": 4,
+      "seed": 20265373,
+      "variantIndex": 5
+    },
+    {
+      "captureId": "TV4-SYNTH-006-P2",
+      "imagePath": "images/TV4-SYNTH-006-P2.jpg",
+      "mapaOmrPath": "maps/TV4-SYNTH-006-P2.json",
+      "folio": "TV4-SYNTH-006",
+      "numeroPagina": 2,
+      "templateVersion": 4,
+      "seed": 20265373,
+      "variantIndex": 5
+    }
+  ],
+  "hash": "be7744d84613410c7dd6042dcc34d43e0524d864148427f6658993e864099792"
+}

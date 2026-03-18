@@ -19,7 +19,7 @@ const EscaneoOmrArchivadoSchema = new Schema(
     tamanoOriginalBytes: { type: Number, required: true, min: 1 },
     tamanoComprimidoBytes: { type: Number, required: true, min: 1 },
     sha256Original: { type: String, required: true },
-    templateVersionDetectada: { type: Number, enum: [1, 3] },
+    templateVersionDetectada: { type: Number, enum: [1, 3, 4] },
     engineVersion: { type: String, trim: true },
     estadoAnalisis: { type: String, enum: ['ok', 'rechazado_calidad', 'requiere_revision'], required: true },
     motivosRevision: [{ type: String, trim: true }],

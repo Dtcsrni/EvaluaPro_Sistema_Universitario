@@ -39,28 +39,64 @@ Ruta: `apps/backend/src/modulos/modulo_escaneo_omr`.
 - Si el backend CV no está disponible, el backend falla en arranque (smoke test bloqueante).
 - `OMR_CV_ENGINE_ENABLED` solo se respeta en `NODE_ENV=test` para pruebas internas controladas.
 - En runtime normal (dev/prod), el motor CV permanece forzado a activo.
+- El scoring principal puede usar imagen preprocesada, pero el rescate `panel_darkness_v1` debe ejecutarse sobre la foto original para no degradar detección de paneles derechos.
 - Verificación local:
   - `npm -C apps/backend run omr:cv:smoke`
   - `npm -C apps/backend run omr:tv3:eval:synthetic`
-  - `npm -C apps/backend run omr:tv3:validate:real -- --dataset ../../omr_samples_tv3_real`
+  - `npm -C apps/backend run omr:tv3:build:por-folio-dataset`
+  - `npm -C apps/backend run omr:tv3:validate:por-folio -- --dataset ../../omr_samples_tv3_real_por_folio`
+  - `npm -C apps/backend run omr:tv3:diagnose:por-folio`
   - `npm -C apps/backend run omr:tv3:generate:real:manual-min`
   - `npm -C apps/backend run omr:tv3:validate:real:manual-min`
 
 ## Gate mixto (release)
 - Gate sintético: `omr:tv3:eval:synthetic` (guardrail de regresión controlada).
-- Gate real simulado: `omr:tv3:validate:real`.
-- Gate real manual mínimo: `omr:tv3:validate:real:manual-min`.
-- Ambos son bloqueantes en CI backend.
+- Gate real principal: `omr:tv3:validate:por-folio`.
+- Dataset real principal: `omr_samples_tv3_real_por_folio/`.
+- Gate real manual mínimo: `omr:tv3:validate:real:manual-min` como herramienta legacy de diagnóstico.
+- El gate bloqueante en CI backend es `por-folio`.
+- TV4 queda en estado `ready for validation`:
+  - `omr:tv4:generate:synthetic`
+  - `omr:tv4:eval:synthetic`
+  - `omr:tv4:build:pilot-real`
+  - `omr:tv4:validate:pilot-real`
+  - `omr:tv4:diagnose:pilot-real`
+- TV4 no debe declararse productivo ni reemplazar completamente a TV3 hasta que el piloto real pase.
+- En `por-folio`, la cobertura se mide por preguntas resueltas:
+  - respuesta marcada válida,
+  - o resolución confiable de `blank` / `double`.
+- El `failureReport` debe resumir solo causas de capturas no aprobadas, no advertencias benignas de páginas que ya pasaron.
 
 ## Troubleshooting rápido
 - `falsePositiveRate` alto:
+  - revisar prioridad de rescate `panel_darkness_v1` sobre falsos positivos geométricos.
   - revisar `OMR_RESPUESTA_CONF_MIN`, `OMR_SCORE_MIN`, `OMR_DELTA_MIN`.
 - `autoGradeTrustRate` bajo:
+  - revisar si `blank` / `double` correctos están contando como resolución válida.
   - revisar `OMR_AUTO_CONF_MIN`, `OMR_AUTO_AMBIGUAS_MAX`, `OMR_AUTO_DETECCION_MIN`.
 - `autoCoverageRate < 1.0`:
-  - revisar `estadoAnalisis`/policy de autocalificación y cobertura de detección por página.
+  - revisar `estadoAnalisis`/policy de autocalificación y cobertura de preguntas resueltas por página.
 - `fuera_roi` o errores geométricos:
   - revisar `OMR_ALIGN_RANGE`, `OMR_VERT_RANGE`, rescate de fiduciales y perfil de geometría.
+
+## Recuperacion operativa
+- Los examenes nuevos persisten:
+  - `recoveryManifest` por examen
+  - `recoveryBundle` por lote
+- El backend expone recuperacion controlada para `admin` y `docente con plan` con permisos explicitos:
+  - `GET /api/recuperacion/bundles`
+  - `POST /api/recuperacion/verificar`
+  - `POST /api/recuperacion/manifest/reconstruir`
+  - `POST /api/recuperacion/bundle/reconstruir`
+- Operacion local por CLI:
+  - `npm -C apps/backend run recovery:bundles:list -- --actor-docente-id <id> --roles admin`
+  - `npm -C apps/backend run recovery:verify -- --actor-docente-id <id> --manifest-hash <hash>`
+  - `npm -C apps/backend run recovery:manifest:reconstruct -- --actor-docente-id <id> --manifest-hash <hash>`
+  - `npm -C apps/backend run recovery:bundle:reconstruct -- --actor-docente-id <id> --bundle-hash <hash>`
+- Politica de seguridad:
+  - QR invalido detiene escaneo/calificacion.
+  - `recoveryManifest` o `recoveryBundle` invalido detiene reconstruccion.
+  - `keyId` es obligatorio en QR y artefactos de recovery.
 
 ## Nota
 - Este README fue generado automáticamente como base; ampliar con decisiones de diseño específicas del módulo cuando aplique.

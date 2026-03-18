@@ -2,7 +2,9 @@ param(
   [string]$SourcePath = '',
   [string]$InstallersDir = 'C:\Instaladores',
   [string]$ExpectedSha256 = '',
-  [switch]$SkipHashCheck
+  [switch]$SkipHashCheck,
+  [ValidateSet('saas-completo', 'docente-local')]
+  [string]$FlavorId = 'docente-local'
 )
 
 Set-StrictMode -Version Latest
@@ -30,28 +32,28 @@ function Get-Sha256Hex {
 }
 
 function Resolve-DefaultSourcePath {
-  param([string]$Candidate)
+  param([string]$Candidate, [string]$Flavor)
 
   if ($Candidate -and (Test-Path $Candidate)) {
     return (Resolve-Path $Candidate).Path
   }
 
   $downloads = [Environment]::GetFolderPath('UserProfile') + '\Downloads'
-  $fallback = Join-Path $downloads 'EvaluaPro-Setup.exe'
+  $fallback = Join-Path $downloads ("EvaluaPro-{0}-Setup.exe" -f $Flavor)
   if (Test-Path $fallback) {
     return (Resolve-Path $fallback).Path
   }
 
-  throw 'No se encontro el instalador. Usa -SourcePath "ruta\\EvaluaPro-Setup.exe".'
+  throw ("No se encontro el instalador del flavor {0}. Usa -SourcePath `"ruta\EvaluaPro-{0}-Setup.exe`"." -f $Flavor)
 }
 
-$resolvedSource = Resolve-DefaultSourcePath -Candidate $SourcePath
+$resolvedSource = Resolve-DefaultSourcePath -Candidate $SourcePath -Flavor $FlavorId
 
 if (-not (Test-Path $InstallersDir)) {
   New-Item -ItemType Directory -Path $InstallersDir -Force | Out-Null
 }
 
-$targetPath = Join-Path $InstallersDir 'EvaluaPro-Setup.exe'
+$targetPath = Join-Path $InstallersDir ("EvaluaPro-{0}-Setup.exe" -f $FlavorId)
 Copy-Item -LiteralPath $resolvedSource -Destination $targetPath -Force
 Unblock-File -LiteralPath $targetPath -ErrorAction SilentlyContinue
 

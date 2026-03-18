@@ -705,7 +705,11 @@ export class PdfKitRenderer {
     void examen.tipoExamen;
 
     const templateVersion = examen.layout.templateVersion;
-    const perfilOmr = resolverPerfilRender(templateVersion, this.perfilOmr);
+    if (templateVersion !== 1 && templateVersion !== TEMPLATE_VERSION_TV3) {
+      throw new Error(`Template version ${String(templateVersion)} no compatible para renderer legacy`);
+    }
+    const templateVersionLegacy: 1 | 3 = templateVersion === 1 ? 1 : 3;
+    const perfilOmr = resolverPerfilRender(templateVersionLegacy, this.perfilOmr);
     const margenMm = examen.layout.margenMm;
     const margen = mmAPuntos(margenMm);
     const paginasObjetivo = Number.isFinite(examen.layout.totalPaginas)
@@ -848,8 +852,7 @@ export class PdfKitRenderer {
 
     while (numeroPagina <= paginasObjetivo && (numeroPagina === 1 || indicePregunta < totalPreguntas)) {
       const page = pdfDoc.addPage([ANCHO_CARTA, ALTO_CARTA]);
-      const folioQr = String(examen.folio ?? '').trim().toUpperCase();
-      const qrTextoPagina = `EXAMEN:${folioQr}:P${numeroPagina}:TV${perfilOmr.version}`;
+      const qrTextoPagina = examen.generarTextoQrPagina(numeroPagina);
 
       let preguntasDel = 0;
       let preguntasAl = 0;

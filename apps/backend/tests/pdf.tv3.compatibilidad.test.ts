@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { extraerResumenQrExamen } from '../src/modulos/modulo_generacion_pdf/domain/qrExamen';
 import { generarPdfExamen } from '../src/modulos/modulo_generacion_pdf/servicioGeneracionPdf';
 
 describe('pdf tv3 compatibilidad', () => {
@@ -31,6 +32,10 @@ describe('pdf tv3 compatibilidad', () => {
     expect(resultado.mapaOmr.templateVersion).toBe(3);
     expect(resultado.mapaOmr.blockSpec?.opcionesPorPregunta).toBe(5);
     expect(resultado.mapaOmr.paginas[0]?.preguntas[0]?.opciones?.length ?? 0).toBe(5);
+    const qrResumen = extraerResumenQrExamen(String(resultado.paginas[0]?.qrTexto ?? ''));
+    expect(qrResumen?.templateVersion).toBe(3);
+    expect(qrResumen?.variantHash).toBeTruthy();
+    expect(qrResumen?.answerKeyHash).toBeTruthy();
   });
 
   it('rechaza preguntas con mas de 5 opciones por incompatibilidad TV3', async () => {

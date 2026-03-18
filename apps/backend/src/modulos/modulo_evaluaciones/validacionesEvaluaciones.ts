@@ -73,24 +73,51 @@ export const esquemaCrearEvidencia = z
     alumnoId: esquemaObjectId,
     titulo: z.string().trim().min(3).max(180),
     descripcion: z.string().trim().max(600).optional(),
-    calificacionDecimal: z.number().min(0).max(10),
+    calificacionDecimal: z.number().min(0).max(10).optional(),
     ponderacion: z.number().min(0).max(10).optional(),
     fechaEvidencia: esquemaFecha.optional(),
     corte: z.number().int().min(1).max(3).optional(),
     fuente: z.enum(['manual', 'classroom']).optional(),
+    estadoCaptura: z.enum(['pendiente', 'calificada']).optional(),
     classroom: z
       .object({
         courseId: z.string().trim().min(1).max(128).optional(),
         courseWorkId: z.string().trim().min(1).max(128).optional(),
         submissionId: z.string().trim().min(1).max(128).optional(),
         classroomUserId: z.string().trim().min(1).max(128).optional(),
-        pulledAt: esquemaFecha.optional()
+        pulledAt: esquemaFecha.optional(),
+        submissionState: z.string().trim().min(1).max(64).optional(),
+        assignedGrade: z.number().optional(),
+        draftGrade: z.number().optional(),
+        maxPoints: z.number().optional(),
+        updateTime: esquemaFecha.optional(),
+        courseName: z.string().trim().min(1).max(180).optional(),
+        courseWorkTitle: z.string().trim().min(1).max(180).optional()
       })
       .strict()
       .optional(),
     metadata: z.record(z.string(), z.unknown()).optional()
   })
-  .strict();
+  .strict()
+  .superRefine((data, ctx) => {
+    const fuente = data.fuente ?? 'manual';
+    const estadoCaptura = data.estadoCaptura ?? 'calificada';
+    if (fuente === 'manual' && typeof data.calificacionDecimal !== 'number') {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['calificacionDecimal'],
+        message: 'calificacionDecimal es requerida para evidencias manuales.'
+      });
+      return;
+    }
+    if (fuente === 'classroom' && estadoCaptura === 'calificada' && typeof data.calificacionDecimal !== 'number') {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['calificacionDecimal'],
+        message: 'calificacionDecimal es requerida cuando la evidencia Classroom ya esta calificada.'
+      });
+    }
+  });
 
 export const esquemaComponenteExamen = z
   .object({

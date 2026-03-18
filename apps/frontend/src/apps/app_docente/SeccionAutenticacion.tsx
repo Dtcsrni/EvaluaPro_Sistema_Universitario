@@ -23,11 +23,15 @@ import {
 export function SeccionAutenticacion({
   onIngresar,
   oauthGoogleDisponible,
-  smtpDisponible
+  smtpDisponible,
+  requireGoogleOAuth,
+  passwordLoginAllowed
 }: {
   onIngresar: (token: string) => void;
   oauthGoogleDisponible?: boolean;
   smtpDisponible?: boolean;
+  requireGoogleOAuth?: boolean;
+  passwordLoginAllowed?: boolean;
 }) {
   const [correo, setCorreo] = useState('');
   const [contrasena, setContrasena] = useState('');
@@ -52,9 +56,13 @@ export function SeccionAutenticacion({
 
   const googleDisponible = typeof oauthGoogleDisponible === 'boolean' ? oauthGoogleDisponible : hayGoogleConfigurado();
   const esDev = import.meta.env.DEV;
-  const mostrarFormulario = modo === 'ingresar'
-    ? (!googleDisponible || mostrarFormularioIngresar)
-    : (!googleDisponible || mostrarFormularioRegistrar || Boolean(credentialRegistroGoogle));
+  const googleOnly = Boolean(requireGoogleOAuth);
+  const passwordDisponible = Boolean(passwordLoginAllowed !== false && !googleOnly);
+  const mostrarFormulario = googleOnly
+    ? modo === 'registrar' && Boolean(credentialRegistroGoogle)
+    : modo === 'ingresar'
+      ? (!googleDisponible || mostrarFormularioIngresar)
+      : (!googleDisponible || mostrarFormularioRegistrar || Boolean(credentialRegistroGoogle));
 
   const dominiosPermitidos = obtenerDominiosCorreoPermitidosFrontend();
   const politicaDominiosTexto = dominiosPermitidos.length > 0 ? textoDominiosPermitidos(dominiosPermitidos) : '';
@@ -153,6 +161,10 @@ export function SeccionAutenticacion({
 
   async function ingresar() {
     try {
+      if (!passwordDisponible) {
+        setMensaje('Esta instalación requiere inicio de sesión con Google.');
+        return;
+      }
       if (bloquearSiEnCurso()) return;
       const inicio = Date.now();
       if (dominiosPermitidos.length > 0 && !correoPermitido(correo)) {
@@ -247,6 +259,10 @@ export function SeccionAutenticacion({
 
   async function recuperarConGoogle() {
     try {
+      if (!passwordDisponible) {
+        setMensaje('La recuperación por contraseña no está disponible en modo Google-only.');
+        return;
+      }
       if (bloquearSiEnCurso()) return;
       const inicio = Date.now();
       setEnviando(true);
@@ -295,6 +311,10 @@ export function SeccionAutenticacion({
   async function registrar() {
     try {
       if (bloquearSiEnCurso()) return;
+      if (googleOnly && !credentialRegistroGoogle) {
+        setMensaje('Primero autentícate con Google para crear tu cuenta.');
+        return;
+      }
       const inicio = Date.now();
       if (dominiosPermitidos.length > 0 && !correoPermitido(correo)) {
         const msg = `Solo se permiten correos institucionales: ${politicaDominiosTexto}`;
@@ -406,10 +426,19 @@ export function SeccionAutenticacion({
             <p className="nota">
               Para registrar tu cuenta completa <b>nombres</b>, <b>apellidos</b> y <b>correo</b>. La contrasena requiere minimo 8 caracteres.
             </p>
+            {googleOnly && (
+              <p className="nota">Modo Google-only activo: usa tu cuenta institucional para crear o vincular acceso.</p>
+            )}
             {dominiosPermitidos.length > 0 && (
               <p className="nota">Correo institucional requerido: {politicaDominiosTexto}</p>
             )}
           </div>
+        )}
+
+        {googleOnly && (
+          <InlineMensaje tipo="info">
+            Esta instalación requiere inicio de sesión con Google. Si ya tenías cuenta con este correo institucional, se vinculará al primer acceso.
+          </InlineMensaje>
         )}
 
         {!googleDisponible && esDev && (
@@ -439,30 +468,32 @@ export function SeccionAutenticacion({
               <p className="nota nota--mt">Solo se permiten: {politicaDominiosTexto}</p>
             )}
 
-            <div className="acciones acciones--mt">
-              <button
-                type="button"
-                className="chip"
-                onClick={() => {
-                  setMostrarFormularioIngresar((v) => !v);
-                  setMensaje('');
-                }}
-              >
-                {mostrarFormularioIngresar ? 'Ocultar formulario' : 'Ingresar con correo y contrasena'}
-              </button>
-              <button
-                type="button"
-                className="chip"
-                onClick={() => {
-                  setMostrarRecuperar((v) => !v);
-                  setMensaje('');
-                }}
-              >
-                {mostrarRecuperar ? 'Cerrar recuperacion' : 'Recuperar contrasena con Google'}
-              </button>
-            </div>
+            {passwordDisponible && (
+              <div className="acciones acciones--mt">
+                <button
+                  type="button"
+                  className="chip"
+                  onClick={() => {
+                    setMostrarFormularioIngresar((v) => !v);
+                    setMensaje('');
+                  }}
+                >
+                  {mostrarFormularioIngresar ? 'Ocultar formulario' : 'Ingresar con correo y contrasena'}
+                </button>
+                <button
+                  type="button"
+                  className="chip"
+                  onClick={() => {
+                    setMostrarRecuperar((v) => !v);
+                    setMensaje('');
+                  }}
+                >
+                  {mostrarRecuperar ? 'Cerrar recuperacion' : 'Recuperar contrasena con Google'}
+                </button>
+              </div>
+            )}
 
-            {mostrarRecuperar && (
+            {passwordDisponible && mostrarRecuperar && (
               <div className="panel mt-10 auth-panel auth-panel--inset">
                 <p className="nota">Si tu cuenta tiene Google vinculado, puedes establecer una nueva contrasena.</p>
                 {dominiosPermitidos.length > 0 && (
@@ -513,7 +544,7 @@ export function SeccionAutenticacion({
             onClick={() => {
               setModo('ingresar');
               setCredentialRegistroGoogle(null);
-              setCrearContrasenaAhora(true);
+              setCrearContrasenaAhora(!googleOnly);
               setMostrarFormularioIngresar(false);
               setNombres('');
               setApellidos('');
@@ -527,7 +558,7 @@ export function SeccionAutenticacion({
             type="button"
             onClick={() => {
               setModo('registrar');
-              setCrearContrasenaAhora(true);
+              setCrearContrasenaAhora(!googleOnly);
               setMostrarFormularioRegistrar(false);
               setNombres('');
               setApellidos('');
@@ -538,7 +569,7 @@ export function SeccionAutenticacion({
           </button>
         </div>
 
-        {googleDisponible && modo === 'registrar' && !mostrarFormularioRegistrar && (
+        {googleDisponible && modo === 'registrar' && !(mostrarFormularioRegistrar && passwordDisponible) && (
           <div className="auth-google auth-google--mb auth-panel">
             <GoogleLogin
               onSuccess={(cred) => {
@@ -601,22 +632,24 @@ export function SeccionAutenticacion({
               >
                 Cambiar correo
               </button>
-              <button
-                className="chip"
-                type="button"
-                onClick={() => {
-                  setMostrarFormularioRegistrar(true);
-                  setCredentialRegistroGoogle(null);
-                  setCorreo('');
-                  setNombres('');
-                  setApellidos('');
-                  setContrasena('');
-                  setCrearContrasenaAhora(true);
-                  setMensaje('');
-                }}
-              >
-                Registrar con correo y contrasena
-              </button>
+              {passwordDisponible && (
+                <button
+                  className="chip"
+                  type="button"
+                  onClick={() => {
+                    setMostrarFormularioRegistrar(true);
+                    setCredentialRegistroGoogle(null);
+                    setCorreo('');
+                    setNombres('');
+                    setApellidos('');
+                    setContrasena('');
+                    setCrearContrasenaAhora(true);
+                    setMensaje('');
+                  }}
+                >
+                  Registrar con correo y contrasena
+                </button>
+              )}
             </div>
             <p className="nota nota--mt">
               Registro principal: Google (correo institucional).
@@ -627,7 +660,7 @@ export function SeccionAutenticacion({
           </div>
         )}
 
-        {googleDisponible && modo === 'registrar' && mostrarFormularioRegistrar && (
+        {googleDisponible && modo === 'registrar' && passwordDisponible && mostrarFormularioRegistrar && (
           <div className="panel auth-panel auth-panel--inset">
             <p className="nota">
               Registro por formulario (fallback). Recomendado: usa Google para correo institucional.
@@ -684,7 +717,7 @@ export function SeccionAutenticacion({
           </label>
         )}
 
-        {modo === 'registrar' && credentialRegistroGoogle && mostrarFormulario && (
+        {modo === 'registrar' && credentialRegistroGoogle && mostrarFormulario && passwordDisponible && (
           <label className="campo auth-campo">
             Crear contrasena ahora (opcional)
             <span className="ayuda">Si no, podras definirla luego desde Cuenta.</span>
@@ -699,7 +732,7 @@ export function SeccionAutenticacion({
           </label>
         )}
 
-        {mostrarFormulario && (modo === 'ingresar' || !credentialRegistroGoogle || crearContrasenaAhora) && (
+        {mostrarFormulario && passwordDisponible && (modo === 'ingresar' || !credentialRegistroGoogle || crearContrasenaAhora) && (
           <label className="campo auth-campo">
             Contrasena
             {modo === 'ingresar' ? (

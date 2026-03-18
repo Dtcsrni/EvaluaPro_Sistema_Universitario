@@ -97,6 +97,15 @@ function parseFecha(valor: unknown): Date | null {
   return f && Number.isFinite(f.getTime()) ? f : null;
 }
 
+function evidenciaCuentaEnPromedio(evidencia: Record<string, unknown>): boolean {
+  const fuente = String(evidencia.fuente ?? 'manual').trim().toLowerCase();
+  const estadoCaptura = String(evidencia.estadoCaptura ?? 'calificada').trim().toLowerCase();
+  if (fuente === 'classroom' && estadoCaptura !== 'calificada') {
+    return false;
+  }
+  return Number.isFinite(Number(evidencia.calificacionDecimal));
+}
+
 function configDefaultLisc(docenteId: string, periodoId: string) {
   return {
     docenteId,
@@ -135,6 +144,7 @@ function determinarContinuaPorCortes(params: {
     for (const corte of cortesConfig) {
       const fechaLimite = corte.fechaCorte as Date;
       const lista = evidencias
+        .filter((item) => evidenciaCuentaEnPromedio(item as Record<string, unknown>))
         .map((item) => ({
           fecha: parseFecha(item.fechaEvidencia) ?? new Date(0),
           valor: numeroSeguro(item.calificacionDecimal),
@@ -152,6 +162,7 @@ function determinarContinuaPorCortes(params: {
   // Fallback por etiqueta de corte explícita
   const porCorte = (numero: number) => {
     const lista = evidencias
+      .filter((item) => evidenciaCuentaEnPromedio(item as Record<string, unknown>))
       .filter((item) => Number(item.corte) === numero)
       .map((item) => ({ valor: numeroSeguro(item.calificacionDecimal), peso: numeroSeguro(item.ponderacion || 1) }));
     return round4(promedioPonderado(lista));
@@ -462,7 +473,8 @@ export async function crearEvidenciaEvaluacion(req: SolicitudDocente, res: Respo
     ...payload,
     docenteId,
     fechaEvidencia: payload.fechaEvidencia ? new Date(String(payload.fechaEvidencia)) : new Date(),
-    fuente: payload.fuente ?? 'manual'
+    fuente: payload.fuente ?? 'manual',
+    estadoCaptura: payload.estadoCaptura ?? 'calificada'
   });
   res.status(201).json({ evidencia });
 }

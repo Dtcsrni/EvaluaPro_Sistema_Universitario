@@ -40,7 +40,7 @@ jobs:
             apps/portal_alumno_cloud/package-lock.json
 
       - name: Instalar dependencias
-        run: npm ci
+        run: npm ci --foreground-scripts
 
       - name: Inicializar CodeQL
         uses: github/codeql-action/init@v3

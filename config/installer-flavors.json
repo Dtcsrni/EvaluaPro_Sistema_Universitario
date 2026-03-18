@@ -1,0 +1,36 @@
+{
+  "version": 1,
+  "defaultFlavorId": "docente-local",
+  "flavors": [
+    {
+      "flavorId": "saas-completo",
+      "displayName": "EvaluaPro SaaS Completo",
+      "productName": "EvaluaPro SaaS Completo",
+      "description": "Despliegue completo local para operacion SaaS institucional y servicio a docentes.",
+      "installerHubExeName": "EvaluaPro-InstallerHub-saas-completo.exe",
+      "msiName": "EvaluaPro-saas-completo.msi",
+      "bundleName": "EvaluaPro-saas-completo-Setup.exe",
+      "deploymentTarget": "windows-saas-local",
+      "prerequisitesProfile": "saas-completo",
+      "requireDockerDesktop": true,
+      "minDiskGb": 8,
+      "upgradeCode": "E5CBF5D2-F6AF-4E6D-9B63-8DF259C47951",
+      "bundleUpgradeCode": "6EA80CBA-C4F5-4434-8B27-B66480ABAB4A"
+    },
+    {
+      "flavorId": "docente-local",
+      "displayName": "EvaluaPro Docente Local",
+      "productName": "EvaluaPro Docente Local",
+      "description": "Operacion docente local completa en equipo Windows con footprint recortado.",
+      "installerHubExeName": "EvaluaPro-InstallerHub-docente-local.exe",
+      "msiName": "EvaluaPro-docente-local.msi",
+      "bundleName": "EvaluaPro-docente-local-Setup.exe",
+      "deploymentTarget": "windows-docente-local",
+      "prerequisitesProfile": "docente-local",
+      "requireDockerDesktop": true,
+      "minDiskGb": 6,
+      "upgradeCode": "54D46831-455A-4945-A8C4-5A7AF4F7C260",
+      "bundleUpgradeCode": "40D95B3B-2B8F-4171-8AB4-435BBAFB43B9"
+    }
+  ]
+}

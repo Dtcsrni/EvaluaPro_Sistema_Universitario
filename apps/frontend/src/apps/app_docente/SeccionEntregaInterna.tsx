@@ -71,7 +71,11 @@ export function SeccionEntrega({
   alumnos: Alumno[];
   plantillas: Plantilla[];
   periodos: Periodo[];
-  onVincular: (folio: string, alumnoId: string) => Promise<unknown>;
+  onVincular: (
+    folio: string,
+    alumnoId: string,
+    opciones?: { acordeonEntregado?: boolean; bonoAcordeon?: number }
+  ) => Promise<unknown>;
   permisos: PermisosUI;
   avisarSinPermiso: (mensaje: string) => void;
   enviarConPermiso: EnviarConPermiso;
@@ -80,6 +84,8 @@ export function SeccionEntrega({
     _id: string;
     folio: string;
     alumnoId?: string | null;
+    acordeonEntregado?: boolean;
+    bonoAcordeon?: number;
     estado?: string;
     periodoId?: string;
     plantillaId?: string;
@@ -166,8 +172,8 @@ export function SeccionEntrega({
   }, [cargarExamenes]);
 
   const vincularYRefrescar = useCallback(
-    async (folio: string, alumnoId: string) => {
-      await onVincular(folio, alumnoId);
+    async (folio: string, alumnoId: string, opciones?: { acordeonEntregado?: boolean; bonoAcordeon?: number }) => {
+      await onVincular(folio, alumnoId, opciones);
       await cargarExamenes();
     },
     [onVincular, cargarExamenes]
@@ -349,6 +355,8 @@ export function SeccionEntrega({
                   ? (plantilla.titulo || 'Parcial')
                   : (plantilla.titulo ? `Global: ${plantilla.titulo}` : 'Global'))
                 : '-';
+              const tieneAcordeon = Boolean(examen.acordeonEntregado);
+              const bonoAcordeon = Number(examen.bonoAcordeon ?? 0);
               const bloqueando = deshaciendoFolio === examen.folio;
               return (
                 <li key={examen._id}>
@@ -359,6 +367,7 @@ export function SeccionEntrega({
                         <div className="item-meta">
                           <span>Alumno: {alumnoTexto}</span>
                           <span>Parcial: {parcialTexto}</span>
+                          {tieneAcordeon && <span className="chip chip-static">Acordeón: +{bonoAcordeon.toFixed(2)}</span>}
                           <span>Entrega: {formatearFechaHora(examen.entregadoEn)}</span>
                           <span>Estado: {String(examen.estado ?? 'entregado')}</span>
                         </div>
@@ -400,6 +409,8 @@ export function SeccionEntrega({
                   ? (plantilla.titulo || 'Parcial')
                   : (plantilla.titulo ? `Global: ${plantilla.titulo}` : 'Global'))
                 : '-';
+              const tieneAcordeon = Boolean(examen.acordeonEntregado);
+              const bonoAcordeon = Number(examen.bonoAcordeon ?? 0);
               return (
                 <li key={examen._id}>
                   <div className="item-glass entregas-listado__item entregas-listado__item--pending">
@@ -409,6 +420,7 @@ export function SeccionEntrega({
                         <div className="item-meta">
                           <span>Alumno: {alumnoTexto}</span>
                           <span>Parcial: {parcialTexto}</span>
+                          {tieneAcordeon && <span className="chip chip-static">Acordeón: +{bonoAcordeon.toFixed(2)}</span>}
                           <span>Generado: {formatearFechaHora(examen.generadoEn)}</span>
                           <span>Estado: {String(examen.estado ?? 'generado')}</span>
                         </div>

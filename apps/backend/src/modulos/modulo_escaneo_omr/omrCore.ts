@@ -95,6 +95,7 @@ type RasgosBurbuja = {
   ringOnlyPenalty: number;
   radialMassRatio: number;
   anisotropy: number;
+  centroidOffsetRatio: number;
   contraste: number;
   ringContrast: number;
   fillDelta: number;
@@ -144,6 +145,7 @@ export function evaluarConOffset(args: {
   dy: number;
   params: ParametrosBurbujaCore;
   localSearchRatio: number;
+  localSearchRadiusPx?: number;
   localDriftPenalty: number;
   detectarOpcion: (
     gray: Uint8ClampedArray,
@@ -154,16 +156,42 @@ export function evaluarConOffset(args: {
     params: ParametrosBurbujaCore
   ) => { score: number };
 }): EvaluarConOffsetResultado {
-  const { gray, integral, width, height, centros, dx, dy, params, localSearchRatio, localDriftPenalty, detectarOpcion } = args;
+  const {
+    gray,
+    integral,
+    width,
+    height,
+    centros,
+    dx,
+    dy,
+    params,
+    localSearchRatio,
+    localSearchRadiusPx,
+    localDriftPenalty,
+    detectarOpcion
+  } = args;
   let mejorOpcion: string | null = null;
   let mejorScore = 0;
   let segundoScore = 0;
   const scores: OpcionScore[] = [];
-  const rangoLocal = calcularRangoLocalBusqueda(centros, params, localSearchRatio);
+  const rangoLocalCalculado = calcularRangoLocalBusqueda(centros, params, localSearchRatio);
+  const rangoLocal = Math.max(0, Math.round(localSearchRadiusPx ?? rangoLocalCalculado));
   const pasoLocal = Math.max(1, Math.round(rangoLocal / 4));
 
   for (const opcion of centros) {
     const base = { x: opcion.punto.x + dx, y: opcion.punto.y + dy };
+    if (rangoLocal <= 0) {
+      const { score } = detectarOpcion(gray, integral, width, height, base, params);
+      scores.push({ letra: opcion.letra, score: Math.max(0, score), x: base.x, y: base.y });
+      if (score > mejorScore) {
+        segundoScore = mejorScore;
+        mejorScore = score;
+        mejorOpcion = opcion.letra;
+      } else if (score > segundoScore) {
+        segundoScore = score;
+      }
+      continue;
+    }
     let mejorLocal = -Infinity;
     let mejorLocalAjustado = -Infinity;
     let mejorX = base.x;
@@ -288,16 +316,10 @@ export function calcularMetricasPregunta(args: {
   const minTopZScore = umbrales.minTopZScore ?? 1.25;
   const ambiguityRatio = umbrales.ambiguityRatio ?? 0.87;
   const minTopScoreForAmbiguity = umbrales.minTopScoreForAmbiguity ?? Math.max(umbrales.strongScore * 0.9, umbralScore * 0.85);
-  const opcionesCompetitivas = topScores.filter(
-    (score) => score >= Math.max(umbrales.strongScore * 0.75, umbralScore * 0.9, mejorScore * 0.7)
-  ).length;
   const scoresDirectos = centros.map((item) => ({
     letra: item.letra,
     score: detectarOpcion(gray, integral, width, height, { x: item.punto.x + mejorDx, y: item.punto.y + mejorDy }, paramsBurbuja).score
   }));
-  const fuertesDirectos = scoresDirectos.filter(
-    (item) => item.score >= Math.max(umbrales.strongScore * 0.8, umbralScore * 0.95)
-  ).length;
   const ordenDirectos = [...scoresDirectos].sort((a, b) => b.score - a.score);
   const topDirecto = ordenDirectos[0];
   const secondDirecto = ordenDirectos[1];
@@ -336,6 +358,7 @@ export function calcularMetricasPregunta(args: {
     const pAniso = clamp01((rasgos.anisotropy - 2.4) / 3.6);
     const pRing = clamp01((rasgos.ratioRing - 0.35) / 0.5);
     const pRingOnly = clamp01((rasgos.ringOnlyPenalty - 0.06) / 0.26);
+    const pCentroide = clamp01((rasgos.centroidOffsetRatio - 0.2) / 0.45);
     return clamp01(
       fFill * 0.28 +
         fGap * 0.24 +
@@ -345,7 +368,8 @@ export function calcularMetricasPregunta(args: {
         fContraste * 0.08 -
         pAniso * 0.1 -
         pRing * 0.12 -
-        pRingOnly * 0.2
+        pRingOnly * 0.2 -
+        pCentroide * 0.15
     );
   };
 
@@ -354,10 +378,10 @@ export function calcularMetricasPregunta(args: {
   const gapCentroTop = rasgosTop ? rasgosTop.ringMean - rasgosTop.centerMean : 0;
   const ringOnlyTop = rasgosTop?.ringOnlyPenalty ?? 0;
 
-  const umbralMarcaScoreAlternativa = Math.max(umbrales.strongScore * 0.92, umbralScore * 0.9, 0.085);
-  const umbralMarcaRatioCoreAlternativa = 0.16;
-  const umbralMarcaFillDeltaAlternativa = Math.max(0.05, minFillDelta * 0.72);
-  const umbralMarcaHibridaAlternativa = Math.max(0.26, minHybridConfidence * 0.72);
+  const umbralMarcaScoreAlternativa = Math.max(umbrales.strongScore * 1.08, umbralScore * 1.02, 0.14);
+  const umbralMarcaRatioCoreAlternativa = 0.19;
+  const umbralMarcaFillDeltaAlternativa = Math.max(0.07, minFillDelta * 0.86);
+  const umbralMarcaHibridaAlternativa = Math.max(0.34, minHybridConfidence * 0.82);
 
   const diagnosticoAlternativas: DiagnosticoAlternativa[] = resultado.scores
     .filter((item) => item.letra !== resultado.mejorOpcion)
@@ -368,9 +392,8 @@ export function calcularMetricasPregunta(args: {
       const contraste = rasgos?.contraste ?? 0;
       const confHibrida = confianzaHibrida(rasgos ?? null);
       const hayMarca =
-        item.score >= umbralMarcaScoreAlternativa ||
-        ratioCore >= umbralMarcaRatioCoreAlternativa ||
-        fillDelta >= umbralMarcaFillDeltaAlternativa ||
+        (item.score >= umbralMarcaScoreAlternativa && (ratioCore >= umbralMarcaRatioCoreAlternativa || confHibrida >= umbralMarcaHibridaAlternativa)) ||
+        (ratioCore >= umbralMarcaRatioCoreAlternativa && fillDelta >= umbralMarcaFillDeltaAlternativa) ||
         confHibrida >= umbralMarcaHibridaAlternativa;
       const razon = hayMarca
         ? `Marca potencial (score=${item.score.toFixed(3)}, core=${ratioCore.toFixed(3)}, fill=${fillDelta.toFixed(3)})`
@@ -401,14 +424,36 @@ export function calcularMetricasPregunta(args: {
     diagnostico: diagnosticoAlternativas
   };
 
+  const secondTieneMarca = second ? !validacionAlternativas.diagnostico.find((item) => item.letra === second.letra)?.sinMarca : false;
+  const alternativasFuertes = validacionAlternativas.diagnostico.filter(
+    (item) =>
+      !item.sinMarca &&
+      ((top ? item.score >= Math.max(umbralMarcaScoreAlternativa, top.score * 0.9) : false) ||
+        item.confianzaHibrida >= Math.max(umbralMarcaHibridaAlternativa, hTop * 0.82))
+  ).length;
+  const alternativasVisibles = validacionAlternativas.alternativasConMarca;
+  const baselineScore = ascScores.length >= 2 ? ((ascScores[0] ?? 0) + (ascScores[1] ?? ascScores[0] ?? 0)) / 2 : ascScores[0] ?? 0;
+  const scoreSobreBaseline = top1 - baselineScore;
+  const topGapConAlternativa = top1 - Math.max(validacionAlternativas.maxScoreAlternativa, 0);
+
   const dobleMarcada =
-    (segundoScore >= umbrales.strongScore && ratio >= umbrales.secondRatio) ||
-    opcionesCompetitivas >= 3 ||
-    fuertesDirectos >= 3 ||
-    (top1 >= minTopScoreForAmbiguity && topRatio >= ambiguityRatio && topZScore >= minTopZScore * 0.75) ||
-    (!consistenciaAnclada && anclaConfiable && top1 >= scoreMinAnclado) ||
-    (hTop >= minHybridConfidence * 0.9 && hSecond >= minHybridConfidence * 0.9 && topRatio >= 0.78);
+    (secondTieneMarca &&
+      segundoScore >= Math.max(umbrales.strongScore * 1.02, umbralMarcaScoreAlternativa) &&
+      ratio >= Math.max(umbrales.secondRatio, 0.84) &&
+      delta < Math.max(umbrales.deltaMin * 2.2, 0.075)) ||
+    alternativasFuertes >= 2 ||
+    (alternativasVisibles >= 2 && topRatio >= 0.82) ||
+    (top1 >= minTopScoreForAmbiguity &&
+      topRatio >= Math.max(ambiguityRatio, 0.9) &&
+      topZScore >= minTopZScore * 0.88 &&
+      secondTieneMarca) ||
+    (hTop >= minHybridConfidence * 0.95 && hSecond >= minHybridConfidence * 0.92 && topRatio >= 0.9);
   const suficienteBase = mejorScore >= umbralScore && delta >= umbrales.deltaMin && topZScore >= minTopZScore;
+  const suficienteRelativa =
+    scoreSobreBaseline >= Math.max(umbrales.deltaMin * 2.4, 0.085) &&
+    hTop >= minHybridConfidence * 0.82 &&
+    topGapConAlternativa >= 0.06 &&
+    (!secondTieneMarca || topRatio <= 0.82);
   const suficienteHibrida =
     hTop >= minHybridConfidence &&
     (rasgosTop ? rasgosTop.fillDelta >= minFillDelta : false) &&
@@ -422,9 +467,9 @@ export function calcularMetricasPregunta(args: {
   const respaldoDominante = topZScore >= minTopZScore + 0.45 && topRatio <= 0.66 && mejorScore >= umbralScore * 1.03;
   const suficienteDescarte = validacionAlternativas.cumpleDescarte;
   const suficiente =
-    suficienteBase &&
+    (suficienteBase || suficienteRelativa) &&
     (suficienteHibrida || suficienteHibridaFlex || respaldoDominante) &&
-    (consistenciaAnclada || anclaConfiable || respaldoDominante) &&
+    (consistenciaAnclada || anclaConfiable || respaldoDominante || suficienteRelativa) &&
     suficienteDescarte;
   const confianzaBase = Math.min(1, Math.max(0, mejorScore * 1.8));
   const penalizacion = dobleMarcada ? 0.5 : 1;

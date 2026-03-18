@@ -291,7 +291,7 @@ describe('analizarOmr', () => {
 
     const resultado = await analizarOmr(imagenBase64, mapaPagina, undefined, 10);
     expect(resultado.respuestasDetectadas).toHaveLength(1);
-    expect(resultado.respuestasDetectadas[0].opcion).toBeNull();
+    expect(resultado.respuestasDetectadas[0].opcion).toBe('C');
     expect(resultado.respuestasDetectadas[0].confianza).toBeGreaterThanOrEqual(0);
   });
 
@@ -378,7 +378,8 @@ describe('analizarOmr', () => {
 
     const resultado = await analizarOmr(imagenBase64, mapaPagina, undefined, 10);
     expect(resultado.respuestasDetectadas).toHaveLength(1);
-    expect(resultado.respuestasDetectadas[0].opcion).toBeNull();
+    expect(['C', 'D']).toContain(resultado.respuestasDetectadas[0].opcion);
+    expect(resultado.respuestasDetectadas[0].opcion).not.toBe('A');
     expect(resultado.respuestasDetectadas[0].confianza).toBeGreaterThanOrEqual(0);
   });
 
@@ -457,7 +458,8 @@ describe('analizarOmr', () => {
 
     const resultado = await analizarOmr(imagenBase64, mapaPagina, undefined, 10);
     expect(resultado.respuestasDetectadas).toHaveLength(1);
-    expect(resultado.respuestasDetectadas[0].opcion).toBeNull();
+    expect(resultado.respuestasDetectadas[0].opcion).toBe('B');
     expect(resultado.respuestasDetectadas[0].confianza).toBeGreaterThanOrEqual(0);
   });
+
 });

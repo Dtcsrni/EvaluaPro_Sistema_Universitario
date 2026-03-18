@@ -4153,7 +4153,7 @@
 
     // Identificador de UI (útil para confirmar que el HTML recargó cambios).
     // Nota: actualiza este valor cuando hagas cambios visibles al dashboard.
-    const UI_REV = '2026-03-03.1';
+    const UI_REV = '2026-03-03.3';
 
     const CLAVE_ALMACEN_TEMA = 'seuDashboardTheme';
     const CONFIG_DASHBOARD_DEFAULT = {
@@ -5395,6 +5395,18 @@
         return;
       }
 
+      const enWarmup = Boolean(info?.warming);
+      if (!info.ok && enWarmup) {
+        const remainingMsRaw = Number(info?.warmupRemainingMs);
+        const remainingMs = Number.isFinite(remainingMsRaw) ? Math.max(0, remainingMsRaw) : 0;
+        const remainingSeconds = Math.max(1, Math.ceil(remainingMs / 1000));
+        punto.className = 'health-dot';
+        texto.textContent = `Arrancando (${remainingSeconds}s)...`;
+        latencia.textContent = typeof info.ms === 'number' ? `${info.ms} ms` : '--';
+        aplicarClaseEstado(contenedor, 'state-pending');
+        return;
+      }
+
       const estaOk = info.ok;
       const etiquetaEstado = estaOk ? 'Activo' : (info.status ? `Caído (HTTP ${info.status})` : 'Sin respuesta');
       punto.className = `health-dot ${estaOk ? 'ok' : 'down'}`;
@@ -5562,12 +5574,21 @@
       const ok = [];
       const down = [];
       const pending = [];
+      let warmupRemainingMaxMs = 0;
 
       Object.values(services).forEach((service) => {
         if (!service.expected) return;
         const info = service.info;
         if (!info || typeof info.ok !== 'boolean') {
           pending.push(service.key);
+          return;
+        }
+        if (!info.ok && info.warming) {
+          pending.push(service.key);
+          const remainingMs = Number(info?.warmupRemainingMs);
+          if (Number.isFinite(remainingMs)) {
+            warmupRemainingMaxMs = Math.max(warmupRemainingMaxMs, Math.max(0, remainingMs));
+          }
           return;
         }
         if (info.ok) ok.push(service.key);
@@ -5605,6 +5626,7 @@
         ok,
         down,
         pending,
+        warmupRemainingMaxMs,
         expected,
         detected: obtenerServiciosDetectados()
       };
@@ -5670,6 +5692,16 @@
         return {
           level: 'error',
           text: `Servicios caídos: ${formatearListaServicios(stack.down)}`,
+          source: 'health',
+          time: new Date().toLocaleTimeString()
+        };
+      }
+
+      if (stack.pending.length > 0) {
+        const remainingSeconds = Math.max(1, Math.ceil(Number(stack.warmupRemainingMaxMs || 0) / 1000));
+        return {
+          level: 'warn',
+          text: `Servicios en arranque; esperando salud completa (${remainingSeconds}s).`,
           source: 'health',
           time: new Date().toLocaleTimeString()
         };
