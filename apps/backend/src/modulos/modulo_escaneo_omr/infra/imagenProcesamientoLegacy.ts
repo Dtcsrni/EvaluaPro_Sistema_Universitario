@@ -511,6 +511,7 @@ export function detectarOpcion(
   centro: Punto,
   params: ParametrosBurbuja
 ) {
+  const clamp01 = (value: number) => Math.max(0, Math.min(1, value));
   const { radio, ringInner, ringOuter, outerOuter, paso } = params;
   const coreRadio = Math.max(2, radio * 0.58);
   const coreSq = coreRadio * coreRadio;
@@ -544,6 +545,7 @@ export function detectarOpcion(
   let masaXX = 0;
   let masaYY = 0;
   let masaXY = 0;
+  let centroidOffsetRatio = 0;
 
   // Cuenta pixeles oscuros dentro de un radio fijo para estimar marca.
   for (let y = -outerOuter; y <= outerOuter; y += paso) {
@@ -618,6 +620,7 @@ export function detectarOpcion(
   if (masaTotal > 0.0001) {
     const mx = masaX / masaTotal;
     const my = masaY / masaTotal;
+    centroidOffsetRatio = Math.hypot(mx, my) / Math.max(1, radio);
     const varX = Math.max(0, masaXX / masaTotal - mx * mx);
     const varY = Math.max(0, masaYY / masaTotal - my * my);
     const covXY = masaXY / masaTotal - mx * my;
@@ -630,20 +633,38 @@ export function detectarOpcion(
   }
   const radialPenalty = Math.max(0, 0.36 - radialMassRatio);
   const anisoPenalty = Math.max(0, (anisotropy - 2.8) / 4);
+  const centroidPenalty = Math.max(0, centroidOffsetRatio - 0.22);
+  const fillThreshold = Math.min(185, Math.max(60, promedioOuter - 18));
+  const intensityFillRatio = clamp01((fillThreshold - promedio + 24) / 96);
+  const intensityFillDelta = clamp01((promedioRing - promedio) / 90);
+  const intensityCenterContrast = clamp01((promedioOuter - promedio) / 120);
+  const intensityRingPenalty = clamp01((promedioOuter - promedioRing) / 110);
+  const localBackgroundPenalty = clamp01((promLocal - promedioOuter) / 120);
 
   // Puntaje fotométrico robusto: prioriza núcleo/medio rellenos y penaliza burbuja hueca.
-  const score =
-    fillDelta * 0.48 +
-    contraste * 0.2 +
-    ratioCore * 0.34 +
-    ratioMid * 0.2 +
-    ratio * 0.08 +
-    ringDelta * 0.07 +
+  const scoreLegacy =
+    fillDelta * 0.42 +
+    contraste * 0.16 +
+    ratioCore * 0.38 +
+    ratioMid * 0.18 +
+    ratio * 0.06 +
+    ringDelta * 0.06 +
     radialMassRatio * 0.12 -
-    ratioRing * 0.14 -
-    ringOnlyPenalty * 0.32 -
-    radialPenalty * 0.2 -
-    anisoPenalty * 0.18;
+    ratioRing * 0.16 -
+    ringOnlyPenalty * 0.34 -
+    radialPenalty * 0.22 -
+    anisoPenalty * 0.18 -
+    centroidPenalty * 0.24 -
+    localBackgroundPenalty * 0.14;
+  const scoreIntensity = clamp01(
+    intensityFillDelta * 0.54 +
+      intensityFillRatio * 0.24 +
+      intensityCenterContrast * 0.24 -
+      intensityRingPenalty * 0.18 -
+      centroidPenalty * 0.2 -
+      localBackgroundPenalty * 0.12
+  );
+  const score = scoreIntensity * 0.58 + clamp01(scoreLegacy) * 0.42;
   return {
     ratio,
     ratioCore,
@@ -652,6 +673,7 @@ export function detectarOpcion(
     ringOnlyPenalty,
     radialMassRatio,
     anisotropy,
+    centroidOffsetRatio,
     contraste,
     score,
     ringContrast: ringDelta,

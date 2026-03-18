@@ -1,10 +1,10 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <Wix xmlns="http://wixtoolset.org/schemas/v4/wxs">
   <Package
-    Name="EvaluaPro"
+    Name="$(var.ProductName)"
     Manufacturer="I.S.C. Erick Renato Vega Ceron"
     Version="0.2.0.0"
-    UpgradeCode="E5CBF5D2-F6AF-4E6D-9B63-8DF259C47951"
+    UpgradeCode="$(var.UpgradeCode)"
     InstallerVersion="500"
     Compressed="yes"
     Scope="perMachine">
@@ -28,14 +28,14 @@
     <Launch Condition="NODEINSTALLED64 OR NODEINSTALLEDUSER" Message="No se detecto Node.js 24+. Instala Node.js antes de usar EvaluaPro." />
     <Launch Condition="DOCKERINSTALLED64 OR DOCKERINSTALLEDUSER" Message="No se detecto Docker Desktop. Instalalo antes de usar EvaluaPro en modo prod local." />
 
-    <Feature Id="MainFeature" Title="EvaluaPro" Level="1">
+    <Feature Id="MainFeature" Title="$(var.ProductName)" Level="1">
       <ComponentGroupRef Id="CG.AppFiles" />
       <ComponentGroupRef Id="CG.Shortcuts" />
       <ComponentGroupRef Id="CG.Cleanup" />
     </Feature>
 
     <StandardDirectory Id="ProgramFiles64Folder">
-      <Directory Id="INSTALLFOLDER" Name="EvaluaPro">
+      <Directory Id="INSTALLFOLDER" Name="$(var.ProductName)">
         <Directory Id="LOGSFOLDER" Name="logs" />
       </Directory>
     </StandardDirectory>
@@ -54,6 +54,6 @@
     <Property Id="ARPCONTACT" Value="I.S.C. Erick Renato Vega Ceron" />
     <Property Id="ARPHELPLINK" Value="https://github.com/Dtcsrni/EvaluaPro_Sistema_Universitario" />
     <Property Id="ARPURLINFOABOUT" Value="https://github.com/Dtcsrni/EvaluaPro_Sistema_Universitario" />
-    <Property Id="ARPCOMMENTS" Value="Distribucion estable local con autoconfiguracion de stack/portal cuando es posible. Requiere Node.js 24+ y Docker Desktop." />
+    <Property Id="ARPCOMMENTS" Value="Distribucion estable local ($(var.FlavorId)) con autoconfiguracion de stack/portal cuando es posible. Requiere Node.js 24+ y Docker Desktop." />
   </Package>
 </Wix>

@@ -1,10 +1,11 @@
 {
   "owner": "Dtcsrni",
   "repo": "EvaluaPro_Sistema_Universitario",
+  "flavorId": "docente-local",
   "channel": "stable",
-  "assetName": "EvaluaPro-Setup.exe",
-  "sha256AssetName": "EvaluaPro-Setup.exe.sha256",
-  "requireSha256": false,
+  "assetName": "EvaluaPro-docente-local-Setup.exe",
+  "sha256AssetName": "EvaluaPro-docente-local-Setup.exe.sha256",
+  "requireSha256": true,
   "autoCheckEnabled": true,
   "checkIntervalMs": 900000,
   "syncPreflight": {

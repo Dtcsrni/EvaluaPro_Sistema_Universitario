@@ -45,6 +45,42 @@ if (entorno === 'production' && !mongoUri) {
   throw new Error('MONGODB_URI es requerido en producción');
 }
 const jwtSecretoEfectivo = jwtSecreto || 'cambia-este-secreto';
+const omrQrHmacSecret = String(process.env.OMR_QR_HMAC_SECRET ?? jwtSecretoEfectivo).trim() || jwtSecretoEfectivo;
+const omrQrHmacKeyId = String(process.env.OMR_QR_HMAC_KEY_ID ?? process.env.OMR_QR_RECOVERY_KEY_ID ?? 'qr-h1-v1').trim() || 'qr-h1-v1';
+const omrRecoveryKeyId =
+  String(process.env.OMR_QR_RECOVERY_KEY_ID ?? process.env.OMR_QR_HMAC_KEY_ID ?? 'recovery-h1-v1').trim() || 'recovery-h1-v1';
+const omrRecoverySecret =
+  String(process.env.OMR_QR_RECOVERY_SECRET ?? process.env.OMR_QR_HMAC_SECRET ?? jwtSecretoEfectivo).trim() || omrQrHmacSecret;
+function parsearMapaSecretos(raw: string, fallbackKeyId: string, fallbackSecret: string) {
+  const mapa: Record<string, string> = {};
+  if (raw.trim()) {
+    try {
+      const parsed = JSON.parse(raw) as Record<string, string>;
+      for (const [keyId, secret] of Object.entries(parsed ?? {})) {
+        const normalizedKeyId = String(keyId ?? '').trim();
+        const normalizedSecret = String(secret ?? '').trim();
+        if (!normalizedKeyId || !normalizedSecret) continue;
+        mapa[normalizedKeyId] = normalizedSecret;
+      }
+    } catch {
+      // Se conserva fallback de una sola clave para no romper arranque.
+    }
+  }
+  if (!mapa[fallbackKeyId]) {
+    mapa[fallbackKeyId] = fallbackSecret;
+  }
+  return mapa;
+}
+const omrQrHmacSecrets = parsearMapaSecretos(
+  String(process.env.OMR_QR_HMAC_SECRETS_JSON ?? '').trim(),
+  omrQrHmacKeyId,
+  omrQrHmacSecret
+);
+const omrRecoverySecrets = parsearMapaSecretos(
+  String(process.env.OMR_QR_RECOVERY_SECRETS_JSON ?? '').trim(),
+  omrRecoveryKeyId,
+  omrRecoverySecret
+);
 const jwtExpiraHoras = Number(process.env.JWT_EXPIRA_HORAS ?? 8);
 const refreshTokenDias = Number(process.env.REFRESH_TOKEN_DIAS ?? 30);
 const passwordResetTokenMinutes = parsearNumeroSeguro(process.env.PASSWORD_RESET_TOKEN_MINUTES, 30, { min: 5, max: 180 });
@@ -54,6 +90,7 @@ const googleClassroomClientId = process.env.GOOGLE_CLASSROOM_CLIENT_ID ?? proces
 const googleClassroomClientSecret = process.env.GOOGLE_CLASSROOM_CLIENT_SECRET ?? '';
 const googleClassroomRedirectUri = process.env.GOOGLE_CLASSROOM_REDIRECT_URI ?? '';
 const classroomTokenCipherKey = process.env.CLASSROOM_TOKEN_CIPHER_KEY ?? '';
+const requireGoogleOAuth = ['1', 'true', 'yes', 'on'].includes(String(process.env.REQUIRE_GOOGLE_OAUTH ?? '').trim().toLowerCase());
 const codigoAccesoHoras = Number(process.env.CODIGO_ACCESO_HORAS ?? 12);
 const portalAlumnoUrl = process.env.PORTAL_ALUMNO_URL ?? '';
 const portalApiKey = process.env.PORTAL_ALUMNO_API_KEY ?? '';
@@ -167,6 +204,12 @@ export const configuracion = {
   corsOrigenes,
   dominiosCorreoPermitidos,
   jwtSecreto: jwtSecretoEfectivo,
+  omrQrHmacSecret,
+  omrQrHmacKeyId,
+  omrQrHmacSecrets,
+  omrRecoveryKeyId,
+  omrRecoverySecret,
+  omrRecoverySecrets,
   jwtExpiraHoras,
   refreshTokenDias,
   passwordResetTokenMinutes,
@@ -177,6 +220,7 @@ export const configuracion = {
   googleClassroomClientSecret,
   googleClassroomRedirectUri,
   classroomTokenCipherKey,
+  requireGoogleOAuth,
   codigoAccesoHoras,
   portalAlumnoUrl,
   portalApiKey,

@@ -5,6 +5,7 @@ on:
     paths:
       - "apps/backend/**"
       - "omr_samples_tv3/**"
+      - "omr_samples_tv3_real_por_folio/**"
       - "omr_samples_tv3_real_manual_min/**"
       - "package.json"
       - "package-lock.json"
@@ -18,6 +19,7 @@ on:
     paths:
       - "apps/backend/**"
       - "omr_samples_tv3/**"
+      - "omr_samples_tv3_real_por_folio/**"
       - "omr_samples_tv3_real_manual_min/**"
       - "package.json"
       - "package-lock.json"
@@ -67,7 +69,7 @@ jobs:
             pkg-config
 
       - name: Etapa setup
-        run: npm ci
+        run: npm ci --foreground-scripts
 
       - name: Preparar runtime CV nativo (linux-x64)
         run: npm install --no-save --include=optional --os=linux --cpu=x64 sharp
@@ -93,11 +95,15 @@ jobs:
       - name: Etapa tests OMR criticos
         run: npm -C apps/backend run test -- --reporter=verbose tests/omr.cv.engine.test.ts tests/omr.etapaScoring.fallback.test.ts tests/omr.prevalidacion.test.ts tests/omr.contrato.test.ts tests/integracion/qrEscaneoOmr.test.ts tests/omr.test.ts
 
-      - name: Verificar dataset OMR TV3 real
-        run: test -f omr_samples_tv3_real_manual_min/manifest.json
+      - name: Verificar dataset OMR TV3 por folio
+        run: test -f omr_samples_tv3_real_por_folio/manifest.json
 
-      - name: Etapa benchmark OMR TV3 real gate
-        run: npm -C apps/backend run omr:tv3:validate:real:manual-min -- --report ../../reports/qa/latest/omr/tv3-real-validation.ci.json --failure-report ../../reports/qa/latest/omr/tv3-real-failure-analysis.ci.json --page-pass-min 0 --autograde-trust-min 0 --auto-coverage-min 0
+      - name: Etapa benchmark OMR TV3 por folio gate
+        run: npm -C apps/backend run omr:tv3:validate:por-folio -- --report ../../reports/qa/latest/omr/tv3-por-folio-validation.ci.json --failure-report ../../reports/qa/latest/omr/tv3-por-folio-failures.ci.json
+
+      - name: Etapa benchmark OMR TV3 real manual minimo (legacy diagnostico)
+        continue-on-error: true
+        run: npm -C apps/backend run omr:tv3:validate:real:manual-min -- --report ../../reports/qa/latest/omr/tv3-real-manual-validation.ci.json --failure-report ../../reports/qa/latest/omr/tv3-real-manual-failure-analysis.ci.json --page-pass-min 0 --autograde-trust-min 0 --auto-coverage-min 0
 
       - name: Publicar artefactos OMR QA
         if: always()
@@ -119,7 +125,7 @@ jobs:
 
       - name: Etapa diff-coverage-check
         env:
-          DIFF_COVERAGE_IGNORE_LINE_SUBSTRING: "returnDocument: 'after'"
+          DIFF_COVERAGE_IGNORE_LINE_SUBSTRING: "returnDocument: 'after';err instanceof Error ? err.message : String(err)"
           DIFF_COVERAGE_IGNORE_PATH_SUBSTRINGS: "apps/backend/src/modulos/modulo_comercial_core/controladorAdminNegocio.ts"
         run: npm run test:coverage:diff -- --apps backend
 

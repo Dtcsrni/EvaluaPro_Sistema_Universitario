@@ -10,6 +10,8 @@ const EntregaSchema = new Schema(
     docenteId: { type: Schema.Types.ObjectId, ref: 'Docente', required: true },
     estado: { type: String, enum: ['pendiente', 'entregado'], default: 'pendiente' },
     fechaEntrega: { type: Date },
+    acordeonEntregado: { type: Boolean, default: false },
+    bonoAcordeon: { type: Number, min: 0, max: 0.5, default: 0 },
     motivoDeshacer: { type: String }
   },
   { timestamps: true, collection: 'entregas' }

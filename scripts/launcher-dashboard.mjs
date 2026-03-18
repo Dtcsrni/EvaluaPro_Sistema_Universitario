@@ -331,10 +331,11 @@ function readUpdateConfig() {
   const defaults = {
     owner: 'Dtcsrni',
     repo: 'EvaluaPro_Sistema_Universitario',
+    flavorId: 'docente-local',
     channel: 'stable',
-    assetName: 'EvaluaPro-Setup.exe',
-    sha256AssetName: 'EvaluaPro-Setup.exe.sha256',
-    requireSha256: false,
+    assetName: 'EvaluaPro-docente-local-Setup.exe',
+    sha256AssetName: 'EvaluaPro-docente-local-Setup.exe.sha256',
+    requireSha256: true,
     autoCheckEnabled: true,
     checkIntervalMs: 900_000,
     syncPreflight: {
@@ -366,6 +367,7 @@ function readUpdateConfig() {
 
   if (process.env.EVALUAPRO_UPDATE_OWNER) cfg.owner = String(process.env.EVALUAPRO_UPDATE_OWNER);
   if (process.env.EVALUAPRO_UPDATE_REPO) cfg.repo = String(process.env.EVALUAPRO_UPDATE_REPO);
+  if (process.env.EVALUAPRO_UPDATE_FLAVOR) cfg.flavorId = String(process.env.EVALUAPRO_UPDATE_FLAVOR);
   if (process.env.EVALUAPRO_UPDATE_CHANNEL) cfg.channel = String(process.env.EVALUAPRO_UPDATE_CHANNEL);
   if (process.env.EVALUAPRO_UPDATE_ASSET) cfg.assetName = String(process.env.EVALUAPRO_UPDATE_ASSET);
   if (process.env.EVALUAPRO_UPDATE_SHA_ASSET) cfg.sha256AssetName = String(process.env.EVALUAPRO_UPDATE_SHA_ASSET);
@@ -376,6 +378,7 @@ function readUpdateConfig() {
 
   cfg.channel = String(cfg.channel || 'stable').trim().toLowerCase();
   if (!cfg.channel) cfg.channel = 'stable';
+  cfg.flavorId = String(cfg.flavorId || 'docente-local').trim().toLowerCase();
 
   const interval = Number(cfg.checkIntervalMs || 0);
   cfg.checkIntervalMs = Number.isFinite(interval) && interval >= 60_000 ? Math.round(interval) : defaults.checkIntervalMs;
@@ -1277,6 +1280,7 @@ function requestDockerAutostart(reason = 'startup') {
     if (alreadyRunning) {
       dockerAutostart.stack.state = 'skipped';
       logSystem('Stack Docker ya esta activo. No se reinicia.', 'ok');
+      ensurePortalAutostartForProd('stack_activo');
       return;
     }
 
@@ -1286,6 +1290,7 @@ function requestDockerAutostart(reason = 'startup') {
       const command = getCommand(mode);
       if (command) startTask(mode, command);
     }
+    ensurePortalAutostartForProd('stack_inicio');
   })()
     .catch((err) => {
       setDockerAutostart({ state: 'error', ready: false, version: '', lastError: err?.message || 'Error iniciando Docker' });
@@ -1370,7 +1375,40 @@ async function collectHealth() {
     Promise.resolve(['webDocenteDev', await checkHealth(`${devScheme}://127.0.0.1:5173`)]),
     Promise.resolve(['webDocenteProd', await checkHealth('http://127.0.0.1:4173')])
   ]);
-  return Object.fromEntries(entries);
+  const services = Object.fromEntries(entries);
+
+  const warmupMs = Math.max(5000, Number(process.env.DASHBOARD_HEALTH_WARMUP_MS || 45000));
+  const getTaskAgeMs = (taskName) => {
+    const task = processes.get(taskName);
+    if (!task || !task.startedAt) return Number.POSITIVE_INFINITY;
+    return Date.now() - Number(task.startedAt || 0);
+  };
+  const withinWarmup = (taskName) => isRunning(taskName) && getTaskAgeMs(taskName) <= warmupMs;
+  const getWarmupRemainingMs = (taskName) => {
+    const ageMs = getTaskAgeMs(taskName);
+    if (!Number.isFinite(ageMs)) return 0;
+    return Math.max(0, warmupMs - ageMs);
+  };
+
+  const warmingDev = withinWarmup('dev');
+  const warmingProd = withinWarmup('prod');
+  const warmingPortal = withinWarmup('portal');
+
+  if (!services.apiDocente?.ok && (warmingDev || warmingProd)) {
+    const warmupRemainingMs = warmingProd ? getWarmupRemainingMs('prod') : getWarmupRemainingMs('dev');
+    services.apiDocente = { ...services.apiDocente, warming: true, warmupMs, warmupRemainingMs };
+  }
+  if (!services.webDocenteDev?.ok && warmingDev) {
+    services.webDocenteDev = { ...services.webDocenteDev, warming: true, warmupMs, warmupRemainingMs: getWarmupRemainingMs('dev') };
+  }
+  if (!services.webDocenteProd?.ok && warmingProd) {
+    services.webDocenteProd = { ...services.webDocenteProd, warming: true, warmupMs, warmupRemainingMs: getWarmupRemainingMs('prod') };
+  }
+  if (!services.apiPortal?.ok && warmingPortal) {
+    services.apiPortal = { ...services.apiPortal, warming: true, warmupMs, warmupRemainingMs: getWarmupRemainingMs('portal') };
+  }
+
+  return services;
 }
 
 function runCommandCapture(command, timeoutMs = 20_000) {
@@ -1569,6 +1607,7 @@ const updateManager = createUpdateManager({
   repo: updateConfig.repo,
   channel: updateConfig.channel,
   assetName: updateConfig.assetName,
+  flavorId: updateConfig.flavorId,
   sha256AssetName: updateConfig.sha256AssetName,
   requireSha256: updateConfig.requireSha256,
   feedUrl: updateConfig.feedUrl,
@@ -2843,6 +2882,15 @@ function getCommand(taskName) {
   return baseCommands[task] ?? null;
 }
 
+function ensurePortalAutostartForProd(reason = 'prod') {
+  if (mode !== 'prod') return;
+  const portalCommand = getCommand('portal');
+  if (!portalCommand) return;
+  if (isRunning('portal')) return;
+  logSystem(`Portal autoarranque (${reason}).`, 'system');
+  startTask('portal', portalCommand);
+}
+
 function isRunning(name) {
   const entry = processes.get(name);
   return Boolean(entry && entry.proc && entry.proc.exitCode === null);
@@ -3221,7 +3269,11 @@ const server = http.createServer(async (req, res) => {
       'Service-Worker-Allowed': '/',
       'X-Content-Type-Options': 'nosniff'
     });
-    res.end(readTextDevOrCache(swPath, cachedSwJs));
+    let swJs = cachedSwJs;
+    try {
+      swJs = fs.readFileSync(swPath, 'utf8');
+    } catch {}
+    res.end(swJs);
     return;
   }
 
@@ -3686,6 +3738,9 @@ const server = http.createServer(async (req, res) => {
       logSystem('Portal prod build en curso/inicio solicitado.', 'system');
     }
     startTask(task, command);
+    if (task === 'prod') {
+      ensurePortalAutostartForProd('api_start_prod');
+    }
     return sendJson(res, 200, { ok: true });
   }
 
@@ -3713,6 +3768,16 @@ const server = http.createServer(async (req, res) => {
     }
 
     if (task === 'stack') {
+      if (mode === 'prod') {
+        const fastRestartCommand = 'npm run stack:restart';
+        if (isRunning('prod')) {
+          stopTask('prod');
+        }
+        startTask('prod', fastRestartCommand);
+        ensurePortalAutostartForProd('api_restart_stack_fast');
+        return sendJson(res, 200, { ok: true, restarted: ['prod'], mode: 'fast' });
+      }
+
       const running = runningTasks();
       const candidates = ['dev', 'prod', 'portal', 'dev-frontend', 'dev-backend'];
       const toRestart = candidates.filter((name) => running.includes(name));
@@ -3721,6 +3786,9 @@ const server = http.createServer(async (req, res) => {
         const comando = getCommand(preferido);
         if (comando) {
           startTask(preferido, comando);
+          if (preferido === 'prod') {
+            ensurePortalAutostartForProd('api_restart_stack');
+          }
           return sendJson(res, 200, { ok: true, restarted: [], started: [preferido] });
         }
       }

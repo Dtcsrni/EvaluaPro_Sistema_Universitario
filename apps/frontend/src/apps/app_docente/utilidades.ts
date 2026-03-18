@@ -17,6 +17,7 @@ const VISTAS_VALIDAS = new Set([
   'plantillas',
   'entrega',
   'calificaciones',
+  'rehidratacion',
   'evaluaciones',
   'publicar',
   'cuenta'
@@ -129,6 +130,12 @@ export function combinarRespuestasOmrPaginas(
   return Array.from(porPregunta.values()).sort((a, b) => a.numeroPregunta - b.numeroPregunta);
 }
 
+export function normalizarTemplateVersionOmrDetectada(valor: unknown): ResultadoOmr['templateVersionDetectada'] {
+  const version = Number(valor);
+  if (version === 3 || version === 4) return version;
+  return 1;
+}
+
 export function consolidarResultadoOmrExamen(paginas: RevisionPaginaOmr[]): ResultadoOmr | null {
   if (!Array.isArray(paginas) || paginas.length === 0) return null;
   const respuestasDetectadas = combinarRespuestasOmrPaginas(paginas);
@@ -152,7 +159,9 @@ export function consolidarResultadoOmrExamen(paginas: RevisionPaginaOmr[]): Resu
   const calidadPagina = promedio(paginas.map((pagina) => Number(pagina.resultado.calidadPagina || 0)));
   const confianzaPromedioPagina = promedio(paginas.map((pagina) => Number(pagina.resultado.confianzaPromedioPagina || 0)));
   const ratioAmbiguas = promedio(paginas.map((pagina) => Number(pagina.resultado.ratioAmbiguas || 0)));
-  const templateVersionDetectada = 3 as const;
+  const templateVersionDetectada = paginas
+    .map((pagina) => normalizarTemplateVersionOmrDetectada(pagina.resultado.templateVersionDetectada))
+    .find((version) => version === 4 || version === 3) ?? 1;
   const qrTextos = paginas.map((pagina) => pagina.resultado.qrTexto).filter((valor): valor is string => typeof valor === 'string' && valor.length > 0);
 
   return {
@@ -202,7 +211,7 @@ export function normalizarResultadoOmr(entrada: Partial<ResultadoOmr> | null | u
     calidadPagina: numeroSeguro(entrada?.calidadPagina),
     estadoAnalisis: normalizarEstadoAnalisis(entrada?.estadoAnalisis),
     motivosRevision: Array.isArray(entrada?.motivosRevision) ? entrada.motivosRevision : [],
-    templateVersionDetectada: Number(entrada?.templateVersionDetectada) === 3 ? 3 : 1,
+    templateVersionDetectada: normalizarTemplateVersionOmrDetectada(entrada?.templateVersionDetectada),
     confianzaPromedioPagina: numeroSeguro(entrada?.confianzaPromedioPagina),
     ratioAmbiguas: numeroSeguro(entrada?.ratioAmbiguas)
   };
@@ -267,3 +276,4 @@ function etiquetaMateriaConId(nombre?: string, id?: string): string {
 export function etiquetaMateria(periodo?: { _id?: string; nombre?: string } | null): string {
   return etiquetaMateriaConId(periodo?.nombre, periodo?._id);
 }
+

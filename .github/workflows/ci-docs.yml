@@ -47,7 +47,7 @@ jobs:
             apps/portal_alumno_cloud/package-lock.json
 
       - name: Etapa setup
-        run: npm ci
+        run: npm ci --foreground-scripts
 
       - name: Etapa contract-check
         run: npm run pipeline:contract:check

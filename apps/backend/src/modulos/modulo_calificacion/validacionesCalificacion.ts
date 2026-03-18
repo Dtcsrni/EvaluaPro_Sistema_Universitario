@@ -33,7 +33,7 @@ const esquemaAnalisisOmr = z
     calidadPagina: z.number().min(0).max(1),
     confianzaPromedioPagina: z.number().min(0).max(1).optional(),
     ratioAmbiguas: z.number().min(0).max(1).optional(),
-    templateVersionDetectada: z.literal(3).optional(),
+    templateVersionDetectada: z.union([z.literal(3), z.literal(4)]).optional(),
     motivosRevision: z.array(z.string().min(1).max(200)).max(50).optional(),
     revisionConfirmada: z.boolean().optional(),
     usuarioRevisor: z.string().trim().min(3).max(120).optional(),
@@ -42,7 +42,8 @@ const esquemaAnalisisOmr = z
     engineVersion: z.string().trim().min(3).max(40).optional(),
     geomQuality: z.number().min(0).max(1).optional(),
     photoQuality: z.number().min(0).max(1).optional(),
-    decisionPolicy: z.string().trim().min(3).max(80).optional()
+    decisionPolicy: z.string().trim().min(3).max(80).optional(),
+    qrTexto: z.string().trim().min(8).max(600).optional()
   })
   .strict();
 
@@ -51,7 +52,7 @@ const esquemaPaginaOmrCalificacion = z
     numeroPagina: z.number().int().positive(),
     imagenBase64: z.string().trim().min(1),
     estadoAnalisis: z.enum(['ok', 'rechazado_calidad', 'requiere_revision']).optional(),
-    templateVersionDetectada: z.literal(3).optional()
+    templateVersionDetectada: z.union([z.literal(3), z.literal(4)]).optional()
   })
   .strict();
 
@@ -102,7 +103,8 @@ export const esquemaCalificarExamen = z
       data.omrAnalisis.geomQuality === undefined ? 'geomQuality' : null,
       data.omrAnalisis.photoQuality === undefined ? 'photoQuality' : null,
       data.omrAnalisis.decisionPolicy === undefined ? 'decisionPolicy' : null,
-      data.omrAnalisis.motivosRevision === undefined ? 'motivosRevision' : null
+      data.omrAnalisis.motivosRevision === undefined ? 'motivosRevision' : null,
+      data.omrAnalisis.qrTexto === undefined ? 'qrTexto' : null
     ].filter((item): item is string => Boolean(item));
 
     if (faltantes.length > 0) {

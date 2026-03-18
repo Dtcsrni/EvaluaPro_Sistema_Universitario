@@ -1,0 +1,326 @@
+{
+  "generatedAt": "2026-03-05T11:17:00.081Z",
+  "status": "pendiente_revision_humana",
+  "questions": [
+    {
+      "numeroPregunta": 1,
+      "humanReview": {
+        "promptApproved": true,
+        "promptCorrection": null,
+        "optionsApproved": true,
+        "optionsCorrection": {
+          "A": null,
+          "B": null,
+          "C": null,
+          "D": null,
+          "E": null
+        },
+        "correctOptionApproved": true,
+        "correctOptionCorrection": null,
+        "reviewer": "",
+        "reviewedAt": "",
+        "notes": ""
+      }
+    },
+    {
+      "numeroPregunta": 2,
+      "humanReview": {
+        "promptApproved": null,
+        "promptCorrection": null,
+        "optionsApproved": null,
+        "optionsCorrection": {
+          "A": null,
+          "B": null,
+          "C": null,
+          "D": null,
+          "E": null
+        },
+        "correctOptionApproved": null,
+        "correctOptionCorrection": null,
+        "reviewer": null,
+        "reviewedAt": null,
+        "notes": null
+      }
+    },
+    {
+      "numeroPregunta": 3,
+      "humanReview": {
+        "promptApproved": true,
+        "promptCorrection": null,
+        "optionsApproved": true,
+        "optionsCorrection": {
+          "A": null,
+          "B": null,
+          "C": null,
+          "D": null,
+          "E": null
+        },
+        "correctOptionApproved": true,
+        "correctOptionCorrection": null,
+        "reviewer": "",
+        "reviewedAt": "",
+        "notes": ""
+      }
+    },
+    {
+      "numeroPregunta": 4,
+      "humanReview": {
+        "promptApproved": null,
+        "promptCorrection": null,
+        "optionsApproved": null,
+        "optionsCorrection": {
+          "A": null,
+          "B": null,
+          "C": null,
+          "D": null,
+          "E": null
+        },
+        "correctOptionApproved": null,
+        "correctOptionCorrection": null,
+        "reviewer": null,
+        "reviewedAt": null,
+        "notes": null
+      }
+    },
+    {
+      "numeroPregunta": 5,
+      "humanReview": {
+        "promptApproved": null,
+        "promptCorrection": null,
+        "optionsApproved": null,
+        "optionsCorrection": {
+          "A": null,
+          "B": null,
+          "C": null,
+          "D": null,
+          "E": null
+        },
+        "correctOptionApproved": null,
+        "correctOptionCorrection": null,
+        "reviewer": null,
+        "reviewedAt": null,
+        "notes": null
+      }
+    },
+    {
+      "numeroPregunta": 6,
+      "humanReview": {
+        "promptApproved": true,
+        "promptCorrection": null,
+        "optionsApproved": true,
+        "optionsCorrection": {
+          "A": null,
+          "B": null,
+          "C": null,
+          "D": null,
+          "E": null
+        },
+        "correctOptionApproved": true,
+        "correctOptionCorrection": null,
+        "reviewer": "",
+        "reviewedAt": "",
+        "notes": ""
+      }
+    },
+    {
+      "numeroPregunta": 7,
+      "humanReview": {
+        "promptApproved": null,
+        "promptCorrection": null,
+        "optionsApproved": null,
+        "optionsCorrection": {
+          "A": null,
+          "B": null,
+          "C": null,
+          "D": null,
+          "E": null
+        },
+        "correctOptionApproved": null,
+        "correctOptionCorrection": null,
+        "reviewer": null,
+        "reviewedAt": null,
+        "notes": null
+      }
+    },
+    {
+      "numeroPregunta": 8,
+      "humanReview": {
+        "promptApproved": null,
+        "promptCorrection": null,
+        "optionsApproved": null,
+        "optionsCorrection": {
+          "A": null,
+          "B": null,
+          "C": null,
+          "D": null,
+          "E": null
+        },
+        "correctOptionApproved": null,
+        "correctOptionCorrection": null,
+        "reviewer": null,
+        "reviewedAt": null,
+        "notes": null
+      }
+    },
+    {
+      "numeroPregunta": 9,
+      "humanReview": {
+        "promptApproved": null,
+        "promptCorrection": null,
+        "optionsApproved": null,
+        "optionsCorrection": {
+          "A": null,
+          "B": null,
+          "C": null,
+          "D": null,
+          "E": null
+        },
+        "correctOptionApproved": null,
+        "correctOptionCorrection": null,
+        "reviewer": null,
+        "reviewedAt": null,
+        "notes": null
+      }
+    },
+    {
+      "numeroPregunta": 10,
+      "humanReview": {
+        "promptApproved": null,
+        "promptCorrection": null,
+        "optionsApproved": null,
+        "optionsCorrection": {
+          "A": null,
+          "B": null,
+          "C": null,
+          "D": null,
+          "E": null
+        },
+        "correctOptionApproved": null,
+        "correctOptionCorrection": null,
+        "reviewer": null,
+        "reviewedAt": null,
+        "notes": null
+      }
+    },
+    {
+      "numeroPregunta": 11,
+      "humanReview": {
+        "promptApproved": null,
+        "promptCorrection": null,
+        "optionsApproved": null,
+        "optionsCorrection": {
+          "A": null,
+          "B": null,
+          "C": null,
+          "D": null,
+          "E": null
+        },
+        "correctOptionApproved": null,
+        "correctOptionCorrection": null,
+        "reviewer": null,
+        "reviewedAt": null,
+        "notes": null
+      }
+    },
+    {
+      "numeroPregunta": 12,
+      "humanReview": {
+        "promptApproved": null,
+        "promptCorrection": null,
+        "optionsApproved": null,
+        "optionsCorrection": {
+          "A": null,
+          "B": null,
+          "C": null,
+          "D": null,
+          "E": null
+        },
+        "correctOptionApproved": null,
+        "correctOptionCorrection": null,
+        "reviewer": null,
+        "reviewedAt": null,
+        "notes": null
+      }
+    },
+    {
+      "numeroPregunta": 13,
+      "humanReview": {
+        "promptApproved": null,
+        "promptCorrection": null,
+        "optionsApproved": null,
+        "optionsCorrection": {
+          "A": null,
+          "B": null,
+          "C": null,
+          "D": null,
+          "E": null
+        },
+        "correctOptionApproved": null,
+        "correctOptionCorrection": null,
+        "reviewer": null,
+        "reviewedAt": null,
+        "notes": null
+      }
+    },
+    {
+      "numeroPregunta": 14,
+      "humanReview": {
+        "promptApproved": null,
+        "promptCorrection": null,
+        "optionsApproved": null,
+        "optionsCorrection": {
+          "A": null,
+          "B": null,
+          "C": null,
+          "D": null,
+          "E": null
+        },
+        "correctOptionApproved": null,
+        "correctOptionCorrection": null,
+        "reviewer": null,
+        "reviewedAt": null,
+        "notes": null
+      }
+    },
+    {
+      "numeroPregunta": 15,
+      "humanReview": {
+        "promptApproved": null,
+        "promptCorrection": null,
+        "optionsApproved": null,
+        "optionsCorrection": {
+          "A": null,
+          "B": null,
+          "C": null,
+          "D": null,
+          "E": null
+        },
+        "correctOptionApproved": null,
+        "correctOptionCorrection": null,
+        "reviewer": null,
+        "reviewedAt": null,
+        "notes": null
+      }
+    },
+    {
+      "numeroPregunta": 16,
+      "humanReview": {
+        "promptApproved": null,
+        "promptCorrection": null,
+        "optionsApproved": null,
+        "optionsCorrection": {
+          "A": null,
+          "B": null,
+          "C": null,
+          "D": null,
+          "E": null
+        },
+        "correctOptionApproved": null,
+        "correctOptionCorrection": null,
+        "reviewer": null,
+        "reviewedAt": null,
+        "notes": null
+      }
+    }
+  ]
+}

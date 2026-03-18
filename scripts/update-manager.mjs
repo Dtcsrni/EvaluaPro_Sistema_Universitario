@@ -5,6 +5,7 @@ import crypto from 'node:crypto';
 export function createDefaultUpdateState(currentVersion = '0.0.0') {
   return {
     state: 'idle',
+    flavorId: '',
     channel: 'stable',
     currentVersion: String(currentVersion || '0.0.0'),
     availableVersion: '',
@@ -140,10 +141,22 @@ function parseShaFromText(text) {
   return m ? m[0].toLowerCase() : '';
 }
 
+async function fetchReleaseManifest(fetchImpl, assetUrl) {
+  if (!assetUrl) return null;
+  const res = await fetchImpl(assetUrl, {
+    headers: { Accept: 'application/json', 'User-Agent': 'EvaluaPro-Updater' }
+  });
+  if (!res.ok) {
+    throw new Error(`HTTP ${res.status}`);
+  }
+  return res.json();
+}
+
 export function selectLatestRelease(releases, currentVersion, options = {}) {
   const includePrerelease = options.includePrerelease !== false;
   const channel = String(options.channel || '').trim().toLowerCase();
-  const assetName = String(options.assetName || 'EvaluaPro-Setup.exe');
+  const flavorId = String(options.flavorId || '').trim();
+  const assetName = String(options.assetName || 'EvaluaPro-docente-local-Setup.exe');
   const sha256AssetName = String(options.sha256AssetName || `${assetName}.sha256`);
 
   const list = Array.isArray(releases) ? releases : [];
@@ -165,16 +178,23 @@ export function selectLatestRelease(releases, currentVersion, options = {}) {
 
   const top = candidates[0];
   const assets = Array.isArray(top.release?.assets) ? top.release.assets : [];
-  const installer = assets.find((item) => String(item?.name || '') === assetName) || null;
+  const manifestAsset = assets.find((item) => String(item?.name || '') === 'EvaluaPro-release-manifest.json') || null;
+  let manifestFlavor = null;
+  if (Array.isArray(top.release?.__manifestFlavors) && flavorId) {
+    manifestFlavor = top.release.__manifestFlavors.find((item) => String(item?.flavorId || '') === flavorId) || null;
+  }
+  const effectiveAssetName = String(manifestFlavor?.assetName || assetName);
+  const effectiveShaName = String(manifestFlavor?.sha256AssetName || sha256AssetName);
+  const installer = assets.find((item) => String(item?.name || '') === effectiveAssetName) || null;
   if (!installer) {
     return {
       found: false,
-      error: `Release ${top.version} no incluye asset requerido ${assetName}.`,
+      error: `Release ${top.version} no incluye asset requerido ${effectiveAssetName}.`,
       candidate: top
     };
   }
 
-  const shaAsset = assets.find((item) => String(item?.name || '') === sha256AssetName) || null;
+  const shaAsset = assets.find((item) => String(item?.name || '') === effectiveShaName) || null;
   return {
     found: true,
     error: '',
@@ -184,7 +204,9 @@ export function selectLatestRelease(releases, currentVersion, options = {}) {
       notes: String(top.release?.body || ''),
       installerUrl: String(installer?.browser_download_url || ''),
       shaUrl: shaAsset ? String(shaAsset?.browser_download_url || '') : '',
-      prerelease: Boolean(top.release?.prerelease)
+      prerelease: Boolean(top.release?.prerelease),
+      flavorId: manifestFlavor ? String(manifestFlavor.flavorId || flavorId) : flavorId,
+      manifestUrl: manifestAsset ? String(manifestAsset?.browser_download_url || '') : ''
     }
   };
 }
@@ -198,9 +220,10 @@ export function createUpdateManager(opts = {}) {
   const config = {
     owner: String(opts.owner || ''),
     repo: String(opts.repo || ''),
+    flavorId: String(opts.flavorId || ''),
     channel: String(opts.channel || 'stable'),
-    assetName: String(opts.assetName || 'EvaluaPro-Setup.exe'),
-    sha256AssetName: String(opts.sha256AssetName || `${String(opts.assetName || 'EvaluaPro-Setup.exe')}.sha256`),
+    assetName: String(opts.assetName || 'EvaluaPro-docente-local-Setup.exe'),
+    sha256AssetName: String(opts.sha256AssetName || `${String(opts.assetName || 'EvaluaPro-docente-local-Setup.exe')}.sha256`),
     requireSha256: Boolean(opts.requireSha256),
     feedUrl: String(opts.feedUrl || ''),
     checkRetries: Number(opts.checkRetries || 2),
@@ -212,6 +235,7 @@ export function createUpdateManager(opts = {}) {
   let activeDownloadController = null;
   let state = createDefaultUpdateState(getCurrentVersion());
   state.channel = config.channel;
+  state.flavorId = config.flavorId;
 
   function persistState() {
     if (!statePath) return;
@@ -281,7 +305,22 @@ export function createUpdateManager(opts = {}) {
         headers: { Accept: 'application/vnd.github+json', 'User-Agent': 'EvaluaPro-Updater' }
       }, config.checkRetries);
       const payload = await response.json();
-      const pick = selectLatestRelease(payload, currentVersion, {
+      const enriched = [];
+      for (const release of Array.isArray(payload) ? payload : []) {
+        const assets = Array.isArray(release?.assets) ? release.assets : [];
+        const manifestAsset = assets.find((item) => String(item?.name || '') === 'EvaluaPro-release-manifest.json');
+        if (manifestAsset) {
+          try {
+            const manifest = await fetchReleaseManifest(fetchImpl, String(manifestAsset.browser_download_url || ''));
+            if (Array.isArray(manifest?.flavors)) {
+              release.__manifestFlavors = manifest.flavors;
+            }
+          } catch {}
+        }
+        enriched.push(release);
+      }
+      const pick = selectLatestRelease(enriched, currentVersion, {
+        flavorId: config.flavorId,
         channel: config.channel,
         includePrerelease: config.channel !== 'stable',
         assetName: config.assetName,
@@ -307,6 +346,7 @@ export function createUpdateManager(opts = {}) {
       const candidate = pick.candidate;
       setState({
         state: 'available',
+        flavorId: String(candidate.flavorId || config.flavorId || ''),
         availableVersion: String(candidate.version || ''),
         releaseUrl: String(candidate.releaseUrl || ''),
         notes: String(candidate.notes || ''),

@@ -66,11 +66,17 @@ export function SeccionRegistroEntrega({
   examenesPorFolio
 }: {
   alumnos: Alumno[];
-  onVincular: (folio: string, alumnoId: string) => Promise<unknown>;
+  onVincular: (
+    folio: string,
+    alumnoId: string,
+    opciones?: { acordeonEntregado?: boolean; bonoAcordeon?: number }
+  ) => Promise<unknown>;
   puedeGestionar: boolean;
   avisarSinPermiso: (mensaje: string) => void;
   examenesPorFolio: Map<string, { alumnoId?: string | null }>;
 }) {
+  const BONUS_ACORDEON = 0.25;
+
   type ResultadoLote = {
     id: string;
     nombre: string;
@@ -78,6 +84,11 @@ export function SeccionRegistroEntrega({
     archivo?: File;
     folio?: string;
     alumnoId?: string;
+    sugerenciaAlumnoId?: string;
+    acordeonEntregado?: boolean;
+    bonoAcordeon?: number;
+    previewUrl?: string;
+    previewEncabezadoUrl?: string;
     mensaje?: string;
   };
 
@@ -87,6 +98,9 @@ export function SeccionRegistroEntrega({
   const [vinculando, setVinculando] = useState(false);
   const [procesandoLote, setProcesandoLote] = useState(false);
   const [resultadosLote, setResultadosLote] = useState<ResultadoLote[]>([]);
+  const [indiceMesaTrabajo, setIndiceMesaTrabajo] = useState(0);
+  const [verHojaCompletaMesa, setVerHojaCompletaMesa] = useState(false);
+  const resultadosLoteRef = useRef<ResultadoLote[]>([]);
   const [scanError, setScanError] = useState('');
   const [escaneando, setEscaneando] = useState(false);
   const inputCamRef = useRef<HTMLInputElement | null>(null);
@@ -102,6 +116,12 @@ export function SeccionRegistroEntrega({
 
   const puedeVincular = Boolean(folio.trim() && alumnoId);
   const bloqueoEdicion = !puedeGestionar;
+  const inputCarpetaRef = useRef<HTMLInputElement | null>(null);
+  const ocrModuloRef = useRef<unknown>(null);
+  type OcrResult = { data?: { text?: string } };
+  type OcrModule = {
+    recognize?: (image: string, languages?: string) => Promise<OcrResult>;
+  };
 
   function prepararAudio() {
     if (typeof window === 'undefined') return;
@@ -214,6 +234,104 @@ export function SeccionRegistroEntrega({
     return alumnoDetectado;
   }
 
+  function normalizarTexto(valor: string) {
+    return String(valor || '')
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .toUpperCase()
+      .replace(/[^A-Z0-9\s]/g, ' ')
+      .replace(/\s+/g, ' ')
+      .trim();
+  }
+
+  function tokenizar(valor: string) {
+    return normalizarTexto(valor)
+      .split(' ')
+      .map((t) => t.trim())
+      .filter((t) => t.length >= 3);
+  }
+
+  async function leerTextoOcrNombreGrupo(file: File) {
+    if (typeof window === 'undefined') return '';
+    try {
+      const img = await cargarImagen(file);
+      const ancho = Number((img as HTMLImageElement).naturalWidth || img.width || 0);
+      const alto = Number((img as HTMLImageElement).naturalHeight || img.height || 0);
+      if (ancho <= 0 || alto <= 0) return '';
+
+      const canvas = document.createElement('canvas');
+      canvas.width = ancho;
+      canvas.height = alto;
+      const ctx = canvas.getContext('2d');
+      if (!ctx) return '';
+      ctx.drawImage(img, 0, 0, ancho, alto);
+
+      const topY = Math.max(0, Math.floor(alto * 0.08));
+      const cropH = Math.max(180, Math.floor(alto * 0.34));
+      const cropCanvas = document.createElement('canvas');
+      cropCanvas.width = ancho;
+      cropCanvas.height = cropH;
+      const cropCtx = cropCanvas.getContext('2d');
+      if (!cropCtx) return '';
+      cropCtx.drawImage(canvas, 0, topY, ancho, cropH, 0, 0, ancho, cropH);
+
+      const dataUrl = cropCanvas.toDataURL('image/png');
+      const modulo = (ocrModuloRef.current as OcrModule | null) ?? (await import('tesseract.js'));
+      ocrModuloRef.current = modulo;
+      const recognize = modulo.recognize;
+      if (typeof recognize !== 'function') return '';
+
+      const resultado = await recognize(dataUrl, 'spa+eng');
+      const text = String(resultado?.data?.text ?? '').trim();
+      return text;
+    } catch {
+      return '';
+    }
+  }
+
+  async function sugerirAlumnoPorOcr(file: File) {
+    const textoRaw = await leerTextoOcrNombreGrupo(file);
+    const texto = normalizarTexto(textoRaw);
+    if (!texto) return { alumnoId: '', confidence: 0, motivo: 'Sin texto OCR legible' };
+
+    let mejor: { alumnoId: string; score: number; nombre: string; grupo?: string } | null = null;
+    let segundo = 0;
+
+    for (const alumno of Array.isArray(alumnos) ? alumnos : []) {
+      const alumnoId = String(alumno._id || '').trim();
+      if (!alumnoId) continue;
+
+      let score = 0;
+      const matricula = normalizarTexto(String(alumno.matricula || ''));
+      const grupo = normalizarTexto(String(alumno.grupo || ''));
+      const tokensNombre = tokenizar(String(alumno.nombreCompleto || ''));
+
+      if (matricula && texto.includes(matricula)) score += 6;
+      if (grupo && texto.includes(grupo)) score += 3;
+      for (const tok of tokensNombre.slice(0, 4)) {
+        if (texto.includes(tok)) score += 2;
+      }
+
+      if (!mejor || score > mejor.score) {
+        segundo = mejor?.score ?? 0;
+        mejor = { alumnoId, score, nombre: String(alumno.nombreCompleto || ''), grupo: String(alumno.grupo || '') };
+      } else if (score > segundo) {
+        segundo = score;
+      }
+    }
+
+    if (!mejor || mejor.score < 5 || mejor.score - segundo < 2) {
+      return { alumnoId: '', confidence: 0, motivo: 'Sin coincidencia OCR confiable' };
+    }
+
+    const confidence = Math.min(0.99, Math.max(0.55, mejor.score / 14));
+    return {
+      alumnoId: mejor.alumnoId,
+      confidence,
+      motivo: `Sugerencia OCR: ${mejor.nombre}${mejor.grupo ? ` (${mejor.grupo})` : ''}`
+    };
+  }
+
   function extraerFolioDesdeQr(texto: string) {
     const limpio = String(texto ?? '').trim();
     if (!limpio) return '';
@@ -245,6 +363,28 @@ export function SeccionRegistroEntrega({
       img.src = url;
     });
   }
+
+  const crearPreviewEncabezadoUrl = useCallback(async (file: File): Promise<string> => {
+    const img = await cargarImagen(file);
+    const ancho = Number((img as HTMLImageElement).naturalWidth || img.width || 0);
+    const alto = Number((img as HTMLImageElement).naturalHeight || img.height || 0);
+    if (ancho <= 0 || alto <= 0) return URL.createObjectURL(file);
+
+    const topY = Math.max(0, Math.floor(alto * 0.02));
+    const cropH = Math.max(260, Math.floor(alto * 0.44));
+    const canvas = document.createElement('canvas');
+    canvas.width = ancho;
+    canvas.height = cropH;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return URL.createObjectURL(file);
+    ctx.drawImage(img, 0, topY, ancho, cropH, 0, 0, ancho, cropH);
+
+    const blob = await new Promise<Blob | null>((resolve) => {
+      canvas.toBlob((out) => resolve(out), 'image/jpeg', 0.95);
+    });
+    if (!blob) return URL.createObjectURL(file);
+    return URL.createObjectURL(blob);
+  }, []);
 
   async function leerQrConBarcodeDetector(file: File) {
     if (typeof window === 'undefined') return '';
@@ -414,15 +554,19 @@ export function SeccionRegistroEntrega({
 
     setScanError('');
     setProcesandoLote(true);
+    setIndiceMesaTrabajo(0);
     const itemsIniciales: ResultadoLote[] = files.map((file, indice) => ({
       id: `${Date.now()}-${indice}`,
       nombre: file.name,
       archivo: file,
-      estado: 'procesando'
+      estado: 'procesando',
+      acordeonEntregado: false,
+      bonoAcordeon: BONUS_ACORDEON,
+      previewUrl: URL.createObjectURL(file)
     }));
     setResultadosLote(itemsIniciales);
 
-    let vinculados = 0;
+    let porRevisar = 0;
     let pendientes = 0;
     let conError = 0;
 
@@ -454,21 +598,38 @@ export function SeccionRegistroEntrega({
 
         const alumnoDetectado = await resolverAlumnoPorFolio(folioDetectado);
         if (!alumnoDetectado) {
+          const sugerencia = await sugerirAlumnoPorOcr(file);
           pendientes += 1;
+          porRevisar += 1;
           setResultadosLote((prev) => prev.map((item, idx) => (
             idx === indice
-              ? { ...item, estado: 'pendiente_alumno', folio: folioDetectado, mensaje: 'Selecciona alumno manualmente' }
+              ? {
+                  ...item,
+                  estado: 'pendiente_alumno',
+                  folio: folioDetectado,
+                  sugerenciaAlumnoId: sugerencia.alumnoId || undefined,
+                  alumnoId: sugerencia.alumnoId || undefined,
+                  mensaje: sugerencia.alumnoId
+                    ? `${sugerencia.motivo} · confirma manualmente`
+                    : 'Selecciona alumno manualmente'
+                }
               : item
           )));
           if (!folio.trim()) setFolio(folioDetectado);
+          if (sugerencia.alumnoId && !alumnoId) setAlumnoId(sugerencia.alumnoId);
           continue;
         }
 
-        await onVincular(folioDetectado.trim(), alumnoDetectado);
-        vinculados += 1;
+        porRevisar += 1;
         setResultadosLote((prev) => prev.map((item, idx) => (
           idx === indice
-            ? { ...item, estado: 'vinculado', folio: folioDetectado, alumnoId: alumnoDetectado }
+            ? {
+                ...item,
+                estado: 'pendiente_alumno',
+                folio: folioDetectado,
+                alumnoId: alumnoDetectado,
+                mensaje: 'Alumno preseleccionado por folio; confirma en mesa de trabajo'
+              }
             : item
         )));
       } catch (error) {
@@ -482,7 +643,7 @@ export function SeccionRegistroEntrega({
     }
 
     setProcesandoLote(false);
-    const resumen = `Vinculados: ${vinculados} · Pendientes: ${pendientes} · Errores: ${conError}`;
+    const resumen = `Por revisar: ${porRevisar} · Pendientes: ${pendientes} · Errores: ${conError}`;
     emitToast({ level: conError > 0 ? 'warn' : 'ok', title: 'Lote de entrega', message: resumen, durationMs: 4200 });
   }
 
@@ -498,7 +659,7 @@ export function SeccionRegistroEntrega({
       return { ...item, estado: 'procesando', mensaje: undefined, folio: undefined, alumnoId: undefined };
     }));
 
-    let vinculados = 0;
+    let porRevisar = 0;
     let pendientes = 0;
     let conError = 0;
 
@@ -534,21 +695,38 @@ export function SeccionRegistroEntrega({
 
         const alumnoDetectado = await resolverAlumnoPorFolio(folioDetectado);
         if (!alumnoDetectado) {
+          const sugerencia = await sugerirAlumnoPorOcr(file);
           pendientes += 1;
+          porRevisar += 1;
           setResultadosLote((prev) => prev.map((item) => (
             item.id === itemError.id
-              ? { ...item, estado: 'pendiente_alumno', folio: folioDetectado, mensaje: 'Selecciona alumno manualmente' }
+              ? {
+                  ...item,
+                  estado: 'pendiente_alumno',
+                  folio: folioDetectado,
+                  alumnoId: sugerencia.alumnoId || undefined,
+                  sugerenciaAlumnoId: sugerencia.alumnoId || undefined,
+                  mensaje: sugerencia.alumnoId
+                    ? `${sugerencia.motivo} · confirma manualmente`
+                    : 'Selecciona alumno manualmente'
+                }
               : item
           )));
           if (!folio.trim()) setFolio(folioDetectado);
+          if (sugerencia.alumnoId && !alumnoId) setAlumnoId(sugerencia.alumnoId);
           continue;
         }
 
-        await onVincular(folioDetectado.trim(), alumnoDetectado);
-        vinculados += 1;
+        porRevisar += 1;
         setResultadosLote((prev) => prev.map((item) => (
           item.id === itemError.id
-            ? { ...item, estado: 'vinculado', folio: folioDetectado, alumnoId: alumnoDetectado, mensaje: undefined }
+            ? {
+                ...item,
+                estado: 'pendiente_alumno',
+                folio: folioDetectado,
+                alumnoId: alumnoDetectado,
+                mensaje: 'Alumno preseleccionado por folio; confirma en mesa de trabajo'
+              }
             : item
         )));
       } catch (error) {
@@ -562,14 +740,122 @@ export function SeccionRegistroEntrega({
     }
 
     setProcesandoLote(false);
-    const resumen = `Reintento · Vinculados: ${vinculados} · Pendientes: ${pendientes} · Errores: ${conError}`;
+    const resumen = `Reintento · Por revisar: ${porRevisar} · Pendientes: ${pendientes} · Errores: ${conError}`;
     emitToast({ level: conError > 0 ? 'warn' : 'ok', title: 'Lote de entrega', message: resumen, durationMs: 4200 });
   }
 
   function limpiarResultadosLote() {
     if (procesandoLote) return;
+    for (const item of resultadosLote) {
+      if (item.previewUrl) {
+        URL.revokeObjectURL(item.previewUrl);
+      }
+      if (item.previewEncabezadoUrl) {
+        URL.revokeObjectURL(item.previewEncabezadoUrl);
+      }
+    }
     setResultadosLote([]);
+    setIndiceMesaTrabajo(0);
     setScanError('');
+  }
+
+  const idsPendientesMesa = useMemo(
+    () => resultadosLote.filter((item) => item.estado === 'pendiente_alumno').map((item) => item.id),
+    [resultadosLote]
+  );
+
+  useEffect(() => {
+    if (indiceMesaTrabajo >= idsPendientesMesa.length) {
+      setIndiceMesaTrabajo(Math.max(0, idsPendientesMesa.length - 1));
+    }
+  }, [idsPendientesMesa.length, indiceMesaTrabajo]);
+
+  const itemMesaActual = useMemo(
+    () => resultadosLote.find((item) => item.id === idsPendientesMesa[indiceMesaTrabajo]) ?? null,
+    [resultadosLote, idsPendientesMesa, indiceMesaTrabajo]
+  );
+
+  useEffect(() => {
+    setVerHojaCompletaMesa(false);
+  }, [itemMesaActual?.id]);
+
+  useEffect(() => {
+    resultadosLoteRef.current = resultadosLote;
+  }, [resultadosLote]);
+
+  useEffect(() => {
+    return () => {
+      for (const item of resultadosLoteRef.current) {
+        if (item.previewUrl) URL.revokeObjectURL(item.previewUrl);
+        if (item.previewEncabezadoUrl) URL.revokeObjectURL(item.previewEncabezadoUrl);
+      }
+    };
+  }, []);
+
+  const actualizarItemLote = useCallback((itemId: string, patch: Partial<ResultadoLote>) => {
+    setResultadosLote((prev) => prev.map((item) => (item.id === itemId ? { ...item, ...patch } : item)));
+  }, []);
+
+  useEffect(() => {
+    if (!itemMesaActual || itemMesaActual.previewEncabezadoUrl || !itemMesaActual.archivo) return;
+    let cancelado = false;
+
+    void crearPreviewEncabezadoUrl(itemMesaActual.archivo)
+      .then((url) => {
+        if (cancelado) {
+          URL.revokeObjectURL(url);
+          return;
+        }
+        actualizarItemLote(itemMesaActual.id, { previewEncabezadoUrl: url });
+      })
+      .catch(() => {
+        // ignore
+      });
+
+    return () => {
+      cancelado = true;
+    };
+  }, [actualizarItemLote, crearPreviewEncabezadoUrl, itemMesaActual]);
+
+  async function vincularItemMesaTrabajoActual() {
+    if (!itemMesaActual) return;
+    const folioValor = String(itemMesaActual.folio || '').trim();
+    const alumnoValor = String(itemMesaActual.alumnoId || '').trim();
+    if (!folioValor || !alumnoValor) {
+      emitToast({
+        level: 'warn',
+        title: 'Mesa de trabajo',
+        message: 'Selecciona un alumno antes de vincular esta imagen.',
+        durationMs: 2600
+      });
+      return;
+    }
+    try {
+      await onVincular(folioValor, alumnoValor, {
+        acordeonEntregado: Boolean(itemMesaActual.acordeonEntregado),
+        bonoAcordeon: itemMesaActual.acordeonEntregado
+          ? Number(itemMesaActual.bonoAcordeon || BONUS_ACORDEON)
+          : 0
+      });
+      actualizarItemLote(itemMesaActual.id, {
+        estado: 'vinculado',
+        mensaje: itemMesaActual.acordeonEntregado
+          ? `Vinculado con acordeón (+${Number(itemMesaActual.bonoAcordeon || BONUS_ACORDEON).toFixed(2)})`
+          : 'Vinculado'
+      });
+      emitToast({ level: 'ok', title: 'Entrega', message: 'Ítem vinculado', durationMs: 1800 });
+    } catch (error) {
+      actualizarItemLote(itemMesaActual.id, {
+        estado: 'error',
+        mensaje: mensajeDeError(error, 'No se pudo vincular este ítem')
+      });
+      emitToast({
+        level: 'error',
+        title: 'Entrega',
+        message: mensajeDeError(error, 'No se pudo vincular este ítem'),
+        durationMs: 4200
+      });
+    }
   }
 
   function abrirCamara() {
@@ -750,6 +1036,25 @@ export function SeccionRegistroEntrega({
             }}
           />
         </label>
+
+        <label className="campo">
+          Carpeta de imagenes (bulk)
+          <input
+            ref={inputCarpetaRef}
+            type="file"
+            accept="image/*"
+            multiple
+            disabled={bloqueoEdicion || procesandoLote}
+            {...({ webkitdirectory: 'true', directory: 'true' } as unknown as Record<string, string>)}
+            onChange={(event) => {
+              const archivos = Array.from(event.currentTarget.files ?? []).filter((f) => /^image\//i.test(String(f.type || '')));
+              if (archivos.length > 0) {
+                void procesarLoteImagenes(archivos);
+              }
+              event.currentTarget.value = '';
+            }}
+          />
+        </label>
         {procesandoLote && (
           <p className="mensaje" role="status">
             <Spinner /> Procesando lote de imagenes…
@@ -758,6 +1063,103 @@ export function SeccionRegistroEntrega({
         {resultadosLote.length > 0 && (
           <div className="resultado">
             <h3>Resultado del lote</h3>
+            {itemMesaActual && (
+              <div className="item-glass entregas-vinculacion__item">
+                <div className="item-row">
+                  <div>
+                    <div className="item-title">Mesa de trabajo · {indiceMesaTrabajo + 1}/{idsPendientesMesa.length}</div>
+                    <div className="item-sub">{itemMesaActual.nombre}</div>
+                    {itemMesaActual.folio && <div className="item-sub">Folio: {itemMesaActual.folio}</div>}
+                    {itemMesaActual.mensaje && <div className="item-sub">{itemMesaActual.mensaje}</div>}
+                  </div>
+                </div>
+                {(itemMesaActual.previewEncabezadoUrl || itemMesaActual.previewUrl) && (
+                  <div className="entregas-vinculacion__preview">
+                    <div className="item-row entregas-vinculacion__preview-header">
+                      <div className="item-sub">
+                        {verHojaCompletaMesa ? 'Hoja completa' : 'Encabezado del examen (vista ampliada)'}
+                      </div>
+                      <div className="item-actions">
+                        <Boton
+                          type="button"
+                          variante="secundario"
+                          onClick={() => setVerHojaCompletaMesa((v) => !v)}
+                        >
+                          {verHojaCompletaMesa ? 'Ver encabezado' : 'Ver hoja completa'}
+                        </Boton>
+                      </div>
+                    </div>
+                    <img
+                      src={verHojaCompletaMesa
+                        ? itemMesaActual.previewUrl
+                        : (itemMesaActual.previewEncabezadoUrl || itemMesaActual.previewUrl)}
+                      alt={verHojaCompletaMesa ? `Captura completa ${itemMesaActual.nombre}` : `Encabezado ${itemMesaActual.nombre}`}
+                      className="entregas-vinculacion__preview-image"
+                    />
+                  </div>
+                )}
+                <div className="entregas-vinculacion__form entregas-vinculacion__form--spaced">
+                  <label className="campo">
+                    Alumno
+                    <select
+                      value={String(itemMesaActual.alumnoId ?? '')}
+                      onChange={(event) => actualizarItemLote(itemMesaActual.id, { alumnoId: event.target.value })}
+                      disabled={bloqueoEdicion || procesandoLote}
+                    >
+                      <option value="">Selecciona</option>
+                      {alumnos.map((alumno) => (
+                        <option key={alumno._id} value={alumno._id}>
+                          {alumno.matricula} - {alumno.nombreCompleto}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                  <label className="campo entregas-vinculacion__checkbox-field">
+                    <span>Acordeón entregado</span>
+                    <label className="entregas-vinculacion__checkbox-label">
+                      <input
+                        type="checkbox"
+                        checked={Boolean(itemMesaActual.acordeonEntregado)}
+                        onChange={(event) =>
+                          actualizarItemLote(itemMesaActual.id, {
+                            acordeonEntregado: event.target.checked,
+                            bonoAcordeon: BONUS_ACORDEON
+                          })
+                        }
+                        disabled={bloqueoEdicion || procesandoLote}
+                      />
+                      <span>Aplicar +{BONUS_ACORDEON.toFixed(2)} en calificación de examen</span>
+                    </label>
+                  </label>
+                </div>
+                <div className="item-actions entregas-vinculacion__nav">
+                  <Boton
+                    type="button"
+                    variante="secundario"
+                    disabled={bloqueoEdicion || procesandoLote || indiceMesaTrabajo <= 0}
+                    onClick={() => setIndiceMesaTrabajo((actual) => Math.max(0, actual - 1))}
+                  >
+                    Anterior
+                  </Boton>
+                  <Boton
+                    type="button"
+                    icono={<Icono nombre="recepcion" />}
+                    disabled={bloqueoEdicion || procesandoLote || !itemMesaActual.folio || !itemMesaActual.alumnoId}
+                    onClick={() => void vincularItemMesaTrabajoActual()}
+                  >
+                    Vincular y continuar
+                  </Boton>
+                  <Boton
+                    type="button"
+                    variante="secundario"
+                    disabled={bloqueoEdicion || procesandoLote || indiceMesaTrabajo >= idsPendientesMesa.length - 1}
+                    onClick={() => setIndiceMesaTrabajo((actual) => Math.min(idsPendientesMesa.length - 1, actual + 1))}
+                  >
+                    Siguiente
+                  </Boton>
+                </div>
+              </div>
+            )}
             <div className="item-actions">
               {resultadosLote.some((item) => item.estado === 'error') && (
                 <Boton
@@ -792,6 +1194,8 @@ export function SeccionRegistroEntrega({
                           {item.estado === 'error' && 'Error'}
                         </div>
                         {item.folio && <div className="item-sub">Folio: {item.folio}</div>}
+                        {item.alumnoId && <div className="item-sub">Alumno seleccionado: {item.alumnoId}</div>}
+                        {item.acordeonEntregado && <div className="item-sub">Acordeón: +{Number(item.bonoAcordeon || BONUS_ACORDEON).toFixed(2)}</div>}
                         {item.mensaje && <div className="item-sub">{item.mensaje}</div>}
                       </div>
                     </div>

@@ -1,0 +1,891 @@
+{
+  "numeroPagina": 1,
+  "qr": {
+    "texto": "EXAMEN:TV4-SYNTH-004:P1:TV4:KI:QR-H1-V1:TQ:16:QD:1:QH:7:VH:9F7964074B97:AK:60B424D5475B:QV:A41F34.29EE3A.9041AD.4F439E.325111.C735EB.C8C6C8:OV:01234.01234.01234.01234.01234.01234.01234:SG:H1343B077CB9A2CE2D358BBE25",
+    "x": 505.5,
+    "y": 30,
+    "size": 78,
+    "padding": 6
+  },
+  "marcasPagina": {
+    "tipo": "cuadrados",
+    "size": 10.5,
+    "quietZone": 2.25,
+    "tl": {
+      "x": 28.5,
+      "y": 28.5
+    },
+    "tr": {
+      "x": 573,
+      "y": 28.5
+    },
+    "bl": {
+      "x": 28.5,
+      "y": 753
+    },
+    "br": {
+      "x": 573,
+      "y": 753
+    }
+  },
+  "preguntas": [
+    {
+      "numeroPregunta": 1,
+      "idPregunta": "tv4-q1",
+      "opciones": [
+        {
+          "letra": "A",
+          "x": 543.75,
+          "y": 153
+        },
+        {
+          "letra": "B",
+          "x": 543.75,
+          "y": 164.25
+        },
+        {
+          "letra": "C",
+          "x": 543.75,
+          "y": 175.5
+        },
+        {
+          "letra": "D",
+          "x": 543.75,
+          "y": 186.75
+        },
+        {
+          "letra": "E",
+          "x": 543.75,
+          "y": 198
+        }
+      ],
+      "textRuns": [
+        {
+          "tipo": "texto",
+          "fuente": "Helvetica-Bold",
+          "size": 11.25,
+          "lineHeight": 14.25,
+          "bbox": {
+            "x": 51,
+            "y": 133.5,
+            "width": 439.5,
+            "height": 42.75
+          }
+        }
+      ],
+      "bboxPregunta": {
+        "x": 21,
+        "y": 133.5,
+        "width": 570,
+        "height": 78
+      },
+      "cajaOmr": {
+        "x": 525,
+        "y": 135,
+        "width": 66,
+        "height": 75
+      },
+      "perfilOmr": {
+        "radio": 6,
+        "pasoY": 11.25,
+        "cajaAncho": 66
+      },
+      "fiduciales": {
+        "leftTop": {
+          "x": 531,
+          "y": 141
+        },
+        "leftBottom": {
+          "x": 531,
+          "y": 204
+        },
+        "rightTop": {
+          "x": 585,
+          "y": 141
+        },
+        "rightBottom": {
+          "x": 585,
+          "y": 204
+        },
+        "leftMid": {
+          "x": 531,
+          "y": 172.5
+        },
+        "rightMid": {
+          "x": 585,
+          "y": 172.5
+        }
+      }
+    },
+    {
+      "numeroPregunta": 2,
+      "idPregunta": "tv4-q2",
+      "opciones": [
+        {
+          "letra": "A",
+          "x": 543.75,
+          "y": 235.5
+        },
+        {
+          "letra": "B",
+          "x": 543.75,
+          "y": 246.75
+        },
+        {
+          "letra": "C",
+          "x": 543.75,
+          "y": 258
+        },
+        {
+          "letra": "D",
+          "x": 543.75,
+          "y": 269.25
+        },
+        {
+          "letra": "E",
+          "x": 543.75,
+          "y": 280.5
+        }
+      ],
+      "textRuns": [
+        {
+          "tipo": "texto",
+          "fuente": "Helvetica-Bold",
+          "size": 11.25,
+          "lineHeight": 14.25,
+          "bbox": {
+            "x": 51,
+            "y": 216,
+            "width": 439.5,
+            "height": 42.75
+          }
+        }
+      ],
+      "bboxPregunta": {
+        "x": 21,
+        "y": 216,
+        "width": 570,
+        "height": 78
+      },
+      "cajaOmr": {
+        "x": 525,
+        "y": 217.5,
+        "width": 66,
+        "height": 75
+      },
+      "perfilOmr": {
+        "radio": 6,
+        "pasoY": 11.25,
+        "cajaAncho": 66
+      },
+      "fiduciales": {
+        "leftTop": {
+          "x": 531,
+          "y": 223.5
+        },
+        "leftBottom": {
+          "x": 531,
+          "y": 286.5
+        },
+        "rightTop": {
+          "x": 585,
+          "y": 223.5
+        },
+        "rightBottom": {
+          "x": 585,
+          "y": 286.5
+        },
+        "leftMid": {
+          "x": 531,
+          "y": 255
+        },
+        "rightMid": {
+          "x": 585,
+          "y": 255
+        }
+      }
+    },
+    {
+      "numeroPregunta": 3,
+      "idPregunta": "tv4-q3",
+      "opciones": [
+        {
+          "letra": "A",
+          "x": 543.75,
+          "y": 318
+        },
+        {
+          "letra": "B",
+          "x": 543.75,
+          "y": 329.25
+        },
+        {
+          "letra": "C",
+          "x": 543.75,
+          "y": 340.5
+        },
+        {
+          "letra": "D",
+          "x": 543.75,
+          "y": 351.75
+        },
+        {
+          "letra": "E",
+          "x": 543.75,
+          "y": 363
+        }
+      ],
+      "textRuns": [
+        {
+          "tipo": "texto",
+          "fuente": "Helvetica-Bold",
+          "size": 11.25,
+          "lineHeight": 14.25,
+          "bbox": {
+            "x": 51,
+            "y": 298.5,
+            "width": 439.5,
+            "height": 42.75
+          }
+        }
+      ],
+      "bboxPregunta": {
+        "x": 21,
+        "y": 298.5,
+        "width": 570,
+        "height": 78
+      },
+      "cajaOmr": {
+        "x": 525,
+        "y": 300,
+        "width": 66,
+        "height": 75
+      },
+      "perfilOmr": {
+        "radio": 6,
+        "pasoY": 11.25,
+        "cajaAncho": 66
+      },
+      "fiduciales": {
+        "leftTop": {
+          "x": 531,
+          "y": 306
+        },
+        "leftBottom": {
+          "x": 531,
+          "y": 369
+        },
+        "rightTop": {
+          "x": 585,
+          "y": 306
+        },
+        "rightBottom": {
+          "x": 585,
+          "y": 369
+        },
+        "leftMid": {
+          "x": 531,
+          "y": 337.5
+        },
+        "rightMid": {
+          "x": 585,
+          "y": 337.5
+        }
+      }
+    },
+    {
+      "numeroPregunta": 4,
+      "idPregunta": "tv4-q4",
+      "opciones": [
+        {
+          "letra": "A",
+          "x": 543.75,
+          "y": 400.5
+        },
+        {
+          "letra": "B",
+          "x": 543.75,
+          "y": 411.75
+        },
+        {
+          "letra": "C",
+          "x": 543.75,
+          "y": 423
+        },
+        {
+          "letra": "D",
+          "x": 543.75,
+          "y": 434.25
+        },
+        {
+          "letra": "E",
+          "x": 543.75,
+          "y": 445.5
+        }
+      ],
+      "textRuns": [
+        {
+          "tipo": "texto",
+          "fuente": "Helvetica-Bold",
+          "size": 11.25,
+          "lineHeight": 14.25,
+          "bbox": {
+            "x": 51,
+            "y": 381,
+            "width": 439.5,
+            "height": 42.75
+          }
+        }
+      ],
+      "bboxPregunta": {
+        "x": 21,
+        "y": 381,
+        "width": 570,
+        "height": 78
+      },
+      "cajaOmr": {
+        "x": 525,
+        "y": 382.5,
+        "width": 66,
+        "height": 75
+      },
+      "perfilOmr": {
+        "radio": 6,
+        "pasoY": 11.25,
+        "cajaAncho": 66
+      },
+      "fiduciales": {
+        "leftTop": {
+          "x": 531,
+          "y": 388.5
+        },
+        "leftBottom": {
+          "x": 531,
+          "y": 451.5
+        },
+        "rightTop": {
+          "x": 585,
+          "y": 388.5
+        },
+        "rightBottom": {
+          "x": 585,
+          "y": 451.5
+        },
+        "leftMid": {
+          "x": 531,
+          "y": 420
+        },
+        "rightMid": {
+          "x": 585,
+          "y": 420
+        }
+      }
+    },
+    {
+      "numeroPregunta": 5,
+      "idPregunta": "tv4-q5",
+      "opciones": [
+        {
+          "letra": "A",
+          "x": 543.75,
+          "y": 483
+        },
+        {
+          "letra": "B",
+          "x": 543.75,
+          "y": 494.25
+        },
+        {
+          "letra": "C",
+          "x": 543.75,
+          "y": 505.5
+        },
+        {
+          "letra": "D",
+          "x": 543.75,
+          "y": 516.75
+        },
+        {
+          "letra": "E",
+          "x": 543.75,
+          "y": 528
+        }
+      ],
+      "textRuns": [
+        {
+          "tipo": "texto",
+          "fuente": "Helvetica-Bold",
+          "size": 11.25,
+          "lineHeight": 14.25,
+          "bbox": {
+            "x": 51,
+            "y": 463.5,
+            "width": 439.5,
+            "height": 42.75
+          }
+        }
+      ],
+      "bboxPregunta": {
+        "x": 21,
+        "y": 463.5,
+        "width": 570,
+        "height": 78
+      },
+      "cajaOmr": {
+        "x": 525,
+        "y": 465,
+        "width": 66,
+        "height": 75
+      },
+      "perfilOmr": {
+        "radio": 6,
+        "pasoY": 11.25,
+        "cajaAncho": 66
+      },
+      "fiduciales": {
+        "leftTop": {
+          "x": 531,
+          "y": 471
+        },
+        "leftBottom": {
+          "x": 531,
+          "y": 534
+        },
+        "rightTop": {
+          "x": 585,
+          "y": 471
+        },
+        "rightBottom": {
+          "x": 585,
+          "y": 534
+        },
+        "leftMid": {
+          "x": 531,
+          "y": 502.5
+        },
+        "rightMid": {
+          "x": 585,
+          "y": 502.5
+        }
+      }
+    },
+    {
+      "numeroPregunta": 6,
+      "idPregunta": "tv4-q6",
+      "opciones": [
+        {
+          "letra": "A",
+          "x": 543.75,
+          "y": 565.5
+        },
+        {
+          "letra": "B",
+          "x": 543.75,
+          "y": 576.75
+        },
+        {
+          "letra": "C",
+          "x": 543.75,
+          "y": 588
+        },
+        {
+          "letra": "D",
+          "x": 543.75,
+          "y": 599.25
+        },
+        {
+          "letra": "E",
+          "x": 543.75,
+          "y": 610.5
+        }
+      ],
+      "textRuns": [
+        {
+          "tipo": "texto",
+          "fuente": "Helvetica-Bold",
+          "size": 11.25,
+          "lineHeight": 14.25,
+          "bbox": {
+            "x": 51,
+            "y": 546,
+            "width": 439.5,
+            "height": 42.75
+          }
+        }
+      ],
+      "bboxPregunta": {
+        "x": 21,
+        "y": 546,
+        "width": 570,
+        "height": 78
+      },
+      "cajaOmr": {
+        "x": 525,
+        "y": 547.5,
+        "width": 66,
+        "height": 75
+      },
+      "perfilOmr": {
+        "radio": 6,
+        "pasoY": 11.25,
+        "cajaAncho": 66
+      },
+      "fiduciales": {
+        "leftTop": {
+          "x": 531,
+          "y": 553.5
+        },
+        "leftBottom": {
+          "x": 531,
+          "y": 616.5
+        },
+        "rightTop": {
+          "x": 585,
+          "y": 553.5
+        },
+        "rightBottom": {
+          "x": 585,
+          "y": 616.5
+        },
+        "leftMid": {
+          "x": 531,
+          "y": 585
+        },
+        "rightMid": {
+          "x": 585,
+          "y": 585
+        }
+      }
+    },
+    {
+      "numeroPregunta": 7,
+      "idPregunta": "tv4-q7",
+      "opciones": [
+        {
+          "letra": "A",
+          "x": 543.75,
+          "y": 648
+        },
+        {
+          "letra": "B",
+          "x": 543.75,
+          "y": 659.25
+        },
+        {
+          "letra": "C",
+          "x": 543.75,
+          "y": 670.5
+        },
+        {
+          "letra": "D",
+          "x": 543.75,
+          "y": 681.75
+        },
+        {
+          "letra": "E",
+          "x": 543.75,
+          "y": 693
+        }
+      ],
+      "textRuns": [
+        {
+          "tipo": "texto",
+          "fuente": "Helvetica-Bold",
+          "size": 11.25,
+          "lineHeight": 14.25,
+          "bbox": {
+            "x": 51,
+            "y": 628.5,
+            "width": 439.5,
+            "height": 42.75
+          }
+        }
+      ],
+      "bboxPregunta": {
+        "x": 21,
+        "y": 628.5,
+        "width": 570,
+        "height": 78
+      },
+      "cajaOmr": {
+        "x": 525,
+        "y": 630,
+        "width": 66,
+        "height": 75
+      },
+      "perfilOmr": {
+        "radio": 6,
+        "pasoY": 11.25,
+        "cajaAncho": 66
+      },
+      "fiduciales": {
+        "leftTop": {
+          "x": 531,
+          "y": 636
+        },
+        "leftBottom": {
+          "x": 531,
+          "y": 699
+        },
+        "rightTop": {
+          "x": 585,
+          "y": 636
+        },
+        "rightBottom": {
+          "x": 585,
+          "y": 699
+        },
+        "leftMid": {
+          "x": 531,
+          "y": 667.5
+        },
+        "rightMid": {
+          "x": 585,
+          "y": 667.5
+        }
+      }
+    }
+  ],
+  "layoutDebug": {
+    "engine": "playwright-html-v1",
+    "layoutTemplateVersion": 10,
+    "pageShell": {
+      "x": 21,
+      "y": 21,
+      "width": 570,
+      "height": 750
+    },
+    "header": {
+      "x": 21,
+      "y": 21,
+      "width": 570,
+      "height": 108
+    },
+    "qr": {
+      "x": 505.5,
+      "y": 30,
+      "width": 78,
+      "height": 78
+    },
+    "headerTextBlocks": [
+      {
+        "id": "logo-izquierdo-box",
+        "x": 34.5,
+        "y": 34.5,
+        "width": 54,
+        "height": 54
+      },
+      {
+        "id": "titulo-box",
+        "x": 99,
+        "y": 30,
+        "width": 295.5,
+        "height": 58.5
+      },
+      {
+        "id": "logo-derecho-box",
+        "x": 445.5,
+        "y": 34.5,
+        "width": 45,
+        "height": 45
+      },
+      {
+        "id": "qr-box",
+        "x": 505.5,
+        "y": 30,
+        "width": 78,
+        "height": 78
+      },
+      {
+        "id": "meta-box",
+        "x": 99,
+        "y": 87,
+        "width": 295.5,
+        "height": 12
+      },
+      {
+        "id": "student-box",
+        "x": 99,
+        "y": 102,
+        "width": 400.5,
+        "height": 13.5
+      },
+      {
+        "id": "group-box",
+        "x": 99,
+        "y": 117,
+        "width": 61.5,
+        "height": 13.5
+      }
+    ],
+    "lineHeightViolations": [],
+    "contentStartY": 133.5,
+    "contentEndY": 711,
+    "headerSlots": [
+      {
+        "id": "logo-izquierdo-box",
+        "x": 34.5,
+        "y": 34.5,
+        "width": 54,
+        "height": 54
+      },
+      {
+        "id": "titulo-box",
+        "x": 99,
+        "y": 30,
+        "width": 295.5,
+        "height": 58.5
+      },
+      {
+        "id": "logo-derecho-box",
+        "x": 445.5,
+        "y": 34.5,
+        "width": 45,
+        "height": 45
+      },
+      {
+        "id": "qr-box",
+        "x": 505.5,
+        "y": 30,
+        "width": 78,
+        "height": 78
+      },
+      {
+        "id": "meta-box",
+        "x": 99,
+        "y": 87,
+        "width": 295.5,
+        "height": 12
+      },
+      {
+        "id": "student-box",
+        "x": 99,
+        "y": 102,
+        "width": 400.5,
+        "height": 13.5
+      },
+      {
+        "id": "group-box",
+        "x": 99,
+        "y": 117,
+        "width": 61.5,
+        "height": 13.5
+      }
+    ],
+    "contentShell": {
+      "x": 21,
+      "y": 133.5,
+      "width": 570,
+      "height": 606
+    },
+    "footerShell": {
+      "x": 21,
+      "y": 739.5,
+      "width": 570,
+      "height": 31.5
+    },
+    "questionBlockBoxes": [
+      {
+        "id": "tv4-q1",
+        "x": 21,
+        "y": 133.5,
+        "width": 570,
+        "height": 78
+      },
+      {
+        "id": "tv4-q2",
+        "x": 21,
+        "y": 216,
+        "width": 570,
+        "height": 78
+      },
+      {
+        "id": "tv4-q3",
+        "x": 21,
+        "y": 298.5,
+        "width": 570,
+        "height": 78
+      },
+      {
+        "id": "tv4-q4",
+        "x": 21,
+        "y": 381,
+        "width": 570,
+        "height": 78
+      },
+      {
+        "id": "tv4-q5",
+        "x": 21,
+        "y": 463.5,
+        "width": 570,
+        "height": 78
+      },
+      {
+        "id": "tv4-q6",
+        "x": 21,
+        "y": 546,
+        "width": 570,
+        "height": 78
+      },
+      {
+        "id": "tv4-q7",
+        "x": 21,
+        "y": 628.5,
+        "width": 570,
+        "height": 78
+      }
+    ],
+    "omrPanelBoxes": [
+      {
+        "id": "tv4-q1",
+        "x": 525,
+        "y": 135,
+        "width": 66,
+        "height": 75
+      },
+      {
+        "id": "tv4-q2",
+        "x": 525,
+        "y": 217.5,
+        "width": 66,
+        "height": 75
+      },
+      {
+        "id": "tv4-q3",
+        "x": 525,
+        "y": 300,
+        "width": 66,
+        "height": 75
+      },
+      {
+        "id": "tv4-q4",
+        "x": 525,
+        "y": 382.5,
+        "width": 66,
+        "height": 75
+      },
+      {
+        "id": "tv4-q5",
+        "x": 525,
+        "y": 465,
+        "width": 66,
+        "height": 75
+      },
+      {
+        "id": "tv4-q6",
+        "x": 525,
+        "y": 547.5,
+        "width": 66,
+        "height": 75
+      },
+      {
+        "id": "tv4-q7",
+        "x": 525,
+        "y": 630,
+        "width": 66,
+        "height": 75
+      }
+    ],
+    "collisionBoxes": []
+  }
+}

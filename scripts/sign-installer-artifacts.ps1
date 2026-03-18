@@ -14,6 +14,10 @@ if (-not (Test-Path $InstallerDir)) {
   throw "No existe carpeta de instaladores: $InstallerDir"
 }
 
+$root = (Resolve-Path (Join-Path $PSScriptRoot '..')).Path
+$catalogPath = Join-Path $root 'config\installer-flavors.json'
+$catalog = Get-Content -Path $catalogPath -Raw -Encoding utf8 | ConvertFrom-Json
+
 $certBase64 = [string]$env:EVALUAPRO_SIGN_CERT_BASE64
 $certPassword = [string]$env:EVALUAPRO_SIGN_CERT_PASSWORD
 $timestampUrl = [string]$env:EVALUAPRO_SIGN_TIMESTAMP_URL
@@ -91,11 +95,15 @@ $pfxPath = Join-Path $env:TEMP ('evaluapro-sign-' + [Guid]::NewGuid().ToString('
 try {
   [IO.File]::WriteAllBytes($pfxPath, (ConvertFrom-PossiblyWrappedBase64 -RawValue $certBase64))
 
-  $targets = @(
-    (Join-Path $InstallerDir 'EvaluaPro.msi'),
-    (Join-Path $InstallerDir 'EvaluaPro-Setup.exe'),
-    (Join-Path $InstallerDir 'EvaluaPro-InstallerHub.exe')
-  ) | Where-Object { Test-Path $_ }
+  $targets = @()
+  foreach ($flavor in $catalog.flavors) {
+    $targets += @(
+      (Join-Path $InstallerDir ([string]$flavor.msiName)),
+      (Join-Path $InstallerDir ([string]$flavor.bundleName)),
+      (Join-Path $InstallerDir ([string]$flavor.installerHubExeName))
+    )
+  }
+  $targets = $targets | Select-Object -Unique | Where-Object { Test-Path $_ }
 
   if ($targets.Count -eq 0) {
     throw 'No hay artefactos para firmar.'

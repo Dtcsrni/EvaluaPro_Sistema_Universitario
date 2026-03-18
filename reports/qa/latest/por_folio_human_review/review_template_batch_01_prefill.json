@@ -1,0 +1,355 @@
+{
+  "generatedAt": "2026-03-05T09:04:11.293Z",
+  "status": "pendiente_revision_humana_batch_01",
+  "scope": "preguntas_criticas_baja_confianza",
+  "instructions": [
+    "Si el enunciado canónico coincide con la foto, deja promptApproved=true.",
+    "Si detectas diferencia, pon promptApproved=false y llena promptCorrection.",
+    "Si las opciones canónicas coinciden, deja optionsApproved=true.",
+    "Si hay diferencia en alguna opción, pon optionsApproved=false y llena solo opciones corregidas.",
+    "Si la respuesta correcta canónica coincide, deja correctOptionApproved=true.",
+    "Si no coincide, pon correctOptionApproved=false y llena correctOptionCorrection con A|B|C|D|E."
+  ],
+  "questions": [
+    {
+      "numeroPregunta": 9,
+      "pagina": 2,
+      "prioridad": "alta",
+      "confidence": 0.4341,
+      "canonical": {
+        "prompt": "En el contexto de pseudocódigo, ¿qué parte se considera el argumento de la sentencia de salida? Ejemplo: Imprimir \"Hola\"",
+        "options": {
+          "A": "No existe argumento en sentencias de salida",
+          "B": "Todo el renglón completo es el argumento",
+          "C": "Imprimir",
+          "D": "\"Hola\"",
+          "E": "El punto y coma (;)"
+        },
+        "correctOption": "D"
+      },
+      "imagenPrimaria": {
+        "captureId": "503CF7FA-P2-P02_CamScanner 03-03-2026 02.24_24",
+        "imagePath": "v:\\Software\\Generador_Examenes_Universitarios_MERN\\sistema-evaluacion-universitaria\\omr_samples_tv3_real_por_folio\\images\\503CF7FA-P2-C1.jpg",
+        "vscodeUri": "vscode://file/v:/Software/Generador_Examenes_Universitarios_MERN/sistema-evaluacion-universitaria/omr_samples_tv3_real_por_folio/images/503CF7FA-P2-C1.jpg"
+      },
+      "imagenesRespaldo": [
+        {
+          "captureId": "5EA00A22-P2-P02_CamScanner 03-03-2026 02.24_8",
+          "imagePath": "v:\\Software\\Generador_Examenes_Universitarios_MERN\\sistema-evaluacion-universitaria\\omr_samples_tv3_real_por_folio\\images\\5EA00A22-P2-C1.jpg",
+          "vscodeUri": "vscode://file/v:/Software/Generador_Examenes_Universitarios_MERN/sistema-evaluacion-universitaria/omr_samples_tv3_real_por_folio/images/5EA00A22-P2-C1.jpg"
+        },
+        {
+          "captureId": "54BC4954-P2-P02_CamScanner 03-03-2026 02.24_12",
+          "imagePath": "v:\\Software\\Generador_Examenes_Universitarios_MERN\\sistema-evaluacion-universitaria\\omr_samples_tv3_real_por_folio\\images\\54BC4954-P2-C1.jpg",
+          "vscodeUri": "vscode://file/v:/Software/Generador_Examenes_Universitarios_MERN/sistema-evaluacion-universitaria/omr_samples_tv3_real_por_folio/images/54BC4954-P2-C1.jpg"
+        }
+      ],
+      "visualEvidence": [
+        {
+          "captureId": "503CF7FA-P2-P02_CamScanner 03-03-2026 02.24_24",
+          "imagePath": "v:\\Software\\Generador_Examenes_Universitarios_MERN\\sistema-evaluacion-universitaria\\omr_samples_tv3_real_por_folio\\images\\503CF7FA-P2-C1.jpg",
+          "vscodeUri": "vscode://file/v:/Software/Generador_Examenes_Universitarios_MERN/sistema-evaluacion-universitaria/omr_samples_tv3_real_por_folio/images/503CF7FA-P2-C1.jpg"
+        },
+        {
+          "captureId": "5EA00A22-P2-P02_CamScanner 03-03-2026 02.24_8",
+          "imagePath": "v:\\Software\\Generador_Examenes_Universitarios_MERN\\sistema-evaluacion-universitaria\\omr_samples_tv3_real_por_folio\\images\\5EA00A22-P2-C1.jpg",
+          "vscodeUri": "vscode://file/v:/Software/Generador_Examenes_Universitarios_MERN/sistema-evaluacion-universitaria/omr_samples_tv3_real_por_folio/images/5EA00A22-P2-C1.jpg"
+        },
+        {
+          "captureId": "54BC4954-P2-P02_CamScanner 03-03-2026 02.24_12",
+          "imagePath": "v:\\Software\\Generador_Examenes_Universitarios_MERN\\sistema-evaluacion-universitaria\\omr_samples_tv3_real_por_folio\\images\\54BC4954-P2-C1.jpg",
+          "vscodeUri": "vscode://file/v:/Software/Generador_Examenes_Universitarios_MERN/sistema-evaluacion-universitaria/omr_samples_tv3_real_por_folio/images/54BC4954-P2-C1.jpg"
+        }
+      ],
+      "humanReview": {
+        "promptApproved": true,
+        "promptCorrection": null,
+        "optionsApproved": true,
+        "optionsCorrection": {
+          "A": null,
+          "B": null,
+          "C": null,
+          "D": null,
+          "E": null
+        },
+        "correctOptionApproved": true,
+        "correctOptionCorrection": null,
+        "reviewer": "",
+        "reviewedAt": "",
+        "notes": ""
+      }
+    },
+    {
+      "numeroPregunta": 10,
+      "pagina": 2,
+      "prioridad": "alta",
+      "confidence": 0.449,
+      "canonical": {
+        "prompt": "¿Cuál estructura garantiza que el bloque de instrucciones se ejecute al menos una vez, aunque la condición sea falsa desde el inicio?",
+        "options": {
+          "A": "switch",
+          "B": "while",
+          "C": "do-while",
+          "D": "if-then",
+          "E": "for"
+        },
+        "correctOption": "C"
+      },
+      "imagenPrimaria": {
+        "captureId": "A327335F-P2-P02_CamScanner 03-03-2026 02.24_10",
+        "imagePath": "v:\\Software\\Generador_Examenes_Universitarios_MERN\\sistema-evaluacion-universitaria\\omr_samples_tv3_real_por_folio\\images\\A327335F-P2-C1.jpg",
+        "vscodeUri": "vscode://file/v:/Software/Generador_Examenes_Universitarios_MERN/sistema-evaluacion-universitaria/omr_samples_tv3_real_por_folio/images/A327335F-P2-C1.jpg"
+      },
+      "imagenesRespaldo": [
+        {
+          "captureId": "6A98D91E-P2-P02_CamScanner 03-03-2026 02.24_14",
+          "imagePath": "v:\\Software\\Generador_Examenes_Universitarios_MERN\\sistema-evaluacion-universitaria\\omr_samples_tv3_real_por_folio\\images\\6A98D91E-P2-C1.jpg",
+          "vscodeUri": "vscode://file/v:/Software/Generador_Examenes_Universitarios_MERN/sistema-evaluacion-universitaria/omr_samples_tv3_real_por_folio/images/6A98D91E-P2-C1.jpg"
+        },
+        {
+          "captureId": "75D5292B-P2-P02_CamScanner 03-03-2026 02.24_22",
+          "imagePath": "v:\\Software\\Generador_Examenes_Universitarios_MERN\\sistema-evaluacion-universitaria\\omr_samples_tv3_real_por_folio\\images\\75D5292B-P2-C1.jpg",
+          "vscodeUri": "vscode://file/v:/Software/Generador_Examenes_Universitarios_MERN/sistema-evaluacion-universitaria/omr_samples_tv3_real_por_folio/images/75D5292B-P2-C1.jpg"
+        }
+      ],
+      "visualEvidence": [
+        {
+          "captureId": "A327335F-P2-P02_CamScanner 03-03-2026 02.24_10",
+          "imagePath": "v:\\Software\\Generador_Examenes_Universitarios_MERN\\sistema-evaluacion-universitaria\\omr_samples_tv3_real_por_folio\\images\\A327335F-P2-C1.jpg",
+          "vscodeUri": "vscode://file/v:/Software/Generador_Examenes_Universitarios_MERN/sistema-evaluacion-universitaria/omr_samples_tv3_real_por_folio/images/A327335F-P2-C1.jpg"
+        },
+        {
+          "captureId": "6A98D91E-P2-P02_CamScanner 03-03-2026 02.24_14",
+          "imagePath": "v:\\Software\\Generador_Examenes_Universitarios_MERN\\sistema-evaluacion-universitaria\\omr_samples_tv3_real_por_folio\\images\\6A98D91E-P2-C1.jpg",
+          "vscodeUri": "vscode://file/v:/Software/Generador_Examenes_Universitarios_MERN/sistema-evaluacion-universitaria/omr_samples_tv3_real_por_folio/images/6A98D91E-P2-C1.jpg"
+        },
+        {
+          "captureId": "75D5292B-P2-P02_CamScanner 03-03-2026 02.24_22",
+          "imagePath": "v:\\Software\\Generador_Examenes_Universitarios_MERN\\sistema-evaluacion-universitaria\\omr_samples_tv3_real_por_folio\\images\\75D5292B-P2-C1.jpg",
+          "vscodeUri": "vscode://file/v:/Software/Generador_Examenes_Universitarios_MERN/sistema-evaluacion-universitaria/omr_samples_tv3_real_por_folio/images/75D5292B-P2-C1.jpg"
+        }
+      ],
+      "humanReview": {
+        "promptApproved": true,
+        "promptCorrection": null,
+        "optionsApproved": true,
+        "optionsCorrection": {
+          "A": null,
+          "B": null,
+          "C": null,
+          "D": null,
+          "E": null
+        },
+        "correctOptionApproved": true,
+        "correctOptionCorrection": null,
+        "reviewer": "",
+        "reviewedAt": "",
+        "notes": ""
+      }
+    },
+    {
+      "numeroPregunta": 7,
+      "pagina": 1,
+      "prioridad": "alta",
+      "confidence": 0.4515,
+      "canonical": {
+        "prompt": "Quieres almacenar calificaciones donde dimensión 1 = parcial (3 parciales: 0..2), dimensión 2 = materia (5 materias: 0..4), dimensión 3 = alumno (N alumnos: 0..N-1). ¿Cuál declaración representa mejor ese modelo?",
+        "options": {
+          "A": "calif[N][3][5]",
+          "B": "calif[3][N][5]",
+          "C": "calif[5][N][3]",
+          "D": "calif[3][5][N]",
+          "E": "calif[5][3][N]"
+        },
+        "correctOption": "D"
+      },
+      "imagenPrimaria": {
+        "captureId": "0E994CBA-P1-P01_CamScanner 03-03-2026 02.24_5",
+        "imagePath": "v:\\Software\\Generador_Examenes_Universitarios_MERN\\sistema-evaluacion-universitaria\\omr_samples_tv3_real_por_folio\\images\\0E994CBA-P1-C1.jpg",
+        "vscodeUri": "vscode://file/v:/Software/Generador_Examenes_Universitarios_MERN/sistema-evaluacion-universitaria/omr_samples_tv3_real_por_folio/images/0E994CBA-P1-C1.jpg"
+      },
+      "imagenesRespaldo": [
+        {
+          "captureId": "5EA00A22-P1-P01_CamScanner 03-03-2026 02.24_7",
+          "imagePath": "v:\\Software\\Generador_Examenes_Universitarios_MERN\\sistema-evaluacion-universitaria\\omr_samples_tv3_real_por_folio\\images\\5EA00A22-P1-C1.jpg",
+          "vscodeUri": "vscode://file/v:/Software/Generador_Examenes_Universitarios_MERN/sistema-evaluacion-universitaria/omr_samples_tv3_real_por_folio/images/5EA00A22-P1-C1.jpg"
+        },
+        {
+          "captureId": "66BB5FBD-P1-P01_CamScanner 03-03-2026 02.24_3",
+          "imagePath": "v:\\Software\\Generador_Examenes_Universitarios_MERN\\sistema-evaluacion-universitaria\\omr_samples_tv3_real_por_folio\\images\\66BB5FBD-P1-C1.jpg",
+          "vscodeUri": "vscode://file/v:/Software/Generador_Examenes_Universitarios_MERN/sistema-evaluacion-universitaria/omr_samples_tv3_real_por_folio/images/66BB5FBD-P1-C1.jpg"
+        }
+      ],
+      "visualEvidence": [
+        {
+          "captureId": "0E994CBA-P1-P01_CamScanner 03-03-2026 02.24_5",
+          "imagePath": "v:\\Software\\Generador_Examenes_Universitarios_MERN\\sistema-evaluacion-universitaria\\omr_samples_tv3_real_por_folio\\images\\0E994CBA-P1-C1.jpg",
+          "vscodeUri": "vscode://file/v:/Software/Generador_Examenes_Universitarios_MERN/sistema-evaluacion-universitaria/omr_samples_tv3_real_por_folio/images/0E994CBA-P1-C1.jpg"
+        },
+        {
+          "captureId": "5EA00A22-P1-P01_CamScanner 03-03-2026 02.24_7",
+          "imagePath": "v:\\Software\\Generador_Examenes_Universitarios_MERN\\sistema-evaluacion-universitaria\\omr_samples_tv3_real_por_folio\\images\\5EA00A22-P1-C1.jpg",
+          "vscodeUri": "vscode://file/v:/Software/Generador_Examenes_Universitarios_MERN/sistema-evaluacion-universitaria/omr_samples_tv3_real_por_folio/images/5EA00A22-P1-C1.jpg"
+        },
+        {
+          "captureId": "66BB5FBD-P1-P01_CamScanner 03-03-2026 02.24_3",
+          "imagePath": "v:\\Software\\Generador_Examenes_Universitarios_MERN\\sistema-evaluacion-universitaria\\omr_samples_tv3_real_por_folio\\images\\66BB5FBD-P1-C1.jpg",
+          "vscodeUri": "vscode://file/v:/Software/Generador_Examenes_Universitarios_MERN/sistema-evaluacion-universitaria/omr_samples_tv3_real_por_folio/images/66BB5FBD-P1-C1.jpg"
+        }
+      ],
+      "humanReview": {
+        "promptApproved": true,
+        "promptCorrection": null,
+        "optionsApproved": true,
+        "optionsCorrection": {
+          "A": null,
+          "B": null,
+          "C": null,
+          "D": null,
+          "E": null
+        },
+        "correctOptionApproved": true,
+        "correctOptionCorrection": null,
+        "reviewer": "",
+        "reviewedAt": "",
+        "notes": ""
+      }
+    },
+    {
+      "numeroPregunta": 16,
+      "pagina": 2,
+      "prioridad": "alta",
+      "confidence": 0.4719,
+      "canonical": {
+        "prompt": "Se requiere clasificar una calificación calif (0 a 100) así: Si calif >= 70 → \"Aprobado\", en caso contrario → \"No aprobado\". ¿Cuál bloque es el correcto?",
+        "options": {
+          "A": "Si calif > 70 Entonces Imprimir 'Aprobado' SiNo Imprimir 'No aprobado' FinSi",
+          "B": "Si calif == 70 Entonces Imprimir 'Aprobado' SiNo Imprimir 'No aprobado' FinSi",
+          "C": "Si calif >= 70 Entonces Imprimir 'Aprobado' SiNo Imprimir 'No aprobado' FinSi",
+          "D": "Si calif >= 70 Entonces Imprimir 'No aprobado' SiNo Imprimir 'Aprobado' FinSi",
+          "E": "Si calif < 70 Entonces Imprimir 'Aprobado' SiNo Imprimir 'No aprobado' FinSi"
+        },
+        "correctOption": "C"
+      },
+      "imagenPrimaria": {
+        "captureId": "A327335F-P2-P02_CamScanner 03-03-2026 02.24_10",
+        "imagePath": "v:\\Software\\Generador_Examenes_Universitarios_MERN\\sistema-evaluacion-universitaria\\omr_samples_tv3_real_por_folio\\images\\A327335F-P2-C1.jpg",
+        "vscodeUri": "vscode://file/v:/Software/Generador_Examenes_Universitarios_MERN/sistema-evaluacion-universitaria/omr_samples_tv3_real_por_folio/images/A327335F-P2-C1.jpg"
+      },
+      "imagenesRespaldo": [
+        {
+          "captureId": "ECF3E587-P2-P02_CamScanner 03-03-2026 02.24_18",
+          "imagePath": "v:\\Software\\Generador_Examenes_Universitarios_MERN\\sistema-evaluacion-universitaria\\omr_samples_tv3_real_por_folio\\images\\ECF3E587-P2-C1.jpg",
+          "vscodeUri": "vscode://file/v:/Software/Generador_Examenes_Universitarios_MERN/sistema-evaluacion-universitaria/omr_samples_tv3_real_por_folio/images/ECF3E587-P2-C1.jpg"
+        },
+        {
+          "captureId": "503CF7FA-P2-P02_CamScanner 03-03-2026 02.24_24",
+          "imagePath": "v:\\Software\\Generador_Examenes_Universitarios_MERN\\sistema-evaluacion-universitaria\\omr_samples_tv3_real_por_folio\\images\\503CF7FA-P2-C1.jpg",
+          "vscodeUri": "vscode://file/v:/Software/Generador_Examenes_Universitarios_MERN/sistema-evaluacion-universitaria/omr_samples_tv3_real_por_folio/images/503CF7FA-P2-C1.jpg"
+        }
+      ],
+      "visualEvidence": [
+        {
+          "captureId": "A327335F-P2-P02_CamScanner 03-03-2026 02.24_10",
+          "imagePath": "v:\\Software\\Generador_Examenes_Universitarios_MERN\\sistema-evaluacion-universitaria\\omr_samples_tv3_real_por_folio\\images\\A327335F-P2-C1.jpg",
+          "vscodeUri": "vscode://file/v:/Software/Generador_Examenes_Universitarios_MERN/sistema-evaluacion-universitaria/omr_samples_tv3_real_por_folio/images/A327335F-P2-C1.jpg"
+        },
+        {
+          "captureId": "ECF3E587-P2-P02_CamScanner 03-03-2026 02.24_18",
+          "imagePath": "v:\\Software\\Generador_Examenes_Universitarios_MERN\\sistema-evaluacion-universitaria\\omr_samples_tv3_real_por_folio\\images\\ECF3E587-P2-C1.jpg",
+          "vscodeUri": "vscode://file/v:/Software/Generador_Examenes_Universitarios_MERN/sistema-evaluacion-universitaria/omr_samples_tv3_real_por_folio/images/ECF3E587-P2-C1.jpg"
+        },
+        {
+          "captureId": "503CF7FA-P2-P02_CamScanner 03-03-2026 02.24_24",
+          "imagePath": "v:\\Software\\Generador_Examenes_Universitarios_MERN\\sistema-evaluacion-universitaria\\omr_samples_tv3_real_por_folio\\images\\503CF7FA-P2-C1.jpg",
+          "vscodeUri": "vscode://file/v:/Software/Generador_Examenes_Universitarios_MERN/sistema-evaluacion-universitaria/omr_samples_tv3_real_por_folio/images/503CF7FA-P2-C1.jpg"
+        }
+      ],
+      "humanReview": {
+        "promptApproved": true,
+        "promptCorrection": null,
+        "optionsApproved": true,
+        "optionsCorrection": {
+          "A": null,
+          "B": null,
+          "C": null,
+          "D": null,
+          "E": null
+        },
+        "correctOptionApproved": true,
+        "correctOptionCorrection": null,
+        "reviewer": "",
+        "reviewedAt": "",
+        "notes": ""
+      }
+    },
+    {
+      "numeroPregunta": 12,
+      "pagina": 2,
+      "prioridad": "alta",
+      "confidence": 0.4876,
+      "canonical": {
+        "prompt": "En pseudocódigo, ¿qué condición compara correctamente si x es igual a 10 (sin asignar)?",
+        "options": {
+          "A": "x == 10",
+          "B": "10 = x = true",
+          "C": "x <= 10",
+          "D": "x = 10",
+          "E": "x := 10"
+        },
+        "correctOption": "D"
+      },
+      "imagenPrimaria": {
+        "captureId": "07BE7982-P2-P02_CamScanner 02-03-2026 10.38_02",
+        "imagePath": "v:\\Software\\Generador_Examenes_Universitarios_MERN\\sistema-evaluacion-universitaria\\omr_samples_tv3_real_por_folio\\images\\07BE7982-P2-C1.jpg",
+        "vscodeUri": "vscode://file/v:/Software/Generador_Examenes_Universitarios_MERN/sistema-evaluacion-universitaria/omr_samples_tv3_real_por_folio/images/07BE7982-P2-C1.jpg"
+      },
+      "imagenesRespaldo": [
+        {
+          "captureId": "5EA00A22-P2-P02_CamScanner 03-03-2026 02.24_8",
+          "imagePath": "v:\\Software\\Generador_Examenes_Universitarios_MERN\\sistema-evaluacion-universitaria\\omr_samples_tv3_real_por_folio\\images\\5EA00A22-P2-C1.jpg",
+          "vscodeUri": "vscode://file/v:/Software/Generador_Examenes_Universitarios_MERN/sistema-evaluacion-universitaria/omr_samples_tv3_real_por_folio/images/5EA00A22-P2-C1.jpg"
+        },
+        {
+          "captureId": "66BB5FBD-P2-P02_CamScanner 02-03-2026 10.36_02",
+          "imagePath": "v:\\Software\\Generador_Examenes_Universitarios_MERN\\sistema-evaluacion-universitaria\\omr_samples_tv3_real_por_folio\\images\\66BB5FBD-P2-C1.jpg",
+          "vscodeUri": "vscode://file/v:/Software/Generador_Examenes_Universitarios_MERN/sistema-evaluacion-universitaria/omr_samples_tv3_real_por_folio/images/66BB5FBD-P2-C1.jpg"
+        }
+      ],
+      "visualEvidence": [
+        {
+          "captureId": "07BE7982-P2-P02_CamScanner 02-03-2026 10.38_02",
+          "imagePath": "v:\\Software\\Generador_Examenes_Universitarios_MERN\\sistema-evaluacion-universitaria\\omr_samples_tv3_real_por_folio\\images\\07BE7982-P2-C1.jpg",
+          "vscodeUri": "vscode://file/v:/Software/Generador_Examenes_Universitarios_MERN/sistema-evaluacion-universitaria/omr_samples_tv3_real_por_folio/images/07BE7982-P2-C1.jpg"
+        },
+        {
+          "captureId": "5EA00A22-P2-P02_CamScanner 03-03-2026 02.24_8",
+          "imagePath": "v:\\Software\\Generador_Examenes_Universitarios_MERN\\sistema-evaluacion-universitaria\\omr_samples_tv3_real_por_folio\\images\\5EA00A22-P2-C1.jpg",
+          "vscodeUri": "vscode://file/v:/Software/Generador_Examenes_Universitarios_MERN/sistema-evaluacion-universitaria/omr_samples_tv3_real_por_folio/images/5EA00A22-P2-C1.jpg"
+        },
+        {
+          "captureId": "66BB5FBD-P2-P02_CamScanner 02-03-2026 10.36_02",
+          "imagePath": "v:\\Software\\Generador_Examenes_Universitarios_MERN\\sistema-evaluacion-universitaria\\omr_samples_tv3_real_por_folio\\images\\66BB5FBD-P2-C1.jpg",
+          "vscodeUri": "vscode://file/v:/Software/Generador_Examenes_Universitarios_MERN/sistema-evaluacion-universitaria/omr_samples_tv3_real_por_folio/images/66BB5FBD-P2-C1.jpg"
+        }
+      ],
+      "humanReview": {
+        "promptApproved": true,
+        "promptCorrection": null,
+        "optionsApproved": true,
+        "optionsCorrection": {
+          "A": null,
+          "B": null,
+          "C": null,
+          "D": null,
+          "E": null
+        },
+        "correctOptionApproved": true,
+        "correctOptionCorrection": null,
+        "reviewer": "",
+        "reviewedAt": "",
+        "notes": ""
+      }
+    }
+  ]
+}

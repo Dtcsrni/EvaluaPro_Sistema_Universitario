@@ -67,6 +67,9 @@ test('installer prereq manifest incluye contrato minimo', () => {
   const manifest = JSON.parse(raw);
 
   assert.equal(typeof manifest.version, 'string');
+  assert.equal(typeof manifest.defaultProfile, 'string');
+  assert.equal(Array.isArray(manifest.profiles), true);
+  assert.equal(manifest.profiles.length >= 2, true);
   assert.equal(Array.isArray(manifest.prerequisites), true);
   assert.equal(manifest.prerequisites.length >= 2, true);
 
@@ -84,12 +87,16 @@ test('installer prereq manifest incluye contrato minimo', () => {
 test('canal update por defecto es stable en config y scripts', () => {
   const updateConfig = JSON.parse(fs.readFileSync(path.join(root, 'config', 'update-config.json'), 'utf8'));
   assert.equal(updateConfig.channel, 'stable');
+  assert.equal(updateConfig.flavorId, 'docente-local');
+  assert.equal(updateConfig.assetName, 'EvaluaPro-docente-local-Setup.exe');
 
   const updateManager = fs.readFileSync(path.join(root, 'scripts', 'update-manager.mjs'), 'utf8');
   assert.match(updateManager, /channel:\s*'stable'/);
+  assert.match(updateManager, /flavorId/);
 
   const launcherDashboard = fs.readFileSync(path.join(root, 'scripts', 'launcher-dashboard.mjs'), 'utf8');
   assert.match(launcherDashboard, /channel:\s*'stable'/);
+  assert.match(launcherDashboard, /flavorId/);
 });
 
 test('workflow de installer publica contratos nuevos de release', () => {
@@ -99,7 +106,8 @@ test('workflow de installer publica contratos nuevos de release', () => {
   assert.match(workflow, /generate-installer-hashes\.ps1/);
   assert.match(workflow, /sign-installer-artifacts\.ps1/);
   assert.match(workflow, /Publicar release assets \(tags v\*\)/);
-  assert.match(workflow, /dist\/installer\/EvaluaPro-Setup\.exe/);
+  assert.match(workflow, /EvaluaPro-saas-completo-Setup\.exe/);
+  assert.match(workflow, /EvaluaPro-docente-local-Setup\.exe/);
 });
 
 test('installer hub incluye fase de configuracion operativa y blindaje de licencia configurable', () => {
@@ -122,6 +130,8 @@ test('installer hub incluye fase de configuracion operativa y blindaje de licenc
   assert.match(hub, /UpdateShaAssetName/);
   assert.match(hub, /UpdateFeedUrl/);
   assert.match(hub, /UpdateRequireSha256/);
+  assert.match(hub, /FlavorId/);
+  assert.match(hub, /Get-LatestStableReleaseAssets[\s\S]*-FlavorId/);
 });
 
 test('flujo del installer hub conserva fases y codigos de salida criticos', () => {
@@ -220,8 +230,9 @@ $cfg = @{
   updateChannel='stable'
   updateOwner='Dtcsrni'
   updateRepo='EvaluaPro_Sistema_Universitario'
-  updateAssetName='EvaluaPro-Setup.exe'
-  updateShaAssetName='EvaluaPro-Setup.exe.sha256'
+  flavorId='docente-local'
+  updateAssetName='EvaluaPro-docente-local-Setup.exe'
+  updateShaAssetName='EvaluaPro-docente-local-Setup.exe.sha256'
   updateRequireSha256='1'
 }
 $r = Invoke-EvaluaProOperationalConfiguration -Mode install -InstallDir '${installDir.replace(/'/g, "''")}' -Config $cfg
@@ -247,9 +258,11 @@ $r | ConvertTo-Json -Depth 8
     const updateConfigRaw = fs.readFileSync(updateConfigPath, 'utf8').replace(/^\uFEFF/, '');
     const updateConfig = JSON.parse(updateConfigRaw);
     assert.equal(updateConfig.channel, 'stable');
+    assert.equal(updateConfig.flavorId, 'docente-local');
     assert.equal(updateConfig.owner, 'Dtcsrni');
     assert.equal(updateConfig.repo, 'EvaluaPro_Sistema_Universitario');
     assert.equal(updateConfig.requireSha256, true);
+    assert.equal(updateConfig.assetName, 'EvaluaPro-docente-local-Setup.exe');
   } finally {
     fs.rmSync(tempRoot, { recursive: true, force: true });
   }
@@ -269,6 +282,8 @@ test('script de release manifest incluye contrato extendido de build/deployment/
   assert.match(script, /build\s*=\s*\[ordered\]@{/);
   assert.match(script, /commit\s*=\s*\$commit/);
   assert.match(script, /artifacts\s*=\s*\$artifacts/);
+  assert.match(script, /flavors\s*=\s*\$flavors/);
+  assert.match(script, /flavorId\s*=/);
   assert.match(script, /deployment\s*=\s*\[ordered\]@{/);
-  assert.match(script, /target\s*=\s*\$DeploymentTarget/);
+  assert.match(script, /target\s*=\s*if \(\$DeploymentTarget\)/);
 });

@@ -1,0 +1,260 @@
+{
+  "generatedAt": "2026-03-04",
+  "sourceRoot": "omr_samples_tv3/images/Por Folio",
+  "method": [
+    "Se eliminaron los artefactos previos de reconstruccion y el dataset derivado omr_samples_tv3_real_por_folio antes de esta corrida.",
+    "El inventario se reconstruyo desde _organizacion_por_alumno.json y el contenido visual de las imagenes originales.",
+    "La transcripcion canonicamente visible se fijo sobre el folio 07BE7982 porque sus paginas 1 y 2 son legibles y coinciden con el impreso observado en el resto del lote."
+  ],
+  "inventory": {
+    "totalCaptures": 30,
+    "totalFolios": 15,
+    "pagesPresent": [
+      1,
+      2
+    ],
+    "printedExamVariantsDetected": 1,
+    "folios": [
+      "07BE7982",
+      "0E994CBA",
+      "503CF7FA",
+      "54BC4954",
+      "5EA00A22",
+      "66BB5FBD",
+      "6A98D91E",
+      "75D5292B",
+      "A327335F",
+      "A93D8EFA",
+      "B0FB153C",
+      "B8A27B0B",
+      "D9881CAA",
+      "ECF3E587",
+      "EEB4EB38"
+    ],
+    "duplicateCaptureGroups": []
+  },
+  "scopeLimitations": {
+    "visibleQuestionRange": [
+      1,
+      16
+    ],
+    "fullExamReconstructibleFromFolderAlone": false,
+    "reason": "La carpeta Por Folio solo contiene paginas 1 y 2. No hay evidencia directa de paginas 3 y 4 en este lote."
+  },
+  "representativeEvidence": {
+    "folio": "07BE7982",
+    "page1": "omr_samples_tv3/images/Por Folio/07BE7982/P01_CamScanner 02-03-2026 10.38_01.jpg",
+    "page2": "omr_samples_tv3/images/Por Folio/07BE7982/P02_CamScanner 02-03-2026 10.38_02.jpg"
+  },
+  "canonicalVisibleBank": [
+    {
+      "numeroPregunta": 1,
+      "pagina": 1,
+      "prompt": "¿Cuál afirmación describe mejor una constante en programación?",
+      "options": {
+        "A": "Es una variable global que solo existe dentro de un ciclo.",
+        "B": "Es una variable que cambia automáticamente según el tipo de dato.",
+        "C": "Es una instrucción que siempre se ejecuta al final del programa.",
+        "D": "Es un dato que se almacena únicamente en arreglos.",
+        "E": "Es un valor que no debe modificarse durante la ejecución y suele declararse con un identificador representativo."
+      },
+      "correctOption": "E"
+    },
+    {
+      "numeroPregunta": 2,
+      "pagina": 1,
+      "prompt": "Se declara un arreglo de 5 enteros: int v[5]. En un esquema típico de índices desde 0, ¿cuál es el último índice válido?",
+      "options": {
+        "A": "0",
+        "B": "5",
+        "C": "1",
+        "D": "4",
+        "E": "No hay último índice; depende del valor almacenado."
+      },
+      "correctOption": "D"
+    },
+    {
+      "numeroPregunta": 3,
+      "pagina": 1,
+      "prompt": "Se pide validar que calif esté en el rango 0 a 100 (inclusive). ¿Cuál condición es CORRECTA para detectar que el valor es inválido?",
+      "options": {
+        "A": "(calif > 0) AND (calif < 100)",
+        "B": "(calif < 0) OR (calif > 100)",
+        "C": "(calif >= 0) OR (calif <= 100)",
+        "D": "(calif == 0) OR (calif == 100)",
+        "E": "(calif < 0) AND (calif > 100)"
+      },
+      "correctOption": "B"
+    },
+    {
+      "numeroPregunta": 4,
+      "pagina": 1,
+      "prompt": "Necesitas almacenar el grupo sanguíneo de una persona con un SOLO carácter (por ejemplo: 'A', 'B', 'O'). ¿Qué tipo de dato primitivo es el más adecuado?",
+      "options": {
+        "A": "float",
+        "B": "string",
+        "C": "char",
+        "D": "int",
+        "E": "boolean"
+      },
+      "correctOption": "C"
+    },
+    {
+      "numeroPregunta": 5,
+      "pagina": 1,
+      "prompt": "Dados: x = 8, y = 3, z = 3. Evalúa la expresión lógica: (x >= 8) AND (y < 3 OR z = 3):",
+      "options": {
+        "A": "Verdadero solo si x > 8",
+        "B": "Verdadero",
+        "C": "No se puede determinar sin conocer el lenguaje",
+        "D": "Falso",
+        "E": "Error por tipo de dato"
+      },
+      "correctOption": "B"
+    },
+    {
+      "numeroPregunta": 6,
+      "pagina": 1,
+      "prompt": "Dados a = 2, b = 3, c = 4, ¿cuál es el valor de la expresión a + b x c?",
+      "options": {
+        "A": "24",
+        "B": "9",
+        "C": "14",
+        "D": "20",
+        "E": "18"
+      },
+      "correctOption": "C"
+    },
+    {
+      "numeroPregunta": 7,
+      "pagina": 1,
+      "prompt": "Quieres almacenar calificaciones donde dimensión 1 = parcial (3 parciales: 0..2), dimensión 2 = materia (5 materias: 0..4), dimensión 3 = alumno (N alumnos: 0..N-1). ¿Cuál declaración representa mejor ese modelo?",
+      "options": {
+        "A": "calif[N][3][5]",
+        "B": "calif[3][N][5]",
+        "C": "calif[5][N][3]",
+        "D": "calif[3][5][N]",
+        "E": "calif[5][3][N]"
+      },
+      "correctOption": "D"
+    },
+    {
+      "numeroPregunta": 8,
+      "pagina": 1,
+      "prompt": "¿Cuál definición describe mejor un algoritmo en el contexto de Lógica de Programación?",
+      "options": {
+        "A": "Una serie de pasos finita, ordenada y no ambigua para resolver un problema",
+        "B": "Una base de datos con tablas relacionadas",
+        "C": "Un conjunto de variables declaradas al inicio del programa",
+        "D": "Un diagrama que siempre usa símbolos geométricos",
+        "E": "Un programa escrito en C o Java que compila sin errores"
+      },
+      "correctOption": "A"
+    },
+    {
+      "numeroPregunta": 9,
+      "pagina": 2,
+      "prompt": "En el contexto de pseudocódigo, ¿qué parte se considera el argumento de la sentencia de salida? Ejemplo: Imprimir \"Hola\"",
+      "options": {
+        "A": "No existe argumento en sentencias de salida",
+        "B": "Todo el renglón completo es el argumento",
+        "C": "Imprimir",
+        "D": "\"Hola\"",
+        "E": "El punto y coma (;)"
+      },
+      "correctOption": "D"
+    },
+    {
+      "numeroPregunta": 10,
+      "pagina": 2,
+      "prompt": "¿Cuál estructura garantiza que el bloque de instrucciones se ejecute al menos una vez, aunque la condición sea falsa desde el inicio?",
+      "options": {
+        "A": "switch",
+        "B": "while",
+        "C": "do-while",
+        "D": "if-then",
+        "E": "for"
+      },
+      "correctOption": "C"
+    },
+    {
+      "numeroPregunta": 11,
+      "pagina": 2,
+      "prompt": "¿Cuántas veces se ejecuta el bloque si el ciclo es? Para i = 1 hasta 10 / (bloque) / FinPara",
+      "options": {
+        "A": "0",
+        "B": "9",
+        "C": "11",
+        "D": "10",
+        "E": "Depende del valor de i al final"
+      },
+      "correctOption": "D"
+    },
+    {
+      "numeroPregunta": 12,
+      "pagina": 2,
+      "prompt": "En pseudocódigo, ¿qué condición compara correctamente si x es igual a 10 (sin asignar)?",
+      "options": {
+        "A": "x == 10",
+        "B": "10 = x = true",
+        "C": "x <= 10",
+        "D": "x = 10",
+        "E": "x := 10"
+      },
+      "correctOption": "D",
+      "note": "Se toma la convención de pseudocódigo impresa en el examen: '=' compara y ':=' asigna."
+    },
+    {
+      "numeroPregunta": 13,
+      "pagina": 2,
+      "prompt": "Si a es int y b es float, ¿qué tipo de dato suele tener el resultado de a + b en la mayoría de lenguajes?",
+      "options": {
+        "A": "int, porque a manda",
+        "B": "float, porque se promueve al tipo con decimales",
+        "C": "boolean, porque es una operación lógica",
+        "D": "Depende: siempre queda como string",
+        "E": "char, si a es menor a 256"
+      },
+      "correctOption": "B"
+    },
+    {
+      "numeroPregunta": 14,
+      "pagina": 2,
+      "prompt": "Se declara un arreglo bidimensional calif[3][5], donde fila = parcial (0..2) y columna = materia (0..4). ¿Cuál pseudocódigo recorre primero parciales (filas) y luego materias (columnas), sin salirse de rango?",
+      "options": {
+        "A": "Para p = 0 hasta 3; Para m = 0 hasta 4; calif[p][m] = 0",
+        "B": "Para p = 0 hasta 2; Para m = 0 hasta 5; calif[p][m] = 0",
+        "C": "Para p = 0 hasta 2; Para m = 0 hasta 4; calif[m][p] = 0",
+        "D": "Para p = 1 hasta 3; Para m = 1 hasta 5; calif[p][m] = 0",
+        "E": "Para p = 0 hasta 2; Para m = 0 hasta 4; calif[p][m] = 0"
+      },
+      "correctOption": "E"
+    },
+    {
+      "numeroPregunta": 15,
+      "pagina": 2,
+      "prompt": "Necesitas almacenar la cantidad de alumnos inscritos (un conteo: 0, 1, 2, 3, ...). ¿Qué tipo de dato es el más adecuado?",
+      "options": {
+        "A": "boolean",
+        "B": "string",
+        "C": "int",
+        "D": "char",
+        "E": "float"
+      },
+      "correctOption": "C"
+    },
+    {
+      "numeroPregunta": 16,
+      "pagina": 2,
+      "prompt": "Se requiere clasificar una calificación calif (0 a 100) así: Si calif >= 70 → \"Aprobado\", en caso contrario → \"No aprobado\". ¿Cuál bloque es el correcto?",
+      "options": {
+        "A": "Si calif > 70 Entonces Imprimir 'Aprobado' SiNo Imprimir 'No aprobado' FinSi",
+        "B": "Si calif == 70 Entonces Imprimir 'Aprobado' SiNo Imprimir 'No aprobado' FinSi",
+        "C": "Si calif >= 70 Entonces Imprimir 'Aprobado' SiNo Imprimir 'No aprobado' FinSi",
+        "D": "Si calif >= 70 Entonces Imprimir 'No aprobado' SiNo Imprimir 'Aprobado' FinSi",
+        "E": "Si calif < 70 Entonces Imprimir 'Aprobado' SiNo Imprimir 'No aprobado' FinSi"
+      },
+      "correctOption": "C"
+    }
+  ]
+}

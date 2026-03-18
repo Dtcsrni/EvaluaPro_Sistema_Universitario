@@ -8,7 +8,6 @@
         <Exclude Files="$(var.SourceRoot)\logs\**" />
         <Exclude Files="$(var.SourceRoot)\reports\**" />
         <Exclude Files="$(var.SourceRoot)\dist\installer\**" />
-        <Exclude Files="$(var.SourceRoot)\apps\backend\storage\**" />
       </Files>
     </ComponentGroup>
   </Fragment>

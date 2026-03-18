@@ -1,0 +1,2912 @@
+{
+  "generatedAt": "2026-03-08",
+  "summary": {
+    "role": "canonical_page_mapping_for_rehydration",
+    "basedOn": {
+      "pdfStructureTruth": "source/pdf_structure_truth_snapshot.json",
+      "visibleBank": "../../reports/qa/latest/por_folio_analysis_from_zero.json",
+      "datasetManifest": "../manifest.json",
+      "datasetAnswerKey": "../answer_key.json"
+    },
+    "folios": 15,
+    "pagesMapped": 30,
+    "pageQuestionWindows": {
+      "page1VisibleCanonical": [
+        1,
+        8
+      ],
+      "page2VisibleCanonical": [
+        9,
+        16
+      ],
+      "datasetPage1Typical": [
+        101,
+        107
+      ],
+      "datasetPage2Typical": [
+        201,
+        208
+      ]
+    },
+    "mappingConclusion": "Cada folio del lote A050929D comparte la misma estructura visible de pagina 1 y pagina 2. El PDF fija la cardinalidad; el banco visible fija el contenido canónico; el manifest fija el rango observado por captura."
+  },
+  "folios": [
+    {
+      "folio": "07BE7982",
+      "pages": [
+        {
+          "numeroPagina": 1,
+          "expectedQr": "EXAMEN:07BE7982:P1:TV3",
+          "sourceGroup": "07BE7982:P1",
+          "captureIds": [
+            "07BE7982-P1-C1"
+          ],
+          "captureCount": 1,
+          "datasetQuestionRange": {
+            "from": 101,
+            "to": 107
+          },
+          "visibleCanonicalQuestionRange": {
+            "from": 1,
+            "to": 8
+          },
+          "visibleCanonicalQuestionsFullPage": [
+            1,
+            2,
+            3,
+            4,
+            5,
+            6,
+            7,
+            8
+          ],
+          "visibleCanonicalQuestionsObservedInDatasetRange": [
+            1,
+            2,
+            3,
+            4,
+            5,
+            6,
+            7
+          ],
+          "questionLinks": [
+            {
+              "datasetQuestionNumber": 101,
+              "visibleCanonicalQuestionNumber": 1,
+              "pageLocalOrdinal": 1,
+              "prompt": "¿Cuál afirmación describe mejor una constante en programación?",
+              "correctOption": "E",
+              "answerKeyEntry": "B"
+            },
+            {
+              "datasetQuestionNumber": 102,
+              "visibleCanonicalQuestionNumber": 2,
+              "pageLocalOrdinal": 2,
+              "prompt": "Se declara un arreglo de 5 enteros: int v[5]. En un esquema típico de índices desde 0, ¿cuál es el último índice válido?",
+              "correctOption": "D",
+              "answerKeyEntry": "D"
+            },
+            {
+              "datasetQuestionNumber": 103,
+              "visibleCanonicalQuestionNumber": 3,
+              "pageLocalOrdinal": 3,
+              "prompt": "Se pide validar que calif esté en el rango 0 a 100 (inclusive). ¿Cuál condición es CORRECTA para detectar que el valor es inválido?",
+              "correctOption": "B",
+              "answerKeyEntry": "E"
+            },
+            {
+              "datasetQuestionNumber": 104,
+              "visibleCanonicalQuestionNumber": 4,
+              "pageLocalOrdinal": 4,
+              "prompt": "Necesitas almacenar el grupo sanguíneo de una persona con un SOLO carácter (por ejemplo: 'A', 'B', 'O'). ¿Qué tipo de dato primitivo es el más adecuado?",
+              "correctOption": "C",
+              "answerKeyEntry": "D"
+            },
+            {
+              "datasetQuestionNumber": 105,
+              "visibleCanonicalQuestionNumber": 5,
+              "pageLocalOrdinal": 5,
+              "prompt": "Dados: x = 8, y = 3, z = 3. Evalúa la expresión lógica: (x >= 8) AND (y < 3 OR z = 3):",
+              "correctOption": "B",
+              "answerKeyEntry": "E"
+            },
+            {
+              "datasetQuestionNumber": 106,
+              "visibleCanonicalQuestionNumber": 6,
+              "pageLocalOrdinal": 6,
+              "prompt": "Dados a = 2, b = 3, c = 4, ¿cuál es el valor de la expresión a + b x c?",
+              "correctOption": "C",
+              "answerKeyEntry": "D"
+            },
+            {
+              "datasetQuestionNumber": 107,
+              "visibleCanonicalQuestionNumber": 7,
+              "pageLocalOrdinal": 7,
+              "prompt": "Quieres almacenar calificaciones donde dimensión 1 = parcial (3 parciales: 0..2), dimensión 2 = materia (5 materias: 0..4), dimensión 3 = alumno (N alumnos: 0..N-1). ¿Cuál declaración representa mejor ese modelo?",
+              "correctOption": "D",
+              "answerKeyEntry": "D"
+            }
+          ]
+        },
+        {
+          "numeroPagina": 2,
+          "expectedQr": "EXAMEN:07BE7982:P2:TV3",
+          "sourceGroup": "07BE7982:P2",
+          "captureIds": [
+            "07BE7982-P2-C1"
+          ],
+          "captureCount": 1,
+          "datasetQuestionRange": {
+            "from": 201,
+            "to": 207
+          },
+          "visibleCanonicalQuestionRange": {
+            "from": 9,
+            "to": 16
+          },
+          "visibleCanonicalQuestionsFullPage": [
+            9,
+            10,
+            11,
+            12,
+            13,
+            14,
+            15,
+            16
+          ],
+          "visibleCanonicalQuestionsObservedInDatasetRange": [
+            9,
+            10,
+            11,
+            12,
+            13,
+            14,
+            15
+          ],
+          "questionLinks": [
+            {
+              "datasetQuestionNumber": 201,
+              "visibleCanonicalQuestionNumber": 9,
+              "pageLocalOrdinal": 1,
+              "prompt": "En el contexto de pseudocódigo, ¿qué parte se considera el argumento de la sentencia de salida? Ejemplo: Imprimir \"Hola\"",
+              "correctOption": "D",
+              "answerKeyEntry": "D"
+            },
+            {
+              "datasetQuestionNumber": 202,
+              "visibleCanonicalQuestionNumber": 10,
+              "pageLocalOrdinal": 2,
+              "prompt": "¿Cuál estructura garantiza que el bloque de instrucciones se ejecute al menos una vez, aunque la condición sea falsa desde el inicio?",
+              "correctOption": "C",
+              "answerKeyEntry": "D"
+            },
+            {
+              "datasetQuestionNumber": 203,
+              "visibleCanonicalQuestionNumber": 11,
+              "pageLocalOrdinal": 3,
+              "prompt": "¿Cuántas veces se ejecuta el bloque si el ciclo es? Para i = 1 hasta 10 / (bloque) / FinPara",
+              "correctOption": "D",
+              "answerKeyEntry": "D"
+            },
+            {
+              "datasetQuestionNumber": 204,
+              "visibleCanonicalQuestionNumber": 12,
+              "pageLocalOrdinal": 4,
+              "prompt": "En pseudocódigo, ¿qué condición compara correctamente si x es igual a 10 (sin asignar)?",
+              "correctOption": "D",
+              "answerKeyEntry": "B"
+            },
+            {
+              "datasetQuestionNumber": 205,
+              "visibleCanonicalQuestionNumber": 13,
+              "pageLocalOrdinal": 5,
+              "prompt": "Si a es int y b es float, ¿qué tipo de dato suele tener el resultado de a + b en la mayoría de lenguajes?",
+              "correctOption": "B",
+              "answerKeyEntry": "B"
+            },
+            {
+              "datasetQuestionNumber": 206,
+              "visibleCanonicalQuestionNumber": 14,
+              "pageLocalOrdinal": 6,
+              "prompt": "Se declara un arreglo bidimensional calif[3][5], donde fila = parcial (0..2) y columna = materia (0..4). ¿Cuál pseudocódigo recorre primero parciales (filas) y luego materias (columnas), sin salirse de rango?",
+              "correctOption": "E",
+              "answerKeyEntry": "D"
+            },
+            {
+              "datasetQuestionNumber": 207,
+              "visibleCanonicalQuestionNumber": 15,
+              "pageLocalOrdinal": 7,
+              "prompt": "Necesitas almacenar la cantidad de alumnos inscritos (un conteo: 0, 1, 2, 3, ...). ¿Qué tipo de dato es el más adecuado?",
+              "correctOption": "C",
+              "answerKeyEntry": "B"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "folio": "0E994CBA",
+      "pages": [
+        {
+          "numeroPagina": 1,
+          "expectedQr": "EXAMEN:0E994CBA:P1:TV3",
+          "sourceGroup": "0E994CBA:P1",
+          "captureIds": [
+            "0E994CBA-P1-C1"
+          ],
+          "captureCount": 1,
+          "datasetQuestionRange": {
+            "from": 101,
+            "to": 107
+          },
+          "visibleCanonicalQuestionRange": {
+            "from": 1,
+            "to": 8
+          },
+          "visibleCanonicalQuestionsFullPage": [
+            1,
+            2,
+            3,
+            4,
+            5,
+            6,
+            7,
+            8
+          ],
+          "visibleCanonicalQuestionsObservedInDatasetRange": [
+            1,
+            2,
+            3,
+            4,
+            5,
+            6,
+            7
+          ],
+          "questionLinks": [
+            {
+              "datasetQuestionNumber": 101,
+              "visibleCanonicalQuestionNumber": 1,
+              "pageLocalOrdinal": 1,
+              "prompt": "¿Cuál afirmación describe mejor una constante en programación?",
+              "correctOption": "E",
+              "answerKeyEntry": "B"
+            },
+            {
+              "datasetQuestionNumber": 102,
+              "visibleCanonicalQuestionNumber": 2,
+              "pageLocalOrdinal": 2,
+              "prompt": "Se declara un arreglo de 5 enteros: int v[5]. En un esquema típico de índices desde 0, ¿cuál es el último índice válido?",
+              "correctOption": "D",
+              "answerKeyEntry": "D"
+            },
+            {
+              "datasetQuestionNumber": 103,
+              "visibleCanonicalQuestionNumber": 3,
+              "pageLocalOrdinal": 3,
+              "prompt": "Se pide validar que calif esté en el rango 0 a 100 (inclusive). ¿Cuál condición es CORRECTA para detectar que el valor es inválido?",
+              "correctOption": "B",
+              "answerKeyEntry": "E"
+            },
+            {
+              "datasetQuestionNumber": 104,
+              "visibleCanonicalQuestionNumber": 4,
+              "pageLocalOrdinal": 4,
+              "prompt": "Necesitas almacenar el grupo sanguíneo de una persona con un SOLO carácter (por ejemplo: 'A', 'B', 'O'). ¿Qué tipo de dato primitivo es el más adecuado?",
+              "correctOption": "C",
+              "answerKeyEntry": "D"
+            },
+            {
+              "datasetQuestionNumber": 105,
+              "visibleCanonicalQuestionNumber": 5,
+              "pageLocalOrdinal": 5,
+              "prompt": "Dados: x = 8, y = 3, z = 3. Evalúa la expresión lógica: (x >= 8) AND (y < 3 OR z = 3):",
+              "correctOption": "B",
+              "answerKeyEntry": "E"
+            },
+            {
+              "datasetQuestionNumber": 106,
+              "visibleCanonicalQuestionNumber": 6,
+              "pageLocalOrdinal": 6,
+              "prompt": "Dados a = 2, b = 3, c = 4, ¿cuál es el valor de la expresión a + b x c?",
+              "correctOption": "C",
+              "answerKeyEntry": "D"
+            },
+            {
+              "datasetQuestionNumber": 107,
+              "visibleCanonicalQuestionNumber": 7,
+              "pageLocalOrdinal": 7,
+              "prompt": "Quieres almacenar calificaciones donde dimensión 1 = parcial (3 parciales: 0..2), dimensión 2 = materia (5 materias: 0..4), dimensión 3 = alumno (N alumnos: 0..N-1). ¿Cuál declaración representa mejor ese modelo?",
+              "correctOption": "D",
+              "answerKeyEntry": "D"
+            }
+          ]
+        },
+        {
+          "numeroPagina": 2,
+          "expectedQr": "EXAMEN:0E994CBA:P2:TV3",
+          "sourceGroup": "0E994CBA:P2",
+          "captureIds": [
+            "0E994CBA-P2-C1"
+          ],
+          "captureCount": 1,
+          "datasetQuestionRange": {
+            "from": 201,
+            "to": 208
+          },
+          "visibleCanonicalQuestionRange": {
+            "from": 9,
+            "to": 16
+          },
+          "visibleCanonicalQuestionsFullPage": [
+            9,
+            10,
+            11,
+            12,
+            13,
+            14,
+            15,
+            16
+          ],
+          "visibleCanonicalQuestionsObservedInDatasetRange": [
+            9,
+            10,
+            11,
+            12,
+            13,
+            14,
+            15,
+            16
+          ],
+          "questionLinks": [
+            {
+              "datasetQuestionNumber": 201,
+              "visibleCanonicalQuestionNumber": 9,
+              "pageLocalOrdinal": 1,
+              "prompt": "En el contexto de pseudocódigo, ¿qué parte se considera el argumento de la sentencia de salida? Ejemplo: Imprimir \"Hola\"",
+              "correctOption": "D",
+              "answerKeyEntry": "D"
+            },
+            {
+              "datasetQuestionNumber": 202,
+              "visibleCanonicalQuestionNumber": 10,
+              "pageLocalOrdinal": 2,
+              "prompt": "¿Cuál estructura garantiza que el bloque de instrucciones se ejecute al menos una vez, aunque la condición sea falsa desde el inicio?",
+              "correctOption": "C",
+              "answerKeyEntry": "D"
+            },
+            {
+              "datasetQuestionNumber": 203,
+              "visibleCanonicalQuestionNumber": 11,
+              "pageLocalOrdinal": 3,
+              "prompt": "¿Cuántas veces se ejecuta el bloque si el ciclo es? Para i = 1 hasta 10 / (bloque) / FinPara",
+              "correctOption": "D",
+              "answerKeyEntry": "D"
+            },
+            {
+              "datasetQuestionNumber": 204,
+              "visibleCanonicalQuestionNumber": 12,
+              "pageLocalOrdinal": 4,
+              "prompt": "En pseudocódigo, ¿qué condición compara correctamente si x es igual a 10 (sin asignar)?",
+              "correctOption": "D",
+              "answerKeyEntry": "B"
+            },
+            {
+              "datasetQuestionNumber": 205,
+              "visibleCanonicalQuestionNumber": 13,
+              "pageLocalOrdinal": 5,
+              "prompt": "Si a es int y b es float, ¿qué tipo de dato suele tener el resultado de a + b en la mayoría de lenguajes?",
+              "correctOption": "B",
+              "answerKeyEntry": "B"
+            },
+            {
+              "datasetQuestionNumber": 206,
+              "visibleCanonicalQuestionNumber": 14,
+              "pageLocalOrdinal": 6,
+              "prompt": "Se declara un arreglo bidimensional calif[3][5], donde fila = parcial (0..2) y columna = materia (0..4). ¿Cuál pseudocódigo recorre primero parciales (filas) y luego materias (columnas), sin salirse de rango?",
+              "correctOption": "E",
+              "answerKeyEntry": "D"
+            },
+            {
+              "datasetQuestionNumber": 207,
+              "visibleCanonicalQuestionNumber": 15,
+              "pageLocalOrdinal": 7,
+              "prompt": "Necesitas almacenar la cantidad de alumnos inscritos (un conteo: 0, 1, 2, 3, ...). ¿Qué tipo de dato es el más adecuado?",
+              "correctOption": "C",
+              "answerKeyEntry": "B"
+            },
+            {
+              "datasetQuestionNumber": 208,
+              "visibleCanonicalQuestionNumber": 16,
+              "pageLocalOrdinal": 8,
+              "prompt": "Se requiere clasificar una calificación calif (0 a 100) así: Si calif >= 70 → \"Aprobado\", en caso contrario → \"No aprobado\". ¿Cuál bloque es el correcto?",
+              "correctOption": "C",
+              "answerKeyEntry": "C"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "folio": "503CF7FA",
+      "pages": [
+        {
+          "numeroPagina": 1,
+          "expectedQr": "EXAMEN:503CF7FA:P1:TV3",
+          "sourceGroup": "503CF7FA:P1",
+          "captureIds": [
+            "503CF7FA-P1-C1"
+          ],
+          "captureCount": 1,
+          "datasetQuestionRange": {
+            "from": 101,
+            "to": 106
+          },
+          "visibleCanonicalQuestionRange": {
+            "from": 1,
+            "to": 8
+          },
+          "visibleCanonicalQuestionsFullPage": [
+            1,
+            2,
+            3,
+            4,
+            5,
+            6,
+            7,
+            8
+          ],
+          "visibleCanonicalQuestionsObservedInDatasetRange": [
+            1,
+            2,
+            3,
+            4,
+            5,
+            6
+          ],
+          "questionLinks": [
+            {
+              "datasetQuestionNumber": 101,
+              "visibleCanonicalQuestionNumber": 1,
+              "pageLocalOrdinal": 1,
+              "prompt": "¿Cuál afirmación describe mejor una constante en programación?",
+              "correctOption": "E",
+              "answerKeyEntry": "B"
+            },
+            {
+              "datasetQuestionNumber": 102,
+              "visibleCanonicalQuestionNumber": 2,
+              "pageLocalOrdinal": 2,
+              "prompt": "Se declara un arreglo de 5 enteros: int v[5]. En un esquema típico de índices desde 0, ¿cuál es el último índice válido?",
+              "correctOption": "D",
+              "answerKeyEntry": "D"
+            },
+            {
+              "datasetQuestionNumber": 103,
+              "visibleCanonicalQuestionNumber": 3,
+              "pageLocalOrdinal": 3,
+              "prompt": "Se pide validar que calif esté en el rango 0 a 100 (inclusive). ¿Cuál condición es CORRECTA para detectar que el valor es inválido?",
+              "correctOption": "B",
+              "answerKeyEntry": "E"
+            },
+            {
+              "datasetQuestionNumber": 104,
+              "visibleCanonicalQuestionNumber": 4,
+              "pageLocalOrdinal": 4,
+              "prompt": "Necesitas almacenar el grupo sanguíneo de una persona con un SOLO carácter (por ejemplo: 'A', 'B', 'O'). ¿Qué tipo de dato primitivo es el más adecuado?",
+              "correctOption": "C",
+              "answerKeyEntry": "D"
+            },
+            {
+              "datasetQuestionNumber": 105,
+              "visibleCanonicalQuestionNumber": 5,
+              "pageLocalOrdinal": 5,
+              "prompt": "Dados: x = 8, y = 3, z = 3. Evalúa la expresión lógica: (x >= 8) AND (y < 3 OR z = 3):",
+              "correctOption": "B",
+              "answerKeyEntry": "E"
+            },
+            {
+              "datasetQuestionNumber": 106,
+              "visibleCanonicalQuestionNumber": 6,
+              "pageLocalOrdinal": 6,
+              "prompt": "Dados a = 2, b = 3, c = 4, ¿cuál es el valor de la expresión a + b x c?",
+              "correctOption": "C",
+              "answerKeyEntry": "D"
+            }
+          ]
+        },
+        {
+          "numeroPagina": 2,
+          "expectedQr": "EXAMEN:503CF7FA:P2:TV3",
+          "sourceGroup": "503CF7FA:P2",
+          "captureIds": [
+            "503CF7FA-P2-C1"
+          ],
+          "captureCount": 1,
+          "datasetQuestionRange": {
+            "from": 201,
+            "to": 207
+          },
+          "visibleCanonicalQuestionRange": {
+            "from": 9,
+            "to": 16
+          },
+          "visibleCanonicalQuestionsFullPage": [
+            9,
+            10,
+            11,
+            12,
+            13,
+            14,
+            15,
+            16
+          ],
+          "visibleCanonicalQuestionsObservedInDatasetRange": [
+            9,
+            10,
+            11,
+            12,
+            13,
+            14,
+            15
+          ],
+          "questionLinks": [
+            {
+              "datasetQuestionNumber": 201,
+              "visibleCanonicalQuestionNumber": 9,
+              "pageLocalOrdinal": 1,
+              "prompt": "En el contexto de pseudocódigo, ¿qué parte se considera el argumento de la sentencia de salida? Ejemplo: Imprimir \"Hola\"",
+              "correctOption": "D",
+              "answerKeyEntry": "D"
+            },
+            {
+              "datasetQuestionNumber": 202,
+              "visibleCanonicalQuestionNumber": 10,
+              "pageLocalOrdinal": 2,
+              "prompt": "¿Cuál estructura garantiza que el bloque de instrucciones se ejecute al menos una vez, aunque la condición sea falsa desde el inicio?",
+              "correctOption": "C",
+              "answerKeyEntry": "D"
+            },
+            {
+              "datasetQuestionNumber": 203,
+              "visibleCanonicalQuestionNumber": 11,
+              "pageLocalOrdinal": 3,
+              "prompt": "¿Cuántas veces se ejecuta el bloque si el ciclo es? Para i = 1 hasta 10 / (bloque) / FinPara",
+              "correctOption": "D",
+              "answerKeyEntry": "D"
+            },
+            {
+              "datasetQuestionNumber": 204,
+              "visibleCanonicalQuestionNumber": 12,
+              "pageLocalOrdinal": 4,
+              "prompt": "En pseudocódigo, ¿qué condición compara correctamente si x es igual a 10 (sin asignar)?",
+              "correctOption": "D",
+              "answerKeyEntry": "B"
+            },
+            {
+              "datasetQuestionNumber": 205,
+              "visibleCanonicalQuestionNumber": 13,
+              "pageLocalOrdinal": 5,
+              "prompt": "Si a es int y b es float, ¿qué tipo de dato suele tener el resultado de a + b en la mayoría de lenguajes?",
+              "correctOption": "B",
+              "answerKeyEntry": "B"
+            },
+            {
+              "datasetQuestionNumber": 206,
+              "visibleCanonicalQuestionNumber": 14,
+              "pageLocalOrdinal": 6,
+              "prompt": "Se declara un arreglo bidimensional calif[3][5], donde fila = parcial (0..2) y columna = materia (0..4). ¿Cuál pseudocódigo recorre primero parciales (filas) y luego materias (columnas), sin salirse de rango?",
+              "correctOption": "E",
+              "answerKeyEntry": "D"
+            },
+            {
+              "datasetQuestionNumber": 207,
+              "visibleCanonicalQuestionNumber": 15,
+              "pageLocalOrdinal": 7,
+              "prompt": "Necesitas almacenar la cantidad de alumnos inscritos (un conteo: 0, 1, 2, 3, ...). ¿Qué tipo de dato es el más adecuado?",
+              "correctOption": "C",
+              "answerKeyEntry": "B"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "folio": "54BC4954",
+      "pages": [
+        {
+          "numeroPagina": 1,
+          "expectedQr": "EXAMEN:54BC4954:P1:TV3",
+          "sourceGroup": "54BC4954:P1",
+          "captureIds": [
+            "54BC4954-P1-C1"
+          ],
+          "captureCount": 1,
+          "datasetQuestionRange": {
+            "from": 101,
+            "to": 107
+          },
+          "visibleCanonicalQuestionRange": {
+            "from": 1,
+            "to": 8
+          },
+          "visibleCanonicalQuestionsFullPage": [
+            1,
+            2,
+            3,
+            4,
+            5,
+            6,
+            7,
+            8
+          ],
+          "visibleCanonicalQuestionsObservedInDatasetRange": [
+            1,
+            2,
+            3,
+            4,
+            5,
+            6,
+            7
+          ],
+          "questionLinks": [
+            {
+              "datasetQuestionNumber": 101,
+              "visibleCanonicalQuestionNumber": 1,
+              "pageLocalOrdinal": 1,
+              "prompt": "¿Cuál afirmación describe mejor una constante en programación?",
+              "correctOption": "E",
+              "answerKeyEntry": "B"
+            },
+            {
+              "datasetQuestionNumber": 102,
+              "visibleCanonicalQuestionNumber": 2,
+              "pageLocalOrdinal": 2,
+              "prompt": "Se declara un arreglo de 5 enteros: int v[5]. En un esquema típico de índices desde 0, ¿cuál es el último índice válido?",
+              "correctOption": "D",
+              "answerKeyEntry": "D"
+            },
+            {
+              "datasetQuestionNumber": 103,
+              "visibleCanonicalQuestionNumber": 3,
+              "pageLocalOrdinal": 3,
+              "prompt": "Se pide validar que calif esté en el rango 0 a 100 (inclusive). ¿Cuál condición es CORRECTA para detectar que el valor es inválido?",
+              "correctOption": "B",
+              "answerKeyEntry": "E"
+            },
+            {
+              "datasetQuestionNumber": 104,
+              "visibleCanonicalQuestionNumber": 4,
+              "pageLocalOrdinal": 4,
+              "prompt": "Necesitas almacenar el grupo sanguíneo de una persona con un SOLO carácter (por ejemplo: 'A', 'B', 'O'). ¿Qué tipo de dato primitivo es el más adecuado?",
+              "correctOption": "C",
+              "answerKeyEntry": "D"
+            },
+            {
+              "datasetQuestionNumber": 105,
+              "visibleCanonicalQuestionNumber": 5,
+              "pageLocalOrdinal": 5,
+              "prompt": "Dados: x = 8, y = 3, z = 3. Evalúa la expresión lógica: (x >= 8) AND (y < 3 OR z = 3):",
+              "correctOption": "B",
+              "answerKeyEntry": "E"
+            },
+            {
+              "datasetQuestionNumber": 106,
+              "visibleCanonicalQuestionNumber": 6,
+              "pageLocalOrdinal": 6,
+              "prompt": "Dados a = 2, b = 3, c = 4, ¿cuál es el valor de la expresión a + b x c?",
+              "correctOption": "C",
+              "answerKeyEntry": "D"
+            },
+            {
+              "datasetQuestionNumber": 107,
+              "visibleCanonicalQuestionNumber": 7,
+              "pageLocalOrdinal": 7,
+              "prompt": "Quieres almacenar calificaciones donde dimensión 1 = parcial (3 parciales: 0..2), dimensión 2 = materia (5 materias: 0..4), dimensión 3 = alumno (N alumnos: 0..N-1). ¿Cuál declaración representa mejor ese modelo?",
+              "correctOption": "D",
+              "answerKeyEntry": "D"
+            }
+          ]
+        },
+        {
+          "numeroPagina": 2,
+          "expectedQr": "EXAMEN:54BC4954:P2:TV3",
+          "sourceGroup": "54BC4954:P2",
+          "captureIds": [
+            "54BC4954-P2-C1"
+          ],
+          "captureCount": 1,
+          "datasetQuestionRange": {
+            "from": 201,
+            "to": 207
+          },
+          "visibleCanonicalQuestionRange": {
+            "from": 9,
+            "to": 16
+          },
+          "visibleCanonicalQuestionsFullPage": [
+            9,
+            10,
+            11,
+            12,
+            13,
+            14,
+            15,
+            16
+          ],
+          "visibleCanonicalQuestionsObservedInDatasetRange": [
+            9,
+            10,
+            11,
+            12,
+            13,
+            14,
+            15
+          ],
+          "questionLinks": [
+            {
+              "datasetQuestionNumber": 201,
+              "visibleCanonicalQuestionNumber": 9,
+              "pageLocalOrdinal": 1,
+              "prompt": "En el contexto de pseudocódigo, ¿qué parte se considera el argumento de la sentencia de salida? Ejemplo: Imprimir \"Hola\"",
+              "correctOption": "D",
+              "answerKeyEntry": "D"
+            },
+            {
+              "datasetQuestionNumber": 202,
+              "visibleCanonicalQuestionNumber": 10,
+              "pageLocalOrdinal": 2,
+              "prompt": "¿Cuál estructura garantiza que el bloque de instrucciones se ejecute al menos una vez, aunque la condición sea falsa desde el inicio?",
+              "correctOption": "C",
+              "answerKeyEntry": "D"
+            },
+            {
+              "datasetQuestionNumber": 203,
+              "visibleCanonicalQuestionNumber": 11,
+              "pageLocalOrdinal": 3,
+              "prompt": "¿Cuántas veces se ejecuta el bloque si el ciclo es? Para i = 1 hasta 10 / (bloque) / FinPara",
+              "correctOption": "D",
+              "answerKeyEntry": "D"
+            },
+            {
+              "datasetQuestionNumber": 204,
+              "visibleCanonicalQuestionNumber": 12,
+              "pageLocalOrdinal": 4,
+              "prompt": "En pseudocódigo, ¿qué condición compara correctamente si x es igual a 10 (sin asignar)?",
+              "correctOption": "D",
+              "answerKeyEntry": "B"
+            },
+            {
+              "datasetQuestionNumber": 205,
+              "visibleCanonicalQuestionNumber": 13,
+              "pageLocalOrdinal": 5,
+              "prompt": "Si a es int y b es float, ¿qué tipo de dato suele tener el resultado de a + b en la mayoría de lenguajes?",
+              "correctOption": "B",
+              "answerKeyEntry": "B"
+            },
+            {
+              "datasetQuestionNumber": 206,
+              "visibleCanonicalQuestionNumber": 14,
+              "pageLocalOrdinal": 6,
+              "prompt": "Se declara un arreglo bidimensional calif[3][5], donde fila = parcial (0..2) y columna = materia (0..4). ¿Cuál pseudocódigo recorre primero parciales (filas) y luego materias (columnas), sin salirse de rango?",
+              "correctOption": "E",
+              "answerKeyEntry": "D"
+            },
+            {
+              "datasetQuestionNumber": 207,
+              "visibleCanonicalQuestionNumber": 15,
+              "pageLocalOrdinal": 7,
+              "prompt": "Necesitas almacenar la cantidad de alumnos inscritos (un conteo: 0, 1, 2, 3, ...). ¿Qué tipo de dato es el más adecuado?",
+              "correctOption": "C",
+              "answerKeyEntry": "B"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "folio": "5EA00A22",
+      "pages": [
+        {
+          "numeroPagina": 1,
+          "expectedQr": "EXAMEN:5EA00A22:P1:TV3",
+          "sourceGroup": "5EA00A22:P1",
+          "captureIds": [
+            "5EA00A22-P1-C1"
+          ],
+          "captureCount": 1,
+          "datasetQuestionRange": {
+            "from": 101,
+            "to": 107
+          },
+          "visibleCanonicalQuestionRange": {
+            "from": 1,
+            "to": 8
+          },
+          "visibleCanonicalQuestionsFullPage": [
+            1,
+            2,
+            3,
+            4,
+            5,
+            6,
+            7,
+            8
+          ],
+          "visibleCanonicalQuestionsObservedInDatasetRange": [
+            1,
+            2,
+            3,
+            4,
+            5,
+            6,
+            7
+          ],
+          "questionLinks": [
+            {
+              "datasetQuestionNumber": 101,
+              "visibleCanonicalQuestionNumber": 1,
+              "pageLocalOrdinal": 1,
+              "prompt": "¿Cuál afirmación describe mejor una constante en programación?",
+              "correctOption": "E",
+              "answerKeyEntry": "B"
+            },
+            {
+              "datasetQuestionNumber": 102,
+              "visibleCanonicalQuestionNumber": 2,
+              "pageLocalOrdinal": 2,
+              "prompt": "Se declara un arreglo de 5 enteros: int v[5]. En un esquema típico de índices desde 0, ¿cuál es el último índice válido?",
+              "correctOption": "D",
+              "answerKeyEntry": "D"
+            },
+            {
+              "datasetQuestionNumber": 103,
+              "visibleCanonicalQuestionNumber": 3,
+              "pageLocalOrdinal": 3,
+              "prompt": "Se pide validar que calif esté en el rango 0 a 100 (inclusive). ¿Cuál condición es CORRECTA para detectar que el valor es inválido?",
+              "correctOption": "B",
+              "answerKeyEntry": "E"
+            },
+            {
+              "datasetQuestionNumber": 104,
+              "visibleCanonicalQuestionNumber": 4,
+              "pageLocalOrdinal": 4,
+              "prompt": "Necesitas almacenar el grupo sanguíneo de una persona con un SOLO carácter (por ejemplo: 'A', 'B', 'O'). ¿Qué tipo de dato primitivo es el más adecuado?",
+              "correctOption": "C",
+              "answerKeyEntry": "D"
+            },
+            {
+              "datasetQuestionNumber": 105,
+              "visibleCanonicalQuestionNumber": 5,
+              "pageLocalOrdinal": 5,
+              "prompt": "Dados: x = 8, y = 3, z = 3. Evalúa la expresión lógica: (x >= 8) AND (y < 3 OR z = 3):",
+              "correctOption": "B",
+              "answerKeyEntry": "E"
+            },
+            {
+              "datasetQuestionNumber": 106,
+              "visibleCanonicalQuestionNumber": 6,
+              "pageLocalOrdinal": 6,
+              "prompt": "Dados a = 2, b = 3, c = 4, ¿cuál es el valor de la expresión a + b x c?",
+              "correctOption": "C",
+              "answerKeyEntry": "D"
+            },
+            {
+              "datasetQuestionNumber": 107,
+              "visibleCanonicalQuestionNumber": 7,
+              "pageLocalOrdinal": 7,
+              "prompt": "Quieres almacenar calificaciones donde dimensión 1 = parcial (3 parciales: 0..2), dimensión 2 = materia (5 materias: 0..4), dimensión 3 = alumno (N alumnos: 0..N-1). ¿Cuál declaración representa mejor ese modelo?",
+              "correctOption": "D",
+              "answerKeyEntry": "D"
+            }
+          ]
+        },
+        {
+          "numeroPagina": 2,
+          "expectedQr": "EXAMEN:5EA00A22:P2:TV3",
+          "sourceGroup": "5EA00A22:P2",
+          "captureIds": [
+            "5EA00A22-P2-C1"
+          ],
+          "captureCount": 1,
+          "datasetQuestionRange": {
+            "from": 201,
+            "to": 207
+          },
+          "visibleCanonicalQuestionRange": {
+            "from": 9,
+            "to": 16
+          },
+          "visibleCanonicalQuestionsFullPage": [
+            9,
+            10,
+            11,
+            12,
+            13,
+            14,
+            15,
+            16
+          ],
+          "visibleCanonicalQuestionsObservedInDatasetRange": [
+            9,
+            10,
+            11,
+            12,
+            13,
+            14,
+            15
+          ],
+          "questionLinks": [
+            {
+              "datasetQuestionNumber": 201,
+              "visibleCanonicalQuestionNumber": 9,
+              "pageLocalOrdinal": 1,
+              "prompt": "En el contexto de pseudocódigo, ¿qué parte se considera el argumento de la sentencia de salida? Ejemplo: Imprimir \"Hola\"",
+              "correctOption": "D",
+              "answerKeyEntry": "D"
+            },
+            {
+              "datasetQuestionNumber": 202,
+              "visibleCanonicalQuestionNumber": 10,
+              "pageLocalOrdinal": 2,
+              "prompt": "¿Cuál estructura garantiza que el bloque de instrucciones se ejecute al menos una vez, aunque la condición sea falsa desde el inicio?",
+              "correctOption": "C",
+              "answerKeyEntry": "D"
+            },
+            {
+              "datasetQuestionNumber": 203,
+              "visibleCanonicalQuestionNumber": 11,
+              "pageLocalOrdinal": 3,
+              "prompt": "¿Cuántas veces se ejecuta el bloque si el ciclo es? Para i = 1 hasta 10 / (bloque) / FinPara",
+              "correctOption": "D",
+              "answerKeyEntry": "D"
+            },
+            {
+              "datasetQuestionNumber": 204,
+              "visibleCanonicalQuestionNumber": 12,
+              "pageLocalOrdinal": 4,
+              "prompt": "En pseudocódigo, ¿qué condición compara correctamente si x es igual a 10 (sin asignar)?",
+              "correctOption": "D",
+              "answerKeyEntry": "B"
+            },
+            {
+              "datasetQuestionNumber": 205,
+              "visibleCanonicalQuestionNumber": 13,
+              "pageLocalOrdinal": 5,
+              "prompt": "Si a es int y b es float, ¿qué tipo de dato suele tener el resultado de a + b en la mayoría de lenguajes?",
+              "correctOption": "B",
+              "answerKeyEntry": "B"
+            },
+            {
+              "datasetQuestionNumber": 206,
+              "visibleCanonicalQuestionNumber": 14,
+              "pageLocalOrdinal": 6,
+              "prompt": "Se declara un arreglo bidimensional calif[3][5], donde fila = parcial (0..2) y columna = materia (0..4). ¿Cuál pseudocódigo recorre primero parciales (filas) y luego materias (columnas), sin salirse de rango?",
+              "correctOption": "E",
+              "answerKeyEntry": "D"
+            },
+            {
+              "datasetQuestionNumber": 207,
+              "visibleCanonicalQuestionNumber": 15,
+              "pageLocalOrdinal": 7,
+              "prompt": "Necesitas almacenar la cantidad de alumnos inscritos (un conteo: 0, 1, 2, 3, ...). ¿Qué tipo de dato es el más adecuado?",
+              "correctOption": "C",
+              "answerKeyEntry": "B"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "folio": "66BB5FBD",
+      "pages": [
+        {
+          "numeroPagina": 1,
+          "expectedQr": "EXAMEN:66BB5FBD:P1:TV3",
+          "sourceGroup": "66BB5FBD:P1",
+          "captureIds": [
+            "66BB5FBD-P1-C1"
+          ],
+          "captureCount": 1,
+          "datasetQuestionRange": {
+            "from": 101,
+            "to": 106
+          },
+          "visibleCanonicalQuestionRange": {
+            "from": 1,
+            "to": 8
+          },
+          "visibleCanonicalQuestionsFullPage": [
+            1,
+            2,
+            3,
+            4,
+            5,
+            6,
+            7,
+            8
+          ],
+          "visibleCanonicalQuestionsObservedInDatasetRange": [
+            1,
+            2,
+            3,
+            4,
+            5,
+            6
+          ],
+          "questionLinks": [
+            {
+              "datasetQuestionNumber": 101,
+              "visibleCanonicalQuestionNumber": 1,
+              "pageLocalOrdinal": 1,
+              "prompt": "¿Cuál afirmación describe mejor una constante en programación?",
+              "correctOption": "E",
+              "answerKeyEntry": "B"
+            },
+            {
+              "datasetQuestionNumber": 102,
+              "visibleCanonicalQuestionNumber": 2,
+              "pageLocalOrdinal": 2,
+              "prompt": "Se declara un arreglo de 5 enteros: int v[5]. En un esquema típico de índices desde 0, ¿cuál es el último índice válido?",
+              "correctOption": "D",
+              "answerKeyEntry": "D"
+            },
+            {
+              "datasetQuestionNumber": 103,
+              "visibleCanonicalQuestionNumber": 3,
+              "pageLocalOrdinal": 3,
+              "prompt": "Se pide validar que calif esté en el rango 0 a 100 (inclusive). ¿Cuál condición es CORRECTA para detectar que el valor es inválido?",
+              "correctOption": "B",
+              "answerKeyEntry": "E"
+            },
+            {
+              "datasetQuestionNumber": 104,
+              "visibleCanonicalQuestionNumber": 4,
+              "pageLocalOrdinal": 4,
+              "prompt": "Necesitas almacenar el grupo sanguíneo de una persona con un SOLO carácter (por ejemplo: 'A', 'B', 'O'). ¿Qué tipo de dato primitivo es el más adecuado?",
+              "correctOption": "C",
+              "answerKeyEntry": "D"
+            },
+            {
+              "datasetQuestionNumber": 105,
+              "visibleCanonicalQuestionNumber": 5,
+              "pageLocalOrdinal": 5,
+              "prompt": "Dados: x = 8, y = 3, z = 3. Evalúa la expresión lógica: (x >= 8) AND (y < 3 OR z = 3):",
+              "correctOption": "B",
+              "answerKeyEntry": "E"
+            },
+            {
+              "datasetQuestionNumber": 106,
+              "visibleCanonicalQuestionNumber": 6,
+              "pageLocalOrdinal": 6,
+              "prompt": "Dados a = 2, b = 3, c = 4, ¿cuál es el valor de la expresión a + b x c?",
+              "correctOption": "C",
+              "answerKeyEntry": "D"
+            }
+          ]
+        },
+        {
+          "numeroPagina": 2,
+          "expectedQr": "EXAMEN:66BB5FBD:P2:TV3",
+          "sourceGroup": "66BB5FBD:P2",
+          "captureIds": [
+            "66BB5FBD-P2-C1"
+          ],
+          "captureCount": 1,
+          "datasetQuestionRange": {
+            "from": 201,
+            "to": 207
+          },
+          "visibleCanonicalQuestionRange": {
+            "from": 9,
+            "to": 16
+          },
+          "visibleCanonicalQuestionsFullPage": [
+            9,
+            10,
+            11,
+            12,
+            13,
+            14,
+            15,
+            16
+          ],
+          "visibleCanonicalQuestionsObservedInDatasetRange": [
+            9,
+            10,
+            11,
+            12,
+            13,
+            14,
+            15
+          ],
+          "questionLinks": [
+            {
+              "datasetQuestionNumber": 201,
+              "visibleCanonicalQuestionNumber": 9,
+              "pageLocalOrdinal": 1,
+              "prompt": "En el contexto de pseudocódigo, ¿qué parte se considera el argumento de la sentencia de salida? Ejemplo: Imprimir \"Hola\"",
+              "correctOption": "D",
+              "answerKeyEntry": "D"
+            },
+            {
+              "datasetQuestionNumber": 202,
+              "visibleCanonicalQuestionNumber": 10,
+              "pageLocalOrdinal": 2,
+              "prompt": "¿Cuál estructura garantiza que el bloque de instrucciones se ejecute al menos una vez, aunque la condición sea falsa desde el inicio?",
+              "correctOption": "C",
+              "answerKeyEntry": "D"
+            },
+            {
+              "datasetQuestionNumber": 203,
+              "visibleCanonicalQuestionNumber": 11,
+              "pageLocalOrdinal": 3,
+              "prompt": "¿Cuántas veces se ejecuta el bloque si el ciclo es? Para i = 1 hasta 10 / (bloque) / FinPara",
+              "correctOption": "D",
+              "answerKeyEntry": "D"
+            },
+            {
+              "datasetQuestionNumber": 204,
+              "visibleCanonicalQuestionNumber": 12,
+              "pageLocalOrdinal": 4,
+              "prompt": "En pseudocódigo, ¿qué condición compara correctamente si x es igual a 10 (sin asignar)?",
+              "correctOption": "D",
+              "answerKeyEntry": "B"
+            },
+            {
+              "datasetQuestionNumber": 205,
+              "visibleCanonicalQuestionNumber": 13,
+              "pageLocalOrdinal": 5,
+              "prompt": "Si a es int y b es float, ¿qué tipo de dato suele tener el resultado de a + b en la mayoría de lenguajes?",
+              "correctOption": "B",
+              "answerKeyEntry": "B"
+            },
+            {
+              "datasetQuestionNumber": 206,
+              "visibleCanonicalQuestionNumber": 14,
+              "pageLocalOrdinal": 6,
+              "prompt": "Se declara un arreglo bidimensional calif[3][5], donde fila = parcial (0..2) y columna = materia (0..4). ¿Cuál pseudocódigo recorre primero parciales (filas) y luego materias (columnas), sin salirse de rango?",
+              "correctOption": "E",
+              "answerKeyEntry": "D"
+            },
+            {
+              "datasetQuestionNumber": 207,
+              "visibleCanonicalQuestionNumber": 15,
+              "pageLocalOrdinal": 7,
+              "prompt": "Necesitas almacenar la cantidad de alumnos inscritos (un conteo: 0, 1, 2, 3, ...). ¿Qué tipo de dato es el más adecuado?",
+              "correctOption": "C",
+              "answerKeyEntry": "B"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "folio": "6A98D91E",
+      "pages": [
+        {
+          "numeroPagina": 1,
+          "expectedQr": "EXAMEN:6A98D91E:P1:TV3",
+          "sourceGroup": "6A98D91E:P1",
+          "captureIds": [
+            "6A98D91E-P1-C1"
+          ],
+          "captureCount": 1,
+          "datasetQuestionRange": {
+            "from": 101,
+            "to": 106
+          },
+          "visibleCanonicalQuestionRange": {
+            "from": 1,
+            "to": 8
+          },
+          "visibleCanonicalQuestionsFullPage": [
+            1,
+            2,
+            3,
+            4,
+            5,
+            6,
+            7,
+            8
+          ],
+          "visibleCanonicalQuestionsObservedInDatasetRange": [
+            1,
+            2,
+            3,
+            4,
+            5,
+            6
+          ],
+          "questionLinks": [
+            {
+              "datasetQuestionNumber": 101,
+              "visibleCanonicalQuestionNumber": 1,
+              "pageLocalOrdinal": 1,
+              "prompt": "¿Cuál afirmación describe mejor una constante en programación?",
+              "correctOption": "E",
+              "answerKeyEntry": "B"
+            },
+            {
+              "datasetQuestionNumber": 102,
+              "visibleCanonicalQuestionNumber": 2,
+              "pageLocalOrdinal": 2,
+              "prompt": "Se declara un arreglo de 5 enteros: int v[5]. En un esquema típico de índices desde 0, ¿cuál es el último índice válido?",
+              "correctOption": "D",
+              "answerKeyEntry": "D"
+            },
+            {
+              "datasetQuestionNumber": 103,
+              "visibleCanonicalQuestionNumber": 3,
+              "pageLocalOrdinal": 3,
+              "prompt": "Se pide validar que calif esté en el rango 0 a 100 (inclusive). ¿Cuál condición es CORRECTA para detectar que el valor es inválido?",
+              "correctOption": "B",
+              "answerKeyEntry": "E"
+            },
+            {
+              "datasetQuestionNumber": 104,
+              "visibleCanonicalQuestionNumber": 4,
+              "pageLocalOrdinal": 4,
+              "prompt": "Necesitas almacenar el grupo sanguíneo de una persona con un SOLO carácter (por ejemplo: 'A', 'B', 'O'). ¿Qué tipo de dato primitivo es el más adecuado?",
+              "correctOption": "C",
+              "answerKeyEntry": "D"
+            },
+            {
+              "datasetQuestionNumber": 105,
+              "visibleCanonicalQuestionNumber": 5,
+              "pageLocalOrdinal": 5,
+              "prompt": "Dados: x = 8, y = 3, z = 3. Evalúa la expresión lógica: (x >= 8) AND (y < 3 OR z = 3):",
+              "correctOption": "B",
+              "answerKeyEntry": "E"
+            },
+            {
+              "datasetQuestionNumber": 106,
+              "visibleCanonicalQuestionNumber": 6,
+              "pageLocalOrdinal": 6,
+              "prompt": "Dados a = 2, b = 3, c = 4, ¿cuál es el valor de la expresión a + b x c?",
+              "correctOption": "C",
+              "answerKeyEntry": "D"
+            }
+          ]
+        },
+        {
+          "numeroPagina": 2,
+          "expectedQr": "EXAMEN:6A98D91E:P2:TV3",
+          "sourceGroup": "6A98D91E:P2",
+          "captureIds": [
+            "6A98D91E-P2-C1"
+          ],
+          "captureCount": 1,
+          "datasetQuestionRange": {
+            "from": 201,
+            "to": 207
+          },
+          "visibleCanonicalQuestionRange": {
+            "from": 9,
+            "to": 16
+          },
+          "visibleCanonicalQuestionsFullPage": [
+            9,
+            10,
+            11,
+            12,
+            13,
+            14,
+            15,
+            16
+          ],
+          "visibleCanonicalQuestionsObservedInDatasetRange": [
+            9,
+            10,
+            11,
+            12,
+            13,
+            14,
+            15
+          ],
+          "questionLinks": [
+            {
+              "datasetQuestionNumber": 201,
+              "visibleCanonicalQuestionNumber": 9,
+              "pageLocalOrdinal": 1,
+              "prompt": "En el contexto de pseudocódigo, ¿qué parte se considera el argumento de la sentencia de salida? Ejemplo: Imprimir \"Hola\"",
+              "correctOption": "D",
+              "answerKeyEntry": "D"
+            },
+            {
+              "datasetQuestionNumber": 202,
+              "visibleCanonicalQuestionNumber": 10,
+              "pageLocalOrdinal": 2,
+              "prompt": "¿Cuál estructura garantiza que el bloque de instrucciones se ejecute al menos una vez, aunque la condición sea falsa desde el inicio?",
+              "correctOption": "C",
+              "answerKeyEntry": "D"
+            },
+            {
+              "datasetQuestionNumber": 203,
+              "visibleCanonicalQuestionNumber": 11,
+              "pageLocalOrdinal": 3,
+              "prompt": "¿Cuántas veces se ejecuta el bloque si el ciclo es? Para i = 1 hasta 10 / (bloque) / FinPara",
+              "correctOption": "D",
+              "answerKeyEntry": "D"
+            },
+            {
+              "datasetQuestionNumber": 204,
+              "visibleCanonicalQuestionNumber": 12,
+              "pageLocalOrdinal": 4,
+              "prompt": "En pseudocódigo, ¿qué condición compara correctamente si x es igual a 10 (sin asignar)?",
+              "correctOption": "D",
+              "answerKeyEntry": "B"
+            },
+            {
+              "datasetQuestionNumber": 205,
+              "visibleCanonicalQuestionNumber": 13,
+              "pageLocalOrdinal": 5,
+              "prompt": "Si a es int y b es float, ¿qué tipo de dato suele tener el resultado de a + b en la mayoría de lenguajes?",
+              "correctOption": "B",
+              "answerKeyEntry": "B"
+            },
+            {
+              "datasetQuestionNumber": 206,
+              "visibleCanonicalQuestionNumber": 14,
+              "pageLocalOrdinal": 6,
+              "prompt": "Se declara un arreglo bidimensional calif[3][5], donde fila = parcial (0..2) y columna = materia (0..4). ¿Cuál pseudocódigo recorre primero parciales (filas) y luego materias (columnas), sin salirse de rango?",
+              "correctOption": "E",
+              "answerKeyEntry": "D"
+            },
+            {
+              "datasetQuestionNumber": 207,
+              "visibleCanonicalQuestionNumber": 15,
+              "pageLocalOrdinal": 7,
+              "prompt": "Necesitas almacenar la cantidad de alumnos inscritos (un conteo: 0, 1, 2, 3, ...). ¿Qué tipo de dato es el más adecuado?",
+              "correctOption": "C",
+              "answerKeyEntry": "B"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "folio": "75D5292B",
+      "pages": [
+        {
+          "numeroPagina": 1,
+          "expectedQr": "EXAMEN:75D5292B:P1:TV3",
+          "sourceGroup": "75D5292B:P1",
+          "captureIds": [
+            "75D5292B-P1-C1"
+          ],
+          "captureCount": 1,
+          "datasetQuestionRange": {
+            "from": 101,
+            "to": 107
+          },
+          "visibleCanonicalQuestionRange": {
+            "from": 1,
+            "to": 8
+          },
+          "visibleCanonicalQuestionsFullPage": [
+            1,
+            2,
+            3,
+            4,
+            5,
+            6,
+            7,
+            8
+          ],
+          "visibleCanonicalQuestionsObservedInDatasetRange": [
+            1,
+            2,
+            3,
+            4,
+            5,
+            6,
+            7
+          ],
+          "questionLinks": [
+            {
+              "datasetQuestionNumber": 101,
+              "visibleCanonicalQuestionNumber": 1,
+              "pageLocalOrdinal": 1,
+              "prompt": "¿Cuál afirmación describe mejor una constante en programación?",
+              "correctOption": "E",
+              "answerKeyEntry": "B"
+            },
+            {
+              "datasetQuestionNumber": 102,
+              "visibleCanonicalQuestionNumber": 2,
+              "pageLocalOrdinal": 2,
+              "prompt": "Se declara un arreglo de 5 enteros: int v[5]. En un esquema típico de índices desde 0, ¿cuál es el último índice válido?",
+              "correctOption": "D",
+              "answerKeyEntry": "D"
+            },
+            {
+              "datasetQuestionNumber": 103,
+              "visibleCanonicalQuestionNumber": 3,
+              "pageLocalOrdinal": 3,
+              "prompt": "Se pide validar que calif esté en el rango 0 a 100 (inclusive). ¿Cuál condición es CORRECTA para detectar que el valor es inválido?",
+              "correctOption": "B",
+              "answerKeyEntry": "E"
+            },
+            {
+              "datasetQuestionNumber": 104,
+              "visibleCanonicalQuestionNumber": 4,
+              "pageLocalOrdinal": 4,
+              "prompt": "Necesitas almacenar el grupo sanguíneo de una persona con un SOLO carácter (por ejemplo: 'A', 'B', 'O'). ¿Qué tipo de dato primitivo es el más adecuado?",
+              "correctOption": "C",
+              "answerKeyEntry": "D"
+            },
+            {
+              "datasetQuestionNumber": 105,
+              "visibleCanonicalQuestionNumber": 5,
+              "pageLocalOrdinal": 5,
+              "prompt": "Dados: x = 8, y = 3, z = 3. Evalúa la expresión lógica: (x >= 8) AND (y < 3 OR z = 3):",
+              "correctOption": "B",
+              "answerKeyEntry": "E"
+            },
+            {
+              "datasetQuestionNumber": 106,
+              "visibleCanonicalQuestionNumber": 6,
+              "pageLocalOrdinal": 6,
+              "prompt": "Dados a = 2, b = 3, c = 4, ¿cuál es el valor de la expresión a + b x c?",
+              "correctOption": "C",
+              "answerKeyEntry": "D"
+            },
+            {
+              "datasetQuestionNumber": 107,
+              "visibleCanonicalQuestionNumber": 7,
+              "pageLocalOrdinal": 7,
+              "prompt": "Quieres almacenar calificaciones donde dimensión 1 = parcial (3 parciales: 0..2), dimensión 2 = materia (5 materias: 0..4), dimensión 3 = alumno (N alumnos: 0..N-1). ¿Cuál declaración representa mejor ese modelo?",
+              "correctOption": "D",
+              "answerKeyEntry": "D"
+            }
+          ]
+        },
+        {
+          "numeroPagina": 2,
+          "expectedQr": "EXAMEN:75D5292B:P2:TV3",
+          "sourceGroup": "75D5292B:P2",
+          "captureIds": [
+            "75D5292B-P2-C1"
+          ],
+          "captureCount": 1,
+          "datasetQuestionRange": {
+            "from": 201,
+            "to": 207
+          },
+          "visibleCanonicalQuestionRange": {
+            "from": 9,
+            "to": 16
+          },
+          "visibleCanonicalQuestionsFullPage": [
+            9,
+            10,
+            11,
+            12,
+            13,
+            14,
+            15,
+            16
+          ],
+          "visibleCanonicalQuestionsObservedInDatasetRange": [
+            9,
+            10,
+            11,
+            12,
+            13,
+            14,
+            15
+          ],
+          "questionLinks": [
+            {
+              "datasetQuestionNumber": 201,
+              "visibleCanonicalQuestionNumber": 9,
+              "pageLocalOrdinal": 1,
+              "prompt": "En el contexto de pseudocódigo, ¿qué parte se considera el argumento de la sentencia de salida? Ejemplo: Imprimir \"Hola\"",
+              "correctOption": "D",
+              "answerKeyEntry": "D"
+            },
+            {
+              "datasetQuestionNumber": 202,
+              "visibleCanonicalQuestionNumber": 10,
+              "pageLocalOrdinal": 2,
+              "prompt": "¿Cuál estructura garantiza que el bloque de instrucciones se ejecute al menos una vez, aunque la condición sea falsa desde el inicio?",
+              "correctOption": "C",
+              "answerKeyEntry": "D"
+            },
+            {
+              "datasetQuestionNumber": 203,
+              "visibleCanonicalQuestionNumber": 11,
+              "pageLocalOrdinal": 3,
+              "prompt": "¿Cuántas veces se ejecuta el bloque si el ciclo es? Para i = 1 hasta 10 / (bloque) / FinPara",
+              "correctOption": "D",
+              "answerKeyEntry": "D"
+            },
+            {
+              "datasetQuestionNumber": 204,
+              "visibleCanonicalQuestionNumber": 12,
+              "pageLocalOrdinal": 4,
+              "prompt": "En pseudocódigo, ¿qué condición compara correctamente si x es igual a 10 (sin asignar)?",
+              "correctOption": "D",
+              "answerKeyEntry": "B"
+            },
+            {
+              "datasetQuestionNumber": 205,
+              "visibleCanonicalQuestionNumber": 13,
+              "pageLocalOrdinal": 5,
+              "prompt": "Si a es int y b es float, ¿qué tipo de dato suele tener el resultado de a + b en la mayoría de lenguajes?",
+              "correctOption": "B",
+              "answerKeyEntry": "B"
+            },
+            {
+              "datasetQuestionNumber": 206,
+              "visibleCanonicalQuestionNumber": 14,
+              "pageLocalOrdinal": 6,
+              "prompt": "Se declara un arreglo bidimensional calif[3][5], donde fila = parcial (0..2) y columna = materia (0..4). ¿Cuál pseudocódigo recorre primero parciales (filas) y luego materias (columnas), sin salirse de rango?",
+              "correctOption": "E",
+              "answerKeyEntry": "D"
+            },
+            {
+              "datasetQuestionNumber": 207,
+              "visibleCanonicalQuestionNumber": 15,
+              "pageLocalOrdinal": 7,
+              "prompt": "Necesitas almacenar la cantidad de alumnos inscritos (un conteo: 0, 1, 2, 3, ...). ¿Qué tipo de dato es el más adecuado?",
+              "correctOption": "C",
+              "answerKeyEntry": "B"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "folio": "A327335F",
+      "pages": [
+        {
+          "numeroPagina": 1,
+          "expectedQr": "EXAMEN:A327335F:P1:TV3",
+          "sourceGroup": "A327335F:P1",
+          "captureIds": [
+            "A327335F-P1-C1"
+          ],
+          "captureCount": 1,
+          "datasetQuestionRange": {
+            "from": 101,
+            "to": 107
+          },
+          "visibleCanonicalQuestionRange": {
+            "from": 1,
+            "to": 8
+          },
+          "visibleCanonicalQuestionsFullPage": [
+            1,
+            2,
+            3,
+            4,
+            5,
+            6,
+            7,
+            8
+          ],
+          "visibleCanonicalQuestionsObservedInDatasetRange": [
+            1,
+            2,
+            3,
+            4,
+            5,
+            6,
+            7
+          ],
+          "questionLinks": [
+            {
+              "datasetQuestionNumber": 101,
+              "visibleCanonicalQuestionNumber": 1,
+              "pageLocalOrdinal": 1,
+              "prompt": "¿Cuál afirmación describe mejor una constante en programación?",
+              "correctOption": "E",
+              "answerKeyEntry": "B"
+            },
+            {
+              "datasetQuestionNumber": 102,
+              "visibleCanonicalQuestionNumber": 2,
+              "pageLocalOrdinal": 2,
+              "prompt": "Se declara un arreglo de 5 enteros: int v[5]. En un esquema típico de índices desde 0, ¿cuál es el último índice válido?",
+              "correctOption": "D",
+              "answerKeyEntry": "D"
+            },
+            {
+              "datasetQuestionNumber": 103,
+              "visibleCanonicalQuestionNumber": 3,
+              "pageLocalOrdinal": 3,
+              "prompt": "Se pide validar que calif esté en el rango 0 a 100 (inclusive). ¿Cuál condición es CORRECTA para detectar que el valor es inválido?",
+              "correctOption": "B",
+              "answerKeyEntry": "E"
+            },
+            {
+              "datasetQuestionNumber": 104,
+              "visibleCanonicalQuestionNumber": 4,
+              "pageLocalOrdinal": 4,
+              "prompt": "Necesitas almacenar el grupo sanguíneo de una persona con un SOLO carácter (por ejemplo: 'A', 'B', 'O'). ¿Qué tipo de dato primitivo es el más adecuado?",
+              "correctOption": "C",
+              "answerKeyEntry": "D"
+            },
+            {
+              "datasetQuestionNumber": 105,
+              "visibleCanonicalQuestionNumber": 5,
+              "pageLocalOrdinal": 5,
+              "prompt": "Dados: x = 8, y = 3, z = 3. Evalúa la expresión lógica: (x >= 8) AND (y < 3 OR z = 3):",
+              "correctOption": "B",
+              "answerKeyEntry": "E"
+            },
+            {
+              "datasetQuestionNumber": 106,
+              "visibleCanonicalQuestionNumber": 6,
+              "pageLocalOrdinal": 6,
+              "prompt": "Dados a = 2, b = 3, c = 4, ¿cuál es el valor de la expresión a + b x c?",
+              "correctOption": "C",
+              "answerKeyEntry": "D"
+            },
+            {
+              "datasetQuestionNumber": 107,
+              "visibleCanonicalQuestionNumber": 7,
+              "pageLocalOrdinal": 7,
+              "prompt": "Quieres almacenar calificaciones donde dimensión 1 = parcial (3 parciales: 0..2), dimensión 2 = materia (5 materias: 0..4), dimensión 3 = alumno (N alumnos: 0..N-1). ¿Cuál declaración representa mejor ese modelo?",
+              "correctOption": "D",
+              "answerKeyEntry": "D"
+            }
+          ]
+        },
+        {
+          "numeroPagina": 2,
+          "expectedQr": "EXAMEN:A327335F:P2:TV3",
+          "sourceGroup": "A327335F:P2",
+          "captureIds": [
+            "A327335F-P2-C1"
+          ],
+          "captureCount": 1,
+          "datasetQuestionRange": {
+            "from": 201,
+            "to": 207
+          },
+          "visibleCanonicalQuestionRange": {
+            "from": 9,
+            "to": 16
+          },
+          "visibleCanonicalQuestionsFullPage": [
+            9,
+            10,
+            11,
+            12,
+            13,
+            14,
+            15,
+            16
+          ],
+          "visibleCanonicalQuestionsObservedInDatasetRange": [
+            9,
+            10,
+            11,
+            12,
+            13,
+            14,
+            15
+          ],
+          "questionLinks": [
+            {
+              "datasetQuestionNumber": 201,
+              "visibleCanonicalQuestionNumber": 9,
+              "pageLocalOrdinal": 1,
+              "prompt": "En el contexto de pseudocódigo, ¿qué parte se considera el argumento de la sentencia de salida? Ejemplo: Imprimir \"Hola\"",
+              "correctOption": "D",
+              "answerKeyEntry": "D"
+            },
+            {
+              "datasetQuestionNumber": 202,
+              "visibleCanonicalQuestionNumber": 10,
+              "pageLocalOrdinal": 2,
+              "prompt": "¿Cuál estructura garantiza que el bloque de instrucciones se ejecute al menos una vez, aunque la condición sea falsa desde el inicio?",
+              "correctOption": "C",
+              "answerKeyEntry": "D"
+            },
+            {
+              "datasetQuestionNumber": 203,
+              "visibleCanonicalQuestionNumber": 11,
+              "pageLocalOrdinal": 3,
+              "prompt": "¿Cuántas veces se ejecuta el bloque si el ciclo es? Para i = 1 hasta 10 / (bloque) / FinPara",
+              "correctOption": "D",
+              "answerKeyEntry": "D"
+            },
+            {
+              "datasetQuestionNumber": 204,
+              "visibleCanonicalQuestionNumber": 12,
+              "pageLocalOrdinal": 4,
+              "prompt": "En pseudocódigo, ¿qué condición compara correctamente si x es igual a 10 (sin asignar)?",
+              "correctOption": "D",
+              "answerKeyEntry": "B"
+            },
+            {
+              "datasetQuestionNumber": 205,
+              "visibleCanonicalQuestionNumber": 13,
+              "pageLocalOrdinal": 5,
+              "prompt": "Si a es int y b es float, ¿qué tipo de dato suele tener el resultado de a + b en la mayoría de lenguajes?",
+              "correctOption": "B",
+              "answerKeyEntry": "B"
+            },
+            {
+              "datasetQuestionNumber": 206,
+              "visibleCanonicalQuestionNumber": 14,
+              "pageLocalOrdinal": 6,
+              "prompt": "Se declara un arreglo bidimensional calif[3][5], donde fila = parcial (0..2) y columna = materia (0..4). ¿Cuál pseudocódigo recorre primero parciales (filas) y luego materias (columnas), sin salirse de rango?",
+              "correctOption": "E",
+              "answerKeyEntry": "D"
+            },
+            {
+              "datasetQuestionNumber": 207,
+              "visibleCanonicalQuestionNumber": 15,
+              "pageLocalOrdinal": 7,
+              "prompt": "Necesitas almacenar la cantidad de alumnos inscritos (un conteo: 0, 1, 2, 3, ...). ¿Qué tipo de dato es el más adecuado?",
+              "correctOption": "C",
+              "answerKeyEntry": "B"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "folio": "A93D8EFA",
+      "pages": [
+        {
+          "numeroPagina": 1,
+          "expectedQr": "EXAMEN:A93D8EFA:P1:TV3",
+          "sourceGroup": "A93D8EFA:P1",
+          "captureIds": [
+            "A93D8EFA-P1-C1"
+          ],
+          "captureCount": 1,
+          "datasetQuestionRange": {
+            "from": 101,
+            "to": 106
+          },
+          "visibleCanonicalQuestionRange": {
+            "from": 1,
+            "to": 8
+          },
+          "visibleCanonicalQuestionsFullPage": [
+            1,
+            2,
+            3,
+            4,
+            5,
+            6,
+            7,
+            8
+          ],
+          "visibleCanonicalQuestionsObservedInDatasetRange": [
+            1,
+            2,
+            3,
+            4,
+            5,
+            6
+          ],
+          "questionLinks": [
+            {
+              "datasetQuestionNumber": 101,
+              "visibleCanonicalQuestionNumber": 1,
+              "pageLocalOrdinal": 1,
+              "prompt": "¿Cuál afirmación describe mejor una constante en programación?",
+              "correctOption": "E",
+              "answerKeyEntry": "B"
+            },
+            {
+              "datasetQuestionNumber": 102,
+              "visibleCanonicalQuestionNumber": 2,
+              "pageLocalOrdinal": 2,
+              "prompt": "Se declara un arreglo de 5 enteros: int v[5]. En un esquema típico de índices desde 0, ¿cuál es el último índice válido?",
+              "correctOption": "D",
+              "answerKeyEntry": "D"
+            },
+            {
+              "datasetQuestionNumber": 103,
+              "visibleCanonicalQuestionNumber": 3,
+              "pageLocalOrdinal": 3,
+              "prompt": "Se pide validar que calif esté en el rango 0 a 100 (inclusive). ¿Cuál condición es CORRECTA para detectar que el valor es inválido?",
+              "correctOption": "B",
+              "answerKeyEntry": "E"
+            },
+            {
+              "datasetQuestionNumber": 104,
+              "visibleCanonicalQuestionNumber": 4,
+              "pageLocalOrdinal": 4,
+              "prompt": "Necesitas almacenar el grupo sanguíneo de una persona con un SOLO carácter (por ejemplo: 'A', 'B', 'O'). ¿Qué tipo de dato primitivo es el más adecuado?",
+              "correctOption": "C",
+              "answerKeyEntry": "D"
+            },
+            {
+              "datasetQuestionNumber": 105,
+              "visibleCanonicalQuestionNumber": 5,
+              "pageLocalOrdinal": 5,
+              "prompt": "Dados: x = 8, y = 3, z = 3. Evalúa la expresión lógica: (x >= 8) AND (y < 3 OR z = 3):",
+              "correctOption": "B",
+              "answerKeyEntry": "E"
+            },
+            {
+              "datasetQuestionNumber": 106,
+              "visibleCanonicalQuestionNumber": 6,
+              "pageLocalOrdinal": 6,
+              "prompt": "Dados a = 2, b = 3, c = 4, ¿cuál es el valor de la expresión a + b x c?",
+              "correctOption": "C",
+              "answerKeyEntry": "D"
+            }
+          ]
+        },
+        {
+          "numeroPagina": 2,
+          "expectedQr": "EXAMEN:A93D8EFA:P2:TV3",
+          "sourceGroup": "A93D8EFA:P2",
+          "captureIds": [
+            "A93D8EFA-P2-C1"
+          ],
+          "captureCount": 1,
+          "datasetQuestionRange": {
+            "from": 201,
+            "to": 208
+          },
+          "visibleCanonicalQuestionRange": {
+            "from": 9,
+            "to": 16
+          },
+          "visibleCanonicalQuestionsFullPage": [
+            9,
+            10,
+            11,
+            12,
+            13,
+            14,
+            15,
+            16
+          ],
+          "visibleCanonicalQuestionsObservedInDatasetRange": [
+            9,
+            10,
+            11,
+            12,
+            13,
+            14,
+            15,
+            16
+          ],
+          "questionLinks": [
+            {
+              "datasetQuestionNumber": 201,
+              "visibleCanonicalQuestionNumber": 9,
+              "pageLocalOrdinal": 1,
+              "prompt": "En el contexto de pseudocódigo, ¿qué parte se considera el argumento de la sentencia de salida? Ejemplo: Imprimir \"Hola\"",
+              "correctOption": "D",
+              "answerKeyEntry": "D"
+            },
+            {
+              "datasetQuestionNumber": 202,
+              "visibleCanonicalQuestionNumber": 10,
+              "pageLocalOrdinal": 2,
+              "prompt": "¿Cuál estructura garantiza que el bloque de instrucciones se ejecute al menos una vez, aunque la condición sea falsa desde el inicio?",
+              "correctOption": "C",
+              "answerKeyEntry": "D"
+            },
+            {
+              "datasetQuestionNumber": 203,
+              "visibleCanonicalQuestionNumber": 11,
+              "pageLocalOrdinal": 3,
+              "prompt": "¿Cuántas veces se ejecuta el bloque si el ciclo es? Para i = 1 hasta 10 / (bloque) / FinPara",
+              "correctOption": "D",
+              "answerKeyEntry": "D"
+            },
+            {
+              "datasetQuestionNumber": 204,
+              "visibleCanonicalQuestionNumber": 12,
+              "pageLocalOrdinal": 4,
+              "prompt": "En pseudocódigo, ¿qué condición compara correctamente si x es igual a 10 (sin asignar)?",
+              "correctOption": "D",
+              "answerKeyEntry": "B"
+            },
+            {
+              "datasetQuestionNumber": 205,
+              "visibleCanonicalQuestionNumber": 13,
+              "pageLocalOrdinal": 5,
+              "prompt": "Si a es int y b es float, ¿qué tipo de dato suele tener el resultado de a + b en la mayoría de lenguajes?",
+              "correctOption": "B",
+              "answerKeyEntry": "B"
+            },
+            {
+              "datasetQuestionNumber": 206,
+              "visibleCanonicalQuestionNumber": 14,
+              "pageLocalOrdinal": 6,
+              "prompt": "Se declara un arreglo bidimensional calif[3][5], donde fila = parcial (0..2) y columna = materia (0..4). ¿Cuál pseudocódigo recorre primero parciales (filas) y luego materias (columnas), sin salirse de rango?",
+              "correctOption": "E",
+              "answerKeyEntry": "D"
+            },
+            {
+              "datasetQuestionNumber": 207,
+              "visibleCanonicalQuestionNumber": 15,
+              "pageLocalOrdinal": 7,
+              "prompt": "Necesitas almacenar la cantidad de alumnos inscritos (un conteo: 0, 1, 2, 3, ...). ¿Qué tipo de dato es el más adecuado?",
+              "correctOption": "C",
+              "answerKeyEntry": "B"
+            },
+            {
+              "datasetQuestionNumber": 208,
+              "visibleCanonicalQuestionNumber": 16,
+              "pageLocalOrdinal": 8,
+              "prompt": "Se requiere clasificar una calificación calif (0 a 100) así: Si calif >= 70 → \"Aprobado\", en caso contrario → \"No aprobado\". ¿Cuál bloque es el correcto?",
+              "correctOption": "C",
+              "answerKeyEntry": "C"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "folio": "B0FB153C",
+      "pages": [
+        {
+          "numeroPagina": 1,
+          "expectedQr": "EXAMEN:B0FB153C:P1:TV3",
+          "sourceGroup": "B0FB153C:P1",
+          "captureIds": [
+            "B0FB153C-P1-C1"
+          ],
+          "captureCount": 1,
+          "datasetQuestionRange": {
+            "from": 101,
+            "to": 107
+          },
+          "visibleCanonicalQuestionRange": {
+            "from": 1,
+            "to": 8
+          },
+          "visibleCanonicalQuestionsFullPage": [
+            1,
+            2,
+            3,
+            4,
+            5,
+            6,
+            7,
+            8
+          ],
+          "visibleCanonicalQuestionsObservedInDatasetRange": [
+            1,
+            2,
+            3,
+            4,
+            5,
+            6,
+            7
+          ],
+          "questionLinks": [
+            {
+              "datasetQuestionNumber": 101,
+              "visibleCanonicalQuestionNumber": 1,
+              "pageLocalOrdinal": 1,
+              "prompt": "¿Cuál afirmación describe mejor una constante en programación?",
+              "correctOption": "E",
+              "answerKeyEntry": "B"
+            },
+            {
+              "datasetQuestionNumber": 102,
+              "visibleCanonicalQuestionNumber": 2,
+              "pageLocalOrdinal": 2,
+              "prompt": "Se declara un arreglo de 5 enteros: int v[5]. En un esquema típico de índices desde 0, ¿cuál es el último índice válido?",
+              "correctOption": "D",
+              "answerKeyEntry": "D"
+            },
+            {
+              "datasetQuestionNumber": 103,
+              "visibleCanonicalQuestionNumber": 3,
+              "pageLocalOrdinal": 3,
+              "prompt": "Se pide validar que calif esté en el rango 0 a 100 (inclusive). ¿Cuál condición es CORRECTA para detectar que el valor es inválido?",
+              "correctOption": "B",
+              "answerKeyEntry": "E"
+            },
+            {
+              "datasetQuestionNumber": 104,
+              "visibleCanonicalQuestionNumber": 4,
+              "pageLocalOrdinal": 4,
+              "prompt": "Necesitas almacenar el grupo sanguíneo de una persona con un SOLO carácter (por ejemplo: 'A', 'B', 'O'). ¿Qué tipo de dato primitivo es el más adecuado?",
+              "correctOption": "C",
+              "answerKeyEntry": "D"
+            },
+            {
+              "datasetQuestionNumber": 105,
+              "visibleCanonicalQuestionNumber": 5,
+              "pageLocalOrdinal": 5,
+              "prompt": "Dados: x = 8, y = 3, z = 3. Evalúa la expresión lógica: (x >= 8) AND (y < 3 OR z = 3):",
+              "correctOption": "B",
+              "answerKeyEntry": "E"
+            },
+            {
+              "datasetQuestionNumber": 106,
+              "visibleCanonicalQuestionNumber": 6,
+              "pageLocalOrdinal": 6,
+              "prompt": "Dados a = 2, b = 3, c = 4, ¿cuál es el valor de la expresión a + b x c?",
+              "correctOption": "C",
+              "answerKeyEntry": "D"
+            },
+            {
+              "datasetQuestionNumber": 107,
+              "visibleCanonicalQuestionNumber": 7,
+              "pageLocalOrdinal": 7,
+              "prompt": "Quieres almacenar calificaciones donde dimensión 1 = parcial (3 parciales: 0..2), dimensión 2 = materia (5 materias: 0..4), dimensión 3 = alumno (N alumnos: 0..N-1). ¿Cuál declaración representa mejor ese modelo?",
+              "correctOption": "D",
+              "answerKeyEntry": "D"
+            }
+          ]
+        },
+        {
+          "numeroPagina": 2,
+          "expectedQr": "EXAMEN:B0FB153C:P2:TV3",
+          "sourceGroup": "B0FB153C:P2",
+          "captureIds": [
+            "B0FB153C-P2-C1"
+          ],
+          "captureCount": 1,
+          "datasetQuestionRange": {
+            "from": 201,
+            "to": 207
+          },
+          "visibleCanonicalQuestionRange": {
+            "from": 9,
+            "to": 16
+          },
+          "visibleCanonicalQuestionsFullPage": [
+            9,
+            10,
+            11,
+            12,
+            13,
+            14,
+            15,
+            16
+          ],
+          "visibleCanonicalQuestionsObservedInDatasetRange": [
+            9,
+            10,
+            11,
+            12,
+            13,
+            14,
+            15
+          ],
+          "questionLinks": [
+            {
+              "datasetQuestionNumber": 201,
+              "visibleCanonicalQuestionNumber": 9,
+              "pageLocalOrdinal": 1,
+              "prompt": "En el contexto de pseudocódigo, ¿qué parte se considera el argumento de la sentencia de salida? Ejemplo: Imprimir \"Hola\"",
+              "correctOption": "D",
+              "answerKeyEntry": "D"
+            },
+            {
+              "datasetQuestionNumber": 202,
+              "visibleCanonicalQuestionNumber": 10,
+              "pageLocalOrdinal": 2,
+              "prompt": "¿Cuál estructura garantiza que el bloque de instrucciones se ejecute al menos una vez, aunque la condición sea falsa desde el inicio?",
+              "correctOption": "C",
+              "answerKeyEntry": "D"
+            },
+            {
+              "datasetQuestionNumber": 203,
+              "visibleCanonicalQuestionNumber": 11,
+              "pageLocalOrdinal": 3,
+              "prompt": "¿Cuántas veces se ejecuta el bloque si el ciclo es? Para i = 1 hasta 10 / (bloque) / FinPara",
+              "correctOption": "D",
+              "answerKeyEntry": "D"
+            },
+            {
+              "datasetQuestionNumber": 204,
+              "visibleCanonicalQuestionNumber": 12,
+              "pageLocalOrdinal": 4,
+              "prompt": "En pseudocódigo, ¿qué condición compara correctamente si x es igual a 10 (sin asignar)?",
+              "correctOption": "D",
+              "answerKeyEntry": "B"
+            },
+            {
+              "datasetQuestionNumber": 205,
+              "visibleCanonicalQuestionNumber": 13,
+              "pageLocalOrdinal": 5,
+              "prompt": "Si a es int y b es float, ¿qué tipo de dato suele tener el resultado de a + b en la mayoría de lenguajes?",
+              "correctOption": "B",
+              "answerKeyEntry": "B"
+            },
+            {
+              "datasetQuestionNumber": 206,
+              "visibleCanonicalQuestionNumber": 14,
+              "pageLocalOrdinal": 6,
+              "prompt": "Se declara un arreglo bidimensional calif[3][5], donde fila = parcial (0..2) y columna = materia (0..4). ¿Cuál pseudocódigo recorre primero parciales (filas) y luego materias (columnas), sin salirse de rango?",
+              "correctOption": "E",
+              "answerKeyEntry": "D"
+            },
+            {
+              "datasetQuestionNumber": 207,
+              "visibleCanonicalQuestionNumber": 15,
+              "pageLocalOrdinal": 7,
+              "prompt": "Necesitas almacenar la cantidad de alumnos inscritos (un conteo: 0, 1, 2, 3, ...). ¿Qué tipo de dato es el más adecuado?",
+              "correctOption": "C",
+              "answerKeyEntry": "B"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "folio": "B8A27B0B",
+      "pages": [
+        {
+          "numeroPagina": 1,
+          "expectedQr": "EXAMEN:B8A27B0B:P1:TV3",
+          "sourceGroup": "B8A27B0B:P1",
+          "captureIds": [
+            "B8A27B0B-P1-C1"
+          ],
+          "captureCount": 1,
+          "datasetQuestionRange": {
+            "from": 101,
+            "to": 106
+          },
+          "visibleCanonicalQuestionRange": {
+            "from": 1,
+            "to": 8
+          },
+          "visibleCanonicalQuestionsFullPage": [
+            1,
+            2,
+            3,
+            4,
+            5,
+            6,
+            7,
+            8
+          ],
+          "visibleCanonicalQuestionsObservedInDatasetRange": [
+            1,
+            2,
+            3,
+            4,
+            5,
+            6
+          ],
+          "questionLinks": [
+            {
+              "datasetQuestionNumber": 101,
+              "visibleCanonicalQuestionNumber": 1,
+              "pageLocalOrdinal": 1,
+              "prompt": "¿Cuál afirmación describe mejor una constante en programación?",
+              "correctOption": "E",
+              "answerKeyEntry": "B"
+            },
+            {
+              "datasetQuestionNumber": 102,
+              "visibleCanonicalQuestionNumber": 2,
+              "pageLocalOrdinal": 2,
+              "prompt": "Se declara un arreglo de 5 enteros: int v[5]. En un esquema típico de índices desde 0, ¿cuál es el último índice válido?",
+              "correctOption": "D",
+              "answerKeyEntry": "D"
+            },
+            {
+              "datasetQuestionNumber": 103,
+              "visibleCanonicalQuestionNumber": 3,
+              "pageLocalOrdinal": 3,
+              "prompt": "Se pide validar que calif esté en el rango 0 a 100 (inclusive). ¿Cuál condición es CORRECTA para detectar que el valor es inválido?",
+              "correctOption": "B",
+              "answerKeyEntry": "E"
+            },
+            {
+              "datasetQuestionNumber": 104,
+              "visibleCanonicalQuestionNumber": 4,
+              "pageLocalOrdinal": 4,
+              "prompt": "Necesitas almacenar el grupo sanguíneo de una persona con un SOLO carácter (por ejemplo: 'A', 'B', 'O'). ¿Qué tipo de dato primitivo es el más adecuado?",
+              "correctOption": "C",
+              "answerKeyEntry": "D"
+            },
+            {
+              "datasetQuestionNumber": 105,
+              "visibleCanonicalQuestionNumber": 5,
+              "pageLocalOrdinal": 5,
+              "prompt": "Dados: x = 8, y = 3, z = 3. Evalúa la expresión lógica: (x >= 8) AND (y < 3 OR z = 3):",
+              "correctOption": "B",
+              "answerKeyEntry": "E"
+            },
+            {
+              "datasetQuestionNumber": 106,
+              "visibleCanonicalQuestionNumber": 6,
+              "pageLocalOrdinal": 6,
+              "prompt": "Dados a = 2, b = 3, c = 4, ¿cuál es el valor de la expresión a + b x c?",
+              "correctOption": "C",
+              "answerKeyEntry": "D"
+            }
+          ]
+        },
+        {
+          "numeroPagina": 2,
+          "expectedQr": "EXAMEN:B8A27B0B:P2:TV3",
+          "sourceGroup": "B8A27B0B:P2",
+          "captureIds": [
+            "B8A27B0B-P2-C1"
+          ],
+          "captureCount": 1,
+          "datasetQuestionRange": {
+            "from": 201,
+            "to": 207
+          },
+          "visibleCanonicalQuestionRange": {
+            "from": 9,
+            "to": 16
+          },
+          "visibleCanonicalQuestionsFullPage": [
+            9,
+            10,
+            11,
+            12,
+            13,
+            14,
+            15,
+            16
+          ],
+          "visibleCanonicalQuestionsObservedInDatasetRange": [
+            9,
+            10,
+            11,
+            12,
+            13,
+            14,
+            15
+          ],
+          "questionLinks": [
+            {
+              "datasetQuestionNumber": 201,
+              "visibleCanonicalQuestionNumber": 9,
+              "pageLocalOrdinal": 1,
+              "prompt": "En el contexto de pseudocódigo, ¿qué parte se considera el argumento de la sentencia de salida? Ejemplo: Imprimir \"Hola\"",
+              "correctOption": "D",
+              "answerKeyEntry": "D"
+            },
+            {
+              "datasetQuestionNumber": 202,
+              "visibleCanonicalQuestionNumber": 10,
+              "pageLocalOrdinal": 2,
+              "prompt": "¿Cuál estructura garantiza que el bloque de instrucciones se ejecute al menos una vez, aunque la condición sea falsa desde el inicio?",
+              "correctOption": "C",
+              "answerKeyEntry": "D"
+            },
+            {
+              "datasetQuestionNumber": 203,
+              "visibleCanonicalQuestionNumber": 11,
+              "pageLocalOrdinal": 3,
+              "prompt": "¿Cuántas veces se ejecuta el bloque si el ciclo es? Para i = 1 hasta 10 / (bloque) / FinPara",
+              "correctOption": "D",
+              "answerKeyEntry": "D"
+            },
+            {
+              "datasetQuestionNumber": 204,
+              "visibleCanonicalQuestionNumber": 12,
+              "pageLocalOrdinal": 4,
+              "prompt": "En pseudocódigo, ¿qué condición compara correctamente si x es igual a 10 (sin asignar)?",
+              "correctOption": "D",
+              "answerKeyEntry": "B"
+            },
+            {
+              "datasetQuestionNumber": 205,
+              "visibleCanonicalQuestionNumber": 13,
+              "pageLocalOrdinal": 5,
+              "prompt": "Si a es int y b es float, ¿qué tipo de dato suele tener el resultado de a + b en la mayoría de lenguajes?",
+              "correctOption": "B",
+              "answerKeyEntry": "B"
+            },
+            {
+              "datasetQuestionNumber": 206,
+              "visibleCanonicalQuestionNumber": 14,
+              "pageLocalOrdinal": 6,
+              "prompt": "Se declara un arreglo bidimensional calif[3][5], donde fila = parcial (0..2) y columna = materia (0..4). ¿Cuál pseudocódigo recorre primero parciales (filas) y luego materias (columnas), sin salirse de rango?",
+              "correctOption": "E",
+              "answerKeyEntry": "D"
+            },
+            {
+              "datasetQuestionNumber": 207,
+              "visibleCanonicalQuestionNumber": 15,
+              "pageLocalOrdinal": 7,
+              "prompt": "Necesitas almacenar la cantidad de alumnos inscritos (un conteo: 0, 1, 2, 3, ...). ¿Qué tipo de dato es el más adecuado?",
+              "correctOption": "C",
+              "answerKeyEntry": "B"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "folio": "D9881CAA",
+      "pages": [
+        {
+          "numeroPagina": 1,
+          "expectedQr": "EXAMEN:D9881CAA:P1:TV3",
+          "sourceGroup": "D9881CAA:P1",
+          "captureIds": [
+            "D9881CAA-P1-C1"
+          ],
+          "captureCount": 1,
+          "datasetQuestionRange": {
+            "from": 101,
+            "to": 107
+          },
+          "visibleCanonicalQuestionRange": {
+            "from": 1,
+            "to": 8
+          },
+          "visibleCanonicalQuestionsFullPage": [
+            1,
+            2,
+            3,
+            4,
+            5,
+            6,
+            7,
+            8
+          ],
+          "visibleCanonicalQuestionsObservedInDatasetRange": [
+            1,
+            2,
+            3,
+            4,
+            5,
+            6,
+            7
+          ],
+          "questionLinks": [
+            {
+              "datasetQuestionNumber": 101,
+              "visibleCanonicalQuestionNumber": 1,
+              "pageLocalOrdinal": 1,
+              "prompt": "¿Cuál afirmación describe mejor una constante en programación?",
+              "correctOption": "E",
+              "answerKeyEntry": "B"
+            },
+            {
+              "datasetQuestionNumber": 102,
+              "visibleCanonicalQuestionNumber": 2,
+              "pageLocalOrdinal": 2,
+              "prompt": "Se declara un arreglo de 5 enteros: int v[5]. En un esquema típico de índices desde 0, ¿cuál es el último índice válido?",
+              "correctOption": "D",
+              "answerKeyEntry": "D"
+            },
+            {
+              "datasetQuestionNumber": 103,
+              "visibleCanonicalQuestionNumber": 3,
+              "pageLocalOrdinal": 3,
+              "prompt": "Se pide validar que calif esté en el rango 0 a 100 (inclusive). ¿Cuál condición es CORRECTA para detectar que el valor es inválido?",
+              "correctOption": "B",
+              "answerKeyEntry": "E"
+            },
+            {
+              "datasetQuestionNumber": 104,
+              "visibleCanonicalQuestionNumber": 4,
+              "pageLocalOrdinal": 4,
+              "prompt": "Necesitas almacenar el grupo sanguíneo de una persona con un SOLO carácter (por ejemplo: 'A', 'B', 'O'). ¿Qué tipo de dato primitivo es el más adecuado?",
+              "correctOption": "C",
+              "answerKeyEntry": "D"
+            },
+            {
+              "datasetQuestionNumber": 105,
+              "visibleCanonicalQuestionNumber": 5,
+              "pageLocalOrdinal": 5,
+              "prompt": "Dados: x = 8, y = 3, z = 3. Evalúa la expresión lógica: (x >= 8) AND (y < 3 OR z = 3):",
+              "correctOption": "B",
+              "answerKeyEntry": "E"
+            },
+            {
+              "datasetQuestionNumber": 106,
+              "visibleCanonicalQuestionNumber": 6,
+              "pageLocalOrdinal": 6,
+              "prompt": "Dados a = 2, b = 3, c = 4, ¿cuál es el valor de la expresión a + b x c?",
+              "correctOption": "C",
+              "answerKeyEntry": "D"
+            },
+            {
+              "datasetQuestionNumber": 107,
+              "visibleCanonicalQuestionNumber": 7,
+              "pageLocalOrdinal": 7,
+              "prompt": "Quieres almacenar calificaciones donde dimensión 1 = parcial (3 parciales: 0..2), dimensión 2 = materia (5 materias: 0..4), dimensión 3 = alumno (N alumnos: 0..N-1). ¿Cuál declaración representa mejor ese modelo?",
+              "correctOption": "D",
+              "answerKeyEntry": "D"
+            }
+          ]
+        },
+        {
+          "numeroPagina": 2,
+          "expectedQr": "EXAMEN:D9881CAA:P2:TV3",
+          "sourceGroup": "D9881CAA:P2",
+          "captureIds": [
+            "D9881CAA-P2-C1"
+          ],
+          "captureCount": 1,
+          "datasetQuestionRange": {
+            "from": 201,
+            "to": 207
+          },
+          "visibleCanonicalQuestionRange": {
+            "from": 9,
+            "to": 16
+          },
+          "visibleCanonicalQuestionsFullPage": [
+            9,
+            10,
+            11,
+            12,
+            13,
+            14,
+            15,
+            16
+          ],
+          "visibleCanonicalQuestionsObservedInDatasetRange": [
+            9,
+            10,
+            11,
+            12,
+            13,
+            14,
+            15
+          ],
+          "questionLinks": [
+            {
+              "datasetQuestionNumber": 201,
+              "visibleCanonicalQuestionNumber": 9,
+              "pageLocalOrdinal": 1,
+              "prompt": "En el contexto de pseudocódigo, ¿qué parte se considera el argumento de la sentencia de salida? Ejemplo: Imprimir \"Hola\"",
+              "correctOption": "D",
+              "answerKeyEntry": "D"
+            },
+            {
+              "datasetQuestionNumber": 202,
+              "visibleCanonicalQuestionNumber": 10,
+              "pageLocalOrdinal": 2,
+              "prompt": "¿Cuál estructura garantiza que el bloque de instrucciones se ejecute al menos una vez, aunque la condición sea falsa desde el inicio?",
+              "correctOption": "C",
+              "answerKeyEntry": "D"
+            },
+            {
+              "datasetQuestionNumber": 203,
+              "visibleCanonicalQuestionNumber": 11,
+              "pageLocalOrdinal": 3,
+              "prompt": "¿Cuántas veces se ejecuta el bloque si el ciclo es? Para i = 1 hasta 10 / (bloque) / FinPara",
+              "correctOption": "D",
+              "answerKeyEntry": "D"
+            },
+            {
+              "datasetQuestionNumber": 204,
+              "visibleCanonicalQuestionNumber": 12,
+              "pageLocalOrdinal": 4,
+              "prompt": "En pseudocódigo, ¿qué condición compara correctamente si x es igual a 10 (sin asignar)?",
+              "correctOption": "D",
+              "answerKeyEntry": "B"
+            },
+            {
+              "datasetQuestionNumber": 205,
+              "visibleCanonicalQuestionNumber": 13,
+              "pageLocalOrdinal": 5,
+              "prompt": "Si a es int y b es float, ¿qué tipo de dato suele tener el resultado de a + b en la mayoría de lenguajes?",
+              "correctOption": "B",
+              "answerKeyEntry": "B"
+            },
+            {
+              "datasetQuestionNumber": 206,
+              "visibleCanonicalQuestionNumber": 14,
+              "pageLocalOrdinal": 6,
+              "prompt": "Se declara un arreglo bidimensional calif[3][5], donde fila = parcial (0..2) y columna = materia (0..4). ¿Cuál pseudocódigo recorre primero parciales (filas) y luego materias (columnas), sin salirse de rango?",
+              "correctOption": "E",
+              "answerKeyEntry": "D"
+            },
+            {
+              "datasetQuestionNumber": 207,
+              "visibleCanonicalQuestionNumber": 15,
+              "pageLocalOrdinal": 7,
+              "prompt": "Necesitas almacenar la cantidad de alumnos inscritos (un conteo: 0, 1, 2, 3, ...). ¿Qué tipo de dato es el más adecuado?",
+              "correctOption": "C",
+              "answerKeyEntry": "B"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "folio": "ECF3E587",
+      "pages": [
+        {
+          "numeroPagina": 1,
+          "expectedQr": "EXAMEN:ECF3E587:P1:TV3",
+          "sourceGroup": "ECF3E587:P1",
+          "captureIds": [
+            "ECF3E587-P1-C1"
+          ],
+          "captureCount": 1,
+          "datasetQuestionRange": {
+            "from": 101,
+            "to": 107
+          },
+          "visibleCanonicalQuestionRange": {
+            "from": 1,
+            "to": 8
+          },
+          "visibleCanonicalQuestionsFullPage": [
+            1,
+            2,
+            3,
+            4,
+            5,
+            6,
+            7,
+            8
+          ],
+          "visibleCanonicalQuestionsObservedInDatasetRange": [
+            1,
+            2,
+            3,
+            4,
+            5,
+            6,
+            7
+          ],
+          "questionLinks": [
+            {
+              "datasetQuestionNumber": 101,
+              "visibleCanonicalQuestionNumber": 1,
+              "pageLocalOrdinal": 1,
+              "prompt": "¿Cuál afirmación describe mejor una constante en programación?",
+              "correctOption": "E",
+              "answerKeyEntry": "B"
+            },
+            {
+              "datasetQuestionNumber": 102,
+              "visibleCanonicalQuestionNumber": 2,
+              "pageLocalOrdinal": 2,
+              "prompt": "Se declara un arreglo de 5 enteros: int v[5]. En un esquema típico de índices desde 0, ¿cuál es el último índice válido?",
+              "correctOption": "D",
+              "answerKeyEntry": "D"
+            },
+            {
+              "datasetQuestionNumber": 103,
+              "visibleCanonicalQuestionNumber": 3,
+              "pageLocalOrdinal": 3,
+              "prompt": "Se pide validar que calif esté en el rango 0 a 100 (inclusive). ¿Cuál condición es CORRECTA para detectar que el valor es inválido?",
+              "correctOption": "B",
+              "answerKeyEntry": "E"
+            },
+            {
+              "datasetQuestionNumber": 104,
+              "visibleCanonicalQuestionNumber": 4,
+              "pageLocalOrdinal": 4,
+              "prompt": "Necesitas almacenar el grupo sanguíneo de una persona con un SOLO carácter (por ejemplo: 'A', 'B', 'O'). ¿Qué tipo de dato primitivo es el más adecuado?",
+              "correctOption": "C",
+              "answerKeyEntry": "D"
+            },
+            {
+              "datasetQuestionNumber": 105,
+              "visibleCanonicalQuestionNumber": 5,
+              "pageLocalOrdinal": 5,
+              "prompt": "Dados: x = 8, y = 3, z = 3. Evalúa la expresión lógica: (x >= 8) AND (y < 3 OR z = 3):",
+              "correctOption": "B",
+              "answerKeyEntry": "E"
+            },
+            {
+              "datasetQuestionNumber": 106,
+              "visibleCanonicalQuestionNumber": 6,
+              "pageLocalOrdinal": 6,
+              "prompt": "Dados a = 2, b = 3, c = 4, ¿cuál es el valor de la expresión a + b x c?",
+              "correctOption": "C",
+              "answerKeyEntry": "D"
+            },
+            {
+              "datasetQuestionNumber": 107,
+              "visibleCanonicalQuestionNumber": 7,
+              "pageLocalOrdinal": 7,
+              "prompt": "Quieres almacenar calificaciones donde dimensión 1 = parcial (3 parciales: 0..2), dimensión 2 = materia (5 materias: 0..4), dimensión 3 = alumno (N alumnos: 0..N-1). ¿Cuál declaración representa mejor ese modelo?",
+              "correctOption": "D",
+              "answerKeyEntry": "D"
+            }
+          ]
+        },
+        {
+          "numeroPagina": 2,
+          "expectedQr": "EXAMEN:ECF3E587:P2:TV3",
+          "sourceGroup": "ECF3E587:P2",
+          "captureIds": [
+            "ECF3E587-P2-C1"
+          ],
+          "captureCount": 1,
+          "datasetQuestionRange": {
+            "from": 201,
+            "to": 207
+          },
+          "visibleCanonicalQuestionRange": {
+            "from": 9,
+            "to": 16
+          },
+          "visibleCanonicalQuestionsFullPage": [
+            9,
+            10,
+            11,
+            12,
+            13,
+            14,
+            15,
+            16
+          ],
+          "visibleCanonicalQuestionsObservedInDatasetRange": [
+            9,
+            10,
+            11,
+            12,
+            13,
+            14,
+            15
+          ],
+          "questionLinks": [
+            {
+              "datasetQuestionNumber": 201,
+              "visibleCanonicalQuestionNumber": 9,
+              "pageLocalOrdinal": 1,
+              "prompt": "En el contexto de pseudocódigo, ¿qué parte se considera el argumento de la sentencia de salida? Ejemplo: Imprimir \"Hola\"",
+              "correctOption": "D",
+              "answerKeyEntry": "D"
+            },
+            {
+              "datasetQuestionNumber": 202,
+              "visibleCanonicalQuestionNumber": 10,
+              "pageLocalOrdinal": 2,
+              "prompt": "¿Cuál estructura garantiza que el bloque de instrucciones se ejecute al menos una vez, aunque la condición sea falsa desde el inicio?",
+              "correctOption": "C",
+              "answerKeyEntry": "D"
+            },
+            {
+              "datasetQuestionNumber": 203,
+              "visibleCanonicalQuestionNumber": 11,
+              "pageLocalOrdinal": 3,
+              "prompt": "¿Cuántas veces se ejecuta el bloque si el ciclo es? Para i = 1 hasta 10 / (bloque) / FinPara",
+              "correctOption": "D",
+              "answerKeyEntry": "D"
+            },
+            {
+              "datasetQuestionNumber": 204,
+              "visibleCanonicalQuestionNumber": 12,
+              "pageLocalOrdinal": 4,
+              "prompt": "En pseudocódigo, ¿qué condición compara correctamente si x es igual a 10 (sin asignar)?",
+              "correctOption": "D",
+              "answerKeyEntry": "B"
+            },
+            {
+              "datasetQuestionNumber": 205,
+              "visibleCanonicalQuestionNumber": 13,
+              "pageLocalOrdinal": 5,
+              "prompt": "Si a es int y b es float, ¿qué tipo de dato suele tener el resultado de a + b en la mayoría de lenguajes?",
+              "correctOption": "B",
+              "answerKeyEntry": "B"
+            },
+            {
+              "datasetQuestionNumber": 206,
+              "visibleCanonicalQuestionNumber": 14,
+              "pageLocalOrdinal": 6,
+              "prompt": "Se declara un arreglo bidimensional calif[3][5], donde fila = parcial (0..2) y columna = materia (0..4). ¿Cuál pseudocódigo recorre primero parciales (filas) y luego materias (columnas), sin salirse de rango?",
+              "correctOption": "E",
+              "answerKeyEntry": "D"
+            },
+            {
+              "datasetQuestionNumber": 207,
+              "visibleCanonicalQuestionNumber": 15,
+              "pageLocalOrdinal": 7,
+              "prompt": "Necesitas almacenar la cantidad de alumnos inscritos (un conteo: 0, 1, 2, 3, ...). ¿Qué tipo de dato es el más adecuado?",
+              "correctOption": "C",
+              "answerKeyEntry": "B"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "folio": "EEB4EB38",
+      "pages": [
+        {
+          "numeroPagina": 1,
+          "expectedQr": "EXAMEN:EEB4EB38:P1:TV3",
+          "sourceGroup": "EEB4EB38:P1",
+          "captureIds": [
+            "EEB4EB38-P1-C1"
+          ],
+          "captureCount": 1,
+          "datasetQuestionRange": {
+            "from": 101,
+            "to": 107
+          },
+          "visibleCanonicalQuestionRange": {
+            "from": 1,
+            "to": 8
+          },
+          "visibleCanonicalQuestionsFullPage": [
+            1,
+            2,
+            3,
+            4,
+            5,
+            6,
+            7,
+            8
+          ],
+          "visibleCanonicalQuestionsObservedInDatasetRange": [
+            1,
+            2,
+            3,
+            4,
+            5,
+            6,
+            7
+          ],
+          "questionLinks": [
+            {
+              "datasetQuestionNumber": 101,
+              "visibleCanonicalQuestionNumber": 1,
+              "pageLocalOrdinal": 1,
+              "prompt": "¿Cuál afirmación describe mejor una constante en programación?",
+              "correctOption": "E",
+              "answerKeyEntry": "B"
+            },
+            {
+              "datasetQuestionNumber": 102,
+              "visibleCanonicalQuestionNumber": 2,
+              "pageLocalOrdinal": 2,
+              "prompt": "Se declara un arreglo de 5 enteros: int v[5]. En un esquema típico de índices desde 0, ¿cuál es el último índice válido?",
+              "correctOption": "D",
+              "answerKeyEntry": "D"
+            },
+            {
+              "datasetQuestionNumber": 103,
+              "visibleCanonicalQuestionNumber": 3,
+              "pageLocalOrdinal": 3,
+              "prompt": "Se pide validar que calif esté en el rango 0 a 100 (inclusive). ¿Cuál condición es CORRECTA para detectar que el valor es inválido?",
+              "correctOption": "B",
+              "answerKeyEntry": "E"
+            },
+            {
+              "datasetQuestionNumber": 104,
+              "visibleCanonicalQuestionNumber": 4,
+              "pageLocalOrdinal": 4,
+              "prompt": "Necesitas almacenar el grupo sanguíneo de una persona con un SOLO carácter (por ejemplo: 'A', 'B', 'O'). ¿Qué tipo de dato primitivo es el más adecuado?",
+              "correctOption": "C",
+              "answerKeyEntry": "D"
+            },
+            {
+              "datasetQuestionNumber": 105,
+              "visibleCanonicalQuestionNumber": 5,
+              "pageLocalOrdinal": 5,
+              "prompt": "Dados: x = 8, y = 3, z = 3. Evalúa la expresión lógica: (x >= 8) AND (y < 3 OR z = 3):",
+              "correctOption": "B",
+              "answerKeyEntry": "E"
+            },
+            {
+              "datasetQuestionNumber": 106,
+              "visibleCanonicalQuestionNumber": 6,
+              "pageLocalOrdinal": 6,
+              "prompt": "Dados a = 2, b = 3, c = 4, ¿cuál es el valor de la expresión a + b x c?",
+              "correctOption": "C",
+              "answerKeyEntry": "D"
+            },
+            {
+              "datasetQuestionNumber": 107,
+              "visibleCanonicalQuestionNumber": 7,
+              "pageLocalOrdinal": 7,
+              "prompt": "Quieres almacenar calificaciones donde dimensión 1 = parcial (3 parciales: 0..2), dimensión 2 = materia (5 materias: 0..4), dimensión 3 = alumno (N alumnos: 0..N-1). ¿Cuál declaración representa mejor ese modelo?",
+              "correctOption": "D",
+              "answerKeyEntry": "D"
+            }
+          ]
+        },
+        {
+          "numeroPagina": 2,
+          "expectedQr": "EXAMEN:EEB4EB38:P2:TV3",
+          "sourceGroup": "EEB4EB38:P2",
+          "captureIds": [
+            "EEB4EB38-P2-C1"
+          ],
+          "captureCount": 1,
+          "datasetQuestionRange": {
+            "from": 201,
+            "to": 208
+          },
+          "visibleCanonicalQuestionRange": {
+            "from": 9,
+            "to": 16
+          },
+          "visibleCanonicalQuestionsFullPage": [
+            9,
+            10,
+            11,
+            12,
+            13,
+            14,
+            15,
+            16
+          ],
+          "visibleCanonicalQuestionsObservedInDatasetRange": [
+            9,
+            10,
+            11,
+            12,
+            13,
+            14,
+            15,
+            16
+          ],
+          "questionLinks": [
+            {
+              "datasetQuestionNumber": 201,
+              "visibleCanonicalQuestionNumber": 9,
+              "pageLocalOrdinal": 1,
+              "prompt": "En el contexto de pseudocódigo, ¿qué parte se considera el argumento de la sentencia de salida? Ejemplo: Imprimir \"Hola\"",
+              "correctOption": "D",
+              "answerKeyEntry": "D"
+            },
+            {
+              "datasetQuestionNumber": 202,
+              "visibleCanonicalQuestionNumber": 10,
+              "pageLocalOrdinal": 2,
+              "prompt": "¿Cuál estructura garantiza que el bloque de instrucciones se ejecute al menos una vez, aunque la condición sea falsa desde el inicio?",
+              "correctOption": "C",
+              "answerKeyEntry": "D"
+            },
+            {
+              "datasetQuestionNumber": 203,
+              "visibleCanonicalQuestionNumber": 11,
+              "pageLocalOrdinal": 3,
+              "prompt": "¿Cuántas veces se ejecuta el bloque si el ciclo es? Para i = 1 hasta 10 / (bloque) / FinPara",
+              "correctOption": "D",
+              "answerKeyEntry": "D"
+            },
+            {
+              "datasetQuestionNumber": 204,
+              "visibleCanonicalQuestionNumber": 12,
+              "pageLocalOrdinal": 4,
+              "prompt": "En pseudocódigo, ¿qué condición compara correctamente si x es igual a 10 (sin asignar)?",
+              "correctOption": "D",
+              "answerKeyEntry": "B"
+            },
+            {
+              "datasetQuestionNumber": 205,
+              "visibleCanonicalQuestionNumber": 13,
+              "pageLocalOrdinal": 5,
+              "prompt": "Si a es int y b es float, ¿qué tipo de dato suele tener el resultado de a + b en la mayoría de lenguajes?",
+              "correctOption": "B",
+              "answerKeyEntry": "B"
+            },
+            {
+              "datasetQuestionNumber": 206,
+              "visibleCanonicalQuestionNumber": 14,
+              "pageLocalOrdinal": 6,
+              "prompt": "Se declara un arreglo bidimensional calif[3][5], donde fila = parcial (0..2) y columna = materia (0..4). ¿Cuál pseudocódigo recorre primero parciales (filas) y luego materias (columnas), sin salirse de rango?",
+              "correctOption": "E",
+              "answerKeyEntry": "D"
+            },
+            {
+              "datasetQuestionNumber": 207,
+              "visibleCanonicalQuestionNumber": 15,
+              "pageLocalOrdinal": 7,
+              "prompt": "Necesitas almacenar la cantidad de alumnos inscritos (un conteo: 0, 1, 2, 3, ...). ¿Qué tipo de dato es el más adecuado?",
+              "correctOption": "C",
+              "answerKeyEntry": "B"
+            },
+            {
+              "datasetQuestionNumber": 208,
+              "visibleCanonicalQuestionNumber": 16,
+              "pageLocalOrdinal": 8,
+              "prompt": "Se requiere clasificar una calificación calif (0 a 100) así: Si calif >= 70 → \"Aprobado\", en caso contrario → \"No aprobado\". ¿Cuál bloque es el correcto?",
+              "correctOption": "C",
+              "answerKeyEntry": "C"
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

@@ -101,6 +101,7 @@ Asegurar confiabilidad funcional y de seguridad del sistema completo en cada cam
 - `npm run release:validate:stable -- --version=<version>`
 - Racha de 10 corridas `CI Checks` en verde.
 - Evidencia obligatoria en `docs/release/evidencias/<version>/`.
+- Guard automatico: cualquier tag `v*` sin release asociado se elimina para evitar tags huerfanos.
 
 ## Criterio de calidad para release
 Se considera candidato estable cuando pasan:

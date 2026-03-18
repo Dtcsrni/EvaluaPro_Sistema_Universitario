@@ -3,6 +3,7 @@ import { emitToast } from '../../ui/toast/toastBus';
 import { Boton } from '../../ui/ux/componentes/Boton';
 import { InlineMensaje } from '../../ui/ux/componentes/InlineMensaje';
 import { clienteApi } from './clienteApiDocente';
+import { CentroClassroom } from './CentroClassroom';
 import type { Alumno, Periodo } from './tipos';
 import { mensajeDeError } from './utilidades';
 
@@ -25,17 +26,6 @@ type ResumenEvaluacion = {
   finalRedondeada?: number;
   estado?: string;
   faltantes?: string[];
-};
-
-type MapeoClassroom = {
-  _id: string;
-  periodoId: string;
-  courseId: string;
-  courseWorkId: string;
-  tituloEvidencia?: string;
-  ponderacion?: number;
-  corte?: number;
-  activo?: boolean;
 };
 
 function numeroSeguro(valor: unknown): number {
@@ -68,7 +58,6 @@ export function SeccionEvaluaciones(params: {
   );
   const [politicaVersion, setPoliticaVersion] = useState<number>(1);
   const [resumen, setResumen] = useState<ResumenEvaluacion | null>(null);
-  const [mapeos, setMapeos] = useState<MapeoClassroom[]>([]);
   const [cargando, setCargando] = useState(false);
   const [estado, setEstado] = useState<string>('');
 
@@ -80,12 +69,6 @@ export function SeccionEvaluaciones(params: {
   const [corteExamen, setCorteExamen] = useState<'parcial1' | 'parcial2' | 'global'>('parcial1');
   const [teorico, setTeorico] = useState('10');
   const [practicasCsv, setPracticasCsv] = useState('10');
-
-  const [courseId, setCourseId] = useState('');
-  const [courseWorkId, setCourseWorkId] = useState('');
-  const [mapeoTitulo, setMapeoTitulo] = useState('');
-  const [mapeoPonderacion, setMapeoPonderacion] = useState('1');
-  const [mapeoCorte, setMapeoCorte] = useState('1');
 
   const alumnosDelPeriodo = useMemo(
     () => alumnos.filter((item) => !periodoId || String(item.periodoId) === String(periodoId)),
@@ -106,14 +89,6 @@ export function SeccionEvaluaciones(params: {
     }
   }, [periodoId]);
 
-  const cargarMapeos = useCallback(async () => {
-    if (!periodoId || !puedeClassroomPull) return;
-    const respuesta = await clienteApi.obtener<{ mapeos?: MapeoClassroom[] }>(
-      `/evaluaciones/v2/classroom/mapeos?periodoId=${encodeURIComponent(periodoId)}`
-    );
-    setMapeos(Array.isArray(respuesta.mapeos) ? respuesta.mapeos : []);
-  }, [periodoId, puedeClassroomPull]);
-
   useEffect(() => {
     if (!periodoId && periodos.length > 0) {
       setPeriodoId(String(periodos[0]?._id || ''));
@@ -123,30 +98,13 @@ export function SeccionEvaluaciones(params: {
   useEffect(() => {
     if (!periodoId) return;
     void cargarContexto();
-    void cargarMapeos();
-  }, [cargarContexto, cargarMapeos, periodoId]);
+  }, [cargarContexto, periodoId]);
 
   useEffect(() => {
     if (!puedeClassroom && tabActiva === 'classroom') {
       setTabActiva('politica');
     }
   }, [puedeClassroom, tabActiva]);
-
-  useEffect(() => {
-    if (!puedeClassroom) return;
-    const listener = (event: MessageEvent) => {
-      const data = (event.data || {}) as { source?: unknown; status?: unknown; message?: unknown };
-      if (String(data.source || '') !== 'classroom-oauth') return;
-      if (String(data.status || '') === 'ok') {
-        emitToast({ level: 'ok', title: 'Classroom', message: String(data.message || 'Cuenta conectada') });
-        void cargarMapeos();
-      } else {
-        emitToast({ level: 'error', title: 'Classroom', message: String(data.message || 'No se pudo conectar') });
-      }
-    };
-    window.addEventListener('message', listener);
-    return () => window.removeEventListener('message', listener);
-  }, [cargarMapeos, puedeClassroom]);
 
   async function guardarPoliticaV2() {
     if (!periodoId) return;
@@ -223,64 +181,6 @@ export function SeccionEvaluaciones(params: {
     } catch (error) {
       emitToast({ level: 'error', title: 'Evaluaciones', message: String((error as Error)?.message || error) });
       setResumen(null);
-    } finally {
-      setCargando(false);
-    }
-  }
-
-  async function conectarClassroom() {
-    if (!puedeClassroomConectar) return;
-    try {
-      const respuesta = await clienteApi.obtener<{ url: string }>('/evaluaciones/v2/classroom/oauth/iniciar');
-      const url = String(respuesta.url || '').trim();
-      if (!url) {
-        throw new Error('No se recibió URL de autorización');
-      }
-      window.open(url, 'oauth_classroom', 'width=980,height=760');
-    } catch (error) {
-      emitToast({ level: 'error', title: 'Classroom', message: mensajeDeError(error, 'No se pudo conectar Google Classroom.') });
-    }
-  }
-
-  async function guardarMapeo() {
-    if (!periodoId || !courseId || !courseWorkId || !puedeClassroomPull) return;
-    setCargando(true);
-    try {
-      await clienteApi.enviar('/evaluaciones/v2/classroom/mapeos', {
-        periodoId,
-        courseId,
-        courseWorkId,
-        tituloEvidencia: mapeoTitulo || undefined,
-        ponderacion: numeroSeguro(mapeoPonderacion),
-        corte: numeroSeguro(mapeoCorte)
-      });
-      emitToast({ level: 'ok', title: 'Classroom', message: 'Mapeo guardado' });
-      await cargarMapeos();
-    } catch (error) {
-      emitToast({ level: 'error', title: 'Classroom', message: mensajeDeError(error, 'No se pudo guardar el mapeo Classroom.') });
-    } finally {
-      setCargando(false);
-    }
-  }
-
-  async function ejecutarPull() {
-    if (!periodoId || !puedeClassroomPull) return;
-    setCargando(true);
-    try {
-      const respuesta = await clienteApi.enviar<{
-        importadas?: number;
-        actualizadas?: number;
-        omitidas?: number;
-      }>('/evaluaciones/v2/classroom/pull', {
-        periodoId
-      });
-      emitToast({
-        level: 'ok',
-        title: 'Classroom pull',
-        message: `Importadas: ${respuesta.importadas ?? 0}, actualizadas: ${respuesta.actualizadas ?? 0}, omitidas: ${respuesta.omitidas ?? 0}`
-      });
-    } catch (error) {
-      emitToast({ level: 'error', title: 'Classroom pull', message: mensajeDeError(error, 'No se pudo ejecutar el pull de Classroom.') });
     } finally {
       setCargando(false);
     }
@@ -416,59 +316,12 @@ export function SeccionEvaluaciones(params: {
       )}
 
       {tabActiva === 'classroom' && (
-        <div className="panel">
-          <h4>Google Classroom (pull)</h4>
-          <div className="item-row">
-            <Boton type="button" disabled={!puedeClassroomConectar || cargando} onClick={() => void conectarClassroom()}>
-              Conectar Google
-            </Boton>
-            <Boton type="button" disabled={!puedeClassroomPull || !periodoId || cargando} onClick={() => void ejecutarPull()}>
-              Ejecutar pull
-            </Boton>
-          </div>
-          <div className="item-row">
-            <label>
-              Course ID
-              <input value={courseId} onChange={(event) => setCourseId(event.target.value)} />
-            </label>
-            <label>
-              CourseWork ID
-              <input value={courseWorkId} onChange={(event) => setCourseWorkId(event.target.value)} />
-            </label>
-            <label>
-              Título evidencia
-              <input value={mapeoTitulo} onChange={(event) => setMapeoTitulo(event.target.value)} />
-            </label>
-            <label>
-              Ponderación
-              <input value={mapeoPonderacion} onChange={(event) => setMapeoPonderacion(event.target.value)} />
-            </label>
-            <label>
-              Corte
-              <select value={mapeoCorte} onChange={(event) => setMapeoCorte(event.target.value)}>
-                <option value="1">C1</option>
-                <option value="2">C2</option>
-                <option value="3">C3</option>
-              </select>
-            </label>
-            <Boton
-              type="button"
-              disabled={!puedeClassroomPull || !periodoId || !courseId || !courseWorkId || cargando}
-              onClick={() => void guardarMapeo()}
-            >
-              Guardar mapeo
-            </Boton>
-          </div>
-          {mapeos.length > 0 && (
-            <ul className="lista">
-              {mapeos.map((item) => (
-                <li key={item._id}>
-                  {item.courseId} / {item.courseWorkId} - {item.tituloEvidencia || 'Sin título'} (corte {item.corte || '-'})
-                </li>
-              ))}
-            </ul>
-          )}
-        </div>
+        <CentroClassroom
+          periodoId={periodoId}
+          puedeClassroomConectar={puedeClassroomConectar}
+          puedeClassroomPull={puedeClassroomPull}
+          classroomDisponible={classroomDisponible}
+        />
       )}
 
       {tabActiva === 'resumen' && (

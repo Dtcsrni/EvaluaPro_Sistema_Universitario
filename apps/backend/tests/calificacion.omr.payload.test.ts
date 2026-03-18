@@ -1,7 +1,20 @@
+import { createHmac } from 'node:crypto';
 import request from 'supertest';
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { crearApp } from '../src/app';
+import { configuracion } from '../src/configuracion';
 import { cerrarMongoTest, conectarMongoTest, limpiarMongoTest } from './utils/mongo';
+
+function refirmarQr(textoQr: string) {
+  const limpio = String(textoQr ?? '').trim();
+  const sinFirma = limpio.replace(/:SG:[A-Z0-9]+$/i, '');
+  const firma = `H1${createHmac('sha256', configuracion.omrQrHmacSecret)
+    .update(sinFirma)
+    .digest('hex')
+    .slice(0, 24)
+    .toUpperCase()}`;
+  return `${sinFirma}:SG:${firma}`;
+}
 
 async function crearEscenarioBase(app: ReturnType<typeof crearApp>) {
   const registro = await request(app)
@@ -86,7 +99,9 @@ async function crearEscenarioBase(app: ReturnType<typeof crearApp>) {
     auth,
     examenGeneradoId: examen.body.examenGenerado._id as string,
     folio: examen.body.examenGenerado.folio as string,
-    alumnoId: alumno.body.alumno._id as string
+    alumnoId: alumno.body.alumno._id as string,
+    qrTexto: String(examen.body.examenGenerado.paginas?.[0]?.qrTexto ?? ''),
+    templateVersion: Number(examen.body.examenGenerado.mapaOmr?.templateVersion ?? 3) as 3 | 4
   };
 }
 
@@ -124,12 +139,13 @@ describe('calificación OMR payload estricto', () => {
           calidadPagina: 0.9,
           confianzaPromedioPagina: 0.89,
           ratioAmbiguas: 0,
-          templateVersionDetectada: 3,
+          templateVersionDetectada: base.templateVersion,
           engineVersion: 'omr-v3-cv',
           geomQuality: 0.91,
           photoQuality: 0.92,
           decisionPolicy: 'conservadora_v1',
-          motivosRevision: []
+          motivosRevision: [],
+          qrTexto: base.qrTexto
         }
       })
       .expect(422);
@@ -153,12 +169,13 @@ describe('calificación OMR payload estricto', () => {
           calidadPagina: 0.9,
           confianzaPromedioPagina: 0.9,
           ratioAmbiguas: 0,
-          templateVersionDetectada: 3,
+          templateVersionDetectada: base.templateVersion,
           engineVersion: 'omr-v3-cv',
           geomQuality: 0.91,
           photoQuality: 0.92,
           decisionPolicy: 'conservadora_v1',
-          motivosRevision: []
+          motivosRevision: [],
+          qrTexto: base.qrTexto
         }
       })
       .expect(409);
@@ -182,13 +199,14 @@ describe('calificación OMR payload estricto', () => {
           calidadPagina: 0.7,
           confianzaPromedioPagina: 0.65,
           ratioAmbiguas: 0.15,
-          templateVersionDetectada: 3,
+          templateVersionDetectada: base.templateVersion,
           revisionConfirmada: true,
           engineVersion: 'omr-v3-cv',
           geomQuality: 0.71,
           photoQuality: 0.74,
           decisionPolicy: 'conservadora_v1',
-          motivosRevision: ['bajo_contraste']
+          motivosRevision: ['bajo_contraste'],
+          qrTexto: base.qrTexto
         }
       })
       .expect(422);
@@ -212,12 +230,13 @@ describe('calificación OMR payload estricto', () => {
           calidadPagina: 0.75,
           confianzaPromedioPagina: 0.72,
           ratioAmbiguas: 0.2,
-          templateVersionDetectada: 3,
+          templateVersionDetectada: base.templateVersion,
           engineVersion: 'omr-v3-cv',
           geomQuality: 0.79,
           photoQuality: 0.73,
           decisionPolicy: 'conservadora_v1',
-          motivosRevision: ['bajo_contraste']
+          motivosRevision: ['bajo_contraste'],
+          qrTexto: base.qrTexto
         }
       })
       .expect(422);
@@ -245,6 +264,129 @@ describe('calificación OMR payload estricto', () => {
       .expect(400);
 
     expect(respuesta.body.error.codigo).toBe('VALIDACION');
+  });
+
+  it('rechaza qrTexto con variante distinta a la del examen generado', async () => {
+    const base = await crearEscenarioBase(app);
+    const qrMutado = refirmarQr(String(base.qrTexto).replace(/:VH:[A-Z0-9]+:/, ':VH:AAAAAAAAAAAA:'));
+
+    const respuesta = await request(app)
+      .post('/api/calificaciones/calificar')
+      .set(base.auth)
+      .send({
+        examenGeneradoId: base.examenGeneradoId,
+        folio: base.folio,
+        alumnoId: base.alumnoId,
+        respuestasDetectadas: [{ numeroPregunta: 1, opcion: 'A', confianza: 0.97 }],
+        omrAnalisis: {
+          estadoAnalisis: 'ok',
+          calidadPagina: 0.98,
+          confianzaPromedioPagina: 0.97,
+          ratioAmbiguas: 0,
+          templateVersionDetectada: base.templateVersion,
+          engineVersion: 'omr-v3-cv',
+          geomQuality: 0.96,
+          photoQuality: 0.96,
+          decisionPolicy: 'conservadora_v1',
+          motivosRevision: [],
+          qrTexto: qrMutado
+        }
+      })
+      .expect(409);
+
+    expect(respuesta.body.error.codigo).toBe('OMR_QR_VARIANTE_NO_COINCIDE');
+  });
+
+  it('rechaza qrTexto con clave correcta distinta a la del examen generado', async () => {
+    const base = await crearEscenarioBase(app);
+    const qrMutado = refirmarQr(String(base.qrTexto).replace(/:AK:[A-Z0-9]+:/, ':AK:BBBBBBBBBBBB:'));
+
+    const respuesta = await request(app)
+      .post('/api/calificaciones/calificar')
+      .set(base.auth)
+      .send({
+        examenGeneradoId: base.examenGeneradoId,
+        folio: base.folio,
+        alumnoId: base.alumnoId,
+        respuestasDetectadas: [{ numeroPregunta: 1, opcion: 'A', confianza: 0.97 }],
+        omrAnalisis: {
+          estadoAnalisis: 'ok',
+          calidadPagina: 0.98,
+          confianzaPromedioPagina: 0.97,
+          ratioAmbiguas: 0,
+          templateVersionDetectada: base.templateVersion,
+          engineVersion: 'omr-v3-cv',
+          geomQuality: 0.96,
+          photoQuality: 0.96,
+          decisionPolicy: 'conservadora_v1',
+          motivosRevision: [],
+          qrTexto: qrMutado
+        }
+      })
+      .expect(409);
+
+    expect(respuesta.body.error.codigo).toBe('OMR_QR_CLAVE_NO_COINCIDE');
+  });
+
+  it('rechaza qrTexto con firma invalida aunque el resto del payload parezca consistente', async () => {
+    const base = await crearEscenarioBase(app);
+
+    const respuesta = await request(app)
+      .post('/api/calificaciones/calificar')
+      .set(base.auth)
+      .send({
+        examenGeneradoId: base.examenGeneradoId,
+        folio: base.folio,
+        alumnoId: base.alumnoId,
+        respuestasDetectadas: [{ numeroPregunta: 1, opcion: 'A', confianza: 0.97 }],
+        omrAnalisis: {
+          estadoAnalisis: 'ok',
+          calidadPagina: 0.98,
+          confianzaPromedioPagina: 0.97,
+          ratioAmbiguas: 0,
+          templateVersionDetectada: base.templateVersion,
+          engineVersion: 'omr-v3-cv',
+          geomQuality: 0.96,
+          photoQuality: 0.96,
+          decisionPolicy: 'conservadora_v1',
+          motivosRevision: [],
+          qrTexto: String(base.qrTexto).replace(/:SG:[A-Z0-9]+$/i, ':SG:H1AAAAAAAAAAAAAAAAAAAAAAAA')
+        }
+      })
+      .expect(409);
+
+    expect(respuesta.body.error.codigo).toBe('OMR_QR_FIRMA_INVALIDA');
+  });
+
+  it('acepta calificación cuando qrTexto enriquecido coincide con la variante y la clave', async () => {
+    const base = await crearEscenarioBase(app);
+
+    const respuesta = await request(app)
+      .post('/api/calificaciones/calificar')
+      .set(base.auth)
+      .send({
+        examenGeneradoId: base.examenGeneradoId,
+        folio: base.folio,
+        alumnoId: base.alumnoId,
+        respuestasDetectadas: [{ numeroPregunta: 1, opcion: 'A', confianza: 0.97 }],
+        omrAnalisis: {
+          estadoAnalisis: 'ok',
+          calidadPagina: 0.98,
+          confianzaPromedioPagina: 0.97,
+          ratioAmbiguas: 0,
+          templateVersionDetectada: base.templateVersion,
+          engineVersion: 'omr-v3-cv',
+          geomQuality: 0.96,
+          photoQuality: 0.96,
+          decisionPolicy: 'conservadora_v1',
+          motivosRevision: [],
+          qrTexto: base.qrTexto
+        }
+      })
+      .expect(201);
+
+    expect(respuesta.body.calificacion?.omrAuditoria?.variantHash).toBeTruthy();
+    expect(respuesta.body.calificacion?.omrAuditoria?.answerKeyHash).toBeTruthy();
   });
 });
 

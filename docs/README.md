@@ -5,7 +5,7 @@ Centro documental de producto, operacion, cumplimiento y arquitectura de EvaluaP
 ## Lectura por objetivo
 - Negocio/licencia: `comercial/FEATURE_CATALOG.md`, `comercial/LICENSING_TIERS.md`, `comercial/ESTRATEGIA_COMERCIAL.md`, `comercial/playbook-demo-35d.md`.
 - Seguridad/cumplimiento: `SECURITY_POLICY.md`, `CUMPLIMIENTO.md`, `legal/*`.
-- Operacion tecnica: `DESPLIEGUE.md`, `INSTALLER_HUB.md`, `SINCRONIZACION_ENTRE_COMPUTADORAS.md`.
+- Operacion tecnica: `DESPLIEGUE.md`, `INSTALLER_HUB.md`, `SINCRONIZACION_ENTRE_COMPUTADORAS.md`, `POLITICA_OPTIMIZACION_RECURSOS.md`.
 - Arquitectura/calidad: `ARQUITECTURA.md`, `ARQUITECTURA_C4.md`, `PRUEBAS.md`, `RELEASE_GATE_STABLE.md`.
 
 ## Documentos auto-generados

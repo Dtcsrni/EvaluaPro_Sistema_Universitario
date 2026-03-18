@@ -11,7 +11,7 @@
   - /api/* siempre network-only.
 */
 
-const CACHE_NAME = 'ep-dashboard-assets-v2026-03-02.3';
+const CACHE_NAME = 'ep-dashboard-assets-v2026-03-03.1';
 const PRECACHE_URLS = ['/assets/dashboard-icon.svg', '/manifest.webmanifest'];
 
 function offlineHtml() {
@@ -39,6 +39,7 @@ function offlineHtml() {
     <p>No se pudo contactar al servidor local del dashboard. Verifica que esté corriendo en este equipo.</p>
     <div class="actions">
       <button id="start-system" class="btn" type="button">Iniciar sistema</button>
+      <button id="repair-system" class="btn" type="button">Reparar entorno</button>
       <button id="retry-connection" class="btn secondary" type="button">Reintentar conexión</button>
     </div>
     <p id="start-status" class="status" aria-live="polite"></p>
@@ -47,6 +48,7 @@ function offlineHtml() {
   <script>
     (function () {
       const button = document.getElementById('start-system');
+      const repairButton = document.getElementById('repair-system');
       const retryButton = document.getElementById('retry-connection');
       const status = document.getElementById('start-status');
       if (!button || !status) return;
@@ -64,6 +66,34 @@ function offlineHtml() {
           body: JSON.stringify({ task })
         });
         if (!response.ok) throw new Error('start_failed');
+      };
+
+      const postRepairRun = async () => {
+        const response = await fetch('/api/repair/run', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({})
+        });
+        if (!response.ok) throw new Error('repair_run_failed');
+        return response.json().catch(() => ({}));
+      };
+
+      const getRepairProgress = async () => {
+        return getJson('/api/repair/progress');
+      };
+
+      const waitForRepairOk = async (timeoutMs) => {
+        const deadline = Date.now() + Math.max(10000, timeoutMs || 180000);
+        while (Date.now() < deadline) {
+          try {
+            const progress = await getRepairProgress();
+            const state = String((progress && progress.state) || '').toLowerCase();
+            if (state === 'ok') return { ok: true };
+            if (state === 'error') return { ok: false, state };
+          } catch (_) {}
+          await wait(1500);
+        }
+        return { ok: false, state: 'timeout' };
       };
 
       const getJson = async (url) => {
@@ -134,6 +164,7 @@ function offlineHtml() {
       button.addEventListener('click', async () => {
         if (button.disabled) return;
         button.disabled = true;
+        if (repairButton) repairButton.disabled = true;
         if (retryButton) retryButton.disabled = true;
         setStatus('Solicitando inicio del sistema...');
 
@@ -141,12 +172,41 @@ function offlineHtml() {
           await startFlow();
           return;
         } catch (_) {
-          setStatus(`No fue posible iniciarlo desde esta pantalla. Usa el acceso directo "${suggestedShortcut}" y vuelve a intentar.`);
+          setStatus('No fue posible iniciarlo desde esta pantalla. Usa el acceso directo "' + suggestedShortcut + '" y vuelve a intentar.');
         }
 
         button.disabled = false;
+        if (repairButton) repairButton.disabled = false;
         if (retryButton) retryButton.disabled = false;
       });
+
+      if (repairButton) {
+        repairButton.addEventListener('click', async () => {
+          if (repairButton.disabled) return;
+          repairButton.disabled = true;
+          button.disabled = true;
+          if (retryButton) retryButton.disabled = true;
+          setStatus('Iniciando reparación automática...');
+
+          try {
+            await postRepairRun();
+            setStatus('Reparación en curso. Esperando resultado...');
+            const result = await waitForRepairOk(180000);
+            if (!result.ok) throw new Error(result.state || 'repair_failed');
+            setStatus('Reparación completada. Reabriendo dashboard...');
+            setTimeout(() => {
+              window.location.href = '/';
+            }, 1000);
+            return;
+          } catch (_) {
+            setStatus('No fue posible reparar desde esta pantalla. Usa el acceso directo "EvaluaPro - Reparar Entorno" y vuelve a intentar.');
+          }
+
+          repairButton.disabled = false;
+          button.disabled = false;
+          if (retryButton) retryButton.disabled = false;
+        });
+      }
 
       if (retryButton) {
         retryButton.addEventListener('click', () => {

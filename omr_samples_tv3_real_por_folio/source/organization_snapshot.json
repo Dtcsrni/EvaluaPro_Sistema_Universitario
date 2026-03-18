@@ -1,0 +1,230 @@
+{
+  "total": 30,
+  "items": [
+    {
+      "archivoOriginal": "CamScanner 02-03-2026 10.34_02.jpg",
+      "folioId": "D9881CAA",
+      "pagina": 2,
+      "metodo": "inferido_par",
+      "destino": "../../omr_samples_tv3/images/Por Folio/D9881CAA/P02_CamScanner 02-03-2026 10.34_02.jpg"
+    },
+    {
+      "archivoOriginal": "CamScanner 02-03-2026 10.36_02.jpg",
+      "folioId": "66BB5FBD",
+      "pagina": 2,
+      "metodo": "inferido_par",
+      "destino": "../../omr_samples_tv3/images/Por Folio/66BB5FBD/P02_CamScanner 02-03-2026 10.36_02.jpg"
+    },
+    {
+      "archivoOriginal": "CamScanner 02-03-2026 10.38_01.jpg",
+      "qrTexto": "EXAMEN:07BE7982:P1:TV3",
+      "folioId": "07BE7982",
+      "pagina": 1,
+      "metodo": "qr",
+      "destino": "../../omr_samples_tv3/images/Por Folio/07BE7982/P01_CamScanner 02-03-2026 10.38_01.jpg"
+    },
+    {
+      "archivoOriginal": "CamScanner 02-03-2026 10.38_02.jpg",
+      "folioId": "07BE7982",
+      "pagina": 2,
+      "metodo": "inferido_par",
+      "destino": "../../omr_samples_tv3/images/Por Folio/07BE7982/P02_CamScanner 02-03-2026 10.38_02.jpg"
+    },
+    {
+      "archivoOriginal": "CamScanner 02-03-2026 10.40_01.jpg",
+      "qrTexto": "EXAMEN:B0FB153C:P1:TV3",
+      "folioId": "B0FB153C",
+      "pagina": 1,
+      "metodo": "qr",
+      "destino": "../../omr_samples_tv3/images/Por Folio/B0FB153C/P01_CamScanner 02-03-2026 10.40_01.jpg"
+    },
+    {
+      "archivoOriginal": "CamScanner 02-03-2026 10.40_02.jpg",
+      "folioId": "B0FB153C",
+      "pagina": 2,
+      "metodo": "inferido_par",
+      "destino": "../../omr_samples_tv3/images/Por Folio/B0FB153C/P02_CamScanner 02-03-2026 10.40_02.jpg"
+    },
+    {
+      "archivoOriginal": "CamScanner 03-03-2026 02.24_1.jpg",
+      "qrTexto": "EXAMEN:D9881CAA:P1:TV3",
+      "folioId": "D9881CAA",
+      "pagina": 1,
+      "metodo": "qr",
+      "destino": "../../omr_samples_tv3/images/Por Folio/D9881CAA/P01_CamScanner 03-03-2026 02.24_1.jpg"
+    },
+    {
+      "archivoOriginal": "CamScanner 03-03-2026 02.24_10.jpg",
+      "folioId": "A327335F",
+      "pagina": 2,
+      "metodo": "inferido_par",
+      "destino": "../../omr_samples_tv3/images/Por Folio/A327335F/P02_CamScanner 03-03-2026 02.24_10.jpg"
+    },
+    {
+      "archivoOriginal": "CamScanner 03-03-2026 02.24_11.jpg",
+      "qrTexto": "EXAMEN:54BC4954:P1:TV3",
+      "folioId": "54BC4954",
+      "pagina": 1,
+      "metodo": "qr",
+      "destino": "../../omr_samples_tv3/images/Por Folio/54BC4954/P01_CamScanner 03-03-2026 02.24_11.jpg"
+    },
+    {
+      "archivoOriginal": "CamScanner 03-03-2026 02.24_12.jpg",
+      "folioId": "54BC4954",
+      "pagina": 2,
+      "metodo": "inferido_par",
+      "destino": "../../omr_samples_tv3/images/Por Folio/54BC4954/P02_CamScanner 03-03-2026 02.24_12.jpg"
+    },
+    {
+      "archivoOriginal": "CamScanner 03-03-2026 02.24_13.jpg",
+      "qrTexto": "EXAMEN:6A98D91E:P1:TV3",
+      "folioId": "6A98D91E",
+      "pagina": 1,
+      "metodo": "qr",
+      "destino": "../../omr_samples_tv3/images/Por Folio/6A98D91E/P01_CamScanner 03-03-2026 02.24_13.jpg"
+    },
+    {
+      "archivoOriginal": "CamScanner 03-03-2026 02.24_14.jpg",
+      "folioId": "6A98D91E",
+      "pagina": 2,
+      "metodo": "inferido_par",
+      "destino": "../../omr_samples_tv3/images/Por Folio/6A98D91E/P02_CamScanner 03-03-2026 02.24_14.jpg"
+    },
+    {
+      "archivoOriginal": "CamScanner 03-03-2026 02.24_15.jpg",
+      "qrTexto": "EXAMEN:EEB4EB38:P1:TV3",
+      "folioId": "EEB4EB38",
+      "pagina": 1,
+      "metodo": "qr",
+      "destino": "../../omr_samples_tv3/images/Por Folio/EEB4EB38/P01_CamScanner 03-03-2026 02.24_15.jpg"
+    },
+    {
+      "archivoOriginal": "CamScanner 03-03-2026 02.24_16.jpg",
+      "folioId": "EEB4EB38",
+      "pagina": 2,
+      "metodo": "inferido_par",
+      "destino": "../../omr_samples_tv3/images/Por Folio/EEB4EB38/P02_CamScanner 03-03-2026 02.24_16.jpg"
+    },
+    {
+      "archivoOriginal": "CamScanner 03-03-2026 02.24_17.jpg",
+      "qrTexto": "EXAMEN:ECF3E587:P1:TV3",
+      "folioId": "ECF3E587",
+      "pagina": 1,
+      "metodo": "qr",
+      "destino": "../../omr_samples_tv3/images/Por Folio/ECF3E587/P01_CamScanner 03-03-2026 02.24_17.jpg"
+    },
+    {
+      "archivoOriginal": "CamScanner 03-03-2026 02.24_18.jpg",
+      "folioId": "ECF3E587",
+      "pagina": 2,
+      "metodo": "inferido_par",
+      "destino": "../../omr_samples_tv3/images/Por Folio/ECF3E587/P02_CamScanner 03-03-2026 02.24_18.jpg"
+    },
+    {
+      "archivoOriginal": "CamScanner 03-03-2026 02.24_19.jpg",
+      "qrTexto": "EXAMEN:B8A27B0B:P1:TV3",
+      "folioId": "B8A27B0B",
+      "pagina": 1,
+      "metodo": "qr",
+      "destino": "../../omr_samples_tv3/images/Por Folio/B8A27B0B/P01_CamScanner 03-03-2026 02.24_19.jpg"
+    },
+    {
+      "archivoOriginal": "CamScanner 03-03-2026 02.24_20.jpg",
+      "folioId": "B8A27B0B",
+      "pagina": 2,
+      "metodo": "inferido_par",
+      "destino": "../../omr_samples_tv3/images/Por Folio/B8A27B0B/P02_CamScanner 03-03-2026 02.24_20.jpg"
+    },
+    {
+      "archivoOriginal": "CamScanner 03-03-2026 02.24_21.jpg",
+      "qrTexto": "EXAMEN:75D5292B:P1:TV3",
+      "folioId": "75D5292B",
+      "pagina": 1,
+      "metodo": "qr",
+      "destino": "../../omr_samples_tv3/images/Por Folio/75D5292B/P01_CamScanner 03-03-2026 02.24_21.jpg"
+    },
+    {
+      "archivoOriginal": "CamScanner 03-03-2026 02.24_22.jpg",
+      "folioId": "75D5292B",
+      "pagina": 2,
+      "metodo": "inferido_par",
+      "destino": "../../omr_samples_tv3/images/Por Folio/75D5292B/P02_CamScanner 03-03-2026 02.24_22.jpg"
+    },
+    {
+      "archivoOriginal": "CamScanner 03-03-2026 02.24_23.jpg",
+      "qrTexto": "EXAMEN:503CF7FA:P1:TV3",
+      "folioId": "503CF7FA",
+      "pagina": 1,
+      "metodo": "qr",
+      "destino": "../../omr_samples_tv3/images/Por Folio/503CF7FA/P01_CamScanner 03-03-2026 02.24_23.jpg"
+    },
+    {
+      "archivoOriginal": "CamScanner 03-03-2026 02.24_24.jpg",
+      "folioId": "503CF7FA",
+      "pagina": 2,
+      "metodo": "inferido_par",
+      "destino": "../../omr_samples_tv3/images/Por Folio/503CF7FA/P02_CamScanner 03-03-2026 02.24_24.jpg"
+    },
+    {
+      "archivoOriginal": "CamScanner 03-03-2026 02.24_25.jpg",
+      "qrTexto": "EXAMEN:A93D8EFA:P1:TV3",
+      "folioId": "A93D8EFA",
+      "pagina": 1,
+      "metodo": "qr",
+      "destino": "../../omr_samples_tv3/images/Por Folio/A93D8EFA/P01_CamScanner 03-03-2026 02.24_25.jpg"
+    },
+    {
+      "archivoOriginal": "CamScanner 03-03-2026 02.24_26.jpg",
+      "folioId": "A93D8EFA",
+      "pagina": 2,
+      "metodo": "inferido_par",
+      "destino": "../../omr_samples_tv3/images/Por Folio/A93D8EFA/P02_CamScanner 03-03-2026 02.24_26.jpg"
+    },
+    {
+      "archivoOriginal": "CamScanner 03-03-2026 02.24_3.jpg",
+      "qrTexto": "EXAMEN:66BB5FBD:P1:TV3",
+      "folioId": "66BB5FBD",
+      "pagina": 1,
+      "metodo": "qr",
+      "destino": "../../omr_samples_tv3/images/Por Folio/66BB5FBD/P01_CamScanner 03-03-2026 02.24_3.jpg"
+    },
+    {
+      "archivoOriginal": "CamScanner 03-03-2026 02.24_5.jpg",
+      "qrTexto": "EXAMEN:0E994CBA:P1:TV3",
+      "folioId": "0E994CBA",
+      "pagina": 1,
+      "metodo": "qr",
+      "destino": "../../omr_samples_tv3/images/Por Folio/0E994CBA/P01_CamScanner 03-03-2026 02.24_5.jpg"
+    },
+    {
+      "archivoOriginal": "CamScanner 03-03-2026 02.24_6.jpg",
+      "folioId": "0E994CBA",
+      "pagina": 2,
+      "metodo": "inferido_par",
+      "destino": "../../omr_samples_tv3/images/Por Folio/0E994CBA/P02_CamScanner 03-03-2026 02.24_6.jpg"
+    },
+    {
+      "archivoOriginal": "CamScanner 03-03-2026 02.24_7.jpg",
+      "qrTexto": "EXAMEN:5EA00A22:P1:TV3",
+      "folioId": "5EA00A22",
+      "pagina": 1,
+      "metodo": "qr",
+      "destino": "../../omr_samples_tv3/images/Por Folio/5EA00A22/P01_CamScanner 03-03-2026 02.24_7.jpg"
+    },
+    {
+      "archivoOriginal": "CamScanner 03-03-2026 02.24_8.jpg",
+      "folioId": "5EA00A22",
+      "pagina": 2,
+      "metodo": "inferido_par",
+      "destino": "../../omr_samples_tv3/images/Por Folio/5EA00A22/P02_CamScanner 03-03-2026 02.24_8.jpg"
+    },
+    {
+      "archivoOriginal": "CamScanner 03-03-2026 02.24_9.jpg",
+      "qrTexto": "EXAMEN:A327335F:P1:TV3",
+      "folioId": "A327335F",
+      "pagina": 1,
+      "metodo": "qr",
+      "destino": "../../omr_samples_tv3/images/Por Folio/A327335F/P01_CamScanner 03-03-2026 02.24_9.jpg"
+    }
+  ]
+}

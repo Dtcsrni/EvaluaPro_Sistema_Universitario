@@ -46,8 +46,8 @@ function Get-LatestStableReleaseAssets {
     [string]$Owner,
     [Parameter(Mandatory = $true)]
     [string]$Repo,
-    [string]$MsiAssetName = 'EvaluaPro.msi',
-    [string]$MsiShaAssetName = 'EvaluaPro.msi.sha256',
+    [Parameter(Mandatory = $true)]
+    [string]$FlavorId,
     [scriptblock]$OnLog
   )
 
@@ -67,22 +67,34 @@ function Get-LatestStableReleaseAssets {
     if (-not $sem.valid) { continue }
 
     $assets = @($release.assets)
-    $msi = $assets | Where-Object { [string]$_.name -eq $MsiAssetName } | Select-Object -First 1
-    $sha = $assets | Where-Object { [string]$_.name -eq $MsiShaAssetName } | Select-Object -First 1
+    $manifestAsset = $assets | Where-Object { [string]$_.name -eq 'EvaluaPro-release-manifest.json' } | Select-Object -First 1
+    if (-not $manifestAsset) { continue }
 
-    if (-not $msi -or -not $sha) { continue }
+    try {
+      $manifestResponse = Invoke-InstallerHubWebRequest -Url ([string]$manifestAsset.browser_download_url) -Method GET -Headers $headers -TimeoutSec 25 -RetryCount 2
+      $manifest = $manifestResponse.Content | ConvertFrom-Json
+      $flavor = @($manifest.flavors | Where-Object { [string]$_.flavorId -eq $FlavorId } | Select-Object -First 1)
+      if ($flavor.Count -eq 0) { continue }
+      $flavorItem = $flavor[0]
 
-    $candidates += [pscustomobject]@{
-      tag = $tag.TrimStart('v', 'V')
-      publishedAt = [string]$release.published_at
-      msiUrl = [string]$msi.browser_download_url
-      shaUrl = [string]$sha.browser_download_url
-      releaseUrl = [string]$release.html_url
+      $candidates += [pscustomobject]@{
+        tag = $tag.TrimStart('v', 'V')
+        publishedAt = [string]$release.published_at
+        msiUrl = [string]$flavorItem.msiUrl
+        shaUrl = [string]$flavorItem.msiSha256Url
+        bundleUrl = [string]($flavorItem.bundleUrl ?? '')
+        releaseUrl = [string]$release.html_url
+        manifestUrl = [string]$manifestAsset.browser_download_url
+        manifest = $manifest
+        flavor = $flavorItem
+      }
+    } catch {
+      continue
     }
   }
 
   if ($candidates.Count -eq 0) {
-    throw 'No se encontro release estable con assets EvaluaPro.msi y EvaluaPro.msi.sha256.'
+    throw "No se encontro release estable con flavor $FlavorId y manifest multi-flavor valido."
   }
 
   $latest = $candidates[0]
@@ -102,9 +114,17 @@ function Download-VerifiedMsiPackage {
     [pscustomobject]$Release,
     [Parameter(Mandatory = $true)]
     [string]$DestinationDir,
-    [string]$MsiFileName = 'EvaluaPro.msi',
+    [string]$MsiFileName = '',
     [scriptblock]$OnLog
   )
+
+  if (-not $MsiFileName) {
+    try {
+      $MsiFileName = [System.IO.Path]::GetFileName(([uri]$Release.msiUrl).AbsolutePath)
+    } catch {
+      $MsiFileName = 'EvaluaPro-installer.msi'
+    }
+  }
 
   if (-not (Test-Path $DestinationDir)) {
     New-Item -ItemType Directory -Path $DestinationDir -Force | Out-Null
@@ -122,7 +142,7 @@ function Download-VerifiedMsiPackage {
   $expectedText = Get-Content -Path $shaPath -Raw -Encoding utf8
   $expected = Resolve-InstallerHubSha256FromText -Text $expectedText -Pattern $MsiFileName
   if (-not $expected) {
-    throw 'No se pudo resolver SHA256 esperado para EvaluaPro.msi.'
+    throw "No se pudo resolver SHA256 esperado para $MsiFileName."
   }
 
   $actual = Get-InstallerHubFileSha256 -Path $msiPath

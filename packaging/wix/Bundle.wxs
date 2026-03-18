@@ -1,15 +1,15 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <Wix xmlns="http://wixtoolset.org/schemas/v4/wxs" xmlns:bal="http://wixtoolset.org/schemas/v4/wxs/bal">
   <Bundle
-    Name="EvaluaPro Setup Estable"
+    Name="$(var.ProductName) Setup Estable"
     Manufacturer="I.S.C. Erick Renato Vega Ceron"
     Version="0.2.0.0"
     IconSourceFile="$(var.SourceRoot)\scripts\icons\dashboard-prod.ico"
-    UpgradeCode="6EA80CBA-C4F5-4434-8B27-B66480ABAB4A">
+    UpgradeCode="$(var.BundleUpgradeCode)">
 
     <Variable Name="InstallDesktopShortcuts" Type="numeric" Value="1" Persisted="yes" />
     <Variable Name="InstallStartMenuShortcuts" Type="numeric" Value="1" Persisted="yes" />
-    <Variable Name="InstallFolder" Type="string" Value="C:\Program Files\EvaluaPro" Persisted="yes" bal:Overridable="yes" />
+    <Variable Name="InstallFolder" Type="string" Value="C:\Program Files\$(var.ProductName)" Persisted="yes" bal:Overridable="yes" />
 
     <BootstrapperApplication>
       <bal:WixStandardBootstrapperApplication
@@ -23,7 +23,7 @@
     <Chain>
       <MsiPackage
         Id="EvaluaProMsi"
-        SourceFile="$(var.SourceRoot)\dist\installer\EvaluaPro.msi"
+        SourceFile="$(var.SourceRoot)\dist\installer\$(var.MsiName)"
         Compressed="yes"
         Visible="yes">
         <MsiProperty Name="INSTALLFOLDER" Value="[InstallFolder]" />

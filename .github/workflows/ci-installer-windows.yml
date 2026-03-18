@@ -35,7 +35,7 @@ jobs:
             apps/portal_alumno_cloud/package-lock.json
 
       - name: Etapa setup
-        run: npm ci
+        run: npm ci --foreground-scripts
 
       - name: Instalar WiX CLI estable (v6+)
         shell: powershell
@@ -58,11 +58,11 @@ jobs:
 
       - name: Etapa build MSI + Bundle
         shell: powershell
-        run: powershell -NoProfile -ExecutionPolicy Bypass -File scripts/build-msi.ps1 -SkipStabilityChecks -IncludeBundle
+        run: powershell -NoProfile -ExecutionPolicy Bypass -File scripts/build-msi.ps1 -SkipStabilityChecks -IncludeBundle -Flavor all
 
       - name: Etapa build Installer Hub EXE
         shell: powershell
-        run: powershell -NoProfile -ExecutionPolicy Bypass -File scripts/build-installer-hub.ps1
+        run: powershell -NoProfile -ExecutionPolicy Bypass -File scripts/build-installer-hub.ps1 -Flavor all
 
       - name: Etapa hash/manifest de release instalador
         shell: powershell
@@ -71,7 +71,7 @@ jobs:
           if ($isTag) {
             $tag = "${{ github.ref_name }}"
             $base = "https://github.com/${{ github.repository }}/releases/download/$tag"
-            powershell -NoProfile -ExecutionPolicy Bypass -File scripts/generate-installer-hashes.ps1 -MsiUrl "$base/EvaluaPro.msi" -MsiSha256Url "$base/EvaluaPro.msi.sha256"
+            powershell -NoProfile -ExecutionPolicy Bypass -File scripts/generate-installer-hashes.ps1 -ReleaseBaseUrl "$base"
           } else {
             powershell -NoProfile -ExecutionPolicy Bypass -File scripts/generate-installer-hashes.ps1
           }
@@ -87,10 +87,14 @@ jobs:
       - name: Verificar artefactos
         shell: powershell
         run: |
-          if (-not (Test-Path "dist/installer/EvaluaPro.msi")) { throw "No existe dist/installer/EvaluaPro.msi" }
-          if (-not (Test-Path "dist/installer/EvaluaPro-Setup.exe")) { throw "No existe dist/installer/EvaluaPro-Setup.exe" }
-          if (-not (Test-Path "dist/installer/EvaluaPro-InstallerHub.exe")) { throw "No existe dist/installer/EvaluaPro-InstallerHub.exe" }
-          if (-not (Test-Path "dist/installer/EvaluaPro.msi.sha256")) { throw "No existe dist/installer/EvaluaPro.msi.sha256" }
+          if (-not (Test-Path "dist/installer/EvaluaPro-saas-completo.msi")) { throw "No existe dist/installer/EvaluaPro-saas-completo.msi" }
+          if (-not (Test-Path "dist/installer/EvaluaPro-docente-local.msi")) { throw "No existe dist/installer/EvaluaPro-docente-local.msi" }
+          if (-not (Test-Path "dist/installer/EvaluaPro-saas-completo-Setup.exe")) { throw "No existe dist/installer/EvaluaPro-saas-completo-Setup.exe" }
+          if (-not (Test-Path "dist/installer/EvaluaPro-docente-local-Setup.exe")) { throw "No existe dist/installer/EvaluaPro-docente-local-Setup.exe" }
+          if (-not (Test-Path "dist/installer/EvaluaPro-InstallerHub-saas-completo.exe")) { throw "No existe dist/installer/EvaluaPro-InstallerHub-saas-completo.exe" }
+          if (-not (Test-Path "dist/installer/EvaluaPro-InstallerHub-docente-local.exe")) { throw "No existe dist/installer/EvaluaPro-InstallerHub-docente-local.exe" }
+          if (-not (Test-Path "dist/installer/EvaluaPro-saas-completo.msi.sha256")) { throw "No existe dist/installer/EvaluaPro-saas-completo.msi.sha256" }
+          if (-not (Test-Path "dist/installer/EvaluaPro-docente-local.msi.sha256")) { throw "No existe dist/installer/EvaluaPro-docente-local.msi.sha256" }
           if (-not (Test-Path "dist/installer/EvaluaPro-release-manifest.json")) { throw "No existe dist/installer/EvaluaPro-release-manifest.json" }
 
       - name: Publicar artefactos instalador
@@ -98,11 +102,18 @@ jobs:
         with:
           name: installer-windows
           path: |
-            dist/installer/EvaluaPro.msi
-            dist/installer/EvaluaPro.msi.sha256
-            dist/installer/EvaluaPro-Setup.exe
-            dist/installer/EvaluaPro-InstallerHub.exe
-            dist/installer/EvaluaPro-InstallerHub.exe.sha256
+            dist/installer/EvaluaPro-saas-completo.msi
+            dist/installer/EvaluaPro-saas-completo.msi.sha256
+            dist/installer/EvaluaPro-saas-completo-Setup.exe
+            dist/installer/EvaluaPro-saas-completo-Setup.exe.sha256
+            dist/installer/EvaluaPro-InstallerHub-saas-completo.exe
+            dist/installer/EvaluaPro-InstallerHub-saas-completo.exe.sha256
+            dist/installer/EvaluaPro-docente-local.msi
+            dist/installer/EvaluaPro-docente-local.msi.sha256
+            dist/installer/EvaluaPro-docente-local-Setup.exe
+            dist/installer/EvaluaPro-docente-local-Setup.exe.sha256
+            dist/installer/EvaluaPro-InstallerHub-docente-local.exe
+            dist/installer/EvaluaPro-InstallerHub-docente-local.exe.sha256
             dist/installer/EvaluaPro-release-manifest.json
             dist/installer/SIGNING-NOT-PRODUCTION.txt
             dist/installer/*.wixpdb
@@ -114,4 +125,16 @@ jobs:
           prerelease: ${{ contains(github.ref_name, 'alpha') || contains(github.ref_name, 'beta') || contains(github.ref_name, 'rc') }}
           make_latest: ${{ !(contains(github.ref_name, 'alpha') || contains(github.ref_name, 'beta') || contains(github.ref_name, 'rc')) }}
           files: |
-            dist/installer/EvaluaPro-Setup.exe
+            dist/installer/EvaluaPro-saas-completo.msi
+            dist/installer/EvaluaPro-saas-completo.msi.sha256
+            dist/installer/EvaluaPro-saas-completo-Setup.exe
+            dist/installer/EvaluaPro-saas-completo-Setup.exe.sha256
+            dist/installer/EvaluaPro-InstallerHub-saas-completo.exe
+            dist/installer/EvaluaPro-InstallerHub-saas-completo.exe.sha256
+            dist/installer/EvaluaPro-docente-local.msi
+            dist/installer/EvaluaPro-docente-local.msi.sha256
+            dist/installer/EvaluaPro-docente-local-Setup.exe
+            dist/installer/EvaluaPro-docente-local-Setup.exe.sha256
+            dist/installer/EvaluaPro-InstallerHub-docente-local.exe
+            dist/installer/EvaluaPro-InstallerHub-docente-local.exe.sha256
+            dist/installer/EvaluaPro-release-manifest.json

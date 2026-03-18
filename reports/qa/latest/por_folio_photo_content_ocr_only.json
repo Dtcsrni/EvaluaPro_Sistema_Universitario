@@ -1,0 +1,4094 @@
+{
+  "generatedAt": "2026-03-05T06:02:15.525Z",
+  "source": {
+    "organizationPath": "omr_samples_tv3/images/Por Folio/_organizacion_por_alumno.json",
+    "totalCaptures": 30
+  },
+  "summary": {
+    "detectedQuestionNumbers": [
+      1,
+      2,
+      3,
+      4,
+      5,
+      6,
+      7,
+      8,
+      9,
+      10,
+      11,
+      12,
+      13,
+      14,
+      15,
+      16
+    ],
+    "totalQuestionsDetected": 16,
+    "unresolvedQuestions": [],
+    "certaintyCounts": {
+      "baja": 13,
+      "media": 3
+    }
+  },
+  "extractedBank": [
+    {
+      "numeroPregunta": 1,
+      "prompt": "¿Cuál definición describe mejor un algoritmo en el contexto de Lógica de Programación?",
+      "promptConfidence": 0.7044,
+      "promptEvidence": [
+        {
+          "captureId": "B0FB153C-P1-P01_CamScanner 02-03-2026 10.40_01",
+          "folio": "B0FB153C",
+          "pagina": 1,
+          "text": "¿Cuál definición describe mejor un algoritmo en el contexto de Lógica de Programación?",
+          "similarity": 1
+        },
+        {
+          "captureId": "D9881CAA-P1-P01_CamScanner 03-03-2026 02.24_1",
+          "folio": "D9881CAA",
+          "pagina": 1,
+          "text": "¿Cuál definición describe mejor un algoritmo en el contexto de Lógica de Programación?",
+          "similarity": 1
+        },
+        {
+          "captureId": "ECF3E587-P1-P01_CamScanner 03-03-2026 02.24_17",
+          "folio": "ECF3E587",
+          "pagina": 1,
+          "text": "¿Cuál definición describe mejor un algoritmo en el contexto de Lógica de Programación?",
+          "similarity": 1
+        },
+        {
+          "captureId": "75D5292B-P1-P01_CamScanner 03-03-2026 02.24_21",
+          "folio": "75D5292B",
+          "pagina": 1,
+          "text": "¿Cuál afirmación describe mejor una constante en programación?",
+          "similarity": 0.3077
+        },
+        {
+          "captureId": "07BE7982-P1-P01_CamScanner 02-03-2026 10.38_01",
+          "folio": "07BE7982",
+          "pagina": 1,
+          "text": "¿Cuál afirmación describe mejor una constante en programaciéon?",
+          "similarity": 0.2143
+        }
+      ],
+      "options": [
+        {
+          "letter": "A",
+          "text": "Una serie de pasos finita, ordenada y no ambigua para",
+          "confidence": 0.5386,
+          "evidenceCount": 5,
+          "evidence": [
+            {
+              "captureId": "B0FB153C-P1-P01_CamScanner 02-03-2026 10.40_01",
+              "folio": "B0FB153C",
+              "pagina": 1,
+              "text": "Una serie de pasos finita, ordenada y no ambigua para",
+              "similarity": 1
+            },
+            {
+              "captureId": "ECF3E587-P1-P01_CamScanner 03-03-2026 02.24_17",
+              "folio": "ECF3E587",
+              "pagina": 1,
+              "text": "Una serie de pasos finita, ordenada y no ambigua para",
+              "similarity": 1
+            },
+            {
+              "captureId": "B8A27B0B-P1-P01_CamScanner 03-03-2026 02.24_19",
+              "folio": "B8A27B0B",
+              "pagina": 1,
+              "text": "Una base de datos con tablas relacionadas CD Una serie de pasos finita, ordenada y no ambigua pa -",
+              "similarity": 0.5385
+            },
+            {
+              "captureId": "D9881CAA-P1-P01_CamScanner 03-03-2026 02.24_1",
+              "folio": "D9881CAA",
+              "pagina": 1,
+              "text": "\"Hola\" TERE . -—-D)Ei punto y coma () de E : !",
+              "similarity": 0.0833
+            },
+            {
+              "captureId": "75D5292B-P1-P01_CamScanner 03-03-2026 02.24_21",
+              "folio": "75D5292B",
+              "pagina": 1,
+              "text": "Es una variable global que solo existe dentro de un",
+              "similarity": 0.0714
+            }
+          ]
+        },
+        {
+          "letter": "B",
+          "text": "Un conjunto de variables declaradas al inicio del programa !",
+          "confidence": 0.4124,
+          "evidenceCount": 5,
+          "evidence": [
+            {
+              "captureId": "ECF3E587-P1-P01_CamScanner 03-03-2026 02.24_17",
+              "folio": "ECF3E587",
+              "pagina": 1,
+              "text": "Un conjunto de variables declaradas al inicio del programa !",
+              "similarity": 1
+            },
+            {
+              "captureId": "B8A27B0B-P1-P01_CamScanner 03-03-2026 02.24_19",
+              "folio": "B8A27B0B",
+              "pagina": 1,
+              "text": "Un conjunto de variables declaradas al inicio del resolver un problema : ! - programa",
+              "similarity": 0.8
+            },
+            {
+              "captureId": "B0FB153C-P1-P01_CamScanner 02-03-2026 10.40_01",
+              "folio": "B0FB153C",
+              "pagina": 1,
+              "text": "Una base de datos con tablas relacionadas programa",
+              "similarity": 0.1667
+            },
+            {
+              "captureId": "75D5292B-P1-P01_CamScanner 03-03-2026 02.24_21",
+              "folio": "75D5292B",
+              "pagina": 1,
+              "text": "Es una variable que cambia automáticamente según el ejecución y suele declararse con un identificador tipo de dato. representativo. -",
+              "similarity": 0.0952
+            },
+            {
+              "captureId": "D9881CAA-P1-P01_CamScanner 03-03-2026 02.24_1",
+              "folio": "D9881CAA",
+              "pagina": 1,
+              "text": "Imprimir",
+              "similarity": 0
+            }
+          ]
+        },
+        {
+          "letter": "C",
+          "text": "Un programa escrito en C o Java que compila sin i : errores 2 En pseudocódigo,",
+          "confidence": 0.4898,
+          "evidenceCount": 5,
+          "evidence": [
+            {
+              "captureId": "B0FB153C-P1-P01_CamScanner 02-03-2026 10.40_01",
+              "folio": "B0FB153C",
+              "pagina": 1,
+              "text": "Un programa escrito en C o Java que compila sin i : errores 2 En pseudocódigo,",
+              "similarity": 1
+            },
+            {
+              "captureId": "ECF3E587-P1-P01_CamScanner 03-03-2026 02.24_17",
+              "folio": "ECF3E587",
+              "pagina": 1,
+              "text": "Un programa escrito en C o Java que compila sin y errores E - 2 En pseudocódigo,",
+              "similarity": 1
+            },
+            {
+              "captureId": "5EA00A22-P1-P01_CamScanner 03-03-2026 02.24_7",
+              "folio": "5EA00A22",
+              "pagina": 1,
+              "text": "No hay último índice; depende del valor almacenado. jon .— i i § ! hol , J y mea 2 En pseudocódigo,",
+              "similarity": 0.1579
+            },
+            {
+              "captureId": "07BE7982-P1-P01_CamScanner 02-03-2026 10.38_01",
+              "folio": "07BE7982",
+              "pagina": 1,
+              "text": "Es una instrucción que siempre se ejecuta al final del -- programa. hora : UN ; ; i 2 Se declara un arreglo de 5 enteros: int v 5 . En un esquema típico de Indices desde 0,",
+              "similarity": 0.1481
+            },
+            {
+              "captureId": "EEB4EB38-P1-P01_CamScanner 03-03-2026 02.24_15",
+              "folio": "EEB4EB38",
+              "pagina": 1,
+              "text": "boolean 2 Se declara un arreglo de 5 enteros: int v 5 . En un esquema típico de indices desde 0,",
+              "similarity": 0.1429
+            }
+          ]
+        },
+        {
+          "letter": "D",
+          "text": "(calif < 0) OR (calif > 100) i",
+          "confidence": 0.45,
+          "evidenceCount": 5,
+          "evidence": [
+            {
+              "captureId": "503CF7FA-P1-P01_CamScanner 03-03-2026 02.24_23",
+              "folio": "503CF7FA",
+              "pagina": 1,
+              "text": "(calif < 0) OR (calif > 100) i",
+              "similarity": 1
+            },
+            {
+              "captureId": "0E994CBA-P1-P01_CamScanner 03-03-2026 02.24_5",
+              "folio": "0E994CBA",
+              "pagina": 1,
+              "text": "(calif >= 0) OR (calif <= 100)... ,. \"E. !",
+              "similarity": 1
+            },
+            {
+              "captureId": "B8A27B0B-P1-P01_CamScanner 03-03-2026 02.24_19",
+              "folio": "B8A27B0B",
+              "pagina": 1,
+              "text": "0 i b",
+              "similarity": 0.25
+            },
+            {
+              "captureId": "07BE7982-P1-P01_CamScanner 02-03-2026 10.38_01",
+              "folio": "07BE7982",
+              "pagina": 1,
+              "text": "Es un dato que se almacena únicamente en arreglo ciclo.",
+              "similarity": 0
+            },
+            {
+              "captureId": "B0FB153C-P1-P01_CamScanner 02-03-2026 10.40_01",
+              "folio": "B0FB153C",
+              "pagina": 1,
+              "text": "Un diagrama que siempre usa símbolos geométricos ! resolver un problema",
+              "similarity": 0
+            }
+          ]
+        },
+        {
+          "letter": "E",
+          "text": "Es un valor que no debe modificarse durante la",
+          "confidence": 0.3223,
+          "evidenceCount": 5,
+          "evidence": [
+            {
+              "captureId": "75D5292B-P1-P01_CamScanner 03-03-2026 02.24_21",
+              "folio": "75D5292B",
+              "pagina": 1,
+              "text": "Es un valor que no debe modificarse durante la",
+              "similarity": 1
+            },
+            {
+              "captureId": "07BE7982-P1-P01_CamScanner 02-03-2026 10.38_01",
+              "folio": "07BE7982",
+              "pagina": 1,
+              "text": "Es un valor que no debe modificarse durante la i -B) Es una variable que cambia automáticamente según el ejecución y suele declararse con un identificador “tipo de dato. representativo.",
+              "similarity": 0.381
+            },
+            {
+              "captureId": "D9881CAA-P1-P01_CamScanner 03-03-2026 02.24_1",
+              "folio": "D9881CAA",
+              "pagina": 1,
+              "text": "Todo el renglón completo es el argumento",
+              "similarity": 0.0769
+            },
+            {
+              "captureId": "ECF3E587-P1-P01_CamScanner 03-03-2026 02.24_17",
+              "folio": "ECF3E587",
+              "pagina": 1,
+              "text": "Un diagrama que siempre usa símbolos geométricos",
+              "similarity": 0.0769
+            },
+            {
+              "captureId": "B8A27B0B-P1-P01_CamScanner 03-03-2026 02.24_19",
+              "folio": "B8A27B0B",
+              "pagina": 1,
+              "text": "Un programa escrito en'C'o Java que compila sin",
+              "similarity": 0.0769
+            }
+          ]
+        }
+      ],
+      "aggregateConfidence": 0.5473,
+      "certainty": "baja",
+      "captureCoverage": 15
+    },
+    {
+      "numeroPregunta": 2,
+      "prompt": "¿qué condición compara correctamente si x es igual a 10 (sin asignar)?",
+      "promptConfidence": 0.6461,
+      "promptEvidence": [
+        {
+          "captureId": "B0FB153C-P1-P01_CamScanner 02-03-2026 10.40_01",
+          "folio": "B0FB153C",
+          "pagina": 1,
+          "text": "¿qué condición compara correctamente si x es igual a 10 (sin asignar)?",
+          "similarity": 1
+        },
+        {
+          "captureId": "ECF3E587-P1-P01_CamScanner 03-03-2026 02.24_17",
+          "folio": "ECF3E587",
+          "pagina": 1,
+          "text": "¿qué condición compara correctamente si x es igual a 10 (sin asignar)?",
+          "similarity": 1
+        },
+        {
+          "captureId": "5EA00A22-P1-P01_CamScanner 03-03-2026 02.24_7",
+          "folio": "5EA00A22",
+          "pagina": 1,
+          "text": "¿qué condición compara correctamente si x es igual a 10 (sin asignar)?",
+          "similarity": 1
+        },
+        {
+          "captureId": "A93D8EFA-P1-P01_CamScanner 03-03-2026 02.24_25",
+          "folio": "A93D8EFA",
+          "pagina": 1,
+          "text": "¿Cuál condición es CORRECTA para detectar que el valor es inválido?",
+          "similarity": 0.1538
+        },
+        {
+          "captureId": "6A98D91E-P1-P01_CamScanner 03-03-2026 02.24_13",
+          "folio": "6A98D91E",
+          "pagina": 1,
+          "text": "¿cuál es el valor de la expresión a + b x ¢?",
+          "similarity": 0.0769
+        }
+      ],
+      "options": [
+        {
+          "letter": "A",
+          "text": "x := 160 .D) x == 10 i",
+          "confidence": 0.2667,
+          "evidenceCount": 5,
+          "evidence": [
+            {
+              "captureId": "B0FB153C-P1-P01_CamScanner 02-03-2026 10.40_01",
+              "folio": "B0FB153C",
+              "pagina": 1,
+              "text": "x := 160 .D) x == 10 i",
+              "similarity": 1
+            },
+            {
+              "captureId": "ECF3E587-P1-P01_CamScanner 03-03-2026 02.24_17",
+              "folio": "ECF3E587",
+              "pagina": 1,
+              "text": ". x == 10 os",
+              "similarity": 0.3333
+            },
+            {
+              "captureId": "D9881CAA-P1-P01_CamScanner 03-03-2026 02.24_1",
+              "folio": "D9881CAA",
+              "pagina": 1,
+              "text": "Es una variable global que solo existe dentro de un",
+              "similarity": 0
+            },
+            {
+              "captureId": "54BC4954-P1-P01_CamScanner 03-03-2026 02.24_11",
+              "folio": "54BC4954",
+              "pagina": 1,
+              "text": "calif 3) 5 (N",
+              "similarity": 0
+            },
+            {
+              "captureId": "B8A27B0B-P1-P01_CamScanner 03-03-2026 02.24_19",
+              "folio": "B8A27B0B",
+              "pagina": 1,
+              "text": "string",
+              "similarity": 0
+            }
+          ]
+        },
+        {
+          "letter": "B",
+          "text": "x <= 10",
+          "confidence": 0.6,
+          "evidenceCount": 5,
+          "evidence": [
+            {
+              "captureId": "B0FB153C-P1-P01_CamScanner 02-03-2026 10.40_01",
+              "folio": "B0FB153C",
+              "pagina": 1,
+              "text": "x <= 10",
+              "similarity": 1
+            },
+            {
+              "captureId": "ECF3E587-P1-P01_CamScanner 03-03-2026 02.24_17",
+              "folio": "ECF3E587",
+              "pagina": 1,
+              "text": "x <= 10",
+              "similarity": 1
+            },
+            {
+              "captureId": "5EA00A22-P1-P01_CamScanner 03-03-2026 02.24_7",
+              "folio": "5EA00A22",
+              "pagina": 1,
+              "text": "x <= 10",
+              "similarity": 1
+            },
+            {
+              "captureId": "07BE7982-P1-P01_CamScanner 02-03-2026 10.38_01",
+              "folio": "07BE7982",
+              "pagina": 1,
+              "text": "5 '",
+              "similarity": 0
+            },
+            {
+              "captureId": "54BC4954-P1-P01_CamScanner 03-03-2026 02.24_11",
+              "folio": "54BC4954",
+              "pagina": 1,
+              "text": "califfS (3 N",
+              "similarity": 0
+            }
+          ]
+        },
+        {
+          "letter": "C",
+          "text": "float 5 Se declara un arreglo bidimensional calif 3 5 , donde fila = parcial (0..2) y column = materia (8..4).",
+          "confidence": 0.4586,
+          "evidenceCount": 5,
+          "evidence": [
+            {
+              "captureId": "B8A27B0B-P1-P01_CamScanner 03-03-2026 02.24_19",
+              "folio": "B8A27B0B",
+              "pagina": 1,
+              "text": "float 5 Se declara un arreglo bidimensional calif 3 5 , donde fila = parcial (0..2) y column = materia (8..4).",
+              "similarity": 1
+            },
+            {
+              "captureId": "503CF7FA-P1-P01_CamScanner 03-03-2026 02.24_23",
+              "folio": "503CF7FA",
+              "pagina": 1,
+              "text": "float, porque se promueve al tipo con decimales 4 Se declara un arreglo bidimensional calif 3 5 , donde fila = parcial (0..2) y column = materia (0..4).",
+              "similarity": 0.7273
+            },
+            {
+              "captureId": "A327335F-P1-P01_CamScanner 03-03-2026 02.24_9",
+              "folio": "A327335F",
+              "pagina": 1,
+              "text": "for y e ESE ; Vii - , 3 Quieres almacenar calificaciones donde dimensión 1 = parcial (3 parciales: 0..2); dimensión 7 = materia (5 materias: 0..4), dimensión 3 = alumno (N alumnos: 0..N-1).",
+              "similarity": 0.2333
+            },
+            {
+              "captureId": "75D5292B-P1-P01_CamScanner 03-03-2026 02.24_21",
+              "folio": "75D5292B",
+              "pagina": 1,
+              "text": "Error por tipo de dato i 4 Necesitas almacenar la cantidad de alumnos inscritos (un conteo: 0, 1, 2, 3, ...).",
+              "similarity": 0.1724
+            },
+            {
+              "captureId": "ECF3E587-P1-P01_CamScanner 03-03-2026 02.24_17",
+              "folio": "ECF3E587",
+              "pagina": 1,
+              "text": "x := 10 3 Se pide validar que calif esté en el rango 0 a 100 (inclusive).",
+              "similarity": 0.16
+            }
+          ]
+        },
+        {
+          "letter": "D",
+          "text": "Es un valor que no debe modificarse durante la",
+          "confidence": 0.35,
+          "evidenceCount": 5,
+          "evidence": [
+            {
+              "captureId": "66BB5FBD-P1-P01_CamScanner 03-03-2026 02.24_3",
+              "folio": "66BB5FBD",
+              "pagina": 1,
+              "text": "Es un valor que no debe modificarse durante la",
+              "similarity": 1
+            },
+            {
+              "captureId": "0E994CBA-P1-P01_CamScanner 03-03-2026 02.24_5",
+              "folio": "0E994CBA",
+              "pagina": 1,
+              "text": "Es un valor que no debe modificarse durante la i “tipo de dato. : i ejecución y suele declararse con un identificador -. !",
+              "similarity": 0.5333
+            },
+            {
+              "captureId": "D9881CAA-P1-P01_CamScanner 03-03-2026 02.24_1",
+              "folio": "D9881CAA",
+              "pagina": 1,
+              "text": "Es un dato que se almacena únicamente. en arreglos ciclo.",
+              "similarity": 0.1333
+            },
+            {
+              "captureId": "503CF7FA-P1-P01_CamScanner 03-03-2026 02.24_23",
+              "folio": "503CF7FA",
+              "pagina": 1,
+              "text": "boolean; porque es una operación lógica :",
+              "similarity": 0.0833
+            },
+            {
+              "captureId": "54BC4954-P1-P01_CamScanner 03-03-2026 02.24_11",
+              "folio": "54BC4954",
+              "pagina": 1,
+              "text": "calif(N) 3 (5",
+              "similarity": 0
+            }
+          ]
+        },
+        {
+          "letter": "E",
+          "text": "10= x = true .",
+          "confidence": 0.4211,
+          "evidenceCount": 5,
+          "evidence": [
+            {
+              "captureId": "B0FB153C-P1-P01_CamScanner 02-03-2026 10.40_01",
+              "folio": "B0FB153C",
+              "pagina": 1,
+              "text": "10= x = true .",
+              "similarity": 1
+            },
+            {
+              "captureId": "ECF3E587-P1-P01_CamScanner 03-03-2026 02.24_17",
+              "folio": "ECF3E587",
+              "pagina": 1,
+              "text": "10= x = true",
+              "similarity": 1
+            },
+            {
+              "captureId": "5EA00A22-P1-P01_CamScanner 03-03-2026 02.24_7",
+              "folio": "5EA00A22",
+              "pagina": 1,
+              "text": "10= x = true i Cc) x = 10 ji 3 Se declara un arreglo bidimensional calif 3 5 ; donde fila = parcial (0..2) y column: =“materia (0..4).",
+              "similarity": 0.1053
+            },
+            {
+              "captureId": "07BE7982-P1-P01_CamScanner 02-03-2026 10.38_01",
+              "folio": "07BE7982",
+              "pagina": 1,
+              "text": "No hay último índice; depende del valor almacenad: L E , ! a Cini wa) BL 5 isu 29% ja noms onion EIBUMOS i or RA 3 Se pide validar que calif esté en el rango 0 a 100 (inclusive).",
+              "similarity": 0
+            },
+            {
+              "captureId": "D9881CAA-P1-P01_CamScanner 03-03-2026 02.24_1",
+              "folio": "D9881CAA",
+              "pagina": 1,
+              "text": "Es una variable.que cambia automáticamente según : 8) Es una instrucción que siempre se ejecuta al final del — tipo de dato. i ORT programa.",
+              "similarity": 0
+            }
+          ]
+        }
+      ],
+      "aggregateConfidence": 0.51,
+      "certainty": "baja",
+      "captureCoverage": 15
+    },
+    {
+      "numeroPregunta": 3,
+      "prompt": "¿Qué tipo de L dato es el mas adecuado?",
+      "promptConfidence": 0.6242,
+      "promptEvidence": [
+        {
+          "captureId": "D9881CAA-P1-P01_CamScanner 03-03-2026 02.24_1",
+          "folio": "D9881CAA",
+          "pagina": 1,
+          "text": "¿Qué tipo de L dato es el mas adecuado?",
+          "similarity": 1
+        },
+        {
+          "captureId": "0E994CBA-P1-P01_CamScanner 03-03-2026 02.24_5",
+          "folio": "0E994CBA",
+          "pagina": 1,
+          "text": "¿Qué tipo de dato primitivo es el más adecuado?",
+          "similarity": 0.875
+        },
+        {
+          "captureId": "75D5292B-P1-P01_CamScanner 03-03-2026 02.24_21",
+          "folio": "75D5292B",
+          "pagina": 1,
+          "text": "¿Qué tipo d dato es el más adecuado?",
+          "similarity": 0.8571
+        },
+        {
+          "captureId": "EEB4EB38-P1-P01_CamScanner 03-03-2026 02.24_15",
+          "folio": "EEB4EB38",
+          "pagina": 1,
+          "text": "¿Cuál bloque es el correct?",
+          "similarity": 0.2222
+        },
+        {
+          "captureId": "07BE7982-P1-P01_CamScanner 02-03-2026 10.38_01",
+          "folio": "07BE7982",
+          "pagina": 1,
+          "text": "¿Cuál condición es CORRECTA ‘para detectar que el valor es inválido?",
+          "similarity": 0.1667
+        }
+      ],
+      "options": [
+        {
+          "letter": "A",
+          "text": "(calif > 0) AND (calif < 100)",
+          "confidence": 0.4533,
+          "evidenceCount": 5,
+          "evidence": [
+            {
+              "captureId": "07BE7982-P1-P01_CamScanner 02-03-2026 10.38_01",
+              "folio": "07BE7982",
+              "pagina": 1,
+              "text": "(calif > 0) AND (calif < 100)",
+              "similarity": 1
+            },
+            {
+              "captureId": "ECF3E587-P1-P01_CamScanner 03-03-2026 02.24_17",
+              "folio": "ECF3E587",
+              "pagina": 1,
+              "text": "(calif < 0) AND (calif > 100)",
+              "similarity": 1
+            },
+            {
+              "captureId": "A327335F-P1-P01_CamScanner 03-03-2026 02.24_9",
+              "folio": "A327335F",
+              "pagina": 1,
+              "text": "calif 5) N 3)",
+              "similarity": 0.1667
+            },
+            {
+              "captureId": "EEB4EB38-P1-P01_CamScanner 03-03-2026 02.24_15",
+              "folio": "EEB4EB38",
+              "pagina": 1,
+              "text": "Si calif >= 70 Entonces Imprimir 'Aprobado' SiNo",
+              "similarity": 0.1
+            },
+            {
+              "captureId": "D9881CAA-P1-P01_CamScanner 03-03-2026 02.24_1",
+              "folio": "D9881CAA",
+              "pagina": 1,
+              "text": "int",
+              "similarity": 0
+            }
+          ]
+        },
+        {
+          "letter": "B",
+          "text": "(calif < 0) OR (calif > 100)",
+          "confidence": 0.3897,
+          "evidenceCount": 5,
+          "evidence": [
+            {
+              "captureId": "07BE7982-P1-P01_CamScanner 02-03-2026 10.38_01",
+              "folio": "07BE7982",
+              "pagina": 1,
+              "text": "(calif < 0) OR (calif > 100)",
+              "similarity": 1
+            },
+            {
+              "captureId": "ECF3E587-P1-P01_CamScanner 03-03-2026 02.24_17",
+              "folio": "ECF3E587",
+              "pagina": 1,
+              "text": "(calif == 6) OR (calif == 100)",
+              "similarity": 0.6
+            },
+            {
+              "captureId": "5EA00A22-P1-P01_CamScanner 03-03-2026 02.24_7",
+              "folio": "5EA00A22",
+              "pagina": 1,
+              "text": "Para p = 0 hasta2; Para m = 0 hasta5;",
+              "similarity": 0.1667
+            },
+            {
+              "captureId": "EEB4EB38-P1-P01_CamScanner 03-03-2026 02.24_15",
+              "folio": "EEB4EB38",
+              "pagina": 1,
+              "text": "Si calif >= 70 Entonces Imprimir ‘No aprobado' SiNo",
+              "similarity": 0.0909
+            },
+            {
+              "captureId": "A93D8EFA-P1-P01_CamScanner 03-03-2026 02.24_25",
+              "folio": "A93D8EFA",
+              "pagina": 1,
+              "text": "Un conjunto de variables declaradas al inicio del : - programa Te ! @ Una serie de pasos finita, ordenada y no ambigua para resolver un problema 4 Se requiere clasificar una calificación calif (0 a 100) asf: Si calif >= 70 + “Aprobado”, en cas contrario + “No aprobado”.",
+              "similarity": 0.0909
+            }
+          ]
+        },
+        {
+          "letter": "C",
+          "text": "Para p = 0 hasta3;Param = 6 hastad; - Lk Lud A calif p m = e sod DE doma 5 Dados a = 2, b = 3, c = 4,",
+          "confidence": 0.377,
+          "evidenceCount": 5,
+          "evidence": [
+            {
+              "captureId": "503CF7FA-P1-P01_CamScanner 03-03-2026 02.24_23",
+              "folio": "503CF7FA",
+              "pagina": 1,
+              "text": "Para p = 0 hasta3;Param = 6 hastad; - Lk Lud A calif p m = e sod DE doma 5 Dados a = 2, b = 3, c = 4,",
+              "similarity": 1
+            },
+            {
+              "captureId": "5EA00A22-P1-P01_CamScanner 03-03-2026 02.24_7",
+              "folio": "5EA00A22",
+              "pagina": 1,
+              "text": "Para p = 0 hasta 2; Param = 0 hasta 4; calif m p = © y DE : 4",
+              "similarity": 0.375
+            },
+            {
+              "captureId": "B8A27B0B-P1-P01_CamScanner 03-03-2026 02.24_19",
+              "folio": "B8A27B0B",
+              "pagina": 1,
+              "text": "Para p = 1 hasta3; Param = 1 hasta5 nas sebo SIMA. 2 calif p m = © gia 6 Se declara un arreglo de 5 enteros: int v 5 . En un esquema típico de indices desde 0,",
+              "similarity": 0.25
+            },
+            {
+              "captureId": "66BB5FBD-P1-P01_CamScanner 03-03-2026 02.24_3",
+              "folio": "66BB5FBD",
+              "pagina": 1,
+              "text": "10 : em eins 0 A Te ¡E yxy FinPara: «in: 3. i ; Figura P3 iy § 1 : EL > t 1 Quieres almacenar calificaciones donde dimensión 1 = parcial (3 parciales: 0..2), dimension 2 = materia (5 materias: 0..4), dimensión 3 = alumno (N alumnos: 0..N-1).",
+              "similarity": 0.1316
+            },
+            {
+              "captureId": "07BE7982-P1-P01_CamScanner 02-03-2026 10.38_01",
+              "folio": "07BE7982",
+              "pagina": 1,
+              "text": "(calit >= 0) OR (calif <= 100) o 3 A Wen Ei Li aby abel o iy faro al hoxi E 4 Necesitas almacenar el grupo sanguíneo de una persona con un SOLO carácter (por ejempl L \"AY, 'B', '0.",
+              "similarity": 0.1282
+            }
+          ]
+        },
+        {
+          "letter": "D",
+          "text": "(calif == 0) OR (calif == 100)",
+          "confidence": 0.5417,
+          "evidenceCount": 5,
+          "evidence": [
+            {
+              "captureId": "07BE7982-P1-P01_CamScanner 02-03-2026 10.38_01",
+              "folio": "07BE7982",
+              "pagina": 1,
+              "text": "(calif == 0) OR (calif == 100)",
+              "similarity": 1
+            },
+            {
+              "captureId": "ECF3E587-P1-P01_CamScanner 03-03-2026 02.24_17",
+              "folio": "ECF3E587",
+              "pagina": 1,
+              "text": "(calif < 0) OR (calif > 100) : ;",
+              "similarity": 1
+            },
+            {
+              "captureId": "5EA00A22-P1-P01_CamScanner 03-03-2026 02.24_7",
+              "folio": "5EA00A22",
+              "pagina": 1,
+              "text": "Para p'= 0 hasta 2; Para m = 0 hasta 4; : calif p m = e calif p m = e",
+              "similarity": 0.3333
+            },
+            {
+              "captureId": "503CF7FA-P1-P01_CamScanner 03-03-2026 02.24_23",
+              "folio": "503CF7FA",
+              "pagina": 1,
+              "text": "Para p = 6 hasta 2; Param ='0 hasta 4; y calif p m = © calif m p = ©",
+              "similarity": 0.25
+            },
+            {
+              "captureId": "A327335F-P1-P01_CamScanner 03-03-2026 02.24_9",
+              "folio": "A327335F",
+              "pagina": 1,
+              "text": "calif(N)(3 (5) 8) calif 5 (3 (N ' E califTISIN -— í 1 e) cali 3JINI(S =2 oia la le caia: 4 Se pide validar que calif esté en el rango 0 a 100 (inclusive).",
+              "similarity": 0.125
+            }
+          ]
+        },
+        {
+          "letter": "E",
+          "text": "(calif < 0) AND (calif > 100)",
+          "confidence": 0.4548,
+          "evidenceCount": 5,
+          "evidence": [
+            {
+              "captureId": "07BE7982-P1-P01_CamScanner 02-03-2026 10.38_01",
+              "folio": "07BE7982",
+              "pagina": 1,
+              "text": "(calif < 0) AND (calif > 100)",
+              "similarity": 1
+            },
+            {
+              "captureId": "ECF3E587-P1-P01_CamScanner 03-03-2026 02.24_17",
+              "folio": "ECF3E587",
+              "pagina": 1,
+              "text": "(calif >= 0) OR (calif <= 100) i Se €) (calif > 0) AND (calif < 100) 4",
+              "similarity": 0.5714
+            },
+            {
+              "captureId": "B8A27B0B-P1-P01_CamScanner 03-03-2026 02.24_19",
+              "folio": "B8A27B0B",
+              "pagina": 1,
+              "text": "Para p = 0 hasta 2; Para m = 6 hasta 5; -calif p m = e calif p m = ©",
+              "similarity": 0.2857
+            },
+            {
+              "captureId": "503CF7FA-P1-P01_CamScanner 03-03-2026 02.24_23",
+              "folio": "503CF7FA",
+              "pagina": 1,
+              "text": "Para p = 0 hasta2;Param = 6 hasta5; calif p m = © i calif p m = e",
+              "similarity": 0.25
+            },
+            {
+              "captureId": "5EA00A22-P1-P01_CamScanner 03-03-2026 02.24_7",
+              "folio": "5EA00A22",
+              "pagina": 1,
+              "text": "Para p = 0 hasta 3; Para m = 0 hasta4; -calif p m = e “ue 1 calif p m '= 60% > 90 086 ELE A",
+              "similarity": 0.1667
+            }
+          ]
+        }
+      ],
+      "aggregateConfidence": 0.5157,
+      "certainty": "baja",
+      "captureCoverage": 14
+    },
+    {
+      "numeroPregunta": 4,
+      "prompt": "¿qué condición compara correctamente si x es igual a 10 (sin asignar)?",
+      "promptConfidence": 0.6615,
+      "promptEvidence": [
+        {
+          "captureId": "D9881CAA-P1-P01_CamScanner 03-03-2026 02.24_1",
+          "folio": "D9881CAA",
+          "pagina": 1,
+          "text": "¿qué condición compara correctamente si x es igual a 10 (sin asignar)?",
+          "similarity": 1
+        },
+        {
+          "captureId": "EEB4EB38-P1-P01_CamScanner 03-03-2026 02.24_15",
+          "folio": "EEB4EB38",
+          "pagina": 1,
+          "text": "¿qué condición compara correctamente si x es igual a 10 (sin asignar)?",
+          "similarity": 1
+        },
+        {
+          "captureId": "75D5292B-P1-P01_CamScanner 03-03-2026 02.24_21",
+          "folio": "75D5292B",
+          "pagina": 1,
+          "text": "¿qué condición compara correctamente si x es igual a 10 (sin asignar)?",
+          "similarity": 1
+        },
+        {
+          "captureId": "B0FB153C-P1-P01_CamScanner 02-03-2026 10.40_01",
+          "folio": "B0FB153C",
+          "pagina": 1,
+          "text": "¿Cuál condición es CORRECTA para detectar que el valor es invélido?",
+          "similarity": 0.1538
+        },
+        {
+          "captureId": "A327335F-P1-P01_CamScanner 03-03-2026 02.24_9",
+          "folio": "A327335F",
+          "pagina": 1,
+          "text": "¿Cuál condición es CORRECTA para detectar que el valor es inválido?",
+          "similarity": 0.1538
+        }
+      ],
+      "options": [
+        {
+          "letter": "A",
+          "text": "Si calif > 70 Entonces Imprimir 'Aprobado' SiNo",
+          "confidence": 0.4554,
+          "evidenceCount": 5,
+          "evidence": [
+            {
+              "captureId": "A93D8EFA-P1-P01_CamScanner 03-03-2026 02.24_25",
+              "folio": "A93D8EFA",
+              "pagina": 1,
+              "text": "Si calif > 70 Entonces Imprimir 'Aprobado' SiNo",
+              "similarity": 1
+            },
+            {
+              "captureId": "0E994CBA-P1-P01_CamScanner 03-03-2026 02.24_5",
+              "folio": "0E994CBA",
+              "pagina": 1,
+              "text": "Si calif > 70 Entonces Imprimir ‘Aprobado’ SiNo'* . + ©",
+              "similarity": 1
+            },
+            {
+              "captureId": "B0FB153C-P1-P01_CamScanner 02-03-2026 10.40_01",
+              "folio": "B0FB153C",
+              "pagina": 1,
+              "text": "(calif >= 0) OR (calif <= 100)",
+              "similarity": 0.1
+            },
+            {
+              "captureId": "A327335F-P1-P01_CamScanner 03-03-2026 02.24_9",
+              "folio": "A327335F",
+              "pagina": 1,
+              "text": "(calif > 0) AND (calif < 100)",
+              "similarity": 0.1
+            },
+            {
+              "captureId": "66BB5FBD-P1-P01_CamScanner 03-03-2026 02.24_3",
+              "folio": "66BB5FBD",
+              "pagina": 1,
+              "text": "calif/3JINI(S : 5D) califfa) SIN rele ls podimeeba",
+              "similarity": 0.0769
+            }
+          ]
+        },
+        {
+          "letter": "B",
+          "text": "x <= 10 -",
+          "confidence": 0.4667,
+          "evidenceCount": 5,
+          "evidence": [
+            {
+              "captureId": "EEB4EB38-P1-P01_CamScanner 03-03-2026 02.24_15",
+              "folio": "EEB4EB38",
+              "pagina": 1,
+              "text": "x <= 10 -",
+              "similarity": 1
+            },
+            {
+              "captureId": "75D5292B-P1-P01_CamScanner 03-03-2026 02.24_21",
+              "folio": "75D5292B",
+              "pagina": 1,
+              "text": "x <= 10",
+              "similarity": 1
+            },
+            {
+              "captureId": "D9881CAA-P1-P01_CamScanner 03-03-2026 02.24_1",
+              "folio": "D9881CAA",
+              "pagina": 1,
+              "text": "10= x = true E x= 14",
+              "similarity": 0.3333
+            },
+            {
+              "captureId": "07BE7982-P1-P01_CamScanner 02-03-2026 10.38_01",
+              "folio": "07BE7982",
+              "pagina": 1,
+              "text": "Verdadero . —.",
+              "similarity": 0
+            },
+            {
+              "captureId": "B0FB153C-P1-P01_CamScanner 02-03-2026 10.40_01",
+              "folio": "B0FB153C",
+              "pagina": 1,
+              "text": "(calif < 0) AND (calif > 100) «",
+              "similarity": 0
+            }
+          ]
+        },
+        {
+          "letter": "C",
+          "text": "calif N (3 (5 ; ; 5 Se pide validar que calif esté en el rango 0 a 100 (inclusive).",
+          "confidence": 0.3889,
+          "evidenceCount": 5,
+          "evidence": [
+            {
+              "captureId": "66BB5FBD-P1-P01_CamScanner 03-03-2026 02.24_3",
+              "folio": "66BB5FBD",
+              "pagina": 1,
+              "text": "calif N (3 (5 ; ; 5 Se pide validar que calif esté en el rango 0 a 100 (inclusive).",
+              "similarity": 1
+            },
+            {
+              "captureId": "B8A27B0B-P1-P01_CamScanner 03-03-2026 02.24_19",
+              "folio": "B8A27B0B",
+              "pagina": 1,
+              "text": "No hay último índice: depende del valor almacenado.” ::17551 7 + nen ey ESMaloes És A Se pide validar que calif esté en el rango 0 a 100 (inclusive).",
+              "similarity": 0.4
+            },
+            {
+              "captureId": "EEB4EB38-P1-P01_CamScanner 03-03-2026 02.24_15",
+              "folio": "EEB4EB38",
+              "pagina": 1,
+              "text": "x = 10 ! a í , - . Ea - 5 Se declara un arreglo bidimensional calif 3 5 , donde fila = parcial (0..2) y column: = materia (0..4).",
+              "similarity": 0.2083
+            },
+            {
+              "captureId": "B0FB153C-P1-P01_CamScanner 02-03-2026 10.40_01",
+              "folio": "B0FB153C",
+              "pagina": 1,
+              "text": "calif == 60) OR (calif == 100) RAY 5 Necesitas almacenar el grupo sanguíneo de una persona con un SOLO carácter (por ejemplo: 'A';'B', '0').",
+              "similarity": 0.2
+            },
+            {
+              "captureId": "07BE7982-P1-P01_CamScanner 02-03-2026 10.38_01",
+              "folio": "07BE7982",
+              "pagina": 1,
+              "text": "No se puede determinar sin conocer el lenguaje”... Sl - 6 Dados a=2,b=3,c=/4,",
+              "similarity": 0.1364
+            }
+          ]
+        },
+        {
+          "letter": "D",
+          "text": "Si calif >= 70 Entonces Imprimir 'No aprobado' SiN Imprimir 'No aprobado' FinSi Imprimir 'Aprobado' FinSi @ Si calif >= 70 Entonces Imprimir “Aprobado SiNo",
+          "confidence": 0.3667,
+          "evidenceCount": 5,
+          "evidence": [
+            {
+              "captureId": "A93D8EFA-P1-P01_CamScanner 03-03-2026 02.24_25",
+              "folio": "A93D8EFA",
+              "pagina": 1,
+              "text": "Si calif >= 70 Entonces Imprimir 'No aprobado' SiN Imprimir 'No aprobado' FinSi Imprimir 'Aprobado' FinSi @ Si calif >= 70 Entonces Imprimir “Aprobado SiNo",
+              "similarity": 1
+            },
+            {
+              "captureId": "0E994CBA-P1-P01_CamScanner 03-03-2026 02.24_5",
+              "folio": "0E994CBA",
+              "pagina": 1,
+              "text": "Si calif. ==:76' Entonces Imprimir \"Aprobado': ; Imprimir ‘No aprobado' FinSi SiNo Imprimir 'No aprobado' FinSi — € i'-.:1 2751",
+              "similarity": 0.6667
+            },
+            {
+              "captureId": "B0FB153C-P1-P01_CamScanner 02-03-2026 10.40_01",
+              "folio": "B0FB153C",
+              "pagina": 1,
+              "text": "(calif > 0) AND (calif < 100)",
+              "similarity": 0.0833
+            },
+            {
+              "captureId": "A327335F-P1-P01_CamScanner 03-03-2026 02.24_9",
+              "folio": "A327335F",
+              "pagina": 1,
+              "text": "(calif >= 0) OR (calif <= 100) :",
+              "similarity": 0.0833
+            },
+            {
+              "captureId": "07BE7982-P1-P01_CamScanner 02-03-2026 10.38_01",
+              "folio": "07BE7982",
+              "pagina": 1,
+              "text": "Falso tel aha i",
+              "similarity": 0
+            }
+          ]
+        },
+        {
+          "letter": "E",
+          "text": "(calif < 0) OR (calif > 100)",
+          "confidence": 0.37,
+          "evidenceCount": 5,
+          "evidence": [
+            {
+              "captureId": "B0FB153C-P1-P01_CamScanner 02-03-2026 10.40_01",
+              "folio": "B0FB153C",
+              "pagina": 1,
+              "text": "(calif < 0) OR (calif > 100)",
+              "similarity": 1
+            },
+            {
+              "captureId": "A327335F-P1-P01_CamScanner 03-03-2026 02.24_9",
+              "folio": "A327335F",
+              "pagina": 1,
+              "text": "(calif < 0) AND (calif > 100)",
+              "similarity": 0.6
+            },
+            {
+              "captureId": "66BB5FBD-P1-P01_CamScanner 03-03-2026 02.24_3",
+              "folio": "66BB5FBD",
+              "pagina": 1,
+              "text": "calif(5) N)(3) y : y ; i",
+              "similarity": 0.1667
+            },
+            {
+              "captureId": "0E994CBA-P1-P01_CamScanner 03-03-2026 02.24_5",
+              "folio": "0E994CBA",
+              "pagina": 1,
+              "text": "Si calif < 70 Entonces Imprimir 'Aprobado' SiNo i Imprimir 'Aprobado' FinSi Imprimir ‘No aprobado' FinSi",
+              "similarity": 0.0833
+            },
+            {
+              "captureId": "07BE7982-P1-P01_CamScanner 02-03-2026 10.38_01",
+              "folio": "07BE7982",
+              "pagina": 1,
+              "text": "Error por tipo de dato",
+              "similarity": 0
+            }
+          ]
+        }
+      ],
+      "aggregateConfidence": 0.5103,
+      "certainty": "baja",
+      "captureCoverage": 14
+    },
+    {
+      "numeroPregunta": 5,
+      "prompt": "¿Cuál definición describe mejor un algoritmo en el contexto de Lógica de Programación?",
+      "promptConfidence": 0.6931,
+      "promptEvidence": [
+        {
+          "captureId": "6A98D91E-P1-P01_CamScanner 03-03-2026 02.24_13",
+          "folio": "6A98D91E",
+          "pagina": 1,
+          "text": "¿Cuál definición describe mejor un algoritmo en el contexto de Lógica de Programación?",
+          "similarity": 1
+        },
+        {
+          "captureId": "75D5292B-P1-P01_CamScanner 03-03-2026 02.24_21",
+          "folio": "75D5292B",
+          "pagina": 1,
+          "text": "¿Cuál definición describe mejor un algoritmo en el contexto de Lógica de Programación?",
+          "similarity": 1
+        },
+        {
+          "captureId": "0E994CBA-P1-P01_CamScanner 03-03-2026 02.24_5",
+          "folio": "0E994CBA",
+          "pagina": 1,
+          "text": "¿Cuál definición describe mejor un algoritmo en el contexto de Lógica de Programación?",
+          "similarity": 1
+        },
+        {
+          "captureId": "A327335F-P1-P01_CamScanner 03-03-2026 02.24_9",
+          "folio": "A327335F",
+          "pagina": 1,
+          "text": "¿Cuál afirmación describe mejor una constante en programación?",
+          "similarity": 0.3077
+        },
+        {
+          "captureId": "A93D8EFA-P1-P01_CamScanner 03-03-2026 02.24_25",
+          "folio": "A93D8EFA",
+          "pagina": 1,
+          "text": "¿qué tipo de dato suele tener el resultado de a + b en la mayoría de lenguajes?",
+          "similarity": 0.1579
+        }
+      ],
+      "options": [
+        {
+          "letter": "A",
+          "text": "(calif > 0) AND (calif < 100)",
+          "confidence": 0.3222,
+          "evidenceCount": 5,
+          "evidence": [
+            {
+              "captureId": "B8A27B0B-P1-P01_CamScanner 03-03-2026 02.24_19",
+              "folio": "B8A27B0B",
+              "pagina": 1,
+              "text": "(calif > 0) AND (calif < 100)",
+              "similarity": 1
+            },
+            {
+              "captureId": "66BB5FBD-P1-P01_CamScanner 03-03-2026 02.24_3",
+              "folio": "66BB5FBD",
+              "pagina": 1,
+              "text": "(calit>= 0) OR (calif <= 100)",
+              "similarity": 0.5
+            },
+            {
+              "captureId": "EEB4EB38-P1-P01_CamScanner 03-03-2026 02.24_15",
+              "folio": "EEB4EB38",
+              "pagina": 1,
+              "text": "Parap = 0 hasta2;Param = 6 hasta 5;",
+              "similarity": 0.1111
+            },
+            {
+              "captureId": "07BE7982-P1-P01_CamScanner 02-03-2026 10.38_01",
+              "folio": "07BE7982",
+              "pagina": 1,
+              "text": "24. © p20 2 e Sr ES",
+              "similarity": 0
+            },
+            {
+              "captureId": "B0FB153C-P1-P01_CamScanner 02-03-2026 10.40_01",
+              "folio": "B0FB153C",
+              "pagina": 1,
+              "text": "int",
+              "similarity": 0
+            }
+          ]
+        },
+        {
+          "letter": "B",
+          "text": "Un diagrama que siempre usa símbolos geométricos",
+          "confidence": 0.4476,
+          "evidenceCount": 5,
+          "evidence": [
+            {
+              "captureId": "75D5292B-P1-P01_CamScanner 03-03-2026 02.24_21",
+              "folio": "75D5292B",
+              "pagina": 1,
+              "text": "Un diagrama que siempre usa símbolos geométricos",
+              "similarity": 1
+            },
+            {
+              "captureId": "0E994CBA-P1-P01_CamScanner 03-03-2026 02.24_5",
+              "folio": "0E994CBA",
+              "pagina": 1,
+              "text": "Un diagrama que siempre usa símbolos geométricos .. errores i : ale ol mima",
+              "similarity": 0.6
+            },
+            {
+              "captureId": "6A98D91E-P1-P01_CamScanner 03-03-2026 02.24_13",
+              "folio": "6A98D91E",
+              "pagina": 1,
+              "text": "Una base de datos con tablas relacionadas ‘E) Un diagrama que siempre usa símbolos geométricos -",
+              "similarity": 0.5455
+            },
+            {
+              "captureId": "A327335F-P1-P01_CamScanner 03-03-2026 02.24_9",
+              "folio": "A327335F",
+              "pagina": 1,
+              "text": "Es un dato que se almacena únicamente en arreglos, .. tipo de dato..... muro lacigiosa ibid sra",
+              "similarity": 0.0526
+            },
+            {
+              "captureId": "54BC4954-P1-P01_CamScanner 03-03-2026 02.24_11",
+              "folio": "54BC4954",
+              "pagina": 1,
+              "text": "string A AD Ea ec €) int i SLL a he nT e Se declara un arreglo de 5 enteros: int V 5 . En un esquema típico de indices desde 0,",
+              "similarity": 0.04
+            }
+          ]
+        },
+        {
+          "letter": "C",
+          "text": "Un conjunto de variables declaradas al inicio del - programa 6",
+          "confidence": 0.3621,
+          "evidenceCount": 5,
+          "evidence": [
+            {
+              "captureId": "6A98D91E-P1-P01_CamScanner 03-03-2026 02.24_13",
+              "folio": "6A98D91E",
+              "pagina": 1,
+              "text": "Un conjunto de variables declaradas al inicio del - programa 6",
+              "similarity": 1
+            },
+            {
+              "captureId": "75D5292B-P1-P01_CamScanner 03-03-2026 02.24_21",
+              "folio": "75D5292B",
+              "pagina": 1,
+              "text": "Un conjunto de variables declaradas al inicio del e J programa HEE AE qeertt Unicas, PGP SR Mea",
+              "similarity": 0.5
+            },
+            {
+              "captureId": "B0FB153C-P1-P01_CamScanner 02-03-2026 10.40_01",
+              "folio": "B0FB153C",
+              "pagina": 1,
+              "text": "char Ue 6 Necesitas almacenar la cantidad de alumnos inscritos (un conteo: 0, 1, 2, 3, ...).",
+              "similarity": 0.1364
+            },
+            {
+              "captureId": "EEB4EB38-P1-P01_CamScanner 03-03-2026 02.24_15",
+              "folio": "EEB4EB38",
+              "pagina": 1,
+              "text": "Para p = © hasta3; Param = 6 hasta 4; i calif p m = © STAIR ERS 03 ocd tags Dover SPE) eet GE 6 Necesitas almacenar el grupo sanguíneo de una persona con un SOLO carácter (por ejemplo \"A, ‘BY, '0').",
+              "similarity": 0.0909
+            },
+            {
+              "captureId": "0E994CBA-P1-P01_CamScanner 03-03-2026 02.24_5",
+              "folio": "0E994CBA",
+              "pagina": 1,
+              "text": "Una serie de pasos finita, ordenada y no ambigua para n aN resolver un problema or NECIO Si a es int y b es float,",
+              "similarity": 0.0833
+            }
+          ]
+        },
+        {
+          "letter": "D",
+          "text": "(calif >= 0) OR (calif <= 100)",
+          "confidence": 0.37,
+          "evidenceCount": 5,
+          "evidence": [
+            {
+              "captureId": "B8A27B0B-P1-P01_CamScanner 03-03-2026 02.24_19",
+              "folio": "B8A27B0B",
+              "pagina": 1,
+              "text": "(calif >= 0) OR (calif <= 100)",
+              "similarity": 1
+            },
+            {
+              "captureId": "66BB5FBD-P1-P01_CamScanner 03-03-2026 02.24_3",
+              "folio": "66BB5FBD",
+              "pagina": 1,
+              "text": "(calif < 0) AND (calif > 100)",
+              "similarity": 0.6
+            },
+            {
+              "captureId": "EEB4EB38-P1-P01_CamScanner 03-03-2026 02.24_15",
+              "folio": "EEB4EB38",
+              "pagina": 1,
+              "text": "Para p = 6 hasta 2; Param = 0:hasta4,.. ! calif p m = e calif p m = e : J i",
+              "similarity": 0.25
+            },
+            {
+              "captureId": "B0FB153C-P1-P01_CamScanner 02-03-2026 10.40_01",
+              "folio": "B0FB153C",
+              "pagina": 1,
+              "text": "string",
+              "similarity": 0
+            },
+            {
+              "captureId": "D9881CAA-P1-P01_CamScanner 03-03-2026 02.24_1",
+              "folio": "D9881CAA",
+              "pagina": 1,
+              "text": "o í += (bloque)...",
+              "similarity": 0
+            }
+          ]
+        },
+        {
+          "letter": "E",
+          "text": "(calif < 0) OR (calif > 100) i",
+          "confidence": 0.4859,
+          "evidenceCount": 5,
+          "evidence": [
+            {
+              "captureId": "B8A27B0B-P1-P01_CamScanner 03-03-2026 02.24_19",
+              "folio": "B8A27B0B",
+              "pagina": 1,
+              "text": "(calif < 0) OR (calif > 100) i",
+              "similarity": 1
+            },
+            {
+              "captureId": "66BB5FBD-P1-P01_CamScanner 03-03-2026 02.24_3",
+              "folio": "66BB5FBD",
+              "pagina": 1,
+              "text": "(calif < 0) OR (calif > 100) i",
+              "similarity": 1
+            },
+            {
+              "captureId": "EEB4EB38-P1-P01_CamScanner 03-03-2026 02.24_15",
+              "folio": "EEB4EB38",
+              "pagina": 1,
+              "text": "Para p = 0 hasta 2; Para-m:=:0 hasta 4;: calif p m = e calif m p = e ed i",
+              "similarity": 0.2857
+            },
+            {
+              "captureId": "A93D8EFA-P1-P01_CamScanner 03-03-2026 02.24_25",
+              "folio": "A93D8EFA",
+              "pagina": 1,
+              "text": "int, porque a manda > Tab: y © Depende: siempre queda como string : Se declara un arreglo bidimensional calif 3 5 , donde fila = parcial (90..2) y columr = materia (0..4).",
+              "similarity": 0.0769
+            },
+            {
+              "captureId": "503CF7FA-P1-P01_CamScanner 03-03-2026 02.24_23",
+              "folio": "503CF7FA",
+              "pagina": 1,
+              "text": "calif S (3 N) he €) cali T3ISIN e Bid e MEN a En el contexto de pseudocódigo,",
+              "similarity": 0.0667
+            }
+          ]
+        }
+      ],
+      "aggregateConfidence": 0.5158,
+      "certainty": "baja",
+      "captureCoverage": 15
+    },
+    {
+      "numeroPregunta": 6,
+      "prompt": "¿Qué tipo de dato primitivo es el más adecuado?",
+      "promptConfidence": 0.6817,
+      "promptEvidence": [
+        {
+          "captureId": "EEB4EB38-P1-P01_CamScanner 03-03-2026 02.24_15",
+          "folio": "EEB4EB38",
+          "pagina": 1,
+          "text": "¿Qué tipo de dato primitivo es el más adecuado?",
+          "similarity": 1
+        },
+        {
+          "captureId": "B8A27B0B-P1-P01_CamScanner 03-03-2026 02.24_19",
+          "folio": "B8A27B0B",
+          "pagina": 1,
+          "text": "¿Qué tipo de dato primitivo es el más adecuado?",
+          "similarity": 1
+        },
+        {
+          "captureId": "B0FB153C-P1-P01_CamScanner 02-03-2026 10.40_01",
+          "folio": "B0FB153C",
+          "pagina": 1,
+          "text": "¿Qué tipo de dato es el más adecuado?",
+          "similarity": 0.875
+        },
+        {
+          "captureId": "ECF3E587-P1-P01_CamScanner 03-03-2026 02.24_17",
+          "folio": "ECF3E587",
+          "pagina": 1,
+          "text": "¿qué tipo de dato suele tener el resultado de a+b en la mayoría de i lenguajes?",
+          "similarity": 0.2667
+        },
+        {
+          "captureId": "0E994CBA-P1-P01_CamScanner 03-03-2026 02.24_5",
+          "folio": "0E994CBA",
+          "pagina": 1,
+          "text": "¿qué tipo de dato suele tener el resultado de a + b en la mayoría de lenguajes?",
+          "similarity": 0.2667
+        }
+      ],
+      "options": [
+        {
+          "letter": "A",
+          "text": "int, porque a manda",
+          "confidence": 0.4,
+          "evidenceCount": 5,
+          "evidence": [
+            {
+              "captureId": "ECF3E587-P1-P01_CamScanner 03-03-2026 02.24_17",
+              "folio": "ECF3E587",
+              "pagina": 1,
+              "text": "int, porque a manda",
+              "similarity": 1
+            },
+            {
+              "captureId": "0E994CBA-P1-P01_CamScanner 03-03-2026 02.24_5",
+              "folio": "0E994CBA",
+              "pagina": 1,
+              "text": "int, porque a manda",
+              "similarity": 1
+            },
+            {
+              "captureId": "07BE7982-P1-P01_CamScanner 02-03-2026 10.38_01",
+              "folio": "07BE7982",
+              "pagina": 1,
+              "text": "califiN 3 8 — edo coo DY califl3ISIN : 0010 cies ins sa",
+              "similarity": 0
+            },
+            {
+              "captureId": "B0FB153C-P1-P01_CamScanner 02-03-2026 10.40_01",
+              "folio": "B0FB153C",
+              "pagina": 1,
+              "text": "float",
+              "similarity": 0
+            },
+            {
+              "captureId": "D9881CAA-P1-P01_CamScanner 03-03-2026 02.24_1",
+              "folio": "D9881CAA",
+              "pagina": 1,
+              "text": "Si calif >= 70 Entonces Imprimir ‘Aprobado’ SiNo : :D) Si calif >= 70 Entonces Imprimir ‘No aprobado' SiNo t Imprimir 'No aprobado' FinSi (6 i Imprimir.'Aprobado’ FinSi mo !",
+              "similarity": 0
+            }
+          ]
+        },
+        {
+          "letter": "B",
+          "text": "int -",
+          "confidence": 0.504,
+          "evidenceCount": 5,
+          "evidence": [
+            {
+              "captureId": "B0FB153C-P1-P01_CamScanner 02-03-2026 10.40_01",
+              "folio": "B0FB153C",
+              "pagina": 1,
+              "text": "int -",
+              "similarity": 1
+            },
+            {
+              "captureId": "EEB4EB38-P1-P01_CamScanner 03-03-2026 02.24_15",
+              "folio": "EEB4EB38",
+              "pagina": 1,
+              "text": "int",
+              "similarity": 1
+            },
+            {
+              "captureId": "B8A27B0B-P1-P01_CamScanner 03-03-2026 02.24_19",
+              "folio": "B8A27B0B",
+              "pagina": 1,
+              "text": "int - Ta",
+              "similarity": 0.5
+            },
+            {
+              "captureId": "6A98D91E-P1-P01_CamScanner 03-03-2026 02.24_13",
+              "folio": "6A98D91E",
+              "pagina": 1,
+              "text": "Es una instrucción que siempre se ejecuta al final del - tipo de dato. - E > Tades) 49 4 programa. í Men (© Es un valor que no debe modificarse durante la ejecución y suele declararse con un identificador ©. i\" +: 60 0605600 na Sh Sot o RO a ros representativo. Cal him md po GUA Are A Se declara un arreglo de 5 enteros: int v 5 . En un esquema típico de índices desde 0,",
+              "similarity": 0.02
+            },
+            {
+              "captureId": "07BE7982-P1-P01_CamScanner 02-03-2026 10.38_01",
+              "folio": "07BE7982",
+              "pagina": 1,
+              "text": "califfa)IN 5",
+              "similarity": 0
+            }
+          ]
+        },
+        {
+          "letter": "C",
+          "text": "boolean Quieres almacenar calificaciones donde dimensión 1 = parcial (3 parciales: 0..2), dimensión 2 = materia (5 materias: 0..4), dimensión 3 = alumno (N alumnos: 0..N-1).",
+          "confidence": 0.4401,
+          "evidenceCount": 5,
+          "evidence": [
+            {
+              "captureId": "B0FB153C-P1-P01_CamScanner 02-03-2026 10.40_01",
+              "folio": "B0FB153C",
+              "pagina": 1,
+              "text": "boolean Quieres almacenar calificaciones donde dimensión 1 = parcial (3 parciales: 0..2), dimensión 2 = materia (5 materias: 0..4), dimensión 3 = alumno (N alumnos: 0..N-1).",
+              "similarity": 1
+            },
+            {
+              "captureId": "EEB4EB38-P1-P01_CamScanner 03-03-2026 02.24_15",
+              "folio": "EEB4EB38",
+              "pagina": 1,
+              "text": ".boolean al Edi pOr MONTE Quieres almacenar calificaciones donde dimensión 15 parcial (3 parciales: 0..2), dimensión 2 ! = materia (5 materias: 0..4), dimensión 3 = alumno (N alumnos: 0..N-1).",
+              "similarity": 0.8095
+            },
+            {
+              "captureId": "5EA00A22-P1-P01_CamScanner 03-03-2026 02.24_7",
+              "folio": "5EA00A22",
+              "pagina": 1,
+              "text": "(calif < 0) OR (calif >'100) - j : y (a is SA WRI mam Dados a = 2,b = 3, ¢c = 4,",
+              "similarity": 0.16
+            },
+            {
+              "captureId": "66BB5FBD-P1-P01_CamScanner 03-03-2026 02.24_3",
+              "folio": "66BB5FBD",
+              "pagina": 1,
+              "text": "Falso : i j 2 SHS SE GIRL ah REI AB Ah Dados a = 2, b = 3, € = 4,",
+              "similarity": 0.12
+            },
+            {
+              "captureId": "0E994CBA-P1-P01_CamScanner 03-03-2026 02.24_5",
+              "folio": "0E994CBA",
+              "pagina": 1,
+              "text": "float, porque se promueve al tipo con decimales... dei -7- Dados a=2,b=3,c = 4,",
+              "similarity": 0.1111
+            }
+          ]
+        },
+        {
+          "letter": "D",
+          "text": "string",
+          "confidence": 0.25,
+          "evidenceCount": 5,
+          "evidence": [
+            {
+              "captureId": "B0FB153C-P1-P01_CamScanner 02-03-2026 10.40_01",
+              "folio": "B0FB153C",
+              "pagina": 1,
+              "text": "string",
+              "similarity": 1
+            },
+            {
+              "captureId": "ECF3E587-P1-P01_CamScanner 03-03-2026 02.24_17",
+              "folio": "ECF3E587",
+              "pagina": 1,
+              "text": "Depende: siempre queda como string",
+              "similarity": 0.25
+            },
+            {
+              "captureId": "54BC4954-P1-P01_CamScanner 03-03-2026 02.24_11",
+              "folio": "54BC4954",
+              "pagina": 1,
+              "text": "5 yo NU",
+              "similarity": 0
+            },
+            {
+              "captureId": "6A98D91E-P1-P01_CamScanner 03-03-2026 02.24_13",
+              "folio": "6A98D91E",
+              "pagina": 1,
+              "text": "Es un dato que se almacena únicamente en arreglos. ciclo. - ©\"",
+              "similarity": 0
+            },
+            {
+              "captureId": "B8A27B0B-P1-P01_CamScanner 03-03-2026 02.24_19",
+              "folio": "B8A27B0B",
+              "pagina": 1,
+              "text": "float",
+              "similarity": 0
+            }
+          ]
+        },
+        {
+          "letter": "E",
+          "text": "char",
+          "confidence": 0.4,
+          "evidenceCount": 5,
+          "evidence": [
+            {
+              "captureId": "B0FB153C-P1-P01_CamScanner 02-03-2026 10.40_01",
+              "folio": "B0FB153C",
+              "pagina": 1,
+              "text": "char",
+              "similarity": 1
+            },
+            {
+              "captureId": "EEB4EB38-P1-P01_CamScanner 03-03-2026 02.24_15",
+              "folio": "EEB4EB38",
+              "pagina": 1,
+              "text": "char E j",
+              "similarity": 1
+            },
+            {
+              "captureId": "07BE7982-P1-P01_CamScanner 02-03-2026 10.38_01",
+              "folio": "07BE7982",
+              "pagina": 1,
+              "text": "califSISIN).",
+              "similarity": 0
+            },
+            {
+              "captureId": "D9881CAA-P1-P01_CamScanner 03-03-2026 02.24_1",
+              "folio": "D9881CAA",
+              "pagina": 1,
+              "text": "Si calif > 70 Entonces Imprimir ‘Aprobado’ SiNo- :- ! Imprimir ‘No aprobado' FinSi Imprimir 'No aprobado' FinSi E i",
+              "similarity": 0
+            },
+            {
+              "captureId": "54BC4954-P1-P01_CamScanner 03-03-2026 02.24_11",
+              "folio": "54BC4954",
+              "pagina": 1,
+              "text": "No hay último índice; depende del valor almacenado c) 4 ; Se declara un arreglo bidimensional calif 3 5 , donde, fila =. parcial. (0...2): y. column = materia (0..4).",
+              "similarity": 0
+            }
+          ]
+        }
+      ],
+      "aggregateConfidence": 0.512,
+      "certainty": "baja",
+      "captureCoverage": 14
+    },
+    {
+      "numeroPregunta": 7,
+      "prompt": "¿cuál es el valor de la expresión a + b x c?",
+      "promptConfidence": 0.6688,
+      "promptEvidence": [
+        {
+          "captureId": "0E994CBA-P1-P01_CamScanner 03-03-2026 02.24_5",
+          "folio": "0E994CBA",
+          "pagina": 1,
+          "text": "¿cuál es el valor de la expresión a + b x c?",
+          "similarity": 1
+        },
+        {
+          "captureId": "5EA00A22-P1-P01_CamScanner 03-03-2026 02.24_7",
+          "folio": "5EA00A22",
+          "pagina": 1,
+          "text": "¿cuál es el valor de la expresión a +b x €?",
+          "similarity": 1
+        },
+        {
+          "captureId": "66BB5FBD-P1-P01_CamScanner 03-03-2026 02.24_3",
+          "folio": "66BB5FBD",
+          "pagina": 1,
+          "text": "¿cuál es el valor de la expresión a +b xc?",
+          "similarity": 0.8571
+        },
+        {
+          "captureId": "503CF7FA-P1-P01_CamScanner 03-03-2026 02.24_23",
+          "folio": "503CF7FA",
+          "pagina": 1,
+          "text": "¿Qué tipo de dato primitivo es el más adecuado?",
+          "similarity": 0.2727
+        },
+        {
+          "captureId": "A327335F-P1-P01_CamScanner 03-03-2026 02.24_9",
+          "folio": "A327335F",
+          "pagina": 1,
+          "text": "¿qué tipo de dato suele tener el resultado de a+b'en la mayoría de lenguajes?",
+          "similarity": 0.2143
+        }
+      ],
+      "options": [
+        {
+          "letter": "A",
+          "text": "Verdadero Dn) No se puede determinar sin conocer el lenguaje",
+          "confidence": 0.25,
+          "evidenceCount": 5,
+          "evidence": [
+            {
+              "captureId": "B0FB153C-P1-P01_CamScanner 02-03-2026 10.40_01",
+              "folio": "B0FB153C",
+              "pagina": 1,
+              "text": "Verdadero Dn) No se puede determinar sin conocer el lenguaje",
+              "similarity": 1
+            },
+            {
+              "captureId": "A327335F-P1-P01_CamScanner 03-03-2026 02.24_9",
+              "folio": "A327335F",
+              "pagina": 1,
+              "text": "Verdadero sein",
+              "similarity": 0.1
+            },
+            {
+              "captureId": "A93D8EFA-P1-P01_CamScanner 03-03-2026 02.24_25",
+              "folio": "A93D8EFA",
+              "pagina": 1,
+              "text": "1 Se 0: EA",
+              "similarity": 0.0833
+            },
+            {
+              "captureId": "07BE7982-P1-P01_CamScanner 02-03-2026 10.38_01",
+              "folio": "07BE7982",
+              "pagina": 1,
+              "text": "Una serie de pasos finita, ordenada y no ambigua para’",
+              "similarity": 0.0667
+            },
+            {
+              "captureId": "54BC4954-P1-P01_CamScanner 03-03-2026 02.24_11",
+              "folio": "54BC4954",
+              "pagina": 1,
+              "text": "Para p = © hasta 3; Para m:=.0:hasta 4;.: :. ::D) Para'p:=:0 hasta 2, Para m = 6 hasta 5; : J : calif p m = e : calif p m = e - E en i",
+              "similarity": 0
+            }
+          ]
+        },
+        {
+          "letter": "B",
+          "text": "No hay último índice; depende del valor almacenado:i-::E) O: 00.553 103385060 flees Dd tend cys i Mecesitas almacenar la cantidad de alumnos inscritos (un conteo: 0, 1, 2, 3, ...).",
+          "confidence": 0.2186,
+          "evidenceCount": 5,
+          "evidence": [
+            {
+              "captureId": "6A98D91E-P1-P01_CamScanner 03-03-2026 02.24_13",
+              "folio": "6A98D91E",
+              "pagina": 1,
+              "text": "No hay último índice; depende del valor almacenado:i-::E) O: 00.553 103385060 flees Dd tend cys i Mecesitas almacenar la cantidad de alumnos inscritos (un conteo: 0, 1, 2, 3, ...).",
+              "similarity": 1
+            },
+            {
+              "captureId": "54BC4954-P1-P01_CamScanner 03-03-2026 02.24_11",
+              "folio": "54BC4954",
+              "pagina": 1,
+              "text": "Para p = 6 hasta2; Para m = 0 hasta 4;",
+              "similarity": 0.0333
+            },
+            {
+              "captureId": "A327335F-P1-P01_CamScanner 03-03-2026 02.24_9",
+              "folio": "A327335F",
+              "pagina": 1,
+              "text": "No se puede determinar sin conocer el lenguaje",
+              "similarity": 0.0303
+            },
+            {
+              "captureId": "07BE7982-P1-P01_CamScanner 02-03-2026 10.38_01",
+              "folio": "07BE7982",
+              "pagina": 1,
+              "text": "Una base de datos con tablas relacionadas errores ui ¡as :",
+              "similarity": 0.0294
+            },
+            {
+              "captureId": "B0FB153C-P1-P01_CamScanner 02-03-2026 10.40_01",
+              "folio": "B0FB153C",
+              "pagina": 1,
+              "text": "Verdadero solo si x > 8 »",
+              "similarity": 0
+            }
+          ]
+        },
+        {
+          "letter": "C",
+          "text": "do-while E Primer Parcial : Lógica de Programación",
+          "confidence": 0.5058,
+          "evidenceCount": 5,
+          "evidence": [
+            {
+              "captureId": "ECF3E587-P1-P01_CamScanner 03-03-2026 02.24_17",
+              "folio": "ECF3E587",
+              "pagina": 1,
+              "text": "do-while E Primer Parcial : Lógica de Programación",
+              "similarity": 1
+            },
+            {
+              "captureId": "B0FB153C-P1-P01_CamScanner 02-03-2026 10.40_01",
+              "folio": "B0FB153C",
+              "pagina": 1,
+              "text": "Error por tipo de dato E“ Primer Parcial Lógica de Programación (Cp: BorB153€ )",
+              "similarity": 0.4167
+            },
+            {
+              "captureId": "503CF7FA-P1-P01_CamScanner 03-03-2026 02.24_23",
+              "folio": "503CF7FA",
+              "pagina": 1,
+              "text": "int Ti i : e pliner parcial - “Lógica de Programación",
+              "similarity": 0.4
+            },
+            {
+              "captureId": "A327335F-P1-P01_CamScanner 03-03-2026 02.24_9",
+              "folio": "A327335F",
+              "pagina": 1,
+              "text": "Falso : ! Primer Parcial Puma “Lágica de Programación : =",
+              "similarity": 0.4
+            },
+            {
+              "captureId": "A93D8EFA-P1-P01_CamScanner 03-03-2026 02.24_25",
+              "folio": "A93D8EFA",
+              "pagina": 1,
+              "text": "No hay último índice; depende del valor almacenado, : : E Primer Parcial E Lógica de Programación : (io: ABIDEEFA )",
+              "similarity": 0.3125
+            }
+          ]
+        },
+        {
+          "letter": "D",
+          "text": "calif 5) N) 3 ;",
+          "confidence": 0.3,
+          "evidenceCount": 5,
+          "evidence": [
+            {
+              "captureId": "B0FB153C-P1-P01_CamScanner 02-03-2026 10.40_01",
+              "folio": "B0FB153C",
+              "pagina": 1,
+              "text": "calif 5) N) 3 ;",
+              "similarity": 1
+            },
+            {
+              "captureId": "EEB4EB38-P1-P01_CamScanner 03-03-2026 02.24_15",
+              "folio": "EEB4EB38",
+              "pagina": 1,
+              "text": "calif 3 IN 5 Eu —B) califallSIN)",
+              "similarity": 0.5
+            },
+            {
+              "captureId": "07BE7982-P1-P01_CamScanner 02-03-2026 10.38_01",
+              "folio": "07BE7982",
+              "pagina": 1,
+              "text": "Un diagrama que siempre usa símbolos geométric i ‘resolver un problema e",
+              "similarity": 0
+            },
+            {
+              "captureId": "6A98D91E-P1-P01_CamScanner 03-03-2026 02.24_13",
+              "folio": "6A98D91E",
+              "pagina": 1,
+              "text": "1 -",
+              "similarity": 0
+            },
+            {
+              "captureId": "503CF7FA-P1-P01_CamScanner 03-03-2026 02.24_23",
+              "folio": "503CF7FA",
+              "pagina": 1,
+              "text": "char",
+              "similarity": 0
+            }
+          ]
+        },
+        {
+          "letter": "E",
+          "text": "24 - Canta c) 14 : : TX > A 7 = 5 ah t 4 ; E x A NT og e ¿ur 1 (E primer Parcial Lógica de Programacién .",
+          "confidence": 0.2588,
+          "evidenceCount": 5,
+          "evidence": [
+            {
+              "captureId": "0E994CBA-P1-P01_CamScanner 03-03-2026 02.24_5",
+              "folio": "0E994CBA",
+              "pagina": 1,
+              "text": "24 - Canta c) 14 : : TX > A 7 = 5 ah t 4 ; E x A NT og e ¿ur 1 (E primer Parcial Lógica de Programacién .",
+              "similarity": 1
+            },
+            {
+              "captureId": "EEB4EB38-P1-P01_CamScanner 03-03-2026 02.24_15",
+              "folio": "EEB4EB38",
+              "pagina": 1,
+              "text": "calif5 N)(3 Urna mae €) califfN 3 5) El Primer Parcíal si Hrs Lógica de Programación * — eee",
+              "similarity": 0.1852
+            },
+            {
+              "captureId": "5EA00A22-P1-P01_CamScanner 03-03-2026 02.24_7",
+              "folio": "5EA00A22",
+              "pagina": 1,
+              "text": "24 i",
+              "similarity": 0.0588
+            },
+            {
+              "captureId": "54BC4954-P1-P01_CamScanner 03-03-2026 02.24_11",
+              "folio": "54BC4954",
+              "pagina": 1,
+              "text": "Para p = 1 hasta 3; Para m= 1 hastas; calif p m = e calif p m = ©",
+              "similarity": 0.05
+            },
+            {
+              "captureId": "07BE7982-P1-P01_CamScanner 02-03-2026 10.38_01",
+              "folio": "07BE7982",
+              "pagina": 1,
+              "text": "Un programa escrito en C o Java que compila sin",
+              "similarity": 0
+            }
+          ]
+        }
+      ],
+      "aggregateConfidence": 0.4515,
+      "certainty": "baja",
+      "captureCoverage": 12
+    },
+    {
+      "numeroPregunta": 8,
+      "prompt": "¿Qué tipo de dato es el más adecuado?",
+      "promptConfidence": 0.5715,
+      "promptEvidence": [
+        {
+          "captureId": "6A98D91E-P1-P01_CamScanner 03-03-2026 02.24_13",
+          "folio": "6A98D91E",
+          "pagina": 1,
+          "text": "¿Qué tipo de dato es el más adecuado?",
+          "similarity": 1
+        },
+        {
+          "captureId": "5EA00A22-P1-P01_CamScanner 03-03-2026 02.24_7",
+          "folio": "5EA00A22",
+          "pagina": 1,
+          "text": "¿qué parte se considera el argumento de la sentencia de salida?",
+          "similarity": 0.1429
+        }
+      ],
+      "options": [
+        {
+          "letter": "A",
+          "text": "Imprimir ;",
+          "confidence": 1,
+          "evidenceCount": 1,
+          "evidence": [
+            {
+              "captureId": "5EA00A22-P1-P01_CamScanner 03-03-2026 02.24_7",
+              "folio": "5EA00A22",
+              "pagina": 1,
+              "text": "Imprimir ;",
+              "similarity": 1
+            }
+          ]
+        },
+        {
+          "letter": "B",
+          "text": "string",
+          "confidence": 0.5,
+          "evidenceCount": 2,
+          "evidence": [
+            {
+              "captureId": "6A98D91E-P1-P01_CamScanner 03-03-2026 02.24_13",
+              "folio": "6A98D91E",
+              "pagina": 1,
+              "text": "string",
+              "similarity": 1
+            },
+            {
+              "captureId": "5EA00A22-P1-P01_CamScanner 03-03-2026 02.24_7",
+              "folio": "5EA00A22",
+              "pagina": 1,
+              "text": "No existe argumento en sentencias de salida",
+              "similarity": 0
+            }
+          ]
+        },
+        {
+          "letter": "C",
+          "text": "float ! i ul Primer Parcial ame Lógica du Programación",
+          "confidence": 0.6333,
+          "evidenceCount": 2,
+          "evidence": [
+            {
+              "captureId": "6A98D91E-P1-P01_CamScanner 03-03-2026 02.24_13",
+              "folio": "6A98D91E",
+              "pagina": 1,
+              "text": "float ! i ul Primer Parcial ame Lógica du Programación",
+              "similarity": 1
+            },
+            {
+              "captureId": "5EA00A22-P1-P01_CamScanner 03-03-2026 02.24_7",
+              "folio": "5EA00A22",
+              "pagina": 1,
+              "text": "El punto y coma (;) NA : 1 B primer Parcial EN “Lógica de Programación",
+              "similarity": 0.2667
+            }
+          ]
+        },
+        {
+          "letter": "D",
+          "text": "char J",
+          "confidence": 0.5,
+          "evidenceCount": 2,
+          "evidence": [
+            {
+              "captureId": "6A98D91E-P1-P01_CamScanner 03-03-2026 02.24_13",
+              "folio": "6A98D91E",
+              "pagina": 1,
+              "text": "char J",
+              "similarity": 1
+            },
+            {
+              "captureId": "5EA00A22-P1-P01_CamScanner 03-03-2026 02.24_7",
+              "folio": "5EA00A22",
+              "pagina": 1,
+              "text": "Todo el renglén completo es el argumento :",
+              "similarity": 0
+            }
+          ]
+        },
+        {
+          "letter": "E",
+          "text": "boolean",
+          "confidence": 0.5,
+          "evidenceCount": 2,
+          "evidence": [
+            {
+              "captureId": "6A98D91E-P1-P01_CamScanner 03-03-2026 02.24_13",
+              "folio": "6A98D91E",
+              "pagina": 1,
+              "text": "boolean",
+              "similarity": 1
+            },
+            {
+              "captureId": "5EA00A22-P1-P01_CamScanner 03-03-2026 02.24_7",
+              "folio": "5EA00A22",
+              "pagina": 1,
+              "text": "\"Hola\" ;",
+              "similarity": 0
+            }
+          ]
+        }
+      ],
+      "aggregateConfidence": 0.6046,
+      "certainty": "media",
+      "captureCoverage": 2
+    },
+    {
+      "numeroPregunta": 9,
+      "prompt": "¿Qué tipo de dato es el más adecuado?",
+      "promptConfidence": 0.5302,
+      "promptEvidence": [
+        {
+          "captureId": "503CF7FA-P2-P02_CamScanner 03-03-2026 02.24_24",
+          "folio": "503CF7FA",
+          "pagina": 2,
+          "text": "¿Qué tipo de dato es el más adecuado?",
+          "similarity": 1
+        },
+        {
+          "captureId": "5EA00A22-P2-P02_CamScanner 03-03-2026 02.24_8",
+          "folio": "5EA00A22",
+          "pagina": 2,
+          "text": "¿Qué tipo de dato es el más adecuado?",
+          "similarity": 1
+        },
+        {
+          "captureId": "54BC4954-P2-P02_CamScanner 03-03-2026 02.24_12",
+          "folio": "54BC4954",
+          "pagina": 2,
+          "text": "¿qué tipo de dato suele tener el resultado de a+b en la mayoría de lenguajes?",
+          "similarity": 0.2857
+        },
+        {
+          "captureId": "B0FB153C-P2-P02_CamScanner 02-03-2026 10.40_02",
+          "folio": "B0FB153C",
+          "pagina": 2,
+          "text": "¿Cuál bloque es el correcto?",
+          "similarity": 0.2222
+        },
+        {
+          "captureId": "07BE7982-P2-P02_CamScanner 02-03-2026 10.38_02",
+          "folio": "07BE7982",
+          "pagina": 2,
+          "text": "¿qué parte se considera el argumento de la sentencia de salida?",
+          "similarity": 0.1429
+        }
+      ],
+      "options": [
+        {
+          "letter": "A",
+          "text": "string",
+          "confidence": 0.4,
+          "evidenceCount": 5,
+          "evidence": [
+            {
+              "captureId": "503CF7FA-P2-P02_CamScanner 03-03-2026 02.24_24",
+              "folio": "503CF7FA",
+              "pagina": 2,
+              "text": "string",
+              "similarity": 1
+            },
+            {
+              "captureId": "5EA00A22-P2-P02_CamScanner 03-03-2026 02.24_8",
+              "folio": "5EA00A22",
+              "pagina": 2,
+              "text": "string",
+              "similarity": 1
+            },
+            {
+              "captureId": "D9881CAA-P2-P02_CamScanner 02-03-2026 10.34_02",
+              "folio": "D9881CAA",
+              "pagina": 2,
+              "text": "Para p = 0 hasta 2; Para m = 0 hasta’,",
+              "similarity": 0
+            },
+            {
+              "captureId": "07BE7982-P2-P02_CamScanner 02-03-2026 10.38_02",
+              "folio": "07BE7982",
+              "pagina": 2,
+              "text": "No existe argumento en sentencias de salida",
+              "similarity": 0
+            },
+            {
+              "captureId": "B0FB153C-P2-P02_CamScanner 02-03-2026 10.40_02",
+              "folio": "B0FB153C",
+              "pagina": 2,
+              "text": "Si calif >= 70 Entonces Imprimir 'No aprobado' SiNo",
+              "similarity": 0
+            }
+          ]
+        },
+        {
+          "letter": "B",
+          "text": "Es una variable que cambia automáticamente según el - tipo de dato. ’ ¢ :",
+          "confidence": 0.2679,
+          "evidenceCount": 5,
+          "evidence": [
+            {
+              "captureId": "B8A27B0B-P2-P02_CamScanner 03-03-2026 02.24_20",
+              "folio": "B8A27B0B",
+              "pagina": 2,
+              "text": "Es una variable que cambia automáticamente según el - tipo de dato. ’ ¢ :",
+              "similarity": 1
+            },
+            {
+              "captureId": "07BE7982-P2-P02_CamScanner 02-03-2026 10.38_02",
+              "folio": "07BE7982",
+              "pagina": 2,
+              "text": "Todo el renglón completo es el argumento i",
+              "similarity": 0.1538
+            },
+            {
+              "captureId": "ECF3E587-P2-P02_CamScanner 03-03-2026 02.24_18",
+              "folio": "ECF3E587",
+              "pagina": 2,
+              "text": "Es un dato que se almacena únicamente en arreglos. ...",
+              "similarity": 0.1333
+            },
+            {
+              "captureId": "54BC4954-P2-P02_CamScanner 03-03-2026 02.24_12",
+              "folio": "54BC4954",
+              "pagina": 2,
+              "text": "boolean, porque es una operación lógica - +E) char, sia es menor a2560i::-0:7 : A",
+              "similarity": 0.0526
+            },
+            {
+              "captureId": "D9881CAA-P2-P02_CamScanner 02-03-2026 10.34_02",
+              "folio": "D9881CAA",
+              "pagina": 2,
+              "text": "Para p = © hasta2; Param = 0 hasta 4;",
+              "similarity": 0
+            }
+          ]
+        },
+        {
+          "letter": "C",
+          "text": "x :=10 3 ; : En el contexto de pseudocódigo,",
+          "confidence": 0.3525,
+          "evidenceCount": 5,
+          "evidence": [
+            {
+              "captureId": "A327335F-P2-P02_CamScanner 03-03-2026 02.24_10",
+              "folio": "A327335F",
+              "pagina": 2,
+              "text": "x :=10 3 ; : En el contexto de pseudocódigo,",
+              "similarity": 1
+            },
+            {
+              "captureId": "6A98D91E-P2-P02_CamScanner 03-03-2026 02.24_14",
+              "folio": "6A98D91E",
+              "pagina": 2,
+              "text": "Verdadero i ; E Yesos lag i a En el contexto de pseudocódigo,",
+              "similarity": 0.5
+            },
+            {
+              "captureId": "A93D8EFA-P2-P02_CamScanner 03-03-2026 02.24_26",
+              "folio": "A93D8EFA",
+              "pagina": 2,
+              "text": "10=x = true \\ Vy ; 9 Necesitas almacenar el grupo sanguíneo de una persona con un SOLO carácter (por ejempl 'A', 'B', 'O').",
+              "similarity": 0.1579
+            },
+            {
+              "captureId": "ECF3E587-P2-P02_CamScanner 03-03-2026 02.24_18",
+              "folio": "ECF3E587",
+              "pagina": 2,
+              "text": "Es una instrucción que siempre se ejecuta al final del ejecución y suele declararse con un identificador i programa, > representativo. Necesitas almacenar la cantidad de alumnos inscritos (un conteo: 0; 1, 2, 3, ...).",
+              "similarity": 0.0645
+            },
+            {
+              "captureId": "0E994CBA-P2-P02_CamScanner 03-03-2026 02.24_6",
+              "folio": "0E994CBA",
+              "pagina": 2,
+              "text": "x == 16 hi J Jo : i sf ! Se declara un arreglo bidimensional calif 3 5 , donde fila = parcial (0. .2) y column = materia (0.4).",
+              "similarity": 0.04
+            }
+          ]
+        },
+        {
+          "letter": "D",
+          "text": "x = 10",
+          "confidence": 0.4,
+          "evidenceCount": 5,
+          "evidence": [
+            {
+              "captureId": "A93D8EFA-P2-P02_CamScanner 03-03-2026 02.24_26",
+              "folio": "A93D8EFA",
+              "pagina": 2,
+              "text": "x = 10",
+              "similarity": 1
+            },
+            {
+              "captureId": "A327335F-P2-P02_CamScanner 03-03-2026 02.24_10",
+              "folio": "A327335F",
+              "pagina": 2,
+              "text": "x <= 10 ol",
+              "similarity": 0.5
+            },
+            {
+              "captureId": "0E994CBA-P2-P02_CamScanner 03-03-2026 02.24_6",
+              "folio": "0E994CBA",
+              "pagina": 2,
+              "text": "10= x = true",
+              "similarity": 0.5
+            },
+            {
+              "captureId": "D9881CAA-P2-P02_CamScanner 02-03-2026 10.34_02",
+              "folio": "D9881CAA",
+              "pagina": 2,
+              "text": "Para p = 6 hastá 2; Param = 0 hasta 4; calif p m) = 0 calif m p = 0 H",
+              "similarity": 0
+            },
+            {
+              "captureId": "66BB5FBD-P2-P02_CamScanner 02-03-2026 10.36_02",
+              "folio": "66BB5FBD",
+              "pagina": 2,
+              "text": "No hay último Indice; depende del valor almacenad",
+              "similarity": 0
+            }
+          ]
+        },
+        {
+          "letter": "E",
+          "text": "No se puede determinar sin conocer el lenguaje i",
+          "confidence": 0.4297,
+          "evidenceCount": 5,
+          "evidence": [
+            {
+              "captureId": "EEB4EB38-P2-P02_CamScanner 03-03-2026 02.24_16",
+              "folio": "EEB4EB38",
+              "pagina": 2,
+              "text": "No se puede determinar sin conocer el lenguaje i",
+              "similarity": 1
+            },
+            {
+              "captureId": "6A98D91E-P2-P02_CamScanner 03-03-2026 02.24_14",
+              "folio": "6A98D91E",
+              "pagina": 2,
+              "text": "No se puede determinar sin conocer el lenguaje io",
+              "similarity": 0.875
+            },
+            {
+              "captureId": "07BE7982-P2-P02_CamScanner 02-03-2026 10.38_02",
+              "folio": "07BE7982",
+              "pagina": 2,
+              "text": "El punto y coma (;) E",
+              "similarity": 0.1111
+            },
+            {
+              "captureId": "66BB5FBD-P2-P02_CamScanner 02-03-2026 10.36_02",
+              "folio": "66BB5FBD",
+              "pagina": 2,
+              "text": "5 i c) o 10 Se requiere clasificar una calificación calif (0 a 100) asf: Si calif >= 70 - “Aprobado”, en ca: —— contrario - “No aprobado\".",
+              "similarity": 0.0909
+            },
+            {
+              "captureId": "ECF3E587-P2-P02_CamScanner 03-03-2026 02.24_18",
+              "folio": "ECF3E587",
+              "pagina": 2,
+              "text": "Es un valor.que no debe modificarse durante la +.",
+              "similarity": 0.0714
+            }
+          ]
+        }
+      ],
+      "aggregateConfidence": 0.4341,
+      "certainty": "baja",
+      "captureCoverage": 14
+    },
+    {
+      "numeroPregunta": 10,
+      "prompt": "¿qué parte se considera el argumento de la sentencia de L salida?",
+      "promptConfidence": 0.5517,
+      "promptEvidence": [
+        {
+          "captureId": "A327335F-P2-P02_CamScanner 03-03-2026 02.24_10",
+          "folio": "A327335F",
+          "pagina": 2,
+          "text": "¿qué parte se considera el argumento de la sentencia de L salida?",
+          "similarity": 1
+        },
+        {
+          "captureId": "6A98D91E-P2-P02_CamScanner 03-03-2026 02.24_14",
+          "folio": "6A98D91E",
+          "pagina": 2,
+          "text": "¿qué parte se considera el argumento de la sentencia de salida?",
+          "similarity": 1
+        },
+        {
+          "captureId": "75D5292B-P2-P02_CamScanner 03-03-2026 02.24_22",
+          "folio": "75D5292B",
+          "pagina": 2,
+          "text": "¿E ss B) No hay último índice; depende del valor almacenado. E)4 : ip c)1 En el contexto de pseudocódigo, ¿qué parte se considera el argumento de la sentencia de salida?",
+          "similarity": 0.3913
+        },
+        {
+          "captureId": "07BE7982-P2-P02_CamScanner 02-03-2026 10.38_02",
+          "folio": "07BE7982",
+          "pagina": 2,
+          "text": "¿Cuál estructura garantiza que el bloque de instrucciones se ejecute al menos una vez, —': aunque la condición sea falsa desde el inicio?",
+          "similarity": 0.1905
+        },
+        {
+          "captureId": "B8A27B0B-P2-P02_CamScanner 03-03-2026 02.24_20",
+          "folio": "B8A27B0B",
+          "pagina": 2,
+          "text": "¿qué tipo de dato suele tener el resultado de a + b en la mayoría de lenguajes?",
+          "similarity": 0.1765
+        }
+      ],
+      "options": [
+        {
+          "letter": "A",
+          "text": "Imprimir",
+          "confidence": 0.4333,
+          "evidenceCount": 5,
+          "evidence": [
+            {
+              "captureId": "6A98D91E-P2-P02_CamScanner 03-03-2026 02.24_14",
+              "folio": "6A98D91E",
+              "pagina": 2,
+              "text": "Imprimir",
+              "similarity": 1
+            },
+            {
+              "captureId": "75D5292B-P2-P02_CamScanner 03-03-2026 02.24_22",
+              "folio": "75D5292B",
+              "pagina": 2,
+              "text": "Imprimir",
+              "similarity": 1
+            },
+            {
+              "captureId": "66BB5FBD-P2-P02_CamScanner 02-03-2026 10.36_02",
+              "folio": "66BB5FBD",
+              "pagina": 2,
+              "text": "Si calif == 70 Entonces Imprimir 'Aprobado'",
+              "similarity": 0.1667
+            },
+            {
+              "captureId": "D9881CAA-P2-P02_CamScanner 02-03-2026 10.34_02",
+              "folio": "D9881CAA",
+              "pagina": 2,
+              "text": "calif3 S)N",
+              "similarity": 0
+            },
+            {
+              "captureId": "07BE7982-P2-P02_CamScanner 02-03-2026 10.38_02",
+              "folio": "07BE7982",
+              "pagina": 2,
+              "text": "switch CU UDYifthen a LD -B) While ! : \"E)for' i €) do-while i % 1 456 , e a1 Tete veces se ejecta of ip me al cielo su ome ran Para i = 1 hasta 10",
+              "similarity": 0
+            }
+          ]
+        },
+        {
+          "letter": "B",
+          "text": "No existe argumento en sentencias de salida",
+          "confidence": 0.2658,
+          "evidenceCount": 5,
+          "evidence": [
+            {
+              "captureId": "75D5292B-P2-P02_CamScanner 03-03-2026 02.24_22",
+              "folio": "75D5292B",
+              "pagina": 2,
+              "text": "No existe argumento en sentencias de salida",
+              "similarity": 1
+            },
+            {
+              "captureId": "EEB4EB38-P2-P02_CamScanner 03-03-2026 02.24_16",
+              "folio": "EEB4EB38",
+              "pagina": 2,
+              "text": "Depende del valor de i al final",
+              "similarity": 0.0909
+            },
+            {
+              "captureId": "B0FB153C-P2-P02_CamScanner 02-03-2026 10.40_02",
+              "folio": "B0FB153C",
+              "pagina": 2,
+              "text": "Es una variable global que solo existe dentro de un programa. ... ciclo... y AE o ANA 1 RO Els i \\ -C) Es un valor que no debe modificarse durante la - j Ea ejecución y suele declararse con un identificador £5 i representativo. UN : (3 : E Dados a = 2, b = 3, € = 4,",
+              "similarity": 0.0833
+            },
+            {
+              "captureId": "A327335F-P2-P02_CamScanner 03-03-2026 02.24_10",
+              "folio": "A327335F",
+              "pagina": 2,
+              "text": "Todo el renglón completo es el argumento",
+              "similarity": 0.0833
+            },
+            {
+              "captureId": "66BB5FBD-P2-P02_CamScanner 02-03-2026 10.36_02",
+              "folio": "66BB5FBD",
+              "pagina": 2,
+              "text": "Si calif >= 70 Entonces Imprimir 'No aprobado' SINo—",
+              "similarity": 0.0714
+            }
+          ]
+        },
+        {
+          "letter": "C",
+          "text": "int Se declara un arreglo bidimensional calif 3 5 , donde fila = parcial (0..2) y columr L = materia (0..4).",
+          "confidence": 0.2828,
+          "evidenceCount": 5,
+          "evidence": [
+            {
+              "captureId": "ECF3E587-P2-P02_CamScanner 03-03-2026 02.24_18",
+              "folio": "ECF3E587",
+              "pagina": 2,
+              "text": "int Se declara un arreglo bidimensional calif 3 5 , donde fila = parcial (0..2) y columr L = materia (0..4).",
+              "similarity": 1
+            },
+            {
+              "captureId": "5EA00A22-P2-P02_CamScanner 03-03-2026 02.24_8",
+              "folio": "5EA00A22",
+              "pagina": 2,
+              "text": "Es una variable que cambia automáticamente según el ejecución y suele declararse con un identificador tipo de dato. representativo. Quieres almacenar calificaciones donde dimensión 1 = parcial (3 parciales: 0..2), dimensión = materia (5 materias: 0..4), dimensión 3 = alumno (N alumnos: 0..N-1),",
+              "similarity": 0.2051
+            },
+            {
+              "captureId": "A327335F-P2-P02_CamScanner 03-03-2026 02.24_10",
+              "folio": "A327335F",
+              "pagina": 2,
+              "text": "No existe argumento en sentencias de salida ; Se requiere clasificar una calificación calif (0 a 100) asf: Si calif >= 70 + “Aprobado”, en cas contrario - “No aprobado”.",
+              "similarity": 0.0909
+            },
+            {
+              "captureId": "A93D8EFA-P2-P02_CamScanner 03-03-2026 02.24_26",
+              "folio": "A93D8EFA",
+              "pagina": 2,
+              "text": "int",
+              "similarity": 0.0625
+            },
+            {
+              "captureId": "D9881CAA-P2-P02_CamScanner 02-03-2026 10.34_02",
+              "folio": "D9881CAA",
+              "pagina": 2,
+              "text": "califS IN (3 2: do Ee bak eg ald na Dados: x = 8, y = 3,z = 3, Evalúa la expresión lógica: (x >;= 8) AND (y <3C z.1=:3). nor iy a 'A) Verdadero",
+              "similarity": 0.0556
+            }
+          ]
+        },
+        {
+          "letter": "D",
+          "text": "Todo el renglón completo es el argumento",
+          "confidence": 0.4517,
+          "evidenceCount": 5,
+          "evidence": [
+            {
+              "captureId": "6A98D91E-P2-P02_CamScanner 03-03-2026 02.24_14",
+              "folio": "6A98D91E",
+              "pagina": 2,
+              "text": "Todo el renglón completo es el argumento",
+              "similarity": 1
+            },
+            {
+              "captureId": "75D5292B-P2-P02_CamScanner 03-03-2026 02.24_22",
+              "folio": "75D5292B",
+              "pagina": 2,
+              "text": "Todo el renglón completo es el argumento :",
+              "similarity": 1
+            },
+            {
+              "captureId": "A327335F-P2-P02_CamScanner 03-03-2026 02.24_10",
+              "folio": "A327335F",
+              "pagina": 2,
+              "text": "El punto y coma (;) : : i",
+              "similarity": 0.125
+            },
+            {
+              "captureId": "B0FB153C-P2-P02_CamScanner 02-03-2026 10.40_02",
+              "folio": "B0FB153C",
+              "pagina": 2,
+              "text": "Es un dato que se almacena únicamente en arreglos i “tipo de dato.",
+              "similarity": 0.0667
+            },
+            {
+              "captureId": "5EA00A22-P2-P02_CamScanner 03-03-2026 02.24_8",
+              "folio": "5EA00A22",
+              "pagina": 2,
+              "text": "Es una variable global que solo existe dentra de un. ! programa, ciclo. \"e i",
+              "similarity": 0.0667
+            }
+          ]
+        },
+        {
+          "letter": "E",
+          "text": "El punto y coma (,) ; €) \"Hola\" Y Se requiere clasificar una calificación calif (0 a 100) asf: Si calif >= 70 + \"Aprobado\", en cas L contrario + “No aprobado”.",
+          "confidence": 0.4694,
+          "evidenceCount": 5,
+          "evidence": [
+            {
+              "captureId": "75D5292B-P2-P02_CamScanner 03-03-2026 02.24_22",
+              "folio": "75D5292B",
+              "pagina": 2,
+              "text": "El punto y coma (,) ; €) \"Hola\" Y Se requiere clasificar una calificación calif (0 a 100) asf: Si calif >= 70 + \"Aprobado\", en cas L contrario + “No aprobado”.",
+              "similarity": 1
+            },
+            {
+              "captureId": "B8A27B0B-P2-P02_CamScanner 03-03-2026 02.24_20",
+              "folio": "B8A27B0B",
+              "pagina": 2,
+              "text": "boolean, porque es una operación lógica Ean ig Ney si rela Se requiere clasificar una calificación calif (0 a 100) asf: Si calif >= 70 “Aprobado”, en cas contrario — “No aprobado\".",
+              "similarity": 0.5357
+            },
+            {
+              "captureId": "6A98D91E-P2-P02_CamScanner 03-03-2026 02.24_14",
+              "folio": "6A98D91E",
+              "pagina": 2,
+              "text": "No existe argumento en sentencias de salida a €) El punto y coma (:) y Pas de ht ha ex Se requiere clasificar una calificación calif (0 a 100) así: Si calif >= 70 — “Aprobado”, en cas cgntrario - “No aprobado\".",
+              "similarity": 0.5333
+            },
+            {
+              "captureId": "66BB5FBD-P2-P02_CamScanner 02-03-2026 10.36_02",
+              "folio": "66BB5FBD",
+              "pagina": 2,
+              "text": "Si calif <70 Entonces Imprimir 'Aprobado' SiNo i Imprimir 'Aprobado' FinSi Imprimir. 'No aprobado' FinSi Po €) Si calif >= 70 Entonces Imprimir 'Aprobado' SiNo LL Imprimir ‘No aprobado' FinSi fed Yn dde yea tye",
+              "similarity": 0.1667
+            },
+            {
+              "captureId": "D9881CAA-P2-P02_CamScanner 02-03-2026 10.34_02",
+              "folio": "D9881CAA",
+              "pagina": 2,
+              "text": "No se puede determinar sin conocer el lenguaje €) Falso Eu NE) PE",
+              "similarity": 0.1111
+            }
+          ]
+        }
+      ],
+      "aggregateConfidence": 0.449,
+      "certainty": "baja",
+      "captureCoverage": 15
+    },
+    {
+      "numeroPregunta": 11,
+      "prompt": "¿Cuál bloque es el correcto?",
+      "promptConfidence": 0.86,
+      "promptEvidence": [
+        {
+          "captureId": "A327335F-P2-P02_CamScanner 03-03-2026 02.24_10",
+          "folio": "A327335F",
+          "pagina": 2,
+          "text": "¿Cuál bloque es el correcto?",
+          "similarity": 1
+        },
+        {
+          "captureId": "6A98D91E-P2-P02_CamScanner 03-03-2026 02.24_14",
+          "folio": "6A98D91E",
+          "pagina": 2,
+          "text": "¿Cuál bloque es el correcto?",
+          "similarity": 1
+        },
+        {
+          "captureId": "B8A27B0B-P2-P02_CamScanner 03-03-2026 02.24_20",
+          "folio": "B8A27B0B",
+          "pagina": 2,
+          "text": "¿Cuál bloque es el correcto?",
+          "similarity": 1
+        },
+        {
+          "captureId": "75D5292B-P2-P02_CamScanner 03-03-2026 02.24_22",
+          "folio": "75D5292B",
+          "pagina": 2,
+          "text": "¿Cuál bloque es el correcto?",
+          "similarity": 1
+        },
+        {
+          "captureId": "0E994CBA-P2-P02_CamScanner 03-03-2026 02.24_6",
+          "folio": "0E994CBA",
+          "pagina": 2,
+          "text": "¿Cuántas veces se ejecuta el bloque si el ciclo es?",
+          "similarity": 0.3
+        }
+      ],
+      "options": [
+        {
+          "letter": "A",
+          "text": "Si calif == 70 Entonces Imprimir 'Aprobado'",
+          "confidence": 0.5714,
+          "evidenceCount": 5,
+          "evidence": [
+            {
+              "captureId": "6A98D91E-P2-P02_CamScanner 03-03-2026 02.24_14",
+              "folio": "6A98D91E",
+              "pagina": 2,
+              "text": "Si calif == 70 Entonces Imprimir 'Aprobado'",
+              "similarity": 1
+            },
+            {
+              "captureId": "75D5292B-P2-P02_CamScanner 03-03-2026 02.24_22",
+              "folio": "75D5292B",
+              "pagina": 2,
+              "text": "Si calif == 70 Entonces Imprimir 'Aprobado'",
+              "similarity": 1
+            },
+            {
+              "captureId": "A327335F-P2-P02_CamScanner 03-03-2026 02.24_10",
+              "folio": "A327335F",
+              "pagina": 2,
+              "text": "Si calif >= 70 Entonces Imprimir 'Aprobado' SiNo",
+              "similarity": 0.8571
+            },
+            {
+              "captureId": "D9881CAA-P2-P02_CamScanner 02-03-2026 10.34_02",
+              "folio": "D9881CAA",
+              "pagina": 2,
+              "text": "do-while",
+              "similarity": 0
+            },
+            {
+              "captureId": "66BB5FBD-P2-P02_CamScanner 02-03-2026 10.36_02",
+              "folio": "66BB5FBD",
+              "pagina": 2,
+              "text": "switch",
+              "similarity": 0
+            }
+          ]
+        },
+        {
+          "letter": "B",
+          "text": "Si calif > 70 Entonces Imprimir ‘Aprobado’ SiNo",
+          "confidence": 0.6417,
+          "evidenceCount": 5,
+          "evidence": [
+            {
+              "captureId": "A327335F-P2-P02_CamScanner 03-03-2026 02.24_10",
+              "folio": "A327335F",
+              "pagina": 2,
+              "text": "Si calif > 70 Entonces Imprimir ‘Aprobado’ SiNo",
+              "similarity": 1
+            },
+            {
+              "captureId": "75D5292B-P2-P02_CamScanner 03-03-2026 02.24_22",
+              "folio": "75D5292B",
+              "pagina": 2,
+              "text": "Si calif < 70 Entonces Imprimir ‘Aprobado’ SiNo",
+              "similarity": 1
+            },
+            {
+              "captureId": "B8A27B0B-P2-P02_CamScanner 03-03-2026 02.24_20",
+              "folio": "B8A27B0B",
+              "pagina": 2,
+              "text": "Si calif == 76..Entonces Imprimir 'Aprobado'",
+              "similarity": 0.625
+            },
+            {
+              "captureId": "6A98D91E-P2-P02_CamScanner 03-03-2026 02.24_14",
+              "folio": "6A98D91E",
+              "pagina": 2,
+              "text": "Si calif >= 70 Entonces Imprimir 'Aprobado' SiNo : +: “E) Si calif >.70 Entonces Imprimir \"Aprobado' SiNo.-.. Imprimir 'No aprobado' FinSi Imprimir ‘No aprobado' FINSi TE Naco wd",
+              "similarity": 0.5833
+            },
+            {
+              "captureId": "D9881CAA-P2-P02_CamScanner 02-03-2026 10.34_02",
+              "folio": "D9881CAA",
+              "pagina": 2,
+              "text": "if-then",
+              "similarity": 0
+            }
+          ]
+        },
+        {
+          "letter": "C",
+          "text": "Si calif < 70 Entonces Imprimir 'Aprobado' SINo i Imprimir 'No aprobado' FinSi o EE e í En pseudocódigo,",
+          "confidence": 0.5684,
+          "evidenceCount": 5,
+          "evidence": [
+            {
+              "captureId": "6A98D91E-P2-P02_CamScanner 03-03-2026 02.24_14",
+              "folio": "6A98D91E",
+              "pagina": 2,
+              "text": "Si calif < 70 Entonces Imprimir 'Aprobado' SINo i Imprimir 'No aprobado' FinSi o EE e í En pseudocódigo,",
+              "similarity": 1
+            },
+            {
+              "captureId": "B8A27B0B-P2-P02_CamScanner 03-03-2026 02.24_20",
+              "folio": "B8A27B0B",
+              "pagina": 2,
+              "text": "Si calif < 70 Entonces Imprimir 'Aprobado' SiNo Imprimir 'No aprobado' FinSi a unicas. En pseudocódigo,",
+              "similarity": 0.8462
+            },
+            {
+              "captureId": "75D5292B-P2-P02_CamScanner 03-03-2026 02.24_22",
+              "folio": "75D5292B",
+              "pagina": 2,
+              "text": "Si calif >= 70 Entonces Imprimir 'Aprobado' SiNo i “ Imprimir 'No aprobado' FinSi - TT Se pide validar que calif esté en el rango 0 a 100 (inclusive).",
+              "similarity": 0.4762
+            },
+            {
+              "captureId": "A327335F-P2-P02_CamScanner 03-03-2026 02.24_10",
+              "folio": "A327335F",
+              "pagina": 2,
+              "text": "Si calif == 70 Entonces Imprimir 'Aprobado' y er 10",
+              "similarity": 0.4286
+            },
+            {
+              "captureId": "EEB4EB38-P2-P02_CamScanner 03-03-2026 02.24_16",
+              "folio": "EEB4EB38",
+              "pagina": 2,
+              "text": "while io Se pide validar que calif esté en el rango 0 a 100 (inclusive).",
+              "similarity": 0.0909
+            }
+          ]
+        },
+        {
+          "letter": "D",
+          "text": "Si calif < 70 Entonces Imprimir 'Aprobado' SiNo ; Imprimir ‘No aprobado' FinSi Imprimir ‘No aprobado' FinSi",
+          "confidence": 0.6967,
+          "evidenceCount": 5,
+          "evidence": [
+            {
+              "captureId": "A327335F-P2-P02_CamScanner 03-03-2026 02.24_10",
+              "folio": "A327335F",
+              "pagina": 2,
+              "text": "Si calif < 70 Entonces Imprimir 'Aprobado' SiNo ; Imprimir ‘No aprobado' FinSi Imprimir ‘No aprobado' FinSi",
+              "similarity": 1
+            },
+            {
+              "captureId": "75D5292B-P2-P02_CamScanner 03-03-2026 02.24_22",
+              "folio": "75D5292B",
+              "pagina": 2,
+              "text": "Si calif > 70 Entonces Imprimir 'Aprobado' SiNo i SiNo Imprimir ‘No aprobado' FinSi Imprimir ‘No aprobado' FinSi i",
+              "similarity": 1
+            },
+            {
+              "captureId": "6A98D91E-P2-P02_CamScanner 03-03-2026 02.24_14",
+              "folio": "6A98D91E",
+              "pagina": 2,
+              "text": "Si calif >= 70 Entonces Imprimir ‘No aprobado' SiN: di SiNo Imprimir ‘No aprobado' FinSi Imprimir 'Aprobado' FinSi",
+              "similarity": 0.9
+            },
+            {
+              "captureId": "B8A27B0B-P2-P02_CamScanner 03-03-2026 02.24_20",
+              "folio": "B8A27B0B",
+              "pagina": 2,
+              "text": "Si calif >= 70 Entonces Imprimir ‘No aprobado' SiNc H imprimir 'No aprobado' FinSi í 105 ob Imprimir 'Aprobado' FinSi: <= 5 cn 400500 Sia !",
+              "similarity": 0.5
+            },
+            {
+              "captureId": "ECF3E587-P2-P02_CamScanner 03-03-2026 02.24_18",
+              "folio": "ECF3E587",
+              "pagina": 2,
+              "text": "Para p ='e hasta 2; Para m = 0 hasta4; i calif p m = e calif m p = ©",
+              "similarity": 0.0833
+            }
+          ]
+        },
+        {
+          "letter": "E",
+          "text": "Si calif >= 70 Entonces Imprimir ‘No aprobado’ SiN: ! Imprimir 'No aprobado FinSi Imprimir 'Aprobado' FinSi",
+          "confidence": 0.5711,
+          "evidenceCount": 5,
+          "evidence": [
+            {
+              "captureId": "75D5292B-P2-P02_CamScanner 03-03-2026 02.24_22",
+              "folio": "75D5292B",
+              "pagina": 2,
+              "text": "Si calif >= 70 Entonces Imprimir ‘No aprobado’ SiN: ! Imprimir 'No aprobado FinSi Imprimir 'Aprobado' FinSi",
+              "similarity": 1
+            },
+            {
+              "captureId": "A327335F-P2-P02_CamScanner 03-03-2026 02.24_10",
+              "folio": "A327335F",
+              "pagina": 2,
+              "text": "Si calif >= 70 Entonces Imprimir ‘No aprobado' SiNc í Imprimir 'No aprobado' FinSi Imprimir 'Aprobado' FinSi ,",
+              "similarity": 0.8889
+            },
+            {
+              "captureId": "B8A27B0B-P2-P02_CamScanner 03-03-2026 02.24_20",
+              "folio": "B8A27B0B",
+              "pagina": 2,
+              "text": "Si calif >= 70 Entonces Imprimir \"Aprobado' SiNo SiNo Imprimir 'No aprobado' FinSi Imprimir ‘No aprobado' FinSi . fret",
+              "similarity": 0.8
+            },
+            {
+              "captureId": "ECF3E587-P2-P02_CamScanner 03-03-2026 02.24_18",
+              "folio": "ECF3E587",
+              "pagina": 2,
+              "text": "Para p = 0 hasta3;Param = 0 hasta4, calif p m = e calif p m = e :",
+              "similarity": 0.0833
+            },
+            {
+              "captureId": "5EA00A22-P2-P02_CamScanner 03-03-2026 02.24_8",
+              "folio": "5EA00A22",
+              "pagina": 2,
+              "text": "Verdadero solo si x > 8 ; tal",
+              "similarity": 0.0833
+            }
+          ]
+        }
+      ],
+      "aggregateConfidence": 0.7099,
+      "certainty": "media",
+      "captureCoverage": 14
+    },
+    {
+      "numeroPregunta": 12,
+      "prompt": "¿qué tipo de dato suele tener el resultado de a + b en la mayoría de lenguajes?",
+      "promptConfidence": 0.6372,
+      "promptEvidence": [
+        {
+          "captureId": "07BE7982-P2-P02_CamScanner 02-03-2026 10.38_02",
+          "folio": "07BE7982",
+          "pagina": 2,
+          "text": "¿qué tipo de dato suele tener el resultado de a + b en la mayoría de lenguajes?",
+          "similarity": 1
+        },
+        {
+          "captureId": "5EA00A22-P2-P02_CamScanner 03-03-2026 02.24_8",
+          "folio": "5EA00A22",
+          "pagina": 2,
+          "text": "¿qué tipo de dato suele tener el resultado dea +b en la mayoría de lenguajes?",
+          "similarity": 0.9167
+        },
+        {
+          "captureId": "66BB5FBD-P2-P02_CamScanner 02-03-2026 10.36_02",
+          "folio": "66BB5FBD",
+          "pagina": 2,
+          "text": "¿qué tipo de dato suele tener el resultado de a + b en la mayorfa de —1 lenguajes?",
+          "similarity": 0.7692
+        },
+        {
+          "captureId": "0E994CBA-P2-P02_CamScanner 03-03-2026 02.24_6",
+          "folio": "0E994CBA",
+          "pagina": 2,
+          "text": "¿Qué tipo de dato es el más adecuado?",
+          "similarity": 0.2857
+        },
+        {
+          "captureId": "D9881CAA-P2-P02_CamScanner 02-03-2026 10.34_02",
+          "folio": "D9881CAA",
+          "pagina": 2,
+          "text": "¿cuál es el valor de la expresión a + b x c?",
+          "similarity": 0.2143
+        }
+      ],
+      "options": [
+        {
+          "letter": "A",
+          "text": "(calif == 6) OR (calif == 106)",
+          "confidence": 0.3134,
+          "evidenceCount": 5,
+          "evidence": [
+            {
+              "captureId": "EEB4EB38-P2-P02_CamScanner 03-03-2026 02.24_16",
+              "folio": "EEB4EB38",
+              "pagina": 2,
+              "text": "(calif == 6) OR (calif == 106)",
+              "similarity": 1
+            },
+            {
+              "captureId": "75D5292B-P2-P02_CamScanner 03-03-2026 02.24_22",
+              "folio": "75D5292B",
+              "pagina": 2,
+              "text": "(calif >= 0) OR (calif <= 100)",
+              "similarity": 0.3333
+            },
+            {
+              "captureId": "B0FB153C-P2-P02_CamScanner 02-03-2026 10.40_02",
+              "folio": "B0FB153C",
+              "pagina": 2,
+              "text": "Para p = 6 hasta2;Param = 6 hasta5;",
+              "similarity": 0.1429
+            },
+            {
+              "captureId": "ECF3E587-P2-P02_CamScanner 03-03-2026 02.24_18",
+              "folio": "ECF3E587",
+              "pagina": 2,
+              "text": "Si calif >= 70 Entonces Imprimir ‘No aprobado' SiNo —",
+              "similarity": 0.0909
+            },
+            {
+              "captureId": "D9881CAA-P2-P02_CamScanner 02-03-2026 10.34_02",
+              "folio": "D9881CAA",
+              "pagina": 2,
+              "text": "18: HL GO AOA LE 00D) 244 zoraceníf zonmia ab babi i",
+              "similarity": 0
+            }
+          ]
+        },
+        {
+          "letter": "B",
+          "text": "(calif >= 0) OR (calif <= 100)",
+          "confidence": 0.415,
+          "evidenceCount": 5,
+          "evidence": [
+            {
+              "captureId": "EEB4EB38-P2-P02_CamScanner 03-03-2026 02.24_16",
+              "folio": "EEB4EB38",
+              "pagina": 2,
+              "text": "(calif >= 0) OR (calif <= 100)",
+              "similarity": 1
+            },
+            {
+              "captureId": "75D5292B-P2-P02_CamScanner 03-03-2026 02.24_22",
+              "folio": "75D5292B",
+              "pagina": 2,
+              "text": "(calif > 0) AND (calif < 100)",
+              "similarity": 0.6
+            },
+            {
+              "captureId": "A327335F-P2-P02_CamScanner 03-03-2026 02.24_10",
+              "folio": "A327335F",
+              "pagina": 2,
+              "text": "0 ; - :",
+              "similarity": 0.25
+            },
+            {
+              "captureId": "B0FB153C-P2-P02_CamScanner 02-03-2026 10.40_02",
+              "folio": "B0FB153C",
+              "pagina": 2,
+              "text": "Para p = 0 hasta?2; Para m = 6 hasta 4; \"!.3",
+              "similarity": 0.125
+            },
+            {
+              "captureId": "ECF3E587-P2-P02_CamScanner 03-03-2026 02.24_18",
+              "folio": "ECF3E587",
+              "pagina": 2,
+              "text": "Si calif > 70 Entonces Imprimir 'Aprobado' SiNo",
+              "similarity": 0.1
+            }
+          ]
+        },
+        {
+          "letter": "C",
+          "text": "(calif > 0) AND (calif < 100) Dados a=2,b=3,c = 4,",
+          "confidence": 0.3663,
+          "evidenceCount": 5,
+          "evidence": [
+            {
+              "captureId": "EEB4EB38-P2-P02_CamScanner 03-03-2026 02.24_16",
+              "folio": "EEB4EB38",
+              "pagina": 2,
+              "text": "(calif > 0) AND (calif < 100) Dados a=2,b=3,c = 4,",
+              "similarity": 1
+            },
+            {
+              "captureId": "A93D8EFA-P2-P02_CamScanner 03-03-2026 02.24_26",
+              "folio": "A93D8EFA",
+              "pagina": 2,
+              "text": "char i Dados a = 2, b = 3,€ = 4,",
+              "similarity": 0.4444
+            },
+            {
+              "captureId": "75D5292B-P2-P02_CamScanner 03-03-2026 02.24_22",
+              "folio": "75D5292B",
+              "pagina": 2,
+              "text": "(calif == 0) OR (calif == 100) Se declara un arreglo bidimensional calif(3 5 , donde fila = parcial (0..2) y columr = materia (0..4).",
+              "similarity": 0.3158
+            },
+            {
+              "captureId": "B0FB153C-P2-P02_CamScanner 02-03-2026 10.40_02",
+              "folio": "B0FB153C",
+              "pagina": 2,
+              "text": "Para p = 1 hasta3;Param = 1 hasta5; 7 calif p m = @ O sino CADE nu nosis sou sh SRNTURNER GUE IS ina Sia es int y b es float,",
+              "similarity": 0.037
+            },
+            {
+              "captureId": "ECF3E587-P2-P02_CamScanner 03-03-2026 02.24_18",
+              "folio": "ECF3E587",
+              "pagina": 2,
+              "text": "Si calif >= 70 Entonces Imprimir 'Aprobado' SiNo It Imprimir ‘No aprobado' FinSi Los ni Necesitas almacenar el grupo sanguíneo de una persona con un SOLO carácter (por. ejempl 'A', 'B', 'O').",
+              "similarity": 0.0345
+            }
+          ]
+        },
+        {
+          "letter": "D",
+          "text": "(calif < 0) OR (calif > 100)",
+          "confidence": 0.3944,
+          "evidenceCount": 5,
+          "evidence": [
+            {
+              "captureId": "EEB4EB38-P2-P02_CamScanner 03-03-2026 02.24_16",
+              "folio": "EEB4EB38",
+              "pagina": 2,
+              "text": "(calif < 0) OR (calif > 100)",
+              "similarity": 1
+            },
+            {
+              "captureId": "75D5292B-P2-P02_CamScanner 03-03-2026 02.24_22",
+              "folio": "75D5292B",
+              "pagina": 2,
+              "text": "(calif < 0) OR (calif > 100) habliwan 2",
+              "similarity": 0.6667
+            },
+            {
+              "captureId": "B0FB153C-P2-P02_CamScanner 02-03-2026 10.40_02",
+              "folio": "B0FB153C",
+              "pagina": 2,
+              "text": "Para p = 6 hasta 3; Para m= 0 hasta 4;- ! calif p m = e - >.icalif p m : = e 06 E",
+              "similarity": 0.2222
+            },
+            {
+              "captureId": "ECF3E587-P2-P02_CamScanner 03-03-2026 02.24_18",
+              "folio": "ECF3E587",
+              "pagina": 2,
+              "text": "Si calif < 70 Entonces Imprimir 'Aprobado' SiNo Imprimir 'Aprobado' FinSi Imprimir 'No aprobado' FinSi ; :",
+              "similarity": 0.0833
+            },
+            {
+              "captureId": "66BB5FBD-P2-P02_CamScanner 02-03-2026 10.36_02",
+              "folio": "66BB5FBD",
+              "pagina": 2,
+              "text": "Depende: siempre queda como string : i......B)int, porque a manda. SS 6 calcio 2 kE) float, porque se promueve al tipo con decimales !",
+              "similarity": 0
+            }
+          ]
+        },
+        {
+          "letter": "E",
+          "text": "(calif < 0) AND (calif > 100)",
+          "confidence": 0.45,
+          "evidenceCount": 5,
+          "evidence": [
+            {
+              "captureId": "EEB4EB38-P2-P02_CamScanner 03-03-2026 02.24_16",
+              "folio": "EEB4EB38",
+              "pagina": 2,
+              "text": "(calif < 0) AND (calif > 100)",
+              "similarity": 1
+            },
+            {
+              "captureId": "75D5292B-P2-P02_CamScanner 03-03-2026 02.24_22",
+              "folio": "75D5292B",
+              "pagina": 2,
+              "text": "(calif < 0) AND (calif > 100) fica",
+              "similarity": 0.8
+            },
+            {
+              "captureId": "B0FB153C-P2-P02_CamScanner 02-03-2026 10.40_02",
+              "folio": "B0FB153C",
+              "pagina": 2,
+              "text": "Para p = 0 hasta2; Para m = 6 hasta4; l i E calif m p = e calif p m = © BI == FEIHOj HU i",
+              "similarity": 0.2
+            },
+            {
+              "captureId": "6A98D91E-P2-P02_CamScanner 03-03-2026 02.24_14",
+              "folio": "6A98D91E",
+              "pagina": 2,
+              "text": "10= x. =: true sine ir , -C)x := 16 s iain i lo Se pide validar que calif esté en el rango 0 a 100 (inclusive).",
+              "similarity": 0.1667
+            },
+            {
+              "captureId": "ECF3E587-P2-P02_CamScanner 03-03-2026 02.24_18",
+              "folio": "ECF3E587",
+              "pagina": 2,
+              "text": "Si calif == 70 Entonces Imprimir 'Aprobado' i Imprimir ‘No aprobado' FinSi SiNo Imprimir \"No aprobado*Finsi * **-—-*",
+              "similarity": 0.0833
+            }
+          ]
+        }
+      ],
+      "aggregateConfidence": 0.4876,
+      "certainty": "baja",
+      "captureCoverage": 15
+    },
+    {
+      "numeroPregunta": 13,
+      "prompt": "¿Cuál definición describe mejor un algoritmo en el contexto de Lógica de Programación?",
+      "promptConfidence": 0.6931,
+      "promptEvidence": [
+        {
+          "captureId": "66BB5FBD-P2-P02_CamScanner 02-03-2026 10.36_02",
+          "folio": "66BB5FBD",
+          "pagina": 2,
+          "text": "¿Cuál definición describe mejor un algoritmo en el contexto de Lógica de Programación?",
+          "similarity": 1
+        },
+        {
+          "captureId": "54BC4954-P2-P02_CamScanner 03-03-2026 02.24_12",
+          "folio": "54BC4954",
+          "pagina": 2,
+          "text": "¿Cuál definición describe mejor un algoritmo en el contexto de Lógica de Programación?",
+          "similarity": 1
+        },
+        {
+          "captureId": "5EA00A22-P2-P02_CamScanner 03-03-2026 02.24_8",
+          "folio": "5EA00A22",
+          "pagina": 2,
+          "text": "¿Cuál definición describe mejor un algoritmo en el contexto de Lógica de Programación?",
+          "similarity": 1
+        },
+        {
+          "captureId": "503CF7FA-P2-P02_CamScanner 03-03-2026 02.24_24",
+          "folio": "503CF7FA",
+          "pagina": 2,
+          "text": "¿Cuál afirmación describe mejor una constante en programación?",
+          "similarity": 0.3077
+        },
+        {
+          "captureId": "B0FB153C-P2-P02_CamScanner 02-03-2026 10.40_02",
+          "folio": "B0FB153C",
+          "pagina": 2,
+          "text": "¿qué tipo de dato suele tener. el resultado de a +b:en:la mayoría de: lenguajes?",
+          "similarity": 0.1579
+        }
+      ],
+      "options": [
+        {
+          "letter": "A",
+          "text": "string",
+          "confidence": 0.45,
+          "evidenceCount": 5,
+          "evidence": [
+            {
+              "captureId": "A327335F-P2-P02_CamScanner 03-03-2026 02.24_10",
+              "folio": "A327335F",
+              "pagina": 2,
+              "text": "string",
+              "similarity": 1
+            },
+            {
+              "captureId": "ECF3E587-P2-P02_CamScanner 03-03-2026 02.24_18",
+              "folio": "ECF3E587",
+              "pagina": 2,
+              "text": "string",
+              "similarity": 1
+            },
+            {
+              "captureId": "B0FB153C-P2-P02_CamScanner 02-03-2026 10.40_02",
+              "folio": "B0FB153C",
+              "pagina": 2,
+              "text": "Depende: siempre queda como string",
+              "similarity": 0.25
+            },
+            {
+              "captureId": "07BE7982-P2-P02_CamScanner 02-03-2026 10.38_02",
+              "folio": "07BE7982",
+              "pagina": 2,
+              "text": "Para p = © hasta3;Param = 6 hasta4;",
+              "similarity": 0
+            },
+            {
+              "captureId": "B8A27B0B-P2-P02_CamScanner 03-03-2026 02.24_20",
+              "folio": "B8A27B0B",
+              "pagina": 2,
+              "text": "Imprimir",
+              "similarity": 0
+            }
+          ]
+        },
+        {
+          "letter": "B",
+          "text": "int",
+          "confidence": 0.4,
+          "evidenceCount": 5,
+          "evidence": [
+            {
+              "captureId": "A327335F-P2-P02_CamScanner 03-03-2026 02.24_10",
+              "folio": "A327335F",
+              "pagina": 2,
+              "text": "int",
+              "similarity": 1
+            },
+            {
+              "captureId": "ECF3E587-P2-P02_CamScanner 03-03-2026 02.24_18",
+              "folio": "ECF3E587",
+              "pagina": 2,
+              "text": "int",
+              "similarity": 1
+            },
+            {
+              "captureId": "07BE7982-P2-P02_CamScanner 02-03-2026 10.38_02",
+              "folio": "07BE7982",
+              "pagina": 2,
+              "text": "Parap = 0 hasta2;Param = 6 hasta5; . ..",
+              "similarity": 0
+            },
+            {
+              "captureId": "6A98D91E-P2-P02_CamScanner 03-03-2026 02.24_14",
+              "folio": "6A98D91E",
+              "pagina": 2,
+              "text": "(calif == 0) OR (calif == 1060)",
+              "similarity": 0
+            },
+            {
+              "captureId": "B8A27B0B-P2-P02_CamScanner 03-03-2026 02.24_20",
+              "folio": "B8A27B0B",
+              "pagina": 2,
+              "text": "Todo el renglón completo es el argumento",
+              "similarity": 0
+            }
+          ]
+        },
+        {
+          "letter": "C",
+          "text": "Para p = 0 hasta2; Param = 0 hasta4; HL . -calif m p = e : Necesitas almacenar la cantidad de alumnos inscritos (un conteo: 0, 1, 2, 3, ...).",
+          "confidence": 0.414,
+          "evidenceCount": 5,
+          "evidence": [
+            {
+              "captureId": "07BE7982-P2-P02_CamScanner 02-03-2026 10.38_02",
+              "folio": "07BE7982",
+              "pagina": 2,
+              "text": "Para p = 0 hasta2; Param = 0 hasta4; HL . -calif m p = e : Necesitas almacenar la cantidad de alumnos inscritos (un conteo: 0, 1, 2, 3, ...).",
+              "similarity": 1
+            },
+            {
+              "captureId": "66BB5FBD-P2-P02_CamScanner 02-03-2026 10.36_02",
+              "folio": "66BB5FBD",
+              "pagina": 2,
+              "text": "Una base de datos con tablas relacionadas \"a : Necesitas almacenar la cantidad de alumnos inscritos (un conteo: 0, 1, 2, 3;..:).",
+              "similarity": 0.5909
+            },
+            {
+              "captureId": "6A98D91E-P2-P02_CamScanner 03-03-2026 02.24_14",
+              "folio": "6A98D91E",
+              "pagina": 2,
+              "text": "(calif < 0) AND (calif > 100) Necesitas almacenar el grupo sanguíneo de una persona con un SOLO carácter (por ejempl ‘AY, ‘BY, 'O').",
+              "similarity": 0.2069
+            },
+            {
+              "captureId": "A327335F-P2-P02_CamScanner 03-03-2026 02.24_10",
+              "folio": "A327335F",
+              "pagina": 2,
+              "text": "float fas ; , . : Se declara un arreglo bidimensional calif 3 5 , donde fila = parcial (6..2) y column = materia (0..4).",
+              "similarity": 0.1613
+            },
+            {
+              "captureId": "75D5292B-P2-P02_CamScanner 03-03-2026 02.24_22",
+              "folio": "75D5292B",
+              "pagina": 2,
+              "text": "Para p = 1 hasta3;Param = 1 hasta5 calif p m = © , , , ps rica: Seto Sia es int y b es float,",
+              "similarity": 0.1111
+            }
+          ]
+        },
+        {
+          "letter": "D",
+          "text": "Un diagrama que siempre usa símbolos geométrico",
+          "confidence": 0.3393,
+          "evidenceCount": 5,
+          "evidence": [
+            {
+              "captureId": "5EA00A22-P2-P02_CamScanner 03-03-2026 02.24_8",
+              "folio": "5EA00A22",
+              "pagina": 2,
+              "text": "Un diagrama que siempre usa símbolos geométrico",
+              "similarity": 1
+            },
+            {
+              "captureId": "66BB5FBD-P2-P02_CamScanner 02-03-2026 10.36_02",
+              "folio": "66BB5FBD",
+              "pagina": 2,
+              "text": "Un diagrama que siempre usa símbolos geométrici H programa",
+              "similarity": 0.625
+            },
+            {
+              "captureId": "503CF7FA-P2-P02_CamScanner 03-03-2026 02.24_24",
+              "folio": "503CF7FA",
+              "pagina": 2,
+              "text": "Es una variable que cambia automáticamente según y ejecución y suele declararse con un identificador tipo de dato. (he ’ i ES representativo. DATA Gn iE) Es una instrucción que siempre se ejecuta al final de",
+              "similarity": 0.0714
+            },
+            {
+              "captureId": "D9881CAA-P2-P02_CamScanner 02-03-2026 10.34_02",
+              "folio": "D9881CAA",
+              "pagina": 2,
+              "text": "No hay último índice; depende del valor almacenac",
+              "similarity": 0
+            },
+            {
+              "captureId": "07BE7982-P2-P02_CamScanner 02-03-2026 10.38_02",
+              "folio": "07BE7982",
+              "pagina": 2,
+              "text": "Parap=1 hasta3;Param = 1 hastaS; —. ; calif p m = © calif p m = © i —",
+              "similarity": 0
+            }
+          ]
+        },
+        {
+          "letter": "E",
+          "text": "Un conjunto de variables declaradas al inicio del - resolver un problema programa N i WB pid ! e) Un programa escrito en C o Java que compila sin errores Se requiere clasificar una calificación calif (0 a 100) asf: Si calif >=70 -+ “Aprobado”, en cas contrario - “No aprobado\".",
+          "confidence": 0.3292,
+          "evidenceCount": 5,
+          "evidence": [
+            {
+              "captureId": "5EA00A22-P2-P02_CamScanner 03-03-2026 02.24_8",
+              "folio": "5EA00A22",
+              "pagina": 2,
+              "text": "Un conjunto de variables declaradas al inicio del - resolver un problema programa N i WB pid ! e) Un programa escrito en C o Java que compila sin errores Se requiere clasificar una calificación calif (0 a 100) asf: Si calif >=70 -+ “Aprobado”, en cas contrario - “No aprobado\".",
+              "similarity": 1
+            },
+            {
+              "captureId": "66BB5FBD-P2-P02_CamScanner 02-03-2026 10.36_02",
+              "folio": "66BB5FBD",
+              "pagina": 2,
+              "text": "Un programa escrito en C o Java que compila sin E ..B) Una serie de pasos finita, ordenada y no ambigua para errores . . resolver un problema”... Con 503 lo 2) OOF O SE y",
+              "similarity": 0.3
+            },
+            {
+              "captureId": "54BC4954-P2-P02_CamScanner 03-03-2026 02.24_12",
+              "folio": "54BC4954",
+              "pagina": 2,
+              "text": "Un programa escrito en C o Java que compila sin '",
+              "similarity": 0.1935
+            },
+            {
+              "captureId": "6A98D91E-P2-P02_CamScanner 03-03-2026 02.24_14",
+              "folio": "6A98D91E",
+              "pagina": 2,
+              "text": "(calif >= 0) OR (calif <= 100) o .",
+              "similarity": 0.0938
+            },
+            {
+              "captureId": "75D5292B-P2-P02_CamScanner 03-03-2026 02.24_22",
+              "folio": "75D5292B",
+              "pagina": 2,
+              "text": "Para p = 0 hasta2;Param = 0 hasta4; y calif p m = e calif m p = ©",
+              "similarity": 0.0588
+            }
+          ]
+        }
+      ],
+      "aggregateConfidence": 0.5091,
+      "certainty": "baja",
+      "captureCoverage": 15
+    },
+    {
+      "numeroPregunta": 14,
+      "prompt": "¿Cuál bloque es el correcto?",
+      "promptConfidence": 0.6944,
+      "promptEvidence": [
+        {
+          "captureId": "54BC4954-P2-P02_CamScanner 03-03-2026 02.24_12",
+          "folio": "54BC4954",
+          "pagina": 2,
+          "text": "¿Cuál bloque es el correcto?",
+          "similarity": 1
+        },
+        {
+          "captureId": "503CF7FA-P2-P02_CamScanner 03-03-2026 02.24_24",
+          "folio": "503CF7FA",
+          "pagina": 2,
+          "text": "¿Cuál bloque es el correcto?",
+          "similarity": 1
+        },
+        {
+          "captureId": "5EA00A22-P2-P02_CamScanner 03-03-2026 02.24_8",
+          "folio": "5EA00A22",
+          "pagina": 2,
+          "text": "¿Cuál bloque es el correcto?",
+          "similarity": 1
+        },
+        {
+          "captureId": "ECF3E587-P2-P02_CamScanner 03-03-2026 02.24_18",
+          "folio": "ECF3E587",
+          "pagina": 2,
+          "text": "¿cuál es el valor de la expresión a + b x c?",
+          "similarity": 0.25
+        },
+        {
+          "captureId": "66BB5FBD-P2-P02_CamScanner 02-03-2026 10.36_02",
+          "folio": "66BB5FBD",
+          "pagina": 2,
+          "text": "¿Qué tipo d LJ). dato es el mas adecuado?",
+          "similarity": 0.2222
+        }
+      ],
+      "options": [
+        {
+          "letter": "A",
+          "text": "Si calif < 70 Entonces Imprimir ‘Aprobado’ SiNo",
+          "confidence": 0.5646,
+          "evidenceCount": 5,
+          "evidence": [
+            {
+              "captureId": "5EA00A22-P2-P02_CamScanner 03-03-2026 02.24_8",
+              "folio": "5EA00A22",
+              "pagina": 2,
+              "text": "Si calif < 70 Entonces Imprimir ‘Aprobado’ SiNo",
+              "similarity": 1
+            },
+            {
+              "captureId": "54BC4954-P2-P02_CamScanner 03-03-2026 02.24_12",
+              "folio": "54BC4954",
+              "pagina": 2,
+              "text": "Si calif >= 70 Entonces Imprimir ‘No aprobado\" SiNo",
+              "similarity": 0.875
+            },
+            {
+              "captureId": "503CF7FA-P2-P02_CamScanner 03-03-2026 02.24_24",
+              "folio": "503CF7FA",
+              "pagina": 2,
+              "text": "Si calif == 70 Entonces Imprimir 'Aprobado'",
+              "similarity": 0.8571
+            },
+            {
+              "captureId": "D9881CAA-P2-P02_CamScanner 02-03-2026 10.34_02",
+              "folio": "D9881CAA",
+              "pagina": 2,
+              "text": "char, si a es menor a 256°",
+              "similarity": 0.0909
+            },
+            {
+              "captureId": "A327335F-P2-P02_CamScanner 03-03-2026 02.24_10",
+              "folio": "A327335F",
+              "pagina": 2,
+              "text": "Para p = 0 hasta 2; Param = 0 hasta5;",
+              "similarity": 0
+            }
+          ]
+        },
+        {
+          "letter": "B",
+          "text": "Si calif > 70 Entonces Imprimir 'Aprobado' SiNo;. ...:",
+          "confidence": 0.6127,
+          "evidenceCount": 5,
+          "evidence": [
+            {
+              "captureId": "54BC4954-P2-P02_CamScanner 03-03-2026 02.24_12",
+              "folio": "54BC4954",
+              "pagina": 2,
+              "text": "Si calif > 70 Entonces Imprimir 'Aprobado' SiNo;. ...:",
+              "similarity": 1
+            },
+            {
+              "captureId": "5EA00A22-P2-P02_CamScanner 03-03-2026 02.24_8",
+              "folio": "5EA00A22",
+              "pagina": 2,
+              "text": "Si calif > 70 Entonces Imprimir 'Aprobado' SiNo",
+              "similarity": 1
+            },
+            {
+              "captureId": "503CF7FA-P2-P02_CamScanner 03-03-2026 02.24_24",
+              "folio": "503CF7FA",
+              "pagina": 2,
+              "text": "Si calif >= 70 Entonces Imprimir ‘No aprobado' SiNo——",
+              "similarity": 0.875
+            },
+            {
+              "captureId": "0E994CBA-P2-P02_CamScanner 03-03-2026 02.24_6",
+              "folio": "0E994CBA",
+              "pagina": 2,
+              "text": "Imprimir",
+              "similarity": 0.1429
+            },
+            {
+              "captureId": "6A98D91E-P2-P02_CamScanner 03-03-2026 02.24_14",
+              "folio": "6A98D91E",
+              "pagina": 2,
+              "text": "float i JE) boolean ©: ih 70516 100 Pen iT all ofan Gj string SUBES Si a es int y b es float,",
+              "similarity": 0.0455
+            }
+          ]
+        },
+        {
+          "letter": "C",
+          "text": "Si calif == 70 Entonces Imprimir ‘Aprobado’ ; a. -SiNo Imprimir 'No aprobado' FinSi a. : Se pide validar que calif esté en el rango 0 a 100 (inclusive):'",
+          "confidence": 0.4803,
+          "evidenceCount": 5,
+          "evidence": [
+            {
+              "captureId": "54BC4954-P2-P02_CamScanner 03-03-2026 02.24_12",
+              "folio": "54BC4954",
+              "pagina": 2,
+              "text": "Si calif == 70 Entonces Imprimir ‘Aprobado’ ; a. -SiNo Imprimir 'No aprobado' FinSi a. : Se pide validar que calif esté en el rango 0 a 100 (inclusive):'",
+              "similarity": 1
+            },
+            {
+              "captureId": "503CF7FA-P2-P02_CamScanner 03-03-2026 02.24_24",
+              "folio": "503CF7FA",
+              "pagina": 2,
+              "text": "Si calif >= 70 Entonces Imprimir 'Aprobado' SiNo Imprimir 'No aprobado' FinSi",
+              "similarity": 0.5
+            },
+            {
+              "captureId": "D9881CAA-P2-P02_CamScanner 02-03-2026 10.34_02",
+              "folio": "D9881CAA",
+              "pagina": 2,
+              "text": "boolean, porque es una operación lógica * i 1 Se pide validar que calif esté en el rango 0 a 100 (inclusive).",
+              "similarity": 0.4167
+            },
+            {
+              "captureId": "5EA00A22-P2-P02_CamScanner 03-03-2026 02.24_8",
+              "folio": "5EA00A22",
+              "pagina": 2,
+              "text": "Si calif == 70 Entonces Imprimir 'Aprobado' Fang uh 259 Mina 4 aT ay SiNo Imprimir ‘No aprobado’ FinSi i ;",
+              "similarity": 0.36
+            },
+            {
+              "captureId": "0E994CBA-P2-P02_CamScanner 03-03-2026 02.24_6",
+              "folio": "0E994CBA",
+              "pagina": 2,
+              "text": "No existe argumento en sentencias de salida Se declara un arreglo de 5 enteros; int v 5 . En un esquema típico de índices desde 0,",
+              "similarity": 0.125
+            }
+          ]
+        },
+        {
+          "letter": "D",
+          "text": "Si calif < 70 Entonces Imprimir 'Aprobado' SiNo j Imprimir 'Aprobado' FinSi Imprimir ‘No aprobado' FinSi",
+          "confidence": 0.5933,
+          "evidenceCount": 5,
+          "evidence": [
+            {
+              "captureId": "54BC4954-P2-P02_CamScanner 03-03-2026 02.24_12",
+              "folio": "54BC4954",
+              "pagina": 2,
+              "text": "Si calif < 70 Entonces Imprimir 'Aprobado' SiNo j Imprimir 'Aprobado' FinSi Imprimir ‘No aprobado' FinSi",
+              "similarity": 1
+            },
+            {
+              "captureId": "503CF7FA-P2-P02_CamScanner 03-03-2026 02.24_24",
+              "folio": "503CF7FA",
+              "pagina": 2,
+              "text": "Si calif > 70 Entonces Imprimir 'Aprobado’ SiNo SiNo Imprimir ‘No aprobado' FinSi Imprimir ‘No aprobado' FinSi",
+              "similarity": 1
+            },
+            {
+              "captureId": "5EA00A22-P2-P02_CamScanner 03-03-2026 02.24_8",
+              "folio": "5EA00A22",
+              "pagina": 2,
+              "text": "Si calif >= 70 Entonces Imprimir 'Aprobado' SiNo Imprimir ‘No aprobado' FinSi Imprimir 'No aprobado' FinSi ol e",
+              "similarity": 0.9
+            },
+            {
+              "captureId": "A327335F-P2-P02_CamScanner 03-03-2026 02.24_10",
+              "folio": "A327335F",
+              "pagina": 2,
+              "text": "Para p = 0 hasta2; Para m = @ hasta4; : calif p m = e y a + calif p m .=;0.:.. BUS; , A 7 a EA",
+              "similarity": 0.0667
+            },
+            {
+              "captureId": "D9881CAA-P2-P02_CamScanner 02-03-2026 10.34_02",
+              "folio": "D9881CAA",
+              "pagina": 2,
+              "text": "Depende: siempre queda como string i -B) float, porque se promueve al tipo con decimales",
+              "similarity": 0
+            }
+          ]
+        },
+        {
+          "letter": "E",
+          "text": "Si calif < 70 Entonces Imprimir 'Aprobado' SiNo Imprimir 'Aprobado' FinSi Imprimir ‘No aprobado' FinSi y",
+          "confidence": 0.5536,
+          "evidenceCount": 5,
+          "evidence": [
+            {
+              "captureId": "503CF7FA-P2-P02_CamScanner 03-03-2026 02.24_24",
+              "folio": "503CF7FA",
+              "pagina": 2,
+              "text": "Si calif < 70 Entonces Imprimir 'Aprobado' SiNo Imprimir 'Aprobado' FinSi Imprimir ‘No aprobado' FinSi y",
+              "similarity": 1
+            },
+            {
+              "captureId": "54BC4954-P2-P02_CamScanner 03-03-2026 02.24_12",
+              "folio": "54BC4954",
+              "pagina": 2,
+              "text": "Si calif >= 70 Entonces Imprimir “Aprobado' SiNo .... Imprimir 'No aprobado' FinSi iki : “Imprimir ‘No aprobado' FinSi pin i",
+              "similarity": 0.8182
+            },
+            {
+              "captureId": "5EA00A22-P2-P02_CamScanner 03-03-2026 02.24_8",
+              "folio": "5EA00A22",
+              "pagina": 2,
+              "text": "Si calif >= 70 Entonces Imprimir 'No aprobado' SiNc Imprimir ‘No aprobado' FinSi Imprimir 'Aprobado' FinSi i",
+              "similarity": 0.8
+            },
+            {
+              "captureId": "A327335F-P2-P02_CamScanner 03-03-2026 02.24_10",
+              "folio": "A327335F",
+              "pagina": 2,
+              "text": "Para p = 0 hasta 2; Para m ='g hasta 4; calif p m = e calif m p = e :",
+              "similarity": 0.0833
+            },
+            {
+              "captureId": "B0FB153C-P2-P02_CamScanner 02-03-2026 10.40_02",
+              "folio": "B0FB153C",
+              "pagina": 2,
+              "text": "No hay último índice; depende del valor almacenado.",
+              "similarity": 0.0667
+            }
+          ]
+        }
+      ],
+      "aggregateConfidence": 0.6143,
+      "certainty": "media",
+      "captureCoverage": 14
+    },
+    {
+      "numeroPregunta": 15,
+      "prompt": "¿Cuál declaración ' representa mejor ese modelo?",
+      "promptConfidence": 0.82,
+      "promptEvidence": [
+        {
+          "captureId": "ECF3E587-P2-P02_CamScanner 03-03-2026 02.24_18",
+          "folio": "ECF3E587",
+          "pagina": 2,
+          "text": "¿Cuál declaración ' representa mejor ese modelo?",
+          "similarity": 1
+        },
+        {
+          "captureId": "B8A27B0B-P2-P02_CamScanner 03-03-2026 02.24_20",
+          "folio": "B8A27B0B",
+          "pagina": 2,
+          "text": "¿Cuál declaración representa mejor ese modelo?",
+          "similarity": 1
+        },
+        {
+          "captureId": "75D5292B-P2-P02_CamScanner 03-03-2026 02.24_22",
+          "folio": "75D5292B",
+          "pagina": 2,
+          "text": "¿Cuál declaración representa mejor ese modelo?",
+          "similarity": 1
+        },
+        {
+          "captureId": "A93D8EFA-P2-P02_CamScanner 03-03-2026 02.24_26",
+          "folio": "A93D8EFA",
+          "pagina": 2,
+          "text": "¿Cuál declaración i representa mejor ese modelo?",
+          "similarity": 1
+        },
+        {
+          "captureId": "EEB4EB38-P2-P02_CamScanner 03-03-2026 02.24_16",
+          "folio": "EEB4EB38",
+          "pagina": 2,
+          "text": "¿Cuál afirmación describe mejor una constante en programación?",
+          "similarity": 0.1
+        }
+      ],
+      "options": [
+        {
+          "letter": "A",
+          "text": "califfSI 3)IN",
+          "confidence": 0.29,
+          "evidenceCount": 5,
+          "evidence": [
+            {
+              "captureId": "B8A27B0B-P2-P02_CamScanner 03-03-2026 02.24_20",
+              "folio": "B8A27B0B",
+              "pagina": 2,
+              "text": "califfSI 3)IN",
+              "similarity": 1
+            },
+            {
+              "captureId": "ECF3E587-P2-P02_CamScanner 03-03-2026 02.24_18",
+              "folio": "ECF3E587",
+              "pagina": 2,
+              "text": "califf5) N)(3) : .",
+              "similarity": 0.25
+            },
+            {
+              "captureId": "75D5292B-P2-P02_CamScanner 03-03-2026 02.24_22",
+              "folio": "75D5292B",
+              "pagina": 2,
+              "text": "califf)IS)IN",
+              "similarity": 0.2
+            },
+            {
+              "captureId": "66BB5FBD-P2-P02_CamScanner 02-03-2026 10.36_02",
+              "folio": "66BB5FBD",
+              "pagina": 2,
+              "text": "Para p = € hasta2;Param = 0 hasta4;",
+              "similarity": 0
+            },
+            {
+              "captureId": "07BE7982-P2-P02_CamScanner 02-03-2026 10.38_02",
+              "folio": "07BE7982",
+              "pagina": 2,
+              "text": "si calif > 70 Entonces Imprimir 'Aprobado' SiNo",
+              "similarity": 0
+            }
+          ]
+        },
+        {
+          "letter": "B",
+          "text": "calif N)(3 (5 y",
+          "confidence": 0.4786,
+          "evidenceCount": 5,
+          "evidence": [
+            {
+              "captureId": "B8A27B0B-P2-P02_CamScanner 03-03-2026 02.24_20",
+              "folio": "B8A27B0B",
+              "pagina": 2,
+              "text": "calif N)(3 (5 y",
+              "similarity": 1
+            },
+            {
+              "captureId": "75D5292B-P2-P02_CamScanner 03-03-2026 02.24_22",
+              "folio": "75D5292B",
+              "pagina": 2,
+              "text": "calif 5)(3)(N",
+              "similarity": 1
+            },
+            {
+              "captureId": "ECF3E587-P2-P02_CamScanner 03-03-2026 02.24_18",
+              "folio": "ECF3E587",
+              "pagina": 2,
+              "text": "calif S (2 (N",
+              "similarity": 0.25
+            },
+            {
+              "captureId": "54BC4954-P2-P02_CamScanner 03-03-2026 02.24_12",
+              "folio": "54BC4954",
+              "pagina": 2,
+              "text": "(calif < 0) OR (calif > 100) oie",
+              "similarity": 0.1429
+            },
+            {
+              "captureId": "6A98D91E-P2-P02_CamScanner 03-03-2026 02.24_14",
+              "folio": "6A98D91E",
+              "pagina": 2,
+              "text": "Depende: siempre gueda como string ;",
+              "similarity": 0
+            }
+          ]
+        },
+        {
+          "letter": "C",
+          "text": "califfN)(3 (5) E Se declara un arreglo de 5 enteros: int v 5 ..En un esquema típico de Índices desde 0,",
+          "confidence": 0.4409,
+          "evidenceCount": 5,
+          "evidence": [
+            {
+              "captureId": "ECF3E587-P2-P02_CamScanner 03-03-2026 02.24_18",
+              "folio": "ECF3E587",
+              "pagina": 2,
+              "text": "califfN)(3 (5) E Se declara un arreglo de 5 enteros: int v 5 ..En un esquema típico de Índices desde 0,",
+              "similarity": 1
+            },
+            {
+              "captureId": "503CF7FA-P2-P02_CamScanner 03-03-2026 02.24_24",
+              "folio": "503CF7FA",
+              "pagina": 2,
+              "text": "Un programa escrito en C o Java que compila sin CMe E LOSE UE E errores Eta y i Se declara un arreglo de 5 enteros: int v 5 . En un esquema tipico de Índices desde 0,",
+              "similarity": 0.5417
+            },
+            {
+              "captureId": "A327335F-P2-P02_CamScanner 03-03-2026 02.24_10",
+              "folio": "A327335F",
+              "pagina": 2,
+              "text": "Un conjunto de variables declaradas al inicio del —' AA ORRIN EN ee programa tes 7 EIC A RKTT, Se declara un arreglo de 5 enteros: int v 5 . En un esquema típico de Indices desde 0,",
+              "similarity": 0.4643
+            },
+            {
+              "captureId": "75D5292B-P2-P02_CamScanner 03-03-2026 02.24_22",
+              "folio": "75D5292B",
+              "pagina": 2,
+              "text": "calif 3)IN S Necesitas almacenar el grupo sanguíneo de una persona con un SOLO carácter (por ejempl ‘A’, 'B', 'O’).",
+              "similarity": 0.1154
+            },
+            {
+              "captureId": "EEB4EB38-P2-P02_CamScanner 03-03-2026 02.24_16",
+              "folio": "EEB4EB38",
+              "pagina": 2,
+              "text": "Es una instrucción que siempre se ejecuta al final del y A programa. í Si a es int y b es float,",
+              "similarity": 0.0833
+            }
+          ]
+        },
+        {
+          "letter": "D",
+          "text": "(calif < 0) AND (calif > 100) SE ht",
+          "confidence": 0.322,
+          "evidenceCount": 5,
+          "evidence": [
+            {
+              "captureId": "54BC4954-P2-P02_CamScanner 03-03-2026 02.24_12",
+              "folio": "54BC4954",
+              "pagina": 2,
+              "text": "(calif < 0) AND (calif > 100) SE ht",
+              "similarity": 1
+            },
+            {
+              "captureId": "D9881CAA-P2-P02_CamScanner 02-03-2026 10.34_02",
+              "folio": "D9881CAA",
+              "pagina": 2,
+              "text": "(calif < 0) AND (calif > 100) whl 25 -B) (calif >= 0) OR (calif <= 100) ui",
+              "similarity": 0.4
+            },
+            {
+              "captureId": "6A98D91E-P2-P02_CamScanner 03-03-2026 02.24_14",
+              "folio": "6A98D91E",
+              "pagina": 2,
+              "text": "float, porque se promueve al tipo con decimales i",
+              "similarity": 0.0833
+            },
+            {
+              "captureId": "66BB5FBD-P2-P02_CamScanner 02-03-2026 10.36_02",
+              "folio": "66BB5FBD",
+              "pagina": 2,
+              "text": "Para p = @ hasta3;Param = 6 hasta4, calif p m = e — calif p m = e CUNA “B) Para p = 6 hasta2; Para m = 6 hasta5; + *",
+              "similarity": 0.0769
+            },
+            {
+              "captureId": "07BE7982-P2-P02_CamScanner 02-03-2026 10.38_02",
+              "folio": "07BE7982",
+              "pagina": 2,
+              "text": "Si calif >= 70 Entonces Imprimir 'No aprobado' SiNc Imprimir ‘No aprobado' Finsl. ..... io: IMprimir;Aprobado' Finsi e IDA SEO \"7 'B)Sicalif == 70 Entonces Imprimir 'Aprobado'. —",
+              "similarity": 0.05
+            }
+          ]
+        },
+        {
+          "letter": "E",
+          "text": "(calif < 0) OR (calif > 100) i",
+          "confidence": 0.4953,
+          "evidenceCount": 5,
+          "evidence": [
+            {
+              "captureId": "D9881CAA-P2-P02_CamScanner 02-03-2026 10.34_02",
+              "folio": "D9881CAA",
+              "pagina": 2,
+              "text": "(calif < 0) OR (calif > 100) i",
+              "similarity": 1
+            },
+            {
+              "captureId": "54BC4954-P2-P02_CamScanner 03-03-2026 02.24_12",
+              "folio": "54BC4954",
+              "pagina": 2,
+              "text": "(calif ==:0) OR (calif ==:100)' ='-.:",
+              "similarity": 1
+            },
+            {
+              "captureId": "ECF3E587-P2-P02_CamScanner 03-03-2026 02.24_18",
+              "folio": "ECF3E587",
+              "pagina": 2,
+              "text": "calif 3)IN S",
+              "similarity": 0.1667
+            },
+            {
+              "captureId": "75D5292B-P2-P02_CamScanner 03-03-2026 02.24_22",
+              "folio": "75D5292B",
+              "pagina": 2,
+              "text": "calif(N) 3) 5",
+              "similarity": 0.1667
+            },
+            {
+              "captureId": "B8A27B0B-P2-P02_CamScanner 03-03-2026 02.24_20",
+              "folio": "B8A27B0B",
+              "pagina": 2,
+              "text": "calif 3)INIS CN",
+              "similarity": 0.1429
+            }
+          ]
+        }
+      ],
+      "aggregateConfidence": 0.5712,
+      "certainty": "baja",
+      "captureCoverage": 15
+    },
+    {
+      "numeroPregunta": 16,
+      "prompt": "¿cuál el último índice válido?",
+      "promptConfidence": 0.6348,
+      "promptEvidence": [
+        {
+          "captureId": "A327335F-P2-P02_CamScanner 03-03-2026 02.24_10",
+          "folio": "A327335F",
+          "pagina": 2,
+          "text": "¿cuál : el último índice válido?",
+          "similarity": 1
+        },
+        {
+          "captureId": "ECF3E587-P2-P02_CamScanner 03-03-2026 02.24_18",
+          "folio": "ECF3E587",
+          "pagina": 2,
+          "text": "¿cuál el último índice válido?",
+          "similarity": 1
+        },
+        {
+          "captureId": "503CF7FA-P2-P02_CamScanner 03-03-2026 02.24_24",
+          "folio": "503CF7FA",
+          "pagina": 2,
+          "text": "¿cuál el último índice válido?",
+          "similarity": 1
+        },
+        {
+          "captureId": "75D5292B-P2-P02_CamScanner 03-03-2026 02.24_22",
+          "folio": "75D5292B",
+          "pagina": 2,
+          "text": "¿Qué tipo de dato primitivo es el más adecuado?",
+          "similarity": 0.0909
+        },
+        {
+          "captureId": "66BB5FBD-P2-P02_CamScanner 02-03-2026 10.36_02",
+          "folio": "66BB5FBD",
+          "pagina": 2,
+          "text": "¿qué parte se considera el argumento de la sentencia de ! salida?",
+          "similarity": 0.0833
+        }
+      ],
+      "options": [
+        {
+          "letter": "A",
+          "text": "4 i, i",
+          "confidence": 0.3,
+          "evidenceCount": 5,
+          "evidence": [
+            {
+              "captureId": "A327335F-P2-P02_CamScanner 03-03-2026 02.24_10",
+              "folio": "A327335F",
+              "pagina": 2,
+              "text": "4 i, i",
+              "similarity": 1
+            },
+            {
+              "captureId": "ECF3E587-P2-P02_CamScanner 03-03-2026 02.24_18",
+              "folio": "ECF3E587",
+              "pagina": 2,
+              "text": "4 PE.",
+              "similarity": 0.5
+            },
+            {
+              "captureId": "D9881CAA-P2-P02_CamScanner 02-03-2026 10.34_02",
+              "folio": "D9881CAA",
+              "pagina": 2,
+              "text": "boolean",
+              "similarity": 0
+            },
+            {
+              "captureId": "66BB5FBD-P2-P02_CamScanner 02-03-2026 10.36_02",
+              "folio": "66BB5FBD",
+              "pagina": 2,
+              "text": "Todo el renglón completo es el argumento",
+              "similarity": 0
+            },
+            {
+              "captureId": "B0FB153C-P2-P02_CamScanner 02-03-2026 10.40_02",
+              "folio": "B0FB153C",
+              "pagina": 2,
+              "text": "do-while / : Ha",
+              "similarity": 0
+            }
+          ]
+        },
+        {
+          "letter": "B",
+          "text": "int",
+          "confidence": 0.2667,
+          "evidenceCount": 5,
+          "evidence": [
+            {
+              "captureId": "D9881CAA-P2-P02_CamScanner 02-03-2026 10.34_02",
+              "folio": "D9881CAA",
+              "pagina": 2,
+              "text": "int",
+              "similarity": 1
+            },
+            {
+              "captureId": "EEB4EB38-P2-P02_CamScanner 03-03-2026 02.24_16",
+              "folio": "EEB4EB38",
+              "pagina": 2,
+              "text": "ínt, porque a manda",
+              "similarity": 0.3333
+            },
+            {
+              "captureId": "B0FB153C-P2-P02_CamScanner 02-03-2026 10.40_02",
+              "folio": "B0FB153C",
+              "pagina": 2,
+              "text": "switch",
+              "similarity": 0
+            },
+            {
+              "captureId": "ECF3E587-P2-P02_CamScanner 03-03-2026 02.24_18",
+              "folio": "ECF3E587",
+              "pagina": 2,
+              "text": "0 2",
+              "similarity": 0
+            },
+            {
+              "captureId": "B8A27B0B-P2-P02_CamScanner 03-03-2026 02.24_20",
+              "folio": "B8A27B0B",
+              "pagina": 2,
+              "text": "switch EB) Ihara = he on aii Eola gs",
+              "similarity": 0
+            }
+          ]
+        },
+        {
+          "letter": "C",
+          "text": "while i i al: Primer Parcial CHET ; Lógica de Programación :",
+          "confidence": 0.5257,
+          "evidenceCount": 5,
+          "evidence": [
+            {
+              "captureId": "B8A27B0B-P2-P02_CamScanner 03-03-2026 02.24_20",
+              "folio": "B8A27B0B",
+              "pagina": 2,
+              "text": "while i i al: Primer Parcial CHET ; Lógica de Programación :",
+              "similarity": 1
+            },
+            {
+              "captureId": "66BB5FBD-P2-P02_CamScanner 02-03-2026 10.36_02",
+              "folio": "66BB5FBD",
+              "pagina": 2,
+              "text": "\"Hola\" EH Primer Parcial ! Lógica de Programación Cm",
+              "similarity": 0.4545
+            },
+            {
+              "captureId": "D9881CAA-P2-P02_CamScanner 02-03-2026 10.34_02",
+              "folio": "D9881CAA",
+              "pagina": 2,
+              "text": "float Ea Primer Parcial CA el. Lógica de Programación",
+              "similarity": 0.4167
+            },
+            {
+              "captureId": "75D5292B-P2-P02_CamScanner 03-03-2026 02.24_22",
+              "folio": "75D5292B",
+              "pagina": 2,
+              "text": "float = a SE Sent al Primer.Parcial : dt Lógica de Programación (1D: 75052928 ) o LB",
+              "similarity": 0.4
+            },
+            {
+              "captureId": "A93D8EFA-P2-P02_CamScanner 03-03-2026 02.24_26",
+              "folio": "A93D8EFA",
+              "pagina": 2,
+              "text": "El punto y coma (3) e NS Primer Parcial — Lógica de Programación L (CIL",
+              "similarity": 0.3571
+            }
+          ]
+        },
+        {
+          "letter": "D",
+          "text": "No hay último indice; depende del valor almacenado BTs",
+          "confidence": 0.375,
+          "evidenceCount": 5,
+          "evidence": [
+            {
+              "captureId": "A327335F-P2-P02_CamScanner 03-03-2026 02.24_10",
+              "folio": "A327335F",
+              "pagina": 2,
+              "text": "No hay último indice; depende del valor almacenado BTs",
+              "similarity": 1
+            },
+            {
+              "captureId": "ECF3E587-P2-P02_CamScanner 03-03-2026 02.24_18",
+              "folio": "ECF3E587",
+              "pagina": 2,
+              "text": "No hay.último índice; depende del valor almacenado",
+              "similarity": 0.875
+            },
+            {
+              "captureId": "D9881CAA-P2-P02_CamScanner 02-03-2026 10.34_02",
+              "folio": "D9881CAA",
+              "pagina": 2,
+              "text": "string :",
+              "similarity": 0
+            },
+            {
+              "captureId": "66BB5FBD-P2-P02_CamScanner 02-03-2026 10.36_02",
+              "folio": "66BB5FBD",
+              "pagina": 2,
+              "text": "El punto y coma (;) 8) Imprimir",
+              "similarity": 0
+            },
+            {
+              "captureId": "B0FB153C-P2-P02_CamScanner 02-03-2026 10.40_02",
+              "folio": "B0FB153C",
+              "pagina": 2,
+              "text": "for E i",
+              "similarity": 0
+            }
+          ]
+        },
+        {
+          "letter": "E",
+          "text": "O 1 Ne FE 1 Primer Parcial Be : ¡Lógica de Programación",
+          "confidence": 0.3491,
+          "evidenceCount": 5,
+          "evidence": [
+            {
+              "captureId": "A327335F-P2-P02_CamScanner 03-03-2026 02.24_10",
+              "folio": "A327335F",
+              "pagina": 2,
+              "text": "O 1 Ne FE 1 Primer Parcial Be : ¡Lógica de Programación",
+              "similarity": 1
+            },
+            {
+              "captureId": "ECF3E587-P2-P02_CamScanner 03-03-2026 02.24_18",
+              "folio": "ECF3E587",
+              "pagina": 2,
+              "text": "1 A Cc) 5 ¡E primer Parcial E Tu Lógica de Programación Co ECFSES87 )",
+              "similarity": 0.4286
+            },
+            {
+              "captureId": "B0FB153C-P2-P02_CamScanner 02-03-2026 10.40_02",
+              "folio": "B0FB153C",
+              "pagina": 2,
+              "text": "while Cyifthen Ea Primer Parcial Me Lágica de Programación, (io: Bore153C )",
+              "similarity": 0.25
+            },
+            {
+              "captureId": "66BB5FBD-P2-P02_CamScanner 02-03-2026 10.36_02",
+              "folio": "66BB5FBD",
+              "pagina": 2,
+              "text": "No existe argumento en sentencias de salida i",
+              "similarity": 0.0667
+            },
+            {
+              "captureId": "D9881CAA-P2-P02_CamScanner 02-03-2026 10.34_02",
+              "folio": "D9881CAA",
+              "pagina": 2,
+              "text": "char i",
+              "similarity": 0
+            }
+          ]
+        }
+      ],
+      "aggregateConfidence": 0.4719,
+      "certainty": "baja",
+      "captureCoverage": 10
+    }
+  ]
+}

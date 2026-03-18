@@ -1,0 +1,1302 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>OMR TV3 - Revision Humana</title>
+  <style>
+    :root {
+      --bg:#070d18; --bg2:#0b1528; --card:#111a2f; --card2:#182641; --line:#355175; --txt:#f8fafc; --mut:#9fb0c9;
+      --a:#38bdf8; --a2:#22d3ee; --ok:#22c55e; --warn:#f59e0b; --err:#ef4444; --vio:#a78bfa;
+    }
+    * { box-sizing:border-box; }
+    html,body { margin:0; padding:0; height:100%; background:radial-gradient(circle at 10% -10%, #152c4b 0%, var(--bg) 45%); color:var(--txt); font-family:"Sora","Manrope","Segoe UI Variable","Segoe UI",sans-serif; font-size:16px; }
+    .app { height:100%; display:grid; grid-template-rows:auto 1fr; animation:fadeIn .45s ease-out; }
+    @keyframes fadeIn { from{opacity:0; transform:translateY(4px)} to{opacity:1; transform:translateY(0)} }
+    @keyframes pulseSoft { 0%{box-shadow:0 0 0 0 rgba(56,189,248,.35)} 70%{box-shadow:0 0 0 10px rgba(56,189,248,0)} 100%{box-shadow:0 0 0 0 rgba(56,189,248,0)} }
+    @keyframes shimmer { from{background-position:-120px 0} to{background-position:120px 0} }
+    @keyframes questionGlow { 0%{box-shadow:0 0 0 0 rgba(34,211,238,.0)} 35%{box-shadow:0 0 0 8px rgba(34,211,238,.16)} 100%{box-shadow:0 0 0 0 rgba(34,211,238,.0)} }
+    @keyframes liftIn { from{opacity:0; transform:translateY(6px)} to{opacity:1; transform:translateY(0)} }
+    @keyframes borderFlow { from{background-position:0 0} to{background-position:180px 0} }
+
+    .top {
+      padding:10px 12px; border-bottom:1px solid var(--line); display:grid; grid-template-columns:1fr minmax(280px, 430px) auto; gap:10px; align-items:center;
+      background:linear-gradient(95deg, #0b1324 0%, #163157 55%, #10233f 100%);
+    }
+    .title { font-size:21px; font-weight:800; letter-spacing:.2px; text-shadow:0 0 14px rgba(56,189,248,.2); }
+    .mut { color:var(--mut); font-size:13px; }
+    .progress { border:1px solid var(--line); border-radius:12px; padding:8px; background:linear-gradient(180deg,#12213a,#0f1b33); display:grid; gap:6px; }
+    .bar { height:9px; border:1px solid #223451; border-radius:999px; background:#0b1528; overflow:hidden; }
+    .fill {
+      height:100%; width:0%;
+      background:linear-gradient(90deg,var(--ok),var(--a),var(--a2));
+      background-size:180px 100%;
+      animation:shimmer 1.8s linear infinite;
+      transition:width .26s ease;
+    }
+    .chips { display:flex; gap:6px; flex-wrap:wrap; }
+    .chip { border:1px solid var(--line); border-radius:999px; padding:2px 8px; font-size:12px; color:var(--mut); background:#0d1b31; transition:.18s ease; }
+    .chip.ok{color:var(--ok); background:rgba(34,197,94,.1); border-color:#1f6d43}
+    .chip.warn{color:var(--warn); background:rgba(245,158,11,.12); border-color:#8a5a13}
+    .chip.err{color:var(--err); background:rgba(239,68,68,.1); border-color:#7f2a2a}
+    .nav { display:flex; gap:8px; align-items:end; flex-wrap:wrap; justify-content:flex-end; }
+    .nav .mut { margin-bottom: 2px; }
+
+    .layout { min-height:0; display:grid; grid-template-columns:60% 40%; gap:10px; padding:10px; }
+    .panel {
+      min-height:0; border:1px solid var(--line); border-radius:12px; background:var(--card); overflow:hidden;
+      display:grid; grid-template-rows:auto auto 1fr auto; box-shadow:0 10px 24px rgba(2,6,23,.32);
+    }
+    .head { padding:10px; border-bottom:1px solid var(--line); background:linear-gradient(180deg,#1a2c4c,#172640); display:grid; grid-template-columns:1fr auto; gap:8px; align-items:center; }
+    .actions { display:flex; gap:6px; flex-wrap:wrap; }
+    .evidence { padding:10px; border-bottom:1px solid var(--line); display:flex; gap:6px; flex-wrap:wrap; background:#0c162b; }
+    .evidence-tools {
+      border-bottom: 1px solid var(--line);
+      background: #0a1326;
+      padding: 6px 10px;
+      font-size: 12px;
+      color: var(--mut);
+      display: flex;
+      gap: 12px;
+      align-items: center;
+      flex-wrap: wrap;
+    }
+    .toggle {
+      display: inline-flex;
+      gap: 6px;
+      align-items: center;
+      color: #dbeafe;
+    }
+    .toggle input { width: auto; margin: 0; }
+    .image { min-height:0; overflow:auto; display:flex; justify-content:center; align-items:flex-start; background:#050c18; padding:10px; }
+    .image img { max-width:100%; border:1px solid #2a3f5d; border-radius:8px; transform-origin:top center; transition:transform .15s ease; }
+    .meta { border-top:1px solid var(--line); padding:8px 10px; font-size:12px; color:var(--mut); background:#0c1528; word-break:break-all; }
+
+    .right { min-height:0; overflow:auto; }
+    .box { border:1px solid var(--line); border-radius:14px; background:linear-gradient(180deg,#0d172c,#0b1528); margin-bottom:10px; overflow:hidden; box-shadow:0 10px 24px rgba(2,6,23,.27); }
+    .box h3 { margin:0; padding:10px 11px; border-bottom:1px solid var(--line); font-size:16px; background:linear-gradient(180deg,#10203a,#0f1d34); }
+    .box .c { padding:12px; display:grid; gap:10px; }
+    .section-kicker{
+      display:inline-flex; align-items:center; gap:6px; width:max-content;
+      padding:4px 10px; border-radius:999px; font-size:12px; letter-spacing:.4px; text-transform:uppercase;
+      color:#a5f3fc; border:1px solid #0e7490; background:rgba(14,116,144,.18);
+    }
+    .context-ribbon{
+      border:1px solid #355175; border-radius:10px; padding:8px 10px; font-size:13px; color:#dbeafe;
+      background:linear-gradient(90deg, rgba(56,189,248,.13), rgba(167,139,250,.10));
+      word-break:break-word;
+    }
+    .metrics-grid{
+      display:grid;
+      grid-template-columns:repeat(3,minmax(0,1fr));
+      gap:8px;
+    }
+    .metric-card{
+      border:1px solid #355175; border-radius:10px; background:#0a1326; padding:8px 10px; display:grid; gap:4px;
+    }
+    .metric-card span{font-size:12px;color:#9fb0c9}
+    .metric-card strong{font-size:18px;color:#dff5ff;letter-spacing:.2px}
+    .meter{
+      border:1px solid #355175; border-radius:999px; background:#091222; height:13px; overflow:hidden;
+    }
+    .meter-fill{
+      height:100%; width:0%;
+      background:linear-gradient(90deg,#f59e0b 0%, #22d3ee 55%, #22c55e 100%);
+      transition:width .35s ease;
+    }
+    .meter-label{font-size:12px;color:#c6d5ea}
+    .box.alert { border-color:#8a5a13; box-shadow:0 8px 20px rgba(146,64,14,.25); }
+    .box.alert h3 { background:linear-gradient(180deg,#3f2a12,#2e2010); }
+    .box.ready { border-color:#1f6d43; box-shadow:0 8px 20px rgba(22,101,52,.2); }
+    .box.ready h3 { background:linear-gradient(180deg,#163726,#122f22); }
+
+    .steps { display:grid; gap:6px; }
+    .step {
+      border:1px solid var(--line); border-radius:8px; padding:7px 9px; font-size:12px; color:#dbeafe; background:#0a1326;
+      transition:all .2s ease;
+    }
+    .step.ok{border-color:#166534;color:#86efac;background:rgba(22,101,52,.12)}
+    .step.warn{border-color:#92400e;color:#fcd34d;background:rgba(146,64,14,.12); animation:pulseSoft 1.6s ease-in-out infinite}
+    .step.pending{color:#cbd5e1}
+
+    .legend { display:flex; gap:8px; flex-wrap:wrap; }
+    .dot { width:9px; height:9px; border-radius:999px; display:inline-block; margin-right:6px; vertical-align:middle; }
+    .dot.ok { background:var(--ok); box-shadow:0 0 0 3px rgba(34,197,94,.15); }
+    .dot.warn { background:var(--warn); box-shadow:0 0 0 3px rgba(245,158,11,.18); }
+    .dot.pending { background:#94a3b8; box-shadow:0 0 0 3px rgba(148,163,184,.2); }
+
+    .qgrid { display:grid; grid-template-columns:repeat(auto-fill,minmax(88px,1fr)); gap:6px; }
+    .qbtn {
+      text-align:left; border:1px solid var(--line); border-radius:8px; background:#0f1a31; color:#dbeafe; padding:8px; font-size:12px; cursor:pointer;
+      transition:all .15s ease;
+    }
+    .qbtn { font-size:14px; font-weight:600; }
+    .qbtn:hover { transform:translateY(-1px); border-color:#5f7ca6; }
+    .qbtn.active{border-color:var(--a);color:#67e8f9;background:linear-gradient(180deg,#102742,#0c2038)}
+    .qbtn.done{border-color:#166534;background:rgba(22,101,52,.14)}
+    .qbtn.fix{border-color:#92400e;background:rgba(146,64,14,.14)}
+    .qbtn.unsaved{box-shadow:0 0 0 1px #0ea5e9 inset; animation:pulseSoft 1.5s ease-in-out infinite}
+    .qbtn.noev { border-style: dashed; opacity: .72; }
+
+    .row{display:grid;gap:8px}.two{grid-template-columns:1fr 1fr}.five{grid-template-columns:repeat(5,1fr)}
+    label{display:grid;gap:4px;font-size:14px;color:var(--mut)}
+    input,textarea,select,button{font:inherit;color:var(--txt);font-size:15px}
+    input,textarea,select{
+      width:100%;border:1px solid var(--line);background:linear-gradient(180deg,#0c1830,#0a1326);border-radius:8px;padding:8px;transition:border-color .16s ease, box-shadow .16s ease;
+    }
+    input:focus,textarea:focus,select:focus{outline:none;border-color:var(--a);box-shadow:0 0 0 2px rgba(56,189,248,.17)}
+    textarea{min-height:70px;resize:vertical}
+    button{border:1px solid var(--line);background:linear-gradient(180deg,#13284a,#10213a);border-radius:8px;padding:8px 10px;cursor:pointer;transition:.16s ease}
+    button:hover{border-color:#6d8bb3;transform:translateY(-1px)}
+    button.primary{border-color:#0e7490;background:linear-gradient(180deg,#0d4e66,#08384b)}
+    button.primary:hover{border-color:#22d3ee}
+
+    .evidence-btn {
+      border:1px solid #406089; background:#0f213c; color:#d7ecff; border-radius:999px; padding:6px 10px; cursor:pointer; font-size:12px;
+      transition:all .16s ease;
+    }
+    .evidence-btn { font-size:13px; font-weight:600; }
+    .evidence-btn.active{border-color:var(--a2); color:#a5f3fc; background:linear-gradient(90deg,#0b3853,#102f52)}
+    .evidence-btn:hover { border-color:#7aa7d3; transform:translateY(-1px); }
+
+    #qHeader {
+      font-size:28px;
+      font-weight:800;
+      line-height:1.2;
+      padding:10px 12px;
+      border-radius:10px;
+      background:linear-gradient(90deg, rgba(34,211,238,.14), rgba(167,139,250,.12));
+      border:1px solid #3f628f;
+      word-break:break-word;
+    }
+    #qPrompt {
+      font-size:18px;
+      line-height:1.45;
+      font-weight:700;
+      color:#dff5ff;
+      padding:10px;
+      border-radius:10px;
+      border:1px solid #355175;
+      background:#0b1730;
+    }
+    #qHeader.fx, #qPrompt.fx { animation:questionGlow .7s ease; }
+    .opt {
+      border:1px solid var(--line);
+      border-radius:10px;
+      background:#0a1326;
+      padding:9px 10px;
+      display:grid;
+      grid-template-columns:34px 1fr;
+      gap:10px;
+      font-size:16px;
+      line-height:1.4;
+      position:relative;
+      overflow:hidden;
+      animation:liftIn .22s ease both;
+      animation-delay: calc(var(--stagger, 0) * 70ms);
+    }
+    .opt strong {
+      font-size:20px;
+      color:#8be9ff;
+      align-self:start;
+    }
+    .opt.correct {
+      border-color:#16a34a;
+      box-shadow:0 0 0 1px #166534 inset, 0 0 0 3px rgba(34,197,94,.13);
+      background:linear-gradient(90deg, rgba(22,163,74,.14), rgba(8,20,44,.82));
+    }
+    .opt.correct::after{
+      content:'RESPUESTA CORRECTA';
+      position:absolute;
+      right:8px;
+      top:8px;
+      font-size:11px;
+      font-weight:800;
+      color:#86efac;
+      letter-spacing:.45px;
+      background:rgba(22,163,74,.18);
+      border:1px solid #1f6d43;
+      border-radius:999px;
+      padding:2px 7px;
+    }
+    #canonicalOptions {
+      display:grid;
+      gap:8px;
+      border:1px solid #355175;
+      border-radius:10px;
+      padding:10px;
+      background:linear-gradient(180deg,#0b1630,#0a1327);
+    }
+    #canonicalOptions.fx {
+      background-image:linear-gradient(90deg, rgba(34,211,238,.16), rgba(167,139,250,.14), rgba(34,211,238,.16));
+      background-size:180px 100%;
+      animation:borderFlow 1.15s linear;
+    }
+    #canonicalCorrect{
+      display:inline-flex; align-items:center; padding:2px 8px; border-radius:999px;
+      border:1px solid #1f6d43; background:rgba(22,163,74,.18); color:#86efac;
+    }
+    .alert-strip {
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      padding: 7px 8px;
+      font-size: 12px;
+      line-height: 1.35;
+      background: #0b1528;
+      color: #dbeafe;
+    }
+    .alert-strip.warn {
+      border-color: #92400e;
+      background: rgba(146,64,14,.14);
+      color: #fde68a;
+    }
+    .alert-strip.info {
+      border-color: #0e7490;
+      background: rgba(14,116,144,.16);
+      color: #a5f3fc;
+    }
+    .evidence-text {
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      padding: 7px 8px;
+      font-size: 12px;
+      color: #dbeafe;
+      background: #0a1326;
+    }
+    .helper {
+      font-size:13px; color:#c8daef; border:1px dashed #3f5f8c; border-radius:10px; padding:10px;
+      background:linear-gradient(90deg, rgba(56,189,248,.08), rgba(167,139,250,.07));
+    }
+    .form-stage{
+      border:1px solid #355175; border-radius:10px; padding:10px; background:#0a1326; display:grid; gap:10px;
+    }
+    .form-stage h4{
+      margin:0; font-size:14px; font-weight:700; color:#dbeafe;
+    }
+    .actionbar{
+      position:sticky; bottom:0; z-index:3;
+      padding-top:8px; margin-top:4px;
+      background:linear-gradient(180deg, rgba(13,23,44,0), rgba(13,23,44,.96) 28%);
+    }
+    .status{font-size:12px;color:var(--mut);transition:all .18s ease}
+    .status.ok{color:#86efac}
+    .status.err{color:#fca5a5}
+    .status.unsaved{color:#67e8f9}
+    .checklist{margin:0;padding-left:18px;color:var(--mut);font-size:12px;display:grid;gap:4px}
+    .checklist li { line-height:1.35; }
+    .checklist li strong { color:#fda4af; }
+
+    @media (max-width:1200px){.top{grid-template-columns:1fr}.nav{justify-content:flex-start}.layout{grid-template-columns:1fr}.metrics-grid{grid-template-columns:1fr}}
+    @media (max-width:780px){.two,.five{grid-template-columns:1fr}}
+  </style>
+</head>
+<body>
+  <div class="app">
+    <div class="top">
+      <div>
+        <div class="title">Revision Humana OMR TV3</div>
+        <div class="mut" id="metaLine">Cargando...</div>
+        <div class="mut">Atajos: Ctrl+S guardar, Alt+S guardar+siguiente, flechas izquierda/derecha navegar</div>
+      </div>
+      <div class="progress">
+        <div class="mut" id="progressBadge">Avance: 0/0</div>
+        <div class="bar"><div class="fill" id="progressFill"></div></div>
+        <div class="chips">
+          <span class="chip" id="percentBadge">0%</span>
+          <span class="chip ok" id="doneBadge">OK:0</span>
+          <span class="chip warn" id="fixBadge">Con cambios:0</span>
+          <span class="chip err" id="pendingBadge">Pendientes:0</span>
+        </div>
+      </div>
+      <div class="nav">
+        <label>Examen (folio)
+          <select id="examFilter"><option value="all">Todos</option></select>
+        </label>
+        <button id="prevExamBtn" type="button">Examen anterior</button>
+        <button id="nextExamBtn" type="button">Siguiente examen</button>
+        <label>ID de página
+          <select id="pageIdFilter"><option value="all">Todas las páginas</option></select>
+        </label>
+        <button id="prevPageIdBtn" type="button">Página anterior</button>
+        <button id="nextPageIdBtn" type="button">Página siguiente</button>
+        <label>Pagina
+          <select id="pageFilter"><option value="all">Todas</option></select>
+        </label>
+        <button id="prevBtn" type="button">Anterior</button>
+        <button id="nextBtn" type="button">Siguiente</button>
+        <span class="mut" id="examScope">Examen activo: todos</span>
+      </div>
+    </div>
+
+    <div class="layout">
+      <div class="panel">
+        <div class="head">
+          <div>
+            <div id="imageTitle"><strong>Pregunta -</strong></div>
+            <div class="mut" id="imageSub">Sin evidencia</div>
+          </div>
+          <div class="actions">
+            <button id="zoomOutBtn" type="button">- Zoom</button>
+            <button id="zoomInBtn" type="button">+ Zoom</button>
+            <button id="resetZoomBtn" type="button">Reset</button>
+            <button id="openImageBtn" type="button">Abrir imagen</button>
+          </div>
+        </div>
+        <div class="evidence" id="evidenceStrip"></div>
+        <div class="evidence-tools">
+          <label class="toggle">
+            <input type="checkbox" id="crossExamToggle">
+            Mostrar también evidencias de otros exámenes (folios distintos)
+          </label>
+          <span id="evidenceScopeText">Mostrando solo evidencias del mismo examen que la primaria.</span>
+        </div>
+        <div class="image"><img id="examImage" alt="Evidencia del examen"></div>
+        <div class="meta">
+          <div><strong>Flujo:</strong> abre primero <strong>Primaria</strong>; usa <strong>Respaldo</strong> solo si hay duda.</div>
+          <div id="evidenceHint">Evidencia actual: no seleccionada.</div>
+          <div id="imageMeta">Sin ruta</div>
+        </div>
+      </div>
+
+      <div class="right">
+        <div class="box" id="guideBox">
+          <h3>Guia de Decision</h3>
+          <div class="c">
+            <div class="helper">
+              Enunciado = texto de pregunta. Opciones = respuestas A-E.
+              Respuesta correcta = letra final para calificar.
+            </div>
+            <div class="legend">
+              <span class="chip"><span class="dot pending"></span>Pendiente</span>
+              <span class="chip ok"><span class="dot ok"></span>Confirmado / Corregido</span>
+              <span class="chip warn"><span class="dot warn"></span>Acción requerida</span>
+            </div>
+            <div class="steps">
+              <div class="step pending" id="stepPrompt">1) Enunciado: pendiente</div>
+              <div class="step pending" id="stepOptions">2) Opciones: pendiente</div>
+              <div class="step pending" id="stepCorrect">3) Respuesta correcta: pendiente</div>
+              <div class="step pending" id="stepSave">4) Guardado: pendiente</div>
+            </div>
+            <ul class="checklist" id="reviewChecklist"></ul>
+          </div>
+        </div>
+
+        <div class="box">
+          <h3>Navegacion de Preguntas</h3>
+          <div class="c"><div class="qgrid" id="questionList"></div></div>
+        </div>
+
+        <div class="box">
+          <h3>Contenido Canonico</h3>
+          <div class="c">
+            <div class="section-kicker">Contexto de comparación</div>
+            <div class="context-ribbon" id="qContextRibbon">Sin contexto activo.</div>
+            <div><strong id="qHeader">Pregunta</strong></div>
+            <label>Pregunta canónica asignada para esta vista
+              <select id="canonicalQuestionSelect"></select>
+            </label>
+            <div class="mut" id="qPrompt">-</div>
+            <div class="metrics-grid">
+              <div class="metric-card">
+                <span>Confianza OCR enunciado</span>
+                <strong id="metricPromptConfidence">-</strong>
+              </div>
+              <div class="metric-card">
+                <span>Confianza OCR total</span>
+                <strong id="metricAggregateConfidence">-</strong>
+              </div>
+              <div class="metric-card">
+                <span>Coincidencia OCR vs canónico</span>
+                <strong id="metricSimilarity">-</strong>
+              </div>
+            </div>
+            <div class="meter"><div class="meter-fill" id="matchMeterFill"></div></div>
+            <div class="meter-label" id="matchMeterLabel">Sin medición disponible.</div>
+            <div id="alignmentAlert" class="alert-strip info">Verificando alineación entre texto detectado y banco canónico...</div>
+            <div class="evidence-text" id="ocrPromptText">Texto OCR detectado: (sin dato)</div>
+            <div class="mut" id="ocrConfidenceText">Confianza OCR: - | Coincidencia con canónico: -</div>
+            <div class="mut" id="mappingHint"></div>
+            <div id="canonicalOptions"></div>
+            <div class="mut">Respuesta correcta canónica: <strong id="canonicalCorrect">-</strong></div>
+          </div>
+        </div>
+
+        <div class="box">
+          <h3>Formulario de Confirmacion</h3>
+          <div class="c">
+            <div class="helper">Marca "Si" si coincide. Marca "No" solo si hay diferencia real y captura corrección.</div>
+            <div class="form-stage">
+              <h4>Paso 1. Enunciado</h4>
+              <div class="row two">
+                <label>Enunciado confirmado
+                  <select id="promptApproved"><option value="">Pendiente</option><option value="true">Si coincide</option><option value="false">No coincide</option></select>
+                </label>
+                <label>Correccion de enunciado (si "No")
+                  <textarea id="promptCorrection" placeholder="Enunciado corregido"></textarea>
+                </label>
+              </div>
+            </div>
+            <div class="form-stage">
+              <h4>Paso 2. Opciones A-E</h4>
+              <div class="row two">
+                <label>Opciones confirmadas
+                  <select id="optionsApproved"><option value="">Pendiente</option><option value="true">Si coinciden</option><option value="false">No coinciden</option></select>
+                </label>
+                <div class="mut">Si marcas "No", corrige solo letras con diferencia.</div>
+              </div>
+              <div class="row five">
+                <label>A<input id="optA" placeholder="Correccion A"></label>
+                <label>B<input id="optB" placeholder="Correccion B"></label>
+                <label>C<input id="optC" placeholder="Correccion C"></label>
+                <label>D<input id="optD" placeholder="Correccion D"></label>
+                <label>E<input id="optE" placeholder="Correccion E"></label>
+              </div>
+            </div>
+            <div class="form-stage">
+              <h4>Paso 3. Respuesta correcta y metadatos</h4>
+              <div class="row two">
+                <label>Respuesta correcta confirmada
+                  <select id="correctApproved"><option value="">Pendiente</option><option value="true">Si coincide</option><option value="false">No coincide</option></select>
+                </label>
+                <label>Correccion respuesta correcta (A-E)
+                  <select id="correctCorrection"><option value="">Sin cambio</option><option>A</option><option>B</option><option>C</option><option>D</option><option>E</option></select>
+                </label>
+              </div>
+              <div class="row two">
+                <label>Reviewer<input id="reviewer" placeholder="Nombre o usuario"></label>
+                <label>Fecha revision (ISO)<input id="reviewedAt" placeholder="2026-03-05T15:20:00Z"></label>
+              </div>
+              <label>Notas<textarea id="notes" placeholder="Notas de ambigüedad o calidad"></textarea></label>
+            </div>
+            <div class="actions actionbar">
+              <button class="primary" id="saveBtn" type="button">Guardar Pregunta</button>
+              <button id="saveNextBtn" type="button">Guardar y Siguiente</button>
+              <button id="markNowBtn" type="button">Poner Fecha Actual</button>
+              <span class="status" id="saveStatus">Sin cambios guardados</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const state = {
+      packet:null,
+      template:null,
+      byQuestion:new Map(),
+      drafts:new Map(),
+      order:[],
+      currentIndex:0,
+      evidenceIndex:0,
+      zoom:1,
+      pageFilter:'all',
+      includeCrossExamEvidence:false,
+      selectedExamFolio:null,
+      examFolios:[],
+      pageCaptures:[],
+      selectedPageCaptureId:null,
+      manualCanonicalBySlot:new Map(),
+      autoCanonicalBySlot:new Map(),
+      autoCanonicalMetaBySlot:new Map(),
+      stateVersion:null,
+      syncInFlight:false,
+      syncTimer:null,
+      externalChangePending:false
+    };
+    const AUTO_SYNC_MS = 3000;
+    const $ = (id) => document.getElementById(id);
+    const letters = ['A','B','C','D','E'];
+    const tri = (v) => (v === true || v === 'true') ? true : (v === false || v === 'false') ? false : null;
+    const triValue = (v) => v === true ? 'true' : v === false ? 'false' : '';
+    const textOrNull = (v) => { const t = String(v ?? '').trim(); return t ? t : null; };
+    function folioFromCapture(captureId){
+      const raw = String(captureId ?? '');
+      const idx = raw.indexOf('-P');
+      if (idx > 0) return raw.slice(0, idx).toUpperCase();
+      return null;
+    }
+    function pageFromCapture(captureId){
+      const raw = String(captureId ?? '');
+      const match = /-P(\d+)-/i.exec(raw);
+      return match ? Number(match[1]) : null;
+    }
+    function folioFromImagePath(imagePath){
+      const name = String(imagePath ?? '').split(/[\\/]/).pop() || '';
+      const match = /^([A-F0-9]{8})-P\d+/i.exec(name);
+      return match ? match[1].toUpperCase() : null;
+    }
+    function pageFromImagePath(imagePath){
+      const name = String(imagePath ?? '').split(/[\\/]/).pop() || '';
+      const match = /^[A-F0-9]{8}-P(\d+)-/i.exec(name);
+      return match ? Number(match[1]) : null;
+    }
+    const normText = (value) => String(value ?? '')
+      .toLowerCase()
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .replace(/[^a-z0-9ñ\s]/g, ' ')
+      .replace(/\s+/g, ' ')
+      .trim();
+    const tokenSet = (value) => new Set(normText(value).split(' ').filter((t) => t.length > 2));
+    function similarityScore(a, b){
+      const sa = tokenSet(a), sb = tokenSet(b);
+      if(!sa.size || !sb.size) return 0;
+      let inter = 0;
+      sa.forEach((t) => { if(sb.has(t)) inter += 1; });
+      return inter / Math.max(sa.size, sb.size);
+    }
+
+    function normalizeHumanReview(raw) {
+      const hr = raw || {};
+      return { promptApproved:tri(hr.promptApproved), promptCorrection:hr.promptCorrection ?? null, optionsApproved:tri(hr.optionsApproved),
+        optionsCorrection:{A:hr.optionsCorrection?.A ?? null,B:hr.optionsCorrection?.B ?? null,C:hr.optionsCorrection?.C ?? null,D:hr.optionsCorrection?.D ?? null,E:hr.optionsCorrection?.E ?? null},
+        correctOptionApproved:tri(hr.correctOptionApproved), correctOptionCorrection:hr.correctOptionCorrection ?? null, reviewer:hr.reviewer ?? '', reviewedAt:hr.reviewedAt ?? '', notes:hr.notes ?? '' };
+    }
+
+    function questionByNum(num){ return state.packet.questions.find((q) => q.numeroPregunta === num) || null; }
+    function currentNum(){ return state.order[state.currentIndex]; }
+    function currentQuestion(){ return questionByNum(currentNum()); }
+    function getHR(num){ return normalizeHumanReview(state.drafts.get(num) ?? state.byQuestion.get(num)?.humanReview); }
+    function selectedPageCapture(){
+      if (!state.selectedPageCaptureId) return null;
+      return state.pageCaptures.find((c) => c.captureId === state.selectedPageCaptureId) || null;
+    }
+    function slotKey(slotNum){
+      return `${state.selectedPageCaptureId || 'all'}:${slotNum}`;
+    }
+    function candidateQuestionsForSlot(slotNum){
+      const slot = questionByNum(slotNum);
+      if (!slot) return [];
+      const selected = selectedPageCapture();
+      const targetPage = Number(selected?.page ?? slot.pagina);
+      const all = state.packet?.questions || [];
+      const samePage = all.filter((q) => Number(q?.pagina) === targetPage);
+      if (selected?.captureId) {
+        return samePage.filter((q) =>
+          rawEvidenceList(q).some((e) => e?.captureId === selected.captureId)
+        );
+      }
+      return samePage.length ? samePage : all;
+    }
+    function resolveCanonicalNumForSlot(slotNum){
+      const slot = questionByNum(slotNum);
+      if (!slot) return slotNum;
+      const key = slotKey(slotNum);
+      const manual = state.manualCanonicalBySlot.get(key);
+      if (manual && questionByNum(manual)) return manual;
+      if (!state.selectedPageCaptureId) return slotNum;
+      if (state.autoCanonicalBySlot.has(key)) return state.autoCanonicalBySlot.get(key);
+
+      const selectedCaptureId = state.selectedPageCaptureId;
+      const slotPrompt = slot?.ocrOnly?.prompt || slot?.canonical?.prompt || '';
+      const candidates = candidateQuestionsForSlot(slotNum);
+      let best = { num: slotNum, score: -1, sim: 0, hasCapture: false };
+      let selfSim = 0;
+      candidates.forEach((candidate) => {
+        const sim = similarityScore(slotPrompt, candidate?.canonical?.prompt || '');
+        const hasCapture = rawEvidenceList(candidate).some((e) => e?.captureId === selectedCaptureId);
+        const sameNum = Number(candidate?.numeroPregunta) === Number(slotNum);
+        if (sameNum) selfSim = sim;
+        const score = sim * 0.72 + (hasCapture ? 0.22 : 0) + (sameNum ? 0.06 : 0);
+        if (score > best.score) {
+          best = {
+            num: Number(candidate?.numeroPregunta ?? slotNum),
+            score,
+            sim,
+            hasCapture
+          };
+        }
+      });
+      const shouldRemap =
+        best.num !== slotNum &&
+        best.sim >= 0.5 &&
+        (best.sim - selfSim) >= 0.2;
+      const resolvedNum = shouldRemap ? best.num : slotNum;
+      state.autoCanonicalBySlot.set(key, resolvedNum);
+      state.autoCanonicalMetaBySlot.set(key, { ...best, selfSim, shouldRemap, resolvedNum });
+      return resolvedNum;
+    }
+    function resolveCanonicalQuestionForSlot(slotNum){
+      const resolvedNum = resolveCanonicalNumForSlot(slotNum);
+      return questionByNum(resolvedNum) || questionByNum(slotNum);
+    }
+    function effectiveReviewNumForSlot(slotNum){
+      return resolveCanonicalNumForSlot(slotNum);
+    }
+    function filteredOrder(){
+      let list = state.order.slice();
+      if (state.selectedPageCaptureId) {
+        const selected = state.pageCaptures.find((c) => c.captureId === state.selectedPageCaptureId);
+        if (selected?.page) {
+          const samePage = list.filter((n) => Number(questionByNum(n)?.pagina) === Number(selected.page));
+          const withDirectEvidence = samePage.filter((n) =>
+            rawEvidenceList(questionByNum(n)).some((e) => e?.captureId === selected.captureId)
+          );
+          list = withDirectEvidence;
+        }
+      } else if(state.pageFilter !== 'all') {
+        const p = Number(state.pageFilter);
+        list = list.filter((n) => Number(questionByNum(n)?.pagina) === p);
+      }
+      return list;
+    }
+    function qStatus(slotNum){
+      const reviewNum = effectiveReviewNumForSlot(slotNum);
+      const hr = getHR(reviewNum);
+      if(hr.promptApproved===null || hr.optionsApproved===null || hr.correctOptionApproved===null) return 'pending';
+      return (hr.promptApproved===false || hr.optionsApproved===false || hr.correctOptionApproved===false) ? 'fix' : 'done';
+    }
+    function blockers(hr){
+      const out = [];
+      if (hr.promptApproved === false && !textOrNull(hr.promptCorrection)) out.push('Falta corrección de enunciado.');
+      if (hr.optionsApproved === false && !letters.some((k) => textOrNull(hr.optionsCorrection?.[k]))) out.push('Falta corregir al menos una opción A-E.');
+      if (hr.correctOptionApproved === false && !textOrNull(hr.correctOptionCorrection)) out.push('Falta letra corregida de respuesta correcta.');
+      return out;
+    }
+    function setStatus(text, cls){ const el = $('saveStatus'); el.textContent = text; el.className = 'status' + (cls ? ` ${cls}` : ''); }
+    function pulseById(id){
+      const el = $(id);
+      if(!el) return;
+      el.classList.remove('fx');
+      void el.offsetWidth;
+      el.classList.add('fx');
+    }
+
+    function stats(){
+      const nums = filteredOrder(); let done = 0, fix = 0, pending = 0;
+      nums.forEach((n) => { const s = qStatus(n); if(s==='done') done++; else if(s==='fix') fix++; else pending++; });
+      const valid = done + fix, total = nums.length, pct = total ? Math.round((valid * 100) / total) : 0;
+      const availableInExam = nums.filter((n) => hasEvidenceForSelectedExam(questionByNum(n))).length;
+      const suffix = state.selectedExamFolio ? ` | con evidencia en examen: ${availableInExam}/${total}` : '';
+      $('progressBadge').textContent = `Avance: ${valid}/${total}${suffix}`;
+      $('progressFill').style.width = `${pct}%`;
+      $('percentBadge').textContent = `${pct}%`;
+      $('doneBadge').textContent = `OK:${done}`; $('fixBadge').textContent = `Con cambios:${fix}`; $('pendingBadge').textContent = `Pendientes:${pending}`;
+    }
+
+    function refreshPageIdOptions(){
+      const select = $('pageIdFilter');
+      const available = availablePageCaptures();
+      const keep = state.selectedPageCaptureId;
+      select.innerHTML = '<option value="all">Todas las páginas</option>';
+      available.forEach((c) => {
+        const o = document.createElement('option');
+        o.value = c.captureId;
+        const pageLabel = Number.isFinite(c.page) ? `P${c.page}` : 'P?';
+        o.textContent = `${c.captureId} (${pageLabel}${c.folio ? ` ${c.folio}` : ''})`;
+        select.appendChild(o);
+      });
+      if (keep && available.some((c) => c.captureId === keep)) {
+        select.value = keep;
+      } else {
+        state.selectedPageCaptureId = available[0]?.captureId ?? null;
+        select.value = state.selectedPageCaptureId || 'all';
+      }
+    }
+
+    function renderQuestionList(){
+      const host = $('questionList'); host.innerHTML = '';
+      filteredOrder().forEach((n) => {
+        const q = questionByNum(n); const b = document.createElement('button');
+        b.type = 'button'; b.className = 'qbtn'; if(n === currentNum()) b.classList.add('active');
+        const mapped = resolveCanonicalNumForSlot(n);
+        const s = qStatus(n); if(s === 'done') b.classList.add('done'); if(s === 'fix') b.classList.add('fix'); if(state.drafts.has(mapped)) b.classList.add('unsaved');
+        const noEvidence = !hasEvidenceForSelectedExam(q);
+        if (noEvidence) b.classList.add('noev');
+        const mapTag = state.selectedPageCaptureId && mapped !== n ? ` -> Q${mapped}` : '';
+        b.textContent = `Q${n} P${q?.pagina ?? '-'}${mapTag}${noEvidence ? ' ⚠' : ''}`;
+        b.title = noEvidence
+          ? `No hay evidencia de esta pregunta para el examen ${state.selectedExamFolio}`
+          : state.selectedPageCaptureId && mapped !== n
+            ? `Vista Q${n} (página ${q?.pagina ?? '-'}) mapea a canónica Q${mapped}`
+            : `Pregunta ${n} página ${q?.pagina ?? '-'}`;
+        b.onclick = () => { state.currentIndex = state.order.indexOf(n); state.evidenceIndex = 0; renderAll(); };
+        host.appendChild(b);
+      }); stats();
+    }
+
+    function rawEvidenceList(q){
+      const list = [];
+      if(q.imagenPrimaria) list.push(q.imagenPrimaria);
+      if(Array.isArray(q.imagenesRespaldo)) list.push(...q.imagenesRespaldo);
+      if(Array.isArray(q.visualEvidence)) list.push(...q.visualEvidence);
+      const seen = new Set();
+      return list.filter((e) => {
+        const key = `${e?.captureId}|${e?.imagePath}`;
+        if(!e?.imagePath || seen.has(key)) return false;
+        seen.add(key);
+        return true;
+      }).map((e) => {
+        const folio = folioFromCapture(e?.captureId) || folioFromImagePath(e?.imagePath);
+        const page = pageFromCapture(e?.captureId) || pageFromImagePath(e?.imagePath);
+        return { ...e, folio, page };
+      });
+    }
+
+    function collectPageCaptures(){
+      const out = [];
+      const seen = new Set();
+      (state.packet?.questions || []).forEach((q) => {
+        rawEvidenceList(q).forEach((e) => {
+          const key = `${e.captureId}|${e.imagePath}`;
+          if (!e.imagePath || seen.has(key)) return;
+          seen.add(key);
+          out.push({
+            captureId: e.captureId || '',
+            imagePath: e.imagePath,
+            folio: e.folio || null,
+            page: Number.isFinite(e.page) ? e.page : null
+          });
+        });
+      });
+      return out.sort((a, b) => String(a.captureId).localeCompare(String(b.captureId)));
+    }
+
+    function availablePageCaptures(){
+      let list = state.pageCaptures.slice();
+      if (state.selectedExamFolio) {
+        list = list.filter((c) => c.folio === state.selectedExamFolio);
+      }
+      if (state.pageFilter !== 'all') {
+        const p = Number(state.pageFilter);
+        list = list.filter((c) => c.page === p);
+      }
+      return list;
+    }
+
+    function hasEvidenceForSelectedExam(q){
+      if(!state.selectedExamFolio) return true;
+      return rawEvidenceList(q).some((e) => e.folio === state.selectedExamFolio);
+    }
+
+    function evidenceList(q){
+      const raw = rawEvidenceList(q);
+      const selected = state.selectedExamFolio;
+      const primaryFolio = raw[0]?.folio || null;
+      const baseFolio = selected || primaryFolio;
+      const annotated = raw.map((e) => ({
+        ...e,
+        crossExam: Boolean(baseFolio && e.folio && e.folio !== baseFolio)
+      }));
+
+      if (selected) {
+        const selectedExam = annotated.filter((e) => e.folio === selected);
+        if (state.includeCrossExamEvidence) {
+          const others = annotated.filter((e) => e.folio !== selected);
+          return [...selectedExam, ...others];
+        }
+        return selectedExam;
+      }
+
+      if (state.includeCrossExamEvidence) return annotated;
+      const sameExam = annotated.filter((e) => !e.crossExam);
+      return sameExam.length ? sameExam : annotated;
+    }
+
+    function renderImage(q){
+      const selectedPage = state.selectedPageCaptureId
+        ? state.pageCaptures.find((c) => c.captureId === state.selectedPageCaptureId)
+        : null;
+      const evs = selectedPage
+        ? [{ captureId: selectedPage.captureId, imagePath: selectedPage.imagePath, folio: selectedPage.folio, page: selectedPage.page, crossExam: false }]
+        : evidenceList(q);
+      if(state.evidenceIndex >= evs.length) state.evidenceIndex = 0;
+      const cur = evs[state.evidenceIndex] || null;
+      const host = $('evidenceStrip'); host.innerHTML = '';
+      evs.forEach((ev, i) => {
+        const b = document.createElement('button'); b.type = 'button'; b.className = 'evidence-btn' + (i === state.evidenceIndex ? ' active' : '');
+        const tag = selectedPage
+          ? `Página activa`
+          : i === 0
+            ? '1) Primaria'
+            : ev.crossExam
+              ? `${i + 1}) Comparativa (otro examen)`
+              : `${i + 1}) Respaldo (mismo examen)`;
+        b.textContent = `${tag}: ${ev.captureId}`;
+        b.title = `${ev.captureId || ''}${ev.folio ? ` | Folio ${ev.folio}` : ''}`;
+        b.onclick = () => { state.evidenceIndex = i; renderImage(q); }; host.appendChild(b);
+      });
+      const crossCount = evs.filter((e) => e.crossExam).length;
+      if (selectedPage) {
+        $('evidenceScopeText').textContent = `Modo página por ID activo: ${selectedPage.captureId} (${selectedPage.folio || 'sin folio'}${selectedPage.page ? `, P${selectedPage.page}` : ''}).`;
+      } else if (state.selectedExamFolio) {
+        $('evidenceScopeText').textContent = state.includeCrossExamEvidence
+          ? `Examen activo ${state.selectedExamFolio}: mostrando primero su evidencia y luego comparativas (${crossCount} comparativas).`
+          : `Examen activo ${state.selectedExamFolio}: mostrando solo evidencias de este examen.`;
+      } else {
+        $('evidenceScopeText').textContent = state.includeCrossExamEvidence
+          ? `Mostrando evidencias del mismo examen y comparativas de otros exámenes (${crossCount} comparativas visibles).`
+          : 'Mostrando solo evidencias del mismo examen que la primaria.';
+      }
+      if(cur?.imagePath){
+        $('examImage').src = `/api/image?path=${encodeURIComponent(cur.imagePath)}&t=${Date.now()}`;
+        $('examImage').style.transform = `scale(${state.zoom})`;
+        $('imageSub').textContent = cur.captureId || '';
+        $('imageMeta').textContent = cur.imagePath;
+        if (selectedPage) {
+          $('evidenceHint').textContent = `Página fija por ID: ${cur.captureId}${cur.folio ? ` (Folio ${cur.folio})` : ''}.`;
+        } else if (state.evidenceIndex === 0) {
+          $('evidenceHint').textContent = `Evidencia actual: Primaria${cur.folio ? ` (Folio ${cur.folio})` : ''}.`;
+        } else if (cur.crossExam) {
+          $('evidenceHint').textContent = `Evidencia actual: Comparativa de otro examen${cur.folio ? ` (Folio ${cur.folio})` : ''}.`;
+        } else {
+          $('evidenceHint').textContent = `Evidencia actual: Respaldo del mismo examen${cur.folio ? ` (Folio ${cur.folio})` : ''}.`;
+        }
+        $('openImageBtn').disabled = false;
+      }
+      else {
+        $('examImage').removeAttribute('src');
+        $('imageSub').textContent = state.selectedExamFolio
+          ? `Sin evidencia para el examen ${state.selectedExamFolio}`
+          : 'Sin evidencia';
+        $('imageMeta').textContent = 'Sin ruta';
+        $('evidenceHint').textContent = state.selectedExamFolio
+          ? `Evidencia actual: no hay captura asociada de ${state.selectedExamFolio} para esta pregunta.`
+          : 'Evidencia actual: no disponible para esta pregunta.';
+        $('openImageBtn').disabled = true;
+      }
+    }
+
+    function renderCanonical(slotQ){
+      const slotNum = Number(slotQ?.numeroPregunta);
+      const resolvedNum = effectiveReviewNumForSlot(slotNum);
+      const canonicalQ = resolveCanonicalQuestionForSlot(slotNum) || slotQ;
+      const selected = selectedPageCapture();
+
+      const select = $('canonicalQuestionSelect');
+      const candidates = candidateQuestionsForSlot(slotNum).slice().sort((a, b) => Number(a.numeroPregunta) - Number(b.numeroPregunta));
+      select.innerHTML = '';
+      const autoOption = document.createElement('option');
+      autoOption.value = '';
+      autoOption.textContent = `Auto (Q${resolvedNum})`;
+      select.appendChild(autoOption);
+      candidates.forEach((candidate) => {
+        const option = document.createElement('option');
+        option.value = String(candidate.numeroPregunta);
+        option.textContent = `Q${candidate.numeroPregunta} - P${candidate.pagina}`;
+        select.appendChild(option);
+      });
+      if (!candidates.length || !candidates.some((candidate) => Number(candidate.numeroPregunta) === resolvedNum)) {
+        const fallback = document.createElement('option');
+        fallback.value = String(resolvedNum);
+        fallback.textContent = `Q${resolvedNum}`;
+        select.appendChild(fallback);
+      }
+      if (state.manualCanonicalBySlot.has(slotKey(slotNum))) {
+        select.value = String(resolvedNum);
+      } else {
+        select.value = '';
+      }
+      select.disabled = Boolean(state.selectedPageCaptureId) && candidates.length === 0;
+
+      const slotTag = state.selectedPageCaptureId ? `ID de página activo: ${state.selectedPageCaptureId}` : 'Vista global';
+      const mapTag = resolvedNum !== slotNum ? ` | mapeada a canónica Q${resolvedNum}` : '';
+      $('qHeader').textContent = `Q${slotNum} · Página ${slotQ?.pagina ?? '-'}${resolvedNum !== slotNum ? ` · Canónica Q${resolvedNum}` : ''}`;
+      $('qContextRibbon').textContent = `${slotTag}${selected?.folio ? ` · Folio ${selected.folio}` : ''}${mapTag}`;
+      $('qPrompt').textContent = canonicalQ?.canonical?.prompt || '-';
+      $('canonicalCorrect').textContent = canonicalQ?.canonical?.correctOption || '-';
+
+      const host = $('canonicalOptions');
+      host.innerHTML = '';
+      const opts = canonicalQ?.canonical?.options || {};
+      const correct = String(canonicalQ?.canonical?.correctOption || '');
+      letters.forEach((k, idx) => {
+        const d = document.createElement('div');
+        d.className = `opt${k === correct ? ' correct' : ''}`;
+        d.style.setProperty('--stagger', String(idx));
+        d.innerHTML = `<strong>${k}</strong><div>${opts[k] || '-'}</div>`;
+        host.appendChild(d);
+      });
+      pulseById('qHeader');
+      pulseById('qPrompt');
+      pulseById('canonicalOptions');
+
+      const ocrPrompt = slotQ?.ocrOnly?.prompt || '';
+      const ocrConfidence = Number(slotQ?.ocrOnly?.promptConfidence ?? 0);
+      const aggregate = Number(slotQ?.ocrOnly?.aggregateConfidence ?? 0);
+      const currentScore = similarityScore(ocrPrompt, canonicalQ?.canonical?.prompt || '');
+      const rankedCandidates = candidates
+        .map((candidate) => ({
+          num: Number(candidate.numeroPregunta),
+          sim: similarityScore(ocrPrompt, candidate?.canonical?.prompt || '')
+        }))
+        .sort((a, b) => b.sim - a.sim);
+      const bestAlt = rankedCandidates[0] ?? null;
+      const promptPct = Math.round(ocrConfidence * 100);
+      const aggPct = Math.round(aggregate * 100);
+      const simPct = Math.round(currentScore * 100);
+      $('metricPromptConfidence').textContent = `${promptPct}%`;
+      $('metricAggregateConfidence').textContent = `${aggPct}%`;
+      $('metricSimilarity').textContent = `${simPct}%`;
+      $('matchMeterFill').style.width = `${Math.max(0, Math.min(100, simPct))}%`;
+      $('matchMeterLabel').textContent = simPct >= 80
+        ? 'Coincidencia alta entre OCR y canónico.'
+        : simPct >= 55
+          ? 'Coincidencia media, revisar visualmente.'
+          : 'Coincidencia baja, validar con máxima atención.';
+      $('ocrPromptText').textContent = `Texto OCR de referencia (lote): ${ocrPrompt || '(sin dato)'}`;
+      $('ocrConfidenceText').textContent = `Confianza OCR prompt: ${promptPct}% | Confianza OCR total: ${aggPct}% | Coincidencia OCR vs canónico asignado: ${simPct}%`;
+
+      const alert = $('alignmentAlert');
+      const hint = $('mappingHint');
+      alert.className = 'alert-strip info';
+      const autoMeta = state.autoCanonicalMetaBySlot.get(slotKey(slotNum));
+      const manualSelected = state.manualCanonicalBySlot.has(slotKey(slotNum));
+
+      if (Boolean(state.selectedPageCaptureId) && candidates.length === 0) {
+        alert.className = 'alert-strip warn';
+        alert.textContent = 'No hay preguntas canónicas con evidencia directa para este ID de página.';
+        hint.textContent = `${slotTag}. Cambia ID de página o revisa el paquete de mapeo.`;
+        return;
+      }
+
+      if (!ocrPrompt) {
+        alert.className = 'alert-strip warn';
+        alert.textContent = 'Sin texto OCR de referencia en esta vista. Confirma manualmente con imagen primaria.';
+        hint.textContent = `${slotTag}${mapTag}.`;
+        return;
+      }
+
+      if (manualSelected) {
+        alert.textContent = `Mapeo manual activo: esta vista usa la pregunta canónica Q${resolvedNum}.`;
+      } else if (resolvedNum !== slotNum) {
+        alert.className = 'alert-strip warn';
+        alert.textContent = `Desalineación detectada: la vista Q${slotNum} se mapeó automáticamente a Q${resolvedNum}.`;
+      } else if (
+        currentScore < 0.2 &&
+        bestAlt &&
+        bestAlt.num !== slotNum &&
+        bestAlt.sim >= currentScore + 0.12
+      ) {
+        alert.className = 'alert-strip warn';
+        alert.textContent = `Asignación incierta: Q${slotNum} tiene ${Math.round(currentScore * 100)}% de coincidencia y Q${bestAlt.num} alcanza ${Math.round(bestAlt.sim * 100)}%.`;
+        hint.textContent = `${slotTag}. Recomendación: valida visualmente y, si corresponde, cambia la asignación canónica a Q${bestAlt.num}.`;
+      } else if (currentScore < 0.2) {
+        alert.className = 'alert-strip warn';
+        alert.textContent = `Asignación incierta: la coincidencia OCR-canónico es muy baja (${Math.round(currentScore * 100)}%).`;
+        hint.textContent = `${slotTag}. No hay una alternativa claramente mejor en esta página; confirma manualmente la pregunta canónica antes de guardar.`;
+      } else {
+        alert.textContent = `Alineación directa: la vista Q${slotNum} usa su misma pregunta canónica.`;
+      }
+
+      const hasCapture = autoMeta?.hasCapture ? 'sí' : 'no';
+      const autoPct = Number.isFinite(autoMeta?.score) ? `${Math.round(autoMeta.score * 100)}%` : '-';
+      hint.textContent = `${slotTag}${mapTag}. Evidencia de esta captura en canónica: ${hasCapture}. Puntaje de mapeo automático: ${autoPct}.${selected?.folio ? ` Folio: ${selected.folio}.` : ''}`;
+    }
+
+    function applyForm(hr){
+      $('promptApproved').value = triValue(hr.promptApproved); $('promptCorrection').value = hr.promptCorrection ?? ''; $('optionsApproved').value = triValue(hr.optionsApproved);
+      $('optA').value = hr.optionsCorrection.A ?? ''; $('optB').value = hr.optionsCorrection.B ?? ''; $('optC').value = hr.optionsCorrection.C ?? ''; $('optD').value = hr.optionsCorrection.D ?? ''; $('optE').value = hr.optionsCorrection.E ?? '';
+      $('correctApproved').value = triValue(hr.correctOptionApproved); $('correctCorrection').value = hr.correctOptionCorrection ?? ''; $('reviewer').value = hr.reviewer ?? ''; $('reviewedAt').value = hr.reviewedAt ?? ''; $('notes').value = hr.notes ?? '';
+      updateConditional(); updateGuide();
+    }
+
+    function collectForm(){ return { promptApproved:tri($('promptApproved').value), promptCorrection:textOrNull($('promptCorrection').value), optionsApproved:tri($('optionsApproved').value),
+      optionsCorrection:{A:textOrNull($('optA').value),B:textOrNull($('optB').value),C:textOrNull($('optC').value),D:textOrNull($('optD').value),E:textOrNull($('optE').value)},
+      correctOptionApproved:tri($('correctApproved').value), correctOptionCorrection:textOrNull($('correctCorrection').value), reviewer:String($('reviewer').value ?? '').trim(), reviewedAt:String($('reviewedAt').value ?? '').trim(), notes:String($('notes').value ?? '').trim() }; }
+
+    function step(id, cls, text){ const el = $(id); el.className = `step ${cls}`; el.textContent = text; }
+    function updateGuide(){
+      const hr = collectForm(); const block = blockers(hr);
+      const guideBox = $('guideBox');
+      if(hr.promptApproved === true) step('stepPrompt','ok','1) Enunciado: confirmado'); else if(hr.promptApproved === false && textOrNull(hr.promptCorrection)) step('stepPrompt','ok','1) Enunciado: corregido'); else if(hr.promptApproved === false) step('stepPrompt','warn','1) Enunciado: falta corrección'); else step('stepPrompt','pending','1) Enunciado: pendiente');
+      if(hr.optionsApproved === true) step('stepOptions','ok','2) Opciones: confirmadas'); else if(hr.optionsApproved === false && letters.some((k)=>textOrNull(hr.optionsCorrection[k]))) step('stepOptions','ok','2) Opciones: corrección capturada'); else if(hr.optionsApproved === false) step('stepOptions','warn','2) Opciones: falta corrección'); else step('stepOptions','pending','2) Opciones: pendiente');
+      if(hr.correctOptionApproved === true) step('stepCorrect','ok','3) Respuesta correcta: confirmada'); else if(hr.correctOptionApproved === false && textOrNull(hr.correctOptionCorrection)) step('stepCorrect','ok','3) Respuesta correcta: corregida'); else if(hr.correctOptionApproved === false) step('stepCorrect','warn','3) Respuesta correcta: falta letra'); else step('stepCorrect','pending','3) Respuesta correcta: pendiente');
+      step('stepSave', block.length ? 'warn' : 'ok', block.length ? `4) Guardado: ${block.length} bloqueo(s)` : '4) Guardado: sin bloqueos críticos');
+      guideBox.classList.remove('alert', 'ready');
+      if (block.length) guideBox.classList.add('alert'); else guideBox.classList.add('ready');
+      const ul = $('reviewChecklist'); ul.innerHTML = '';
+      if(block.length){
+        block.forEach((b)=>{ const li=document.createElement('li'); li.innerHTML = `<strong>⚠ ${b}</strong>`; ul.appendChild(li); });
+      } else {
+        const li=document.createElement('li'); li.innerHTML = '✓ Sin bloqueos críticos; puedes guardar.'; ul.appendChild(li);
+      }
+    }
+
+    function updateConditional(){
+      const p = $('promptApproved').value === 'false', o = $('optionsApproved').value === 'false', c = $('correctApproved').value === 'false';
+      $('promptCorrection').disabled = !p; letters.forEach((k)=>$(`opt${k}`).disabled = !o); $('correctCorrection').disabled = !c;
+    }
+
+    function draft(){
+      const slotNum = currentNum();
+      if(!slotNum) return;
+      const reviewNum = effectiveReviewNumForSlot(slotNum);
+      state.drafts.set(reviewNum, collectForm());
+      setStatus(`Tienes cambios sin guardar para Q${reviewNum}.`, 'unsaved');
+      updateGuide();
+      renderQuestionList();
+    }
+
+    async function save(goNext){
+      const slotNum = currentNum();
+      if(!slotNum) return;
+      const n = effectiveReviewNumForSlot(slotNum);
+      const hr = collectForm();
+      const block = blockers(hr);
+      if(block.length){ setStatus('No se guardó: completa bloqueos en Guía de Decisión.', 'err'); updateGuide(); return; }
+      setStatus(`Guardando Q${n}...`);
+      const res = await fetch(`/api/review/${n}`, { method:'POST', headers:{'content-type':'application/json'}, body:JSON.stringify({ humanReview: hr }) });
+      if(!res.ok){ setStatus(`Error al guardar: ${await res.text()}`, 'err'); return; }
+      const upd = await res.json();
+      state.byQuestion.set(n, { numeroPregunta:n, humanReview:normalizeHumanReview(upd.humanReview) });
+      state.drafts.delete(n);
+      if (upd?.stateVersion) state.stateVersion = String(upd.stateVersion);
+      state.externalChangePending = false;
+      setStatus(`Guardado Q${n} @ ${new Date().toLocaleTimeString()}`, 'ok');
+      renderQuestionList();
+      if(goNext) next();
+    }
+
+    function prev(){ const list = filteredOrder(), n = currentNum(), i = list.indexOf(n); if(i > 0){ state.currentIndex = state.order.indexOf(list[i - 1]); state.evidenceIndex = 0; renderAll(); } }
+    function next(){ const list = filteredOrder(), n = currentNum(), i = list.indexOf(n); if(i >= 0 && i < list.length - 1){ state.currentIndex = state.order.indexOf(list[i + 1]); state.evidenceIndex = 0; renderAll(); } }
+    function applyExamFilter(value){
+      state.selectedExamFolio = value && value !== 'all' ? String(value).toUpperCase() : null;
+      $('examFilter').value = state.selectedExamFolio || 'all';
+      $('examScope').textContent = state.selectedExamFolio ? `Examen activo: ${state.selectedExamFolio}` : 'Examen activo: todos';
+      state.evidenceIndex = 0;
+      refreshPageIdOptions();
+      const list = filteredOrder();
+      if(list.length && !list.includes(currentNum())) state.currentIndex = state.order.indexOf(list[0]);
+      renderAll();
+    }
+    function moveExam(delta){
+      if(!state.examFolios.length) return;
+      const current = state.selectedExamFolio || state.examFolios[0];
+      const idx = state.examFolios.indexOf(current);
+      const nextIdx = idx < 0 ? 0 : (idx + delta + state.examFolios.length) % state.examFolios.length;
+      applyExamFilter(state.examFolios[nextIdx]);
+    }
+    function applyPageCaptureFilter(captureId){
+      if (!captureId || captureId === 'all') {
+        state.selectedPageCaptureId = null;
+      } else {
+        state.selectedPageCaptureId = captureId;
+      }
+      $('pageIdFilter').value = state.selectedPageCaptureId || 'all';
+      if (state.selectedPageCaptureId) {
+        const selected = state.pageCaptures.find((c) => c.captureId === state.selectedPageCaptureId);
+        if (selected?.folio) {
+          state.selectedExamFolio = selected.folio;
+          $('examFilter').value = selected.folio;
+          $('examScope').textContent = `Examen activo: ${selected.folio}`;
+        }
+      }
+      state.evidenceIndex = 0;
+      const list = filteredOrder();
+      if(list.length) state.currentIndex = state.order.indexOf(list[0]);
+      renderAll();
+    }
+    function movePageCapture(delta){
+      const list = availablePageCaptures();
+      if(!list.length) return;
+      const current = state.selectedPageCaptureId || list[0].captureId;
+      const idx = list.findIndex((c) => c.captureId === current);
+      const nextIdx = idx < 0 ? 0 : (idx + delta + list.length) % list.length;
+      applyPageCaptureFilter(list[nextIdx].captureId);
+    }
+
+    function renderAll(){
+      const list = filteredOrder();
+      if (!list.length) {
+        $('imageTitle').innerHTML = '<strong>Sin preguntas para el ID de página activo</strong>';
+        $('imageSub').textContent = state.selectedPageCaptureId
+          ? `ID activo: ${state.selectedPageCaptureId}`
+          : 'Sin contexto activo';
+        $('examImage').removeAttribute('src');
+        $('imageMeta').textContent = 'Sin ruta';
+        $('evidenceHint').textContent = 'No hay preguntas con evidencia directa para este ID de página.';
+        $('qContextRibbon').textContent = 'Sin contexto activo.';
+        $('qHeader').textContent = 'Sin pregunta canónica disponible';
+        $('qPrompt').textContent = '-';
+        $('canonicalCorrect').textContent = '-';
+        $('canonicalOptions').innerHTML = '';
+        $('metricPromptConfidence').textContent = '-';
+        $('metricAggregateConfidence').textContent = '-';
+        $('metricSimilarity').textContent = '-';
+        $('matchMeterFill').style.width = '0%';
+        $('matchMeterLabel').textContent = 'Sin medición disponible.';
+        $('ocrPromptText').textContent = 'Texto OCR detectado: (sin dato)';
+        $('ocrConfidenceText').textContent = 'Confianza OCR: -';
+        $('alignmentAlert').className = 'alert-strip warn';
+        $('alignmentAlert').textContent = 'No hay preguntas mapeables para el ID de página seleccionado.';
+        $('mappingHint').textContent = 'Selecciona otro ID de página con evidencia o revisa la construcción del paquete.';
+        $('canonicalQuestionSelect').innerHTML = '<option value="">Sin candidatos</option>';
+        $('canonicalQuestionSelect').disabled = true;
+        renderQuestionList();
+        return;
+      }
+
+      const current = currentNum();
+      if (!list.includes(current)) {
+        state.currentIndex = state.order.indexOf(list[0]);
+      }
+      const q = currentQuestion();
+      if(!q) {
+        renderQuestionList();
+        return;
+      }
+      const reviewNum = effectiveReviewNumForSlot(q.numeroPregunta);
+      $('imageTitle').innerHTML = `<strong>Pregunta ${q.numeroPregunta}</strong> - Pagina ${q.pagina}`;
+      renderImage(q);
+      renderCanonical(q);
+      applyForm(getHR(reviewNum));
+      renderQuestionList();
+    }
+
+    function applyServerState(data, preserveUi){
+      const keepUi = Boolean(preserveUi);
+      const prevNum = currentNum();
+      const prevExam = state.selectedExamFolio;
+      const prevPageFilter = state.pageFilter;
+      const prevPageCaptureId = state.selectedPageCaptureId;
+
+      state.packet = data.packet;
+      state.template = data.template;
+      state.order = (state.packet.questions || []).map((q)=>q.numeroPregunta).sort((a,b)=>a-b);
+      state.byQuestion = new Map((state.template.questions || []).map((q)=>[q.numeroPregunta,q]));
+      state.stateVersion = data.stateVersion ?? state.stateVersion;
+      $('metaLine').textContent = `Template: ${data.templatePath} | Packet: ${data.packetPath}`;
+
+      state.pageCaptures = collectPageCaptures();
+      const folios = new Set();
+      (state.packet.questions || []).forEach((q) => {
+        rawEvidenceList(q).forEach((e) => { if(e.folio) folios.add(e.folio); });
+      });
+      state.examFolios = Array.from(folios).sort();
+
+      const examSelect = $('examFilter');
+      examSelect.innerHTML = '<option value="all">Todos</option>';
+      state.examFolios.forEach((folio) => {
+        const o = document.createElement('option');
+        o.value = folio;
+        o.textContent = folio;
+        examSelect.appendChild(o);
+      });
+      let nextExam = keepUi ? prevExam : null;
+      if (nextExam && !state.examFolios.includes(nextExam)) nextExam = null;
+      if (!nextExam && state.examFolios.length) nextExam = state.examFolios[0];
+      state.selectedExamFolio = nextExam;
+      examSelect.value = state.selectedExamFolio || 'all';
+      $('examScope').textContent = state.selectedExamFolio ? `Examen activo: ${state.selectedExamFolio}` : 'Examen activo: todos';
+
+      const pages = [...new Set((state.packet.questions || []).map((q)=>Number(q.pagina)).filter((n)=>Number.isFinite(n)))].sort((a,b)=>a-b);
+      const pageSelect = $('pageFilter');
+      pageSelect.innerHTML = '<option value="all">Todas</option>';
+      pages.forEach((p)=>{ const o = document.createElement('option'); o.value = String(p); o.textContent = `Pagina ${p}`; pageSelect.appendChild(o); });
+      let nextPageFilter = keepUi ? prevPageFilter : 'all';
+      if (nextPageFilter !== 'all' && !pages.includes(Number(nextPageFilter))) nextPageFilter = 'all';
+      state.pageFilter = nextPageFilter;
+      pageSelect.value = state.pageFilter;
+
+      state.selectedPageCaptureId =
+        keepUi && prevPageCaptureId && state.pageCaptures.some((c) => c.captureId === prevPageCaptureId)
+          ? prevPageCaptureId
+          : null;
+      refreshPageIdOptions();
+
+      const list = filteredOrder();
+      if (keepUi && list.includes(prevNum)) {
+        state.currentIndex = state.order.indexOf(prevNum);
+      } else if (list.length) {
+        state.currentIndex = state.order.indexOf(list[0]);
+      } else if (state.order.length) {
+        state.currentIndex = 0;
+      }
+      renderAll();
+    }
+
+    async function load(preserveUi){
+      const res = await fetch('/api/state', { cache: 'no-store' });
+      if(!res.ok) throw new Error(await res.text());
+      const data = await res.json();
+      applyServerState(data, preserveUi);
+    }
+
+    async function syncTick(){
+      if (state.syncInFlight) return;
+      state.syncInFlight = true;
+      try {
+        const res = await fetch('/api/state', { cache: 'no-store' });
+        if(!res.ok) return;
+        const data = await res.json();
+        const nextVersion = data?.stateVersion ? String(data.stateVersion) : null;
+        if(!nextVersion || !state.stateVersion) {
+          state.stateVersion = nextVersion || state.stateVersion;
+          return;
+        }
+        if(nextVersion === state.stateVersion) return;
+
+        if(state.drafts.size > 0) {
+          state.externalChangePending = true;
+          setStatus('Cambios externos detectados. Guarda tus cambios para sincronizar.', 'err');
+          return;
+        }
+
+        state.externalChangePending = false;
+        setStatus('Cambios externos detectados. Sincronizando datos...', 'ok');
+        applyServerState(data, true);
+      } catch {
+      } finally {
+        state.syncInFlight = false;
+      }
+    }
+
+    function startAutoSync(){
+      if(state.syncTimer) clearInterval(state.syncTimer);
+      state.syncTimer = setInterval(syncTick, AUTO_SYNC_MS);
+    }
+
+    function bind(){
+      $('pageFilter').onchange = (e) => {
+        state.pageFilter = e.target.value;
+        refreshPageIdOptions();
+        const list = filteredOrder();
+        if(list.length && !list.includes(currentNum())) state.currentIndex = state.order.indexOf(list[0]);
+        renderAll();
+      };
+      $('examFilter').onchange = (e) => applyExamFilter(e.target.value);
+      $('prevExamBtn').onclick = () => moveExam(-1);
+      $('nextExamBtn').onclick = () => moveExam(1);
+      $('pageIdFilter').onchange = (e) => applyPageCaptureFilter(e.target.value);
+      $('prevPageIdBtn').onclick = () => movePageCapture(-1);
+      $('nextPageIdBtn').onclick = () => movePageCapture(1);
+      $('prevBtn').onclick = prev; $('nextBtn').onclick = next; $('saveBtn').onclick = () => save(false); $('saveNextBtn').onclick = () => save(true);
+      $('markNowBtn').onclick = () => { $('reviewedAt').value = new Date().toISOString(); draft(); };
+      ['promptApproved','optionsApproved','correctApproved','correctCorrection','promptCorrection','reviewer','reviewedAt','notes','optA','optB','optC','optD','optE'].forEach((id)=>{
+        const el = $(id); const ev = (id.startsWith('opt') || id === 'promptCorrection' || id === 'reviewer' || id === 'reviewedAt' || id === 'notes') ? 'input' : 'change';
+        el.addEventListener(ev, () => { updateConditional(); draft(); });
+      });
+      $('zoomInBtn').onclick = () => { state.zoom = Math.min(3, Number((state.zoom + 0.1).toFixed(2))); $('examImage').style.transform = `scale(${state.zoom})`; };
+      $('zoomOutBtn').onclick = () => { state.zoom = Math.max(0.5, Number((state.zoom - 0.1).toFixed(2))); $('examImage').style.transform = `scale(${state.zoom})`; };
+      $('resetZoomBtn').onclick = () => { state.zoom = 1; $('examImage').style.transform = 'scale(1)'; };
+      $('openImageBtn').onclick = () => { const q = currentQuestion(); if(!q) return; const ev = evidenceList(q)[state.evidenceIndex]; if(!ev?.imagePath) return; window.open(`/api/image?path=${encodeURIComponent(ev.imagePath)}&t=${Date.now()}`, '_blank', 'noopener'); };
+      $('canonicalQuestionSelect').onchange = (e) => {
+        const slotNum = currentNum();
+        if(!slotNum) return;
+        const selected = Number(e.target.value);
+        const key = slotKey(slotNum);
+        if (Number.isFinite(selected) && selected > 0) {
+          state.manualCanonicalBySlot.set(key, selected);
+        } else {
+          state.manualCanonicalBySlot.delete(key);
+        }
+        state.evidenceIndex = 0;
+        renderAll();
+      };
+      $('crossExamToggle').onchange = (e) => {
+        state.includeCrossExamEvidence = Boolean(e.target.checked);
+        state.evidenceIndex = 0;
+        renderAll();
+      };
+      window.addEventListener('keydown', (e) => { if(e.key === 'ArrowLeft'){ e.preventDefault(); prev(); } else if(e.key === 'ArrowRight'){ e.preventDefault(); next(); } else if(e.ctrlKey && (e.key === 's' || e.key === 'S')){ e.preventDefault(); save(false); } else if(e.altKey && (e.key === 's' || e.key === 'S')){ e.preventDefault(); save(true); } });
+    }
+
+    bind();
+    load()
+      .then(() => { startAutoSync(); })
+      .catch((error) => { $('metaLine').textContent = `Error cargando: ${error.message}`; setStatus(`Error cargando estado: ${error.message}`, 'err'); });
+  </script>
+</body>
+</html>

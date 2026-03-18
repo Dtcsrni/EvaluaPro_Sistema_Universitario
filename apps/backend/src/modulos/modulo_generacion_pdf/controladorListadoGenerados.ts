@@ -19,6 +19,7 @@ import { normalizarParaNombreArchivo } from '../../compartido/utilidades/texto';
 import { Docente } from '../modulo_autenticacion/modeloDocente';
 import { resolverNumeroPaginasPlantilla } from './domain/resolverNumeroPaginasPlantilla';
 import { TEMPLATE_VERSION_TV3 } from './domain/tv3Compat';
+import { Entrega } from '../modulo_vinculacion_entrega/modeloEntrega';
 
 type BancoPreguntaLean = {
   _id: unknown;
@@ -30,6 +31,28 @@ type BancoPreguntaLean = {
     opciones: Array<{ texto: string; esCorrecta: boolean }>;
   }>;
 };
+
+const REGEX_OBJECT_ID = /^[0-9a-fA-F]{24}$/;
+
+function normalizarObjectId(valor: unknown): string {
+  if (typeof valor === 'string') {
+    const trimmed = valor.trim();
+    return REGEX_OBJECT_ID.test(trimmed) ? trimmed : '';
+  }
+  if (valor && typeof valor === 'object') {
+    const conHex = valor as { toHexString?: () => string };
+    if (typeof conHex.toHexString === 'function') {
+      const hex = String(conHex.toHexString()).trim();
+      return REGEX_OBJECT_ID.test(hex) ? hex : '';
+    }
+    const conOid = valor as { $oid?: unknown };
+    if (typeof conOid.$oid === 'string') {
+      const hex = conOid.$oid.trim();
+      return REGEX_OBJECT_ID.test(hex) ? hex : '';
+    }
+  }
+  return '';
+}
 
 function construirNombrePdfExamen(parametros: {
   folio: string;
@@ -84,7 +107,44 @@ export async function listarExamenesGenerados(req: SolicitudDocente, res: Respon
   const limite = Number(req.query.limite ?? 0);
   const consulta = ExamenGenerado.find(filtro).sort({ generadoEn: -1, _id: -1 });
   const examenes = await (limite > 0 ? consulta.limit(limite) : consulta).lean();
-  res.json({ examenes });
+
+  const examenesIds = examenes
+    .map((examen) => String((examen as unknown as { _id?: unknown })?._id ?? '').trim())
+    .filter(Boolean);
+
+  const entregas = examenesIds.length
+    ? await Entrega.find({ docenteId, examenGeneradoId: { $in: examenesIds } })
+      .sort({ createdAt: -1 })
+      .lean()
+    : [];
+
+  const entregaPorExamenId = new Map<string, { acordeonEntregado: boolean; bonoAcordeon: number }>();
+  for (const entrega of entregas) {
+    const examenId = String((entrega as unknown as { examenGeneradoId?: unknown })?.examenGeneradoId ?? '').trim();
+    if (!examenId || entregaPorExamenId.has(examenId)) continue;
+    const acordeonEntregado = Boolean((entrega as unknown as { acordeonEntregado?: unknown })?.acordeonEntregado);
+    const bonoAcordeonRaw = Number((entrega as unknown as { bonoAcordeon?: unknown })?.bonoAcordeon ?? 0);
+    entregaPorExamenId.set(examenId, {
+      acordeonEntregado,
+      bonoAcordeon: acordeonEntregado
+        ? Number.isFinite(bonoAcordeonRaw)
+          ? Math.max(0, Math.min(0.5, bonoAcordeonRaw))
+          : 0.25
+        : 0
+    });
+  }
+
+  const examenesConEntrega = examenes.map((examen) => {
+    const examenId = String((examen as unknown as { _id?: unknown })?._id ?? '').trim();
+    const entrega = entregaPorExamenId.get(examenId);
+    return {
+      ...examen,
+      acordeonEntregado: Boolean(entrega?.acordeonEntregado),
+      bonoAcordeon: Number(entrega?.bonoAcordeon ?? 0)
+    };
+  });
+
+  res.json({ examenes: examenesConEntrega });
 }
 
 /**
@@ -203,21 +263,33 @@ export async function regenerarPdfExamen(req: SolicitudDocente, res: Response) {
     | { ordenPreguntas?: unknown; ordenOpcionesPorPregunta?: unknown }
     | undefined;
 
-  const preguntasIds = Array.isArray((examen as unknown as { preguntasIds?: unknown })?.preguntasIds)
-    ? (((examen as unknown as { preguntasIds?: unknown })?.preguntasIds ?? []) as unknown[]).map((x) => String(x))
+  const preguntasIdsBrutos = Array.isArray((examen as unknown as { preguntasIds?: unknown })?.preguntasIds)
+    ? (((examen as unknown as { preguntasIds?: unknown })?.preguntasIds ?? []) as unknown[])
     : Array.isArray(mapaVariante?.ordenPreguntas)
-      ? (mapaVariante?.ordenPreguntas as unknown[]).map((x) => String(x))
+      ? (mapaVariante?.ordenPreguntas as unknown[])
       : [];
 
-  if (preguntasIds.length === 0) {
+  const preguntasIds = preguntasIdsBrutos.map((x) => normalizarObjectId(x)).filter((id) => Boolean(id));
+  const preguntasIdsUnicos = Array.from(new Set(preguntasIds));
+
+  if (preguntasIdsUnicos.length === 0) {
     throw new ErrorAplicacion('EXAMEN_SIN_PREGUNTAS', 'No se pudo determinar el set de preguntas del examen', 409);
   }
 
-  const preguntasDb = (await BancoPregunta.find({ docenteId, _id: { $in: preguntasIds } }).lean()) as BancoPreguntaLean[];
-  if (!Array.isArray(preguntasDb) || preguntasDb.length !== preguntasIds.length) {
+  if (preguntasIdsUnicos.length !== preguntasIdsBrutos.length) {
+    throw new ErrorAplicacion(
+      'EXAMEN_PREGUNTAS_IDS_INVALIDOS',
+      'El examen contiene preguntasIds invalidos para regeneracion. Reconciliar preguntasIds y reintentar.',
+      409,
+      { totalIds: preguntasIdsBrutos.length, idsValidos: preguntasIdsUnicos.length }
+    );
+  }
+
+  const preguntasDb = (await BancoPregunta.find({ docenteId, _id: { $in: preguntasIdsUnicos } }).lean()) as BancoPreguntaLean[];
+  if (!Array.isArray(preguntasDb) || preguntasDb.length !== preguntasIdsUnicos.length) {
     throw new ErrorAplicacion(
       'PREGUNTAS_NO_DISPONIBLES',
-      `No se pudieron cargar todas las preguntas del examen (esperadas: ${preguntasIds.length}, encontradas: ${preguntasDb.length})`,
+      `No se pudieron cargar todas las preguntas del examen (esperadas: ${preguntasIdsUnicos.length}, encontradas: ${preguntasDb.length})`,
       409
     );
   }
@@ -225,7 +297,7 @@ export async function regenerarPdfExamen(req: SolicitudDocente, res: Response) {
   const porId = new Map<string, BancoPreguntaLean>();
   for (const p of preguntasDb) porId.set(String(p._id), p);
 
-  const preguntasBase = preguntasIds.map((id) => {
+  const preguntasBase = preguntasIdsUnicos.map((id) => {
     const pregunta = porId.get(String(id));
     if (!pregunta) {
       throw new ErrorAplicacion('PREGUNTA_FALTANTE', 'Pregunta faltante al regenerar', 409);
@@ -279,7 +351,20 @@ export async function regenerarPdfExamen(req: SolicitudDocente, res: Response) {
     });
 
   const paginasObjetivo = numeroPaginas;
-  const resultadoPdf = await generarConPaginas(paginasObjetivo);
+  let resultadoPdf;
+  try {
+    resultadoPdf = await generarConPaginas(paginasObjetivo);
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    if (msg.includes('Layout invalido: densidad insuficiente')) {
+      throw new ErrorAplicacion(
+        'LAYOUT_DENSIDAD_INSUFICIENTE',
+        msg,
+        409
+      );
+    }
+    throw err;
+  }
 
   const { pdfBytes, paginas, mapaOmr, preguntasRestantes } = resultadoPdf;
 
