@@ -44,24 +44,15 @@ Asegurar confiabilidad funcional y de seguridad del sistema completo en cada cam
 - Hardening aplicado:
   - `CI Backend Module` prepara runtime `sharp` en linux (`npm install --no-save --include=optional --os=linux --cpu=x64 sharp`) para evitar fallos de dependencias nativas.
 
-## Proteccion de rama main (Ruleset)
+## Politica actual de rama main
 - Ruleset objetivo: `main-v1b-minimo`.
 - Alcance: `refs/heads/main`.
-- Reglas activas:
-  - bloqueo de borrado de rama (`deletion`),
-  - bloqueo de force-push (`non_fast_forward`),
-  - PR obligatorio sin aprobación mínima,
-  - descarte de approvals stale al recibir nuevos commits,
-  - resolucion de conversaciones no obligatoria,
-  - branch actualizado obligatoriamente antes de merge (`strict required status checks policy`).
-- Checks requeridos para merge:
-  - `Verificaciones Core (PR bloqueante)` (`CI Checks`).
-  - `Verificaciones Extendidas (Main/Release)` (`CI Checks`, `main/release`).
-  - `Installer Windows (MSI + Bundle)` (`CI Installer Windows`).
-  - `Security CodeQL (JS/TS)` (`Security CodeQL`).
+- Estado actual:
+  - `main` no exige pull request obligatorio mientras el proyecto siga en etapa no estable.
+  - el ruleset remoto existe, pero su `enforcement` está deshabilitado.
+  - los checks CI siguen recomendados para validar cambios antes de sincronizar, pero no bloquean el push directo a `main`.
 - Nota operativa:
-  - los workflows modulares por `paths` no se marcan como `required` para evitar PR bloqueados por checks no disparados.
-  - el contrato de ruleset exige reglas base (`deletion`, `non_fast_forward`, `pull_request`, `required_status_checks`) y prohíbe marcar `Backend Module`, `Frontend Module`, `Portal Module` y `Docs Module` como checks requeridos de merge.
+  - cuando el producto entre a fase estable, se puede reactivar el ruleset y volver a exigir PR + checks obligatorios.
 
 ## Flujos criticos cubiertos
 - Flujo de examen end-to-end backend.
@@ -77,7 +68,7 @@ Asegurar confiabilidad funcional y de seguridad del sistema completo en cada cam
 
 ## Matriz unica de gates MVP comercial
 ### Gate de merge (main)
-- `Verificaciones Core (PR bloqueante)`
+- `Verificaciones Core`
 - `Verificaciones Extendidas (Main/Release)`
 - `Installer Windows (MSI + Bundle)`
 - `Security CodeQL (JS/TS)`
@@ -191,4 +182,3 @@ Todo cambio en:
 - calificacion,
 - sincronizacion,
 debe acompanarse de prueba nueva o ajuste de regresion.
-

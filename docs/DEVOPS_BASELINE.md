@@ -40,25 +40,12 @@ Fecha de baseline: 2026-02-13.
 - Los modulos no exitosos reportan fallo localizado y los modulos sanos siguen entregando señal en verde.
 - `CI Checks` se mantiene como señal integradora global para release gating.
 
-## Proteccion de rama main (Ruleset activo)
-  - bloqueo de borrado de rama (`deletion`),
-  - bloqueo de force-push (`non_fast_forward`),
-  - pull request obligatorio sin aprobación mínima,
-  - descarte de approvals stale al recibir nuevos commits,
-  - resolucion de conversaciones no obligatoria,
-  - branch actualizado obligatoriamente antes de merge (`strict required status checks policy`).
-  - `Verificaciones Core (PR bloqueante)` (workflow `CI Checks`).
-  - `Verificaciones Extendidas (Main/Release)` (workflow `CI Checks`, en `main/release`).
-  - `Installer Windows (MSI + Bundle)` (workflow `CI Installer Windows`).
-  - `Security CodeQL (JS/TS)` (workflow `Security CodeQL`).
-  - los workflows modulares con filtros por `paths` no se marcan como required para evitar bloqueos por checks no disparados.
-  - contrato de ruleset endurecido: se validan como obligatorios `deletion`, `non_fast_forward`, `pull_request`, `required_status_checks` y se rechaza configurar `Backend Module`, `Frontend Module`, `Portal Module` o `Docs Module` como checks requeridos de merge.
-  - validacion automatizada del ruleset con:
-    - `npm run ruleset:check`
-    - `npm run ruleset:apply` (idempotente, requiere token mantenedor).
-  - auditoria consolidada de política CI:
-    - `npm run ci:policy:audit` (contrato + ruleset policy tests + release policy tests + security policy tests)
-    - `npm run ci:policy:audit:remote` (incluye además verificación del ruleset remoto en GitHub)
+## Politica actual de rama main
+  - el ruleset remoto `main-v1b-minimo` permanece definido, pero con `enforcement` deshabilitado.
+  - no hay pull request obligatorio para publicar en `main` durante la etapa no estable.
+  - los workflows `CI Checks`, `CI Installer Windows` y `Security CodeQL` siguen siendo referencia de calidad recomendada, no bloqueo de push.
+  - los workflows modulares con filtros por `paths` se mantienen como señal diagnóstica por dominio.
+  - cuando el proyecto entre a fase estable, se puede reactivar el ruleset y volver a exigir PR + checks requeridos.
 
 ## Fallback y resiliencia
 - Fallback de pipeline: aislamiento por workflow (degradacion por dominio, no falla sistémica de toda la malla).
@@ -81,7 +68,7 @@ Fecha de baseline: 2026-02-13.
    - `.github/workflows/security-codeql.yml` (`Security CodeQL`).
  - Secret scanning:
    - habilitar en GitHub Advanced Security cuando el plan lo permita.
-   - fallback operativo: auditoria de secretos por proceso manual documentado en PR/release.
+   - fallback operativo: auditoria de secretos por proceso manual documentado en release/handoff.
  - Compliance:
    - `npm run test:compliance:policy`
    - `npm run test:compliance:dsr-flow`
@@ -107,4 +94,3 @@ Fecha de baseline: 2026-02-13.
 - Trazabilidad multi-sesion de agentes centralizada en:
   - `AGENTS.md`
   - `docs/IA_TRAZABILIDAD_AGENTES.md`
-

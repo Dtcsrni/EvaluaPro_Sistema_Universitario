@@ -192,12 +192,13 @@ Policy:
 - `reports/qa/latest/**`
 
 ## Quality gates policy
-- Every PR must pass `core`.
-- `main`/`release/*` must pass `core` + `extended`.
+- Every PR, when used, should pass `core`.
+- Direct updates to `main` in non-stable stage should pass `core` whenever feasible.
+- `main`/`release/*` should pass `core` + `extended` before stable promotion.
 - `package` remains isolated in its own workflow.
 
 ## Exit criteria
-- PR is green only when all `core` stages pass.
+- A PR, when used, is green only when all `core` stages pass.
 - Mainline/release is green only when all `core` + `extended` stages pass.
 - Stable release candidates require 10 consecutive green runs without flaky infra failures >10%.
 

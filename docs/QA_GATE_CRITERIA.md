@@ -36,7 +36,7 @@ Definir criterios verificables para aprobar una release candidata antes de la va
 ## Trazabilidad requisito -> prueba -> evidencia -> workflow
 | Requisito | Prueba/Gate | Evidencia | Workflow |
 | --- | --- | --- | --- |
-| Merge seguro a `main` | `Verificaciones Core (PR bloqueante)` | Logs + artefactos de CI | `CI Checks` |
+| Merge seguro a `main` | `Verificaciones Core` | Logs + artefactos de CI | `CI Checks` |
 | Cobertura de regresion extendida | `Verificaciones Extendidas (Main/Release)` | `reports/qa/latest/*` | `CI Checks` |
 | Instalador comercial reproducible | `npm run test:wix:policy` + build MSI/Bundle | `dist/installer/*` | `CI Installer Windows` |
 | SAST baseline | `Security CodeQL (JS/TS)` | Alertas de security tab / run logs | `Security CodeQL` |
