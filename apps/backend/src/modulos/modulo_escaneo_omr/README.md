@@ -29,12 +29,12 @@ Ruta: `apps/backend/src/modulos/modulo_escaneo_omr`.
 - `npm run dev:omr:actual` inicia backend local con perfil base.
 
 ## Runtime OMR único
-- La fachada `servicioOmr.ts` ejecuta el pipeline OMR CV TV3.
+- La fachada `servicioOmr.ts` ejecuta el pipeline OMR CV compatible con TV3/TV4 y opera con TV4 como contrato nominal.
 - El motor operativo se mantiene en `servicioOmrCv.ts` y módulos `omr/*`.
 - No existe fallback runtime alterno.
 
 ## Runtime CV (backend obligatorio)
-- El preproceso CV de OMR TV3 es obligatorio en runtime.
+- El preproceso CV de OMR para plantillas canónicas TV4 es obligatorio en runtime.
 - No existe backend alterno ni fallback `simple`.
 - Si el backend CV no está disponible, el backend falla en arranque (smoke test bloqueante).
 - `OMR_CV_ENGINE_ENABLED` solo se respeta en `NODE_ENV=test` para pruebas internas controladas.
@@ -50,9 +50,9 @@ Ruta: `apps/backend/src/modulos/modulo_escaneo_omr`.
   - `npm -C apps/backend run omr:tv3:validate:real:manual-min`
 
 ## Gate mixto (release)
-- Gate sintético: `omr:tv3:eval:synthetic` (guardrail de regresión controlada).
-- Gate real principal: `omr:tv3:validate:por-folio`.
-- Dataset real principal: `omr_samples_tv3_real_por_folio/`.
+- Gate sintético principal: `omr:tv4:eval:synthetic` (guardrail de regresión controlada).
+- Gate real principal: `omr:tv3:validate:por-folio` sobre baseline `Por Folio` regenerado en TV4.
+- Dataset real principal: `omr_samples_tv3_real_por_folio/` (ruta legacy, contenido canónico TV4).
 - Gate real manual mínimo: `omr:tv3:validate:real:manual-min` como herramienta legacy de diagnóstico.
 - El gate bloqueante en CI backend es `por-folio`.
 - TV4 queda en estado `ready for validation`:
@@ -61,7 +61,7 @@ Ruta: `apps/backend/src/modulos/modulo_escaneo_omr`.
   - `omr:tv4:build:pilot-real`
   - `omr:tv4:validate:pilot-real`
   - `omr:tv4:diagnose:pilot-real`
-- TV4 no debe declararse productivo ni reemplazar completamente a TV3 hasta que el piloto real pase.
+- TV4 ya es el contrato nominal de generación; TV3 queda como compatibilidad de lectura heredada cuando aplique.
 - En `por-folio`, la cobertura se mide por preguntas resueltas:
   - respuesta marcada válida,
   - o resolución confiable de `blank` / `double`.

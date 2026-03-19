@@ -1,7 +1,7 @@
 # Runbook OMR Por Folio Gate
 
 ## Objetivo
-Ejecutar y validar el gate mixto de confiabilidad OMR TV3 con baseline real `Por Folio` para liberar autocalificacion con evidencia trazable.
+Ejecutar y validar el gate mixto de confiabilidad OMR TV4 con baseline real `Por Folio` para liberar autocalificacion con evidencia trazable.
 
 ## Prerrequisitos
 - Node 24.
@@ -15,6 +15,7 @@ Ejecutar y validar el gate mixto de confiabilidad OMR TV3 con baseline real `Por
 ```bash
 npm -C apps/backend run omr:tv3:build:por-folio-dataset
 ```
+El nombre del script es legacy, pero la salida regenerada debe quedar en contrato TV4.
 
 2. Generar/actualizar dataset real manual mínimo:
 ```bash
@@ -56,6 +57,7 @@ npm -C apps/backend run omr:tv3:calibrate:real
 - `reports/qa/latest/omr/synthetic-eval*.json`
 - `reports/qa/latest/omr/tv3-por-folio-validation*.json`
 - `reports/qa/latest/omr/tv3-por-folio-failures*.json`
+Los nombres de artefacto se conservan por compatibilidad histórica aunque el baseline nominal sea TV4.
 - `reports/qa/latest/omr/por-folio-diagnose/*`
 - `reports/qa/latest/omr/tv3-real-manual-validation*.json`
 - `reports/qa/latest/omr/tv3-real-manual-failure-analysis*.json`

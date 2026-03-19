@@ -37,7 +37,7 @@ describe('pdf renderer fallback', () => {
         tipoExamen: 'parcial',
         totalPaginas: 1,
         margenMm: 10,
-        templateVersion: 3
+        templateVersion: 4
       });
 
       expect(resultado.layoutEngine).toBe('pdf-lib-legacy');
@@ -88,7 +88,7 @@ describe('pdf renderer fallback', () => {
         tipoExamen: 'parcial',
         totalPaginas: 1,
         margenMm: 10,
-        templateVersion: 3
+        templateVersion: 4
       });
 
       expect(resultado.layoutEngine).toBe('pdf-lib-legacy');

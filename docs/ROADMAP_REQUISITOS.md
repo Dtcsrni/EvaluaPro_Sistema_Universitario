@@ -8,7 +8,7 @@ Cerrar brechas entre beta operativa y estable auditable, manteniendo trazabilida
 
 ## Fase 1 - Consolidacion de contrato unico
 - API canonica `/api/*` sin rutas versionadas.
-- OMR/PDF TV3 como contrato unico.
+- OMR/PDF TV4 como contrato unico, con paridad estructural respecto a A050929D.
 - Sync schema v2 en backend/frontend/portal/scripts.
 
 Salida:

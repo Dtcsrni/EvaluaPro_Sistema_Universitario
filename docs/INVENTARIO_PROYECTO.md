@@ -26,7 +26,7 @@ Version objetivo: `1.0.0-beta.0`
 - API HTTP: `/api/*`
 - Rutas versionadas retiradas del runtime
 - OMR: contrato sin `engineUsed`
-- PDF: contrato TV3 y paginacion moderna
+- PDF: contrato TV4 canonico con paginacion moderna y paridad estructural A050929D
 - Sync: `schemaVersion: 2`, fingerprint `sync-v2-lww-updatedAt-schema2`
 
 ## 4) Gates de calidad
@@ -53,4 +53,3 @@ Version objetivo: `1.0.0-beta.0`
 - QA manifest: `reports/qa/latest/manifest.json`
 - Gate arquitectura limpia: `reports/qa/latest/clean-architecture.json`
 - Gate estable: `docs/RELEASE_GATE_STABLE.md`
-

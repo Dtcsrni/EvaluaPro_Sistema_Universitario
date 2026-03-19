@@ -5,17 +5,17 @@ Especificacion operativa del formato de examen y su lectura OMR.
 ## Formato de pagina
 - Carta US (`612x792 pt`).
 - Margen configurable (default 8 mm, minimo operativo 4.5 mm).
-- QR por pagina con texto obligatorio: `EXAMEN:<FOLIO>:P<n>:TV3`.
-- Marcas de registro/fiduciales incluidas en layout (TV3).
+- QR por pagina con texto obligatorio: `EXAMEN:<FOLIO>:P<n>:TV4`.
+- Marcas de registro/fiduciales incluidas en layout canonico TV4 con paridad visual A050929D.
 - Encabezado compacto con acentos de color y alta legibilidad para maximizar area util de preguntas por cara.
 
 ## Plantilla OMR soportada
-- Unica plantilla operativa: `TV3`.
-- Auto-calificacion permitida solo para `TV3`.
+- Plantilla operativa canonica: `TV4`.
+- Auto-calificacion operativa sobre examenes generados en `TV4`.
 
 ## Mapa OMR persistido
 Cada examen generado guarda `mapaOmr` con:
-- `templateVersion: 3`
+- `templateVersion: 4`
 - QR por pagina (posicion y tamano)
 - marcas de pagina
 - preguntas por pagina
@@ -26,7 +26,7 @@ Esto permite que el escaneo no dependa de OCR libre, sino de geometria conocida.
 
 ## Pipeline OMR actual
 1. Decodifica imagen y normaliza colorimetria.
-2. Detecta QR TV3 y valida consistencia con `mapaOmr`.
+2. Detecta QR TV4 y valida consistencia con `mapaOmr`.
 3. Elige transformacion geometrica (QR/homografia/escala) con heuristica de coherencia.
 4. Ajusta centros por fiduciales y caja OMR.
 5. Evalua burbujas por rasgos fotometricos e hibridos.

@@ -16,10 +16,13 @@ import {
   type PerfilPlantillaOmr,
   type ResultadoGeneracionPdf
 } from '../shared/tiposPdf';
-import { TEMPLATE_VERSION_TV3 } from '../domain/tv3Compat';
+import {
+  TEMPLATE_VERSION_TV3,
+  TEMPLATE_VERSION_TV4
+} from '../domain/templateCompat';
 
 type PerfilPlantillaRender = PerfilPlantillaOmr & {
-  version: 1 | 3;
+  version: 1 | 3 | 4;
   qrRasterWidth: number;
   burbujaStroke: number;
   burbujaOffsetX: number;
@@ -508,8 +511,8 @@ function partirEnLineas({
   return lineas.length > 0 ? lineas : [''];
 }
 
-function resolverPerfilRender(templateVersion: 1 | 3, perfilBase: PerfilPlantillaOmr): PerfilPlantillaRender {
-  if (templateVersion !== 1 && templateVersion !== TEMPLATE_VERSION_TV3) {
+function resolverPerfilRender(templateVersion: 1 | 3 | 4, perfilBase: PerfilPlantillaOmr): PerfilPlantillaRender {
+  if (templateVersion !== 1 && templateVersion !== TEMPLATE_VERSION_TV3 && templateVersion !== TEMPLATE_VERSION_TV4) {
     throw new Error(`Template version ${String(templateVersion)} no compatible para renderer legacy`);
   }
   const base = PERFIL_OMR_V3_RENDER;
@@ -705,11 +708,10 @@ export class PdfKitRenderer {
     void examen.tipoExamen;
 
     const templateVersion = examen.layout.templateVersion;
-    if (templateVersion !== 1 && templateVersion !== TEMPLATE_VERSION_TV3) {
+    if (templateVersion !== 1 && templateVersion !== TEMPLATE_VERSION_TV3 && templateVersion !== TEMPLATE_VERSION_TV4) {
       throw new Error(`Template version ${String(templateVersion)} no compatible para renderer legacy`);
     }
-    const templateVersionLegacy: 1 | 3 = templateVersion === 1 ? 1 : 3;
-    const perfilOmr = resolverPerfilRender(templateVersionLegacy, this.perfilOmr);
+    const perfilOmr = resolverPerfilRender(templateVersion, this.perfilOmr);
     const margenMm = examen.layout.margenMm;
     const margen = mmAPuntos(margenMm);
     const paginasObjetivo = Number.isFinite(examen.layout.totalPaginas)
@@ -925,6 +927,7 @@ export class PdfKitRenderer {
 
       const yFolio = yQr - qrPadding - 8;
       const yPag = yFolio - 8;
+      const folioQr = examen.folioNormalizado;
       let folioEnEncabezado = false;
       if (yFolio > yCaja + 4) {
         page.drawText(folioQr, { x: xQr, y: yFolio, size: 8.1, font: fuenteBold, color: colorPrimario });
@@ -1645,7 +1648,7 @@ export class PdfKitRenderer {
     return {
       pdfBytes,
       layoutEngine: 'pdf-lib-legacy',
-      layoutTemplateVersion: 3,
+      layoutTemplateVersion: perfilOmr.version === 4 ? 4 : 3,
       paginas: paginasMeta,
       metricasPaginas,
       metricasLayout: {

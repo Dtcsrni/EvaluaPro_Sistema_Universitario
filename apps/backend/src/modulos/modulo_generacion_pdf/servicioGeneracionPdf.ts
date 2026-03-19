@@ -6,8 +6,10 @@
 import { generarExamenIndividual } from './application/usecases/generarExamenIndividual';
 import type { MapaVariante, PreguntaBase } from './servicioVariantes';
 import type { TemplateVersion } from './shared/tiposPdf';
-import { ErrorAplicacion } from '../../compartido/errores/errorAplicacion';
-import { TEMPLATE_VERSION_TV3 } from './domain/tv3Compat';
+import {
+  resolverTemplateVersionCompatible,
+  TEMPLATE_VERSION_DEFAULT
+} from './domain/templateCompat';
 
 /**
  * Fachada que delega al caso de uso modular.
@@ -22,7 +24,7 @@ export async function generarPdfExamen({
   totalPaginas,
   margenMm = 10,
   encabezado,
-  templateVersion = TEMPLATE_VERSION_TV3
+  templateVersion = TEMPLATE_VERSION_DEFAULT
 }: {
   titulo: string;
   folio: string;
@@ -44,13 +46,6 @@ export async function generarPdfExamen({
     logos?: { izquierdaPath?: string; derechaPath?: string };
   };
 }) {
-  if (templateVersion !== undefined && templateVersion !== TEMPLATE_VERSION_TV3) {
-    throw new ErrorAplicacion(
-      'OMR_TEMPLATE_NO_COMPATIBLE',
-      `Template version ${String(templateVersion)} no compatible. Solo TV3 está soportado.`,
-      422
-    );
-  }
   const resultado = await generarExamenIndividual({
     titulo,
     folio,
@@ -61,7 +56,7 @@ export async function generarPdfExamen({
     totalPaginas,
     margenMm,
     encabezado,
-    templateVersion: TEMPLATE_VERSION_TV3
+    templateVersion: resolverTemplateVersionCompatible(templateVersion)
   });
   return resultado;
 }

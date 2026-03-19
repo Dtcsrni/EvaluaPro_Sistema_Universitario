@@ -9,7 +9,7 @@ Version: `1.0.0-beta.0`
   - `apps/frontend`
   - `apps/portal_alumno_cloud`
 - API canonica unificada en `/api/*`.
-- OMR y PDF operan en TV3.
+- OMR y PDF operan en TV4 como contrato canonico, preservando el baseline visual A050929D.
 - Sincronizacion con schema v2.
 - Contrato CI alineado con gate `clean-architecture-check`.
 

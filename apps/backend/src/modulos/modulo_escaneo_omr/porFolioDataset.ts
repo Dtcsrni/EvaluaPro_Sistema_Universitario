@@ -28,7 +28,7 @@ export type CaptureSourcePorFolio = {
   sourcePath: string;
   absoluteImagePath: string;
   sourceGroup: string;
-  templateVersion: 3;
+  templateVersion: 4;
   expectedQr: string;
 };
 
@@ -47,7 +47,7 @@ export type CaptureManifestPorFolio = {
   questionRange: QuestionRangePorFolio;
   sourcePath: string;
   sourceGroup: string;
-  templateVersion: 3;
+  templateVersion: 4;
   expectedQr: string;
 };
 
@@ -70,7 +70,7 @@ export type GroundTruthRowPorFolio = {
 
 export type MapaOmrPaginaPorFolio = {
   numeroPagina: number;
-  templateVersion: 3;
+  templateVersion: 4;
   engineHints?: {
     preferredEngine?: 'cv';
     conservativeDecision?: boolean;
@@ -180,8 +180,8 @@ type GrayImage = {
 
 const LETTER_WIDTH = 612;
 const LETTER_HEIGHT = 792;
-const TV3_QR = { x: 513, y: 34.5, size: 72, padding: 6 };
-const TV3_MARKERS = {
+const TV4_QR = { x: 513, y: 34.5, size: 72, padding: 6 };
+const TV4_MARKERS = {
   size: 10.5,
   quietZone: 2.25,
   tl: { x: 28.5, y: 28.5 },
@@ -224,6 +224,13 @@ function clamp01(value: number) {
 
 function sanitizeCaptureLabel(value: string) {
   return String(value).replace(/[^A-Za-z0-9_-]+/g, '_');
+}
+
+function normalizarQrCanonicoTv4(valor: string | undefined, folio: string, pageNumber: number) {
+  const limpio = String(valor ?? '').trim();
+  if (!limpio) return `EXAMEN:${folio}:P${pageNumber}:TV4`;
+  if (/:TV3\b/i.test(limpio)) return limpio.replace(/:TV3\b/i, ':TV4');
+  return limpio;
 }
 
 function overlapRatio(a: ConnectedBox, b: ConnectedBox) {
@@ -708,8 +715,8 @@ export function buildCaptureSources(
         sourcePath: relativeSource,
         absoluteImagePath,
         sourceGroup: groupKey,
-        templateVersion: 3,
-        expectedQr: item.qrTexto || `EXAMEN:${folio}:P${pageNumber}:TV3`
+        templateVersion: 4,
+        expectedQr: normalizarQrCanonicoTv4(item.qrTexto, folio!, pageNumber)
       });
     });
   }
@@ -725,6 +732,7 @@ export async function deriveCaptureOmrFromImage(
   questionRange: QuestionRangePorFolio;
   panels: DerivedPanel[];
 }> {
+  const qrCanonico = normalizarQrCanonicoTv4(capture.expectedQr, capture.folio, capture.numeroPagina);
   const grayImage = await loadGrayImage(capture.absoluteImagePath);
   const panels = detectOmrPanels(grayImage, profile);
   if (panels.length === 0) {
@@ -794,7 +802,7 @@ export async function deriveCaptureOmrFromImage(
 
   const mapPage: MapaOmrPaginaPorFolio = {
     numeroPagina: capture.numeroPagina,
-    templateVersion: 3,
+    templateVersion: 4,
     engineHints: {
       preferredEngine: 'cv',
       conservativeDecision: true,
@@ -802,12 +810,12 @@ export async function deriveCaptureOmrFromImage(
       useMapCoordinatesStrict: false
     },
     qr: {
-      texto: capture.expectedQr,
-      ...TV3_QR
+      texto: qrCanonico,
+      ...TV4_QR
     },
     marcasPagina: {
       tipo: 'cuadrados',
-      ...TV3_MARKERS
+      ...TV4_MARKERS
     },
     preguntas: mapQuestions
   };
@@ -962,8 +970,8 @@ export async function buildPorFolioDataset(args: {
       questionRange: derived.questionRange,
       sourcePath: capture.sourcePath,
       sourceGroup: capture.sourceGroup,
-      templateVersion: 3,
-      expectedQr: capture.expectedQr
+      templateVersion: 4,
+      expectedQr: normalizarQrCanonicoTv4(capture.expectedQr, capture.folio, capture.numeroPagina)
     });
   }
 
@@ -971,7 +979,7 @@ export async function buildPorFolioDataset(args: {
   const canonicalAnswerKey = await loadCanonicalAnswerKeySnapshot(canonicalAnswerKeyPath);
   const manifest = {
     version: '1',
-    datasetType: 'tv3_real_por_folio',
+    datasetType: 'tv4_real_por_folio',
     thresholds: {
       precisionMin: 1,
       falsePositiveMax: 0,
@@ -1036,9 +1044,9 @@ export async function buildPorFolioDataset(args: {
   );
 
   const readme = [
-    '# OMR TV3 Por Folio',
+    '# OMR TV4 Por Folio',
     '',
-    'Dataset real autocontenido derivado de `omr_samples_tv3/images/Por Folio`.',
+    'Dataset real autocontenido derivado de `omr_samples_tv3/images/Por Folio`, promovido como baseline canonico TV4.',
     '',
     '- `images/`: copias de las capturas originales.',
     '- `maps/`: mapa OMR por captura derivado por deteccion de paneles laterales.',

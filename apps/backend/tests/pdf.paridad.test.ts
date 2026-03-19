@@ -27,23 +27,23 @@ function crearParametros(cantidadPreguntas = 12) {
 
   const mapaVariante: MapaVariante = { ordenPreguntas, ordenOpcionesPorPregunta };
   return {
-    titulo: 'TV3 Contract',
-    folio: 'TV3-TEST-001',
+    titulo: 'TV4 Contract',
+    folio: 'TV4-TEST-001',
     preguntas,
     mapaVariante,
     tipoExamen: 'parcial' as const,
     totalPaginas: 2,
     margenMm: 10,
-    templateVersion: 3 as const
+    templateVersion: 4 as const
   };
 }
 
-describe('pdf tv3 contract', () => {
-  it('genera PDF carta válido y mapa OMR TV3', async () => {
+describe('pdf tv4 contract', () => {
+  it('genera PDF carta válido y mapa OMR TV4', async () => {
     const resultado = await generarPdfExamen(crearParametros(16));
 
     expect(resultado.pdfBytes.byteLength).toBeGreaterThan(10_000);
-    expect(resultado.mapaOmr.templateVersion).toBe(3);
+    expect(resultado.mapaOmr.templateVersion).toBe(4);
     expect(resultado.mapaOmr.markerSpec?.family).toBe('aruco_4x4_50');
     expect(resultado.mapaOmr.blockSpec?.opcionesPorPregunta).toBe(5);
     expect(resultado.mapaOmr.engineHints?.preferredEngine).toBe('cv');
@@ -57,14 +57,14 @@ describe('pdf tv3 contract', () => {
     expect(height).toBeCloseTo(792, 0);
   });
 
-  it('mantiene consistencia de QR TV3 por página', async () => {
+  it('mantiene consistencia de QR TV4 por página', async () => {
     const resultado = await generarPdfExamen(crearParametros(8));
 
     for (const pagina of resultado.paginas) {
-      expect(pagina.qrTexto).toContain(':TV3');
+      expect(pagina.qrTexto).toContain(':TV4');
     }
     for (const paginaOmr of resultado.mapaOmr.paginas) {
-      expect(paginaOmr.qr.texto).toContain(':TV3');
+      expect(paginaOmr.qr.texto).toContain(':TV4');
     }
   });
 });

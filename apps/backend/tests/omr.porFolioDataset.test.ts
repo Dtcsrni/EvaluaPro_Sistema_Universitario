@@ -20,7 +20,7 @@ describe('porFolioDataset', () => {
       items: [
         {
           archivoOriginal: 'cam1.jpg',
-          qrTexto: 'EXAMEN:FOLIO1:P1:TV3',
+          qrTexto: 'EXAMEN:FOLIO1:P1:TV4',
           folioId: 'folio1',
           pagina: 1,
           metodo: 'qr',
@@ -66,7 +66,7 @@ describe('porFolioDataset', () => {
         },
         {
           archivoOriginal: 'cam1.jpg',
-          qrTexto: 'EXAMEN:FOLIO1:P1:TV3',
+          qrTexto: 'EXAMEN:FOLIO1:P1:TV4',
           folioId: 'folio1',
           pagina: 1,
           metodo: 'qr',
@@ -74,7 +74,7 @@ describe('porFolioDataset', () => {
         },
         {
           archivoOriginal: 'cam3.jpg',
-          qrTexto: 'EXAMEN:FOLIO1:P2:TV3',
+          qrTexto: 'EXAMEN:FOLIO1:P2:TV4',
           folioId: 'folio1',
           pagina: 2,
           metodo: 'qr',
@@ -92,10 +92,10 @@ describe('porFolioDataset', () => {
     ]);
     expect(captures[0]).toMatchObject({
       sourceGroup: 'FOLIO1:P1',
-      expectedQr: 'EXAMEN:FOLIO1:P1:TV3',
+      expectedQr: 'EXAMEN:FOLIO1:P1:TV4',
       sourcePath: 'omr_samples_tv3/images/Por Folio/FOLIO1/cam1.jpg'
     });
-    expect(captures[1]?.expectedQr).toBe('EXAMEN:FOLIO1:P1:TV3');
+    expect(captures[1]?.expectedQr).toBe('EXAMEN:FOLIO1:P1:TV4');
   });
 
   it('usa imagen fallback del dataset cuando la fuente historica ya no existe', () => {
@@ -110,7 +110,7 @@ describe('porFolioDataset', () => {
         items: [
           {
             archivoOriginal: 'cam1.jpg',
-            qrTexto: 'EXAMEN:FOLIO1:P1:TV3',
+            qrTexto: 'EXAMEN:FOLIO1:P1:TV4',
             folioId: 'folio1',
             pagina: 1,
             metodo: 'qr',

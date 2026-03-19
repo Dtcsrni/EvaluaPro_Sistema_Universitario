@@ -1,6 +1,6 @@
 {
   "numeroPagina": 2,
-  "templateVersion": 3,
+  "templateVersion": 4,
   "engineHints": {
     "preferredEngine": "cv",
     "conservativeDecision": true,
@@ -8,7 +8,7 @@
     "useMapCoordinatesStrict": false
   },
   "qr": {
-    "texto": "EXAMEN:ECF3E587:P2:TV3",
+    "texto": "EXAMEN:ECF3E587:P2:TV4",
     "x": 513,
     "y": 34.5,
     "size": 72,

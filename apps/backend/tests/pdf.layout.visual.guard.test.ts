@@ -117,7 +117,7 @@ function crearParametros(cantidadPreguntas = 24) {
     tipoExamen: 'parcial' as const,
     totalPaginas: 3,
     margenMm: 10,
-    templateVersion: 3 as const
+    templateVersion: 4 as const
   };
 }
 

@@ -39,10 +39,10 @@ import { construirRecoveryBundle, construirRecoveryManifest } from './domain/rec
 import { resolverNumeroPaginasPlantilla } from './domain/resolverNumeroPaginasPlantilla';
 import { guardarEnPapelera } from '../modulo_papelera/servicioPapelera';
 import {
-  construirMapaVarianteUsadaTv3,
+  construirMapaVarianteUsadaTv4,
   extraerPreguntasUsadasMapaOmr,
-  normalizarPreguntasParaTv3
-} from './domain/tv3Compat';
+  normalizarPreguntasParaTv4
+} from './domain/tv4Compat';
 
 type MapaVariante = {
   ordenPreguntas: string[];
@@ -170,9 +170,9 @@ function formatearDocente(nombreCompleto: unknown): string {
   return `I.S.C. ${n}`;
 }
 
-function resolverTemplateVersionOmr(params: { docenteId: unknown; periodoId?: unknown; plantillaId?: unknown }): 3 {
+function resolverTemplateVersionOmr(params: { docenteId: unknown; periodoId?: unknown; plantillaId?: unknown }): 4 {
   void params;
-  return 3;
+  return 4;
 }
 
 function construirEncabezadoPdf(params: {
@@ -255,7 +255,7 @@ function construirMapaVarianteUsadaDesdeOmr(
   mapaOmr: { paginas?: Array<{ preguntas?: Array<{ idPregunta?: string }> }> }
 ) {
   const usados = extraerPreguntasUsadasMapaOmr(mapaOmr as never);
-  return construirMapaVarianteUsadaTv3(mapaVariante as never, usados);
+  return construirMapaVarianteUsadaTv4(mapaVariante as never, usados);
 }
 
 function construirFirmaVariante(mapaVariante: MapaVariante): string {
@@ -781,7 +781,7 @@ export async function previsualizarPlantilla(req: SolicitudDocente, res: Respons
   const totalDisponibles = preguntasDb.length;
   const numeroPaginas = resolverNumeroPaginasPlantilla(plantilla as unknown as { numeroPaginas?: unknown });
 
-  const preguntasBase = normalizarPreguntasParaTv3(
+  const preguntasBase = normalizarPreguntasParaTv4(
     preguntasDb.map((pregunta) => {
       const version =
         pregunta.versiones.find((item: { numeroVersion: number }) => item.numeroVersion === pregunta.versionActual) ??
@@ -954,7 +954,7 @@ export async function previsualizarPlantillaPdf(req: SolicitudDocente, res: Resp
 
   const numeroPaginas = resolverNumeroPaginasPlantilla(plantilla as unknown as { numeroPaginas?: unknown });
 
-  const preguntasBase = normalizarPreguntasParaTv3(
+  const preguntasBase = normalizarPreguntasParaTv4(
     preguntasDb.map((pregunta) => {
       const version =
         pregunta.versiones.find((item: { numeroVersion: number }) => item.numeroVersion === pregunta.versionActual) ??
@@ -1117,7 +1117,7 @@ export async function generarExamen(req: SolicitudDocente, res: Response) {
   }
   const numeroPaginas = resolverNumeroPaginasPlantilla(plantilla as unknown as { numeroPaginas?: unknown });
 
-  const preguntasBase = normalizarPreguntasParaTv3(
+  const preguntasBase = normalizarPreguntasParaTv4(
     preguntasDb.map((pregunta) => {
       const version =
         pregunta.versiones.find((item: { numeroVersion: number }) => item.numeroVersion === pregunta.versionActual) ??
@@ -1350,7 +1350,7 @@ export async function generarExamenesLote(req: SolicitudDocente, res: Response) 
   }
   const numeroPaginas = resolverNumeroPaginasPlantilla(plantilla as unknown as { numeroPaginas?: unknown });
 
-  const preguntasBase = normalizarPreguntasParaTv3(
+  const preguntasBase = normalizarPreguntasParaTv4(
     preguntasDb.map((pregunta) => {
       const version =
         pregunta.versiones.find((item: { numeroVersion: number }) => item.numeroVersion === pregunta.versionActual) ??
@@ -1371,7 +1371,7 @@ export async function generarExamenesLote(req: SolicitudDocente, res: Response) 
     periodoId: plantilla.periodoId,
     plantillaId: plantilla._id
   });
-  let preguntasBaseLote: ReturnType<typeof normalizarPreguntasParaTv3> = [];
+  let preguntasBaseLote: ReturnType<typeof normalizarPreguntasParaTv4> = [];
   let totalReactivosLote = 0;
   {
     const preguntasCandidatas = ordenarPreguntasDeterminista(preguntasBase, hash32(`${String(plantilla._id)}:${loteId}:lote-base`));
@@ -1415,7 +1415,7 @@ export async function generarExamenesLote(req: SolicitudDocente, res: Response) 
     }
 
     const preguntasPorId = new Map(preguntasBase.map((pregunta) => [String(pregunta.id), pregunta]));
-    preguntasBaseLote = normalizarPreguntasParaTv3(
+    preguntasBaseLote = normalizarPreguntasParaTv4(
       idsPreguntasLote
         .map((id) => preguntasPorId.get(id))
         .filter((pregunta): pregunta is NonNullable<typeof pregunta> => Boolean(pregunta))

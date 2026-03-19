@@ -1,6 +1,6 @@
-# OMR TV3 Por Folio
+# OMR TV4 Por Folio
 
-Dataset real autocontenido derivado de `omr_samples_tv3/images/Por Folio`.
+Dataset real autocontenido derivado de `omr_samples_tv3/images/Por Folio`, promovido como baseline canonico TV4.
 
 - `images/`: copias de las capturas originales.
 - `maps/`: mapa OMR por captura derivado por deteccion de paneles laterales.

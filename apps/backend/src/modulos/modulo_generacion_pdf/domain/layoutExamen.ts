@@ -5,7 +5,10 @@
  * incluyendo dimensiones, margenes, perfiles OMR, etc.
  */
 import type { PerfilPlantillaOmr, TemplateVersion } from '../shared/tiposPdf';
-import { TEMPLATE_VERSION_TV3 } from './tv3Compat';
+import {
+  TEMPLATE_VERSION_TV3,
+  TEMPLATE_VERSION_TV4
+} from './templateCompat';
 
 const MM_A_PUNTOS = 72 / 25.4;
 
@@ -29,12 +32,15 @@ export const PERFIL_OMR_V3: PerfilPlantillaOmr = {
   opcionesPorPregunta: 5
 };
 
+export const PERFIL_OMR_V4: PerfilPlantillaOmr = {
+  ...PERFIL_OMR_V3
+};
+
 /**
  * Resuelve el perfil OMR segun la version de template.
  */
 export function obtenerPerfilPlantilla(templateVersion: TemplateVersion): PerfilPlantillaOmr {
-  if (templateVersion !== TEMPLATE_VERSION_TV3) {
-    throw new Error(`Template version ${String(templateVersion)} no compatible para OMR TV3`);
-  }
-  return PERFIL_OMR_V3;
+  if (templateVersion === TEMPLATE_VERSION_TV3) return PERFIL_OMR_V3;
+  if (templateVersion === TEMPLATE_VERSION_TV4) return PERFIL_OMR_V4;
+  throw new Error(`Template version ${String(templateVersion)} no compatible para layout OMR`);
 }

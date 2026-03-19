@@ -127,12 +127,12 @@ describe('escaneo OMR: QR asociado a examen', () => {
     expect(paginas.length).toBeGreaterThan(0);
     expect(paginas[0].numero).toBe(1);
 
-    const qrEsperado = `EXAMEN:${folio}:P1:TV3`;
+    const qrEsperado = `EXAMEN:${folio}:P1:TV4`;
     const resumenQr = extraerResumenQrExamen(String(paginas[0].qrTexto || ''));
     expect(resumenQr).not.toBeNull();
     expect(resumenQr?.folio).toBe(folio);
     expect(resumenQr?.numeroPagina).toBe(1);
-    expect(resumenQr?.templateVersion).toBe(3);
+    expect(resumenQr?.templateVersion).toBe(4);
     expect(resumenQr?.keyId).toBeTruthy();
     expect(resumenQr?.variantHash).toBeTruthy();
     expect(resumenQr?.answerKeyHash).toBeTruthy();

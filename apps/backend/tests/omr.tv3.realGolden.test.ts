@@ -38,17 +38,20 @@ describe('omr tv3 real golden', () => {
       const mapa = await readJson<{
         numeroPagina: number;
         preguntas: Array<{ numeroPregunta: number }>;
-        templateVersion?: 3;
+        templateVersion?: 3 | 4;
+        qr?: { texto?: string };
       }>(mapPath);
       const partes = caso.captureId.split('-');
       const folio = partes[0] ?? '';
       const numeroPagina = Number(String(partes[1] ?? 'P1').replace(/^P/i, '')) || mapa.numeroPagina;
+      const templateVersion = mapa.templateVersion === 4 ? 4 : 3;
+      const qrEsperado = String(mapa.qr?.texto ?? `EXAMEN:${folio}:P${numeroPagina}:TV${templateVersion}`);
       const result = await analizarOmr(
         await imageToDataUrl(imagePath),
         mapa,
-        [`EXAMEN:${folio}:P${numeroPagina}:TV3`, folio],
+        [qrEsperado, folio],
         10,
-        { folio, numeroPagina, templateVersionDetectada: 3 }
+        { folio, numeroPagina, templateVersionDetectada: templateVersion }
       );
       const respuesta = result.respuestasDetectadas.find((item) => item.numeroPregunta === caso.question);
       expect(result.estadoAnalisis).toBe('ok');

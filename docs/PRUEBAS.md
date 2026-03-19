@@ -62,7 +62,7 @@ Asegurar confiabilidad funcional y de seguridad del sistema completo en cada cam
 - Calificacion y reglas de topes.
 - Aislamiento entre docentes.
 - Publicacion/sincronizacion hacia portal.
-- Gate mixto OMR TV3 con dataset sintético (`omr_samples_tv3`) y real (`omr_samples_tv3_real`).
+- Gate mixto OMR TV4 con dataset sintético (`omr_samples_tv4`) y baseline real `Por Folio` regenerado sobre contrato TV4.
 - Modulo de evaluaciones continuas y politicas configurables (SV/LISC).
 - Integracion Google Classroom en modo `pull` (OAuth y mapeo de evidencias).
 
@@ -75,7 +75,7 @@ Asegurar confiabilidad funcional y de seguridad del sistema completo en cada cam
 - `legal-docs-check` + `pii-leak-check` + `retention-policy-check`
 
 ### Gate extendido (nightly/main/release)
-- `npm run test:omr:tv3:gate:ci`
+- `npm run test:omr:tv4:gate:ci`
 - `npm run test:e2e:docente-alumno:ci`
 - `npm run test:global-grade:ci`
 - `npm run test:evaluaciones:policy:ci`
@@ -162,7 +162,7 @@ npm run test:ci
 - El backend mantiene una bateria amplia de pruebas de contrato e integracion.
 - OMR tiene pruebas unitarias especificas (doble marca, burbuja hueca, trazos lineales, colorimetria).
 - Existen pruebas de integracion para QR/OMR y flujo de examen.
-- OMR en produccion se considera TV3-only para auto-calificacion.
+- OMR en produccion se considera TV4-first para generacion y auto-calificacion.
 
 ## Evidencia de auditoria instalador/docente (2026-03-03)
 - Reporte consolidado:

@@ -5,6 +5,11 @@ Este archivo sigue el formato "Keep a Changelog" (alto nivel) y SemVer.
 ## [Unreleased]
 
 ### Added
+- Generacion canónica de exámenes migrada a OMR TV4 con paridad estructural respecto al lote `A050929D`.
+- Baseline real `Por Folio` regenerado como contrato TV4:
+  - `templateVersion: 4` en `manifest.json` y mapas OMR
+  - QR canónico `:TV4` normalizado durante la construcción del dataset
+  - validación real `por-folio` mantenida en verde con métricas perfectas
 - Recuperacion operativa desde `recoveryManifest` y `recoveryBundle`:
   - nuevo modulo backend `modulo_recuperacion_examenes/`
   - verificacion de artefactos firmados y reconstruccion idempotente por examen o lote
@@ -499,4 +504,3 @@ Este archivo sigue el formato "Keep a Changelog" (alto nivel) y SemVer.
 - Monorepo inicial (backend, frontend, portal alumno cloud)
 - Hardening base: Helmet, rate limit, sanitización NoSQL, no leakage de mensajes internos en producción
 - Pruebas robustas: `test:ci` con reintentos + harness estricto para warnings/errores
-

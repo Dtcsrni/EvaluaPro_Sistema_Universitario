@@ -1,4 +1,3 @@
-import { createHash } from 'node:crypto';
 import type { Types } from 'mongoose';
 import { ErrorAplicacion } from '../../compartido/errores/errorAplicacion';
 import { configuracion } from '../../configuracion';
@@ -80,10 +79,6 @@ function stableStringify(value: unknown): string {
     .filter(([, current]) => current !== undefined)
     .sort(([a], [b]) => a.localeCompare(b));
   return `{${entries.map(([key, current]) => `${JSON.stringify(key)}:${stableStringify(current)}`).join(',')}}`;
-}
-
-function hashHex(value: unknown, length = 24) {
-  return createHash('sha256').update(stableStringify(value)).digest('hex').slice(0, length).toUpperCase();
 }
 
 function normalizeId(value: unknown) {
