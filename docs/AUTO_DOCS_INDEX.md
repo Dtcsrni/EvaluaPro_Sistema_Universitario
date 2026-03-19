@@ -19,9 +19,10 @@ No editar a mano: los cambios se pisan al regenerar.
 - [INSTALLER_HUB.md](INSTALLER_HUB.md) — Installer Hub (Windows)
 - [INVENTARIO_CODIGO_EXHAUSTIVO.md](INVENTARIO_CODIGO_EXHAUSTIVO.md) — Inventario Exhaustivo de Codigo
 - [INVENTARIO_PROYECTO.md](INVENTARIO_PROYECTO.md) — Inventario Tecnico del Proyecto
-- [OMR_GATE_RUNBOOK.md](OMR_GATE_RUNBOOK.md) — Runbook OMR Real Gate
+- [OMR_GATE_RUNBOOK.md](OMR_GATE_RUNBOOK.md) — Runbook OMR Por Folio Gate
 - [OPERACION_EXAMEN_GLOBAL_PROD.md](OPERACION_EXAMEN_GLOBAL_PROD.md) — Operacion de Examen Global en Produccion
 - [PILOTO_DIA0_CHECKLIST.md](PILOTO_DIA0_CHECKLIST.md) — Checklist Operativo Dia 0 (Piloto Hibrido)
+- [POLITICA_OPTIMIZACION_RECURSOS.md](POLITICA_OPTIMIZACION_RECURSOS.md) — POLITICA_OPTIMIZACION_RECURSOS
 - [PRUEBAS.md](PRUEBAS.md) — Pruebas automatizadas
 - [QA_GATE_CRITERIA.md](QA_GATE_CRITERIA.md) — QA Gate Criteria (`1.0.0-beta.0`)
 - [README.md](README.md) — docs/
