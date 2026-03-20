@@ -166,3 +166,8 @@ Version visible objetivo: `1.0.0b`
   - rollback readiness formalizado como artefacto obligatorio
   - evidencia Windows previa reutilizada desde `docs/release/evidencias/1.0.0-beta.1/windows-release-smoke-2026-03-20.md`
   - la promoción queda bloqueada honestamente en `No-Go` hasta ejecutar el gate humano real de producción
+- Follow-up CI/CD posterior al push inicial:
+  - `CI Checks` corregido con pruebas de contrato del Installer Hub compatibles con Linux cuando el runner no soporta DPAPI.
+  - `CI Portal Module` corregido con cobertura adicional del logger del portal.
+  - `CI Frontend Module` corregido con cobertura adicional del sistema de tema y de la vista/helpers de versión.
+  - el siguiente push de saneamiento debe dejar los tres workflows remotos sin deuda conocida.

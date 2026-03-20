@@ -36,4 +36,16 @@ describe('tema unificado', () => {
     expect(document.documentElement.dataset.theme).toBe('dark');
     expect(document.querySelector('meta[name="theme-color"]')?.getAttribute('content')).toBeTruthy();
   });
+
+  it('migra la clave legacy y tolera errores de storage', () => {
+    localStorage.setItem('seu.portal.tema', 'dark');
+    expect(leerPreferenciaTema()).toBe('dark');
+    expect(localStorage.getItem(CLAVE_TEMA_PREFERENCIA)).toBe('dark');
+
+    const getItemSpy = vi.spyOn(Storage.prototype, 'getItem').mockImplementation(() => {
+      throw new Error('storage blocked');
+    });
+    expect(leerPreferenciaTema()).toBe('auto');
+    expect(getItemSpy).toHaveBeenCalled();
+  });
 });

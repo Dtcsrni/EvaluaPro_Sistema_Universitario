@@ -614,6 +614,13 @@ Este archivo sigue el formato "Keep a Changelog" (alto nivel) y SemVer.
 
 ### Fixed
 - Selectores ambiguos en pruebas de refactor (`Plantillas` y `Banco`) que generaban fallos falsos negativos.
+- Follow-up de CI remoto para `main`:
+  - `scripts/tests/installer-hub-contract.test.mjs` ya tolera salida JSON nula del script PowerShell y omite el flujo DPAPI/TOTP en Linux, evitando el fallo de Ubuntu en `CI Checks`.
+  - nueva cobertura del logger del portal en `apps/portal_alumno_cloud/tests/logger.test.ts` para cerrar el diff coverage de `apps/portal_alumno_cloud/src/infraestructura/logging/logger.ts`.
+  - nueva cobertura y ajuste de expectativas para versión/tema en frontend:
+    - `apps/frontend/tests/versionInfo.helpers.test.tsx`
+    - `apps/frontend/tests/tema.provider.test.ts`
+  - el diff coverage remoto de `tema.ts`, `versionInfo.ts` y `VersionInfoPage.tsx` queda cubierto sin alterar contratos funcionales.
 
 ### Notes
 - Estado de gates del corte:

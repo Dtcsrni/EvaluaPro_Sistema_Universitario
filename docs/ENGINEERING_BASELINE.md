@@ -100,6 +100,10 @@ Version visible GUI: `1.0.0b`
 - `npm run test:dashboard:repair` ✅
 - `npm run test:dashboard:ui` ✅
 - `npm -C apps/frontend run test -- tema.provider.test.ts` ✅
+- `npm -C apps/frontend run test -- --reporter=verbose tests/versionInfoPage.test.tsx tests/versionInfo.helpers.test.tsx tests/tema.provider.test.ts` ✅
+- `npm -C apps/frontend run test:coverage` ✅
+- `npm -C apps/portal_alumno_cloud run test -- tests/logger.test.ts` ✅
+- `npm -C apps/portal_alumno_cloud run test:coverage` ✅
 - `powershell -NoProfile -ExecutionPolicy Bypass -File scripts/create-shortcuts.ps1 -Port 4519 -Force` ✅
 - `powershell -NoProfile -ExecutionPolicy Bypass -File scripts/generate-installation-manifest.ps1 -Port 4519` ✅
 - `npm -C apps/backend run test -- tests/integracion/plantillasCrudYPreview.test.ts tests/integracion/examenesRetention.test.ts` ✅
@@ -112,6 +116,9 @@ Version visible GUI: `1.0.0b`
   - smoke local de launcher/dashboard/Hub validado sobre instalación activa
   - smoke agresivo de repair validado en instalación temporal aislada
   - `perf:check` y cobertura backend estabilizados en Windows sin rebajar thresholds
+  - follow-up de CI remoto cerrado localmente:
+    - contract test del Installer Hub ya es portable entre Windows/Linux
+    - diff coverage del portal y frontend cubierto en las rutas modificadas
   - contrato de promoción estable `1.0.0` implementado y validado
   - decisión actual de release estable: `No-Go`
   - bloqueo restante: falta ejecutar el gate humano real en producción y regenerar la evidencia final con inputs reales

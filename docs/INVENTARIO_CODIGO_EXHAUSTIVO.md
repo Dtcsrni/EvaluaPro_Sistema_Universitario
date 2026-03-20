@@ -1,24 +1,24 @@
 # Inventario Exhaustivo de Codigo
 
-Fecha de generacion: 2026-03-20 07:16:43
+Fecha de generacion: 2026-03-20 10:12:26
 Fuente: git ls-files (solo archivos versionados, excluye node_modules).
 
 ## Resumen
 
-- Total de piezas de codigo/config ejecutable inventariadas: 819
+- Total de piezas de codigo/config ejecutable inventariadas: 844
 - Extensiones incluidas: ts, tsx, js, jsx, mjs, cjs, json, yml, yaml, sh, cmd, ps1.
 
 ## Conteo por area
 
 | Area | Archivos |
 | --- | ---: |
-| backend | 368 |
-| frontend | 118 |
+| backend | 371 |
+| frontend | 119 |
 | portal_alumno_cloud | 41 |
 | ci | 15 |
-| scripts | 101 |
+| scripts | 107 |
 | ops | 3 |
-| docs | 8 |
+| docs | 14 |
 | raiz | 9 |
 
 ## Backend (apps/backend)
@@ -236,7 +236,9 @@ Fuente: git ls-files (solo archivos versionados, excluye node_modules).
 - apps/backend/src/modulos/modulo_generacion_pdf/modeloExamenRecoveryBundle.ts
 - apps/backend/src/modulos/modulo_generacion_pdf/modeloExamenRecoveryManifest.ts
 - apps/backend/src/modulos/modulo_generacion_pdf/rutasGeneracionPdf.ts
+- apps/backend/src/modulos/modulo_generacion_pdf/schedulerRetencionExamenes.ts
 - apps/backend/src/modulos/modulo_generacion_pdf/servicioGeneracionPdf.ts
+- apps/backend/src/modulos/modulo_generacion_pdf/servicioRetencionExamenes.ts
 - apps/backend/src/modulos/modulo_generacion_pdf/servicioVariantes.ts
 - apps/backend/src/modulos/modulo_generacion_pdf/shared/tiposPdf.ts
 - apps/backend/src/modulos/modulo_generacion_pdf/validacionesExamenes.ts
@@ -333,6 +335,7 @@ Fuente: git ls-files (solo archivos versionados, excluye node_modules).
 - apps/backend/tests/integracion/comercial.webhook.mercadopago.firma.test.ts
 - apps/backend/tests/integracion/compliance.arco.test.ts
 - apps/backend/tests/integracion/evaluaciones.modulo.test.ts
+- apps/backend/tests/integracion/examenesRetention.test.ts
 - apps/backend/tests/integracion/flujoDocenteAlumnoProduccionLikeE2E.test.ts
 - apps/backend/tests/integracion/flujoDocenteGlobalE2E.test.ts
 - apps/backend/tests/integracion/flujoDocenteParcialE2E.test.ts
@@ -503,6 +506,7 @@ Fuente: git ls-files (solo archivos versionados, excluye node_modules).
 - apps/frontend/tests/seccionPeriodos.edit.test.tsx
 - apps/frontend/tests/setup.ts
 - apps/frontend/tests/sincronizacion.behavior.test.tsx
+- apps/frontend/tests/tema.provider.test.ts
 - apps/frontend/tests/updatePanel.behavior.test.tsx
 - apps/frontend/tests/utilidades.appDocente.test.ts
 - apps/frontend/tests/ux.quality.test.tsx
@@ -581,6 +585,7 @@ Fuente: git ls-files (solo archivos versionados, excluye node_modules).
 - scripts/build-msi.ps1
 - scripts/clean-architecture-check.mjs
 - scripts/comercial/generar-llaves-licencia-rs256.mjs
+- scripts/comercial/portable-license.mjs
 - scripts/comercial/secure-license-store.mjs
 - scripts/comercial/sync-feature-catalog.mjs
 - scripts/comercial/sync-readmes-context.mjs
@@ -605,6 +610,7 @@ Fuente: git ls-files (solo archivos versionados, excluye node_modules).
 - scripts/docs.mjs
 - scripts/ensure-dev-cert.ps1
 - scripts/generar-readmes-carpetas.mjs
+- scripts/generate-installation-manifest.ps1
 - scripts/generate-installer-hashes.ps1
 - scripts/generate-installer-release-manifest.ps1
 - scripts/guard-env-separation.mjs
@@ -617,6 +623,7 @@ Fuente: git ls-files (solo archivos versionados, excluye node_modules).
 - scripts/inventario-codigo.mjs
 - scripts/launch-dev.cmd
 - scripts/launch-prod.cmd
+- scripts/launcher-broker.ps1
 - scripts/launcher-dashboard.mjs
 - scripts/launcher-dashboard.ps1
 - scripts/launcher-tray.ps1
@@ -658,13 +665,16 @@ Fuente: git ls-files (solo archivos versionados, excluye node_modules).
 - scripts/tests/dashboard-ui.test.mjs
 - scripts/tests/installer-hub-contract.test.mjs
 - scripts/tests/marketing-site.smoke.test.mjs
+- scripts/tests/perf-contract.test.mjs
 - scripts/tests/release-ci-streak.test.mjs
 - scripts/tests/release-evidence-contract.test.mjs
+- scripts/tests/release-stable-promotion.test.mjs
 - scripts/tests/ruleset-main.test.mjs
 - scripts/tests/security-workflow-policy.test.mjs
 - scripts/tests/tray-update-action.test.mjs
 - scripts/tests/update-api.test.mjs
 - scripts/tests/update-manager.test.mjs
+- scripts/tests/windows-release-smoke.test.mjs
 - scripts/tests/wix-bundle-build.test.mjs
 - scripts/tests/wix-version-policy.test.mjs
 - scripts/tmp_debug_canon_ids.ps1
@@ -693,7 +703,13 @@ Fuente: git ls-files (solo archivos versionados, excluye node_modules).
 - docs/diagramas/puppeteer.config.json
 - docs/perf/baseline.business.json
 - docs/perf/baseline.json
+- docs/release/evidencias/1.0.0/ci-runs.fixture.json
+- docs/release/evidencias/1.0.0/installer-release-manifest.fixture.json
+- docs/release/evidencias/1.0.0/integridad_sha256.json
+- docs/release/evidencias/1.0.0/manifest.json
+- docs/release/evidencias/1.0.0/rollback_readiness.json
 - docs/release/manual/prod-flow.template.json
+- docs/release/manual/rollback-readiness.template.json
 - docs/tdd-exclusions-debt.json
 
 ## Raiz del repositorio
