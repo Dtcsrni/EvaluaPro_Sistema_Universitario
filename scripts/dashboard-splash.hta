@@ -421,6 +421,7 @@
     var q = parseQuery();
     var port = Number(q.port || 4519);
     var mode = String(q.mode || 'dev');
+    var runId = String(q.runId || '');
     setHtaIconByMode(mode);
 
     var urlStatus = 'http://127.0.0.1:' + port + '/api/status';
@@ -567,6 +568,26 @@
       }
     }
 
+    function bootstrapPath() {
+      try {
+        var root = getRootDir();
+        if (!runId) return '';
+        return root + '\\logs\\bootstrap-state-' + runId + '.json';
+      } catch (e) {
+        return '';
+      }
+    }
+
+    function readBootstrapState() {
+      var content = readTextFile(bootstrapPath());
+      if (!content) return null;
+      try {
+        return JSON.parse(content);
+      } catch (e) {
+        return null;
+      }
+    }
+
     function parseEnv(content) {
       var env = {};
       if (!content) return env;
@@ -654,6 +675,37 @@
       var now = new Date().getTime();
       attempts = attempts + 1;
       renderStatus();
+      var broker = readBootstrapState();
+      if (broker && broker.state) {
+        var brokerState = String(broker.state || '').toLowerCase();
+        var brokerMsg = String(broker.message || '');
+        if (brokerMsg) baseStatus = brokerMsg;
+        if (brokerState === 'booting_dashboard') {
+          setPipeState(0, -1, brokerMsg || 'Inicializando dashboard local');
+        } else if (brokerState === 'booting_stack') {
+          setPipeState(1, 0, brokerMsg || 'Levantando stack docente');
+        } else if (brokerState === 'booting_portal') {
+          setPipeState(2, 1, brokerMsg || 'Sincronizando portal y runtime');
+        } else if (brokerState === 'healthy') {
+          setPipeState(3, 3, brokerMsg || 'Plataforma lista');
+          try {
+            for (var bi = 0; bi < dots.length; bi++) dots[bi].className = 'dot on';
+            status.innerText = brokerMsg || 'Plataforma lista';
+          } catch (eState) {}
+          setTimeout(function(){
+            try { window.close(); } catch (ex0) {}
+          }, 450);
+          return;
+        } else if (brokerState === 'degraded') {
+          subtitle.textContent = 'Hubo arranque parcial del entorno local.';
+          showError({ status: 206, error: brokerMsg || 'Arranque parcial' });
+          return;
+        } else if (brokerState === 'failed') {
+          subtitle.textContent = 'El broker de arranque no pudo completar la secuencia.';
+          showError({ status: 500, error: brokerMsg || 'Fallo del broker' });
+          return;
+        }
+      }
       var last = httpStatus(urlStatus);
       if (!last.ok) {
         setPipeState(1, 0, 'Validando Docker y stack');

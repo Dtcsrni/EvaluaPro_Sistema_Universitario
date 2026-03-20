@@ -8,7 +8,7 @@ export type PreferenciaTema = 'auto' | 'light' | 'dark';
 export type TemaAplicado = 'light' | 'dark';
 export type BucketTiempo = 'dawn' | 'day' | 'dusk' | 'night';
 
-export const CLAVE_TEMA_PREFERENCIA = 'ep.portal.tema';
+export const CLAVE_TEMA_PREFERENCIA = 'ep.theme.preference';
 
 export function normalizarPreferenciaTema(valor: unknown): PreferenciaTema {
   if (valor === 'light' || valor === 'dark' || valor === 'auto') return valor;
@@ -30,12 +30,11 @@ export function leerPreferenciaTema(): PreferenciaTema {
       }
     }
 
-    // Requisito UX: por defecto oscuro, a menos que el usuario lo cambie.
     const efectivo = raw ?? rawLegacy;
-    if (efectivo === null) return 'dark';
+    if (efectivo === null) return 'auto';
     return normalizarPreferenciaTema(efectivo);
   } catch {
-    return 'dark';
+    return 'auto';
   }
 }
 

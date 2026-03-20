@@ -1,0 +1,22 @@
+{
+  "version": "1.0.0",
+  "status": "ready",
+  "previousStableVersion": "0.9.9",
+  "activationCriteria": [
+    "Readiness inestable en API o portal",
+    "Fallo critico en flujo docente humano",
+    "Errores sostenidos post-release"
+  ],
+  "rollbackSteps": [
+    "Detener promotion y bloquear nuevos cambios",
+    "Revertir al release estable previo",
+    "Restaurar configuracion/artefactos del release previo"
+  ],
+  "postRollbackChecks": [
+    "GET /api/salud/live",
+    "GET /api/portal/salud/live",
+    "Verificar acceso docente y dashboard"
+  ],
+  "approvedBy": "release-manager",
+  "approvedAt": "2026-03-20T00:00:00.000Z"
+}

@@ -2,6 +2,33 @@ Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
 Import-Module (Join-Path $PSScriptRoot 'Common.psm1') -DisableNameChecking
 
+function Invoke-EvaluaProPostInstallDesktopAssets {
+  param(
+    [string]$InstallDir,
+    [scriptblock]$OnLog
+  )
+
+  if (-not $InstallDir) { return }
+  $shortcutsScript = Join-Path $InstallDir 'scripts\create-shortcuts.ps1'
+  $manifestScript = Join-Path $InstallDir 'scripts\generate-installation-manifest.ps1'
+  if (Test-Path -LiteralPath $shortcutsScript) {
+    try {
+      & powershell.exe -NoProfile -ExecutionPolicy Bypass -File $shortcutsScript -Port 4519 -Force | Out-Null
+      if ($OnLog) { & $OnLog 'ok' 'Accesos directos oficiales regenerados.' }
+    } catch {
+      if ($OnLog) { & $OnLog 'warn' "No se pudieron regenerar accesos directos: $($_.Exception.Message)" }
+    }
+  }
+  if (Test-Path -LiteralPath $manifestScript) {
+    try {
+      & powershell.exe -NoProfile -ExecutionPolicy Bypass -File $manifestScript -InstallDir $InstallDir -Port 4519 | Out-Null
+      if ($OnLog) { & $OnLog 'ok' 'Manifiesto local de instalacion actualizado.' }
+    } catch {
+      if ($OnLog) { & $OnLog 'warn' "No se pudo actualizar installation.manifest.json: $($_.Exception.Message)" }
+    }
+  }
+}
+
 function Remove-EvaluaProDataResiduals {
   param(
     [string]$InstallDir,
@@ -41,6 +68,48 @@ function Invoke-EvaluaProProductAction {
   )
 
   if ($OnLog) { & $OnLog 'info' "Ejecutando accion de producto: $Mode" }
+
+  $simulateProductAction = @('1', 'true', 'yes', 'on') -contains ([string]$env:EVALUAPRO_INSTALLER_SIMULATE_PRODUCT_ACTION).Trim().ToLowerInvariant()
+  if ($simulateProductAction) {
+    if ($OnLog) { & $OnLog 'info' "Modo de simulacion activo para accion de producto: $Mode" }
+    if ($Mode -eq 'uninstall') {
+      if ($CleanupData) {
+        Remove-EvaluaProDataResiduals -InstallDir $InstallDir -OnLog $OnLog
+      }
+      return [pscustomobject]@{
+        ok = $true
+        exitCode = 0
+        rebootRequired = $false
+        simulated = $true
+      }
+    }
+
+    if (-not $InstallDir) {
+      throw 'InstallDir requerido en modo de simulacion.'
+    }
+
+    $sourceDir = [string]$env:EVALUAPRO_INSTALLER_SIMULATE_SOURCE_DIR
+    if ($sourceDir -and (Test-Path -LiteralPath $sourceDir)) {
+      foreach ($relative in @('package.json', 'config', 'scripts')) {
+        $from = Join-Path $sourceDir $relative
+        $to = Join-Path $InstallDir $relative
+        if (-not (Test-Path -LiteralPath $from)) { continue }
+        if (Test-Path -LiteralPath $to) {
+          try { Remove-Item -LiteralPath $to -Recurse -Force -ErrorAction Stop } catch {}
+        }
+        Copy-Item -LiteralPath $from -Destination $to -Recurse -Force
+      }
+    }
+
+    Invoke-EvaluaProPostInstallDesktopAssets -InstallDir $InstallDir -OnLog $OnLog
+    if ($OnLog) { & $OnLog 'ok' ("Accion $Mode simulada correctamente.") }
+    return [pscustomobject]@{
+      ok = $true
+      exitCode = 0
+      rebootRequired = $false
+      simulated = $true
+    }
+  }
 
   $args = ''
   switch ($Mode) {
@@ -90,6 +159,10 @@ function Invoke-EvaluaProProductAction {
 
   if ($Mode -eq 'uninstall' -and $CleanupData) {
     Remove-EvaluaProDataResiduals -InstallDir $InstallDir -OnLog $OnLog
+  }
+
+  if ($Mode -eq 'install' -or $Mode -eq 'repair') {
+    Invoke-EvaluaProPostInstallDesktopAssets -InstallDir $InstallDir -OnLog $OnLog
   }
 
   if ($OnLog) {

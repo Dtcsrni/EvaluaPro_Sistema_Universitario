@@ -53,6 +53,34 @@ function Get-LatestStableReleaseAssets {
 
   if ($OnLog) { & $OnLog 'info' "Consultando releases de GitHub: $Owner/$Repo" }
 
+  $localMsiPath = [string]$env:EVALUAPRO_INSTALLER_RELEASE_MSI_PATH
+  if (-not [string]::IsNullOrWhiteSpace($localMsiPath) -and (Test-Path -LiteralPath $localMsiPath)) {
+    $localShaPath = [string]$env:EVALUAPRO_INSTALLER_RELEASE_SHA_PATH
+    $localSha256 = [string]$env:EVALUAPRO_INSTALLER_RELEASE_SHA256
+    $localTag = if ([string]::IsNullOrWhiteSpace([string]$env:EVALUAPRO_INSTALLER_RELEASE_TAG)) { '0.0.0-test' } else { [string]$env:EVALUAPRO_INSTALLER_RELEASE_TAG }
+    $bundlePath = [string]$env:EVALUAPRO_INSTALLER_RELEASE_BUNDLE_PATH
+    if ($OnLog) { & $OnLog 'ok' "Release local de prueba seleccionada: $localMsiPath" }
+    return [pscustomobject]@{
+      tag = $localTag
+      publishedAt = (Get-Date).ToString('o')
+      msiUrl = "file:///$($localMsiPath -replace '\\','/')"
+      shaUrl = if ($localShaPath) { "file:///$($localShaPath -replace '\\','/')" } else { '' }
+      bundleUrl = if ($bundlePath) { "file:///$($bundlePath -replace '\\','/')" } else { '' }
+      releaseUrl = 'local-test-release'
+      manifestUrl = 'local-test-manifest'
+      manifest = [pscustomobject]@{}
+      flavor = [pscustomobject]@{
+        flavorId = $FlavorId
+        msiUrl = $localMsiPath
+        msiSha256Url = $localShaPath
+        bundleUrl = $bundlePath
+      }
+      localMsiPath = $localMsiPath
+      localShaPath = $localShaPath
+      localSha256 = $localSha256
+    }
+  }
+
   $url = "https://api.github.com/repos/$Owner/$Repo/releases"
   $headers = @{ 'User-Agent' = 'EvaluaPro-InstallerHub'; 'Accept' = 'application/vnd.github+json' }
   $response = Invoke-InstallerHubWebRequest -Url $url -Method GET -Headers $headers -TimeoutSec 25 -RetryCount 2
@@ -82,7 +110,7 @@ function Get-LatestStableReleaseAssets {
         publishedAt = [string]$release.published_at
         msiUrl = [string]$flavorItem.msiUrl
         shaUrl = [string]$flavorItem.msiSha256Url
-        bundleUrl = [string]($flavorItem.bundleUrl ?? '')
+        bundleUrl = if ($null -ne $flavorItem.bundleUrl) { [string]$flavorItem.bundleUrl } else { '' }
         releaseUrl = [string]$release.html_url
         manifestUrl = [string]$manifestAsset.browser_download_url
         manifest = $manifest
@@ -128,6 +156,42 @@ function Download-VerifiedMsiPackage {
 
   if (-not (Test-Path $DestinationDir)) {
     New-Item -ItemType Directory -Path $DestinationDir -Force | Out-Null
+  }
+
+  if ($Release.PSObject.Properties.Match('localMsiPath').Count -gt 0 -and -not [string]::IsNullOrWhiteSpace([string]$Release.localMsiPath)) {
+    $sourceMsi = [string]$Release.localMsiPath
+    if (-not (Test-Path -LiteralPath $sourceMsi)) {
+      throw "No existe MSI local de prueba: $sourceMsi"
+    }
+
+    $expected = ''
+    if ($Release.PSObject.Properties.Match('localSha256').Count -gt 0) {
+      $expected = [string]$Release.localSha256
+    }
+    if ([string]::IsNullOrWhiteSpace($expected) -and $Release.PSObject.Properties.Match('localShaPath').Count -gt 0) {
+      $localShaPath = [string]$Release.localShaPath
+      if ($localShaPath -and (Test-Path -LiteralPath $localShaPath)) {
+        $expected = Resolve-InstallerHubSha256FromText -Text (Get-Content -Path $localShaPath -Raw -Encoding utf8) -Pattern ([System.IO.Path]::GetFileName($sourceMsi))
+      }
+    }
+    if ([string]::IsNullOrWhiteSpace($expected)) {
+      $expected = Get-InstallerHubFileSha256 -Path $sourceMsi
+    }
+
+    $msiPath = Join-Path $DestinationDir $MsiFileName
+    Copy-Item -LiteralPath $sourceMsi -Destination $msiPath -Force
+    $actual = Get-InstallerHubFileSha256 -Path $msiPath
+    if ($actual -ne $expected) {
+      Remove-Item -LiteralPath $msiPath -Force -ErrorAction SilentlyContinue
+      throw 'SHA256 del MSI local de prueba no coincide.'
+    }
+    if ($OnLog) { & $OnLog 'ok' 'MSI local de prueba copiado y verificado con SHA256.' }
+    return [pscustomobject]@{
+      msiPath = $msiPath
+      expectedSha256 = $expected
+      actualSha256 = $actual
+      release = $Release
+    }
   }
 
   $msiPath = Join-Path $DestinationDir $MsiFileName

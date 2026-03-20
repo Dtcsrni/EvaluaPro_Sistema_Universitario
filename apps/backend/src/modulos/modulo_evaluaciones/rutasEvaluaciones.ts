@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import { validarCuerpo } from '../../compartido/validaciones/validar';
 import { requerirPermiso } from '../modulo_autenticacion/middlewarePermisos';
+import { esquemaBodyVacioOpcional } from '../modulo_alumnos/validacionesPeriodos';
 import {
   actualizarMapeoAlumnosCursoController,
   desconectarOauthClassroomController,
@@ -99,7 +100,12 @@ router.post(
 router.get('/v2/alumnos/:alumnoId/resumen', requerirPermiso('evaluaciones:leer'), obtenerResumenEvaluacionesV2);
 router.get('/v2/classroom/estado', requerirPermiso('classroom:pull'), obtenerEstadoClassroomController);
 router.get('/v2/classroom/oauth/iniciar', requerirPermiso('classroom:conectar'), iniciarOauthClassroom);
-router.post('/v2/classroom/oauth/desconectar', requerirPermiso('classroom:conectar'), desconectarOauthClassroomController);
+router.post(
+  '/v2/classroom/oauth/desconectar',
+  requerirPermiso('classroom:conectar'),
+  validarCuerpo(esquemaBodyVacioOpcional, { strict: true }),
+  desconectarOauthClassroomController
+);
 router.get('/v2/classroom/cursos', requerirPermiso('classroom:pull'), listarCursosClassroomController);
 router.get('/v2/classroom/cursos/:courseId/actividades', requerirPermiso('classroom:pull'), listarActividadesClassroomController);
 router.get('/v2/classroom/cursos/:courseId/alumnos', requerirPermiso('classroom:pull'), obtenerAlumnosCursoClassroomController);

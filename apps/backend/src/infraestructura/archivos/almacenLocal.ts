@@ -33,6 +33,22 @@ export async function guardarArchivoExamen(nombreArchivo: string, buffer: Buffer
 }
 
 /**
+ * Elimina un artefacto del almacenamiento local si existe.
+ * No falla si el archivo ya fue removido.
+ */
+export async function eliminarArchivoExamen(rutaCompleta: string) {
+  if (!String(rutaCompleta ?? '').trim()) return false;
+  try {
+    await fs.unlink(rutaCompleta);
+    return true;
+  } catch (error) {
+    const codigo = (error as NodeJS.ErrnoException | undefined)?.code;
+    if (codigo === 'ENOENT') return false;
+    throw error;
+  }
+}
+
+/**
  * Resuelve la ruta absoluta de un PDF guardado (sin validar existencia).
  */
 export function resolverRutaPdfExamen(nombreArchivo: string) {

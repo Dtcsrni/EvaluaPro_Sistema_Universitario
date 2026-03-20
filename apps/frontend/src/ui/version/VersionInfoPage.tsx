@@ -1,8 +1,8 @@
 import { useEffect, useMemo, useState } from 'react';
-import { obtenerVersionApp } from './versionInfo';
+import { obtenerVersionApp, obtenerVersionTecnicaApp } from './versionInfo';
 
 type VersionInfoPayload = {
-  app?: { name?: string; version?: string };
+  app?: { name?: string; version?: string; displayVersion?: string };
   repositoryUrl?: string;
   technologies?: Array<{ id?: string; label?: string; logoUrl?: string; website?: string }>;
   system?: {
@@ -22,6 +22,7 @@ type TecnologiaVersion = { id?: string; label?: string; logoUrl?: string; websit
 
 type VersionViewModel = {
   version: string;
+  technicalVersion: string;
   nombre: string;
   developer: string;
   rol: string;
@@ -53,8 +54,10 @@ function viewModelSistema(data: VersionInfoPayload | null) {
 }
 
 function viewModelBase(data: VersionInfoPayload | null, fallbackVersion: string) {
+  const technicalVersion = comoTexto(data?.app?.version, obtenerVersionTecnicaApp() || '0.0.0');
   return {
-    version: comoTexto(data?.app?.version, fallbackVersion || '0.0.0'),
+    version: comoTexto(data?.app?.displayVersion, fallbackVersion || technicalVersion || '0.0.0'),
+    technicalVersion,
     nombre: comoTexto(data?.app?.name, 'evaluapro'),
     developer: comoTexto(data?.developer?.nombre, comoTexto(import.meta.env.VITE_DEVELOPER_NAME, 'Equipo EvaluaPro')),
     rol: comoTexto(data?.developer?.rol, comoTexto(import.meta.env.VITE_DEVELOPER_ROLE, 'Desarrollo')),
@@ -141,6 +144,9 @@ export function VersionInfoPage() {
         <h1>Version Center</h1>
         <p className="version-sub">
           <span className="version-pulse" /> {vm.nombre} v{vm.version}
+        </p>
+        <p className="version-sub">
+          Base técnica: {vm.technicalVersion}
         </p>
         <a className="version-repo-link" href={vm.repositoryUrl} target="_blank" rel="noreferrer noopener">
           Repositorio del desarrollador

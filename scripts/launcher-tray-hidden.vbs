@@ -14,11 +14,12 @@ Dim scriptDir, rootDir
 scriptDir = fso.GetParentFolderName(WScript.ScriptFullName)
 rootDir = fso.GetParentFolderName(scriptDir)
 
-Dim mode, port
+Dim mode, port, runId
 mode = "none"
 port = "4519"
 If WScript.Arguments.Count >= 1 Then mode = ResolveMode(WScript.Arguments(0))
 If WScript.Arguments.Count >= 2 Then port = ResolvePort(WScript.Arguments(1), "4519")
+runId = BuildRunId()
 
 shell.CurrentDirectory = rootDir
 
@@ -27,7 +28,7 @@ Dim splashExec
 Set splashExec = Nothing
 If port <> "0" And port <> "" Then
 	On Error Resume Next
-	Set splashExec = shell.Exec("mshta.exe " & q & rootDir & "\scripts\dashboard-splash.hta?port=" & port & "&mode=" & mode & q)
+	Set splashExec = shell.Exec("mshta.exe " & q & rootDir & "\scripts\dashboard-splash.hta?port=" & port & "&mode=" & mode & "&runId=" & runId & q)
 	If Err.Number = 0 Then
 		' Try to bring splash to foreground.
 		shell.AppActivate splashExec.ProcessID
@@ -37,28 +38,22 @@ End If
 
 Dim psExe, psArgs, cmd
 psExe = ResolvePowerShellExe(shell.ExpandEnvironmentStrings("%WINDIR%"))
-psArgs = "-NoProfile -ExecutionPolicy Bypass -STA -WindowStyle Hidden -File " & q & rootDir & "\scripts\launcher-tray.ps1" & q & " -Mode " & QuoteArg(mode) & " -Port " & QuoteArg(port) & " -NoOpen"
+psArgs = "-NoProfile -ExecutionPolicy Bypass -STA -WindowStyle Hidden -File " & q & rootDir & "\scripts\launcher-broker.ps1" & q & " -Action open-dashboard -Mode " & QuoteArg(mode) & " -Port " & QuoteArg(port) & " -RunId " & QuoteArg(runId)
 cmd = psExe & " " & psArgs
 
 shell.Run cmd, 0, False
 
-' Wait until the dashboard HTTP endpoint responds, then open browser and close splash.
+' Wait until the broker reports a final state, then close splash.
 If port <> "0" And port <> "" Then
 	Dim ok, tries, maxTries, url
-	Dim startedFallback
 	Dim splashStartMs, minSplashMs
-	Dim healthOk, healthTries, healthMaxTries, baseUrl
-	Dim strictHealth
+	Dim brokerState, brokerStatus
 	splashStartMs = Timer
 	minSplashMs = 1.2 ' seconds
 	ok = False
-	healthOk = False
-	strictHealth = (LCase(mode) = "dev" Or LCase(mode) = "prod")
 	tries = 0
-	startedFallback = False
-	maxTries = 120 ' ~24s with 200ms sleep
+	maxTries = 180 ' ~36s with 200ms sleep
 	url = "http://127.0.0.1:" & port & "/api/status"
-	baseUrl = "http://127.0.0.1:" & port
 
 	Do While (tries < maxTries) And (ok = False)
 		tries = tries + 1
@@ -67,40 +62,25 @@ If port <> "0" And port <> "" Then
 		If lockPort <> "" And lockPort <> port Then
 			port = lockPort
 			url = "http://127.0.0.1:" & port & "/api/status"
-			baseUrl = "http://127.0.0.1:" & port
 		End If
-		ok = HttpOk(url)
-		If ok = False Then
-			If (startedFallback = False) And (tries >= 6) Then
-				StartDashboardFallback rootDir, mode, port
-				startedFallback = True
-			End If
+		brokerStatus = ReadBootstrapState(rootDir, runId)
+		brokerState = LCase(CStr(GetJsonValue(brokerStatus, "state")))
+		If brokerState = "healthy" Then
+			ok = True
+		ElseIf brokerState = "degraded" Then
+			ok = True
+		ElseIf brokerState = "failed" Then
+			ok = False
+			Exit Do
+		Else
 			WScript.Sleep 200
 		End If
 	Loop
 
-	If ok = True And strictHealth = True Then
-		healthTries = 0
-		healthMaxTries = 180 ' ~90s con 500ms
-		Do While (healthTries < healthMaxTries) And (healthOk = False)
-			healthTries = healthTries + 1
-			lockPort = ReadLockPort(rootDir)
-			If lockPort <> "" And lockPort <> port Then
-				port = lockPort
-				baseUrl = "http://127.0.0.1:" & port
-			End If
-			healthOk = ApiHealthReady(baseUrl & "/api/health")
-			If healthOk = False Then
-				WScript.Sleep 500
-			End If
-		Loop
-	End If
-
-	If ok = True And (healthOk = True Or strictHealth = False) Then
-		shell.Run "cmd.exe /c start " & q & q & " " & q & "http://127.0.0.1:" & port & "/" & q, 0, False
-		AppendShortcutLog rootDir, "Arranque OK en puerto " & port & " (salud confirmada)."
-	ElseIf ok = True And healthOk = False And strictHealth = True Then
-		AppendShortcutLog rootDir, "Dashboard activo pero salud incompleta en puerto " & port & "."
+	If LCase(CStr(GetJsonValue(brokerStatus, "state"))) = "healthy" Then
+		AppendShortcutLog rootDir, "Arranque OK en puerto " & port & " (broker=" & runId & ")."
+	ElseIf LCase(CStr(GetJsonValue(brokerStatus, "state"))) = "degraded" Then
+		AppendShortcutLog rootDir, "Dashboard activo pero salud incompleta en puerto " & port & " (broker=" & runId & ")."
 		On Error Resume Next
 		If Not (splashExec Is Nothing) Then splashExec.Terminate
 		KillSplashByWmi
@@ -108,7 +88,7 @@ If port <> "0" And port <> "" Then
 		MsgBox "EvaluaPro detectó dashboard activo, pero stack/portal no alcanzaron salud completa." & vbCrLf & _
 			"Revisa Docker Desktop y logs en carpeta 'logs'.", vbExclamation, "EvaluaPro - Inicio parcial"
 	Else
-		AppendShortcutLog rootDir, "No se pudo levantar dashboard en el tiempo esperado (port=" & port & ")."
+		AppendShortcutLog rootDir, "No se pudo completar arranque por broker (port=" & port & ", runId=" & runId & ")."
 		On Error Resume Next
 		If Not (splashExec Is Nothing) Then splashExec.Terminate
 		KillSplashByWmi
@@ -118,7 +98,7 @@ If port <> "0" And port <> "" Then
 	End If
 
 	' Close splash only if the dashboard is reachable; otherwise let the HTA show a helpful error.
-	If ok = True And healthOk = True Then
+	If LCase(CStr(GetJsonValue(brokerStatus, "state"))) = "healthy" Then
 		' Ensure the splash stays visible briefly (avoid instant close when already running).
 		Dim elapsed
 		elapsed = Timer - splashStartMs
@@ -181,9 +161,9 @@ Function RegexTest(ByVal txt, ByVal pattern)
 	On Error GoTo 0
 End Function
 
-Function ApiHealthReady(ByVal u)
+Function ApiHealthReady(ByVal u, ByVal mode)
 	On Error Resume Next
-	Dim req, body, okApi, okPortal
+	Dim req, body, okApi, okPortal, okWebDev, okWebProd, normalizedMode, okDocente
 	Set req = CreateObject("WinHttp.WinHttpRequest.5.1")
 	req.Open "GET", u, False
 	req.SetTimeouts 400, 400, 500, 900
@@ -199,8 +179,18 @@ Function ApiHealthReady(ByVal u)
 	End If
 	body = req.ResponseText
 	okApi = RegexTest(body, """apiDocente""\s*:\s*\{[\s\S]*?""ok""\s*:\s*true")
+	okWebDev = RegexTest(body, """webDocenteDev""\s*:\s*\{[\s\S]*?""ok""\s*:\s*true")
+	okWebProd = RegexTest(body, """webDocenteProd""\s*:\s*\{[\s\S]*?""ok""\s*:\s*true")
 	okPortal = RegexTest(body, """apiPortal""\s*:\s*\{[\s\S]*?""ok""\s*:\s*true")
-	ApiHealthReady = (okApi And okPortal)
+	normalizedMode = LCase(Trim(CStr(mode)))
+	If normalizedMode = "dev" Then
+		okDocente = (okApi And okWebDev)
+	Else
+		okDocente = (okApi And okWebProd)
+	End If
+	' El acceso directo docente debe abrir cuando la plataforma docente ya es utilizable.
+	' El portal alumno sigue intentando levantarse en paralelo, pero no bloquea la apertura.
+	ApiHealthReady = okDocente Or (okApi And okPortal)
 	On Error GoTo 0
 End Function
 
@@ -217,22 +207,67 @@ Sub AppendShortcutLog(ByVal rootDir, ByVal message)
 	On Error GoTo 0
 End Sub
 
-Sub StartDashboardFallback(ByVal rootDir, ByVal mode, ByVal port)
-	On Error Resume Next
-	Dim psExe, psArgs, cmd
-	psExe = ResolvePowerShellExe(shell.ExpandEnvironmentStrings("%WINDIR%"))
-	psArgs = "-NoProfile -ExecutionPolicy Bypass -STA -WindowStyle Hidden -File " & q & rootDir & "\scripts\launcher-dashboard.ps1" & q & " -Mode " & QuoteArg(mode) & " -NoOpen"
-	If port <> "0" And port <> "" Then
-		psArgs = psArgs & " -Port " & QuoteArg(port)
-	End If
-	cmd = psExe & " " & psArgs
-	shell.Run cmd, 0, False
-	On Error GoTo 0
-End Sub
-
 Function QuoteArg(ByVal value)
 	QuoteArg = q & Replace(CStr(value), q, "") & q
 End Function
+
+Function BuildRunId()
+	Dim guid
+	On Error Resume Next
+	guid = CreateObject("Scriptlet.TypeLib").Guid
+	If Err.Number <> 0 Then
+		Err.Clear
+		guid = CStr(Timer)
+	End If
+	On Error GoTo 0
+	guid = Replace(guid, "{", "")
+	guid = Replace(guid, "}", "")
+	guid = Replace(guid, "-", "")
+	BuildRunId = "ep" & LCase(guid)
+End Function
+
+Function ReadBootstrapState(ByVal rootDir, ByVal runId)
+	On Error Resume Next
+	Dim path, content
+	path = rootDir & "\logs\bootstrap-state-" & runId & ".json"
+	If Not fso.FileExists(path) Then
+		ReadBootstrapState = ""
+		Exit Function
+	End If
+	content = ReadAllText(path)
+	ReadBootstrapState = content
+	On Error GoTo 0
+End Function
+
+Function GetJsonValue(ByVal obj, ByVal key)
+	On Error Resume Next
+	Dim re
+	Set re = New RegExp
+	re.Pattern = """" & key & """\s*:\s*""([^""]*)"""
+	re.IgnoreCase = True
+	re.Global = False
+	If re.Test(CStr(obj)) Then
+		GetJsonValue = re.Execute(CStr(obj))(0).SubMatches(0)
+	Else
+		GetJsonValue = ""
+	End If
+	On Error GoTo 0
+End Function
+
+Function ReadAllText(ByVal path)
+	On Error Resume Next
+	Dim stream
+	Set stream = CreateObject("ADODB.Stream")
+	stream.Type = 2
+	stream.Charset = "utf-8"
+	stream.Open
+	stream.LoadFromFile path
+	ReadAllText = stream.ReadText(-1)
+	stream.Close
+	Set stream = Nothing
+	On Error GoTo 0
+End Function
+
 
 Function ResolveMode(ByVal value)
 	Dim v

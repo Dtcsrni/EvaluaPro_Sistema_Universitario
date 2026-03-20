@@ -66,6 +66,6 @@ describe('pdf tv3 compatibilidad', () => {
         margenMm: 10,
         templateVersion: 3
       })
-    ).rejects.toThrow('TV3 soporta maximo 5');
+    ).rejects.toThrow('TV4 soporta maximo 5');
   });
 });

@@ -7,6 +7,7 @@
  */
 import crypto from 'node:crypto';
 import fs from 'node:fs/promises';
+import fsSync from 'node:fs';
 import path from 'node:path';
 
 const PASOS_MANUALES = [
@@ -48,6 +49,40 @@ function normalizarBaseApi(valor) {
 
 function hashHex(valor) {
   return crypto.createHash('sha256').update(String(valor)).digest('hex');
+}
+
+async function leerVersionMetadata() {
+  const metaPath = path.resolve(process.cwd(), 'config', 'app-version.json');
+  try {
+    const texto = await fs.readFile(metaPath, 'utf8');
+    const parsed = JSON.parse(texto);
+    return {
+      version: String(parsed?.version || '').trim(),
+      displayVersion: String(parsed?.displayVersion || parsed?.version || '').trim()
+    };
+  } catch {
+    return { version: '', displayVersion: '' };
+  }
+}
+
+function resolveWindowsEvidencePath() {
+  const explicit = arg('windows-evidence', process.env.RELEASE_GATE_WINDOWS_EVIDENCE || '').trim();
+  if (explicit) {
+    return path.resolve(process.cwd(), explicit);
+  }
+  const evidencesRoot = path.resolve(process.cwd(), 'docs', 'release', 'evidencias');
+  if (!fsSync.existsSync(evidencesRoot)) return '';
+  const matches = [];
+  for (const dirent of fsSync.readdirSync(evidencesRoot, { withFileTypes: true })) {
+    if (!dirent.isDirectory()) continue;
+    const candidate = path.join(evidencesRoot, dirent.name, 'windows-release-smoke-2026-03-20.md');
+    if (fsSync.existsSync(candidate)) {
+      const stats = fsSync.statSync(candidate);
+      matches.push({ candidate, mtimeMs: stats.mtimeMs });
+    }
+  }
+  matches.sort((a, b) => b.mtimeMs - a.mtimeMs);
+  return matches[0]?.candidate || '';
 }
 
 async function cargarManual(ruta) {
@@ -111,6 +146,7 @@ async function run() {
   const token = arg('token', process.env.RELEASE_GATE_DOCENTE_TOKEN || '');
   const commit = arg('commit', process.env.GITHUB_SHA || 'local');
   const ciGreen = Number(arg('ci-green', process.env.RELEASE_GATE_CI_GREEN || '0'));
+  const versionMeta = await leerVersionMetadata();
 
   if (!version) throw new Error('Falta --version');
   if (!periodoId) throw new Error('Falta --periodo-id');
@@ -219,15 +255,31 @@ async function run() {
   await fs.mkdir(salidaDir, { recursive: true });
 
   const manifest = {
-    version,
+    version: versionMeta.version || version,
+    displayVersion: versionMeta.displayVersion || versionMeta.version || version,
     commit,
     ciConsecutivoVerde: Number.isFinite(ciGreen) ? ciGreen : 0,
+    evidenciaWindows: {
+      path: (() => {
+        const evidencePath = resolveWindowsEvidencePath();
+        return evidencePath ? path.relative(process.cwd(), evidencePath).replace(/\\/g, '/') : '';
+      })()
+    },
     gateHumanoProduccion: {
-      version,
+      version: versionMeta.version || version,
+      displayVersion: versionMeta.displayVersion || versionMeta.version || version,
       ejecutadoEn,
       entorno: 'production',
       docenteIdHash,
       periodoId,
+      ventana: {
+        startedAt: String(manual.windowStartedAt || ''),
+        endedAt: String(manual.windowEndedAt || '')
+      },
+      operador: {
+        nombre: String(manual.operatorName || ''),
+        observaciones: String(manual.notes || '')
+      },
       resultado,
       duracionMs,
       pasos
@@ -240,8 +292,9 @@ async function run() {
   };
 
   const timeline = [
-    `# Timeline Gate Estable ${version}`,
+    `# Timeline Gate Estable ${versionMeta.version || version}`,
     '',
+    `- Etiqueta visible GUI: ${versionMeta.displayVersion || versionMeta.version || version}`,
     `- Ejecutado en: ${ejecutadoEn}`,
     `- Commit: ${commit}`,
     `- Periodo: ${periodoId}`,

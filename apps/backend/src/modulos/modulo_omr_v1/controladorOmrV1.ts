@@ -15,6 +15,7 @@ import { Docente } from '../modulo_autenticacion/modeloDocente';
 import { Periodo } from '../modulo_alumnos/modeloPeriodo';
 import { ExamenPlantilla } from '../modulo_generacion_pdf/modeloExamenPlantilla';
 import { ExamenGenerado } from '../modulo_generacion_pdf/modeloExamenGenerado';
+import { asegurarExamenDescargable, construirMetadataRetencion } from '../modulo_generacion_pdf/servicioRetencionExamenes';
 import { analizarOmr, leerQrDesdeImagen } from '../modulo_escaneo_omr/servicioOmr';
 import { listarFamiliasOmrV1, recomendarFamiliaOmrV1, resolverFamiliaOmrV1 } from './familiasOmrV1';
 import {
@@ -367,23 +368,33 @@ function sanitizeExceptionsAfterResolution(exceptions: OmrExceptionV1[], args: {
 
 function resolverGeneratedAssessmentSummary(examenGenerado: Record<string, unknown>): GeneratedAssessmentSummaryV1 {
   const id = String(examenGenerado._id ?? '');
+  const retention = construirMetadataRetencion(examenGenerado);
   return {
     _id: id,
     folio: String(examenGenerado.folio ?? ''),
     generationSeed: String(examenGenerado.generationSeed ?? ''),
     previewFingerprint: String(examenGenerado.previewFingerprint ?? ''),
-    bookletPdfUrl: id ? `/assessments/generated/${encodeURIComponent(id)}/booklet.pdf` : undefined,
-    omrSheetPdfUrl: id ? `/assessments/generated/${encodeURIComponent(id)}/omr-sheet.pdf` : undefined,
+    retentionStatus: retention.retentionStatus as 'active' | 'artifacts_purged',
+    artifactsPurgedAt: retention.artifactsPurgedAt,
+    downloadAvailable: retention.downloadAvailable,
+    bookletPdfUrl: retention.downloadAvailable && id ? `/assessments/generated/${encodeURIComponent(id)}/booklet.pdf` : undefined,
+    omrSheetPdfUrl: retention.downloadAvailable && id ? `/assessments/generated/${encodeURIComponent(id)}/omr-sheet.pdf` : undefined,
     studentPacketZipUrl:
-      id && String((examenGenerado as { studentPacketZipArtifact?: { path?: unknown } }).studentPacketZipArtifact?.path ?? '').trim()
+      retention.downloadAvailable &&
+      id &&
+      String((examenGenerado as { studentPacketZipArtifact?: { path?: unknown } }).studentPacketZipArtifact?.path ?? '').trim()
         ? `/assessments/generated/${encodeURIComponent(id)}/student-packets.zip`
         : undefined,
     answerKeyUrl:
-      id && String((examenGenerado as { answerKeyArtifact?: { path?: unknown } }).answerKeyArtifact?.path ?? '').trim()
+      retention.downloadAvailable &&
+      id &&
+      String((examenGenerado as { answerKeyArtifact?: { path?: unknown } }).answerKeyArtifact?.path ?? '').trim()
         ? `/assessments/generated/${encodeURIComponent(id)}/answer-key.json`
         : undefined,
     manifestUrl:
-      id && String((examenGenerado as { manifestArtifact?: { path?: unknown } }).manifestArtifact?.path ?? '').trim()
+      retention.downloadAvailable &&
+      id &&
+      String((examenGenerado as { manifestArtifact?: { path?: unknown } }).manifestArtifact?.path ?? '').trim()
         ? `/assessments/generated/${encodeURIComponent(id)}/manifest.json`
         : undefined,
     versionSet: Array.isArray(examenGenerado.versionSet)
@@ -692,6 +703,7 @@ export async function generarAssessment(req: SolicitudDocente, res: Response) {
     docenteId,
     periodoId: plantilla.periodoId,
     plantillaId: plantilla._id,
+    origenGeneracion: versionCount > 1 || bundle.studentPackets.length > 0 ? 'lote' : 'individual',
     folio,
     loteId: createHash('md5').update(`${folio}:lote`).digest('hex').slice(0, 8).toUpperCase(),
     estado: 'generado',
@@ -735,6 +747,7 @@ export async function generarAssessment(req: SolicitudDocente, res: Response) {
     previewFingerprint,
     statisticsSummary,
     omrRuntimeVersion: OMR_RUNTIME_VERSION_V1,
+    retentionStatus: 'active',
     mapaOmr: {
       margenMm: 10,
       templateVersion: 1,
@@ -754,7 +767,8 @@ export async function obtenerGeneratedAssessment(req: SolicitudDocente, res: Res
     sheetInstances: Array.isArray(generado.sheetInstances) ? generado.sheetInstances : [],
     statisticsSummary: generado.statisticsSummary ?? {},
     versionSet: Array.isArray(generado.versionSet) ? generado.versionSet : [],
-    studentPacketArtifacts: Array.isArray(generado.studentPacketArtifacts) ? generado.studentPacketArtifacts : []
+    studentPacketArtifacts: Array.isArray(generado.studentPacketArtifacts) ? generado.studentPacketArtifacts : [],
+    retention: construirMetadataRetencion(generado as unknown as Record<string, unknown>)
   });
 }
 
@@ -766,6 +780,7 @@ async function enviarArchivoAssessment(args: { res: Response; ruta: string; file
 
 export async function descargarGeneratedBooklet(req: SolicitudDocente, res: Response) {
   const generado = await cargarGeneratedAssessment(String(req.params.id || ''), obtenerDocenteId(req));
+  asegurarExamenDescargable(generado as unknown as Record<string, unknown>, 'EXAMEN_NO_DESCARGABLE_POR_RETENCION', 'No existe cuadernillo para esta evaluación');
   const ruta = String((generado as { bookletArtifact?: { path?: unknown } }).bookletArtifact?.path ?? generado.rutaPdf ?? '');
   if (!ruta) throw new ErrorAplicacion('PDF_NO_DISPONIBLE', 'No existe cuadernillo para esta evaluación', 404);
   await enviarArchivoAssessment({ res, ruta, fileName: `${String(generado.folio ?? 'assessment')}_booklet_v1.pdf`, contentType: 'application/pdf' });
@@ -773,6 +788,7 @@ export async function descargarGeneratedBooklet(req: SolicitudDocente, res: Resp
 
 export async function descargarGeneratedOmrSheet(req: SolicitudDocente, res: Response) {
   const generado = await cargarGeneratedAssessment(String(req.params.id || ''), obtenerDocenteId(req));
+  asegurarExamenDescargable(generado as unknown as Record<string, unknown>, 'EXAMEN_NO_DESCARGABLE_POR_RETENCION', 'No existe hoja OMR para esta evaluación');
   const ruta = String((generado as { omrSheetArtifact?: { path?: unknown } }).omrSheetArtifact?.path ?? '');
   if (!ruta) throw new ErrorAplicacion('PDF_NO_DISPONIBLE', 'No existe hoja OMR para esta evaluación', 404);
   await enviarArchivoAssessment({ res, ruta, fileName: `${String(generado.folio ?? 'assessment')}_omr_sheet_v1.pdf`, contentType: 'application/pdf' });
@@ -780,6 +796,7 @@ export async function descargarGeneratedOmrSheet(req: SolicitudDocente, res: Res
 
 export async function descargarGeneratedStudentPackets(req: SolicitudDocente, res: Response) {
   const generado = await cargarGeneratedAssessment(String(req.params.id || ''), obtenerDocenteId(req));
+  asegurarExamenDescargable(generado as unknown as Record<string, unknown>, 'EXAMEN_NO_DESCARGABLE_POR_RETENCION', 'No existen paquetes por alumno para esta evaluación');
   const ruta = String((generado as { studentPacketZipArtifact?: { path?: unknown } }).studentPacketZipArtifact?.path ?? '');
   if (!ruta) throw new ErrorAplicacion('ZIP_NO_DISPONIBLE', 'No existen paquetes por alumno para esta evaluación', 404);
   await enviarArchivoAssessment({ res, ruta, fileName: `${String(generado.folio ?? 'assessment')}_student_packets_v1.zip`, contentType: 'application/zip' });
@@ -787,6 +804,7 @@ export async function descargarGeneratedStudentPackets(req: SolicitudDocente, re
 
 export async function descargarGeneratedManifest(req: SolicitudDocente, res: Response) {
   const generado = await cargarGeneratedAssessment(String(req.params.id || ''), obtenerDocenteId(req));
+  asegurarExamenDescargable(generado as unknown as Record<string, unknown>, 'EXAMEN_NO_DESCARGABLE_POR_RETENCION', 'No existe manifest para esta evaluación');
   const ruta = String((generado as { manifestArtifact?: { path?: unknown } }).manifestArtifact?.path ?? '');
   if (!ruta) throw new ErrorAplicacion('MANIFEST_NO_DISPONIBLE', 'No existe manifest para esta evaluación', 404);
   await enviarArchivoAssessment({ res, ruta, fileName: `${String(generado.folio ?? 'assessment')}_manifest_v1.json`, contentType: 'application/json' });
@@ -794,6 +812,7 @@ export async function descargarGeneratedManifest(req: SolicitudDocente, res: Res
 
 export async function descargarGeneratedAnswerKey(req: SolicitudDocente, res: Response) {
   const generado = await cargarGeneratedAssessment(String(req.params.id || ''), obtenerDocenteId(req));
+  asegurarExamenDescargable(generado as unknown as Record<string, unknown>, 'EXAMEN_NO_DESCARGABLE_POR_RETENCION', 'No existe answer key para esta evaluación');
   const ruta = String((generado as { answerKeyArtifact?: { path?: unknown } }).answerKeyArtifact?.path ?? '');
   if (!ruta) throw new ErrorAplicacion('ANSWER_KEY_NO_DISPONIBLE', 'No existe answer key para esta evaluación', 404);
   await enviarArchivoAssessment({ res, ruta, fileName: `${String(generado.folio ?? 'assessment')}_answer_key_v1.json`, contentType: 'application/json' });

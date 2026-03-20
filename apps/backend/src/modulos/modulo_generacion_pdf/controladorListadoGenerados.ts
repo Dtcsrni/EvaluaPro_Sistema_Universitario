@@ -7,6 +7,7 @@
  */
 import type { Response } from 'express';
 import { ErrorAplicacion } from '../../compartido/errores/errorAplicacion';
+import { configuracion } from '../../configuracion';
 import { obtenerDocenteId, type SolicitudDocente } from '../modulo_autenticacion/middlewareAutenticacion';
 import { ExamenGenerado } from './modeloExamenGenerado';
 import { promises as fs } from 'fs';
@@ -20,6 +21,11 @@ import { Docente } from '../modulo_autenticacion/modeloDocente';
 import { resolverNumeroPaginasPlantilla } from './domain/resolverNumeroPaginasPlantilla';
 import { TEMPLATE_VERSION_TV4 } from './domain/templateCompat';
 import { Entrega } from '../modulo_vinculacion_entrega/modeloEntrega';
+import {
+  asegurarExamenDescargable,
+  construirMetadataRetencion,
+  ejecutarPurgeExamenesGenerados
+} from './servicioRetencionExamenes';
 
 type BancoPreguntaLean = {
   _id: unknown;
@@ -139,6 +145,7 @@ export async function listarExamenesGenerados(req: SolicitudDocente, res: Respon
     const entrega = entregaPorExamenId.get(examenId);
     return {
       ...examen,
+      ...construirMetadataRetencion(examen as unknown as Record<string, unknown>),
       acordeonEntregado: Boolean(entrega?.acordeonEntregado),
       bonoAcordeon: Number(entrega?.bonoAcordeon ?? 0)
     };
@@ -157,7 +164,7 @@ export async function obtenerExamenPorFolio(req: SolicitudDocente, res: Response
   if (!examen) {
     throw new ErrorAplicacion('EXAMEN_NO_ENCONTRADO', 'Examen no encontrado', 404);
   }
-  res.json({ examen });
+  res.json({ examen: { ...examen, ...construirMetadataRetencion(examen as unknown as Record<string, unknown>) } });
 }
 
 /**
@@ -170,9 +177,8 @@ export async function descargarPdf(req: SolicitudDocente, res: Response) {
   const docenteId = obtenerDocenteId(req);
   const examenId = String(req.params.id || '');
   const examen = await ExamenGenerado.findOne({ _id: examenId, docenteId }).lean();
-  if (!examen || !examen.rutaPdf) {
-    throw new ErrorAplicacion('PDF_NO_DISPONIBLE', 'PDF no disponible', 404);
-  }
+  asegurarExamenDescargable(examen as unknown as Record<string, unknown> | null, 'EXAMEN_NO_DESCARGABLE_POR_RETENCION', 'PDF no disponible');
+  if (!examen?.rutaPdf) throw new ErrorAplicacion('PDF_NO_DISPONIBLE', 'PDF no disponible', 404);
 
   try {
     const buffer = await fs.readFile(examen.rutaPdf);
@@ -397,7 +403,10 @@ export async function regenerarPdfExamen(req: SolicitudDocente, res: Response) {
         preguntasIds,
         paginas,
         mapaOmr,
-        rutaPdf
+        rutaPdf,
+        retentionStatus: 'active',
+        artifactsPurgedAt: null,
+        artifactsPurgeReason: null
       }
     }
   );
@@ -429,4 +438,21 @@ export async function archivarExamenGenerado(req: SolicitudDocente, res: Respons
   ).lean();
 
   res.json({ ok: true, examen: actualizado });
+}
+
+export async function purgarExamenesGenerados(req: SolicitudDocente, res: Response) {
+  const docenteId = obtenerDocenteId(req);
+  const dryRun = Boolean((req.body as { dryRun?: unknown })?.dryRun ?? false);
+  const olderThanDays = Number((req.body as { olderThanDays?: unknown })?.olderThanDays ?? configuracion.dataRetentionDefaultDays);
+  const scope = String((req.body as { scope?: unknown })?.scope ?? 'ttl').trim().toLowerCase() === 'all' ? 'all' : 'ttl';
+
+  const resumen = await ejecutarPurgeExamenesGenerados({
+    docenteId,
+    dryRun,
+    olderThanDays,
+    scope,
+    reason: scope === 'all' ? 'manual_initial_cleanup' : 'manual'
+  });
+
+  res.json({ ok: true, data: resumen });
 }

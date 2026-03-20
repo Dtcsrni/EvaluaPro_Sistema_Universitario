@@ -11,6 +11,7 @@ const ExamenGeneradoSchema = new Schema(
     alumnoId: { type: Schema.Types.ObjectId, ref: 'Alumno' },
     // Identificador de la corrida/lote de generación (mismo valor para lotes masivos).
     loteId: { type: String },
+    origenGeneracion: { type: String, enum: ['individual', 'lote'], default: 'individual' },
     folio: { type: String, required: true, unique: true },
     estado: { type: String, enum: ['generado', 'entregado', 'calificado'], default: 'generado' },
     entregadoEn: { type: Date },
@@ -40,6 +41,9 @@ const ExamenGeneradoSchema = new Schema(
     previewFingerprint: { type: String },
     statisticsSummary: { type: Schema.Types.Mixed },
     omrRuntimeVersion: { type: Number },
+    retentionStatus: { type: String, enum: ['active', 'artifacts_purged'], default: 'active', index: true },
+    artifactsPurgedAt: { type: Date },
+    artifactsPurgeReason: { type: String, enum: ['ttl', 'manual_initial_cleanup', 'manual'] },
     generadoEn: { type: Date, default: Date.now },
     descargadoEn: { type: Date },
     archivadoEn: { type: Date }

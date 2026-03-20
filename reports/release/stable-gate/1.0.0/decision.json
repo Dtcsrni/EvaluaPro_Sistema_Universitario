@@ -1,0 +1,32 @@
+{
+  "timestamp": "2026-03-20T13:14:26.426Z",
+  "version": "1.0.0",
+  "decision": "No-Go",
+  "checks": [
+    {
+      "id": "ci-streak",
+      "ok": true,
+      "detail": "streak=10/10"
+    },
+    {
+      "id": "release-evidence",
+      "ok": true,
+      "detail": "C:\\Users\\evega\\EvaluaPro_Sistema_Universitario\\docs\\release\\evidencias\\1.0.0"
+    },
+    {
+      "id": "prod-flow-evidence",
+      "ok": false,
+      "detail": "gateHumanoProduccion.resultado=fallo"
+    },
+    {
+      "id": "installer-multi-flavor",
+      "ok": true,
+      "detail": "C:\\Users\\evega\\EvaluaPro_Sistema_Universitario\\docs\\release\\evidencias\\1.0.0\\installer-release-manifest.fixture.json"
+    },
+    {
+      "id": "prod-flow",
+      "ok": true,
+      "detail": "Verificado por evidencia persistida (sin ejecucion activa)."
+    }
+  ]
+}

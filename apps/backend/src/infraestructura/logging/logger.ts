@@ -11,6 +11,11 @@ type Meta = Record<string, unknown>;
 const servicio = 'api-docente';
 const env = process.env.NODE_ENV ?? 'development';
 
+function logsSilenciados(): boolean {
+  const raw = String(process.env.EVALUAPRO_LOG_SILENT || process.env.EVALUAPRO_SILENT_LOGS || '').trim().toLowerCase();
+  return raw === '1' || raw === 'true' || raw === 'yes' || raw === 'si';
+}
+
 function serializarError(error: unknown) {
   if (!error) return undefined;
   if (error instanceof Error) {
@@ -30,6 +35,7 @@ function nivelEstandar(level: NivelLog): 'info' | 'warn' | 'error' {
 }
 
 export function log(level: NivelLog, msg: string, meta: Meta = {}) {
+  if (logsSilenciados()) return;
   const levelStd = nivelEstandar(level);
   const entry = {
     timestamp: new Date().toISOString(),

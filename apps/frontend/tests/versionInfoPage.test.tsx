@@ -13,7 +13,7 @@ describe('VersionInfoPage', () => {
     vi.mocked(fetch).mockResolvedValueOnce({
       ok: true,
       json: async () => ({
-        app: { name: 'evaluapro', version: '1.0.0-beta.0' },
+        app: { name: 'evaluapro', version: '1.0.0', displayVersion: '1.0.0b' },
         repositoryUrl: 'https://github.com/Dtcsrni',
         technologies: [
           { id: 'react', label: 'React', logoUrl: 'https://cdn.simpleicons.org/react/61DAFB', website: 'https://react.dev' },
@@ -33,6 +33,8 @@ describe('VersionInfoPage', () => {
 
     const repo = screen.getByRole('link', { name: 'Repositorio del desarrollador' });
     expect(repo).toHaveAttribute('href', 'https://github.com/Dtcsrni');
+    expect(screen.getByText(/evaluapro v1\.0\.0b/i)).toBeInTheDocument();
+    expect(screen.getByText(/Base técnica: 1\.0\.0/i)).toBeInTheDocument();
     expect(screen.getByText('React')).toBeInTheDocument();
     expect(screen.getByText('TypeScript')).toBeInTheDocument();
     expect(screen.getByAltText('React logo')).toBeInTheDocument();

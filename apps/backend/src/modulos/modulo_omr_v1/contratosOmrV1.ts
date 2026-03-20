@@ -139,6 +139,9 @@ export type GeneratedAssessmentSummaryV1 = {
   folio: string;
   generationSeed: string;
   previewFingerprint: string;
+  retentionStatus: 'active' | 'artifacts_purged';
+  artifactsPurgedAt?: unknown;
+  downloadAvailable: boolean;
   bookletPdfUrl?: string;
   omrSheetPdfUrl?: string;
   studentPacketZipUrl?: string;

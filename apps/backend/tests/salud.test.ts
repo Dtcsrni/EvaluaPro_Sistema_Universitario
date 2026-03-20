@@ -77,6 +77,7 @@ describe('salud', () => {
       expect.objectContaining({
         name: expect.any(String),
         version: expect.any(String),
+        displayVersion: expect.any(String),
         build: expect.objectContaining({
           commit: expect.any(String),
           generatedAt: expect.any(String)
@@ -92,7 +93,8 @@ describe('salud', () => {
       expect.objectContaining({
         app: expect.objectContaining({
           name: expect.any(String),
-          version: expect.any(String)
+          version: expect.any(String),
+          displayVersion: expect.any(String)
         }),
         repositoryUrl: expect.any(String),
         technologies: expect.any(Array)

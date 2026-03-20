@@ -47,7 +47,7 @@ function Normalize-OperationalConfig {
     [hashtable]$InputConfig
   )
   $cfg = [ordered]@{
-    mongoUri = [string](Get-InstallerHubConfigValue -InputConfig $InputConfig -Key 'mongoUri' -DefaultValue 'mongodb://mongo_local:27017/mern_app')
+    mongoUri = [string](Get-InstallerHubConfigValue -InputConfig $InputConfig -Key 'mongoUri' -DefaultValue 'mongodb://mongo_local:27017/evaluapro')
     jwtSecreto = [string](Get-InstallerHubConfigValue -InputConfig $InputConfig -Key 'jwtSecreto' -DefaultValue '')
     nodeEnv = [string](Get-InstallerHubConfigValue -InputConfig $InputConfig -Key 'nodeEnv' -DefaultValue 'production')
     puertoApi = [string](Get-InstallerHubConfigValue -InputConfig $InputConfig -Key 'puertoApi' -DefaultValue '4000')

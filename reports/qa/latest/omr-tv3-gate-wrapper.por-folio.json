@@ -1,0 +1,11 @@
+{
+  "version": "1",
+  "gate": "omr-tv3-por-folio",
+  "command": "npm -C apps/backend run omr:tv3:validate:por-folio -- --dataset ../../omr_samples_tv3_real_por_folio --report ../../reports/qa/latest/omr/tv3-por-folio-validation.ci.json --failure-report ../../reports/qa/latest/omr/tv3-por-folio-failures.ci.json",
+  "ok": true,
+  "exitCode": 0,
+  "signal": null,
+  "startedAt": "2026-03-20T15:07:01.257Z",
+  "finishedAt": "2026-03-20T15:09:36.023Z",
+  "durationMs": 154766
+}

@@ -1,0 +1,14 @@
+{
+  "workflow_runs": [
+    { "id": 1, "conclusion": "success" },
+    { "id": 2, "conclusion": "success" },
+    { "id": 3, "conclusion": "success" },
+    { "id": 4, "conclusion": "success" },
+    { "id": 5, "conclusion": "success" },
+    { "id": 6, "conclusion": "success" },
+    { "id": 7, "conclusion": "success" },
+    { "id": 8, "conclusion": "success" },
+    { "id": 9, "conclusion": "success" },
+    { "id": 10, "conclusion": "success" }
+  ]
+}

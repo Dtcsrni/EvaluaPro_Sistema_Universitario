@@ -116,7 +116,7 @@ async function runProfile(profile: Profile, dataset: string, mode: 'omr'): Promi
     const summary: EvalProfileSummary = await evaluateProfile({
       dataset,
       mode,
-      mongoUri: process.env.MONGODB_URI_HOST || 'mongodb://localhost:27017/mern_app',
+      mongoUri: process.env.MONGODB_URI_HOST || 'mongodb://localhost:27017/evaluapro',
       profileName: profile.name
     });
     return summary;

@@ -77,6 +77,59 @@ function Get-EvaluaProInstallationInfo {
   }
 }
 
+function Get-EvaluaProInstallationHealth {
+  param([string]$InstallDir = '')
+
+  $allowUnregistered = @('1', 'true', 'yes', 'on') -contains ([string]$env:EVALUAPRO_INSTALLER_ALLOW_UNREGISTERED).Trim().ToLowerInvariant()
+
+  $info = Get-EvaluaProInstallationInfo
+  $effectiveDir = if ($InstallDir) { $InstallDir } elseif ($info.InstallLocation) { [string]$info.InstallLocation } else { '' }
+  if (-not $info.Installed -and -not $effectiveDir) {
+    return [pscustomobject]@{
+      state = 'ausente'
+      issues = @('No hay instalacion registrada.')
+      installDir = ''
+    }
+  }
+
+  if (-not $effectiveDir) {
+    return [pscustomobject]@{
+      state = 'incompleta'
+      issues = @('Existe registro de instalacion pero sin ruta valida.')
+      installDir = ''
+    }
+  }
+
+  $issues = @()
+  $required = @(
+    (Join-Path $effectiveDir 'package.json'),
+    (Join-Path $effectiveDir 'scripts\launcher-broker.ps1'),
+    (Join-Path $effectiveDir 'scripts\launcher-tray-hidden.vbs'),
+    (Join-Path $effectiveDir 'scripts\installer-hub\InstallerHub.ps1'),
+    (Join-Path $effectiveDir 'logs\installation.manifest.json')
+  )
+  foreach ($file in $required) {
+    if (-not (Test-Path -LiteralPath $file)) {
+      $issues += "Falta archivo crítico: $file"
+    }
+  }
+
+  if (-not $info.Installed -and -not $allowUnregistered) {
+    return [pscustomobject]@{
+      state = if ($issues.Count -gt 0) { 'dañada' } else { 'degradada' }
+      issues = @('La ruta parece contener EvaluaPro, pero no existe registro MSI.') + $issues
+      installDir = $effectiveDir
+    }
+  }
+
+  $state = if ($issues.Count -eq 0) { 'ok' } elseif ($issues.Count -le 2) { 'degradada' } else { 'dañada' }
+  return [pscustomobject]@{
+    state = $state
+    issues = $issues
+    installDir = $effectiveDir
+  }
+}
+
 function Resolve-InstallerMode {
   param(
     [ValidateSet('auto', 'install', 'repair', 'uninstall')]
@@ -164,7 +217,7 @@ function Read-PrereqManifest {
 
   return [pscustomobject]@{
     version = [string]$json.version
-    defaultProfile = [string]($json.defaultProfile ?? '')
+    defaultProfile = if ($null -ne $json.defaultProfile) { [string]$json.defaultProfile } else { '' }
     profiles = $profiles
     prerequisites = $list
   }
@@ -179,7 +232,7 @@ function Resolve-PrereqProfile {
 
   $effectiveProfileId = [string]$ProfileId
   if ([string]::IsNullOrWhiteSpace($effectiveProfileId)) {
-    $effectiveProfileId = [string]($Manifest.defaultProfile ?? '')
+    $effectiveProfileId = if ($null -ne $Manifest.defaultProfile) { [string]$Manifest.defaultProfile } else { '' }
   }
 
   if ([string]::IsNullOrWhiteSpace($effectiveProfileId)) {
@@ -244,6 +297,7 @@ Export-ModuleMember -Function @(
   'Get-NodeMajorVersion',
   'Test-DockerDesktopInstalled',
   'Get-EvaluaProInstallationInfo',
+  'Get-EvaluaProInstallationHealth',
   'Resolve-InstallerMode',
   'Get-SystemRequirementReport',
   'Read-PrereqManifest',

@@ -26,7 +26,7 @@ shell.CurrentDirectory = rootDir
 
 Dim psExe, psArgs, cmd
 psExe = ResolvePowerShellExe(shell.ExpandEnvironmentStrings("%WINDIR%"))
-psArgs = "-NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -File " & q & rootDir & "\scripts\shortcut-ops.ps1" & q & _
+psArgs = "-NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -File " & q & rootDir & "\scripts\launcher-broker.ps1" & q & _
          " -Action " & QuoteArg(actionName) & " -Port " & QuoteArg(port) & " -Mode " & QuoteArg(mode)
 cmd = psExe & " " & psArgs
 
@@ -40,7 +40,7 @@ Function ResolveAction(ByVal value)
     Dim v
     v = LCase(Trim(CStr(value)))
     Select Case v
-        Case "open-dashboard", "restart-stack", "stop-all", "repair"
+        Case "open-dashboard", "restart-stack", "stop-all", "repair", "open-hub", "regenerate-shortcuts", "verify-installation"
             ResolveAction = v
         Case Else
             ResolveAction = "open-dashboard"

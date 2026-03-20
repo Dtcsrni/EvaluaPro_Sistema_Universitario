@@ -33,6 +33,7 @@ import { ExamenGenerado } from './modeloExamenGenerado';
 import { ExamenRecoveryBundle } from './modeloExamenRecoveryBundle';
 import { ExamenRecoveryManifest } from './modeloExamenRecoveryManifest';
 import { ExamenPlantilla, normalizarTituloPlantilla } from './modeloExamenPlantilla';
+import { construirMetadataRetencion } from './servicioRetencionExamenes';
 import { generarPdfExamen } from './servicioGeneracionPdf';
 import { generarVariante } from './servicioVariantes';
 import { construirRecoveryBundle, construirRecoveryManifest } from './domain/recoveryManifest';
@@ -269,9 +270,9 @@ function construirFirmaVariante(mapaVariante: MapaVariante): string {
   return `${ordenPreguntas.join('|')}__${bloques.join('|')}`;
 }
 
-const PREVIEW_TTL_MS = 30 * 60 * 1000;
-const PREVIEW_CLEANUP_INTERVAL_MS = 10 * 60 * 1000;
-const PREVIEW_MAX_FILES = 40;
+const PREVIEW_TTL_MS = 10 * 60 * 1000;
+const PREVIEW_CLEANUP_INTERVAL_MS = 2 * 60 * 1000;
+const PREVIEW_MAX_FILES = 10;
 let ultimoLimpiezaPreview = 0;
 
 function obtenerDirectorioPreview() {
@@ -1237,6 +1238,7 @@ export async function generarExamen(req: SolicitudDocente, res: Response) {
     periodoId: plantilla.periodoId,
     plantillaId: plantilla._id,
     loteId,
+    origenGeneracion: 'individual',
     folio,
     estado: 'generado',
     preguntasIds: mapaVarianteUsada.ordenPreguntas,
@@ -1244,6 +1246,7 @@ export async function generarExamen(req: SolicitudDocente, res: Response) {
     paginas,
     mapaOmr,
     rutaPdf,
+    retentionStatus: 'active',
     recoveryKeyId: recoveryManifest.keyId,
     recoveryManifestHash: recoveryManifest.manifestHash,
     recoveryManifest
@@ -1372,7 +1375,7 @@ export async function generarExamenesLote(req: SolicitudDocente, res: Response) 
     plantillaId: plantilla._id
   });
   let preguntasBaseLote: ReturnType<typeof normalizarPreguntasParaTv4> = [];
-  let totalReactivosLote = 0;
+  let reactivosTotalesLote = 0;
   {
     const preguntasCandidatas = ordenarPreguntasDeterminista(preguntasBase, hash32(`${String(plantilla._id)}:${loteId}:lote-base`));
     const mapaVariante = generarVarianteDeterminista(preguntasCandidatas, `plantilla:${plantilla._id}:lote-base:${loteId}`);
@@ -1420,9 +1423,9 @@ export async function generarExamenesLote(req: SolicitudDocente, res: Response) 
         .map((id) => preguntasPorId.get(id))
         .filter((pregunta): pregunta is NonNullable<typeof pregunta> => Boolean(pregunta))
     );
-    totalReactivosLote = preguntasBaseLote.length;
+    reactivosTotalesLote = preguntasBaseLote.length;
 
-    if (totalReactivosLote !== idsPreguntasLote.length) {
+    if (reactivosTotalesLote !== idsPreguntasLote.length) {
       throw new ErrorAplicacion(
         'PREGUNTAS_NO_DISPONIBLES',
         'No se pudieron resolver todas las preguntas seleccionadas para el lote.',
@@ -1433,7 +1436,7 @@ export async function generarExamenesLote(req: SolicitudDocente, res: Response) 
     const usadosSet = new Set(idsPreguntasLote);
     const ultima = (Array.isArray(metricasPaginas) ? metricasPaginas : []).find((m) => m.numero === numeroPaginas);
     const fraccionVaciaUltimaPagina = Number(ultima?.fraccionVacia ?? 0);
-    const consumioTodas = usadosSet.size >= totalReactivosLote;
+    const consumioTodas = usadosSet.size >= reactivosTotalesLote;
     if (!esTest && consumioTodas && fraccionVaciaUltimaPagina > 0.5) {
       throw new ErrorAplicacion(
         'PAGINAS_INSUFICIENTES',
@@ -1479,15 +1482,15 @@ export async function generarExamenesLote(req: SolicitudDocente, res: Response) 
         const mapaVarianteUsada = construirMapaVarianteUsadaDesdeOmr(mapaVariante, mapaOmr);
         const reactivosUsados = Array.isArray(mapaVarianteUsada.ordenPreguntas) ? mapaVarianteUsada.ordenPreguntas.length : 0;
 
-        if ((preguntasRestantes ?? 0) > 0 || reactivosUsados !== totalReactivosLote) {
+        if ((preguntasRestantes ?? 0) > 0 || reactivosUsados !== reactivosTotalesLote) {
           if (!esUltimoIntentoVariante) {
             continue;
           }
           throw new ErrorAplicacion(
             'LOTE_VARIANTE_INCONSISTENTE',
-            `No se pudo mantener un lote consistente de ${totalReactivosLote} reactivos en ${numeroPaginas} pagina(s).`,
+            `No se pudo mantener un lote consistente de ${reactivosTotalesLote} reactivos en ${numeroPaginas} pagina(s).`,
             409,
-            { preguntasRestantes, reactivosUsados, totalReactivosLote, numeroPaginas }
+            { preguntasRestantes, reactivosUsados, reactivosTotalesLote, numeroPaginas }
           );
         }
 
@@ -1495,7 +1498,7 @@ export async function generarExamenesLote(req: SolicitudDocente, res: Response) 
 
         const ultima = (Array.isArray(metricasPaginas) ? metricasPaginas : []).find((m) => m.numero === numeroPaginas);
         const fraccionVaciaUltimaPagina = Number(ultima?.fraccionVacia ?? 0);
-        const consumioTodas = usadosSet.size >= totalReactivosLote;
+        const consumioTodas = usadosSet.size >= reactivosTotalesLote;
         if (!esTest && consumioTodas && fraccionVaciaUltimaPagina > 0.5) {
           throw new ErrorAplicacion(
             'PAGINAS_INSUFICIENTES',
@@ -1539,6 +1542,7 @@ export async function generarExamenesLote(req: SolicitudDocente, res: Response) 
           periodoId: plantilla.periodoId,
           plantillaId: plantilla._id,
           loteId,
+          origenGeneracion: 'lote',
           folio,
           estado: 'generado',
           preguntasIds: mapaVarianteUsada.ordenPreguntas,
@@ -1546,6 +1550,7 @@ export async function generarExamenesLote(req: SolicitudDocente, res: Response) 
           paginas,
           mapaOmr,
           rutaPdf,
+          retentionStatus: 'active',
           recoveryKeyId: recoveryManifest.keyId,
           recoveryManifestHash: recoveryManifest.manifestHash,
           recoveryManifest
@@ -1693,8 +1698,14 @@ export async function descargarPdfLote(req: SolicitudDocente, res: Response) {
   }
   const examenLote = await ExamenGenerado.findOne({ docenteId, loteId: lote })
     .sort({ generadoEn: -1, _id: -1 })
-    .select({ plantillaId: 1, periodoId: 1 })
+    .select({ plantillaId: 1, periodoId: 1, retentionStatus: 1, artifactsPurgedAt: 1 })
     .lean();
+  if (examenLote) {
+    const retention = construirMetadataRetencion(examenLote as unknown as Record<string, unknown>);
+    if (retention.retentionStatus === 'artifacts_purged') {
+      throw new ErrorAplicacion('EXAMEN_ARTIFACTOS_EXPURGADOS', 'Los artefactos de este lote fueron expurgados por política de retención.', 410, retention);
+    }
+  }
   const [plantilla, periodo, totalExamenes] = await Promise.all([
     (examenLote as unknown as { plantillaId?: unknown })?.plantillaId
       ? ExamenPlantilla.findById(String((examenLote as unknown as { plantillaId?: unknown })?.plantillaId ?? '')).lean()

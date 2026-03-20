@@ -12,7 +12,7 @@ function parseArgs(argv: string[]): Opciones {
   const args = argv.slice(2);
   let correo = '';
   let nuevaContrasena = '';
-  let mongoUri = process.env.MONGODB_URI_HOST || 'mongodb://localhost:27017/mern_app';
+  let mongoUri = process.env.MONGODB_URI_HOST || 'mongodb://localhost:27017/evaluapro';
 
   for (let i = 0; i < args.length; i += 1) {
     const arg = args[i];

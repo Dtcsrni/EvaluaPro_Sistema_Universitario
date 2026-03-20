@@ -68,7 +68,7 @@ npm run installer:sign
 - El Hub detecta automaticamente valores existentes desde `.env` previo (si existe) y los precarga en la UI.
 - Si falta configuracion critica, el flujo falla en `configuracion_operativa` (fail-fast) y no permite dejar instalacion incompleta.
 - Defaults estandar recomendados (si no hay config previa):
-  - `MONGODB_URI=mongodb://mongo_local:27017/mern_app`
+  - `MONGODB_URI=mongodb://mongo_local:27017/evaluapro`
   - `NODE_ENV=production`
   - `PUERTO_API=4000`
   - `PUERTO_PORTAL=4518`

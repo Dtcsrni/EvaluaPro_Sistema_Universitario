@@ -16,7 +16,7 @@ function parseArgs(argv: string[]) {
   const args = argv.slice(2);
   const imagenes: EntradaImagen[] = [];
   let folio = '';
-  let mongoUri = process.env.MONGODB_URI || 'mongodb://localhost:27017/mern_app';
+  let mongoUri = process.env.MONGODB_URI || 'mongodb://localhost:27017/evaluapro';
   let answersRaw = '';
   let paginaActual = 1;
 

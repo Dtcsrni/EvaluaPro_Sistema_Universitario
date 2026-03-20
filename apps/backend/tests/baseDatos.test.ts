@@ -16,6 +16,8 @@ vi.mock('../src/configuracion', () => ({
 
 describe('conectarBaseDatos', () => {
   it('omite conexion cuando no hay URI', async () => {
+    const previousSilentLogs = process.env.EVALUAPRO_LOG_SILENT;
+    delete process.env.EVALUAPRO_LOG_SILENT;
     const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
     const connectSpy = vi.spyOn(mongoose, 'connect');
     const { conectarBaseDatos } = await import('../src/infraestructura/baseDatos/mongoose');
@@ -25,6 +27,7 @@ describe('conectarBaseDatos', () => {
     expect(connectSpy).not.toHaveBeenCalled();
     expect(warnSpy).toHaveBeenCalled();
 
+    process.env.EVALUAPRO_LOG_SILENT = previousSilentLogs;
     warnSpy.mockRestore();
     connectSpy.mockRestore();
   });

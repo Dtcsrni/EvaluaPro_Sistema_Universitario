@@ -11,6 +11,7 @@ import { ErrorOmrCvNoDisponible, ejecutarSmokeTestOmrCv } from './modulos/modulo
 import { asegurarIndicesEscaneoOmrArchivado } from './modulos/modulo_escaneo_omr/modeloEscaneoOmrArchivado';
 import { seedFamiliasOmrV1 } from './modulos/modulo_omr_v1/seedOmrV1';
 import { iniciarSchedulerCobranzaAutomatica } from './modulos/modulo_comercial_core/schedulerCobranza';
+import { iniciarSchedulerRetencionExamenes } from './modulos/modulo_generacion_pdf/schedulerRetencionExamenes';
 
 async function iniciar() {
   await conectarBaseDatos();
@@ -32,6 +33,7 @@ async function iniciar() {
 
   const app = crearApp();
   iniciarSchedulerCobranzaAutomatica();
+  iniciarSchedulerRetencionExamenes();
   app.listen(configuracion.puerto, () => {
     log('ok', 'API docente escuchando', { puerto: configuracion.puerto });
   });

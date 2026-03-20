@@ -31,14 +31,19 @@ export function validateEvidenceContract(baseDir) {
   const timelinePath = path.join(baseDir, 'timeline.md');
   const metricsPath = path.join(baseDir, 'metrics_snapshot.txt');
   const integrityPath = path.join(baseDir, 'integridad_sha256.json');
+  const rollbackPath = path.join(baseDir, 'rollback_readiness.json');
 
   const manifest = readJson(manifestPath, 'manifest.json');
   const integrity = readJson(integrityPath, 'integridad_sha256.json');
+  const rollback = readJson(rollbackPath, 'rollback_readiness.json');
   const timeline = readText(timelinePath, 'timeline.md');
   const metrics = readText(metricsPath, 'metrics_snapshot.txt');
 
   if (typeof manifest.version !== 'string' || !manifest.version.trim()) {
     throw new Error('manifest.json: campo version invalido');
+  }
+  if (typeof manifest.displayVersion !== 'string' || !manifest.displayVersion.trim()) {
+    throw new Error('manifest.json: campo displayVersion invalido');
   }
   if (typeof manifest.commit !== 'string' || !manifest.commit.trim()) {
     throw new Error('manifest.json: campo commit invalido');
@@ -54,9 +59,17 @@ export function validateEvidenceContract(baseDir) {
   if (!['ok', 'fallo'].includes(String(gate.resultado || ''))) {
     throw new Error('manifest.json: gateHumanoProduccion.resultado invalido');
   }
+  if (typeof gate.displayVersion !== 'string' || !gate.displayVersion.trim()) {
+    throw new Error('manifest.json: gateHumanoProduccion.displayVersion invalido');
+  }
   if (!Array.isArray(gate.pasos) || gate.pasos.length < 10) {
     throw new Error('manifest.json: gateHumanoProduccion.pasos incompleto');
   }
+  const windowsEvidencePath = String(manifest?.evidenciaWindows?.path || '').trim();
+  if (!windowsEvidencePath) {
+    throw new Error('manifest.json: evidenciaWindows.path invalido');
+  }
+  assertFileExists(path.resolve(process.cwd(), windowsEvidencePath), 'evidencia Windows referenciada');
 
   if (!timeline.includes('# Timeline Gate Estable')) {
     throw new Error('timeline.md: encabezado esperado no encontrado');
@@ -83,11 +96,37 @@ export function validateEvidenceContract(baseDir) {
     throw new Error('integridad_sha256.json: hashCalculado invalido');
   }
 
+  if (typeof rollback.version !== 'string' || rollback.version.trim() !== manifest.version.trim()) {
+    throw new Error('rollback_readiness.json: version invalida');
+  }
+  if (!['ready', 'activated', 'completed'].includes(String(rollback.status || ''))) {
+    throw new Error('rollback_readiness.json: status invalido');
+  }
+  if (typeof rollback.previousStableVersion !== 'string' || !rollback.previousStableVersion.trim()) {
+    throw new Error('rollback_readiness.json: previousStableVersion invalido');
+  }
+  if (!Array.isArray(rollback.activationCriteria) || rollback.activationCriteria.length === 0) {
+    throw new Error('rollback_readiness.json: activationCriteria vacio');
+  }
+  if (!Array.isArray(rollback.rollbackSteps) || rollback.rollbackSteps.length === 0) {
+    throw new Error('rollback_readiness.json: rollbackSteps vacio');
+  }
+  if (!Array.isArray(rollback.postRollbackChecks) || rollback.postRollbackChecks.length === 0) {
+    throw new Error('rollback_readiness.json: postRollbackChecks vacio');
+  }
+  if (typeof rollback.approvedBy !== 'string' || !rollback.approvedBy.trim()) {
+    throw new Error('rollback_readiness.json: approvedBy invalido');
+  }
+  if (typeof rollback.approvedAt !== 'string' || !rollback.approvedAt.trim()) {
+    throw new Error('rollback_readiness.json: approvedAt invalido');
+  }
+
   return {
     manifestPath,
     timelinePath,
     metricsPath,
-    integrityPath
+    integrityPath,
+    rollbackPath
   };
 }
 

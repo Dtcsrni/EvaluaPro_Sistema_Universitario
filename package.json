@@ -1,7 +1,7 @@
 {
   "name": "evaluapro",
   "description": "Plataforma MERN para evaluación universitaria: generación de exámenes en PDF, vinculación por QR, calificación asistida (OMR) y operación local con Docker + dashboard.",
-  "version": "1.0.0-beta.1",
+  "version": "1.0.0",
   "author": {
     "name": "I.S.C. Erick Renato Vega Ceron",
     "email": "armsystechno@gmail.com"
@@ -76,7 +76,7 @@
     "test:wix:policy": "node --test scripts/tests/wix-version-policy.test.mjs",
     "test:wix:bundle": "node --test scripts/tests/wix-bundle-build.test.mjs",
     "test:ruleset:policy": "node --test scripts/tests/ruleset-main.test.mjs",
-    "test:release:policy": "node --test scripts/tests/release-ci-streak.test.mjs scripts/tests/release-evidence-contract.test.mjs",
+    "test:release:policy": "node --test scripts/tests/release-ci-streak.test.mjs scripts/tests/release-evidence-contract.test.mjs scripts/tests/release-stable-promotion.test.mjs",
     "test:security:policy": "node --test scripts/tests/security-workflow-policy.test.mjs",
     "test:compliance:legal-docs": "node scripts/compliance/legal-docs-check.mjs",
     "test:compliance:pii": "node scripts/compliance/pii-leak-check.mjs",
@@ -161,7 +161,7 @@
     "installer:sign:internal:init": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/signing/new-internal-signing-cert.ps1",
     "installer:sign:internal:trust": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/signing/install-internal-signing-cert.ps1",
     "installer:run:safe": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/Install-EvaluaPro.ps1",
-    "test:installer-hub:contract": "node --test scripts/tests/installer-hub-contract.test.mjs",
+    "test:installer-hub:contract": "node --test scripts/tests/installer-hub-contract.test.mjs scripts/tests/windows-release-smoke.test.mjs",
     "test:ci:affected:resolve": "node scripts/testing/resolve-affected-ci.mjs",
     "status": "node scripts/dashboard.mjs",
     "vscode:tune": "node scripts/vscode-tune.mjs",

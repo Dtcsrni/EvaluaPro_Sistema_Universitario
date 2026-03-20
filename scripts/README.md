@@ -75,9 +75,9 @@ Herramientas de operación local (principalmente Windows) para **Sistema EvaluaP
   - `apps/backend/data/examenes_prod`
   - `apps/backend/data/examenes_test`
 - Bases de datos Mongo recomendadas por entorno:
-  - `MONGODB_URI_DEV` -> `mern_app_dev`
-  - `MONGODB_URI_PROD` -> `mern_app_prod`
-  - `MONGODB_URI_TEST` -> `mern_app_test`
+  - `MONGODB_URI_DEV` -> `evaluapro_dev`
+  - `MONGODB_URI_PROD` -> `evaluapro_prod`
+  - `MONGODB_URI_TEST` -> `evaluapro_test`
 - Rutas de datos configurables por entorno:
   - `BACKEND_DATA_DIR_DEV`
   - `BACKEND_DATA_DIR_PROD`

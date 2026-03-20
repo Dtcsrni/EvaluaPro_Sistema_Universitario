@@ -106,7 +106,7 @@ function Invoke-PrerequisiteInstallationFlow {
     $statuses += $status
   }
 
-  $missing = $statuses | Where-Object { -not $_.installed }
+  $missing = @($statuses | Where-Object { -not $_.installed })
   if ($missing.Count -eq 0) {
     if ($OnLog) { & $OnLog 'ok' 'No hay prerequisitos faltantes.' }
     return [pscustomobject]@{
@@ -118,7 +118,7 @@ function Invoke-PrerequisiteInstallationFlow {
   }
 
   foreach ($item in $Manifest.prerequisites) {
-    $state = $statuses | Where-Object { $_.name -eq $item.name } | Select-Object -First 1
+    $state = @($statuses | Where-Object { $_.name -eq $item.name } | Select-Object -First 1)[0]
     if ($state.installed) { continue }
 
     $result = Install-PrerequisitePackage -Prerequisite $item -DownloadRoot $DownloadRoot -OnLog $OnLog

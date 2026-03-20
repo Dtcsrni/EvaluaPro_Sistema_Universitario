@@ -5,6 +5,90 @@ Este archivo sigue el formato "Keep a Changelog" (alto nivel) y SemVer.
 ## [Unreleased]
 
 ### Added
+- Promoción estable `1.0.0` preparada con etiqueta visible `1.0.0b`:
+  - fuente única de verdad `config/app-version.json`
+  - `displayVersion` propagado a frontend, dashboard/control-plane, Hub y `logs/installation.manifest.json`
+  - contrato backend `/api/salud` y `/api/version` ampliado con `displayVersion`
+- Paquete auditable inicial de release estable en `docs/release/evidencias/1.0.0/`:
+  - `manifest.json`
+  - `timeline.md`
+  - `metrics_snapshot.txt`
+  - `integridad_sha256.json`
+  - `rollback_readiness.json`
+  - fixtures locales de `ci-runs` e `installer-release-manifest`
+- Validador estable endurecido:
+  - `scripts/release/validate-stable-promotion.mjs` ahora emite `No-Go` si la evidencia persistida del gate humano queda en `fallo`
+  - nueva cobertura en `scripts/tests/release-stable-promotion.test.mjs` para el caso `prod-flow-evidence` fallido
+- Decision reproducible de release estable generada:
+  - `npm run release:validate:stable -- --version=1.0.0 --runs-fixture=docs/release/evidencias/1.0.0/ci-runs.fixture.json --installer-manifest=docs/release/evidencias/1.0.0/installer-release-manifest.fixture.json`
+  - resultado actual: `No-Go`
+  - motivo real: falta ejecutar el gate humano en producción con `api-base`, `token docente`, `periodo-id` y `docente-id` reales fuera del repositorio
+- Evidencia reusable de aceptación Windows para release:
+  - smoke aislado/agresivo en `scripts/tests/windows-release-smoke.test.mjs`
+  - damage harness reproducible sobre `InstallDir` temporal sin tocar Docker ni datos reales
+  - smoke no destructivo sobre la instalación activa con `verify-installation`, `regenerate-shortcuts`, broker, dashboard y `npm run status`
+  - overrides de pruebas para release/shortcuts/security root:
+    - `EVALUAPRO_INSTALLER_RELEASE_MSI_PATH`
+    - `EVALUAPRO_INSTALLER_RELEASE_SHA_PATH`
+    - `EVALUAPRO_INSTALLER_RELEASE_SHA256`
+    - `EVALUAPRO_INSTALLER_RELEASE_TAG`
+    - `EVALUAPRO_INSTALLER_RELEASE_BUNDLE_PATH`
+    - `EVALUAPRO_INSTALLER_SIMULATE_PRODUCT_ACTION`
+    - `EVALUAPRO_INSTALLER_SIMULATE_SOURCE_DIR`
+    - `EVALUAPRO_INSTALLER_ALLOW_UNREGISTERED`
+    - `EVALUAPRO_DESKTOP_PATH`
+    - `EVALUAPRO_STARTMENU_PATH`
+    - `EVALUAPRO_SECURITY_ROOT`
+- Repair Windows endurecido para escenarios headless/temporales:
+  - `InstallerHub.ps1` recompone `update-config` y manifiesto aun con daño de flavor/asset names
+  - `create-shortcuts.ps1` y `generate-installation-manifest.ps1` aceptan rutas aisladas para smoke tests
+  - `launcher-dashboard.mjs` tolera BOM UTF-8 al leer `installation.manifest.json`
+  - `installationState` ahora reconoce instalaciones basadas en manifiesto aunque no exista registro MSI
+- Evidencia de release documentada en:
+  - `docs/release/evidencias/1.0.0-beta.1/windows-release-smoke-2026-03-20.md`
+- Cierre de release blockers Windows para promoción a estable:
+  - prueba de contrato de performance `scripts/tests/perf-contract.test.mjs`
+  - smoke adicional de dashboard UI con tema/health real
+  - cobertura contractual de step-up portable en `scripts/tests/installer-hub-contract.test.mjs`
+- Seguridad comercial mínima release-ready:
+  - step-up TOTP local para privilegios críticos desde `scripts/installer-hub/modules/LicenseClientSecurity.psm1`
+  - recovery codes de un uso y sesión elevada sellada por máquina
+  - estado de step-up expuesto en `logs/installation.manifest.json` y `scripts/launcher-dashboard.mjs`
+- Arquitectura de arranque unificada para Windows:
+  - nuevo broker `scripts/launcher-broker.ps1` como orquestador canonico para shortcuts, Hub y dashboard
+  - estados de bootstrap por `runId` persistidos en `logs/bootstrap-state-<runId>.json`
+  - contrato de estados: `booting_dashboard`, `booting_stack`, `booting_portal`, `healthy`, `degraded`, `failed`
+- Manifesto local de instalación:
+  - nuevo generador `scripts/generate-installation-manifest.ps1`
+  - salida `logs/installation.manifest.json` con version, rutas, prerequisitos, shortcuts, hashes criticos y estado de licencia portable
+- Shortcut oficial adicional:
+  - `EvaluaPro - Hub`
+  - regeneracion automatica de shortcuts y manifesto tras install/repair
+- Licenciamiento portable firmado para administrador premium:
+  - nuevo emisor/verificador `scripts/comercial/portable-license.mjs`
+  - soporte local en Hub para inicializar/verificar licencia portable
+  - artefacto portable firmado `portable-license.epl` con `kid` y verificacion offline
+- Contrato de estado local ampliado en dashboard/control-plane:
+  - `installationState`
+  - `shortcutState`
+  - `licenseState`
+  - `bootstrapState`
+- Cobertura nueva de launcher/hub/tema:
+  - `scripts/tests/installer-hub-contract.test.mjs`
+  - `scripts/tests/dashboard-ui.test.mjs`
+  - `apps/frontend/tests/tema.provider.test.ts`
+- Política de expurgo para `ExamenGenerado`:
+  - nuevo endpoint `POST /api/examenes/generados/purge`
+  - retención automática basada en `DATA_RETENTION_DEFAULT_DAYS` y `DATA_PURGE_CRON`
+  - scheduler backend dedicado para purgar artefactos vencidos
+  - conservación de metadata mínima tras purga (`retentionStatus`, `artifactsPurgedAt`, `artifactsPurgeReason`)
+- Contrato de descarga endurecido para exámenes/artifacts purgados:
+  - respuesta `410` con código `EXAMEN_ARTIFACTOS_EXPURGADOS`
+  - `downloadAvailable` expuesto en listados y detalle de generados
+- Cobertura de pruebas para:
+  - preview sin persistencia de `ExamenGenerado`
+  - purge `dryRun`/real
+  - descarga `410` tras expurgo
 - Generacion canónica de exámenes migrada a OMR TV4 con paridad estructural respecto al lote `A050929D`.
 - Baseline real `Por Folio` regenerado como contrato TV4:
   - `templateVersion: 4` en `manifest.json` y mapas OMR
@@ -189,6 +273,43 @@ Este archivo sigue el formato "Keep a Changelog" (alto nivel) y SemVer.
   - `scripts/build-msi.ps1`
 
 ### Changed
+- `scripts/perf-collect.ts` reutiliza apps backend/portal durante la colección, silencia logs de medición y estabiliza `perf:check` en Windows/CI local sin cambiar el contrato del gate.
+- `apps/backend/vitest.config.ts` endurece ejecución serial/forks para Windows (`fileParallelism=false`, `maxWorkers=1`, timeouts extendidos) y elimina la fuente principal de `spawn UNKNOWN`/timeouts bajo cobertura.
+- `apps/backend/tests/setup.ts`, `apps/backend/src/infraestructura/logging/logger.ts` y `apps/portal_alumno_cloud/src/infraestructura/logging/logger.ts` soportan silenciamiento de logs por entorno de prueba/perf sin alterar el comportamiento funcional del producto.
+- `apps/backend/tests/pdf.tv3.compatibilidad.test.ts`, `apps/backend/tests/baseDatos.test.ts` y `apps/backend/tests/omr.tv3.realGolden.test.ts` quedan alineados al contrato vigente y al costo real de cobertura en Windows.
+- `scripts/generate-installation-manifest.ps1` ahora publica estado de step-up (`stepUpConfig*`, `stepUpSession*`) como parte del contrato local de instalación.
+- `scripts/installer-hub/InstallerHub.ps1` inicializa TOTP/recovery para la licencia portable de administrador y registra el estado operativo correspondiente.
+- `scripts/launcher-dashboard.mjs` expone `stepUpRequired`, `stepUpMethods`, `recoveryCodesRemaining` y `lastStepUpAt` dentro de `licenseState`.
+- Launcher Windows endurecido para release:
+  - `scripts/launcher-tray-hidden.vbs` y `scripts/shortcut-op-hidden.vbs` ahora enrutan todo por `launcher-broker.ps1`
+  - `scripts/shortcut-ops.ps1` queda como compat wrapper
+  - `scripts/launcher-tray.ps1` endurece singleton por instalacion + puerto, no solo por puerto
+  - `scripts/dashboard-splash.hta` sigue el bootstrap real del broker y ya no depende solo de regex/temporizadores
+- Installer Hub endurecido como consola local de instalacion:
+  - clasificacion de salud `ausente`, `incompleta`, `degradada`, `dañada`, `ok`
+  - nuevas acciones visibles `Verificar` y `Regenerar accesos`
+  - `ProductInstaller` y `PostInstallVerifier` ahora tratan shortcuts/manifiesto/broker como parte del contrato de instalacion correcta
+- Rebrand premium inicial y contrato transversal de tema:
+  - nueva direccion visual en favicon, icono dashboard y accesos directos
+  - `apps/frontend/src/tema/tema.ts` y `scripts/dashboard.html` comparten la preferencia `ep.theme.preference`
+  - soporte consistente `auto`, `light`, `dark` con `meta theme-color` alineado
+- Adelgazamiento operativo del stack local sin cambiar puertos ni contratos visibles:
+  - `apps/backend/Dockerfile` ahora usa build multistage y elimina toolchain de compilacion del runtime final.
+  - `apps/frontend/Dockerfile` reemplaza `node + serve` por runtime estatico con `nginx`.
+  - nuevo `apps/frontend/nginx.conf` para servir SPA en `4173` con fallback a `index.html`.
+  - `.dockerignore` excluye reportes, logs, datasets OMR y artefactos temporales del contexto de build.
+  - `docker-compose.yml` fija `PLAYWRIGHT_CHROMIUM_EXECUTABLE=/usr/local/bin/evaluapro-chromium` en servicios Docker backend para que el motor `playwright-html-v1` use el Chromium empaquetado y no dependa de `headless_shell`.
+- Documentacion de footprint/operacion actualizada:
+  - `docs/POLITICA_OPTIMIZACION_RECURSOS.md`
+  - `docs/ENGINEERING_BASELINE.md`
+  - `docs/INVENTARIO_PROYECTO.md`
+  - `docs/README.md`
+- Medicion real del corte 2026-03-19:
+  - backend Docker `2.54 GB -> 1.98 GB -> 1.62 GB`
+  - frontend Docker `312 MB -> 93.6 MB`
+  - runtime Docker total `4.36 GB -> 3.58 GB -> 3.22 GB`
+  - runtime Playwright final: `/ms-playwright = 364 MB`
+  - smoke PDF Playwright dentro de contenedor final: `14401 bytes`
 - Gate real OMR TV3 migrado de baseline simulado/manual al baseline `Por Folio` en scripts raíz, runbook y workflows CI.
 - `servicioOmrCv.ts` incorpora hints de mapa (`forceSimpleScale`, `useMapCoordinatesStrict`, `localSearchRadiusPx`) para mapas derivados desde imagen.
 - `omrCore.ts` permite desactivar búsqueda local por opción cuando el mapa exige coordenadas fijas.

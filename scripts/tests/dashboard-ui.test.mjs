@@ -105,7 +105,7 @@ function createRoutes({ status, health }) {
     '/api/status': status,
     '/api/health': health,
     '/api/install': {
-      app: { name: 'evaluapro', version: '1.0.0-beta.1' },
+      app: { name: 'evaluapro', version: '1.0.0', displayVersion: '1.0.0b' },
       dashboard: {
         mode: 'prod',
         modeConfig: 'prod',
@@ -136,7 +136,7 @@ function createRoutes({ status, health }) {
     '/api/update/status': {
       state: 'idle',
       channel: 'stable',
-      currentVersion: '1.0.0-beta.1',
+      currentVersion: '1.0.0',
       availableVersion: '',
       download: { bytesTotal: 0, bytesReceived: 0, percent: 0 }
     },
@@ -168,7 +168,7 @@ function createRoutes({ status, health }) {
 test('dashboard UI muestra PROD detectado con salud real y tareas separadas', async () => {
   const dom = await renderDashboard(createRoutes({
     status: {
-      app: { name: 'evaluapro', version: '1.0.0-beta.1' },
+      app: { name: 'evaluapro', version: '1.0.0', displayVersion: '1.0.0b' },
       root: 'V:\\Software\\Generador_Examenes_Universitarios_MERN\\sistema-evaluacion-universitaria',
       mode: 'prod',
       modeConfig: 'prod',
@@ -228,6 +228,7 @@ test('dashboard UI muestra PROD detectado con salud real y tareas separadas', as
   assert.equal(text(dom, 'alert-title'), 'Sin alertas activas');
   assert.ok(text(dom, 'alert-message').includes('Servicios monitoreados'));
   assert.equal(dom.window.document.querySelectorAll('#version-chip').length, 1);
+  assert.equal(text(dom, 'version-chip'), 'v1.0.0b');
 
   dom.window.close();
 });
@@ -235,7 +236,7 @@ test('dashboard UI muestra PROD detectado con salud real y tareas separadas', as
 test('dashboard UI eleva alerta principal cuando falla la salud real', async () => {
   const dom = await renderDashboard(createRoutes({
     status: {
-      app: { name: 'evaluapro', version: '1.0.0-beta.1' },
+      app: { name: 'evaluapro', version: '1.0.0', displayVersion: '1.0.0b' },
       root: 'V:\\Software\\Generador_Examenes_Universitarios_MERN\\sistema-evaluacion-universitaria',
       mode: 'prod',
       modeConfig: 'prod',
@@ -293,10 +294,67 @@ test('dashboard UI eleva alerta principal cuando falla la salud real', async () 
   dom.window.close();
 });
 
+test('dashboard UI sincroniza tema con preferencia auto/light/dark compartida', async () => {
+  const dom = await renderDashboardWithSetup(createRoutes({
+    status: {
+      app: { name: 'evaluapro', version: '1.0.0', displayVersion: '1.0.0b' },
+      root: 'C:\\EvaluaPro',
+      mode: 'prod',
+      modeConfig: 'prod',
+      port: 4519,
+      node: 'v24.12.0',
+      npm: '11.4.1',
+      docker: '29.2.1',
+      dockerDisplay: '29.2.1',
+      stackDisplay: 'Stack Docker listo.',
+      compose: { checkedAt: Date.now(), dev: {}, prod: {}, error: '' },
+      https: { mode: 'http-fallback', display: 'HTTP' },
+      dockerState: { state: 'ready', ready: true, version: '29.2.1', lastError: '', stack: { state: 'skipped', running: true, lastError: '' } },
+      managedTasks: [],
+      running: [],
+      logSize: 0,
+      rawSize: 0,
+      config: {
+        autoRestart: false,
+        showFullLogs: false,
+        autoScroll: true,
+        pauseUpdates: false,
+        refreshForegroundMs: 3000,
+        refreshBackgroundMs: 20000
+      }
+    },
+    health: {
+      checkedAt: Date.now(),
+      services: {
+        mongoLocal: { ok: true, ms: 1 },
+        apiDocente: { ok: true, status: 200, ms: 2 },
+        apiPortal: { ok: true, status: 200, ms: 2 },
+        webDocenteDev: { ok: false, error: 'Error', ms: 1 },
+        webDocenteProd: { ok: true, status: 200, ms: 3 }
+      }
+    }
+  }), (window) => {
+    window.localStorage.setItem('ep.theme.preference', 'auto');
+    window.matchMedia = () => ({
+      matches: true,
+      addEventListener() {},
+      removeEventListener() {}
+    });
+  });
+
+  const btn = dom.window.document.getElementById('theme-toggle');
+  assert.ok(btn?.textContent?.includes('Auto'));
+  btn?.dispatchEvent(new dom.window.MouseEvent('click', { bubbles: true }));
+  assert.equal(dom.window.localStorage.getItem('ep.theme.preference'), 'light');
+  btn?.dispatchEvent(new dom.window.MouseEvent('click', { bubbles: true }));
+  assert.equal(dom.window.localStorage.getItem('ep.theme.preference'), 'dark');
+  dom.window.close();
+});
+
 test('dashboard UI recupera el foco en la pestana activa tras recarga', async () => {
   const routes = createRoutes({
     status: {
-      app: { name: 'evaluapro', version: '1.0.0-beta.1' },
+      app: { name: 'evaluapro', version: '1.0.0', displayVersion: '1.0.0b' },
       root: 'V:\\Software\\Generador_Examenes_Universitarios_MERN\\sistema-evaluacion-universitaria',
       mode: 'prod',
       modeConfig: 'prod',

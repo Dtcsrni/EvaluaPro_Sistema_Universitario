@@ -35,7 +35,7 @@ router.post(
   validarCuerpo(esquemaReconstruirBundle, { strict: true }),
   reconstruirBundle
 );
-router.post('/noop', requerirPermiso('recuperacion:leer'), validarCuerpo(esquemaBodyVacioOpcional), (_req, res) =>
+router.post('/noop', requerirPermiso('recuperacion:leer'), validarCuerpo(esquemaBodyVacioOpcional, { strict: true }), (_req, res) =>
   res.json({ ok: true })
 );
 

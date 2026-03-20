@@ -12,6 +12,7 @@ import { exportarMetricasPrometheus } from '../observabilidad/metrics';
 
 const router = Router();
 type TecnologiaVersion = { id: string; label: string; logoUrl: string; website: string };
+type VersionMetadata = { appVersion: string; displayVersion: string };
 
 function leerPackageMetadata(raiz: string) {
   let appName = 'evaluapro';
@@ -60,6 +61,22 @@ function leerCatalogoVersion(raiz: string, fallbackRepositoryUrl: string) {
   return { repositoryUrl, technologies };
 }
 
+function leerVersionMetadata(raiz: string, fallbackVersion: string): VersionMetadata {
+  try {
+    const raw = fs.readFileSync(path.join(raiz, 'config', 'app-version.json'), 'utf8');
+    const parsed = JSON.parse(raw);
+    return {
+      appVersion: String(parsed?.version || fallbackVersion || '0.0.0'),
+      displayVersion: String(parsed?.displayVersion || parsed?.version || fallbackVersion || '0.0.0')
+    };
+  } catch {
+    return {
+      appVersion: fallbackVersion || '0.0.0',
+      displayVersion: fallbackVersion || '0.0.0'
+    };
+  }
+}
+
 function leerChangelog(raiz: string) {
   try {
     return fs.readFileSync(path.join(raiz, 'CHANGELOG.md'), 'utf8').slice(0, 24_000);
@@ -84,6 +101,7 @@ function buscarRaizRepo(inicio: string) {
 export function obtenerVersionInfo() {
   const raiz = buscarRaizRepo(process.cwd());
   const pkg = leerPackageMetadata(raiz);
+  const versionMeta = leerVersionMetadata(raiz, pkg.appVersion);
   const catalogo = leerCatalogoVersion(raiz, pkg.repositoryUrl);
   const changelog = leerChangelog(raiz);
 
@@ -91,7 +109,11 @@ export function obtenerVersionInfo() {
   const developerRole = String(process.env.EVALUAPRO_DEVELOPER_ROLE || 'Desarrollo').trim();
 
   return {
-    app: { name: pkg.appName, version: pkg.appVersion },
+    app: {
+      name: pkg.appName,
+      version: versionMeta.appVersion,
+      displayVersion: versionMeta.displayVersion
+    },
     repositoryUrl: catalogo.repositoryUrl || 'https://github.com/Dtcsrni',
     technologies: catalogo.technologies,
     developer: {

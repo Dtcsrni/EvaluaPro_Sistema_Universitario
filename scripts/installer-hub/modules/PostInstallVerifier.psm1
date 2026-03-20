@@ -12,10 +12,11 @@ function Invoke-PostInstallVerification {
   )
 
   $issues = @()
+  $allowUnregistered = @('1', 'true', 'yes', 'on') -contains ([string]$env:EVALUAPRO_INSTALLER_ALLOW_UNREGISTERED).Trim().ToLowerInvariant()
 
   if ($Mode -eq 'install' -or $Mode -eq 'repair') {
     $installation = Get-EvaluaProInstallationInfo
-    if (-not $installation.Installed) {
+    if (-not $installation.Installed -and -not $allowUnregistered) {
       $issues += 'No se detecta EvaluaPro en registro tras instalacion/reparacion.'
     }
 
@@ -29,13 +30,35 @@ function Invoke-PostInstallVerification {
 
     $requiredFiles = @(
       (Join-Path $effectiveDir 'package.json'),
+      (Join-Path $effectiveDir 'scripts\\launcher-broker.ps1'),
       (Join-Path $effectiveDir 'scripts\\launcher-tray-hidden.vbs'),
-      (Join-Path $effectiveDir 'scripts\\launcher-dashboard-hidden.vbs')
+      (Join-Path $effectiveDir 'scripts\\launcher-dashboard-hidden.vbs'),
+      (Join-Path $effectiveDir 'logs\\installation.manifest.json')
     )
 
     foreach ($file in $requiredFiles) {
       if (-not (Test-Path $file)) {
         $issues += "No se encontro archivo requerido: $file"
+      }
+    }
+
+    $desktopRoot = if ($env:EVALUAPRO_DESKTOP_PATH) { [string]$env:EVALUAPRO_DESKTOP_PATH } else { [Environment]::GetFolderPath('Desktop') }
+    $startMenuRoot = if ($env:EVALUAPRO_STARTMENU_PATH) { [string]$env:EVALUAPRO_STARTMENU_PATH } elseif ($env:APPDATA) { Join-Path $env:APPDATA 'Microsoft\Windows\Start Menu\Programs\EvaluaPro' } else { '' }
+    $shortcutTargets = @(
+      (Join-Path $desktopRoot 'EvaluaPro - Dev.lnk'),
+      (Join-Path $desktopRoot 'EvaluaPro - Prod.lnk'),
+      (Join-Path $desktopRoot 'EvaluaPro - Hub.lnk')
+    )
+    if ($startMenuRoot) {
+      $shortcutTargets += @(
+        (Join-Path $startMenuRoot 'EvaluaPro - Dev.lnk'),
+        (Join-Path $startMenuRoot 'EvaluaPro - Prod.lnk'),
+        (Join-Path $startMenuRoot 'EvaluaPro - Hub.lnk')
+      )
+    }
+    foreach ($shortcut in $shortcutTargets) {
+      if (-not (Test-Path -LiteralPath $shortcut)) {
+        $issues += "Falta acceso directo esperado: $shortcut"
       }
     }
 

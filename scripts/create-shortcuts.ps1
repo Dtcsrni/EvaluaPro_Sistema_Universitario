@@ -27,19 +27,25 @@ foreach ($requiredFile in @($trayHiddenVbs, $shortcutOpHiddenVbs)) {
   }
 }
 
-$desktopPath = [Environment]::GetFolderPath('Desktop')
 $desktopPathCandidates = New-Object System.Collections.Generic.List[string]
-if ($desktopPath) { $desktopPathCandidates.Add($desktopPath) }
-if ($env:USERPROFILE) {
-  $userDesktop = Join-Path $env:USERPROFILE "Desktop"
-  if (-not $desktopPathCandidates.Contains($userDesktop)) { $desktopPathCandidates.Add($userDesktop) }
-}
-if ($env:OneDrive) {
-  $oneDriveDesktop = Join-Path $env:OneDrive "Desktop"
-  if (-not $desktopPathCandidates.Contains($oneDriveDesktop)) { $desktopPathCandidates.Add($oneDriveDesktop) }
+$overrideDesktopPath = [string]$env:EVALUAPRO_DESKTOP_PATH
+if ($overrideDesktopPath) {
+  $desktopPathCandidates.Add($overrideDesktopPath)
+} else {
+  $desktopPath = [Environment]::GetFolderPath('Desktop')
+  if ($desktopPath) { $desktopPathCandidates.Add($desktopPath) }
+  if ($env:USERPROFILE) {
+    $userDesktop = Join-Path $env:USERPROFILE "Desktop"
+    if (-not $desktopPathCandidates.Contains($userDesktop)) { $desktopPathCandidates.Add($userDesktop) }
+  }
+  if ($env:OneDrive) {
+    $oneDriveDesktop = Join-Path $env:OneDrive "Desktop"
+    if (-not $desktopPathCandidates.Contains($oneDriveDesktop)) { $desktopPathCandidates.Add($oneDriveDesktop) }
+  }
 }
 $startMenuBase = if ($env:APPDATA) { Join-Path $env:APPDATA "Microsoft\Windows\Start Menu\Programs" } else { $null }
-$startMenuPath = if ($startMenuBase) { Join-Path $startMenuBase "EvaluaPro" } else { $null }
+$startMenuOverride = [string]$env:EVALUAPRO_STARTMENU_PATH
+$startMenuPath = if ($startMenuOverride) { $startMenuOverride } elseif ($startMenuBase) { Join-Path $startMenuBase "EvaluaPro" } else { $null }
 
 $localIconDir = $null
 try {
@@ -251,8 +257,9 @@ function New-MultiSizeIcon([string]$path, [string]$kind, [string]$accentHex, [st
 
 $iconSpecs = @(
   @{ Key = 'dev'; File = 'dashboard-dev.ico'; Kind = 'dev'; Accent = '#38bdf8'; Badge = 'DEV' },
-  @{ Key = 'prod'; File = 'dashboard-prod.ico'; Kind = 'prod'; Accent = '#22c55e'; Badge = 'PROD' },
-  @{ Key = 'open'; File = 'dashboard-open.ico'; Kind = 'open'; Accent = '#3b82f6'; Badge = 'OPEN' },
+  @{ Key = 'prod'; File = 'dashboard-prod.ico'; Kind = 'prod'; Accent = '#c9972f'; Badge = 'PRO' },
+  @{ Key = 'hub'; File = 'dashboard-hub.ico'; Kind = 'open'; Accent = '#0f8b8d'; Badge = 'HUB' },
+  @{ Key = 'open'; File = 'dashboard-open.ico'; Kind = 'open'; Accent = '#1459c7'; Badge = 'UI' },
   @{ Key = 'restart'; File = 'dashboard-restart.ico'; Kind = 'restart'; Accent = '#f59e0b'; Badge = 'RST' },
   @{ Key = 'stop'; File = 'dashboard-stop.ico'; Kind = 'stop'; Accent = '#ef4444'; Badge = 'STOP' },
   @{ Key = 'repair'; File = 'dashboard-repair.ico'; Kind = 'repair'; Accent = '#a855f7'; Badge = 'FIX' }
@@ -301,6 +308,15 @@ $shortcuts = @(
     Arguments = "//nologo `"$trayHiddenVbs`" prod $Port"
   },
   @{
+    Name = 'EvaluaPro - Hub'
+    Description = 'Installer Hub local para instalar, verificar, reparar y operar EvaluaPro'
+    IconKey = 'hub'
+    Desktop = $true
+    StartMenu = $true
+    Target = $targetWscript
+    Arguments = "//nologo `"$shortcutOpHiddenVbs`" open-hub $Port auto"
+  },
+  @{
     Name = 'EvaluaPro - Abrir Dashboard'
     Description = 'Abre dashboard local y asegura backend de control'
     IconKey = 'open'
@@ -339,7 +355,7 @@ $shortcuts = @(
 )
 
 if (-not $IncludeOpsShortcuts) {
-  $shortcuts = $shortcuts | Where-Object { $_.Name -in @('EvaluaPro - Dev', 'EvaluaPro - Prod') }
+  $shortcuts = $shortcuts | Where-Object { $_.Name -in @('EvaluaPro - Dev', 'EvaluaPro - Prod', 'EvaluaPro - Hub') }
 }
 
 $destinations = @(
@@ -407,4 +423,13 @@ foreach ($dest in $destinations) {
 Write-Host "Accesos directos regenerados:"
 foreach ($dest in $destinations) {
   Write-Host " - $($dest.Name): $($dest.Path)"
+}
+
+$manifestScript = Join-Path $root 'scripts\generate-installation-manifest.ps1'
+if (Test-Path -LiteralPath $manifestScript) {
+  try {
+    & powershell.exe -NoProfile -ExecutionPolicy Bypass -File $manifestScript -Port $Port | Out-Null
+  } catch {
+    Write-Warning "No se pudo actualizar installation.manifest.json: $($_.Exception.Message)"
+  }
 }

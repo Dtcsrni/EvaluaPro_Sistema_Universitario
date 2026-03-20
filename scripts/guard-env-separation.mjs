@@ -64,9 +64,9 @@ function info(message) {
 }
 
 function validateConfig() {
-  const mongoDev = getEnv('MONGODB_URI_DEV', 'mongodb://mongo_local:27017/mern_app_dev');
-  const mongoProd = getEnv('MONGODB_URI_PROD', 'mongodb://mongo_local:27017/mern_app_prod');
-  const mongoTest = getEnv('MONGODB_URI_TEST', 'mongodb://localhost:27017/mern_app_test');
+  const mongoDev = getEnv('MONGODB_URI_DEV', 'mongodb://mongo_local:27017/evaluapro_dev');
+  const mongoProd = getEnv('MONGODB_URI_PROD', 'mongodb://mongo_local:27017/evaluapro_prod');
+  const mongoTest = getEnv('MONGODB_URI_TEST', 'mongodb://localhost:27017/evaluapro_test');
 
   const dataDirDev = getEnv('BACKEND_DATA_DIR_DEV', './apps/backend/data/examenes_dev');
   const dataDirProd = getEnv('BACKEND_DATA_DIR_PROD', './apps/backend/data/examenes_prod');

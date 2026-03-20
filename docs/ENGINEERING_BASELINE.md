@@ -1,7 +1,8 @@
 # Engineering Baseline
 
-Fecha de baseline: 2026-02-19
-Version: `1.0.0-beta.0`
+Fecha de baseline: 2026-03-20
+Version tecnica: `1.0.0`
+Version visible GUI: `1.0.0b`
 
 ## Estado vigente
 - Monorepo NPM workspaces:
@@ -12,6 +13,108 @@ Version: `1.0.0-beta.0`
 - OMR y PDF operan en TV4 como contrato canonico, preservando el baseline visual A050929D.
 - Sincronizacion con schema v2.
 - Contrato CI alineado con gate `clean-architecture-check`.
+
+## Footprint operativo 2026-03-19
+- Runtime Docker `prod` adelgazado sin cambiar interfaces visibles:
+  - `api_docente_prod`: `2.54 GB -> 1.98 GB -> 1.62 GB`
+  - `web_docente_prod`: `312 MB -> 93.6 MB`
+  - `mongo`: `1.29 GB` (sin cambio funcional)
+- Runtime Docker total del stack activo:
+  - antes: `4.36 GB`
+  - despues del primer recorte: `3.58 GB`
+  - despues del ajuste Playwright/runtime backend: `3.22 GB`
+- Repo local:
+  - bruto: `994.8 MB`
+  - operativo sin caches/datasets regenerables: `113.27 MB`
+- Runtime backend final inspeccionado:
+  - `/ms-playwright`: `364 MB`
+  - `node_modules` runtime backend: `160 MB`
+  - smoke PDF Playwright dentro del contenedor: `14401 bytes`
+
+## Corte de validacion 2026-03-20
+- Versionado de promoción estable:
+  - semver técnica consolidada en `1.0.0`
+  - etiqueta visible unificada en `1.0.0b`
+  - fuente única de verdad: `config/app-version.json`
+  - frontend, dashboard, Hub y manifiesto local muestran `displayVersion`
+- Estabilidad Windows release-blocker endurecida:
+  - broker canónico de arranque `scripts/launcher-broker.ps1`
+  - singleton por instalación para tray/launcher
+  - splash orientado por bootstrap state real (`runId`)
+  - shortcuts oficiales `Dev`, `Prod` y `Hub` regenerables post-install/post-repair
+- Installer Hub como consola local de operación:
+  - manifiesto `logs/installation.manifest.json`
+  - clasificación de salud `ausente|incompleta|degradada|dañada|ok`
+  - verificación/reparación/regeneración de accesos como contrato explícito
+- Licencia portable local verificada:
+  - archivo firmado `C:\ProgramData\EvaluaPro\security\portable-license.epl`
+  - llaves públicas `C:\ProgramData\EvaluaPro\security\portable-license-public-keys.json`
+  - titular emitido localmente: `I.S.C. Erick Renato Vega Ceron`
+  - nivel: `Premium Administrador`
+  - roles: `superadmin_negocio`, `admin`, `docente`, `developer`
+  - step-up mínimo release-ready:
+    - TOTP local obligatorio para acciones críticas
+    - recovery codes de un uso
+    - sesión elevada sellada por máquina
+    - estado visible en manifiesto local y `licenseState`
+- Rebrand inicial y contrato de tema:
+  - dashboard + frontend comparten `ep.theme.preference`
+  - soporte consistente `auto`, `light`, `dark`
+  - iconografía/favicon premium inicial regenerada para dashboard/docente/hub
+- Política de retención operativa activa para exámenes generados:
+  - preview clásica endurecida con TTL `10 min`, limpieza cada `2 min` y máximo `10` archivos
+  - `ExamenGenerado` conserva solo metadata mínima tras expurgo
+  - retención por defecto configurada en `40` días
+- Endpoint nuevo validado:
+  - `POST /api/examenes/generados/purge`
+- Pruebas nuevas validadas:
+  - `tests/integracion/plantillasCrudYPreview.test.ts`
+  - `tests/integracion/examenesRetention.test.ts`
+- Smoke/contratos release Windows:
+  - `scripts/tests/perf-contract.test.mjs`
+  - `scripts/tests/installer-hub-contract.test.mjs`
+  - `scripts/tests/dashboard-ui.test.mjs`
+  - `scripts/tests/windows-release-smoke.test.mjs`
+    - smoke aislado/agresivo sobre `InstallDir` temporal con repair headless
+    - smoke no destructivo sobre la instalacion activa con broker + dashboard + status real
+- Release Windows acceptance:
+  - `repair` validado en entorno temporal aislado sin tocar Docker ni datos reales
+  - `verify-installation` y `regenerate-shortcuts` validados sobre la instalacion activa
+  - manifiesto local, shortcuts oficiales y `licenseState` verificados como contrato operativo compartido entre Hub y dashboard
+- `npm run lint` ✅
+- `npm run typecheck` ✅
+- `npm run test:frontend:ci` ✅
+- `npm run test:coverage:ci` ✅
+- `npm run test:tdd:enforcement:ci` ✅
+- `npm run test:backend:ci` ✅
+- `npm run test:portal:ci` ✅
+- `npm run perf:check` ✅
+- `npm run pipeline:contract:check` ✅
+- `npm run test:release:policy` ✅
+- `npm run release:validate:stable -- --version=1.0.0 --runs-fixture=docs/release/evidencias/1.0.0/ci-runs.fixture.json --installer-manifest=docs/release/evidencias/1.0.0/installer-release-manifest.fixture.json` ❌ esperado (`No-Go`)
+- `node --test scripts/tests/perf-contract.test.mjs` ✅
+- `node --test scripts/tests/installer-hub-contract.test.mjs` ✅
+- `node --test scripts/tests/dashboard-ui.test.mjs` ✅
+- `node --test scripts/tests/windows-release-smoke.test.mjs` ✅
+- `npm run test:installer-hub:contract` ✅
+- `npm run test:dashboard:repair` ✅
+- `npm run test:dashboard:ui` ✅
+- `npm -C apps/frontend run test -- tema.provider.test.ts` ✅
+- `powershell -NoProfile -ExecutionPolicy Bypass -File scripts/create-shortcuts.ps1 -Port 4519 -Force` ✅
+- `powershell -NoProfile -ExecutionPolicy Bypass -File scripts/generate-installation-manifest.ps1 -Port 4519` ✅
+- `npm -C apps/backend run test -- tests/integracion/plantillasCrudYPreview.test.ts tests/integracion/examenesRetention.test.ts` ✅
+- `node scripts/comercial/portable-license.mjs verify --license "C:\ProgramData\EvaluaPro\security\portable-license.epl" --public-keys "C:\ProgramData\EvaluaPro\security\portable-license-public-keys.json"` ✅
+- `npm run status` ✅
+- `htmlToPdfBuffer(...)` dentro de `api_docente_prod` ✅
+  - validado con `PLAYWRIGHT_CHROMIUM_EXECUTABLE=/usr/local/bin/evaluapro-chromium`
+- Resultado del corte:
+  - todos los gates obligatorios de `AGENTS.md` quedaron en verde
+  - smoke local de launcher/dashboard/Hub validado sobre instalación activa
+  - smoke agresivo de repair validado en instalación temporal aislada
+  - `perf:check` y cobertura backend estabilizados en Windows sin rebajar thresholds
+  - contrato de promoción estable `1.0.0` implementado y validado
+  - decisión actual de release estable: `No-Go`
+  - bloqueo restante: falta ejecutar el gate humano real en producción y regenerar la evidencia final con inputs reales
 
 ## Verificacion minima
 - `npm run lint`
@@ -29,7 +132,10 @@ Version: `1.0.0-beta.0`
 ## Riesgos tecnicos activos
 1. Complejidad residual en modulos UI grandes.
 2. Rampa de cobertura frontend hacia metas semanales.
-3. Costo de ejecucion en tests de integracion PDF/OMR bajo cobertura.
+3. Costo de ejecucion en tests de integracion PDF/OMR bajo cobertura sigue siendo alto aunque ya estable.
+4. Playwright sigue descargando `ffmpeg` durante la instalacion; se elimina del runtime final en la misma capa, pero el coste de build persiste.
+5. La fase de rebrand sigue siendo parcial: quedó coherencia mínima de tema/iconografía, no un reemplazo total de todas las superficies.
+6. El step-up comercial quedó release-ready con TOTP/recovery, pero passkeys/FIDO2 todavía están fuera de este corte.
 
 ## Reglas de gobernanza
 1. No merge sin gates base en verde (`lint`, `typecheck`, tests, build).

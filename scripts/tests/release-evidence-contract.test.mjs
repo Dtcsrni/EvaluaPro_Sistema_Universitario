@@ -17,10 +17,15 @@ function writeEvidence(baseDir, { includeIntegrity = true } = {}) {
   }));
   const manifest = {
     version: '1.0.0',
+    displayVersion: '1.0.0b',
     commit: 'abc123',
     ciConsecutivoVerde: 10,
+    evidenciaWindows: {
+      path: 'docs/release/evidencias/1.0.0-beta.1/windows-release-smoke-2026-03-20.md'
+    },
     gateHumanoProduccion: {
       periodoId: 'p-001',
+      displayVersion: '1.0.0b',
       resultado: 'ok',
       pasos
     }
@@ -35,6 +40,17 @@ function writeEvidence(baseDir, { includeIntegrity = true } = {}) {
     };
     fs.writeFileSync(path.join(baseDir, 'integridad_sha256.json'), `${JSON.stringify(integrity, null, 2)}\n`);
   }
+  const rollback = {
+    version: '1.0.0',
+    status: 'ready',
+    previousStableVersion: '0.9.9',
+    activationCriteria: ['readiness inestable'],
+    rollbackSteps: ['restaurar release estable previa'],
+    postRollbackChecks: ['GET /api/salud/live', 'GET /api/portal/salud/live'],
+    approvedBy: 'release-manager',
+    approvedAt: new Date().toISOString()
+  };
+  fs.writeFileSync(path.join(baseDir, 'rollback_readiness.json'), `${JSON.stringify(rollback, null, 2)}\n`);
 }
 
 test('release evidence falla si falta archivo obligatorio', () => {
@@ -50,4 +66,3 @@ test('release evidence pasa con estructura completa', () => {
   assert.equal(Boolean(result.manifestPath), true);
   assert.equal(Boolean(result.integrityPath), true);
 });
-

@@ -387,19 +387,82 @@ function Load-TrayIcon([string]$mood) {
   return $null
 }
 
+function Ensure-ExistingDashboardStack([int]$port, [string]$mode) {
+  $desired = ("$mode").ToLowerInvariant()
+  if ($desired -ne 'dev' -and $desired -ne 'prod') { return }
+
+  $base = "http://127.0.0.1:$port"
+  try {
+    $status = Invoke-RestMethod -Uri "$base/api/status" -TimeoutSec $script:DashboardGetTimeoutSec
+  } catch {
+    Log("Tray singleton: no se pudo leer /api/status en puerto $port.")
+    return
+  }
+
+  $running = @()
+  try { $running = @($status.running) } catch { $running = @() }
+
+  if (-not ($running -contains $desired)) {
+    try {
+      $json = (@{ task = $desired } | ConvertTo-Json -Depth 4)
+      Invoke-RestMethod -Method Post -Uri "$base/api/start" -ContentType 'application/json' -Body $json -TimeoutSec $script:DashboardPostTimeoutSec | Out-Null
+      Log("Tray singleton: inicio solicitado para stack '$desired' en puerto $port.")
+    } catch {
+      Log("Tray singleton: fallo al iniciar stack '$desired' en puerto ${port}: $($_.Exception.Message)")
+    }
+  }
+
+  $portalRunning = $running -contains 'portal'
+  if (-not $portalRunning) {
+    try {
+      $health = Invoke-RestMethod -Uri "$base/api/health" -TimeoutSec $script:DashboardGetTimeoutSec
+      try {
+        if ($health -and $health.services -and $health.services.apiPortal -and $health.services.apiPortal.ok -eq $true) {
+          $portalRunning = $true
+        }
+      } catch {}
+    } catch {}
+  }
+
+  if (-not $portalRunning) {
+    try {
+      $json = (@{ task = 'portal' } | ConvertTo-Json -Depth 4)
+      Invoke-RestMethod -Method Post -Uri "$base/api/start" -ContentType 'application/json' -Body $json -TimeoutSec $script:DashboardPostTimeoutSec | Out-Null
+      Log("Tray singleton: inicio solicitado para portal en puerto $port.")
+    } catch {
+      Log("Tray singleton: fallo al iniciar portal en puerto ${port}: $($_.Exception.Message)")
+    }
+  }
+}
+
+function Get-InstallHash {
+  try {
+    $bytes = [Text.Encoding]::UTF8.GetBytes($root.ToLowerInvariant())
+    $sha = [Security.Cryptography.SHA256]::Create()
+    try {
+      return ([BitConverter]::ToString($sha.ComputeHash($bytes))).Replace('-', '').Substring(0, 12)
+    } finally {
+      $sha.Dispose()
+    }
+  } catch {
+    return 'default'
+  }
+}
+
 # Enforce single tray instance (avoid multiple notification icons).
-# Mutex is per dashboard port, so DEV/PROD shortcuts that target the same port share one tray.
+# Mutex is per install + port, so shortcuts of the same installation share one tray safely.
 $createdNew = $false
 $mutex = $null
+$installHash = Get-InstallHash
 
 # Nota: "Global\" puede fallar sin privilegios (y permitir múltiples instancias).
 # Preferimos "Local\" para asegurar el singleton por sesión de usuario.
-$mutexName = "Local\\EP_TRAY_$Port"
+$mutexName = "Local\\EP_TRAY_${installHash}_$Port"
 try {
   $mutex = New-Object System.Threading.Mutex($true, $mutexName, [ref]$createdNew)
 } catch {
   try {
-    $mutexName = "EP_TRAY_$Port"
+    $mutexName = "EP_TRAY_${installHash}_$Port"
     $mutex = New-Object System.Threading.Mutex($true, $mutexName, [ref]$createdNew)
   } catch {
     # Si no podemos crear mutex, seguimos (degradación), pero al menos lo registramos.
@@ -413,6 +476,7 @@ if (-not $createdNew) {
   $openPort = $Port
   $lockPort = Read-LockPort
   if ($lockPort) { $openPort = $lockPort }
+  Ensure-ExistingDashboardStack -port $openPort -mode $Mode
   Open-UrlInNewWindow ("http://127.0.0.1:$openPort/")
   return
 }

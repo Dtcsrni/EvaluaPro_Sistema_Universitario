@@ -139,6 +139,14 @@ export const esquemaRegenerarExamenGenerado = z
   })
   .strict();
 
+export const esquemaPurgarExamenesGenerados = z
+  .object({
+    dryRun: z.boolean().optional(),
+    olderThanDays: z.number().int().positive().max(3650).optional(),
+    scope: z.enum(['ttl', 'all']).optional()
+  })
+  .strict();
+
 export const esquemaActualizarPlantilla = z
   .object({
     periodoId: esquemaObjectId.optional(),

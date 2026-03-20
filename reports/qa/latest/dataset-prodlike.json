@@ -1,0 +1,13 @@
+{
+  "version": "1",
+  "ejecutadoEn": "2026-03-20T15:07:00.901Z",
+  "archivo": "tests\\fixtures\\prodlike\\prodlike-anon.json.gz",
+  "conteos": {
+    "periodos": 1,
+    "alumnos": 1,
+    "docentes": 1,
+    "examenes": 0
+  },
+  "hallazgos": [],
+  "valido": true
+}

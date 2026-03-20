@@ -189,6 +189,10 @@ function Test-InstallerHubInternet {
     [string]$ProbeUrl = 'https://api.github.com'
   )
 
+  if (@('1', 'true', 'yes', 'on') -contains [string]$env:EVALUAPRO_INSTALLER_ASSUME_INTERNET) {
+    return $true
+  }
+
   try {
     $headers = @{ 'User-Agent' = 'EvaluaPro-InstallerHub' }
     Invoke-InstallerHubWebRequest -Url $ProbeUrl -Method HEAD -Headers $headers -TimeoutSec 12 -RetryCount 1 | Out-Null
@@ -245,8 +249,8 @@ function Get-InstallerFlavorCatalog {
   }
 
   return [pscustomobject]@{
-    version = [int]($json.version ?? 1)
-    defaultFlavorId = [string]($json.defaultFlavorId ?? '')
+    version = if ($null -ne $json.version) { [int]$json.version } else { 1 }
+    defaultFlavorId = if ($null -ne $json.defaultFlavorId) { [string]$json.defaultFlavorId } else { '' }
     flavors = @($json.flavors)
   }
 }

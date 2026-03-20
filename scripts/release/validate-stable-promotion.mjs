@@ -5,6 +5,7 @@ import path from 'node:path';
 import { spawnSync } from 'node:child_process';
 import { pathToFileURL } from 'node:url';
 import { evaluateStreak, fetchRunsFromGitHub } from './check-ci-streak.mjs';
+import { readFileSync } from 'node:fs';
 import { validateEvidenceContract } from './check-release-evidence.mjs';
 
 function getArg(name, fallback = '') {
@@ -45,6 +46,22 @@ export function evaluateStablePromotion(options) {
     checks.push({ id: 'release-evidence', ok: true, detail: options.evidenceDir });
   } catch (error) {
     checks.push({ id: 'release-evidence', ok: false, detail: String(error?.message || error) });
+  }
+
+  try {
+    const manifestPath = path.resolve(options.evidenceDir, 'manifest.json');
+    const manifest = JSON.parse(readFileSync(manifestPath, 'utf8'));
+    const gate = manifest?.gateHumanoProduccion || {};
+    const resultado = String(gate?.resultado || '').trim().toLowerCase();
+    checks.push({
+      id: 'prod-flow-evidence',
+      ok: resultado === 'ok',
+      detail: resultado === 'ok'
+        ? 'gateHumanoProduccion.resultado=ok'
+        : `gateHumanoProduccion.resultado=${resultado || 'invalido'}`
+    });
+  } catch (error) {
+    checks.push({ id: 'prod-flow-evidence', ok: false, detail: String(error?.message || error) });
   }
 
   try {

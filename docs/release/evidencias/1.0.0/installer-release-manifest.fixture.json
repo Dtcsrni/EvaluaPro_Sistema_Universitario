@@ -1,0 +1,6 @@
+{
+  "flavors": [
+    { "flavorId": "saas-completo" },
+    { "flavorId": "docente-local" }
+  ]
+}

@@ -107,13 +107,14 @@ async function run() {
   const iterations = Math.max(10, Number.parseInt(process.env.PERF_ITERATIONS || '80', 10));
   const warmup = Math.max(1, Number.parseInt(process.env.PERF_WARMUP || '10', 10));
   const output = path.resolve(process.cwd(), process.env.PERF_REPORT_PATH || 'reports/perf/latest.json');
+  process.env.EVALUAPRO_LOG_SILENT = '1';
 
   const resultados: Medicion[] = [];
+  const backendApp = crearAppBackend();
+  const portalApp = crearAppPortal();
 
   for (const ruta of rutas) {
-    // Se crea una app nueva por ruta para evitar sesgo por acumulacion de rate-limit
-    // entre escenarios de medicion diferentes.
-    const app = ruta.service === 'backend' ? crearAppBackend() : crearAppPortal();
+    const app = ruta.service === 'backend' ? backendApp : portalApp;
     const medicion = await medirRuta(app, ruta, iterations, warmup);
     resultados.push(medicion);
   }

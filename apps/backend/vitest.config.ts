@@ -14,6 +14,12 @@ export default defineConfig({
     environment: 'node',
     include: ['tests/**/*.test.ts'],
     setupFiles: ['tests/setup.ts'],
+    pool: 'forks',
+    fileParallelism: false,
+    maxWorkers: 1,
+    minWorkers: 1,
+    testTimeout: 60_000,
+    hookTimeout: 60_000,
     coverage: {
       ...baseVitestConfig.coverage,
       // TODO(2026-03-31): Retirar estas exclusiones temporales de cobertura

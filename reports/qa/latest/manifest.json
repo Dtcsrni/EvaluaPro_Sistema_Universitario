@@ -1,65 +1,59 @@
 {
   "version": "1",
-  "generadoEn": "2026-03-03T10:59:19.9732491Z",
+  "generadoEn": "2026-03-20T15:11:46.609Z",
   "artefactos": [
     {
       "archivo": "reports/qa/latest/dataset-prodlike.json",
       "existe": true,
-      "bytes": 275,
-      "actualizadoEn": "2026-02-20T05:33:36.991Z"
+      "bytes": 262,
+      "actualizadoEn": "2026-03-20T15:07:00.904Z"
     },
     {
       "archivo": "reports/qa/latest/e2e-docente-alumno.json",
       "existe": true,
-      "bytes": 351,
-      "actualizadoEn": "2026-02-20T05:33:36.991Z"
+      "bytes": 341,
+      "actualizadoEn": "2026-03-20T15:10:01.824Z"
     },
     {
       "archivo": "reports/qa/latest/global-grade.json",
       "existe": true,
-      "bytes": 380,
-      "actualizadoEn": "2026-02-20T05:33:36.992Z"
+      "bytes": 369,
+      "actualizadoEn": "2026-03-20T15:09:59.259Z"
     },
     {
       "archivo": "reports/qa/latest/evaluaciones-policy.json",
       "existe": true,
       "bytes": 401,
-      "actualizadoEn": "2026-02-27T07:58:43.393Z"
+      "actualizadoEn": "2026-03-13T08:42:48.509Z"
     },
     {
       "archivo": "reports/qa/latest/evaluaciones-e2e.json",
       "existe": true,
-      "bytes": 552,
-      "actualizadoEn": "2026-02-27T07:58:54.700Z"
+      "bytes": 553,
+      "actualizadoEn": "2026-03-13T09:16:12.849Z"
     },
     {
       "archivo": "reports/qa/latest/pdf-print.json",
       "existe": true,
-      "bytes": 327,
-      "actualizadoEn": "2026-02-20T05:33:36.993Z"
+      "bytes": 316,
+      "actualizadoEn": "2026-03-20T15:09:58.801Z"
     },
     {
       "archivo": "reports/qa/latest/ux-visual.json",
       "existe": true,
-      "bytes": 306,
-      "actualizadoEn": "2026-02-20T05:33:36.994Z"
+      "bytes": 295,
+      "actualizadoEn": "2026-03-20T15:10:14.492Z"
     },
     {
       "archivo": "reports/qa/latest/clean-architecture.json",
       "existe": true,
-      "bytes": 1031,
-      "actualizadoEn": "2026-02-27T07:48:00.162Z"
-    },
-    {
-      "archivo": "reports/qa/latest/installer-docente-audit-2026-03-03.md",
-      "existe": true,
-      "bytes": 3591,
-      "actualizadoEn": "2026-03-03T10:59:19.9732491Z"
+      "bytes": 1030,
+      "actualizadoEn": "2026-03-20T15:11:25.696Z"
     }
   ],
   "resumen": {
-    "total": 9,
-    "presentes": 9,
+    "total": 8,
+    "presentes": 8,
     "faltantes": 0,
     "estado": "ok"
   }

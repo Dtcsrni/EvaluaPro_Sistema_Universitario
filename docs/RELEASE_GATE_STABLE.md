@@ -11,7 +11,7 @@ Se promueve a estable solo si se cumplen todos:
 3. `clean-architecture-check` en verde y evidencia `reports/qa/latest/clean-architecture.json` presente.
 4. Flujo docente humano en produccion completado sin fallos criticos.
 5. Evidencia versionada en `docs/release/evidencias/<version>/`.
-6. Checklist de rollback readiness validado.
+6. Checklist de rollback readiness validado (`rollback_readiness.json`).
 
 Si falla cualquier punto: **No-Go**.
 
@@ -54,6 +54,8 @@ El script genera:
 - `docs/release/evidencias/<version>/timeline.md`
 - `docs/release/evidencias/<version>/metrics_snapshot.txt`
 - `docs/release/evidencias/<version>/integridad_sha256.json`
+- requiere `docs/release/evidencias/<version>/rollback_readiness.json`
+- valida referencia a evidencia Windows de install/repair/launcher/Hub
 
 El gate estable genera ademas:
 - `reports/release/stable-gate/<version>/decision.json` con decision `Go/No-Go`.
@@ -63,6 +65,10 @@ Archivo JSON de validacion humana (plantilla base):
 
 `docs/release/manual/prod-flow.template.json`
 
+Checklist base de rollback:
+
+`docs/release/manual/rollback-readiness.template.json`
+
 Se recomienda copiar a:
 
 `docs/release/manual/prod-flow.json`
@@ -70,5 +76,4 @@ Se recomienda copiar a:
 ## Criterio de seguridad operativa
 El flujo humano debe ejecutarse en ventana controlada y con plan de rollback preparado.
 No usar datos de estudiantes reales fuera de politica institucional vigente.
-
 

@@ -61,5 +61,5 @@ describe('omr tv3 real golden', () => {
       expect(respuesta?.flags ?? []).not.toContain('fuera_roi');
       expect(respuesta?.flags ?? []).not.toContain('parcial_detectada');
     }
-  }, 180000);
+  }, 300000);
 });

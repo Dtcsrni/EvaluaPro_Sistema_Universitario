@@ -4,7 +4,8 @@
 Se usa SemVer en raiz del monorepo.
 
 ## Estado actual
-- Version declarada actual: `1.0.0-beta.1`.
+- Version declarada actual: `1.0.0`.
+- Version visible en GUI: `1.0.0b`.
 - Canal operativo: beta funcional (MVP extendido).
 - Politica objetivo: `1.0-beta` con cero fallos de gates; promoción a estable con gate humano en produccion.
 - Seguimiento de olas y bloqueos vigente: `docs/INVENTARIO_PROYECTO.md`.
@@ -79,5 +80,7 @@ Debe pasar:
    - `npm run release:gate:prod-flow -- --version=<version> --periodo-id=<periodoId> --manual=docs/release/manual/prod-flow.json`
 6. Versionar evidencias en:
    - `docs/release/evidencias/<version>/`
+7. Incluir checklist de rollback readiness:
+   - `docs/release/evidencias/<version>/rollback_readiness.json`
 7. Validar decision automatica de estable:
    - workflow `Release Stable Gate` en verde y artefacto `decision.json` publicado.

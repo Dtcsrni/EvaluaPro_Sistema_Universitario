@@ -5,13 +5,13 @@
   color-scheme: light;
   font-family: 'Source Sans 3', 'Segoe UI', system-ui, -apple-system, sans-serif;
   background:
-    radial-gradient(circle at 12% 8%, #e0f2fe 0, transparent 40%),
-    radial-gradient(circle at 88% 10%, #f5d0fe 0, transparent 38%),
-    radial-gradient(circle at 20% 92%, #dcfce7 0, transparent 32%),
-    linear-gradient(165deg, #f8fbff 0, #ffffff 52%, #f8fafc 100%);
-  color: #0b1220;
+    radial-gradient(circle at 14% 8%, rgba(213, 167, 58, 0.16) 0, transparent 42%),
+    radial-gradient(circle at 86% 12%, rgba(15, 139, 141, 0.16) 0, transparent 36%),
+    radial-gradient(circle at 20% 92%, rgba(127, 209, 200, 0.18) 0, transparent 30%),
+    linear-gradient(165deg, #f5f1e6 0, #fffdf8 50%, #f3f7fb 100%);
+  color: #142133;
 
-  --anillo: rgba(14, 116, 144, 0.32);
+  --anillo: rgba(15, 139, 141, 0.28);
   --sombra: 0 30px 90px -50px rgba(2, 6, 23, 0.45);
   --sombraSuave: 0 14px 28px rgba(2, 6, 23, 0.10);
   --radioCard: 22px;
@@ -19,30 +19,30 @@
   --gap: 0.9rem;
   --contenedor: 1140px;
 
-  --texto: #0b1220;
-  --textoSuave: #1f2937;
-  --muted: #415267;
-  --borde: #e2e8f0;
-  --bordeSuave: rgba(13, 148, 136, 0.25);
+  --texto: #142133;
+  --textoSuave: #25344b;
+  --muted: #54657e;
+  --borde: #dde6ef;
+  --bordeSuave: rgba(15, 139, 141, 0.22);
   --superficie: #ffffffcc;
   --superficieSolida: #ffffff;
   --card: #ffffff;
-  --primario: #0f766e;
-  --primarioHover: #0d9488;
-  --primarioHover2: #14b8a6;
-  --acentoAzul: #0ea5e9;
-  --acentoAzulSuave: rgba(14, 165, 233, 0.14);
-  --acentoVioleta: #6366f1;
-  --acentoVioletaSuave: rgba(99, 102, 241, 0.12);
-  --acentoMagenta: #db2777;
-  --acentoMagentaSuave: rgba(219, 39, 119, 0.12);
-  --acentoLima: #65a30d;
-  --acentoLimaSuave: rgba(101, 163, 13, 0.14);
-  --acentoCoral: #f97316;
-  --acentoCoralSuave: rgba(249, 115, 22, 0.12);
-  --chipBg: rgba(13, 148, 136, 0.12);
-  --chipBorde: rgba(13, 148, 136, 0.35);
-  --chipTexto: #0b4a43;
+  --primario: #0f8b8d;
+  --primarioHover: #127f81;
+  --primarioHover2: #19a4a6;
+  --acentoAzul: #1459c7;
+  --acentoAzulSuave: rgba(20, 89, 199, 0.12);
+  --acentoVioleta: #4859a5;
+  --acentoVioletaSuave: rgba(72, 89, 165, 0.1);
+  --acentoMagenta: #9b4d62;
+  --acentoMagentaSuave: rgba(155, 77, 98, 0.1);
+  --acentoLima: #7e8d36;
+  --acentoLimaSuave: rgba(126, 141, 54, 0.12);
+  --acentoCoral: #c57737;
+  --acentoCoralSuave: rgba(197, 119, 55, 0.12);
+  --chipBg: rgba(15, 139, 141, 0.1);
+  --chipBorde: rgba(15, 139, 141, 0.28);
+  --chipTexto: #0d5052;
   --peligroBg: #fee2e2;
   --peligroTexto: #7a1515;
   --exitoBg: #dcfce7;
@@ -74,40 +74,40 @@
 :root[data-theme="dark"] {
   color-scheme: dark;
   background:
-    radial-gradient(circle at 10% 10%, rgba(56, 189, 248, 0.24) 0, transparent 36%),
-    radial-gradient(circle at 88% 8%, rgba(217, 70, 239, 0.22) 0, transparent 34%),
-    radial-gradient(circle at 18% 92%, rgba(74, 222, 128, 0.2) 0, transparent 30%),
-    linear-gradient(165deg, #071120 0, #0b1324 48%, #060a16 100%);
-  color: #e6edf7;
+    radial-gradient(circle at 10% 10%, rgba(213, 167, 58, 0.22) 0, transparent 36%),
+    radial-gradient(circle at 88% 8%, rgba(15, 139, 141, 0.22) 0, transparent 34%),
+    radial-gradient(circle at 18% 92%, rgba(127, 209, 200, 0.18) 0, transparent 30%),
+    linear-gradient(165deg, #0b1522 0, #111c2d 48%, #08101b 100%);
+  color: #edf2f7;
 
-  --anillo: rgba(125, 211, 252, 0.55);
+  --anillo: rgba(127, 209, 200, 0.46);
   --sombra: 0 30px 90px -50px rgba(2, 6, 23, 0.65);
   --sombraSuave: 0 14px 28px rgba(2, 6, 23, 0.4);
 
-  --texto: #e6edf7;
-  --textoSuave: #d6deea;
-  --muted: #b9c6d8;
+  --texto: #edf2f7;
+  --textoSuave: #d7dfeb;
+  --muted: #b8c5d7;
   --borde: rgba(148, 163, 184, 0.42);
-  --bordeSuave: rgba(94, 234, 212, 0.34);
+  --bordeSuave: rgba(127, 209, 200, 0.28);
   --superficie: rgba(17, 24, 39, 0.74);
   --superficieSolida: #121a2b;
   --card: #111a2c;
-  --primario: #0f766e;
-  --primarioHover: #14b8a6;
-  --primarioHover2: #2dd4bf;
-  --acentoAzul: #38bdf8;
-  --acentoAzulSuave: rgba(56, 189, 248, 0.18);
-  --acentoVioleta: #818cf8;
-  --acentoVioletaSuave: rgba(129, 140, 248, 0.18);
-  --acentoMagenta: #e879f9;
-  --acentoMagentaSuave: rgba(232, 121, 249, 0.2);
-  --acentoLima: #a3e635;
-  --acentoLimaSuave: rgba(163, 230, 53, 0.2);
-  --acentoCoral: #fb7185;
-  --acentoCoralSuave: rgba(251, 113, 133, 0.18);
-  --chipBg: rgba(20, 184, 166, 0.18);
-  --chipBorde: rgba(94, 234, 212, 0.32);
-  --chipTexto: #d0f9f2;
+  --primario: #0f8b8d;
+  --primarioHover: #19a4a6;
+  --primarioHover2: #38b7b1;
+  --acentoAzul: #4d81d8;
+  --acentoAzulSuave: rgba(77, 129, 216, 0.18);
+  --acentoVioleta: #8c93c4;
+  --acentoVioletaSuave: rgba(140, 147, 196, 0.14);
+  --acentoMagenta: #c17b8e;
+  --acentoMagentaSuave: rgba(193, 123, 142, 0.18);
+  --acentoLima: #a8b35a;
+  --acentoLimaSuave: rgba(168, 179, 90, 0.18);
+  --acentoCoral: #d78e56;
+  --acentoCoralSuave: rgba(215, 142, 86, 0.16);
+  --chipBg: rgba(15, 139, 141, 0.16);
+  --chipBorde: rgba(127, 209, 200, 0.26);
+  --chipTexto: #d9f1ef;
   --peligroBg: rgba(239, 68, 68, 0.22);
   --peligroTexto: #fecaca;
   --exitoBg: rgba(34, 197, 94, 0.22);

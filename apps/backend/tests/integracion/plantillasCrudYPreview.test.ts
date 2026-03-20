@@ -6,6 +6,7 @@
  */
 import request from 'supertest';
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
+import { ExamenGenerado } from '../../src/modulos/modulo_generacion_pdf/modeloExamenGenerado';
 import { crearApp } from '../../src/app';
 import { cerrarMongoTest, conectarMongoTest, limpiarMongoTest } from '../utils/mongo';
 
@@ -115,6 +116,9 @@ describe('plantillas CRUD + previsualizacion', () => {
       .set(auth)
       .expect(200);
     expect(String(previewPdf.headers['content-type'] || '')).toContain('application/pdf');
+
+    const generadosDespuesPreview = await ExamenGenerado.countDocuments({});
+    expect(generadosDespuesPreview).toBe(0);
 
     const archivarResp = await request(app).post(`/api/examenes/plantillas/${plantillaId}/archivar`).set(auth).expect(200);
     expect(archivarResp.body?.plantilla?.archivadoEn).toBeTruthy();

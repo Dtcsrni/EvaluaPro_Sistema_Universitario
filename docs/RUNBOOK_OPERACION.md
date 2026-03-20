@@ -147,7 +147,11 @@ Smoke automatizado sugerido:
 - `docs/release/evidencias/<version>/timeline.md`
 - `docs/release/evidencias/<version>/metrics_snapshot.txt`
 - `docs/release/evidencias/<version>/integridad_sha256.json`
-5. Si el resultado del manifiesto es `fallo`, bloquear promocion y ejecutar rollback/correccion.
+- `docs/release/evidencias/<version>/rollback_readiness.json`
+5. Confirmar que la evidencia use:
+- `version` técnica `1.0.0`
+- `displayVersion` visible `1.0.0b`
+6. Si el resultado del manifiesto es `fallo`, bloquear promocion y ejecutar rollback/correccion.
 
 ## 10. Validacion preproduccion automatizada (sin prueba humana)
 1. Ejecutar:

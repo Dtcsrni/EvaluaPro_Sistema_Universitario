@@ -22,6 +22,7 @@ import {
   esquemaCrearPlantilla,
   esquemaGenerarExamen,
   esquemaGenerarExamenesLote,
+  esquemaPurgarExamenesGenerados,
   esquemaRegenerarExamenGenerado
 } from './validacionesExamenes';
 import {
@@ -29,6 +30,7 @@ import {
   descargarPdf,
   listarExamenesGenerados,
   obtenerExamenPorFolio,
+  purgarExamenesGenerados,
   regenerarPdfExamen
 } from './controladorListadoGenerados';
 import { requerirPermiso } from '../modulo_autenticacion/middlewarePermisos';
@@ -57,6 +59,12 @@ router.get('/generados/folio/:folio', requerirPermiso('examenes:leer'), obtenerE
 router.get('/generados/:id/pdf', requerirPermiso('examenes:descargar'), descargarPdf);
 router.get('/generados/lote/:loteId/pdf', requerirPermiso('examenes:descargar'), descargarPdfLote);
 router.get('/generados/lote/:loteId/progreso', requerirPermiso('examenes:leer'), obtenerProgresoGeneracionLote);
+router.post(
+  '/generados/purge',
+  requerirPermiso('examenes:archivar'),
+  validarCuerpo(esquemaPurgarExamenesGenerados, { strict: true }),
+  purgarExamenesGenerados
+);
 router.post(
   '/generados/:id/regenerar',
   requerirPermiso('examenes:regenerar'),

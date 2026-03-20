@@ -1,4 +1,9 @@
 {
+  "displayVersion": "1.0.0b",
+  "operatorName": "responsable-release",
+  "windowStartedAt": "2026-03-20T00:00:00.000Z",
+  "windowEndedAt": "2026-03-20T00:30:00.000Z",
+  "notes": "Observaciones de la validacion humana en produccion.",
   "docenteId": "docente-humano-activo",
   "autenticacionValida": true,
   "periodoGestionado": true,

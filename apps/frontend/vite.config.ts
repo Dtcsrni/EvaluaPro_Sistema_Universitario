@@ -16,17 +16,27 @@ const __dirname = path.dirname(__filename);
 
 type MetaApp = {
   appVersion: string;
+  displayVersion: string;
   appName: string;
   developerName: string;
 };
 
 function leerMetaApp(envDir: string): MetaApp {
-  const fallback: MetaApp = { appVersion: '0.0.0', appName: 'evaluapro', developerName: '' };
+  const fallback: MetaApp = { appVersion: '0.0.0', displayVersion: '0.0.0', appName: 'evaluapro', developerName: '' };
   try {
     const pkgRaw = fs.readFileSync(path.join(envDir, 'package.json'), 'utf8');
     const pkg = JSON.parse(pkgRaw);
+    let displayVersion = String(pkg?.version || fallback.displayVersion);
+    try {
+      const versionMetaRaw = fs.readFileSync(path.join(envDir, 'config', 'app-version.json'), 'utf8');
+      const versionMeta = JSON.parse(versionMetaRaw);
+      displayVersion = String(versionMeta?.displayVersion || displayVersion);
+    } catch {
+      // fallback to package version
+    }
     return {
       appVersion: String(pkg?.version || fallback.appVersion),
+      displayVersion,
       appName: String(pkg?.name || fallback.appName),
       developerName: typeof pkg?.author === 'string' ? String(pkg.author) : String(pkg?.author?.name || '')
     };
@@ -54,7 +64,7 @@ function resolverHttps(env: Record<string, string>) {
 export default defineConfig(({ mode }) => {
   const envDir = path.resolve(__dirname, '..', '..');
   const env = loadEnv(mode, envDir, '');
-  const { appVersion, appName, developerName } = leerMetaApp(envDir);
+  const { appVersion, displayVersion, appName, developerName } = leerMetaApp(envDir);
   const developerNameResolved = String(env.EVALUAPRO_DEVELOPER_NAME || developerName || 'Equipo EvaluaPro');
   const developerRoleResolved = String(env.EVALUAPRO_DEVELOPER_ROLE || 'Desarrollo');
   const httpsConfig = resolverHttps(env);
@@ -68,6 +78,7 @@ export default defineConfig(({ mode }) => {
     envDir,
     define: {
       'import.meta.env.VITE_APP_VERSION': JSON.stringify(appVersion),
+      'import.meta.env.VITE_APP_DISPLAY_VERSION': JSON.stringify(displayVersion),
       'import.meta.env.VITE_APP_NAME': JSON.stringify(appName),
       'import.meta.env.VITE_DEVELOPER_NAME': JSON.stringify(developerNameResolved),
       'import.meta.env.VITE_DEVELOPER_ROLE': JSON.stringify(developerRoleResolved)

@@ -44,7 +44,7 @@ type PreguntaPdf = {
 
 function parseArgs(argv: string[]): ParsedArgs {
   const out: ParsedArgs = {
-    mongoUri: 'mongodb://127.0.0.1:27017/mern_app_prod',
+    mongoUri: 'mongodb://127.0.0.1:27017/evaluapro_prod',
     docenteId: '',
     periodoId: '',
     plantillaId: '',

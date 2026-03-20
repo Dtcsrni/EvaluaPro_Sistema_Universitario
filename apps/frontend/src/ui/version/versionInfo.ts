@@ -1,4 +1,8 @@
 export function obtenerVersionApp(): string {
+  return String(import.meta.env.VITE_APP_DISPLAY_VERSION || import.meta.env.VITE_APP_VERSION || '0.0.0');
+}
+
+export function obtenerVersionTecnicaApp(): string {
   return String(import.meta.env.VITE_APP_VERSION || '0.0.0');
 }
 

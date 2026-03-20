@@ -13,6 +13,7 @@ services:
       - "27017:27017"
     volumes:
       - mongo-data:/data/db
+      - mongo-config-data:/data/configdb
     healthcheck:
       test: ["CMD", "mongosh", "--eval", "db.adminCommand('ping')"]
       interval: 5s
@@ -43,7 +44,7 @@ services:
     env_file:
       - .env
     environment:
-      - MONGODB_URI=${MONGODB_URI_DEV:-mongodb://mongo_local:27017/mern_app_dev}
+      - MONGODB_URI=${MONGODB_URI_DEV:-mongodb://mongo_local:27017/evaluapro_dev}
       - PUERTO_API=${PUERTO_API:-4000}
       - PORTAL_ALUMNO_URL=${PORTAL_ALUMNO_URL_DOCKER:-http://host.docker.internal:8080}
       - PORTAL_ALUMNO_API_KEY=${PORTAL_ALUMNO_API_KEY:-local-piloto-api-key}
@@ -51,6 +52,7 @@ services:
       - EXAM_PRINT_PROFILE=${EXAM_PRINT_PROFILE:-epson-ecotank-l1250}
       - EXAMEN_LOGO_IZQ_PATH=${EXAMEN_LOGO_IZQ_PATH:-logos/cuh.png}
       - EXAMEN_LOGO_DER_PATH=${EXAMEN_LOGO_DER_PATH:-logos/isc.png}
+      - PLAYWRIGHT_CHROMIUM_EXECUTABLE=/usr/local/bin/evaluapro-chromium
       - OMR_DEBUG=1
       - OMR_DEBUG_DIR=/app/data/examenes/omr_debug
       - OMR_OFFSET_X=-14
@@ -100,7 +102,7 @@ services:
     env_file:
       - .env
     environment:
-      - MONGODB_URI=${MONGODB_URI_PROD:-mongodb://mongo_local:27017/mern_app_prod}
+      - MONGODB_URI=${MONGODB_URI_PROD:-mongodb://mongo_local:27017/evaluapro_prod}
       - PUERTO_API=${PUERTO_API:-4000}
       - PORTAL_ALUMNO_URL=${PORTAL_ALUMNO_URL_DOCKER:-http://host.docker.internal:8080}
       - PORTAL_ALUMNO_API_KEY=${PORTAL_ALUMNO_API_KEY:-local-piloto-api-key}
@@ -108,6 +110,7 @@ services:
       - EXAM_PRINT_PROFILE=${EXAM_PRINT_PROFILE:-epson-ecotank-l1250}
       - EXAMEN_LOGO_IZQ_PATH=${EXAMEN_LOGO_IZQ_PATH:-logos/cuh.png}
       - EXAMEN_LOGO_DER_PATH=${EXAMEN_LOGO_DER_PATH:-logos/isc.png}
+      - PLAYWRIGHT_CHROMIUM_EXECUTABLE=/usr/local/bin/evaluapro-chromium
       - OMR_CV_ENGINE_ENABLED=1
     volumes:
       - ./logos:/app/logos:ro
@@ -142,3 +145,4 @@ services:
 
 volumes:
   mongo-data:
+  mongo-config-data:

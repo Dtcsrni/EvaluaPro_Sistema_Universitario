@@ -95,9 +95,9 @@ Definir controles operativos obligatorios para evitar acumulacion de archivos in
 ## 8.1) Segregacion obligatoria de datos (pruebas vs produccion)
 - Queda prohibido reutilizar la misma base de datos Mongo para `dev/test` y `prod`.
 - Nombres de BD obligatorios por entorno:
-  - `mern_app_dev` para desarrollo local.
-  - `mern_app_test` para pruebas.
-  - `mern_app_prod` para operacion real.
+  - `evaluapro_dev` para desarrollo local.
+  - `evaluapro_test` para pruebas.
+  - `evaluapro_prod` para operacion real.
 - Queda prohibido compartir la misma carpeta de archivos entre entornos.
 - Carpetas de almacenamiento obligatorias por entorno:
   - `apps/backend/data/examenes_dev`
@@ -121,6 +121,53 @@ Definir controles operativos obligatorios para evitar acumulacion de archivos in
 - Limpiar carpetas temporales de OMR e importaciones intermedias al cierre semanal.
 - Evitar duplicados de datasets locales sin etiqueta de vigencia.
 - Separar de forma estricta datasets de validacion/prueba de datasets de operacion real.
+
+## 10.1) Clasificacion obligatoria del peso local
+- **Peso operativo del repo**:
+  - codigo fuente,
+  - configs y docs activas,
+  - `logos/`,
+  - `apps/backend/data/examenes_*`.
+- **Peso regenerable de desarrollo**:
+  - `node_modules/`,
+  - `reports/`,
+  - `logs/`,
+  - `test-results/`,
+  - datasets `omr_samples*`,
+  - build cache Docker.
+- **Peso runtime Docker**:
+  - imagenes activas del stack,
+  - volumenes de Mongo en uso,
+  - capas de contenedor vivas.
+
+## 10.2) Footprint medido del corte 2026-03-19
+- Repo local bruto: `994.8 MB`.
+- Repo operativo sin componentes regenerables: `113.27 MB`.
+- Runtime Docker antes del adelgazamiento:
+  - imagenes: `4.148 GB`
+  - volumenes: `212.2 MB`
+  - total operativo: `4.36 GB`
+- Runtime Docker despues del adelgazamiento:
+  - imagenes: `3.37 GB`
+  - volumenes: `212.9 MB`
+  - total operativo: `3.58 GB`
+- Reduccion real del runtime Docker activo: `~777 MB`.
+
+## 10.3) Reglas de distribucion y reconstruccion
+- No incluir en paquete operativo final:
+  - `.git/`
+  - `node_modules/`
+  - `reports/`
+  - `logs/`
+  - `test-results/`
+  - datasets `omr_samples*`
+- Flujo minimo de reconstruccion local:
+  1. `npm install`
+  2. `docker compose --profile prod build`
+  3. `docker compose --profile prod up -d`
+- Si se requieren datasets QA/OMR:
+  - restaurarlos solo para validacion o diagnostico,
+  - no tratarlos como parte del footprint operativo por defecto.
 
 ## 11) Automatizacion recomendada (Windows Task Scheduler)
 - Tarea `EvaluaPro-Mantenimiento-Semanal`:

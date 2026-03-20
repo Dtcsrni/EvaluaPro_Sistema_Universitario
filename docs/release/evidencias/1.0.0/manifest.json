@@ -1,0 +1,78 @@
+{
+  "version": "1.0.0",
+  "displayVersion": "1.0.0b",
+  "commit": "7d4d5fa561ad50e25d88f3b7aaa049aa2b1cf3ed",
+  "ciConsecutivoVerde": 10,
+  "evidenciaWindows": {
+    "path": "docs/release/evidencias/1.0.0-beta.1/windows-release-smoke-2026-03-20.md",
+    "summary": "Release smoke Windows validado previamente para repair/launcher/Hub; se reutiliza como evidencia del corte estable."
+  },
+  "gateHumanoProduccion": {
+    "apiBase": "",
+    "periodoId": "PENDIENTE_INPUT_REAL",
+    "docenteHash": "PENDIENTE_INPUT_REAL",
+    "displayVersion": "1.0.0b",
+    "resultado": "fallo",
+    "motivo": "No se ejecutó el gate humano real de producción en este equipo porque faltan api-base, token docente, periodo-id y docente-id reales fuera del repositorio.",
+    "operatorName": "",
+    "windowStartedAt": "",
+    "windowEndedAt": "",
+    "requestIds": {
+      "exportacion": "",
+      "integridad": "",
+      "metricas": ""
+    },
+    "pasos": [
+      {
+        "id": "preflight-version",
+        "nombre": "Validar version tecnica 1.0.0 y displayVersion 1.0.0b",
+        "resultado": "ok"
+      },
+      {
+        "id": "preflight-windows",
+        "nombre": "Reusar evidencia Windows repair/launcher/Hub",
+        "resultado": "ok"
+      },
+      {
+        "id": "input-api-base",
+        "nombre": "Resolver api-base real de produccion",
+        "resultado": "fallo"
+      },
+      {
+        "id": "input-token",
+        "nombre": "Inyectar token docente real",
+        "resultado": "fallo"
+      },
+      {
+        "id": "input-periodo",
+        "nombre": "Resolver periodo-id real",
+        "resultado": "fallo"
+      },
+      {
+        "id": "input-docente",
+        "nombre": "Resolver docente-id real",
+        "resultado": "fallo"
+      },
+      {
+        "id": "run-export",
+        "nombre": "Ejecutar exportacion docente en produccion",
+        "resultado": "fallo"
+      },
+      {
+        "id": "run-integrity",
+        "nombre": "Registrar integridad y hashes del flujo",
+        "resultado": "fallo"
+      },
+      {
+        "id": "run-metrics",
+        "nombre": "Capturar metricas y request IDs",
+        "resultado": "fallo"
+      },
+      {
+        "id": "final-decision",
+        "nombre": "Emitir decision Go/No-Go",
+        "resultado": "fallo"
+      }
+    ]
+  }
+}

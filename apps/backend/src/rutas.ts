@@ -44,6 +44,7 @@ export function crearRouterApi() {
     res.json({
       name: info.app.name,
       version: info.app.version,
+      displayVersion: info.app.displayVersion,
       build: {
         commit: String(process.env.GITHUB_SHA || '').trim() || 'local',
         generatedAt: info.system.generatedAt

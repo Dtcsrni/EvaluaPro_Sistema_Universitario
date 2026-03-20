@@ -20,7 +20,7 @@ const portalDistEntry = path.join(root, 'apps', 'portal_alumno_cloud', 'dist', '
 function resolveMongoUri(rawValue) {
   const value = String(rawValue ?? '').trim();
   if (!value) {
-    return 'mongodb://127.0.0.1:27017/mern_app_prod';
+    return 'mongodb://127.0.0.1:27017/evaluapro_prod';
   }
   if (value.includes('mongo_local')) {
     return value.replaceAll('mongo_local', '127.0.0.1');

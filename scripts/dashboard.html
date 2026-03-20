@@ -4155,7 +4155,7 @@
     // Nota: actualiza este valor cuando hagas cambios visibles al dashboard.
     const UI_REV = '2026-03-03.3';
 
-    const CLAVE_ALMACEN_TEMA = 'seuDashboardTheme';
+    const CLAVE_ALMACEN_TEMA = 'ep.theme.preference';
     const CONFIG_DASHBOARD_DEFAULT = {
       autoRestart: false,
       showFullLogs: false,
@@ -4215,25 +4215,40 @@
       actualizarIndicadorSistema(animo);
     }
 
-    function sincronizarMetaTemaActual() {
-      const tema = document.documentElement.getAttribute('data-theme') === 'dark' ? 'dark' : 'light';
-      establecerColorMetaTema(tema === 'dark' ? '#02030a' : '#f8fafc');
+    function resolverTemaAplicado(preferencia) {
+      if (preferencia === 'dark' || preferencia === 'light') return preferencia;
+      try {
+        return window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+      } catch (error) {
+        return 'dark';
+      }
     }
 
-    function aplicarTema(tema) {
-      const temaAplicado = tema === 'dark' ? 'dark' : 'light';
+    function sincronizarMetaTemaActual() {
+      const tema = document.documentElement.getAttribute('data-theme') === 'dark' ? 'dark' : 'light';
+      establecerColorMetaTema(tema === 'dark' ? '#04111f' : '#f4efe4');
+    }
+
+    function aplicarTema(preferencia) {
+      const temaAplicado = resolverTemaAplicado(preferencia);
       document.documentElement.setAttribute('data-theme', temaAplicado);
       sincronizarMetaTemaActual();
       const boton = $('theme-toggle');
-      if (boton) boton.textContent = temaAplicado === 'dark' ? 'Tema: Oscuro' : 'Tema: Claro';
+      if (boton) {
+        const label = preferencia === 'auto'
+          ? ('Tema: Auto (' + (temaAplicado === 'dark' ? 'Oscuro' : 'Claro') + ')')
+          : (temaAplicado === 'dark' ? 'Tema: Oscuro' : 'Tema: Claro');
+        boton.textContent = label;
+        boton.setAttribute('aria-label', label);
+      }
     }
 
     function obtenerTemaPreferido() {
       try {
         const guardado = String(localStorage.getItem(CLAVE_ALMACEN_TEMA) || '').trim();
-        if (guardado === 'dark' || guardado === 'light') return guardado;
+        if (guardado === 'dark' || guardado === 'light' || guardado === 'auto') return guardado;
       } catch {}
-      return window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+      return 'auto';
     }
 
     function iniciarTema() {
@@ -4244,7 +4259,7 @@
       // Si no hay preferencia guardada, reaccionar a cambios del sistema.
       try {
         const guardado = String(localStorage.getItem(CLAVE_ALMACEN_TEMA) || '').trim();
-        if (!guardado && window.matchMedia) {
+        if ((guardado === '' || guardado === 'auto') && window.matchMedia) {
           const consultaMedios = window.matchMedia('(prefers-color-scheme: dark)');
           const alCambiar = () => aplicarTema(obtenerTemaPreferido());
           if (typeof consultaMedios.addEventListener === 'function') consultaMedios.addEventListener('change', alCambiar);
@@ -4255,8 +4270,8 @@
       const boton = $('theme-toggle');
       if (!boton) return;
       boton.addEventListener('click', () => {
-        const actual = document.documentElement.getAttribute('data-theme') === 'dark' ? 'dark' : 'light';
-        const siguiente = actual === 'dark' ? 'light' : 'dark';
+        const actual = obtenerTemaPreferido();
+        const siguiente = actual === 'dark' ? 'auto' : (actual === 'auto' ? 'light' : 'dark');
         try { localStorage.setItem(CLAVE_ALMACEN_TEMA, siguiente); } catch {}
         aplicarTema(siguiente);
       });
@@ -4747,6 +4762,7 @@
         const modo = infoInstalacion && infoInstalacion.dashboard ? String(infoInstalacion.dashboard.mode || '-') : '-';
         const pid = infoInstalacion && infoInstalacion.dashboard ? String(infoInstalacion.dashboard.pid || '-') : '-';
         const inicioEn = infoInstalacion && infoInstalacion.dashboard ? Number(infoInstalacion.dashboard.startedAt || 0) : 0;
+        const displayVersion = infoInstalacion && infoInstalacion.app ? String(infoInstalacion.app.displayVersion || infoInstalacion.app.version || '-') : '-';
 
         const logs = infoInstalacion && infoInstalacion.paths ? String(infoInstalacion.paths.logFile || '') : '';
         const raiz = infoInstalacion && infoInstalacion.paths ? String(infoInstalacion.paths.root || '') : '';
@@ -4764,14 +4780,14 @@
 
         const etiquetaModo = modo === '-' ? '-' : formatearEtiquetaModo(normalizarValorModo(modo));
 
-        establecerTexto('install-version', nombre && version !== '-' ? `${nombre} v${version}` : (version !== '-' ? `v${version}` : '-'));
+        establecerTexto('install-version', nombre && displayVersion !== '-' ? `${nombre} v${displayVersion}` : (displayVersion !== '-' ? `v${displayVersion}` : '-'));
         establecerTexto('install-dashboard', `Modo: ${etiquetaModo} · Puerto: ${puerto || '-'} · PID: ${pid} · Inicio: hace ${inicioHace}`);
         establecerTexto('install-root', recortarRuta(raiz, 96));
         establecerTexto('install-logs', `${recortarRuta(logs, 96)}\nPersistencia: ${persistencia} · Vaciado: ${vaciadoMs ? vaciadoMs + 'ms' : '-'} · Rotación: ${maximoBytes ? Math.round(maximoBytes / 1000) + 'KB' : '-'} · Retención: ${retencion || '-'}`);
         establecerTexto('install-runtime', recortarRuta(entornoEjecucion, 110));
 
         const chipVersion = $('version-chip');
-        if (chipVersion) chipVersion.textContent = version !== '-' ? `v${version}` : 'v...';
+        if (chipVersion) chipVersion.textContent = displayVersion !== '-' ? `v${displayVersion}` : 'v...';
         const botonVersion = $('version-info-btn');
         if (botonVersion) botonVersion.textContent = 'Versiones';
         const chipUi = $('ui-chip');

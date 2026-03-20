@@ -20,11 +20,9 @@ ENV VITE_APP_DESTINO=$VITE_APP_DESTINO
 ENV VITE_PORTAL_BASE_URL=$VITE_PORTAL_BASE_URL
 RUN npm --workspace apps/frontend run build
 
-# Etapa runtime: sirve el bundle estatico con un servidor minimo.
-FROM node:24-alpine AS runner
-WORKDIR /app
-RUN npm install -g npm@11.11.0
-RUN npm install -g serve
-COPY --from=builder /app/apps/frontend/dist ./dist
+# Etapa runtime: sirve el bundle estatico con Nginx y fallback SPA.
+FROM nginx:alpine AS runner
+COPY apps/frontend/nginx.conf /etc/nginx/conf.d/default.conf
+COPY --from=builder /app/apps/frontend/dist /usr/share/nginx/html
 EXPOSE 4173
-CMD ["serve", "-s", "dist", "-l", "4173"]
+CMD ["nginx", "-g", "daemon off;"]

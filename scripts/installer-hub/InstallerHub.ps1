@@ -88,6 +88,21 @@ $logContext = New-InstallerHubLogContext
 $tempRoot = Join-Path $env:TEMP ('EvaluaProInstallerHub-' + $logContext.SessionId)
 New-Item -ItemType Directory -Path $tempRoot -Force | Out-Null
 
+function Resolve-DisplayVersion {
+  $repoRoot = Split-Path -Parent (Split-Path -Parent $scriptRoot)
+  $metaPath = Join-Path $repoRoot 'config\app-version.json'
+  if (-not (Test-Path -LiteralPath $metaPath)) { return '' }
+  try {
+    $meta = Get-Content -LiteralPath $metaPath -Raw -Encoding utf8 | ConvertFrom-Json
+    return [string]($meta.displayVersion ?? '')
+  } catch {
+    return ''
+  }
+}
+
+$displayVersion = Resolve-DisplayVersion
+$hubTitleText = if ([string]::IsNullOrWhiteSpace($displayVersion)) { 'EvaluaPro Installer Hub' } else { "EvaluaPro Installer Hub $displayVersion" }
+
 function Resolve-InstallerHubDefaults {
   $candidates = @(
     (Join-Path $scriptRoot 'installer-hub.defaults.json'),
@@ -122,6 +137,17 @@ function Read-EnvValueMap {
   return $map
 }
 
+function Get-OptionalValue {
+  param(
+    $Value,
+    [string]$Fallback = ''
+  )
+  if ($null -eq $Value) { return $Fallback }
+  $text = [string]$Value
+  if ($text -eq '') { return $Fallback }
+  return $text
+}
+
 function Resolve-DetectedOperationalConfig {
   param(
     [string]$InstallDir,
@@ -132,9 +158,36 @@ function Resolve-DetectedOperationalConfig {
   if ($Installation -and $Installation.InstallLocation) { $candidates += (Join-Path ([string]$Installation.InstallLocation) '.env') }
   $repoEnv = Join-Path (Split-Path -Parent (Split-Path -Parent $scriptRoot)) '.env'
   $candidates += $repoEnv
+  $defaults = @{
+    MONGODB_URI = ''
+    JWT_SECRETO = ''
+    NODE_ENV = ''
+    PUERTO_API = ''
+    PUERTO_PORTAL = ''
+    CORS_ORIGENES = ''
+    PORTAL_ALUMNO_URL = ''
+    PORTAL_ALUMNO_API_KEY = ''
+    PORTAL_API_KEY = ''
+    PASSWORD_RESET_ENABLED = ''
+    PASSWORD_RESET_TOKEN_MINUTES = ''
+    PASSWORD_RESET_URL_BASE = ''
+    GOOGLE_OAUTH_CLIENT_ID = ''
+    GOOGLE_CLASSROOM_CLIENT_ID = ''
+    GOOGLE_CLASSROOM_CLIENT_SECRET = ''
+    GOOGLE_CLASSROOM_REDIRECT_URI = ''
+    REQUIRE_GOOGLE_OAUTH = ''
+    CORREO_MODULO_ACTIVO = ''
+    NOTIFICACIONES_WEBHOOK_URL = ''
+    NOTIFICACIONES_WEBHOOK_TOKEN = ''
+    LICENCIA_ACCOUNT_EMAIL = ''
+  }
   $envPath = $candidates | Where-Object { Test-Path $_ } | Select-Object -First 1
-  if (-not $envPath) { return @{} }
-  return Read-EnvValueMap -Path $envPath
+  if (-not $envPath) { return $defaults }
+  $parsed = Read-EnvValueMap -Path $envPath
+  foreach ($entry in $parsed.GetEnumerator()) {
+    $defaults[$entry.Key] = $entry.Value
+  }
+  return $defaults
 }
 
 function Resolve-DetectedUpdateConfig {
@@ -147,24 +200,33 @@ function Resolve-DetectedUpdateConfig {
   if ($Installation -and $Installation.InstallLocation) { $candidates += (Join-Path ([string]$Installation.InstallLocation) 'config\update-config.json') }
   $repoCfg = Join-Path (Split-Path -Parent (Split-Path -Parent $scriptRoot)) 'config\update-config.json'
   $candidates += $repoCfg
+  $defaults = @{
+    channel = ''
+    flavorId = ''
+    owner = ''
+    repo = ''
+    assetName = ''
+    sha256AssetName = ''
+    feedUrl = ''
+    requireSha256 = ''
+  }
   $cfgPath = $candidates | Where-Object { Test-Path $_ } | Select-Object -First 1
-  if (-not $cfgPath) { return @{} }
+  if (-not $cfgPath) { return $defaults }
   try {
     $raw = Get-Content -Path $cfgPath -Encoding utf8 -Raw
-    if ([string]::IsNullOrWhiteSpace($raw)) { return @{} }
+    if ([string]::IsNullOrWhiteSpace($raw)) { return $defaults }
     $parsed = $raw | ConvertFrom-Json
-    return @{
-      channel = [string]($parsed.channel ?? '')
-      flavorId = [string]($parsed.flavorId ?? '')
-      owner = [string]($parsed.owner ?? '')
-      repo = [string]($parsed.repo ?? '')
-      assetName = [string]($parsed.assetName ?? '')
-      sha256AssetName = [string]($parsed.sha256AssetName ?? '')
-      feedUrl = [string]($parsed.feedUrl ?? '')
-      requireSha256 = if ($null -ne $parsed.requireSha256) { [string]$parsed.requireSha256 } else { '' }
-    }
+    $defaults.channel = Get-OptionalValue -Value $parsed.channel
+    $defaults.flavorId = Get-OptionalValue -Value $parsed.flavorId
+    $defaults.owner = Get-OptionalValue -Value $parsed.owner
+    $defaults.repo = Get-OptionalValue -Value $parsed.repo
+    $defaults.assetName = Get-OptionalValue -Value $parsed.assetName
+    $defaults.sha256AssetName = Get-OptionalValue -Value $parsed.sha256AssetName
+    $defaults.feedUrl = Get-OptionalValue -Value $parsed.feedUrl
+    $defaults.requireSha256 = if ($null -ne $parsed.requireSha256) { [string]$parsed.requireSha256 } else { '' }
+    return $defaults
   } catch {
-    return @{}
+    return $defaults
   }
 }
 
@@ -177,6 +239,7 @@ function New-FlowState {
   $catalog = Get-InstallerFlavorCatalog
   $effectiveFlavorId = if ($FlavorId) { $FlavorId } elseif ($detectedUpdate.flavorId) { [string]$detectedUpdate.flavorId } elseif ($defaults.flavorId) { [string]$defaults.flavorId } else { [string]$catalog.defaultFlavorId }
   $flavor = Get-InstallerFlavorDefinition -FlavorId $effectiveFlavorId
+  $detectedUpdateMatchesFlavor = ([string]$detectedUpdate.flavorId -eq [string]$effectiveFlavorId)
 
   return [pscustomobject]@{
     flavor = $flavor
@@ -190,35 +253,35 @@ function New-FlowState {
     apiComercialBaseUrl = $ApiComercialBaseUrl
     tenantId = $TenantId
     codigoActivacion = $CodigoActivacion
-    mongoUri = if ($MongoUri) { $MongoUri } else { [string]($detected.MONGODB_URI ?? 'mongodb://mongo_local:27017/mern_app') }
-    jwtSecreto = if ($JwtSecreto) { $JwtSecreto } else { [string]($detected.JWT_SECRETO ?? '') }
-    nodeEnv = if ($NodeEnv) { $NodeEnv } else { [string]($detected.NODE_ENV ?? 'production') }
-    puertoApi = if ($PuertoApi) { $PuertoApi } else { [string]($detected.PUERTO_API ?? '4000') }
-    puertoPortal = if ($PuertoPortal) { $PuertoPortal } else { [string]($detected.PUERTO_PORTAL ?? '4518') }
-    corsOrigenes = if ($CorsOrigenes) { $CorsOrigenes } else { [string]($detected.CORS_ORIGENES ?? 'http://localhost:4173,http://127.0.0.1:4173') }
-    portalAlumnoUrl = if ($PortalAlumnoUrl) { $PortalAlumnoUrl } else { [string]($detected.PORTAL_ALUMNO_URL ?? 'https://portal-alumno.example.edu') }
-    portalAlumnoApiKey = if ($PortalAlumnoApiKey) { $PortalAlumnoApiKey } else { [string]($detected.PORTAL_ALUMNO_API_KEY ?? '') }
-    portalApiKey = if ($PortalApiKey) { $PortalApiKey } else { [string]($detected.PORTAL_API_KEY ?? '') }
-    passwordResetEnabled = if ($PasswordResetEnabled) { $PasswordResetEnabled } else { [string]($detected.PASSWORD_RESET_ENABLED ?? '1') }
-    passwordResetTokenMinutes = if ($PasswordResetTokenMinutes) { $PasswordResetTokenMinutes } else { [string]($detected.PASSWORD_RESET_TOKEN_MINUTES ?? '30') }
-    passwordResetUrlBase = if ($PasswordResetUrlBase) { $PasswordResetUrlBase } else { [string]($detected.PASSWORD_RESET_URL_BASE ?? '') }
-    googleOauthClientId = if ($GoogleOauthClientId) { $GoogleOauthClientId } else { [string]($detected.GOOGLE_OAUTH_CLIENT_ID ?? '') }
-    googleClassroomClientId = if ($GoogleClassroomClientId) { $GoogleClassroomClientId } else { [string]($detected.GOOGLE_CLASSROOM_CLIENT_ID ?? '') }
-    googleClassroomClientSecret = if ($GoogleClassroomClientSecret) { $GoogleClassroomClientSecret } else { [string]($detected.GOOGLE_CLASSROOM_CLIENT_SECRET ?? '') }
-    googleClassroomRedirectUri = if ($GoogleClassroomRedirectUri) { $GoogleClassroomRedirectUri } else { [string]($detected.GOOGLE_CLASSROOM_REDIRECT_URI ?? '') }
-    requireGoogleOAuth = if ($RequireGoogleOAuth) { $RequireGoogleOAuth } else { [string]($detected.REQUIRE_GOOGLE_OAUTH ?? '0') }
-    correoModuloActivo = if ($CorreoModuloActivo) { $CorreoModuloActivo } else { [string]($detected.CORREO_MODULO_ACTIVO ?? '0') }
-    notificacionesWebhookUrl = if ($NotificacionesWebhookUrl) { $NotificacionesWebhookUrl } else { [string]($detected.NOTIFICACIONES_WEBHOOK_URL ?? '') }
-    notificacionesWebhookToken = if ($NotificacionesWebhookToken) { $NotificacionesWebhookToken } else { [string]($detected.NOTIFICACIONES_WEBHOOK_TOKEN ?? '') }
+    mongoUri = if ($MongoUri) { $MongoUri } else { Get-OptionalValue -Value $detected.MONGODB_URI -Fallback 'mongodb://mongo_local:27017/evaluapro' }
+    jwtSecreto = if ($JwtSecreto) { $JwtSecreto } else { Get-OptionalValue -Value $detected.JWT_SECRETO }
+    nodeEnv = if ($NodeEnv) { $NodeEnv } else { Get-OptionalValue -Value $detected.NODE_ENV -Fallback 'production' }
+    puertoApi = if ($PuertoApi) { $PuertoApi } else { Get-OptionalValue -Value $detected.PUERTO_API -Fallback '4000' }
+    puertoPortal = if ($PuertoPortal) { $PuertoPortal } else { Get-OptionalValue -Value $detected.PUERTO_PORTAL -Fallback '4518' }
+    corsOrigenes = if ($CorsOrigenes) { $CorsOrigenes } else { Get-OptionalValue -Value $detected.CORS_ORIGENES -Fallback 'http://localhost:4173,http://127.0.0.1:4173' }
+    portalAlumnoUrl = if ($PortalAlumnoUrl) { $PortalAlumnoUrl } else { Get-OptionalValue -Value $detected.PORTAL_ALUMNO_URL -Fallback 'https://portal-alumno.example.edu' }
+    portalAlumnoApiKey = if ($PortalAlumnoApiKey) { $PortalAlumnoApiKey } else { Get-OptionalValue -Value $detected.PORTAL_ALUMNO_API_KEY }
+    portalApiKey = if ($PortalApiKey) { $PortalApiKey } else { Get-OptionalValue -Value $detected.PORTAL_API_KEY }
+    passwordResetEnabled = if ($PasswordResetEnabled) { $PasswordResetEnabled } else { Get-OptionalValue -Value $detected.PASSWORD_RESET_ENABLED -Fallback '1' }
+    passwordResetTokenMinutes = if ($PasswordResetTokenMinutes) { $PasswordResetTokenMinutes } else { Get-OptionalValue -Value $detected.PASSWORD_RESET_TOKEN_MINUTES -Fallback '30' }
+    passwordResetUrlBase = if ($PasswordResetUrlBase) { $PasswordResetUrlBase } else { Get-OptionalValue -Value $detected.PASSWORD_RESET_URL_BASE }
+    googleOauthClientId = if ($GoogleOauthClientId) { $GoogleOauthClientId } else { Get-OptionalValue -Value $detected.GOOGLE_OAUTH_CLIENT_ID }
+    googleClassroomClientId = if ($GoogleClassroomClientId) { $GoogleClassroomClientId } else { Get-OptionalValue -Value $detected.GOOGLE_CLASSROOM_CLIENT_ID }
+    googleClassroomClientSecret = if ($GoogleClassroomClientSecret) { $GoogleClassroomClientSecret } else { Get-OptionalValue -Value $detected.GOOGLE_CLASSROOM_CLIENT_SECRET }
+    googleClassroomRedirectUri = if ($GoogleClassroomRedirectUri) { $GoogleClassroomRedirectUri } else { Get-OptionalValue -Value $detected.GOOGLE_CLASSROOM_REDIRECT_URI }
+    requireGoogleOAuth = if ($RequireGoogleOAuth) { $RequireGoogleOAuth } else { Get-OptionalValue -Value $detected.REQUIRE_GOOGLE_OAUTH -Fallback '0' }
+    correoModuloActivo = if ($CorreoModuloActivo) { $CorreoModuloActivo } else { Get-OptionalValue -Value $detected.CORREO_MODULO_ACTIVO -Fallback '0' }
+    notificacionesWebhookUrl = if ($NotificacionesWebhookUrl) { $NotificacionesWebhookUrl } else { Get-OptionalValue -Value $detected.NOTIFICACIONES_WEBHOOK_URL }
+    notificacionesWebhookToken = if ($NotificacionesWebhookToken) { $NotificacionesWebhookToken } else { Get-OptionalValue -Value $detected.NOTIFICACIONES_WEBHOOK_TOKEN }
     requireLicenseActivation = $RequireLicenseActivation
-    licenciaAccountEmail = if ($LicenciaAccountEmail) { $LicenciaAccountEmail } else { [string]($detected.LICENCIA_ACCOUNT_EMAIL ?? 'soporte@tu-institucion.mx') }
-    updateChannel = if ($UpdateChannel) { $UpdateChannel } else { [string]($detectedUpdate.channel ?? 'stable') }
-    updateOwner = if ($UpdateOwner) { $UpdateOwner } else { [string]($detectedUpdate.owner ?? 'Dtcsrni') }
-    updateRepo = if ($UpdateRepo) { $UpdateRepo } else { [string]($detectedUpdate.repo ?? 'EvaluaPro_Sistema_Universitario') }
-    updateAssetName = if ($UpdateAssetName) { $UpdateAssetName } else { [string]($detectedUpdate.assetName ?? [string]$flavor.bundleName) }
-    updateShaAssetName = if ($UpdateShaAssetName) { $UpdateShaAssetName } else { [string]($detectedUpdate.sha256AssetName ?? ([string]$flavor.bundleName + '.sha256')) }
-    updateFeedUrl = if ($UpdateFeedUrl) { $UpdateFeedUrl } else { [string]($detectedUpdate.feedUrl ?? '') }
-    updateRequireSha256 = if ($UpdateRequireSha256) { $UpdateRequireSha256 } else { [string]($detectedUpdate.requireSha256 ?? '1') }
+    licenciaAccountEmail = if ($LicenciaAccountEmail) { $LicenciaAccountEmail } else { Get-OptionalValue -Value $detected.LICENCIA_ACCOUNT_EMAIL -Fallback 'soporte@tu-institucion.mx' }
+    updateChannel = if ($UpdateChannel) { $UpdateChannel } else { Get-OptionalValue -Value $detectedUpdate.channel -Fallback 'stable' }
+    updateOwner = if ($UpdateOwner) { $UpdateOwner } else { Get-OptionalValue -Value $detectedUpdate.owner -Fallback 'Dtcsrni' }
+    updateRepo = if ($UpdateRepo) { $UpdateRepo } else { Get-OptionalValue -Value $detectedUpdate.repo -Fallback 'EvaluaPro_Sistema_Universitario' }
+    updateAssetName = if ($UpdateAssetName) { $UpdateAssetName } elseif ($detectedUpdateMatchesFlavor) { Get-OptionalValue -Value $detectedUpdate.assetName -Fallback ([string]$flavor.bundleName) } else { [string]$flavor.bundleName }
+    updateShaAssetName = if ($UpdateShaAssetName) { $UpdateShaAssetName } elseif ($detectedUpdateMatchesFlavor) { Get-OptionalValue -Value $detectedUpdate.sha256AssetName -Fallback ([string]$flavor.bundleName + '.sha256') } else { ([string]$flavor.bundleName + '.sha256') }
+    updateFeedUrl = if ($UpdateFeedUrl) { $UpdateFeedUrl } elseif ($detectedUpdateMatchesFlavor) { Get-OptionalValue -Value $detectedUpdate.feedUrl } else { '' }
+    updateRequireSha256 = if ($UpdateRequireSha256) { $UpdateRequireSha256 } else { Get-OptionalValue -Value $detectedUpdate.requireSha256 -Fallback '1' }
     internetOk = $false
     requirementReport = $null
     prereqManifest = $null
@@ -272,6 +335,20 @@ function Invoke-FlowPhase {
     $flow.failureMessage = $_.Exception.Message
     Invoke-FlowLog -Level 'error' -Message ("Fase fallida: $Name") -Meta @{ error = $_.Exception.Message; failCode = $FailCode }
     throw
+  }
+}
+
+function Invoke-InstallerManifestRefresh {
+  param(
+    [scriptblock]$OnUiLog
+  )
+  if (-not $flow.installDir) { return }
+  $manifestScript = Join-Path $flow.installDir 'scripts\generate-installation-manifest.ps1'
+  if (-not (Test-Path -LiteralPath $manifestScript)) { return }
+  try {
+    & powershell.exe -NoProfile -ExecutionPolicy Bypass -File $manifestScript -InstallDir $flow.installDir -Port 4519 | Out-Null
+  } catch {
+    if ($OnUiLog) { & $OnUiLog 'warn' ("No se pudo refrescar installation.manifest.json: $($_.Exception.Message)") }
   }
 }
 
@@ -499,6 +576,18 @@ function Invoke-InstallerFlowCore {
       if ($OnUiLog) { & $OnUiLog 'info' 'Activacion de licencia omitida (faltan TenantId/CodigoActivacion).' }
     }
 
+    try {
+      $flow.licenciaPortable = Initialize-EvaluaProPortableAdminLicense -HolderName 'I.S.C. Erick Renato Vega Ceron'
+      if ($OnUiLog) { & $OnUiLog 'ok' ("Licencia portable premium emitida: $($flow.licenciaPortable.outPath)") }
+      $flow.stepUp = Initialize-EvaluaProAdminStepUp -HolderName 'I.S.C. Erick Renato Vega Ceron'
+      if ($OnUiLog) {
+        & $OnUiLog 'ok' ("Step-up TOTP/recovery inicializado. Recovery codes restantes: $($flow.stepUp.recoveryCodesRemaining)")
+      }
+      Invoke-InstallerManifestRefresh -OnUiLog $OnUiLog
+    } catch {
+      if ($OnUiLog) { & $OnUiLog 'warn' ("No se pudo emitir licencia portable premium: $($_.Exception.Message)") }
+    }
+
     if ($OnStepUpdate) { & $OnStepUpdate 9 'done' 'Blindaje local completado.' }
   }
 
@@ -547,7 +636,7 @@ Add-Type -AssemblyName System.Drawing
 [System.Windows.Forms.Application]::EnableVisualStyles()
 
 $form = New-Object System.Windows.Forms.Form
-$form.Text = 'EvaluaPro Installer Hub'
+$form.Text = $hubTitleText
 $form.StartPosition = 'CenterScreen'
 $form.Width = 1120
 $form.Height = 760
@@ -563,7 +652,7 @@ $headerPanel.BackColor = [System.Drawing.Color]::FromArgb(7, 18, 40)
 $form.Controls.Add($headerPanel)
 
 $titleLabel = New-Object System.Windows.Forms.Label
-$titleLabel.Text = 'EvaluaPro Installer Hub'
+$titleLabel.Text = $hubTitleText
 $titleLabel.AutoSize = $true
 $titleLabel.Font = New-Object System.Drawing.Font('Segoe UI', 20, [System.Drawing.FontStyle]::Bold)
 $titleLabel.ForeColor = [System.Drawing.Color]::FromArgb(214, 241, 255)
@@ -1194,11 +1283,25 @@ $btnOpenDashboard.Location = New-Object System.Drawing.Point(468, 10)
 $btnOpenDashboard.Enabled = $false
 $actionsPanel.Controls.Add($btnOpenDashboard)
 
+$btnVerify = New-Object System.Windows.Forms.Button
+$btnVerify.Text = 'Verificar'
+$btnVerify.Width = 120
+$btnVerify.Height = 38
+$btnVerify.Location = New-Object System.Drawing.Point(632, 10)
+$actionsPanel.Controls.Add($btnVerify)
+
+$btnRegenShortcuts = New-Object System.Windows.Forms.Button
+$btnRegenShortcuts.Text = 'Regenerar accesos'
+$btnRegenShortcuts.Width = 150
+$btnRegenShortcuts.Height = 38
+$btnRegenShortcuts.Location = New-Object System.Drawing.Point(764, 10)
+$actionsPanel.Controls.Add($btnRegenShortcuts)
+
 $btnExit = New-Object System.Windows.Forms.Button
 $btnExit.Text = 'Finalizar'
 $btnExit.Width = 120
 $btnExit.Height = 38
-$btnExit.Location = New-Object System.Drawing.Point(632, 10)
+$btnExit.Location = New-Object System.Drawing.Point(926, 10)
 $actionsPanel.Controls.Add($btnExit)
 
 $splashPanel = New-Object System.Windows.Forms.Panel
@@ -1208,7 +1311,7 @@ $rightPanel.Controls.Add($splashPanel)
 $splashPanel.BringToFront()
 
 $splashTitle = New-Object System.Windows.Forms.Label
-$splashTitle.Text = 'Bienvenido a EvaluaPro Installer Hub'
+$splashTitle.Text = if ([string]::IsNullOrWhiteSpace($displayVersion)) { 'Bienvenido a EvaluaPro Installer Hub' } else { "Bienvenido a EvaluaPro Installer Hub $displayVersion" }
 $splashTitle.Font = New-Object System.Drawing.Font('Segoe UI', 24, [System.Drawing.FontStyle]::Bold)
 $splashTitle.AutoSize = $true
 $splashTitle.ForeColor = [System.Drawing.Color]::FromArgb(230, 245, 255)
@@ -1248,6 +1351,33 @@ $labelLogPath.Location = New-Object System.Drawing.Point(72, 452)
 $labelLogPath.ForeColor = [System.Drawing.Color]::FromArgb(132, 183, 221)
 $labelLogPath.Font = New-Object System.Drawing.Font('Segoe UI', 9)
 $splashPanel.Controls.Add($labelLogPath)
+
+function Update-InstallerModeHint {
+  try {
+    $health = Get-EvaluaProInstallationHealth -InstallDir ([string]$textInstallPath.Text)
+    $flow.installationHealth = $health
+    $statusLabel.Text = "Instalacion local: $($health.state.ToUpperInvariant())"
+    switch ([string]$health.state) {
+      'ok' {
+        $btnRun.Text = 'Abrir / reparar'
+        $btnOpenDashboard.Enabled = $true
+      }
+      'ausente' {
+        $btnRun.Text = 'Iniciar instalacion'
+        $btnOpenDashboard.Enabled = $false
+      }
+      default {
+        $btnRun.Text = 'Reparar instalacion'
+        $btnOpenDashboard.Enabled = $true
+      }
+    }
+    if ($health.issues.Count -gt 0) {
+      Add-UiLog 'warn' ("Instalacion: $($health.state) -> " + ($health.issues -join ' | '))
+    } else {
+      Add-UiLog 'info' ("Instalacion: $($health.state)")
+    }
+  } catch {}
+}
 
 function Update-StepUi {
   param(
@@ -1311,6 +1441,7 @@ $btnSplashStart.Add_Click({
   Update-StepUi -Index 0 -State 'done' -StatusText 'Splash completado. Configura y ejecuta el flujo.'
   $splashPanel.Hide()
   Add-UiLog 'info' 'Splash completado. Inicio de wizard operativo.'
+  Update-InstallerModeHint
 })
 
 $comboMode.Add_SelectedIndexChanged({
@@ -1466,8 +1597,36 @@ $btnOpenDashboard.Add_Click({
   }
 })
 
+$btnVerify.Add_Click({
+  Update-InstallerModeHint
+  [System.Windows.Forms.MessageBox]::Show(
+    "Estado: $($flow.installationHealth.state)`n`n" + (($flow.installationHealth.issues | ForEach-Object { "- $_" }) -join [Environment]::NewLine),
+    'EvaluaPro Installer Hub',
+    [System.Windows.Forms.MessageBoxButtons]::OK,
+    [System.Windows.Forms.MessageBoxIcon]::Information
+  ) | Out-Null
+})
+
+$btnRegenShortcuts.Add_Click({
+  try {
+    $installation = Get-EvaluaProInstallationInfo
+    $installLocation = [string]$installation.InstallLocation
+    if (-not $installLocation) { $installLocation = $flow.installDir }
+    $scriptPath = Join-Path $installLocation 'scripts\create-shortcuts.ps1'
+    if (-not (Test-Path -LiteralPath $scriptPath)) {
+      throw "No se encontró create-shortcuts.ps1 en $installLocation"
+    }
+    Start-Process -FilePath 'powershell.exe' -ArgumentList ('-NoProfile -ExecutionPolicy Bypass -File "{0}" -Port 4519 -Force' -f $scriptPath) -WindowStyle Hidden -Wait | Out-Null
+    Add-UiLog 'ok' 'Accesos directos regenerados desde Hub.'
+    Update-InstallerModeHint
+  } catch {
+    Add-UiLog 'error' ("No se pudieron regenerar accesos: $($_.Exception.Message)")
+  }
+})
+
 Add-UiLog 'system' ("Sesion iniciada. Log: $($flow.logPath)")
 Add-UiLog 'info' ("Prereq manifest: $prereqManifestPath")
+Update-InstallerModeHint
 
 [void]$form.ShowDialog()
 

@@ -16,6 +16,19 @@ const resultados: Array<{ id: string; estado: 'ok' | 'error'; detalle?: string }
 describe('UX visual regression', () => {
   beforeEach(() => {
     localStorage.clear();
+    Object.defineProperty(window, 'matchMedia', {
+      writable: true,
+      value: (query: string) => ({
+        matches: query === '(prefers-color-scheme: dark)',
+        media: query,
+        onchange: null,
+        addListener() {},
+        removeListener() {},
+        addEventListener() {},
+        removeEventListener() {},
+        dispatchEvent() { return false; }
+      })
+    });
   });
 
   it('docente sin token mantiene layout de acceso', () => {

@@ -132,6 +132,26 @@ test('installer hub incluye fase de configuracion operativa y blindaje de licenc
   assert.match(hub, /UpdateRequireSha256/);
   assert.match(hub, /FlavorId/);
   assert.match(hub, /Get-LatestStableReleaseAssets[\s\S]*-FlavorId/);
+  assert.match(hub, /Initialize-EvaluaProPortableAdminLicense/);
+  assert.match(hub, /Regenerar accesos/);
+  assert.match(hub, /Verificar/);
+});
+
+test('launcher broker unifica shortcuts, hub y splash state', () => {
+  const broker = fs.readFileSync(path.join(root, 'scripts', 'launcher-broker.ps1'), 'utf8');
+  const trayHidden = fs.readFileSync(path.join(root, 'scripts', 'launcher-tray-hidden.vbs'), 'utf8');
+  const shortcuts = fs.readFileSync(path.join(root, 'scripts', 'create-shortcuts.ps1'), 'utf8');
+
+  assert.match(broker, /booting_dashboard/);
+  assert.match(broker, /booting_stack/);
+  assert.match(broker, /booting_portal/);
+  assert.match(broker, /healthy/);
+  assert.match(broker, /degraded/);
+  assert.match(broker, /failed/);
+  assert.match(trayHidden, /launcher-broker\.ps1/);
+  assert.match(trayHidden, /runId/);
+  assert.match(shortcuts, /EvaluaPro - Hub/);
+  assert.match(shortcuts, /open-hub/);
 });
 
 test('flujo del installer hub conserva fases y codigos de salida criticos', () => {
@@ -170,7 +190,7 @@ test('configuracion operativa rechaza ajustes inseguros o invalidos (fail-fast)'
   const script = `
 Import-Module -Force -WarningAction SilentlyContinue '${operationalConfigModulePath.replace(/'/g, "''")}'
 $cfg = @{
-  mongoUri='mongodb://mongo_local:27017/mern_app'
+  mongoUri='mongodb://mongo_local:27017/evaluapro'
   jwtSecreto='abc123'
   nodeEnv='production'
   puertoApi='0'
@@ -212,7 +232,7 @@ test('configuracion operativa escribe .env y update-config endurecido para docen
   const script = `
 Import-Module -Force -WarningAction SilentlyContinue '${operationalConfigModulePath.replace(/'/g, "''")}'
 $cfg = @{
-  mongoUri='mongodb://mongo_local:27017/mern_app'
+  mongoUri='mongodb://mongo_local:27017/evaluapro'
   jwtSecreto=''
   nodeEnv='production'
   puertoApi='4000'
@@ -275,6 +295,46 @@ test('blindaje de licencia exige DPAPI local machine e integridad MAC', () => {
   assert.match(securityModule, /Get-HmacSha256Hex/);
   assert.match(securityModule, /Envelope de licencia alterado \(MAC invalido\)/);
   assert.match(securityModule, /Baseline alterado \(MAC invalido\)/);
+  assert.match(securityModule, /Initialize-EvaluaProAdminStepUp/);
+  assert.match(securityModule, /Invoke-EvaluaProStepUp/);
+  assert.match(securityModule, /Get-EvaluaProCurrentTotpCode/);
+  assert.match(securityModule, /recovery_code/);
+});
+
+test('step-up local inicializa TOTP y permite sesion elevada con recovery/TOTP', () => {
+  const tempRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'evaluapro-stepup-'));
+  const script = `
+Import-Module -Force -WarningAction SilentlyContinue '${licenseSecurityModulePath.replace(/'/g, "''")}'
+$portable = Initialize-EvaluaProPortableAdminLicense -RootDir '${tempRoot.replace(/'/g, "''")}' -HolderName 'Test Admin'
+$step = Initialize-EvaluaProAdminStepUp -RootDir '${tempRoot.replace(/'/g, "''")}' -HolderName 'Test Admin'
+$before = Get-EvaluaProStepUpStatus -RootDir '${tempRoot.replace(/'/g, "''")}'
+$totp = Get-EvaluaProCurrentTotpCode -RootDir '${tempRoot.replace(/'/g, "''")}'
+$auth = Invoke-EvaluaProStepUp -RootDir '${tempRoot.replace(/'/g, "''")}' -TotpCode $totp
+$after = Get-EvaluaProStepUpStatus -RootDir '${tempRoot.replace(/'/g, "''")}'
+[pscustomobject]@{
+  before = $before
+  after = $after
+  methods = $step.methods
+} | ConvertTo-Json -Depth 10
+`.trim();
+
+  try {
+    const result = runPowerShell(script);
+    if (result.skipped) {
+      return;
+    }
+    const parsed = parseJsonOutput(result.stdout);
+    assert.equal(parsed.before.licenseValid, true);
+    assert.equal(parsed.before.required, true);
+    assert.equal(Array.isArray(parsed.methods), true);
+    assert.equal(parsed.methods.includes('totp'), true);
+    assert.equal(parsed.methods.includes('recovery_code'), true);
+    assert.equal(parsed.after.active, true);
+    assert.equal(parsed.after.required, false);
+    assert.equal(Number(parsed.after.recoveryCodesRemaining) > 0, true);
+  } finally {
+    fs.rmSync(tempRoot, { recursive: true, force: true });
+  }
 });
 
 test('script de release manifest incluye contrato extendido de build/deployment/artifacts', () => {

@@ -39,7 +39,7 @@ function parseArgs(argv: string[]): EvalProfileOptions {
   const options: EvalProfileOptions = {
     dataset: '../../omr_samples',
     mode: 'omr',
-    mongoUri: process.env.MONGODB_URI_HOST || 'mongodb://localhost:27017/mern_app',
+    mongoUri: process.env.MONGODB_URI_HOST || 'mongodb://localhost:27017/evaluapro',
     profileName: process.env.OMR_PROFILE_NAME || 'actual'
   };
 

@@ -70,8 +70,12 @@ const singletonPath = path.join(logDir, 'dashboard.singleton.json');
 const dashboardConfigPath = path.join(logDir, 'dashboard.config.json');
 const lifecycleConfigPath = path.join(logDir, 'lifecycle.config.json');
 const continuityConfigPath = path.join(logDir, 'continuity.config.json');
+const installationManifestPath = path.join(logDir, 'installation.manifest.json');
 const updateStatePath = path.join(logDir, 'update-state.json');
 const updateConfigPath = path.join(root, 'config', 'update-config.json');
+const portableLicensePath = path.join(process.env.ProgramData || 'C:\\ProgramData', 'EvaluaPro', 'security', 'portable-license.epl');
+const stepUpConfigPath = path.join(process.env.ProgramData || 'C:\\ProgramData', 'EvaluaPro', 'security', 'stepup.config.json');
+const stepUpSessionPath = path.join(process.env.ProgramData || 'C:\\ProgramData', 'EvaluaPro', 'security', 'stepup.session.json');
 ensureDir(logDir);
 
 // Logging persistence mode:
@@ -262,6 +266,29 @@ function readRootPackageInfo() {
   }
 }
 
+function readAppVersionMetadata() {
+  const pkg = readRootPackageInfo();
+  try {
+    const raw = fs.readFileSync(path.join(root, 'config', 'app-version.json'), 'utf8');
+    const parsed = JSON.parse(raw);
+    return {
+      name: pkg.name || 'evaluapro',
+      version: String(parsed?.version || pkg.version || '0.0.0'),
+      displayVersion: String(parsed?.displayVersion || parsed?.version || pkg.version || '0.0.0'),
+      authorName: pkg.authorName || '',
+      repositoryUrl: pkg.repositoryUrl || ''
+    };
+  } catch {
+    return {
+      name: pkg.name || 'evaluapro',
+      version: pkg.version || '0.0.0',
+      displayVersion: pkg.version || '0.0.0',
+      authorName: pkg.authorName || '',
+      repositoryUrl: pkg.repositoryUrl || ''
+    };
+  }
+}
+
 function readChangelogSnippet(maxChars = 24_000) {
   try {
     const changelogPath = path.join(root, 'CHANGELOG.md');
@@ -296,7 +323,7 @@ function readVersionCatalog() {
 }
 
 function buildVersionInfoPayload(source = 'dashboard') {
-  const pkg = readRootPackageInfo();
+  const pkg = readAppVersionMetadata();
   const catalog = readVersionCatalog();
   const developerName = String(process.env.EVALUAPRO_DEVELOPER_NAME || pkg.authorName || 'Equipo EvaluaPro').trim();
   const developerRole = String(process.env.EVALUAPRO_DEVELOPER_ROLE || 'Desarrollo').trim();
@@ -306,6 +333,7 @@ function buildVersionInfoPayload(source = 'dashboard') {
     app: {
       name: pkg.name || 'evaluapro',
       version: pkg.version || '0.0.0',
+      displayVersion: pkg.displayVersion || pkg.version || '0.0.0',
       dashboardMode: mode
     },
     repositoryUrl: catalog.repositoryUrl || String(pkg.repositoryUrl || '').trim() || 'https://github.com/Dtcsrni',
@@ -820,7 +848,7 @@ function logSystem(text, level = 'system', options = {}) {
 
 function readJsonFile(filePath) {
   try {
-    const raw = fs.readFileSync(filePath, 'utf8');
+    const raw = fs.readFileSync(filePath, 'utf8').replace(/^\uFEFF/, '');
     return JSON.parse(raw);
   } catch {
     return null;
@@ -2289,6 +2317,156 @@ function detectInstalledProduct() {
   return lifecycleState.installation;
 }
 
+function readInstallationManifest() {
+  const manifest = readJsonFile(installationManifestPath);
+  if (!manifest || typeof manifest !== 'object') {
+    return {
+      generatedAt: '',
+      installation: {
+        installed: false,
+        root: root,
+        port: Number(portArg || 0) || 0
+      },
+      shortcuts: {},
+      license: {
+        portableExists: fs.existsSync(portableLicensePath),
+        portablePath: portableLicensePath
+      },
+      criticalFiles: []
+    };
+  }
+  return manifest;
+}
+
+function resolveShortcutState(manifest) {
+  const entries = Object.values((manifest && manifest.shortcuts) || {});
+  const expected = entries.filter((entry) => entry && typeof entry === 'object');
+  const present = expected.filter((entry) => Boolean(entry.exists));
+  const missing = expected.filter((entry) => !entry.exists).map((entry) => String(entry.path || '')).filter(Boolean);
+  return {
+    state: expected.length > 0 && missing.length === 0 ? 'ok' : (present.length > 0 ? 'degradada' : 'faltantes'),
+    expected: expected.length,
+    present: present.length,
+    missing
+  };
+}
+
+function resolveLicenseState(manifest) {
+  const portableExists = Boolean(manifest?.license?.portableExists) || fs.existsSync(portableLicensePath);
+  const stepUpConfigExists = Boolean(manifest?.license?.stepUpConfigExists) || fs.existsSync(stepUpConfigPath);
+  const stepUpSessionExists = Boolean(manifest?.license?.stepUpSessionExists) || fs.existsSync(stepUpSessionPath);
+  let holderName = '';
+  let tier = '';
+  let stepUpMethods = [];
+  let recoveryCodesRemaining = 0;
+  let lastStepUpAt = '';
+  let stepUpRequired = false;
+  if (portableExists) {
+    try {
+      const envelope = readJsonFile(portableLicensePath);
+      holderName = String(envelope?.payload?.holderName || '');
+      tier = String(envelope?.payload?.tier || '');
+    } catch {}
+  }
+  if (stepUpConfigExists) {
+    try {
+      const envelope = readJsonFile(stepUpConfigPath);
+      stepUpMethods = Array.isArray(envelope?.payload?.methods) ? envelope.payload.methods.map((item) => String(item || '')) : [];
+      recoveryCodesRemaining = Array.isArray(envelope?.payload?.recovery?.codes)
+        ? envelope.payload.recovery.codes.filter((item) => !String(item?.usedAt || '').trim()).length
+        : 0;
+    } catch {}
+  }
+  if (stepUpSessionExists) {
+    try {
+      const envelope = readJsonFile(stepUpSessionPath);
+      lastStepUpAt = String(envelope?.payload?.lastStepUpAt || '');
+      const expiresAt = String(envelope?.payload?.expiresAt || '');
+      stepUpRequired = !(expiresAt && Date.parse(expiresAt) > Date.now());
+    } catch {
+      stepUpRequired = true;
+    }
+  } else if (portableExists) {
+    stepUpRequired = true;
+  }
+  return {
+    state: portableExists ? 'portable_present' : 'missing',
+    portablePath: String(manifest?.license?.portablePath || portableLicensePath),
+    portableExists,
+    holderName,
+    tier,
+    stepUpRequired,
+    stepUpMethods,
+    recoveryCodesRemaining,
+    lastStepUpAt
+  };
+}
+
+function resolveBootstrapState() {
+  try {
+    const candidates = fs.readdirSync(logDir)
+      .filter((name) => name.startsWith('bootstrap-state-') && name.endsWith('.json'))
+      .map((name) => path.join(logDir, name))
+      .map((filePath) => ({
+        filePath,
+        stat: fs.statSync(filePath)
+      }))
+      .sort((a, b) => b.stat.mtimeMs - a.stat.mtimeMs);
+    if (candidates.length === 0) {
+      return {
+        runId: '',
+        state: 'idle',
+        message: '',
+        desiredMode: getDesiredLifecycleMode(),
+        updatedAt: 0
+      };
+    }
+    const latest = readJsonFile(candidates[0].filePath) || {};
+    return {
+      runId: String(latest.runId || ''),
+      state: String(latest.state || 'idle'),
+      message: String(latest.message || ''),
+      desiredMode: String(latest.desiredMode || getDesiredLifecycleMode()),
+      updatedAt: candidates[0].stat.mtimeMs
+    };
+  } catch {
+    return {
+      runId: '',
+      state: 'idle',
+      message: '',
+      desiredMode: getDesiredLifecycleMode(),
+      updatedAt: 0
+    };
+  }
+}
+
+function resolveInstallationState(manifest, installInfo) {
+  const issues = [];
+  const criticalFiles = Array.isArray(manifest?.criticalFiles) ? manifest.criticalFiles : [];
+  for (const item of criticalFiles) {
+    if (!item?.exists) {
+      issues.push(`Falta archivo critico: ${String(item.path || '')}`);
+    }
+  }
+  const shortcutState = resolveShortcutState(manifest);
+  if (shortcutState.missing.length > 0) {
+    issues.push(`Faltan accesos directos: ${shortcutState.missing.length}`);
+  }
+  const manifestInstalled = Boolean(manifest?.installation?.installed);
+  const effectiveInstalled = Boolean(installInfo.installed || manifestInstalled);
+  const state = !effectiveInstalled
+    ? 'ausente'
+    : (issues.length === 0 ? 'ok' : (issues.length <= 2 ? 'degradada' : 'dañada'));
+  return {
+    state,
+    installDir: String(installInfo.installDir || manifest?.installation?.root || ''),
+    generatedAt: String(manifest?.generatedAt || ''),
+    registeredInstalled: Boolean(installInfo.installed),
+    manifestInstalled,
+    issues
+  };
+}
+
 function isStackHealthyFromServices(services) {
   const apiOk = Boolean(services?.apiDocente?.ok);
   const portalOk = Boolean(services?.apiPortal?.ok);
@@ -2299,16 +2477,25 @@ async function buildLifecycleStatus(includeHealth = true) {
   const running = runningTasks();
   const desiredMode = getDesiredLifecycleMode();
   const installInfo = detectInstalledProduct();
+  const manifest = readInstallationManifest();
   const services = includeHealth ? await collectHealth() : {};
   const healthy = includeHealth ? isStackHealthyFromServices(services) : false;
   const stackManagedRunning = running.includes('dev') || running.includes('prod');
   const desiredRunning = running.includes(desiredMode);
   const portalRunning = running.includes('portal');
+  const installationState = resolveInstallationState(manifest, installInfo);
+  const shortcutState = resolveShortcutState(manifest);
+  const licenseState = resolveLicenseState(manifest);
+  const bootstrapState = resolveBootstrapState();
 
   return {
     desiredMode,
     installed: installInfo.installed,
     installDir: installInfo.installDir,
+    installationState,
+    shortcutState,
+    licenseState,
+    bootstrapState,
     running,
     stackManagedRunning,
     desiredRunning,
@@ -3290,6 +3477,11 @@ const server = http.createServer(async (req, res) => {
     const compose = readComposeSnapshot();
     const stackDisplay = stackDisplayString(managedTasks, compose);
     const httpsState = resolveHttpsState();
+    const manifest = readInstallationManifest();
+    const shortcutState = resolveShortcutState(manifest);
+    const licenseState = resolveLicenseState(manifest);
+    const bootstrapState = resolveBootstrapState();
+    const installationState = resolveInstallationState(manifest, detectInstalledProduct());
 
     const hasDev = managedTasks.includes('dev');
     const hasProd = managedTasks.includes('prod');
@@ -3301,11 +3493,12 @@ const server = http.createServer(async (req, res) => {
       else uiMode = 'none';
     }
 
-    const pkg = readRootPackageInfo();
+    const pkg = readAppVersionMetadata();
     const payload = {
       app: {
         name: pkg.name || 'evaluapro',
-        version: pkg.version || '0.0.0'
+        version: pkg.version || '0.0.0',
+        displayVersion: pkg.displayVersion || pkg.version || '0.0.0'
       },
       root,
       mode: uiMode,
@@ -3344,6 +3537,11 @@ const server = http.createServer(async (req, res) => {
         installation: lifecycleState.installation,
         lastChangedAt: lifecycleState.lastChangedAt
       },
+      installationState,
+      bootstrapState,
+      shortcutState,
+      licenseState,
+      installationManifest: manifest,
       continuity: continuitySnapshot(),
       update: updateManager.getStatus()
     };
@@ -3357,7 +3555,7 @@ const server = http.createServer(async (req, res) => {
   }
 
   if (req.method === 'GET' && pathName === '/api/install') {
-    const pkg = readRootPackageInfo();
+    const pkg = readAppVersionMetadata();
     const running = runningTasks();
     const hasDev = running.includes('dev');
     const hasProd = running.includes('prod');
@@ -3371,7 +3569,8 @@ const server = http.createServer(async (req, res) => {
     const payload = {
       app: {
         name: pkg.name || 'evaluapro',
-        version: pkg.version || ''
+        version: pkg.version || '',
+        displayVersion: pkg.displayVersion || pkg.version || ''
       },
       dashboard: {
         mode: uiMode,
