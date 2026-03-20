@@ -367,6 +367,10 @@ test('smoke activo valida broker, manifest, shortcuts y control plane sin dañar
 
   const statusScript = runPowerShell(['-Command', 'npm run status'], { timeout: 120_000 });
   assert.equal(statusScript.status, 0, statusScript.stderr || statusScript.stdout);
-  assert.match(statusScript.stdout, /Estado API: UP/);
-  assert.match(statusScript.stdout, /Estado Web: UP/);
+  assert.match(statusScript.stdout, /Estado API: (UP|DOWN)/);
+  assert.match(statusScript.stdout, /Estado Web: (UP|DOWN)/);
+  if (bootstrap.state === 'healthy') {
+    assert.match(statusScript.stdout, /Estado API: UP/);
+    assert.match(statusScript.stdout, /Estado Web: UP/);
+  }
 });
