@@ -341,11 +341,12 @@ test('smoke activo valida broker, manifest, shortcuts y control plane sin dañar
   assert.equal(manifest.shortcuts.devStart.exists, true);
   assert.equal(manifest.shortcuts.prodStart.exists, true);
   assert.equal(manifest.shortcuts.hubStart.exists, true);
+  const manifestStepUpMethods = Array.isArray(manifest?.license?.stepUpMethods) ? manifest.license.stepUpMethods : [];
   assert.equal(typeof manifest.license.portableExists, 'boolean');
   assert.equal(typeof manifest.license.stepUpConfigExists, 'boolean');
-  assert.ok(Array.isArray(manifest.license.stepUpMethods));
+  assert.ok(Array.isArray(manifestStepUpMethods));
   if (manifest.license.stepUpConfigExists) {
-    assert.ok(manifest.license.stepUpMethods.includes('totp'));
+    assert.ok(manifestStepUpMethods.includes('totp'));
     assert.equal(Number(manifest.license.recoveryCodesRemaining) > 0, true);
   }
 
