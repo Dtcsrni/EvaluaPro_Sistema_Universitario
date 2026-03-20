@@ -621,6 +621,8 @@ Este archivo sigue el formato "Keep a Changelog" (alto nivel) y SemVer.
     - `apps/frontend/tests/versionInfo.helpers.test.tsx`
     - `apps/frontend/tests/tema.provider.test.ts`
   - el diff coverage remoto de `tema.ts`, `versionInfo.ts` y `VersionInfoPage.tsx` queda cubierto sin alterar contratos funcionales.
+  - `scripts/tests/windows-release-smoke.test.mjs` ya no exige una licencia portable preinstalada en runners limpios; valida coherencia del `licenseState` entre manifiesto y dashboard.
+  - `scripts/launcher-dashboard.mjs` expone `stepUpConfigExists` en `licenseState` para alinear control plane y manifiesto local.
 
 ### Notes
 - Estado de gates del corte:

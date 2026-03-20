@@ -2393,6 +2393,7 @@ function resolveLicenseState(manifest) {
     state: portableExists ? 'portable_present' : 'missing',
     portablePath: String(manifest?.license?.portablePath || portableLicensePath),
     portableExists,
+    stepUpConfigExists,
     holderName,
     tier,
     stepUpRequired,

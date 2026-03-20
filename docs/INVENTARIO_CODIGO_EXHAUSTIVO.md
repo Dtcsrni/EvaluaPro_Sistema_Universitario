@@ -1,11 +1,11 @@
 # Inventario Exhaustivo de Codigo
 
-Fecha de generacion: 2026-03-20 10:12:26
+Fecha de generacion: 2026-03-20 15:45:17
 Fuente: git ls-files (solo archivos versionados, excluye node_modules).
 
 ## Resumen
 
-- Total de piezas de codigo/config ejecutable inventariadas: 844
+- Total de piezas de codigo/config ejecutable inventariadas: 846
 - Extensiones incluidas: ts, tsx, js, jsx, mjs, cjs, json, yml, yaml, sh, cmd, ps1.
 
 ## Conteo por area
@@ -13,8 +13,8 @@ Fuente: git ls-files (solo archivos versionados, excluye node_modules).
 | Area | Archivos |
 | --- | ---: |
 | backend | 371 |
-| frontend | 119 |
-| portal_alumno_cloud | 41 |
+| frontend | 120 |
+| portal_alumno_cloud | 42 |
 | ci | 15 |
 | scripts | 107 |
 | ops | 3 |
@@ -511,6 +511,7 @@ Fuente: git ls-files (solo archivos versionados, excluye node_modules).
 - apps/frontend/tests/utilidades.appDocente.test.ts
 - apps/frontend/tests/ux.quality.test.tsx
 - apps/frontend/tests/ux.visual.test.tsx
+- apps/frontend/tests/versionInfo.helpers.test.tsx
 - apps/frontend/tests/versionInfoPage.test.tsx
 - apps/frontend/tsconfig.json
 - apps/frontend/tsconfig.node.json
@@ -551,6 +552,7 @@ Fuente: git ls-files (solo archivos versionados, excluye node_modules).
 - apps/portal_alumno_cloud/tests/contrato/validaciones.test.ts
 - apps/portal_alumno_cloud/tests/errores.test.ts
 - apps/portal_alumno_cloud/tests/integracion/portal.test.ts
+- apps/portal_alumno_cloud/tests/logger.test.ts
 - apps/portal_alumno_cloud/tests/middlewareSesion.test.ts
 - apps/portal_alumno_cloud/tests/rateLimit.test.ts
 - apps/portal_alumno_cloud/tests/salud.test.ts

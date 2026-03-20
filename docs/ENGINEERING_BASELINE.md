@@ -119,6 +119,7 @@ Version visible GUI: `1.0.0b`
   - follow-up de CI remoto cerrado localmente:
     - contract test del Installer Hub ya es portable entre Windows/Linux
     - diff coverage del portal y frontend cubierto en las rutas modificadas
+    - smoke del Installer Windows ya tolera runners sin licencia portable preinstalada y compara `licenseState` de forma consistente con el manifiesto
   - contrato de promoción estable `1.0.0` implementado y validado
   - decisión actual de release estable: `No-Go`
   - bloqueo restante: falta ejecutar el gate humano real en producción y regenerar la evidencia final con inputs reales

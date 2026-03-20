@@ -170,4 +170,5 @@ Version visible objetivo: `1.0.0b`
   - `CI Checks` corregido con pruebas de contrato del Installer Hub compatibles con Linux cuando el runner no soporta DPAPI.
   - `CI Portal Module` corregido con cobertura adicional del logger del portal.
   - `CI Frontend Module` corregido con cobertura adicional del sistema de tema y de la vista/helpers de versión.
-  - el siguiente push de saneamiento debe dejar los tres workflows remotos sin deuda conocida.
+  - `CI Installer Windows` corregido para no depender de una licencia portable preinstalada en el runner.
+  - el head actual queda listo para rerun/dispatch limpio de workflows remotos sin deuda conocida.

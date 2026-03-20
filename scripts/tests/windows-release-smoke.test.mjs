@@ -341,11 +341,13 @@ test('smoke activo valida broker, manifest, shortcuts y control plane sin dañar
   assert.equal(manifest.shortcuts.devStart.exists, true);
   assert.equal(manifest.shortcuts.prodStart.exists, true);
   assert.equal(manifest.shortcuts.hubStart.exists, true);
-  assert.equal(manifest.license.portableExists, true);
-  assert.equal(manifest.license.stepUpConfigExists, true);
+  assert.equal(typeof manifest.license.portableExists, 'boolean');
+  assert.equal(typeof manifest.license.stepUpConfigExists, 'boolean');
   assert.ok(Array.isArray(manifest.license.stepUpMethods));
-  assert.ok(manifest.license.stepUpMethods.includes('totp'));
-  assert.equal(Number(manifest.license.recoveryCodesRemaining) > 0, true);
+  if (manifest.license.stepUpConfigExists) {
+    assert.ok(manifest.license.stepUpMethods.includes('totp'));
+    assert.equal(Number(manifest.license.recoveryCodesRemaining) > 0, true);
+  }
 
   const dashboardBase = String(bootstrap.meta?.base || '').trim();
   assert.match(dashboardBase, /^http:\/\/127\.0\.0\.1:\d+$/);
@@ -356,7 +358,11 @@ test('smoke activo valida broker, manifest, shortcuts y control plane sin dañar
   assert.equal(typeof status.body.licenseState, 'object');
   assert.equal(typeof status.body.bootstrapState, 'object');
   assert.equal(status.body.lifecycle.desiredMode, 'prod');
-  assert.equal(status.body.licenseState.state, 'portable_present');
+  assert.equal(status.body.licenseState.state, manifest.license.portableExists ? 'portable_present' : 'missing');
+  assert.equal(status.body.licenseState.portableExists, manifest.license.portableExists);
+  if (Object.prototype.hasOwnProperty.call(status.body.licenseState, 'stepUpConfigExists')) {
+    assert.equal(status.body.licenseState.stepUpConfigExists, manifest.license.stepUpConfigExists);
+  }
 
   const statusScript = runPowerShell(['-Command', 'npm run status'], { timeout: 120_000 });
   assert.equal(statusScript.status, 0, statusScript.stderr || statusScript.stdout);
