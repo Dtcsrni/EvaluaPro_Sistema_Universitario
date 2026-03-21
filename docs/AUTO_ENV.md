@@ -152,8 +152,8 @@ este documento se actualiza automáticamente al regenerar.
 ## Portal alumno cloud
 - `CODIGO_ACCESO_HORAS` (usado en: apps/portal_alumno_cloud/src/configuracion.ts)
 - `CORS_ORIGENES` (usado en: apps/portal_alumno_cloud/src/configuracion.ts, apps/portal_alumno_cloud/tests/configuracion.produccion.test.ts)
-- `EVALUAPRO_LOG_SILENT` (usado en: apps/portal_alumno_cloud/src/infraestructura/logging/logger.ts)
-- `EVALUAPRO_SILENT_LOGS` (usado en: apps/portal_alumno_cloud/src/infraestructura/logging/logger.ts)
+- `EVALUAPRO_LOG_SILENT` (usado en: apps/portal_alumno_cloud/src/infraestructura/logging/logger.ts, apps/portal_alumno_cloud/tests/logger.test.ts)
+- `EVALUAPRO_SILENT_LOGS` (usado en: apps/portal_alumno_cloud/src/infraestructura/logging/logger.ts, apps/portal_alumno_cloud/tests/logger.test.ts)
 - `GITHUB_SHA` (usado en: apps/portal_alumno_cloud/src/rutas.ts)
 - `MONGODB_URI` (usado en: apps/portal_alumno_cloud/src/configuracion.ts, apps/portal_alumno_cloud/tests/configuracion.produccion.test.ts)
 - `NODE_ENV` (usado en: apps/portal_alumno_cloud/src/compartido/errores/manejadorErrores.ts, apps/portal_alumno_cloud/src/configuracion.ts, apps/portal_alumno_cloud/src/infraestructura/logging/logger.ts, apps/portal_alumno_cloud/src/rutas.ts, apps/portal_alumno_cloud/tests/configuracion.produccion.test.ts, apps/portal_alumno_cloud/tests/errores.test.ts, apps/portal_alumno_cloud/tests/setup.ts)
