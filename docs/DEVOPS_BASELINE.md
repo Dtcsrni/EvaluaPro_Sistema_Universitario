@@ -51,6 +51,10 @@ Fecha de baseline: 2026-02-13.
 - Fallback de pipeline: aislamiento por workflow (degradacion por dominio, no falla sistémica de toda la malla).
 - Hardening de dependencias nativas en backend module:
   - instalacion explicita de `sharp` linux-x64 antes de pruebas para evitar errores de runtime nativo en runners Linux.
+- Politica versionada de Dependabot:
+  - `.github/dependabot.yml` deshabilita PRs automaticas de versionado (`open-pull-requests-limit: 0`) para preservar la operacion de rama unica sobre `main`.
+  - Los bumps de mantenimiento quedan bajo integracion manual programada.
+  - Las alertas/security updates siguen gobernadas por GitHub y no dependen de abrir ramas de versionado recurrentes.
 
 ## Enforcements TDD activos
 - Diff coverage bloqueante en CI (`DIFF_COVERAGE_MIN=90`).

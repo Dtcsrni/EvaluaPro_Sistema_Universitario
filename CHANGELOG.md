@@ -5,6 +5,7 @@ Este archivo sigue el formato "Keep a Changelog" (alto nivel) y SemVer.
 ## [Unreleased]
 
 ### Fixed
+- Dependabot deja de generar ramas/PRs automaticas de versionado por defecto en `main`; la politica ahora queda versionada en `.github/dependabot.yml` para respetar la operacion de rama unica y reducir churn de mantenimiento.
 - Portal alumno: `AppAlumno` ahora re-renderiza correctamente al cerrar sesión local o cuando llega una invalidación externa de sesión, evitando que la UI se quede mostrando el estado autenticado tras limpiar `tokenAlumno`.
 - Dashboard local: el `service worker` ya no secuestra la navegación con una pantalla offline que ofrecía acciones imposibles (`/api/start`, `/api/repair/*`) cuando el proceso del dashboard estaba caído.
 - Cobertura contractual nueva en `scripts/tests/dashboard-sw.test.mjs` para asegurar:
