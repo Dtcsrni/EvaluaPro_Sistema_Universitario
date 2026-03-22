@@ -140,7 +140,7 @@ export function useConfirmDialog() {
   const ctx = useContext(ConfirmDialogContext);
   if (ctx) return ctx.confirm;
 
-  return async (_options: ConfirmDialogOptions) => {
+  return async () => {
     throw new Error('useConfirmDialog debe usarse dentro de <ConfirmDialogProvider>');
   };
 }
