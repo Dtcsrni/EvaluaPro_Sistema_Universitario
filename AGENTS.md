@@ -33,20 +33,26 @@ Si hay conflicto entre documentos, actualizar todos para alinear el estado real 
 2. No asumir estado de olas/gates sin verificar con comandos reales.
 3. Mantener trazabilidad:
    - objetivo de la sesion,
+   - `sessionId` y estado `draft|final`,
    - archivos tocados,
    - comandos ejecutados,
-   - resultado exacto de gates.
-4. No degradar calidad para "pasar rapido":
+   - resultado exacto de gates,
+   - decisiones, riesgos y siguiente paso.
+4. No registrar prompts completos, secretos o salidas crudas extensas en handoff/documentacion.
+5. No degradar calidad para "pasar rapido":
    - no bajar thresholds,
    - no excluir modulos para ocultar deuda,
    - no introducir stubs vacios.
-5. Si un gate falla:
+6. Si un gate falla:
    - documentar causa exacta,
    - proponer/ejecutar correccion minima,
    - actualizar docs de estado.
-6. Para mantener archivos autoexplicativos:
+7. Para mantener archivos autoexplicativos:
    - agregar/ajustar docblock de cabecera por archivo,
    - usar `npm run ia:docblocks` como apoyo y revisar manualmente los modulos criticos.
+8. Si el runtime del agente no expone proveedor/modelo/version exactos:
+   - usar `unknown`,
+   - no inferir ni documentar valores inventados.
 
 ## 2.1) Inventario exhaustivo de instrucciones IA
 1. El inventario oficial vive en:
@@ -79,10 +85,16 @@ Cada sesion debe dejar actualizado:
 3. `CHANGELOG.md` (cambios concretos).
 4. Reporte de handoff generado por script:
    - `npm run ia:handoff:quick`
-   - salida en `docs/handoff/sesiones/<YYYY-MM-DD>/`.
+   - salida canonica en `docs/handoff/sesiones/<YYYY-MM-DD>/` (`.json` + `.md`).
 5. Inventario de codigo regenerado:
    - `npm run inventario:codigo`
    - salida en `docs/INVENTARIO_CODIGO_EXHAUSTIVO.md`.
 
 ## 5) Estado de referencia (corte actual)
 Ver `docs/IA_TRAZABILIDAD_AGENTES.md` para snapshot operativo vigente.
+
+## 6) Enforcement del contrato IA
+- Validacion dedicada del contrato:
+  - `npm run test:ia:traceability`
+- Esta validacion forma parte de:
+  - `npm run ci:policy:audit`

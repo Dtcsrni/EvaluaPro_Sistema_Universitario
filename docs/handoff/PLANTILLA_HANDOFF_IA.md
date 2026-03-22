@@ -1,20 +1,63 @@
 # Handoff IA - Plantilla Oficial
 
-## 1) Objetivo de sesion
-- 
+Esta plantilla refleja el contrato canonico de `docs/handoff/trace.schema.json`.
 
-## 2) Cambios aplicados
-- 
+## Metadatos
+- `traceSchemaVersion`:
+- `sessionId`:
+- `parentSessionId`:
+- `status`: `draft|final`
+- `generatedAt`:
+- `validationProfile`: `quick|full`
 
-## 3) Validacion ejecutada
-- comando:
-- resultado:
+## Agente
+- `agent.name`:
+- `agent.version`:
+- `agent.provider`:
+- `agent.kind`:
+- `agent.channel`:
 
-## 4) Pendientes
-- 
+## Solicitud
+- `request.summary`:
 
-## 5) Riesgos abiertos
-- 
+## Objetivo
+- `objective`:
 
-## 6) Siguiente paso recomendado
-- 
+## Alcance
+- `scope[]`:
+
+## Restricciones
+- `constraints[]`:
+
+## Acciones
+- `actions[]`:
+  - `type`:
+  - `summary`:
+  - `timestamp`:
+  - `status`:
+
+## Archivos
+- `files.read[]`:
+- `files.changed[]`:
+- `files.artifacts[]`:
+
+## Validacion ejecutada
+- `commands[]`:
+  - `name`:
+  - `command`:
+  - `status`:
+  - `exitCode`:
+  - `durationMs`:
+  - `resultSummary`:
+
+## Decisiones
+- `decisions[]`:
+
+## Supuestos
+- `assumptions[]`:
+
+## Riesgos abiertos
+- `risks[]`:
+
+## Siguiente paso recomendado
+- `nextStep`:

@@ -1,43 +1,105 @@
 # Trazabilidad IA del Proyecto
 
-Fecha de corte: 2026-02-19
-Objetivo: continuidad entre agentes con estado verificable y evidencia reproducible.
+Fecha de corte: 2026-03-22
+Objetivo: continuidad verificable entre agentes heterogeneos con evidencia reproducible, comparable y sanitizada.
 
-## 1) Snapshot operativo
-- Version: `1.0.0-beta.0`.
-- API activa: `/api/*`.
-- Sync activo: schema v2 + fingerprint `sync-v2-lww-updatedAt-schema2`.
-- Gate de arquitectura limpia activo en CI.
-
-## 2) Fuentes de verdad para agentes
+## 1) Fuentes de verdad para agentes
 1. `AGENTS.md`
-2. `.github/copilot-instructions.md`
-3. `ci/pipeline.contract.md`
-4. `ci/pipeline.matrix.json`
-5. `.github/workflows/ci.yml`
-6. `.github/workflows/ci-frontend.yml`
+2. `docs/IA_TRAZABILIDAD_AGENTES.md`
+3. `.github/copilot-instructions.md`
+4. `ci/pipeline.contract.md`
+5. `ci/pipeline.matrix.json`
+6. `.github/workflows/ci.yml`
 7. `docs/INVENTARIO_PROYECTO.md`
 8. `docs/ENGINEERING_BASELINE.md`
 9. `docs/RELEASE_GATE_STABLE.md`
 10. `CHANGELOG.md`
 
-## 3) Reglas obligatorias de ejecucion
-1. Verificar estado real antes de editar.
-2. No reducir gates/umbrales para forzar verde.
-3. Mantener contrato unico y eliminar rutas/flags retiradas.
-4. Cerrar con evidencia de comandos ejecutados.
+## 2) Contrato canonico de trazabilidad
+- Schema machine-readable: `docs/handoff/trace.schema.json`
+- Guia corta de uso: `docs/handoff/CONTRATO_TRAZABILIDAD_IA.md`
+- Plantilla humana: `docs/handoff/PLANTILLA_HANDOFF_IA.md`
+- Generador oficial:
+  - `npm run ia:handoff:quick`
+  - `npm run ia:handoff:full`
+- Salidas oficiales por sesion:
+  - `docs/handoff/sesiones/<YYYY-MM-DD>/<sessionId>.json`
+  - `docs/handoff/sesiones/<YYYY-MM-DD>/<sessionId>.md`
 
-## 4) Matriz minima de cierre
+## 3) Reglas normativas del contrato
+1. La salida canonica es el JSON; el Markdown es un render humano del mismo contrato.
+2. El contrato es agnostico a proveedor, modelo, version y canal de ejecucion.
+3. Si el runtime no expone identidad tecnica exacta del agente, usar `unknown`; no inventar valores.
+4. Toda sesion nueva debe incluir como minimo:
+   - `traceSchemaVersion`
+   - `sessionId`
+   - `status`
+   - `generatedAt`
+   - `validationProfile`
+   - `agent.{name,version,provider,kind,channel}`
+   - `request.summary`
+   - `objective`
+   - `scope[]`
+   - `constraints[]`
+   - `actions[]`
+   - `files.{read,changed,artifacts}`
+   - `commands[]`
+   - `decisions[]`
+   - `assumptions[]`
+   - `risks[]`
+   - `nextStep`
+5. `status=draft` es valido estructuralmente, pero indica campos semanticos pendientes.
+6. `status=final` solo aplica cuando la sesion ya puede ser retomada por otro agente sin decisiones importantes faltantes.
+
+## 4) Politica de datos y sanitizacion
+1. No guardar prompts completos ni instrucciones sensibles.
+2. No volcar stdout/stderr crudo extenso por defecto; registrar solo resumen operativo.
+3. No registrar secretos, tokens, PII ni credenciales.
+4. La trazabilidad debe priorizar:
+   - objetivo de sesion,
+   - decisiones tomadas,
+   - archivos implicados,
+   - comandos ejecutados,
+   - resultado exacto de gates,
+   - riesgos abiertos,
+   - siguiente paso recomendado.
+
+## 5) Reglas operativas de ejecucion
+1. Leer primero:
+   - `README.md`
+   - `docs/README.md`
+   - `docs/IA_TRAZABILIDAD_AGENTES.md`
+   - `.github/copilot-instructions.md`
+2. Verificar estado real antes de editar; no asumir olas, gates o release.
+3. No reducir umbrales ni ocultar deuda para forzar verde.
+4. Cerrar cambios con handoff oficial y evidencia reproducible.
+5. Si se toca el contrato de trazabilidad IA, ejecutar:
+   - `npm run test:ia:traceability`
+   - `npm run ci:policy:audit`
+
+## 6) Validacion y enforcement
+- Validacion dedicada del contrato IA:
+  - `npm run test:ia:traceability`
+- Auditoria consolidada de politicas:
+  - `npm run ci:policy:audit`
+- Politica de legado:
+  - el historico previo en `docs/handoff/sesiones/**` basado solo en Markdown queda como legado
+  - no bloquea la validacion nueva mientras no se convierta al contrato JSON canonico
+
+## 7) Matriz minima de cierre de cambios
 1. `npm run lint`
 2. `npm run typecheck`
 3. `npm run test:frontend:ci`
 4. `npm run test:coverage:ci`
-5. `npm run perf:check`
-6. `npm run pipeline:contract:check`
-7. `npm run qa:clean-architecture:strict`
+5. `npm run test:tdd:enforcement:ci`
+6. `npm run test:backend:ci`
+7. `npm run test:portal:ci`
+8. `npm run perf:check`
+9. `npm run pipeline:contract:check`
 
-## 5) Handoff
-- Plantilla: `docs/handoff/PLANTILLA_HANDOFF_IA.md`
-- Generadores:
-  - `npm run ia:handoff:quick`
-  - `npm run ia:handoff:full`
+## 8) Snapshot operativo vigente
+- Version tecnica objetivo: `1.0.0`
+- Version visible objetivo: `1.0.0b`
+- API activa: `/api/*`
+- Sync activo: schema v2 + fingerprint `sync-v2-lww-updatedAt-schema2`
+- Gate de arquitectura limpia activo en CI

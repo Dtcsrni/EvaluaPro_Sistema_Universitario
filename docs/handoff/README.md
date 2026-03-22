@@ -3,20 +3,26 @@
 Este directorio centraliza la continuidad entre sesiones de agentes IA.
 
 ## Archivos
-- `PLANTILLA_HANDOFF_IA.md`: formato minimo obligatorio de cierre de sesion.
-- `sesiones/<YYYY-MM-DD>/<sesion>.md`: reportes generados automaticamente.
+- `trace.schema.json`: contrato canonico machine-readable.
+- `CONTRATO_TRAZABILIDAD_IA.md`: guia corta del contrato.
+- `PLANTILLA_HANDOFF_IA.md`: formato humano alineado al schema.
+- `sesiones/<YYYY-MM-DD>/<sesion>.json`: evidencia canonica de sesion.
+- `sesiones/<YYYY-MM-DD>/<sesion>.md`: render humano del mismo contrato.
 
 ## Generacion automatica
 - Modo rapido (recomendado por sesion):
   - `npm run ia:handoff:quick`
 - Modo completo (incluye gates pesados):
   - `npm run ia:handoff:full`
+- Input enriquecido opcional:
+  - `node scripts/ia-handoff.mjs --mode quick --input <archivo.json>`
 
 ## Notas
 - El reporte generado no reemplaza la actualizacion de:
   - `docs/INVENTARIO_PROYECTO.md`
   - `docs/ENGINEERING_BASELINE.md`
   - `CHANGELOG.md`
+- El contrato nuevo valida sesiones nuevas sin bloquear el historico markdown previo.
 
 <!-- AUTO:COMMERCIAL-CONTEXT:START -->
 ## Contexto Comercial y Soporte

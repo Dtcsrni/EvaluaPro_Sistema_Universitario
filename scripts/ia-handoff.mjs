@@ -1,14 +1,15 @@
 /**
  * ia-handoff
  *
- * Responsabilidad: Modulo interno del sistema.
- * Limites: Mantener contrato y comportamiento observable del modulo.
+ * Responsabilidad: Generar handoff IA en formato canonico JSON y reporte Markdown legible.
+ * Limites: No implementar trazabilidad dependiente de proveedor ni persistir prompts completos o salidas crudas extensas.
  */
 import fs from 'node:fs/promises';
 import path from 'node:path';
-import { fileURLToPath } from 'node:url';
+import { fileURLToPath, pathToFileURL } from 'node:url';
 import { exec as execCb } from 'node:child_process';
 import { promisify } from 'node:util';
+import { normalizeTraceInput, renderTraceMarkdown, validateTraceDocument } from './ia-traceability.mjs';
 
 const exec = promisify(execCb);
 
@@ -16,264 +17,235 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const rootDir = path.resolve(__dirname, '..');
 
-const args = process.argv.slice(2);
-const modeArg = obtenerArg(args, '--mode') ?? 'quick';
-const mode = modeArg === 'full' ? 'full' : 'quick';
-const sessionArg = obtenerArg(args, '--session');
-const now = new Date();
-const fecha = now.toISOString().slice(0, 10);
-const selloTiempo = now.toISOString().replaceAll(':', '-');
-const sessionId = sessionArg ? limpiarId(sessionArg) : `sesion-${selloTiempo}`;
-
-const templatePath = path.join(rootDir, 'docs', 'handoff', 'PLANTILLA_HANDOFF_IA.md');
-const salidaDir = path.join(rootDir, 'docs', 'handoff', 'sesiones', fecha);
-const salidaPath = path.join(salidaDir, `${sessionId}.md`);
-
-const CHECKS = [
-  { nombre: 'lint', comando: 'npm run lint', nivel: 'full' },
-  { nombre: 'typecheck', comando: 'npm run typecheck', nivel: 'full' },
-  { nombre: 'test_frontend_ci', comando: 'npm run test:frontend:ci', nivel: 'full' },
-  { nombre: 'test_coverage_ci', comando: 'npm run test:coverage:ci', nivel: 'full' },
-  { nombre: 'test_backend_ci', comando: 'npm run test:backend:ci', nivel: 'full' },
-  { nombre: 'test_portal_ci', comando: 'npm run test:portal:ci', nivel: 'full' },
-  { nombre: 'perf_check', comando: 'npm run perf:check', nivel: 'full' },
-  { nombre: 'pipeline_contract_check', comando: 'npm run pipeline:contract:check', nivel: 'quick' },
-  { nombre: 'docs_check', comando: 'npm run docs:check', nivel: 'quick' }
+export const HANDOFF_CHECKS = [
+  { name: 'lint', command: 'npm run lint', level: 'full' },
+  { name: 'typecheck', command: 'npm run typecheck', level: 'full' },
+  { name: 'test_frontend_ci', command: 'npm run test:frontend:ci', level: 'full' },
+  { name: 'test_coverage_ci', command: 'npm run test:coverage:ci', level: 'full' },
+  { name: 'test_tdd_enforcement_ci', command: 'npm run test:tdd:enforcement:ci', level: 'full' },
+  { name: 'test_backend_ci', command: 'npm run test:backend:ci', level: 'full' },
+  { name: 'test_portal_ci', command: 'npm run test:portal:ci', level: 'full' },
+  { name: 'perf_check', command: 'npm run perf:check', level: 'full' },
+  { name: 'pipeline_contract_check', command: 'npm run pipeline:contract:check', level: 'quick' },
+  { name: 'docs_check', command: 'npm run docs:check', level: 'quick' }
 ];
 
-async function main() {
-  await garantizarTemplate();
-  await fs.mkdir(salidaDir, { recursive: true });
-
-  const branch = await leerSalida('git rev-parse --abbrev-ref HEAD');
-  const commit = await leerSalida('git rev-parse --short HEAD');
-  const estado = await leerSalida('git status --short');
-  const resumenArchivos = await inventarioCodigos();
-  const topArchivos = await topArchivosGrandes();
-  const resultados = await ejecutarChecks();
-
-  const contenido = construirReporte({
-    mode,
-    branch,
-    commit,
-    estado,
-    resumenArchivos,
-    topArchivos,
-    resultados
-  });
-
-  await fs.writeFile(salidaPath, contenido, 'utf8');
-  console.log(`[ia-handoff] escrito: ${path.relative(rootDir, salidaPath).replace(/\\/g, '/')}`);
-}
-
-function obtenerArg(argv, flag) {
+function getArg(argv, flag) {
+  const prefix = `${flag}=`;
+  const inline = argv.find((arg) => arg.startsWith(prefix));
+  if (inline) {
+    return inline.slice(prefix.length).trim();
+  }
   const idx = argv.indexOf(flag);
-  if (idx === -1) return null;
+  if (idx === -1) {
+    return null;
+  }
   return argv[idx + 1] ?? null;
 }
 
-function limpiarId(valor) {
-  return String(valor).trim().replace(/[^a-zA-Z0-9._-]/g, '_');
+function normalizeMode(value) {
+  return value === 'full' ? 'full' : 'quick';
 }
 
-async function garantizarTemplate() {
-  try {
-    await fs.access(templatePath);
-  } catch {
-    const contenido = [
-      '# Handoff IA - Plantilla',
-      '',
-      '## 1) Objetivo de sesion',
-      '-',
-      '',
-      '## 2) Cambios aplicados',
-      '-',
-      '',
-      '## 3) Validacion ejecutada',
-      '- comando:',
-      '- resultado:',
-      '',
-      '## 4) Pendientes',
-      '-',
-      '',
-      '## 5) Riesgos abiertos',
-      '-',
-      '',
-      '## 6) Siguiente paso recomendado',
-      '-'
-    ].join('\n');
-    await fs.mkdir(path.dirname(templatePath), { recursive: true });
-    await fs.writeFile(templatePath, contenido, 'utf8');
+function normalizeSessionId(value, fallback) {
+  const cleaned = String(value || '')
+    .trim()
+    .replace(/[^a-zA-Z0-9._-]/g, '_')
+    .replace(/^_+|_+$/g, '');
+  return cleaned || fallback;
+}
+
+function compactOutput(stdout, stderr) {
+  const text = `${stdout ?? ''}\n${stderr ?? ''}`.trim();
+  if (!text) {
+    return '(sin salida)';
   }
-}
-
-async function leerSalida(command) {
-  try {
-    const { stdout } = await exec(command, { cwd: rootDir, windowsHide: true, maxBuffer: 8 * 1024 * 1024 });
-    return (stdout || '').trim();
-  } catch (error) {
-    const stdout = (error?.stdout ?? '').trim();
-    const stderr = (error?.stderr ?? '').trim();
-    const mensaje = [stdout, stderr].filter(Boolean).join('\n');
-    return mensaje || `ERROR: ${error.message}`;
-  }
-}
-
-async function inventarioCodigos() {
-  const { stdout } = await exec('git ls-files', { cwd: rootDir, windowsHide: true, maxBuffer: 8 * 1024 * 1024 });
-  const archivos = stdout
+  const lines = text
     .split(/\r?\n/)
-    .map((linea) => linea.trim())
-    .filter(Boolean)
-    .filter((ruta) => !ruta.startsWith('node_modules/'))
-    .filter((ruta) => !ruta.includes('/node_modules/'))
-    .filter((ruta) => /\.(ts|tsx|js|jsx|mjs|cjs|json|yml|yaml|sh|cmd|ps1)$/i.test(ruta));
+    .map((line) => line.trim())
+    .filter(Boolean);
+  if (lines.length <= 6) {
+    return lines.join(' | ');
+  }
+  return `${lines.slice(0, 4).join(' | ')} | ... | ${lines.slice(-2).join(' | ')}`;
+}
 
-  const contar = (prefix) => archivos.filter((ruta) => ruta.startsWith(prefix)).length;
+function parseChangedFiles(statusText) {
+  return statusText
+    .split(/\r?\n/)
+    .map((line) => line.trim())
+    .filter(Boolean)
+    .map((line) => {
+      if (line.startsWith('?? ')) {
+        return line.slice(3).trim();
+      }
+      return line.slice(2).trim();
+    })
+    .filter(Boolean);
+}
+
+async function runShell(command, context = {}) {
+  const cwd = typeof context === 'string' ? context : context.cwd;
+  const result = await exec(command, {
+    cwd,
+    windowsHide: true,
+    maxBuffer: 16 * 1024 * 1024
+  });
   return {
-    total: archivos.length,
-    backend: contar('apps/backend/'),
-    frontend: contar('apps/frontend/'),
-    portal: contar('apps/portal_alumno_cloud/'),
-    ci: archivos.filter((r) => r.startsWith('ci/') || r.startsWith('.github/workflows/')).length,
-    scripts: contar('scripts/'),
-    docs: contar('docs/'),
-    ops: contar('ops/')
+    stdout: result.stdout ?? '',
+    stderr: result.stderr ?? '',
+    exitCode: 0
   };
 }
 
-async function topArchivosGrandes() {
-  const { stdout } = await exec('git ls-files', { cwd: rootDir, windowsHide: true, maxBuffer: 8 * 1024 * 1024 });
-  const archivos = stdout
-    .split(/\r?\n/)
-    .map((linea) => linea.trim())
-    .filter(Boolean)
-    .filter((ruta) => !ruta.startsWith('node_modules/'))
-    .filter((ruta) => !ruta.includes('/node_modules/'))
-    .filter((ruta) => ruta.startsWith('apps/'))
-    .filter((ruta) => /\.(ts|tsx|js|jsx|mjs|cjs)$/i.test(ruta));
-
-  const lineas = [];
-  for (const archivo of archivos) {
-    const fullPath = path.join(rootDir, archivo);
-    const contenido = await fs.readFile(fullPath, 'utf8');
-    const totalLineas = contenido.split(/\r?\n/).length;
-    lineas.push({ archivo, lineas: totalLineas });
+async function readCommandOutput(command, cwd) {
+  try {
+    const result = await runShell(command, cwd);
+    return (result.stdout || '').trim();
+  } catch (error) {
+    const stdout = String(error?.stdout ?? '').trim();
+    const stderr = String(error?.stderr ?? '').trim();
+    const summary = [stdout, stderr].filter(Boolean).join('\n');
+    return summary || `ERROR: ${String(error?.message || error)}`;
   }
-  return lineas.sort((a, b) => b.lineas - a.lineas).slice(0, 12);
 }
 
-async function ejecutarChecks() {
-  const resultados = [];
-  for (const check of CHECKS) {
-    if (mode === 'quick' && check.nivel !== 'quick') {
-      resultados.push({
-        nombre: check.nombre,
-        comando: check.comando,
-        estado: 'omitido',
-        codigo: null,
-        duracionMs: 0,
-        salida: 'omitido en modo quick'
+export async function collectRuntimeContext(currentRootDir = rootDir) {
+  const branch = await readCommandOutput('git rev-parse --abbrev-ref HEAD', currentRootDir);
+  const commit = await readCommandOutput('git rev-parse --short HEAD', currentRootDir);
+  const workingTreeStatus = await readCommandOutput('git status --short', currentRootDir);
+  return {
+    rootDir: currentRootDir,
+    branch: branch || 'unknown',
+    commit: commit || 'unknown',
+    workingTreeStatus,
+    changedFiles: parseChangedFiles(workingTreeStatus)
+  };
+}
+
+export async function executeChecks({ mode, checks = HANDOFF_CHECKS, cwd = rootDir, runner = runShell }) {
+  const results = [];
+  for (const check of checks) {
+    if (mode === 'quick' && check.level !== 'quick') {
+      results.push({
+        name: check.name,
+        command: check.command,
+        status: 'omitido',
+        exitCode: null,
+        durationMs: 0,
+        resultSummary: 'omitido por perfil quick'
       });
       continue;
     }
-    const inicio = Date.now();
+
+    const start = Date.now();
     try {
-      const { stdout, stderr } = await exec(check.comando, {
-        cwd: rootDir,
-        windowsHide: true,
-        maxBuffer: 16 * 1024 * 1024
-      });
-      resultados.push({
-        nombre: check.nombre,
-        comando: check.comando,
-        estado: 'ok',
-        codigo: 0,
-        duracionMs: Date.now() - inicio,
-        salida: compactarSalida(stdout, stderr)
+      const result = await runner(check.command, { cwd, check });
+      results.push({
+        name: check.name,
+        command: check.command,
+        status: 'ok',
+        exitCode: Number.isInteger(result?.exitCode) ? result.exitCode : 0,
+        durationMs: Date.now() - start,
+        resultSummary: compactOutput(result?.stdout, result?.stderr)
       });
     } catch (error) {
-      resultados.push({
-        nombre: check.nombre,
-        comando: check.comando,
-        estado: 'falla',
-        codigo: Number(error.code ?? 1),
-        duracionMs: Date.now() - inicio,
-        salida: compactarSalida(error.stdout, error.stderr)
+      results.push({
+        name: check.name,
+        command: check.command,
+        status: 'falla',
+        exitCode: Number.isInteger(error?.exitCode) ? error.exitCode : Number.isFinite(Number(error?.code)) ? Number(error.code) : 1,
+        durationMs: Date.now() - start,
+        resultSummary: compactOutput(error?.stdout, error?.stderr || error?.message)
       });
     }
   }
-  return resultados;
+  return results;
 }
 
-function compactarSalida(stdout, stderr) {
-  const texto = `${stdout ?? ''}\n${stderr ?? ''}`.trim();
-  const lineas = texto.split(/\r?\n/).filter(Boolean);
-  if (lineas.length <= 18) return lineas.join('\n');
-  return `${lineas.slice(0, 12).join('\n')}\n...\n${lineas.slice(-6).join('\n')}`;
+async function readInputTrace(inputPath, currentRootDir) {
+  if (!inputPath) {
+    return {};
+  }
+  const resolvedPath = path.isAbsolute(inputPath) ? inputPath : path.join(currentRootDir, inputPath);
+  const raw = await fs.readFile(resolvedPath, 'utf8');
+  return JSON.parse(raw);
 }
 
-function construirReporte({ mode, branch, commit, estado, resumenArchivos, topArchivos, resultados }) {
-  const ahora = new Date().toISOString();
-  const filasChecks = resultados
-    .map((r) => `| ${r.nombre} | ${r.estado} | ${r.codigo ?? '-'} | ${r.duracionMs} |`)
-    .join('\n');
-  const detallesChecks = resultados
-    .map(
-      (r) =>
-        `### ${r.nombre}\n- comando: \`${r.comando}\`\n- estado: ${r.estado}\n- codigo: ${r.codigo ?? '-'}\n- salida:\n\`\`\`txt\n${r.salida || '(sin salida)'}\n\`\`\`\n`
-    )
-    .join('\n');
-  const top = topArchivos.map((it) => `- \`${it.archivo}\`: ${it.lineas} lineas`).join('\n');
-  const estadoBloque = estado ? `\`\`\`txt\n${estado}\n\`\`\`` : '_arbol limpio_';
+export async function generateHandoffReport(options = {}) {
+  const currentRootDir = options.rootDir || rootDir;
+  const now = options.now instanceof Date ? options.now : new Date(options.now || Date.now());
+  const nowIso = now.toISOString();
+  const mode = normalizeMode(options.mode);
+  const fallbackSessionId = `sesion-${nowIso.replaceAll(':', '-')}`;
+  const sessionId = normalizeSessionId(options.sessionId, fallbackSessionId);
+  const dateFolder = nowIso.slice(0, 10);
+  const outputDir = options.outputDir
+    ? path.resolve(currentRootDir, options.outputDir)
+    : path.join(currentRootDir, 'docs', 'handoff', 'sesiones', dateFolder);
 
-  return [
-    '# Handoff IA - Sesion',
-    '',
-    `- generadoEn: ${ahora}`,
-    `- modoChecklist: ${mode}`,
-    `- rama: ${branch || '(desconocida)'}`,
-    `- commit: ${commit || '(desconocido)'}`,
-    '',
-    '## 1) Objetivo de sesion',
-    '- Completar por el agente al cerrar la sesion.',
-    '',
-    '## 2) Estado del arbol',
-    estadoBloque,
-    '',
-    '## 3) Inventario resumido',
-    `- total piezas codigo/config: ${resumenArchivos.total}`,
-    `- backend: ${resumenArchivos.backend}`,
-    `- frontend: ${resumenArchivos.frontend}`,
-    `- portal: ${resumenArchivos.portal}`,
-    `- ci/workflows: ${resumenArchivos.ci}`,
-    `- scripts: ${resumenArchivos.scripts}`,
-    `- docs: ${resumenArchivos.docs}`,
-    `- ops: ${resumenArchivos.ops}`,
-    '',
-    '## 4) Top archivos grandes (apps)',
-    top || '- (sin datos)',
-    '',
-    '## 5) Checklist ejecutable de sesion',
-    '| check | estado | exitCode | duracionMs |',
-    '| --- | --- | ---: | ---: |',
-    filasChecks,
-    '',
-    '## 6) Evidencia de ejecucion',
-    detallesChecks,
-    '## 7) Pendientes',
-    '- Completar por el agente al cerrar la sesion.',
-    '',
-    '## 8) Riesgos abiertos',
-    '- Completar por el agente al cerrar la sesion.',
-    '',
-    '## 9) Siguiente paso recomendado',
-    '- Completar por el agente al cerrar la sesion.',
-    ''
-  ].join('\n');
+  const inputTrace = options.inputTrace ?? (await readInputTrace(options.inputPath, currentRootDir));
+  const runtimeContext = options.runtimeContext ?? (await collectRuntimeContext(currentRootDir));
+  const commands = options.commands ?? (await executeChecks({
+    mode,
+    checks: options.checks || HANDOFF_CHECKS,
+    cwd: currentRootDir,
+    runner: options.runner || runShell
+  }));
+
+  await fs.mkdir(outputDir, { recursive: true });
+  const jsonPath = path.join(outputDir, `${sessionId}.json`);
+  const markdownPath = path.join(outputDir, `${sessionId}.md`);
+  const relativeJsonPath = path.relative(currentRootDir, jsonPath).replace(/\\/g, '/');
+  const relativeMarkdownPath = path.relative(currentRootDir, markdownPath).replace(/\\/g, '/');
+
+  const trace = normalizeTraceInput(inputTrace, {
+    nowIso,
+    sessionId,
+    validationProfile: mode,
+    outputs: [relativeJsonPath, relativeMarkdownPath],
+    changedFiles: runtimeContext.changedFiles,
+    commands,
+    repo: runtimeContext
+  });
+  validateTraceDocument(trace);
+
+  const markdown = renderTraceMarkdown(trace);
+  await fs.writeFile(jsonPath, `${JSON.stringify(trace, null, 2)}\n`, 'utf8');
+  await fs.writeFile(markdownPath, `${markdown}\n`, 'utf8');
+
+  return {
+    trace,
+    markdown,
+    jsonPath,
+    markdownPath
+  };
 }
 
-main().catch((error) => {
-  console.error(`[ia-handoff] error: ${error.message}`);
-  process.exit(1);
-});
+export async function main() {
+  const args = process.argv.slice(2);
+  const mode = normalizeMode(getArg(args, '--mode') ?? 'quick');
+  const sessionId = getArg(args, '--session');
+  const inputPath = getArg(args, '--input');
+  const outputDir = getArg(args, '--output-dir');
+
+  const result = await generateHandoffReport({
+    mode,
+    sessionId,
+    inputPath,
+    outputDir
+  });
+
+  const jsonRel = path.relative(rootDir, result.jsonPath).replace(/\\/g, '/');
+  const markdownRel = path.relative(rootDir, result.markdownPath).replace(/\\/g, '/');
+  console.log(`[ia-handoff] json: ${jsonRel}`);
+  console.log(`[ia-handoff] markdown: ${markdownRel}`);
+  console.log(`[ia-handoff] status: ${result.trace.status}`);
+}
+
+if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
+  main().catch((error) => {
+    console.error(`[ia-handoff] error: ${String(error?.message || error)}`);
+    process.exit(1);
+  });
+}

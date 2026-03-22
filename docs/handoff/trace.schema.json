@@ -1,0 +1,186 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://evaluapro.local/schemas/ia-traceability/trace.schema.json",
+  "title": "EvaluaPro IA Trace Session",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "traceSchemaVersion",
+    "sessionId",
+    "status",
+    "generatedAt",
+    "validationProfile",
+    "agent",
+    "request",
+    "objective",
+    "scope",
+    "constraints",
+    "actions",
+    "files",
+    "commands",
+    "decisions",
+    "assumptions",
+    "risks",
+    "nextStep"
+  ],
+  "properties": {
+    "traceSchemaVersion": {
+      "type": "string",
+      "const": "1.0.0"
+    },
+    "sessionId": {
+      "type": "string",
+      "minLength": 1
+    },
+    "parentSessionId": {
+      "type": "string",
+      "minLength": 1
+    },
+    "status": {
+      "type": "string",
+      "enum": ["draft", "final"]
+    },
+    "generatedAt": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "validationProfile": {
+      "type": "string",
+      "enum": ["quick", "full"]
+    },
+    "agent": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["name", "version", "provider", "kind", "channel"],
+      "properties": {
+        "name": { "type": "string", "minLength": 1 },
+        "version": { "type": "string", "minLength": 1 },
+        "provider": { "type": "string", "minLength": 1 },
+        "kind": { "type": "string", "minLength": 1 },
+        "channel": { "type": "string", "minLength": 1 }
+      }
+    },
+    "request": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["summary"],
+      "properties": {
+        "summary": { "type": "string", "minLength": 1 }
+      }
+    },
+    "objective": {
+      "type": "string",
+      "minLength": 1
+    },
+    "scope": {
+      "type": "array",
+      "items": { "type": "string", "minLength": 1 }
+    },
+    "constraints": {
+      "type": "array",
+      "items": { "type": "string", "minLength": 1 }
+    },
+    "actions": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["type", "summary", "timestamp", "status"],
+        "properties": {
+          "type": { "type": "string", "minLength": 1 },
+          "summary": { "type": "string", "minLength": 1 },
+          "timestamp": { "type": "string", "format": "date-time" },
+          "status": {
+            "type": "string",
+            "enum": ["pending", "ok", "falla", "omitido"]
+          }
+        }
+      }
+    },
+    "files": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["read", "changed", "artifacts"],
+      "properties": {
+        "read": {
+          "type": "array",
+          "items": { "type": "string", "minLength": 1 }
+        },
+        "changed": {
+          "type": "array",
+          "items": { "type": "string", "minLength": 1 }
+        },
+        "artifacts": {
+          "type": "array",
+          "items": { "type": "string", "minLength": 1 }
+        }
+      }
+    },
+    "commands": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["name", "command", "status", "exitCode", "durationMs", "resultSummary"],
+        "properties": {
+          "name": { "type": "string", "minLength": 1 },
+          "command": { "type": "string", "minLength": 1 },
+          "status": {
+            "type": "string",
+            "enum": ["ok", "falla", "omitido"]
+          },
+          "timestamp": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "exitCode": {
+            "type": ["integer", "null"]
+          },
+          "durationMs": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "resultSummary": { "type": "string" }
+        }
+      }
+    },
+    "decisions": {
+      "type": "array",
+      "items": { "type": "string", "minLength": 1 }
+    },
+    "assumptions": {
+      "type": "array",
+      "items": { "type": "string", "minLength": 1 }
+    },
+    "risks": {
+      "type": "array",
+      "items": { "type": "string", "minLength": 1 }
+    },
+    "nextStep": {
+      "type": "string",
+      "minLength": 1
+    },
+    "completion": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["isComplete", "pendingFields"],
+      "properties": {
+        "isComplete": { "type": "boolean" },
+        "pendingFields": {
+          "type": "array",
+          "items": { "type": "string", "minLength": 1 }
+        }
+      }
+    },
+    "repo": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "rootDir": { "type": "string", "minLength": 1 },
+        "branch": { "type": "string", "minLength": 1 },
+        "commit": { "type": "string", "minLength": 1 },
+        "workingTreeStatus": { "type": "string" }
+      }
+    }
+  }
+}

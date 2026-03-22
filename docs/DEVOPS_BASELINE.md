@@ -27,7 +27,7 @@ Fecha de baseline: 2026-02-13.
   - `ci/pipeline.matrix.json`
 - Workflows separados por responsabilidad:
   - `.github/workflows/ci.yml` (`CI Checks`): quality gates bloqueantes.
-  - `.github/workflows/ci-policy-audit.yml` (`CI Policy Audit`): auditoría consolidada de contrato/ruleset/políticas con artefacto de evidencia.
+  - `.github/workflows/ci-policy-audit.yml` (`CI Policy Audit`): auditoría consolidada de contrato/ruleset/políticas, incluyendo trazabilidad IA, con artefacto de evidencia.
   - `.github/workflows/package.yml` (`Package Images`): empaquetado Docker + `image-digests.txt`.
   - `.github/workflows/autogen-docs.yml` (`Auto-Generate Docs`): autogeneracion y versionado de docs/diagramas.
   - `.github/workflows/ci-backend.yml` (`CI Backend Module`): pipeline aislado de backend.
@@ -94,3 +94,6 @@ Fecha de baseline: 2026-02-13.
 - Trazabilidad multi-sesion de agentes centralizada en:
   - `AGENTS.md`
   - `docs/IA_TRAZABILIDAD_AGENTES.md`
+  - `docs/handoff/trace.schema.json`
+- Validación dedicada del contrato IA:
+  - `npm run test:ia:traceability`
