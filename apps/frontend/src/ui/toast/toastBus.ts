@@ -11,6 +11,11 @@ export type ToastAction = {
   onClick?: () => void;
 };
 
+export type ToastSecondaryAction = {
+  label: string;
+  onClick?: () => void;
+};
+
 export type ToastPayload = {
   id?: string;
   level?: ToastLevel;
@@ -18,6 +23,8 @@ export type ToastPayload = {
   message: string;
   durationMs?: number;
   action?: ToastAction;
+  secondaryAction?: ToastSecondaryAction;
+  eyebrow?: string;
 };
 
 const EVENT_NAME = 'app:toast';

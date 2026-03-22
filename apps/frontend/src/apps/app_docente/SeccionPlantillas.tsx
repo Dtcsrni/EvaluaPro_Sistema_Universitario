@@ -2,6 +2,7 @@
 import type { Dispatch, SetStateAction } from 'react';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { accionToastSesionParaError } from '../../servicios_api/clienteComun';
+import { useConfirmDialog } from '../../ui/feedback/ConfirmDialogProvider';
 import { emitToast } from '../../ui/toast/toastBus';
 import { Icono } from '../../ui/iconos';
 import { Boton } from '../../ui/ux/componentes/Boton';
@@ -78,6 +79,7 @@ export function SeccionPlantillas({
   setCargandoPreviewPdfPlantillaId: Dispatch<SetStateAction<string | null>>;
   onRefrescar: () => void;
 }) {
+  const confirm = useConfirmDialog();
   /**
    * Texto base orientado a impresión física/OMR.
    * Se reestablece al salir de modo edición para mantener consistencia UX.
@@ -248,7 +250,13 @@ export function SeccionPlantillas({
         avisarSinPermiso('No tienes permiso para regenerar examenes.');
         return;
       }
-      const ok = globalThis.confirm(`¿Regenerar todo el paquete ${lote}? Esto actualizará todos los exámenes del lote.`);
+      const ok = await confirm({
+        title: 'Regenerar paquete',
+        message: `Se regenerarán todos los exámenes del paquete ${lote}.`,
+        details: ['Úsalo solo si necesitas una nueva versión completa del paquete.'],
+        confirmLabel: 'Sí, regenerar paquete',
+        tone: 'warning'
+      });
       if (!ok) return;
       try {
         setRegenerandoLoteId(lote);
@@ -280,6 +288,7 @@ export function SeccionPlantillas({
     [
       avisarSinPermiso,
       cargarExamenesGenerados,
+      confirm,
       enviarConPermiso,
       puedeRegenerarExamenes,
       regenerandoLoteId,
@@ -296,7 +305,13 @@ export function SeccionPlantillas({
         avisarSinPermiso('No tienes permiso para eliminar examenes.');
         return;
       }
-      const ok = globalThis.confirm(`¿Eliminar todo el paquete ${lote}? Esta acción ocultará todos los exámenes del lote.`);
+      const ok = await confirm({
+        title: 'Eliminar paquete',
+        message: `El paquete ${lote} se ocultará del listado activo.`,
+        details: ['Los datos se conservarán para auditoría y trazabilidad.'],
+        confirmLabel: 'Sí, ocultar paquete',
+        tone: 'warning'
+      });
       if (!ok) return;
       try {
         setEliminandoLoteId(lote);
@@ -328,6 +343,7 @@ export function SeccionPlantillas({
     [
       avisarSinPermiso,
       cargarExamenesGenerados,
+      confirm,
       eliminandoLoteId,
       enviarConPermiso,
       puedeArchivarExamenes,
@@ -567,9 +583,13 @@ export function SeccionPlantillas({
       avisarSinPermiso('No tienes permiso para eliminar plantillas.');
       return;
     }
-    const ok = globalThis.confirm(
-      `¿Eliminar la plantilla "${String(plantilla.titulo || '').trim()}"?\n\nSe borrará junto con examenes y calificaciones relacionadas. Confirma para continuar.`
-    );
+    const ok = await confirm({
+      title: 'Eliminar plantilla',
+      message: `La plantilla "${String(plantilla.titulo || '').trim()}" se eliminará junto con sus dependencias.`,
+      details: ['Se quitarán exámenes y calificaciones relacionadas.'],
+      confirmLabel: 'Sí, eliminar plantilla',
+      tone: 'danger'
+    });
     if (!ok) return;
     try {
       const inicio = Date.now();
@@ -747,7 +767,13 @@ export function SeccionPlantillas({
   ]);
 
   const generarExamenesLote = useCallback(async () => {
-    const ok = globalThis.confirm('¿Generar paquete de examenes para todos los alumnos activos de esta materia?');
+    const ok = await confirm({
+      title: 'Generar paquete masivo',
+      message: 'Se generarán exámenes para todos los alumnos activos de la materia seleccionada.',
+      details: ['Asegúrate de que plantilla, alumnos y banco estén listos antes de continuar.'],
+      confirmLabel: 'Sí, generar paquete',
+      tone: 'default'
+    });
     if (!ok) return;
     const loteCliente =
       typeof globalThis.crypto?.randomUUID === 'function'
@@ -867,6 +893,7 @@ export function SeccionPlantillas({
     alumnos,
     avisarSinPermiso,
     cargarExamenesGenerados,
+    confirm,
     enviarConPermiso,
     plantillaSeleccionada,
     plantillaId,

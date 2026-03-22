@@ -7,6 +7,7 @@
 import { useCallback } from 'react';
 import { accionToastSesionParaError } from '../../../../../servicios_api/clienteComun';
 import { obtenerTokenDocente } from '../../../../../servicios_api/clienteApi';
+import { useConfirmDialog } from '../../../../../ui/feedback/ConfirmDialogProvider';
 import { emitToast } from '../../../../../ui/toast/toastBus';
 import { clienteApi } from '../../../clienteApiDocente';
 import { mensajeDeError } from '../../../utilidades';
@@ -57,6 +58,7 @@ export function usePlantillasGeneradosActions({
   enviarConPermiso,
   lotePdfUrl
 }: Params) {
+  const confirm = useConfirmDialog();
   const descargarPdfExamen = useCallback(
     async (examen: ExamenGeneradoResumen) => {
       if (descargandoExamenId === examen._id) return;
@@ -144,9 +146,13 @@ export function usePlantillasGeneradosActions({
 
         let forzar = false;
         if (yaDescargado) {
-          const ok = globalThis.confirm(
-            'Este examen ya fue descargado. Regenerarlo puede cambiar el PDF (y tu copia descargada).\n\n¿Deseas continuar?'
-          );
+          const ok = await confirm({
+            title: 'Regenerar PDF descargado',
+            message: 'Este examen ya fue descargado anteriormente.',
+            details: ['Regenerarlo puede cambiar el PDF y desalinear copias ya impresas o descargadas.'],
+            confirmLabel: 'Sí, regenerar',
+            tone: 'warning'
+          });
           if (!ok) return;
           forzar = true;
         }
@@ -177,6 +183,7 @@ export function usePlantillasGeneradosActions({
     [
       avisarSinPermiso,
       cargarExamenesGenerados,
+      confirm,
       enviarConPermiso,
       puedeRegenerarExamenes,
       regenerandoExamenId,
@@ -288,9 +295,13 @@ export function usePlantillasGeneradosActions({
         setMensajeGeneracion('');
         setArchivandoExamenId(examen._id);
 
-        const ok = globalThis.confirm(
-          `¿Eliminar el examen generado (folio: ${String(examen.folio || '').trim() || 'sin folio'})?\n\nSe ocultará del listado activo, pero no se borrarán sus datos.`
-        );
+        const ok = await confirm({
+          title: 'Ocultar examen generado',
+          message: `El folio ${String(examen.folio || '').trim() || 'sin folio'} dejará de mostrarse en el listado activo.`,
+          details: ['Los datos del examen se conservarán para trazabilidad.'],
+          confirmLabel: 'Sí, ocultar examen',
+          tone: 'warning'
+        });
         if (!ok) return;
 
         await enviarConPermiso(
@@ -319,6 +330,7 @@ export function usePlantillasGeneradosActions({
     [
       avisarSinPermiso,
       cargarExamenesGenerados,
+      confirm,
       enviarConPermiso,
       puedeArchivarExamenes,
       archivandoExamenId,

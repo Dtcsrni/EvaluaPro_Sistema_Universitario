@@ -600,14 +600,16 @@ button:hover svg[data-icono="ok"].icono,
 }
 
 .toast {
-  background: rgba(255, 255, 255, 0.94);
+  background:
+    radial-gradient(circle at top right, rgba(15, 139, 141, 0.10), transparent 34%),
+    rgba(255, 255, 255, 0.96);
   -webkit-backdrop-filter: blur(10px);
   backdrop-filter: blur(10px);
-  border: 1px solid var(--borde);
-  border-left: 4px solid var(--primario);
-  border-radius: 16px;
+  border: 1px solid color-mix(in srgb, var(--borde) 78%, var(--primario));
+  border-left: 5px solid var(--primario);
+  border-radius: 20px;
   padding: 12px;
-  box-shadow: 0 18px 40px rgba(15, 23, 42, 0.14);
+  box-shadow: 0 22px 48px rgba(15, 23, 42, 0.16);
   display: grid;
   grid-template-columns: 36px minmax(0, 1fr) auto;
   align-items: start;
@@ -640,8 +642,9 @@ button:hover svg[data-icono="ok"].icono,
 .toast.error .toast-icon { background: rgba(239, 68, 68, 0.14); color: #7f1d1d; }
 
 .toast-body { min-width: 0; }
-.toast-title { font-size: 12px; font-weight: 900; letter-spacing: 0.01em; color: var(--texto); }
-.toast-text { margin-top: 3px; font-size: 13px; color: var(--textoSuave); word-break: break-word; }
+.toast-eyebrow { font-size: 0.69rem; font-weight: 900; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); }
+.toast-title { margin-top: 2px; font-size: 13px; font-weight: 900; letter-spacing: 0.01em; color: var(--texto); }
+.toast-text { margin-top: 4px; font-size: 13px; color: var(--textoSuave); word-break: break-word; line-height: 1.35; }
 
 .toast-actions { display: inline-flex; gap: 8px; align-items: center; }
 
@@ -660,6 +663,7 @@ button:hover svg[data-icono="ok"].icono,
 .toast-btn:hover { box-shadow: 0 10px 18px rgba(15, 23, 42, 0.10); }
 .toast-btn:active { transform: translateY(1px); }
 .toast-btn.action { border-color: rgba(13, 148, 136, 0.28); background: rgba(13, 148, 136, 0.12); }
+.toast-btn.secondary { border-color: rgba(20, 89, 199, 0.22); background: rgba(20, 89, 199, 0.08); }
 .toast-btn.close { padding: 6px 8px; }
 
 .toast-life {
@@ -696,6 +700,87 @@ button:hover svg[data-icono="ok"].icono,
   .toast { animation: none !important; }
   .toast-life { animation: none !important; }
   .toast-btn { transition: none !important; }
+}
+
+.confirm-dialog-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 10000;
+  background: rgba(2, 6, 23, 0.54);
+  -webkit-backdrop-filter: blur(6px);
+  backdrop-filter: blur(6px);
+  display: grid;
+  place-items: center;
+  padding: 1rem;
+}
+
+.confirm-dialog {
+  width: min(560px, calc(100vw - 2rem));
+  border-radius: 24px;
+  border: 1px solid color-mix(in srgb, var(--borde) 72%, var(--primario));
+  background:
+    radial-gradient(circle at top right, rgba(15, 139, 141, 0.12), transparent 38%),
+    linear-gradient(180deg, color-mix(in srgb, var(--superficieSolida) 94%, white), var(--superficieSolida));
+  box-shadow: 0 26px 70px rgba(2, 6, 23, 0.34);
+  padding: 1.1rem;
+  display: grid;
+  gap: 0.85rem;
+}
+
+.confirm-dialog--danger {
+  border-color: color-mix(in srgb, #ef4444 42%, var(--borde));
+  background:
+    radial-gradient(circle at top right, rgba(239, 68, 68, 0.13), transparent 38%),
+    linear-gradient(180deg, color-mix(in srgb, var(--superficieSolida) 94%, white), var(--superficieSolida));
+}
+
+.confirm-dialog--warning {
+  border-color: color-mix(in srgb, #f59e0b 42%, var(--borde));
+  background:
+    radial-gradient(circle at top right, rgba(245, 158, 11, 0.14), transparent 38%),
+    linear-gradient(180deg, color-mix(in srgb, var(--superficieSolida) 94%, white), var(--superficieSolida));
+}
+
+.confirm-dialog__hero {
+  display: flex;
+  gap: 0.85rem;
+  align-items: flex-start;
+}
+
+.confirm-dialog__icon {
+  width: 2.6rem;
+  height: 2.6rem;
+  border-radius: 16px;
+  display: grid;
+  place-items: center;
+  color: var(--primario);
+  background: rgba(15, 139, 141, 0.12);
+}
+
+.confirm-dialog__message {
+  margin: 0;
+  color: var(--textoSuave);
+  line-height: 1.45;
+}
+
+.confirm-dialog__details {
+  margin: 0;
+  padding-left: 1.15rem;
+  display: grid;
+  gap: 0.35rem;
+  color: var(--muted);
+}
+
+.confirm-dialog__actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 0.65rem;
+}
+
+.confirm-dialog__confirm--danger {
+  background: linear-gradient(135deg, #dc2626, #b91c1c);
+  border-color: rgba(127, 29, 29, 0.75);
 }
 
 * {
@@ -763,6 +848,31 @@ main.page {
   box-shadow: var(--sombra);
   display: grid;
   gap: var(--gap);
+}
+
+.admin-negocio-shell {
+  display: grid;
+  gap: 1rem;
+}
+
+.admin-negocio-shell__header {
+  display: flex;
+  justify-content: space-between;
+  gap: 0.85rem;
+  align-items: flex-start;
+  flex-wrap: wrap;
+}
+
+.admin-negocio-shell__grid {
+  display: grid;
+  gap: 1rem;
+}
+
+@media (min-width: 1120px) {
+  .admin-negocio-shell__grid {
+    grid-template-columns: minmax(280px, 0.9fr) minmax(0, 1.45fr);
+    align-items: start;
+  }
 }
 
 @media (min-width: 1280px) {

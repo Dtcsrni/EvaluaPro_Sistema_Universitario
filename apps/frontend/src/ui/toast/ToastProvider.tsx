@@ -16,8 +16,11 @@ export type ToastItem = {
   title: string;
   message: string;
   durationMs: number;
+  eyebrow?: string;
   actionLabel?: string;
   actionOnClick?: () => void;
+  secondaryActionLabel?: string;
+  secondaryActionOnClick?: () => void;
 };
 
 export type ToastApi = {
@@ -27,9 +30,9 @@ export type ToastApi = {
 const ToastContext = createContext<ToastApi | null>(null);
 
 function iconFor(level: ToastLevel) {
-  if (level === 'ok') return 'OK';
+  if (level === 'ok') return '✓';
   if (level === 'warn') return '!';
-  if (level === 'error') return 'X';
+  if (level === 'error') return '×';
   return 'i';
 }
 
@@ -99,12 +102,27 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
 
     const title = typeof payload.title === 'string' ? payload.title : defaultTitle(level);
     const message = String(payload.message || '').trim();
+    const eyebrow = typeof payload.eyebrow === 'string' ? payload.eyebrow : undefined;
     const actionLabel = payload.action?.label;
     const actionOnClick = payload.action?.onClick;
+    const secondaryActionLabel = payload.secondaryAction?.label;
+    const secondaryActionOnClick = payload.secondaryAction?.onClick;
 
     setToasts((prev) => {
       const withoutDup = id ? prev.filter((t) => t.id !== id) : prev;
-      const next = [{ key, id, level, title, message, durationMs, actionLabel, actionOnClick }, ...withoutDup];
+      const next = [{
+        key,
+        id,
+        level,
+        title,
+        message,
+        durationMs,
+        eyebrow,
+        actionLabel,
+        actionOnClick,
+        secondaryActionLabel,
+        secondaryActionOnClick
+      }, ...withoutDup];
       return next.slice(0, 4);
     });
 
@@ -168,6 +186,7 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
           >
             <div className="toast-icon" aria-hidden="true">{iconFor(t.level)}</div>
             <div className="toast-body">
+              {t.eyebrow ? <div className="toast-eyebrow">{t.eyebrow}</div> : null}
               <div className="toast-title">{t.title}</div>
               <div className="toast-text">{t.message}</div>
             </div>
@@ -185,6 +204,21 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
                   }}
                 >
                   {t.actionLabel}
+                </button>
+              ) : null}
+              {t.secondaryActionLabel ? (
+                <button
+                  className="toast-btn secondary"
+                  type="button"
+                  onClick={() => {
+                    try {
+                      t.secondaryActionOnClick?.();
+                    } finally {
+                      dismiss(t.key);
+                    }
+                  }}
+                >
+                  {t.secondaryActionLabel}
                 </button>
               ) : null}
               <button className="toast-btn close" type="button" aria-label="Cerrar" onClick={() => dismiss(t.key)}>

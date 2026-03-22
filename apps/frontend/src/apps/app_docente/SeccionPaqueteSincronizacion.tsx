@@ -5,6 +5,7 @@
  */
 import { useMemo, useState } from 'react';
 import { accionToastSesionParaError } from '../../servicios_api/clienteComun';
+import { useConfirmDialog } from '../../ui/feedback/ConfirmDialogProvider';
 import { emitToast } from '../../ui/toast/toastBus';
 import { Icono } from '../../ui/iconos';
 import { Boton } from '../../ui/ux/componentes/Boton';
@@ -95,6 +96,7 @@ export function SeccionPaqueteSincronizacion({
     | { mensaje?: string; checksumSha256?: string; conteos?: Record<string, number> }
   >;
 }) {
+  const confirm = useConfirmDialog();
   const [periodoId, setPeriodoId] = useState('');
   const [desde, setDesde] = useState('');
   const [incluirPdfs, setIncluirPdfs] = useState(false);
@@ -223,9 +225,18 @@ export function SeccionPaqueteSincronizacion({
             .map(([k, v]) => `- ${k}: ${v}`)
             .join('\n')}`
         : '';
-      const confirmado = window.confirm(
-        `Paquete valido.${resumen}\n\n¿Deseas importar y aplicar cambios en esta computadora?`
-      );
+      const confirmado = await confirm({
+        title: 'Importar paquete de sincronización',
+        message: 'El paquete es válido y está listo para aplicarse en esta computadora.',
+        details: resumen
+          ? resumen
+              .split('\n')
+              .map((linea) => linea.trim())
+              .filter(Boolean)
+          : ['Se aplicarán los cambios detectados en el respaldo.'],
+        confirmLabel: 'Sí, importar paquete',
+        tone: 'warning'
+      });
       if (!confirmado) {
         setMensaje('Importacion cancelada');
         registrarAccionDocente('sync_paquete_importar_cancelado', true, Date.now() - inicio);

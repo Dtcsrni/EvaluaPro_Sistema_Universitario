@@ -275,6 +275,6 @@ este documento se actualiza automáticamente al regenerar.
 - `ALLOW_TEST_CONSOLE` (usado en: test-utils/vitestStrict.ts)
 
 ## Root
-- `CI` (usado en: tests/gui-responsive/playwright.alumno.config.cjs, tests/gui-responsive/playwright.config.cjs)
+- `CI` (usado en: tests/gui-responsive/playwright.admin.config.cjs, tests/gui-responsive/playwright.alumno.config.cjs, tests/gui-responsive/playwright.config.cjs)
 - `GUI_RESPONSIVE_ALUMNO_PORT` (usado en: tests/gui-responsive/playwright.alumno.config.cjs)
-- `GUI_RESPONSIVE_PORT` (usado en: tests/gui-responsive/playwright.config.cjs)
+- `GUI_RESPONSIVE_PORT` (usado en: tests/gui-responsive/playwright.admin.config.cjs, tests/gui-responsive/playwright.config.cjs)

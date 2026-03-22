@@ -2,6 +2,7 @@
 import type { ChangeEvent } from 'react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { accionToastSesionParaError } from '../../servicios_api/clienteComun';
+import { useConfirmDialog } from '../../ui/feedback/ConfirmDialogProvider';
 import { emitToast } from '../../ui/toast/toastBus';
 import { Icono } from '../../ui/iconos';
 import { Boton } from '../../ui/ux/componentes/Boton';
@@ -73,6 +74,7 @@ export function SeccionEscaneo({
   puedeCalificar: boolean;
   avisarSinPermiso: (mensaje: string) => void;
 }) {
+  const confirm = useConfirmDialog();
   const [folio, setFolio] = useState('');
   const [numeroPagina, setNumeroPagina] = useState(0);
   const [imagenBase64, setImagenBase64] = useState('');
@@ -772,11 +774,15 @@ export function SeccionEscaneo({
             <Boton
               type="button"
               variante={revisionOmrConfirmada ? 'secundario' : 'primario'}
-              onClick={() => {
+              onClick={async () => {
                 if (revisionOmrConfirmada && !hayCambiosPendientesExamen) {
-                  const confirmarModificacion = window.confirm(
-                    'La revisión ya está confirmada. ¿Deseas habilitar su modificación?'
-                  );
+                  const confirmarModificacion = await confirm({
+                    title: 'Habilitar edición de revisión',
+                    message: 'La revisión ya estaba confirmada.',
+                    details: ['Si continúas, se reabrirá la edición y luego tendrás que confirmar otra vez.'],
+                    confirmLabel: 'Sí, editar revisión',
+                    tone: 'warning'
+                  });
                   if (!confirmarModificacion) return;
                   onConfirmarRevisionOmr(false);
                   return;

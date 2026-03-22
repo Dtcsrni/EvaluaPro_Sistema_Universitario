@@ -6,6 +6,7 @@
  */
 import { useMemo, useState } from 'react';
 import { accionToastSesionParaError } from '../../servicios_api/clienteComun';
+import { useConfirmDialog } from '../../ui/feedback/ConfirmDialogProvider';
 import { emitToast } from '../../ui/toast/toastBus';
 import { Icono } from '../../ui/iconos';
 import { Boton } from '../../ui/ux/componentes/Boton';
@@ -46,6 +47,7 @@ export function SeccionPeriodos({
   const [edicionFechaInicio, setEdicionFechaInicio] = useState('');
   const [edicionFechaFin, setEdicionFechaFin] = useState('');
   const [edicionGrupos, setEdicionGrupos] = useState('');
+  const confirm = useConfirmDialog();
   const puedeGestionar = permisos.periodos.gestionar;
   const puedeArchivar = permisos.periodos.archivar;
   const bloqueoEdicion = !puedeGestionar;
@@ -293,9 +295,13 @@ export function SeccionPeriodos({
       avisarSinPermiso('No tienes permiso para archivar materias.');
       return;
     }
-    const confirmado = globalThis.confirm(
-      `¿Archivar la materia "${etiquetaMateria(periodo)}"?\n\nSe ocultará de la lista de activas, pero NO se borrarán sus datos.`
-    );
+    const confirmado = await confirm({
+      title: 'Archivar materia',
+      message: `La materia "${etiquetaMateria(periodo)}" dejará de mostrarse en la lista activa.`,
+      details: ['Los datos se conservarán.', 'Seguirá disponible en “Materias archivadas”.'],
+      confirmLabel: 'Sí, archivar',
+      tone: 'warning'
+    });
     if (!confirmado) return;
 
     try {
@@ -333,9 +339,13 @@ export function SeccionPeriodos({
       avisarSinPermiso('No tienes permiso para eliminar materias en desarrollo.');
       return;
     }
-    const confirmado = globalThis.confirm(
-      `¿Eliminar la materia "${etiquetaMateria(periodo)}"?\n\nEsta accion solo existe en desarrollo y borrara alumnos, banco, plantillas y examenes asociados.`
-    );
+    const confirmado = await confirm({
+      title: 'Eliminar materia en desarrollo',
+      message: `Se eliminará "${etiquetaMateria(periodo)}" con su información relacionada.`,
+      details: ['Se borrarán alumnos, banco, plantillas y exámenes asociados.', 'No uses esta acción en operación normal.'],
+      confirmLabel: 'Sí, eliminar materia',
+      tone: 'danger'
+    });
     if (!confirmado) return;
 
     try {

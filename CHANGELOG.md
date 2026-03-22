@@ -4,6 +4,14 @@ Este archivo sigue el formato "Keep a Changelog" (alto nivel) y SemVer.
 
 ## [Unreleased]
 
+### Changed
+- UX/UI docente, alumno y `admin_negocio` cierran una primera capa unificada de feedback:
+  - confirmaciones nativas reemplazadas por `ConfirmDialogProvider` + `useConfirmDialog()`
+  - `ToastPayload` ampliado con `secondaryAction` y `eyebrow`
+  - `ToastProvider` y `styles.css` refuerzan jerarquía visual, CTA y estados de feedback
+- `admin_negocio` adopta ayuda contextual reutilizable, navegación más legible y un baseline responsive propio.
+- Frontend suma el carril `test:gui:responsive:e2e:admin` para validar layout responsive del panel de negocio.
+
 ### Fixed
 - Dependabot deja de generar ramas/PRs automaticas de versionado por defecto en `main`; la politica ahora queda versionada en `.github/dependabot.yml` para respetar la operacion de rama unica y reducir churn de mantenimiento.
 - Portal alumno: `AppAlumno` ahora re-renderiza correctamente al cerrar sesión local o cuando llega una invalidación externa de sesión, evitando que la UI se quede mostrando el estado autenticado tras limpiar `tokenAlumno`.
@@ -20,6 +28,12 @@ Este archivo sigue el formato "Keep a Changelog" (alto nivel) y SemVer.
   - el dashboard local conserva installabilidad, pero queda subordinado al launcher oficial y marcado como `offlineCapable: false`
 
 ### Added
+- Pruebas UX/UI ampliadas en frontend:
+  - contratos RTL para `admin_negocio` en `ux.quality`, `ux.visual` y `gui.responsive.contract`
+  - Playwright responsive para `admin_negocio`
+- Provider compartido de confirmación accesible:
+  - `apps/frontend/src/ui/feedback/ConfirmDialogProvider.tsx`
+  - política explícita sin fallback a `window.confirm` dentro de la app montada
 - Contrato agnostico de trazabilidad IA:
   - `docs/handoff/trace.schema.json`
   - `docs/handoff/CONTRATO_TRAZABILIDAD_IA.md`

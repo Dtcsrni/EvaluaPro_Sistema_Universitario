@@ -6,6 +6,7 @@
  */
 import { useEffect, useMemo, useState } from 'react';
 import { accionToastSesionParaError } from '../../servicios_api/clienteComun';
+import { useConfirmDialog } from '../../ui/feedback/ConfirmDialogProvider';
 import { emitToast } from '../../ui/toast/toastBus';
 import { Icono } from '../../ui/iconos';
 import { Boton } from '../../ui/ux/componentes/Boton';
@@ -58,6 +59,7 @@ export function SeccionAlumnos({
   const [eliminandoAlumnoId, setEliminandoAlumnoId] = useState<string | null>(null);
   const [filtroAlumno, setFiltroAlumno] = useState('');
   const [filtroGrupo, setFiltroGrupo] = useState('');
+  const confirm = useConfirmDialog();
   const puedeGestionar = permisos.alumnos.gestionar;
   const bloqueoEdicion = !puedeGestionar;
 
@@ -337,9 +339,13 @@ export function SeccionAlumnos({
       avisarSinPermiso('No tienes permiso para eliminar alumnos en desarrollo.');
       return;
     }
-    const confirmado = globalThis.confirm(
-      `¿Eliminar el alumno "${alumno.nombreCompleto}"?\n\nEsta accion solo existe en desarrollo y borrara examenes asociados.`
-    );
+    const confirmado = await confirm({
+      title: 'Eliminar alumno',
+      message: `Se eliminará al alumno "${alumno.nombreCompleto}" del entorno de desarrollo.`,
+      details: ['También se borrarán exámenes asociados.', 'Esta acción es solo para limpieza técnica.'],
+      confirmLabel: 'Sí, eliminar alumno',
+      tone: 'danger'
+    });
     if (!confirmado) return;
 
     try {

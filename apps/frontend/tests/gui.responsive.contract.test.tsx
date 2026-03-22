@@ -2,6 +2,7 @@ import fs from 'node:fs/promises';
 import path from 'node:path';
 import { render, screen } from '@testing-library/react';
 import { describe, expect, it } from 'vitest';
+import { AppAdminNegocio } from '../src/apps/app_admin_negocio/AppAdminNegocio';
 import { AppAlumno } from '../src/apps/app_alumno/AppAlumno';
 import { SeccionCalificaciones } from '../src/apps/app_docente/SeccionCalificaciones';
 import type { PermisosUI } from '../src/apps/app_docente/tipos';
@@ -66,6 +67,21 @@ describe('GUI responsive contract', () => {
 
     expect(screen.getByText(/Portal Alumno/i)).toBeInTheDocument();
     expect(document.querySelector('section.card')).not.toBeNull();
+  });
+
+  it('admin negocio mantiene shell responsive principal', async () => {
+    (globalThis as typeof globalThis & { __TEST_DOCENTE__?: Record<string, unknown> }).__TEST_DOCENTE__ = {
+      permisos: ['comercial:metricas:leer', 'comercial:tenants:leer']
+    };
+    render(
+      <TemaProvider>
+        <AppAdminNegocio />
+      </TemaProvider>
+    );
+
+    expect(await screen.findByText(/Panel de Negocio EvaluaPro/i)).toBeInTheDocument();
+    expect(document.querySelector('[data-admin-negocio="true"]')).not.toBeNull();
+    expect(screen.getByRole('navigation', { name: /Vistas del panel de negocio/i })).toBeInTheDocument();
   });
 
   it('styles incluye guardas responsive globales', async () => {

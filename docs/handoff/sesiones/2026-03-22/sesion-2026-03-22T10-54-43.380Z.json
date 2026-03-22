@@ -1,0 +1,259 @@
+{
+  "traceSchemaVersion": "1.0.0",
+  "sessionId": "sesion-2026-03-22T10-54-43.380Z",
+  "status": "final",
+  "generatedAt": "2026-03-22T10:59:08.0847510-06:00",
+  "validationProfile": "full",
+  "agent": {
+    "name": "unknown",
+    "version": "unknown",
+    "provider": "unknown",
+    "kind": "unknown",
+    "channel": "unknown"
+  },
+  "request": {
+    "summary": "Cerrar el cambio UX/UI ya implementado, consolidar gobernanza y sustituir el handoff rapido incompleto por evidencia final con gates reales."
+  },
+  "objective": "Unificar y endurecer el feedback UX del frontend, dejar confirmaciones sin fallback nativo, conservar el baseline QA generado y cerrar la trazabilidad/documentacion obligatoria del repositorio.",
+  "scope": [
+    "Frontend docente, alumno y admin_negocio con provider de confirmacion, toast reforzado y mejoras de layout/hints.",
+    "Pruebas UX/RTL, snapshot visual y carril Playwright responsive para admin_negocio.",
+    "Documentacion de baseline, inventario de proyecto, changelog, inventario exhaustivo y handoff oficial de la sesion."
+  ],
+  "constraints": [
+    "No reintroducir window.confirm ni globalThis.confirm en codigo de aplicacion.",
+    "No bajar gates, thresholds ni excluir modulos para forzar verde.",
+    "Usar unknown para identidad tecnica del agente cuando el runtime no expone proveedor/modelo/version.",
+    "Mantener como baseline los artefactos QA y snapshots regenerados por validaciones deliberadas."
+  ],
+  "actions": [
+    {
+      "type": "implementation",
+      "summary": "Se consolido la capa UX compartida con ConfirmDialogProvider, toast ampliado y reemplazo de confirmaciones nativas en flujos criticos.",
+      "timestamp": "2026-03-22T10:59:08.0847510-06:00",
+      "status": "ok"
+    },
+    {
+      "type": "test-fix",
+      "summary": "Se ajusto la suite de sincronizacion para renderizar con ConfirmDialogProvider y confirmar via modal accesible en lugar de simular window.confirm.",
+      "timestamp": "2026-03-22T10:59:08.0847510-06:00",
+      "status": "ok"
+    },
+    {
+      "type": "validation",
+      "summary": "Se ejecutaron los gates obligatorios de AGENTS.md y se confirmo docs:check despues de regenerar AUTO_ENV.",
+      "timestamp": "2026-03-22T10:59:08.0847510-06:00",
+      "status": "ok"
+    },
+    {
+      "type": "documentation",
+      "summary": "Se actualizaron changelog, baseline, inventarios y se regenero el handoff final de la sesion.",
+      "timestamp": "2026-03-22T10:59:08.0847510-06:00",
+      "status": "ok"
+    }
+  ],
+  "files": {
+    "read": [
+      "README.md",
+      "docs/README.md",
+      "docs/IA_TRAZABILIDAD_AGENTES.md",
+      ".github/copilot-instructions.md",
+      "apps/frontend/src/ui/feedback/ConfirmDialogProvider.tsx",
+      "apps/frontend/src/apps/app_docente/SeccionPaqueteSincronizacion.tsx",
+      "apps/frontend/tests/sincronizacion.behavior.test.tsx",
+      "CHANGELOG.md",
+      "docs/INVENTARIO_PROYECTO.md",
+      "docs/ENGINEERING_BASELINE.md",
+      "docs/handoff/trace.schema.json",
+      "docs/handoff/CONTRATO_TRAZABILIDAD_IA.md"
+    ],
+    "changed": [
+      "CHANGELOG.md",
+      "apps/backend/reports/qa/latest/e2e-docente-alumno.json",
+      "apps/backend/reports/qa/latest/global-grade.json",
+      "apps/backend/reports/qa/latest/pdf-print.json",
+      "apps/frontend/reports/qa/latest/ux-visual.json",
+      "apps/frontend/src/apps/app_admin_negocio/AppAdminNegocio.tsx",
+      "apps/frontend/src/apps/app_docente/SeccionAlumnos.tsx",
+      "apps/frontend/src/apps/app_docente/SeccionBanco.tsx",
+      "apps/frontend/src/apps/app_docente/SeccionEntregaInterna.tsx",
+      "apps/frontend/src/apps/app_docente/SeccionEscaneo.tsx",
+      "apps/frontend/src/apps/app_docente/SeccionPaqueteSincronizacion.tsx",
+      "apps/frontend/src/apps/app_docente/SeccionPeriodos.tsx",
+      "apps/frontend/src/apps/app_docente/SeccionPlantillas.tsx",
+      "apps/frontend/src/apps/app_docente/features/plantillas/hooks/usePlantillasGeneradosActions.ts",
+      "apps/frontend/src/main.tsx",
+      "apps/frontend/src/styles.css",
+      "apps/frontend/src/ui/feedback/ConfirmDialogProvider.tsx",
+      "apps/frontend/src/ui/feedback/uxCopy.ts",
+      "apps/frontend/src/ui/toast/ToastProvider.tsx",
+      "apps/frontend/src/ui/toast/toastBus.ts",
+      "apps/frontend/tests/__snapshots__/ux.visual.test.tsx.snap",
+      "apps/frontend/tests/gui.responsive.contract.test.tsx",
+      "apps/frontend/tests/sincronizacion.behavior.test.tsx",
+      "apps/frontend/tests/ux.quality.test.tsx",
+      "apps/frontend/tests/ux.visual.test.tsx",
+      "docs/AUTO_ENV.md",
+      "docs/ENGINEERING_BASELINE.md",
+      "docs/INVENTARIO_CODIGO_EXHAUSTIVO.md",
+      "docs/INVENTARIO_PROYECTO.md",
+      "docs/handoff/sesiones/2026-03-22/sesion-2026-03-22T10-54-43.380Z.json",
+      "docs/handoff/sesiones/2026-03-22/sesion-2026-03-22T10-54-43.380Z.md",
+      "package.json",
+      "tests/gui-responsive/playwright.admin.config.cjs",
+      "tests/gui-responsive/responsive-admin.spec.ts"
+    ],
+    "artifacts": [
+      "apps/backend/reports/qa/latest/e2e-docente-alumno.json",
+      "apps/backend/reports/qa/latest/global-grade.json",
+      "apps/backend/reports/qa/latest/pdf-print.json",
+      "apps/frontend/reports/qa/latest/ux-visual.json",
+      "docs/INVENTARIO_CODIGO_EXHAUSTIVO.md",
+      "docs/handoff/sesiones/2026-03-22/sesion-2026-03-22T10-54-43.380Z.json",
+      "docs/handoff/sesiones/2026-03-22/sesion-2026-03-22T10-54-43.380Z.md"
+    ]
+  },
+  "commands": [
+    {
+      "name": "lint",
+      "command": "npm run lint",
+      "status": "ok",
+      "exitCode": 0,
+      "durationMs": 0,
+      "resultSummary": "Ejecutado correctamente en esta sesion; sin errores reportados.",
+      "timestamp": "2026-03-22T10:59:08.0847510-06:00"
+    },
+    {
+      "name": "typecheck",
+      "command": "npm run typecheck",
+      "status": "ok",
+      "exitCode": 0,
+      "durationMs": 0,
+      "resultSummary": "Ejecutado correctamente en esta sesion; typecheck verde.",
+      "timestamp": "2026-03-22T10:59:08.0847510-06:00"
+    },
+    {
+      "name": "test_frontend_ci",
+      "command": "npm run test:frontend:ci",
+      "status": "ok",
+      "exitCode": 0,
+      "durationMs": 0,
+      "resultSummary": "Ejecutado correctamente en esta sesion; suites frontend CI en verde.",
+      "timestamp": "2026-03-22T10:59:08.0847510-06:00"
+    },
+    {
+      "name": "test_coverage_ci",
+      "command": "npm run test:coverage:ci",
+      "status": "ok",
+      "exitCode": 0,
+      "durationMs": 533200,
+      "resultSummary": "Backend, portal y frontend coverage completados; la suite de sincronizacion quedo alineada con ConfirmDialogProvider y el gate paso.",
+      "timestamp": "2026-03-22T10:59:08.0847510-06:00"
+    },
+    {
+      "name": "test_tdd_enforcement_ci",
+      "command": "npm run test:tdd:enforcement:ci",
+      "status": "ok",
+      "exitCode": 0,
+      "durationMs": 1500,
+      "resultSummary": "check-coverage-exclusions-debt OK y diff-coverage en no-op por ausencia de lineas modificadas en apps/*/src segun el gate.",
+      "timestamp": "2026-03-22T10:59:08.0847510-06:00"
+    },
+    {
+      "name": "test_backend_ci",
+      "command": "npm run test:backend:ci",
+      "status": "ok",
+      "exitCode": 0,
+      "durationMs": 0,
+      "resultSummary": "Ejecutado correctamente en esta sesion; backend CI verde.",
+      "timestamp": "2026-03-22T10:59:08.0847510-06:00"
+    },
+    {
+      "name": "test_portal_ci",
+      "command": "npm run test:portal:ci",
+      "status": "ok",
+      "exitCode": 0,
+      "durationMs": 0,
+      "resultSummary": "Ejecutado correctamente en esta sesion; portal alumno CI verde.",
+      "timestamp": "2026-03-22T10:59:08.0847510-06:00"
+    },
+    {
+      "name": "perf_check",
+      "command": "npm run perf:check",
+      "status": "ok",
+      "exitCode": 0,
+      "durationMs": 6800,
+      "resultSummary": "perf-collect genero reports/perf/latest.json y perf-check valido 4 budgets.",
+      "timestamp": "2026-03-22T10:59:08.0847510-06:00"
+    },
+    {
+      "name": "pipeline_contract_check",
+      "command": "npm run pipeline:contract:check",
+      "status": "ok",
+      "exitCode": 0,
+      "durationMs": 386,
+      "resultSummary": "pipeline contract OK.",
+      "timestamp": "2026-03-22T10:59:08.0847510-06:00"
+    },
+    {
+      "name": "playwright_admin_responsive",
+      "command": "npx playwright test -c tests/gui-responsive/playwright.admin.config.cjs",
+      "status": "ok",
+      "exitCode": 0,
+      "durationMs": 0,
+      "resultSummary": "Carril responsive de admin_negocio ejecutado correctamente en esta sesion.",
+      "timestamp": "2026-03-22T10:59:08.0847510-06:00"
+    },
+    {
+      "name": "docs_generate",
+      "command": "npm run docs:generate",
+      "status": "ok",
+      "exitCode": 0,
+      "durationMs": 0,
+      "resultSummary": "Regenero docs/AUTO_ENV.md y docs/AUTO_DOCS_INDEX.md para alinear la documentacion autogenerada.",
+      "timestamp": "2026-03-22T10:59:08.0847510-06:00"
+    },
+    {
+      "name": "docs_check",
+      "command": "npm run docs:check",
+      "status": "ok",
+      "exitCode": 0,
+      "durationMs": 0,
+      "resultSummary": "Docs check OK despues de regenerar AUTO_ENV.",
+      "timestamp": "2026-03-22T10:59:08.0847510-06:00"
+    },
+    {
+      "name": "test_ia_traceability",
+      "command": "npm run test:ia:traceability",
+      "status": "ok",
+      "exitCode": 0,
+      "durationMs": 119,
+      "resultSummary": "7 pruebas de trazabilidad IA pasaron; el esquema y el generador aceptan sesiones finales validas.",
+      "timestamp": "2026-03-22T10:59:08.0847510-06:00"
+    }
+  ],
+  "decisions": [
+    "ConfirmDialogProvider es obligatorio dentro del arbol de la app y useConfirmDialog falla temprano fuera del provider; no se conserva fallback a confirm nativo.",
+    "Los reportes QA regenerados y el snapshot UX actualizado se conservan como parte del baseline aprobado del cambio.",
+    "La suite de sincronizacion se toma como contrato de referencia para confirmaciones en tests: provider real + modal accesible, no window.confirm.",
+    "El handoff rapido original queda obsoleto y es reemplazado por esta sesion final con gates reales y docs ya alineadas."
+  ],
+  "assumptions": [
+    "El objetivo de esta sesion es cierre para revision/commit, no una nueva iteracion de rediseño visual.",
+    "No quedan usos directos de window.confirm o globalThis.confirm en codigo de aplicacion fuera de contextos de prueba o fuera del arbol provisto."
+  ],
+  "risks": [
+    "La cobertura UX es suficiente para el gate actual, pero algunas vistas siguen con cobertura parcial por profundidad de escenarios y podrian requerir expansion futura si se endurecen contratos visuales."
+  ],
+  "nextStep": "Preparar revision o commit del corte UX/UI-gobernanza con estos artefactos, sin reabrir cambios funcionales salvo que aparezca un fallo reproducible nuevo.",
+  "completion": {
+    "isComplete": true,
+    "pendingFields": []
+  },
+  "repo": {
+    "rootDir": "C:\\Users\\evega\\EvaluaPro_Sistema_Universitario",
+    "branch": "main",
+    "commit": "03cd008",
+    "workingTreeStatus": " M CHANGELOG.md\n M apps/backend/reports/qa/latest/e2e-docente-alumno.json\n M apps/backend/reports/qa/latest/global-grade.json\n M apps/backend/reports/qa/latest/pdf-print.json\n M apps/frontend/reports/qa/latest/ux-visual.json\n M apps/frontend/src/apps/app_admin_negocio/AppAdminNegocio.tsx\n M apps/frontend/src/apps/app_docente/SeccionAlumnos.tsx\n M apps/frontend/src/apps/app_docente/SeccionBanco.tsx\n M apps/frontend/src/apps/app_docente/SeccionEntregaInterna.tsx\n M apps/frontend/src/apps/app_docente/SeccionEscaneo.tsx\n M apps/frontend/src/apps/app_docente/SeccionPaqueteSincronizacion.tsx\n M apps/frontend/src/apps/app_docente/SeccionPeriodos.tsx\n M apps/frontend/src/apps/app_docente/SeccionPlantillas.tsx\n M apps/frontend/src/apps/app_docente/features/plantillas/hooks/usePlantillasGeneradosActions.ts\n M apps/frontend/src/main.tsx\n M apps/frontend/src/styles.css\n M apps/frontend/src/ui/toast/ToastProvider.tsx\n M apps/frontend/src/ui/toast/toastBus.ts\n M apps/frontend/tests/__snapshots__/ux.visual.test.tsx.snap\n M apps/frontend/tests/gui.responsive.contract.test.tsx\n M apps/frontend/tests/sincronizacion.behavior.test.tsx\n M apps/frontend/tests/ux.quality.test.tsx\n M apps/frontend/tests/ux.visual.test.tsx\n M docs/AUTO_ENV.md\n M docs/ENGINEERING_BASELINE.md\n M docs/INVENTARIO_CODIGO_EXHAUSTIVO.md\n M docs/INVENTARIO_PROYECTO.md\n M package.json\n?? apps/frontend/src/ui/feedback/\n?? docs/handoff/sesiones/2026-03-22/sesion-2026-03-22T10-54-43.380Z.json\n?? docs/handoff/sesiones/2026-03-22/sesion-2026-03-22T10-54-43.380Z.md\n?? tests/gui-responsive/playwright.admin.config.cjs\n?? tests/gui-responsive/responsive-admin.spec.ts"
+  }
+}

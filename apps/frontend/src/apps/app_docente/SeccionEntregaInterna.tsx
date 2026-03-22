@@ -11,6 +11,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { guardarTokenDocente, limpiarTokenDocente, obtenerTokenDocente } from '../../servicios_api/clienteApi';
 import { accionToastSesionParaError, mensajeUsuarioDeErrorConSugerencia, onSesionInvalidada } from '../../servicios_api/clienteComun';
+import { useConfirmDialog } from '../../ui/feedback/ConfirmDialogProvider';
 import { emitToast } from '../../ui/toast/toastBus';
 import { Icono, Spinner } from '../../ui/iconos';
 import { Boton } from '../../ui/ux/componentes/Boton';
@@ -80,6 +81,7 @@ export function SeccionEntrega({
   avisarSinPermiso: (mensaje: string) => void;
   enviarConPermiso: EnviarConPermiso;
 }) {
+  const confirm = useConfirmDialog();
   type ExamenGeneradoEntrega = {
     _id: string;
     folio: string;
@@ -185,9 +187,12 @@ export function SeccionEntrega({
         avisarSinPermiso('No tienes permiso para deshacer entregas.');
         return;
       }
-      const confirmar = window.confirm(
-        `¿Deshacer la entrega del folio ${folio}? Esto desvincula al alumno y regresa el examen a "generado".`
-      );
+      const confirmar = await confirm({
+        title: 'Deshacer entrega',
+        message: `El folio ${folio} se desvinculará del alumno y volverá al estado "generado".`,
+        confirmLabel: 'Sí, deshacer entrega',
+        tone: 'warning'
+      });
       if (!confirmar) return;
       const motivo = window.prompt('Motivo para deshacer la entrega:', '');
       try {
@@ -210,7 +215,7 @@ export function SeccionEntrega({
         setDeshaciendoFolio((actual) => (actual === folio ? null : actual));
       }
     },
-    [avisarSinPermiso, cargarExamenes, enviarConPermiso, puedeGestionar]
+    [avisarSinPermiso, cargarExamenes, confirm, enviarConPermiso, puedeGestionar]
   );
 
   const filtroNormalizado = filtro.trim().toLowerCase();

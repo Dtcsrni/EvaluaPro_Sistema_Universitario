@@ -3,6 +3,7 @@ import { describe, expect, it, vi, beforeEach } from 'vitest';
 import { SeccionSincronizacionEquipos } from '../src/apps/app_docente/SeccionSincronizacionEquipos';
 import { SeccionSincronizacion } from '../src/apps/app_docente/SeccionSincronizacion';
 import { SeccionPaqueteSincronizacion } from '../src/apps/app_docente/SeccionPaqueteSincronizacion';
+import { ConfirmDialogProvider } from '../src/ui/feedback/ConfirmDialogProvider';
 
 const obtenerMock = vi.fn();
 
@@ -96,10 +97,15 @@ describe('sincronizacion UI behavior', () => {
       return { mensaje: 'Paquete importado' };
     });
 
-    const confirmSpy = vi.spyOn(window, 'confirm').mockReturnValue(true);
-
     render(
-      <SeccionPaqueteSincronizacion periodos={[]} docenteCorreo="doc@local.test" onExportar={onExportar} onImportar={onImportar} />
+      <ConfirmDialogProvider>
+        <SeccionPaqueteSincronizacion
+          periodos={[]}
+          docenteCorreo="doc@local.test"
+          onExportar={onExportar}
+          onImportar={onImportar}
+        />
+      </ConfirmDialogProvider>
     );
 
     fireEvent.click(screen.getByRole('button', { name: /Exportar backup/i }));
@@ -120,6 +126,9 @@ describe('sincronizacion UI behavior', () => {
     const input = screen.getByLabelText(/Importar backup/i) as HTMLInputElement;
     fireEvent.change(input, { target: { files: [archivo] } });
 
+    const botonConfirmar = await screen.findByRole('button', { name: /Sí, importar paquete/i });
+    fireEvent.click(botonConfirmar);
+
     await waitFor(() => expect(onImportar).toHaveBeenCalledTimes(2));
     expect(onImportar.mock.calls[0][0]).toEqual(
       expect.objectContaining({
@@ -134,9 +143,7 @@ describe('sincronizacion UI behavior', () => {
       })
     );
     expect(onImportar.mock.calls[1][0]).not.toHaveProperty('dryRun');
-
-    expect(confirmSpy).toHaveBeenCalled();
-    confirmSpy.mockRestore();
+    expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument();
   });
 
   it('rechaza backup expirado antes de llamar onImportar', async () => {

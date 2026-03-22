@@ -1,5 +1,105 @@
 // Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
 
+exports[`UX visual regression > admin negocio mantiene layout principal 1`] = `
+<DocumentFragment>
+  <div
+    class="panel cuenta-panel admin-negocio-shell"
+    data-admin-negocio="true"
+  >
+    <div
+      class="admin-negocio-shell__header"
+    >
+      <div>
+        <p
+          class="eyebrow"
+        >
+          <svg
+            aria-hidden="true"
+            class="icono"
+            data-icono="docente"
+            fill="none"
+            height="18"
+            viewBox="0 0 24 24"
+            width="18"
+            xmlns="http://www.w3.org/2000/svg"
+          >
+            <path
+              d="M4 19h16"
+              stroke="currentColor"
+              stroke-linecap="round"
+              stroke-width="2"
+            />
+            <path
+              d="M8 17V7a4 4 0 1 1 8 0v10"
+              stroke="currentColor"
+              stroke-linecap="round"
+              stroke-width="2"
+            />
+          </svg>
+           Panel estratégico
+        </p>
+        <h2>
+          Panel de Negocio EvaluaPro
+        </h2>
+        <p
+          class="nota"
+        >
+          Usuario: 
+          <b>
+            Sin sesion
+          </b>
+           (-)
+        </p>
+      </div>
+      <div
+        class="badge"
+      >
+        Vista activa: Dashboard
+      </div>
+    </div>
+    <div
+      class="subpanel"
+    >
+      <p
+        class="mensaje warning"
+        role="status"
+      >
+        <svg
+          aria-hidden="true"
+          class="icono"
+          data-icono="alerta"
+          fill="none"
+          height="18"
+          viewBox="0 0 24 24"
+          width="18"
+          xmlns="http://www.w3.org/2000/svg"
+        >
+          <path
+            d="M12 9v4"
+            stroke="currentColor"
+            stroke-linecap="round"
+            stroke-width="2"
+          />
+          <path
+            d="M12 17h.01"
+            stroke="currentColor"
+            stroke-linecap="round"
+            stroke-width="3"
+          />
+          <path
+            d="M10.3 4.3a2 2 0 0 1 3.4 0l7.4 12.8A2 2 0 0 1 19.4 20H4.6a2 2 0 0 1-1.7-3L10.3 4.3Z"
+            stroke="currentColor"
+            stroke-linejoin="round"
+            stroke-width="2"
+          />
+        </svg>
+         Este panel requiere permisos comerciales. Ingresa con tu cuenta Google superadmin o asigna permisos comerciales a tu usuario.
+      </p>
+    </div>
+  </div>
+</DocumentFragment>
+`;
+
 exports[`UX visual regression > alumno sin token mantiene layout de acceso 1`] = `
 <DocumentFragment>
   <section

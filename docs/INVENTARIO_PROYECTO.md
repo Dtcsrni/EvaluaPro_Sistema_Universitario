@@ -199,3 +199,18 @@ Version visible objetivo: `1.0.0b`
   - deuda temporal restante en `docs/tdd-exclusions-debt.json`: `5` entradas activas con vencimiento `2026-03-31`
 - Corrección funcional 2026-03-22:
   - `apps/frontend/src/apps/app_alumno/AppAlumno.tsx` ahora re-renderiza correctamente al cerrar sesión o recibir invalidación externa de sesión alumno
+- Cierre UX/UI y gobernanza 2026-03-22:
+  - `apps/frontend` incorpora `ConfirmDialogProvider` como contrato compartido para confirmaciones accesibles
+  - la política activa del frontend queda sin `window.confirm`/`globalThis.confirm` en código de aplicación; el hook falla temprano fuera del provider
+  - `ToastPayload` amplía feedback con `secondaryAction` y `eyebrow`
+  - `admin_negocio` queda cubierto por:
+    - contratos RTL `ux.quality`, `ux.visual`, `gui.responsive.contract`
+    - carril Playwright `test:gui:responsive:e2e:admin`
+  - evidencia validada localmente para este corte:
+    - `npm run lint`
+    - `npm run typecheck`
+    - `npm run test:frontend:ci`
+    - `npm run test:backend:ci`
+    - `npm run test:portal:ci`
+    - `npm run pipeline:contract:check`
+    - `npx playwright test -c tests/gui-responsive/playwright.admin.config.cjs`

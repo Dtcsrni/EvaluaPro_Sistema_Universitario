@@ -7,6 +7,7 @@ import fs from 'node:fs/promises';
 import path from 'node:path';
 import { render, screen } from '@testing-library/react';
 import { afterAll, beforeEach, describe, expect, it } from 'vitest';
+import { AppAdminNegocio } from '../src/apps/app_admin_negocio/AppAdminNegocio';
 import { AppAlumno } from '../src/apps/app_alumno/AppAlumno';
 import { AppDocente } from '../src/apps/app_docente/AppDocente';
 import { TemaProvider } from '../src/tema/TemaProvider';
@@ -51,6 +52,20 @@ describe('UX visual regression', () => {
     expect(screen.getByLabelText(/Codigo de acceso/i)).toBeInTheDocument();
     expect(asFragment()).toMatchSnapshot();
     resultados.push({ id: 'alumno-acceso', estado: 'ok' });
+  });
+
+  it('admin negocio mantiene layout principal', () => {
+    (globalThis as typeof globalThis & { __TEST_DOCENTE__?: Record<string, unknown> }).__TEST_DOCENTE__ = {
+      permisos: ['comercial:metricas:leer', 'comercial:tenants:leer']
+    };
+    const { asFragment } = render(
+      <TemaProvider>
+        <AppAdminNegocio />
+      </TemaProvider>
+    );
+    expect(screen.getByText(/Panel de Negocio EvaluaPro/i)).toBeInTheDocument();
+    expect(asFragment()).toMatchSnapshot();
+    resultados.push({ id: 'admin-negocio-main', estado: 'ok' });
   });
 });
 

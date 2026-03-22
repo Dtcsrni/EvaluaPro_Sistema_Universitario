@@ -134,6 +134,17 @@ Version visible GUI: `1.0.0b`
   - nuevo test `apps/backend/tests/rutasSalud.test.ts` cubre salud, readiness, métricas, version-info, IP local y QR
   - nuevo test `apps/frontend/tests/appAlumno.behavior.test.tsx` cubre login, cooldown, detalle, revisión, conformidad, PDF y cierre de sesión
   - `AppAlumno.tsx` corrige re-render al cerrar sesión local o por invalidación externa
+- Validación incremental UX/UI 2026-03-22:
+  - `ConfirmDialogProvider` queda como contrato frontend para confirmaciones accesibles y sin fallback a confirm nativo dentro de la app
+  - `ToastPayload` incorpora `secondaryAction` y `eyebrow` para feedback más explícito
+  - `admin_negocio` recibe baseline visual/responsive y ayuda contextual homogénea
+  - nuevo gate responsive específico:
+    - `npx playwright test -c tests/gui-responsive/playwright.admin.config.cjs` ✅
+  - pruebas UX/frontend del corte:
+    - `npm -C apps/frontend run test -- --reporter=verbose tests/ux.quality.test.tsx tests/gui.responsive.contract.test.tsx tests/ux.visual.test.tsx` ✅
+  - snapshots/artefactos QA actualizados como nuevo baseline visual:
+    - `apps/frontend/tests/__snapshots__/ux.visual.test.tsx.snap`
+    - `apps/frontend/reports/qa/latest/ux-visual.json`
 - `npm run release:validate:stable -- --version=1.0.0 --repo=Dtcsrni/EvaluaPro_Sistema_Universitario` ❌ esperado (`No-Go`)
   - bloqueo real actualizado:
     - `ci-streak=7/10`

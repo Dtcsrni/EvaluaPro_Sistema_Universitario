@@ -1,24 +1,24 @@
 # Inventario Exhaustivo de Codigo
 
-Fecha de generacion: 2026-03-22 02:31:53
+Fecha de generacion: 2026-03-22 04:54:43
 Fuente: git ls-files (solo archivos versionados, excluye node_modules).
 
 ## Resumen
 
-- Total de piezas de codigo/config ejecutable inventariadas: 846
+- Total de piezas de codigo/config ejecutable inventariadas: 857
 - Extensiones incluidas: ts, tsx, js, jsx, mjs, cjs, json, yml, yaml, sh, cmd, ps1.
 
 ## Conteo por area
 
 | Area | Archivos |
 | --- | ---: |
-| backend | 371 |
-| frontend | 120 |
+| backend | 372 |
+| frontend | 123 |
 | portal_alumno_cloud | 42 |
 | ci | 15 |
-| scripts | 107 |
+| scripts | 111 |
 | ops | 3 |
-| docs | 14 |
+| docs | 16 |
 | raiz | 9 |
 
 ## Backend (apps/backend)
@@ -377,6 +377,7 @@ Fuente: git ls-files (solo archivos versionados, excluye node_modules).
 - apps/backend/tests/rateLimit.test.ts
 - apps/backend/tests/recovery.manifest.test.ts
 - apps/backend/tests/robustez.test.ts
+- apps/backend/tests/rutasSalud.test.ts
 - apps/backend/tests/salud.test.ts
 - apps/backend/tests/sanitizarMongo.test.ts
 - apps/backend/tests/servicioClassroomGoogle.test.ts
@@ -482,6 +483,7 @@ Fuente: git ls-files (solo archivos versionados, excluye node_modules).
 - apps/frontend/src/ui/version/UpdatePanel.tsx
 - apps/frontend/src/ui/version/versionInfo.ts
 - apps/frontend/src/ui/version/VersionInfoPage.tsx
+- apps/frontend/tests/appAlumno.behavior.test.tsx
 - apps/frontend/tests/appAlumno.test.tsx
 - apps/frontend/tests/appDocente.dominiosCobertura.test.tsx
 - apps/frontend/tests/appDocente.previewConsolidado.test.tsx
@@ -499,6 +501,8 @@ Fuente: git ls-files (solo archivos versionados, excluye node_modules).
 - apps/frontend/tests/mensajeInline.test.ts
 - apps/frontend/tests/plantillas.hooks.test.tsx
 - apps/frontend/tests/plantillas.refactor.test.tsx
+- apps/frontend/tests/portalSw.contract.test.ts
+- apps/frontend/tests/pwa.contract.test.ts
 - apps/frontend/tests/seccionAutenticacion.googleOnly.test.tsx
 - apps/frontend/tests/seccionAutenticacion.test.tsx
 - apps/frontend/tests/seccionCalificaciones.manualSelector.test.tsx
@@ -618,6 +622,7 @@ Fuente: git ls-files (solo archivos versionados, excluye node_modules).
 - scripts/guard-env-separation.mjs
 - scripts/ia-docblocks.mjs
 - scripts/ia-handoff.mjs
+- scripts/ia-traceability.mjs
 - scripts/import-backup.mjs
 - scripts/Install-EvaluaPro.ps1
 - scripts/install-maintenance-tasks.ps1
@@ -663,8 +668,11 @@ Fuente: git ls-files (solo archivos versionados, excluye node_modules).
 - scripts/testing/run-gate-with-report.mjs
 - scripts/testing/start-frontend-e2e-server.mjs
 - scripts/testing/validate-anon-fixture.mjs
+- scripts/tests/dashboard-pwa-contract.test.mjs
 - scripts/tests/dashboard-repair.test.mjs
+- scripts/tests/dashboard-sw.test.mjs
 - scripts/tests/dashboard-ui.test.mjs
+- scripts/tests/ia-traceability.test.mjs
 - scripts/tests/installer-hub-contract.test.mjs
 - scripts/tests/marketing-site.smoke.test.mjs
 - scripts/tests/perf-contract.test.mjs
@@ -703,6 +711,8 @@ Fuente: git ls-files (solo archivos versionados, excluye node_modules).
 - docs/comercial/feature-catalog.generated.json
 - docs/diagramas/mermaid.config.json
 - docs/diagramas/puppeteer.config.json
+- docs/handoff/sesiones/2026-03-22/implementacion-trazabilidad-agnostica.json
+- docs/handoff/trace.schema.json
 - docs/perf/baseline.business.json
 - docs/perf/baseline.json
 - docs/release/evidencias/1.0.0/ci-runs.fixture.json

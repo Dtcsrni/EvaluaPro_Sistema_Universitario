@@ -1,6 +1,6 @@
 {
   "version": "1",
-  "ejecutadoEn": "2026-03-22T08:26:34.134Z",
+  "ejecutadoEn": "2026-03-22T10:54:12.038Z",
   "suite": "ux.visual",
   "snapshots": [
     {
@@ -9,6 +9,10 @@
     },
     {
       "id": "alumno-acceso",
+      "estado": "ok"
+    },
+    {
+      "id": "admin-negocio-main",
       "estado": "ok"
     }
   ]

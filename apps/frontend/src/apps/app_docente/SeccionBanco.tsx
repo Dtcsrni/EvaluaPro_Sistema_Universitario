@@ -12,6 +12,7 @@
  */
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { accionToastSesionParaError } from '../../servicios_api/clienteComun';
+import { useConfirmDialog } from '../../ui/feedback/ConfirmDialogProvider';
 import { emitToast } from '../../ui/toast/toastBus';
 import { estimarPaginasParaPreguntas, normalizarNombreTema, type TemaBanco } from './SeccionBanco.helpers';
 import { clienteApi } from './clienteApiDocente';
@@ -96,6 +97,7 @@ export function SeccionBanco({
   const [sinTemaDestinoId, setSinTemaDestinoId] = useState<string>('');
   const [sinTemaSeleccion, setSinTemaSeleccion] = useState<Set<string>>(new Set());
   const [moviendoSinTema, setMoviendoSinTema] = useState(false);
+  const confirm = useConfirmDialog();
 
   useEffect(() => {
     if (periodoId) return;
@@ -500,7 +502,13 @@ export function SeccionBanco({
       avisarSinPermiso('No tienes permiso para archivar temas.');
       return;
     }
-    const ok = globalThis.confirm(`¿Archivar el tema "${item.nombre}"? Se removerá de plantillas y preguntas.`);
+    const ok = await confirm({
+      title: 'Archivar tema',
+      message: `El tema "${item.nombre}" dejará de estar disponible para trabajo activo.`,
+      details: ['Se removerá de plantillas y preguntas relacionadas.'],
+      confirmLabel: 'Sí, archivar tema',
+      tone: 'warning'
+    });
     if (!ok) return;
     try {
       setArchivandoTemaId(item._id);
@@ -636,9 +644,13 @@ export function SeccionBanco({
       avisarSinPermiso('No tienes permiso para eliminar preguntas.');
       return;
     }
-    const ok = globalThis.confirm(
-      '¿Eliminar esta pregunta?\n\nEsta accion es permanente y tambien la quitara de plantillas que la referencien.'
-    );
+    const ok = await confirm({
+      title: 'Eliminar pregunta',
+      message: 'La pregunta se eliminará de forma permanente.',
+      details: ['También se quitará de plantillas que la referencien.'],
+      confirmLabel: 'Sí, eliminar pregunta',
+      tone: 'danger'
+    });
     if (!ok) return;
     try {
       const inicio = Date.now();

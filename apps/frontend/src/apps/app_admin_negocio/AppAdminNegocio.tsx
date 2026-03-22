@@ -1,5 +1,9 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { clienteAdminNegocioApi } from './clienteAdminNegocioApi';
+import { emitToast } from '../../ui/toast/toastBus';
+import { Icono } from '../../ui/iconos';
+import { InlineMensaje } from '../../ui/ux/componentes/InlineMensaje';
+import { HelperPanel } from '../../ui/ux/componentes/HelperPanel';
 
 type Perfil = {
   docente?: {
@@ -56,6 +60,49 @@ const VISTAS: Array<{ id: Vista; label: string }> = [
   { id: 'cobranza', label: 'Cobranza' },
   { id: 'auditoria', label: 'Auditoria' }
 ];
+
+const AYUDAS_VISTA: Record<Vista, { descripcion: string; pasos: string[] }> = {
+  dashboard: {
+    descripcion: 'Monitorea salud comercial, cobranza y desempeño del portafolio antes de ejecutar cambios.',
+    pasos: ['Revisa KPIs críticos.', 'Entra a la capacidad que necesites ajustar.', 'Recarga después de una operación sensible.']
+  },
+  tenants: {
+    descripcion: 'Crea y revisa tenants comerciales con datos mínimos operativos.',
+    pasos: ['Define un identificador único.', 'Asocia un owner docente.', 'Registra contacto operativo.']
+  },
+  planes: {
+    descripcion: 'Gestiona oferta comercial y estructura base de precios.',
+    pasos: ['Usa IDs estables.', 'Mantén precios y margen coherentes.', 'Recarga para validar persistencia.']
+  },
+  suscripciones: {
+    descripcion: 'Activa ciclos comerciales y estados de suscripción.',
+    pasos: ['Vincula tenant y plan.', 'Elige ciclo y estado inicial.', 'Usa trial solo cuando aplique.']
+  },
+  licencias: {
+    descripcion: 'Genera licencias operativas para despliegues controlados.',
+    pasos: ['Confirma el tenant.', 'Genera la licencia.', 'Valida el resultado en datos crudos.']
+  },
+  cupones: {
+    descripcion: 'Crea descuentos temporales con vigencia controlada.',
+    pasos: ['Define código claro.', 'Ajusta el descuento.', 'Revisa vigencia al terminar.']
+  },
+  campanas: {
+    descripcion: 'Configura campañas por canal disponible.',
+    pasos: ['Selecciona el canal permitido.', 'Nombra la campaña.', 'Verifica capacidades SMTP antes de email.']
+  },
+  plantillas_notificacion: {
+    descripcion: 'Administra mensajes de cobranza y comunicación recurrente.',
+    pasos: ['Crea una plantilla base.', 'Edita asunto y contenido.', 'Mantén variables consistentes.']
+  },
+  cobranza: {
+    descripcion: 'Opera links de cobro y el ciclo de mora desde una sola vista.',
+    pasos: ['Genera la preferencia.', 'Abre el checkout si aplica.', 'Ejecuta el ciclo solo con contexto claro.']
+  },
+  auditoria: {
+    descripcion: 'Consulta trazabilidad comercial y evidencia operativa.',
+    pasos: ['Recarga antes de revisar.', 'Confirma filtros o contexto.', 'Usa los datos crudos como evidencia.']
+  }
+};
 
 export function AppAdminNegocio() {
   const [perfil, setPerfil] = useState<Perfil | null>(null);
@@ -142,27 +189,39 @@ export function AppAdminNegocio() {
     const payload = data as { plantillas?: PlantillaNotificacion[] } | null;
     return Array.isArray(payload?.plantillas) ? payload.plantillas : [];
   }, [data]);
+  const ayudaVista = AYUDAS_VISTA[vista];
 
-  async function cargarPerfil() {
+  const notificar = useCallback((level: 'ok' | 'error' | 'warn' | 'info', title: string, message: string) => {
+    setMensaje(message);
+    emitToast({
+      level,
+      title,
+      message,
+      eyebrow: 'Panel de negocio',
+      durationMs: level === 'error' ? 5200 : 2800
+    });
+  }, []);
+
+  const cargarPerfil = useCallback(async () => {
     try {
       const payload = await clienteAdminNegocioApi.obtener<Perfil>('/autenticacion/perfil');
       setPerfil(payload);
       setMensaje('');
     } catch {
-      setMensaje('No hay sesion activa. Ingresa con tu cuenta Google y rol comercial.');
+      notificar('warn', 'Sesión comercial requerida', 'No hay sesion activa. Ingresa con tu cuenta Google y rol comercial.');
     }
-  }
+  }, [notificar]);
 
-  async function cargarCapacidadesIntegraciones() {
+  const cargarCapacidadesIntegraciones = useCallback(async () => {
     try {
       const payload = await clienteAdminNegocioApi.obtener<{ capacidadesIntegraciones?: { smtpBackend?: boolean } }>('/autenticacion/capacidades-integraciones');
       setCapacidadesIntegraciones({ smtpBackend: Boolean(payload?.capacidadesIntegraciones?.smtpBackend) });
     } catch {
       setCapacidadesIntegraciones({ smtpBackend: false });
     }
-  }
+  }, []);
 
-  async function cargarVistaActual(v: Vista) {
+  const cargarVistaActual = useCallback(async (v: Vista) => {
     const rutas: Record<Vista, string> = {
       dashboard: '/admin-negocio/dashboard/resumen',
       tenants: '/admin-negocio/tenants',
@@ -186,20 +245,20 @@ export function AppAdminNegocio() {
       }
       setMensaje('');
     } catch (error) {
-      setMensaje(clienteAdminNegocioApi.mensajeUsuarioDeError(error, 'No se pudo cargar la vista'));
+      notificar('error', 'Vista no disponible', clienteAdminNegocioApi.mensajeUsuarioDeError(error, 'No se pudo cargar la vista'));
     } finally {
       setCargando(false);
     }
-  }
+  }, [notificar]);
 
-  async function cargarResumenDashboard() {
+  const cargarResumenDashboard = useCallback(async () => {
     try {
       const payload = await clienteAdminNegocioApi.obtener<{ resumen?: DashboardResumen }>('/admin-negocio/dashboard/resumen');
       if (payload?.resumen) setResumenDashboard(payload.resumen);
     } catch {
       // Evitar ruido visual: el resumen principal es complementario al resto del panel.
     }
-  }
+  }, []);
 
   const formatearMoneda = useCallback((valor: number | undefined) => {
     const numero = Number(valor || 0);
@@ -224,10 +283,10 @@ export function AppAdminNegocio() {
           telefono: nuevoTenant.contactoTelefono || undefined
         }
       });
-      setMensaje('Tenant creado');
+      notificar('ok', 'Tenant creado', 'El tenant se creó correctamente.');
       await cargarVistaActual('tenants');
     } catch (error) {
-      setMensaje(clienteAdminNegocioApi.mensajeUsuarioDeError(error, 'No se pudo crear tenant'));
+      notificar('error', 'No se pudo crear tenant', clienteAdminNegocioApi.mensajeUsuarioDeError(error, 'No se pudo crear tenant'));
     }
   }
 
@@ -239,10 +298,10 @@ export function AppAdminNegocio() {
         margenObjetivoMinimo: 0.6,
         activo: true
       });
-      setMensaje('Plan creado');
+      notificar('ok', 'Plan creado', 'El plan se creó correctamente.');
       await cargarVistaActual('planes');
     } catch (error) {
-      setMensaje(clienteAdminNegocioApi.mensajeUsuarioDeError(error, 'No se pudo crear plan'));
+      notificar('error', 'No se pudo crear plan', clienteAdminNegocioApi.mensajeUsuarioDeError(error, 'No se pudo crear plan'));
     }
   }
 
@@ -252,10 +311,10 @@ export function AppAdminNegocio() {
         ...nuevaSuscripcion,
         pasarela: 'mercadopago'
       });
-      setMensaje('Suscripcion creada');
+      notificar('ok', 'Suscripción creada', 'La suscripcion se creó correctamente.');
       await cargarVistaActual('suscripciones');
     } catch (error) {
-      setMensaje(clienteAdminNegocioApi.mensajeUsuarioDeError(error, 'No se pudo crear suscripcion'));
+      notificar('error', 'No se pudo crear suscripción', clienteAdminNegocioApi.mensajeUsuarioDeError(error, 'No se pudo crear suscripcion'));
     }
   }
 
@@ -271,10 +330,10 @@ export function AppAdminNegocio() {
         usoMaximo: 100,
         activo: true
       });
-      setMensaje('Cupon creado');
+      notificar('ok', 'Cupón creado', 'El cupon se creó correctamente.');
       await cargarVistaActual('cupones');
     } catch (error) {
-      setMensaje(clienteAdminNegocioApi.mensajeUsuarioDeError(error, 'No se pudo crear cupon'));
+      notificar('error', 'No se pudo crear cupón', clienteAdminNegocioApi.mensajeUsuarioDeError(error, 'No se pudo crear cupon'));
     }
   }
 
@@ -289,10 +348,10 @@ export function AppAdminNegocio() {
         presupuestoMxn: 15000,
         estado: 'borrador'
       });
-      setMensaje('Campana creada');
+      notificar('ok', 'Campaña creada', 'La campana se creó correctamente.');
       await cargarVistaActual('campanas');
     } catch (error) {
-      setMensaje(clienteAdminNegocioApi.mensajeUsuarioDeError(error, 'No se pudo crear campana'));
+      notificar('error', 'No se pudo crear campaña', clienteAdminNegocioApi.mensajeUsuarioDeError(error, 'No se pudo crear campana'));
     }
   }
 
@@ -303,10 +362,10 @@ export function AppAdminNegocio() {
         activo: true,
         variables: ['tenantNombre', 'tenantId', 'diasVencidos', 'estadoSuscripcion']
       });
-      setMensaje('Plantilla de notificacion creada');
+      notificar('ok', 'Plantilla creada', 'La plantilla de notificación se creó correctamente.');
       await cargarVistaActual('plantillas_notificacion');
     } catch (error) {
-      setMensaje(clienteAdminNegocioApi.mensajeUsuarioDeError(error, 'No se pudo crear plantilla de notificacion'));
+      notificar('error', 'No se pudo crear plantilla', clienteAdminNegocioApi.mensajeUsuarioDeError(error, 'No se pudo crear plantilla de notificacion'));
     }
   }
 
@@ -326,17 +385,17 @@ export function AppAdminNegocio() {
 
   async function actualizarPlantillaNotificacion() {
     if (!plantillaSeleccionadaId) {
-      setMensaje('Selecciona una plantilla para editar');
+      notificar('warn', 'Selecciona una plantilla', 'Elige una plantilla existente para editarla.');
       return;
     }
     try {
       await clienteAdminNegocioApi.enviar(`/admin-negocio/plantillas-notificacion/${plantillaSeleccionadaId}`, {
         ...edicionPlantillaNotificacion
       });
-      setMensaje('Plantilla actualizada');
+      notificar('ok', 'Plantilla actualizada', 'La plantilla se actualizó correctamente.');
       await cargarVistaActual('plantillas_notificacion');
     } catch (error) {
-      setMensaje(clienteAdminNegocioApi.mensajeUsuarioDeError(error, 'No se pudo actualizar plantilla'));
+      notificar('error', 'No se pudo actualizar plantilla', clienteAdminNegocioApi.mensajeUsuarioDeError(error, 'No se pudo actualizar plantilla'));
     }
   }
 
@@ -348,10 +407,10 @@ export function AppAdminNegocio() {
         ...nuevaLicencia,
         expiraEn: fin.toISOString()
       });
-      setMensaje('Licencia generada');
+      notificar('ok', 'Licencia generada', 'La licencia se generó correctamente.');
       await cargarVistaActual('licencias');
     } catch (error) {
-      setMensaje(clienteAdminNegocioApi.mensajeUsuarioDeError(error, 'No se pudo generar licencia'));
+      notificar('error', 'No se pudo generar licencia', clienteAdminNegocioApi.mensajeUsuarioDeError(error, 'No se pudo generar licencia'));
     }
   }
 
@@ -367,10 +426,10 @@ export function AppAdminNegocio() {
       });
       const url = String(payload?.preferencia?.initPoint || payload?.preferencia?.sandboxInitPoint || '').trim();
       setUltimoInitPoint(url);
-      setMensaje(url ? 'Preferencia creada. Abre el enlace para cobrar.' : 'Preferencia creada.');
+      notificar('ok', 'Preferencia creada', url ? 'Preferencia creada. Abre el enlace para cobrar.' : 'Preferencia creada.');
       await cargarVistaActual('cobranza');
     } catch (error) {
-      setMensaje(clienteAdminNegocioApi.mensajeUsuarioDeError(error, 'No se pudo crear preferencia Mercado Pago'));
+      notificar('error', 'No se pudo crear preferencia', clienteAdminNegocioApi.mensajeUsuarioDeError(error, 'No se pudo crear preferencia Mercado Pago'));
     }
   }
 
@@ -385,17 +444,17 @@ export function AppAdminNegocio() {
         };
       }>('/admin-negocio/cobranza/ciclo/ejecutar', {});
       setResumenCicloCobranza(payload.resumen || null);
-      setMensaje('Ciclo de cobranza ejecutado');
+      notificar('ok', 'Ciclo ejecutado', 'El ciclo de cobranza se ejecutó correctamente.');
       await cargarVistaActual('cobranza');
     } catch (error) {
-      setMensaje(clienteAdminNegocioApi.mensajeUsuarioDeError(error, 'No se pudo ejecutar ciclo de cobranza'));
+      notificar('error', 'No se pudo ejecutar ciclo', clienteAdminNegocioApi.mensajeUsuarioDeError(error, 'No se pudo ejecutar ciclo de cobranza'));
     }
   }
 
   useEffect(() => {
     void cargarPerfil();
     void cargarCapacidadesIntegraciones();
-  }, []);
+  }, [cargarCapacidadesIntegraciones, cargarPerfil]);
 
   useEffect(() => {
     if (smtpDisponible) return;
@@ -413,12 +472,12 @@ export function AppAdminNegocio() {
   useEffect(() => {
     if (!puedeVer) return;
     void cargarVistaActual(vista);
-  }, [vista, puedeVer]);
+  }, [cargarVistaActual, vista, puedeVer]);
 
   useEffect(() => {
     if (!puedeVer) return;
     void cargarResumenDashboard();
-  }, [puedeVer]);
+  }, [cargarResumenDashboard, puedeVer]);
 
   useEffect(() => {
     if (vista !== 'plantillas_notificacion') return;
@@ -435,20 +494,35 @@ export function AppAdminNegocio() {
   }, [vista, plantillasNotificacion, plantillaSeleccionadaId, seleccionarPlantillaNotificacion]);
 
   return (
-    <div className="panel cuenta-panel">
-      <h2>Panel de Negocio EvaluaPro</h2>
-      <p className="nota">
-        Usuario: <b>{perfil?.docente?.nombreCompleto || 'Sin sesion'}</b> ({perfil?.docente?.correo || '-'})
-      </p>
+    <div className="panel cuenta-panel admin-negocio-shell" data-admin-negocio="true">
+      <div className="admin-negocio-shell__header">
+        <div>
+          <p className="eyebrow">
+            <Icono nombre="docente" /> Panel estratégico
+          </p>
+          <h2>Panel de Negocio EvaluaPro</h2>
+          <p className="nota">
+            Usuario: <b>{perfil?.docente?.nombreCompleto || 'Sin sesion'}</b> ({perfil?.docente?.correo || '-'})
+          </p>
+        </div>
+        <div className="badge">Vista activa: {VISTAS.find((item) => item.id === vista)?.label || vista}</div>
+      </div>
 
       {!puedeVer ? (
         <div className="subpanel">
-          <p className="nota">
+          <InlineMensaje tipo="warning">
             Este panel requiere permisos comerciales. Ingresa con tu cuenta Google superadmin o asigna permisos comerciales a tu usuario.
-          </p>
+          </InlineMensaje>
         </div>
       ) : (
         <>
+          <div className="admin-negocio-shell__grid">
+            <HelperPanel
+              titulo={`Cómo operar ${VISTAS.find((item) => item.id === vista)?.label || vista}`}
+              descripcion={ayudaVista.descripcion}
+              pasos={ayudaVista.pasos}
+              notas={<span className="ayuda">Usa los datos crudos como evidencia operativa y recarga después de cada acción crítica.</span>}
+            />
           <div className="subpanel superadmin-overview">
             <div className="superadmin-overview__head">
               <div>
@@ -518,9 +592,16 @@ export function AppAdminNegocio() {
             </div>
           </div>
 
-          <div className="acciones acciones--mt">
+          <div className="acciones acciones--mt" role="navigation" aria-label="Vistas del panel de negocio">
             {VISTAS.map((item) => (
-              <button key={item.id} type="button" className="chip" disabled={cargando} onClick={() => setVista(item.id)}>
+              <button
+                key={item.id}
+                type="button"
+                className="chip"
+                disabled={cargando}
+                data-tooltip={`Abrir ${item.label}`}
+                onClick={() => setVista(item.id)}
+              >
                 {item.label}
               </button>
             ))}
@@ -735,6 +816,7 @@ export function AppAdminNegocio() {
           <div className="subpanel">
             <h3>Datos</h3>
             {cargando ? <p className="nota">Cargando...</p> : <pre className="admin-negocio__payload-json">{JSON.stringify(data, null, 2)}</pre>}
+          </div>
           </div>
         </>
       )}
