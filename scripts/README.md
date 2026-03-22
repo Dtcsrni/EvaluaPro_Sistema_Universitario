@@ -90,8 +90,16 @@ Herramientas de operación local (principalmente Windows) para **Sistema EvaluaP
 - Comandos:
   - `npm run ia:handoff:quick`
   - `npm run ia:handoff:full`
+- Input opcional:
+  - `node scripts/ia-handoff.mjs --mode quick --input <archivo.json>`
 - Salida:
+  - `docs/handoff/sesiones/<YYYY-MM-DD>/<sesion>.json`
   - `docs/handoff/sesiones/<YYYY-MM-DD>/<sesion>.md`
+- Contrato:
+  - `docs/handoff/trace.schema.json`
+  - `docs/handoff/CONTRATO_TRAZABILIDAD_IA.md`
+- Validación:
+  - `npm run test:ia:traceability`
 
 ## Comentarios autoexplicativos por archivo
 - Script: `ia-docblocks.mjs`
