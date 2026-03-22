@@ -1,6 +1,6 @@
 # Inventario Tecnico del Proyecto
 
-Fecha de corte: 2026-03-20
+Fecha de corte: 2026-03-22
 Version tecnica objetivo: `1.0.0`
 Version visible objetivo: `1.0.0b`
 
@@ -76,8 +76,22 @@ Version visible objetivo: `1.0.0b`
 - OMR: contrato sin `engineUsed`
 - PDF: contrato TV4 canonico con paginacion moderna y paridad estructural A050929D
 - Sync: `schemaVersion: 2`, fingerprint `sync-v2-lww-updatedAt-schema2`
+- Trazabilidad IA:
+  - contrato canonico `docs/handoff/trace.schema.json`
+  - estados `draft|final`
+  - handoff por sesion en `.json` + `.md`
+  - `unknown` permitido para identidad tecnica no expuesta por el runtime
+- PWA frontend:
+  - manifests separados `docente` y `alumno` con `id` estable
+  - iconos instalables PNG `192/512` y `maskable`
+  - estado observable publicado por `apps/frontend/src/pwa.ts` en `window.__EVALUAPRO_PWA__`
+  - `portal-sw.js` cachea solo shell assets seguros; navegación y `/api/*` quedan en red
 - Control plane local:
   - `/api/status` expone `installationState`, `shortcutState`, `licenseState`, `bootstrapState`
+  - `/api/status` expone también `pwaPolicy` para reflejar contrato PWA local
+  - manifest del dashboard usa identidad estable `/pwa/evaluapro/dashboard-local`
+  - `service worker` del dashboard no intercepta navegación con shell offline; la navegación queda `network-only` para evitar flujos de recuperación falsos cuando el proceso local está caído
+  - limpieza de registros/cachés legacy reduce reinstalaciones PWA Chromium obsoletas sin tocar launchers `.lnk`
   - launchers Windows consumen bootstrap state por archivo en `logs/`
 
 ## 4) Gates de calidad
@@ -112,6 +126,7 @@ Version visible objetivo: `1.0.0b`
 ## 7) Evidencia y release
 - QA manifest: `reports/qa/latest/manifest.json`
 - Gate arquitectura limpia: `reports/qa/latest/clean-architecture.json`
+- Gate de trazabilidad IA: `npm run test:ia:traceability`
 - Gate estable: `docs/RELEASE_GATE_STABLE.md`
 - Paquete estable actual:
   - `docs/release/evidencias/1.0.0/manifest.json`
@@ -122,7 +137,10 @@ Version visible objetivo: `1.0.0b`
 - Decision gate estable actual:
   - `reports/release/stable-gate/1.0.0/decision.json`
   - estado actual: `No-Go`
-  - causa: gate humano de producción pendiente por falta de credenciales/IDs reales fuera del repo
+  - causas confirmadas al 2026-03-22:
+    - gate humano de producción pendiente por falta de credenciales/IDs reales fuera del repo
+    - racha CI remota actual `7/10`
+    - falta `dist/installer/EvaluaPro-release-manifest.json`
 - Evidencia Windows/local adicional:
   - `logs/installation.manifest.json`
   - `logs/bootstrap-state-*.json`
@@ -141,6 +159,9 @@ Version visible objetivo: `1.0.0b`
   - `test:portal:ci`
   - `perf:check`
   - `pipeline:contract:check`
+- Gates/contracts PWA del corte:
+  - `npm -C apps/frontend run test -- --run tests/pwa.contract.test.ts tests/portalSw.contract.test.ts`
+  - `node --test scripts/tests/dashboard-sw.test.mjs scripts/tests/dashboard-pwa-contract.test.mjs scripts/tests/dashboard-ui.test.mjs`
 - Smokes/contratos específicos del corte:
   - `node --test scripts/tests/perf-contract.test.mjs`
   - `node --test scripts/tests/installer-hub-contract.test.mjs`
@@ -172,3 +193,9 @@ Version visible objetivo: `1.0.0b`
   - `CI Frontend Module` corregido con cobertura adicional del sistema de tema y de la vista/helpers de versión.
   - `CI Installer Windows` corregido para no depender de una licencia portable preinstalada en el runner.
   - el head actual queda listo para rerun/dispatch limpio de workflows remotos sin deuda conocida.
+- Cierre parcial de deuda TDD 2026-03-22:
+  - exclusión retirada en backend: `src/compartido/salud/rutasSalud.ts`
+  - exclusión retirada en frontend: `src/apps/app_alumno/**`
+  - deuda temporal restante en `docs/tdd-exclusions-debt.json`: `5` entradas activas con vencimiento `2026-03-31`
+- Corrección funcional 2026-03-22:
+  - `apps/frontend/src/apps/app_alumno/AppAlumno.tsx` ahora re-renderiza correctamente al cerrar sesión o recibir invalidación externa de sesión alumno

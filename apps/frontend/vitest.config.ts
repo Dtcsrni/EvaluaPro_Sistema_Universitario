@@ -23,8 +23,6 @@ export default defineConfig({
       ...baseVitestConfig.coverage,
       exclude: [
         ...(baseVitestConfig.coverage?.exclude ?? []),
-        // TODO(2026-03-31|@frontend-core): retirar exclusion temporal bajo politica de deuda TDD.
-        'src/apps/app_alumno/**',
         'src/main.tsx',
         'src/index.css'
       ],

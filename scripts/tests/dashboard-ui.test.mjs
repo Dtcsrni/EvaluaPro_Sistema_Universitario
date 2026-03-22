@@ -6,6 +6,22 @@ import { JSDOM, VirtualConsole } from 'jsdom';
 
 const root = path.resolve(process.cwd());
 const dashboardHtml = fs.readFileSync(path.join(root, 'scripts', 'dashboard.html'), 'utf8');
+const dashboardManifest = JSON.parse(fs.readFileSync(path.join(root, 'scripts', 'dashboard.webmanifest'), 'utf8'));
+
+function createServiceWorkerMock() {
+  const registration = {
+    waiting: null,
+    installing: null,
+    update: () => Promise.resolve(),
+    addEventListener() {}
+  };
+  return {
+    controller: null,
+    register: () => Promise.resolve(registration),
+    addEventListener() {},
+    getRegistrations: () => Promise.resolve([])
+  };
+}
 
 function createJsonResponse(payload, status = 200) {
   return {
@@ -44,7 +60,7 @@ async function renderDashboard(routes) {
     virtualConsole,
     beforeParse(window) {
       window.fetch = createFetchMock(routes);
-      window.navigator.serviceWorker = { register: () => Promise.resolve() };
+      window.navigator.serviceWorker = createServiceWorkerMock();
       window.matchMedia = window.matchMedia || (() => ({
         matches: false,
         addEventListener() {},
@@ -75,7 +91,7 @@ async function renderDashboardWithSetup(routes, setup) {
     virtualConsole,
     beforeParse(window) {
       window.fetch = createFetchMock(routes);
-      window.navigator.serviceWorker = { register: () => Promise.resolve() };
+      window.navigator.serviceWorker = createServiceWorkerMock();
       window.matchMedia = window.matchMedia || (() => ({
         matches: false,
         addEventListener() {},
@@ -104,6 +120,7 @@ function createRoutes({ status, health }) {
   return {
     '/api/status': status,
     '/api/health': health,
+    '/manifest.webmanifest': dashboardManifest,
     '/api/install': {
       app: { name: 'evaluapro', version: '1.0.0', displayVersion: '1.0.0b' },
       dashboard: {
@@ -231,6 +248,36 @@ test('dashboard UI muestra PROD detectado con salud real y tareas separadas', as
   assert.equal(text(dom, 'version-chip'), 'v1.0.0b');
 
   dom.window.close();
+});
+
+test('dashboard UI publica estado observable PWA endurecido', async () => {
+  const dom = await renderDashboard(createRoutes({
+    status: {
+      app: { name: 'evaluapro', version: '1.0.0', displayVersion: '1.0.0b' },
+      running: [],
+      mode: 'prod',
+      modeConfig: 'prod',
+      installationState: { state: 'ok', issues: [] },
+      shortcutState: { state: 'ok', missing: [] },
+      pwaPolicy: {
+        installable: true,
+        launcherPreferred: true,
+        offlineCapable: false,
+        manifestId: '/pwa/evaluapro/dashboard-local',
+        startUrl: '/#tab=main&source=pwa'
+      }
+    },
+    health: { services: {} }
+  }));
+
+  try {
+    assert.ok(dom.window.__EVALUAPRO_PWA__);
+    assert.equal(dom.window.__EVALUAPRO_PWA__.manifestId, '/pwa/evaluapro/dashboard-local');
+    assert.equal(dom.window.document.documentElement.dataset.pwaMode, 'browser');
+    assert.equal(dom.window.document.documentElement.dataset.pwaLegacy, '0');
+  } finally {
+    dom.window.close();
+  }
 });
 
 test('dashboard UI eleva alerta principal cuando falla la salud real', async () => {

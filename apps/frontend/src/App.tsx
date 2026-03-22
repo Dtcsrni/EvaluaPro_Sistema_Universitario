@@ -32,6 +32,12 @@ function extraerAssetPrincipalDesdeHtml(html: string): string {
   return normalizarRutaAsset(match?.[1] || '');
 }
 
+function extraerVersionPwaDesdeManifest(json: unknown): string {
+  if (!json || typeof json !== 'object') return '';
+  const meta = (json as { x_evaluapro?: { version?: string } }).x_evaluapro;
+  return String(meta?.version || '').trim();
+}
+
 function establecerFavicon(href: string) {
   if (typeof document === 'undefined') return;
   const head = document.head;
@@ -66,21 +72,35 @@ function App() {
 
     let activo = true;
     let assetActual = obtenerAssetPrincipalActual();
+    const versionActual = String(import.meta.env.VITE_APP_DISPLAY_VERSION || import.meta.env.VITE_APP_VERSION || '').trim();
 
     const verificarCambios = async () => {
       if (!activo) return;
       try {
-        const respuesta = await fetch('/index.html', { cache: 'no-store', credentials: 'same-origin' });
-        if (!respuesta.ok) return;
-        const html = await respuesta.text();
+        const [respuestaHtml, respuestaManifest] = await Promise.all([
+          fetch('/index.html', { cache: 'no-store', credentials: 'same-origin' }),
+          fetch(String(document.querySelector<HTMLLinkElement>('link#app-manifest')?.href || '/manifest-docente.webmanifest'), {
+            cache: 'no-store',
+            credentials: 'same-origin'
+          })
+        ]);
+        if (!respuestaHtml.ok) return;
+        const html = await respuestaHtml.text();
         const assetPublicado = extraerAssetPrincipalDesdeHtml(html);
         if (!assetPublicado) return;
         if (!assetActual) {
           assetActual = assetPublicado;
+        } else if (assetPublicado !== assetActual) {
+          window.location.reload();
           return;
         }
-        if (assetPublicado !== assetActual) {
-          window.location.reload();
+
+        if (respuestaManifest.ok) {
+          const manifest = await respuestaManifest.json().catch(() => null);
+          const versionManifest = extraerVersionPwaDesdeManifest(manifest);
+          if (versionManifest && versionActual && versionManifest !== versionActual) {
+            window.location.reload();
+          }
         }
       } catch {
         // silencioso: siguiente ciclo vuelve a intentar
@@ -91,9 +111,32 @@ function App() {
       void verificarCambios();
     }, 30_000);
 
+    void verificarCambios();
+
     return () => {
       activo = false;
       window.clearInterval(intervalo);
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!import.meta.env.PROD) return;
+    const onPwaState = () => {
+      const estado = window.__EVALUAPRO_PWA__;
+      if (!estado?.legacyDetected) return;
+      if (String(sessionStorage.getItem('ep.pwa.legacy.warned') || '') === '1') return;
+      sessionStorage.setItem('ep.pwa.legacy.warned', '1');
+      if (estado.installed) {
+        try {
+          window.location.reload();
+        } catch {
+          // no-op
+        }
+      }
+    };
+    window.addEventListener('evaluapro:pwa-state', onPwaState as EventListener);
+    return () => {
+      window.removeEventListener('evaluapro:pwa-state', onPwaState as EventListener);
     };
   }, []);
 

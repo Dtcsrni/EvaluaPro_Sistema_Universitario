@@ -49,21 +49,21 @@
     },
     {
       "id": "backend-salud-rutas",
-      "file": "apps/backend/vitest.config.ts",
-      "pattern": "src/compartido/salud/rutasSalud.ts",
+      "file": "apps/backend/tests/rutasSalud.test.ts",
+      "pattern": "describe('rutasSalud'",
       "owner": "@backend-platform",
-      "dueDate": "2026-03-31",
-      "status": "temporary",
-      "reason": "Cobertura indirecta existente; falta validación unitaria directa."
+      "dueDate": "2026-03-22",
+      "status": "resolved",
+      "reason": "Cobertura unitaria directa agregada; exclusión retirada del backend."
     },
     {
       "id": "frontend-app-alumno",
-      "file": "apps/frontend/vitest.config.ts",
-      "pattern": "src/apps/app_alumno/**",
+      "file": "apps/frontend/tests/appAlumno.behavior.test.tsx",
+      "pattern": "describe('AppAlumno behavior'",
       "owner": "@frontend-core",
-      "dueDate": "2026-03-31",
-      "status": "temporary",
-      "reason": "Se requiere ampliar pruebas de comportamiento del flujo alumno."
+      "dueDate": "2026-03-22",
+      "status": "resolved",
+      "reason": "Cobertura de comportamiento ampliada; exclusión retirada del frontend."
     }
   ]
 }

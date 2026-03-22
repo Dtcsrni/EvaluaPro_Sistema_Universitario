@@ -1,6 +1,6 @@
 # Engineering Baseline
 
-Fecha de baseline: 2026-03-20
+Fecha de baseline: 2026-03-22
 Version tecnica: `1.0.0`
 Version visible GUI: `1.0.0b`
 
@@ -10,6 +10,20 @@ Version visible GUI: `1.0.0b`
   - `apps/frontend`
   - `apps/portal_alumno_cloud`
 - API canonica unificada en `/api/*`.
+- Trazabilidad IA agnostica endurecida:
+  - contrato canonico en `docs/handoff/trace.schema.json`
+  - generacion dual por sesion (`.json` + `.md`)
+  - semantica `draft|final`
+  - `npm run ci:policy:audit` valida el contrato via `npm run test:ia:traceability`
+- PWA frontend endurecida:
+  - manifests `docente` y `alumno` con `id` estable y assets PNG/maskable dedicados
+  - `window.__EVALUAPRO_PWA__` y `dataset` HTML publican modo, destino, versión e indicador `legacy`
+  - `portal-sw.js` mantiene HTML y `/api/*` en red; solo cachea assets seguros del shell
+- Dashboard local:
+  - manifest PWA con `id` estable `/pwa/evaluapro/dashboard-local`, `launcherPreferred: true` y `offlineCapable: false`
+  - `service worker` conserva `network-only` para navegación y `/api/*`
+  - navegación `GET` ya no cae a una shell offline con acciones no ejecutables cuando el launcher local no existe
+  - limpieza best-effort de SW/caches legacy para evitar PWAs Chromium obsoletas
 - OMR y PDF operan en TV4 como contrato canonico, preservando el baseline visual A050929D.
 - Sincronizacion con schema v2.
 - Contrato CI alineado con gate `clean-architecture-check`.
@@ -90,7 +104,10 @@ Version visible GUI: `1.0.0b`
 - `npm run test:portal:ci` ✅
 - `npm run perf:check` ✅
 - `npm run pipeline:contract:check` ✅
+- `node --test scripts/tests/dashboard-sw.test.mjs scripts/tests/dashboard-pwa-contract.test.mjs scripts/tests/dashboard-ui.test.mjs` ✅
+- `npm -C apps/frontend run test -- --run tests/pwa.contract.test.ts tests/portalSw.contract.test.ts` ✅
 - `npm run test:release:policy` ✅
+- `npm run test:ia:traceability` ✅
 - `npm run release:validate:stable -- --version=1.0.0 --runs-fixture=docs/release/evidencias/1.0.0/ci-runs.fixture.json --installer-manifest=docs/release/evidencias/1.0.0/installer-release-manifest.fixture.json` ❌ esperado (`No-Go`)
 - `node --test scripts/tests/perf-contract.test.mjs` ✅
 - `node --test scripts/tests/installer-hub-contract.test.mjs` ✅
@@ -111,8 +128,20 @@ Version visible GUI: `1.0.0b`
 - `npm run status` ✅
 - `htmlToPdfBuffer(...)` dentro de `api_docente_prod` ✅
   - validado con `PLAYWRIGHT_CHROMIUM_EXECUTABLE=/usr/local/bin/evaluapro-chromium`
+- Validación incremental 2026-03-22:
+  - retiro de exclusión TDD backend para `src/compartido/salud/rutasSalud.ts`
+  - retiro de exclusión TDD frontend para `src/apps/app_alumno/**`
+  - nuevo test `apps/backend/tests/rutasSalud.test.ts` cubre salud, readiness, métricas, version-info, IP local y QR
+  - nuevo test `apps/frontend/tests/appAlumno.behavior.test.tsx` cubre login, cooldown, detalle, revisión, conformidad, PDF y cierre de sesión
+  - `AppAlumno.tsx` corrige re-render al cerrar sesión local o por invalidación externa
+- `npm run release:validate:stable -- --version=1.0.0 --repo=Dtcsrni/EvaluaPro_Sistema_Universitario` ❌ esperado (`No-Go`)
+  - bloqueo real actualizado:
+    - `ci-streak=7/10`
+    - `gateHumanoProduccion.resultado=fallo`
+    - falta `dist/installer/EvaluaPro-release-manifest.json`
 - Resultado del corte:
   - todos los gates obligatorios de `AGENTS.md` quedaron en verde
+  - la optimización PWA quedó validada con contratos específicos para manifest, SW y estado observable
   - smoke local de launcher/dashboard/Hub validado sobre instalación activa
   - smoke agresivo de repair validado en instalación temporal aislada
   - `perf:check` y cobertura backend estabilizados en Windows sin rebajar thresholds
@@ -120,9 +149,15 @@ Version visible GUI: `1.0.0b`
     - contract test del Installer Hub ya es portable entre Windows/Linux
     - diff coverage del portal y frontend cubierto en las rutas modificadas
     - smoke del Installer Windows ya tolera runners sin licencia portable preinstalada y compara `licenseState` de forma consistente con el manifiesto
+  - deuda TDD reducida:
+    - exclusiones resueltas: `backend-salud-rutas`, `frontend-app-alumno`
+    - exclusiones temporales restantes con vencimiento `2026-03-31`: `5`
   - contrato de promoción estable `1.0.0` implementado y validado
   - decisión actual de release estable: `No-Go`
-  - bloqueo restante: falta ejecutar el gate humano real en producción y regenerar la evidencia final con inputs reales
+  - bloqueos restantes de release:
+    - falta ejecutar el gate humano real en producción y regenerar la evidencia final con inputs reales
+    - la racha CI remota volvió a `7/10`
+    - falta regenerar el manifiesto `dist/installer/EvaluaPro-release-manifest.json`
 
 ## Verificacion minima
 - `npm run lint`
@@ -144,6 +179,7 @@ Version visible GUI: `1.0.0b`
 4. Playwright sigue descargando `ffmpeg` durante la instalacion; se elimina del runtime final en la misma capa, pero el coste de build persiste.
 5. La fase de rebrand sigue siendo parcial: quedó coherencia mínima de tema/iconografía, no un reemplazo total de todas las superficies.
 6. El step-up comercial quedó release-ready con TOTP/recovery, pero passkeys/FIDO2 todavía están fuera de este corte.
+7. Siguen activas `5` exclusiones temporales de cobertura backend con vencimiento `2026-03-31`.
 
 ## Reglas de gobernanza
 1. No merge sin gates base en verde (`lint`, `typecheck`, tests, build).

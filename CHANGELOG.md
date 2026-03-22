@@ -4,7 +4,40 @@ Este archivo sigue el formato "Keep a Changelog" (alto nivel) y SemVer.
 
 ## [Unreleased]
 
+### Fixed
+- Portal alumno: `AppAlumno` ahora re-renderiza correctamente al cerrar sesión local o cuando llega una invalidación externa de sesión, evitando que la UI se quede mostrando el estado autenticado tras limpiar `tokenAlumno`.
+- Dashboard local: el `service worker` ya no secuestra la navegación con una pantalla offline que ofrecía acciones imposibles (`/api/start`, `/api/repair/*`) cuando el proceso del dashboard estaba caído.
+- Cobertura contractual nueva en `scripts/tests/dashboard-sw.test.mjs` para asegurar:
+  - navegación `network-only` sin fallback HTML engañoso
+  - `/api/*` sigue siendo `network-only`
+- Optimización integral PWA cerrada para frontend y dashboard local:
+  - manifests con `id` estable por superficie (`docente`, `alumno`, `dashboard-local`)
+  - iconos PNG dedicados `192`/`512` y variante `maskable`
+  - `portal-sw.js` y `dashboard-sw.js` limitan caché a assets seguros; HTML y `/api/*` quedan `network-only`
+  - estado observable PWA publicado en `window.__EVALUAPRO_PWA__` y `dataset` del documento
+  - limpieza best-effort de service workers/caches legacy para reducir instalaciones Chromium obsoletas
+  - el dashboard local conserva installabilidad, pero queda subordinado al launcher oficial y marcado como `offlineCapable: false`
+
 ### Added
+- Contrato agnostico de trazabilidad IA:
+  - `docs/handoff/trace.schema.json`
+  - `docs/handoff/CONTRATO_TRAZABILIDAD_IA.md`
+  - salida canonica por sesion en `docs/handoff/sesiones/<YYYY-MM-DD>/<sessionId>.json`
+- Nuevo gate de politica para trazabilidad IA:
+  - `npm run test:ia:traceability`
+- Cobertura nueva para cierre parcial de deuda TDD:
+  - `apps/backend/tests/rutasSalud.test.ts`
+  - `apps/frontend/tests/appAlumno.behavior.test.tsx`
+- Cobertura contractual PWA nueva:
+  - `apps/frontend/tests/pwa.contract.test.ts`
+  - `apps/frontend/tests/portalSw.contract.test.ts`
+  - `scripts/tests/dashboard-pwa-contract.test.mjs`
+- Política PWA observable en control-plane local:
+  - `pwaPolicy` expuesto por `scripts/launcher-dashboard.mjs`
+  - manifest del dashboard endurecido con `launcherPreferred: true`
+- Recursos PWA nuevos:
+  - iconos PNG para frontend docente/alumno
+  - iconos PNG para dashboard local
 - Promoción estable `1.0.0` preparada con etiqueta visible `1.0.0b`:
   - fuente única de verdad `config/app-version.json`
   - `displayVersion` propagado a frontend, dashboard/control-plane, Hub y `logs/installation.manifest.json`
@@ -273,6 +306,27 @@ Este archivo sigue el formato "Keep a Changelog" (alto nivel) y SemVer.
   - `scripts/build-msi.ps1`
 
 ### Changed
+- `scripts/ia-handoff.mjs` ahora:
+  - acepta `--input <archivo.json>`
+  - genera JSON canonico y Markdown renderizado por sesion
+  - clasifica la sesion como `draft` o `final` por completitud semantica
+  - resume resultados de comandos sin volcar salidas crudas extensas por defecto
+- `npm run ci:policy:audit` incorpora `npm run test:ia:traceability`.
+- Gobernanza IA alineada en:
+  - `AGENTS.md`
+  - `docs/IA_TRAZABILIDAD_AGENTES.md`
+  - `docs/handoff/README.md`
+  - `scripts/README.md`
+- Se retiraron dos exclusiones temporales de cobertura:
+  - backend `src/compartido/salud/rutasSalud.ts`
+  - frontend `src/apps/app_alumno/**`
+- Validación real de release estable actualizada con repo remoto:
+  - `npm run release:validate:stable -- --version=1.0.0 --repo=Dtcsrni/EvaluaPro_Sistema_Universitario`
+  - resultado actual: `No-Go`
+  - blockers reales confirmados:
+    - `ci-streak=7/10`
+    - `gateHumanoProduccion.resultado=fallo`
+    - falta `dist/installer/EvaluaPro-release-manifest.json`
 - `scripts/perf-collect.ts` reutiliza apps backend/portal durante la colección, silencia logs de medición y estabiliza `perf:check` en Windows/CI local sin cambiar el contrato del gate.
 - `apps/backend/vitest.config.ts` endurece ejecución serial/forks para Windows (`fileParallelism=false`, `maxWorkers=1`, timeouts extendidos) y elimina la fuente principal de `spawn UNKNOWN`/timeouts bajo cobertura.
 - `apps/backend/tests/setup.ts`, `apps/backend/src/infraestructura/logging/logger.ts` y `apps/portal_alumno_cloud/src/infraestructura/logging/logger.ts` soportan silenciamiento de logs por entorno de prueba/perf sin alterar el comportamiento funcional del producto.

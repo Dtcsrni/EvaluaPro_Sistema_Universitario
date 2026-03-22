@@ -103,6 +103,7 @@ type HistorialAlumno = {
 
 export function AppAlumno() {
   const version = obtenerVersionApp();
+  const [token, setToken] = useState(() => obtenerTokenAlumno());
   const [codigo, setCodigo] = useState('');
   const [matricula, setMatricula] = useState('');
   const [mensaje, setMensaje] = useState('');
@@ -127,6 +128,7 @@ export function AppAlumno() {
 
   const cerrarSesion = useCallback(() => {
     limpiarTokenAlumno();
+    setToken(null);
     setResultados([]);
     setMensaje('');
     emitToast({ level: 'info', title: 'Sesion', message: 'Sesion cerrada', durationMs: 2200 });
@@ -160,6 +162,7 @@ export function AppAlumno() {
       setMensaje('');
       const respuesta = await clientePortal.enviar<{ token: string }>('/ingresar', { codigo, matricula });
       guardarTokenAlumno(respuesta.token);
+      setToken(respuesta.token);
       intentosFallidosRef.current = 0;
       setCooldownHasta(0);
       emitToast({ level: 'ok', title: 'Bienvenido', message: 'Sesion iniciada', durationMs: 2200 });
@@ -357,7 +360,6 @@ export function AppAlumno() {
     }
   }
 
-  const token = obtenerTokenAlumno();
   const puedeIngresar = Boolean(codigo.trim() && matricula.trim());
   // Valida sin bloquear el flujo (hay códigos reales con '-' / '_' y longitudes variables).
   const codigoValido = !codigo.trim() || /^[a-zA-Z0-9_-]{3,24}$/.test(codigo.trim());

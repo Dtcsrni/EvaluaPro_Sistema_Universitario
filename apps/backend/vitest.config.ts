@@ -30,8 +30,7 @@ export default defineConfig({
         'src/modulos/modulo_generacion_pdf/**',
         'src/modulos/modulo_sincronizacion_nube/**',
         'src/modulos/modulo_papelera/**',
-        'src/modulos/modulo_vinculacion_entrega/**',
-        'src/compartido/salud/rutasSalud.ts'
+        'src/modulos/modulo_vinculacion_entrega/**'
       ],
       thresholds: {
         lines: 55,

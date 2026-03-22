@@ -11,7 +11,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <meta name="theme-color" content="#02030a" />
   <link rel="icon" type="image/svg+xml" href="/assets/dashboard-icon.svg" />
-  <link rel="apple-touch-icon" href="/assets/dashboard-icon.svg" />
+  <link rel="apple-touch-icon" href="/assets/dashboard-icon-192.png" />
   <link rel="manifest" href="/manifest.webmanifest" />
   <title>Dashboard - Sistema EvaluaPro</title>
   <style>
@@ -4153,7 +4153,11 @@
 
     // Identificador de UI (útil para confirmar que el HTML recargó cambios).
     // Nota: actualiza este valor cuando hagas cambios visibles al dashboard.
-    const UI_REV = '2026-03-03.3';
+    const UI_REV = '2026-03-21.1';
+    const DASHBOARD_PWA_SCHEMA = '2026-03-21.1';
+    const DASHBOARD_PWA_SW_PATH = '/sw.js';
+    const DASHBOARD_PWA_CACHE = 'ep-dashboard-assets-v2026-03-21.2';
+    const DASHBOARD_PWA_CLEANUP_MARK = `ep.dashboard.pwa.cleanup.${DASHBOARD_PWA_SCHEMA}`;
 
     const CLAVE_ALMACEN_TEMA = 'ep.theme.preference';
     const CONFIG_DASHBOARD_DEFAULT = {
@@ -4357,11 +4361,138 @@
       } catch {}
     }
 
+    function detectarDisplayModePwa() {
+      try {
+        if (window.matchMedia('(display-mode: fullscreen)').matches) return 'fullscreen';
+        if (window.matchMedia('(display-mode: standalone)').matches) return 'standalone';
+        if (window.matchMedia('(display-mode: minimal-ui)').matches) return 'minimal-ui';
+      } catch {}
+      return 'browser';
+    }
+
+    function publicarEstadoPwaDashboard(parcial = {}) {
+      const previo = window.__EVALUAPRO_PWA__ || {};
+      const displayMode = detectarDisplayModePwa();
+      const instalado = displayMode !== 'browser' || Boolean(navigator.standalone);
+      const estado = Object.freeze({
+        schemaVersion: DASHBOARD_PWA_SCHEMA,
+        surface: 'dashboard-local',
+        manifestId: '/pwa/evaluapro/dashboard-local',
+        manifestHref: '/manifest.webmanifest',
+        version: '1.0.0b',
+        runtime: instalado ? 'installed' : 'browser',
+        displayMode,
+        installed: instalado,
+        installPromptAvailable: false,
+        legacyDetected: false,
+        cleanupPerformed: false,
+        cleanupSkipped: false,
+        swRegistered: false,
+        swScript: DASHBOARD_PWA_SW_PATH,
+        launcherPreferred: true,
+        ...previo,
+        ...parcial
+      });
+      window.__EVALUAPRO_PWA__ = estado;
+      document.documentElement.dataset.pwaMode = estado.runtime;
+      document.documentElement.dataset.pwaDisplay = estado.displayMode;
+      document.documentElement.dataset.pwaInstalled = estado.installed ? '1' : '0';
+      document.documentElement.dataset.pwaLegacy = estado.legacyDetected ? '1' : '0';
+      document.documentElement.dataset.pwaVersion = estado.version;
+      window.dispatchEvent(new CustomEvent('evaluapro:pwa-state', { detail: estado }));
+      state.pwa = estado;
+      return estado;
+    }
+
+    async function verificarManifestPwaDashboard() {
+      try {
+        const response = await fetch('/manifest.webmanifest', { cache: 'no-store' });
+        if (!response.ok) return {};
+        const manifest = await response.json();
+        const manifestId = String(manifest && manifest.id || '');
+        const legacyDetected = manifestId !== '/pwa/evaluapro/dashboard-local' || Boolean(manifest && manifest.x_evaluapro && manifest.x_evaluapro.offlineCapable);
+        return { manifestId: manifestId || '/pwa/evaluapro/dashboard-local', legacyDetected };
+      } catch {
+        return {};
+      }
+    }
+
+    async function limpiarEstadoPwaLegacyDashboard() {
+      try {
+        if (localStorage.getItem(DASHBOARD_PWA_CLEANUP_MARK)) {
+          return { cleanupPerformed: false, cleanupSkipped: true };
+        }
+      } catch {}
+
+      let cleanupPerformed = false;
+      try {
+        if ('serviceWorker' in navigator && typeof navigator.serviceWorker.getRegistrations === 'function') {
+          const registrations = await navigator.serviceWorker.getRegistrations();
+          for (const registration of registrations) {
+            const scripts = [registration.active, registration.waiting, registration.installing]
+              .filter(Boolean)
+              .map((worker) => {
+                try {
+                  return new URL(worker.scriptURL).pathname;
+                } catch {
+                  return '';
+                }
+              })
+              .filter(Boolean);
+            if (scripts.some((script) => script !== DASHBOARD_PWA_SW_PATH)) {
+              cleanupPerformed = (await registration.unregister()) || cleanupPerformed;
+            }
+          }
+        }
+      } catch {}
+
+      try {
+        if ('caches' in window) {
+          const keys = await caches.keys();
+          for (const key of keys) {
+            if (key.startsWith('ep-dashboard-assets-') && key !== DASHBOARD_PWA_CACHE) {
+              cleanupPerformed = (await caches.delete(key)) || cleanupPerformed;
+            }
+          }
+        }
+      } catch {}
+
+      try {
+        localStorage.setItem(DASHBOARD_PWA_CLEANUP_MARK, JSON.stringify({ at: Date.now(), cleanupPerformed }));
+      } catch {}
+
+      return { cleanupPerformed, cleanupSkipped: false };
+    }
+
+    function conectarEventosPwaDashboard() {
+      window.addEventListener('beforeinstallprompt', (event) => {
+        event.preventDefault();
+        window.__EVALUAPRO_PWA_PROMPT__ = event;
+        publicarEstadoPwaDashboard({ installPromptAvailable: true });
+      });
+
+      window.addEventListener('appinstalled', () => {
+        window.__EVALUAPRO_PWA_PROMPT__ = null;
+        publicarEstadoPwaDashboard({
+          installed: true,
+          runtime: 'installed',
+          installPromptAvailable: false,
+          displayMode: detectarDisplayModePwa()
+        });
+      });
+
+      window.addEventListener('pageshow', () => publicarEstadoPwaDashboard());
+      document.addEventListener('visibilitychange', () => {
+        if (document.visibilityState === 'visible') publicarEstadoPwaDashboard();
+      });
+    }
+
     function registrarServiceWorker() {
       if (!('serviceWorker' in navigator)) return;
       navigator.serviceWorker
         .register('/sw.js', { scope: '/' })
         .then((registro) => {
+          publicarEstadoPwaDashboard({ swRegistered: true, swScript: '/sw.js' });
           const avisarActualizacion = () => {
             if (!registro.waiting) return;
             mostrarToastAvanzado('Hay una actualización del dashboard lista.', 'info', {
@@ -4390,7 +4521,9 @@
             location.reload();
           });
         })
-        .catch(() => undefined);
+        .catch(() => {
+          publicarEstadoPwaDashboard({ swRegistered: false, swScript: '/sw.js' });
+        });
     }
 
     function normalizarValorModo(valor) {
@@ -4464,6 +4597,7 @@
         refreshTimerId: 0,
         refreshIntervalMs: 0,
         claveInfoWebDocente: 'webDocenteDev',
+        pwa: null,
         conexion: 'unknown',
         ultimaConexionEn: 0,
         ultimoErrorConexion: '',
@@ -7844,6 +7978,20 @@
     // Carga inicial y refresco periódico.
     iniciarTema();
     establecerTexto('ui-chip', `UI: ${UI_REV}`);
+    conectarEventosPwaDashboard();
+    publicarEstadoPwaDashboard();
+    Promise.all([verificarManifestPwaDashboard(), limpiarEstadoPwaLegacyDashboard()])
+      .then(([manifestState, cleanupState]) => {
+        const estado = publicarEstadoPwaDashboard({ ...manifestState, ...cleanupState });
+        if (estado.legacyDetected) {
+          mostrarToastAvanzado('Se detectó una instalación PWA legacy. El dashboard limpió su estado local y recargará recursos frescos.', 'warn', {
+            id: 'dashboard-pwa-legacy',
+            title: 'PWA actualizada',
+            duration: 5200
+          });
+        }
+      })
+      .catch(() => undefined);
     registrarServiceWorker();
 
     const recienRecargado = consumirGuardiaFocoRecarga();

@@ -131,6 +131,9 @@ let restartTimer = null;
 const dashboardPath = path.join(__dirname, 'dashboard.html');
 const manifestPath = path.join(__dirname, 'dashboard.webmanifest');
 const iconPath = path.join(__dirname, 'dashboard-icon.svg');
+const icon192Path = path.join(__dirname, 'dashboard-icon-192.png');
+const icon512Path = path.join(__dirname, 'dashboard-icon-512.png');
+const iconMaskablePath = path.join(__dirname, 'dashboard-icon-maskable-512.png');
 const swPath = path.join(__dirname, 'dashboard-sw.js');
 const shortcutsScriptPath = path.join(root, 'scripts', 'create-shortcuts.ps1');
 const portalDistEntry = path.join(root, 'apps', 'portal_alumno_cloud', 'dist', 'index.js');
@@ -139,6 +142,9 @@ const installerHubScriptPath = path.join(root, 'scripts', 'installer-hub', 'Inst
 const cachedDashboardHtml = fs.readFileSync(dashboardPath, 'utf8');
 const cachedManifestJson = fs.readFileSync(manifestPath, 'utf8');
 const cachedIconSvg = fs.readFileSync(iconPath, 'utf8');
+const cachedIcon192 = fs.existsSync(icon192Path) ? fs.readFileSync(icon192Path) : Buffer.alloc(0);
+const cachedIcon512 = fs.existsSync(icon512Path) ? fs.readFileSync(icon512Path) : Buffer.alloc(0);
+const cachedIconMaskable = fs.existsSync(iconMaskablePath) ? fs.readFileSync(iconMaskablePath) : Buffer.alloc(0);
 const cachedSwJs = fs.existsSync(swPath) ? fs.readFileSync(swPath, 'utf8') : '';
 
 const repairState = {
@@ -2493,6 +2499,13 @@ async function buildLifecycleStatus(includeHealth = true) {
     desiredMode,
     installed: installInfo.installed,
     installDir: installInfo.installDir,
+    pwaPolicy: {
+      installable: true,
+      launcherPreferred: true,
+      offlineCapable: false,
+      manifestId: '/pwa/evaluapro/dashboard-local',
+      startUrl: '/#tab=main&source=pwa'
+    },
     installationState,
     shortcutState,
     licenseState,
@@ -3444,6 +3457,42 @@ const server = http.createServer(async (req, res) => {
       'X-Content-Type-Options': 'nosniff'
     });
     res.end(readTextDevOrCache(iconPath, cachedIconSvg));
+    return;
+  }
+
+  if (req.method === 'GET' && pathName === '/assets/dashboard-icon-192.png') {
+    res.writeHead(200, {
+      'Content-Type': 'image/png',
+      'Cache-Control': 'no-store, no-cache, must-revalidate, proxy-revalidate, max-age=0',
+      Pragma: 'no-cache',
+      Expires: '0',
+      'X-Content-Type-Options': 'nosniff'
+    });
+    res.end(fs.existsSync(icon192Path) ? fs.readFileSync(icon192Path) : cachedIcon192);
+    return;
+  }
+
+  if (req.method === 'GET' && pathName === '/assets/dashboard-icon-512.png') {
+    res.writeHead(200, {
+      'Content-Type': 'image/png',
+      'Cache-Control': 'no-store, no-cache, must-revalidate, proxy-revalidate, max-age=0',
+      Pragma: 'no-cache',
+      Expires: '0',
+      'X-Content-Type-Options': 'nosniff'
+    });
+    res.end(fs.existsSync(icon512Path) ? fs.readFileSync(icon512Path) : cachedIcon512);
+    return;
+  }
+
+  if (req.method === 'GET' && pathName === '/assets/dashboard-icon-maskable-512.png') {
+    res.writeHead(200, {
+      'Content-Type': 'image/png',
+      'Cache-Control': 'no-store, no-cache, must-revalidate, proxy-revalidate, max-age=0',
+      Pragma: 'no-cache',
+      Expires: '0',
+      'X-Content-Type-Options': 'nosniff'
+    });
+    res.end(fs.existsSync(iconMaskablePath) ? fs.readFileSync(iconMaskablePath) : cachedIconMaskable);
     return;
   }
 

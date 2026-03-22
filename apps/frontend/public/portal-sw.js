@@ -8,10 +8,24 @@
   Service Worker para portales Docente/Alumno (Vite).
   - No cachea HTML de navegación (evita "no se ven los cambios").
   - No cachea /api/* (siempre red).
-  - Cachea assets estáticos (JS/CSS/SVG) con network-first (evita UI stale tras deploy).
+  - Cachea solo assets seguros del shell PWA con network-first.
+  - Evita cachear GET arbitrarios para no mezclar destinos ni dejar manifests viejos pegados.
 */
 
-const CACHE = 'ep-portal-assets-v2026-02-27.1';
+const CACHE = 'ep-portal-assets-v2026-03-21.1';
+const SAFE_PATHS = new Set([
+  '/favicon.svg',
+  '/favicon-docente.svg',
+  '/favicon-alumno.svg',
+  '/pwa-docente-192.png',
+  '/pwa-docente-512.png',
+  '/pwa-docente-maskable-512.png',
+  '/pwa-alumno-192.png',
+  '/pwa-alumno-512.png',
+  '/pwa-alumno-maskable-512.png',
+  '/manifest-docente.webmanifest',
+  '/manifest-alumno.webmanifest'
+]);
 
 self.addEventListener('install', (event) => {
   event.waitUntil((async () => {
@@ -43,6 +57,10 @@ function isNavigation(request) {
   return request.mode === 'navigate' || (request.headers.get('accept') || '').includes('text/html');
 }
 
+function isSafeAsset(url) {
+  return SAFE_PATHS.has(url.pathname) || url.pathname.startsWith('/assets/');
+}
+
 self.addEventListener('fetch', (event) => {
   const request = event.request;
   if (request.method !== 'GET') return;
@@ -62,7 +80,12 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
-  // Assets: network-first (si falla red, usa cache).
+  if (!isSafeAsset(url)) {
+    event.respondWith(fetch(request));
+    return;
+  }
+
+  // Assets del shell PWA: network-first (si falla red, usa cache).
   event.respondWith((async () => {
     const cache = await caches.open(CACHE);
     try {
