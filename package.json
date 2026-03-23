@@ -175,7 +175,9 @@
     "ops:maintenance:weekly": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/ops-maintenance.ps1 -Mode weekly",
     "ops:maintenance:monthly": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/ops-maintenance.ps1 -Mode monthly",
     "ops:maintenance:tasks:install": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/install-maintenance-tasks.ps1",
-    "ops:guard:separation": "node scripts/guard-env-separation.mjs --mode check --strict"
+    "ops:guard:separation": "node scripts/guard-env-separation.mjs --mode check --strict",
+    "workspace:hygiene": "node scripts/workspace-hygiene.mjs",
+    "workspace:hygiene:strict": "node scripts/workspace-hygiene.mjs --strict"
   },
   "devDependencies": {
     "@eslint/eslintrc": "^3.3.4",

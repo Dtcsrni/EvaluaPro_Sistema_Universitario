@@ -122,6 +122,31 @@ Version visible objetivo: `1.0.0b`
 - `Package Images`: empaquetado Docker
 
 ## 6) Estado de limpieza
+- Guard de higiene del workspace incorporado:
+  - `npm run workspace:hygiene`
+  - `npm run workspace:hygiene:strict`
+- Clasificación operativa reforzada:
+  - artefactos regenerables vigilados: `dist/`, `reports/`, `logs/`, `test-results/`, datasets `omr_samples*`
+  - temporales de raíz vigilados: `lint_output.txt`, `tmp_missing_dirs.txt`
+- Estado real detectado en este corte:
+  - `dist/`: `407.3 MB`
+  - `reports/`: `44.89 MB`
+  - `logs/`: `0.08 MB`
+  - `test-results/`: presente
+  - datasets OMR activos y versionados: presentes
+- Deuda de higiene actualmente visible:
+  - no quedan problemas bloqueantes en el workspace activo para `workspace:hygiene:strict`
+  - el histórico QA no contractual removido en este corte permanece como eliminación pendiente de commit, no como mezcla activa en el árbol
+  - la discusión pendiente ya no es higiene operativa inmediata, sino política de conservación histórica para artefactos QA fuera del manifest
+- Endurecimiento aplicado en este corte:
+  - `.gitignore` amplía exclusiones de temporales y outputs intermedios
+  - `workspace:hygiene` ahora permite explícitamente el subconjunto contractual publicado por `reports/qa/latest/manifest.json`
+  - `workspace:hygiene` ignora entradas ya borradas del workspace aunque sigan presentes en el índice de Git hasta el commit final
+  - se purgan del árbol activo los outputs históricos `reports/qa/latest/**` fuera del manifest contractual
+  - `omr_samples_tv3` queda clasificado como dataset sintético permitido (`manifest`, `ground_truth`, `quality_tags`, `images.zip`)
+  - `scripts/README.md` documenta el guard de higiene
+  - la política de limpieza queda medible, no solo descriptiva
+  - `lint_output.txt` y `tmp_missing_dirs.txt` se eliminan del árbol local como temporales heredados
 
 ## 7) Corte operativo 2026-03-23
 - Installer Hub Windows:

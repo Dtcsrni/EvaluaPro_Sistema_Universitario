@@ -487,3 +487,121 @@ export async function fetchConManejoErrores<T>(opts: {
 
   throw new ErrorRemoto(opts.mensajeServicio, { mensaje: 'Sin conexion', detalles: String(ultimoError) });
 }
+
+type ToastDescriptor = {
+  id: string;
+  title: string;
+  message: string;
+};
+
+type ToastServerDescriptor = {
+  id: string;
+  title: string;
+  message: (status: number | undefined) => string;
+};
+
+type RetryDescriptor = {
+  intentos?: number;
+  baseMs?: number;
+  maxMs?: number;
+  jitterMs?: number;
+};
+
+type ClienteRequestOptions = {
+  timeoutMs?: number;
+};
+
+type CrearClienteJsonBaseOptions = {
+  baseUrl: string;
+  mensajeServicio: string;
+  obtenerToken?: () => string | null;
+  refrescarToken?: () => Promise<string | null>;
+  credentials?: RequestCredentials;
+  retry?: RetryDescriptor;
+  silenciarDuranteArranque?: () => boolean;
+  toastUnreachable: ToastDescriptor;
+  toastTimeout: ToastDescriptor;
+  toastServerError: ToastServerDescriptor;
+};
+
+export function crearPublicadorEventosUsoJson<EventoUso>(opts: {
+  obtenerToken: () => string | null;
+  url: string;
+  credentials?: RequestCredentials;
+}) {
+  return async (lote: EventoUso[], token: string) => {
+    const controller = new AbortController();
+    const timer = globalThis.setTimeout(() => controller.abort(), 2500);
+    try {
+      await fetch(opts.url, {
+        method: 'POST',
+        credentials: opts.credentials,
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ eventos: lote }),
+        keepalive: true,
+        signal: controller.signal
+      });
+    } finally {
+      globalThis.clearTimeout(timer);
+    }
+  };
+}
+
+export function crearClienteJsonBase(opts: CrearClienteJsonBaseOptions) {
+  const withJsonHeaders = (token: string | null, includeJsonContentType: boolean) => ({
+    ...(includeJsonContentType ? { 'Content-Type': 'application/json' } : {}),
+    ...(token ? { Authorization: `Bearer ${token}` } : {})
+  });
+
+  const solicitar = async <T>(
+    ruta: string,
+    {
+      method = 'GET',
+      payload,
+      timeoutMs = 12_000
+    }: ClienteRequestOptions & { method?: 'GET' | 'POST' | 'PUT' | 'DELETE'; payload?: unknown } = {}
+  ): Promise<T> => {
+    const token = opts.obtenerToken?.() ?? null;
+    const includeJsonContentType = method !== 'GET' && method !== 'DELETE';
+    const silenciar = opts.silenciarDuranteArranque?.() ?? false;
+
+    return fetchConManejoErrores<T>({
+      fetcher: async (signal) => {
+        const ejecutar = (activeToken: string | null) =>
+          fetch(`${opts.baseUrl}${ruta}`, {
+            method,
+            credentials: opts.credentials,
+            headers: withJsonHeaders(activeToken, includeJsonContentType),
+            body: payload === undefined ? undefined : JSON.stringify(payload),
+            signal
+          });
+
+        let respuesta = await ejecutar(token);
+        if ((respuesta as Response).status === 401 && opts.refrescarToken) {
+          const nuevoToken = await opts.refrescarToken();
+          if (nuevoToken) respuesta = await ejecutar(nuevoToken);
+        }
+        return respuesta;
+      },
+      mensajeServicio: opts.mensajeServicio,
+      timeoutMs,
+      toastUnreachable: opts.toastUnreachable,
+      toastTimeout: opts.toastTimeout,
+      toastServerError: opts.toastServerError,
+      retry: opts.retry,
+      silenciarUnreachable: silenciar,
+      silenciarTimeout: silenciar,
+      silenciarServerError: silenciar
+    });
+  };
+
+  return {
+    obtener: <T>(ruta: string, opciones?: ClienteRequestOptions) => solicitar<T>(ruta, { method: 'GET', timeoutMs: opciones?.timeoutMs }),
+    enviar: <T>(ruta: string, payload: unknown, opciones?: ClienteRequestOptions) =>
+      solicitar<T>(ruta, { method: 'POST', payload, timeoutMs: opciones?.timeoutMs ?? 15_000 }),
+    actualizar: <T>(ruta: string, payload: unknown, opciones?: ClienteRequestOptions) =>
+      solicitar<T>(ruta, { method: 'PUT', payload, timeoutMs: opciones?.timeoutMs ?? 15_000 }),
+    eliminar: <T>(ruta: string, opciones?: ClienteRequestOptions) =>
+      solicitar<T>(ruta, { method: 'DELETE', timeoutMs: opciones?.timeoutMs ?? 15_000 })
+  };
+}

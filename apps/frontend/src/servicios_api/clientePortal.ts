@@ -2,10 +2,11 @@
  * Cliente API del portal alumno (Cloud Run).
  */
 import {
+  crearClienteJsonBase,
   crearGestorEventosUso,
+  crearPublicadorEventosUsoJson,
   DetalleErrorRemoto,
   ErrorRemoto,
-  fetchConManejoErrores,
   mensajeUsuarioDeError
 } from './clienteComun';
 
@@ -39,82 +40,39 @@ export function crearClientePortal() {
 
   const { registrarEventosUso } = crearGestorEventosUso<EventoUso>({
     obtenerToken: obtenerTokenAlumno,
-    publicarLote: async (lote, token) => {
-      const controller = new AbortController();
-      const timer = globalThis.setTimeout(() => controller.abort(), 2500);
-      try {
-        await fetch(`${basePortal}/eventos-uso`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-          body: JSON.stringify({ eventos: lote }),
-          keepalive: true,
-          signal: controller.signal
-        });
-      } finally {
-        globalThis.clearTimeout(timer);
-      }
-    }
+    publicarLote: crearPublicadorEventosUsoJson<EventoUso>({
+      obtenerToken: obtenerTokenAlumno,
+      url: `${basePortal}/eventos-uso`
+    })
   });
 
   type RequestOptions = { timeoutMs?: number };
+  const clienteBase = crearClienteJsonBase({
+    baseUrl: basePortal,
+    mensajeServicio: 'Portal no disponible',
+    obtenerToken: obtenerTokenAlumno,
+    toastUnreachable: {
+      id: 'portal-unreachable',
+      title: 'Sin conexion',
+      message: 'No se pudo contactar el portal alumno.'
+    },
+    toastTimeout: {
+      id: 'portal-timeout',
+      title: 'Tiempo de espera',
+      message: 'El portal tardo demasiado en responder.'
+    },
+    toastServerError: {
+      id: 'portal-server-error',
+      title: 'Portal con error',
+      message: (status) => `El portal respondio con HTTP ${status}.`
+    }
+  });
 
-  async function enviar<T>(ruta: string, payload: unknown, opciones?: RequestOptions): Promise<T> {
-    const token = obtenerTokenAlumno();
-    return fetchConManejoErrores<T>({
-      fetcher: (signal) =>
-        fetch(`${basePortal}${ruta}`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) },
-          body: JSON.stringify(payload),
-          signal
-        }),
-      mensajeServicio: 'Portal no disponible',
-      timeoutMs: opciones?.timeoutMs ?? 15_000,
-      toastUnreachable: {
-        id: 'portal-unreachable',
-        title: 'Sin conexion',
-        message: 'No se pudo contactar el portal alumno.'
-      },
-      toastTimeout: {
-        id: 'portal-timeout',
-        title: 'Tiempo de espera',
-        message: 'El portal tardo demasiado en responder.'
-      },
-      toastServerError: {
-        id: 'portal-server-error',
-        title: 'Portal con error',
-        message: (status) => `El portal respondio con HTTP ${status}.`
-      }
-    });
-  }
-
-  async function obtener<T>(ruta: string, opciones?: RequestOptions): Promise<T> {
-    const token = obtenerTokenAlumno();
-    return fetchConManejoErrores<T>({
-      fetcher: (signal) =>
-        fetch(`${basePortal}${ruta}`, {
-          headers: token ? { Authorization: `Bearer ${token}` } : undefined,
-          signal
-        }),
-      mensajeServicio: 'Portal no disponible',
-      timeoutMs: opciones?.timeoutMs ?? 12_000,
-      toastUnreachable: {
-        id: 'portal-unreachable',
-        title: 'Sin conexion',
-        message: 'No se pudo contactar el portal alumno.'
-      },
-      toastTimeout: {
-        id: 'portal-timeout',
-        title: 'Tiempo de espera',
-        message: 'El portal tardo demasiado en responder.'
-      },
-      toastServerError: {
-        id: 'portal-server-error',
-        title: 'Portal con error',
-        message: (status) => `El portal respondio con HTTP ${status}.`
-      }
-    });
-  }
-
-  return { basePortal, enviar, obtener, registrarEventosUso, mensajeUsuarioDeError };
+  return {
+    basePortal,
+    enviar: <T>(ruta: string, payload: unknown, opciones?: RequestOptions) => clienteBase.enviar<T>(ruta, payload, opciones),
+    obtener: <T>(ruta: string, opciones?: RequestOptions) => clienteBase.obtener<T>(ruta, opciones),
+    registrarEventosUso,
+    mensajeUsuarioDeError
+  };
 }

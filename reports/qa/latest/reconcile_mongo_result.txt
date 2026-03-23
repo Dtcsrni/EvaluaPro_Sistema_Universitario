@@ -1,5 +1,0 @@
-{
-  updated: 15,
-  total: 15,
-  canonical: 50
-}

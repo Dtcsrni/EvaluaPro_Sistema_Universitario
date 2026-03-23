@@ -61,6 +61,16 @@ Herramientas de operación local (principalmente Windows) para **Sistema EvaluaP
   - `npm run ops:maintenance:weekly`
   - `npm run ops:maintenance:monthly`
 
+## Higiene del workspace
+- Script: `workspace-hygiene.mjs`
+- Comandos:
+  - `npm run workspace:hygiene`
+  - `npm run workspace:hygiene:strict`
+- Uso:
+  - reporta buckets regenerables (`dist`, `reports`, `logs`, `test-results`, datasets OMR) y temporales de raíz,
+  - detecta archivos versionados donde debería haber solo artefactos regenerables,
+  - en modo estricto falla para que CI o mantenimiento local detecten mezcla indebida de outputs.
+
 ## Tareas programadas de Windows
 - Instalador de tareas: `install-maintenance-tasks.ps1`
 - Comando npm:

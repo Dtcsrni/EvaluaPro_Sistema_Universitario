@@ -5,6 +5,21 @@ Este archivo sigue el formato "Keep a Changelog" (alto nivel) y SemVer.
 ## [Unreleased]
 
 ### Changed
+- Se añade guard de higiene del workspace:
+  - nuevo script `npm run workspace:hygiene`
+  - variante bloqueante `npm run workspace:hygiene:strict`
+  - clasificación explícita de buckets regenerables (`dist`, `reports`, `logs`, `test-results`, datasets OMR) y temporales de raíz
+  - allowlist contractual de QA derivada de `reports/qa/latest/manifest.json` para distinguir evidencia vigente de residuos heredados
+- Backend y portal reducen duplicación accidental en configuración:
+  - helpers internos para carga de `.env`, parseo numérico, listas CSV y flags booleanas
+  - `configuracion.ts` queda más pequeño y con reglas de entorno centralizadas
+- Frontend consolida el cliente HTTP JSON compartido:
+  - `clienteApi` y `clientePortal` reutilizan una base común para `GET/POST/PUT/DELETE`
+  - publicación de eventos de uso también se normaliza en un helper compartido
+- `.gitignore` endurece exclusiones de temporales y outputs intermedios del workspace.
+- Se eliminan del árbol activo temporales heredados de raíz (`lint_output.txt`, `tmp_missing_dirs.txt`) y `test-results/.last-run.json`.
+- Se purga del árbol activo el histórico QA no contractual en `reports/qa/latest/**`, conservando solo el subconjunto definido por `reports/qa/latest/manifest.json`.
+- `omr_samples_tv3` queda reconocido como dataset sintético permitido por el guard de higiene en lugar de deuda regenerable.
 - Installer Hub Windows ahora publica un manifiesto local `dist/installer/installer-local-paths.json` con rutas absolutas de los ejecutables generados por flavor y marca el ejecutable recomendado para el equipo actual.
 - Documentación operativa del instalador y release Windows alineada al contrato real multi-flavor:
   - `EvaluaPro-InstallerHub-saas-completo.exe`
@@ -31,6 +46,10 @@ Este archivo sigue el formato "Keep a Changelog" (alto nivel) y SemVer.
 - Frontend suma el carril `test:gui:responsive:e2e:admin` para validar layout responsive del panel de negocio.
 
 ### Fixed
+- `scripts/testing/check-diff-coverage.mjs` deja de producir falsos rojos:
+  - normaliza `SF:` relativos de `lcov` contra la raíz de cada app
+  - ignora líneas estructurales no ejecutables (`}`, `);`, etc.) en el cálculo de diff coverage
+- `scripts/workspace-hygiene.mjs` deja de reportar archivos ya eliminados del workspace pero todavía pendientes de commit en el índice de Git.
 - Harness E2E responsive del frontend estabilizado para suites Playwright:
   - `scripts/testing/start-frontend-e2e-server.mjs` ahora compila el destino y sirve `vite preview` en lugar de usar `vite dev`
   - `apps/frontend/src/pwa.ts` admite `VITE_DISABLE_PWA=1` para desactivar SW/PWA solo en pruebas automatizadas

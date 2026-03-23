@@ -1,42 +1,23 @@
 /**
  * Configuracion centralizada del backend.
  */
-import dotenv from 'dotenv';
-import path from 'node:path';
+import {
+  cargarDotenvRaizSiAplica,
+  esBanderaActiva,
+  parsearListaCsv,
+  parsearNumeroSeguro
+} from './compartido/configuracion/env';
 
 const entorno = process.env.NODE_ENV ?? 'development';
-if (entorno !== 'production' && entorno !== 'test') {
-  // Dotenv v17 puede emitir logs informativos; se silencian para mantener
-  // pruebas y consola limpias. En producción no se debe rellenar config crítica
-  // desde `.env`; solo se admite el entorno real del proceso.
-  // En test tampoco se carga el `.env` del repo para evitar que secretos o flags
-  // locales alteren contratos de integración esperados por la suite.
-  dotenv.config({
-    quiet: true,
-    path: path.resolve(__dirname, '..', '..', '..', '.env')
-  });
-}
+cargarDotenvRaizSiAplica(entorno);
 
 const puerto = Number(process.env.PUERTO_API ?? process.env.PORT ?? 4000);
 const mongoUri = process.env.MONGODB_URI ?? process.env.MONGO_URI ?? '';
 const limiteJson = process.env.LIMITE_JSON ?? '10mb';
-const corsOrigenes = (process.env.CORS_ORIGENES ?? 'http://localhost:5173')
-  .split(',')
-  .map((origen) => origen.trim())
-  .filter(Boolean);
-
-const dominiosCorreoPermitidos = (process.env.DOMINIOS_CORREO_PERMITIDOS ?? '')
-  .split(',')
-  .map((dominio) => dominio.trim().toLowerCase().replace(/^@/, ''))
-  .filter(Boolean);
-
-function parsearNumeroSeguro(valor: unknown, porDefecto: number, { min, max }: { min?: number; max?: number } = {}) {
-  const n = typeof valor === 'number' ? valor : Number(valor);
-  if (!Number.isFinite(n)) return porDefecto;
-  const clampedMax = typeof max === 'number' ? Math.min(max, n) : n;
-  const clamped = typeof min === 'number' ? Math.max(min, clampedMax) : clampedMax;
-  return clamped;
-}
+const corsOrigenes = parsearListaCsv(process.env.CORS_ORIGENES ?? 'http://localhost:5173');
+const dominiosCorreoPermitidos = parsearListaCsv(process.env.DOMINIOS_CORREO_PERMITIDOS, (dominio) =>
+  dominio.toLowerCase().replace(/^@/, '')
+);
 // En producción, el secreto JWT debe ser proporcionado por entorno.
 // En desarrollo/test se permite un valor por defecto para facilitar el setup.
 const jwtSecreto = process.env.JWT_SECRETO ?? '';
@@ -92,7 +73,7 @@ const googleClassroomClientId = process.env.GOOGLE_CLASSROOM_CLIENT_ID ?? proces
 const googleClassroomClientSecret = process.env.GOOGLE_CLASSROOM_CLIENT_SECRET ?? '';
 const googleClassroomRedirectUri = process.env.GOOGLE_CLASSROOM_REDIRECT_URI ?? '';
 const classroomTokenCipherKey = process.env.CLASSROOM_TOKEN_CIPHER_KEY ?? '';
-const requireGoogleOAuth = ['1', 'true', 'yes', 'on'].includes(String(process.env.REQUIRE_GOOGLE_OAUTH ?? '').trim().toLowerCase());
+const requireGoogleOAuth = esBanderaActiva(process.env.REQUIRE_GOOGLE_OAUTH);
 const codigoAccesoHoras = Number(process.env.CODIGO_ACCESO_HORAS ?? 12);
 const portalAlumnoUrl = process.env.PORTAL_ALUMNO_URL ?? '';
 const portalApiKey = process.env.PORTAL_ALUMNO_API_KEY ?? '';
@@ -139,7 +120,7 @@ const dataRetentionDefaultDays = parsearNumeroSeguro(process.env.DATA_RETENTION_
   max: 3650
 });
 const dataPurgeCron = String(process.env.DATA_PURGE_CRON ?? '0 3 * * *').trim();
-const auditLogImmutable = ['1', 'true', 'yes'].includes(String(process.env.AUDIT_LOG_IMMUTABLE ?? 'true').toLowerCase());
+const auditLogImmutable = esBanderaActiva(process.env.AUDIT_LOG_IMMUTABLE ?? 'true');
 const dpoContactEmail = String(process.env.DPO_CONTACT_EMAIL ?? 'armsystechno@gmail.com').trim();
 const legalNoticeVersion = String(process.env.LEGAL_NOTICE_VERSION ?? '2026.02').trim();
 const superadminGoogleEmails = [
@@ -149,14 +130,14 @@ const superadminGoogleEmails = [
 const mercadoPagoAccessToken = String(process.env.MERCADOPAGO_ACCESS_TOKEN ?? '').trim();
 const mercadoPagoWebhookSecret = String(process.env.MERCADOPAGO_WEBHOOK_SECRET ?? '').trim();
 const mercadoPagoWebhookMaxEdadSegundos = parsearNumeroSeguro(process.env.MERCADOPAGO_WEBHOOK_MAX_EDAD_SEGUNDOS, 300, { min: 30, max: 3600 });
-const mercadoPagoWebhookFirmaEstrica = ['1', 'true', 'yes'].includes(String(process.env.MERCADOPAGO_WEBHOOK_FIRMA_ESTRICTA ?? 'true').toLowerCase());
+const mercadoPagoWebhookFirmaEstrica = esBanderaActiva(process.env.MERCADOPAGO_WEBHOOK_FIRMA_ESTRICTA ?? 'true');
 const cobranzaMontoToleranciaPct = parsearNumeroSeguro(process.env.COBRANZA_MONTO_TOLERANCIA_PCT, 0.03, { min: 0, max: 0.2 });
 const cobranzaMontoToleranciaAbs = parsearNumeroSeguro(process.env.COBRANZA_MONTO_TOLERANCIA_ABS, 1, { min: 0, max: 1000 });
 const licenciaJwtSecreto = String(process.env.LICENCIA_JWT_SECRETO ?? jwtSecretoEfectivo).trim();
 const licenciaJwtKidActivo = String(process.env.LICENCIA_JWT_KID_ACTIVO ?? '').trim();
 const licenciaJwtLlavePrivadaPem = String(process.env.LICENCIA_JWT_LLAVE_PRIVADA_PEM ?? '').trim().replace(/\\n/g, '\n');
 const licenciaJwtLlavePublicaPem = String(process.env.LICENCIA_JWT_LLAVE_PUBLICA_PEM ?? '').trim().replace(/\\n/g, '\n');
-const licenciaJwtPermitirLegacyHs256 = ['1', 'true', 'yes'].includes(String(process.env.LICENCIA_JWT_PERMITIR_LEGACY_HS256 ?? 'true').toLowerCase());
+const licenciaJwtPermitirLegacyHs256 = esBanderaActiva(process.env.LICENCIA_JWT_PERMITIR_LEGACY_HS256 ?? 'true');
 const licenciaJwtLlavesPublicas: Record<string, string> = (() => {
   const base: Record<string, string> = {};
   if (licenciaJwtKidActivo && licenciaJwtLlavePublicaPem) {
@@ -186,11 +167,11 @@ const notificacionesWebhookToken = String(process.env.NOTIFICACIONES_WEBHOOK_TOK
 const correoModuloActivo = (() => {
   const raw = String(process.env.CORREO_MODULO_ACTIVO ?? '').trim().toLowerCase();
   if (!raw) return Boolean(notificacionesWebhookUrl);
-  return ['1', 'true', 'yes', 'on'].includes(raw);
+  return esBanderaActiva(raw);
 })();
 const passwordResetEnabled = (() => {
   const raw = String(process.env.PASSWORD_RESET_ENABLED ?? '').trim().toLowerCase();
-  if (raw) return ['1', 'true', 'yes', 'on'].includes(raw);
+  if (raw) return esBanderaActiva(raw);
   if (entorno === 'production') return Boolean(correoModuloActivo && passwordResetUrlBase);
   return true;
 })();

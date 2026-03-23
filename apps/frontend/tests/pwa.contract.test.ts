@@ -85,4 +85,26 @@ describe('PWA frontend contracts', () => {
     expect(document.documentElement.dataset.pwaMode).toBe('browser');
     expect(document.documentElement.dataset.pwaLegacy).toBe('0');
   });
+
+  it('omite registro PWA cuando VITE_DISABLE_PWA=1 y mantiene recursos del shell', async () => {
+    vi.resetModules();
+    vi.stubEnv('VITE_DISABLE_PWA', '1');
+    document.head.innerHTML = `
+      <link id="app-manifest" rel="manifest" href="/manifest-docente.webmanifest" />
+      <link id="app-favicon" rel="icon" href="/favicon-docente.svg" />
+      <link id="app-apple-touch" rel="apple-touch-icon" href="/pwa-docente-192.png" />
+    `;
+
+    const modulo = await import('../src/pwa');
+    const estado = await modulo.inicializarPwa();
+
+    expect(document.querySelector('#app-manifest')?.getAttribute('href')).toBe('/manifest-docente.webmanifest');
+    expect(document.querySelector('#app-favicon')?.getAttribute('href')).toBe('/favicon-docente.svg');
+    expect(document.querySelector('#app-apple-touch')?.getAttribute('href')).toBe('/pwa-docente-192.png');
+    expect(estado.swRegistered).toBe(false);
+    expect(estado.swScript).toBe('');
+    expect(estado.installPromptAvailable).toBe(false);
+
+    vi.unstubAllEnvs();
+  });
 });

@@ -1,9 +1,0 @@
-{
-  "plantillaId": "69a6f849c2c6e9f7684bdfd8",
-  "total": 15,
-  "foliosCoincidentes": 15,
-  "ordenPreguntasIgualEnTodos": 15,
-  "ordenMapaVarianteIgualEnTodos": 15,
-  "qrConFolioActual": 0,
-  "observacion": "Los folios y el orden interno quedaron reconciliados en DB. El QR OMR aún conserva folios antiguos y requiere regeneración exitosa del examen."
-}

@@ -13,16 +13,19 @@ const rootDir = path.resolve(__dirname, '..', '..');
 const APPS = [
   {
     name: 'backend',
+    root: 'apps/backend',
     scope: 'apps/backend/src',
     lcov: 'apps/backend/coverage/lcov.info'
   },
   {
     name: 'frontend',
+    root: 'apps/frontend',
     scope: 'apps/frontend/src',
     lcov: 'apps/frontend/coverage/lcov.info'
   },
   {
     name: 'portal',
+    root: 'apps/portal_alumno_cloud',
     scope: 'apps/portal_alumno_cloud/src',
     lcov: 'apps/portal_alumno_cloud/coverage/lcov.info'
   }
@@ -137,7 +140,22 @@ function parseTouchedLines(diffOutput) {
   return touched;
 }
 
-function parseLcov(content) {
+function normalizeLcovSourcePath(sourcePath, app) {
+  const normalized = normalizeRelative(sourcePath);
+
+  if (
+    normalized.startsWith(`${app.scope}/`) ||
+    normalized === app.scope ||
+    normalized.startsWith(`${app.root}/`) ||
+    normalized === app.root
+  ) {
+    return normalized;
+  }
+
+  return normalizeRelative(path.join(app.root, normalized));
+}
+
+function parseLcov(content, app) {
   const records = content.split('end_of_record');
   const coverageByFile = new Map();
 
@@ -149,7 +167,7 @@ function parseLcov(content) {
     const sfLine = lines.find((line) => line.startsWith('SF:'));
     if (!sfLine) continue;
 
-    const sourcePath = normalizeRelative(sfLine.slice(3));
+    const sourcePath = normalizeLcovSourcePath(sfLine.slice(3), app);
     const lineHits = new Map();
 
     for (const line of lines) {
@@ -198,7 +216,7 @@ async function loadCoverageMaps(requiredApps) {
       throw new Error(`No se encontró coverage para ${app.name}: ${app.lcov}. Ejecuta npm run test:coverage:ci antes del diff coverage.`);
     }
 
-    const map = parseLcov(content);
+    const map = parseLcov(content, app);
     for (const [file, lineHits] of map.entries()) {
       merged.set(file, lineHits);
     }
@@ -246,6 +264,10 @@ function resolveIgnorePathSubstrings() {
     .split(';')
     .map((item) => item.trim())
     .filter(Boolean);
+}
+
+function isStructuralOnlyLine(sourceLine) {
+  return /^[\s{}()[\];,]*$/.test(sourceLine);
 }
 
 async function buildFileLinesCache(touchedCoverable) {
@@ -300,6 +322,7 @@ async function main() {
   let covered = 0;
   let ignored = 0;
   let ignoredByPath = 0;
+  let ignoredStructural = 0;
   const missing = [];
 
   for (const [file, lines] of touchedCoverable.entries()) {
@@ -319,6 +342,12 @@ async function main() {
         }
       }
 
+      const sourceLine = fileLinesCache.get(normalizedFile)?.[line - 1] ?? '';
+      if (isStructuralOnlyLine(sourceLine)) {
+        ignoredStructural += 1;
+        continue;
+      }
+
       total += 1;
       const hits = lineHits?.get(line) ?? 0;
       if (hits > 0) {
@@ -333,6 +362,9 @@ async function main() {
   console.log(`[diff-coverage] Base: ${baseRef} | Head: ${headRef}`);
   if (ignoreLineSubstrings.length > 0) {
     console.log(`[diff-coverage] Líneas ignoradas por subcadena: ${ignored} (${ignoreLineSubstrings.join(';')})`);
+  }
+  if (ignoredStructural > 0) {
+    console.log(`[diff-coverage] Líneas estructurales ignoradas: ${ignoredStructural}`);
   }
   if (ignorePathSubstrings.length > 0) {
     console.log(`[diff-coverage] Líneas ignoradas por ruta: ${ignoredByPath} (${ignorePathSubstrings.join(';')})`);

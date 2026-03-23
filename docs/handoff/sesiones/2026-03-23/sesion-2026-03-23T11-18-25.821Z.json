@@ -1,0 +1,414 @@
+{
+  "traceSchemaVersion": "1.0.0",
+  "sessionId": "sesion-2026-03-23T11-18-25.821Z",
+  "status": "final",
+  "generatedAt": "2026-03-23T11:55:41.227Z",
+  "validationProfile": "quick",
+  "agent": {
+    "name": "unknown",
+    "version": "unknown",
+    "provider": "unknown",
+    "kind": "unknown",
+    "channel": "unknown"
+  },
+  "request": {
+    "summary": "Cerrar la fase posterior a la limpieza del monorepo: resolver el gate de diff coverage, sanear artefactos temporales visibles, clasificar evidencia QA contractual y dejar la trazabilidad de sesión en estado final."
+  },
+  "objective": "Dejar el repositorio nuevamente mergeable y trazable sin introducir features nuevas, cerrando el blocker de TDD, reduciendo ruido regenerable evidente y documentando la deuda de higiene que aún permanece fuera del subconjunto contractual.",
+  "scope": [
+    "Corregir scripts operativos de calidad para que diff coverage use rutas de coverage coherentes por app y no cuente líneas estructurales no ejecutables.",
+    "Refinar el guard de higiene del workspace para permitir la evidencia contractual listada en reports/qa/latest/manifest.json y exponer solo residuos heredados fuera de ese contrato.",
+    "Eliminar temporales heredados visibles del árbol activo y regenerar inventario/handoff con resultado real de validaciones."
+  ],
+  "constraints": [
+    "Sin cambios deliberados en contratos HTTP, PWA, schema de handoff ni rutas de release.",
+    "Sin bajar thresholds ni excluir módulos para forzar gates en verde.",
+    "Mantener compatibilidad con scripts y gates obligatorios definidos por AGENTS.md."
+  ],
+  "actions": [
+    {
+      "type": "validation",
+      "summary": "Ejecucion de lint",
+      "timestamp": "2026-03-23T11:26:20.000Z",
+      "status": "ok"
+    },
+    {
+      "type": "validation",
+      "summary": "Ejecucion de typecheck",
+      "timestamp": "2026-03-23T11:26:40.000Z",
+      "status": "ok"
+    },
+    {
+      "type": "validation",
+      "summary": "Ejecucion de test_frontend_ci",
+      "timestamp": "2026-03-23T11:27:10.000Z",
+      "status": "ok"
+    },
+    {
+      "type": "validation",
+      "summary": "Ejecucion de test_coverage_ci",
+      "timestamp": "2026-03-23T11:35:10.000Z",
+      "status": "ok"
+    },
+    {
+      "type": "validation",
+      "summary": "Ejecucion de test_tdd_enforcement_ci",
+      "timestamp": "2026-03-23T11:35:20.000Z",
+      "status": "ok"
+    },
+    {
+      "type": "validation",
+      "summary": "Ejecucion de test_backend_ci",
+      "timestamp": "2026-03-23T11:39:50.000Z",
+      "status": "ok"
+    },
+    {
+      "type": "validation",
+      "summary": "Ejecucion de test_portal_ci",
+      "timestamp": "2026-03-23T11:39:55.000Z",
+      "status": "ok"
+    },
+    {
+      "type": "validation",
+      "summary": "Ejecucion de perf_check",
+      "timestamp": "2026-03-23T11:40:10.000Z",
+      "status": "ok"
+    },
+    {
+      "type": "validation",
+      "summary": "Ejecucion de pipeline_contract_check",
+      "timestamp": "2026-03-23T11:40:12.000Z",
+      "status": "ok"
+    },
+    {
+      "type": "validation",
+      "summary": "Ejecucion de qa_clean_architecture_strict",
+      "timestamp": "2026-03-23T11:40:15.000Z",
+      "status": "ok"
+    },
+    {
+      "type": "validation",
+      "summary": "Ejecucion de inventario_codigo",
+      "timestamp": "2026-03-23T11:40:30.000Z",
+      "status": "ok"
+    },
+    {
+      "type": "validation",
+      "summary": "Ejecucion de workspace_hygiene",
+      "timestamp": "2026-03-23T11:40:32.000Z",
+      "status": "ok"
+    },
+    {
+      "type": "validation",
+      "summary": "Ejecucion de workspace_hygiene_strict",
+      "timestamp": "2026-03-23T11:48:30.000Z",
+      "status": "ok"
+    }
+  ],
+  "files": {
+    "read": [],
+    "changed": [
+      ".gitignore",
+      "CHANGELOG.md",
+      "apps/backend/reports/qa/latest/e2e-docente-alumno.json",
+      "apps/backend/reports/qa/latest/global-grade.json",
+      "apps/backend/reports/qa/latest/pdf-print.json",
+      "apps/backend/src/configuracion.ts",
+      "apps/frontend/reports/qa/latest/ux-visual.json",
+      "apps/frontend/src/servicios_api/clienteApi.ts",
+      "apps/frontend/src/servicios_api/clienteComun.ts",
+      "apps/frontend/src/servicios_api/clientePortal.ts",
+      "apps/frontend/tests/pwa.contract.test.ts",
+      "apps/portal_alumno_cloud/src/configuracion.ts",
+      "docs/ENGINEERING_BASELINE.md",
+      "docs/INVENTARIO_CODIGO_EXHAUSTIVO.md",
+      "docs/INVENTARIO_PROYECTO.md",
+      "lint_output.txt",
+      "package.json",
+      "reports/qa/latest/clean-architecture.json",
+      "reports/qa/latest/coincidencia_generados_detectados.json",
+      "reports/qa/latest/debug_banco_sample5.json",
+      "reports/qa/latest/examenes_estado_resumen.json",
+      "reports/qa/latest/folios_extraidos_pdf.json",
+      "reports/qa/latest/installer-docente-audit-2026-03-03.md",
+      "reports/qa/latest/lote_A050929D_summary.json",
+      "reports/qa/latest/omr-tv3-gate-wrapper.por-folio.json",
+      "reports/qa/latest/omr-tv3-gate.json",
+      "reports/qa/latest/omr_run_latest_lote.json",
+      "reports/qa/latest/omr_run_summary.json",
+      "reports/qa/latest/orden_preguntas_pre.json",
+      "reports/qa/latest/pdf-layout-visual-check.json",
+      "reports/qa/latest/pdf-layout-visual-check.pdf",
+      "reports/qa/latest/pdf_analysis_079d38a9/a050929d_answer_key_canonical.json",
+      "reports/qa/latest/pdf_analysis_079d38a9/a050929d_answer_key_reconciliation_report.json",
+      "reports/qa/latest/pdf_analysis_079d38a9/a050929d_answer_key_reconciliation_report.md",
+      "reports/qa/latest/pdf_analysis_079d38a9/a050929d_canonical_page_mapping.json",
+      "reports/qa/latest/pdf_analysis_079d38a9/a050929d_stream_extract.json",
+      "reports/qa/latest/pdf_analysis_079d38a9/a050929d_structure_truth.json",
+      "reports/qa/latest/pdf_analysis_079d38a9/page1_embed.png",
+      "reports/qa/latest/pdf_analysis_079d38a9/page2_embed.png",
+      "reports/qa/latest/pdf_probe/extract_folios.js",
+      "reports/qa/latest/pdf_probe/folios_from_pdf.json",
+      "reports/qa/latest/pdf_probe/package-lock.json",
+      "reports/qa/latest/pdf_probe/package.json",
+      "reports/qa/latest/pdf_probe/probe.js",
+      "reports/qa/latest/pdf_probe/probe2.cjs",
+      "reports/qa/latest/pdf_probe/probe2.js",
+      "reports/qa/latest/pdf_probe/probe3.js",
+      "reports/qa/latest/por_folio_analysis_from_zero.json",
+      "reports/qa/latest/por_folio_answer_key_rationale.json",
+      "reports/qa/latest/por_folio_human_review/OPEN_IN_VSCODE.md",
+      "reports/qa/latest/por_folio_human_review/README.md",
+      "reports/qa/latest/por_folio_human_review/VISUAL_GUIDE_BATCH_01.md",
+      "\"reports/qa/latest/por_folio_human_review/images/07BE7982-P1-P01_CamScanner 02-03-2026 10.38_01.jpg\"",
+      "reports/qa/latest/por_folio_human_review/images/07BE7982-P1-P01_CamScanner_02-03-2026_10.38_01.jpg",
+      "\"reports/qa/latest/por_folio_human_review/images/07BE7982-P2-P02_CamScanner 02-03-2026 10.38_02.jpg\"",
+      "reports/qa/latest/por_folio_human_review/images/07BE7982-P2-P02_CamScanner_02-03-2026_10.38_02.jpg",
+      "\"reports/qa/latest/por_folio_human_review/images/0E994CBA-P1-P01_CamScanner 03-03-2026 02.24_5.jpg\"",
+      "reports/qa/latest/por_folio_human_review/images/0E994CBA-P1-P01_CamScanner_03-03-2026_02.24_5.jpg",
+      "\"reports/qa/latest/por_folio_human_review/images/0E994CBA-P2-P02_CamScanner 03-03-2026 02.24_6.jpg\"",
+      "reports/qa/latest/por_folio_human_review/images/0E994CBA-P2-P02_CamScanner_03-03-2026_02.24_6.jpg",
+      "\"reports/qa/latest/por_folio_human_review/images/503CF7FA-P1-P01_CamScanner 03-03-2026 02.24_23.jpg\"",
+      "reports/qa/latest/por_folio_human_review/images/503CF7FA-P1-P01_CamScanner_03-03-2026_02.24_23.jpg",
+      "\"reports/qa/latest/por_folio_human_review/images/503CF7FA-P2-P02_CamScanner 03-03-2026 02.24_24.jpg\"",
+      "reports/qa/latest/por_folio_human_review/images/503CF7FA-P2-P02_CamScanner_03-03-2026_02.24_24.jpg",
+      "\"reports/qa/latest/por_folio_human_review/images/54BC4954-P1-P01_CamScanner 03-03-2026 02.24_11.jpg\"",
+      "reports/qa/latest/por_folio_human_review/images/54BC4954-P1-P01_CamScanner_03-03-2026_02.24_11.jpg",
+      "\"reports/qa/latest/por_folio_human_review/images/54BC4954-P2-P02_CamScanner 03-03-2026 02.24_12.jpg\"",
+      "reports/qa/latest/por_folio_human_review/images/54BC4954-P2-P02_CamScanner_03-03-2026_02.24_12.jpg",
+      "\"reports/qa/latest/por_folio_human_review/images/5EA00A22-P1-P01_CamScanner 03-03-2026 02.24_7.jpg\"",
+      "reports/qa/latest/por_folio_human_review/images/5EA00A22-P1-P01_CamScanner_03-03-2026_02.24_7.jpg",
+      "\"reports/qa/latest/por_folio_human_review/images/5EA00A22-P2-P02_CamScanner 03-03-2026 02.24_8.jpg\"",
+      "reports/qa/latest/por_folio_human_review/images/5EA00A22-P2-P02_CamScanner_03-03-2026_02.24_8.jpg",
+      "\"reports/qa/latest/por_folio_human_review/images/66BB5FBD-P1-P01_CamScanner 03-03-2026 02.24_3.jpg\"",
+      "reports/qa/latest/por_folio_human_review/images/66BB5FBD-P1-P01_CamScanner_03-03-2026_02.24_3.jpg",
+      "\"reports/qa/latest/por_folio_human_review/images/66BB5FBD-P2-P02_CamScanner 02-03-2026 10.36_02.jpg\"",
+      "reports/qa/latest/por_folio_human_review/images/66BB5FBD-P2-P02_CamScanner_02-03-2026_10.36_02.jpg",
+      "\"reports/qa/latest/por_folio_human_review/images/6A98D91E-P1-P01_CamScanner 03-03-2026 02.24_13.jpg\"",
+      "reports/qa/latest/por_folio_human_review/images/6A98D91E-P1-P01_CamScanner_03-03-2026_02.24_13.jpg",
+      "\"reports/qa/latest/por_folio_human_review/images/6A98D91E-P2-P02_CamScanner 03-03-2026 02.24_14.jpg\"",
+      "reports/qa/latest/por_folio_human_review/images/6A98D91E-P2-P02_CamScanner_03-03-2026_02.24_14.jpg",
+      "\"reports/qa/latest/por_folio_human_review/images/75D5292B-P1-P01_CamScanner 03-03-2026 02.24_21.jpg\"",
+      "reports/qa/latest/por_folio_human_review/images/75D5292B-P1-P01_CamScanner_03-03-2026_02.24_21.jpg",
+      "\"reports/qa/latest/por_folio_human_review/images/75D5292B-P2-P02_CamScanner 03-03-2026 02.24_22.jpg\"",
+      "reports/qa/latest/por_folio_human_review/images/75D5292B-P2-P02_CamScanner_03-03-2026_02.24_22.jpg",
+      "\"reports/qa/latest/por_folio_human_review/images/A327335F-P1-P01_CamScanner 03-03-2026 02.24_9.jpg\"",
+      "reports/qa/latest/por_folio_human_review/images/A327335F-P1-P01_CamScanner_03-03-2026_02.24_9.jpg",
+      "\"reports/qa/latest/por_folio_human_review/images/A327335F-P2-P02_CamScanner 03-03-2026 02.24_10.jpg\"",
+      "reports/qa/latest/por_folio_human_review/images/A327335F-P2-P02_CamScanner_03-03-2026_02.24_10.jpg",
+      "\"reports/qa/latest/por_folio_human_review/images/A93D8EFA-P1-P01_CamScanner 03-03-2026 02.24_25.jpg\"",
+      "reports/qa/latest/por_folio_human_review/images/A93D8EFA-P1-P01_CamScanner_03-03-2026_02.24_25.jpg",
+      "\"reports/qa/latest/por_folio_human_review/images/A93D8EFA-P2-P02_CamScanner 03-03-2026 02.24_26.jpg\"",
+      "reports/qa/latest/por_folio_human_review/images/A93D8EFA-P2-P02_CamScanner_03-03-2026_02.24_26.jpg",
+      "\"reports/qa/latest/por_folio_human_review/images/B0FB153C-P1-P01_CamScanner 02-03-2026 10.40_01.jpg\"",
+      "reports/qa/latest/por_folio_human_review/images/B0FB153C-P1-P01_CamScanner_02-03-2026_10.40_01.jpg",
+      "\"reports/qa/latest/por_folio_human_review/images/B0FB153C-P2-P02_CamScanner 02-03-2026 10.40_02.jpg\"",
+      "reports/qa/latest/por_folio_human_review/images/B0FB153C-P2-P02_CamScanner_02-03-2026_10.40_02.jpg",
+      "\"reports/qa/latest/por_folio_human_review/images/B8A27B0B-P1-P01_CamScanner 03-03-2026 02.24_19.jpg\"",
+      "reports/qa/latest/por_folio_human_review/images/B8A27B0B-P1-P01_CamScanner_03-03-2026_02.24_19.jpg",
+      "\"reports/qa/latest/por_folio_human_review/images/B8A27B0B-P2-P02_CamScanner 03-03-2026 02.24_20.jpg\"",
+      "reports/qa/latest/por_folio_human_review/images/B8A27B0B-P2-P02_CamScanner_03-03-2026_02.24_20.jpg",
+      "\"reports/qa/latest/por_folio_human_review/images/D9881CAA-P1-P01_CamScanner 03-03-2026 02.24_1.jpg\"",
+      "reports/qa/latest/por_folio_human_review/images/D9881CAA-P1-P01_CamScanner_03-03-2026_02.24_1.jpg",
+      "\"reports/qa/latest/por_folio_human_review/images/D9881CAA-P2-P02_CamScanner 02-03-2026 10.34_02.jpg\"",
+      "reports/qa/latest/por_folio_human_review/images/D9881CAA-P2-P02_CamScanner_02-03-2026_10.34_02.jpg",
+      "\"reports/qa/latest/por_folio_human_review/images/ECF3E587-P1-P01_CamScanner 03-03-2026 02.24_17.jpg\"",
+      "reports/qa/latest/por_folio_human_review/images/ECF3E587-P1-P01_CamScanner_03-03-2026_02.24_17.jpg",
+      "\"reports/qa/latest/por_folio_human_review/images/ECF3E587-P2-P02_CamScanner 03-03-2026 02.24_18.jpg\"",
+      "reports/qa/latest/por_folio_human_review/images/ECF3E587-P2-P02_CamScanner_03-03-2026_02.24_18.jpg",
+      "\"reports/qa/latest/por_folio_human_review/images/EEB4EB38-P1-P01_CamScanner 03-03-2026 02.24_15.jpg\"",
+      "reports/qa/latest/por_folio_human_review/images/EEB4EB38-P1-P01_CamScanner_03-03-2026_02.24_15.jpg",
+      "\"reports/qa/latest/por_folio_human_review/images/EEB4EB38-P2-P02_CamScanner 03-03-2026 02.24_16.jpg\"",
+      "reports/qa/latest/por_folio_human_review/images/EEB4EB38-P2-P02_CamScanner_03-03-2026_02.24_16.jpg",
+      "reports/qa/latest/por_folio_human_review/open_in_vscode.ps1",
+      "reports/qa/latest/por_folio_human_review/review_batch_01.json",
+      "reports/qa/latest/por_folio_human_review/review_packet.json",
+      "reports/qa/latest/por_folio_human_review/review_priority_top10.json",
+      "reports/qa/latest/por_folio_human_review/review_template.json",
+      "reports/qa/latest/por_folio_human_review/review_template_batch_01_prefill.json",
+      "reports/qa/latest/por_folio_photo_content_ocr_only.json",
+      "reports/qa/latest/por_folio_photo_content_validation.json",
+      "reports/qa/latest/prodlike-imported.json",
+      "reports/qa/latest/reconcile_folios_orden.js",
+      "reports/qa/latest/reconcile_mongo_result.txt",
+      "reports/qa/latest/reconciliacion_estado_db_directo.json",
+      "reports/qa/latest/reconciliacion_final_estado.json",
+      "reports/qa/latest/tmp_delete_all_generated_exams.js",
+      "reports/qa/latest/tmp_dump_exam_list_shape.js",
+      "reports/qa/latest/tmp_dump_exam_shape.js",
+      "reports/qa/latest/tmp_dump_shape.js",
+      "reports/qa/latest/tmp_find_folios_db.js",
+      "reports/qa/latest/tmp_find_plantilla_db.js",
+      "reports/qa/latest/tmp_fix_from_valid_exam.js",
+      "reports/qa/latest/tmp_fix_one_orden_objid.js",
+      "reports/qa/latest/tmp_inspect_pdf.py",
+      "reports/qa/latest/tmp_list_collection_infos.js",
+      "reports/qa/latest/tmp_list_collections.js",
+      "reports/qa/latest/tmp_list_dbs.js",
+      "reports/qa/latest/tmp_lote_docs.json",
+      "reports/qa/latest/tmp_lote_query.js",
+      "reports/qa/latest/tmp_rebuild_from_pdf_mongo.js",
+      "reports/qa/latest/tmp_rebuild_lote_mongo.js",
+      "reports/qa/latest/tmp_reconcile_mongo.js",
+      "reports/qa/latest/validacion_identidad_lote.json",
+      "scripts/README.md",
+      "scripts/testing/check-diff-coverage.mjs",
+      "test-results/.last-run.json",
+      "tmp_missing_dirs.txt",
+      "apps/backend/src/compartido/configuracion/",
+      "apps/portal_alumno_cloud/src/compartido/configuracion/",
+      "docs/handoff/sesiones/2026-03-23/sesion-2026-03-23T11-18-25.821Z.input.json",
+      "docs/handoff/sesiones/2026-03-23/sesion-2026-03-23T11-18-25.821Z.json",
+      "docs/handoff/sesiones/2026-03-23/sesion-2026-03-23T11-18-25.821Z.md",
+      "scripts/workspace-hygiene.mjs"
+    ],
+    "artifacts": [
+      "docs/handoff/sesiones/2026-03-23/sesion-2026-03-23T11-18-25.821Z.json",
+      "docs/handoff/sesiones/2026-03-23/sesion-2026-03-23T11-18-25.821Z.md"
+    ]
+  },
+  "commands": [
+    {
+      "name": "lint",
+      "command": "npm run lint",
+      "status": "ok",
+      "exitCode": 0,
+      "durationMs": 16600,
+      "resultSummary": "lint OK en backend, frontend y portal",
+      "timestamp": "2026-03-23T11:26:20.000Z"
+    },
+    {
+      "name": "typecheck",
+      "command": "npm run typecheck",
+      "status": "ok",
+      "exitCode": 0,
+      "durationMs": 12700,
+      "resultSummary": "typecheck OK en workspaces",
+      "timestamp": "2026-03-23T11:26:40.000Z"
+    },
+    {
+      "name": "test_frontend_ci",
+      "command": "npm run test:frontend:ci",
+      "status": "ok",
+      "exitCode": 0,
+      "durationMs": 11200,
+      "resultSummary": "112 tests frontend en verde",
+      "timestamp": "2026-03-23T11:27:10.000Z"
+    },
+    {
+      "name": "test_coverage_ci",
+      "command": "npm run test:coverage:ci",
+      "status": "ok",
+      "exitCode": 0,
+      "durationMs": 477300,
+      "resultSummary": "coverage OK en backend, portal y frontend",
+      "timestamp": "2026-03-23T11:35:10.000Z"
+    },
+    {
+      "name": "test_tdd_enforcement_ci",
+      "command": "npm run test:tdd:enforcement:ci",
+      "status": "ok",
+      "exitCode": 0,
+      "durationMs": 1300,
+      "resultSummary": "diff coverage 100% tras normalizar lcov y excluir líneas estructurales",
+      "timestamp": "2026-03-23T11:35:20.000Z"
+    },
+    {
+      "name": "test_backend_ci",
+      "command": "npm run test:backend:ci",
+      "status": "ok",
+      "exitCode": 0,
+      "durationMs": 266400,
+      "resultSummary": "297 tests backend en verde",
+      "timestamp": "2026-03-23T11:39:50.000Z"
+    },
+    {
+      "name": "test_portal_ci",
+      "command": "npm run test:portal:ci",
+      "status": "ok",
+      "exitCode": 0,
+      "durationMs": 3900,
+      "resultSummary": "33 tests portal en verde",
+      "timestamp": "2026-03-23T11:39:55.000Z"
+    },
+    {
+      "name": "perf_check",
+      "command": "npm run perf:check",
+      "status": "ok",
+      "exitCode": 0,
+      "durationMs": 5100,
+      "resultSummary": "perf-check OK con 4 budgets",
+      "timestamp": "2026-03-23T11:40:10.000Z"
+    },
+    {
+      "name": "pipeline_contract_check",
+      "command": "npm run pipeline:contract:check",
+      "status": "ok",
+      "exitCode": 0,
+      "durationMs": 700,
+      "resultSummary": "pipeline contract OK",
+      "timestamp": "2026-03-23T11:40:12.000Z"
+    },
+    {
+      "name": "qa_clean_architecture_strict",
+      "command": "npm run qa:clean-architecture:strict",
+      "status": "ok",
+      "exitCode": 0,
+      "durationMs": 1700,
+      "resultSummary": "clean-architecture strict OK",
+      "timestamp": "2026-03-23T11:40:15.000Z"
+    },
+    {
+      "name": "inventario_codigo",
+      "command": "npm run inventario:codigo",
+      "status": "ok",
+      "exitCode": 0,
+      "durationMs": 700,
+      "resultSummary": "inventario-codigo regenerado en docs/INVENTARIO_CODIGO_EXHAUSTIVO.md",
+      "timestamp": "2026-03-23T11:40:30.000Z"
+    },
+    {
+      "name": "workspace_hygiene",
+      "command": "npm run workspace:hygiene",
+      "status": "ok",
+      "exitCode": 0,
+      "durationMs": 600,
+      "resultSummary": "el guard ya no reporta problemas bloqueantes; solo queda el diff pendiente de commit de la purga histórica",
+      "timestamp": "2026-03-23T11:40:32.000Z"
+    },
+    {
+      "name": "workspace_hygiene_strict",
+      "command": "npm run workspace:hygiene:strict",
+      "status": "ok",
+      "exitCode": 0,
+      "durationMs": 700,
+      "resultSummary": "workspace hygiene strict OK tras purgar histórico QA y reclasificar omr_samples_tv3",
+      "timestamp": "2026-03-23T11:48:30.000Z"
+    }
+  ],
+  "decisions": [
+    "El gate de diff coverage se corrigió en infraestructura, no añadiendo tests artificiales para cubrir un falso negativo causado por rutas relativas de lcov.",
+    "workspace:hygiene toma reports/qa/latest/manifest.json como allowlist contractual para separar evidencia vigente de residuos QA heredados dentro de reports/qa/latest/**.",
+    "Los temporales heredados lint_output.txt, tmp_missing_dirs.txt y test-results/.last-run.json se eliminan del árbol activo como parte del cierre de higiene.",
+    "El histórico QA no contractual bajo reports/qa/latest/** se elimina del workspace y omr_samples_tv3 se reclasifica como dataset sintético permitido."
+  ],
+  "assumptions": [
+    "Los artefactos QA listados en reports/qa/latest/manifest.json son el subconjunto contractual que debe seguir visible mientras no exista una política alternativa versionada.",
+    "La mayor parte de reports/qa/latest/** fuera del manifest y parte de omr_samples_tv3/** siguen siendo deuda histórica y no evidencia necesaria para el flujo normal."
+  ],
+  "risks": [
+    "Las eliminaciones masivas de reports/qa/latest/** deben revisarse en el commit final para asegurar que no se espera conservar histórico QA fuera del manifest contractual.",
+    "Los reportes QA regenerados durante la validación permanecen modificados en el árbol y deben revisarse en el commit final según la política de evidencia del repositorio."
+  ],
+  "nextStep": "Revisar el diff final de eliminaciones QA históricas y decidir si las copias redundantes bajo apps/*/reports/qa/latest deben conservarse o salir también del repositorio.",
+  "completion": {
+    "isComplete": true,
+    "pendingFields": []
+  },
+  "repo": {
+    "rootDir": "C:\\Users\\evega\\EvaluaPro_Sistema_Universitario",
+    "branch": "main",
+    "commit": "acbc87b",
+    "workingTreeStatus": "M .gitignore\n M CHANGELOG.md\n M apps/backend/reports/qa/latest/e2e-docente-alumno.json\n M apps/backend/reports/qa/latest/global-grade.json\n M apps/backend/reports/qa/latest/pdf-print.json\n M apps/backend/src/configuracion.ts\n M apps/frontend/reports/qa/latest/ux-visual.json\n M apps/frontend/src/servicios_api/clienteApi.ts\n M apps/frontend/src/servicios_api/clienteComun.ts\n M apps/frontend/src/servicios_api/clientePortal.ts\n M apps/frontend/tests/pwa.contract.test.ts\n M apps/portal_alumno_cloud/src/configuracion.ts\n M docs/ENGINEERING_BASELINE.md\n M docs/INVENTARIO_CODIGO_EXHAUSTIVO.md\n M docs/INVENTARIO_PROYECTO.md\n D lint_output.txt\n M package.json\n M reports/qa/latest/clean-architecture.json\n D reports/qa/latest/coincidencia_generados_detectados.json\n D reports/qa/latest/debug_banco_sample5.json\n D reports/qa/latest/examenes_estado_resumen.json\n D reports/qa/latest/folios_extraidos_pdf.json\n D reports/qa/latest/installer-docente-audit-2026-03-03.md\n D reports/qa/latest/lote_A050929D_summary.json\n D reports/qa/latest/omr-tv3-gate-wrapper.por-folio.json\n D reports/qa/latest/omr-tv3-gate.json\n D reports/qa/latest/omr_run_latest_lote.json\n D reports/qa/latest/omr_run_summary.json\n D reports/qa/latest/orden_preguntas_pre.json\n D reports/qa/latest/pdf-layout-visual-check.json\n D reports/qa/latest/pdf-layout-visual-check.pdf\n D reports/qa/latest/pdf_analysis_079d38a9/a050929d_answer_key_canonical.json\n D reports/qa/latest/pdf_analysis_079d38a9/a050929d_answer_key_reconciliation_report.json\n D reports/qa/latest/pdf_analysis_079d38a9/a050929d_answer_key_reconciliation_report.md\n D reports/qa/latest/pdf_analysis_079d38a9/a050929d_canonical_page_mapping.json\n D reports/qa/latest/pdf_analysis_079d38a9/a050929d_stream_extract.json\n D reports/qa/latest/pdf_analysis_079d38a9/a050929d_structure_truth.json\n D reports/qa/latest/pdf_analysis_079d38a9/page1_embed.png\n D reports/qa/latest/pdf_analysis_079d38a9/page2_embed.png\n D reports/qa/latest/pdf_probe/extract_folios.js\n D reports/qa/latest/pdf_probe/folios_from_pdf.json\n D reports/qa/latest/pdf_probe/package-lock.json\n D reports/qa/latest/pdf_probe/package.json\n D reports/qa/latest/pdf_probe/probe.js\n D reports/qa/latest/pdf_probe/probe2.cjs\n D reports/qa/latest/pdf_probe/probe2.js\n D reports/qa/latest/pdf_probe/probe3.js\n D reports/qa/latest/por_folio_analysis_from_zero.json\n D reports/qa/latest/por_folio_answer_key_rationale.json\n D reports/qa/latest/por_folio_human_review/OPEN_IN_VSCODE.md\n D reports/qa/latest/por_folio_human_review/README.md\n D reports/qa/latest/por_folio_human_review/VISUAL_GUIDE_BATCH_01.md\n D \"reports/qa/latest/por_folio_human_review/images/07BE7982-P1-P01_CamScanner 02-03-2026 10.38_01.jpg\"\n D reports/qa/latest/por_folio_human_review/images/07BE7982-P1-P01_CamScanner_02-03-2026_10.38_01.jpg\n D \"reports/qa/latest/por_folio_human_review/images/07BE7982-P2-P02_CamScanner 02-03-2026 10.38_02.jpg\"\n D reports/qa/latest/por_folio_human_review/images/07BE7982-P2-P02_CamScanner_02-03-2026_10.38_02.jpg\n D \"reports/qa/latest/por_folio_human_review/images/0E994CBA-P1-P01_CamScanner 03-03-2026 02.24_5.jpg\"\n D reports/qa/latest/por_folio_human_review/images/0E994CBA-P1-P01_CamScanner_03-03-2026_02.24_5.jpg\n D \"reports/qa/latest/por_folio_human_review/images/0E994CBA-P2-P02_CamScanner 03-03-2026 02.24_6.jpg\"\n D reports/qa/latest/por_folio_human_review/images/0E994CBA-P2-P02_CamScanner_03-03-2026_02.24_6.jpg\n D \"reports/qa/latest/por_folio_human_review/images/503CF7FA-P1-P01_CamScanner 03-03-2026 02.24_23.jpg\"\n D reports/qa/latest/por_folio_human_review/images/503CF7FA-P1-P01_CamScanner_03-03-2026_02.24_23.jpg\n D \"reports/qa/latest/por_folio_human_review/images/503CF7FA-P2-P02_CamScanner 03-03-2026 02.24_24.jpg\"\n D reports/qa/latest/por_folio_human_review/images/503CF7FA-P2-P02_CamScanner_03-03-2026_02.24_24.jpg\n D \"reports/qa/latest/por_folio_human_review/images/54BC4954-P1-P01_CamScanner 03-03-2026 02.24_11.jpg\"\n D reports/qa/latest/por_folio_human_review/images/54BC4954-P1-P01_CamScanner_03-03-2026_02.24_11.jpg\n D \"reports/qa/latest/por_folio_human_review/images/54BC4954-P2-P02_CamScanner 03-03-2026 02.24_12.jpg\"\n D reports/qa/latest/por_folio_human_review/images/54BC4954-P2-P02_CamScanner_03-03-2026_02.24_12.jpg\n D \"reports/qa/latest/por_folio_human_review/images/5EA00A22-P1-P01_CamScanner 03-03-2026 02.24_7.jpg\"\n D reports/qa/latest/por_folio_human_review/images/5EA00A22-P1-P01_CamScanner_03-03-2026_02.24_7.jpg\n D \"reports/qa/latest/por_folio_human_review/images/5EA00A22-P2-P02_CamScanner 03-03-2026 02.24_8.jpg\"\n D reports/qa/latest/por_folio_human_review/images/5EA00A22-P2-P02_CamScanner_03-03-2026_02.24_8.jpg\n D \"reports/qa/latest/por_folio_human_review/images/66BB5FBD-P1-P01_CamScanner 03-03-2026 02.24_3.jpg\"\n D reports/qa/latest/por_folio_human_review/images/66BB5FBD-P1-P01_CamScanner_03-03-2026_02.24_3.jpg\n D \"reports/qa/latest/por_folio_human_review/images/66BB5FBD-P2-P02_CamScanner 02-03-2026 10.36_02.jpg\"\n D reports/qa/latest/por_folio_human_review/images/66BB5FBD-P2-P02_CamScanner_02-03-2026_10.36_02.jpg\n D \"reports/qa/latest/por_folio_human_review/images/6A98D91E-P1-P01_CamScanner 03-03-2026 02.24_13.jpg\"\n D reports/qa/latest/por_folio_human_review/images/6A98D91E-P1-P01_CamScanner_03-03-2026_02.24_13.jpg\n D \"reports/qa/latest/por_folio_human_review/images/6A98D91E-P2-P02_CamScanner 03-03-2026 02.24_14.jpg\"\n D reports/qa/latest/por_folio_human_review/images/6A98D91E-P2-P02_CamScanner_03-03-2026_02.24_14.jpg\n D \"reports/qa/latest/por_folio_human_review/images/75D5292B-P1-P01_CamScanner 03-03-2026 02.24_21.jpg\"\n D reports/qa/latest/por_folio_human_review/images/75D5292B-P1-P01_CamScanner_03-03-2026_02.24_21.jpg\n D \"reports/qa/latest/por_folio_human_review/images/75D5292B-P2-P02_CamScanner 03-03-2026 02.24_22.jpg\"\n D reports/qa/latest/por_folio_human_review/images/75D5292B-P2-P02_CamScanner_03-03-2026_02.24_22.jpg\n D \"reports/qa/latest/por_folio_human_review/images/A327335F-P1-P01_CamScanner 03-03-2026 02.24_9.jpg\"\n D reports/qa/latest/por_folio_human_review/images/A327335F-P1-P01_CamScanner_03-03-2026_02.24_9.jpg\n D \"reports/qa/latest/por_folio_human_review/images/A327335F-P2-P02_CamScanner 03-03-2026 02.24_10.jpg\"\n D reports/qa/latest/por_folio_human_review/images/A327335F-P2-P02_CamScanner_03-03-2026_02.24_10.jpg\n D \"reports/qa/latest/por_folio_human_review/images/A93D8EFA-P1-P01_CamScanner 03-03-2026 02.24_25.jpg\"\n D reports/qa/latest/por_folio_human_review/images/A93D8EFA-P1-P01_CamScanner_03-03-2026_02.24_25.jpg\n D \"reports/qa/latest/por_folio_human_review/images/A93D8EFA-P2-P02_CamScanner 03-03-2026 02.24_26.jpg\"\n D reports/qa/latest/por_folio_human_review/images/A93D8EFA-P2-P02_CamScanner_03-03-2026_02.24_26.jpg\n D \"reports/qa/latest/por_folio_human_review/images/B0FB153C-P1-P01_CamScanner 02-03-2026 10.40_01.jpg\"\n D reports/qa/latest/por_folio_human_review/images/B0FB153C-P1-P01_CamScanner_02-03-2026_10.40_01.jpg\n D \"reports/qa/latest/por_folio_human_review/images/B0FB153C-P2-P02_CamScanner 02-03-2026 10.40_02.jpg\"\n D reports/qa/latest/por_folio_human_review/images/B0FB153C-P2-P02_CamScanner_02-03-2026_10.40_02.jpg\n D \"reports/qa/latest/por_folio_human_review/images/B8A27B0B-P1-P01_CamScanner 03-03-2026 02.24_19.jpg\"\n D reports/qa/latest/por_folio_human_review/images/B8A27B0B-P1-P01_CamScanner_03-03-2026_02.24_19.jpg\n D \"reports/qa/latest/por_folio_human_review/images/B8A27B0B-P2-P02_CamScanner 03-03-2026 02.24_20.jpg\"\n D reports/qa/latest/por_folio_human_review/images/B8A27B0B-P2-P02_CamScanner_03-03-2026_02.24_20.jpg\n D \"reports/qa/latest/por_folio_human_review/images/D9881CAA-P1-P01_CamScanner 03-03-2026 02.24_1.jpg\"\n D reports/qa/latest/por_folio_human_review/images/D9881CAA-P1-P01_CamScanner_03-03-2026_02.24_1.jpg\n D \"reports/qa/latest/por_folio_human_review/images/D9881CAA-P2-P02_CamScanner 02-03-2026 10.34_02.jpg\"\n D reports/qa/latest/por_folio_human_review/images/D9881CAA-P2-P02_CamScanner_02-03-2026_10.34_02.jpg\n D \"reports/qa/latest/por_folio_human_review/images/ECF3E587-P1-P01_CamScanner 03-03-2026 02.24_17.jpg\"\n D reports/qa/latest/por_folio_human_review/images/ECF3E587-P1-P01_CamScanner_03-03-2026_02.24_17.jpg\n D \"reports/qa/latest/por_folio_human_review/images/ECF3E587-P2-P02_CamScanner 03-03-2026 02.24_18.jpg\"\n D reports/qa/latest/por_folio_human_review/images/ECF3E587-P2-P02_CamScanner_03-03-2026_02.24_18.jpg\n D \"reports/qa/latest/por_folio_human_review/images/EEB4EB38-P1-P01_CamScanner 03-03-2026 02.24_15.jpg\"\n D reports/qa/latest/por_folio_human_review/images/EEB4EB38-P1-P01_CamScanner_03-03-2026_02.24_15.jpg\n D \"reports/qa/latest/por_folio_human_review/images/EEB4EB38-P2-P02_CamScanner 03-03-2026 02.24_16.jpg\"\n D reports/qa/latest/por_folio_human_review/images/EEB4EB38-P2-P02_CamScanner_03-03-2026_02.24_16.jpg\n D reports/qa/latest/por_folio_human_review/open_in_vscode.ps1\n D reports/qa/latest/por_folio_human_review/review_batch_01.json\n D reports/qa/latest/por_folio_human_review/review_packet.json\n D reports/qa/latest/por_folio_human_review/review_priority_top10.json\n D reports/qa/latest/por_folio_human_review/review_template.json\n D reports/qa/latest/por_folio_human_review/review_template_batch_01_prefill.json\n D reports/qa/latest/por_folio_photo_content_ocr_only.json\n D reports/qa/latest/por_folio_photo_content_validation.json\n D reports/qa/latest/prodlike-imported.json\n D reports/qa/latest/reconcile_folios_orden.js\n D reports/qa/latest/reconcile_mongo_result.txt\n D reports/qa/latest/reconciliacion_estado_db_directo.json\n D reports/qa/latest/reconciliacion_final_estado.json\n D reports/qa/latest/tmp_delete_all_generated_exams.js\n D reports/qa/latest/tmp_dump_exam_list_shape.js\n D reports/qa/latest/tmp_dump_exam_shape.js\n D reports/qa/latest/tmp_dump_shape.js\n D reports/qa/latest/tmp_find_folios_db.js\n D reports/qa/latest/tmp_find_plantilla_db.js\n D reports/qa/latest/tmp_fix_from_valid_exam.js\n D reports/qa/latest/tmp_fix_one_orden_objid.js\n D reports/qa/latest/tmp_inspect_pdf.py\n D reports/qa/latest/tmp_list_collection_infos.js\n D reports/qa/latest/tmp_list_collections.js\n D reports/qa/latest/tmp_list_dbs.js\n D reports/qa/latest/tmp_lote_docs.json\n D reports/qa/latest/tmp_lote_query.js\n D reports/qa/latest/tmp_rebuild_from_pdf_mongo.js\n D reports/qa/latest/tmp_rebuild_lote_mongo.js\n D reports/qa/latest/tmp_reconcile_mongo.js\n D reports/qa/latest/validacion_identidad_lote.json\n M scripts/README.md\n M scripts/testing/check-diff-coverage.mjs\n D test-results/.last-run.json\n D tmp_missing_dirs.txt\n?? apps/backend/src/compartido/configuracion/\n?? apps/portal_alumno_cloud/src/compartido/configuracion/\n?? docs/handoff/sesiones/2026-03-23/sesion-2026-03-23T11-18-25.821Z.input.json\n?? docs/handoff/sesiones/2026-03-23/sesion-2026-03-23T11-18-25.821Z.json\n?? docs/handoff/sesiones/2026-03-23/sesion-2026-03-23T11-18-25.821Z.md\n?? scripts/workspace-hygiene.mjs"
+  }
+}

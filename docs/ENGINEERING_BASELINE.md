@@ -7,6 +7,15 @@ Version visible GUI: `1.0.0b`
 ## Estado vigente
 - Corte 2026-03-23:
   - `apps/backend/src/configuracion.ts` y `apps/portal_alumno_cloud/src/configuracion.ts` ya no cargan el `.env` raíz durante `NODE_ENV=test`
+  - backend y portal extraen utilidades internas de configuración para centralizar carga de `.env`, flags booleanas, CSV y parseos numéricos sin duplicación accidental
+  - frontend consolida la base de sus clientes HTTP JSON en `clienteComun`, reduciendo duplicación entre `clienteApi` y `clientePortal` sin cambiar contratos visibles
+  - nuevo guard operativo `npm run workspace:hygiene` mide buckets regenerables y expone deuda real del árbol local/versionado antes de usar el modo estricto
+  - `scripts/testing/check-diff-coverage.mjs` normaliza rutas relativas de `lcov` por app e ignora líneas estructurales no ejecutables, eliminando falsos rojos del gate TDD
+  - `workspace:hygiene` toma `reports/qa/latest/manifest.json` como allowlist contractual de evidencia QA y deja visibles solo los residuos heredados fuera de ese subconjunto
+  - el histórico QA no contractual bajo `reports/qa/latest/**` se elimina del árbol activo; el guard ya no bloquea por evidencia auxiliar/human-review/debug fuera del manifest
+  - `omr_samples_tv3` se reclasifica como dataset sintético permitido en higiene del workspace (`manifest`, `ground_truth`, `quality_tags`, `images.zip`)
+  - `workspace:hygiene:strict` queda operativo en verde con el árbol de trabajo actual
+  - temporales heredados de raíz (`lint_output.txt`, `tmp_missing_dirs.txt`) y `test-results/.last-run.json` salen del árbol activo en este lote
   - la suite backend completa vuelve a pasar sin `403` espurios en `/api/autenticacion/registrar`
   - frontend añade cobertura contractual sobre `App.tsx`, `AppAdminNegocio.tsx` y `AppAlumno.tsx` para sostener el gate de diff coverage del siguiente commit en `main`
   - harness E2E responsive del frontend endurecido: servidor de prueba con `vite preview` y flag `VITE_DISABLE_PWA=1` para evitar recargas espurias del shell/PWA durante Playwright
@@ -57,6 +66,10 @@ Version visible GUI: `1.0.0b`
   - `/ms-playwright`: `364 MB`
   - `node_modules` runtime backend: `160 MB`
   - smoke PDF Playwright dentro del contenedor: `14401 bytes`
+- Higiene del workspace en este corte:
+  - guard nuevo disponible: `workspace:hygiene`, `workspace:hygiene:strict`
+  - hallazgo dominante: `reports/qa/latest/**` contiene mezcla de evidencia contractual y outputs regenerables heredados
+  - temporales heredados detectados en raíz: `lint_output.txt`, `tmp_missing_dirs.txt`
 
 ## Corte de validacion 2026-03-20
 - Versionado de promoción estable:
@@ -139,15 +152,18 @@ Version visible GUI: `1.0.0b`
   - `npm run lint` ✅
   - `npm run typecheck` ✅
   - `npm run test:frontend:ci` ✅
-  - `npm run test:coverage:ci` ❌
-  - `npm run test:tdd:enforcement:ci` ❌
-  - `npm run test:backend:ci` ❌
+  - `npm run test:coverage:ci` ✅
+  - `npm run test:tdd:enforcement:ci` ✅
+  - `npm run test:backend:ci` ✅
   - `npm run test:portal:ci` ✅
   - `npm run perf:check` ✅
   - `npm run pipeline:contract:check` ✅
-- Causa dominante de fallo observada:
-  - backend/integración devuelve `403 Forbidden` en múltiples pruebas que esperan `201 Created` al registrar docentes (`/api/autenticacion/registrar`)
-  - diff coverage de frontend queda en `0%` sobre cambios previos ya presentes en el árbol y rompe `npm run test:tdd:enforcement:ci`
+  - `npm run qa:clean-architecture:strict` ✅
+  - `npm run workspace:hygiene:strict` ✅
+- Cierre del blocker de este lote:
+  - `test:tdd:enforcement:ci` vuelve a verde tras corregir la resolución de rutas `lcov` y excluir líneas estructurales no ejecutables del cálculo de diff coverage
+  - backend/portal/frontend quedan nuevamente en verde sin bajar thresholds ni mover gates
+  - la deuda de higiene visible en `reports/qa/latest/**` deja de bloquear el workspace al conservar solo el subconjunto contractual
 - `node --test scripts/tests/windows-release-smoke.test.mjs` ✅
 - `npm run test:installer-hub:contract` ✅
 - `npm run test:dashboard:repair` ✅

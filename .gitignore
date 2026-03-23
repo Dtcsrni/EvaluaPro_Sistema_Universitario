@@ -38,6 +38,16 @@ tmp_*.txt
 ocr.js
 OcrComponent.jsx
 *.worktrees/
+lint_output.txt
+tmp_missing_dirs.txt
+
+# Workspace hygiene / regenerable outputs
+reports/qa/latest/**/*.tmp.json
+reports/qa/latest/**/*.tmp.md
+reports/qa/latest/**/*.bak.json
+logs/**/*.tmp.json
+logs/**/*.bak.json
+test-results/
 
 # OMR synthetic artifacts
 omr_samples_tv3/images/

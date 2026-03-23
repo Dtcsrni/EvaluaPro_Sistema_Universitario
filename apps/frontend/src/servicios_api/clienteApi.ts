@@ -2,7 +2,9 @@
  * Cliente API simple para frontend docente/alumno.
  */
 import {
+  crearClienteJsonBase,
   crearGestorEventosUso,
+  crearPublicadorEventosUsoJson,
   DetalleErrorRemoto,
   ErrorRemoto,
   fetchConManejoErrores,
@@ -43,22 +45,11 @@ export function crearClienteApi() {
 
   const { registrarEventosUso } = crearGestorEventosUso<EventoUso>({
     obtenerToken: obtenerTokenDocente,
-    publicarLote: async (lote, token) => {
-      const controller = new AbortController();
-      const timer = globalThis.setTimeout(() => controller.abort(), 2500);
-      try {
-        await fetch(`${baseApi}/analiticas/eventos-uso`, {
-          method: 'POST',
-          credentials: 'include',
-          headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-          body: JSON.stringify({ eventos: lote }),
-          keepalive: true,
-          signal: controller.signal
-        });
-      } finally {
-        globalThis.clearTimeout(timer);
-      }
-    }
+    publicarLote: crearPublicadorEventosUsoJson<EventoUso>({
+      obtenerToken: obtenerTokenDocente,
+      url: `${baseApi}/analiticas/eventos-uso`,
+      credentials: 'include'
+    })
   });
 
   type RequestOptions = { timeoutMs?: number };
@@ -115,178 +106,39 @@ export function crearClienteApi() {
     return refreshEnCurso;
   }
 
-  async function obtener<T>(ruta: string, opciones?: RequestOptions): Promise<T> {
-    const token = obtenerTokenDocente();
-    return fetchConManejoErrores<T>({
-      fetcher: async (signal) => {
-        const hacer = (t: string | null) =>
-          fetch(`${baseApi}${ruta}`, {
-            credentials: 'include',
-            headers: t ? { Authorization: `Bearer ${t}` } : undefined,
-            signal
-          });
+  const clienteBase = crearClienteJsonBase({
+    baseUrl: baseApi,
+    mensajeServicio: 'API no disponible',
+    obtenerToken: obtenerTokenDocente,
+    refrescarToken: intentarRefrescarToken,
+    credentials: 'include',
+    retry: retryApi,
+    silenciarDuranteArranque,
+    toastUnreachable: {
+      id: 'api-unreachable',
+      title: 'Sin conexion',
+      message: 'No se pudo contactar la API docente.'
+    },
+    toastTimeout: {
+      id: 'api-timeout',
+      title: 'Tiempo de espera',
+      message: 'La API tardo demasiado en responder.'
+    },
+    toastServerError: {
+      id: 'api-server-error',
+      title: 'API con error',
+      message: (status) => `La API respondio con HTTP ${status}.`
+    }
+  });
 
-        let respuesta = await hacer(token);
-        if (respuesta && (respuesta as Response).status === 401) {
-          const nuevo = await intentarRefrescarToken();
-          if (nuevo) respuesta = await hacer(nuevo);
-        }
-        return respuesta;
-      },
-      mensajeServicio: 'API no disponible',
-      timeoutMs: opciones?.timeoutMs ?? 12_000,
-      toastUnreachable: {
-        id: 'api-unreachable',
-        title: 'Sin conexion',
-        message: 'No se pudo contactar la API docente.'
-      },
-      toastTimeout: {
-        id: 'api-timeout',
-        title: 'Tiempo de espera',
-        message: 'La API tardo demasiado en responder.'
-      },
-      toastServerError: {
-        id: 'api-server-error',
-        title: 'API con error',
-        message: (status) => `La API respondio con HTTP ${status}.`
-      },
-      retry: retryApi,
-      silenciarUnreachable: silenciarDuranteArranque(),
-      silenciarTimeout: silenciarDuranteArranque(),
-      silenciarServerError: silenciarDuranteArranque()
-    });
-  }
-
-  async function enviar<T>(ruta: string, payload: unknown, opciones?: RequestOptions): Promise<T> {
-    const token = obtenerTokenDocente();
-    return fetchConManejoErrores<T>({
-      fetcher: async (signal) => {
-        const hacer = (t: string | null) =>
-          fetch(`${baseApi}${ruta}`, {
-            method: 'POST',
-            credentials: 'include',
-            headers: { 'Content-Type': 'application/json', ...(t ? { Authorization: `Bearer ${t}` } : {}) },
-            body: JSON.stringify(payload),
-            signal
-          });
-
-        let respuesta = await hacer(token);
-        if (respuesta && (respuesta as Response).status === 401) {
-          const nuevo = await intentarRefrescarToken();
-          if (nuevo) respuesta = await hacer(nuevo);
-        }
-        return respuesta;
-      },
-      mensajeServicio: 'API no disponible',
-      timeoutMs: opciones?.timeoutMs ?? 15_000,
-      toastUnreachable: {
-        id: 'api-unreachable',
-        title: 'Sin conexion',
-        message: 'No se pudo contactar la API docente.'
-      },
-      toastTimeout: {
-        id: 'api-timeout',
-        title: 'Tiempo de espera',
-        message: 'La API tardo demasiado en responder.'
-      },
-      toastServerError: {
-        id: 'api-server-error',
-        title: 'API con error',
-        message: (status) => `La API respondio con HTTP ${status}.`
-      },
-      retry: retryApi,
-      silenciarUnreachable: silenciarDuranteArranque(),
-      silenciarTimeout: silenciarDuranteArranque(),
-      silenciarServerError: silenciarDuranteArranque()
-    });
-  }
-
-  async function eliminar<T>(ruta: string, opciones?: RequestOptions): Promise<T> {
-    const token = obtenerTokenDocente();
-    return fetchConManejoErrores<T>({
-      fetcher: async (signal) => {
-        const hacer = (t: string | null) =>
-          fetch(`${baseApi}${ruta}`, {
-            method: 'DELETE',
-            credentials: 'include',
-            headers: t ? { Authorization: `Bearer ${t}` } : undefined,
-            signal
-          });
-
-        let respuesta = await hacer(token);
-        if (respuesta && (respuesta as Response).status === 401) {
-          const nuevo = await intentarRefrescarToken();
-          if (nuevo) respuesta = await hacer(nuevo);
-        }
-        return respuesta;
-      },
-      mensajeServicio: 'API no disponible',
-      timeoutMs: opciones?.timeoutMs ?? 15_000,
-      toastUnreachable: {
-        id: 'api-unreachable',
-        title: 'Sin conexion',
-        message: 'No se pudo contactar la API docente.'
-      },
-      toastTimeout: {
-        id: 'api-timeout',
-        title: 'Tiempo de espera',
-        message: 'La API tardo demasiado en responder.'
-      },
-      toastServerError: {
-        id: 'api-server-error',
-        title: 'API con error',
-        message: (status) => `La API respondio con HTTP ${status}.`
-      },
-      retry: retryApi,
-      silenciarUnreachable: silenciarDuranteArranque(),
-      silenciarTimeout: silenciarDuranteArranque(),
-      silenciarServerError: silenciarDuranteArranque()
-    });
-  }
-
-  async function actualizar<T>(ruta: string, payload: unknown, opciones?: RequestOptions): Promise<T> {
-    const token = obtenerTokenDocente();
-    return fetchConManejoErrores<T>({
-      fetcher: async (signal) => {
-        const hacer = (t: string | null) =>
-          fetch(`${baseApi}${ruta}`, {
-            method: 'PUT',
-            credentials: 'include',
-            headers: { 'Content-Type': 'application/json', ...(t ? { Authorization: `Bearer ${t}` } : {}) },
-            body: JSON.stringify(payload),
-            signal
-          });
-
-        let respuesta = await hacer(token);
-        if (respuesta && (respuesta as Response).status === 401) {
-          const nuevo = await intentarRefrescarToken();
-          if (nuevo) respuesta = await hacer(nuevo);
-        }
-        return respuesta;
-      },
-      mensajeServicio: 'API no disponible',
-      timeoutMs: opciones?.timeoutMs ?? 15_000,
-      toastUnreachable: {
-        id: 'api-unreachable',
-        title: 'Sin conexion',
-        message: 'No se pudo contactar la API docente.'
-      },
-      toastTimeout: {
-        id: 'api-timeout',
-        title: 'Tiempo de espera',
-        message: 'La API tardo demasiado en responder.'
-      },
-      toastServerError: {
-        id: 'api-server-error',
-        title: 'API con error',
-        message: (status) => `La API respondio con HTTP ${status}.`
-      },
-      retry: retryApi,
-      silenciarUnreachable: silenciarDuranteArranque(),
-      silenciarTimeout: silenciarDuranteArranque(),
-      silenciarServerError: silenciarDuranteArranque()
-    });
-  }
-
-  return { baseApi, obtener, enviar, actualizar, eliminar, registrarEventosUso, mensajeUsuarioDeError, intentarRefrescarToken };
+  return {
+    baseApi,
+    obtener: <T>(ruta: string, opciones?: RequestOptions) => clienteBase.obtener<T>(ruta, opciones),
+    enviar: <T>(ruta: string, payload: unknown, opciones?: RequestOptions) => clienteBase.enviar<T>(ruta, payload, opciones),
+    actualizar: <T>(ruta: string, payload: unknown, opciones?: RequestOptions) => clienteBase.actualizar<T>(ruta, payload, opciones),
+    eliminar: <T>(ruta: string, opciones?: RequestOptions) => clienteBase.eliminar<T>(ruta, opciones),
+    registrarEventosUso,
+    mensajeUsuarioDeError,
+    intentarRefrescarToken
+  };
 }
