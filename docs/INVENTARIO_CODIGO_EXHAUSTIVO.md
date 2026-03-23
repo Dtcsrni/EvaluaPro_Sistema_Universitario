@@ -1,24 +1,24 @@
 # Inventario Exhaustivo de Codigo
 
-Fecha de generacion: 2026-03-23 03:37:29
+Fecha de generacion: 2026-03-23 04:46:43
 Fuente: git ls-files (solo archivos versionados, excluye node_modules).
 
 ## Resumen
 
-- Total de piezas de codigo/config ejecutable inventariadas: 869
+- Total de piezas de codigo/config ejecutable inventariadas: 874
 - Extensiones incluidas: ts, tsx, js, jsx, mjs, cjs, json, yml, yaml, sh, cmd, ps1.
 
 ## Conteo por area
 
 | Area | Archivos |
 | --- | ---: |
-| backend | 373 |
-| frontend | 127 |
-| portal_alumno_cloud | 42 |
+| backend | 374 |
+| frontend | 129 |
+| portal_alumno_cloud | 43 |
 | ci | 15 |
 | scripts | 111 |
 | ops | 3 |
-| docs | 21 |
+| docs | 22 |
 | raiz | 9 |
 
 ## Backend (apps/backend)
@@ -309,6 +309,7 @@ Fuente: git ls-files (solo archivos versionados, excluye node_modules).
 - apps/backend/tests/calificacion.test.ts
 - apps/backend/tests/comercial.core.test.ts
 - apps/backend/tests/configuracion.correo.test.ts
+- apps/backend/tests/configuracion.entorno.test.ts
 - apps/backend/tests/configuracion.produccion.test.ts
 - apps/backend/tests/configuracion.test.ts
 - apps/backend/tests/contrato/limitesPayload.test.ts
@@ -486,6 +487,8 @@ Fuente: git ls-files (solo archivos versionados, excluye node_modules).
 - apps/frontend/src/ui/version/UpdatePanel.tsx
 - apps/frontend/src/ui/version/versionInfo.ts
 - apps/frontend/src/ui/version/VersionInfoPage.tsx
+- apps/frontend/tests/app.selector.test.tsx
+- apps/frontend/tests/appAdminNegocio.navigation.test.tsx
 - apps/frontend/tests/appAlumno.behavior.test.tsx
 - apps/frontend/tests/appAlumno.test.tsx
 - apps/frontend/tests/appDocente.dominiosCobertura.test.tsx
@@ -557,6 +560,7 @@ Fuente: git ls-files (solo archivos versionados, excluye node_modules).
 - apps/portal_alumno_cloud/src/servicios/middlewareSesion.ts
 - apps/portal_alumno_cloud/src/servicios/servicioSesion.ts
 - apps/portal_alumno_cloud/tests/apiKey.test.ts
+- apps/portal_alumno_cloud/tests/configuracion.entorno.test.ts
 - apps/portal_alumno_cloud/tests/configuracion.produccion.test.ts
 - apps/portal_alumno_cloud/tests/contrato/validaciones.test.ts
 - apps/portal_alumno_cloud/tests/errores.test.ts
@@ -722,6 +726,7 @@ Fuente: git ls-files (solo archivos versionados, excluye node_modules).
 - docs/handoff/sesiones/2026-03-23/sesion-2026-03-23T03-13-01.575Z.json
 - docs/handoff/sesiones/2026-03-23/sesion-2026-03-23T03-56-04.140Z.json
 - docs/handoff/sesiones/2026-03-23/sesion-2026-03-23T04-22-05.327Z.json
+- docs/handoff/sesiones/2026-03-23/sesion-2026-03-23T09-38-09.243Z.json
 - docs/handoff/trace.schema.json
 - docs/perf/baseline.business.json
 - docs/perf/baseline.json

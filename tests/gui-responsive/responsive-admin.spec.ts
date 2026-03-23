@@ -81,7 +81,8 @@ test.describe('GUI responsive e2e · admin negocio', () => {
   for (const viewport of viewports) {
     test(`shell estable en ${viewport.name}`, async ({ page }) => {
       await page.setViewportSize({ width: viewport.width, height: viewport.height });
-      await page.goto('/', { waitUntil: 'networkidle' });
+      // El panel de negocio refresca datos de forma periódica; la UI visible es la condición estable.
+      await page.goto('/', { waitUntil: 'domcontentloaded' });
 
       await expect(page.getByText(/Panel de Negocio EvaluaPro/i)).toBeVisible();
       await expect(page.getByRole('navigation', { name: /Vistas del panel de negocio/i })).toBeVisible();

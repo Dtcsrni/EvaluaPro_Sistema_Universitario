@@ -31,6 +31,11 @@ Este archivo sigue el formato "Keep a Changelog" (alto nivel) y SemVer.
 - Frontend suma el carril `test:gui:responsive:e2e:admin` para validar layout responsive del panel de negocio.
 
 ### Fixed
+- Harness E2E responsive del frontend estabilizado para suites Playwright:
+  - `scripts/testing/start-frontend-e2e-server.mjs` ahora compila el destino y sirve `vite preview` en lugar de usar `vite dev`
+  - `apps/frontend/src/pwa.ts` admite `VITE_DISABLE_PWA=1` para desactivar SW/PWA solo en pruebas automatizadas
+  - suites responsive `docente` y `admin_negocio` dejan de depender de `networkidle`, condición incompatible con shells con polling
+- El smoke responsive docente se replantea como validación E2E estable de la pantalla de acceso por breakpoint; la navegación autenticada y `Calificaciones` siguen cubiertas por pruebas de integración/componentes del frontend.
 - Backend y portal cloud ya no heredan flags locales del `.env` raíz durante `NODE_ENV=test`, evitando fugas de `REQUIRE_GOOGLE_OAUTH=1` que rompían el registro docente y el flujo `prod-like` de integración.
 - La cobertura contractual del diff en frontend ahora queda sustentada con pruebas dirigidas sobre:
   - selector principal `App.tsx`

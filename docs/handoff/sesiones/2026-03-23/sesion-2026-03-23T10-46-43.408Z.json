@@ -1,0 +1,250 @@
+{
+  "traceSchemaVersion": "1.0.0",
+  "sessionId": "sesion-2026-03-23T10-46-43.408Z",
+  "status": "draft",
+  "generatedAt": "2026-03-23T10:46:43.408Z",
+  "validationProfile": "quick",
+  "agent": {
+    "name": "unknown",
+    "version": "unknown",
+    "provider": "unknown",
+    "kind": "unknown",
+    "channel": "unknown"
+  },
+  "request": {
+    "summary": "Pendiente de completar por el agente."
+  },
+  "objective": "Pendiente de completar por el agente.",
+  "scope": [],
+  "constraints": [],
+  "actions": [
+    {
+      "type": "validation",
+      "summary": "Ejecucion de lint",
+      "timestamp": "2026-03-23T10:46:43.408Z",
+      "status": "omitido"
+    },
+    {
+      "type": "validation",
+      "summary": "Ejecucion de typecheck",
+      "timestamp": "2026-03-23T10:46:43.408Z",
+      "status": "omitido"
+    },
+    {
+      "type": "validation",
+      "summary": "Ejecucion de test_frontend_ci",
+      "timestamp": "2026-03-23T10:46:43.408Z",
+      "status": "omitido"
+    },
+    {
+      "type": "validation",
+      "summary": "Ejecucion de test_coverage_ci",
+      "timestamp": "2026-03-23T10:46:43.408Z",
+      "status": "omitido"
+    },
+    {
+      "type": "validation",
+      "summary": "Ejecucion de test_tdd_enforcement_ci",
+      "timestamp": "2026-03-23T10:46:43.408Z",
+      "status": "omitido"
+    },
+    {
+      "type": "validation",
+      "summary": "Ejecucion de test_backend_ci",
+      "timestamp": "2026-03-23T10:46:43.408Z",
+      "status": "omitido"
+    },
+    {
+      "type": "validation",
+      "summary": "Ejecucion de test_portal_ci",
+      "timestamp": "2026-03-23T10:46:43.408Z",
+      "status": "omitido"
+    },
+    {
+      "type": "validation",
+      "summary": "Ejecucion de perf_check",
+      "timestamp": "2026-03-23T10:46:43.408Z",
+      "status": "omitido"
+    },
+    {
+      "type": "validation",
+      "summary": "Ejecucion de pipeline_contract_check",
+      "timestamp": "2026-03-23T10:46:43.408Z",
+      "status": "ok"
+    },
+    {
+      "type": "validation",
+      "summary": "Ejecucion de docs_check",
+      "timestamp": "2026-03-23T10:46:43.408Z",
+      "status": "ok"
+    }
+  ],
+  "files": {
+    "read": [],
+    "changed": [
+      "CHANGELOG.md",
+      "\"accesos-directos/EvaluaPro - Abrir Dashboard.lnk\"",
+      "\"accesos-directos/EvaluaPro - Detener Todo.lnk\"",
+      "\"accesos-directos/EvaluaPro - Dev.lnk\"",
+      "\"accesos-directos/EvaluaPro - Hub.lnk\"",
+      "\"accesos-directos/EvaluaPro - Prod.lnk\"",
+      "\"accesos-directos/EvaluaPro - Reiniciar Stack.lnk\"",
+      "\"accesos-directos/EvaluaPro - Reparar Entorno.lnk\"",
+      "apps/backend/reports/qa/latest/e2e-docente-alumno.json",
+      "apps/backend/reports/qa/latest/global-grade.json",
+      "apps/backend/reports/qa/latest/pdf-print.json",
+      "apps/frontend/reports/qa/latest/ux-visual.json",
+      "apps/frontend/src/pwa.ts",
+      "docs/AUTO_ENV.md",
+      "docs/ENGINEERING_BASELINE.md",
+      "docs/diagramas/rendered/arquitectura/arquitectura-despliegue.svg",
+      "docs/diagramas/rendered/arquitectura/arquitectura-logica.svg",
+      "docs/diagramas/rendered/c4/arquitectura-c4-component-integraciones.svg",
+      "docs/diagramas/rendered/c4/arquitectura-c4-component.svg",
+      "docs/diagramas/rendered/c4/arquitectura-c4-container.svg",
+      "docs/diagramas/rendered/c4/arquitectura-c4-context.svg",
+      "docs/diagramas/rendered/datos/modelo-datos-cloud.svg",
+      "docs/diagramas/rendered/datos/modelo-datos-local.svg",
+      "docs/diagramas/rendered/flujos/flujo-examen.svg",
+      "docs/diagramas/rendered/secuencias/secuencia-login-docente.svg",
+      "docs/diagramas/rendered/secuencias/secuencia-portal-alumno.svg",
+      "docs/diagramas/rendered/secuencias/secuencia-publicacion.svg",
+      "reports/qa/latest/clean-architecture.json",
+      "reports/qa/latest/dataset-prodlike.json",
+      "reports/qa/latest/e2e-docente-alumno.json",
+      "reports/qa/latest/evaluaciones-e2e.json",
+      "reports/qa/latest/evaluaciones-policy.json",
+      "reports/qa/latest/global-grade.json",
+      "reports/qa/latest/manifest.json",
+      "reports/qa/latest/omr-tv3-gate-wrapper.por-folio.json",
+      "reports/qa/latest/pdf-print.json",
+      "reports/qa/latest/ux-visual.json",
+      "scripts/testing/start-frontend-e2e-server.mjs",
+      "tests/gui-responsive/responsive-admin.spec.ts",
+      "tests/gui-responsive/responsive-docente.spec.ts",
+      "apps/frontend/dist-e2e-admin_negocio/",
+      "apps/frontend/dist-e2e-alumno/",
+      "docs/handoff/sesiones/2026-03-23/sesion-2026-03-23T08-55-32.926Z.json",
+      "docs/handoff/sesiones/2026-03-23/sesion-2026-03-23T08-55-32.926Z.md",
+      "docs/handoff/sesiones/2026-03-23/sesion-2026-03-23T09-37-29.678Z.json",
+      "docs/handoff/sesiones/2026-03-23/sesion-2026-03-23T09-37-29.678Z.md"
+    ],
+    "artifacts": [
+      "docs/handoff/sesiones/2026-03-23/sesion-2026-03-23T10-46-43.408Z.json",
+      "docs/handoff/sesiones/2026-03-23/sesion-2026-03-23T10-46-43.408Z.md"
+    ]
+  },
+  "commands": [
+    {
+      "name": "lint",
+      "command": "npm run lint",
+      "status": "omitido",
+      "exitCode": null,
+      "durationMs": 0,
+      "resultSummary": "omitido por perfil quick",
+      "timestamp": "2026-03-23T10:46:43.408Z"
+    },
+    {
+      "name": "typecheck",
+      "command": "npm run typecheck",
+      "status": "omitido",
+      "exitCode": null,
+      "durationMs": 0,
+      "resultSummary": "omitido por perfil quick",
+      "timestamp": "2026-03-23T10:46:43.408Z"
+    },
+    {
+      "name": "test_frontend_ci",
+      "command": "npm run test:frontend:ci",
+      "status": "omitido",
+      "exitCode": null,
+      "durationMs": 0,
+      "resultSummary": "omitido por perfil quick",
+      "timestamp": "2026-03-23T10:46:43.408Z"
+    },
+    {
+      "name": "test_coverage_ci",
+      "command": "npm run test:coverage:ci",
+      "status": "omitido",
+      "exitCode": null,
+      "durationMs": 0,
+      "resultSummary": "omitido por perfil quick",
+      "timestamp": "2026-03-23T10:46:43.408Z"
+    },
+    {
+      "name": "test_tdd_enforcement_ci",
+      "command": "npm run test:tdd:enforcement:ci",
+      "status": "omitido",
+      "exitCode": null,
+      "durationMs": 0,
+      "resultSummary": "omitido por perfil quick",
+      "timestamp": "2026-03-23T10:46:43.408Z"
+    },
+    {
+      "name": "test_backend_ci",
+      "command": "npm run test:backend:ci",
+      "status": "omitido",
+      "exitCode": null,
+      "durationMs": 0,
+      "resultSummary": "omitido por perfil quick",
+      "timestamp": "2026-03-23T10:46:43.408Z"
+    },
+    {
+      "name": "test_portal_ci",
+      "command": "npm run test:portal:ci",
+      "status": "omitido",
+      "exitCode": null,
+      "durationMs": 0,
+      "resultSummary": "omitido por perfil quick",
+      "timestamp": "2026-03-23T10:46:43.408Z"
+    },
+    {
+      "name": "perf_check",
+      "command": "npm run perf:check",
+      "status": "omitido",
+      "exitCode": null,
+      "durationMs": 0,
+      "resultSummary": "omitido por perfil quick",
+      "timestamp": "2026-03-23T10:46:43.408Z"
+    },
+    {
+      "name": "pipeline_contract_check",
+      "command": "npm run pipeline:contract:check",
+      "status": "ok",
+      "exitCode": 0,
+      "durationMs": 311,
+      "resultSummary": "> evaluapro@1.0.0 pipeline:contract:check | > node -e \"const fs=require('fs');['ci/pipeline.contract.md','ci/pipeline.matrix.json'].forEach(p=>{if(!fs.existsSync(p)){throw new Error('Missing '+p)}});console.log('pipeline contract OK');\" | pipeline contract OK",
+      "timestamp": "2026-03-23T10:46:43.408Z"
+    },
+    {
+      "name": "docs_check",
+      "command": "npm run docs:check",
+      "status": "ok",
+      "exitCode": 0,
+      "durationMs": 509,
+      "resultSummary": "> evaluapro@1.0.0 docs:check | > node scripts/docs.mjs --check | [docs] ok",
+      "timestamp": "2026-03-23T10:46:43.408Z"
+    }
+  ],
+  "decisions": [],
+  "assumptions": [],
+  "risks": [],
+  "nextStep": "Pendiente de completar por el agente.",
+  "completion": {
+    "isComplete": false,
+    "pendingFields": [
+      "request.summary",
+      "objective",
+      "scope",
+      "decisions",
+      "risks",
+      "nextStep"
+    ]
+  },
+  "repo": {
+    "rootDir": "C:\\Users\\evega\\EvaluaPro_Sistema_Universitario",
+    "branch": "main",
+    "commit": "d9995ab",
+    "workingTreeStatus": "M CHANGELOG.md\n M \"accesos-directos/EvaluaPro - Abrir Dashboard.lnk\"\n M \"accesos-directos/EvaluaPro - Detener Todo.lnk\"\n M \"accesos-directos/EvaluaPro - Dev.lnk\"\n M \"accesos-directos/EvaluaPro - Hub.lnk\"\n M \"accesos-directos/EvaluaPro - Prod.lnk\"\n M \"accesos-directos/EvaluaPro - Reiniciar Stack.lnk\"\n M \"accesos-directos/EvaluaPro - Reparar Entorno.lnk\"\n M apps/backend/reports/qa/latest/e2e-docente-alumno.json\n M apps/backend/reports/qa/latest/global-grade.json\n M apps/backend/reports/qa/latest/pdf-print.json\n M apps/frontend/reports/qa/latest/ux-visual.json\n M apps/frontend/src/pwa.ts\n M docs/AUTO_ENV.md\n M docs/ENGINEERING_BASELINE.md\n M docs/diagramas/rendered/arquitectura/arquitectura-despliegue.svg\n M docs/diagramas/rendered/arquitectura/arquitectura-logica.svg\n M docs/diagramas/rendered/c4/arquitectura-c4-component-integraciones.svg\n M docs/diagramas/rendered/c4/arquitectura-c4-component.svg\n M docs/diagramas/rendered/c4/arquitectura-c4-container.svg\n M docs/diagramas/rendered/c4/arquitectura-c4-context.svg\n M docs/diagramas/rendered/datos/modelo-datos-cloud.svg\n M docs/diagramas/rendered/datos/modelo-datos-local.svg\n M docs/diagramas/rendered/flujos/flujo-examen.svg\n M docs/diagramas/rendered/secuencias/secuencia-login-docente.svg\n M docs/diagramas/rendered/secuencias/secuencia-portal-alumno.svg\n M docs/diagramas/rendered/secuencias/secuencia-publicacion.svg\n M reports/qa/latest/clean-architecture.json\n M reports/qa/latest/dataset-prodlike.json\n M reports/qa/latest/e2e-docente-alumno.json\n M reports/qa/latest/evaluaciones-e2e.json\n M reports/qa/latest/evaluaciones-policy.json\n M reports/qa/latest/global-grade.json\n M reports/qa/latest/manifest.json\n M reports/qa/latest/omr-tv3-gate-wrapper.por-folio.json\n M reports/qa/latest/pdf-print.json\n M reports/qa/latest/ux-visual.json\n M scripts/testing/start-frontend-e2e-server.mjs\n M tests/gui-responsive/responsive-admin.spec.ts\n M tests/gui-responsive/responsive-docente.spec.ts\n?? apps/frontend/dist-e2e-admin_negocio/\n?? apps/frontend/dist-e2e-alumno/\n?? docs/handoff/sesiones/2026-03-23/sesion-2026-03-23T08-55-32.926Z.json\n?? docs/handoff/sesiones/2026-03-23/sesion-2026-03-23T08-55-32.926Z.md\n?? docs/handoff/sesiones/2026-03-23/sesion-2026-03-23T09-37-29.678Z.json\n?? docs/handoff/sesiones/2026-03-23/sesion-2026-03-23T09-37-29.678Z.md"
+  }
+}

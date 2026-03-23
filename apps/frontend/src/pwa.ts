@@ -40,6 +40,7 @@ declare global {
 
 const destino = ((import.meta.env.VITE_APP_DESTINO || 'docente').toLowerCase() === 'alumno' ? 'alumno' : 'docente') as DestinoPwa;
 const versionVisible = String(import.meta.env.VITE_APP_DISPLAY_VERSION || import.meta.env.VITE_APP_VERSION || '0.0.0');
+const pwaDeshabilitada = /^(1|true|yes|si)$/i.test(String(import.meta.env.VITE_DISABLE_PWA || ''));
 const PWA_SCHEMA_VERSION = '2026-03-21.1';
 const SW_PATH = '/portal-sw.js';
 const CACHE_PREFIX = 'ep-portal-assets-';
@@ -228,6 +229,10 @@ export function aplicarRecursosPwa(destinoActual: DestinoPwa = destino) {
 
 export async function inicializarPwa() {
   if (typeof window === 'undefined' || typeof document === 'undefined') return publicarEstadoPwa();
+  if (pwaDeshabilitada) {
+    aplicarRecursosPwa(destino);
+    return publicarEstadoPwa({ swRegistered: false, swScript: '', installPromptAvailable: false });
+  }
 
   aplicarRecursosPwa(destino);
   conectarEventosInstalacion();

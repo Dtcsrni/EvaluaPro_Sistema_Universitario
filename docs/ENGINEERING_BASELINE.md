@@ -9,6 +9,8 @@ Version visible GUI: `1.0.0b`
   - `apps/backend/src/configuracion.ts` y `apps/portal_alumno_cloud/src/configuracion.ts` ya no cargan el `.env` raíz durante `NODE_ENV=test`
   - la suite backend completa vuelve a pasar sin `403` espurios en `/api/autenticacion/registrar`
   - frontend añade cobertura contractual sobre `App.tsx`, `AppAdminNegocio.tsx` y `AppAlumno.tsx` para sostener el gate de diff coverage del siguiente commit en `main`
+  - harness E2E responsive del frontend endurecido: servidor de prueba con `vite preview` y flag `VITE_DISABLE_PWA=1` para evitar recargas espurias del shell/PWA durante Playwright
+  - carriles ampliados verificados en verde en este corte: `test:gui:responsive:e2e:ci`, `compliance:full:ci`, `qa:evidence:quick`, `qa:full`, `test:classroom:audit:ci`, `test:omr:tv3:gate:ci`, `test:ci` y `ci:policy:audit:remote`
   - ruleset remoto de `main` verificado con required checks: `Verificaciones Extendidas (Main/Release)` y `Installer Windows (MSI + Bundle)`
 - Monorepo NPM workspaces:
   - `apps/backend`
