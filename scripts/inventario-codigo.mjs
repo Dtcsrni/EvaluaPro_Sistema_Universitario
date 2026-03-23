@@ -51,12 +51,25 @@ function seccion(nombre, archivos) {
 
 async function listarVersionados() {
   const { stdout } = await exec('git ls-files', { cwd: rootDir, windowsHide: true, maxBuffer: 16 * 1024 * 1024 });
-  return stdout
+  const candidatos = stdout
     .split(/\r?\n/)
     .map((x) => x.trim())
     .filter(Boolean)
     .filter((r) => !excluirRuta(r))
     .filter((r) => extensionValida(r));
+
+  const existentes = await Promise.all(
+    candidatos.map(async (ruta) => {
+      try {
+        await fs.access(path.join(rootDir, ruta));
+        return ruta;
+      } catch {
+        return null;
+      }
+    })
+  );
+
+  return existentes.filter(Boolean);
 }
 
 async function generar() {
@@ -70,7 +83,7 @@ async function generar() {
     '# Inventario Exhaustivo de Codigo',
     '',
     `Fecha de generacion: ${fecha}`,
-    'Fuente: git ls-files (solo archivos versionados, excluye node_modules).',
+    'Fuente: git ls-files filtrado por existencia en workspace (solo archivos versionados presentes, excluye node_modules).',
     '',
     '## Resumen',
     '',

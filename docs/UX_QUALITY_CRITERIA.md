@@ -28,7 +28,7 @@ Se valida automaticamente en `test:ux-quality:ci` sobre:
 
 ## Evidencia
 - Test contractual: `apps/frontend/tests/ux.quality.test.tsx`
-- Reporte visual: `apps/frontend/reports/qa/latest/ux-visual.json`
+- Reporte visual: `reports/qa/latest/ux-visual.json`
 - Contrato responsive: `apps/frontend/tests/gui.responsive.contract.test.tsx`
 - Cobertura de secciones docentes: `apps/frontend/tests/appDocente.dominiosCobertura.test.tsx`
 

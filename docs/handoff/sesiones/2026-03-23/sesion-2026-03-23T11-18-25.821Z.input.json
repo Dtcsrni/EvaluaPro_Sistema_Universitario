@@ -7,7 +7,7 @@
   "scope": [
     "Corregir scripts operativos de calidad para que diff coverage use rutas de coverage coherentes por app y no cuente líneas estructurales no ejecutables.",
     "Refinar el guard de higiene del workspace para permitir la evidencia contractual listada en reports/qa/latest/manifest.json y exponer solo residuos heredados fuera de ese contrato.",
-    "Eliminar temporales heredados visibles del árbol activo y regenerar inventario/handoff con resultado real de validaciones."
+    "Eliminar temporales heredados visibles del árbol activo, retirar copias redundantes de reportes QA bajo apps/*/reports/qa/latest y regenerar inventario/handoff con resultado real de validaciones."
   ],
   "constraints": [
     "Sin cambios deliberados en contratos HTTP, PWA, schema de handoff ni rutas de release.",
@@ -18,7 +18,8 @@
     "El gate de diff coverage se corrigió en infraestructura, no añadiendo tests artificiales para cubrir un falso negativo causado por rutas relativas de lcov.",
     "workspace:hygiene toma reports/qa/latest/manifest.json como allowlist contractual para separar evidencia vigente de residuos QA heredados dentro de reports/qa/latest/**.",
     "Los temporales heredados lint_output.txt, tmp_missing_dirs.txt y test-results/.last-run.json se eliminan del árbol activo como parte del cierre de higiene.",
-    "El histórico QA no contractual bajo reports/qa/latest/** se elimina del workspace y omr_samples_tv3 se reclasifica como dataset sintético permitido."
+    "El histórico QA no contractual bajo reports/qa/latest/** se elimina del workspace y omr_samples_tv3 se reclasifica como dataset sintético permitido.",
+    "Las copias redundantes en apps/backend/reports/qa/latest y apps/frontend/reports/qa/latest se eliminan para consolidar reports/qa/latest como única fuente contractual de evidencia QA."
   ],
   "assumptions": [
     "Los artefactos QA listados en reports/qa/latest/manifest.json son el subconjunto contractual que debe seguir visible mientras no exista una política alternativa versionada.",
@@ -26,9 +27,10 @@
   ],
   "risks": [
     "Las eliminaciones masivas de reports/qa/latest/** deben revisarse en el commit final para asegurar que no se espera conservar histórico QA fuera del manifest contractual.",
-    "Los reportes QA regenerados durante la validación permanecen modificados en el árbol y deben revisarse en el commit final según la política de evidencia del repositorio."
+    "Los reportes QA regenerados durante la validación permanecen modificados en el árbol y deben revisarse en el commit final según la política de evidencia del repositorio.",
+    "Los handoff históricos seguirán mencionando rutas antiguas de apps/*/reports/qa/latest porque registran estados pasados; eso no implica dependencia activa del runtime."
   ],
-  "nextStep": "Revisar el diff final de eliminaciones QA históricas y decidir si las copias redundantes bajo apps/*/reports/qa/latest deben conservarse o salir también del repositorio.",
+  "nextStep": "Revisar el diff final de eliminaciones QA históricas y decidir si conviene aplicar la misma consolidación de evidencia a otros artefactos derivados fuera de reports/qa/latest.",
   "commands": [
     {
       "name": "lint",

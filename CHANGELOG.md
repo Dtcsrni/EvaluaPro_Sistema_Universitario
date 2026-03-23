@@ -20,6 +20,7 @@ Este archivo sigue el formato "Keep a Changelog" (alto nivel) y SemVer.
 - Se eliminan del árbol activo temporales heredados de raíz (`lint_output.txt`, `tmp_missing_dirs.txt`) y `test-results/.last-run.json`.
 - Se purga del árbol activo el histórico QA no contractual en `reports/qa/latest/**`, conservando solo el subconjunto definido por `reports/qa/latest/manifest.json`.
 - `omr_samples_tv3` queda reconocido como dataset sintético permitido por el guard de higiene en lugar de deuda regenerable.
+- Se eliminan copias redundantes de reportes QA bajo `apps/backend/reports/qa/latest` y `apps/frontend/reports/qa/latest`; la fuente de verdad queda unificada en `reports/qa/latest`.
 - Installer Hub Windows ahora publica un manifiesto local `dist/installer/installer-local-paths.json` con rutas absolutas de los ejecutables generados por flavor y marca el ejecutable recomendado para el equipo actual.
 - Documentación operativa del instalador y release Windows alineada al contrato real multi-flavor:
   - `EvaluaPro-InstallerHub-saas-completo.exe`

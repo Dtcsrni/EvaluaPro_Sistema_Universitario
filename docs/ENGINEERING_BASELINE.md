@@ -196,7 +196,7 @@ Version visible GUI: `1.0.0b`
     - `npm -C apps/frontend run test -- --reporter=verbose tests/ux.quality.test.tsx tests/gui.responsive.contract.test.tsx tests/ux.visual.test.tsx` ✅
   - snapshots/artefactos QA actualizados como nuevo baseline visual:
     - `apps/frontend/tests/__snapshots__/ux.visual.test.tsx.snap`
-    - `apps/frontend/reports/qa/latest/ux-visual.json`
+    - `reports/qa/latest/ux-visual.json`
 - Validación incremental Classroom 2026-03-22:
   - comando reproducible `npm run test:classroom:audit:ci`
   - cobertura backend ampliada con `apps/backend/tests/integracion/classroom.audit.test.ts`

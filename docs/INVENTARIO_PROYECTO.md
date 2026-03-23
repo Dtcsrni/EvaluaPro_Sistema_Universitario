@@ -143,6 +143,7 @@ Version visible objetivo: `1.0.0b`
   - `workspace:hygiene` ahora permite explícitamente el subconjunto contractual publicado por `reports/qa/latest/manifest.json`
   - `workspace:hygiene` ignora entradas ya borradas del workspace aunque sigan presentes en el índice de Git hasta el commit final
   - se purgan del árbol activo los outputs históricos `reports/qa/latest/**` fuera del manifest contractual
+  - se eliminan copias redundantes en `apps/backend/reports/qa/latest` y `apps/frontend/reports/qa/latest`; la evidencia QA canónica queda centralizada en `reports/qa/latest`
   - `omr_samples_tv3` queda clasificado como dataset sintético permitido (`manifest`, `ground_truth`, `quality_tags`, `images.zip`)
   - `scripts/README.md` documenta el guard de higiene
   - la política de limpieza queda medible, no solo descriptiva

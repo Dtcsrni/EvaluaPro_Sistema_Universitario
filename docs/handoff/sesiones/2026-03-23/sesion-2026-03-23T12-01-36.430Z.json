@@ -1,0 +1,276 @@
+{
+  "traceSchemaVersion": "1.0.0",
+  "sessionId": "sesion-2026-03-23T12-01-36.430Z",
+  "status": "final",
+  "generatedAt": "2026-03-23T12:02:54.876Z",
+  "validationProfile": "quick",
+  "agent": {
+    "name": "unknown",
+    "version": "unknown",
+    "provider": "unknown",
+    "kind": "unknown",
+    "channel": "unknown"
+  },
+  "request": {
+    "summary": "Cerrar la fase posterior a la limpieza del monorepo: resolver el gate de diff coverage, sanear artefactos temporales visibles, clasificar evidencia QA contractual y dejar la trazabilidad de sesión en estado final."
+  },
+  "objective": "Dejar el repositorio nuevamente mergeable y trazable sin introducir features nuevas, cerrando el blocker de TDD, reduciendo ruido regenerable evidente y documentando la deuda de higiene que aún permanece fuera del subconjunto contractual.",
+  "scope": [
+    "Corregir scripts operativos de calidad para que diff coverage use rutas de coverage coherentes por app y no cuente líneas estructurales no ejecutables.",
+    "Refinar el guard de higiene del workspace para permitir la evidencia contractual listada en reports/qa/latest/manifest.json y exponer solo residuos heredados fuera de ese contrato.",
+    "Eliminar temporales heredados visibles del árbol activo, retirar copias redundantes de reportes QA bajo apps/*/reports/qa/latest y regenerar inventario/handoff con resultado real de validaciones."
+  ],
+  "constraints": [
+    "Sin cambios deliberados en contratos HTTP, PWA, schema de handoff ni rutas de release.",
+    "Sin bajar thresholds ni excluir módulos para forzar gates en verde.",
+    "Mantener compatibilidad con scripts y gates obligatorios definidos por AGENTS.md."
+  ],
+  "actions": [
+    {
+      "type": "validation",
+      "summary": "Ejecucion de lint",
+      "timestamp": "2026-03-23T11:26:20.000Z",
+      "status": "ok"
+    },
+    {
+      "type": "validation",
+      "summary": "Ejecucion de typecheck",
+      "timestamp": "2026-03-23T11:26:40.000Z",
+      "status": "ok"
+    },
+    {
+      "type": "validation",
+      "summary": "Ejecucion de test_frontend_ci",
+      "timestamp": "2026-03-23T11:27:10.000Z",
+      "status": "ok"
+    },
+    {
+      "type": "validation",
+      "summary": "Ejecucion de test_coverage_ci",
+      "timestamp": "2026-03-23T11:35:10.000Z",
+      "status": "ok"
+    },
+    {
+      "type": "validation",
+      "summary": "Ejecucion de test_tdd_enforcement_ci",
+      "timestamp": "2026-03-23T11:35:20.000Z",
+      "status": "ok"
+    },
+    {
+      "type": "validation",
+      "summary": "Ejecucion de test_backend_ci",
+      "timestamp": "2026-03-23T11:39:50.000Z",
+      "status": "ok"
+    },
+    {
+      "type": "validation",
+      "summary": "Ejecucion de test_portal_ci",
+      "timestamp": "2026-03-23T11:39:55.000Z",
+      "status": "ok"
+    },
+    {
+      "type": "validation",
+      "summary": "Ejecucion de perf_check",
+      "timestamp": "2026-03-23T11:40:10.000Z",
+      "status": "ok"
+    },
+    {
+      "type": "validation",
+      "summary": "Ejecucion de pipeline_contract_check",
+      "timestamp": "2026-03-23T11:40:12.000Z",
+      "status": "ok"
+    },
+    {
+      "type": "validation",
+      "summary": "Ejecucion de qa_clean_architecture_strict",
+      "timestamp": "2026-03-23T11:40:15.000Z",
+      "status": "ok"
+    },
+    {
+      "type": "validation",
+      "summary": "Ejecucion de inventario_codigo",
+      "timestamp": "2026-03-23T11:40:30.000Z",
+      "status": "ok"
+    },
+    {
+      "type": "validation",
+      "summary": "Ejecucion de workspace_hygiene",
+      "timestamp": "2026-03-23T11:40:32.000Z",
+      "status": "ok"
+    },
+    {
+      "type": "validation",
+      "summary": "Ejecucion de workspace_hygiene_strict",
+      "timestamp": "2026-03-23T11:48:30.000Z",
+      "status": "ok"
+    }
+  ],
+  "files": {
+    "read": [],
+    "changed": [
+      "CHANGELOG.md",
+      "apps/backend/reports/qa/latest/e2e-docente-alumno.json",
+      "apps/backend/reports/qa/latest/global-grade.json",
+      "apps/backend/reports/qa/latest/pdf-print.json",
+      "apps/frontend/reports/qa/latest/ux-visual.json",
+      "docs/ENGINEERING_BASELINE.md",
+      "docs/INVENTARIO_CODIGO_EXHAUSTIVO.md",
+      "docs/INVENTARIO_PROYECTO.md",
+      "docs/UX_QUALITY_CRITERIA.md",
+      "docs/handoff/sesiones/2026-03-23/sesion-2026-03-23T11-18-25.821Z.input.json",
+      "scripts/inventario-codigo.mjs",
+      "docs/handoff/sesiones/2026-03-23/sesion-2026-03-23T12-01-36.430Z.json",
+      "docs/handoff/sesiones/2026-03-23/sesion-2026-03-23T12-01-36.430Z.md"
+    ],
+    "artifacts": [
+      "docs/handoff/sesiones/2026-03-23/sesion-2026-03-23T12-01-36.430Z.json",
+      "docs/handoff/sesiones/2026-03-23/sesion-2026-03-23T12-01-36.430Z.md"
+    ]
+  },
+  "commands": [
+    {
+      "name": "lint",
+      "command": "npm run lint",
+      "status": "ok",
+      "exitCode": 0,
+      "durationMs": 16600,
+      "resultSummary": "lint OK en backend, frontend y portal",
+      "timestamp": "2026-03-23T11:26:20.000Z"
+    },
+    {
+      "name": "typecheck",
+      "command": "npm run typecheck",
+      "status": "ok",
+      "exitCode": 0,
+      "durationMs": 12700,
+      "resultSummary": "typecheck OK en workspaces",
+      "timestamp": "2026-03-23T11:26:40.000Z"
+    },
+    {
+      "name": "test_frontend_ci",
+      "command": "npm run test:frontend:ci",
+      "status": "ok",
+      "exitCode": 0,
+      "durationMs": 11200,
+      "resultSummary": "112 tests frontend en verde",
+      "timestamp": "2026-03-23T11:27:10.000Z"
+    },
+    {
+      "name": "test_coverage_ci",
+      "command": "npm run test:coverage:ci",
+      "status": "ok",
+      "exitCode": 0,
+      "durationMs": 477300,
+      "resultSummary": "coverage OK en backend, portal y frontend",
+      "timestamp": "2026-03-23T11:35:10.000Z"
+    },
+    {
+      "name": "test_tdd_enforcement_ci",
+      "command": "npm run test:tdd:enforcement:ci",
+      "status": "ok",
+      "exitCode": 0,
+      "durationMs": 1300,
+      "resultSummary": "diff coverage 100% tras normalizar lcov y excluir líneas estructurales",
+      "timestamp": "2026-03-23T11:35:20.000Z"
+    },
+    {
+      "name": "test_backend_ci",
+      "command": "npm run test:backend:ci",
+      "status": "ok",
+      "exitCode": 0,
+      "durationMs": 266400,
+      "resultSummary": "297 tests backend en verde",
+      "timestamp": "2026-03-23T11:39:50.000Z"
+    },
+    {
+      "name": "test_portal_ci",
+      "command": "npm run test:portal:ci",
+      "status": "ok",
+      "exitCode": 0,
+      "durationMs": 3900,
+      "resultSummary": "33 tests portal en verde",
+      "timestamp": "2026-03-23T11:39:55.000Z"
+    },
+    {
+      "name": "perf_check",
+      "command": "npm run perf:check",
+      "status": "ok",
+      "exitCode": 0,
+      "durationMs": 5100,
+      "resultSummary": "perf-check OK con 4 budgets",
+      "timestamp": "2026-03-23T11:40:10.000Z"
+    },
+    {
+      "name": "pipeline_contract_check",
+      "command": "npm run pipeline:contract:check",
+      "status": "ok",
+      "exitCode": 0,
+      "durationMs": 700,
+      "resultSummary": "pipeline contract OK",
+      "timestamp": "2026-03-23T11:40:12.000Z"
+    },
+    {
+      "name": "qa_clean_architecture_strict",
+      "command": "npm run qa:clean-architecture:strict",
+      "status": "ok",
+      "exitCode": 0,
+      "durationMs": 1700,
+      "resultSummary": "clean-architecture strict OK",
+      "timestamp": "2026-03-23T11:40:15.000Z"
+    },
+    {
+      "name": "inventario_codigo",
+      "command": "npm run inventario:codigo",
+      "status": "ok",
+      "exitCode": 0,
+      "durationMs": 700,
+      "resultSummary": "inventario-codigo regenerado en docs/INVENTARIO_CODIGO_EXHAUSTIVO.md",
+      "timestamp": "2026-03-23T11:40:30.000Z"
+    },
+    {
+      "name": "workspace_hygiene",
+      "command": "npm run workspace:hygiene",
+      "status": "ok",
+      "exitCode": 0,
+      "durationMs": 600,
+      "resultSummary": "el guard ya no reporta problemas bloqueantes; solo queda el diff pendiente de commit de la purga histórica",
+      "timestamp": "2026-03-23T11:40:32.000Z"
+    },
+    {
+      "name": "workspace_hygiene_strict",
+      "command": "npm run workspace:hygiene:strict",
+      "status": "ok",
+      "exitCode": 0,
+      "durationMs": 700,
+      "resultSummary": "workspace hygiene strict OK tras purgar histórico QA y reclasificar omr_samples_tv3",
+      "timestamp": "2026-03-23T11:48:30.000Z"
+    }
+  ],
+  "decisions": [
+    "El gate de diff coverage se corrigió en infraestructura, no añadiendo tests artificiales para cubrir un falso negativo causado por rutas relativas de lcov.",
+    "workspace:hygiene toma reports/qa/latest/manifest.json como allowlist contractual para separar evidencia vigente de residuos QA heredados dentro de reports/qa/latest/**.",
+    "Los temporales heredados lint_output.txt, tmp_missing_dirs.txt y test-results/.last-run.json se eliminan del árbol activo como parte del cierre de higiene.",
+    "El histórico QA no contractual bajo reports/qa/latest/** se elimina del workspace y omr_samples_tv3 se reclasifica como dataset sintético permitido.",
+    "Las copias redundantes en apps/backend/reports/qa/latest y apps/frontend/reports/qa/latest se eliminan para consolidar reports/qa/latest como única fuente contractual de evidencia QA."
+  ],
+  "assumptions": [
+    "Los artefactos QA listados en reports/qa/latest/manifest.json son el subconjunto contractual que debe seguir visible mientras no exista una política alternativa versionada.",
+    "La mayor parte de reports/qa/latest/** fuera del manifest y parte de omr_samples_tv3/** siguen siendo deuda histórica y no evidencia necesaria para el flujo normal."
+  ],
+  "risks": [
+    "Las eliminaciones masivas de reports/qa/latest/** deben revisarse en el commit final para asegurar que no se espera conservar histórico QA fuera del manifest contractual.",
+    "Los reportes QA regenerados durante la validación permanecen modificados en el árbol y deben revisarse en el commit final según la política de evidencia del repositorio.",
+    "Los handoff históricos seguirán mencionando rutas antiguas de apps/*/reports/qa/latest porque registran estados pasados; eso no implica dependencia activa del runtime."
+  ],
+  "nextStep": "Revisar el diff final de eliminaciones QA históricas y decidir si conviene aplicar la misma consolidación de evidencia a otros artefactos derivados fuera de reports/qa/latest.",
+  "completion": {
+    "isComplete": true,
+    "pendingFields": []
+  },
+  "repo": {
+    "rootDir": "C:\\Users\\evega\\EvaluaPro_Sistema_Universitario",
+    "branch": "main",
+    "commit": "f4f00ee",
+    "workingTreeStatus": "M CHANGELOG.md\n D apps/backend/reports/qa/latest/e2e-docente-alumno.json\n D apps/backend/reports/qa/latest/global-grade.json\n D apps/backend/reports/qa/latest/pdf-print.json\n D apps/frontend/reports/qa/latest/ux-visual.json\n M docs/ENGINEERING_BASELINE.md\n M docs/INVENTARIO_CODIGO_EXHAUSTIVO.md\n M docs/INVENTARIO_PROYECTO.md\n M docs/UX_QUALITY_CRITERIA.md\n M docs/handoff/sesiones/2026-03-23/sesion-2026-03-23T11-18-25.821Z.input.json\n M scripts/inventario-codigo.mjs\n?? docs/handoff/sesiones/2026-03-23/sesion-2026-03-23T12-01-36.430Z.json\n?? docs/handoff/sesiones/2026-03-23/sesion-2026-03-23T12-01-36.430Z.md"
+  }
+}

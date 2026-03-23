@@ -1,24 +1,24 @@
 # Inventario Exhaustivo de Codigo
 
-Fecha de generacion: 2026-03-23 05:55:41
-Fuente: git ls-files (solo archivos versionados, excluye node_modules).
+Fecha de generacion: 2026-03-23 06:02:55
+Fuente: git ls-files filtrado por existencia en workspace (solo archivos versionados presentes, excluye node_modules).
 
 ## Resumen
 
-- Total de piezas de codigo/config ejecutable inventariadas: 877
+- Total de piezas de codigo/config ejecutable inventariadas: 822
 - Extensiones incluidas: ts, tsx, js, jsx, mjs, cjs, json, yml, yaml, sh, cmd, ps1.
 
 ## Conteo por area
 
 | Area | Archivos |
 | --- | ---: |
-| backend | 374 |
-| frontend | 129 |
-| portal_alumno_cloud | 43 |
+| backend | 372 |
+| frontend | 128 |
+| portal_alumno_cloud | 44 |
 | ci | 15 |
-| scripts | 111 |
+| scripts | 112 |
 | ops | 3 |
-| docs | 25 |
+| docs | 27 |
 | raiz | 9 |
 
 ## Backend (apps/backend)
@@ -27,9 +27,6 @@ Fuente: git ls-files (solo archivos versionados, excluye node_modules).
 - apps/backend/eslint.config.cjs
 - apps/backend/package-lock.json
 - apps/backend/package.json
-- apps/backend/reports/qa/latest/e2e-docente-alumno.json
-- apps/backend/reports/qa/latest/global-grade.json
-- apps/backend/reports/qa/latest/pdf-print.json
 - apps/backend/scripts/auth-reset-password.ts
 - apps/backend/scripts/debugCrearPeriodo.ts
 - apps/backend/scripts/omr_calibrate.js
@@ -75,6 +72,7 @@ Fuente: git ls-files (solo archivos versionados, excluye node_modules).
 - apps/backend/scripts/recovery-reconstruct-manifest.ts
 - apps/backend/scripts/recovery-verify.ts
 - apps/backend/src/app.ts
+- apps/backend/src/compartido/configuracion/env.ts
 - apps/backend/src/compartido/errores/errorAplicacion.ts
 - apps/backend/src/compartido/errores/manejadorErrores.ts
 - apps/backend/src/compartido/observabilidad/metrics.ts
@@ -407,7 +405,6 @@ Fuente: git ls-files (solo archivos versionados, excluye node_modules).
 - apps/frontend/package-lock.json
 - apps/frontend/package.json
 - apps/frontend/public/portal-sw.js
-- apps/frontend/reports/qa/latest/ux-visual.json
 - apps/frontend/src/App.tsx
 - apps/frontend/src/apps/app_admin_negocio/AppAdminNegocio.tsx
 - apps/frontend/src/apps/app_admin_negocio/clienteAdminNegocioApi.ts
@@ -537,6 +534,7 @@ Fuente: git ls-files (solo archivos versionados, excluye node_modules).
 - apps/portal_alumno_cloud/package-lock.json
 - apps/portal_alumno_cloud/package.json
 - apps/portal_alumno_cloud/src/app.ts
+- apps/portal_alumno_cloud/src/compartido/configuracion/env.ts
 - apps/portal_alumno_cloud/src/compartido/errores/manejadorErrores.ts
 - apps/portal_alumno_cloud/src/configuracion.ts
 - apps/portal_alumno_cloud/src/index.ts
@@ -707,6 +705,7 @@ Fuente: git ls-files (solo archivos versionados, excluye node_modules).
 - scripts/vscode-prune-extensions.mjs
 - scripts/vscode-tune.mjs
 - scripts/wait-api.mjs
+- scripts/workspace-hygiene.mjs
 
 ## Observabilidad/Ops (ops)
 
@@ -730,6 +729,8 @@ Fuente: git ls-files (solo archivos versionados, excluye node_modules).
 - docs/handoff/sesiones/2026-03-23/sesion-2026-03-23T09-37-29.678Z.json
 - docs/handoff/sesiones/2026-03-23/sesion-2026-03-23T09-38-09.243Z.json
 - docs/handoff/sesiones/2026-03-23/sesion-2026-03-23T10-46-43.408Z.json
+- docs/handoff/sesiones/2026-03-23/sesion-2026-03-23T11-18-25.821Z.input.json
+- docs/handoff/sesiones/2026-03-23/sesion-2026-03-23T11-18-25.821Z.json
 - docs/handoff/trace.schema.json
 - docs/perf/baseline.business.json
 - docs/perf/baseline.json
