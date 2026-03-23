@@ -367,11 +367,17 @@ export function AppAlumno() {
   const cooldownActivo = Date.now() < cooldownHasta;
 
   return (
-    <section className="card anim-entrada portal-alumno-shell">
+    <section className="card anim-entrada portal-alumno-shell superficie-app superficie-app--alumno">
       <div className="cabecera">
-        <p className="eyebrow">
-          <Icono nombre="alumno" /> Portal Alumno
-        </p>
+        <div className="portal-alumno-shell__intro">
+          <p className="eyebrow">
+            <Icono nombre="alumno" /> Portal Alumno
+          </p>
+          <h1 className="portal-alumno-shell__title">Consulta clara de resultados y evidencias</h1>
+          <p className="portal-alumno-shell__lead">
+            Accede a tus resultados, revisa tu folio y entiende el estado de cada evaluación sin fricción.
+          </p>
+        </div>
         <div className="cabecera__acciones">
           <button
             type="button"
@@ -512,10 +518,29 @@ export function AppAlumno() {
       )}
 
       {token && resultados.length > 0 && (
-        <div className="resultado">
-          <h3>
-            <Icono nombre="ok" /> Resultados disponibles
-          </h3>
+        <div className="resultado portal-resultados-shell">
+          <div className="portal-resultados-shell__hero">
+            <div>
+              <h3>
+                <Icono nombre="ok" /> Resultados disponibles
+              </h3>
+              <p className="nota">Consulta desempeño, auditoría OMR y evidencia visual con una lectura más ordenada y académica.</p>
+            </div>
+          </div>
+          <div className="portal-alumno-shell__summary" aria-label="Resumen visual del portal alumno">
+            <article className="portal-alumno-shell__summaryCard">
+              <span>Folios</span>
+              <strong>{`${resultados.length} ${resultados.length === 1 ? 'folio' : 'folios'}`}</strong>
+            </article>
+            <article className="portal-alumno-shell__summaryCard">
+              <span>Materias</span>
+              <strong>{`${materias.length} ${materias.length === 1 ? 'materia' : 'materias'}`}</strong>
+            </article>
+            <article className="portal-alumno-shell__summaryCard">
+              <span>Avisos</span>
+              <strong>{`${avisos.length} ${avisos.length === 1 ? 'aviso' : 'avisos'}`}</strong>
+            </article>
+          </div>
           <div className="guia-grid">
             <div className="item-glass portal-alumno-card">
               <div className="item-title portal-card-title">
@@ -582,7 +607,7 @@ export function AppAlumno() {
                       <div className="item-title portal-card-title">
                         <span className="portal-card-icon portal-card-icon--folio"><Icono nombre="calificar" /></span> Folio {resultado.folio}
                       </div>
-                      <div className="item-meta">
+                      <div className="item-meta portal-resultado-card__meta">
                         <span>Tipo: {resultado.tipoExamen}</span>
                         <span>Examen: {resultado.calificacionExamenFinalTexto}</span>
                         {resultado.calificacionParcialTexto && <span>Parcial: {resultado.calificacionParcialTexto}</span>}
@@ -688,19 +713,35 @@ export function AppAlumno() {
                             const total = comparativa.length;
                             return (
                               <>
-                                <div className="item-meta">
-                                  <span>Reactivos: {detalle.totalReactivos ?? total ?? '-'}</span>
-                                  <span>Aciertos detectados: {typeof detalle.aciertos === 'number' ? detalle.aciertos : aciertos}</span>
+                                <div className="portal-detalle-summary">
+                                  <div className="portal-detalle-summary__item">
+                                    <span>Reactivos</span>
+                                    <strong>{typeof (detalle.totalReactivos ?? total) === 'number' ? `${detalle.totalReactivos ?? total} reactivos` : detalle.totalReactivos ?? total ?? '-'}</strong>
+                                  </div>
+                                  <div className="portal-detalle-summary__item">
+                                    <span>Aciertos detectados</span>
+                                    <strong>{`${typeof detalle.aciertos === 'number' ? detalle.aciertos : aciertos} aciertos`}</strong>
+                                  </div>
+                                  {typeof detalle.finalDecimal === 'number' && (
+                                    <div className="portal-detalle-summary__item">
+                                      <span>Final decimal</span>
+                                      <strong>{detalle.finalDecimal.toFixed(4)}</strong>
+                                    </div>
+                                  )}
+                                  {typeof detalle.finalRedondeada === 'number' && (
+                                    <div className="portal-detalle-summary__item">
+                                      <span>Final redondeada</span>
+                                      <strong>{detalle.finalRedondeada.toFixed(0)}</strong>
+                                    </div>
+                                  )}
+                                </div>
+                                <div className="item-meta portal-detalle-meta">
                                   {typeof detalle.versionPolitica === 'number' && <span>Política v{detalle.versionPolitica}</span>}
                                   {typeof detalle.bloqueContinuaDecimal === 'number' && (
                                     <span>Bloque continua: {detalle.bloqueContinuaDecimal.toFixed(4)}</span>
                                   )}
                                   {typeof detalle.bloqueExamenesDecimal === 'number' && (
                                     <span>Bloque exámenes: {detalle.bloqueExamenesDecimal.toFixed(4)}</span>
-                                  )}
-                                  {typeof detalle.finalDecimal === 'number' && <span>Final decimal: {detalle.finalDecimal.toFixed(4)}</span>}
-                                  {typeof detalle.finalRedondeada === 'number' && (
-                                    <span>Final redondeada: {detalle.finalRedondeada.toFixed(0)}</span>
                                   )}
                                   <span className={`badge ${estado.clase}`}>{estado.texto}</span>
                                 </div>

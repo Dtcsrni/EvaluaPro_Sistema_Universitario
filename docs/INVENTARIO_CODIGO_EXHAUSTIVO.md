@@ -1,11 +1,11 @@
 # Inventario Exhaustivo de Codigo
 
-Fecha de generacion: 2026-03-22 04:54:43
+Fecha de generacion: 2026-03-22 22:22:05
 Fuente: git ls-files (solo archivos versionados, excluye node_modules).
 
 ## Resumen
 
-- Total de piezas de codigo/config ejecutable inventariadas: 857
+- Total de piezas de codigo/config ejecutable inventariadas: 863
 - Extensiones incluidas: ts, tsx, js, jsx, mjs, cjs, json, yml, yaml, sh, cmd, ps1.
 
 ## Conteo por area
@@ -13,12 +13,12 @@ Fuente: git ls-files (solo archivos versionados, excluye node_modules).
 | Area | Archivos |
 | --- | ---: |
 | backend | 372 |
-| frontend | 123 |
+| frontend | 126 |
 | portal_alumno_cloud | 42 |
 | ci | 15 |
 | scripts | 111 |
 | ops | 3 |
-| docs | 16 |
+| docs | 17 |
 | raiz | 9 |
 
 ## Backend (apps/backend)
@@ -471,6 +471,8 @@ Fuente: git ls-files (solo archivos versionados, excluye node_modules).
 - apps/frontend/src/tipos/observabilidad.ts
 - apps/frontend/src/tipos/tesseract-js.d.ts
 - apps/frontend/src/ui/errores/ErrorBoundary.tsx
+- apps/frontend/src/ui/feedback/ConfirmDialogProvider.tsx
+- apps/frontend/src/ui/feedback/uxCopy.ts
 - apps/frontend/src/ui/iconos.tsx
 - apps/frontend/src/ui/toast/toastBus.ts
 - apps/frontend/src/ui/toast/ToastProvider.tsx
@@ -495,6 +497,7 @@ Fuente: git ls-files (solo archivos versionados, excluye node_modules).
 - apps/frontend/tests/clienteComun.test.ts
 - apps/frontend/tests/clienteComunMensajes.test.ts
 - apps/frontend/tests/clientePortal.test.tsx
+- apps/frontend/tests/confirmDialogProvider.test.tsx
 - apps/frontend/tests/escaneo.refactor.test.tsx
 - apps/frontend/tests/gui.responsive.audit.test.ts
 - apps/frontend/tests/gui.responsive.contract.test.tsx
@@ -712,6 +715,7 @@ Fuente: git ls-files (solo archivos versionados, excluye node_modules).
 - docs/diagramas/mermaid.config.json
 - docs/diagramas/puppeteer.config.json
 - docs/handoff/sesiones/2026-03-22/implementacion-trazabilidad-agnostica.json
+- docs/handoff/sesiones/2026-03-22/sesion-2026-03-22T10-54-43.380Z.json
 - docs/handoff/trace.schema.json
 - docs/perf/baseline.business.json
 - docs/perf/baseline.json

@@ -104,6 +104,19 @@ const AYUDAS_VISTA: Record<Vista, { descripcion: string; pasos: string[] }> = {
   }
 };
 
+const ETIQUETAS_VISTA: Record<Vista, string> = {
+  dashboard: 'Vista ejecutiva',
+  tenants: 'Operación base',
+  planes: 'Pricing',
+  suscripciones: 'Ingresos',
+  licencias: 'Activación',
+  cupones: 'Promoción',
+  campanas: 'Adquisición',
+  plantillas_notificacion: 'Comunicaciones',
+  cobranza: 'Recuperación',
+  auditoria: 'Evidencia'
+};
+
 export function AppAdminNegocio() {
   const [perfil, setPerfil] = useState<Perfil | null>(null);
   const [capacidadesIntegraciones, setCapacidadesIntegraciones] = useState<{ smtpBackend: boolean } | null>(null);
@@ -494,13 +507,16 @@ export function AppAdminNegocio() {
   }, [vista, plantillasNotificacion, plantillaSeleccionadaId, seleccionarPlantillaNotificacion]);
 
   return (
-    <div className="panel cuenta-panel admin-negocio-shell" data-admin-negocio="true">
+    <div className="panel cuenta-panel admin-negocio-shell superficie-app superficie-app--negocio" data-admin-negocio="true">
       <div className="admin-negocio-shell__header">
         <div>
           <p className="eyebrow">
             <Icono nombre="docente" /> Panel estratégico
           </p>
           <h2>Panel de Negocio EvaluaPro</h2>
+          <p className="admin-negocio-shell__lead">
+            Supervisa métricas comerciales, licencias y cobranza con una lectura más ejecutiva y controlada.
+          </p>
           <p className="nota">
             Usuario: <b>{perfil?.docente?.nombreCompleto || 'Sin sesion'}</b> ({perfil?.docente?.correo || '-'})
           </p>
@@ -592,28 +608,30 @@ export function AppAdminNegocio() {
             </div>
           </div>
 
-          <div className="acciones acciones--mt" role="navigation" aria-label="Vistas del panel de negocio">
+          <div className="admin-negocio-nav" role="navigation" aria-label="Vistas del panel de negocio">
             {VISTAS.map((item) => (
               <button
                 key={item.id}
                 type="button"
-                className="chip"
+                className={`admin-negocio-nav__item${vista === item.id ? ' admin-negocio-nav__item--activo' : ''}`}
                 disabled={cargando}
                 data-tooltip={`Abrir ${item.label}`}
                 onClick={() => setVista(item.id)}
               >
-                {item.label}
+                <span className="admin-negocio-nav__title">{item.label}</span>
+                <span className="admin-negocio-nav__meta">{ETIQUETAS_VISTA[item.id]}</span>
               </button>
             ))}
             <button
               type="button"
-              className="chip"
+              className="admin-negocio-nav__item admin-negocio-nav__item--refresh"
               onClick={() => {
                 void cargarVistaActual(vista);
                 void cargarResumenDashboard();
               }}
             >
-              Recargar
+              <span className="admin-negocio-nav__title">Recargar</span>
+              <span className="admin-negocio-nav__meta">Sincroniza esta vista</span>
             </button>
           </div>
 

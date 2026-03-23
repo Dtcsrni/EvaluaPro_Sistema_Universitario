@@ -71,7 +71,7 @@ export function PlantillasOmrWorkflow({
 
   if (!assessmentDetalle) {
     return (
-      <div className="resultado">
+      <div className="resultado plantillas-omr-v1">
         <h4>Flujo OMR V1</h4>
         <InlineMensaje tipo="info">Genera o carga un assessment V1 para descargar artefactos y operar escaneo/revisión.</InlineMensaje>
       </div>
@@ -80,7 +80,12 @@ export function PlantillasOmrWorkflow({
 
   return (
     <div className="resultado plantillas-omr-v1">
-      <h4>Flujo OMR V1</h4>
+      <div className="plantillas-panel__hero">
+        <div>
+          <h4>Flujo OMR V1</h4>
+          <p className="nota">Descarga artefactos, procesa capturas y corrige hojas OMR dentro del mismo contexto de assessment.</p>
+        </div>
+      </div>
       {cargandoAssessmentId && <InlineMensaje tipo="info">Cargando detalle de assessment…</InlineMensaje>}
       <div className="item-meta">
         <span>Folio: {assessmentDetalle.assessment.folio}</span>

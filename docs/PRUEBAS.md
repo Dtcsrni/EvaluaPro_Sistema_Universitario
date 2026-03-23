@@ -65,6 +65,9 @@ Asegurar confiabilidad funcional y de seguridad del sistema completo en cada cam
 - Gate mixto OMR TV4 con dataset sintético (`omr_samples_tv4`) y baseline real `Por Folio` regenerado sobre contrato TV4.
 - Modulo de evaluaciones continuas y politicas configurables (SV/LISC).
 - Integracion Google Classroom en modo `pull` (OAuth y mapeo de evidencias).
+- Auditoria focal Classroom reproducible:
+  - `npm run test:classroom:audit:ci`
+  - evidencia documental: `docs/CLASSROOM_AUDIT_2026-03-22.md`
 
 ## Matriz unica de gates MVP comercial
 ### Gate de merge (main)

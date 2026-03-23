@@ -143,9 +143,14 @@ export function BancoFormularioPregunta({
 
   return (
     <div className="banco-form">
-      <h2>
-        <Icono nombre="banco" /> Banco de preguntas
-      </h2>
+      <div className="banco-form__head">
+        <div>
+          <h2>
+            <Icono nombre="banco" /> Banco de preguntas
+          </h2>
+          <p className="nota">Construye, organiza y depura reactivos con una vista de trabajo más editorial y menos fragmentada.</p>
+        </div>
+      </div>
       <AyudaFormulario titulo="Para que sirve y como llenarlo">
         <p>
           <b>Proposito:</b> construir el banco de reactivos (preguntas) que despues se usan en plantillas y examenes.
@@ -181,6 +186,12 @@ export function BancoFormularioPregunta({
       </div>
 
       <section className="banco-form__surface banco-form__surface--main">
+        <div className="banco-section-title">
+          <div>
+            <h3>Nueva pregunta</h3>
+            <p className="nota">Selecciona materia, tema y redacta el reactivo con sus cinco opciones.</p>
+          </div>
+        </div>
         <div className="banco-form__grid banco-form__grid--2">
           <label className="campo">
             Materia
@@ -267,7 +278,12 @@ export function BancoFormularioPregunta({
 
       {editandoId && (
         <section className="resultado banco-form__surface banco-form__surface--edit">
-          <h3>Editando pregunta</h3>
+          <div className="banco-section-title">
+            <div>
+              <h3>Editando pregunta</h3>
+              <p className="nota">Ajusta redacción, imagen, tema u opciones sin salir del flujo del banco.</p>
+            </div>
+          </div>
           <label className="campo">
             Enunciado
             <textarea value={editEnunciado} onChange={(event) => setEditEnunciado(event.target.value)} disabled={bloqueoEdicion} />

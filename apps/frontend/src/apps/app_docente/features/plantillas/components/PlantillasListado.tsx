@@ -67,7 +67,12 @@ export function PlantillasListado({
 }) {
   return (
     <div className="subpanel plantillas-panel plantillas-panel--lista">
-      <h3>Plantillas existentes</h3>
+      <div className="plantillas-panel__hero">
+        <div>
+          <h3>Plantillas existentes</h3>
+          <p className="nota">Revisa catálogo, temas, previsualizaciones y fechas sin salir del flujo editorial.</p>
+        </div>
+      </div>
       <div className="plantillas-panel__meta">
         <span>Total: {totalPlantillasTodas}</span>
         <span>Mostradas: {totalPlantillas}</span>
@@ -123,7 +128,12 @@ export function PlantillasListado({
                       )}
                       {previewAbierta && (
                         <div className="resultado plantillas-preview">
-                          <h4 className="plantillas-preview__titulo">Previsualizacion (boceto por pagina)</h4>
+                          <div className="plantillas-preview__hero">
+                            <div>
+                              <h4 className="plantillas-preview__titulo">Previsualizacion (boceto por pagina)</h4>
+                              <p className="nota">Valida estructura, cobertura temática y salida PDF antes de generar exámenes reales.</p>
+                            </div>
+                          </div>
                           {!preview && (
                             <div className="ayuda">
                               Esta previsualizacion usa una seleccion determinista de preguntas (para que no cambie cada vez) y bosqueja el
@@ -240,7 +250,7 @@ export function PlantillasListado({
                               <ul className="lista lista-items plantillas-preview__lista">
                                 {(Array.isArray(preview.paginas) ? preview.paginas : []).map((p) => (
                                   <li key={p.numero}>
-                                    <div className="item-glass">
+                                    <div className="item-glass plantillas-preview__page">
                                       <div className="item-row">
                                         <div>
                                           <div className="item-title">Pagina {p.numero}</div>

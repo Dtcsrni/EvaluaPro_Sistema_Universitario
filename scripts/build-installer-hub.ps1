@@ -46,6 +46,8 @@ if (-not $iexpress) {
   throw 'No se encontro iexpress.exe en el sistema.'
 }
 
+$builtArtifacts = @()
+
 foreach ($flavorDef in $flavors) {
   $flavorId = [string]$flavorDef.flavorId
   $targetName = [string]$flavorDef.installerHubExeName
@@ -124,5 +126,50 @@ $($strings -join "`r`n")
     throw "No se genero artefacto esperado: $targetPath"
   }
 
+  $builtArtifacts += [pscustomobject]@{
+    flavorId = $flavorId
+    displayName = [string]$flavorDef.displayName
+    executableName = $targetName
+    executablePath = $targetPath
+  }
+
   Write-Host "[installer-hub] Artefacto generado: $targetPath"
 }
+
+$defaultsPath = Join-Path $root 'config\installer-hub.defaults.json'
+$recommendedFlavorId = ''
+if (Test-Path -LiteralPath $defaultsPath) {
+  try {
+    $defaults = Get-Content -Path $defaultsPath -Raw -Encoding utf8 | ConvertFrom-Json
+    $recommendedFlavorId = [string]$defaults.flavorId
+  } catch {
+    $recommendedFlavorId = ''
+  }
+}
+if (-not $recommendedFlavorId) {
+  $recommendedFlavorId = [string]$catalog.defaultFlavorId
+}
+
+$recommendedArtifact = $builtArtifacts | Where-Object { [string]$_.flavorId -eq $recommendedFlavorId } | Select-Object -First 1
+$localManifestPath = Join-Path $OutputDir 'installer-local-paths.json'
+$localManifest = [ordered]@{
+  generatedAt = (Get-Date).ToString('yyyy-MM-ddTHH:mm:ssK')
+  outputDir = $OutputDir
+  recommendedFlavorId = $recommendedFlavorId
+  recommendedHubExecutableName = if ($recommendedArtifact) { [string]$recommendedArtifact.executableName } else { '' }
+  recommendedHubExecutablePath = if ($recommendedArtifact) { [string]$recommendedArtifact.executablePath } else { '' }
+  flavors = @($builtArtifacts | ForEach-Object {
+    [ordered]@{
+      flavorId = [string]$_.flavorId
+      displayName = [string]$_.displayName
+      executableName = [string]$_.executableName
+      executablePath = [string]$_.executablePath
+    }
+  })
+}
+($localManifest | ConvertTo-Json -Depth 6) | Set-Content -Path $localManifestPath -Encoding utf8
+
+if ($recommendedArtifact) {
+  Write-Host "[installer-hub] Ejecutable recomendado para este equipo: $($recommendedArtifact.executablePath)"
+}
+Write-Host "[installer-hub] Manifiesto local generado: $localManifestPath"

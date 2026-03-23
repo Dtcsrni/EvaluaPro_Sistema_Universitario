@@ -29,7 +29,7 @@ export const CampoTexto = forwardRef<
 
   return (
     <label className="campo" htmlFor={inputId}>
-      {etiqueta}
+      <span className="campo__label">{etiqueta}</span>
       {invalid ? (
         <input {...props} ref={ref} id={inputId} aria-invalid="true" aria-describedby={describedBy} />
       ) : (

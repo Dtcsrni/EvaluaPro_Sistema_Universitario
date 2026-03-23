@@ -97,6 +97,9 @@ export function BancoGestionTemas({
         <b>Temas</b>
         {periodoId ? ` (${temasBanco.length})` : ''}
       </summary>
+      <div className="banco-colapsable__intro">
+        <p className="nota">Agrupa preguntas por unidad temática y corrige densidad antes de generar plantillas o PDFs.</p>
+      </div>
       <div className="campo-inline banco-temas__crear">
         <input value={temaNuevo} onChange={(event) => setTemaNuevo(event.target.value)} placeholder="Nuevo tema (ej. Funciones)" aria-label="Nuevo tema" disabled={bloqueoEdicion} />
         <Boton type="button" variante="secundario" cargando={creandoTema} disabled={!periodoId || !temaNuevo.trim() || bloqueoEdicion} onClick={() => void crearTemaBanco()}>Agregar</Boton>

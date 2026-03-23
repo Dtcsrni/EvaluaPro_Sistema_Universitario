@@ -1,0 +1,243 @@
+{
+  "traceSchemaVersion": "1.0.0",
+  "sessionId": "sesion-2026-03-23T04-22-05.327Z",
+  "status": "draft",
+  "generatedAt": "2026-03-23T04:22:05.327Z",
+  "validationProfile": "quick",
+  "agent": {
+    "name": "unknown",
+    "version": "unknown",
+    "provider": "unknown",
+    "kind": "unknown",
+    "channel": "unknown"
+  },
+  "request": {
+    "summary": "Pendiente de completar por el agente."
+  },
+  "objective": "Pendiente de completar por el agente.",
+  "scope": [],
+  "constraints": [],
+  "actions": [
+    {
+      "type": "validation",
+      "summary": "Ejecucion de lint",
+      "timestamp": "2026-03-23T04:22:05.327Z",
+      "status": "omitido"
+    },
+    {
+      "type": "validation",
+      "summary": "Ejecucion de typecheck",
+      "timestamp": "2026-03-23T04:22:05.327Z",
+      "status": "omitido"
+    },
+    {
+      "type": "validation",
+      "summary": "Ejecucion de test_frontend_ci",
+      "timestamp": "2026-03-23T04:22:05.327Z",
+      "status": "omitido"
+    },
+    {
+      "type": "validation",
+      "summary": "Ejecucion de test_coverage_ci",
+      "timestamp": "2026-03-23T04:22:05.327Z",
+      "status": "omitido"
+    },
+    {
+      "type": "validation",
+      "summary": "Ejecucion de test_tdd_enforcement_ci",
+      "timestamp": "2026-03-23T04:22:05.327Z",
+      "status": "omitido"
+    },
+    {
+      "type": "validation",
+      "summary": "Ejecucion de test_backend_ci",
+      "timestamp": "2026-03-23T04:22:05.327Z",
+      "status": "omitido"
+    },
+    {
+      "type": "validation",
+      "summary": "Ejecucion de test_portal_ci",
+      "timestamp": "2026-03-23T04:22:05.327Z",
+      "status": "omitido"
+    },
+    {
+      "type": "validation",
+      "summary": "Ejecucion de perf_check",
+      "timestamp": "2026-03-23T04:22:05.327Z",
+      "status": "omitido"
+    },
+    {
+      "type": "validation",
+      "summary": "Ejecucion de pipeline_contract_check",
+      "timestamp": "2026-03-23T04:22:05.327Z",
+      "status": "ok"
+    },
+    {
+      "type": "validation",
+      "summary": "Ejecucion de docs_check",
+      "timestamp": "2026-03-23T04:22:05.327Z",
+      "status": "falla"
+    }
+  ],
+  "files": {
+    "read": [],
+    "changed": [
+      "CHANGELOG.md",
+      "apps/backend/reports/qa/latest/e2e-docente-alumno.json",
+      "apps/backend/reports/qa/latest/global-grade.json",
+      "apps/backend/reports/qa/latest/pdf-print.json",
+      "apps/frontend/reports/qa/latest/ux-visual.json",
+      "apps/frontend/src/App.tsx",
+      "apps/frontend/src/apps/app_admin_negocio/AppAdminNegocio.tsx",
+      "apps/frontend/src/apps/app_alumno/AppAlumno.tsx",
+      "apps/frontend/src/apps/app_docente/SeccionAutenticacion.tsx",
+      "apps/frontend/src/apps/app_docente/SeccionCalificar.tsx",
+      "apps/frontend/src/apps/app_docente/SeccionEscaneo.tsx",
+      "apps/frontend/src/apps/app_docente/SeccionPeriodos.tsx",
+      "apps/frontend/src/apps/app_docente/ShellDocente.tsx",
+      "apps/frontend/src/apps/app_docente/features/banco/components/BancoFormularioPregunta.tsx",
+      "apps/frontend/src/apps/app_docente/features/banco/components/BancoGestionTemas.tsx",
+      "apps/frontend/src/apps/app_docente/features/banco/components/BancoListadoPreguntas.tsx",
+      "apps/frontend/src/apps/app_docente/features/plantillas/components/PlantillasFormulario.tsx",
+      "apps/frontend/src/apps/app_docente/features/plantillas/components/PlantillasGenerados.tsx",
+      "apps/frontend/src/apps/app_docente/features/plantillas/components/PlantillasListado.tsx",
+      "apps/frontend/src/apps/app_docente/features/plantillas/components/PlantillasOmrWorkflow.tsx",
+      "apps/frontend/src/main.tsx",
+      "apps/frontend/src/styles.css",
+      "apps/frontend/src/ui/ux/componentes/Boton.tsx",
+      "apps/frontend/src/ui/ux/componentes/CampoTexto.tsx",
+      "apps/frontend/src/ui/ux/componentes/HelperPanel.tsx",
+      "apps/frontend/src/ui/ux/componentes/InlineMensaje.tsx",
+      "apps/frontend/tests/__snapshots__/ux.visual.test.tsx.snap",
+      "docs/ENGINEERING_BASELINE.md",
+      "docs/INVENTARIO_CODIGO_EXHAUSTIVO.md",
+      "docs/INVENTARIO_PROYECTO.md",
+      "docs/PRUEBAS.md",
+      "package.json",
+      "apps/backend/tests/integracion/classroom.audit.test.ts",
+      "apps/frontend/src/styles/",
+      "apps/frontend/tests/centroClassroom.behavior.test.tsx",
+      "docs/CLASSROOM_AUDIT_2026-03-22.md",
+      "docs/handoff/sesiones/2026-03-22/sesion-2026-03-22T11-52-57.961Z.json",
+      "docs/handoff/sesiones/2026-03-22/sesion-2026-03-22T11-52-57.961Z.md",
+      "docs/handoff/sesiones/2026-03-23/"
+    ],
+    "artifacts": [
+      "docs/handoff/sesiones/2026-03-23/sesion-2026-03-23T04-22-05.327Z.json",
+      "docs/handoff/sesiones/2026-03-23/sesion-2026-03-23T04-22-05.327Z.md"
+    ]
+  },
+  "commands": [
+    {
+      "name": "lint",
+      "command": "npm run lint",
+      "status": "omitido",
+      "exitCode": null,
+      "durationMs": 0,
+      "resultSummary": "omitido por perfil quick",
+      "timestamp": "2026-03-23T04:22:05.327Z"
+    },
+    {
+      "name": "typecheck",
+      "command": "npm run typecheck",
+      "status": "omitido",
+      "exitCode": null,
+      "durationMs": 0,
+      "resultSummary": "omitido por perfil quick",
+      "timestamp": "2026-03-23T04:22:05.327Z"
+    },
+    {
+      "name": "test_frontend_ci",
+      "command": "npm run test:frontend:ci",
+      "status": "omitido",
+      "exitCode": null,
+      "durationMs": 0,
+      "resultSummary": "omitido por perfil quick",
+      "timestamp": "2026-03-23T04:22:05.327Z"
+    },
+    {
+      "name": "test_coverage_ci",
+      "command": "npm run test:coverage:ci",
+      "status": "omitido",
+      "exitCode": null,
+      "durationMs": 0,
+      "resultSummary": "omitido por perfil quick",
+      "timestamp": "2026-03-23T04:22:05.327Z"
+    },
+    {
+      "name": "test_tdd_enforcement_ci",
+      "command": "npm run test:tdd:enforcement:ci",
+      "status": "omitido",
+      "exitCode": null,
+      "durationMs": 0,
+      "resultSummary": "omitido por perfil quick",
+      "timestamp": "2026-03-23T04:22:05.327Z"
+    },
+    {
+      "name": "test_backend_ci",
+      "command": "npm run test:backend:ci",
+      "status": "omitido",
+      "exitCode": null,
+      "durationMs": 0,
+      "resultSummary": "omitido por perfil quick",
+      "timestamp": "2026-03-23T04:22:05.327Z"
+    },
+    {
+      "name": "test_portal_ci",
+      "command": "npm run test:portal:ci",
+      "status": "omitido",
+      "exitCode": null,
+      "durationMs": 0,
+      "resultSummary": "omitido por perfil quick",
+      "timestamp": "2026-03-23T04:22:05.327Z"
+    },
+    {
+      "name": "perf_check",
+      "command": "npm run perf:check",
+      "status": "omitido",
+      "exitCode": null,
+      "durationMs": 0,
+      "resultSummary": "omitido por perfil quick",
+      "timestamp": "2026-03-23T04:22:05.327Z"
+    },
+    {
+      "name": "pipeline_contract_check",
+      "command": "npm run pipeline:contract:check",
+      "status": "ok",
+      "exitCode": 0,
+      "durationMs": 351,
+      "resultSummary": "> evaluapro@1.0.0 pipeline:contract:check | > node -e \"const fs=require('fs');['ci/pipeline.contract.md','ci/pipeline.matrix.json'].forEach(p=>{if(!fs.existsSync(p)){throw new Error('Missing '+p)}});console.log('pipeline contract OK');\" | pipeline contract OK",
+      "timestamp": "2026-03-23T04:22:05.327Z"
+    },
+    {
+      "name": "docs_check",
+      "command": "npm run docs:check",
+      "status": "falla",
+      "exitCode": 1,
+      "durationMs": 477,
+      "resultSummary": "> evaluapro@1.0.0 docs:check | > node scripts/docs.mjs --check | [docs] desactualizado: docs/AUTO_DOCS_INDEX.md | [docs] corre: npm run docs:generate",
+      "timestamp": "2026-03-23T04:22:05.327Z"
+    }
+  ],
+  "decisions": [],
+  "assumptions": [],
+  "risks": [],
+  "nextStep": "Pendiente de completar por el agente.",
+  "completion": {
+    "isComplete": false,
+    "pendingFields": [
+      "request.summary",
+      "objective",
+      "scope",
+      "decisions",
+      "risks",
+      "nextStep"
+    ]
+  },
+  "repo": {
+    "rootDir": "C:\\Users\\evega\\EvaluaPro_Sistema_Universitario",
+    "branch": "main",
+    "commit": "56e31de",
+    "workingTreeStatus": "M CHANGELOG.md\n M apps/backend/reports/qa/latest/e2e-docente-alumno.json\n M apps/backend/reports/qa/latest/global-grade.json\n M apps/backend/reports/qa/latest/pdf-print.json\n M apps/frontend/reports/qa/latest/ux-visual.json\n M apps/frontend/src/App.tsx\n M apps/frontend/src/apps/app_admin_negocio/AppAdminNegocio.tsx\n M apps/frontend/src/apps/app_alumno/AppAlumno.tsx\n M apps/frontend/src/apps/app_docente/SeccionAutenticacion.tsx\n M apps/frontend/src/apps/app_docente/SeccionCalificar.tsx\n M apps/frontend/src/apps/app_docente/SeccionEscaneo.tsx\n M apps/frontend/src/apps/app_docente/SeccionPeriodos.tsx\n M apps/frontend/src/apps/app_docente/ShellDocente.tsx\n M apps/frontend/src/apps/app_docente/features/banco/components/BancoFormularioPregunta.tsx\n M apps/frontend/src/apps/app_docente/features/banco/components/BancoGestionTemas.tsx\n M apps/frontend/src/apps/app_docente/features/banco/components/BancoListadoPreguntas.tsx\n M apps/frontend/src/apps/app_docente/features/plantillas/components/PlantillasFormulario.tsx\n M apps/frontend/src/apps/app_docente/features/plantillas/components/PlantillasGenerados.tsx\n M apps/frontend/src/apps/app_docente/features/plantillas/components/PlantillasListado.tsx\n M apps/frontend/src/apps/app_docente/features/plantillas/components/PlantillasOmrWorkflow.tsx\n M apps/frontend/src/main.tsx\n M apps/frontend/src/styles.css\n M apps/frontend/src/ui/ux/componentes/Boton.tsx\n M apps/frontend/src/ui/ux/componentes/CampoTexto.tsx\n M apps/frontend/src/ui/ux/componentes/HelperPanel.tsx\n M apps/frontend/src/ui/ux/componentes/InlineMensaje.tsx\n M apps/frontend/tests/__snapshots__/ux.visual.test.tsx.snap\n M docs/ENGINEERING_BASELINE.md\n M docs/INVENTARIO_CODIGO_EXHAUSTIVO.md\n M docs/INVENTARIO_PROYECTO.md\n M docs/PRUEBAS.md\n M package.json\n?? apps/backend/tests/integracion/classroom.audit.test.ts\n?? apps/frontend/src/styles/\n?? apps/frontend/tests/centroClassroom.behavior.test.tsx\n?? docs/CLASSROOM_AUDIT_2026-03-22.md\n?? docs/handoff/sesiones/2026-03-22/sesion-2026-03-22T11-52-57.961Z.json\n?? docs/handoff/sesiones/2026-03-22/sesion-2026-03-22T11-52-57.961Z.md\n?? docs/handoff/sesiones/2026-03-23/"
+  }
+}

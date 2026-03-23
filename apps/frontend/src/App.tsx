@@ -146,7 +146,7 @@ function App() {
 
   return (
     <TemaProvider>
-      <main className="page">
+      <main className={`page page--${destino}`} data-app-destino={destino}>
         {googleClientId && destino !== 'alumno' ? <GoogleOAuthProvider clientId={googleClientId}>{contenido}</GoogleOAuthProvider> : contenido}
       </main>
       {!esVersionInfo ? <TooltipLayer /> : null}

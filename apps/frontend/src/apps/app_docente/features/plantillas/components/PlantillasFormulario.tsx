@@ -56,6 +56,12 @@ export function PlantillasFormulario({
 }) {
   return (
     <div className="subpanel plantillas-panel plantillas-panel--form">
+      <div className="plantillas-panel__hero">
+        <div>
+          <h3>{modoEdicion ? 'Edición de plantilla' : 'Diseño de plantilla'}</h3>
+          <p className="nota">Configura la estructura del examen por materia y temas antes de pasar a previsualización o generación.</p>
+        </div>
+      </div>
       <AyudaFormulario titulo="Para que sirve y como llenarlo">
         <p>
           <b>Proposito:</b> crear una plantilla de examen (estructura + reactivos) para generar examenes en PDF.
@@ -115,7 +121,10 @@ export function PlantillasFormulario({
 
         <div className="plantillas-temas">
           <div className="plantillas-temas__header">
-            <h4>Temas</h4>
+            <div>
+              <h4>Temas</h4>
+              <p className="nota">Selecciona las unidades que alimentarán la composición del examen.</p>
+            </div>
             <div className="plantillas-temas__stats">
               <span>Seleccionados: {temasSeleccionados.length}</span>
               <span>Disponibles: {temasDisponibles.length}</span>

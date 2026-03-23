@@ -27,14 +27,16 @@ export function InlineMensaje({
   if (tipo === 'error') {
     return (
       <p className={clase} role="alert">
-        {leading ? leading : mostrarIcono ? <Icono nombre={icono} /> : null} {children}
+        {leading ? leading : mostrarIcono ? <span className="mensaje__icono"><Icono nombre={icono} /></span> : null}
+        <span className="mensaje__contenido">{children}</span>
       </p>
     );
   }
 
   return (
     <p className={clase} role="status">
-      {leading ? leading : mostrarIcono ? <Icono nombre={icono} /> : null} {children}
+      {leading ? leading : mostrarIcono ? <span className="mensaje__icono"><Icono nombre={icono} /></span> : null}
+      <span className="mensaje__contenido">{children}</span>
     </p>
   );
 }

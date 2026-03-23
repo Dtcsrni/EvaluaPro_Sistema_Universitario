@@ -9,6 +9,12 @@ Version visible GUI: `1.0.0b`
   - `apps/backend`
   - `apps/frontend`
   - `apps/portal_alumno_cloud`
+- Baseline visual frontend 2026-03-22:
+  - sistema visual desacoplado en `apps/frontend/src/styles/foundations.css`, `components.css` y `screens.css`
+  - shells `docente`, `alumno` y `admin_negocio` convergen en una misma marca con matices por audiencia
+  - componentes base de UX quedan preparados para escalar variantes sin tocar contratos de dominio
+  - secciones operativas docentes prioritarias ya comparten lenguaje visual de panel, métricas y estados en `screens.css`
+  - portal alumno y módulos docentes críticos (`Banco`, `Plantillas`, `Calificaciones`) ya comparten patrones visuales de resumen, detalle y flujo operativo
 - API canonica unificada en `/api/*`.
 - Trazabilidad IA agnostica endurecida:
   - contrato canonico en `docs/handoff/trace.schema.json`
@@ -145,6 +151,12 @@ Version visible GUI: `1.0.0b`
   - snapshots/artefactos QA actualizados como nuevo baseline visual:
     - `apps/frontend/tests/__snapshots__/ux.visual.test.tsx.snap`
     - `apps/frontend/reports/qa/latest/ux-visual.json`
+- Validación incremental Classroom 2026-03-22:
+  - comando reproducible `npm run test:classroom:audit:ci`
+  - cobertura backend ampliada con `apps/backend/tests/integracion/classroom.audit.test.ts`
+  - cobertura frontend ampliada con `apps/frontend/tests/centroClassroom.behavior.test.tsx`
+  - dictamen técnico documentado en `docs/CLASSROOM_AUDIT_2026-03-22.md`
+  - bloqueo operativo confirmado para E2E real por falta de credenciales Google/Classroom en el entorno actual
 - `npm run release:validate:stable -- --version=1.0.0 --repo=Dtcsrni/EvaluaPro_Sistema_Universitario` ❌ esperado (`No-Go`)
   - bloqueo real actualizado:
     - `ci-streak=7/10`

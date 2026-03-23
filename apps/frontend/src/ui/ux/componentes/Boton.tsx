@@ -9,6 +9,7 @@ import { Spinner } from '../../iconos';
 
 export function Boton({
   variante = 'primario',
+  tamano = 'md',
   cargando = false,
   icono,
   children,
@@ -18,6 +19,7 @@ export function Boton({
   ...props
 }: ButtonHTMLAttributes<HTMLButtonElement> & {
   variante?: 'primario' | 'secundario';
+  tamano?: 'sm' | 'md' | 'lg';
   cargando?: boolean;
   icono?: ReactNode;
   children: ReactNode;
@@ -25,6 +27,8 @@ export function Boton({
   const clases = [
     'boton',
     variante === 'secundario' ? 'secundario' : '',
+    tamano !== 'md' ? `boton--${tamano}` : '',
+    icono || cargando ? 'boton--con-icono' : '',
     className || ''
   ]
     .filter(Boolean)
@@ -32,8 +36,8 @@ export function Boton({
 
   return (
     <button {...props} type={type} className={clases} disabled={Boolean(disabled) || cargando}>
-      {cargando ? <Spinner /> : icono}
-      {children}
+      {cargando || icono ? <span className="boton__icono">{cargando ? <Spinner /> : icono}</span> : null}
+      <span className="boton__texto">{children}</span>
     </button>
   );
 }

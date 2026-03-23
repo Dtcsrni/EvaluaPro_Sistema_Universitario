@@ -304,13 +304,18 @@ export function SeccionCalificar({
 
   return (
     <div className="panel calif-grade-card">
-      <h2>
-        <Icono nombre="calificar" /> Calificar examen{etiquetaTipoExamen ? ` · ${etiquetaTipoExamen}` : ''}
-      </h2>
+      <div className="calif-section-title">
+        <div>
+          <h2>
+            <Icono nombre="calificar" /> Calificar examen{etiquetaTipoExamen ? ` · ${etiquetaTipoExamen}` : ''}
+          </h2>
+          <p className="nota">Consolida resultado OMR, validaciones y ajuste final de calificación en una sola tarjeta de decisión.</p>
+        </div>
+      </div>
       <div className="item-sub">Examen: {examenEtiqueta ?? examenId ?? 'Sin examen'}</div>
       <div className="item-sub">Alumno: {alumnoNombre ?? alumnoId ?? 'Sin alumno'}</div>
       {contextoManual && <InlineMensaje tipo="info">{contextoManual}</InlineMensaje>}
-      <div className="item-meta">
+      <div className="item-meta calif-grade-card__stats">
         <span>Respuestas listas: {respuestasSeguras.length}</span>
         <span>
           Aciertos: {aciertosMostrados}/{totalMostrado}

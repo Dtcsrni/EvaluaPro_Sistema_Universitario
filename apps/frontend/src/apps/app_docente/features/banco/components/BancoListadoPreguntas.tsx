@@ -55,9 +55,12 @@ export function BancoListadoPreguntas({
 
   return (
     <section className="banco-listado">
-      <h3>
-        Preguntas recientes{periodoId ? ` (${preguntasFiltradas.length}/${preguntasMateria.length})` : ''}
-      </h3>
+      <div className="banco-section-title">
+        <div>
+          <h3>Preguntas recientes{periodoId ? ` (${preguntasFiltradas.length}/${preguntasMateria.length})` : ''}</h3>
+          <p className="nota">Filtra por redacción o tema para revisar consistencia, edición y limpieza del banco activo.</p>
+        </div>
+      </div>
       {periodoId && (
         <div className="banco-listado__filtros" role="search" aria-label="Filtros de preguntas">
           <label className="campo">
@@ -88,10 +91,10 @@ export function BancoListadoPreguntas({
         </div>
       )}
       <ul className="lista lista-items banco-listado__items">
-        {!periodoId && <li>Selecciona una materia para ver sus preguntas.</li>}
-        {periodoId && preguntasMateria.length === 0 && <li>No hay preguntas en esta materia.</li>}
+        {!periodoId && <li className="banco-empty-state">Selecciona una materia para ver sus preguntas.</li>}
+        {periodoId && preguntasMateria.length === 0 && <li className="banco-empty-state">No hay preguntas en esta materia.</li>}
         {periodoId && preguntasMateria.length > 0 && preguntasFiltradas.length === 0 && (
-          <li>No hay preguntas que coincidan con los filtros actuales.</li>
+          <li className="banco-empty-state">No hay preguntas que coincidan con los filtros actuales.</li>
         )}
         {periodoId &&
           preguntasFiltradas.map((pregunta) => {
@@ -123,6 +126,10 @@ export function BancoListadoPreguntas({
                         Eliminar
                       </Boton>
                     </div>
+                  </div>
+                  <div className="item-sub banco-listado__sub">
+                    {opcionesActuales.filter((op) => op.texto.trim()).length} opciones cargadas
+                    {imagenPregunta ? ' · con apoyo visual' : ' · sin imagen'}
                   </div>
                   {imagenPregunta && (
                     <div className="imagen-preview banco-listado__imagen">

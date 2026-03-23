@@ -23,15 +23,20 @@ export function HelperPanel({
   const pasosSeguros = Array.isArray(pasos) ? pasos.filter(Boolean) : [];
   return (
     <aside className="panel helper-panel" aria-label={`Ayuda: ${titulo}`}>
-      <p className="eyebrow">
-        <Icono nombre="info" /> Guia rapida
-      </p>
-      <h3>{titulo}</h3>
-      <p className="nota">{descripcion}</p>
+      <div className="helper-panel__header">
+        <p className="eyebrow">
+          <Icono nombre="info" /> Guia rapida
+        </p>
+        <h3>{titulo}</h3>
+        <p className="nota">{descripcion}</p>
+      </div>
       {pasosSeguros.length > 0 && (
         <ol className="helper-panel__pasos">
-          {pasosSeguros.map((paso) => (
-            <li key={paso}>{paso}</li>
+          {pasosSeguros.map((paso, indice) => (
+            <li key={paso}>
+              <span className="helper-panel__stepIndex" aria-hidden="true">{String(indice + 1).padStart(2, '0')}</span>
+              <span>{paso}</span>
+            </li>
           ))}
         </ol>
       )}

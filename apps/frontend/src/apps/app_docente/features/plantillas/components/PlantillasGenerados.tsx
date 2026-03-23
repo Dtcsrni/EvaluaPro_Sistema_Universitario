@@ -139,7 +139,12 @@ export function PlantillasGenerados({
   return (
     <div className="plantillas-grid plantillas-grid--generacion">
       <div className="subpanel plantillas-panel plantillas-panel--generar">
-        <h3>Generación de exámenes</h3>
+        <div className="plantillas-panel__hero">
+          <div>
+            <h3>Generación de exámenes</h3>
+            <p className="nota">Pasa de plantilla a producción individual o masiva con trazabilidad por folio y paquete.</p>
+          </div>
+        </div>
         <AyudaFormulario titulo="Generación de exámenes (PDF)">
           <p>
             <b>Proposito:</b> crear un examen en PDF con <b>folio</b>, <b>QR por pagina</b> y marcas de referencia para lectura OMR.
@@ -274,7 +279,12 @@ export function PlantillasGenerados({
         )}
       </div>
       <div className="subpanel plantillas-panel plantillas-panel--generados" id="examenes-generados">
-        <h3>Examenes generados</h3>
+        <div className="plantillas-panel__hero">
+          <div>
+            <h3>Examenes generados</h3>
+            <p className="nota">Consulta historial, paquetes, descargas y regeneraciones desde una sola mesa operativa.</p>
+          </div>
+        </div>
         {plantillaSeleccionada && (
           <div className="plantillas-generacion__stats">
             <span className="badge">Mostrados: {listaExamenesGenerados.length}</span>

@@ -1,0 +1,561 @@
+.shell-docente {
+  padding: clamp(1.1rem, 2vw, 1.6rem);
+}
+
+.shell-docente__hero {
+  display: grid;
+  gap: 1rem;
+  margin-bottom: 1rem;
+}
+
+.shell-docente__lead,
+.portal-alumno-shell__lead,
+.admin-negocio-shell__lead {
+  max-width: 60ch;
+  margin: 0.45rem 0 0;
+  color: color-mix(in srgb, var(--textoSuave) 88%, var(--muted) 12%);
+  line-height: 1.55;
+}
+
+.shell-docente__metrics,
+.portal-alumno-shell__summary {
+  display: grid;
+  gap: 0.8rem;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+}
+
+.shell-docente__metric,
+.portal-alumno-shell__summaryCard {
+  display: grid;
+  gap: 0.18rem;
+  padding: 0.95rem 1rem;
+  border-radius: 18px;
+  border: 1px solid color-mix(in srgb, var(--surface-border-strong) 72%, var(--app-accent, var(--primario)) 28%);
+  background:
+    radial-gradient(circle at top right, color-mix(in srgb, var(--app-highlight, rgba(165, 122, 42, 0.16)) 100%, transparent), transparent 44%),
+    linear-gradient(180deg, color-mix(in srgb, var(--surface-2) 96%, transparent), color-mix(in srgb, var(--surface-1) 94%, transparent));
+}
+
+.shell-docente__metric span,
+.portal-alumno-shell__summaryCard span {
+  font-size: 0.76rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--muted);
+}
+
+.shell-docente__metric strong,
+.portal-alumno-shell__summaryCard strong {
+  font-size: 1.05rem;
+  color: var(--texto);
+}
+
+.shell-docente__content {
+  display: grid;
+  gap: 1rem;
+}
+
+.portal-alumno-shell {
+  padding: clamp(1.1rem, 2vw, 1.6rem);
+}
+
+.portal-alumno-shell__intro {
+  display: grid;
+  gap: 0.15rem;
+}
+
+.portal-alumno-shell__title {
+  margin: 0;
+  font-size: clamp(1.5rem, 2.4vw, 2.35rem);
+}
+
+.admin-negocio-shell {
+  padding: clamp(1rem, 2vw, 1.4rem);
+}
+
+.admin-negocio-shell__header {
+  margin-bottom: 1rem;
+  padding-bottom: 1rem;
+  border-bottom: 1px solid color-mix(in srgb, var(--surface-border-strong) 72%, transparent);
+}
+
+.admin-negocio-shell__grid {
+  align-items: start;
+}
+
+.admin-negocio-nav {
+  display: grid;
+  gap: 0.7rem;
+  margin-top: 1rem;
+  margin-bottom: 1rem;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+}
+
+.admin-negocio-nav__item {
+  display: grid;
+  gap: 0.18rem;
+  padding: 0.9rem 0.95rem;
+  text-align: left;
+  border-radius: 18px;
+  border: 1px solid color-mix(in srgb, var(--surface-border-strong) 70%, var(--app-accent, var(--primario)) 30%);
+  background:
+    radial-gradient(circle at top right, color-mix(in srgb, var(--app-accent-soft, rgba(32, 74, 135, 0.12)) 100%, transparent), transparent 42%),
+    linear-gradient(180deg, color-mix(in srgb, var(--surface-2) 96%, transparent), color-mix(in srgb, var(--surface-1) 94%, transparent));
+  color: var(--texto);
+  box-shadow: var(--shadow-soft);
+}
+
+.admin-negocio-nav__item:hover {
+  transform: translateY(-2px);
+}
+
+.admin-negocio-nav__item--activo {
+  border-color: color-mix(in srgb, var(--app-accent, var(--primario)) 46%, var(--surface-border-strong));
+  box-shadow: 0 24px 42px -30px color-mix(in srgb, var(--app-accent, var(--primario)) 42%, transparent);
+}
+
+.admin-negocio-nav__item--refresh {
+  background:
+    radial-gradient(circle at top right, rgba(165, 122, 42, 0.14), transparent 42%),
+    linear-gradient(180deg, color-mix(in srgb, var(--surface-2) 96%, transparent), color-mix(in srgb, var(--surface-1) 94%, transparent));
+}
+
+.admin-negocio-nav__title {
+  font-weight: 800;
+}
+
+.admin-negocio-nav__meta {
+  font-size: 0.8rem;
+  color: var(--muted);
+}
+
+.superadmin-overview {
+  padding: 1rem;
+}
+
+.superadmin-overview__head {
+  margin-bottom: 0.85rem;
+}
+
+.auth-grid {
+  position: relative;
+  gap: 1.2rem;
+  padding: clamp(0.4rem, 1vw, 0.9rem);
+  border-radius: 28px;
+  background:
+    linear-gradient(180deg, color-mix(in srgb, var(--surface-2) 76%, transparent), color-mix(in srgb, var(--surface-1) 86%, transparent));
+  border: 1px solid color-mix(in srgb, var(--surface-border-strong) 54%, transparent);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.4);
+}
+
+.auth-grid::before {
+  inset: 12% 0 auto auto;
+  width: 280px;
+  height: 280px;
+  border-radius: 999px;
+  background: radial-gradient(circle, color-mix(in srgb, var(--app-accent-soft, rgba(13, 110, 115, 0.12)) 100%, transparent), transparent 70%);
+}
+
+.auth-hero,
+.auth-form {
+  border-radius: 26px;
+}
+
+.auth-form {
+  padding: 1.15rem;
+}
+
+.auth-hero-kpis {
+  margin-top: 0.9rem;
+  display: grid;
+  gap: 0.7rem;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+}
+
+.auth-hero-kpi {
+  display: grid;
+  gap: 0.18rem;
+  padding: 0.82rem 0.9rem;
+  border-radius: 16px;
+  border: 1px solid color-mix(in srgb, var(--surface-border-strong) 68%, var(--app-accent, var(--primario)) 32%);
+  background: color-mix(in srgb, var(--surface-2) 84%, transparent);
+}
+
+.auth-hero-kpi span {
+  font-size: 0.74rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--muted);
+}
+
+.auth-hero-kpi strong {
+  font-size: 0.92rem;
+  color: var(--texto);
+  line-height: 1.35;
+}
+
+.auth-form-head h3 {
+  font-family: var(--font-display);
+}
+
+.materias-panel,
+.banco-panel,
+.plantillas-shell {
+  gap: 1rem;
+}
+
+.banco-form__head,
+.banco-section-title,
+.plantillas-panel__hero,
+.calif-section-title,
+.portal-resultados-shell__hero {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.85rem;
+}
+
+.banco-section-title,
+.plantillas-panel__hero,
+.calif-section-title,
+.portal-resultados-shell__hero {
+  padding-bottom: 0.3rem;
+  border-bottom: 1px solid color-mix(in srgb, var(--surface-border-strong) 68%, transparent);
+}
+
+.banco-form__head h2,
+.banco-section-title h3,
+.plantillas-panel__hero h3,
+.plantillas-panel__hero h4,
+.calif-section-title h2,
+.calif-section-title h3,
+.portal-resultados-shell__hero h3 {
+  margin-bottom: 0.22rem;
+}
+
+.materias-panel__head,
+.plantillas-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.materias-panel .acciones,
+.plantillas-actions {
+  flex-wrap: wrap;
+}
+
+.materias-form,
+.banco-form__surface,
+.banco-colapsable,
+.banco-listado,
+.plantillas-panel,
+.calificaciones-manual-panel,
+.calificaciones-revision-panel,
+.portal-resultados-shell,
+.portal-resultado-card,
+.calif-omr-panel .resultado,
+.calif-grade-card {
+  border-radius: 24px;
+  border: 1px solid color-mix(in srgb, var(--surface-border-strong) 72%, transparent);
+  background:
+    radial-gradient(circle at top right, color-mix(in srgb, var(--app-accent-soft, rgba(13, 110, 115, 0.09)) 100%, transparent), transparent 44%),
+    linear-gradient(180deg, color-mix(in srgb, var(--surface-2) 97%, transparent), color-mix(in srgb, var(--surface-1) 94%, transparent));
+  box-shadow: var(--shadow-soft);
+}
+
+.materias-resumen,
+.plantillas-resumen,
+.banco-resumen,
+.calificaciones-kpi {
+  gap: 0.9rem;
+}
+
+.materias-resumen__item,
+.plantillas-resumen__item,
+.banco-resumen__item,
+.calificaciones-kpi__item {
+  position: relative;
+  overflow: hidden;
+  min-height: 88px;
+}
+
+.materias-resumen__item::after,
+.plantillas-resumen__item::after,
+.banco-resumen__item::after,
+.calificaciones-kpi__item::after {
+  content: "";
+  position: absolute;
+  inset: auto -12% -32% auto;
+  width: 92px;
+  height: 92px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--app-accent-soft, rgba(13, 110, 115, 0.12)) 100%, transparent);
+  opacity: 0.85;
+}
+
+.materias-form {
+  padding: 1.05rem;
+}
+
+.materias-lista__item,
+.banco-temas__item,
+.banco-listado__item,
+.plantillas-item,
+.calificaciones-revision-panel .item-glass,
+.portal-resultados-shell .item-glass {
+  border-radius: 22px;
+  border-color: color-mix(in srgb, var(--surface-border-strong) 74%, transparent);
+}
+
+.banco-panel__split,
+.plantillas-grid,
+.plantillas-grid--generacion,
+.calificaciones-layout {
+  gap: 1rem;
+}
+
+.banco-form__surface,
+.plantillas-panel {
+  padding: 1rem;
+}
+
+.banco-listado__filtros,
+.plantillas-form,
+.plantillas-generacion__stats,
+.calificaciones-hero__actions,
+.calificaciones-manual-panel__actions,
+.calificaciones-revision-panel__toolbar,
+.calificaciones-revision-panel__actions,
+.alumno-revision-actions {
+  gap: 0.8rem;
+}
+
+.banco-listado__items,
+.banco-temas__lista,
+.plantillas-lista,
+.portal-resultados-shell > .lista {
+  gap: 0.85rem;
+}
+
+.banco-temas__item .item-title,
+.banco-listado__item .item-title,
+.plantillas-item .item-title,
+.calificaciones-revision-panel .item-title,
+.portal-resultado-card .item-title {
+  font-size: 1rem;
+  line-height: 1.4;
+}
+
+.banco-colapsable__intro {
+  margin-top: 0.7rem;
+}
+
+.banco-empty-state,
+.portal-resultados-shell .lista > li:only-child {
+  padding: 1rem 1.05rem;
+  border-radius: 18px;
+  border: 1px dashed color-mix(in srgb, var(--surface-border-strong) 78%, transparent);
+  background: color-mix(in srgb, var(--surface-2) 82%, transparent);
+  color: var(--muted);
+}
+
+.banco-listado__sub {
+  margin-top: 0.55rem;
+}
+
+.banco-listado__imagen,
+.plantillas-preview__pdfWrap {
+  border-radius: 18px;
+  overflow: hidden;
+  border: 1px solid color-mix(in srgb, var(--surface-border-strong) 72%, transparent);
+}
+
+.plantillas-filtro,
+.calificaciones-revisados-select,
+.calificaciones-revision-panel__stats,
+.calificaciones-manual-panel .item-meta,
+.portal-detalle-meta,
+.portal-resultado-card__meta {
+  padding: 0.75rem 0.9rem;
+  border-radius: 18px;
+  background: color-mix(in srgb, var(--surface-2) 84%, transparent);
+  border: 1px solid color-mix(in srgb, var(--surface-border-strong) 68%, transparent);
+}
+
+.plantillas-panel__hero,
+.plantillas-preview__hero,
+.portal-resultados-shell__hero {
+  margin-bottom: 0.1rem;
+}
+
+.plantillas-preview__bloque,
+.plantillas-preview__page,
+.plantillas-omr-v1__job,
+.plantillas-omr-v1__review {
+  border-radius: 20px;
+  border: 1px solid color-mix(in srgb, var(--surface-border-strong) 72%, transparent);
+  background: color-mix(in srgb, var(--surface-2) 86%, transparent);
+}
+
+.plantillas-preview__page .item-meta,
+.plantillas-omr-v1 .item-meta {
+  gap: 0.55rem;
+}
+
+.calificaciones-layout__aside > .panel {
+  background:
+    radial-gradient(circle at top right, color-mix(in srgb, rgba(165, 122, 42, 0.1) 100%, transparent), transparent 42%),
+    linear-gradient(180deg, color-mix(in srgb, var(--surface-2) 97%, transparent), color-mix(in srgb, var(--surface-1) 94%, transparent));
+}
+
+.calif-omr-panel .resultado,
+.calif-grade-card {
+  padding: 1rem;
+}
+
+.calif-header-row .item-meta,
+.calif-grade-card__stats,
+.portal-detalle-meta {
+  gap: 0.55rem;
+}
+
+.omr-review-card,
+.calif-lote-item,
+.revision-omr-examen {
+  border-radius: 20px;
+  border-color: color-mix(in srgb, var(--surface-border-strong) 74%, transparent);
+  background: color-mix(in srgb, var(--surface-2) 82%, transparent);
+}
+
+.calificaciones-revision-panel__respuesta {
+  min-height: 86px;
+  border-radius: 16px;
+}
+
+.portal-resultados-shell {
+  display: grid;
+  gap: 1rem;
+}
+
+.portal-resultado-card {
+  overflow: hidden;
+}
+
+.portal-resultado-card .item-actions {
+  align-items: stretch;
+}
+
+.portal-detalle-summary {
+  display: grid;
+  gap: 0.8rem;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  margin: 0.2rem 0 0.75rem;
+}
+
+.portal-detalle-summary__item {
+  position: relative;
+  overflow: hidden;
+  display: grid;
+  gap: 0.2rem;
+  padding: 0.9rem 0.95rem;
+  border-radius: 18px;
+  border: 1px solid color-mix(in srgb, var(--surface-border-strong) 70%, transparent);
+  background:
+    radial-gradient(circle at top right, color-mix(in srgb, var(--app-accent-soft, rgba(13, 110, 115, 0.11)) 100%, transparent), transparent 42%),
+    linear-gradient(180deg, color-mix(in srgb, var(--surface-2) 96%, transparent), color-mix(in srgb, var(--surface-1) 94%, transparent));
+}
+
+.portal-detalle-summary__item span {
+  font-size: 0.77rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.07em;
+  color: var(--muted);
+}
+
+.portal-detalle-summary__item strong {
+  font-size: 1.05rem;
+  color: var(--texto);
+}
+
+.alumno-detalle-tabla-wrap {
+  border-radius: 20px;
+  border: 1px solid color-mix(in srgb, var(--surface-border-strong) 74%, transparent);
+  background: color-mix(in srgb, var(--surface-2) 90%, transparent);
+  padding: 0.3rem;
+}
+
+.alumno-revision-actions {
+  display: grid;
+  grid-template-columns: minmax(0, 1.4fr) repeat(2, minmax(180px, auto)) minmax(0, auto);
+  align-items: center;
+}
+
+.alumno-revision-comentario {
+  min-height: 92px;
+  border-radius: 16px;
+}
+
+.portal-alumno-shell .resultado > h3,
+.portal-resultados-shell__hero h3,
+.portal-detalle-summary__item strong {
+  font-family: var(--font-display);
+}
+
+.calificaciones-manual-panel h3,
+.calificaciones-revision-panel h3,
+.banco-listado h3,
+.plantillas-panel h3 {
+  font-family: var(--font-display);
+}
+
+.portal-resultado-card .item-row {
+  gap: 1rem;
+}
+
+.alumno-detalle-tabla {
+  border-radius: 18px;
+  overflow: hidden;
+}
+
+.alumno-detalle-tabla thead th {
+  background: color-mix(in srgb, var(--app-accent-soft, rgba(13, 110, 115, 0.12)) 80%, var(--surface-2));
+}
+
+.resultado > h3,
+.subpanel > h3,
+.panel > h2 {
+  font-family: var(--font-display);
+}
+
+@media (max-width: 900px) {
+  .card {
+    border-radius: 24px;
+  }
+
+  .materias-panel__head,
+  .plantillas-header,
+  .alumno-revision-actions,
+  .banco-form__head,
+  .banco-section-title,
+  .plantillas-panel__hero,
+  .calif-section-title,
+  .portal-resultados-shell__hero {
+    flex-direction: column;
+  }
+
+  .shell-docente__metrics,
+  .portal-alumno-shell__summary,
+  .auth-hero-kpis,
+  .admin-negocio-nav {
+    grid-template-columns: 1fr;
+  }
+
+  .alumno-revision-actions {
+    grid-template-columns: 1fr;
+  }
+}

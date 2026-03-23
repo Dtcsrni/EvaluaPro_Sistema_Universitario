@@ -729,7 +729,12 @@ export function SeccionEscaneo({
 
       {resultado && (
         <div className="resultado">
-          <h3>Mesa de revisión manual</h3>
+          <div className="calif-section-title">
+            <div>
+              <h3>Mesa de revisión manual</h3>
+              <p className="nota">Contrasta imagen, lectura OMR y clave oficial en un tablero único antes de confirmar la revisión.</p>
+            </div>
+          </div>
           <div className="item-actions">
             <span className={`badge ${hayCambiosPendientesExamen ? 'warning' : 'ok'}`}>
               {hayCambiosPendientesExamen ? 'Cambios pendientes sin confirmar' : 'Sin cambios pendientes'}

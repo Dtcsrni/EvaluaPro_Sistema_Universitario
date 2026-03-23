@@ -43,10 +43,18 @@ Bootstrapper online para instalacion desde cero de EvaluaPro en entornos docente
 
 ## Contratos de release
 Assets esperados en GitHub Release:
-- `EvaluaPro.msi`
-- `EvaluaPro.msi.sha256`
-- `EvaluaPro-InstallerHub.exe`
-- `EvaluaPro-InstallerHub.exe.sha256`
+- `EvaluaPro-saas-completo.msi`
+- `EvaluaPro-saas-completo.msi.sha256`
+- `EvaluaPro-saas-completo-Setup.exe`
+- `EvaluaPro-saas-completo-Setup.exe.sha256`
+- `EvaluaPro-InstallerHub-saas-completo.exe`
+- `EvaluaPro-InstallerHub-saas-completo.exe.sha256`
+- `EvaluaPro-docente-local.msi`
+- `EvaluaPro-docente-local.msi.sha256`
+- `EvaluaPro-docente-local-Setup.exe`
+- `EvaluaPro-docente-local-Setup.exe.sha256`
+- `EvaluaPro-InstallerHub-docente-local.exe`
+- `EvaluaPro-InstallerHub-docente-local.exe.sha256`
 - `EvaluaPro-release-manifest.json`
 
 Manifest de prerequisitos versionado:
@@ -63,6 +71,12 @@ npm run installer:hub:build
 npm run installer:hashes
 npm run installer:sign
 ```
+
+Tras `npm run installer:hub:build`, el repo deja un manifiesto local con rutas absolutas en:
+- `dist/installer/installer-local-paths.json`
+
+En este repo/equipo, el ejecutable recomendado para instalacion docente local queda en:
+- `dist/installer/EvaluaPro-InstallerHub-docente-local.exe`
 
 ## Configuracion operativa obligatoria en instalacion
 - El Hub detecta automaticamente valores existentes desde `.env` previo (si existe) y los precarga en la UI.

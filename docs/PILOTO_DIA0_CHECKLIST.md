@@ -27,11 +27,16 @@ Objetivo: dejar operativo el piloto (1 institucion, 1-3 docentes) con backend lo
   - [ ] `npm run installer:sign:internal:trust` en cada equipo del piloto
   - [ ] Cargar secretos de firma interna en GitHub Actions (`EVALUAPRO_SIGN_CERT_BASE64`, `EVALUAPRO_SIGN_CERT_PASSWORD`, `EVALUAPRO_SIGN_TIMESTAMP_URL`)
 - [ ] Verificar artefactos esperados en `dist/installer`:
-  - [ ] `EvaluaPro.msi`
-  - [ ] `EvaluaPro.msi.sha256`
-  - [ ] `EvaluaPro-InstallerHub.exe`
-  - [ ] `EvaluaPro-InstallerHub.exe.sha256`
+  - [ ] `EvaluaPro-saas-completo.msi`
+  - [ ] `EvaluaPro-saas-completo.msi.sha256`
+  - [ ] `EvaluaPro-InstallerHub-saas-completo.exe`
+  - [ ] `EvaluaPro-InstallerHub-saas-completo.exe.sha256`
+  - [ ] `EvaluaPro-docente-local.msi`
+  - [ ] `EvaluaPro-docente-local.msi.sha256`
+  - [ ] `EvaluaPro-InstallerHub-docente-local.exe`
+  - [ ] `EvaluaPro-InstallerHub-docente-local.exe.sha256`
   - [ ] `EvaluaPro-release-manifest.json`
+  - [ ] `installer-local-paths.json`
 - [ ] Validar manifiesto extendido:
   - [ ] `build.version`
   - [ ] `build.commit`
@@ -82,7 +87,7 @@ Objetivo: dejar operativo el piloto (1 institucion, 1-3 docentes) con backend lo
   - [ ] `POST /api/autenticacion/restablecer-contrasena` => 204
 
 ## 5. Onboarding funcional (1-3 docentes)
-- [ ] Instalar via `EvaluaPro-InstallerHub.exe` en equipos objetivo.
+- [ ] Instalar via `EvaluaPro-InstallerHub-docente-local.exe` en equipos objetivo.
 - [ ] Confirmar acceso directo `EvaluaPro - Prod`.
 - [ ] Smoke funcional minimo por docente:
   - [ ] Login docente

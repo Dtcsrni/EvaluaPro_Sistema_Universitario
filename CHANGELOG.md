@@ -5,6 +5,19 @@ Este archivo sigue el formato "Keep a Changelog" (alto nivel) y SemVer.
 ## [Unreleased]
 
 ### Changed
+- Frontend `docente`, `alumno` y `admin_negocio` reciben un rediseño estético integral con dirección institucional premium:
+  - nueva capa de tokens semánticos en `apps/frontend/src/styles/{foundations,components,screens}.css`
+  - shells principales reforzados con mejor jerarquía, superficies premium y diferenciación moderada por audiencia
+  - componentes base (`Boton`, `CampoTexto`, `HelperPanel`, `InlineMensaje`) normalizados para sostener el sistema visual
+  - snapshots UX visuales actualizados para el nuevo contrato de presentación
+- Segunda pasada visual sobre vistas operativas docentes:
+  - `SeccionPeriodos` incorpora encabezado editorial, estado vacío más claro y mejor continuidad con la jerarquía premium del shell
+  - `screens.css` armoniza `Materias`, `Banco`, `Plantillas` y `Calificaciones` con superficies, espaciado, métricas y paneles más consistentes
+- Fase 3 del rediseño profundiza la capa balanceada `docente + alumno`:
+  - `Banco` y `Plantillas` ahora usan encabezados editoriales, paneles operativos y previews con mejor jerarquía visual
+  - `Calificaciones` refuerza la mesa OMR y la tarjeta de guardado como superficies coordinadas de revisión y decisión
+  - `AppAlumno` mejora el bloque de resultados, el detalle del folio y los resúmenes de desempeño/evidencia
+  - snapshot de `ux.visual` actualizado para reflejar el acceso docente vigente
 - UX/UI docente, alumno y `admin_negocio` cierran una primera capa unificada de feedback:
   - confirmaciones nativas reemplazadas por `ConfirmDialogProvider` + `useConfirmDialog()`
   - `ToastPayload` ampliado con `secondaryAction` y `eyebrow`
@@ -28,6 +41,11 @@ Este archivo sigue el formato "Keep a Changelog" (alto nivel) y SemVer.
   - el dashboard local conserva installabilidad, pero queda subordinado al launcher oficial y marcado como `offlineCapable: false`
 
 ### Added
+- Auditoría integral reproducible del módulo Classroom:
+  - nuevo comando raíz `npm run test:classroom:audit:ci`
+  - cobertura backend adicional en `apps/backend/tests/integracion/classroom.audit.test.ts`
+  - cobertura frontend adicional en `apps/frontend/tests/centroClassroom.behavior.test.tsx`
+  - dictamen documentado en `docs/CLASSROOM_AUDIT_2026-03-22.md`
 - Pruebas UX/UI ampliadas en frontend:
   - contratos RTL para `admin_negocio` en `ux.quality`, `ux.visual` y `gui.responsive.contract`
   - Playwright responsive para `admin_negocio`

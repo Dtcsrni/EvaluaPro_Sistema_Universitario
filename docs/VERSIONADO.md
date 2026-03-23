@@ -72,9 +72,12 @@ Debe pasar:
    - `npm run pipeline:contract:check`
 3. Actualizar `CHANGELOG.md` y publicar versión SemVer.
 4. Publicar contrato de instalador Windows estable:
-   - `EvaluaPro.msi`
-   - `EvaluaPro.msi.sha256`
-   - `EvaluaPro-InstallerHub.exe`
+   - `EvaluaPro-saas-completo.msi`
+   - `EvaluaPro-saas-completo.msi.sha256`
+   - `EvaluaPro-InstallerHub-saas-completo.exe`
+   - `EvaluaPro-docente-local.msi`
+   - `EvaluaPro-docente-local.msi.sha256`
+   - `EvaluaPro-InstallerHub-docente-local.exe`
    - `EvaluaPro-release-manifest.json`
 5. Ejecutar gate de estable:
    - `npm run release:gate:prod-flow -- --version=<version> --periodo-id=<periodoId> --manual=docs/release/manual/prod-flow.json`

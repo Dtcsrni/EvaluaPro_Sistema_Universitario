@@ -139,8 +139,8 @@ Publicar secretos en GitHub (manual):
 
 Verificar firma local:
 ```powershell
-Get-AuthenticodeSignature .\dist\installer\EvaluaPro-Setup.exe
-Get-AuthenticodeSignature .\dist\installer\EvaluaPro.msi
+Get-AuthenticodeSignature .\dist\installer\EvaluaPro-docente-local-Setup.exe
+Get-AuthenticodeSignature .\dist\installer\EvaluaPro-docente-local.msi
 ```
 
 Garantia de estabilidad para distribuible:
@@ -155,12 +155,18 @@ Garantia de estabilidad para distribuible:
 - si algun check falla, no se genera instalador.
 
 Artefactos:
-- `dist/installer/EvaluaPro.msi`
-- `dist/installer/EvaluaPro.msi.sha256`
-- `dist/installer/EvaluaPro-Setup.exe` (cuando bundle esta habilitado)
-- `dist/installer/EvaluaPro-InstallerHub.exe`
-- `dist/installer/EvaluaPro-InstallerHub.exe.sha256`
+- `dist/installer/EvaluaPro-saas-completo.msi`
+- `dist/installer/EvaluaPro-saas-completo.msi.sha256`
+- `dist/installer/EvaluaPro-saas-completo-Setup.exe`
+- `dist/installer/EvaluaPro-InstallerHub-saas-completo.exe`
+- `dist/installer/EvaluaPro-InstallerHub-saas-completo.exe.sha256`
+- `dist/installer/EvaluaPro-docente-local.msi`
+- `dist/installer/EvaluaPro-docente-local.msi.sha256`
+- `dist/installer/EvaluaPro-docente-local-Setup.exe`
+- `dist/installer/EvaluaPro-InstallerHub-docente-local.exe`
+- `dist/installer/EvaluaPro-InstallerHub-docente-local.exe.sha256`
 - `dist/installer/EvaluaPro-release-manifest.json`
+- `dist/installer/installer-local-paths.json`
 - `dist/installer/SIGNING-NOT-PRODUCTION.txt` (solo cuando no se firma)
 
 Prerequisitos de instalacion:
@@ -175,10 +181,16 @@ CI de instalador Windows:
 - Valida `test:wix:policy` + `test:installer-hub:contract`.
 - Compila MSI + bundle (`-SkipStabilityChecks -IncludeBundle`), compila `Installer Hub`, genera hashes/manifiesto y ejecuta signing gate opcional.
 - En tags `v*` publica automáticamente assets en GitHub Releases:
-  - `EvaluaPro.msi`, `EvaluaPro.msi.sha256`
-  - `EvaluaPro-Setup.exe`
-  - `EvaluaPro-InstallerHub.exe`, `EvaluaPro-InstallerHub.exe.sha256`
+  - `EvaluaPro-saas-completo.msi`, `EvaluaPro-saas-completo.msi.sha256`
+  - `EvaluaPro-saas-completo-Setup.exe`
+  - `EvaluaPro-InstallerHub-saas-completo.exe`, `EvaluaPro-InstallerHub-saas-completo.exe.sha256`
+  - `EvaluaPro-docente-local.msi`, `EvaluaPro-docente-local.msi.sha256`
+  - `EvaluaPro-docente-local-Setup.exe`
+  - `EvaluaPro-InstallerHub-docente-local.exe`, `EvaluaPro-InstallerHub-docente-local.exe.sha256`
   - `EvaluaPro-release-manifest.json`
+
+Ruta operativa local recomendada para este equipo:
+- `dist/installer/EvaluaPro-InstallerHub-docente-local.exe`
 
 Autoconfiguracion durante uso:
 - shortcuts Dev/Prod instalados automaticamente.
@@ -214,4 +226,3 @@ npm run docs:check
 ## Notas de retencion y respaldo
 - Mantener respaldo local antes de purgas cloud.
 - Si se sincronizan PDFs comprimidos, monitorear peso y politica de almacenamiento.
-

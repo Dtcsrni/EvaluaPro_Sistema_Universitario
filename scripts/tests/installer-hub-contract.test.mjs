@@ -110,6 +110,15 @@ test('workflow de installer publica contratos nuevos de release', () => {
   assert.match(workflow, /EvaluaPro-docente-local-Setup\.exe/);
 });
 
+test('build del installer hub genera manifiesto local con ruta del ejecutable recomendado', () => {
+  const buildScript = fs.readFileSync(path.join(root, 'scripts', 'build-installer-hub.ps1'), 'utf8');
+
+  assert.match(buildScript, /installer-local-paths\.json/);
+  assert.match(buildScript, /recommendedFlavorId/);
+  assert.match(buildScript, /recommendedHubExecutablePath/);
+  assert.match(buildScript, /Ejecutable recomendado para este equipo/);
+});
+
 test('installer hub incluye fase de configuracion operativa y blindaje de licencia configurable', () => {
   const hub = fs.readFileSync(installerHubPath, 'utf8');
   assert.match(hub, /OperationalConfig\.psm1/);

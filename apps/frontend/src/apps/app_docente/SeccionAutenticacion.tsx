@@ -387,6 +387,20 @@ export function SeccionAutenticacion({
           <Icono nombre="docente" /> Acceso docente
         </h2>
         <p className="auth-subtitulo">Entra al banco, examenes y calificacion.</p>
+        <div className="auth-hero-kpis" aria-label="Resumen de acceso docente">
+          <article className="auth-hero-kpi">
+            <span>Modo</span>
+            <strong>{googleOnly ? 'Google institucional' : googleDisponible ? 'Google o correo' : 'Correo y contrasena'}</strong>
+          </article>
+          <article className="auth-hero-kpi">
+            <span>Seguridad</span>
+            <strong>Sesion persistente y controlada</strong>
+          </article>
+          <article className="auth-hero-kpi">
+            <span>Destino</span>
+            <strong>Banco, OMR y publicación</strong>
+          </article>
+        </div>
         <div className="auth-hero-stats" aria-label="Estado de plataforma">
           <span>Sesion segura</span>
           <span>Flujo guiado</span>
@@ -420,6 +434,11 @@ export function SeccionAutenticacion({
         <div className="auth-form-head">
           <p className="eyebrow">{modo === 'ingresar' ? 'Iniciar sesion' : 'Crear cuenta'}</p>
           <h3>{modo === 'ingresar' ? 'Bienvenido de nuevo' : 'Registro docente'}</h3>
+          <p className="nota">
+            {modo === 'ingresar'
+              ? 'Usa tu acceso habitual para volver rápidamente al flujo operativo.'
+              : 'Crea tu cuenta con datos institucionales y mantén la trazabilidad del sistema.'}
+          </p>
         </div>
         {modo === 'registrar' && (
           <div className="panel auth-panel" aria-label="Ayuda de registro">
@@ -758,13 +777,14 @@ export function SeccionAutenticacion({
 
         {mostrarFormulario && (
           <div className="acciones auth-submit">
-              <Boton
-                type="button"
-                icono={<Icono nombre={modo === 'ingresar' ? 'entrar' : 'nuevo'} />}
-                cargando={enviando}
-                disabled={cooldownActivo || (modo === 'ingresar' ? !puedeIngresar : !puedeRegistrar)}
-                onClick={modo === 'ingresar' ? ingresar : registrar}
-              >
+            <Boton
+              type="button"
+              tamano="lg"
+              icono={<Icono nombre={modo === 'ingresar' ? 'entrar' : 'nuevo'} />}
+              cargando={enviando}
+              disabled={cooldownActivo || (modo === 'ingresar' ? !puedeIngresar : !puedeRegistrar)}
+              onClick={modo === 'ingresar' ? ingresar : registrar}
+            >
               {modo === 'ingresar' ? (enviando ? 'Ingresando…' : 'Ingresar') : enviando ? 'Creando…' : 'Crear cuenta'}
             </Boton>
           </div>

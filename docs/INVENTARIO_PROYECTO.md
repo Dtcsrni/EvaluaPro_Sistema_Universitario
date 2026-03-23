@@ -24,6 +24,12 @@ Version visible objetivo: `1.0.0b`
   - `reports/perf/latest.json`
 
 ## 2.1) Footprint y clasificacion del corte 2026-03-20
+- Rediseño visual integral frontend 2026-03-22:
+  - arquitectura de estilos separada en `foundations`, `components` y `screens`
+  - identidad institucional premium compartida con matices por `docente`, `alumno` y `admin_negocio`
+  - componentes base de UX reforzados para sostener consistencia visual y responsive
+  - segunda pasada estética aplicada sobre vistas operativas docentes (`Materias`, `Banco`, `Plantillas`, `Calificaciones`) con superficies, métricas y paneles más consistentes
+  - tercera pasada balanceada `docente + alumno` aplicada sobre `Banco`, `Plantillas`, `Calificaciones` y detalle de resultados del portal alumno
 - Runtime `prod` activo:
   - `evaluapro_sistema_universitario-api_docente_prod`: `1.62 GB`
   - `evaluapro_sistema_universitario-web_docente_prod`: `93.6 MB`
@@ -127,6 +133,10 @@ Version visible objetivo: `1.0.0b`
 - QA manifest: `reports/qa/latest/manifest.json`
 - Gate arquitectura limpia: `reports/qa/latest/clean-architecture.json`
 - Gate de trazabilidad IA: `npm run test:ia:traceability`
+- Auditoría integral Classroom 2026-03-22:
+  - comando reproducible `npm run test:classroom:audit:ci`
+  - dictamen actual en `docs/CLASSROOM_AUDIT_2026-03-22.md`
+  - fase E2E real bloqueada en este entorno por ausencia de `GOOGLE_CLASSROOM_CLIENT_ID`, `GOOGLE_CLASSROOM_CLIENT_SECRET`, `GOOGLE_CLASSROOM_REDIRECT_URI` y `CLASSROOM_TOKEN_CIPHER_KEY`
 - Gate estable: `docs/RELEASE_GATE_STABLE.md`
 - Paquete estable actual:
   - `docs/release/evidencias/1.0.0/manifest.json`

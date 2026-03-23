@@ -380,9 +380,14 @@ export function SeccionPeriodos({
 
   return (
     <div className="panel materias-panel">
-      <h2>
-        <Icono nombre="periodos" /> Materias
-      </h2>
+      <div className="materias-panel__head">
+        <div>
+          <h2>
+            <Icono nombre="periodos" /> Materias
+          </h2>
+          <p className="nota">Administra la estructura académica activa, sus rangos operativos y la agrupación por grupos.</p>
+        </div>
+      </div>
       <div className="acciones">
         <Boton variante="secundario" type="button" onClick={onVerArchivadas}>
           Ver materias archivadas
@@ -474,127 +479,131 @@ export function SeccionPeriodos({
         </p>
       )}
       <h3>Materias activas</h3>
-      <ul className="lista lista-items materias-lista">
-        {periodos.map((periodo) => (
-          <li key={periodo._id}>
-            <div className="item-glass materias-lista__item">
-              <div className="item-row">
-                <div>
-                  {editandoId === periodo._id ? (
-                    <div className="lista materias-edicion">
-                      <label className="campo">
-                        Nombre de la materia
-                        <input
-                          value={edicionNombre}
-                          onChange={(event) => setEdicionNombre(event.target.value)}
-                          disabled={!puedeGestionar || guardandoEdicionId === periodo._id}
-                        />
-                      </label>
-                      {edicionNombre.trim() && !nombreEdicionValido && (
-                        <InlineMensaje tipo="warning">El nombre debe tener entre 3 y 80 caracteres.</InlineMensaje>
-                      )}
-                      {nombreEdicionDuplicado && (
-                        <InlineMensaje tipo="error">Ya existe una materia activa con ese nombre.</InlineMensaje>
-                      )}
-                      <label className="campo">
-                        Fecha inicio
-                        <input
-                          type="date"
-                          value={edicionFechaInicio}
-                          onChange={(event) => setEdicionFechaInicio(event.target.value)}
-                          disabled={!puedeGestionar || guardandoEdicionId === periodo._id}
-                        />
-                      </label>
-                      <label className="campo">
-                        Fecha fin
-                        <input
-                          type="date"
-                          value={edicionFechaFin}
-                          onChange={(event) => setEdicionFechaFin(event.target.value)}
-                          disabled={!puedeGestionar || guardandoEdicionId === periodo._id}
-                        />
-                      </label>
-                      {edicionFechaInicio && edicionFechaFin && edicionFechaFin < edicionFechaInicio && (
-                        <InlineMensaje tipo="error">La fecha fin debe ser igual o posterior a la fecha inicio.</InlineMensaje>
-                      )}
-                      <label className="campo">
-                        Grupos (separados por coma)
-                        <input
-                          value={edicionGrupos}
-                          onChange={(event) => setEdicionGrupos(event.target.value)}
-                          disabled={!puedeGestionar || guardandoEdicionId === periodo._id}
-                        />
-                      </label>
-                      {!gruposEdicionValidos && edicionGrupos.trim() && (
-                        <InlineMensaje tipo="warning">Revisa grupos: máximo 50 y hasta 40 caracteres por grupo.</InlineMensaje>
-                      )}
-                      {gruposEdicionDuplicados && <InlineMensaje tipo="warning">Hay grupos repetidos.</InlineMensaje>}
-                    </div>
-                  ) : (
-                    <>
-                      <div className="item-title" title={periodo._id}>
-                        {etiquetaMateria(periodo)}
+      {periodos.length === 0 ? (
+        <InlineMensaje tipo="info">Aún no hay materias activas. Crea la primera para habilitar banco, plantillas y alumnos.</InlineMensaje>
+      ) : (
+        <ul className="lista lista-items materias-lista">
+          {periodos.map((periodo) => (
+            <li key={periodo._id}>
+              <div className="item-glass materias-lista__item">
+                <div className="item-row">
+                  <div>
+                    {editandoId === periodo._id ? (
+                      <div className="lista materias-edicion">
+                        <label className="campo">
+                          Nombre de la materia
+                          <input
+                            value={edicionNombre}
+                            onChange={(event) => setEdicionNombre(event.target.value)}
+                            disabled={!puedeGestionar || guardandoEdicionId === periodo._id}
+                          />
+                        </label>
+                        {edicionNombre.trim() && !nombreEdicionValido && (
+                          <InlineMensaje tipo="warning">El nombre debe tener entre 3 y 80 caracteres.</InlineMensaje>
+                        )}
+                        {nombreEdicionDuplicado && (
+                          <InlineMensaje tipo="error">Ya existe una materia activa con ese nombre.</InlineMensaje>
+                        )}
+                        <label className="campo">
+                          Fecha inicio
+                          <input
+                            type="date"
+                            value={edicionFechaInicio}
+                            onChange={(event) => setEdicionFechaInicio(event.target.value)}
+                            disabled={!puedeGestionar || guardandoEdicionId === periodo._id}
+                          />
+                        </label>
+                        <label className="campo">
+                          Fecha fin
+                          <input
+                            type="date"
+                            value={edicionFechaFin}
+                            onChange={(event) => setEdicionFechaFin(event.target.value)}
+                            disabled={!puedeGestionar || guardandoEdicionId === periodo._id}
+                          />
+                        </label>
+                        {edicionFechaInicio && edicionFechaFin && edicionFechaFin < edicionFechaInicio && (
+                          <InlineMensaje tipo="error">La fecha fin debe ser igual o posterior a la fecha inicio.</InlineMensaje>
+                        )}
+                        <label className="campo">
+                          Grupos (separados por coma)
+                          <input
+                            value={edicionGrupos}
+                            onChange={(event) => setEdicionGrupos(event.target.value)}
+                            disabled={!puedeGestionar || guardandoEdicionId === periodo._id}
+                          />
+                        </label>
+                        {!gruposEdicionValidos && edicionGrupos.trim() && (
+                          <InlineMensaje tipo="warning">Revisa grupos: máximo 50 y hasta 40 caracteres por grupo.</InlineMensaje>
+                        )}
+                        {gruposEdicionDuplicados && <InlineMensaje tipo="warning">Hay grupos repetidos.</InlineMensaje>}
                       </div>
-                      <div className="item-meta">
-                        <span>ID: {idCortoMateria(periodo._id)}</span>
-                        <span>Inicio: {formatearFecha(periodo.fechaInicio)}</span>
-                        <span>Fin: {formatearFecha(periodo.fechaFin)}</span>
-                        <span>
-                          Grupos:{' '}
-                          {Array.isArray(periodo.grupos) && periodo.grupos.length > 0 ? periodo.grupos.join(', ') : '-'}
-                        </span>
-                      </div>
-                    </>
-                  )}
-                </div>
-                <div className="item-actions">
-                  {editandoId === periodo._id ? (
-                    <>
-                      <Boton
-                        type="button"
-                        cargando={guardandoEdicionId === periodo._id}
-                        onClick={() => void guardarEdicion(periodo)}
-                        disabled={!puedeGuardarEdicion || !puedeGestionar}
-                      >
-                        Guardar cambios
-                      </Boton>
-                      <Boton variante="secundario" type="button" onClick={cancelarEdicion} disabled={guardandoEdicionId === periodo._id}>
-                        Cancelar
-                      </Boton>
-                    </>
-                  ) : (
-                    <>
-                      <Boton variante="secundario" type="button" onClick={() => iniciarEdicion(periodo)} disabled={bloqueoEdicion}>
-                        Editar
-                      </Boton>
-                      <Boton
-                        variante="secundario"
-                        type="button"
-                        cargando={archivandoId === periodo._id}
-                        onClick={() => archivarMateria(periodo)}
-                        disabled={!puedeArchivar}
-                      >
-                        Archivar
-                      </Boton>
-                      {puedeEliminarMateriaDev && (
+                    ) : (
+                      <>
+                        <div className="item-title" title={periodo._id}>
+                          {etiquetaMateria(periodo)}
+                        </div>
+                        <div className="item-meta">
+                          <span>ID: {idCortoMateria(periodo._id)}</span>
+                          <span>Inicio: {formatearFecha(periodo.fechaInicio)}</span>
+                          <span>Fin: {formatearFecha(periodo.fechaFin)}</span>
+                          <span>
+                            Grupos:{' '}
+                            {Array.isArray(periodo.grupos) && periodo.grupos.length > 0 ? periodo.grupos.join(', ') : '-'}
+                          </span>
+                        </div>
+                      </>
+                    )}
+                  </div>
+                  <div className="item-actions">
+                    {editandoId === periodo._id ? (
+                      <>
+                        <Boton
+                          type="button"
+                          cargando={guardandoEdicionId === periodo._id}
+                          onClick={() => void guardarEdicion(periodo)}
+                          disabled={!puedeGuardarEdicion || !puedeGestionar}
+                        >
+                          Guardar cambios
+                        </Boton>
+                        <Boton variante="secundario" type="button" onClick={cancelarEdicion} disabled={guardandoEdicionId === periodo._id}>
+                          Cancelar
+                        </Boton>
+                      </>
+                    ) : (
+                      <>
+                        <Boton variante="secundario" type="button" onClick={() => iniciarEdicion(periodo)} disabled={bloqueoEdicion}>
+                          Editar
+                        </Boton>
                         <Boton
                           variante="secundario"
                           type="button"
-                          cargando={eliminandoId === periodo._id}
-                          onClick={() => void eliminarMateriaDev(periodo)}
-                          disabled={!puedeEliminarMateriaDev}
+                          cargando={archivandoId === periodo._id}
+                          onClick={() => archivarMateria(periodo)}
+                          disabled={!puedeArchivar}
                         >
-                          Eliminar (DEV)
+                          Archivar
                         </Boton>
-                      )}
-                    </>
-                  )}
+                        {puedeEliminarMateriaDev && (
+                          <Boton
+                            variante="secundario"
+                            type="button"
+                            cargando={eliminandoId === periodo._id}
+                            onClick={() => void eliminarMateriaDev(periodo)}
+                            disabled={!puedeEliminarMateriaDev}
+                          >
+                            Eliminar (DEV)
+                          </Boton>
+                        )}
+                      </>
+                    )}
+                  </div>
                 </div>
               </div>
-            </div>
-          </li>
-        ))}
-      </ul>
+            </li>
+          ))}
+        </ul>
+      )}
     </div>
   );
 }

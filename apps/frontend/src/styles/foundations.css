@@ -1,0 +1,126 @@
+@import url('https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,600;9..144,700&family=Manrope:wght@400;500;600;700;800&display=swap');
+
+:root {
+  --font-display: 'Fraunces', 'Space Grotesk', serif;
+  --font-sans: 'Manrope', 'Source Sans 3', 'Segoe UI', system-ui, sans-serif;
+  --space-1: 0.35rem;
+  --space-2: 0.55rem;
+  --space-3: 0.8rem;
+  --space-4: 1rem;
+  --space-5: 1.35rem;
+  --space-6: 1.8rem;
+  --space-7: 2.4rem;
+  --radius-sm: 12px;
+  --radius-md: 18px;
+  --radius-lg: 28px;
+  --surface-0: rgba(255, 255, 255, 0.84);
+  --surface-1: rgba(255, 255, 255, 0.92);
+  --surface-2: rgba(255, 255, 255, 0.98);
+  --surface-border-strong: rgba(15, 23, 42, 0.1);
+  --shadow-soft: 0 24px 60px rgba(15, 23, 42, 0.08);
+  --shadow-panel: 0 28px 80px rgba(15, 23, 42, 0.12);
+  --brand-ink: #142033;
+  --brand-ocean: #0d6e73;
+  --brand-gold: #a57a2a;
+  --brand-sky: #dfeef4;
+  --brand-rose: #9e5c5e;
+  --gradient-app:
+    radial-gradient(circle at top left, rgba(165, 122, 42, 0.16), transparent 32%),
+    radial-gradient(circle at top right, rgba(13, 110, 115, 0.16), transparent 28%),
+    linear-gradient(180deg, rgba(255, 252, 247, 0.98), rgba(244, 248, 251, 0.98));
+}
+
+:root,
+body,
+button,
+input,
+textarea,
+select {
+  font-family: var(--font-sans);
+}
+
+body {
+  min-height: 100vh;
+  background-attachment: fixed;
+}
+
+h1,
+h2,
+h3,
+.version-hero h1,
+.shell-docente__metric strong,
+.portal-alumno-shell__summaryCard strong {
+  font-family: var(--font-display);
+  letter-spacing: -0.03em;
+}
+
+.page {
+  position: relative;
+  min-height: 100vh;
+  padding: clamp(1rem, 2vw, 1.5rem);
+}
+
+.page::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  background:
+    linear-gradient(135deg, rgba(255, 255, 255, 0.3), transparent 24%),
+    linear-gradient(180deg, rgba(20, 32, 51, 0.04), transparent 22%);
+  mask: radial-gradient(circle at top, black, transparent 72%);
+}
+
+.page--docente {
+  --app-accent: var(--brand-ocean);
+  --app-accent-soft: rgba(13, 110, 115, 0.12);
+  --app-highlight: rgba(165, 122, 42, 0.16);
+}
+
+.page--alumno {
+  --app-accent: #176b89;
+  --app-accent-soft: rgba(23, 107, 137, 0.12);
+  --app-highlight: rgba(55, 125, 108, 0.14);
+}
+
+.page--admin_negocio {
+  --app-accent: #204a87;
+  --app-accent-soft: rgba(32, 74, 135, 0.12);
+  --app-highlight: rgba(158, 92, 94, 0.14);
+}
+
+.superficie-app {
+  position: relative;
+  overflow: hidden;
+  background: var(--gradient-app);
+}
+
+.superficie-app::after {
+  content: '';
+  position: absolute;
+  inset: auto -12% -18% auto;
+  width: 320px;
+  height: 320px;
+  border-radius: 999px;
+  background: radial-gradient(circle, var(--app-accent-soft, rgba(13, 110, 115, 0.12)), transparent 70%);
+  pointer-events: none;
+  z-index: 0;
+}
+
+.superficie-app > * {
+  position: relative;
+  z-index: 1;
+}
+
+:root[data-theme="dark"] {
+  --surface-0: rgba(10, 18, 30, 0.72);
+  --surface-1: rgba(11, 20, 33, 0.82);
+  --surface-2: rgba(13, 22, 36, 0.96);
+  --surface-border-strong: rgba(226, 232, 240, 0.12);
+  --shadow-soft: 0 24px 60px rgba(2, 6, 23, 0.36);
+  --shadow-panel: 0 28px 84px rgba(2, 6, 23, 0.45);
+  --gradient-app:
+    radial-gradient(circle at top left, rgba(165, 122, 42, 0.16), transparent 32%),
+    radial-gradient(circle at top right, rgba(23, 107, 137, 0.18), transparent 28%),
+    linear-gradient(180deg, rgba(10, 18, 30, 0.98), rgba(5, 11, 19, 0.98));
+}

@@ -57,7 +57,7 @@ Alcance de la reparación v1:
   - Docker Desktop
 
 ### Instalador docente desde cero (Installer Hub)
-1. Descargar `EvaluaPro-InstallerHub.exe` desde la release estable.
+1. Descargar `EvaluaPro-InstallerHub-docente-local.exe` desde la release estable.
 2. Ejecutar con permisos de administrador (UAC).
 3. Flujo esperado:
    - splash introductorio,
@@ -71,6 +71,9 @@ Alcance de la reparación v1:
 5. Desinstalacion:
    - por defecto conserva datos,
    - opcion de limpieza total disponible solo en modo `uninstall`.
+
+Si el instalador se genera localmente en este equipo, la ruta recomendada es:
+- `C:\Users\evega\EvaluaPro_Sistema_Universitario\dist\installer\EvaluaPro-InstallerHub-docente-local.exe`
 
 ## 3. Síntoma: incremento de errores 5xx
 1. Revisar métrica de errores y latencia p95.
