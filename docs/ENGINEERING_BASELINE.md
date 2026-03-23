@@ -5,6 +5,11 @@ Version tecnica: `1.0.0`
 Version visible GUI: `1.0.0b`
 
 ## Estado vigente
+- Corte 2026-03-23:
+  - `apps/backend/src/configuracion.ts` y `apps/portal_alumno_cloud/src/configuracion.ts` ya no cargan el `.env` raíz durante `NODE_ENV=test`
+  - la suite backend completa vuelve a pasar sin `403` espurios en `/api/autenticacion/registrar`
+  - frontend añade cobertura contractual sobre `App.tsx`, `AppAdminNegocio.tsx` y `AppAlumno.tsx` para sostener el gate de diff coverage del siguiente commit en `main`
+  - ruleset remoto de `main` verificado con required checks: `Verificaciones Extendidas (Main/Release)` y `Installer Windows (MSI + Bundle)`
 - Monorepo NPM workspaces:
   - `apps/backend`
   - `apps/frontend`
@@ -118,6 +123,29 @@ Version visible GUI: `1.0.0b`
 - `node --test scripts/tests/perf-contract.test.mjs` ✅
 - `node --test scripts/tests/installer-hub-contract.test.mjs` ✅
 - `node --test scripts/tests/dashboard-ui.test.mjs` ✅
+
+## Corte de validacion 2026-03-23
+- Installer Hub multi-flavor alineado a documentación y build real:
+  - `docente-local` queda como flavor recomendado por default
+  - `scripts/build-installer-hub.ps1` ahora genera `dist/installer/installer-local-paths.json`
+  - el manifiesto local expone `recommendedHubExecutablePath` con ruta absoluta utilizable en soporte/instalación local
+- Validación específica del cambio:
+  - `npm run test:installer-hub:contract` ✅
+  - `npm run installer:hub:build` ✅
+  - ejecutable recomendado verificado: `C:\Users\evega\EvaluaPro_Sistema_Universitario\dist\installer\EvaluaPro-InstallerHub-docente-local.exe`
+- Gates mínimos ejecutados para estado real del repo:
+  - `npm run lint` ✅
+  - `npm run typecheck` ✅
+  - `npm run test:frontend:ci` ✅
+  - `npm run test:coverage:ci` ❌
+  - `npm run test:tdd:enforcement:ci` ❌
+  - `npm run test:backend:ci` ❌
+  - `npm run test:portal:ci` ✅
+  - `npm run perf:check` ✅
+  - `npm run pipeline:contract:check` ✅
+- Causa dominante de fallo observada:
+  - backend/integración devuelve `403 Forbidden` en múltiples pruebas que esperan `201 Created` al registrar docentes (`/api/autenticacion/registrar`)
+  - diff coverage de frontend queda en `0%` sobre cambios previos ya presentes en el árbol y rompe `npm run test:tdd:enforcement:ci`
 - `node --test scripts/tests/windows-release-smoke.test.mjs` ✅
 - `npm run test:installer-hub:contract` ✅
 - `npm run test:dashboard:repair` ✅

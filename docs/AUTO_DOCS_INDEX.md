@@ -6,6 +6,7 @@ No editar a mano: los cambios se pisan al regenerar.
 - [ARQUITECTURA.md](ARQUITECTURA.md) — Arquitectura
 - [ARQUITECTURA_C4.md](ARQUITECTURA_C4.md) — Arquitectura C4
 - [CICLO_DESARROLLO.md](CICLO_DESARROLLO.md) — Ciclo de desarrollo
+- [CLASSROOM_AUDIT_2026-03-22.md](CLASSROOM_AUDIT_2026-03-22.md) — Auditoria Integral Classroom
 - [CUMPLIMIENTO.md](CUMPLIMIENTO.md) — Cumplimiento y Privacidad
 - [DESPLIEGUE.md](DESPLIEGUE.md) — Despliegue
 - [DEVOPS_BASELINE.md](DEVOPS_BASELINE.md) — DevOps Baseline

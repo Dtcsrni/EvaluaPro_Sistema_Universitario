@@ -5,10 +5,12 @@ import dotenv from 'dotenv';
 import path from 'node:path';
 
 const entorno = process.env.NODE_ENV ?? 'development';
-if (entorno !== 'production') {
+if (entorno !== 'production' && entorno !== 'test') {
   // Dotenv v17 puede emitir logs informativos; se silencian para mantener
   // pruebas y consola limpias. En producción no se debe rellenar config crítica
   // desde `.env`; solo se admite el entorno real del proceso.
+  // En test tampoco se carga el `.env` del repo para evitar que secretos o flags
+  // locales alteren contratos de integración esperados por la suite.
   dotenv.config({
     quiet: true,
     path: path.resolve(__dirname, '..', '..', '..', '.env')

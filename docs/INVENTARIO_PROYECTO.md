@@ -24,6 +24,10 @@ Version visible objetivo: `1.0.0b`
   - `reports/perf/latest.json`
 
 ## 2.1) Footprint y clasificacion del corte 2026-03-20
+- Cierre operativo 2026-03-23:
+  - suites backend/portal/frontend locales en verde tras aislar configuración de test del `.env` raíz
+  - `App.tsx`, `AppAdminNegocio.tsx` y `AppAlumno.tsx` cuentan con cobertura dirigida nueva para el gate de diff coverage
+  - branch protection/ruleset remoto de `main` vuelve a exigir `Installer Windows (MSI + Bundle)` junto con los checks obligatorios del contrato
 - Rediseño visual integral frontend 2026-03-22:
   - arquitectura de estilos separada en `foundations`, `components` y `screens`
   - identidad institucional premium compartida con matices por `docente`, `alumno` y `admin_negocio`
@@ -118,6 +122,20 @@ Version visible objetivo: `1.0.0b`
 - `Package Images`: empaquetado Docker
 
 ## 6) Estado de limpieza
+
+## 7) Corte operativo 2026-03-23
+- Installer Hub Windows:
+  - ejecutables release por flavor confirmados:
+    - `dist/installer/EvaluaPro-InstallerHub-saas-completo.exe`
+    - `dist/installer/EvaluaPro-InstallerHub-docente-local.exe`
+  - manifiesto local nuevo:
+    - `dist/installer/installer-local-paths.json`
+  - ruta recomendada en este equipo:
+    - `C:\Users\evega\EvaluaPro_Sistema_Universitario\dist\installer\EvaluaPro-InstallerHub-docente-local.exe`
+- Estado de validación del repo durante esta sesión:
+  - Hub/installer: OK en contrato y build local
+  - Portal: OK
+  - Backend/coverage/TDD: con regresión activa fuera del alcance del Hub, concentrada en altas pruebas de integración con `403` en registro docente y diff coverage de cambios previos del frontend
 - Sin middleware de versionado/adopcion antiguos.
 - Sin rutas productivas `v2`.
 - Sin archivos de rollout/adopcion retirados.

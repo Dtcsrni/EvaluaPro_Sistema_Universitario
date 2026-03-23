@@ -1,24 +1,24 @@
 # Inventario Exhaustivo de Codigo
 
-Fecha de generacion: 2026-03-22 22:22:05
+Fecha de generacion: 2026-03-23 03:37:29
 Fuente: git ls-files (solo archivos versionados, excluye node_modules).
 
 ## Resumen
 
-- Total de piezas de codigo/config ejecutable inventariadas: 863
+- Total de piezas de codigo/config ejecutable inventariadas: 869
 - Extensiones incluidas: ts, tsx, js, jsx, mjs, cjs, json, yml, yaml, sh, cmd, ps1.
 
 ## Conteo por area
 
 | Area | Archivos |
 | --- | ---: |
-| backend | 372 |
-| frontend | 126 |
+| backend | 373 |
+| frontend | 127 |
 | portal_alumno_cloud | 42 |
 | ci | 15 |
 | scripts | 111 |
 | ops | 3 |
-| docs | 17 |
+| docs | 21 |
 | raiz | 9 |
 
 ## Backend (apps/backend)
@@ -330,6 +330,7 @@ Fuente: git ls-files (solo archivos versionados, excluye node_modules).
 - apps/backend/tests/integracion/bancoPreguntasAsignarMateria.test.ts
 - apps/backend/tests/integracion/calificacionGlobalContratoE2E.test.ts
 - apps/backend/tests/integracion/calificacionOmrPrioridad.test.ts
+- apps/backend/tests/integracion/classroom.audit.test.ts
 - apps/backend/tests/integracion/classroom.pull.test.ts
 - apps/backend/tests/integracion/classroom.v2.test.ts
 - apps/backend/tests/integracion/comercial.webhook.mercadopago.firma.test.ts
@@ -493,6 +494,7 @@ Fuente: git ls-files (solo archivos versionados, excluye node_modules).
 - apps/frontend/tests/appDocente.test.tsx
 - apps/frontend/tests/banco.estimadores.test.tsx
 - apps/frontend/tests/banco.refactor.test.tsx
+- apps/frontend/tests/centroClassroom.behavior.test.tsx
 - apps/frontend/tests/clienteApi.test.tsx
 - apps/frontend/tests/clienteComun.test.ts
 - apps/frontend/tests/clienteComunMensajes.test.ts
@@ -716,6 +718,10 @@ Fuente: git ls-files (solo archivos versionados, excluye node_modules).
 - docs/diagramas/puppeteer.config.json
 - docs/handoff/sesiones/2026-03-22/implementacion-trazabilidad-agnostica.json
 - docs/handoff/sesiones/2026-03-22/sesion-2026-03-22T10-54-43.380Z.json
+- docs/handoff/sesiones/2026-03-22/sesion-2026-03-22T11-52-57.961Z.json
+- docs/handoff/sesiones/2026-03-23/sesion-2026-03-23T03-13-01.575Z.json
+- docs/handoff/sesiones/2026-03-23/sesion-2026-03-23T03-56-04.140Z.json
+- docs/handoff/sesiones/2026-03-23/sesion-2026-03-23T04-22-05.327Z.json
 - docs/handoff/trace.schema.json
 - docs/perf/baseline.business.json
 - docs/perf/baseline.json

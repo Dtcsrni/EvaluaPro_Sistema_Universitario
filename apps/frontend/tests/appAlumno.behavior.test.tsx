@@ -163,12 +163,24 @@ describe('AppAlumno behavior', () => {
 
     await user.type(screen.getByLabelText(/Codigo de acceso/i), 'abc123');
     await user.type(screen.getByLabelText(/Matricula/i), '2024-001');
+    expect(screen.getByText(/Consulta clara de resultados y evidencias/i)).toBeInTheDocument();
+    expect(screen.getByText(/Consulta de resultados/i)).toBeInTheDocument();
+    expect(screen.getByText(/Verificado/i)).toBeInTheDocument();
+    expect(screen.getByText(/^PDF$/i)).toBeInTheDocument();
+    expect(screen.getByText(/Historial/i)).toBeInTheDocument();
     await user.click(screen.getByRole('button', { name: /Consultar/i }));
 
     expect(mocks.portalMock.enviar).toHaveBeenCalledWith('/ingresar', { codigo: 'ABC123', matricula: '2024-001' });
     expect(await screen.findByText(/Resultados disponibles/i)).toBeInTheDocument();
     expect(localStorage.getItem('tokenAlumno')).toBe('token-alumno-valido');
     expect(await screen.findByText('Ana Alumna')).toBeInTheDocument();
+    expect(document.querySelector('[aria-label="Resumen visual del portal alumno"]')).not.toBeNull();
+    expect(screen.getByText('1 folio')).toBeInTheDocument();
+    expect(screen.getByText('2 materias')).toBeInTheDocument();
+    expect(screen.getByText('1 aviso')).toBeInTheDocument();
+    expect(screen.getByText(/Eventos: 1/i)).toBeInTheDocument();
+    expect(screen.getByText(/Activos: 1/i)).toBeInTheDocument();
+    expect(screen.getByText(/Registros: 1/i)).toBeInTheDocument();
     expect(screen.getByText(/Matemáticas · Historia/i)).toBeInTheDocument();
 
     await user.click(screen.getByRole('button', { name: /Ver detalle/i }));

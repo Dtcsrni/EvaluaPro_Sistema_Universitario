@@ -5,6 +5,11 @@ Este archivo sigue el formato "Keep a Changelog" (alto nivel) y SemVer.
 ## [Unreleased]
 
 ### Changed
+- Installer Hub Windows ahora publica un manifiesto local `dist/installer/installer-local-paths.json` con rutas absolutas de los ejecutables generados por flavor y marca el ejecutable recomendado para el equipo actual.
+- Documentación operativa del instalador y release Windows alineada al contrato real multi-flavor:
+  - `EvaluaPro-InstallerHub-saas-completo.exe`
+  - `EvaluaPro-InstallerHub-docente-local.exe`
+  - ruta local recomendada para este repo/equipo: `C:\Users\evega\EvaluaPro_Sistema_Universitario\dist\installer\EvaluaPro-InstallerHub-docente-local.exe`
 - Frontend `docente`, `alumno` y `admin_negocio` reciben un rediseño estético integral con dirección institucional premium:
   - nueva capa de tokens semánticos en `apps/frontend/src/styles/{foundations,components,screens}.css`
   - shells principales reforzados con mejor jerarquía, superficies premium y diferenciación moderada por audiencia
@@ -26,6 +31,12 @@ Este archivo sigue el formato "Keep a Changelog" (alto nivel) y SemVer.
 - Frontend suma el carril `test:gui:responsive:e2e:admin` para validar layout responsive del panel de negocio.
 
 ### Fixed
+- Backend y portal cloud ya no heredan flags locales del `.env` raíz durante `NODE_ENV=test`, evitando fugas de `REQUIRE_GOOGLE_OAUTH=1` que rompían el registro docente y el flujo `prod-like` de integración.
+- La cobertura contractual del diff en frontend ahora queda sustentada con pruebas dirigidas sobre:
+  - selector principal `App.tsx`
+  - navegación/meta de `AppAdminNegocio`
+  - shell y resumen académico de `AppAlumno`
+- Ruleset remoto de `main` alineado otra vez con el contrato CI: se repuso el required check `Installer Windows (MSI + Bundle)`.
 - Dependabot deja de generar ramas/PRs automaticas de versionado por defecto en `main`; la politica ahora queda versionada en `.github/dependabot.yml` para respetar la operacion de rama unica y reducir churn de mantenimiento.
 - Portal alumno: `AppAlumno` ahora re-renderiza correctamente al cerrar sesión local o cuando llega una invalidación externa de sesión, evitando que la UI se quede mostrando el estado autenticado tras limpiar `tokenAlumno`.
 - Dashboard local: el `service worker` ya no secuestra la navegación con una pantalla offline que ofrecía acciones imposibles (`/api/start`, `/api/repair/*`) cuando el proceso del dashboard estaba caído.
