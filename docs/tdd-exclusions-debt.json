@@ -40,12 +40,12 @@
     },
     {
       "id": "backend-vinculacion",
-      "file": "apps/backend/vitest.config.ts",
-      "pattern": "src/modulos/modulo_vinculacion_entrega/**",
+      "file": "apps/backend/tests/vinculacionEntrega.controlador.test.ts",
+      "pattern": "describe('controladorVinculacionEntrega'",
       "owner": "@backend-core",
-      "dueDate": "2026-03-31",
-      "status": "temporary",
-      "reason": "Pruebas de frontera pendientes de consolidar."
+      "dueDate": "2026-03-24",
+      "status": "resolved",
+      "reason": "Cobertura directa agregada al controlador y exclusión retirada del backend."
     },
     {
       "id": "backend-salud-rutas",
