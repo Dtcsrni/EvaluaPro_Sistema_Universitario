@@ -5,6 +5,10 @@ Este archivo sigue el formato "Keep a Changelog" (alto nivel) y SemVer.
 ## [Unreleased]
 
 ### Changed
+- Generación de exámenes PDF endurecida como pilar operativo:
+  - `preview`, individual y lote comparten ahora una línea visual canónica A050929D entre `pdf-lib-legacy` y `playwright-html-v1`
+  - el renderer HTML abandona la paleta multicolor experimental y vuelve a la identidad compacta del baseline de impresión
+  - se centralizan tokens visuales del PDF en `apps/backend/src/modulos/modulo_generacion_pdf/infra/pdfVisualBaseline.ts`
 - Se añade guard de higiene del workspace:
   - nuevo script `npm run workspace:hygiene`
   - variante bloqueante `npm run workspace:hygiene:strict`
@@ -47,6 +51,8 @@ Este archivo sigue el formato "Keep a Changelog" (alto nivel) y SemVer.
 - Frontend suma el carril `test:gui:responsive:e2e:admin` para validar layout responsive del panel de negocio.
 
 ### Fixed
+- `GET /api/examenes/generados/lote/:loteId/pdf` deja de depender del casing recibido y normaliza `loteId` en mayúsculas, evitando falsos `404` en descargas de lote.
+- El cache de `GET /api/examenes/plantillas/:id/previsualizar/pdf` ya no puede servir PDFs obsoletos cuando cambia una pregunta real del banco o la firma visual/layout del renderer.
 - `scripts/testing/check-diff-coverage.mjs` deja de producir falsos rojos:
   - normaliza `SF:` relativos de `lcov` contra la raíz de cada app
   - ignora líneas estructurales no ejecutables (`}`, `);`, etc.) en el cálculo de diff coverage
@@ -77,6 +83,10 @@ Este archivo sigue el formato "Keep a Changelog" (alto nivel) y SemVer.
   - el dashboard local conserva installabilidad, pero queda subordinado al launcher oficial y marcado como `offlineCapable: false`
 
 ### Added
+- Contratos nuevos de estabilidad PDF:
+  - `apps/backend/tests/pdf.visual.baseline.test.ts`
+  - `apps/backend/tests/integracion/plantillasCrudYPreview.test.ts` amplía cobertura para invalidación de cache por cambio de reactivo
+  - `apps/backend/tests/integracion/recoveryBundleGeneracion.test.ts` amplía cobertura para descarga de lote case-insensitive
 - Auditoría integral reproducible del módulo Classroom:
   - nuevo comando raíz `npm run test:classroom:audit:ci`
   - cobertura backend adicional en `apps/backend/tests/integracion/classroom.audit.test.ts`

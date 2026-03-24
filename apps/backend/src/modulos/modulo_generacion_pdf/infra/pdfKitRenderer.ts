@@ -20,6 +20,7 @@ import {
   TEMPLATE_VERSION_TV3,
   TEMPLATE_VERSION_TV4
 } from '../domain/templateCompat';
+import { PDF_VISUAL_BASELINE_RGB } from './pdfVisualBaseline';
 
 type PerfilPlantillaRender = PerfilPlantillaOmr & {
   version: 1 | 3 | 4;
@@ -718,12 +719,12 @@ export class PdfKitRenderer {
       ? Math.max(1, Math.floor(examen.layout.totalPaginas))
       : 1;
 
-    const colorPrimario = rgb(0.08, 0.12, 0.2);
-    const colorGris = rgb(0.28, 0.31, 0.36);
-    const colorLinea = rgb(0.18, 0.24, 0.33);
-    const colorAcento = rgb(0.05, 0.46, 0.7);
-    const colorAcentoSuave = rgb(0.93, 0.97, 1);
-    const colorSeccion = rgb(0.97, 0.98, 1);
+    const colorPrimario = rgb(...PDF_VISUAL_BASELINE_RGB.primary);
+    const colorGris = rgb(...PDF_VISUAL_BASELINE_RGB.textSoft);
+    const colorLinea = rgb(...PDF_VISUAL_BASELINE_RGB.line);
+    const colorAcento = rgb(...PDF_VISUAL_BASELINE_RGB.accent);
+    const colorAcentoSuave = rgb(...PDF_VISUAL_BASELINE_RGB.accentSoft);
+    const colorSeccion = rgb(...PDF_VISUAL_BASELINE_RGB.section);
 
     // Plantilla base en puntos (1pt ~= 1px a 72dpi) para posicionamiento estable.
     const PLANTILLA_PX = Object.freeze({

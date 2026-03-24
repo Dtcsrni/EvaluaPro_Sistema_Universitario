@@ -26,10 +26,7 @@ export default defineConfig({
       // cuando se completen pruebas de regresion por modulos legacy del backend.
       exclude: [
         ...(baseVitestConfig.coverage?.exclude ?? []),
-        'src/modulos/modulo_banco_preguntas/**',
         'src/modulos/modulo_generacion_pdf/**',
-        'src/modulos/modulo_sincronizacion_nube/**',
-        'src/modulos/modulo_papelera/**',
       ],
       thresholds: {
         lines: 55,

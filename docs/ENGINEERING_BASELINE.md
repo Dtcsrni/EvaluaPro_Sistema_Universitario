@@ -1,10 +1,19 @@
 # Engineering Baseline
 
-Fecha de baseline: 2026-03-22
+Fecha de baseline: 2026-03-24
 Version tecnica: `1.0.0`
 Version visible GUI: `1.0.0b`
 
 ## Estado vigente
+- Corte 2026-03-24:
+  - el subsistema PDF fija una línea visual canónica compartida entre `pdf-lib-legacy` y `playwright-html-v1` mediante `pdfVisualBaseline.ts`
+  - `examPrintTemplate.ts` elimina la deriva cromática multicolor y vuelve a la paleta compacta del baseline A050929D
+  - `controladorGeneracionPdf.ts` invalida el cache de preview cuando cambia una pregunta real del banco o la firma visual/layout del renderer
+  - la descarga de lote normaliza `loteId` en mayúsculas para evitar falsos `404` por variación de casing
+  - cobertura nueva del corte:
+    - `apps/backend/tests/pdf.visual.baseline.test.ts`
+    - `apps/backend/tests/integracion/plantillasCrudYPreview.test.ts` (invalida cache por cambio de reactivo)
+    - `apps/backend/tests/integracion/recoveryBundleGeneracion.test.ts` (descarga de lote case-insensitive)
 - Corte 2026-03-23:
   - `apps/backend/src/configuracion.ts` y `apps/portal_alumno_cloud/src/configuracion.ts` ya no cargan el `.env` raíz durante `NODE_ENV=test`
   - backend y portal extraen utilidades internas de configuración para centralizar carga de `.env`, flags booleanas, CSV y parseos numéricos sin duplicación accidental
@@ -46,7 +55,7 @@ Version visible GUI: `1.0.0b`
   - `service worker` conserva `network-only` para navegación y `/api/*`
   - navegación `GET` ya no cae a una shell offline con acciones no ejecutables cuando el launcher local no existe
   - limpieza best-effort de SW/caches legacy para evitar PWAs Chromium obsoletas
-- OMR y PDF operan en TV4 como contrato canonico, preservando el baseline visual A050929D.
+- OMR y PDF operan en TV4 como contrato canónico, preservando el baseline visual A050929D también entre renderers.
 - Sincronizacion con schema v2.
 - Contrato CI alineado con gate `clean-architecture-check`.
 
@@ -240,6 +249,18 @@ Version visible GUI: `1.0.0b`
 - `npm run test:ruleset:policy`
 - `npm run test:release:policy`
 - `npm run test:security:policy`
+
+## Validación 2026-03-24
+- `npm run lint` ✅
+- `npm run typecheck` ✅
+- `npm run test:frontend:ci` ✅
+- `npm run test:coverage:ci` ✅
+- `npm run test:tdd:enforcement:ci` ✅
+- `npm run test:backend:ci` ✅
+- `npm run test:portal:ci` ✅
+- `npm run perf:check` ✅
+- `npm run pipeline:contract:check` ✅
+- `npm -C apps/backend run test -- tests/pdf.layout.visual.guard.test.ts tests/pdf.paridad.test.ts tests/pdf.renderer.fallback.test.ts tests/pdf.visual.baseline.test.ts tests/integracion/plantillasCrudYPreview.test.ts tests/integracion/recoveryBundleGeneracion.test.ts tests/integracion/pdfImpresionContrato.test.ts` ✅
 
 ## Riesgos tecnicos activos
 1. Complejidad residual en modulos UI grandes.

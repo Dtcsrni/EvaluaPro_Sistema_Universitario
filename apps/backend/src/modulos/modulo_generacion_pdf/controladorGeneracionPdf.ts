@@ -39,6 +39,8 @@ import { generarVariante } from './servicioVariantes';
 import { construirRecoveryBundle, construirRecoveryManifest } from './domain/recoveryManifest';
 import { resolverNumeroPaginasPlantilla } from './domain/resolverNumeroPaginasPlantilla';
 import { guardarEnPapelera } from '../modulo_papelera/servicioPapelera';
+import { resolverPdfEngine } from './infra/resolverPdfEngine';
+import { construirFirmaVisualPdf } from './infra/pdfVisualBaseline';
 import {
   construirMapaVarianteUsadaTv4,
   extraerPreguntasUsadasMapaOmr,
@@ -288,14 +290,49 @@ function clavePreviewPlantilla(params: {
   numeroPaginas: number;
   totalPreguntas: number;
   temas: string[];
+  preguntasFingerprint?: string;
+  layoutFingerprint?: string;
 }) {
   const base = [
-    'v2-autoextend',
+    'v3-a050929d-baseline',
     String(params.plantillaId || ''),
     String(params.plantillaUpdatedAt || ''),
     String(params.numeroPaginas || 0),
     String(params.totalPreguntas || 0),
-    params.temas.join('|')
+    params.temas.join('|'),
+    String(params.preguntasFingerprint || ''),
+    String(params.layoutFingerprint || '')
+  ].join('|');
+  return hash32(base).toString(16);
+}
+
+function construirFingerprintPreguntasPreview(preguntasDb: BancoPreguntaLean[]): string {
+  const partes = preguntasDb.map((pregunta) => {
+    const version = Number(pregunta.versionActual ?? 0);
+    const updatedAt = String(pregunta.updatedAt ?? '');
+    return `${String(pregunta._id ?? '')}:${version}:${updatedAt}`;
+  });
+  return hash32(partes.join('|')).toString(16);
+}
+
+function construirFingerprintLayoutPreview(): string {
+  const variables = [
+    'EXAMEN_PDF_ENGINE',
+    'PLAYWRIGHT_CHROMIUM_EXECUTABLE',
+    'PLAYWRIGHT_BROWSER_CHANNEL',
+    'EXAM_PRINT_PROFILE',
+    'PDF_PRINT_PROFILE',
+    'EXAMEN_LAYOUT_GRID_MM',
+    'EXAMEN_LAYOUT_HEADER_FIRST_MM',
+    'EXAMEN_LAYOUT_HEADER_OTHER_MM',
+    'EXAMEN_LAYOUT_BOTTOM_SAFE_MM',
+    'EXAMEN_LAYOUT_USAR_RELLENOS_DECORATIVOS',
+    'EXAMEN_LAYOUT_USAR_ETIQUETA_OMR_SOLIDA'
+  ];
+  const base = [
+    resolverPdfEngine(),
+    construirFirmaVisualPdf(),
+    ...variables.map((nombre) => `${nombre}=${String(process.env[nombre] ?? '').trim()}`)
   ].join('|');
   return hash32(base).toString(16);
 }
@@ -978,7 +1015,9 @@ export async function previsualizarPlantillaPdf(req: SolicitudDocente, res: Resp
     plantillaUpdatedAt: (plantilla as unknown as { updatedAt?: unknown })?.updatedAt,
     numeroPaginas,
     totalPreguntas: preguntasBase.length,
-    temas
+    temas,
+    preguntasFingerprint: construirFingerprintPreguntasPreview(preguntasDb),
+    layoutFingerprint: construirFingerprintLayoutPreview()
   });
   const dirPreview = obtenerDirectorioPreview();
   const nombreArchivoPreview = construirNombrePdfPreviewPlantilla({
@@ -1692,7 +1731,7 @@ export async function obtenerProgresoGeneracionLote(req: SolicitudDocente, res: 
 
 export async function descargarPdfLote(req: SolicitudDocente, res: Response) {
   const docenteId = obtenerDocenteId(req);
-  const lote = normalizarParaNombreArchivo(String(req.params.loteId || '').trim(), { maxLen: 16 });
+  const lote = normalizarParaNombreArchivo(String(req.params.loteId || '').trim(), { maxLen: 16 }).toUpperCase();
   if (!lote) {
     throw new ErrorAplicacion('LOTE_INVALIDO', 'Lote invalido', 400);
   }

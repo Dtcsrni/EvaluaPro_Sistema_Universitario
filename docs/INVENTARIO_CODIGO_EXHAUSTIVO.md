@@ -1,24 +1,24 @@
 # Inventario Exhaustivo de Codigo
 
-Fecha de generacion: 2026-03-23 06:02:55
+Fecha de generacion: 2026-03-24 04:25:23
 Fuente: git ls-files filtrado por existencia en workspace (solo archivos versionados presentes, excluye node_modules).
 
 ## Resumen
 
-- Total de piezas de codigo/config ejecutable inventariadas: 822
+- Total de piezas de codigo/config ejecutable inventariadas: 827
 - Extensiones incluidas: ts, tsx, js, jsx, mjs, cjs, json, yml, yaml, sh, cmd, ps1.
 
 ## Conteo por area
 
 | Area | Archivos |
 | --- | ---: |
-| backend | 372 |
+| backend | 376 |
 | frontend | 128 |
 | portal_alumno_cloud | 44 |
 | ci | 15 |
 | scripts | 112 |
 | ops | 3 |
-| docs | 27 |
+| docs | 28 |
 | raiz | 9 |
 
 ## Backend (apps/backend)
@@ -27,6 +27,9 @@ Fuente: git ls-files filtrado por existencia en workspace (solo archivos version
 - apps/backend/eslint.config.cjs
 - apps/backend/package-lock.json
 - apps/backend/package.json
+- apps/backend/reports/qa/latest/e2e-docente-alumno.json
+- apps/backend/reports/qa/latest/global-grade.json
+- apps/backend/reports/qa/latest/pdf-print.json
 - apps/backend/scripts/auth-reset-password.ts
 - apps/backend/scripts/debugCrearPeriodo.ts
 - apps/backend/scripts/omr_calibrate.js
@@ -392,6 +395,7 @@ Fuente: git ls-files filtrado por existencia en workspace (solo archivos version
 - apps/backend/tests/utils/token.ts
 - apps/backend/tests/validar.test.ts
 - apps/backend/tests/variantes.test.ts
+- apps/backend/tests/vinculacionEntrega.controlador.test.ts
 - apps/backend/tmp-query-templates.js
 - apps/backend/tsconfig.json
 - apps/backend/vitest.config.ts
@@ -731,6 +735,7 @@ Fuente: git ls-files filtrado por existencia en workspace (solo archivos version
 - docs/handoff/sesiones/2026-03-23/sesion-2026-03-23T10-46-43.408Z.json
 - docs/handoff/sesiones/2026-03-23/sesion-2026-03-23T11-18-25.821Z.input.json
 - docs/handoff/sesiones/2026-03-23/sesion-2026-03-23T11-18-25.821Z.json
+- docs/handoff/sesiones/2026-03-23/sesion-2026-03-23T12-01-36.430Z.json
 - docs/handoff/trace.schema.json
 - docs/perf/baseline.business.json
 - docs/perf/baseline.json

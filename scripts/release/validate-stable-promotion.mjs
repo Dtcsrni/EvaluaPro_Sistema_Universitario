@@ -5,7 +5,6 @@ import path from 'node:path';
 import { spawnSync } from 'node:child_process';
 import { pathToFileURL } from 'node:url';
 import { evaluateStreak, fetchRunsFromGitHub } from './check-ci-streak.mjs';
-import { readFileSync } from 'node:fs';
 import { validateEvidenceContract } from './check-release-evidence.mjs';
 
 function getArg(name, fallback = '') {
@@ -25,10 +24,14 @@ function runNodeScript(scriptPath, args = []) {
 }
 
 function parseRunsFixture(fixturePath) {
-  const raw = JSON.parse(fs.readFileSync(path.resolve(process.cwd(), fixturePath), 'utf8'));
+  const raw = JSON.parse(readJsonFile(path.resolve(process.cwd(), fixturePath)));
   if (Array.isArray(raw)) return raw;
   if (Array.isArray(raw.workflow_runs)) return raw.workflow_runs;
   return [];
+}
+
+function readJsonFile(filePath) {
+  return fs.readFileSync(filePath, 'utf8').replace(/^\uFEFF/, '');
 }
 
 export function evaluateStablePromotion(options) {
@@ -50,7 +53,7 @@ export function evaluateStablePromotion(options) {
 
   try {
     const manifestPath = path.resolve(options.evidenceDir, 'manifest.json');
-    const manifest = JSON.parse(readFileSync(manifestPath, 'utf8'));
+    const manifest = JSON.parse(readJsonFile(manifestPath));
     const gate = manifest?.gateHumanoProduccion || {};
     const resultado = String(gate?.resultado || '').trim().toLowerCase();
     checks.push({
@@ -66,12 +69,31 @@ export function evaluateStablePromotion(options) {
 
   try {
     const manifestPath = path.resolve(process.cwd(), options.installerManifestPath || 'dist/installer/EvaluaPro-release-manifest.json');
-    const manifest = JSON.parse(fs.readFileSync(manifestPath, 'utf8'));
+    const manifest = JSON.parse(readJsonFile(manifestPath));
     const flavors = Array.isArray(manifest?.flavors) ? manifest.flavors : [];
+    const artifacts = Array.isArray(manifest?.artifacts) ? manifest.artifacts : [];
+    const buildVersion = String(manifest?.build?.version || '').trim();
+    const buildCommit = String(manifest?.build?.commit || '').trim();
+    const deploymentTarget = String(manifest?.deployment?.target || '').trim();
     const required = ['saas-completo', 'docente-local'];
     const missing = required.filter((flavorId) => !flavors.some((item) => String(item?.flavorId || '') === flavorId));
     if (missing.length > 0) {
       throw new Error(`Manifest multi-flavor incompleto: ${missing.join(', ')}`);
+    }
+    if (!buildVersion || !buildCommit || !deploymentTarget) {
+      throw new Error('Manifest release incompleto: faltan build.version, build.commit o deployment.target');
+    }
+    if (artifacts.length === 0) {
+      throw new Error('Manifest release incompleto: falta catalogo de artifacts');
+    }
+    for (const flavor of flavors) {
+      const flavorId = String(flavor?.flavorId || '').trim();
+      const bundleName = String(flavor?.assetName || '').trim();
+      const msiName = String(flavor?.msiName || '').trim();
+      const installerHubName = String(flavor?.installerHubName || '').trim();
+      if (!flavorId || !bundleName || !msiName || !installerHubName) {
+        throw new Error(`Manifest release incompleto para flavor ${flavorId || '<sin-id>'}`);
+      }
     }
     checks.push({ id: 'installer-multi-flavor', ok: true, detail: manifestPath });
   } catch (error) {

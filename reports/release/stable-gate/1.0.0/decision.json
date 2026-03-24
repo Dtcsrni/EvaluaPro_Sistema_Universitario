@@ -1,12 +1,12 @@
 {
-  "timestamp": "2026-03-22T07:53:07.520Z",
+  "timestamp": "2026-03-24T08:54:43.732Z",
   "version": "1.0.0",
   "decision": "No-Go",
   "checks": [
     {
       "id": "ci-streak",
-      "ok": false,
-      "detail": "streak=7/10"
+      "ok": true,
+      "detail": "streak=10/10"
     },
     {
       "id": "release-evidence",
@@ -20,8 +20,8 @@
     },
     {
       "id": "installer-multi-flavor",
-      "ok": false,
-      "detail": "ENOENT: no such file or directory, open 'C:\\Users\\evega\\EvaluaPro_Sistema_Universitario\\dist\\installer\\EvaluaPro-release-manifest.json'"
+      "ok": true,
+      "detail": "C:\\Users\\evega\\EvaluaPro_Sistema_Universitario\\dist\\installer\\EvaluaPro-release-manifest.json"
     },
     {
       "id": "prod-flow",

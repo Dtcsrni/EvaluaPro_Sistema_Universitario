@@ -8,6 +8,10 @@ Especificacion operativa del formato de examen y su lectura OMR.
 - QR por pagina con texto obligatorio: `EXAMEN:<FOLIO>:P<n>:TV4`.
 - Marcas de registro/fiduciales incluidas en layout canonico TV4 con paridad visual A050929D.
 - Encabezado compacto con acentos de color y alta legibilidad para maximizar area util de preguntas por cara.
+- La identidad visual del examen es canónica y compartida entre renderers:
+  - paleta compacta A050929D
+  - tipografía sans-serif neutra
+  - numeradores, panel OMR, footer y cajas de captura con la misma semántica visual en preview, individual y lote
 
 ## Plantilla OMR soportada
 - Plantilla operativa canonica: `TV4`.
@@ -46,3 +50,4 @@ Esto permite que el escaneo no dependa de OCR libre, sino de geometria conocida.
 - OMR puede degradarse por desenfoque, distorsion severa, contraste pobre o recortes.
 - El sistema mantiene modo de revision manual cuando la calidad no permite auto-calificar con seguridad.
 - La calificacion final usa `mapaVariante` para comparar respuestas detectadas contra clave correcta real.
+- El cache de preview PDF se invalida si cambia la plantilla, el banco de preguntas usado o la firma visual/layout del renderer.

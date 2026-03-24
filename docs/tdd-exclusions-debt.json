@@ -4,12 +4,12 @@
   "entries": [
     {
       "id": "backend-banco-preguntas",
-      "file": "apps/backend/vitest.config.ts",
-      "pattern": "src/modulos/modulo_banco_preguntas/**",
+      "file": "apps/backend/tests/bancoPreguntas.controlador.test.ts",
+      "pattern": "describe('controladorBancoPreguntas'",
       "owner": "@backend-core",
-      "dueDate": "2026-03-31",
-      "status": "temporary",
-      "reason": "Cobertura de regresión incompleta durante refactor por capas."
+      "dueDate": "2026-03-24",
+      "status": "resolved",
+      "reason": "Cobertura directa agregada al controlador y exclusión retirada del backend."
     },
     {
       "id": "backend-pdf",
@@ -22,21 +22,21 @@
     },
     {
       "id": "backend-sync",
-      "file": "apps/backend/vitest.config.ts",
-      "pattern": "src/modulos/modulo_sincronizacion_nube/**",
+      "file": "apps/backend/tests/sincronizacion.test.ts",
+      "pattern": "describe('sincronizacion nube'",
       "owner": "@backend-sync",
-      "dueDate": "2026-03-31",
-      "status": "temporary",
-      "reason": "Recomposición de casos de integración por dominio."
+      "dueDate": "2026-03-24",
+      "status": "resolved",
+      "reason": "La cobertura existente de controladores, contratos, integración y use cases ya sostiene el módulo sin exclusión."
     },
     {
       "id": "backend-papelera",
-      "file": "apps/backend/vitest.config.ts",
-      "pattern": "src/modulos/modulo_papelera/**",
+      "file": "apps/backend/tests/papelera.controlador.test.ts",
+      "pattern": "describe('controladorPapelera'",
       "owner": "@backend-core",
-      "dueDate": "2026-03-31",
-      "status": "temporary",
-      "reason": "Falta suite de regresión de rutas auxiliares."
+      "dueDate": "2026-03-24",
+      "status": "resolved",
+      "reason": "Cobertura directa agregada para controlador y servicio; exclusión retirada del backend."
     },
     {
       "id": "backend-vinculacion",

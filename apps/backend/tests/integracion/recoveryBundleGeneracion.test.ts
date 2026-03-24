@@ -103,6 +103,18 @@ describe('generación PDF: recovery manifest y bundle', () => {
     return { auth, periodoId, plantillaId: String(plantilla.body.plantilla._id) };
   }
 
+  async function descargarPdfLote(auth: Record<string, string>, loteId: string) {
+    return request(app)
+      .get(`/api/examenes/generados/lote/${encodeURIComponent(loteId)}/pdf`)
+      .set(auth)
+      .buffer(true)
+      .parse((res, cb) => {
+        const chunks: Buffer[] = [];
+        res.on('data', (chunk) => chunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk)));
+        res.on('end', () => cb(null, Buffer.concat(chunks)));
+      });
+  }
+
   it('persiste manifiesto firmado y keyId de QR en examen individual', async () => {
     const base = await prepararEscenarioBase();
     const respuesta = await request(app)
@@ -146,5 +158,13 @@ describe('generación PDF: recovery manifest y bundle', () => {
       expect(examen.recoveryBundleHash).toBe((bundleDoc as { bundleHash?: string }).bundleHash);
       expect(verificarRecoveryManifest(examen.recoveryManifest as never)).toBe(true);
     }
+
+    const descargaUpper = await descargarPdfLote(base.auth, 'LOTREC01');
+    const descargaLower = await descargarPdfLote(base.auth, 'lotrec01');
+    expect(descargaUpper.status).toBe(200);
+    expect(descargaLower.status).toBe(200);
+    expect(String(descargaUpper.headers['content-type'] || '')).toContain('application/pdf');
+    expect(String(descargaLower.headers['content-type'] || '')).toContain('application/pdf');
+    expect(Buffer.compare(descargaUpper.body as Buffer, descargaLower.body as Buffer)).toBe(0);
   });
 });

@@ -1,6 +1,6 @@
 # Inventario Tecnico del Proyecto
 
-Fecha de corte: 2026-03-22
+Fecha de corte: 2026-03-24
 Version tecnica objetivo: `1.0.0`
 Version visible objetivo: `1.0.0b`
 
@@ -85,6 +85,9 @@ Version visible objetivo: `1.0.0b`
 - Rutas versionadas retiradas del runtime
 - OMR: contrato sin `engineUsed`
 - PDF: contrato TV4 canonico con paginacion moderna y paridad estructural A050929D
+  - baseline visual compartido entre renderers (`pdf-lib-legacy` y `playwright-html-v1`)
+  - cache de preview invalidado por cambios reales del banco de preguntas y del perfil visual/layout
+  - descarga de lote normalizada case-insensitive para `loteId`
 - Sync: `schemaVersion: 2`, fingerprint `sync-v2-lww-updatedAt-schema2`
 - Trazabilidad IA:
   - contrato canonico `docs/handoff/trace.schema.json`
@@ -182,6 +185,19 @@ Version visible objetivo: `1.0.0b`
   - dictamen actual en `docs/CLASSROOM_AUDIT_2026-03-22.md`
   - fase E2E real bloqueada en este entorno por ausencia de `GOOGLE_CLASSROOM_CLIENT_ID`, `GOOGLE_CLASSROOM_CLIENT_SECRET`, `GOOGLE_CLASSROOM_REDIRECT_URI` y `CLASSROOM_TOKEN_CIPHER_KEY`
 - Gate estable: `docs/RELEASE_GATE_STABLE.md`
+- Corte PDF 2026-03-24:
+  - se unifica la identidad visual del PDF en tokens compartidos para preservar la paridad A050929D sin depender del renderer activo
+  - `preview`, individual y lote quedan validados con pruebas específicas de layout, contrato de impresión, fallback, baseline visual, invalidación de cache y descarga de lote
+  - gates del corte ejecutados en verde:
+    - `npm run lint`
+    - `npm run typecheck`
+    - `npm run test:frontend:ci`
+    - `npm run test:coverage:ci`
+    - `npm run test:tdd:enforcement:ci`
+    - `npm run test:backend:ci`
+    - `npm run test:portal:ci`
+    - `npm run perf:check`
+    - `npm run pipeline:contract:check`
 - Paquete estable actual:
   - `docs/release/evidencias/1.0.0/manifest.json`
   - `docs/release/evidencias/1.0.0/timeline.md`

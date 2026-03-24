@@ -51,9 +51,33 @@ function writeEvidenceDir(baseDir) {
 
 function writeInstallerManifest(baseDir) {
   const manifest = {
+    build: {
+      version: '1.0.0',
+      commit: 'abc123'
+    },
+    artifacts: [
+      {
+        name: 'EvaluaPro-release-manifest.json',
+        sha256: 'abc',
+        signed: false
+      }
+    ],
+    deployment: {
+      target: 'multi-flavor-windows'
+    },
     flavors: [
-      { flavorId: 'saas-completo' },
-      { flavorId: 'docente-local' }
+      {
+        flavorId: 'saas-completo',
+        assetName: 'EvaluaPro-saas-completo-Setup.exe',
+        msiName: 'EvaluaPro-saas-completo.msi',
+        installerHubName: 'EvaluaPro-InstallerHub-saas-completo.exe'
+      },
+      {
+        flavorId: 'docente-local',
+        assetName: 'EvaluaPro-docente-local-Setup.exe',
+        msiName: 'EvaluaPro-docente-local.msi',
+        installerHubName: 'EvaluaPro-InstallerHub-docente-local.exe'
+      }
     ]
   };
   const manifestPath = path.join(baseDir, 'EvaluaPro-release-manifest.json');
@@ -99,4 +123,25 @@ test('stable promotion falla si el gate humano persistido no esta en ok', () => 
 
   assert.equal(result.ok, false);
   assert.equal(result.checks.some((item) => item.id === 'prod-flow-evidence' && item.ok === false), true);
+});
+
+test('stable promotion falla si el manifest release es incompleto aunque tenga flavors requeridos', () => {
+  const evidenceDir = mkTempDir('evaluapro-stable-evidence-invalid-manifest-');
+  const installerDir = mkTempDir('evaluapro-installer-manifest-invalid-');
+  writeEvidenceDir(evidenceDir);
+  const installerManifestPath = writeInstallerManifest(installerDir);
+  const installerManifest = JSON.parse(fs.readFileSync(installerManifestPath, 'utf8'));
+  delete installerManifest.build;
+  fs.writeFileSync(installerManifestPath, `${JSON.stringify(installerManifest, null, 2)}\n`);
+
+  const runs = Array.from({ length: 10 }).map((_, index) => ({ id: index + 1, conclusion: 'success' }));
+  const result = evaluateStablePromotion({
+    requiredStreak: 10,
+    runs,
+    evidenceDir,
+    installerManifestPath
+  });
+
+  assert.equal(result.ok, false);
+  assert.equal(result.checks.some((item) => item.id === 'installer-multi-flavor' && item.ok === false), true);
 });

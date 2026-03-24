@@ -1,6 +1,7 @@
 import type { ExamenPdf } from '../../domain/examenPdf';
 import type { PageToken } from './examLayoutTokens';
 import { LAYOUT_TEMPLATE_V9 } from '../../domain/layoutTemplateV9';
+import { PDF_VISUAL_BASELINE } from '../pdfVisualBaseline';
 
 const OMR = LAYOUT_TEMPLATE_V9.omr;
 const PRINT_PROFILE = String(process.env.EXAM_PRINT_PROFILE ?? process.env.PDF_PRINT_PROFILE ?? '')
@@ -215,33 +216,30 @@ export function renderExamHtml({
   const printerProfileCss = IS_EPSON_ECOTANK_L1250
     ? `
     body.print-profile-epson-l1250 {
-      background: #ffffff;
-      color: #111827;
+      background: ${PDF_VISUAL_BASELINE.whiteHex};
+      color: ${PDF_VISUAL_BASELINE.primaryHex};
       -webkit-print-color-adjust: exact;
       print-color-adjust: exact;
     }
     body.print-profile-epson-l1250 .page-shell {
-      background: #ffffff;
-      border-color: #b8bec8;
+      background: ${PDF_VISUAL_BASELINE.whiteHex};
+      border-color: ${PDF_VISUAL_BASELINE.lineHex};
     }
     body.print-profile-epson-l1250 .staple-zone {
-      border-color: rgba(55, 65, 81, 0.4);
-      background: #ffffff;
+      border-color: ${PDF_VISUAL_BASELINE.lineHex};
+      background: ${PDF_VISUAL_BASELINE.whiteHex};
     }
     body.print-profile-epson-l1250 .staple-zone::after {
-      color: rgba(55, 65, 81, 0.62);
+      color: ${PDF_VISUAL_BASELINE.textSoftHex};
     }
     body.print-profile-epson-l1250 .header-shell {
-      background: #ffffff;
-      background-image:
-        repeating-linear-gradient(60deg, rgba(31,41,55,0.045) 0 1px, transparent 1px 18px),
-        repeating-linear-gradient(-60deg, rgba(31,41,55,0.045) 0 1px, transparent 1px 18px),
-        repeating-linear-gradient(0deg, rgba(31,41,55,0.03) 0 1px, transparent 1px 18px);
-      border-color: #8e99a9;
+      background: ${PDF_VISUAL_BASELINE.accentSoftHex};
+      background-image: none;
+      border-color: ${PDF_VISUAL_BASELINE.lineHex};
     }
     body.print-profile-epson-l1250 .header-band {
-      background: linear-gradient(90deg, #2563eb 0%, #0284c7 24%, #16a34a 50%, #7c3aed 76%, #2563eb 100%);
-      box-shadow: 0 0 0.5px rgba(30, 64, 175, 0.9), 0 0 4px rgba(2, 132, 199, 0.35);
+      background: ${PDF_VISUAL_BASELINE.accentHex};
+      box-shadow: none;
     }
     body.print-profile-epson-l1250 .institution,
     body.print-profile-epson-l1250 .exam-title,
@@ -254,22 +252,22 @@ export function renderExamHtml({
     body.print-profile-epson-l1250 .choice,
     body.print-profile-epson-l1250 .omr-label,
     body.print-profile-epson-l1250 .question-image-caption {
-      color: #1f2937;
+      color: ${PDF_VISUAL_BASELINE.primaryHex};
     }
     body.print-profile-epson-l1250 .footer-exam,
     body.print-profile-epson-l1250 .footer-id,
     body.print-profile-epson-l1250 .footer-subject,
     body.print-profile-epson-l1250 .footer-page-badge {
-      color: #1f2937;
+      color: ${PDF_VISUAL_BASELINE.primaryHex};
     }
     body.print-profile-epson-l1250 .footer-page-badge {
-      border-color: #4b5563;
-      background: #ffffff;
+      border-color: ${PDF_VISUAL_BASELINE.lineHex};
+      background: ${PDF_VISUAL_BASELINE.whiteHex};
     }
     body.print-profile-epson-l1250 .footer-id {
-      border-color: #4b5563;
-      background: #ffffff;
-      color: #1f2937;
+      border-color: ${PDF_VISUAL_BASELINE.lineHex};
+      background: ${PDF_VISUAL_BASELINE.whiteHex};
+      color: ${PDF_VISUAL_BASELINE.primaryHex};
     }
     body.print-profile-epson-l1250 .tone-danger,
     body.print-profile-epson-l1250 .tone-success,
@@ -279,7 +277,7 @@ export function renderExamHtml({
     body.print-profile-epson-l1250 .tone-warning,
     body.print-profile-epson-l1250 .tone-note,
     body.print-profile-epson-l1250 .tone-key {
-      color: #1f2937 !important;
+      color: ${PDF_VISUAL_BASELINE.primaryHex} !important;
     }
     body.print-profile-epson-l1250 .q-math-inline,
     body.print-profile-epson-l1250 .q-math-line,
@@ -289,80 +287,75 @@ export function renderExamHtml({
     body.print-profile-epson-l1250 .q-tech-kw,
     body.print-profile-epson-l1250 .q-tech-lit,
     body.print-profile-epson-l1250 .q-pseudo-kw {
-      color: #111827 !important;
+      color: ${PDF_VISUAL_BASELINE.primaryHex} !important;
       background: transparent !important;
-      border-color: #374151 !important;
+      border-color: ${PDF_VISUAL_BASELINE.lineHex} !important;
     }
     body.print-profile-epson-l1250 .capture-box,
     body.print-profile-epson-l1250 .qr-box {
-      border-color: #374151;
-      background: #ffffff;
+      border-color: ${PDF_VISUAL_BASELINE.lineHex};
+      background: ${PDF_VISUAL_BASELINE.whiteHex};
     }
     body.print-profile-epson-l1250 .question-number {
-      background: #ffffff;
-      background-image:
-        repeating-linear-gradient(60deg, rgba(31,41,55,0.08) 0 1px, transparent 1px 12px),
-        repeating-linear-gradient(-60deg, rgba(31,41,55,0.08) 0 1px, transparent 1px 12px),
-        repeating-linear-gradient(0deg, rgba(31,41,55,0.05) 0 1px, transparent 1px 12px);
-      border-color: #334155;
-      color: #1f2937;
+      background: ${PDF_VISUAL_BASELINE.accentSoftHex};
+      background-image: none;
+      border-color: ${PDF_VISUAL_BASELINE.lineHex};
+      color: ${PDF_VISUAL_BASELINE.primaryHex};
     }
     body.print-profile-epson-l1250 .question-image {
-      background: #ffffff;
+      background: ${PDF_VISUAL_BASELINE.whiteHex};
       background-image: none;
       border: none;
     }
     body.print-profile-epson-l1250 .omr-id {
-      background: #111827;
+      background: ${PDF_VISUAL_BASELINE.primaryHex};
       background-image: none;
-      color: #ffffff;
+      color: ${PDF_VISUAL_BASELINE.whiteHex};
     }
     body.print-profile-epson-l1250 .omr-frame {
-      background: #ffffff;
-      background-image:
-        radial-gradient(circle, rgba(17,24,39,0.12) 0.6px, transparent 0.8px);
-      background-size: 8px 8px;
-      border-color: #111827;
+      background: ${PDF_VISUAL_BASELINE.whiteHex};
+      background-image: none;
+      border-color: ${PDF_VISUAL_BASELINE.blackHex};
       border-width: 2px;
     }
     body.print-profile-epson-l1250 .bubble {
-      border-color: #111827;
+      border-color: ${PDF_VISUAL_BASELINE.blackHex};
       border-width: 2px;
-      background: #ffffff;
+      background: ${PDF_VISUAL_BASELINE.whiteHex};
     }
     `
     : '';
   const css = `
     @page { size: Letter; margin: 0; }
     :root {
-      --edu-navy: #16324f;
-      --edu-blue: #0a84ff;
-      --edu-blue-soft: #3b82f6;
-      --edu-cyan: #06b6d4;
-      --edu-violet: #6366f1;
-      --edu-emerald: #14b8a6;
-      --edu-bg-soft: #eef6ff;
-      --edu-bg-quiet: #f4f9ff;
-      --edu-border: #9db8d8;
-      --edu-border-strong: #2f5f9a;
-      --edu-text: #1e293b;
-      --edu-text-muted: #475569;
-      --edu-surface: #ffffff;
-      --edu-ink-soft: #64748b;
-      --tone-danger: #b42318;
-      --tone-success: #157347;
-      --tone-focus: #7c3aed;
-      --tone-important: #0a67d8;
-      --tone-warning: #b54708;
-      --tone-note: #0369a1;
-      --tone-key: #7c3aed;
+      --edu-navy: ${PDF_VISUAL_BASELINE.primaryHex};
+      --edu-blue: ${PDF_VISUAL_BASELINE.accentHex};
+      --edu-blue-soft: ${PDF_VISUAL_BASELINE.accentHex};
+      --edu-cyan: ${PDF_VISUAL_BASELINE.accentHex};
+      --edu-violet: ${PDF_VISUAL_BASELINE.accentHex};
+      --edu-emerald: ${PDF_VISUAL_BASELINE.accentHex};
+      --edu-bg-soft: ${PDF_VISUAL_BASELINE.accentSoftHex};
+      --edu-bg-quiet: ${PDF_VISUAL_BASELINE.sectionHex};
+      --edu-border: ${PDF_VISUAL_BASELINE.lineHex};
+      --edu-border-strong: ${PDF_VISUAL_BASELINE.lineHex};
+      --edu-text: ${PDF_VISUAL_BASELINE.primaryHex};
+      --edu-text-muted: ${PDF_VISUAL_BASELINE.textSoftHex};
+      --edu-surface: ${PDF_VISUAL_BASELINE.whiteHex};
+      --edu-ink-soft: ${PDF_VISUAL_BASELINE.textSoftHex};
+      --tone-danger: ${PDF_VISUAL_BASELINE.primaryHex};
+      --tone-success: ${PDF_VISUAL_BASELINE.primaryHex};
+      --tone-focus: ${PDF_VISUAL_BASELINE.primaryHex};
+      --tone-important: ${PDF_VISUAL_BASELINE.accentHex};
+      --tone-warning: ${PDF_VISUAL_BASELINE.primaryHex};
+      --tone-note: ${PDF_VISUAL_BASELINE.accentHex};
+      --tone-key: ${PDF_VISUAL_BASELINE.primaryHex};
     }
     * { box-sizing: border-box; }
     body {
       margin: 0;
-      font-family: 'Inter', 'Segoe UI', 'Roboto', 'Helvetica Neue', Arial, sans-serif;
+      font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
       color: var(--edu-text);
-      background: #eef2f7;
+      background: ${PDF_VISUAL_BASELINE.sectionHex};
       text-rendering: geometricPrecision;
       -webkit-font-smoothing: antialiased;
       font-kerning: normal;
@@ -375,9 +368,9 @@ export function renderExamHtml({
       top: 8px;
       width: 22px;
       height: 22px;
-      border: 1px dashed rgba(71, 85, 105, 0.38);
+      border: 1px dashed ${PDF_VISUAL_BASELINE.lineHex};
       border-radius: 5px;
-      background: rgba(255, 255, 255, 0.9);
+      background: ${PDF_VISUAL_BASELINE.whiteHex};
       z-index: 3;
       pointer-events: none;
     }
@@ -389,25 +382,19 @@ export function renderExamHtml({
       transform: translate(-50%, -50%);
       font-size: 8px;
       line-height: 1;
-      color: rgba(51, 65, 85, 0.55);
+      color: ${PDF_VISUAL_BASELINE.textSoftHex};
     }
     .page-shell {
       position: absolute;
       inset: 32px;
-      border: 1px solid #d6dee8;
-      background: #ffffff;
+      border: 1px solid ${PDF_VISUAL_BASELINE.lineHex};
+      background: ${PDF_VISUAL_BASELINE.whiteHex};
     }
     .header-shell {
       position: absolute;
       border: 1px solid var(--edu-border);
       background-color: var(--edu-bg-soft);
-      background-image:
-        repeating-linear-gradient(60deg, rgba(10, 132, 255, 0.055) 0 1px, transparent 1px 18px),
-        repeating-linear-gradient(-60deg, rgba(99, 102, 241, 0.05) 0 1px, transparent 1px 18px),
-        repeating-linear-gradient(0deg, rgba(6, 182, 212, 0.04) 0 1px, transparent 1px 18px),
-        linear-gradient(90deg, rgba(10, 132, 255, 0.06), rgba(99, 102, 241, 0.05), rgba(6, 182, 212, 0.04));
-      background-size: 18px 18px, 18px 18px, 18px 18px, auto;
-      background-position: 0 0, 0 0;
+      background-image: none;
     }
     .header-shell > * { position: absolute; z-index: 1; }
     .header-band {
@@ -415,9 +402,9 @@ export function renderExamHtml({
       right: 2px;
       top: 2px;
       height: 4px;
-      background: linear-gradient(90deg, #2563eb 0%, #0ea5e9 24%, #22c55e 50%, #a855f7 76%, #2563eb 100%);
-      background-size: 220% 100%;
-      box-shadow: 0 0 0.5px rgba(37, 99, 235, 0.9), 0 0 6px rgba(14, 165, 233, 0.45);
+      background: ${PDF_VISUAL_BASELINE.accentHex};
+      background-size: auto;
+      box-shadow: none;
       opacity: 0.98;
       border-radius: 999px;
     }
@@ -429,7 +416,7 @@ export function renderExamHtml({
       top: 1px;
       height: 1px;
       border-radius: 999px;
-      background: linear-gradient(90deg, rgba(255,255,255,0.72), rgba(255,255,255,0.12), rgba(255,255,255,0.72));
+      background: linear-gradient(90deg, rgba(255,255,255,0.55), rgba(255,255,255,0.14), rgba(255,255,255,0.55));
       opacity: 0.85;
     }
     .header-logo { object-fit: contain; object-position: center; background: transparent; }
@@ -437,21 +424,21 @@ export function renderExamHtml({
     .header-logo-right { right: 136px; top: 50%; transform: translateY(-50%); width: 78px; height: 78px; }
     .logo-placeholder { border: 1px dashed var(--edu-border); background: transparent; }
     .title-box { position: absolute; width: 376px; text-align: center; }
-    .institution { font-size: 16px; line-height: 19px; font-weight: 800; color: #0a67d8; letter-spacing: 0.12px; }
-    .exam-title { margin-top: 2px; font-size: 18px; line-height: 21px; font-weight: 800; letter-spacing: 0.16px; color: #1f3b63; }
+    .institution { font-size: 16px; line-height: 19px; font-weight: 800; color: ${PDF_VISUAL_BASELINE.accentHex}; letter-spacing: 0.12px; }
+    .exam-title { margin-top: 2px; font-size: 18px; line-height: 21px; font-weight: 800; letter-spacing: 0.16px; color: ${PDF_VISUAL_BASELINE.primaryHex}; }
     .motto { margin-top: 2px; font-size: 9.6px; line-height: 11px; font-style: italic; color: var(--edu-ink-soft); }
     .meta { margin-top: 0; font-size: 10.6px; line-height: 12px; color: var(--edu-text-muted); font-weight: 650; letter-spacing: 0.06px; text-align: center; }
     .meta-slot { position: absolute; margin-top: 0; }
     .meta-secondary { position: absolute; margin-top: 0; }
-    .qr-box { position: absolute; border: 1px solid var(--edu-border); background: #ffffff; padding: 10px; }
+    .qr-box { position: absolute; border: 1px solid var(--edu-border); background: ${PDF_VISUAL_BASELINE.whiteHex}; padding: 10px; }
     .qr-box img { width: 100%; height: 100%; object-fit: contain; }
     .capture-row { position: absolute; display: flex; align-items: center; gap: 10px; }
     .capture-row-inline { gap: 8px; }
-    .capture-label { font-size: 10px; line-height: 13px; font-weight: 700; min-width: 110px; flex: 0 0 110px; color: #2a4262; }
+    .capture-label { font-size: 10px; line-height: 13px; font-weight: 700; min-width: 110px; flex: 0 0 110px; color: ${PDF_VISUAL_BASELINE.primaryHex}; }
     .capture-label-group { min-width: 44px; flex: 0 0 44px; text-align: right; }
     .capture-box {
       border: 1.6px solid var(--edu-border-strong);
-      background: #ffffff;
+      background: ${PDF_VISUAL_BASELINE.whiteHex};
       height: 26px;
     }
     .capture-box-name { flex: 0 0 auto; }
@@ -459,19 +446,15 @@ export function renderExamHtml({
     .question-block { position: absolute; }
     .question-number {
       position: absolute;
-      border: 1.8px solid #3a5fa3;
-      background-color: #eaf4ff;
-      background-image:
-        repeating-linear-gradient(60deg, rgba(10,132,255,0.06) 0 1px, transparent 1px 14px),
-        repeating-linear-gradient(-60deg, rgba(99,102,241,0.055) 0 1px, transparent 1px 14px),
-        repeating-linear-gradient(0deg, rgba(6,182,212,0.045) 0 1px, transparent 1px 14px),
-        linear-gradient(180deg, rgba(255,255,255,0.95), rgba(10,132,255,0.09), rgba(99,102,241,0.08));
+      border: 1.8px solid ${PDF_VISUAL_BASELINE.lineHex};
+      background-color: ${PDF_VISUAL_BASELINE.accentSoftHex};
+      background-image: none;
       font-size: 17px;
       line-height: 20px;
       font-weight: 800;
       text-align: center;
       padding-top: 1px;
-      color: #194675;
+      color: ${PDF_VISUAL_BASELINE.primaryHex};
     }
     .question-text { position: absolute; padding-right: 12px; }
     .question-row { display: flex; align-items: flex-start; gap: 8px; width: 100%; }
@@ -482,47 +465,47 @@ export function renderExamHtml({
     .question-stem ul { margin: 3px 0 3px 18px; padding: 0; }
     .question-stem li { margin: 0 0 2px 0; }
     .question-stem code, .q-code { font-family: Consolas, 'Courier New', monospace; }
-    .q-math-inline { color: #1d4ed8; font-weight: 760; letter-spacing: 0.02px; }
-    .q-math-line { color: #1d4ed8; font-weight: 760; }
+    .q-math-inline { color: ${PDF_VISUAL_BASELINE.accentHex}; font-weight: 760; letter-spacing: 0.02px; }
+    .q-math-line { color: ${PDF_VISUAL_BASELINE.accentHex}; font-weight: 760; }
     .q-code-inline {
       font-family: Consolas, 'Courier New', monospace;
       background: rgba(15, 23, 42, 0.06);
       border: 1px solid rgba(15, 23, 42, 0.18);
       border-radius: 3px;
       padding: 0 2px;
-      color: #0f172a;
+      color: ${PDF_VISUAL_BASELINE.primaryHex};
       font-weight: 650;
     }
     .q-code-frag {
       font-family: Consolas, 'Courier New', monospace;
-      color: #0f3a66;
-      background: rgba(14, 116, 144, 0.08);
+      color: ${PDF_VISUAL_BASELINE.primaryHex};
+      background: rgba(13, 117, 179, 0.08);
       border-radius: 3px;
       padding: 0 2px;
       font-weight: 650;
     }
     .q-tech-type {
-      color: #0f4da8;
+      color: ${PDF_VISUAL_BASELINE.accentHex};
       font-weight: 800;
       font-style: italic;
       letter-spacing: 0.02px;
     }
     .q-tech-kw {
-      color: #5b21b6;
+      color: ${PDF_VISUAL_BASELINE.accentHex};
       font-weight: 800;
       font-style: italic;
       letter-spacing: 0.02px;
     }
     .q-tech-lit {
-      color: #0369a1;
+      color: ${PDF_VISUAL_BASELINE.accentHex};
       font-weight: 760;
       font-style: italic;
     }
-    .q-pseudo-kw { color: #7c3aed; font-weight: 800; letter-spacing: 0.02px; }
+    .q-pseudo-kw { color: ${PDF_VISUAL_BASELINE.accentHex}; font-weight: 800; letter-spacing: 0.02px; }
     .question-image {
       margin: 2px 0 0 0;
       border: none;
-      background-color: #ffffff;
+      background-color: ${PDF_VISUAL_BASELINE.whiteHex};
       background-image: none;
       display: flex;
       flex-direction: column;
@@ -530,12 +513,12 @@ export function renderExamHtml({
       flex: 0 0 auto;
     }
     .question-image img { width: 100%; height: calc(100% - 10px); object-fit: contain; display: block; }
-    .question-image-caption { display: block; margin: 0; padding: 0 2px; font-size: 8px; line-height: 10px; font-weight: 600; color: #365b88; text-align: center; background: rgba(255,255,255,0.92); border-top: none; }
+    .question-image-caption { display: block; margin: 0; padding: 0 2px; font-size: 8px; line-height: 10px; font-weight: 600; color: ${PDF_VISUAL_BASELINE.textSoftHex}; text-align: center; background: rgba(255,255,255,0.92); border-top: none; }
     .question-options { display: grid; gap: 8px; margin-top: 3px; }
     .options-double { grid-template-columns: repeat(2, minmax(0, 1fr)); }
     .options-single { grid-template-columns: minmax(0, 1fr); }
-    .option-item { font-size: 11.2px; line-height: 13.2px; margin-bottom: 1px; break-inside: avoid; font-weight: 520; color: #233249; }
-    .option-prefix { font-weight: 750; color: #1f5f9f; }
+    .option-item { font-size: 11.2px; line-height: 13.2px; margin-bottom: 1px; break-inside: avoid; font-weight: 520; color: ${PDF_VISUAL_BASELINE.primaryHex}; }
+    .option-prefix { font-weight: 750; color: ${PDF_VISUAL_BASELINE.accentHex}; }
     .tone-label { font-weight: 800; letter-spacing: 0.12px; }
     .tone-danger { color: var(--tone-danger); font-weight: 760; }
     .tone-success { color: var(--tone-success); font-weight: 760; }
@@ -552,8 +535,8 @@ export function renderExamHtml({
       width: 18px;
       height: 14px;
       border-radius: 10px;
-      background-color: var(--edu-navy);
-      background-image: linear-gradient(135deg, rgba(255,255,255,0.16), rgba(255,255,255,0));
+      background-color: ${PDF_VISUAL_BASELINE.primaryHex};
+      background-image: none;
       color: white;
       font-size: 10px;
       line-height: 14px;
@@ -561,15 +544,13 @@ export function renderExamHtml({
       text-align: center;
       z-index: 2;
     }
-    .omr-label { position: absolute; top: 0; left: 28px; font-size: 10px; line-height: 12px; font-weight: 760; letter-spacing: 0.45px; color: #274a74; }
+    .omr-label { position: absolute; top: 0; left: 28px; font-size: 10px; line-height: 12px; font-weight: 760; letter-spacing: 0.45px; color: ${PDF_VISUAL_BASELINE.primaryHex}; }
     .omr-frame {
       position: absolute;
       inset: 0;
-      border: 1.8px solid #244b74;
-      background-color: #f4f9ff;
-      background-image:
-        radial-gradient(circle, rgba(10,132,255,0.12) 0.65px, transparent 0.9px);
-      background-size: 8px 8px;
+      border: 1.8px solid ${PDF_VISUAL_BASELINE.blackHex};
+      background-color: ${PDF_VISUAL_BASELINE.whiteHex};
+      background-image: none;
     }
     .fid {
       position: absolute;
@@ -585,15 +566,15 @@ export function renderExamHtml({
     .fid-br { right: ${OMR.fiducialInsetPx}px; bottom: ${OMR.fiducialInsetPx}px; }
     .fid-lm { left: ${OMR.fiducialInsetPx}px; top: calc(50% - ${Math.round(OMR.fiducialSizePx / 2)}px); }
     .fid-rm { right: ${OMR.fiducialInsetPx}px; top: calc(50% - ${Math.round(OMR.fiducialSizePx / 2)}px); }
-    .bubble { position: absolute; left: ${OMR.bubbleColumnX}px; width: ${OMR.bubbleRadiusPx * 2}px; height: ${OMR.bubbleRadiusPx * 2}px; border: 1.8px solid #244b74; border-radius: 50%; background: #ffffff; display: inline-block; }
-    .choice { position: absolute; left: ${OMR.labelColumnX}px; font-size: 10px; line-height: 12px; font-weight: 720; color: #244b74; }
+    .bubble { position: absolute; left: ${OMR.bubbleColumnX}px; width: ${OMR.bubbleRadiusPx * 2}px; height: ${OMR.bubbleRadiusPx * 2}px; border: 1.8px solid ${PDF_VISUAL_BASELINE.blackHex}; border-radius: 50%; background: ${PDF_VISUAL_BASELINE.whiteHex}; display: inline-block; }
+    .choice { position: absolute; left: ${OMR.labelColumnX}px; font-size: 10px; line-height: 12px; font-weight: 720; color: ${PDF_VISUAL_BASELINE.primaryHex}; }
     .footer {
       position: absolute;
       left: 56px;
       right: 56px;
       bottom: 32px;
       height: 28px;
-      border-top: 1px solid #d7e0ea;
+      border-top: 1px solid ${PDF_VISUAL_BASELINE.lineHex};
       display: flex;
       align-items: center;
       justify-content: flex-start;
@@ -601,7 +582,7 @@ export function renderExamHtml({
       padding: 0 8px;
       font-size: 9.6px;
       letter-spacing: 0.16px;
-      color: #4a678f;
+      color: ${PDF_VISUAL_BASELINE.textSoftHex};
     }
     .footer-exam,
     .footer-id,
@@ -615,19 +596,19 @@ export function renderExamHtml({
     .footer-exam {
       flex: 1 1 auto;
       max-width: calc(100% - 226px);
-      color: #334e72;
+      color: ${PDF_VISUAL_BASELINE.textSoftHex};
     }
     .footer-id {
       flex: 0 0 auto;
       max-width: 170px;
       font-size: 8.8px;
       font-weight: 760;
-      color: #2f557f;
+      color: ${PDF_VISUAL_BASELINE.primaryHex};
       letter-spacing: 0.12px;
       padding: 2px 8px;
       border-radius: 999px;
-      border: 1px solid #9eb9dd;
-      background: linear-gradient(90deg, rgba(10,132,255,0.1), rgba(99,102,241,0.08));
+      border: 1px solid ${PDF_VISUAL_BASELINE.lineHex};
+      background: ${PDF_VISUAL_BASELINE.accentSoftHex};
       white-space: nowrap;
       overflow: hidden;
       text-overflow: ellipsis;
@@ -640,7 +621,7 @@ export function renderExamHtml({
       transform: translate(-50%, -50%);
       width: min(45%, 280px);
       text-align: center;
-      color: #48658f;
+      color: ${PDF_VISUAL_BASELINE.textSoftHex};
       font-weight: 700;
       pointer-events: none;
     }
@@ -651,12 +632,12 @@ export function renderExamHtml({
       text-align: center;
       padding: 3px 10px;
       border-radius: 999px;
-      border: 1px solid #5f8fc9;
-      background: linear-gradient(90deg, rgba(10,132,255,0.2), rgba(99,102,241,0.16));
+      border: 1px solid ${PDF_VISUAL_BASELINE.lineHex};
+      background: ${PDF_VISUAL_BASELINE.accentSoftHex};
       font-size: 9.8px;
       font-weight: 800;
       letter-spacing: 0.22px;
-      color: #154475;
+      color: ${PDF_VISUAL_BASELINE.primaryHex};
       line-height: 1.1;
     }
     .corner {
@@ -683,9 +664,9 @@ export function renderExamHtml({
       font-weight: 700;
       letter-spacing: 0.08px;
       text-align: center;
-      color: #223f60;
+      color: ${PDF_VISUAL_BASELINE.primaryHex};
       background: rgba(255, 255, 255, 0.96);
-      border: 1px solid #b7c8db;
+      border: 1px solid ${PDF_VISUAL_BASELINE.lineHex};
       border-radius: 3px;
       padding: 1px 5px;
       white-space: normal;
