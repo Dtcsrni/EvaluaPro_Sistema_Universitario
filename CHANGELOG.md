@@ -5,6 +5,11 @@ Este archivo sigue el formato "Keep a Changelog" (alto nivel) y SemVer.
 ## [Unreleased]
 
 ### Changed
+- `CI Checks` se refactoriza en gates paralelos por dominio para mejorar trazabilidad sin debilitar cobertura:
+  - separación de `core` en jobs independientes (`Contract/Docs/Gov`, `Backend/Portal`, `Frontend`, `Security/Compliance`)
+  - separación de `extended` en jobs independientes (`Funcionales`, `Perf/Arquitectura`, `Compliance/Evidencia`)
+  - se conservan los checks requeridos de branch protection: `Verificaciones Core (PR bloqueante)` y `Verificaciones Extendidas (Main/Release)` como agregadores finales
+  - los agregadores ahora validan explícitamente estados `success|skipped` y fallan con estados no permitidos para reforzar señal de release
 - CI/CD incorpora publicacion automatica de beta prerelease:
   - nuevo workflow `Release Beta` para `workflow_run` de `CI Checks` en `main`
   - validacion de alcance `release:validate:beta` para evitar publicar beta en cambios solo documentales o regenerables

@@ -14,10 +14,20 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  verificaciones_core:
-    name: Verificaciones Core (PR bloqueante)
+  detectar_cambios:
+    name: Detectar Cambios CI
     runs-on: ubuntu-latest
-    timeout-minutes: 60
+    timeout-minutes: 10
+
+    outputs:
+      shared_core: ${{ steps.changes.outputs.shared_core }}
+      backend: ${{ steps.changes.outputs.backend }}
+      frontend: ${{ steps.changes.outputs.frontend }}
+      portal: ${{ steps.changes.outputs.portal }}
+      installer: ${{ steps.changes.outputs.installer }}
+      release: ${{ steps.changes.outputs.release }}
+      docs: ${{ steps.changes.outputs.docs }}
+      compliance: ${{ steps.changes.outputs.compliance }}
 
     steps:
       - name: Descargar código
@@ -72,6 +82,19 @@ jobs:
               - "docs/legal/**"
               - "scripts/compliance/**"
 
+  core_contract_docs_gov:
+    name: Core Contract/Docs/Gov
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    needs:
+      - detectar_cambios
+
+    steps:
+      - name: Descargar código
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
       - name: Configurar Node.js
         uses: actions/setup-node@v4
         with:
@@ -89,88 +112,104 @@ jobs:
       - name: Resolver mapa de suites afectadas
         run: npm run test:ci:affected:resolve > reports.affected-ci.json
 
-      - name: Preparar runtime sharp (linux-x64)
-        if: steps.changes.outputs.backend == 'true' || steps.changes.outputs.portal == 'true' || steps.changes.outputs.shared_core == 'true'
-        run: npm install --no-save --include=optional --os=linux --cpu=x64 sharp
-
-      - name: Instalar Chromium (Playwright)
-        if: steps.changes.outputs.frontend == 'true' || steps.changes.outputs.shared_core == 'true'
-        run: npx playwright install --with-deps chromium
-
       - name: Etapa contract-check
         run: npm run pipeline:contract:check
 
       - name: Etapa governance-policy-check
-        if: steps.changes.outputs.release == 'true' || steps.changes.outputs.installer == 'true' || steps.changes.outputs.shared_core == 'true'
+        if: needs.detectar_cambios.outputs.release == 'true' || needs.detectar_cambios.outputs.installer == 'true' || needs.detectar_cambios.outputs.shared_core == 'true'
         run: |
           npm run test:ruleset:policy
           npm run test:release:policy
           npm run test:security:policy
 
       - name: Etapa installer-contract-check
-        if: steps.changes.outputs.installer == 'true' || steps.changes.outputs.shared_core == 'true'
+        if: needs.detectar_cambios.outputs.installer == 'true' || needs.detectar_cambios.outputs.shared_core == 'true'
         run: |
           npm run test:installer-hub:contract
           npm run test:wix:policy
 
+      - name: Etapa docs-check
+        if: needs.detectar_cambios.outputs.docs == 'true' || needs.detectar_cambios.outputs.shared_core == 'true'
+        run: |
+          npm run docs:generate
+          npm run docs:check
+          npm run diagramas:check
+          npm run diagramas:render
+          npm run diagramas:consistencia:check
+          npm run routes:check
+
+      - name: Publicar reporte affected CI
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: reports-affected-ci
+          path: reports.affected-ci.json
+          if-no-files-found: warn
+
+  core_backend_portal:
+    name: Core Backend/Portal
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    needs:
+      - detectar_cambios
+    if: needs.detectar_cambios.outputs.backend == 'true' || needs.detectar_cambios.outputs.portal == 'true' || needs.detectar_cambios.outputs.shared_core == 'true'
+
+    steps:
+      - name: Descargar código
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Configurar Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: |
+            package-lock.json
+            apps/backend/package-lock.json
+            apps/frontend/package-lock.json
+            apps/portal_alumno_cloud/package-lock.json
+
+      - name: Etapa setup
+        run: npm ci --foreground-scripts
+
+      - name: Preparar runtime sharp (linux-x64)
+        run: npm install --no-save --include=optional --os=linux --cpu=x64 sharp
+
       - name: Etapa lint backend
-        if: steps.changes.outputs.backend == 'true' || steps.changes.outputs.shared_core == 'true'
+        if: needs.detectar_cambios.outputs.backend == 'true' || needs.detectar_cambios.outputs.shared_core == 'true'
         run: npm -C apps/backend run lint
 
-      - name: Etapa lint frontend
-        if: steps.changes.outputs.frontend == 'true' || steps.changes.outputs.shared_core == 'true'
-        run: npm -C apps/frontend run lint
-
       - name: Etapa lint portal
-        if: steps.changes.outputs.portal == 'true' || steps.changes.outputs.shared_core == 'true'
+        if: needs.detectar_cambios.outputs.portal == 'true' || needs.detectar_cambios.outputs.shared_core == 'true'
         run: npm -C apps/portal_alumno_cloud run lint
 
       - name: Etapa typecheck backend
-        if: steps.changes.outputs.backend == 'true' || steps.changes.outputs.shared_core == 'true'
+        if: needs.detectar_cambios.outputs.backend == 'true' || needs.detectar_cambios.outputs.shared_core == 'true'
         run: npm -C apps/backend run typecheck
 
-      - name: Etapa typecheck frontend
-        if: steps.changes.outputs.frontend == 'true' || steps.changes.outputs.shared_core == 'true'
-        run: npm -C apps/frontend run typecheck
-
       - name: Etapa typecheck portal
-        if: steps.changes.outputs.portal == 'true' || steps.changes.outputs.shared_core == 'true'
+        if: needs.detectar_cambios.outputs.portal == 'true' || needs.detectar_cambios.outputs.shared_core == 'true'
         run: npm -C apps/portal_alumno_cloud run typecheck
 
       - name: Etapa test backend
-        if: steps.changes.outputs.backend == 'true' || steps.changes.outputs.shared_core == 'true'
+        if: needs.detectar_cambios.outputs.backend == 'true' || needs.detectar_cambios.outputs.shared_core == 'true'
         run: npm run test:backend:ci
 
       - name: Etapa test portal
-        if: steps.changes.outputs.portal == 'true' || steps.changes.outputs.shared_core == 'true'
+        if: needs.detectar_cambios.outputs.portal == 'true' || needs.detectar_cambios.outputs.shared_core == 'true'
         run: npm run test:portal:ci
 
-      - name: Etapa test frontend
-        if: steps.changes.outputs.frontend == 'true' || steps.changes.outputs.shared_core == 'true'
-        run: npm run test:frontend:ci
-
-      - name: Etapa test client proyectos
-        if: steps.changes.outputs.frontend == 'true' || steps.changes.outputs.shared_core == 'true'
-        run: npm run test:client:proyectos:ci
-
-      - name: Etapa ux-quality-check
-        if: steps.changes.outputs.frontend == 'true' || steps.changes.outputs.shared_core == 'true'
-        run: npm run test:ux-quality:ci
-
       - name: Etapa coverage backend
-        if: steps.changes.outputs.backend == 'true' || steps.changes.outputs.shared_core == 'true'
+        if: needs.detectar_cambios.outputs.backend == 'true' || needs.detectar_cambios.outputs.shared_core == 'true'
         run: npm -C apps/backend run test:coverage
 
       - name: Etapa coverage portal
-        if: steps.changes.outputs.portal == 'true' || steps.changes.outputs.shared_core == 'true'
+        if: needs.detectar_cambios.outputs.portal == 'true' || needs.detectar_cambios.outputs.shared_core == 'true'
         run: npm -C apps/portal_alumno_cloud run test:coverage
 
-      - name: Etapa coverage frontend
-        if: steps.changes.outputs.frontend == 'true' || steps.changes.outputs.shared_core == 'true'
-        run: npm run test:frontend:coverage:min
-
       - name: Etapa tdd-debt-check
-        if: steps.changes.outputs.backend == 'true' || steps.changes.outputs.frontend == 'true' || steps.changes.outputs.portal == 'true' || steps.changes.outputs.shared_core == 'true'
         run: npm run test:coverage:exclusions:debt
 
       - name: Preparar base para diff coverage (PR)
@@ -182,33 +221,110 @@ jobs:
           DIFF_COVERAGE_MIN: "90"
           DIFF_COVERAGE_IGNORE_LINE_SUBSTRING: "returnDocument: 'after';err instanceof Error ? err.message : String(err)"
           DIFF_COVERAGE_IGNORE_PATH_SUBSTRINGS: "apps/backend/src/modulos/modulo_comercial_core/controladorAdminNegocio.ts"
-        if: steps.changes.outputs.backend == 'true' || steps.changes.outputs.frontend == 'true' || steps.changes.outputs.portal == 'true' || steps.changes.outputs.shared_core == 'true'
-        run: npm run test:coverage:diff
+        run: npm run test:coverage:diff -- --apps backend,portal
 
       - name: Etapa build backend
-        if: steps.changes.outputs.backend == 'true' || steps.changes.outputs.shared_core == 'true'
+        if: needs.detectar_cambios.outputs.backend == 'true' || needs.detectar_cambios.outputs.shared_core == 'true'
         run: npm -C apps/backend run build
 
-      - name: Etapa build frontend
-        if: steps.changes.outputs.frontend == 'true' || steps.changes.outputs.shared_core == 'true'
-        run: npm -C apps/frontend run build
-
       - name: Etapa build portal
-        if: steps.changes.outputs.portal == 'true' || steps.changes.outputs.shared_core == 'true'
+        if: needs.detectar_cambios.outputs.portal == 'true' || needs.detectar_cambios.outputs.shared_core == 'true'
         run: npm -C apps/portal_alumno_cloud run build
 
-      - name: Etapa docs-check
-        if: steps.changes.outputs.docs == 'true' || steps.changes.outputs.shared_core == 'true'
-        run: |
-          npm run docs:generate
-          npm run docs:check
-          npm run diagramas:check
-          npm run diagramas:render
-          npm run diagramas:consistencia:check
-          npm run routes:check
+  core_frontend:
+    name: Core Frontend
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    needs:
+      - detectar_cambios
+    if: needs.detectar_cambios.outputs.frontend == 'true' || needs.detectar_cambios.outputs.shared_core == 'true'
+
+    steps:
+      - name: Descargar código
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Configurar Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: |
+            package-lock.json
+            apps/backend/package-lock.json
+            apps/frontend/package-lock.json
+            apps/portal_alumno_cloud/package-lock.json
+
+      - name: Etapa setup
+        run: npm ci --foreground-scripts
+
+      - name: Instalar Chromium (Playwright)
+        run: npx playwright install --with-deps chromium
+
+      - name: Etapa lint frontend
+        run: npm -C apps/frontend run lint
+
+      - name: Etapa typecheck frontend
+        run: npm -C apps/frontend run typecheck
+
+      - name: Etapa test frontend
+        run: npm run test:frontend:ci
+
+      - name: Etapa test client proyectos
+        run: npm run test:client:proyectos:ci
+
+      - name: Etapa ux-quality-check
+        run: npm run test:ux-quality:ci
+
+      - name: Etapa coverage frontend
+        run: npm run test:frontend:coverage:min
+
+      - name: Etapa tdd-debt-check
+        run: npm run test:coverage:exclusions:debt
+
+      - name: Preparar base para diff coverage (PR)
+        if: github.event_name == 'pull_request'
+        run: git fetch origin ${{ github.base_ref }} --depth=1
+
+      - name: Etapa diff-coverage-check
+        env:
+          DIFF_COVERAGE_MIN: "90"
+        run: npm run test:coverage:diff -- --apps frontend
+
+      - name: Etapa build frontend
+        run: npm -C apps/frontend run build
+
+  core_security_compliance:
+    name: Core Security/Compliance
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    needs:
+      - detectar_cambios
+    if: needs.detectar_cambios.outputs.backend == 'true' || needs.detectar_cambios.outputs.portal == 'true' || needs.detectar_cambios.outputs.compliance == 'true' || needs.detectar_cambios.outputs.docs == 'true' || needs.detectar_cambios.outputs.shared_core == 'true'
+
+    steps:
+      - name: Descargar código
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Configurar Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: |
+            package-lock.json
+            apps/backend/package-lock.json
+            apps/frontend/package-lock.json
+            apps/portal_alumno_cloud/package-lock.json
+
+      - name: Etapa setup
+        run: npm ci --foreground-scripts
 
       - name: Etapa security-scan
-        if: steps.changes.outputs.backend == 'true' || steps.changes.outputs.portal == 'true' || steps.changes.outputs.shared_core == 'true'
+        if: needs.detectar_cambios.outputs.backend == 'true' || needs.detectar_cambios.outputs.portal == 'true' || needs.detectar_cambios.outputs.shared_core == 'true'
         env:
           NODE_ENV: production
           STRICT_ENV_CHECK: "1"
@@ -221,15 +337,15 @@ jobs:
           npm run security:audit
 
       - name: Etapa legal-docs-check
-        if: steps.changes.outputs.compliance == 'true' || steps.changes.outputs.docs == 'true' || steps.changes.outputs.shared_core == 'true'
+        if: needs.detectar_cambios.outputs.compliance == 'true' || needs.detectar_cambios.outputs.docs == 'true' || needs.detectar_cambios.outputs.shared_core == 'true'
         run: npm run test:compliance:legal-docs
 
       - name: Etapa pii-leak-check
-        if: steps.changes.outputs.compliance == 'true' || steps.changes.outputs.shared_core == 'true'
+        if: needs.detectar_cambios.outputs.compliance == 'true' || needs.detectar_cambios.outputs.shared_core == 'true'
         run: npm run test:compliance:pii
 
       - name: Etapa retention-policy-check
-        if: steps.changes.outputs.compliance == 'true' || steps.changes.outputs.shared_core == 'true'
+        if: needs.detectar_cambios.outputs.compliance == 'true' || needs.detectar_cambios.outputs.shared_core == 'true'
         run: npm run test:compliance:retention
 
       - name: Publicar reporte de auditoría
@@ -237,21 +353,54 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: npm-audit-report
-          path: |
-            npm-audit-report.json
-            reports.affected-ci.json
+          path: npm-audit-report.json
+          if-no-files-found: warn
 
-  verificaciones_ext:
-    name: Verificaciones Extendidas (Main/Release)
+  verificaciones_core:
+    name: Verificaciones Core (PR bloqueante)
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    needs:
+      - core_contract_docs_gov
+      - core_backend_portal
+      - core_frontend
+      - core_security_compliance
+    if: always()
+
+    steps:
+      - name: Validar resultado agregado Core
+        shell: bash
+        env:
+          CONTRACT_DOCS: ${{ needs.core_contract_docs_gov.result }}
+          BACKEND_PORTAL: ${{ needs.core_backend_portal.result }}
+          FRONTEND: ${{ needs.core_frontend.result }}
+          SEC_COMPLIANCE: ${{ needs.core_security_compliance.result }}
+        run: |
+          set -euo pipefail
+          echo "core_contract_docs_gov=$CONTRACT_DOCS"
+          echo "core_backend_portal=$BACKEND_PORTAL"
+          echo "core_frontend=$FRONTEND"
+          echo "core_security_compliance=$SEC_COMPLIANCE"
+          for status in "$CONTRACT_DOCS" "$BACKEND_PORTAL" "$FRONTEND" "$SEC_COMPLIANCE"; do
+            if [ "$status" != "success" ] && [ "$status" != "skipped" ]; then
+              echo "Fallo en gate core: $status" >&2
+              exit 1
+            fi
+          done
+          echo "Core OK"
+
+  ext_funcionales:
+    name: Extended Funcionales
     runs-on: ubuntu-latest
     timeout-minutes: 60
     needs:
       - verificaciones_core
     if: |
-      github.event_name == 'workflow_dispatch' ||
+      needs.verificaciones_core.result == 'success' &&
+      (github.event_name == 'workflow_dispatch' ||
       github.event_name == 'schedule' ||
       github.ref == 'refs/heads/main' ||
-      startsWith(github.ref, 'refs/heads/release/')
+      startsWith(github.ref, 'refs/heads/release/'))
 
     steps:
       - name: Descargar código
@@ -295,12 +444,43 @@ jobs:
         run: npm run test:global-grade:ci
 
       - name: Etapa pdf-print-check
-        run: |
-          npm run test:pdf-print:ci
+        run: npm run test:pdf-print:ci
 
       - name: Etapa ux-visual-check
-        run: |
-          npm run test:ux-visual:ci
+        run: npm run test:ux-visual:ci
+
+  ext_perf_arquitectura:
+    name: Extended Perf/Arquitectura
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    needs:
+      - verificaciones_core
+    if: |
+      needs.verificaciones_core.result == 'success' &&
+      (github.event_name == 'workflow_dispatch' ||
+      github.event_name == 'schedule' ||
+      github.ref == 'refs/heads/main' ||
+      startsWith(github.ref, 'refs/heads/release/'))
+
+    steps:
+      - name: Descargar código
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Configurar Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: |
+            package-lock.json
+            apps/backend/package-lock.json
+            apps/frontend/package-lock.json
+            apps/portal_alumno_cloud/package-lock.json
+
+      - name: Etapa setup
+        run: npm ci --foreground-scripts
 
       - name: Etapa perf-check
         run: npm run perf:check
@@ -320,8 +500,40 @@ jobs:
             reports/perf/latest.json
             reports/perf/business.latest.json
 
+  ext_compliance_evidencia:
+    name: Extended Compliance/Evidencia
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    needs:
+      - verificaciones_core
+    if: |
+      needs.verificaciones_core.result == 'success' &&
+      (github.event_name == 'workflow_dispatch' ||
+      github.event_name == 'schedule' ||
+      github.ref == 'refs/heads/main' ||
+      startsWith(github.ref, 'refs/heads/release/'))
+
+    steps:
+      - name: Descargar código
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Configurar Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: |
+            package-lock.json
+            apps/backend/package-lock.json
+            apps/frontend/package-lock.json
+            apps/portal_alumno_cloud/package-lock.json
+
+      - name: Etapa setup
+        run: npm ci --foreground-scripts
+
       - name: Consolidar manifiesto QA
-        if: always()
         run: npm run test:qa:manifest
 
       - name: Etapa dsr-flow-test
@@ -336,3 +548,40 @@ jobs:
         with:
           name: qa-reports
           path: reports/qa/latest
+
+  verificaciones_ext:
+    name: Verificaciones Extendidas (Main/Release)
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    needs:
+      - verificaciones_core
+      - ext_funcionales
+      - ext_perf_arquitectura
+      - ext_compliance_evidencia
+    if: |
+      github.event_name == 'workflow_dispatch' ||
+      github.event_name == 'schedule' ||
+      github.ref == 'refs/heads/main' ||
+      startsWith(github.ref, 'refs/heads/release/')
+
+    steps:
+      - name: Validar resultado agregado Extended
+        shell: bash
+        env:
+          CORE: ${{ needs.verificaciones_core.result }}
+          FUNC: ${{ needs.ext_funcionales.result }}
+          PERF: ${{ needs.ext_perf_arquitectura.result }}
+          COMP: ${{ needs.ext_compliance_evidencia.result }}
+        run: |
+          set -euo pipefail
+          echo "verificaciones_core=$CORE"
+          echo "ext_funcionales=$FUNC"
+          echo "ext_perf_arquitectura=$PERF"
+          echo "ext_compliance_evidencia=$COMP"
+          for status in "$CORE" "$FUNC" "$PERF" "$COMP"; do
+            if [ "$status" != "success" ] && [ "$status" != "skipped" ]; then
+              echo "Fallo en gate extended: $status" >&2
+              exit 1
+            fi
+          done
+          echo "Extended OK"
