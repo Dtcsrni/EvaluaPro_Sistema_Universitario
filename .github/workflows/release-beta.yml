@@ -167,11 +167,14 @@ jobs:
         run: npm run test:wix:policy
 
       - name: Etapa contract-check Installer Hub
+        run: node --test scripts/tests/installer-hub-contract.test.mjs
+
+      - name: Etapa windows-release-smoke Installer Hub
         env:
           EVALUAPRO_INSTALLER_SIMULATE_WSL_BOOTSTRAP: '1'
           EVALUAPRO_INSTALLER_SIMULATE_AUTO_BOOTSTRAP: '1'
           EVALUAPRO_INSTALLER_AUTO_BOOTSTRAP_WSL: '1'
-        run: npm run test:installer-hub:contract
+        run: node --test scripts/tests/windows-release-smoke.test.mjs
 
       - name: Etapa build MSI + Bundle
         shell: powershell
