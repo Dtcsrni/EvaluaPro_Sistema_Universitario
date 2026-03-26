@@ -85,6 +85,9 @@ Este archivo sigue el formato "Keep a Changelog" (alto nivel) y SemVer.
 - Frontend suma el carril `test:gui:responsive:e2e:admin` para validar layout responsive del panel de negocio.
 
 ### Fixed
+- Se agrega guard local del workflow CI para prevenir regresiones de runtime nativo en performance:
+  - nuevo `scripts/tests/ci-workflow-contract.test.mjs` valida que `ext_perf_arquitectura` ejecute `npm install ... sharp` antes de `npm run perf:check`
+  - `npm run pipeline:contract:check` ahora ejecuta `scripts/pipeline-contract-check.mjs` y falla si el contrato del workflow se rompe
 - Gate AV de release más robusto en runners Windows:
   - se centraliza en `scripts/release/run-defender-scan.ps1`
   - tolera `MpCmdRun exit 2` solo cuando no hay detección asociada al artefacto objetivo

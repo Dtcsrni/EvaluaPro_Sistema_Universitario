@@ -120,6 +120,7 @@ Policy:
 
 ### perf-check
 - Command: `npm run perf:check`
+- Runner prerequisite (Linux CI): `npm install --no-save --include=optional --os=linux --cpu=x64 sharp`
 - Input: `docs/perf/baseline.json`
 - Output: `reports/perf/latest.json`
 
