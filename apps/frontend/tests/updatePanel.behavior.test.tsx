@@ -43,4 +43,55 @@ describe('UpdatePanel', () => {
     fireEvent.click(apply);
     expect(onApply).not.toHaveBeenCalled();
   });
+
+  it('usa valores por defecto cuando faltan datos de estado', () => {
+    render(
+      <UpdatePanel
+        status={{ state: '' }}
+        onCheck={vi.fn()}
+        onDownload={vi.fn()}
+        onApply={vi.fn()}
+        onCancel={vi.fn()}
+      />
+    );
+
+    expect(screen.getByTestId('update-state')).toHaveTextContent('idle');
+    expect(screen.getByTestId('update-progress')).toHaveTextContent('0%');
+    expect(screen.getByTestId('update-diff-summary')).toHaveTextContent('Sin resumen estructurado');
+    expect(screen.getByTestId('update-error')).toHaveTextContent('Sin errores');
+  });
+
+  it('bloquea acciones durante checking/downloading y habilita cancelar en descarga', () => {
+    const onCancel = vi.fn();
+    const { rerender } = render(
+      <UpdatePanel
+        status={{ state: 'checking' }}
+        onCheck={vi.fn()}
+        onDownload={vi.fn()}
+        onApply={vi.fn()}
+        onCancel={onCancel}
+      />
+    );
+
+    expect(screen.getByRole('button', { name: 'Buscar' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: 'Descargar' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: 'Aplicar' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: 'Cancelar' })).toBeDisabled();
+
+    rerender(
+      <UpdatePanel
+        status={{ state: 'downloading', download: { percent: 55 } }}
+        onCheck={vi.fn()}
+        onDownload={vi.fn()}
+        onApply={vi.fn()}
+        onCancel={onCancel}
+      />
+    );
+
+    expect(screen.getByTestId('update-progress')).toHaveTextContent('55%');
+    const cancel = screen.getByRole('button', { name: 'Cancelar' });
+    expect(cancel).toBeEnabled();
+    fireEvent.click(cancel);
+    expect(onCancel).toHaveBeenCalledTimes(1);
+  });
 });
