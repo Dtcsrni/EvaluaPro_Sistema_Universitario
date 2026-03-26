@@ -13,7 +13,9 @@ Responsable: `I.S.C. Erick Renato Vega Ceron`.
 ## Requisitos
 - WiX Toolset v6+ estable (`wix` en PATH).
 - Node.js 24+.
-- Docker Desktop.
+- Runtime Docker compatible para Windows:
+  - WSL2 + Docker Engine (default).
+  - Docker Desktop (compatibilidad opcional).
 - Para compilar bundle, el script resuelve automaticamente la extension BA de WiX 6 (`WixToolset.Bal.wixext` / `WixToolset.BootstrapperApplications.wixext.dll`).
 
 ## Build
@@ -56,7 +58,7 @@ Artefactos esperados:
 - La instalacion es per-machine y solicita elevacion (UAC) al inicio.
 - El instalador valida prerequisitos no autoconfigurables:
   - Node.js 24+
-  - Docker Desktop
+  - runtime Docker compatible (`WSL2 + Docker Engine` o `Docker Desktop`)
 
 <!-- AUTO:COMMERCIAL-CONTEXT:START -->
 ## Contexto Comercial y Soporte

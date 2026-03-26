@@ -23,6 +23,7 @@ No editar a mano: los cambios se pisan al regenerar.
 - [OMR_GATE_RUNBOOK.md](OMR_GATE_RUNBOOK.md) — Runbook OMR Por Folio Gate
 - [OPERACION_EXAMEN_GLOBAL_PROD.md](OPERACION_EXAMEN_GLOBAL_PROD.md) — Operacion de Examen Global en Produccion
 - [PILOTO_DIA0_CHECKLIST.md](PILOTO_DIA0_CHECKLIST.md) — Checklist Operativo Dia 0 (Piloto Hibrido)
+- [POLITICA_ECONOMIA_TOKENS_CODEX.md](POLITICA_ECONOMIA_TOKENS_CODEX.md) — Politica Repo-Local de Economia de Tokens para Codex
 - [POLITICA_OPTIMIZACION_RECURSOS.md](POLITICA_OPTIMIZACION_RECURSOS.md) — POLITICA_OPTIMIZACION_RECURSOS
 - [PRUEBAS.md](PRUEBAS.md) — Pruebas automatizadas
 - [QA_GATE_CRITERIA.md](QA_GATE_CRITERIA.md) — QA Gate Criteria (`1.0.0-beta.0`)

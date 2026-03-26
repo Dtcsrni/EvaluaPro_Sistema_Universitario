@@ -72,6 +72,12 @@ Objetivo: continuidad verificable entre agentes heterogeneos con evidencia repro
    - `docs/IA_TRAZABILIDAD_AGENTES.md`
    - `.github/copilot-instructions.md`
 2. Verificar estado real antes de editar; no asumir olas, gates o release.
+2.1. Si la sesion toca runtime local/launcher/instalador, verificar por CLI:
+   - `docker version`
+   - `docker context ls`
+   - `wsl --status`
+   - `wsl -l -v`
+   No asumir Docker Desktop ni WSL2 listos sin evidencia.
 3. No reducir umbrales ni ocultar deuda para forzar verde.
 4. Cerrar cambios con handoff oficial y evidencia reproducible.
 5. Si se toca el contrato de trazabilidad IA, ejecutar:

@@ -25,8 +25,13 @@
     <Property Id="DOCKERINSTALLEDUSER">
       <RegistrySearch Root="HKCU" Key="SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\Docker Desktop" Name="DisplayName" Type="raw" />
     </Property>
+    <Property Id="WSLINSTALLED">
+      <DirectorySearch Id="SearchSystemFolderForWsl" Path="[SystemFolder]">
+        <FileSearch Id="SearchWslExe" Name="wsl.exe" />
+      </DirectorySearch>
+    </Property>
     <Launch Condition="NODEINSTALLED64 OR NODEINSTALLEDUSER" Message="No se detecto Node.js 24+. Instala Node.js antes de usar EvaluaPro." />
-    <Launch Condition="DOCKERINSTALLED64 OR DOCKERINSTALLEDUSER" Message="No se detecto Docker Desktop. Instalalo antes de usar EvaluaPro en modo prod local." />
+    <Launch Condition="DOCKERINSTALLED64 OR DOCKERINSTALLEDUSER OR WSLINSTALLED" Message="No se detecto un runtime Docker compatible. Instala o habilita WSL2 para Docker Engine, o usa Docker Desktop en modo compatibilidad antes de usar EvaluaPro en modo local." />
 
     <Feature Id="MainFeature" Title="$(var.ProductName)" Level="1">
       <ComponentGroupRef Id="CG.AppFiles" />
@@ -54,6 +59,6 @@
     <Property Id="ARPCONTACT" Value="I.S.C. Erick Renato Vega Ceron" />
     <Property Id="ARPHELPLINK" Value="https://github.com/Dtcsrni/EvaluaPro_Sistema_Universitario" />
     <Property Id="ARPURLINFOABOUT" Value="https://github.com/Dtcsrni/EvaluaPro_Sistema_Universitario" />
-    <Property Id="ARPCOMMENTS" Value="Distribucion estable local ($(var.FlavorId)) con autoconfiguracion de stack/portal cuando es posible. Requiere Node.js 24+ y Docker Desktop." />
+    <Property Id="ARPCOMMENTS" Value="Distribucion estable local ($(var.FlavorId)) con autoconfiguracion de stack/portal cuando es posible. Requiere Node.js 24+ y un runtime Docker compatible (WSL2 + Docker Engine por defecto o Docker Desktop en compatibilidad)." />
   </Package>
 </Wix>

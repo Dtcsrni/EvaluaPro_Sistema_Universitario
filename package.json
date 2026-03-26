@@ -1,6 +1,6 @@
 {
   "name": "evaluapro",
-  "description": "Plataforma MERN para evaluación universitaria: generación de exámenes en PDF, vinculación por QR, calificación asistida (OMR) y operación local con Docker + dashboard.",
+  "description": "Plataforma MERN para evaluación universitaria: generación de exámenes en PDF, vinculación por QR, calificación asistida (OMR) y operación local con docker compose, WSL2 + Docker Engine por defecto y dashboard.",
   "version": "1.0.0",
   "author": {
     "name": "I.S.C. Erick Renato Vega Ceron",
@@ -170,6 +170,7 @@
     "test:installer-hub:contract": "node --test scripts/tests/installer-hub-contract.test.mjs scripts/tests/windows-release-smoke.test.mjs",
     "test:ci:affected:resolve": "node scripts/testing/resolve-affected-ci.mjs",
     "status": "node scripts/dashboard.mjs",
+    "docker:runtime:check": "node scripts/docker-runtime-check.mjs",
     "vscode:tune": "node scripts/vscode-tune.mjs",
     "vscode:prune-extensions": "node scripts/vscode-prune-extensions.mjs",
     "reset:local": "node scripts/reset-local.mjs",

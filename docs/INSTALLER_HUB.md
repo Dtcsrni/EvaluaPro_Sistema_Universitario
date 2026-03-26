@@ -4,7 +4,7 @@ Bootstrapper online para instalacion desde cero de EvaluaPro en entornos docente
 
 ## Objetivo
 - Ejecutar instalacion, reparacion o desinstalacion desde una GUI guiada.
-- Verificar y autoinstalar prerequisitos (Node.js y Docker Desktop) desde fuentes oficiales.
+- Verificar y preparar prerequisitos de Windows con `WSL2 + Docker Engine` como default y `Docker Desktop` como compatibilidad opcional.
 - Descargar la release objetivo y validar integridad criptografica (`SHA-256`).
 - Ejecutar MSI con `msiexec` y validar estado final de modulos criticos.
 - Dejar trazabilidad en logs por sesion para soporte tecnico.
@@ -17,7 +17,8 @@ Bootstrapper online para instalacion desde cero de EvaluaPro en entornos docente
    - `repair`
    - `uninstall`
 4. Analisis de requisitos de equipo (SO, arquitectura, red, disco, prerequisitos).
-5. Instalacion silenciosa de prerequisitos faltantes.
+5. Bootstrap guiado de prerequisitos faltantes.
+   - si falta runtime Docker, el Hub genera una guia local reproducible (`docker-runtime-bootstrap-guide.txt` + `.ps1`) en su carpeta temporal de trabajo.
 6. Resolucion de release y descarga de `EvaluaPro.msi`.
 7. Verificacion de hash con `EvaluaPro.msi.sha256`.
 8. Ejecucion de `msiexec` segun modo.
@@ -135,12 +136,31 @@ Regla de publicacion:
 - `50`: blindaje local de licencia/integridad fallido.
 
 ## Manejo de fallos y casos limite
+- Si falta runtime Docker compatible:
+  - priorizar `WSL2 + Docker Engine`;
+  - fallback permitido a `Docker Desktop`;
+  - generar y seguir la guía local de bootstrap WSL2/Docker Engine emitida por el Hub;
+  - validar siempre por CLI (`docker version`, `docker context`, `wsl --status`) y no por GUI.
 - Sin internet: bloqueo temprano y opcion de reintento.
 - Asset o API no disponible: reintentos controlados y mensaje accionable.
 - Hash invalido: aborta y purga artefacto descargado.
 - MSI con codigo no-cero: mapeo a mensaje entendible + log tecnico.
 - Uninstall sin instalacion previa: salida idempotente en exito.
 - Limpieza total: requiere confirmacion explicita.
+
+## Flags de bootstrap runtime Docker
+- `EVALUAPRO_INSTALLER_AUTO_BOOTSTRAP_WSL=1`:
+  - habilita bootstrap semiautomatico;
+  - ejecuta solo pasos host marcados como `autoRunnable`;
+  - siempre conserva guia local para pasos manuales restantes.
+- `EVALUAPRO_INSTALLER_WSL_DISTRO=<distro>`:
+  - fija distro objetivo para bootstrap cuando no hay distro de usuario detectada.
+- Solo para pruebas/contrato:
+  - `EVALUAPRO_INSTALLER_SIMULATE_DOCKER_RUNTIME_MODE`
+  - `EVALUAPRO_INSTALLER_SIMULATE_WSL_BOOTSTRAP`
+  - `EVALUAPRO_INSTALLER_SIMULATE_AUTO_BOOTSTRAP`
+  - `EVALUAPRO_INSTALLER_SIMULATE_DOCKER_RUNTIME_MODE_AFTER_BOOTSTRAP`
+  - `EVALUAPRO_INSTALLER_SIMULATE_DOCKER_RUNTIME_MODE_AFTER_AUTO`
 
 ## Operacion recomendada para soporte
 1. Revisar logs de sesion Installer Hub.

@@ -3,6 +3,199 @@ $ErrorActionPreference = 'Stop'
 Import-Module (Join-Path $PSScriptRoot 'Common.psm1') -DisableNameChecking
 Import-Module (Join-Path $PSScriptRoot 'PrereqDetector.psm1') -DisableNameChecking
 
+function Get-DockerRuntimeBootstrapDistro {
+  $raw = [string]$env:EVALUAPRO_INSTALLER_WSL_DISTRO
+  if ([string]::IsNullOrWhiteSpace($raw)) { return 'Ubuntu' }
+  return $raw.Trim()
+}
+
+function New-DockerRuntimeWindowsBootstrapPlan {
+  param(
+    [Parameter(Mandatory = $true)]
+    [pscustomobject]$Status
+  )
+
+  $targetDistro = if (
+    $Status.defaultDistro -and
+    $Status.defaultDistro -notin @('docker-desktop', 'docker-desktop-data')
+  ) {
+    [string]$Status.defaultDistro
+  } elseif (@($Status.userDistros).Count -gt 0) {
+    [string]$Status.userDistros[0]
+  } else {
+    Get-DockerRuntimeBootstrapDistro
+  }
+
+  $steps = @()
+  $requiresReboot = $false
+
+  if (-not $Status.wslAvailable) {
+    $requiresReboot = $true
+    $steps += [pscustomobject]@{
+      title = 'Habilitar WSL2 y distro base'
+      executor = 'host'
+      autoRunnable = $true
+      command = "wsl --install -d $targetDistro"
+    }
+    $steps += [pscustomobject]@{
+      title = 'Reiniciar Windows y reabrir Installer Hub'
+      executor = 'manual'
+      autoRunnable = $false
+      command = 'Reinicia Windows y vuelve a ejecutar el Installer Hub para completar la validacion.'
+    }
+  } elseif (@($Status.userDistros).Count -eq 0) {
+    $steps += [pscustomobject]@{
+      title = 'Instalar distro soportada para WSL2'
+      executor = 'host'
+      autoRunnable = $true
+      command = "wsl --install -d $targetDistro"
+    }
+    $steps += [pscustomobject]@{
+      title = 'Abrir la distro e inicializar usuario'
+      executor = 'manual'
+      autoRunnable = $false
+      command = "Abre `wsl -d $targetDistro`, completa el alta inicial de usuario y vuelve a correr el Installer Hub."
+    }
+  } else {
+    $steps += [pscustomobject]@{
+      title = 'Instalar Docker Engine dentro de WSL2'
+      executor = 'manual'
+      autoRunnable = $false
+      command = "wsl -d $targetDistro -- sh -lc ""curl -fsSL https://get.docker.com | sh"""
+    }
+    $steps += [pscustomobject]@{
+      title = 'Iniciar el daemon Docker en WSL2'
+      executor = 'manual'
+      autoRunnable = $false
+      command = "wsl -d $targetDistro -- sh -lc ""sudo service docker start"""
+    }
+    $steps += [pscustomobject]@{
+      title = 'Dar acceso al usuario actual'
+      executor = 'manual'
+      autoRunnable = $false
+      command = ('wsl -d {0} -- sh -lc "sudo usermod -aG docker $USER"' -f $targetDistro)
+    }
+    $steps += [pscustomobject]@{
+      title = 'Verificar runtime Docker en WSL2'
+      executor = 'manual'
+      autoRunnable = $false
+      command = "wsl -d $targetDistro -- sh -lc ""docker version"""
+    }
+  }
+
+  return [pscustomobject]@{
+    distro = $targetDistro
+    requiresReboot = $requiresReboot
+    steps = @($steps)
+  }
+}
+
+function Write-DockerRuntimeBootstrapGuide {
+  param(
+    [Parameter(Mandatory = $true)]
+    [pscustomobject]$Plan,
+    [Parameter(Mandatory = $true)]
+    [string]$DownloadRoot
+  )
+
+  if (-not (Test-Path $DownloadRoot)) {
+    New-Item -ItemType Directory -Path $DownloadRoot -Force | Out-Null
+  }
+
+  $guidePath = Join-Path $DownloadRoot 'docker-runtime-bootstrap-guide.txt'
+  $scriptPath = Join-Path $DownloadRoot 'docker-runtime-bootstrap.ps1'
+
+  $guideLines = @(
+    'EvaluaPro - Bootstrap guiado WSL2 + Docker Engine',
+    '',
+    "Distro objetivo: $($Plan.distro)",
+    "Requiere reinicio: $($Plan.requiresReboot)",
+    ''
+  )
+
+  $scriptLines = @(
+    'param()',
+    '$ErrorActionPreference = ''Stop''',
+    ''
+  )
+
+  $index = 1
+  foreach ($step in @($Plan.steps)) {
+    $guideLines += @(
+      ("Paso {0}: {1}" -f $index, $step.title),
+      ("Comando: {0}" -f $step.command),
+      ''
+    )
+    if ($step.executor -eq 'host' -and $step.autoRunnable) {
+      $scriptLines += $step.command
+    } else {
+      $scriptLines += ('# ' + $step.title)
+      $scriptLines += ('# ' + $step.command)
+    }
+    $scriptLines += ''
+    $index += 1
+  }
+
+  Set-Content -Path $guidePath -Value ($guideLines -join [Environment]::NewLine) -Encoding utf8
+  Set-Content -Path $scriptPath -Value ($scriptLines -join [Environment]::NewLine) -Encoding utf8
+
+  return [pscustomobject]@{
+    guidePath = $guidePath
+    scriptPath = $scriptPath
+  }
+}
+
+function Invoke-DockerRuntimeBootstrapAuto {
+  param(
+    [Parameter(Mandatory = $true)]
+    [pscustomobject]$Plan,
+    [scriptblock]$OnLog
+  )
+
+  $executed = @()
+  $pending = @()
+  $failed = @()
+  $simulateAuto = @('1', 'true', 'yes', 'on') -contains ([string]$env:EVALUAPRO_INSTALLER_SIMULATE_AUTO_BOOTSTRAP).Trim().ToLowerInvariant()
+
+  foreach ($step in @($Plan.steps)) {
+    if ($step.executor -eq 'host' -and $step.autoRunnable) {
+      try {
+        if ($OnLog) { & $OnLog 'info' ("[auto-bootstrap] ejecutando: {0}" -f $step.command) }
+        if (-not $simulateAuto) {
+          Invoke-Expression -Command ([string]$step.command) | Out-Null
+        }
+        $executed += [pscustomobject]@{
+          title = [string]$step.title
+          command = [string]$step.command
+          ok = $true
+        }
+      } catch {
+        $failed += [pscustomobject]@{
+          title = [string]$step.title
+          command = [string]$step.command
+          ok = $false
+          error = [string]$_.Exception.Message
+        }
+      }
+      continue
+    }
+
+    $pending += [pscustomobject]@{
+      title = [string]$step.title
+      command = [string]$step.command
+      executor = [string]$step.executor
+      autoRunnable = [bool]$step.autoRunnable
+    }
+  }
+
+  return [pscustomobject]@{
+    executed = @($executed)
+    pending = @($pending)
+    failed = @($failed)
+    simulated = $simulateAuto
+  }
+}
+
 function Resolve-PrereqExpectedSha256 {
   param(
     [Parameter(Mandatory = $true)]
@@ -40,6 +233,94 @@ function Install-PrerequisitePackage {
     [string]$DownloadRoot,
     [scriptblock]$OnLog
   )
+
+  $ruleType = [string]$Prerequisite.detectRule.type
+  if ($ruleType -eq 'docker_runtime_windows') {
+    $status = Get-DockerRuntimeStatus
+    if ($status.installed) {
+      if ($OnLog) { & $OnLog 'ok' ("Runtime Docker compatible detectado: $($status.mode)") }
+      return [pscustomobject]@{
+        name = [string]$Prerequisite.name
+        filePath = ''
+        sha256 = ''
+        exitCode = 0
+        mode = [string]$status.mode
+      }
+    }
+
+    $plan = New-DockerRuntimeWindowsBootstrapPlan -Status $status
+    $guide = Write-DockerRuntimeBootstrapGuide -Plan $plan -DownloadRoot $DownloadRoot
+    $autoBootstrapEnabled = @('1', 'true', 'yes', 'on') -contains ([string]$env:EVALUAPRO_INSTALLER_AUTO_BOOTSTRAP_WSL).Trim().ToLowerInvariant()
+    $bootstrapExecution = $null
+
+    if (@('1', 'true', 'yes', 'on') -contains ([string]$env:EVALUAPRO_INSTALLER_SIMULATE_WSL_BOOTSTRAP).Trim().ToLowerInvariant()) {
+      $env:EVALUAPRO_INSTALLER_SIMULATE_DOCKER_RUNTIME_MODE = if (
+        $env:EVALUAPRO_INSTALLER_SIMULATE_DOCKER_RUNTIME_MODE_AFTER_BOOTSTRAP
+      ) {
+        [string]$env:EVALUAPRO_INSTALLER_SIMULATE_DOCKER_RUNTIME_MODE_AFTER_BOOTSTRAP
+      } else {
+        'wsl2-engine'
+      }
+      if ($OnLog) {
+        & $OnLog 'ok' "Bootstrap guiado simulado para runtime Docker Windows ($($plan.distro))."
+      }
+      return [pscustomobject]@{
+        name = [string]$Prerequisite.name
+        filePath = [string]$guide.guidePath
+        sha256 = ''
+        exitCode = 0
+        mode = 'wsl2-engine'
+        guidePath = [string]$guide.guidePath
+        scriptPath = [string]$guide.scriptPath
+      }
+    }
+
+    if ($autoBootstrapEnabled) {
+      $bootstrapExecution = Invoke-DockerRuntimeBootstrapAuto -Plan $plan -OnLog $OnLog
+      $modeAfterAuto = [string]$env:EVALUAPRO_INSTALLER_SIMULATE_DOCKER_RUNTIME_MODE_AFTER_AUTO
+      if ([bool]$bootstrapExecution.simulated -and -not [string]::IsNullOrWhiteSpace($modeAfterAuto)) {
+        $env:EVALUAPRO_INSTALLER_SIMULATE_DOCKER_RUNTIME_MODE = $modeAfterAuto.Trim()
+      }
+      if ($OnLog) {
+        & $OnLog 'info' ("Auto-bootstrap ejecutado: {0} pasos OK, {1} pasos fallidos, {2} pasos pendientes." -f @($bootstrapExecution.executed).Count, @($bootstrapExecution.failed).Count, @($bootstrapExecution.pending).Count)
+      }
+      $statusAfterAuto = Get-DockerRuntimeStatus
+      if ($statusAfterAuto.installed) {
+        if ($OnLog) { & $OnLog 'ok' ("Runtime Docker compatible detectado tras auto-bootstrap: $($statusAfterAuto.mode)") }
+        return [pscustomobject]@{
+          name = [string]$Prerequisite.name
+          filePath = [string]$guide.guidePath
+          sha256 = ''
+          exitCode = 0
+          mode = [string]$statusAfterAuto.mode
+          guidePath = [string]$guide.guidePath
+          scriptPath = [string]$guide.scriptPath
+          autoBootstrap = $bootstrapExecution
+        }
+      }
+    }
+
+    if ($OnLog) {
+      & $OnLog 'warn' 'No se detecto runtime Docker compatible. Se requiere bootstrap guiado para WSL2 + Docker Engine o activar modo compatibilidad Docker Desktop.'
+      & $OnLog 'info' ("Guia local: $($guide.guidePath)")
+      & $OnLog 'info' ("Script base: $($guide.scriptPath)")
+      if ($autoBootstrapEnabled -and $bootstrapExecution) {
+        foreach ($failedStep in @($bootstrapExecution.failed)) {
+          & $OnLog 'warn' ("Auto-bootstrap fallo en '{0}': {1}" -f $failedStep.title, $failedStep.error)
+        }
+      }
+      foreach ($action in @($status.manualActions)) {
+        & $OnLog 'info' $action
+      }
+      foreach ($step in @($plan.steps)) {
+        & $OnLog 'info' ("{0}: {1}" -f $step.title, $step.command)
+      }
+    }
+
+    $statusForError = if ($autoBootstrapEnabled) { Get-DockerRuntimeStatus } else { $status }
+    $detail = if (@($statusForError.manualActions).Count -gt 0) { ($statusForError.manualActions -join ' ') } else { [string]$statusForError.reason }
+    throw ("Bootstrap guiado pendiente para runtime Docker Windows. " + $detail)
+  }
 
   if (-not (Test-Path $DownloadRoot)) {
     New-Item -ItemType Directory -Path $DownloadRoot -Force | Out-Null

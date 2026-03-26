@@ -86,7 +86,7 @@ If port <> "0" And port <> "" Then
 		KillSplashByWmi
 		On Error GoTo 0
 		MsgBox "EvaluaPro detectó dashboard activo, pero stack/portal no alcanzaron salud completa." & vbCrLf & _
-			"Revisa Docker Desktop y logs en carpeta 'logs'.", vbExclamation, "EvaluaPro - Inicio parcial"
+			"Revisa el runtime Docker compatible (WSL2 + Docker Engine o Docker Desktop) y logs en carpeta 'logs'.", vbExclamation, "EvaluaPro - Inicio parcial"
 	Else
 		AppendShortcutLog rootDir, "No se pudo completar arranque por broker (port=" & port & ", runId=" & runId & ")."
 		On Error Resume Next
@@ -94,7 +94,7 @@ If port <> "0" And port <> "" Then
 		KillSplashByWmi
 		On Error GoTo 0
 		MsgBox "EvaluaPro no pudo iniciar dashboard a tiempo." & vbCrLf & _
-			"Verifica Docker Desktop, Node y vuelve a intentar.", vbCritical, "EvaluaPro - Error de inicio"
+			"Verifica Node y un runtime Docker compatible (WSL2 + Docker Engine o Docker Desktop) y vuelve a intentar.", vbCritical, "EvaluaPro - Error de inicio"
 	End If
 
 	' Close splash only if the dashboard is reachable; otherwise let the HTA show a helpful error.

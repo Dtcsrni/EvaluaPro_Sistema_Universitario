@@ -372,7 +372,7 @@ function Invoke-InstallerFlowCore {
     }
 
     if ($OnUiLog) {
-      & $OnUiLog 'ok' ("Requisitos OK. Node detectado: $($flow.requirementReport.NodeMajor). Docker detectado: $($flow.requirementReport.DockerOk)")
+      & $OnUiLog 'ok' ("Requisitos OK. Node detectado: $($flow.requirementReport.NodeMajor). Runtime Docker: $($flow.requirementReport.DockerRuntimeMode).")
     }
     if ($OnStepUpdate) { & $OnStepUpdate 2 'done' 'Requisitos verificados.' }
   }
@@ -699,7 +699,7 @@ $stepItems = @(
   '[ ] 2. Modo instalacion/reparacion/desinstalacion',
   '[ ] 3. Analisis de requisitos de equipo',
   '[ ] 4. Carpeta y recursos requeridos',
-  '[ ] 5. Prerequisitos Node y Docker',
+  '[ ] 5. Prerequisitos Node y runtime Docker',
   '[ ] 6. Descarga release estable + hash MSI',
   '[ ] 7. Ejecucion de accion MSI',
   '[ ] 8. Configuracion operativa (.env + perfil)',
@@ -1327,7 +1327,7 @@ $splashText.Font = New-Object System.Drawing.Font('Segoe UI', 11)
 $splashPanel.Controls.Add($splashText)
 
 $splashBullets = New-Object System.Windows.Forms.Label
-$splashBullets.Text = "- Analisis de requisitos del equipo`n- Autoinstalacion de prerequisitos (Node + Docker)`n- Descarga y verificacion SHA256 de release estable`n- Instalacion, reparacion y desinstalacion con seguimiento por fases"
+$splashBullets.Text = "- Analisis de requisitos del equipo`n- Bootstrap guiado de prerequisitos (Node + runtime Docker compatible)`n- Descarga y verificacion SHA256 de release estable`n- Instalacion, reparacion y desinstalacion con seguimiento por fases"
 $splashBullets.Size = New-Object System.Drawing.Size(760, 120)
 $splashBullets.Location = New-Object System.Drawing.Point(72, 242)
 $splashBullets.ForeColor = [System.Drawing.Color]::FromArgb(188, 226, 255)

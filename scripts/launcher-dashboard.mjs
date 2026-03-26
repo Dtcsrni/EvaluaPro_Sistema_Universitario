@@ -1163,9 +1163,9 @@ function setDockerAutostart(patch) {
 }
 
 function dockerDisplayString() {
-  if (dockerAutostart.state === 'starting') return 'Iniciando Docker...';
-  if (dockerAutostart.state === 'checking') return 'Comprobando Docker...';
-  if (dockerAutostart.state === 'error') return dockerAutostart.lastError || 'Docker no responde.';
+  if (dockerAutostart.state === 'starting') return 'Iniciando runtime Docker...';
+  if (dockerAutostart.state === 'checking') return 'Comprobando runtime Docker...';
+  if (dockerAutostart.state === 'error') return dockerAutostart.lastError || 'El runtime Docker no responde.';
   if (dockerAutostart.ready && dockerAutostart.version) return dockerAutostart.version;
   const v = safeExecFast('docker version --format "{{.Server.Version}}"', '', 900);
   return v || 'No disponible';
@@ -1176,8 +1176,22 @@ function tryGetDockerVersion() {
   return v && v !== 'No disponible' ? v : '';
 }
 
-function tryStartDockerDesktopWindows() {
-  if (process.platform !== 'win32') return false;
+function tryGetDockerContext() {
+  const v = safeExecFast('docker context show', '', 1200);
+  return v && v !== 'No disponible' ? v : '';
+}
+
+function dockerRuntimePreference() {
+  const raw = String(process.env.EVALUAPRO_DOCKER_RUNTIME || 'auto').trim().toLowerCase();
+  return ['auto', 'wsl2-engine', 'desktop'].includes(raw) ? raw : 'auto';
+}
+
+function dockerRuntimeGuidance() {
+  return 'WSL2 + Docker Engine o Docker Desktop';
+}
+
+function findDockerDesktopExe() {
+  if (process.platform !== 'win32') return '';
 
   const roots = [
     process.env.ProgramW6432,
@@ -1190,9 +1204,13 @@ function tryStartDockerDesktopWindows() {
     candidates.push(path.join(r, 'Docker', 'Docker', 'Docker Desktop.exe'));
   }
 
-  const exe = candidates.find((p) => {
+  return candidates.find((p) => {
     try { return fs.existsSync(p); } catch { return false; }
-  });
+  }) || '';
+}
+
+function tryStartDockerDesktopWindows() {
+  const exe = findDockerDesktopExe();
   if (!exe) return false;
 
   try {
@@ -1212,6 +1230,10 @@ async function waitForDockerReady(timeoutMs = 120_000) {
     await sleep(1200);
   }
   return '';
+}
+
+function shouldAttemptDesktopCompatStart() {
+  return process.platform === 'win32' && dockerRuntimePreference() !== 'wsl2-engine' && Boolean(findDockerDesktopExe());
 }
 
 function composeBaseArgsForMode(desiredMode) {
@@ -1292,17 +1314,21 @@ function requestDockerAutostart(reason = 'startup') {
       setDockerAutostart({ state: 'starting', ready: false, version: '' });
       if (!dockerAutostart.attemptedDesktopStart) {
         dockerAutostart.attemptedDesktopStart = true;
-        const started = tryStartDockerDesktopWindows();
-        logSystem(started ? 'Docker Desktop iniciado (si estaba instalado).' : 'Docker no esta listo. Inicia Docker Desktop.', started ? 'warn' : 'warn');
+        const started = shouldAttemptDesktopCompatStart() ? tryStartDockerDesktopWindows() : false;
+        if (started) {
+          logSystem('Modo compatibilidad Docker Desktop iniciado (si estaba instalado).', 'warn');
+        } else {
+          logSystem(`Docker no esta listo. Inicia ${dockerRuntimeGuidance()} y verifica \`docker version\`.`, 'warn');
+        }
       }
       version = await waitForDockerReady(Number(process.env.DASHBOARD_DOCKER_TIMEOUT_MS || 120_000));
     }
 
     if (!version) {
-      setDockerAutostart({ state: 'error', ready: false, version: '', lastError: 'Docker no responde.' });
+      setDockerAutostart({ state: 'error', ready: false, version: '', lastError: 'El runtime Docker no responde.' });
       dockerAutostart.stack.state = 'error';
-      dockerAutostart.stack.lastError = 'Docker no responde.';
-      logSystem('Docker no responde. No se pudo iniciar el stack automaticamente.', 'error', { console: true });
+      dockerAutostart.stack.lastError = 'El runtime Docker no responde.';
+      logSystem('El runtime Docker no responde. No se pudo iniciar el stack automaticamente.', 'error', { console: true });
       return;
     }
 
@@ -1747,7 +1773,7 @@ async function diagnoseRepairStatus() {
     issues.push({
       code: 'prereq.docker.unavailable',
       severity: 'error',
-      message: 'Docker Desktop no esta disponible o no responde.',
+      message: `No se detecta un runtime Docker compatible o el daemon no responde (${dockerRuntimeGuidance()}).`,
       autoFixable: false
     });
   }
@@ -1865,7 +1891,8 @@ async function startRepairRun() {
           repairState.manualActions.push('Instala/actualiza Node.js a version 24 o superior.');
         }
         if (blockers.some((i) => i.code === 'prereq.docker.unavailable')) {
-          repairState.manualActions.push('Inicia Docker Desktop y verifica que responda docker version.');
+          repairState.manualActions.push(`Inicia ${dockerRuntimeGuidance()} y verifica que responda \`docker version\`.`);
+          repairState.manualActions.push('Si usaras WSL2 por defecto, valida la distro soportada y el contexto activo de Docker.');
         }
         return `${blockers.length} prerequisitos pendientes reportados.`;
       });

@@ -88,12 +88,17 @@ function Invoke-PostInstallVerification {
     }
 
     $requireDocker = $true
-    if ($Flavor -and $Flavor.PSObject.Properties.Match('requireDockerDesktop').Count -gt 0) {
+    if ($Flavor -and $Flavor.PSObject.Properties.Match('requireDockerRuntime').Count -gt 0) {
+      $requireDocker = [bool]$Flavor.requireDockerRuntime
+    } elseif ($Flavor -and $Flavor.PSObject.Properties.Match('requireDockerDesktop').Count -gt 0) {
       $requireDocker = [bool]$Flavor.requireDockerDesktop
     }
 
-    if ($requireDocker -and -not (Test-DockerDesktopInstalled)) {
-      $issues += 'Docker Desktop no disponible tras instalacion.'
+    if ($requireDocker) {
+      $runtime = Get-DockerRuntimeStatus
+      if (-not $runtime.installed) {
+        $issues += "Runtime Docker compatible no disponible tras instalacion. $($runtime.reason)"
+      }
     }
 
     $updateConfigPath = Join-Path $effectiveDir 'config\update-config.json'

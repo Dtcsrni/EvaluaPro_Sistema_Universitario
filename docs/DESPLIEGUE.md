@@ -2,6 +2,7 @@
 
 ## Estrategia general
 - Operacion docente local recomendada con Docker Compose.
+- En Windows, el runtime por defecto es `WSL2 + Docker Engine`; `Docker Desktop` se mantiene como compatibilidad opcional.
 - Portal alumno desacoplado para despliegue cloud.
 
 ## Desarrollo local
@@ -171,7 +172,9 @@ Artefactos:
 
 Prerequisitos de instalacion:
 - Node.js 24+
-- Docker Desktop
+- runtime Docker compatible:
+  - `WSL2 + Docker Engine` (default)
+  - `Docker Desktop` (compatibilidad)
 - WiX Toolset v6+ estable (solo para generar instalador)
 - Extension BA WiX 6: resuelta automaticamente por `build-msi.ps1` (`WixToolset.Bal.wixext`).
 
@@ -205,7 +208,7 @@ powershell -NoProfile -ExecutionPolicy Bypass -File scripts/create-shortcuts.ps1
 ```
 
 No autoconfigurable por instalador:
-- instalacion de Node.js/Docker Desktop.
+- provisionamiento completo del runtime Docker fuera del bootstrap guiado.
 - credenciales/secretos de entorno de produccion real.
 
 ## Operacion y verificacion

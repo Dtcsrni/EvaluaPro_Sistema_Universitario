@@ -170,7 +170,8 @@ Herramientas de operación local (principalmente Windows) para **Sistema EvaluaP
   - crea `README.md` base en carpetas objetivo que aún no lo tengan.
 
 Notas:
-- Varios scripts asumen Docker Desktop iniciado.
+- Los scripts operativos validan `docker compose` y un runtime Docker compatible; `WSL2 + Docker Engine` es el modo por defecto y `Docker Desktop` queda como compatibilidad opcional.
+- Para el Installer Hub, `EVALUAPRO_INSTALLER_AUTO_BOOTSTRAP_WSL=1` habilita bootstrap semiautomatico de pasos host auto-ejecutables de WSL (sin eliminar pasos manuales restantes).
 - Ver README principal para el flujo completo: `../README.md`.
 
 <!-- AUTO:COMMERCIAL-CONTEXT:START -->

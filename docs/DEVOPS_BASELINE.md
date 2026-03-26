@@ -4,6 +4,8 @@ Fecha de baseline: 2026-02-13.
 
 ## Topología operativa (local + cloud mínimo)
 1. Local docente (Docker Compose):
+- Windows default: `WSL2 + Docker Engine`.
+- Compatibilidad opcional: `Docker Desktop`.
 - `mongo_local`
 - `api_docente_local`
 - `web_docente_local`
@@ -49,6 +51,10 @@ Fecha de baseline: 2026-02-13.
 
 ## Fallback y resiliencia
 - Fallback de pipeline: aislamiento por workflow (degradacion por dominio, no falla sistémica de toda la malla).
+- Paridad local/CI:
+  - contrato único de comandos `docker compose`;
+  - sin features exclusivas de Docker Desktop;
+  - networking host↔contenedor portable vía `host-gateway`.
 - Hardening de dependencias nativas en backend module:
   - instalacion explicita de `sharp` linux-x64 antes de pruebas para evitar errores de runtime nativo en runners Linux.
 - Politica versionada de Dependabot:

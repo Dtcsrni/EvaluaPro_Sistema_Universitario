@@ -15,6 +15,113 @@ function Get-NodeMajorVersion {
   }
 }
 
+function Get-DockerRuntimePreference {
+  $allowed = @('auto', 'wsl2-engine', 'desktop')
+  $raw = [string]$env:EVALUAPRO_DOCKER_RUNTIME
+  if ([string]::IsNullOrWhiteSpace($raw)) { return 'auto' }
+  $normalized = $raw.Trim().ToLowerInvariant()
+  if ($allowed -contains $normalized) { return $normalized }
+  return 'auto'
+}
+
+function Get-SimulatedDockerRuntimeStatus {
+  $raw = [string]$env:EVALUAPRO_INSTALLER_SIMULATE_DOCKER_RUNTIME_MODE
+  if ([string]::IsNullOrWhiteSpace($raw)) { return $null }
+
+  $mode = $raw.Trim().ToLowerInvariant()
+  switch ($mode) {
+    'desktop' {
+      return [pscustomobject]@{
+        preference = 'auto'
+        mode = 'desktop'
+        installed = $true
+        ready = $true
+        desktopInstalled = $true
+        clientVersion = '29.2.1'
+        serverVersion = '29.2.1'
+        context = 'desktop-linux'
+        wslAvailable = $true
+        wslStatus = 'Distribucion predeterminada: docker-desktop'
+        wslTable = '* docker-desktop Running 2'
+        defaultDistro = 'docker-desktop'
+        userDistros = @()
+        wslDockerDistros = @()
+        reason = 'ok (desktop)'
+        manualActions = @()
+      }
+    }
+    'wsl2-engine' {
+      return [pscustomobject]@{
+        preference = 'wsl2-engine'
+        mode = 'wsl2-engine'
+        installed = $true
+        ready = $true
+        desktopInstalled = $false
+        clientVersion = '29.2.1'
+        serverVersion = '29.2.1'
+        context = 'default'
+        wslAvailable = $true
+        wslStatus = 'Distribucion predeterminada: Ubuntu'
+        wslTable = '* Ubuntu Running 2'
+        defaultDistro = 'Ubuntu'
+        userDistros = @('Ubuntu')
+        wslDockerDistros = @('Ubuntu')
+        reason = 'ok (wsl2-engine)'
+        manualActions = @()
+      }
+    }
+    'wsl2-bootstrap-required' {
+      return [pscustomobject]@{
+        preference = 'wsl2-engine'
+        mode = 'wsl2-bootstrap-required'
+        installed = $false
+        ready = $false
+        desktopInstalled = $false
+        clientVersion = ''
+        serverVersion = ''
+        context = ''
+        wslAvailable = $true
+        wslStatus = 'Distribucion predeterminada: Ubuntu'
+        wslTable = '* Ubuntu Stopped 2'
+        defaultDistro = 'Ubuntu'
+        userDistros = @('Ubuntu')
+        wslDockerDistros = @()
+        reason = 'WSL2 detectado sin Docker Engine provisionado en una distro de usuario.'
+        manualActions = @(
+          'Provisiona Docker Engine dentro de `wsl -d Ubuntu` y habilita el servicio Docker.',
+          'Compatibilidad opcional: instala Docker Desktop si prefieres ese runtime.'
+        )
+      }
+    }
+    'missing' {
+      return [pscustomobject]@{
+        preference = 'auto'
+        mode = 'missing'
+        installed = $false
+        ready = $false
+        desktopInstalled = $false
+        clientVersion = ''
+        serverVersion = ''
+        context = ''
+        wslAvailable = $false
+        wslStatus = ''
+        wslTable = ''
+        defaultDistro = ''
+        userDistros = @()
+        wslDockerDistros = @()
+        reason = 'No se detecto WSL2 ni Docker Desktop.'
+        manualActions = @(
+          'Habilita WSL2 con `wsl --install -d Ubuntu` y provisiona Docker Engine dentro de la distro.',
+          'Compatibilidad opcional: instala Docker Desktop si prefieres ese runtime.'
+        )
+      }
+    }
+    default {
+      return $null
+    }
+  }
+}
+
 function Test-DockerDesktopInstalled {
   $registryPaths = @(
     'HKLM:\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\Docker Desktop',
@@ -28,11 +135,231 @@ function Test-DockerDesktopInstalled {
   }
 
   try {
-    $dockerVersion = (& docker version --format '{{.Client.Version}}' 2>$null | Select-Object -First 1)
-    if ($dockerVersion) { return $true }
+    $ctx = (& docker context show 2>$null | Select-Object -First 1)
+    if ([string]$ctx -eq 'desktop-linux') { return $true }
   } catch {}
 
   return $false
+}
+
+function Get-DockerClientVersion {
+  try {
+    $value = (& docker version --format '{{.Client.Version}}' 2>$null | Select-Object -First 1)
+    if ($null -eq $value) { return '' }
+    return [string]$value
+  } catch {
+    return ''
+  }
+}
+
+function Get-DockerServerVersion {
+  try {
+    $value = (& docker version --format '{{.Server.Version}}' 2>$null | Select-Object -First 1)
+    if ($null -eq $value) { return '' }
+    return [string]$value
+  } catch {
+    return ''
+  }
+}
+
+function Get-DockerContextName {
+  try {
+    $value = (& docker context show 2>$null | Select-Object -First 1)
+    if ($null -eq $value) { return '' }
+    return [string]$value
+  } catch {
+    return ''
+  }
+}
+
+function Test-WslAvailable {
+  try {
+    $cmd = Get-Command wsl.exe -ErrorAction Stop
+    return [bool]$cmd
+  } catch {
+    return $false
+  }
+}
+
+function Get-WslStatusText {
+  if (-not (Test-WslAvailable)) { return '' }
+  try {
+    $raw = (& wsl.exe --status 2>$null | Out-String)
+    return ([string]$raw).Replace([string][char]0, '').Trim()
+  } catch {
+    return ''
+  }
+}
+
+function Get-WslDistroTable {
+  if (-not (Test-WslAvailable)) { return '' }
+  try {
+    $raw = (& wsl.exe -l -v 2>$null | Out-String)
+    return ([string]$raw).Replace([string][char]0, '').Trim()
+  } catch {
+    return ''
+  }
+}
+
+function Get-DefaultWslDistroName {
+  $status = Get-WslStatusText
+  if ($status -match '(?im)^\s*(Distribuci[oó]n predeterminada|Default Distribution)\s*:\s*(.+?)\s*$') {
+    return [string]$Matches[2].Trim()
+  }
+
+  $table = Get-WslDistroTable
+  foreach ($line in ($table -split "`r?`n")) {
+    $clean = [string]$line
+    $clean = $clean.Replace([string][char]0, '').TrimEnd()
+    if ($clean.StartsWith('*')) {
+      $normalized = $clean.TrimStart('*').Trim()
+      if ($normalized -match '^(?<name>.+?)\s{2,}(?<state>Stopped|Running)\s+(?<version>\d+)\s*$') {
+        return [string]$Matches['name'].Trim()
+      }
+    }
+  }
+
+  return ''
+}
+
+function Get-UserWslDistros {
+  $table = Get-WslDistroTable
+  $distros = @()
+
+  foreach ($line in ($table -split "`r?`n")) {
+    $clean = [string]$line
+    $clean = $clean.Replace([string][char]0, '').Trim()
+    if (-not $clean) { continue }
+    if ($clean -match '^(NAME|NOMBRE)\s+(STATE|ESTADO)\s+(VERSION|VERSI[OÓ]N)\s*$') { continue }
+    $normalized = $clean.TrimStart('*').Trim()
+    if ($normalized -match '^(?<name>.+?)\s{2,}(?<state>Stopped|Running)\s+(?<version>\d+)\s*$') {
+      $name = [string]$Matches['name'].Trim()
+      if ($name -in @('docker-desktop', 'docker-desktop-data')) { continue }
+      $distros += $name
+    }
+  }
+
+  return @($distros | Select-Object -Unique)
+}
+
+function Invoke-WslShellCommand {
+  param(
+    [Parameter(Mandatory = $true)]
+    [string]$Distro,
+    [Parameter(Mandatory = $true)]
+    [string]$Command
+  )
+
+  if (-not (Test-WslAvailable)) { return '' }
+
+  try {
+    $output = (& wsl.exe -d $Distro -- sh -lc $Command 2>$null | Out-String)
+    return ([string]$output).Replace([string][char]0, '').Trim()
+  } catch {
+    return ''
+  }
+}
+
+function Get-WslDockerRuntimeDistros {
+  $result = @()
+  foreach ($distro in (Get-UserWslDistros)) {
+    $probe = Invoke-WslShellCommand -Distro $distro -Command 'command -v docker >/dev/null 2>&1 && echo docker-ok'
+    if ([string]$probe -eq 'docker-ok') {
+      $result += $distro
+    }
+  }
+  return @($result | Select-Object -Unique)
+}
+
+function Test-WslDockerRuntimeInstalled {
+  return ((@(Get-WslDockerRuntimeDistros)).Count -gt 0)
+}
+
+function Get-DockerRuntimeStatus {
+  $simulated = Get-SimulatedDockerRuntimeStatus
+  if ($null -ne $simulated) {
+    return $simulated
+  }
+
+  $preference = Get-DockerRuntimePreference
+  $clientVersion = Get-DockerClientVersion
+  $serverVersion = Get-DockerServerVersion
+  $context = Get-DockerContextName
+  $desktopInstalled = Test-DockerDesktopInstalled
+  $wslAvailable = Test-WslAvailable
+  $wslStatus = if ($wslAvailable) { Get-WslStatusText } else { '' }
+  $wslTable = if ($wslAvailable) { Get-WslDistroTable } else { '' }
+  $defaultDistro = if ($wslAvailable) { Get-DefaultWslDistroName } else { '' }
+  $userDistros = if ($wslAvailable) { @(Get-UserWslDistros) } else { @() }
+  $wslDockerDistros = if ($wslAvailable) { @(Get-WslDockerRuntimeDistros) } else { @() }
+  $wslDockerInstalled = ((@($wslDockerDistros)).Count -gt 0)
+  $daemonAvailable = -not [string]::IsNullOrWhiteSpace($serverVersion)
+  $installed = ($desktopInstalled -or $wslDockerInstalled)
+  $manualActions = @()
+  $mode = 'missing'
+  $reason = 'No se detecto un runtime Docker compatible.'
+
+  if ($daemonAvailable) {
+    if ($context -eq 'desktop-linux' -or ($preference -eq 'desktop' -and $desktopInstalled)) {
+      $mode = 'desktop'
+    } elseif ($wslDockerInstalled -or $preference -eq 'wsl2-engine') {
+      $mode = 'wsl2-engine'
+    } elseif ($desktopInstalled) {
+      $mode = 'desktop'
+    } else {
+      $mode = 'compatible'
+    }
+    $reason = "ok ($mode)"
+  } elseif ($wslDockerInstalled) {
+    $mode = 'wsl2-engine'
+    $reason = 'WSL2 con Docker Engine detectado, pero el daemon no responde desde el host actual.'
+    $manualActions += 'Abre la distro WSL2 soportada y valida el daemon con `docker version`.'
+    $manualActions += 'Si necesitas compatibilidad inmediata en Windows, puedes usar Docker Desktop de forma opcional.'
+  } elseif ($desktopInstalled) {
+    $mode = 'desktop'
+    $reason = 'Docker Desktop detectado, pero el daemon no responde.'
+    $manualActions += 'Inicia Docker Desktop o cambia `EVALUAPRO_DOCKER_RUNTIME=wsl2-engine` si usaras WSL2 + Docker Engine.'
+  } elseif ((@($userDistros)).Count -gt 0) {
+    $mode = 'wsl2-bootstrap-required'
+    $reason = 'WSL2 detectado sin Docker Engine provisionado en una distro de usuario.'
+    $bootstrapDistro = if ($defaultDistro -and $defaultDistro -notin @('docker-desktop', 'docker-desktop-data')) { $defaultDistro } else { $userDistros[0] }
+    $manualActions += "Provisiona Docker Engine dentro de `wsl -d $bootstrapDistro` y habilita el servicio Docker."
+    $manualActions += "Compatibilidad opcional: instala Docker Desktop si prefieres ese runtime."
+  } elseif ($wslAvailable) {
+    $mode = 'wsl2-bootstrap-required'
+    $reason = 'WSL2 detectado sin una distro de usuario lista para Docker Engine.'
+    $manualActions += 'Instala una distro soportada con `wsl --install -d Ubuntu` y luego provisiona Docker Engine dentro de ella.'
+    $manualActions += 'Compatibilidad opcional: instala Docker Desktop si prefieres ese runtime.'
+  } else {
+    $mode = 'missing'
+    $reason = 'No se detecto WSL2 ni Docker Desktop.'
+    $manualActions += 'Habilita WSL2 con `wsl --install -d Ubuntu` y provisiona Docker Engine dentro de la distro.'
+    $manualActions += 'Compatibilidad opcional: instala Docker Desktop si prefieres ese runtime.'
+  }
+
+  return [pscustomobject]@{
+    preference = $preference
+    mode = $mode
+    installed = $installed
+    ready = $daemonAvailable
+    desktopInstalled = $desktopInstalled
+    clientVersion = $clientVersion
+    serverVersion = $serverVersion
+    context = $context
+    wslAvailable = $wslAvailable
+    wslStatus = $wslStatus
+    wslTable = $wslTable
+    defaultDistro = $defaultDistro
+    userDistros = $userDistros
+    wslDockerDistros = $wslDockerDistros
+    reason = $reason
+    manualActions = $manualActions
+  }
+}
+
+function Test-DockerRuntimeInstalled {
+  $status = Get-DockerRuntimeStatus
+  return [bool]$status.installed
 }
 
 function Get-EvaluaProInstallationInfo {
@@ -167,13 +494,14 @@ function Get-SystemRequirementReport {
     $targetRoot = [System.IO.Path]::GetPathRoot($env:SystemDrive)
   }
 
-  $drive = Get-PSDrive -Name ($targetRoot.TrimEnd('\\').TrimEnd(':')) -ErrorAction SilentlyContinue
+  $drive = Get-PSDrive -Name ($targetRoot.TrimEnd('\').TrimEnd(':')) -ErrorAction SilentlyContinue
   $freeBytes = if ($drive) { [double]$drive.Free } else { 0 }
   $freeGb = [math]::Round(($freeBytes / 1GB), 2)
   $diskOk = $freeGb -ge $MinDiskGb
 
   $nodeMajor = Get-NodeMajorVersion
-  $dockerOk = Test-DockerDesktopInstalled
+  $runtime = Get-DockerRuntimeStatus
+  $dockerOk = [bool]$runtime.installed
 
   $issues = @()
   if (-not $isWindows10Plus) { $issues += 'Se requiere Windows 10/11 o superior.' }
@@ -191,6 +519,11 @@ function Get-SystemRequirementReport {
     InternetOk = $InternetOk
     NodeMajor = $nodeMajor
     DockerOk = $dockerOk
+    DockerRuntimeMode = [string]$runtime.mode
+    DockerContext = [string]$runtime.context
+    DockerDaemonReady = [bool]$runtime.ready
+    DockerRuntimeMissing = (-not $dockerOk)
+    DockerReason = [string]$runtime.reason
     Issues = $issues
     IsReadyForFlow = ($issues.Count -eq 0)
   }
@@ -278,13 +611,22 @@ function Test-PrerequisiteStatus {
         reason = if ($actual -ge $required) { 'ok' } else { "Node detectado: ${actual}.x. Requerido: ${required}.x" }
       }
     }
+    'docker_runtime_windows' {
+      $status = Get-DockerRuntimeStatus
+      return [pscustomobject]@{
+        name = [string]$Prerequisite.name
+        installed = [bool]$status.installed
+        actualVersion = if ($status.serverVersion) { [string]$status.serverVersion } elseif ($status.clientVersion) { [string]$status.clientVersion } else { '' }
+        reason = [string]$status.reason
+      }
+    }
     'docker_desktop' {
       $ok = Test-DockerDesktopInstalled
       return [pscustomobject]@{
         name = [string]$Prerequisite.name
         installed = $ok
         actualVersion = ''
-        reason = if ($ok) { 'ok' } else { 'Docker Desktop no detectado o no responde.' }
+        reason = if ($ok) { 'ok' } else { 'Docker Desktop no detectado.' }
       }
     }
     default {
@@ -295,7 +637,20 @@ function Test-PrerequisiteStatus {
 
 Export-ModuleMember -Function @(
   'Get-NodeMajorVersion',
+  'Get-DockerRuntimePreference',
   'Test-DockerDesktopInstalled',
+  'Get-DockerClientVersion',
+  'Get-DockerServerVersion',
+  'Get-DockerContextName',
+  'Test-WslAvailable',
+  'Get-WslStatusText',
+  'Get-WslDistroTable',
+  'Get-DefaultWslDistroName',
+  'Get-UserWslDistros',
+  'Get-WslDockerRuntimeDistros',
+  'Test-WslDockerRuntimeInstalled',
+  'Get-DockerRuntimeStatus',
+  'Test-DockerRuntimeInstalled',
   'Get-EvaluaProInstallationInfo',
   'Get-EvaluaProInstallationHealth',
   'Resolve-InstallerMode',

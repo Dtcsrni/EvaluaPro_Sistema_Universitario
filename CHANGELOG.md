@@ -5,6 +5,11 @@ Este archivo sigue el formato "Keep a Changelog" (alto nivel) y SemVer.
 ## [Unreleased]
 
 ### Changed
+- Runtime local Windows alineado a `WSL2 + Docker Engine` como default con `Docker Desktop` solo en modo compatibilidad:
+  - `docker-compose.yml` añade `host.docker.internal:host-gateway` en backend local/prod para networking portable
+  - `config/installer-prereqs.manifest.json` reemplaza el prerequisito nominativo `Docker Desktop` por `Docker Runtime Windows`
+  - `config/installer-flavors.json`, `packaging/wix/Product.wxs`, `scripts/launcher-dashboard.mjs`, `scripts/launcher-tray-hidden.vbs` y módulos del Installer Hub pasan a validar/runtime-guiar un runtime Docker compatible
+  - nuevo helper local `npm run docker:runtime:check`
 - `AGENTS.md` incorpora una regla operativa para que el agente sugiera siempre el modelo recomendado antes de continuar, con prioridad especial en planeaciones.
 - Se formaliza la politica repo-local de economia de tokens para Codex en VS Code:
   - nueva guia `docs/POLITICA_ECONOMIA_TOKENS_CODEX.md`

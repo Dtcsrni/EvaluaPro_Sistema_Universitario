@@ -5,6 +5,10 @@ Version tecnica: `1.0.0`
 Version visible GUI: `1.0.0b`
 
 ## Estado vigente
+- Corte 2026-03-26:
+  - Windows declara `WSL2 + Docker Engine` como runtime local por defecto y mantiene `Docker Desktop` solo como compatibilidad opcional
+  - `docker-compose.yml` añade alias portable `host.docker.internal:host-gateway` en servicios backend para no depender del comportamiento implícito de Desktop
+  - Installer Hub, dashboard y WiX dejan de tratar `Docker Desktop` como requisito nominativo y pasan a validar un runtime Docker compatible
 - Corte 2026-03-24:
   - el subsistema PDF fija una línea visual canónica compartida entre `pdf-lib-legacy` y `playwright-html-v1` mediante `pdfVisualBaseline.ts`
   - `examPrintTemplate.ts` elimina la deriva cromática multicolor y vuelve a la paleta compacta del baseline A050929D

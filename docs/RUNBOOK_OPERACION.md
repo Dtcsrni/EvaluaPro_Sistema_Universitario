@@ -54,7 +54,7 @@ Alcance de la reparación v1:
 - barra de progreso real por fase (checks previos + compilacion MSI + bundle EXE) al generar distribuible.
 - validacion de prerequisitos no autoconfigurables:
   - Node.js 24+
-  - Docker Desktop
+  - runtime Docker compatible (`WSL2 + Docker Engine` o `Docker Desktop`)
 
 ### Instalador docente desde cero (Installer Hub)
 1. Descargar `EvaluaPro-InstallerHub-docente-local.exe` desde la release estable.
@@ -63,7 +63,8 @@ Alcance de la reparación v1:
    - splash introductorio,
    - deteccion automatica de modo (`install` / `repair` / `uninstall`),
    - analisis de requisitos del equipo,
-   - autoinstalacion silenciosa de prerequisitos faltantes (Node 24+ y Docker Desktop),
+   - bootstrap guiado de prerequisitos faltantes (Node 24+ y runtime Docker compatible),
+   - si falta WSL2/Docker Engine, emision de guía local de bootstrap para completar el runtime soportado,
    - descarga de `EvaluaPro.msi` + verificacion `SHA-256`,
    - ejecucion MSI y verificacion final.
 4. Criterio de integridad:
@@ -128,8 +129,8 @@ Smoke automatizado sugerido:
 1. Iniciar Prometheus con la configuracion versionada:
 - `prometheus --config.file=ops/observabilidad/prometheus.yml`
 2. Verificar targets:
-- backend: `http://host.docker.internal:3000/api/metrics`
-- portal: `http://host.docker.internal:3001/api/portal/metrics`
+- backend: `http://host.docker.internal:3000/api/metrics` (alias portable via `host-gateway` en Compose)
+- portal: `http://host.docker.internal:3001/api/portal/metrics` (ajustar a IP/host local resoluble si Prometheus corre fuera del stack)
 3. Importar dashboard base en Grafana:
 - `ops/observabilidad/grafana/dashboard-evaluapro.json`
 4. Confirmar reglas de alerta cargadas:

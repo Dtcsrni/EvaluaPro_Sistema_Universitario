@@ -9,6 +9,7 @@ const root = process.cwd();
 const installerHubPath = path.join(root, 'scripts', 'installer-hub', 'InstallerHub.ps1');
 const operationalConfigModulePath = path.join(root, 'scripts', 'installer-hub', 'modules', 'OperationalConfig.psm1');
 const licenseSecurityModulePath = path.join(root, 'scripts', 'installer-hub', 'modules', 'LicenseClientSecurity.psm1');
+const prereqInstallerModulePath = path.join(root, 'scripts', 'installer-hub', 'modules', 'PrereqInstaller.psm1');
 
 function getAvailablePowerShell() {
   const candidates = process.platform === 'win32'
@@ -82,6 +83,11 @@ test('installer prereq manifest incluye contrato minimo', () => {
     assert.equal(typeof item.detectRule, 'object');
     assert.equal(typeof item.detectRule.type, 'string');
   }
+
+  const dockerRuntime = manifest.prerequisites.find((item) => item.detectRule?.type === 'docker_runtime_windows');
+  assert.ok(dockerRuntime);
+  assert.equal(dockerRuntime.name, 'Docker Runtime Windows');
+  assert.match(dockerRuntime.downloadUrl, /wsl\/install/i);
 });
 
 test('canal update por defecto es stable en config y scripts', () => {
@@ -108,6 +114,18 @@ test('workflow de installer publica contratos nuevos de release', () => {
   assert.match(workflow, /Publicar release assets \(tags v\*\)/);
   assert.match(workflow, /EvaluaPro-saas-completo-Setup\.exe/);
   assert.match(workflow, /EvaluaPro-docente-local-Setup\.exe/);
+});
+
+test('runtime Docker Windows queda abstracto en dashboard, WiX y package scripts', () => {
+  const launcherDashboard = fs.readFileSync(path.join(root, 'scripts', 'launcher-dashboard.mjs'), 'utf8');
+  const productWxs = fs.readFileSync(path.join(root, 'packaging', 'wix', 'Product.wxs'), 'utf8');
+  const packageJson = JSON.parse(fs.readFileSync(path.join(root, 'package.json'), 'utf8'));
+
+  assert.match(launcherDashboard, /EVALUAPRO_DOCKER_RUNTIME/);
+  assert.match(launcherDashboard, /WSL2 \+ Docker Engine o Docker Desktop/);
+  assert.match(productWxs, /WSLINSTALLED/);
+  assert.match(productWxs, /runtime Docker compatible/i);
+  assert.equal(packageJson.scripts['docker:runtime:check'], 'node scripts/docker-runtime-check.mjs');
 });
 
 test('build del installer hub genera manifiesto local con ruta del ejecutable recomendado', () => {
@@ -231,6 +249,117 @@ $r | ConvertTo-Json -Depth 8
   assert.equal(Array.isArray(parsed.errors), true);
   assert.equal(parsed.errors.some((entry) => String(entry).includes('Puerto invalido para puertoApi')), true);
   assert.equal(parsed.errors.some((entry) => String(entry).includes('CORS no puede ser "*"')), true);
+});
+
+test('detector PowerShell expone estado abstracto de runtime Docker Windows', () => {
+  const detectorModulePath = path.join(root, 'scripts', 'installer-hub', 'modules', 'PrereqDetector.psm1');
+  const script = `
+Import-Module -Force -WarningAction SilentlyContinue '${detectorModulePath.replace(/'/g, "''")}'
+$status = Get-DockerRuntimeStatus
+$status | ConvertTo-Json -Depth 8
+`.trim();
+
+  const result = runPowerShell(script);
+  if (result.skipped) {
+    return;
+  }
+
+  const parsed = parseJsonOutput(result.stdout);
+  assert.equal(typeof parsed.preference, 'string');
+  assert.equal(typeof parsed.mode, 'string');
+  assert.equal(typeof parsed.installed, 'boolean');
+  assert.equal(Array.isArray(parsed.manualActions), true);
+});
+
+test('bootstrap guiado WSL2 genera guia local y permite simulacion de cierre', () => {
+  const tempRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'evaluapro-wsl-bootstrap-'));
+  const detectorModulePath = path.join(root, 'scripts', 'installer-hub', 'modules', 'PrereqDetector.psm1');
+  const script = `
+$env:EVALUAPRO_INSTALLER_SIMULATE_DOCKER_RUNTIME_MODE='missing'
+$env:EVALUAPRO_INSTALLER_SIMULATE_WSL_BOOTSTRAP='1'
+Import-Module -Force -WarningAction SilentlyContinue '${detectorModulePath.replace(/'/g, "''")}'
+Import-Module -Force -WarningAction SilentlyContinue '${prereqInstallerModulePath.replace(/'/g, "''")}'
+$manifest = [pscustomobject]@{
+  prerequisites = @(
+    [pscustomobject]@{
+      name = 'Docker Runtime Windows'
+      version = 'wsl2-engine-default'
+      downloadUrl = 'https://learn.microsoft.com/windows/wsl/install'
+      sha256 = 'GUIDED_BOOTSTRAP'
+      sha256Url = ''
+      sha256Pattern = ''
+      silentArgs = 'bootstrap-guided'
+      detectRule = [pscustomobject]@{ type = 'docker_runtime_windows' }
+    }
+  )
+}
+$r = Invoke-PrerequisiteInstallationFlow -Manifest $manifest -DownloadRoot '${tempRoot.replace(/'/g, "''")}'
+$r | ConvertTo-Json -Depth 10
+`.trim();
+
+  try {
+    const result = runPowerShell(script);
+    if (result.skipped) {
+      return;
+    }
+    const parsed = parseJsonOutput(result.stdout);
+    assert.equal(parsed.ok, true);
+    assert.equal(Array.isArray(parsed.installed), true);
+    assert.equal(parsed.installed.length, 1);
+    assert.equal(typeof parsed.installed[0].guidePath, 'string');
+    assert.equal(fs.existsSync(parsed.installed[0].guidePath), true);
+    assert.equal(fs.existsSync(parsed.installed[0].scriptPath), true);
+  } finally {
+    fs.rmSync(tempRoot, { recursive: true, force: true });
+  }
+});
+
+test('bootstrap semiautomatico WSL2 ejecuta pasos host y reporta trazabilidad', () => {
+  const tempRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'evaluapro-wsl-autobootstrap-'));
+  const detectorModulePath = path.join(root, 'scripts', 'installer-hub', 'modules', 'PrereqDetector.psm1');
+  const script = `
+$env:EVALUAPRO_INSTALLER_SIMULATE_DOCKER_RUNTIME_MODE='missing'
+$env:EVALUAPRO_INSTALLER_AUTO_BOOTSTRAP_WSL='1'
+$env:EVALUAPRO_INSTALLER_SIMULATE_AUTO_BOOTSTRAP='1'
+$env:EVALUAPRO_INSTALLER_SIMULATE_DOCKER_RUNTIME_MODE_AFTER_AUTO='wsl2-engine'
+Import-Module -Force -WarningAction SilentlyContinue '${detectorModulePath.replace(/'/g, "''")}'
+Import-Module -Force -WarningAction SilentlyContinue '${prereqInstallerModulePath.replace(/'/g, "''")}'
+$manifest = [pscustomobject]@{
+  prerequisites = @(
+    [pscustomobject]@{
+      name = 'Docker Runtime Windows'
+      version = 'wsl2-engine-default'
+      downloadUrl = 'https://learn.microsoft.com/windows/wsl/install'
+      sha256 = 'GUIDED_BOOTSTRAP'
+      sha256Url = ''
+      sha256Pattern = ''
+      silentArgs = 'bootstrap-guided'
+      detectRule = [pscustomobject]@{ type = 'docker_runtime_windows' }
+    }
+  )
+}
+$r = Invoke-PrerequisiteInstallationFlow -Manifest $manifest -DownloadRoot '${tempRoot.replace(/'/g, "''")}'
+$r | ConvertTo-Json -Depth 10
+`.trim();
+
+  try {
+    const result = runPowerShell(script);
+    if (result.skipped) {
+      return;
+    }
+    const parsed = parseJsonOutput(result.stdout);
+    assert.equal(parsed.ok, true);
+    assert.equal(Array.isArray(parsed.installed), true);
+    assert.equal(parsed.installed.length, 1);
+    assert.equal(typeof parsed.installed[0].guidePath, 'string');
+    assert.equal(fs.existsSync(parsed.installed[0].guidePath), true);
+    assert.equal(fs.existsSync(parsed.installed[0].scriptPath), true);
+    assert.equal(typeof parsed.installed[0].autoBootstrap, 'object');
+    assert.equal(Array.isArray(parsed.installed[0].autoBootstrap.executed), true);
+    assert.equal(parsed.installed[0].autoBootstrap.executed.length >= 1, true);
+  } finally {
+    fs.rmSync(tempRoot, { recursive: true, force: true });
+  }
 });
 
 test('configuracion operativa escribe .env y update-config endurecido para docente', () => {

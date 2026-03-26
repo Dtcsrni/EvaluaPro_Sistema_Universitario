@@ -12,7 +12,7 @@
       "bundleName": "EvaluaPro-saas-completo-Setup.exe",
       "deploymentTarget": "windows-saas-local",
       "prerequisitesProfile": "saas-completo",
-      "requireDockerDesktop": true,
+      "requireDockerRuntime": true,
       "minDiskGb": 8,
       "upgradeCode": "E5CBF5D2-F6AF-4E6D-9B63-8DF259C47951",
       "bundleUpgradeCode": "6EA80CBA-C4F5-4434-8B27-B66480ABAB4A"
@@ -27,7 +27,7 @@
       "bundleName": "EvaluaPro-docente-local-Setup.exe",
       "deploymentTarget": "windows-docente-local",
       "prerequisitesProfile": "docente-local",
-      "requireDockerDesktop": true,
+      "requireDockerRuntime": true,
       "minDiskGb": 6,
       "upgradeCode": "54D46831-455A-4945-A8C4-5A7AF4F7C260",
       "bundleUpgradeCode": "40D95B3B-2B8F-4171-8AB4-435BBAFB43B9"

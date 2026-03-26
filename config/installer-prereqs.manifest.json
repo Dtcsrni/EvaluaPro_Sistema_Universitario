@@ -7,7 +7,7 @@
       "description": "Prerequisitos para despliegue local SaaS completo",
       "prerequisites": [
         "Node.js",
-        "Docker Desktop"
+        "Docker Runtime Windows"
       ]
     },
     {
@@ -15,7 +15,7 @@
       "description": "Prerequisitos para operacion docente local completa",
       "prerequisites": [
         "Node.js",
-        "Docker Desktop"
+        "Docker Runtime Windows"
       ]
     }
   ],
@@ -34,15 +34,15 @@
       }
     },
     {
-      "name": "Docker Desktop",
-      "version": "stable",
-      "downloadUrl": "https://desktop.docker.com/win/main/amd64/Docker%20Desktop%20Installer.exe",
-      "sha256": "DYNAMIC_FROM_URL",
-      "sha256Url": "https://desktop.docker.com/win/main/amd64/checksums.txt",
-      "sha256Pattern": "Docker Desktop Installer.exe",
-      "silentArgs": "install --quiet --accept-license",
+      "name": "Docker Runtime Windows",
+      "version": "wsl2-engine-default",
+      "downloadUrl": "https://learn.microsoft.com/windows/wsl/install",
+      "sha256": "GUIDED_BOOTSTRAP",
+      "sha256Url": "",
+      "sha256Pattern": "",
+      "silentArgs": "bootstrap-guided",
       "detectRule": {
-        "type": "docker_desktop"
+        "type": "docker_runtime_windows"
       }
     }
   ]

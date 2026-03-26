@@ -33,5 +33,6 @@
 - [ ] Health y readiness monitoreados.
 - [ ] Métricas y alertas mínimas operativas.
 - [ ] Alertas mínimas activas desde `ops/observabilidad/alert.rules.yml`.
+- [ ] Runtime Docker validado por CLI (`docker version` / `docker context`) y no por dependencia a GUI.
 - [ ] Runbook de incidentes disponible (`docs/RUNBOOK_OPERACION.md`).
 - [ ] Gate de promoción estable con docente humano en producción ejecutado y evidenciado en `docs/release/evidencias/<version>/`.

@@ -24,6 +24,11 @@ Version visible objetivo: `1.0.0b`
   - `reports/perf/latest.json`
 
 ## 2.1) Footprint y clasificacion del corte 2026-03-20
+- Adaptación runtime local Windows 2026-03-26:
+  - `WSL2 + Docker Engine` declarado como estándar por defecto
+  - `Docker Desktop` retenido solo como compatibilidad opcional
+  - `docker-compose.yml` ya publica `host.docker.internal:host-gateway` en backend dev/prod para portabilidad fuera de Desktop
+  - Installer Hub, dashboard y WiX dejan de exigir Docker Desktop por nombre y pasan a validar runtime Docker compatible
 - Cierre operativo 2026-03-23:
   - suites backend/portal/frontend locales en verde tras aislar configuración de test del `.env` raíz
   - `App.tsx`, `AppAdminNegocio.tsx` y `AppAlumno.tsx` cuentan con cobertura dirigida nueva para el gate de diff coverage

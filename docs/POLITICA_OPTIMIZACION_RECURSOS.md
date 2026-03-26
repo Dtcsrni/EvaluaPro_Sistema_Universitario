@@ -6,7 +6,7 @@ Definir controles operativos obligatorios para evitar acumulacion de archivos in
 ## 2) Alcance
 - Host Windows de operacion local/institucional.
 - Repositorio `sistema-evaluacion-universitaria`.
-- Docker Desktop (imagenes, contenedores, volumenes, build cache).
+- Runtime Docker compatible (`WSL2 + Docker Engine` por defecto o `Docker Desktop` en compatibilidad).
 - Artefactos temporales y de ejecucion (logs, reportes, caches, backups locales).
 
 ## 3) Principios
@@ -112,7 +112,7 @@ Definir controles operativos obligatorios para evitar acumulacion de archivos in
 - No ejecutar suites pesadas en paralelo si RAM >= 85%.
 - Si RAM >= 90% sostenido:
   - detener servicios no criticos,
-  - reiniciar Docker Desktop,
+  - reiniciar el runtime Docker activo (servicio en WSL2 o Docker Desktop),
   - reintentar con perfil unico (`dev` o `prod`).
 
 ## 10) Politica de carpetas del repositorio
