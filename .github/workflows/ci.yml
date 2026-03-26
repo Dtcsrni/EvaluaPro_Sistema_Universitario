@@ -482,6 +482,9 @@ jobs:
       - name: Etapa setup
         run: npm ci --foreground-scripts
 
+      - name: Preparar runtime sharp (linux-x64)
+        run: npm install --no-save --include=optional --os=linux --cpu=x64 sharp
+
       - name: Etapa perf-check
         run: npm run perf:check
 
