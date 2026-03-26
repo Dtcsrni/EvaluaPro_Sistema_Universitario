@@ -6,7 +6,11 @@ describe('UpdatePanel', () => {
   it('habilita acciones según estado', () => {
     render(
       <UpdatePanel
-        status={{ state: 'available', availableVersion: '1.2.3' }}
+        status={{
+          state: 'available',
+          availableVersion: '1.2.3',
+          diffSummary: { counts: { releaseRelevantFiles: 4 } }
+        }}
         onCheck={vi.fn()}
         onDownload={vi.fn()}
         onApply={vi.fn()}
@@ -16,6 +20,7 @@ describe('UpdatePanel', () => {
 
     expect(screen.getByTestId('update-state')).toHaveTextContent('available');
     expect(screen.getByTestId('update-version')).toHaveTextContent('1.2.3');
+    expect(screen.getByTestId('update-diff-summary')).toHaveTextContent('Cambios relevantes beta: 4');
     expect(screen.getByRole('button', { name: 'Descargar' })).toBeEnabled();
     expect(screen.getByRole('button', { name: 'Aplicar' })).toBeDisabled();
   });

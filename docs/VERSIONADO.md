@@ -8,6 +8,7 @@ Se usa SemVer en raiz del monorepo.
 - Version visible en GUI: `1.0.0b`.
 - Canal operativo: beta funcional (MVP extendido).
 - Politica objetivo: `1.0-beta` con cero fallos de gates; promoción a estable con gate humano en produccion.
+- Publicacion beta automatica: activa desde CI/CD cuando `CI Checks` completa en verde sobre `main` y el diff respecto a la version previa es significativo.
 - Seguimiento de olas y bloqueos vigente: `docs/INVENTARIO_PROYECTO.md`.
 - Trazabilidad de continuidad entre agentes: `AGENTS.md` y `docs/IA_TRAZABILIDAD_AGENTES.md`.
 
@@ -87,3 +88,27 @@ Debe pasar:
    - `docs/release/evidencias/<version>/rollback_readiness.json`
 7. Validar decision automatica de estable:
    - workflow `Release Stable Gate` en verde y artefacto `decision.json` publicado.
+
+## Publicacion beta automatica
+1. CI completo en `main`:
+   - `CI Checks` en verde.
+2. Evaluacion de alcance:
+   - `npm run release:validate:beta -- --version=<version> --head-sha=<sha> --base-ref=<baseRef>`
+3. Si el diff es significativo:
+   - el workflow `Release Beta` genera un prerelease `v<version>-beta.<n>` y evidencia `notes.md` + `diff-summary.json` derivadas del diff.
+4. Si el diff es solo documental o regenerable:
+   - no se publica beta nueva.
+5. La beta no sustituye el gate estable:
+   - el gate estable sigue requiriendo el flujo humano en produccion.
+
+## Publicacion beta manual
+1. Se puede disparar `Release Beta` por `workflow_dispatch` sin depender de `main`.
+2. Debes proporcionar:
+   - `version`
+   - `head_sha`
+   - `base_ref` si quieres comparar contra una base concreta
+   - `reason` para dejar trazabilidad del motivo de la beta manual
+3. El criterio de publicacion sigue siendo el mismo:
+   - no publica si el diff no toca superficies de release relevantes
+   - publica prerelease solo si el corte merece beta
+   - genera `notes.md` y `diff-summary.json` en la misma evidencia para release/body

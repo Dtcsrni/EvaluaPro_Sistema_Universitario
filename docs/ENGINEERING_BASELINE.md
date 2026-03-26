@@ -64,6 +64,12 @@ Version visible GUI: `1.0.0b`
 - OMR y PDF operan en TV4 como contrato canónico, preservando el baseline visual A050929D también entre renderers.
 - Sincronizacion con schema v2.
 - Contrato CI alineado con gate `clean-architecture-check`.
+- Publicacion beta automatica integrada en CI/CD:
+  - `Release Beta` publica prereleases solo cuando `CI Checks` completa en verde y el diff respecto a la version previa es significativo
+  - los cambios solo documentales o regenerables no generan beta nueva
+  - el workflow beta tambien puede dispararse manualmente fuera de `main` con `workflow_dispatch` y motivo trazable
+  - cada beta publica `notes.md` y `diff-summary.json` generados automaticamente desde el diff como parte de la evidencia y del cuerpo del release
+  - el gate estable sigue separado y conserva su validacion humana en produccion
 
 ## Footprint operativo 2026-03-19
 - Runtime Docker `prod` adelgazado sin cambiar interfaces visibles:

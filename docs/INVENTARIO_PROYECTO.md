@@ -133,6 +133,11 @@ Version visible objetivo: `1.0.0b`
 - `CI Checks`: core + extended
 - `CI Frontend Module`: frontend aislado
 - `Package Images`: empaquetado Docker
+- `Release Beta`: prerelease automatica beta tras CI completo si el diff es significativo
+- `Release Beta` tambien soporta `workflow_dispatch` manual fuera de `main` con motivo trazable
+- `Release Beta` genera `notes.md` automaticamente desde el diff y lo publica como evidencia/asset
+- `Release Beta` genera `diff-summary.json` estructurado para automatizaciones y auditoria
+- `Release Stable Gate`: promocion estable con gate humano en produccion
 
 ## 6) Estado de limpieza
 - Guard de higiene del workspace incorporado:
@@ -195,6 +200,7 @@ Version visible objetivo: `1.0.0b`
   - dictamen actual en `docs/CLASSROOM_AUDIT_2026-03-22.md`
   - fase E2E real bloqueada en este entorno por ausencia de `GOOGLE_CLASSROOM_CLIENT_ID`, `GOOGLE_CLASSROOM_CLIENT_SECRET`, `GOOGLE_CLASSROOM_REDIRECT_URI` y `CLASSROOM_TOKEN_CIPHER_KEY`
 - Gate estable: `docs/RELEASE_GATE_STABLE.md`
+- Beta automatica: `Release Beta` publica prereleases solo cuando el diff no es meramente documental/regenerable
 - Corte PDF 2026-03-24:
   - se unifica la identidad visual del PDF en tokens compartidos para preservar la paridad A050929D sin depender del renderer activo
   - `preview`, individual y lote quedan validados con pruebas específicas de layout, contrato de impresión, fallback, baseline visual, invalidación de cache y descarga de lote

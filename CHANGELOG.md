@@ -5,6 +5,11 @@ Este archivo sigue el formato "Keep a Changelog" (alto nivel) y SemVer.
 ## [Unreleased]
 
 ### Changed
+- CI/CD incorpora publicacion automatica de beta prerelease:
+  - nuevo workflow `Release Beta` para `workflow_run` de `CI Checks` en `main`
+  - validacion de alcance `release:validate:beta` para evitar publicar beta en cambios solo documentales o regenerables
+  - beta manual con `workflow_dispatch` usa `head_sha`, `base_ref`, `reason` y genera `notes.md` + `diff-summary.json` derivados del diff
+  - el canal beta sigue separado del gate estable humano
 - Runtime local Windows alineado a `WSL2 + Docker Engine` como default con `Docker Desktop` solo en modo compatibilidad:
   - `docker-compose.yml` añade `host.docker.internal:host-gateway` en backend local/prod para networking portable
   - `config/installer-prereqs.manifest.json` reemplaza el prerequisito nominativo `Docker Desktop` por `Docker Runtime Windows`

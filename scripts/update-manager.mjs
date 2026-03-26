@@ -11,6 +11,7 @@ export function createDefaultUpdateState(currentVersion = '0.0.0') {
     availableVersion: '',
     releaseUrl: '',
     notes: '',
+    diffSummary: null,
     download: {
       bytesTotal: 0,
       bytesReceived: 0,
@@ -27,7 +28,8 @@ export function createDefaultUpdateState(currentVersion = '0.0.0') {
     lastError: '',
     updatedAt: new Date().toISOString(),
     _assetUrl: '',
-    _shaUrl: ''
+    _shaUrl: '',
+    _diffSummaryUrl: ''
   };
 }
 
@@ -152,6 +154,19 @@ async function fetchReleaseManifest(fetchImpl, assetUrl) {
   return res.json();
 }
 
+async function fetchReleaseDiffSummary(fetchImpl, assetUrl) {
+  if (!assetUrl) return null;
+  const res = await fetchImpl(assetUrl, {
+    headers: { Accept: 'application/json', 'User-Agent': 'EvaluaPro-Updater' }
+  });
+  if (!res.ok) {
+    throw new Error(`HTTP ${res.status}`);
+  }
+  const payload = await res.json();
+  if (!payload || typeof payload !== 'object' || Array.isArray(payload)) return null;
+  return payload;
+}
+
 export function selectLatestRelease(releases, currentVersion, options = {}) {
   const includePrerelease = options.includePrerelease !== false;
   const channel = String(options.channel || '').trim().toLowerCase();
@@ -195,6 +210,7 @@ export function selectLatestRelease(releases, currentVersion, options = {}) {
   }
 
   const shaAsset = assets.find((item) => String(item?.name || '') === effectiveShaName) || null;
+  const diffSummaryAsset = assets.find((item) => String(item?.name || '') === 'diff-summary.json') || null;
   return {
     found: true,
     error: '',
@@ -206,7 +222,8 @@ export function selectLatestRelease(releases, currentVersion, options = {}) {
       shaUrl: shaAsset ? String(shaAsset?.browser_download_url || '') : '',
       prerelease: Boolean(top.release?.prerelease),
       flavorId: manifestFlavor ? String(manifestFlavor.flavorId || flavorId) : flavorId,
-      manifestUrl: manifestAsset ? String(manifestAsset?.browser_download_url || '') : ''
+      manifestUrl: manifestAsset ? String(manifestAsset?.browser_download_url || '') : '',
+      diffSummaryUrl: diffSummaryAsset ? String(diffSummaryAsset?.browser_download_url || '') : ''
     }
   };
 }
@@ -338,22 +355,33 @@ export function createUpdateManager(opts = {}) {
           availableVersion: '',
           releaseUrl: '',
           notes: '',
+          diffSummary: null,
           lastError: ''
         });
         return getStatus();
       }
 
       const candidate = pick.candidate;
+      let diffSummary = null;
+      if (candidate.diffSummaryUrl) {
+        try {
+          diffSummary = await fetchReleaseDiffSummary(fetchImpl, candidate.diffSummaryUrl);
+        } catch {
+          diffSummary = null;
+        }
+      }
       setState({
         state: 'available',
         flavorId: String(candidate.flavorId || config.flavorId || ''),
         availableVersion: String(candidate.version || ''),
         releaseUrl: String(candidate.releaseUrl || ''),
         notes: String(candidate.notes || ''),
+        diffSummary,
         lastError: '',
         download: { ...state.download, percent: 0, bytesReceived: 0, bytesTotal: 0, filePath: '', sha256Ok: null },
         _assetUrl: String(candidate.installerUrl || ''),
-        _shaUrl: String(candidate.shaUrl || '')
+        _shaUrl: String(candidate.shaUrl || ''),
+        _diffSummaryUrl: String(candidate.diffSummaryUrl || '')
       });
       return getStatus();
     } catch (error) {
@@ -496,10 +524,12 @@ export function createUpdateManager(opts = {}) {
         availableVersion: '',
         releaseUrl: '',
         notes: '',
+        diffSummary: null,
         preflight,
         lastError: '',
         _assetUrl: '',
         _shaUrl: '',
+        _diffSummaryUrl: '',
         download: {
           bytesTotal: 0,
           bytesReceived: 0,
@@ -520,7 +550,9 @@ export function createUpdateManager(opts = {}) {
       state: 'available',
       availableVersion: String(params?.version || ''),
       _assetUrl: String(params?.assetUrl || ''),
-      _shaUrl: String(params?.shaUrl || '')
+      _shaUrl: String(params?.shaUrl || ''),
+      _diffSummaryUrl: String(params?.diffSummaryUrl || ''),
+      diffSummary: params?.diffSummary || null
     });
   }
 

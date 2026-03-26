@@ -310,6 +310,16 @@
   ],
   "post_release_gates": [
     {
+      "name": "beta-gate-auto",
+      "commands": [
+        "npm run release:validate:beta -- --version=<version> --head-sha=<sha> --base-ref=<baseRef>"
+      ],
+      "artifacts": [
+        "reports/release/beta/<betaVersion>/decision.json"
+      ],
+      "blocking_for_stable": false
+    },
+    {
       "name": "stable-gate-manual",
       "commands": [
         "npm run release:gate:prod-flow -- --version=<version> --periodo-id=<periodoId> --manual=docs/release/manual/prod-flow.json"

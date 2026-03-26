@@ -180,6 +180,16 @@ Policy:
   - `apps/frontend`
   - `apps/portal_alumno_cloud`
 
+### beta-release
+- Command:
+  - `npm run release:validate:beta -- --version=<version> --head-sha=<sha> --base-ref=<baseRef>`
+- Semantics:
+  - publica prerelease beta solo cuando el diff del corte es significativo
+  - no bloquea la promocion estable
+  - reutiliza la misma evidencia de CI completa como prerrequisito operacional
+- Outputs:
+  - `reports/release/beta/<betaVersion>/decision.json`
+
 ## Caches
 - `~/.npm`
 - Optional build caches (`*.tsbuildinfo`, test cache) without mutating source

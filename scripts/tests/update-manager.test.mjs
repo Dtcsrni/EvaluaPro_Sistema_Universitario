@@ -59,6 +59,54 @@ test('selectLatestRelease en canal beta solo acepta tags beta', () => {
   assert.equal(pickStable.candidate.version, '1.0.1');
 });
 
+test('check carga diff-summary.json cuando existe en assets de release', async () => {
+  const manager = createUpdateManager({
+    owner: 'demo',
+    repo: 'repo',
+    flavorId: 'docente-local',
+    channel: 'beta',
+    includePrerelease: true,
+    fetchImpl: async (url) => {
+      const u = String(url || '');
+      if (u.includes('/releases')) {
+        return new Response(JSON.stringify([{
+          tag_name: 'v1.1.0-beta.1',
+          prerelease: true,
+          html_url: 'http://example/release',
+          body: 'notes',
+          assets: [
+            { name: 'EvaluaPro-docente-local-Setup.exe', browser_download_url: 'http://example/installer.exe' },
+            { name: 'EvaluaPro-docente-local-Setup.exe.sha256', browser_download_url: 'http://example/installer.exe.sha256' },
+            { name: 'diff-summary.json', browser_download_url: 'http://example/diff-summary.json' },
+            { name: 'EvaluaPro-release-manifest.json', browser_download_url: 'http://example/manifest.json' }
+          ]
+        }]), { status: 200 });
+      }
+      if (u.includes('manifest.json')) {
+        return new Response(JSON.stringify({
+          flavors: [{
+            flavorId: 'docente-local',
+            assetName: 'EvaluaPro-docente-local-Setup.exe',
+            sha256AssetName: 'EvaluaPro-docente-local-Setup.exe.sha256'
+          }]
+        }), { status: 200 });
+      }
+      if (u.includes('diff-summary.json')) {
+        return new Response(JSON.stringify({
+          schemaVersion: 1,
+          counts: { releaseRelevantFiles: 3 }
+        }), { status: 200 });
+      }
+      return new Response('not-found', { status: 404 });
+    }
+  });
+
+  const status = await manager.check();
+  assert.equal(status.state, 'available');
+  assert.equal(status.diffSummary?.schemaVersion, 1);
+  assert.equal(status.diffSummary?.counts?.releaseRelevantFiles, 3);
+});
+
 test('download soporta reintentos y valida sha256', async () => {
   let calls = 0;
   const bytes = Buffer.from('installer-bytes', 'utf8');
