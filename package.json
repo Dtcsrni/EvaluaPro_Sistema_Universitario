@@ -137,6 +137,8 @@
     "ia:docblocks": "node scripts/ia-docblocks.mjs",
     "ia:handoff:quick": "node scripts/ia-handoff.mjs --mode quick",
     "ia:handoff:full": "node scripts/ia-handoff.mjs --mode full",
+    "ai:model:pick": "node scripts/ai-model-router.mjs",
+    "ai:ask": "node scripts/ai-openai-client.mjs",
     "release:gate:prod-flow": "node scripts/release/gate-prod-flow.mjs",
     "ops:smoke:pilot": "node scripts/release/smoke-piloto-hibrido.mjs",
     "release:check:ci-streak": "node scripts/release/check-ci-streak.mjs",

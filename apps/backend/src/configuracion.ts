@@ -94,7 +94,8 @@ const rateLimitWindowMs = parsearNumeroSeguro(process.env.RATE_LIMIT_WINDOW_MS, 
   min: 1_000,
   max: 24 * 60 * 60 * 1000
 });
-const rateLimitLimit = parsearNumeroSeguro(process.env.RATE_LIMIT_LIMIT, 300, { min: 1, max: 10_000 });
+// Nuevo valor por defecto: 500 peticiones por ventana
+const rateLimitLimit = parsearNumeroSeguro(process.env.RATE_LIMIT_LIMIT, 500, { min: 1, max: 10_000 });
 const rateLimitCredencialesLimit = parsearNumeroSeguro(
   process.env.RATE_LIMIT_CREDENCIALES_LIMIT,
   entorno === 'production' ? 40 : 120,

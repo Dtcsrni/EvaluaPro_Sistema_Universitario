@@ -65,7 +65,8 @@ export function useSesionDocente({ setDocente, onCerrarSesion, montadoRef }: Par
   }, [montadoRef, setDocente]);
 
   useEffect(() => {
-    const intervaloMs = 5 * 60 * 1000;
+    // Reducido: refresco cada 15 minutos para evitar 429
+    const intervaloMs = 15 * 60 * 1000;
     const id = window.setInterval(() => {
       void refrescarPerfil();
     }, intervaloMs);

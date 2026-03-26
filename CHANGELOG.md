@@ -5,6 +5,15 @@ Este archivo sigue el formato "Keep a Changelog" (alto nivel) y SemVer.
 ## [Unreleased]
 
 ### Changed
+- `AGENTS.md` incorpora una regla operativa para que el agente sugiera siempre el modelo recomendado antes de continuar, con prioridad especial en planeaciones.
+- Se conecta el router automatico a un cliente real de OpenAI:
+  - nuevo cliente minimo por `fetch` en `scripts/ai-openai-client.mjs`
+  - CLI `npm run ai:ask`
+  - mapeo entre etiquetas del router y modelos API vigentes
+- Se agrega un router automatico de modelos para tareas IA:
+  - modulo reutilizable `scripts/ai-model-router.mjs`
+  - CLI `npm run ai:model:pick`
+  - heuristica de seleccion por tarea, riesgo y presupuesto entre `gpt-5.4`, `gpt-5.4-mini`, `gpt-5.3-codex` y `gpt-5.1-codex-mini`
 - Generación de exámenes PDF endurecida como pilar operativo:
   - `preview`, individual y lote comparten ahora una línea visual canónica A050929D entre `pdf-lib-legacy` y `playwright-html-v1`
   - el renderer HTML abandona la paleta multicolor experimental y vuelve a la identidad compacta del baseline de impresión

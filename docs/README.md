@@ -8,6 +8,8 @@ Centro documental de producto, operacion, cumplimiento y arquitectura de EvaluaP
 - Operacion tecnica: `DESPLIEGUE.md`, `INSTALLER_HUB.md`, `SINCRONIZACION_ENTRE_COMPUTADORAS.md`, `POLITICA_OPTIMIZACION_RECURSOS.md`.
 - Arquitectura/calidad: `ARQUITECTURA.md`, `ARQUITECTURA_C4.md`, `PRUEBAS.md`, `RELEASE_GATE_STABLE.md`.
 - Footprint/limpieza: `POLITICA_OPTIMIZACION_RECURSOS.md` (peso operativo, componentes regenerables y mantenimiento Docker).
+- Utilidades IA: `scripts/ai-model-router.mjs` y `npm run ai:model:pick` para seleccionar modelo segun tarea, riesgo y presupuesto.
+- Cliente OpenAI opcional: `scripts/ai-openai-client.mjs` y `npm run ai:ask` para enviar solicitudes reales con enrutamiento automatico.
 
 ## Documentos auto-generados
 - `AUTO_DOCS_INDEX.md`

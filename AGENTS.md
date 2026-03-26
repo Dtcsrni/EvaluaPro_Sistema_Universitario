@@ -38,19 +38,23 @@ Si hay conflicto entre documentos, actualizar todos para alinear el estado real 
    - comandos ejecutados,
    - resultado exacto de gates,
    - decisiones, riesgos y siguiente paso.
-4. No registrar prompts completos, secretos o salidas crudas extensas en handoff/documentacion.
-5. No degradar calidad para "pasar rapido":
+4. Antes de continuar con una solicitud, analizar la naturaleza de la tarea y sugerir el modelo recomendado para ejecutarla.
+   - En planeaciones, arquitectura y decisiones ambiguas, priorizar `GPT-5.4`.
+   - En trabajo de codigo multiarchivo o debugging complejo, priorizar `GPT-5.3-Codex`.
+   - En tareas mecanicas, de baja ambiguedad o con foco en ahorro de tokens, priorizar `GPT-5.4-Mini` o `GPT-5.1-Codex-Mini`.
+5. No registrar prompts completos, secretos o salidas crudas extensas en handoff/documentacion.
+6. No degradar calidad para "pasar rapido":
    - no bajar thresholds,
    - no excluir modulos para ocultar deuda,
    - no introducir stubs vacios.
-6. Si un gate falla:
+7. Si un gate falla:
    - documentar causa exacta,
    - proponer/ejecutar correccion minima,
    - actualizar docs de estado.
-7. Para mantener archivos autoexplicativos:
+8. Para mantener archivos autoexplicativos:
    - agregar/ajustar docblock de cabecera por archivo,
    - usar `npm run ia:docblocks` como apoyo y revisar manualmente los modulos criticos.
-8. Si el runtime del agente no expone proveedor/modelo/version exactos:
+9. Si el runtime del agente no expone proveedor/modelo/version exactos:
    - usar `unknown`,
    - no inferir ni documentar valores inventados.
 
