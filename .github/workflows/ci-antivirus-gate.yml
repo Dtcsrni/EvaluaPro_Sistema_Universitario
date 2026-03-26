@@ -1,0 +1,46 @@
+name: CI Antivirus Gate
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - ".github/workflows/release-beta.yml"
+      - ".github/workflows/ci-installer-windows.yml"
+      - "scripts/release/**"
+      - "README.md"
+      - "docs/VERSIONADO.md"
+  pull_request:
+    paths:
+      - ".github/workflows/release-beta.yml"
+      - ".github/workflows/ci-installer-windows.yml"
+      - "scripts/release/**"
+      - "README.md"
+      - "docs/VERSIONADO.md"
+  workflow_dispatch:
+
+concurrency:
+  group: ci-antivirus-gate-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  antivirus_contract:
+    name: Antivirus Gate Contract
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Descargar código
+        uses: actions/checkout@v4
+
+      - name: Verificar contrato AV en workflows de release
+        shell: bash
+        run: |
+          set -euo pipefail
+          for wf in .github/workflows/release-beta.yml .github/workflows/ci-installer-windows.yml; do
+            grep -q "Antivirus gate de instalador simple" "$wf"
+            grep -q "EvaluaPro-Instalador-Windows.zip" "$wf"
+            grep -q "antivirus-scan-report.txt" "$wf"
+          done
+          echo "Contrato AV presente en release beta y stable."
+

@@ -191,6 +191,77 @@ jobs:
           $base = "https://github.com/${{ github.repository }}/releases/download/$tag"
           powershell -NoProfile -ExecutionPolicy Bypass -File scripts/generate-installer-hashes.ps1 -Channel beta -ReleaseBaseUrl "$base"
 
+      - name: Empaquetar instalacion simple para usuario final
+        shell: powershell
+        run: |
+          $zipPath = 'dist/installer/EvaluaPro-Instalador-Windows.zip'
+          $zipShaPath = 'dist/installer/EvaluaPro-Instalador-Windows.zip.sha256'
+          $packageRoot = Join-Path $env:RUNNER_TEMP 'evaluapro-instalacion-simple'
+          $readmePath = Join-Path $packageRoot 'LEEME-INSTALACION.txt'
+          $setupPath = 'dist/installer/EvaluaPro-docente-local-Setup.exe'
+          if (-not (Test-Path $setupPath)) {
+            throw "No se encontro instalador esperado: $setupPath"
+          }
+
+          New-Item -ItemType Directory -Path $packageRoot -Force | Out-Null
+          Copy-Item -Path $setupPath -Destination (Join-Path $packageRoot 'EvaluaPro-Setup.exe') -Force
+
+          @(
+            'EvaluaPro - Instalacion simple (Windows)',
+            '',
+            'Pasos:',
+            '1) Extrae este .zip en una carpeta local.',
+            '2) Ejecuta EvaluaPro-Setup.exe.',
+            '3) Sigue el asistente de instalacion.',
+            '',
+            'Si Windows pide confirmacion, valida el archivo y permite la ejecucion.'
+          ) | Set-Content -Path $readmePath -Encoding utf8
+
+          if (Test-Path $zipPath) { Remove-Item -Path $zipPath -Force }
+          Compress-Archive -Path (Join-Path $packageRoot '*') -DestinationPath $zipPath -Force
+          $zipHash = (Get-FileHash -Path $zipPath -Algorithm SHA256).Hash.ToLowerInvariant()
+          "$zipHash  EvaluaPro-Instalador-Windows.zip" | Set-Content -Path $zipShaPath -Encoding utf8
+
+      - name: Antivirus gate de instalador simple
+        shell: powershell
+        run: |
+          $zipPath = 'dist/installer/EvaluaPro-Instalador-Windows.zip'
+          if (-not (Test-Path $zipPath)) {
+            throw "No se encontro paquete para antivirus: $zipPath"
+          }
+
+          $candidatePaths = @(
+            "$env:ProgramFiles\Windows Defender\MpCmdRun.exe",
+            "$env:ProgramFiles\Microsoft Defender\MpCmdRun.exe"
+          )
+          $wildcards = @(
+            "$env:ProgramData\Microsoft\Windows Defender\Platform\*\MpCmdRun.exe"
+          )
+
+          foreach ($pattern in $wildcards) {
+            $found = Get-ChildItem -Path $pattern -ErrorAction SilentlyContinue | Sort-Object LastWriteTime -Descending | Select-Object -First 1
+            if ($found) { $candidatePaths += $found.FullName }
+          }
+
+          $mpCmdRun = $candidatePaths | Where-Object { Test-Path $_ } | Select-Object -First 1
+          if (-not $mpCmdRun) {
+            throw 'No se encontro MpCmdRun.exe (Microsoft Defender) en el runner.'
+          }
+
+          & $mpCmdRun -SignatureUpdate | Out-Null
+          & $mpCmdRun -Scan -ScanType 3 -File $zipPath
+          if ($LASTEXITCODE -ne 0) {
+            throw "Antivirus detecto incidente o no pudo validar el archivo (exit code: $LASTEXITCODE)."
+          }
+
+          @(
+            "scanner=Microsoft Defender",
+            "scannerPath=$mpCmdRun",
+            "target=$zipPath",
+            "result=clean",
+            "timestampUtc=$([DateTime]::UtcNow.ToString('o'))"
+          ) | Set-Content -Path 'dist/installer/antivirus-scan-report.txt' -Encoding utf8
+
       - name: Generar notas beta
         shell: bash
         env:
@@ -229,6 +300,9 @@ jobs:
           make_latest: false
           body: ${{ steps.notes.outputs.body }}
           files: |
+            dist/installer/EvaluaPro-Instalador-Windows.zip
+            dist/installer/EvaluaPro-Instalador-Windows.zip.sha256
+            dist/installer/antivirus-scan-report.txt
             dist/installer/EvaluaPro-saas-completo.msi
             dist/installer/EvaluaPro-saas-completo.msi.sha256
             dist/installer/EvaluaPro-saas-completo-Setup.exe

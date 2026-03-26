@@ -73,6 +73,9 @@ Debe pasar:
    - `npm run pipeline:contract:check`
 3. Actualizar `CHANGELOG.md` y publicar versión SemVer.
 4. Publicar contrato de instalador Windows estable:
+   - `EvaluaPro-Instalador-Windows.zip`
+   - `EvaluaPro-Instalador-Windows.zip.sha256`
+   - `antivirus-scan-report.txt`
    - `EvaluaPro-saas-completo.msi`
    - `EvaluaPro-saas-completo.msi.sha256`
    - `EvaluaPro-InstallerHub-saas-completo.exe`
@@ -80,6 +83,7 @@ Debe pasar:
    - `EvaluaPro-docente-local.msi.sha256`
    - `EvaluaPro-InstallerHub-docente-local.exe`
    - `EvaluaPro-release-manifest.json`
+   - con gate antivirus bloqueante sobre el `.zip` para canal stable.
 5. Ejecutar gate de estable:
    - `npm run release:gate:prod-flow -- --version=<version> --periodo-id=<periodoId> --manual=docs/release/manual/prod-flow.json`
 6. Versionar evidencias en:
@@ -96,6 +100,8 @@ Debe pasar:
    - `npm run release:validate:beta -- --version=<version> --head-sha=<sha> --base-ref=<baseRef>`
 3. Si el diff es significativo:
    - el workflow `Release Beta` genera un prerelease `v<version>-beta.<n>` y evidencia `notes.md` + `diff-summary.json` derivadas del diff.
+   - publica un paquete simple para usuario final: `EvaluaPro-Instalador-Windows.zip` (extraer y ejecutar `EvaluaPro-Setup.exe`).
+   - ejecuta un gate antivirus bloqueante (Microsoft Defender) sobre el `.zip` antes de publicar la prerelease.
 4. Si el diff es solo documental o regenerable:
    - no se publica beta nueva.
 5. La beta no sustituye el gate estable:

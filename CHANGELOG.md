@@ -10,6 +10,15 @@ Este archivo sigue el formato "Keep a Changelog" (alto nivel) y SemVer.
   - validacion de alcance `release:validate:beta` para evitar publicar beta en cambios solo documentales o regenerables
   - beta manual con `workflow_dispatch` usa `head_sha`, `base_ref`, `reason` y genera `notes.md` + `diff-summary.json` derivados del diff
   - el canal beta sigue separado del gate estable humano
+- Releases Windows simplificados para usuario final sin romper compatibilidad de updater:
+  - `Release Beta` y `CI Installer Windows` ahora generan `EvaluaPro-Instalador-Windows.zip` + `.sha256`
+  - el paquete simple incluye `EvaluaPro-Setup.exe` (docente-local) y `LEEME-INSTALACION.txt`
+  - se mantienen assets técnicos por flavor (`Setup.exe`, `.sha256`, `EvaluaPro-release-manifest.json`, MSI e InstallerHub) para no romper updater/Installer Hub
+- Antivirus bloqueante integrado a CI/CD de release:
+  - `Release Beta` y `CI Installer Windows` ejecutan Microsoft Defender (`MpCmdRun`) sobre el zip simple antes de publicar assets
+  - se publica evidencia `antivirus-scan-report.txt` en artifacts/releases
+  - nuevo workflow `CI Antivirus Gate` verifica contractualmente que los gates AV sigan presentes en los workflows de release
+- README muestra badge dedicado `CI Antivirus Gate` y destaca descarga simple para usuario final.
 - Runtime local Windows alineado a `WSL2 + Docker Engine` como default con `Docker Desktop` solo en modo compatibilidad:
   - `docker-compose.yml` añade `host.docker.internal:host-gateway` en backend local/prod para networking portable
   - `config/installer-prereqs.manifest.json` reemplaza el prerequisito nominativo `Docker Desktop` por `Docker Runtime Windows`
