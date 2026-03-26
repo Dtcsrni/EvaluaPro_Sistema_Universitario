@@ -225,42 +225,7 @@ jobs:
       - name: Antivirus gate de instalador simple
         shell: powershell
         run: |
-          $zipPath = 'dist/installer/EvaluaPro-Instalador-Windows.zip'
-          if (-not (Test-Path $zipPath)) {
-            throw "No se encontro paquete para antivirus: $zipPath"
-          }
-
-          $candidatePaths = @(
-            "$env:ProgramFiles\Windows Defender\MpCmdRun.exe",
-            "$env:ProgramFiles\Microsoft Defender\MpCmdRun.exe"
-          )
-          $wildcards = @(
-            "$env:ProgramData\Microsoft\Windows Defender\Platform\*\MpCmdRun.exe"
-          )
-
-          foreach ($pattern in $wildcards) {
-            $found = Get-ChildItem -Path $pattern -ErrorAction SilentlyContinue | Sort-Object LastWriteTime -Descending | Select-Object -First 1
-            if ($found) { $candidatePaths += $found.FullName }
-          }
-
-          $mpCmdRun = $candidatePaths | Where-Object { Test-Path $_ } | Select-Object -First 1
-          if (-not $mpCmdRun) {
-            throw 'No se encontro MpCmdRun.exe (Microsoft Defender) en el runner.'
-          }
-
-          & $mpCmdRun -SignatureUpdate | Out-Null
-          & $mpCmdRun -Scan -ScanType 3 -File $zipPath
-          if ($LASTEXITCODE -ne 0) {
-            throw "Antivirus detecto incidente o no pudo validar el archivo (exit code: $LASTEXITCODE)."
-          }
-
-          @(
-            "scanner=Microsoft Defender",
-            "scannerPath=$mpCmdRun",
-            "target=$zipPath",
-            "result=clean",
-            "timestampUtc=$([DateTime]::UtcNow.ToString('o'))"
-          ) | Set-Content -Path 'dist/installer/antivirus-scan-report.txt' -Encoding utf8
+          powershell -NoProfile -ExecutionPolicy Bypass -File scripts/release/run-defender-scan.ps1 -TargetPath 'dist/installer/EvaluaPro-Instalador-Windows.zip' -ReportPath 'dist/installer/antivirus-scan-report.txt'
 
       - name: Generar notas beta
         shell: bash

@@ -80,6 +80,10 @@ Este archivo sigue el formato "Keep a Changelog" (alto nivel) y SemVer.
 - Frontend suma el carril `test:gui:responsive:e2e:admin` para validar layout responsive del panel de negocio.
 
 ### Fixed
+- Gate AV de release más robusto en runners Windows:
+  - se centraliza en `scripts/release/run-defender-scan.ps1`
+  - tolera `MpCmdRun exit 2` solo cuando no hay detección asociada al artefacto objetivo
+  - mantiene bloqueo duro ante detecciones reales o fallas no recuperables
 - `GET /api/examenes/generados/lote/:loteId/pdf` deja de depender del casing recibido y normaliza `loteId` en mayúsculas, evitando falsos `404` en descargas de lote.
 - El cache de `GET /api/examenes/plantillas/:id/previsualizar/pdf` ya no puede servir PDFs obsoletos cuando cambia una pregunta real del banco o la firma visual/layout del renderer.
 - `scripts/testing/check-diff-coverage.mjs` deja de producir falsos rojos:
