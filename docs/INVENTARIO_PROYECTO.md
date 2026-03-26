@@ -94,6 +94,11 @@ Version visible objetivo: `1.0.0b`
   - estados `draft|final`
   - handoff por sesion en `.json` + `.md`
   - `unknown` permitido para identidad tecnica no expuesta por el runtime
+- Politica repo-local de economia de tokens para Codex en VS Code:
+  - guia `docs/POLITICA_ECONOMIA_TOKENS_CODEX.md`
+  - selector `npm run ai:model:pick`
+  - prueba local `npm run test:ai:model-router`
+  - alcance limitado a seleccion de modelo, compactacion de contexto y apertura de chat nuevo
 - PWA frontend:
   - manifests separados `docente` y `alumno` con `id` estable
   - iconos instalables PNG `192/512` y `maskable`

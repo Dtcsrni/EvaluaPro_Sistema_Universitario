@@ -13,6 +13,19 @@ test('selecciona modelo fuerte para arquitectura', () => {
   assert.match(decision.reasons.join(' '), /arquitectura|razonamiento/i);
 });
 
+test('selecciona modelo fuerte para politica de economia de tokens en codex y vscode', () => {
+  const decision = seleccionarModeloAutomatico({
+    task: 'Quiero implementar una politica de economia de tokens para Codex en VS Code',
+    budget: 'low'
+  });
+
+  assert.equal(decision.model, MODEL_CATALOG.strongGeneral);
+  assert.equal(decision.reasoning, 'high');
+  assert.equal(decision.mode, 'auto');
+  assert.equal(decision.signals.isPolicy, true);
+  assert.match(decision.reasons.join(' '), /politica|Codex|VS Code/i);
+});
+
 test('selecciona codex fuerte para bug multiarchivo', () => {
   const decision = seleccionarModeloAutomatico({
     task: 'Bug complejo multiarchivo en el backend con refactor y tests',
@@ -44,3 +57,16 @@ test('selecciona balanceado para coding normal', () => {
   assert.equal(decision.fallback, MODEL_CATALOG.cheapCoding);
 });
 
+test('mantiene salida estable en tareas normales de desarrollo', () => {
+  const decision = seleccionarModeloAutomatico({
+    task: 'Implementa una utilidad de validacion con pruebas',
+    mode: 'coding'
+  });
+
+  assert.deepEqual(
+    Object.keys(decision).sort(),
+    ['budget', 'fallback', 'mode', 'model', 'reasoning', 'reasons', 'signals']
+  );
+  assert.equal(typeof decision.signals, 'object');
+  assert.equal(Array.isArray(decision.reasons), true);
+});

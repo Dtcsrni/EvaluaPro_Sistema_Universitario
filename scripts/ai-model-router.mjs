@@ -68,6 +68,25 @@ const REASONING_PATTERNS = [
   'contrato'
 ];
 
+const POLICY_PATTERNS = [
+  'politica',
+  'policy',
+  'estrategia',
+  'strategy',
+  'economia de tokens',
+  'economy of tokens',
+  'codex',
+  'vscode',
+  'visual studio code',
+  'compactacion de contexto',
+  'compactacion del contexto',
+  'compactar contexto',
+  'nuevo chat',
+  'chat nuevo',
+  'abrir chat',
+  'abrir un chat nuevo'
+];
+
 const LIGHT_PATTERNS = [
   'resumen',
   'summary',
@@ -97,6 +116,7 @@ function countPatternHits(text, patterns) {
 function inferSignals(text) {
   const codingHits = countPatternHits(text, CODING_PATTERNS);
   const reasoningHits = countPatternHits(text, REASONING_PATTERNS);
+  const policyHits = countPatternHits(text, POLICY_PATTERNS);
   const lightHits = countPatternHits(text, LIGHT_PATTERNS);
   const isMultiFile = /(\bmultiarchivo\b|\bmulti-file\b|\bvarios archivos\b|\bmultiple files\b)/u.test(text);
   const isSimple = /(\bsimple\b|\bpequeno\b|\bsmall\b|\bquick\b|\brapido\b|\bmejorar redaccion\b)/u.test(text);
@@ -105,10 +125,12 @@ function inferSignals(text) {
   return {
     codingHits,
     reasoningHits,
+    policyHits,
     lightHits,
     isMultiFile,
     isSimple,
-    isHighRisk
+    isHighRisk,
+    isPolicy: policyHits > 0
   };
 }
 
@@ -128,9 +150,10 @@ function normalizeMode(value) {
 }
 
 function chooseReasoningLevel(model, signals, budget, mode) {
+  if (model === MODEL_CATALOG.strongGeneral || model === MODEL_CATALOG.strongCoding) return 'high';
+  if (signals.isPolicy) return 'high';
   if (budget === 'low') return 'low';
   if (mode === 'coding' && model === MODEL_CATALOG.balancedGeneral) return 'medium';
-  if (model === MODEL_CATALOG.strongGeneral || model === MODEL_CATALOG.strongCoding) return 'high';
   if (signals.isHighRisk || signals.isMultiFile || signals.reasoningHits >= 2) return 'high';
   if (signals.codingHits >= 2 || signals.reasoningHits >= 1) return 'medium';
   if (signals.codingHits >= 1) return 'medium';
@@ -196,6 +219,19 @@ function selectReasoningModel(signals, budget) {
   };
 }
 
+function selectPolicyModel(signals) {
+  const reasons = ['solicitud de politica o estrategia de uso para Codex en VS Code'];
+
+  if (signals.policyHits > 1) {
+    reasons.push('señales multiples de politica, economia de tokens o contexto');
+  }
+
+  return {
+    model: MODEL_CATALOG.strongGeneral,
+    reasons
+  };
+}
+
 function selectGenericModel(signals, budget) {
   if (signals.lightHits > 0 || signals.isSimple) {
     return {
@@ -220,6 +256,10 @@ function selectGenericModel(signals, budget) {
 function selectModelFromSignals(signals, budget, mode, preferStrong) {
   const wantsCoding = mode === 'coding' || signals.codingHits > 0;
   const wantsReasoning = mode === 'reasoning' || signals.reasoningHits > 0;
+
+  if (signals.isPolicy) {
+    return selectPolicyModel(signals);
+  }
 
   if (wantsReasoning && !wantsCoding) {
     return selectReasoningModel(signals, budget);

@@ -30,7 +30,8 @@ Objetivo: continuidad verificable entre agentes heterogeneos con evidencia repro
 1. La salida canonica es el JSON; el Markdown es un render humano del mismo contrato.
 2. El contrato es agnostico a proveedor, modelo, version y canal de ejecucion.
 3. Si el runtime no expone identidad tecnica exacta del agente, usar `unknown`; no inventar valores.
-4. Toda sesion nueva debe incluir como minimo:
+4. Si la sesion trata sobre seleccion de modelo, compactacion de contexto o apertura de chat nuevo para Codex en VS Code, consultar `docs/POLITICA_ECONOMIA_TOKENS_CODEX.md`; esa politica es repo-local y no forma parte del contrato del sistema ni de los gates.
+5. Toda sesion nueva debe incluir como minimo:
    - `traceSchemaVersion`
    - `sessionId`
    - `status`

@@ -127,6 +127,12 @@ Estas instrucciones describen convenciones y flujos reales del repo. Prioriza se
 	- [apps/backend/scripts/debugCrearPeriodo.ts](../apps/backend/scripts/debugCrearPeriodo.ts) crea un docente y un periodo usando `supertest` + `mongodb-memory-server`.
 	- Ejecutalo con `npx tsx apps/backend/scripts/debugCrearPeriodo.ts` (o equivalente con `tsx` si ya lo tienes disponible).
 
+## Economia de tokens para Codex
+- La politica repo-local vive en [docs/POLITICA_ECONOMIA_TOKENS_CODEX.md](../docs/POLITICA_ECONOMIA_TOKENS_CODEX.md).
+- Usa `npm run ai:model:pick` para seleccionar modelo segun tarea, riesgo y presupuesto.
+- Usa `npm run test:ai:model-router` cuando cambies la heuristica del router.
+- Esta politica solo optimiza el uso de Codex en VS Code; no modifica runtime, contrato del sistema ni gates de release.
+
 ## Guardrails del repo (no los rompas)
 - `routes:check`: `npm run routes:check` valida convenciones de rutas/auth para evitar regresiones. Si tienes que hacer una excepcion temporal, existen flags:
 	- `ROUTES_CHECK_STRICT_PATHS=0`

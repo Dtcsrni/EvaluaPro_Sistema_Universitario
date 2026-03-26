@@ -5,19 +5,20 @@ Guia operativa para cualquier agente de IA que trabaje en este repositorio.
 ## 1) Fuente de verdad (orden de precedencia)
 1. Este archivo (`AGENTS.md`).
 2. `docs/IA_TRAZABILIDAD_AGENTES.md`.
-3. Instrucciones de asistente IDE:
+3. `docs/POLITICA_ECONOMIA_TOKENS_CODEX.md`.
+4. Instrucciones de asistente IDE:
    - `.github/copilot-instructions.md`
-4. Contrato CI/CD:
+5. Contrato CI/CD:
    - `ci/pipeline.contract.md`
    - `ci/pipeline.matrix.json`
-5. Workflows:
+6. Workflows:
    - `.github/workflows/ci.yml`
    - `.github/workflows/package.yml`
-6. Gates de release y operacion:
+7. Gates de release y operacion:
    - `docs/RELEASE_GATE_STABLE.md`
    - `docs/RUNBOOK_OPERACION.md`
    - `docs/SEGURIDAD_OPERATIVA.md`
-7. Baselines y versionado:
+8. Baselines y versionado:
    - `docs/ENGINEERING_BASELINE.md`
    - `docs/DEVOPS_BASELINE.md`
    - `docs/VERSIONADO.md`
@@ -42,6 +43,7 @@ Si hay conflicto entre documentos, actualizar todos para alinear el estado real 
    - En planeaciones, arquitectura y decisiones ambiguas, priorizar `GPT-5.4`.
    - En trabajo de codigo multiarchivo o debugging complejo, priorizar `GPT-5.3-Codex`.
    - En tareas mecanicas, de baja ambiguedad o con foco en ahorro de tokens, priorizar `GPT-5.4-Mini` o `GPT-5.1-Codex-Mini`.
+   - La politica repo-local de economia de tokens para Codex en VS Code vive en `docs/POLITICA_ECONOMIA_TOKENS_CODEX.md`; aplica solo a seleccion de modelo, compactacion de contexto y apertura de chat nuevo, no al runtime ni a los gates.
 5. No registrar prompts completos, secretos o salidas crudas extensas en handoff/documentacion.
 6. No degradar calidad para "pasar rapido":
    - no bajar thresholds,

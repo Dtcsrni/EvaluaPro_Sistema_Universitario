@@ -1,24 +1,24 @@
 # Inventario Exhaustivo de Codigo
 
-Fecha de generacion: 2026-03-24 04:25:23
+Fecha de generacion: 2026-03-26 00:42:35
 Fuente: git ls-files filtrado por existencia en workspace (solo archivos versionados presentes, excluye node_modules).
 
 ## Resumen
 
-- Total de piezas de codigo/config ejecutable inventariadas: 827
+- Total de piezas de codigo/config ejecutable inventariadas: 838
 - Extensiones incluidas: ts, tsx, js, jsx, mjs, cjs, json, yml, yaml, sh, cmd, ps1.
 
 ## Conteo por area
 
 | Area | Archivos |
 | --- | ---: |
-| backend | 376 |
-| frontend | 128 |
+| backend | 381 |
+| frontend | 129 |
 | portal_alumno_cloud | 44 |
 | ci | 15 |
-| scripts | 112 |
+| scripts | 116 |
 | ops | 3 |
-| docs | 28 |
+| docs | 29 |
 | raiz | 9 |
 
 ## Backend (apps/backend)
@@ -231,6 +231,7 @@ Fuente: git ls-files filtrado por existencia en workspace (solo archivos version
 - apps/backend/src/modulos/modulo_generacion_pdf/infra/html/examPlaywrightPdf.ts
 - apps/backend/src/modulos/modulo_generacion_pdf/infra/html/examPrintTemplate.ts
 - apps/backend/src/modulos/modulo_generacion_pdf/infra/pdfKitRenderer.ts
+- apps/backend/src/modulos/modulo_generacion_pdf/infra/pdfVisualBaseline.ts
 - apps/backend/src/modulos/modulo_generacion_pdf/infra/resolverPdfEngine.ts
 - apps/backend/src/modulos/modulo_generacion_pdf/modeloExamenGenerado.ts
 - apps/backend/src/modulos/modulo_generacion_pdf/modeloExamenPlantilla.ts
@@ -302,6 +303,7 @@ Fuente: git ls-files filtrado por existencia en workspace (solo archivos version
 - apps/backend/tests/aleatoriedad.test.ts
 - apps/backend/tests/analiticas.xlsx.sv.contract.test.ts
 - apps/backend/tests/autenticacionServicios.test.ts
+- apps/backend/tests/bancoPreguntas.controlador.test.ts
 - apps/backend/tests/baseDatos.test.ts
 - apps/backend/tests/calificacion.global.reglas.test.ts
 - apps/backend/tests/calificacion.omr.payload.test.ts
@@ -367,6 +369,8 @@ Fuente: git ls-files filtrado por existencia en workspace (solo archivos version
 - apps/backend/tests/omr.tv3.porFolioValidation.test.ts
 - apps/backend/tests/omr.tv3.realGolden.test.ts
 - apps/backend/tests/omr.v1.workflow.test.ts
+- apps/backend/tests/papelera.controlador.test.ts
+- apps/backend/tests/papelera.servicio.test.ts
 - apps/backend/tests/pdf.engine.resolver.test.ts
 - apps/backend/tests/pdf.image-formats.test.ts
 - apps/backend/tests/pdf.layout.visual.guard.test.ts
@@ -375,6 +379,7 @@ Fuente: git ls-files filtrado por existencia en workspace (solo archivos version
 - apps/backend/tests/pdf.renderer.fallback.test.ts
 - apps/backend/tests/pdf.tv3.compatibilidad.test.ts
 - apps/backend/tests/pdf.tv4.compatibilidad.test.ts
+- apps/backend/tests/pdf.visual.baseline.test.ts
 - apps/backend/tests/porFolioCanonicalSeed.test.ts
 - apps/backend/tests/qr.examen.test.ts
 - apps/backend/tests/rateLimit.test.ts
@@ -409,6 +414,7 @@ Fuente: git ls-files filtrado por existencia en workspace (solo archivos version
 - apps/frontend/package-lock.json
 - apps/frontend/package.json
 - apps/frontend/public/portal-sw.js
+- apps/frontend/reports/qa/latest/ux-visual.json
 - apps/frontend/src/App.tsx
 - apps/frontend/src/apps/app_admin_negocio/AppAdminNegocio.tsx
 - apps/frontend/src/apps/app_admin_negocio/clienteAdminNegocioApi.ts
@@ -598,6 +604,8 @@ Fuente: git ls-files filtrado por existencia en workspace (solo archivos version
 
 ## Scripts (scripts)
 
+- scripts/ai-model-router.mjs
+- scripts/ai-openai-client.mjs
 - scripts/build-installer-hub.ps1
 - scripts/build-msi.ps1
 - scripts/clean-architecture-check.mjs
@@ -679,6 +687,8 @@ Fuente: git ls-files filtrado por existencia en workspace (solo archivos version
 - scripts/testing/run-gate-with-report.mjs
 - scripts/testing/start-frontend-e2e-server.mjs
 - scripts/testing/validate-anon-fixture.mjs
+- scripts/tests/ai-model-router.test.mjs
+- scripts/tests/ai-openai-client.test.mjs
 - scripts/tests/dashboard-pwa-contract.test.mjs
 - scripts/tests/dashboard-repair.test.mjs
 - scripts/tests/dashboard-sw.test.mjs
@@ -736,6 +746,7 @@ Fuente: git ls-files filtrado por existencia en workspace (solo archivos version
 - docs/handoff/sesiones/2026-03-23/sesion-2026-03-23T11-18-25.821Z.input.json
 - docs/handoff/sesiones/2026-03-23/sesion-2026-03-23T11-18-25.821Z.json
 - docs/handoff/sesiones/2026-03-23/sesion-2026-03-23T12-01-36.430Z.json
+- docs/handoff/sesiones/2026-03-24/sesion-2026-03-24T10-25-30.716Z.json
 - docs/handoff/trace.schema.json
 - docs/perf/baseline.business.json
 - docs/perf/baseline.json

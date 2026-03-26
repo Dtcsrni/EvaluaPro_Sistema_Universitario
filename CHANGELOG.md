@@ -6,10 +6,11 @@ Este archivo sigue el formato "Keep a Changelog" (alto nivel) y SemVer.
 
 ### Changed
 - `AGENTS.md` incorpora una regla operativa para que el agente sugiera siempre el modelo recomendado antes de continuar, con prioridad especial en planeaciones.
-- Se conecta el router automatico a un cliente real de OpenAI:
-  - nuevo cliente minimo por `fetch` en `scripts/ai-openai-client.mjs`
-  - CLI `npm run ai:ask`
-  - mapeo entre etiquetas del router y modelos API vigentes
+- Se formaliza la politica repo-local de economia de tokens para Codex en VS Code:
+  - nueva guia `docs/POLITICA_ECONOMIA_TOKENS_CODEX.md`
+  - referencia cruzada en trazabilidad, instrucciones de agente y readmes de `docs/` y `scripts/`
+  - `scripts/ai-model-router.mjs` reconoce mejor solicitudes de politica/estrategia, Codex y VS Code para evitar selecciones genéricas baratas
+- `npm run test:ai:model-router` queda disponible como validacion local del router de modelos.
 - Se agrega un router automatico de modelos para tareas IA:
   - modulo reutilizable `scripts/ai-model-router.mjs`
   - CLI `npm run ai:model:pick`

@@ -111,6 +111,16 @@ Herramientas de operación local (principalmente Windows) para **Sistema EvaluaP
 - Validación:
   - `npm run test:ia:traceability`
 
+## Politica repo-local de economia de tokens
+- Guia: `../docs/POLITICA_ECONOMIA_TOKENS_CODEX.md`
+- Selector local:
+  - `npm run ai:model:pick -- --task "<descripcion>" [--budget low|balanced|high] [--mode auto|coding|reasoning|cheap] [--json]`
+- Validacion local:
+  - `npm run test:ai:model-router`
+- Alcance:
+  - optimiza el uso de Codex en VS Code;
+  - no cambia el runtime, el contrato del sistema ni los gates de release.
+
 ## Comentarios autoexplicativos por archivo
 - Script: `ia-docblocks.mjs`
 - Comando:

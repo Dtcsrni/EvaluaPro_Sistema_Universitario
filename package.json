@@ -138,6 +138,7 @@
     "ia:handoff:quick": "node scripts/ia-handoff.mjs --mode quick",
     "ia:handoff:full": "node scripts/ia-handoff.mjs --mode full",
     "ai:model:pick": "node scripts/ai-model-router.mjs",
+    "test:ai:model-router": "node --test scripts/tests/ai-model-router.test.mjs",
     "ai:ask": "node scripts/ai-openai-client.mjs",
     "release:gate:prod-flow": "node scripts/release/gate-prod-flow.mjs",
     "ops:smoke:pilot": "node scripts/release/smoke-piloto-hibrido.mjs",

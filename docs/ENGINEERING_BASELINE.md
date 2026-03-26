@@ -45,6 +45,8 @@ Version visible GUI: `1.0.0b`
   - contrato canonico en `docs/handoff/trace.schema.json`
   - generacion dual por sesion (`.json` + `.md`)
   - semantica `draft|final`
+  - politica repo-local de economia de tokens para Codex en VS Code en `docs/POLITICA_ECONOMIA_TOKENS_CODEX.md`
+  - selector `npm run ai:model:pick` y prueba `npm run test:ai:model-router` como apoyo local de enrutamiento
   - `npm run ci:policy:audit` valida el contrato via `npm run test:ia:traceability`
 - PWA frontend endurecida:
   - manifests `docente` y `alumno` con `id` estable y assets PNG/maskable dedicados
