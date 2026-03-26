@@ -170,16 +170,8 @@ jobs:
             dist/installer/EvaluaPro-Instalador-Windows.zip
             dist/installer/EvaluaPro-Instalador-Windows.zip.sha256
             dist/installer/antivirus-scan-report.txt
-            dist/installer/EvaluaPro-saas-completo.msi
-            dist/installer/EvaluaPro-saas-completo.msi.sha256
-            dist/installer/EvaluaPro-saas-completo-Setup.exe
-            dist/installer/EvaluaPro-saas-completo-Setup.exe.sha256
             dist/installer/EvaluaPro-InstallerHub-saas-completo.exe
             dist/installer/EvaluaPro-InstallerHub-saas-completo.exe.sha256
-            dist/installer/EvaluaPro-docente-local.msi
-            dist/installer/EvaluaPro-docente-local.msi.sha256
-            dist/installer/EvaluaPro-docente-local-Setup.exe
-            dist/installer/EvaluaPro-docente-local-Setup.exe.sha256
             dist/installer/EvaluaPro-InstallerHub-docente-local.exe
             dist/installer/EvaluaPro-InstallerHub-docente-local.exe.sha256
             dist/installer/EvaluaPro-release-manifest.json

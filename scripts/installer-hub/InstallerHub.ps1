@@ -28,7 +28,7 @@ param(
   [string]$CorreoModuloActivo = '0',
   [string]$NotificacionesWebhookUrl = '',
   [string]$NotificacionesWebhookToken = '',
-  [string]$RequireLicenseActivation = '0',
+  [string]$RequireLicenseActivation = '1',
   [string]$LicenciaAccountEmail = '',
   [string]$UpdateChannel = '',
   [string]$UpdateOwner = '',
@@ -273,7 +273,7 @@ function New-FlowState {
     correoModuloActivo = if ($CorreoModuloActivo) { $CorreoModuloActivo } else { Get-OptionalValue -Value $detected.CORREO_MODULO_ACTIVO -Fallback '0' }
     notificacionesWebhookUrl = if ($NotificacionesWebhookUrl) { $NotificacionesWebhookUrl } else { Get-OptionalValue -Value $detected.NOTIFICACIONES_WEBHOOK_URL }
     notificacionesWebhookToken = if ($NotificacionesWebhookToken) { $NotificacionesWebhookToken } else { Get-OptionalValue -Value $detected.NOTIFICACIONES_WEBHOOK_TOKEN }
-    requireLicenseActivation = $RequireLicenseActivation
+    requireLicenseActivation = '1'
     licenciaAccountEmail = if ($LicenciaAccountEmail) { $LicenciaAccountEmail } else { Get-OptionalValue -Value $detected.LICENCIA_ACCOUNT_EMAIL -Fallback 'soporte@tu-institucion.mx' }
     updateChannel = if ($UpdateChannel) { $UpdateChannel } else { Get-OptionalValue -Value $detectedUpdate.channel -Fallback 'stable' }
     updateOwner = if ($UpdateOwner) { $UpdateOwner } else { Get-OptionalValue -Value $detectedUpdate.owner -Fallback 'Dtcsrni' }
@@ -1001,7 +1001,8 @@ $checkRequireLicense = New-Object System.Windows.Forms.CheckBox
 $checkRequireLicense.Text = 'Requerir activacion de licencia en esta instalacion'
 $checkRequireLicense.AutoSize = $true
 $checkRequireLicense.Location = New-Object System.Drawing.Point(580, 452)
-$checkRequireLicense.Checked = (@('1', 'true', 'yes', 'on') -contains ([string]$flow.requireLicenseActivation).Trim().ToLowerInvariant())
+$checkRequireLicense.Checked = $true
+$checkRequireLicense.Enabled = $false
 $configGroup.Controls.Add($checkRequireLicense)
 
 $checkPasswordResetEnabled = New-Object System.Windows.Forms.CheckBox
@@ -1500,7 +1501,7 @@ function Run-InstallerFlowUi {
     $flow.correoModuloActivo = if ($checkCorreoModulo.Checked) { '1' } else { '0' }
     $flow.notificacionesWebhookUrl = [string]$textWebhookUrl.Text
     $flow.notificacionesWebhookToken = [string]$textWebhookToken.Text
-    $flow.requireLicenseActivation = if ($checkRequireLicense.Checked) { '1' } else { '0' }
+    $flow.requireLicenseActivation = '1'
     $flow.licenciaAccountEmail = [string]$textLicenciaCuenta.Text
     $flow.flavorId = [string]$comboFlavor.SelectedItem
     $flow.updateChannel = [string]$comboUpdateChannel.SelectedItem

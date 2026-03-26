@@ -107,13 +107,28 @@ test('canal update por defecto es stable en config y scripts', () => {
 
 test('workflow de installer publica contratos nuevos de release', () => {
   const workflow = fs.readFileSync(path.join(root, '.github', 'workflows', 'ci-installer-windows.yml'), 'utf8');
+  const stableReleaseBlockMatch = workflow.match(/- name: Publicar release assets \(tags v\*\)[\s\S]*?dist\/installer\/EvaluaPro-release-manifest\.json/);
+  const stableReleaseBlock = stableReleaseBlockMatch ? stableReleaseBlockMatch[0] : '';
 
   assert.match(workflow, /build-installer-hub\.ps1/);
   assert.match(workflow, /generate-installer-hashes\.ps1/);
   assert.match(workflow, /sign-installer-artifacts\.ps1/);
   assert.match(workflow, /Publicar release assets \(tags v\*\)/);
-  assert.match(workflow, /EvaluaPro-saas-completo-Setup\.exe/);
-  assert.match(workflow, /EvaluaPro-docente-local-Setup\.exe/);
+  assert.match(stableReleaseBlock, /EvaluaPro-InstallerHub-saas-completo\.exe/);
+  assert.match(stableReleaseBlock, /EvaluaPro-InstallerHub-docente-local\.exe/);
+  assert.doesNotMatch(stableReleaseBlock, /EvaluaPro-saas-completo-Setup\.exe/);
+  assert.doesNotMatch(stableReleaseBlock, /EvaluaPro-docente-local-Setup\.exe/);
+});
+
+test('workflow beta publica solo hubs en assets de prerelease', () => {
+  const workflow = fs.readFileSync(path.join(root, '.github', 'workflows', 'release-beta.yml'), 'utf8');
+  const prereleaseBlockMatch = workflow.match(/- name: Publicar prerelease beta[\s\S]*?reports\/release\/beta\/\$\{\{ needs\.beta_gate\.outputs\.beta_version \}\}\/diff-summary\.json/);
+  const prereleaseBlock = prereleaseBlockMatch ? prereleaseBlockMatch[0] : '';
+
+  assert.match(prereleaseBlock, /EvaluaPro-InstallerHub-saas-completo\.exe/);
+  assert.match(prereleaseBlock, /EvaluaPro-InstallerHub-docente-local\.exe/);
+  assert.doesNotMatch(prereleaseBlock, /EvaluaPro-saas-completo-Setup\.exe/);
+  assert.doesNotMatch(prereleaseBlock, /EvaluaPro-docente-local-Setup\.exe/);
 });
 
 test('runtime Docker Windows queda abstracto en dashboard, WiX y package scripts', () => {
@@ -160,6 +175,8 @@ test('installer hub incluye fase de configuracion operativa y blindaje de licenc
   assert.match(hub, /FlavorId/);
   assert.match(hub, /Get-LatestStableReleaseAssets[\s\S]*-FlavorId/);
   assert.match(hub, /Initialize-EvaluaProPortableAdminLicense/);
+  assert.match(hub, /\[string\]\$RequireLicenseActivation = '1'/);
+  assert.match(hub, /\$flow\.requireLicenseActivation = '1'/);
   assert.match(hub, /Regenerar accesos/);
   assert.match(hub, /Verificar/);
 });

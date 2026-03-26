@@ -76,13 +76,10 @@ Debe pasar:
    - `EvaluaPro-Instalador-Windows.zip`
    - `EvaluaPro-Instalador-Windows.zip.sha256`
    - `antivirus-scan-report.txt`
-   - `EvaluaPro-saas-completo.msi`
-   - `EvaluaPro-saas-completo.msi.sha256`
    - `EvaluaPro-InstallerHub-saas-completo.exe`
-   - `EvaluaPro-docente-local.msi`
-   - `EvaluaPro-docente-local.msi.sha256`
    - `EvaluaPro-InstallerHub-docente-local.exe`
    - `EvaluaPro-release-manifest.json`
+   - no publicar `Setup.exe`/MSI individuales en la página de release (quedan fuera de assets públicos)
    - con gate antivirus bloqueante sobre el `.zip` para canal stable.
 5. Ejecutar gate de estable:
    - `npm run release:gate:prod-flow -- --version=<version> --periodo-id=<periodoId> --manual=docs/release/manual/prod-flow.json`

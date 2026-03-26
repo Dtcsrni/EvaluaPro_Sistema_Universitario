@@ -67,7 +67,7 @@ function Normalize-OperationalConfig {
     correoModuloActivo = ConvertTo-InstallerHubBool -Value ([string](Get-InstallerHubConfigValue -InputConfig $InputConfig -Key 'correoModuloActivo' -DefaultValue '0'))
     notificacionesWebhookUrl = [string](Get-InstallerHubConfigValue -InputConfig $InputConfig -Key 'notificacionesWebhookUrl' -DefaultValue '')
     notificacionesWebhookToken = [string](Get-InstallerHubConfigValue -InputConfig $InputConfig -Key 'notificacionesWebhookToken' -DefaultValue '')
-    requireLicenseActivation = ConvertTo-InstallerHubBool -Value ([string](Get-InstallerHubConfigValue -InputConfig $InputConfig -Key 'requireLicenseActivation' -DefaultValue '0'))
+    requireLicenseActivation = ConvertTo-InstallerHubBool -Value ([string](Get-InstallerHubConfigValue -InputConfig $InputConfig -Key 'requireLicenseActivation' -DefaultValue '1'))
     apiComercialBaseUrl = [string](Get-InstallerHubConfigValue -InputConfig $InputConfig -Key 'apiComercialBaseUrl' -DefaultValue '')
     tenantId = [string](Get-InstallerHubConfigValue -InputConfig $InputConfig -Key 'tenantId' -DefaultValue '')
     codigoActivacion = [string](Get-InstallerHubConfigValue -InputConfig $InputConfig -Key 'codigoActivacion' -DefaultValue '')

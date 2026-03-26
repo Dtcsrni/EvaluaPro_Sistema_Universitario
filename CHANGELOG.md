@@ -18,7 +18,7 @@ Este archivo sigue el formato "Keep a Changelog" (alto nivel) y SemVer.
 - Releases Windows simplificados para usuario final sin romper compatibilidad de updater:
   - `Release Beta` y `CI Installer Windows` ahora generan `EvaluaPro-Instalador-Windows.zip` + `.sha256`
   - el paquete simple incluye `EvaluaPro-Setup.exe` (docente-local) y `LEEME-INSTALACION.txt`
-  - se mantienen assets técnicos por flavor (`Setup.exe`, `.sha256`, `EvaluaPro-release-manifest.json`, MSI e InstallerHub) para no romper updater/Installer Hub
+  - los assets publicados en Releases se simplifican a InstallerHub por flavor + `EvaluaPro-release-manifest.json` + evidencia AV (sin publicar `Setup.exe`/MSI individuales en la página de release)
 - Antivirus bloqueante integrado a CI/CD de release:
   - `Release Beta` y `CI Installer Windows` ejecutan Microsoft Defender (`MpCmdRun`) sobre el zip simple antes de publicar assets
   - se publica evidencia `antivirus-scan-report.txt` en artifacts/releases
@@ -85,6 +85,9 @@ Este archivo sigue el formato "Keep a Changelog" (alto nivel) y SemVer.
 - Frontend suma el carril `test:gui:responsive:e2e:admin` para validar layout responsive del panel de negocio.
 
 ### Fixed
+- Installer Hub endurece activación de licencia como requisito obligatorio:
+  - `RequireLicenseActivation` queda forzado a `1` en flujo headless/UI
+  - la opción UI de licencia obligatoria queda activa y bloqueada para evitar instalaciones sin activación
 - Se agrega guard local del workflow CI para prevenir regresiones de runtime nativo en performance:
   - nuevo `scripts/tests/ci-workflow-contract.test.mjs` valida que `ext_perf_arquitectura` ejecute `npm install ... sharp` antes de `npm run perf:check`
   - `npm run pipeline:contract:check` ahora ejecuta `scripts/pipeline-contract-check.mjs` y falla si el contrato del workflow se rompe
