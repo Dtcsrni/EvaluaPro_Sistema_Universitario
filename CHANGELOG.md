@@ -30,6 +30,7 @@ Este archivo sigue el formato "Keep a Changelog" (alto nivel) y SemVer.
   - `Release Beta` y `CI Installer Windows` publican como assets instalables oficiales solo `EvaluaPro-InstallerHub-<flavor>.exe` + `.sha256` + `EvaluaPro-release-manifest.json` + evidencia AV
   - `Setup.exe` y MSI quedan fuera de la superficie pública de instalación y actualización; se mantienen solo como artefactos técnicos internos cuando el pipeline los necesita
   - `Release Beta` y `CI Installer Windows` resuelven flavors afectados por diff y construyen solo esos (`resolve-affected-installer-flavors.mjs`), evitando rebuild innecesario de flavors no tocados
+- `packaging/wix/Bundle.wxs` declara explícitamente `Theme="hyperlinkLicense"` para `WixStandardBootstrapperApplication`, restaurando compatibilidad con WiX 6 en el job remoto `Release Beta` sin cambiar assets públicos ni el rol interno del bundle técnico.
 - Antivirus bloqueante integrado a CI/CD de release:
   - `Release Beta` y `CI Installer Windows` ejecutan Microsoft Defender (`MpCmdRun`) sobre los assets oficiales del Installer Hub antes de publicar assets
   - se publica evidencia `antivirus-scan-report.txt` en artifacts/releases

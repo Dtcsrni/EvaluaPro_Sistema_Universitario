@@ -13,6 +13,7 @@ Version visible GUI: `1.0.0b`
   - Installer Hub queda como única fuente oficial de instalación Windows por flavor (`EvaluaPro-InstallerHub-saas-completo.exe`, `EvaluaPro-InstallerHub-docente-local.exe`)
   - updater, dashboard, wrapper `Install-EvaluaPro.ps1`, manifiesto de release y workflows de beta/stable dejan de usar `Setup.exe` como asset público o ruta recomendada
   - `Setup.exe` y MSI permanecen solo como artefactos técnicos internos del pipeline/Hub; la instalación inicial directa sigue bloqueada fuera del Hub
+  - `packaging/wix/Bundle.wxs` declara `Theme="hyperlinkLicense"` para `WixStandardBootstrapperApplication`; el bundle vuelve a compilar en WiX `6.0.2` y desbloquea el job remoto `Release Beta`
 - Corte 2026-03-26:
   - Windows declara `WSL2 + Docker Engine` como runtime local por defecto y mantiene `Docker Desktop` solo como compatibilidad opcional
   - `docker-compose.yml` añade alias portable `host.docker.internal:host-gateway` en servicios backend para no depender del comportamiento implícito de Desktop

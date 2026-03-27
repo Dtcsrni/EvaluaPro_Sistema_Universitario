@@ -36,6 +36,7 @@ Version visible objetivo: `1.0.0b`
   - Installer Hub por flavor queda como única superficie pública de instalación y actualización guiada
   - updater, dashboard, wrapper de instalación, manifiesto de release y workflows dejan de descubrir/publicar `*-Setup.exe`
   - bundle/MSI se conservan solo para soporte técnico del pipeline y del Hub, fuera de la experiencia soportada al usuario final
+  - `packaging/wix/Bundle.wxs` fija `Theme="hyperlinkLicense"` en `WixStandardBootstrapperApplication`, corrigiendo la incompatibilidad con WiX 6 detectada por `Release Beta`
 - Adaptación runtime local Windows 2026-03-26:
   - `WSL2 + Docker Engine` declarado como estándar por defecto
   - `Docker Desktop` retenido solo como compatibilidad opcional
