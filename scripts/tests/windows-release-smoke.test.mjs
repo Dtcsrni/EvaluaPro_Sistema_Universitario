@@ -96,6 +96,58 @@ function readJson(filePath) {
   return JSON.parse(fs.readFileSync(filePath, 'utf8').replace(/^\uFEFF/, ''));
 }
 
+async function startMockLicenseApi() {
+  const tenantId = 'tenant-smoke';
+  const activationCode = 'code-smoke';
+  const tokenLicencia = 'header.payload.signature';
+  const server = http.createServer((req, res) => {
+    if (req.method === 'POST' && req.url === '/api/comercial-publico/licencias/activar') {
+      let body = '';
+      req.on('data', (chunk) => { body += String(chunk || ''); });
+      req.on('end', () => {
+        let payload = {};
+        try { payload = JSON.parse(body || '{}'); } catch {}
+        if (String(payload.tenantId || '') !== tenantId || String(payload.codigoActivacion || '') !== activationCode) {
+          res.statusCode = 403;
+          res.setHeader('Content-Type', 'application/json');
+          res.end(JSON.stringify({ ok: false, error: 'invalid_license_credentials' }));
+          return;
+        }
+        res.statusCode = 200;
+        res.setHeader('Content-Type', 'application/json');
+        res.end(JSON.stringify({
+          licencia: {
+            tokenLicencia,
+            canalRelease: 'stable',
+            expiraEn: '2099-12-31T23:59:59.000Z',
+            graciaOfflineDias: 30
+          }
+        }));
+      });
+      return;
+    }
+    res.statusCode = 404;
+    res.end('not_found');
+  });
+
+  await new Promise((resolve, reject) => {
+    server.once('error', reject);
+    server.listen(0, '127.0.0.1', resolve);
+  });
+  const address = server.address();
+  const port = typeof address === 'object' && address ? Number(address.port || 0) : 0;
+  if (!port) {
+    server.close();
+    throw new Error('No se pudo levantar mock de licencia.');
+  }
+  return {
+    tenantId,
+    activationCode,
+    apiBaseUrl: `http://127.0.0.1:${port}`,
+    close: () => new Promise((resolve) => server.close(() => resolve()))
+  };
+}
+
 function readLockPort() {
   try {
     const lock = JSON.parse(fs.readFileSync(lockPath, 'utf8'));
@@ -178,6 +230,7 @@ test('repair headless aislado recupera una instalacion dañada agresivamente', {
   }
 
   const tempRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'evaluapro-release-smoke-'));
+  const licenseApi = await startMockLicenseApi();
   const installDir = path.join(tempRoot, 'EvaluaPro');
   const fakeReleaseDir = path.join(tempRoot, 'release');
   const securityDir = path.join(tempRoot, 'security');
@@ -199,6 +252,9 @@ test('repair headless aislado recupera una instalacion dañada agresivamente', {
     EVALUAPRO_INSTALLER_RELEASE_MSI_PATH: fakeMsiPath,
     EVALUAPRO_INSTALLER_RELEASE_SHA_PATH: fakeShaPath,
     EVALUAPRO_INSTALLER_RELEASE_TAG: '1.0.0-test',
+    EVALUAPRO_INSTALLER_SIMULATE_WSL_BOOTSTRAP: '1',
+    EVALUAPRO_INSTALLER_SIMULATE_AUTO_BOOTSTRAP: '1',
+    EVALUAPRO_INSTALLER_AUTO_BOOTSTRAP_WSL: '1',
     EVALUAPRO_INSTALLER_SIMULATE_PRODUCT_ACTION: '1',
     EVALUAPRO_INSTALLER_SIMULATE_SOURCE_DIR: root,
     EVALUAPRO_INSTALLER_ALLOW_UNREGISTERED: '1',
@@ -215,6 +271,9 @@ test('repair headless aislado recupera una instalacion dañada agresivamente', {
       '-Mode', 'install',
       '-FlavorId', 'docente-local',
       '-InstallDir', installDir,
+      '-ApiComercialBaseUrl', licenseApi.apiBaseUrl,
+      '-TenantId', licenseApi.tenantId,
+      '-CodigoActivacion', licenseApi.activationCode,
       '-PasswordResetUrlBase', 'https://localhost/reset'
     ], { env: commonEnv, timeout: 240_000 });
     assert.equal(installRes.status, 0, installRes.stderr || installRes.stdout);
@@ -259,6 +318,9 @@ test('repair headless aislado recupera una instalacion dañada agresivamente', {
       '-Mode', 'repair',
       '-FlavorId', 'docente-local',
       '-InstallDir', installDir,
+      '-ApiComercialBaseUrl', licenseApi.apiBaseUrl,
+      '-TenantId', licenseApi.tenantId,
+      '-CodigoActivacion', licenseApi.activationCode,
       '-PasswordResetUrlBase', 'https://localhost/reset'
     ], { env: commonEnv, timeout: 240_000 });
     assert.equal(repairRes.status, 0, repairRes.stderr || repairRes.stdout);
@@ -288,6 +350,7 @@ test('repair headless aislado recupera una instalacion dañada agresivamente', {
       assert.equal(fs.existsSync(path.join(startMenuDir, shortcutName)), true);
     }
   } finally {
+    await licenseApi.close();
     fs.rmSync(tempRoot, { recursive: true, force: true });
   }
 });
@@ -298,39 +361,47 @@ test('smoke activo valida broker, manifest, shortcuts y control plane sin dañar
     return;
   }
 
-  const verifyRes = runPowerShell([
-    '-File', brokerPath,
-    '-Action', 'verify-installation',
-    '-Mode', 'prod',
-    '-Port', '4519',
-    '-NoOpen'
-  ], { timeout: 120_000 });
-  assert.equal(verifyRes.status, 0, verifyRes.stderr || verifyRes.stdout);
+  const licenseApi = await startMockLicenseApi();
+  const brokerEnv = {
+    EVALUAPRO_LICENSE_API_BASE_URL: licenseApi.apiBaseUrl,
+    EVALUAPRO_LICENSE_TENANT_ID: licenseApi.tenantId,
+    EVALUAPRO_LICENSE_ACTIVATION_CODE: licenseApi.activationCode
+  };
 
-  const regenerateRes = runPowerShell([
-    '-File', brokerPath,
-    '-Action', 'regenerate-shortcuts',
-    '-Mode', 'prod',
-    '-Port', '4519',
-    '-NoOpen'
-  ], { timeout: 120_000 });
-  assert.equal(regenerateRes.status, 0, regenerateRes.stderr || regenerateRes.stdout);
+  try {
+    const verifyRes = runPowerShell([
+      '-File', brokerPath,
+      '-Action', 'verify-installation',
+      '-Mode', 'prod',
+      '-Port', '4519',
+      '-NoOpen'
+    ], { timeout: 120_000, env: brokerEnv });
+    assert.equal(verifyRes.status, 0, verifyRes.stderr || verifyRes.stdout);
 
-  const openRunId = `release-smoke-${Date.now()}`;
-  const openRes = runPowerShell([
-    '-File', brokerPath,
-    '-Action', 'open-dashboard',
-    '-Mode', 'prod',
-    '-Port', '4519',
-    '-RunId', openRunId,
-    '-NoOpen'
-  ], { timeout: 180_000 });
-  assert.equal(openRes.status, 0, openRes.stderr || openRes.stdout);
+    const regenerateRes = runPowerShell([
+      '-File', brokerPath,
+      '-Action', 'regenerate-shortcuts',
+      '-Mode', 'prod',
+      '-Port', '4519',
+      '-NoOpen'
+    ], { timeout: 120_000, env: brokerEnv });
+    assert.equal(regenerateRes.status, 0, regenerateRes.stderr || regenerateRes.stdout);
 
-  await waitForBootstrapFile(openRunId, 30_000);
-  const bootstrap = await waitForBootstrapState(openRunId, ['healthy', 'degraded'], 60_000);
-  assert.equal(bootstrap.desiredMode, 'prod');
-  assert.notEqual(bootstrap.state, 'failed');
+    const openRunId = `release-smoke-${Date.now()}`;
+    const openRes = runPowerShell([
+      '-File', brokerPath,
+      '-Action', 'open-dashboard',
+      '-Mode', 'prod',
+      '-Port', '4519',
+      '-RunId', openRunId,
+      '-NoOpen'
+    ], { timeout: 180_000, env: brokerEnv });
+    assert.equal(openRes.status, 0, openRes.stderr || openRes.stdout);
+
+    await waitForBootstrapFile(openRunId, 30_000);
+    const bootstrap = await waitForBootstrapState(openRunId, ['healthy', 'degraded'], 60_000);
+    assert.equal(bootstrap.desiredMode, 'prod');
+    assert.notEqual(bootstrap.state, 'failed');
 
   const manifest = readJson(manifestPath);
   assert.equal(manifest.installation.installed, true);
@@ -350,27 +421,30 @@ test('smoke activo valida broker, manifest, shortcuts y control plane sin dañar
     assert.equal(Number(manifest.license.recoveryCodesRemaining) > 0, true);
   }
 
-  const dashboardBase = String(bootstrap.meta?.base || '').trim();
-  assert.match(dashboardBase, /^http:\/\/127\.0\.0\.1:\d+$/);
-  const status = await httpJson(`${dashboardBase}/api/status`, 15_000);
-  assert.equal(status.status, 200);
-  assert.equal(typeof status.body.installationState, 'object');
-  assert.equal(typeof status.body.shortcutState, 'object');
-  assert.equal(typeof status.body.licenseState, 'object');
-  assert.equal(typeof status.body.bootstrapState, 'object');
-  assert.equal(status.body.lifecycle.desiredMode, 'prod');
-  assert.equal(status.body.licenseState.state, manifest.license.portableExists ? 'portable_present' : 'missing');
-  assert.equal(status.body.licenseState.portableExists, manifest.license.portableExists);
-  if (Object.prototype.hasOwnProperty.call(status.body.licenseState, 'stepUpConfigExists')) {
-    assert.equal(status.body.licenseState.stepUpConfigExists, manifest.license.stepUpConfigExists);
-  }
+    const dashboardBase = String(bootstrap.meta?.base || '').trim();
+    assert.match(dashboardBase, /^http:\/\/127\.0\.0\.1:\d+$/);
+    const status = await httpJson(`${dashboardBase}/api/status`, 15_000);
+    assert.equal(status.status, 200);
+    assert.equal(typeof status.body.installationState, 'object');
+    assert.equal(typeof status.body.shortcutState, 'object');
+    assert.equal(typeof status.body.licenseState, 'object');
+    assert.equal(typeof status.body.bootstrapState, 'object');
+    assert.equal(status.body.lifecycle.desiredMode, 'prod');
+    assert.equal(status.body.licenseState.state, manifest.license.portableExists ? 'portable_present' : 'missing');
+    assert.equal(status.body.licenseState.portableExists, manifest.license.portableExists);
+    if (Object.prototype.hasOwnProperty.call(status.body.licenseState, 'stepUpConfigExists')) {
+      assert.equal(status.body.licenseState.stepUpConfigExists, manifest.license.stepUpConfigExists);
+    }
 
-  const statusScript = runPowerShell(['-Command', 'npm run status'], { timeout: 120_000 });
-  assert.equal(statusScript.status, 0, statusScript.stderr || statusScript.stdout);
-  assert.match(statusScript.stdout, /Estado API: (UP|DOWN)/);
-  assert.match(statusScript.stdout, /Estado Web: (UP|DOWN)/);
-  if (bootstrap.state === 'healthy') {
-    assert.match(statusScript.stdout, /Estado API: UP/);
-    assert.match(statusScript.stdout, /Estado Web: UP/);
+    const statusScript = runPowerShell(['-Command', 'npm run status'], { timeout: 120_000, env: brokerEnv });
+    assert.equal(statusScript.status, 0, statusScript.stderr || statusScript.stdout);
+    assert.match(statusScript.stdout, /Estado API: (UP|DOWN)/);
+    assert.match(statusScript.stdout, /Estado Web: (UP|DOWN)/);
+    if (bootstrap.state === 'healthy') {
+      assert.match(statusScript.stdout, /Estado API: UP/);
+      assert.match(statusScript.stdout, /Estado Web: UP/);
+    }
+  } finally {
+    await licenseApi.close();
   }
 });

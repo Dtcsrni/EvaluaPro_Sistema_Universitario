@@ -2737,7 +2737,14 @@ async function runInstallerHubMode(modeName) {
   }
 
   const ps = getPowerShellPath();
-  const command = `${quoteCmdArg(ps)} -NoProfile -ExecutionPolicy Bypass -File ${quoteCmdArg(installerHubScriptPath)} -Mode ${modeName} -Headless -NoElevation`;
+  const licenseApiBase = String(process.env.EVALUAPRO_LICENSE_API_BASE_URL || '').trim();
+  const licenseTenantId = String(process.env.EVALUAPRO_LICENSE_TENANT_ID || '').trim();
+  const licenseActivationCode = String(process.env.EVALUAPRO_LICENSE_ACTIVATION_CODE || '').trim();
+  const optionalLicenseArgs = [];
+  if (licenseApiBase) optionalLicenseArgs.push(`-ApiComercialBaseUrl ${quoteCmdArg(licenseApiBase)}`);
+  if (licenseTenantId) optionalLicenseArgs.push(`-TenantId ${quoteCmdArg(licenseTenantId)}`);
+  if (licenseActivationCode) optionalLicenseArgs.push(`-CodigoActivacion ${quoteCmdArg(licenseActivationCode)}`);
+  const command = `${quoteCmdArg(ps)} -NoProfile -ExecutionPolicy Bypass -File ${quoteCmdArg(installerHubScriptPath)} -Mode ${modeName} -Headless -NoElevation ${optionalLicenseArgs.join(' ')}`.trim();
   return runCommandCapture(command, 15 * 60_000);
 }
 

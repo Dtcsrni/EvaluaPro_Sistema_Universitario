@@ -88,6 +88,9 @@ Este archivo sigue el formato "Keep a Changelog" (alto nivel) y SemVer.
 - Installer Hub endurece activación de licencia como requisito obligatorio:
   - `RequireLicenseActivation` queda forzado a `1` en flujo headless/UI
   - la opción UI de licencia obligatoria queda activa y bloqueada para evitar instalaciones sin activación
+- `windows-release-smoke` y `launcher-dashboard` se alinean con licencia obligatoria:
+  - el smoke usa mock de activación de licencia para validar el flujo sin depender de backend comercial real
+  - `launcher-dashboard` reenvía credenciales/licensing API por variables de entorno (`EVALUAPRO_LICENSE_*`) al Installer Hub headless
 - Se agrega guard local del workflow CI para prevenir regresiones de runtime nativo en performance:
   - nuevo `scripts/tests/ci-workflow-contract.test.mjs` valida que `ext_perf_arquitectura` ejecute `npm install ... sharp` antes de `npm run perf:check`
   - `npm run pipeline:contract:check` ahora ejecuta `scripts/pipeline-contract-check.mjs` y falla si el contrato del workflow se rompe
