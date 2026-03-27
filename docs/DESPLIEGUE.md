@@ -140,7 +140,7 @@ Publicar secretos en GitHub (manual):
 
 Verificar firma local:
 ```powershell
-Get-AuthenticodeSignature .\dist\installer\EvaluaPro-docente-local-Setup.exe
+Get-AuthenticodeSignature .\dist\installer\EvaluaPro-InstallerHub-docente-local.exe
 Get-AuthenticodeSignature .\dist\installer\EvaluaPro-docente-local.msi
 ```
 
@@ -158,17 +158,16 @@ Garantia de estabilidad para distribuible:
 Artefactos:
 - `dist/installer/EvaluaPro-saas-completo.msi`
 - `dist/installer/EvaluaPro-saas-completo.msi.sha256`
-- `dist/installer/EvaluaPro-saas-completo-Setup.exe`
 - `dist/installer/EvaluaPro-InstallerHub-saas-completo.exe`
 - `dist/installer/EvaluaPro-InstallerHub-saas-completo.exe.sha256`
 - `dist/installer/EvaluaPro-docente-local.msi`
 - `dist/installer/EvaluaPro-docente-local.msi.sha256`
-- `dist/installer/EvaluaPro-docente-local-Setup.exe`
 - `dist/installer/EvaluaPro-InstallerHub-docente-local.exe`
 - `dist/installer/EvaluaPro-InstallerHub-docente-local.exe.sha256`
 - `dist/installer/EvaluaPro-release-manifest.json`
 - `dist/installer/installer-local-paths.json`
 - `dist/installer/SIGNING-NOT-PRODUCTION.txt` (solo cuando no se firma)
+- `dist/installer/EvaluaPro-<flavor>-Setup.exe` puede existir solo como artefacto tecnico interno del pipeline; no es superficie publica ni ruta soportada para usuario final.
 
 Prerequisitos de instalacion:
 - Node.js 24+
@@ -184,13 +183,10 @@ CI de instalador Windows:
 - Valida `test:wix:policy` + `test:installer-hub:contract`.
 - Compila MSI + bundle (`-SkipStabilityChecks -IncludeBundle`), compila `Installer Hub`, genera hashes/manifiesto y ejecuta signing gate opcional.
 - En tags `v*` publica automáticamente assets en GitHub Releases:
-  - `EvaluaPro-saas-completo.msi`, `EvaluaPro-saas-completo.msi.sha256`
-  - `EvaluaPro-saas-completo-Setup.exe`
   - `EvaluaPro-InstallerHub-saas-completo.exe`, `EvaluaPro-InstallerHub-saas-completo.exe.sha256`
-  - `EvaluaPro-docente-local.msi`, `EvaluaPro-docente-local.msi.sha256`
-  - `EvaluaPro-docente-local-Setup.exe`
   - `EvaluaPro-InstallerHub-docente-local.exe`, `EvaluaPro-InstallerHub-docente-local.exe.sha256`
   - `EvaluaPro-release-manifest.json`
+  - `antivirus-scan-report.txt`
 
 Ruta operativa local recomendada para este equipo:
 - `dist/installer/EvaluaPro-InstallerHub-docente-local.exe`

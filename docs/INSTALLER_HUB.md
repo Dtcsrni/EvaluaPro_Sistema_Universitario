@@ -43,27 +43,24 @@ Bootstrapper online para instalacion desde cero de EvaluaPro en entornos docente
   - `scripts/installer-hub/modules/LicenseClientSecurity.psm1`
 
 ## Contratos de release
-Assets esperados en GitHub Release:
-- `EvaluaPro-saas-completo.msi`
-- `EvaluaPro-saas-completo.msi.sha256`
-- `EvaluaPro-saas-completo-Setup.exe`
-- `EvaluaPro-saas-completo-Setup.exe.sha256`
+Assets publicos esperados en GitHub Release:
 - `EvaluaPro-InstallerHub-saas-completo.exe`
 - `EvaluaPro-InstallerHub-saas-completo.exe.sha256`
-- `EvaluaPro-docente-local.msi`
-- `EvaluaPro-docente-local.msi.sha256`
-- `EvaluaPro-docente-local-Setup.exe`
-- `EvaluaPro-docente-local-Setup.exe.sha256`
 - `EvaluaPro-InstallerHub-docente-local.exe`
 - `EvaluaPro-InstallerHub-docente-local.exe.sha256`
 - `EvaluaPro-release-manifest.json`
+
+Artefactos internos de build:
+- `EvaluaPro-<flavor>.msi`
+- `EvaluaPro-<flavor>.msi.sha256`
+- `EvaluaPro-<flavor>-Setup.exe` solo como bootstrapper tecnico interno del pipeline; no se publica ni se recomienda al usuario final.
 
 Manifest de prerequisitos versionado:
 - `config/installer-prereqs.manifest.json`
 
 Manifest de release generado:
 - `dist/installer/EvaluaPro-release-manifest.json`
-- campos minimos: `version`, `channel`, `msiUrl`, `msiSha256Url`, `publishedAt`
+- campos minimos: `version`, `channel`, `assetName`, `sha256AssetName`, `publishedAt`
 - campos extendidos piloto: `build.version`, `build.commit`, `artifacts[]` (`name`, `sha256`, `signed`), `deployment.target`
 
 ## Build local

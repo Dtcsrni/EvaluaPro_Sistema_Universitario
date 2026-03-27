@@ -30,8 +30,11 @@
         <FileSearch Id="SearchWslExe" Name="wsl.exe" />
       </DirectorySearch>
     </Property>
+    <Property Id="REQUIRE_INSTALLER_HUB" Value="0" />
+    <Property Id="SKIP_DOCKER_RUNTIME_CHECK" Value="0" />
+    <Launch Condition="Installed OR REQUIRE_INSTALLER_HUB = 1" Message="Instalacion directa no permitida. Usa exclusivamente EvaluaPro-InstallerHub para instalar y gestionar prerequisitos de forma segura." />
     <Launch Condition="NODEINSTALLED64 OR NODEINSTALLEDUSER" Message="No se detecto Node.js 24+. Instala Node.js antes de usar EvaluaPro." />
-    <Launch Condition="DOCKERINSTALLED64 OR DOCKERINSTALLEDUSER OR WSLINSTALLED" Message="No se detecto un runtime Docker compatible. Instala o habilita WSL2 para Docker Engine, o usa Docker Desktop en modo compatibilidad antes de usar EvaluaPro en modo local." />
+    <Launch Condition="SKIP_DOCKER_RUNTIME_CHECK = 1 OR DOCKERINSTALLED64 OR DOCKERINSTALLEDUSER OR WSLINSTALLED" Message="No se detecto un runtime Docker compatible. Instala/habilita WSL2 con Docker Engine o Docker Desktop en compatibilidad. Si prefieres instalacion guiada de requisitos, usa EvaluaPro-InstallerHub." />
 
     <Feature Id="MainFeature" Title="$(var.ProductName)" Level="1">
       <ComponentGroupRef Id="CG.AppFiles" />

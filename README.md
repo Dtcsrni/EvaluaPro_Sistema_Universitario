@@ -72,7 +72,7 @@ Hoja de ruta de producto/ingenieria: [docs/ROADMAP_REQUISITOS.md](docs/ROADMAP_R
 
 ## Instalacion y Uso
 - Releases: [GitHub Releases](https://github.com/Dtcsrni/EvaluaPro_Sistema_Universitario/releases)
-- Descarga simple (usuario final): `EvaluaPro-Instalador-Windows.zip` (extraer y ejecutar `EvaluaPro-Setup.exe`)
+- Instalacion oficial (usuario final): `EvaluaPro-InstallerHub-<flavor>.exe` (fuente unica para instalacion y prerequisitos)
 - Installer Hub (Windows): [docs/INSTALLER_HUB.md](docs/INSTALLER_HUB.md)
 - Desarrollo local:
 ```bash

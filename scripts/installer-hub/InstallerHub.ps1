@@ -102,6 +102,20 @@ function Resolve-DisplayVersion {
 
 $displayVersion = Resolve-DisplayVersion
 $hubTitleText = if ([string]::IsNullOrWhiteSpace($displayVersion)) { 'EvaluaPro Installer Hub' } else { "EvaluaPro Installer Hub $displayVersion" }
+$heroLogoPath = $null
+
+function Resolve-HeroLogoPath {
+  $repoRoot = Split-Path -Parent (Split-Path -Parent $scriptRoot)
+  $candidates = @(
+    (Join-Path $scriptRoot 'evaluapro-official-hero.png'),
+    (Join-Path $scriptRoot 'logos\evaluapro-official-hero.png'),
+    (Join-Path (Split-Path -Parent $scriptRoot) 'logos\evaluapro-official-hero.png'),
+    (Join-Path $repoRoot 'logos\evaluapro-official-hero.png')
+  )
+  return $candidates | Where-Object { Test-Path -LiteralPath $_ } | Select-Object -First 1
+}
+
+$heroLogoPath = Resolve-HeroLogoPath
 
 function Resolve-InstallerHubDefaults {
   $candidates = @(
@@ -148,6 +162,14 @@ function Get-OptionalValue {
   return $text
 }
 
+function Get-InstallationLocation {
+  param([object]$Installation)
+  if (-not $Installation) { return '' }
+  $prop = $Installation.PSObject.Properties['InstallLocation']
+  if (-not $prop) { return '' }
+  return Get-OptionalValue -Value $prop.Value
+}
+
 function Resolve-DetectedOperationalConfig {
   param(
     [string]$InstallDir,
@@ -155,7 +177,8 @@ function Resolve-DetectedOperationalConfig {
   )
   $candidates = @()
   if ($InstallDir) { $candidates += (Join-Path $InstallDir '.env') }
-  if ($Installation -and $Installation.InstallLocation) { $candidates += (Join-Path ([string]$Installation.InstallLocation) '.env') }
+  $installationLocation = Get-InstallationLocation -Installation $Installation
+  if ($installationLocation) { $candidates += (Join-Path $installationLocation '.env') }
   $repoEnv = Join-Path (Split-Path -Parent (Split-Path -Parent $scriptRoot)) '.env'
   $candidates += $repoEnv
   $defaults = @{
@@ -197,7 +220,8 @@ function Resolve-DetectedUpdateConfig {
   )
   $candidates = @()
   if ($InstallDir) { $candidates += (Join-Path $InstallDir 'config\update-config.json') }
-  if ($Installation -and $Installation.InstallLocation) { $candidates += (Join-Path ([string]$Installation.InstallLocation) 'config\update-config.json') }
+  $installationLocation = Get-InstallationLocation -Installation $Installation
+  if ($installationLocation) { $candidates += (Join-Path $installationLocation 'config\update-config.json') }
   $repoCfg = Join-Path (Split-Path -Parent (Split-Path -Parent $scriptRoot)) 'config\update-config.json'
   $candidates += $repoCfg
   $defaults = @{
@@ -278,8 +302,8 @@ function New-FlowState {
     updateChannel = if ($UpdateChannel) { $UpdateChannel } else { Get-OptionalValue -Value $detectedUpdate.channel -Fallback 'stable' }
     updateOwner = if ($UpdateOwner) { $UpdateOwner } else { Get-OptionalValue -Value $detectedUpdate.owner -Fallback 'Dtcsrni' }
     updateRepo = if ($UpdateRepo) { $UpdateRepo } else { Get-OptionalValue -Value $detectedUpdate.repo -Fallback 'EvaluaPro_Sistema_Universitario' }
-    updateAssetName = if ($UpdateAssetName) { $UpdateAssetName } elseif ($detectedUpdateMatchesFlavor) { Get-OptionalValue -Value $detectedUpdate.assetName -Fallback ([string]$flavor.bundleName) } else { [string]$flavor.bundleName }
-    updateShaAssetName = if ($UpdateShaAssetName) { $UpdateShaAssetName } elseif ($detectedUpdateMatchesFlavor) { Get-OptionalValue -Value $detectedUpdate.sha256AssetName -Fallback ([string]$flavor.bundleName + '.sha256') } else { ([string]$flavor.bundleName + '.sha256') }
+    updateAssetName = if ($UpdateAssetName) { $UpdateAssetName } elseif ($detectedUpdateMatchesFlavor) { Get-OptionalValue -Value $detectedUpdate.assetName -Fallback ([string]$flavor.installerHubExeName) } else { [string]$flavor.installerHubExeName }
+    updateShaAssetName = if ($UpdateShaAssetName) { $UpdateShaAssetName } elseif ($detectedUpdateMatchesFlavor) { Get-OptionalValue -Value $detectedUpdate.sha256AssetName -Fallback ([string]$flavor.installerHubExeName + '.sha256') } else { ([string]$flavor.installerHubExeName + '.sha256') }
     updateFeedUrl = if ($UpdateFeedUrl) { $UpdateFeedUrl } elseif ($detectedUpdateMatchesFlavor) { Get-OptionalValue -Value $detectedUpdate.feedUrl } else { '' }
     updateRequireSha256 = if ($UpdateRequireSha256) { $UpdateRequireSha256 } else { Get-OptionalValue -Value $detectedUpdate.requireSha256 -Fallback '1' }
     internetOk = $false
@@ -1311,26 +1335,42 @@ $splashPanel.BackColor = [System.Drawing.Color]::FromArgb(11, 26, 52)
 $rightPanel.Controls.Add($splashPanel)
 $splashPanel.BringToFront()
 
+$splashLogo = New-Object System.Windows.Forms.PictureBox
+$splashLogo.Location = New-Object System.Drawing.Point(68, 62)
+$splashLogo.Size = New-Object System.Drawing.Size(168, 168)
+$splashLogo.SizeMode = [System.Windows.Forms.PictureBoxSizeMode]::Zoom
+$splashLogo.BackColor = [System.Drawing.Color]::Transparent
+$splashPanel.Controls.Add($splashLogo)
+if ($heroLogoPath) {
+  try {
+    $splashLogo.Image = [System.Drawing.Image]::FromFile([string]$heroLogoPath)
+  } catch {
+    $splashLogo.Visible = $false
+  }
+} else {
+  $splashLogo.Visible = $false
+}
+
 $splashTitle = New-Object System.Windows.Forms.Label
 $splashTitle.Text = if ([string]::IsNullOrWhiteSpace($displayVersion)) { 'Bienvenido a EvaluaPro Installer Hub' } else { "Bienvenido a EvaluaPro Installer Hub $displayVersion" }
 $splashTitle.Font = New-Object System.Drawing.Font('Segoe UI', 24, [System.Drawing.FontStyle]::Bold)
 $splashTitle.AutoSize = $true
 $splashTitle.ForeColor = [System.Drawing.Color]::FromArgb(230, 245, 255)
-$splashTitle.Location = New-Object System.Drawing.Point(64, 76)
+$splashTitle.Location = New-Object System.Drawing.Point(252, 78)
 $splashPanel.Controls.Add($splashTitle)
 
 $splashText = New-Object System.Windows.Forms.Label
 $splashText.Text = 'Instala, repara o desinstala EvaluaPro desde cero con verificacion de requisitos, descarga segura de la version estable y control completo del proceso para docentes.'
-$splashText.Size = New-Object System.Drawing.Size(760, 90)
-$splashText.Location = New-Object System.Drawing.Point(68, 144)
+$splashText.Size = New-Object System.Drawing.Size(560, 90)
+$splashText.Location = New-Object System.Drawing.Point(256, 146)
 $splashText.ForeColor = [System.Drawing.Color]::FromArgb(173, 212, 238)
 $splashText.Font = New-Object System.Drawing.Font('Segoe UI', 11)
 $splashPanel.Controls.Add($splashText)
 
 $splashBullets = New-Object System.Windows.Forms.Label
 $splashBullets.Text = "- Analisis de requisitos del equipo`n- Bootstrap guiado de prerequisitos (Node + runtime Docker compatible)`n- Descarga y verificacion SHA256 de release estable`n- Instalacion, reparacion y desinstalacion con seguimiento por fases"
-$splashBullets.Size = New-Object System.Drawing.Size(760, 120)
-$splashBullets.Location = New-Object System.Drawing.Point(72, 242)
+$splashBullets.Size = New-Object System.Drawing.Size(744, 120)
+$splashBullets.Location = New-Object System.Drawing.Point(72, 258)
 $splashBullets.ForeColor = [System.Drawing.Color]::FromArgb(188, 226, 255)
 $splashBullets.Font = New-Object System.Drawing.Font('Segoe UI', 10)
 $splashPanel.Controls.Add($splashBullets)
@@ -1339,7 +1379,7 @@ $btnSplashStart = New-Object System.Windows.Forms.Button
 $btnSplashStart.Text = 'Comenzar'
 $btnSplashStart.Width = 160
 $btnSplashStart.Height = 42
-$btnSplashStart.Location = New-Object System.Drawing.Point(72, 392)
+$btnSplashStart.Location = New-Object System.Drawing.Point(72, 408)
 $btnSplashStart.BackColor = [System.Drawing.Color]::FromArgb(31, 148, 111)
 $btnSplashStart.ForeColor = [System.Drawing.Color]::White
 $btnSplashStart.FlatStyle = 'Popup'
@@ -1348,7 +1388,7 @@ $splashPanel.Controls.Add($btnSplashStart)
 $labelLogPath = New-Object System.Windows.Forms.Label
 $labelLogPath.Text = "Log de sesion: $($flow.logPath)"
 $labelLogPath.AutoSize = $true
-$labelLogPath.Location = New-Object System.Drawing.Point(72, 452)
+$labelLogPath.Location = New-Object System.Drawing.Point(72, 468)
 $labelLogPath.ForeColor = [System.Drawing.Color]::FromArgb(132, 183, 221)
 $labelLogPath.Font = New-Object System.Drawing.Font('Segoe UI', 9)
 $splashPanel.Controls.Add($labelLogPath)
@@ -1454,9 +1494,9 @@ $comboFlavor.Add_SelectedIndexChanged({
   try {
     $selectedFlavor = Get-InstallerFlavorDefinition -FlavorId ([string]$comboFlavor.SelectedItem)
     $lblFlavorHint.Text = [string]$selectedFlavor.description
-    if (-not [string]::IsNullOrWhiteSpace([string]$selectedFlavor.bundleName)) {
-      $textUpdateAsset.Text = [string]$selectedFlavor.bundleName
-      $textUpdateShaAsset.Text = ([string]$selectedFlavor.bundleName + '.sha256')
+    if (-not [string]::IsNullOrWhiteSpace([string]$selectedFlavor.installerHubExeName)) {
+      $textUpdateAsset.Text = [string]$selectedFlavor.installerHubExeName
+      $textUpdateShaAsset.Text = ([string]$selectedFlavor.installerHubExeName + '.sha256')
     }
     if (-not $flow.installation -or -not $flow.installation.Installed) {
       $textInstallPath.Text = Join-Path ${env:ProgramFiles} ([string]$selectedFlavor.productName -replace '[\\/:*?"<>|]', '-')

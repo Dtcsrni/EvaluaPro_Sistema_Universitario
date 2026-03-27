@@ -69,7 +69,7 @@ jobs:
 
       - name: Etapa build Installer Hub EXE
         shell: powershell
-        run: powershell -NoProfile -ExecutionPolicy Bypass -File scripts/build-installer-hub.ps1 -Flavor all -UnifiedHub -IncludeFlavorInstallers
+        run: powershell -NoProfile -ExecutionPolicy Bypass -File scripts/build-installer-hub.ps1 -Flavor all -IncludeFlavorInstallers
 
       - name: Etapa hash/manifest de release instalador
         shell: powershell
@@ -86,7 +86,7 @@ jobs:
       - name: Antivirus gate del Installer Hub
         shell: powershell
         run: |
-          powershell -NoProfile -ExecutionPolicy Bypass -File scripts/release/run-defender-scan.ps1 -TargetPath 'dist/installer/EvaluaPro-InstallerHub.exe' -ReportPath 'dist/installer/antivirus-scan-report.txt'
+          powershell -NoProfile -ExecutionPolicy Bypass -File scripts/release/run-defender-scan.ps1 -TargetPath 'dist/installer' -ReportPath 'dist/installer/antivirus-scan-report.txt'
 
       - name: Etapa signing gate (opcional)
         shell: powershell
@@ -99,8 +99,11 @@ jobs:
       - name: Verificar artefactos
         shell: powershell
         run: |
-          if (-not (Test-Path "dist/installer/EvaluaPro-InstallerHub.exe")) { throw "No existe dist/installer/EvaluaPro-InstallerHub.exe" }
-          if (-not (Test-Path "dist/installer/EvaluaPro-InstallerHub.exe.sha256")) { throw "No existe dist/installer/EvaluaPro-InstallerHub.exe.sha256" }
+          if (-not (Test-Path "dist/installer/EvaluaPro-InstallerHub-saas-completo.exe")) { throw "No existe dist/installer/EvaluaPro-InstallerHub-saas-completo.exe" }
+          if (-not (Test-Path "dist/installer/EvaluaPro-InstallerHub-saas-completo.exe.sha256")) { throw "No existe dist/installer/EvaluaPro-InstallerHub-saas-completo.exe.sha256" }
+          if (-not (Test-Path "dist/installer/EvaluaPro-InstallerHub-docente-local.exe")) { throw "No existe dist/installer/EvaluaPro-InstallerHub-docente-local.exe" }
+          if (-not (Test-Path "dist/installer/EvaluaPro-InstallerHub-docente-local.exe.sha256")) { throw "No existe dist/installer/EvaluaPro-InstallerHub-docente-local.exe.sha256" }
+          if (-not (Test-Path "dist/installer/EvaluaPro-release-manifest.json")) { throw "No existe dist/installer/EvaluaPro-release-manifest.json" }
           if (-not (Test-Path "dist/installer/antivirus-scan-report.txt")) { throw "No existe dist/installer/antivirus-scan-report.txt" }
 
       - name: Publicar artefactos instalador
@@ -108,8 +111,10 @@ jobs:
         with:
           name: installer-windows
           path: |
-            dist/installer/EvaluaPro-InstallerHub.exe
-            dist/installer/EvaluaPro-InstallerHub.exe.sha256
+            dist/installer/EvaluaPro-InstallerHub-saas-completo.exe
+            dist/installer/EvaluaPro-InstallerHub-saas-completo.exe.sha256
+            dist/installer/EvaluaPro-InstallerHub-docente-local.exe
+            dist/installer/EvaluaPro-InstallerHub-docente-local.exe.sha256
             dist/installer/antivirus-scan-report.txt
             dist/installer/EvaluaPro-release-manifest.json
             dist/installer/SIGNING-NOT-PRODUCTION.txt
@@ -122,8 +127,11 @@ jobs:
         run: |
           set -euo pipefail
           files=(
-            "dist/installer/EvaluaPro-InstallerHub.exe"
-            "dist/installer/EvaluaPro-InstallerHub.exe.sha256"
+            "dist/installer/EvaluaPro-InstallerHub-saas-completo.exe"
+            "dist/installer/EvaluaPro-InstallerHub-saas-completo.exe.sha256"
+            "dist/installer/EvaluaPro-InstallerHub-docente-local.exe"
+            "dist/installer/EvaluaPro-InstallerHub-docente-local.exe.sha256"
+            "dist/installer/EvaluaPro-release-manifest.json"
             "dist/installer/antivirus-scan-report.txt"
           )
           {

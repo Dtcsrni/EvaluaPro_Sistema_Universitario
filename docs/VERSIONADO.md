@@ -73,14 +73,14 @@ Debe pasar:
    - `npm run pipeline:contract:check`
 3. Actualizar `CHANGELOG.md` y publicar versión SemVer.
 4. Publicar contrato de instalador Windows estable:
-   - `EvaluaPro-Instalador-Windows.zip`
-   - `EvaluaPro-Instalador-Windows.zip.sha256`
-   - `antivirus-scan-report.txt`
    - `EvaluaPro-InstallerHub-saas-completo.exe`
+   - `EvaluaPro-InstallerHub-saas-completo.exe.sha256`
    - `EvaluaPro-InstallerHub-docente-local.exe`
+   - `EvaluaPro-InstallerHub-docente-local.exe.sha256`
+   - `antivirus-scan-report.txt`
    - `EvaluaPro-release-manifest.json`
    - no publicar `Setup.exe`/MSI individuales en la página de release (quedan fuera de assets públicos)
-   - con gate antivirus bloqueante sobre el `.zip` para canal stable.
+   - con gate antivirus bloqueante sobre los artefactos oficiales del directorio `dist/installer`.
    - el build de instalador por flavor debe ser incremental por diff (solo flavors afectados; fallback `all` si no hay base de diff confiable).
 5. Ejecutar gate de estable:
    - `npm run release:gate:prod-flow -- --version=<version> --periodo-id=<periodoId> --manual=docs/release/manual/prod-flow.json`
@@ -98,8 +98,8 @@ Debe pasar:
    - `npm run release:validate:beta -- --version=<version> --head-sha=<sha> --base-ref=<baseRef>`
 3. Si el diff es significativo:
    - el workflow `Release Beta` genera un prerelease `v<version>-beta.<n>` y evidencia `notes.md` + `diff-summary.json` derivadas del diff.
-   - publica un paquete simple para usuario final: `EvaluaPro-Instalador-Windows.zip` (extraer y ejecutar `EvaluaPro-Setup.exe`).
-   - ejecuta un gate antivirus bloqueante (Microsoft Defender) sobre el `.zip` antes de publicar la prerelease.
+   - publica solo los ejecutables `EvaluaPro-InstallerHub-<flavor>.exe` y sus `.sha256` como superficie instalable oficial.
+   - ejecuta un gate antivirus bloqueante (Microsoft Defender) sobre `dist/installer` antes de publicar la prerelease.
 4. Si el diff es solo documental o regenerable:
    - no se publica beta nueva.
 5. La beta no sustituye el gate estable:

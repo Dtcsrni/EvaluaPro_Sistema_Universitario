@@ -183,7 +183,7 @@ jobs:
 
       - name: Etapa build Installer Hub EXE
         shell: powershell
-        run: powershell -NoProfile -ExecutionPolicy Bypass -File scripts/build-installer-hub.ps1 -Flavor all -UnifiedHub -IncludeFlavorInstallers
+        run: powershell -NoProfile -ExecutionPolicy Bypass -File scripts/build-installer-hub.ps1 -Flavor all -IncludeFlavorInstallers
 
       - name: Etapa hash/manifest beta
         shell: powershell
@@ -195,7 +195,7 @@ jobs:
       - name: Antivirus gate del Installer Hub
         shell: powershell
         run: |
-          powershell -NoProfile -ExecutionPolicy Bypass -File scripts/release/run-defender-scan.ps1 -TargetPath 'dist/installer/EvaluaPro-InstallerHub.exe' -ReportPath 'dist/installer/antivirus-scan-report.txt'
+          powershell -NoProfile -ExecutionPolicy Bypass -File scripts/release/run-defender-scan.ps1 -TargetPath 'dist/installer' -ReportPath 'dist/installer/antivirus-scan-report.txt'
 
       - name: Generar notas beta
         shell: bash
@@ -233,8 +233,11 @@ jobs:
         run: |
           set -euo pipefail
           files=(
-            "dist/installer/EvaluaPro-InstallerHub.exe"
-            "dist/installer/EvaluaPro-InstallerHub.exe.sha256"
+            "dist/installer/EvaluaPro-InstallerHub-saas-completo.exe"
+            "dist/installer/EvaluaPro-InstallerHub-saas-completo.exe.sha256"
+            "dist/installer/EvaluaPro-InstallerHub-docente-local.exe"
+            "dist/installer/EvaluaPro-InstallerHub-docente-local.exe.sha256"
+            "dist/installer/EvaluaPro-release-manifest.json"
             "dist/installer/antivirus-scan-report.txt"
           )
           {

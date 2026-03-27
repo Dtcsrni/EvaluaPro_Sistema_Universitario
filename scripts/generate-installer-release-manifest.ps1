@@ -73,9 +73,9 @@ $catalogPath = Join-Path $root 'config\installer-flavors.json'
 $catalog = Get-Content -Path $catalogPath -Raw -Encoding utf8 | ConvertFrom-Json
 $artifactIndex = @{}
 $artifacts = @()
-$allArtifactNames = @('EvaluaPro-release-manifest.json', 'EvaluaPro-InstallerHub.exe')
+$allArtifactNames = @('EvaluaPro-release-manifest.json')
 foreach ($flavor in $catalog.flavors) {
-  $allArtifactNames += @([string]$flavor.msiName, [string]$flavor.bundleName, [string]$flavor.installerHubExeName)
+  $allArtifactNames += @([string]$flavor.msiName, [string]$flavor.installerHubExeName)
 }
 
 foreach ($name in ($allArtifactNames | Select-Object -Unique)) {
@@ -98,20 +98,19 @@ foreach ($flavor in $catalog.flavors) {
   $hubName = [string]$flavor.installerHubExeName
   $msiUrl = if ($ReleaseBaseUrl) { "$ReleaseBaseUrl/$msiName" } else { '' }
   $msiShaUrl = if ($ReleaseBaseUrl) { "$ReleaseBaseUrl/$msiName.sha256" } else { '' }
-  $bundleUrl = if ($ReleaseBaseUrl) { "$ReleaseBaseUrl/$bundleName" } else { '' }
-  $bundleShaUrl = if ($ReleaseBaseUrl) { "$ReleaseBaseUrl/$bundleName.sha256" } else { '' }
   $hubUrl = if ($ReleaseBaseUrl) { "$ReleaseBaseUrl/$hubName" } else { '' }
   $hubShaUrl = if ($ReleaseBaseUrl) { "$ReleaseBaseUrl/$hubName.sha256" } else { '' }
 
   $flavors += [ordered]@{
     flavorId = [string]$flavor.flavorId
     channel = $Channel
-    assetName = $bundleName
-    sha256AssetName = "$bundleName.sha256"
+    assetName = $hubName
+    sha256AssetName = "$hubName.sha256"
     msiName = $msiName
     msiSha256Name = "$msiName.sha256"
-    bundleUrl = $bundleUrl
-    bundleSha256Url = $bundleShaUrl
+    bundleName = $bundleName
+    bundleUrl = ''
+    bundleSha256Url = ''
     installerHubName = $hubName
     installerHubUrl = $hubUrl
     installerHubSha256Url = $hubShaUrl

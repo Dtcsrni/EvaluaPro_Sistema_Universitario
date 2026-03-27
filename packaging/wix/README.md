@@ -5,7 +5,7 @@ Responsable: `I.S.C. Erick Renato Vega Ceron`.
 
 ## Estructura
 - `Product.wxs`: MSI principal (`EvaluaPro.msi`).
-- `Bundle.wxs`: bootstrapper (`EvaluaPro-Setup.exe`) que encadena el MSI.
+- `Bundle.wxs`: bootstrapper tecnico interno (`EvaluaPro-Setup.exe`) que encadena el MSI para el flujo orquestado por Installer Hub.
 - `Fragments/AppFiles.wxs`: archivos instalados.
 - `Fragments/Shortcuts.wxs`: accesos directos Dev/Prod.
 - `Fragments/Cleanup.wxs`: limpieza de logs/menu en uninstall.
@@ -33,7 +33,12 @@ El build MSI ejecuta checks de estabilidad antes de empaquetar.
   - `powershell -NoProfile -ExecutionPolicy Bypass -File scripts/build-msi.ps1 -IncludeBundle`
   - o `EVALUAPRO_BUILD_BUNDLE=1`.
 
-Artefactos esperados:
+Politica operativa:
+- `EvaluaPro-Setup.exe` no es una fuente publica soportada de instalacion inicial.
+- la instalacion oficial para usuario final se centraliza en `EvaluaPro-InstallerHub-<flavor>.exe`.
+- el MSI/bundle pueden seguir existiendo como dependencias tecnicas internas del pipeline o del Hub.
+
+Artefactos tecnicos esperados:
 - `dist/installer/EvaluaPro.msi`
 - `dist/installer/EvaluaPro-Setup.exe` (solo con bundle habilitado)
 
@@ -51,9 +56,7 @@ Artefactos esperados:
   - genera automaticamente accesos directos de menu inicio.
   - por defecto tambien genera accesos directos en escritorio (`InstallDesktopShortcuts=1`).
   - por defecto tambien mantiene accesos en menu inicio (`InstallStartMenuShortcuts=1`).
-  - se puede desactivar por linea de comandos:
-    - `EvaluaPro-Setup.exe InstallDesktopShortcuts=0`
-    - `EvaluaPro-Setup.exe InstallStartMenuShortcuts=0`
+  - los overrides MSI siguen existiendo para automatizacion interna, pero no forman parte del flujo soportado a usuario final.
 - El instalador aplica upgrade in-place si detecta una version previa.
 - La instalacion es per-machine y solicita elevacion (UAC) al inicio.
 - El instalador valida prerequisitos no autoconfigurables:

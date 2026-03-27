@@ -76,8 +76,8 @@ function Normalize-OperationalConfig {
     updateChannel = [string](Get-InstallerHubConfigValue -InputConfig $InputConfig -Key 'updateChannel' -DefaultValue 'stable')
     updateOwner = [string](Get-InstallerHubConfigValue -InputConfig $InputConfig -Key 'updateOwner' -DefaultValue 'Dtcsrni')
     updateRepo = [string](Get-InstallerHubConfigValue -InputConfig $InputConfig -Key 'updateRepo' -DefaultValue 'EvaluaPro_Sistema_Universitario')
-    updateAssetName = [string](Get-InstallerHubConfigValue -InputConfig $InputConfig -Key 'updateAssetName' -DefaultValue 'EvaluaPro-docente-local-Setup.exe')
-    updateShaAssetName = [string](Get-InstallerHubConfigValue -InputConfig $InputConfig -Key 'updateShaAssetName' -DefaultValue 'EvaluaPro-docente-local-Setup.exe.sha256')
+    updateAssetName = [string](Get-InstallerHubConfigValue -InputConfig $InputConfig -Key 'updateAssetName' -DefaultValue 'EvaluaPro-InstallerHub-docente-local.exe')
+    updateShaAssetName = [string](Get-InstallerHubConfigValue -InputConfig $InputConfig -Key 'updateShaAssetName' -DefaultValue 'EvaluaPro-InstallerHub-docente-local.exe.sha256')
     updateFeedUrl = [string](Get-InstallerHubConfigValue -InputConfig $InputConfig -Key 'updateFeedUrl' -DefaultValue '')
     updateRequireSha256 = ConvertTo-InstallerHubBool -Value ([string](Get-InstallerHubConfigValue -InputConfig $InputConfig -Key 'updateRequireSha256' -DefaultValue '1'))
   }
@@ -417,3 +417,4 @@ Export-ModuleMember -Function @(
   'Normalize-OperationalConfig',
   'Test-OperationalConfig'
 )
+

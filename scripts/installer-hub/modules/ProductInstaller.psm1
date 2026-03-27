@@ -121,16 +121,16 @@ function Invoke-EvaluaProProductAction {
       if ($InstallDir) {
         $installProperty = (' INSTALLFOLDER="{0}"' -f $InstallDir)
       }
-      $args = ('/i "{0}" /qn /norestart INSTALL_DESKTOP_SHORTCUTS=1 INSTALL_STARTMENU_SHORTCUTS=1{1}' -f $MsiPath, $installProperty)
+      $args = ('/i "{0}" /qn /norestart REQUIRE_INSTALLER_HUB=1 SKIP_DOCKER_RUNTIME_CHECK=1 INSTALL_DESKTOP_SHORTCUTS=1 INSTALL_STARTMENU_SHORTCUTS=1{1}' -f $MsiPath, $installProperty)
     }
     'repair' {
       if ($ProductCode) {
-        $args = ('/fa {0} /qn /norestart' -f $ProductCode)
+        $args = ('/fa {0} /qn /norestart REQUIRE_INSTALLER_HUB=1 SKIP_DOCKER_RUNTIME_CHECK=1' -f $ProductCode)
       } else {
         if (-not $MsiPath -or -not (Test-Path $MsiPath)) {
           throw 'MSI requerido para modo repair cuando no existe ProductCode.'
         }
-        $args = ('/i "{0}" REINSTALL=ALL REINSTALLMODE=vomus /qn /norestart' -f $MsiPath)
+        $args = ('/i "{0}" REINSTALL=ALL REINSTALLMODE=vomus REQUIRE_INSTALLER_HUB=1 SKIP_DOCKER_RUNTIME_CHECK=1 /qn /norestart' -f $MsiPath)
       }
     }
     'uninstall' {

@@ -68,15 +68,15 @@ function writeInstallerManifest(baseDir) {
     flavors: [
       {
         flavorId: 'saas-completo',
-        assetName: 'EvaluaPro-saas-completo-Setup.exe',
+        assetName: 'EvaluaPro-InstallerHub-saas-completo.exe',
         msiName: 'EvaluaPro-saas-completo.msi',
-        installerHubName: 'EvaluaPro-InstallerHub.exe'
+        installerHubName: 'EvaluaPro-InstallerHub-saas-completo.exe'
       },
       {
         flavorId: 'docente-local',
-        assetName: 'EvaluaPro-docente-local-Setup.exe',
+        assetName: 'EvaluaPro-InstallerHub-docente-local.exe',
         msiName: 'EvaluaPro-docente-local.msi',
-        installerHubName: 'EvaluaPro-InstallerHub.exe'
+        installerHubName: 'EvaluaPro-InstallerHub-docente-local.exe'
       }
     ]
   };
@@ -145,3 +145,4 @@ test('stable promotion falla si el manifest release es incompleto aunque tenga f
   assert.equal(result.ok, false);
   assert.equal(result.checks.some((item) => item.id === 'installer-multi-flavor' && item.ok === false), true);
 });
+

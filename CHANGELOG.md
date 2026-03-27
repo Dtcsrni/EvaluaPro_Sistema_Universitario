@@ -20,9 +20,8 @@ Este archivo sigue el formato "Keep a Changelog" (alto nivel) y SemVer.
   - beta manual con `workflow_dispatch` usa `head_sha`, `base_ref`, `reason` y genera `notes.md` + `diff-summary.json` derivados del diff
   - el canal beta sigue separado del gate estable humano
 - Releases Windows simplificados para usuario final sin romper compatibilidad de updater:
-  - `Release Beta` y `CI Installer Windows` ahora generan `EvaluaPro-Instalador-Windows.zip` + `.sha256`
-  - el paquete simple incluye `EvaluaPro-Setup.exe` (docente-local) y `LEEME-INSTALACION.txt`
-  - los assets publicados en Releases se simplifican a InstallerHub por flavor + `EvaluaPro-release-manifest.json` + evidencia AV (sin publicar `Setup.exe`/MSI individuales en la página de release)
+  - `Release Beta` y `CI Installer Windows` publican como assets instalables oficiales solo `EvaluaPro-InstallerHub-<flavor>.exe` + `.sha256` + `EvaluaPro-release-manifest.json` + evidencia AV
+  - `Setup.exe` y MSI quedan fuera de la superficie pública de instalación y actualización; se mantienen solo como artefactos técnicos internos cuando el pipeline los necesita
   - `Release Beta` y `CI Installer Windows` resuelven flavors afectados por diff y construyen solo esos (`resolve-affected-installer-flavors.mjs`), evitando rebuild innecesario de flavors no tocados
 - Antivirus bloqueante integrado a CI/CD de release:
   - `Release Beta` y `CI Installer Windows` ejecutan Microsoft Defender (`MpCmdRun`) sobre el zip simple antes de publicar assets
@@ -69,6 +68,10 @@ Este archivo sigue el formato "Keep a Changelog" (alto nivel) y SemVer.
   - `EvaluaPro-InstallerHub-saas-completo.exe`
   - `EvaluaPro-InstallerHub-docente-local.exe`
   - ruta local recomendada para este repo/equipo: `C:\Users\evega\EvaluaPro_Sistema_Universitario\dist\installer\EvaluaPro-InstallerHub-docente-local.exe`
+- Installer Hub pasa a ser la única fuente oficial de instalación y update discovery:
+  - `scripts/update-manager.mjs`, `scripts/launcher-dashboard.mjs` y el manifiesto de release dejan de descubrir o recomendar `*-Setup.exe`
+  - `scripts/Install-EvaluaPro.ps1` se convierte en wrapper del Hub por flavor
+  - la instalación inicial vía `Setup.exe` sigue bloqueada fuera del Hub
 - Frontend `docente`, `alumno` y `admin_negocio` reciben un rediseño estético integral con dirección institucional premium:
   - nueva capa de tokens semánticos en `apps/frontend/src/styles/{foundations,components,screens}.css`
   - shells principales reforzados con mejor jerarquía, superficies premium y diferenciación moderada por audiencia

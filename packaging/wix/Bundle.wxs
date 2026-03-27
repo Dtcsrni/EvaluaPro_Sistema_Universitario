@@ -13,8 +13,8 @@
 
     <BootstrapperApplication>
       <bal:WixStandardBootstrapperApplication
-        Theme="hyperlinkLicense"
-        LogoFile="$(var.SourceRoot)\logos\logo_sys.png"
+        ThemeFile="$(var.SourceRoot)\packaging\wix\theme\hyperlinkLicense-hero.xml"
+        LogoFile="$(var.SourceRoot)\logos\evaluapro-official-hero.png"
         LicenseUrl="https://www.gnu.org/licenses/agpl-3.0.html"
         ShowVersion="yes"
         SuppressOptionsUI="no" />

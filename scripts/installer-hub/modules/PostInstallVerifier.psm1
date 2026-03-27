@@ -21,8 +21,9 @@ function Invoke-PostInstallVerification {
     }
 
     $effectiveDir = $InstallDir
-    if (-not $effectiveDir -and $installation.InstallLocation) {
-      $effectiveDir = $installation.InstallLocation
+    $installLocationProp = $installation.PSObject.Properties['InstallLocation']
+    if (-not $effectiveDir -and $installLocationProp -and $installLocationProp.Value) {
+      $effectiveDir = [string]$installLocationProp.Value
     }
     if (-not $effectiveDir) {
       $effectiveDir = Join-Path ${env:ProgramFiles} 'EvaluaPro'
@@ -108,11 +109,12 @@ function Invoke-PostInstallVerification {
       try {
         $updateCfg = Get-Content -Path $updateConfigPath -Raw -Encoding utf8 | ConvertFrom-Json
         if ($Flavor) {
+          $expectedAsset = if ($Flavor.PSObject.Properties.Match('installerHubExeName').Count -gt 0 -and -not [string]::IsNullOrWhiteSpace([string]$Flavor.installerHubExeName)) { [string]$Flavor.installerHubExeName } else { [string]$Flavor.bundleName }
           if ([string]$updateCfg.flavorId -ne [string]$Flavor.flavorId) {
             $issues += "Flavor update-config inconsistente. Esperado=$($Flavor.flavorId) Actual=$([string]$updateCfg.flavorId)"
           }
-          if ([string]$updateCfg.assetName -ne [string]$Flavor.bundleName) {
-            $issues += "Asset updater inconsistente. Esperado=$($Flavor.bundleName) Actual=$([string]$updateCfg.assetName)"
+          if ([string]$updateCfg.assetName -ne $expectedAsset) {
+            $issues += "Asset updater inconsistente. Esperado=$expectedAsset Actual=$([string]$updateCfg.assetName)"
           }
         }
       } catch {

@@ -38,7 +38,7 @@ $catalogPath = Join-Path $root 'config\installer-flavors.json'
 $catalog = Get-Content -Path $catalogPath -Raw -Encoding utf8 | ConvertFrom-Json
 
 foreach ($flavor in $catalog.flavors) {
-  foreach ($artifactName in @([string]$flavor.msiName, [string]$flavor.bundleName, [string]$flavor.installerHubExeName)) {
+  foreach ($artifactName in @([string]$flavor.msiName, [string]$flavor.installerHubExeName)) {
     $artifactPath = Join-Path $InstallerDir $artifactName
     if (-not (Test-Path $artifactPath)) { continue }
     $hash = Get-Sha256Hex -Path $artifactPath
@@ -46,15 +46,6 @@ foreach ($flavor in $catalog.flavors) {
     "$hash  $artifactName" | Set-Content -Path $hashPath -Encoding ascii
     Write-Host "[installer-hash] Generado: $hashPath"
   }
-}
-
-foreach ($artifactName in @('EvaluaPro-InstallerHub.exe')) {
-  $artifactPath = Join-Path $InstallerDir $artifactName
-  if (-not (Test-Path $artifactPath)) { continue }
-  $hash = Get-Sha256Hex -Path $artifactPath
-  $hashPath = Join-Path $InstallerDir ($artifactName + '.sha256')
-  "$hash  $artifactName" | Set-Content -Path $hashPath -Encoding ascii
-  Write-Host "[installer-hash] Generado: $hashPath"
 }
 
 $manifestScript = Join-Path $PSScriptRoot 'generate-installer-release-manifest.ps1'

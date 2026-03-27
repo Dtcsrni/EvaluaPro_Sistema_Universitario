@@ -40,8 +40,12 @@ if (-not (Test-Path $sourceScript)) {
 $moduleFiles = Get-ChildItem -Path (Join-Path $root 'scripts\installer-hub\modules') -Filter '*.psm1' -File
 $prereqManifest = Join-Path $root 'config\installer-prereqs.manifest.json'
 $flavorCatalogFile = Join-Path $root 'config\installer-flavors.json'
+$heroLogoFile = Join-Path $root 'logos\evaluapro-official-hero.png'
 if (-not (Test-Path $prereqManifest)) {
   throw "No existe manifiesto prerequisitos: $prereqManifest"
+}
+if (-not (Test-Path $heroLogoFile)) {
+  throw "No existe logo hero oficial: $heroLogoFile"
 }
 
 $iexpress = Get-Command iexpress.exe -ErrorAction SilentlyContinue
@@ -64,6 +68,7 @@ if ($UnifiedHub) {
   }
   Copy-Item -Path $prereqManifest -Destination (Join-Path $payloadRoot 'installer-prereqs.manifest.json') -Force
   Copy-Item -Path $flavorCatalogFile -Destination (Join-Path $payloadRoot 'installer-flavors.json') -Force
+  Copy-Item -Path $heroLogoFile -Destination (Join-Path $payloadRoot 'evaluapro-official-hero.png') -Force
 
   $defaultsPath = Join-Path $root 'config\installer-hub.defaults.json'
   if (Test-Path -LiteralPath $defaultsPath) {
@@ -171,6 +176,7 @@ $($strings -join "`r`n")
     }
     Copy-Item -Path $prereqManifest -Destination (Join-Path $payloadRoot 'installer-prereqs.manifest.json') -Force
     Copy-Item -Path $flavorCatalogFile -Destination (Join-Path $payloadRoot 'installer-flavors.json') -Force
+    Copy-Item -Path $heroLogoFile -Destination (Join-Path $payloadRoot 'evaluapro-official-hero.png') -Force
     (@{ flavorId = $flavorId } | ConvertTo-Json -Depth 4) | Set-Content -Path (Join-Path $payloadRoot 'installer-hub.defaults.json') -Encoding utf8
 
     $payloadFiles = Get-ChildItem -Path $payloadRoot -File | Sort-Object Name

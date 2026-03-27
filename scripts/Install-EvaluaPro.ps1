@@ -39,12 +39,12 @@ function Resolve-DefaultSourcePath {
   }
 
   $downloads = [Environment]::GetFolderPath('UserProfile') + '\Downloads'
-  $fallback = Join-Path $downloads ("EvaluaPro-{0}-Setup.exe" -f $Flavor)
+  $fallback = Join-Path $downloads ("EvaluaPro-InstallerHub-{0}.exe" -f $Flavor)
   if (Test-Path $fallback) {
     return (Resolve-Path $fallback).Path
   }
 
-  throw ("No se encontro el instalador del flavor {0}. Usa -SourcePath `"ruta\EvaluaPro-{0}-Setup.exe`"." -f $Flavor)
+  throw ("No se encontro el Installer Hub del flavor {0}. Usa -SourcePath `"ruta\EvaluaPro-InstallerHub-{0}.exe`"." -f $Flavor)
 }
 
 $resolvedSource = Resolve-DefaultSourcePath -Candidate $SourcePath -Flavor $FlavorId
@@ -53,7 +53,7 @@ if (-not (Test-Path $InstallersDir)) {
   New-Item -ItemType Directory -Path $InstallersDir -Force | Out-Null
 }
 
-$targetPath = Join-Path $InstallersDir ("EvaluaPro-{0}-Setup.exe" -f $FlavorId)
+$targetPath = Join-Path $InstallersDir ("EvaluaPro-InstallerHub-{0}.exe" -f $FlavorId)
 Copy-Item -LiteralPath $resolvedSource -Destination $targetPath -Force
 Unblock-File -LiteralPath $targetPath -ErrorAction SilentlyContinue
 
@@ -70,12 +70,7 @@ if (-not $SkipHashCheck) {
   }
 }
 
-Write-Host "[install-evaluapro] Ejecutando instalador desde: $targetPath"
-Write-Host "[install-evaluapro] Fuente Burn: $InstallersDir"
+Write-Host "[install-evaluapro] Ejecutando Installer Hub desde: $targetPath"
+Write-Host "[install-evaluapro] Carpeta de trabajo preparada: $InstallersDir"
 
-$args = @(
-  '-burn.source'
-  ('"{0}"' -f $InstallersDir)
-)
-
-Start-Process -FilePath $targetPath -ArgumentList $args -Verb RunAs
+Start-Process -FilePath $targetPath -Verb RunAs

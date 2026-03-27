@@ -382,12 +382,14 @@ function Get-EvaluaProInstallationInfo {
       if ($uninstallString -match '(\{[A-Fa-f0-9\-]{36}\})') {
         $productCode = $Matches[1]
       }
+      $installLocationProp = $item.PSObject.Properties['InstallLocation']
+      $installLocation = if ($installLocationProp) { [string]$installLocationProp.Value } else { '' }
 
       return [pscustomobject]@{
         Installed = $true
         DisplayName = [string]$item.DisplayName
         DisplayVersion = [string]$item.DisplayVersion
-        InstallLocation = [string]$item.InstallLocation
+        InstallLocation = $installLocation
         ProductCode = $productCode
         UninstallString = $uninstallString
       }
@@ -410,7 +412,9 @@ function Get-EvaluaProInstallationHealth {
   $allowUnregistered = @('1', 'true', 'yes', 'on') -contains ([string]$env:EVALUAPRO_INSTALLER_ALLOW_UNREGISTERED).Trim().ToLowerInvariant()
 
   $info = Get-EvaluaProInstallationInfo
-  $effectiveDir = if ($InstallDir) { $InstallDir } elseif ($info.InstallLocation) { [string]$info.InstallLocation } else { '' }
+  $installLocationProp = $info.PSObject.Properties['InstallLocation']
+  $installLocation = if ($installLocationProp -and $installLocationProp.Value) { [string]$installLocationProp.Value } else { '' }
+  $effectiveDir = if ($InstallDir) { $InstallDir } elseif ($installLocation) { $installLocation } else { '' }
   if (-not $info.Installed -and -not $effectiveDir) {
     return [pscustomobject]@{
       state = 'ausente'

@@ -66,8 +66,8 @@ function startFakeReleaseServer() {
           html_url: 'https://example/releases/v9.9.9',
           body: 'release test',
           assets: [
-            { name: 'EvaluaPro-docente-local-Setup.exe', browser_download_url: `http://127.0.0.1:${server.address().port}/asset.exe` },
-            { name: 'EvaluaPro-docente-local-Setup.exe.sha256', browser_download_url: `http://127.0.0.1:${server.address().port}/asset.exe.sha256` }
+            { name: 'EvaluaPro-InstallerHub-docente-local.exe', browser_download_url: `http://127.0.0.1:${server.address().port}/asset.exe` },
+            { name: 'EvaluaPro-InstallerHub-docente-local.exe.sha256', browser_download_url: `http://127.0.0.1:${server.address().port}/asset.exe.sha256` }
           ]
         }
       ];
@@ -82,7 +82,7 @@ function startFakeReleaseServer() {
     }
     if (req.url === '/asset.exe.sha256') {
       res.writeHead(200, { 'Content-Type': 'text/plain' });
-      res.end(`${sha}  EvaluaPro-docente-local-Setup.exe`);
+      res.end(`${sha}  EvaluaPro-InstallerHub-docente-local.exe`);
       return;
     }
     res.writeHead(404);
@@ -167,3 +167,4 @@ test('update API expone check y download con transición válida', { timeout: 18
   assert.equal(Boolean(downloaded.download?.filePath), true);
   assert.equal(fs.existsSync(downloaded.download.filePath), true);
 });
+

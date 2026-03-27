@@ -343,7 +343,7 @@ test('repair headless aislado recupera una instalacion dañada agresivamente', {
 
     const repairedUpdate = JSON.parse(fs.readFileSync(updateConfigFile, 'utf8').replace(/^\uFEFF/, ''));
     assert.equal(repairedUpdate.flavorId, 'docente-local');
-    assert.equal(repairedUpdate.assetName, 'EvaluaPro-docente-local-Setup.exe');
+    assert.equal(repairedUpdate.assetName, 'EvaluaPro-InstallerHub-docente-local.exe');
     assert.equal(fs.existsSync(brokerFile), true);
     assert.equal(fs.existsSync(trayHiddenFile), true);
     for (const shortcutName of ['EvaluaPro - Dev.lnk', 'EvaluaPro - Prod.lnk', 'EvaluaPro - Hub.lnk']) {
@@ -450,3 +450,4 @@ test('smoke activo valida broker, manifest, shortcuts y control plane sin dañar
     await licenseApi.close();
   }
 });
+

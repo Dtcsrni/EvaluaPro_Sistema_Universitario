@@ -171,7 +171,7 @@ export function selectLatestRelease(releases, currentVersion, options = {}) {
   const includePrerelease = options.includePrerelease !== false;
   const channel = String(options.channel || '').trim().toLowerCase();
   const flavorId = String(options.flavorId || '').trim();
-  const assetName = String(options.assetName || 'EvaluaPro-docente-local-Setup.exe');
+  const assetName = String(options.assetName || 'EvaluaPro-InstallerHub-docente-local.exe');
   const sha256AssetName = String(options.sha256AssetName || `${assetName}.sha256`);
 
   const list = Array.isArray(releases) ? releases : [];
@@ -239,8 +239,8 @@ export function createUpdateManager(opts = {}) {
     repo: String(opts.repo || ''),
     flavorId: String(opts.flavorId || ''),
     channel: String(opts.channel || 'stable'),
-    assetName: String(opts.assetName || 'EvaluaPro-docente-local-Setup.exe'),
-    sha256AssetName: String(opts.sha256AssetName || `${String(opts.assetName || 'EvaluaPro-docente-local-Setup.exe')}.sha256`),
+    assetName: String(opts.assetName || 'EvaluaPro-InstallerHub-docente-local.exe'),
+    sha256AssetName: String(opts.sha256AssetName || `${String(opts.assetName || 'EvaluaPro-InstallerHub-docente-local.exe')}.sha256`),
     requireSha256: Boolean(opts.requireSha256),
     feedUrl: String(opts.feedUrl || ''),
     checkRetries: Number(opts.checkRetries || 2),

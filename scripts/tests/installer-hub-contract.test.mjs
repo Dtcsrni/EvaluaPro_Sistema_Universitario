@@ -94,7 +94,7 @@ test('canal update por defecto es stable en config y scripts', () => {
   const updateConfig = JSON.parse(fs.readFileSync(path.join(root, 'config', 'update-config.json'), 'utf8'));
   assert.equal(updateConfig.channel, 'stable');
   assert.equal(updateConfig.flavorId, 'docente-local');
-  assert.equal(updateConfig.assetName, 'EvaluaPro-docente-local-Setup.exe');
+  assert.equal(updateConfig.assetName, 'EvaluaPro-InstallerHub-docente-local.exe');
 
   const updateManager = fs.readFileSync(path.join(root, 'scripts', 'update-manager.mjs'), 'utf8');
   assert.match(updateManager, /channel:\s*'stable'/);
@@ -111,12 +111,14 @@ test('workflow de installer publica contratos nuevos de release', () => {
   assert.match(workflow, /build-installer-hub\.ps1/);
   assert.match(workflow, /generate-installer-hashes\.ps1/);
   assert.match(workflow, /sign-installer-artifacts\.ps1/);
-  assert.match(workflow, /-UnifiedHub -IncludeFlavorInstallers/);
+  assert.match(workflow, /-IncludeFlavorInstallers/);
   assert.match(workflow, /-Flavor all/);
   assert.match(workflow, /Publicar release assets \(tags v\*\)/);
   assert.match(workflow, /steps\.stable_release_assets\.outputs\.files/);
-  assert.match(workflow, /dist\/installer\/EvaluaPro-InstallerHub\.exe/);
-  assert.doesNotMatch(workflow, /EvaluaPro-InstallerHub-\$f_trimmed\.exe/);
+  assert.match(workflow, /dist\/installer\/EvaluaPro-InstallerHub-saas-completo\.exe/);
+  assert.match(workflow, /dist\/installer\/EvaluaPro-InstallerHub-docente-local\.exe/);
+  assert.match(workflow, /dist\/installer\/EvaluaPro-release-manifest\.json/);
+  assert.doesNotMatch(workflow, /dist\/installer\/EvaluaPro-InstallerHub\.exe/);
   assert.doesNotMatch(workflow, /dist\/installer\/EvaluaPro-saas-completo-Setup\.exe/);
   assert.doesNotMatch(workflow, /dist\/installer\/EvaluaPro-docente-local-Setup\.exe/);
 });
@@ -125,8 +127,11 @@ test('workflow beta publica solo hubs en assets de prerelease', () => {
   const workflow = fs.readFileSync(path.join(root, '.github', 'workflows', 'release-beta.yml'), 'utf8');
 
   assert.match(workflow, /steps\.beta_assets\.outputs\.files/);
-  assert.match(workflow, /dist\/installer\/EvaluaPro-InstallerHub\.exe/);
-  assert.match(workflow, /-UnifiedHub -IncludeFlavorInstallers/);
+  assert.match(workflow, /dist\/installer\/EvaluaPro-InstallerHub-saas-completo\.exe/);
+  assert.match(workflow, /dist\/installer\/EvaluaPro-InstallerHub-docente-local\.exe/);
+  assert.match(workflow, /dist\/installer\/EvaluaPro-release-manifest\.json/);
+  assert.match(workflow, /-IncludeFlavorInstallers/);
+  assert.doesNotMatch(workflow, /dist\/installer\/EvaluaPro-InstallerHub\.exe/);
   assert.doesNotMatch(workflow, /EvaluaPro-docente-local-Setup\.exe/);
   assert.doesNotMatch(workflow, /EvaluaPro-saas-completo-Setup\.exe/);
 });
@@ -406,8 +411,8 @@ $cfg = @{
   updateOwner='Dtcsrni'
   updateRepo='EvaluaPro_Sistema_Universitario'
   flavorId='docente-local'
-  updateAssetName='EvaluaPro-docente-local-Setup.exe'
-  updateShaAssetName='EvaluaPro-docente-local-Setup.exe.sha256'
+  updateAssetName='EvaluaPro-InstallerHub-docente-local.exe'
+  updateShaAssetName='EvaluaPro-InstallerHub-docente-local.exe.sha256'
   updateRequireSha256='1'
 }
 $r = Invoke-EvaluaProOperationalConfiguration -Mode install -InstallDir '${installDir.replace(/'/g, "''")}' -Config $cfg
@@ -442,7 +447,7 @@ $r | ConvertTo-Json -Depth 8
     assert.equal(updateConfig.owner, 'Dtcsrni');
     assert.equal(updateConfig.repo, 'EvaluaPro_Sistema_Universitario');
     assert.equal(updateConfig.requireSha256, true);
-    assert.equal(updateConfig.assetName, 'EvaluaPro-docente-local-Setup.exe');
+    assert.equal(updateConfig.assetName, 'EvaluaPro-InstallerHub-docente-local.exe');
   } finally {
     fs.rmSync(tempRoot, { recursive: true, force: true });
   }
@@ -510,3 +515,4 @@ test('script de release manifest incluye contrato extendido de build/deployment/
   assert.match(script, /deployment\s*=\s*\[ordered\]@{/);
   assert.match(script, /target\s*=\s*if \(\$DeploymentTarget\)/);
 });
+

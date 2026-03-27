@@ -1,11 +1,11 @@
 # Inventario Exhaustivo de Codigo
 
-Fecha de generacion: 2026-03-26 04:16:02
+Fecha de generacion: 2026-03-27 00:49:30
 Fuente: git ls-files filtrado por existencia en workspace (solo archivos versionados presentes, excluye node_modules).
 
 ## Resumen
 
-- Total de piezas de codigo/config ejecutable inventariadas: 840
+- Total de piezas de codigo/config ejecutable inventariadas: 857
 - Extensiones incluidas: ts, tsx, js, jsx, mjs, cjs, json, yml, yaml, sh, cmd, ps1.
 
 ## Conteo por area
@@ -15,10 +15,10 @@ Fuente: git ls-files filtrado por existencia en workspace (solo archivos version
 | backend | 381 |
 | frontend | 129 |
 | portal_alumno_cloud | 44 |
-| ci | 15 |
-| scripts | 116 |
+| ci | 17 |
+| scripts | 127 |
 | ops | 3 |
-| docs | 31 |
+| docs | 34 |
 | raiz | 9 |
 
 ## Backend (apps/backend)
@@ -587,6 +587,7 @@ Fuente: git ls-files filtrado por existencia en workspace (solo archivos version
 ## CI/CD (ci + .github/workflows)
 
 - .github/workflows/autogen-docs.yml
+- .github/workflows/ci-antivirus-gate.yml
 - .github/workflows/ci-backend.yml
 - .github/workflows/ci-docs.yml
 - .github/workflows/ci-frontend.yml
@@ -596,6 +597,7 @@ Fuente: git ls-files filtrado por existencia en workspace (solo archivos version
 - .github/workflows/ci.yml
 - .github/workflows/package.yml
 - .github/workflows/pages-marketing.yml
+- .github/workflows/release-beta.yml
 - .github/workflows/release-stable-gate.yml
 - .github/workflows/security-codeql.yml
 - .github/workflows/tag-release-guard.yml
@@ -632,6 +634,7 @@ Fuente: git ls-files filtrado por existencia en workspace (solo archivos version
 - scripts/diagramas-render-linux.mjs
 - scripts/diagramas-render.mjs
 - scripts/diagramas.mjs
+- scripts/docker-runtime-check.mjs
 - scripts/docs.mjs
 - scripts/ensure-dev-cert.ps1
 - scripts/generar-readmes-carpetas.mjs
@@ -659,11 +662,15 @@ Fuente: git ls-files filtrado por existencia en workspace (solo archivos version
 - scripts/perf-check.mjs
 - scripts/perf-collect-business.ts
 - scripts/perf-collect.ts
+- scripts/pipeline-contract-check.mjs
 - scripts/release/check-ci-streak.mjs
 - scripts/release/check-release-evidence.mjs
 - scripts/release/gate-prod-flow.mjs
 - scripts/release/preflight-global-prod.mjs
+- scripts/release/resolve-affected-installer-flavors.mjs
+- scripts/release/run-defender-scan.ps1
 - scripts/release/smoke-piloto-hibrido.mjs
+- scripts/release/validate-beta-promotion.mjs
 - scripts/release/validate-stable-promotion.mjs
 - scripts/reset-local.mjs
 - scripts/retry.mjs
@@ -685,18 +692,24 @@ Fuente: git ls-files filtrado por existencia en workspace (solo archivos version
 - scripts/testing/resolve-affected-ci.mjs
 - scripts/testing/run-client-proyectos-vite-tests.mjs
 - scripts/testing/run-gate-with-report.mjs
+- scripts/testing/run-omr-tv-gate.mjs
 - scripts/testing/start-frontend-e2e-server.mjs
 - scripts/testing/validate-anon-fixture.mjs
+- scripts/tests/affected-ci-resolver.test.mjs
 - scripts/tests/ai-model-router.test.mjs
 - scripts/tests/ai-openai-client.test.mjs
+- scripts/tests/ci-workflow-contract.test.mjs
 - scripts/tests/dashboard-pwa-contract.test.mjs
 - scripts/tests/dashboard-repair.test.mjs
 - scripts/tests/dashboard-sw.test.mjs
 - scripts/tests/dashboard-ui.test.mjs
 - scripts/tests/ia-traceability.test.mjs
+- scripts/tests/installer-flavor-diff-resolver.test.mjs
 - scripts/tests/installer-hub-contract.test.mjs
 - scripts/tests/marketing-site.smoke.test.mjs
+- scripts/tests/omr-tv-gate-runner.test.mjs
 - scripts/tests/perf-contract.test.mjs
+- scripts/tests/release-beta-promotion.test.mjs
 - scripts/tests/release-ci-streak.test.mjs
 - scripts/tests/release-evidence-contract.test.mjs
 - scripts/tests/release-stable-promotion.test.mjs
@@ -749,6 +762,9 @@ Fuente: git ls-files filtrado por existencia en workspace (solo archivos version
 - docs/handoff/sesiones/2026-03-24/sesion-2026-03-24T10-25-30.716Z.json
 - docs/handoff/sesiones/2026-03-26/sesion-2026-03-26T06-42-38.573Z.json
 - docs/handoff/sesiones/2026-03-26/sesion-2026-03-26T06-43-35.686Z.json
+- docs/handoff/sesiones/2026-03-26/sesion-2026-03-26T08-17-29.186Z.json
+- docs/handoff/sesiones/2026-03-26/sesion-2026-03-26T09-41-00.233Z.json
+- docs/handoff/sesiones/2026-03-26/sesion-2026-03-26T10-16-02.354Z.json
 - docs/handoff/trace.schema.json
 - docs/perf/baseline.business.json
 - docs/perf/baseline.json
