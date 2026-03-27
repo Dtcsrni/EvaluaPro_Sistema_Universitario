@@ -1,11 +1,15 @@
 # Engineering Baseline
 
-Fecha de baseline: 2026-03-24
+Fecha de baseline: 2026-03-27
 Version tecnica: `1.0.0`
 Version visible GUI: `1.0.0b`
 
 ## Estado vigente
 - Corte 2026-03-27:
+  - el gobierno Big Bang se alinea al estado ejecutable real del repo: `AGENTS.md` deja de exigir scripts `bigbang:olas:*` inexistentes y usa `qa:clean-architecture:strict` + gates mínimos + `ci:policy:audit` para recortes estructurales
+  - `modulo_generacion_pdf` adelgaza `controladorGeneracionPdf.ts` a una fachada HTTP; preview, generación, lote, progreso y descarga quedan movidos a use cases internos y helpers compartidos
+  - la deuda temporal de cobertura `backend-pdf` queda resuelta; se retira la exclusión global `src/modulos/modulo_generacion_pdf/**` y se amplía cobertura de integración para progreso de lote y retención `410`
+  - `CI Antivirus Gate` deja de validar contratos legacy y pasa a verificar los artefactos Installer Hub vigentes (`EvaluaPro-InstallerHub-saas-completo.exe`, `EvaluaPro-InstallerHub-docente-local.exe`, `EvaluaPro-release-manifest.json`, `antivirus-scan-report.txt`)
   - Installer Hub queda como única fuente oficial de instalación Windows por flavor (`EvaluaPro-InstallerHub-saas-completo.exe`, `EvaluaPro-InstallerHub-docente-local.exe`)
   - updater, dashboard, wrapper `Install-EvaluaPro.ps1`, manifiesto de release y workflows de beta/stable dejan de usar `Setup.exe` como asset público o ruta recomendada
   - `Setup.exe` y MSI permanecen solo como artefactos técnicos internos del pipeline/Hub; la instalación inicial directa sigue bloqueada fuera del Hub

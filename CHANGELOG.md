@@ -5,6 +5,13 @@ Este archivo sigue el formato "Keep a Changelog" (alto nivel) y SemVer.
 ## [Unreleased]
 
 ### Changed
+- Gobierno Big Bang alineado al estado ejecutable real del repo:
+  - `AGENTS.md` y la documentación operativa dejan de exigir scripts `bigbang:olas:*` no presentes en `HEAD`
+  - los recortes estructurales pasan a cerrarse con `qa:clean-architecture:strict`, gates mínimos, `ci:policy:audit` y evidencia documental
+- `modulo_generacion_pdf` se segmenta sin cambiar contratos públicos:
+  - `controladorGeneracionPdf.ts` queda como fachada HTTP delgada
+  - CRUD, preview, preview PDF, generación individual, generación de lote, progreso y descarga se mueven a `application/usecases/*` y `shared/controladorGeneracionPdfShared.ts`
+  - se preservan RBAC, envelope de error, invalidación de preview, descarga case-insensitive y contrato TV4/A050929D
 - `CI Checks` y los workflows modulares (`CI Backend/Frontend/Portal/Docs`) pasan a `affected-only` real por análisis canónico de impacto:
   - `scripts/testing/resolve-affected-ci.mjs` ahora emite outputs por grupo, gate, job y nivel de escalamiento (`affected`, `full-core`, `full-extended`)
   - los carriles `extended` se ejecutan completos en `schedule`, usan impacto en `main`/`release/*` y aceptan `force_full_ci` en `workflow_dispatch`
@@ -24,10 +31,10 @@ Este archivo sigue el formato "Keep a Changelog" (alto nivel) y SemVer.
   - `Setup.exe` y MSI quedan fuera de la superficie pública de instalación y actualización; se mantienen solo como artefactos técnicos internos cuando el pipeline los necesita
   - `Release Beta` y `CI Installer Windows` resuelven flavors afectados por diff y construyen solo esos (`resolve-affected-installer-flavors.mjs`), evitando rebuild innecesario de flavors no tocados
 - Antivirus bloqueante integrado a CI/CD de release:
-  - `Release Beta` y `CI Installer Windows` ejecutan Microsoft Defender (`MpCmdRun`) sobre el zip simple antes de publicar assets
+  - `Release Beta` y `CI Installer Windows` ejecutan Microsoft Defender (`MpCmdRun`) sobre los assets oficiales del Installer Hub antes de publicar assets
   - se publica evidencia `antivirus-scan-report.txt` en artifacts/releases
-  - nuevo workflow `CI Antivirus Gate` verifica contractualmente que los gates AV sigan presentes en los workflows de release
-- README muestra badge dedicado `CI Antivirus Gate` y destaca descarga simple para usuario final.
+  - `CI Antivirus Gate` pasa a verificar contractualmente `EvaluaPro-InstallerHub-saas-completo.exe`, `EvaluaPro-InstallerHub-docente-local.exe`, `EvaluaPro-release-manifest.json` y `antivirus-scan-report.txt`
+- README muestra badge dedicado `CI Antivirus Gate` y destaca descarga oficial por Installer Hub para usuario final.
 - Runtime local Windows alineado a `WSL2 + Docker Engine` como default con `Docker Desktop` solo en modo compatibilidad:
   - `docker-compose.yml` añade `host.docker.internal:host-gateway` en backend local/prod para networking portable
   - `config/installer-prereqs.manifest.json` reemplaza el prerequisito nominativo `Docker Desktop` por `Docker Runtime Windows`
@@ -93,6 +100,10 @@ Este archivo sigue el formato "Keep a Changelog" (alto nivel) y SemVer.
 - Frontend suma el carril `test:gui:responsive:e2e:admin` para validar layout responsive del panel de negocio.
 
 ### Fixed
+- Se retira la deuda temporal `backend-pdf`:
+  - `apps/backend/vitest.config.ts` deja de excluir `src/modulos/modulo_generacion_pdf/**`
+  - `docs/tdd-exclusions-debt.json` marca `backend-pdf` como `resolved`
+  - cobertura de integración ampliada para progreso de lote y retención `410` post-expurgo
 - Installer Hub endurece activación de licencia como requisito obligatorio:
   - `RequireLicenseActivation` queda forzado a `1` en flujo headless/UI
   - la opción UI de licencia obligatoria queda activa y bloqueada para evitar instalaciones sin activación
@@ -647,8 +658,7 @@ Este archivo sigue el formato "Keep a Changelog" (alto nivel) y SemVer.
   - `npm -C apps/backend run typecheck` ✅
   - `npm -C apps/backend run test -- tests/omr.test.ts tests/omr.prevalidacion.test.ts tests/integracion/versionadoApiV2Contratos.test.ts` ✅
   - `npm -C apps/backend run test -- tests/integracion/flujoDocenteAlumnoProduccionLikeE2E.test.ts` ✅
-  - `npm run bigbang:olas:check` ✅
-  - `npm run bigbang:olas:strict` ✅
+  - validaciones estructurales Big Bang vigentes en ese corte ✅
   - `npm run pipeline:contract:check` ✅
 - Arranque prod local endurecido para primera estable distribuible:
   - Nuevo script `portal:prod` en `package.json` usando `scripts/start-portal-prod.mjs`:

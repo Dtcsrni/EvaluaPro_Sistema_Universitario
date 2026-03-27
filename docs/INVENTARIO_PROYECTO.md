@@ -1,6 +1,6 @@
 # Inventario Tecnico del Proyecto
 
-Fecha de corte: 2026-03-24
+Fecha de corte: 2026-03-27
 Version tecnica objetivo: `1.0.0`
 Version visible objetivo: `1.0.0b`
 
@@ -24,6 +24,14 @@ Version visible objetivo: `1.0.0b`
   - `reports/perf/latest.json`
 
 ## 2.1) Footprint y clasificacion del corte 2026-03-20
+- Gobernanza y PDF 2026-03-27:
+  - `AGENTS.md` deja de exigir scripts `bigbang:olas:*` no presentes en `HEAD`; el gate estructural vigente para recortes Big Bang pasa a ser `npm run qa:clean-architecture:strict`, complementado por `test:tdd:enforcement:ci`, `pipeline:contract:check` y `ci:policy:audit`
+  - `apps/backend/src/modulos/modulo_generacion_pdf/controladorGeneracionPdf.ts` queda como fachada HTTP y la orquestación pasa a `application/usecases/*` + `shared/controladorGeneracionPdfShared.ts`
+  - deuda TDD/cobertura `backend-pdf` resuelta en `docs/tdd-exclusions-debt.json`; la exclusión global del módulo sale de `apps/backend/vitest.config.ts`
+  - cobertura dirigida nueva/reforzada:
+    - `apps/backend/tests/integracion/recoveryBundleGeneracion.test.ts` (progreso `iniciando|generando|completado`)
+    - `apps/backend/tests/integracion/examenesRetention.test.ts` (descarga de lote con `410` tras expurgo)
+  - `.github/workflows/ci-antivirus-gate.yml` se alinea al contrato Installer Hub real y ya no valida artefactos legacy inexistentes
 - Armonización instalador Windows 2026-03-27:
   - Installer Hub por flavor queda como única superficie pública de instalación y actualización guiada
   - updater, dashboard, wrapper de instalación, manifiesto de release y workflows dejan de descubrir/publicar `*-Setup.exe`

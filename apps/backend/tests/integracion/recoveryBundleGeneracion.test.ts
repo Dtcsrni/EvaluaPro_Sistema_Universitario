@@ -2,6 +2,7 @@ import request from 'supertest';
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { crearApp } from '../../src/app';
 import { ExamenGenerado } from '../../src/modulos/modulo_generacion_pdf/modeloExamenGenerado';
+import { ExamenPlantilla } from '../../src/modulos/modulo_generacion_pdf/modeloExamenPlantilla';
 import { ExamenRecoveryBundle } from '../../src/modulos/modulo_generacion_pdf/modeloExamenRecoveryBundle';
 import { extraerResumenQrExamen } from '../../src/modulos/modulo_generacion_pdf/domain/qrExamen';
 import { verificarRecoveryBundle, verificarRecoveryManifest } from '../../src/modulos/modulo_generacion_pdf/domain/recoveryManifest';
@@ -115,6 +116,14 @@ describe('generación PDF: recovery manifest y bundle', () => {
       });
   }
 
+  async function consultarProgresoLote(auth: Record<string, string>, loteId: string, plantillaId?: string) {
+    const req = request(app)
+      .get(`/api/examenes/generados/lote/${encodeURIComponent(loteId)}/progreso`)
+      .set(auth);
+    if (plantillaId) req.query({ plantillaId });
+    return req.expect(200);
+  }
+
   it('persiste manifiesto firmado y keyId de QR en examen individual', async () => {
     const base = await prepararEscenarioBase();
     const respuesta = await request(app)
@@ -166,5 +175,64 @@ describe('generación PDF: recovery manifest y bundle', () => {
     expect(String(descargaUpper.headers['content-type'] || '')).toContain('application/pdf');
     expect(String(descargaLower.headers['content-type'] || '')).toContain('application/pdf');
     expect(Buffer.compare(descargaUpper.body as Buffer, descargaLower.body as Buffer)).toBe(0);
+  });
+
+  it('reporta progreso de lote en estados iniciando, generando y completado', async () => {
+    const base = await prepararEscenarioBase();
+    const plantilla = await ExamenPlantilla.findById(base.plantillaId).lean();
+    expect(plantilla).toBeTruthy();
+
+    const loteId = 'LOTPROG01';
+    const progresoInicial = await consultarProgresoLote(base.auth, loteId, base.plantillaId);
+    expect(progresoInicial.body).toMatchObject({
+      loteId,
+      totalEsperado: 2,
+      generados: 0,
+      porcentaje: 0,
+      completado: false,
+      estado: 'iniciando'
+    });
+
+    await ExamenGenerado.create({
+      docenteId: plantilla?.docenteId,
+      periodoId: plantilla?.periodoId,
+      plantillaId: plantilla?._id,
+      loteId,
+      origenGeneracion: 'lote',
+      folio: 'LOTGEN01',
+      mapaVariante: { ordenPreguntas: [] },
+      paginas: []
+    });
+
+    const progresoParcial = await consultarProgresoLote(base.auth, loteId, base.plantillaId);
+    expect(progresoParcial.body).toMatchObject({
+      loteId,
+      totalEsperado: 2,
+      generados: 1,
+      porcentaje: 50,
+      completado: false,
+      estado: 'generando'
+    });
+
+    await ExamenGenerado.create({
+      docenteId: plantilla?.docenteId,
+      periodoId: plantilla?.periodoId,
+      plantillaId: plantilla?._id,
+      loteId,
+      origenGeneracion: 'lote',
+      folio: 'LOTGEN02',
+      mapaVariante: { ordenPreguntas: [] },
+      paginas: []
+    });
+
+    const progresoCompleto = await consultarProgresoLote(base.auth, loteId, base.plantillaId);
+    expect(progresoCompleto.body).toMatchObject({
+      loteId,
+      totalEsperado: 2,
+      generados: 2,
+      porcentaje: 100,
+      completado: true,
+      estado: 'completado'
+    });
   });
 });

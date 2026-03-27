@@ -2,7 +2,7 @@
   "version": 1,
   "gate": "clean-architecture",
   "strict": true,
-  "generatedAt": "2026-03-23T11:38:39.655Z",
+  "generatedAt": "2026-03-27T09:14:49.216Z",
   "ok": true,
   "checks": [
     {

@@ -78,9 +78,11 @@ Ejecutar en este orden:
 7. `npm run test:portal:ci`
 8. `npm run perf:check`
 9. `npm run pipeline:contract:check`
-9. Si el alcance toca Olas Big Bang:
-   - `npm run bigbang:olas:check`
-   - `npm run bigbang:olas:strict`
+10. Si el alcance toca recortes estructurales u Olas Big Bang:
+   - `npm run qa:clean-architecture:strict`
+   - `npm run ci:policy:audit`
+   - dejar evidencia del recorte en `docs/INVENTARIO_PROYECTO.md`, `docs/ENGINEERING_BASELINE.md` y `CHANGELOG.md`
+   - no asumir la existencia de scripts `bigbang:olas:*` sin verificar `package.json`/`HEAD`
 
 Si por alcance no aplica alguno, dejar justificacion explicita en el reporte de sesion.
 

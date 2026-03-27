@@ -22,12 +22,6 @@ export default defineConfig({
     hookTimeout: 60_000,
     coverage: {
       ...baseVitestConfig.coverage,
-      // TODO(2026-03-31): Retirar estas exclusiones temporales de cobertura
-      // cuando se completen pruebas de regresion por modulos legacy del backend.
-      exclude: [
-        ...(baseVitestConfig.coverage?.exclude ?? []),
-        'src/modulos/modulo_generacion_pdf/**',
-      ],
       thresholds: {
         lines: 55,
         functions: 55,

@@ -1,0 +1,234 @@
+{
+  "traceSchemaVersion": "1.0.0",
+  "sessionId": "sesion-2026-03-27T09-31-40.802Z",
+  "status": "draft",
+  "generatedAt": "2026-03-27T09:31:40.802Z",
+  "validationProfile": "quick",
+  "agent": {
+    "name": "unknown",
+    "version": "unknown",
+    "provider": "unknown",
+    "kind": "unknown",
+    "channel": "unknown"
+  },
+  "request": {
+    "summary": "Pendiente de completar por el agente."
+  },
+  "objective": "Pendiente de completar por el agente.",
+  "scope": [],
+  "constraints": [],
+  "actions": [
+    {
+      "type": "validation",
+      "summary": "Ejecucion de lint",
+      "timestamp": "2026-03-27T09:31:40.802Z",
+      "status": "omitido"
+    },
+    {
+      "type": "validation",
+      "summary": "Ejecucion de typecheck",
+      "timestamp": "2026-03-27T09:31:40.802Z",
+      "status": "omitido"
+    },
+    {
+      "type": "validation",
+      "summary": "Ejecucion de test_frontend_ci",
+      "timestamp": "2026-03-27T09:31:40.802Z",
+      "status": "omitido"
+    },
+    {
+      "type": "validation",
+      "summary": "Ejecucion de test_coverage_ci",
+      "timestamp": "2026-03-27T09:31:40.802Z",
+      "status": "omitido"
+    },
+    {
+      "type": "validation",
+      "summary": "Ejecucion de test_tdd_enforcement_ci",
+      "timestamp": "2026-03-27T09:31:40.802Z",
+      "status": "omitido"
+    },
+    {
+      "type": "validation",
+      "summary": "Ejecucion de test_backend_ci",
+      "timestamp": "2026-03-27T09:31:40.802Z",
+      "status": "omitido"
+    },
+    {
+      "type": "validation",
+      "summary": "Ejecucion de test_portal_ci",
+      "timestamp": "2026-03-27T09:31:40.802Z",
+      "status": "omitido"
+    },
+    {
+      "type": "validation",
+      "summary": "Ejecucion de perf_check",
+      "timestamp": "2026-03-27T09:31:40.802Z",
+      "status": "omitido"
+    },
+    {
+      "type": "validation",
+      "summary": "Ejecucion de pipeline_contract_check",
+      "timestamp": "2026-03-27T09:31:40.802Z",
+      "status": "ok"
+    },
+    {
+      "type": "validation",
+      "summary": "Ejecucion de docs_check",
+      "timestamp": "2026-03-27T09:31:40.802Z",
+      "status": "ok"
+    }
+  ],
+  "files": {
+    "read": [],
+    "changed": [
+      ".github/workflows/ci-antivirus-gate.yml",
+      "AGENTS.md",
+      "CHANGELOG.md",
+      "\"accesos-directos/EvaluaPro - Abrir Dashboard.lnk\"",
+      "\"accesos-directos/EvaluaPro - Detener Todo.lnk\"",
+      "\"accesos-directos/EvaluaPro - Dev.lnk\"",
+      "\"accesos-directos/EvaluaPro - Hub.lnk\"",
+      "\"accesos-directos/EvaluaPro - Prod.lnk\"",
+      "\"accesos-directos/EvaluaPro - Reiniciar Stack.lnk\"",
+      "\"accesos-directos/EvaluaPro - Reparar Entorno.lnk\"",
+      "apps/backend/reports/qa/latest/e2e-docente-alumno.json",
+      "apps/backend/reports/qa/latest/global-grade.json",
+      "apps/backend/reports/qa/latest/pdf-print.json",
+      "apps/backend/src/modulos/modulo_generacion_pdf/controladorGeneracionPdf.ts",
+      "apps/backend/tests/integracion/examenesRetention.test.ts",
+      "apps/backend/tests/integracion/recoveryBundleGeneracion.test.ts",
+      "apps/backend/vitest.config.ts",
+      "apps/frontend/reports/qa/latest/ux-visual.json",
+      "docs/AUTO_DOCS_INDEX.md",
+      "docs/AUTO_ENV.md",
+      "docs/ENGINEERING_BASELINE.md",
+      "docs/INVENTARIO_CODIGO_EXHAUSTIVO.md",
+      "docs/INVENTARIO_PROYECTO.md",
+      "docs/VERSIONADO.md",
+      "docs/tdd-exclusions-debt.json",
+      "reports/qa/latest/clean-architecture.json",
+      "apps/backend/src/modulos/modulo_generacion_pdf/application/usecases/generacionPlantillas.ts",
+      "apps/backend/src/modulos/modulo_generacion_pdf/application/usecases/gestionPlantillas.ts",
+      "apps/backend/src/modulos/modulo_generacion_pdf/application/usecases/previsualizacionPlantillas.ts",
+      "apps/backend/src/modulos/modulo_generacion_pdf/shared/controladorGeneracionPdfShared.ts"
+    ],
+    "artifacts": [
+      "docs/handoff/sesiones/2026-03-27/sesion-2026-03-27T09-31-40.802Z.json",
+      "docs/handoff/sesiones/2026-03-27/sesion-2026-03-27T09-31-40.802Z.md"
+    ]
+  },
+  "commands": [
+    {
+      "name": "lint",
+      "command": "npm run lint",
+      "status": "omitido",
+      "exitCode": null,
+      "durationMs": 0,
+      "resultSummary": "omitido por perfil quick",
+      "timestamp": "2026-03-27T09:31:40.802Z"
+    },
+    {
+      "name": "typecheck",
+      "command": "npm run typecheck",
+      "status": "omitido",
+      "exitCode": null,
+      "durationMs": 0,
+      "resultSummary": "omitido por perfil quick",
+      "timestamp": "2026-03-27T09:31:40.802Z"
+    },
+    {
+      "name": "test_frontend_ci",
+      "command": "npm run test:frontend:ci",
+      "status": "omitido",
+      "exitCode": null,
+      "durationMs": 0,
+      "resultSummary": "omitido por perfil quick",
+      "timestamp": "2026-03-27T09:31:40.802Z"
+    },
+    {
+      "name": "test_coverage_ci",
+      "command": "npm run test:coverage:ci",
+      "status": "omitido",
+      "exitCode": null,
+      "durationMs": 0,
+      "resultSummary": "omitido por perfil quick",
+      "timestamp": "2026-03-27T09:31:40.802Z"
+    },
+    {
+      "name": "test_tdd_enforcement_ci",
+      "command": "npm run test:tdd:enforcement:ci",
+      "status": "omitido",
+      "exitCode": null,
+      "durationMs": 0,
+      "resultSummary": "omitido por perfil quick",
+      "timestamp": "2026-03-27T09:31:40.802Z"
+    },
+    {
+      "name": "test_backend_ci",
+      "command": "npm run test:backend:ci",
+      "status": "omitido",
+      "exitCode": null,
+      "durationMs": 0,
+      "resultSummary": "omitido por perfil quick",
+      "timestamp": "2026-03-27T09:31:40.802Z"
+    },
+    {
+      "name": "test_portal_ci",
+      "command": "npm run test:portal:ci",
+      "status": "omitido",
+      "exitCode": null,
+      "durationMs": 0,
+      "resultSummary": "omitido por perfil quick",
+      "timestamp": "2026-03-27T09:31:40.802Z"
+    },
+    {
+      "name": "perf_check",
+      "command": "npm run perf:check",
+      "status": "omitido",
+      "exitCode": null,
+      "durationMs": 0,
+      "resultSummary": "omitido por perfil quick",
+      "timestamp": "2026-03-27T09:31:40.802Z"
+    },
+    {
+      "name": "pipeline_contract_check",
+      "command": "npm run pipeline:contract:check",
+      "status": "ok",
+      "exitCode": 0,
+      "durationMs": 481,
+      "resultSummary": "> evaluapro@1.0.0 pipeline:contract:check | > node scripts/pipeline-contract-check.mjs | ✔ ext_perf_arquitectura prepara sharp antes de perf:check (1.1452ms) | ✔ ext_funcionales usa gate OMR TV generico con version configurable (0.7145ms) | ... | ℹ duration_ms 79.3546 | pipeline contract OK",
+      "timestamp": "2026-03-27T09:31:40.802Z"
+    },
+    {
+      "name": "docs_check",
+      "command": "npm run docs:check",
+      "status": "ok",
+      "exitCode": 0,
+      "durationMs": 494,
+      "resultSummary": "> evaluapro@1.0.0 docs:check | > node scripts/docs.mjs --check | [docs] ok",
+      "timestamp": "2026-03-27T09:31:40.802Z"
+    }
+  ],
+  "decisions": [],
+  "assumptions": [],
+  "risks": [],
+  "nextStep": "Pendiente de completar por el agente.",
+  "completion": {
+    "isComplete": false,
+    "pendingFields": [
+      "request.summary",
+      "objective",
+      "scope",
+      "decisions",
+      "risks",
+      "nextStep"
+    ]
+  },
+  "repo": {
+    "rootDir": "C:\\Users\\evega\\EvaluaPro_Sistema_Universitario",
+    "branch": "main",
+    "commit": "310e70e",
+    "workingTreeStatus": "M .github/workflows/ci-antivirus-gate.yml\n M AGENTS.md\n M CHANGELOG.md\n M \"accesos-directos/EvaluaPro - Abrir Dashboard.lnk\"\n M \"accesos-directos/EvaluaPro - Detener Todo.lnk\"\n M \"accesos-directos/EvaluaPro - Dev.lnk\"\n M \"accesos-directos/EvaluaPro - Hub.lnk\"\n M \"accesos-directos/EvaluaPro - Prod.lnk\"\n M \"accesos-directos/EvaluaPro - Reiniciar Stack.lnk\"\n M \"accesos-directos/EvaluaPro - Reparar Entorno.lnk\"\n M apps/backend/reports/qa/latest/e2e-docente-alumno.json\n M apps/backend/reports/qa/latest/global-grade.json\n M apps/backend/reports/qa/latest/pdf-print.json\n M apps/backend/src/modulos/modulo_generacion_pdf/controladorGeneracionPdf.ts\n M apps/backend/tests/integracion/examenesRetention.test.ts\n M apps/backend/tests/integracion/recoveryBundleGeneracion.test.ts\n M apps/backend/vitest.config.ts\n M apps/frontend/reports/qa/latest/ux-visual.json\n M docs/AUTO_DOCS_INDEX.md\n M docs/AUTO_ENV.md\n M docs/ENGINEERING_BASELINE.md\n M docs/INVENTARIO_CODIGO_EXHAUSTIVO.md\n M docs/INVENTARIO_PROYECTO.md\n M docs/VERSIONADO.md\n M docs/tdd-exclusions-debt.json\n M reports/qa/latest/clean-architecture.json\n?? apps/backend/src/modulos/modulo_generacion_pdf/application/usecases/generacionPlantillas.ts\n?? apps/backend/src/modulos/modulo_generacion_pdf/application/usecases/gestionPlantillas.ts\n?? apps/backend/src/modulos/modulo_generacion_pdf/application/usecases/previsualizacionPlantillas.ts\n?? apps/backend/src/modulos/modulo_generacion_pdf/shared/controladorGeneracionPdfShared.ts"
+  }
+}

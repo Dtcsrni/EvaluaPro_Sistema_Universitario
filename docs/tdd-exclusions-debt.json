@@ -13,12 +13,12 @@
     },
     {
       "id": "backend-pdf",
-      "file": "apps/backend/vitest.config.ts",
-      "pattern": "src/modulos/modulo_generacion_pdf/**",
+      "file": "apps/backend/tests/integracion/recoveryBundleGeneracion.test.ts",
+      "pattern": "reporta progreso de lote en estados iniciando, generando y completado",
       "owner": "@backend-pdf",
       "dueDate": "2026-03-31",
-      "status": "temporary",
-      "reason": "Migración progresiva de versionado histórico con paridad en curso."
+      "status": "resolved",
+      "reason": "Controlador PDF adelgazado a fachada HTTP, lógica movida a use cases internos y cobertura de integración ampliada para preview, lotes, progreso y retención."
     },
     {
       "id": "backend-sync",

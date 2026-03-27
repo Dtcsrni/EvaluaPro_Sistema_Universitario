@@ -20,7 +20,7 @@ No editar a mano: los cambios se pisan al regenerar.
 - [INSTALLER_HUB.md](INSTALLER_HUB.md) — Installer Hub (Windows)
 - [INVENTARIO_CODIGO_EXHAUSTIVO.md](INVENTARIO_CODIGO_EXHAUSTIVO.md) — Inventario Exhaustivo de Codigo
 - [INVENTARIO_PROYECTO.md](INVENTARIO_PROYECTO.md) — Inventario Tecnico del Proyecto
-- [OMR_GATE_RUNBOOK.md](OMR_GATE_RUNBOOK.md) — Runbook OMR Por Folio Gate
+- [OMR_GATE_RUNBOOK.md](OMR_GATE_RUNBOOK.md) — Runbook OMR TV Gate
 - [OPERACION_EXAMEN_GLOBAL_PROD.md](OPERACION_EXAMEN_GLOBAL_PROD.md) — Operacion de Examen Global en Produccion
 - [PILOTO_DIA0_CHECKLIST.md](PILOTO_DIA0_CHECKLIST.md) — Checklist Operativo Dia 0 (Piloto Hibrido)
 - [POLITICA_ECONOMIA_TOKENS_CODEX.md](POLITICA_ECONOMIA_TOKENS_CODEX.md) — Politica Repo-Local de Economia de Tokens para Codex

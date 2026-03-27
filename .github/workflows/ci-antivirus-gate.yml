@@ -38,8 +38,10 @@ jobs:
         run: |
           set -euo pipefail
           for wf in .github/workflows/release-beta.yml .github/workflows/ci-installer-windows.yml; do
-            grep -q "Antivirus gate de instalador simple" "$wf"
-            grep -q "EvaluaPro-Instalador-Windows.zip" "$wf"
+            grep -q "run-defender-scan.ps1" "$wf"
+            grep -q "EvaluaPro-InstallerHub-saas-completo.exe" "$wf"
+            grep -q "EvaluaPro-InstallerHub-docente-local.exe" "$wf"
+            grep -q "EvaluaPro-release-manifest.json" "$wf"
             grep -q "antivirus-scan-report.txt" "$wf"
           done
-          echo "Contrato AV presente en release beta y stable."
+          echo "Contrato AV presente en release beta e instalador Windows con assets oficiales vigentes."

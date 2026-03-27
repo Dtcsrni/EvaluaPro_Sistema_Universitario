@@ -9,6 +9,7 @@ Se usa SemVer en raiz del monorepo.
 - Canal operativo: beta funcional (MVP extendido).
 - Politica objetivo: `1.0-beta` con cero fallos de gates; promoción a estable con gate humano en produccion.
 - Publicacion beta automatica: activa desde CI/CD cuando `CI Checks` completa en verde sobre `main` y el diff respecto a la version previa es significativo.
+- Gobierno vigente para recortes estructurales/Big Bang: `npm run qa:clean-architecture:strict` es el gate estructural activo en `HEAD` del 2026-03-27; no existen scripts `bigbang:olas:*` publicados en `package.json`.
 - Seguimiento de olas y bloqueos vigente: `docs/INVENTARIO_PROYECTO.md`.
 - Trazabilidad de continuidad entre agentes: `AGENTS.md` y `docs/IA_TRAZABILIDAD_AGENTES.md`.
 
@@ -98,8 +99,15 @@ Debe pasar:
    - `npm run release:validate:beta -- --version=<version> --head-sha=<sha> --base-ref=<baseRef>`
 3. Si el diff es significativo:
    - el workflow `Release Beta` genera un prerelease `v<version>-beta.<n>` y evidencia `notes.md` + `diff-summary.json` derivadas del diff.
-   - publica solo los ejecutables `EvaluaPro-InstallerHub-<flavor>.exe` y sus `.sha256` como superficie instalable oficial.
+   - publica solo los assets oficiales:
+     - `EvaluaPro-InstallerHub-saas-completo.exe`
+     - `EvaluaPro-InstallerHub-saas-completo.exe.sha256`
+     - `EvaluaPro-InstallerHub-docente-local.exe`
+     - `EvaluaPro-InstallerHub-docente-local.exe.sha256`
+     - `EvaluaPro-release-manifest.json`
+     - `antivirus-scan-report.txt`
    - ejecuta un gate antivirus bloqueante (Microsoft Defender) sobre `dist/installer` antes de publicar la prerelease.
+   - `CI Antivirus Gate` valida contractualmente que los workflows de beta/release sigan incluyendo esos mismos assets y el escaneo AV.
 4. Si el diff es solo documental o regenerable:
    - no se publica beta nueva.
 5. La beta no sustituye el gate estable:
