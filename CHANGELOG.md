@@ -5,6 +5,10 @@ Este archivo sigue el formato "Keep a Changelog" (alto nivel) y SemVer.
 ## [Unreleased]
 
 ### Changed
+- `CI Checks` y los workflows modulares (`CI Backend/Frontend/Portal/Docs`) pasan a `affected-only` real por análisis canónico de impacto:
+  - `scripts/testing/resolve-affected-ci.mjs` ahora emite outputs por grupo, gate, job y nivel de escalamiento (`affected`, `full-core`, `full-extended`)
+  - los carriles `extended` se ejecutan completos en `schedule`, usan impacto en `main`/`release/*` y aceptan `force_full_ci` en `workflow_dispatch`
+  - los skips válidos quedan atados al diff actual, no a estados verdes heredados de corridas previas
 - `CI Checks` se refactoriza en gates paralelos por dominio para mejorar trazabilidad sin debilitar cobertura:
   - separación de `core` en jobs independientes (`Contract/Docs/Gov`, `Backend/Portal`, `Frontend`, `Security/Compliance`)
   - separación de `extended` en jobs independientes (`Funcionales`, `Perf/Arquitectura`, `Compliance/Evidencia`)

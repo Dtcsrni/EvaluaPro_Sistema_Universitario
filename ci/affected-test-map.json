@@ -1,9 +1,10 @@
 {
-  "version": 1,
+  "version": 2,
   "groups": {
     "backend": {
       "paths": [
-        "apps/backend/**"
+        "apps/backend/**",
+        "omr_samples_tv*/**"
       ],
       "commands": [
         "npm -C apps/backend run lint",
@@ -62,6 +63,8 @@
       "paths": [
         "scripts/release/**",
         ".github/workflows/ci-installer-windows.yml",
+        ".github/workflows/release-beta.yml",
+        ".github/workflows/release-stable-gate.yml",
         ".github/workflows/ci.yml",
         "ci/**"
       ],
@@ -69,7 +72,8 @@
         "npm run test:release:policy",
         "npm run test:ruleset:policy",
         "npm run test:security:policy"
-      ]
+      ],
+      "escalate": "full-extended"
     },
     "docs": {
       "paths": [
@@ -104,13 +108,97 @@
         "scripts/testing/**",
         "scripts/retry.mjs",
         "tsconfig.base.json",
-        "vitest.base.ts"
+        "vitest.base.ts",
+        ".github/workflows/ci-backend.yml",
+        ".github/workflows/ci-frontend.yml",
+        ".github/workflows/ci-portal.yml",
+        ".github/workflows/ci-docs.yml"
       ],
       "commands": [
         "npm run test:coverage:exclusions:debt",
         "npm run test:coverage:diff"
       ],
-      "escalate": "full-release"
+      "escalate": "full-core"
+    }
+  },
+  "gates": {
+    "flujo-docente-check": {
+      "groups": ["backend"]
+    },
+    "dataset-prodlike-check": {
+      "groups": ["backend"]
+    },
+    "omr-tv-extended-gate": {
+      "groups": ["backend"]
+    },
+    "docente-alumno-e2e-check": {
+      "groups": ["backend"]
+    },
+    "global-grade-check": {
+      "groups": ["backend"]
+    },
+    "pdf-print-check": {
+      "groups": ["backend"]
+    },
+    "ux-visual-check": {
+      "groups": ["frontend"]
+    },
+    "perf-check": {
+      "groups": ["backend", "shared", "release"]
+    },
+    "perf-business-check": {
+      "groups": ["backend", "shared", "release"]
+    },
+    "clean-architecture-check": {
+      "groups": ["backend", "shared", "release"]
+    },
+    "qa-manifest": {
+      "groups": ["backend", "shared", "release"]
+    },
+    "dsr-flow-test": {
+      "groups": ["backend", "compliance", "shared", "release"]
+    },
+    "compliance-evidence": {
+      "groups": ["backend", "portal", "compliance", "shared", "release"]
+    }
+  },
+  "jobs": {
+    "core_contract_docs_gov": {
+      "groups": ["docs", "installer", "release", "shared"]
+    },
+    "core_backend_portal": {
+      "groups": ["backend", "portal", "shared"]
+    },
+    "core_frontend": {
+      "groups": ["frontend", "shared"]
+    },
+    "core_security_compliance": {
+      "groups": ["backend", "portal", "compliance", "docs", "shared"]
+    },
+    "ext_funcionales": {
+      "gates": [
+        "flujo-docente-check",
+        "dataset-prodlike-check",
+        "omr-tv-extended-gate",
+        "docente-alumno-e2e-check",
+        "global-grade-check",
+        "pdf-print-check",
+        "ux-visual-check"
+      ]
+    },
+    "ext_perf_arquitectura": {
+      "gates": [
+        "perf-check",
+        "perf-business-check",
+        "clean-architecture-check"
+      ]
+    },
+    "ext_compliance_evidencia": {
+      "gates": [
+        "qa-manifest",
+        "dsr-flow-test",
+        "compliance-evidence"
+      ]
     }
   }
 }

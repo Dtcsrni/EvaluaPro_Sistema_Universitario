@@ -32,10 +32,34 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  detectar_cambios:
+    name: Detectar Cambios Backend
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    outputs:
+      escalation: ${{ steps.affected.outputs.escalation }}
+      backend: ${{ steps.affected.outputs.group_backend }}
+      shared: ${{ steps.affected.outputs.group_shared }}
+      job_core_backend_portal: ${{ steps.affected.outputs.job_core_backend_portal }}
+
+    steps:
+      - name: Descargar código
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Resolver impacto canónico de CI
+        id: affected
+        run: node scripts/testing/resolve-affected-ci.mjs --github-output="$GITHUB_OUTPUT" > reports.affected-ci.json
+
   backend_module:
     name: Backend Module
     runs-on: ubuntu-latest
     timeout-minutes: 60
+    needs:
+      - detectar_cambios
+    if: github.event_name == 'workflow_dispatch' || needs.detectar_cambios.outputs.backend == 'true' || needs.detectar_cambios.outputs.shared == 'true' || needs.detectar_cambios.outputs.job_core_backend_portal == 'true' || needs.detectar_cambios.outputs.escalation == 'full-core' || needs.detectar_cambios.outputs.escalation == 'full-extended'
 
     steps:
       - name: Descargar código

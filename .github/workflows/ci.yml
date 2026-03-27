@@ -6,6 +6,12 @@ on:
       - "**"
   pull_request:
   workflow_dispatch:
+    inputs:
+      force_full_ci:
+        description: "Forzar corrida completa del CI"
+        required: false
+        default: false
+        type: boolean
   schedule:
     - cron: "0 6 * * *"
 
@@ -20,14 +26,35 @@ jobs:
     timeout-minutes: 10
 
     outputs:
-      shared_core: ${{ steps.changes.outputs.shared_core }}
-      backend: ${{ steps.changes.outputs.backend }}
-      frontend: ${{ steps.changes.outputs.frontend }}
-      portal: ${{ steps.changes.outputs.portal }}
-      installer: ${{ steps.changes.outputs.installer }}
-      release: ${{ steps.changes.outputs.release }}
-      docs: ${{ steps.changes.outputs.docs }}
-      compliance: ${{ steps.changes.outputs.compliance }}
+      escalation: ${{ steps.affected.outputs.escalation }}
+      shared_core: ${{ steps.affected.outputs.group_shared }}
+      backend: ${{ steps.affected.outputs.group_backend }}
+      frontend: ${{ steps.affected.outputs.group_frontend }}
+      portal: ${{ steps.affected.outputs.group_portal }}
+      installer: ${{ steps.affected.outputs.group_installer }}
+      release: ${{ steps.affected.outputs.group_release }}
+      docs: ${{ steps.affected.outputs.group_docs }}
+      compliance: ${{ steps.affected.outputs.group_compliance }}
+      gate_flujo_docente_check: ${{ steps.affected.outputs.gate_flujo_docente_check }}
+      gate_dataset_prodlike_check: ${{ steps.affected.outputs.gate_dataset_prodlike_check }}
+      gate_omr_tv_extended_gate: ${{ steps.affected.outputs.gate_omr_tv_extended_gate }}
+      gate_docente_alumno_e2e_check: ${{ steps.affected.outputs.gate_docente_alumno_e2e_check }}
+      gate_global_grade_check: ${{ steps.affected.outputs.gate_global_grade_check }}
+      gate_pdf_print_check: ${{ steps.affected.outputs.gate_pdf_print_check }}
+      gate_ux_visual_check: ${{ steps.affected.outputs.gate_ux_visual_check }}
+      gate_perf_check: ${{ steps.affected.outputs.gate_perf_check }}
+      gate_perf_business_check: ${{ steps.affected.outputs.gate_perf_business_check }}
+      gate_clean_architecture_check: ${{ steps.affected.outputs.gate_clean_architecture_check }}
+      gate_qa_manifest: ${{ steps.affected.outputs.gate_qa_manifest }}
+      gate_dsr_flow_test: ${{ steps.affected.outputs.gate_dsr_flow_test }}
+      gate_compliance_evidence: ${{ steps.affected.outputs.gate_compliance_evidence }}
+      job_core_contract_docs_gov: ${{ steps.affected.outputs.job_core_contract_docs_gov }}
+      job_core_backend_portal: ${{ steps.affected.outputs.job_core_backend_portal }}
+      job_core_frontend: ${{ steps.affected.outputs.job_core_frontend }}
+      job_core_security_compliance: ${{ steps.affected.outputs.job_core_security_compliance }}
+      job_ext_funcionales: ${{ steps.affected.outputs.job_ext_funcionales }}
+      job_ext_perf_arquitectura: ${{ steps.affected.outputs.job_ext_perf_arquitectura }}
+      job_ext_compliance_evidencia: ${{ steps.affected.outputs.job_ext_compliance_evidencia }}
 
     steps:
       - name: Descargar código
@@ -35,50 +62,9 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Detectar cambios por módulo
-        id: changes
-        uses: dorny/paths-filter@v3
-        with:
-          filters: |
-            shared_core:
-              - ".github/workflows/ci.yml"
-              - "package.json"
-              - "package-lock.json"
-              - "tsconfig.base.json"
-              - "vitest.base.ts"
-              - "scripts/retry.mjs"
-              - "scripts/testing/**"
-              - "scripts/security-env-check.mjs"
-            backend:
-              - "apps/backend/**"
-              - "omr_samples_tv*/**"
-            frontend:
-              - "apps/frontend/**"
-              - "client/**"
-            portal:
-              - "apps/portal_alumno_cloud/**"
-            installer:
-              - "scripts/installer-hub/**"
-              - "scripts/build-msi.ps1"
-              - "scripts/build-installer-hub.ps1"
-              - "scripts/generate-installer-hashes.ps1"
-              - "scripts/generate-installer-release-manifest.ps1"
-              - "scripts/sign-installer-artifacts.ps1"
-              - "scripts/Install-EvaluaPro.ps1"
-              - "packaging/**"
-              - "config/installer-*.json"
-              - "config/update-config.json"
-            release:
-              - "scripts/release/**"
-              - ".github/workflows/ci-installer-windows.yml"
-              - "ci/**"
-            docs:
-              - "docs/**"
-              - "ci/pipeline.contract.md"
-              - "ci/pipeline.matrix.json"
-            compliance:
-              - "docs/legal/**"
-              - "scripts/compliance/**"
+      - name: Resolver impacto canónico de CI
+        id: affected
+        run: node scripts/testing/resolve-affected-ci.mjs --github-output="$GITHUB_OUTPUT" > reports.affected-ci.json
 
   core_contract_docs_gov:
     name: Core Contract/Docs/Gov
@@ -86,6 +72,7 @@ jobs:
     timeout-minutes: 45
     needs:
       - detectar_cambios
+    if: github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && inputs.force_full_ci) || needs.detectar_cambios.outputs.job_core_contract_docs_gov == 'true' || needs.detectar_cambios.outputs.escalation == 'full-core' || needs.detectar_cambios.outputs.escalation == 'full-extended'
 
     steps:
       - name: Descargar código
@@ -114,20 +101,20 @@ jobs:
         run: npm run pipeline:contract:check
 
       - name: Etapa governance-policy-check
-        if: needs.detectar_cambios.outputs.release == 'true' || needs.detectar_cambios.outputs.installer == 'true' || needs.detectar_cambios.outputs.shared_core == 'true'
+        if: github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && inputs.force_full_ci) || needs.detectar_cambios.outputs.release == 'true' || needs.detectar_cambios.outputs.installer == 'true' || needs.detectar_cambios.outputs.shared_core == 'true'
         run: |
           npm run test:ruleset:policy
           npm run test:release:policy
           npm run test:security:policy
 
       - name: Etapa installer-contract-check
-        if: needs.detectar_cambios.outputs.installer == 'true' || needs.detectar_cambios.outputs.shared_core == 'true'
+        if: github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && inputs.force_full_ci) || needs.detectar_cambios.outputs.installer == 'true' || needs.detectar_cambios.outputs.shared_core == 'true'
         run: |
           npm run test:installer-hub:contract
           npm run test:wix:policy
 
       - name: Etapa docs-check
-        if: needs.detectar_cambios.outputs.docs == 'true' || needs.detectar_cambios.outputs.shared_core == 'true'
+        if: github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && inputs.force_full_ci) || needs.detectar_cambios.outputs.docs == 'true' || needs.detectar_cambios.outputs.shared_core == 'true'
         run: |
           npm run docs:generate
           npm run docs:check
@@ -150,7 +137,7 @@ jobs:
     timeout-minutes: 60
     needs:
       - detectar_cambios
-    if: needs.detectar_cambios.outputs.backend == 'true' || needs.detectar_cambios.outputs.portal == 'true' || needs.detectar_cambios.outputs.shared_core == 'true'
+    if: github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && inputs.force_full_ci) || needs.detectar_cambios.outputs.job_core_backend_portal == 'true' || needs.detectar_cambios.outputs.escalation == 'full-core' || needs.detectar_cambios.outputs.escalation == 'full-extended'
 
     steps:
       - name: Descargar código
@@ -176,35 +163,35 @@ jobs:
         run: npm install --no-save --include=optional --os=linux --cpu=x64 sharp
 
       - name: Etapa lint backend
-        if: needs.detectar_cambios.outputs.backend == 'true' || needs.detectar_cambios.outputs.shared_core == 'true'
+        if: github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && inputs.force_full_ci) || needs.detectar_cambios.outputs.backend == 'true' || needs.detectar_cambios.outputs.shared_core == 'true' || needs.detectar_cambios.outputs.escalation == 'full-core' || needs.detectar_cambios.outputs.escalation == 'full-extended'
         run: npm -C apps/backend run lint
 
       - name: Etapa lint portal
-        if: needs.detectar_cambios.outputs.portal == 'true' || needs.detectar_cambios.outputs.shared_core == 'true'
+        if: github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && inputs.force_full_ci) || needs.detectar_cambios.outputs.portal == 'true' || needs.detectar_cambios.outputs.shared_core == 'true' || needs.detectar_cambios.outputs.escalation == 'full-core' || needs.detectar_cambios.outputs.escalation == 'full-extended'
         run: npm -C apps/portal_alumno_cloud run lint
 
       - name: Etapa typecheck backend
-        if: needs.detectar_cambios.outputs.backend == 'true' || needs.detectar_cambios.outputs.shared_core == 'true'
+        if: github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && inputs.force_full_ci) || needs.detectar_cambios.outputs.backend == 'true' || needs.detectar_cambios.outputs.shared_core == 'true' || needs.detectar_cambios.outputs.escalation == 'full-core' || needs.detectar_cambios.outputs.escalation == 'full-extended'
         run: npm -C apps/backend run typecheck
 
       - name: Etapa typecheck portal
-        if: needs.detectar_cambios.outputs.portal == 'true' || needs.detectar_cambios.outputs.shared_core == 'true'
+        if: github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && inputs.force_full_ci) || needs.detectar_cambios.outputs.portal == 'true' || needs.detectar_cambios.outputs.shared_core == 'true' || needs.detectar_cambios.outputs.escalation == 'full-core' || needs.detectar_cambios.outputs.escalation == 'full-extended'
         run: npm -C apps/portal_alumno_cloud run typecheck
 
       - name: Etapa test backend
-        if: needs.detectar_cambios.outputs.backend == 'true' || needs.detectar_cambios.outputs.shared_core == 'true'
+        if: github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && inputs.force_full_ci) || needs.detectar_cambios.outputs.backend == 'true' || needs.detectar_cambios.outputs.shared_core == 'true' || needs.detectar_cambios.outputs.escalation == 'full-core' || needs.detectar_cambios.outputs.escalation == 'full-extended'
         run: npm run test:backend:ci
 
       - name: Etapa test portal
-        if: needs.detectar_cambios.outputs.portal == 'true' || needs.detectar_cambios.outputs.shared_core == 'true'
+        if: github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && inputs.force_full_ci) || needs.detectar_cambios.outputs.portal == 'true' || needs.detectar_cambios.outputs.shared_core == 'true' || needs.detectar_cambios.outputs.escalation == 'full-core' || needs.detectar_cambios.outputs.escalation == 'full-extended'
         run: npm run test:portal:ci
 
       - name: Etapa coverage backend
-        if: needs.detectar_cambios.outputs.backend == 'true' || needs.detectar_cambios.outputs.shared_core == 'true'
+        if: github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && inputs.force_full_ci) || needs.detectar_cambios.outputs.backend == 'true' || needs.detectar_cambios.outputs.shared_core == 'true' || needs.detectar_cambios.outputs.escalation == 'full-core' || needs.detectar_cambios.outputs.escalation == 'full-extended'
         run: npm -C apps/backend run test:coverage
 
       - name: Etapa coverage portal
-        if: needs.detectar_cambios.outputs.portal == 'true' || needs.detectar_cambios.outputs.shared_core == 'true'
+        if: github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && inputs.force_full_ci) || needs.detectar_cambios.outputs.portal == 'true' || needs.detectar_cambios.outputs.shared_core == 'true' || needs.detectar_cambios.outputs.escalation == 'full-core' || needs.detectar_cambios.outputs.escalation == 'full-extended'
         run: npm -C apps/portal_alumno_cloud run test:coverage
 
       - name: Etapa tdd-debt-check
@@ -222,11 +209,11 @@ jobs:
         run: npm run test:coverage:diff -- --apps backend,portal
 
       - name: Etapa build backend
-        if: needs.detectar_cambios.outputs.backend == 'true' || needs.detectar_cambios.outputs.shared_core == 'true'
+        if: github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && inputs.force_full_ci) || needs.detectar_cambios.outputs.backend == 'true' || needs.detectar_cambios.outputs.shared_core == 'true' || needs.detectar_cambios.outputs.escalation == 'full-core' || needs.detectar_cambios.outputs.escalation == 'full-extended'
         run: npm -C apps/backend run build
 
       - name: Etapa build portal
-        if: needs.detectar_cambios.outputs.portal == 'true' || needs.detectar_cambios.outputs.shared_core == 'true'
+        if: github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && inputs.force_full_ci) || needs.detectar_cambios.outputs.portal == 'true' || needs.detectar_cambios.outputs.shared_core == 'true' || needs.detectar_cambios.outputs.escalation == 'full-core' || needs.detectar_cambios.outputs.escalation == 'full-extended'
         run: npm -C apps/portal_alumno_cloud run build
 
   core_frontend:
@@ -235,7 +222,7 @@ jobs:
     timeout-minutes: 60
     needs:
       - detectar_cambios
-    if: needs.detectar_cambios.outputs.frontend == 'true' || needs.detectar_cambios.outputs.shared_core == 'true'
+    if: github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && inputs.force_full_ci) || needs.detectar_cambios.outputs.job_core_frontend == 'true' || needs.detectar_cambios.outputs.escalation == 'full-core' || needs.detectar_cambios.outputs.escalation == 'full-extended'
 
     steps:
       - name: Descargar código
@@ -299,7 +286,7 @@ jobs:
     timeout-minutes: 35
     needs:
       - detectar_cambios
-    if: needs.detectar_cambios.outputs.backend == 'true' || needs.detectar_cambios.outputs.portal == 'true' || needs.detectar_cambios.outputs.compliance == 'true' || needs.detectar_cambios.outputs.docs == 'true' || needs.detectar_cambios.outputs.shared_core == 'true'
+    if: github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && inputs.force_full_ci) || needs.detectar_cambios.outputs.job_core_security_compliance == 'true' || needs.detectar_cambios.outputs.escalation == 'full-core' || needs.detectar_cambios.outputs.escalation == 'full-extended'
 
     steps:
       - name: Descargar código
@@ -322,7 +309,7 @@ jobs:
         run: npm ci --foreground-scripts
 
       - name: Etapa security-scan
-        if: needs.detectar_cambios.outputs.backend == 'true' || needs.detectar_cambios.outputs.portal == 'true' || needs.detectar_cambios.outputs.shared_core == 'true'
+        if: github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && inputs.force_full_ci) || needs.detectar_cambios.outputs.backend == 'true' || needs.detectar_cambios.outputs.portal == 'true' || needs.detectar_cambios.outputs.shared_core == 'true' || needs.detectar_cambios.outputs.escalation == 'full-core' || needs.detectar_cambios.outputs.escalation == 'full-extended'
         env:
           NODE_ENV: production
           STRICT_ENV_CHECK: "1"
@@ -335,15 +322,15 @@ jobs:
           npm run security:audit
 
       - name: Etapa legal-docs-check
-        if: needs.detectar_cambios.outputs.compliance == 'true' || needs.detectar_cambios.outputs.docs == 'true' || needs.detectar_cambios.outputs.shared_core == 'true'
+        if: github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && inputs.force_full_ci) || needs.detectar_cambios.outputs.compliance == 'true' || needs.detectar_cambios.outputs.docs == 'true' || needs.detectar_cambios.outputs.shared_core == 'true' || needs.detectar_cambios.outputs.escalation == 'full-core' || needs.detectar_cambios.outputs.escalation == 'full-extended'
         run: npm run test:compliance:legal-docs
 
       - name: Etapa pii-leak-check
-        if: needs.detectar_cambios.outputs.compliance == 'true' || needs.detectar_cambios.outputs.shared_core == 'true'
+        if: github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && inputs.force_full_ci) || needs.detectar_cambios.outputs.compliance == 'true' || needs.detectar_cambios.outputs.shared_core == 'true' || needs.detectar_cambios.outputs.escalation == 'full-core' || needs.detectar_cambios.outputs.escalation == 'full-extended'
         run: npm run test:compliance:pii
 
       - name: Etapa retention-policy-check
-        if: needs.detectar_cambios.outputs.compliance == 'true' || needs.detectar_cambios.outputs.shared_core == 'true'
+        if: github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && inputs.force_full_ci) || needs.detectar_cambios.outputs.compliance == 'true' || needs.detectar_cambios.outputs.shared_core == 'true' || needs.detectar_cambios.outputs.escalation == 'full-core' || needs.detectar_cambios.outputs.escalation == 'full-extended'
         run: npm run test:compliance:retention
 
       - name: Publicar reporte de auditoría
@@ -392,13 +379,17 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 60
     needs:
+      - detectar_cambios
       - verificaciones_core
     if: |
       needs.verificaciones_core.result == 'success' &&
-      (github.event_name == 'workflow_dispatch' ||
-      github.event_name == 'schedule' ||
+      (github.event_name == 'schedule' ||
+      (github.event_name == 'workflow_dispatch' && inputs.force_full_ci) ||
+      ((github.event_name == 'workflow_dispatch' ||
       github.ref == 'refs/heads/main' ||
-      startsWith(github.ref, 'refs/heads/release/'))
+      startsWith(github.ref, 'refs/heads/release/')) &&
+      (needs.detectar_cambios.outputs.job_ext_funcionales == 'true' ||
+      needs.detectar_cambios.outputs.escalation == 'full-extended')))
 
     steps:
       - name: Descargar código
@@ -424,26 +415,33 @@ jobs:
         run: npm install --no-save --include=optional --os=linux --cpu=x64 sharp
 
       - name: Etapa flujo-docente-check
+        if: github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && inputs.force_full_ci) || needs.detectar_cambios.outputs.gate_flujo_docente_check == 'true' || needs.detectar_cambios.outputs.escalation == 'full-extended'
         run: npm run test:flujo-docente:ci
 
       - name: Etapa dataset-prodlike-check
+        if: github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && inputs.force_full_ci) || needs.detectar_cambios.outputs.gate_dataset_prodlike_check == 'true' || needs.detectar_cambios.outputs.escalation == 'full-extended'
         run: npm run test:dataset-prodlike:ci
 
       - name: Etapa omr-tv-real-gate
+        if: github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && inputs.force_full_ci) || needs.detectar_cambios.outputs.gate_omr_tv_extended_gate == 'true' || needs.detectar_cambios.outputs.escalation == 'full-extended'
         env:
           OMR_TV_GATE_VERSION: ${{ vars.OMR_TV_GATE_VERSION || 'tv3' }}
         run: npm run test:omr:tv:gate:ci
 
       - name: Etapa docente-alumno-e2e-check
+        if: github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && inputs.force_full_ci) || needs.detectar_cambios.outputs.gate_docente_alumno_e2e_check == 'true' || needs.detectar_cambios.outputs.escalation == 'full-extended'
         run: npm run test:e2e:docente-alumno:ci
 
       - name: Etapa global-grade-check
+        if: github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && inputs.force_full_ci) || needs.detectar_cambios.outputs.gate_global_grade_check == 'true' || needs.detectar_cambios.outputs.escalation == 'full-extended'
         run: npm run test:global-grade:ci
 
       - name: Etapa pdf-print-check
+        if: github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && inputs.force_full_ci) || needs.detectar_cambios.outputs.gate_pdf_print_check == 'true' || needs.detectar_cambios.outputs.escalation == 'full-extended'
         run: npm run test:pdf-print:ci
 
       - name: Etapa ux-visual-check
+        if: github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && inputs.force_full_ci) || needs.detectar_cambios.outputs.gate_ux_visual_check == 'true' || needs.detectar_cambios.outputs.escalation == 'full-extended'
         run: npm run test:ux-visual:ci
 
   ext_perf_arquitectura:
@@ -451,13 +449,17 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 40
     needs:
+      - detectar_cambios
       - verificaciones_core
     if: |
       needs.verificaciones_core.result == 'success' &&
-      (github.event_name == 'workflow_dispatch' ||
-      github.event_name == 'schedule' ||
+      (github.event_name == 'schedule' ||
+      (github.event_name == 'workflow_dispatch' && inputs.force_full_ci) ||
+      ((github.event_name == 'workflow_dispatch' ||
       github.ref == 'refs/heads/main' ||
-      startsWith(github.ref, 'refs/heads/release/'))
+      startsWith(github.ref, 'refs/heads/release/')) &&
+      (needs.detectar_cambios.outputs.job_ext_perf_arquitectura == 'true' ||
+      needs.detectar_cambios.outputs.escalation == 'full-extended')))
 
     steps:
       - name: Descargar código
@@ -483,12 +485,15 @@ jobs:
         run: npm install --no-save --include=optional --os=linux --cpu=x64 sharp
 
       - name: Etapa perf-check
+        if: github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && inputs.force_full_ci) || needs.detectar_cambios.outputs.gate_perf_check == 'true' || needs.detectar_cambios.outputs.escalation == 'full-extended'
         run: npm run perf:check
 
       - name: Etapa perf-business-check
+        if: github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && inputs.force_full_ci) || needs.detectar_cambios.outputs.gate_perf_business_check == 'true' || needs.detectar_cambios.outputs.escalation == 'full-extended'
         run: npm run perf:check:business
 
       - name: Etapa clean-architecture-check
+        if: github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && inputs.force_full_ci) || needs.detectar_cambios.outputs.gate_clean_architecture_check == 'true' || needs.detectar_cambios.outputs.escalation == 'full-extended'
         run: npm run qa:clean-architecture:strict
 
       - name: Publicar reporte de performance
@@ -505,13 +510,17 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 40
     needs:
+      - detectar_cambios
       - verificaciones_core
     if: |
       needs.verificaciones_core.result == 'success' &&
-      (github.event_name == 'workflow_dispatch' ||
-      github.event_name == 'schedule' ||
+      (github.event_name == 'schedule' ||
+      (github.event_name == 'workflow_dispatch' && inputs.force_full_ci) ||
+      ((github.event_name == 'workflow_dispatch' ||
       github.ref == 'refs/heads/main' ||
-      startsWith(github.ref, 'refs/heads/release/'))
+      startsWith(github.ref, 'refs/heads/release/')) &&
+      (needs.detectar_cambios.outputs.job_ext_compliance_evidencia == 'true' ||
+      needs.detectar_cambios.outputs.escalation == 'full-extended')))
 
     steps:
       - name: Descargar código
@@ -534,12 +543,15 @@ jobs:
         run: npm ci --foreground-scripts
 
       - name: Consolidar manifiesto QA
+        if: github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && inputs.force_full_ci) || needs.detectar_cambios.outputs.gate_qa_manifest == 'true' || needs.detectar_cambios.outputs.escalation == 'full-extended'
         run: npm run test:qa:manifest
 
       - name: Etapa dsr-flow-test
+        if: github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && inputs.force_full_ci) || needs.detectar_cambios.outputs.gate_dsr_flow_test == 'true' || needs.detectar_cambios.outputs.escalation == 'full-extended'
         run: npm run test:compliance:dsr-flow
 
       - name: Etapa compliance-evidence
+        if: github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && inputs.force_full_ci) || needs.detectar_cambios.outputs.gate_compliance_evidence == 'true' || needs.detectar_cambios.outputs.escalation == 'full-extended'
         run: npm run compliance:evidence:generate
 
       - name: Publicar artefactos QA

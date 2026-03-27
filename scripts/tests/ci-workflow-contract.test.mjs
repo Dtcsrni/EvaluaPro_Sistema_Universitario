@@ -53,3 +53,28 @@ test('workflow CI unifica concurrency por repo fuente y branch fuente', () => {
   assert.match(workflow, /github\.event\.pull_request\.head\.ref \|\| github\.head_ref \|\| github\.ref_name/);
   assert.doesNotMatch(workflow, /group:\s*ci-\$\{\{\s*github\.workflow\s*\}\}-\$\{\{\s*github\.ref\s*\}\}/);
 });
+
+test('workflow CI expone force_full_ci y gating affected-only en extended', () => {
+  const workflow = fs.readFileSync(workflowPath, 'utf8');
+
+  assert.match(workflow, /workflow_dispatch:\s+inputs:\s+force_full_ci:/s);
+  assert.match(workflow, /job_ext_funcionales/);
+  assert.match(workflow, /job_ext_perf_arquitectura/);
+  assert.match(workflow, /job_ext_compliance_evidencia/);
+  assert.match(workflow, /gate_flujo_docente_check/);
+  assert.match(workflow, /gate_perf_check/);
+  assert.match(workflow, /gate_qa_manifest/);
+  assert.match(workflow, /inputs\.force_full_ci/);
+  assert.match(workflow, /needs\.detectar_cambios\.outputs\.escalation == 'full-extended'/);
+});
+
+test('workflow CI mantiene schedule full para jobs extended', () => {
+  const workflow = fs.readFileSync(workflowPath, 'utf8');
+  const funcionales = extractJobBlock(workflow, 'ext_funcionales');
+  const perf = extractJobBlock(workflow, 'ext_perf_arquitectura');
+  const compliance = extractJobBlock(workflow, 'ext_compliance_evidencia');
+
+  assert.match(funcionales, /github\.event_name == 'schedule'/);
+  assert.match(perf, /github\.event_name == 'schedule'/);
+  assert.match(compliance, /github\.event_name == 'schedule'/);
+});
