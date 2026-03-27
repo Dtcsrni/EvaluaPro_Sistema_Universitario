@@ -213,6 +213,15 @@ describe('generación PDF: recovery manifest y bundle', () => {
       completado: false,
       estado: 'generando'
     });
+    const progresoParcialLower = await consultarProgresoLote(base.auth, loteId.toLowerCase(), base.plantillaId);
+    expect(progresoParcialLower.body).toMatchObject({
+      loteId,
+      totalEsperado: 2,
+      generados: 1,
+      porcentaje: 50,
+      completado: false,
+      estado: 'generando'
+    });
 
     await ExamenGenerado.create({
       docenteId: plantilla?.docenteId,
