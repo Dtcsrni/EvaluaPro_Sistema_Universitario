@@ -91,6 +91,7 @@ Este archivo sigue el formato "Keep a Changelog" (alto nivel) y SemVer.
 - `windows-release-smoke` y `launcher-dashboard` se alinean con licencia obligatoria:
   - el smoke usa mock de activación de licencia para validar el flujo sin depender de backend comercial real
   - `launcher-dashboard` reenvía credenciales/licensing API por variables de entorno (`EVALUAPRO_LICENSE_*`) al Installer Hub headless
+  - `LicenseClientSecurity` agrega `EVALUAPRO_LICENSE_ACTIVATION_SIMULATE=1` para smoke/CI determinista sin relajar el requisito de activación
 - Se agrega guard local del workflow CI para prevenir regresiones de runtime nativo en performance:
   - nuevo `scripts/tests/ci-workflow-contract.test.mjs` valida que `ext_perf_arquitectura` ejecute `npm install ... sharp` antes de `npm run perf:check`
   - `npm run pipeline:contract:check` ahora ejecuta `scripts/pipeline-contract-check.mjs` y falla si el contrato del workflow se rompe

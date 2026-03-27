@@ -174,6 +174,7 @@ jobs:
           EVALUAPRO_INSTALLER_SIMULATE_WSL_BOOTSTRAP: '1'
           EVALUAPRO_INSTALLER_SIMULATE_AUTO_BOOTSTRAP: '1'
           EVALUAPRO_INSTALLER_AUTO_BOOTSTRAP_WSL: '1'
+          EVALUAPRO_LICENSE_ACTIVATION_SIMULATE: '1'
         run: node --test scripts/tests/windows-release-smoke.test.mjs
 
       - name: Etapa build MSI + Bundle

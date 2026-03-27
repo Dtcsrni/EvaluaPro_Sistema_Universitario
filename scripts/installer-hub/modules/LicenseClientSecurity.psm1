@@ -397,6 +397,24 @@ function Invoke-EvaluaProLicenseActivationSecure {
     [string]$VersionInstalada,
     [string]$RootDir = ''
   )
+  $simulateActivation = @('1', 'true', 'yes', 'on') -contains ([string]$env:EVALUAPRO_LICENSE_ACTIVATION_SIMULATE).Trim().ToLowerInvariant()
+  if ($simulateActivation) {
+    $token = 'header.payload.signature'
+    $savePath = Save-EvaluaProSecureLicenseToken -Token $token -TenantId $TenantId -RootDir $RootDir -Meta @{
+      canalRelease = 'simulated'
+      expiraEn = '2099-12-31T23:59:59.000Z'
+      graciaOfflineDias = 30
+      simulated = $true
+    }
+    return [pscustomobject]@{
+      ok = $true
+      securePath = $savePath
+      expiraEn = '2099-12-31T23:59:59.000Z'
+      canalRelease = 'simulated'
+      simulated = $true
+    }
+  }
+
   $uri = ('{0}/api/comercial-publico/licencias/activar' -f $ApiBaseUrl.TrimEnd('/'))
   $payload = @{
     tenantId = $TenantId

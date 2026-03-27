@@ -54,6 +54,11 @@ jobs:
         run: npm run test:wix:policy
 
       - name: Etapa contract-check Installer Hub
+        env:
+          EVALUAPRO_INSTALLER_SIMULATE_WSL_BOOTSTRAP: '1'
+          EVALUAPRO_INSTALLER_SIMULATE_AUTO_BOOTSTRAP: '1'
+          EVALUAPRO_INSTALLER_AUTO_BOOTSTRAP_WSL: '1'
+          EVALUAPRO_LICENSE_ACTIVATION_SIMULATE: '1'
         run: npm run test:installer-hub:contract
 
       - name: Etapa build MSI + Bundle

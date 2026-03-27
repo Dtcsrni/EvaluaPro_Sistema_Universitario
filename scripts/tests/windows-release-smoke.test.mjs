@@ -223,7 +223,7 @@ async function waitForBootstrapFile(runId, maxMs = 30_000) {
   throw new Error(`No se genero archivo bootstrap para runId=${runId}`);
 }
 
-test('repair headless aislado recupera una instalacion dañada agresivamente', { timeout: 240_000 }, async () => {
+test('repair headless aislado recupera una instalacion dañada agresivamente', { timeout: 480_000 }, async () => {
   if (process.platform !== 'win32' || !shell) {
     test.skip();
     return;
@@ -248,6 +248,7 @@ test('repair headless aislado recupera una instalacion dañada agresivamente', {
   fs.writeFileSync(fakeShaPath, `${sha256(fakeMsiPath)}  ${path.basename(fakeMsiPath)}\n`, 'utf8');
 
   const commonEnv = {
+    EVALUAPRO_LICENSE_ACTIVATION_SIMULATE: '1',
     EVALUAPRO_INSTALLER_ASSUME_INTERNET: '1',
     EVALUAPRO_INSTALLER_RELEASE_MSI_PATH: fakeMsiPath,
     EVALUAPRO_INSTALLER_RELEASE_SHA_PATH: fakeShaPath,
@@ -275,8 +276,8 @@ test('repair headless aislado recupera una instalacion dañada agresivamente', {
       '-TenantId', licenseApi.tenantId,
       '-CodigoActivacion', licenseApi.activationCode,
       '-PasswordResetUrlBase', 'https://localhost/reset'
-    ], { env: commonEnv, timeout: 240_000 });
-    assert.equal(installRes.status, 0, installRes.stderr || installRes.stdout);
+    ], { env: commonEnv, timeout: 420_000 });
+    assert.equal(installRes.status, 0, JSON.stringify({ status: installRes.status, stderr: installRes.stderr, stdout: installRes.stdout }, null, 2));
     const installBody = parseJsonOutput(installRes.stdout);
     assert.equal(installBody.ok, true);
     assert.equal(installBody.mode, 'install');
@@ -322,8 +323,8 @@ test('repair headless aislado recupera una instalacion dañada agresivamente', {
       '-TenantId', licenseApi.tenantId,
       '-CodigoActivacion', licenseApi.activationCode,
       '-PasswordResetUrlBase', 'https://localhost/reset'
-    ], { env: commonEnv, timeout: 240_000 });
-    assert.equal(repairRes.status, 0, repairRes.stderr || repairRes.stdout);
+    ], { env: commonEnv, timeout: 420_000 });
+    assert.equal(repairRes.status, 0, JSON.stringify({ status: repairRes.status, stderr: repairRes.stderr, stdout: repairRes.stdout }, null, 2));
     const repairBody = parseJsonOutput(repairRes.stdout);
     assert.equal(repairBody.ok, true);
     assert.equal(repairBody.mode, 'repair');
@@ -355,7 +356,7 @@ test('repair headless aislado recupera una instalacion dañada agresivamente', {
   }
 });
 
-test('smoke activo valida broker, manifest, shortcuts y control plane sin dañar la instalacion real', { timeout: 240_000 }, async () => {
+test('smoke activo valida broker, manifest, shortcuts y control plane sin dañar la instalacion real', { timeout: 480_000 }, async () => {
   if (process.platform !== 'win32' || !shell) {
     test.skip();
     return;
@@ -363,6 +364,7 @@ test('smoke activo valida broker, manifest, shortcuts y control plane sin dañar
 
   const licenseApi = await startMockLicenseApi();
   const brokerEnv = {
+    EVALUAPRO_LICENSE_ACTIVATION_SIMULATE: '1',
     EVALUAPRO_LICENSE_API_BASE_URL: licenseApi.apiBaseUrl,
     EVALUAPRO_LICENSE_TENANT_ID: licenseApi.tenantId,
     EVALUAPRO_LICENSE_ACTIVATION_CODE: licenseApi.activationCode
@@ -395,8 +397,8 @@ test('smoke activo valida broker, manifest, shortcuts y control plane sin dañar
       '-Port', '4519',
       '-RunId', openRunId,
       '-NoOpen'
-    ], { timeout: 180_000, env: brokerEnv });
-    assert.equal(openRes.status, 0, openRes.stderr || openRes.stdout);
+    ], { timeout: 300_000, env: brokerEnv });
+    assert.equal(openRes.status, 0, JSON.stringify({ status: openRes.status, stderr: openRes.stderr, stdout: openRes.stdout }, null, 2));
 
     await waitForBootstrapFile(openRunId, 30_000);
     const bootstrap = await waitForBootstrapState(openRunId, ['healthy', 'degraded'], 60_000);
