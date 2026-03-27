@@ -48,10 +48,39 @@ function Get-LatestStableReleaseAssets {
     [string]$Repo,
     [Parameter(Mandatory = $true)]
     [string]$FlavorId,
+    [string]$LocalBundleRoot = '',
+    [string]$LocalMsiName = '',
     [scriptblock]$OnLog
   )
 
   if ($OnLog) { & $OnLog 'info' "Consultando releases de GitHub: $Owner/$Repo" }
+
+  if (-not [string]::IsNullOrWhiteSpace($LocalBundleRoot) -and -not [string]::IsNullOrWhiteSpace($LocalMsiName)) {
+    $bundledMsi = Join-Path $LocalBundleRoot $LocalMsiName
+    $bundledSha = Join-Path $LocalBundleRoot ($LocalMsiName + '.sha256')
+    if ((Test-Path -LiteralPath $bundledMsi) -and (Test-Path -LiteralPath $bundledSha)) {
+      if ($OnLog) { & $OnLog 'ok' "MSI embebido detectado en Hub: $LocalMsiName" }
+      return [pscustomobject]@{
+        tag = 'bundled'
+        publishedAt = (Get-Date).ToString('o')
+        msiUrl = "file:///$($bundledMsi -replace '\\','/')"
+        shaUrl = "file:///$($bundledSha -replace '\\','/')"
+        bundleUrl = ''
+        releaseUrl = 'bundled-hub'
+        manifestUrl = 'bundled-hub'
+        manifest = [pscustomobject]@{}
+        flavor = [pscustomobject]@{
+          flavorId = $FlavorId
+          msiUrl = $bundledMsi
+          msiSha256Url = $bundledSha
+          bundleUrl = ''
+        }
+        localMsiPath = $bundledMsi
+        localShaPath = $bundledSha
+        localSha256 = ''
+      }
+    }
+  }
 
   $localMsiPath = [string]$env:EVALUAPRO_INSTALLER_RELEASE_MSI_PATH
   if (-not [string]::IsNullOrWhiteSpace($localMsiPath) -and (Test-Path -LiteralPath $localMsiPath)) {

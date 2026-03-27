@@ -1,6 +1,8 @@
 param(
   [string]$OutputDir = '',
-  [string]$Flavor = 'all'
+  [string]$Flavor = 'all',
+  [switch]$UnifiedHub,
+  [switch]$IncludeFlavorInstallers
 )
 
 Set-StrictMode -Version Latest
@@ -49,10 +51,8 @@ if (-not $iexpress) {
 
 $builtArtifacts = @()
 
-foreach ($flavorDef in $flavors) {
-  $flavorId = [string]$flavorDef.flavorId
-  $targetName = [string]$flavorDef.installerHubExeName
-  $payloadRoot = Join-Path $OutputDir ("installer-hub-payload-" + $flavorId)
+if ($UnifiedHub) {
+  $payloadRoot = Join-Path $OutputDir 'installer-hub-payload-unified'
   if (Test-Path $payloadRoot) {
     Remove-Item -LiteralPath $payloadRoot -Recurse -Force
   }
@@ -64,11 +64,31 @@ foreach ($flavorDef in $flavors) {
   }
   Copy-Item -Path $prereqManifest -Destination (Join-Path $payloadRoot 'installer-prereqs.manifest.json') -Force
   Copy-Item -Path $flavorCatalogFile -Destination (Join-Path $payloadRoot 'installer-flavors.json') -Force
-  (@{ flavorId = $flavorId } | ConvertTo-Json -Depth 4) | Set-Content -Path (Join-Path $payloadRoot 'installer-hub.defaults.json') -Encoding utf8
+
+  $defaultsPath = Join-Path $root 'config\installer-hub.defaults.json'
+  if (Test-Path -LiteralPath $defaultsPath) {
+    Copy-Item -Path $defaultsPath -Destination (Join-Path $payloadRoot 'installer-hub.defaults.json') -Force
+  }
+
+  if ($IncludeFlavorInstallers) {
+    foreach ($flavorDef in $flavors) {
+      $msiName = [string]$flavorDef.msiName
+      $msiPath = Join-Path $OutputDir $msiName
+      $shaPath = Join-Path $OutputDir ($msiName + '.sha256')
+      if (-not (Test-Path -LiteralPath $msiPath)) {
+        throw "No existe MSI para payload unificado: $msiPath"
+      }
+      if (-not (Test-Path -LiteralPath $shaPath)) {
+        throw "No existe SHA256 para payload unificado: $shaPath"
+      }
+      Copy-Item -Path $msiPath -Destination (Join-Path $payloadRoot $msiName) -Force
+      Copy-Item -Path $shaPath -Destination (Join-Path $payloadRoot ($msiName + '.sha256')) -Force
+    }
+  }
 
   $payloadFiles = Get-ChildItem -Path $payloadRoot -File | Sort-Object Name
   if ($payloadFiles.Count -eq 0) {
-    throw "No hay archivos para empaquetar en Installer Hub ($flavorId)."
+    throw "No hay archivos para empaquetar en Installer Hub unificado."
   }
 
   $strings = @()
@@ -81,10 +101,97 @@ foreach ($flavorDef in $flavors) {
     $idx += 1
   }
 
+  $targetName = 'EvaluaPro-InstallerHub.exe'
   $targetPath = Join-Path $OutputDir $targetName
-  $sedPath = Join-Path $OutputDir ("installer-hub-$flavorId.sed")
+  $sedPath = Join-Path $OutputDir 'installer-hub-unified.sed'
 
   $sedContent = @"
+[Version]
+Class=IEXPRESS
+SEDVersion=3
+[Options]
+PackagePurpose=InstallApp
+ShowInstallProgramWindow=0
+HideExtractAnimation=1
+UseLongFileName=1
+InsideCompressed=1
+CAB_FixedSize=0
+CAB_ResvCodeSigning=0
+RebootMode=N
+InstallPrompt=
+DisplayLicense=
+FinishMessage=
+TargetName=$targetPath
+FriendlyName=EvaluaPro Installer Hub
+AppLaunched=powershell.exe -NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -File installer-hub.ps1
+PostInstallCmd=<None>
+AdminQuietInstCmd=
+UserQuietInstCmd=
+SourceFiles=SourceFiles
+[SourceFiles]
+SourceFiles0=$payloadRoot\
+[SourceFiles0]
+$($sourceEntries -join "`r`n")
+[Strings]
+$($strings -join "`r`n")
+"@
+
+  $sedContent | Set-Content -Path $sedPath -Encoding ascii
+
+  Write-Host "[installer-hub] Compilando EXE unificado con IExpress..."
+  $proc = Start-Process -FilePath $iexpress.Source -ArgumentList @('/N', '/Q', $sedPath) -PassThru -Wait
+  if ([int]$proc.ExitCode -ne 0) {
+    throw "IExpress fallo con codigo $($proc.ExitCode) para hub unificado"
+  }
+  if (-not (Test-Path $targetPath)) {
+    throw "No se genero artefacto esperado: $targetPath"
+  }
+
+  $builtArtifacts += [pscustomobject]@{
+    flavorId = 'unified'
+    displayName = 'Installer Hub Unificado'
+    executableName = $targetName
+    executablePath = $targetPath
+  }
+
+  Write-Host "[installer-hub] Artefacto unificado generado: $targetPath"
+} else {
+  foreach ($flavorDef in $flavors) {
+    $flavorId = [string]$flavorDef.flavorId
+    $targetName = [string]$flavorDef.installerHubExeName
+    $payloadRoot = Join-Path $OutputDir ("installer-hub-payload-" + $flavorId)
+    if (Test-Path $payloadRoot) {
+      Remove-Item -LiteralPath $payloadRoot -Recurse -Force
+    }
+    New-Item -ItemType Directory -Path $payloadRoot -Force | Out-Null
+
+    Copy-Item -Path $sourceScript -Destination (Join-Path $payloadRoot 'installer-hub.ps1') -Force
+    foreach ($module in $moduleFiles) {
+      Copy-Item -Path $module.FullName -Destination (Join-Path $payloadRoot $module.Name) -Force
+    }
+    Copy-Item -Path $prereqManifest -Destination (Join-Path $payloadRoot 'installer-prereqs.manifest.json') -Force
+    Copy-Item -Path $flavorCatalogFile -Destination (Join-Path $payloadRoot 'installer-flavors.json') -Force
+    (@{ flavorId = $flavorId } | ConvertTo-Json -Depth 4) | Set-Content -Path (Join-Path $payloadRoot 'installer-hub.defaults.json') -Encoding utf8
+
+    $payloadFiles = Get-ChildItem -Path $payloadRoot -File | Sort-Object Name
+    if ($payloadFiles.Count -eq 0) {
+      throw "No hay archivos para empaquetar en Installer Hub ($flavorId)."
+    }
+
+    $strings = @()
+    $sourceEntries = @()
+    $idx = 0
+    foreach ($file in $payloadFiles) {
+      $key = "FILE$idx"
+      $strings += "$key=$($file.Name)"
+      $sourceEntries += "%$key%="
+      $idx += 1
+    }
+
+    $targetPath = Join-Path $OutputDir $targetName
+    $sedPath = Join-Path $OutputDir ("installer-hub-$flavorId.sed")
+
+    $sedContent = @"
 [Version]
 Class=IEXPRESS
 SEDVersion=3
@@ -115,26 +222,27 @@ $($sourceEntries -join "`r`n")
 $($strings -join "`r`n")
 "@
 
-  $sedContent | Set-Content -Path $sedPath -Encoding ascii
+    $sedContent | Set-Content -Path $sedPath -Encoding ascii
 
-  Write-Host "[installer-hub] Compilando EXE con IExpress para $flavorId..."
-  $proc = Start-Process -FilePath $iexpress.Source -ArgumentList @('/N', '/Q', $sedPath) -PassThru -Wait
-  if ([int]$proc.ExitCode -ne 0) {
-    throw "IExpress fallo con codigo $($proc.ExitCode) para $flavorId"
+    Write-Host "[installer-hub] Compilando EXE con IExpress para $flavorId..."
+    $proc = Start-Process -FilePath $iexpress.Source -ArgumentList @('/N', '/Q', $sedPath) -PassThru -Wait
+    if ([int]$proc.ExitCode -ne 0) {
+      throw "IExpress fallo con codigo $($proc.ExitCode) para $flavorId"
+    }
+
+    if (-not (Test-Path $targetPath)) {
+      throw "No se genero artefacto esperado: $targetPath"
+    }
+
+    $builtArtifacts += [pscustomobject]@{
+      flavorId = $flavorId
+      displayName = [string]$flavorDef.displayName
+      executableName = $targetName
+      executablePath = $targetPath
+    }
+
+    Write-Host "[installer-hub] Artefacto generado: $targetPath"
   }
-
-  if (-not (Test-Path $targetPath)) {
-    throw "No se genero artefacto esperado: $targetPath"
-  }
-
-  $builtArtifacts += [pscustomobject]@{
-    flavorId = $flavorId
-    displayName = [string]$flavorDef.displayName
-    executableName = $targetName
-    executablePath = $targetPath
-  }
-
-  Write-Host "[installer-hub] Artefacto generado: $targetPath"
 }
 
 $defaultsPath = Join-Path $root 'config\installer-hub.defaults.json'
@@ -152,6 +260,9 @@ if (-not $recommendedFlavorId) {
 }
 
 $recommendedArtifact = $builtArtifacts | Where-Object { [string]$_.flavorId -eq $recommendedFlavorId } | Select-Object -First 1
+if (-not $recommendedArtifact) {
+  $recommendedArtifact = $builtArtifacts | Select-Object -First 1
+}
 $localManifestPath = Join-Path $OutputDir 'installer-local-paths.json'
 $localManifest = [ordered]@{
   generatedAt = (Get-Date).ToString('yyyy-MM-ddTHH:mm:ssK')

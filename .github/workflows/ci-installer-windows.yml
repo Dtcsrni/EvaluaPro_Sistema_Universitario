@@ -39,32 +39,6 @@ jobs:
       - name: Etapa setup
         run: npm ci --foreground-scripts
 
-      - name: Resolver refs para diff de flavors
-        id: diff_refs
-        shell: bash
-        run: |
-          set -euo pipefail
-          head_ref="${GITHUB_SHA}"
-          base_ref=""
-          if [[ "${GITHUB_REF}" == refs/tags/v* ]]; then
-            prev_tag="$(git describe --tags --abbrev=0 "${GITHUB_SHA}^" 2>/dev/null || true)"
-            if [[ -n "$prev_tag" ]]; then
-              base_ref="$prev_tag"
-            fi
-          fi
-          echo "head_ref=$head_ref" >> "$GITHUB_OUTPUT"
-          echo "base_ref=$base_ref" >> "$GITHUB_OUTPUT"
-
-      - name: Resolver flavors afectados para build
-        id: affected_flavors
-        shell: bash
-        env:
-          BASE_REF: ${{ steps.diff_refs.outputs.base_ref }}
-          HEAD_REF: ${{ steps.diff_refs.outputs.head_ref }}
-        run: |
-          set -euo pipefail
-          node scripts/release/resolve-affected-installer-flavors.mjs --base-ref="$BASE_REF" --head-ref="$HEAD_REF"
-
       - name: Instalar WiX CLI estable (v6+)
         shell: powershell
         run: |
@@ -91,11 +65,11 @@ jobs:
 
       - name: Etapa build MSI + Bundle
         shell: powershell
-        run: powershell -NoProfile -ExecutionPolicy Bypass -File scripts/build-msi.ps1 -SkipStabilityChecks -IncludeBundle -Flavor "${{ steps.affected_flavors.outputs.build_flavor_arg }}"
+        run: powershell -NoProfile -ExecutionPolicy Bypass -File scripts/build-msi.ps1 -SkipStabilityChecks -IncludeBundle -Flavor all
 
       - name: Etapa build Installer Hub EXE
         shell: powershell
-        run: powershell -NoProfile -ExecutionPolicy Bypass -File scripts/build-installer-hub.ps1 -Flavor "${{ steps.affected_flavors.outputs.build_flavor_arg }}"
+        run: powershell -NoProfile -ExecutionPolicy Bypass -File scripts/build-installer-hub.ps1 -Flavor all -UnifiedHub -IncludeFlavorInstallers
 
       - name: Etapa hash/manifest de release instalador
         shell: powershell
@@ -109,48 +83,10 @@ jobs:
             powershell -NoProfile -ExecutionPolicy Bypass -File scripts/generate-installer-hashes.ps1
           }
 
-      - name: Empaquetar instalacion simple para usuario final
-        shell: powershell
-        env:
-          FLAVORS_CSV: ${{ steps.affected_flavors.outputs.flavors_csv }}
-        run: |
-          $zipPath = 'dist/installer/EvaluaPro-Instalador-Windows.zip'
-          $zipShaPath = 'dist/installer/EvaluaPro-Instalador-Windows.zip.sha256'
-          $packageRoot = Join-Path $env:RUNNER_TEMP 'evaluapro-instalacion-simple'
-          $readmePath = Join-Path $packageRoot 'LEEME-INSTALACION.txt'
-          $flavors = @($env:FLAVORS_CSV -split ',' | ForEach-Object { $_.Trim() } | Where-Object { $_ })
-          if ($flavors.Count -eq 0) {
-            throw "No se resolvieron flavors para empaquetado simple."
-          }
-          $preferredFlavor = $flavors[0]
-          $hubPath = "dist/installer/EvaluaPro-InstallerHub-$preferredFlavor.exe"
-          if (-not (Test-Path $hubPath)) {
-            throw "No se encontro InstallerHub esperado: $hubPath"
-          }
-
-          New-Item -ItemType Directory -Path $packageRoot -Force | Out-Null
-          Copy-Item -Path $hubPath -Destination (Join-Path $packageRoot 'EvaluaPro-InstallerHub.exe') -Force
-
-          @(
-            'EvaluaPro - Instalacion simple (Windows)',
-            '',
-            'Pasos:',
-            '1) Extrae este .zip en una carpeta local.',
-            '2) Ejecuta EvaluaPro-InstallerHub.exe.',
-            '3) En el Hub, elige el flavor y completa la instalacion.',
-            '',
-            'Si Windows pide confirmacion, valida el archivo y permite la ejecucion.'
-          ) | Set-Content -Path $readmePath -Encoding utf8
-
-          if (Test-Path $zipPath) { Remove-Item -Path $zipPath -Force }
-          Compress-Archive -Path (Join-Path $packageRoot '*') -DestinationPath $zipPath -Force
-          $zipHash = (Get-FileHash -Path $zipPath -Algorithm SHA256).Hash.ToLowerInvariant()
-          "$zipHash  EvaluaPro-Instalador-Windows.zip" | Set-Content -Path $zipShaPath -Encoding utf8
-
-      - name: Antivirus gate de instalador simple
+      - name: Antivirus gate del Installer Hub
         shell: powershell
         run: |
-          powershell -NoProfile -ExecutionPolicy Bypass -File scripts/release/run-defender-scan.ps1 -TargetPath 'dist/installer/EvaluaPro-Instalador-Windows.zip' -ReportPath 'dist/installer/antivirus-scan-report.txt'
+          powershell -NoProfile -ExecutionPolicy Bypass -File scripts/release/run-defender-scan.ps1 -TargetPath 'dist/installer/EvaluaPro-InstallerHub.exe' -ReportPath 'dist/installer/antivirus-scan-report.txt'
 
       - name: Etapa signing gate (opcional)
         shell: powershell
@@ -162,20 +98,9 @@ jobs:
 
       - name: Verificar artefactos
         shell: powershell
-        env:
-          FLAVORS_CSV: ${{ steps.affected_flavors.outputs.flavors_csv }}
         run: |
-          $flavors = @($env:FLAVORS_CSV -split ',' | ForEach-Object { $_.Trim() } | Where-Object { $_ })
-          if ($flavors.Count -eq 0) { throw "FLAVORS_CSV vacío en verificación." }
-          foreach ($flavor in $flavors) {
-            if (-not (Test-Path "dist/installer/EvaluaPro-$flavor.msi")) { throw "No existe dist/installer/EvaluaPro-$flavor.msi" }
-            if (-not (Test-Path "dist/installer/EvaluaPro-$flavor-Setup.exe")) { throw "No existe dist/installer/EvaluaPro-$flavor-Setup.exe" }
-            if (-not (Test-Path "dist/installer/EvaluaPro-InstallerHub-$flavor.exe")) { throw "No existe dist/installer/EvaluaPro-InstallerHub-$flavor.exe" }
-            if (-not (Test-Path "dist/installer/EvaluaPro-$flavor.msi.sha256")) { throw "No existe dist/installer/EvaluaPro-$flavor.msi.sha256" }
-          }
-          if (-not (Test-Path "dist/installer/EvaluaPro-release-manifest.json")) { throw "No existe dist/installer/EvaluaPro-release-manifest.json" }
-          if (-not (Test-Path "dist/installer/EvaluaPro-Instalador-Windows.zip")) { throw "No existe dist/installer/EvaluaPro-Instalador-Windows.zip" }
-          if (-not (Test-Path "dist/installer/EvaluaPro-Instalador-Windows.zip.sha256")) { throw "No existe dist/installer/EvaluaPro-Instalador-Windows.zip.sha256" }
+          if (-not (Test-Path "dist/installer/EvaluaPro-InstallerHub.exe")) { throw "No existe dist/installer/EvaluaPro-InstallerHub.exe" }
+          if (-not (Test-Path "dist/installer/EvaluaPro-InstallerHub.exe.sha256")) { throw "No existe dist/installer/EvaluaPro-InstallerHub.exe.sha256" }
           if (-not (Test-Path "dist/installer/antivirus-scan-report.txt")) { throw "No existe dist/installer/antivirus-scan-report.txt" }
 
       - name: Publicar artefactos instalador
@@ -183,21 +108,9 @@ jobs:
         with:
           name: installer-windows
           path: |
-            dist/installer/EvaluaPro-Instalador-Windows.zip
-            dist/installer/EvaluaPro-Instalador-Windows.zip.sha256
+            dist/installer/EvaluaPro-InstallerHub.exe
+            dist/installer/EvaluaPro-InstallerHub.exe.sha256
             dist/installer/antivirus-scan-report.txt
-            dist/installer/EvaluaPro-saas-completo.msi
-            dist/installer/EvaluaPro-saas-completo.msi.sha256
-            dist/installer/EvaluaPro-saas-completo-Setup.exe
-            dist/installer/EvaluaPro-saas-completo-Setup.exe.sha256
-            dist/installer/EvaluaPro-InstallerHub-saas-completo.exe
-            dist/installer/EvaluaPro-InstallerHub-saas-completo.exe.sha256
-            dist/installer/EvaluaPro-docente-local.msi
-            dist/installer/EvaluaPro-docente-local.msi.sha256
-            dist/installer/EvaluaPro-docente-local-Setup.exe
-            dist/installer/EvaluaPro-docente-local-Setup.exe.sha256
-            dist/installer/EvaluaPro-InstallerHub-docente-local.exe
-            dist/installer/EvaluaPro-InstallerHub-docente-local.exe.sha256
             dist/installer/EvaluaPro-release-manifest.json
             dist/installer/SIGNING-NOT-PRODUCTION.txt
             dist/installer/*.wixpdb
@@ -206,25 +119,13 @@ jobs:
         if: startsWith(github.ref, 'refs/tags/v')
         id: stable_release_assets
         shell: bash
-        env:
-          FLAVORS_CSV: ${{ steps.affected_flavors.outputs.flavors_csv }}
         run: |
           set -euo pipefail
           files=(
-            "dist/installer/EvaluaPro-Instalador-Windows.zip"
-            "dist/installer/EvaluaPro-Instalador-Windows.zip.sha256"
+            "dist/installer/EvaluaPro-InstallerHub.exe"
+            "dist/installer/EvaluaPro-InstallerHub.exe.sha256"
             "dist/installer/antivirus-scan-report.txt"
-            "dist/installer/EvaluaPro-release-manifest.json"
           )
-          IFS=',' read -ra flavors <<< "${FLAVORS_CSV}"
-          for f in "${flavors[@]}"; do
-            f_trimmed="$(echo "$f" | xargs)"
-            if [ -z "$f_trimmed" ]; then
-              continue
-            fi
-            files+=("dist/installer/EvaluaPro-InstallerHub-$f_trimmed.exe")
-            files+=("dist/installer/EvaluaPro-InstallerHub-$f_trimmed.exe.sha256")
-          done
           {
             echo 'files<<EOF'
             printf '%s\n' "${files[@]}"

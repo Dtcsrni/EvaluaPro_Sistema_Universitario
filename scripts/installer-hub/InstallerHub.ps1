@@ -419,7 +419,7 @@ function Invoke-InstallerFlowCore {
     Invoke-FlowPhase -Name 'release_estable' -FailCode 20 -Action {
       if ($OnStepUpdate) { & $OnStepUpdate 5 'running' 'Resolviendo release estable y MSI...' }
 
-      $flow.release = Get-LatestStableReleaseAssets -Owner $flow.repoOwner -Repo $flow.repoName -FlavorId $flow.flavorId -OnLog {
+      $flow.release = Get-LatestStableReleaseAssets -Owner $flow.repoOwner -Repo $flow.repoName -FlavorId $flow.flavorId -LocalBundleRoot $scriptRoot -LocalMsiName ([string]$flow.flavor.msiName) -OnLog {
         param($lvl, $msg)
         if ($OnUiLog) { & $OnUiLog $lvl $msg }
       }

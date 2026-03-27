@@ -48,6 +48,15 @@ foreach ($flavor in $catalog.flavors) {
   }
 }
 
+foreach ($artifactName in @('EvaluaPro-InstallerHub.exe')) {
+  $artifactPath = Join-Path $InstallerDir $artifactName
+  if (-not (Test-Path $artifactPath)) { continue }
+  $hash = Get-Sha256Hex -Path $artifactPath
+  $hashPath = Join-Path $InstallerDir ($artifactName + '.sha256')
+  "$hash  $artifactName" | Set-Content -Path $hashPath -Encoding ascii
+  Write-Host "[installer-hash] Generado: $hashPath"
+}
+
 $manifestScript = Join-Path $PSScriptRoot 'generate-installer-release-manifest.ps1'
 $manifestPath = Join-Path $InstallerDir 'EvaluaPro-release-manifest.json'
 

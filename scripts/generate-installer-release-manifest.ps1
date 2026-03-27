@@ -73,7 +73,7 @@ $catalogPath = Join-Path $root 'config\installer-flavors.json'
 $catalog = Get-Content -Path $catalogPath -Raw -Encoding utf8 | ConvertFrom-Json
 $artifactIndex = @{}
 $artifacts = @()
-$allArtifactNames = @('EvaluaPro-release-manifest.json')
+$allArtifactNames = @('EvaluaPro-release-manifest.json', 'EvaluaPro-InstallerHub.exe')
 foreach ($flavor in $catalog.flavors) {
   $allArtifactNames += @([string]$flavor.msiName, [string]$flavor.bundleName, [string]$flavor.installerHubExeName)
 }
@@ -119,6 +119,7 @@ foreach ($flavor in $catalog.flavors) {
     msiSha256Url = $msiShaUrl
     prerequisitesProfile = [string]$flavor.prerequisitesProfile
     deploymentTarget = if ($DeploymentTarget) { $DeploymentTarget } else { [string]$flavor.deploymentTarget }
+    installViaHubOnly = $true
   }
 }
 
