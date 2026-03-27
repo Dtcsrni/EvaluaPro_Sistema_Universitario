@@ -1,6 +1,5 @@
 param(
   [string]$OutputDir = '',
-  [ValidateSet('all', 'saas-completo', 'docente-local')]
   [string]$Flavor = 'all'
 )
 
@@ -22,8 +21,10 @@ if (-not (Test-Path $catalogPath)) {
 }
 $catalog = Get-Content -Path $catalogPath -Raw -Encoding utf8 | ConvertFrom-Json
 $flavors = @($catalog.flavors)
-if ($Flavor -ne 'all') {
-  $flavors = @($flavors | Where-Object { [string]$_.flavorId -eq $Flavor })
+$requested = [string]$Flavor
+if (-not [string]::IsNullOrWhiteSpace($requested) -and $requested -ne 'all') {
+  $requestedIds = @($requested.Split(',') | ForEach-Object { ([string]$_).Trim() } | Where-Object { $_ })
+  $flavors = @($flavors | Where-Object { $requestedIds -contains [string]$_.flavorId })
 }
 if ($flavors.Count -eq 0) {
   throw "No se resolvieron flavors para '$Flavor'."

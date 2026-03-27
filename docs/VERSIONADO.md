@@ -81,6 +81,7 @@ Debe pasar:
    - `EvaluaPro-release-manifest.json`
    - no publicar `Setup.exe`/MSI individuales en la página de release (quedan fuera de assets públicos)
    - con gate antivirus bloqueante sobre el `.zip` para canal stable.
+   - el build de instalador por flavor debe ser incremental por diff (solo flavors afectados; fallback `all` si no hay base de diff confiable).
 5. Ejecutar gate de estable:
    - `npm run release:gate:prod-flow -- --version=<version> --periodo-id=<periodoId> --manual=docs/release/manual/prod-flow.json`
 6. Versionar evidencias en:

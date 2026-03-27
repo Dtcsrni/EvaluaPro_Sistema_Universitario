@@ -168,7 +168,7 @@
     "installer:sign:internal:init": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/signing/new-internal-signing-cert.ps1",
     "installer:sign:internal:trust": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/signing/install-internal-signing-cert.ps1",
     "installer:run:safe": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/Install-EvaluaPro.ps1",
-    "test:installer-hub:contract": "node --test scripts/tests/installer-hub-contract.test.mjs scripts/tests/windows-release-smoke.test.mjs",
+    "test:installer-hub:contract": "node --test scripts/tests/installer-hub-contract.test.mjs scripts/tests/installer-flavor-diff-resolver.test.mjs scripts/tests/windows-release-smoke.test.mjs",
     "test:ci:affected:resolve": "node scripts/testing/resolve-affected-ci.mjs",
     "status": "node scripts/dashboard.mjs",
     "docker:runtime:check": "node scripts/docker-runtime-check.mjs",

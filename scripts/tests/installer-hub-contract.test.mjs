@@ -107,28 +107,26 @@ test('canal update por defecto es stable en config y scripts', () => {
 
 test('workflow de installer publica contratos nuevos de release', () => {
   const workflow = fs.readFileSync(path.join(root, '.github', 'workflows', 'ci-installer-windows.yml'), 'utf8');
-  const stableReleaseBlockMatch = workflow.match(/- name: Publicar release assets \(tags v\*\)[\s\S]*?dist\/installer\/EvaluaPro-release-manifest\.json/);
-  const stableReleaseBlock = stableReleaseBlockMatch ? stableReleaseBlockMatch[0] : '';
 
   assert.match(workflow, /build-installer-hub\.ps1/);
   assert.match(workflow, /generate-installer-hashes\.ps1/);
   assert.match(workflow, /sign-installer-artifacts\.ps1/);
+  assert.match(workflow, /resolve-affected-installer-flavors\.mjs/);
+  assert.match(workflow, /-Flavor "\$\{\{ steps\.affected_flavors\.outputs\.build_flavor_arg \}\}"/);
   assert.match(workflow, /Publicar release assets \(tags v\*\)/);
-  assert.match(stableReleaseBlock, /EvaluaPro-InstallerHub-saas-completo\.exe/);
-  assert.match(stableReleaseBlock, /EvaluaPro-InstallerHub-docente-local\.exe/);
-  assert.doesNotMatch(stableReleaseBlock, /EvaluaPro-saas-completo-Setup\.exe/);
-  assert.doesNotMatch(stableReleaseBlock, /EvaluaPro-docente-local-Setup\.exe/);
+  assert.match(workflow, /steps\.stable_release_assets\.outputs\.files/);
+  assert.match(workflow, /EvaluaPro-InstallerHub-\$f_trimmed\.exe/);
+  assert.doesNotMatch(workflow, /dist\/installer\/EvaluaPro-saas-completo-Setup\.exe\s*\n\s*dist\/installer\/EvaluaPro-docente-local-Setup\.exe/);
 });
 
 test('workflow beta publica solo hubs en assets de prerelease', () => {
   const workflow = fs.readFileSync(path.join(root, '.github', 'workflows', 'release-beta.yml'), 'utf8');
-  const prereleaseBlockMatch = workflow.match(/- name: Publicar prerelease beta[\s\S]*?reports\/release\/beta\/\$\{\{ needs\.beta_gate\.outputs\.beta_version \}\}\/diff-summary\.json/);
-  const prereleaseBlock = prereleaseBlockMatch ? prereleaseBlockMatch[0] : '';
 
-  assert.match(prereleaseBlock, /EvaluaPro-InstallerHub-saas-completo\.exe/);
-  assert.match(prereleaseBlock, /EvaluaPro-InstallerHub-docente-local\.exe/);
-  assert.doesNotMatch(prereleaseBlock, /EvaluaPro-saas-completo-Setup\.exe/);
-  assert.doesNotMatch(prereleaseBlock, /EvaluaPro-docente-local-Setup\.exe/);
+  assert.match(workflow, /resolve-affected-installer-flavors\.mjs/);
+  assert.match(workflow, /steps\.beta_assets\.outputs\.files/);
+  assert.match(workflow, /EvaluaPro-InstallerHub-\$f_trimmed\.exe/);
+  assert.doesNotMatch(workflow, /EvaluaPro-docente-local-Setup\.exe/);
+  assert.doesNotMatch(workflow, /EvaluaPro-saas-completo-Setup\.exe/);
 });
 
 test('runtime Docker Windows queda abstracto en dashboard, WiX y package scripts', () => {

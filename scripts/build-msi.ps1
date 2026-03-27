@@ -3,7 +3,6 @@ param(
   [string]$Version = "",
   [switch]$SkipStabilityChecks,
   [switch]$IncludeBundle,
-  [ValidateSet('all', 'saas-completo', 'docente-local')]
   [string]$Flavor = 'all'
 )
 
@@ -67,8 +66,13 @@ function Get-SelectedFlavors {
 
   $catalog = Get-Content -Path $CatalogPath -Raw -Encoding utf8 | ConvertFrom-Json
   $flavors = @($catalog.flavors)
-  if ($RequestedFlavor -eq 'all') { return $flavors }
-  return @($flavors | Where-Object { [string]$_.flavorId -eq $RequestedFlavor })
+  $requested = [string]$RequestedFlavor
+  if ([string]::IsNullOrWhiteSpace($requested) -or $requested -eq 'all') { return $flavors }
+
+  $requestedIds = @($requested.Split(',') | ForEach-Object { ([string]$_).Trim() } | Where-Object { $_ })
+  if ($requestedIds.Count -eq 0) { return $flavors }
+
+  return @($flavors | Where-Object { $requestedIds -contains [string]$_.flavorId })
 }
 
 if (-not (Test-Path $wix)) {

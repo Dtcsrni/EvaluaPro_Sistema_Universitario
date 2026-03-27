@@ -150,6 +150,16 @@ jobs:
       - name: Instalar dependencias
         run: npm ci --foreground-scripts
 
+      - name: Resolver flavors afectados para build
+        id: affected_flavors
+        shell: bash
+        env:
+          BASE_REF: ${{ needs.beta_gate.outputs.base_ref }}
+          HEAD_SHA: ${{ needs.beta_gate.outputs.head_sha }}
+        run: |
+          set -euo pipefail
+          node scripts/release/resolve-affected-installer-flavors.mjs --base-ref="$BASE_REF" --head-ref="$HEAD_SHA"
+
       - name: Instalar WiX CLI estable (v6+)
         shell: powershell
         run: |
@@ -179,11 +189,11 @@ jobs:
 
       - name: Etapa build MSI + Bundle
         shell: powershell
-        run: powershell -NoProfile -ExecutionPolicy Bypass -File scripts/build-msi.ps1 -IncludeBundle -Flavor all
+        run: powershell -NoProfile -ExecutionPolicy Bypass -File scripts/build-msi.ps1 -IncludeBundle -Flavor "${{ steps.affected_flavors.outputs.build_flavor_arg }}"
 
       - name: Etapa build Installer Hub EXE
         shell: powershell
-        run: powershell -NoProfile -ExecutionPolicy Bypass -File scripts/build-installer-hub.ps1 -Flavor all
+        run: powershell -NoProfile -ExecutionPolicy Bypass -File scripts/build-installer-hub.ps1 -Flavor "${{ steps.affected_flavors.outputs.build_flavor_arg }}"
 
       - name: Etapa hash/manifest beta
         shell: powershell
@@ -194,26 +204,33 @@ jobs:
 
       - name: Empaquetar instalacion simple para usuario final
         shell: powershell
+        env:
+          FLAVORS_CSV: ${{ steps.affected_flavors.outputs.flavors_csv }}
         run: |
           $zipPath = 'dist/installer/EvaluaPro-Instalador-Windows.zip'
           $zipShaPath = 'dist/installer/EvaluaPro-Instalador-Windows.zip.sha256'
           $packageRoot = Join-Path $env:RUNNER_TEMP 'evaluapro-instalacion-simple'
           $readmePath = Join-Path $packageRoot 'LEEME-INSTALACION.txt'
-          $setupPath = 'dist/installer/EvaluaPro-docente-local-Setup.exe'
-          if (-not (Test-Path $setupPath)) {
-            throw "No se encontro instalador esperado: $setupPath"
+          $flavors = @($env:FLAVORS_CSV -split ',' | ForEach-Object { $_.Trim() } | Where-Object { $_ })
+          if ($flavors.Count -eq 0) {
+            throw "No se resolvieron flavors para empaquetado simple."
+          }
+          $preferredFlavor = $flavors[0]
+          $hubPath = "dist/installer/EvaluaPro-InstallerHub-$preferredFlavor.exe"
+          if (-not (Test-Path $hubPath)) {
+            throw "No se encontro InstallerHub esperado: $hubPath"
           }
 
           New-Item -ItemType Directory -Path $packageRoot -Force | Out-Null
-          Copy-Item -Path $setupPath -Destination (Join-Path $packageRoot 'EvaluaPro-Setup.exe') -Force
+          Copy-Item -Path $hubPath -Destination (Join-Path $packageRoot 'EvaluaPro-InstallerHub.exe') -Force
 
           @(
             'EvaluaPro - Instalacion simple (Windows)',
             '',
             'Pasos:',
             '1) Extrae este .zip en una carpeta local.',
-            '2) Ejecuta EvaluaPro-Setup.exe.',
-            '3) Sigue el asistente de instalacion.',
+            '2) Ejecuta EvaluaPro-InstallerHub.exe.',
+            '3) En el Hub, elige el flavor y completa la instalacion.',
             '',
             'Si Windows pide confirmacion, valida el archivo y permite la ejecucion.'
           ) | Set-Content -Path $readmePath -Encoding utf8
@@ -256,6 +273,37 @@ jobs:
             echo 'EOF'
           } >> "$GITHUB_OUTPUT"
 
+      - name: Definir archivos de prerelease segun flavors afectados
+        id: beta_assets
+        shell: bash
+        env:
+          FLAVORS_CSV: ${{ steps.affected_flavors.outputs.flavors_csv }}
+          BETA_VERSION: ${{ needs.beta_gate.outputs.beta_version }}
+        run: |
+          set -euo pipefail
+          files=(
+            "dist/installer/EvaluaPro-Instalador-Windows.zip"
+            "dist/installer/EvaluaPro-Instalador-Windows.zip.sha256"
+            "dist/installer/antivirus-scan-report.txt"
+            "dist/installer/EvaluaPro-release-manifest.json"
+            "reports/release/beta/$BETA_VERSION/notes.md"
+            "reports/release/beta/$BETA_VERSION/diff-summary.json"
+          )
+          IFS=',' read -ra flavors <<< "${FLAVORS_CSV}"
+          for f in "${flavors[@]}"; do
+            f_trimmed="$(echo "$f" | xargs)"
+            if [ -z "$f_trimmed" ]; then
+              continue
+            fi
+            files+=("dist/installer/EvaluaPro-InstallerHub-$f_trimmed.exe")
+            files+=("dist/installer/EvaluaPro-InstallerHub-$f_trimmed.exe.sha256")
+          done
+          {
+            echo 'files<<EOF'
+            printf '%s\n' "${files[@]}"
+            echo 'EOF'
+          } >> "$GITHUB_OUTPUT"
+
       - name: Publicar prerelease beta
         uses: softprops/action-gh-release@v2
         with:
@@ -265,14 +313,4 @@ jobs:
           prerelease: true
           make_latest: false
           body: ${{ steps.notes.outputs.body }}
-          files: |
-            dist/installer/EvaluaPro-Instalador-Windows.zip
-            dist/installer/EvaluaPro-Instalador-Windows.zip.sha256
-            dist/installer/antivirus-scan-report.txt
-            dist/installer/EvaluaPro-InstallerHub-saas-completo.exe
-            dist/installer/EvaluaPro-InstallerHub-saas-completo.exe.sha256
-            dist/installer/EvaluaPro-InstallerHub-docente-local.exe
-            dist/installer/EvaluaPro-InstallerHub-docente-local.exe.sha256
-            dist/installer/EvaluaPro-release-manifest.json
-            reports/release/beta/${{ needs.beta_gate.outputs.beta_version }}/notes.md
-            reports/release/beta/${{ needs.beta_gate.outputs.beta_version }}/diff-summary.json
+          files: ${{ steps.beta_assets.outputs.files }}

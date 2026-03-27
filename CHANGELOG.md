@@ -19,6 +19,7 @@ Este archivo sigue el formato "Keep a Changelog" (alto nivel) y SemVer.
   - `Release Beta` y `CI Installer Windows` ahora generan `EvaluaPro-Instalador-Windows.zip` + `.sha256`
   - el paquete simple incluye `EvaluaPro-Setup.exe` (docente-local) y `LEEME-INSTALACION.txt`
   - los assets publicados en Releases se simplifican a InstallerHub por flavor + `EvaluaPro-release-manifest.json` + evidencia AV (sin publicar `Setup.exe`/MSI individuales en la página de release)
+  - `Release Beta` y `CI Installer Windows` resuelven flavors afectados por diff y construyen solo esos (`resolve-affected-installer-flavors.mjs`), evitando rebuild innecesario de flavors no tocados
 - Antivirus bloqueante integrado a CI/CD de release:
   - `Release Beta` y `CI Installer Windows` ejecutan Microsoft Defender (`MpCmdRun`) sobre el zip simple antes de publicar assets
   - se publica evidencia `antivirus-scan-report.txt` en artifacts/releases
