@@ -25,7 +25,7 @@ Define a single CI/CD contract that any runner can execute 1:1 (GitHub Actions, 
 1. `setup`
 2. `flujo-docente-check`
 3. `dataset-prodlike-check`
-4. `omr-tv3-extended-gate`
+4. `omr-tv-extended-gate`
 5. `docente-alumno-e2e-check`
 6. `global-grade-check`
 7. `pdf-print-check`
@@ -93,9 +93,9 @@ Policy:
 - Command: `npm run test:dataset-prodlike:ci`
 - Output: `reports/qa/latest/dataset-prodlike.json`
 
-### omr-tv3-extended-gate
-- Command: `npm run test:omr:tv3:gate:ci`
-- Output: `reports/qa/latest/omr-tv3-gate-wrapper.json`
+### omr-tv-extended-gate
+- Command: `npm run test:omr:tv:gate:ci`
+- Output: `reports/qa/latest/omr-tv-gate-wrapper.json`
 
 ### docente-alumno-e2e-check
 - Command: `npm run test:e2e:docente-alumno:ci`

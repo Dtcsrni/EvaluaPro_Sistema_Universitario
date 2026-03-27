@@ -62,7 +62,7 @@ Asegurar confiabilidad funcional y de seguridad del sistema completo en cada cam
 - Calificacion y reglas de topes.
 - Aislamiento entre docentes.
 - Publicacion/sincronizacion hacia portal.
-- Gate mixto OMR TV4 con dataset sintético (`omr_samples_tv4`) y baseline real `Por Folio` regenerado sobre contrato TV4.
+- Gate OMR por template version (`TV`) con baseline seleccionable desde CI y datasets versionados por contrato.
 - Modulo de evaluaciones continuas y politicas configurables (SV/LISC).
 - Integracion Google Classroom en modo `pull` (OAuth y mapeo de evidencias).
 - Auditoria focal Classroom reproducible:
@@ -78,7 +78,7 @@ Asegurar confiabilidad funcional y de seguridad del sistema completo en cada cam
 - `legal-docs-check` + `pii-leak-check` + `retention-policy-check`
 
 ### Gate extendido (nightly/main/release)
-- `npm run test:omr:tv4:gate:ci`
+- `npm run test:omr:tv:gate:ci`
 - `npm run test:e2e:docente-alumno:ci`
 - `npm run test:global-grade:ci`
 - `npm run test:evaluaciones:policy:ci`
@@ -90,6 +90,10 @@ Asegurar confiabilidad funcional y de seguridad del sistema completo en cada cam
 - `npm run qa:clean-architecture:strict`
 - `npm run test:compliance:dsr-flow`
 - `npm run compliance:evidence:generate`
+
+Seleccion de baseline TV activa:
+- por defecto el runner usa `tv3`
+- para cambiar de baseline sin renombrar el gate CI usar `OMR_TV_GATE_VERSION=tv4 npm run test:omr:tv:gate:ci`
 
 ### Gate de promocion estable (tag v* sin prerelease)
 - `npm run release:validate:stable -- --version=<version>`
@@ -105,7 +109,7 @@ npm run test:flujo-docente:ci
 npm run test:coverage:ci
 npm run test:tdd:enforcement:ci
 npm run test:client:proyectos:ci
-npm run test:omr:tv3:gate:ci
+npm run test:omr:tv:gate:ci
 npm run test:evaluaciones:policy:ci
 npm run test:evaluaciones:e2e:ci
 npm run perf:check

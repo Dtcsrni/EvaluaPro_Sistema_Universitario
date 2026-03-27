@@ -1,7 +1,7 @@
-# Runbook OMR Por Folio Gate
+# Runbook OMR TV Gate
 
 ## Objetivo
-Ejecutar y validar el gate mixto de confiabilidad OMR TV4 con baseline real `Por Folio` para liberar autocalificacion con evidencia trazable.
+Ejecutar y validar el gate canónico OMR por template version (`TV`) sin acoplar el carril CI a una sola versión.
 
 ## Prerrequisitos
 - Node 24.
@@ -11,6 +11,18 @@ Ejecutar y validar el gate mixto de confiabilidad OMR TV4 con baseline real `Por
 - Dataset real manual mínimo disponible en `omr_samples_tv3_real_manual_min/`.
 
 ## Flujo operativo
+Carril CI genérico:
+```bash
+npm run test:omr:tv:gate:ci
+```
+
+Para cambiar de baseline activo sin renombrar el gate:
+```bash
+OMR_TV_GATE_VERSION=tv4 npm run test:omr:tv:gate:ci
+```
+
+Flujos específicos por baseline:
+
 1. Generar/actualizar dataset real `Por Folio`:
 ```bash
 npm -C apps/backend run omr:tv3:build:por-folio-dataset
@@ -53,11 +65,12 @@ npm -C apps/backend run omr:tv3:calibrate:real
 ```
 
 ## Evidencia generada
+- `reports/qa/latest/omr-tv-gate-wrapper.json`
 - `reports/qa/latest/omr/baseline_snapshot.json`
 - `reports/qa/latest/omr/synthetic-eval*.json`
 - `reports/qa/latest/omr/tv3-por-folio-validation*.json`
 - `reports/qa/latest/omr/tv3-por-folio-failures*.json`
-Los nombres de artefacto se conservan por compatibilidad histórica aunque el baseline nominal sea TV4.
+Los artefactos específicos del baseline pueden conservar nombres históricos (`tv3-*`, `tv4-*`) mientras el wrapper CI queda estable y genérico.
 - `reports/qa/latest/omr/por-folio-diagnose/*`
 - `reports/qa/latest/omr/tv3-real-manual-validation*.json`
 - `reports/qa/latest/omr/tv3-real-manual-failure-analysis*.json`

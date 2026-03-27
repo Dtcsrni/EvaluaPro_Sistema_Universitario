@@ -51,9 +51,7 @@ jobs:
               - "scripts/security-env-check.mjs"
             backend:
               - "apps/backend/**"
-              - "omr_samples_tv3/**"
-              - "omr_samples_tv3_real/**"
-              - "omr_samples_tv3_real_por_folio/**"
+              - "omr_samples_tv*/**"
             frontend:
               - "apps/frontend/**"
               - "client/**"
@@ -431,11 +429,10 @@ jobs:
       - name: Etapa dataset-prodlike-check
         run: npm run test:dataset-prodlike:ci
 
-      - name: Verificar dataset OMR TV3 por folio (extendido)
-        run: test -f omr_samples_tv3_real_por_folio/manifest.json
-
-      - name: Etapa omr-tv3-real-gate
-        run: npm run test:omr:tv3:gate:ci
+      - name: Etapa omr-tv-real-gate
+        env:
+          OMR_TV_GATE_VERSION: ${{ vars.OMR_TV_GATE_VERSION || 'tv3' }}
+        run: npm run test:omr:tv:gate:ci
 
       - name: Etapa docente-alumno-e2e-check
         run: npm run test:e2e:docente-alumno:ci

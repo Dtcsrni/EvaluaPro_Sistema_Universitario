@@ -22,7 +22,7 @@
       "setup",
       "flujo-docente-check",
       "dataset-prodlike-check",
-      "omr-tv3-extended-gate",
+      "omr-tv-extended-gate",
       "docente-alumno-e2e-check",
       "global-grade-check",
       "pdf-print-check",
@@ -111,12 +111,12 @@
       ]
     },
     {
-      "name": "omr-tv3-extended-gate",
+      "name": "omr-tv-extended-gate",
       "commands": [
-        "npm run test:omr:tv3:gate:ci"
+        "npm run test:omr:tv:gate:ci"
       ],
       "artifacts": [
-        "reports/qa/latest/omr-tv3-gate-wrapper.json"
+        "reports/qa/latest/omr-tv-gate-wrapper.json"
       ]
     },
     {

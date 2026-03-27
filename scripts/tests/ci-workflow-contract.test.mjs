@@ -34,3 +34,13 @@ test('ext_perf_arquitectura prepara sharp antes de perf:check', () => {
   assert.ok(sharpIndex > setupIndex, 'sharp debe ejecutarse despues de npm ci');
   assert.ok(perfIndex > sharpIndex, 'perf:check debe ejecutarse despues de preparar sharp');
 });
+
+test('ext_funcionales usa gate OMR TV generico con version configurable', () => {
+  const workflow = fs.readFileSync(workflowPath, 'utf8');
+  const block = extractJobBlock(workflow, 'ext_funcionales');
+
+  assert.match(block, /Etapa omr-tv-real-gate/);
+  assert.match(block, /OMR_TV_GATE_VERSION/);
+  assert.match(block, /npm run test:omr:tv:gate:ci/);
+  assert.doesNotMatch(block, /npm run test:omr:tv3:gate:ci/);
+});
