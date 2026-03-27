@@ -16,7 +16,7 @@ on:
         type: string
 
 concurrency:
-  group: release-stable-gate-${{ github.workflow }}-${{ github.ref }}
+  group: release-stable-gate-${{ github.workflow }}-${{ inputs.version || github.ref_name || github.run_id }}
   cancel-in-progress: true
 
 jobs:

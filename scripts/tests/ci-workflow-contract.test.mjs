@@ -44,3 +44,12 @@ test('ext_funcionales usa gate OMR TV generico con version configurable', () => 
   assert.match(block, /npm run test:omr:tv:gate:ci/);
   assert.doesNotMatch(block, /npm run test:omr:tv3:gate:ci/);
 });
+
+test('workflow CI unifica concurrency por repo fuente y branch fuente', () => {
+  const workflow = fs.readFileSync(workflowPath, 'utf8');
+
+  assert.match(workflow, /concurrency:/);
+  assert.match(workflow, /github\.event\.pull_request\.head\.repo\.full_name \|\| github\.repository/);
+  assert.match(workflow, /github\.event\.pull_request\.head\.ref \|\| github\.head_ref \|\| github\.ref_name/);
+  assert.doesNotMatch(workflow, /group:\s*ci-\$\{\{\s*github\.workflow\s*\}\}-\$\{\{\s*github\.ref\s*\}\}/);
+});

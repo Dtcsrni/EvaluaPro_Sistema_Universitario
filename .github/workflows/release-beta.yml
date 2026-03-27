@@ -28,7 +28,7 @@ on:
         type: string
 
 concurrency:
-  group: release-beta-${{ github.workflow }}-${{ github.ref }}
+  group: release-beta-${{ github.workflow }}-${{ github.event_name == 'workflow_dispatch' && format('manual-{0}', inputs.version || inputs.head_sha || github.ref_name) || format('auto-{0}', github.event.workflow_run.head_branch || github.ref_name) }}
   cancel-in-progress: true
 
 permissions:
