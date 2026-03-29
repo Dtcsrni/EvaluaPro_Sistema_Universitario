@@ -1,0 +1,25 @@
+{
+  "sessionId": "sesion-2026-03-23T08-55-32.926Z",
+  "auditGeneratedAt": "2026-03-29T12:00:00.000Z",
+  "mode": "sidecar",
+  "observations": "agent desconocido; pipeline_contract_check: ok; docs_check: falla (AUTO_DOCS_INDEX).",
+  "pendingFields": [
+    "request.summary",
+    "objective",
+    "scope",
+    "decisions",
+    "risks",
+    "nextStep"
+  ],
+  "suggestedActions": [
+    "Ejecutar 'npm run docs:generate' y validar nuevamente.",
+    "Completar campos faltantes y asignar reviewer."
+  ],
+  "recommendedCommands": [
+    "npm run docs:generate",
+    "npm run docs:check",
+    "npm run pipeline:contract:check"
+  ],
+  "recommendedRepoAction": "generate docs and commit generated outputs if valid",
+  "reviewer": null
+}

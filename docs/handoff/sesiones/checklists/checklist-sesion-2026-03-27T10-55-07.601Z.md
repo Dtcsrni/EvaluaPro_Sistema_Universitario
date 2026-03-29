@@ -1,0 +1,23 @@
+Checklist: sesión sesion-2026-03-27T10-55-07.601Z
+
+- **Session file**: docs/handoff/sesiones/2026-03-27/sesion-2026-03-27T10-55-07.601Z.json
+- **Campos a revisar/completar**:
+  - agent.{name,version,provider,kind,channel}
+  - request.summary / request.objective
+  - decisions (lista)
+  - risks (lista)
+  - nextStep (acción responsable + fecha)
+  - completion.{isComplete,notes}
+- **Reconciliación Git**:
+  - Revisar `repo.workingTreeStatus` en el JSON
+  - Ejecutar `git status` y `git diff` localmente
+  - Decidir: commit / stash / revert
+  - Actualizar `files.changed` en la sesión con hashes si corresponde
+- **Validación**:
+  - Validar JSON contra `docs/handoff/trace.schema.json`
+  - Ejecutar `npm run test:ia:traceability` (o script recomendado)
+- **Resultado esperado**:
+  - JSON completo, validado, `status: "final"`
+  - Working tree reconciliado y cambios commiteados donde aplique
+- **Notas / preguntas**:
+  - agent en JSON actual aparece como `"unknown"` — identificar origen del agente
