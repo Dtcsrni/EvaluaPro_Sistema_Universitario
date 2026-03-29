@@ -641,7 +641,18 @@ function Invoke-EvaluaProStepUp {
   }
 
   $grantedAt = Get-Date
-  $expiresAt = $grantedAt.AddMinutes([double]($config.sessionTtlMinutes ?? 30))
+  $sessionTtlMinutes = 30
+  if ($null -ne $config -and $config.PSObject.Properties['sessionTtlMinutes']) {
+    $rawSessionTtl = [string]$config.sessionTtlMinutes
+    if (-not [string]::IsNullOrWhiteSpace($rawSessionTtl)) {
+      try {
+        $sessionTtlMinutes = [double]$rawSessionTtl
+      } catch {
+        $sessionTtlMinutes = 30
+      }
+    }
+  }
+  $expiresAt = $grantedAt.AddMinutes($sessionTtlMinutes)
   $session = [ordered]@{
     version = 1
     grantedAt = $grantedAt.ToString('o')

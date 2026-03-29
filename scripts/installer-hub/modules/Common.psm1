@@ -1,6 +1,73 @@
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
 
+function Resolve-InstallerHubRootPath {
+  param(
+    [string]$RootPath = ''
+  )
+
+  $candidates = @()
+  if (-not [string]::IsNullOrWhiteSpace($RootPath)) {
+    $candidates += $RootPath
+  }
+  if (-not [string]::IsNullOrWhiteSpace([string]$env:EVALUAPRO_INSTALLER_ROOT)) {
+    $candidates += [string]$env:EVALUAPRO_INSTALLER_ROOT
+  }
+  if (-not [string]::IsNullOrWhiteSpace([string]$env:EVALUAPRO_INSTALLER_BUNDLE_ROOT)) {
+    $candidates += [string]$env:EVALUAPRO_INSTALLER_BUNDLE_ROOT
+  }
+
+  $legacyRoot = ''
+  try {
+    $legacyRoot = (Resolve-Path (Join-Path $PSScriptRoot '..\..\..')).Path
+  } catch {
+    $legacyRoot = ''
+  }
+
+  $candidates += @(
+    $PSScriptRoot,
+    (Split-Path -Parent $PSScriptRoot),
+    $legacyRoot
+  ) | Where-Object { -not [string]::IsNullOrWhiteSpace([string]$_) }
+
+  foreach ($candidate in $candidates) {
+    $resolved = ''
+    try {
+      $resolved = (Resolve-Path -LiteralPath $candidate).Path
+    } catch {
+      continue
+    }
+
+    if (Test-Path (Join-Path $resolved 'config\installer-flavors.json')) {
+      return $resolved
+    }
+    if (Test-Path (Join-Path $resolved 'installer-flavors.json')) {
+      return $resolved
+    }
+  }
+
+  throw "No se pudo resolver raiz del Installer Hub desde '$PSScriptRoot'."
+}
+
+function Resolve-InstallerFlavorCatalogPath {
+  param(
+    [string]$RootPath = ''
+  )
+
+  $resolvedRoot = Resolve-InstallerHubRootPath -RootPath $RootPath
+  $catalogCandidates = @(
+    (Join-Path $resolvedRoot 'config\installer-flavors.json'),
+    (Join-Path $resolvedRoot 'installer-flavors.json')
+  )
+
+  $catalogPath = $catalogCandidates | Where-Object { Test-Path -LiteralPath $_ } | Select-Object -First 1
+  if (-not $catalogPath) {
+    throw "No existe catalogo de flavors en rutas esperadas: $($catalogCandidates -join ' | ')"
+  }
+
+  return $catalogPath
+}
+
 function Test-IsAdministrator {
   $identity = [Security.Principal.WindowsIdentity]::GetCurrent()
   $principal = New-Object Security.Principal.WindowsPrincipal($identity)
@@ -234,13 +301,10 @@ function Invoke-InstallerHubProcess {
 
 function Get-InstallerFlavorCatalog {
   param(
-    [string]$RootPath = (Resolve-Path (Join-Path $PSScriptRoot '..\..\..')).Path
+    [string]$RootPath = ''
   )
 
-  $catalogPath = Join-Path $RootPath 'config\installer-flavors.json'
-  if (-not (Test-Path $catalogPath)) {
-    throw "No existe catalogo de flavors: $catalogPath"
-  }
+  $catalogPath = Resolve-InstallerFlavorCatalogPath -RootPath $RootPath
 
   $raw = Get-Content -Path $catalogPath -Raw -Encoding utf8
   $json = $raw | ConvertFrom-Json
@@ -259,7 +323,7 @@ function Get-InstallerFlavorDefinition {
   param(
     [Parameter(Mandatory = $true)]
     [string]$FlavorId,
-    [string]$RootPath = (Resolve-Path (Join-Path $PSScriptRoot '..\..\..')).Path
+    [string]$RootPath = ''
   )
 
   $catalog = Get-InstallerFlavorCatalog -RootPath $RootPath

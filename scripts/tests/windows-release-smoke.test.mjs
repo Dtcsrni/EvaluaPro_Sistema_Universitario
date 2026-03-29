@@ -5,7 +5,7 @@ import os from 'node:os';
 import path from 'node:path';
 import http from 'node:http';
 import { createHash } from 'node:crypto';
-import { execFileSync } from 'node:child_process';
+import { execFileSync, spawn } from 'node:child_process';
 
 const root = process.cwd();
 const brokerPath = path.join(root, 'scripts', 'launcher-broker.ps1');
@@ -13,6 +13,7 @@ const installerHubPath = path.join(root, 'scripts', 'installer-hub', 'InstallerH
 const prereqDetectorModulePath = path.join(root, 'scripts', 'installer-hub', 'modules', 'PrereqDetector.psm1');
 const manifestPath = path.join(root, 'logs', 'installation.manifest.json');
 const lockPath = path.join(root, 'logs', 'dashboard.lock.json');
+const installerHubLogsDir = path.join(process.env.ProgramData || 'C:\\ProgramData', 'EvaluaPro', 'installer-hub', 'logs');
 
 function getAvailablePowerShell() {
   const candidates = process.platform === 'win32'
@@ -94,6 +95,29 @@ async function httpJson(url, timeoutMs = 8_000) {
 
 function readJson(filePath) {
   return JSON.parse(fs.readFileSync(filePath, 'utf8').replace(/^\uFEFF/, ''));
+}
+
+function getLatestInstallerHubLog() {
+  if (!fs.existsSync(installerHubLogsDir)) return null;
+  const candidates = fs.readdirSync(installerHubLogsDir)
+    .filter((name) => /^installer-hub-.*\.log$/i.test(name))
+    .map((name) => {
+      const filePath = path.join(installerHubLogsDir, name);
+      const stat = fs.statSync(filePath);
+      return { filePath, mtimeMs: stat.mtimeMs };
+    })
+    .sort((a, b) => b.mtimeMs - a.mtimeMs);
+  return candidates[0] ?? null;
+}
+
+async function waitForNewInstallerHubLog(startedAt, timeoutMs = 10_000) {
+  const started = Date.now();
+  while (Date.now() - started < timeoutMs) {
+    const latest = getLatestInstallerHubLog();
+    if (latest && latest.mtimeMs >= startedAt) return latest;
+    await sleep(250);
+  }
+  return null;
 }
 
 async function startMockLicenseApi() {
@@ -352,6 +376,183 @@ test('repair headless aislado recupera una instalacion dañada agresivamente', {
     }
   } finally {
     await licenseApi.close();
+    fs.rmSync(tempRoot, { recursive: true, force: true });
+  }
+});
+
+test('smoke GUI no destructivo mantiene viva la ventana del Installer Hub con temp dir y cierre automatico', { timeout: 120_000 }, async () => {
+  if (process.platform !== 'win32' || !shell) {
+    test.skip();
+    return;
+  }
+
+  const tempRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'evaluapro-release-gui-smoke-'));
+  const installDir = path.join(tempRoot, 'EvaluaPro');
+  const fakeReleaseDir = path.join(tempRoot, 'release');
+  const securityDir = path.join(tempRoot, 'security');
+  const desktopDir = path.join(tempRoot, 'desktop');
+  const startMenuDir = path.join(tempRoot, 'startmenu', 'EvaluaPro');
+  const fakeMsiPath = path.join(fakeReleaseDir, 'EvaluaPro-docente-local.msi');
+  const fakeShaPath = path.join(fakeReleaseDir, 'EvaluaPro-docente-local.msi.sha256');
+
+  fs.mkdirSync(fakeReleaseDir, { recursive: true });
+  fs.mkdirSync(securityDir, { recursive: true });
+  fs.mkdirSync(desktopDir, { recursive: true });
+  fs.mkdirSync(startMenuDir, { recursive: true });
+  fs.writeFileSync(fakeMsiPath, 'fake-msi-for-release-gui-smoke\n', 'utf8');
+  fs.writeFileSync(fakeShaPath, `${sha256(fakeMsiPath)}  ${path.basename(fakeMsiPath)}\n`, 'utf8');
+
+  const env = {
+    ...process.env,
+    EVALUAPRO_INSTALLER_GUI_SMOKE: '1',
+    EVALUAPRO_INSTALLER_GUI_AUTO_CLOSE_MS: '4200',
+    EVALUAPRO_INSTALLER_RELEASE_MSI_PATH: fakeMsiPath,
+    EVALUAPRO_INSTALLER_RELEASE_SHA_PATH: fakeShaPath,
+    EVALUAPRO_INSTALLER_RELEASE_TAG: '1.0.0-test',
+    EVALUAPRO_INSTALLER_SIMULATE_WSL_BOOTSTRAP: '1',
+    EVALUAPRO_INSTALLER_SIMULATE_AUTO_BOOTSTRAP: '1',
+    EVALUAPRO_INSTALLER_AUTO_BOOTSTRAP_WSL: '1',
+    EVALUAPRO_INSTALLER_SIMULATE_PRODUCT_ACTION: '1',
+    EVALUAPRO_INSTALLER_SIMULATE_SOURCE_DIR: root,
+    EVALUAPRO_INSTALLER_ALLOW_UNREGISTERED: '1',
+    EVALUAPRO_SECURITY_ROOT: securityDir,
+    EVALUAPRO_DESKTOP_PATH: desktopDir,
+    EVALUAPRO_STARTMENU_PATH: startMenuDir
+  };
+
+  try {
+    const startedAt = Date.now();
+    const child = spawn(shell, [
+      '-NoProfile',
+      '-ExecutionPolicy',
+      'Bypass',
+      '-File',
+      installerHubPath,
+      '-NoElevation',
+      '-Mode',
+      'install',
+      '-FlavorId',
+      'docente-local',
+      '-InstallDir',
+      installDir
+    ], {
+      env,
+      windowsHide: true,
+      stdio: 'ignore'
+    });
+
+    await sleep(1800);
+    assert.equal(child.exitCode, null, 'El Hub GUI se cerro antes del umbral de smoke.');
+
+    await sleep(3000);
+    await new Promise((resolve) => child.once('exit', resolve));
+    assert.equal(typeof child.exitCode, 'number');
+    const latestLog = await waitForNewInstallerHubLog(startedAt, 10000);
+    assert.ok(latestLog, 'No se genero log nuevo del Installer Hub en smoke GUI.');
+    const logContent = fs.readFileSync(latestLog.filePath, 'utf8');
+    assert.doesNotMatch(logContent, /Bootstrap GUI fallido|Preflight GUI fallido/i);
+    assert.doesNotMatch(logContent, /brandSummary|\$toggle|no se puede recuperar porque no se ha establecido/i);
+  } finally {
+    fs.rmSync(tempRoot, { recursive: true, force: true });
+  }
+});
+
+test('self-test GUI valida que controles clickeables recorren el ciclo completo', { timeout: 420_000 }, async () => {
+  if (process.platform !== 'win32' || !shell) {
+    test.skip();
+    return;
+  }
+
+  const tempRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'evaluapro-release-gui-selftest-'));
+  const installDir = path.join(tempRoot, 'EvaluaPro');
+  const fakeReleaseDir = path.join(tempRoot, 'release');
+  const securityDir = path.join(tempRoot, 'security');
+  const desktopDir = path.join(tempRoot, 'desktop');
+  const startMenuDir = path.join(tempRoot, 'startmenu', 'EvaluaPro');
+  const fakeMsiPath = path.join(fakeReleaseDir, 'EvaluaPro-docente-local.msi');
+  const fakeShaPath = path.join(fakeReleaseDir, 'EvaluaPro-docente-local.msi.sha256');
+
+  fs.mkdirSync(fakeReleaseDir, { recursive: true });
+  fs.mkdirSync(securityDir, { recursive: true });
+  fs.mkdirSync(desktopDir, { recursive: true });
+  fs.mkdirSync(startMenuDir, { recursive: true });
+  fs.writeFileSync(fakeMsiPath, 'fake-msi-for-release-gui-selftest\n', 'utf8');
+  fs.writeFileSync(fakeShaPath, `${sha256(fakeMsiPath)}  ${path.basename(fakeMsiPath)}\n`, 'utf8');
+
+  const env = {
+    ...process.env,
+    EVALUAPRO_INSTALLER_GUI_SELF_TEST: '1',
+    EVALUAPRO_INSTALLER_GUI_TEST_NO_DIALOG: '1',
+    EVALUAPRO_INSTALLER_GUI_SELF_TEST_SKIP_FLOW: '1',
+    EVALUAPRO_INSTALLER_RELEASE_MSI_PATH: fakeMsiPath,
+    EVALUAPRO_INSTALLER_RELEASE_SHA_PATH: fakeShaPath,
+    EVALUAPRO_INSTALLER_RELEASE_TAG: '1.0.0-test',
+    EVALUAPRO_INSTALLER_SIMULATE_WSL_BOOTSTRAP: '1',
+    EVALUAPRO_INSTALLER_SIMULATE_AUTO_BOOTSTRAP: '1',
+    EVALUAPRO_INSTALLER_AUTO_BOOTSTRAP_WSL: '1',
+    EVALUAPRO_INSTALLER_SIMULATE_PRODUCT_ACTION: '1',
+    EVALUAPRO_INSTALLER_SIMULATE_SOURCE_DIR: root,
+    EVALUAPRO_INSTALLER_ALLOW_UNREGISTERED: '1',
+    EVALUAPRO_SECURITY_ROOT: securityDir,
+    EVALUAPRO_DESKTOP_PATH: desktopDir,
+    EVALUAPRO_STARTMENU_PATH: startMenuDir,
+    EVALUAPRO_LICENSE_ACTIVATION_SIMULATE: '1'
+  };
+
+  try {
+    const startedAt = Date.now();
+    const child = spawn(shell, [
+      '-NoProfile',
+      '-ExecutionPolicy',
+      'Bypass',
+      '-File',
+      installerHubPath,
+      '-NoElevation',
+      '-Mode',
+      'install',
+      '-FlavorId',
+      'docente-local',
+      '-InstallDir',
+      installDir
+    ], {
+      env,
+      windowsHide: true,
+      stdio: 'ignore'
+    });
+
+    await new Promise((resolve, reject) => {
+      const timeout = setTimeout(() => {
+        try { child.kill('SIGTERM'); } catch {}
+        reject(new Error('Self-test GUI excedio tiempo maximo.'));
+      }, 360_000);
+      child.once('exit', () => {
+        clearTimeout(timeout);
+        resolve();
+      });
+      child.once('error', (error) => {
+        clearTimeout(timeout);
+        reject(error);
+      });
+    });
+
+    const latestLog = await waitForNewInstallerHubLog(startedAt, 12000);
+    assert.ok(latestLog, 'No se genero log nuevo del Installer Hub en self-test GUI.');
+    const logContent = fs.readFileSync(latestLog.filePath, 'utf8');
+    assert.match(logContent, /UI_SELFTEST_START/);
+    assert.match(logContent, /UI_CLICK_TECH_TOGGLE_OPEN/);
+    assert.match(logContent, /UI_CLICK_ADVANCED_TOGGLE_OPEN/);
+    assert.match(logContent, /UI_CLICK_TOOLS_TOGGLE_OPEN/);
+    assert.match(logContent, /UI_CLICK_OPEN_LOGS_OK/);
+    assert.match(logContent, /UI_CLICK_OPEN_FOLDER_OK/);
+    assert.match(logContent, /UI_CLICK_OPEN_DASHBOARD_OK/);
+    assert.match(logContent, /UI_CLICK_REGEN_SHORTCUTS_OK/);
+    assert.match(logContent, /UI_CLICK_RUN/);
+    assert.match(logContent, /UI_CLICK_BACK/);
+    assert.match(logContent, /UI_CLICK_NEXT/);
+    assert.match(logContent, /UI_SELFTEST_OK/);
+    assert.doesNotMatch(logContent, /UI_SELFTEST_FAILED|Bootstrap GUI fallido|Preflight GUI fallido/i);
+    assert.doesNotMatch(logContent, /Add-UiLog.*not recognized|CommandNotFoundException.*Add-UiLog/i);
+  } finally {
     fs.rmSync(tempRoot, { recursive: true, force: true });
   }
 });

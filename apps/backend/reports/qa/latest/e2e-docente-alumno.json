@@ -1,6 +1,6 @@
 {
   "version": "1",
-  "ejecutadoEn": "2026-03-26T10:13:23.790Z",
+  "ejecutadoEn": "2026-03-27T09:28:46.410Z",
   "estado": "ok",
   "pasos": [
     {
@@ -14,17 +14,17 @@
     {
       "paso": "codigo_acceso_generado",
       "estado": "ok",
-      "requestId": "fe429499-06c8-4924-a7a3-77c0d44fd179"
+      "requestId": "95937bbf-c041-4683-9b30-dfaae9118c64"
     },
     {
       "paso": "publicacion_portal",
       "estado": "ok",
-      "requestId": "5f1c6d30-3994-4b51-b768-3335fbae6717"
+      "requestId": "27859598-fade-47d0-aa88-c215c048cf87"
     },
     {
       "paso": "ingreso_alumno_portal",
       "estado": "ok",
-      "requestId": "efe97a7f-17e3-4b72-9489-2c34ec6b902f"
+      "requestId": "74e30f27-3469-4ac1-9e7e-36407fe7bc8f"
     },
     {
       "paso": "consulta_resultados_portal",
@@ -40,10 +40,10 @@
     }
   ],
   "resumen": {
-    "periodoId": "69c506c2236fc5917e9cbbdf",
-    "examenId": "69c506c2236fc5917e9cbc13",
-    "folio": "0534112A",
-    "alumnoId": "69c506c2236fc5917e9cbbe1",
-    "folioParcial": "A4FE5102"
+    "periodoId": "69c64dcddf65545b4368fd51",
+    "examenId": "69c64dcddf65545b4368fd85",
+    "folio": "1B237C66",
+    "alumnoId": "69c64dcddf65545b4368fd53",
+    "folioParcial": "C70A88AC"
   }
 }

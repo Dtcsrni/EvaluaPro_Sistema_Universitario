@@ -71,6 +71,22 @@ jobs:
         shell: powershell
         run: powershell -NoProfile -ExecutionPolicy Bypass -File scripts/build-installer-hub.ps1 -Flavor all -IncludeFlavorInstallers
 
+      - name: Smoke GUI del Installer Hub empaquetado
+        shell: powershell
+        env:
+          EVALUAPRO_INSTALLER_GUI_SMOKE: '1'
+          EVALUAPRO_INSTALLER_GUI_AUTO_CLOSE_MS: '2200'
+        run: |
+          $exe = 'dist/installer/EvaluaPro-InstallerHub-docente-local.exe'
+          if (-not (Test-Path $exe)) { throw "No existe $exe" }
+          $proc = Start-Process -FilePath $exe -PassThru
+          Start-Sleep -Seconds 2
+          if ($proc.HasExited) { throw 'El Installer Hub empaquetado se cerro antes del smoke timeout.' }
+          Start-Sleep -Seconds 3
+          if (-not $proc.HasExited) {
+            try { Stop-Process -Id $proc.Id -Force } catch {}
+          }
+
       - name: Etapa hash/manifest de release instalador
         shell: powershell
         run: |

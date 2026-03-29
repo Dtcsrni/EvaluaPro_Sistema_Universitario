@@ -65,6 +65,7 @@ Import-Module (Join-Path $modulesPath 'ProductInstaller.psm1') -Force -Global -D
 Import-Module (Join-Path $modulesPath 'PostInstallVerifier.psm1') -Force -Global -DisableNameChecking
 Import-Module (Join-Path $modulesPath 'LicenseClientSecurity.psm1') -Force -Global -DisableNameChecking
 Import-Module (Join-Path $modulesPath 'OperationalConfig.psm1') -Force -Global -DisableNameChecking
+Import-Module (Join-Path $modulesPath 'WizardUi.psm1') -Force -Global -DisableNameChecking
 
 if (-not $NoElevation) {
   $shouldContinue = Ensure-ElevatedSession -ScriptPath $MyInvocation.MyCommand.Path -PassthroughArgs $args
@@ -94,7 +95,9 @@ function Resolve-DisplayVersion {
   if (-not (Test-Path -LiteralPath $metaPath)) { return '' }
   try {
     $meta = Get-Content -LiteralPath $metaPath -Raw -Encoding utf8 | ConvertFrom-Json
-    return [string]($meta.displayVersion ?? '')
+    if ($null -eq $meta) { return '' }
+    if (-not $meta.PSObject.Properties['displayVersion']) { return '' }
+    return [string]$meta.displayVersion
   } catch {
     return ''
   }
@@ -317,6 +320,7 @@ function New-FlowState {
     operationalSetup = $null
     licenciaSegura = $null
     integridadBaseline = $null
+    installationHealth = $null
     exitCode = 0
     lastPhase = ''
     failureMessage = ''
@@ -655,6 +659,44 @@ if ($Headless) {
   return
 }
 
+$guiPreflight = Test-InstallerHubGuiPreflight -ModulesPath $modulesPath -PrereqManifestPath $prereqManifestPath
+if (-not $guiPreflight.ok) {
+  try {
+    Add-Type -AssemblyName System.Windows.Forms
+    [System.Windows.Forms.MessageBox]::Show(
+      "No se pudo iniciar la interfaz del Installer Hub.`n`n$($guiPreflight.issues -join '`n')`n`nLog:`n$($flow.logPath)",
+      'EvaluaPro Installer Hub',
+      [System.Windows.Forms.MessageBoxButtons]::OK,
+      [System.Windows.Forms.MessageBoxIcon]::Error
+    ) | Out-Null
+  } catch {}
+  foreach ($issue in $guiPreflight.issues) {
+    Invoke-FlowLog -Level 'error' -Message 'Preflight GUI fallido.' -Meta @{ error = $issue }
+  }
+  exit 1
+}
+
+try {
+  Invoke-InstallerHubWizardUi -Flow $flow -HubTitleText $hubTitleText -PrereqManifestPath $prereqManifestPath
+  exit 0
+} catch {
+  try {
+    Add-Type -AssemblyName System.Windows.Forms
+    [System.Windows.Forms.MessageBox]::Show(
+      "Fallo al iniciar la interfaz del Installer Hub.`n`n$($_.Exception.Message)`n`nLog:`n$($flow.logPath)",
+      'EvaluaPro Installer Hub',
+      [System.Windows.Forms.MessageBoxButtons]::OK,
+      [System.Windows.Forms.MessageBoxIcon]::Error
+    ) | Out-Null
+  } catch {}
+  Invoke-FlowLog -Level 'error' -Message 'Bootstrap GUI fallido.' -Meta @{
+    error = $_.Exception.Message
+    scriptStackTrace = $_.ScriptStackTrace
+    position = $_.InvocationInfo.PositionMessage
+  }
+  exit 1
+}
+
 Add-Type -AssemblyName System.Windows.Forms
 Add-Type -AssemblyName System.Drawing
 [System.Windows.Forms.Application]::EnableVisualStyles()
@@ -665,6 +707,7 @@ $form.StartPosition = 'CenterScreen'
 $form.Width = 1120
 $form.Height = 760
 $form.MinimumSize = New-Object System.Drawing.Size(1020, 700)
+$form.AutoScaleMode = [System.Windows.Forms.AutoScaleMode]::None
 $form.BackColor = [System.Drawing.Color]::FromArgb(18, 26, 46)
 $form.ForeColor = [System.Drawing.Color]::White
 $form.Font = New-Object System.Drawing.Font('Segoe UI', 10)
@@ -735,16 +778,23 @@ $stepsList.SelectedIndex = 0
 
 $rightPanel = New-Object System.Windows.Forms.Panel
 $rightPanel.Dock = 'Fill'
+$rightPanel.AutoScroll = $false
 $mainPanel.Controls.Add($rightPanel)
+
+$configScrollPanel = New-Object System.Windows.Forms.Panel
+$configScrollPanel.Dock = 'Top'
+$configScrollPanel.Height = 470
+$configScrollPanel.AutoScroll = $true
+$configScrollPanel.BackColor = [System.Drawing.Color]::FromArgb(10, 25, 45)
+$rightPanel.Controls.Add($configScrollPanel)
 
 $configGroup = New-Object System.Windows.Forms.GroupBox
 $configGroup.Text = 'Configuracion de ejecucion'
 $configGroup.Dock = 'Top'
-$configGroup.Height = 620
-$configGroup.AutoScroll = $true
+$configGroup.Height = 820
 $configGroup.ForeColor = [System.Drawing.Color]::FromArgb(208, 230, 255)
 $configGroup.BackColor = [System.Drawing.Color]::FromArgb(10, 25, 45)
-$rightPanel.Controls.Add($configGroup)
+$configScrollPanel.Controls.Add($configGroup)
 
 $toolTip = New-Object System.Windows.Forms.ToolTip
 $toolTip.AutoPopDelay = 12000
@@ -1269,9 +1319,12 @@ $logBox.ForeColor = [System.Drawing.Color]::FromArgb(201, 241, 213)
 $logBox.Font = New-Object System.Drawing.Font('Consolas', 9)
 $rightPanel.Controls.Add($logBox)
 
-$actionsPanel = New-Object System.Windows.Forms.Panel
+$actionsPanel = New-Object System.Windows.Forms.FlowLayoutPanel
 $actionsPanel.Dock = 'Bottom'
-$actionsPanel.Height = 62
+$actionsPanel.Height = 70
+$actionsPanel.WrapContents = $false
+$actionsPanel.AutoScroll = $true
+$actionsPanel.FlowDirection = [System.Windows.Forms.FlowDirection]::LeftToRight
 $actionsPanel.Padding = New-Object System.Windows.Forms.Padding(0, 8, 0, 0)
 $rightPanel.Controls.Add($actionsPanel)
 
@@ -1279,7 +1332,7 @@ $btnRun = New-Object System.Windows.Forms.Button
 $btnRun.Text = 'Iniciar instalacion'
 $btnRun.Width = 190
 $btnRun.Height = 38
-$btnRun.Location = New-Object System.Drawing.Point(0, 10)
+$btnRun.Margin = New-Object System.Windows.Forms.Padding(0, 2, 12, 0)
 $btnRun.BackColor = [System.Drawing.Color]::FromArgb(28, 114, 196)
 $btnRun.ForeColor = [System.Drawing.Color]::White
 $btnRun.FlatStyle = 'Popup'
@@ -1289,7 +1342,7 @@ $btnRetry = New-Object System.Windows.Forms.Button
 $btnRetry.Text = 'Reintentar'
 $btnRetry.Width = 120
 $btnRetry.Height = 38
-$btnRetry.Location = New-Object System.Drawing.Point(204, 10)
+$btnRetry.Margin = New-Object System.Windows.Forms.Padding(0, 2, 12, 0)
 $btnRetry.Enabled = $false
 $actionsPanel.Controls.Add($btnRetry)
 
@@ -1297,14 +1350,14 @@ $btnOpenLogs = New-Object System.Windows.Forms.Button
 $btnOpenLogs.Text = 'Abrir logs'
 $btnOpenLogs.Width = 120
 $btnOpenLogs.Height = 38
-$btnOpenLogs.Location = New-Object System.Drawing.Point(336, 10)
+$btnOpenLogs.Margin = New-Object System.Windows.Forms.Padding(0, 2, 12, 0)
 $actionsPanel.Controls.Add($btnOpenLogs)
 
 $btnOpenDashboard = New-Object System.Windows.Forms.Button
 $btnOpenDashboard.Text = 'Abrir dashboard'
 $btnOpenDashboard.Width = 150
 $btnOpenDashboard.Height = 38
-$btnOpenDashboard.Location = New-Object System.Drawing.Point(468, 10)
+$btnOpenDashboard.Margin = New-Object System.Windows.Forms.Padding(0, 2, 12, 0)
 $btnOpenDashboard.Enabled = $false
 $actionsPanel.Controls.Add($btnOpenDashboard)
 
@@ -1312,21 +1365,21 @@ $btnVerify = New-Object System.Windows.Forms.Button
 $btnVerify.Text = 'Verificar'
 $btnVerify.Width = 120
 $btnVerify.Height = 38
-$btnVerify.Location = New-Object System.Drawing.Point(632, 10)
+$btnVerify.Margin = New-Object System.Windows.Forms.Padding(0, 2, 12, 0)
 $actionsPanel.Controls.Add($btnVerify)
 
 $btnRegenShortcuts = New-Object System.Windows.Forms.Button
 $btnRegenShortcuts.Text = 'Regenerar accesos'
 $btnRegenShortcuts.Width = 150
 $btnRegenShortcuts.Height = 38
-$btnRegenShortcuts.Location = New-Object System.Drawing.Point(764, 10)
+$btnRegenShortcuts.Margin = New-Object System.Windows.Forms.Padding(0, 2, 12, 0)
 $actionsPanel.Controls.Add($btnRegenShortcuts)
 
 $btnExit = New-Object System.Windows.Forms.Button
 $btnExit.Text = 'Finalizar'
 $btnExit.Width = 120
 $btnExit.Height = 38
-$btnExit.Location = New-Object System.Drawing.Point(926, 10)
+$btnExit.Margin = New-Object System.Windows.Forms.Padding(0, 2, 12, 0)
 $actionsPanel.Controls.Add($btnExit)
 
 $splashPanel = New-Object System.Windows.Forms.Panel

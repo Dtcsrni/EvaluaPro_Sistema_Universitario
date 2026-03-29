@@ -3,12 +3,13 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import path from 'node:path';
 import os from 'node:os';
-import { execFileSync } from 'node:child_process';
+import { execFileSync, spawn } from 'node:child_process';
 
 const root = process.cwd();
 const installerHubPath = path.join(root, 'scripts', 'installer-hub', 'InstallerHub.ps1');
 const operationalConfigModulePath = path.join(root, 'scripts', 'installer-hub', 'modules', 'OperationalConfig.psm1');
 const licenseSecurityModulePath = path.join(root, 'scripts', 'installer-hub', 'modules', 'LicenseClientSecurity.psm1');
+const installerHubLogsDir = path.join(process.env.ProgramData || 'C:\\ProgramData', 'EvaluaPro', 'installer-hub', 'logs');
 const prereqInstallerModulePath = path.join(root, 'scripts', 'installer-hub', 'modules', 'PrereqInstaller.psm1');
 
 function getAvailablePowerShell() {
@@ -24,7 +25,7 @@ function getAvailablePowerShell() {
         timeout: 12_000
       });
       const major = Number.parseInt(String(versionOutput || '').trim(), 10);
-      if (!Number.isFinite(major) || major < 7) {
+      if (!Number.isFinite(major) || major < 5) {
         continue;
       }
       return command;
@@ -54,12 +55,37 @@ function parseJsonOutput(stdout) {
   const text = String(stdout || '').trim();
   if (!text) return {};
   try {
-    return JSON.parse(text) ?? {};
+    return JSON.parse(text) || {};
   } catch {
     const start = text.lastIndexOf('{');
     if (start < 0) return {};
-    return JSON.parse(text.slice(start)) ?? {};
+    return JSON.parse(text.slice(start)) || {};
   }
+}
+
+function getLatestInstallerHubLog() {
+  if (!fs.existsSync(installerHubLogsDir)) return null;
+  const candidates = fs.readdirSync(installerHubLogsDir)
+    .filter((name) => /^installer-hub-.*\.log$/i.test(name))
+    .map((name) => {
+      const filePath = path.join(installerHubLogsDir, name);
+      const stat = fs.statSync(filePath);
+      return { filePath, mtimeMs: stat.mtimeMs };
+    })
+    .sort((a, b) => b.mtimeMs - a.mtimeMs);
+  return candidates[0] ?? null;
+}
+
+async function waitForNewInstallerHubLog(startedAt, timeoutMs = 8_000) {
+  const deadline = Date.now() + timeoutMs;
+  while (Date.now() < deadline) {
+    const latest = getLatestInstallerHubLog();
+    if (latest && latest.mtimeMs >= startedAt) {
+      return latest;
+    }
+    await new Promise((resolve) => setTimeout(resolve, 250));
+  }
+  return null;
 }
 
 test('installer prereq manifest incluye contrato minimo', () => {
@@ -157,9 +183,44 @@ test('build del installer hub genera manifiesto local con ruta del ejecutable re
   assert.match(buildScript, /Ejecutable recomendado para este equipo/);
 });
 
+test('resolucion de flavors funciona en layout plano del bundle (IExpress)', () => {
+  const tempRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'evaluapro-installer-flat-'));
+  const commonModulePath = path.join(root, 'scripts', 'installer-hub', 'modules', 'Common.psm1');
+  try {
+    const flatCatalogPath = path.join(tempRoot, 'installer-flavors.json');
+    fs.writeFileSync(flatCatalogPath, JSON.stringify({
+      version: 1,
+      defaultFlavorId: 'docente-local',
+      flavors: [
+        { flavorId: 'docente-local', installerHubExeName: 'EvaluaPro-InstallerHub-docente-local.exe' }
+      ]
+    }, null, 2), 'utf8');
+
+    const script = `
+Import-Module -Force -WarningAction SilentlyContinue '${commonModulePath.replace(/'/g, "''")}'
+$catalog = Get-InstallerFlavorCatalog -RootPath '${tempRoot.replace(/'/g, "''")}'
+$catalog | ConvertTo-Json -Depth 8
+`.trim();
+
+    const result = runPowerShell(script);
+    if (result.skipped) {
+      return;
+    }
+
+    const parsed = parseJsonOutput(result.stdout);
+    assert.equal(parsed.defaultFlavorId, 'docente-local');
+    assert.equal(Array.isArray(parsed.flavors), true);
+    assert.equal(parsed.flavors.length, 1);
+    assert.equal(parsed.flavors[0].flavorId, 'docente-local');
+  } finally {
+    fs.rmSync(tempRoot, { recursive: true, force: true });
+  }
+});
+
 test('installer hub incluye fase de configuracion operativa y blindaje de licencia configurable', () => {
   const hub = fs.readFileSync(installerHubPath, 'utf8');
   assert.match(hub, /OperationalConfig\.psm1/);
+  assert.match(hub, /WizardUi\.psm1/);
   assert.match(hub, /configuracion_operativa/);
   assert.match(hub, /MONGODB_URI|MongoUri/);
   assert.match(hub, /NODE_ENV|NodeEnv/);
@@ -182,8 +243,133 @@ test('installer hub incluye fase de configuracion operativa y blindaje de licenc
   assert.match(hub, /Initialize-EvaluaProPortableAdminLicense/);
   assert.match(hub, /\[string\]\$RequireLicenseActivation = '1'/);
   assert.match(hub, /\$flow\.requireLicenseActivation = '1'/);
+  assert.match(hub, /installationHealth = \$null/);
   assert.match(hub, /Regenerar accesos/);
   assert.match(hub, /Verificar/);
+});
+
+test('installer hub expone preflight GUI y wizard por pasos', () => {
+  const hub = fs.readFileSync(installerHubPath, 'utf8');
+  const wizard = fs.readFileSync(path.join(root, 'scripts', 'installer-hub', 'modules', 'WizardUi.psm1'), 'utf8');
+  assert.match(hub, /Test-InstallerHubGuiPreflight/);
+  assert.match(hub, /Invoke-InstallerHubWizardUi/);
+  assert.match(wizard, /1\. Inicio inteligente/);
+  assert.match(wizard, /2\. Revision rapida/);
+  assert.match(wizard, /3\. Verificacion/);
+  assert.match(wizard, /4\. Instalacion y resultado/);
+  assert.match(wizard, /TableLayoutPanel/);
+  assert.match(wizard, /FlowLayoutPanel/);
+});
+
+test('wizard UI evita patrones fragiles de WinForms ya corregidos', () => {
+  const wizard = fs.readFileSync(path.join(root, 'scripts', 'installer-hub', 'modules', 'WizardUi.psm1'), 'utf8');
+  assert.equal(wizard.includes('$group.AutoScroll'), false);
+  assert.equal(wizard.includes('AutoScaleMode]::None'), false);
+  assert.equal(wizard.includes('ListBox'), false);
+  assert.match(wizard, /function Set-FlowInstallationHealth/);
+  assert.match(wizard, /Add-Member -InputObject \$Flow -NotePropertyName 'installationHealth'/);
+  assert.match(wizard, /\$brandSummary = Add-Paragraph -Parent \$brandStack/);
+  assert.match(wizard, /\$brandSummary\.Text = \$ui\.uiState\.recommendation/);
+  assert.doesNotMatch(wizard, /\$toggle\.Add_Click\(\{[\s\S]*\$toggle\./);
+  assert.match(wizard, /\$toggle\.Add_Click\(\{[\s\S]*param\(\$sender,\s*\$eventArgs\)/);
+  assert.match(wizard, /Mostrar opciones tecnicas/);
+  assert.match(wizard, /Ver detalle tecnico/);
+  assert.match(wizard, /Reparar \/ abrir instalacion/);
+  assert.match(wizard, /Instalar ahora/);
+  assert.match(wizard, /Reparar instalacion/);
+  assert.match(wizard, /EVALUAPRO_INSTALLER_GUI_SELF_TEST/);
+  assert.match(wizard, /UI_SELFTEST_OK/);
+  assert.match(wizard, /UI_SELFTEST_FAILED/);
+  assert.match(wizard, /UI_CLICK_RUN/);
+  assert.match(wizard, /UI_CLICK_NEXT/);
+  assert.match(wizard, /UI_CLICK_BACK/);
+});
+
+test('scripts de installer hub no usan operadores exclusivos de PowerShell 7', () => {
+  const hub = fs.readFileSync(installerHubPath, 'utf8');
+  const license = fs.readFileSync(licenseSecurityModulePath, 'utf8');
+  const wizard = fs.readFileSync(path.join(root, 'scripts', 'installer-hub', 'modules', 'WizardUi.psm1'), 'utf8');
+  assert.doesNotMatch(hub, /\?\?/);
+  assert.doesNotMatch(license, /\?\?/);
+  assert.doesNotMatch(wizard, /\?\?/);
+});
+
+test('installer hub parsea con powershell.exe y puede abrir UI en smoke mode', async () => {
+  if (process.platform !== 'win32') {
+    return;
+  }
+  const startedAt = Date.now();
+  const child = spawn('powershell.exe', [
+    '-NoProfile',
+    '-ExecutionPolicy',
+    'Bypass',
+    '-File',
+    installerHubPath,
+    '-NoElevation'
+  ], {
+    env: {
+      ...process.env,
+      EVALUAPRO_INSTALLER_GUI_SMOKE: '1',
+      EVALUAPRO_INSTALLER_GUI_AUTO_CLOSE_MS: '15000'
+    },
+    stdio: 'ignore',
+    windowsHide: true
+  });
+  return new Promise((resolve, reject) => {
+    const timer = setTimeout(() => {
+      const alive = child.exitCode === null;
+      if (alive) {
+        try { child.kill('SIGTERM'); } catch {}
+      }
+      waitForNewInstallerHubLog(startedAt, 8000).then((latestLog) => {
+        if (!latestLog) {
+          reject(new Error('El smoke GUI no genero log nuevo del Installer Hub para esta corrida.'));
+          return;
+        }
+        const logContent = fs.readFileSync(latestLog.filePath, 'utf8');
+        if (/Bootstrap GUI fallido|Preflight GUI fallido/i.test(logContent)) {
+          reject(new Error(`El smoke GUI detecto fallo de bootstrap en ${latestLog.filePath}`));
+          return;
+        }
+        if (/brandSummary|\$toggle|no se puede recuperar porque no se ha establecido/i.test(logContent)) {
+          reject(new Error(`El smoke GUI detecto regresion de variable no inicializada en ${latestLog.filePath}`));
+          return;
+        }
+        if (/Add-UiLog.*not recognized|CommandNotFoundException.*Add-UiLog/i.test(logContent)) {
+          reject(new Error(`El smoke GUI detecto fallo de handler de logging en ${latestLog.filePath}`));
+          return;
+        }
+        resolve();
+      }).catch(reject);
+    }, 4500);
+    child.once('exit', () => {
+      clearTimeout(timer);
+      waitForNewInstallerHubLog(startedAt, 8000).then((latestLog) => {
+        if (!latestLog) {
+          reject(new Error('La UI termino prematuramente y no genero log nuevo.'));
+          return;
+        }
+        const logContent = fs.readFileSync(latestLog.filePath, 'utf8');
+        if (/Bootstrap GUI fallido|Preflight GUI fallido/i.test(logContent)) {
+          reject(new Error(`El smoke GUI detecto fallo de bootstrap en ${latestLog.filePath}`));
+          return;
+        }
+        if (/brandSummary|\$toggle|no se puede recuperar porque no se ha establecido/i.test(logContent)) {
+          reject(new Error(`El smoke GUI detecto regresion de variable no inicializada en ${latestLog.filePath}`));
+          return;
+        }
+        if (/Add-UiLog.*not recognized|CommandNotFoundException.*Add-UiLog/i.test(logContent)) {
+          reject(new Error(`El smoke GUI detecto fallo de handler de logging en ${latestLog.filePath}`));
+          return;
+        }
+        resolve();
+      }).catch(reject);
+    });
+    child.once('error', (error) => {
+      clearTimeout(timer);
+      reject(error);
+    });
+  });
 });
 
 test('launcher broker unifica shortcuts, hub y splash state', () => {

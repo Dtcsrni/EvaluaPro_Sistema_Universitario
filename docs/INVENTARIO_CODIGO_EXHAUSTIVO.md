@@ -1,24 +1,24 @@
 # Inventario Exhaustivo de Codigo
 
-Fecha de generacion: 2026-03-27 03:31:40
+Fecha de generacion: 2026-03-27 04:55:07
 Fuente: git ls-files filtrado por existencia en workspace (solo archivos versionados presentes, excluye node_modules).
 
 ## Resumen
 
-- Total de piezas de codigo/config ejecutable inventariadas: 858
+- Total de piezas de codigo/config ejecutable inventariadas: 863
 - Extensiones incluidas: ts, tsx, js, jsx, mjs, cjs, json, yml, yaml, sh, cmd, ps1.
 
 ## Conteo por area
 
 | Area | Archivos |
 | --- | ---: |
-| backend | 381 |
+| backend | 385 |
 | frontend | 129 |
 | portal_alumno_cloud | 44 |
 | ci | 17 |
 | scripts | 127 |
 | ops | 3 |
-| docs | 35 |
+| docs | 36 |
 | raiz | 9 |
 
 ## Backend (apps/backend)
@@ -211,7 +211,10 @@ Fuente: git ls-files filtrado por existencia en workspace (solo archivos version
 - apps/backend/src/modulos/modulo_evaluaciones/rutasEvaluaciones.ts
 - apps/backend/src/modulos/modulo_evaluaciones/servicioPoliticasCalificacion.ts
 - apps/backend/src/modulos/modulo_evaluaciones/validacionesEvaluaciones.ts
+- apps/backend/src/modulos/modulo_generacion_pdf/application/usecases/generacionPlantillas.ts
 - apps/backend/src/modulos/modulo_generacion_pdf/application/usecases/generarExamenIndividual.ts
+- apps/backend/src/modulos/modulo_generacion_pdf/application/usecases/gestionPlantillas.ts
+- apps/backend/src/modulos/modulo_generacion_pdf/application/usecases/previsualizacionPlantillas.ts
 - apps/backend/src/modulos/modulo_generacion_pdf/controladorGeneracionPdf.ts
 - apps/backend/src/modulos/modulo_generacion_pdf/controladorListadoGenerados.ts
 - apps/backend/src/modulos/modulo_generacion_pdf/domain/examenPdf.ts
@@ -242,6 +245,7 @@ Fuente: git ls-files filtrado por existencia en workspace (solo archivos version
 - apps/backend/src/modulos/modulo_generacion_pdf/servicioGeneracionPdf.ts
 - apps/backend/src/modulos/modulo_generacion_pdf/servicioRetencionExamenes.ts
 - apps/backend/src/modulos/modulo_generacion_pdf/servicioVariantes.ts
+- apps/backend/src/modulos/modulo_generacion_pdf/shared/controladorGeneracionPdfShared.ts
 - apps/backend/src/modulos/modulo_generacion_pdf/shared/tiposPdf.ts
 - apps/backend/src/modulos/modulo_generacion_pdf/validacionesExamenes.ts
 - apps/backend/src/modulos/modulo_integraciones_classroom/controladorIntegracionesClassroom.ts
@@ -766,6 +770,7 @@ Fuente: git ls-files filtrado por existencia en workspace (solo archivos version
 - docs/handoff/sesiones/2026-03-26/sesion-2026-03-26T09-41-00.233Z.json
 - docs/handoff/sesiones/2026-03-26/sesion-2026-03-26T10-16-02.354Z.json
 - docs/handoff/sesiones/2026-03-27/sesion-2026-03-27T06-49-30.218Z.json
+- docs/handoff/sesiones/2026-03-27/sesion-2026-03-27T09-31-40.802Z.json
 - docs/handoff/trace.schema.json
 - docs/perf/baseline.business.json
 - docs/perf/baseline.json
