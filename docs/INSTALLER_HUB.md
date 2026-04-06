@@ -1,43 +1,47 @@
 # Installer Hub (Windows)
 
-Bootstrapper online para instalacion desde cero de EvaluaPro en entornos docentes Windows.
+Bootstrapper oficial de Windows para instalacion, reparacion y desinstalacion de EvaluaPro.
+La superficie publica ahora es `WiX Burn + Bootstrapper Application WPF .NET 8 + helper PowerShell headless`.
 
 ## Objetivo
 - Ejecutar instalacion, reparacion o desinstalacion desde una GUI guiada.
 - Verificar y preparar prerequisitos de Windows con `WSL2 + Docker Engine` como default y `Docker Desktop` como compatibilidad opcional.
-- Descargar la release objetivo y validar integridad criptografica (`SHA-256`).
-- Ejecutar MSI con `msiexec` y validar estado final de modulos criticos.
+- Encadenar el `MSI` por medio de `Burn` con elevacion, cache, repair/uninstall y logging nativos.
+- Ejecutar configuracion operativa, activacion de licencia y validacion final con helper controlado bajo contrato JSON.
 - Dejar trazabilidad en logs por sesion para soporte tecnico.
 
 ## Flujo funcional
-1. Elevacion UAC y validacion inicial.
-2. Splash introductorio y seleccion guiada.
+1. Elevacion UAC administrada por `WiX Burn`.
+2. Apertura de la BA `WPF .NET 8` y seleccion guiada.
 3. Deteccion de modo:
    - `install`
    - `repair`
    - `uninstall`
-4. Analisis de requisitos de equipo (SO, arquitectura, red, disco, prerequisitos).
-5. Bootstrap guiado de prerequisitos faltantes.
-   - si falta runtime Docker, el Hub genera una guia local reproducible (`docker-runtime-bootstrap-guide.txt` + `.ps1`) en su carpeta temporal de trabajo.
-6. Resolucion de release y descarga de `EvaluaPro.msi`.
-7. Verificacion de hash con `EvaluaPro.msi.sha256`.
-8. Ejecucion de `msiexec` segun modo.
-9. Configuracion operativa obligatoria (escritura de `.env` con variables criticas de backend/portal, recuperacion de contrasena y OAuth).
-10. Verificacion post-instalacion.
-11. Blindaje local de licencia:
+4. Analisis de requisitos de equipo desde helper Burn (`detect-prereqs`) con estado visual de:
+   - SO/arquitectura/disco/red
+   - `Node.js`
+   - runtime Docker compatible
+5. Planificacion y ejecucion del chain MSI por Burn.
+6. Configuracion operativa obligatoria en helper post-install (`post-install`).
+7. Verificacion post-instalacion.
+8. Blindaje local de licencia:
    - almacenamiento cifrado de token con DPAPI (`LocalMachine`)
    - baseline de integridad local (hash SHA-256 + MAC)
    - activacion opcional contra `/api/comercial-publico/licencias/activar`
-11. Pantalla de cierre con acciones (abrir dashboard, ver logs, reintentar).
+9. Pantalla de cierre con acciones (ver logs, reintentar, cerrar).
 
 ## Estructura y componentes
-- Entry UI:
-  - `scripts/installer-hub/InstallerHub.ps1`
+- Bundle publico:
+  - `packaging/wix/Bundle.wxs`
+- Bootstrapper Application:
+  - `packaging/wix/BurnBootstrapperApp/EvaluaPro.BurnBootstrapperApp.csproj`
+  - `packaging/wix/BurnBootstrapperApp/EvaluaProBootstrapperApplication.cs`
+  - `packaging/wix/BurnBootstrapperApp/MainWindow.xaml`
+- Helper headless:
+  - `scripts/installer-burn/InstallerBurnHelper.ps1`
 - Modulos:
-  - `scripts/installer-hub/modules/ReleaseResolver.psm1`
   - `scripts/installer-hub/modules/PrereqDetector.psm1`
-  - `scripts/installer-hub/modules/PrereqInstaller.psm1`
-  - `scripts/installer-hub/modules/ProductInstaller.psm1`
+  - `scripts/installer-hub/modules/Common.psm1`
   - `scripts/installer-hub/modules/OperationalConfig.psm1`
   - `scripts/installer-hub/modules/PostInstallVerifier.psm1`
   - `scripts/installer-hub/modules/LicenseClientSecurity.psm1`
@@ -51,9 +55,10 @@ Assets publicos esperados en GitHub Release:
 - `EvaluaPro-release-manifest.json`
 
 Artefactos internos de build:
-- `EvaluaPro-<flavor>.msi`
-- `EvaluaPro-<flavor>.msi.sha256`
-- `EvaluaPro-<flavor>-Setup.exe` solo como bootstrapper tecnico interno del pipeline; no se publica ni se recomienda al usuario final.
+- `dist/installer/_internal/EvaluaPro-<flavor>.msi`
+- `dist/installer/_internal/EvaluaPro-<flavor>.msi.sha256`
+- `dist/installer/_internal/*.wixpdb`
+- `dist/installer/_internal/burn-bootstrapper-app/` como publish temporal de la BA durante el build.
 
 Manifest de prerequisitos versionado:
 - `config/installer-prereqs.manifest.json`
@@ -70,8 +75,13 @@ npm run installer:hashes
 npm run installer:sign
 ```
 
+`npm run installer:hub:build`:
+- publica la BA `WPF .NET 8`,
+- compila `MSI + Bundle Burn` por flavor,
+- genera el entrypoint publico `EvaluaPro-InstallerHub-<flavor>.exe`.
+
 Tras `npm run installer:hub:build`, el repo deja un manifiesto local con rutas absolutas en:
-- `dist/installer/installer-local-paths.json`
+- `dist/installer/_internal/installer-local-paths.json`
 
 En este repo/equipo, el ejecutable recomendado para instalacion docente local queda en:
 - `dist/installer/EvaluaPro-InstallerHub-docente-local.exe`
@@ -111,10 +121,10 @@ Workflow: `.github/workflows/ci-installer-windows.yml`
 
 Etapas principales:
 1. `npm ci`
-2. instalacion de WiX CLI
+2. instalacion de `.NET SDK 8` y WiX CLI
 3. gates de contrato (`test:wix:policy`, `test:installer-hub:contract`)
-4. build MSI + bundle
-5. build Installer Hub
+4. publish BA + build MSI + bundle Burn
+5. smoke del ejecutable publico empaquetado
 6. generacion de hashes y release manifest
 7. signing gate opcional
 8. publicacion de artefactos y release assets
@@ -129,6 +139,7 @@ Regla de publicacion:
 - `10`: prerequisitos no cumplidos tras intento.
 - `20`: descarga o verificacion fallida.
 - `30`: instalacion MSI fallida.
+- `35`: configuracion operativa fallida.
 - `40`: validacion post-instalacion fallida.
 - `50`: blindaje local de licencia/integridad fallido.
 

@@ -447,8 +447,11 @@ function Initialize-EvaluaProPortableAdminLicense {
     [string]$HolderName = 'I.S.C. Erick Renato Vega Ceron'
   )
   $root = Get-EvaluaProLicenseSecurityRoot -RootDir $RootDir
-  $repoRoot = Split-Path -Parent (Split-Path -Parent (Split-Path -Parent $PSScriptRoot))
-  $scriptPath = Join-Path $repoRoot 'scripts\comercial\portable-license.mjs'
+  $scriptPath = [string]$env:EVALUAPRO_PORTABLE_LICENSE_SCRIPT
+  if ([string]::IsNullOrWhiteSpace($scriptPath)) {
+    $repoRoot = Split-Path -Parent (Split-Path -Parent (Split-Path -Parent $PSScriptRoot))
+    $scriptPath = Join-Path $repoRoot 'scripts\comercial\portable-license.mjs'
+  }
   if (-not (Test-Path -LiteralPath $scriptPath)) {
     throw "No existe script de licencia portable: $scriptPath"
   }
@@ -463,8 +466,11 @@ function Initialize-EvaluaProPortableAdminLicense {
 function Test-EvaluaProPortableAdminLicense {
   param([string]$RootDir = '')
   $root = Get-EvaluaProLicenseSecurityRoot -RootDir $RootDir
-  $repoRoot = Split-Path -Parent (Split-Path -Parent (Split-Path -Parent $PSScriptRoot))
-  $scriptPath = Join-Path $repoRoot 'scripts\comercial\portable-license.mjs'
+  $scriptPath = [string]$env:EVALUAPRO_PORTABLE_LICENSE_SCRIPT
+  if ([string]::IsNullOrWhiteSpace($scriptPath)) {
+    $repoRoot = Split-Path -Parent (Split-Path -Parent (Split-Path -Parent $PSScriptRoot))
+    $scriptPath = Join-Path $repoRoot 'scripts\comercial\portable-license.mjs'
+  }
   $licensePath = Join-Path $root 'portable-license.epl'
   $publicKeysPath = Join-Path $root 'portable-license-public-keys.json'
   if (-not (Test-Path -LiteralPath $licensePath)) {

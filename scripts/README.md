@@ -14,7 +14,10 @@ Herramientas de operación local (principalmente Windows) para **Sistema EvaluaP
   - alcance v1 no destructivo: build portal si falta, recrear accesos directos y recuperar stack/portal.
 
 ## Installer Hub (Windows)
-- UI principal: `installer-hub/InstallerHub.ps1`
+- Bundle publico: `../packaging/wix/Bundle.wxs`
+- BA personalizada: `../packaging/wix/BurnBootstrapperApp/`
+- Helper headless: `installer-burn/InstallerBurnHelper.ps1`
+- UI legacy reutilizable: `installer-hub/InstallerHub.ps1`
 - Modulos:
   - `installer-hub/modules/ReleaseResolver.psm1`
   - `installer-hub/modules/PrereqDetector.psm1`
@@ -29,6 +32,11 @@ Herramientas de operación local (principalmente Windows) para **Sistema EvaluaP
   - `npm run installer:hashes`
 - Signing gate opcional:
   - `npm run installer:sign`
+
+Arquitectura vigente:
+- `WiX Burn` maneja `UAC`, cache, chain `MSI`, `repair` y `uninstall`.
+- La BA `WPF .NET 8` presenta prerequisitos, modo y progreso.
+- El helper PowerShell aplica configuracion operativa, verificacion final y blindaje local de licencia.
 
 ## Configuracion automatica OAuth + Classroom
 - Script: `configurar-oauth-classroom.ps1`

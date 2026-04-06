@@ -45,7 +45,6 @@
       "paths": [
         "scripts/installer-hub/**",
         "scripts/build-msi.ps1",
-        "scripts/build-installer-hub.ps1",
         "scripts/generate-installer-hashes.ps1",
         "scripts/generate-installer-release-manifest.ps1",
         "scripts/sign-installer-artifacts.ps1",

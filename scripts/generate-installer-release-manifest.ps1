@@ -69,6 +69,7 @@ if (-not $commit) {
 }
 
 $installerDir = Split-Path -Parent $OutputPath
+$internalInstallerDir = Join-Path $installerDir '_internal'
 $catalogPath = Join-Path $root 'config\installer-flavors.json'
 $catalog = Get-Content -Path $catalogPath -Raw -Encoding utf8 | ConvertFrom-Json
 $artifactIndex = @{}
@@ -79,11 +80,17 @@ foreach ($flavor in $catalog.flavors) {
 }
 
 foreach ($name in ($allArtifactNames | Select-Object -Unique)) {
-  $artifactPath = Join-Path $installerDir $name
+  $candidatePaths = @(
+    (Join-Path $installerDir $name),
+    (Join-Path $internalInstallerDir $name)
+  )
+  $artifactPath = $candidatePaths | Where-Object { Test-Path $_ } | Select-Object -First 1
+  if ([string]::IsNullOrWhiteSpace([string]$artifactPath)) { continue }
   if (-not (Test-Path $artifactPath)) { continue }
   $sha256 = Get-Sha256Hex -Path $artifactPath
   $entry = [ordered]@{
     name = $name
+    location = if ($artifactPath.StartsWith($internalInstallerDir, [System.StringComparison]::OrdinalIgnoreCase)) { 'internal' } else { 'public' }
     sha256 = $sha256
     signed = (Test-ArtifactSigned -Path $artifactPath)
   }

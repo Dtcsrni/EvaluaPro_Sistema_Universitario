@@ -41,9 +41,9 @@ function shouldAffectAll(file) {
   return (
     p.startsWith('apps/') ||
     p.startsWith('packaging/wix/') ||
+    p.startsWith('scripts/installer-burn/') ||
     p.startsWith('scripts/installer-hub/') ||
     p === 'scripts/build-msi.ps1' ||
-    p === 'scripts/build-installer-hub.ps1' ||
     p === 'scripts/generate-installer-hashes.ps1' ||
     p === 'scripts/generate-installer-release-manifest.ps1' ||
     p === 'config/installer-flavors.json' ||

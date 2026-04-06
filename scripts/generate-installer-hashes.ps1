@@ -33,16 +33,38 @@ $root = (Resolve-Path (Join-Path $PSScriptRoot '..')).Path
 if (-not $InstallerDir) {
   $InstallerDir = Join-Path $root 'dist\installer'
 }
+$internalInstallerDir = Join-Path $InstallerDir '_internal'
+
+function Resolve-InstallerArtifactPath {
+  param(
+    [Parameter(Mandatory = $true)]
+    [string]$ArtifactName
+  )
+
+  $candidatePaths = @(
+    (Join-Path $InstallerDir $ArtifactName),
+    (Join-Path $internalInstallerDir $ArtifactName)
+  )
+
+  foreach ($candidate in $candidatePaths) {
+    if (Test-Path $candidate) {
+      return $candidate
+    }
+  }
+
+  return ''
+}
 
 $catalogPath = Join-Path $root 'config\installer-flavors.json'
 $catalog = Get-Content -Path $catalogPath -Raw -Encoding utf8 | ConvertFrom-Json
 
 foreach ($flavor in $catalog.flavors) {
   foreach ($artifactName in @([string]$flavor.msiName, [string]$flavor.installerHubExeName)) {
-    $artifactPath = Join-Path $InstallerDir $artifactName
+    $artifactPath = Resolve-InstallerArtifactPath -ArtifactName $artifactName
+    if ([string]::IsNullOrWhiteSpace($artifactPath)) { continue }
     if (-not (Test-Path $artifactPath)) { continue }
     $hash = Get-Sha256Hex -Path $artifactPath
-    $hashPath = Join-Path $InstallerDir ($artifactName + '.sha256')
+    $hashPath = Join-Path (Split-Path -Parent $artifactPath) ($artifactName + '.sha256')
     "$hash  $artifactName" | Set-Content -Path $hashPath -Encoding ascii
     Write-Host "[installer-hash] Generado: $hashPath"
   }

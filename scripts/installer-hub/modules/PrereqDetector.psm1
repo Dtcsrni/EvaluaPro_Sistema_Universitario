@@ -201,6 +201,25 @@ function Get-WslDistroTable {
   }
 }
 
+function Get-WslDistroNamesQuiet {
+  if (-not (Test-WslAvailable)) { return @() }
+
+  try {
+    $raw = (& wsl.exe -l -q 2>$null | Out-String)
+    $names = @()
+    foreach ($line in ($raw -split "`r?`n")) {
+      $clean = [string]$line
+      $clean = $clean.Replace([string][char]0, '').Trim()
+      if (-not $clean) { continue }
+      if ($clean -in @('docker-desktop', 'docker-desktop-data')) { continue }
+      $names += $clean
+    }
+    return @($names | Select-Object -Unique)
+  } catch {
+    return @()
+  }
+}
+
 function Get-DefaultWslDistroName {
   $status = Get-WslStatusText
   if ($status -match '(?im)^\s*(Distribuci[oó]n predeterminada|Default Distribution)\s*:\s*(.+?)\s*$') {
@@ -213,7 +232,7 @@ function Get-DefaultWslDistroName {
     $clean = $clean.Replace([string][char]0, '').TrimEnd()
     if ($clean.StartsWith('*')) {
       $normalized = $clean.TrimStart('*').Trim()
-      if ($normalized -match '^(?<name>.+?)\s{2,}(?<state>Stopped|Running)\s+(?<version>\d+)\s*$') {
+      if ($normalized -match '^(?<name>.+?)\s{2,}.+\s+\d+\s*$') {
         return [string]$Matches['name'].Trim()
       }
     }
@@ -223,6 +242,11 @@ function Get-DefaultWslDistroName {
 }
 
 function Get-UserWslDistros {
+  $quietNames = @(Get-WslDistroNamesQuiet)
+  if ($quietNames.Count -gt 0) {
+    return $quietNames
+  }
+
   $table = Get-WslDistroTable
   $distros = @()
 
@@ -232,7 +256,7 @@ function Get-UserWslDistros {
     if (-not $clean) { continue }
     if ($clean -match '^(NAME|NOMBRE)\s+(STATE|ESTADO)\s+(VERSION|VERSI[OÓ]N)\s*$') { continue }
     $normalized = $clean.TrimStart('*').Trim()
-    if ($normalized -match '^(?<name>.+?)\s{2,}(?<state>Stopped|Running)\s+(?<version>\d+)\s*$') {
+    if ($normalized -match '^(?<name>.+?)\s{2,}.+\s+\d+\s*$') {
       $name = [string]$Matches['name'].Trim()
       if ($name -in @('docker-desktop', 'docker-desktop-data')) { continue }
       $distros += $name

@@ -16,7 +16,7 @@ Objetivo: dejar operativo el piloto (1 institucion, 1-3 docentes) con backend lo
 ## 2. Artefactos de distribucion Windows
 - [ ] Generar MSI:
   - [ ] `npm run msi:build`
-- [ ] Generar Installer Hub:
+- [ ] Generar bundle Burn publico:
   - [ ] `npm run installer:hub:build`
 - [ ] Generar hashes/manifiesto:
   - [ ] `npm run installer:hashes`
@@ -88,6 +88,7 @@ Objetivo: dejar operativo el piloto (1 institucion, 1-3 docentes) con backend lo
 
 ## 5. Onboarding funcional (1-3 docentes)
 - [ ] Instalar via `EvaluaPro-InstallerHub-docente-local.exe` en equipos objetivo.
+- [ ] Confirmar apertura estable del wizard Burn despues de aceptar UAC.
 - [ ] Confirmar acceso directo `EvaluaPro - Prod`.
 - [ ] Smoke funcional minimo por docente:
   - [ ] Login docente

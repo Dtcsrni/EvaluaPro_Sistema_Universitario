@@ -1,10 +1,20 @@
 # Engineering Baseline
 
-Fecha de baseline: 2026-03-27
+Fecha de baseline: 2026-04-03
 Version tecnica: `1.0.0`
 Version visible GUI: `1.0.0b`
 
 ## Estado vigente
+- Corte 2026-04-03:
+  - el Installer Hub público migra a `WiX Burn + BA WPF .NET 8`; `Bundle.wxs` deja `WixStandardBootstrapperApplication` y enlaza `EvaluaPro.BurnBootstrapperApp.exe`
+  - `scripts/build-msi.ps1` publica la BA `.NET 8`, compila bundles por flavor y mantiene el contrato público `EvaluaPro-InstallerHub-saas-completo.exe` / `EvaluaPro-InstallerHub-docente-local.exe`
+  - el helper `scripts/installer-burn/InstallerBurnHelper.ps1` centraliza `detect-prereqs` y `post-install`, preservando configuración operativa, verificación final y blindaje local de licencia fuera de la UI
+  - `CI Installer Windows` y `Release Beta` preparan `.NET 8`, construyen el bundle Burn y ejecutan smoke del `.exe` público empaquetado después del build
+  - verificación del corte:
+    - `node --test scripts/tests/wix-version-policy.test.mjs scripts/tests/installer-hub-contract.test.mjs` en verde
+    - `powershell -NoProfile -ExecutionPolicy Bypass -File scripts/build-msi.ps1 -SkipStabilityChecks -IncludeBundle -Flavor all` en verde
+    - `npm run test:installer-hub:contract` en verde
+    - smoke local del bundle público `dist/installer/EvaluaPro-InstallerHub-docente-local.exe` en verde
 - Corte 2026-03-27:
   - el gobierno Big Bang se alinea al estado ejecutable real del repo: `AGENTS.md` deja de exigir scripts `bigbang:olas:*` inexistentes y usa `qa:clean-architecture:strict` + gates mínimos + `ci:policy:audit` para recortes estructurales
   - `modulo_generacion_pdf` adelgaza `controladorGeneracionPdf.ts` a una fachada HTTP; preview, generación, lote, progreso y descarga quedan movidos a use cases internos y helpers compartidos
@@ -172,7 +182,7 @@ Version visible GUI: `1.0.0b`
 ## Corte de validacion 2026-03-23
 - Installer Hub multi-flavor alineado a documentación y build real:
   - `docente-local` queda como flavor recomendado por default
-  - `scripts/build-installer-hub.ps1` ahora genera `dist/installer/installer-local-paths.json`
+  - `scripts/build-msi.ps1` genera `dist/installer/_internal/installer-local-paths.json`
   - el manifiesto local expone `recommendedHubExecutablePath` con ruta absoluta utilizable en soporte/instalación local
 - Validación específica del cambio:
   - `npm run test:installer-hub:contract` ✅

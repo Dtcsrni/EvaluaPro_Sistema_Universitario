@@ -44,7 +44,14 @@ function runPowerShell(args, options = {}) {
     return { skipped: true, stdout: '', stderr: '', status: 0 };
   }
   try {
-    const stdout = execFileSync(shell, ['-NoProfile', '-ExecutionPolicy', 'Bypass', ...args], {
+    // Preserve '-File' semantics (avoid wrapping) and only force UTF-8 prefix for '-Command' invocations
+    let execArgs = ['-NoProfile', '-ExecutionPolicy', 'Bypass', ...args];
+    if (Array.isArray(args) && args.length > 0 && args[0] === '-Command' && args.length >= 2) {
+      const cmd = String(args[1]);
+      execArgs = ['-NoProfile', '-ExecutionPolicy', 'Bypass', '-Command', `[Console]::OutputEncoding = [System.Text.Encoding]::UTF8; ${cmd}`];
+    }
+
+    const stdout = execFileSync(shell, execArgs, {
       encoding: 'utf8',
       timeout: options.timeout ?? 180_000,
       env: { ...process.env, ...(options.env || {}) },
@@ -64,13 +71,50 @@ function runPowerShell(args, options = {}) {
 function parseJsonOutput(stdout) {
   const text = String(stdout || '').trim();
   if (!text) return {};
+
+  function normalizePossiblyMojibake(value) {
+    if (value && typeof value === 'object') {
+      for (const key of Object.keys(value)) {
+        value[key] = normalizePossiblyMojibake(value[key]);
+      }
+      return value;
+    }
+    if (typeof value !== 'string') {
+      return value;
+    }
+
+    const looksLikeMojibake = /Ã.|Â.|â.|�/.test(value);
+    if (!looksLikeMojibake) {
+      return value;
+    }
+
+    try {
+      const fixed = Buffer.from(value, 'latin1').toString('utf8');
+      return fixed.includes('\uFFFD') ? value : fixed;
+    } catch {
+      return value;
+    }
+  }
+
   try {
-    return JSON.parse(text);
+    const parsed = JSON.parse(text);
+    return normalizePossiblyMojibake(parsed);
   } catch {
-    const start = text.indexOf('{');
-    const end = text.lastIndexOf('}');
-    if (start < 0 || end < start) return {};
-    return JSON.parse(text.slice(start, end + 1));
+    // Try to recover from common Windows encoding mojibake (UTF-8 bytes decoded as latin1)
+    try {
+      const start = text.indexOf('{');
+      const end = text.lastIndexOf('}');
+      if (start >= 0 && end >= start) {
+        return normalizePossiblyMojibake(JSON.parse(text.slice(start, end + 1)));
+      }
+    } catch {}
+    try {
+      const buf = Buffer.from(text, 'latin1');
+      const fixed = buf.toString('utf8');
+      return normalizePossiblyMojibake(JSON.parse(fixed));
+    } catch {
+      return {};
+    }
   }
 }
 
@@ -380,6 +424,16 @@ test('repair headless aislado recupera una instalacion dañada agresivamente', {
   }
 });
 
+test('parseJsonOutput preserva UTF-8 valido y repara mojibake sin degradar acentos correctos', () => {
+  const valid = parseJsonOutput('{"state":"dañada","issues":["Falta archivo crítico"]}');
+  assert.equal(valid.state, 'dañada');
+  assert.equal(valid.issues[0], 'Falta archivo crítico');
+
+  const mojibake = parseJsonOutput('{"state":"daÃ±ada","issues":["Falta archivo crÃ­tico"]}');
+  assert.equal(mojibake.state, 'dañada');
+  assert.equal(mojibake.issues[0], 'Falta archivo crítico');
+});
+
 test('smoke GUI no destructivo mantiene viva la ventana del Installer Hub con temp dir y cierre automatico', { timeout: 120_000 }, async () => {
   if (process.platform !== 'win32' || !shell) {
     test.skip();
@@ -651,4 +705,3 @@ test('smoke activo valida broker, manifest, shortcuts y control plane sin dañar
     await licenseApi.close();
   }
 });
-

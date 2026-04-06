@@ -18,7 +18,8 @@ $root = (Resolve-Path (Join-Path $PSScriptRoot '..')).Path
 $logDir = Join-Path $root 'logs'
 $logFile = Join-Path $logDir 'launcher-broker.log'
 $dashboardLauncher = Join-Path $root 'scripts\launcher-dashboard.ps1'
-$hubScript = Join-Path $root 'scripts\installer-hub\InstallerHub.ps1'
+$hubManifestPath = Join-Path $root 'dist\installer\installer-local-paths.json'
+$hubManifestPathInternal = Join-Path $root 'dist\installer\_internal\installer-local-paths.json'
 $shortcutsScript = Join-Path $root 'scripts\create-shortcuts.ps1'
 $manifestScript = Join-Path $root 'scripts\generate-installation-manifest.ps1'
 if (-not (Test-Path -LiteralPath $logDir)) {
@@ -227,18 +228,31 @@ function Open-Url([string]$url) {
   Start-Process $url | Out-Null
 }
 
-function Open-Hub {
-  if (-not (Test-Path -LiteralPath $hubScript)) {
-    throw "No se encontro Installer Hub: $hubScript"
+function Resolve-HubExecutablePath {
+  $manifestPath = if (Test-Path -LiteralPath $hubManifestPath) { $hubManifestPath } elseif (Test-Path -LiteralPath $hubManifestPathInternal) { $hubManifestPathInternal } else { '' }
+  if (-not $manifestPath) {
+    throw "No se encontro manifiesto de hubs: $hubManifestPath ni $hubManifestPathInternal"
   }
-  $psExe = Resolve-PowerShellExecutable
-  $args = @(
-    '-NoProfile',
-    '-ExecutionPolicy', 'Bypass',
-    '-File', $hubScript,
-    '-Mode', 'auto'
-  )
-  Start-Process -FilePath $psExe -ArgumentList $args | Out-Null
+
+  $raw = Get-Content -LiteralPath $manifestPath -Raw
+  if ([string]::IsNullOrWhiteSpace($raw)) {
+    throw "Manifiesto de hubs vacio: $manifestPath"
+  }
+  $manifest = $raw | ConvertFrom-Json
+  $candidate = [string]$manifest.recommendedHubExecutablePath
+  if ([string]::IsNullOrWhiteSpace($candidate)) {
+    throw "Manifiesto sin recommendedHubExecutablePath: $manifestPath"
+  }
+  if (-not (Test-Path -LiteralPath $candidate)) {
+    throw "No se encontro EXE del Hub recomendado: $candidate"
+  }
+  return $candidate
+}
+
+function Open-Hub {
+  $hubExecutablePath = Resolve-HubExecutablePath
+  Write-BrokerLog("Abriendo Hub empaquetado: $hubExecutablePath")
+  Start-Process -FilePath $hubExecutablePath -WorkingDirectory (Split-Path -Path $hubExecutablePath -Parent) | Out-Null
 }
 
 function Invoke-ManifestRefresh {

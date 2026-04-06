@@ -3,13 +3,16 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import path from 'node:path';
 import os from 'node:os';
-import { execFileSync, spawn } from 'node:child_process';
+import { execFileSync } from 'node:child_process';
 
 const root = process.cwd();
 const installerHubPath = path.join(root, 'scripts', 'installer-hub', 'InstallerHub.ps1');
+const burnBootstrapperProjectPath = path.join(root, 'packaging', 'wix', 'BurnBootstrapperApp', 'EvaluaPro.BurnBootstrapperApp.csproj');
+const burnBootstrapperSourcePath = path.join(root, 'packaging', 'wix', 'BurnBootstrapperApp', 'EvaluaProBootstrapperApplication.cs');
+const burnBootstrapperWindowPath = path.join(root, 'packaging', 'wix', 'BurnBootstrapperApp', 'MainWindow.xaml');
+const burnHelperPath = path.join(root, 'scripts', 'installer-burn', 'InstallerBurnHelper.ps1');
 const operationalConfigModulePath = path.join(root, 'scripts', 'installer-hub', 'modules', 'OperationalConfig.psm1');
 const licenseSecurityModulePath = path.join(root, 'scripts', 'installer-hub', 'modules', 'LicenseClientSecurity.psm1');
-const installerHubLogsDir = path.join(process.env.ProgramData || 'C:\\ProgramData', 'EvaluaPro', 'installer-hub', 'logs');
 const prereqInstallerModulePath = path.join(root, 'scripts', 'installer-hub', 'modules', 'PrereqInstaller.psm1');
 
 function getAvailablePowerShell() {
@@ -63,31 +66,6 @@ function parseJsonOutput(stdout) {
   }
 }
 
-function getLatestInstallerHubLog() {
-  if (!fs.existsSync(installerHubLogsDir)) return null;
-  const candidates = fs.readdirSync(installerHubLogsDir)
-    .filter((name) => /^installer-hub-.*\.log$/i.test(name))
-    .map((name) => {
-      const filePath = path.join(installerHubLogsDir, name);
-      const stat = fs.statSync(filePath);
-      return { filePath, mtimeMs: stat.mtimeMs };
-    })
-    .sort((a, b) => b.mtimeMs - a.mtimeMs);
-  return candidates[0] ?? null;
-}
-
-async function waitForNewInstallerHubLog(startedAt, timeoutMs = 8_000) {
-  const deadline = Date.now() + timeoutMs;
-  while (Date.now() < deadline) {
-    const latest = getLatestInstallerHubLog();
-    if (latest && latest.mtimeMs >= startedAt) {
-      return latest;
-    }
-    await new Promise((resolve) => setTimeout(resolve, 250));
-  }
-  return null;
-}
-
 test('installer prereq manifest incluye contrato minimo', () => {
   const manifestPath = path.join(root, 'config', 'installer-prereqs.manifest.json');
   const raw = fs.readFileSync(manifestPath, 'utf8');
@@ -134,32 +112,37 @@ test('canal update por defecto es stable en config y scripts', () => {
 test('workflow de installer publica contratos nuevos de release', () => {
   const workflow = fs.readFileSync(path.join(root, '.github', 'workflows', 'ci-installer-windows.yml'), 'utf8');
 
-  assert.match(workflow, /build-installer-hub\.ps1/);
+  assert.match(workflow, /actions\/setup-dotnet@v4/);
+  assert.match(workflow, /dotnet-version:\s*8\.0\.x/);
   assert.match(workflow, /generate-installer-hashes\.ps1/);
   assert.match(workflow, /sign-installer-artifacts\.ps1/);
-  assert.match(workflow, /-IncludeFlavorInstallers/);
-  assert.match(workflow, /-Flavor all/);
+  assert.match(workflow, /build-msi\.ps1 -SkipStabilityChecks -IncludeBundle -Flavor all/);
+  assert.match(workflow, /installer-windows-internal/);
+  assert.match(workflow, /dist\/installer\/_internal\/\*\*/);
   assert.match(workflow, /Publicar release assets \(tags v\*\)/);
   assert.match(workflow, /steps\.stable_release_assets\.outputs\.files/);
   assert.match(workflow, /dist\/installer\/EvaluaPro-InstallerHub-saas-completo\.exe/);
   assert.match(workflow, /dist\/installer\/EvaluaPro-InstallerHub-docente-local\.exe/);
+  assert.match(workflow, /dist\/installer\/_internal\/EvaluaPro-saas-completo\.msi/);
+  assert.match(workflow, /dist\/installer\/_internal\/EvaluaPro-docente-local\.msi/);
+  assert.match(workflow, /Smoke GUI del bundle Burn publico empaquetado/);
   assert.match(workflow, /dist\/installer\/EvaluaPro-release-manifest\.json/);
   assert.doesNotMatch(workflow, /dist\/installer\/EvaluaPro-InstallerHub\.exe/);
-  assert.doesNotMatch(workflow, /dist\/installer\/EvaluaPro-saas-completo-Setup\.exe/);
-  assert.doesNotMatch(workflow, /dist\/installer\/EvaluaPro-docente-local-Setup\.exe/);
+  assert.doesNotMatch(workflow, /build-installer-hub\.ps1/);
 });
 
 test('workflow beta publica solo hubs en assets de prerelease', () => {
   const workflow = fs.readFileSync(path.join(root, '.github', 'workflows', 'release-beta.yml'), 'utf8');
 
+  assert.match(workflow, /actions\/setup-dotnet@v4/);
+  assert.match(workflow, /Smoke GUI del bundle Burn publico empaquetado/);
   assert.match(workflow, /steps\.beta_assets\.outputs\.files/);
   assert.match(workflow, /dist\/installer\/EvaluaPro-InstallerHub-saas-completo\.exe/);
   assert.match(workflow, /dist\/installer\/EvaluaPro-InstallerHub-docente-local\.exe/);
   assert.match(workflow, /dist\/installer\/EvaluaPro-release-manifest\.json/);
-  assert.match(workflow, /-IncludeFlavorInstallers/);
+  assert.match(workflow, /build-msi\.ps1 -IncludeBundle -Flavor all/);
   assert.doesNotMatch(workflow, /dist\/installer\/EvaluaPro-InstallerHub\.exe/);
-  assert.doesNotMatch(workflow, /EvaluaPro-docente-local-Setup\.exe/);
-  assert.doesNotMatch(workflow, /EvaluaPro-saas-completo-Setup\.exe/);
+  assert.doesNotMatch(workflow, /build-installer-hub\.ps1/);
 });
 
 test('runtime Docker Windows queda abstracto en dashboard, WiX y package scripts', () => {
@@ -174,16 +157,106 @@ test('runtime Docker Windows queda abstracto en dashboard, WiX y package scripts
   assert.equal(packageJson.scripts['docker:runtime:check'], 'node scripts/docker-runtime-check.mjs');
 });
 
-test('build del installer hub genera manifiesto local con ruta del ejecutable recomendado', () => {
-  const buildScript = fs.readFileSync(path.join(root, 'scripts', 'build-installer-hub.ps1'), 'utf8');
+test('build-msi publica BA personalizada y conserva contrato de asset publico por flavor', () => {
+  const buildScript = fs.readFileSync(path.join(root, 'scripts', 'build-msi.ps1'), 'utf8');
+  const catalog = JSON.parse(fs.readFileSync(path.join(root, 'config', 'installer-flavors.json'), 'utf8'));
 
-  assert.match(buildScript, /installer-local-paths\.json/);
-  assert.match(buildScript, /recommendedFlavorId/);
-  assert.match(buildScript, /recommendedHubExecutablePath/);
-  assert.match(buildScript, /Ejecutable recomendado para este equipo/);
+  assert.match(buildScript, /Publish-BurnBootstrapperApp/);
+  assert.match(buildScript, /Remove-StaleInstallerArtifacts/);
+  assert.match(buildScript, /Write-InstallerLocalPathsManifest/);
+  assert.match(buildScript, /_internal/);
+  assert.match(buildScript, /Assert-CanonicalInstallerIcon/);
+  assert.match(buildScript, /MsiSourcePath/);
+  assert.match(buildScript, /\$DotNetExecutable publish/);
+  assert.match(buildScript, /BootstrapperApp/);
+  assert.equal(catalog.flavors.every((flavor) => flavor.bundleName === flavor.installerHubExeName), true);
 });
 
-test('resolucion de flavors funciona en layout plano del bundle (IExpress)', () => {
+test('helper Burn detecta prerequisitos con contrato JSON estable', () => {
+  const tempRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'evaluapro-burn-helper-'));
+  const requestPath = path.join(tempRoot, 'request.json');
+  const responsePath = path.join(tempRoot, 'response.json');
+  fs.writeFileSync(requestPath, JSON.stringify({ flavorId: 'docente-local' }, null, 2), 'utf8');
+
+  try {
+    const shell = getAvailablePowerShell();
+    if (!shell) {
+      return;
+    }
+
+    execFileSync(shell, [
+      '-NoProfile',
+      '-ExecutionPolicy',
+      'Bypass',
+      '-File',
+      burnHelperPath,
+      '-Mode',
+      'detect-prereqs',
+      '-RequestPath',
+      requestPath,
+      '-ResponsePath',
+      responsePath
+    ], {
+      encoding: 'utf8',
+      stdio: ['ignore', 'pipe', 'pipe'],
+      timeout: 60_000
+    });
+
+    const payload = JSON.parse(fs.readFileSync(responsePath, 'utf8').replace(/^\uFEFF/, ''));
+    assert.equal(payload.ok, true);
+    assert.equal(payload.phase, 'analisis_requisitos');
+    assert.equal(typeof payload.exitCode, 'number');
+    assert.equal(typeof payload.message, 'string');
+    assert.equal(Array.isArray(payload.logs), true);
+    assert.equal(typeof payload.data.recommendedMode, 'string');
+    assert.equal(Array.isArray(payload.data.prerequisites), true);
+  } finally {
+    fs.rmSync(tempRoot, { recursive: true, force: true });
+  }
+});
+
+test('bootstrapper Burn WPF .NET 8 orquesta deteccion, MSI y helper post-install', () => {
+  const project = fs.readFileSync(burnBootstrapperProjectPath, 'utf8');
+  const program = fs.readFileSync(path.join(root, 'packaging', 'wix', 'BurnBootstrapperApp', 'Program.cs'), 'utf8');
+  const source = fs.readFileSync(burnBootstrapperSourcePath, 'utf8');
+  const windowXaml = fs.readFileSync(burnBootstrapperWindowPath, 'utf8');
+  const helper = fs.readFileSync(burnHelperPath, 'utf8');
+
+  assert.match(project, /<TargetFramework>net8\.0-windows<\/TargetFramework>/);
+  assert.match(project, /<UseWPF>true<\/UseWPF>/);
+  assert.match(project, /WixToolset\.BootstrapperApplicationApi/);
+
+  assert.doesNotMatch(program, /\[STAThread\]/);
+  assert.match(program, /ManagedBootstrapperApplication\.Run/);
+
+  assert.match(source, /engineHandle\?\.Detect\(\)/);
+  assert.match(source, /var exitCode = operationFinished\.Task\.GetAwaiter\(\)\.GetResult\(\)/);
+  assert.match(source, /engineHandle\?\.Quit\(exitCode\)/);
+  assert.match(source, /LaunchApprovedExe/);
+  assert.match(source, /detect-prereqs/);
+  assert.match(source, /post-install/);
+  assert.match(source, /EvaluaPro", "installer-hub", "logs"/);
+  assert.match(source, /InstallFolder/);
+  assert.match(source, /SelectedFlavorId/);
+  assert.match(source, /DispatcherUnhandledException/);
+  assert.match(source, /StartUiThread fatal exception/);
+
+  assert.match(windowXaml, /install/);
+  assert.match(windowXaml, /repair/);
+  assert.match(windowXaml, /uninstall/);
+  assert.match(windowXaml, /Configuración operativa/);
+  assert.match(windowXaml, /Licencia y updates/);
+  assert.match(windowXaml, /SplashOverlay/);
+  assert.match(windowXaml, /evaluapro-official-hero\.png/);
+
+  assert.match(helper, /ValidateSet\('detect-prereqs', 'post-install'\)/);
+  assert.match(helper, /configuracion_operativa/);
+  assert.match(helper, /verificacion_final/);
+  assert.match(helper, /blindaje_licencia_local/);
+  assert.match(helper, /portable-license\.mjs/);
+});
+
+test('resolucion de flavors funciona en layout plano del bundle Burn', () => {
   const tempRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'evaluapro-installer-flat-'));
   const commonModulePath = path.join(root, 'scripts', 'installer-hub', 'modules', 'Common.psm1');
   try {
@@ -246,6 +319,11 @@ test('installer hub incluye fase de configuracion operativa y blindaje de licenc
   assert.match(hub, /installationHealth = \$null/);
   assert.match(hub, /Regenerar accesos/);
   assert.match(hub, /Verificar/);
+  assert.match(hub, /Show-InstallerBootstrapDialog/);
+  assert.match(hub, /EvaluaPro necesita permisos de administrador para continuar/);
+  assert.match(hub, /Ejecutar como administrador/);
+  assert.match(hub, /\$scriptPathForElevation = \(Resolve-Path -LiteralPath \$MyInvocation\.MyCommand\.Path\)\.Path/);
+  assert.match(hub, /Ensure-ElevatedSession -ScriptPath \$scriptPathForElevation/);
 });
 
 test('installer hub expone preflight GUI y wizard por pasos', () => {
@@ -287,89 +365,65 @@ test('wizard UI evita patrones fragiles de WinForms ya corregidos', () => {
 
 test('scripts de installer hub no usan operadores exclusivos de PowerShell 7', () => {
   const hub = fs.readFileSync(installerHubPath, 'utf8');
+  const common = fs.readFileSync(path.join(root, 'scripts', 'installer-hub', 'modules', 'Common.psm1'), 'utf8');
   const license = fs.readFileSync(licenseSecurityModulePath, 'utf8');
   const wizard = fs.readFileSync(path.join(root, 'scripts', 'installer-hub', 'modules', 'WizardUi.psm1'), 'utf8');
   assert.doesNotMatch(hub, /\?\?/);
+  assert.doesNotMatch(common, /\?\?/);
   assert.doesNotMatch(license, /\?\?/);
   assert.doesNotMatch(wizard, /\?\?/);
 });
 
-test('installer hub parsea con powershell.exe y puede abrir UI en smoke mode', async () => {
-  if (process.platform !== 'win32') {
-    return;
+test('elevacion UAC relanza con ruta absoluta y working directory del script', () => {
+  const common = fs.readFileSync(path.join(root, 'scripts', 'installer-hub', 'modules', 'Common.psm1'), 'utf8');
+  assert.match(common, /Resolve-InstallerElevationScriptPath/);
+  assert.match(common, /Split-Path -Parent \$resolvedScriptPath/);
+  assert.match(common, /WorkingDirectory = \$workingDirectory/);
+  assert.match(common, /ArgumentList = \(\$quotedArgs -join ' '\)/);
+});
+
+test('elevacion UAC prepara copia estable cuando el script vive en IXP temp', () => {
+  const tempRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'evaluapro-ixp-'));
+  const ixpDir = path.join(tempRoot, 'IXP123.TMP');
+  fs.mkdirSync(ixpDir, { recursive: true });
+  fs.writeFileSync(path.join(ixpDir, 'installer-hub.ps1'), 'Write-Host "hub"', 'utf8');
+  fs.writeFileSync(path.join(ixpDir, 'Common.psm1'), 'Write-Host "common"', 'utf8');
+  try {
+    const script = `
+Import-Module -Force -WarningAction SilentlyContinue '${path.join(root, 'scripts', 'installer-hub', 'modules', 'Common.psm1').replace(/'/g, "''")}'
+$resolved = Resolve-InstallerElevationScriptPath -ScriptPath '${path.join(ixpDir, 'installer-hub.ps1').replace(/'/g, "''")}'
+[pscustomobject]@{
+  resolved = $resolved
+  exists = Test-Path -LiteralPath $resolved
+  parentName = Split-Path -Leaf (Split-Path -Parent $resolved)
+  commonExists = Test-Path -LiteralPath (Join-Path (Split-Path -Parent $resolved) 'Common.psm1')
+  originalParentName = Split-Path -Leaf '${ixpDir.replace(/'/g, "''")}'
+} | ConvertTo-Json -Depth 6
+`.trim();
+    const result = runPowerShell(script);
+    if (result.skipped) {
+      return;
+    }
+    const parsed = parseJsonOutput(result.stdout);
+    assert.equal(parsed.exists, true);
+    assert.equal(parsed.commonExists, true);
+    assert.notEqual(parsed.parentName, parsed.originalParentName);
+    assert.match(String(parsed.resolved || ''), /EvaluaProInstallerHub-Elevated/i);
+  } finally {
+    fs.rmSync(tempRoot, { recursive: true, force: true });
   }
-  const startedAt = Date.now();
-  const child = spawn('powershell.exe', [
-    '-NoProfile',
-    '-ExecutionPolicy',
-    'Bypass',
-    '-File',
-    installerHubPath,
-    '-NoElevation'
-  ], {
-    env: {
-      ...process.env,
-      EVALUAPRO_INSTALLER_GUI_SMOKE: '1',
-      EVALUAPRO_INSTALLER_GUI_AUTO_CLOSE_MS: '15000'
-    },
-    stdio: 'ignore',
-    windowsHide: true
-  });
-  return new Promise((resolve, reject) => {
-    const timer = setTimeout(() => {
-      const alive = child.exitCode === null;
-      if (alive) {
-        try { child.kill('SIGTERM'); } catch {}
-      }
-      waitForNewInstallerHubLog(startedAt, 8000).then((latestLog) => {
-        if (!latestLog) {
-          reject(new Error('El smoke GUI no genero log nuevo del Installer Hub para esta corrida.'));
-          return;
-        }
-        const logContent = fs.readFileSync(latestLog.filePath, 'utf8');
-        if (/Bootstrap GUI fallido|Preflight GUI fallido/i.test(logContent)) {
-          reject(new Error(`El smoke GUI detecto fallo de bootstrap en ${latestLog.filePath}`));
-          return;
-        }
-        if (/brandSummary|\$toggle|no se puede recuperar porque no se ha establecido/i.test(logContent)) {
-          reject(new Error(`El smoke GUI detecto regresion de variable no inicializada en ${latestLog.filePath}`));
-          return;
-        }
-        if (/Add-UiLog.*not recognized|CommandNotFoundException.*Add-UiLog/i.test(logContent)) {
-          reject(new Error(`El smoke GUI detecto fallo de handler de logging en ${latestLog.filePath}`));
-          return;
-        }
-        resolve();
-      }).catch(reject);
-    }, 4500);
-    child.once('exit', () => {
-      clearTimeout(timer);
-      waitForNewInstallerHubLog(startedAt, 8000).then((latestLog) => {
-        if (!latestLog) {
-          reject(new Error('La UI termino prematuramente y no genero log nuevo.'));
-          return;
-        }
-        const logContent = fs.readFileSync(latestLog.filePath, 'utf8');
-        if (/Bootstrap GUI fallido|Preflight GUI fallido/i.test(logContent)) {
-          reject(new Error(`El smoke GUI detecto fallo de bootstrap en ${latestLog.filePath}`));
-          return;
-        }
-        if (/brandSummary|\$toggle|no se puede recuperar porque no se ha establecido/i.test(logContent)) {
-          reject(new Error(`El smoke GUI detecto regresion de variable no inicializada en ${latestLog.filePath}`));
-          return;
-        }
-        if (/Add-UiLog.*not recognized|CommandNotFoundException.*Add-UiLog/i.test(logContent)) {
-          reject(new Error(`El smoke GUI detecto fallo de handler de logging en ${latestLog.filePath}`));
-          return;
-        }
-        resolve();
-      }).catch(reject);
-    });
-    child.once('error', (error) => {
-      clearTimeout(timer);
-      reject(error);
-    });
-  });
+});
+
+test('smoke del bundle Burn publico queda declarado en workflows post-build', () => {
+  const stableWorkflow = fs.readFileSync(path.join(root, '.github', 'workflows', 'ci-installer-windows.yml'), 'utf8');
+  const betaWorkflow = fs.readFileSync(path.join(root, '.github', 'workflows', 'release-beta.yml'), 'utf8');
+
+  for (const workflow of [stableWorkflow, betaWorkflow]) {
+    assert.match(workflow, /Smoke GUI del bundle Burn publico empaquetado/);
+    assert.match(workflow, /dist\/installer\/EvaluaPro-InstallerHub-docente-local\.exe/);
+    assert.match(workflow, /Start-Process -FilePath \$exe -PassThru/);
+    assert.match(workflow, /El bundle Burn publico se cerro antes del smoke timeout|El Installer Hub empaquetado se cerro antes del smoke timeout/);
+  }
 });
 
 test('launcher broker unifica shortcuts, hub y splash state', () => {

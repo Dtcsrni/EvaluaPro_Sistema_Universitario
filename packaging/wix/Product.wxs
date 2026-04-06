@@ -53,12 +53,13 @@
     </StandardDirectory>
 
     <Icon Id="EvaluaProIconProd" SourceFile="$(var.SourceRoot)\scripts\icons\dashboard-prod.ico" />
+    <Icon Id="EvaluaProIconHub" SourceFile="$(var.SourceRoot)\scripts\icons\installer-canonical.ico" />
     <Icon Id="EvaluaProIconDev" SourceFile="$(var.SourceRoot)\scripts\icons\dashboard-dev.ico" />
     <Icon Id="EvaluaProIconOpen" SourceFile="$(var.SourceRoot)\scripts\icons\dashboard-open.ico" />
     <Icon Id="EvaluaProIconRestart" SourceFile="$(var.SourceRoot)\scripts\icons\dashboard-restart.ico" />
     <Icon Id="EvaluaProIconStop" SourceFile="$(var.SourceRoot)\scripts\icons\dashboard-stop.ico" />
     <Icon Id="EvaluaProIconRepair" SourceFile="$(var.SourceRoot)\scripts\icons\dashboard-repair.ico" />
-    <Property Id="ARPPRODUCTICON" Value="EvaluaProIconProd" />
+    <Property Id="ARPPRODUCTICON" Value="EvaluaProIconHub" />
     <Property Id="ARPCONTACT" Value="I.S.C. Erick Renato Vega Ceron" />
     <Property Id="ARPHELPLINK" Value="https://github.com/Dtcsrni/EvaluaPro_Sistema_Universitario" />
     <Property Id="ARPURLINFOABOUT" Value="https://github.com/Dtcsrni/EvaluaPro_Sistema_Universitario" />

@@ -70,6 +70,11 @@ jobs:
             apps/frontend/package-lock.json
             apps/portal_alumno_cloud/package-lock.json
 
+      - name: Configurar .NET SDK 8
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 8.0.x
+
       - name: Instalar dependencias
         run: npm ci --foreground-scripts
 
@@ -147,6 +152,11 @@ jobs:
             apps/frontend/package-lock.json
             apps/portal_alumno_cloud/package-lock.json
 
+      - name: Configurar .NET SDK 8
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 8.0.x
+
       - name: Instalar dependencias
         run: npm ci --foreground-scripts
 
@@ -161,7 +171,9 @@ jobs:
           $wixBin = 'C:\Program Files\WiX Toolset v6.0\bin'
           if (-not (Test-Path $wixBin)) { throw "No se encontro WiX en $wixBin" }
           "$wixBin" | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
-          & "$wixBin\wix.exe" --version
+          $wixVersion = (& "$wixBin\wix.exe" --version | Select-Object -First 1)
+          if ($wixVersion -notmatch '^6\.0\.') { throw "Version WiX no permitida: $wixVersion. Se requiere 6.0.x." }
+          Write-Host "WiX version detectada: $wixVersion"
 
       - name: Etapa policy-check WiX
         run: npm run test:wix:policy
@@ -181,9 +193,18 @@ jobs:
         shell: powershell
         run: powershell -NoProfile -ExecutionPolicy Bypass -File scripts/build-msi.ps1 -IncludeBundle -Flavor all
 
-      - name: Etapa build Installer Hub EXE
+      - name: Smoke GUI del bundle Burn publico empaquetado
         shell: powershell
-        run: powershell -NoProfile -ExecutionPolicy Bypass -File scripts/build-installer-hub.ps1 -Flavor all -IncludeFlavorInstallers
+        run: |
+          $exe = 'dist/installer/EvaluaPro-InstallerHub-docente-local.exe'
+          if (-not (Test-Path $exe)) { throw "No existe $exe" }
+          $proc = Start-Process -FilePath $exe -PassThru
+          Start-Sleep -Seconds 2
+          if ($proc.HasExited) { throw 'El bundle Burn publico se cerro antes del smoke timeout.' }
+          Start-Sleep -Seconds 3
+          if (-not $proc.HasExited) {
+            try { Stop-Process -Id $proc.Id -Force } catch {}
+          }
 
       - name: Etapa hash/manifest beta
         shell: powershell

@@ -87,6 +87,13 @@ a {
 .hero {
   padding: 5.4rem 0 2.8rem;
   display: grid;
+  gap: 1.6rem;
+  grid-template-columns: minmax(0, 1.1fr) minmax(320px, 0.9fr);
+  align-items: center;
+}
+
+.hero-copyblock {
+  display: grid;
   gap: 1rem;
 }
 
@@ -110,6 +117,90 @@ a {
   max-width: 60ch;
   color: var(--muted);
   font-size: 1.08rem;
+}
+
+.hero-visual {
+  position: relative;
+  min-height: 420px;
+  display: grid;
+  place-items: center;
+}
+
+.hero-visual__glow {
+  position: absolute;
+  border-radius: 999px;
+  filter: blur(18px);
+  pointer-events: none;
+}
+
+.hero-visual__glow--a {
+  width: 250px;
+  height: 250px;
+  background: rgba(0, 166, 251, 0.22);
+  top: 34px;
+  right: 34px;
+}
+
+.hero-visual__glow--b {
+  width: 210px;
+  height: 210px;
+  background: rgba(23, 201, 164, 0.18);
+  bottom: 18px;
+  left: 30px;
+}
+
+.hero-visual__card {
+  position: relative;
+  border: 1px solid rgba(143, 176, 210, 0.2);
+  background: linear-gradient(155deg, rgba(14, 31, 49, 0.92), rgba(8, 20, 34, 0.9));
+  box-shadow: 0 30px 70px -38px rgba(0, 0, 0, 0.82);
+  backdrop-filter: blur(12px);
+}
+
+.hero-visual__card--main {
+  width: min(100%, 480px);
+  border-radius: 28px;
+  padding: 1rem;
+}
+
+.hero-visual__card--floating {
+  position: absolute;
+  left: 0;
+  bottom: 22px;
+  width: min(240px, 72%);
+  border-radius: 20px;
+  padding: 1rem 1.05rem;
+  display: grid;
+  gap: 0.35rem;
+}
+
+.hero-visual__card--floating strong {
+  font-family: "Sora", "Segoe UI", sans-serif;
+  font-size: 1rem;
+}
+
+.hero-visual__card--floating small {
+  color: var(--muted);
+  line-height: 1.45;
+}
+
+.hero-badge {
+  display: inline-flex;
+  width: fit-content;
+  padding: 0.3rem 0.65rem;
+  border-radius: 999px;
+  background: rgba(143, 211, 255, 0.14);
+  color: #b7e5ff;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  font-size: 0.7rem;
+  font-weight: 700;
+}
+
+.hero-illustration {
+  width: 100%;
+  height: auto;
+  display: block;
 }
 
 .hero-actions {
@@ -377,6 +468,23 @@ a {
     flex-direction: column;
     gap: 0.65rem;
     align-items: flex-start;
+  }
+
+  .hero {
+    grid-template-columns: 1fr;
+  }
+
+  .hero-visual {
+    min-height: 340px;
+  }
+
+  .hero-visual__card--floating {
+    position: relative;
+    left: auto;
+    bottom: auto;
+    margin-top: -1rem;
+    width: min(100%, 320px);
+    justify-self: start;
   }
 }
 

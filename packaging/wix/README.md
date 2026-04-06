@@ -5,13 +5,14 @@ Responsable: `I.S.C. Erick Renato Vega Ceron`.
 
 ## Estructura
 - `Product.wxs`: MSI principal (`EvaluaPro.msi`).
-- `Bundle.wxs`: bootstrapper tecnico interno (`EvaluaPro-Setup.exe`) que encadena el MSI para el flujo orquestado por Installer Hub.
+- `Bundle.wxs`: bundle publico por flavor (`EvaluaPro-InstallerHub-<flavor>.exe`) basado en WiX Burn.
+- `BurnBootstrapperApp/`: Bootstrapper Application personalizada en `WPF .NET 8`.
 - `Fragments/AppFiles.wxs`: archivos instalados.
 - `Fragments/Shortcuts.wxs`: accesos directos Dev/Prod.
 - `Fragments/Cleanup.wxs`: limpieza de logs/menu en uninstall.
 
 ## Requisitos
-- WiX Toolset v6+ estable (`wix` en PATH).
+- WiX Toolset v6.0.x estable (`wix` en PATH).
 - Node.js 24+.
 - Runtime Docker compatible para Windows:
   - WSL2 + Docker Engine (default).
@@ -29,23 +30,34 @@ El build MSI ejecuta checks de estabilidad antes de empaquetar.
 
 `npm run msi:build`:
 - siempre compila `EvaluaPro.msi`.
-- compila `EvaluaPro-Setup.exe` solo si se habilita bundle:
+- compila el bundle Burn publico solo si se habilita bundle:
   - `powershell -NoProfile -ExecutionPolicy Bypass -File scripts/build-msi.ps1 -IncludeBundle`
   - o `EVALUAPRO_BUILD_BUNDLE=1`.
 
+Build oficial del entrypoint Windows:
+
+```powershell
+npm run installer:hub:build
+```
+
+Ese comando publica la BA `WPF .NET 8`, valida icono canónico multi-size y genera:
+- `EvaluaPro-InstallerHub-saas-completo.exe`
+- `EvaluaPro-InstallerHub-docente-local.exe`
+
 Politica operativa:
-- `EvaluaPro-Setup.exe` no es una fuente publica soportada de instalacion inicial.
-- la instalacion oficial para usuario final se centraliza en `EvaluaPro-InstallerHub-<flavor>.exe`.
-- el MSI/bundle pueden seguir existiendo como dependencias tecnicas internas del pipeline o del Hub.
+- `EvaluaPro-InstallerHub-<flavor>.exe` es la fuente publica oficial de instalacion Windows.
+- el MSI sigue siendo el payload principal del bundle y puede conservarse como artefacto tecnico interno.
 
 Artefactos tecnicos esperados:
-- `dist/installer/EvaluaPro.msi`
-- `dist/installer/EvaluaPro-Setup.exe` (solo con bundle habilitado)
+- `dist/installer/_internal/EvaluaPro-saas-completo.msi`
+- `dist/installer/_internal/EvaluaPro-docente-local.msi`
+- `dist/installer/_internal/*.wixpdb`
+- `dist/installer/_internal/burn-bootstrapper-app/`
 
 ## CI Windows
 - Workflow: `.github/workflows/ci-installer-windows.yml`.
 - Se ejecuta en `main`, `tags v*` y manual.
-- Compila MSI + bundle (`-SkipStabilityChecks -IncludeBundle`) y publica artefactos.
+- Publica BA `.NET 8`, compila MSI + bundle Burn (`-SkipStabilityChecks -IncludeBundle`) y publica artefactos.
 
 ## Notas
 - El acceso directo **Prod** ejecuta:
@@ -62,6 +74,11 @@ Artefactos tecnicos esperados:
 - El instalador valida prerequisitos no autoconfigurables:
   - Node.js 24+
   - runtime Docker compatible (`WSL2 + Docker Engine` o `Docker Desktop`)
+- La BA personalizada orquesta:
+  - deteccion de prerequisitos,
+  - `install|repair|uninstall`,
+  - chain MSI manejado por Burn,
+  - helper post-install para `.env`, `update-config.json`, verificacion y blindaje local de licencia.
 
 <!-- AUTO:COMMERCIAL-CONTEXT:START -->
 ## Contexto Comercial y Soporte

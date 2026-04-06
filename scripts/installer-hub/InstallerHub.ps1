@@ -67,8 +67,59 @@ Import-Module (Join-Path $modulesPath 'LicenseClientSecurity.psm1') -Force -Glob
 Import-Module (Join-Path $modulesPath 'OperationalConfig.psm1') -Force -Global -DisableNameChecking
 Import-Module (Join-Path $modulesPath 'WizardUi.psm1') -Force -Global -DisableNameChecking
 
+function Show-InstallerBootstrapDialog {
+  param(
+    [string]$Text,
+    [string]$Title = 'EvaluaPro Installer Hub',
+    [ValidateSet('info', 'warning', 'error')]
+    [string]$Kind = 'info'
+  )
+
+  try {
+    Add-Type -AssemblyName System.Windows.Forms
+    $icon = [System.Windows.Forms.MessageBoxIcon]::Information
+    switch ($Kind) {
+      'warning' { $icon = [System.Windows.Forms.MessageBoxIcon]::Warning }
+      'error' { $icon = [System.Windows.Forms.MessageBoxIcon]::Error }
+      default { $icon = [System.Windows.Forms.MessageBoxIcon]::Information }
+    }
+    [System.Windows.Forms.MessageBox]::Show(
+      $Text,
+      $Title,
+      [System.Windows.Forms.MessageBoxButtons]::OK,
+      $icon
+    ) | Out-Null
+  } catch {}
+}
+
 if (-not $NoElevation) {
-  $shouldContinue = Ensure-ElevatedSession -ScriptPath $MyInvocation.MyCommand.Path -PassthroughArgs $args
+  $scriptPathForElevation = $MyInvocation.MyCommand.Path
+  try {
+    $scriptPathForElevation = (Resolve-Path -LiteralPath $MyInvocation.MyCommand.Path).Path
+  } catch {
+    $candidate = Join-Path $scriptRoot (Split-Path -Leaf $MyInvocation.MyCommand.Path)
+    if (Test-Path -LiteralPath $candidate) {
+      $scriptPathForElevation = (Resolve-Path -LiteralPath $candidate).Path
+    }
+  }
+
+  if (-not (Test-IsAdministrator)) {
+    Show-InstallerBootstrapDialog -Kind 'info' -Text (
+      "EvaluaPro necesita permisos de administrador para continuar.`n`n" +
+      "Al cerrar este aviso se abrira la solicitud de UAC de Windows. " +
+      "Aceptala para que el Installer Hub continue."
+    )
+  }
+
+  try {
+    $shouldContinue = Ensure-ElevatedSession -ScriptPath $scriptPathForElevation -PassthroughArgs $args
+  } catch {
+    Show-InstallerBootstrapDialog -Kind 'error' -Text (
+      "No se pudo solicitar elevacion UAC.`n`n$($_.Exception.Message)`n`n" +
+      'Vuelve a ejecutar el Installer Hub con clic derecho > Ejecutar como administrador.'
+    )
+    exit 1
+  }
   if (-not $shouldContinue) {
     exit 0
   }
@@ -264,7 +315,12 @@ function New-FlowState {
   $detected = Resolve-DetectedOperationalConfig -InstallDir $InstallDir -Installation $installation
   $detectedUpdate = Resolve-DetectedUpdateConfig -InstallDir $InstallDir -Installation $installation
   $catalog = Get-InstallerFlavorCatalog
-  $effectiveFlavorId = if ($FlavorId) { $FlavorId } elseif ($detectedUpdate.flavorId) { [string]$detectedUpdate.flavorId } elseif ($defaults.flavorId) { [string]$defaults.flavorId } else { [string]$catalog.defaultFlavorId }
+  # Flavor source of truth:
+  # 1) explicit -FlavorId
+  # 2) embedded installer-hub.defaults.json (set by each packaged Hub EXE)
+  # 3) catalog default (docente-local)
+  # Never infer flavor from detected update-config to avoid accidental saas-completo.
+  $effectiveFlavorId = if ($FlavorId) { $FlavorId } elseif ($defaults.flavorId) { [string]$defaults.flavorId } else { [string]$catalog.defaultFlavorId }
   $flavor = Get-InstallerFlavorDefinition -FlavorId $effectiveFlavorId
   $detectedUpdateMatchesFlavor = ([string]$detectedUpdate.flavorId -eq [string]$effectiveFlavorId)
 

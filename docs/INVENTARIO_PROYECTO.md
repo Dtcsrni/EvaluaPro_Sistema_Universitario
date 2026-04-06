@@ -1,6 +1,6 @@
 # Inventario Tecnico del Proyecto
 
-Fecha de corte: 2026-03-27
+Fecha de corte: 2026-04-03
 Version tecnica objetivo: `1.0.0`
 Version visible objetivo: `1.0.0b`
 
@@ -24,6 +24,12 @@ Version visible objetivo: `1.0.0b`
   - `reports/perf/latest.json`
 
 ## 2.1) Footprint y clasificacion del corte 2026-03-20
+- Migración Installer Hub Burn 2026-04-03:
+  - `EvaluaPro-InstallerHub-<flavor>.exe` pasa a generarse desde `WiX Burn` con BA personalizada `WPF .NET 8`
+  - nuevo helper `scripts/installer-burn/InstallerBurnHelper.ps1` reutiliza módulos headless de prerequisitos, configuración operativa, verificación y licencia
+  - `Bundle.wxs`, `build-msi.ps1`, workflows de installer y contratos de prueba quedan alineados al bundle Burn como única superficie pública de instalación Windows
+  - `release-beta.yml` incorpora `.NET 8` y smoke post-build del bundle público; `ci-installer-windows.yml` declara el mismo smoke sobre `EvaluaPro-InstallerHub-docente-local.exe`
+  - la documentación `INSTALLER_HUB`, `DESPLIEGUE`, `RUNBOOK_OPERACION`, `PILOTO_DIA0_CHECKLIST`, `scripts/README` y `packaging/wix/README` se alinea al bootstrapper Burn como flujo operativo único
 - Gobernanza y PDF 2026-03-27:
   - `AGENTS.md` deja de exigir scripts `bigbang:olas:*` no presentes en `HEAD`; el gate estructural vigente para recortes Big Bang pasa a ser `npm run qa:clean-architecture:strict`, complementado por `test:tdd:enforcement:ci`, `pipeline:contract:check` y `ci:policy:audit`
   - `apps/backend/src/modulos/modulo_generacion_pdf/controladorGeneracionPdf.ts` queda como fachada HTTP y la orquestación pasa a `application/usecases/*` + `shared/controladorGeneracionPdfShared.ts`

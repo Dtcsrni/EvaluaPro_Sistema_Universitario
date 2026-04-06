@@ -106,7 +106,7 @@ Build local de bundle EXE (ademas del MSI):
 powershell -NoProfile -ExecutionPolicy Bypass -File scripts/build-msi.ps1 -IncludeBundle
 ```
 
-Build local de Installer Hub (bootstrapper online con GUI):
+Build local del Installer Hub oficial (bundle Burn + BA WPF):
 ```powershell
 npm run installer:hub:build
 ```
@@ -141,7 +141,7 @@ Publicar secretos en GitHub (manual):
 Verificar firma local:
 ```powershell
 Get-AuthenticodeSignature .\dist\installer\EvaluaPro-InstallerHub-docente-local.exe
-Get-AuthenticodeSignature .\dist\installer\EvaluaPro-docente-local.msi
+Get-AuthenticodeSignature .\dist\installer\_internal\EvaluaPro-docente-local.msi
 ```
 
 Garantia de estabilidad para distribuible:
@@ -156,32 +156,38 @@ Garantia de estabilidad para distribuible:
 - si algun check falla, no se genera instalador.
 
 Artefactos:
-- `dist/installer/EvaluaPro-saas-completo.msi`
-- `dist/installer/EvaluaPro-saas-completo.msi.sha256`
 - `dist/installer/EvaluaPro-InstallerHub-saas-completo.exe`
 - `dist/installer/EvaluaPro-InstallerHub-saas-completo.exe.sha256`
-- `dist/installer/EvaluaPro-docente-local.msi`
-- `dist/installer/EvaluaPro-docente-local.msi.sha256`
 - `dist/installer/EvaluaPro-InstallerHub-docente-local.exe`
 - `dist/installer/EvaluaPro-InstallerHub-docente-local.exe.sha256`
 - `dist/installer/EvaluaPro-release-manifest.json`
-- `dist/installer/installer-local-paths.json`
 - `dist/installer/SIGNING-NOT-PRODUCTION.txt` (solo cuando no se firma)
-- `dist/installer/EvaluaPro-<flavor>-Setup.exe` puede existir solo como artefacto tecnico interno del pipeline; no es superficie publica ni ruta soportada para usuario final.
+- `dist/installer/_internal/EvaluaPro-saas-completo.msi`
+- `dist/installer/_internal/EvaluaPro-saas-completo.msi.sha256`
+- `dist/installer/_internal/EvaluaPro-docente-local.msi`
+- `dist/installer/_internal/EvaluaPro-docente-local.msi.sha256`
+- `dist/installer/_internal/*.wixpdb`
+- `dist/installer/_internal/burn-bootstrapper-app/`
+- `dist/installer/_internal/installer-local-paths.json`
+
+Contrato operativo del bootstrapper Windows:
+- `EvaluaPro-InstallerHub-<flavor>.exe` es el entrypoint publico oficial.
+- se genera desde `WiX Burn` con BA personalizada `WPF .NET 8`.
+- el helper `scripts/installer-burn/InstallerBurnHelper.ps1` conserva configuracion operativa, verificacion y blindaje de licencia.
 
 Prerequisitos de instalacion:
 - Node.js 24+
 - runtime Docker compatible:
   - `WSL2 + Docker Engine` (default)
   - `Docker Desktop` (compatibilidad)
-- WiX Toolset v6+ estable (solo para generar instalador)
+- WiX Toolset v6.0.x estable (solo para generar instalador)
 - Extension BA WiX 6: resuelta automaticamente por `build-msi.ps1` (`WixToolset.Bal.wixext`).
 
 CI de instalador Windows:
 - Workflow: `.github/workflows/ci-installer-windows.yml`.
 - Trigger: tags `v*` y `workflow_dispatch`.
 - Valida `test:wix:policy` + `test:installer-hub:contract`.
-- Compila MSI + bundle (`-SkipStabilityChecks -IncludeBundle`), compila `Installer Hub`, genera hashes/manifiesto y ejecuta signing gate opcional.
+- Publica la BA `.NET 8`, compila MSI + bundle Burn (`-SkipStabilityChecks -IncludeBundle`), ejecuta smoke del `.exe` publico, genera hashes/manifiesto y ejecuta signing gate opcional.
 - En tags `v*` publica automáticamente assets en GitHub Releases:
   - `EvaluaPro-InstallerHub-saas-completo.exe`, `EvaluaPro-InstallerHub-saas-completo.exe.sha256`
   - `EvaluaPro-InstallerHub-docente-local.exe`, `EvaluaPro-InstallerHub-docente-local.exe.sha256`

@@ -1,11 +1,11 @@
 # Inventario Exhaustivo de Codigo
 
-Fecha de generacion: 2026-03-27 04:55:07
+Fecha de generacion: 2026-04-03 16:00:34
 Fuente: git ls-files filtrado por existencia en workspace (solo archivos versionados presentes, excluye node_modules).
 
 ## Resumen
 
-- Total de piezas de codigo/config ejecutable inventariadas: 863
+- Total de piezas de codigo/config ejecutable inventariadas: 881
 - Extensiones incluidas: ts, tsx, js, jsx, mjs, cjs, json, yml, yaml, sh, cmd, ps1.
 
 ## Conteo por area
@@ -18,7 +18,7 @@ Fuente: git ls-files filtrado por existencia en workspace (solo archivos version
 | ci | 17 |
 | scripts | 127 |
 | ops | 3 |
-| docs | 36 |
+| docs | 54 |
 | raiz | 9 |
 
 ## Backend (apps/backend)
@@ -612,7 +612,6 @@ Fuente: git ls-files filtrado por existencia en workspace (solo archivos version
 
 - scripts/ai-model-router.mjs
 - scripts/ai-openai-client.mjs
-- scripts/build-installer-hub.ps1
 - scripts/build-msi.ps1
 - scripts/clean-architecture-check.mjs
 - scripts/comercial/generar-llaves-licencia-rs256.mjs
@@ -750,9 +749,17 @@ Fuente: git ls-files filtrado por existencia en workspace (solo archivos version
 - docs/comercial/feature-catalog.generated.json
 - docs/diagramas/mermaid.config.json
 - docs/diagramas/puppeteer.config.json
+- docs/handoff/sesiones/2026-03-22/audit-sesion-2026-03-22T11-52-57.961Z.json
 - docs/handoff/sesiones/2026-03-22/implementacion-trazabilidad-agnostica.json
 - docs/handoff/sesiones/2026-03-22/sesion-2026-03-22T10-54-43.380Z.json
 - docs/handoff/sesiones/2026-03-22/sesion-2026-03-22T11-52-57.961Z.json
+- docs/handoff/sesiones/2026-03-23/audit-sesion-2026-03-23T03-13-01.575Z.json
+- docs/handoff/sesiones/2026-03-23/audit-sesion-2026-03-23T03-56-04.140Z.json
+- docs/handoff/sesiones/2026-03-23/audit-sesion-2026-03-23T04-22-05.327Z.json
+- docs/handoff/sesiones/2026-03-23/audit-sesion-2026-03-23T08-55-32.926Z.json
+- docs/handoff/sesiones/2026-03-23/audit-sesion-2026-03-23T09-37-29.678Z.json
+- docs/handoff/sesiones/2026-03-23/audit-sesion-2026-03-23T09-38-09.243Z.json
+- docs/handoff/sesiones/2026-03-23/audit-sesion-2026-03-23T10-46-43.408Z.json
 - docs/handoff/sesiones/2026-03-23/sesion-2026-03-23T03-13-01.575Z.json
 - docs/handoff/sesiones/2026-03-23/sesion-2026-03-23T03-56-04.140Z.json
 - docs/handoff/sesiones/2026-03-23/sesion-2026-03-23T04-22-05.327Z.json
@@ -763,14 +770,24 @@ Fuente: git ls-files filtrado por existencia en workspace (solo archivos version
 - docs/handoff/sesiones/2026-03-23/sesion-2026-03-23T11-18-25.821Z.input.json
 - docs/handoff/sesiones/2026-03-23/sesion-2026-03-23T11-18-25.821Z.json
 - docs/handoff/sesiones/2026-03-23/sesion-2026-03-23T12-01-36.430Z.json
+- docs/handoff/sesiones/2026-03-24/audit-sesion-2026-03-24T10-25-30.716Z.json
 - docs/handoff/sesiones/2026-03-24/sesion-2026-03-24T10-25-30.716Z.json
+- docs/handoff/sesiones/2026-03-26/audit-sesion-2026-03-26T06-42-38.573Z.json
+- docs/handoff/sesiones/2026-03-26/audit-sesion-2026-03-26T06-43-35.686Z.json
+- docs/handoff/sesiones/2026-03-26/audit-sesion-2026-03-26T08-17-29.186Z.json
+- docs/handoff/sesiones/2026-03-26/audit-sesion-2026-03-26T09-41-00.233Z.json
+- docs/handoff/sesiones/2026-03-26/audit-sesion-2026-03-26T10-16-02.354Z.json
 - docs/handoff/sesiones/2026-03-26/sesion-2026-03-26T06-42-38.573Z.json
 - docs/handoff/sesiones/2026-03-26/sesion-2026-03-26T06-43-35.686Z.json
 - docs/handoff/sesiones/2026-03-26/sesion-2026-03-26T08-17-29.186Z.json
 - docs/handoff/sesiones/2026-03-26/sesion-2026-03-26T09-41-00.233Z.json
 - docs/handoff/sesiones/2026-03-26/sesion-2026-03-26T10-16-02.354Z.json
+- docs/handoff/sesiones/2026-03-27/audit-sesion-2026-03-27T06-49-30.218Z.json
+- docs/handoff/sesiones/2026-03-27/audit-sesion-2026-03-27T09-31-40.802Z.json
+- docs/handoff/sesiones/2026-03-27/audit-sesion-2026-03-27T10-55-07.601Z.json
 - docs/handoff/sesiones/2026-03-27/sesion-2026-03-27T06-49-30.218Z.json
 - docs/handoff/sesiones/2026-03-27/sesion-2026-03-27T09-31-40.802Z.json
+- docs/handoff/sesiones/2026-03-27/sesion-2026-03-27T10-55-07.601Z.json
 - docs/handoff/trace.schema.json
 - docs/perf/baseline.business.json
 - docs/perf/baseline.json

@@ -74,6 +74,67 @@ function Test-IsAdministrator {
   return $principal.IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)
 }
 
+function Resolve-InstallerElevationScriptPath {
+  param(
+    [Parameter(Mandatory = $true)]
+    [string]$ScriptPath
+  )
+
+  $resolvedScriptPath = $ScriptPath
+  try {
+    $resolvedScriptPath = (Resolve-Path -LiteralPath $ScriptPath).Path
+  } catch {
+    $resolvedScriptPath = $ScriptPath
+  }
+
+  $scriptDir = ''
+  try {
+    $scriptDir = Split-Path -Parent $resolvedScriptPath
+  } catch {
+    $scriptDir = ''
+  }
+
+  if ([string]::IsNullOrWhiteSpace($scriptDir) -or -not (Test-Path -LiteralPath $scriptDir)) {
+    return $resolvedScriptPath
+  }
+
+  $forceStaging = @('1', 'true', 'yes', 'on') -contains ([string]$env:EVALUAPRO_INSTALLER_FORCE_ELEVATION_STAGING).Trim().ToLowerInvariant()
+  $isTempExtractionDir = $false
+  try {
+    if (-not [string]::IsNullOrWhiteSpace($env:TEMP)) {
+      $tempRoot = [IO.Path]::GetFullPath($env:TEMP).TrimEnd('\')
+      $scriptDirFull = [IO.Path]::GetFullPath($scriptDir).TrimEnd('\')
+      $isTempExtractionDir = $scriptDirFull.StartsWith($tempRoot, [StringComparison]::OrdinalIgnoreCase)
+    }
+  } catch {
+    $isTempExtractionDir = $false
+  }
+  if (-not $forceStaging -and -not $isTempExtractionDir) {
+    return $resolvedScriptPath
+  }
+
+  $stagingRoot = Join-Path $env:TEMP 'EvaluaProInstallerHub-Elevated'
+  $sessionId = [Guid]::NewGuid().ToString('N')
+  $stagingDir = Join-Path $stagingRoot $sessionId
+  New-Item -ItemType Directory -Path $stagingDir -Force | Out-Null
+
+  foreach ($item in (Get-ChildItem -LiteralPath $scriptDir -Force)) {
+    $destination = Join-Path $stagingDir $item.Name
+    if ($item.PSIsContainer) {
+      Copy-Item -LiteralPath $item.FullName -Destination $destination -Recurse -Force
+    } else {
+      Copy-Item -LiteralPath $item.FullName -Destination $destination -Force
+    }
+  }
+
+  $stagedScriptPath = Join-Path $stagingDir (Split-Path -Leaf $resolvedScriptPath)
+  if (-not (Test-Path -LiteralPath $stagedScriptPath)) {
+    throw "No se pudo preparar copia estable para elevacion UAC: $stagedScriptPath"
+  }
+
+  return $stagedScriptPath
+}
+
 function Ensure-ElevatedSession {
   param(
     [string]$ScriptPath,
@@ -84,7 +145,9 @@ function Ensure-ElevatedSession {
     return $true
   }
 
-  $quotedArgs = @('-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', ('"{0}"' -f $ScriptPath))
+  $resolvedScriptPath = Resolve-InstallerElevationScriptPath -ScriptPath $ScriptPath
+
+  $quotedArgs = @('-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', ('"{0}"' -f $resolvedScriptPath))
   if ($PassthroughArgs) {
     foreach ($arg in $PassthroughArgs) {
       $quotedArgs += ('"{0}"' -f ($arg -replace '"', '\"'))
@@ -92,7 +155,20 @@ function Ensure-ElevatedSession {
   }
 
   try {
-    Start-Process -FilePath 'powershell.exe' -Verb RunAs -ArgumentList ($quotedArgs -join ' ') | Out-Null
+    $startInfo = @{
+      FilePath = 'powershell.exe'
+      Verb = 'RunAs'
+      ArgumentList = ($quotedArgs -join ' ')
+    }
+    if (-not [string]::IsNullOrWhiteSpace($resolvedScriptPath)) {
+      try {
+        $workingDirectory = Split-Path -Parent $resolvedScriptPath
+        if (-not [string]::IsNullOrWhiteSpace($workingDirectory) -and (Test-Path -LiteralPath $workingDirectory)) {
+          $startInfo.WorkingDirectory = $workingDirectory
+        }
+      } catch {}
+    }
+    Start-Process @startInfo | Out-Null
   } catch {
     throw 'No se pudo solicitar elevacion UAC.'
   }
@@ -342,6 +418,7 @@ function Get-InstallerFlavorDefinition {
 
 Export-ModuleMember -Function @(
   'Test-IsAdministrator',
+  'Resolve-InstallerElevationScriptPath',
   'Ensure-ElevatedSession',
   'New-InstallerHubLogContext',
   'Write-InstallerHubLog',

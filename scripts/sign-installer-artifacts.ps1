@@ -9,6 +9,7 @@ $root = (Resolve-Path (Join-Path $PSScriptRoot '..')).Path
 if (-not $InstallerDir) {
   $InstallerDir = Join-Path $root 'dist\\installer'
 }
+$internalInstallerDir = Join-Path $InstallerDir '_internal'
 
 if (-not (Test-Path $InstallerDir)) {
   throw "No existe carpeta de instaladores: $InstallerDir"
@@ -86,6 +87,26 @@ function ConvertFrom-PossiblyWrappedBase64 {
   }
 }
 
+function Resolve-InstallerArtifactPath {
+  param(
+    [Parameter(Mandatory = $true)]
+    [string]$ArtifactName
+  )
+
+  $candidates = @(
+    (Join-Path $InstallerDir $ArtifactName),
+    (Join-Path $internalInstallerDir $ArtifactName)
+  )
+
+  foreach ($candidate in $candidates) {
+    if (Test-Path $candidate) {
+      return $candidate
+    }
+  }
+
+  return ''
+}
+
 $signtool = Find-SignTool
 if (-not $signtool) {
   throw 'No se encontro signtool.exe para firmar artefactos.'
@@ -97,11 +118,10 @@ try {
 
   $targets = @()
   foreach ($flavor in $catalog.flavors) {
-    $targets += @(
-      (Join-Path $InstallerDir ([string]$flavor.msiName)),
-      (Join-Path $InstallerDir ([string]$flavor.bundleName)),
-      (Join-Path $InstallerDir ([string]$flavor.installerHubExeName))
-    )
+    foreach ($artifactName in @([string]$flavor.msiName, [string]$flavor.bundleName, [string]$flavor.installerHubExeName)) {
+      $resolved = Resolve-InstallerArtifactPath -ArtifactName $artifactName
+      if ($resolved) { $targets += $resolved }
+    }
   }
   $targets = $targets | Select-Object -Unique | Where-Object { Test-Path $_ }
 

@@ -3,6 +3,22 @@ $ErrorActionPreference = 'Stop'
 Import-Module (Join-Path $PSScriptRoot 'Common.psm1') -DisableNameChecking
 Import-Module (Join-Path $PSScriptRoot 'PrereqDetector.psm1') -DisableNameChecking
 
+function Test-InstallerFlag {
+  param(
+    [string]$Value,
+    [bool]$DefaultValue = $false
+  )
+
+  if ([string]::IsNullOrWhiteSpace($Value)) {
+    return $DefaultValue
+  }
+
+  $normalized = $Value.Trim().ToLowerInvariant()
+  if ($normalized -in @('1', 'true', 'yes', 'on', 'si')) { return $true }
+  if ($normalized -in @('0', 'false', 'no', 'off')) { return $false }
+  return $DefaultValue
+}
+
 function Get-DockerRuntimeBootstrapDistro {
   $raw = [string]$env:EVALUAPRO_INSTALLER_WSL_DISTRO
   if ([string]::IsNullOrWhiteSpace($raw)) { return 'Ubuntu' }
@@ -59,15 +75,15 @@ function New-DockerRuntimeWindowsBootstrapPlan {
   } else {
     $steps += [pscustomobject]@{
       title = 'Instalar Docker Engine dentro de WSL2'
-      executor = 'manual'
-      autoRunnable = $false
-      command = "wsl -d $targetDistro -- sh -lc ""curl -fsSL https://get.docker.com | sh"""
+      executor = 'host'
+      autoRunnable = $true
+      command = "wsl -d $targetDistro -u root -- sh -lc ""curl -fsSL https://get.docker.com | sh"""
     }
     $steps += [pscustomobject]@{
       title = 'Iniciar el daemon Docker en WSL2'
-      executor = 'manual'
-      autoRunnable = $false
-      command = "wsl -d $targetDistro -- sh -lc ""sudo service docker start"""
+      executor = 'host'
+      autoRunnable = $true
+      command = "wsl -d $targetDistro -u root -- sh -lc ""service docker start || (nohup dockerd >/var/log/dockerd.log 2>&1 &)"""
     }
     $steps += [pscustomobject]@{
       title = 'Dar acceso al usuario actual'
@@ -77,9 +93,9 @@ function New-DockerRuntimeWindowsBootstrapPlan {
     }
     $steps += [pscustomobject]@{
       title = 'Verificar runtime Docker en WSL2'
-      executor = 'manual'
-      autoRunnable = $false
-      command = "wsl -d $targetDistro -- sh -lc ""docker version"""
+      executor = 'host'
+      autoRunnable = $true
+      command = "wsl -d $targetDistro -u root -- sh -lc ""docker version"""
     }
   }
 
@@ -162,7 +178,24 @@ function Invoke-DockerRuntimeBootstrapAuto {
       try {
         if ($OnLog) { & $OnLog 'info' ("[auto-bootstrap] ejecutando: {0}" -f $step.command) }
         if (-not $simulateAuto) {
-          Invoke-Expression -Command ([string]$step.command) | Out-Null
+          $rawCommand = [string]$step.command
+          if ($rawCommand -match '^\s*wsl\s+--install\b') {
+            # Evita bloqueo de UI: dispara instalación de distro en background y continúa.
+            $distro = ''
+            if ($rawCommand -match '-d\s+([A-Za-z0-9._-]+)') {
+              $distro = [string]$Matches[1]
+            }
+            $args = @('--install')
+            if ($distro) {
+              $args += @('-d', $distro)
+            }
+            Start-Process -FilePath 'wsl.exe' -ArgumentList $args -WindowStyle Hidden | Out-Null
+            if ($OnLog) {
+              & $OnLog 'warn' ("[auto-bootstrap] instalacion WSL iniciada en segundo plano. Requiere completar setup manual/reinicio.")
+            }
+          } else {
+            Invoke-Expression -Command $rawCommand | Out-Null
+          }
         }
         $executed += [pscustomobject]@{
           title = [string]$step.title
@@ -250,7 +283,7 @@ function Install-PrerequisitePackage {
 
     $plan = New-DockerRuntimeWindowsBootstrapPlan -Status $status
     $guide = Write-DockerRuntimeBootstrapGuide -Plan $plan -DownloadRoot $DownloadRoot
-    $autoBootstrapEnabled = @('1', 'true', 'yes', 'on') -contains ([string]$env:EVALUAPRO_INSTALLER_AUTO_BOOTSTRAP_WSL).Trim().ToLowerInvariant()
+    $autoBootstrapEnabled = Test-InstallerFlag -Value ([string]$env:EVALUAPRO_INSTALLER_AUTO_BOOTSTRAP_WSL) -DefaultValue $true
     $bootstrapExecution = $null
 
     if (@('1', 'true', 'yes', 'on') -contains ([string]$env:EVALUAPRO_INSTALLER_SIMULATE_WSL_BOOTSTRAP).Trim().ToLowerInvariant()) {

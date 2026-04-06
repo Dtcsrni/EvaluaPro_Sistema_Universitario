@@ -1,35 +1,50 @@
 <?xml version="1.0" encoding="UTF-8"?>
+<?ifndef FlavorCatalogPath ?>
+<?define FlavorCatalogPath=$(var.SourceRoot)\config\installer-flavors.json ?>
+<?endif?>
+<?ifndef BundleIconPath ?>
+<?define BundleIconPath=$(var.SourceRoot)\scripts\icons\installer-canonical.ico ?>
+<?endif?>
 <Wix xmlns="http://wixtoolset.org/schemas/v4/wxs" xmlns:bal="http://wixtoolset.org/schemas/v4/wxs/bal">
   <Bundle
-    Name="$(var.ProductName) Setup Estable"
+    Name="$(var.ProductName) Installer Hub"
     Manufacturer="I.S.C. Erick Renato Vega Ceron"
     Version="0.2.0.0"
-    IconSourceFile="$(var.SourceRoot)\scripts\icons\dashboard-prod.ico"
+    IconSourceFile="$(var.BundleIconPath)"
     UpgradeCode="$(var.BundleUpgradeCode)">
 
     <Variable Name="InstallDesktopShortcuts" Type="numeric" Value="1" Persisted="yes" />
     <Variable Name="InstallStartMenuShortcuts" Type="numeric" Value="1" Persisted="yes" />
     <Variable Name="InstallFolder" Type="string" Value="C:\Program Files\$(var.ProductName)" Persisted="yes" bal:Overridable="yes" />
+    <Variable Name="SelectedFlavorId" Type="string" Value="$(var.FlavorId)" Persisted="yes" />
 
-    <BootstrapperApplication>
-      <bal:WixStandardBootstrapperApplication
-        Theme="hyperlinkLicense"
-        ThemeFile="$(var.SourceRoot)\packaging\wix\theme\hyperlinkLicense-hero.xml"
-        LogoFile="$(var.SourceRoot)\logos\evaluapro-official-hero.png"
-        LicenseUrl="https://www.gnu.org/licenses/agpl-3.0.html"
-        ShowVersion="yes"
-        SuppressOptionsUI="no" />
+    <ApprovedExeForElevation
+      Id="PowerShellHost"
+      Key="SOFTWARE\Microsoft\Windows\CurrentVersion\App Paths\powershell.exe" />
+
+    <BootstrapperApplication SourceFile="EvaluaPro.BurnBootstrapperApp.exe" Name="EvaluaPro.BurnBootstrapperApp.exe">
+      <Payload SourceFile="InstallerBurnHelper.ps1" Name="InstallerBurnHelper.ps1" />
+      <Payload SourceFile="installer-prereqs.manifest.json" Name="installer-prereqs.manifest.json" />
+      <Payload SourceFile="$(var.FlavorCatalogPath)" Name="installer-flavors.json" />
+      <Payload SourceFile="portable-license.mjs" Name="portable-license.mjs" />
+      <Payload SourceFile="Common.psm1" Name="Common.psm1" />
+      <Payload SourceFile="PrereqDetector.psm1" Name="PrereqDetector.psm1" />
+      <Payload SourceFile="PrereqInstaller.psm1" Name="PrereqInstaller.psm1" />
+      <Payload SourceFile="OperationalConfig.psm1" Name="OperationalConfig.psm1" />
+      <Payload SourceFile="PostInstallVerifier.psm1" Name="PostInstallVerifier.psm1" />
+      <Payload SourceFile="LicenseClientSecurity.psm1" Name="LicenseClientSecurity.psm1" />
     </BootstrapperApplication>
 
     <Chain>
       <MsiPackage
         Id="EvaluaProMsi"
-        SourceFile="$(var.SourceRoot)\dist\installer\$(var.MsiName)"
+        SourceFile="$(var.MsiSourcePath)"
         Compressed="yes"
         Visible="yes">
         <MsiProperty Name="INSTALLFOLDER" Value="[InstallFolder]" />
         <MsiProperty Name="INSTALL_DESKTOP_SHORTCUTS" Value="[InstallDesktopShortcuts]" />
         <MsiProperty Name="INSTALL_STARTMENU_SHORTCUTS" Value="[InstallStartMenuShortcuts]" />
+        <MsiProperty Name="EVALUAPRO_FLAVOR_ID" Value="[SelectedFlavorId]" />
       </MsiPackage>
     </Chain>
   </Bundle>

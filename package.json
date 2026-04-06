@@ -164,7 +164,7 @@
     "start": "npm run start:prod",
     "start:portal": "npm -C apps/portal_alumno_cloud run start",
     "msi:build": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/build-msi.ps1",
-    "installer:hub:build": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/build-installer-hub.ps1",
+    "installer:hub:build": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/build-msi.ps1 -IncludeBundle -Flavor all",
     "installer:hashes": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/generate-installer-hashes.ps1",
     "installer:sign": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/sign-installer-artifacts.ps1",
     "installer:sign:internal:init": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/signing/new-internal-signing-cert.ps1",

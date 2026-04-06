@@ -58,17 +58,17 @@ Alcance de la reparación v1:
 
 ### Instalador docente desde cero (Installer Hub)
 1. Descargar `EvaluaPro-InstallerHub-docente-local.exe` desde la release estable.
-2. Ejecutar con permisos de administrador (UAC).
+2. Ejecutar el bundle Burn y aceptar UAC cuando lo solicite.
 3. Flujo esperado:
-   - splash introductorio,
+   - apertura estable de la BA `WPF .NET 8`,
    - deteccion automatica de modo (`install` / `repair` / `uninstall`),
    - analisis de requisitos del equipo,
-   - bootstrap guiado de prerequisitos faltantes (Node 24+ y runtime Docker compatible),
+   - prerequisitos visibles (Node 24+ y runtime Docker compatible),
    - si falta WSL2/Docker Engine, emision de guía local de bootstrap para completar el runtime soportado,
-   - descarga de `EvaluaPro.msi` + verificacion `SHA-256`,
-   - ejecucion MSI y verificacion final.
+   - chain `MSI` controlado por Burn,
+   - helper post-install para `.env`, `update-config.json`, verificacion final y blindaje local de licencia.
 4. Criterio de integridad:
-   - `EvaluaPro.msi.sha256` coincide con hash local del MSI descargado.
+   - `EvaluaPro-release-manifest.json` y los `.sha256` publicados coinciden con los artefactos locales.
 5. Desinstalacion:
    - por defecto conserva datos,
    - opcion de limpieza total disponible solo en modo `uninstall`.

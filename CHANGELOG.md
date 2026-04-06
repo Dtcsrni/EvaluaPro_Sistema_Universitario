@@ -5,6 +5,12 @@ Este archivo sigue el formato "Keep a Changelog" (alto nivel) y SemVer.
 ## [Unreleased]
 
 ### Changed
+- Installer Hub Windows migra del flujo legacy `PowerShell WinForms` a `WiX Burn + Bootstrapper Application WPF .NET 8 + helper PowerShell headless`:
+  - `packaging/wix/Bundle.wxs` deja `WixStandardBootstrapperApplication` y pasa a enlazar `EvaluaPro.BurnBootstrapperApp.exe`
+  - `scripts/build-msi.ps1` publica la BA `.NET 8`, compila el bundle Burn por flavor y conserva como contrato público `EvaluaPro-InstallerHub-<flavor>.exe`
+  - `scripts/installer-burn/InstallerBurnHelper.ps1` fija el contrato interno `detect-prereqs|post-install` para configuración operativa, verificación final y blindaje local de licencia
+  - los workflows `CI Installer Windows` y `Release Beta` preparan `.NET 8`, construyen el bundle Burn y ejecutan smoke del `.exe` público empaquetado
+  - la documentación operativa del instalador se alinea al nuevo entrypoint Burn y consolida un único flujo soportado
 - Gobierno Big Bang alineado al estado ejecutable real del repo:
   - `AGENTS.md` y la documentación operativa dejan de exigir scripts `bigbang:olas:*` no presentes en `HEAD`
   - los recortes estructurales pasan a cerrarse con `qa:clean-architecture:strict`, gates mínimos, `ci:policy:audit` y evidencia documental
@@ -321,7 +327,6 @@ Este archivo sigue el formato "Keep a Changelog" (alto nivel) y SemVer.
   - arquitectura modular (`ReleaseResolver`, `PrereqDetector`, `PrereqInstaller`, `ProductInstaller`, `PostInstallVerifier`).
   - contrato de prerequisitos versionado en `config/installer-prereqs.manifest.json`.
   - scripts de build/hash/signing para artefactos de release:
-    - `scripts/build-installer-hub.ps1`
     - `scripts/generate-installer-hashes.ps1`
     - `scripts/generate-installer-release-manifest.ps1`
     - `scripts/sign-installer-artifacts.ps1`

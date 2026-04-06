@@ -272,6 +272,11 @@ foreach ($spec in $iconSpecs) {
   $iconPathMap[$spec.Key] = $iconPath
 }
 
+$canonicalInstallerIcon = Join-Path $root 'scripts\icons\installer-canonical.ico'
+if (Test-Path -LiteralPath $canonicalInstallerIcon) {
+  $iconPathMap['hub'] = $canonicalInstallerIcon
+}
+
 $iconPathForLnk = @{}
 foreach ($spec in $iconSpecs) {
   $source = $iconPathMap[$spec.Key]
