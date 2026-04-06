@@ -243,7 +243,7 @@ este documento se actualiza automáticamente al regenerar.
 - `OMR_TV_GATE_VERSION` (usado en: scripts/testing/run-omr-tv-gate.mjs)
 - `OPENAI_API_KEY` (usado en: scripts/ai-openai-client.mjs)
 - `OPENAI_BASE_URL` (usado en: scripts/ai-openai-client.mjs)
-- `P` (usado en: scripts/comercial/portable-license.mjs, scripts/launcher-dashboard.mjs)
+- `P` (usado en: scripts/comercial/portable-license.mjs, scripts/launcher-dashboard.mjs, scripts/tests/installer-hub-contract.test.mjs, scripts/tests/windows-release-smoke.test.mjs)
 - `PERF_BASELINE_FACTOR` (usado en: scripts/perf-baseline.mjs)
 - `PERF_BASELINE_MARGIN_MS` (usado en: scripts/perf-baseline.mjs)
 - `PERF_BASELINE_PATH` (usado en: scripts/perf-baseline.mjs, scripts/perf-check.mjs)
