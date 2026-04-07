@@ -45,6 +45,7 @@
         <MsiProperty Name="INSTALL_DESKTOP_SHORTCUTS" Value="[InstallDesktopShortcuts]" />
         <MsiProperty Name="INSTALL_STARTMENU_SHORTCUTS" Value="[InstallStartMenuShortcuts]" />
         <MsiProperty Name="EVALUAPRO_FLAVOR_ID" Value="[SelectedFlavorId]" />
+        <MsiProperty Name="REQUIRE_INSTALLER_HUB" Value="1" />
       </MsiPackage>
     </Chain>
   </Bundle>

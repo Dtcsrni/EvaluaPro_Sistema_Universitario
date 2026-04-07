@@ -35,6 +35,13 @@ if (-not $InstallerDir) {
 }
 $internalInstallerDir = Join-Path $InstallerDir '_internal'
 
+$optionalArtifactPatterns = @('*.extracted.ico')
+foreach ($pattern in $optionalArtifactPatterns) {
+  Get-ChildItem -Path $InstallerDir -Filter $pattern -File -ErrorAction SilentlyContinue | ForEach-Object {
+    Write-Host "[installer-hash] Ignorando artefacto opcional no contractual: $($_.Name)"
+  }
+}
+
 function Resolve-InstallerArtifactPath {
   param(
     [Parameter(Mandatory = $true)]

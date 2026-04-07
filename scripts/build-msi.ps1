@@ -28,6 +28,7 @@ function Remove-StaleInstallerArtifacts {
     'EvaluaPro-*-Setup.exe',
     'EvaluaPro-*-Setup.wixpdb',
     'installer-local-paths.json',
+    '*.extracted.ico',
     '*.msi',
     '*.msi.sha256',
     '*.wixpdb'
@@ -47,6 +48,17 @@ function Remove-StaleInstallerArtifacts {
 
   if (Test-Path $InternalOutputDirectory) {
     Remove-Item -LiteralPath $InternalOutputDirectory -Recurse -Force -ErrorAction SilentlyContinue
+  }
+}
+
+function Remove-OptionalInstallerArtifacts {
+  param(
+    [Parameter(Mandatory = $true)]
+    [string]$OutputDirectory
+  )
+
+  Get-ChildItem -Path $OutputDirectory -Filter '*.extracted.ico' -File -ErrorAction SilentlyContinue | ForEach-Object {
+    Remove-Item -LiteralPath $_.FullName -Force -ErrorAction SilentlyContinue
   }
 }
 
@@ -379,6 +391,7 @@ if (-not (Test-Path $out)) {
 }
 
 Remove-StaleInstallerArtifacts -OutputDirectory $out -InternalOutputDirectory $internalOut
+Remove-OptionalInstallerArtifacts -OutputDirectory $out
 
 New-Item -ItemType Directory -Path $out -Force | Out-Null
 New-Item -ItemType Directory -Path $internalOut -Force | Out-Null
@@ -504,6 +517,8 @@ if (-not $buildBundle) {
 if ($buildBundle) {
   Write-InstallerLocalPathsManifest -OutputDirectory $internalOut -PublicOutputDirectory $out -FlavorDefinitions $selectedFlavors
 }
+
+Remove-OptionalInstallerArtifacts -OutputDirectory $out
 
 Write-Progress -Activity "EvaluaPro MSI (estable)" -Status "Completado" -PercentComplete 100
 Write-Host "[msi] Artefactos generados en $out para flavors: $($selectedFlavors.flavorId -join ', ')"

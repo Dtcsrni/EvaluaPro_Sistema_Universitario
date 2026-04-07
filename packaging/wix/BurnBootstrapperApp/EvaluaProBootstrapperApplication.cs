@@ -37,8 +37,11 @@ internal sealed class EvaluaProBootstrapperApplication : BootstrapperApplication
     private bool applyInFlight;
     private bool helperInFlight;
     private bool helperDetectionLogsFlushed;
+    private bool applySawPackageFailure;
     private int requestedExitCode;
+    private int? lastFailedPackageStatus;
     private string currentOperation = "install";
+    private string? lastFailedPackageId;
     private DetectionPayload? detectionPayload;
     private HelperEnvelope<DetectionPayload>? helperDetectionResponse;
     private string? pendingHelperResponsePath;
@@ -93,21 +96,33 @@ internal sealed class EvaluaProBootstrapperApplication : BootstrapperApplication
             return;
         }
 
+        applySawPackageFailure = false;
+        lastFailedPackageStatus = null;
+        lastFailedPackageId = null;
         applyInFlight = true;
-        UpdateUiState(statusText: "Aplicando MSI de EvaluaPro...", progress: 0, busy: true);
+        UpdateUiState(statusText: "Instalando componentes de EvaluaPro. Esto puede tardar algunos minutos...", progress: 0, busy: true);
         engineHandle?.Apply(GetWindowHandle());
     }
 
     protected override void OnProgress(ProgressEventArgs args)
     {
         base.OnProgress(args);
-        UpdateUiState(progress: args.OverallPercentage);
+        UpdateUiState(statusText: $"Instalando componentes... {Math.Max(0, Math.Min(100, args.OverallPercentage))}%", progress: args.OverallPercentage, busy: true);
     }
 
     protected override void OnExecutePackageComplete(ExecutePackageCompleteEventArgs args)
     {
         base.OnExecutePackageComplete(args);
-        Log(args.Status == 0 || args.Status == 3010 ? "info" : "warn", $"ExecutePackageComplete package={args.PackageId} status={args.Status}");
+        if (IsSuccessStatus(args.Status))
+        {
+            Log("info", $"ExecutePackageComplete package={args.PackageId} status={args.Status}");
+            return;
+        }
+
+        applySawPackageFailure = true;
+        lastFailedPackageStatus ??= args.Status;
+        lastFailedPackageId ??= args.PackageId;
+        Log("warn", $"ExecutePackageComplete package={args.PackageId} status={args.Status} ({FormatWindowsStatus(args.Status)})");
     }
 
     protected override void OnApplyComplete(ApplyCompleteEventArgs args)
@@ -115,9 +130,20 @@ internal sealed class EvaluaProBootstrapperApplication : BootstrapperApplication
         base.OnApplyComplete(args);
         applyInFlight = false;
 
-        if (args.Status != 0)
+        if (!IsSuccessStatus(args.Status))
         {
-            FinalizeFailure("accion_producto", 30, $"La ejecucion del bundle fallo con status={args.Status}.");
+            var detail = $"La ejecucion del bundle fallo con status={args.Status} ({FormatWindowsStatus(args.Status)}).";
+            if (applySawPackageFailure && !string.IsNullOrWhiteSpace(lastFailedPackageId) && lastFailedPackageStatus.HasValue)
+            {
+                detail += $" Ultimo paquete con error: {lastFailedPackageId} ({lastFailedPackageStatus.Value}, {FormatWindowsStatus(lastFailedPackageStatus.Value)}).";
+            }
+            var wixMsiLogPath = ReadEngineVariableString("WixBundleLog_EvaluaProMsi");
+            if (!string.IsNullOrWhiteSpace(wixMsiLogPath))
+            {
+                detail += $" Log MSI: {wixMsiLogPath}.";
+            }
+            detail += $" Revisa log BA: {sessionLogPath}";
+            FinalizeFailure("accion_producto", 30, detail);
             return;
         }
 
@@ -188,6 +214,8 @@ internal sealed class EvaluaProBootstrapperApplication : BootstrapperApplication
                 };
 
                 var createdWindow = new MainWindow();
+                var availableFlavors = LoadFlavorItems();
+                createdWindow.ConfigureInitialFlavorLayout(availableFlavors, ResolveRequestedFlavorId());
                 createdWindow.DetectRequested += (_, _) => _ = RunHelperDetectionAsync(force: true);
                 createdWindow.StartRequested += (_, request) => _ = StartBundleOperationAsync(request);
                 createdWindow.CloseRequested += (_, _) => RequestQuit();
@@ -275,6 +303,7 @@ internal sealed class EvaluaProBootstrapperApplication : BootstrapperApplication
         }
 
         UpdateWindowFromDetection(detectionPayload);
+        DispatchToUi(() => window?.NotifyInitialDetectionCompleted());
 
         if (headless && !startRequested)
         {
@@ -401,6 +430,11 @@ internal sealed class EvaluaProBootstrapperApplication : BootstrapperApplication
         engineHandle.SetVariableString("SelectedFlavorId", request.FlavorId, false);
         engineHandle.SetVariableNumeric("InstallDesktopShortcuts", request.InstallDesktopShortcuts ? 1 : 0);
         engineHandle.SetVariableNumeric("InstallStartMenuShortcuts", request.InstallStartMenuShortcuts ? 1 : 0);
+        Log(
+            "info",
+            $"Snapshot MSI vars: InstallFolder='{request.InstallDir}', SelectedFlavorId='{request.FlavorId}', " +
+            $"InstallDesktopShortcuts={(request.InstallDesktopShortcuts ? 1 : 0)}, InstallStartMenuShortcuts={(request.InstallStartMenuShortcuts ? 1 : 0)}, " +
+            "REQUIRE_INSTALLER_HUB=1 (Bundle->MsiProperty)");
 
         var action = currentOperation switch
         {
@@ -594,7 +628,8 @@ internal sealed class EvaluaProBootstrapperApplication : BootstrapperApplication
 
         if (!string.IsNullOrWhiteSpace(stderr))
         {
-            Log("warn", $"[helper:{mode}:stderr] {TrimForLog(stderr)}");
+            var stderrLevel = process.ExitCode == 0 ? "info" : "warn";
+            Log(stderrLevel, $"[helper:{mode}:stderr] {TrimForLog(stderr)}");
         }
 
         if (process.ExitCode != 0 && !File.Exists(responsePath))
@@ -841,6 +876,7 @@ internal sealed class EvaluaProBootstrapperApplication : BootstrapperApplication
             FlushHelperLogs(helperDetectionResponse?.Logs);
             helperDetectionLogsFlushed = true;
         }
+        DispatchToUi(() => window?.NotifyInitialDetectionCompleted());
 
         if (headless)
         {
@@ -929,6 +965,47 @@ internal sealed class EvaluaProBootstrapperApplication : BootstrapperApplication
             || value.Trim().Equals("false", StringComparison.OrdinalIgnoreCase)
             || value.Trim().Equals("no", StringComparison.OrdinalIgnoreCase)
             || value.Trim().Equals("off", StringComparison.OrdinalIgnoreCase);
+    }
+
+    private static bool IsSuccessStatus(int status)
+    {
+        return status == 0 || status == 3010 || status == 1641;
+    }
+
+    private static string FormatWindowsStatus(int status)
+    {
+        var hex = $"0x{unchecked((uint)status):X8}";
+        var description = status switch
+        {
+            0 => "Operacion completada correctamente.",
+            3010 => "Operacion completada; se requiere reinicio.",
+            1641 => "Reinicio iniciado por el instalador.",
+            unchecked((int)0x80070643) => "Error fatal durante la instalacion MSI.",
+            unchecked((int)0x80070652) => "Hay otra instalacion de Windows Installer en progreso.",
+            unchecked((int)0x80070666) => "Ya existe una version instalada (upgrade/downgrade no permitido).",
+            unchecked((int)0x80070005) => "Acceso denegado; valida permisos administrativos/UAC.",
+            unchecked((int)0x80070002) => "No se encontro un archivo requerido por el instalador.",
+            _ => "Error de instalacion no clasificado."
+        };
+
+        return $"{hex} - {description}";
+    }
+
+    private string ReadEngineVariableString(string variableName)
+    {
+        if (engineHandle is null || string.IsNullOrWhiteSpace(variableName))
+        {
+            return string.Empty;
+        }
+
+        try
+        {
+            return engineHandle.GetVariableString(variableName) ?? string.Empty;
+        }
+        catch
+        {
+            return string.Empty;
+        }
     }
 }
 

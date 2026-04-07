@@ -66,7 +66,7 @@
                 <Border Grid.Column="1" MinWidth="250" MaxWidth="320" CornerRadius="14" Background="#E5B85C" Padding="16">
                     <StackPanel>
                         <TextBlock Text="Estado" FontWeight="Bold" Foreground="#2E2413" />
-                        <TextBlock x:Name="StatusTextBlock" Margin="0,8,0,0" Text="Iniciando detección..." TextWrapping="Wrap" Foreground="#2E2413" />
+                        <TextBlock x:Name="StatusTextBlock" Margin="0,8,0,0" Text="Analizando prerequisitos..." TextWrapping="Wrap" Foreground="#2E2413" />
                     </StackPanel>
                 </Border>
             </Grid>

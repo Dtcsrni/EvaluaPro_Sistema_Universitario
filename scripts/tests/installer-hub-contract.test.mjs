@@ -9,6 +9,7 @@ const root = process.cwd();
 const burnBootstrapperProjectPath = path.join(root, 'packaging', 'wix', 'BurnBootstrapperApp', 'EvaluaPro.BurnBootstrapperApp.csproj');
 const burnBootstrapperSourcePath = path.join(root, 'packaging', 'wix', 'BurnBootstrapperApp', 'EvaluaProBootstrapperApplication.cs');
 const burnBootstrapperWindowPath = path.join(root, 'packaging', 'wix', 'BurnBootstrapperApp', 'MainWindow.xaml');
+const burnBootstrapperWindowCodePath = path.join(root, 'packaging', 'wix', 'BurnBootstrapperApp', 'MainWindow.xaml.cs');
 const burnHelperPath = path.join(root, 'scripts', 'installer-burn', 'InstallerBurnHelper.ps1');
 const operationalConfigModulePath = path.join(root, 'scripts', 'installer-burn', 'modules', 'OperationalConfig.psm1');
 const licenseSecurityModulePath = path.join(root, 'scripts', 'installer-burn', 'modules', 'LicenseClientSecurity.psm1');
@@ -156,11 +157,14 @@ test('workflow beta publica solo hubs en assets de prerelease', () => {
 test('runtime Docker Windows queda abstracto en dashboard, WiX y package scripts', () => {
   const launcherDashboard = fs.readFileSync(path.join(root, 'scripts', 'launcher-dashboard.mjs'), 'utf8');
   const productWxs = fs.readFileSync(path.join(root, 'packaging', 'wix', 'Product.wxs'), 'utf8');
+  const bundleWxs = fs.readFileSync(path.join(root, 'packaging', 'wix', 'Bundle.wxs'), 'utf8');
   const packageJson = JSON.parse(fs.readFileSync(path.join(root, 'package.json'), 'utf8'));
 
   assert.match(launcherDashboard, /EVALUAPRO_DOCKER_RUNTIME/);
   assert.match(launcherDashboard, /WSL2 \+ Docker Engine o Docker Desktop/);
   assert.match(productWxs, /WSLINSTALLED/);
+  assert.match(productWxs, /Installed OR REQUIRE_INSTALLER_HUB = 1 OR BURNMSIINSTALL = 1/);
+  assert.match(bundleWxs, /MsiProperty Name="REQUIRE_INSTALLER_HUB" Value="1"/);
   assert.match(productWxs, /runtime Docker compatible/i);
   assert.equal(packageJson.scripts['docker:runtime:check'], 'node scripts/docker-runtime-check.mjs');
 });
@@ -232,6 +236,7 @@ test('bootstrapper Burn WPF .NET 8 orquesta deteccion, MSI y helper post-install
   const program = fs.readFileSync(path.join(root, 'packaging', 'wix', 'BurnBootstrapperApp', 'Program.cs'), 'utf8');
   const source = fs.readFileSync(burnBootstrapperSourcePath, 'utf8');
   const windowXaml = fs.readFileSync(burnBootstrapperWindowPath, 'utf8');
+  const windowCode = fs.readFileSync(burnBootstrapperWindowCodePath, 'utf8');
   const helper = fs.readFileSync(burnHelperPath, 'utf8');
 
   assert.match(project, /<TargetFramework>net8\.0-windows<\/TargetFramework>/);
@@ -252,14 +257,20 @@ test('bootstrapper Burn WPF .NET 8 orquesta deteccion, MSI y helper post-install
   assert.match(source, /SelectedFlavorId/);
   assert.match(source, /DispatcherUnhandledException/);
   assert.match(source, /StartUiThread fatal exception/);
+  assert.match(source, /ConfigureInitialFlavorLayout/);
+  assert.match(source, /NotifyInitialDetectionCompleted/);
 
   assert.match(windowXaml, /install/);
   assert.match(windowXaml, /repair/);
   assert.match(windowXaml, /uninstall/);
+  assert.match(windowXaml, /Analizando prerequisitos\.\.\./);
   assert.match(windowXaml, /Configuración operativa/);
   assert.match(windowXaml, /Licencia y (updates|actualizaciones)/);
   assert.match(windowXaml, /SplashOverlay/);
   assert.match(windowXaml, /evaluapro-official-(hero|imagotipo)\.png/);
+  assert.match(windowCode, /ConfigureInitialFlavorLayout/);
+  assert.match(windowCode, /NotifyInitialDetectionCompleted/);
+  assert.match(windowCode, /StartSplashFallbackWatcher/);
 
   assert.match(helper, /ValidateSet\('detect-prereqs', 'post-install'\)/);
   assert.match(helper, /configuracion_operativa/);

@@ -8,13 +8,16 @@ namespace EvaluaPro.BurnBootstrapperApp;
 public partial class MainWindow : Window
 {
     private bool busy;
+    private bool hasDeterminateProgress;
+    private bool splashDismissed;
+    private DispatcherTimer? splashFallbackTimer;
 
     public MainWindow()
     {
         InitializeComponent();
         ModeComboBox.SelectedIndex = 0;
         SetHubVersionLabel();
-        StartSplashSequence();
+        StartSplashFallbackWatcher();
     }
 
     public event EventHandler? DetectRequested;
@@ -27,23 +30,12 @@ public partial class MainWindow : Window
 
     public void ApplyDetectionModel(WindowDetectionModel model)
     {
-        var hasMultipleFlavors = model.AvailableFlavors.Count > 1;
-
-        if (FlavorComboBox.Items.Count == 0)
+        if (FlavorComboBox.Items.Count == 0 && model.AvailableFlavors.Count > 0)
         {
-            foreach (var flavor in model.AvailableFlavors)
-            {
-                FlavorComboBox.Items.Add(flavor);
-            }
-            FlavorComboBox.DisplayMemberPath = nameof(FlavorItem.DisplayName);
+            ConfigureInitialFlavorLayout(model.AvailableFlavors, model.FlavorId);
         }
 
         FlavorComboBox.SelectedItem = FlavorComboBox.Items.OfType<FlavorItem>().FirstOrDefault(item => item.FlavorId == model.FlavorId);
-        FlavorComboBox.IsEnabled = hasMultipleFlavors;
-        FlavorPanel.Visibility = hasMultipleFlavors ? Visibility.Visible : Visibility.Collapsed;
-        Grid.SetColumn(ModePanel, hasMultipleFlavors ? 1 : 0);
-        Grid.SetColumnSpan(ModePanel, hasMultipleFlavors ? 1 : 2);
-        ModePanel.Margin = hasMultipleFlavors ? new Thickness(12, 0, 0, 0) : new Thickness(0);
 
         InstallDirTextBox.Text = model.InstallDir;
         DetectionSummaryTextBlock.Text = model.Summary;
@@ -61,6 +53,42 @@ public partial class MainWindow : Window
         StartButton.IsEnabled = model.Ready;
     }
 
+    public void ConfigureInitialFlavorLayout(IReadOnlyList<FlavorItem> availableFlavors, string requestedFlavorId)
+    {
+        if (availableFlavors.Count == 0)
+        {
+            availableFlavors = [new FlavorItem("docente-local", "EvaluaPro", "EvaluaPro-InstallerHub-docente-local.exe")];
+        }
+
+        if (FlavorComboBox.Items.Count == 0)
+        {
+            foreach (var flavor in availableFlavors)
+            {
+                FlavorComboBox.Items.Add(flavor);
+            }
+
+            FlavorComboBox.DisplayMemberPath = nameof(FlavorItem.DisplayName);
+        }
+
+        var selectedFlavor = FlavorComboBox.Items
+            .OfType<FlavorItem>()
+            .FirstOrDefault(item => string.Equals(item.FlavorId, requestedFlavorId, StringComparison.OrdinalIgnoreCase))
+            ?? FlavorComboBox.Items.OfType<FlavorItem>().FirstOrDefault();
+
+        FlavorComboBox.SelectedItem = selectedFlavor;
+        if (!string.IsNullOrWhiteSpace(selectedFlavor?.AssetName))
+        {
+            UpdateAssetNameTextBox.Text = selectedFlavor.AssetName;
+        }
+
+        ApplyFlavorLayout(availableFlavors.Count > 1);
+    }
+
+    public void NotifyInitialDetectionCompleted()
+    {
+        DismissSplashOverlay();
+    }
+
     public void UpdateState(string? statusText, int? progress, bool? isBusy)
     {
         if (!string.IsNullOrWhiteSpace(statusText))
@@ -70,6 +98,8 @@ public partial class MainWindow : Window
 
         if (progress.HasValue)
         {
+            hasDeterminateProgress = true;
+            InstallProgressBar.IsIndeterminate = false;
             InstallProgressBar.Value = Math.Max(0, Math.Min(100, progress.Value));
         }
 
@@ -78,6 +108,16 @@ public partial class MainWindow : Window
             busy = isBusy.Value;
             DetectButton.IsEnabled = !busy;
             StartButton.IsEnabled = !busy;
+
+            if (busy && !progress.HasValue && !hasDeterminateProgress)
+            {
+                InstallProgressBar.IsIndeterminate = true;
+            }
+
+            if (!busy)
+            {
+                InstallProgressBar.IsIndeterminate = false;
+            }
         }
     }
 
@@ -90,6 +130,8 @@ public partial class MainWindow : Window
     public void MarkCompleted(bool success, string message)
     {
         busy = false;
+        hasDeterminateProgress = false;
+        InstallProgressBar.IsIndeterminate = false;
         StatusTextBlock.Text = message;
         StartButton.IsEnabled = success;
         DetectButton.IsEnabled = true;
@@ -159,11 +201,17 @@ public partial class MainWindow : Window
 
     private void DetectButton_OnClick(object sender, RoutedEventArgs e)
     {
+        hasDeterminateProgress = false;
+        InstallProgressBar.IsIndeterminate = true;
+        InstallProgressBar.Value = 0;
         DetectRequested?.Invoke(this, EventArgs.Empty);
     }
 
     private void StartButton_OnClick(object sender, RoutedEventArgs e)
     {
+        hasDeterminateProgress = false;
+        InstallProgressBar.IsIndeterminate = true;
+        InstallProgressBar.Value = 0;
         StartRequested?.Invoke(this, BuildRequest());
     }
 
@@ -194,20 +242,41 @@ public partial class MainWindow : Window
         base.OnClosing(e);
     }
 
-    private void StartSplashSequence()
+    private void ApplyFlavorLayout(bool hasMultipleFlavors)
     {
-        var timer = new DispatcherTimer
+        FlavorComboBox.IsEnabled = hasMultipleFlavors;
+        FlavorPanel.Visibility = hasMultipleFlavors ? Visibility.Visible : Visibility.Collapsed;
+        Grid.SetColumn(ModePanel, hasMultipleFlavors ? 1 : 0);
+        Grid.SetColumnSpan(ModePanel, hasMultipleFlavors ? 1 : 2);
+        ModePanel.Margin = hasMultipleFlavors ? new Thickness(12, 0, 0, 0) : new Thickness(0);
+    }
+
+    private void StartSplashFallbackWatcher()
+    {
+        splashFallbackTimer = new DispatcherTimer
         {
-            Interval = TimeSpan.FromMilliseconds(1800)
+            Interval = TimeSpan.FromSeconds(15)
         };
 
-        timer.Tick += (_, _) =>
+        splashFallbackTimer.Tick += (_, _) =>
         {
-            timer.Stop();
-            SplashOverlay.Visibility = Visibility.Collapsed;
+            splashFallbackTimer?.Stop();
+            DismissSplashOverlay();
         };
 
-        timer.Start();
+        splashFallbackTimer.Start();
+    }
+
+    private void DismissSplashOverlay()
+    {
+        if (splashDismissed)
+        {
+            return;
+        }
+
+        splashDismissed = true;
+        splashFallbackTimer?.Stop();
+        SplashOverlay.Visibility = Visibility.Collapsed;
     }
 
     private void SetHubVersionLabel()
