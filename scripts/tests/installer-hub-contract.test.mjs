@@ -181,6 +181,10 @@ test('build-msi publica BA personalizada y conserva contrato de asset publico po
 });
 
 test('helper Burn detecta prerequisitos con contrato JSON estable', () => {
+  if (process.platform !== 'win32') {
+    return;
+  }
+
   const tempRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'evaluapro-burn-helper-'));
   const requestPath = path.join(tempRoot, 'request.json');
   const responsePath = path.join(tempRoot, 'response.json');
@@ -351,6 +355,10 @@ test('elevacion UAC relanza con ruta absoluta y working directory del script', (
 });
 
 test('elevacion UAC prepara copia estable cuando el script vive en IXP temp', () => {
+  if (process.platform !== 'win32') {
+    return;
+  }
+
   const tempRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'evaluapro-ixp-'));
   const ixpDir = path.join(tempRoot, 'IXP123.TMP');
   fs.mkdirSync(ixpDir, { recursive: true });
@@ -699,4 +707,3 @@ test('script de release manifest incluye contrato extendido de build/deployment/
   assert.match(script, /deployment\s*=\s*\[ordered\]@{/);
   assert.match(script, /target\s*=\s*if \(\$DeploymentTarget\)/);
 });
-
