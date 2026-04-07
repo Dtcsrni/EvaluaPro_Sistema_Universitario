@@ -119,6 +119,10 @@ function readJson(filePath) {
   return JSON.parse(fs.readFileSync(filePath, 'utf8').replace(/^\uFEFF/, ''));
 }
 
+function normalizeManifestPath(value) {
+  return String(value || '').replaceAll('\\', '/');
+}
+
 async function sleep(ms) {
   await new Promise((resolve) => setTimeout(resolve, ms));
 }
@@ -312,8 +316,8 @@ test('smoke activo valida broker, manifest, shortcuts y control plane sin depend
   const manifest = readJson(manifestPath);
   assert.equal(manifest.installation.installed, true);
   assert.equal(manifest.installation.flavor, 'docente-local');
-  assert.equal(manifest.criticalFiles.some((entry) => String(entry.path) === 'scripts/launcher-broker.ps1'), true);
-  assert.equal(manifest.criticalFiles.some((entry) => String(entry.path).includes('scripts\\installer-hub\\InstallerHub.ps1')), false);
+  assert.equal(manifest.criticalFiles.some((entry) => normalizeManifestPath(entry.path) === 'scripts/launcher-broker.ps1'), true);
+  assert.equal(manifest.criticalFiles.some((entry) => normalizeManifestPath(entry.path).includes('scripts/installer-hub/InstallerHub.ps1')), false);
 
   const dashboardBase = String(bootstrap.meta?.base || '').trim();
   assert.match(dashboardBase, /^http:\/\/127\.0\.0\.1:\d+$/);

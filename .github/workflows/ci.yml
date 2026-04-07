@@ -542,6 +542,9 @@ jobs:
       - name: Etapa setup
         run: npm ci --foreground-scripts
 
+      - name: Preparar runtime sharp (linux-x64)
+        run: npm install --no-save --include=optional --os=linux --cpu=x64 sharp
+
       - name: Consolidar manifiesto QA
         if: github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && inputs.force_full_ci) || needs.detectar_cambios.outputs.gate_qa_manifest == 'true' || needs.detectar_cambios.outputs.escalation == 'full-extended'
         run: npm run test:qa:manifest
