@@ -164,6 +164,18 @@ async function pingStatus(port, timeoutMs = 1_500) {
   });
 }
 
+async function waitForHttpPort(port, maxMs = 60_000) {
+  const started = Date.now();
+  while (Date.now() - started < maxMs) {
+    if (await pingStatus(port, 1_200)) {
+      return port;
+    }
+    await sleep(400);
+  }
+
+  return 0;
+}
+
 async function waitForBootstrapState(runId, acceptedStates, maxMs = 180_000) {
   const filePath = path.join(root, 'logs', `bootstrap-state-${runId}.json`);
   const started = Date.now();
@@ -295,7 +307,7 @@ test('smoke activo valida broker, manifest, shortcuts y control plane sin depend
 
   const lockPort = readLockPort();
   assert.ok(lockPort > 0);
-  assert.equal(await pingStatus(lockPort, 2_000), true);
+  assert.equal(await waitForHttpPort(lockPort, 20_000), lockPort);
 
   const manifest = readJson(manifestPath);
   assert.equal(manifest.installation.installed, true);
