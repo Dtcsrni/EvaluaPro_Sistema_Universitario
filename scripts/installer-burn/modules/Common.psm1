@@ -19,7 +19,7 @@ function Resolve-InstallerHubRootPath {
 
   $legacyRoot = ''
   try {
-    $legacyRoot = (Resolve-Path (Join-Path $PSScriptRoot '..\..\..')).Path
+    $legacyRoot = Split-Path -Parent (Split-Path -Parent (Split-Path -Parent $PSScriptRoot))
   } catch {
     $legacyRoot = ''
   }
@@ -38,7 +38,7 @@ function Resolve-InstallerHubRootPath {
       continue
     }
 
-    if (Test-Path (Join-Path $resolved 'config\installer-flavors.json')) {
+    if (Test-Path (Join-Path (Join-Path $resolved 'config') 'installer-flavors.json')) {
       return $resolved
     }
     if (Test-Path (Join-Path $resolved 'installer-flavors.json')) {
@@ -56,7 +56,7 @@ function Resolve-InstallerFlavorCatalogPath {
 
   $resolvedRoot = Resolve-InstallerHubRootPath -RootPath $RootPath
   $catalogCandidates = @(
-    (Join-Path $resolvedRoot 'config\installer-flavors.json'),
+    (Join-Path (Join-Path $resolvedRoot 'config') 'installer-flavors.json'),
     (Join-Path $resolvedRoot 'installer-flavors.json')
   )
 
@@ -101,9 +101,14 @@ function Resolve-InstallerElevationScriptPath {
   $forceStaging = @('1', 'true', 'yes', 'on') -contains ([string]$env:EVALUAPRO_INSTALLER_FORCE_ELEVATION_STAGING).Trim().ToLowerInvariant()
   $isTempExtractionDir = $false
   try {
-    if (-not [string]::IsNullOrWhiteSpace($env:TEMP)) {
-      $tempRoot = [IO.Path]::GetFullPath($env:TEMP).TrimEnd('\')
-      $scriptDirFull = [IO.Path]::GetFullPath($scriptDir).TrimEnd('\')
+    $tempRootCandidate = [string]$env:TEMP
+    if ([string]::IsNullOrWhiteSpace($tempRootCandidate)) {
+      $tempRootCandidate = [IO.Path]::GetTempPath()
+    }
+
+    if (-not [string]::IsNullOrWhiteSpace($tempRootCandidate)) {
+      $tempRoot = [IO.Path]::GetFullPath($tempRootCandidate).TrimEnd([IO.Path]::DirectorySeparatorChar, [IO.Path]::AltDirectorySeparatorChar)
+      $scriptDirFull = [IO.Path]::GetFullPath($scriptDir).TrimEnd([IO.Path]::DirectorySeparatorChar, [IO.Path]::AltDirectorySeparatorChar)
       $isTempExtractionDir = $scriptDirFull.StartsWith($tempRoot, [StringComparison]::OrdinalIgnoreCase)
     }
   } catch {
@@ -178,7 +183,7 @@ function Ensure-ElevatedSession {
 
 function New-InstallerHubLogContext {
   param(
-    [string]$RootPath = (Join-Path $env:ProgramData 'EvaluaPro\\installer-hub\\logs')
+    [string]$RootPath = (Join-Path (Join-Path (Join-Path $env:ProgramData 'EvaluaPro') 'installer-hub') 'logs')
   )
 
   if (-not (Test-Path $RootPath)) {

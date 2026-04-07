@@ -52,7 +52,7 @@ Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
 
 $repoRoot = Split-Path -Parent (Split-Path -Parent $PSScriptRoot)
-$modulesRoot = Join-Path $repoRoot 'scripts\installer-burn\modules'
+$modulesRoot = Join-Path (Join-Path (Join-Path $repoRoot 'scripts') 'installer-burn') 'modules'
 $configRoot = Join-Path $repoRoot 'config'
 if (-not (Test-Path -LiteralPath $modulesRoot)) {
   $repoRoot = $PSScriptRoot
