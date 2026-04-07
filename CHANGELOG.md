@@ -9,6 +9,7 @@ Este archivo sigue el formato "Keep a Changelog" (alto nivel) y SemVer.
   - `packaging/wix/Bundle.wxs` deja `WixStandardBootstrapperApplication` y pasa a enlazar `EvaluaPro.BurnBootstrapperApp.exe`
   - `scripts/build-msi.ps1` publica la BA `.NET 8`, compila el bundle Burn por flavor y conserva como contrato público `EvaluaPro-InstallerHub-<flavor>.exe`
   - `scripts/installer-burn/InstallerBurnHelper.ps1` fija el contrato interno `detect-prereqs|post-install` para configuración operativa, verificación final y blindaje local de licencia
+  - `scripts/installer-burn/modules/*` pasa a ser la única ubicación de módulos compartidos; se elimina `scripts/installer-hub/InstallerHub.ps1` y la UI WinForms legacy
   - los workflows `CI Installer Windows` y `Release Beta` preparan `.NET 8`, construyen el bundle Burn y ejecutan smoke del `.exe` público empaquetado
   - la documentación operativa del instalador se alinea al nuevo entrypoint Burn y consolida un único flujo soportado
 - Gobierno Big Bang alineado al estado ejecutable real del repo:

@@ -42,7 +42,6 @@ function shouldAffectAll(file) {
     p.startsWith('apps/') ||
     p.startsWith('packaging/wix/') ||
     p.startsWith('scripts/installer-burn/') ||
-    p.startsWith('scripts/installer-hub/') ||
     p === 'scripts/build-msi.ps1' ||
     p === 'scripts/generate-installer-hashes.ps1' ||
     p === 'scripts/generate-installer-release-manifest.ps1' ||

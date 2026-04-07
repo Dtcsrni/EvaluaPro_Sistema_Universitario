@@ -16,6 +16,7 @@ internal sealed class EvaluaProBootstrapperApplication : BootstrapperApplication
         PropertyNameCaseInsensitive = true,
         WriteIndented = true
     };
+    private const string HelperProgressPrefix = "EVALUAPRO_PROGRESS:";
 
     private readonly object sync = new();
     private readonly TaskCompletionSource<bool> uiReady = new(TaskCreationOptions.RunContinuationsAsynchronously);
@@ -349,7 +350,7 @@ internal sealed class EvaluaProBootstrapperApplication : BootstrapperApplication
         {
             try
             {
-                UpdateUiState(statusText: "Resolviendo prerequisitos automaticamente...", busy: true);
+                UpdateUiState(statusText: "Resolviendo prerequisitos automaticamente...", progress: 0, busy: true);
                 Log("info", "Iniciando remediacion automatica de prerequisitos.");
                 var remediationRequest = new Dictionary<string, object?>
                 {
@@ -357,27 +358,17 @@ internal sealed class EvaluaProBootstrapperApplication : BootstrapperApplication
                     ["installDir"] = request.InstallDir,
                     ["autoRemediate"] = true
                 };
-                var remediationTask = InvokeHelperAsync<DetectionPayload>("detect-prereqs", remediationRequest);
-                var remediationStartedAt = DateTime.UtcNow;
-                var lastPulseBucket = -1;
-                while (!remediationTask.IsCompleted)
-                {
-                    var elapsed = DateTime.UtcNow - remediationStartedAt;
-                    var elapsedSeconds = Math.Max(1, (int)elapsed.TotalSeconds);
-                    var statusText = $"Resolviendo prerequisitos automaticamente... ({elapsedSeconds}s)";
-                    UpdateUiState(statusText: statusText, busy: true);
-
-                    var pulseBucket = elapsedSeconds / 5;
-                    if (pulseBucket > lastPulseBucket)
+                var remediationResponse = await InvokeHelperAsync<DetectionPayload>(
+                    "detect-prereqs",
+                    remediationRequest,
+                    progressEvent =>
                     {
-                        lastPulseBucket = pulseBucket;
-                        Log("info", $"Remediacion de prerequisitos en curso ({elapsedSeconds}s).");
-                    }
-
-                    await Task.Delay(1000).ConfigureAwait(false);
-                }
-
-                var remediationResponse = await remediationTask.ConfigureAwait(false);
+                        var progressValue = Math.Max(0, Math.Min(100, progressEvent.Percent));
+                        var statusText = string.IsNullOrWhiteSpace(progressEvent.Status)
+                            ? "Resolviendo prerequisitos automaticamente..."
+                            : progressEvent.Status;
+                        UpdateUiState(statusText: statusText, progress: progressValue, busy: true);
+                    }).ConfigureAwait(false);
                 FlushHelperLogs(remediationResponse.Logs);
                 helperDetectionLogsFlushed = true;
                 helperDetectionResponse = remediationResponse;
@@ -518,7 +509,7 @@ internal sealed class EvaluaProBootstrapperApplication : BootstrapperApplication
         }
     }
 
-    private async Task<HelperEnvelope<TData>> InvokeHelperAsync<TData>(string mode, Dictionary<string, object?> request)
+    private async Task<HelperEnvelope<TData>> InvokeHelperAsync<TData>(string mode, Dictionary<string, object?> request, Action<HelperProgressEvent>? onProgress = null)
     {
         var requestPath = Path.Combine(requestRoot, $"{mode}-{DateTime.UtcNow:yyyyMMddHHmmss}.request.json");
         var responsePath = Path.Combine(requestRoot, $"{mode}-{DateTime.UtcNow:yyyyMMddHHmmss}.response.json");
@@ -547,12 +538,54 @@ internal sealed class EvaluaProBootstrapperApplication : BootstrapperApplication
         psi.ArgumentList.Add("-ResponsePath");
         psi.ArgumentList.Add(responsePath);
 
-        using var process = Process.Start(psi) ?? throw new InvalidOperationException("No se pudo iniciar PowerShell para el helper.");
-        var stdoutTask = process.StandardOutput.ReadToEndAsync();
-        var stderrTask = process.StandardError.ReadToEndAsync();
+        using var process = new Process
+        {
+            StartInfo = psi,
+            EnableRaisingEvents = true
+        };
+        var stdoutLines = new List<string>();
+        var stderrLines = new List<string>();
+        process.OutputDataReceived += (_, args) =>
+        {
+            if (string.IsNullOrWhiteSpace(args.Data))
+            {
+                return;
+            }
+
+            if (TryParseHelperProgress(args.Data, out var progressEvent))
+            {
+                onProgress?.Invoke(progressEvent);
+                return;
+            }
+
+            lock (stdoutLines)
+            {
+                stdoutLines.Add(args.Data);
+            }
+        };
+        process.ErrorDataReceived += (_, args) =>
+        {
+            if (string.IsNullOrWhiteSpace(args.Data))
+            {
+                return;
+            }
+
+            lock (stderrLines)
+            {
+                stderrLines.Add(args.Data);
+            }
+        };
+
+        if (!process.Start())
+        {
+            throw new InvalidOperationException("No se pudo iniciar PowerShell para el helper.");
+        }
+
+        process.BeginOutputReadLine();
+        process.BeginErrorReadLine();
         await process.WaitForExitAsync().ConfigureAwait(false);
-        var stdout = await stdoutTask.ConfigureAwait(false);
-        var stderr = await stderrTask.ConfigureAwait(false);
+        var stdout = string.Join(Environment.NewLine, stdoutLines);
+        var stderr = string.Join(Environment.NewLine, stderrLines);
 
         if (!string.IsNullOrWhiteSpace(stdout))
         {
@@ -608,6 +641,37 @@ internal sealed class EvaluaProBootstrapperApplication : BootstrapperApplication
         }
 
         return normalized[..max] + "...(truncated)";
+    }
+
+    private static bool TryParseHelperProgress(string rawLine, out HelperProgressEvent progressEvent)
+    {
+        progressEvent = new HelperProgressEvent();
+        if (!rawLine.StartsWith(HelperProgressPrefix, StringComparison.Ordinal))
+        {
+            return false;
+        }
+
+        var payload = rawLine[HelperProgressPrefix.Length..].Trim();
+        if (string.IsNullOrWhiteSpace(payload))
+        {
+            return false;
+        }
+
+        try
+        {
+            var parsed = JsonSerializer.Deserialize<HelperProgressEvent>(payload, JsonOptions);
+            if (parsed is null)
+            {
+                return false;
+            }
+
+            progressEvent = parsed;
+            return true;
+        }
+        catch
+        {
+            return false;
+        }
     }
 
     private void UpdateWindowFromDetection(DetectionPayload payload)
@@ -906,6 +970,14 @@ public sealed class HelperEnvelope<TData>
     public IReadOnlyList<string>? Warnings { get; set; }
     public IReadOnlyDictionary<string, string>? Artifacts { get; set; }
     public TData? Data { get; set; }
+}
+
+public sealed class HelperProgressEvent
+{
+    public string Activity { get; set; } = string.Empty;
+    public int Percent { get; set; }
+    public string Status { get; set; } = string.Empty;
+    public IReadOnlyDictionary<string, JsonElement>? Meta { get; set; }
 }
 
 public sealed class HelperLogEntry

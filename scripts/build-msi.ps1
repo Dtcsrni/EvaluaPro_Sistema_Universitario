@@ -473,7 +473,7 @@ foreach ($flavorDef in $selectedFlavors) {
       "-bindpath", (Join-Path $root 'scripts\installer-burn'),
       "-bindpath", (Join-Path $root 'config'),
       "-bindpath", (Join-Path $root 'scripts\comercial'),
-      "-bindpath", (Join-Path $root 'scripts\installer-hub\modules'),
+      "-bindpath", (Join-Path $root 'scripts\installer-burn\modules'),
       "-d", "SourceRoot=$root",
       "-d", "FlavorId=$flavorId",
       "-d", "ProductName=$productName",

@@ -52,7 +52,7 @@ Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
 
 $repoRoot = Split-Path -Parent (Split-Path -Parent $PSScriptRoot)
-$modulesRoot = Join-Path $repoRoot 'scripts\installer-hub\modules'
+$modulesRoot = Join-Path $repoRoot 'scripts\installer-burn\modules'
 $configRoot = Join-Path $repoRoot 'config'
 if (-not (Test-Path -LiteralPath $modulesRoot)) {
   $repoRoot = $PSScriptRoot
@@ -84,6 +84,7 @@ try {
 $script:helperLogs = New-Object System.Collections.Generic.List[object]
 $script:helperWarnings = New-Object System.Collections.Generic.List[string]
 $script:helperArtifacts = [ordered]@{}
+$script:helperProgressPrefix = 'EVALUAPRO_PROGRESS:'
 
 function Add-HelperLog {
   param(
@@ -97,6 +98,23 @@ function Add-HelperLog {
     message = $Message
   }
   $script:helperLogs.Add([pscustomobject]$entry)
+}
+
+function Write-HelperProgress {
+  param(
+    [string]$Activity,
+    [int]$Percent,
+    [string]$Status,
+    [hashtable]$Meta
+  )
+
+  $payload = [ordered]@{
+    activity = $Activity
+    percent = [Math]::Min(100, [Math]::Max(0, $Percent))
+    status = $Status
+    meta = if ($Meta) { $Meta } else { @{} }
+  }
+  [Console]::Out.WriteLine($script:helperProgressPrefix + ($payload | ConvertTo-Json -Depth 8 -Compress))
 }
 
 function ConvertTo-HashtableDeep {
@@ -317,11 +335,15 @@ function Invoke-DetectPrereqsMode {
 
   if ($autoRemediate -and -not $ready -and $recommendedMode -ne 'uninstall') {
     Add-HelperLog -Level 'info' -Message 'Intentando remediacion automatica de prerequisitos antes de continuar.'
+    Write-HelperProgress -Activity 'prerequisites' -Percent 1 -Status 'Preparando remediacion automatica de prerequisitos.'
     $downloadRoot = Join-Path $env:TEMP ('evaluapro-burn-prereqs-' + [Guid]::NewGuid().ToString('N'))
     try {
       $installResult = Invoke-PrerequisiteInstallationFlow -Manifest $profileManifest -DownloadRoot $downloadRoot -OnLog {
         param($lvl, $msg)
         Add-HelperLog -Level $lvl -Message $msg
+      } -OnProgress {
+        param($activity, $percent, $status, $meta)
+        Write-HelperProgress -Activity ([string]$activity) -Percent ([int]$percent) -Status ([string]$status) -Meta $meta
       }
       $remediation = [ordered]@{
         attempted = $true
@@ -330,6 +352,7 @@ function Invoke-DetectPrereqsMode {
         missing = @($installResult.missing)
         downloadRoot = $downloadRoot
       }
+      Write-HelperProgress -Activity 'prerequisites' -Percent 100 -Status 'Remediacion automatica completada.'
     } catch {
       $remediation = [ordered]@{
         attempted = $true
@@ -338,6 +361,7 @@ function Invoke-DetectPrereqsMode {
         downloadRoot = $downloadRoot
       }
       Add-HelperLog -Level 'warn' -Message ('Remediacion automatica de prerequisitos incompleta: ' + [string]$_.Exception.Message)
+      Write-HelperProgress -Activity 'prerequisites' -Percent 100 -Status 'La remediacion automatica termino con pasos pendientes.'
     }
 
     $internetOk = Test-InternetConnectivity

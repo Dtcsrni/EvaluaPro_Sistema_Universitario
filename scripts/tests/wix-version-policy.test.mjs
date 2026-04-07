@@ -42,7 +42,7 @@ test('bundle usa BA personalizada Burn y build-msi publica bootstrapper .NET 8',
   assert.match(buildScript, /16,\s*24,\s*32,\s*48,\s*64,\s*128,\s*256/i);
 
   assert.match(bundleWxs, /<BootstrapperApplication[^>]+SourceFile="EvaluaPro\.BurnBootstrapperApp\.exe"/i);
-  assert.match(bundleWxs, /IconSourceFile=".*installer-canonical\.ico"/i);
+  assert.match(bundleWxs, /IconSourceFile="(?:.*installer-canonical\.ico|\$\(var\.BundleIconPath\))"/i);
   assert.match(bundleWxs, /<ApprovedExeForElevation/i);
   assert.match(bundleWxs, /InstallerBurnHelper\.ps1/i);
   assert.match(bundleWxs, /SourceFile="\$\(var\.MsiSourcePath\)"/i);

@@ -40,11 +40,13 @@ La superficie publica ahora es `WiX Burn + Bootstrapper Application WPF .NET 8 +
 - Helper headless:
   - `scripts/installer-burn/InstallerBurnHelper.ps1`
 - Modulos:
-  - `scripts/installer-hub/modules/PrereqDetector.psm1`
-  - `scripts/installer-hub/modules/Common.psm1`
-  - `scripts/installer-hub/modules/OperationalConfig.psm1`
-  - `scripts/installer-hub/modules/PostInstallVerifier.psm1`
-  - `scripts/installer-hub/modules/LicenseClientSecurity.psm1`
+  - `scripts/installer-burn/modules/PrereqDetector.psm1`
+  - `scripts/installer-burn/modules/Common.psm1`
+  - `scripts/installer-burn/modules/OperationalConfig.psm1`
+  - `scripts/installer-burn/modules/PostInstallVerifier.psm1`
+  - `scripts/installer-burn/modules/LicenseClientSecurity.psm1`
+
+El script legacy `scripts/installer-hub/InstallerHub.ps1` y la UI WinForms fueron retirados del repositorio. La unica superficie soportada es el bundle Burn publico `EvaluaPro-InstallerHub-<flavor>.exe`.
 
 ## Contratos de release
 Assets publicos esperados en GitHub Release:

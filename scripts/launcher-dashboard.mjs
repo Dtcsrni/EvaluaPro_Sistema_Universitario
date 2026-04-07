@@ -137,7 +137,6 @@ const iconMaskablePath = path.join(__dirname, 'dashboard-icon-maskable-512.png')
 const swPath = path.join(__dirname, 'dashboard-sw.js');
 const shortcutsScriptPath = path.join(root, 'scripts', 'create-shortcuts.ps1');
 const portalDistEntry = path.join(root, 'apps', 'portal_alumno_cloud', 'dist', 'index.js');
-const installerHubScriptPath = path.join(root, 'scripts', 'installer-hub', 'InstallerHub.ps1');
 
 const cachedDashboardHtml = fs.readFileSync(dashboardPath, 'utf8');
 const cachedManifestJson = fs.readFileSync(manifestPath, 'utf8');
@@ -2732,20 +2731,60 @@ async function runInstallerHubMode(modeName) {
   if (process.platform !== 'win32') {
     return { ok: false, code: 1, stdout: '', stderr: 'Installer Hub soportado solo en Windows.' };
   }
-  if (!fs.existsSync(installerHubScriptPath)) {
-    return { ok: false, code: 1, stdout: '', stderr: 'No se encontró scripts/installer-hub/InstallerHub.ps1.' };
+  const resolved = resolveInstallerHubExecutablePath();
+  if (!resolved.ok) {
+    return { ok: false, code: 1, stdout: '', stderr: resolved.error || 'No se encontró el bundle Burn público.' };
   }
 
-  const ps = getPowerShellPath();
-  const licenseApiBase = String(process.env.EVALUAPRO_LICENSE_API_BASE_URL || '').trim();
-  const licenseTenantId = String(process.env.EVALUAPRO_LICENSE_TENANT_ID || '').trim();
-  const licenseActivationCode = String(process.env.EVALUAPRO_LICENSE_ACTIVATION_CODE || '').trim();
-  const optionalLicenseArgs = [];
-  if (licenseApiBase) optionalLicenseArgs.push(`-ApiComercialBaseUrl ${quoteCmdArg(licenseApiBase)}`);
-  if (licenseTenantId) optionalLicenseArgs.push(`-TenantId ${quoteCmdArg(licenseTenantId)}`);
-  if (licenseActivationCode) optionalLicenseArgs.push(`-CodigoActivacion ${quoteCmdArg(licenseActivationCode)}`);
-  const command = `${quoteCmdArg(ps)} -NoProfile -ExecutionPolicy Bypass -File ${quoteCmdArg(installerHubScriptPath)} -Mode ${modeName} -Headless -NoElevation ${optionalLicenseArgs.join(' ')}`.trim();
-  return runCommandCapture(command, 15 * 60_000);
+  const action = String(modeName || '').trim().toLowerCase();
+  const args = [];
+  if (action === 'repair') args.push('/repair');
+  else if (action === 'uninstall') args.push('/uninstall');
+
+  const command = `${quoteCmdArg(resolved.path)} ${args.join(' ')}`.trim();
+  return runCommandCapture(command, 30_000);
+}
+
+function readInstallerLocalPathsManifest() {
+  const candidates = [
+    path.join(root, 'dist', 'installer', 'installer-local-paths.json'),
+    path.join(root, 'dist', 'installer', '_internal', 'installer-local-paths.json')
+  ];
+
+  for (const candidate of candidates) {
+    try {
+      if (!fs.existsSync(candidate)) continue;
+      const raw = fs.readFileSync(candidate, 'utf8');
+      const parsed = JSON.parse(raw);
+      if (parsed && typeof parsed === 'object') {
+        return parsed;
+      }
+    } catch {}
+  }
+
+  return null;
+}
+
+function resolveInstallerHubExecutablePath() {
+  const manifest = readInstallerLocalPathsManifest();
+  if (!manifest) {
+    return { ok: false, error: 'No se encontró dist/installer/installer-local-paths.json ni su variante interna.' };
+  }
+
+  const recommended = manifest?.recommended;
+  const publicPath = typeof recommended?.bundlePublicPath === 'string' ? recommended.bundlePublicPath.trim() : '';
+  if (publicPath && fs.existsSync(publicPath)) {
+    return { ok: true, path: publicPath };
+  }
+
+  const fallback = Array.isArray(manifest?.artifacts)
+    ? manifest.artifacts.find((item) => item?.bundlePublicPath && fs.existsSync(item.bundlePublicPath))
+    : null;
+  if (fallback?.bundlePublicPath) {
+    return { ok: true, path: String(fallback.bundlePublicPath) };
+  }
+
+  return { ok: false, error: 'El manifiesto de instaladores no contiene un bundle Burn público accesible.' };
 }
 
 async function runLifecycleOperation(kind) {

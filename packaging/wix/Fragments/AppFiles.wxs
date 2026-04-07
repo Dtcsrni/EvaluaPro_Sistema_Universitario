@@ -6,6 +6,8 @@
         <Exclude Files="$(var.SourceRoot)\.git\**" />
         <Exclude Files="$(var.SourceRoot)\node_modules\**" />
         <Exclude Files="$(var.SourceRoot)\logs\**" />
+        <Exclude Files="$(var.SourceRoot)\*.log" />
+        <Exclude Files="$(var.SourceRoot)\build-*.log" />
         <Exclude Files="$(var.SourceRoot)\reports\**" />
         <Exclude Files="$(var.SourceRoot)\dist\installer\**" />
       </Files>

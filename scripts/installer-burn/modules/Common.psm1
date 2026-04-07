@@ -255,7 +255,8 @@ function Invoke-InstallerHubDownloadFile {
     [Parameter(Mandatory = $true)]
     [string]$Destination,
     [int]$RetryCount = 2,
-    [int]$RetryDelayMs = 1000
+    [int]$RetryDelayMs = 1000,
+    [scriptblock]$OnProgress
   )
 
   $attempt = 0
@@ -264,7 +265,9 @@ function Invoke-InstallerHubDownloadFile {
   while ($attempt -le $RetryCount) {
     try {
       $attempt += 1
-      Invoke-WebRequest -Uri $Url -OutFile $Destination -UseBasicParsing -TimeoutSec 180
+      Invoke-InstallerHubProgressCallback -OnProgress $OnProgress -Activity 'download' -Percent 0 -Status ("Conectando descarga: {0}" -f $Url)
+      Invoke-StreamingFileDownload -Url $Url -Destination $Destination -OnProgress $OnProgress
+      Invoke-InstallerHubProgressCallback -OnProgress $OnProgress -Activity 'download' -Percent 100 -Status ("Descarga completada: {0}" -f (Split-Path -Leaf $Destination))
       return
     } catch {
       $lastError = $_
@@ -352,7 +355,8 @@ function Invoke-InstallerHubProcess {
     [Parameter(Mandatory = $true)]
     [string]$Arguments,
     [int]$TimeoutSec = 1800,
-    [string]$WorkingDirectory = ''
+    [string]$WorkingDirectory = '',
+    [scriptblock]$OnProgress
   )
 
   $startInfo = @{
@@ -366,13 +370,100 @@ function Invoke-InstallerHubProcess {
     $startInfo.WorkingDirectory = $WorkingDirectory
   }
 
+  Invoke-InstallerHubProgressCallback -OnProgress $OnProgress -Activity 'install' -Percent 5 -Status ("Iniciando instalacion: {0}" -f (Split-Path -Leaf $FilePath))
+
   $proc = Start-Process @startInfo
-  if (-not $proc.WaitForExit($TimeoutSec * 1000)) {
-    try { $proc.Kill() } catch {}
-    throw "Proceso excedio timeout (${TimeoutSec}s): $FilePath $Arguments"
+  $startedAt = Get-Date
+  while (-not $proc.WaitForExit(1000)) {
+    $elapsed = (Get-Date) - $startedAt
+    $progressRatio = [Math]::Min(1.0, ($elapsed.TotalSeconds / [Math]::Max(1, $TimeoutSec)))
+    $percent = 10 + [int][Math]::Round($progressRatio * 80)
+    Invoke-InstallerHubProgressCallback -OnProgress $OnProgress -Activity 'install' -Percent $percent -Status ("Instalacion en curso: {0}" -f (Split-Path -Leaf $FilePath))
+    if ($elapsed.TotalSeconds -ge $TimeoutSec) {
+      try { $proc.Kill() } catch {}
+      throw "Proceso excedio timeout (${TimeoutSec}s): $FilePath $Arguments"
+    }
   }
 
+  Invoke-InstallerHubProgressCallback -OnProgress $OnProgress -Activity 'install' -Percent 100 -Status ("Instalacion terminada: {0}" -f (Split-Path -Leaf $FilePath))
   return [int]$proc.ExitCode
+}
+
+function Invoke-InstallerHubProgressCallback {
+  param(
+    [scriptblock]$OnProgress,
+    [string]$Activity,
+    [int]$Percent,
+    [string]$Status,
+    [hashtable]$Meta
+  )
+
+  if (-not $OnProgress) {
+    return
+  }
+
+  $safePercent = [Math]::Min(100, [Math]::Max(0, $Percent))
+  & $OnProgress $Activity $safePercent $Status $Meta
+}
+
+function Invoke-StreamingFileDownload {
+  param(
+    [Parameter(Mandatory = $true)]
+    [string]$Url,
+    [Parameter(Mandatory = $true)]
+    [string]$Destination,
+    [scriptblock]$OnProgress
+  )
+
+  $handler = New-Object System.Net.Http.HttpClientHandler
+  $handler.AutomaticDecompression = [System.Net.DecompressionMethods]::GZip -bor [System.Net.DecompressionMethods]::Deflate
+  $client = New-Object System.Net.Http.HttpClient($handler)
+  $client.Timeout = [TimeSpan]::FromMinutes(3)
+
+  try {
+    $response = $client.GetAsync($Url, [System.Net.Http.HttpCompletionOption]::ResponseHeadersRead).GetAwaiter().GetResult()
+    $response.EnsureSuccessStatusCode()
+
+    $contentLength = $response.Content.Headers.ContentLength
+    $stream = $response.Content.ReadAsStreamAsync().GetAwaiter().GetResult()
+    $destinationDir = Split-Path -Parent $Destination
+    if ($destinationDir -and -not (Test-Path -LiteralPath $destinationDir)) {
+      New-Item -ItemType Directory -Path $destinationDir -Force | Out-Null
+    }
+    $fileStream = [System.IO.File]::Open($Destination, [System.IO.FileMode]::Create, [System.IO.FileAccess]::Write, [System.IO.FileShare]::None)
+
+    try {
+      $buffer = New-Object byte[] 65536
+      $totalRead = 0L
+      $lastPercent = -1
+      while (($read = $stream.Read($buffer, 0, $buffer.Length)) -gt 0) {
+        $fileStream.Write($buffer, 0, $read)
+        $totalRead += $read
+        if ($contentLength -gt 0) {
+          $percent = [int][Math]::Floor(($totalRead / [double]$contentLength) * 100)
+          if ($percent -ne $lastPercent) {
+            $lastPercent = $percent
+            Invoke-InstallerHubProgressCallback -OnProgress $OnProgress -Activity 'download' -Percent $percent -Status ("Descargando {0} ({1}%)" -f (Split-Path -Leaf $Destination), $percent) -Meta @{
+              bytesReceived = $totalRead
+              totalBytes = [int64]$contentLength
+            }
+          }
+        } elseif ($totalRead -eq $read) {
+          Invoke-InstallerHubProgressCallback -OnProgress $OnProgress -Activity 'download' -Percent 50 -Status ("Descargando {0}" -f (Split-Path -Leaf $Destination)) -Meta @{
+            bytesReceived = $totalRead
+            totalBytes = 0
+          }
+        }
+      }
+    } finally {
+      $fileStream.Dispose()
+      $stream.Dispose()
+      $response.Dispose()
+    }
+  } finally {
+    $client.Dispose()
+    $handler.Dispose()
+  }
 }
 
 function Get-InstallerFlavorCatalog {
@@ -428,6 +519,7 @@ Export-ModuleMember -Function @(
   'Resolve-InstallerHubSha256FromText',
   'Test-InstallerHubInternet',
   'Invoke-InstallerHubProcess',
+  'Invoke-InstallerHubProgressCallback',
   'Get-InstallerFlavorCatalog',
   'Get-InstallerFlavorDefinition'
 )

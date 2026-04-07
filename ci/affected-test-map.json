@@ -43,7 +43,7 @@
     },
     "installer": {
       "paths": [
-        "scripts/installer-hub/**",
+        "scripts/installer-burn/**",
         "scripts/build-msi.ps1",
         "scripts/generate-installer-hashes.ps1",
         "scripts/generate-installer-release-manifest.ps1",

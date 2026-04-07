@@ -67,6 +67,7 @@ Alcance de la reparación v1:
    - si falta WSL2/Docker Engine, emision de guía local de bootstrap para completar el runtime soportado,
    - chain `MSI` controlado por Burn,
    - helper post-install para `.env`, `update-config.json`, verificacion final y blindaje local de licencia.
+   - no existe ya una variante soportada `PowerShell WinForms`; el bundle Burn es la unica entrada valida.
 4. Criterio de integridad:
    - `EvaluaPro-release-manifest.json` y los `.sha256` publicados coinciden con los artefactos locales.
 5. Desinstalacion:

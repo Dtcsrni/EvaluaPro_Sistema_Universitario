@@ -27,6 +27,7 @@ Version visible objetivo: `1.0.0b`
 - Migración Installer Hub Burn 2026-04-03:
   - `EvaluaPro-InstallerHub-<flavor>.exe` pasa a generarse desde `WiX Burn` con BA personalizada `WPF .NET 8`
   - nuevo helper `scripts/installer-burn/InstallerBurnHelper.ps1` reutiliza módulos headless de prerequisitos, configuración operativa, verificación y licencia
+  - los módulos compartidos del instalador quedan consolidados en `scripts/installer-burn/modules/*`; se elimina `scripts/installer-hub/InstallerHub.ps1` y todo el flujo WinForms asociado
   - `Bundle.wxs`, `build-msi.ps1`, workflows de installer y contratos de prueba quedan alineados al bundle Burn como única superficie pública de instalación Windows
   - `release-beta.yml` incorpora `.NET 8` y smoke post-build del bundle público; `ci-installer-windows.yml` declara el mismo smoke sobre `EvaluaPro-InstallerHub-docente-local.exe`
   - la documentación `INSTALLER_HUB`, `DESPLIEGUE`, `RUNBOOK_OPERACION`, `PILOTO_DIA0_CHECKLIST`, `scripts/README` y `packaging/wix/README` se alinea al bootstrapper Burn como flujo operativo único

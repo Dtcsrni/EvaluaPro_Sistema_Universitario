@@ -174,6 +174,7 @@ Contrato operativo del bootstrapper Windows:
 - `EvaluaPro-InstallerHub-<flavor>.exe` es el entrypoint publico oficial.
 - se genera desde `WiX Burn` con BA personalizada `WPF .NET 8`.
 - el helper `scripts/installer-burn/InstallerBurnHelper.ps1` conserva configuracion operativa, verificacion y blindaje de licencia.
+- el legado `scripts/installer-hub/InstallerHub.ps1` fue retirado y no debe invocarse.
 
 Prerequisitos de instalacion:
 - Node.js 24+

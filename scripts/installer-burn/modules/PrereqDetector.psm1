@@ -460,7 +460,8 @@ function Get-EvaluaProInstallationHealth {
     (Join-Path $effectiveDir 'package.json'),
     (Join-Path $effectiveDir 'scripts\launcher-broker.ps1'),
     (Join-Path $effectiveDir 'scripts\launcher-tray-hidden.vbs'),
-    (Join-Path $effectiveDir 'scripts\installer-hub\InstallerHub.ps1'),
+    (Join-Path $effectiveDir 'scripts\launcher-broker.ps1'),
+    (Join-Path $effectiveDir 'scripts\shortcut-op-hidden.vbs'),
     (Join-Path $effectiveDir 'logs\installation.manifest.json')
   )
   foreach ($file in $required) {

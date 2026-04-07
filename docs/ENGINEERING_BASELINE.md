@@ -9,6 +9,7 @@ Version visible GUI: `1.0.0b`
   - el Installer Hub público migra a `WiX Burn + BA WPF .NET 8`; `Bundle.wxs` deja `WixStandardBootstrapperApplication` y enlaza `EvaluaPro.BurnBootstrapperApp.exe`
   - `scripts/build-msi.ps1` publica la BA `.NET 8`, compila bundles por flavor y mantiene el contrato público `EvaluaPro-InstallerHub-saas-completo.exe` / `EvaluaPro-InstallerHub-docente-local.exe`
   - el helper `scripts/installer-burn/InstallerBurnHelper.ps1` centraliza `detect-prereqs` y `post-install`, preservando configuración operativa, verificación final y blindaje local de licencia fuera de la UI
+  - el legado `InstallerHub.ps1`/WinForms sale del árbol; los módulos compartidos quedan relocalizados en `scripts/installer-burn/modules/*`
   - `CI Installer Windows` y `Release Beta` preparan `.NET 8`, construyen el bundle Burn y ejecutan smoke del `.exe` público empaquetado después del build
   - verificación del corte:
     - `node --test scripts/tests/wix-version-policy.test.mjs scripts/tests/installer-hub-contract.test.mjs` en verde

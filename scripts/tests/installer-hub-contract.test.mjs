@@ -6,14 +6,13 @@ import os from 'node:os';
 import { execFileSync } from 'node:child_process';
 
 const root = process.cwd();
-const installerHubPath = path.join(root, 'scripts', 'installer-hub', 'InstallerHub.ps1');
 const burnBootstrapperProjectPath = path.join(root, 'packaging', 'wix', 'BurnBootstrapperApp', 'EvaluaPro.BurnBootstrapperApp.csproj');
 const burnBootstrapperSourcePath = path.join(root, 'packaging', 'wix', 'BurnBootstrapperApp', 'EvaluaProBootstrapperApplication.cs');
 const burnBootstrapperWindowPath = path.join(root, 'packaging', 'wix', 'BurnBootstrapperApp', 'MainWindow.xaml');
 const burnHelperPath = path.join(root, 'scripts', 'installer-burn', 'InstallerBurnHelper.ps1');
-const operationalConfigModulePath = path.join(root, 'scripts', 'installer-hub', 'modules', 'OperationalConfig.psm1');
-const licenseSecurityModulePath = path.join(root, 'scripts', 'installer-hub', 'modules', 'LicenseClientSecurity.psm1');
-const prereqInstallerModulePath = path.join(root, 'scripts', 'installer-hub', 'modules', 'PrereqInstaller.psm1');
+const operationalConfigModulePath = path.join(root, 'scripts', 'installer-burn', 'modules', 'OperationalConfig.psm1');
+const licenseSecurityModulePath = path.join(root, 'scripts', 'installer-burn', 'modules', 'LicenseClientSecurity.psm1');
+const prereqInstallerModulePath = path.join(root, 'scripts', 'installer-burn', 'modules', 'PrereqInstaller.psm1');
 
 function getAvailablePowerShell() {
   const candidates = process.platform === 'win32'
@@ -43,15 +42,24 @@ function getAvailablePowerShell() {
 function runPowerShell(command) {
   const shell = getAvailablePowerShell();
   if (!shell) {
-    return { skipped: true, stdout: '' };
+    return { skipped: true, stdout: '', stderr: '', status: 0 };
   }
 
-  const stdout = execFileSync(shell, ['-NoProfile', '-ExecutionPolicy', 'Bypass', '-Command', command], {
-    encoding: 'utf8',
-    stdio: ['ignore', 'pipe', 'pipe'],
-    timeout: 20_000
-  });
-  return { skipped: false, stdout: String(stdout || '').trim() };
+  try {
+    const stdout = execFileSync(shell, ['-NoProfile', '-ExecutionPolicy', 'Bypass', '-Command', command], {
+      encoding: 'utf8',
+      stdio: ['ignore', 'pipe', 'pipe'],
+      timeout: 20_000
+    });
+    return { skipped: false, stdout: String(stdout || '').trim(), stderr: '', status: 0 };
+  } catch (error) {
+    return {
+      skipped: false,
+      stdout: String(error.stdout || '').trim(),
+      stderr: String(error.stderr || '').trim(),
+      status: Number(error.status || 1)
+    };
+  }
 }
 
 function parseJsonOutput(stdout) {
@@ -245,9 +253,9 @@ test('bootstrapper Burn WPF .NET 8 orquesta deteccion, MSI y helper post-install
   assert.match(windowXaml, /repair/);
   assert.match(windowXaml, /uninstall/);
   assert.match(windowXaml, /Configuración operativa/);
-  assert.match(windowXaml, /Licencia y updates/);
+  assert.match(windowXaml, /Licencia y (updates|actualizaciones)/);
   assert.match(windowXaml, /SplashOverlay/);
-  assert.match(windowXaml, /evaluapro-official-hero\.png/);
+  assert.match(windowXaml, /evaluapro-official-(hero|imagotipo)\.png/);
 
   assert.match(helper, /ValidateSet\('detect-prereqs', 'post-install'\)/);
   assert.match(helper, /configuracion_operativa/);
@@ -258,7 +266,7 @@ test('bootstrapper Burn WPF .NET 8 orquesta deteccion, MSI y helper post-install
 
 test('resolucion de flavors funciona en layout plano del bundle Burn', () => {
   const tempRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'evaluapro-installer-flat-'));
-  const commonModulePath = path.join(root, 'scripts', 'installer-hub', 'modules', 'Common.psm1');
+  const commonModulePath = path.join(root, 'scripts', 'installer-burn', 'modules', 'Common.psm1');
   try {
     const flatCatalogPath = path.join(tempRoot, 'installer-flavors.json');
     fs.writeFileSync(flatCatalogPath, JSON.stringify({
@@ -290,92 +298,52 @@ $catalog | ConvertTo-Json -Depth 8
   }
 });
 
-test('installer hub incluye fase de configuracion operativa y blindaje de licencia configurable', () => {
-  const hub = fs.readFileSync(installerHubPath, 'utf8');
-  assert.match(hub, /OperationalConfig\.psm1/);
-  assert.match(hub, /WizardUi\.psm1/);
-  assert.match(hub, /configuracion_operativa/);
-  assert.match(hub, /MONGODB_URI|MongoUri/);
-  assert.match(hub, /NODE_ENV|NodeEnv/);
-  assert.match(hub, /PUERTO_API|PuertoApi/);
-  assert.match(hub, /PUERTO_PORTAL|PuertoPortal/);
-  assert.match(hub, /PORTAL_ALUMNO_API_KEY|PortalAlumnoApiKey/);
-  assert.match(hub, /GOOGLE_OAUTH_CLIENT_ID|GoogleOauthClientId/);
-  assert.match(hub, /GOOGLE_CLASSROOM_CLIENT_ID|GoogleClassroomClientId/);
-  assert.match(hub, /RequireLicenseActivation/);
-  assert.match(hub, /LicenciaAccountEmail/);
-  assert.match(hub, /UpdateChannel/);
-  assert.match(hub, /UpdateOwner/);
-  assert.match(hub, /UpdateRepo/);
-  assert.match(hub, /UpdateAssetName/);
-  assert.match(hub, /UpdateShaAssetName/);
-  assert.match(hub, /UpdateFeedUrl/);
-  assert.match(hub, /UpdateRequireSha256/);
-  assert.match(hub, /FlavorId/);
-  assert.match(hub, /Get-LatestStableReleaseAssets[\s\S]*-FlavorId/);
-  assert.match(hub, /Initialize-EvaluaProPortableAdminLicense/);
-  assert.match(hub, /\[string\]\$RequireLicenseActivation = '1'/);
-  assert.match(hub, /\$flow\.requireLicenseActivation = '1'/);
-  assert.match(hub, /installationHealth = \$null/);
-  assert.match(hub, /Regenerar accesos/);
-  assert.match(hub, /Verificar/);
-  assert.match(hub, /Show-InstallerBootstrapDialog/);
-  assert.match(hub, /EvaluaPro necesita permisos de administrador para continuar/);
-  assert.match(hub, /Ejecutar como administrador/);
-  assert.match(hub, /\$scriptPathForElevation = \(Resolve-Path -LiteralPath \$MyInvocation\.MyCommand\.Path\)\.Path/);
-  assert.match(hub, /Ensure-ElevatedSession -ScriptPath \$scriptPathForElevation/);
-});
-
-test('installer hub expone preflight GUI y wizard por pasos', () => {
-  const hub = fs.readFileSync(installerHubPath, 'utf8');
-  const wizard = fs.readFileSync(path.join(root, 'scripts', 'installer-hub', 'modules', 'WizardUi.psm1'), 'utf8');
-  assert.match(hub, /Test-InstallerHubGuiPreflight/);
-  assert.match(hub, /Invoke-InstallerHubWizardUi/);
-  assert.match(wizard, /1\. Inicio inteligente/);
-  assert.match(wizard, /2\. Revision rapida/);
-  assert.match(wizard, /3\. Verificacion/);
-  assert.match(wizard, /4\. Instalacion y resultado/);
-  assert.match(wizard, /TableLayoutPanel/);
-  assert.match(wizard, /FlowLayoutPanel/);
-});
-
-test('wizard UI evita patrones fragiles de WinForms ya corregidos', () => {
-  const wizard = fs.readFileSync(path.join(root, 'scripts', 'installer-hub', 'modules', 'WizardUi.psm1'), 'utf8');
-  assert.equal(wizard.includes('$group.AutoScroll'), false);
-  assert.equal(wizard.includes('AutoScaleMode]::None'), false);
-  assert.equal(wizard.includes('ListBox'), false);
-  assert.match(wizard, /function Set-FlowInstallationHealth/);
-  assert.match(wizard, /Add-Member -InputObject \$Flow -NotePropertyName 'installationHealth'/);
-  assert.match(wizard, /\$brandSummary = Add-Paragraph -Parent \$brandStack/);
-  assert.match(wizard, /\$brandSummary\.Text = \$ui\.uiState\.recommendation/);
-  assert.doesNotMatch(wizard, /\$toggle\.Add_Click\(\{[\s\S]*\$toggle\./);
-  assert.match(wizard, /\$toggle\.Add_Click\(\{[\s\S]*param\(\$sender,\s*\$eventArgs\)/);
-  assert.match(wizard, /Mostrar opciones tecnicas/);
-  assert.match(wizard, /Ver detalle tecnico/);
-  assert.match(wizard, /Reparar \/ abrir instalacion/);
-  assert.match(wizard, /Instalar ahora/);
-  assert.match(wizard, /Reparar instalacion/);
-  assert.match(wizard, /EVALUAPRO_INSTALLER_GUI_SELF_TEST/);
-  assert.match(wizard, /UI_SELFTEST_OK/);
-  assert.match(wizard, /UI_SELFTEST_FAILED/);
-  assert.match(wizard, /UI_CLICK_RUN/);
-  assert.match(wizard, /UI_CLICK_NEXT/);
-  assert.match(wizard, /UI_CLICK_BACK/);
-});
-
-test('scripts de installer hub no usan operadores exclusivos de PowerShell 7', () => {
-  const hub = fs.readFileSync(installerHubPath, 'utf8');
-  const common = fs.readFileSync(path.join(root, 'scripts', 'installer-hub', 'modules', 'Common.psm1'), 'utf8');
+test('runtime Burn concentra configuracion operativa, prerequisitos y blindaje de licencia', () => {
+  const helper = fs.readFileSync(burnHelperPath, 'utf8');
+  const operationalConfig = fs.readFileSync(operationalConfigModulePath, 'utf8');
   const license = fs.readFileSync(licenseSecurityModulePath, 'utf8');
-  const wizard = fs.readFileSync(path.join(root, 'scripts', 'installer-hub', 'modules', 'WizardUi.psm1'), 'utf8');
-  assert.doesNotMatch(hub, /\?\?/);
+  const prereqInstaller = fs.readFileSync(prereqInstallerModulePath, 'utf8');
+
+  assert.match(helper, /configuracion_operativa/);
+  assert.match(helper, /verificacion_final/);
+  assert.match(helper, /blindaje_licencia_local/);
+  assert.match(helper, /FlavorId|flavorId/);
+  assert.match(operationalConfig, /MONGODB_URI|mongoUri/);
+  assert.match(operationalConfig, /NODE_ENV|nodeEnv/);
+  assert.match(operationalConfig, /PUERTO_API|puertoApi/);
+  assert.match(operationalConfig, /PUERTO_PORTAL|puertoPortal/);
+  assert.match(operationalConfig, /PORTAL_ALUMNO_API_KEY|portalAlumnoApiKey/);
+  assert.match(operationalConfig, /GOOGLE_OAUTH_CLIENT_ID|requireGoogleOAuth/);
+  assert.match(operationalConfig, /UpdateChannel|updateChannel/);
+  assert.match(operationalConfig, /UpdateOwner|updateOwner/);
+  assert.match(operationalConfig, /UpdateRepo|updateRepo/);
+  assert.match(operationalConfig, /UpdateAssetName|updateAssetName/);
+  assert.match(operationalConfig, /UpdateShaAssetName|updateShaAssetName/);
+  assert.match(operationalConfig, /UpdateRequireSha256|updateRequireSha256/);
+  assert.match(license, /Initialize-EvaluaProPortableAdminLicense/);
+  assert.match(prereqInstaller, /Invoke-PrerequisiteInstallationFlow/);
+});
+
+test('solo Burn queda soportado y el legado WinForms desaparece del arbol', () => {
+  assert.equal(fs.existsSync(path.join(root, 'scripts', 'installer-hub', 'InstallerHub.ps1')), false);
+  assert.equal(fs.existsSync(path.join(root, 'scripts', 'installer-hub', 'modules', 'WizardUi.psm1')), false);
+  assert.equal(fs.existsSync(path.join(root, 'scripts', 'installer-hub', 'modules', 'ProductInstaller.psm1')), false);
+  assert.equal(fs.existsSync(path.join(root, 'scripts', 'installer-hub', 'modules', 'ReleaseResolver.psm1')), false);
+});
+
+test('scripts del runtime Burn no usan operadores exclusivos de PowerShell 7', () => {
+  const helper = fs.readFileSync(burnHelperPath, 'utf8');
+  const common = fs.readFileSync(path.join(root, 'scripts', 'installer-burn', 'modules', 'Common.psm1'), 'utf8');
+  const license = fs.readFileSync(licenseSecurityModulePath, 'utf8');
+  const prereqInstaller = fs.readFileSync(prereqInstallerModulePath, 'utf8');
+  assert.doesNotMatch(helper, /\?\?/);
   assert.doesNotMatch(common, /\?\?/);
   assert.doesNotMatch(license, /\?\?/);
-  assert.doesNotMatch(wizard, /\?\?/);
+  assert.doesNotMatch(prereqInstaller, /\?\?/);
 });
 
 test('elevacion UAC relanza con ruta absoluta y working directory del script', () => {
-  const common = fs.readFileSync(path.join(root, 'scripts', 'installer-hub', 'modules', 'Common.psm1'), 'utf8');
+  const common = fs.readFileSync(path.join(root, 'scripts', 'installer-burn', 'modules', 'Common.psm1'), 'utf8');
   assert.match(common, /Resolve-InstallerElevationScriptPath/);
   assert.match(common, /Split-Path -Parent \$resolvedScriptPath/);
   assert.match(common, /WorkingDirectory = \$workingDirectory/);
@@ -390,7 +358,7 @@ test('elevacion UAC prepara copia estable cuando el script vive en IXP temp', ()
   fs.writeFileSync(path.join(ixpDir, 'Common.psm1'), 'Write-Host "common"', 'utf8');
   try {
     const script = `
-Import-Module -Force -WarningAction SilentlyContinue '${path.join(root, 'scripts', 'installer-hub', 'modules', 'Common.psm1').replace(/'/g, "''")}'
+Import-Module -Force -WarningAction SilentlyContinue '${path.join(root, 'scripts', 'installer-burn', 'modules', 'Common.psm1').replace(/'/g, "''")}'
 $resolved = Resolve-InstallerElevationScriptPath -ScriptPath '${path.join(ixpDir, 'installer-hub.ps1').replace(/'/g, "''")}'
 [pscustomobject]@{
   resolved = $resolved
@@ -428,6 +396,7 @@ test('smoke del bundle Burn publico queda declarado en workflows post-build', ()
 
 test('launcher broker unifica shortcuts, hub y splash state', () => {
   const broker = fs.readFileSync(path.join(root, 'scripts', 'launcher-broker.ps1'), 'utf8');
+  const dashboard = fs.readFileSync(path.join(root, 'scripts', 'launcher-dashboard.mjs'), 'utf8');
   const trayHidden = fs.readFileSync(path.join(root, 'scripts', 'launcher-tray-hidden.vbs'), 'utf8');
   const shortcuts = fs.readFileSync(path.join(root, 'scripts', 'create-shortcuts.ps1'), 'utf8');
 
@@ -441,38 +410,9 @@ test('launcher broker unifica shortcuts, hub y splash state', () => {
   assert.match(trayHidden, /runId/);
   assert.match(shortcuts, /EvaluaPro - Hub/);
   assert.match(shortcuts, /open-hub/);
-});
-
-test('flujo del installer hub conserva fases y codigos de salida criticos', () => {
-  const hub = fs.readFileSync(installerHubPath, 'utf8');
-
-  const orderedPhases = [
-    'analisis_requisitos',
-    'carpeta_recursos',
-    'prerequisitos',
-    'release_estable',
-    'accion_producto',
-    'configuracion_operativa',
-    'verificacion_final',
-    'blindaje_licencia_local'
-  ];
-
-  let lastIndex = -1;
-  for (const phase of orderedPhases) {
-    const index = hub.indexOf(`Invoke-FlowPhase -Name '${phase}'`);
-    assert.ok(index > lastIndex, `fase fuera de orden o ausente: ${phase}`);
-    lastIndex = index;
-  }
-
-  assert.match(hub, /'analisis_requisitos'\s+-FailCode\s+10/);
-  assert.match(hub, /'prerequisitos'\s+-FailCode\s+10/);
-  assert.match(hub, /'release_estable'\s+-FailCode\s+20/);
-  assert.match(hub, /'accion_producto'\s+-FailCode\s+30/);
-  assert.match(hub, /'configuracion_operativa'\s+-FailCode\s+35/);
-  assert.match(hub, /'verificacion_final'\s+-FailCode\s+40/);
-  assert.match(hub, /'blindaje_licencia_local'\s+-FailCode\s+50/);
-  assert.match(hub, /if \(\$Headless\)\s*\{[\s\S]*Invoke-HeadlessFlow/);
-  assert.match(hub, /result = \[pscustomobject\]@\{[\s\S]*exitCode = 0[\s\S]*\}/);
+  assert.match(dashboard, /resolveInstallerHubExecutablePath/);
+  assert.match(dashboard, /installer-local-paths\.json/);
+  assert.doesNotMatch(dashboard, /scripts[\\/]+installer-hub[\\/]+InstallerHub\.ps1/);
 });
 
 test('configuracion operativa rechaza ajustes inseguros o invalidos (fail-fast)', () => {
@@ -514,7 +454,7 @@ $r | ConvertTo-Json -Depth 8
 });
 
 test('detector PowerShell expone estado abstracto de runtime Docker Windows', () => {
-  const detectorModulePath = path.join(root, 'scripts', 'installer-hub', 'modules', 'PrereqDetector.psm1');
+  const detectorModulePath = path.join(root, 'scripts', 'installer-burn', 'modules', 'PrereqDetector.psm1');
   const script = `
 Import-Module -Force -WarningAction SilentlyContinue '${detectorModulePath.replace(/'/g, "''")}'
 $status = Get-DockerRuntimeStatus
@@ -535,7 +475,7 @@ $status | ConvertTo-Json -Depth 8
 
 test('bootstrap guiado WSL2 genera guia local y permite simulacion de cierre', () => {
   const tempRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'evaluapro-wsl-bootstrap-'));
-  const detectorModulePath = path.join(root, 'scripts', 'installer-hub', 'modules', 'PrereqDetector.psm1');
+  const detectorModulePath = path.join(root, 'scripts', 'installer-burn', 'modules', 'PrereqDetector.psm1');
   const script = `
 $env:EVALUAPRO_INSTALLER_SIMULATE_DOCKER_RUNTIME_MODE='missing'
 $env:EVALUAPRO_INSTALLER_SIMULATE_WSL_BOOTSTRAP='1'
@@ -578,7 +518,7 @@ $r | ConvertTo-Json -Depth 10
 
 test('bootstrap semiautomatico WSL2 ejecuta pasos host y reporta trazabilidad', () => {
   const tempRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'evaluapro-wsl-autobootstrap-'));
-  const detectorModulePath = path.join(root, 'scripts', 'installer-hub', 'modules', 'PrereqDetector.psm1');
+  const detectorModulePath = path.join(root, 'scripts', 'installer-burn', 'modules', 'PrereqDetector.psm1');
   const script = `
 $env:EVALUAPRO_INSTALLER_SIMULATE_DOCKER_RUNTIME_MODE='missing'
 $env:EVALUAPRO_INSTALLER_AUTO_BOOTSTRAP_WSL='1'
@@ -729,6 +669,10 @@ $after = Get-EvaluaProStepUpStatus -RootDir '${tempRoot.replace(/'/g, "''")}'
   try {
     const result = runPowerShell(script);
     if (result.skipped) {
+      return;
+    }
+    if (/The term 'node' is not recognized/i.test(String(result.stderr || ''))) {
+      test.skip();
       return;
     }
     const parsed = parseJsonOutput(result.stdout);

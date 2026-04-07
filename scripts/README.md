@@ -17,13 +17,13 @@ Herramientas de operación local (principalmente Windows) para **Sistema EvaluaP
 - Bundle publico: `../packaging/wix/Bundle.wxs`
 - BA personalizada: `../packaging/wix/BurnBootstrapperApp/`
 - Helper headless: `installer-burn/InstallerBurnHelper.ps1`
-- UI legacy reutilizable: `installer-hub/InstallerHub.ps1`
 - Modulos:
-  - `installer-hub/modules/ReleaseResolver.psm1`
-  - `installer-hub/modules/PrereqDetector.psm1`
-  - `installer-hub/modules/PrereqInstaller.psm1`
-  - `installer-hub/modules/ProductInstaller.psm1`
-  - `installer-hub/modules/PostInstallVerifier.psm1`
+  - `installer-burn/modules/Common.psm1`
+  - `installer-burn/modules/PrereqDetector.psm1`
+  - `installer-burn/modules/PrereqInstaller.psm1`
+  - `installer-burn/modules/OperationalConfig.psm1`
+  - `installer-burn/modules/PostInstallVerifier.psm1`
+  - `installer-burn/modules/LicenseClientSecurity.psm1`
 - Manifiesto de prerequisitos:
   - `../config/installer-prereqs.manifest.json`
 - Build de bootstrapper EXE:
@@ -37,6 +37,7 @@ Arquitectura vigente:
 - `WiX Burn` maneja `UAC`, cache, chain `MSI`, `repair` y `uninstall`.
 - La BA `WPF .NET 8` presenta prerequisitos, modo y progreso.
 - El helper PowerShell aplica configuracion operativa, verificacion final y blindaje local de licencia.
+- El legado `PowerShell WinForms` fue retirado; no queda un `InstallerHub.ps1` soportado.
 
 ## Configuracion automatica OAuth + Classroom
 - Script: `configurar-oauth-classroom.ps1`

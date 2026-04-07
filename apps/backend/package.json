@@ -24,7 +24,7 @@
     "typecheck": "tsc --noEmit --project tsconfig.json --pretty false",
     "start": "node dist/index.js",
     "test": "vitest run",
-    "test:coverage": "vitest run --coverage",
+    "test:coverage": "node -e \"require('fs').mkdirSync('coverage/.tmp',{ recursive: true })\" && vitest run --coverage",
     "lint": "eslint \"src/**/*.ts\" \"tests/**/*.ts\" \"scripts/**/*.ts\" --max-warnings=0",
     "dev:omr:geo-tight": "tsx scripts/omr-run-dev-profile.ts geo_tight_search",
     "dev:omr:actual": "tsx scripts/omr-run-dev-profile.ts actual",

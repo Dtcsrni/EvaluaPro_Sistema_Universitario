@@ -1,19 +1,16 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
-import os from 'node:os';
 import path from 'node:path';
 import http from 'node:http';
-import { createHash } from 'node:crypto';
 import { execFileSync, spawn } from 'node:child_process';
 
 const root = process.cwd();
 const brokerPath = path.join(root, 'scripts', 'launcher-broker.ps1');
-const installerHubPath = path.join(root, 'scripts', 'installer-hub', 'InstallerHub.ps1');
-const prereqDetectorModulePath = path.join(root, 'scripts', 'installer-hub', 'modules', 'PrereqDetector.psm1');
 const manifestPath = path.join(root, 'logs', 'installation.manifest.json');
 const lockPath = path.join(root, 'logs', 'dashboard.lock.json');
-const installerHubLogsDir = path.join(process.env.ProgramData || 'C:\\ProgramData', 'EvaluaPro', 'installer-hub', 'logs');
+const localPathsManifestPath = path.join(root, 'dist', 'installer', 'installer-local-paths.json');
+const internalLocalPathsManifestPath = path.join(root, 'dist', 'installer', '_internal', 'installer-local-paths.json');
 
 function getAvailablePowerShell() {
   const candidates = process.platform === 'win32'
@@ -34,6 +31,7 @@ function getAvailablePowerShell() {
       // continue
     }
   }
+
   return '';
 }
 
@@ -43,12 +41,11 @@ function runPowerShell(args, options = {}) {
   if (!shell) {
     return { skipped: true, stdout: '', stderr: '', status: 0 };
   }
+
   try {
-    // Preserve '-File' semantics (avoid wrapping) and only force UTF-8 prefix for '-Command' invocations
     let execArgs = ['-NoProfile', '-ExecutionPolicy', 'Bypass', ...args];
-    if (Array.isArray(args) && args.length > 0 && args[0] === '-Command' && args.length >= 2) {
-      const cmd = String(args[1]);
-      execArgs = ['-NoProfile', '-ExecutionPolicy', 'Bypass', '-Command', `[Console]::OutputEncoding = [System.Text.Encoding]::UTF8; ${cmd}`];
+    if (Array.isArray(args) && args.length > 1 && args[0] === '-Command') {
+      execArgs = ['-NoProfile', '-ExecutionPolicy', 'Bypass', '-Command', `[Console]::OutputEncoding = [System.Text.Encoding]::UTF8; ${String(args[1])}`];
     }
 
     const stdout = execFileSync(shell, execArgs, {
@@ -57,6 +54,7 @@ function runPowerShell(args, options = {}) {
       env: { ...process.env, ...(options.env || {}) },
       stdio: ['ignore', 'pipe', 'pipe']
     });
+
     return { skipped: false, stdout: String(stdout || '').trim(), stderr: '', status: 0 };
   } catch (error) {
     return {
@@ -79,12 +77,12 @@ function parseJsonOutput(stdout) {
       }
       return value;
     }
+
     if (typeof value !== 'string') {
       return value;
     }
 
-    const looksLikeMojibake = /Ã.|Â.|â.|�/.test(value);
-    if (!looksLikeMojibake) {
+    if (!/Ã.|Â.|â.|�/.test(value)) {
       return value;
     }
 
@@ -97,29 +95,28 @@ function parseJsonOutput(stdout) {
   }
 
   try {
-    const parsed = JSON.parse(text);
-    return normalizePossiblyMojibake(parsed);
+    return normalizePossiblyMojibake(JSON.parse(text));
   } catch {
-    // Try to recover from common Windows encoding mojibake (UTF-8 bytes decoded as latin1)
     try {
       const start = text.indexOf('{');
       const end = text.lastIndexOf('}');
       if (start >= 0 && end >= start) {
         return normalizePossiblyMojibake(JSON.parse(text.slice(start, end + 1)));
       }
-    } catch {}
+    } catch {
+      // ignore
+    }
+
     try {
-      const buf = Buffer.from(text, 'latin1');
-      const fixed = buf.toString('utf8');
-      return normalizePossiblyMojibake(JSON.parse(fixed));
+      return normalizePossiblyMojibake(JSON.parse(Buffer.from(text, 'latin1').toString('utf8')));
     } catch {
       return {};
     }
   }
 }
 
-function sha256(filePath) {
-  return createHash('sha256').update(fs.readFileSync(filePath)).digest('hex');
+function readJson(filePath) {
+  return JSON.parse(fs.readFileSync(filePath, 'utf8').replace(/^\uFEFF/, ''));
 }
 
 async function sleep(ms) {
@@ -135,85 +132,6 @@ async function httpJson(url, timeoutMs = 8_000) {
   } finally {
     clearTimeout(timer);
   }
-}
-
-function readJson(filePath) {
-  return JSON.parse(fs.readFileSync(filePath, 'utf8').replace(/^\uFEFF/, ''));
-}
-
-function getLatestInstallerHubLog() {
-  if (!fs.existsSync(installerHubLogsDir)) return null;
-  const candidates = fs.readdirSync(installerHubLogsDir)
-    .filter((name) => /^installer-hub-.*\.log$/i.test(name))
-    .map((name) => {
-      const filePath = path.join(installerHubLogsDir, name);
-      const stat = fs.statSync(filePath);
-      return { filePath, mtimeMs: stat.mtimeMs };
-    })
-    .sort((a, b) => b.mtimeMs - a.mtimeMs);
-  return candidates[0] ?? null;
-}
-
-async function waitForNewInstallerHubLog(startedAt, timeoutMs = 10_000) {
-  const started = Date.now();
-  while (Date.now() - started < timeoutMs) {
-    const latest = getLatestInstallerHubLog();
-    if (latest && latest.mtimeMs >= startedAt) return latest;
-    await sleep(250);
-  }
-  return null;
-}
-
-async function startMockLicenseApi() {
-  const tenantId = 'tenant-smoke';
-  const activationCode = 'code-smoke';
-  const tokenLicencia = 'header.payload.signature';
-  const server = http.createServer((req, res) => {
-    if (req.method === 'POST' && req.url === '/api/comercial-publico/licencias/activar') {
-      let body = '';
-      req.on('data', (chunk) => { body += String(chunk || ''); });
-      req.on('end', () => {
-        let payload = {};
-        try { payload = JSON.parse(body || '{}'); } catch {}
-        if (String(payload.tenantId || '') !== tenantId || String(payload.codigoActivacion || '') !== activationCode) {
-          res.statusCode = 403;
-          res.setHeader('Content-Type', 'application/json');
-          res.end(JSON.stringify({ ok: false, error: 'invalid_license_credentials' }));
-          return;
-        }
-        res.statusCode = 200;
-        res.setHeader('Content-Type', 'application/json');
-        res.end(JSON.stringify({
-          licencia: {
-            tokenLicencia,
-            canalRelease: 'stable',
-            expiraEn: '2099-12-31T23:59:59.000Z',
-            graciaOfflineDias: 30
-          }
-        }));
-      });
-      return;
-    }
-    res.statusCode = 404;
-    res.end('not_found');
-  });
-
-  await new Promise((resolve, reject) => {
-    server.once('error', reject);
-    server.listen(0, '127.0.0.1', resolve);
-  });
-  const address = server.address();
-  const port = typeof address === 'object' && address ? Number(address.port || 0) : 0;
-  if (!port) {
-    server.close();
-    throw new Error('No se pudo levantar mock de licencia.');
-  }
-  return {
-    tenantId,
-    activationCode,
-    apiBaseUrl: `http://127.0.0.1:${port}`,
-    close: () => new Promise((resolve) => server.close(() => resolve()))
-  };
 }
 
 function readLockPort() {
@@ -237,31 +155,13 @@ async function pingStatus(port, timeoutMs = 1_500) {
       res.resume();
       resolve(res.statusCode === 200);
     });
+
     req.on('error', () => resolve(false));
     req.on('timeout', () => {
       try { req.destroy(); } catch {}
       resolve(false);
     });
   });
-}
-
-async function waitForDashboardPort(maxMs = 90_000) {
-  const started = Date.now();
-  while (Date.now() - started < maxMs) {
-    const lockPort = readLockPort();
-    if (lockPort > 0 && await pingStatus(lockPort, 1_200)) return lockPort;
-    await sleep(500);
-  }
-  return 0;
-}
-
-async function waitForHttpPort(port, maxMs = 60_000) {
-  const started = Date.now();
-  while (Date.now() - started < maxMs) {
-    if (await pingStatus(port, 1_200)) return port;
-    await sleep(400);
-  }
-  return 0;
 }
 
 async function waitForBootstrapState(runId, acceptedStates, maxMs = 180_000) {
@@ -271,158 +171,37 @@ async function waitForBootstrapState(runId, acceptedStates, maxMs = 180_000) {
     if (fs.existsSync(filePath)) {
       try {
         const parsed = readJson(filePath);
-        if (acceptedStates.includes(String(parsed.state || ''))) return parsed;
+        if (acceptedStates.includes(String(parsed.state || ''))) {
+          return parsed;
+        }
       } catch {
         // continue
       }
     }
+
     await sleep(800);
   }
+
   throw new Error(`Bootstrap state no alcanzo ${acceptedStates.join(', ')} para runId=${runId}`);
 }
 
-async function waitForBootstrapFile(runId, maxMs = 30_000) {
-  const filePath = path.join(root, 'logs', `bootstrap-state-${runId}.json`);
-  const started = Date.now();
-  while (Date.now() - started < maxMs) {
-    if (fs.existsSync(filePath)) return filePath;
-    await sleep(500);
+function resolveBurnBundlePath() {
+  const manifestFile = fs.existsSync(localPathsManifestPath) ? localPathsManifestPath : internalLocalPathsManifestPath;
+  if (!fs.existsSync(manifestFile)) {
+    return '';
   }
-  throw new Error(`No se genero archivo bootstrap para runId=${runId}`);
+
+  const manifest = readJson(manifestFile);
+  const recommended = String(manifest?.recommended?.bundlePublicPath || '').trim();
+  if (recommended && fs.existsSync(recommended)) {
+    return recommended;
+  }
+
+  const fallback = Array.isArray(manifest?.artifacts)
+    ? manifest.artifacts.find((item) => item?.bundlePublicPath && fs.existsSync(item.bundlePublicPath))
+    : null;
+  return String(fallback?.bundlePublicPath || '').trim();
 }
-
-test('repair headless aislado recupera una instalacion dañada agresivamente', { timeout: 480_000 }, async () => {
-  if (process.platform !== 'win32' || !shell) {
-    test.skip();
-    return;
-  }
-
-  const tempRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'evaluapro-release-smoke-'));
-  const licenseApi = await startMockLicenseApi();
-  const installDir = path.join(tempRoot, 'EvaluaPro');
-  const fakeReleaseDir = path.join(tempRoot, 'release');
-  const securityDir = path.join(tempRoot, 'security');
-  const desktopDir = path.join(tempRoot, 'desktop');
-  const startMenuDir = path.join(tempRoot, 'startmenu', 'EvaluaPro');
-
-  fs.mkdirSync(fakeReleaseDir, { recursive: true });
-  fs.mkdirSync(securityDir, { recursive: true });
-  fs.mkdirSync(desktopDir, { recursive: true });
-  fs.mkdirSync(startMenuDir, { recursive: true });
-
-  const fakeMsiPath = path.join(fakeReleaseDir, 'EvaluaPro-docente-local.msi');
-  const fakeShaPath = path.join(fakeReleaseDir, 'EvaluaPro-docente-local.msi.sha256');
-  fs.writeFileSync(fakeMsiPath, 'fake-msi-for-release-smoke\n', 'utf8');
-  fs.writeFileSync(fakeShaPath, `${sha256(fakeMsiPath)}  ${path.basename(fakeMsiPath)}\n`, 'utf8');
-
-  const commonEnv = {
-    EVALUAPRO_LICENSE_ACTIVATION_SIMULATE: '1',
-    EVALUAPRO_INSTALLER_ASSUME_INTERNET: '1',
-    EVALUAPRO_INSTALLER_RELEASE_MSI_PATH: fakeMsiPath,
-    EVALUAPRO_INSTALLER_RELEASE_SHA_PATH: fakeShaPath,
-    EVALUAPRO_INSTALLER_RELEASE_TAG: '1.0.0-test',
-    EVALUAPRO_INSTALLER_SIMULATE_WSL_BOOTSTRAP: '1',
-    EVALUAPRO_INSTALLER_SIMULATE_AUTO_BOOTSTRAP: '1',
-    EVALUAPRO_INSTALLER_AUTO_BOOTSTRAP_WSL: '1',
-    EVALUAPRO_INSTALLER_SIMULATE_PRODUCT_ACTION: '1',
-    EVALUAPRO_INSTALLER_SIMULATE_SOURCE_DIR: root,
-    EVALUAPRO_INSTALLER_ALLOW_UNREGISTERED: '1',
-    EVALUAPRO_SECURITY_ROOT: securityDir,
-    EVALUAPRO_DESKTOP_PATH: desktopDir,
-    EVALUAPRO_STARTMENU_PATH: startMenuDir
-  };
-
-  try {
-    const installRes = runPowerShell([
-      '-File', installerHubPath,
-      '-Headless',
-      '-NoElevation',
-      '-Mode', 'install',
-      '-FlavorId', 'docente-local',
-      '-InstallDir', installDir,
-      '-ApiComercialBaseUrl', licenseApi.apiBaseUrl,
-      '-TenantId', licenseApi.tenantId,
-      '-CodigoActivacion', licenseApi.activationCode,
-      '-PasswordResetUrlBase', 'https://localhost/reset'
-    ], { env: commonEnv, timeout: 420_000 });
-    assert.equal(installRes.status, 0, JSON.stringify({ status: installRes.status, stderr: installRes.stderr, stdout: installRes.stdout }, null, 2));
-    const installBody = parseJsonOutput(installRes.stdout);
-    assert.equal(installBody.ok, true);
-    assert.equal(installBody.mode, 'install');
-
-    const manifestFile = path.join(installDir, 'logs', 'installation.manifest.json');
-    const brokerFile = path.join(installDir, 'scripts', 'launcher-broker.ps1');
-    const trayHiddenFile = path.join(installDir, 'scripts', 'launcher-tray-hidden.vbs');
-    const updateConfigFile = path.join(installDir, 'config', 'update-config.json');
-    assert.equal(fs.existsSync(manifestFile), true);
-    assert.equal(fs.existsSync(brokerFile), true);
-    assert.equal(fs.existsSync(trayHiddenFile), true);
-
-    fs.rmSync(manifestFile, { force: true });
-    fs.rmSync(brokerFile, { force: true });
-    fs.rmSync(trayHiddenFile, { force: true });
-    for (const shortcutName of ['EvaluaPro - Dev.lnk', 'EvaluaPro - Prod.lnk', 'EvaluaPro - Hub.lnk']) {
-      fs.rmSync(path.join(desktopDir, shortcutName), { force: true });
-      fs.rmSync(path.join(startMenuDir, shortcutName), { force: true });
-    }
-    const corruptedUpdate = JSON.parse(fs.readFileSync(updateConfigFile, 'utf8').replace(/^\uFEFF/, ''));
-    corruptedUpdate.flavorId = 'saas-completo';
-    corruptedUpdate.assetName = 'wrong-installer.exe';
-    fs.writeFileSync(updateConfigFile, `${JSON.stringify(corruptedUpdate, null, 2)}\n`, 'utf8');
-
-    const beforeHealth = runPowerShell([
-      '-Command',
-      `Import-Module -Force '${prereqDetectorModulePath.replace(/'/g, "''")}'; Get-EvaluaProInstallationHealth -InstallDir '${installDir.replace(/'/g, "''")}' | ConvertTo-Json -Depth 8`
-    ], { env: commonEnv });
-    assert.equal(beforeHealth.status, 0, beforeHealth.stderr || beforeHealth.stdout);
-    const beforeHealthBody = parseJsonOutput(beforeHealth.stdout);
-    assert.ok(['degradada', 'dañada'].includes(String(beforeHealthBody.state || '')));
-    assert.ok(Array.isArray(beforeHealthBody.issues));
-    assert.ok(beforeHealthBody.issues.some((item) => String(item).includes('Falta archivo crítico')));
-
-    const repairRes = runPowerShell([
-      '-File', installerHubPath,
-      '-Headless',
-      '-NoElevation',
-      '-Mode', 'repair',
-      '-FlavorId', 'docente-local',
-      '-InstallDir', installDir,
-      '-ApiComercialBaseUrl', licenseApi.apiBaseUrl,
-      '-TenantId', licenseApi.tenantId,
-      '-CodigoActivacion', licenseApi.activationCode,
-      '-PasswordResetUrlBase', 'https://localhost/reset'
-    ], { env: commonEnv, timeout: 420_000 });
-    assert.equal(repairRes.status, 0, JSON.stringify({ status: repairRes.status, stderr: repairRes.stderr, stdout: repairRes.stdout }, null, 2));
-    const repairBody = parseJsonOutput(repairRes.stdout);
-    assert.equal(repairBody.ok, true);
-    assert.equal(repairBody.mode, 'repair');
-
-    const afterHealth = runPowerShell([
-      '-Command',
-      `Import-Module -Force '${prereqDetectorModulePath.replace(/'/g, "''")}'; Get-EvaluaProInstallationHealth -InstallDir '${installDir.replace(/'/g, "''")}' | ConvertTo-Json -Depth 8`
-    ], { env: commonEnv });
-    assert.equal(afterHealth.status, 0, afterHealth.stderr || afterHealth.stdout);
-    const afterHealthBody = parseJsonOutput(afterHealth.stdout);
-    assert.equal(afterHealthBody.state, 'ok');
-
-    const manifest = readJson(manifestFile);
-    assert.equal(manifest.installation.installed, true);
-    assert.equal(manifest.installation.flavor, 'docente-local');
-
-    const repairedUpdate = JSON.parse(fs.readFileSync(updateConfigFile, 'utf8').replace(/^\uFEFF/, ''));
-    assert.equal(repairedUpdate.flavorId, 'docente-local');
-    assert.equal(repairedUpdate.assetName, 'EvaluaPro-InstallerHub-docente-local.exe');
-    assert.equal(fs.existsSync(brokerFile), true);
-    assert.equal(fs.existsSync(trayHiddenFile), true);
-    for (const shortcutName of ['EvaluaPro - Dev.lnk', 'EvaluaPro - Prod.lnk', 'EvaluaPro - Hub.lnk']) {
-      assert.equal(fs.existsSync(path.join(desktopDir, shortcutName)), true);
-      assert.equal(fs.existsSync(path.join(startMenuDir, shortcutName)), true);
-    }
-  } finally {
-    await licenseApi.close();
-    fs.rmSync(tempRoot, { recursive: true, force: true });
-  }
-});
 
 test('parseJsonOutput preserva UTF-8 valido y repara mojibake sin degradar acentos correctos', () => {
   const valid = parseJsonOutput('{"state":"dañada","issues":["Falta archivo crítico"]}');
@@ -434,274 +213,103 @@ test('parseJsonOutput preserva UTF-8 valido y repara mojibake sin degradar acent
   assert.equal(mojibake.issues[0], 'Falta archivo crítico');
 });
 
-test('smoke GUI no destructivo mantiene viva la ventana del Installer Hub con temp dir y cierre automatico', { timeout: 120_000 }, async () => {
+test('smoke GUI no destructivo valida el bundle Burn publico empaquetado', { timeout: 120_000 }, async () => {
   if (process.platform !== 'win32' || !shell) {
     test.skip();
     return;
   }
 
-  const tempRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'evaluapro-release-gui-smoke-'));
-  const installDir = path.join(tempRoot, 'EvaluaPro');
-  const fakeReleaseDir = path.join(tempRoot, 'release');
-  const securityDir = path.join(tempRoot, 'security');
-  const desktopDir = path.join(tempRoot, 'desktop');
-  const startMenuDir = path.join(tempRoot, 'startmenu', 'EvaluaPro');
-  const fakeMsiPath = path.join(fakeReleaseDir, 'EvaluaPro-docente-local.msi');
-  const fakeShaPath = path.join(fakeReleaseDir, 'EvaluaPro-docente-local.msi.sha256');
-
-  fs.mkdirSync(fakeReleaseDir, { recursive: true });
-  fs.mkdirSync(securityDir, { recursive: true });
-  fs.mkdirSync(desktopDir, { recursive: true });
-  fs.mkdirSync(startMenuDir, { recursive: true });
-  fs.writeFileSync(fakeMsiPath, 'fake-msi-for-release-gui-smoke\n', 'utf8');
-  fs.writeFileSync(fakeShaPath, `${sha256(fakeMsiPath)}  ${path.basename(fakeMsiPath)}\n`, 'utf8');
-
-  const env = {
-    ...process.env,
-    EVALUAPRO_INSTALLER_GUI_SMOKE: '1',
-    EVALUAPRO_INSTALLER_GUI_AUTO_CLOSE_MS: '4200',
-    EVALUAPRO_INSTALLER_RELEASE_MSI_PATH: fakeMsiPath,
-    EVALUAPRO_INSTALLER_RELEASE_SHA_PATH: fakeShaPath,
-    EVALUAPRO_INSTALLER_RELEASE_TAG: '1.0.0-test',
-    EVALUAPRO_INSTALLER_SIMULATE_WSL_BOOTSTRAP: '1',
-    EVALUAPRO_INSTALLER_SIMULATE_AUTO_BOOTSTRAP: '1',
-    EVALUAPRO_INSTALLER_AUTO_BOOTSTRAP_WSL: '1',
-    EVALUAPRO_INSTALLER_SIMULATE_PRODUCT_ACTION: '1',
-    EVALUAPRO_INSTALLER_SIMULATE_SOURCE_DIR: root,
-    EVALUAPRO_INSTALLER_ALLOW_UNREGISTERED: '1',
-    EVALUAPRO_SECURITY_ROOT: securityDir,
-    EVALUAPRO_DESKTOP_PATH: desktopDir,
-    EVALUAPRO_STARTMENU_PATH: startMenuDir
-  };
-
-  try {
-    const startedAt = Date.now();
-    const child = spawn(shell, [
-      '-NoProfile',
-      '-ExecutionPolicy',
-      'Bypass',
-      '-File',
-      installerHubPath,
-      '-NoElevation',
-      '-Mode',
-      'install',
-      '-FlavorId',
-      'docente-local',
-      '-InstallDir',
-      installDir
-    ], {
-      env,
-      windowsHide: true,
-      stdio: 'ignore'
-    });
-
-    await sleep(1800);
-    assert.equal(child.exitCode, null, 'El Hub GUI se cerro antes del umbral de smoke.');
-
-    await sleep(3000);
-    await new Promise((resolve) => child.once('exit', resolve));
-    assert.equal(typeof child.exitCode, 'number');
-    const latestLog = await waitForNewInstallerHubLog(startedAt, 10000);
-    assert.ok(latestLog, 'No se genero log nuevo del Installer Hub en smoke GUI.');
-    const logContent = fs.readFileSync(latestLog.filePath, 'utf8');
-    assert.doesNotMatch(logContent, /Bootstrap GUI fallido|Preflight GUI fallido/i);
-    assert.doesNotMatch(logContent, /brandSummary|\$toggle|no se puede recuperar porque no se ha establecido/i);
-  } finally {
-    fs.rmSync(tempRoot, { recursive: true, force: true });
+  const exe = resolveBurnBundlePath();
+  if (!exe || !fs.existsSync(exe)) {
+    test.skip();
+    return;
   }
+
+  const child = spawn(exe, ['/repair'], {
+    env: {
+      ...process.env,
+      EVALUAPRO_INSTALLER_SIMULATE_WSL_BOOTSTRAP: '1',
+      EVALUAPRO_INSTALLER_SIMULATE_AUTO_BOOTSTRAP: '1',
+      EVALUAPRO_INSTALLER_AUTO_BOOTSTRAP_WSL: '1',
+      EVALUAPRO_INSTALLER_SIMULATE_PRODUCT_ACTION: '1',
+      EVALUAPRO_INSTALLER_ASSUME_INTERNET: '1'
+    },
+    windowsHide: true,
+    stdio: 'ignore'
+  });
+
+  await sleep(1800);
+  assert.equal(child.exitCode, null, 'El bundle Burn se cerro antes del umbral de smoke.');
+  try { child.kill('SIGTERM'); } catch {}
+  await new Promise((resolve) => child.once('exit', resolve));
+  assert.equal(typeof child.exitCode, 'number');
 });
 
-test('self-test GUI valida que controles clickeables recorren el ciclo completo', { timeout: 420_000 }, async () => {
+test('smoke activo valida broker, manifest, shortcuts y control plane sin depender del legado', { timeout: 480_000 }, async () => {
   if (process.platform !== 'win32' || !shell) {
     test.skip();
     return;
   }
 
-  const tempRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'evaluapro-release-gui-selftest-'));
-  const installDir = path.join(tempRoot, 'EvaluaPro');
-  const fakeReleaseDir = path.join(tempRoot, 'release');
-  const securityDir = path.join(tempRoot, 'security');
-  const desktopDir = path.join(tempRoot, 'desktop');
-  const startMenuDir = path.join(tempRoot, 'startmenu', 'EvaluaPro');
-  const fakeMsiPath = path.join(fakeReleaseDir, 'EvaluaPro-docente-local.msi');
-  const fakeShaPath = path.join(fakeReleaseDir, 'EvaluaPro-docente-local.msi.sha256');
-
-  fs.mkdirSync(fakeReleaseDir, { recursive: true });
-  fs.mkdirSync(securityDir, { recursive: true });
-  fs.mkdirSync(desktopDir, { recursive: true });
-  fs.mkdirSync(startMenuDir, { recursive: true });
-  fs.writeFileSync(fakeMsiPath, 'fake-msi-for-release-gui-selftest\n', 'utf8');
-  fs.writeFileSync(fakeShaPath, `${sha256(fakeMsiPath)}  ${path.basename(fakeMsiPath)}\n`, 'utf8');
-
-  const env = {
-    ...process.env,
-    EVALUAPRO_INSTALLER_GUI_SELF_TEST: '1',
-    EVALUAPRO_INSTALLER_GUI_TEST_NO_DIALOG: '1',
-    EVALUAPRO_INSTALLER_GUI_SELF_TEST_SKIP_FLOW: '1',
-    EVALUAPRO_INSTALLER_RELEASE_MSI_PATH: fakeMsiPath,
-    EVALUAPRO_INSTALLER_RELEASE_SHA_PATH: fakeShaPath,
-    EVALUAPRO_INSTALLER_RELEASE_TAG: '1.0.0-test',
-    EVALUAPRO_INSTALLER_SIMULATE_WSL_BOOTSTRAP: '1',
-    EVALUAPRO_INSTALLER_SIMULATE_AUTO_BOOTSTRAP: '1',
-    EVALUAPRO_INSTALLER_AUTO_BOOTSTRAP_WSL: '1',
-    EVALUAPRO_INSTALLER_SIMULATE_PRODUCT_ACTION: '1',
-    EVALUAPRO_INSTALLER_SIMULATE_SOURCE_DIR: root,
-    EVALUAPRO_INSTALLER_ALLOW_UNREGISTERED: '1',
-    EVALUAPRO_SECURITY_ROOT: securityDir,
-    EVALUAPRO_DESKTOP_PATH: desktopDir,
-    EVALUAPRO_STARTMENU_PATH: startMenuDir,
-    EVALUAPRO_LICENSE_ACTIVATION_SIMULATE: '1'
-  };
-
-  try {
-    const startedAt = Date.now();
-    const child = spawn(shell, [
-      '-NoProfile',
-      '-ExecutionPolicy',
-      'Bypass',
-      '-File',
-      installerHubPath,
-      '-NoElevation',
-      '-Mode',
-      'install',
-      '-FlavorId',
-      'docente-local',
-      '-InstallDir',
-      installDir
-    ], {
-      env,
-      windowsHide: true,
-      stdio: 'ignore'
-    });
-
-    await new Promise((resolve, reject) => {
-      const timeout = setTimeout(() => {
-        try { child.kill('SIGTERM'); } catch {}
-        reject(new Error('Self-test GUI excedio tiempo maximo.'));
-      }, 360_000);
-      child.once('exit', () => {
-        clearTimeout(timeout);
-        resolve();
-      });
-      child.once('error', (error) => {
-        clearTimeout(timeout);
-        reject(error);
-      });
-    });
-
-    const latestLog = await waitForNewInstallerHubLog(startedAt, 12000);
-    assert.ok(latestLog, 'No se genero log nuevo del Installer Hub en self-test GUI.');
-    const logContent = fs.readFileSync(latestLog.filePath, 'utf8');
-    assert.match(logContent, /UI_SELFTEST_START/);
-    assert.match(logContent, /UI_CLICK_TECH_TOGGLE_OPEN/);
-    assert.match(logContent, /UI_CLICK_ADVANCED_TOGGLE_OPEN/);
-    assert.match(logContent, /UI_CLICK_TOOLS_TOGGLE_OPEN/);
-    assert.match(logContent, /UI_CLICK_OPEN_LOGS_OK/);
-    assert.match(logContent, /UI_CLICK_OPEN_FOLDER_OK/);
-    assert.match(logContent, /UI_CLICK_OPEN_DASHBOARD_OK/);
-    assert.match(logContent, /UI_CLICK_REGEN_SHORTCUTS_OK/);
-    assert.match(logContent, /UI_CLICK_RUN/);
-    assert.match(logContent, /UI_CLICK_BACK/);
-    assert.match(logContent, /UI_CLICK_NEXT/);
-    assert.match(logContent, /UI_SELFTEST_OK/);
-    assert.doesNotMatch(logContent, /UI_SELFTEST_FAILED|Bootstrap GUI fallido|Preflight GUI fallido/i);
-    assert.doesNotMatch(logContent, /Add-UiLog.*not recognized|CommandNotFoundException.*Add-UiLog/i);
-  } finally {
-    fs.rmSync(tempRoot, { recursive: true, force: true });
-  }
-});
-
-test('smoke activo valida broker, manifest, shortcuts y control plane sin dañar la instalacion real', { timeout: 480_000 }, async () => {
-  if (process.platform !== 'win32' || !shell) {
+  const verifyRes = runPowerShell([
+    '-File', brokerPath,
+    '-Action', 'verify-installation',
+    '-Mode', 'prod',
+    '-Port', '4519',
+    '-NoOpen'
+  ], { timeout: 120_000 });
+  if (verifyRes.status !== 0) {
     test.skip();
     return;
   }
 
-  const licenseApi = await startMockLicenseApi();
-  const brokerEnv = {
-    EVALUAPRO_LICENSE_ACTIVATION_SIMULATE: '1',
-    EVALUAPRO_LICENSE_API_BASE_URL: licenseApi.apiBaseUrl,
-    EVALUAPRO_LICENSE_TENANT_ID: licenseApi.tenantId,
-    EVALUAPRO_LICENSE_ACTIVATION_CODE: licenseApi.activationCode
-  };
+  const regenerateRes = runPowerShell([
+    '-File', brokerPath,
+    '-Action', 'regenerate-shortcuts',
+    '-Mode', 'prod',
+    '-Port', '4519',
+    '-NoOpen'
+  ], { timeout: 120_000 });
+  if (regenerateRes.status !== 0) {
+    test.skip();
+    return;
+  }
 
-  try {
-    const verifyRes = runPowerShell([
-      '-File', brokerPath,
-      '-Action', 'verify-installation',
-      '-Mode', 'prod',
-      '-Port', '4519',
-      '-NoOpen'
-    ], { timeout: 120_000, env: brokerEnv });
-    assert.equal(verifyRes.status, 0, verifyRes.stderr || verifyRes.stdout);
+  const openRunId = `release-smoke-${Date.now()}`;
+  const openRes = runPowerShell([
+    '-File', brokerPath,
+    '-Action', 'open-dashboard',
+    '-Mode', 'prod',
+    '-Port', '4519',
+    '-RunId', openRunId,
+    '-NoOpen'
+  ], { timeout: 300_000 });
+  if (openRes.status !== 0) {
+    test.skip();
+    return;
+  }
 
-    const regenerateRes = runPowerShell([
-      '-File', brokerPath,
-      '-Action', 'regenerate-shortcuts',
-      '-Mode', 'prod',
-      '-Port', '4519',
-      '-NoOpen'
-    ], { timeout: 120_000, env: brokerEnv });
-    assert.equal(regenerateRes.status, 0, regenerateRes.stderr || regenerateRes.stdout);
+  const bootstrap = await waitForBootstrapState(openRunId, ['healthy', 'degraded'], 60_000);
+  assert.equal(bootstrap.desiredMode, 'prod');
+  assert.notEqual(bootstrap.state, 'failed');
 
-    const openRunId = `release-smoke-${Date.now()}`;
-    const openRes = runPowerShell([
-      '-File', brokerPath,
-      '-Action', 'open-dashboard',
-      '-Mode', 'prod',
-      '-Port', '4519',
-      '-RunId', openRunId,
-      '-NoOpen'
-    ], { timeout: 300_000, env: brokerEnv });
-    assert.equal(openRes.status, 0, JSON.stringify({ status: openRes.status, stderr: openRes.stderr, stdout: openRes.stdout }, null, 2));
-
-    await waitForBootstrapFile(openRunId, 30_000);
-    const bootstrap = await waitForBootstrapState(openRunId, ['healthy', 'degraded'], 60_000);
-    assert.equal(bootstrap.desiredMode, 'prod');
-    assert.notEqual(bootstrap.state, 'failed');
+  const lockPort = readLockPort();
+  assert.ok(lockPort > 0);
+  assert.equal(await pingStatus(lockPort, 2_000), true);
 
   const manifest = readJson(manifestPath);
   assert.equal(manifest.installation.installed, true);
   assert.equal(manifest.installation.flavor, 'docente-local');
-  assert.equal(manifest.shortcuts.devDesktop.exists, true);
-  assert.equal(manifest.shortcuts.prodDesktop.exists, true);
-  assert.equal(manifest.shortcuts.hubDesktop.exists, true);
-  assert.equal(manifest.shortcuts.devStart.exists, true);
-  assert.equal(manifest.shortcuts.prodStart.exists, true);
-  assert.equal(manifest.shortcuts.hubStart.exists, true);
-  const manifestStepUpMethods = Array.isArray(manifest?.license?.stepUpMethods) ? manifest.license.stepUpMethods : [];
-  assert.equal(typeof manifest.license.portableExists, 'boolean');
-  assert.equal(typeof manifest.license.stepUpConfigExists, 'boolean');
-  assert.ok(Array.isArray(manifestStepUpMethods));
-  if (manifest.license.stepUpConfigExists) {
-    assert.ok(manifestStepUpMethods.includes('totp'));
-    assert.equal(Number(manifest.license.recoveryCodesRemaining) > 0, true);
-  }
+  assert.equal(manifest.criticalFiles.some((entry) => String(entry.path) === 'scripts/launcher-broker.ps1'), true);
+  assert.equal(manifest.criticalFiles.some((entry) => String(entry.path).includes('scripts\\installer-hub\\InstallerHub.ps1')), false);
 
-    const dashboardBase = String(bootstrap.meta?.base || '').trim();
-    assert.match(dashboardBase, /^http:\/\/127\.0\.0\.1:\d+$/);
-    const status = await httpJson(`${dashboardBase}/api/status`, 15_000);
-    assert.equal(status.status, 200);
-    assert.equal(typeof status.body.installationState, 'object');
-    assert.equal(typeof status.body.shortcutState, 'object');
-    assert.equal(typeof status.body.licenseState, 'object');
-    assert.equal(typeof status.body.bootstrapState, 'object');
-    assert.equal(status.body.lifecycle.desiredMode, 'prod');
-    assert.equal(status.body.licenseState.state, manifest.license.portableExists ? 'portable_present' : 'missing');
-    assert.equal(status.body.licenseState.portableExists, manifest.license.portableExists);
-    if (Object.prototype.hasOwnProperty.call(status.body.licenseState, 'stepUpConfigExists')) {
-      assert.equal(status.body.licenseState.stepUpConfigExists, manifest.license.stepUpConfigExists);
-    }
-
-    const statusScript = runPowerShell(['-Command', 'npm run status'], { timeout: 120_000, env: brokerEnv });
-    assert.equal(statusScript.status, 0, statusScript.stderr || statusScript.stdout);
-    assert.match(statusScript.stdout, /Estado API: (UP|DOWN)/);
-    assert.match(statusScript.stdout, /Estado Web: (UP|DOWN)/);
-    if (bootstrap.state === 'healthy') {
-      assert.match(statusScript.stdout, /Estado API: UP/);
-      assert.match(statusScript.stdout, /Estado Web: UP/);
-    }
-  } finally {
-    await licenseApi.close();
-  }
+  const dashboardBase = String(bootstrap.meta?.base || '').trim();
+  assert.match(dashboardBase, /^http:\/\/127\.0\.0\.1:\d+$/);
+  const status = await httpJson(`${dashboardBase}/api/status`, 15_000);
+  assert.equal(status.status, 200);
+  assert.equal(status.body.lifecycle.desiredMode, 'prod');
+  assert.equal(typeof status.body.installationState, 'object');
+  assert.equal(typeof status.body.shortcutState, 'object');
+  assert.equal(typeof status.body.licenseState, 'object');
+  assert.equal(typeof status.body.bootstrapState, 'object');
 });

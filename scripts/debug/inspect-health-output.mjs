@@ -1,6 +1,6 @@
 import { execSync } from 'child_process'
 
-const prereq = 'c:\\Users\\evega\\EvaluaPro_Sistema_Universitario\\scripts\\installer-hub\\modules\\PrereqDetector.psm1'
+const prereq = 'c:\\Users\\evega\\EvaluaPro_Sistema_Universitario\\scripts\\installer-burn\\modules\\PrereqDetector.psm1'
 const installDir = 'C:\\Users\\evega\\AppData\\Local\\Temp\\evaluapro-debug-1c46ac7f50524caea04cd43beeafd937\\EvaluaPro'
 const cmd = `[Console]::OutputEncoding = [System.Text.Encoding]::UTF8; Import-Module -Force '${prereq}' -DisableNameChecking; Get-EvaluaProInstallationHealth -InstallDir '${installDir}' | ConvertTo-Json -Depth 8`
 try {

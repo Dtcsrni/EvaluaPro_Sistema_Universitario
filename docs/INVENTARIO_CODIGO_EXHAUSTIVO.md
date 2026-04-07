@@ -1,11 +1,11 @@
 # Inventario Exhaustivo de Codigo
 
-Fecha de generacion: 2026-04-03 16:00:34
+Fecha de generacion: 2026-04-07 00:27:06
 Fuente: git ls-files filtrado por existencia en workspace (solo archivos versionados presentes, excluye node_modules).
 
 ## Resumen
 
-- Total de piezas de codigo/config ejecutable inventariadas: 881
+- Total de piezas de codigo/config ejecutable inventariadas: 896
 - Extensiones incluidas: ts, tsx, js, jsx, mjs, cjs, json, yml, yaml, sh, cmd, ps1.
 
 ## Conteo por area
@@ -16,9 +16,9 @@ Fuente: git ls-files filtrado por existencia en workspace (solo archivos version
 | frontend | 129 |
 | portal_alumno_cloud | 44 |
 | ci | 17 |
-| scripts | 127 |
+| scripts | 131 |
 | ops | 3 |
-| docs | 54 |
+| docs | 56 |
 | raiz | 9 |
 
 ## Backend (apps/backend)
@@ -629,6 +629,8 @@ Fuente: git ls-files filtrado por existencia en workspace (solo archivos version
 - scripts/create-shortcuts.ps1
 - scripts/dashboard-sw.js
 - scripts/dashboard.mjs
+- scripts/debug/inspect-health-output.mjs
+- scripts/debug/refresh-icon-cache.ps1
 - scripts/detect-host-ip.mjs
 - scripts/devops/apply-ruleset-main.mjs
 - scripts/devops/check-ruleset-main.mjs
@@ -648,10 +650,13 @@ Fuente: git ls-files filtrado por existencia en workspace (solo archivos version
 - scripts/ia-docblocks.mjs
 - scripts/ia-handoff.mjs
 - scripts/ia-traceability.mjs
+- scripts/icons/generate-installer-canonical-icon.ps1
+- scripts/icons/generate-installer-flavor-icon.ps1
+- scripts/icons/generate-official-hero.ps1
 - scripts/import-backup.mjs
 - scripts/Install-EvaluaPro.ps1
 - scripts/install-maintenance-tasks.ps1
-- scripts/installer-hub/InstallerHub.ps1
+- scripts/installer-burn/InstallerBurnHelper.ps1
 - scripts/inventario-codigo.mjs
 - scripts/launch-dev.cmd
 - scripts/launch-prod.cmd
@@ -788,6 +793,8 @@ Fuente: git ls-files filtrado por existencia en workspace (solo archivos version
 - docs/handoff/sesiones/2026-03-27/sesion-2026-03-27T06-49-30.218Z.json
 - docs/handoff/sesiones/2026-03-27/sesion-2026-03-27T09-31-40.802Z.json
 - docs/handoff/sesiones/2026-03-27/sesion-2026-03-27T10-55-07.601Z.json
+- docs/handoff/sesiones/2026-04-03/sesion-2026-04-03T22-00-34.713Z.json
+- docs/handoff/sesiones/2026-04-06/sesion-2026-04-06T09-24-17.720Z.json
 - docs/handoff/trace.schema.json
 - docs/perf/baseline.business.json
 - docs/perf/baseline.json

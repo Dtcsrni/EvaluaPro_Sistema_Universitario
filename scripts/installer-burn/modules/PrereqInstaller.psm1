@@ -19,6 +19,40 @@ function Test-InstallerFlag {
   return $DefaultValue
 }
 
+function Invoke-PrereqProgress {
+  param(
+    [scriptblock]$OnProgress,
+    [string]$Activity,
+    [int]$Percent,
+    [string]$Status,
+    [hashtable]$Meta
+  )
+
+  Invoke-InstallerHubProgressCallback -OnProgress $OnProgress -Activity $Activity -Percent $Percent -Status $Status -Meta $Meta
+}
+
+function New-ScaledProgressCallback {
+  param(
+    [scriptblock]$OnProgress,
+    [int]$StartPercent,
+    [int]$EndPercent,
+    [string]$ActivityPrefix = ''
+  )
+
+  if (-not $OnProgress) {
+    return $null
+  }
+
+  return {
+    param($activity, $percent, $status, $meta)
+    $range = [Math]::Max(0, $EndPercent - $StartPercent)
+    $normalized = [Math]::Min(100, [Math]::Max(0, [int]$percent))
+    $scaled = $StartPercent + [int][Math]::Round(($normalized / 100.0) * $range)
+    $effectiveActivity = if ([string]::IsNullOrWhiteSpace($ActivityPrefix)) { [string]$activity } else { $ActivityPrefix }
+    Invoke-InstallerHubProgressCallback -OnProgress $OnProgress -Activity $effectiveActivity -Percent $scaled -Status ([string]$status) -Meta $meta
+  }.GetNewClosure()
+}
+
 function Get-DockerRuntimeBootstrapDistro {
   $raw = [string]$env:EVALUAPRO_INSTALLER_WSL_DISTRO
   if ([string]::IsNullOrWhiteSpace($raw)) { return 'Ubuntu' }
@@ -165,7 +199,8 @@ function Invoke-DockerRuntimeBootstrapAuto {
   param(
     [Parameter(Mandatory = $true)]
     [pscustomobject]$Plan,
-    [scriptblock]$OnLog
+    [scriptblock]$OnLog,
+    [scriptblock]$OnProgress
   )
 
   $executed = @()
@@ -173,10 +208,18 @@ function Invoke-DockerRuntimeBootstrapAuto {
   $failed = @()
   $simulateAuto = @('1', 'true', 'yes', 'on') -contains ([string]$env:EVALUAPRO_INSTALLER_SIMULATE_AUTO_BOOTSTRAP).Trim().ToLowerInvariant()
 
+  $autoSteps = @($Plan.steps | Where-Object { $_.executor -eq 'host' -and $_.autoRunnable })
+  $autoStepCount = [Math]::Max(1, @($autoSteps).Count)
+  $autoStepIndex = 0
+
   foreach ($step in @($Plan.steps)) {
     if ($step.executor -eq 'host' -and $step.autoRunnable) {
+      $autoStepIndex += 1
+      $startPercent = [int][Math]::Round((($autoStepIndex - 1) / $autoStepCount) * 100)
+      $endPercent = [int][Math]::Round(($autoStepIndex / $autoStepCount) * 100)
       try {
         if ($OnLog) { & $OnLog 'info' ("[auto-bootstrap] ejecutando: {0}" -f $step.command) }
+        Invoke-PrereqProgress -OnProgress $OnProgress -Activity 'docker-bootstrap' -Percent $startPercent -Status ("Ejecutando: {0}" -f [string]$step.title)
         if (-not $simulateAuto) {
           $rawCommand = [string]$step.command
           if ($rawCommand -match '^\s*wsl\s+--install\b') {
@@ -193,8 +236,10 @@ function Invoke-DockerRuntimeBootstrapAuto {
             if ($OnLog) {
               & $OnLog 'warn' ("[auto-bootstrap] instalacion WSL iniciada en segundo plano. Requiere completar setup manual/reinicio.")
             }
+            Invoke-PrereqProgress -OnProgress $OnProgress -Activity 'docker-bootstrap' -Percent $endPercent -Status ("Instalacion WSL iniciada: {0}" -f [string]$step.title)
           } else {
             Invoke-Expression -Command $rawCommand | Out-Null
+            Invoke-PrereqProgress -OnProgress $OnProgress -Activity 'docker-bootstrap' -Percent $endPercent -Status ("Paso completado: {0}" -f [string]$step.title)
           }
         }
         $executed += [pscustomobject]@{
@@ -203,6 +248,7 @@ function Invoke-DockerRuntimeBootstrapAuto {
           ok = $true
         }
       } catch {
+        Invoke-PrereqProgress -OnProgress $OnProgress -Activity 'docker-bootstrap' -Percent $startPercent -Status ("Fallo: {0}" -f [string]$step.title)
         $failed += [pscustomobject]@{
           title = [string]$step.title
           command = [string]$step.command
@@ -264,7 +310,8 @@ function Install-PrerequisitePackage {
     [pscustomobject]$Prerequisite,
     [Parameter(Mandatory = $true)]
     [string]$DownloadRoot,
-    [scriptblock]$OnLog
+    [scriptblock]$OnLog,
+    [scriptblock]$OnProgress
   )
 
   $ruleType = [string]$Prerequisite.detectRule.type
@@ -272,6 +319,7 @@ function Install-PrerequisitePackage {
     $status = Get-DockerRuntimeStatus
     if ($status.installed) {
       if ($OnLog) { & $OnLog 'ok' ("Runtime Docker compatible detectado: $($status.mode)") }
+      Invoke-PrereqProgress -OnProgress $OnProgress -Activity 'docker-runtime' -Percent 100 -Status ("Runtime Docker disponible: {0}" -f [string]$status.mode)
       return [pscustomobject]@{
         name = [string]$Prerequisite.name
         filePath = ''
@@ -283,6 +331,7 @@ function Install-PrerequisitePackage {
 
     $plan = New-DockerRuntimeWindowsBootstrapPlan -Status $status
     $guide = Write-DockerRuntimeBootstrapGuide -Plan $plan -DownloadRoot $DownloadRoot
+    Invoke-PrereqProgress -OnProgress $OnProgress -Activity 'docker-runtime' -Percent 5 -Status ("Plan de bootstrap generado para {0}" -f [string]$plan.distro)
     $autoBootstrapEnabled = Test-InstallerFlag -Value ([string]$env:EVALUAPRO_INSTALLER_AUTO_BOOTSTRAP_WSL) -DefaultValue $true
     $bootstrapExecution = $null
 
@@ -297,6 +346,7 @@ function Install-PrerequisitePackage {
       if ($OnLog) {
         & $OnLog 'ok' "Bootstrap guiado simulado para runtime Docker Windows ($($plan.distro))."
       }
+      Invoke-PrereqProgress -OnProgress $OnProgress -Activity 'docker-runtime' -Percent 100 -Status ("Bootstrap simulado completado para {0}" -f [string]$plan.distro)
       return [pscustomobject]@{
         name = [string]$Prerequisite.name
         filePath = [string]$guide.guidePath
@@ -309,7 +359,7 @@ function Install-PrerequisitePackage {
     }
 
     if ($autoBootstrapEnabled) {
-      $bootstrapExecution = Invoke-DockerRuntimeBootstrapAuto -Plan $plan -OnLog $OnLog
+      $bootstrapExecution = Invoke-DockerRuntimeBootstrapAuto -Plan $plan -OnLog $OnLog -OnProgress (New-ScaledProgressCallback -OnProgress $OnProgress -StartPercent 10 -EndPercent 85 -ActivityPrefix 'docker-runtime')
       $modeAfterAuto = [string]$env:EVALUAPRO_INSTALLER_SIMULATE_DOCKER_RUNTIME_MODE_AFTER_AUTO
       if ([bool]$bootstrapExecution.simulated -and -not [string]::IsNullOrWhiteSpace($modeAfterAuto)) {
         $env:EVALUAPRO_INSTALLER_SIMULATE_DOCKER_RUNTIME_MODE = $modeAfterAuto.Trim()
@@ -320,6 +370,7 @@ function Install-PrerequisitePackage {
       $statusAfterAuto = Get-DockerRuntimeStatus
       if ($statusAfterAuto.installed) {
         if ($OnLog) { & $OnLog 'ok' ("Runtime Docker compatible detectado tras auto-bootstrap: $($statusAfterAuto.mode)") }
+        Invoke-PrereqProgress -OnProgress $OnProgress -Activity 'docker-runtime' -Percent 100 -Status ("Runtime Docker listo: {0}" -f [string]$statusAfterAuto.mode)
         return [pscustomobject]@{
           name = [string]$Prerequisite.name
           filePath = [string]$guide.guidePath
@@ -349,6 +400,7 @@ function Install-PrerequisitePackage {
         & $OnLog 'info' ("{0}: {1}" -f $step.title, $step.command)
       }
     }
+    Invoke-PrereqProgress -OnProgress $OnProgress -Activity 'docker-runtime' -Percent 90 -Status 'Bootstrap automatico incompleto; se requieren acciones manuales.'
 
     $statusForError = if ($autoBootstrapEnabled) { Get-DockerRuntimeStatus } else { $status }
     $detail = if (@($statusForError.manualActions).Count -gt 0) { ($statusForError.manualActions -join ' ') } else { [string]$statusForError.reason }
@@ -374,9 +426,11 @@ function Install-PrerequisitePackage {
   $expected = Resolve-PrereqExpectedSha256 -Prerequisite $Prerequisite -OnLog $OnLog
 
   if ($OnLog) { & $OnLog 'info' "Descargando prerequisito: $name" }
-  Invoke-InstallerHubDownloadFile -Url $downloadUrl -Destination $localPath -RetryCount 2
+  Invoke-PrereqProgress -OnProgress $OnProgress -Activity 'download' -Percent 0 -Status ("Preparando descarga de {0}" -f $name)
+  Invoke-InstallerHubDownloadFile -Url $downloadUrl -Destination $localPath -RetryCount 2 -OnProgress (New-ScaledProgressCallback -OnProgress $OnProgress -StartPercent 0 -EndPercent 60 -ActivityPrefix 'download')
 
   $actual = Get-InstallerHubFileSha256 -Path $localPath
+  Invoke-PrereqProgress -OnProgress $OnProgress -Activity 'verify' -Percent 70 -Status ("Verificando integridad SHA256 de {0}" -f $name)
   if ($actual -ne $expected) {
     Remove-Item -LiteralPath $localPath -Force -ErrorAction SilentlyContinue
     throw "SHA256 invalido para prerequisito $name"
@@ -388,12 +442,14 @@ function Install-PrerequisitePackage {
   }
 
   if ($OnLog) { & $OnLog 'info' "Ejecutando instalacion silenciosa de $name..." }
-  $exitCode = Invoke-InstallerHubProcess -FilePath $localPath -Arguments $args -TimeoutSec 3600
+  Invoke-PrereqProgress -OnProgress $OnProgress -Activity 'install' -Percent 75 -Status ("Instalando {0}" -f $name)
+  $exitCode = Invoke-InstallerHubProcess -FilePath $localPath -Arguments $args -TimeoutSec 3600 -OnProgress (New-ScaledProgressCallback -OnProgress $OnProgress -StartPercent 75 -EndPercent 95 -ActivityPrefix 'install')
   if ($exitCode -ne 0) {
     throw "Instalacion de $name fallo con codigo $exitCode"
   }
 
   if ($OnLog) { & $OnLog 'ok' "Prerequisito instalado: $name" }
+  Invoke-PrereqProgress -OnProgress $OnProgress -Activity 'complete' -Percent 100 -Status ("Prerequisito instalado: {0}" -f $name)
 
   return [pscustomobject]@{
     name = $name
@@ -409,7 +465,8 @@ function Invoke-PrerequisiteInstallationFlow {
     [pscustomobject]$Manifest,
     [Parameter(Mandatory = $true)]
     [string]$DownloadRoot,
-    [scriptblock]$OnLog
+    [scriptblock]$OnLog,
+    [scriptblock]$OnProgress
   )
 
   $results = @()
@@ -423,6 +480,7 @@ function Invoke-PrerequisiteInstallationFlow {
   $missing = @($statuses | Where-Object { -not $_.installed })
   if ($missing.Count -eq 0) {
     if ($OnLog) { & $OnLog 'ok' 'No hay prerequisitos faltantes.' }
+    Invoke-PrereqProgress -OnProgress $OnProgress -Activity 'prerequisites' -Percent 100 -Status 'No hay prerequisitos faltantes.'
     return [pscustomobject]@{
       ok = $true
       statuses = $statuses
@@ -431,17 +489,27 @@ function Invoke-PrerequisiteInstallationFlow {
     }
   }
 
+  Invoke-PrereqProgress -OnProgress $OnProgress -Activity 'prerequisites' -Percent 5 -Status ("Se instalaran {0} prerequisitos faltantes." -f $missing.Count)
+
+  $missingCount = [Math]::Max(1, $missing.Count)
+  $missingIndex = 0
   foreach ($item in $Manifest.prerequisites) {
     $state = @($statuses | Where-Object { $_.name -eq $item.name } | Select-Object -First 1)[0]
     if ($state.installed) { continue }
+    $missingIndex += 1
+    $slotStart = [int][Math]::Round((($missingIndex - 1) / $missingCount) * 100)
+    $slotEnd = [int][Math]::Round(($missingIndex / $missingCount) * 100)
+    Invoke-PrereqProgress -OnProgress $OnProgress -Activity 'prerequisites' -Percent $slotStart -Status ("Iniciando remediacion de {0}" -f [string]$item.name)
 
-    $result = Install-PrerequisitePackage -Prerequisite $item -DownloadRoot $DownloadRoot -OnLog $OnLog
+    $result = Install-PrerequisitePackage -Prerequisite $item -DownloadRoot $DownloadRoot -OnLog $OnLog -OnProgress (New-ScaledProgressCallback -OnProgress $OnProgress -StartPercent $slotStart -EndPercent $slotEnd -ActivityPrefix ([string]$item.name))
     $results += $result
 
     $after = Test-PrerequisiteStatus -Prerequisite $item
     if (-not $after.installed) {
       throw "Prerequisito $($item.name) sigue sin cumplir tras instalacion."
     }
+
+    Invoke-PrereqProgress -OnProgress $OnProgress -Activity 'prerequisites' -Percent $slotEnd -Status ("Prerequisito verificado: {0}" -f [string]$item.name)
   }
 
   $finalStatuses = @()
