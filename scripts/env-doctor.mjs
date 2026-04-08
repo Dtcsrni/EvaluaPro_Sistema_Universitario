@@ -159,33 +159,48 @@ function evaluateEnvDoctor(options = {}) {
     pushCheck('ok', 'npm.available', 'npm disponible.', `npm=${npmVersion.stdout}`);
   }
 
+  const runtimeReport = loadDockerRuntimeReport(run, process.execPath);
+  const runtimePayload = runtimeReport.ok ? runtimeReport.payload : null;
+  const runtimeDocker = runtimePayload?.docker || null;
+  const runtimeName = String(runtimePayload?.runtime || '');
+  const windowsWslDockerReady = target === 'windows'
+    && runtimeName === 'wsl2-engine'
+    && Boolean(runtimeDocker?.clientVersion && runtimeDocker?.clientVersion !== 'unknown')
+    && Boolean(runtimeDocker?.serverVersion && runtimeDocker?.serverVersion !== 'unknown')
+    && Boolean(runtimeDocker?.daemonAvailable)
+    && Boolean(runtimeDocker?.composeVersion && runtimeDocker?.composeVersion !== 'unknown');
+
   const dockerClient = run('docker version --format "{{.Client.Version}}"');
-  if (!dockerClient.ok || !dockerClient.stdout) {
-    pushCheck('fail', 'docker.cli', 'No se detecta Docker CLI operativo.', 'Instala o corrige runtime Docker compatible.');
-  } else {
+  if (dockerClient.ok && dockerClient.stdout) {
     pushCheck('ok', 'docker.cli', 'Docker CLI disponible.', `client=${dockerClient.stdout}`);
+  } else if (windowsWslDockerReady) {
+    pushCheck('ok', 'docker.cli', 'Docker CLI disponible via WSL2.', `client=${runtimeDocker.clientVersion}`);
+  } else {
+    pushCheck('fail', 'docker.cli', 'No se detecta Docker CLI operativo.', 'Instala o corrige runtime Docker compatible.');
   }
 
   const dockerServer = run('docker version --format "{{.Server.Version}}"');
-  if (!dockerServer.ok || !dockerServer.stdout) {
-    pushCheck('fail', 'docker.daemon', 'Docker daemon no responde.', 'Inicia Docker Engine/Daemon y vuelve a intentar.');
-  } else {
+  if (dockerServer.ok && dockerServer.stdout) {
     pushCheck('ok', 'docker.daemon', 'Docker daemon operativo.', `server=${dockerServer.stdout}`);
+  } else if (windowsWslDockerReady) {
+    pushCheck('ok', 'docker.daemon', 'Docker daemon operativo via WSL2.', `server=${runtimeDocker.serverVersion}`);
+  } else {
+    pushCheck('fail', 'docker.daemon', 'Docker daemon no responde.', 'Inicia Docker Engine/Daemon y vuelve a intentar.');
   }
 
   const dockerCompose = run('docker compose version');
-  if (!dockerCompose.ok || !dockerCompose.stdout) {
-    pushCheck('fail', 'docker.compose', 'No se detecta `docker compose`.', 'Actualiza Docker CLI a una version con Compose v2.');
-  } else {
+  if (dockerCompose.ok && dockerCompose.stdout) {
     pushCheck('ok', 'docker.compose', 'docker compose disponible.', dockerCompose.stdout.split('\n')[0] || 'ok');
+  } else if (windowsWslDockerReady) {
+    pushCheck('ok', 'docker.compose', 'docker compose disponible via WSL2.', String(runtimeDocker.composeVersion).split('\n')[0] || 'ok');
+  } else {
+    pushCheck('fail', 'docker.compose', 'No se detecta `docker compose`.', 'Actualiza Docker CLI a una version con Compose v2.');
   }
 
-  const runtimeReport = loadDockerRuntimeReport(run, process.execPath);
-  if (!runtimeReport.ok || !runtimeReport.payload) {
+  if (!runtimePayload) {
     pushCheck('warn', 'docker.runtime.report', 'No se pudo parsear salida de `docker:runtime:check`.', 'Continuar con verificaciones directas.');
   } else {
-    const runtime = String(runtimeReport.payload.runtime || 'unknown');
-    pushCheck('ok', 'docker.runtime.report', 'Reporte de runtime Docker obtenido.', `runtime=${runtime}`);
+    pushCheck('ok', 'docker.runtime.report', 'Reporte de runtime Docker obtenido.', `runtime=${runtimeName || 'unknown'}`);
   }
 
   const report = {
@@ -197,8 +212,8 @@ function evaluateEnvDoctor(options = {}) {
     warnings
   };
 
-  if (runtimeReport.payload) {
-    report.runtime = runtimeReport.payload;
+  if (runtimePayload) {
+    report.runtime = runtimePayload;
   }
 
   return report;

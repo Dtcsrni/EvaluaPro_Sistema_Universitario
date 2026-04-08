@@ -32,15 +32,34 @@ function detectDesktopInstalled() {
   return checks.some((command) => Boolean(run(command)));
 }
 
+function runWsl(command, fallback = '') {
+  if (process.platform !== 'win32') return fallback;
+  const escaped = String(command || '').replaceAll('"', '\\"');
+  return run(`wsl -- sh -lc "${escaped}"`, fallback, 5000);
+}
+
 const preferredRuntime = String(process.env.EVALUAPRO_DOCKER_RUNTIME || 'auto').trim() || 'auto';
-const clientVersion = run('docker version --format "{{.Client.Version}}"');
-const serverVersion = run('docker version --format "{{.Server.Version}}"');
-const context = run('docker context show');
-const composeVersion = run('docker compose version');
+let clientVersion = run('docker version --format "{{.Client.Version}}"');
+let serverVersion = run('docker version --format "{{.Server.Version}}"');
+let context = run('docker context show');
+let composeVersion = run('docker compose version');
 const wslStatus = process.platform === 'win32' ? run('wsl --status') : '';
 const wslDistros = process.platform === 'win32' ? run('wsl -l -v') : '';
 const desktopInstalled = detectDesktopInstalled();
-const daemonAvailable = Boolean(serverVersion);
+let daemonAvailable = Boolean(serverVersion);
+
+if (process.platform === 'win32' && !daemonAvailable && (wslStatus || wslDistros)) {
+  const wslClientVersion = runWsl("docker version --format '{{.Client.Version}}'");
+  const wslServerVersion = runWsl("docker version --format '{{.Server.Version}}'");
+  const wslContext = runWsl('docker context show');
+  const wslComposeVersion = runWsl('docker compose version');
+
+  if (wslClientVersion) clientVersion = wslClientVersion;
+  if (wslServerVersion) serverVersion = wslServerVersion;
+  if (wslContext) context = wslContext;
+  if (wslComposeVersion) composeVersion = wslComposeVersion;
+  daemonAvailable = Boolean(serverVersion);
+}
 
 let runtime = 'unknown';
 if (daemonAvailable) {

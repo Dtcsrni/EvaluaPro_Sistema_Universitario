@@ -610,7 +610,7 @@ test('detector e instalador soportan Node 24 dentro de WSL2 con simulacion contr
   const script = `
 $env:EVALUAPRO_INSTALLER_SIMULATE_DOCKER_RUNTIME_MODE='wsl2-engine'
 $env:EVALUAPRO_INSTALLER_SIMULATE_WSL_NODE_BOOTSTRAP='1'
-$env:EVALUAPRO_INSTALLER_SIMULATE_WSL_NODE_MAJOR='24'
+$env:EVALUAPRO_INSTALLER_SIMULATE_WSL_NODE_MAJOR='0'
 Import-Module -Force -WarningAction SilentlyContinue '${detectorModulePath.replace(/'/g, "''")}'
 Import-Module -Force -WarningAction SilentlyContinue '${prereqInstallerModulePath.replace(/'/g, "''")}'
 $manifest = [pscustomobject]@{
@@ -627,9 +627,9 @@ $manifest = [pscustomobject]@{
     }
   )
 }
-$before = Test-PrerequisiteStatus -Rule $manifest.prerequisites[0].detectRule
+$before = Test-PrerequisiteStatus -Prerequisite $manifest.prerequisites[0]
 $r = Invoke-PrerequisiteInstallationFlow -Manifest $manifest -DownloadRoot '${tempRoot.replace(/'/g, "''")}'
-$after = Test-PrerequisiteStatus -Rule $manifest.prerequisites[0].detectRule
+$after = Test-PrerequisiteStatus -Prerequisite $manifest.prerequisites[0]
 [pscustomobject]@{
   before = $before
   after = $after
@@ -643,9 +643,9 @@ $after = Test-PrerequisiteStatus -Rule $manifest.prerequisites[0].detectRule
       return;
     }
     const parsed = parseJsonOutput(result.stdout);
-    assert.equal(parsed.before.installed, true);
+    assert.equal(parsed.before.installed, false);
     assert.equal(parsed.after.installed, true);
-    assert.equal(parsed.after.currentValue, 24);
+    assert.equal(parsed.after.actualVersion, '24.x');
     assert.equal(parsed.result.ok, true);
     assert.equal(Array.isArray(parsed.result.installed), true);
     assert.equal(parsed.result.installed.length, 1);
