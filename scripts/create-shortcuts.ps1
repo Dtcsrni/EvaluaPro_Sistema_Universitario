@@ -1,6 +1,7 @@
 # Creates Windows shortcuts (.lnk) for EvaluaPro.
 param(
   [string]$OutputDir = "accesos-directos",
+  [bool]$SyncRepoOutput = $false,
   [bool]$SyncDesktop = $true,
   [bool]$SyncStartMenu = $true,
   [bool]$IncludeOpsShortcuts = $true,
@@ -57,7 +58,7 @@ try {
   $localIconDir = $null
 }
 
-foreach ($dir in @($iconDir, $outputPath)) {
+foreach ($dir in @($iconDir, $(if ($SyncRepoOutput) { $outputPath } else { $null }))) {
   if ($dir -and -not (Test-Path $dir)) {
     New-Item -ItemType Directory -Path $dir -Force | Out-Null
   }
@@ -363,9 +364,10 @@ if (-not $IncludeOpsShortcuts) {
   $shortcuts = $shortcuts | Where-Object { $_.Name -in @('EvaluaPro - Dev', 'EvaluaPro - Prod', 'EvaluaPro - Hub') }
 }
 
-$destinations = @(
-  @{ Name = 'Repo'; Path = $outputPath; Include = $true; UseDesktopFlag = $false; UseStartMenuFlag = $false }
-)
+$destinations = @()
+if ($SyncRepoOutput) {
+  $destinations += @{ Name = 'Repo'; Path = $outputPath; Include = $true; UseDesktopFlag = $false; UseStartMenuFlag = $false }
+}
 if ($SyncDesktop) {
   foreach ($desktopCandidate in $desktopPathCandidates) {
     if ($desktopCandidate) {

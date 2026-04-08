@@ -279,18 +279,6 @@ test('smoke activo valida broker, manifest, shortcuts y control plane sin depend
     return;
   }
 
-  const regenerateRes = runPowerShell([
-    '-File', brokerPath,
-    '-Action', 'regenerate-shortcuts',
-    '-Mode', 'prod',
-    '-Port', '4519',
-    '-NoOpen'
-  ], { timeout: 120_000 });
-  if (regenerateRes.status !== 0) {
-    test.skip();
-    return;
-  }
-
   const openRunId = `release-smoke-${Date.now()}`;
   const openRes = runPowerShell([
     '-File', brokerPath,

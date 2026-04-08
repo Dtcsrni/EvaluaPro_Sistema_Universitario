@@ -208,10 +208,9 @@ Autoconfiguracion durante uso:
 - escritorio habilitado por defecto (`InstallDesktopShortcuts=1`).
 - menu inicio agrega accesos operativos: Abrir Dashboard, Reiniciar Stack, Detener Todo, Reparar Entorno.
 
-Regenerar accesos directos locales (repo + escritorio + menu inicio):
-```powershell
-powershell -NoProfile -ExecutionPolicy Bypass -File scripts/create-shortcuts.ps1 -Force
-```
+Accesos directos:
+- solo Installer Hub debe instalarlos o restaurarlos;
+- el dashboard y el broker no deben regenerarlos por fuera de ese flujo.
 
 No autoconfigurable por instalador:
 - provisionamiento completo del runtime Docker fuera del bootstrap guiado.

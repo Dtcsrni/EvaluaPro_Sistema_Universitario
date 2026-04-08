@@ -135,7 +135,6 @@ const icon192Path = path.join(__dirname, 'dashboard-icon-192.png');
 const icon512Path = path.join(__dirname, 'dashboard-icon-512.png');
 const iconMaskablePath = path.join(__dirname, 'dashboard-icon-maskable-512.png');
 const swPath = path.join(__dirname, 'dashboard-sw.js');
-const shortcutsScriptPath = path.join(root, 'scripts', 'create-shortcuts.ps1');
 const portalDistEntry = path.join(root, 'apps', 'portal_alumno_cloud', 'dist', 'index.js');
 
 const cachedDashboardHtml = fs.readFileSync(dashboardPath, 'utf8');
@@ -1826,7 +1825,7 @@ async function diagnoseRepairStatus() {
       code: 'shortcuts.missing',
       severity: 'warn',
       message: 'No se detectaron accesos directos esperados.',
-      autoFixable: true
+      autoFixable: false
     });
   }
 
@@ -1840,7 +1839,7 @@ function createRepairSteps() {
     { id: 'precheck', label: 'Diagnostico inicial', state: 'pending', detail: '' },
     { id: 'ensure_prereq_visibility', label: 'Verificacion de prerequisitos', state: 'pending', detail: '' },
     { id: 'repair_portal_dist', label: 'Reparar build portal', state: 'pending', detail: '' },
-    { id: 'repair_shortcuts', label: 'Recrear accesos directos', state: 'pending', detail: '' },
+    { id: 'repair_shortcuts', label: 'Accesos directos (solo Installer Hub)', state: 'pending', detail: '' },
     { id: 'repair_stack', label: 'Recuperar stack', state: 'pending', detail: '' },
     { id: 'repair_portal_service', label: 'Recuperar portal', state: 'pending', detail: '' },
     { id: 'postcheck_health', label: 'Validacion final de salud', state: 'pending', detail: '' },
@@ -1916,6 +1915,9 @@ async function startRepairRun() {
           repairState.manualActions.push(`Inicia ${dockerRuntimeGuidance()} y verifica que responda \`docker version\`.`);
           repairState.manualActions.push('Si usaras WSL2 por defecto, valida la distro soportada, Docker Engine y Node 24 dentro de la distro activa.');
         }
+        if (diagnostics.issues.some((issue) => issue.code === 'shortcuts.missing')) {
+          repairState.manualActions.push('Los accesos directos solo se instalan o restauran desde Installer Hub. Ejecuta una reparacion del producto desde el Hub si necesitas recrearlos.');
+        }
         return `${blockers.length} prerequisitos pendientes reportados.`;
       });
 
@@ -1929,12 +1931,7 @@ async function startRepairRun() {
         markStepSkipped('repair_portal_dist', requirePortal ? 'Build portal ya disponible.' : 'Portal local no requerido por el flavor actual.');
       }
 
-      await runRepairStep('repair_shortcuts', async () => {
-        if (!fs.existsSync(shortcutsScriptPath)) return 'Script de accesos no encontrado, se omite.';
-        const result = await runCommandCapture('powershell -NoProfile -ExecutionPolicy Bypass -File scripts/create-shortcuts.ps1 -Force', 60_000);
-        if (!result.ok) throw new Error('No se pudieron recrear accesos directos.');
-        return 'Accesos directos recreados.';
-      });
+      markStepSkipped('repair_shortcuts', 'Los accesos directos se gestionan exclusivamente desde Installer Hub.');
 
       await runRepairStep('repair_stack', async () => {
         const task = expectedMode === 'prod' ? 'prod' : 'dev';
@@ -2905,13 +2902,11 @@ async function runLifecycleComponentAction(action, component) {
       return { ok: true, started, component: target };
     }
     if (target === 'shortcuts') {
-      if (process.platform !== 'win32') return { ok: false, error: 'unsupported_platform' };
-      if (!fs.existsSync(shortcutsScriptPath)) return { ok: false, error: 'shortcuts_script_missing' };
-      const result = await runCommandCapture('powershell -NoProfile -ExecutionPolicy Bypass -File scripts/create-shortcuts.ps1 -Force', 90_000);
       return {
-        ok: result.ok,
+        ok: false,
         component: target,
-        detail: String(result.ok ? 'Accesos regenerados.' : (result.stderr || 'No se pudieron regenerar accesos.')).slice(0, 800)
+        error: 'shortcuts_only_via_installer_hub',
+        detail: 'Los accesos directos solo se instalan o reparan mediante Installer Hub.'
       };
     }
     return { ok: false, error: 'component_unknown' };
@@ -4035,34 +4030,9 @@ const server = http.createServer(async (req, res) => {
   }
 
   if (req.method === 'POST' && pathName === '/api/shortcuts/regenerate') {
-    if (process.platform !== 'win32') {
-      return sendJson(res, 400, {
-        ok: false,
-        error: 'Plataforma no soportada para accesos directos.'
-      });
-    }
-    if (!fs.existsSync(shortcutsScriptPath)) {
-      return sendJson(res, 404, {
-        ok: false,
-        error: 'Script scripts/create-shortcuts.ps1 no encontrado.'
-      });
-    }
-    pushEvent('api', 'dashboard', 'info', 'POST /api/shortcuts/regenerate', {});
-    logSystem('Regenerando accesos directos e iconos...', 'system');
-    const result = await runCommandCapture('powershell -NoProfile -ExecutionPolicy Bypass -File scripts/create-shortcuts.ps1 -Force', 90_000);
-    if (!result.ok) {
-      logSystem('No se pudieron regenerar accesos directos.', 'error');
-      return sendJson(res, 500, {
-        ok: false,
-        error: 'No se pudieron regenerar accesos directos.',
-        detail: String(result.stderr || result.stdout || '').slice(0, 500)
-      });
-    }
-    logSystem('Accesos directos e iconos regenerados.', 'ok');
-    return sendJson(res, 200, {
-      ok: true,
-      message: 'Accesos directos e iconos regenerados.',
-      scriptPath: shortcutsScriptPath
+    return sendJson(res, 409, {
+      ok: false,
+      error: 'Los accesos directos solo se instalan o reparan mediante Installer Hub.'
     });
   }
 

@@ -1,7 +1,7 @@
 # Unified Windows launcher broker for EvaluaPro.
 # Orchestrates dashboard bootstrap, stack start, shortcuts, Hub and splash state.
 param(
-  [ValidateSet('open-dashboard', 'restart-stack', 'stop-all', 'repair', 'open-hub', 'regenerate-shortcuts', 'verify-installation')]
+  [ValidateSet('open-dashboard', 'restart-stack', 'stop-all', 'repair', 'open-hub', 'verify-installation')]
   [string]$Action = 'open-dashboard',
   [ValidateSet('dev', 'prod', 'auto')]
   [string]$Mode = 'auto',
@@ -20,7 +20,6 @@ $logFile = Join-Path $logDir 'launcher-broker.log'
 $dashboardLauncher = Join-Path $root 'scripts\launcher-dashboard.ps1'
 $hubManifestPath = Join-Path $root 'dist\installer\installer-local-paths.json'
 $hubManifestPathInternal = Join-Path $root 'dist\installer\_internal\installer-local-paths.json'
-$shortcutsScript = Join-Path $root 'scripts\create-shortcuts.ps1'
 $manifestScript = Join-Path $root 'scripts\generate-installation-manifest.ps1'
 $updateConfigPath = Join-Path $root 'config\update-config.json'
 if (-not (Test-Path -LiteralPath $logDir)) {
@@ -301,13 +300,6 @@ try {
       Invoke-ManifestRefresh
       Open-Hub
       Set-BootstrapState -State 'healthy' -Message 'Installer Hub abierto.' -DesiredMode $bootstrapMode
-      return
-    }
-    'regenerate-shortcuts' {
-      Set-BootstrapState -State 'booting_dashboard' -Message 'Regenerando accesos directos.' -DesiredMode $bootstrapMode
-      & (Resolve-PowerShellExecutable) -NoProfile -ExecutionPolicy Bypass -File $shortcutsScript -Port $Port -Force | Out-Null
-      Invoke-ManifestRefresh
-      Set-BootstrapState -State 'healthy' -Message 'Accesos directos regenerados.' -DesiredMode $bootstrapMode
       return
     }
     'verify-installation' {

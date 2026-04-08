@@ -20,6 +20,7 @@ Version visible GUI: `1.0.0b`
   - `docente-local` queda recortado a un stack minimo centralizado sobre `WSL2 + Docker`: `mongo_local`, `api_docente_prod`, `web_docente_prod`
   - `portal_alumno_cloud` deja de formar parte del criterio de salud/arranque del flavor docente y pasa a tratarse como integracion opcional
   - `scripts/launcher-dashboard.mjs`, `scripts/launcher-tray.ps1` y `scripts/launcher-broker.ps1` consumen `requireLocalPortal` para no autoarrancar ni exigir `portal` en `docente-local`
+  - los accesos directos quedan centralizados en Installer Hub; dashboard, broker y reparación dejan de regenerarlos fuera del flujo de instalación/reparación del Hub
   - `docker-compose.yml` mueve `mongo_express_local` al profile `support`
   - `config/installer-flavors.json`, `config/installer-prereqs.manifest.json` y `scripts/generate-installation-manifest.ps1` publican el contrato `requireLocalPortal=false` y `runtimeTarget=wsl2-docker-minimal`
   - validacion del corte en este entorno:
@@ -180,7 +181,7 @@ Version visible GUI: `1.0.0b`
     - smoke no destructivo sobre la instalacion activa con broker + dashboard + status real
 - Release Windows acceptance:
   - `repair` validado en entorno temporal aislado sin tocar Docker ni datos reales
-  - `verify-installation` y `regenerate-shortcuts` validados sobre la instalacion activa
+  - `verify-installation` validado sobre la instalacion activa; la regeneracion de accesos queda reservada a Installer Hub
   - manifiesto local, shortcuts oficiales y `licenseState` verificados como contrato operativo compartido entre Hub y dashboard
 - `npm run lint` ✅
 - `npm run typecheck` ✅

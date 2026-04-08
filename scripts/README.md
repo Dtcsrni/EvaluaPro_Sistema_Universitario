@@ -75,6 +75,9 @@ Matriz de uso rapido:
 - Wrapper oculto para operaciones: `shortcut-op-hidden.vbs`
 - Launcher oculto: `launcher-dashboard-hidden.vbs`
 - Tray (NotifyIcon): `launcher-tray.ps1`
+- Política:
+  - los accesos directos solo deben instalarse o restaurarse desde Installer Hub;
+  - dashboard, broker y reparación no deben regenerarlos automáticamente.
 
 ## Ejecutables rápidos
 - `launch-dev.cmd`

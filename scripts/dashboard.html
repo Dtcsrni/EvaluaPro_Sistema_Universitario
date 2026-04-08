@@ -3867,7 +3867,7 @@
             </div>
             <div class="toolbar toolbar-spaced toolbar-right" aria-label="Acciones de instalación">
               <button class="ghost-btn" id="refresh-install" type="button">Actualizar</button>
-              <button class="ghost-btn" id="regenerate-shortcuts" type="button">Regenerar accesos</button>
+              <button class="ghost-btn" id="regenerate-shortcuts" type="button">Ver política de accesos</button>
               <button class="ok" id="copy-install" type="button">Copiar</button>
             </div>
             <div class="install-grid" id="update-grid" aria-live="polite">
@@ -3906,7 +3906,7 @@
               <button class="ghost-btn" id="hub-start-stack" type="button">Levantar stack</button>
               <button class="ghost-btn" id="hub-start-portal" type="button">Levantar portal</button>
               <button class="ghost-btn" id="hub-stop-stack" type="button">Detener stack</button>
-              <button class="ghost-btn" id="hub-regenerate-shortcuts" type="button">Reinstalar accesos</button>
+              <button class="ghost-btn" id="hub-regenerate-shortcuts" type="button">Accesos vía Installer Hub</button>
             </div>
             <div class="toolbar toolbar-spaced toolbar-right" aria-label="Políticas de autosalud">
               <button class="ghost-btn" id="hub-supervisor-toggle" type="button">Supervisor</button>
@@ -7674,32 +7674,11 @@
     const botonRegenerarAccesos = $('regenerate-shortcuts');
     if (botonRegenerarAccesos) {
       botonRegenerarAccesos.addEventListener('click', async () => {
-        botonRegenerarAccesos.disabled = true;
-        mostrarToast('Regenerando accesos directos...', 'info', {
-          id: 'shortcuts-regenerate-pending',
+        mostrarToast('Los accesos directos solo se instalan o restauran mediante Installer Hub.', 'warn', {
+          id: 'shortcuts-policy-info',
           title: 'Accesos directos',
-          duration: 2600
+          duration: 5200
         });
-        try {
-          const respuesta = await api('/api/shortcuts/regenerate', {});
-          if (!respuesta || respuesta.ok === false) {
-            const detalle = String((respuesta && (respuesta.error || respuesta.detail)) || 'No se pudo completar la regeneración.');
-            mostrarToast(detalle, 'error', {
-              id: 'shortcuts-regenerate-error',
-              title: 'Accesos directos',
-              duration: 5200
-            });
-            return;
-          }
-          mostrarToast('Accesos e iconos regenerados correctamente.', 'ok', {
-            id: 'shortcuts-regenerate-ok',
-            title: 'Accesos directos',
-            duration: 2600
-          });
-          refrescarInfoInstalacion();
-        } finally {
-          botonRegenerarAccesos.disabled = false;
-        }
       });
     }
 
@@ -7855,9 +7834,10 @@
 
     const botonHubRegenShortcuts = $('hub-regenerate-shortcuts');
     if (botonHubRegenShortcuts) {
-      botonHubRegenShortcuts.addEventListener('click', () => ejecutarAccionHub('/api/lifecycle/component/install', { component: 'shortcuts' }, {
-        pending: 'Reinstalando accesos directos...',
-        okText: 'Accesos directos regenerados.'
+      botonHubRegenShortcuts.addEventListener('click', () => mostrarToast('Usa Installer Hub en modo reparación para restaurar accesos directos.', 'warn', {
+        id: 'hub-shortcuts-policy',
+        title: 'Installer Hub',
+        duration: 5200
       }));
     }
 
