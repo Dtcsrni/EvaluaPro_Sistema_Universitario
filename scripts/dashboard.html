@@ -5646,6 +5646,7 @@
     function construirContextoServicios() {
       const managedTasks = new Set(obtenerTareasGestionadas());
       const modo = String(state.modo || '').toLowerCase();
+      const requireLocalPortal = Boolean(state.flavorPolicy?.requireLocalPortal);
       const { envs } = obtenerEstadosEntornosReales();
       const devFrontendExpected = envs.dev.active && (
         managedTasks.has('dev') ||
@@ -5682,7 +5683,7 @@
         apiPortal: {
           key: 'apiPortal',
           id: 'api-portal',
-          expected: envs.portal.active,
+          expected: requireLocalPortal && envs.portal.active,
           info: state.salud?.apiPortal
         }
       };
@@ -5706,6 +5707,7 @@
 
     function obtenerServiciosDetectados() {
       const compose = state.compose || {};
+      const requireLocalPortal = Boolean(state.flavorPolicy?.requireLocalPortal);
       const detectados = new Set();
 
       if (compose.dev?.mongo_local || compose.prod?.mongo_local || state.salud?.mongoLocal?.ok) detectados.add('mongoLocal');
@@ -5714,7 +5716,7 @@
       if (state.salud?.apiDocente?.ok) detectados.add('apiDocente');
       if (state.salud?.webDocenteDev?.ok) detectados.add('webDocenteDev');
       if (state.salud?.webDocenteProd?.ok) detectados.add('webDocenteProd');
-      if (state.salud?.apiPortal?.ok) detectados.add('apiPortal');
+      if (requireLocalPortal && state.salud?.apiPortal?.ok) detectados.add('apiPortal');
 
       return Array.from(detectados);
     }

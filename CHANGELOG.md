@@ -5,6 +5,26 @@ Este archivo sigue el formato "Keep a Changelog" (alto nivel) y SemVer.
 ## [Unreleased]
 
 ### Changed
+- `docente-local` migra para que Installer Hub prepare `WSL2` y elimine la dependencia de `Node` global en Windows:
+  - `config/installer-prereqs.manifest.json` deja `Node.js` host fuera del perfil `docente-local` y agrega `Node.js WSL2`
+  - `scripts/installer-burn/modules/PrereqDetector.psm1` y `PrereqInstaller.psm1` detectan/provisionan `Node 24` dentro de la distro objetivo de `WSL2`
+  - `scripts/installer-burn/InstallerBurnHelper.ps1` descarga y valida un runtime Node embebido privado en `runtime/node/`
+  - `scripts/installer-burn/modules/PostInstallVerifier.psm1` valida runtime Node embebido local + `Node 24` en `WSL2` para `docente-local`
+  - `scripts/generate-installation-manifest.ps1` publica `runtime.embeddedNode` y `runtime.wsl` en `installation.manifest.json`
+  - `scripts/launcher-dashboard.ps1`, `scripts/launcher-tray.ps1`, `launch-dev.cmd` y `launch-prod.cmd` prefieren el `node.exe` embebido antes que `Node` global
+  - `packaging/wix/Product.wxs` deja de exigir `Node.js` host para `docente-local` y conserva la condicion solo donde sigue aplicando
+  - contratos y docs de installer/smoke/deploy se alinean al nuevo modelo `WSL2 + Docker + Node embebido`
+- Se agrega `env-doctor` dual para entorno operativo (`WSL2 + Windows`) con contrato fail-fast:
+  - nuevo script `scripts/env-doctor.mjs` con targets `wsl|windows|auto`
+  - nuevos comandos `npm run env:doctor:wsl`, `npm run env:doctor:windows`, `npm run env:doctor`
+  - validaciones de `node>=24`, `npm`, Docker CLI/daemon, `docker compose` y accesibilidad de `wsl --status` para target Windows
+  - nueva suite `scripts/tests/env-doctor.test.mjs` y comando `npm run test:env:doctor`
+- `docente-local` se redefine como stack docente minimo centralizado en `WSL2 + Docker`:
+  - el contrato de flavor expone `requireLocalPortal: false` y `runtimeTarget: wsl2-docker-minimal`
+  - el dashboard, tray y broker dejan de considerar `portal` como requisito del camino feliz en `docente-local`
+  - la salud operativa del flavor se alinea a `mongo_local + api_docente_prod + web_docente_prod`
+  - `mongo_express_local` sale del perfil por defecto y queda como herramienta opcional bajo profile `support`
+  - la documentacion operativa del installer, despliegue y runbook deja `portal_alumno_cloud` como integracion opcional para el flavor docente
 - Installer Hub Windows migra del flujo legacy `PowerShell WinForms` a `WiX Burn + Bootstrapper Application WPF .NET 8 + helper PowerShell headless`:
   - `packaging/wix/Bundle.wxs` deja `WixStandardBootstrapperApplication` y pasa a enlazar `EvaluaPro.BurnBootstrapperApp.exe`
   - `scripts/build-msi.ps1` publica la BA `.NET 8`, compila el bundle Burn por flavor y conserva como contrato público `EvaluaPro-InstallerHub-<flavor>.exe`

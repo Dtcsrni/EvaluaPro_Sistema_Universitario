@@ -101,6 +101,20 @@ test('installer prereq manifest incluye contrato minimo', () => {
   assert.ok(dockerRuntime);
   assert.equal(dockerRuntime.name, 'Docker Runtime Windows');
   assert.match(dockerRuntime.downloadUrl, /wsl\/install/i);
+
+  const nodeWsl = manifest.prerequisites.find((item) => item.detectRule?.type === 'node_major_wsl');
+  assert.ok(nodeWsl);
+  assert.equal(nodeWsl.name, 'Node.js WSL2');
+  assert.equal(nodeWsl.detectRule.minMajor, 24);
+
+  const docenteProfile = manifest.profiles.find((item) => item.profileId === 'docente-local');
+  const saasProfile = manifest.profiles.find((item) => item.profileId === 'saas-completo');
+  assert.ok(docenteProfile);
+  assert.ok(saasProfile);
+  assert.equal(docenteProfile.prerequisites.includes('Node.js'), false);
+  assert.equal(docenteProfile.prerequisites.includes('Node.js WSL2'), true);
+  assert.equal(docenteProfile.prerequisites.includes('Docker Runtime Windows'), true);
+  assert.equal(saasProfile.prerequisites.includes('Node.js'), true);
 });
 
 test('canal update por defecto es stable en config y scripts', () => {
@@ -163,6 +177,7 @@ test('runtime Docker Windows queda abstracto en dashboard, WiX y package scripts
   assert.match(launcherDashboard, /EVALUAPRO_DOCKER_RUNTIME/);
   assert.match(launcherDashboard, /WSL2 \+ Docker Engine o Docker Desktop/);
   assert.match(productWxs, /WSLINSTALLED/);
+  assert.match(productWxs, /\<\?if \$\(var\.FlavorId\) != docente-local \?\>/);
   assert.match(productWxs, /Installed OR REQUIRE_INSTALLER_HUB = 1 OR BURNMSIINSTALL = 1/);
   assert.match(bundleWxs, /MsiProperty Name="REQUIRE_INSTALLER_HUB" Value="1"/);
   assert.match(productWxs, /runtime Docker compatible/i);
@@ -288,7 +303,11 @@ test('resolucion de flavors funciona en layout plano del bundle Burn', () => {
       version: 1,
       defaultFlavorId: 'docente-local',
       flavors: [
-        { flavorId: 'docente-local', installerHubExeName: 'EvaluaPro-InstallerHub-docente-local.exe' }
+        {
+          flavorId: 'docente-local',
+          installerHubExeName: 'EvaluaPro-InstallerHub-docente-local.exe',
+          requireLocalPortal: false
+        }
       ]
     }, null, 2), 'utf8');
 
@@ -308,6 +327,7 @@ $catalog | ConvertTo-Json -Depth 8
     assert.equal(Array.isArray(parsed.flavors), true);
     assert.equal(parsed.flavors.length, 1);
     assert.equal(parsed.flavors[0].flavorId, 'docente-local');
+    assert.equal(parsed.flavors[0].requireLocalPortal, false);
   } finally {
     fs.rmSync(tempRoot, { recursive: true, force: true });
   }
@@ -421,7 +441,7 @@ test('launcher broker unifica shortcuts, hub y splash state', () => {
 
   assert.match(broker, /booting_dashboard/);
   assert.match(broker, /booting_stack/);
-  assert.match(broker, /booting_portal/);
+  assert.match(broker, /Test-RequiresLocalPortal/);
   assert.match(broker, /healthy/);
   assert.match(broker, /degraded/);
   assert.match(broker, /failed/);
@@ -431,6 +451,7 @@ test('launcher broker unifica shortcuts, hub y splash state', () => {
   assert.match(shortcuts, /open-hub/);
   assert.match(dashboard, /resolveInstallerHubExecutablePath/);
   assert.match(dashboard, /installer-local-paths\.json/);
+  assert.match(dashboard, /requireLocalPortal/);
   assert.doesNotMatch(dashboard, /scripts[\\/]+installer-hub[\\/]+InstallerHub\.ps1/);
 });
 
@@ -578,6 +599,57 @@ $r | ConvertTo-Json -Depth 10
     assert.equal(typeof parsed.installed[0].autoBootstrap, 'object');
     assert.equal(Array.isArray(parsed.installed[0].autoBootstrap.executed), true);
     assert.equal(parsed.installed[0].autoBootstrap.executed.length >= 1, true);
+  } finally {
+    fs.rmSync(tempRoot, { recursive: true, force: true });
+  }
+});
+
+test('detector e instalador soportan Node 24 dentro de WSL2 con simulacion contractual', () => {
+  const tempRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'evaluapro-wsl-node-bootstrap-'));
+  const detectorModulePath = path.join(root, 'scripts', 'installer-burn', 'modules', 'PrereqDetector.psm1');
+  const script = `
+$env:EVALUAPRO_INSTALLER_SIMULATE_DOCKER_RUNTIME_MODE='wsl2-engine'
+$env:EVALUAPRO_INSTALLER_SIMULATE_WSL_NODE_BOOTSTRAP='1'
+$env:EVALUAPRO_INSTALLER_SIMULATE_WSL_NODE_MAJOR='24'
+Import-Module -Force -WarningAction SilentlyContinue '${detectorModulePath.replace(/'/g, "''")}'
+Import-Module -Force -WarningAction SilentlyContinue '${prereqInstallerModulePath.replace(/'/g, "''")}'
+$manifest = [pscustomobject]@{
+  prerequisites = @(
+    [pscustomobject]@{
+      name = 'Node.js WSL2'
+      version = '24.x'
+      downloadUrl = 'https://deb.nodesource.com/setup_24.x'
+      sha256 = 'GUIDED_BOOTSTRAP'
+      sha256Url = ''
+      sha256Pattern = ''
+      silentArgs = 'bootstrap-guided'
+      detectRule = [pscustomobject]@{ type = 'node_major_wsl'; minMajor = 24 }
+    }
+  )
+}
+$before = Test-PrerequisiteStatus -Rule $manifest.prerequisites[0].detectRule
+$r = Invoke-PrerequisiteInstallationFlow -Manifest $manifest -DownloadRoot '${tempRoot.replace(/'/g, "''")}'
+$after = Test-PrerequisiteStatus -Rule $manifest.prerequisites[0].detectRule
+[pscustomobject]@{
+  before = $before
+  after = $after
+  result = $r
+} | ConvertTo-Json -Depth 12
+`.trim();
+
+  try {
+    const result = runPowerShell(script);
+    if (result.skipped) {
+      return;
+    }
+    const parsed = parseJsonOutput(result.stdout);
+    assert.equal(parsed.before.installed, true);
+    assert.equal(parsed.after.installed, true);
+    assert.equal(parsed.after.currentValue, 24);
+    assert.equal(parsed.result.ok, true);
+    assert.equal(Array.isArray(parsed.result.installed), true);
+    assert.equal(parsed.result.installed.length, 1);
+    assert.equal(parsed.result.installed[0].mode, 'wsl2-node');
   } finally {
     fs.rmSync(tempRoot, { recursive: true, force: true });
   }

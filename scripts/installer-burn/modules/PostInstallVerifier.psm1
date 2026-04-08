@@ -2,6 +2,30 @@ Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
 Import-Module (Join-Path $PSScriptRoot 'PrereqDetector.psm1') -DisableNameChecking
 
+function Get-EmbeddedNodeRuntimePath {
+  param([string]$InstallDir)
+  if (-not $InstallDir) { return '' }
+  return (Join-Path $InstallDir 'runtime\node\node.exe')
+}
+
+function Get-EmbeddedNodeMajorVersion {
+  param([string]$InstallDir)
+  $nodePath = Get-EmbeddedNodeRuntimePath -InstallDir $InstallDir
+  if (-not $nodePath -or -not (Test-Path -LiteralPath $nodePath)) { return 0 }
+
+  try {
+    $raw = (& $nodePath -v 2>$null | Select-Object -First 1)
+    if (-not $raw) { return 0 }
+    $clean = [string]$raw
+    $clean = $clean.Trim().TrimStart('v', 'V')
+    $major = [int]($clean.Split('.')[0])
+    if ($major -lt 0) { return 0 }
+    return $major
+  } catch {
+    return 0
+  }
+}
+
 function Invoke-PostInstallVerification {
   param(
     [ValidateSet('install', 'repair', 'uninstall')]
@@ -83,9 +107,21 @@ function Invoke-PostInstallVerification {
       }
     }
 
-    $nodeMajor = Get-NodeMajorVersion
-    if ($nodeMajor -lt 24) {
-      $issues += 'Node.js 24+ no disponible tras instalacion.'
+    if ([string]$Flavor.flavorId -eq 'docente-local') {
+      $embeddedNodeMajor = Get-EmbeddedNodeMajorVersion -InstallDir $effectiveDir
+      if ($embeddedNodeMajor -lt 24) {
+        $issues += 'Runtime Node embebido local no disponible tras instalacion.'
+      }
+
+      $wslNodeMajor = Get-WslNodeMajorVersion
+      if ($wslNodeMajor -lt 24) {
+        $issues += 'Node 24 no provisionado dentro de WSL2 tras instalacion.'
+      }
+    } else {
+      $nodeMajor = Get-NodeMajorVersion
+      if ($nodeMajor -lt 24) {
+        $issues += 'Node.js 24+ no disponible tras instalacion.'
+      }
     }
 
     $requireDocker = $true

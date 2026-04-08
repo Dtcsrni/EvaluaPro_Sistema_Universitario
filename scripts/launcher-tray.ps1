@@ -401,6 +401,12 @@ function Ensure-ExistingDashboardStack([int]$port, [string]$mode) {
 
   $running = @()
   try { $running = @($status.running) } catch { $running = @() }
+  $requireLocalPortal = $false
+  try {
+    if ($status -and $status.flavorPolicy -and $null -ne $status.flavorPolicy.requireLocalPortal) {
+      $requireLocalPortal = [bool]$status.flavorPolicy.requireLocalPortal
+    }
+  } catch {}
 
   if (-not ($running -contains $desired)) {
     try {
@@ -411,6 +417,8 @@ function Ensure-ExistingDashboardStack([int]$port, [string]$mode) {
       Log("Tray singleton: fallo al iniciar stack '$desired' en puerto ${port}: $($_.Exception.Message)")
     }
   }
+
+  if (-not $requireLocalPortal) { return }
 
   $portalRunning = $running -contains 'portal'
   if (-not $portalRunning) {
@@ -482,6 +490,8 @@ if (-not $createdNew) {
 }
 
 function Get-NodePath {
+  $embedded = Join-Path $root 'runtime\node\node.exe'
+  if (Test-Path -LiteralPath $embedded) { return $embedded }
   $cmd = Get-Command node -ErrorAction SilentlyContinue
   if ($cmd -and $cmd.Source) { return $cmd.Source }
   return $null
@@ -665,6 +675,12 @@ function Ensure-StackOnLaunch {
 
   $status = Wait-ForStatus 6000
   if (-not $status) { return }
+  $requireLocalPortal = $false
+  try {
+    if ($status -and $status.flavorPolicy -and $null -ne $status.flavorPolicy.requireLocalPortal) {
+      $requireLocalPortal = [bool]$status.flavorPolicy.requireLocalPortal
+    }
+  } catch {}
 
   $running = Get-RunningTasksFromStatus $status
   $stackRunning = (Test-AnyStackTasksRunning $running) -or (Test-AnyStackRunning)
@@ -676,6 +692,8 @@ function Ensure-StackOnLaunch {
     if (-not $status) { return }
     $running = Get-RunningTasksFromStatus $status
   }
+
+  if (-not $requireLocalPortal) { return }
 
   $portalRunning = $running -contains 'portal'
   if (-not $portalRunning) {
@@ -705,8 +723,8 @@ function Start-DashboardIfNeeded {
 
   $node = Get-NodePath
   if (-not $node) {
-    Log('Node no encontrado en PATH.')
-    [System.Windows.Forms.MessageBox]::Show('Node no encontrado en PATH.', 'EP - Bandeja', 'OK', 'Error') | Out-Null
+    Log('Runtime Node embebido no disponible y Node global no encontrado.')
+    [System.Windows.Forms.MessageBox]::Show('Runtime Node embebido no disponible y Node global no encontrado.', 'EP - Bandeja', 'OK', 'Error') | Out-Null
     return @{ started = $false; pid = $null }
   }
 
@@ -750,6 +768,12 @@ function Get-SystemMood($status, $health) {
 
   $services = $null
   try { $services = $health.services } catch { $services = $null }
+  $requireLocalPortal = $false
+  try {
+    if ($status -and $status.flavorPolicy -and $null -ne $status.flavorPolicy.requireLocalPortal) {
+      $requireLocalPortal = [bool]$status.flavorPolicy.requireLocalPortal
+    }
+  } catch {}
 
   $stackState = ''
   $stackRunning = $false
@@ -778,14 +802,14 @@ function Get-SystemMood($status, $health) {
   }
 
   if (-not $hasDevOrProd -and ($stackHint -or $healthStackUp)) { $hasDevOrProd = $true }
-  if (-not $hasPortal -and $healthPortalUp) { $hasPortal = $true }
+  if ($requireLocalPortal -and -not $hasPortal -and $healthPortalUp) { $hasPortal = $true }
 
   $expected = @()
   if ($hasDevOrProd) {
     $expected += @('apiDocente')
     $expected += @($(if ($mode -eq 'prod') { 'webDocenteProd' } else { 'webDocenteDev' }))
   }
-  if ($hasPortal) { $expected += @('apiPortal') }
+  if ($requireLocalPortal -and $hasPortal) { $expected += @('apiPortal') }
 
   if ($expected.Count -eq 0) {
     if ($stackState -eq 'starting' -or $stackState -eq 'checking') { return 'warn' }

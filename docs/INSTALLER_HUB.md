@@ -6,9 +6,11 @@ La superficie publica ahora es `WiX Burn + Bootstrapper Application WPF .NET 8 +
 ## Objetivo
 - Ejecutar instalacion, reparacion o desinstalacion desde una GUI guiada.
 - Verificar y preparar prerequisitos de Windows con `WSL2 + Docker Engine` como default y `Docker Desktop` como compatibilidad opcional.
+- Para `docente-local`, preparar tambien `Node 24` dentro de la distro objetivo de `WSL2` y desplegar un runtime Node embebido local en Windows para dashboard/tray/shortcuts.
 - Encadenar el `MSI` por medio de `Burn` con elevacion, cache, repair/uninstall y logging nativos.
 - Ejecutar configuracion operativa, activacion de licencia y validacion final con helper controlado bajo contrato JSON.
 - Dejar trazabilidad en logs por sesion para soporte tecnico.
+- Para `docente-local`, centralizar el stack minimo en `WSL2 + Docker`: `MongoDB + API + Web`.
 
 ## Flujo funcional
 1. Elevacion UAC administrada por `WiX Burn`.
@@ -19,7 +21,8 @@ La superficie publica ahora es `WiX Burn + Bootstrapper Application WPF .NET 8 +
    - `uninstall`
 4. Analisis de requisitos de equipo desde helper Burn (`detect-prereqs`) con estado visual de:
    - SO/arquitectura/disco/red
-   - `Node.js`
+   - runtime Node embebido local en Windows
+   - `Node 24` dentro de `WSL2`
    - runtime Docker compatible
 5. Planificacion y ejecucion del chain MSI por Burn.
 6. Configuracion operativa obligatoria en helper post-install (`post-install`).
@@ -108,6 +111,10 @@ En este repo/equipo, el ejecutable recomendado para instalacion docente local qu
   - correo: `CORREO_MODULO_ACTIVO`, `NOTIFICACIONES_WEBHOOK_URL`, `NOTIFICACIONES_WEBHOOK_TOKEN`
   - licencia: `ApiComercialBaseUrl`, `TenantId`, `CodigoActivacion`, `RequireLicenseActivation`, `LICENCIA_ACCOUNT_EMAIL`
   - actualizaciones automaticas: `channel`, `owner`, `repo`, `assetName`, `sha256AssetName`, `requireSha256`, `feedUrl` en `config/update-config.json`
+- Runtime operativo reflejado en `logs/installation.manifest.json`:
+  - `installation.runtimeTarget`
+  - `runtime.embeddedNode.present|path|version`
+  - `runtime.wsl.distro|nodeVersion|dockerReady`
 
 Activacion segura opcional al instalar (GUI o headless):
 - `-ApiComercialBaseUrl`
@@ -151,6 +158,10 @@ Regla de publicacion:
   - fallback permitido a `Docker Desktop`;
   - generar y seguir la guía local de bootstrap WSL2/Docker Engine emitida por el Hub;
   - validar siempre por CLI (`docker version`, `docker context`, `wsl --status`) y no por GUI.
+- Para `docente-local`, `Node.js` host global deja de ser prerequisito manual:
+  - Windows valida un runtime Node embebido privado del producto;
+  - la distro `WSL2` objetivo debe quedar con `Node 24` y `Docker Engine` listos tras el bootstrap.
+- Para `docente-local`, la remediacion se enfoca en habilitar el runtime del stack minimo `Mongo + API + Web`; el portal alumno local no forma parte del criterio de listo.
 - Sin internet: bloqueo temprano y opcion de reintento.
 - Asset o API no disponible: reintentos controlados y mensaje accionable.
 - Hash invalido: aborta y purga artefacto descargado.
@@ -168,6 +179,8 @@ Regla de publicacion:
 - Solo para pruebas/contrato:
   - `EVALUAPRO_INSTALLER_SIMULATE_DOCKER_RUNTIME_MODE`
   - `EVALUAPRO_INSTALLER_SIMULATE_WSL_BOOTSTRAP`
+  - `EVALUAPRO_INSTALLER_SIMULATE_WSL_NODE_BOOTSTRAP`
+  - `EVALUAPRO_INSTALLER_SIMULATE_WSL_NODE_MAJOR`
   - `EVALUAPRO_INSTALLER_SIMULATE_AUTO_BOOTSTRAP`
   - `EVALUAPRO_INSTALLER_SIMULATE_DOCKER_RUNTIME_MODE_AFTER_BOOTSTRAP`
   - `EVALUAPRO_INSTALLER_SIMULATE_DOCKER_RUNTIME_MODE_AFTER_AUTO`

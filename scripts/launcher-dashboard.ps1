@@ -9,9 +9,10 @@ param(
 )
 
 $root = (Resolve-Path (Join-Path $PSScriptRoot '..')).Path
-$node = (Get-Command node -ErrorAction SilentlyContinue).Source
+$embeddedNode = Join-Path $root 'runtime\node\node.exe'
+$node = if (Test-Path -LiteralPath $embeddedNode) { $embeddedNode } else { (Get-Command node -ErrorAction SilentlyContinue).Source }
 if (-not $node) {
-  Write-Host 'Node no encontrado en PATH.'
+  Write-Host 'Runtime Node embebido no disponible y Node global no encontrado.'
   exit 1
 }
 

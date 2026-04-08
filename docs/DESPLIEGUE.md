@@ -24,22 +24,21 @@ npm run dev:portal
 npm run stack:prod
 ```
 
-Portal prod local (sin watch):
+Portal prod local (sin watch, solo laboratorio o validacion puntual):
 ```bash
 npm run portal:prod
 ```
 
 Notas:
 - `portal:prod` compila `apps/portal_alumno_cloud` solo si falta `dist/index.js`.
-- Los accesos directos `EvaluaPro - Dev` y `EvaluaPro - Prod` aplican arranque estricto:
-  - levantan dashboard/tray si no estaba activo,
-  - solicitan inicio de stack/portal,
-  - esperan salud (`apiDocente` + `apiPortal`) antes de abrir la UI.
+- Los accesos directos `EvaluaPro - Dev` y `EvaluaPro - Prod` aplican arranque estricto.
+- Para `docente-local`, el camino feliz es `prod local` sobre `WSL2 + Docker` con salud de `mongo_local + api_docente_prod + web_docente_prod`.
+- El portal alumno se considera integracion externa/cloud y no bloquea la UI docente local.
 
 ## Servicios locales tipicos
-- `mongo_local`
-- `api_docente_local` / `api_docente_prod`
-- `web_docente_prod` (segun perfil)
+- `docente-local`: `mongo_local`, `api_docente_prod`, `web_docente_prod`
+- `mongo_express_local`: solo soporte/diagnostico mediante profile `support`
+- `portal_alumno_cloud`: no forma parte del stack obligatorio del flavor docente local
 
 ## Portal alumno cloud
 App objetivo: `apps/portal_alumno_cloud`.
@@ -173,14 +172,18 @@ Artefactos:
 Contrato operativo del bootstrapper Windows:
 - `EvaluaPro-InstallerHub-<flavor>.exe` es el entrypoint publico oficial.
 - se genera desde `WiX Burn` con BA personalizada `WPF .NET 8`.
-- el helper `scripts/installer-burn/InstallerBurnHelper.ps1` conserva configuracion operativa, verificacion y blindaje de licencia.
+- el helper `scripts/installer-burn/InstallerBurnHelper.ps1` conserva configuracion operativa, bootstrap de `WSL2` (`Docker Engine + Node 24` para `docente-local`), verificacion y blindaje de licencia.
 - el legado `scripts/installer-hub/InstallerHub.ps1` fue retirado y no debe invocarse.
 
 Prerequisitos de instalacion:
-- Node.js 24+
 - runtime Docker compatible:
   - `WSL2 + Docker Engine` (default)
   - `Docker Desktop` (compatibilidad)
+- `docente-local`:
+  - runtime Node embebido local en Windows para launcher/dashboard/tray
+  - `Node 24` provisionado dentro de la distro objetivo de `WSL2`
+- `saas-completo`:
+  - puede mantener temporalmente dependencia de `Node.js 24+` en host hasta migrar a runtime embebido
 - WiX Toolset v6.0.x estable (solo para generar instalador)
 - Extension BA WiX 6: resuelta automaticamente por `build-msi.ps1` (`WixToolset.Bal.wixext`).
 
@@ -200,7 +203,7 @@ Ruta operativa local recomendada para este equipo:
 
 Autoconfiguracion durante uso:
 - shortcuts Dev/Prod instalados automaticamente.
-- acceso directo Prod intenta iniciar stack+portal si no estan activos.
+- acceso directo Prod intenta iniciar el stack minimo requerido por flavor; en `docente-local` no exige `portal`.
 - instalacion/actualizacion crea accesos directos automaticamente.
 - escritorio habilitado por defecto (`InstallDesktopShortcuts=1`).
 - menu inicio agrega accesos operativos: Abrir Dashboard, Reiniciar Stack, Detener Todo, Reparar Entorno.
@@ -213,6 +216,10 @@ powershell -NoProfile -ExecutionPolicy Bypass -File scripts/create-shortcuts.ps1
 No autoconfigurable por instalador:
 - provisionamiento completo del runtime Docker fuera del bootstrap guiado.
 - credenciales/secretos de entorno de produccion real.
+
+Para `docente-local`:
+- Windows ya no depende de `Node` global para operar launcher/dashboard/tray.
+- `logs/installation.manifest.json` publica `runtime.embeddedNode` y `runtime.wsl` como contrato operativo local.
 
 ## Operacion y verificacion
 - Estado rapido:

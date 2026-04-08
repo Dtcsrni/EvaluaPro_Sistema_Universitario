@@ -316,14 +316,25 @@ test('smoke activo valida broker, manifest, shortcuts y control plane sin depend
   const manifest = readJson(manifestPath);
   assert.equal(manifest.installation.installed, true);
   assert.equal(manifest.installation.flavor, 'docente-local');
+  assert.equal(manifest.installation.runtimeTarget, 'wsl2-docker-minimal');
   assert.equal(manifest.criticalFiles.some((entry) => normalizeManifestPath(entry.path) === 'scripts/launcher-broker.ps1'), true);
   assert.equal(manifest.criticalFiles.some((entry) => normalizeManifestPath(entry.path).includes('scripts/installer-hub/InstallerHub.ps1')), false);
+  assert.equal(typeof manifest.runtime, 'object');
+  assert.equal(typeof manifest.runtime.embeddedNode, 'object');
+  assert.equal(typeof manifest.runtime.embeddedNode.present, 'boolean');
+  assert.match(String(manifest.runtime.embeddedNode.path || ''), /runtime[\\/]+node[\\/]+node\.exe$/i);
+  assert.equal(typeof manifest.runtime.wsl, 'object');
+  assert.equal(typeof manifest.runtime.wsl.distro, 'string');
+  assert.equal(typeof manifest.runtime.wsl.dockerReady, 'boolean');
 
   const dashboardBase = String(bootstrap.meta?.base || '').trim();
   assert.match(dashboardBase, /^http:\/\/127\.0\.0\.1:\d+$/);
   const status = await httpJson(`${dashboardBase}/api/status`, 15_000);
   assert.equal(status.status, 200);
   assert.equal(status.body.lifecycle.desiredMode, 'prod');
+  assert.equal(status.body.flavorPolicy.flavorId, 'docente-local');
+  assert.equal(status.body.flavorPolicy.requireLocalPortal, false);
+  assert.equal(status.body.flavorPolicy.runtimeTarget, 'wsl2-docker-minimal');
   assert.equal(typeof status.body.installationState, 'object');
   assert.equal(typeof status.body.shortcutState, 'object');
   assert.equal(typeof status.body.licenseState, 'object');

@@ -46,6 +46,48 @@ function Read-JsonFileSafe([string]$path) {
   }
 }
 
+function Get-EmbeddedNodePath([string]$baseDir) {
+  if (-not $baseDir) { return '' }
+  return (Join-Path $baseDir 'runtime\node\node.exe')
+}
+
+function Get-EmbeddedNodeVersion([string]$baseDir) {
+  $nodePath = Get-EmbeddedNodePath -baseDir $baseDir
+  if (-not (Test-Path -LiteralPath $nodePath)) { return '' }
+  try {
+    return [string]((& $nodePath -v 2>$null | Select-Object -First 1))
+  } catch {
+    return ''
+  }
+}
+
+function Get-WslPreferredDistro {
+  $envDistro = [string]$env:EVALUAPRO_INSTALLER_WSL_DISTRO
+  if (-not [string]::IsNullOrWhiteSpace($envDistro)) {
+    return $envDistro.Trim()
+  }
+  return 'Ubuntu'
+}
+
+function Get-WslNodeVersion([string]$distro) {
+  if (-not $distro) { return '' }
+  try {
+    return [string]((& wsl.exe -d $distro -- sh -lc 'node -v' 2>$null | Select-Object -First 1))
+  } catch {
+    return ''
+  }
+}
+
+function Test-WslDockerReady([string]$distro) {
+  if (-not $distro) { return $false }
+  try {
+    $raw = [string]((& wsl.exe -d $distro -- sh -lc 'docker version --format "{{.Server.Version}}"' 2>$null | Select-Object -First 1))
+    return -not [string]::IsNullOrWhiteSpace($raw)
+  } catch {
+    return $false
+  }
+}
+
 function Test-ShortcutPresence($paths) {
   $result = [ordered]@{}
   foreach ($entry in $paths.GetEnumerator()) {
@@ -111,6 +153,11 @@ if ($null -ne $stepUpConfig -and $null -ne $stepUpConfig.payload -and $null -ne 
   $recoveryCodesRemaining = @($stepUpConfig.payload.recovery.codes | Where-Object { -not $_.usedAt }).Count
 }
 $shortcutPaths = Resolve-ShortcutTargetPaths
+$embeddedNodePath = Get-EmbeddedNodePath -baseDir $root
+$embeddedNodeVersion = Get-EmbeddedNodeVersion -baseDir $root
+$wslDistro = Get-WslPreferredDistro
+$wslNodeVersion = Get-WslNodeVersion -distro $wslDistro
+$wslDockerReady = Test-WslDockerReady -distro $wslDistro
 $payload = [ordered]@{
   generatedAt = (Get-Date).ToString('o')
   app = [ordered]@{
@@ -121,10 +168,24 @@ $payload = [ordered]@{
   installation = [ordered]@{
     root = $root
     flavor = 'docente-local'
+    requireLocalPortal = $false
+    runtimeTarget = 'wsl2-docker-minimal'
     port = $Port
     installed = Test-Path -LiteralPath $packageJsonPath
     nodePresent = [bool](Get-Command node -ErrorAction SilentlyContinue)
     dockerPresent = [bool](Get-Command docker -ErrorAction SilentlyContinue)
+  }
+  runtime = [ordered]@{
+    embeddedNode = [ordered]@{
+      present = (Test-Path -LiteralPath $embeddedNodePath)
+      path = $embeddedNodePath
+      version = $embeddedNodeVersion
+    }
+    wsl = [ordered]@{
+      distro = $wslDistro
+      nodeVersion = $wslNodeVersion
+      dockerReady = [bool]$wslDockerReady
+    }
   }
   shortcuts = Test-ShortcutPresence $shortcutPaths
   license = [ordered]@{

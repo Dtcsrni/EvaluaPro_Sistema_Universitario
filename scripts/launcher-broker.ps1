@@ -22,6 +22,7 @@ $hubManifestPath = Join-Path $root 'dist\installer\installer-local-paths.json'
 $hubManifestPathInternal = Join-Path $root 'dist\installer\_internal\installer-local-paths.json'
 $shortcutsScript = Join-Path $root 'scripts\create-shortcuts.ps1'
 $manifestScript = Join-Path $root 'scripts\generate-installation-manifest.ps1'
+$updateConfigPath = Join-Path $root 'config\update-config.json'
 if (-not (Test-Path -LiteralPath $logDir)) {
   New-Item -ItemType Directory -Path $logDir -Force | Out-Null
 }
@@ -176,8 +177,25 @@ function Test-ServiceOk($health, [string]$key) {
   }
 }
 
+function Test-RequiresLocalPortal {
+  try {
+    if (Test-Path -LiteralPath $updateConfigPath) {
+      $raw = Get-Content -LiteralPath $updateConfigPath -Raw -Encoding utf8
+      if (-not [string]::IsNullOrWhiteSpace($raw)) {
+        $cfg = $raw | ConvertFrom-Json
+        $flavorId = [string]$cfg.flavorId
+        if (-not [string]::IsNullOrWhiteSpace($flavorId)) {
+          return ($flavorId.Trim().ToLowerInvariant() -ne 'docente-local')
+        }
+      }
+    }
+  } catch {}
+  return $false
+}
+
 function Wait-DesiredHealth([string]$base, [string]$desiredMode, [int]$timeoutMs = 150000) {
   $deadline = (Get-Date).AddMilliseconds([Math]::Max(5000, $timeoutMs))
+  $requireLocalPortal = Test-RequiresLocalPortal
   $portalStarted = $false
   do {
     try {
@@ -188,15 +206,15 @@ function Wait-DesiredHealth([string]$base, [string]$desiredMode, [int]$timeoutMs
       } else {
         Test-ServiceOk -health $health -key 'webDocenteProd'
       }
-      $portalOk = Test-ServiceOk -health $health -key 'apiPortal'
+      $portalOk = if ($requireLocalPortal) { Test-ServiceOk -health $health -key 'apiPortal' } else { $true }
       if ($apiOk -and $webOk) {
         return [pscustomobject]@{
           ok = $true
-          degraded = (-not $portalOk)
+          degraded = ($requireLocalPortal -and (-not $portalOk))
           health = $health
         }
       }
-      if (-not $portalStarted) {
+      if ($requireLocalPortal -and -not $portalStarted) {
         Set-BootstrapState -State 'booting_portal' -Message 'Sincronizando portal y servicios paralelos.' -DesiredMode $desiredMode -Meta @{ base = $base }
         $portalStarted = $true
       }
@@ -219,7 +237,9 @@ function Ensure-StackReady([string]$base, [string]$desiredMode, [int]$timeoutMs 
     $null = Invoke-JsonPost "$base/api/lifecycle/policy" @{ desiredMode = $desiredMode } 8
   } catch {}
   $null = Invoke-JsonPost "$base/api/start" @{ task = $desiredMode } 8
-  try { $null = Invoke-JsonPost "$base/api/start" @{ task = 'portal' } 8 } catch {}
+  if (Test-RequiresLocalPortal) {
+    try { $null = Invoke-JsonPost "$base/api/start" @{ task = 'portal' } 8 } catch {}
+  }
   return Wait-DesiredHealth -base $base -desiredMode $desiredMode -timeoutMs $timeoutMs
 }
 

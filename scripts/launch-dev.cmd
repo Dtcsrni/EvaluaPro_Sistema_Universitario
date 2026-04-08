@@ -5,4 +5,9 @@
 @echo off
 REM Launch the web dashboard in dev mode.
 setlocal
-node "%~dp0launcher-dashboard.mjs" --mode dev
+set "EMBEDDED_NODE=%~dp0..\runtime\node\node.exe"
+if exist "%EMBEDDED_NODE%" (
+  "%EMBEDDED_NODE%" "%~dp0launcher-dashboard.mjs" --mode dev
+) else (
+  node "%~dp0launcher-dashboard.mjs" --mode dev
+)

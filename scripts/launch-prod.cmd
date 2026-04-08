@@ -5,4 +5,9 @@
 @echo off
 REM Launch the web dashboard in prod mode.
 setlocal
-node "%~dp0launcher-dashboard.mjs" --mode prod
+set "EMBEDDED_NODE=%~dp0..\runtime\node\node.exe"
+if exist "%EMBEDDED_NODE%" (
+  "%EMBEDDED_NODE%" "%~dp0launcher-dashboard.mjs" --mode prod
+) else (
+  node "%~dp0launcher-dashboard.mjs" --mode prod
+)

@@ -261,6 +261,157 @@ function Invoke-DesktopAssetRefresh {
   }
 }
 
+function Get-EmbeddedNodeRuntimePath {
+  param(
+    [Parameter(Mandatory = $true)]
+    [string]$InstallDir
+  )
+
+  return (Join-Path $InstallDir 'runtime\node\node.exe')
+}
+
+function Get-EmbeddedNodeMajorVersion {
+  param(
+    [Parameter(Mandatory = $true)]
+    [string]$InstallDir
+  )
+
+  $nodePath = Get-EmbeddedNodeRuntimePath -InstallDir $InstallDir
+  if (-not (Test-Path -LiteralPath $nodePath)) { return 0 }
+
+  try {
+    $raw = (& $nodePath -v 2>$null | Select-Object -First 1)
+    if (-not $raw) { return 0 }
+    $clean = [string]$raw
+    $clean = $clean.Trim().TrimStart('v', 'V')
+    $major = [int]($clean.Split('.')[0])
+    if ($major -lt 0) { return 0 }
+    return $major
+  } catch {
+    return 0
+  }
+}
+
+function Resolve-EmbeddedNodeBootstrapPackage {
+  $manifestPath = Join-Path $configRoot 'installer-prereqs.manifest.json'
+  $manifest = Read-PrereqManifest -ManifestPath $manifestPath
+  $nodePrereq = @($manifest.prerequisites | Where-Object { [string]$_.name -eq 'Node.js' } | Select-Object -First 1)
+  if ($nodePrereq.Count -eq 0) {
+    throw 'No se encontro prerequisito Node.js en installer-prereqs.manifest.json.'
+  }
+
+  $downloadUrl = [string]$nodePrereq[0].downloadUrl
+  $zipUrl = $downloadUrl -replace '-x64\.msi$', '-win-x64.zip'
+  $zipPattern = [string]$nodePrereq[0].sha256Pattern -replace '-x64\.msi$', '-win-x64.zip'
+
+  return [pscustomobject]@{
+    version = [string]$nodePrereq[0].version
+    downloadUrl = $zipUrl
+    sha256 = [string]$nodePrereq[0].sha256
+    sha256Url = [string]$nodePrereq[0].sha256Url
+    sha256Pattern = $zipPattern
+  }
+}
+
+function Resolve-EmbeddedNodeExpectedSha256 {
+  param(
+    [Parameter(Mandatory = $true)]
+    [pscustomobject]$Package
+  )
+
+  $inline = [string]$Package.sha256
+  if (-not [string]::IsNullOrWhiteSpace($inline) -and $inline -notin @('DYNAMIC_FROM_URL', 'GUIDED_BOOTSTRAP')) {
+    return $inline.Trim().ToLowerInvariant()
+  }
+
+  $shaUrl = [string]$Package.sha256Url
+  if ([string]::IsNullOrWhiteSpace($shaUrl)) {
+    throw 'No se encontro sha256Url para runtime Node embebido.'
+  }
+
+  $headers = @{ 'User-Agent' = 'EvaluaPro-InstallerHub' }
+  $text = (Invoke-InstallerHubWebRequest -Url $shaUrl -Method GET -Headers $headers -TimeoutSec 30 -RetryCount 2).Content
+  $expected = Resolve-InstallerHubSha256FromText -Text ([string]$text) -Pattern ([string]$Package.sha256Pattern)
+  if (-not $expected) {
+    throw 'No se pudo resolver SHA256 remoto para runtime Node embebido.'
+  }
+
+  return $expected
+}
+
+function Ensure-EmbeddedNodeRuntime {
+  param(
+    [Parameter(Mandatory = $true)]
+    [string]$InstallDir
+  )
+
+  $requiredMajor = 24
+  $currentMajor = Get-EmbeddedNodeMajorVersion -InstallDir $InstallDir
+  if ($currentMajor -ge $requiredMajor) {
+    Add-HelperLog -Level 'ok' -Message ("Runtime Node embebido ya disponible: {0}.x" -f $currentMajor)
+    return [pscustomobject]@{
+      ok = $true
+      path = (Get-EmbeddedNodeRuntimePath -InstallDir $InstallDir)
+      version = "${currentMajor}.x"
+      downloaded = $false
+    }
+  }
+
+  $package = Resolve-EmbeddedNodeBootstrapPackage
+  $downloadRoot = Join-Path $env:TEMP ('evaluapro-burn-node-runtime-' + [Guid]::NewGuid().ToString('N'))
+  $zipPath = Join-Path $downloadRoot ([System.IO.Path]::GetFileName(([uri]$package.downloadUrl).AbsolutePath))
+  $extractRoot = Join-Path $downloadRoot 'extract'
+  $runtimeRoot = Join-Path $InstallDir 'runtime'
+  $nodeRoot = Join-Path $runtimeRoot 'node'
+  $stagingRoot = Join-Path $runtimeRoot 'node.stage'
+
+  New-Item -ItemType Directory -Path $downloadRoot -Force | Out-Null
+  New-Item -ItemType Directory -Path $runtimeRoot -Force | Out-Null
+
+  Add-HelperLog -Level 'info' -Message 'Descargando runtime Node embebido para Windows.'
+  Invoke-InstallerHubDownloadFile -Url ([string]$package.downloadUrl) -Destination $zipPath -RetryCount 2
+  $expected = Resolve-EmbeddedNodeExpectedSha256 -Package $package
+  $actual = Get-InstallerHubFileSha256 -Path $zipPath
+  if ($actual -ne $expected) {
+    throw 'SHA256 invalido para runtime Node embebido.'
+  }
+
+  if (Test-Path -LiteralPath $extractRoot) {
+    Remove-Item -LiteralPath $extractRoot -Recurse -Force -ErrorAction SilentlyContinue
+  }
+  Expand-Archive -LiteralPath $zipPath -DestinationPath $extractRoot -Force
+
+  $expandedRoot = Get-ChildItem -LiteralPath $extractRoot -Directory | Select-Object -First 1
+  if (-not $expandedRoot) {
+    throw 'No se pudo extraer runtime Node embebido.'
+  }
+
+  if (Test-Path -LiteralPath $stagingRoot) {
+    Remove-Item -LiteralPath $stagingRoot -Recurse -Force -ErrorAction SilentlyContinue
+  }
+  New-Item -ItemType Directory -Path $stagingRoot -Force | Out-Null
+  Copy-Item -LiteralPath (Join-Path $expandedRoot.FullName '*') -Destination $stagingRoot -Recurse -Force
+
+  if (Test-Path -LiteralPath $nodeRoot) {
+    Remove-Item -LiteralPath $nodeRoot -Recurse -Force -ErrorAction SilentlyContinue
+  }
+  Move-Item -LiteralPath $stagingRoot -Destination $nodeRoot -Force
+
+  $finalMajor = Get-EmbeddedNodeMajorVersion -InstallDir $InstallDir
+  if ($finalMajor -lt $requiredMajor) {
+    throw 'El runtime Node embebido no quedo operativo tras la extraccion.'
+  }
+
+  Add-HelperLog -Level 'ok' -Message ("Runtime Node embebido preparado en {0}" -f $nodeRoot)
+  return [pscustomobject]@{
+    ok = $true
+    path = (Get-EmbeddedNodeRuntimePath -InstallDir $InstallDir)
+    version = "${finalMajor}.x"
+    downloaded = $true
+    archivePath = $zipPath
+  }
+}
+
 function Invoke-HelperPhase {
   param(
     [string]$Name,
@@ -444,6 +595,15 @@ function Invoke-PostInstallMode {
   if (-not $config.ContainsKey('updateRequireSha256')) { $config.updateRequireSha256 = '1' }
   if (-not $config.ContainsKey('requireLicenseActivation')) { $config.requireLicenseActivation = '0' }
   if (-not $config.ContainsKey('passwordResetEnabled')) { $config.passwordResetEnabled = '0' }
+
+  if ([string]$flavor.flavorId -eq 'docente-local') {
+    $responsePhase = 'runtime_local_embebido'
+    Invoke-HelperPhase -Name 'runtime_local_embebido' -FailCode 30 -Action {
+      $runtime = Ensure-EmbeddedNodeRuntime -InstallDir $installDir
+      $script:helperArtifacts['embeddedNodePath'] = [string]$runtime.path
+      $script:helperArtifacts['embeddedNodeVersion'] = [string]$runtime.version
+    }
+  }
 
   $responsePhase = 'configuracion_operativa'
 

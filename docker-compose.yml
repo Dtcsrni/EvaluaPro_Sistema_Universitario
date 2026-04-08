@@ -36,6 +36,7 @@ services:
       - ME_CONFIG_BASICAUTH_PASSWORD=${MONGOEXPRESS_PASS:-admin}
     ports:
       - "127.0.0.1:8081:8081"
+    profiles: ["support"]
 
   api_docente_local:
     build:

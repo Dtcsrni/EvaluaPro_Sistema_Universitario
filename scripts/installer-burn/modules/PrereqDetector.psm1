@@ -15,6 +15,18 @@ function Get-NodeMajorVersion {
   }
 }
 
+function Get-SimulatedWslNodeMajorVersion {
+  $raw = [string]$env:EVALUAPRO_INSTALLER_SIMULATE_WSL_NODE_MAJOR
+  if ([string]::IsNullOrWhiteSpace($raw)) { return 0 }
+  try {
+    $major = [int]$raw.Trim()
+    if ($major -lt 0) { return 0 }
+    return $major
+  } catch {
+    return 0
+  }
+}
+
 function Get-DockerRuntimePreference {
   $allowed = @('auto', 'wsl2-engine', 'desktop')
   $raw = [string]$env:EVALUAPRO_DOCKER_RUNTIME
@@ -241,6 +253,25 @@ function Get-DefaultWslDistroName {
   return ''
 }
 
+function Get-PreferredWslBootstrapDistro {
+  $defaultDistro = Get-DefaultWslDistroName
+  if ($defaultDistro -and $defaultDistro -notin @('docker-desktop', 'docker-desktop-data')) {
+    return [string]$defaultDistro
+  }
+
+  $userDistros = @(Get-UserWslDistros)
+  if ($userDistros.Count -gt 0) {
+    return [string]$userDistros[0]
+  }
+
+  $envDistro = [string]$env:EVALUAPRO_INSTALLER_WSL_DISTRO
+  if (-not [string]::IsNullOrWhiteSpace($envDistro)) {
+    return $envDistro.Trim()
+  }
+
+  return 'Ubuntu'
+}
+
 function Get-UserWslDistros {
   $quietNames = @(Get-WslDistroNamesQuiet)
   if ($quietNames.Count -gt 0) {
@@ -281,6 +312,29 @@ function Invoke-WslShellCommand {
     return ([string]$output).Replace([string][char]0, '').Trim()
   } catch {
     return ''
+  }
+}
+
+function Get-WslNodeMajorVersion {
+  $simulated = Get-SimulatedWslNodeMajorVersion
+  if ($simulated -gt 0) {
+    return $simulated
+  }
+
+  $distro = Get-PreferredWslBootstrapDistro
+  if ([string]::IsNullOrWhiteSpace($distro)) { return 0 }
+
+  $raw = Invoke-WslShellCommand -Distro $distro -Command 'node -v'
+  if (-not $raw) { return 0 }
+
+  try {
+    $clean = [string]$raw
+    $clean = $clean.Trim().TrimStart('v', 'V')
+    $major = [int]($clean.Split('.')[0])
+    if ($major -lt 0) { return 0 }
+    return $major
+  } catch {
+    return 0
   }
 }
 
@@ -640,6 +694,17 @@ function Test-PrerequisiteStatus {
         reason = if ($actual -ge $required) { 'ok' } else { "Node detectado: ${actual}.x. Requerido: ${required}.x" }
       }
     }
+    'node_major_wsl' {
+      $actual = Get-WslNodeMajorVersion
+      $required = [int]$rule.minMajor
+      $distro = Get-PreferredWslBootstrapDistro
+      return [pscustomobject]@{
+        name = [string]$Prerequisite.name
+        installed = ($actual -ge $required)
+        actualVersion = if ($actual -gt 0) { "${actual}.x" } else { '' }
+        reason = if ($actual -ge $required) { "ok ($distro)" } else { "Node WSL detectado en ${distro}: ${actual}.x. Requerido: ${required}.x" }
+      }
+    }
     'docker_runtime_windows' {
       $status = Get-DockerRuntimeStatus
       return [pscustomobject]@{
@@ -675,7 +740,9 @@ Export-ModuleMember -Function @(
   'Get-WslStatusText',
   'Get-WslDistroTable',
   'Get-DefaultWslDistroName',
+  'Get-PreferredWslBootstrapDistro',
   'Get-UserWslDistros',
+  'Get-WslNodeMajorVersion',
   'Get-WslDockerRuntimeDistros',
   'Test-WslDockerRuntimeInstalled',
   'Get-DockerRuntimeStatus',

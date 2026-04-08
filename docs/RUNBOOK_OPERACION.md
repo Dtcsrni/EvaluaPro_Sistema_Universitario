@@ -12,6 +12,7 @@ Portal:
 - `GET /api/portal/salud/ready`
 - `GET /api/portal/metrics`
 - `GET /api/portal/version`
+- En `docente-local` se consideran verificaciones opcionales de integracion, no prerequisitos del stack minimo.
 
 ## 2. Síntoma: API no responde
 1. Revisar contenedores/proceso:
@@ -28,11 +29,11 @@ Portal:
 2. Comportamiento esperado:
 - inicia dashboard/tray
 - si stack prod no esta activo, ejecuta `stack:prod`
-- si portal no esta activo, ejecuta `portal:prod`
 - si la app ya estaba instalada, upgrade in-place conservando atajos operativos
 3. Verificacion:
 - backend: `GET /api/salud/live`
-- portal: `GET /api/portal/salud/live`
+- frontend docente disponible en `http://localhost:4173`
+- MongoDB local accesible por el stack Docker
 
 ### Reparar instalacion desde Dashboard
 1. Abrir pestaña `Configuración`.
@@ -41,20 +42,20 @@ Portal:
 4. Revisar progreso por pasos y la sección `Acciones manuales`.
 5. Confirmar salud final:
 - `GET /api/salud/live`
-- `GET /api/portal/salud/live`
+- disponibilidad de `web_docente_prod`
 
 Alcance de la reparación v1:
 - no destructiva (no borra datos ni volúmenes),
-- recompila portal si falta `dist/index.js`,
+- recompila portal si falta `dist/index.js` solo cuando una validacion de integracion lo requiere,
 - recrea accesos directos,
-- reinicia/recupera stack y portal.
+- reinicia/recupera el stack docente minimo.
 
 ### Instalador (MSI/WiX) - experiencia esperada
 - textos de instalacion con indicaciones de prerrequisitos.
 - barra de progreso real por fase (checks previos + compilacion MSI + bundle EXE) al generar distribuible.
 - validacion de prerequisitos no autoconfigurables:
-  - Node.js 24+
   - runtime Docker compatible (`WSL2 + Docker Engine` o `Docker Desktop`)
+  - en `docente-local`, runtime Node embebido local saludable en Windows y `Node 24` dentro de la distro `WSL2`
 
 ### Instalador docente desde cero (Installer Hub)
 1. Descargar `EvaluaPro-InstallerHub-docente-local.exe` desde la release estable.
@@ -63,11 +64,13 @@ Alcance de la reparación v1:
    - apertura estable de la BA `WPF .NET 8`,
    - deteccion automatica de modo (`install` / `repair` / `uninstall`),
    - analisis de requisitos del equipo,
-   - prerequisitos visibles (Node 24+ y runtime Docker compatible),
-   - si falta WSL2/Docker Engine, emision de guía local de bootstrap para completar el runtime soportado,
+   - prerequisitos visibles (runtime Node embebido local + `Node 24` dentro de `WSL2` + runtime Docker compatible para stack docente minimo),
+   - si falta `WSL2`/Docker Engine/Node 24 en la distro objetivo, emision de guía local de bootstrap y remediacion semiautomatica para completar el runtime soportado,
    - chain `MSI` controlado por Burn,
    - helper post-install para `.env`, `update-config.json`, verificacion final y blindaje local de licencia.
    - no existe ya una variante soportada `PowerShell WinForms`; el bundle Burn es la unica entrada valida.
+   - el stack minimo del flavor es `mongo_local + api_docente_prod + web_docente_prod`; portal local no requerido.
+   - `Node.js` global en Windows no es prerequisito manual para el usuario final `docente-local`.
 4. Criterio de integridad:
    - `EvaluaPro-release-manifest.json` y los `.sha256` publicados coinciden con los artefactos locales.
 5. Desinstalacion:
@@ -96,17 +99,15 @@ Si el instalador se genera localmente en este equipo, la ruta recomendada es:
 4. Generar examen.
 5. Flujo de publicación/sincronización básico.
 
-## 5.1 Smoke prod local (stack + portal)
+## 5.1 Smoke prod local (stack docente minimo)
 1. `GET /api/salud/live` -> 200
-2. `GET /api/portal/salud/live` -> 200
-3. `GET /api/metrics` -> 200
-4. `GET /api/portal/metrics` -> 200
-5. `GET /api/version` -> 200
-6. `GET /api/portal/version` -> 200
+2. `GET /api/metrics` -> 200
+3. `GET /api/version` -> 200
+4. `http://localhost:4173` responde para la UI docente
 
-Si falla portal:
+Si el portal forma parte de una validacion de integracion:
 - ejecutar `npm run portal:prod`
-- revisar logs de dashboard/tray para build/start de portal.
+- revisar logs de dashboard/tray para build/start de portal
 
 Smoke automatizado sugerido:
 - `npm run ops:smoke:pilot -- --backend-base=http://localhost:4000/api --portal-base=https://<tu-portal>/api/portal`

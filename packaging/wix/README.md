@@ -13,10 +13,13 @@ Responsable: `I.S.C. Erick Renato Vega Ceron`.
 
 ## Requisitos
 - WiX Toolset v6.0.x estable (`wix` en PATH).
-- Node.js 24+.
+- Node.js 24+ para tareas de build/empaquetado en host.
 - Runtime Docker compatible para Windows:
   - WSL2 + Docker Engine (default).
   - Docker Desktop (compatibilidad opcional).
+- Para `docente-local` instalado:
+  - Windows usa runtime Node embebido privado del producto.
+  - `WSL2` debe quedar con `Docker Engine + Node 24`.
 - Para compilar bundle, el script resuelve automaticamente la extension BA de WiX 6 (`WixToolset.Bal.wixext` / `WixToolset.BootstrapperApplications.wixext.dll`).
 
 ## Build
@@ -72,13 +75,14 @@ Artefactos tecnicos esperados:
 - El instalador aplica upgrade in-place si detecta una version previa.
 - La instalacion es per-machine y solicita elevacion (UAC) al inicio.
 - El instalador valida prerequisitos no autoconfigurables:
-  - Node.js 24+
   - runtime Docker compatible (`WSL2 + Docker Engine` o `Docker Desktop`)
+  - para `docente-local`, runtime Node embebido local valido y `Node 24` dentro de la distro `WSL2`
+  - para `saas-completo`, `Node.js 24+` host mientras ese flavor no migre a runtime embebido
 - La BA personalizada orquesta:
   - deteccion de prerequisitos,
   - `install|repair|uninstall`,
   - chain MSI manejado por Burn,
-  - helper post-install para `.env`, `update-config.json`, verificacion y blindaje local de licencia.
+  - helper post-install para `.env`, `update-config.json`, bootstrap WSL2, verificacion y blindaje local de licencia.
 
 <!-- AUTO:COMMERCIAL-CONTEXT:START -->
 ## Contexto Comercial y Soporte

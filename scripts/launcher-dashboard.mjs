@@ -421,6 +421,20 @@ function readUpdateConfig() {
 
 const updateConfig = readUpdateConfig();
 
+function resolveFlavorPolicy(manifest = null) {
+  const installation = manifest?.installation && typeof manifest.installation === 'object'
+    ? manifest.installation
+    : {};
+  const rawFlavorId = String(installation.flavor || updateConfig.flavorId || 'docente-local').trim().toLowerCase();
+  const flavorId = rawFlavorId || 'docente-local';
+  const requireLocalPortal = installation.requireLocalPortal === true || flavorId !== 'docente-local';
+  return {
+    flavorId,
+    requireLocalPortal,
+    runtimeTarget: String(installation.runtimeTarget || (flavorId === 'docente-local' ? 'wsl2-docker-minimal' : 'docker-compatible'))
+  };
+}
+
 function renderVersionInfoPage() {
   return `<!doctype html>
 <html lang="es">
@@ -1648,10 +1662,12 @@ async function runInstallerForUpdate(filePath) {
 }
 
 async function healthCheckAfterUpdate() {
+  const manifest = readInstallationManifest();
+  const requirePortal = requiresLocalPortal(manifest);
   const services = await collectHealth();
   const running = runningTasks();
   const expectsApi = running.includes('dev') || running.includes('prod') || mode === 'dev' || mode === 'prod';
-  const expectsPortal = running.includes('portal');
+  const expectsPortal = requirePortal && running.includes('portal');
   if (expectsApi && !services?.apiDocente?.ok) {
     return { ok: false, error: 'API docente no saludable tras actualización.' };
   }
@@ -1743,8 +1759,10 @@ function isShortcutsMissing() {
   return !(hasDesktop || hasStartMenu);
 }
 
-function detectNodeMajor() {
-  const v = safeExecFast('node -v', '', 1000).replace(/^v/i, '').trim();
+function detectNodeMajor(manifest = readInstallationManifest()) {
+  const embeddedVersion = String(manifest?.runtime?.embeddedNode?.version || '').replace(/^v/i, '').trim();
+  const runtimeVersion = embeddedVersion || String(process.versions.node || '').replace(/^v/i, '').trim();
+  const v = runtimeVersion;
   const major = Number(String(v).split('.')[0] || 0);
   if (!Number.isFinite(major) || major <= 0) return 0;
   return major;
@@ -1754,17 +1772,20 @@ async function diagnoseRepairStatus() {
   const issues = [];
   const running = runningTasks();
   const expectedMode = mode === 'prod' ? 'prod' : (mode === 'dev' ? 'dev' : 'none');
-  const nodeMajor = detectNodeMajor();
+  const manifest = readInstallationManifest();
+  const requirePortal = requiresLocalPortal(manifest);
+  const embeddedNodePresent = Boolean(manifest?.runtime?.embeddedNode?.present);
+  const nodeMajor = detectNodeMajor(manifest);
   const dockerVersion = tryGetDockerVersion();
   const health = await collectHealth();
   const stackRunning = expectedMode === 'none' ? false : (isStackRunning(expectedMode) || running.includes(expectedMode));
   const portalRunning = running.includes('portal') || Boolean(health?.apiPortal?.ok);
 
-  if (nodeMajor < 24) {
+  if (!embeddedNodePresent || nodeMajor < 24) {
     issues.push({
-      code: 'prereq.node.missing_or_old',
+      code: 'runtime.embedded_node.missing_or_old',
       severity: 'error',
-      message: 'Node.js 24+ no detectado.',
+      message: 'Runtime Node embebido local no disponible o desactualizado.',
       autoFixable: false
     });
   }
@@ -1776,7 +1797,7 @@ async function diagnoseRepairStatus() {
       autoFixable: false
     });
   }
-  if (!fs.existsSync(portalDistEntry)) {
+  if (requirePortal && !fs.existsSync(portalDistEntry)) {
     issues.push({
       code: 'portal.dist.missing',
       severity: 'error',
@@ -1792,7 +1813,7 @@ async function diagnoseRepairStatus() {
       autoFixable: true
     });
   }
-  if (expectedMode !== 'none' && !portalRunning) {
+  if (requirePortal && expectedMode !== 'none' && !portalRunning) {
     issues.push({
       code: 'services.portal.down',
       severity: 'error',
@@ -1876,6 +1897,8 @@ async function startRepairRun() {
   const running = runningTasks();
   const expectedMode = mode === 'prod' ? 'prod' : (mode === 'dev' ? 'dev' : (running.includes('prod') ? 'prod' : 'dev'));
   const diagnostics = await diagnoseRepairStatus();
+  const manifest = readInstallationManifest();
+  const requirePortal = requiresLocalPortal(manifest);
   repairState.issues = diagnostics.issues;
 
   (async () => {
@@ -1883,27 +1906,27 @@ async function startRepairRun() {
       await runRepairStep('precheck', async () => `${diagnostics.issues.length} hallazgos.`);
       await runRepairStep('ensure_prereq_visibility', async () => {
         const blockers = diagnostics.issues.filter((issue) =>
-          issue.code === 'prereq.node.missing_or_old' || issue.code === 'prereq.docker.unavailable'
+          issue.code === 'runtime.embedded_node.missing_or_old' || issue.code === 'prereq.docker.unavailable'
         );
         if (blockers.length === 0) return 'Prerequisitos minimos disponibles.';
-        if (blockers.some((i) => i.code === 'prereq.node.missing_or_old')) {
-          repairState.manualActions.push('Instala/actualiza Node.js a version 24 o superior.');
+        if (blockers.some((i) => i.code === 'runtime.embedded_node.missing_or_old')) {
+          repairState.manualActions.push('El runtime Node embebido local no esta disponible. Reejecuta Installer Hub o una reparacion del producto.');
         }
         if (blockers.some((i) => i.code === 'prereq.docker.unavailable')) {
           repairState.manualActions.push(`Inicia ${dockerRuntimeGuidance()} y verifica que responda \`docker version\`.`);
-          repairState.manualActions.push('Si usaras WSL2 por defecto, valida la distro soportada y el contexto activo de Docker.');
+          repairState.manualActions.push('Si usaras WSL2 por defecto, valida la distro soportada, Docker Engine y Node 24 dentro de la distro activa.');
         }
         return `${blockers.length} prerequisitos pendientes reportados.`;
       });
 
-      if (!fs.existsSync(portalDistEntry)) {
+      if (requirePortal && !fs.existsSync(portalDistEntry)) {
         await runRepairStep('repair_portal_dist', async () => {
           const result = await runCommandCapture('npm -C apps/portal_alumno_cloud run build', 180_000);
           if (!result.ok) throw new Error('Fallo build portal.');
           return 'Build portal completado.';
         });
       } else {
-        markStepSkipped('repair_portal_dist', 'Build portal ya disponible.');
+        markStepSkipped('repair_portal_dist', requirePortal ? 'Build portal ya disponible.' : 'Portal local no requerido por el flavor actual.');
       }
 
       await runRepairStep('repair_shortcuts', async () => {
@@ -1923,27 +1946,31 @@ async function startRepairRun() {
         return `Stack ${task} solicitado.`;
       });
 
-      await runRepairStep('repair_portal_service', async () => {
-        const command = getCommand('portal');
-        if (!command) throw new Error('No hay comando de portal configurado.');
-        if (isRunning('portal')) restartTask('portal');
-        else startTask('portal', command);
-        await sleep(1000);
-        return 'Portal solicitado.';
-      });
+      if (requirePortal) {
+        await runRepairStep('repair_portal_service', async () => {
+          const command = getCommand('portal');
+          if (!command) throw new Error('No hay comando de portal configurado.');
+          if (isRunning('portal')) restartTask('portal');
+          else startTask('portal', command);
+          await sleep(1000);
+          return 'Portal solicitado.';
+        });
+      } else {
+        markStepSkipped('repair_portal_service', 'Portal local no requerido por el flavor actual.');
+      }
 
       await runRepairStep('postcheck_health', async () => {
         let finalHealth = await collectHealth();
         for (let i = 0; i < 2; i += 1) {
-          if (finalHealth?.apiDocente?.ok && finalHealth?.apiPortal?.ok) break;
+          if (finalHealth?.apiDocente?.ok && (!requirePortal || finalHealth?.apiPortal?.ok)) break;
           await sleep(1500);
           finalHealth = await collectHealth();
         }
         const okApi = Boolean(finalHealth?.apiDocente?.ok);
-        const okPortal = Boolean(finalHealth?.apiPortal?.ok);
+        const okPortal = !requirePortal || Boolean(finalHealth?.apiPortal?.ok);
         if (!okApi || !okPortal) {
           if (!okApi) repairState.manualActions.push('API docente sigue sin salud. Revisa Docker/logs del backend.');
-          if (!okPortal) repairState.manualActions.push('Portal sigue sin salud. Revisa logs del portal.');
+          if (requirePortal && !okPortal) repairState.manualActions.push('Portal sigue sin salud. Revisa logs del portal.');
           throw new Error('Salud final incompleta.');
         }
         return 'Servicios saludables despues de reparacion.';
@@ -2355,9 +2382,24 @@ function readInstallationManifest() {
     return {
       generatedAt: '',
       installation: {
+        flavor: updateConfig.flavorId || 'docente-local',
+        requireLocalPortal: false,
+        runtimeTarget: 'wsl2-docker-minimal',
         installed: false,
         root: root,
         port: Number(portArg || 0) || 0
+      },
+      runtime: {
+        embeddedNode: {
+          present: false,
+          path: path.join(root, 'runtime', 'node', 'node.exe'),
+          version: ''
+        },
+        wsl: {
+          distro: 'Ubuntu',
+          nodeVersion: '',
+          dockerReady: false
+        }
       },
       shortcuts: {},
       license: {
@@ -2368,6 +2410,10 @@ function readInstallationManifest() {
     };
   }
   return manifest;
+}
+
+function requiresLocalPortal(manifest = null) {
+  return resolveFlavorPolicy(manifest).requireLocalPortal;
 }
 
 function resolveShortcutState(manifest) {
@@ -2500,10 +2546,14 @@ function resolveInstallationState(manifest, installInfo) {
   };
 }
 
-function isStackHealthyFromServices(services) {
+function isStackHealthyFromServices(services, desiredMode = getDesiredLifecycleMode(), requirePortal = requiresLocalPortal()) {
+  const mongoOk = Boolean(services?.mongoLocal?.ok);
   const apiOk = Boolean(services?.apiDocente?.ok);
-  const portalOk = Boolean(services?.apiPortal?.ok);
-  return apiOk && portalOk;
+  const webOk = desiredMode === 'prod'
+    ? Boolean(services?.webDocenteProd?.ok)
+    : Boolean(services?.webDocenteDev?.ok);
+  const portalOk = !requirePortal || Boolean(services?.apiPortal?.ok);
+  return mongoOk && apiOk && webOk && portalOk;
 }
 
 async function buildLifecycleStatus(includeHealth = true) {
@@ -2511,8 +2561,9 @@ async function buildLifecycleStatus(includeHealth = true) {
   const desiredMode = getDesiredLifecycleMode();
   const installInfo = detectInstalledProduct();
   const manifest = readInstallationManifest();
+  const flavorPolicy = resolveFlavorPolicy(manifest);
   const services = includeHealth ? await collectHealth() : {};
-  const healthy = includeHealth ? isStackHealthyFromServices(services) : false;
+  const healthy = includeHealth ? isStackHealthyFromServices(services, desiredMode, flavorPolicy.requireLocalPortal) : false;
   const stackManagedRunning = running.includes('dev') || running.includes('prod');
   const desiredRunning = running.includes(desiredMode);
   const portalRunning = running.includes('portal');
@@ -2536,10 +2587,11 @@ async function buildLifecycleStatus(includeHealth = true) {
     shortcutState,
     licenseState,
     bootstrapState,
+    flavorPolicy,
     running,
     stackManagedRunning,
     desiredRunning,
-    portalRunning,
+    portalRunning: flavorPolicy.requireLocalPortal ? portalRunning : false,
     healthy,
     services,
     supervisor: {
@@ -2596,7 +2648,9 @@ async function reconcileLifecycle(reason = 'manual') {
 
       const desiredMode = getDesiredLifecycleMode();
       const servicesBefore = await collectHealth();
-      const healthyBefore = isStackHealthyFromServices(servicesBefore);
+      const manifest = readInstallationManifest();
+      const flavorPolicy = resolveFlavorPolicy(manifest);
+      const healthyBefore = isStackHealthyFromServices(servicesBefore, desiredMode, flavorPolicy.requireLocalPortal);
 
       if (!healthyBefore) {
         if (process.platform === 'win32') {
@@ -2604,7 +2658,7 @@ async function reconcileLifecycle(reason = 'manual') {
         }
 
         const startedDesired = ensureTaskRunning(desiredMode);
-        const startedPortal = ensureTaskRunning('portal');
+        const startedPortal = flavorPolicy.requireLocalPortal ? ensureTaskRunning('portal') : false;
         if (startedDesired && startedPortal) action = `start:${desiredMode}+portal`;
         else if (startedDesired) action = `start:${desiredMode}`;
         else if (startedPortal) action = 'start:portal';
@@ -2615,7 +2669,7 @@ async function reconcileLifecycle(reason = 'manual') {
         }
 
         const servicesAfter = await collectHealth();
-        const healthyAfter = isStackHealthyFromServices(servicesAfter);
+        const healthyAfter = isStackHealthyFromServices(servicesAfter, desiredMode, flavorPolicy.requireLocalPortal);
         if (!healthyAfter) {
           lifecycleState.reconcile.failureCount += 1;
           const now = Date.now();
@@ -3158,6 +3212,7 @@ function getCommand(taskName) {
 
 function ensurePortalAutostartForProd(reason = 'prod') {
   if (mode !== 'prod') return;
+  if (!requiresLocalPortal(readInstallationManifest())) return;
   const portalCommand = getCommand('portal');
   if (!portalCommand) return;
   if (isRunning('portal')) return;
@@ -3601,6 +3656,7 @@ const server = http.createServer(async (req, res) => {
     const stackDisplay = stackDisplayString(managedTasks, compose);
     const httpsState = resolveHttpsState();
     const manifest = readInstallationManifest();
+    const flavorPolicy = resolveFlavorPolicy(manifest);
     const shortcutState = resolveShortcutState(manifest);
     const licenseState = resolveLicenseState(manifest);
     const bootstrapState = resolveBootstrapState();
@@ -3627,13 +3683,14 @@ const server = http.createServer(async (req, res) => {
       mode: uiMode,
       modeConfig: mode,
       port: listeningPort,
-      node: safeExec('node -v', 'No detectado'),
+      node: `v${process.versions.node || '0.0.0'}`,
       npm: safeExec('npm -v', 'No detectado'),
       docker: dockerDisplay,
       dockerDisplay,
       stackDisplay,
       compose,
       https: httpsState,
+      runtime: manifest?.runtime || {},
       dockerState: {
         state: dockerAutostart.state,
         ready: dockerAutostart.ready,
@@ -3660,6 +3717,7 @@ const server = http.createServer(async (req, res) => {
         installation: lifecycleState.installation,
         lastChangedAt: lifecycleState.lastChangedAt
       },
+      flavorPolicy,
       installationState,
       bootstrapState,
       shortcutState,
@@ -4010,7 +4068,7 @@ const server = http.createServer(async (req, res) => {
 
   if (req.method === 'GET' && pathName === '/api/health') {
     const services = await collectHealth();
-    sendJson(res, 200, { checkedAt: Date.now(), services });
+    sendJson(res, 200, { checkedAt: Date.now(), services, flavorPolicy: resolveFlavorPolicy(readInstallationManifest()) });
     return;
   }
 

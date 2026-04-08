@@ -1,10 +1,30 @@
 # Engineering Baseline
 
-Fecha de baseline: 2026-04-03
+Fecha de baseline: 2026-04-08
 Version tecnica: `1.0.0`
 Version visible GUI: `1.0.0b`
 
 ## Estado vigente
+- Corte 2026-04-08:
+  - Installer Hub migra `docente-local` a un modelo con runtime Windows embebido + runtime `WSL2` preparado:
+    - `Node.js` host deja de ser prerequisito manual para `docente-local`
+    - `config/installer-prereqs.manifest.json` agrega `Node.js WSL2` y retira `Node.js` host del perfil docente
+    - `scripts/installer-burn/modules/PrereqDetector.psm1` y `PrereqInstaller.psm1` detectan/provisionan `Node 24` dentro de la distro `WSL2`
+    - `scripts/installer-burn/InstallerBurnHelper.ps1` deja listo `runtime/node/node.exe` como runtime privado local del producto
+    - `scripts/generate-installation-manifest.ps1` expone `runtime.embeddedNode` y `runtime.wsl`
+    - `packaging/wix/Product.wxs` deja de imponer `Launch Condition` global de `Node.js` para `docente-local`
+  - se agrega `env-doctor` dual (`wsl|windows|auto`) para preflight fail-fast de entorno operativo:
+    - valida `node>=24`, `npm`, Docker CLI/daemon, `docker compose` y accesibilidad de `wsl --status` en target Windows
+    - nuevos comandos npm: `env:doctor:wsl`, `env:doctor:windows`, `env:doctor`
+    - nueva prueba dedicada: `test:env:doctor`
+  - `docente-local` queda recortado a un stack minimo centralizado sobre `WSL2 + Docker`: `mongo_local`, `api_docente_prod`, `web_docente_prod`
+  - `portal_alumno_cloud` deja de formar parte del criterio de salud/arranque del flavor docente y pasa a tratarse como integracion opcional
+  - `scripts/launcher-dashboard.mjs`, `scripts/launcher-tray.ps1` y `scripts/launcher-broker.ps1` consumen `requireLocalPortal` para no autoarrancar ni exigir `portal` en `docente-local`
+  - `docker-compose.yml` mueve `mongo_express_local` al profile `support`
+  - `config/installer-flavors.json`, `config/installer-prereqs.manifest.json` y `scripts/generate-installation-manifest.ps1` publican el contrato `requireLocalPortal=false` y `runtimeTarget=wsl2-docker-minimal`
+  - validacion del corte en este entorno:
+    - `node --test scripts/tests/installer-hub-contract.test.mjs` bloqueado: `node: command not found`
+    - `node --test scripts/tests/windows-release-smoke.test.mjs` bloqueado: `node: command not found`
 - Corte 2026-04-03:
   - el Installer Hub público migra a `WiX Burn + BA WPF .NET 8`; `Bundle.wxs` deja `WixStandardBootstrapperApplication` y enlaza `EvaluaPro.BurnBootstrapperApp.exe`
   - `scripts/build-msi.ps1` publica la BA `.NET 8`, compila bundles por flavor y mantiene el contrato público `EvaluaPro-InstallerHub-saas-completo.exe` / `EvaluaPro-InstallerHub-docente-local.exe`

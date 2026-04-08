@@ -1,0 +1,104 @@
+{
+  "traceSchemaVersion": "1.0.0",
+  "sessionId": "sesion-2026-04-08T00-00-00.000Z",
+  "status": "draft",
+  "generatedAt": "2026-04-08T00:00:00.000Z",
+  "validationProfile": "quick",
+  "agent": {
+    "name": "unknown",
+    "version": "unknown",
+    "provider": "unknown",
+    "kind": "unknown",
+    "channel": "unknown"
+  },
+  "request": {
+    "summary": "Implementar el recorte de docente-local como stack minimo centralizado en WSL2 + Docker, dejando portal como integracion opcional."
+  },
+  "objective": "Alinear instalador, dashboard, tray, broker, compose, pruebas y documentacion para que docente-local use mongo_local + api_docente_prod + web_docente_prod como criterio de salud.",
+  "scope": [
+    "config/installer-flavors.json",
+    "config/installer-prereqs.manifest.json",
+    "docker-compose.yml",
+    "docs/DESPLIEGUE.md",
+    "docs/ENGINEERING_BASELINE.md",
+    "docs/INSTALLER_HUB.md",
+    "docs/INVENTARIO_PROYECTO.md",
+    "docs/RUNBOOK_OPERACION.md",
+    "scripts/dashboard.html",
+    "scripts/generate-installation-manifest.ps1",
+    "scripts/launcher-broker.ps1",
+    "scripts/launcher-dashboard.mjs",
+    "scripts/launcher-tray.ps1",
+    "scripts/tests/installer-hub-contract.test.mjs",
+    "scripts/tests/windows-release-smoke.test.mjs",
+    "CHANGELOG.md"
+  ],
+  "constraints": [
+    "No revertir cambios ajenos presentes en el worktree.",
+    "Validaciones JS bloqueadas en este entorno por ausencia de node ejecutable."
+  ],
+  "actions": [
+    {
+      "type": "implementation",
+      "summary": "Contrato de flavor actualizado con requireLocalPortal=false y runtimeTarget=wsl2-docker-minimal.",
+      "status": "ok",
+      "timestamp": "2026-04-08T00:00:00.000Z"
+    },
+    {
+      "type": "implementation",
+      "summary": "Dashboard, tray y broker dejan de exigir o arrancar portal en docente-local.",
+      "status": "ok",
+      "timestamp": "2026-04-08T00:00:00.000Z"
+    },
+    {
+      "type": "implementation",
+      "summary": "mongo_express_local movido a profile support.",
+      "status": "ok",
+      "timestamp": "2026-04-08T00:00:00.000Z"
+    },
+    {
+      "type": "implementation",
+      "summary": "Documentacion operativa alineada al stack minimo docente.",
+      "status": "ok",
+      "timestamp": "2026-04-08T00:00:00.000Z"
+    },
+    {
+      "type": "validation",
+      "summary": "node --test scripts/tests/installer-hub-contract.test.mjs",
+      "status": "falla",
+      "timestamp": "2026-04-08T00:00:00.000Z",
+      "result": "node: command not found"
+    },
+    {
+      "type": "validation",
+      "summary": "node --test scripts/tests/windows-release-smoke.test.mjs",
+      "status": "falla",
+      "timestamp": "2026-04-08T00:00:00.000Z",
+      "result": "node: command not found"
+    }
+  ],
+  "filesChanged": [
+    "CHANGELOG.md",
+    "config/installer-flavors.json",
+    "config/installer-prereqs.manifest.json",
+    "docker-compose.yml",
+    "docs/DESPLIEGUE.md",
+    "docs/ENGINEERING_BASELINE.md",
+    "docs/INSTALLER_HUB.md",
+    "docs/INVENTARIO_PROYECTO.md",
+    "docs/RUNBOOK_OPERACION.md",
+    "docs/handoff/sesiones/2026-04-08/sesion-2026-04-08T00-00-00.000Z.json",
+    "docs/handoff/sesiones/2026-04-08/sesion-2026-04-08T00-00-00.000Z.md",
+    "scripts/dashboard.html",
+    "scripts/generate-installation-manifest.ps1",
+    "scripts/launcher-broker.ps1",
+    "scripts/launcher-dashboard.mjs",
+    "scripts/launcher-tray.ps1",
+    "scripts/tests/installer-hub-contract.test.mjs",
+    "scripts/tests/windows-release-smoke.test.mjs"
+  ],
+  "risks": [
+    "Quedan artefactos compilados sucios en packaging/wix/BurnBootstrapperApp/bin y obj que no se modificaron manualmente en esta sesion.",
+    "Falta ejecutar los gates minimos del repo en un entorno con node disponible."
+  ]
+}

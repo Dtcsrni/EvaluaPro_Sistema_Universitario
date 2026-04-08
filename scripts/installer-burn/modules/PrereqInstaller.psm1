@@ -407,6 +407,58 @@ function Install-PrerequisitePackage {
     throw ("Bootstrap guiado pendiente para runtime Docker Windows. " + $detail)
   }
 
+  if ($ruleType -eq 'node_major_wsl') {
+    $required = [int]$Prerequisite.detectRule.minMajor
+    $distro = Get-PreferredWslBootstrapDistro
+    $actual = Get-WslNodeMajorVersion
+    if ($actual -ge $required) {
+      if ($OnLog) { & $OnLog 'ok' ("Node.js WSL2 detectado en {0}: {1}.x" -f $distro, $actual) }
+      Invoke-PrereqProgress -OnProgress $OnProgress -Activity 'node-wsl' -Percent 100 -Status ("Node.js WSL2 disponible en {0}: {1}.x" -f [string]$distro, $actual)
+      return [pscustomobject]@{
+        name = [string]$Prerequisite.name
+        filePath = ''
+        sha256 = ''
+        exitCode = 0
+        mode = 'wsl2-node'
+        distro = [string]$distro
+      }
+    }
+
+    $runtimeStatus = Get-DockerRuntimeStatus
+    if (-not $runtimeStatus.installed) {
+      throw ("Node.js WSL2 requiere un runtime Docker/WSL2 listo primero. " + [string]$runtimeStatus.reason)
+    }
+
+    Invoke-PrereqProgress -OnProgress $OnProgress -Activity 'node-wsl' -Percent 5 -Status ("Instalando Node.js 24 dentro de {0}" -f [string]$distro)
+    if ($OnLog) {
+      & $OnLog 'info' ("Provisionando Node.js WSL2 en {0}..." -f $distro)
+      & $OnLog 'info' ("Instalar Node.js 24 dentro de WSL2: wsl -d {0} -u root -- sh -lc ""curl -fsSL https://deb.nodesource.com/setup_24.x | bash - && apt-get install -y nodejs""" -f $distro)
+    }
+
+    if (@('1', 'true', 'yes', 'on') -contains ([string]$env:EVALUAPRO_INSTALLER_SIMULATE_WSL_NODE_BOOTSTRAP).Trim().ToLowerInvariant()) {
+      $env:EVALUAPRO_INSTALLER_SIMULATE_WSL_NODE_MAJOR = [string]$required
+    } else {
+      $installCommand = ('wsl -d {0} -u root -- sh -lc "curl -fsSL https://deb.nodesource.com/setup_{1}.x | bash - && apt-get install -y nodejs"' -f $distro, $required)
+      Invoke-Expression -Command $installCommand | Out-Null
+    }
+
+    $actualAfter = Get-WslNodeMajorVersion
+    if ($actualAfter -lt $required) {
+      throw ("Node.js WSL2 sigue sin cumplir en {0}. Detectado: {1}.x. Requerido: {2}.x" -f $distro, $actualAfter, $required)
+    }
+
+    if ($OnLog) { & $OnLog 'ok' ("Node.js WSL2 listo en {0}: {1}.x" -f $distro, $actualAfter) }
+    Invoke-PrereqProgress -OnProgress $OnProgress -Activity 'node-wsl' -Percent 100 -Status ("Node.js WSL2 listo en {0}: {1}.x" -f [string]$distro, $actualAfter)
+    return [pscustomobject]@{
+      name = [string]$Prerequisite.name
+      filePath = ''
+      sha256 = ''
+      exitCode = 0
+      mode = 'wsl2-node'
+      distro = [string]$distro
+    }
+  }
+
   if (-not (Test-Path $DownloadRoot)) {
     New-Item -ItemType Directory -Path $DownloadRoot -Force | Out-Null
   }

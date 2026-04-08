@@ -1,6 +1,6 @@
 # Inventario Tecnico del Proyecto
 
-Fecha de corte: 2026-04-03
+Fecha de corte: 2026-04-08
 Version tecnica objetivo: `1.0.0`
 Version visible objetivo: `1.0.0b`
 
@@ -24,6 +24,22 @@ Version visible objetivo: `1.0.0b`
   - `reports/perf/latest.json`
 
 ## 2.1) Footprint y clasificacion del corte 2026-03-20
+- Recorte `docente-local` 2026-04-08:
+  - Installer Hub asume preparacion dual del runtime para `docente-local`:
+    - Windows usa `Node` embebido privado del producto para launcher/dashboard/tray
+    - `WSL2` queda como runtime operativo del stack con `Docker Engine + Node 24`
+    - `Node.js` host global deja de ser prerequisito manual para el flavor docente
+    - `installation.manifest.json` ahora expone `runtime.embeddedNode` y `runtime.wsl`
+  - se incorpora `env-doctor` dual para diagnostico operacional estricto por entorno:
+    - `env:doctor:wsl` para desarrollo diario en WSL2
+    - `env:doctor:windows` para build/smoke del instalador en host Windows
+    - `env:doctor` como selector automatico por plataforma
+    - contrato de salida estable (`ok`, `target`, `checks`, `failures`, `warnings`) y exit code bloqueante si hay fallos criticos
+  - el flavor docente local se declara como stack minimo centralizado en `WSL2 + Docker`
+  - componentes obligatorios del flavor: `mongo_local`, `api_docente_prod`, `web_docente_prod`
+  - `portal_alumno_cloud` deja de contarse como servicio local obligatorio y pasa a integracion opcional
+  - `mongo_express_local` sale del perfil por defecto y queda reservado a soporte/diagnostico mediante profile `support`
+  - el contrato publico de instalacion expone `requireLocalPortal=false` y `runtimeTarget=wsl2-docker-minimal`
 - Migración Installer Hub Burn 2026-04-03:
   - `EvaluaPro-InstallerHub-<flavor>.exe` pasa a generarse desde `WiX Burn` con BA personalizada `WPF .NET 8`
   - nuevo helper `scripts/installer-burn/InstallerBurnHelper.ps1` reutiliza módulos headless de prerequisitos, configuración operativa, verificación y licencia

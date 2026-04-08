@@ -36,8 +36,29 @@ Herramientas de operación local (principalmente Windows) para **Sistema EvaluaP
 Arquitectura vigente:
 - `WiX Burn` maneja `UAC`, cache, chain `MSI`, `repair` y `uninstall`.
 - La BA `WPF .NET 8` presenta prerequisitos, modo y progreso.
-- El helper PowerShell aplica configuracion operativa, verificacion final y blindaje local de licencia.
+- El helper PowerShell aplica configuracion operativa, bootstrap de `WSL2` (`Docker Engine + Node 24` para `docente-local`), verificacion final y blindaje local de licencia.
 - El legado `PowerShell WinForms` fue retirado; no queda un `InstallerHub.ps1` soportado.
+- Para `docente-local`, Windows usa `runtime/node/node.exe` como runtime embebido privado del producto; `Node` global deja de ser prerequisito manual del usuario final.
+
+## Env Doctor (WSL2 + Windows)
+- Script: `env-doctor.mjs`
+- Comandos:
+  - `npm run env:doctor:wsl`
+  - `npm run env:doctor:windows`
+  - `npm run env:doctor`
+- Comportamiento:
+  - `fail-fast` (codigo de salida `1`) ante faltantes criticos.
+  - salida estable con resumen humano + bloque JSON (`ok`, `target`, `checks`, `failures`, `warnings`).
+- Reglas:
+  - `env:doctor:wsl` exige Linux sobre WSL2, `node>=24`, `npm`, Docker CLI + daemon y `docker compose`.
+  - `env:doctor:windows` exige host `win32`, `node>=24`, `npm`, Docker CLI + daemon y `wsl --status` accesible.
+  - `env:doctor` selecciona target segun plataforma (`win32 => windows`, resto => wsl).
+
+Matriz de uso rapido:
+- Desarrollo diario en WSL2: `npm run env:doctor:wsl`
+- Build/smoke de instalador en PowerShell Windows: `npm run env:doctor:windows`
+- Diagnostico automatico segun host actual: `npm run env:doctor`
+- Usuario final `docente-local`: no se espera ejecutar `env:doctor`; el Installer Hub prepara `WSL2 + Docker + Node 24` y usa runtime Node embebido local para launcher/dashboard/tray.
 
 ## Configuracion automatica OAuth + Classroom
 - Script: `configurar-oauth-classroom.ps1`
