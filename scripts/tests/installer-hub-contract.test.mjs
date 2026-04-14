@@ -179,9 +179,23 @@ test('runtime Docker Windows queda abstracto en dashboard, WiX y package scripts
   assert.match(productWxs, /WSLINSTALLED/);
   assert.match(productWxs, /\<\?if \$\(var\.FlavorId\) != docente-local \?\>/);
   assert.match(productWxs, /Installed OR REQUIRE_INSTALLER_HUB = 1 OR BURNMSIINSTALL = 1/);
+  assert.match(productWxs, /SKIP_DOCKER_RUNTIME_CHECK = 1 OR REQUIRE_INSTALLER_HUB = 1 OR BURNMSIINSTALL = 1 OR DOCKERINSTALLED64 OR DOCKERINSTALLEDUSER OR WSLINSTALLED/);
   assert.match(bundleWxs, /MsiProperty Name="REQUIRE_INSTALLER_HUB" Value="1"/);
   assert.match(productWxs, /runtime Docker compatible/i);
   assert.equal(packageJson.scripts['docker:runtime:check'], 'node scripts/docker-runtime-check.mjs');
+});
+
+test('installer hub WPF publica timeline por etapas y resumen de error MSI visible', () => {
+  const bootstrapper = fs.readFileSync(path.join(root, 'packaging', 'wix', 'BurnBootstrapperApp', 'EvaluaProBootstrapperApplication.cs'), 'utf8');
+  const mainWindowXaml = fs.readFileSync(path.join(root, 'packaging', 'wix', 'BurnBootstrapperApp', 'MainWindow.xaml'), 'utf8');
+  const mainWindowCodeBehind = fs.readFileSync(path.join(root, 'packaging', 'wix', 'BurnBootstrapperApp', 'MainWindow.xaml.cs'), 'utf8');
+
+  assert.match(bootstrapper, /StageDetection = "detection"/);
+  assert.match(bootstrapper, /TryExtractMsiFailureReason/);
+  assert.match(bootstrapper, /FailureDisplay/);
+  assert.match(mainWindowXaml, /StageTimelineHost/);
+  assert.match(mainWindowXaml, /FailureSummaryBorder/);
+  assert.match(mainWindowCodeBehind, /UpdateWorkflow\(InstallerWorkflowView workflow\)/);
 });
 
 test('build-msi publica BA personalizada y conserva contrato de asset publico por flavor', () => {

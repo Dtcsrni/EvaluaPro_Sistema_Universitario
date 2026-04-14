@@ -38,7 +38,7 @@
     <?if $(var.FlavorId) != docente-local ?>
     <Launch Condition="NODEINSTALLED64 OR NODEINSTALLEDUSER" Message="No se detecto Node.js 24+. Instala Node.js antes de usar EvaluaPro." />
     <?endif?>
-    <Launch Condition="SKIP_DOCKER_RUNTIME_CHECK = 1 OR DOCKERINSTALLED64 OR DOCKERINSTALLEDUSER OR WSLINSTALLED" Message="No se detecto un runtime Docker compatible. Instala/habilita WSL2 con Docker Engine o Docker Desktop en compatibilidad. Si prefieres instalacion guiada de requisitos, usa EvaluaPro-InstallerHub." />
+    <Launch Condition="SKIP_DOCKER_RUNTIME_CHECK = 1 OR REQUIRE_INSTALLER_HUB = 1 OR BURNMSIINSTALL = 1 OR DOCKERINSTALLED64 OR DOCKERINSTALLEDUSER OR WSLINSTALLED" Message="No se detecto un runtime Docker compatible. Instala/habilita WSL2 con Docker Engine o Docker Desktop en compatibilidad. Si prefieres instalacion guiada de requisitos, usa EvaluaPro-InstallerHub." />
 
     <Feature Id="MainFeature" Title="$(var.ProductName)" Level="1">
       <ComponentGroupRef Id="CG.AppFiles" />

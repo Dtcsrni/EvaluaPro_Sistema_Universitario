@@ -2,6 +2,7 @@ using System.Diagnostics;
 using System.IO;
 using System.Text;
 using System.Text.Json;
+using System.Text.RegularExpressions;
 using System.Windows;
 using System.Windows.Interop;
 using System.Windows.Threading;
@@ -17,10 +18,17 @@ internal sealed class EvaluaProBootstrapperApplication : BootstrapperApplication
         WriteIndented = true
     };
     private const string HelperProgressPrefix = "EVALUAPRO_PROGRESS:";
+    private const string StageDetection = "detection";
+    private const string StageRemediation = "remediation";
+    private const string StagePlanning = "planning";
+    private const string StageMsi = "msi";
+    private const string StagePostInstall = "postinstall";
+    private const string StageFinalize = "finalize";
 
     private readonly object sync = new();
     private readonly TaskCompletionSource<bool> uiReady = new(TaskCreationOptions.RunContinuationsAsynchronously);
     private readonly TaskCompletionSource<int> operationFinished = new(TaskCreationOptions.RunContinuationsAsynchronously);
+    private readonly List<InstallerStageState> workflowStages = CreateDefaultWorkflowStages();
 
     private IEngine? engineHandle;
     private IBootstrapperCommand? command;
@@ -46,6 +54,7 @@ internal sealed class EvaluaProBootstrapperApplication : BootstrapperApplication
     private HelperEnvelope<DetectionPayload>? helperDetectionResponse;
     private string? pendingHelperResponsePath;
     private BootstrapperRequest? currentRequest;
+    private FailureDisplay? failureDisplay;
 
     protected override void Run()
     {
@@ -92,6 +101,7 @@ internal sealed class EvaluaProBootstrapperApplication : BootstrapperApplication
         base.OnPlanComplete(args);
         if (args.Status != 0)
         {
+            SetStageState(StagePlanning, InstallerStageStatus.Error, "La planificación del bundle falló.", FormatWindowsStatus(args.Status));
             FinalizeFailure("accion_producto", 30, $"La planificacion del bundle fallo con status={args.Status}.");
             return;
         }
@@ -100,6 +110,8 @@ internal sealed class EvaluaProBootstrapperApplication : BootstrapperApplication
         lastFailedPackageStatus = null;
         lastFailedPackageId = null;
         applyInFlight = true;
+        SetStageState(StagePlanning, InstallerStageStatus.Ok, "Planificación completada.", "El bundle ya comenzó la transacción principal.");
+        SetStageState(StageMsi, InstallerStageStatus.Running, "Ejecutando MSI principal.", "La instalación base de EvaluaPro está en progreso.");
         UpdateUiState(statusText: "Instalando componentes de EvaluaPro. Esto puede tardar algunos minutos...", progress: 0, busy: true);
         engineHandle?.Apply(GetWindowHandle());
     }
@@ -107,6 +119,7 @@ internal sealed class EvaluaProBootstrapperApplication : BootstrapperApplication
     protected override void OnProgress(ProgressEventArgs args)
     {
         base.OnProgress(args);
+        SetStageState(StageMsi, InstallerStageStatus.Running, $"Ejecutando MSI principal ({Math.Max(0, Math.Min(100, args.OverallPercentage))}%).", "La instalación base de EvaluaPro sigue en progreso.");
         UpdateUiState(statusText: $"Instalando componentes... {Math.Max(0, Math.Min(100, args.OverallPercentage))}%", progress: args.OverallPercentage, busy: true);
     }
 
@@ -122,6 +135,7 @@ internal sealed class EvaluaProBootstrapperApplication : BootstrapperApplication
         applySawPackageFailure = true;
         lastFailedPackageStatus ??= args.Status;
         lastFailedPackageId ??= args.PackageId;
+        SetStageState(StageMsi, InstallerStageStatus.Error, $"Falló el paquete MSI '{args.PackageId}'.", FormatWindowsStatus(args.Status));
         Log("warn", $"ExecutePackageComplete package={args.PackageId} status={args.Status} ({FormatWindowsStatus(args.Status)})");
     }
 
@@ -132,21 +146,38 @@ internal sealed class EvaluaProBootstrapperApplication : BootstrapperApplication
 
         if (!IsSuccessStatus(args.Status))
         {
+            var wixMsiLogPath = ReadEngineVariableString("WixBundleLog_EvaluaProMsi");
+            var parsedReason = TryExtractMsiFailureReason(wixMsiLogPath);
+            var failureMessage = parsedReason ?? "El MSI devolvió un error fatal.";
+            failureDisplay = BuildFailureDisplay(
+                "Fallo en la ejecución MSI",
+                lastFailedPackageId ?? "EvaluaProMsi",
+                args.Status,
+                wixMsiLogPath,
+                sessionLogPath,
+                failureMessage);
+            SetStageState(StageMsi, InstallerStageStatus.Error, "La ejecución MSI falló.", failureMessage);
+            SetStageState(StageFinalize, InstallerStageStatus.Error, "La instalación terminó con error.", "La transacción MSI no pudo completarse.");
             var detail = $"La ejecucion del bundle fallo con status={args.Status} ({FormatWindowsStatus(args.Status)}).";
             if (applySawPackageFailure && !string.IsNullOrWhiteSpace(lastFailedPackageId) && lastFailedPackageStatus.HasValue)
             {
                 detail += $" Ultimo paquete con error: {lastFailedPackageId} ({lastFailedPackageStatus.Value}, {FormatWindowsStatus(lastFailedPackageStatus.Value)}).";
             }
-            var wixMsiLogPath = ReadEngineVariableString("WixBundleLog_EvaluaProMsi");
             if (!string.IsNullOrWhiteSpace(wixMsiLogPath))
             {
                 detail += $" Log MSI: {wixMsiLogPath}.";
+            }
+            if (!string.IsNullOrWhiteSpace(parsedReason))
+            {
+                detail += $" Motivo visible: {parsedReason}.";
             }
             detail += $" Revisa log BA: {sessionLogPath}";
             FinalizeFailure("accion_producto", 30, detail);
             return;
         }
 
+        SetStageState(StageMsi, InstallerStageStatus.Ok, "MSI completado.", "La instalación base terminó y continúa la post-instalación.");
+        SetStageState(StagePostInstall, InstallerStageStatus.Running, "Ejecutando helper post-instalación.", "Aplicando configuración, verificación y endurecimiento final.");
         UpdateUiState(statusText: "MSI aplicado. Ejecutando helper post-install...", progress: 100, busy: true);
         _ = RunPostInstallHelperAsync();
     }
@@ -239,6 +270,7 @@ internal sealed class EvaluaProBootstrapperApplication : BootstrapperApplication
                 };
 
                 createdWindow.Show();
+                RenderWorkflow("Inicializando Installer Hub...", "Preparando la detección inicial de prerequisitos.");
                 application.Run(createdWindow);
             }
             catch (Exception ex)
@@ -252,6 +284,209 @@ internal sealed class EvaluaProBootstrapperApplication : BootstrapperApplication
         uiThread.SetApartmentState(ApartmentState.STA);
         uiThread.IsBackground = true;
         uiThread.Start();
+    }
+
+    private static List<InstallerStageState> CreateDefaultWorkflowStages()
+    {
+        return
+        [
+            new InstallerStageState(StageDetection, "Detección", "Pendiente de iniciar."),
+            new InstallerStageState(StageRemediation, "Remediación de prerequisitos", "Solo se ejecuta si hace falta."),
+            new InstallerStageState(StagePlanning, "Planificación", "Aún no se solicitó la operación."),
+            new InstallerStageState(StageMsi, "Ejecución MSI", "Esperando la transacción del MSI."),
+            new InstallerStageState(StagePostInstall, "Post-instalación", "Esperando configuración final."),
+            new InstallerStageState(StageFinalize, "Finalización", "Pendiente de terminar.")
+        ];
+    }
+
+    private void ResetWorkflow(bool keepDetectionStage = false)
+    {
+        foreach (var stage in workflowStages)
+        {
+            stage.State = InstallerStageStatus.Pending;
+            stage.Summary = stage.Id == StageDetection && keepDetectionStage
+                ? "Detección lista."
+                : stage.Id == StageRemediation
+                    ? "Solo se ejecuta si hace falta."
+                    : stage.Id == StagePlanning
+                        ? "Aún no se solicitó la operación."
+                        : stage.Id == StageMsi
+                            ? "Esperando la transacción del MSI."
+                            : stage.Id == StagePostInstall
+                                ? "Esperando configuración final."
+                                : "Pendiente de terminar.";
+            stage.Detail = string.Empty;
+        }
+
+        if (keepDetectionStage)
+        {
+            var detection = workflowStages.First(stage => stage.Id == StageDetection);
+            detection.State = InstallerStageStatus.Ok;
+        }
+
+        failureDisplay = null;
+        RenderWorkflow();
+    }
+
+    private void SetStageState(string stageId, InstallerStageStatus state, string summary, string? detail = null)
+    {
+        var stage = workflowStages.FirstOrDefault(item => item.Id == stageId);
+        if (stage is null)
+        {
+            return;
+        }
+
+        stage.State = state;
+        stage.Summary = summary;
+        stage.Detail = detail ?? string.Empty;
+        RenderWorkflow();
+    }
+
+    private void RenderWorkflow(string? overrideStatusText = null, string? overrideHint = null)
+    {
+        if (headless)
+        {
+            return;
+        }
+
+        var runningStage = workflowStages.FirstOrDefault(stage => stage.State == InstallerStageStatus.Running);
+        var failedStage = workflowStages.FirstOrDefault(stage => stage.State == InstallerStageStatus.Error);
+        var currentStage = failedStage
+            ?? runningStage
+            ?? workflowStages.LastOrDefault(stage => stage.State == InstallerStageStatus.Ok)
+            ?? workflowStages.First();
+
+        var severity = failedStage is not null
+            ? InstallerUiSeverity.Error
+            : runningStage is not null
+                ? InstallerUiSeverity.Active
+                : workflowStages.FirstOrDefault(stage => stage.Id == StageFinalize)?.State == InstallerStageStatus.Ok
+                    ? InstallerUiSeverity.Success
+                    : InstallerUiSeverity.Warning;
+
+        var view = new InstallerWorkflowView
+        {
+            BadgeText = severity switch
+            {
+                InstallerUiSeverity.Error => "Estado con error",
+                InstallerUiSeverity.Success => "Estado completado",
+                InstallerUiSeverity.Warning => "Estado pendiente",
+                _ => "Estado activo"
+            },
+            StatusText = overrideStatusText ?? currentStage.Summary,
+            HintText = overrideHint ?? BuildHintText(severity, currentStage),
+            HeaderBackground = severity switch
+            {
+                InstallerUiSeverity.Error => "#D34B5A",
+                InstallerUiSeverity.Success => "#198754",
+                InstallerUiSeverity.Warning => "#E5B85C",
+                _ => "#0C7489"
+            },
+            HeaderForeground = severity == InstallerUiSeverity.Warning ? "#2E2413" : "#FFFFFF",
+            SummaryBackground = severity switch
+            {
+                InstallerUiSeverity.Error => "#FFF1F3",
+                InstallerUiSeverity.Success => "#EBF8F0",
+                InstallerUiSeverity.Warning => "#FFF7E2",
+                _ => "#E6F4F8"
+            },
+            SummaryBorder = severity switch
+            {
+                InstallerUiSeverity.Error => "#F0B6BE",
+                InstallerUiSeverity.Success => "#A7D8B9",
+                InstallerUiSeverity.Warning => "#F4D28E",
+                _ => "#9BD2DF"
+            },
+            SummaryForeground = severity switch
+            {
+                InstallerUiSeverity.Error => "#8A1733",
+                InstallerUiSeverity.Success => "#14532D",
+                InstallerUiSeverity.Warning => "#8A6116",
+                _ => "#0B4A5A"
+            },
+            StageBodyForeground = severity switch
+            {
+                InstallerUiSeverity.Error => "#8A1733",
+                InstallerUiSeverity.Success => "#14532D",
+                InstallerUiSeverity.Warning => "#8A6116",
+                _ => "#37576A"
+            },
+            SummaryBadge = runningStage is not null
+                ? "En curso"
+                : failedStage is not null
+                    ? "Fallo detectado"
+                    : workflowStages.FirstOrDefault(stage => stage.Id == StageFinalize)?.State == InstallerStageStatus.Ok
+                        ? "Completado"
+                        : "Pendiente",
+            CurrentStageTitle = $"Etapa destacada: {currentStage.Label}",
+            CurrentStageText = string.IsNullOrWhiteSpace(currentStage.Detail)
+                ? currentStage.Summary
+                : $"{currentStage.Summary} {currentStage.Detail}".Trim(),
+            Stages = workflowStages.Select(MapStageToView).ToList(),
+            ShowFailureSummary = failureDisplay is not null,
+            FailureTitle = failureDisplay?.Title ?? "Resumen de error",
+            FailureText = failureDisplay?.Body ?? string.Empty
+        };
+
+        DispatchToUi(() => window?.UpdateWorkflow(view));
+    }
+
+    private static string BuildHintText(InstallerUiSeverity severity, InstallerStageState currentStage)
+    {
+        return severity switch
+        {
+            InstallerUiSeverity.Error => "La operación se detuvo. Revisa el resumen de error y usa las rutas de log mostradas.",
+            InstallerUiSeverity.Success => "Todas las etapas terminaron correctamente.",
+            InstallerUiSeverity.Warning => "El asistente todavía no ha ejecutado la operación o requiere una nueva acción manual.",
+            _ => $"Etapa activa: {currentStage.Label}."
+        };
+    }
+
+    private static InstallerStageView MapStageToView(InstallerStageState stage)
+    {
+        return stage.State switch
+        {
+            InstallerStageStatus.Running => new InstallerStageView
+            {
+                Label = stage.Label,
+                Badge = "ACTIVA",
+                Summary = stage.Summary,
+                Detail = stage.Detail,
+                Background = "#E6F4F8",
+                Border = "#9BD2DF",
+                Foreground = "#0B4A5A"
+            },
+            InstallerStageStatus.Ok => new InstallerStageView
+            {
+                Label = stage.Label,
+                Badge = "OK",
+                Summary = stage.Summary,
+                Detail = stage.Detail,
+                Background = "#EBF8F0",
+                Border = "#A7D8B9",
+                Foreground = "#14532D"
+            },
+            InstallerStageStatus.Error => new InstallerStageView
+            {
+                Label = stage.Label,
+                Badge = "ERROR",
+                Summary = stage.Summary,
+                Detail = stage.Detail,
+                Background = "#FFF1F3",
+                Border = "#F0B6BE",
+                Foreground = "#8A1733"
+            },
+            _ => new InstallerStageView
+            {
+                Label = stage.Label,
+                Badge = "PENDIENTE",
+                Summary = stage.Summary,
+                Detail = stage.Detail,
+                Background = "#F8FAFC",
+                Border = "#D7DEE5",
+                Foreground = "#334155"
+            }
+        };
     }
 
     private async Task RunHelperDetectionAsync(bool force = false)
@@ -268,6 +503,12 @@ internal sealed class EvaluaProBootstrapperApplication : BootstrapperApplication
                 return;
             }
 
+            if (force)
+            {
+                ResetWorkflow();
+            }
+
+            SetStageState(StageDetection, InstallerStageStatus.Running, "Analizando prerequisitos del equipo.", "Validando flavor, runtime y rutas de instalación.");
             UpdateUiState(statusText: "Analizando prerequisitos...", busy: true);
             var request = new Dictionary<string, object?>
             {
@@ -284,6 +525,7 @@ internal sealed class EvaluaProBootstrapperApplication : BootstrapperApplication
         }
         catch (Exception ex)
         {
+            SetStageState(StageDetection, InstallerStageStatus.Error, "La detección de prerequisitos falló.", ex.Message);
             helperDetectionComplete = true;
             FinalizeFailure("analisis_requisitos", 10, $"Fallo la deteccion de prerequisitos: {ex.Message}");
         }
@@ -379,6 +621,8 @@ internal sealed class EvaluaProBootstrapperApplication : BootstrapperApplication
         {
             try
             {
+                ResetWorkflow(keepDetectionStage: true);
+                SetStageState(StageRemediation, InstallerStageStatus.Running, "Resolviendo prerequisitos automáticamente.", "Preparando bootstrap guiado o semiautomático.");
                 UpdateUiState(statusText: "Resolviendo prerequisitos automaticamente...", progress: 0, busy: true);
                 Log("info", "Iniciando remediacion automatica de prerequisitos.");
                 var remediationRequest = new Dictionary<string, object?>
@@ -396,12 +640,14 @@ internal sealed class EvaluaProBootstrapperApplication : BootstrapperApplication
                         var statusText = string.IsNullOrWhiteSpace(progressEvent.Status)
                             ? "Resolviendo prerequisitos automaticamente..."
                             : progressEvent.Status;
+                        SetStageState(StageRemediation, InstallerStageStatus.Running, "Resolviendo prerequisitos automáticamente.", statusText);
                         UpdateUiState(statusText: statusText, progress: progressValue, busy: true);
                     }).ConfigureAwait(false);
                 FlushHelperLogs(remediationResponse.Logs);
                 helperDetectionLogsFlushed = true;
                 helperDetectionResponse = remediationResponse;
                 detectionPayload = remediationResponse.Data;
+                SetStageState(StageRemediation, InstallerStageStatus.Ok, "Remediación concluida.", remediationResponse.Message ?? "Los prerequisitos ya se reevaluaron.");
 
                 if (detectionPayload is not null)
                 {
@@ -410,21 +656,28 @@ internal sealed class EvaluaProBootstrapperApplication : BootstrapperApplication
             }
             catch (Exception ex)
             {
+                SetStageState(StageRemediation, InstallerStageStatus.Error, "La remediación automática falló.", ex.Message);
                 FinalizeFailure("prerequisitos", 10, $"No se pudo ejecutar la remediacion automatica de prerequisitos: {ex.Message}");
                 return;
             }
 
             if (detectionPayload is { Ready: false })
             {
+                SetStageState(StageRemediation, InstallerStageStatus.Error, "La remediación terminó, pero el equipo sigue incompleto.", "Todavía falta una acción manual o un runtime válido.");
                 FinalizeFailure("prerequisitos", 10, "El equipo no cumple los prerequisitos detectados por el bootstrapper.");
                 return;
             }
+        }
+        else
+        {
+            SetStageState(StageRemediation, InstallerStageStatus.Ok, "No fue necesaria la remediación automática.", string.Empty);
         }
 
         startRequested = true;
         currentRequest = request;
         currentOperation = normalizedOperation;
 
+        SetStageState(StagePlanning, InstallerStageStatus.Running, "Planificando la transacción del bundle.", "Preparando variables MSI y acción solicitada.");
         UpdateUiState(statusText: "Planificando instalacion...", progress: 0, busy: true);
         engineHandle.SetVariableString("InstallFolder", request.InstallDir, false);
         engineHandle.SetVariableString("SelectedFlavorId", request.FlavorId, false);
@@ -457,6 +710,7 @@ internal sealed class EvaluaProBootstrapperApplication : BootstrapperApplication
         try
         {
             helperInFlight = true;
+            SetStageState(StagePostInstall, InstallerStageStatus.Running, "Ejecutando helper post-instalación.", "Preparando la solicitud elevada.");
             var requestObject = new Dictionary<string, object?>
             {
                 ["mode"] = currentOperation,
@@ -499,6 +753,7 @@ internal sealed class EvaluaProBootstrapperApplication : BootstrapperApplication
         }
         catch (Exception ex)
         {
+            SetStageState(StagePostInstall, InstallerStageStatus.Error, "No se pudo iniciar el helper post-instalación.", ex.Message);
             FinalizeFailure("blindaje_licencia_local", 50, $"No se pudo iniciar helper post-install: {ex.Message}");
         }
     }
@@ -516,10 +771,13 @@ internal sealed class EvaluaProBootstrapperApplication : BootstrapperApplication
 
             if (!envelope.Ok)
             {
+                SetStageState(StagePostInstall, InstallerStageStatus.Error, "El helper post-instalación devolvió error.", envelope.Message ?? "No se completó la configuración final.");
                 FinalizeFailure(envelope.Phase ?? "helper_post_install", envelope.ExitCode == 0 ? 50 : envelope.ExitCode, envelope.Message ?? "El helper post-install devolvio error.");
                 return;
             }
 
+            SetStageState(StagePostInstall, InstallerStageStatus.Ok, "Post-instalación completada.", envelope.Message ?? "EvaluaPro quedó configurado.");
+            SetStageState(StageFinalize, InstallerStageStatus.Ok, "Instalación completada.", "EvaluaPro ya quedó listo para usarse.");
             UpdateUiState(statusText: "Instalacion completada.", progress: 100, busy: false);
             requestedExitCode = 0;
 
@@ -740,6 +998,11 @@ internal sealed class EvaluaProBootstrapperApplication : BootstrapperApplication
         };
 
         DispatchToUi(() => window?.ApplyDetectionModel(model));
+        SetStageState(
+            StageDetection,
+            InstallerStageStatus.Ok,
+            payload.Ready ? "Prerequisitos verificados." : "Detección completada con observaciones.",
+            model.Summary);
         UpdateUiState(statusText: payload.Ready ? "Prerequisitos verificados." : "El equipo requiere atencion antes de instalar.", busy: false);
     }
 
@@ -870,12 +1133,20 @@ internal sealed class EvaluaProBootstrapperApplication : BootstrapperApplication
         requestedExitCode = exitCode;
         helperInFlight = false;
         applyInFlight = false;
+        var mappedStage = MapPhaseToStage(phase);
+        if (!string.IsNullOrWhiteSpace(mappedStage))
+        {
+            SetStageState(mappedStage, InstallerStageStatus.Error, $"La etapa '{ResolveStageLabel(mappedStage)}' terminó con error.", message);
+        }
+        SetStageState(StageFinalize, InstallerStageStatus.Error, "La operación terminó con error.", message);
         Log("error", $"[{phase}] {message}");
         if (!helperDetectionLogsFlushed)
         {
             FlushHelperLogs(helperDetectionResponse?.Logs);
             helperDetectionLogsFlushed = true;
         }
+        failureDisplay ??= BuildFailureDisplay("Resumen de error", lastFailedPackageId, lastFailedPackageStatus, ReadEngineVariableString("WixBundleLog_EvaluaProMsi"), sessionLogPath, message);
+        RenderWorkflow(message, "La operación se detuvo. Revisa el resumen de error y los logs.");
         DispatchToUi(() => window?.NotifyInitialDetectionCompleted());
 
         if (headless)
@@ -938,6 +1209,103 @@ internal sealed class EvaluaProBootstrapperApplication : BootstrapperApplication
             "uninstall" => "uninstall",
             _ => "install"
         };
+    }
+
+    private static string MapPhaseToStage(string? phase)
+    {
+        return (phase ?? string.Empty).Trim().ToLowerInvariant() switch
+        {
+            "analisis_requisitos" => StageDetection,
+            "prerequisitos" => StageRemediation,
+            "accion_producto" => StageMsi,
+            "configuracion_operativa" => StagePostInstall,
+            "helper_post_install" => StagePostInstall,
+            "blindaje_licencia_local" => StagePostInstall,
+            _ => StageFinalize
+        };
+    }
+
+    private string ResolveStageLabel(string stageId)
+    {
+        return workflowStages.FirstOrDefault(stage => stage.Id == stageId)?.Label ?? "finalización";
+    }
+
+    private static FailureDisplay BuildFailureDisplay(string title, string? packageId, int? statusCode, string? msiLogPath, string? baLogPath, string? reason)
+    {
+        var parts = new List<string>();
+        if (!string.IsNullOrWhiteSpace(packageId))
+        {
+            parts.Add($"Paquete: {packageId}");
+        }
+
+        if (statusCode.HasValue)
+        {
+            parts.Add($"Código: {FormatWindowsStatus(statusCode.Value)}");
+        }
+
+        if (!string.IsNullOrWhiteSpace(reason))
+        {
+            parts.Add($"Motivo: {reason}");
+        }
+
+        if (!string.IsNullOrWhiteSpace(msiLogPath))
+        {
+            parts.Add($"Log MSI: {msiLogPath}");
+        }
+
+        if (!string.IsNullOrWhiteSpace(baLogPath))
+        {
+            parts.Add($"Log BA: {baLogPath}");
+        }
+
+        return new FailureDisplay
+        {
+            Title = title,
+            Body = string.Join(Environment.NewLine, parts)
+        };
+    }
+
+    private static string? TryExtractMsiFailureReason(string? logPath)
+    {
+        if (string.IsNullOrWhiteSpace(logPath) || !File.Exists(logPath))
+        {
+            return null;
+        }
+
+        try
+        {
+            var text = File.ReadAllText(logPath, Encoding.Unicode);
+            if (string.IsNullOrWhiteSpace(text))
+            {
+                return null;
+            }
+
+            var lines = text
+                .Replace("\r", string.Empty)
+                .Split('\n', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+
+            for (var idx = lines.Length - 1; idx >= 0; idx--)
+            {
+                var line = lines[idx];
+                var productMatch = Regex.Match(line, @"Producto:\s*.+?--\s*(.+)$", RegexOptions.IgnoreCase);
+                if (productMatch.Success)
+                {
+                    return productMatch.Groups[1].Value.Trim();
+                }
+
+                var launchConditionMatch = Regex.Match(line, @"No se detecto.+runtime Docker compatible.+", RegexOptions.IgnoreCase);
+                if (launchConditionMatch.Success)
+                {
+                    return launchConditionMatch.Value.Trim();
+                }
+            }
+        }
+        catch
+        {
+            return null;
+        }
+
+        return null;
     }
 
     private static bool IsTruthy(string? value)
@@ -1035,6 +1403,49 @@ public sealed class BootstrapperRequest
     public string UpdateRepo { get; set; } = "EvaluaPro_Sistema_Universitario";
     public string UpdateAssetName { get; set; } = "EvaluaPro-InstallerHub-docente-local.exe";
     public string UpdateShaAssetName { get; set; } = "EvaluaPro-InstallerHub-docente-local.exe.sha256";
+}
+
+internal enum InstallerStageStatus
+{
+    Pending,
+    Running,
+    Ok,
+    Error
+}
+
+internal enum InstallerUiSeverity
+{
+    Active,
+    Success,
+    Warning,
+    Error
+}
+
+internal sealed class InstallerStageState
+{
+    public InstallerStageState(string id, string label, string summary)
+    {
+        Id = id;
+        Label = label;
+        Summary = summary;
+    }
+
+    public string Id { get; }
+
+    public string Label { get; }
+
+    public InstallerStageStatus State { get; set; } = InstallerStageStatus.Pending;
+
+    public string Summary { get; set; }
+
+    public string Detail { get; set; } = string.Empty;
+}
+
+internal sealed class FailureDisplay
+{
+    public string Title { get; set; } = "Resumen de error";
+
+    public string Body { get; set; } = string.Empty;
 }
 
 public sealed class HelperEnvelope<TData>

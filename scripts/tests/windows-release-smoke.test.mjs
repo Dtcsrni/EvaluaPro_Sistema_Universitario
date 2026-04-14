@@ -11,6 +11,8 @@ const manifestPath = path.join(root, 'logs', 'installation.manifest.json');
 const lockPath = path.join(root, 'logs', 'dashboard.lock.json');
 const localPathsManifestPath = path.join(root, 'dist', 'installer', 'installer-local-paths.json');
 const internalLocalPathsManifestPath = path.join(root, 'dist', 'installer', '_internal', 'installer-local-paths.json');
+const productWxsPath = path.join(root, 'packaging', 'wix', 'Product.wxs');
+const bundleWxsPath = path.join(root, 'packaging', 'wix', 'Bundle.wxs');
 
 function getAvailablePowerShell() {
   const candidates = process.platform === 'win32'
@@ -227,6 +229,14 @@ test('parseJsonOutput preserva UTF-8 valido y repara mojibake sin degradar acent
   const mojibake = parseJsonOutput('{"state":"daÃ±ada","issues":["Falta archivo crÃ­tico"]}');
   assert.equal(mojibake.state, 'dañada');
   assert.equal(mojibake.issues[0], 'Falta archivo crítico');
+});
+
+test('bundle Burn no duplica el gate Docker del MSI cuando Installer Hub ya valida prerequisitos', () => {
+  const productWxs = fs.readFileSync(productWxsPath, 'utf8');
+  const bundleWxs = fs.readFileSync(bundleWxsPath, 'utf8');
+
+  assert.match(bundleWxs, /MsiProperty Name="REQUIRE_INSTALLER_HUB" Value="1"/);
+  assert.match(productWxs, /SKIP_DOCKER_RUNTIME_CHECK = 1 OR REQUIRE_INSTALLER_HUB = 1 OR BURNMSIINSTALL = 1 OR DOCKERINSTALLED64 OR DOCKERINSTALLEDUSER OR WSLINSTALLED/);
 });
 
 test('smoke GUI no destructivo valida el bundle Burn publico empaquetado', { timeout: 120_000 }, async () => {

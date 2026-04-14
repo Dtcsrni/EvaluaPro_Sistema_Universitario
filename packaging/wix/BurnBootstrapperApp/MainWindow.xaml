@@ -23,6 +23,10 @@
         <SolidColorBrush x:Key="CardBorderBrush" Color="#D7DEE5" />
         <SolidColorBrush x:Key="AccentInfoBrush" Color="#0E7490" />
         <SolidColorBrush x:Key="AccentWarmBrush" Color="#E5B85C" />
+        <SolidColorBrush x:Key="StatusActiveBrush" Color="#0C7489" />
+        <SolidColorBrush x:Key="StatusSuccessBrush" Color="#15803D" />
+        <SolidColorBrush x:Key="StatusWarningBrush" Color="#B7791F" />
+        <SolidColorBrush x:Key="StatusErrorBrush" Color="#B42318" />
 
         <Style x:Key="CardBorderStyle" TargetType="Border">
             <Setter Property="Background" Value="{StaticResource CardBackgroundBrush}" />
@@ -63,10 +67,11 @@
                         Asistente estable para instalar, reparar y desinstalar con prerequisitos visibles, MSI encadenado por Burn y ayudante post-instalación endurecido.
                     </TextBlock>
                 </StackPanel>
-                <Border Grid.Column="1" MinWidth="250" MaxWidth="320" CornerRadius="14" Background="#E5B85C" Padding="16">
+                <Border x:Name="StatusCardBorder" Grid.Column="1" MinWidth="250" MaxWidth="320" CornerRadius="14" Background="#E5B85C" Padding="16">
                     <StackPanel>
-                        <TextBlock Text="Estado" FontWeight="Bold" Foreground="#2E2413" />
-                        <TextBlock x:Name="StatusTextBlock" Margin="0,8,0,0" Text="Analizando prerequisitos..." TextWrapping="Wrap" Foreground="#2E2413" />
+                        <TextBlock x:Name="StatusBadgeTextBlock" Text="Estado activo" FontWeight="Bold" Foreground="#2E2413" />
+                        <TextBlock x:Name="StatusTextBlock" Margin="0,8,0,0" Text="Analizando prerequisitos..." TextWrapping="Wrap" Foreground="#2E2413" FontSize="15" FontWeight="SemiBold" />
+                        <TextBlock x:Name="StatusHintTextBlock" Margin="0,8,0,0" Text="La operación todavía no termina." TextWrapping="Wrap" Foreground="#2E2413" FontSize="12" />
                     </StackPanel>
                 </Border>
             </Grid>
@@ -240,12 +245,35 @@
                     <Grid.RowDefinitions>
                         <RowDefinition Height="Auto" />
                         <RowDefinition Height="Auto" />
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="Auto" />
                         <RowDefinition Height="*" />
                     </Grid.RowDefinitions>
-                    <TextBlock Text="Trazabilidad de sesión" FontSize="18" FontWeight="Bold" Foreground="#0F172A" />
-                    <ProgressBar x:Name="InstallProgressBar" Grid.Row="1" Height="18" Margin="0,12,0,12" Minimum="0" Maximum="100" ToolTip="Progreso general de la operación (detección, planeación, instalación y verificación)." />
+                    <TextBlock Text="Trazabilidad y progreso" FontSize="18" FontWeight="Bold" Foreground="#0F172A" />
+                    <Border x:Name="StageSummaryBorder" Grid.Row="1" Margin="0,12,0,12" Padding="14" CornerRadius="14" Background="#E6F4F8" BorderBrush="#9BD2DF" BorderThickness="1">
+                        <StackPanel>
+                            <TextBlock x:Name="StageSummaryBadgeTextBlock" Text="En curso" FontWeight="Bold" Foreground="#0B4A5A" />
+                            <TextBlock x:Name="StageSummaryTitleTextBlock" Margin="0,6,0,0" Text="Etapa actual: detección" FontSize="16" FontWeight="SemiBold" Foreground="#0F172A" TextWrapping="Wrap" />
+                            <TextBlock x:Name="StageSummaryTextBlock" Margin="0,6,0,0" Text="El asistente está preparando la validación inicial." Foreground="#37576A" TextWrapping="Wrap" />
+                        </StackPanel>
+                    </Border>
+                    <Border Grid.Row="2" Margin="0,0,0,12" Padding="12" CornerRadius="14" Background="#F8FAFC" BorderBrush="#D7DEE5" BorderThickness="1">
+                        <StackPanel>
+                            <TextBlock Text="Línea de tareas" FontWeight="Bold" Foreground="#0F172A" />
+                            <TextBlock Margin="0,4,0,10" FontSize="12" Foreground="#49616F" Text="Qué etapa está activa, cuál terminó y si alguna falló." />
+                            <StackPanel x:Name="StageTimelineHost" />
+                        </StackPanel>
+                    </Border>
+                    <Border x:Name="FailureSummaryBorder" Grid.Row="3" Margin="0,0,0,12" Padding="14" CornerRadius="14" Background="#FFF1F3" BorderBrush="#F0B6BE" BorderThickness="1" Visibility="Collapsed">
+                        <StackPanel>
+                            <TextBlock x:Name="FailureSummaryTitleTextBlock" Text="Resumen de error" FontWeight="Bold" Foreground="#8A1733" />
+                            <TextBlock x:Name="FailureSummaryTextBlock" Margin="0,8,0,0" TextWrapping="Wrap" Foreground="#8A1733" />
+                        </StackPanel>
+                    </Border>
+                    <ProgressBar x:Name="InstallProgressBar" Grid.Row="4" Height="18" Margin="0,0,0,12" Minimum="0" Maximum="100" ToolTip="Progreso general de la operación (detección, planeación, instalación y verificación)." />
                     <TextBox x:Name="LogTextBox"
-                             Grid.Row="2"
+                             Grid.Row="5"
                              FontFamily="Consolas"
                              IsReadOnly="True"
                              TextWrapping="NoWrap"

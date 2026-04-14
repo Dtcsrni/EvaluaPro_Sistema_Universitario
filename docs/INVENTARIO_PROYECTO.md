@@ -25,6 +25,9 @@ Version visible objetivo: `1.0.0b`
 
 ## 2.1) Footprint y clasificacion del corte 2026-03-20
 - Recorte `docente-local` 2026-04-08:
+  - se corrige la desalineación entre prerequisitos validados por Burn y `Launch Conditions` del MSI:
+    - `docente-local` ya no debe fallar con `1603/0x80070643` por revalidación host de Docker cuando Burn ya aprobó `WSL2 + Docker`
+    - el Installer Hub WPF agrega timeline explícito de etapas y resumen visual de error MSI para no depender solo de la bitácora
   - Installer Hub asume preparacion dual del runtime para `docente-local`:
     - Windows usa `Node` embebido privado del producto para launcher/dashboard/tray
     - `WSL2` queda como runtime operativo del stack con `Docker Engine + Node 24`

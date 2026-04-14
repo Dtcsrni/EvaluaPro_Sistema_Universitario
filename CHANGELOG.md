@@ -5,6 +5,11 @@ Este archivo sigue el formato "Keep a Changelog" (alto nivel) y SemVer.
 ## [Unreleased]
 
 ### Changed
+- Installer Hub corrige el falso `0x80070643` de `docente-local` cuando Burn ya validó `WSL2 + Docker`:
+  - `packaging/wix/Product.wxs` deja de revalidar Docker host en el MSI cuando la instalación viene desde Installer Hub/Burn
+  - la interfaz WPF del bootstrapper ahora expone una línea de etapas visibles (`Detección`, `Remediación`, `Planificación`, `Ejecución MSI`, `Post-instalación`, `Finalización`)
+  - el Hub muestra un resumen de error más legible con código, paquete y rutas de logs cuando el MSI falla
+  - contratos de `installer-hub` y `windows-release-smoke` blindan la condición para que el MSI no vuelva a bloquear `docente-local` tras prerequisitos aprobados por Burn
 - `docente-local` migra para que Installer Hub prepare `WSL2` y elimine la dependencia de `Node` global en Windows:
   - `config/installer-prereqs.manifest.json` deja `Node.js` host fuera del perfil `docente-local` y agrega `Node.js WSL2`
   - `scripts/installer-burn/modules/PrereqDetector.psm1` y `PrereqInstaller.psm1` detectan/provisionan `Node 24` dentro de la distro objetivo de `WSL2`

@@ -1,6 +1,7 @@
 using System.ComponentModel;
 using System.Windows;
 using System.Windows.Controls;
+using System.Windows.Media;
 using System.Windows.Threading;
 
 namespace EvaluaPro.BurnBootstrapperApp;
@@ -9,6 +10,7 @@ public partial class MainWindow : Window
 {
     private bool busy;
     private bool hasDeterminateProgress;
+    private bool readyToStart;
     private bool splashDismissed;
     private DispatcherTimer? splashFallbackTimer;
 
@@ -41,6 +43,7 @@ public partial class MainWindow : Window
         DetectionSummaryTextBlock.Text = model.Summary;
         UpdateAssetNameTextBox.Text = model.AssetName;
         SetMode(model.Mode);
+        readyToStart = model.Ready;
 
         var rows = model.Prerequisites.Select(item => new PrerequisiteRow
         {
@@ -50,7 +53,7 @@ public partial class MainWindow : Window
             Reason = item.Reason
         }).ToList();
         PrereqListView.ItemsSource = rows;
-        StartButton.IsEnabled = model.Ready;
+        StartButton.IsEnabled = model.Ready && !busy;
     }
 
     public void ConfigureInitialFlavorLayout(IReadOnlyList<FlavorItem> availableFlavors, string requestedFlavorId)
@@ -107,7 +110,7 @@ public partial class MainWindow : Window
         {
             busy = isBusy.Value;
             DetectButton.IsEnabled = !busy;
-            StartButton.IsEnabled = !busy;
+            StartButton.IsEnabled = !busy && readyToStart;
 
             if (busy && !progress.HasValue && !hasDeterminateProgress)
             {
@@ -119,6 +122,74 @@ public partial class MainWindow : Window
                 InstallProgressBar.IsIndeterminate = false;
             }
         }
+    }
+
+    public void UpdateWorkflow(InstallerWorkflowView workflow)
+    {
+        StatusTextBlock.Text = workflow.StatusText;
+        StatusHintTextBlock.Text = workflow.HintText;
+        StatusBadgeTextBlock.Text = workflow.BadgeText;
+        StatusCardBorder.Background = ToBrush(workflow.HeaderBackground);
+        StatusBadgeTextBlock.Foreground = ToBrush(workflow.HeaderForeground);
+        StatusTextBlock.Foreground = ToBrush(workflow.HeaderForeground);
+        StatusHintTextBlock.Foreground = ToBrush(workflow.HeaderForeground);
+
+        StageSummaryBorder.Background = ToBrush(workflow.SummaryBackground);
+        StageSummaryBorder.BorderBrush = ToBrush(workflow.SummaryBorder);
+        StageSummaryBadgeTextBlock.Text = workflow.SummaryBadge;
+        StageSummaryBadgeTextBlock.Foreground = ToBrush(workflow.SummaryForeground);
+        StageSummaryTitleTextBlock.Text = workflow.CurrentStageTitle;
+        StageSummaryTextBlock.Text = workflow.CurrentStageText;
+        StageSummaryTextBlock.Foreground = ToBrush(workflow.StageBodyForeground);
+
+        StageTimelineHost.Children.Clear();
+        foreach (var stage in workflow.Stages)
+        {
+            var border = new Border
+            {
+                CornerRadius = new CornerRadius(12),
+                Padding = new Thickness(10),
+                Margin = new Thickness(0, 0, 0, 8),
+                Background = ToBrush(stage.Background),
+                BorderBrush = ToBrush(stage.Border),
+                BorderThickness = new Thickness(1)
+            };
+
+            var stack = new StackPanel();
+            stack.Children.Add(new TextBlock
+            {
+                Text = $"{stage.Label} · {stage.Badge}",
+                FontWeight = FontWeights.SemiBold,
+                Foreground = ToBrush(stage.Foreground),
+                TextWrapping = TextWrapping.Wrap
+            });
+            stack.Children.Add(new TextBlock
+            {
+                Margin = new Thickness(0, 4, 0, 0),
+                Text = stage.Summary,
+                Foreground = ToBrush(stage.Foreground),
+                TextWrapping = TextWrapping.Wrap
+            });
+
+            if (!string.IsNullOrWhiteSpace(stage.Detail))
+            {
+                stack.Children.Add(new TextBlock
+                {
+                    Margin = new Thickness(0, 4, 0, 0),
+                    FontSize = 11,
+                    Text = stage.Detail,
+                    Foreground = ToBrush("#49616F"),
+                    TextWrapping = TextWrapping.Wrap
+                });
+            }
+
+            border.Child = stack;
+            StageTimelineHost.Children.Add(border);
+        }
+
+        FailureSummaryBorder.Visibility = workflow.ShowFailureSummary ? Visibility.Visible : Visibility.Collapsed;
+        FailureSummaryTitleTextBlock.Text = workflow.FailureTitle;
+        FailureSummaryTextBlock.Text = workflow.FailureText;
     }
 
     public void AppendLog(string line)
@@ -133,7 +204,7 @@ public partial class MainWindow : Window
         hasDeterminateProgress = false;
         InstallProgressBar.IsIndeterminate = false;
         StatusTextBlock.Text = message;
-        StartButton.IsEnabled = success;
+        StartButton.IsEnabled = readyToStart;
         DetectButton.IsEnabled = true;
     }
 
@@ -141,6 +212,7 @@ public partial class MainWindow : Window
     {
         ClosingRequestedDuringBusy?.Invoke(this, EventArgs.Empty);
         StatusTextBlock.Text = "Hay una operación en progreso; espera a que termine antes de cerrar.";
+        StatusHintTextBlock.Text = "El cierre se bloqueó para proteger la transacción actual.";
     }
 
     private void SetMode(string mode)
@@ -288,6 +360,11 @@ public partial class MainWindow : Window
             : $"v{version.Major}.{Math.Max(0, version.Minor)}.{Math.Max(0, version.Build)}";
         HubVersionTextBlock.Text = versionText;
     }
+
+    private static SolidColorBrush ToBrush(string hex)
+    {
+        return (SolidColorBrush)new BrushConverter().ConvertFrom(hex)!;
+    }
 }
 
 internal sealed class PrerequisiteRow
@@ -299,4 +376,35 @@ internal sealed class PrerequisiteRow
     public string ActualVersion { get; set; } = string.Empty;
 
     public string Reason { get; set; } = string.Empty;
+}
+
+internal sealed class InstallerWorkflowView
+{
+    public string BadgeText { get; set; } = "Estado activo";
+    public string StatusText { get; set; } = "Analizando prerequisitos...";
+    public string HintText { get; set; } = "La operación todavía no termina.";
+    public string HeaderBackground { get; set; } = "#E5B85C";
+    public string HeaderForeground { get; set; } = "#2E2413";
+    public string SummaryBackground { get; set; } = "#E6F4F8";
+    public string SummaryBorder { get; set; } = "#9BD2DF";
+    public string SummaryForeground { get; set; } = "#0B4A5A";
+    public string StageBodyForeground { get; set; } = "#37576A";
+    public string SummaryBadge { get; set; } = "En curso";
+    public string CurrentStageTitle { get; set; } = "Etapa actual: detección";
+    public string CurrentStageText { get; set; } = "El asistente está preparando la validación inicial.";
+    public IReadOnlyList<InstallerStageView> Stages { get; set; } = [];
+    public bool ShowFailureSummary { get; set; }
+    public string FailureTitle { get; set; } = "Resumen de error";
+    public string FailureText { get; set; } = string.Empty;
+}
+
+internal sealed class InstallerStageView
+{
+    public string Label { get; set; } = string.Empty;
+    public string Badge { get; set; } = string.Empty;
+    public string Summary { get; set; } = string.Empty;
+    public string Detail { get; set; } = string.Empty;
+    public string Background { get; set; } = "#F8FAFC";
+    public string Border { get; set; } = "#D7DEE5";
+    public string Foreground { get; set; } = "#0F172A";
 }

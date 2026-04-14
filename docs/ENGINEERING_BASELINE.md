@@ -6,6 +6,10 @@ Version visible GUI: `1.0.0b`
 
 ## Estado vigente
 - Corte 2026-04-08:
+  - Installer Hub corrige la desalineación Burn/MSI para `docente-local`:
+    - `Product.wxs` ya no vuelve a disparar la `Launch Condition` host de Docker cuando Burn instala vía `REQUIRE_INSTALLER_HUB=1` / `BURNMSIINSTALL=1`
+    - el bootstrapper WPF expone etapas visibles de instalación (`Detección`, `Remediación`, `Planificación`, `Ejecución MSI`, `Post-instalación`, `Finalización`)
+    - en error MSI, la GUI publica paquete, código Windows y rutas de `Log MSI` / `Log BA` sin depender de que el operador lea la bitácora cruda
   - Installer Hub migra `docente-local` a un modelo con runtime Windows embebido + runtime `WSL2` preparado:
     - `Node.js` host deja de ser prerequisito manual para `docente-local`
     - `config/installer-prereqs.manifest.json` agrega `Node.js WSL2` y retira `Node.js` host del perfil docente
