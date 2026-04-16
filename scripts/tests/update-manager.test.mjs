@@ -23,6 +23,21 @@ test('selectLatestRelease detecta error por asset faltante', () => {
   assert.match(String(pick.error || ''), /no incluye asset requerido/i);
 });
 
+test('selectLatestRelease resuelve asset versionado por flavor cuando falta nombre legacy', () => {
+  const pick = selectLatestRelease([{
+    tag_name: 'v1.1.0',
+    prerelease: false,
+    assets: [
+      { name: 'EvaluaPro-InstallerHub-docente-local-v1.1.0.exe', browser_download_url: 'http://example/versioned.exe' },
+      { name: 'EvaluaPro-InstallerHub-docente-local-v1.1.0.exe.sha256', browser_download_url: 'http://example/versioned.exe.sha256' }
+    ]
+  }], '1.0.0', { assetName: 'EvaluaPro-InstallerHub-docente-local.exe', flavorId: 'docente-local' });
+
+  assert.equal(pick.found, true);
+  assert.equal(String(pick.candidate?.installerUrl || '').includes('versioned.exe'), true);
+  assert.equal(String(pick.candidate?.shaUrl || '').includes('versioned.exe.sha256'), true);
+});
+
 test('selectLatestRelease en canal beta solo acepta tags beta', () => {
   const releases = [
     {

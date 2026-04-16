@@ -23,7 +23,7 @@ test('build-msi detecta wix.exe en rutas estandar de Windows sin depender del PA
   assert.match(buildScript, /ProgramFiles.*WiX Toolset v6\.0\\bin\\wix\.exe/i);
   assert.match(buildScript, /ProgramFiles\(x86\)/i);
   assert.match(buildScript, /Get-Command wix/i);
-  assert.match(buildScript, /& \$wixExe @productArgs/i);
+  assert.match(buildScript, /Invoke-WixBuildProcess -WixExecutable \$wixExe -Arguments \$productArgs/i);
 });
 
 test('bundle usa BA personalizada Burn y build-msi publica bootstrapper .NET 8', () => {
@@ -34,7 +34,7 @@ test('bundle usa BA personalizada Burn y build-msi publica bootstrapper .NET 8',
 
   assert.match(buildScript, /Resolve-BalExtensionDll/i);
   assert.match(buildScript, /Publish-BurnBootstrapperApp/i);
-  assert.match(buildScript, /\$DotNetExecutable publish/i);
+  assert.match(buildScript, /Publish-BurnBootstrapperApp -DotNetExecutable \$dotnetExe/i);
   assert.match(buildScript, /WixToolset\.Bal\.wixext/i);
   assert.match(buildScript, /WixToolset\.BootstrapperApplications\.wixext\.dll/i);
   assert.match(bootstrapperProject, /<ApplicationIcon>.*dashboard-hub-app\.ico<\/ApplicationIcon>/i);
@@ -51,3 +51,4 @@ test('bundle usa BA personalizada Burn y build-msi publica bootstrapper .NET 8',
   assert.match(productWxs, /<Icon Id="EvaluaProIconHub" SourceFile=".*installer-canonical\.ico"/i);
   assert.match(productWxs, /<Property Id="ARPPRODUCTICON" Value="EvaluaProIconHub"/i);
 });
+

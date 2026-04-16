@@ -244,7 +244,6 @@ C:\Users\evega\EvaluaPro_Sistema_Universitario\packaging\wix\BurnBootstrapperApp
 C:\Users\evega\EvaluaPro_Sistema_Universitario\packaging\wix\BurnBootstrapperApp\bin\Release\net8.0-windows\win-x64\hostfxr.dll
 C:\Users\evega\EvaluaPro_Sistema_Universitario\packaging\wix\BurnBootstrapperApp\bin\Release\net8.0-windows\win-x64\hostpolicy.dll
 C:\Users\evega\EvaluaPro_Sistema_Universitario\packaging\wix\BurnBootstrapperApp\bin\Release\net8.0-windows\win-x64\mscordaccore.dll
-C:\Users\evega\EvaluaPro_Sistema_Universitario\packaging\wix\BurnBootstrapperApp\bin\Release\net8.0-windows\win-x64\mscordaccore_amd64_amd64_8.0.2526.11203.dll
 C:\Users\evega\EvaluaPro_Sistema_Universitario\packaging\wix\BurnBootstrapperApp\bin\Release\net8.0-windows\win-x64\mscordbi.dll
 C:\Users\evega\EvaluaPro_Sistema_Universitario\packaging\wix\BurnBootstrapperApp\bin\Release\net8.0-windows\win-x64\mscorrc.dll
 C:\Users\evega\EvaluaPro_Sistema_Universitario\packaging\wix\BurnBootstrapperApp\bin\Release\net8.0-windows\win-x64\msquic.dll
@@ -480,3 +479,4 @@ C:\Users\evega\EvaluaPro_Sistema_Universitario\packaging\wix\BurnBootstrapperApp
 C:\Users\evega\EvaluaPro_Sistema_Universitario\packaging\wix\BurnBootstrapperApp\obj\Release\net8.0-windows\win-x64\EvaluaPro.BurnBootstrapperApp.pdb
 C:\Users\evega\EvaluaPro_Sistema_Universitario\packaging\wix\BurnBootstrapperApp\obj\Release\net8.0-windows\win-x64\EvaluaPro.BurnBootstrapperApp.genruntimeconfig.cache
 C:\Users\evega\EvaluaPro_Sistema_Universitario\packaging\wix\BurnBootstrapperApp\obj\Release\net8.0-windows\win-x64\ref\EvaluaPro.BurnBootstrapperApp.dll
+C:\Users\evega\EvaluaPro_Sistema_Universitario\packaging\wix\BurnBootstrapperApp\bin\Release\net8.0-windows\win-x64\mscordaccore_amd64_amd64_8.0.2626.16921.dll

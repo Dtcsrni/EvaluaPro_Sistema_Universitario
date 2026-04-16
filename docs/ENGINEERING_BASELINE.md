@@ -11,8 +11,8 @@ Version visible GUI: `1.0.0b`
     - el bootstrapper WPF expone etapas visibles de instalación (`Detección`, `Remediación`, `Planificación`, `Ejecución MSI`, `Post-instalación`, `Finalización`)
     - en error MSI, la GUI publica paquete, código Windows y rutas de `Log MSI` / `Log BA` sin depender de que el operador lea la bitácora cruda
   - Installer Hub migra `docente-local` a un modelo con runtime Windows embebido + runtime `WSL2` preparado:
-    - `Node.js` host deja de ser prerequisito manual para `docente-local`
-    - `config/installer-prereqs.manifest.json` agrega `Node.js WSL2` y retira `Node.js` host del perfil docente
+    - `Node.js` host queda como prerequisito obligatorio para `docente-local` con remediacion automatica en el Hub
+    - `config/installer-prereqs.manifest.json` mantiene `Node.js WSL2` y reincorpora `Node.js` host en el perfil docente
     - `scripts/installer-burn/modules/PrereqDetector.psm1` y `PrereqInstaller.psm1` detectan/provisionan `Node 24` dentro de la distro `WSL2`
     - `scripts/installer-burn/InstallerBurnHelper.ps1` deja listo `runtime/node/node.exe` como runtime privado local del producto
     - `scripts/generate-installation-manifest.ps1` expone `runtime.embeddedNode` y `runtime.wsl`

@@ -31,7 +31,7 @@ Version visible objetivo: `1.0.0b`
   - Installer Hub asume preparacion dual del runtime para `docente-local`:
     - Windows usa `Node` embebido privado del producto para launcher/dashboard/tray
     - `WSL2` queda como runtime operativo del stack con `Docker Engine + Node 24`
-    - `Node.js` host global deja de ser prerequisito manual para el flavor docente
+    - `Node.js` host global vuelve a declararse prerequisito obligatorio en `docente-local` con remediacion automatica dentro del Hub
     - `installation.manifest.json` ahora expone `runtime.embeddedNode` y `runtime.wsl`
   - se incorpora `env-doctor` dual para diagnostico operacional estricto por entorno:
     - `env:doctor:wsl` para desarrollo diario en WSL2

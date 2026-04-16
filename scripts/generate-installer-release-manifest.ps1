@@ -45,12 +45,53 @@ function Test-ArtifactSigned {
   return $false
 }
 
+function Resolve-VersionTag {
+  param(
+    [string]$RootPath,
+    [string]$RequestedVersion
+  )
+
+  $resolved = [string]$RequestedVersion
+  if ([string]::IsNullOrWhiteSpace($resolved)) {
+    $pkgPath = Join-Path $RootPath 'package.json'
+    if (Test-Path -LiteralPath $pkgPath) {
+      $pkg = Get-Content -Path $pkgPath -Raw | ConvertFrom-Json
+      $resolved = [string]$pkg.version
+    }
+  }
+  if ([string]::IsNullOrWhiteSpace($resolved)) {
+    $resolved = '0.0.0'
+  }
+  return (($resolved -replace '[^0-9A-Za-z\.-]', '-').Trim())
+}
+
+function Get-VersionedArtifactName {
+  param(
+    [Parameter(Mandatory = $true)]
+    [string]$BaseName,
+    [Parameter(Mandatory = $true)]
+    [string]$VersionTag
+  )
+
+  if ([string]::IsNullOrWhiteSpace($VersionTag)) {
+    return $BaseName
+  }
+
+  $ext = [System.IO.Path]::GetExtension($BaseName)
+  $stem = [System.IO.Path]::GetFileNameWithoutExtension($BaseName)
+  if ([string]::IsNullOrWhiteSpace($ext)) {
+    return ("{0}-v{1}" -f $BaseName, $VersionTag)
+  }
+  return ("{0}-v{1}{2}" -f $stem, $VersionTag, $ext)
+}
+
 $root = (Resolve-Path (Join-Path $PSScriptRoot '..')).Path
 if (-not $Version) {
   $pkgPath = Join-Path $root 'package.json'
   $pkg = Get-Content -Path $pkgPath -Raw | ConvertFrom-Json
   $Version = [string]$pkg.version
 }
+$versionTag = Resolve-VersionTag -RootPath $root -RequestedVersion $Version
 
 if (-not $OutputPath) {
   $OutputPath = Join-Path $root 'dist\installer\EvaluaPro-release-manifest.json'
@@ -72,25 +113,95 @@ $installerDir = Split-Path -Parent $OutputPath
 $internalInstallerDir = Join-Path $installerDir '_internal'
 $catalogPath = Join-Path $root 'config\installer-flavors.json'
 $catalog = Get-Content -Path $catalogPath -Raw -Encoding utf8 | ConvertFrom-Json
-$artifactIndex = @{}
-$artifacts = @()
-$allArtifactNames = @('EvaluaPro-release-manifest.json')
-foreach ($flavor in $catalog.flavors) {
-  $allArtifactNames += @([string]$flavor.msiName, [string]$flavor.installerHubExeName)
+
+function Join-UrlPath {
+  param(
+    [Parameter(Mandatory = $true)][string]$BaseUrl,
+    [Parameter(Mandatory = $true)][string]$RelativePath
+  )
+
+  $base = $BaseUrl.TrimEnd('/')
+  $rel = ($RelativePath -replace '\\', '/').TrimStart('/')
+  if ([string]::IsNullOrWhiteSpace($rel)) { return $base }
+  return "$base/$rel"
 }
 
-foreach ($name in ($allArtifactNames | Select-Object -Unique)) {
-  $candidatePaths = @(
-    (Join-Path $installerDir $name),
-    (Join-Path $internalInstallerDir $name)
+function Get-RelativeArtifactPath {
+  param(
+    [Parameter(Mandatory = $true)]
+    [string]$ArtifactPath,
+    [Parameter(Mandatory = $true)]
+    [string]$InstallerRoot
   )
-  $artifactPath = $candidatePaths | Where-Object { Test-Path $_ } | Select-Object -First 1
+
+  try {
+    return [string][System.IO.Path]::GetRelativePath($InstallerRoot, $ArtifactPath)
+  } catch {
+    return [string]$ArtifactPath
+  }
+}
+
+function Resolve-InstallerArtifactPath {
+  param(
+    [Parameter(Mandatory = $true)][string]$ArtifactName,
+    [string]$FlavorId = '',
+    [switch]$PreferInternal
+  )
+
+  $candidatePaths = @()
+  if (-not [string]::IsNullOrWhiteSpace($FlavorId)) {
+    if ($PreferInternal) {
+      $candidatePaths += @(Join-Path (Join-Path $internalInstallerDir $FlavorId) $ArtifactName)
+      $candidatePaths += @(Join-Path (Join-Path $installerDir $FlavorId) $ArtifactName)
+    } else {
+      $candidatePaths += @(Join-Path (Join-Path $installerDir $FlavorId) $ArtifactName)
+      $candidatePaths += @(Join-Path (Join-Path $internalInstallerDir $FlavorId) $ArtifactName)
+    }
+  }
+
+  if ($PreferInternal) {
+    $candidatePaths += @(Join-Path $internalInstallerDir $ArtifactName)
+    $candidatePaths += @(Join-Path $installerDir $ArtifactName)
+  } else {
+    $candidatePaths += @(Join-Path $installerDir $ArtifactName)
+    $candidatePaths += @(Join-Path $internalInstallerDir $ArtifactName)
+  }
+
+  foreach ($candidate in $candidatePaths) {
+    if (Test-Path -LiteralPath $candidate) { return $candidate }
+  }
+
+  return ''
+}
+
+$artifactIndex = @{}
+$artifacts = @()
+$allArtifacts = @(
+  [ordered]@{ name = 'EvaluaPro-release-manifest.json'; flavorId = ''; preferInternal = $false }
+)
+foreach ($flavor in $catalog.flavors) {
+  $flavorId = [string]$flavor.flavorId
+  $versionedHubName = Get-VersionedArtifactName -BaseName ([string]$flavor.installerHubExeName) -VersionTag $versionTag
+  $allArtifacts += @(
+    [ordered]@{ name = [string]$flavor.msiName; flavorId = $flavorId; preferInternal = $true },
+    [ordered]@{ name = [string]$flavor.installerHubExeName; flavorId = $flavorId; preferInternal = $false },
+    [ordered]@{ name = [string]$versionedHubName; flavorId = $flavorId; preferInternal = $false }
+  )
+}
+
+foreach ($artifactDescriptor in $allArtifacts) {
+  $name = [string]$artifactDescriptor.name
+  if ([string]::IsNullOrWhiteSpace($name)) { continue }
+  if ($artifactIndex.ContainsKey($name)) { continue }
+  $artifactPath = Resolve-InstallerArtifactPath -ArtifactName $name -FlavorId ([string]$artifactDescriptor.flavorId) -PreferInternal:([bool]$artifactDescriptor.preferInternal)
   if ([string]::IsNullOrWhiteSpace([string]$artifactPath)) { continue }
-  if (-not (Test-Path $artifactPath)) { continue }
+  if (-not (Test-Path -LiteralPath $artifactPath)) { continue }
   $sha256 = Get-Sha256Hex -Path $artifactPath
+  $relativePath = Get-RelativeArtifactPath -ArtifactPath $artifactPath -InstallerRoot $installerDir
   $entry = [ordered]@{
     name = $name
     location = if ($artifactPath.StartsWith($internalInstallerDir, [System.StringComparison]::OrdinalIgnoreCase)) { 'internal' } else { 'public' }
+    path = ($relativePath -replace '\\', '/')
     sha256 = $sha256
     signed = (Test-ArtifactSigned -Path $artifactPath)
   }
@@ -103,22 +214,33 @@ foreach ($flavor in $catalog.flavors) {
   $msiName = [string]$flavor.msiName
   $bundleName = [string]$flavor.bundleName
   $hubName = [string]$flavor.installerHubExeName
-  $msiUrl = if ($ReleaseBaseUrl) { "$ReleaseBaseUrl/$msiName" } else { '' }
-  $msiShaUrl = if ($ReleaseBaseUrl) { "$ReleaseBaseUrl/$msiName.sha256" } else { '' }
-  $hubUrl = if ($ReleaseBaseUrl) { "$ReleaseBaseUrl/$hubName" } else { '' }
-  $hubShaUrl = if ($ReleaseBaseUrl) { "$ReleaseBaseUrl/$hubName.sha256" } else { '' }
+  $versionedHubName = Get-VersionedArtifactName -BaseName $hubName -VersionTag $versionTag
+  $flavorId = [string]$flavor.flavorId
+  $assetPath = ([System.IO.Path]::Combine($flavorId, $versionedHubName) -replace '\\', '/')
+  $assetShaPath = "$assetPath.sha256"
+  $msiPath = ([System.IO.Path]::Combine('_internal', $flavorId, $msiName) -replace '\\', '/')
+  $msiShaPath = "$msiPath.sha256"
+  $msiUrl = if ($ReleaseBaseUrl) { Join-UrlPath -BaseUrl $ReleaseBaseUrl -RelativePath $msiPath } else { '' }
+  $msiShaUrl = if ($ReleaseBaseUrl) { Join-UrlPath -BaseUrl $ReleaseBaseUrl -RelativePath $msiShaPath } else { '' }
+  $hubUrl = if ($ReleaseBaseUrl) { Join-UrlPath -BaseUrl $ReleaseBaseUrl -RelativePath $assetPath } else { '' }
+  $hubShaUrl = if ($ReleaseBaseUrl) { Join-UrlPath -BaseUrl $ReleaseBaseUrl -RelativePath $assetShaPath } else { '' }
 
   $flavors += [ordered]@{
     flavorId = [string]$flavor.flavorId
     channel = $Channel
-    assetName = $hubName
-    sha256AssetName = "$hubName.sha256"
+    assetName = $versionedHubName
+    assetPath = $assetPath
+    sha256AssetName = "$versionedHubName.sha256"
+    sha256AssetPath = $assetShaPath
     msiName = $msiName
+    msiPath = $msiPath
     msiSha256Name = "$msiName.sha256"
+    msiSha256Path = $msiShaPath
     bundleName = $bundleName
     bundleUrl = ''
     bundleSha256Url = ''
-    installerHubName = $hubName
+    installerHubName = $versionedHubName
+    installerHubVersionedName = $versionedHubName
     installerHubUrl = $hubUrl
     installerHubSha256Url = $hubShaUrl
     msiUrl = $msiUrl

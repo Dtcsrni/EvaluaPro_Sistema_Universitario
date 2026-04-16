@@ -200,7 +200,15 @@ export function selectLatestRelease(releases, currentVersion, options = {}) {
   }
   const effectiveAssetName = String(manifestFlavor?.assetName || assetName);
   const effectiveShaName = String(manifestFlavor?.sha256AssetName || sha256AssetName);
-  const installer = assets.find((item) => String(item?.name || '') === effectiveAssetName) || null;
+  let installer = assets.find((item) => String(item?.name || '') === effectiveAssetName) || null;
+  let installerName = effectiveAssetName;
+  if (!installer && flavorId) {
+    const flavorPattern = new RegExp(`^EvaluaPro-InstallerHub-${flavorId}-v[0-9A-Za-z.-]+\\.exe$`, 'i');
+    installer = assets.find((item) => flavorPattern.test(String(item?.name || ''))) || null;
+    if (installer) {
+      installerName = String(installer?.name || effectiveAssetName);
+    }
+  }
   if (!installer) {
     return {
       found: false,
@@ -209,7 +217,8 @@ export function selectLatestRelease(releases, currentVersion, options = {}) {
     };
   }
 
-  const shaAsset = assets.find((item) => String(item?.name || '') === effectiveShaName) || null;
+  const effectiveShaNameResolved = installerName ? `${installerName}.sha256` : effectiveShaName;
+  const shaAsset = assets.find((item) => String(item?.name || '') === effectiveShaName) || assets.find((item) => String(item?.name || '') === effectiveShaNameResolved) || null;
   const diffSummaryAsset = assets.find((item) => String(item?.name || '') === 'diff-summary.json') || null;
   return {
     found: true,

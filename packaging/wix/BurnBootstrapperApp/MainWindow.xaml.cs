@@ -30,6 +30,8 @@ public partial class MainWindow : Window
 
     public event EventHandler? ClosingRequestedDuringBusy;
 
+    public event EventHandler? RestartRequested;
+
     public void ApplyDetectionModel(WindowDetectionModel model)
     {
         if (FlavorComboBox.Items.Count == 0 && model.AvailableFlavors.Count > 0)
@@ -111,6 +113,7 @@ public partial class MainWindow : Window
             busy = isBusy.Value;
             DetectButton.IsEnabled = !busy;
             StartButton.IsEnabled = !busy && readyToStart;
+            RestartNowButton.IsEnabled = !busy;
 
             if (busy && !progress.HasValue && !hasDeterminateProgress)
             {
@@ -124,7 +127,7 @@ public partial class MainWindow : Window
         }
     }
 
-    public void UpdateWorkflow(InstallerWorkflowView workflow)
+    internal void UpdateWorkflow(InstallerWorkflowView workflow)
     {
         StatusTextBlock.Text = workflow.StatusText;
         StatusHintTextBlock.Text = workflow.HintText;
@@ -143,13 +146,22 @@ public partial class MainWindow : Window
         StageSummaryTextBlock.Foreground = ToBrush(workflow.StageBodyForeground);
 
         StageTimelineHost.Children.Clear();
+        StageTimelineHost.RowDefinitions.Clear();
+
+        var stageCount = Math.Max(1, workflow.Stages.Count);
+        for (var rowIndex = 0; rowIndex < stageCount; rowIndex++)
+        {
+            StageTimelineHost.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
+        }
+
+        var stageIndex = 0;
         foreach (var stage in workflow.Stages)
         {
             var border = new Border
             {
                 CornerRadius = new CornerRadius(12),
-                Padding = new Thickness(10),
-                Margin = new Thickness(0, 0, 0, 8),
+                Padding = new Thickness(8),
+                Margin = new Thickness(0, 0, 0, stageIndex < workflow.Stages.Count - 1 ? 6 : 0),
                 Background = ToBrush(stage.Background),
                 BorderBrush = ToBrush(stage.Border),
                 BorderThickness = new Thickness(1)
@@ -165,26 +177,30 @@ public partial class MainWindow : Window
             });
             stack.Children.Add(new TextBlock
             {
-                Margin = new Thickness(0, 4, 0, 0),
+                Margin = new Thickness(0, 2, 0, 0),
                 Text = stage.Summary,
                 Foreground = ToBrush(stage.Foreground),
-                TextWrapping = TextWrapping.Wrap
+                TextWrapping = TextWrapping.NoWrap,
+                TextTrimming = TextTrimming.CharacterEllipsis
             });
 
             if (!string.IsNullOrWhiteSpace(stage.Detail))
             {
                 stack.Children.Add(new TextBlock
                 {
-                    Margin = new Thickness(0, 4, 0, 0),
-                    FontSize = 11,
+                    Margin = new Thickness(0, 2, 0, 0),
+                    FontSize = 10,
                     Text = stage.Detail,
                     Foreground = ToBrush("#49616F"),
-                    TextWrapping = TextWrapping.Wrap
+                    TextWrapping = TextWrapping.NoWrap,
+                    TextTrimming = TextTrimming.CharacterEllipsis
                 });
             }
 
             border.Child = stack;
+            Grid.SetRow(border, stageIndex);
             StageTimelineHost.Children.Add(border);
+            stageIndex++;
         }
 
         FailureSummaryBorder.Visibility = workflow.ShowFailureSummary ? Visibility.Visible : Visibility.Collapsed;
@@ -206,6 +222,17 @@ public partial class MainWindow : Window
         StatusTextBlock.Text = message;
         StartButton.IsEnabled = readyToStart;
         DetectButton.IsEnabled = true;
+        RestartNowButton.IsEnabled = true;
+    }
+
+    public void SetRestartActionVisible(bool visible, string? message = null)
+    {
+        RestartNowButton.Visibility = visible ? Visibility.Visible : Visibility.Collapsed;
+        RestartNowButton.IsEnabled = visible && !busy;
+        if (visible && !string.IsNullOrWhiteSpace(message))
+        {
+            StatusHintTextBlock.Text = message;
+        }
     }
 
     public void NotifyBusyCloseBlocked()
@@ -290,6 +317,11 @@ public partial class MainWindow : Window
     private void CloseButton_OnClick(object sender, RoutedEventArgs e)
     {
         CloseRequested?.Invoke(this, EventArgs.Empty);
+    }
+
+    private void RestartNowButton_OnClick(object sender, RoutedEventArgs e)
+    {
+        RestartRequested?.Invoke(this, EventArgs.Empty);
     }
 
     private void FlavorComboBox_OnSelectionChanged(object sender, SelectionChangedEventArgs e)

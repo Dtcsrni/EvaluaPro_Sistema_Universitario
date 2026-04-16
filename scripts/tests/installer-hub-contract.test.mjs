@@ -111,7 +111,7 @@ test('installer prereq manifest incluye contrato minimo', () => {
   const saasProfile = manifest.profiles.find((item) => item.profileId === 'saas-completo');
   assert.ok(docenteProfile);
   assert.ok(saasProfile);
-  assert.equal(docenteProfile.prerequisites.includes('Node.js'), false);
+  assert.equal(docenteProfile.prerequisites.includes('Node.js'), true);
   assert.equal(docenteProfile.prerequisites.includes('Node.js WSL2'), true);
   assert.equal(docenteProfile.prerequisites.includes('Docker Runtime Windows'), true);
   assert.equal(saasProfile.prerequisites.includes('Node.js'), true);
@@ -144,10 +144,10 @@ test('workflow de installer publica contratos nuevos de release', () => {
   assert.match(workflow, /dist\/installer\/_internal\/\*\*/);
   assert.match(workflow, /Publicar release assets \(tags v\*\)/);
   assert.match(workflow, /steps\.stable_release_assets\.outputs\.files/);
-  assert.match(workflow, /dist\/installer\/EvaluaPro-InstallerHub-saas-completo\.exe/);
-  assert.match(workflow, /dist\/installer\/EvaluaPro-InstallerHub-docente-local\.exe/);
-  assert.match(workflow, /dist\/installer\/_internal\/EvaluaPro-saas-completo\.msi/);
-  assert.match(workflow, /dist\/installer\/_internal\/EvaluaPro-docente-local\.msi/);
+  assert.match(workflow, /dist\/installer\/saas-completo\/EvaluaPro-InstallerHub-saas-completo-v\*\.exe/);
+  assert.match(workflow, /dist\/installer\/docente-local\/EvaluaPro-InstallerHub-docente-local-v\*\.exe/);
+  assert.match(workflow, /dist\/installer\/_internal\/saas-completo\/EvaluaPro-saas-completo\.msi/);
+  assert.match(workflow, /dist\/installer\/_internal\/docente-local\/EvaluaPro-docente-local\.msi/);
   assert.match(workflow, /Smoke GUI del bundle Burn publico empaquetado/);
   assert.match(workflow, /dist\/installer\/EvaluaPro-release-manifest\.json/);
   assert.doesNotMatch(workflow, /dist\/installer\/EvaluaPro-InstallerHub\.exe/);
@@ -160,8 +160,8 @@ test('workflow beta publica solo hubs en assets de prerelease', () => {
   assert.match(workflow, /actions\/setup-dotnet@v4/);
   assert.match(workflow, /Smoke GUI del bundle Burn publico empaquetado/);
   assert.match(workflow, /steps\.beta_assets\.outputs\.files/);
-  assert.match(workflow, /dist\/installer\/EvaluaPro-InstallerHub-saas-completo\.exe/);
-  assert.match(workflow, /dist\/installer\/EvaluaPro-InstallerHub-docente-local\.exe/);
+  assert.match(workflow, /dist\/installer\/saas-completo\/EvaluaPro-InstallerHub-saas-completo-v\*\.exe/);
+  assert.match(workflow, /dist\/installer\/docente-local\/EvaluaPro-InstallerHub-docente-local-v\*\.exe/);
   assert.match(workflow, /dist\/installer\/EvaluaPro-release-manifest\.json/);
   assert.match(workflow, /build-msi\.ps1 -IncludeBundle -Flavor all/);
   assert.doesNotMatch(workflow, /dist\/installer\/EvaluaPro-InstallerHub\.exe/);
@@ -213,6 +213,28 @@ test('build-msi publica BA personalizada y conserva contrato de asset publico po
   assert.equal(catalog.flavors.every((flavor) => flavor.bundleName === flavor.installerHubExeName), true);
 });
 
+test('wrapper Install-EvaluaPro lanza el Hub sin forzar RunAs', () => {
+  const wrapper = fs.readFileSync(path.join(root, 'scripts', 'Install-EvaluaPro.ps1'), 'utf8');
+
+  assert.match(wrapper, /Start-Process -FilePath \$targetPath -WorkingDirectory \$InstallersDir \| Out-Null/);
+  assert.doesNotMatch(wrapper, /-Verb RunAs/);
+});
+
+test('installer burn ejecuta MSI con msiexec y deja trazabilidad de errores de Node', () => {
+  const commonModule = fs.readFileSync(path.join(root, 'scripts', 'installer-burn', 'modules', 'Common.psm1'), 'utf8');
+  const prereqInstaller = fs.readFileSync(path.join(root, 'scripts', 'installer-burn', 'modules', 'PrereqInstaller.psm1'), 'utf8');
+  const prereqDetector = fs.readFileSync(path.join(root, 'scripts', 'installer-burn', 'modules', 'PrereqDetector.psm1'), 'utf8');
+
+  assert.match(commonModule, /msiexec\.exe/);
+  assert.match(commonModule, /\/L\*v/);
+  assert.match(commonModule, /Get-InstallerHubLastProcessResult/);
+
+  assert.match(prereqInstaller, /Log MSI:/);
+  assert.match(prereqInstaller, /codigo 1603 \(MSI\)/);
+
+  assert.match(prereqDetector, /Node no detectado o no ejecutable/);
+});
+
 test('helper Burn detecta prerequisitos con contrato JSON estable', () => {
   if (process.platform !== 'win32') {
     return;
@@ -255,6 +277,12 @@ test('helper Burn detecta prerequisitos con contrato JSON estable', () => {
     assert.equal(Array.isArray(payload.logs), true);
     assert.equal(typeof payload.data.recommendedMode, 'string');
     assert.equal(Array.isArray(payload.data.prerequisites), true);
+    if (payload.data.remediation) {
+      assert.equal(typeof payload.data.remediation.requiresRestart, 'boolean');
+      assert.equal(typeof payload.data.remediation.restartReason, 'string');
+      assert.equal(typeof payload.data.remediation.resumeToken, 'string');
+      assert.equal(typeof payload.data.remediation.phase, 'string');
+    }
   } finally {
     fs.rmSync(tempRoot, { recursive: true, force: true });
   }
@@ -278,8 +306,19 @@ test('bootstrapper Burn WPF .NET 8 orquesta deteccion, MSI y helper post-install
   assert.match(source, /engineHandle\?\.Detect\(\)/);
   assert.match(source, /var exitCode = operationFinished\.Task\.GetAwaiter\(\)\.GetResult\(\)/);
   assert.match(source, /engineHandle\?\.Quit\(exitCode\)/);
-  assert.match(source, /LaunchApprovedExe/);
+  assert.match(source, /StartPowerShellHelperProcess/);
+  assert.match(source, /CreatePowerShellHelperStartInfo/);
+  assert.match(source, /GetPowerShellExecutableCandidates/);
+  assert.match(source, /ArgumentList\.Add\("-RequestPath"\)/);
+  assert.doesNotMatch(source, /LaunchApprovedExe/);
   assert.match(source, /detect-prereqs/);
+  assert.match(source, /RunAutomaticRemediationFromDetectionAsync/);
+  assert.match(source, /EnsurePrerequisitesReadyAsync/);
+  assert.match(source, /RemediationPayload/);
+  assert.match(source, /RequiresRestart/);
+  assert.match(source, /RegisterRunOnceForResume/);
+  assert.match(source, /PersistResumeState/);
+  assert.match(source, /RequestSystemRestart/);
   assert.match(source, /post-install/);
   assert.match(source, /EvaluaPro", "installer-hub", "logs"/);
   assert.match(source, /InstallFolder/);
@@ -296,9 +335,12 @@ test('bootstrapper Burn WPF .NET 8 orquesta deteccion, MSI y helper post-install
   assert.match(windowXaml, /Configuración operativa/);
   assert.match(windowXaml, /Licencia y (updates|actualizaciones)/);
   assert.match(windowXaml, /SplashOverlay/);
+  assert.match(windowXaml, /RestartNowButton/);
   assert.match(windowXaml, /evaluapro-official-(hero|imagotipo)\.png/);
   assert.match(windowCode, /ConfigureInitialFlavorLayout/);
   assert.match(windowCode, /NotifyInitialDetectionCompleted/);
+  assert.match(windowCode, /SetRestartActionVisible/);
+  assert.match(windowCode, /RestartRequested/);
   assert.match(windowCode, /StartSplashFallbackWatcher/);
 
   assert.match(helper, /ValidateSet\('detect-prereqs', 'post-install'\)/);
@@ -347,6 +389,35 @@ $catalog | ConvertTo-Json -Depth 8
   }
 });
 
+test('resolver SHASUMS soporta pattern preferido y fallback dinamico por canal', () => {
+  const commonModulePath = path.join(root, 'scripts', 'installer-burn', 'modules', 'Common.psm1');
+  const script = `
+Import-Module -Force -WarningAction SilentlyContinue '${commonModulePath.replace(/'/g, "''")}'
+$text = @'
+aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa  node-v24.11.1-x64.msi
+bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb  node-v24.14.1-x64.msi
+cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc  node-v24.14.1-win-x64.zip
+'@
+$preferred = Resolve-InstallerHubPackageFromShasums -Text $text -PreferredPattern 'node-v24.11.1-x64.msi' -FallbackRegex '^node-v24\\.\\d+\\.\\d+-x64\\.msi$'
+$fallback = Resolve-InstallerHubPackageFromShasums -Text $text -PreferredPattern 'node-v24.99.9-x64.msi' -FallbackRegex '^node-v24\\.\\d+\\.\\d+-x64\\.msi$'
+[pscustomobject]@{
+  preferred = $preferred
+  fallback = $fallback
+} | ConvertTo-Json -Depth 10
+`.trim();
+
+  const result = runPowerShell(script);
+  if (result.skipped) {
+    return;
+  }
+
+  const parsed = parseJsonOutput(result.stdout);
+  assert.equal(parsed.preferred.matchedBy, 'preferred-pattern');
+  assert.equal(parsed.preferred.fileName, 'node-v24.11.1-x64.msi');
+  assert.equal(parsed.fallback.matchedBy, 'fallback-regex');
+  assert.equal(parsed.fallback.fileName, 'node-v24.14.1-x64.msi');
+});
+
 test('runtime Burn concentra configuracion operativa, prerequisitos y blindaje de licencia', () => {
   const helper = fs.readFileSync(burnHelperPath, 'utf8');
   const operationalConfig = fs.readFileSync(operationalConfigModulePath, 'utf8');
@@ -389,6 +460,14 @@ test('scripts del runtime Burn no usan operadores exclusivos de PowerShell 7', (
   assert.doesNotMatch(common, /\?\?/);
   assert.doesNotMatch(license, /\?\?/);
   assert.doesNotMatch(prereqInstaller, /\?\?/);
+});
+
+test('descarga de prerequisitos usa fallback HttpClient -> BITS -> Invoke-WebRequest', () => {
+  const common = fs.readFileSync(path.join(root, 'scripts', 'installer-burn', 'modules', 'Common.psm1'), 'utf8');
+  assert.match(common, /Add-Type -AssemblyName 'System\.Net\.Http'/);
+  assert.match(common, /Start-BitsTransfer/);
+  assert.match(common, /Invoke-WebRequest -Uri \$Url -OutFile \$Destination/);
+  assert.match(common, /Descarga fallida por todos los metodos/);
 });
 
 test('elevacion UAC relanza con ruta absoluta y working directory del script', () => {
@@ -441,8 +520,8 @@ test('smoke del bundle Burn publico queda declarado en workflows post-build', ()
 
   for (const workflow of [stableWorkflow, betaWorkflow]) {
     assert.match(workflow, /Smoke GUI del bundle Burn publico empaquetado/);
-    assert.match(workflow, /dist\/installer\/EvaluaPro-InstallerHub-docente-local\.exe/);
-    assert.match(workflow, /Start-Process -FilePath \$exe -PassThru/);
+    assert.match(workflow, /dist\/installer\/docente-local\/EvaluaPro-InstallerHub-docente-local-v\*\.exe/);
+    assert.match(workflow, /Start-Process -FilePath \$exe(\.FullName)? -PassThru/);
     assert.match(workflow, /El bundle Burn publico se cerro antes del smoke timeout|El Installer Hub empaquetado se cerro antes del smoke timeout/);
   }
 });
@@ -525,6 +604,35 @@ $status | ConvertTo-Json -Depth 8
   assert.equal(typeof parsed.mode, 'string');
   assert.equal(typeof parsed.installed, 'boolean');
   assert.equal(Array.isArray(parsed.manualActions), true);
+});
+
+test('docker_runtime_windows exige daemon operativo para marcar prerequisito como instalado', () => {
+  const detectorModulePath = path.join(root, 'scripts', 'installer-burn', 'modules', 'PrereqDetector.psm1');
+  const script = `
+$env:EVALUAPRO_INSTALLER_SIMULATE_DOCKER_RUNTIME_MODE='wsl2-engine-daemon-down'
+Import-Module -Force -WarningAction SilentlyContinue '${detectorModulePath.replace(/'/g, "''")}'
+$prereq = [pscustomobject]@{
+  name = 'Docker Runtime Windows'
+  detectRule = [pscustomobject]@{ type = 'docker_runtime_windows' }
+}
+$status = Test-PrerequisiteStatus -Prerequisite $prereq
+$runtime = Get-DockerRuntimeStatus
+[pscustomobject]@{
+  prereq = $status
+  runtime = $runtime
+} | ConvertTo-Json -Depth 8
+`.trim();
+
+  const result = runPowerShell(script);
+  if (result.skipped) {
+    return;
+  }
+
+  const parsed = parseJsonOutput(result.stdout);
+  assert.equal(parsed.runtime.installed, true);
+  assert.equal(parsed.runtime.ready, false);
+  assert.equal(parsed.prereq.installed, false);
+  assert.match(String(parsed.prereq.reason || ''), /daemon no responde/i);
 });
 
 test('bootstrap guiado WSL2 genera guia local y permite simulacion de cierre', () => {
@@ -613,6 +721,51 @@ $r | ConvertTo-Json -Depth 10
     assert.equal(typeof parsed.installed[0].autoBootstrap, 'object');
     assert.equal(Array.isArray(parsed.installed[0].autoBootstrap.executed), true);
     assert.equal(parsed.installed[0].autoBootstrap.executed.length >= 1, true);
+  } finally {
+    fs.rmSync(tempRoot, { recursive: true, force: true });
+  }
+});
+
+test('helper detect-prereqs propaga requiresRestart/restartReason en remediacion', () => {
+  if (process.platform !== 'win32') {
+    return;
+  }
+
+  const tempRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'evaluapro-helper-restart-'));
+  const requestPath = path.join(tempRoot, 'request.json');
+  const responsePath = path.join(tempRoot, 'response.json');
+  fs.writeFileSync(requestPath, JSON.stringify({
+    flavorId: 'saas-completo',
+    autoRemediate: true
+  }, null, 2), 'utf8');
+
+  const shell = getAvailablePowerShell();
+  if (!shell) {
+    fs.rmSync(tempRoot, { recursive: true, force: true });
+    return;
+  }
+
+  const command = [
+    '$env:EVALUAPRO_INSTALLER_SIMULATE_DOCKER_RUNTIME_MODE=\'missing\'',
+    '$env:EVALUAPRO_INSTALLER_AUTO_BOOTSTRAP_WSL=\'1\'',
+    '$env:EVALUAPRO_INSTALLER_SIMULATE_AUTO_BOOTSTRAP=\'1\'',
+    '$env:EVALUAPRO_INSTALLER_SIMULATE_NODE_MAJOR=\'24\'',
+    `& '${burnHelperPath.replace(/'/g, "''")}' -Mode detect-prereqs -RequestPath '${requestPath.replace(/'/g, "''")}' -ResponsePath '${responsePath.replace(/'/g, "''")}'`
+  ].join('; ');
+
+  try {
+    execFileSync(shell, ['-NoProfile', '-ExecutionPolicy', 'Bypass', '-Command', command], {
+      encoding: 'utf8',
+      stdio: ['ignore', 'pipe', 'pipe'],
+      timeout: 60_000
+    });
+    const payload = JSON.parse(fs.readFileSync(responsePath, 'utf8').replace(/^\uFEFF/, ''));
+    assert.equal(payload.ok, true);
+    assert.equal(payload.phase, 'analisis_requisitos');
+    assert.equal(typeof payload.data?.remediation, 'object');
+    assert.equal(payload.data.remediation.attempted, true);
+    assert.equal(payload.data.remediation.requiresRestart, true);
+    assert.match(String(payload.data.remediation.restartReason || ''), /reiniciar windows/i);
   } finally {
     fs.rmSync(tempRoot, { recursive: true, force: true });
   }

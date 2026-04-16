@@ -13,7 +13,7 @@ using System.Reflection;
 [assembly: System.Reflection.AssemblyCompanyAttribute("EvaluaPro.BurnBootstrapperApp")]
 [assembly: System.Reflection.AssemblyConfigurationAttribute("Debug")]
 [assembly: System.Reflection.AssemblyFileVersionAttribute("1.0.0.0")]
-[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+c33eb4af2821051a13714569b526c888e0282a4c")]
+[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+4dea3868ad6555a51f5510d58246ddf9fd3af574")]
 [assembly: System.Reflection.AssemblyProductAttribute("EvaluaPro.BurnBootstrapperApp")]
 [assembly: System.Reflection.AssemblyTitleAttribute("EvaluaPro.BurnBootstrapperApp")]
 [assembly: System.Reflection.AssemblyVersionAttribute("1.0.0.0")]

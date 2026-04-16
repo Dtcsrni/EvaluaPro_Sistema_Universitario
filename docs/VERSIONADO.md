@@ -74,10 +74,10 @@ Debe pasar:
    - `npm run pipeline:contract:check`
 3. Actualizar `CHANGELOG.md` y publicar versión SemVer.
 4. Publicar contrato de instalador Windows estable:
-   - `EvaluaPro-InstallerHub-saas-completo.exe`
-   - `EvaluaPro-InstallerHub-saas-completo.exe.sha256`
-   - `EvaluaPro-InstallerHub-docente-local.exe`
-   - `EvaluaPro-InstallerHub-docente-local.exe.sha256`
+   - `EvaluaPro-InstallerHub-saas-completo-v<version>.exe`
+   - `EvaluaPro-InstallerHub-saas-completo-v<version>.exe.sha256`
+   - `EvaluaPro-InstallerHub-docente-local-v<version>.exe`
+   - `EvaluaPro-InstallerHub-docente-local-v<version>.exe.sha256`
    - `antivirus-scan-report.txt`
    - `EvaluaPro-release-manifest.json`
    - no publicar `Setup.exe`/MSI individuales en la página de release (quedan fuera de assets públicos)
@@ -100,10 +100,10 @@ Debe pasar:
 3. Si el diff es significativo:
    - el workflow `Release Beta` genera un prerelease `v<version>-beta.<n>` y evidencia `notes.md` + `diff-summary.json` derivadas del diff.
    - publica solo los assets oficiales:
-     - `EvaluaPro-InstallerHub-saas-completo.exe`
-     - `EvaluaPro-InstallerHub-saas-completo.exe.sha256`
-     - `EvaluaPro-InstallerHub-docente-local.exe`
-     - `EvaluaPro-InstallerHub-docente-local.exe.sha256`
+     - `EvaluaPro-InstallerHub-saas-completo-v<version>.exe`
+     - `EvaluaPro-InstallerHub-saas-completo-v<version>.exe.sha256`
+     - `EvaluaPro-InstallerHub-docente-local-v<version>.exe`
+     - `EvaluaPro-InstallerHub-docente-local-v<version>.exe.sha256`
      - `EvaluaPro-release-manifest.json`
      - `antivirus-scan-report.txt`
    - ejecuta un gate antivirus bloqueante (Microsoft Defender) sobre `dist/installer` antes de publicar la prerelease.

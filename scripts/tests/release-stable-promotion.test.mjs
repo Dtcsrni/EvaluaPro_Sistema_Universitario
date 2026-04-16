@@ -68,15 +68,15 @@ function writeInstallerManifest(baseDir) {
     flavors: [
       {
         flavorId: 'saas-completo',
-        assetName: 'EvaluaPro-InstallerHub-saas-completo.exe',
+        assetName: 'EvaluaPro-InstallerHub-saas-completo-v1.0.0.exe',
         msiName: 'EvaluaPro-saas-completo.msi',
-        installerHubName: 'EvaluaPro-InstallerHub-saas-completo.exe'
+        installerHubName: 'EvaluaPro-InstallerHub-saas-completo-v1.0.0.exe'
       },
       {
         flavorId: 'docente-local',
-        assetName: 'EvaluaPro-InstallerHub-docente-local.exe',
+        assetName: 'EvaluaPro-InstallerHub-docente-local-v1.0.0.exe',
         msiName: 'EvaluaPro-docente-local.msi',
-        installerHubName: 'EvaluaPro-InstallerHub-docente-local.exe'
+        installerHubName: 'EvaluaPro-InstallerHub-docente-local-v1.0.0.exe'
       }
     ]
   };

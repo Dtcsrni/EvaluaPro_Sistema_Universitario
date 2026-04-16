@@ -38,7 +38,7 @@ Arquitectura vigente:
 - La BA `WPF .NET 8` presenta prerequisitos, modo y progreso.
 - El helper PowerShell aplica configuracion operativa, bootstrap de `WSL2` (`Docker Engine + Node 24` para `docente-local`), verificacion final y blindaje local de licencia.
 - El legado `PowerShell WinForms` fue retirado; no queda un `InstallerHub.ps1` soportado.
-- Para `docente-local`, Windows usa `runtime/node/node.exe` como runtime embebido privado del producto; `Node` global deja de ser prerequisito manual del usuario final.
+- Para `docente-local`, Windows usa `runtime/node/node.exe` como runtime embebido privado del producto y exige `Node 24` host con remediacion automatica durante la instalacion.
 
 ## Env Doctor (WSL2 + Windows)
 - Script: `env-doctor.mjs`

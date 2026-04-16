@@ -52,7 +52,7 @@ If port <> "0" And port <> "" Then
 	minSplashMs = 1.2 ' seconds
 	ok = False
 	tries = 0
-	maxTries = 180 ' ~36s with 200ms sleep
+	maxTries = 900 ' ~180s with 200ms sleep; the broker can still be bringing up stack/portal.
 	url = "http://127.0.0.1:" & port & "/api/status"
 
 	Do While (tries < maxTries) And (ok = False)

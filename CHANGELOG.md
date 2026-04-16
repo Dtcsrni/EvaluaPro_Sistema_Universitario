@@ -5,20 +5,36 @@ Este archivo sigue el formato "Keep a Changelog" (alto nivel) y SemVer.
 ## [Unreleased]
 
 ### Changed
+
+- Installer Hub deja de depender de `LaunchApprovedExe` para el helper `post-install` y ahora resuelve el host PowerShell directamente desde la BA con fallback ordenado (`powershell.exe` del sistema, `pwsh.exe` si está disponible), lo que evita el fallo de elevación cuando Burn no puede resolver `App Paths`.
+- `scripts/Install-EvaluaPro.ps1` deja de forzar `-Verb RunAs` al abrir el Hub copiado y lo lanza directo con su working directory, evitando el fallo de `status=-2147024891` en el post-install cuando la shell ya está elevada.
+- Artefactos de release del Installer Hub separados por flavor para evitar mezcla en `dist/installer`:
+  - públicos en `dist/installer/<flavor>/EvaluaPro-InstallerHub-<flavor>-v<version>.exe`
+  - internos en `dist/installer/_internal/<flavor>/EvaluaPro-<flavor>.msi`
+  - scripts de hash/manifest/firma y workflows CI/Beta actualizados al layout por carpeta.
 - Installer Hub corrige el falso `0x80070643` de `docente-local` cuando Burn ya validó `WSL2 + Docker`:
   - `packaging/wix/Product.wxs` deja de revalidar Docker host en el MSI cuando la instalación viene desde Installer Hub/Burn
   - la interfaz WPF del bootstrapper ahora expone una línea de etapas visibles (`Detección`, `Remediación`, `Planificación`, `Ejecución MSI`, `Post-instalación`, `Finalización`)
   - el Hub muestra un resumen de error más legible con código, paquete y rutas de logs cuando el MSI falla
   - contratos de `installer-hub` y `windows-release-smoke` blindan la condición para que el MSI no vuelva a bloquear `docente-local` tras prerequisitos aprobados por Burn
-- `docente-local` migra para que Installer Hub prepare `WSL2` y elimine la dependencia de `Node` global en Windows:
-  - `config/installer-prereqs.manifest.json` deja `Node.js` host fuera del perfil `docente-local` y agrega `Node.js WSL2`
+- `docente-local` migra para que Installer Hub prepare `WSL2` y gestione `Node` host+WSL2 con remediacion completa:
+  - `config/installer-prereqs.manifest.json` agrega `Node.js WSL2` y mantiene `Node.js` host como requisito del perfil `docente-local`
   - `scripts/installer-burn/modules/PrereqDetector.psm1` y `PrereqInstaller.psm1` detectan/provisionan `Node 24` dentro de la distro objetivo de `WSL2`
   - `scripts/installer-burn/InstallerBurnHelper.ps1` descarga y valida un runtime Node embebido privado en `runtime/node/`
   - `scripts/installer-burn/modules/PostInstallVerifier.psm1` valida runtime Node embebido local + `Node 24` en `WSL2` para `docente-local`
   - `scripts/generate-installation-manifest.ps1` publica `runtime.embeddedNode` y `runtime.wsl` en `installation.manifest.json`
   - `scripts/launcher-dashboard.ps1`, `scripts/launcher-tray.ps1`, `launch-dev.cmd` y `launch-prod.cmd` prefieren el `node.exe` embebido antes que `Node` global
-  - `packaging/wix/Product.wxs` deja de exigir `Node.js` host para `docente-local` y conserva la condicion solo donde sigue aplicando
+  - `packaging/wix/Product.wxs` conserva `Node.js` host como condicion en flavors que no pasan por runtime embebido exclusivo
   - contratos y docs de installer/smoke/deploy se alinean al nuevo modelo `WSL2 + Docker + Node embebido`
+- Installer Hub endurece remediacion de Node contra rotacion de `latest-v24.x`:
+  - `scripts/installer-burn/modules/Common.psm1` incorpora resolucion de paquete SHA/filename con `pattern` preferido y fallback regex por canal mayor
+  - `scripts/installer-burn/modules/PrereqInstaller.psm1` ajusta download URL dinamicamente cuando cambia el artefacto real en SHASUMS
+  - `scripts/installer-burn/InstallerBurnHelper.ps1` aplica la misma estrategia para el ZIP de runtime Node embebido
+- Los artefactos publicos del Installer Hub migran a nombre versionado obligatorio:
+  - `scripts/build-msi.ps1` publica solo `EvaluaPro-InstallerHub-<flavor>-v<version>.exe` y elimina salida legacy sin version
+  - `scripts/generate-installer-hashes.ps1`, `scripts/generate-installer-release-manifest.ps1` y `scripts/sign-installer-artifacts.ps1` quedan alineados a nombres versionados
+  - workflows de release/CI consumen patrones `-v*.exe` y validan ausencia de nombres legacy
+  - `scripts/update-manager.mjs` incorpora fallback por regex de flavor para detectar assets versionados cuando el nombre configurado no coincide
 - Se agrega `env-doctor` dual para entorno operativo (`WSL2 + Windows`) con contrato fail-fast:
   - nuevo script `scripts/env-doctor.mjs` con targets `wsl|windows|auto`
   - nuevos comandos `npm run env:doctor:wsl`, `npm run env:doctor:windows`, `npm run env:doctor`
@@ -133,6 +149,7 @@ Este archivo sigue el formato "Keep a Changelog" (alto nivel) y SemVer.
 - Frontend suma el carril `test:gui:responsive:e2e:admin` para validar layout responsive del panel de negocio.
 
 ### Fixed
+
 - Se retira la deuda temporal `backend-pdf`:
   - `apps/backend/vitest.config.ts` deja de excluir `src/modulos/modulo_generacion_pdf/**`
   - `docs/tdd-exclusions-debt.json` marca `backend-pdf` como `resolved`
@@ -183,6 +200,7 @@ Este archivo sigue el formato "Keep a Changelog" (alto nivel) y SemVer.
   - el dashboard local conserva installabilidad, pero queda subordinado al launcher oficial y marcado como `offlineCapable: false`
 
 ### Added
+
 - Contratos nuevos de estabilidad PDF:
   - `apps/backend/tests/pdf.visual.baseline.test.ts`
   - `apps/backend/tests/integracion/plantillasCrudYPreview.test.ts` amplía cobertura para invalidación de cache por cambio de reactivo
@@ -483,8 +501,9 @@ Este archivo sigue el formato "Keep a Changelog" (alto nivel) y SemVer.
   - `packaging/wix/README.md`
   - `scripts/build-msi.ps1`
 
-### Changed
-- `scripts/ia-handoff.mjs` ahora:
+### Changed - IA
+
+- scripts/ia-handoff.mjs ahora:
   - acepta `--input <archivo.json>`
   - genera JSON canonico y Markdown renderizado por sesion
   - clasifica la sesion como `draft` o `final` por completitud semantica
@@ -657,7 +676,7 @@ Este archivo sigue el formato "Keep a Changelog" (alto nivel) y SemVer.
     - Fachada compacta: `servicioOmr.ts` (31 lineas)
     - Legacy preservado: `servicioOmrLegacy.ts` (1319 lineas)
     - Pipeline modular: `omr/pipeline/ejecutorPipelineOmr.ts`
-  -   - Pipeline con etapas modulares: qr, deteccion, scoring, calidad, debug
+    - Pipeline con etapas modulares: qr, deteccion, scoring, calidad, debug
   - Tests de contrato unico: `apps/backend/tests/omr.contrato.test.ts` (3 tests)
   - Estado confirmado: todas las gates OK (ola0, ola1, ola2-ready, strict-gates)
   - `apps/backend/src/modulos/modulo_generacion_pdf/servicioGeneracionPdf.ts` reducido a 60 lineas (fachada delgada).
@@ -719,8 +738,9 @@ Este archivo sigue el formato "Keep a Changelog" (alto nivel) y SemVer.
 
 ## [1.0.0-beta.0] - 2026-02-13
 
-### Added
-- Documento de inventario técnico integral: `docs/INVENTARIO_PROYECTO.md`.
+### Added - Documentacion
+
+- Documento de inventario técnico integral: docs/INVENTARIO_PROYECTO.md.
 - Inventario exhaustivo de codigo/config versionado: `docs/INVENTARIO_CODIGO_EXHAUSTIVO.md`.
 - Paquete de handoff IA automatico:
   - `scripts/ia-handoff.mjs`
@@ -771,7 +791,8 @@ Este archivo sigue el formato "Keep a Changelog" (alto nivel) y SemVer.
   - `apps/backend/src/modulos/modulo_escaneo_omr/omr/calidad/etapaCalidad.ts`
   - `apps/backend/src/modulos/modulo_escaneo_omr/omr/debug/etapaDebug.ts`
 
-### Changed
+### Changed - Documentacion
+
 - Actualización integral de documentación raíz y técnica:
   - `README.md`
   - `docs/README.md`
@@ -843,7 +864,8 @@ Este archivo sigue el formato "Keep a Changelog" (alto nivel) y SemVer.
 - `apps/backend/src/modulos/modulo_escaneo_omr/servicioOmrLegacy.ts` ahora ajusta parametros de deteccion usando geometria real del `mapaOmr` generado por pagina.
 - `apps/backend/tests/integracion/pdfImpresionContrato.test.ts` ampliado para validar presencia y rangos del perfil de layout parametrico en `mapaOmr`.
 
-### Fixed
+### Fixed - Contratos
+
 - Selectores ambiguos en pruebas de refactor (`Plantillas` y `Banco`) que generaban fallos falsos negativos.
 - Follow-up de CI remoto para `main`:
   - `scripts/tests/installer-hub-contract.test.mjs` ya tolera salida JSON nula del script PowerShell y omite el flujo DPAPI/TOTP en Linux, evitando el fallo de Ubuntu en `CI Checks`.
@@ -856,6 +878,7 @@ Este archivo sigue el formato "Keep a Changelog" (alto nivel) y SemVer.
   - `scripts/launcher-dashboard.mjs` expone `stepUpConfigExists` en `licenseState` para alinear control plane y manifiesto local.
 
 ### Notes
+
 - Estado de gates del corte:
   - `lint`, `typecheck`, `test:frontend:ci`, `test:coverage:ci`, `test:backend:ci`, `test:portal:ci`, `perf:check`, `pipeline:contract:check`: verdes.
   - cobertura frontend validada contra umbral vigente: lines 39.20, functions 40.28, statements 37.21, branches 31.40.

@@ -19,6 +19,35 @@ $root = (Resolve-Path (Join-Path $PSScriptRoot '..')).Path
 $catalogPath = Join-Path $root 'config\installer-flavors.json'
 $catalog = Get-Content -Path $catalogPath -Raw -Encoding utf8 | ConvertFrom-Json
 
+function Resolve-VersionTag {
+  param([string]$RootPath)
+
+  $pkgPath = Join-Path $RootPath 'package.json'
+  if (-not (Test-Path -LiteralPath $pkgPath)) {
+    return '0.0.0'
+  }
+  $pkg = Get-Content -Path $pkgPath -Raw -Encoding utf8 | ConvertFrom-Json
+  $resolved = [string]$pkg.version
+  if ([string]::IsNullOrWhiteSpace($resolved)) { $resolved = '0.0.0' }
+  return (($resolved -replace '[^0-9A-Za-z\.-]', '-').Trim())
+}
+
+function Get-VersionedArtifactName {
+  param(
+    [Parameter(Mandatory = $true)]
+    [string]$BaseName,
+    [Parameter(Mandatory = $true)]
+    [string]$VersionTag
+  )
+
+  $ext = [System.IO.Path]::GetExtension($BaseName)
+  $stem = [System.IO.Path]::GetFileNameWithoutExtension($BaseName)
+  if ([string]::IsNullOrWhiteSpace($ext)) {
+    return ("{0}-v{1}" -f $BaseName, $VersionTag)
+  }
+  return ("{0}-v{1}{2}" -f $stem, $VersionTag, $ext)
+}
+
 $certBase64 = [string]$env:EVALUAPRO_SIGN_CERT_BASE64
 $certPassword = [string]$env:EVALUAPRO_SIGN_CERT_PASSWORD
 $timestampUrl = [string]$env:EVALUAPRO_SIGN_TIMESTAMP_URL
@@ -90,13 +119,29 @@ function ConvertFrom-PossiblyWrappedBase64 {
 function Resolve-InstallerArtifactPath {
   param(
     [Parameter(Mandatory = $true)]
-    [string]$ArtifactName
+    [string]$ArtifactName,
+    [string]$FlavorId = '',
+    [switch]$PreferInternal
   )
 
-  $candidates = @(
-    (Join-Path $InstallerDir $ArtifactName),
-    (Join-Path $internalInstallerDir $ArtifactName)
-  )
+  $candidates = @()
+  if (-not [string]::IsNullOrWhiteSpace($FlavorId)) {
+    if ($PreferInternal) {
+      $candidates += @(Join-Path (Join-Path $internalInstallerDir $FlavorId) $ArtifactName)
+      $candidates += @(Join-Path (Join-Path $InstallerDir $FlavorId) $ArtifactName)
+    } else {
+      $candidates += @(Join-Path (Join-Path $InstallerDir $FlavorId) $ArtifactName)
+      $candidates += @(Join-Path (Join-Path $internalInstallerDir $FlavorId) $ArtifactName)
+    }
+  }
+
+  if ($PreferInternal) {
+    $candidates += @(Join-Path $internalInstallerDir $ArtifactName)
+    $candidates += @(Join-Path $InstallerDir $ArtifactName)
+  } else {
+    $candidates += @(Join-Path $InstallerDir $ArtifactName)
+    $candidates += @(Join-Path $internalInstallerDir $ArtifactName)
+  }
 
   foreach ($candidate in $candidates) {
     if (Test-Path $candidate) {
@@ -115,11 +160,20 @@ if (-not $signtool) {
 $pfxPath = Join-Path $env:TEMP ('evaluapro-sign-' + [Guid]::NewGuid().ToString('N') + '.pfx')
 try {
   [IO.File]::WriteAllBytes($pfxPath, (ConvertFrom-PossiblyWrappedBase64 -RawValue $certBase64))
+  $versionTag = Resolve-VersionTag -RootPath $root
 
   $targets = @()
   foreach ($flavor in $catalog.flavors) {
-    foreach ($artifactName in @([string]$flavor.msiName, [string]$flavor.bundleName, [string]$flavor.installerHubExeName)) {
-      $resolved = Resolve-InstallerArtifactPath -ArtifactName $artifactName
+    $flavorId = [string]$flavor.flavorId
+    $versionedBundleName = Get-VersionedArtifactName -BaseName ([string]$flavor.bundleName) -VersionTag $versionTag
+    $versionedHubName = Get-VersionedArtifactName -BaseName ([string]$flavor.installerHubExeName) -VersionTag $versionTag
+    foreach ($artifact in @(
+      @{ name = [string]$flavor.msiName; preferInternal = $true },
+      @{ name = [string]$versionedBundleName; preferInternal = $false },
+      @{ name = [string]$versionedHubName; preferInternal = $false }
+    )) {
+      $artifactName = [string]$artifact.name
+      $resolved = Resolve-InstallerArtifactPath -ArtifactName $artifactName -FlavorId $flavorId -PreferInternal:([bool]$artifact.preferInternal)
       if ($resolved) { $targets += $resolved }
     }
   }

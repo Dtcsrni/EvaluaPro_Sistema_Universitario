@@ -76,7 +76,7 @@ Artefactos tecnicos esperados:
 - La instalacion es per-machine y solicita elevacion (UAC) al inicio.
 - El instalador valida prerequisitos no autoconfigurables:
   - runtime Docker compatible (`WSL2 + Docker Engine` o `Docker Desktop`)
-  - para `docente-local`, runtime Node embebido local valido y `Node 24` dentro de la distro `WSL2`
+  - para `docente-local`, `Node.js 24+` host + runtime Node embebido local valido + `Node 24` dentro de la distro `WSL2`
   - para `saas-completo`, `Node.js 24+` host mientras ese flavor no migre a runtime embebido
 - La BA personalizada orquesta:
   - deteccion de prerequisitos,

@@ -1,8 +1,10 @@
 using System.Diagnostics;
+using System.ComponentModel;
 using System.IO;
 using System.Text;
 using System.Text.Json;
 using System.Text.RegularExpressions;
+using Microsoft.Win32;
 using System.Windows;
 using System.Windows.Interop;
 using System.Windows.Threading;
@@ -38,6 +40,7 @@ internal sealed class EvaluaProBootstrapperApplication : BootstrapperApplication
     private string sessionRoot = string.Empty;
     private string sessionLogPath = string.Empty;
     private string requestRoot = string.Empty;
+    private string resumeStatePath = string.Empty;
     private bool headless;
     private bool burnDetectionComplete;
     private bool helperDetectionComplete;
@@ -45,6 +48,9 @@ internal sealed class EvaluaProBootstrapperApplication : BootstrapperApplication
     private bool applyInFlight;
     private bool helperInFlight;
     private bool helperDetectionLogsFlushed;
+    private bool autoRemediationInFlight;
+    private bool autoRemediationAttempted;
+    private bool autoResumeRequested;
     private bool applySawPackageFailure;
     private int requestedExitCode;
     private int? lastFailedPackageStatus;
@@ -52,9 +58,9 @@ internal sealed class EvaluaProBootstrapperApplication : BootstrapperApplication
     private string? lastFailedPackageId;
     private DetectionPayload? detectionPayload;
     private HelperEnvelope<DetectionPayload>? helperDetectionResponse;
-    private string? pendingHelperResponsePath;
     private BootstrapperRequest? currentRequest;
     private FailureDisplay? failureDisplay;
+    private ResumeState? resumeState;
 
     protected override void Run()
     {
@@ -75,6 +81,20 @@ internal sealed class EvaluaProBootstrapperApplication : BootstrapperApplication
         command = args.Command;
         payloadRoot = AppContext.BaseDirectory.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
         InitializeSessionPaths();
+        resumeState = TryLoadResumeState();
+        autoResumeRequested = resumeState?.AutoStart == true;
+        if (autoResumeRequested)
+        {
+            Log("info", $"Resume detectado. flavor={resumeState?.FlavorId} phase={resumeState?.RemediationPhase} token={resumeState?.ResumeToken}");
+            if (!string.IsNullOrWhiteSpace(resumeState?.InstallDir))
+            {
+                Environment.SetEnvironmentVariable("EVALUAPRO_BURN_INSTALLDIR", resumeState?.InstallDir);
+            }
+            if (!string.IsNullOrWhiteSpace(resumeState?.FlavorId))
+            {
+                Environment.SetEnvironmentVariable("EVALUAPRO_FLAVOR_ID", resumeState?.FlavorId);
+            }
+        }
         Log("info", $"Burn bootstrapper iniciado. Action={command?.Action} Display={command?.Display}");
 
         headless = command?.Display == Display.None || IsTruthy(Environment.GetEnvironmentVariable("EVALUAPRO_BURN_HEADLESS"));
@@ -182,35 +202,11 @@ internal sealed class EvaluaProBootstrapperApplication : BootstrapperApplication
         _ = RunPostInstallHelperAsync();
     }
 
-    protected override void OnLaunchApprovedExeComplete(LaunchApprovedExeCompleteEventArgs args)
-    {
-        base.OnLaunchApprovedExeComplete(args);
-
-        if (!helperInFlight)
-        {
-            return;
-        }
-
-        if (args.Status != 0 || args.ProcessId <= 0)
-        {
-            FinalizeFailure("helper_post_install", 50, $"No se pudo lanzar helper elevado. status={args.Status}, pid={args.ProcessId}");
-            return;
-        }
-
-        var responsePath = pendingHelperResponsePath;
-        if (string.IsNullOrWhiteSpace(responsePath))
-        {
-            FinalizeFailure("helper_post_install", 50, "No se genero ruta de respuesta para el helper post-install.");
-            return;
-        }
-
-        _ = WaitForHelperExitAsync(args.ProcessId, responsePath);
-    }
-
     private void InitializeSessionPaths()
     {
         var root = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.CommonApplicationData), "EvaluaPro", "installer-hub", "logs");
         Directory.CreateDirectory(root);
+        resumeStatePath = Path.Combine(Path.GetDirectoryName(root) ?? root, "resume-state.json");
         var sessionId = $"burn-{DateTime.UtcNow:yyyyMMddHHmmss}-{Guid.NewGuid():N}".ToLowerInvariant();
         sessionRoot = Path.Combine(root, sessionId);
         Directory.CreateDirectory(sessionRoot);
@@ -250,6 +246,7 @@ internal sealed class EvaluaProBootstrapperApplication : BootstrapperApplication
                 createdWindow.DetectRequested += (_, _) => _ = RunHelperDetectionAsync(force: true);
                 createdWindow.StartRequested += (_, request) => _ = StartBundleOperationAsync(request);
                 createdWindow.CloseRequested += (_, _) => RequestQuit();
+                createdWindow.RestartRequested += (_, _) => RequestSystemRestart();
                 createdWindow.ClosingRequestedDuringBusy += (_, _) => Log("warn", "Se intento cerrar la ventana durante una operacion en progreso.");
 
                 window = createdWindow;
@@ -505,6 +502,8 @@ internal sealed class EvaluaProBootstrapperApplication : BootstrapperApplication
 
             if (force)
             {
+                autoRemediationInFlight = false;
+                autoRemediationAttempted = false;
                 ResetWorkflow();
             }
 
@@ -547,10 +546,40 @@ internal sealed class EvaluaProBootstrapperApplication : BootstrapperApplication
         UpdateWindowFromDetection(detectionPayload);
         DispatchToUi(() => window?.NotifyInitialDetectionCompleted());
 
+        var effectiveMode = ResolveDetectedOperationMode(detectionPayload);
+        if (!detectionPayload.Ready && effectiveMode != "uninstall")
+        {
+            if (!headless && !startRequested && !autoRemediationAttempted && !autoRemediationInFlight)
+            {
+                _ = RunAutomaticRemediationFromDetectionAsync();
+            }
+            return;
+        }
+
+        SetStageState(StageRemediation, InstallerStageStatus.Ok, "No fue necesaria la remediación automática.", string.Empty);
+        UpdateUiState(statusText: "Prerequisitos verificados.", busy: false);
+        DispatchToUi(() => window?.SetRestartActionVisible(false));
+
         if (headless && !startRequested)
         {
             _ = StartBundleOperationAsync(BuildHeadlessRequest(detectionPayload));
+            return;
         }
+
+        if (autoResumeRequested && !startRequested)
+        {
+            _ = StartBundleOperationAsync(BuildHeadlessRequest(detectionPayload));
+        }
+    }
+
+    private string ResolveDetectedOperationMode(DetectionPayload payload)
+    {
+        return NormalizeMode(command?.Action switch
+        {
+            LaunchAction.Repair => "repair",
+            LaunchAction.Uninstall or LaunchAction.UnsafeUninstall => "uninstall",
+            _ => payload.RecommendedMode
+        });
     }
 
     private BootstrapperRequest BuildHeadlessRequest(DetectionPayload payload)
@@ -578,12 +607,14 @@ internal sealed class EvaluaProBootstrapperApplication : BootstrapperApplication
         return new BootstrapperRequest
         {
             FlavorId = payload.Flavor?.FlavorId ?? "docente-local",
-            Mode = NormalizeMode(command?.Action switch
-            {
-                LaunchAction.Repair => "repair",
-                LaunchAction.Uninstall or LaunchAction.UnsafeUninstall => "uninstall",
-                _ => payload.RecommendedMode
-            }),
+            Mode = !string.IsNullOrWhiteSpace(resumeState?.Mode)
+                ? NormalizeMode(resumeState.Mode)
+                : NormalizeMode(command?.Action switch
+                {
+                    LaunchAction.Repair => "repair",
+                    LaunchAction.Uninstall or LaunchAction.UnsafeUninstall => "uninstall",
+                    _ => payload.RecommendedMode
+                }),
             InstallDir = installDir,
             InstallDesktopShortcuts = !IsFalsy(Environment.GetEnvironmentVariable("EVALUAPRO_INSTALL_DESKTOP_SHORTCUTS")),
             InstallStartMenuShortcuts = !IsFalsy(Environment.GetEnvironmentVariable("EVALUAPRO_INSTALL_STARTMENU_SHORTCUTS")),
@@ -619,52 +650,9 @@ internal sealed class EvaluaProBootstrapperApplication : BootstrapperApplication
         var normalizedOperation = NormalizeMode(request.Mode);
         if (detectionPayload is { Ready: false } && normalizedOperation != "uninstall")
         {
-            try
+            var remediationOk = await EnsurePrerequisitesReadyAsync(request.FlavorId, request.InstallDir, normalizedOperation).ConfigureAwait(false);
+            if (!remediationOk)
             {
-                ResetWorkflow(keepDetectionStage: true);
-                SetStageState(StageRemediation, InstallerStageStatus.Running, "Resolviendo prerequisitos automáticamente.", "Preparando bootstrap guiado o semiautomático.");
-                UpdateUiState(statusText: "Resolviendo prerequisitos automaticamente...", progress: 0, busy: true);
-                Log("info", "Iniciando remediacion automatica de prerequisitos.");
-                var remediationRequest = new Dictionary<string, object?>
-                {
-                    ["flavorId"] = request.FlavorId,
-                    ["installDir"] = request.InstallDir,
-                    ["autoRemediate"] = true
-                };
-                var remediationResponse = await InvokeHelperAsync<DetectionPayload>(
-                    "detect-prereqs",
-                    remediationRequest,
-                    progressEvent =>
-                    {
-                        var progressValue = Math.Max(0, Math.Min(100, progressEvent.Percent));
-                        var statusText = string.IsNullOrWhiteSpace(progressEvent.Status)
-                            ? "Resolviendo prerequisitos automaticamente..."
-                            : progressEvent.Status;
-                        SetStageState(StageRemediation, InstallerStageStatus.Running, "Resolviendo prerequisitos automáticamente.", statusText);
-                        UpdateUiState(statusText: statusText, progress: progressValue, busy: true);
-                    }).ConfigureAwait(false);
-                FlushHelperLogs(remediationResponse.Logs);
-                helperDetectionLogsFlushed = true;
-                helperDetectionResponse = remediationResponse;
-                detectionPayload = remediationResponse.Data;
-                SetStageState(StageRemediation, InstallerStageStatus.Ok, "Remediación concluida.", remediationResponse.Message ?? "Los prerequisitos ya se reevaluaron.");
-
-                if (detectionPayload is not null)
-                {
-                    UpdateWindowFromDetection(detectionPayload);
-                }
-            }
-            catch (Exception ex)
-            {
-                SetStageState(StageRemediation, InstallerStageStatus.Error, "La remediación automática falló.", ex.Message);
-                FinalizeFailure("prerequisitos", 10, $"No se pudo ejecutar la remediacion automatica de prerequisitos: {ex.Message}");
-                return;
-            }
-
-            if (detectionPayload is { Ready: false })
-            {
-                SetStageState(StageRemediation, InstallerStageStatus.Error, "La remediación terminó, pero el equipo sigue incompleto.", "Todavía falta una acción manual o un runtime válido.");
-                FinalizeFailure("prerequisitos", 10, "El equipo no cumple los prerequisitos detectados por el bootstrapper.");
                 return;
             }
         }
@@ -697,6 +685,127 @@ internal sealed class EvaluaProBootstrapperApplication : BootstrapperApplication
         };
 
         engineHandle.Plan(action);
+    }
+
+    private async Task RunAutomaticRemediationFromDetectionAsync()
+    {
+        if (autoRemediationInFlight || autoRemediationAttempted)
+        {
+            return;
+        }
+
+        var payload = detectionPayload;
+        if (payload is null || payload.Ready)
+        {
+            return;
+        }
+
+        var mode = ResolveDetectedOperationMode(payload);
+        if (mode == "uninstall")
+        {
+            return;
+        }
+
+        autoRemediationInFlight = true;
+        autoRemediationAttempted = true;
+        try
+        {
+            var installDir = payload.Installation?.InstallLocation;
+            if (string.IsNullOrWhiteSpace(installDir))
+            {
+                installDir = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ProgramFiles), payload.Flavor?.ProductName ?? "EvaluaPro");
+            }
+
+            await EnsurePrerequisitesReadyAsync(payload.Flavor?.FlavorId ?? "docente-local", installDir, mode).ConfigureAwait(false);
+        }
+        finally
+        {
+            autoRemediationInFlight = false;
+        }
+    }
+
+    private async Task<bool> EnsurePrerequisitesReadyAsync(string flavorId, string installDir, string operationMode)
+    {
+        try
+        {
+            ResetWorkflow(keepDetectionStage: true);
+            SetStageState(StageRemediation, InstallerStageStatus.Running, "Resolviendo prerequisitos automáticamente.", "Preparando bootstrap guiado o semiautomático.");
+            UpdateUiState(statusText: "Resolviendo prerequisitos automaticamente...", progress: 0, busy: true);
+            Log("info", "Iniciando remediacion automatica de prerequisitos.");
+            var remediationRequest = new Dictionary<string, object?>
+            {
+                ["flavorId"] = flavorId,
+                ["installDir"] = installDir,
+                ["autoRemediate"] = true
+            };
+            if (!string.IsNullOrWhiteSpace(resumeState?.ResumeToken))
+            {
+                remediationRequest["resumeToken"] = resumeState.ResumeToken;
+            }
+            var remediationResponse = await InvokeHelperAsync<DetectionPayload>(
+                "detect-prereqs",
+                remediationRequest,
+                progressEvent =>
+                {
+                    var progressValue = Math.Max(0, Math.Min(100, progressEvent.Percent));
+                    var statusText = string.IsNullOrWhiteSpace(progressEvent.Status)
+                        ? "Resolviendo prerequisitos automaticamente..."
+                        : progressEvent.Status;
+                    SetStageState(StageRemediation, InstallerStageStatus.Running, "Resolviendo prerequisitos automáticamente.", statusText);
+                    UpdateUiState(statusText: statusText, progress: progressValue, busy: true);
+                }).ConfigureAwait(false);
+            FlushHelperLogs(remediationResponse.Logs);
+            helperDetectionLogsFlushed = true;
+            helperDetectionResponse = remediationResponse;
+            detectionPayload = remediationResponse.Data;
+            SetStageState(StageRemediation, InstallerStageStatus.Ok, "Remediación concluida.", remediationResponse.Message ?? "Los prerequisitos ya se reevaluaron.");
+
+            if (detectionPayload is not null)
+            {
+                UpdateWindowFromDetection(detectionPayload);
+            }
+        }
+        catch (Exception ex)
+        {
+            SetStageState(StageRemediation, InstallerStageStatus.Error, "La remediación automática falló.", ex.Message);
+            FinalizeFailure("prerequisitos", 10, $"No se pudo ejecutar la remediacion automatica de prerequisitos: {ex.Message}");
+            return false;
+        }
+
+        if (detectionPayload?.Remediation?.RequiresRestart == true)
+        {
+            var restartMessage = detectionPayload.Remediation.RestartReason;
+            if (string.IsNullOrWhiteSpace(restartMessage))
+            {
+                restartMessage = "La remediación automática requiere reiniciar Windows para continuar.";
+            }
+            PersistResumeState(
+                flavorId,
+                installDir,
+                operationMode,
+                detectionPayload.Remediation.ResumeToken,
+                detectionPayload.Remediation.Phase,
+                restartMessage);
+            RegisterRunOnceForResume();
+            SetStageState(StageRemediation, InstallerStageStatus.Pending, "Reinicio requerido para continuar automáticamente.", restartMessage);
+            SetStageState(StageFinalize, InstallerStageStatus.Pending, "Pendiente de reinicio del sistema.", "Presiona \"Reiniciar ahora\" para reanudar la instalación.");
+            UpdateUiState(statusText: restartMessage, busy: false);
+            DispatchToUi(() => window?.SetRestartActionVisible(true, restartMessage));
+            requestedExitCode = 3010;
+            Log("warn", restartMessage);
+            return false;
+        }
+
+        if (detectionPayload is { Ready: false })
+        {
+            SetStageState(StageRemediation, InstallerStageStatus.Error, "La remediación terminó, pero el equipo sigue incompleto.", "Todavía falta una acción manual o un runtime válido.");
+            FinalizeFailure("prerequisitos", 10, "El equipo no cumple los prerequisitos detectados por el bootstrapper.");
+            return false;
+        }
+
+        DispatchToUi(() => window?.SetRestartActionVisible(false));
+
+        return true;
     }
 
     private async Task RunPostInstallHelperAsync()
@@ -743,29 +852,7 @@ internal sealed class EvaluaProBootstrapperApplication : BootstrapperApplication
                 }
             };
 
-            var requestPath = Path.Combine(requestRoot, $"post-install-{DateTime.UtcNow:yyyyMMddHHmmss}.request.json");
-            pendingHelperResponsePath = Path.Combine(requestRoot, $"post-install-{DateTime.UtcNow:yyyyMMddHHmmss}.response.json");
-            await File.WriteAllTextAsync(requestPath, JsonSerializer.Serialize(requestObject, JsonOptions), Encoding.UTF8).ConfigureAwait(false);
-
-            var scriptPath = Path.Combine(payloadRoot, "InstallerBurnHelper.ps1");
-            var args = BuildPowerShellArguments(scriptPath, requestPath, pendingHelperResponsePath);
-            engineHandle?.LaunchApprovedExe(GetWindowHandle(), "PowerShellHost", args, 1500);
-        }
-        catch (Exception ex)
-        {
-            SetStageState(StagePostInstall, InstallerStageStatus.Error, "No se pudo iniciar el helper post-instalación.", ex.Message);
-            FinalizeFailure("blindaje_licencia_local", 50, $"No se pudo iniciar helper post-install: {ex.Message}");
-        }
-    }
-
-    private async Task WaitForHelperExitAsync(int processId, string responsePath)
-    {
-        try
-        {
-            using var process = Process.GetProcessById(processId);
-            await process.WaitForExitAsync().ConfigureAwait(false);
-
-            var envelope = await WaitForResponseFileAsync<Dictionary<string, object?>>(responsePath, TimeSpan.FromMinutes(3)).ConfigureAwait(false);
+            var envelope = await InvokeHelperAsync<Dictionary<string, object?>>("post-install", requestObject).ConfigureAwait(false);
             helperInFlight = false;
             FlushHelperLogs(envelope.Logs);
 
@@ -780,6 +867,7 @@ internal sealed class EvaluaProBootstrapperApplication : BootstrapperApplication
             SetStageState(StageFinalize, InstallerStageStatus.Ok, "Instalación completada.", "EvaluaPro ya quedó listo para usarse.");
             UpdateUiState(statusText: "Instalacion completada.", progress: 100, busy: false);
             requestedExitCode = 0;
+            ClearResumeState();
 
             foreach (var warning in envelope.Warnings ?? [])
             {
@@ -795,9 +883,22 @@ internal sealed class EvaluaProBootstrapperApplication : BootstrapperApplication
             DispatchToUi(() => window?.MarkCompleted(success: true, envelope.Message ?? "EvaluaPro listo para usarse."));
             ScheduleAutoCloseIfRequested();
         }
+        catch (TimeoutException ex)
+        {
+            var detail = $"El helper post-instalacion no respondio a tiempo. {ex.Message}";
+            SetStageState(StagePostInstall, InstallerStageStatus.Error, "Timeout en helper post-instalación.", detail);
+            FinalizeFailure("helper_timeout", 124, detail);
+        }
+        catch (InvalidOperationException ex)
+        {
+            var detail = $"No se pudo iniciar o completar el helper post-install. {ex.Message}";
+            SetStageState(StagePostInstall, InstallerStageStatus.Error, "Fallo al iniciar helper post-instalación.", detail);
+            FinalizeFailure("helper_init_fail", 50, detail);
+        }
         catch (Exception ex)
         {
-            FinalizeFailure("helper_post_install", 50, $"No se pudo esperar la salida del helper post-install: {ex.Message}");
+            SetStageState(StagePostInstall, InstallerStageStatus.Error, "Error inesperado en post-instalación.", ex.Message);
+            FinalizeFailure("helper_unexpected", 50, $"Error inesperado en helper post-install: {ex.Message}");
         }
     }
 
@@ -809,69 +910,9 @@ internal sealed class EvaluaProBootstrapperApplication : BootstrapperApplication
 
         await File.WriteAllTextAsync(requestPath, JsonSerializer.Serialize(request, JsonOptions), Encoding.UTF8).ConfigureAwait(false);
 
-        var psi = new ProcessStartInfo
-        {
-            FileName = "powershell.exe",
-            UseShellExecute = false,
-            CreateNoWindow = true,
-            RedirectStandardError = true,
-            RedirectStandardOutput = true,
-            WorkingDirectory = payloadRoot
-        };
-        psi.ArgumentList.Add("-NoProfile");
-        psi.ArgumentList.Add("-ExecutionPolicy");
-        psi.ArgumentList.Add("Bypass");
-        psi.ArgumentList.Add("-File");
-        psi.ArgumentList.Add(scriptPath);
-        psi.ArgumentList.Add("-Mode");
-        psi.ArgumentList.Add(mode);
-        psi.ArgumentList.Add("-RequestPath");
-        psi.ArgumentList.Add(requestPath);
-        psi.ArgumentList.Add("-ResponsePath");
-        psi.ArgumentList.Add(responsePath);
-
-        using var process = new Process
-        {
-            StartInfo = psi,
-            EnableRaisingEvents = true
-        };
         var stdoutLines = new List<string>();
         var stderrLines = new List<string>();
-        process.OutputDataReceived += (_, args) =>
-        {
-            if (string.IsNullOrWhiteSpace(args.Data))
-            {
-                return;
-            }
-
-            if (TryParseHelperProgress(args.Data, out var progressEvent))
-            {
-                onProgress?.Invoke(progressEvent);
-                return;
-            }
-
-            lock (stdoutLines)
-            {
-                stdoutLines.Add(args.Data);
-            }
-        };
-        process.ErrorDataReceived += (_, args) =>
-        {
-            if (string.IsNullOrWhiteSpace(args.Data))
-            {
-                return;
-            }
-
-            lock (stderrLines)
-            {
-                stderrLines.Add(args.Data);
-            }
-        };
-
-        if (!process.Start())
-        {
-            throw new InvalidOperationException("No se pudo iniciar PowerShell para el helper.");
-        }
+        using var process = StartPowerShellHelperProcess(mode, scriptPath, requestPath, responsePath, onProgress, stdoutLines, stderrLines);
 
         process.BeginOutputReadLine();
         process.BeginErrorReadLine();
@@ -896,28 +937,204 @@ internal sealed class EvaluaProBootstrapperApplication : BootstrapperApplication
                 $"Helper {mode} fallo sin generar respuesta JSON (exit={process.ExitCode}). stderr={TrimForLog(stderr)}");
         }
 
-        return await WaitForResponseFileAsync<TData>(responsePath, TimeSpan.FromSeconds(20)).ConfigureAwait(false);
+        try
+        {
+            return await WaitForResponseFileAsync<TData>(responsePath, TimeSpan.FromSeconds(20)).ConfigureAwait(false);
+        }
+        catch (TimeoutException) when (File.Exists(responsePath))
+        {
+            Log("warn", $"Helper {mode} genero archivo de respuesta pero no se pudo leer dentro de 20s. Reintentando 10s adicionales.");
+            return await WaitForResponseFileAsync<TData>(responsePath, TimeSpan.FromSeconds(10)).ConfigureAwait(false);
+        }
+        catch (TimeoutException timeoutEx)
+        {
+            throw new TimeoutException($"Helper {mode} no genero respuesta valida en el tiempo esperado. response={responsePath}", timeoutEx);
+        }
+    }
+
+    private Process StartPowerShellHelperProcess(
+        string mode,
+        string scriptPath,
+        string requestPath,
+        string responsePath,
+        Action<HelperProgressEvent>? onProgress,
+        List<string> stdoutLines,
+        List<string> stderrLines)
+    {
+        Exception? lastError = null;
+        var candidateFailures = new List<string>();
+
+        foreach (var executable in GetPowerShellExecutableCandidates())
+        {
+            var psi = CreatePowerShellHelperStartInfo(executable, scriptPath, mode, requestPath, responsePath);
+            var process = new Process
+            {
+                StartInfo = psi,
+                EnableRaisingEvents = true
+            };
+
+            process.OutputDataReceived += (_, args) =>
+            {
+                if (string.IsNullOrWhiteSpace(args.Data))
+                {
+                    return;
+                }
+
+                if (TryParseHelperProgress(args.Data, out var progressEvent))
+                {
+                    onProgress?.Invoke(progressEvent);
+                    return;
+                }
+
+                lock (stdoutLines)
+                {
+                    stdoutLines.Add(args.Data);
+                }
+            };
+
+            process.ErrorDataReceived += (_, args) =>
+            {
+                if (string.IsNullOrWhiteSpace(args.Data))
+                {
+                    return;
+                }
+
+                lock (stderrLines)
+                {
+                    stderrLines.Add(args.Data);
+                }
+            };
+
+            try
+            {
+                if (process.Start())
+                {
+                    Log("info", $"Helper {mode} iniciado con host {psi.FileName} (pid={process.Id}).");
+                    return process;
+                }
+
+                var error = new InvalidOperationException($"No se pudo iniciar el proceso con host {psi.FileName}.");
+                lastError = error;
+                candidateFailures.Add($"{psi.FileName}: {error.Message}");
+            }
+            catch (Exception ex)
+            {
+                lastError = ex;
+                candidateFailures.Add($"{psi.FileName}: {DescribePowerShellStartFailure(ex)}");
+            }
+
+            process.Dispose();
+            Log("warn", $"No se pudo iniciar helper {mode} con host {executable}: {DescribePowerShellStartFailure(lastError)}");
+        }
+
+        var diagnostics = candidateFailures.Count == 0
+            ? "sin candidatos registrados"
+            : string.Join(" | ", candidateFailures);
+        throw new InvalidOperationException(
+            $"No se pudo iniciar el helper {mode} con ningun host de PowerShell compatible. Diagnostico: {diagnostics}",
+            lastError);
+    }
+
+    private ProcessStartInfo CreatePowerShellHelperStartInfo(string executablePath, string scriptPath, string mode, string requestPath, string responsePath)
+    {
+        var psi = new ProcessStartInfo
+        {
+            FileName = executablePath,
+            UseShellExecute = false,
+            CreateNoWindow = true,
+            RedirectStandardError = true,
+            RedirectStandardOutput = true,
+            WorkingDirectory = payloadRoot
+        };
+
+        psi.ArgumentList.Add("-NoProfile");
+        psi.ArgumentList.Add("-ExecutionPolicy");
+        psi.ArgumentList.Add("Bypass");
+        psi.ArgumentList.Add("-File");
+        psi.ArgumentList.Add(scriptPath);
+        psi.ArgumentList.Add("-Mode");
+        psi.ArgumentList.Add(mode);
+        psi.ArgumentList.Add("-RequestPath");
+        psi.ArgumentList.Add(requestPath);
+        psi.ArgumentList.Add("-ResponsePath");
+        psi.ArgumentList.Add(responsePath);
+
+        return psi;
+    }
+
+    private static IEnumerable<string> GetPowerShellExecutableCandidates()
+    {
+        var windowsDirectory = Environment.GetFolderPath(Environment.SpecialFolder.Windows);
+        if (!string.IsNullOrWhiteSpace(windowsDirectory))
+        {
+            yield return Path.Combine(windowsDirectory, "System32", "WindowsPowerShell", "v1.0", "powershell.exe");
+        }
+
+        yield return "pwsh.exe";
+        yield return "pwsh";
+        yield return "powershell.exe";
     }
 
     private static async Task<HelperEnvelope<TData>> WaitForResponseFileAsync<TData>(string responsePath, TimeSpan timeout)
     {
         var deadline = DateTime.UtcNow.Add(timeout);
+        Exception? lastDeserializeError = null;
         while (DateTime.UtcNow < deadline)
         {
             if (File.Exists(responsePath))
             {
-                var raw = await File.ReadAllTextAsync(responsePath, Encoding.UTF8).ConfigureAwait(false);
-                var envelope = JsonSerializer.Deserialize<HelperEnvelope<TData>>(raw, JsonOptions);
-                if (envelope is not null)
+                try
                 {
-                    return envelope;
+                    var raw = await File.ReadAllTextAsync(responsePath, Encoding.UTF8).ConfigureAwait(false);
+                    var envelope = JsonSerializer.Deserialize<HelperEnvelope<TData>>(raw, JsonOptions);
+                    if (envelope is not null)
+                    {
+                        return envelope;
+                    }
+
+                    lastDeserializeError = new InvalidOperationException("La respuesta JSON del helper no contiene envelope valido.");
+                }
+                catch (Exception ex) when (ex is JsonException || ex is InvalidOperationException)
+                {
+                    lastDeserializeError = ex;
                 }
             }
 
             await Task.Delay(350).ConfigureAwait(false);
         }
 
+        if (lastDeserializeError is not null)
+        {
+            throw new TimeoutException($"El helper genero respuesta pero no fue posible leerla correctamente ({responsePath}). Ultimo error: {lastDeserializeError.Message}", lastDeserializeError);
+        }
+
         throw new TimeoutException($"No se genero archivo de respuesta del helper: {responsePath}");
+    }
+
+    private static string DescribePowerShellStartFailure(Exception? error)
+    {
+        if (error is null)
+        {
+            return "sin detalle";
+        }
+
+        if (error is UnauthorizedAccessException)
+        {
+            return "acceso denegado al iniciar host PowerShell (verifica permisos administrativos/UAC)";
+        }
+
+        if (error is Win32Exception win32)
+        {
+            return win32.NativeErrorCode switch
+            {
+                2 => "host no encontrado en el sistema (archivo o comando inexistente)",
+                5 => "acceso denegado al iniciar el proceso",
+                740 => "se requieren privilegios elevados para ejecutar el host",
+                _ => $"Win32 {win32.NativeErrorCode}: {win32.Message}"
+            };
+        }
+
+        return error.Message;
     }
 
     private static string TrimForLog(string? value, int max = 1200)
@@ -988,9 +1205,13 @@ internal sealed class EvaluaProBootstrapperApplication : BootstrapperApplication
             FlavorLabel = payload.Flavor?.DisplayName ?? "EvaluaPro",
             InstallDir = installDir,
             Mode = NormalizeMode(detectedMode),
-            Summary = payload.System?.Issues?.Count > 0
-                ? string.Join(" | ", payload.System.Issues)
-                : payload.Runtime?.Reason ?? "Equipo listo para continuar.",
+            Summary = payload.Remediation?.RequiresRestart == true
+                ? (string.IsNullOrWhiteSpace(payload.Remediation.RestartReason)
+                    ? "La remediación automática requiere reinicio de Windows para continuar."
+                    : payload.Remediation.RestartReason)
+                : payload.System?.Issues?.Count > 0
+                    ? string.Join(" | ", payload.System.Issues)
+                    : payload.Runtime?.Reason ?? "Equipo listo para continuar.",
             Ready = payload.Ready,
             AssetName = payload.Flavor?.InstallerHubExeName ?? "EvaluaPro-InstallerHub-docente-local.exe",
             Prerequisites = payload.Prerequisites ?? [],
@@ -998,6 +1219,7 @@ internal sealed class EvaluaProBootstrapperApplication : BootstrapperApplication
         };
 
         DispatchToUi(() => window?.ApplyDetectionModel(model));
+        DispatchToUi(() => window?.SetRestartActionVisible(payload.Remediation?.RequiresRestart == true, payload.Remediation?.RestartReason));
         SetStageState(
             StageDetection,
             InstallerStageStatus.Ok,
@@ -1031,24 +1253,6 @@ internal sealed class EvaluaProBootstrapperApplication : BootstrapperApplication
         }
 
         return list;
-    }
-
-    private static string BuildPowerShellArguments(string scriptPath, string requestPath, string responsePath)
-    {
-        return string.Join(" ", new[]
-        {
-            "-NoProfile",
-            "-ExecutionPolicy", "Bypass",
-            "-File", QuoteForCommandLine(scriptPath),
-            "-Mode", "post-install",
-            "-RequestPath", QuoteForCommandLine(requestPath),
-            "-ResponsePath", QuoteForCommandLine(responsePath)
-        });
-    }
-
-    private static string QuoteForCommandLine(string value)
-    {
-        return "\"" + value.Replace("\"", "\\\"") + "\"";
     }
 
     private IntPtr GetWindowHandle()
@@ -1128,11 +1332,151 @@ internal sealed class EvaluaProBootstrapperApplication : BootstrapperApplication
         });
     }
 
+    private void RequestSystemRestart()
+    {
+        if (applyInFlight || helperInFlight)
+        {
+            DispatchToUi(() => window?.NotifyBusyCloseBlocked());
+            return;
+        }
+
+        try
+        {
+            UpdateUiState(statusText: "Reiniciando Windows para continuar la instalación...", busy: true);
+            var psi = new ProcessStartInfo
+            {
+                FileName = "shutdown.exe",
+                UseShellExecute = false,
+                CreateNoWindow = true
+            };
+            psi.ArgumentList.Add("/r");
+            psi.ArgumentList.Add("/t");
+            psi.ArgumentList.Add("5");
+            psi.ArgumentList.Add("/c");
+            psi.ArgumentList.Add("EvaluaPro reanudara automaticamente tras reiniciar.");
+            Process.Start(psi);
+        }
+        catch (Exception ex)
+        {
+            Log("error", $"No se pudo iniciar reinicio automatico: {ex.Message}");
+            UpdateUiState(statusText: "No se pudo iniciar reinicio automático. Reinicia Windows manualmente.", busy: false);
+        }
+    }
+
+    private void PersistResumeState(string flavorId, string installDir, string mode, string? resumeToken, string? remediationPhase, string restartReason)
+    {
+        try
+        {
+            var state = new ResumeState
+            {
+                CreatedAtUtc = DateTime.UtcNow,
+                FlavorId = flavorId,
+                InstallDir = installDir,
+                Mode = mode,
+                AutoStart = true,
+                ResumeToken = resumeToken ?? string.Empty,
+                RemediationPhase = remediationPhase ?? string.Empty,
+                RestartReason = restartReason
+            };
+            var dir = Path.GetDirectoryName(resumeStatePath);
+            if (!string.IsNullOrWhiteSpace(dir))
+            {
+                Directory.CreateDirectory(dir);
+            }
+            File.WriteAllText(resumeStatePath, JsonSerializer.Serialize(state, JsonOptions), Encoding.UTF8);
+            resumeState = state;
+            autoResumeRequested = true;
+            Log("info", $"Estado de resume persistido: {resumeStatePath}");
+        }
+        catch (Exception ex)
+        {
+            Log("warn", $"No se pudo persistir estado de resume: {ex.Message}");
+        }
+    }
+
+    private ResumeState? TryLoadResumeState()
+    {
+        try
+        {
+            if (string.IsNullOrWhiteSpace(resumeStatePath) || !File.Exists(resumeStatePath))
+            {
+                return null;
+            }
+
+            var raw = File.ReadAllText(resumeStatePath, Encoding.UTF8);
+            var state = JsonSerializer.Deserialize<ResumeState>(raw, JsonOptions);
+            return state;
+        }
+        catch (Exception ex)
+        {
+            Log("warn", $"No se pudo leer estado de resume: {ex.Message}");
+            return null;
+        }
+    }
+
+    private void ClearResumeState()
+    {
+        try
+        {
+            if (!string.IsNullOrWhiteSpace(resumeStatePath) && File.Exists(resumeStatePath))
+            {
+                File.Delete(resumeStatePath);
+            }
+        }
+        catch (Exception ex)
+        {
+            Log("warn", $"No se pudo limpiar estado de resume: {ex.Message}");
+        }
+        finally
+        {
+            resumeState = null;
+            autoResumeRequested = false;
+        }
+    }
+
+    private void RegisterRunOnceForResume()
+    {
+        try
+        {
+            var exePath = Environment.ProcessPath;
+            if (string.IsNullOrWhiteSpace(exePath))
+            {
+                using var current = Process.GetCurrentProcess();
+                exePath = current.MainModule?.FileName;
+            }
+
+            if (string.IsNullOrWhiteSpace(exePath))
+            {
+                Log("warn", "No se pudo resolver ruta de ejecutable para RunOnce.");
+                return;
+            }
+
+            using var runOnceKey = Registry.LocalMachine.OpenSubKey(@"SOFTWARE\Microsoft\Windows\CurrentVersion\RunOnce", true);
+            if (runOnceKey is null)
+            {
+                Log("warn", "No se pudo abrir HKLM RunOnce para registrar reanudacion.");
+                return;
+            }
+
+            var command = $"\"{exePath}\"";
+            runOnceKey.SetValue("EvaluaProInstallerHubResume", command, RegistryValueKind.String);
+            Log("info", $"RunOnce registrado para reanudar instalacion: {command}");
+        }
+        catch (Exception ex)
+        {
+            Log("warn", $"No se pudo registrar RunOnce: {ex.Message}");
+        }
+    }
+
     private void FinalizeFailure(string phase, int exitCode, string message)
     {
         requestedExitCode = exitCode;
         helperInFlight = false;
         applyInFlight = false;
+        if (exitCode != 3010)
+        {
+            ClearResumeState();
+        }
         var mappedStage = MapPhaseToStage(phase);
         if (!string.IsNullOrWhiteSpace(mappedStage))
         {
@@ -1190,6 +1534,11 @@ internal sealed class EvaluaProBootstrapperApplication : BootstrapperApplication
 
     private string ResolveRequestedFlavorId()
     {
+        if (!string.IsNullOrWhiteSpace(resumeState?.FlavorId))
+        {
+            return resumeState.FlavorId;
+        }
+
         var explicitFlavor = Environment.GetEnvironmentVariable("EVALUAPRO_FLAVOR_ID");
         if (!string.IsNullOrWhiteSpace(explicitFlavor))
         {
@@ -1221,6 +1570,9 @@ internal sealed class EvaluaProBootstrapperApplication : BootstrapperApplication
             "configuracion_operativa" => StagePostInstall,
             "helper_post_install" => StagePostInstall,
             "blindaje_licencia_local" => StagePostInstall,
+            "helper_timeout" => StagePostInstall,
+            "helper_init_fail" => StagePostInstall,
+            "helper_unexpected" => StagePostInstall,
             _ => StageFinalize
         };
     }
@@ -1256,6 +1608,24 @@ internal sealed class EvaluaProBootstrapperApplication : BootstrapperApplication
         if (!string.IsNullOrWhiteSpace(baLogPath))
         {
             parts.Add($"Log BA: {baLogPath}");
+        }
+
+        if (statusCode == unchecked((int)0x80070005)
+            || (!string.IsNullOrWhiteSpace(reason)
+                && (reason.Contains("acceso denegado", StringComparison.OrdinalIgnoreCase)
+                    || reason.Contains("access denied", StringComparison.OrdinalIgnoreCase))))
+        {
+            parts.Add("Accion sugerida: ejecuta la reparacion con permisos de administrador y revisa UAC/politicas del equipo.");
+        }
+        else if (!string.IsNullOrWhiteSpace(reason)
+                 && (reason.Contains("PowerShell", StringComparison.OrdinalIgnoreCase)
+                     || reason.Contains("helper", StringComparison.OrdinalIgnoreCase)))
+        {
+            parts.Add("Accion sugerida: valida disponibilidad de PowerShell (powershell.exe/pwsh) y reintenta en modo Reparar.");
+        }
+        else
+        {
+            parts.Add("Accion sugerida: revisa los logs y vuelve a intentar en modo Reparar.");
         }
 
         return new FailureDisplay
@@ -1484,6 +1854,7 @@ public sealed class DetectionPayload
     public SystemPayload? System { get; set; }
     public RuntimePayload? Runtime { get; set; }
     public IReadOnlyList<PrerequisitePayload>? Prerequisites { get; set; }
+    public RemediationPayload? Remediation { get; set; }
 }
 
 public sealed class FlavorPayload
@@ -1516,6 +1887,28 @@ public sealed class PrerequisitePayload
     public bool Installed { get; set; }
     public string ActualVersion { get; set; } = string.Empty;
     public string Reason { get; set; } = string.Empty;
+}
+
+public sealed class RemediationPayload
+{
+    public bool Attempted { get; set; }
+    public bool Ok { get; set; }
+    public bool RequiresRestart { get; set; }
+    public string RestartReason { get; set; } = string.Empty;
+    public string ResumeToken { get; set; } = string.Empty;
+    public string Phase { get; set; } = string.Empty;
+}
+
+public sealed class ResumeState
+{
+    public DateTime CreatedAtUtc { get; set; }
+    public string FlavorId { get; set; } = "docente-local";
+    public string InstallDir { get; set; } = string.Empty;
+    public string Mode { get; set; } = "install";
+    public bool AutoStart { get; set; } = true;
+    public string ResumeToken { get; set; } = string.Empty;
+    public string RemediationPhase { get; set; } = string.Empty;
+    public string RestartReason { get; set; } = string.Empty;
 }
 
 public sealed record FlavorItem(string FlavorId, string DisplayName, string AssetName);

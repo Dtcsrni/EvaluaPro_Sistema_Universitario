@@ -55,7 +55,7 @@ Alcance de la reparación v1:
 - barra de progreso real por fase (checks previos + compilacion MSI + bundle EXE) al generar distribuible.
 - validacion de prerequisitos no autoconfigurables:
   - runtime Docker compatible (`WSL2 + Docker Engine` o `Docker Desktop`)
-  - en `docente-local`, runtime Node embebido local saludable en Windows y `Node 24` dentro de la distro `WSL2`
+  - en `docente-local`, `Node 24` host en Windows + runtime Node embebido local saludable + `Node 24` dentro de la distro `WSL2`
 
 ### Instalador docente desde cero (Installer Hub)
 1. Descargar `EvaluaPro-InstallerHub-docente-local.exe` desde la release estable.
@@ -70,7 +70,7 @@ Alcance de la reparación v1:
    - helper post-install para `.env`, `update-config.json`, verificacion final y blindaje local de licencia.
    - no existe ya una variante soportada `PowerShell WinForms`; el bundle Burn es la unica entrada valida.
    - el stack minimo del flavor es `mongo_local + api_docente_prod + web_docente_prod`; portal local no requerido.
-   - `Node.js` global en Windows no es prerequisito manual para el usuario final `docente-local`.
+   - `Node.js 24` host en Windows forma parte del prerequisito obligatorio y se remedia automaticamente dentro del flujo del Hub.
 4. Criterio de integridad:
    - `EvaluaPro-release-manifest.json` y los `.sha256` publicados coinciden con los artefactos locales.
 5. Desinstalacion:

@@ -73,4 +73,4 @@ if (-not $SkipHashCheck) {
 Write-Host "[install-evaluapro] Ejecutando Installer Hub desde: $targetPath"
 Write-Host "[install-evaluapro] Carpeta de trabajo preparada: $InstallersDir"
 
-Start-Process -FilePath $targetPath -Verb RunAs
+Start-Process -FilePath $targetPath -WorkingDirectory $InstallersDir | Out-Null

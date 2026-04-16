@@ -139,8 +139,8 @@ Publicar secretos en GitHub (manual):
 
 Verificar firma local:
 ```powershell
-Get-AuthenticodeSignature .\dist\installer\EvaluaPro-InstallerHub-docente-local.exe
-Get-AuthenticodeSignature .\dist\installer\_internal\EvaluaPro-docente-local.msi
+Get-AuthenticodeSignature .\dist\installer\docente-local\EvaluaPro-InstallerHub-docente-local-v<version>.exe
+Get-AuthenticodeSignature .\dist\installer\_internal\docente-local\EvaluaPro-docente-local.msi
 ```
 
 Garantia de estabilidad para distribuible:
@@ -155,22 +155,22 @@ Garantia de estabilidad para distribuible:
 - si algun check falla, no se genera instalador.
 
 Artefactos:
-- `dist/installer/EvaluaPro-InstallerHub-saas-completo.exe`
-- `dist/installer/EvaluaPro-InstallerHub-saas-completo.exe.sha256`
-- `dist/installer/EvaluaPro-InstallerHub-docente-local.exe`
-- `dist/installer/EvaluaPro-InstallerHub-docente-local.exe.sha256`
+- `dist/installer/saas-completo/EvaluaPro-InstallerHub-saas-completo-v<version>.exe`
+- `dist/installer/saas-completo/EvaluaPro-InstallerHub-saas-completo-v<version>.exe.sha256`
+- `dist/installer/docente-local/EvaluaPro-InstallerHub-docente-local-v<version>.exe`
+- `dist/installer/docente-local/EvaluaPro-InstallerHub-docente-local-v<version>.exe.sha256`
 - `dist/installer/EvaluaPro-release-manifest.json`
 - `dist/installer/SIGNING-NOT-PRODUCTION.txt` (solo cuando no se firma)
-- `dist/installer/_internal/EvaluaPro-saas-completo.msi`
-- `dist/installer/_internal/EvaluaPro-saas-completo.msi.sha256`
-- `dist/installer/_internal/EvaluaPro-docente-local.msi`
-- `dist/installer/_internal/EvaluaPro-docente-local.msi.sha256`
-- `dist/installer/_internal/*.wixpdb`
+- `dist/installer/_internal/saas-completo/EvaluaPro-saas-completo.msi`
+- `dist/installer/_internal/saas-completo/EvaluaPro-saas-completo.msi.sha256`
+- `dist/installer/_internal/docente-local/EvaluaPro-docente-local.msi`
+- `dist/installer/_internal/docente-local/EvaluaPro-docente-local.msi.sha256`
+- `dist/installer/_internal/<flavor>/*.wixpdb`
 - `dist/installer/_internal/burn-bootstrapper-app/`
 - `dist/installer/_internal/installer-local-paths.json`
 
 Contrato operativo del bootstrapper Windows:
-- `EvaluaPro-InstallerHub-<flavor>.exe` es el entrypoint publico oficial.
+- `EvaluaPro-InstallerHub-<flavor>-v<version>.exe` es el entrypoint publico oficial.
 - se genera desde `WiX Burn` con BA personalizada `WPF .NET 8`.
 - el helper `scripts/installer-burn/InstallerBurnHelper.ps1` conserva configuracion operativa, bootstrap de `WSL2` (`Docker Engine + Node 24` para `docente-local`), verificacion y blindaje de licencia.
 - el legado `scripts/installer-hub/InstallerHub.ps1` fue retirado y no debe invocarse.
@@ -193,13 +193,13 @@ CI de instalador Windows:
 - Valida `test:wix:policy` + `test:installer-hub:contract`.
 - Publica la BA `.NET 8`, compila MSI + bundle Burn (`-SkipStabilityChecks -IncludeBundle`), ejecuta smoke del `.exe` publico, genera hashes/manifiesto y ejecuta signing gate opcional.
 - En tags `v*` publica automáticamente assets en GitHub Releases:
-  - `EvaluaPro-InstallerHub-saas-completo.exe`, `EvaluaPro-InstallerHub-saas-completo.exe.sha256`
-  - `EvaluaPro-InstallerHub-docente-local.exe`, `EvaluaPro-InstallerHub-docente-local.exe.sha256`
+  - `EvaluaPro-InstallerHub-saas-completo-v<version>.exe`, `EvaluaPro-InstallerHub-saas-completo-v<version>.exe.sha256`
+  - `EvaluaPro-InstallerHub-docente-local-v<version>.exe`, `EvaluaPro-InstallerHub-docente-local-v<version>.exe.sha256`
   - `EvaluaPro-release-manifest.json`
   - `antivirus-scan-report.txt`
 
 Ruta operativa local recomendada para este equipo:
-- `dist/installer/EvaluaPro-InstallerHub-docente-local.exe`
+- `dist/installer/docente-local/EvaluaPro-InstallerHub-docente-local-v<version>.exe`
 
 Autoconfiguracion durante uso:
 - shortcuts Dev/Prod instalados automaticamente.

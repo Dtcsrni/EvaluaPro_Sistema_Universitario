@@ -24,30 +24,10 @@ function Remove-StaleInstallerArtifacts {
     [string]$InternalOutputDirectory
   )
 
-  $legacyPatterns = @(
-    'EvaluaPro-*-Setup.exe',
-    'EvaluaPro-*-Setup.wixpdb',
-    'installer-local-paths.json',
-    '*.extracted.ico',
-    '*.msi',
-    '*.msi.sha256',
-    '*.wixpdb'
-  )
-
-  foreach ($pattern in $legacyPatterns) {
-    Get-ChildItem -Path $OutputDirectory -Filter $pattern -File -ErrorAction SilentlyContinue | ForEach-Object {
-      Remove-Item -LiteralPath $_.FullName -Force -ErrorAction SilentlyContinue
-    }
-  }
-
-  Get-ChildItem -Path $OutputDirectory -Directory -ErrorAction SilentlyContinue |
-    Where-Object { $_.Name -like 'installer-hub-payload-*' -or $_.Name -eq 'burn-bootstrapper-app' -or $_.Name -eq '_internal' } |
-    ForEach-Object {
+  if (Test-Path -LiteralPath $OutputDirectory) {
+    Get-ChildItem -LiteralPath $OutputDirectory -Force -ErrorAction SilentlyContinue | ForEach-Object {
       Remove-Item -LiteralPath $_.FullName -Recurse -Force -ErrorAction SilentlyContinue
     }
-
-  if (Test-Path $InternalOutputDirectory) {
-    Remove-Item -LiteralPath $InternalOutputDirectory -Recurse -Force -ErrorAction SilentlyContinue
   }
 }
 
@@ -69,7 +49,10 @@ function Write-InstallerLocalPathsManifest {
     [Parameter(Mandatory = $true)]
     [object[]]$FlavorDefinitions,
     [Parameter(Mandatory = $true)]
-    [string]$PublicOutputDirectory
+    [string]$PublicOutputDirectory,
+    [Parameter(Mandatory = $true)]
+    [string]$InternalOutputDirectory,
+    [hashtable]$BundleNameByFlavor
   )
 
   $manifestPath = Join-Path $OutputDirectory 'installer-local-paths.json'
@@ -82,15 +65,51 @@ function Write-InstallerLocalPathsManifest {
     generatedAt = (Get-Date).ToString('yyyy-MM-ddTHH:mm:ssK')
     outputDir = $OutputDirectory
     publicOutputDir = $PublicOutputDirectory
+    internalOutputDir = $InternalOutputDirectory
     recommendedFlavorId = if ($recommended) { [string]$recommended.flavorId } else { '' }
-    recommendedHubExecutableName = if ($recommended) { [string]$recommended.bundleName } else { '' }
-    recommendedHubExecutablePath = if ($recommended) { [string](Join-Path $PublicOutputDirectory ([string]$recommended.bundleName)) } else { '' }
-    flavors = @($FlavorDefinitions | ForEach-Object {
+    recommendedHubExecutableName = if ($recommended) {
+      $rid = [string]$recommended.flavorId
+      if ($BundleNameByFlavor -and $BundleNameByFlavor.ContainsKey($rid)) { [string]$BundleNameByFlavor[$rid] } else { [string]$recommended.bundleName }
+    } else { '' }
+    recommendedHubExecutablePath = if ($recommended) {
+      $rid = [string]$recommended.flavorId
+      $rname = if ($BundleNameByFlavor -and $BundleNameByFlavor.ContainsKey($rid)) { [string]$BundleNameByFlavor[$rid] } else { [string]$recommended.bundleName }
+      [string](Join-Path (Join-Path $PublicOutputDirectory $rid) $rname)
+    } else { '' }
+    recommended = if ($recommended) {
+      $rid = [string]$recommended.flavorId
+      $rname = if ($BundleNameByFlavor -and $BundleNameByFlavor.ContainsKey($rid)) { [string]$BundleNameByFlavor[$rid] } else { [string]$recommended.bundleName }
       [ordered]@{
-        flavorId = [string]$_.flavorId
+        flavorId = $rid
+        bundleName = $rname
+        bundlePublicPath = [string](Join-Path (Join-Path $PublicOutputDirectory $rid) $rname)
+      }
+    } else {
+      $null
+    }
+    artifacts = @($FlavorDefinitions | ForEach-Object {
+      $id = [string]$_.flavorId
+      $effectiveBundleName = if ($BundleNameByFlavor -and $BundleNameByFlavor.ContainsKey($id)) { [string]$BundleNameByFlavor[$id] } else { [string]$_.bundleName }
+      [ordered]@{
+        flavorId = $id
         displayName = [string]$_.displayName
-        executableName = [string]$_.bundleName
-        executablePath = [string](Join-Path $PublicOutputDirectory ([string]$_.bundleName))
+        bundleName = $effectiveBundleName
+        bundlePublicPath = [string](Join-Path (Join-Path $PublicOutputDirectory $id) $effectiveBundleName)
+        bundleInternalPath = [string](Join-Path (Join-Path $InternalOutputDirectory $id) $effectiveBundleName)
+        msiName = [string]$_.msiName
+        msiInternalPath = [string](Join-Path (Join-Path $InternalOutputDirectory $id) ([string]$_.msiName))
+      }
+    })
+    flavors = @($FlavorDefinitions | ForEach-Object {
+      $id = [string]$_.flavorId
+      $effectiveBundleName = if ($BundleNameByFlavor -and $BundleNameByFlavor.ContainsKey($id)) { [string]$BundleNameByFlavor[$id] } else { [string]$_.bundleName }
+      [ordered]@{
+        flavorId = $id
+        displayName = [string]$_.displayName
+        executableName = $effectiveBundleName
+        executablePath = [string](Join-Path (Join-Path $PublicOutputDirectory $id) $effectiveBundleName)
+        executableRelativePath = [string]([System.IO.Path]::Combine($id, $effectiveBundleName))
+        internalMsiPath = [string](Join-Path (Join-Path $InternalOutputDirectory $id) ([string]$_.msiName))
       }
     })
   }
@@ -183,9 +202,11 @@ function Invoke-CheckedStep {
   $pct = [Math]::Floor((($Index - 1) * 100) / [Math]::Max(1, $Total))
   Write-Progress -Activity "EvaluaPro MSI (estable)" -Status $Title -PercentComplete $pct
   Write-Host "[msi][step $Index/$Total] $Title"
-  & cmd /c $Command
-  if ($LASTEXITCODE -ne 0) {
-    throw "Fallo en paso '$Title' (exit=$LASTEXITCODE): $Command"
+  $cmdExe = if (-not [string]::IsNullOrWhiteSpace($env:ComSpec)) { [string]$env:ComSpec } else { 'cmd.exe' }
+  $proc = Start-Process -FilePath $cmdExe -ArgumentList @('/c', $Command) -Wait -NoNewWindow -PassThru
+  $exitCode = if ($null -ne $proc -and $null -ne $proc.ExitCode) { [int]$proc.ExitCode } else { 1 }
+  if ($exitCode -ne 0) {
+    throw "Fallo en paso '$Title' (exit=$exitCode): $Command"
   }
 }
 
@@ -197,7 +218,10 @@ function Resolve-BalExtensionDll {
   )
 
   $balPackageRef = "WixToolset.Bal.wixext/$($WixVersion.ToString())"
-  & $WixExecutable extension add $balPackageRef | Out-Null
+  $addProc = Start-Process -FilePath $WixExecutable -ArgumentList @('extension', 'add', $balPackageRef) -Wait -NoNewWindow -PassThru
+  if ([int]$addProc.ExitCode -ne 0) {
+    throw "No se pudo instalar extensión BAL de WiX (exit=$($addProc.ExitCode)): $balPackageRef"
+  }
 
   $balDllCandidates = @(
     (Join-Path $RootPath ".wix\extensions\WixToolset.Bal.wixext\$($WixVersion.ToString())\wixext6\WixToolset.BootstrapperApplications.wixext.dll"),
@@ -210,6 +234,31 @@ function Resolve-BalExtensionDll {
   }
 
   return $balDll
+}
+
+function Invoke-WixBuildProcess {
+  param(
+    [Parameter(Mandatory = $true)]
+    [string]$WixExecutable,
+    [Parameter(Mandatory = $true)]
+    [string[]]$Arguments
+  )
+
+  $wixOut = Join-Path $env:TEMP ("evaluapro-wix-build-{0}.out.log" -f [Guid]::NewGuid().ToString('N'))
+  $wixErr = Join-Path $env:TEMP ("evaluapro-wix-build-{0}.err.log" -f [Guid]::NewGuid().ToString('N'))
+  try {
+    $proc = Start-Process -FilePath $WixExecutable -ArgumentList $Arguments -Wait -NoNewWindow -PassThru -RedirectStandardOutput $wixOut -RedirectStandardError $wixErr
+    if (Test-Path -LiteralPath $wixOut) {
+      Get-Content -LiteralPath $wixOut -ErrorAction SilentlyContinue | Out-Host
+    }
+    if (Test-Path -LiteralPath $wixErr) {
+      Get-Content -LiteralPath $wixErr -ErrorAction SilentlyContinue | Out-Host
+    }
+    return [int]$proc.ExitCode
+  } finally {
+    if (Test-Path -LiteralPath $wixOut) { Remove-Item -LiteralPath $wixOut -Force -ErrorAction SilentlyContinue }
+    if (Test-Path -LiteralPath $wixErr) { Remove-Item -LiteralPath $wixErr -Force -ErrorAction SilentlyContinue }
+  }
 }
 
 function Resolve-DotNetExecutable {
@@ -229,6 +278,46 @@ function Resolve-DotNetExecutable {
   }
 
   throw 'No se encontro dotnet.exe. Instala .NET SDK 8 para compilar la Bootstrapper Application.'
+}
+
+function Resolve-InstallerVersionTag {
+  param(
+    [string]$RootPath,
+    [string]$RequestedVersion
+  )
+
+  $resolved = [string]$RequestedVersion
+  if ([string]::IsNullOrWhiteSpace($resolved)) {
+    $pkgPath = Join-Path $RootPath 'package.json'
+    if (Test-Path -LiteralPath $pkgPath) {
+      $pkg = Get-Content -LiteralPath $pkgPath -Raw -Encoding utf8 | ConvertFrom-Json
+      $resolved = [string]$pkg.version
+    }
+  }
+  if ([string]::IsNullOrWhiteSpace($resolved)) {
+    $resolved = '0.0.0'
+  }
+  return (($resolved -replace '[^0-9A-Za-z\.-]', '-').Trim())
+}
+
+function Get-VersionedBundleName {
+  param(
+    [Parameter(Mandatory = $true)]
+    [string]$BaseName,
+    [Parameter(Mandatory = $true)]
+    [string]$VersionTag
+  )
+
+  if ([string]::IsNullOrWhiteSpace($VersionTag)) {
+    return $BaseName
+  }
+
+  $ext = [System.IO.Path]::GetExtension($BaseName)
+  $stem = [System.IO.Path]::GetFileNameWithoutExtension($BaseName)
+  if ([string]::IsNullOrWhiteSpace($ext)) {
+    return ("{0}-v{1}" -f $BaseName, $VersionTag)
+  }
+  return ("{0}-v{1}{2}" -f $stem, $VersionTag, $ext)
 }
 
 function Publish-BurnBootstrapperApp {
@@ -251,9 +340,20 @@ function Publish-BurnBootstrapperApp {
   }
   New-Item -ItemType Directory -Path $OutputDirectory -Force | Out-Null
 
-  & $DotNetExecutable publish $ProjectPath -c $ConfigurationName -r win-x64 --self-contained true -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true -p:EnableCompressionInSingleFile=true -o $OutputDirectory | Out-Host
-  if ($LASTEXITCODE -ne 0) {
-    throw 'Fallo publish de la Bootstrapper Application Burn.'
+  $publishArgs = @(
+    'publish',
+    $ProjectPath,
+    '-c', $ConfigurationName,
+    '-r', 'win-x64',
+    '--self-contained', 'true',
+    '-p:PublishSingleFile=true',
+    '-p:IncludeNativeLibrariesForSelfExtract=true',
+    '-p:EnableCompressionInSingleFile=true',
+    '-o', $OutputDirectory
+  )
+  $publishProc = Start-Process -FilePath $DotNetExecutable -ArgumentList $publishArgs -Wait -NoNewWindow -PassThru
+  if ([int]$publishProc.ExitCode -ne 0) {
+    throw ("Fallo publish de la Bootstrapper Application Burn (exit={0})." -f [int]$publishProc.ExitCode)
   }
 
   $exePath = Join-Path $OutputDirectory 'EvaluaPro.BurnBootstrapperApp.exe'
@@ -292,16 +392,23 @@ function New-ScopedFlavorCatalog {
     [Parameter(Mandatory = $true)]
     [string]$OutputDirectory,
     [Parameter(Mandatory = $true)]
-    [object]$FlavorDefinition
+    [object]$FlavorDefinition,
+    [string]$EffectiveBundleName = ''
   )
 
   $sourceCatalog = Get-Content -Path $SourceCatalogPath -Raw -Encoding utf8 | ConvertFrom-Json
   $flavorId = [string]$FlavorDefinition.flavorId
 
+  $effectiveFlavor = $FlavorDefinition.PSObject.Copy()
+  if (-not [string]::IsNullOrWhiteSpace($EffectiveBundleName)) {
+    $effectiveFlavor.bundleName = $EffectiveBundleName
+    $effectiveFlavor.installerHubExeName = $EffectiveBundleName
+  }
+
   $scoped = [ordered]@{
     version = if ($null -ne $sourceCatalog.version) { [int]$sourceCatalog.version } else { 1 }
     defaultFlavorId = $flavorId
-    flavors = @($FlavorDefinition)
+    flavors = @($effectiveFlavor)
   }
 
   $scopedDir = Join-Path $OutputDirectory 'bundle-input'
@@ -331,8 +438,9 @@ function New-FlavorBundleIcon {
   New-Item -ItemType Directory -Path $iconsOutDir -Force | Out-Null
   $iconPath = Join-Path $iconsOutDir ("installer-icon.{0}.ico" -f $flavorId)
 
-  & powershell -NoProfile -ExecutionPolicy Bypass -File $iconScript -FlavorId $flavorId -OutputPath $iconPath | Out-Host
-  if ($LASTEXITCODE -ne 0) {
+  $iconProc = Start-Process -FilePath 'powershell.exe' -ArgumentList @('-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', $iconScript, '-FlavorId', $flavorId, '-OutputPath', $iconPath) -Wait -NoNewWindow -PassThru
+  $iconExit = [int]$iconProc.ExitCode
+  if ($iconExit -ne 0) {
     throw "No se pudo generar icono por flavor para '$flavorId'."
   }
 
@@ -366,7 +474,26 @@ if (-not $wixExe) {
   throw "No se encontró CLI de WiX (wix.exe). Instala WiX Toolset v6.0.x estable y agrega 'wix' al PATH."
 }
 
-$wixVersionRaw = (& $wixExe --version 2>$null | Select-Object -First 1)
+$wixVersionStdOut = Join-Path $env:TEMP ("evaluapro-wix-version-{0}.out.log" -f [Guid]::NewGuid().ToString('N'))
+$wixVersionStdErr = Join-Path $env:TEMP ("evaluapro-wix-version-{0}.err.log" -f [Guid]::NewGuid().ToString('N'))
+$wixVersionRaw = ''
+try {
+  $versionProc = Start-Process -FilePath $wixExe -ArgumentList @('--version') -Wait -NoNewWindow -PassThru -RedirectStandardOutput $wixVersionStdOut -RedirectStandardError $wixVersionStdErr
+  if ([int]$versionProc.ExitCode -ne 0) {
+    throw "No se pudo ejecutar WiX --version (exit=$($versionProc.ExitCode))."
+  }
+  $wixVersionOutput = ''
+  if (Test-Path -LiteralPath $wixVersionStdOut) {
+    $wixVersionOutput = Get-Content -LiteralPath $wixVersionStdOut -Raw -ErrorAction SilentlyContinue
+  }
+  if ([string]::IsNullOrWhiteSpace([string]$wixVersionOutput) -and (Test-Path -LiteralPath $wixVersionStdErr)) {
+    $wixVersionOutput = Get-Content -LiteralPath $wixVersionStdErr -Raw -ErrorAction SilentlyContinue
+  }
+  $wixVersionRaw = @([string]$wixVersionOutput -split "`r?`n" | Where-Object { -not [string]::IsNullOrWhiteSpace($_) } | Select-Object -First 1)
+} finally {
+  if (Test-Path -LiteralPath $wixVersionStdOut) { Remove-Item -LiteralPath $wixVersionStdOut -Force -ErrorAction SilentlyContinue }
+  if (Test-Path -LiteralPath $wixVersionStdErr) { Remove-Item -LiteralPath $wixVersionStdErr -Force -ErrorAction SilentlyContinue }
+}
 if (-not $wixVersionRaw) {
   throw "No se pudo leer la versión de WiX. Verifica instalación de WiX Toolset v6.0.x estable."
 }
@@ -423,6 +550,8 @@ $selectedFlavors = @(Get-SelectedFlavors -CatalogPath $flavorCatalogPath -Reques
 if ($selectedFlavors.Count -eq 0) {
   throw "No se resolvieron flavors para '$Flavor'."
 }
+$effectiveVersionTag = Resolve-InstallerVersionTag -RootPath $root -RequestedVersion $Version
+$effectiveBundleNamesByFlavor = @{}
 
 $stepsPerFlavor = if ($buildBundle) { 2 } else { 1 }
 $preBundleSteps = if ($buildBundle) { 1 } else { 0 }
@@ -451,9 +580,15 @@ foreach ($flavorDef in $selectedFlavors) {
   $flavorId = [string]$flavorDef.flavorId
   $productName = [string]$flavorDef.productName
   $msiName = [string]$flavorDef.msiName
-  $bundleName = [string]$flavorDef.bundleName
+  $bundleNameLegacy = [string]$flavorDef.bundleName
+  $bundleName = Get-VersionedBundleName -BaseName $bundleNameLegacy -VersionTag $effectiveVersionTag
+  $effectiveBundleNamesByFlavor[$flavorId] = $bundleName
   $upgradeCode = [string]$flavorDef.upgradeCode
   $bundleUpgradeCode = [string]$flavorDef.bundleUpgradeCode
+  $publicFlavorOut = Join-Path $out $flavorId
+  $internalFlavorOut = Join-Path $internalOut $flavorId
+  New-Item -ItemType Directory -Path $publicFlavorOut -Force | Out-Null
+  New-Item -ItemType Directory -Path $internalFlavorOut -Force | Out-Null
 
   Write-Progress -Activity "EvaluaPro MSI (estable)" -Status "Compilar MSI $flavorId" -PercentComplete ([Math]::Floor((($idx - 1) * 100) / [Math]::Max(1, $totalSteps)))
   Write-Host "[msi][step $idx/$totalSteps] Compilar MSI $flavorId"
@@ -463,19 +598,23 @@ foreach ($flavorDef in $selectedFlavors) {
     "-arch", "x64",
     "-d", "SourceRoot=$root",
     "-d", "FlavorId=$flavorId",
-    "-d", "ProductName=$productName",
+    "-d", ("ProductName=`"{0}`"" -f $productName),
     "-d", "UpgradeCode=$upgradeCode",
     "-d", "BundleName=$bundleName",
-    "-o", (Join-Path $internalOut $msiName)
+    "-o", (Join-Path $internalFlavorOut $msiName)
   )
   if ($Version) { $productArgs += @("-d", "Version=$Version") }
-  & $wixExe @productArgs
-  if ($LASTEXITCODE -ne 0) { throw "Falló build de Product.wxs para $flavorId" }
+  $productExit = Invoke-WixBuildProcess -WixExecutable $wixExe -Arguments $productArgs
+  if ($productExit -ne 0) { throw "Falló build de Product.wxs para $flavorId (exit=$productExit)" }
+  $productOut = Join-Path $internalFlavorOut $msiName
+  if (-not (Test-Path -LiteralPath $productOut)) {
+    throw "Build de Product.wxs para $flavorId no genero MSI esperado: $productOut"
+  }
   $idx += 1
 
   if ($buildBundle) {
-    $scopedFlavorCatalogPath = New-ScopedFlavorCatalog -SourceCatalogPath $flavorCatalogPath -OutputDirectory $internalOut -FlavorDefinition $flavorDef
-    $flavorBundleIconPath = New-FlavorBundleIcon -RootPath $root -OutputDirectory $internalOut -FlavorDefinition $flavorDef
+    $scopedFlavorCatalogPath = New-ScopedFlavorCatalog -SourceCatalogPath $flavorCatalogPath -OutputDirectory $internalFlavorOut -FlavorDefinition $flavorDef -EffectiveBundleName $bundleName
+    $flavorBundleIconPath = New-FlavorBundleIcon -RootPath $root -OutputDirectory $internalFlavorOut -FlavorDefinition $flavorDef
     Write-Progress -Activity "EvaluaPro MSI (estable)" -Status "Compilar bundle $flavorId" -PercentComplete ([Math]::Floor((($idx - 1) * 100) / [Math]::Max(1, $totalSteps)))
     Write-Host "[msi][step $idx/$totalSteps] Compilar bundle $flavorId"
     $bundleArgs = @(
@@ -489,22 +628,26 @@ foreach ($flavorDef in $selectedFlavors) {
       "-bindpath", (Join-Path $root 'scripts\installer-burn\modules'),
       "-d", "SourceRoot=$root",
       "-d", "FlavorId=$flavorId",
-      "-d", "ProductName=$productName",
+      "-d", ("ProductName=`"{0}`"" -f $productName),
       "-d", "UpgradeCode=$upgradeCode",
       "-d", "BundleUpgradeCode=$bundleUpgradeCode",
       "-d", "BundleName=$bundleName",
       "-d", "MsiName=$msiName",
-      "-d", "MsiSourcePath=$([string](Join-Path $internalOut $msiName))",
+      "-d", "MsiSourcePath=$([string](Join-Path $internalFlavorOut $msiName))",
       "-d", "FlavorCatalogPath=$scopedFlavorCatalogPath",
       "-d", "BundleIconPath=$flavorBundleIconPath",
-      "-o", (Join-Path $out $bundleName)
+      "-o", (Join-Path $publicFlavorOut $bundleName)
     )
     if ($Version) { $bundleArgs += @("-d", "Version=$Version") }
-    & $wixExe @bundleArgs
-    if ($LASTEXITCODE -ne 0) { throw "Falló build de Bundle.wxs para $flavorId" }
-    $bundleWixPdb = Join-Path $out ([System.IO.Path]::GetFileNameWithoutExtension($bundleName) + '.wixpdb')
+    $bundleExit = Invoke-WixBuildProcess -WixExecutable $wixExe -Arguments $bundleArgs
+    if ($bundleExit -ne 0) { throw "Falló build de Bundle.wxs para $flavorId (exit=$bundleExit)" }
+    $bundleOut = Join-Path $publicFlavorOut $bundleName
+    if (-not (Test-Path -LiteralPath $bundleOut)) {
+      throw "Build de Bundle.wxs para $flavorId no genero bundle esperado: $bundleOut"
+    }
+    $bundleWixPdb = Join-Path $publicFlavorOut ([System.IO.Path]::GetFileNameWithoutExtension($bundleName) + '.wixpdb')
     if (Test-Path $bundleWixPdb) {
-      Move-Item -LiteralPath $bundleWixPdb -Destination (Join-Path $internalOut (Split-Path -Leaf $bundleWixPdb)) -Force
+      Move-Item -LiteralPath $bundleWixPdb -Destination (Join-Path $internalFlavorOut (Split-Path -Leaf $bundleWixPdb)) -Force
     }
     $idx += 1
   }
@@ -515,7 +658,8 @@ if (-not $buildBundle) {
 }
 
 if ($buildBundle) {
-  Write-InstallerLocalPathsManifest -OutputDirectory $internalOut -PublicOutputDirectory $out -FlavorDefinitions $selectedFlavors
+  Write-InstallerLocalPathsManifest -OutputDirectory $out -PublicOutputDirectory $out -InternalOutputDirectory $internalOut -FlavorDefinitions $selectedFlavors -BundleNameByFlavor $effectiveBundleNamesByFlavor
+  Write-InstallerLocalPathsManifest -OutputDirectory $internalOut -PublicOutputDirectory $out -InternalOutputDirectory $internalOut -FlavorDefinitions $selectedFlavors -BundleNameByFlavor $effectiveBundleNamesByFlavor
 }
 
 Remove-OptionalInstallerArtifacts -OutputDirectory $out

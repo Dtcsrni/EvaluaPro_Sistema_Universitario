@@ -1,5 +1,6 @@
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
+$script:InstallerHubLastProcessResult = $null
 
 function Resolve-InstallerHubRootPath {
   param(
@@ -140,7 +141,7 @@ function Resolve-InstallerElevationScriptPath {
   return $stagedScriptPath
 }
 
-function Ensure-ElevatedSession {
+function Start-ElevatedSession {
   param(
     [string]$ScriptPath,
     [string[]]$PassthroughArgs
@@ -314,6 +315,94 @@ function Get-InstallerHubFileSha256 {
   }
 }
 
+function Get-InstallerHubSha256EntriesFromText {
+  param(
+    [Parameter(Mandatory = $true)]
+    [string]$Text
+  )
+
+  $entries = @()
+  $lines = $Text -split "`r?`n"
+  foreach ($line in $lines) {
+    $trim = $line.Trim()
+    if (-not $trim) { continue }
+    $match = [Regex]::Match($trim, '^(?<sha>[a-fA-F0-9]{64})\s+\*?(?<file>.+)$')
+    if (-not $match.Success) { continue }
+    $entries += [pscustomobject]@{
+      sha256 = $match.Groups['sha'].Value.ToLowerInvariant()
+      fileName = $match.Groups['file'].Value.Trim()
+      line = $trim
+    }
+  }
+
+  return @($entries)
+}
+
+function Resolve-InstallerHubPackageFromShasums {
+  param(
+    [Parameter(Mandatory = $true)]
+    [string]$Text,
+    [string]$PreferredPattern = '',
+    [string]$FallbackRegex = ''
+  )
+
+  $entries = @(Get-InstallerHubSha256EntriesFromText -Text $Text)
+  if ($entries.Count -eq 0) {
+    return $null
+  }
+
+  if (-not [string]::IsNullOrWhiteSpace($PreferredPattern)) {
+    foreach ($entry in $entries) {
+      if ([string]$entry.fileName -match [Regex]::Escape($PreferredPattern)) {
+        return [pscustomobject]@{
+          sha256 = [string]$entry.sha256
+          fileName = [string]$entry.fileName
+          matchedBy = 'preferred-pattern'
+          matchedPattern = [string]$PreferredPattern
+          line = [string]$entry.line
+        }
+      }
+    }
+  }
+
+  if (-not [string]::IsNullOrWhiteSpace($FallbackRegex)) {
+    $fallback = @($entries | Where-Object { [string]$_.fileName -match $FallbackRegex })
+    if ($fallback.Count -gt 0) {
+      $ranked = @($fallback | ForEach-Object {
+        $version = [version]'0.0.0'
+        $fileName = [string]$_.fileName
+        $versionMatch = [Regex]::Match($fileName, 'node-v(?<major>\d+)\.(?<minor>\d+)\.(?<patch>\d+)-')
+        if ($versionMatch.Success) {
+          $version = [version]::new(
+            [int]$versionMatch.Groups['major'].Value,
+            [int]$versionMatch.Groups['minor'].Value,
+            [int]$versionMatch.Groups['patch'].Value
+          )
+        }
+        [pscustomobject]@{
+          version = $version
+          fileName = $fileName
+          sha256 = [string]$_.sha256
+          line = [string]$_.line
+        }
+      } | Sort-Object -Property @{ Expression = 'version'; Descending = $true }, @{ Expression = 'fileName'; Descending = $false })
+
+      if ($ranked.Count -gt 0) {
+        $selected = $ranked[0]
+        return [pscustomobject]@{
+          sha256 = [string]$selected.sha256
+          fileName = [string]$selected.fileName
+          matchedBy = 'fallback-regex'
+          matchedPattern = [string]$FallbackRegex
+          line = [string]$selected.line
+        }
+      }
+    }
+  }
+
+  return $null
+}
+
 function Resolve-InstallerHubSha256FromText {
   param(
     [Parameter(Mandatory = $true)]
@@ -321,14 +410,15 @@ function Resolve-InstallerHubSha256FromText {
     [string]$Pattern
   )
 
-  $lines = $Text -split "`r?`n"
-  foreach ($line in $lines) {
-    $trim = $line.Trim()
-    if (-not $trim) { continue }
-    if ($Pattern -and ($trim -notmatch [Regex]::Escape($Pattern))) { continue }
-    $match = [Regex]::Match($trim, '(?<sha>[a-fA-F0-9]{64})')
-    if ($match.Success) {
-      return $match.Groups['sha'].Value.ToLowerInvariant()
+  $resolved = Resolve-InstallerHubPackageFromShasums -Text $Text -PreferredPattern ([string]$Pattern)
+  if ($resolved -and $resolved.sha256) {
+    return [string]$resolved.sha256
+  }
+
+  if ([string]::IsNullOrWhiteSpace([string]$Pattern)) {
+    $entries = @(Get-InstallerHubSha256EntriesFromText -Text $Text)
+    if ($entries.Count -gt 0) {
+      return [string]$entries[0].sha256
     }
   }
 
@@ -364,12 +454,38 @@ function Invoke-InstallerHubProcess {
     [scriptblock]$OnProgress
   )
 
+  $isMsi = ([string]::Equals([System.IO.Path]::GetExtension([string]$FilePath), '.msi', [StringComparison]::OrdinalIgnoreCase))
+  $processFilePath = $FilePath
+  $processArguments = [string]$Arguments
+  $msiLogPath = ''
+
+  if ($isMsi) {
+    $logRoot = Join-Path (Join-Path (Join-Path $env:ProgramData 'EvaluaPro') 'installer-hub') 'logs'
+    if ([string]::IsNullOrWhiteSpace([string]$logRoot)) {
+      $logRoot = [string]$env:TEMP
+    }
+    if (-not (Test-Path -LiteralPath $logRoot)) {
+      New-Item -ItemType Directory -Path $logRoot -Force | Out-Null
+    }
+
+    $safeName = ([System.IO.Path]::GetFileNameWithoutExtension([string]$FilePath) -replace '[^a-zA-Z0-9_.-]', '-')
+    $timestamp = (Get-Date).ToString('yyyyMMdd-HHmmss')
+    $msiLogPath = Join-Path $logRoot ("msi-{0}-{1}.log" -f $safeName, $timestamp)
+
+    $processFilePath = 'msiexec.exe'
+    $processArguments = ('/i "{0}" {1} /L*v "{2}"' -f [string]$FilePath, [string]$Arguments, [string]$msiLogPath).Trim()
+  }
+
   $startInfo = @{
-    FilePath = $FilePath
-    ArgumentList = $Arguments
+    FilePath = $processFilePath
+    ArgumentList = $processArguments
     Wait = $true
     PassThru = $true
     WindowStyle = 'Hidden'
+  }
+
+  if ($isMsi -and -not (Test-IsAdministrator)) {
+    $startInfo.Verb = 'RunAs'
   }
   if ($WorkingDirectory) {
     $startInfo.WorkingDirectory = $WorkingDirectory
@@ -377,7 +493,20 @@ function Invoke-InstallerHubProcess {
 
   Invoke-InstallerHubProgressCallback -OnProgress $OnProgress -Activity 'install' -Percent 5 -Status ("Iniciando instalacion: {0}" -f (Split-Path -Leaf $FilePath))
 
-  $proc = Start-Process @startInfo
+  try {
+    $proc = Start-Process @startInfo
+  } catch {
+    $script:InstallerHubLastProcessResult = [pscustomobject]@{
+      filePath = [string]$FilePath
+      processFilePath = [string]$processFilePath
+      arguments = [string]$processArguments
+      isMsi = [bool]$isMsi
+      msiLogPath = [string]$msiLogPath
+      exitCode = -1
+      error = [string]$_.Exception.Message
+    }
+    throw
+  }
   $startedAt = Get-Date
   while (-not $proc.WaitForExit(1000)) {
     $elapsed = (Get-Date) - $startedAt
@@ -391,7 +520,22 @@ function Invoke-InstallerHubProcess {
   }
 
   Invoke-InstallerHubProgressCallback -OnProgress $OnProgress -Activity 'install' -Percent 100 -Status ("Instalacion terminada: {0}" -f (Split-Path -Leaf $FilePath))
+
+  $script:InstallerHubLastProcessResult = [pscustomobject]@{
+    filePath = [string]$FilePath
+    processFilePath = [string]$processFilePath
+    arguments = [string]$processArguments
+    isMsi = [bool]$isMsi
+    msiLogPath = [string]$msiLogPath
+    exitCode = [int]$proc.ExitCode
+    error = ''
+  }
+
   return [int]$proc.ExitCode
+}
+
+function Get-InstallerHubLastProcessResult {
+  return $script:InstallerHubLastProcessResult
 }
 
 function Invoke-InstallerHubProgressCallback {
@@ -420,54 +564,91 @@ function Invoke-StreamingFileDownload {
     [scriptblock]$OnProgress
   )
 
-  $handler = New-Object System.Net.Http.HttpClientHandler
-  $handler.AutomaticDecompression = [System.Net.DecompressionMethods]::GZip -bor [System.Net.DecompressionMethods]::Deflate
-  $client = New-Object System.Net.Http.HttpClient($handler)
-  $client.Timeout = [TimeSpan]::FromMinutes(3)
+  $destinationDir = Split-Path -Parent $Destination
+  if ($destinationDir -and -not (Test-Path -LiteralPath $destinationDir)) {
+    New-Item -ItemType Directory -Path $destinationDir -Force | Out-Null
+  }
 
+  $httpError = $null
   try {
-    $response = $client.GetAsync($Url, [System.Net.Http.HttpCompletionOption]::ResponseHeadersRead).GetAwaiter().GetResult()
-    $response.EnsureSuccessStatusCode()
+    try {
+      Add-Type -AssemblyName 'System.Net.Http' -ErrorAction Stop
+    } catch {}
 
-    $contentLength = $response.Content.Headers.ContentLength
-    $stream = $response.Content.ReadAsStreamAsync().GetAwaiter().GetResult()
-    $destinationDir = Split-Path -Parent $Destination
-    if ($destinationDir -and -not (Test-Path -LiteralPath $destinationDir)) {
-      New-Item -ItemType Directory -Path $destinationDir -Force | Out-Null
-    }
-    $fileStream = [System.IO.File]::Open($Destination, [System.IO.FileMode]::Create, [System.IO.FileAccess]::Write, [System.IO.FileShare]::None)
+    $handler = New-Object System.Net.Http.HttpClientHandler
+    $handler.AutomaticDecompression = [System.Net.DecompressionMethods]::GZip -bor [System.Net.DecompressionMethods]::Deflate
+    $client = New-Object System.Net.Http.HttpClient($handler)
+    $client.Timeout = [TimeSpan]::FromMinutes(3)
 
     try {
-      $buffer = New-Object byte[] 65536
-      $totalRead = 0L
-      $lastPercent = -1
-      while (($read = $stream.Read($buffer, 0, $buffer.Length)) -gt 0) {
-        $fileStream.Write($buffer, 0, $read)
-        $totalRead += $read
-        if ($contentLength -gt 0) {
-          $percent = [int][Math]::Floor(($totalRead / [double]$contentLength) * 100)
-          if ($percent -ne $lastPercent) {
-            $lastPercent = $percent
-            Invoke-InstallerHubProgressCallback -OnProgress $OnProgress -Activity 'download' -Percent $percent -Status ("Descargando {0} ({1}%)" -f (Split-Path -Leaf $Destination), $percent) -Meta @{
+      $response = $client.GetAsync($Url, [System.Net.Http.HttpCompletionOption]::ResponseHeadersRead).GetAwaiter().GetResult()
+      $response.EnsureSuccessStatusCode()
+
+      $contentLength = $response.Content.Headers.ContentLength
+      $stream = $response.Content.ReadAsStreamAsync().GetAwaiter().GetResult()
+      $fileStream = [System.IO.File]::Open($Destination, [System.IO.FileMode]::Create, [System.IO.FileAccess]::Write, [System.IO.FileShare]::None)
+
+      try {
+        $buffer = New-Object byte[] 65536
+        $totalRead = 0L
+        $lastPercent = -1
+        while (($read = $stream.Read($buffer, 0, $buffer.Length)) -gt 0) {
+          $fileStream.Write($buffer, 0, $read)
+          $totalRead += $read
+          if ($contentLength -gt 0) {
+            $percent = [int][Math]::Floor(($totalRead / [double]$contentLength) * 100)
+            if ($percent -ne $lastPercent) {
+              $lastPercent = $percent
+              Invoke-InstallerHubProgressCallback -OnProgress $OnProgress -Activity 'download' -Percent $percent -Status ("Descargando {0} ({1}%)" -f (Split-Path -Leaf $Destination), $percent) -Meta @{
+                bytesReceived = $totalRead
+                totalBytes = [int64]$contentLength
+              }
+            }
+          } elseif ($totalRead -eq $read) {
+            Invoke-InstallerHubProgressCallback -OnProgress $OnProgress -Activity 'download' -Percent 50 -Status ("Descargando {0}" -f (Split-Path -Leaf $Destination)) -Meta @{
               bytesReceived = $totalRead
-              totalBytes = [int64]$contentLength
+              totalBytes = 0
             }
           }
-        } elseif ($totalRead -eq $read) {
-          Invoke-InstallerHubProgressCallback -OnProgress $OnProgress -Activity 'download' -Percent 50 -Status ("Descargando {0}" -f (Split-Path -Leaf $Destination)) -Meta @{
-            bytesReceived = $totalRead
-            totalBytes = 0
-          }
         }
+      } finally {
+        $fileStream.Dispose()
+        $stream.Dispose()
+        $response.Dispose()
       }
+
+      return
     } finally {
-      $fileStream.Dispose()
-      $stream.Dispose()
-      $response.Dispose()
+      $client.Dispose()
+      $handler.Dispose()
     }
-  } finally {
-    $client.Dispose()
-    $handler.Dispose()
+  } catch {
+    $httpError = $_.Exception.Message
+  }
+
+  try {
+    if (Get-Command Start-BitsTransfer -ErrorAction SilentlyContinue) {
+      Invoke-InstallerHubProgressCallback -OnProgress $OnProgress -Activity 'download' -Percent 15 -Status ("Descarga por BITS: {0}" -f (Split-Path -Leaf $Destination))
+      Start-BitsTransfer -Source $Url -Destination $Destination -TransferPolicy Always -ErrorAction Stop
+      Invoke-InstallerHubProgressCallback -OnProgress $OnProgress -Activity 'download' -Percent 100 -Status ("Descarga completada por BITS: {0}" -f (Split-Path -Leaf $Destination))
+      return
+    }
+  } catch {
+    $httpError = if ([string]::IsNullOrWhiteSpace($httpError)) { $_.Exception.Message } else { "$httpError | BITS: $($_.Exception.Message)" }
+  }
+
+  try {
+    Invoke-InstallerHubProgressCallback -OnProgress $OnProgress -Activity 'download' -Percent 20 -Status ("Descarga por Invoke-WebRequest: {0}" -f (Split-Path -Leaf $Destination))
+    Invoke-WebRequest -Uri $Url -OutFile $Destination -UseBasicParsing -TimeoutSec 180 -ErrorAction Stop
+    Invoke-InstallerHubProgressCallback -OnProgress $OnProgress -Activity 'download' -Percent 100 -Status ("Descarga completada: {0}" -f (Split-Path -Leaf $Destination))
+    return
+  } catch {
+    $fallbackError = $_.Exception.Message
+    if ([string]::IsNullOrWhiteSpace($httpError)) {
+      throw "Descarga fallida por HTTP fallback: $fallbackError"
+    }
+
+    throw "Descarga fallida por todos los metodos. HttpClient='$httpError'. Invoke-WebRequest='$fallbackError'."
   }
 }
 
@@ -515,15 +696,18 @@ function Get-InstallerFlavorDefinition {
 Export-ModuleMember -Function @(
   'Test-IsAdministrator',
   'Resolve-InstallerElevationScriptPath',
-  'Ensure-ElevatedSession',
+  'Start-ElevatedSession',
   'New-InstallerHubLogContext',
   'Write-InstallerHubLog',
   'Invoke-InstallerHubWebRequest',
   'Invoke-InstallerHubDownloadFile',
   'Get-InstallerHubFileSha256',
+  'Get-InstallerHubSha256EntriesFromText',
+  'Resolve-InstallerHubPackageFromShasums',
   'Resolve-InstallerHubSha256FromText',
   'Test-InstallerHubInternet',
   'Invoke-InstallerHubProcess',
+  'Get-InstallerHubLastProcessResult',
   'Invoke-InstallerHubProgressCallback',
   'Get-InstallerFlavorCatalog',
   'Get-InstallerFlavorDefinition'

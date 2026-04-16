@@ -94,6 +94,7 @@ function New-DockerRuntimeWindowsBootstrapPlan {
       command = 'Reinicia Windows y vuelve a ejecutar el Installer Hub para completar la validacion.'
     }
   } elseif (@($Status.userDistros).Count -eq 0) {
+    $requiresReboot = $true
     $steps += [pscustomobject]@{
       title = 'Instalar distro soportada para WSL2'
       executor = 'host'
@@ -101,10 +102,10 @@ function New-DockerRuntimeWindowsBootstrapPlan {
       command = "wsl --install -d $targetDistro"
     }
     $steps += [pscustomobject]@{
-      title = 'Abrir la distro e inicializar usuario'
-      executor = 'manual'
-      autoRunnable = $false
-      command = "Abre `wsl -d $targetDistro`, completa el alta inicial de usuario y vuelve a correr el Installer Hub."
+      title = 'Finalizar inicializacion de distro tras reinicio'
+      executor = 'host'
+      autoRunnable = $true
+      command = "wsl -d $targetDistro -u root -- sh -lc ""echo distro-ready"""
     }
   } else {
     $steps += [pscustomobject]@{
@@ -118,12 +119,6 @@ function New-DockerRuntimeWindowsBootstrapPlan {
       executor = 'host'
       autoRunnable = $true
       command = "wsl -d $targetDistro -u root -- sh -lc ""service docker start || (nohup dockerd >/var/log/dockerd.log 2>&1 &)"""
-    }
-    $steps += [pscustomobject]@{
-      title = 'Dar acceso al usuario actual'
-      executor = 'manual'
-      autoRunnable = $false
-      command = ('wsl -d {0} -- sh -lc "sudo usermod -aG docker $USER"' -f $targetDistro)
     }
     $steps += [pscustomobject]@{
       title = 'Verificar runtime Docker en WSL2'
@@ -228,11 +223,11 @@ function Invoke-DockerRuntimeBootstrapAuto {
             if ($rawCommand -match '-d\s+([A-Za-z0-9._-]+)') {
               $distro = [string]$Matches[1]
             }
-            $args = @('--install')
+            $wslInstallParameters = @('--install')
             if ($distro) {
-              $args += @('-d', $distro)
+              $wslInstallParameters += @('-d', $distro)
             }
-            Start-Process -FilePath 'wsl.exe' -ArgumentList $args -WindowStyle Hidden | Out-Null
+            Start-Process -FilePath 'wsl.exe' -ArgumentList $wslInstallParameters -WindowStyle Hidden | Out-Null
             if ($OnLog) {
               & $OnLog 'warn' ("[auto-bootstrap] instalacion WSL iniciada en segundo plano. Requiere completar setup manual/reinicio.")
             }
@@ -275,16 +270,31 @@ function Invoke-DockerRuntimeBootstrapAuto {
   }
 }
 
-function Resolve-PrereqExpectedSha256 {
+function Resolve-PrereqPackageSelection {
   param(
     [Parameter(Mandatory = $true)]
     [pscustomobject]$Prerequisite,
     [scriptblock]$OnLog
   )
 
+  $downloadUrl = [string]$Prerequisite.downloadUrl
+  if ([string]::IsNullOrWhiteSpace($downloadUrl)) {
+    throw "downloadUrl vacia para prerequisito $($Prerequisite.name)"
+  }
+
+  $sourceFileName = [System.IO.Path]::GetFileName(([uri]$downloadUrl).AbsolutePath)
+  if ([string]::IsNullOrWhiteSpace($sourceFileName)) {
+    $sourceFileName = ("{0}.bin" -f (([string]$Prerequisite.name) -replace '[^a-zA-Z0-9\-_.]', '-'))
+  }
+
   $inline = [string]$Prerequisite.sha256
   if ($inline -match '^[a-fA-F0-9]{64}$') {
-    return $inline.ToLowerInvariant()
+    return [pscustomobject]@{
+      expectedSha256 = $inline.ToLowerInvariant()
+      downloadUrl = $downloadUrl
+      fileName = $sourceFileName
+      resolvedBy = 'inline'
+    }
   }
 
   $shaUrl = [string]$Prerequisite.sha256Url
@@ -294,14 +304,67 @@ function Resolve-PrereqExpectedSha256 {
 
   if ($OnLog) { & $OnLog 'info' "Resolviendo SHA256 remoto para $($Prerequisite.name)..." }
 
-  $response = Invoke-InstallerHubWebRequest -Url $shaUrl -Method GET -TimeoutSec 30 -RetryCount 2
+  $shaText = ''
+  $headers = @{ 'User-Agent' = 'EvaluaPro-InstallerHub' }
+  try {
+    $response = Invoke-InstallerHubWebRequest -Url $shaUrl -Method GET -Headers $headers -TimeoutSec 30 -RetryCount 2
+    $shaText = [string]$response.Content
+  } catch {
+    if ($OnLog) {
+      & $OnLog 'warn' ("Fallo lectura SHASUMS por WebRequest para {0}. Se intentara fallback de descarga robusta: {1}" -f [string]$Prerequisite.name, [string]$_.Exception.Message)
+    }
+    $shaFallbackRoot = Join-Path $env:TEMP ('evaluapro-shasums-' + [Guid]::NewGuid().ToString('N'))
+    New-Item -ItemType Directory -Path $shaFallbackRoot -Force | Out-Null
+    $shaFallbackPath = Join-Path $shaFallbackRoot 'SHASUMS256.txt'
+    try {
+      Invoke-InstallerHubDownloadFile -Url $shaUrl -Destination $shaFallbackPath
+      $shaText = [string](Get-Content -LiteralPath $shaFallbackPath -Raw -Encoding utf8)
+      if ($OnLog) {
+        & $OnLog 'info' ("SHASUMS obtenido por fallback robusto para {0}." -f [string]$Prerequisite.name)
+      }
+    } finally {
+      if (Test-Path -LiteralPath $shaFallbackRoot) {
+        Remove-Item -LiteralPath $shaFallbackRoot -Recurse -Force -ErrorAction SilentlyContinue
+      }
+    }
+  }
+
+  if ([string]::IsNullOrWhiteSpace($shaText)) {
+    throw "No se pudo obtener contenido SHASUMS para $($Prerequisite.name)."
+  }
+
   $pattern = [string]$Prerequisite.sha256Pattern
-  $expected = Resolve-InstallerHubSha256FromText -Text $response.Content -Pattern $pattern
-  if (-not $expected) {
+  $fallbackRegex = ''
+  $ruleType = [string]$Prerequisite.detectRule.type
+  if ($ruleType -eq 'node_major') {
+    $requiredMajor = [int]$Prerequisite.detectRule.minMajor
+    $fallbackRegex = ('^node-v{0}\.\d+\.\d+-x64\.msi$' -f $requiredMajor)
+  }
+
+  $resolved = Resolve-InstallerHubPackageFromShasums -Text $shaText -PreferredPattern $pattern -FallbackRegex $fallbackRegex
+  if (-not $resolved -or [string]::IsNullOrWhiteSpace([string]$resolved.sha256)) {
     throw "No se pudo resolver SHA256 desde sha256Url para $($Prerequisite.name)."
   }
 
-  return $expected
+  $resolvedFileName = if ([string]::IsNullOrWhiteSpace([string]$resolved.fileName)) { $sourceFileName } else { [string]$resolved.fileName }
+  $resolvedUrl = $downloadUrl
+  if ($resolvedFileName -ne $sourceFileName) {
+    $baseUri = [uri]$downloadUrl
+    $resolvedUri = [uri]::new($baseUri, $resolvedFileName)
+    $resolvedUrl = [string]$resolvedUri.AbsoluteUri
+    if ($OnLog) {
+      & $OnLog 'info' ("Ajustando artefacto remoto para {0}: {1} -> {2}" -f [string]$Prerequisite.name, $sourceFileName, $resolvedFileName)
+      & $OnLog 'warn' ("Fallback dinamico aplicado para {0} usando {1}" -f [string]$Prerequisite.name, [string]$resolved.matchedPattern)
+    }
+  }
+
+  return [pscustomobject]@{
+    expectedSha256 = [string]$resolved.sha256
+    downloadUrl = $resolvedUrl
+    fileName = $resolvedFileName
+    resolvedBy = [string]$resolved.matchedBy
+    matchedPattern = [string]$resolved.matchedPattern
+  }
 }
 
 function Install-PrerequisitePackage {
@@ -317,7 +380,7 @@ function Install-PrerequisitePackage {
   $ruleType = [string]$Prerequisite.detectRule.type
   if ($ruleType -eq 'docker_runtime_windows') {
     $status = Get-DockerRuntimeStatus
-    if ($status.installed) {
+    if ($status.installed -and $status.ready -and [string]$status.mode -eq 'wsl2-engine') {
       if ($OnLog) { & $OnLog 'ok' ("Runtime Docker compatible detectado: $($status.mode)") }
       Invoke-PrereqProgress -OnProgress $OnProgress -Activity 'docker-runtime' -Percent 100 -Status ("Runtime Docker disponible: {0}" -f [string]$status.mode)
       return [pscustomobject]@{
@@ -327,6 +390,13 @@ function Install-PrerequisitePackage {
         exitCode = 0
         mode = [string]$status.mode
       }
+    }
+
+    if ($status.installed -and -not $status.ready -and $OnLog) {
+      & $OnLog 'warn' ("Runtime Docker detectado pero no utilizable aun: {0}" -f [string]$status.reason)
+    }
+    if ($status.ready -and [string]$status.mode -eq 'desktop' -and $OnLog) {
+      & $OnLog 'warn' 'Runtime Docker Desktop detectado, pero docente-local exige WSL2 + Docker Engine. Ejecutando bootstrap forzado WSL2.'
     }
 
     $plan = New-DockerRuntimeWindowsBootstrapPlan -Status $status
@@ -368,7 +438,7 @@ function Install-PrerequisitePackage {
         & $OnLog 'info' ("Auto-bootstrap ejecutado: {0} pasos OK, {1} pasos fallidos, {2} pasos pendientes." -f @($bootstrapExecution.executed).Count, @($bootstrapExecution.failed).Count, @($bootstrapExecution.pending).Count)
       }
       $statusAfterAuto = Get-DockerRuntimeStatus
-      if ($statusAfterAuto.installed) {
+      if ($statusAfterAuto.installed -and $statusAfterAuto.ready) {
         if ($OnLog) { & $OnLog 'ok' ("Runtime Docker compatible detectado tras auto-bootstrap: $($statusAfterAuto.mode)") }
         Invoke-PrereqProgress -OnProgress $OnProgress -Activity 'docker-runtime' -Percent 100 -Status ("Runtime Docker listo: {0}" -f [string]$statusAfterAuto.mode)
         return [pscustomobject]@{
@@ -404,7 +474,18 @@ function Install-PrerequisitePackage {
 
     $statusForError = if ($autoBootstrapEnabled) { Get-DockerRuntimeStatus } else { $status }
     $detail = if (@($statusForError.manualActions).Count -gt 0) { ($statusForError.manualActions -join ' ') } else { [string]$statusForError.reason }
-    throw ("Bootstrap guiado pendiente para runtime Docker Windows. " + $detail)
+    $message = "Bootstrap guiado pendiente para runtime Docker Windows. " + $detail
+    if ([bool]$plan.requiresReboot) {
+      $restartReason = 'Se requiere reiniciar Windows para completar la activacion de WSL2 y retomar la instalacion.'
+      $exception = [System.Exception]::new($message + ' ' + $restartReason)
+      $exception.Data['requiresRestart'] = $true
+      $exception.Data['restartReason'] = $restartReason
+      $exception.Data['phase'] = 'wsl_bootstrap'
+      $exception.Data['resumeToken'] = ('resume-' + [Guid]::NewGuid().ToString('N'))
+      throw $exception
+    }
+
+    throw $message
   }
 
   if ($ruleType -eq 'node_major_wsl') {
@@ -464,18 +545,11 @@ function Install-PrerequisitePackage {
   }
 
   $name = [string]$Prerequisite.name
-  $downloadUrl = [string]$Prerequisite.downloadUrl
-  if (-not $downloadUrl) {
-    throw "downloadUrl vacia para prerequisito $name"
-  }
-
-  $fileName = [System.IO.Path]::GetFileName(([uri]$downloadUrl).AbsolutePath)
-  if (-not $fileName) {
-    $fileName = ("{0}.bin" -f ($name -replace '[^a-zA-Z0-9\-_.]', '-'))
-  }
-
+  $selection = Resolve-PrereqPackageSelection -Prerequisite $Prerequisite -OnLog $OnLog
+  $downloadUrl = [string]$selection.downloadUrl
+  $fileName = [string]$selection.fileName
+  $expected = [string]$selection.expectedSha256
   $localPath = Join-Path $DownloadRoot $fileName
-  $expected = Resolve-PrereqExpectedSha256 -Prerequisite $Prerequisite -OnLog $OnLog
 
   if ($OnLog) { & $OnLog 'info' "Descargando prerequisito: $name" }
   Invoke-PrereqProgress -OnProgress $OnProgress -Activity 'download' -Percent 0 -Status ("Preparando descarga de {0}" -f $name)
@@ -488,16 +562,49 @@ function Install-PrerequisitePackage {
     throw "SHA256 invalido para prerequisito $name"
   }
 
-  $args = [string]$Prerequisite.silentArgs
-  if (-not $args) {
+  $silentInstallSwitches = [string]$Prerequisite.silentArgs
+  if (-not $silentInstallSwitches) {
     throw "silentArgs vacio para prerequisito $name"
   }
 
   if ($OnLog) { & $OnLog 'info' "Ejecutando instalacion silenciosa de $name..." }
   Invoke-PrereqProgress -OnProgress $OnProgress -Activity 'install' -Percent 75 -Status ("Instalando {0}" -f $name)
-  $exitCode = Invoke-InstallerHubProcess -FilePath $localPath -Arguments $args -TimeoutSec 3600 -OnProgress (New-ScaledProgressCallback -OnProgress $OnProgress -StartPercent 75 -EndPercent 95 -ActivityPrefix 'install')
+  $exitCode = Invoke-InstallerHubProcess -FilePath $localPath -Arguments $silentInstallSwitches -TimeoutSec 3600 -OnProgress (New-ScaledProgressCallback -OnProgress $OnProgress -StartPercent 75 -EndPercent 95 -ActivityPrefix 'install')
+  $processResult = Get-InstallerHubLastProcessResult
+  $msiLogPath = ''
+  if ($processResult -and [bool]$processResult.isMsi -and -not [string]::IsNullOrWhiteSpace([string]$processResult.msiLogPath)) {
+    $msiLogPath = [string]$processResult.msiLogPath
+  }
+
   if ($exitCode -ne 0) {
-    throw "Instalacion de $name fallo con codigo $exitCode"
+    $afterStatus = Test-PrerequisiteStatus -Prerequisite $Prerequisite
+    if ([bool]$afterStatus.installed) {
+      if ($OnLog) {
+        & $OnLog 'warn' ("$name devolvio codigo $exitCode, pero el prerequisito quedo disponible tras revalidacion ($($afterStatus.actualVersion)).")
+      }
+      Invoke-PrereqProgress -OnProgress $OnProgress -Activity 'install' -Percent 100 -Status ("{0} quedo listo tras revalidacion" -f $name)
+    } else {
+      if ($exitCode -in @(3010, 1641)) {
+        $restartReason = "Se requiere reiniciar Windows para completar la instalacion de $name."
+        $exception = [System.Exception]::new($restartReason)
+        $exception.Data['requiresRestart'] = $true
+        $exception.Data['restartReason'] = $restartReason
+        $exception.Data['phase'] = 'prerequisitos'
+        $exception.Data['resumeToken'] = ('resume-' + [Guid]::NewGuid().ToString('N'))
+        throw $exception
+      }
+
+      $logHint = if ([string]::IsNullOrWhiteSpace($msiLogPath)) { '' } else { " Log MSI: $msiLogPath." }
+      if ($OnLog -and -not [string]::IsNullOrWhiteSpace($msiLogPath)) {
+        & $OnLog 'error' ("$name fallo con codigo $exitCode. Log MSI: $msiLogPath")
+      }
+
+      if ($exitCode -eq 1603) {
+        throw "Instalacion de $name fallo con codigo 1603 (MSI).$logHint Verifica permisos administrativos, conflictos con instalacion previa de Node.js y el detalle de Windows Installer. Estado posterior: $([string]$afterStatus.reason)"
+      }
+
+      throw "Instalacion de $name fallo con codigo $exitCode.$logHint Estado posterior: $([string]$afterStatus.reason)"
+    }
   }
 
   if ($OnLog) { & $OnLog 'ok' "Prerequisito instalado: $name" }
@@ -538,6 +645,10 @@ function Invoke-PrerequisiteInstallationFlow {
       statuses = $statuses
       installed = @()
       missing = @()
+      requiresRestart = $false
+      restartReason = ''
+      resumeToken = ''
+      phase = ''
     }
   }
 
@@ -574,6 +685,10 @@ function Invoke-PrerequisiteInstallationFlow {
     statuses = $finalStatuses
     installed = $results
     missing = @($finalStatuses | Where-Object { -not $_.installed })
+    requiresRestart = $false
+    restartReason = ''
+    resumeToken = ''
+    phase = ''
   }
 }
 

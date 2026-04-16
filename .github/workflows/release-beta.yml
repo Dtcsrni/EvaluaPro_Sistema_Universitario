@@ -196,9 +196,9 @@ jobs:
       - name: Smoke GUI del bundle Burn publico empaquetado
         shell: powershell
         run: |
-          $exe = 'dist/installer/EvaluaPro-InstallerHub-docente-local.exe'
-          if (-not (Test-Path $exe)) { throw "No existe $exe" }
-          $proc = Start-Process -FilePath $exe -PassThru
+          $exe = Get-ChildItem -LiteralPath 'dist/installer/docente-local' -Filter 'EvaluaPro-InstallerHub-docente-local-v*.exe' -File | Sort-Object LastWriteTime -Descending | Select-Object -First 1
+          if (-not $exe) { throw "No existe dist/installer/docente-local/EvaluaPro-InstallerHub-docente-local-v*.exe" }
+          $proc = Start-Process -FilePath $exe.FullName -PassThru
           Start-Sleep -Seconds 2
           if ($proc.HasExited) { throw 'El bundle Burn publico se cerro antes del smoke timeout.' }
           Start-Sleep -Seconds 3
@@ -254,10 +254,10 @@ jobs:
         run: |
           set -euo pipefail
           files=(
-            "dist/installer/EvaluaPro-InstallerHub-saas-completo.exe"
-            "dist/installer/EvaluaPro-InstallerHub-saas-completo.exe.sha256"
-            "dist/installer/EvaluaPro-InstallerHub-docente-local.exe"
-            "dist/installer/EvaluaPro-InstallerHub-docente-local.exe.sha256"
+            dist/installer/saas-completo/EvaluaPro-InstallerHub-saas-completo-v*.exe
+            dist/installer/saas-completo/EvaluaPro-InstallerHub-saas-completo-v*.exe.sha256
+            dist/installer/docente-local/EvaluaPro-InstallerHub-docente-local-v*.exe
+            dist/installer/docente-local/EvaluaPro-InstallerHub-docente-local-v*.exe.sha256
             "dist/installer/EvaluaPro-release-manifest.json"
             "dist/installer/antivirus-scan-report.txt"
           )

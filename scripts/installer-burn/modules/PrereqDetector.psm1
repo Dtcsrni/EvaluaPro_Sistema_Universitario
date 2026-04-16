@@ -1,18 +1,181 @@
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
 
-function Get-NodeMajorVersion {
+function ConvertTo-NodeMajorVersion {
+  param([string]$VersionText)
+
+  if ([string]::IsNullOrWhiteSpace($VersionText)) {
+    return 0
+  }
+
   try {
-    $raw = (& node -v 2>$null | Select-Object -First 1)
-    if (-not $raw) { return 0 }
-    $clean = [string]$raw
+    $clean = [string]$VersionText
     $clean = $clean.Trim().TrimStart('v', 'V')
-    $major = [int]($clean.Split('.')[0])
-    if ($major -lt 0) { return 0 }
-    return $major
+    if ($clean -match '^(?<major>\d+)') {
+      $major = [int]$Matches['major']
+      if ($major -ge 0) {
+        return $major
+      }
+    }
+    return 0
   } catch {
     return 0
   }
+}
+
+function Get-NodeMajorVersionFromExecutable {
+  param([string]$ExecutablePath)
+
+  if ([string]::IsNullOrWhiteSpace($ExecutablePath) -or -not (Test-Path -LiteralPath $ExecutablePath)) {
+    return 0
+  }
+
+  try {
+    $raw = (& $ExecutablePath -v 2>$null | Select-Object -First 1)
+    return (ConvertTo-NodeMajorVersion -VersionText ([string]$raw))
+  } catch {
+    return 0
+  }
+}
+
+function Get-NodeMajorVersionFromRegistry {
+  $majors = @()
+
+  $nodeKeys = @(
+    'HKLM:\SOFTWARE\\Node.js',
+    'HKLM:\SOFTWARE\\WOW6432Node\\Node.js',
+    'HKCU:\SOFTWARE\\Node.js'
+  )
+
+  foreach ($key in $nodeKeys) {
+    if (-not (Test-Path -LiteralPath $key)) {
+      continue
+    }
+
+    try {
+      $props = Get-ItemProperty -Path $key -ErrorAction SilentlyContinue
+      if ($null -eq $props) {
+        continue
+      }
+
+      $versionProp = $props.PSObject.Properties['Version']
+      if ($versionProp -and -not [string]::IsNullOrWhiteSpace([string]$versionProp.Value)) {
+        $majorFromVersion = ConvertTo-NodeMajorVersion -VersionText ([string]$versionProp.Value)
+        if ($majorFromVersion -gt 0) {
+          $majors += $majorFromVersion
+        }
+      }
+
+      $installPathProp = $props.PSObject.Properties['InstallPath']
+      if ($installPathProp -and -not [string]::IsNullOrWhiteSpace([string]$installPathProp.Value)) {
+        $nodeExe = Join-Path ([string]$installPathProp.Value) 'node.exe'
+        $majorFromExe = Get-NodeMajorVersionFromExecutable -ExecutablePath $nodeExe
+        if ($majorFromExe -gt 0) {
+          $majors += $majorFromExe
+        }
+      }
+    } catch {
+      continue
+    }
+  }
+
+  $uninstallRoots = @(
+    'HKLM:\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\*',
+    'HKLM:\SOFTWARE\\WOW6432Node\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\*',
+    'HKCU:\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\*'
+  )
+
+  foreach ($root in $uninstallRoots) {
+    try {
+      $items = Get-ItemProperty -Path $root -ErrorAction SilentlyContinue |
+        Where-Object {
+          $_.PSObject.Properties.Match('DisplayName').Count -gt 0 -and
+          [string]$_.DisplayName -like 'Node.js*'
+        }
+
+      foreach ($item in $items) {
+        $displayVersion = ''
+        $displayVersionProp = $item.PSObject.Properties['DisplayVersion']
+        if ($displayVersionProp) {
+          $displayVersion = [string]$displayVersionProp.Value
+        }
+
+        $majorFromDisplayVersion = ConvertTo-NodeMajorVersion -VersionText $displayVersion
+        if ($majorFromDisplayVersion -gt 0) {
+          $majors += $majorFromDisplayVersion
+        }
+
+        $installLocation = ''
+        $installLocationProp = $item.PSObject.Properties['InstallLocation']
+        if ($installLocationProp) {
+          $installLocation = [string]$installLocationProp.Value
+        }
+        if (-not [string]::IsNullOrWhiteSpace($installLocation)) {
+          $nodeExe = Join-Path $installLocation 'node.exe'
+          $majorFromExe = Get-NodeMajorVersionFromExecutable -ExecutablePath $nodeExe
+          if ($majorFromExe -gt 0) {
+            $majors += $majorFromExe
+          }
+        }
+      }
+    } catch {
+      continue
+    }
+  }
+
+  if (@($majors).Count -eq 0) {
+    return 0
+  }
+
+  return [int]((@($majors) | Measure-Object -Maximum).Maximum)
+}
+
+function Get-NodeMajorVersion {
+  $simulated = [string]$env:EVALUAPRO_INSTALLER_SIMULATE_NODE_MAJOR
+  if (-not [string]::IsNullOrWhiteSpace($simulated)) {
+    try {
+      $simulatedMajor = [int]$simulated.Trim()
+      if ($simulatedMajor -gt 0) {
+        return $simulatedMajor
+      }
+    } catch {}
+  }
+
+  $majors = @()
+
+  try {
+    $raw = (& node -v 2>$null | Select-Object -First 1)
+    $majorFromPath = ConvertTo-NodeMajorVersion -VersionText ([string]$raw)
+    if ($majorFromPath -gt 0) {
+      $majors += $majorFromPath
+    }
+  } catch {
+    # Continua con fallback por ruta y registro para evitar falsos negativos por PATH.
+  }
+
+  $commonPaths = @(
+    (Join-Path ([string]$env:ProgramFiles) 'nodejs\node.exe'),
+    (Join-Path ([string]${env:ProgramFiles(x86)}) 'nodejs\\node.exe'),
+    (Join-Path ([string]$env:LOCALAPPDATA) 'Programs\nodejs\node.exe')
+  )
+
+  foreach ($candidate in $commonPaths) {
+    $majorFromExe = Get-NodeMajorVersionFromExecutable -ExecutablePath $candidate
+    if ($majorFromExe -gt 0) {
+      $majors += $majorFromExe
+    }
+  }
+
+  $majorFromRegistry = Get-NodeMajorVersionFromRegistry
+  if ($majorFromRegistry -gt 0) {
+    $majors += $majorFromRegistry
+  }
+
+  if (@($majors).Count -eq 0) {
+    return 0
+  }
+
+  return [int]((@($majors) | Measure-Object -Maximum).Maximum)
 }
 
 function Get-SimulatedWslNodeMajorVersion {
@@ -80,6 +243,29 @@ function Get-SimulatedDockerRuntimeStatus {
         wslDockerDistros = @('Ubuntu')
         reason = 'ok (wsl2-engine)'
         manualActions = @()
+      }
+    }
+    'wsl2-engine-daemon-down' {
+      return [pscustomobject]@{
+        preference = 'wsl2-engine'
+        mode = 'wsl2-engine'
+        installed = $true
+        ready = $false
+        desktopInstalled = $false
+        clientVersion = '29.2.1'
+        serverVersion = ''
+        context = 'default'
+        wslAvailable = $true
+        wslStatus = 'Distribucion predeterminada: Ubuntu'
+        wslTable = '* Ubuntu Running 2'
+        defaultDistro = 'Ubuntu'
+        userDistros = @('Ubuntu')
+        wslDockerDistros = @('Ubuntu')
+        reason = 'WSL2 con Docker Engine detectado, pero el daemon no responde desde el host actual.'
+        manualActions = @(
+          'Abre la distro WSL2 soportada y valida el daemon con `docker version`.',
+          'Si necesitas compatibilidad inmediata en Windows, puedes usar Docker Desktop de forma opcional.'
+        )
       }
     }
     'wsl2-bootstrap-required' {
@@ -349,6 +535,30 @@ function Get-WslDockerRuntimeDistros {
   return @($result | Select-Object -Unique)
 }
 
+function Test-WslDockerDaemonReady {
+  param(
+    [string[]]$Distros
+  )
+
+  $checked = if ($Distros) { @($Distros) } else { @(Get-WslDockerRuntimeDistros) }
+  foreach ($distro in $checked) {
+    $probe = Invoke-WslShellCommand -Distro $distro -Command 'docker version --format "{{.Server.Version}}" 2>/dev/null'
+    if (-not [string]::IsNullOrWhiteSpace($probe)) {
+      return [pscustomobject]@{
+        ready = $true
+        distro = [string]$distro
+        serverVersion = [string]$probe
+      }
+    }
+  }
+
+  return [pscustomobject]@{
+    ready = $false
+    distro = ''
+    serverVersion = ''
+  }
+}
+
 function Test-WslDockerRuntimeInstalled {
   return ((@(Get-WslDockerRuntimeDistros)).Count -gt 0)
 }
@@ -371,17 +581,18 @@ function Get-DockerRuntimeStatus {
   $userDistros = if ($wslAvailable) { @(Get-UserWslDistros) } else { @() }
   $wslDockerDistros = if ($wslAvailable) { @(Get-WslDockerRuntimeDistros) } else { @() }
   $wslDockerInstalled = ((@($wslDockerDistros)).Count -gt 0)
-  $daemonAvailable = -not [string]::IsNullOrWhiteSpace($serverVersion)
+  $wslDaemon = if ($wslDockerInstalled) { Test-WslDockerDaemonReady -Distros $wslDockerDistros } else { [pscustomobject]@{ ready = $false; distro = ''; serverVersion = '' } }
+  $daemonAvailable = (-not [string]::IsNullOrWhiteSpace($serverVersion)) -or [bool]$wslDaemon.ready
   $installed = ($desktopInstalled -or $wslDockerInstalled)
   $manualActions = @()
   $mode = 'missing'
   $reason = 'No se detecto un runtime Docker compatible.'
 
   if ($daemonAvailable) {
-    if ($context -eq 'desktop-linux' -or ($preference -eq 'desktop' -and $desktopInstalled)) {
-      $mode = 'desktop'
-    } elseif ($wslDockerInstalled -or $preference -eq 'wsl2-engine') {
+    if ([bool]$wslDaemon.ready -or $wslDockerInstalled -or $preference -eq 'wsl2-engine') {
       $mode = 'wsl2-engine'
+    } elseif ($context -eq 'desktop-linux' -or ($preference -eq 'desktop' -and $desktopInstalled)) {
+      $mode = 'desktop'
     } elseif ($desktopInstalled) {
       $mode = 'desktop'
     } else {
@@ -432,6 +643,9 @@ function Get-DockerRuntimeStatus {
     wslDockerDistros = $wslDockerDistros
     reason = $reason
     manualActions = $manualActions
+    wslDaemonReady = [bool]$wslDaemon.ready
+    wslDaemonDistro = [string]$wslDaemon.distro
+    wslDaemonVersion = [string]$wslDaemon.serverVersion
   }
 }
 
@@ -687,11 +901,19 @@ function Test-PrerequisiteStatus {
     'node_major' {
       $actual = Get-NodeMajorVersion
       $required = [int]$rule.minMajor
+      $reason = ''
+      if ($actual -ge $required) {
+        $reason = 'ok'
+      } elseif ($actual -le 0) {
+        $reason = "Node no detectado o no ejecutable. Requerido: ${required}.x"
+      } else {
+        $reason = "Node detectado: ${actual}.x. Requerido: ${required}.x"
+      }
       return [pscustomobject]@{
         name = [string]$Prerequisite.name
         installed = ($actual -ge $required)
         actualVersion = if ($actual -gt 0) { "${actual}.x" } else { '' }
-        reason = if ($actual -ge $required) { 'ok' } else { "Node detectado: ${actual}.x. Requerido: ${required}.x" }
+        reason = $reason
       }
     }
     'node_major_wsl' {
@@ -707,9 +929,10 @@ function Test-PrerequisiteStatus {
     }
     'docker_runtime_windows' {
       $status = Get-DockerRuntimeStatus
+      $runtimeReady = ([bool]$status.installed -and [bool]$status.ready -and [string]$status.mode -eq 'wsl2-engine')
       return [pscustomobject]@{
         name = [string]$Prerequisite.name
-        installed = [bool]$status.installed
+        installed = $runtimeReady
         actualVersion = if ($status.serverVersion) { [string]$status.serverVersion } elseif ($status.clientVersion) { [string]$status.clientVersion } else { '' }
         reason = [string]$status.reason
       }
@@ -744,6 +967,7 @@ Export-ModuleMember -Function @(
   'Get-UserWslDistros',
   'Get-WslNodeMajorVersion',
   'Get-WslDockerRuntimeDistros',
+  'Test-WslDockerDaemonReady',
   'Test-WslDockerRuntimeInstalled',
   'Get-DockerRuntimeStatus',
   'Test-DockerRuntimeInstalled',

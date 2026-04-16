@@ -307,21 +307,33 @@ function Resolve-EmbeddedNodeBootstrapPackage {
   return [pscustomobject]@{
     version = [string]$nodePrereq[0].version
     downloadUrl = $zipUrl
+    sourceFileName = [System.IO.Path]::GetFileName(([uri]$zipUrl).AbsolutePath)
     sha256 = [string]$nodePrereq[0].sha256
     sha256Url = [string]$nodePrereq[0].sha256Url
     sha256Pattern = $zipPattern
   }
 }
 
-function Resolve-EmbeddedNodeExpectedSha256 {
+function Resolve-EmbeddedNodePackageSelection {
   param(
     [Parameter(Mandatory = $true)]
     [pscustomobject]$Package
   )
 
+  $downloadUrl = [string]$Package.downloadUrl
+  $sourceFileName = [string]$Package.sourceFileName
+  if ([string]::IsNullOrWhiteSpace($sourceFileName)) {
+    $sourceFileName = [System.IO.Path]::GetFileName(([uri]$downloadUrl).AbsolutePath)
+  }
+
   $inline = [string]$Package.sha256
   if (-not [string]::IsNullOrWhiteSpace($inline) -and $inline -notin @('DYNAMIC_FROM_URL', 'GUIDED_BOOTSTRAP')) {
-    return $inline.Trim().ToLowerInvariant()
+    return [pscustomobject]@{
+      expectedSha256 = $inline.Trim().ToLowerInvariant()
+      downloadUrl = $downloadUrl
+      fileName = $sourceFileName
+      resolvedBy = 'inline'
+    }
   }
 
   $shaUrl = [string]$Package.sha256Url
@@ -329,14 +341,54 @@ function Resolve-EmbeddedNodeExpectedSha256 {
     throw 'No se encontro sha256Url para runtime Node embebido.'
   }
 
+  $text = ''
   $headers = @{ 'User-Agent' = 'EvaluaPro-InstallerHub' }
-  $text = (Invoke-InstallerHubWebRequest -Url $shaUrl -Method GET -Headers $headers -TimeoutSec 30 -RetryCount 2).Content
-  $expected = Resolve-InstallerHubSha256FromText -Text ([string]$text) -Pattern ([string]$Package.sha256Pattern)
-  if (-not $expected) {
+  try {
+    $text = [string]((Invoke-InstallerHubWebRequest -Url $shaUrl -Method GET -Headers $headers -TimeoutSec 30 -RetryCount 2).Content)
+  } catch {
+    Add-HelperLog -Level 'warn' -Message ("Fallo lectura SHASUMS del runtime embebido por WebRequest. Se intentara fallback robusto: {0}" -f [string]$_.Exception.Message)
+    $shaFallbackRoot = Join-Path $env:TEMP ('evaluapro-embedded-shasums-' + [Guid]::NewGuid().ToString('N'))
+    New-Item -ItemType Directory -Path $shaFallbackRoot -Force | Out-Null
+    $shaFallbackPath = Join-Path $shaFallbackRoot 'SHASUMS256.txt'
+    try {
+      Invoke-InstallerHubDownloadFile -Url $shaUrl -Destination $shaFallbackPath
+      $text = [string](Get-Content -LiteralPath $shaFallbackPath -Raw -Encoding utf8)
+      Add-HelperLog -Level 'info' -Message 'SHASUMS del runtime embebido obtenido por fallback robusto.'
+    } finally {
+      if (Test-Path -LiteralPath $shaFallbackRoot) {
+        Remove-Item -LiteralPath $shaFallbackRoot -Recurse -Force -ErrorAction SilentlyContinue
+      }
+    }
+  }
+
+  if ([string]::IsNullOrWhiteSpace($text)) {
+    throw 'No se pudo obtener SHASUMS remoto para runtime Node embebido.'
+  }
+
+  $preferredPattern = [string]$Package.sha256Pattern
+  $fallbackRegex = '^node-v24\.\d+\.\d+-win-x64\.zip$'
+  $resolved = Resolve-InstallerHubPackageFromShasums -Text ([string]$text) -PreferredPattern $preferredPattern -FallbackRegex $fallbackRegex
+  if (-not $resolved -or [string]::IsNullOrWhiteSpace([string]$resolved.sha256)) {
     throw 'No se pudo resolver SHA256 remoto para runtime Node embebido.'
   }
 
-  return $expected
+  $resolvedFileName = if ([string]::IsNullOrWhiteSpace([string]$resolved.fileName)) { $sourceFileName } else { [string]$resolved.fileName }
+  $resolvedUrl = $downloadUrl
+  if ($resolvedFileName -ne $sourceFileName) {
+    $baseUri = [uri]$downloadUrl
+    $resolvedUri = [uri]::new($baseUri, $resolvedFileName)
+    $resolvedUrl = [string]$resolvedUri.AbsoluteUri
+    Add-HelperLog -Level 'info' -Message ("Ajustando paquete Node embebido: {0} -> {1}" -f $sourceFileName, $resolvedFileName)
+    Add-HelperLog -Level 'warn' -Message ("Fallback dinamico SHASUMS aplicado para runtime Node embebido usando {0}" -f [string]$resolved.matchedPattern)
+  }
+
+  return [pscustomobject]@{
+    expectedSha256 = [string]$resolved.sha256
+    downloadUrl = $resolvedUrl
+    fileName = $resolvedFileName
+    resolvedBy = [string]$resolved.matchedBy
+    matchedPattern = [string]$resolved.matchedPattern
+  }
 }
 
 function Ensure-EmbeddedNodeRuntime {
@@ -358,8 +410,9 @@ function Ensure-EmbeddedNodeRuntime {
   }
 
   $package = Resolve-EmbeddedNodeBootstrapPackage
+  $selection = Resolve-EmbeddedNodePackageSelection -Package $package
   $downloadRoot = Join-Path $env:TEMP ('evaluapro-burn-node-runtime-' + [Guid]::NewGuid().ToString('N'))
-  $zipPath = Join-Path $downloadRoot ([System.IO.Path]::GetFileName(([uri]$package.downloadUrl).AbsolutePath))
+  $zipPath = Join-Path $downloadRoot ([string]$selection.fileName)
   $extractRoot = Join-Path $downloadRoot 'extract'
   $runtimeRoot = Join-Path $InstallDir 'runtime'
   $nodeRoot = Join-Path $runtimeRoot 'node'
@@ -369,8 +422,8 @@ function Ensure-EmbeddedNodeRuntime {
   New-Item -ItemType Directory -Path $runtimeRoot -Force | Out-Null
 
   Add-HelperLog -Level 'info' -Message 'Descargando runtime Node embebido para Windows.'
-  Invoke-InstallerHubDownloadFile -Url ([string]$package.downloadUrl) -Destination $zipPath -RetryCount 2
-  $expected = Resolve-EmbeddedNodeExpectedSha256 -Package $package
+  Invoke-InstallerHubDownloadFile -Url ([string]$selection.downloadUrl) -Destination $zipPath -RetryCount 2
+  $expected = [string]$selection.expectedSha256
   $actual = Get-InstallerHubFileSha256 -Path $zipPath
   if ($actual -ne $expected) {
     throw 'SHA256 invalido para runtime Node embebido.'
@@ -451,6 +504,23 @@ function New-HelperResponse {
   }
 }
 
+function Test-DirectoryWriteAccess {
+  param([string]$Path)
+
+  if ([string]::IsNullOrWhiteSpace($Path) -or -not (Test-Path -LiteralPath $Path)) {
+    return $false
+  }
+
+  $probe = Join-Path $Path ('.evaluapro-write-test-' + [Guid]::NewGuid().ToString('N') + '.tmp')
+  try {
+    [IO.File]::WriteAllText($probe, 'ok', [System.Text.Encoding]::UTF8)
+    Remove-Item -LiteralPath $probe -Force -ErrorAction SilentlyContinue
+    return $true
+  } catch {
+    return $false
+  }
+}
+
 function Invoke-DetectPrereqsMode {
   param([object]$Request)
 
@@ -458,6 +528,7 @@ function Invoke-DetectPrereqsMode {
   $flavor = Resolve-FlavorDefinition -FlavorId ([string](Get-InputValue -Table $requestTable -Key 'flavorId'))
   $installDir = [string](Get-InputValue -Table $requestTable -Key 'installDir')
   $autoRemediate = [bool](Get-InputValue -Table $requestTable -Key 'autoRemediate' -DefaultValue $false)
+  $resumeTokenInput = [string](Get-InputValue -Table $requestTable -Key 'resumeToken')
   if ([string]::IsNullOrWhiteSpace($installDir)) {
     $installDir = Join-Path ${env:ProgramFiles} ([string]$flavor.productName)
   }
@@ -501,17 +572,46 @@ function Invoke-DetectPrereqsMode {
         ok = [bool]$installResult.ok
         installed = @($installResult.installed)
         missing = @($installResult.missing)
+        requiresRestart = [bool](if ($null -ne $installResult.requiresRestart) { $installResult.requiresRestart } else { $false })
+        restartReason = [string](if ($null -ne $installResult.restartReason) { $installResult.restartReason } else { '' })
+        resumeToken = [string](if ($null -ne $installResult.resumeToken -and -not [string]::IsNullOrWhiteSpace([string]$installResult.resumeToken)) { $installResult.resumeToken } else { $resumeTokenInput })
+        phase = [string](if ($null -ne $installResult.phase) { $installResult.phase } else { '' })
         downloadRoot = $downloadRoot
       }
       Write-HelperProgress -Activity 'prerequisites' -Percent 100 -Status 'Remediacion automatica completada.'
     } catch {
+      $requiresRestart = $false
+      $restartReason = ''
+      $resumeToken = ''
+      $remediationPhase = ''
+      if ($_.Exception -and $_.Exception.Data) {
+        if ($_.Exception.Data.Contains('requiresRestart')) {
+          $requiresRestart = [bool]$_.Exception.Data['requiresRestart']
+        }
+        if ($_.Exception.Data.Contains('restartReason')) {
+          $restartReason = [string]$_.Exception.Data['restartReason']
+        }
+        if ($_.Exception.Data.Contains('resumeToken')) {
+          $resumeToken = [string]$_.Exception.Data['resumeToken']
+        }
+        if ($_.Exception.Data.Contains('phase')) {
+          $remediationPhase = [string]$_.Exception.Data['phase']
+        }
+      }
       $remediation = [ordered]@{
         attempted = $true
         ok = $false
         error = [string]$_.Exception.Message
+        requiresRestart = $requiresRestart
+        restartReason = $restartReason
+        resumeToken = if ([string]::IsNullOrWhiteSpace($resumeToken)) { $resumeTokenInput } else { $resumeToken }
+        phase = $remediationPhase
         downloadRoot = $downloadRoot
       }
       Add-HelperLog -Level 'warn' -Message ('Remediacion automatica de prerequisitos incompleta: ' + [string]$_.Exception.Message)
+      if ($requiresRestart -and -not [string]::IsNullOrWhiteSpace($restartReason)) {
+        Add-HelperLog -Level 'warn' -Message ('Remediacion bloqueada por reinicio requerido: ' + $restartReason)
+      }
       Write-HelperProgress -Activity 'prerequisites' -Percent 100 -Status 'La remediacion automatica termino con pasos pendientes.'
     }
 
@@ -596,86 +696,112 @@ function Invoke-PostInstallMode {
   if (-not $config.ContainsKey('requireLicenseActivation')) { $config.requireLicenseActivation = '0' }
   if (-not $config.ContainsKey('passwordResetEnabled')) { $config.passwordResetEnabled = '0' }
 
+  $isRepairMode = ([string]$mode).Trim().ToLowerInvariant() -eq 'repair'
+  $canWriteInstallDir = Test-DirectoryWriteAccess -Path $installDir
+  $skipRestrictedRepairPhases = ($isRepairMode -and -not $canWriteInstallDir)
+
+  if ($skipRestrictedRepairPhases) {
+    $warnMessage = 'Repair detectado sin permisos de escritura en la carpeta de instalacion. Se omiten ajustes locales que requieren elevacion.'
+    $script:helperWarnings.Add($warnMessage)
+    Add-HelperLog -Level 'warn' -Message ($warnMessage + ' Ruta: ' + $installDir)
+  }
+
   if ([string]$flavor.flavorId -eq 'docente-local') {
-    $responsePhase = 'runtime_local_embebido'
-    Invoke-HelperPhase -Name 'runtime_local_embebido' -FailCode 30 -Action {
-      $runtime = Ensure-EmbeddedNodeRuntime -InstallDir $installDir
-      $script:helperArtifacts['embeddedNodePath'] = [string]$runtime.path
-      $script:helperArtifacts['embeddedNodeVersion'] = [string]$runtime.version
+    if ($skipRestrictedRepairPhases) {
+      Add-HelperLog -Level 'warn' -Message 'Fase runtime_local_embebido omitida en repair por permisos insuficientes.'
+    } else {
+      $responsePhase = 'runtime_local_embebido'
+      Invoke-HelperPhase -Name 'runtime_local_embebido' -FailCode 30 -Action {
+        $runtime = Ensure-EmbeddedNodeRuntime -InstallDir $installDir
+        $script:helperArtifacts['embeddedNodePath'] = [string]$runtime.path
+        $script:helperArtifacts['embeddedNodeVersion'] = [string]$runtime.version
+      }
     }
   }
 
   $responsePhase = 'configuracion_operativa'
 
-  Invoke-HelperPhase -Name 'configuracion_operativa' -FailCode 35 -Action {
-    $setup = Invoke-EvaluaProOperationalConfiguration -Mode $mode -InstallDir $installDir -Config $config -OnLog {
-      param($lvl, $msg)
-      Add-HelperLog -Level $lvl -Message $msg
-    }
-    $script:helperArtifacts['envPath'] = [string]$setup.envPath
-    $script:helperArtifacts['operationalProfilePath'] = [string]$setup.profilePath
+  if ($skipRestrictedRepairPhases) {
+    Add-HelperLog -Level 'warn' -Message 'Fase configuracion_operativa omitida en repair por permisos insuficientes.'
+  } else {
+    Invoke-HelperPhase -Name 'configuracion_operativa' -FailCode 35 -Action {
+      $setup = Invoke-EvaluaProOperationalConfiguration -Mode $mode -InstallDir $installDir -Config $config -OnLog {
+        param($lvl, $msg)
+        Add-HelperLog -Level $lvl -Message $msg
+      }
+      $script:helperArtifacts['envPath'] = [string]$setup.envPath
+      $script:helperArtifacts['operationalProfilePath'] = [string]$setup.profilePath
 
-    if ($mode -ne 'uninstall') {
-      Invoke-DesktopAssetRefresh -InstallDir $installDir
+      if ($mode -ne 'uninstall') {
+        Invoke-DesktopAssetRefresh -InstallDir $installDir
+      }
     }
   }
 
   $responsePhase = 'verificacion_final'
-  Invoke-HelperPhase -Name 'verificacion_final' -FailCode 40 -Action {
-    $verify = Invoke-PostInstallVerification -Mode $mode -InstallDir $installDir -Flavor $flavor -OnLog {
-      param($lvl, $msg)
-      Add-HelperLog -Level $lvl -Message $msg
-    }
-    if (-not $verify.ok) {
-      throw ("Verificacion final fallo: " + ($verify.issues -join ' | '))
+  if ($skipRestrictedRepairPhases) {
+    Add-HelperLog -Level 'warn' -Message 'Fase verificacion_final omitida en repair por restricciones de permisos detectadas.'
+  } else {
+    Invoke-HelperPhase -Name 'verificacion_final' -FailCode 40 -Action {
+      $verify = Invoke-PostInstallVerification -Mode $mode -InstallDir $installDir -Flavor $flavor -OnLog {
+        param($lvl, $msg)
+        Add-HelperLog -Level $lvl -Message $msg
+      }
+      if (-not $verify.ok) {
+        throw ("Verificacion final fallo: " + ($verify.issues -join ' | '))
+      }
     }
   }
 
   $responsePhase = 'blindaje_licencia_local'
-  Invoke-HelperPhase -Name 'blindaje_licencia_local' -FailCode 50 -Action {
-    if ($mode -eq 'uninstall') {
-      Add-HelperLog -Level 'info' -Message 'Blindaje de licencia omitido en uninstall.'
-      return
-    }
+  if ($skipRestrictedRepairPhases) {
+    Add-HelperLog -Level 'warn' -Message 'Fase blindaje_licencia_local omitida en repair por restricciones de permisos detectadas.'
+  } else {
+    Invoke-HelperPhase -Name 'blindaje_licencia_local' -FailCode 50 -Action {
+      if ($mode -eq 'uninstall') {
+        Add-HelperLog -Level 'info' -Message 'Blindaje de licencia omitido en uninstall.'
+        return
+      }
 
-    $integrityTargets = @(
-      (Join-Path $installDir 'scripts\launcher-dashboard.mjs'),
-      (Join-Path $installDir 'scripts\launcher-tray-hidden.vbs'),
-      (Join-Path $installDir 'scripts\update-manager.mjs')
-    ) | Where-Object { Test-Path -LiteralPath $_ }
+      $integrityTargets = @(
+        (Join-Path $installDir 'scripts\launcher-dashboard.mjs'),
+        (Join-Path $installDir 'scripts\launcher-tray-hidden.vbs'),
+        (Join-Path $installDir 'scripts\update-manager.mjs')
+      ) | Where-Object { Test-Path -LiteralPath $_ }
 
-    if ($integrityTargets.Count -gt 0) {
-      $baseline = Register-EvaluaProIntegrityBaseline -Paths $integrityTargets
-      $script:helperArtifacts['integrityBaseline'] = [string]$baseline
-      Add-HelperLog -Level 'ok' -Message ("Baseline de integridad registrado: {0}" -f [string]$baseline)
-    }
+      if ($integrityTargets.Count -gt 0) {
+        $baseline = Register-EvaluaProIntegrityBaseline -Paths $integrityTargets
+        $script:helperArtifacts['integrityBaseline'] = [string]$baseline
+        Add-HelperLog -Level 'ok' -Message ("Baseline de integridad registrado: {0}" -f [string]$baseline)
+      }
 
-    $requireLicense = @('1', 'true', 'yes', 'on') -contains ([string]$config.requireLicenseActivation).Trim().ToLowerInvariant()
-    $tenantId = [string]$config.tenantId
-    $codigoActivacion = [string]$config.codigoActivacion
-    if ($tenantId -and $codigoActivacion) {
-      $license = Invoke-EvaluaProLicenseActivationSecure `
-        -ApiBaseUrl ([string]$config.apiComercialBaseUrl) `
-        -TenantId $tenantId `
-        -CodigoActivacion $codigoActivacion `
-        -VersionInstalada 'burn-bootstrapper'
-      $script:helperArtifacts['secureLicensePath'] = [string]$license.securePath
-      Add-HelperLog -Level 'ok' -Message ("Licencia activada y sellada en: {0}" -f [string]$license.securePath)
-    } elseif ($requireLicense) {
-      throw 'La activación de licencia es obligatoria y faltan TenantId/CodigoActivacion.'
-    } else {
-      Add-HelperLog -Level 'info' -Message 'Activación de licencia omitida.'
-    }
+      $requireLicense = @('1', 'true', 'yes', 'on') -contains ([string]$config.requireLicenseActivation).Trim().ToLowerInvariant()
+      $tenantId = [string]$config.tenantId
+      $codigoActivacion = [string]$config.codigoActivacion
+      if ($tenantId -and $codigoActivacion) {
+        $license = Invoke-EvaluaProLicenseActivationSecure `
+          -ApiBaseUrl ([string]$config.apiComercialBaseUrl) `
+          -TenantId $tenantId `
+          -CodigoActivacion $codigoActivacion `
+          -VersionInstalada 'burn-bootstrapper'
+        $script:helperArtifacts['secureLicensePath'] = [string]$license.securePath
+        Add-HelperLog -Level 'ok' -Message ("Licencia activada y sellada en: {0}" -f [string]$license.securePath)
+      } elseif ($requireLicense) {
+        throw 'La activación de licencia es obligatoria y faltan TenantId/CodigoActivacion.'
+      } else {
+        Add-HelperLog -Level 'info' -Message 'Activación de licencia omitida.'
+      }
 
-    try {
-      $portable = Initialize-EvaluaProPortableAdminLicense -HolderName 'I.S.C. Erick Renato Vega Ceron'
-      $stepUp = Initialize-EvaluaProAdminStepUp -HolderName 'I.S.C. Erick Renato Vega Ceron'
-      $script:helperArtifacts['portableLicensePath'] = [string]$portable.outPath
-      Add-HelperLog -Level 'ok' -Message ("Licencia portable emitida: {0}" -f [string]$portable.outPath)
-      Add-HelperLog -Level 'ok' -Message ("Step-up inicializado. Recovery codes restantes: {0}" -f [int]$stepUp.recoveryCodesRemaining)
-    } catch {
-      $script:helperWarnings.Add("Licencia portable/step-up no disponible: $($_.Exception.Message)")
-      Add-HelperLog -Level 'warn' -Message ("Licencia portable/step-up no disponible: {0}" -f $_.Exception.Message)
+      try {
+        $portable = Initialize-EvaluaProPortableAdminLicense -HolderName 'I.S.C. Erick Renato Vega Ceron'
+        $stepUp = Initialize-EvaluaProAdminStepUp -HolderName 'I.S.C. Erick Renato Vega Ceron'
+        $script:helperArtifacts['portableLicensePath'] = [string]$portable.outPath
+        Add-HelperLog -Level 'ok' -Message ("Licencia portable emitida: {0}" -f [string]$portable.outPath)
+        Add-HelperLog -Level 'ok' -Message ("Step-up inicializado. Recovery codes restantes: {0}" -f [int]$stepUp.recoveryCodesRemaining)
+      } catch {
+        $script:helperWarnings.Add("Licencia portable/step-up no disponible: $($_.Exception.Message)")
+        Add-HelperLog -Level 'warn' -Message ("Licencia portable/step-up no disponible: {0}" -f $_.Exception.Message)
+      }
     }
   }
 

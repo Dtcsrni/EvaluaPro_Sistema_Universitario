@@ -12,8 +12,9 @@
     },
     {
       "profileId": "docente-local",
-      "description": "Prerequisitos para stack docente local estable sobre WSL2 + Docker (MongoDB + API + Web)",
+      "description": "Prerequisitos para stack docente local estable sobre Windows + WSL2 + Docker (MongoDB + API + Web)",
       "prerequisites": [
+        "Node.js",
         "Docker Runtime Windows",
         "Node.js WSL2"
       ]
