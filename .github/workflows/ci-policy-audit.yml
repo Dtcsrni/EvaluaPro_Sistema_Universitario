@@ -23,10 +23,10 @@ jobs:
 
     steps:
       - name: Descargar código
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       - name: Configurar Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v6
         with:
           node-version: 24
           cache: npm
@@ -47,7 +47,7 @@ jobs:
 
       - name: Publicar artefacto de auditoría
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: ci-policy-audit-${{ github.run_id }}
           path: reports/ci-policy-audit/audit.log

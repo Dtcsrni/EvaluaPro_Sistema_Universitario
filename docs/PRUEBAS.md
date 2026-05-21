@@ -41,6 +41,10 @@ Asegurar confiabilidad funcional y de seguridad del sistema completo en cada cam
 - Comportamiento esperado:
   - si falla un modulo, los otros workflows siguen ejecutando y reportando resultado.
   - el workflow monolitico `CI Checks` permanece como gate integrador de compatibilidad global.
+  - ramas de trabajo y estabilizacion validan core por `pull_request`; `push` directo queda reservado a `main` y `release/**` para no duplicar check-runs del mismo head.
+- Instalador en PR:
+  - cambios afectados en Installer Hub, packaging o manifiestos de instalador activan `npm run test:installer-hub:contract` y `npm run test:wix:policy` dentro de `CI Checks`.
+  - el workflow Windows que construye MSI + Bundle queda para tag `v*` o `workflow_dispatch`; no sustituye el contrato de PR y aporta evidencia de empaquetado/release.
 - Hardening aplicado:
   - `CI Backend Module` prepara runtime `sharp` en linux (`npm install --no-save --include=optional --os=linux --cpu=x64 sharp`) para evitar fallos de dependencias nativas.
 
@@ -48,11 +52,11 @@ Asegurar confiabilidad funcional y de seguridad del sistema completo en cada cam
 - Ruleset objetivo: `main-v1b-minimo`.
 - Alcance: `refs/heads/main`.
 - Estado actual:
-  - `main` no exige pull request obligatorio mientras el proyecto siga en etapa no estable.
-  - el ruleset remoto existe, pero su `enforcement` está deshabilitado.
-  - los checks CI siguen recomendados para validar cambios antes de sincronizar, pero no bloquean el push directo a `main`.
+  - el ruleset remoto está activo para la estabilizacion V1.0.
+  - `main` exige Pull Request, bloquea borrado/non-fast-forward y requiere `Verificaciones Core (PR bloqueante)`.
+  - los checks extendidos, CodeQL e Installer Windows se endurecen para release/RC sin bloquear todavía el lote minimo de estabilizacion.
 - Nota operativa:
-  - cuando el producto entre a fase estable, se puede reactivar el ruleset y volver a exigir PR + checks obligatorios.
+  - al acercarse a `1.0.0-rc.0`, ampliar los checks obligatorios con el release gate aprobado.
 
 ## Flujos criticos cubiertos
 - Flujo de examen end-to-end backend.
@@ -67,6 +71,7 @@ Asegurar confiabilidad funcional y de seguridad del sistema completo en cada cam
 - Integracion Google Classroom en modo `pull` (OAuth y mapeo de evidencias).
 - Auditoria focal Classroom reproducible:
   - `npm run test:classroom:audit:ci`
+  - cambios afectados en rutas Classroom activan este gate dentro de `CI Checks`.
   - evidencia documental: `docs/CLASSROOM_AUDIT_2026-03-22.md`
 
 ## Matriz unica de gates MVP comercial

@@ -7,6 +7,7 @@
 import request from 'supertest';
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import { crearApp } from '../../src/app';
+import { Docente } from '../../src/modulos/modulo_autenticacion/modeloDocente';
 import { crearTokenDocente } from '../../src/modulos/modulo_autenticacion/servicioTokens';
 import { cerrarMongoTest, conectarMongoTest, limpiarMongoTest } from '../utils/mongo';
 import { prepararEscenarioFlujo } from './_flujoDocenteHelper';
@@ -34,10 +35,16 @@ describe('contratos de seguridad y observabilidad de lista academica', () => {
 
   it('requiere permiso analiticas:leer y periodoId para exportar', async () => {
     const escenario = await prepararEscenarioFlujo(app, 'parcial', 'docente-contrato-lista@prueba.test');
+    const docenteSinPermisos = await Docente.create({
+      nombreCompleto: 'Gestor Comercial Lista',
+      correo: 'gestor-comercial-lista@prueba.test',
+      roles: ['gestor_comercial'],
+      activo: true
+    });
 
     const tokenSinPermisos = crearTokenDocente({
-      docenteId: '507f1f77bcf86cd799439011',
-      roles: ['rol_desconocido']
+      docenteId: String(docenteSinPermisos._id),
+      roles: ['gestor_comercial']
     });
 
     await request(app)

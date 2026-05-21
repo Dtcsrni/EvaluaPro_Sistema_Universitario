@@ -6,13 +6,31 @@
  */
 // Pruebas de validacion de payloads.
 import request from 'supertest';
-import { describe, expect, it } from 'vitest';
+import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { crearApp } from '../../src/app';
+import { Docente } from '../../src/modulos/modulo_autenticacion/modeloDocente';
 import { tokenDocentePrueba } from '../utils/token';
+import { cerrarMongoTest, conectarMongoTest, limpiarMongoTest } from '../utils/mongo';
 import { esquemaActualizarPregunta, esquemaCrearPregunta } from '../../src/modulos/modulo_banco_preguntas/validacionesBancoPreguntas';
 
 describe('validaciones de payload', () => {
   const app = crearApp();
+
+  beforeAll(async () => {
+    await conectarMongoTest();
+    await limpiarMongoTest();
+    await Docente.create({
+      _id: '507f1f77bcf86cd799439011',
+      nombreCompleto: 'Docente Contrato',
+      correo: 'docente.contrato@local.test',
+      roles: ['docente'],
+      activo: true
+    });
+  });
+
+  afterAll(async () => {
+    await cerrarMongoTest();
+  });
 
   it('rechaza registro sin campos requeridos', async () => {
     const respuesta = await request(app)

@@ -5,10 +5,28 @@
  * Limites: Mantener contrato y comportamiento observable del modulo.
  */
 import request from 'supertest';
-import { describe, expect, it, vi } from 'vitest';
+import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
+import { Docente } from '../../src/modulos/modulo_autenticacion/modeloDocente';
 import { tokenDocentePrueba } from '../utils/token';
+import { cerrarMongoTest, conectarMongoTest, limpiarMongoTest } from '../utils/mongo';
 
 describe('contrato: limites de payload', () => {
+  beforeAll(async () => {
+    await conectarMongoTest();
+    await limpiarMongoTest();
+    await Docente.create({
+      _id: '507f1f77bcf86cd799439011',
+      nombreCompleto: 'Docente Limites',
+      correo: 'docente.limites@local.test',
+      roles: ['docente'],
+      activo: true
+    });
+  });
+
+  afterAll(async () => {
+    await cerrarMongoTest();
+  });
+
   it('responde 413 si el JSON excede LIMITE_JSON', async () => {
     const anterior = { LIMITE_JSON: process.env.LIMITE_JSON };
     process.env.LIMITE_JSON = '1kb';

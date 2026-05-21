@@ -24,6 +24,10 @@ Version visible objetivo: `1.0.0b`
   - `reports/perf/latest.json`
 
 ## 2.1) Footprint y clasificacion del corte 2026-03-20
+- Estabilizacion V1.0 2026-05-21:
+  - ruleset remoto `main-v1b-minimo` activo para `main` con Pull Request obligatorio y required check minimo `Verificaciones Core (PR bloqueante)`
+  - el lote S1 saca del arbol activo evidencia UI regenerable de Installer Hub y el wrapper QA OMR fuera del manifest contractual
+  - `docker-compose.yml` deja de usar tags `latest` para MongoDB y Mongo Express en el stack local
 - Recorte `docente-local` 2026-04-08:
   - corte Lite 2026-05-20:
     - instalacion minima docente difiere portal/sync e integraciones no criticas mediante `EVALUAPRO_FLAVOR=docente-local` + `PORTAL_SYNC_REQUIRED=0`
@@ -75,7 +79,7 @@ Version visible objetivo: `1.0.0b`
 - Cierre operativo 2026-03-23:
   - suites backend/portal/frontend locales en verde tras aislar configuración de test del `.env` raíz
   - `App.tsx`, `AppAdminNegocio.tsx` y `AppAlumno.tsx` cuentan con cobertura dirigida nueva para el gate de diff coverage
-  - branch protection/ruleset remoto de `main` vuelve a exigir `Installer Windows (MSI + Bundle)` junto con los checks obligatorios del contrato
+  - snapshot histórico: branch protection/ruleset remoto de `main` exigía `Installer Windows (MSI + Bundle)` junto con los checks obligatorios del contrato
 - Rediseño visual integral frontend 2026-03-22:
   - arquitectura de estilos separada en `foundations`, `components` y `screens`
   - identidad institucional premium compartida con matices por `docente`, `alumno` y `admin_negocio`

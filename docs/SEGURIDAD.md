@@ -4,6 +4,7 @@ Estado de controles de seguridad implementados en el sistema.
 
 ## Controles activos
 - Autenticacion docente por JWT + sesion refrescable.
+- Rutas docentes protegidas revalidan `activo` y roles persistidos al usar JWT para bloquear tokens vigentes de cuentas desactivadas o con privilegios reducidos.
 - Autorizacion por permisos (RBAC) en rutas protegidas.
 - Validacion strict de payloads con Zod.
 - Rate limit configurable (general, credenciales, refresh).

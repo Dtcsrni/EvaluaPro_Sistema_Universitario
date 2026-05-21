@@ -45,6 +45,8 @@ tmp_missing_dirs.txt
 reports/qa/latest/**/*.tmp.json
 reports/qa/latest/**/*.tmp.md
 reports/qa/latest/**/*.bak.json
+reports/qa/installer-hub-ui/
+reports/qa/latest/omr-tv-gate-wrapper.json
 logs/**/*.tmp.json
 logs/**/*.bak.json
 test-results/

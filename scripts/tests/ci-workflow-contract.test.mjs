@@ -5,6 +5,8 @@ import path from 'node:path';
 
 const root = process.cwd();
 const workflowPath = path.join(root, '.github', 'workflows', 'ci.yml');
+const workflowDir = path.join(root, '.github', 'workflows');
+const packageJsonPath = path.join(root, 'package.json');
 
 function extractJobBlock(workflow, jobKey) {
   const startMarker = `  ${jobKey}:\n`;
@@ -45,6 +47,44 @@ test('ext_funcionales usa gate OMR TV generico con version configurable', () => 
   assert.doesNotMatch(block, /npm run test:omr:tv3:gate:ci/);
 });
 
+test('ext_funcionales ejecuta PDF print y visual juntos', () => {
+  const workflow = fs.readFileSync(workflowPath, 'utf8');
+  const block = extractJobBlock(workflow, 'ext_funcionales');
+
+  assert.match(block, /Etapa pdf-print-check/);
+  assert.match(block, /npm run test:pdf-print:ci/);
+  assert.match(block, /npm run test:pdf-visual:ci/);
+});
+
+test('ext_funcionales conserva quality visual y journeys para UX', () => {
+  const workflow = fs.readFileSync(workflowPath, 'utf8');
+  const block = extractJobBlock(workflow, 'ext_funcionales');
+
+  assert.match(block, /Etapa ux-visual-check/);
+  assert.match(block, /npm run test:ux-quality:ci/);
+  assert.match(block, /npm run test:ux-visual:ci/);
+  assert.match(block, /npm run test:e2e:journeys:ci/);
+});
+
+test('core backend ejecuta auditoria focal classroom cuando el mapa la activa', () => {
+  const workflow = fs.readFileSync(workflowPath, 'utf8');
+  const block = extractJobBlock(workflow, 'core_backend_portal');
+
+  assert.match(workflow, /gate_classroom_audit_check/);
+  assert.match(block, /Etapa classroom-audit-check/);
+  assert.match(block, /npm run test:classroom:audit:ci/);
+});
+
+test('core contract valida installer afectado sin depender del bundle release', () => {
+  const workflow = fs.readFileSync(workflowPath, 'utf8');
+  const block = extractJobBlock(workflow, 'core_contract_docs_gov');
+
+  assert.match(block, /Etapa installer-contract-check/);
+  assert.match(block, /needs\.detectar_cambios\.outputs\.installer == 'true'/);
+  assert.match(block, /npm run test:installer-hub:contract/);
+  assert.match(block, /npm run test:wix:policy/);
+});
+
 test('workflow CI unifica concurrency por repo fuente y branch fuente', () => {
   const workflow = fs.readFileSync(workflowPath, 'utf8');
 
@@ -68,6 +108,24 @@ test('workflow CI expone force_full_ci y gating affected-only en extended', () =
   assert.match(workflow, /needs\.detectar_cambios\.outputs\.escalation == 'full-extended'/);
 });
 
+test('workflows core reservan push para ramas de integracion', () => {
+  const coreWorkflows = [
+    'ci.yml',
+    'ci-backend.yml',
+    'ci-docs.yml',
+    'ci-frontend.yml',
+    'ci-portal.yml'
+  ];
+
+  for (const workflowName of coreWorkflows) {
+    const workflow = fs.readFileSync(path.join(workflowDir, workflowName), 'utf8');
+
+    assert.match(workflow, /push:\s+branches:\s+- "main"\s+- "release\/\*\*"/s, workflowName);
+    assert.match(workflow, /pull_request:/, workflowName);
+    assert.doesNotMatch(workflow, /push:\s+branches:\s+- "\*\*"/s, workflowName);
+  }
+});
+
 test('workflow CI mantiene schedule full para jobs extended', () => {
   const workflow = fs.readFileSync(workflowPath, 'utf8');
   const funcionales = extractJobBlock(workflow, 'ext_funcionales');
@@ -77,4 +135,29 @@ test('workflow CI mantiene schedule full para jobs extended', () => {
   assert.match(funcionales, /github\.event_name == 'schedule'/);
   assert.match(perf, /github\.event_name == 'schedule'/);
   assert.match(compliance, /github\.event_name == 'schedule'/);
+});
+
+test('workflows usan actions oficiales compatibles con runtime Node 24', () => {
+  const workflows = fs.readdirSync(workflowDir).filter((file) => /\.ya?ml$/i.test(file));
+  const deprecatedRuntimeActions = [
+    /actions\/checkout@v4/,
+    /actions\/setup-node@v4/,
+    /actions\/upload-artifact@v4/
+  ];
+
+  for (const workflow of workflows) {
+    const content = fs.readFileSync(path.join(workflowDir, workflow), 'utf8');
+
+    for (const action of deprecatedRuntimeActions) {
+      assert.doesNotMatch(content, action, `${workflow} conserva ${action}`);
+    }
+  }
+});
+
+test('gate backend CI conserva fallback de Vitest threads tras fallo de forks', () => {
+  const packageJson = JSON.parse(fs.readFileSync(packageJsonPath, 'utf8'));
+  const gate = String(packageJson.scripts?.['test:backend:ci'] ?? '');
+
+  assert.match(gate, /--command "npm -C apps\/backend run test -- --pool=forks"/);
+  assert.match(gate, /--fallback-command "npm -C apps\/backend run test -- --pool=threads"/);
 });

@@ -1,7 +1,7 @@
 # Stack local: MongoDB + API + Web.
 services:
   mongo_local:
-    image: mongo:latest
+    image: mongo:8.0.23
     # Reduce noisy logs for local use (network + WiredTiger chatter).
     command:
       - mongod
@@ -22,7 +22,7 @@ services:
       start_period: 5s
 
   mongo_express_local:
-    image: mongo-express:latest
+    image: mongo-express:1.0.2-20-alpine3.19
     restart: unless-stopped
     depends_on:
       mongo_local:

@@ -21,12 +21,12 @@ jobs:
 
     steps:
       - name: Descargar código
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           fetch-depth: 0
 
       - name: Configurar Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v6
         with:
           node-version: 24
           cache: npm
@@ -131,7 +131,7 @@ jobs:
           if (Test-Path "dist/installer/EvaluaPro-docente-local.msi") { throw "MSI tecnico no debe quedar en raiz publica: dist/installer/EvaluaPro-docente-local.msi" }
 
       - name: Publicar artefactos instalador
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: installer-windows
           path: |
@@ -144,7 +144,7 @@ jobs:
             dist/installer/SIGNING-NOT-PRODUCTION.txt
 
       - name: Publicar artefactos internos instalador
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: installer-windows-internal
           path: |

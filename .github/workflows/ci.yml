@@ -3,7 +3,8 @@ name: CI Checks
 on:
   push:
     branches:
-      - "**"
+      - "main"
+      - "release/**"
   pull_request:
   workflow_dispatch:
     inputs:
@@ -41,6 +42,7 @@ jobs:
       gate_docente_alumno_e2e_check: ${{ steps.affected.outputs.gate_docente_alumno_e2e_check }}
       gate_global_grade_check: ${{ steps.affected.outputs.gate_global_grade_check }}
       gate_pdf_print_check: ${{ steps.affected.outputs.gate_pdf_print_check }}
+      gate_classroom_audit_check: ${{ steps.affected.outputs.gate_classroom_audit_check }}
       gate_ux_visual_check: ${{ steps.affected.outputs.gate_ux_visual_check }}
       gate_perf_check: ${{ steps.affected.outputs.gate_perf_check }}
       gate_perf_business_check: ${{ steps.affected.outputs.gate_perf_business_check }}
@@ -58,7 +60,7 @@ jobs:
 
     steps:
       - name: Descargar código
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           fetch-depth: 0
 
@@ -76,12 +78,12 @@ jobs:
 
     steps:
       - name: Descargar código
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           fetch-depth: 0
 
       - name: Configurar Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v6
         with:
           node-version: 24
           cache: npm
@@ -125,7 +127,7 @@ jobs:
 
       - name: Publicar reporte affected CI
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: reports-affected-ci
           path: reports.affected-ci.json
@@ -141,12 +143,12 @@ jobs:
 
     steps:
       - name: Descargar código
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           fetch-depth: 0
 
       - name: Configurar Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v6
         with:
           node-version: 24
           cache: npm
@@ -185,6 +187,10 @@ jobs:
       - name: Etapa test portal
         if: github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && inputs.force_full_ci) || needs.detectar_cambios.outputs.portal == 'true' || needs.detectar_cambios.outputs.shared_core == 'true' || needs.detectar_cambios.outputs.escalation == 'full-core' || needs.detectar_cambios.outputs.escalation == 'full-extended'
         run: npm run test:portal:ci
+
+      - name: Etapa classroom-audit-check
+        if: github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && inputs.force_full_ci) || needs.detectar_cambios.outputs.gate_classroom_audit_check == 'true' || needs.detectar_cambios.outputs.escalation == 'full-core' || needs.detectar_cambios.outputs.escalation == 'full-extended'
+        run: npm run test:classroom:audit:ci
 
       - name: Etapa coverage backend
         if: github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && inputs.force_full_ci) || needs.detectar_cambios.outputs.backend == 'true' || needs.detectar_cambios.outputs.shared_core == 'true' || needs.detectar_cambios.outputs.escalation == 'full-core' || needs.detectar_cambios.outputs.escalation == 'full-extended'
@@ -226,12 +232,12 @@ jobs:
 
     steps:
       - name: Descargar código
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           fetch-depth: 0
 
       - name: Configurar Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v6
         with:
           node-version: 24
           cache: npm
@@ -290,12 +296,12 @@ jobs:
 
     steps:
       - name: Descargar código
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           fetch-depth: 0
 
       - name: Configurar Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v6
         with:
           node-version: 24
           cache: npm
@@ -335,7 +341,7 @@ jobs:
 
       - name: Publicar reporte de auditoría
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: npm-audit-report
           path: npm-audit-report.json
@@ -393,12 +399,12 @@ jobs:
 
     steps:
       - name: Descargar código
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           fetch-depth: 0
 
       - name: Configurar Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v6
         with:
           node-version: 24
           cache: npm
@@ -438,11 +444,16 @@ jobs:
 
       - name: Etapa pdf-print-check
         if: github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && inputs.force_full_ci) || needs.detectar_cambios.outputs.gate_pdf_print_check == 'true' || needs.detectar_cambios.outputs.escalation == 'full-extended'
-        run: npm run test:pdf-print:ci
+        run: |
+          npm run test:pdf-print:ci
+          npm run test:pdf-visual:ci
 
       - name: Etapa ux-visual-check
         if: github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && inputs.force_full_ci) || needs.detectar_cambios.outputs.gate_ux_visual_check == 'true' || needs.detectar_cambios.outputs.escalation == 'full-extended'
-        run: npm run test:ux-visual:ci
+        run: |
+          npm run test:ux-quality:ci
+          npm run test:ux-visual:ci
+          npm run test:e2e:journeys:ci
 
   ext_perf_arquitectura:
     name: Extended Perf/Arquitectura
@@ -463,12 +474,12 @@ jobs:
 
     steps:
       - name: Descargar código
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           fetch-depth: 0
 
       - name: Configurar Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v6
         with:
           node-version: 24
           cache: npm
@@ -498,7 +509,7 @@ jobs:
 
       - name: Publicar reporte de performance
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: perf-report
           path: |
@@ -524,12 +535,12 @@ jobs:
 
     steps:
       - name: Descargar código
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           fetch-depth: 0
 
       - name: Configurar Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v6
         with:
           node-version: 24
           cache: npm
@@ -559,7 +570,7 @@ jobs:
 
       - name: Publicar artefactos QA
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: qa-reports
           path: reports/qa/latest

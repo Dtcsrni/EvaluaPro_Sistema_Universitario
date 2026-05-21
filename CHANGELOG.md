@@ -6,6 +6,14 @@ Este archivo sigue el formato "Keep a Changelog" (alto nivel) y SemVer.
 
 ### Changed
 
+- Auth docente revalida estado activo y roles persistidos en rutas protegidas para que un JWT vigente no conserve acceso tras desactivacion o reduccion de privilegios.
+- `test:backend:ci` conserva `forks` como primer intento y cae a `threads` en reintentos cuando Vitest pierde workers en Windows.
+- `CI Checks` y módulos core reservan `push` directo a `main`/`release/**`; ramas de trabajo y estabilizacion se validan por PR para evitar check-runs duplicados/cancelados del mismo head.
+- Workflows migran `actions/checkout`, `actions/setup-node` y `actions/upload-artifact` a majors con runtime Node 24 para evitar la deprecacion de runners GitHub Actions sobre Node 20.
+- Cambios Classroom detectados por el mapa de impacto ejecutan `test:classroom:audit:ci` dentro del gate core integrador.
+- `main` recupera proteccion minima de estabilizacion con ruleset remoto activo: Pull Request obligatorio, no-delete/non-fast-forward y required check `Verificaciones Core (PR bloqueante)`.
+- Higiene S1 saca del arbol activo reportes regenerables de QA Installer Hub y wrapper OMR fuera del manifest contractual; `.gitignore` evita reversionarlos.
+- `docker-compose.yml` fija las imagenes locales de MongoDB y Mongo Express y deja de depender de tags `latest`.
 - `docente-local` permite instalacion minima con integracion cloud diferida: Hub escribe `EVALUAPRO_FLAVOR=docente-local` y `PORTAL_SYNC_REQUIRED=0` cuando portal/sync queda pendiente de primer uso.
 - Dashboard agrega canal de soporte privilegiado con step-up local y allowlist para operaciones Hub/update; desinstalacion exige confirmacion explicita.
 - Baseline de adelgazamiento docente disponible con `npm run installer:docente:baseline` y guia `docs/DOCENTE_LOCAL_LITE.md`.

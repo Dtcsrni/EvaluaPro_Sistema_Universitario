@@ -43,11 +43,11 @@ Fecha de baseline: 2026-02-13.
 - `CI Checks` se mantiene como señal integradora global para release gating.
 
 ## Politica actual de rama main
-  - el ruleset remoto `main-v1b-minimo` permanece definido, pero con `enforcement` deshabilitado.
-  - no hay pull request obligatorio para publicar en `main` durante la etapa no estable.
-  - los workflows `CI Checks`, `CI Installer Windows` y `Security CodeQL` siguen siendo referencia de calidad recomendada, no bloqueo de push.
+  - el ruleset remoto `main-v1b-minimo` esta activo sobre `~DEFAULT_BRANCH`.
+  - `main` exige Pull Request, bloquea borrado/non-fast-forward y requiere `Verificaciones Core (PR bloqueante)` antes de merge.
+  - `Verificaciones Extendidas (Main/Release)`, `Security CodeQL` e `Installer Windows (MSI + Bundle)` siguen como gates de endurecimiento para release/RC, no como checks minimos de estabilizacion.
   - los workflows modulares con filtros por `paths` se mantienen como señal diagnóstica por dominio.
-  - cuando el proyecto entre a fase estable, se puede reactivar el ruleset y volver a exigir PR + checks requeridos.
+  - al acercarse a `1.0.0-rc.0`, ampliar el ruleset con los checks extendidos aprobados por el release gate.
 
 ## Fallback y resiliencia
 - Fallback de pipeline: aislamiento por workflow (degradacion por dominio, no falla sistémica de toda la malla).
