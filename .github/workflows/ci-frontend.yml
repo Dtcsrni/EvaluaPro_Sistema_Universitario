@@ -2,6 +2,9 @@ name: CI Frontend Module
 
 on:
   push:
+    branches:
+      - "main"
+      - "release/**"
     paths:
       - "apps/frontend/**"
       - "client/**"

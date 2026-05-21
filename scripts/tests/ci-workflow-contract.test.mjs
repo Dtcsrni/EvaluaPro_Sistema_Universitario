@@ -107,6 +107,24 @@ test('workflow CI expone force_full_ci y gating affected-only en extended', () =
   assert.match(workflow, /needs\.detectar_cambios\.outputs\.escalation == 'full-extended'/);
 });
 
+test('workflows core reservan push para ramas de integracion', () => {
+  const coreWorkflows = [
+    'ci.yml',
+    'ci-backend.yml',
+    'ci-docs.yml',
+    'ci-frontend.yml',
+    'ci-portal.yml'
+  ];
+
+  for (const workflowName of coreWorkflows) {
+    const workflow = fs.readFileSync(path.join(workflowDir, workflowName), 'utf8');
+
+    assert.match(workflow, /push:\s+branches:\s+- "main"\s+- "release\/\*\*"/s, workflowName);
+    assert.match(workflow, /pull_request:/, workflowName);
+    assert.doesNotMatch(workflow, /push:\s+branches:\s+- "\*\*"/s, workflowName);
+  }
+});
+
 test('workflow CI mantiene schedule full para jobs extended', () => {
   const workflow = fs.readFileSync(workflowPath, 'utf8');
   const funcionales = extractJobBlock(workflow, 'ext_funcionales');

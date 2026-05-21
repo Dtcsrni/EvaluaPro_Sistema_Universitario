@@ -5,7 +5,7 @@ Define a single CI/CD contract that any runner can execute 1:1 (GitHub Actions, 
 
 ## Execution profiles
 
-### Profile `core` (blocking for every PR/push)
+### Profile `core` (blocking for every PR and direct `main`/`release/*` push)
 1. `setup`
 2. `contract-check`
 3. `lint`
@@ -204,7 +204,7 @@ Policy:
 
 ## Quality gates policy
 - Every PR, when used, should pass `core`.
-- Direct updates to `main` in non-stable stage should pass `core` whenever feasible.
+- Direct updates to `main` or `release/*` should pass `core`; feature and stabilization branches are validated through PR to avoid duplicate push/PR check-runs.
 - `main`/`release/*` should pass `core` + `extended` before stable promotion.
 - `package` remains isolated in its own workflow.
 

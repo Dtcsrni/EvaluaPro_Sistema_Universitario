@@ -2,6 +2,9 @@ name: CI Docs Module
 
 on:
   push:
+    branches:
+      - "main"
+      - "release/**"
     paths:
       - "docs/**"
       - "ci/pipeline.contract.md"

@@ -6,6 +6,7 @@ Este archivo sigue el formato "Keep a Changelog" (alto nivel) y SemVer.
 
 ### Changed
 
+- `CI Checks` y módulos core reservan `push` directo a `main`/`release/**`; ramas de trabajo y estabilizacion se validan por PR para evitar check-runs duplicados/cancelados del mismo head.
 - Workflows migran `actions/checkout`, `actions/setup-node` y `actions/upload-artifact` a majors con runtime Node 24 para evitar la deprecacion de runners GitHub Actions sobre Node 20.
 - Cambios Classroom detectados por el mapa de impacto ejecutan `test:classroom:audit:ci` dentro del gate core integrador.
 - `main` recupera proteccion minima de estabilizacion con ruleset remoto activo: Pull Request obligatorio, no-delete/non-fast-forward y required check `Verificaciones Core (PR bloqueante)`.
