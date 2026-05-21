@@ -41,6 +41,21 @@
         "npm -C apps/portal_alumno_cloud run build"
       ]
     },
+    "classroom": {
+      "paths": [
+        "apps/backend/src/**/*classroom*",
+        "apps/backend/src/**/*Classroom*",
+        "apps/backend/tests/**/*classroom*",
+        "apps/backend/tests/**/*Classroom*",
+        "apps/frontend/src/**/*classroom*",
+        "apps/frontend/src/**/*Classroom*",
+        "apps/frontend/tests/**/*classroom*",
+        "apps/frontend/tests/**/*Classroom*"
+      ],
+      "commands": [
+        "npm run test:classroom:audit:ci"
+      ]
+    },
     "installer": {
       "paths": [
         "scripts/installer-burn/**",
@@ -139,6 +154,9 @@
     "pdf-print-check": {
       "groups": ["backend"]
     },
+    "classroom-audit-check": {
+      "groups": ["classroom"]
+    },
     "ux-visual-check": {
       "groups": ["frontend"]
     },
@@ -166,7 +184,7 @@
       "groups": ["docs", "installer", "release", "shared"]
     },
     "core_backend_portal": {
-      "groups": ["backend", "portal", "shared"]
+      "groups": ["backend", "portal", "classroom", "shared"]
     },
     "core_frontend": {
       "groups": ["frontend", "shared"]

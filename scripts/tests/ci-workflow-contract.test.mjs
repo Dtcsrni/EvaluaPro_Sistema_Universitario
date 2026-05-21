@@ -45,6 +45,15 @@ test('ext_funcionales usa gate OMR TV generico con version configurable', () => 
   assert.doesNotMatch(block, /npm run test:omr:tv3:gate:ci/);
 });
 
+test('core backend ejecuta auditoria focal classroom cuando el mapa la activa', () => {
+  const workflow = fs.readFileSync(workflowPath, 'utf8');
+  const block = extractJobBlock(workflow, 'core_backend_portal');
+
+  assert.match(workflow, /gate_classroom_audit_check/);
+  assert.match(block, /Etapa classroom-audit-check/);
+  assert.match(block, /npm run test:classroom:audit:ci/);
+});
+
 test('workflow CI unifica concurrency por repo fuente y branch fuente', () => {
   const workflow = fs.readFileSync(workflowPath, 'utf8');
 

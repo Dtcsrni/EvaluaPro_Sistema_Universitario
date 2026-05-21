@@ -51,3 +51,13 @@ test('shared backend compartido escala al menos a full-core', () => {
   assert.equal(result.matchedJobs.core_backend_portal, true);
   assert.equal(result.matchedJobs.core_frontend, true);
 });
+
+test('cambios classroom activan auditoria focal desde el mapa afectado', () => {
+  const result = evaluateAffectedChangeSet(config, [
+    'apps/backend/src/modulos/modulo_integraciones_classroom/servicioSyncClassroom.ts'
+  ]);
+
+  assert.equal(result.matchedGroups.classroom, true);
+  assert.equal(result.matchedGates['classroom-audit-check'], true);
+  assert.equal(result.matchedJobs.core_backend_portal, true);
+});

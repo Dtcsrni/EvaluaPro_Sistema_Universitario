@@ -6,6 +6,7 @@ Este archivo sigue el formato "Keep a Changelog" (alto nivel) y SemVer.
 
 ### Changed
 
+- Cambios Classroom detectados por el mapa de impacto ejecutan `test:classroom:audit:ci` dentro del gate core integrador.
 - `main` recupera proteccion minima de estabilizacion con ruleset remoto activo: Pull Request obligatorio, no-delete/non-fast-forward y required check `Verificaciones Core (PR bloqueante)`.
 - Higiene S1 saca del arbol activo reportes regenerables de QA Installer Hub y wrapper OMR fuera del manifest contractual; `.gitignore` evita reversionarlos.
 - `docker-compose.yml` fija las imagenes locales de MongoDB y Mongo Express y deja de depender de tags `latest`.

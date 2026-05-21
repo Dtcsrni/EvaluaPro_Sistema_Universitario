@@ -41,6 +41,7 @@ jobs:
       gate_docente_alumno_e2e_check: ${{ steps.affected.outputs.gate_docente_alumno_e2e_check }}
       gate_global_grade_check: ${{ steps.affected.outputs.gate_global_grade_check }}
       gate_pdf_print_check: ${{ steps.affected.outputs.gate_pdf_print_check }}
+      gate_classroom_audit_check: ${{ steps.affected.outputs.gate_classroom_audit_check }}
       gate_ux_visual_check: ${{ steps.affected.outputs.gate_ux_visual_check }}
       gate_perf_check: ${{ steps.affected.outputs.gate_perf_check }}
       gate_perf_business_check: ${{ steps.affected.outputs.gate_perf_business_check }}
@@ -185,6 +186,10 @@ jobs:
       - name: Etapa test portal
         if: github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && inputs.force_full_ci) || needs.detectar_cambios.outputs.portal == 'true' || needs.detectar_cambios.outputs.shared_core == 'true' || needs.detectar_cambios.outputs.escalation == 'full-core' || needs.detectar_cambios.outputs.escalation == 'full-extended'
         run: npm run test:portal:ci
+
+      - name: Etapa classroom-audit-check
+        if: github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && inputs.force_full_ci) || needs.detectar_cambios.outputs.gate_classroom_audit_check == 'true' || needs.detectar_cambios.outputs.escalation == 'full-core' || needs.detectar_cambios.outputs.escalation == 'full-extended'
+        run: npm run test:classroom:audit:ci
 
       - name: Etapa coverage backend
         if: github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && inputs.force_full_ci) || needs.detectar_cambios.outputs.backend == 'true' || needs.detectar_cambios.outputs.shared_core == 'true' || needs.detectar_cambios.outputs.escalation == 'full-core' || needs.detectar_cambios.outputs.escalation == 'full-extended'
