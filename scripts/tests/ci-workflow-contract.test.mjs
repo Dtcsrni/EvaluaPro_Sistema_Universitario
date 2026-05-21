@@ -73,6 +73,16 @@ test('core backend ejecuta auditoria focal classroom cuando el mapa la activa', 
   assert.match(block, /npm run test:classroom:audit:ci/);
 });
 
+test('core contract valida installer afectado sin depender del bundle release', () => {
+  const workflow = fs.readFileSync(workflowPath, 'utf8');
+  const block = extractJobBlock(workflow, 'core_contract_docs_gov');
+
+  assert.match(block, /Etapa installer-contract-check/);
+  assert.match(block, /needs\.detectar_cambios\.outputs\.installer == 'true'/);
+  assert.match(block, /npm run test:installer-hub:contract/);
+  assert.match(block, /npm run test:wix:policy/);
+});
+
 test('workflow CI unifica concurrency por repo fuente y branch fuente', () => {
   const workflow = fs.readFileSync(workflowPath, 'utf8');
 

@@ -61,3 +61,13 @@ test('cambios classroom activan auditoria focal desde el mapa afectado', () => {
   assert.equal(result.matchedGates['classroom-audit-check'], true);
   assert.equal(result.matchedJobs.core_backend_portal, true);
 });
+
+test('cambios installer activan contrato en el integrador core', () => {
+  const result = evaluateAffectedChangeSet(config, [
+    'scripts/installer-burn/InstallerBurnHelper.ps1'
+  ]);
+
+  assert.equal(result.escalation, 'affected');
+  assert.equal(result.matchedGroups.installer, true);
+  assert.equal(result.matchedJobs.core_contract_docs_gov, true);
+});

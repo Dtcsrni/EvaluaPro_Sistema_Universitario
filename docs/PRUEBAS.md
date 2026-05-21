@@ -41,6 +41,9 @@ Asegurar confiabilidad funcional y de seguridad del sistema completo en cada cam
 - Comportamiento esperado:
   - si falla un modulo, los otros workflows siguen ejecutando y reportando resultado.
   - el workflow monolitico `CI Checks` permanece como gate integrador de compatibilidad global.
+- Instalador en PR:
+  - cambios afectados en Installer Hub, packaging o manifiestos de instalador activan `npm run test:installer-hub:contract` y `npm run test:wix:policy` dentro de `CI Checks`.
+  - el workflow Windows que construye MSI + Bundle queda para tag `v*` o `workflow_dispatch`; no sustituye el contrato de PR y aporta evidencia de empaquetado/release.
 - Hardening aplicado:
   - `CI Backend Module` prepara runtime `sharp` en linux (`npm install --no-save --include=optional --os=linux --cpu=x64 sharp`) para evitar fallos de dependencias nativas.
 
