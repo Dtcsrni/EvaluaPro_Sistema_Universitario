@@ -443,11 +443,16 @@ jobs:
 
       - name: Etapa pdf-print-check
         if: github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && inputs.force_full_ci) || needs.detectar_cambios.outputs.gate_pdf_print_check == 'true' || needs.detectar_cambios.outputs.escalation == 'full-extended'
-        run: npm run test:pdf-print:ci
+        run: |
+          npm run test:pdf-print:ci
+          npm run test:pdf-visual:ci
 
       - name: Etapa ux-visual-check
         if: github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && inputs.force_full_ci) || needs.detectar_cambios.outputs.gate_ux_visual_check == 'true' || needs.detectar_cambios.outputs.escalation == 'full-extended'
-        run: npm run test:ux-visual:ci
+        run: |
+          npm run test:ux-quality:ci
+          npm run test:ux-visual:ci
+          npm run test:e2e:journeys:ci
 
   ext_perf_arquitectura:
     name: Extended Perf/Arquitectura

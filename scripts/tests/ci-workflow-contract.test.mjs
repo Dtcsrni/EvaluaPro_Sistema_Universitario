@@ -45,6 +45,25 @@ test('ext_funcionales usa gate OMR TV generico con version configurable', () => 
   assert.doesNotMatch(block, /npm run test:omr:tv3:gate:ci/);
 });
 
+test('ext_funcionales ejecuta PDF print y visual juntos', () => {
+  const workflow = fs.readFileSync(workflowPath, 'utf8');
+  const block = extractJobBlock(workflow, 'ext_funcionales');
+
+  assert.match(block, /Etapa pdf-print-check/);
+  assert.match(block, /npm run test:pdf-print:ci/);
+  assert.match(block, /npm run test:pdf-visual:ci/);
+});
+
+test('ext_funcionales conserva quality visual y journeys para UX', () => {
+  const workflow = fs.readFileSync(workflowPath, 'utf8');
+  const block = extractJobBlock(workflow, 'ext_funcionales');
+
+  assert.match(block, /Etapa ux-visual-check/);
+  assert.match(block, /npm run test:ux-quality:ci/);
+  assert.match(block, /npm run test:ux-visual:ci/);
+  assert.match(block, /npm run test:e2e:journeys:ci/);
+});
+
 test('core backend ejecuta auditoria focal classroom cuando el mapa la activa', () => {
   const workflow = fs.readFileSync(workflowPath, 'utf8');
   const block = extractJobBlock(workflow, 'core_backend_portal');
