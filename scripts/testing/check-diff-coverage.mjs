@@ -267,7 +267,9 @@ function resolveIgnorePathSubstrings() {
 }
 
 function isStructuralOnlyLine(sourceLine) {
-  return /^[\s{}()[\];,]*$/.test(sourceLine);
+  const trimmed = sourceLine.trim();
+  const isCatchWrapper = /^}?\s*catch(?:\s*\([^)]*\))?\s*{\s*$/.test(trimmed);
+  return /^[\s{}()[\];,]*$/.test(sourceLine) || isCatchWrapper;
 }
 
 async function buildFileLinesCache(touchedCoverable) {

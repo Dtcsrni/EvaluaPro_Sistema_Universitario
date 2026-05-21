@@ -5,7 +5,7 @@
  * Limites: Mantener contrato y comportamiento observable del modulo.
  */
 import request from 'supertest';
-import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
+import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import { crearApp } from '../../src/app';
 import { Docente } from '../../src/modulos/modulo_autenticacion/modeloDocente';
 import { crearTokenDocente } from '../../src/modulos/modulo_autenticacion/servicioTokens';
@@ -93,6 +93,21 @@ describe('roles y permisos', () => {
     await Docente.updateOne({ _id: admin._id }, { $set: { roles: ['docente'] } });
 
     await request(app).get('/api/admin/docentes').set(authAdmin).expect(403);
+  });
+
+  it('propaga error de lectura del docente al manejador de errores', async () => {
+    const docente = await crearDocenteConRoles('lectura-fallida@local.test', ['docente']);
+    const auth = authPara(docente, ['docente']);
+    const error = new Error('consulta docente no disponible');
+
+    vi.spyOn(Docente, 'findById').mockImplementationOnce(() => ({
+      select: () => ({
+        lean: () => Promise.reject(error)
+      })
+    }) as never);
+
+    const respuesta = await request(app).get('/api/autenticacion/perfil').set(auth).expect(500);
+    expect(respuesta.body?.error?.codigo).toBe('ERROR_INTERNO');
   });
 
   it('permite leer evaluaciones a lector pero bloquea gestión', async () => {
