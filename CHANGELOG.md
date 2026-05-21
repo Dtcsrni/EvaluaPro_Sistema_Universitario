@@ -6,6 +6,11 @@ Este archivo sigue el formato "Keep a Changelog" (alto nivel) y SemVer.
 
 ### Changed
 
+- `docente-local` permite instalacion minima con integracion cloud diferida: Hub escribe `EVALUAPRO_FLAVOR=docente-local` y `PORTAL_SYNC_REQUIRED=0` cuando portal/sync queda pendiente de primer uso.
+- Dashboard agrega canal de soporte privilegiado con step-up local y allowlist para operaciones Hub/update; desinstalacion exige confirmacion explicita.
+- Baseline de adelgazamiento docente disponible con `npm run installer:docente:baseline` y guia `docs/DOCENTE_LOCAL_LITE.md`.
+- QA parcial del Installer Hub `docente-local` queda trazada en `docs/QA_INSTALLER_HUB_DOCENTE_2026-05-20.md` con gates confirmados, evidencia UI, hallazgos VM y pendientes para cerrar install/repair/uninstall reales.
+- Contrato UX/operativo de `docente-local` aclara `WSL2 + Docker Engine` como ruta feliz; `Docker Desktop` queda como compatibilidad explicita y no debe desplazar el bootstrap WSL2 cuando su daemon no responde.
 - Installer Hub deja de depender de `LaunchApprovedExe` para el helper `post-install` y ahora resuelve el host PowerShell directamente desde la BA con fallback ordenado (`powershell.exe` del sistema, `pwsh.exe` si está disponible), lo que evita el fallo de elevación cuando Burn no puede resolver `App Paths`.
 - `scripts/Install-EvaluaPro.ps1` deja de forzar `-Verb RunAs` al abrir el Hub copiado y lo lanza directo con su working directory, evitando el fallo de `status=-2147024891` en el post-install cuando la shell ya está elevada.
 - Artefactos de release del Installer Hub separados por flavor para evitar mezcla en `dist/installer`:
@@ -90,10 +95,24 @@ Este archivo sigue el formato "Keep a Changelog" (alto nivel) y SemVer.
   - `config/installer-flavors.json`, `packaging/wix/Product.wxs`, `scripts/launcher-dashboard.mjs`, `scripts/launcher-tray-hidden.vbs` y módulos del Installer Hub pasan a validar/runtime-guiar un runtime Docker compatible
   - nuevo helper local `npm run docker:runtime:check`
 - `AGENTS.md` incorpora una regla operativa para que el agente sugiera siempre el modelo recomendado antes de continuar, con prioridad especial en planeaciones.
+- Se formaliza el uso obligatorio de Caveman para agentes en las politicas del repo:
+  - `AGENTS.md` agrega protocolo obligatorio de activacion/mantenimiento de Caveman por sesion.
+  - `docs/IA_TRAZABILIDAD_AGENTES.md` incorpora la regla normativa de Caveman por defecto.
+  - `docs/POLITICA_ECONOMIA_TOKENS_CODEX.md` convierte la guia de uso de Caveman en protocolo obligatorio para agentes.
 - Se formaliza la politica repo-local de economia de tokens para Codex en VS Code:
   - nueva guia `docs/POLITICA_ECONOMIA_TOKENS_CODEX.md`
   - referencia cruzada en trazabilidad, instrucciones de agente y readmes de `docs/` y `scripts/`
   - `scripts/ai-model-router.mjs` reconoce mejor solicitudes de politica/estrategia, Codex y VS Code para evitar selecciones genéricas baratas
+- Integracion Serena MCP repo-local para Codex:
+  - `.codex/config.toml` agrega `mcp_servers.serena` con `--project-from-cwd` y `--context=codex`
+  - `.codex/hooks.json` agrega recordatorio de activacion de proyecto Serena en `SessionStart`
+  - nuevo verificador `scripts/ai-serena-status.mjs` y comando `npm run ai:serena:status`
+- Politica de aprovechamiento Serena endurecida para minimizar tokens sin degradar calidad:
+  - protocolo operativo en `docs/POLITICA_ECONOMIA_TOKENS_CODEX.md` (consultas simbolicas primero, alcance acotado por `relative_path`, `max_answer_chars` bajo, fallback shell solo si Serena no alcanza)
+  - nuevo verificador integral `scripts/ai-serena-policy-status.mjs` y comando `npm run ai:serena:policy:status`
+  - enforcement explícito `SERENA REQUIRED ALWAYS` en hooks repo/global y regla obligatoria en `AGENTS.md`
+  - hooks repo-local (`.codex/hooks.json`) y hooks globales (`~/.codex/hooks.json`) con recordatorios de activacion + disciplina de consulta
+  - capa global `~/.codex/config.toml` fija `mcp_servers.serena` con binario absoluto y `features.codex_hooks=true` para evitar fallos por PATH y activar la politica en cada sesion
 - `npm run test:ai:model-router` queda disponible como validacion local del router de modelos.
 - Se agrega un router automatico de modelos para tareas IA:
   - modulo reutilizable `scripts/ai-model-router.mjs`

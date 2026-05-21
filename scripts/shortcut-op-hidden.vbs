@@ -40,7 +40,7 @@ Function ResolveAction(ByVal value)
     Dim v
     v = LCase(Trim(CStr(value)))
     Select Case v
-        Case "open-dashboard", "restart-stack", "stop-all", "repair", "open-hub", "verify-installation"
+        Case "open-dashboard", "restart-stack", "stop-all", "repair", "uninstall", "open-hub", "verify-installation"
             ResolveAction = v
         Case Else
             ResolveAction = "open-dashboard"

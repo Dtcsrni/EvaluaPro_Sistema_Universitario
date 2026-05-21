@@ -149,6 +149,25 @@ test('dashboard repair endpoints expose status, run lock and progress', { timeou
   assert.ok(cfgReset.config && typeof cfgReset.config === 'object');
   assert.ok(cfgReset.defaults && typeof cfgReset.defaults === 'object');
 
+  const supportStatusRes = await fetch(`http://127.0.0.1:${port}/api/support/privileged/status`);
+  assert.equal(supportStatusRes.status, 200);
+  const supportStatus = await supportStatusRes.json();
+  assert.equal(supportStatus.ok, true);
+  assert.equal(supportStatus.authorization.active, false);
+  assert.deepEqual(
+    supportStatus.authorization.allowlist.sort(),
+    ['hub-install', 'hub-repair', 'hub-uninstall', 'hub-update-apply'].sort()
+  );
+
+  const supportDeniedRes = await fetch(`http://127.0.0.1:${port}/api/support/privileged/run`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ action: 'hub-repair' })
+  });
+  assert.equal(supportDeniedRes.status, 403);
+  const supportDenied = await supportDeniedRes.json();
+  assert.equal(supportDenied.error, 'step_up_required');
+
   const run1Res = await fetch(`http://127.0.0.1:${port}/api/repair/run`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },

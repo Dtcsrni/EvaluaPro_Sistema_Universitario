@@ -5,6 +5,7 @@ using System.Text;
 using System.Text.Json;
 using System.Text.RegularExpressions;
 using Microsoft.Win32;
+using System.Runtime.InteropServices;
 using System.Windows;
 using System.Windows.Interop;
 using System.Windows.Threading;
@@ -26,6 +27,7 @@ internal sealed class EvaluaProBootstrapperApplication : BootstrapperApplication
     private const string StageMsi = "msi";
     private const string StagePostInstall = "postinstall";
     private const string StageFinalize = "finalize";
+    private const string HubSingletonMutexName = @"Global\EvaluaProInstallerHubSingleton";
 
     private readonly object sync = new();
     private readonly TaskCompletionSource<bool> uiReady = new(TaskCreationOptions.RunContinuationsAsynchronously);
@@ -36,6 +38,8 @@ internal sealed class EvaluaProBootstrapperApplication : BootstrapperApplication
     private IBootstrapperCommand? command;
     private MainWindow? window;
     private Thread? uiThread;
+    private Mutex? hubSingletonMutex;
+    private bool ownsHubSingleton;
     private string payloadRoot = string.Empty;
     private string sessionRoot = string.Empty;
     private string sessionLogPath = string.Empty;
@@ -71,6 +75,8 @@ internal sealed class EvaluaProBootstrapperApplication : BootstrapperApplication
         {
             uiThread.Join(TimeSpan.FromSeconds(2));
         }
+
+        ReleaseUiSingleton();
     }
 
     protected override void OnCreate(CreateEventArgs args)
@@ -97,7 +103,21 @@ internal sealed class EvaluaProBootstrapperApplication : BootstrapperApplication
         }
         Log("info", $"Burn bootstrapper iniciado. Action={command?.Action} Display={command?.Display}");
 
-        headless = command?.Display == Display.None || IsTruthy(Environment.GetEnvironmentVariable("EVALUAPRO_BURN_HEADLESS"));
+        // Burn puede lanzar instancias secundarias en modo Embedded (por ejemplo,
+        // para transacciones relacionadas de uninstall/upgrade). Esas instancias no
+        // deben abrir otra ventana del Hub.
+        headless =
+            command?.Display == Display.None
+            || command?.Display == Display.Embedded
+            || IsTruthy(Environment.GetEnvironmentVariable("EVALUAPRO_BURN_HEADLESS"));
+
+        if (!headless && !TryAcquireUiSingleton())
+        {
+            Log("warn", "Instancia adicional detectada: se mantiene singleton y se enfoca la ventana existente.");
+            FocusExistingHubWindow();
+            operationFinished.TrySetResult(0);
+            return;
+        }
 
         if (!headless)
         {
@@ -131,16 +151,16 @@ internal sealed class EvaluaProBootstrapperApplication : BootstrapperApplication
         lastFailedPackageId = null;
         applyInFlight = true;
         SetStageState(StagePlanning, InstallerStageStatus.Ok, "Planificación completada.", "El bundle ya comenzó la transacción principal.");
-        SetStageState(StageMsi, InstallerStageStatus.Running, "Ejecutando MSI principal.", "La instalación base de EvaluaPro está en progreso.");
-        UpdateUiState(statusText: "Instalando componentes de EvaluaPro. Esto puede tardar algunos minutos...", progress: 0, busy: true);
+        SetStageState(StageMsi, InstallerStageStatus.Running, "Ejecutando MSI principal.", $"La {GetOperationNoun()} base de EvaluaPro está en progreso.");
+        UpdateUiState(statusText: $"{GetOperationProgressVerb()} componentes de EvaluaPro. Esto puede tardar algunos minutos...", progress: 0, busy: true);
         engineHandle?.Apply(GetWindowHandle());
     }
 
     protected override void OnProgress(ProgressEventArgs args)
     {
         base.OnProgress(args);
-        SetStageState(StageMsi, InstallerStageStatus.Running, $"Ejecutando MSI principal ({Math.Max(0, Math.Min(100, args.OverallPercentage))}%).", "La instalación base de EvaluaPro sigue en progreso.");
-        UpdateUiState(statusText: $"Instalando componentes... {Math.Max(0, Math.Min(100, args.OverallPercentage))}%", progress: args.OverallPercentage, busy: true);
+        SetStageState(StageMsi, InstallerStageStatus.Running, $"Ejecutando MSI principal ({Math.Max(0, Math.Min(100, args.OverallPercentage))}%).", $"La {GetOperationNoun()} base de EvaluaPro sigue en progreso.");
+        UpdateUiState(statusText: $"{GetOperationProgressVerb()} componentes... {Math.Max(0, Math.Min(100, args.OverallPercentage))}%", progress: args.OverallPercentage, busy: true);
     }
 
     protected override void OnExecutePackageComplete(ExecutePackageCompleteEventArgs args)
@@ -177,7 +197,7 @@ internal sealed class EvaluaProBootstrapperApplication : BootstrapperApplication
                 sessionLogPath,
                 failureMessage);
             SetStageState(StageMsi, InstallerStageStatus.Error, "La ejecución MSI falló.", failureMessage);
-            SetStageState(StageFinalize, InstallerStageStatus.Error, "La instalación terminó con error.", "La transacción MSI no pudo completarse.");
+            SetStageState(StageFinalize, InstallerStageStatus.Error, "La operación terminó con error.", "La transacción MSI no pudo completarse.");
             var detail = $"La ejecucion del bundle fallo con status={args.Status} ({FormatWindowsStatus(args.Status)}).";
             if (applySawPackageFailure && !string.IsNullOrWhiteSpace(lastFailedPackageId) && lastFailedPackageStatus.HasValue)
             {
@@ -196,9 +216,9 @@ internal sealed class EvaluaProBootstrapperApplication : BootstrapperApplication
             return;
         }
 
-        SetStageState(StageMsi, InstallerStageStatus.Ok, "MSI completado.", "La instalación base terminó y continúa la post-instalación.");
-        SetStageState(StagePostInstall, InstallerStageStatus.Running, "Ejecutando helper post-instalación.", "Aplicando configuración, verificación y endurecimiento final.");
-        UpdateUiState(statusText: "MSI aplicado. Ejecutando helper post-install...", progress: 100, busy: true);
+        SetStageState(StageMsi, InstallerStageStatus.Ok, "MSI completado.", $"La {GetOperationNoun()} base terminó y continúa la verificación final.");
+        SetStageState(StagePostInstall, InstallerStageStatus.Running, GetPostOperationStageTitle(), GetPostOperationStageDetail());
+        UpdateUiState(statusText: $"{GetOperationProgressVerb()} componentes. Ejecutando verificación final...", progress: 100, busy: true);
         _ = RunPostInstallHelperAsync();
     }
 
@@ -244,6 +264,16 @@ internal sealed class EvaluaProBootstrapperApplication : BootstrapperApplication
                 var availableFlavors = LoadFlavorItems();
                 createdWindow.ConfigureInitialFlavorLayout(availableFlavors, ResolveRequestedFlavorId());
                 createdWindow.DetectRequested += (_, _) => _ = RunHelperDetectionAsync(force: true);
+                createdWindow.ModeChanged += (_, args) =>
+                {
+                    if (applyInFlight || helperInFlight || startRequested)
+                    {
+                        return;
+                    }
+
+                    currentOperation = NormalizeMode(args.Mode);
+                    RenderWorkflow();
+                };
                 createdWindow.StartRequested += (_, request) => _ = StartBundleOperationAsync(request);
                 createdWindow.CloseRequested += (_, _) => RequestQuit();
                 createdWindow.RestartRequested += (_, _) => RequestSystemRestart();
@@ -266,7 +296,6 @@ internal sealed class EvaluaProBootstrapperApplication : BootstrapperApplication
                     Dispatcher.CurrentDispatcher.BeginInvokeShutdown(DispatcherPriority.Background);
                 };
 
-                createdWindow.Show();
                 RenderWorkflow("Inicializando Installer Hub...", "Preparando la detección inicial de prerequisitos.");
                 application.Run(createdWindow);
             }
@@ -291,7 +320,7 @@ internal sealed class EvaluaProBootstrapperApplication : BootstrapperApplication
             new InstallerStageState(StageRemediation, "Remediación de prerequisitos", "Solo se ejecuta si hace falta."),
             new InstallerStageState(StagePlanning, "Planificación", "Aún no se solicitó la operación."),
             new InstallerStageState(StageMsi, "Ejecución MSI", "Esperando la transacción del MSI."),
-            new InstallerStageState(StagePostInstall, "Post-instalación", "Esperando configuración final."),
+            new InstallerStageState(StagePostInstall, "Configuración final", "Esperando verificación o configuración final."),
             new InstallerStageState(StageFinalize, "Finalización", "Pendiente de terminar.")
         ];
     }
@@ -310,7 +339,7 @@ internal sealed class EvaluaProBootstrapperApplication : BootstrapperApplication
                         : stage.Id == StageMsi
                             ? "Esperando la transacción del MSI."
                             : stage.Id == StagePostInstall
-                                ? "Esperando configuración final."
+                                ? "Esperando verificación o configuración final."
                                 : "Pendiente de terminar.";
             stage.Detail = string.Empty;
         }
@@ -353,11 +382,16 @@ internal sealed class EvaluaProBootstrapperApplication : BootstrapperApplication
             ?? workflowStages.LastOrDefault(stage => stage.State == InstallerStageStatus.Ok)
             ?? workflowStages.First();
 
+        var finalizeStageOk = workflowStages.FirstOrDefault(stage => stage.Id == StageFinalize)?.State == InstallerStageStatus.Ok;
+        var prerequisitesReady =
+            workflowStages.FirstOrDefault(stage => stage.Id == StageDetection)?.State == InstallerStageStatus.Ok &&
+            workflowStages.FirstOrDefault(stage => stage.Id == StageRemediation)?.State == InstallerStageStatus.Ok;
+
         var severity = failedStage is not null
             ? InstallerUiSeverity.Error
             : runningStage is not null
                 ? InstallerUiSeverity.Active
-                : workflowStages.FirstOrDefault(stage => stage.Id == StageFinalize)?.State == InstallerStageStatus.Ok
+                : finalizeStageOk || prerequisitesReady
                     ? InstallerUiSeverity.Success
                     : InstallerUiSeverity.Warning;
 
@@ -408,14 +442,16 @@ internal sealed class EvaluaProBootstrapperApplication : BootstrapperApplication
                 InstallerUiSeverity.Warning => "#8A6116",
                 _ => "#37576A"
             },
+            WorkflowTitle = $"Trazabilidad y progreso · {GetOperationTitle()}",
+            WorkflowHint = GetWorkflowHint(),
             SummaryBadge = runningStage is not null
                 ? "En curso"
                 : failedStage is not null
                     ? "Fallo detectado"
-                    : workflowStages.FirstOrDefault(stage => stage.Id == StageFinalize)?.State == InstallerStageStatus.Ok
+                    : finalizeStageOk || prerequisitesReady
                         ? "Completado"
                         : "Pendiente",
-            CurrentStageTitle = $"Etapa destacada: {currentStage.Label}",
+            CurrentStageTitle = $"Etapa destacada: {GetStageDisplayLabel(currentStage.Id)}",
             CurrentStageText = string.IsNullOrWhiteSpace(currentStage.Detail)
                 ? currentStage.Summary
                 : $"{currentStage.Summary} {currentStage.Detail}".Trim(),
@@ -439,13 +475,13 @@ internal sealed class EvaluaProBootstrapperApplication : BootstrapperApplication
         };
     }
 
-    private static InstallerStageView MapStageToView(InstallerStageState stage)
+    private InstallerStageView MapStageToView(InstallerStageState stage)
     {
         return stage.State switch
         {
             InstallerStageStatus.Running => new InstallerStageView
             {
-                Label = stage.Label,
+                Label = GetStageDisplayLabel(stage.Id),
                 Badge = "ACTIVA",
                 Summary = stage.Summary,
                 Detail = stage.Detail,
@@ -455,7 +491,7 @@ internal sealed class EvaluaProBootstrapperApplication : BootstrapperApplication
             },
             InstallerStageStatus.Ok => new InstallerStageView
             {
-                Label = stage.Label,
+                Label = GetStageDisplayLabel(stage.Id),
                 Badge = "OK",
                 Summary = stage.Summary,
                 Detail = stage.Detail,
@@ -465,7 +501,7 @@ internal sealed class EvaluaProBootstrapperApplication : BootstrapperApplication
             },
             InstallerStageStatus.Error => new InstallerStageView
             {
-                Label = stage.Label,
+                Label = GetStageDisplayLabel(stage.Id),
                 Badge = "ERROR",
                 Summary = stage.Summary,
                 Detail = stage.Detail,
@@ -475,7 +511,7 @@ internal sealed class EvaluaProBootstrapperApplication : BootstrapperApplication
             },
             _ => new InstallerStageView
             {
-                Label = stage.Label,
+                Label = GetStageDisplayLabel(stage.Id),
                 Badge = "PENDIENTE",
                 Summary = stage.Summary,
                 Detail = stage.Detail,
@@ -585,6 +621,7 @@ internal sealed class EvaluaProBootstrapperApplication : BootstrapperApplication
     private BootstrapperRequest BuildHeadlessRequest(DetectionPayload payload)
     {
         var productName = payload.Flavor?.ProductName ?? "EvaluaPro";
+        var installFolderName = payload.Flavor?.InstallFolderName ?? productName;
         var installDir = Environment.GetEnvironmentVariable("EVALUAPRO_BURN_INSTALLDIR");
         if (string.IsNullOrWhiteSpace(installDir))
         {
@@ -593,7 +630,7 @@ internal sealed class EvaluaProBootstrapperApplication : BootstrapperApplication
 
         if (string.IsNullOrWhiteSpace(installDir))
         {
-            installDir = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ProgramFiles), productName);
+            installDir = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ProgramFiles), installFolderName);
         }
 
         var requireLicense = IsTruthy(Environment.GetEnvironmentVariable("EVALUAPRO_REQUIRE_LICENSE_ACTIVATION"));
@@ -623,7 +660,7 @@ internal sealed class EvaluaProBootstrapperApplication : BootstrapperApplication
             ApiPort = Environment.GetEnvironmentVariable("EVALUAPRO_API_PORT") ?? "4000",
             PortalPort = Environment.GetEnvironmentVariable("EVALUAPRO_PORTAL_PORT") ?? "4518",
             CorsOrigins = Environment.GetEnvironmentVariable("EVALUAPRO_CORS_ORIGINS") ?? "http://localhost:4173,http://127.0.0.1:4173",
-            PortalAlumnoUrl = Environment.GetEnvironmentVariable("EVALUAPRO_PORTAL_ALUMNO_URL") ?? "https://portal-alumno.example.edu",
+            PortalAlumnoUrl = Environment.GetEnvironmentVariable("EVALUAPRO_PORTAL_ALUMNO_URL") ?? string.Empty,
             PortalApiKey = Environment.GetEnvironmentVariable("EVALUAPRO_PORTAL_API_KEY") ?? "portal-key-shared",
             PasswordResetEnabled = IsTruthy(Environment.GetEnvironmentVariable("EVALUAPRO_PASSWORD_RESET_ENABLED")),
             PasswordResetUrlBase = Environment.GetEnvironmentVariable("EVALUAPRO_PASSWORD_RESET_URL_BASE") ?? string.Empty,
@@ -666,7 +703,7 @@ internal sealed class EvaluaProBootstrapperApplication : BootstrapperApplication
         currentOperation = normalizedOperation;
 
         SetStageState(StagePlanning, InstallerStageStatus.Running, "Planificando la transacción del bundle.", "Preparando variables MSI y acción solicitada.");
-        UpdateUiState(statusText: "Planificando instalacion...", progress: 0, busy: true);
+        UpdateUiState(statusText: $"Planificando {GetOperationNoun()}...", progress: 0, busy: true);
         engineHandle.SetVariableString("InstallFolder", request.InstallDir, false);
         engineHandle.SetVariableString("SelectedFlavorId", request.FlavorId, false);
         engineHandle.SetVariableNumeric("InstallDesktopShortcuts", request.InstallDesktopShortcuts ? 1 : 0);
@@ -677,6 +714,13 @@ internal sealed class EvaluaProBootstrapperApplication : BootstrapperApplication
             $"InstallDesktopShortcuts={(request.InstallDesktopShortcuts ? 1 : 0)}, InstallStartMenuShortcuts={(request.InstallStartMenuShortcuts ? 1 : 0)}, " +
             "REQUIRE_INSTALLER_HUB=1 (Bundle->MsiProperty)");
 
+        if (IsTruthy(Environment.GetEnvironmentVariable("EVALUAPRO_INSTALLER_UI_QA_NO_PRODUCT_ACTION")))
+        {
+            Log("warn", "UI QA mode activo: se simula la accion de producto sin ejecutar Burn Plan/Apply.");
+            _ = SimulateUiQaProductActionAsync();
+            return;
+        }
+
         var action = currentOperation switch
         {
             "repair" => LaunchAction.Repair,
@@ -685,6 +729,30 @@ internal sealed class EvaluaProBootstrapperApplication : BootstrapperApplication
         };
 
         engineHandle.Plan(action);
+    }
+
+    private async Task SimulateUiQaProductActionAsync()
+    {
+        try
+        {
+            SetStageState(StagePlanning, InstallerStageStatus.Ok, "Planificacion simulada para QA UI.", "No se ejecuto la transaccion Burn/MSI.");
+            SetStageState(StageMsi, InstallerStageStatus.Running, "Simulando ejecucion MSI para QA UI.", "Validando estado busy, progreso y bloqueo de cierre.");
+            UpdateUiState(statusText: "Simulando accion de producto para QA UI...", progress: 25, busy: true);
+            await Task.Delay(TimeSpan.FromSeconds(2)).ConfigureAwait(false);
+            UpdateUiState(statusText: "Simulacion QA UI en progreso...", progress: 70, busy: true);
+            await Task.Delay(TimeSpan.FromSeconds(2)).ConfigureAwait(false);
+            SetStageState(StageMsi, InstallerStageStatus.Ok, "Ejecucion MSI simulada.", "El producto real no fue modificado.");
+            SetStageState(StagePostInstall, InstallerStageStatus.Ok, "Verificacion final simulada.", "Contrato visual validado sin tocar la instalacion.");
+            SetStageState(StageFinalize, InstallerStageStatus.Ok, "Operacion simulada finalizada.", "Cierra el asistente para terminar la prueba.");
+            UpdateUiState(statusText: "Simulacion QA UI completada.", progress: 100, busy: false);
+            DispatchToUi(() => window?.MarkCompleted(true, "Simulacion QA UI completada sin modificar el producto."));
+            requestedExitCode = 0;
+        }
+        catch (Exception ex)
+        {
+            SetStageState(StageFinalize, InstallerStageStatus.Error, "La simulacion QA UI fallo.", ex.Message);
+            FinalizeFailure("qa_ui", 50, $"Fallo la simulacion QA UI: {ex.Message}");
+        }
     }
 
     private async Task RunAutomaticRemediationFromDetectionAsync()
@@ -788,7 +856,7 @@ internal sealed class EvaluaProBootstrapperApplication : BootstrapperApplication
                 restartMessage);
             RegisterRunOnceForResume();
             SetStageState(StageRemediation, InstallerStageStatus.Pending, "Reinicio requerido para continuar automáticamente.", restartMessage);
-            SetStageState(StageFinalize, InstallerStageStatus.Pending, "Pendiente de reinicio del sistema.", "Presiona \"Reiniciar ahora\" para reanudar la instalación.");
+            SetStageState(StageFinalize, InstallerStageStatus.Pending, "Pendiente de reinicio del sistema.", "Presiona \"Reiniciar ahora\" para reanudar la operación.");
             UpdateUiState(statusText: restartMessage, busy: false);
             DispatchToUi(() => window?.SetRestartActionVisible(true, restartMessage));
             requestedExitCode = 3010;
@@ -819,7 +887,7 @@ internal sealed class EvaluaProBootstrapperApplication : BootstrapperApplication
         try
         {
             helperInFlight = true;
-            SetStageState(StagePostInstall, InstallerStageStatus.Running, "Ejecutando helper post-instalación.", "Preparando la solicitud elevada.");
+            SetStageState(StagePostInstall, InstallerStageStatus.Running, GetPostOperationStageTitle(), GetPostOperationStageDetail());
             var requestObject = new Dictionary<string, object?>
             {
                 ["mode"] = currentOperation,
@@ -858,14 +926,14 @@ internal sealed class EvaluaProBootstrapperApplication : BootstrapperApplication
 
             if (!envelope.Ok)
             {
-                SetStageState(StagePostInstall, InstallerStageStatus.Error, "El helper post-instalación devolvió error.", envelope.Message ?? "No se completó la configuración final.");
-                FinalizeFailure(envelope.Phase ?? "helper_post_install", envelope.ExitCode == 0 ? 50 : envelope.ExitCode, envelope.Message ?? "El helper post-install devolvio error.");
+                SetStageState(StagePostInstall, InstallerStageStatus.Error, GetPostOperationFailureTitle(), envelope.Message ?? "No se completó la verificación final.");
+                FinalizeFailure(envelope.Phase ?? "helper_post_install", envelope.ExitCode == 0 ? 50 : envelope.ExitCode, envelope.Message ?? "El helper final devolvio error.");
                 return;
             }
 
-            SetStageState(StagePostInstall, InstallerStageStatus.Ok, "Post-instalación completada.", envelope.Message ?? "EvaluaPro quedó configurado.");
-            SetStageState(StageFinalize, InstallerStageStatus.Ok, "Instalación completada.", "EvaluaPro ya quedó listo para usarse.");
-            UpdateUiState(statusText: "Instalacion completada.", progress: 100, busy: false);
+            SetStageState(StagePostInstall, InstallerStageStatus.Ok, GetPostOperationSuccessTitle(), envelope.Message ?? GetPostOperationSuccessDetail());
+            SetStageState(StageFinalize, InstallerStageStatus.Ok, GetOperationCompletedTitle(), GetOperationCompletedDetail());
+            UpdateUiState(statusText: GetOperationCompletedTitle(), progress: 100, busy: false);
             requestedExitCode = 0;
             ClearResumeState();
 
@@ -885,21 +953,190 @@ internal sealed class EvaluaProBootstrapperApplication : BootstrapperApplication
         }
         catch (TimeoutException ex)
         {
-            var detail = $"El helper post-instalacion no respondio a tiempo. {ex.Message}";
-            SetStageState(StagePostInstall, InstallerStageStatus.Error, "Timeout en helper post-instalación.", detail);
+            var detail = $"El helper final no respondio a tiempo. {ex.Message}";
+            SetStageState(StagePostInstall, InstallerStageStatus.Error, GetPostOperationTimeoutTitle(), detail);
             FinalizeFailure("helper_timeout", 124, detail);
         }
         catch (InvalidOperationException ex)
         {
-            var detail = $"No se pudo iniciar o completar el helper post-install. {ex.Message}";
-            SetStageState(StagePostInstall, InstallerStageStatus.Error, "Fallo al iniciar helper post-instalación.", detail);
+            var detail = $"No se pudo iniciar o completar la verificacion final. {ex.Message}";
+            SetStageState(StagePostInstall, InstallerStageStatus.Error, GetPostOperationInitFailTitle(), detail);
             FinalizeFailure("helper_init_fail", 50, detail);
         }
         catch (Exception ex)
         {
-            SetStageState(StagePostInstall, InstallerStageStatus.Error, "Error inesperado en post-instalación.", ex.Message);
-            FinalizeFailure("helper_unexpected", 50, $"Error inesperado en helper post-install: {ex.Message}");
+            SetStageState(StagePostInstall, InstallerStageStatus.Error, GetPostOperationUnexpectedTitle(), ex.Message);
+            FinalizeFailure("helper_unexpected", 50, $"Error inesperado en helper final: {ex.Message}");
         }
+    }
+
+    private string GetOperationNoun()
+    {
+        return currentOperation switch
+        {
+            "repair" => "reparación",
+            "uninstall" => "desinstalación",
+            _ => "instalación"
+        };
+    }
+
+    private string GetOperationTitle()
+    {
+        return currentOperation switch
+        {
+            "repair" => "Reparación",
+            "uninstall" => "Desinstalación",
+            _ => "Instalación"
+        };
+    }
+
+    private string GetWorkflowHint()
+    {
+        return currentOperation switch
+        {
+            "repair" => "La línea de tareas y el resumen reflejan la reparación seleccionada.",
+            "uninstall" => "La línea de tareas y el resumen reflejan la desinstalación seleccionada.",
+            _ => "La línea de tareas y el resumen reflejan la instalación seleccionada."
+        };
+    }
+
+    private string GetStageDisplayLabel(string stageId)
+    {
+        return stageId switch
+        {
+            StagePlanning => currentOperation switch
+            {
+                "repair" => "Planificación de reparación",
+                "uninstall" => "Planificación de desinstalación",
+                _ => "Planificación de instalación"
+            },
+            StagePostInstall => currentOperation switch
+            {
+                "repair" => "Verificación final",
+                "uninstall" => "Verificación de desinstalación",
+                _ => "Configuración final"
+            },
+            StageFinalize => currentOperation switch
+            {
+                "repair" => "Finalización de reparación",
+                "uninstall" => "Finalización de desinstalación",
+                _ => "Finalización de instalación"
+            },
+            _ => stageId == StageMsi
+                ? "Ejecución MSI"
+                : stageId == StageRemediation
+                    ? "Remediación de prerequisitos"
+                    : "Detección"
+        };
+    }
+
+    private string GetOperationProgressVerb()
+    {
+        return currentOperation switch
+        {
+            "repair" => "Reparando",
+            "uninstall" => "Desinstalando",
+            _ => "Instalando"
+        };
+    }
+
+    private string GetOperationCompletedTitle()
+    {
+        return currentOperation switch
+        {
+            "repair" => "Reparación completada.",
+            "uninstall" => "Desinstalación completada.",
+            _ => "Instalación completada."
+        };
+    }
+
+    private string GetOperationCompletedDetail()
+    {
+        return currentOperation switch
+        {
+            "repair" => "EvaluaPro quedó reparado y listo para usarse.",
+            "uninstall" => "EvaluaPro quedó desinstalado correctamente.",
+            _ => "EvaluaPro ya quedó listo para usarse."
+        };
+    }
+
+    private string GetPostOperationStageTitle()
+    {
+        return currentOperation switch
+        {
+            "uninstall" => "Verificando desinstalación.",
+            "repair" => "Ejecutando helper de reparación.",
+            _ => "Ejecutando helper de post-instalación."
+        };
+    }
+
+    private string GetPostOperationStageDetail()
+    {
+        return currentOperation switch
+        {
+            "uninstall" => "Verificando que el producto haya sido retirado y limpiando huellas residuales.",
+            _ => "Aplicando configuración, verificación y endurecimiento final."
+        };
+    }
+
+    private string GetPostOperationSuccessTitle()
+    {
+        return currentOperation switch
+        {
+            "uninstall" => "Desinstalación verificada.",
+            "repair" => "Reparación completada.",
+            _ => "Post-instalación completada."
+        };
+    }
+
+    private string GetPostOperationSuccessDetail()
+    {
+        return currentOperation switch
+        {
+            "uninstall" => "El producto ya no aparece instalado.",
+            "repair" => "EvaluaPro quedó configurado tras la reparación.",
+            _ => "EvaluaPro quedó configurado."
+        };
+    }
+
+    private string GetPostOperationFailureTitle()
+    {
+        return currentOperation switch
+        {
+            "uninstall" => "El helper de desinstalación devolvió error.",
+            "repair" => "El helper de reparación devolvió error.",
+            _ => "El helper post-instalación devolvió error."
+        };
+    }
+
+    private string GetPostOperationTimeoutTitle()
+    {
+        return currentOperation switch
+        {
+            "uninstall" => "Timeout en verificación de desinstalación.",
+            "repair" => "Timeout en helper de reparación.",
+            _ => "Timeout en helper post-instalación."
+        };
+    }
+
+    private string GetPostOperationInitFailTitle()
+    {
+        return currentOperation switch
+        {
+            "uninstall" => "Fallo al iniciar verificación de desinstalación.",
+            "repair" => "Fallo al iniciar helper de reparación.",
+            _ => "Fallo al iniciar helper post-instalación."
+        };
+    }
+
+    private string GetPostOperationUnexpectedTitle()
+    {
+        return currentOperation switch
+        {
+            "uninstall" => "Error inesperado en verificación de desinstalación.",
+            "repair" => "Error inesperado en reparación.",
+            _ => "Error inesperado en post-instalación."
+        };
     }
 
     private async Task<HelperEnvelope<TData>> InvokeHelperAsync<TData>(string mode, Dictionary<string, object?> request, Action<HelperProgressEvent>? onProgress = null)
@@ -1196,7 +1433,9 @@ internal sealed class EvaluaProBootstrapperApplication : BootstrapperApplication
         var installDir = payload.Installation?.InstallLocation;
         if (string.IsNullOrWhiteSpace(installDir))
         {
-            installDir = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ProgramFiles), payload.Flavor?.ProductName ?? "EvaluaPro");
+            installDir = Path.Combine(
+                Environment.GetFolderPath(Environment.SpecialFolder.ProgramFiles),
+                payload.Flavor?.InstallFolderName ?? payload.Flavor?.ProductName ?? "EvaluaPro");
         }
 
         var model = new WindowDetectionModel
@@ -1257,12 +1496,18 @@ internal sealed class EvaluaProBootstrapperApplication : BootstrapperApplication
 
     private IntPtr GetWindowHandle()
     {
-        if (window is null)
+        if (window is not null)
         {
-            return IntPtr.Zero;
+            return window.Dispatcher.Invoke(() => new WindowInteropHelper(window).Handle);
         }
 
-        return window.Dispatcher.Invoke(() => new WindowInteropHelper(window).Handle);
+        var shellHandle = GetShellWindow();
+        if (shellHandle != IntPtr.Zero)
+        {
+            return shellHandle;
+        }
+
+        return GetDesktopWindow();
     }
 
     private void UpdateUiState(string? statusText = null, int? progress = null, bool? busy = null)
@@ -1332,6 +1577,165 @@ internal sealed class EvaluaProBootstrapperApplication : BootstrapperApplication
         });
     }
 
+    private bool TryAcquireUiSingleton()
+    {
+        if (IsAnotherHubProcessRunning())
+        {
+            Log("warn", "Proceso Hub adicional detectado por nombre de proceso. Se bloquea segunda UI.");
+            return false;
+        }
+
+        try
+        {
+            hubSingletonMutex = new Mutex(initiallyOwned: true, name: HubSingletonMutexName, createdNew: out var createdNew);
+            ownsHubSingleton = createdNew;
+            Log("info", $"Singleton mutex '{HubSingletonMutexName}' createdNew={createdNew} pid={Environment.ProcessId}");
+            return createdNew;
+        }
+        catch (AbandonedMutexException)
+        {
+            ownsHubSingleton = true;
+            Log("warn", "Mutex singleton abandonado detectado; se recupera propiedad para instancia actual.");
+            return true;
+        }
+        catch (UnauthorizedAccessException)
+        {
+            Log("warn", "Mutex singleton existente sin acceso. Se asume instancia activa y se bloquea segunda UI.");
+            return false;
+        }
+        catch (Exception ex)
+        {
+            Log("warn", $"No se pudo adquirir mutex singleton; se bloquea UI adicional por seguridad. Motivo: {ex.Message}");
+            return false;
+        }
+    }
+
+    private static bool IsAnotherHubProcessRunning()
+    {
+        try
+        {
+            using var current = Process.GetCurrentProcess();
+            var peers = Process.GetProcessesByName(current.ProcessName);
+            foreach (var peer in peers)
+            {
+                try
+                {
+                    if (peer.Id != current.Id)
+                    {
+                        return true;
+                    }
+                }
+                finally
+                {
+                    peer.Dispose();
+                }
+            }
+        }
+        catch
+        {
+            // Si no se puede inspeccionar procesos, no bloquea por este criterio.
+        }
+
+        return false;
+    }
+
+    private void ReleaseUiSingleton()
+    {
+        try
+        {
+            if (hubSingletonMutex is not null)
+            {
+                if (ownsHubSingleton)
+                {
+                    hubSingletonMutex.ReleaseMutex();
+                }
+
+                hubSingletonMutex.Dispose();
+            }
+        }
+        catch
+        {
+            // Evita que un error de liberacion afecte el cierre del BA.
+        }
+        finally
+        {
+            hubSingletonMutex = null;
+            ownsHubSingleton = false;
+        }
+    }
+
+    private void FocusExistingHubWindow()
+    {
+        try
+        {
+            var hwnd = IntPtr.Zero;
+            try
+            {
+                using var current = Process.GetCurrentProcess();
+                var peers = Process.GetProcessesByName(current.ProcessName);
+                foreach (var peer in peers)
+                {
+                    try
+                    {
+                        if (peer.Id == current.Id)
+                        {
+                            continue;
+                        }
+
+                        if (peer.MainWindowHandle != IntPtr.Zero)
+                        {
+                            hwnd = peer.MainWindowHandle;
+                            break;
+                        }
+                    }
+                    finally
+                    {
+                        peer.Dispose();
+                    }
+                }
+            }
+            catch
+            {
+                // Fallback por titulo abajo.
+            }
+
+            if (hwnd == IntPtr.Zero)
+            {
+                hwnd = FindWindow(lpClassName: null, lpWindowName: "EvaluaPro Installer Hub");
+            }
+
+            if (hwnd == IntPtr.Zero)
+            {
+                return;
+            }
+
+            const int SW_RESTORE = 9;
+            ShowWindow(hwnd, SW_RESTORE);
+            SetForegroundWindow(hwnd);
+        }
+        catch
+        {
+            // Si no se puede enfocar (ej. restricciones UAC), al menos se bloquea segunda UI.
+        }
+    }
+
+    [DllImport("user32.dll", CharSet = CharSet.Unicode, SetLastError = true)]
+    private static extern IntPtr FindWindow(string? lpClassName, string? lpWindowName);
+
+    [DllImport("user32.dll", SetLastError = true)]
+    private static extern IntPtr GetShellWindow();
+
+    [DllImport("user32.dll", SetLastError = true)]
+    private static extern IntPtr GetDesktopWindow();
+
+    [DllImport("user32.dll", SetLastError = true)]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    private static extern bool ShowWindow(IntPtr hWnd, int nCmdShow);
+
+    [DllImport("user32.dll", SetLastError = true)]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    private static extern bool SetForegroundWindow(IntPtr hWnd);
+
     private void RequestSystemRestart()
     {
         if (applyInFlight || helperInFlight)
@@ -1342,7 +1746,7 @@ internal sealed class EvaluaProBootstrapperApplication : BootstrapperApplication
 
         try
         {
-            UpdateUiState(statusText: "Reiniciando Windows para continuar la instalación...", busy: true);
+            UpdateUiState(statusText: "Reiniciando Windows para continuar la operación...", busy: true);
             var psi = new ProcessStartInfo
             {
                 FileName = "shutdown.exe",
@@ -1460,7 +1864,7 @@ internal sealed class EvaluaProBootstrapperApplication : BootstrapperApplication
 
             var command = $"\"{exePath}\"";
             runOnceKey.SetValue("EvaluaProInstallerHubResume", command, RegistryValueKind.String);
-            Log("info", $"RunOnce registrado para reanudar instalacion: {command}");
+            Log("info", $"RunOnce registrado para reanudar operacion: {command}");
         }
         catch (Exception ex)
         {
@@ -1759,7 +2163,7 @@ public sealed class BootstrapperRequest
     public string ApiPort { get; set; } = "4000";
     public string PortalPort { get; set; } = "4518";
     public string CorsOrigins { get; set; } = "http://localhost:4173,http://127.0.0.1:4173";
-    public string PortalAlumnoUrl { get; set; } = "https://portal-alumno.example.edu";
+    public string PortalAlumnoUrl { get; set; } = string.Empty;
     public string PortalApiKey { get; set; } = "portal-key-shared";
     public bool PasswordResetEnabled { get; set; }
     public string PasswordResetUrlBase { get; set; } = string.Empty;
@@ -1862,6 +2266,7 @@ public sealed class FlavorPayload
     public string FlavorId { get; set; } = "docente-local";
     public string DisplayName { get; set; } = "EvaluaPro";
     public string ProductName { get; set; } = "EvaluaPro";
+    public string InstallFolderName { get; set; } = "EvaluaPro";
     public string InstallerHubExeName { get; set; } = "EvaluaPro-InstallerHub-docente-local.exe";
 }
 

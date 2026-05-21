@@ -1,0 +1,17 @@
+{
+  "hooks": {
+    "SessionStart": [
+      {
+        "matcher": "startup|resume",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node scripts/ai-session-start.mjs",
+            "timeout": 5,
+            "statusMessage": "SessionStart: Caveman + Serena + token policy"
+          }
+        ]
+      }
+    ]
+  }
+}

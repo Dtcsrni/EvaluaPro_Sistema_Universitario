@@ -59,6 +59,16 @@ Si hay conflicto entre documentos, actualizar todos para alinear el estado real 
 9. Si el runtime del agente no expone proveedor/modelo/version exactos:
    - usar `unknown`,
    - no inferir ni documentar valores inventados.
+10. Para minimizar tokens sin perder calidad:
+   - usar Serena de forma predeterminada en toda tarea de exploracion/lectura/edicion de codigo,
+   - activar proyecto al inicio de sesion (`Activate the current dir as project using serena`),
+   - acotar consultas con `relative_path` y `max_answer_chars`,
+   - usar comandos shell solo como fallback cuando Serena no cubra la necesidad.
+11. Uso obligatorio de Caveman en sesiones de agentes:
+   - activar Caveman al inicio de cada sesion (`$caveman`),
+   - mantener Caveman activo durante toda la sesion,
+   - si por plataforma no se activa via hooks, activarlo manualmente,
+   - solo desactivarlo temporalmente si el usuario lo solicita de forma explicita.
 
 ## 2.1) Inventario exhaustivo de instrucciones IA
 1. El inventario oficial vive en:

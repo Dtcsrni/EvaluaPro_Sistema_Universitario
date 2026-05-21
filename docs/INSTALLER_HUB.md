@@ -2,16 +2,18 @@
 
 Bootstrapper oficial de Windows para instalacion, reparacion y desinstalacion de EvaluaPro.
 La superficie publica ahora es `WiX Burn + Bootstrapper Application WPF .NET 8 + helper PowerShell headless`.
+El contrato visual y UX del Hub vive en `docs/DESIGN.md`.
 
 ## Objetivo
 
 - Ejecutar instalacion, reparacion o desinstalacion desde una GUI guiada.
-- Verificar y preparar prerequisitos de Windows con `WSL2 + Docker Engine` como default y `Docker Desktop` como compatibilidad opcional.
-- Para `docente-local`, preparar `Node 24` host en Windows, `Node 24` dentro de la distro objetivo de `WSL2` y desplegar un runtime Node embebido local para dashboard/tray/shortcuts.
+- Verificar y preparar prerequisitos de Windows con runtime Docker compatible.
+- Para `docente-local`, priorizar y remediar `WSL2 + Docker Engine` sin instalar ni requerir `Docker Desktop` en la ruta feliz.
+- Para `docente-local`, preparar `Node 24` host en Windows y desplegar un runtime Node embebido local para dashboard/tray/shortcuts. `Node 24` dentro de WSL2 es obligatorio para el target `WSL2 + Docker Engine`.
 - Encadenar el `MSI` por medio de `Burn` con elevacion, cache, repair/uninstall y logging nativos.
 - Ejecutar configuracion operativa, activacion de licencia y validacion final con helper controlado bajo contrato JSON.
 - Dejar trazabilidad en logs por sesion para soporte tecnico.
-- Para `docente-local`, centralizar el stack minimo en `WSL2 + Docker`: `MongoDB + API + Web`.
+- Para `docente-local`, centralizar el stack minimo en Docker compatible: `MongoDB + API + Web`.
 
 ## Flujo funcional
 
@@ -25,7 +27,7 @@ La superficie publica ahora es `WiX Burn + Bootstrapper Application WPF .NET 8 +
 4. Analisis de requisitos de equipo desde helper Burn (`detect-prereqs`) con estado visual de:
    - SO/arquitectura/disco/red
    - runtime Node embebido local en Windows
-   - `Node 24` dentro de `WSL2`
+   - `Node 24` dentro de `WSL2` solo si el runtime activo es `WSL2 + Docker Engine`
    - runtime Docker compatible
 
 5. Planificacion y ejecucion del chain MSI por Burn.
@@ -102,6 +104,7 @@ npm run installer:sign
 - publica la BA `WPF .NET 8`,
 - compila `MSI + Bundle Burn` por flavor,
 - genera el entrypoint publico `EvaluaPro-InstallerHub-<flavor>-v<version>.exe`.
+- Este build es solo para Windows. En WSL/Linux el script falla al inicio con un mensaje explicito y no intenta ejecutar WiX.
 
 Tras `npm run installer:hub:build`, el repo deja un manifiesto local con rutas absolutas en:
 
@@ -111,18 +114,20 @@ En este repo/equipo, el ejecutable recomendado para instalacion docente local qu
 
 - `dist/installer/docente-local/EvaluaPro-InstallerHub-docente-local-v<version>.exe`
 
-## Configuracion operativa obligatoria en instalacion
+## Configuracion operativa y primer uso
 
 - El Hub detecta automaticamente valores existentes desde `.env` previo (si existe) y los precarga en la UI.
-- Si falta configuracion critica, el flujo falla en `configuracion_operativa` (fail-fast) y no permite dejar instalacion incompleta.
+- Si falta configuracion critica del stack local, el flujo falla en `configuracion_operativa` (fail-fast) y no permite dejar instalacion incompleta.
+- En `docente-local`, portal/sync, OAuth/Classroom, correo y activacion comercial no exigida se difieren al primer uso. El stack local debe poder quedar listo sin URL ni credenciales de portal.
 - Defaults estandar recomendados (si no hay config previa):
   - `MONGODB_URI=mongodb://mongo_local:27017/evaluapro`
   - `NODE_ENV=production`
   - `PUERTO_API=4000`
   - `PUERTO_PORTAL=4518`
   - `CORS_ORIGENES=http://localhost:4173,http://127.0.0.1:4173`
-  - `PORTAL_ALUMNO_URL=https://portal-alumno.example.edu` (debe ajustarse a URL real)
-  - `PORTAL_ALUMNO_API_KEY` y `PORTAL_API_KEY`: si faltan, se autogenera una clave compartida.
+  - `EVALUAPRO_FLAVOR=docente-local`
+  - `PORTAL_SYNC_REQUIRED=0` mientras la integracion cloud quede diferida.
+  - `PORTAL_ALUMNO_URL`, `PORTAL_ALUMNO_API_KEY` y `PORTAL_API_KEY`: se completan al activar portal/sync; si se activa durante instalacion, el Hub conserva/genera la clave compartida.
   - `update.channel=stable`, `requireSha256=true`.
 
 - Variables cubiertas por instalador:
@@ -138,6 +143,11 @@ En este repo/equipo, el ejecutable recomendado para instalacion docente local qu
   - `installation.runtimeTarget`
   - `runtime.embeddedNode.present|path|version`
   - `runtime.wsl.distro|nodeVersion|dockerReady`
+
+Baseline no destructivo para comparar footprint/instalacion por corte:
+
+- `npm run installer:docente:baseline`
+- Debe complementarse con E2E VM para tiempos reales, prompts UAC, RAM idle y ciclo `install|repair|update|uninstall`.
 
 Activacion segura opcional al instalar (GUI o headless):
 
@@ -183,14 +193,15 @@ Regla de publicacion:
 ## Manejo de fallos y casos limite
 
 - Si falta runtime Docker compatible:
-  - priorizar `WSL2 + Docker Engine`;
-  - fallback permitido a `Docker Desktop`;
+  - en `docente-local`, priorizar `WSL2 + Docker Engine`;
+  - `Docker Desktop` solo opera como compatibilidad explicita y debe quedar sano antes de aceptarse;
   - generar y seguir la guía local de bootstrap WSL2/Docker Engine emitida por el Hub;
   - validar siempre por CLI (`docker version`, `docker context`, `wsl --status`) y no por GUI.
 
 - Para `docente-local`, `Node.js` host en Windows queda como prerequisito obligatorio con remediacion automatica:
   - Windows valida y prepara `Node 24` host junto con un runtime Node embebido privado del producto;
-  - la distro `WSL2` objetivo debe quedar con `Node 24` y `Docker Engine` listos tras el bootstrap.
+  - si el runtime elegido es `WSL2 + Docker Engine`, la distro objetivo debe quedar con `Node 24` y Docker Engine listos tras el bootstrap.
+  - si soporte activa compatibilidad `Docker Desktop` y su daemon queda sano, `Node 24` dentro de WSL2 puede marcarse como no requerido para esa ejecucion.
 
 - Para `docente-local`, la remediacion se enfoca en habilitar el runtime del stack minimo `Mongo + API + Web`; el portal alumno local no forma parte del criterio de listo.
 - Sin internet: bloqueo temprano y opcion de reintento.
@@ -199,6 +210,7 @@ Regla de publicacion:
 - MSI con codigo no-cero: mapeo a mensaje entendible + log tecnico.
 - Uninstall sin instalacion previa: salida idempotente en exito.
 - Limpieza total: requiere confirmacion explicita.
+- Desinstalacion estandar: retira binarios y accesos; preserva datos operativos, licencia local y logs salvo flujo confirmado de limpieza total.
 
 ## Flags de bootstrap runtime Docker
 
@@ -225,3 +237,4 @@ Regla de publicacion:
 2. Verificar versiones y hashes de los assets descargados.
 3. Correlacionar codigo de salida con el modulo fallido.
 4. Ejecutar reparacion antes de desinstalacion en incidentes no destructivos.
+5. Para operaciones de alto nivel desde Dashboard, exigir sesion local step-up activa y usar solo la allowlist `hub-install|hub-repair|hub-update-apply|hub-uninstall`; desinstalacion requiere confirmacion explicita.

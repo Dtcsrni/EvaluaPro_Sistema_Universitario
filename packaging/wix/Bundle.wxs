@@ -1,9 +1,9 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <?ifndef FlavorCatalogPath ?>
-<?define FlavorCatalogPath=$(var.SourceRoot)\config\installer-flavors.json ?>
+<?define FlavorCatalogPath=$(var.SourceRoot)/config/installer-flavors.json ?>
 <?endif?>
 <?ifndef BundleIconPath ?>
-<?define BundleIconPath=$(var.SourceRoot)\scripts\icons\installer-canonical.ico ?>
+<?define BundleIconPath=$(var.SourceRoot)/scripts/icons/installer-canonical.ico ?>
 <?endif?>
 <Wix xmlns="http://wixtoolset.org/schemas/v4/wxs" xmlns:bal="http://wixtoolset.org/schemas/v4/wxs/bal">
   <Bundle
@@ -15,7 +15,7 @@
 
     <Variable Name="InstallDesktopShortcuts" Type="numeric" Value="1" Persisted="yes" />
     <Variable Name="InstallStartMenuShortcuts" Type="numeric" Value="1" Persisted="yes" />
-    <Variable Name="InstallFolder" Type="string" Value="C:\Program Files\$(var.ProductName)" Persisted="yes" bal:Overridable="yes" />
+    <Variable Name="InstallFolder" Type="string" Value="C:\Program Files\$(var.InstallFolderName)" Persisted="yes" bal:Overridable="yes" />
     <Variable Name="SelectedFlavorId" Type="string" Value="$(var.FlavorId)" Persisted="yes" />
 
     <ApprovedExeForElevation

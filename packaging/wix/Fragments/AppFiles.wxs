@@ -2,14 +2,8 @@
 <Wix xmlns="http://wixtoolset.org/schemas/v4/wxs">
   <Fragment>
     <ComponentGroup Id="CG.AppFiles" Directory="INSTALLFOLDER">
-      <Files Include="$(var.SourceRoot)\**">
-        <Exclude Files="$(var.SourceRoot)\.git\**" />
-        <Exclude Files="$(var.SourceRoot)\node_modules\**" />
-        <Exclude Files="$(var.SourceRoot)\logs\**" />
-        <Exclude Files="$(var.SourceRoot)\*.log" />
-        <Exclude Files="$(var.SourceRoot)\build-*.log" />
-        <Exclude Files="$(var.SourceRoot)\reports\**" />
-        <Exclude Files="$(var.SourceRoot)\dist\installer\**" />
+      <Files Include="$(var.SourceRoot)/**">
+        <Exclude Files="$(var.SourceRoot)/packaging/wix/**" />
       </Files>
     </ComponentGroup>
   </Fragment>

@@ -2,15 +2,10 @@
 <Wix xmlns="http://wixtoolset.org/schemas/v4/wxs">
   <Fragment>
     <ComponentGroup Id="CG.Cleanup">
-      <Component Id="CMP.CleanupLogs" Directory="LOGSFOLDER" Guid="230E00EA-8F5A-47A2-BD4A-298A95CDB91F">
+      <Component Id="CMP.CleanupLogs" Directory="INSTALLFOLDER" Guid="230E00EA-8F5A-47A2-BD4A-298A95CDB91F">
         <CreateFolder />
         <RemoveFile Id="RM.LogDashboard" Name="dashboard.log*" On="uninstall" />
         <RegistryValue Root="HKLM" Key="Software\EvaluaPro" Name="CleanupLogs" Type="integer" Value="1" KeyPath="yes" />
-      </Component>
-
-      <Component Id="CMP.CleanupMenuDir" Directory="EvaluaProMenuDir" Guid="5B3D05AC-0D5E-4E96-A86D-38E7F06949E7">
-        <RemoveFolder Id="RF.MenuFolder" On="uninstall" />
-        <RegistryValue Root="HKLM" Key="Software\EvaluaPro" Name="CleanupMenuDir" Type="integer" Value="1" KeyPath="yes" />
       </Component>
     </ComponentGroup>
   </Fragment>

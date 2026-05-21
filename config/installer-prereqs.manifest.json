@@ -36,7 +36,7 @@
     },
     {
       "name": "Docker Runtime Windows",
-      "version": "wsl2-engine-default",
+      "version": "docker-compatible-runtime",
       "downloadUrl": "https://learn.microsoft.com/windows/wsl/install",
       "sha256": "GUIDED_BOOTSTRAP",
       "sha256Url": "",
@@ -59,7 +59,7 @@
         "type": "node_major_wsl",
         "minMajor": 24
       },
-      "usageScope": "stack-docente-minimo"
+      "usageScope": "stack-docente-minimo-wsl2-engine"
     }
   ]
 }

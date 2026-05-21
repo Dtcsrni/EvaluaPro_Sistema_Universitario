@@ -10,6 +10,9 @@ const burnBootstrapperProjectPath = path.join(root, 'packaging', 'wix', 'BurnBoo
 const burnBootstrapperSourcePath = path.join(root, 'packaging', 'wix', 'BurnBootstrapperApp', 'EvaluaProBootstrapperApplication.cs');
 const burnBootstrapperWindowPath = path.join(root, 'packaging', 'wix', 'BurnBootstrapperApp', 'MainWindow.xaml');
 const burnBootstrapperWindowCodePath = path.join(root, 'packaging', 'wix', 'BurnBootstrapperApp', 'MainWindow.xaml.cs');
+const designDocPath = path.join(root, 'docs', 'DESIGN.md');
+const installerHubUiLifecyclePath = path.join(root, 'scripts', 'tests', 'installer-hub-ui-lifecycle.ps1');
+const installerHubE2eDocentePath = path.join(root, 'scripts', 'tests', 'installer-hub-e2e-docente.ps1');
 const burnHelperPath = path.join(root, 'scripts', 'installer-burn', 'InstallerBurnHelper.ps1');
 const operationalConfigModulePath = path.join(root, 'scripts', 'installer-burn', 'modules', 'OperationalConfig.psm1');
 const licenseSecurityModulePath = path.join(root, 'scripts', 'installer-burn', 'modules', 'LicenseClientSecurity.psm1');
@@ -193,15 +196,197 @@ test('installer hub WPF publica timeline por etapas y resumen de error MSI visib
   assert.match(bootstrapper, /StageDetection = "detection"/);
   assert.match(bootstrapper, /TryExtractMsiFailureReason/);
   assert.match(bootstrapper, /FailureDisplay/);
+  assert.match(bootstrapper, /GetShellWindow/);
+  assert.match(bootstrapper, /GetDesktopWindow/);
   assert.match(mainWindowXaml, /StageTimelineHost/);
   assert.match(mainWindowXaml, /FailureSummaryBorder/);
   assert.match(mainWindowCodeBehind, /UpdateWorkflow\(InstallerWorkflowView workflow\)/);
+});
+
+test('Installer Hub cumple contrato DESIGN.md de layout y accesibilidad WPF', () => {
+  const design = fs.readFileSync(designDocPath, 'utf8');
+  const uxCriteria = fs.readFileSync(path.join(root, 'docs', 'UX_QUALITY_CRITERIA.md'), 'utf8');
+  const installerHubDocs = fs.readFileSync(path.join(root, 'docs', 'INSTALLER_HUB.md'), 'utf8');
+  const mainWindowXaml = fs.readFileSync(burnBootstrapperWindowPath, 'utf8');
+  const mainWindowCode = fs.readFileSync(burnBootstrapperWindowCodePath, 'utf8');
+
+  assert.match(design, /Fuente de verdad visual y UX para el Installer Hub/);
+  assert.match(design, /1024x768/);
+  assert.match(design, /AutomationProperties\.Name/);
+  assert.match(design, /Desinstalacion estandar|Desinstalación estandar|Desinstalación estándar/);
+  assert.match(design, /Layout Wizard Moderno/);
+  assert.match(design, /Preparar, Revisar, Ejecutar y Resultado/);
+  assert.match(design, /#F6F8FA/);
+  assert.match(uxCriteria, /docs\/DESIGN\.md/);
+  assert.match(installerHubDocs, /docs\/DESIGN\.md/);
+
+  assert.match(mainWindowXaml, /Width="1040"/);
+  assert.match(mainWindowXaml, /Height="760"/);
+  assert.match(mainWindowXaml, /MinWidth="980"/);
+  assert.match(mainWindowXaml, /MinHeight="700"/);
+  assert.doesNotMatch(mainWindowXaml, /Canvas IsHitTestVisible="False"/);
+  assert.doesNotMatch(mainWindowXaml, /CornerRadius="(?:1[0-9]|2[0-9])"/);
+  assert.match(mainWindowXaml, /KeyboardNavigation\.TabNavigation="Cycle"/);
+  assert.match(mainWindowXaml, /x:Name="StepperHost"/);
+  assert.match(mainWindowXaml, /x:Name="StepHost"/);
+  assert.match(mainWindowXaml, /x:Name="PrepareStepPanel"/);
+  assert.match(mainWindowXaml, /x:Name="ReviewStepPanel"/);
+  assert.match(mainWindowXaml, /x:Name="ExecuteStepPanel"/);
+  assert.match(mainWindowXaml, /x:Name="ResultStepPanel"/);
+  assert.match(mainWindowXaml, /PrimaryButtonStyle/);
+  assert.match(mainWindowXaml, /SecondaryButtonStyle/);
+  assert.match(mainWindowXaml, /DangerButtonStyle/);
+  assert.match(mainWindowXaml, /FieldLabelStyle/);
+  assert.match(mainWindowXaml, /HelpTextStyle/);
+  assert.match(mainWindowXaml, /StepCardStyle/);
+  assert.match(mainWindowXaml, /StatusBadgeStyle/);
+  assert.match(mainWindowXaml, /#0F766E/);
+  assert.match(mainWindowXaml, /#2563EB/);
+  assert.match(mainWindowXaml, /#B45309/);
+  assert.match(mainWindowXaml, /#B42318/);
+  assert.match(mainWindowXaml, /#15803D/);
+  assert.doesNotMatch(mainWindowXaml, /#F3EFE7|#F7F2E9|#F4F1EA/);
+  assert.doesNotMatch(mainWindowXaml, /LinearGradientBrush/);
+  assert.match(mainWindowXaml, /x:Name="AdvancedConfigExpander"[\s\S]*?IsExpanded="False"/);
+  assert.match(mainWindowXaml, /x:Name="LogExpander"[\s\S]*?IsExpanded="False"/);
+
+  for (const controlName of [
+    'FlavorComboBox',
+    'ModeComboBox',
+    'InstallDirTextBox',
+    'PrereqListView',
+    'InstallProgressBar',
+    'LogTextBox',
+    'BackButton',
+    'NextButton',
+    'DetectButton',
+    'StartButton',
+    'RestartNowButton',
+    'CloseButton'
+  ]) {
+    const controlPattern = new RegExp(`x:Name="${controlName}"[\\s\\S]*?AutomationProperties\\.Name=`);
+    assert.match(mainWindowXaml, controlPattern, `${controlName} debe tener AutomationProperties.Name`);
+  }
+
+  assert.match(mainWindowXaml, /Content="_Revisar equipo"/);
+  assert.match(mainWindowXaml, /Content="_Atrás"/);
+  assert.match(mainWindowXaml, /Content="_Siguiente"/);
+  assert.match(mainWindowXaml, /Content="_Continuar"/);
+  assert.match(mainWindowXaml, /Content="Reiniciar _ahora"/);
+  assert.match(mainWindowXaml, /Content="_Cerrar"/);
+  assert.match(mainWindowCode, /DetectButton\.Focus\(\)/);
+  assert.match(mainWindowCode, /GetModeActionLabel\(normalizedMode\)\.Replace\("_", string\.Empty\)/);
+  assert.match(mainWindowCode, /enum WizardStep/);
+  assert.match(mainWindowCode, /SetWizardStep\(WizardStep\.Prepare\)/);
+  assert.match(mainWindowCode, /BackButton_OnClick/);
+  assert.match(mainWindowCode, /NextButton_OnClick/);
+});
+
+test('Installer Hub tiene QA UIAutomation no destructivo para ciclo de vida visual', () => {
+  const packageJson = JSON.parse(fs.readFileSync(path.join(root, 'package.json'), 'utf8'));
+  const runner = fs.readFileSync(installerHubUiLifecyclePath, 'utf8');
+  const bootstrapper = fs.readFileSync(burnBootstrapperSourcePath, 'utf8');
+
+  assert.equal(
+    packageJson.scripts['test:installer-hub:ui'],
+    'powershell -NoProfile -ExecutionPolicy Bypass -File scripts/tests/installer-hub-ui-lifecycle.ps1'
+  );
+
+  assert.match(runner, /UIAutomationClient/);
+  assert.match(runner, /dist\\installer\\installer-local-paths\.json/);
+  assert.match(runner, /reports\\qa\\installer-hub-ui/);
+  assert.match(runner, /installer-hub-ui-automation-report\.json/);
+  assert.match(runner, /installer-hub-ui-automation\.log/);
+  assert.match(runner, /EVALUAPRO_INSTALLER_UI_QA_NO_PRODUCT_ACTION/);
+  assert.match(runner, /EVALUAPRO_INSTALLER_SIMULATE_WSL_BOOTSTRAP/);
+  assert.match(runner, /EVALUAPRO_INSTALLER_SIMULATE_AUTO_BOOTSTRAP/);
+  assert.match(runner, /EVALUAPRO_INSTALLER_SIMULATE_PRODUCT_ACTION/);
+  assert.match(runner, /EVALUAPRO_INSTALLER_ASSUME_INTERNET/);
+  assert.match(runner, /Capture-Window/);
+  assert.match(runner, /01-splash/);
+  assert.match(runner, /02-preparar/);
+  assert.match(runner, /03-revisar/);
+  assert.match(runner, /04-ejecutar-busy/);
+  assert.match(runner, /05-resultado/);
+  assert.match(runner, /06-avanzado/);
+  assert.match(runner, /07-min-980x700/);
+  assert.match(runner, /MoveWindow/);
+  assert.match(runner, /Select-ComboItem/);
+  assert.match(runner, /Test-ScrollPattern/);
+  assert.match(runner, /StartButton/);
+  assert.match(runner, /RestartNowButton/);
+  assert.match(runner, /CloseButton/);
+  assert.match(runner, /Stop-Process -Id \$process\.Id -Force/);
+
+  assert.match(bootstrapper, /EVALUAPRO_INSTALLER_UI_QA_NO_PRODUCT_ACTION/);
+  assert.match(bootstrapper, /SimulateUiQaProductActionAsync/);
+  assert.match(bootstrapper, /No se ejecuto la transaccion Burn\/MSI/);
+  assert.match(bootstrapper, /El producto real no fue modificado/);
+});
+
+test('Installer Hub tiene runner E2E real docente con guardas de VM y evidencia completa', () => {
+  const packageJson = JSON.parse(fs.readFileSync(path.join(root, 'package.json'), 'utf8'));
+  const runner = fs.readFileSync(installerHubE2eDocentePath, 'utf8');
+
+  assert.equal(
+    packageJson.scripts['test:installer-hub:e2e:docente'],
+    'powershell -NoProfile -ExecutionPolicy Bypass -File scripts/tests/installer-hub-e2e-docente.ps1'
+  );
+
+  assert.match(runner, /IUnderstandThisMutatesVm/);
+  assert.match(runner, /ExpectedSnapshotName = 'pre-evaluapro-installer-e2e'/);
+  assert.match(runner, /EVALUAPRO_E2E_VM_SNAPSHOT/);
+  assert.match(runner, /dist\\installer\\installer-local-paths\.json/);
+  assert.match(runner, /EvaluaPro-InstallerHub-docente-local/);
+  assert.match(runner, /Assert-Hash/);
+  assert.match(runner, /Get-EvaluaProUninstallEntries/);
+  assert.match(runner, /Invoke-DockerStableStack/);
+  assert.match(runner, /Assert-DockerStable/);
+  assert.match(runner, /Export-DockerEvidence/);
+  assert.match(runner, /Capture-DashboardScreenshots/);
+  assert.match(runner, /Write-TutorialMarkdown/);
+  assert.match(runner, /Assert-NoActiveEvaluaProAfterUninstall/);
+  assert.match(runner, /docker compose --profile prod up --build -d mongo_local api_docente_prod web_docente_prod/);
+  assert.match(runner, /docker-ps\.json/);
+  assert.match(runner, /docker-inspect\.json/);
+  assert.match(runner, /healthchecks\.json/);
+  assert.match(runner, /docker-logs/);
+  assert.match(runner, /\/api\/salud/);
+  assert.match(runner, /\/api\/status/);
+  assert.match(runner, /playwright.*screenshot/s);
+  assert.match(runner, /screenshots/);
+  assert.match(runner, /manifest/);
+  assert.match(runner, /processes/);
+  assert.match(runner, /report\.json/);
+  assert.match(runner, /tutorial\.md/);
+  assert.match(runner, /Invoke-InstallerHubMode -Mode 'install'/);
+  assert.match(runner, /Invoke-InstallerHubMode -Mode 'repair'/);
+  assert.match(runner, /Invoke-InstallerHubMode -Mode 'uninstall'/);
+  assert.match(runner, /Invoke-InstalledBroker -Action 'verify-installation'/);
+  assert.match(runner, /Invoke-InstalledBroker -Action 'open-dashboard'/);
+  assert.match(runner, /Wait-BootstrapState/);
+  assert.match(runner, /installation\.manifest\.json/);
+  assert.match(runner, /update-config\.json/);
+  assert.match(runner, /programdata-installer-hub-logs/);
+  assert.match(runner, /processes-before\.json/);
+  assert.match(runner, /processes-after\.json/);
+  assert.match(runner, /installer-hub-e2e-docente-report\.json/);
+
+  const tutorial = fs.readFileSync(path.join(root, 'docs', 'tutoriales', 'installer-hub-docente-e2e.md'), 'utf8');
+  assert.match(tutorial, /Tutorial visual E2E Installer Hub docente-local/);
+  assert.match(tutorial, /Docker stable/);
+  assert.match(tutorial, /docker compose --profile prod up --build -d/);
+  assert.match(tutorial, /report\.json/);
+  assert.match(tutorial, /screenshots\//);
+  assert.match(tutorial, /docker\//);
 });
 
 test('build-msi publica BA personalizada y conserva contrato de asset publico por flavor', () => {
   const buildScript = fs.readFileSync(path.join(root, 'scripts', 'build-msi.ps1'), 'utf8');
   const catalog = JSON.parse(fs.readFileSync(path.join(root, 'config', 'installer-flavors.json'), 'utf8'));
 
+  assert.match(buildScript, /solo se soporta en Windows/);
+  assert.match(buildScript, /RuntimeInformation/);
   assert.match(buildScript, /Publish-BurnBootstrapperApp/);
   assert.match(buildScript, /Remove-StaleInstallerArtifacts/);
   assert.match(buildScript, /Write-InstallerLocalPathsManifest/);
@@ -210,7 +395,16 @@ test('build-msi publica BA personalizada y conserva contrato de asset publico po
   assert.match(buildScript, /MsiSourcePath/);
   assert.match(buildScript, /\$DotNetExecutable publish/);
   assert.match(buildScript, /BootstrapperApp/);
+  assert.match(buildScript, /Invoke-InstallerHashesGeneration/);
   assert.equal(catalog.flavors.every((flavor) => flavor.bundleName === flavor.installerHubExeName), true);
+});
+
+test('generador de hashes publica SHASUMS256 agregado por directorio contractual', () => {
+  const hashScript = fs.readFileSync(path.join(root, 'scripts', 'generate-installer-hashes.ps1'), 'utf8');
+
+  assert.match(hashScript, /SHASUMS256\.txt/);
+  assert.match(hashScript, /\$shasumsByDirectory/);
+  assert.match(hashScript, /GetEnumerator\(\)/);
 });
 
 test('wrapper Install-EvaluaPro lanza el Hub sin forzar RunAs', () => {
@@ -317,9 +511,16 @@ test('bootstrapper Burn WPF .NET 8 orquesta deteccion, MSI y helper post-install
   assert.match(source, /RemediationPayload/);
   assert.match(source, /RequiresRestart/);
   assert.match(source, /RegisterRunOnceForResume/);
+  assert.match(source, /GetOperationTitle/);
+  assert.match(source, /GetWorkflowHint/);
+  assert.match(source, /GetStageDisplayLabel/);
   assert.match(source, /PersistResumeState/);
   assert.match(source, /RequestSystemRestart/);
   assert.match(source, /post-install/);
+  assert.match(source, /GetOperationProgressVerb/);
+  assert.match(source, /GetStageDisplayLabel/);
+  assert.match(source, /GetPostOperationStageTitle/);
+  assert.match(source, /GetOperationCompletedTitle/);
   assert.match(source, /EvaluaPro", "installer-hub", "logs"/);
   assert.match(source, /InstallFolder/);
   assert.match(source, /SelectedFlavorId/);
@@ -331,9 +532,14 @@ test('bootstrapper Burn WPF .NET 8 orquesta deteccion, MSI y helper post-install
   assert.match(windowXaml, /install/);
   assert.match(windowXaml, /repair/);
   assert.match(windowXaml, /uninstall/);
+  assert.match(windowXaml, /SelectionChanged="ModeComboBox_OnSelectionChanged"/);
+  assert.match(windowXaml, /BrandModeBadgeTextBlock/);
+  assert.match(windowXaml, /BrandFlavorBadgeTextBlock/);
+  assert.match(windowXaml, /BrandVersionBadgeTextBlock/);
+  assert.match(windowXaml, /BrandStatementTextBlock/);
   assert.match(windowXaml, /Analizando prerequisitos\.\.\./);
-  assert.match(windowXaml, /Configuración operativa/);
-  assert.match(windowXaml, /Licencia y (updates|actualizaciones)/);
+  assert.match(windowXaml, /Configuración avanzada/);
+  assert.match(windowXaml, /Requerir activación de licencia/);
   assert.match(windowXaml, /SplashOverlay/);
   assert.match(windowXaml, /RestartNowButton/);
   assert.match(windowXaml, /evaluapro-official-(hero|imagotipo)\.png/);
@@ -341,13 +547,17 @@ test('bootstrapper Burn WPF .NET 8 orquesta deteccion, MSI y helper post-install
   assert.match(windowCode, /NotifyInitialDetectionCompleted/);
   assert.match(windowCode, /SetRestartActionVisible/);
   assert.match(windowCode, /RestartRequested/);
+  assert.match(windowCode, /ModeChanged/);
+  assert.match(windowCode, /RefreshOperationalChrome/);
   assert.match(windowCode, /StartSplashFallbackWatcher/);
+  assert.match(windowXaml, /WorkflowHeaderTitleTextBlock/);
 
   assert.match(helper, /ValidateSet\('detect-prereqs', 'post-install'\)/);
   assert.match(helper, /configuracion_operativa/);
   assert.match(helper, /verificacion_final/);
   assert.match(helper, /blindaje_licencia_local/);
   assert.match(helper, /portable-license\.mjs/);
+  assert.match(helper, /mode -ne 'uninstall' -and \[string\]\$flavor\.flavorId -eq 'docente-local'/);
 });
 
 test('resolucion de flavors funciona en layout plano del bundle Burn', () => {
@@ -444,6 +654,29 @@ test('runtime Burn concentra configuracion operativa, prerequisitos y blindaje d
   assert.match(prereqInstaller, /Invoke-PrerequisiteInstallationFlow/);
 });
 
+test('runtime embebido rehace runtime y evita Move-Item frágil', () => {
+  const helper = fs.readFileSync(burnHelperPath, 'utf8');
+
+  assert.match(helper, /Remove-Item -LiteralPath \$runtimeRoot -Recurse -Force -ErrorAction Stop/);
+  assert.match(helper, /New-Item -ItemType Directory -Path \$runtimeRoot -Force \| Out-Null/);
+  assert.match(helper, /Copy-Item -Path \(Join-Path \$expandedRoot\.FullName '\*'\) -Destination \$stagingRoot -Recurse -Force/);
+  assert.match(helper, /New-Item -ItemType Directory -Path \$nodeRoot -Force \| Out-Null/);
+  assert.match(helper, /Copy-Item -Path \(Join-Path \$stagingRoot '\*'\) -Destination \$nodeRoot -Recurse -Force/);
+  assert.doesNotMatch(helper, /Move-Item -LiteralPath \$stagingRoot -Destination \$nodeRoot -Force/);
+});
+
+test('helper Burn limpia residuos de uninstall y omite refresh/verification restringida', () => {
+  const helper = fs.readFileSync(burnHelperPath, 'utf8');
+  const operationalConfig = fs.readFileSync(operationalConfigModulePath, 'utf8');
+
+  assert.match(helper, /Invoke-DesktopAssetRefresh -InstallDir \$installDir -FlavorId \(\[string\]\$flavor\.flavorId\) -SkipManifestUpdate/);
+  assert.match(helper, /if \(\$mode -eq 'uninstall'\) \{/);
+  assert.match(helper, /Remove-InstallerInstallDirectory -InstallDir \$installDir/);
+  assert.match(helper, /Blindaje de licencia omitido en uninstall\./);
+  assert.match(operationalConfig, /if \(\$Mode -eq 'uninstall'\) \{/);
+  assert.match(operationalConfig, /Configuracion operativa omitida en desinstalacion\./);
+});
+
 test('solo Burn queda soportado y el legado WinForms desaparece del arbol', () => {
   assert.equal(fs.existsSync(path.join(root, 'scripts', 'installer-hub', 'InstallerHub.ps1')), false);
   assert.equal(fs.existsSync(path.join(root, 'scripts', 'installer-hub', 'modules', 'WizardUi.psm1')), false);
@@ -531,6 +764,7 @@ test('launcher broker unifica shortcuts, hub y splash state', () => {
   const dashboard = fs.readFileSync(path.join(root, 'scripts', 'launcher-dashboard.mjs'), 'utf8');
   const trayHidden = fs.readFileSync(path.join(root, 'scripts', 'launcher-tray-hidden.vbs'), 'utf8');
   const shortcuts = fs.readFileSync(path.join(root, 'scripts', 'create-shortcuts.ps1'), 'utf8');
+  const manifestScript = fs.readFileSync(path.join(root, 'scripts', 'generate-installation-manifest.ps1'), 'utf8');
 
   assert.match(broker, /booting_dashboard/);
   assert.match(broker, /booting_stack/);
@@ -541,11 +775,41 @@ test('launcher broker unifica shortcuts, hub y splash state', () => {
   assert.match(trayHidden, /launcher-broker\.ps1/);
   assert.match(trayHidden, /runId/);
   assert.match(shortcuts, /EvaluaPro - Hub/);
+  assert.match(shortcuts, /EvaluaPro - Desinstalar/);
   assert.match(shortcuts, /open-hub/);
+  assert.match(shortcuts, /uninstall \$Port auto/);
+  assert.match(broker, /Iniciando desinstalacion guiada/);
+  assert.match(shortcuts, /installer-canonical\.ico/);
+  assert.match(shortcuts, /Resolve-InstalledShortcutIconPath/);
+  assert.match(shortcuts, /Remove-LegacyShortcutIcons/);
+  assert.doesNotMatch(shortcuts, /Save-IcoFromPngImages/);
+  assert.doesNotMatch(shortcuts, /New-MultiSizeIcon/);
   assert.match(dashboard, /resolveInstallerHubExecutablePath/);
+  assert.match(dashboard, /kind === 'uninstall'/);
   assert.match(dashboard, /installer-local-paths\.json/);
   assert.match(dashboard, /requireLocalPortal/);
+  assert.match(manifestScript, /installer-canonical\.ico/);
+  assert.match(manifestScript, /EvaluaPro - Desinstalar/);
+  assert.doesNotMatch(manifestScript, /dashboard-hub\.ico/);
   assert.doesNotMatch(dashboard, /scripts[\\/]+installer-hub[\\/]+InstallerHub\.ps1/);
+});
+
+test('dashboard protege operaciones privilegiadas de soporte con step-up y allowlist', () => {
+  const dashboard = fs.readFileSync(path.join(root, 'scripts', 'launcher-dashboard.mjs'), 'utf8');
+
+  assert.match(dashboard, /privilegedSupportActions/);
+  assert.match(dashboard, /hub-install/);
+  assert.match(dashboard, /hub-repair/);
+  assert.match(dashboard, /hub-update-apply/);
+  assert.match(dashboard, /hub-uninstall/);
+  assert.match(dashboard, /resolveSupportAuthorization/);
+  assert.match(dashboard, /readVerifiedStepUpStatus/);
+  assert.match(dashboard, /Get-EvaluaProStepUpStatus/);
+  assert.match(dashboard, /step_up_required/);
+  assert.match(dashboard, /support_action_not_allowed/);
+  assert.match(dashboard, /support_confirmation_required/);
+  assert.match(dashboard, /\/api\/support\/privileged\/status/);
+  assert.match(dashboard, /\/api\/support\/privileged\/run/);
 });
 
 test('configuracion operativa rechaza ajustes inseguros o invalidos (fail-fast)', () => {
@@ -633,6 +897,62 @@ $runtime = Get-DockerRuntimeStatus
   assert.equal(parsed.runtime.ready, false);
   assert.equal(parsed.prereq.installed, false);
   assert.match(String(parsed.prereq.reason || ''), /daemon no responde/i);
+});
+
+test('docker_runtime_windows acepta Docker Desktop operativo como runtime compatible', () => {
+  const detectorModulePath = path.join(root, 'scripts', 'installer-burn', 'modules', 'PrereqDetector.psm1');
+  const script = `
+$env:EVALUAPRO_INSTALLER_SIMULATE_DOCKER_RUNTIME_MODE='desktop'
+$env:EVALUAPRO_INSTALLER_SIMULATE_WSL_NODE_MAJOR='0'
+Import-Module -Force -WarningAction SilentlyContinue '${detectorModulePath.replace(/'/g, "''")}'
+$dockerPrereq = [pscustomobject]@{
+  name = 'Docker Runtime Windows'
+  detectRule = [pscustomobject]@{ type = 'docker_runtime_windows' }
+}
+$nodeWslPrereq = [pscustomobject]@{
+  name = 'Node.js WSL2'
+  detectRule = [pscustomobject]@{ type = 'node_major_wsl'; minMajor = 24 }
+}
+[pscustomobject]@{
+  docker = Test-PrerequisiteStatus -Prerequisite $dockerPrereq
+  nodeWsl = Test-PrerequisiteStatus -Prerequisite $nodeWslPrereq
+  runtime = Get-DockerRuntimeStatus
+} | ConvertTo-Json -Depth 8
+`.trim();
+
+  const result = runPowerShell(script);
+  if (result.skipped) {
+    return;
+  }
+
+  const parsed = parseJsonOutput(result.stdout);
+  assert.equal(parsed.runtime.mode, 'desktop');
+  assert.equal(parsed.docker.installed, true);
+  assert.equal(parsed.nodeWsl.installed, true);
+  assert.match(String(parsed.nodeWsl.reason || ''), /no es requerido/i);
+});
+
+test('docente-local prioriza WSL2 si Docker Desktop existe pero daemon no responde', () => {
+  const detectorModulePath = path.join(root, 'scripts', 'installer-burn', 'modules', 'PrereqDetector.psm1');
+  const script = `
+$env:EVALUAPRO_DOCKER_RUNTIME='wsl2-engine'
+$env:EVALUAPRO_INSTALLER_SIMULATE_DOCKER_RUNTIME_MODE='desktop-daemon-down-wsl-ready'
+Import-Module -Force -WarningAction SilentlyContinue '${detectorModulePath.replace(/'/g, "''")}'
+$runtime = Get-DockerRuntimeStatus
+$runtime | ConvertTo-Json -Depth 8
+`.trim();
+
+  const result = runPowerShell(script);
+  if (result.skipped) {
+    return;
+  }
+
+  const parsed = parseJsonOutput(result.stdout);
+  assert.equal(parsed.preference, 'wsl2-engine');
+  assert.equal(parsed.mode, 'wsl2-bootstrap-required');
+  assert.equal(parsed.desktopInstalled, true);
+  assert.equal(parsed.ready, false);
+  assert.match(String(parsed.reason || ''), /prioriza bootstrap WSL2|WSL2 detectado/i);
 });
 
 test('bootstrap guiado WSL2 genera guia local y permite simulacion de cierre', () => {
@@ -874,6 +1194,8 @@ $r | ConvertTo-Json -Depth 8
     const envRaw = fs.readFileSync(envPath, 'utf8');
     assert.match(envRaw, /MONGODB_URI=/);
     assert.match(envRaw, /JWT_SECRETO=/);
+    assert.match(envRaw, /EVALUAPRO_FLAVOR=docente-local/);
+    assert.match(envRaw, /PORTAL_SYNC_REQUIRED=1/);
     assert.match(envRaw, /PORTAL_ALUMNO_API_KEY=portal-key-shared/);
     assert.match(envRaw, /PORTAL_API_KEY=portal-key-shared/);
 
@@ -886,6 +1208,43 @@ $r | ConvertTo-Json -Depth 8
     assert.equal(updateConfig.repo, 'EvaluaPro_Sistema_Universitario');
     assert.equal(updateConfig.requireSha256, true);
     assert.equal(updateConfig.assetName, 'EvaluaPro-InstallerHub-docente-local.exe');
+  } finally {
+    fs.rmSync(tempRoot, { recursive: true, force: true });
+  }
+});
+
+test('configuracion operativa difiere portal cloud en instalacion minima docente', () => {
+  const tempRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'evaluapro-installerhub-minimo-'));
+  const installDir = path.join(tempRoot, 'EvaluaPro');
+  fs.mkdirSync(path.join(installDir, 'config'), { recursive: true });
+
+  const script = `
+Import-Module -Force -WarningAction SilentlyContinue '${operationalConfigModulePath.replace(/'/g, "''")}'
+$cfg = @{
+  flavorId='docente-local'
+  updateChannel='stable'
+  updateOwner='Dtcsrni'
+  updateRepo='EvaluaPro_Sistema_Universitario'
+}
+$r = Invoke-EvaluaProOperationalConfiguration -Mode install -InstallDir '${installDir.replace(/'/g, "''")}' -Config $cfg
+$r | ConvertTo-Json -Depth 8
+`.trim();
+
+  const result = runPowerShell(script);
+  try {
+    if (result.skipped) {
+      return;
+    }
+    const parsed = parseJsonOutput(result.stdout);
+    if (parsed && Object.prototype.hasOwnProperty.call(parsed, 'ok')) {
+      assert.equal(parsed.ok, true);
+    }
+
+    const envRaw = fs.readFileSync(path.join(installDir, '.env'), 'utf8');
+    assert.match(envRaw, /EVALUAPRO_FLAVOR=docente-local/);
+    assert.match(envRaw, /PORTAL_SYNC_REQUIRED=0/);
+    assert.match(envRaw, /PORTAL_ALUMNO_URL=\r?\n/);
+    assert.match(envRaw, /PASSWORD_RESET_ENABLED=0/);
   } finally {
     fs.rmSync(tempRoot, { recursive: true, force: true });
   }

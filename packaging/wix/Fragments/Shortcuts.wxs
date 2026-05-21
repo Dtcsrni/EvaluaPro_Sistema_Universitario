@@ -15,6 +15,7 @@
         <RegistryValue Root="HKLM" Key="Software\EvaluaPro" Name="DesktopProd" Type="integer" Value="1" KeyPath="yes" />
       </Component>
 
+      <?if $(var.FlavorId) != docente-local ?>
       <Component Id="CMP.ShortcutDesktopDev" Directory="DesktopFolder" Guid="80AF25AB-8F98-4DE0-AF43-C84F536FC779" Condition="INSTALL_DESKTOP_SHORTCUTS = 1">
         <Shortcut
           Id="SC.DesktopDev"
@@ -27,8 +28,9 @@
         <RemoveFolder Id="RF.DesktopDev" On="uninstall" />
         <RegistryValue Root="HKLM" Key="Software\EvaluaPro" Name="DesktopDev" Type="integer" Value="1" KeyPath="yes" />
       </Component>
+      <?endif?>
 
-      <Component Id="CMP.ShortcutMenuProd" Directory="EvaluaProMenuDir" Guid="86FC4E0A-3C0A-45A7-9B6F-4BD3EA1C90B8" Condition="INSTALL_STARTMENU_SHORTCUTS = 1">
+      <Component Id="CMP.ShortcutMenuProd" Directory="ProgramMenuFolder" Guid="86FC4E0A-3C0A-45A7-9B6F-4BD3EA1C90B8" Condition="INSTALL_STARTMENU_SHORTCUTS = 1">
         <Shortcut
           Id="SC.MenuProd"
           Name="EvaluaPro - Prod"
@@ -40,7 +42,8 @@
         <RegistryValue Root="HKLM" Key="Software\EvaluaPro" Name="MenuProd" Type="integer" Value="1" KeyPath="yes" />
       </Component>
 
-      <Component Id="CMP.ShortcutMenuDev" Directory="EvaluaProMenuDir" Guid="CC7D14A6-C42B-40CC-8A35-A8C7CEB8D2A2" Condition="INSTALL_STARTMENU_SHORTCUTS = 1">
+      <?if $(var.FlavorId) != docente-local ?>
+      <Component Id="CMP.ShortcutMenuDev" Directory="ProgramMenuFolder" Guid="CC7D14A6-C42B-40CC-8A35-A8C7CEB8D2A2" Condition="INSTALL_STARTMENU_SHORTCUTS = 1">
         <Shortcut
           Id="SC.MenuDev"
           Name="EvaluaPro - Dev"
@@ -51,8 +54,9 @@
           Icon="EvaluaProIconDev" />
         <RegistryValue Root="HKLM" Key="Software\EvaluaPro" Name="MenuDev" Type="integer" Value="1" KeyPath="yes" />
       </Component>
+      <?endif?>
 
-      <Component Id="CMP.ShortcutMenuOpenDashboard" Directory="EvaluaProMenuDir" Guid="9B65D0BA-1659-4DB3-B7E8-5D1B4E8A4DD1" Condition="INSTALL_STARTMENU_SHORTCUTS = 1">
+      <Component Id="CMP.ShortcutMenuOpenDashboard" Directory="ProgramMenuFolder" Guid="9B65D0BA-1659-4DB3-B7E8-5D1B4E8A4DD1" Condition="INSTALL_STARTMENU_SHORTCUTS = 1">
         <Shortcut
           Id="SC.MenuOpenDashboard"
           Name="EvaluaPro - Abrir Dashboard"
@@ -64,7 +68,7 @@
         <RegistryValue Root="HKLM" Key="Software\EvaluaPro" Name="MenuOpenDashboard" Type="integer" Value="1" KeyPath="yes" />
       </Component>
 
-      <Component Id="CMP.ShortcutMenuRestartStack" Directory="EvaluaProMenuDir" Guid="D6B1CE99-1D23-422E-84F8-CCB675CB0078" Condition="INSTALL_STARTMENU_SHORTCUTS = 1">
+      <Component Id="CMP.ShortcutMenuRestartStack" Directory="ProgramMenuFolder" Guid="D6B1CE99-1D23-422E-84F8-CCB675CB0078" Condition="INSTALL_STARTMENU_SHORTCUTS = 1">
         <Shortcut
           Id="SC.MenuRestartStack"
           Name="EvaluaPro - Reiniciar Stack"
@@ -76,7 +80,7 @@
         <RegistryValue Root="HKLM" Key="Software\EvaluaPro" Name="MenuRestartStack" Type="integer" Value="1" KeyPath="yes" />
       </Component>
 
-      <Component Id="CMP.ShortcutMenuStopAll" Directory="EvaluaProMenuDir" Guid="6CB230CC-5F29-4619-A43C-55D8D8326522" Condition="INSTALL_STARTMENU_SHORTCUTS = 1">
+      <Component Id="CMP.ShortcutMenuStopAll" Directory="ProgramMenuFolder" Guid="6CB230CC-5F29-4619-A43C-55D8D8326522" Condition="INSTALL_STARTMENU_SHORTCUTS = 1">
         <Shortcut
           Id="SC.MenuStopAll"
           Name="EvaluaPro - Detener Todo"
@@ -88,7 +92,19 @@
         <RegistryValue Root="HKLM" Key="Software\EvaluaPro" Name="MenuStopAll" Type="integer" Value="1" KeyPath="yes" />
       </Component>
 
-      <Component Id="CMP.ShortcutMenuRepair" Directory="EvaluaProMenuDir" Guid="D7CEFD46-16FE-4E5E-BD8A-81FB6B0BE8A8" Condition="INSTALL_STARTMENU_SHORTCUTS = 1">
+      <Component Id="CMP.ShortcutMenuUninstall" Directory="ProgramMenuFolder" Guid="C53F9E1E-D33C-48B4-89F4-19FE28B8B307" Condition="INSTALL_STARTMENU_SHORTCUTS = 1">
+        <Shortcut
+          Id="SC.MenuUninstall"
+          Name="EvaluaPro - Desinstalar"
+          Description="Inicia la desinstalación guiada de EvaluaPro"
+          Target="[System64Folder]wscript.exe"
+          Arguments="//nologo &quot;[INSTALLFOLDER]scripts\shortcut-op-hidden.vbs&quot; uninstall 4519 auto"
+          WorkingDirectory="INSTALLFOLDER"
+          Icon="EvaluaProIconStop" />
+        <RegistryValue Root="HKLM" Key="Software\EvaluaPro" Name="MenuUninstall" Type="integer" Value="1" KeyPath="yes" />
+      </Component>
+
+      <Component Id="CMP.ShortcutMenuRepair" Directory="ProgramMenuFolder" Guid="D7CEFD46-16FE-4E5E-BD8A-81FB6B0BE8A8" Condition="INSTALL_STARTMENU_SHORTCUTS = 1">
         <Shortcut
           Id="SC.MenuRepair"
           Name="EvaluaPro - Reparar Entorno"

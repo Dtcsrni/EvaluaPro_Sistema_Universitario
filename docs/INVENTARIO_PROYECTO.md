@@ -25,6 +25,10 @@ Version visible objetivo: `1.0.0b`
 
 ## 2.1) Footprint y clasificacion del corte 2026-03-20
 - Recorte `docente-local` 2026-04-08:
+  - corte Lite 2026-05-20:
+    - instalacion minima docente difiere portal/sync e integraciones no criticas mediante `EVALUAPRO_FLAVOR=docente-local` + `PORTAL_SYNC_REQUIRED=0`
+    - Dashboard concentra operaciones Hub/update sensibles tras step-up local y allowlist de soporte
+    - `npm run installer:docente:baseline` deja evidencia no destructiva para comparar footprint antes de topologia compacta o spike sin Docker
   - se corrige la desalineación entre prerequisitos validados por Burn y `Launch Conditions` del MSI:
     - `docente-local` ya no debe fallar con `1603/0x80070643` por revalidación host de Docker cuando Burn ya aprobó `WSL2 + Docker`
     - el Installer Hub WPF agrega timeline explícito de etapas y resumen visual de error MSI para no depender solo de la bitácora
@@ -142,6 +146,11 @@ Version visible objetivo: `1.0.0b`
   - guia `docs/POLITICA_ECONOMIA_TOKENS_CODEX.md`
   - selector `npm run ai:model:pick`
   - prueba local `npm run test:ai:model-router`
+  - integracion Serena MCP repo-local en `.codex/config.toml` + `.codex/hooks.json`
+  - verificacion local `npm run ai:serena:status`
+  - enforcement explícito `SERENA REQUIRED ALWAYS` en hooks repo/global y `AGENTS.md`
+  - protocolo obligatorio Serena para consultas acotadas (`relative_path`, `max_answer_chars`, simbolos primero, shell como fallback)
+  - verificacion integral repo + global `npm run ai:serena:policy:status`
   - alcance limitado a seleccion de modelo, compactacion de contexto y apertura de chat nuevo
 - PWA frontend:
   - manifests separados `docente` y `alumno` con `id` estable

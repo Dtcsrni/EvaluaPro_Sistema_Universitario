@@ -53,10 +53,10 @@ function Normalize-OperationalConfig {
     puertoApi = [string](Get-InstallerHubConfigValue -InputConfig $InputConfig -Key 'puertoApi' -DefaultValue '4000')
     puertoPortal = [string](Get-InstallerHubConfigValue -InputConfig $InputConfig -Key 'puertoPortal' -DefaultValue '4518')
     corsOrigenes = [string](Get-InstallerHubConfigValue -InputConfig $InputConfig -Key 'corsOrigenes' -DefaultValue 'http://localhost:4173,http://127.0.0.1:4173')
-    portalAlumnoUrl = [string](Get-InstallerHubConfigValue -InputConfig $InputConfig -Key 'portalAlumnoUrl' -DefaultValue 'https://portal-alumno.example.edu')
+    portalAlumnoUrl = [string](Get-InstallerHubConfigValue -InputConfig $InputConfig -Key 'portalAlumnoUrl' -DefaultValue '')
     portalAlumnoApiKey = [string](Get-InstallerHubConfigValue -InputConfig $InputConfig -Key 'portalAlumnoApiKey' -DefaultValue '')
     portalApiKey = [string](Get-InstallerHubConfigValue -InputConfig $InputConfig -Key 'portalApiKey' -DefaultValue '')
-    passwordResetEnabled = ConvertTo-InstallerHubBool -Value ([string](Get-InstallerHubConfigValue -InputConfig $InputConfig -Key 'passwordResetEnabled' -DefaultValue '1'))
+    passwordResetEnabled = ConvertTo-InstallerHubBool -Value ([string](Get-InstallerHubConfigValue -InputConfig $InputConfig -Key 'passwordResetEnabled' -DefaultValue '0'))
     passwordResetTokenMinutes = [string](Get-InstallerHubConfigValue -InputConfig $InputConfig -Key 'passwordResetTokenMinutes' -DefaultValue '30')
     passwordResetUrlBase = [string](Get-InstallerHubConfigValue -InputConfig $InputConfig -Key 'passwordResetUrlBase' -DefaultValue '')
     googleOauthClientId = [string](Get-InstallerHubConfigValue -InputConfig $InputConfig -Key 'googleOauthClientId' -DefaultValue '')
@@ -67,7 +67,7 @@ function Normalize-OperationalConfig {
     correoModuloActivo = ConvertTo-InstallerHubBool -Value ([string](Get-InstallerHubConfigValue -InputConfig $InputConfig -Key 'correoModuloActivo' -DefaultValue '0'))
     notificacionesWebhookUrl = [string](Get-InstallerHubConfigValue -InputConfig $InputConfig -Key 'notificacionesWebhookUrl' -DefaultValue '')
     notificacionesWebhookToken = [string](Get-InstallerHubConfigValue -InputConfig $InputConfig -Key 'notificacionesWebhookToken' -DefaultValue '')
-    requireLicenseActivation = ConvertTo-InstallerHubBool -Value ([string](Get-InstallerHubConfigValue -InputConfig $InputConfig -Key 'requireLicenseActivation' -DefaultValue '1'))
+    requireLicenseActivation = ConvertTo-InstallerHubBool -Value ([string](Get-InstallerHubConfigValue -InputConfig $InputConfig -Key 'requireLicenseActivation' -DefaultValue '0'))
     apiComercialBaseUrl = [string](Get-InstallerHubConfigValue -InputConfig $InputConfig -Key 'apiComercialBaseUrl' -DefaultValue '')
     tenantId = [string](Get-InstallerHubConfigValue -InputConfig $InputConfig -Key 'tenantId' -DefaultValue '')
     codigoActivacion = [string](Get-InstallerHubConfigValue -InputConfig $InputConfig -Key 'codigoActivacion' -DefaultValue '')
@@ -84,6 +84,8 @@ function Normalize-OperationalConfig {
   if ([string]::IsNullOrWhiteSpace($cfg.jwtSecreto)) {
     $cfg.jwtSecreto = New-GeneratedSecret
   }
+  $cfg.flavorId = $cfg.flavorId.Trim().ToLowerInvariant()
+  $cfg['deferPortalIntegration'] = ([string]$cfg.flavorId -eq 'docente-local' -and [string]::IsNullOrWhiteSpace($cfg.portalAlumnoUrl))
   if ([string]::IsNullOrWhiteSpace($cfg.portalAlumnoApiKey) -and -not [string]::IsNullOrWhiteSpace($cfg.portalApiKey)) {
     $cfg.portalAlumnoApiKey = $cfg.portalApiKey
   } elseif ([string]::IsNullOrWhiteSpace($cfg.portalApiKey) -and -not [string]::IsNullOrWhiteSpace($cfg.portalAlumnoApiKey)) {
@@ -122,7 +124,11 @@ function Test-OperationalConfig {
     }
   }
 
-  foreach ($key in @('mongoUri', 'jwtSecreto', 'corsOrigenes', 'portalAlumnoUrl', 'portalAlumnoApiKey', 'portalApiKey')) {
+  $requiredKeys = @('mongoUri', 'jwtSecreto', 'corsOrigenes')
+  if (-not $Config.deferPortalIntegration) {
+    $requiredKeys += @('portalAlumnoUrl', 'portalAlumnoApiKey', 'portalApiKey')
+  }
+  foreach ($key in $requiredKeys) {
     if ([string]::IsNullOrWhiteSpace([string]$Config[$key])) {
       $errors += "Falta configuracion operativa obligatoria: $key"
     }
@@ -295,6 +301,8 @@ function Invoke-EvaluaProOperationalConfiguration {
   Set-OrReplaceEnvLine -Map $envMap -Key 'PUERTO_API' -Value $normalized.puertoApi
   Set-OrReplaceEnvLine -Map $envMap -Key 'PUERTO_PORTAL' -Value $normalized.puertoPortal
   Set-OrReplaceEnvLine -Map $envMap -Key 'CORS_ORIGENES' -Value $normalized.corsOrigenes
+  Set-OrReplaceEnvLine -Map $envMap -Key 'EVALUAPRO_FLAVOR' -Value $normalized.flavorId
+  Set-OrReplaceEnvLine -Map $envMap -Key 'PORTAL_SYNC_REQUIRED' -Value ($(if ($normalized.deferPortalIntegration) { '0' } else { '1' }))
   Set-OrReplaceEnvLine -Map $envMap -Key 'PORTAL_ALUMNO_URL' -Value $normalized.portalAlumnoUrl
   Set-OrReplaceEnvLine -Map $envMap -Key 'PORTAL_ALUMNO_API_KEY' -Value $normalized.portalAlumnoApiKey
   Set-OrReplaceEnvLine -Map $envMap -Key 'PORTAL_API_KEY' -Value $normalized.portalApiKey
@@ -367,6 +375,7 @@ function Invoke-EvaluaProOperationalConfiguration {
       jwtSecretoSet = -not [string]::IsNullOrWhiteSpace($normalized.jwtSecreto)
       corsOrigenes = $normalized.corsOrigenes
       portalAlumnoUrl = $normalized.portalAlumnoUrl
+      portalIntegrationDeferred = [bool]$normalized.deferPortalIntegration
       portalAlumnoApiKeySet = -not [string]::IsNullOrWhiteSpace($normalized.portalAlumnoApiKey)
       portalApiKeySet = -not [string]::IsNullOrWhiteSpace($normalized.portalApiKey)
       passwordResetEnabled = [bool]$normalized.passwordResetEnabled
@@ -417,4 +426,3 @@ Export-ModuleMember -Function @(
   'Normalize-OperationalConfig',
   'Test-OperationalConfig'
 )
-

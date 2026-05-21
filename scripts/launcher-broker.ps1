@@ -1,7 +1,7 @@
 # Unified Windows launcher broker for EvaluaPro.
 # Orchestrates dashboard bootstrap, stack start, shortcuts, Hub and splash state.
 param(
-  [ValidateSet('open-dashboard', 'restart-stack', 'stop-all', 'repair', 'open-hub', 'verify-installation')]
+  [ValidateSet('open-dashboard', 'restart-stack', 'stop-all', 'repair', 'uninstall', 'open-hub', 'verify-installation')]
   [string]$Action = 'open-dashboard',
   [ValidateSet('dev', 'prod', 'auto')]
   [string]$Mode = 'auto',
@@ -91,7 +91,11 @@ function Get-LockPort {
     if (-not $raw) { return $null }
     $parsed = $raw | ConvertFrom-Json
     $candidate = if ($null -ne $parsed.port) { [int]$parsed.port } else { 0 }
-    if ($candidate -ge 1 -and $candidate -le 65535) { return $candidate }
+    if ($candidate -ge 1 -and $candidate -le 65535) {
+      if (Test-DashboardPortResponsive $candidate) { return $candidate }
+      Write-BrokerLog("Lockfile stale: dashboard no responde en puerto $candidate.")
+      try { Remove-Item -LiteralPath $lockPath -Force -ErrorAction SilentlyContinue } catch {}
+    }
   } catch {
     Write-BrokerLog("No se pudo leer lockfile: $($_.Exception.Message)")
   }
@@ -107,6 +111,51 @@ function Get-ApiBase([int]$requestedPort) {
 
 function Invoke-JsonGet([string]$url, [int]$timeoutSec = 3) {
   Invoke-RestMethod -Uri $url -Method Get -TimeoutSec $timeoutSec
+}
+
+function Test-DashboardPortResponsive([int]$candidatePort) {
+  if ($candidatePort -lt 1 -or $candidatePort -gt 65535) { return $false }
+  try {
+    $status = Invoke-JsonGet "http://127.0.0.1:$candidatePort/api/status" 2
+    return ($null -ne $status)
+  } catch {
+    return $false
+  }
+}
+
+function Stop-StaleDashboardOnPort([int]$candidatePort) {
+  if ($candidatePort -lt 1 -or $candidatePort -gt 65535) { return }
+  if (Test-DashboardPortResponsive $candidatePort) { return }
+
+  try {
+    $listeners = @(Get-NetTCPConnection -LocalPort $candidatePort -State Listen -ErrorAction SilentlyContinue)
+  } catch {
+    $listeners = @()
+  }
+
+  foreach ($listener in $listeners) {
+    $pid = [int]$listener.OwningProcess
+    if ($pid -le 0 -or $pid -eq $PID) { continue }
+    try {
+      $process = Get-CimInstance Win32_Process -Filter ("ProcessId={0}" -f $pid) -ErrorAction Stop
+      $commandLine = [string]$process.CommandLine
+      if ($commandLine -notmatch 'launcher-dashboard\.(mjs|ps1)') { continue }
+      Write-BrokerLog("Cerrando dashboard no responsivo en puerto $candidatePort (pid=$pid).")
+      Stop-Process -Id $pid -Force -ErrorAction SilentlyContinue
+    } catch {
+      Write-BrokerLog("No se pudo cerrar listener no responsivo en puerto $candidatePort (pid=$pid): $($_.Exception.Message)")
+    }
+  }
+}
+
+function Clear-StaleDashboardListeners([int]$requestedPort) {
+  $ports = @($requestedPort)
+  for ($offset = 0; $offset -lt 20; $offset += 1) {
+    $ports += (4519 + $offset)
+  }
+  foreach ($port in @($ports | Select-Object -Unique)) {
+    Stop-StaleDashboardOnPort ([int]$port)
+  }
 }
 
 function Invoke-JsonPost([string]$url, [hashtable]$body, [int]$timeoutSec = 10) {
@@ -138,6 +187,7 @@ function Ensure-DashboardRunning([string]$bootstrapMode, [int]$requestedPort) {
   if (-not (Test-Path -LiteralPath $dashboardLauncher)) {
     throw "No se encontro launcher del dashboard: $dashboardLauncher"
   }
+  Clear-StaleDashboardListeners -requestedPort $requestedPort
   $psExe = Resolve-PowerShellExecutable
   $args = @(
     '-NoProfile',
@@ -318,6 +368,11 @@ try {
   switch ($Action) {
     'open-dashboard' {
       $result = Ensure-StackReady -base $base -desiredMode $desiredMode -timeoutMs 150000
+      $finalReady = Wait-DashboardReady -requestedPort $Port -timeoutMs 15000
+      if (-not $finalReady) {
+        throw 'Dashboard dejo de responder antes de publicar estado final.'
+      }
+      $base = [string]$finalReady.base
       Invoke-ManifestRefresh
       if ($result.ok) {
         Set-BootstrapState -State 'healthy' -Message 'Plataforma docente lista.' -DesiredMode $desiredMode -Meta @{ degraded = [bool]$result.degraded; base = $base }
@@ -365,6 +420,16 @@ try {
       }
       Set-BootstrapState -State 'healthy' -Message 'Repair completado.' -DesiredMode $desiredMode -Meta @{ base = $base; repairRunId = $runIdRepair }
       Open-Url "$base/"
+    }
+    'uninstall' {
+      Set-BootstrapState -State 'booting_stack' -Message 'Iniciando desinstalacion guiada.' -DesiredMode $desiredMode
+      $run = Invoke-JsonPost "$base/api/lifecycle/uninstall" @{} 12
+      Invoke-ManifestRefresh
+      $detail = if ($null -ne $run.detail) { [string]$run.detail } else { '' }
+      if ($null -ne $run.ok -and -not [bool]$run.ok) {
+        throw "No se pudo iniciar desinstalacion (detail=$detail)."
+      }
+      Set-BootstrapState -State 'healthy' -Message 'Desinstalacion iniciada.' -DesiredMode $desiredMode -Meta @{ base = $base; detail = $detail }
     }
   }
 } catch {

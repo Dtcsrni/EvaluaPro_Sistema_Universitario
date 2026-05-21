@@ -6,6 +6,11 @@ Version visible GUI: `1.0.0b`
 
 ## Estado vigente
 - Corte 2026-04-08:
+  - `docente-local` Lite inicia configuracion diferida:
+    - backend productivo ya no exige portal cloud cuando `EVALUAPRO_FLAVOR=docente-local` y `PORTAL_SYNC_REQUIRED=0`
+    - Hub/verificador conservan fail-fast para stack local, pero portal/sync puede activarse al primer uso
+    - Dashboard protege operaciones Hub/update de soporte con sesion step-up y allowlist local
+    - `npm run installer:docente:baseline` captura baseline repo/host para cortes de footprint y spike sin Docker
   - Installer Hub corrige la desalineación Burn/MSI para `docente-local`:
     - `Product.wxs` ya no vuelve a disparar la `Launch Condition` host de Docker cuando Burn instala vía `REQUIRE_INSTALLER_HUB=1` / `BURNMSIINSTALL=1`
     - el bootstrapper WPF expone etapas visibles de instalación (`Detección`, `Remediación`, `Planificación`, `Ejecución MSI`, `Post-instalación`, `Finalización`)
@@ -96,6 +101,12 @@ Version visible GUI: `1.0.0b`
   - semantica `draft|final`
   - politica repo-local de economia de tokens para Codex en VS Code en `docs/POLITICA_ECONOMIA_TOKENS_CODEX.md`
   - selector `npm run ai:model:pick` y prueba `npm run test:ai:model-router` como apoyo local de enrutamiento
+  - integracion Serena MCP repo-local (`.codex/config.toml`, `.codex/hooks.json`) con verificacion `npm run ai:serena:status`
+  - politica Serena de bajo consumo activa en dos capas:
+    - repo: hooks + protocolo operativo acotado (`relative_path`, `max_answer_chars`, simbolos primero)
+    - global usuario Codex: `~/.codex/config.toml` + `~/.codex/hooks.json`
+  - enforcement explícito `SERENA REQUIRED ALWAYS` en hooks y regla obligatoria en `AGENTS.md`
+  - verificacion integral Serena: `npm run ai:serena:policy:status`
   - `npm run ci:policy:audit` valida el contrato via `npm run test:ia:traceability`
 - PWA frontend endurecida:
   - manifests `docente` y `alumno` con `id` estable y assets PNG/maskable dedicados

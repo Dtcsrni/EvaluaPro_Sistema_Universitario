@@ -77,11 +77,17 @@ const requireGoogleOAuth = esBanderaActiva(process.env.REQUIRE_GOOGLE_OAUTH);
 const codigoAccesoHoras = Number(process.env.CODIGO_ACCESO_HORAS ?? 12);
 const portalAlumnoUrl = process.env.PORTAL_ALUMNO_URL ?? '';
 const portalApiKey = process.env.PORTAL_ALUMNO_API_KEY ?? '';
+const flavorId = String(process.env.EVALUAPRO_FLAVOR ?? '').trim().toLowerCase();
+const portalSyncRequired = (() => {
+  const raw = String(process.env.PORTAL_SYNC_REQUIRED ?? '').trim();
+  if (raw) return esBanderaActiva(raw);
+  return entorno === 'production' && flavorId !== 'docente-local';
+})();
 const corsOrigenesRaw = String(process.env.CORS_ORIGENES ?? '').trim();
-if (entorno === 'production' && !portalAlumnoUrl) {
+if (portalSyncRequired && !portalAlumnoUrl) {
   throw new Error('PORTAL_ALUMNO_URL es requerido en producción');
 }
-if (entorno === 'production' && !portalApiKey) {
+if (portalSyncRequired && !portalApiKey) {
   throw new Error('PORTAL_ALUMNO_API_KEY es requerido en producción');
 }
 if (entorno === 'production' && !corsOrigenesRaw) {
@@ -206,8 +212,10 @@ export const configuracion = {
   classroomTokenCipherKey,
   requireGoogleOAuth,
   codigoAccesoHoras,
+  flavorId,
   portalAlumnoUrl,
   portalApiKey,
+  portalSyncRequired,
   rateLimitWindowMs,
   rateLimitLimit,
   rateLimitCredencialesLimit,

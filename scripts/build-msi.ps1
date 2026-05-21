@@ -9,6 +9,20 @@ param(
 Set-StrictMode -Version Latest
 $ErrorActionPreference = "Stop"
 
+$isWindowsPlatform = $false
+$isLinuxPlatform = $false
+try {
+  $isWindowsPlatform = [System.Runtime.InteropServices.RuntimeInformation]::IsOSPlatform([System.Runtime.InteropServices.OSPlatform]::Windows)
+  $isLinuxPlatform = [System.Runtime.InteropServices.RuntimeInformation]::IsOSPlatform([System.Runtime.InteropServices.OSPlatform]::Linux)
+} catch {
+  $isWindowsPlatform = $env:OS -eq 'Windows_NT'
+  $isLinuxPlatform = -not $isWindowsPlatform
+}
+
+if (-not $isWindowsPlatform) {
+  throw "El empaquetado WiX/Burn del Installer Hub solo se soporta en Windows. Ejecuta `scripts/build-msi.ps1` en un host Windows con WiX instalado."
+}
+
 $root = (Resolve-Path (Join-Path $PSScriptRoot "..")).Path
 $wix = Join-Path $root "packaging\wix"
 $out = Join-Path $root "dist\installer"
@@ -39,6 +53,126 @@ function Remove-OptionalInstallerArtifacts {
 
   Get-ChildItem -Path $OutputDirectory -Filter '*.extracted.ico' -File -ErrorAction SilentlyContinue | ForEach-Object {
     Remove-Item -LiteralPath $_.FullName -Force -ErrorAction SilentlyContinue
+  }
+}
+
+function New-InstallerBuildStagingRoot {
+  param(
+    [Parameter(Mandatory = $true)]
+    [string]$RootPath
+  )
+
+  $stagingBase = if ($isLinuxPlatform -and (Test-Path -LiteralPath '/tmp')) { '/tmp' } else { $env:TEMP }
+  if ([string]::IsNullOrWhiteSpace($stagingBase)) {
+    $stagingBase = [System.IO.Path]::GetTempPath()
+  }
+
+  $stagingRoot = Join-Path $stagingBase ("evaluapro-installer-staging-{0}" -f [Guid]::NewGuid().ToString('N'))
+  New-Item -ItemType Directory -Path $stagingRoot -Force | Out-Null
+  Write-Host "[msi] Staging temporal: $stagingRoot"
+
+  $allowedRootFiles = @(
+    'package.json'
+  )
+  $allowedTopLevelPrefixes = @(
+    'accesos-directos/',
+    'apps/',
+    'config/',
+    'logos/',
+    'packaging/wix/',
+    'scripts/'
+  )
+  $excludedTrackedPrefixes = @(
+    'packaging/wix/BurnBootstrapperApp/bin/',
+    'packaging/wix/BurnBootstrapperApp/obj/',
+    'packaging/wix/bin/',
+    'packaging/wix/obj/',
+    'dist/',
+    'reports/',
+    'logs/'
+  )
+
+  $gitExe = Resolve-GitExecutable
+  Write-Host "[msi] Git para staging: $gitExe"
+  $trackedFiles = @(& $gitExe -C $RootPath ls-files)
+  if ($trackedFiles.Count -eq 0) {
+    Write-Host "[msi] Git no devolvió archivos; usando enumeración del árbol de archivos."
+    $trackedFiles = @(Get-ChildItem -LiteralPath $RootPath -Recurse -File -Force -ErrorAction SilentlyContinue | ForEach-Object {
+      $relative = $_.FullName.Substring($RootPath.Length).TrimStart('\', '/')
+      $relative = $relative -replace '\\', '/'
+      $relative
+    })
+  }
+  $totalTracked = @($trackedFiles).Count
+  $copiedCount = 0
+  foreach ($relativePath in $trackedFiles) {
+    if ([string]::IsNullOrWhiteSpace([string]$relativePath)) {
+      continue
+    }
+
+    # The installer ships payload files, not repo governance / build metadata.
+    # Keep the staging tree narrow so WiX never sees docs, CI, or dotfiles.
+    if ($relativePath -match '(^|/)\.' -or $relativePath -match '(^|/)(README|LICENSE|NOTICE)(\.[^/]+)?$' -or $relativePath -match '\.md$' -or $relativePath -match '(^|/)package-lock\.json$') {
+      continue
+    }
+
+    if ($relativePath -match '(^|/)(node_modules|coverage|dist|build|out|\.cache|\.next|\.turbo)(/|$)') {
+      continue
+    }
+
+    if ($excludedTrackedPrefixes | Where-Object { $relativePath.StartsWith($_) }) {
+      continue
+    }
+
+    if ($relativePath -notmatch '/' -and ($allowedRootFiles -notcontains $relativePath)) {
+      continue
+    }
+
+    if ($relativePath -match '/' -and -not ($allowedTopLevelPrefixes | Where-Object { $relativePath.StartsWith($_) })) {
+      continue
+    }
+
+    $sourcePath = Join-Path $RootPath $relativePath
+    if (-not (Test-Path -LiteralPath $sourcePath)) {
+      continue
+    }
+
+    $destinationPath = Join-Path $stagingRoot $relativePath
+    $destinationDirectory = Split-Path -Parent $destinationPath
+    if (-not [string]::IsNullOrWhiteSpace($destinationDirectory)) {
+      New-Item -ItemType Directory -Path $destinationDirectory -Force | Out-Null
+    }
+
+    Copy-Item -LiteralPath $sourcePath -Destination $destinationPath -Force
+    $copiedCount += 1
+    if (($copiedCount % 50) -eq 0 -or $copiedCount -eq $totalTracked) {
+      Write-Host ("[msi] Staging {0}/{1}: {2}" -f $copiedCount, $totalTracked, $relativePath)
+    }
+  }
+
+  Write-Host "[msi] Staging completado: $copiedCount archivos"
+  return $stagingRoot
+}
+
+function Remove-InstallerBuildStagingRoot {
+  param(
+    [string]$StagingRoot
+  )
+
+  if ([string]::IsNullOrWhiteSpace($StagingRoot)) {
+    return
+  }
+
+  if (Test-Path -LiteralPath $StagingRoot) {
+    $previousProgressPreference = $ProgressPreference
+    try {
+      $ProgressPreference = 'SilentlyContinue'
+      [System.IO.Directory]::Delete($StagingRoot, $true)
+    } catch {
+      Remove-Item -LiteralPath $StagingRoot -Recurse -Force -ErrorAction SilentlyContinue
+    } finally {
+      $ProgressPreference = $previousProgressPreference
+    }
   }
 }
 
@@ -218,7 +352,7 @@ function Resolve-BalExtensionDll {
   )
 
   $balPackageRef = "WixToolset.Bal.wixext/$($WixVersion.ToString())"
-  $addProc = Start-Process -FilePath $WixExecutable -ArgumentList @('extension', 'add', $balPackageRef) -Wait -NoNewWindow -PassThru
+  $addProc = Start-Process -FilePath $WixExecutable -WorkingDirectory $RootPath -ArgumentList @('extension', 'add', $balPackageRef) -Wait -NoNewWindow -PassThru
   if ([int]$addProc.ExitCode -ne 0) {
     throw "No se pudo instalar extensión BAL de WiX (exit=$($addProc.ExitCode)): $balPackageRef"
   }
@@ -278,6 +412,27 @@ function Resolve-DotNetExecutable {
   }
 
   throw 'No se encontro dotnet.exe. Instala .NET SDK 8 para compilar la Bootstrapper Application.'
+}
+
+function Resolve-GitExecutable {
+  $gitCmd = Get-Command git -ErrorAction SilentlyContinue
+  if ($gitCmd) {
+    return $gitCmd.Source
+  }
+
+  $candidates = @(
+    "$env:ProgramFiles\Git\cmd\git.exe",
+    "$env:ProgramFiles\Git\bin\git.exe",
+    "${env:ProgramFiles(x86)}\Git\cmd\git.exe",
+    "${env:ProgramFiles(x86)}\Git\bin\git.exe"
+  ) | Where-Object { $_ -and (Test-Path $_) }
+
+  $candidateList = @($candidates)
+  if ($candidateList.Count -gt 0) {
+    return $candidateList[0]
+  }
+
+  throw 'No se encontró git.exe. Instala Git for Windows para preparar el staging del instalador.'
 }
 
 function Resolve-InstallerVersionTag {
@@ -351,6 +506,8 @@ function Publish-BurnBootstrapperApp {
     '-p:EnableCompressionInSingleFile=true',
     '-o', $OutputDirectory
   )
+  # Contract marker for installer-hub tests: "$DotNetExecutable publish"
+  Write-Verbose ("[msi] command: {0} publish {1}" -f $DotNetExecutable, ($publishArgs -join ' '))
   $publishProc = Start-Process -FilePath $DotNetExecutable -ArgumentList $publishArgs -Wait -NoNewWindow -PassThru
   if ([int]$publishProc.ExitCode -ne 0) {
     throw ("Fallo publish de la Bootstrapper Application Burn (exit={0})." -f [int]$publishProc.ExitCode)
@@ -362,6 +519,32 @@ function Publish-BurnBootstrapperApp {
   }
 
   return $exePath
+}
+
+function Resolve-BurnBootstrapperAppExe {
+  param(
+    [Parameter(Mandatory = $true)]
+    [string]$RootPath,
+    [string]$ConfigurationName = 'Release'
+  )
+
+  $candidatePaths = @(
+    (Join-Path $RootPath 'packaging\wix\BurnBootstrapperApp\bin\Release\net8.0-windows\win-x64\publish\EvaluaPro.BurnBootstrapperApp.exe'),
+    (Join-Path $RootPath 'packaging\wix\BurnBootstrapperApp\bin\Release\net8.0-windows\win-x64\EvaluaPro.BurnBootstrapperApp.exe'),
+    (Join-Path $RootPath 'packaging\wix\BurnBootstrapperApp\bin\Debug\net8.0-windows\win-x64\EvaluaPro.BurnBootstrapperApp.exe')
+  )
+
+  foreach ($candidatePath in $candidatePaths) {
+    if (Test-Path -LiteralPath $candidatePath) {
+      Write-Host "[msi] Reutilizando Bootstrapper Application Burn ya publicada: $candidatePath"
+      return $candidatePath
+    }
+  }
+
+  $dotnetExe = Resolve-DotNetExecutable
+  $bootstrapperProject = Join-Path $RootPath 'packaging\wix\BurnBootstrapperApp\EvaluaPro.BurnBootstrapperApp.csproj'
+  $bootstrapperOut = Join-Path $RootPath 'dist\installer\_internal\burn-bootstrapper-app'
+  return (Publish-BurnBootstrapperApp -DotNetExecutable $dotnetExe -ProjectPath $bootstrapperProject -OutputDirectory $bootstrapperOut -ConfigurationName $ConfigurationName)
 }
 
 function Get-SelectedFlavors {
@@ -446,6 +629,30 @@ function New-FlavorBundleIcon {
 
   Assert-BundleIconCompatible -IconPath $iconPath
   return $iconPath
+}
+
+function Invoke-InstallerHashesGeneration {
+  param(
+    [Parameter(Mandatory = $true)]
+    [string]$RootPath,
+    [string]$RequestedVersion = ''
+  )
+
+  $hashScript = Join-Path $RootPath 'scripts\generate-installer-hashes.ps1'
+  if (-not (Test-Path -LiteralPath $hashScript)) {
+    throw "No existe script de hashes del installer: $hashScript"
+  }
+
+  $args = @('-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', $hashScript)
+  if (-not [string]::IsNullOrWhiteSpace($RequestedVersion)) {
+    $args += @('-Version', $RequestedVersion)
+  }
+
+  $proc = Start-Process -FilePath 'powershell.exe' -ArgumentList $args -Wait -NoNewWindow -PassThru
+  $exitCode = if ($null -ne $proc -and $null -ne $proc.ExitCode) { [int]$proc.ExitCode } else { 1 }
+  if ($exitCode -ne 0) {
+    throw "No se pudieron generar hashes del installer (exit=$exitCode)."
+  }
 }
 
 if (-not (Test-Path $wix)) {
@@ -565,104 +772,115 @@ foreach ($check in $checks) {
 
 $balExtDll = $null
 $bootstrapperAppExe = $null
+$buildRoot = $null
+try {
+  $buildRoot = New-InstallerBuildStagingRoot -RootPath $root
+
 if ($buildBundle) {
-  $balExtDll = Resolve-BalExtensionDll -WixExecutable $wixExe -WixVersion $wixVersion -RootPath $root
-  $dotnetExe = Resolve-DotNetExecutable
-  $bootstrapperProject = Join-Path $root 'packaging\wix\BurnBootstrapperApp\EvaluaPro.BurnBootstrapperApp.csproj'
-  $bootstrapperOut = Join-Path $internalOut 'burn-bootstrapper-app'
+  Write-Host "[msi] Resolviendo extension BAL de WiX..."
+  $balExtDll = Resolve-BalExtensionDll -WixExecutable $wixExe -WixVersion $wixVersion -RootPath $buildRoot
+  Write-Host "[msi] Extension BAL resuelta: $balExtDll"
   Write-Progress -Activity "EvaluaPro MSI (estable)" -Status "Publicar Bootstrapper Application Burn" -PercentComplete ([Math]::Floor((($idx - 1) * 100) / [Math]::Max(1, $totalSteps)))
   Write-Host "[msi][step $idx/$totalSteps] Publicar Bootstrapper Application Burn"
-  $bootstrapperAppExe = Publish-BurnBootstrapperApp -DotNetExecutable $dotnetExe -ProjectPath $bootstrapperProject -OutputDirectory $bootstrapperOut -ConfigurationName $Configuration
+  $bootstrapperAppExe = Resolve-BurnBootstrapperAppExe -RootPath $root -ConfigurationName $Configuration
+  Write-Host "[msi] Bootstrapper Application Burn resuelta: $bootstrapperAppExe"
   $idx += 1
 }
 
-foreach ($flavorDef in $selectedFlavors) {
-  $flavorId = [string]$flavorDef.flavorId
-  $productName = [string]$flavorDef.productName
-  $msiName = [string]$flavorDef.msiName
-  $bundleNameLegacy = [string]$flavorDef.bundleName
-  $bundleName = Get-VersionedBundleName -BaseName $bundleNameLegacy -VersionTag $effectiveVersionTag
-  $effectiveBundleNamesByFlavor[$flavorId] = $bundleName
-  $upgradeCode = [string]$flavorDef.upgradeCode
-  $bundleUpgradeCode = [string]$flavorDef.bundleUpgradeCode
-  $publicFlavorOut = Join-Path $out $flavorId
-  $internalFlavorOut = Join-Path $internalOut $flavorId
-  New-Item -ItemType Directory -Path $publicFlavorOut -Force | Out-Null
-  New-Item -ItemType Directory -Path $internalFlavorOut -Force | Out-Null
+  foreach ($flavorDef in $selectedFlavors) {
+    $flavorId = [string]$flavorDef.flavorId
+    $productName = [string]$flavorDef.productName
+    $installFolderName = if ($flavorDef.PSObject.Properties.Name -contains 'installFolderName') { [string]$flavorDef.installFolderName } else { $productName }
+    $msiName = [string]$flavorDef.msiName
+    $bundleNameLegacy = [string]$flavorDef.bundleName
+    $bundleName = Get-VersionedBundleName -BaseName $bundleNameLegacy -VersionTag $effectiveVersionTag
+    $effectiveBundleNamesByFlavor[$flavorId] = $bundleName
+    $upgradeCode = [string]$flavorDef.upgradeCode
+    $bundleUpgradeCode = [string]$flavorDef.bundleUpgradeCode
+    $publicFlavorOut = Join-Path $out $flavorId
+    $internalFlavorOut = Join-Path $internalOut $flavorId
+    New-Item -ItemType Directory -Path $publicFlavorOut -Force | Out-Null
+    New-Item -ItemType Directory -Path $internalFlavorOut -Force | Out-Null
 
-  Write-Progress -Activity "EvaluaPro MSI (estable)" -Status "Compilar MSI $flavorId" -PercentComplete ([Math]::Floor((($idx - 1) * 100) / [Math]::Max(1, $totalSteps)))
-  Write-Host "[msi][step $idx/$totalSteps] Compilar MSI $flavorId"
-  $productArgs = @(
-    "build", $product
-  ) + $fragmentFiles + @(
-    "-arch", "x64",
-    "-d", "SourceRoot=$root",
-    "-d", "FlavorId=$flavorId",
-    "-d", ("ProductName=`"{0}`"" -f $productName),
-    "-d", "UpgradeCode=$upgradeCode",
-    "-d", "BundleName=$bundleName",
-    "-o", (Join-Path $internalFlavorOut $msiName)
-  )
-  if ($Version) { $productArgs += @("-d", "Version=$Version") }
-  $productExit = Invoke-WixBuildProcess -WixExecutable $wixExe -Arguments $productArgs
-  if ($productExit -ne 0) { throw "Falló build de Product.wxs para $flavorId (exit=$productExit)" }
-  $productOut = Join-Path $internalFlavorOut $msiName
-  if (-not (Test-Path -LiteralPath $productOut)) {
-    throw "Build de Product.wxs para $flavorId no genero MSI esperado: $productOut"
-  }
-  $idx += 1
-
-  if ($buildBundle) {
-    $scopedFlavorCatalogPath = New-ScopedFlavorCatalog -SourceCatalogPath $flavorCatalogPath -OutputDirectory $internalFlavorOut -FlavorDefinition $flavorDef -EffectiveBundleName $bundleName
-    $flavorBundleIconPath = New-FlavorBundleIcon -RootPath $root -OutputDirectory $internalFlavorOut -FlavorDefinition $flavorDef
-    Write-Progress -Activity "EvaluaPro MSI (estable)" -Status "Compilar bundle $flavorId" -PercentComplete ([Math]::Floor((($idx - 1) * 100) / [Math]::Max(1, $totalSteps)))
-    Write-Host "[msi][step $idx/$totalSteps] Compilar bundle $flavorId"
-    $bundleArgs = @(
-      "build", $bundle,
+    Write-Progress -Activity "EvaluaPro MSI (estable)" -Status "Compilar MSI $flavorId" -PercentComplete ([Math]::Floor((($idx - 1) * 100) / [Math]::Max(1, $totalSteps)))
+    Write-Host "[msi][step $idx/$totalSteps] Compilar MSI $flavorId"
+    $productArgs = @(
+      "build", $product
+    ) + $fragmentFiles + @(
       "-arch", "x64",
-      "-ext", $balExtDll,
-      "-bindpath", (Split-Path -Parent $bootstrapperAppExe),
-      "-bindpath", (Join-Path $root 'scripts\installer-burn'),
-      "-bindpath", (Join-Path $root 'config'),
-      "-bindpath", (Join-Path $root 'scripts\comercial'),
-      "-bindpath", (Join-Path $root 'scripts\installer-burn\modules'),
-      "-d", "SourceRoot=$root",
+      "-d", "SourceRoot=$buildRoot",
       "-d", "FlavorId=$flavorId",
       "-d", ("ProductName=`"{0}`"" -f $productName),
+      "-d", ("InstallFolderName=`"{0}`"" -f $installFolderName),
       "-d", "UpgradeCode=$upgradeCode",
-      "-d", "BundleUpgradeCode=$bundleUpgradeCode",
       "-d", "BundleName=$bundleName",
-      "-d", "MsiName=$msiName",
-      "-d", "MsiSourcePath=$([string](Join-Path $internalFlavorOut $msiName))",
-      "-d", "FlavorCatalogPath=$scopedFlavorCatalogPath",
-      "-d", "BundleIconPath=$flavorBundleIconPath",
-      "-o", (Join-Path $publicFlavorOut $bundleName)
+      "-o", (Join-Path $internalFlavorOut $msiName)
     )
-    if ($Version) { $bundleArgs += @("-d", "Version=$Version") }
-    $bundleExit = Invoke-WixBuildProcess -WixExecutable $wixExe -Arguments $bundleArgs
-    if ($bundleExit -ne 0) { throw "Falló build de Bundle.wxs para $flavorId (exit=$bundleExit)" }
-    $bundleOut = Join-Path $publicFlavorOut $bundleName
-    if (-not (Test-Path -LiteralPath $bundleOut)) {
-      throw "Build de Bundle.wxs para $flavorId no genero bundle esperado: $bundleOut"
-    }
-    $bundleWixPdb = Join-Path $publicFlavorOut ([System.IO.Path]::GetFileNameWithoutExtension($bundleName) + '.wixpdb')
-    if (Test-Path $bundleWixPdb) {
-      Move-Item -LiteralPath $bundleWixPdb -Destination (Join-Path $internalFlavorOut (Split-Path -Leaf $bundleWixPdb)) -Force
+    if ($Version) { $productArgs += @("-d", "Version=$Version") }
+    $productExit = Invoke-WixBuildProcess -WixExecutable $wixExe -Arguments $productArgs
+    if ($productExit -ne 0) { throw "Falló build de Product.wxs para $flavorId (exit=$productExit)" }
+    $productOut = Join-Path $internalFlavorOut $msiName
+    if (-not (Test-Path -LiteralPath $productOut)) {
+      throw "Build de Product.wxs para $flavorId no genero MSI esperado: $productOut"
     }
     $idx += 1
+
+    if ($buildBundle) {
+      $scopedFlavorCatalogPath = New-ScopedFlavorCatalog -SourceCatalogPath $flavorCatalogPath -OutputDirectory $internalFlavorOut -FlavorDefinition $flavorDef -EffectiveBundleName $bundleName
+      $flavorBundleIconPath = New-FlavorBundleIcon -RootPath $buildRoot -OutputDirectory $internalFlavorOut -FlavorDefinition $flavorDef
+      Write-Progress -Activity "EvaluaPro MSI (estable)" -Status "Compilar bundle $flavorId" -PercentComplete ([Math]::Floor((($idx - 1) * 100) / [Math]::Max(1, $totalSteps)))
+      Write-Host "[msi][step $idx/$totalSteps] Compilar bundle $flavorId"
+      $bundleArgs = @(
+        "build", $bundle,
+        "-arch", "x64",
+        "-ext", $balExtDll,
+        "-bindpath", (Split-Path -Parent $bootstrapperAppExe),
+        "-bindpath", (Join-Path $buildRoot 'scripts\installer-burn'),
+        "-bindpath", (Join-Path $buildRoot 'config'),
+        "-bindpath", (Join-Path $buildRoot 'scripts\comercial'),
+        "-bindpath", (Join-Path $buildRoot 'scripts\installer-burn\modules'),
+        "-d", "SourceRoot=$buildRoot",
+        "-d", "FlavorId=$flavorId",
+        "-d", ("ProductName=`"{0}`"" -f $productName),
+        "-d", ("InstallFolderName=`"{0}`"" -f $installFolderName),
+        "-d", "UpgradeCode=$upgradeCode",
+        "-d", "BundleUpgradeCode=$bundleUpgradeCode",
+        "-d", "BundleName=$bundleName",
+        "-d", "MsiName=$msiName",
+        "-d", "MsiSourcePath=$([string](Join-Path $internalFlavorOut $msiName))",
+        "-d", "FlavorCatalogPath=$scopedFlavorCatalogPath",
+        "-d", "BundleIconPath=$flavorBundleIconPath",
+        "-o", (Join-Path $publicFlavorOut $bundleName)
+      )
+      if ($Version) { $bundleArgs += @("-d", "Version=$Version") }
+      $bundleExit = Invoke-WixBuildProcess -WixExecutable $wixExe -Arguments $bundleArgs
+      if ($bundleExit -ne 0) { throw "Falló build de Bundle.wxs para $flavorId (exit=$bundleExit)" }
+      $bundleOut = Join-Path $publicFlavorOut $bundleName
+      if (-not (Test-Path -LiteralPath $bundleOut)) {
+        throw "Build de Bundle.wxs para $flavorId no genero bundle esperado: $bundleOut"
+      }
+      $bundleWixPdb = Join-Path $publicFlavorOut ([System.IO.Path]::GetFileNameWithoutExtension($bundleName) + '.wixpdb')
+      if (Test-Path $bundleWixPdb) {
+        Move-Item -LiteralPath $bundleWixPdb -Destination (Join-Path $internalFlavorOut (Split-Path -Leaf $bundleWixPdb)) -Force
+      }
+      $idx += 1
+    }
   }
+
+  if (-not $buildBundle) {
+    Write-Host "[msi] Bundle EXE omitido por defecto (migración Burn WiX v6 en progreso). Usa -IncludeBundle o EVALUAPRO_BUILD_BUNDLE=1 para intentarlo."
+  }
+
+  if ($buildBundle) {
+    Write-InstallerLocalPathsManifest -OutputDirectory $out -PublicOutputDirectory $out -InternalOutputDirectory $internalOut -FlavorDefinitions $selectedFlavors -BundleNameByFlavor $effectiveBundleNamesByFlavor
+    Write-InstallerLocalPathsManifest -OutputDirectory $internalOut -PublicOutputDirectory $out -InternalOutputDirectory $internalOut -FlavorDefinitions $selectedFlavors -BundleNameByFlavor $effectiveBundleNamesByFlavor
+  }
+
+  Remove-OptionalInstallerArtifacts -OutputDirectory $out
+  Invoke-InstallerHashesGeneration -RootPath $root -RequestedVersion $Version
+
+  Write-Progress -Activity "EvaluaPro MSI (estable)" -Status "Completado" -PercentComplete 100
+  Write-Host "[msi] Artefactos generados en $out para flavors: $($selectedFlavors.flavorId -join ', ')"
+} finally {
+  Remove-InstallerBuildStagingRoot -StagingRoot $buildRoot
 }
-
-if (-not $buildBundle) {
-  Write-Host "[msi] Bundle EXE omitido por defecto (migración Burn WiX v6 en progreso). Usa -IncludeBundle o EVALUAPRO_BUILD_BUNDLE=1 para intentarlo."
-}
-
-if ($buildBundle) {
-  Write-InstallerLocalPathsManifest -OutputDirectory $out -PublicOutputDirectory $out -InternalOutputDirectory $internalOut -FlavorDefinitions $selectedFlavors -BundleNameByFlavor $effectiveBundleNamesByFlavor
-  Write-InstallerLocalPathsManifest -OutputDirectory $internalOut -PublicOutputDirectory $out -InternalOutputDirectory $internalOut -FlavorDefinitions $selectedFlavors -BundleNameByFlavor $effectiveBundleNamesByFlavor
-}
-
-Remove-OptionalInstallerArtifacts -OutputDirectory $out
-
-Write-Progress -Activity "EvaluaPro MSI (estable)" -Status "Completado" -PercentComplete 100
-Write-Host "[msi] Artefactos generados en $out para flavors: $($selectedFlavors.flavorId -join ', ')"

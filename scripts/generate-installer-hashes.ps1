@@ -121,6 +121,7 @@ function Resolve-InstallerArtifactPath {
 $catalogPath = Join-Path $root 'config\installer-flavors.json'
 $catalog = Get-Content -Path $catalogPath -Raw -Encoding utf8 | ConvertFrom-Json
 $versionTag = Resolve-VersionTag -RootPath $root -RequestedVersion $Version
+$shasumsByDirectory = @{}
 
 foreach ($flavor in $catalog.flavors) {
   $flavorId = [string]$flavor.flavorId
@@ -135,10 +136,21 @@ foreach ($flavor in $catalog.flavors) {
     if ([string]::IsNullOrWhiteSpace($artifactPath)) { continue }
     if (-not (Test-Path $artifactPath)) { continue }
     $hash = Get-Sha256Hex -Path $artifactPath
-    $hashPath = Join-Path (Split-Path -Parent $artifactPath) ($artifactName + '.sha256')
+    $artifactDir = Split-Path -Parent $artifactPath
+    $hashPath = Join-Path $artifactDir ($artifactName + '.sha256')
     "$hash  $artifactName" | Set-Content -Path $hashPath -Encoding ascii
     Write-Host "[installer-hash] Generado: $hashPath"
+    if (-not $shasumsByDirectory.ContainsKey($artifactDir)) {
+      $shasumsByDirectory[$artifactDir] = New-Object System.Collections.Generic.List[string]
+    }
+    $shasumsByDirectory[$artifactDir].Add(("$hash  $artifactName")) | Out-Null
   }
+}
+
+foreach ($entry in $shasumsByDirectory.GetEnumerator()) {
+  $shasumsPath = Join-Path $entry.Key 'SHASUMS256.txt'
+  @($entry.Value | Sort-Object) | Set-Content -Path $shasumsPath -Encoding ascii
+  Write-Host "[installer-hash] Generado: $shasumsPath"
 }
 
 $manifestScript = Join-Path $PSScriptRoot 'generate-installer-release-manifest.ps1'

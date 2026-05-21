@@ -1,11 +1,11 @@
 # Inventario Exhaustivo de Codigo
 
-Fecha de generacion: 2026-04-07 00:27:06
+Fecha de generacion: 2026-05-20 21:51:57
 Fuente: git ls-files filtrado por existencia en workspace (solo archivos versionados presentes, excluye node_modules).
 
 ## Resumen
 
-- Total de piezas de codigo/config ejecutable inventariadas: 896
+- Total de piezas de codigo/config ejecutable inventariadas: 899
 - Extensiones incluidas: ts, tsx, js, jsx, mjs, cjs, json, yml, yaml, sh, cmd, ps1.
 
 ## Conteo por area
@@ -16,9 +16,9 @@ Fuente: git ls-files filtrado por existencia en workspace (solo archivos version
 | frontend | 129 |
 | portal_alumno_cloud | 44 |
 | ci | 17 |
-| scripts | 131 |
+| scripts | 133 |
 | ops | 3 |
-| docs | 56 |
+| docs | 57 |
 | raiz | 9 |
 
 ## Backend (apps/backend)
@@ -642,6 +642,7 @@ Fuente: git ls-files filtrado por existencia en workspace (solo archivos version
 - scripts/docker-runtime-check.mjs
 - scripts/docs.mjs
 - scripts/ensure-dev-cert.ps1
+- scripts/env-doctor.mjs
 - scripts/generar-readmes-carpetas.mjs
 - scripts/generate-installation-manifest.ps1
 - scripts/generate-installer-hashes.ps1
@@ -711,6 +712,7 @@ Fuente: git ls-files filtrado por existencia en workspace (solo archivos version
 - scripts/tests/dashboard-repair.test.mjs
 - scripts/tests/dashboard-sw.test.mjs
 - scripts/tests/dashboard-ui.test.mjs
+- scripts/tests/env-doctor.test.mjs
 - scripts/tests/ia-traceability.test.mjs
 - scripts/tests/installer-flavor-diff-resolver.test.mjs
 - scripts/tests/installer-hub-contract.test.mjs
@@ -794,7 +796,8 @@ Fuente: git ls-files filtrado por existencia en workspace (solo archivos version
 - docs/handoff/sesiones/2026-03-27/sesion-2026-03-27T09-31-40.802Z.json
 - docs/handoff/sesiones/2026-03-27/sesion-2026-03-27T10-55-07.601Z.json
 - docs/handoff/sesiones/2026-04-03/sesion-2026-04-03T22-00-34.713Z.json
-- docs/handoff/sesiones/2026-04-06/sesion-2026-04-06T09-24-17.720Z.json
+- docs/handoff/sesiones/2026-04-07/sesion-2026-04-07T06-27-06.688Z.json
+- docs/handoff/sesiones/2026-04-08/sesion-2026-04-08T00-00-00.000Z.json
 - docs/handoff/trace.schema.json
 - docs/perf/baseline.business.json
 - docs/perf/baseline.json

@@ -1,0 +1,7 @@
+[features]
+codex_hooks = true
+
+[mcp_servers.serena]
+startup_timeout_sec = 15
+command = "powershell"
+args = ["-NoProfile", "-ExecutionPolicy", "Bypass", "-File", "scripts/serena-mcp.ps1", "start-mcp-server", "--project-from-cwd", "--context=codex"]

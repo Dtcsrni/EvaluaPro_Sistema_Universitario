@@ -199,6 +199,20 @@ function Resolve-FlavorDefinition {
   return $resolved[0]
 }
 
+function Use-FlavorRuntimePreference {
+  param([pscustomobject]$Flavor)
+
+  if (-not $Flavor -or [string]$Flavor.flavorId -ne 'docente-local') {
+    return
+  }
+
+  $requested = [string]$env:EVALUAPRO_DOCKER_RUNTIME
+  if ([string]::IsNullOrWhiteSpace($requested) -or $requested.Trim().ToLowerInvariant() -eq 'auto') {
+    $env:EVALUAPRO_DOCKER_RUNTIME = 'wsl2-engine'
+    Add-HelperLog -Level 'info' -Message 'docente-local prioriza WSL2 + Docker Engine para el runtime Docker.'
+  }
+}
+
 function Get-InputValue {
   param(
     [hashtable]$Table,
@@ -240,7 +254,10 @@ function Test-InternetConnectivity {
 function Invoke-DesktopAssetRefresh {
   param(
     [Parameter(Mandatory = $true)]
-    [string]$InstallDir
+    [string]$InstallDir,
+    [Parameter(Mandatory = $true)]
+    [string]$FlavorId,
+    [switch]$SkipManifestUpdate
   )
 
   if (-not (Test-Path -LiteralPath $InstallDir)) {
@@ -251,11 +268,12 @@ function Invoke-DesktopAssetRefresh {
   $manifestScript = Join-Path $InstallDir 'scripts\generate-installation-manifest.ps1'
 
   if (Test-Path -LiteralPath $shortcutsScript) {
-    & powershell.exe -NoProfile -ExecutionPolicy Bypass -File $shortcutsScript -Port 4519 -Force | Out-Null
+    $includeDevShortcut = ([string]$FlavorId).Trim().ToLowerInvariant() -ne 'docente-local'
+    & powershell.exe -NoProfile -ExecutionPolicy Bypass -File $shortcutsScript -Port 4519 -IncludeDevShortcut:$includeDevShortcut -SkipManifestUpdate:$SkipManifestUpdate -Force | Out-Null
     Add-HelperLog -Level 'ok' -Message 'Accesos directos oficiales regenerados.'
   }
 
-  if (Test-Path -LiteralPath $manifestScript) {
+  if (-not $SkipManifestUpdate -and (Test-Path -LiteralPath $manifestScript)) {
     & powershell.exe -NoProfile -ExecutionPolicy Bypass -File $manifestScript -InstallDir $InstallDir -Port 4519 | Out-Null
     Add-HelperLog -Level 'ok' -Message 'installation.manifest.json actualizado.'
   }
@@ -391,7 +409,7 @@ function Resolve-EmbeddedNodePackageSelection {
   }
 }
 
-function Ensure-EmbeddedNodeRuntime {
+function Install-EmbeddedNodeRuntime {
   param(
     [Parameter(Mandatory = $true)]
     [string]$InstallDir
@@ -416,9 +434,18 @@ function Ensure-EmbeddedNodeRuntime {
   $extractRoot = Join-Path $downloadRoot 'extract'
   $runtimeRoot = Join-Path $InstallDir 'runtime'
   $nodeRoot = Join-Path $runtimeRoot 'node'
-  $stagingRoot = Join-Path $runtimeRoot 'node.stage'
+  $stagingRoot = Join-Path $runtimeRoot ('node.stage-' + [Guid]::NewGuid().ToString('N'))
 
   New-Item -ItemType Directory -Path $downloadRoot -Force | Out-Null
+
+  if (Test-Path -LiteralPath $runtimeRoot) {
+    try {
+      Remove-Item -LiteralPath $runtimeRoot -Recurse -Force -ErrorAction Stop
+    } catch {
+      throw ("No se pudo preparar la ruta del runtime embebido en {0}: {1}" -f $runtimeRoot, [string]$_.Exception.Message)
+    }
+  }
+
   New-Item -ItemType Directory -Path $runtimeRoot -Force | Out-Null
 
   Add-HelperLog -Level 'info' -Message 'Descargando runtime Node embebido para Windows.'
@@ -443,12 +470,17 @@ function Ensure-EmbeddedNodeRuntime {
     Remove-Item -LiteralPath $stagingRoot -Recurse -Force -ErrorAction SilentlyContinue
   }
   New-Item -ItemType Directory -Path $stagingRoot -Force | Out-Null
-  Copy-Item -LiteralPath (Join-Path $expandedRoot.FullName '*') -Destination $stagingRoot -Recurse -Force
+  Copy-Item -Path (Join-Path $expandedRoot.FullName '*') -Destination $stagingRoot -Recurse -Force
 
   if (Test-Path -LiteralPath $nodeRoot) {
     Remove-Item -LiteralPath $nodeRoot -Recurse -Force -ErrorAction SilentlyContinue
   }
-  Move-Item -LiteralPath $stagingRoot -Destination $nodeRoot -Force
+  New-Item -ItemType Directory -Path $nodeRoot -Force | Out-Null
+  Copy-Item -Path (Join-Path $stagingRoot '*') -Destination $nodeRoot -Recurse -Force
+
+  if (Test-Path -LiteralPath $stagingRoot) {
+    Remove-Item -LiteralPath $stagingRoot -Recurse -Force -ErrorAction SilentlyContinue
+  }
 
   $finalMajor = Get-EmbeddedNodeMajorVersion -InstallDir $InstallDir
   if ($finalMajor -lt $requiredMajor) {
@@ -521,11 +553,43 @@ function Test-DirectoryWriteAccess {
   }
 }
 
+function Remove-InstallerInstallDirectory {
+  param([string]$InstallDir)
+
+  if ([string]::IsNullOrWhiteSpace($InstallDir)) {
+    Add-HelperLog -Level 'warn' -Message 'Limpieza de uninstall omitida: ruta de instalacion vacia.'
+    return
+  }
+
+  if (-not (Test-Path -LiteralPath $InstallDir)) {
+    Add-HelperLog -Level 'ok' -Message ("Limpieza de uninstall: la ruta ya no existe ({0})." -f $InstallDir)
+    return
+  }
+
+  for ($attempt = 1; $attempt -le 2; $attempt++) {
+    try {
+      Remove-Item -LiteralPath $InstallDir -Recurse -Force -ErrorAction Stop
+      Start-Sleep -Seconds 1
+      if (-not (Test-Path -LiteralPath $InstallDir)) {
+        Add-HelperLog -Level 'ok' -Message ("Limpieza de uninstall completada: {0}" -f $InstallDir)
+        return
+      }
+    } catch {
+      if ($attempt -eq 2) {
+        Add-HelperLog -Level 'warn' -Message ("No se pudo eliminar la ruta de uninstall {0}: {1}" -f $InstallDir, $_.Exception.Message)
+        return
+      }
+      Start-Sleep -Seconds 2
+    }
+  }
+}
+
 function Invoke-DetectPrereqsMode {
   param([object]$Request)
 
   $requestTable = ConvertTo-HashtableDeep -InputObject $Request
   $flavor = Resolve-FlavorDefinition -FlavorId ([string](Get-InputValue -Table $requestTable -Key 'flavorId'))
+  Use-FlavorRuntimePreference -Flavor $flavor
   $installDir = [string](Get-InputValue -Table $requestTable -Key 'installDir')
   $autoRemediate = [bool](Get-InputValue -Table $requestTable -Key 'autoRemediate' -DefaultValue $false)
   $resumeTokenInput = [string](Get-InputValue -Table $requestTable -Key 'resumeToken')
@@ -552,10 +616,11 @@ function Invoke-DetectPrereqsMode {
     }
   }
 
+  $missingPrereqs = @($prereqs | Where-Object { -not $_.installed })
   $ready = ($system.IsReadyForFlow -and (@($prereqs | Where-Object { -not $_.installed }).Count -eq 0))
   $remediation = $null
 
-  if ($autoRemediate -and -not $ready -and $recommendedMode -ne 'uninstall') {
+  if ($autoRemediate -and -not $ready -and $recommendedMode -ne 'uninstall' -and $missingPrereqs.Count -gt 0) {
     Add-HelperLog -Level 'info' -Message 'Intentando remediacion automatica de prerequisitos antes de continuar.'
     Write-HelperProgress -Activity 'prerequisites' -Percent 1 -Status 'Preparando remediacion automatica de prerequisitos.'
     $downloadRoot = Join-Path $env:TEMP ('evaluapro-burn-prereqs-' + [Guid]::NewGuid().ToString('N'))
@@ -628,7 +693,10 @@ function Invoke-DetectPrereqsMode {
         reason = [string]$status.reason
       }
     }
-    $ready = ($system.IsReadyForFlow -and (@($prereqs | Where-Object { -not $_.installed }).Count -eq 0))
+    $missingPrereqs = @($prereqs | Where-Object { -not $_.installed })
+    $ready = ($system.IsReadyForFlow -and $missingPrereqs.Count -eq 0)
+  } elseif ($autoRemediate -and -not $ready -and $recommendedMode -ne 'uninstall' -and $missingPrereqs.Count -eq 0) {
+    Add-HelperLog -Level 'info' -Message 'Se omite remediacion automatica: no hay prerequisitos faltantes que instalar.'
   }
 
   Add-HelperLog -Level 'info' -Message ("Detectado flavor={0} mode={1} ready={2}" -f [string]$flavor.flavorId, $recommendedMode, $ready)
@@ -671,6 +739,7 @@ function Invoke-PostInstallMode {
 
   $requestTable = ConvertTo-HashtableDeep -InputObject $Request
   $flavor = Resolve-FlavorDefinition -FlavorId ([string](Get-InputValue -Table $requestTable -Key 'flavorId'))
+  Use-FlavorRuntimePreference -Flavor $flavor
   $mode = [string](Get-InputValue -Table $requestTable -Key 'mode')
   if ([string]::IsNullOrWhiteSpace($mode)) {
     $mode = 'install'
@@ -704,15 +773,24 @@ function Invoke-PostInstallMode {
     $warnMessage = 'Repair detectado sin permisos de escritura en la carpeta de instalacion. Se omiten ajustes locales que requieren elevacion.'
     $script:helperWarnings.Add($warnMessage)
     Add-HelperLog -Level 'warn' -Message ($warnMessage + ' Ruta: ' + $installDir)
+
+    if ($mode -ne 'uninstall') {
+      try {
+        Invoke-DesktopAssetRefresh -InstallDir $installDir -FlavorId ([string]$flavor.flavorId) -SkipManifestUpdate
+        Add-HelperLog -Level 'ok' -Message 'Accesos directos de usuario regenerados en modo restringido.'
+      } catch {
+        Add-HelperLog -Level 'warn' -Message ("No se pudieron regenerar accesos directos en modo restringido: {0}" -f $_.Exception.Message)
+      }
+    }
   }
 
-  if ([string]$flavor.flavorId -eq 'docente-local') {
+  if ($mode -ne 'uninstall' -and [string]$flavor.flavorId -eq 'docente-local') {
     if ($skipRestrictedRepairPhases) {
       Add-HelperLog -Level 'warn' -Message 'Fase runtime_local_embebido omitida en repair por permisos insuficientes.'
     } else {
       $responsePhase = 'runtime_local_embebido'
       Invoke-HelperPhase -Name 'runtime_local_embebido' -FailCode 30 -Action {
-        $runtime = Ensure-EmbeddedNodeRuntime -InstallDir $installDir
+        $runtime = Install-EmbeddedNodeRuntime -InstallDir $installDir
         $script:helperArtifacts['embeddedNodePath'] = [string]$runtime.path
         $script:helperArtifacts['embeddedNodeVersion'] = [string]$runtime.version
       }
@@ -733,8 +811,15 @@ function Invoke-PostInstallMode {
       $script:helperArtifacts['operationalProfilePath'] = [string]$setup.profilePath
 
       if ($mode -ne 'uninstall') {
-        Invoke-DesktopAssetRefresh -InstallDir $installDir
+        Invoke-DesktopAssetRefresh -InstallDir $installDir -FlavorId ([string]$flavor.flavorId)
       }
+    }
+  }
+
+  if ($mode -eq 'uninstall') {
+    $responsePhase = 'limpieza_residual'
+    Invoke-HelperPhase -Name 'limpieza_residual' -FailCode 38 -Action {
+      Remove-InstallerInstallDirectory -InstallDir $installDir
     }
   }
 

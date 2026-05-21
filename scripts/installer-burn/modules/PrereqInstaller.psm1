@@ -270,6 +270,56 @@ function Invoke-DockerRuntimeBootstrapAuto {
   }
 }
 
+function Start-DockerDesktopIfAvailable {
+  param(
+    [scriptblock]$OnLog,
+    [scriptblock]$OnProgress
+  )
+
+  $candidates = @(
+    (Join-Path ${env:ProgramFiles} 'Docker\Docker\Docker Desktop.exe'),
+    (Join-Path ${env:LOCALAPPDATA} 'Docker\Docker Desktop.exe')
+  )
+  $dockerDesktop = @($candidates | Where-Object { Test-Path -LiteralPath $_ } | Select-Object -First 1)
+  if (-not $dockerDesktop) { return $false }
+
+  if ($OnLog) { & $OnLog 'info' ("Iniciando Docker Desktop: {0}" -f [string]$dockerDesktop) }
+  Invoke-PrereqProgress -OnProgress $OnProgress -Activity 'docker-runtime' -Percent 10 -Status 'Iniciando Docker Desktop.'
+  try {
+    Start-Process -FilePath ([string]$dockerDesktop) -WindowStyle Minimized | Out-Null
+    return $true
+  } catch {
+    if ($OnLog) { & $OnLog 'warn' ("No se pudo iniciar Docker Desktop automaticamente: {0}" -f $_.Exception.Message) }
+    return $false
+  }
+}
+
+function Wait-DockerRuntimeReady {
+  param(
+    [int]$TimeoutSec = 300,
+    [scriptblock]$OnLog,
+    [scriptblock]$OnProgress
+  )
+
+  $deadline = (Get-Date).AddSeconds([Math]::Max(10, $TimeoutSec))
+  $lastStatus = $null
+  do {
+    $lastStatus = Get-DockerRuntimeStatus
+    if ([bool]$lastStatus.installed -and [bool]$lastStatus.ready) {
+      if ($OnLog) { & $OnLog 'ok' ("Runtime Docker listo: {0}" -f [string]$lastStatus.mode) }
+      Invoke-PrereqProgress -OnProgress $OnProgress -Activity 'docker-runtime' -Percent 100 -Status ("Runtime Docker listo: {0}" -f [string]$lastStatus.mode)
+      return $lastStatus
+    }
+    Invoke-PrereqProgress -OnProgress $OnProgress -Activity 'docker-runtime' -Percent 35 -Status 'Esperando daemon Docker.'
+    Start-Sleep -Seconds 5
+  } while ((Get-Date) -lt $deadline)
+
+  if ($OnLog -and $lastStatus) {
+    & $OnLog 'warn' ("Runtime Docker no quedo listo antes del timeout: {0}" -f [string]$lastStatus.reason)
+  }
+  return $lastStatus
+}
+
 function Resolve-PrereqPackageSelection {
   param(
     [Parameter(Mandatory = $true)]
@@ -380,7 +430,7 @@ function Install-PrerequisitePackage {
   $ruleType = [string]$Prerequisite.detectRule.type
   if ($ruleType -eq 'docker_runtime_windows') {
     $status = Get-DockerRuntimeStatus
-    if ($status.installed -and $status.ready -and [string]$status.mode -eq 'wsl2-engine') {
+    if ($status.installed -and $status.ready) {
       if ($OnLog) { & $OnLog 'ok' ("Runtime Docker compatible detectado: $($status.mode)") }
       Invoke-PrereqProgress -OnProgress $OnProgress -Activity 'docker-runtime' -Percent 100 -Status ("Runtime Docker disponible: {0}" -f [string]$status.mode)
       return [pscustomobject]@{
@@ -392,11 +442,27 @@ function Install-PrerequisitePackage {
       }
     }
 
+    if ($status.desktopInstalled -and -not $status.ready -and (Get-DockerRuntimePreference) -ne 'wsl2-engine') {
+      Start-DockerDesktopIfAvailable -OnLog $OnLog -OnProgress $OnProgress | Out-Null
+      $statusAfterDesktopStart = Wait-DockerRuntimeReady -TimeoutSec 90 -OnLog $OnLog -OnProgress $OnProgress
+      if ($statusAfterDesktopStart -and $statusAfterDesktopStart.installed -and $statusAfterDesktopStart.ready) {
+        return [pscustomobject]@{
+          name = [string]$Prerequisite.name
+          filePath = ''
+          sha256 = ''
+          exitCode = 0
+          mode = [string]$statusAfterDesktopStart.mode
+          autoStarted = 'Docker Desktop'
+        }
+      }
+      if ($OnLog) {
+        & $OnLog 'warn' 'Docker Desktop no quedo operativo tras el intento automatico; se continuara con bootstrap WSL2 si el sistema lo permite.'
+      }
+      $status = $statusAfterDesktopStart
+    }
+
     if ($status.installed -and -not $status.ready -and $OnLog) {
       & $OnLog 'warn' ("Runtime Docker detectado pero no utilizable aun: {0}" -f [string]$status.reason)
-    }
-    if ($status.ready -and [string]$status.mode -eq 'desktop' -and $OnLog) {
-      & $OnLog 'warn' 'Runtime Docker Desktop detectado, pero docente-local exige WSL2 + Docker Engine. Ejecutando bootstrap forzado WSL2.'
     }
 
     $plan = New-DockerRuntimeWindowsBootstrapPlan -Status $status
@@ -489,6 +555,19 @@ function Install-PrerequisitePackage {
   }
 
   if ($ruleType -eq 'node_major_wsl') {
+    $runtimeStatus = Get-DockerRuntimeStatus
+    if ([bool]$runtimeStatus.ready -and [string]$runtimeStatus.mode -eq 'desktop') {
+      if ($OnLog) { & $OnLog 'ok' 'Node.js WSL2 omitido: Docker Desktop activo no requiere Node dentro de WSL2.' }
+      Invoke-PrereqProgress -OnProgress $OnProgress -Activity 'node-wsl' -Percent 100 -Status 'Node.js WSL2 no requerido con Docker Desktop.'
+      return [pscustomobject]@{
+        name = [string]$Prerequisite.name
+        filePath = ''
+        sha256 = ''
+        exitCode = 0
+        mode = 'not-required-desktop'
+      }
+    }
+
     $required = [int]$Prerequisite.detectRule.minMajor
     $distro = Get-PreferredWslBootstrapDistro
     $actual = Get-WslNodeMajorVersion
@@ -505,7 +584,6 @@ function Install-PrerequisitePackage {
       }
     }
 
-    $runtimeStatus = Get-DockerRuntimeStatus
     if (-not $runtimeStatus.installed) {
       throw ("Node.js WSL2 requiere un runtime Docker/WSL2 listo primero. " + [string]$runtimeStatus.reason)
     }

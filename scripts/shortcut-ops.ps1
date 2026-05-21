@@ -1,6 +1,6 @@
 # Compatibility wrapper that delegates shortcut operations to the unified launcher broker.
 param(
-  [ValidateSet('open-dashboard', 'restart-stack', 'stop-all', 'repair', 'open-hub', 'verify-installation')]
+  [ValidateSet('open-dashboard', 'restart-stack', 'stop-all', 'repair', 'uninstall', 'open-hub', 'verify-installation')]
   [string]$Action = 'open-dashboard',
   [ValidateSet('dev', 'prod', 'auto')]
   [string]$Mode = 'auto',

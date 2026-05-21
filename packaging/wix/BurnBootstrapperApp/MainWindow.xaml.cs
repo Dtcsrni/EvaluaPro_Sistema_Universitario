@@ -9,16 +9,21 @@ namespace EvaluaPro.BurnBootstrapperApp;
 public partial class MainWindow : Window
 {
     private bool busy;
+    private bool pendingCloseRequest;
     private bool hasDeterminateProgress;
     private bool readyToStart;
     private bool splashDismissed;
     private DispatcherTimer? splashFallbackTimer;
+    private bool suppressModeChangedEvent;
+    private WizardStep currentStep = WizardStep.Prepare;
 
     public MainWindow()
     {
         InitializeComponent();
         ModeComboBox.SelectedIndex = 0;
         SetHubVersionLabel();
+        RefreshOperationalChrome();
+        SetWizardStep(WizardStep.Prepare);
         StartSplashFallbackWatcher();
     }
 
@@ -31,6 +36,8 @@ public partial class MainWindow : Window
     public event EventHandler? ClosingRequestedDuringBusy;
 
     public event EventHandler? RestartRequested;
+
+    public event EventHandler<ModeChangedEventArgs>? ModeChanged;
 
     public void ApplyDetectionModel(WindowDetectionModel model)
     {
@@ -45,6 +52,7 @@ public partial class MainWindow : Window
         DetectionSummaryTextBlock.Text = model.Summary;
         UpdateAssetNameTextBox.Text = model.AssetName;
         SetMode(model.Mode);
+        RefreshOperationalChrome(model.Mode, FlavorComboBox.SelectedItem as FlavorItem);
         readyToStart = model.Ready;
 
         var rows = model.Prerequisites.Select(item => new PrerequisiteRow
@@ -56,6 +64,9 @@ public partial class MainWindow : Window
         }).ToList();
         PrereqListView.ItemsSource = rows;
         StartButton.IsEnabled = model.Ready && !busy;
+        FooterStatusTextBlock.Text = model.Ready
+            ? "Equipo listo. Puedes ejecutar la operación seleccionada."
+            : "Revisa prerequisitos antes de ejecutar la operación.";
     }
 
     public void ConfigureInitialFlavorLayout(IReadOnlyList<FlavorItem> availableFlavors, string requestedFlavorId)
@@ -87,11 +98,14 @@ public partial class MainWindow : Window
         }
 
         ApplyFlavorLayout(availableFlavors.Count > 1);
+        RefreshOperationalChrome(GetSelectedMode(), selectedFlavor);
     }
 
     public void NotifyInitialDetectionCompleted()
     {
         DismissSplashOverlay();
+        SetWizardStep(WizardStep.Review);
+        DetectButton.Focus();
     }
 
     public void UpdateState(string? statusText, int? progress, bool? isBusy)
@@ -114,15 +128,20 @@ public partial class MainWindow : Window
             DetectButton.IsEnabled = !busy;
             StartButton.IsEnabled = !busy && readyToStart;
             RestartNowButton.IsEnabled = !busy;
+            BackButton.IsEnabled = !busy && currentStep != WizardStep.Prepare;
+            NextButton.IsEnabled = !busy && currentStep != WizardStep.Result;
 
             if (busy && !progress.HasValue && !hasDeterminateProgress)
             {
+                SetWizardStep(WizardStep.Execute);
                 InstallProgressBar.IsIndeterminate = true;
             }
 
             if (!busy)
             {
                 InstallProgressBar.IsIndeterminate = false;
+                TryHonorPendingCloseRequest();
+                RefreshWizardNavigation();
             }
         }
     }
@@ -136,6 +155,8 @@ public partial class MainWindow : Window
         StatusBadgeTextBlock.Foreground = ToBrush(workflow.HeaderForeground);
         StatusTextBlock.Foreground = ToBrush(workflow.HeaderForeground);
         StatusHintTextBlock.Foreground = ToBrush(workflow.HeaderForeground);
+        WorkflowHeaderTitleTextBlock.Text = workflow.WorkflowTitle;
+        WorkflowHeaderHintTextBlock.Text = workflow.WorkflowHint;
 
         StageSummaryBorder.Background = ToBrush(workflow.SummaryBackground);
         StageSummaryBorder.BorderBrush = ToBrush(workflow.SummaryBorder);
@@ -146,20 +167,13 @@ public partial class MainWindow : Window
         StageSummaryTextBlock.Foreground = ToBrush(workflow.StageBodyForeground);
 
         StageTimelineHost.Children.Clear();
-        StageTimelineHost.RowDefinitions.Clear();
-
-        var stageCount = Math.Max(1, workflow.Stages.Count);
-        for (var rowIndex = 0; rowIndex < stageCount; rowIndex++)
-        {
-            StageTimelineHost.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
-        }
 
         var stageIndex = 0;
         foreach (var stage in workflow.Stages)
         {
             var border = new Border
             {
-                CornerRadius = new CornerRadius(12),
+                CornerRadius = new CornerRadius(8),
                 Padding = new Thickness(8),
                 Margin = new Thickness(0, 0, 0, stageIndex < workflow.Stages.Count - 1 ? 6 : 0),
                 Background = ToBrush(stage.Background),
@@ -198,7 +212,6 @@ public partial class MainWindow : Window
             }
 
             border.Child = stack;
-            Grid.SetRow(border, stageIndex);
             StageTimelineHost.Children.Add(border);
             stageIndex++;
         }
@@ -206,6 +219,13 @@ public partial class MainWindow : Window
         FailureSummaryBorder.Visibility = workflow.ShowFailureSummary ? Visibility.Visible : Visibility.Collapsed;
         FailureSummaryTitleTextBlock.Text = workflow.FailureTitle;
         FailureSummaryTextBlock.Text = workflow.FailureText;
+        if (workflow.ShowFailureSummary)
+        {
+            LogExpander.IsExpanded = true;
+            SetWizardStep(WizardStep.Result);
+        }
+
+        UpdateStepperState(workflow.ShowFailureSummary);
     }
 
     public void AppendLog(string line)
@@ -220,9 +240,12 @@ public partial class MainWindow : Window
         hasDeterminateProgress = false;
         InstallProgressBar.IsIndeterminate = false;
         StatusTextBlock.Text = message;
-        StartButton.IsEnabled = readyToStart;
+        StartButton.IsEnabled = !success && readyToStart;
         DetectButton.IsEnabled = true;
         RestartNowButton.IsEnabled = true;
+        FooterStatusTextBlock.Text = success ? "Operación finalizada correctamente." : "Operación detenida. Revisa la evidencia técnica.";
+        SetWizardStep(WizardStep.Result);
+        TryHonorPendingCloseRequest();
     }
 
     public void SetRestartActionVisible(bool visible, string? message = null)
@@ -232,32 +255,62 @@ public partial class MainWindow : Window
         if (visible && !string.IsNullOrWhiteSpace(message))
         {
             StatusHintTextBlock.Text = message;
+            FooterStatusTextBlock.Text = message;
+            SetWizardStep(WizardStep.Result);
         }
     }
 
     public void NotifyBusyCloseBlocked()
     {
+        pendingCloseRequest = true;
         ClosingRequestedDuringBusy?.Invoke(this, EventArgs.Empty);
         StatusTextBlock.Text = "Hay una operación en progreso; espera a que termine antes de cerrar.";
         StatusHintTextBlock.Text = "El cierre se bloqueó para proteger la transacción actual.";
+        FooterStatusTextBlock.Text = "Cierre bloqueado mientras la operación está activa.";
+    }
+
+    private void TryHonorPendingCloseRequest()
+    {
+        if (!pendingCloseRequest || busy)
+        {
+            return;
+        }
+
+        pendingCloseRequest = false;
+        Dispatcher.BeginInvoke(() => CloseRequested?.Invoke(this, EventArgs.Empty), DispatcherPriority.Background);
     }
 
     private void SetMode(string mode)
     {
         var normalized = (mode ?? "install").Trim().ToLowerInvariant();
-        foreach (var item in ModeComboBox.Items.OfType<ComboBoxItem>())
+        suppressModeChangedEvent = true;
+        try
         {
-            var tagValue = Convert.ToString(item.Tag);
-            var contentValue = Convert.ToString(item.Content);
-            if (string.Equals(tagValue, normalized, StringComparison.OrdinalIgnoreCase)
-                || string.Equals(contentValue, normalized, StringComparison.OrdinalIgnoreCase))
+            var selected = false;
+            foreach (var item in ModeComboBox.Items.OfType<ComboBoxItem>())
             {
-                ModeComboBox.SelectedItem = item;
-                return;
+                var tagValue = Convert.ToString(item.Tag);
+                var contentValue = Convert.ToString(item.Content);
+                if (string.Equals(tagValue, normalized, StringComparison.OrdinalIgnoreCase)
+                    || string.Equals(contentValue, normalized, StringComparison.OrdinalIgnoreCase))
+                {
+                    ModeComboBox.SelectedItem = item;
+                    selected = true;
+                    break;
+                }
+            }
+
+            if (!selected)
+            {
+                ModeComboBox.SelectedIndex = 0;
             }
         }
+        finally
+        {
+            suppressModeChangedEvent = false;
+        }
 
-        ModeComboBox.SelectedIndex = 0;
+        RefreshOperationalChrome(GetSelectedMode());
     }
 
     private BootstrapperRequest BuildRequest()
@@ -300,6 +353,7 @@ public partial class MainWindow : Window
 
     private void DetectButton_OnClick(object sender, RoutedEventArgs e)
     {
+        SetWizardStep(WizardStep.Review);
         hasDeterminateProgress = false;
         InstallProgressBar.IsIndeterminate = true;
         InstallProgressBar.Value = 0;
@@ -308,9 +362,7 @@ public partial class MainWindow : Window
 
     private void StartButton_OnClick(object sender, RoutedEventArgs e)
     {
-        hasDeterminateProgress = false;
-        InstallProgressBar.IsIndeterminate = true;
-        InstallProgressBar.Value = 0;
+        SetWizardStep(WizardStep.Execute);
         StartRequested?.Invoke(this, BuildRequest());
     }
 
@@ -324,6 +376,38 @@ public partial class MainWindow : Window
         RestartRequested?.Invoke(this, EventArgs.Empty);
     }
 
+    private void BackButton_OnClick(object sender, RoutedEventArgs e)
+    {
+        if (busy)
+        {
+            return;
+        }
+
+        SetWizardStep(currentStep switch
+        {
+            WizardStep.Review => WizardStep.Prepare,
+            WizardStep.Execute => WizardStep.Review,
+            WizardStep.Result => WizardStep.Execute,
+            _ => WizardStep.Prepare
+        });
+    }
+
+    private void NextButton_OnClick(object sender, RoutedEventArgs e)
+    {
+        if (busy)
+        {
+            return;
+        }
+
+        SetWizardStep(currentStep switch
+        {
+            WizardStep.Prepare => WizardStep.Review,
+            WizardStep.Review => WizardStep.Execute,
+            WizardStep.Execute => WizardStep.Result,
+            _ => WizardStep.Result
+        });
+    }
+
     private void FlavorComboBox_OnSelectionChanged(object sender, SelectionChangedEventArgs e)
     {
         if (FlavorComboBox.SelectedItem is not FlavorItem flavor)
@@ -332,6 +416,22 @@ public partial class MainWindow : Window
         }
 
         UpdateAssetNameTextBox.Text = flavor.AssetName;
+        RefreshOperationalChrome(GetSelectedMode(), flavor);
+    }
+
+    private void ModeComboBox_OnSelectionChanged(object sender, SelectionChangedEventArgs e)
+    {
+        if (suppressModeChangedEvent || busy)
+        {
+            return;
+        }
+
+        var modeItem = ModeComboBox.SelectedItem as ComboBoxItem;
+        var mode = modeItem?.Tag?.ToString()
+            ?? modeItem?.Content?.ToString()
+            ?? "install";
+        RefreshOperationalChrome(mode, FlavorComboBox.SelectedItem as FlavorItem);
+        ModeChanged?.Invoke(this, new ModeChangedEventArgs(mode));
     }
 
     protected override void OnClosing(CancelEventArgs e)
@@ -391,12 +491,98 @@ public partial class MainWindow : Window
             ? "v1.0.0"
             : $"v{version.Major}.{Math.Max(0, version.Minor)}.{Math.Max(0, version.Build)}";
         HubVersionTextBlock.Text = versionText;
+        BrandVersionBadgeTextBlock.Text = $"{versionText} · Burn + MSI + helper";
+    }
+
+    private string GetSelectedMode()
+    {
+        var modeItem = ModeComboBox.SelectedItem as ComboBoxItem;
+        return modeItem?.Tag?.ToString()
+            ?? modeItem?.Content?.ToString()
+            ?? "install";
+    }
+
+    private static string GetModeLabel(string mode)
+    {
+        return mode switch
+        {
+            "repair" => "Reparación",
+            "uninstall" => "Desinstalación",
+            _ => "Instalación"
+        };
+    }
+
+    private static string GetModeActionLabel(string mode)
+    {
+        return mode switch
+        {
+            "repair" => "_Reparar",
+            "uninstall" => "_Desinstalar",
+            _ => "_Instalar"
+        };
+    }
+
+    private void RefreshOperationalChrome(string? mode = null, FlavorItem? flavor = null)
+    {
+        var normalizedMode = string.IsNullOrWhiteSpace(mode) ? GetSelectedMode() : mode;
+        var selectedFlavor = flavor ?? FlavorComboBox.SelectedItem as FlavorItem;
+
+        BrandModeBadgeTextBlock.Text = GetModeLabel(normalizedMode);
+        BrandFlavorBadgeTextBlock.Text = selectedFlavor?.DisplayName ?? "EvaluaPro";
+        StartButton.Content = GetModeActionLabel(normalizedMode);
+        StartButton.SetValue(System.Windows.Automation.AutomationProperties.NameProperty, GetModeActionLabel(normalizedMode).Replace("_", string.Empty));
+    }
+
+    private void SetWizardStep(WizardStep step)
+    {
+        currentStep = step;
+        PrepareStepPanel.Visibility = step == WizardStep.Prepare ? Visibility.Visible : Visibility.Collapsed;
+        ReviewStepPanel.Visibility = step == WizardStep.Review ? Visibility.Visible : Visibility.Collapsed;
+        ExecuteStepPanel.Visibility = step == WizardStep.Execute ? Visibility.Visible : Visibility.Collapsed;
+        ResultStepPanel.Visibility = step == WizardStep.Result ? Visibility.Visible : Visibility.Collapsed;
+        RefreshWizardNavigation();
+        UpdateStepperState(FailureSummaryBorder.Visibility == Visibility.Visible);
+    }
+
+    private void RefreshWizardNavigation()
+    {
+        BackButton.IsEnabled = !busy && currentStep != WizardStep.Prepare;
+        NextButton.IsEnabled = !busy && currentStep != WizardStep.Result;
+        StartButton.Visibility = currentStep is WizardStep.Review or WizardStep.Execute ? Visibility.Visible : Visibility.Collapsed;
+    }
+
+    private void UpdateStepperState(bool hasFailure = false)
+    {
+        SetStepBadge(PrepareStepBorder, PrepareStepTextBlock, "1 Preparar", currentStep, WizardStep.Prepare, hasFailure);
+        SetStepBadge(ReviewStepBorder, ReviewStepTextBlock, "2 Revisar", currentStep, WizardStep.Review, hasFailure);
+        SetStepBadge(ExecuteStepBorder, ExecuteStepTextBlock, "3 Ejecutar", currentStep, WizardStep.Execute, hasFailure);
+        SetStepBadge(ResultStepBorder, ResultStepTextBlock, "4 Resultado", currentStep, WizardStep.Result, hasFailure);
+    }
+
+    private void SetStepBadge(Border border, TextBlock textBlock, string label, WizardStep activeStep, WizardStep step, bool hasFailure)
+    {
+        var completed = step < activeStep;
+        var active = step == activeStep;
+        var failedResult = hasFailure && step == WizardStep.Result;
+        var state = failedResult ? "error" : active ? "activo" : completed ? "correcto" : "pendiente";
+        textBlock.Text = $"{label} · {state}";
+        border.Background = ToBrush(failedResult ? "#FEF2F2" : active ? "#EFF6FF" : completed ? "#ECFDF5" : "#F8FAFC");
+        border.BorderBrush = ToBrush(failedResult ? "#FECACA" : active ? "#BFDBFE" : completed ? "#A7F3D0" : "#D9E2EA");
+        textBlock.Foreground = ToBrush(failedResult ? "#B42318" : active ? "#2563EB" : completed ? "#15803D" : "#526173");
     }
 
     private static SolidColorBrush ToBrush(string hex)
     {
         return (SolidColorBrush)new BrushConverter().ConvertFrom(hex)!;
     }
+}
+
+internal enum WizardStep
+{
+    Prepare = 0,
+    Review = 1,
+    Execute = 2,
+    Result = 3
 }
 
 internal sealed class PrerequisiteRow
@@ -410,6 +596,16 @@ internal sealed class PrerequisiteRow
     public string Reason { get; set; } = string.Empty;
 }
 
+public sealed class ModeChangedEventArgs : EventArgs
+{
+    public ModeChangedEventArgs(string mode)
+    {
+        Mode = mode;
+    }
+
+    public string Mode { get; }
+}
+
 internal sealed class InstallerWorkflowView
 {
     public string BadgeText { get; set; } = "Estado activo";
@@ -421,6 +617,8 @@ internal sealed class InstallerWorkflowView
     public string SummaryBorder { get; set; } = "#9BD2DF";
     public string SummaryForeground { get; set; } = "#0B4A5A";
     public string StageBodyForeground { get; set; } = "#37576A";
+    public string WorkflowTitle { get; set; } = "Trazabilidad y progreso";
+    public string WorkflowHint { get; set; } = "Resumen en vivo de la operación seleccionada.";
     public string SummaryBadge { get; set; } = "En curso";
     public string CurrentStageTitle { get; set; } = "Etapa actual: detección";
     public string CurrentStageText { get; set; } = "El asistente está preparando la validación inicial.";

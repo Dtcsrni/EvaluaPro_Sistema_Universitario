@@ -24,16 +24,224 @@ function Get-FileSha256OrEmpty([string]$path) {
   }
 }
 
+function Resolve-FlavorId {
+  $envFlavor = [string]$env:EVALUAPRO_FLAVOR_ID
+  if (-not [string]::IsNullOrWhiteSpace($envFlavor)) {
+    return $envFlavor.Trim().ToLowerInvariant()
+  }
+
+  $updateConfigPath = Join-Path $configDir 'update-config.json'
+  try {
+    if (Test-Path -LiteralPath $updateConfigPath) {
+      $raw = Get-Content -LiteralPath $updateConfigPath -Raw -Encoding utf8
+      if (-not [string]::IsNullOrWhiteSpace($raw)) {
+        $json = $raw | ConvertFrom-Json
+        $cfgFlavor = [string]$json.flavorId
+        if (-not [string]::IsNullOrWhiteSpace($cfgFlavor)) {
+          return $cfgFlavor.Trim().ToLowerInvariant()
+        }
+      }
+    }
+  } catch {}
+
+  return 'docente-local'
+}
+
 function Resolve-ShortcutTargetPaths {
+  $flavorId = Resolve-FlavorId
+  $includeDevShortcut = $flavorId -ne 'docente-local'
   $desktop = if ($env:EVALUAPRO_DESKTOP_PATH) { [string]$env:EVALUAPRO_DESKTOP_PATH } else { [Environment]::GetFolderPath('Desktop') }
   $startMenuBase = if ($env:EVALUAPRO_STARTMENU_PATH) { [string]$env:EVALUAPRO_STARTMENU_PATH } elseif ($env:APPDATA) { Join-Path $env:APPDATA 'Microsoft\Windows\Start Menu\Programs\EvaluaPro' } else { '' }
-  return [ordered]@{
-    devDesktop = if ($desktop) { Join-Path $desktop 'EvaluaPro - Dev.lnk' } else { '' }
+  $targets = [ordered]@{
     prodDesktop = if ($desktop) { Join-Path $desktop 'EvaluaPro - Prod.lnk' } else { '' }
     hubDesktop = if ($desktop) { Join-Path $desktop 'EvaluaPro - Hub.lnk' } else { '' }
-    devStart = if ($startMenuBase) { Join-Path $startMenuBase 'EvaluaPro - Dev.lnk' } else { '' }
     prodStart = if ($startMenuBase) { Join-Path $startMenuBase 'EvaluaPro - Prod.lnk' } else { '' }
     hubStart = if ($startMenuBase) { Join-Path $startMenuBase 'EvaluaPro - Hub.lnk' } else { '' }
+    uninstallStart = if ($startMenuBase) { Join-Path $startMenuBase 'EvaluaPro - Desinstalar.lnk' } else { '' }
+  }
+
+  if ($includeDevShortcut) {
+    $targets['devDesktop'] = if ($desktop) { Join-Path $desktop 'EvaluaPro - Dev.lnk' } else { '' }
+    $targets['devStart'] = if ($startMenuBase) { Join-Path $startMenuBase 'EvaluaPro - Dev.lnk' } else { '' }
+  }
+
+  return $targets
+}
+
+function Resolve-WscriptExecutablePath {
+  $candidates = @(
+    (Join-Path $env:WINDIR 'System32\wscript.exe'),
+    (Join-Path $env:WINDIR 'SysWOW64\wscript.exe'),
+    'wscript.exe'
+  )
+
+  foreach ($candidate in $candidates) {
+    try {
+      if ([System.IO.Path]::IsPathRooted($candidate)) {
+        if (Test-Path -LiteralPath $candidate) { return $candidate }
+      } else {
+        $resolved = (Get-Command $candidate -ErrorAction Stop).Source
+        if ($resolved) { return [string]$resolved }
+      }
+    } catch {}
+  }
+
+  return 'wscript.exe'
+}
+
+function Resolve-ShortcutIconPath {
+  param([string]$IconFileName)
+
+  $installCandidate = Join-Path $root ("scripts\icons\{0}" -f $IconFileName)
+  if (Test-Path -LiteralPath $installCandidate) {
+    return $installCandidate
+  }
+
+  $localIconDir = if ($env:LOCALAPPDATA) { Join-Path $env:LOCALAPPDATA 'EvaluaPro\icons' } else { '' }
+  if ($localIconDir) {
+    $localCandidate = Join-Path $localIconDir $IconFileName
+    if (Test-Path -LiteralPath $localCandidate) {
+      return $localCandidate
+    }
+  }
+
+  return $installCandidate
+}
+
+function Get-ShortcutDefinition {
+  param([string]$Name)
+
+  $wscriptPath = Resolve-WscriptExecutablePath
+  $trayHiddenVbs = Join-Path $root 'scripts\launcher-tray-hidden.vbs'
+  $shortcutOpHiddenVbs = Join-Path $root 'scripts\shortcut-op-hidden.vbs'
+  switch ($Name) {
+    'EvaluaPro - Dev' {
+      return [ordered]@{
+        name = $Name
+        targetPath = $wscriptPath
+        arguments = "//nologo `"$trayHiddenVbs`" dev 4519"
+        iconLocation = Resolve-ShortcutIconPath 'dashboard-dev.ico'
+      }
+    }
+    'EvaluaPro - Prod' {
+      return [ordered]@{
+        name = $Name
+        targetPath = $wscriptPath
+        arguments = "//nologo `"$trayHiddenVbs`" prod 4519"
+        iconLocation = Resolve-ShortcutIconPath 'dashboard-prod.ico'
+      }
+    }
+    'EvaluaPro - Hub' {
+      return [ordered]@{
+        name = $Name
+        targetPath = $wscriptPath
+        arguments = "//nologo `"$shortcutOpHiddenVbs`" open-hub 4519 auto"
+        iconLocation = Resolve-ShortcutIconPath 'installer-canonical.ico'
+      }
+    }
+    'EvaluaPro - Abrir Dashboard' {
+      return [ordered]@{
+        name = $Name
+        targetPath = $wscriptPath
+        arguments = "//nologo `"$shortcutOpHiddenVbs`" open-dashboard 4519 auto"
+        iconLocation = Resolve-ShortcutIconPath 'dashboard-open.ico'
+      }
+    }
+    'EvaluaPro - Reiniciar Stack' {
+      return [ordered]@{
+        name = $Name
+        targetPath = $wscriptPath
+        arguments = "//nologo `"$shortcutOpHiddenVbs`" restart-stack 4519 auto"
+        iconLocation = Resolve-ShortcutIconPath 'dashboard-restart.ico'
+      }
+    }
+    'EvaluaPro - Detener Todo' {
+      return [ordered]@{
+        name = $Name
+        targetPath = $wscriptPath
+        arguments = "//nologo `"$shortcutOpHiddenVbs`" stop-all 4519 auto"
+        iconLocation = Resolve-ShortcutIconPath 'dashboard-stop.ico'
+      }
+    }
+    'EvaluaPro - Desinstalar' {
+      return [ordered]@{
+        name = $Name
+        targetPath = $wscriptPath
+        arguments = "//nologo `"$shortcutOpHiddenVbs`" uninstall 4519 auto"
+        iconLocation = Resolve-ShortcutIconPath 'dashboard-stop.ico'
+      }
+    }
+    'EvaluaPro - Reparar Entorno' {
+      return [ordered]@{
+        name = $Name
+        targetPath = $wscriptPath
+        arguments = "//nologo `"$shortcutOpHiddenVbs`" repair 4519 auto"
+        iconLocation = Resolve-ShortcutIconPath 'dashboard-repair.ico'
+      }
+    }
+    default {
+      return $null
+    }
+  }
+}
+
+function Read-ShortcutLinkMetadata {
+  param([string]$Path)
+
+  $metadata = [ordered]@{
+    readOk = $false
+    targetPath = ''
+    arguments = ''
+    workingDirectory = ''
+    iconLocation = ''
+    description = ''
+    error = ''
+  }
+
+  if (-not (Test-Path -LiteralPath $Path)) {
+    return $metadata
+  }
+
+  try {
+    $wsh = New-Object -ComObject WScript.Shell
+    $shortcut = $wsh.CreateShortcut($Path)
+    $metadata.readOk = $true
+    $metadata.targetPath = [string]$shortcut.TargetPath
+    $metadata.arguments = [string]$shortcut.Arguments
+    $metadata.workingDirectory = [string]$shortcut.WorkingDirectory
+    $metadata.iconLocation = [string]$shortcut.IconLocation
+    $metadata.description = [string]$shortcut.Description
+  } catch {
+    $metadata.error = [string]$_.Exception.Message
+  }
+
+  return $metadata
+}
+
+function New-ShortcutManifestEntry {
+  param(
+    [string]$Name,
+    [string]$Path,
+    [bool]$ExpectedIncluded
+  )
+
+  $definition = Get-ShortcutDefinition -Name $Name
+  $actual = Read-ShortcutLinkMetadata -Path $Path
+  return [ordered]@{
+    name = $Name
+    path = $Path
+    exists = [bool](Test-Path -LiteralPath $Path)
+    expectedIncluded = $ExpectedIncluded
+    expectedTargetPath = [string]$definition.targetPath
+    expectedArguments = [string]$definition.arguments
+    expectedIconLocation = [string]$definition.iconLocation
+    targetPath = [string]$actual.targetPath
+    arguments = [string]$actual.arguments
+    workingDirectory = [string]$actual.workingDirectory
+    iconLocation = [string]$actual.iconLocation
+    description = [string]$actual.description
+    readOk = [bool]$actual.readOk
+    readError = [string]$actual.error
   }
 }
 
@@ -158,6 +366,7 @@ $embeddedNodeVersion = Get-EmbeddedNodeVersion -baseDir $root
 $wslDistro = Get-WslPreferredDistro
 $wslNodeVersion = Get-WslNodeVersion -distro $wslDistro
 $wslDockerReady = Test-WslDockerReady -distro $wslDistro
+$flavorId = Resolve-FlavorId
 $payload = [ordered]@{
   generatedAt = (Get-Date).ToString('o')
   app = [ordered]@{
@@ -167,7 +376,7 @@ $payload = [ordered]@{
   }
   installation = [ordered]@{
     root = $root
-    flavor = 'docente-local'
+    flavor = $flavorId
     requireLocalPortal = $false
     runtimeTarget = 'wsl2-docker-minimal'
     port = $Port
@@ -187,7 +396,7 @@ $payload = [ordered]@{
       dockerReady = [bool]$wslDockerReady
     }
   }
-  shortcuts = Test-ShortcutPresence $shortcutPaths
+  shortcuts = [ordered]@{}
   license = [ordered]@{
     portablePath = $portableLicensePath
     portableExists = (Test-Path -LiteralPath $portableLicensePath)
@@ -200,6 +409,30 @@ $payload = [ordered]@{
     lastStepUpAt = if ($null -ne $stepUpSession -and $null -ne $stepUpSession.payload -and $null -ne $stepUpSession.payload.lastStepUpAt) { [string]$stepUpSession.payload.lastStepUpAt } else { '' }
   }
   criticalFiles = $critical
+}
+
+$shortcutDefinitions = @(
+  @{ Name = 'EvaluaPro - Prod'; Key = 'prodDesktop' },
+  @{ Name = 'EvaluaPro - Hub'; Key = 'hubDesktop' },
+  @{ Name = 'EvaluaPro - Prod'; Key = 'prodStart' },
+  @{ Name = 'EvaluaPro - Hub'; Key = 'hubStart' },
+  @{ Name = 'EvaluaPro - Desinstalar'; Key = 'uninstallStart' }
+)
+
+if (($shortcutPaths.Keys -contains 'devDesktop') -or ($shortcutPaths.Keys -contains 'devStart')) {
+  $shortcutDefinitions += @(
+    @{ Name = 'EvaluaPro - Dev'; Key = 'devDesktop' },
+    @{ Name = 'EvaluaPro - Dev'; Key = 'devStart' }
+  )
+}
+
+foreach ($entry in $shortcutDefinitions) {
+  $name = [string]$entry.Name
+  $key = [string]$entry.Key
+  $path = [string]$shortcutPaths[$key]
+  $includeDev = ($shortcutPaths.Keys -contains 'devDesktop') -or ($shortcutPaths.Keys -contains 'devStart')
+  $expectedIncluded = $key -notin @('devDesktop', 'devStart') -or $includeDev
+  $payload.shortcuts[$key] = New-ShortcutManifestEntry -Name $name -Path $path -ExpectedIncluded $expectedIncluded
 }
 
 [IO.File]::WriteAllText($manifestPath, ($payload | ConvertTo-Json -Depth 8), [Text.Encoding]::UTF8)

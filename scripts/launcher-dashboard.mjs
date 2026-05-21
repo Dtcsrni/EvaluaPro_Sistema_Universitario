@@ -18,7 +18,7 @@ import path from 'path';
 import net from 'net';
 import process from 'node:process';
 import { X509Certificate } from 'node:crypto';
-import { spawn, execSync } from 'child_process';
+import { spawn, spawnSync, execSync } from 'child_process';
 import { fileURLToPath } from 'url';
 import { createUpdateManager } from './update-manager.mjs';
 
@@ -76,6 +76,12 @@ const updateConfigPath = path.join(root, 'config', 'update-config.json');
 const portableLicensePath = path.join(process.env.ProgramData || 'C:\\ProgramData', 'EvaluaPro', 'security', 'portable-license.epl');
 const stepUpConfigPath = path.join(process.env.ProgramData || 'C:\\ProgramData', 'EvaluaPro', 'security', 'stepup.config.json');
 const stepUpSessionPath = path.join(process.env.ProgramData || 'C:\\ProgramData', 'EvaluaPro', 'security', 'stepup.session.json');
+const privilegedSupportActions = Object.freeze([
+  'hub-install',
+  'hub-repair',
+  'hub-update-apply',
+  'hub-uninstall'
+]);
 ensureDir(logDir);
 
 // Logging persistence mode:
@@ -2413,16 +2419,45 @@ function requiresLocalPortal(manifest = null) {
   return resolveFlavorPolicy(manifest).requireLocalPortal;
 }
 
+function normalizeShortcutValue(value) {
+  return String(value || '').trim().replace(/\\/g, '/').toLowerCase();
+}
+
+function normalizeIconLocation(value) {
+  const raw = String(value || '').trim();
+  const [iconPath] = raw.split(',');
+  return normalizeShortcutValue(iconPath);
+}
+
 function resolveShortcutState(manifest) {
   const entries = Object.values((manifest && manifest.shortcuts) || {});
   const expected = entries.filter((entry) => entry && typeof entry === 'object');
   const present = expected.filter((entry) => Boolean(entry.exists));
   const missing = expected.filter((entry) => !entry.exists).map((entry) => String(entry.path || '')).filter(Boolean);
+  const mismatched = expected.filter((entry) => {
+    if (!entry.exists) {
+      return false;
+    }
+
+    const targetMismatch = entry.expectedTargetPath && normalizeShortcutValue(entry.targetPath) !== normalizeShortcutValue(entry.expectedTargetPath);
+    const argumentsMismatch = entry.expectedArguments && normalizeShortcutValue(entry.arguments) !== normalizeShortcutValue(entry.expectedArguments);
+    const iconMismatch = entry.expectedIconLocation && normalizeIconLocation(entry.iconLocation) !== normalizeIconLocation(entry.expectedIconLocation);
+    return targetMismatch || argumentsMismatch || iconMismatch;
+  }).map((entry) => ({
+    path: String(entry.path || ''),
+    expectedTargetPath: String(entry.expectedTargetPath || ''),
+    targetPath: String(entry.targetPath || ''),
+    expectedArguments: String(entry.expectedArguments || ''),
+    arguments: String(entry.arguments || ''),
+    expectedIconLocation: String(entry.expectedIconLocation || ''),
+    iconLocation: String(entry.iconLocation || '')
+  }));
   return {
-    state: expected.length > 0 && missing.length === 0 ? 'ok' : (present.length > 0 ? 'degradada' : 'faltantes'),
+    state: expected.length > 0 && missing.length === 0 && mismatched.length === 0 ? 'ok' : (present.length > 0 ? 'degradada' : 'faltantes'),
     expected: expected.length,
     present: present.length,
-    missing
+    missing,
+    mismatched
   };
 }
 
@@ -2478,6 +2513,128 @@ function resolveLicenseState(manifest) {
   };
 }
 
+function resolveSupportAuthorization() {
+  const verified = readVerifiedStepUpStatus();
+  return {
+    active: Boolean(verified.active),
+    configured: Boolean(verified.configured),
+    expiresAt: String(verified.expiresAt || ''),
+    methods: Array.isArray(verified.stepUpMethods) ? verified.stepUpMethods.map((item) => String(item || '')) : [],
+    verified: Boolean(verified.ok),
+    allowlist: [...privilegedSupportActions]
+  };
+}
+
+function readVerifiedStepUpStatus() {
+  if (process.platform !== 'win32') {
+    return { ok: false, configured: false, active: false, error: 'step_up_windows_only' };
+  }
+
+  const securityModule = path.join(root, 'scripts', 'installer-burn', 'modules', 'LicenseClientSecurity.psm1');
+  if (!fs.existsSync(securityModule)) {
+    return { ok: false, configured: false, active: false, error: 'step_up_module_missing' };
+  }
+
+  const psScript = [
+    `$ErrorActionPreference='Stop'`,
+    `Import-Module -Force -WarningAction SilentlyContinue '${securityModule.replace(/'/g, "''")}'`,
+    `Get-EvaluaProStepUpStatus | ConvertTo-Json -Depth 8 -Compress`
+  ].join('; ');
+  const result = spawnSync(getPowerShellPath(), ['-NoProfile', '-ExecutionPolicy', 'Bypass', '-Command', psScript], {
+    cwd: root,
+    encoding: 'utf8',
+    windowsHide: true,
+    timeout: 8_000
+  });
+  if (result.status !== 0) {
+    return {
+      ok: false,
+      configured: false,
+      active: false,
+      error: String(result.stderr || 'step_up_status_failed').trim().slice(0, 300)
+    };
+  }
+  try {
+    return JSON.parse(String(result.stdout || '').trim());
+  } catch {
+    return { ok: false, configured: false, active: false, error: 'step_up_status_invalid_json' };
+  }
+}
+
+function assertSupportAuthorization(action) {
+  const authorization = resolveSupportAuthorization();
+  if (!authorization.active) {
+    return {
+      ok: false,
+      status: 403,
+      error: 'step_up_required',
+      detail: 'Operacion de soporte requiere sesion step-up local activa.',
+      authorization
+    };
+  }
+
+  if (!privilegedSupportActions.includes(action)) {
+    return {
+      ok: false,
+      status: 400,
+      error: 'support_action_not_allowed',
+      detail: 'Accion de soporte fuera de allowlist.',
+      authorization
+    };
+  }
+
+  return { ok: true, status: 200, authorization };
+}
+
+async function runPrivilegedSupportAction(action, options = {}) {
+  const normalized = String(action || '').trim().toLowerCase();
+  const authorized = assertSupportAuthorization(normalized);
+  if (!authorized.ok) {
+    pushEvent('support', 'dashboard', 'warn', 'Operacion privilegiada denegada', {
+      action: normalized || 'missing',
+      error: authorized.error
+    });
+    return authorized;
+  }
+
+  pushEvent('support', 'dashboard', 'system', 'Operacion privilegiada autorizada', { action: normalized });
+  logSystem(`Soporte privilegiado ejecuta ${normalized}.`, 'system', { meta: { persist: true } });
+
+  if (normalized === 'hub-install') {
+    const result = await runLifecycleOperation('install');
+    return { ok: Boolean(result?.ok), status: result?.ok ? 200 : 500, action: normalized, result };
+  }
+  if (normalized === 'hub-repair') {
+    const result = await runLifecycleOperation('repair');
+    return { ok: Boolean(result?.ok), status: result?.ok ? 200 : 500, action: normalized, result };
+  }
+  if (normalized === 'hub-update-apply') {
+    const result = await updateManager.apply();
+    return { ok: result?.state !== 'error', status: result?.state === 'error' ? 502 : 200, action: normalized, result };
+  }
+  if (normalized === 'hub-uninstall') {
+    if (options?.confirm !== true) {
+      return {
+        ok: false,
+        status: 428,
+        error: 'support_confirmation_required',
+        detail: 'Desinstalacion requiere confirmacion explicita.',
+        action: normalized
+      };
+    }
+    const result = await runLifecycleOperation('uninstall');
+    return { ok: Boolean(result?.ok), status: result?.ok ? 200 : 500, action: normalized, result };
+  }
+
+  return {
+    ok: false,
+    status: 400,
+    error: 'support_action_not_allowed',
+    detail: 'Accion de soporte fuera de allowlist.',
+    authorization: authorized.authorization
+  };
+}
+
 function resolveBootstrapState() {
   try {
     const candidates = fs.readdirSync(logDir)
@@ -2527,6 +2684,9 @@ function resolveInstallationState(manifest, installInfo) {
   const shortcutState = resolveShortcutState(manifest);
   if (shortcutState.missing.length > 0) {
     issues.push(`Faltan accesos directos: ${shortcutState.missing.length}`);
+  }
+  if (shortcutState.mismatched.length > 0) {
+    issues.push(`Accesos directos con metadata incorrecta: ${shortcutState.mismatched.length}`);
   }
   const manifestInstalled = Boolean(manifest?.installation?.installed);
   const effectiveInstalled = Boolean(installInfo.installed || manifestInstalled);
@@ -3815,9 +3975,8 @@ const server = http.createServer(async (req, res) => {
   }
 
   if (req.method === 'POST' && pathName === '/api/update/apply') {
-    const status = await updateManager.apply();
-    const code = status.state === 'error' ? 502 : 200;
-    return sendJson(res, code, status);
+    const result = await runPrivilegedSupportAction('hub-update-apply');
+    return sendJson(res, result.status, result);
   }
 
   if (req.method === 'POST' && pathName === '/api/update/cancel') {
@@ -3899,6 +4058,19 @@ const server = http.createServer(async (req, res) => {
     return sendJson(res, 200, status);
   }
 
+  if (req.method === 'GET' && pathName === '/api/support/privileged/status') {
+    return sendJson(res, 200, {
+      ok: true,
+      authorization: resolveSupportAuthorization()
+    });
+  }
+
+  if (req.method === 'POST' && pathName === '/api/support/privileged/run') {
+    const body = await readBody(req);
+    const result = await runPrivilegedSupportAction(body?.action, { confirm: body?.confirm === true });
+    return sendJson(res, result.status, result);
+  }
+
   if (req.method === 'POST' && pathName === '/api/lifecycle/reconcile') {
     const result = await reconcileLifecycle('api_reconcile');
     return sendJson(res, 200, result);
@@ -3961,21 +4133,19 @@ const server = http.createServer(async (req, res) => {
   }
 
   if (req.method === 'POST' && pathName === '/api/lifecycle/install') {
-    const result = await runLifecycleOperation('install');
-    const status = result?.ok ? 200 : 500;
-    return sendJson(res, status, result);
+    const result = await runPrivilegedSupportAction('hub-install');
+    return sendJson(res, result.status, result);
   }
 
   if (req.method === 'POST' && pathName === '/api/lifecycle/repair') {
-    const result = await runLifecycleOperation('repair');
-    const status = result?.ok ? 200 : 500;
-    return sendJson(res, status, result);
+    const result = await runPrivilegedSupportAction('hub-repair');
+    return sendJson(res, result.status, result);
   }
 
   if (req.method === 'POST' && pathName === '/api/lifecycle/uninstall') {
-    const result = await runLifecycleOperation('uninstall');
-    const status = result?.ok ? 200 : 500;
-    return sendJson(res, status, result);
+    const body = await readBody(req);
+    const result = await runPrivilegedSupportAction('hub-uninstall', { confirm: body?.confirm === true });
+    return sendJson(res, result.status, result);
   }
 
   if (req.method === 'POST' && pathName === '/api/lifecycle/component/install') {

@@ -55,7 +55,8 @@ Alcance de la reparación v1:
 - barra de progreso real por fase (checks previos + compilacion MSI + bundle EXE) al generar distribuible.
 - validacion de prerequisitos no autoconfigurables:
   - runtime Docker compatible (`WSL2 + Docker Engine` o `Docker Desktop`)
-  - en `docente-local`, `Node 24` host en Windows + runtime Node embebido local saludable + `Node 24` dentro de la distro `WSL2`
+  - en `docente-local`, `Node 24` host en Windows + runtime Node embebido local saludable
+  - `Node 24` dentro de la distro `WSL2` solo cuando el runtime activo sea `WSL2 + Docker Engine`
 
 ### Instalador docente desde cero (Installer Hub)
 1. Descargar `EvaluaPro-InstallerHub-docente-local.exe` desde la release estable.
@@ -64,8 +65,8 @@ Alcance de la reparación v1:
    - apertura estable de la BA `WPF .NET 8`,
    - deteccion automatica de modo (`install` / `repair` / `uninstall`),
    - analisis de requisitos del equipo,
-   - prerequisitos visibles (runtime Node embebido local + `Node 24` dentro de `WSL2` + runtime Docker compatible para stack docente minimo),
-   - si falta `WSL2`/Docker Engine/Node 24 en la distro objetivo, emision de guía local de bootstrap y remediacion semiautomatica para completar el runtime soportado,
+   - prerequisitos visibles (runtime Node embebido local + runtime Docker compatible para stack docente minimo),
+   - si se elige `WSL2 + Docker Engine` y falta `WSL2`/Docker Engine/Node 24 en la distro objetivo, emision de guía local de bootstrap y remediacion semiautomatica para completar el runtime soportado,
    - chain `MSI` controlado por Burn,
    - helper post-install para `.env`, `update-config.json`, verificacion final y blindaje local de licencia.
    - no existe ya una variante soportada `PowerShell WinForms`; el bundle Burn es la unica entrada valida.

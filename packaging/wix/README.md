@@ -4,12 +4,13 @@ Empaquetado Windows para primera version estable distribuible.
 Responsable: `I.S.C. Erick Renato Vega Ceron`.
 
 ## Estructura
-- `Product.wxs`: MSI principal (`EvaluaPro.msi`).
+- `Product.wxs`: MSI principal por flavor (`EvaluaPro-<flavor>.msi`).
 - `Bundle.wxs`: bundle publico por flavor (`EvaluaPro-InstallerHub-<flavor>.exe`) basado en WiX Burn.
 - `BurnBootstrapperApp/`: Bootstrapper Application personalizada en `WPF .NET 8`.
 - `Fragments/AppFiles.wxs`: archivos instalados.
 - `Fragments/Shortcuts.wxs`: accesos directos Dev/Prod.
 - `Fragments/Cleanup.wxs`: limpieza de logs/menu en uninstall.
+- `../../docs/DESIGN.md`: contrato UI/UX del Installer Hub.
 
 ## Requisitos
 - WiX Toolset v6.0.x estable (`wix` en PATH).
@@ -23,16 +24,19 @@ Responsable: `I.S.C. Erick Renato Vega Ceron`.
 - Para compilar bundle, el script resuelve automaticamente la extension BA de WiX 6 (`WixToolset.Bal.wixext` / `WixToolset.BootstrapperApplications.wixext.dll`).
 
 ## Build
+
+Este empaquetado es solo para Windows. En WSL/Linux, `scripts/build-msi.ps1` falla al inicio con un mensaje explicito y no intenta ejecutar WiX.
+
 Desde la raiz:
 
 ```powershell
 npm run msi:build
 ```
 
-El build MSI ejecuta checks de estabilidad antes de empaquetar.
+El build MSI ejecuta checks de estabilidad antes de empaquetar y genera los MSI por flavor.
 
 `npm run msi:build`:
-- siempre compila `EvaluaPro.msi`.
+- compila `EvaluaPro-saas-completo.msi` y `EvaluaPro-docente-local.msi`.
 - compila el bundle Burn publico solo si se habilita bundle:
   - `powershell -NoProfile -ExecutionPolicy Bypass -File scripts/build-msi.ps1 -IncludeBundle`
   - o `EVALUAPRO_BUILD_BUNDLE=1`.

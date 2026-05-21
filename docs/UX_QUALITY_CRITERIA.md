@@ -5,6 +5,9 @@ Ultima actualizacion: 2026-02-25.
 ## Objetivo
 Definir un estandar UX verificable para que la calidad de GUI no dependa solo de revision visual manual.
 
+## Fuente de diseño
+Para Installer Hub Windows, la fuente normativa de UI/UX es `docs/DESIGN.md`. Este documento conserva los gates transversales de frontend y aplica como criterio complementario.
+
 ## Criterios bloqueantes
 1. Pantallas criticas con ayuda contextual visible.
 2. Navegacion principal con etiquetas claras y consistentes.
@@ -13,11 +16,13 @@ Definir un estandar UX verificable para que la calidad de GUI no dependa solo de
 5. Tema claro y oscuro con contraste legible y consistencia cromática.
 6. Responsividad contractual: layouts funcionales en desktop/tablet/móvil para todas las secciones docentes.
 7. Jerarquía visual no plana: cards/paneles con estados diferenciables y feedback de acciones.
+8. Installer Hub: accesibilidad WPF verificable con nombres de automatizacion, access keys, layout usable en 1024x768 y sin decoracion no funcional.
 
 ## Cobertura minima contractual
 Se valida automaticamente en `test:ux-quality:ci` sobre:
 - `AppDocente` (sin token y con token).
 - `AppAlumno` (sin token).
+- `Installer Hub WPF` mediante `test:installer-hub:contract`.
 
 ## Gates CI relacionados
 1. `ux-quality-check` (core): `npm run test:ux-quality:ci`.

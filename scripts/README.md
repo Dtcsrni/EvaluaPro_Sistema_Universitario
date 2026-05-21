@@ -40,6 +40,15 @@ Arquitectura vigente:
 - El legado `PowerShell WinForms` fue retirado; no queda un `InstallerHub.ps1` soportado.
 - Para `docente-local`, Windows usa `runtime/node/node.exe` como runtime embebido privado del producto y exige `Node 24` host con remediacion automatica durante la instalacion.
 
+## Limpieza de registros viejos
+- Script: `cleanup-old-evaluapro-registry.ps1`
+- Uso:
+  - `powershell -ExecutionPolicy Bypass -File scripts/cleanup-old-evaluapro-registry.ps1`
+- Comportamiento:
+  - relanza con UAC si no corre como administrador,
+  - exporta respaldo `.reg` antes de borrar,
+  - elimina solo claves `Uninstall` con `DisplayName = EvaluaPro` o `EvaluaPro Installer Hub`.
+
 ## Env Doctor (WSL2 + Windows)
 - Script: `env-doctor.mjs`
 - Comandos:
@@ -150,6 +159,11 @@ Matriz de uso rapido:
   - `npm run ai:model:pick -- --task "<descripcion>" [--budget low|balanced|high] [--mode auto|coding|reasoning|cheap] [--json]`
 - Validacion local:
   - `npm run test:ai:model-router`
+- Validacion Serena (integracion base):
+  - `npm run ai:serena:status -- --json`
+- Validacion Serena (politica repo + global):
+  - `npm run ai:serena:policy:status -- --json`
+ - Nota: ` .serena/project.yml` fue actualizado para incluir un conjunto recomendado de herramientas opcionales (sin habilitar ejecución de shell ni borrado automático de memorias). Si necesitas ajustar la lista, edita `.serena/project.yml` y luego re-ejecuta `npm run ai:serena:status -- --json`.
 - Alcance:
   - optimiza el uso de Codex en VS Code;
   - no cambia el runtime, el contrato del sistema ni los gates de release.

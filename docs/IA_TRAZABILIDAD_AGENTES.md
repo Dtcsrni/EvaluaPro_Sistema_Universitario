@@ -31,6 +31,7 @@ Objetivo: continuidad verificable entre agentes heterogeneos con evidencia repro
 2. El contrato es agnostico a proveedor, modelo, version y canal de ejecucion.
 3. Si el runtime no expone identidad tecnica exacta del agente, usar `unknown`; no inventar valores.
 4. Si la sesion trata sobre seleccion de modelo, compactacion de contexto o apertura de chat nuevo para Codex en VS Code, consultar `docs/POLITICA_ECONOMIA_TOKENS_CODEX.md`; esa politica es repo-local y no forma parte del contrato del sistema ni de los gates.
+4.1. En sesiones de agentes en este repo, Caveman es obligatorio como modo operativo por defecto; debe activarse al inicio de sesion y mantenerse activo salvo peticion explicita del usuario.
 5. Toda sesion nueva debe incluir como minimo:
    - `traceSchemaVersion`
    - `sessionId`
@@ -71,6 +72,7 @@ Objetivo: continuidad verificable entre agentes heterogeneos con evidencia repro
    - `docs/README.md`
    - `docs/IA_TRAZABILIDAD_AGENTES.md`
    - `.github/copilot-instructions.md`
+1.1. Activar Caveman al inicio de la sesion (`$caveman`) y mantenerlo activo durante la ejecucion del trabajo, salvo excepcion explicita del usuario.
 2. Verificar estado real antes de editar; no asumir olas, gates o release.
 2.1. Si la sesion toca runtime local/launcher/instalador, verificar por CLI:
    - `docker version`

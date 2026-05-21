@@ -6,7 +6,7 @@ Centro documental de producto, operacion, cumplimiento y arquitectura de EvaluaP
 - Negocio/licencia: `comercial/FEATURE_CATALOG.md`, `comercial/LICENSING_TIERS.md`, `comercial/ESTRATEGIA_COMERCIAL.md`, `comercial/playbook-demo-35d.md`.
 - Seguridad/cumplimiento: `SECURITY_POLICY.md`, `CUMPLIMIENTO.md`, `legal/*`.
 - Operacion tecnica: `DESPLIEGUE.md`, `INSTALLER_HUB.md`, `SINCRONIZACION_ENTRE_COMPUTADORAS.md`, `POLITICA_OPTIMIZACION_RECURSOS.md`.
-- Arquitectura/calidad: `ARQUITECTURA.md`, `ARQUITECTURA_C4.md`, `PRUEBAS.md`, `RELEASE_GATE_STABLE.md`.
+- Arquitectura/calidad: `ARQUITECTURA.md`, `ARQUITECTURA_C4.md`, `DESIGN.md`, `PRUEBAS.md`, `RELEASE_GATE_STABLE.md`.
 - Footprint/limpieza: `POLITICA_OPTIMIZACION_RECURSOS.md` (peso operativo, componentes regenerables y mantenimiento Docker).
 - Utilidades IA: `docs/POLITICA_ECONOMIA_TOKENS_CODEX.md`, `scripts/ai-model-router.mjs` y `npm run ai:model:pick` para seleccionar modelo segun tarea, riesgo y presupuesto.
 - Prueba local del router: `npm run test:ai:model-router`.

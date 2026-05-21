@@ -69,17 +69,23 @@ function Invoke-PostInstallVerification {
 
     $desktopRoot = if ($env:EVALUAPRO_DESKTOP_PATH) { [string]$env:EVALUAPRO_DESKTOP_PATH } else { [Environment]::GetFolderPath('Desktop') }
     $startMenuRoot = if ($env:EVALUAPRO_STARTMENU_PATH) { [string]$env:EVALUAPRO_STARTMENU_PATH } elseif ($env:APPDATA) { Join-Path $env:APPDATA 'Microsoft\Windows\Start Menu\Programs\EvaluaPro' } else { '' }
+    $includeDevShortcut = ([string]$Flavor.flavorId).Trim().ToLowerInvariant() -ne 'docente-local'
     $shortcutTargets = @(
-      (Join-Path $desktopRoot 'EvaluaPro - Dev.lnk'),
       (Join-Path $desktopRoot 'EvaluaPro - Prod.lnk'),
       (Join-Path $desktopRoot 'EvaluaPro - Hub.lnk')
     )
+    if ($includeDevShortcut) {
+      $shortcutTargets += (Join-Path $desktopRoot 'EvaluaPro - Dev.lnk')
+    }
     if ($startMenuRoot) {
       $shortcutTargets += @(
-        (Join-Path $startMenuRoot 'EvaluaPro - Dev.lnk'),
         (Join-Path $startMenuRoot 'EvaluaPro - Prod.lnk'),
-        (Join-Path $startMenuRoot 'EvaluaPro - Hub.lnk')
+        (Join-Path $startMenuRoot 'EvaluaPro - Hub.lnk'),
+        (Join-Path $startMenuRoot 'EvaluaPro - Desinstalar.lnk')
       )
+      if ($includeDevShortcut) {
+        $shortcutTargets += (Join-Path $startMenuRoot 'EvaluaPro - Dev.lnk')
+      }
     }
     foreach ($shortcut in $shortcutTargets) {
       if (-not (Test-Path -LiteralPath $shortcut)) {
@@ -92,7 +98,16 @@ function Invoke-PostInstallVerification {
       $issues += "No se encontro archivo de configuracion operativa: $envPath"
     } else {
       $envRaw = Get-Content -Path $envPath -Raw -Encoding utf8
-      foreach ($requiredKey in @('MONGODB_URI', 'JWT_SECRETO', 'CORS_ORIGENES', 'PORTAL_ALUMNO_URL', 'PORTAL_ALUMNO_API_KEY', 'PORTAL_API_KEY')) {
+      $requiredEnvKeys = @('MONGODB_URI', 'JWT_SECRETO', 'CORS_ORIGENES')
+      if ([string]$Flavor.flavorId -ne 'docente-local') {
+        $requiredEnvKeys += @('PORTAL_ALUMNO_URL', 'PORTAL_ALUMNO_API_KEY', 'PORTAL_API_KEY')
+      } else {
+        $requiredEnvKeys += @('EVALUAPRO_FLAVOR', 'PORTAL_SYNC_REQUIRED')
+        if ($envRaw -match '(?m)^\s*PORTAL_SYNC_REQUIRED\s*=\s*1\s*$') {
+          $requiredEnvKeys += @('PORTAL_ALUMNO_URL', 'PORTAL_ALUMNO_API_KEY', 'PORTAL_API_KEY')
+        }
+      }
+      foreach ($requiredKey in $requiredEnvKeys) {
         if ($envRaw -notmatch ("(?m)^\s*{0}\s*=" -f [Regex]::Escape($requiredKey))) {
           $issues += "Falta variable operativa en .env: $requiredKey"
         }
@@ -160,9 +175,24 @@ function Invoke-PostInstallVerification {
   }
 
   if ($Mode -eq 'uninstall') {
-    $installation = Get-EvaluaProInstallationInfo
-    if ($installation.Installed) {
-      $issues += 'EvaluaPro sigue detectado tras desinstalacion.'
+    $effectiveDir = $InstallDir
+    if ([string]::IsNullOrWhiteSpace($effectiveDir)) {
+      $effectiveDir = Join-Path ${env:ProgramFiles} 'EvaluaPro'
+    }
+
+    if (Test-Path -LiteralPath $effectiveDir) {
+      $leftovers = @()
+      try {
+        $leftovers = @(Get-ChildItem -LiteralPath $effectiveDir -Force -ErrorAction SilentlyContinue)
+      } catch {
+        $leftovers = @()
+      }
+
+      if ($leftovers.Count -gt 0) {
+        $issues += "Persisten archivos tras desinstalacion: $effectiveDir"
+      } else {
+        $issues += "Persiste la carpeta de desinstalacion: $effectiveDir"
+      }
     }
   }
 

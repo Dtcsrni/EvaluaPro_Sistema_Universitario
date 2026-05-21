@@ -38,6 +38,38 @@ function Get-NodeMajorVersionFromExecutable {
   }
 }
 
+function Invoke-PrereqNativeCommand {
+  param(
+    [Parameter(Mandatory = $true)]
+    [string]$FilePath,
+    [string[]]$ArgumentList = @(),
+    [int]$TimeoutSec = 8
+  )
+
+  $stdout = Join-Path $env:TEMP ('evaluapro-prereq-out-' + [guid]::NewGuid().ToString('N') + '.txt')
+  $stderr = Join-Path $env:TEMP ('evaluapro-prereq-err-' + [guid]::NewGuid().ToString('N') + '.txt')
+  try {
+    $process = Start-Process -FilePath $FilePath -ArgumentList $ArgumentList -NoNewWindow -PassThru -RedirectStandardOutput $stdout -RedirectStandardError $stderr
+    if (-not $process.WaitForExit([math]::Max(1, $TimeoutSec) * 1000)) {
+      try { Stop-Process -Id $process.Id -Force -ErrorAction SilentlyContinue } catch {}
+      return [pscustomobject]@{ timedOut = $true; exitCode = $null; stdout = ''; stderr = "Timeout ejecutando $FilePath" }
+    }
+
+    $out = if (Test-Path -LiteralPath $stdout) { Get-Content -LiteralPath $stdout -Raw -ErrorAction SilentlyContinue } else { '' }
+    $err = if (Test-Path -LiteralPath $stderr) { Get-Content -LiteralPath $stderr -Raw -ErrorAction SilentlyContinue } else { '' }
+    return [pscustomobject]@{
+      timedOut = $false
+      exitCode = $process.ExitCode
+      stdout = ([string]$out).Replace([string][char]0, '').Trim()
+      stderr = ([string]$err).Replace([string][char]0, '').Trim()
+    }
+  } catch {
+    return [pscustomobject]@{ timedOut = $false; exitCode = $null; stdout = ''; stderr = $_.Exception.Message }
+  } finally {
+    Remove-Item -LiteralPath $stdout, $stderr -Force -ErrorAction SilentlyContinue
+  }
+}
+
 function Get-NodeMajorVersionFromRegistry {
   $majors = @()
 
@@ -180,13 +212,13 @@ function Get-NodeMajorVersion {
 
 function Get-SimulatedWslNodeMajorVersion {
   $raw = [string]$env:EVALUAPRO_INSTALLER_SIMULATE_WSL_NODE_MAJOR
-  if ([string]::IsNullOrWhiteSpace($raw)) { return 0 }
+  if ([string]::IsNullOrWhiteSpace($raw)) { return $null }
   try {
     $major = [int]$raw.Trim()
     if ($major -lt 0) { return 0 }
     return $major
   } catch {
-    return 0
+    return $null
   }
 }
 
@@ -291,6 +323,48 @@ function Get-SimulatedDockerRuntimeStatus {
         )
       }
     }
+    'desktop-daemon-down-wsl-ready' {
+      $preference = Get-DockerRuntimePreference
+      if ($preference -eq 'wsl2-engine') {
+        return [pscustomobject]@{
+          preference = $preference
+          mode = 'wsl2-bootstrap-required'
+          installed = $true
+          ready = $false
+          desktopInstalled = $true
+          clientVersion = '29.2.1'
+          serverVersion = ''
+          context = 'desktop-linux'
+          wslAvailable = $true
+          wslStatus = 'Distribucion predeterminada: Ubuntu'
+          wslTable = '* Ubuntu Stopped 2'
+          defaultDistro = 'Ubuntu'
+          userDistros = @('Ubuntu')
+          wslDockerDistros = @()
+          reason = 'Docker Desktop no responde; se prioriza bootstrap WSL2 + Docker Engine.'
+          manualActions = @('Provisiona Docker Engine dentro de `wsl -d Ubuntu` y habilita el servicio Docker.')
+        }
+      }
+
+      return [pscustomobject]@{
+        preference = $preference
+        mode = 'desktop'
+        installed = $true
+        ready = $false
+        desktopInstalled = $true
+        clientVersion = '29.2.1'
+        serverVersion = ''
+        context = 'desktop-linux'
+        wslAvailable = $true
+        wslStatus = 'Distribucion predeterminada: Ubuntu'
+        wslTable = '* Ubuntu Stopped 2'
+        defaultDistro = 'Ubuntu'
+        userDistros = @('Ubuntu')
+        wslDockerDistros = @()
+        reason = 'Docker Desktop detectado, pero el daemon no responde.'
+        manualActions = @('Inicia Docker Desktop o usa `EVALUAPRO_DOCKER_RUNTIME=wsl2-engine`.')
+      }
+    }
     'missing' {
       return [pscustomobject]@{
         preference = 'auto'
@@ -333,8 +407,8 @@ function Test-DockerDesktopInstalled {
   }
 
   try {
-    $ctx = (& docker context show 2>$null | Select-Object -First 1)
-    if ([string]$ctx -eq 'desktop-linux') { return $true }
+    $ctx = Invoke-PrereqNativeCommand -FilePath 'docker' -ArgumentList @('context', 'show') -TimeoutSec 5
+    if (-not $ctx.timedOut -and [string]$ctx.stdout -eq 'desktop-linux') { return $true }
   } catch {}
 
   return $false
@@ -342,7 +416,8 @@ function Test-DockerDesktopInstalled {
 
 function Get-DockerClientVersion {
   try {
-    $value = (& docker version --format '{{.Client.Version}}' 2>$null | Select-Object -First 1)
+    $result = Invoke-PrereqNativeCommand -FilePath 'docker' -ArgumentList @('version', '--format', '{{.Client.Version}}') -TimeoutSec 6
+    $value = $result.stdout
     if ($null -eq $value) { return '' }
     return [string]$value
   } catch {
@@ -352,7 +427,8 @@ function Get-DockerClientVersion {
 
 function Get-DockerServerVersion {
   try {
-    $value = (& docker version --format '{{.Server.Version}}' 2>$null | Select-Object -First 1)
+    $result = Invoke-PrereqNativeCommand -FilePath 'docker' -ArgumentList @('version', '--format', '{{.Server.Version}}') -TimeoutSec 8
+    $value = $result.stdout
     if ($null -eq $value) { return '' }
     return [string]$value
   } catch {
@@ -362,7 +438,8 @@ function Get-DockerServerVersion {
 
 function Get-DockerContextName {
   try {
-    $value = (& docker context show 2>$null | Select-Object -First 1)
+    $result = Invoke-PrereqNativeCommand -FilePath 'docker' -ArgumentList @('context', 'show') -TimeoutSec 5
+    $value = $result.stdout
     if ($null -eq $value) { return '' }
     return [string]$value
   } catch {
@@ -382,8 +459,8 @@ function Test-WslAvailable {
 function Get-WslStatusText {
   if (-not (Test-WslAvailable)) { return '' }
   try {
-    $raw = (& wsl.exe --status 2>$null | Out-String)
-    return ([string]$raw).Replace([string][char]0, '').Trim()
+    $result = Invoke-PrereqNativeCommand -FilePath 'wsl.exe' -ArgumentList @('--status') -TimeoutSec 6
+    return ([string]$result.stdout).Replace([string][char]0, '').Trim()
   } catch {
     return ''
   }
@@ -392,8 +469,8 @@ function Get-WslStatusText {
 function Get-WslDistroTable {
   if (-not (Test-WslAvailable)) { return '' }
   try {
-    $raw = (& wsl.exe -l -v 2>$null | Out-String)
-    return ([string]$raw).Replace([string][char]0, '').Trim()
+    $result = Invoke-PrereqNativeCommand -FilePath 'wsl.exe' -ArgumentList @('-l', '-v') -TimeoutSec 6
+    return ([string]$result.stdout).Replace([string][char]0, '').Trim()
   } catch {
     return ''
   }
@@ -403,7 +480,8 @@ function Get-WslDistroNamesQuiet {
   if (-not (Test-WslAvailable)) { return @() }
 
   try {
-    $raw = (& wsl.exe -l -q 2>$null | Out-String)
+    $result = Invoke-PrereqNativeCommand -FilePath 'wsl.exe' -ArgumentList @('-l', '-q') -TimeoutSec 6
+    $raw = [string]$result.stdout
     $names = @()
     foreach ($line in ($raw -split "`r?`n")) {
       $clean = [string]$line
@@ -494,8 +572,9 @@ function Invoke-WslShellCommand {
   if (-not (Test-WslAvailable)) { return '' }
 
   try {
-    $output = (& wsl.exe -d $Distro -- sh -lc $Command 2>$null | Out-String)
-    return ([string]$output).Replace([string][char]0, '').Trim()
+    $result = Invoke-PrereqNativeCommand -FilePath 'wsl.exe' -ArgumentList @('-d', $Distro, '--', 'sh', '-lc', $Command) -TimeoutSec 8
+    if ($result.timedOut) { return '' }
+    return ([string]$result.stdout).Replace([string][char]0, '').Trim()
   } catch {
     return ''
   }
@@ -503,7 +582,7 @@ function Invoke-WslShellCommand {
 
 function Get-WslNodeMajorVersion {
   $simulated = Get-SimulatedWslNodeMajorVersion
-  if ($simulated -gt 0) {
+  if ($null -ne $simulated) {
     return $simulated
   }
 
@@ -604,6 +683,24 @@ function Get-DockerRuntimeStatus {
     $reason = 'WSL2 con Docker Engine detectado, pero el daemon no responde desde el host actual.'
     $manualActions += 'Abre la distro WSL2 soportada y valida el daemon con `docker version`.'
     $manualActions += 'Si necesitas compatibilidad inmediata en Windows, puedes usar Docker Desktop de forma opcional.'
+  } elseif ($preference -eq 'wsl2-engine') {
+    if ((@($userDistros)).Count -gt 0) {
+      $mode = 'wsl2-bootstrap-required'
+      $reason = 'WSL2 detectado sin Docker Engine provisionado en una distro de usuario.'
+      $bootstrapDistro = if ($defaultDistro -and $defaultDistro -notin @('docker-desktop', 'docker-desktop-data')) { $defaultDistro } else { $userDistros[0] }
+      $manualActions += "Provisiona Docker Engine dentro de `wsl -d $bootstrapDistro` y habilita el servicio Docker."
+    } elseif ($wslAvailable) {
+      $mode = 'wsl2-bootstrap-required'
+      $reason = 'WSL2 detectado sin una distro de usuario lista para Docker Engine.'
+      $manualActions += 'Instala una distro soportada con `wsl --install -d Ubuntu` y luego provisiona Docker Engine dentro de ella.'
+    } else {
+      $mode = 'missing'
+      $reason = 'WSL2 no esta disponible para el runtime Docker requerido.'
+      $manualActions += 'Habilita WSL2 con `wsl --install -d Ubuntu` y provisiona Docker Engine dentro de la distro.'
+    }
+    if ($desktopInstalled) {
+      $manualActions += 'Docker Desktop existe, pero no sustituye el target WSL2 requerido mientras su daemon no responda.'
+    }
   } elseif ($desktopInstalled) {
     $mode = 'desktop'
     $reason = 'Docker Desktop detectado, pero el daemon no responde.'
@@ -655,6 +752,10 @@ function Test-DockerRuntimeInstalled {
 }
 
 function Get-EvaluaProInstallationInfo {
+  param(
+    [switch]$IgnoreInstallerHub
+  )
+
   $roots = @(
     'HKLM:\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\*',
     'HKLM:\SOFTWARE\\WOW6432Node\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\*',
@@ -667,6 +768,12 @@ function Get-EvaluaProInstallationInfo {
         $_.PSObject.Properties.Match('DisplayName').Count -gt 0 -and
         [string]$_.DisplayName -like 'EvaluaPro*'
       }
+
+    if ($IgnoreInstallerHub) {
+      $items = @($items | Where-Object {
+        [string]$_.DisplayName -notlike '*Installer Hub*'
+      })
+    }
 
     foreach ($item in $items) {
       $uninstallString = [string]$item.UninstallString
@@ -917,6 +1024,16 @@ function Test-PrerequisiteStatus {
       }
     }
     'node_major_wsl' {
+      $runtime = Get-DockerRuntimeStatus
+      if ([bool]$runtime.ready -and [string]$runtime.mode -eq 'desktop') {
+        return [pscustomobject]@{
+          name = [string]$Prerequisite.name
+          installed = $true
+          actualVersion = 'no requerido'
+          reason = 'ok (Docker Desktop activo; Node WSL2 no es requerido para este runtime)'
+        }
+      }
+
       $actual = Get-WslNodeMajorVersion
       $required = [int]$rule.minMajor
       $distro = Get-PreferredWslBootstrapDistro
@@ -929,7 +1046,7 @@ function Test-PrerequisiteStatus {
     }
     'docker_runtime_windows' {
       $status = Get-DockerRuntimeStatus
-      $runtimeReady = ([bool]$status.installed -and [bool]$status.ready -and [string]$status.mode -eq 'wsl2-engine')
+      $runtimeReady = ([bool]$status.installed -and [bool]$status.ready)
       return [pscustomobject]@{
         name = [string]$Prerequisite.name
         installed = $runtimeReady

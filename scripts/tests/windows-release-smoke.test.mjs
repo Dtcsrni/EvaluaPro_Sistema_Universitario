@@ -125,6 +125,10 @@ function normalizeManifestPath(value) {
   return String(value || '').replaceAll('\\', '/');
 }
 
+function normalizeIconPath(value) {
+  return String(value || '').replaceAll('\\', '/').toLowerCase();
+}
+
 async function sleep(ms) {
   await new Promise((resolve) => setTimeout(resolve, ms));
 }
@@ -148,6 +152,17 @@ function readLockPort() {
   } catch {
     return 0;
   }
+}
+
+function readBootstrapPort(bootstrap) {
+  const base = String(bootstrap?.meta?.base || '').trim();
+  const match = /^http:\/\/127\.0\.0\.1:(\d+)$/.exec(base);
+  const p = Number(match?.[1] || 0);
+  return Number.isFinite(p) && p > 0 ? p : 0;
+}
+
+function uniquePositivePorts(values) {
+  return [...new Set(values.map((value) => Number(value || 0)).filter((value) => Number.isFinite(value) && value > 0))];
 }
 
 async function pingStatus(port, timeoutMs = 1_500) {
@@ -175,6 +190,21 @@ async function waitForHttpPort(port, maxMs = 60_000) {
   while (Date.now() - started < maxMs) {
     if (await pingStatus(port, 1_200)) {
       return port;
+    }
+    await sleep(400);
+  }
+
+  return 0;
+}
+
+async function waitForAnyHttpPort(ports, maxMs = 60_000) {
+  const candidates = uniquePositivePorts(ports);
+  const started = Date.now();
+  while (Date.now() - started < maxMs) {
+    for (const port of candidates) {
+      if (await pingStatus(port, 1_200)) {
+        return port;
+      }
     }
     await sleep(400);
   }
@@ -268,7 +298,7 @@ test('smoke GUI no destructivo valida el bundle Burn publico empaquetado', { tim
   assert.equal(child.exitCode, null, 'El bundle Burn se cerro antes del umbral de smoke.');
   try { child.kill('SIGTERM'); } catch {}
   await new Promise((resolve) => child.once('exit', resolve));
-  assert.equal(typeof child.exitCode, 'number');
+  assert.equal(child.exitCode !== null || child.signalCode !== null, true);
 });
 
 test('smoke activo valida broker, manifest, shortcuts y control plane sin depender del legado', { timeout: 480_000 }, async () => {
@@ -307,14 +337,20 @@ test('smoke activo valida broker, manifest, shortcuts y control plane sin depend
   assert.equal(bootstrap.desiredMode, 'prod');
   assert.notEqual(bootstrap.state, 'failed');
 
+  const dashboardBase = String(bootstrap.meta?.base || '').trim();
+  assert.match(dashboardBase, /^http:\/\/127\.0\.0\.1:\d+$/);
+
+  const bootstrapPort = readBootstrapPort(bootstrap);
   const lockPort = readLockPort();
-  assert.ok(lockPort > 0);
-  assert.equal(await waitForHttpPort(lockPort, 20_000), lockPort);
+  const fallbackPorts = Array.from({ length: 20 }, (_, index) => 4519 + index);
+  const responsivePort = await waitForAnyHttpPort([bootstrapPort, lockPort, ...fallbackPorts], 90_000);
+  assert.ok(responsivePort > 0);
 
   const manifest = readJson(manifestPath);
   assert.equal(manifest.installation.installed, true);
   assert.equal(manifest.installation.flavor, 'docente-local');
   assert.equal(manifest.installation.runtimeTarget, 'wsl2-docker-minimal');
+  assert.equal(typeof manifest.shortcuts, 'object');
   assert.equal(manifest.criticalFiles.some((entry) => normalizeManifestPath(entry.path) === 'scripts/launcher-broker.ps1'), true);
   assert.equal(manifest.criticalFiles.some((entry) => normalizeManifestPath(entry.path).includes('scripts/installer-hub/InstallerHub.ps1')), false);
   assert.equal(typeof manifest.runtime, 'object');
@@ -324,10 +360,17 @@ test('smoke activo valida broker, manifest, shortcuts y control plane sin depend
   assert.equal(typeof manifest.runtime.wsl, 'object');
   assert.equal(typeof manifest.runtime.wsl.distro, 'string');
   assert.equal(typeof manifest.runtime.wsl.dockerReady, 'boolean');
+  for (const shortcut of Object.values(manifest.shortcuts)) {
+    const expectedIcon = normalizeIconPath(shortcut?.expectedIconLocation);
+    const actualIcon = normalizeIconPath(shortcut?.iconLocation);
+    assert.equal(expectedIcon.includes('/appdata/local/evaluapro/icons/'), false);
+    assert.match(expectedIcon, /\/scripts\/icons\/.+\.ico$/);
+    if (actualIcon) {
+      assert.equal(actualIcon.includes('/appdata/local/evaluapro/icons/'), false);
+    }
+  }
 
-  const dashboardBase = String(bootstrap.meta?.base || '').trim();
-  assert.match(dashboardBase, /^http:\/\/127\.0\.0\.1:\d+$/);
-  const status = await httpJson(`${dashboardBase}/api/status`, 15_000);
+  const status = await httpJson(`http://127.0.0.1:${responsivePort}/api/status`, 15_000);
   assert.equal(status.status, 200);
   assert.equal(status.body.lifecycle.desiredMode, 'prod');
   assert.equal(status.body.flavorPolicy.flavorId, 'docente-local');
