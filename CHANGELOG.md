@@ -6,6 +6,9 @@ Este archivo sigue el formato "Keep a Changelog" (alto nivel) y SemVer.
 
 ### Changed
 
+- `main` recupera proteccion minima de estabilizacion con ruleset remoto activo: Pull Request obligatorio, no-delete/non-fast-forward y required check `Verificaciones Core (PR bloqueante)`.
+- Higiene S1 saca del arbol activo reportes regenerables de QA Installer Hub y wrapper OMR fuera del manifest contractual; `.gitignore` evita reversionarlos.
+- `docker-compose.yml` fija las imagenes locales de MongoDB y Mongo Express y deja de depender de tags `latest`.
 - `docente-local` permite instalacion minima con integracion cloud diferida: Hub escribe `EVALUAPRO_FLAVOR=docente-local` y `PORTAL_SYNC_REQUIRED=0` cuando portal/sync queda pendiente de primer uso.
 - Dashboard agrega canal de soporte privilegiado con step-up local y allowlist para operaciones Hub/update; desinstalacion exige confirmacion explicita.
 - Baseline de adelgazamiento docente disponible con `npm run installer:docente:baseline` y guia `docs/DOCENTE_LOCAL_LITE.md`.

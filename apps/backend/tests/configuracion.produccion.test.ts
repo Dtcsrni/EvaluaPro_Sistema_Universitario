@@ -32,6 +32,17 @@ describe('configuracion (produccion)', () => {
     await expect(import('../src/configuracion')).rejects.toThrow('PORTAL_ALUMNO_URL es requerido en producción');
   });
 
+  it('falla si falta la api key del portal cloud con URL configurada en production', async () => {
+    process.env.NODE_ENV = 'production';
+    process.env.JWT_SECRETO = 'secret';
+    process.env.MONGODB_URI = 'mongodb://localhost:27017/evaluapro';
+    process.env.CORS_ORIGENES = 'https://docente.example.com';
+    process.env.PORTAL_ALUMNO_URL = 'https://portal.example.com';
+    delete process.env.PORTAL_ALUMNO_API_KEY;
+
+    await expect(import('../src/configuracion')).rejects.toThrow('PORTAL_ALUMNO_API_KEY es requerido en producción');
+  });
+
   it('permite diferir portal cloud en flavor docente-local', async () => {
     process.env.NODE_ENV = 'production';
     process.env.EVALUAPRO_FLAVOR = 'docente-local';
@@ -46,6 +57,7 @@ describe('configuracion (produccion)', () => {
     expect(configuracion.flavorId).toBe('docente-local');
     expect(configuracion.portalSyncRequired).toBe(false);
     expect(configuracion.portalAlumnoUrl).toBe('');
+    expect(configuracion.portalApiKey).toBe('');
   });
 
   it('permite exigir sync cloud explicitamente en docente-local', async () => {
