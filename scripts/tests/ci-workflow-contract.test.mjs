@@ -5,6 +5,7 @@ import path from 'node:path';
 
 const root = process.cwd();
 const workflowPath = path.join(root, '.github', 'workflows', 'ci.yml');
+const workflowDir = path.join(root, '.github', 'workflows');
 
 function extractJobBlock(workflow, jobKey) {
   const startMarker = `  ${jobKey}:\n`;
@@ -115,4 +116,21 @@ test('workflow CI mantiene schedule full para jobs extended', () => {
   assert.match(funcionales, /github\.event_name == 'schedule'/);
   assert.match(perf, /github\.event_name == 'schedule'/);
   assert.match(compliance, /github\.event_name == 'schedule'/);
+});
+
+test('workflows usan actions oficiales compatibles con runtime Node 24', () => {
+  const workflows = fs.readdirSync(workflowDir).filter((file) => /\.ya?ml$/i.test(file));
+  const deprecatedRuntimeActions = [
+    /actions\/checkout@v4/,
+    /actions\/setup-node@v4/,
+    /actions\/upload-artifact@v4/
+  ];
+
+  for (const workflow of workflows) {
+    const content = fs.readFileSync(path.join(workflowDir, workflow), 'utf8');
+
+    for (const action of deprecatedRuntimeActions) {
+      assert.doesNotMatch(content, action, `${workflow} conserva ${action}`);
+    }
+  }
 });

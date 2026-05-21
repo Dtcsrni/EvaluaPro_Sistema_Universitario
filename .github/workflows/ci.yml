@@ -59,7 +59,7 @@ jobs:
 
     steps:
       - name: Descargar código
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           fetch-depth: 0
 
@@ -77,12 +77,12 @@ jobs:
 
     steps:
       - name: Descargar código
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           fetch-depth: 0
 
       - name: Configurar Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v6
         with:
           node-version: 24
           cache: npm
@@ -126,7 +126,7 @@ jobs:
 
       - name: Publicar reporte affected CI
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: reports-affected-ci
           path: reports.affected-ci.json
@@ -142,12 +142,12 @@ jobs:
 
     steps:
       - name: Descargar código
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           fetch-depth: 0
 
       - name: Configurar Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v6
         with:
           node-version: 24
           cache: npm
@@ -231,12 +231,12 @@ jobs:
 
     steps:
       - name: Descargar código
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           fetch-depth: 0
 
       - name: Configurar Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v6
         with:
           node-version: 24
           cache: npm
@@ -295,12 +295,12 @@ jobs:
 
     steps:
       - name: Descargar código
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           fetch-depth: 0
 
       - name: Configurar Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v6
         with:
           node-version: 24
           cache: npm
@@ -340,7 +340,7 @@ jobs:
 
       - name: Publicar reporte de auditoría
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: npm-audit-report
           path: npm-audit-report.json
@@ -398,12 +398,12 @@ jobs:
 
     steps:
       - name: Descargar código
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           fetch-depth: 0
 
       - name: Configurar Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v6
         with:
           node-version: 24
           cache: npm
@@ -473,12 +473,12 @@ jobs:
 
     steps:
       - name: Descargar código
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           fetch-depth: 0
 
       - name: Configurar Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v6
         with:
           node-version: 24
           cache: npm
@@ -508,7 +508,7 @@ jobs:
 
       - name: Publicar reporte de performance
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: perf-report
           path: |
@@ -534,12 +534,12 @@ jobs:
 
     steps:
       - name: Descargar código
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           fetch-depth: 0
 
       - name: Configurar Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v6
         with:
           node-version: 24
           cache: npm
@@ -569,7 +569,7 @@ jobs:
 
       - name: Publicar artefactos QA
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: qa-reports
           path: reports/qa/latest
