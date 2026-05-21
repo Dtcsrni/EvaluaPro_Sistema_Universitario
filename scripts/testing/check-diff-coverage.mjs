@@ -269,7 +269,18 @@ function resolveIgnorePathSubstrings() {
 function isStructuralOnlyLine(sourceLine) {
   const trimmed = sourceLine.trim();
   const isCatchWrapper = /^}?\s*catch(?:\s*\([^)]*\))?\s*{\s*$/.test(trimmed);
-  return /^[\s{}()[\];,]*$/.test(sourceLine) || isCatchWrapper;
+  const isCommentOnly = /^(?:\/\/|\/\*|\*|\*\/)/.test(trimmed);
+  const isImport = /^import\s/.test(trimmed);
+  const isTypeDeclaration = /^(?:export\s+)?type\s/.test(trimmed);
+  const isFunctionDeclaration = /^(?:export\s+)?(?:async\s+)?function\s+\w+\s*\([^)]*\)\s*{\s*$/.test(trimmed);
+  return (
+    /^[\s{}()[\];,]*$/.test(sourceLine) ||
+    isCatchWrapper ||
+    isCommentOnly ||
+    isImport ||
+    isTypeDeclaration ||
+    isFunctionDeclaration
+  );
 }
 
 async function buildFileLinesCache(touchedCoverable) {

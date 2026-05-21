@@ -85,6 +85,16 @@ describe('roles y permisos', () => {
     expect(respuesta.body?.error?.codigo).toBe('DOCENTE_INACTIVO');
   });
 
+  it('bloquea access token vigente cuando el docente ya no existe', async () => {
+    const docente = await crearDocenteConRoles('eliminado@local.test', ['docente']);
+    const auth = authPara(docente, ['docente']);
+
+    await Docente.deleteOne({ _id: docente._id });
+
+    const respuesta = await request(app).get('/api/autenticacion/perfil').set(auth).expect(401);
+    expect(respuesta.body?.error?.codigo).toBe('NO_AUTORIZADO');
+  });
+
   it('usa roles persistidos y no privilegios admin obsoletos del JWT', async () => {
     const admin = await crearDocenteConRoles('admin-reducido@local.test', ['admin']);
     const authAdmin = authPara(admin, ['admin']);
