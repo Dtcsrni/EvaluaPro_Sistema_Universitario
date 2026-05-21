@@ -6,6 +6,8 @@ Este archivo sigue el formato "Keep a Changelog" (alto nivel) y SemVer.
 
 ### Changed
 
+- Auth docente revalida estado activo y roles persistidos en rutas protegidas para que un JWT vigente no conserve acceso tras desactivacion o reduccion de privilegios.
+- `test:backend:ci` conserva `forks` como primer intento y cae a `threads` en reintentos cuando Vitest pierde workers en Windows.
 - `CI Checks` y módulos core reservan `push` directo a `main`/`release/**`; ramas de trabajo y estabilizacion se validan por PR para evitar check-runs duplicados/cancelados del mismo head.
 - Workflows migran `actions/checkout`, `actions/setup-node` y `actions/upload-artifact` a majors con runtime Node 24 para evitar la deprecacion de runners GitHub Actions sobre Node 20.
 - Cambios Classroom detectados por el mapa de impacto ejecutan `test:classroom:audit:ci` dentro del gate core integrador.

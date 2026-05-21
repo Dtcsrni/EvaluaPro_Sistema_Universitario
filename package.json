@@ -59,7 +59,7 @@
     "typecheck": "npm run --workspaces --if-present typecheck",
     "test": "npm -C apps/backend run test",
     "test:backend": "npm -C apps/backend run test",
-    "test:backend:ci": "node scripts/retry.mjs --name backend --attempts 3 --delay-ms 750 --command \"npm -C apps/backend run test\"",
+    "test:backend:ci": "node scripts/retry.mjs --name backend --attempts 3 --delay-ms 750 --command \"npm -C apps/backend run test -- --pool=forks\" --fallback-command \"npm -C apps/backend run test -- --pool=threads\"",
     "test:portal": "npm -C apps/portal_alumno_cloud run test",
     "test:portal:ci": "node scripts/retry.mjs --name portal --attempts 3 --delay-ms 750 --command \"npm -C apps/portal_alumno_cloud run test\"",
     "test:frontend": "npm -C apps/frontend run test",

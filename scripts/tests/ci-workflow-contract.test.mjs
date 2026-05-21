@@ -6,6 +6,7 @@ import path from 'node:path';
 const root = process.cwd();
 const workflowPath = path.join(root, '.github', 'workflows', 'ci.yml');
 const workflowDir = path.join(root, '.github', 'workflows');
+const packageJsonPath = path.join(root, 'package.json');
 
 function extractJobBlock(workflow, jobKey) {
   const startMarker = `  ${jobKey}:\n`;
@@ -151,4 +152,12 @@ test('workflows usan actions oficiales compatibles con runtime Node 24', () => {
       assert.doesNotMatch(content, action, `${workflow} conserva ${action}`);
     }
   }
+});
+
+test('gate backend CI conserva fallback de Vitest threads tras fallo de forks', () => {
+  const packageJson = JSON.parse(fs.readFileSync(packageJsonPath, 'utf8'));
+  const gate = String(packageJson.scripts?.['test:backend:ci'] ?? '');
+
+  assert.match(gate, /--command "npm -C apps\/backend run test -- --pool=forks"/);
+  assert.match(gate, /--fallback-command "npm -C apps\/backend run test -- --pool=threads"/);
 });

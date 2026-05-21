@@ -74,6 +74,27 @@ describe('roles y permisos', () => {
     expect(respuesta.body?.docentes?.length ?? 0).toBeGreaterThanOrEqual(2);
   });
 
+  it('bloquea access token vigente cuando el docente queda inactivo', async () => {
+    const docente = await crearDocenteConRoles('inactivo@local.test', ['docente']);
+    const auth = authPara(docente, ['docente']);
+
+    await request(app).get('/api/autenticacion/perfil').set(auth).expect(200);
+    await Docente.updateOne({ _id: docente._id }, { $set: { activo: false } });
+
+    const respuesta = await request(app).get('/api/autenticacion/perfil').set(auth).expect(403);
+    expect(respuesta.body?.error?.codigo).toBe('DOCENTE_INACTIVO');
+  });
+
+  it('usa roles persistidos y no privilegios admin obsoletos del JWT', async () => {
+    const admin = await crearDocenteConRoles('admin-reducido@local.test', ['admin']);
+    const authAdmin = authPara(admin, ['admin']);
+
+    await request(app).get('/api/admin/docentes').set(authAdmin).expect(200);
+    await Docente.updateOne({ _id: admin._id }, { $set: { roles: ['docente'] } });
+
+    await request(app).get('/api/admin/docentes').set(authAdmin).expect(403);
+  });
+
   it('permite leer evaluaciones a lector pero bloquea gestión', async () => {
     const lector = await crearDocenteConRoles('lector-eval@local.test', ['lector']);
     const authLector = authPara(lector, ['lector']);
