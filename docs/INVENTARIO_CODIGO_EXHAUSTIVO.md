@@ -1,11 +1,11 @@
 # Inventario Exhaustivo de Codigo
 
-Fecha de generacion: 2026-05-20 21:51:57
+Fecha de generacion: 2026-06-01 05:11:02
 Fuente: git ls-files filtrado por existencia en workspace (solo archivos versionados presentes, excluye node_modules).
 
 ## Resumen
 
-- Total de piezas de codigo/config ejecutable inventariadas: 899
+- Total de piezas de codigo/config ejecutable inventariadas: 939
 - Extensiones incluidas: ts, tsx, js, jsx, mjs, cjs, json, yml, yaml, sh, cmd, ps1.
 
 ## Conteo por area
@@ -16,10 +16,10 @@ Fuente: git ls-files filtrado por existencia en workspace (solo archivos version
 | frontend | 129 |
 | portal_alumno_cloud | 44 |
 | ci | 17 |
-| scripts | 133 |
+| scripts | 143 |
 | ops | 3 |
-| docs | 57 |
-| raiz | 9 |
+| docs | 62 |
+| raiz | 31 |
 
 ## Backend (apps/backend)
 
@@ -610,10 +610,15 @@ Fuente: git ls-files filtrado por existencia en workspace (solo archivos version
 
 ## Scripts (scripts)
 
+- scripts/ai-caveman-status.mjs
 - scripts/ai-model-router.mjs
 - scripts/ai-openai-client.mjs
+- scripts/ai-serena-policy-status.mjs
+- scripts/ai-serena-status.mjs
+- scripts/ai-session-start.mjs
 - scripts/build-msi.ps1
 - scripts/clean-architecture-check.mjs
+- scripts/cleanup-old-evaluapro-registry.ps1
 - scripts/comercial/generar-llaves-licencia-rs256.mjs
 - scripts/comercial/portable-license.mjs
 - scripts/comercial/secure-license-store.mjs
@@ -658,6 +663,7 @@ Fuente: git ls-files filtrado por existencia en workspace (solo archivos version
 - scripts/Install-EvaluaPro.ps1
 - scripts/install-maintenance-tasks.ps1
 - scripts/installer-burn/InstallerBurnHelper.ps1
+- scripts/installer-docente-baseline.mjs
 - scripts/inventario-codigo.mjs
 - scripts/launch-dev.cmd
 - scripts/launch-prod.cmd
@@ -686,6 +692,8 @@ Fuente: git ls-files filtrado por existencia en workspace (solo archivos version
 - scripts/routes-check.mjs
 - scripts/sanitize-xlsx-template.ps1
 - scripts/security-env-check.mjs
+- scripts/serena-mcp.ps1
+- scripts/serena-mcp.sh
 - scripts/shortcut-ops.ps1
 - scripts/sign-installer-artifacts.ps1
 - scripts/signing/install-internal-signing-cert.ps1
@@ -716,6 +724,8 @@ Fuente: git ls-files filtrado por existencia en workspace (solo archivos version
 - scripts/tests/ia-traceability.test.mjs
 - scripts/tests/installer-flavor-diff-resolver.test.mjs
 - scripts/tests/installer-hub-contract.test.mjs
+- scripts/tests/installer-hub-e2e-docente.ps1
+- scripts/tests/installer-hub-ui-lifecycle.ps1
 - scripts/tests/marketing-site.smoke.test.mjs
 - scripts/tests/omr-tv-gate-runner.test.mjs
 - scripts/tests/perf-contract.test.mjs
@@ -798,6 +808,11 @@ Fuente: git ls-files filtrado por existencia en workspace (solo archivos version
 - docs/handoff/sesiones/2026-04-03/sesion-2026-04-03T22-00-34.713Z.json
 - docs/handoff/sesiones/2026-04-07/sesion-2026-04-07T06-27-06.688Z.json
 - docs/handoff/sesiones/2026-04-08/sesion-2026-04-08T00-00-00.000Z.json
+- docs/handoff/sesiones/2026-04-16/sesion-2026-04-16T21-58-15.480Z.json
+- docs/handoff/sesiones/2026-04-16/sesion-2026-04-16T22-23-17.126Z.json
+- docs/handoff/sesiones/2026-04-16/sesion-2026-04-16T22-27-01.651Z.json
+- docs/handoff/sesiones/2026-05-21/sesion-2026-05-21T03-50-30.624Z.json
+- docs/handoff/sesiones/2026-05-21/sesion-2026-05-21T03-51-57.281Z.json
 - docs/handoff/trace.schema.json
 - docs/perf/baseline.business.json
 - docs/perf/baseline.json
@@ -819,5 +834,27 @@ Fuente: git ls-files filtrado por existencia en workspace (solo archivos version
 - npm-audit-report.json
 - package-lock.json
 - package.json
+- tmp_compare_installed_scripts.ps1
+- tmp_kill_bundle_processes.ps1
+- tmp_kill_stuck_build.ps1
+- tmp_msi_repair_and_probe.ps1
+- tmp_probe_build_process.ps1
+- tmp_probe_dotnet_times.ps1
+- tmp_probe_installed_during_repair.ps1
+- tmp_probe_installed_shortcuts.ps1
+- tmp_probe_repair_process_v2.ps1
+- tmp_probe_repair_process_v2b.ps1
+- tmp_probe_repair_process.ps1
+- tmp_repair_and_probe_v2.ps1
+- tmp_repair_and_probe.ps1
+- tmp_reset_windows_installer.ps1
+- tmp_reset_wix_cache.ps1
+- tmp_scan_installed_scripts.ps1
+- tmp_tail_msi_log.ps1
+- tmp_tail_repair_log_v2.ps1
+- tmp_tail_repair_log_v2b.ps1
+- tmp_tail_repair_log_v2c.ps1
+- tmp_tail_repair_log.ps1
+- tmp_unlock_bundle.ps1
 - tsconfig.base.json
 - vitest.base.ts

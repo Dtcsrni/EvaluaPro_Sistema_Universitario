@@ -8,19 +8,19 @@ Esta guia define una politica repo-local para usar Codex en VS Code con menos de
 - No forma parte del runtime del sistema, ni de los throttles del proveedor, ni de los gates de CI/CD o release.
 
 ## Seleccion de modelo
-- `GPT-5.4` con reasoning `high` para:
+- Nivel de razonamiento alto (High reasoning) para:
   - politica, arquitectura y estrategia;
   - decisiones ambiguas;
   - definicion de contrato o guia operativa.
-- `GPT-5.3-Codex` con reasoning `high` para:
+- Nivel de razonamiento alto enfocado en programacion (High reasoning coding) para:
   - debugging complejo;
   - trabajo multiarchivo;
   - refactors con riesgo funcional.
-- `GPT-5.4-Mini` con reasoning `medium` para:
+- Nivel de razonamiento medio (Medium reasoning) para:
   - desarrollo normal;
   - tareas acotadas con contexto suficiente;
   - iteraciones de implementacion sin ambiguedad alta.
-- `GPT-5.1-Codex-Mini` con reasoning `low` para:
+- Nivel de razonamiento bajo (Low reasoning) para:
   - tareas mecanicas;
   - cambios repetitivos;
   - ediciones de bajo riesgo y alta certeza.
@@ -37,7 +37,7 @@ Esta guia define una politica repo-local para usar Codex en VS Code con menos de
 
 ## Cuanto abrir un chat nuevo
 - Abrir chat nuevo cuando cambie el objetivo principal.
-- Abrir chat nuevo cuando cambie el modelo recomendado entre `GPT-5.4`, `GPT-5.3-Codex`, `GPT-5.4-Mini` o `GPT-5.1-Codex-Mini`.
+- Abrir chat nuevo cuando cambie el nivel de razonamiento o enfoque recomendado para la tarea (por ejemplo, de razonamiento avanzado a modelo economico).
 - Abrir chat nuevo cuando aparezcan subproblemas no relacionados que mezclen politica, debugging y documentacion sin un bloque comun claro.
 - Abrir chat nuevo cuando el contexto heredado ya no ayude a decidir y solo añada ruido.
 

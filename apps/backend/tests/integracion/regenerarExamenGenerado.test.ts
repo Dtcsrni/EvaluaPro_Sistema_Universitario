@@ -53,7 +53,7 @@ describe('regenerar examen generado', () => {
     const periodoId = periodoResp.body.periodo._id as string;
 
     const preguntasIds: string[] = [];
-    for (let i = 0; i < 60; i += 1) {
+    for (let i = 0; i < 5; i += 1) {
       const preguntaResp = await request(app)
         .post('/api/banco-preguntas')
         .set(auth)

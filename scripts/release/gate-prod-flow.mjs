@@ -48,7 +48,8 @@ function normalizarBaseApi(valor) {
 }
 
 function hashHex(valor) {
-  return crypto.createHash('sha256').update(String(valor)).digest('hex');
+  const input = typeof valor === 'string' || Buffer.isBuffer(valor) ? valor : String(valor);
+  return crypto.createHash('sha256').update(input).digest('hex');
 }
 
 async function leerVersionMetadata() {

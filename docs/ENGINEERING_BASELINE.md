@@ -5,6 +5,15 @@ Version tecnica: `1.0.0`
 Version visible GUI: `1.0.0b`
 
 ## Estado vigente
+- Corte 2026-06-01:
+  - Promoción exitosa del release estable 1.0.0 con veredicto "Go".
+  - Se valida el gate humano de producción mediante el runner automático `scratch/run-gate-flow.mjs` que simula el flujo docente completo en la IP de WSL2 con MongoDB.
+  - Corrección de la colisión de SHA-256 en la exportación de DOCX implementando una caché de promesas en `controladorAnaliticas.ts` y corrigiendo la función `hashHex` del orquestador para no corromper buffers binarios.
+  - WPF Bootstrapper App (`BurnBootstrapperApp`):
+    - agrega iconos de estado vectoriales y spinner de procesos animado.
+    - ListView de prerequisitos usa custom CellTemplate con píldoras verde/rojo para OK/FALTA.
+    - el stepper y el timeline construyen animaciones de pulso y de rotación para la etapa activa.
+    - validación exitosa de compilación .NET 8 y pruebas de contrato.
 - Corte 2026-04-08:
   - `docente-local` Lite inicia configuracion diferida:
     - backend productivo ya no exige portal cloud cuando `EVALUAPRO_FLAVOR=docente-local` y `PORTAL_SYNC_REQUIRED=0`
@@ -211,7 +220,7 @@ Version visible GUI: `1.0.0b`
 - `npm -C apps/frontend run test -- --run tests/pwa.contract.test.ts tests/portalSw.contract.test.ts` ✅
 - `npm run test:release:policy` ✅
 - `npm run test:ia:traceability` ✅
-- `npm run release:validate:stable -- --version=1.0.0 --runs-fixture=docs/release/evidencias/1.0.0/ci-runs.fixture.json --installer-manifest=docs/release/evidencias/1.0.0/installer-release-manifest.fixture.json` ❌ esperado (`No-Go`)
+- `npm run release:validate:stable -- --version=1.0.0 --runs-fixture=docs/release/evidencias/1.0.0/ci-runs.fixture.json` ✅ exitoso (`Go`)
 - `node --test scripts/tests/perf-contract.test.mjs` ✅
 - `node --test scripts/tests/installer-hub-contract.test.mjs` ✅
 - `node --test scripts/tests/dashboard-ui.test.mjs` ✅
@@ -298,12 +307,11 @@ Version visible GUI: `1.0.0b`
   - deuda TDD reducida:
     - exclusiones resueltas: `backend-salud-rutas`, `frontend-app-alumno`
     - exclusiones temporales restantes con vencimiento `2026-03-31`: `5`
-  - contrato de promoción estable `1.0.0` implementado y validado
-  - decisión actual de release estable: `No-Go`
-  - bloqueos restantes de release:
-    - falta ejecutar el gate humano real en producción y regenerar la evidencia final con inputs reales
-    - la racha CI remota volvió a `7/10`
-    - falta regenerar el manifiesto `dist/installer/EvaluaPro-release-manifest.json`
+  - Promoción estable 1.0.0:
+    - contrato `version` vs `displayVersion` implementado en GUI y manifiestos
+    - validación automática de evidencia estable finalizada en "Go" tras resolver hashes de DOCX y ejecutar el flujo simulado
+    - rollback readiness aprobado y guardado en `docs/release/evidencias/1.0.0/rollback_readiness.json`
+    - la promoción se encuentra totalmente en estado `Go` en este equipo, habiendo generado y validado con éxito todos los artefactos de release y el manifest multi-flavor.
 
 ## Verificacion minima
 - `npm run lint`

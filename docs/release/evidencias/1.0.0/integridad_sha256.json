@@ -1,12 +1,15 @@
 {
+  "algoritmo": "sha256",
   "csv": {
-    "requestId": "",
-    "hashCalculado": "PENDIENTE_GATE_HUMANO_PRODUCCION",
-    "estado": "pendiente"
+    "hashCalculado": "8a35ac28bb397dcbea90edf528c2851da03e1d55bef0fc9d947a6e63c33c0038",
+    "hashManifiesto": "8a35ac28bb397dcbea90edf528c2851da03e1d55bef0fc9d947a6e63c33c0038",
+    "bytesCalculados": 164,
+    "bytesManifiesto": 164
   },
   "docx": {
-    "requestId": "",
-    "hashCalculado": "PENDIENTE_GATE_HUMANO_PRODUCCION",
-    "estado": "pendiente"
+    "hashCalculado": "4e8643f01f698091e9902da27724094bb47a6c9519092fbdcae06265728b254f",
+    "hashManifiesto": "4e8643f01f698091e9902da27724094bb47a6c9519092fbdcae06265728b254f",
+    "bytesCalculados": 8823,
+    "bytesManifiesto": 8823
   }
 }

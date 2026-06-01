@@ -1,0 +1,22 @@
+{
+  "version": "1.0.0",
+  "status": "ready",
+  "previousStableVersion": "1.0.0-beta.14",
+  "activationCriteria": [
+    "Readiness inestable en API o portal",
+    "Fallo critico en flujo docente humano",
+    "Errores sostenidos post-release"
+  ],
+  "rollbackSteps": [
+    "Detener promotion y bloquear nuevos cambios",
+    "Revertir al release estable previo (v1.0.0-beta.14)",
+    "Restaurar configuracion/artefactos del release previo"
+  ],
+  "postRollbackChecks": [
+    "GET /api/salud/live",
+    "GET /api/portal/salud/live",
+    "Verificar acceso docente y dashboard"
+  ],
+  "approvedBy": "evega",
+  "approvedAt": "2026-06-01T10:15:00.000Z"
+}

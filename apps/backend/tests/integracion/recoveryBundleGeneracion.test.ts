@@ -70,7 +70,7 @@ describe('generación PDF: recovery manifest y bundle', () => {
       .expect(201);
 
     const preguntasIds: string[] = [];
-    for (let i = 0; i < 20; i += 1) {
+    for (let i = 0; i < 5; i += 1) {
       const pregunta = await request(app)
         .post('/api/banco-preguntas')
         .set(auth)

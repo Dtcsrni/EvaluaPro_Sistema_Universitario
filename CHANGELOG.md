@@ -1,5 +1,7 @@
 # Changelog
 
+# Changelog
+
 Este archivo sigue el formato "Keep a Changelog" (alto nivel) y SemVer.
 
 ## [Unreleased]
@@ -14,6 +16,18 @@ Este archivo sigue el formato "Keep a Changelog" (alto nivel) y SemVer.
 - `main` recupera proteccion minima de estabilizacion con ruleset remoto activo: Pull Request obligatorio, no-delete/non-fast-forward y required check `Verificaciones Core (PR bloqueante)`.
 - Higiene S1 saca del arbol activo reportes regenerables de QA Installer Hub y wrapper OMR fuera del manifest contractual; `.gitignore` evita reversionarlos.
 - `docker-compose.yml` fija las imagenes locales de MongoDB y Mongo Express y deja de depender de tags `latest`.
+
+## [1.0.0] - 2026-06-01
+
+### Added
+- Promoción exitosa a la versión estable 1.0.0 para entornos productivos de uso docente completo en WSL2.
+- Generación de evidencias completada y validación Go/No-Go del release gate estable exitosa.
+- Compilación del Installer Hub de Windows completada para los perfiles `saas-completo` y `docente-local`.
+- Detección y corrección de inconsistencia SHA-256 en la exportación DOCX mediante una caché de promesas en `controladorAnaliticas.ts` y corrección en la función `hashHex` del cliente (`gate-prod-flow.mjs`) que corrompía el hash binario al convertirlo destructivamente a string UTF-8.
+
+- Se enriquece la GUI del WPF Installer Hub con múltiples iconos vectoriales (Path), badges de colores (verde para OK, rojo para FALTA) en el ListView de prerrequisitos, un spinner de proceso en la tarjeta de estado y animaciones programáticas (pulsos y rotaciones) para indicar el estado activo y de espera.
+- Eliminadas las recomendaciones y referencias a nombres específicos de modelos de IA (como GPT-5.4, GPT-5.3-Codex, GPT-5.4-Mini y GPT-5.1-Codex-Mini) en las guías de agentes y políticas de economía de tokens, sustituyéndolas por enfoques genéricos y niveles de razonamiento.
+
 - `docente-local` permite instalacion minima con integracion cloud diferida: Hub escribe `EVALUAPRO_FLAVOR=docente-local` y `PORTAL_SYNC_REQUIRED=0` cuando portal/sync queda pendiente de primer uso.
 - Dashboard agrega canal de soporte privilegiado con step-up local y allowlist para operaciones Hub/update; desinstalacion exige confirmacion explicita.
 - Baseline de adelgazamiento docente disponible con `npm run installer:docente:baseline` y guia `docs/DOCENTE_LOCAL_LITE.md`.

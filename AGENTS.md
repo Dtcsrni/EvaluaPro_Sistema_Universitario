@@ -39,10 +39,7 @@ Si hay conflicto entre documentos, actualizar todos para alinear el estado real 
    - comandos ejecutados,
    - resultado exacto de gates,
    - decisiones, riesgos y siguiente paso.
-4. Antes de continuar con una solicitud, analizar la naturaleza de la tarea y sugerir el modelo recomendado para ejecutarla.
-   - En planeaciones, arquitectura y decisiones ambiguas, priorizar `GPT-5.4`.
-   - En trabajo de codigo multiarchivo o debugging complejo, priorizar `GPT-5.3-Codex`.
-   - En tareas mecanicas, de baja ambiguedad o con foco en ahorro de tokens, priorizar `GPT-5.4-Mini` o `GPT-5.1-Codex-Mini`.
+4. Antes de continuar con una solicitud, analizar la naturaleza de la tarea y sugerir el nivel de razonamiento o enfoque recomendado para ejecutarla (por ejemplo, razonamiento alto, balanceado, rápido o económico).
    - La politica repo-local de economia de tokens para Codex en VS Code vive en `docs/POLITICA_ECONOMIA_TOKENS_CODEX.md`; aplica solo a seleccion de modelo, compactacion de contexto y apertura de chat nuevo, no al runtime ni a los gates.
 5. No registrar prompts completos, secretos o salidas crudas extensas en handoff/documentacion.
 6. No degradar calidad para "pasar rapido":
