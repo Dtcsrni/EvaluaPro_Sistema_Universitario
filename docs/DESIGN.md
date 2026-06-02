@@ -1,14 +1,43 @@
-# DESIGN.md - Installer Hub
+# DESIGN.md - EvaluaPro UX/UI
 
-Fuente de verdad visual y UX para el Installer Hub de EvaluaPro en Windows.
+Fuente de verdad visual y UX para las superficies operativas de EvaluaPro: frontend docente, portal alumno, admin negocio, Dashboard local e Installer Hub Windows.
 
 ## Principios
 
 - La UI debe comunicar estado operativo, no decorar. Cada bloque visible debe responder a una pregunta del usuario: que se hara, si el equipo esta listo, que esta pasando y como recuperarse.
-- El flujo primario debe caber en pantallas de soporte comunes: 1024x768 a 100-125% DPI, con scroll solo para secciones avanzadas.
-- El instalador debe ser usable con teclado, lector de pantalla y alto contraste. Todo control interactivo requiere nombre accesible, ayuda breve y orden de tabulacion predecible.
+- El flujo primario debe caber en pantallas comunes: desktop, tablet y mobile para web; 1024x768 a 100-125% DPI para soporte Windows. El scroll se reserva para contenido largo, no para corregir desorden visual.
+- Cada pantalla debe tener una accion primaria evidente. Las acciones secundarias deben quedar cerca del contexto que modifican, sin competir con el flujo principal.
+- Toda superficie debe ser usable con teclado, lector de pantalla y alto contraste. Todo control interactivo requiere nombre accesible, ayuda breve y orden de tabulacion predecible.
+- La densidad debe ser operativa: suficiente informacion para decidir sin convertir la pantalla en landing page, dashboard decorativo o panel de tarjetas redundantes.
+- La jerarquia visual debe ser simple, elegante y funcional: titulos compactos en herramientas, espaciado estable, radios contenidos, gradientes sobrios y cero orbes/blobs/decoracion radial.
 - El modo avanzado no debe bloquear el caso comun. Configuracion operativa, licencia y update viven colapsados por defecto.
 - Los errores deben mostrar causa accionable y rutas de evidencia: paquete, codigo Windows, log MSI y log BA cuando existan.
+
+## Superficies Web
+
+- Frontend docente:
+  - Navegacion por pestañas estable para Materias, Alumnos, Banco, Plantillas, Entrega, Calificaciones, Rehidratacion, Evaluaciones, Sincronizacion y Cuenta.
+  - Cada pestaña debe sostener una tarea docente concreta: crear, revisar, publicar, importar, sincronizar o corregir.
+  - Tablas, filtros y formularios deben mantener etiquetas visibles, mensajes inline y acciones CRUD predecibles.
+- Portal alumno:
+  - Acceso con codigo y matricula como unico flujo primario.
+  - Resultados con resumen primero, folio/detalle despues y canales claros para revision, conformidad y PDF.
+  - Sin ruido administrativo ni copy interno.
+- Admin negocio:
+  - Navegacion por vistas clara, metricas escaneables y acciones de soporte contenidas.
+  - Tenants, licencias y cobranza deben distinguir consulta, alta y soporte sin mezclar estados comerciales con errores tecnicos.
+- Dashboard local:
+  - Estado runtime, broker, version, update y soporte privilegiado deben comunicar si el equipo esta listo antes de ofrecer acciones sensibles.
+  - Logs y acciones avanzadas deben estar disponibles para soporte, pero no dominar la primera lectura.
+
+## Contrato Visual Web
+
+- Tokens principales viven en `apps/frontend/src/styles/foundations.css`; componentes compartidos en `components.css`; patrones de pantalla en `screens.css`.
+- No se permiten `radial-gradient`, orbes, blobs, tracking negativo ni radios grandes en paneles principales.
+- Los controles no deben solaparse materialmente en desktop, tablet o mobile.
+- Los textos deben caber en su contenedor; si una etiqueta compite con el espacio disponible, debe envolver o reducir densidad sin ocultar informacion critica.
+- Estados `loading`, `empty`, `error`, `warning` y `success` deben aparecer cerca del elemento afectado.
+- Evidencia minima: `npm run test:gui:responsive:e2e:ci`, `npm run test:ux-quality:ci`, `npm run test:ux-visual:ci`, `npm run test:gui:design-contract` y `npm run test:gui:screen-matrix`.
 
 ## Layout Wizard Moderno
 

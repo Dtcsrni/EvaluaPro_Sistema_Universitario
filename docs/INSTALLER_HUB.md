@@ -14,6 +14,7 @@ El contrato visual y UX del Hub vive en `docs/DESIGN.md`.
 - Ejecutar configuracion operativa, activacion de licencia y validacion final con helper controlado bajo contrato JSON.
 - Dejar trazabilidad en logs por sesion para soporte tecnico.
 - Para `docente-local`, centralizar el stack minimo en Docker compatible: `MongoDB + API + Web`.
+- Para `docente-local`, arrancar prod en modo image-first: el Hub no compila imagenes en la ruta normal; usa imagenes GHCR versionadas y deja el build local como fallback tecnico.
 
 ## Flujo funcional
 
@@ -141,13 +142,14 @@ En este repo/equipo, el ejecutable recomendado para instalacion docente local qu
 
 - Runtime operativo reflejado en `logs/installation.manifest.json`:
   - `installation.runtimeTarget`
+  - `installation.dockerImages.apiDocente|webDocente|mongo`
   - `runtime.embeddedNode.present|path|version`
   - `runtime.wsl.distro|nodeVersion|dockerReady`
 
 Baseline no destructivo para comparar footprint/instalacion por corte:
 
 - `npm run installer:docente:baseline`
-- Debe complementarse con E2E VM para tiempos reales, prompts UAC, RAM idle y ciclo `install|repair|update|uninstall`.
+- Debe complementarse con E2E VM para tiempos reales, prompts UAC, RAM idle y ciclo `install|repair|update smoke|uninstall`; el runner captura `/api/update/status` como evidencia `manifest/update-status.json`.
 
 Activacion segura opcional al instalar (GUI o headless):
 
@@ -204,6 +206,11 @@ Regla de publicacion:
   - si soporte activa compatibilidad `Docker Desktop` y su daemon queda sano, `Node 24` dentro de WSL2 puede marcarse como no requerido para esa ejecucion.
 
 - Para `docente-local`, la remediacion se enfoca en habilitar el runtime del stack minimo `Mongo + API + Web`; el portal alumno local no forma parte del criterio de listo.
+- Stack prod docente minimo:
+  - `mongo_local` usa `mongo:8.0.23`;
+  - `api_docente_prod` usa `ghcr.io/dtcsrni/evaluapro_sistema_universitario/evaluapro-api-docente:<tag>`;
+  - `web_docente_prod` usa `ghcr.io/dtcsrni/evaluapro_sistema_universitario/evaluapro-web-docente:<tag>`;
+  - `docker-compose.prod-build.yml` es solo fallback tecnico para rebuild local o gates full-build.
 - Sin internet: bloqueo temprano y opcion de reintento.
 - Asset o API no disponible: reintentos controlados y mensaje accionable.
 - Hash invalido: aborta y purga artefacto descargado.

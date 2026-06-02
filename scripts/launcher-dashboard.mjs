@@ -1204,8 +1204,29 @@ function dockerRuntimePreference() {
   return ['auto', 'wsl2-engine', 'desktop'].includes(raw) ? raw : 'auto';
 }
 
+function resolveEffectiveDockerRuntime(flavorPolicy = resolveFlavorPolicy(readInstallationManifest())) {
+  const preference = dockerRuntimePreference();
+  const context = tryGetDockerContext();
+  const docenteWslTarget = flavorPolicy.flavorId === 'docente-local' && flavorPolicy.runtimeTarget === 'wsl2-docker-minimal';
+  const effectivePreference = preference === 'auto' && docenteWslTarget ? 'wsl2-engine' : preference;
+  const mode = effectivePreference === 'desktop' && context === 'desktop-linux'
+    ? 'desktop-manual'
+    : context === 'desktop-linux'
+      ? 'desktop-unapproved'
+      : 'wsl2-engine';
+  const warning = mode === 'desktop-unapproved' && docenteWslTarget
+    ? 'docente-local requiere WSL2 + Docker Engine; Docker Desktop solo se acepta con EVALUAPRO_DOCKER_RUNTIME=desktop.'
+    : '';
+  return {
+    preference: effectivePreference,
+    mode,
+    context,
+    warning
+  };
+}
+
 function dockerRuntimeGuidance() {
-  return 'WSL2 + Docker Engine o Docker Desktop';
+  return dockerRuntimePreference() === 'desktop' ? 'Docker Desktop' : 'WSL2 + Docker Engine';
 }
 
 function findDockerDesktopExe() {
@@ -3812,6 +3833,7 @@ const server = http.createServer(async (req, res) => {
     const httpsState = resolveHttpsState();
     const manifest = readInstallationManifest();
     const flavorPolicy = resolveFlavorPolicy(manifest);
+    const dockerRuntime = resolveEffectiveDockerRuntime(flavorPolicy);
     const shortcutState = resolveShortcutState(manifest);
     const licenseState = resolveLicenseState(manifest);
     const bootstrapState = resolveBootstrapState();
@@ -3851,6 +3873,7 @@ const server = http.createServer(async (req, res) => {
         ready: dockerAutostart.ready,
         version: dockerAutostart.version,
         lastError: dockerAutostart.lastError,
+        runtime: dockerRuntime,
         stack: dockerAutostart.stack,
         lastChangedAt: dockerAutostart.lastChangedAt
       },

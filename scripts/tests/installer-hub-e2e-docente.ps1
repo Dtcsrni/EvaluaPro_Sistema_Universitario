@@ -11,10 +11,13 @@ param(
   [string]$ReportDir = '',
   [string]$InstallDir = '',
   [string]$ExpectedSnapshotName = 'pre-evaluapro-installer-e2e',
+  [string]$ExpectedVmComputerName = 'EVALPRO-E2E',
+  [string]$ExpectedHostCanaryComputerName = 'TEZKATLI',
   [int]$Port = 4519,
   [switch]$IUnderstandThisMutatesVm,
   [switch]$AllowExistingInstall,
-  [switch]$SkipSnapshotCheck
+  [switch]$SkipSnapshotCheck,
+  [switch]$AllowHostCanary
 )
 
 Set-StrictMode -Version Latest
@@ -55,6 +58,7 @@ if ([string]::IsNullOrWhiteSpace($RootPath)) {
   $RootPath = Join-Path $PSScriptRoot '..\..'
 }
 $root = (Resolve-Path $RootPath).Path
+Set-Location -LiteralPath $root
 $stamp = Get-Date -Format 'yyyyMMdd-HHmmss'
 if ([string]::IsNullOrWhiteSpace($ReportDir)) {
   $ReportDir = Join-Path $root ("reports\qa\installer-hub-e2e-docente\{0}" -f $stamp)
@@ -172,7 +176,7 @@ function Minimize-RunnerConsole {
 
 function Export-JsonArtifact {
   param([string]$Name, [object]$Data)
-  $targetDir = if ($Name -match '^processes-') { $processesDir } elseif ($Name -match 'docker|health') { $dockerDir } elseif ($Name -match 'manifest|config') { $manifestDir } else { $ReportDir }
+  $targetDir = if ($Name -match '^processes-') { $processesDir } elseif ($Name -match 'docker|health') { $dockerDir } elseif ($Name -match 'manifest|config|update-status') { $manifestDir } else { $ReportDir }
   $path = Join-Path $targetDir $Name
   $Data | ConvertTo-Json -Depth 12 | Set-Content -Path $path -Encoding UTF8
   $script:artifacts.Add($path) | Out-Null
@@ -246,6 +250,21 @@ function Resolve-BundlePath {
   throw "No se encontro bundle docente-local desde manifiesto: $selected"
 }
 
+function Get-Sha256Hash {
+  param([string]$Path)
+  $sha = [System.Security.Cryptography.SHA256]::Create()
+  try {
+    $stream = [System.IO.File]::OpenRead($Path)
+    try {
+      return ([BitConverter]::ToString($sha.ComputeHash($stream)) -replace '-', '').ToLowerInvariant()
+    } finally {
+      $stream.Dispose()
+    }
+  } finally {
+    $sha.Dispose()
+  }
+}
+
 function Assert-Hash {
   param([string]$ExePath)
   $shaPath = "$ExePath.sha256"
@@ -255,7 +274,7 @@ function Assert-Hash {
   $expectedText = Get-Content -Path $shaPath -Raw
   $expected = ([regex]::Match($expectedText, '[A-Fa-f0-9]{64}')).Value.ToLowerInvariant()
   if (-not $expected) { throw "SHA256 esperado invalido: $shaPath" }
-  $actual = (Get-FileHash -LiteralPath $ExePath -Algorithm SHA256).Hash.ToLowerInvariant()
+  $actual = Get-Sha256Hash -Path $ExePath
   Add-Result -Area 'preflight' -Item 'sha256' -Ok ($actual -eq $expected) -Detail "expected=$expected actual=$actual"
   if ($actual -ne $expected) { throw 'Hash SHA256 invalido para el bundle.' }
 }
@@ -304,19 +323,58 @@ function Assert-SnapshotContext {
   if (-not $ok) { throw "Snapshot esperado '$ExpectedSnapshotName' no confirmado." }
 }
 
+function Assert-RunningInsideExpectedVm {
+  $current = [string]$env:COMPUTERNAME
+  $expected = if ($AllowHostCanary) { $ExpectedHostCanaryComputerName } else { $ExpectedVmComputerName }
+  $ok = $current -eq $expected
+  if ($AllowHostCanary -and $ok) {
+    Add-Result -Area 'preflight' -Item 'host-canary-identity' -Ok $true -Detail "Host canary autorizado COMPUTERNAME=$current expected=$expected"
+    return
+  }
+  Add-Result -Area 'preflight' -Item 'vm-identity' -Ok $ok -Detail "COMPUTERNAME=$current expected=$expected"
+  if (-not $ok) { throw "E2E debe correr en VM esperada. COMPUTERNAME=$current expected=$expected" }
+}
+
+function Get-SystemMemorySnapshot {
+  $os = Get-CimInstance -ClassName Win32_OperatingSystem
+  $pageFile = @(Get-CimInstance -ClassName Win32_PageFileUsage -ErrorAction SilentlyContinue)
+  $totalVirtualMB = [int64]$os.TotalVirtualMemorySize / 1KB
+  $freeVirtualMB = [int64]$os.FreeVirtualMemory / 1KB
+  return [pscustomobject]@{
+    totalVisibleMemoryMB = [math]::Round(([int64]$os.TotalVisibleMemorySize / 1KB), 2)
+    freePhysicalMB = [math]::Round(([int64]$os.FreePhysicalMemory / 1KB), 2)
+    totalVirtualMB = [math]::Round($totalVirtualMB, 2)
+    freeVirtualMB = [math]::Round($freeVirtualMB, 2)
+    pageFiles = $pageFile | Select-Object Name, CurrentUsage, PeakUsage, AllocatedBaseSize
+  }
+}
+
+function Assert-SystemMemoryReady {
+  $snapshot = Get-SystemMemorySnapshot
+  Export-JsonArtifact -Name 'preflight-memory.json' -Data $snapshot | Out-Null
+  $ok = [double]$snapshot.freeVirtualMB -ge 1536
+  Add-Result -Area 'preflight' -Item 'memory-pagefile' -Ok $ok -Detail ("freeVirtualMB={0}" -f $snapshot.freeVirtualMB)
+  if (-not $ok) { throw 'Memoria virtual/pagefile insuficiente para E2E Installer Hub.' }
+}
+
 function Find-Window {
   param([int]$TimeoutSec = 60)
   $deadline = (Get-Date).AddSeconds($TimeoutSec)
-  $condition = New-Object System.Windows.Automation.PropertyCondition -ArgumentList @(
-    [System.Windows.Automation.AutomationElement]::NameProperty,
-    'EvaluaPro Installer Hub'
-  )
+  $nameRegex = '(?i)EvaluaPro.*Installer Hub|InstallerHub|Installer Hub'
   do {
-    $window = [System.Windows.Automation.AutomationElement]::RootElement.FindFirst(
+    $children = [System.Windows.Automation.AutomationElement]::RootElement.FindAll(
       [System.Windows.Automation.TreeScope]::Children,
-      $condition
+      [System.Windows.Automation.Condition]::TrueCondition
     )
-    if ($window) { return $window }
+    foreach ($child in $children) {
+      try {
+        $name = [string]$child.Current.Name
+        $rect = $child.Current.BoundingRectangle
+        if ($name -match $nameRegex -and $rect.Width -gt 100 -and $rect.Height -gt 100) {
+          return $child
+        }
+      } catch {}
+    }
     Start-Sleep -Milliseconds 500
   } while ((Get-Date) -lt $deadline)
   return $null
@@ -411,6 +469,9 @@ function Wait-DetectionIdle {
     $window = Find-Window -TimeoutSec 2
     if ($window) { $RootElement = $window }
 
+    $detectState = Get-LatestDetectPrereqsState -MinLastWriteTime $startedAt
+    if ($detectState -and $detectState.ready) { return $RootElement }
+
     $next = Find-ById -RootElement $RootElement -AutomationId 'NextButton' -TimeoutSec 1
     if ($next -and $next.Current.IsEnabled) { return $RootElement }
 
@@ -421,6 +482,24 @@ function Wait-DetectionIdle {
   } while ((Get-Date) -lt $deadline)
 
   throw "La deteccion de prerequisitos no volvio a estado estable antes de $TimeoutSec segundos."
+}
+
+function Get-LatestDetectPrereqsState {
+  param([datetime]$MinLastWriteTime)
+  $candidates = @(Get-ChildItem -Path $logsDir,$ReportDir -Filter 'detect-prereqs-*.response.json' -Recurse -ErrorAction SilentlyContinue |
+    Where-Object { $_.LastWriteTime -ge $MinLastWriteTime } |
+    Sort-Object LastWriteTime -Descending)
+  foreach ($candidate in $candidates) {
+    try {
+      $payload = Get-Content -Raw -Path $candidate.FullName | ConvertFrom-Json
+      $ready = $payload.ok -eq $true -or [string]$payload.status -match '^(ok|ready|success|passed)$'
+      if ($ready) {
+        Add-Result -Area 'detect' -Item 'detect-response-ready' -Ok $true -Detail $candidate.FullName
+        return [pscustomobject]@{ ready = $true; path = $candidate.FullName; payload = $payload }
+      }
+    } catch {}
+  }
+  return $null
 }
 
 function Expand-Control {
@@ -477,9 +556,15 @@ function Capture-Window {
     [System.Windows.Automation.AutomationElement]$Window,
     [string]$Name
   )
-  if (-not $Window) { return '' }
+  if (-not $Window) {
+    Write-E2ELog "Captura omitida: ventana no disponible name=$Name"
+    return ''
+  }
   $rectangle = $Window.Current.BoundingRectangle
-  if ($rectangle.Width -le 0 -or $rectangle.Height -le 0) { return '' }
+  if ($rectangle.Width -le 0 -or $rectangle.Height -le 0) {
+    Write-E2ELog "Captura omitida: ventana sin dimensiones name=$Name"
+    return ''
+  }
   $bitmap = New-Object System.Drawing.Bitmap([int]$rectangle.Width, [int]$rectangle.Height)
   $graphics = [System.Drawing.Graphics]::FromImage($bitmap)
   try {
@@ -540,6 +625,10 @@ function Wait-InstallerStableState {
     if ($Mode -eq 'install' -and $text -match '(?i)(instalaci[oó]n completada|listo para usarse|configuraci[oó]n final)') {
       return [pscustomobject]@{ ok = $true; text = $text }
     }
+    $helper = Get-LatestPostInstallHelperState -MinLastWriteTime $startedAt
+    if ($Mode -eq 'install' -and $helper -and $helper.ok) {
+      return [pscustomobject]@{ ok = $true; text = "Post-install helper OK`n$text" }
+    }
     if ($Mode -eq 'repair' -and $text -match '(?i)(reparaci[oó]n completada|qued[oó] reparado)') {
       return [pscustomobject]@{ ok = $true; text = $text }
     }
@@ -548,6 +637,22 @@ function Wait-InstallerStableState {
     }
   } while ((Get-Date) -lt $deadline)
   return [pscustomobject]@{ ok = $false; text = (Get-WindowTextSnapshot -Window $Window); timeout = $true }
+}
+
+function Get-LatestPostInstallHelperState {
+  param([datetime]$MinLastWriteTime)
+  $candidates = @(Get-ChildItem -Path $logsDir,$ReportDir -Filter 'post-install-*.response.json' -Recurse -ErrorAction SilentlyContinue |
+    Where-Object { $_.LastWriteTime -ge $MinLastWriteTime } |
+    Sort-Object LastWriteTime -Descending)
+  foreach ($candidate in $candidates) {
+    try {
+      $payload = Get-Content -Raw -Path $candidate.FullName | ConvertFrom-Json
+      if ($payload.ok -eq $true -or [string]$payload.status -match '^(ok|success|passed)$') {
+        return [pscustomobject]@{ ok = $true; path = $candidate.FullName; payload = $payload }
+      }
+    } catch {}
+  }
+  return $null
 }
 
 function Invoke-InstallerHubMode {
@@ -570,7 +675,8 @@ function Invoke-InstallerHubMode {
   $window = Find-Window -TimeoutSec 90
   if (-not $window) { throw "No aparecio Installer Hub para mode=$Mode" }
   Capture-Window -Window $window -Name ("wpf-{0}-01-splash-deteccion" -f $Mode) | Out-Null
-  $window = Wait-DetectionIdle -RootElement $window -TimeoutSec 240
+  $detectionTimeoutSec = if ($AllowHostCanary) { 420 } else { 240 }
+  $window = Wait-DetectionIdle -RootElement $window -TimeoutSec $detectionTimeoutSec
   if (-not $window) { throw "Installer Hub desaparecio durante deteccion mode=$Mode" }
   Capture-Window -Window $window -Name ("wpf-{0}-02-preparar" -f $Mode) | Out-Null
 
@@ -587,7 +693,7 @@ function Invoke-InstallerHubMode {
   $detectButton = Find-ById -RootElement $window -AutomationId 'DetectButton' -TimeoutSec 5
   if ($detectButton -and $detectButton.Current.IsEnabled) {
     Invoke-Control -Element $detectButton
-    $window = Wait-DetectionIdle -RootElement $window -TimeoutSec 240
+    $window = Wait-DetectionIdle -RootElement $window -TimeoutSec $detectionTimeoutSec
     if (-not $window) { throw "Installer Hub desaparecio durante deteccion manual mode=$Mode" }
   }
 
@@ -617,8 +723,14 @@ function Invoke-InstallerHubMode {
   [string]$state.text | Set-Content -Path $textPath -Encoding UTF8
   $artifacts.Add($textPath) | Out-Null
   Capture-Window -Window $window -Name ("wpf-{0}-06-resultado" -f $Mode) | Out-Null
-  Add-Result -Area $Mode -Item 'final-state' -Ok ([bool]$state.ok) -Detail $(if ($state.timeout) { 'timeout esperando estado final' } else { 'estado final detectado' })
+  $stateTimedOut = $state.PSObject.Properties.Match('timeout').Count -gt 0 -and [bool]$state.timeout
+  Add-Result -Area $Mode -Item 'final-state' -Ok ([bool]$state.ok) -Detail $(if ($stateTimedOut) { 'timeout esperando estado final' } else { 'estado final detectado' })
   if (-not $state.ok) { throw "Installer Hub no completo correctamente mode=$Mode" }
+
+  $restartButton = Find-ById -RootElement $window -AutomationId 'RestartNowButton' -TimeoutSec 2
+  if ($restartButton) {
+    Add-Result -Area $Mode -Item 'restart-required' -Ok $true -Detail 'RestartNowButton visible'
+  }
 
   $closeButton = Find-ById -RootElement $window -AutomationId 'CloseButton' -TimeoutSec 8
   if ($closeButton) { Invoke-Control -Element $closeButton }
@@ -657,9 +769,26 @@ function Invoke-InstalledBroker {
   $broker = Join-Path $installedRoot 'scripts\launcher-broker.ps1'
   if (-not (Test-Path -LiteralPath $broker)) { throw "No existe broker instalado: $broker" }
   $args = @('-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', $broker, '-Action', $Action, '-Mode', 'prod', '-Port', [string]$Port, '-RunId', $RunId, '-NoOpen')
-  $proc = Start-Process -FilePath 'powershell.exe' -ArgumentList $args -Wait -PassThru -WindowStyle Hidden
-  Add-Result -Area 'broker' -Item $Action -Ok ($proc.ExitCode -eq 0) -Detail "exit=$($proc.ExitCode) runId=$RunId"
-  if ($proc.ExitCode -ne 0) { throw "Broker fallo action=$Action exit=$($proc.ExitCode)" }
+  $stdout = Join-Path $ReportDir ("broker-{0}-{1}.stdout.log" -f $Action, $RunId)
+  $stderr = Join-Path $ReportDir ("broker-{0}-{1}.stderr.log" -f $Action, $RunId)
+  & powershell.exe @args > $stdout 2> $stderr
+  $exitCode = $LASTEXITCODE
+  Copy-ArtifactIfExists -Path $stdout | Out-Null
+  Copy-ArtifactIfExists -Path $stderr | Out-Null
+  Export-BrokerDiagnostics -Action $Action -RunId $RunId
+  Add-Result -Area 'broker' -Item $Action -Ok ($exitCode -eq 0) -Detail "exit=$exitCode runId=$RunId"
+  if ($exitCode -ne 0) { throw "Broker fallo action=$Action exit=$exitCode" }
+}
+
+function Export-BrokerDiagnostics {
+  param(
+    [string]$Action,
+    [string]$RunId
+  )
+  $statePath = Join-Path $installedRoot ("logs\bootstrap-state-{0}.json" -f ($RunId -replace '[^a-zA-Z0-9_-]', ''))
+  if (Test-Path -LiteralPath $statePath) {
+    Copy-ArtifactIfExists -Path $statePath -Name ("broker-{0}-{1}-bootstrap-state.json" -f $Action, $RunId) | Out-Null
+  }
 }
 
 function Invoke-CaptureCommand {
@@ -683,9 +812,35 @@ function Invoke-CaptureCommand {
   if ($process.ExitCode -ne 0) { throw "Comando fallo: $Name exit=$($process.ExitCode)" }
 }
 
+function Export-RuntimeAudit {
+  param([string]$Name)
+  $context = ''
+  $images = ''
+  try {
+    $context = (& docker context ls --format json 2>&1) -join "`n"
+  } catch {
+    $context = $_.Exception.Message
+  }
+  try {
+    $images = (& docker images --format json 2>&1) -join "`n"
+  } catch {
+    $images = $_.Exception.Message
+  }
+  $runtimeWarning = if ($env:EVALUAPRO_DOCKER_RUNTIME -ne 'desktop' -and $context -match 'desktop-linux') { 'desktop-unapproved' } else { '' }
+  $auditName = if ($Name -eq 'before') { 'runtime-audit-before.json' } else { 'runtime-audit-after.json' }
+  Export-JsonArtifact -Name $auditName -Data ([pscustomobject]@{
+    generatedAt = (Get-Date).ToString('o')
+    dockerRuntime = [string]$env:EVALUAPRO_DOCKER_RUNTIME
+    warning = $runtimeWarning
+    contextRaw = $context
+  }) | Out-Null
+  Export-JsonArtifact -Name 'docker-images.json' -Data ([pscustomobject]@{ raw = $images }) | Out-Null
+  Export-JsonArtifact -Name 'docker-context.json' -Data ([pscustomobject]@{ raw = $context }) | Out-Null
+}
+
 function Invoke-DockerStableStack {
-  # Contrato operativo: docker compose --profile prod up --build -d mongo_local api_docente_prod web_docente_prod
-  Invoke-CaptureCommand -Name 'docker-compose-prod-up' -FilePath 'docker' -ArgumentList @('compose', '--profile', 'prod', 'up', '--build', '-d', 'mongo_local', 'api_docente_prod', 'web_docente_prod') -TimeoutSec 1200
+  # Contrato operativo: docker compose --profile prod up --no-build -d mongo_local api_docente_prod web_docente_prod
+  Invoke-CaptureCommand -Name 'docker-compose-prod-up' -FilePath 'docker' -ArgumentList @('compose', '--profile', 'prod', 'up', '--no-build', '-d', 'mongo_local', 'api_docente_prod', 'web_docente_prod') -TimeoutSec 1200
 }
 
 function Export-DockerEvidence {
@@ -794,6 +949,17 @@ function Capture-DashboardScreenshots {
   Capture-UrlWithPlaywright -Url 'http://127.0.0.1:4173' -Name 'web-docente-980x700' -Width 980 -Height 700 | Out-Null
 }
 
+function Test-UpdateSmoke {
+  param([string]$BaseUrl)
+  if ([string]::IsNullOrWhiteSpace($BaseUrl)) {
+    Add-Result -Area 'update' -Item 'status' -Ok $false -Detail 'dashboard base vacio'
+    return
+  }
+  $status = Invoke-RestMethod -Uri "$BaseUrl/api/update/status" -TimeoutSec 15
+  Export-JsonArtifact -Name 'update-status.json' -Data $status | Out-Null
+  Add-Result -Area 'update' -Item 'status' -Ok ($null -ne $status -and [string]$status.state -ne 'failed') -Detail "$BaseUrl/api/update/status"
+}
+
 function Assert-NoActiveEvaluaProAfterUninstall {
   $active = @(Get-Process | Where-Object {
       $_.ProcessName -like 'EvaluaPro-InstallerHub*' -or
@@ -819,6 +985,9 @@ function Write-TutorialMarkdown {
     '## 1. Preparar',
     '- Confirmar flavor `docente-local`, modo y ruta.',
     '- Mantener configuracion avanzada colapsada salvo soporte.',
+    '- Ejecutar `run-e2e-launcher.ps1 -DryRun` antes del ciclo real si se opera desde host.',
+    '- Confirmar `powershell-direct-e2e-launch.json` con `acceptsCredentialParameter=true`.',
+    '- Ejecutar el launcher real con `-Credential` y `-QaPassSecureString`; no guardar passwords en archivos, logs ni handoffs.',
     '',
     '## 2. Revisar',
     '- Ejecutar prerequisitos.',
@@ -833,6 +1002,7 @@ function Write-TutorialMarkdown {
     '- API: `http://127.0.0.1:4000/api/salud` debe responder 200.',
     '- Web docente: `http://127.0.0.1:4173` debe responder 200.',
     '- Dashboard: `/api/status` debe estar `healthy` o `degraded`, nunca `failed`.',
+    '- Update smoke: `/api/update/status` debe responder y guardarse como `manifest/update-status.json`.',
     '',
     '## 5. Evidencia',
     '- Reporte JSON: `report.json`.',
@@ -899,7 +1069,9 @@ try {
   Minimize-RunnerConsole
   Export-JsonArtifact -Name 'processes-before.json' -Data (Get-ProcessSnapshot) | Out-Null
   Stop-InstallerHubProcesses -Reason 'preflight'
+  Assert-RunningInsideExpectedVm
   Assert-SnapshotContext
+  Assert-SystemMemoryReady
 
   $bundlePath = Resolve-BundlePath
   Assert-Hash -ExePath $bundlePath
@@ -907,6 +1079,7 @@ try {
   Copy-ArtifactIfExists -Path "$bundlePath.sha256" | Out-Null
   Copy-ArtifactIfExists -Path (Join-Path (Split-Path -Parent $bundlePath) 'SHASUMS256.txt') | Out-Null
   Copy-ArtifactIfExists -Path (Join-Path $root 'dist\installer\EvaluaPro-release-manifest.json') | Out-Null
+  Export-RuntimeAudit -Name 'before'
 
   if ([string]::IsNullOrWhiteSpace($InstallDir)) {
     $InstallDir = Join-Path ${env:ProgramFiles} 'EvaluaPro'
@@ -948,7 +1121,9 @@ try {
   Invoke-DockerStableStack
   Assert-DockerStable
   Export-DockerEvidence
+  Export-RuntimeAudit -Name 'after'
   Capture-DashboardScreenshots -BaseUrl $dashboardBase
+  Test-UpdateSmoke -BaseUrl $dashboardBase
 
   Invoke-InstallerHubMode -Mode 'repair' | Out-Null
   Test-InstalledState -Phase 'post-repair'

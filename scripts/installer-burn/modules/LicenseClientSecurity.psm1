@@ -42,11 +42,31 @@ function New-RandomBytes {
   return $bytes
 }
 
+function Import-DpapiProtectedDataType {
+  if ('System.Security.Cryptography.ProtectedData' -as [type]) {
+    return
+  }
+
+  foreach ($assemblyName in @('System.Security', 'System.Security.Cryptography.ProtectedData')) {
+    try {
+      Add-Type -AssemblyName $assemblyName -ErrorAction Stop
+      if ('System.Security.Cryptography.ProtectedData' -as [type]) {
+        return
+      }
+    } catch {
+      continue
+    }
+  }
+
+  throw 'DPAPI LocalMachine no disponible: falta System.Security.Cryptography.ProtectedData.'
+}
+
 function Protect-DpapiBytes {
   param(
     [byte[]]$Bytes,
     [byte[]]$Entropy
   )
+  Import-DpapiProtectedDataType
   return [System.Security.Cryptography.ProtectedData]::Protect(
     $Bytes,
     $Entropy,
@@ -59,6 +79,7 @@ function Unprotect-DpapiBytes {
     [byte[]]$Bytes,
     [byte[]]$Entropy
   )
+  Import-DpapiProtectedDataType
   return [System.Security.Cryptography.ProtectedData]::Unprotect(
     $Bytes,
     $Entropy,

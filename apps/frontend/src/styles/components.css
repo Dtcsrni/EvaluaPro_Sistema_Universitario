@@ -143,8 +143,7 @@
 .helper-panel {
   padding: 1.15rem 1.2rem;
   background:
-    radial-gradient(circle at top right, color-mix(in srgb, var(--app-highlight, rgba(165, 122, 42, 0.16)) 100%, transparent), transparent 42%),
-    linear-gradient(180deg, color-mix(in srgb, var(--surface-2) 96%, transparent), color-mix(in srgb, var(--surface-1) 94%, transparent));
+    linear-gradient(135deg, color-mix(in srgb, var(--surface-2) 96%, transparent), color-mix(in srgb, var(--surface-1) 94%, transparent) 72%, color-mix(in srgb, var(--app-highlight, rgba(165, 122, 42, 0.16)) 22%, var(--surface-1)));
 }
 
 .helper-panel__header {
@@ -214,8 +213,7 @@
 
 .item-glass {
   background:
-    radial-gradient(circle at top right, color-mix(in srgb, var(--app-accent-soft, rgba(13, 110, 115, 0.12)) 100%, transparent), transparent 36%),
-    linear-gradient(180deg, color-mix(in srgb, var(--surface-2) 96%, transparent), color-mix(in srgb, var(--surface-1) 94%, transparent));
+    linear-gradient(135deg, color-mix(in srgb, var(--surface-2) 96%, transparent), color-mix(in srgb, var(--surface-1) 94%, transparent) 74%, color-mix(in srgb, var(--app-accent-soft, rgba(13, 110, 115, 0.12)) 28%, var(--surface-1)));
 }
 
 .cabecera__acciones {

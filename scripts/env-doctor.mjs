@@ -39,6 +39,11 @@ function parseNodeMajor(version) {
   return Number.isFinite(major) ? major : 0;
 }
 
+function hasPlaywrightChromium(stdout) {
+  const raw = String(stdout || '');
+  return /chromium-\d+/i.test(raw) && /chromium_headless_shell-\d+/i.test(raw);
+}
+
 function execCommand(command) {
   try {
     const stdout = execSync(command, {
@@ -159,6 +164,18 @@ function evaluateEnvDoctor(options = {}) {
     pushCheck('ok', 'npm.available', 'npm disponible.', `npm=${npmVersion.stdout}`);
   }
 
+  const playwrightBrowsers = run('npx playwright install --list');
+  if (!playwrightBrowsers.ok || !hasPlaywrightChromium(playwrightBrowsers.stdout)) {
+    pushCheck(
+      'fail',
+      'playwright.chromium',
+      'No se detecta Chromium + Headless Shell de Playwright para QA GUI.',
+      'Ejecuta `npx playwright install chromium` en el repo.'
+    );
+  } else {
+    pushCheck('ok', 'playwright.chromium', 'Browser Chromium de Playwright disponible.', 'GUI responsive/e2e listo.');
+  }
+
   const runtimeReport = loadDockerRuntimeReport(run, process.execPath);
   const runtimePayload = runtimeReport.ok ? runtimeReport.payload : null;
   const runtimeDocker = runtimePayload?.docker || null;
@@ -246,6 +263,7 @@ if (process.argv[1] && path.resolve(process.argv[1]) === __filename) {
 
 export {
   evaluateEnvDoctor,
+  hasPlaywrightChromium,
   parseNodeMajor,
   resolveTarget
 };

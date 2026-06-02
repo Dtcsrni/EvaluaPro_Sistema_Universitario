@@ -1,10 +1,94 @@
 # Engineering Baseline
 
-Fecha de baseline: 2026-04-08
+Fecha de baseline: 2026-05-26
 Version tecnica: `1.0.0`
 Version visible GUI: `1.0.0b`
 
 ## Estado vigente
+- Corte 2026-05-26:
+  - Continuacion Installer Hub: se corrigio la ruta de evidencia del `update smoke` para que `scripts/tests/installer-hub-e2e-docente.ps1` escriba `update-status.json` dentro de `manifest/`, alineado con `docs/INSTALLER_HUB.md` y `docs/tutoriales/installer-hub-docente-e2e.md`.
+  - Regression test agregado al contrato Hub para blindar ese enrutamiento de artefactos.
+  - Validacion local/no destructiva ejecutada: parser PowerShell del runner `parse=ok`, `npm run test:installer-hub:contract` `47/47`, `npm run test:update` `10/10`, `npm run test:wix:policy` `3/3`, `npm run env:doctor:windows` `ok=true`, `npm run installer:docente:baseline` confirma bundle `74,921,037` bytes con contrato `wsl2-docker-minimal`.
+  - Continuacion VM real: se pidio elevacion UAC, se configuro `TrustedHosts` para `EVALPRO-E2E`, se sincronizo el bundle a la VM y se ejecuto la tarea `EvaluaPro-InstallerHub-E2E-Real`.
+  - Fix Hub aplicado: `PrereqInstaller.psm1` omite `wsl --install -d Ubuntu` cuando la distro ya esta registrada; el runner VM detecta `RestartNowButton` y cierra con `restart-required` en vez de quedar colgado.
+  - Bundle docente reconstruido: `dist/installer/docente-local/EvaluaPro-InstallerHub-docente-local-v1.0.0.exe`, SHA256 `6E0F683CB67BC5B14477942091300D722143E8BDDCF7FDC32E1D50CE465BFA0E`, `74,922,233` bytes.
+  - Validacion adicional ejecutada: parser PowerShell de `PrereqInstaller.psm1` `parse=ok`, parser PowerShell del runner `parse=ok`, `npm run test:installer-hub:contract` `48/48`, `scripts/build-msi.ps1 -SkipStabilityChecks -IncludeBundle -Flavor docente-local`, `npm run installer:docente:baseline`.
+  - E2E VM real sigue `partial` con evidencia controlada: `report.json` VM `20260526-010718` falla en `install/restart-required` tras validar snapshot, hash, ausencia de instalacion previa, espacio y PowerShell. Evidencia copiada a `C:\Auditoria_Tezkatli\EvaluaPro-vm-bootstrap-20260519-233347\latest-e2e-evidence\20260526-010718`.
+  - Continuacion VM real posterior: `PrereqDetector.psm1` deja de fallar con salida NUL/UTF-16 de `wsl.exe`, no marca listo un shim Docker sin version de daemon, y `PrereqInstaller.psm1` conserva `Ubuntu` completo cuando `userDistros` llega como string.
+  - Bundle docente reconstruido para este corte: SHA256 `6A7D972BA8FDCEC6E92DC2FE3BFBD9B6A277B265546147E3517B23CB1A92F5B5`, `74,921,261` bytes.
+  - VM real avanza del bloqueo `restart-required` al siguiente bloqueo operativo: auto-bootstrap ejecuta `wsl -d Ubuntu ...`, pero la descarga `curl https://get.docker.com` falla con exit code `35` (`Recv failure: Connection reset by peer`) y `docker version` falla con exit code `1`; ya se reporta `1 pasos OK, 2 pasos fallidos`.
+  - Evidencia VM copiada: `C:\Auditoria_Tezkatli\EvaluaPro-vm-bootstrap-20260519-233347\latest-e2e-evidence\20260526-041719-blocker`. Aceptacion release-like sigue `partial`; falta resolver provisioning/red Docker Engine en Ubuntu antes de `install|repair|update smoke|uninstall`.
+  - Continuacion VM real posterior: Docker Engine quedo provisionado offline en `Ubuntu` (`docker version` server `29.5.2`, Compose `v5.1.4`, Node WSL `v24.15.0`) y el detector del Hub reporta `ready=true`, `runtime=ok (wsl2-engine)`.
+  - Fixes de estabilizacion aplicados: timeout WSL tolerante para arranque frio, override QA de internet/Node host para VM sin HTTP estable, shortcuts alineados con perfil `evaluaqa`, carga explicita de DPAPI para licencia, runner E2E sin fallo por `state.timeout` ausente, fallback de aceptacion por `post-install.response.json` filtrado por timestamp y ejecucion del broker preservando rutas con espacios.
+  - Bundle docente reconstruido tras el fix del broker: SHA256 `7730DEE828E839C9F506F806B8334F7E380762499D8F2D7A3FB0B514323FB644`, `74,924,659` bytes.
+  - Estado E2E VM actual: `install` real, `post-install`, verificacion de archivos y `verify-installation` pasan; el bloqueo vigente esta en `open-dashboard` (`launcher-broker.ps1` no deja el dashboard respondiendo en tiempo). Evidencia: `C:\Auditoria_Tezkatli\EvaluaPro-vm-bootstrap-20260519-233347\latest-e2e-evidence\20260526-061439-blocker-open-dashboard\20260526-070818`.
+  - Limitacion operativa del cierre: tras varios ciclos la VM entra en presion de memoria/pagefile (`0x800705AF`, `The paging file is too small`) y no permite reinicio via Hyper-V desde esta shell por permisos. Aceptacion release-like sigue `partial`.
+  - Endurecimiento posterior del proceso: `scripts/tests/installer-hub-e2e-docente.ps1` captura stdout/stderr y diagnosticos del broker instalado (`launcher-broker.log`, `dashboard.lock.json`, `bootstrap-state-<run>.json`) y agrega preflight `memory-pagefile` con `preflight-memory.json` antes de mutar la VM.
+  - UX/UI Hub revalidada: `MainWindow.xaml` muestra ruta de bitacoras en Resultado y elimina el tooltip generico `Detalle por requisito`; `scripts/tests/installer-hub-ui-lifecycle.ps1` queda `passed` con capturas regeneradas en `reports/qa/installer-hub-ui/`.
+  - Bundle docente vigente tras estas mejoras: SHA256 `688BB1F872AAC7CE252D72F4082F43E0D52983B96647A61492E69277934BAE53`, `74,924,283` bytes. Gates ejecutados: `test:installer-hub:contract` `60/60`, `dotnet publish` BA WPF, `build-msi.ps1 -SkipStabilityChecks -IncludeBundle -Flavor docente-local`, `installer:docente:baseline`, `git diff --check`.
+  - Optimizacion runtime docente-local 2026-05-27:
+    - `docker-compose.yml` queda image-first para prod docente (`ghcr.io/dtcsrni/evaluapro_sistema_universitario/evaluapro-api-docente`, `.../evaluapro-web-docente`) y `docker-compose.prod-build.yml` concentra el fallback de build local.
+    - `api_docente_local` y `web_docente_local` quedan bajo `profiles: ["dev"]`; `docker compose --profile prod config --services` expone solo `mongo_local`, `api_docente_prod`, `web_docente_prod`.
+    - Runner E2E cambia a `docker compose --profile prod up --no-build`, carga tarballs opcionales desde `EVALUAPRO_DOCENTE_DOCKER_IMAGE_DIR`/`dist`, y exporta `runtime-audit-before.json`, `runtime-audit-after.json`, `docker-images.json`, `docker-context.json`.
+    - Dashboard expone `dockerState.runtime` con `wsl2-engine`, `desktop-manual` o `desktop-unapproved`; Docker Desktop solo es aceptado si `EVALUAPRO_DOCKER_RUNTIME=desktop`.
+    - Bundle docente vigente: SHA256 `04825F89C6CDE239270EA0F12A8B36493E4049DB30E87B4F8D4DDB150732205F`, `74,926,273` bytes. `test:installer-hub:contract` `63/63`.
+  - Cierre UX/UI repo-local 2026-05-27:
+    - Se elimina la dependencia de referencia visual externa; las fuentes activas son `docs/DESIGN.md`, `docs/UX_QUALITY_CRITERIA.md`, codigo frontend/Hub/Dashboard y evidencia Playwright. `docs/DESIGN.md` ahora cubre frontend docente, portal alumno, admin negocio, Dashboard local e Installer Hub.
+    - Nueva matriz canonica `docs/release/manual/gui-screen-matrix-2026-05-27.md` + `reports/qa/latest/gui-screen-matrix.json` cubre pantallas docente, alumno, admin negocio, Dashboard local e Installer Hub con componentes, proposito UX, estados, viewports y artefactos.
+    - CSS base reduce ruido visual: sin decoracion radial, sin tracking negativo, radios contenidos y gradientes lineales sobrios en `foundations.css`, `components.css` y `screens.css`.
+    - Responsive docente agrega recorrido de pantallas operativas en desktop/mobile (`Materias`, `Alumnos`, `Banco`, `Plantillas`, `Entrega`, `Calificaciones`, `Rehidratacion`, `Evaluaciones`, `Sincronización`, `Cuenta`) con asercion de overflow horizontal.
+    - Responsive GUI ahora verifica controles interactivos visibles con nombre accesible y sin solapes materiales en docente/alumno/admin; alumno captura resultados reales con token/API mock y admin captura Tenants tras navegación real.
+    - `test:gui:screen-matrix` valida que los artefactos declarados existan fisicamente, no esten vacios, no se dupliquen por pantalla y que los screenshots PNG superen tamaño minimo util.
+    - Browser integrado sobre `http://127.0.0.1:4190/` valida acceso docente con `overflow=0`, `unnamed=0`, titulo `Plataforma Docente - EvaluaPro` y controles principales visibles.
+    - Validacion local ejecutada: `test:gui:design-contract`, `test:gui:screen-matrix`, `test:ux-quality:ci`, `test:ux-visual:ci`, `test:gui:responsive:e2e:ci`, `test:dashboard:repair`, `test:dashboard:ui`, `test:update`, `test:wix:policy`, `test:installer-hub:contract`, `test:installer-hub:ui`, `build:frontend:docente`.
+    - Limite de cierre: aceptacion release-like del Installer Hub sigue dependiendo del E2E VM real completo `install|repair|update smoke|uninstall`; no se declara estable completo sin esa evidencia.
+    - Intento VM desde esta sesion: `npm run test:installer-hub:e2e:docente` queda bloqueado por guarda destructiva esperada: requiere `-IUnderstandThisMutatesVm` y una VM limpia.
+    - Readiness VM no destructivo posterior: `Test-WSMan EVALPRO-E2E` responde y `TrustedHosts=EVALPRO-E2E`; `Get-VM EvaluaPro-E2E-Win11` falla por permisos Hyper-V en esta shell y `EVALUAPRO_E2E_VM_SNAPSHOT` esta vacio. El runner real sigue requiriendo VM limpia/snapshot definido antes de mutar.
+    - Se agrega preflight reproducible `npm run installer:hub:vm-readiness`, que escribe `reports/qa/latest/installer-hub-vm-readiness.json` sin mutar la VM.
+    - Se agrega lanzador `npm run installer:hub:e2e:elevated`: abre PowerShell elevada, define `EVALUAPRO_E2E_VM_SNAPSHOT`, ejecuta readiness y no llama al E2E mutante si el preflight falla.
+    - Seguridad adicional: `scripts/tests/installer-hub-e2e-docente.ps1` bloquea ejecucion fuera de `COMPUTERNAME=EVALPRO-E2E`; el intento elevado en host paso readiness pero no debe mutar TEZKATLI.
+    - Readiness elevado actual: `reports/qa/latest/installer-hub-vm-readiness.json` queda `ok=true`; `reports/qa/latest/installer-hub-e2e-elevated-transcript.txt` confirma detencion segura en host con mensaje `Readiness OK. Ejecuta el runner mutante dentro de la VM EVALPRO-E2E`.
+    - Revalidacion posterior desde shell no elevada: `npm run installer:hub:vm-readiness` vuelve a dejar `ok=false` por `EVALUAPRO_E2E_VM_SNAPSHOT` vacio y permisos Hyper-V; `npm run installer:hub:e2e:elevated` no avanza porque la elevacion UAC fue cancelada. No se ejecuto el runner mutante.
+    - Revalidacion 2026-05-31: `scripts/start-installer-hub-e2e-elevated.ps1` arranca la VM si esta apagada y espera WinRM antes del preflight; tras `wsl --shutdown` libero memoria host suficiente, `reports/qa/latest/installer-hub-vm-readiness.json` vuelve a `ok=true` con VM `Running` y `MemoryAssigned=3221225472`.
+    - Seguridad de credenciales: `scripts/ci/run-e2e-launcher.ps1` y `scripts/ci/run-e2e-in-vm.ps1` dejan de versionar password QA literal; el launcher pide el secreto en runtime y lo limpia de memoria.
+    - Correccion PowerShell Direct: `scripts/ci/run-e2e-in-vm.ps1` ya no llama el preflight Hyper-V `installer:hub:vm-readiness` desde dentro de la VM; valida `COMPUTERNAME=EVALPRO-E2E`, define `EVALUAPRO_E2E_VM_SNAPSHOT` y ejecuta directamente el runner mutante.
+    - Endurecimiento in-VM adicional: antes de lanzar el runner mutante, `scripts/ci/run-e2e-in-vm.ps1` verifica `C:\EvaluaPro`, la existencia del runner y escribe `reports/qa/latest/powershell-direct-e2e-launch.json` con estado redaccion-safe.
+    - `scripts/ci/run-e2e-launcher.ps1` agrega `-DryRun` y valida `reports/qa/latest/installer-hub-vm-readiness.json` (`ok=true`, snapshot esperado y VM `Running`) antes de pedir credenciales, evitando prompts si el preflight no esta listo.
+    - El launcher PowerShell Direct acepta `-Credential` y `-QaPassSecureString` para ejecucion no interactiva desde una sesion segura ya preparada; los prompts quedan solo como fallback y no se persisten secretos.
+    - Automatizacion Tezkatli: `installer:hub:e2e:host-canary` ejecuta el mismo ciclo real en `COMPUTERNAME=TEZKATLI` con `-AllowHostCanary`, `-SkipSnapshotCheck` y `EVALUAPRO_DOCKER_RUNTIME=desktop`; deja evidencia en `reports/qa/installer-hub-e2e-host-canary/` y no sustituye la aceptacion VM limpia.
+    - Orquestador agregado: `installer:hub:e2e:auto` permite `-Target host-canary|vm|all`, reutiliza readiness VM elevado y los launchers seguros sin versionar secretos.
+    - Automatizacion de secreto QA: `installer:hub:e2e:set-qa-secret` guarda la pass con DPAPI del usuario Windows actual; `host-canary` resuelve en orden parametro seguro, `EVALUAPRO_QA_PASS`, DPAPI, generacion efimera en memoria y solo usa prompt con `-PromptForQaPass`.
+    - Validacion host-canary actual: `npm run installer:hub:e2e:host-canary -- -DryRun` detecta `TEZKATLI`, prepara rutas de evidencia y reporta `requiresElevatedProcess=true`, `currentProcessElevated=false` sin mutar el host.
+    - Bloqueo Tezkatli 2026-05-31: desde esta sesion Codex/PowerShell corre en integridad media. El runner ahora falla temprano antes de abrir UAC para evitar que Windows pida credenciales y para no intentar controlar una UI elevada inaccesible desde el proceso no elevado. Evidencia: `reports/qa/installer-hub-e2e-host-canary/20260531-214755/report.json` confirma prerequisitos `ok` y fallo por UI elevada; comando posterior `npm run installer:hub:e2e:host-canary` corta con mensaje de elevacion requerida.
+    - Canales remotos probados: WinRM `Invoke-Command -ComputerName EVALPRO-E2E` falla por Negotiate `0x8009030e`; PowerShell Direct `Invoke-Command -VMName EvaluaPro-E2E-Win11` exige `-Credential`.
+    - Auditoria de completitud versionada: `docs/release/manual/stabilization-completion-audit-2026-05-27.md`; gate dedicado `npm run test:stabilization:completion-audit` mantiene estado `partial` hasta que exista evidencia actual del ciclo VM release-like.
+- Corte 2026-05-25:
+  - Serena/Caveman verificados en Windows: `npm run ai:serena:status -- --json`, `npm run ai:caveman:status -- --json` y `npm run ai:serena:policy:status -- --json` reportan `ready=true`.
+  - `.serena/project.yml` queda reparado para Serena `v1.5.1`: se eliminan tabs en YAML y la tool obsoleta `check_onboarding_performed`; `serena.exe project health-check .` finaliza con `Health check passed - All tools working correctly`.
+  - `npm run test:coverage:ci` vuelve a cerrar en Windows sin relajar thresholds ni excluir tests: backend mantiene merge global de cobertura, pero las integraciones se dividen en chunks menores y el runner permite 3 intentos por lote para absorber cierres inesperados de workers de Vitest.
+  - `perf:collect` deja de depender del wrapper `tsx.cmd` que fallaba sin stderr bajo `npm run` en Windows; los scripts de performance usan `node --import tsx ...` y `npm run perf:check` verifica 4 budgets.
+  - Gates locales ejecutados en orden y verdes: `lint`, `typecheck`, `test:frontend:ci`, `test:coverage:ci`, `test:tdd:enforcement:ci`, `test:backend:ci`, `test:portal:ci`, `perf:check`, `pipeline:contract:check`.
+  - Gate adicional por cambio en scripts CI/performance: `npm run ci:policy:audit` verde.
+  - Fase E2E local/no destructiva revalidada: `env:doctor:windows`, `installer:docente:baseline`, `test:e2e:journeys:ci`, `test:gui:responsive:e2e:ci`, `test:installer-hub:contract`, `test:installer-hub:ui` y `qa:evidence:quick` en verde; bundle docente vigente `74,921,037` bytes.
+  - Runner VM `scripts/tests/installer-hub-e2e-docente.ps1` ahora cubre el ciclo `install|repair|update smoke|uninstall`: tras abrir Dashboard consulta `/api/update/status`, guarda `manifest/update-status.json` y falla si el updater queda en `error`.
+  - E2E VM real no se ejecuto en esta shell: `Get-VM EvaluaPro-E2E-Win11` falla por permisos Hyper-V no elevados, WinRM HTTP responde en `EVALPRO-E2E` pero `TrustedHosts` esta vacio/HTTPS no disponible, y `EVALUAPRO_E2E_VM_SNAPSHOT` no esta definido.
+  - `qa:clean-architecture:strict` no aplica en este corte: no hubo recorte estructural, cambio de arquitectura ni Olas Big Bang.
+  - Riesgo residual conocido: Vitest bajo coverage/backend en Windows puede emitir `Worker exited unexpectedly`; queda mitigado por particionado y retry, con evidencia de gate completo en verde.
+- Corte 2026-05-21:
+  - estabilizacion Installer Hub `docente-local` validada localmente sobre `stabilization/v1.0` con bundle reconstruido hash `7C03A834B68FAA07D9EB0C1321D4B0BF812362A13A16F4F147C5535781290007`
+  - pruebas locales en verde en este corte: gates AGENTS (`lint`, `typecheck`, frontend/backend/portal, coverage, TDD, `perf:check`, `pipeline:contract:check`), Serena/Caveman, UX quality/visual/responsive, UIAutomation Hub, contratos `wix|update|installer-hub`, build BA .NET 8 y bundle docente
+  - cierre E2E VM real permanece `partial`: PowerShell Direct a `EvaluaPro-E2E-Win11` exige permisos Hyper-V elevados y WinRM hacia `EVALPRO-E2E` exige `TrustedHosts`/HTTPS en el cliente workgroup antes de copiar artefactos actuales
+  - el pendiente prioritario de cobertura local queda desbloqueado en esta sesion: `scripts/testing/run-backend-coverage-batches.mjs` permite corridas backend por lotes con merge global y `npm run test:coverage:ci` paso con thresholds reales
+  - cobertura backend se divide en lotes `backend-root`, `backend-calificacion-omr-payload`, `backend-integracion-a-m`, `backend-integracion-n-z` y `backend-aislamiento`; los lotes intermedios emiten blobs con thresholds en `0` solo para merge y Vitest aplica los thresholds reales del backend en el reporte global
+  - integraciones PDF repetidas bajan fixtures de escenario de `60` a `20` preguntas donde la asercion cubre contrato de flujo y no volumen; el ajuste reduce presion bajo coverage sin excluir deuda
+  - el fallback `threads` del gate backend se mantiene usable: `omr.tv3.porFolioValidation` deja de hacer `process.chdir()` sobre workers y conserva rutas absolutas de su fixture temporal
+  - `env-doctor` detecta browser Chromium + Headless Shell de Playwright antes de QA GUI; `test:gui:responsive:e2e:ci` volvio a recorrer docente/alumno/admin con clicks reales tras instalar el runtime faltante
+  - contrato inicial de rediseno queda repo-local con `docs/DESIGN.md`, `docs/UX_QUALITY_CRITERIA.md`, matriz GUI exhaustiva y ledger `docs/ESTABILIZACION_FALLOS_Y_APRENDIZAJES.md`.
+  - variantes descartadas en esta estacion sin persistir workaround: `--coverage.processingConcurrency=1`, `--no-isolate`, `vmForks`, `vmThreads` y exclusión exploratoria del golden `tests/omr.tv3.realGolden.test.ts`
+  - `--no-isolate` sigue descartado porque rompe aislamiento de auth/Classroom/Mongo y pools VM degradan el golden OMR hasta timeout `300000ms`
+  - Pendientes:
+    - cerrar E2E VM release-like del Hub (`install|repair|update smoke|uninstall`) con logs, capturas, hashes y residuos
+    - implementar el rediseno GUI total sobre el contrato repo-local y ampliar journeys/click flows cuando cambien flujos.
 - Corte 2026-04-08:
   - `docente-local` Lite inicia configuracion diferida:
     - backend productivo ya no exige portal cloud cuando `EVALUAPRO_FLAVOR=docente-local` y `PORTAL_SYNC_REQUIRED=0`
@@ -23,7 +107,7 @@ Version visible GUI: `1.0.0b`
     - `scripts/generate-installation-manifest.ps1` expone `runtime.embeddedNode` y `runtime.wsl`
     - `packaging/wix/Product.wxs` deja de imponer `Launch Condition` global de `Node.js` para `docente-local`
   - se agrega `env-doctor` dual (`wsl|windows|auto`) para preflight fail-fast de entorno operativo:
-    - valida `node>=24`, `npm`, Docker CLI/daemon, `docker compose` y accesibilidad de `wsl --status` en target Windows
+    - valida `node>=24`, `npm`, Chromium + Headless Shell de Playwright, Docker CLI/daemon, `docker compose` y accesibilidad de `wsl --status` en target Windows
     - nuevos comandos npm: `env:doctor:wsl`, `env:doctor:windows`, `env:doctor`
     - nueva prueba dedicada: `test:env:doctor`
   - `docente-local` queda recortado a un stack minimo centralizado sobre `WSL2 + Docker`: `mongo_local`, `api_docente_prod`, `web_docente_prod`
@@ -330,6 +414,22 @@ Version visible GUI: `1.0.0b`
 - `npm run pipeline:contract:check` ✅
 - `npm -C apps/backend run test -- tests/pdf.layout.visual.guard.test.ts tests/pdf.paridad.test.ts tests/pdf.renderer.fallback.test.ts tests/pdf.visual.baseline.test.ts tests/integracion/plantillasCrudYPreview.test.ts tests/integracion/recoveryBundleGeneracion.test.ts tests/integracion/pdfImpresionContrato.test.ts` ✅
 
+## Validación docente-local 2026-05-27
+- `npm run test:e2e:docente-alumno:ci` ✅
+- `npm run test:pdf-print:ci` ✅
+- `npm run test:global-grade:ci` ✅
+- `npm run test:evaluaciones:policy:ci` ✅
+- `npm -C apps/frontend run test -- tests/gui.responsive.contract.test.tsx tests/plantillas.refactor.test.tsx tests/seccionCalificaciones.manualSelector.test.tsx tests/escaneo.refactor.test.tsx` ✅
+- `npm -C apps/frontend run build:docente` ✅
+- `npm run test:qa:manifest` ✅
+- QA visual local:
+  - `reports/qa/latest/gui-docente-login.png`
+  - `reports/qa/latest/gui-docente-login-mobile.png`
+- Checklist manual lista:
+  - `docs/release/manual/docente-local-prueba-manual-2026-05-27.md`
+- Limitacion activa:
+  - la prueba manual real requiere runtime `WSL2 + Docker Engine` saludable; en este host el contexto Docker observado previamente apunta a `desktop-linux` sin daemon activo.
+
 ## Riesgos tecnicos activos
 1. Complejidad residual en modulos UI grandes.
 2. Rampa de cobertura frontend hacia metas semanales.
@@ -352,3 +452,13 @@ Version visible GUI: `1.0.0b`
 - RF: autenticacion, RBAC, gestion academica, flujo examen, OMR, calificacion, sincronizacion.
 - RNF: seguridad de entrada, rate limit, observabilidad, performance, CI modular, contrato pipeline.
 - Evidencia principal: tests automatizados + artefactos `reports/qa/latest/*`.
+
+## Nota: Readiness VM E2E (2026-05-27)
+- Se ejecutó `npm run installer:hub:vm-readiness` para `EvaluaPro-E2E-Win11` desde el host.
+- Resultado: `ok: false` (falta `EVALUAPRO_E2E_VM_SNAPSHOT` y permisos Hyper-V en la shell actual). El JSON generado quedó en `reports/qa/latest/installer-hub-vm-readiness.json` y se agregó un handoff en `docs/handoff/sesiones/2026-05-27/sesion-2026-05-27-e2e-vm-readiness.md` con pasos y comandos recomendados para la ejecución en host elevado o directamente dentro de la VM.
+
+## Corte de Integridad y Firmas (2026-06-01)
+- **Firma digital e integridad**: Se generó e confió localmente en el certificado de pruebas internas, firmando digitalmente todos los ejecutables (`.msi` y `.exe`) y logrando la validación Authenticode (`Valid`).
+- **Firma Portable**: Se incorporó un fallback portable local en `Find-SignTool` que descarga `signtool.exe` a través del paquete NuGet `Microsoft.Windows.SDK.BuildTools` si no se detalla el SDK de Windows en el sistema, lo cual elimina la necesidad de elevación de administrador para la instalación del SDK completo.
+- **Regeneración de manifiesto**: Se corrió `npm run installer:hashes` recalculando las sumas SHA-256 de los ejecutables recién firmados y reescribiendo `EvaluaPro-release-manifest.json` con el estado `signed: true`.
+- **Verificación Integral**: Se ejecutaron y pasaron exitosamente al 100% todos los gates de calidad (lint, typecheck, tests frontend/backend/portal, TDD coverage enforcement, coverage, perf, y auditoría consolidada de políticas).

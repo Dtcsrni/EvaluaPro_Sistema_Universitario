@@ -11,6 +11,7 @@ import { crearApp } from '../../src/app';
 import { cerrarMongoTest, conectarMongoTest, limpiarMongoTest } from '../utils/mongo';
 
 describe('flujo de examen', () => {
+  const preguntasPorEscenario = 20;
   const app = crearApp();
 
   beforeAll(async () => {
@@ -67,7 +68,7 @@ describe('flujo de examen', () => {
     const alumnoId = alumnoResp.body.alumno._id as string;
 
     const preguntasIds: string[] = [];
-    for (let i = 0; i < 60; i += 1) {
+    for (let i = 0; i < preguntasPorEscenario; i += 1) {
       const preguntaResp = await request(app)
         .post('/api/banco-preguntas')
         .set(auth)

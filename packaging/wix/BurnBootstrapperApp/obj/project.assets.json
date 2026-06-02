@@ -168,11 +168,11 @@
   "project": {
     "version": "1.0.0",
     "restore": {
-      "projectUniqueName": "C:\\Users\\evega\\EvaluaPro_Sistema_Universitario\\packaging\\wix\\BurnBootstrapperApp\\EvaluaPro.BurnBootstrapperApp.csproj",
+      "projectUniqueName": "V:\\Software\\EvaluaPro\\packaging\\wix\\BurnBootstrapperApp\\EvaluaPro.BurnBootstrapperApp.csproj",
       "projectName": "EvaluaPro.BurnBootstrapperApp",
-      "projectPath": "C:\\Users\\evega\\EvaluaPro_Sistema_Universitario\\packaging\\wix\\BurnBootstrapperApp\\EvaluaPro.BurnBootstrapperApp.csproj",
+      "projectPath": "V:\\Software\\EvaluaPro\\packaging\\wix\\BurnBootstrapperApp\\EvaluaPro.BurnBootstrapperApp.csproj",
       "packagesPath": "C:\\Users\\evega\\.nuget\\packages\\",
-      "outputPath": "C:\\Users\\evega\\EvaluaPro_Sistema_Universitario\\packaging\\wix\\BurnBootstrapperApp\\obj\\",
+      "outputPath": "V:\\Software\\EvaluaPro\\packaging\\wix\\BurnBootstrapperApp\\obj\\",
       "projectStyle": "PackageReference",
       "configFilePaths": [
         "C:\\Users\\evega\\AppData\\Roaming\\NuGet\\NuGet.Config"

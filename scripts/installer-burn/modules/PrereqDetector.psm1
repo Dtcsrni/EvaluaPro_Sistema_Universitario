@@ -46,17 +46,35 @@ function Invoke-PrereqNativeCommand {
     [int]$TimeoutSec = 8
   )
 
-  $stdout = Join-Path $env:TEMP ('evaluapro-prereq-out-' + [guid]::NewGuid().ToString('N') + '.txt')
-  $stderr = Join-Path $env:TEMP ('evaluapro-prereq-err-' + [guid]::NewGuid().ToString('N') + '.txt')
+  $process = $null
   try {
-    $process = Start-Process -FilePath $FilePath -ArgumentList $ArgumentList -NoNewWindow -PassThru -RedirectStandardOutput $stdout -RedirectStandardError $stderr
+    $psi = New-Object System.Diagnostics.ProcessStartInfo
+    $psi.FileName = $FilePath
+    $psi.UseShellExecute = $false
+    $psi.CreateNoWindow = $true
+    $psi.RedirectStandardOutput = $true
+    $psi.RedirectStandardError = $true
+    $psi.Arguments = (@($ArgumentList) | ForEach-Object {
+      $arg = [string]$_
+      if ($arg -match '[\s"]') {
+        '"' + ($arg -replace '"', '\"') + '"'
+      } else {
+        $arg
+      }
+    }) -join ' '
+
+    $process = [System.Diagnostics.Process]::Start($psi)
+    if ($null -eq $process) {
+      throw "No se pudo iniciar $FilePath"
+    }
+
     if (-not $process.WaitForExit([math]::Max(1, $TimeoutSec) * 1000)) {
       try { Stop-Process -Id $process.Id -Force -ErrorAction SilentlyContinue } catch {}
       return [pscustomobject]@{ timedOut = $true; exitCode = $null; stdout = ''; stderr = "Timeout ejecutando $FilePath" }
     }
 
-    $out = if (Test-Path -LiteralPath $stdout) { Get-Content -LiteralPath $stdout -Raw -ErrorAction SilentlyContinue } else { '' }
-    $err = if (Test-Path -LiteralPath $stderr) { Get-Content -LiteralPath $stderr -Raw -ErrorAction SilentlyContinue } else { '' }
+    $out = $process.StandardOutput.ReadToEnd()
+    $err = $process.StandardError.ReadToEnd()
     return [pscustomobject]@{
       timedOut = $false
       exitCode = $process.ExitCode
@@ -66,7 +84,9 @@ function Invoke-PrereqNativeCommand {
   } catch {
     return [pscustomobject]@{ timedOut = $false; exitCode = $null; stdout = ''; stderr = $_.Exception.Message }
   } finally {
-    Remove-Item -LiteralPath $stdout, $stderr -Force -ErrorAction SilentlyContinue
+    if ($process) {
+      $process.Dispose()
+    }
   }
 }
 
@@ -525,7 +545,7 @@ function Get-PreferredWslBootstrapDistro {
 
   $userDistros = @(Get-UserWslDistros)
   if ($userDistros.Count -gt 0) {
-    return [string]$userDistros[0]
+    return [string](@($userDistros)[0])
   }
 
   $envDistro = [string]$env:EVALUAPRO_INSTALLER_WSL_DISTRO
@@ -566,13 +586,14 @@ function Invoke-WslShellCommand {
     [Parameter(Mandatory = $true)]
     [string]$Distro,
     [Parameter(Mandatory = $true)]
-    [string]$Command
+    [string]$Command,
+    [int]$TimeoutSec = 30
   )
 
   if (-not (Test-WslAvailable)) { return '' }
 
   try {
-    $result = Invoke-PrereqNativeCommand -FilePath 'wsl.exe' -ArgumentList @('-d', $Distro, '--', 'sh', '-lc', $Command) -TimeoutSec 8
+    $result = Invoke-PrereqNativeCommand -FilePath 'wsl.exe' -ArgumentList @('-d', $Distro, '--', 'sh', '-lc', $Command) -TimeoutSec $TimeoutSec
     if ($result.timedOut) { return '' }
     return ([string]$result.stdout).Replace([string][char]0, '').Trim()
   } catch {
@@ -622,11 +643,12 @@ function Test-WslDockerDaemonReady {
   $checked = if ($Distros) { @($Distros) } else { @(Get-WslDockerRuntimeDistros) }
   foreach ($distro in $checked) {
     $probe = Invoke-WslShellCommand -Distro $distro -Command 'docker version --format "{{.Server.Version}}" 2>/dev/null'
-    if (-not [string]::IsNullOrWhiteSpace($probe)) {
+    $version = ([string]$probe).Trim()
+    if ($version -match '^\d+(\.\d+){1,3}([+-][0-9A-Za-z.-]+)?$') {
       return [pscustomobject]@{
         ready = $true
         distro = [string]$distro
-        serverVersion = [string]$probe
+        serverVersion = [string]$version
       }
     }
   }
@@ -687,7 +709,7 @@ function Get-DockerRuntimeStatus {
     if ((@($userDistros)).Count -gt 0) {
       $mode = 'wsl2-bootstrap-required'
       $reason = 'WSL2 detectado sin Docker Engine provisionado en una distro de usuario.'
-      $bootstrapDistro = if ($defaultDistro -and $defaultDistro -notin @('docker-desktop', 'docker-desktop-data')) { $defaultDistro } else { $userDistros[0] }
+      $bootstrapDistro = if ($defaultDistro -and $defaultDistro -notin @('docker-desktop', 'docker-desktop-data')) { $defaultDistro } else { @($userDistros)[0] }
       $manualActions += "Provisiona Docker Engine dentro de `wsl -d $bootstrapDistro` y habilita el servicio Docker."
     } elseif ($wslAvailable) {
       $mode = 'wsl2-bootstrap-required'
@@ -708,7 +730,7 @@ function Get-DockerRuntimeStatus {
   } elseif ((@($userDistros)).Count -gt 0) {
     $mode = 'wsl2-bootstrap-required'
     $reason = 'WSL2 detectado sin Docker Engine provisionado en una distro de usuario.'
-    $bootstrapDistro = if ($defaultDistro -and $defaultDistro -notin @('docker-desktop', 'docker-desktop-data')) { $defaultDistro } else { $userDistros[0] }
+    $bootstrapDistro = if ($defaultDistro -and $defaultDistro -notin @('docker-desktop', 'docker-desktop-data')) { $defaultDistro } else { @($userDistros)[0] }
     $manualActions += "Provisiona Docker Engine dentro de `wsl -d $bootstrapDistro` y habilita el servicio Docker."
     $manualActions += "Compatibilidad opcional: instala Docker Desktop si prefieres ese runtime."
   } elseif ($wslAvailable) {

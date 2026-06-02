@@ -1,0 +1,247 @@
+{
+  "traceSchemaVersion": "1.0.0",
+  "sessionId": "sesion-2026-05-25-e2e-local-update-smoke",
+  "status": "final",
+  "generatedAt": "2026-05-25T04:45:43.640Z",
+  "validationProfile": "quick",
+  "agent": {
+    "name": "Codex",
+    "version": "unknown",
+    "provider": "OpenAI",
+    "kind": "coding-agent",
+    "channel": "desktop"
+  },
+  "request": {
+    "summary": "Completar fase E2E del Installer Hub docente-local con evidencia local y frontera VM exacta."
+  },
+  "objective": "Cerrar la fase E2E local/no destructiva, agregar update smoke al runner VM y dejar documentado el bloqueo real del E2E mutante en VM limpia.",
+  "scope": [
+    "Installer Hub docente-local",
+    "Runner E2E VM",
+    "Gates E2E locales/no destructivos",
+    "Docs baseline, inventario, QA y handoff"
+  ],
+  "constraints": [
+    "No ejecutar E2E mutante en la maquina principal",
+    "No modificar TrustedHosts ni seguridad WinRM desde shell no elevada",
+    "No revertir cambios previos del working tree"
+  ],
+  "actions": [
+    {
+      "type": "implementation",
+      "summary": "Agregado update smoke al runner E2E: /api/update/status, manifest/update-status.json y fallo si updater queda en error.",
+      "timestamp": "2026-05-25T04:45:43.639Z",
+      "status": "ok"
+    },
+    {
+      "type": "validation",
+      "summary": "Revalidada fase E2E local/no destructiva: env doctor, baseline, journeys, responsive Playwright, contrato Hub, UIAutomation y QA evidence quick.",
+      "timestamp": "2026-05-25T04:45:43.639Z",
+      "status": "ok"
+    },
+    {
+      "type": "blocker",
+      "summary": "E2E VM real no ejecutado por falta de elevacion Hyper-V, TrustedHosts/HTTPS y snapshot env.",
+      "timestamp": "2026-05-25T04:45:43.639Z",
+      "status": "pending"
+    }
+  ],
+  "files": {
+    "read": [
+      "README.md",
+      "docs/README.md",
+      "docs/IA_TRAZABILIDAD_AGENTES.md",
+      ".github/copilot-instructions.md",
+      "docs/DESIGN.md",
+      "docs/INSTALLER_HUB.md",
+      "docs/QA_INSTALLER_HUB_DOCENTE_2026-05-20.md",
+      "scripts/tests/installer-hub-e2e-docente.ps1"
+    ],
+    "changed": [
+      "CHANGELOG.md",
+      "docs/ENGINEERING_BASELINE.md",
+      "docs/INSTALLER_HUB.md",
+      "docs/INVENTARIO_CODIGO_EXHAUSTIVO.md",
+      "docs/INVENTARIO_PROYECTO.md",
+      "docs/QA_INSTALLER_HUB_DOCENTE_2026-05-20.md",
+      "docs/tutoriales/installer-hub-docente-e2e.md",
+      "scripts/tests/installer-hub-contract.test.mjs",
+      "scripts/tests/installer-hub-e2e-docente.ps1"
+    ],
+    "artifacts": [
+      "reports/qa/installer-hub-ui/installer-hub-ui-automation-report.json",
+      "reports/qa/latest/manifest.json"
+    ]
+  },
+  "commands": [
+    {
+      "name": "env_doctor_windows",
+      "command": "npm run env:doctor:windows",
+      "status": "ok",
+      "exitCode": 0,
+      "durationMs": 0,
+      "resultSummary": "ok=true; Docker 29.4.0; Compose v5.1.2; Playwright Chromium disponible",
+      "timestamp": "2026-05-25T04:45:43.639Z"
+    },
+    {
+      "name": "installer_docente_baseline",
+      "command": "npm run installer:docente:baseline",
+      "status": "ok",
+      "exitCode": 0,
+      "durationMs": 0,
+      "resultSummary": "bundle docente existe; 74,921,037 bytes; docker probes ok",
+      "timestamp": "2026-05-25T04:45:43.639Z"
+    },
+    {
+      "name": "tdd_red",
+      "command": "node --test scripts/tests/installer-hub-contract.test.mjs",
+      "status": "falla",
+      "exitCode": 1,
+      "durationMs": 0,
+      "resultSummary": "fallo esperado antes de implementar Test-UpdateSmoke",
+      "timestamp": "2026-05-25T04:45:43.639Z"
+    },
+    {
+      "name": "contract_target_green",
+      "command": "node --test scripts/tests/installer-hub-contract.test.mjs",
+      "status": "ok",
+      "exitCode": 0,
+      "durationMs": 0,
+      "resultSummary": "42/42 tests passed",
+      "timestamp": "2026-05-25T04:45:43.639Z"
+    },
+    {
+      "name": "test_e2e_journeys_ci",
+      "command": "npm run test:e2e:journeys:ci",
+      "status": "ok",
+      "exitCode": 0,
+      "durationMs": 0,
+      "resultSummary": "UX visual 3/3",
+      "timestamp": "2026-05-25T04:45:43.639Z"
+    },
+    {
+      "name": "test_gui_responsive_e2e_ci",
+      "command": "npm run test:gui:responsive:e2e:ci",
+      "status": "ok",
+      "exitCode": 0,
+      "durationMs": 0,
+      "resultSummary": "docente 4/4, alumno 4/4, admin 3/3",
+      "timestamp": "2026-05-25T04:45:43.639Z"
+    },
+    {
+      "name": "test_installer_hub_contract",
+      "command": "npm run test:installer-hub:contract",
+      "status": "ok",
+      "exitCode": 0,
+      "durationMs": 0,
+      "resultSummary": "47/47 tests passed",
+      "timestamp": "2026-05-25T04:45:43.639Z"
+    },
+    {
+      "name": "test_installer_hub_ui",
+      "command": "npm run test:installer-hub:ui",
+      "status": "ok",
+      "exitCode": 0,
+      "durationMs": 0,
+      "resultSummary": "QA UI Installer Hub OK; reporte en reports/qa/installer-hub-ui",
+      "timestamp": "2026-05-25T04:45:43.639Z"
+    },
+    {
+      "name": "qa_evidence_quick",
+      "command": "npm run qa:evidence:quick",
+      "status": "ok",
+      "exitCode": 0,
+      "durationMs": 0,
+      "resultSummary": "dataset prod-like, docente-alumno, global grade, evaluaciones, PDF, UX visual y manifest QA en verde",
+      "timestamp": "2026-05-25T04:45:43.639Z"
+    },
+    {
+      "name": "docs_check",
+      "command": "npm run docs:check",
+      "status": "ok",
+      "exitCode": 0,
+      "durationMs": 0,
+      "resultSummary": "[docs] ok",
+      "timestamp": "2026-05-25T04:45:43.639Z"
+    },
+    {
+      "name": "inventario_codigo",
+      "command": "npm run inventario:codigo",
+      "status": "ok",
+      "exitCode": 0,
+      "durationMs": 0,
+      "resultSummary": "docs/INVENTARIO_CODIGO_EXHAUSTIVO.md regenerado; total 940",
+      "timestamp": "2026-05-25T04:45:43.639Z"
+    },
+    {
+      "name": "vm_getvm_preflight",
+      "command": "Get-VM -Name EvaluaPro-E2E-Win11 -ErrorAction Stop",
+      "status": "falla",
+      "exitCode": 1,
+      "durationMs": 0,
+      "resultSummary": "No dispone del permiso necesario en TEZKATLI",
+      "timestamp": "2026-05-25T04:45:43.639Z"
+    },
+    {
+      "name": "vm_winrm_http_preflight",
+      "command": "Test-WSMan EVALPRO-E2E",
+      "status": "ok",
+      "exitCode": 0,
+      "durationMs": 0,
+      "resultSummary": "WinRM HTTP responde",
+      "timestamp": "2026-05-25T04:45:43.639Z"
+    },
+    {
+      "name": "vm_trustedhosts_preflight",
+      "command": "Get-Item WSMan:\\localhost\\Client\\TrustedHosts",
+      "status": "ok",
+      "exitCode": 0,
+      "durationMs": 0,
+      "resultSummary": "TrustedHosts vacio",
+      "timestamp": "2026-05-25T04:45:43.639Z"
+    },
+    {
+      "name": "vm_winrm_https_preflight",
+      "command": "Test-WSMan EVALPRO-E2E -UseSSL",
+      "status": "falla",
+      "exitCode": 1,
+      "durationMs": 0,
+      "resultSummary": "HTTPS no disponible desde esta shell",
+      "timestamp": "2026-05-25T04:45:43.639Z"
+    },
+    {
+      "name": "vm_snapshot_env_preflight",
+      "command": "$env:EVALUAPRO_E2E_VM_SNAPSHOT",
+      "status": "falla",
+      "exitCode": 1,
+      "durationMs": 0,
+      "resultSummary": "variable no definida; esperado pre-evaluapro-installer-e2e",
+      "timestamp": "2026-05-25T04:45:43.639Z"
+    }
+  ],
+  "decisions": [
+    "No ejecutar scripts/tests/installer-hub-e2e-docente.ps1 con -IUnderstandThisMutatesVm en TEZKATLI porque modifica instalacion, registro, ProgramData y Docker; debe correr en VM limpia.",
+    "Cerrar como verde solo E2E local/no destructivo; mantener aceptacion release-like VM como partial hasta tener report.json real.",
+    "Agregar update smoke al runner para alinear el contrato documentado install|repair|update smoke|uninstall."
+  ],
+  "assumptions": [
+    "La VM EvaluaPro-E2E-Win11 existe pero esta shell no tiene privilegios Hyper-V elevados.",
+    "La ruta WinRM segura requiere TrustedHosts configurado explicitamente o HTTPS funcional."
+  ],
+  "risks": [
+    "E2E VM release-like pendiente; sin evidencia install/repair/update smoke/uninstall real.",
+    "TrustedHosts es ajuste de seguridad y debe hacerse de forma explicita/elevada.",
+    "Working tree sigue sucio por cambios previos ajenos y cambios de esta sesion."
+  ],
+  "nextStep": "Ejecutar en PowerShell elevado sobre TEZKATLI o dentro de VM limpia: definir EVALUAPRO_E2E_VM_SNAPSHOT=pre-evaluapro-installer-e2e, habilitar acceso Hyper-V o WinRM TrustedHosts/HTTPS, sincronizar artefactos y correr scripts/tests/installer-hub-e2e-docente.ps1 -IUnderstandThisMutatesVm; luego anexar report.json final.",
+  "completion": {
+    "isComplete": true,
+    "pendingFields": []
+  },
+  "repo": {
+    "rootDir": "V:\\Software\\EvaluaPro",
+    "branch": "stabilization/v1.0",
+    "commit": "1003850",
+    "workingTreeStatus": "M .codex/hooks.json\n M .gitignore\nM  .serena/project.yml\n M CHANGELOG.md\n M apps/backend/package.json\n M apps/backend/reports/qa/latest/e2e-docente-alumno.json\n M apps/backend/reports/qa/latest/global-grade.json\n M apps/backend/reports/qa/latest/pdf-print.json\n M apps/backend/tests/integracion/aislamientoDocente.test.ts\n M apps/backend/tests/integracion/archivarExamenGenerado.test.ts\n M apps/backend/tests/integracion/flujoExamen.test.ts\n M apps/backend/tests/integracion/periodosBorradoDuplicados.test.ts\n M apps/backend/tests/integracion/qrEscaneoOmr.test.ts\n M apps/backend/tests/integracion/regenerarExamenGenerado.test.ts\n M apps/backend/tests/omr.tv3.porFolioValidation.test.ts\n M apps/frontend/reports/qa/latest/ux-visual.json\n M docs/AUTO_DOCS_INDEX.md\n M docs/ENGINEERING_BASELINE.md\n M docs/INSTALLER_HUB.md\n M docs/INVENTARIO_CODIGO_EXHAUSTIVO.md\n M docs/INVENTARIO_PROYECTO.md\n M docs/QA_INSTALLER_HUB_DOCENTE_2026-05-20.md\nA  docs/handoff/sesiones/2026-05-25/sesion-2026-05-25-estabilizacion-gates-final.json\nA  docs/handoff/sesiones/2026-05-25/sesion-2026-05-25-estabilizacion-gates-final.md\n M docs/tutoriales/installer-hub-docente-e2e.md\nM  package.json\n M packaging/wix/BurnBootstrapperApp/bin/Release/net8.0-windows/win-x64/EvaluaPro.BurnBootstrapperApp.deps.json\n M packaging/wix/BurnBootstrapperApp/bin/Release/net8.0-windows/win-x64/EvaluaPro.BurnBootstrapperApp.dll\n M packaging/wix/BurnBootstrapperApp/bin/Release/net8.0-windows/win-x64/EvaluaPro.BurnBootstrapperApp.exe\n M packaging/wix/BurnBootstrapperApp/bin/Release/net8.0-windows/win-x64/EvaluaPro.BurnBootstrapperApp.pdb\n M packaging/wix/BurnBootstrapperApp/bin/Release/net8.0-windows/win-x64/EvaluaPro.BurnBootstrapperApp.runtimeconfig.json\n M packaging/wix/BurnBootstrapperApp/obj/EvaluaPro.BurnBootstrapperApp.csproj.nuget.dgspec.json\n M packaging/wix/BurnBootstrapperApp/obj/Release/net8.0-windows/win-x64/EvaluaPro.BurnBootstrapperApp.AssemblyInfo.cs\n M packaging/wix/BurnBootstrapperApp/obj/Release/net8.0-windows/win-x64/EvaluaPro.BurnBootstrapperApp.AssemblyInfoInputs.cache\n M packaging/wix/BurnBootstrapperApp/obj/Release/net8.0-windows/win-x64/EvaluaPro.BurnBootstrapperApp.GeneratedMSBuildEditorConfig.editorconfig\n M packaging/wix/BurnBootstrapperApp/obj/Release/net8.0-windows/win-x64/EvaluaPro.BurnBootstrapperApp.assets.cache\n M packaging/wix/BurnBootstrapperApp/obj/Release/net8.0-windows/win-x64/EvaluaPro.BurnBootstrapperApp.csproj.CoreCompileInputs.cache\n M packaging/wix/BurnBootstrapperApp/obj/Release/net8.0-windows/win-x64/EvaluaPro.BurnBootstrapperApp.csproj.FileListAbsolute.txt\n M packaging/wix/BurnBootstrapperApp/obj/Release/net8.0-windows/win-x64/EvaluaPro.BurnBootstrapperApp.dll\n M packaging/wix/BurnBootstrapperApp/obj/Release/net8.0-windows/win-x64/EvaluaPro.BurnBootstrapperApp.genruntimeconfig.cache\n M packaging/wix/BurnBootstrapperApp/obj/Release/net8.0-windows/win-x64/EvaluaPro.BurnBootstrapperApp.pdb\n M packaging/wix/BurnBootstrapperApp/obj/Release/net8.0-windows/win-x64/EvaluaPro.BurnBootstrapperApp.sourcelink.json\n M packaging/wix/BurnBootstrapperApp/obj/Release/net8.0-windows/win-x64/EvaluaPro.BurnBootstrapperApp_MarkupCompile.cache\n M packaging/wix/BurnBootstrapperApp/obj/Release/net8.0-windows/win-x64/MainWindow.g.cs\n M packaging/wix/BurnBootstrapperApp/obj/Release/net8.0-windows/win-x64/ref/EvaluaPro.BurnBootstrapperApp.dll\n M packaging/wix/BurnBootstrapperApp/obj/Release/net8.0-windows/win-x64/refint/EvaluaPro.BurnBootstrapperApp.dll\n M packaging/wix/BurnBootstrapperApp/obj/Release/net8.0-windows/win-x64/singlefilehost.exe\n M packaging/wix/BurnBootstrapperApp/obj/project.assets.json\n M packaging/wix/BurnBootstrapperApp/obj/project.nuget.cache\n M reports/qa/latest/clean-architecture.json\n M reports/qa/latest/dataset-prodlike.json\n M reports/qa/latest/e2e-docente-alumno.json\n M reports/qa/latest/evaluaciones-e2e.json\n M reports/qa/latest/evaluaciones-policy.json\n M reports/qa/latest/global-grade.json\n M reports/qa/latest/manifest.json\n M reports/qa/latest/pdf-print.json\n M reports/qa/latest/ux-visual.json\n M scripts/README.md\n M scripts/ai-serena-policy-status.mjs\n M scripts/env-doctor.mjs\nA  scripts/testing/run-backend-coverage-batches.mjs\nA  scripts/tests/backend-coverage-batches.test.mjs\n M scripts/tests/env-doctor.test.mjs\n M scripts/tests/installer-hub-contract.test.mjs\n M scripts/tests/installer-hub-e2e-docente.ps1\n?? .serena.precheckout-20260521/\n?? apps/frontend/dist-e2e-admin_negocio/\n?? apps/frontend/dist-e2e-alumno/\n?? apps/frontend/dist-e2e-docente/\n?? docs/ESTABILIZACION_FALLOS_Y_APRENDIZAJES.md\n?? docs/GUI_REDISENO_FIGMA.md\n?? docs/handoff/sesiones/2026-05-21/sesion-2026-05-21T21-12-58.317Z.json\n?? docs/handoff/sesiones/2026-05-21/sesion-2026-05-21T21-12-58.317Z.md\n?? docs/handoff/sesiones/2026-05-21/sesion-2026-05-21T22-25-47.054Z.json\n?? docs/handoff/sesiones/2026-05-21/sesion-2026-05-21T22-25-47.054Z.md\n?? docs/handoff/sesiones/2026-05-22/\n?? docs/handoff/sesiones/2026-05-25/sesion-2026-05-25T04-44-21.589Z.json\n?? docs/handoff/sesiones/2026-05-25/sesion-2026-05-25T04-44-21.589Z.md\n?? docs/handoff/sesiones/2026-05-25/sesion-2026-05-25T04-44-27.219Z.json\n?? docs/handoff/sesiones/2026-05-25/sesion-2026-05-25T04-44-27.219Z.md\n?? reports/qa/latest/prodlike-imported.json\n?? scripts/tests/ai-serena-policy-status.test.mjs"
+  }
+}

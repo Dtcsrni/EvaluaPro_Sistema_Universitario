@@ -1916,7 +1916,10 @@ internal sealed class EvaluaProBootstrapperApplication : BootstrapperApplication
 
         foreach (var entry in entries)
         {
-            Log(string.IsNullOrWhiteSpace(entry.Level) ? "info" : entry.Level, entry.Message ?? string.Empty, includeTimestamp: false);
+            var level = string.IsNullOrWhiteSpace(entry.Level) ? "info" : entry.Level;
+            var message = entry.Message ?? string.Empty;
+            var helperTimestamp = string.IsNullOrWhiteSpace(entry.Timestamp) ? "" : $" t={entry.Timestamp}";
+            Log(level, $"helper{helperTimestamp}: {message}", includeTimestamp: true);
         }
     }
 

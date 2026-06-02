@@ -1,48 +1,38 @@
-# Tutorial visual E2E Installer Hub docente-local
+﻿# Tutorial visual E2E Installer Hub docente-local
 
-Este documento describe el tutorial que genera la validacion real del Installer Hub en una VM limpia. La version final de cada ejecucion queda en `reports/qa/installer-hub-e2e-docente/<timestamp>/tutorial.md` con capturas reales.
+Este tutorial se genera desde la evidencia real de VM. Muestra el flujo completo install, repair, Docker stable, dashboard y uninstall.
 
-## Preparar
+## 1. Preparar
+- Confirmar flavor `docente-local`, modo y ruta.
+- Mantener configuracion avanzada colapsada salvo soporte.
+- Ejecutar `run-e2e-launcher.ps1 -DryRun` antes del ciclo real si se opera desde host.
+- Confirmar `powershell-direct-e2e-launch.json` con `acceptsCredentialParameter=true`.
+- Ejecutar el launcher real con `-Credential` y `-QaPassSecureString`; no guardar passwords en archivos, logs ni handoffs.
 
-Confirma que la VM esta en snapshot `pre-evaluapro-installer-e2e`, que el bundle `docente-local` coincide con su SHA256 y que no existe instalacion previa de EvaluaPro.
+## 2. Revisar
+- Ejecutar prerequisitos.
+- Continuar solo si el Hub queda listo o documenta remediacion/reinicio.
 
-En el Hub, revisa flavor, modo, ruta de instalacion y accesos. Mantén la configuracion avanzada colapsada salvo que soporte indique lo contrario.
+## 3. Ejecutar
+- Instalar, reparar o desinstalar desde el boton primario.
+- No cerrar la ventana mientras exista operacion busy.
 
-## Revisar
+## 4. Estado estable Docker
+- `mongo_local`, `api_docente_prod` y `web_docente_prod` deben estar `running` y `healthy`.
+- API: `http://127.0.0.1:4000/api/salud` debe responder 200.
+- Web docente: `http://127.0.0.1:4173` debe responder 200.
+- Dashboard: `/api/status` debe estar `healthy` o `degraded`, nunca `failed`.
+- Update smoke: `/api/update/status` debe responder y guardarse como `manifest/update-status.json`.
 
-Ejecuta la revision de prerequisitos. El flujo solo debe continuar si los requisitos quedan en estado listo o si el Hub muestra remediacion/reinicio con evidencia clara.
+## 5. Evidencia
+- Reporte JSON: `report.json`.
+- Docker: `docker/`.
+- Logs: `logs/`.
+- Manifiestos: `manifest/`.
+- Procesos: `processes/`.
 
-## Ejecutar
+## Capturas
 
-Usa el boton primario del modo activo: Instalar, Reparar o Desinstalar. No cierres la ventana mientras el Hub indique una operacion en progreso.
+### wpf-install-01-splash-deteccion
 
-## Docker stable
-
-Despues de instalar, el runner levanta el stack productivo:
-
-```powershell
-docker compose --profile prod up --build -d mongo_local api_docente_prod web_docente_prod
-```
-
-Estado estable esperado:
-
-- `mongo_local`, `api_docente_prod` y `web_docente_prod` en `running`.
-- Healthchecks en `healthy`.
-- API `http://127.0.0.1:4000/api/salud` responde 200.
-- Web docente `http://127.0.0.1:4173` responde 200.
-- Dashboard `/api/status` queda `healthy` o `degraded`, nunca `failed`.
-
-## Resultado y evidencia
-
-La ejecucion genera:
-
-- `report.json`: resultado estructurado.
-- `screenshots/`: capturas WPF, dashboard y web docente.
-- `docker/`: `docker-ps.json`, `docker-inspect.json`, logs y healthchecks.
-- `logs/`: logs Burn/MSI/helper exportados.
-- `manifest/`: manifiesto de instalacion y update config.
-- `processes/`: snapshots antes/despues/error.
-
-## Uninstall estandar
-
-La desinstalacion debe retirar producto, accesos y entradas ARP. Solo pueden permanecer datos, licencia, logs y backups documentados en `docs/DESIGN.md`.
+![](./screenshots/wpf-install-01-splash-deteccion.png)

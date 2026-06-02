@@ -20,6 +20,7 @@ describe('escaneo OMR: QR asociado a examen', () => {
   const app = crearApp();
   const TEST_TIMEOUT_QR_MS = 60_000;
   const QR_IMAGE_WIDTH = 512;
+  const preguntasPorEscenario = 20;
 
   beforeAll(async () => {
     await conectarMongoTest();
@@ -72,7 +73,7 @@ describe('escaneo OMR: QR asociado a examen', () => {
     const alumnoId = alumnoResp.body.alumno._id as string;
 
     const preguntasIds: string[] = [];
-    for (let i = 0; i < 60; i += 1) {
+    for (let i = 0; i < preguntasPorEscenario; i += 1) {
       const preguntaResp = await request(app)
         .post('/api/banco-preguntas')
         .set(auth)

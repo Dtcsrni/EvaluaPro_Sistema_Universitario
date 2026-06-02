@@ -11,6 +11,7 @@ import fs from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 import process from 'node:process';
+import { pathToFileURL } from 'node:url';
 
 async function readTextSafe(filePath) {
   try {
@@ -49,6 +50,14 @@ async function inspectRepoLayer(root) {
     fileExists(hooksPath)
   ]);
 
+  return {
+    ...inspectRepoPolicyText({ configText, hooksText, hasConfig, hasHooks }),
+    configPath,
+    hooksPath
+  };
+}
+
+function inspectRepoPolicyText({ configText, hooksText, hasConfig, hasHooks }) {
   const checks = {
     hasConfig,
     hasHooks,
@@ -60,7 +69,7 @@ async function inspectRepoLayer(root) {
   };
 
   const ready = Object.values(checks).every(Boolean);
-  return { ready, configPath, hooksPath, checks };
+  return { ready, checks };
 }
 
 async function inspectGlobalLayer() {
@@ -75,6 +84,15 @@ async function inspectGlobalLayer() {
     fileExists(hooksPath)
   ]);
 
+  return {
+    ...inspectGlobalPolicyText({ configText, hooksText, hasConfig, hasHooks }),
+    codexHome,
+    configPath,
+    hooksPath
+  };
+}
+
+function inspectGlobalPolicyText({ configText, hooksText, hasConfig, hasHooks }) {
   const checks = {
     hasConfig,
     hasHooks,
@@ -82,7 +100,7 @@ async function inspectGlobalLayer() {
     hasCodexHooksEnabled: /codex_hooks\s*=\s*true/i.test(configText),
     hasSerenaServer: /\[mcp_servers\.serena\]/i.test(configText),
     hasGlobalSerenaCommand:
-      /command\s*=\s*".*serena(\\.exe)?"/i.test(configText) &&
+      /command\s*=\s*"[^"]*serena(?:\.exe)?"/i.test(configText) &&
       /start-mcp-server/i.test(configText) &&
       /--project-from-cwd/i.test(configText) &&
       /--context=codex|--context\s*[,=]\s*codex/i.test(configText),
@@ -91,7 +109,7 @@ async function inspectGlobalLayer() {
   };
 
   const ready = Object.values(checks).every(Boolean);
-  return { ready, codexHome, configPath, hooksPath, checks };
+  return { ready, checks };
 }
 
 async function main() {
@@ -123,7 +141,11 @@ async function main() {
   console.log(`usage.mcpCheck=${report.usage.mcpCheck}`);
 }
 
-main().catch((error) => {
-  console.error('[ai-serena-policy-status] error inesperado:', error);
-  process.exit(1);
-});
+export { inspectGlobalPolicyText, inspectRepoPolicyText };
+
+if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
+  main().catch((error) => {
+    console.error('[ai-serena-policy-status] error inesperado:', error);
+    process.exit(1);
+  });
+}
