@@ -91,6 +91,7 @@ jobs:
 
       - name: Etapa diagramas-render
         run: |
+          rm -rf ~/.cache/puppeteer
           npx puppeteer browsers install chrome
           npm run diagramas:render
 

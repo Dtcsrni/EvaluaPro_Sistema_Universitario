@@ -2,7 +2,7 @@
   "traceSchemaVersion": "1.0.0",
   "sessionId": "sesion-2026-06-03-stabilization-release-fixes",
   "status": "final",
-  "generatedAt": "2026-06-03T11:18:09.861Z",
+  "generatedAt": "2026-06-03T11:22:06.639Z",
   "validationProfile": "quick",
   "agent": {
     "name": "unknown",
@@ -26,61 +26,61 @@
     {
       "type": "validation",
       "summary": "Ejecucion de lint",
-      "timestamp": "2026-06-03T11:18:09.861Z",
+      "timestamp": "2026-06-03T11:22:06.639Z",
       "status": "omitido"
     },
     {
       "type": "validation",
       "summary": "Ejecucion de typecheck",
-      "timestamp": "2026-06-03T11:18:09.861Z",
+      "timestamp": "2026-06-03T11:22:06.639Z",
       "status": "omitido"
     },
     {
       "type": "validation",
       "summary": "Ejecucion de test_frontend_ci",
-      "timestamp": "2026-06-03T11:18:09.861Z",
+      "timestamp": "2026-06-03T11:22:06.639Z",
       "status": "omitido"
     },
     {
       "type": "validation",
       "summary": "Ejecucion de test_coverage_ci",
-      "timestamp": "2026-06-03T11:18:09.861Z",
+      "timestamp": "2026-06-03T11:22:06.639Z",
       "status": "omitido"
     },
     {
       "type": "validation",
       "summary": "Ejecucion de test_tdd_enforcement_ci",
-      "timestamp": "2026-06-03T11:18:09.861Z",
+      "timestamp": "2026-06-03T11:22:06.639Z",
       "status": "omitido"
     },
     {
       "type": "validation",
       "summary": "Ejecucion de test_backend_ci",
-      "timestamp": "2026-06-03T11:18:09.861Z",
+      "timestamp": "2026-06-03T11:22:06.639Z",
       "status": "omitido"
     },
     {
       "type": "validation",
       "summary": "Ejecucion de test_portal_ci",
-      "timestamp": "2026-06-03T11:18:09.861Z",
+      "timestamp": "2026-06-03T11:22:06.639Z",
       "status": "omitido"
     },
     {
       "type": "validation",
       "summary": "Ejecucion de perf_check",
-      "timestamp": "2026-06-03T11:18:09.861Z",
+      "timestamp": "2026-06-03T11:22:06.639Z",
       "status": "omitido"
     },
     {
       "type": "validation",
       "summary": "Ejecucion de pipeline_contract_check",
-      "timestamp": "2026-06-03T11:18:09.861Z",
+      "timestamp": "2026-06-03T11:22:06.639Z",
       "status": "ok"
     },
     {
       "type": "validation",
       "summary": "Ejecucion de docs_check",
-      "timestamp": "2026-06-03T11:18:09.861Z",
+      "timestamp": "2026-06-03T11:22:06.639Z",
       "status": "ok"
     }
   ],
@@ -89,14 +89,6 @@
     "changed": [
       ".github/workflows/ci-docs.yml",
       ".github/workflows/ci.yml",
-      "CHANGELOG.md",
-      "docs/INVENTARIO_CODIGO_EXHAUSTIVO.md",
-      "scripts/installer-burn/modules/Common.psm1",
-      "scripts/tests/installer-hub-contract.test.mjs",
-      "docs/handoff/sesiones/2026-06-03/sesion-2026-06-03T11-17-52.165Z.json",
-      "docs/handoff/sesiones/2026-06-03/sesion-2026-06-03T11-17-52.165Z.md",
-      "docs/handoff/sesiones/2026-06-03/sesion-2026-06-03T11-17-56.856Z.json",
-      "docs/handoff/sesiones/2026-06-03/sesion-2026-06-03T11-17-56.856Z.md",
       "reports/release/beta/",
       "scratch/check-explorer.ps1",
       "scratch/check-vm-processes.ps1",
@@ -147,7 +139,7 @@
       "exitCode": null,
       "durationMs": 0,
       "resultSummary": "omitido por perfil quick",
-      "timestamp": "2026-06-03T11:18:09.861Z"
+      "timestamp": "2026-06-03T11:22:06.639Z"
     },
     {
       "name": "typecheck",
@@ -156,7 +148,7 @@
       "exitCode": null,
       "durationMs": 0,
       "resultSummary": "omitido por perfil quick",
-      "timestamp": "2026-06-03T11:18:09.861Z"
+      "timestamp": "2026-06-03T11:22:06.639Z"
     },
     {
       "name": "test_frontend_ci",
@@ -165,7 +157,7 @@
       "exitCode": null,
       "durationMs": 0,
       "resultSummary": "omitido por perfil quick",
-      "timestamp": "2026-06-03T11:18:09.861Z"
+      "timestamp": "2026-06-03T11:22:06.639Z"
     },
     {
       "name": "test_coverage_ci",
@@ -174,7 +166,7 @@
       "exitCode": null,
       "durationMs": 0,
       "resultSummary": "omitido por perfil quick",
-      "timestamp": "2026-06-03T11:18:09.861Z"
+      "timestamp": "2026-06-03T11:22:06.639Z"
     },
     {
       "name": "test_tdd_enforcement_ci",
@@ -183,7 +175,7 @@
       "exitCode": null,
       "durationMs": 0,
       "resultSummary": "omitido por perfil quick",
-      "timestamp": "2026-06-03T11:18:09.861Z"
+      "timestamp": "2026-06-03T11:22:06.639Z"
     },
     {
       "name": "test_backend_ci",
@@ -192,7 +184,7 @@
       "exitCode": null,
       "durationMs": 0,
       "resultSummary": "omitido por perfil quick",
-      "timestamp": "2026-06-03T11:18:09.861Z"
+      "timestamp": "2026-06-03T11:22:06.639Z"
     },
     {
       "name": "test_portal_ci",
@@ -201,7 +193,7 @@
       "exitCode": null,
       "durationMs": 0,
       "resultSummary": "omitido por perfil quick",
-      "timestamp": "2026-06-03T11:18:09.861Z"
+      "timestamp": "2026-06-03T11:22:06.639Z"
     },
     {
       "name": "perf_check",
@@ -210,25 +202,25 @@
       "exitCode": null,
       "durationMs": 0,
       "resultSummary": "omitido por perfil quick",
-      "timestamp": "2026-06-03T11:18:09.861Z"
+      "timestamp": "2026-06-03T11:22:06.639Z"
     },
     {
       "name": "pipeline_contract_check",
       "command": "npm run pipeline:contract:check",
       "status": "ok",
       "exitCode": 0,
-      "durationMs": 702,
-      "resultSummary": "> evaluapro@1.0.0 pipeline:contract:check | > node scripts/pipeline-contract-check.mjs | ✔ ext_perf_arquitectura prepara sharp antes de perf:check (2.5823ms) | ✔ ext_funcionales usa gate OMR TV generico con version configurable (0.3396ms) | ... | ℹ duration_ms 97.9846 | pipeline contract OK",
-      "timestamp": "2026-06-03T11:18:09.861Z"
+      "durationMs": 603,
+      "resultSummary": "> evaluapro@1.0.0 pipeline:contract:check | > node scripts/pipeline-contract-check.mjs | ✔ ext_perf_arquitectura prepara sharp antes de perf:check (1.9874ms) | ✔ ext_funcionales usa gate OMR TV generico con version configurable (0.3531ms) | ... | ℹ duration_ms 98.7063 | pipeline contract OK",
+      "timestamp": "2026-06-03T11:22:06.639Z"
     },
     {
       "name": "docs_check",
       "command": "npm run docs:check",
       "status": "ok",
       "exitCode": 0,
-      "durationMs": 835,
+      "durationMs": 1039,
       "resultSummary": "> evaluapro@1.0.0 docs:check | > node scripts/docs.mjs --check | [docs] ok",
-      "timestamp": "2026-06-03T11:18:09.861Z"
+      "timestamp": "2026-06-03T11:22:06.639Z"
     }
   ],
   "decisions": [
@@ -248,7 +240,7 @@
   "repo": {
     "rootDir": "C:\\Users\\evega\\EvaluaPro_Sistema_Universitario",
     "branch": "main",
-    "commit": "7e06529",
-    "workingTreeStatus": "M .github/workflows/ci-docs.yml\n M .github/workflows/ci.yml\n M CHANGELOG.md\n M docs/INVENTARIO_CODIGO_EXHAUSTIVO.md\n M scripts/installer-burn/modules/Common.psm1\n M scripts/tests/installer-hub-contract.test.mjs\n?? docs/handoff/sesiones/2026-06-03/sesion-2026-06-03T11-17-52.165Z.json\n?? docs/handoff/sesiones/2026-06-03/sesion-2026-06-03T11-17-52.165Z.md\n?? docs/handoff/sesiones/2026-06-03/sesion-2026-06-03T11-17-56.856Z.json\n?? docs/handoff/sesiones/2026-06-03/sesion-2026-06-03T11-17-56.856Z.md\n?? reports/release/beta/\n?? scratch/check-explorer.ps1\n?? scratch/check-vm-processes.ps1\n?? scratch/check-vm.ps1\n?? scratch/cleanup-resume-and-rerun.ps1\n?? scratch/cleanup-resume-status.json\n?? scratch/copy-reports-status.json\n?? scratch/explorer-status.json\n?? scratch/full-e2e-pipeline-noelevation.ps1\n?? scratch/full-e2e-pipeline.ps1\n?? scratch/full-e2e-pipeline.transcript.log\n?? scratch/handoff_input.json\n?? scratch/install-ubuntu-vm.ps1\n?? scratch/patch-e2e-script.ps1\n?? scratch/patch-e2e.js\n?? scratch/query-vm-status.ps1\n?? scratch/read-log-direct.ps1\n?? scratch/restart-docker-vm.ps1\n?? scratch/restore-and-configure-vm.ps1\n?? scratch/restore-and-configure-vm.report.json\n?? scratch/restore-and-configure-vm.transcript.log\n?? scratch/screenshots-status.json\n?? scratch/setup-noelevation-pipeline.js\n?? scratch/sync-and-run-e2e.ps1\n?? scratch/sync-and-run-e2e.report.json\n?? scratch/sync-and-run-e2e.transcript.log\n?? scratch/ubuntu-install-status.json\n?? scratch/vm-burn-log.json\n?? scratch/vm-detailed-status.json\n?? scratch/vm-log-slice.txt\n?? scratch/vm-processes.json\n?? scratch/vm-provision-wsl-docker-node-winrm.ps1\n?? scratch/vm-provision-wsl-docker-node.report.json\n?? scratch/vm-requests-log.json\n?? scratch/vm-status.json\n?? scratch/wpf-install-01-splash-deteccion.png"
+    "commit": "ef781af",
+    "workingTreeStatus": "M .github/workflows/ci-docs.yml\n M .github/workflows/ci.yml\n?? reports/release/beta/\n?? scratch/check-explorer.ps1\n?? scratch/check-vm-processes.ps1\n?? scratch/check-vm.ps1\n?? scratch/cleanup-resume-and-rerun.ps1\n?? scratch/cleanup-resume-status.json\n?? scratch/copy-reports-status.json\n?? scratch/explorer-status.json\n?? scratch/full-e2e-pipeline-noelevation.ps1\n?? scratch/full-e2e-pipeline.ps1\n?? scratch/full-e2e-pipeline.transcript.log\n?? scratch/handoff_input.json\n?? scratch/install-ubuntu-vm.ps1\n?? scratch/patch-e2e-script.ps1\n?? scratch/patch-e2e.js\n?? scratch/query-vm-status.ps1\n?? scratch/read-log-direct.ps1\n?? scratch/restart-docker-vm.ps1\n?? scratch/restore-and-configure-vm.ps1\n?? scratch/restore-and-configure-vm.report.json\n?? scratch/restore-and-configure-vm.transcript.log\n?? scratch/screenshots-status.json\n?? scratch/setup-noelevation-pipeline.js\n?? scratch/sync-and-run-e2e.ps1\n?? scratch/sync-and-run-e2e.report.json\n?? scratch/sync-and-run-e2e.transcript.log\n?? scratch/ubuntu-install-status.json\n?? scratch/vm-burn-log.json\n?? scratch/vm-detailed-status.json\n?? scratch/vm-log-slice.txt\n?? scratch/vm-processes.json\n?? scratch/vm-provision-wsl-docker-node-winrm.ps1\n?? scratch/vm-provision-wsl-docker-node.report.json\n?? scratch/vm-requests-log.json\n?? scratch/vm-status.json\n?? scratch/wpf-install-01-splash-deteccion.png"
   }
 }

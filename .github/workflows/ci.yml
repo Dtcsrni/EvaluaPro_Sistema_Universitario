@@ -121,6 +121,7 @@ jobs:
           npm run docs:generate
           npm run docs:check
           npm run diagramas:check
+          rm -rf ~/.cache/puppeteer
           npx puppeteer browsers install chrome
           npm run diagramas:render
           npm run diagramas:consistencia:check

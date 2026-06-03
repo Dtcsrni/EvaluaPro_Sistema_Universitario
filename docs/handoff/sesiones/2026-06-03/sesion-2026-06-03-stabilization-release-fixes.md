@@ -4,7 +4,7 @@
 - sessionId: sesion-2026-06-03-stabilization-release-fixes
 - parentSessionId: -
 - status: final
-- generatedAt: 2026-06-03T11:18:09.861Z
+- generatedAt: 2026-06-03T11:22:06.639Z
 - validationProfile: quick
 
 ## Agente
@@ -30,16 +30,16 @@
 - Sin restricciones declaradas.
 
 ## Acciones
-- [omitido] validation: Ejecucion de lint (2026-06-03T11:18:09.861Z)
-- [omitido] validation: Ejecucion de typecheck (2026-06-03T11:18:09.861Z)
-- [omitido] validation: Ejecucion de test_frontend_ci (2026-06-03T11:18:09.861Z)
-- [omitido] validation: Ejecucion de test_coverage_ci (2026-06-03T11:18:09.861Z)
-- [omitido] validation: Ejecucion de test_tdd_enforcement_ci (2026-06-03T11:18:09.861Z)
-- [omitido] validation: Ejecucion de test_backend_ci (2026-06-03T11:18:09.861Z)
-- [omitido] validation: Ejecucion de test_portal_ci (2026-06-03T11:18:09.861Z)
-- [omitido] validation: Ejecucion de perf_check (2026-06-03T11:18:09.861Z)
-- [ok] validation: Ejecucion de pipeline_contract_check (2026-06-03T11:18:09.861Z)
-- [ok] validation: Ejecucion de docs_check (2026-06-03T11:18:09.861Z)
+- [omitido] validation: Ejecucion de lint (2026-06-03T11:22:06.639Z)
+- [omitido] validation: Ejecucion de typecheck (2026-06-03T11:22:06.639Z)
+- [omitido] validation: Ejecucion de test_frontend_ci (2026-06-03T11:22:06.639Z)
+- [omitido] validation: Ejecucion de test_coverage_ci (2026-06-03T11:22:06.639Z)
+- [omitido] validation: Ejecucion de test_tdd_enforcement_ci (2026-06-03T11:22:06.639Z)
+- [omitido] validation: Ejecucion de test_backend_ci (2026-06-03T11:22:06.639Z)
+- [omitido] validation: Ejecucion de test_portal_ci (2026-06-03T11:22:06.639Z)
+- [omitido] validation: Ejecucion de perf_check (2026-06-03T11:22:06.639Z)
+- [ok] validation: Ejecucion de pipeline_contract_check (2026-06-03T11:22:06.639Z)
+- [ok] validation: Ejecucion de docs_check (2026-06-03T11:22:06.639Z)
 
 ## Archivos leidos
 - Sin lecturas registradas.
@@ -47,14 +47,6 @@
 ## Archivos cambiados
 - .github/workflows/ci-docs.yml
 - .github/workflows/ci.yml
-- CHANGELOG.md
-- docs/INVENTARIO_CODIGO_EXHAUSTIVO.md
-- scripts/installer-burn/modules/Common.psm1
-- scripts/tests/installer-hub-contract.test.mjs
-- docs/handoff/sesiones/2026-06-03/sesion-2026-06-03T11-17-52.165Z.json
-- docs/handoff/sesiones/2026-06-03/sesion-2026-06-03T11-17-52.165Z.md
-- docs/handoff/sesiones/2026-06-03/sesion-2026-06-03T11-17-56.856Z.json
-- docs/handoff/sesiones/2026-06-03/sesion-2026-06-03T11-17-56.856Z.md
 - reports/release/beta/
 - scratch/check-explorer.ps1
 - scratch/check-vm-processes.ps1
@@ -109,9 +101,9 @@
   resultado: omitido por perfil quick
 - perf_check: `npm run perf:check` -> omitido (exitCode=-, duracionMs=0)
   resultado: omitido por perfil quick
-- pipeline_contract_check: `npm run pipeline:contract:check` -> ok (exitCode=0, duracionMs=702)
-  resultado: > evaluapro@1.0.0 pipeline:contract:check | > node scripts/pipeline-contract-check.mjs | ✔ ext_perf_arquitectura prepara sharp antes de perf:check (2.5823ms) | ✔ ext_funcionales usa gate OMR TV generico con version configurable (0.3396ms) | ... | ℹ duration_ms 97.9846 | pipeline contract OK
-- docs_check: `npm run docs:check` -> ok (exitCode=0, duracionMs=835)
+- pipeline_contract_check: `npm run pipeline:contract:check` -> ok (exitCode=0, duracionMs=603)
+  resultado: > evaluapro@1.0.0 pipeline:contract:check | > node scripts/pipeline-contract-check.mjs | ✔ ext_perf_arquitectura prepara sharp antes de perf:check (1.9874ms) | ✔ ext_funcionales usa gate OMR TV generico con version configurable (0.3531ms) | ... | ℹ duration_ms 98.7063 | pipeline contract OK
+- docs_check: `npm run docs:check` -> ok (exitCode=0, duracionMs=1039)
   resultado: > evaluapro@1.0.0 docs:check | > node scripts/docs.mjs --check | [docs] ok
 
 ## Decisiones
@@ -129,14 +121,6 @@
 ```txt
 M .github/workflows/ci-docs.yml
  M .github/workflows/ci.yml
- M CHANGELOG.md
- M docs/INVENTARIO_CODIGO_EXHAUSTIVO.md
- M scripts/installer-burn/modules/Common.psm1
- M scripts/tests/installer-hub-contract.test.mjs
-?? docs/handoff/sesiones/2026-06-03/sesion-2026-06-03T11-17-52.165Z.json
-?? docs/handoff/sesiones/2026-06-03/sesion-2026-06-03T11-17-52.165Z.md
-?? docs/handoff/sesiones/2026-06-03/sesion-2026-06-03T11-17-56.856Z.json
-?? docs/handoff/sesiones/2026-06-03/sesion-2026-06-03T11-17-56.856Z.md
 ?? reports/release/beta/
 ?? scratch/check-explorer.ps1
 ?? scratch/check-vm-processes.ps1
