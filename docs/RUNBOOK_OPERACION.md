@@ -113,6 +113,24 @@ Si el portal forma parte de una validacion de integracion:
 Smoke automatizado sugerido:
 - `npm run ops:smoke:pilot -- --backend-base=http://localhost:4000/api --portal-base=https://<tu-portal>/api/portal`
 
+## 5.2 Prueba manual docente-local
+Usar esta ruta cuando el objetivo sea validar operacion docente en maquina local hasta generacion, impresion y calificacion.
+
+Checklist versionada:
+- `docs/release/manual/docente-local-prueba-manual-2026-05-27.md`
+
+Evidencia automatizada previa esperada:
+- `npm run test:e2e:docente-alumno:ci`
+- `npm run test:pdf-print:ci`
+- `npm run test:global-grade:ci`
+- `npm run test:evaluaciones:policy:ci`
+- `npm -C apps/frontend run build:docente`
+- `npm run test:qa:manifest`
+
+Evidencia manual final:
+- completar `docs/release/manual/prod-flow.json` desde `docs/release/manual/prod-flow.template.json`
+- ejecutar `npm run release:gate:prod-flow -- --version=<version> --periodo-id=<periodoId> --manual=docs/release/manual/prod-flow.json`
+
 ## 6. Escalamiento
 - Si hay degradación sostenida (`ready` inestable + errores altos), activar rollback al último release estable.
 

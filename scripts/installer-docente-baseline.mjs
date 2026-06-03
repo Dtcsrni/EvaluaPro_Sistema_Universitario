@@ -59,6 +59,8 @@ const docente = Array.isArray(flavors?.flavors)
   : null;
 const compose = runProbe('docker', ['compose', '-f', 'docker-compose.yml', '--profile', 'prod', 'ps', '--format', 'json']);
 const dockerDf = runProbe('docker', ['system', 'df', '--format', 'json']);
+const dockerContext = runProbe('docker', ['context', 'show']);
+const composeServices = runProbe('docker', ['compose', '-f', 'docker-compose.yml', '--profile', 'prod', 'config', '--services']);
 
 const report = {
   generatedAt: new Date().toISOString(),
@@ -67,6 +69,11 @@ const report = {
     runtimeTarget: 'wsl2-docker-minimal',
     requireLocalPortal: Boolean(docente?.requireLocalPortal),
     requiredServices: ['mongo_local', 'api_docente_prod', 'web_docente_prod'],
+    requiredImages: {
+      apiDocente: process.env.EVALUAPRO_API_DOCENTE_IMAGE || 'ghcr.io/dtcsrni/evaluapro_sistema_universitario/evaluapro-api-docente:1.0.0',
+      webDocente: process.env.EVALUAPRO_WEB_DOCENTE_IMAGE || 'ghcr.io/dtcsrni/evaluapro_sistema_universitario/evaluapro-web-docente:1.0.0',
+      mongo: 'mongo:8.0.23'
+    },
     deferredConfig: ['portal/sync', 'OAuth/Classroom', 'correo', 'licencia si no es obligatoria']
   },
   artifacts: {
@@ -75,7 +82,9 @@ const report = {
   },
   probes: {
     dockerComposeProd: compose,
-    dockerSystemDf: dockerDf
+    dockerSystemDf: dockerDf,
+    dockerContext,
+    composeServices
   },
   acceptance: {
     compareBeforeAfter: [

@@ -249,6 +249,14 @@ function Write-InstallerLocalPathsManifest {
   }
 
   ($payload | ConvertTo-Json -Depth 6) | Set-Content -Path $manifestPath -Encoding utf8
+    $publicManifestPath = Join-Path $PublicOutputDirectory 'installer-local-paths.json'
+    $internalManifestPath = Join-Path $InternalOutputDirectory 'installer-local-paths.json'
+    if ($publicManifestPath -ne $manifestPath) {
+      Copy-Item -LiteralPath $manifestPath -Destination $publicManifestPath -Force
+    }
+    if ($internalManifestPath -ne $manifestPath) {
+      Copy-Item -LiteralPath $manifestPath -Destination $internalManifestPath -Force
+    }
 }
 
 function Get-IcoImageSizes {

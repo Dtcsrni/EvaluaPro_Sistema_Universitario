@@ -8,7 +8,7 @@
             "type": "command",
             "command": "node scripts/ai-session-start.mjs",
             "timeout": 5,
-            "statusMessage": "SessionStart: Caveman + Serena + token policy"
+            "statusMessage": "SessionStart: Caveman + SERENA REQUIRED ALWAYS + SERENA TOKEN POLICY (MANDATORY)"
           }
         ]
       }

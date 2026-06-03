@@ -78,29 +78,28 @@ excluded_tools: []
 # This extends the existing inclusions (e.g. from the global configuration).
 # Find the list of tools here: https://oraios.github.io/serena/01-about/035_tools.html
 included_optional_tools:
-	- activate_project
-	- check_onboarding_performed
-	- create_text_file
-	- edit_memory
-	- find_file
-	- find_referencing_symbols
-	- find_symbol
-	- get_current_config
-	- get_symbols_overview
-	- initial_instructions
-	- insert_after_symbol
-	- insert_before_symbol
-	- list_dir
-	- list_memories
-	- read_file
-	- read_memory
-	- rename_memory
-	- rename_symbol
-	- replace_content
-	- replace_symbol_body
-	- safe_delete_symbol
-	- search_for_pattern
-	- write_memory
+  - activate_project
+  - create_text_file
+  - edit_memory
+  - find_file
+  - find_referencing_symbols
+  - find_symbol
+  - get_current_config
+  - get_symbols_overview
+  - initial_instructions
+  - insert_after_symbol
+  - insert_before_symbol
+  - list_dir
+  - list_memories
+  - read_file
+  - read_memory
+  - rename_memory
+  - rename_symbol
+  - replace_content
+  - replace_symbol_body
+  - safe_delete_symbol
+  - search_for_pattern
+  - write_memory
 
 # fixed set of tools to use as the base tool set (if non-empty), replacing Serena's default set of tools.
 # This cannot be combined with non-empty excluded_tools or included_optional_tools.

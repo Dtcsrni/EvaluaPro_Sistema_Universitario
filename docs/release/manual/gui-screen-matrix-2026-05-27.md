@@ -1,0 +1,534 @@
+# Matriz GUI Exhaustiva
+
+Fecha: 2026-05-27
+
+Contrato: cada pantalla debe validar componentes visibles, estados, viewports y evidencia antes de declarar cierre UX/UI.
+
+Criterio UX: cada pantalla debe sostener una accion primaria clara, jerarquia visual sobria, densidad operativa legible, feedback inline, controles con nombres accesibles y controles interactivos sin solapes materiales. La simplicidad prima sobre decoracion.
+
+## Fuentes
+- `docs/DESIGN.md`
+- `docs/INSTALLER_HUB.md`
+- `apps/frontend/src/apps/app_docente/hooks/usePermisosDocente.ts`
+- `apps/frontend/src/apps/app_docente/AppDocente.tsx`
+- `apps/frontend/src/apps/app_alumno/AppAlumno.tsx`
+- `apps/frontend/src/apps/app_admin_negocio/AppAdminNegocio.tsx`
+- `scripts/launcher-dashboard.mjs`
+- `packaging/wix/BurnBootstrapperApp/MainWindow.xaml`
+
+## Checklist Por Pantalla
+
+### docente:login - Acceso docente
+- Superficie: `frontend-docente`
+- Componentes: hero operativo, formulario login, ayuda contextual, version/update
+- Sentido: hero operativo -> orienta al usuario sin competir con el formulario
+- Sentido: formulario login -> captura credenciales con validacion directa y recuperacion clara
+- Sentido: ayuda contextual -> explica el siguiente paso sin texto decorativo
+- Sentido: version/update -> expone estado tecnico solo cuando aporta soporte
+- Accion primaria esperada: Iniciar sesion docente
+- Simplicidad: Mantener jerarquia clara, densidad operativa y evitar decoracion sin funcion.
+- Feedback: Mostrar loading/empty/error/warning/success cerca del elemento afectado.
+- Estados: loading, empty, error, warning, success
+- Viewports: desktop, tablet, mobile
+- Evidencia: `npm run test:gui:responsive:e2e:ci`
+- Artefacto: `reports/qa/latest/gui-docente-login-desktop-lg.png`
+- Artefacto: `reports/qa/latest/gui-docente-login-mobile.png`
+- [ ] Desktop sin overflow/solape
+- [ ] Tablet sin overflow/solape
+- [ ] Mobile sin overflow/solape
+- [ ] Foco visible y orden de tabulacion correcto
+- [ ] Nombre accesible en controles interactivos
+- [ ] Controles interactivos visibles sin solapes materiales
+- [ ] Estado loading/empty/error/warning/success revisado cuando aplica
+- [ ] Accion primaria evidente y acciones secundarias sin ruido
+- [ ] Jerarquia visual simple, elegante y funcional
+
+### docente:periodos - Materias y periodos
+- Superficie: `frontend-docente`
+- Componentes: tabs docente, tabla/listado, formulario, acciones CRUD, estado permisos
+- Sentido: tabs docente -> reduce profundidad de navegacion y mantiene contexto
+- Sentido: tabla/listado -> permite escanear, comparar y actuar sobre registros
+- Sentido: formulario -> agrupa captura primaria con etiquetas visibles
+- Sentido: acciones CRUD -> mantiene accion primaria destacada y secundarias contenidas
+- Sentido: estado permisos -> evita controles disponibles sin autorizacion real
+- Accion primaria esperada: Crear o editar materia/periodo
+- Simplicidad: Mantener jerarquia clara, densidad operativa y evitar decoracion sin funcion.
+- Feedback: Mostrar loading/empty/error/warning/success cerca del elemento afectado.
+- Estados: loading, empty, error, warning, success
+- Viewports: desktop, tablet, mobile
+- Evidencia: `npm run test:ux-quality:ci && npm run test:ux-visual:ci`
+- Artefacto: `reports/qa/latest/ux-visual.json`
+- Artefacto: `reports/qa/latest/gui-docente-periodos-desktop-lg.png`
+- Artefacto: `reports/qa/latest/gui-docente-periodos-mobile.png`
+- [ ] Desktop sin overflow/solape
+- [ ] Tablet sin overflow/solape
+- [ ] Mobile sin overflow/solape
+- [ ] Foco visible y orden de tabulacion correcto
+- [ ] Nombre accesible en controles interactivos
+- [ ] Controles interactivos visibles sin solapes materiales
+- [ ] Estado loading/empty/error/warning/success revisado cuando aplica
+- [ ] Accion primaria evidente y acciones secundarias sin ruido
+- [ ] Jerarquia visual simple, elegante y funcional
+
+### docente:alumnos - Alumnos
+- Superficie: `frontend-docente`
+- Componentes: tabs docente, listado alumnos, formulario, mensajes inline
+- Sentido: tabs docente -> reduce profundidad de navegacion y mantiene contexto
+- Sentido: listado alumnos -> facilita busqueda y mantenimiento academico
+- Sentido: formulario -> agrupa captura primaria con etiquetas visibles
+- Sentido: mensajes inline -> da feedback junto al control afectado
+- Accion primaria esperada: Registrar o actualizar alumno
+- Simplicidad: Mantener jerarquia clara, densidad operativa y evitar decoracion sin funcion.
+- Feedback: Mostrar loading/empty/error/warning/success cerca del elemento afectado.
+- Estados: loading, empty, error, warning, success
+- Viewports: desktop, tablet, mobile
+- Evidencia: `npm run test:ux-quality:ci && npm run test:ux-visual:ci`
+- Artefacto: `reports/qa/latest/ux-visual.json`
+- Artefacto: `reports/qa/latest/gui-docente-alumnos-desktop-lg.png`
+- Artefacto: `reports/qa/latest/gui-docente-alumnos-mobile.png`
+- [ ] Desktop sin overflow/solape
+- [ ] Tablet sin overflow/solape
+- [ ] Mobile sin overflow/solape
+- [ ] Foco visible y orden de tabulacion correcto
+- [ ] Nombre accesible en controles interactivos
+- [ ] Controles interactivos visibles sin solapes materiales
+- [ ] Estado loading/empty/error/warning/success revisado cuando aplica
+- [ ] Accion primaria evidente y acciones secundarias sin ruido
+- [ ] Jerarquia visual simple, elegante y funcional
+
+### docente:banco - Banco de preguntas
+- Superficie: `frontend-docente`
+- Componentes: filtros, listado preguntas, formulario pregunta, gestion temas
+- Sentido: filtros -> reduce ruido antes de operar en listas largas
+- Sentido: listado preguntas -> prioriza contenido academico y acciones frecuentes
+- Sentido: formulario pregunta -> ordena enunciado, opciones y metadatos sin saturar
+- Sentido: gestion temas -> mantiene clasificacion cercana al banco
+- Accion primaria esperada: Crear o ajustar pregunta
+- Simplicidad: Mantener jerarquia clara, densidad operativa y evitar decoracion sin funcion.
+- Feedback: Mostrar loading/empty/error/warning/success cerca del elemento afectado.
+- Estados: loading, empty, error, warning, success
+- Viewports: desktop, tablet, mobile
+- Evidencia: `npm run test:ux-quality:ci && npm run test:ux-visual:ci`
+- Artefacto: `reports/qa/latest/ux-visual.json`
+- Artefacto: `reports/qa/latest/gui-docente-banco-desktop-lg.png`
+- Artefacto: `reports/qa/latest/gui-docente-banco-mobile.png`
+- [ ] Desktop sin overflow/solape
+- [ ] Tablet sin overflow/solape
+- [ ] Mobile sin overflow/solape
+- [ ] Foco visible y orden de tabulacion correcto
+- [ ] Nombre accesible en controles interactivos
+- [ ] Controles interactivos visibles sin solapes materiales
+- [ ] Estado loading/empty/error/warning/success revisado cuando aplica
+- [ ] Accion primaria evidente y acciones secundarias sin ruido
+- [ ] Jerarquia visual simple, elegante y funcional
+
+### docente:plantillas - Plantillas y OMR
+- Superficie: `frontend-docente`
+- Componentes: listado plantillas, formulario, preview PDF, workflow OMR
+- Sentido: listado plantillas -> separa plantillas reutilizables de acciones de generacion
+- Sentido: formulario -> agrupa captura primaria con etiquetas visibles
+- Sentido: preview PDF -> permite verificar salida antes de imprimir o entregar
+- Sentido: workflow OMR -> guia lectura, revision y confirmacion con estados visibles
+- Accion primaria esperada: Generar o previsualizar plantilla
+- Simplicidad: Mantener jerarquia clara, densidad operativa y evitar decoracion sin funcion.
+- Feedback: Mostrar loading/empty/error/warning/success cerca del elemento afectado.
+- Estados: loading, empty, error, warning, success
+- Viewports: desktop, tablet, mobile
+- Evidencia: `npm run test:ux-quality:ci && npm run test:ux-visual:ci`
+- Artefacto: `reports/qa/latest/ux-visual.json`
+- Artefacto: `reports/qa/latest/gui-docente-plantillas-desktop-lg.png`
+- Artefacto: `reports/qa/latest/gui-docente-plantillas-mobile.png`
+- [ ] Desktop sin overflow/solape
+- [ ] Tablet sin overflow/solape
+- [ ] Mobile sin overflow/solape
+- [ ] Foco visible y orden de tabulacion correcto
+- [ ] Nombre accesible en controles interactivos
+- [ ] Controles interactivos visibles sin solapes materiales
+- [ ] Estado loading/empty/error/warning/success revisado cuando aplica
+- [ ] Accion primaria evidente y acciones secundarias sin ruido
+- [ ] Jerarquia visual simple, elegante y funcional
+
+### docente:entrega - Entrega y recepcion
+- Superficie: `frontend-docente`
+- Componentes: registro entrega, paquete interno, estado lote, acciones de recuperacion
+- Sentido: registro entrega -> documenta trazabilidad de entrega sin pasos ocultos
+- Sentido: paquete interno -> expone sincronizacion local como accion controlada
+- Sentido: estado lote -> hace visible progreso y errores recuperables
+- Sentido: acciones de recuperacion -> ofrece salida segura ante fallos operativos
+- Accion primaria esperada: Registrar entrega o recuperar lote
+- Simplicidad: Mantener jerarquia clara, densidad operativa y evitar decoracion sin funcion.
+- Feedback: Mostrar loading/empty/error/warning/success cerca del elemento afectado.
+- Estados: loading, empty, error, warning, success
+- Viewports: desktop, tablet, mobile
+- Evidencia: `npm run test:ux-quality:ci && npm run test:ux-visual:ci`
+- Artefacto: `reports/qa/latest/ux-visual.json`
+- Artefacto: `reports/qa/latest/gui-docente-entrega-desktop-lg.png`
+- Artefacto: `reports/qa/latest/gui-docente-entrega-mobile.png`
+- [ ] Desktop sin overflow/solape
+- [ ] Tablet sin overflow/solape
+- [ ] Mobile sin overflow/solape
+- [ ] Foco visible y orden de tabulacion correcto
+- [ ] Nombre accesible en controles interactivos
+- [ ] Controles interactivos visibles sin solapes materiales
+- [ ] Estado loading/empty/error/warning/success revisado cuando aplica
+- [ ] Accion primaria evidente y acciones secundarias sin ruido
+- [ ] Jerarquia visual simple, elegante y funcional
+
+### docente:calificaciones - Calificaciones
+- Superficie: `frontend-docente`
+- Componentes: selector manual, tabla resultados, revision OMR, publicacion
+- Sentido: selector manual -> elige el examen antes de editar calificacion
+- Sentido: tabla resultados -> prioriza comparacion, detalle y publicacion
+- Sentido: revision OMR -> separa decision automatica de confirmacion humana
+- Sentido: publicacion -> cierra el flujo con accion explicita y reversible cuando aplique
+- Accion primaria esperada: Revisar y publicar calificacion
+- Simplicidad: Mantener jerarquia clara, densidad operativa y evitar decoracion sin funcion.
+- Feedback: Mostrar loading/empty/error/warning/success cerca del elemento afectado.
+- Estados: loading, empty, error, warning, success
+- Viewports: desktop, tablet, mobile
+- Evidencia: `npm run test:ux-quality:ci && npm run test:ux-visual:ci`
+- Artefacto: `reports/qa/latest/ux-visual.json`
+- Artefacto: `reports/qa/latest/gui-docente-calificaciones-desktop-lg.png`
+- Artefacto: `reports/qa/latest/gui-docente-calificaciones-mobile.png`
+- [ ] Desktop sin overflow/solape
+- [ ] Tablet sin overflow/solape
+- [ ] Mobile sin overflow/solape
+- [ ] Foco visible y orden de tabulacion correcto
+- [ ] Nombre accesible en controles interactivos
+- [ ] Controles interactivos visibles sin solapes materiales
+- [ ] Estado loading/empty/error/warning/success revisado cuando aplica
+- [ ] Accion primaria evidente y acciones secundarias sin ruido
+- [ ] Jerarquia visual simple, elegante y funcional
+
+### docente:rehidratacion - Rehidratacion de lotes
+- Superficie: `frontend-docente`
+- Componentes: selector archivo, estado importacion, errores recuperables
+- Sentido: selector archivo -> limita importacion a un punto claro de entrada
+- Sentido: estado importacion -> muestra avance, resultado y pasos siguientes
+- Sentido: errores recuperables -> convierte fallos en acciones concretas
+- Accion primaria esperada: Importar lote para rehidratacion
+- Simplicidad: Mantener jerarquia clara, densidad operativa y evitar decoracion sin funcion.
+- Feedback: Mostrar loading/empty/error/warning/success cerca del elemento afectado.
+- Estados: loading, empty, error, warning, success
+- Viewports: desktop, tablet, mobile
+- Evidencia: `npm run test:ux-quality:ci && npm run test:ux-visual:ci`
+- Artefacto: `reports/qa/latest/ux-visual.json`
+- Artefacto: `reports/qa/latest/gui-docente-rehidratacion-desktop-lg.png`
+- Artefacto: `reports/qa/latest/gui-docente-rehidratacion-mobile.png`
+- [ ] Desktop sin overflow/solape
+- [ ] Tablet sin overflow/solape
+- [ ] Mobile sin overflow/solape
+- [ ] Foco visible y orden de tabulacion correcto
+- [ ] Nombre accesible en controles interactivos
+- [ ] Controles interactivos visibles sin solapes materiales
+- [ ] Estado loading/empty/error/warning/success revisado cuando aplica
+- [ ] Accion primaria evidente y acciones secundarias sin ruido
+- [ ] Jerarquia visual simple, elegante y funcional
+
+### docente:evaluaciones - Evaluaciones
+- Superficie: `frontend-docente`
+- Componentes: resumen, listado evaluaciones, acciones, estado sincronizacion
+- Sentido: resumen -> presenta estado antes del detalle
+- Sentido: listado evaluaciones -> ordena evidencias y resultados por prioridad
+- Sentido: acciones -> mantiene comandos predecibles cerca del contenido
+- Sentido: estado sincronizacion -> evita publicar o importar a ciegas
+- Accion primaria esperada: Configurar o revisar evaluacion
+- Simplicidad: Mantener jerarquia clara, densidad operativa y evitar decoracion sin funcion.
+- Feedback: Mostrar loading/empty/error/warning/success cerca del elemento afectado.
+- Estados: loading, empty, error, warning, success
+- Viewports: desktop, tablet, mobile
+- Evidencia: `npm run test:ux-quality:ci && npm run test:ux-visual:ci`
+- Artefacto: `reports/qa/latest/ux-visual.json`
+- Artefacto: `reports/qa/latest/gui-docente-evaluaciones-desktop-lg.png`
+- Artefacto: `reports/qa/latest/gui-docente-evaluaciones-mobile.png`
+- [ ] Desktop sin overflow/solape
+- [ ] Tablet sin overflow/solape
+- [ ] Mobile sin overflow/solape
+- [ ] Foco visible y orden de tabulacion correcto
+- [ ] Nombre accesible en controles interactivos
+- [ ] Controles interactivos visibles sin solapes materiales
+- [ ] Estado loading/empty/error/warning/success revisado cuando aplica
+- [ ] Accion primaria evidente y acciones secundarias sin ruido
+- [ ] Jerarquia visual simple, elegante y funcional
+
+### docente:sincronizacion - Sincronizacion y publicacion
+- Superficie: `frontend-docente`
+- Componentes: estado portal, acciones publicar, avisos, recuperacion
+- Sentido: estado portal -> expone disponibilidad antes de publicar
+- Sentido: acciones publicar -> distingue preparacion, envio y confirmacion
+- Sentido: avisos -> comunica riesgos sin bloquear la tarea principal
+- Sentido: recuperacion -> ofrece continuidad cuando falla el flujo normal
+- Accion primaria esperada: Publicar o sincronizar datos
+- Simplicidad: Mantener jerarquia clara, densidad operativa y evitar decoracion sin funcion.
+- Feedback: Mostrar loading/empty/error/warning/success cerca del elemento afectado.
+- Estados: loading, empty, error, warning, success
+- Viewports: desktop, tablet, mobile
+- Evidencia: `npm run test:ux-quality:ci && npm run test:ux-visual:ci`
+- Artefacto: `reports/qa/latest/ux-visual.json`
+- Artefacto: `reports/qa/latest/gui-docente-sincronizacion-desktop-lg.png`
+- Artefacto: `reports/qa/latest/gui-docente-sincronizacion-mobile.png`
+- [ ] Desktop sin overflow/solape
+- [ ] Tablet sin overflow/solape
+- [ ] Mobile sin overflow/solape
+- [ ] Foco visible y orden de tabulacion correcto
+- [ ] Nombre accesible en controles interactivos
+- [ ] Controles interactivos visibles sin solapes materiales
+- [ ] Estado loading/empty/error/warning/success revisado cuando aplica
+- [ ] Accion primaria evidente y acciones secundarias sin ruido
+- [ ] Jerarquia visual simple, elegante y funcional
+
+### docente:cuenta - Cuenta docente
+- Superficie: `frontend-docente`
+- Componentes: perfil, sesion, permisos, salir
+- Sentido: perfil -> muestra identidad y configuracion util
+- Sentido: sesion -> permite cerrar o renovar contexto de forma visible
+- Sentido: permisos -> explica capacidades actuales sin duplicar administracion
+- Sentido: salir -> cierra sesion con una accion clara
+- Accion primaria esperada: Gestionar sesion docente
+- Simplicidad: Mantener jerarquia clara, densidad operativa y evitar decoracion sin funcion.
+- Feedback: Mostrar loading/empty/error/warning/success cerca del elemento afectado.
+- Estados: loading, empty, error, warning, success
+- Viewports: desktop, tablet, mobile
+- Evidencia: `npm run test:ux-quality:ci && npm run test:ux-visual:ci`
+- Artefacto: `reports/qa/latest/ux-visual.json`
+- Artefacto: `reports/qa/latest/gui-docente-cuenta-desktop-lg.png`
+- Artefacto: `reports/qa/latest/gui-docente-cuenta-mobile.png`
+- [ ] Desktop sin overflow/solape
+- [ ] Tablet sin overflow/solape
+- [ ] Mobile sin overflow/solape
+- [ ] Foco visible y orden de tabulacion correcto
+- [ ] Nombre accesible en controles interactivos
+- [ ] Controles interactivos visibles sin solapes materiales
+- [ ] Estado loading/empty/error/warning/success revisado cuando aplica
+- [ ] Accion primaria evidente y acciones secundarias sin ruido
+- [ ] Jerarquia visual simple, elegante y funcional
+
+### alumno:login - Acceso alumno
+- Superficie: `frontend-alumno`
+- Componentes: hero portal, codigo acceso, matricula, consultar
+- Sentido: hero portal -> ubica al alumno en consulta de resultados
+- Sentido: codigo acceso -> captura el dato mas importante con baja friccion
+- Sentido: matricula -> desambigua identidad del alumno
+- Sentido: consultar -> accion primaria unica del acceso
+- Accion primaria esperada: Consultar resultados
+- Simplicidad: Mantener jerarquia clara, densidad operativa y evitar decoracion sin funcion.
+- Feedback: Mostrar loading/empty/error/warning/success cerca del elemento afectado.
+- Estados: loading, empty, error, warning, success
+- Viewports: desktop, tablet, mobile
+- Evidencia: `npm run test:gui:responsive:e2e:ci`
+- Artefacto: `reports/qa/latest/ux-visual.json`
+- Artefacto: `reports/qa/latest/gui-alumno-login-desktop-lg.png`
+- Artefacto: `reports/qa/latest/gui-alumno-login-mobile.png`
+- [ ] Desktop sin overflow/solape
+- [ ] Tablet sin overflow/solape
+- [ ] Mobile sin overflow/solape
+- [ ] Foco visible y orden de tabulacion correcto
+- [ ] Nombre accesible en controles interactivos
+- [ ] Controles interactivos visibles sin solapes materiales
+- [ ] Estado loading/empty/error/warning/success revisado cuando aplica
+- [ ] Accion primaria evidente y acciones secundarias sin ruido
+- [ ] Jerarquia visual simple, elegante y funcional
+
+### alumno:resultados - Resultados alumno
+- Superficie: `frontend-alumno`
+- Componentes: resumen visual, detalle resultado, solicitud revision, conformidad, PDF
+- Sentido: resumen visual -> explica resultado final antes del desglose
+- Sentido: detalle resultado -> permite entender cada evidencia evaluada
+- Sentido: solicitud revision -> canaliza inconformidades sin romper el flujo
+- Sentido: conformidad -> registra aceptacion de forma explicita
+- Sentido: PDF -> conserva salida descargable/consultable
+- Accion primaria esperada: Revisar detalle o solicitar revision
+- Simplicidad: Mantener jerarquia clara, densidad operativa y evitar decoracion sin funcion.
+- Feedback: Mostrar loading/empty/error/warning/success cerca del elemento afectado.
+- Estados: loading, empty, error, warning, success
+- Viewports: desktop, tablet, mobile
+- Evidencia: `npm run test:ux-quality:ci && npm run test:ux-visual:ci`
+- Artefacto: `reports/qa/latest/ux-visual.json`
+- Artefacto: `reports/qa/latest/gui-alumno-resultados-desktop-lg.png`
+- Artefacto: `reports/qa/latest/gui-alumno-resultados-mobile.png`
+- [ ] Desktop sin overflow/solape
+- [ ] Tablet sin overflow/solape
+- [ ] Mobile sin overflow/solape
+- [ ] Foco visible y orden de tabulacion correcto
+- [ ] Nombre accesible en controles interactivos
+- [ ] Controles interactivos visibles sin solapes materiales
+- [ ] Estado loading/empty/error/warning/success revisado cuando aplica
+- [ ] Accion primaria evidente y acciones secundarias sin ruido
+- [ ] Jerarquia visual simple, elegante y funcional
+
+### admin-negocio:dashboard - Dashboard negocio
+- Superficie: `frontend-admin`
+- Componentes: nav vistas, metricas, tenants, recargar, ayuda contextual
+- Sentido: nav vistas -> permite cambiar de tablero sin perder estado
+- Sentido: metricas -> muestra salud del negocio con baja carga cognitiva
+- Sentido: tenants -> agrupa administracion multi-tenant
+- Sentido: recargar -> refresca datos sin reiniciar contexto
+- Sentido: ayuda contextual -> explica el siguiente paso sin texto decorativo
+- Accion primaria esperada: Recargar tablero de negocio
+- Simplicidad: Mantener jerarquia clara, densidad operativa y evitar decoracion sin funcion.
+- Feedback: Mostrar loading/empty/error/warning/success cerca del elemento afectado.
+- Estados: loading, empty, error, warning, success
+- Viewports: desktop, tablet, mobile
+- Evidencia: `npm run test:gui:responsive:e2e:ci`
+- Artefacto: `reports/qa/latest/ux-visual.json`
+- Artefacto: `reports/qa/latest/gui-admin-dashboard-desktop-lg.png`
+- Artefacto: `reports/qa/latest/gui-admin-dashboard-mobile.png`
+- [ ] Desktop sin overflow/solape
+- [ ] Tablet sin overflow/solape
+- [ ] Mobile sin overflow/solape
+- [ ] Foco visible y orden de tabulacion correcto
+- [ ] Nombre accesible en controles interactivos
+- [ ] Controles interactivos visibles sin solapes materiales
+- [ ] Estado loading/empty/error/warning/success revisado cuando aplica
+- [ ] Accion primaria evidente y acciones secundarias sin ruido
+- [ ] Jerarquia visual simple, elegante y funcional
+
+### admin-negocio:tenants - Tenants y soporte negocio
+- Superficie: `frontend-admin`
+- Componentes: tabla tenants, salud, licencias, soporte
+- Sentido: tabla tenants -> permite soporte y comparacion operativa
+- Sentido: salud -> expone disponibilidad antes de operar
+- Sentido: licencias -> conecta estado comercial con soporte
+- Sentido: soporte -> contiene acciones sensibles
+- Accion primaria esperada: Revisar tenant o soporte
+- Simplicidad: Mantener jerarquia clara, densidad operativa y evitar decoracion sin funcion.
+- Feedback: Mostrar loading/empty/error/warning/success cerca del elemento afectado.
+- Estados: loading, empty, error, warning, success
+- Viewports: desktop, tablet, mobile
+- Evidencia: `npm run test:ux-quality:ci && npm run test:ux-visual:ci`
+- Artefacto: `reports/qa/latest/ux-visual.json`
+- Artefacto: `reports/qa/latest/gui-admin-tenants-desktop-lg.png`
+- Artefacto: `reports/qa/latest/gui-admin-tenants-mobile.png`
+- [ ] Desktop sin overflow/solape
+- [ ] Tablet sin overflow/solape
+- [ ] Mobile sin overflow/solape
+- [ ] Foco visible y orden de tabulacion correcto
+- [ ] Nombre accesible en controles interactivos
+- [ ] Controles interactivos visibles sin solapes materiales
+- [ ] Estado loading/empty/error/warning/success revisado cuando aplica
+- [ ] Accion primaria evidente y acciones secundarias sin ruido
+- [ ] Jerarquia visual simple, elegante y funcional
+
+### dashboard-local:estado - Dashboard local estado
+- Superficie: `dashboard-local`
+- Componentes: runtime efectivo, broker, shortcuts, soporte privilegiado
+- Sentido: runtime efectivo -> muestra si el stack real coincide con contrato
+- Sentido: broker -> centraliza acciones locales elevadas/controladas
+- Sentido: shortcuts -> verifica entradas visibles del usuario
+- Sentido: soporte privilegiado -> reserva acciones riesgosas tras step-up
+- Accion primaria esperada: Verificar runtime local
+- Simplicidad: Mantener jerarquia clara, densidad operativa y evitar decoracion sin funcion.
+- Feedback: Mostrar loading/empty/error/warning/success cerca del elemento afectado.
+- Estados: loading, empty, error, warning, success
+- Viewports: desktop, tablet, mobile
+- Evidencia: `npm run test:dashboard:repair && npm run test:dashboard:ui`
+- Artefacto: `reports/qa/latest/manifest.json`
+- [ ] Desktop sin overflow/solape
+- [ ] Tablet sin overflow/solape
+- [ ] Mobile sin overflow/solape
+- [ ] Foco visible y orden de tabulacion correcto
+- [ ] Nombre accesible en controles interactivos
+- [ ] Controles interactivos visibles sin solapes materiales
+- [ ] Estado loading/empty/error/warning/success revisado cuando aplica
+- [ ] Accion primaria evidente y acciones secundarias sin ruido
+- [ ] Jerarquia visual simple, elegante y funcional
+
+### dashboard-local:version - Dashboard local version y update
+- Superficie: `dashboard-local`
+- Componentes: version, update status, acciones soporte, logs
+- Sentido: version -> identifica build instalado
+- Sentido: update status -> hace visible disponibilidad/progreso de updates
+- Sentido: acciones soporte -> reduce comandos manuales inseguros
+- Sentido: logs -> facilita diagnostico sin exponer ruido por defecto
+- Accion primaria esperada: Revisar version o update
+- Simplicidad: Mantener jerarquia clara, densidad operativa y evitar decoracion sin funcion.
+- Feedback: Mostrar loading/empty/error/warning/success cerca del elemento afectado.
+- Estados: loading, empty, error, warning, success
+- Viewports: desktop, tablet, mobile
+- Evidencia: `npm run test:update && npm run test:dashboard:repair`
+- Artefacto: `reports/qa/latest/manifest.json`
+- [ ] Desktop sin overflow/solape
+- [ ] Tablet sin overflow/solape
+- [ ] Mobile sin overflow/solape
+- [ ] Foco visible y orden de tabulacion correcto
+- [ ] Nombre accesible en controles interactivos
+- [ ] Controles interactivos visibles sin solapes materiales
+- [ ] Estado loading/empty/error/warning/success revisado cuando aplica
+- [ ] Accion primaria evidente y acciones secundarias sin ruido
+- [ ] Jerarquia visual simple, elegante y funcional
+
+### installer-hub:bienvenida - Installer Hub bienvenida
+- Superficie: `installer-hub`
+- Componentes: stepper, modo instalar/reparar/desinstalar, boton primario, bitacora
+- Sentido: stepper -> ubica al usuario en el flujo de instalacion
+- Sentido: modo instalar/reparar/desinstalar -> define intencion antes de mutar el sistema
+- Sentido: boton primario -> ofrece una decision principal por etapa
+- Sentido: bitacora -> mantiene trazabilidad tecnica bajo demanda
+- Accion primaria esperada: Seleccionar modo y continuar
+- Simplicidad: Mantener jerarquia clara, densidad operativa y evitar decoracion sin funcion.
+- Feedback: Mostrar loading/empty/error/warning/success cerca del elemento afectado.
+- Estados: loading, empty, error, warning, success
+- Viewports: desktop, tablet, mobile
+- Evidencia: `npm run test:installer-hub:contract && npm run test:installer-hub:ui`
+- Artefacto: `reports/qa/installer-hub-ui/`
+- [ ] Desktop sin overflow/solape
+- [ ] Tablet sin overflow/solape
+- [ ] Mobile sin overflow/solape
+- [ ] Foco visible y orden de tabulacion correcto
+- [ ] Nombre accesible en controles interactivos
+- [ ] Controles interactivos visibles sin solapes materiales
+- [ ] Estado loading/empty/error/warning/success revisado cuando aplica
+- [ ] Accion primaria evidente y acciones secundarias sin ruido
+- [ ] Jerarquia visual simple, elegante y funcional
+
+### installer-hub:revisar - Installer Hub revisar equipo
+- Superficie: `installer-hub`
+- Componentes: prerequisitos, estado por requisito, remediacion, restart
+- Sentido: prerequisitos -> expone bloqueos antes de instalar
+- Sentido: estado por requisito -> muestra listo, pendiente o fallo sin ambiguedad
+- Sentido: remediacion -> traduce prerequisitos faltantes en acciones concretas
+- Sentido: restart -> hace explicito cuando el sistema requiere reinicio
+- Accion primaria esperada: Revisar equipo o remediar requisito
+- Simplicidad: Mantener jerarquia clara, densidad operativa y evitar decoracion sin funcion.
+- Feedback: Mostrar loading/empty/error/warning/success cerca del elemento afectado.
+- Estados: loading, empty, error, warning, success
+- Viewports: desktop, tablet, mobile
+- Evidencia: `npm run test:installer-hub:contract && npm run test:installer-hub:ui`
+- Artefacto: `reports/qa/installer-hub-ui/`
+- [ ] Desktop sin overflow/solape
+- [ ] Tablet sin overflow/solape
+- [ ] Mobile sin overflow/solape
+- [ ] Foco visible y orden de tabulacion correcto
+- [ ] Nombre accesible en controles interactivos
+- [ ] Controles interactivos visibles sin solapes materiales
+- [ ] Estado loading/empty/error/warning/success revisado cuando aplica
+- [ ] Accion primaria evidente y acciones secundarias sin ruido
+- [ ] Jerarquia visual simple, elegante y funcional
+
+### installer-hub:resultado - Installer Hub resultado
+- Superficie: `installer-hub`
+- Componentes: resumen final, logs BA/MSI, reintentar, cerrar
+- Sentido: resumen final -> cierra con resultado y siguiente accion
+- Sentido: logs BA/MSI -> da evidencia tecnica para soporte
+- Sentido: reintentar -> permite recuperacion sin reiniciar desde cero
+- Sentido: cerrar -> salida clara tras exito o fallo documentado
+- Accion primaria esperada: Cerrar, reintentar o abrir evidencia
+- Simplicidad: Mantener jerarquia clara, densidad operativa y evitar decoracion sin funcion.
+- Feedback: Mostrar loading/empty/error/warning/success cerca del elemento afectado.
+- Estados: loading, empty, error, warning, success
+- Viewports: desktop, tablet, mobile
+- Evidencia: `npm run test:installer-hub:contract && npm run test:installer-hub:ui`
+- Artefacto: `reports/qa/installer-hub-ui/`
+- [ ] Desktop sin overflow/solape
+- [ ] Tablet sin overflow/solape
+- [ ] Mobile sin overflow/solape
+- [ ] Foco visible y orden de tabulacion correcto
+- [ ] Nombre accesible en controles interactivos
+- [ ] Controles interactivos visibles sin solapes materiales
+- [ ] Estado loading/empty/error/warning/success revisado cuando aplica
+- [ ] Accion primaria evidente y acciones secundarias sin ruido
+- [ ] Jerarquia visual simple, elegante y funcional
+
+## Cierre
+- No declarar estabilizacion completa si VM real sigue parcial o si falta evidencia de install/repair/update/uninstall.
+- Esta matriz, `docs/DESIGN.md`, `docs/UX_QUALITY_CRITERIA.md` y los screenshots Playwright son la fuente de aceptacion visual.

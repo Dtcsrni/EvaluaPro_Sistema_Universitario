@@ -349,7 +349,7 @@
                                     <TextBlock Text="Revisar prerequisitos" FontSize="20" FontWeight="SemiBold" Foreground="{StaticResource TextBrush}" />
                                     <TextBlock Style="{StaticResource HelpTextStyle}" Text="Valida requisitos antes de ejecutar la operación seleccionada." />
                                     <TextBlock x:Name="DetectionSummaryTextBlock" Margin="0,12,0,10" TextWrapping="Wrap" ToolTip="Resumen automático del diagnóstico del equipo." />
-                                    <ListView x:Name="PrereqListView" Height="300" HorizontalContentAlignment="Stretch" ToolTip="Detalle por requisito." AutomationProperties.Name="Resultado de prerequisitos" AutomationProperties.HelpText="Lista de requisitos detectados con versión y motivo." TabIndex="5">
+                                    <ListView x:Name="PrereqListView" Height="300" HorizontalContentAlignment="Stretch" AutomationProperties.Name="Resultado de prerequisitos" AutomationProperties.HelpText="Lista de requisitos detectados con versión y motivo." TabIndex="5">
                                         <ListView.View>
                                             <GridView>
                                                 <GridViewColumn Header="Prerequisito" Width="175" DisplayMemberBinding="{Binding Name}" />
@@ -463,7 +463,7 @@
                                         <TextBlock Text="Línea de tareas" FontSize="18" FontWeight="SemiBold" Foreground="{StaticResource TextBrush}" />
                                         <TextBlock Text="Etapas completadas, activas o fallidas." Style="{StaticResource HelpTextStyle}" />
                                     </StackPanel>
-                                    <ScrollViewer Grid.Row="1" Margin="0,12,0,0" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled" CanContentScroll="False">
+                                    <ScrollViewer x:Name="StageTimelineScrollViewer" Grid.Row="1" Margin="0,12,0,0" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled" CanContentScroll="False">
                                         <StackPanel x:Name="StageTimelineHost" />
                                     </ScrollViewer>
                                 </Grid>
@@ -491,7 +491,23 @@
                             <Border Style="{StaticResource PanelCardStyle}" Grid.Column="1">
                                 <StackPanel>
                                     <TextBlock Text="Evidencia técnica" FontSize="18" FontWeight="SemiBold" Foreground="{StaticResource TextBrush}" />
-                                    <TextBlock Text="Abre la bitácora si soporte necesita revisar detalle." Style="{StaticResource HelpTextStyle}" />
+                                    <TextBlock Text="Rutas y resumen para soporte cuando la operación termina." Style="{StaticResource HelpTextStyle}" />
+                                    <Border Margin="0,14,0,0" Padding="12" CornerRadius="8" Background="#F8FAFC" BorderBrush="{StaticResource BorderBrushNeutral}" BorderThickness="1">
+                                        <StackPanel>
+                                            <TextBlock Text="Bitácora de sesión" FontWeight="SemiBold" Foreground="{StaticResource TextBrush}" />
+                                            <TextBox Margin="0,6,0,0"
+                                                     Text="%ProgramData%\EvaluaPro\installer-hub\logs"
+                                                     IsReadOnly="True"
+                                                     BorderThickness="0"
+                                                     Background="Transparent"
+                                                     Foreground="{StaticResource MutedTextBrush}"
+                                                     AutomationProperties.Name="Ruta de bitácoras técnicas" />
+                                            <TextBlock Margin="0,8,0,0"
+                                                       Text="El panel inferior conserva la salida de esta sesión; en error se abre automáticamente."
+                                                       Foreground="{StaticResource MutedTextBrush}"
+                                                       TextWrapping="Wrap" />
+                                        </StackPanel>
+                                    </Border>
                                 </StackPanel>
                             </Border>
                         </Grid>

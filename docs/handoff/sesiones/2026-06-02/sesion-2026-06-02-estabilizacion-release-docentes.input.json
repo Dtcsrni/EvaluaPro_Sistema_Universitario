@@ -1,0 +1,237 @@
+{
+  "agent": {
+    "name": "Codex",
+    "version": "unknown",
+    "provider": "OpenAI",
+    "kind": "coding-agent",
+    "channel": "codex-desktop"
+  },
+  "request": {
+    "summary": "Continuar estabilizacion para release de primera version estable probada por docentes."
+  },
+  "objective": "Revalidar gates locales de release, Installer Hub docente-local, bundle actual y frontera VM E2E sin declarar estable si falta evidencia release-like."
+  ,
+  "scope": [
+    "Repo V:/Software/EvaluaPro en rama stabilization/v1.0",
+    "Gates AGENTS locales",
+    "Installer Hub docente-local",
+    "Readiness VM y host-canary no destructivo",
+    "Inventario y handoff de sesion"
+  ],
+  "constraints": [
+    "No revertir WIP existente en arbol sucio",
+    "No bajar thresholds ni omitir gates para forzar verde",
+    "No ejecutar runner mutante fuera de VM limpia EVALPRO-E2E",
+    "No documentar version/proveedor exacto si runtime no lo expone"
+  ],
+  "files": {
+    "read": [
+      "README.md",
+      "docs/README.md",
+      "docs/IA_TRAZABILIDAD_AGENTES.md",
+      ".github/copilot-instructions.md",
+      "docs/RELEASE_GATE_STABLE.md",
+      "docs/ENGINEERING_BASELINE.md",
+      "docs/INVENTARIO_PROYECTO.md",
+      "scripts/ia-handoff.mjs",
+      "scripts/ia-traceability.mjs"
+    ],
+    "changed": [
+      "docs/tutoriales/installer-hub-docente-e2e.md",
+      "scripts/sign-installer-artifacts.ps1",
+      "docs/INVENTARIO_CODIGO_EXHAUSTIVO.md",
+      "docs/handoff/sesiones/2026-06-02/sesion-2026-06-02-estabilizacion-release-docentes.input.json"
+    ],
+    "artifacts": [
+      "reports/qa/latest/installer-hub-vm-readiness.json",
+      "dist/installer/docente-local/EvaluaPro-InstallerHub-docente-local-v1.0.0.exe",
+      "dist/installer/docente-local/EvaluaPro-InstallerHub-docente-local-v1.0.0.exe.sha256",
+      "dist/installer/EvaluaPro-release-manifest.json"
+    ]
+  },
+  "commands": [
+    {
+      "name": "ai_serena_policy_status",
+      "command": "npm run ai:serena:policy:status -- --json",
+      "status": "ok",
+      "exitCode": 0,
+      "durationMs": 1600,
+      "resultSummary": "ready=true repo/global"
+    },
+    {
+      "name": "ai_caveman_status",
+      "command": "npm run ai:caveman:status -- --json",
+      "status": "ok",
+      "exitCode": 0,
+      "durationMs": 1500,
+      "resultSummary": "ready=true"
+    },
+    {
+      "name": "test_stabilization_completion_audit",
+      "command": "npm run test:stabilization:completion-audit",
+      "status": "ok",
+      "exitCode": 0,
+      "durationMs": 1800,
+      "resultSummary": "1 test passed; auditoria conserva cierre parcial"
+    },
+    {
+      "name": "test_installer_hub_contract",
+      "command": "npm run test:installer-hub:contract",
+      "status": "ok",
+      "exitCode": 0,
+      "durationMs": 165900,
+      "resultSummary": "63/63 passed; smoke activo ~162s"
+    },
+    {
+      "name": "installer_docente_baseline",
+      "command": "npm run installer:docente:baseline",
+      "status": "ok",
+      "exitCode": 0,
+      "durationMs": 13400,
+      "resultSummary": "docente-local wsl2-docker-minimal OK; bundle exists bytes=74938784"
+    },
+    {
+      "name": "installer_hub_vm_readiness",
+      "command": "npm run installer:hub:vm-readiness",
+      "status": "falla",
+      "exitCode": 1,
+      "durationMs": 3100,
+      "resultSummary": "ok=false; EVALUAPRO_E2E_VM_SNAPSHOT vacio y Get-VM falla por permisos Hyper-V; WinRM responde"
+    },
+    {
+      "name": "installer_hub_host_canary_dryrun",
+      "command": "npm run installer:hub:e2e:host-canary -- -DryRun",
+      "status": "ok",
+      "exitCode": 0,
+      "durationMs": 2100,
+      "resultSummary": "dryRun=true; requiresElevatedProcess=true currentProcessElevated=false"
+    },
+    {
+      "name": "env_doctor_windows",
+      "command": "npm run env:doctor:windows",
+      "status": "ok",
+      "exitCode": 0,
+      "durationMs": 5200,
+      "resultSummary": "ok=true; 9 checks, Docker daemon runtime=desktop"
+    },
+    {
+      "name": "installer_hashes",
+      "command": "npm run installer:hashes",
+      "status": "ok",
+      "exitCode": 0,
+      "durationMs": 4000,
+      "resultSummary": "SHA files and EvaluaPro-release-manifest.json regenerated"
+    },
+    {
+      "name": "git_diff_check",
+      "command": "git diff --check",
+      "status": "ok",
+      "exitCode": 0,
+      "durationMs": 1500,
+      "resultSummary": "sin errores whitespace tras normalizacion puntual"
+    },
+    {
+      "name": "lint",
+      "command": "npm run lint",
+      "status": "ok",
+      "exitCode": 0,
+      "durationMs": 23000,
+      "resultSummary": "backend/frontend/portal lint OK"
+    },
+    {
+      "name": "typecheck",
+      "command": "npm run typecheck",
+      "status": "ok",
+      "exitCode": 0,
+      "durationMs": 16000,
+      "resultSummary": "backend/frontend/portal typecheck OK"
+    },
+    {
+      "name": "test_frontend_ci",
+      "command": "npm run test:frontend:ci",
+      "status": "ok",
+      "exitCode": 0,
+      "durationMs": 14500,
+      "resultSummary": "37 files, 114 tests passed"
+    },
+    {
+      "name": "test_coverage_ci",
+      "command": "npm run test:coverage:ci",
+      "status": "ok",
+      "exitCode": 0,
+      "durationMs": 570700,
+      "resultSummary": "backend/portal/frontend coverage OK"
+    },
+    {
+      "name": "test_tdd_enforcement_ci",
+      "command": "npm run test:tdd:enforcement:ci",
+      "status": "ok",
+      "exitCode": 0,
+      "durationMs": 2000,
+      "resultSummary": "coverage debt OK; diff coverage no-op"
+    },
+    {
+      "name": "test_backend_ci",
+      "command": "npm run test:backend:ci",
+      "status": "ok",
+      "exitCode": 0,
+      "durationMs": 547000,
+      "resultSummary": "primer intento fallo por ENOBUFS/worker fork; retry/fallback cerro 97 files, 337 tests passed"
+    },
+    {
+      "name": "test_portal_ci",
+      "command": "npm run test:portal:ci",
+      "status": "ok",
+      "exitCode": 0,
+      "durationMs": 5300,
+      "resultSummary": "12 files, 33 tests passed"
+    },
+    {
+      "name": "perf_check",
+      "command": "npm run perf:check",
+      "status": "ok",
+      "exitCode": 0,
+      "durationMs": 5600,
+      "resultSummary": "4 budgets verificados"
+    },
+    {
+      "name": "pipeline_contract_check",
+      "command": "npm run pipeline:contract:check",
+      "status": "ok",
+      "exitCode": 0,
+      "durationMs": 1100,
+      "resultSummary": "12/12 passed"
+    },
+    {
+      "name": "inventario_codigo",
+      "command": "npm run inventario:codigo",
+      "status": "ok",
+      "exitCode": 0,
+      "durationMs": 900,
+      "resultSummary": "docs/INVENTARIO_CODIGO_EXHAUSTIVO.md total=940"
+    },
+    {
+      "name": "test_ia_traceability",
+      "command": "npm run test:ia:traceability",
+      "status": "ok",
+      "exitCode": 0,
+      "durationMs": 900,
+      "resultSummary": "7/7 passed"
+    }
+  ],
+  "decisions": [
+    "No promover a estable completo sin E2E VM release-like install|repair|update smoke|uninstall.",
+    "Tratar VM readiness rojo como bloqueo ambiental de shell no elevada/snapshot env, no como bug del repo.",
+    "Mantener correcciones realizadas en esta sesion acotadas a whitespace y evidencia generada."
+  ],
+  "assumptions": [
+    "La prueba docente piloto puede avanzar solo como release candidate/local parcial hasta cerrar VM limpia.",
+    "El WIP existente en el arbol pertenece a sesiones previas y no debe revertirse automaticamente."
+  ],
+  "risks": [
+    "Falta evidencia actual de ciclo VM release-like completo para aceptar estable.",
+    "Backend CI mostro flake ambiental ENOBUFS en primer intento aunque el retry cerro verde.",
+    "Host-canary requiere proceso elevado y puede mutar host si se ejecuta sin dry-run."
+  ],
+  "nextStep": "Ejecutar desde PowerShell elevado o dentro de EVALPRO-E2E con EVALUAPRO_E2E_VM_SNAPSHOT=pre-evaluapro-installer-e2e el ciclo mutante protegido y copiar report.json del ciclo install|repair|update smoke|uninstall."
+}

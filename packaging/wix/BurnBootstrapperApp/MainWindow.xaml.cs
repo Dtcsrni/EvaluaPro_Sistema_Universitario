@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using System.ComponentModel;
 using System.Windows;
 using System.Windows.Controls;
@@ -195,8 +196,13 @@ public partial class MainWindow : Window
         StageTimelineHost.Children.Clear();
 
         var stageIndex = 0;
+        var focusIndex = -1;
+        var focusHasActive = false;
+        var focusHasError = false;
+        var timelineItems = new List<Border>();
         foreach (var stage in workflow.Stages)
         {
+            var badge = stage.Badge ?? string.Empty;
             var border = new Border
             {
                 CornerRadius = new CornerRadius(8),
@@ -297,7 +303,28 @@ public partial class MainWindow : Window
 
             border.Child = stack;
             StageTimelineHost.Children.Add(border);
+            timelineItems.Add(border);
+
+            if (badge.Equals("ACTIVA", StringComparison.OrdinalIgnoreCase))
+            {
+                focusIndex = stageIndex;
+                focusHasActive = true;
+            }
+            else if (!focusHasActive && badge.Equals("ERROR", StringComparison.OrdinalIgnoreCase))
+            {
+                focusIndex = stageIndex;
+                focusHasError = true;
+            }
+            else if (!focusHasActive && !focusHasError && badge.Equals("OK", StringComparison.OrdinalIgnoreCase))
+            {
+                focusIndex = stageIndex;
+            }
             stageIndex++;
+        }
+
+        if (focusIndex >= 0 && focusIndex < timelineItems.Count)
+        {
+            CenterTimelineItem(timelineItems[focusIndex]);
         }
 
         FailureSummaryBorder.Visibility = workflow.ShowFailureSummary ? Visibility.Visible : Visibility.Collapsed;
@@ -310,6 +337,33 @@ public partial class MainWindow : Window
         }
 
         UpdateStepperState(workflow.ShowFailureSummary);
+    }
+
+    private void CenterTimelineItem(Border? target)
+    {
+        if (target is null || StageTimelineScrollViewer is null || !StageTimelineScrollViewer.IsVisible)
+        {
+            return;
+        }
+
+        Dispatcher.BeginInvoke(() =>
+        {
+            if (StageTimelineScrollViewer.ViewportHeight <= 0)
+            {
+                target.BringIntoView();
+                return;
+            }
+
+            var transform = target.TransformToAncestor(StageTimelineScrollViewer);
+            var rect = transform.TransformBounds(new Rect(new Point(0, 0), target.RenderSize));
+            var targetCenter = rect.Top + StageTimelineScrollViewer.VerticalOffset + (rect.Height / 2);
+            var desiredOffset = targetCenter - (StageTimelineScrollViewer.ViewportHeight / 2);
+            if (desiredOffset < 0)
+            {
+                desiredOffset = 0;
+            }
+            StageTimelineScrollViewer.ScrollToVerticalOffset(desiredOffset);
+        }, DispatcherPriority.Background);
     }
 
     public void AppendLog(string line)

@@ -12,7 +12,7 @@
   --space-7: 2.4rem;
   --radius-sm: 12px;
   --radius-md: 18px;
-  --radius-lg: 28px;
+  --radius-lg: 18px;
   --surface-0: rgba(255, 255, 255, 0.84);
   --surface-1: rgba(255, 255, 255, 0.92);
   --surface-2: rgba(255, 255, 255, 0.98);
@@ -25,9 +25,7 @@
   --brand-sky: #dfeef4;
   --brand-rose: #9e5c5e;
   --gradient-app:
-    radial-gradient(circle at top left, rgba(165, 122, 42, 0.16), transparent 32%),
-    radial-gradient(circle at top right, rgba(13, 110, 115, 0.16), transparent 28%),
-    linear-gradient(180deg, rgba(255, 252, 247, 0.98), rgba(244, 248, 251, 0.98));
+    linear-gradient(135deg, rgba(255, 252, 247, 0.98), rgba(241, 247, 249, 0.98) 46%, rgba(244, 248, 251, 0.98));
 }
 
 :root,
@@ -51,7 +49,7 @@ h3,
 .shell-docente__metric strong,
 .portal-alumno-shell__summaryCard strong {
   font-family: var(--font-display);
-  letter-spacing: -0.03em;
+  letter-spacing: 0;
 }
 
 .page {
@@ -68,7 +66,6 @@ h3,
   background:
     linear-gradient(135deg, rgba(255, 255, 255, 0.3), transparent 24%),
     linear-gradient(180deg, rgba(20, 32, 51, 0.04), transparent 22%);
-  mask: radial-gradient(circle at top, black, transparent 72%);
 }
 
 .page--docente {
@@ -95,18 +92,6 @@ h3,
   background: var(--gradient-app);
 }
 
-.superficie-app::after {
-  content: '';
-  position: absolute;
-  inset: auto -12% -18% auto;
-  width: 320px;
-  height: 320px;
-  border-radius: 999px;
-  background: radial-gradient(circle, var(--app-accent-soft, rgba(13, 110, 115, 0.12)), transparent 70%);
-  pointer-events: none;
-  z-index: 0;
-}
-
 .superficie-app > * {
   position: relative;
   z-index: 1;
@@ -120,7 +105,5 @@ h3,
   --shadow-soft: 0 24px 60px rgba(2, 6, 23, 0.36);
   --shadow-panel: 0 28px 84px rgba(2, 6, 23, 0.45);
   --gradient-app:
-    radial-gradient(circle at top left, rgba(165, 122, 42, 0.16), transparent 32%),
-    radial-gradient(circle at top right, rgba(23, 107, 137, 0.18), transparent 28%),
-    linear-gradient(180deg, rgba(10, 18, 30, 0.98), rgba(5, 11, 19, 0.98));
+    linear-gradient(135deg, rgba(10, 18, 30, 0.98), rgba(7, 18, 28, 0.98) 48%, rgba(5, 11, 19, 0.98));
 }

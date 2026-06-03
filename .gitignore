@@ -18,6 +18,7 @@ pnpm-debug.log*
 # Coverage and local scan artifacts
 coverage/
 apps/**/coverage/
+apps/**/.vitest-reports/
 apps/backend/storage/omr_scans/
 *.lcov
 reports/perf/
@@ -46,10 +47,21 @@ reports/qa/latest/**/*.tmp.json
 reports/qa/latest/**/*.tmp.md
 reports/qa/latest/**/*.bak.json
 reports/qa/installer-hub-ui/
+reports/qa/installer-hub-e2e-docente/
+reports/qa/installer-hub-e2e-host-canary/
 reports/qa/latest/omr-tv-gate-wrapper.json
 logs/**/*.tmp.json
 logs/**/*.bak.json
 test-results/
+apps/frontend/dist-*/
+downloads/
+backups/
+elevated*.log
+tmp_elevated_runner.ps1
+.automation/
+.serena.precheckout-*/
+packaging/wix/**/PublishOutputs.*.txt
+scripts/tests/*.tmp
 
 # OMR synthetic artifacts
 omr_samples_tv3/images/

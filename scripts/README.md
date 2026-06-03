@@ -59,8 +59,8 @@ Arquitectura vigente:
   - `fail-fast` (codigo de salida `1`) ante faltantes criticos.
   - salida estable con resumen humano + bloque JSON (`ok`, `target`, `checks`, `failures`, `warnings`).
 - Reglas:
-  - `env:doctor:wsl` exige Linux sobre WSL2, `node>=24`, `npm`, Docker CLI + daemon y `docker compose`.
-  - `env:doctor:windows` exige host `win32`, `node>=24`, `npm`, Docker CLI + daemon y `wsl --status` accesible.
+  - `env:doctor:wsl` exige Linux sobre WSL2, `node>=24`, `npm`, Chromium + Headless Shell de Playwright, Docker CLI + daemon y `docker compose`.
+  - `env:doctor:windows` exige host `win32`, `node>=24`, `npm`, Chromium + Headless Shell de Playwright, Docker CLI + daemon y `wsl --status` accesible.
   - `env:doctor` selecciona target segun plataforma (`win32 => windows`, resto => wsl).
 
 Matriz de uso rapido:

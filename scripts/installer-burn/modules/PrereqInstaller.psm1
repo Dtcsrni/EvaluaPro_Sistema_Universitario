@@ -59,6 +59,42 @@ function Get-DockerRuntimeBootstrapDistro {
   return $raw.Trim()
 }
 
+function Get-RegisteredWslDistroNames {
+  $simulated = [string]$env:EVALUAPRO_INSTALLER_SIMULATE_WSL_DISTROS
+  if (-not [string]::IsNullOrWhiteSpace($simulated)) {
+    return @(
+      $simulated -split '[,;]' |
+        ForEach-Object { $_.Trim() } |
+        Where-Object { -not [string]::IsNullOrWhiteSpace($_) }
+    )
+  }
+
+  try {
+    $raw = (& wsl.exe -l -q 2>$null) -join "`n"
+    $normalized = $raw -replace "`0", ''
+    return @(
+      $normalized -split '\r?\n' |
+        ForEach-Object { $_.Trim() } |
+        Where-Object { -not [string]::IsNullOrWhiteSpace($_) }
+    )
+  } catch {
+    return @()
+  }
+}
+
+function Test-WslDistroRegistered {
+  param([string]$Name)
+
+  if ([string]::IsNullOrWhiteSpace($Name)) { return $false }
+  $target = $Name.Trim()
+  foreach ($distro in @(Get-RegisteredWslDistroNames)) {
+    if ([string]::Equals([string]$distro, $target, [System.StringComparison]::OrdinalIgnoreCase)) {
+      return $true
+    }
+  }
+  return $false
+}
+
 function New-DockerRuntimeWindowsBootstrapPlan {
   param(
     [Parameter(Mandatory = $true)]
@@ -71,7 +107,7 @@ function New-DockerRuntimeWindowsBootstrapPlan {
   ) {
     [string]$Status.defaultDistro
   } elseif (@($Status.userDistros).Count -gt 0) {
-    [string]$Status.userDistros[0]
+    [string](@($Status.userDistros)[0])
   } else {
     Get-DockerRuntimeBootstrapDistro
   }
@@ -112,7 +148,7 @@ function New-DockerRuntimeWindowsBootstrapPlan {
       title = 'Instalar Docker Engine dentro de WSL2'
       executor = 'host'
       autoRunnable = $true
-      command = "wsl -d $targetDistro -u root -- sh -lc ""curl -fsSL https://get.docker.com | sh"""
+      command = "wsl -d $targetDistro -u root -- sh -lc ""curl -fsSL https://get.docker.com -o /tmp/evaluapro-get-docker.sh && sh /tmp/evaluapro-get-docker.sh"""
     }
     $steps += [pscustomobject]@{
       title = 'Iniciar el daemon Docker en WSL2'
@@ -223,17 +259,28 @@ function Invoke-DockerRuntimeBootstrapAuto {
             if ($rawCommand -match '-d\s+([A-Za-z0-9._-]+)') {
               $distro = [string]$Matches[1]
             }
-            $wslInstallParameters = @('--install')
-            if ($distro) {
-              $wslInstallParameters += @('-d', $distro)
+            if ($distro -and (Test-WslDistroRegistered -Name $distro)) {
+              if ($OnLog) {
+                & $OnLog 'ok' ("[auto-bootstrap] distro WSL ya registrada; se omite wsl --install -d {0}." -f $distro)
+              }
+              Invoke-PrereqProgress -OnProgress $OnProgress -Activity 'docker-bootstrap' -Percent $endPercent -Status ("Distro WSL ya registrada: {0}" -f $distro)
+            } else {
+              $wslInstallParameters = @('--install')
+              if ($distro) {
+                $wslInstallParameters += @('-d', $distro)
+              }
+              Start-Process -FilePath 'wsl.exe' -ArgumentList $wslInstallParameters -WindowStyle Hidden | Out-Null
+              if ($OnLog) {
+                & $OnLog 'warn' ("[auto-bootstrap] instalacion WSL iniciada en segundo plano. Requiere completar setup manual/reinicio.")
+              }
+              Invoke-PrereqProgress -OnProgress $OnProgress -Activity 'docker-bootstrap' -Percent $endPercent -Status ("Instalacion WSL iniciada: {0}" -f [string]$step.title)
             }
-            Start-Process -FilePath 'wsl.exe' -ArgumentList $wslInstallParameters -WindowStyle Hidden | Out-Null
-            if ($OnLog) {
-              & $OnLog 'warn' ("[auto-bootstrap] instalacion WSL iniciada en segundo plano. Requiere completar setup manual/reinicio.")
-            }
-            Invoke-PrereqProgress -OnProgress $OnProgress -Activity 'docker-bootstrap' -Percent $endPercent -Status ("Instalacion WSL iniciada: {0}" -f [string]$step.title)
           } else {
+            $global:LASTEXITCODE = 0
             Invoke-Expression -Command $rawCommand | Out-Null
+            if ($global:LASTEXITCODE -ne 0) {
+              throw ("Comando finalizo con exit code {0}." -f $global:LASTEXITCODE)
+            }
             Invoke-PrereqProgress -OnProgress $OnProgress -Activity 'docker-bootstrap' -Percent $endPercent -Status ("Paso completado: {0}" -f [string]$step.title)
           }
         }

@@ -32,8 +32,7 @@
   border-radius: 18px;
   border: 1px solid color-mix(in srgb, var(--surface-border-strong) 72%, var(--app-accent, var(--primario)) 28%);
   background:
-    radial-gradient(circle at top right, color-mix(in srgb, var(--app-highlight, rgba(165, 122, 42, 0.16)) 100%, transparent), transparent 44%),
-    linear-gradient(180deg, color-mix(in srgb, var(--surface-2) 96%, transparent), color-mix(in srgb, var(--surface-1) 94%, transparent));
+    linear-gradient(135deg, color-mix(in srgb, var(--surface-2) 96%, transparent), color-mix(in srgb, var(--surface-1) 94%, transparent) 72%, color-mix(in srgb, var(--app-highlight, rgba(165, 122, 42, 0.16)) 22%, var(--surface-1)));
 }
 
 .shell-docente__metric span,
@@ -100,8 +99,7 @@
   border-radius: 18px;
   border: 1px solid color-mix(in srgb, var(--surface-border-strong) 70%, var(--app-accent, var(--primario)) 30%);
   background:
-    radial-gradient(circle at top right, color-mix(in srgb, var(--app-accent-soft, rgba(32, 74, 135, 0.12)) 100%, transparent), transparent 42%),
-    linear-gradient(180deg, color-mix(in srgb, var(--surface-2) 96%, transparent), color-mix(in srgb, var(--surface-1) 94%, transparent));
+    linear-gradient(135deg, color-mix(in srgb, var(--surface-2) 96%, transparent), color-mix(in srgb, var(--surface-1) 94%, transparent) 74%, color-mix(in srgb, var(--app-accent-soft, rgba(32, 74, 135, 0.12)) 28%, var(--surface-1)));
   color: var(--texto);
   box-shadow: var(--shadow-soft);
 }
@@ -117,8 +115,7 @@
 
 .admin-negocio-nav__item--refresh {
   background:
-    radial-gradient(circle at top right, rgba(165, 122, 42, 0.14), transparent 42%),
-    linear-gradient(180deg, color-mix(in srgb, var(--surface-2) 96%, transparent), color-mix(in srgb, var(--surface-1) 94%, transparent));
+    linear-gradient(135deg, color-mix(in srgb, var(--surface-2) 96%, transparent), color-mix(in srgb, var(--surface-1) 94%, transparent) 72%, rgba(165, 122, 42, 0.14));
 }
 
 .admin-negocio-nav__title {
@@ -142,24 +139,16 @@
   position: relative;
   gap: 1.2rem;
   padding: clamp(0.4rem, 1vw, 0.9rem);
-  border-radius: 28px;
+  border-radius: 18px;
   background:
     linear-gradient(180deg, color-mix(in srgb, var(--surface-2) 76%, transparent), color-mix(in srgb, var(--surface-1) 86%, transparent));
   border: 1px solid color-mix(in srgb, var(--surface-border-strong) 54%, transparent);
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.4);
 }
 
-.auth-grid::before {
-  inset: 12% 0 auto auto;
-  width: 280px;
-  height: 280px;
-  border-radius: 999px;
-  background: radial-gradient(circle, color-mix(in srgb, var(--app-accent-soft, rgba(13, 110, 115, 0.12)) 100%, transparent), transparent 70%);
-}
-
 .auth-hero,
 .auth-form {
-  border-radius: 26px;
+  border-radius: 18px;
 }
 
 .auth-form {
@@ -259,11 +248,10 @@
 .portal-resultado-card,
 .calif-omr-panel .resultado,
 .calif-grade-card {
-  border-radius: 24px;
+  border-radius: 18px;
   border: 1px solid color-mix(in srgb, var(--surface-border-strong) 72%, transparent);
   background:
-    radial-gradient(circle at top right, color-mix(in srgb, var(--app-accent-soft, rgba(13, 110, 115, 0.09)) 100%, transparent), transparent 44%),
-    linear-gradient(180deg, color-mix(in srgb, var(--surface-2) 97%, transparent), color-mix(in srgb, var(--surface-1) 94%, transparent));
+    linear-gradient(135deg, color-mix(in srgb, var(--surface-2) 97%, transparent), color-mix(in srgb, var(--surface-1) 94%, transparent) 76%, color-mix(in srgb, var(--app-accent-soft, rgba(13, 110, 115, 0.09)) 24%, var(--surface-1)));
   box-shadow: var(--shadow-soft);
 }
 
@@ -408,8 +396,7 @@
 
 .calificaciones-layout__aside > .panel {
   background:
-    radial-gradient(circle at top right, color-mix(in srgb, rgba(165, 122, 42, 0.1) 100%, transparent), transparent 42%),
-    linear-gradient(180deg, color-mix(in srgb, var(--surface-2) 97%, transparent), color-mix(in srgb, var(--surface-1) 94%, transparent));
+    linear-gradient(135deg, color-mix(in srgb, var(--surface-2) 97%, transparent), color-mix(in srgb, var(--surface-1) 94%, transparent) 74%, rgba(165, 122, 42, 0.1));
 }
 
 .calif-omr-panel .resultado,
@@ -465,8 +452,7 @@
   border-radius: 18px;
   border: 1px solid color-mix(in srgb, var(--surface-border-strong) 70%, transparent);
   background:
-    radial-gradient(circle at top right, color-mix(in srgb, var(--app-accent-soft, rgba(13, 110, 115, 0.11)) 100%, transparent), transparent 42%),
-    linear-gradient(180deg, color-mix(in srgb, var(--surface-2) 96%, transparent), color-mix(in srgb, var(--surface-1) 94%, transparent));
+    linear-gradient(135deg, color-mix(in srgb, var(--surface-2) 96%, transparent), color-mix(in srgb, var(--surface-1) 94%, transparent) 74%, color-mix(in srgb, var(--app-accent-soft, rgba(13, 110, 115, 0.11)) 28%, var(--surface-1)));
 }
 
 .portal-detalle-summary__item span {
@@ -534,7 +520,7 @@
 
 @media (max-width: 900px) {
   .card {
-    border-radius: 24px;
+    border-radius: 18px;
   }
 
   .materias-panel__head,
