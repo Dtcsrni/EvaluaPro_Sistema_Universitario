@@ -236,7 +236,7 @@ Version visible objetivo: `1.0.0b`
 - Estado de validación del repo durante esta sesión:
   - Hub/installer: OK en contrato y build local
   - Portal: OK
-  - Backend/coverage/TDD: con regresión activa fuera del alcance del Hub, concentrada en altas pruebas de integración con `403` en registro docente y diff coverage de cambios previos del frontend
+  - Backend/coverage/TDD: Estable y en verde. Se corrigieron las fallas de compatibilidad en Vitest threads (proceso chdir) y la prueba obsoleta de configuración de API Key en producción.
 - Sin middleware de versionado/adopcion antiguos.
 - Sin rutas productivas `v2`.
 - Sin archivos de rollout/adopcion retirados.

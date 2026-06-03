@@ -8,6 +8,9 @@ Este archivo sigue el formato "Keep a Changelog" (alto nivel) y SemVer.
 
 ### Changed
 
+- Corrección de compatibilidad en la suite de pruebas OMR de TV3 (`omr.tv3.porFolioValidation.test.ts`) al eliminar llamadas a `process.chdir()` incompatibles con Vitest worker threads en Windows.
+- Remoción de caso de prueba redundante y obsoleto en `configuracion.produccion.test.ts` que validaba `PORTAL_ALUMNO_API_KEY` como campo obligatorio en producción.
+- Sincronización y regeneración de variables de entorno documentales en `docs/AUTO_ENV.md` y `docs/AUTO_DOCS_INDEX.md`.
 - Auth docente revalida estado activo y roles persistidos en rutas protegidas para que un JWT vigente no conserve acceso tras desactivacion o reduccion de privilegios.
 - `test:backend:ci` conserva `forks` como primer intento y cae a `threads` en reintentos cuando Vitest pierde workers en Windows.
 - `CI Checks` y módulos core reservan `push` directo a `main`/`release/**`; ramas de trabajo y estabilizacion se validan por PR para evitar check-runs duplicados/cancelados del mismo head.

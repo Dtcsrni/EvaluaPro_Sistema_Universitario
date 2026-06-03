@@ -1,11 +1,11 @@
 # Inventario Exhaustivo de Codigo
 
-Fecha de generacion: 2026-06-01 05:11:02
+Fecha de generacion: 2026-06-03 04:25:37
 Fuente: git ls-files filtrado por existencia en workspace (solo archivos versionados presentes, excluye node_modules).
 
 ## Resumen
 
-- Total de piezas de codigo/config ejecutable inventariadas: 939
+- Total de piezas de codigo/config ejecutable inventariadas: 942
 - Extensiones incluidas: ts, tsx, js, jsx, mjs, cjs, json, yml, yaml, sh, cmd, ps1.
 
 ## Conteo por area
@@ -18,7 +18,7 @@ Fuente: git ls-files filtrado por existencia en workspace (solo archivos version
 | ci | 17 |
 | scripts | 143 |
 | ops | 3 |
-| docs | 62 |
+| docs | 66 |
 | raiz | 31 |
 
 ## Backend (apps/backend)
@@ -813,6 +813,9 @@ Fuente: git ls-files filtrado por existencia en workspace (solo archivos version
 - docs/handoff/sesiones/2026-04-16/sesion-2026-04-16T22-27-01.651Z.json
 - docs/handoff/sesiones/2026-05-21/sesion-2026-05-21T03-50-30.624Z.json
 - docs/handoff/sesiones/2026-05-21/sesion-2026-05-21T03-51-57.281Z.json
+- docs/handoff/sesiones/2026-06-01/sesion-2026-06-01T07-32-25.352Z.json
+- docs/handoff/sesiones/2026-06-01/sesion-2026-06-01T07-52-38.944Z.json
+- docs/handoff/sesiones/2026-06-01/sesion-2026-06-01T11-11-04.773Z.json
 - docs/handoff/trace.schema.json
 - docs/perf/baseline.business.json
 - docs/perf/baseline.json
@@ -822,6 +825,7 @@ Fuente: git ls-files filtrado por existencia en workspace (solo archivos version
 - docs/release/evidencias/1.0.0/manifest.json
 - docs/release/evidencias/1.0.0/rollback_readiness.json
 - docs/release/manual/prod-flow.template.json
+- docs/release/manual/rollback-readiness.json
 - docs/release/manual/rollback-readiness.template.json
 - docs/tdd-exclusions-debt.json
 

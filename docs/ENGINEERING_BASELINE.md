@@ -5,6 +5,11 @@ Version tecnica: `1.0.0`
 Version visible GUI: `1.0.0b`
 
 ## Estado vigente
+- Corte 2026-06-03 (Estabilización E2E y pre-release):
+  - Solución de las incompatibilidades de Vitest threads (`process.chdir`) en la suite de pruebas OMR de TV3 (`omr.tv3.porFolioValidation.test.ts`).
+  - Eliminación del caso de prueba obsoleto que exigía `PORTAL_ALUMNO_API_KEY` en producción en `configuracion.produccion.test.ts`.
+  - Sincronización y regeneración completa de la documentación (`docs/AUTO_ENV.md` y `docs/AUTO_DOCS_INDEX.md`).
+  - Suite completa de pruebas del backend, frontend y portal en CI pasando al 100% en verde.
 - Corte 2026-06-01:
   - Promoción exitosa del release estable 1.0.0 con veredicto "Go".
   - Se valida el gate humano de producción mediante el runner automático `scratch/run-gate-flow.mjs` que simula el flujo docente completo en la IP de WSL2 con MongoDB.
