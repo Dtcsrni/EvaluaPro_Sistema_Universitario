@@ -8,6 +8,9 @@ Este archivo sigue el formato "Keep a Changelog" (alto nivel) y SemVer.
 
 ### Changed
 
+- Adaptación de la función `Test-IsAdministrator` en `scripts/installer-burn/modules/Common.psm1` para evitar la resolución estática de tipos de Windows (`Security.Principal.*`) en entornos no-Windows, solucionando errores de importación en Linux (Ubuntu).
+- Adaptación de comandos de simulación en la suite de pruebas `scripts/tests/installer-hub-contract.test.mjs` para ser condicionales al sistema operativo (`cmd /c exit 7` en Windows frente a `sh -c "exit 7"` en Linux).
+- Instalación explícita del navegador Chrome de Puppeteer (`npx puppeteer browsers install chrome`) previo a la generación de diagramas en `.github/workflows/ci.yml` y `.github/workflows/ci-docs.yml`.
 - Corrección de compatibilidad en la suite de pruebas OMR de TV3 (`omr.tv3.porFolioValidation.test.ts`) al eliminar llamadas a `process.chdir()` incompatibles con Vitest worker threads en Windows.
 - Remoción de caso de prueba redundante y obsoleto en `configuracion.produccion.test.ts` que validaba `PORTAL_ALUMNO_API_KEY` como campo obligatorio en producción.
 - Sincronización y regeneración de variables de entorno documentales en `docs/AUTO_ENV.md` y `docs/AUTO_DOCS_INDEX.md`.

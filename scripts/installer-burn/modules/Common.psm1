@@ -70,9 +70,29 @@ function Resolve-InstallerFlavorCatalogPath {
 }
 
 function Test-IsAdministrator {
-  $identity = [Security.Principal.WindowsIdentity]::GetCurrent()
-  $principal = New-Object Security.Principal.WindowsPrincipal($identity)
-  return $principal.IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)
+  if ($env:OS -eq 'Windows_NT') {
+    $winIdentityType = [type]'Security.Principal.WindowsIdentity'
+    $winPrincipalType = [type]'Security.Principal.WindowsPrincipal'
+    $winBuiltInRoleType = [type]'Security.Principal.WindowsBuiltInRole'
+    
+    if ($winIdentityType -and $winPrincipalType -and $winBuiltInRoleType) {
+      $identity = $winIdentityType::GetCurrent()
+      $principal = New-Object $winPrincipalType($identity)
+      return $principal.IsInRole($winBuiltInRoleType::Administrator)
+    }
+    return $false
+  } else {
+    try {
+      $uid = (id -u 2>$null)
+      if ($null -ne $uid -and $uid.Trim() -eq '0') {
+        return $true
+      }
+    } catch {}
+    if ($env:USER -eq 'root' -or $env:USERNAME -eq 'root') {
+      return $true
+    }
+    return $false
+  }
 }
 
 function Resolve-InstallerElevationScriptPath {

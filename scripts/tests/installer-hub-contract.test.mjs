@@ -1394,6 +1394,7 @@ $module = Import-Module -Force -WarningAction SilentlyContinue '${prereqInstalle
 });
 
 test('bootstrap WSL2 marca fallido un comando host con exit code no cero', () => {
+  const mockCommand = process.platform === 'win32' ? 'cmd /c exit 7' : 'sh -c "exit 7"';
   const script = `
 $module = Import-Module -Force -WarningAction SilentlyContinue '${prereqInstallerModulePath.replace(/'/g, "''")}' -PassThru
 $plan = [pscustomobject]@{
@@ -1404,7 +1405,7 @@ $plan = [pscustomobject]@{
       title = 'Fallo controlado'
       executor = 'host'
       autoRunnable = $true
-      command = 'cmd /c exit 7'
+      command = '${mockCommand}'
     }
   )
 }

@@ -90,7 +90,9 @@ jobs:
         run: npm run diagramas:check
 
       - name: Etapa diagramas-render
-        run: npm run diagramas:render
+        run: |
+          npx puppeteer browsers install chrome
+          npm run diagramas:render
 
       - name: Etapa diagramas-consistencia-check
         run: npm run diagramas:consistencia:check
