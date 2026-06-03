@@ -1,11 +1,11 @@
 # Inventario Exhaustivo de Codigo
 
-Fecha de generacion: 2026-06-03 04:25:37
+Fecha de generacion: 2026-06-03 05:04:54
 Fuente: git ls-files filtrado por existencia en workspace (solo archivos versionados presentes, excluye node_modules).
 
 ## Resumen
 
-- Total de piezas de codigo/config ejecutable inventariadas: 942
+- Total de piezas de codigo/config ejecutable inventariadas: 1013
 - Extensiones incluidas: ts, tsx, js, jsx, mjs, cjs, json, yml, yaml, sh, cmd, ps1.
 
 ## Conteo por area
@@ -16,10 +16,10 @@ Fuente: git ls-files filtrado por existencia en workspace (solo archivos version
 | frontend | 129 |
 | portal_alumno_cloud | 44 |
 | ci | 17 |
-| scripts | 143 |
+| scripts | 164 |
 | ops | 3 |
-| docs | 66 |
-| raiz | 31 |
+| docs | 112 |
+| raiz | 32 |
 
 ## Backend (apps/backend)
 
@@ -617,6 +617,11 @@ Fuente: git ls-files filtrado por existencia en workspace (solo archivos version
 - scripts/ai-serena-status.mjs
 - scripts/ai-session-start.mjs
 - scripts/build-msi.ps1
+- scripts/ci/run-e2e-auto.ps1
+- scripts/ci/run-e2e-host-canary.ps1
+- scripts/ci/run-e2e-in-vm.ps1
+- scripts/ci/run-e2e-launcher.ps1
+- scripts/ci/set-e2e-qa-secret.ps1
 - scripts/clean-architecture-check.mjs
 - scripts/cleanup-old-evaluapro-registry.ps1
 - scripts/comercial/generar-llaves-licencia-rs256.mjs
@@ -664,6 +669,7 @@ Fuente: git ls-files filtrado por existencia en workspace (solo archivos version
 - scripts/install-maintenance-tasks.ps1
 - scripts/installer-burn/InstallerBurnHelper.ps1
 - scripts/installer-docente-baseline.mjs
+- scripts/installer-hub-vm-readiness.ps1
 - scripts/inventario-codigo.mjs
 - scripts/launch-dev.cmd
 - scripts/launch-prod.cmd
@@ -687,17 +693,23 @@ Fuente: git ls-files filtrado por existencia en workspace (solo archivos version
 - scripts/release/smoke-piloto-hibrido.mjs
 - scripts/release/validate-beta-promotion.mjs
 - scripts/release/validate-stable-promotion.mjs
+- scripts/reset-evaluaqa-pass.ps1
 - scripts/reset-local.mjs
 - scripts/retry.mjs
 - scripts/routes-check.mjs
+- scripts/run-enable-wsl2-vm.ps1
+- scripts/safe-enable-wsl2.ps1
 - scripts/sanitize-xlsx-template.ps1
 - scripts/security-env-check.mjs
 - scripts/serena-mcp.ps1
 - scripts/serena-mcp.sh
+- scripts/setup-qa-credenciales.ps1
+- scripts/setup-wsl2-vm-host.ps1
 - scripts/shortcut-ops.ps1
 - scripts/sign-installer-artifacts.ps1
 - scripts/signing/install-internal-signing-cert.ps1
 - scripts/signing/new-internal-signing-cert.ps1
+- scripts/start-installer-hub-e2e-elevated.ps1
 - scripts/start-portal-dev.mjs
 - scripts/start-portal-prod.mjs
 - scripts/start-tray.mjs
@@ -705,8 +717,10 @@ Fuente: git ls-files filtrado por existencia en workspace (solo archivos version
 - scripts/testing/check-diff-coverage.mjs
 - scripts/testing/export-anon-fixture.mjs
 - scripts/testing/generar-qa-manifest.mjs
+- scripts/testing/generate-gui-screen-matrix.mjs
 - scripts/testing/import-anon-fixture.mjs
 - scripts/testing/resolve-affected-ci.mjs
+- scripts/testing/run-backend-coverage-batches.mjs
 - scripts/testing/run-client-proyectos-vite-tests.mjs
 - scripts/testing/run-gate-with-report.mjs
 - scripts/testing/run-omr-tv-gate.mjs
@@ -715,12 +729,16 @@ Fuente: git ls-files filtrado por existencia en workspace (solo archivos version
 - scripts/tests/affected-ci-resolver.test.mjs
 - scripts/tests/ai-model-router.test.mjs
 - scripts/tests/ai-openai-client.test.mjs
+- scripts/tests/ai-serena-policy-status.test.mjs
+- scripts/tests/backend-coverage-batches.test.mjs
 - scripts/tests/ci-workflow-contract.test.mjs
 - scripts/tests/dashboard-pwa-contract.test.mjs
 - scripts/tests/dashboard-repair.test.mjs
 - scripts/tests/dashboard-sw.test.mjs
 - scripts/tests/dashboard-ui.test.mjs
 - scripts/tests/env-doctor.test.mjs
+- scripts/tests/gui-design-contract.test.mjs
+- scripts/tests/gui-screen-matrix.test.mjs
 - scripts/tests/ia-traceability.test.mjs
 - scripts/tests/installer-flavor-diff-resolver.test.mjs
 - scripts/tests/installer-hub-contract.test.mjs
@@ -735,6 +753,7 @@ Fuente: git ls-files filtrado por existencia en workspace (solo archivos version
 - scripts/tests/release-stable-promotion.test.mjs
 - scripts/tests/ruleset-main.test.mjs
 - scripts/tests/security-workflow-policy.test.mjs
+- scripts/tests/stabilization-completion-audit.test.mjs
 - scripts/tests/tray-update-action.test.mjs
 - scripts/tests/update-api.test.mjs
 - scripts/tests/update-manager.test.mjs
@@ -749,9 +768,11 @@ Fuente: git ls-files filtrado por existencia en workspace (solo archivos version
 - scripts/tmp_reconstruir_lote_desde_pdf.ps1
 - scripts/tmp_validar_identidad_lote.ps1
 - scripts/update-manager.mjs
+- scripts/vm-setup-wsl2.ps1
 - scripts/vscode-prune-extensions.mjs
 - scripts/vscode-tune.mjs
 - scripts/wait-api.mjs
+- scripts/watch-report.ps1
 - scripts/workspace-hygiene.mjs
 
 ## Observabilidad/Ops (ops)
@@ -813,9 +834,55 @@ Fuente: git ls-files filtrado por existencia en workspace (solo archivos version
 - docs/handoff/sesiones/2026-04-16/sesion-2026-04-16T22-27-01.651Z.json
 - docs/handoff/sesiones/2026-05-21/sesion-2026-05-21T03-50-30.624Z.json
 - docs/handoff/sesiones/2026-05-21/sesion-2026-05-21T03-51-57.281Z.json
+- docs/handoff/sesiones/2026-05-21/sesion-2026-05-21T21-12-58.317Z.json
+- docs/handoff/sesiones/2026-05-21/sesion-2026-05-21T22-25-47.054Z.json
+- docs/handoff/sesiones/2026-05-22/sesion-2026-05-22T02-24-25.247Z.json
+- docs/handoff/sesiones/2026-05-22/sesion-2026-05-22T02-39-12.912Z.json
+- docs/handoff/sesiones/2026-05-22/sesion-2026-05-22T04-31-23.791Z.json
+- docs/handoff/sesiones/2026-05-25/sesion-2026-05-25-e2e-local-update-smoke.json
+- docs/handoff/sesiones/2026-05-25/sesion-2026-05-25-estabilizacion-gates-final.json
+- docs/handoff/sesiones/2026-05-26/sesion-2026-05-26-hub-update-smoke.json
+- docs/handoff/sesiones/2026-05-26/sesion-2026-05-26T06-13-06.401Z.json
+- docs/handoff/sesiones/2026-05-26/sesion-2026-05-26T10-21-24.685Z.json
+- docs/handoff/sesiones/2026-05-26/sesion-2026-05-26T18-02-30.941Z.json
+- docs/handoff/sesiones/2026-05-27/sesion-2026-05-27T00-03-20.146Z.json
+- docs/handoff/sesiones/2026-05-27/sesion-2026-05-27T08-58-18.652Z.json
+- docs/handoff/sesiones/2026-05-27/sesion-2026-05-27T08-58-47.838Z.json
+- docs/handoff/sesiones/2026-05-27/sesion-2026-05-27T09-37-09.875Z.json
+- docs/handoff/sesiones/2026-05-27/sesion-2026-05-27T09-38-11.057Z.json
+- docs/handoff/sesiones/2026-05-27/sesion-2026-05-27T10-17-21.336Z.json
+- docs/handoff/sesiones/2026-05-27/sesion-2026-05-27T10-30-48.682Z.json
+- docs/handoff/sesiones/2026-05-27/sesion-2026-05-27T13-05-52.905Z.json
+- docs/handoff/sesiones/2026-05-27/sesion-2026-05-27T13-15-06.944Z.json
+- docs/handoff/sesiones/2026-05-27/sesion-2026-05-27T13-15-53.363Z.json
+- docs/handoff/sesiones/2026-05-27/sesion-2026-05-27T13-32-53.425Z.json
+- docs/handoff/sesiones/2026-05-27/sesion-2026-05-27T13-33-55.409Z.json
+- docs/handoff/sesiones/2026-05-27/sesion-2026-05-27T13-37-44.687Z.json
+- docs/handoff/sesiones/2026-05-27/sesion-2026-05-27T13-44-41.629Z.json
+- docs/handoff/sesiones/2026-05-27/sesion-2026-05-27T23-33-13.422Z.json
+- docs/handoff/sesiones/2026-05-27/sesion-2026-05-27T23-46-15.876Z.json
+- docs/handoff/sesiones/2026-05-28/sesion-2026-05-28T00-05-10.137Z.json
+- docs/handoff/sesiones/2026-05-28/sesion-2026-05-28T00-08-41.403Z.json
+- docs/handoff/sesiones/2026-05-31/sesion-2026-05-31T20-49-11.485Z.json
+- docs/handoff/sesiones/2026-05-31/sesion-2026-05-31T20-54-08.951Z.json
+- docs/handoff/sesiones/2026-05-31/sesion-2026-05-31T20-58-54.984Z.json
+- docs/handoff/sesiones/2026-05-31/sesion-2026-05-31T21-03-52.097Z.json
+- docs/handoff/sesiones/2026-05-31/sesion-2026-05-31T21-08-39.362Z.json
+- docs/handoff/sesiones/2026-05-31/sesion-2026-05-31T21-22-05.606Z.json
+- docs/handoff/sesiones/2026-06-01/sesion-2026-06-01T02-42-13.408Z.json
+- docs/handoff/sesiones/2026-06-01/sesion-2026-06-01T03-06-17.913Z.json
+- docs/handoff/sesiones/2026-06-01/sesion-2026-06-01T03-54-21.455Z.json
+- docs/handoff/sesiones/2026-06-01/sesion-2026-06-01T04-57-39.460Z.json
+- docs/handoff/sesiones/2026-06-01/sesion-2026-06-01T06-36-51.646Z.json
 - docs/handoff/sesiones/2026-06-01/sesion-2026-06-01T07-32-25.352Z.json
 - docs/handoff/sesiones/2026-06-01/sesion-2026-06-01T07-52-38.944Z.json
 - docs/handoff/sesiones/2026-06-01/sesion-2026-06-01T11-11-04.773Z.json
+- docs/handoff/sesiones/2026-06-02/sesion-2026-06-02-estabilizacion-release-docentes-final.json
+- docs/handoff/sesiones/2026-06-02/sesion-2026-06-02-estabilizacion-release-docentes.input.json
+- docs/handoff/sesiones/2026-06-02/sesion-2026-06-02T02-19-14.598Z.json
+- docs/handoff/sesiones/2026-06-02/sesion-2026-06-02T07-35-21.281Z.json
+- docs/handoff/sesiones/2026-06-03/sesion-2026-06-03T10-25-40.513Z.json
+- docs/handoff/sesiones/2026-06-03/sesion-2026-06-03T10-25-59.228Z.json
 - docs/handoff/trace.schema.json
 - docs/perf/baseline.business.json
 - docs/perf/baseline.json
@@ -832,6 +899,7 @@ Fuente: git ls-files filtrado por existencia en workspace (solo archivos version
 ## Raiz del repositorio
 
 - .eslintrc.cjs
+- docker-compose.prod-build.yml
 - docker-compose.yml
 - eslint.config.cjs
 - folios_from_pdf.json
