@@ -336,10 +336,10 @@ Version visible objetivo: `1.0.0b`
   - `CI Frontend Module` corregido con cobertura adicional del sistema de tema y de la vista/helpers de versión.
   - `CI Installer Windows` corregido para no depender de una licencia portable preinstalada en el runner.
   - el head actual queda listo para rerun/dispatch limpio de workflows remotos sin deuda conocida.
-- Cierre parcial de deuda TDD 2026-03-22:
+- Cierre total de deuda TDD 2026-06-04:
   - exclusión retirada en backend: `src/compartido/salud/rutasSalud.ts`
   - exclusión retirada en frontend: `src/apps/app_alumno/**`
-  - deuda temporal restante en `docs/tdd-exclusions-debt.json`: `5` entradas activas con vencimiento `2026-03-31`
+  - deuda temporal restante en `docs/tdd-exclusions-debt.json`: `0` entradas activas (todas marcadas como resueltas)
 - Corrección funcional 2026-03-22:
   - `apps/frontend/src/apps/app_alumno/AppAlumno.tsx` ahora re-renderiza correctamente al cerrar sesión o recibir invalidación externa de sesión alumno
 - Cierre UX/UI y gobernanza 2026-03-22:

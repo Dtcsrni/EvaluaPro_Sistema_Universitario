@@ -4,7 +4,8 @@ Este archivo sigue el formato "Keep a Changelog" (alto nivel) y SemVer.
 
 ## [Unreleased]
 
-_(sin cambios pendientes)_
+### Changed
+- Actualización de riesgos activos y documentación del proyecto para reflejar el cierre del 100% de la deuda TDD (0 exclusiones activas en `docs/tdd-exclusions-debt.json`).
 
 ## [1.0.0-beta.15] - 2026-06-04
 

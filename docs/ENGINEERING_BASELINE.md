@@ -350,7 +350,7 @@ Version visible GUI: `1.0.0b`
 4. Playwright sigue descargando `ffmpeg` durante la instalacion; se elimina del runtime final en la misma capa, pero el coste de build persiste.
 5. La fase de rebrand sigue siendo parcial: quedó coherencia mínima de tema/iconografía, no un reemplazo total de todas las superficies.
 6. El step-up comercial quedó release-ready con TOTP/recovery, pero passkeys/FIDO2 todavía están fuera de este corte.
-7. Siguen activas `5` exclusiones temporales de cobertura backend con vencimiento `2026-03-31`.
+7. Deuda temporal de cobertura backend totalmente resuelta (0 exclusiones activas).
 
 ## Reglas de gobernanza
 1. No merge sin gates base en verde (`lint`, `typecheck`, tests, build).
