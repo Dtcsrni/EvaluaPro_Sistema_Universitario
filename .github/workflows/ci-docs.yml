@@ -92,7 +92,7 @@ jobs:
       - name: Etapa diagramas-render
         run: |
           rm -rf ~/.cache/puppeteer
-          node node_modules/@puppeteer/browsers/lib/cjs/main-cli.js install chrome@131.0.6778.204 --path /home/runner/.cache/puppeteer
+          node scripts/install-chrome.mjs
           npm run diagramas:render
 
       - name: Etapa diagramas-consistencia-check
