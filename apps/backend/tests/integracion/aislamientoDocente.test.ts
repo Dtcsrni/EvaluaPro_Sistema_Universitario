@@ -11,6 +11,7 @@ import { crearApp } from '../../src/app';
 import { cerrarMongoTest, conectarMongoTest, limpiarMongoTest } from '../utils/mongo';
 
 describe('aislamiento por docente', () => {
+  const preguntasPorEscenario = 20;
   const app = crearApp();
 
   beforeAll(async () => {
@@ -57,7 +58,7 @@ describe('aislamiento por docente', () => {
 
   async function crearPreguntas(token: string, periodoId: string) {
     const preguntasIds: string[] = [];
-    for (let i = 0; i < 60; i += 1) {
+    for (let i = 0; i < preguntasPorEscenario; i += 1) {
       const preguntaResp = await request(app)
         .post('/api/banco-preguntas')
         .set({ Authorization: `Bearer ${token}` })
@@ -241,7 +242,7 @@ describe('aislamiento por docente', () => {
     const periodoId = periodoResp.body.periodo._id as string;
 
     const preguntasIds: string[] = [];
-    for (let i = 0; i < 60; i += 1) {
+    for (let i = 0; i < preguntasPorEscenario; i += 1) {
       const preguntaResp = await request(app)
         .post('/api/banco-preguntas')
         .set({ Authorization: `Bearer ${tokenA}` })

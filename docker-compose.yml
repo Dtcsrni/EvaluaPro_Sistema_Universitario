@@ -39,6 +39,7 @@ services:
     profiles: ["support"]
 
   api_docente_local:
+    profiles: ["dev"]
     build:
       context: .
       dockerfile: apps/backend/Dockerfile
@@ -85,6 +86,7 @@ services:
       start_period: 10s
 
   web_docente_local:
+    profiles: ["dev"]
     build:
       context: .
       dockerfile: apps/frontend/Dockerfile
@@ -98,9 +100,8 @@ services:
       - "4173:4173"
 
   api_docente_prod:
-    build:
-      context: .
-      dockerfile: apps/backend/Dockerfile
+    image: ${EVALUAPRO_API_DOCENTE_IMAGE:-ghcr.io/dtcsrni/evaluapro_sistema_universitario/evaluapro-api-docente:${EVALUAPRO_IMAGE_TAG:-1.0.0}}
+    pull_policy: if_not_present
     extra_hosts:
       - "host.docker.internal:host-gateway"
     restart: unless-stopped
@@ -134,12 +135,8 @@ services:
     profiles: ["prod"]
 
   web_docente_prod:
-    build:
-      context: .
-      dockerfile: apps/frontend/Dockerfile
-      args:
-        - VITE_API_BASE_URL=http://localhost:4000/api
-        - VITE_APP_DESTINO=docente
+    image: ${EVALUAPRO_WEB_DOCENTE_IMAGE:-ghcr.io/dtcsrni/evaluapro_sistema_universitario/evaluapro-web-docente:${EVALUAPRO_IMAGE_TAG:-1.0.0}}
+    pull_policy: if_not_present
     restart: unless-stopped
     depends_on:
       api_docente_prod:

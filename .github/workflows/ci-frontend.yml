@@ -82,8 +82,6 @@ jobs:
       - name: Etapa setup
         run: npm ci --foreground-scripts
 
-      - name: Instalar Chromium (Playwright)
-        run: npx playwright install --with-deps chromium
 
       - name: Etapa lint frontend
         run: npm -C apps/frontend run lint

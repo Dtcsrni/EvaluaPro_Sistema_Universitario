@@ -13,6 +13,14 @@ const burnBootstrapperWindowCodePath = path.join(root, 'packaging', 'wix', 'Burn
 const designDocPath = path.join(root, 'docs', 'DESIGN.md');
 const installerHubUiLifecyclePath = path.join(root, 'scripts', 'tests', 'installer-hub-ui-lifecycle.ps1');
 const installerHubE2eDocentePath = path.join(root, 'scripts', 'tests', 'installer-hub-e2e-docente.ps1');
+const vmE2eLauncherPath = path.join(root, 'scripts', 'ci', 'run-e2e-launcher.ps1');
+const vmE2eInVmPath = path.join(root, 'scripts', 'ci', 'run-e2e-in-vm.ps1');
+const hostCanaryLauncherPath = path.join(root, 'scripts', 'ci', 'run-e2e-host-canary.ps1');
+const autoE2eLauncherPath = path.join(root, 'scripts', 'ci', 'run-e2e-auto.ps1');
+const qaSecretSetupPath = path.join(root, 'scripts', 'ci', 'set-e2e-qa-secret.ps1');
+const dockerComposePath = path.join(root, 'docker-compose.yml');
+const dockerComposeProdBuildPath = path.join(root, 'docker-compose.prod-build.yml');
+const packageWorkflowPath = path.join(root, '.github', 'workflows', 'package.yml');
 const burnHelperPath = path.join(root, 'scripts', 'installer-burn', 'InstallerBurnHelper.ps1');
 const operationalConfigModulePath = path.join(root, 'scripts', 'installer-burn', 'modules', 'OperationalConfig.psm1');
 const licenseSecurityModulePath = path.join(root, 'scripts', 'installer-burn', 'modules', 'LicenseClientSecurity.psm1');
@@ -178,7 +186,8 @@ test('runtime Docker Windows queda abstracto en dashboard, WiX y package scripts
   const packageJson = JSON.parse(fs.readFileSync(path.join(root, 'package.json'), 'utf8'));
 
   assert.match(launcherDashboard, /EVALUAPRO_DOCKER_RUNTIME/);
-  assert.match(launcherDashboard, /WSL2 \+ Docker Engine o Docker Desktop/);
+  assert.match(launcherDashboard, /WSL2 \+ Docker Engine/);
+  assert.match(launcherDashboard, /Docker Desktop/);
   assert.match(productWxs, /WSLINSTALLED/);
   assert.match(productWxs, /\<\?if \$\(var\.FlavorId\) != docente-local \?\>/);
   assert.match(productWxs, /Installed OR REQUIRE_INSTALLER_HUB = 1 OR BURNMSIINSTALL = 1/);
@@ -210,7 +219,9 @@ test('Installer Hub cumple contrato DESIGN.md de layout y accesibilidad WPF', ()
   const mainWindowXaml = fs.readFileSync(burnBootstrapperWindowPath, 'utf8');
   const mainWindowCode = fs.readFileSync(burnBootstrapperWindowCodePath, 'utf8');
 
-  assert.match(design, /Fuente de verdad visual y UX para el Installer Hub/);
+  assert.match(design, /Fuente de verdad visual y UX para las superficies operativas de EvaluaPro/);
+  assert.match(design, /frontend docente, portal alumno, admin negocio, Dashboard local e Installer Hub/);
+  assert.match(design, /## Layout Wizard Moderno/);
   assert.match(design, /1024x768/);
   assert.match(design, /AutomationProperties\.Name/);
   assert.match(design, /Desinstalacion estandar|Desinstalación estandar|Desinstalación estándar/);
@@ -249,6 +260,9 @@ test('Installer Hub cumple contrato DESIGN.md de layout y accesibilidad WPF', ()
   assert.doesNotMatch(mainWindowXaml, /LinearGradientBrush/);
   assert.match(mainWindowXaml, /x:Name="AdvancedConfigExpander"[\s\S]*?IsExpanded="False"/);
   assert.match(mainWindowXaml, /x:Name="LogExpander"[\s\S]*?IsExpanded="False"/);
+  assert.match(mainWindowXaml, /Text="Evidencia técnica"[\s\S]*?%ProgramData%\\EvaluaPro\\installer-hub\\logs/);
+  assert.match(mainWindowXaml, /AutomationProperties\.Name="Ruta de bitácoras técnicas"/);
+  assert.doesNotMatch(mainWindowXaml, /ToolTip="Detalle por requisito\."/);
 
   for (const controlName of [
     'FlavorComboBox',
@@ -327,26 +341,78 @@ test('Installer Hub tiene QA UIAutomation no destructivo para ciclo de vida visu
 test('Installer Hub tiene runner E2E real docente con guardas de VM y evidencia completa', () => {
   const packageJson = JSON.parse(fs.readFileSync(path.join(root, 'package.json'), 'utf8'));
   const runner = fs.readFileSync(installerHubE2eDocentePath, 'utf8');
+  const readiness = fs.readFileSync(path.join(root, 'scripts', 'installer-hub-vm-readiness.ps1'), 'utf8');
+  const elevatedLauncher = fs.readFileSync(path.join(root, 'scripts', 'start-installer-hub-e2e-elevated.ps1'), 'utf8');
+  const vmLauncher = fs.readFileSync(vmE2eLauncherPath, 'utf8');
+  const vmInVm = fs.readFileSync(vmE2eInVmPath, 'utf8');
+  const hostCanaryLauncher = fs.readFileSync(hostCanaryLauncherPath, 'utf8');
+  const autoE2eLauncher = fs.readFileSync(autoE2eLauncherPath, 'utf8');
+  const qaSecretSetup = fs.readFileSync(qaSecretSetupPath, 'utf8');
 
   assert.equal(
     packageJson.scripts['test:installer-hub:e2e:docente'],
     'powershell -NoProfile -ExecutionPolicy Bypass -File scripts/tests/installer-hub-e2e-docente.ps1'
   );
+  assert.equal(
+    packageJson.scripts['installer:hub:vm-readiness'],
+    'powershell -NoProfile -ExecutionPolicy Bypass -File scripts/installer-hub-vm-readiness.ps1'
+  );
+  assert.equal(
+    packageJson.scripts['installer:hub:e2e:elevated'],
+    'powershell -NoProfile -ExecutionPolicy Bypass -File scripts/start-installer-hub-e2e-elevated.ps1'
+  );
+  assert.equal(
+    packageJson.scripts['installer:hub:e2e:host-canary'],
+    'powershell -NoProfile -ExecutionPolicy Bypass -File scripts/ci/run-e2e-host-canary.ps1'
+  );
+  assert.equal(
+    packageJson.scripts['installer:hub:e2e:auto'],
+    'powershell -NoProfile -ExecutionPolicy Bypass -File scripts/ci/run-e2e-auto.ps1'
+  );
+  assert.equal(
+    packageJson.scripts['installer:hub:e2e:set-qa-secret'],
+    'powershell -NoProfile -ExecutionPolicy Bypass -File scripts/ci/set-e2e-qa-secret.ps1'
+  );
 
   assert.match(runner, /IUnderstandThisMutatesVm/);
   assert.match(runner, /ExpectedSnapshotName = 'pre-evaluapro-installer-e2e'/);
+  assert.match(runner, /ExpectedVmComputerName = 'EVALPRO-E2E'/);
+  assert.match(runner, /ExpectedHostCanaryComputerName = 'TEZKATLI'/);
+  assert.match(runner, /\[switch\]\$AllowHostCanary/);
+  assert.match(runner, /host-canary-identity/);
+  assert.match(runner, /Host canary autorizado/);
+  assert.match(runner, /Assert-RunningInsideExpectedVm/);
+  assert.match(runner, /COMPUTERNAME=\$current expected=\$expected/);
   assert.match(runner, /EVALUAPRO_E2E_VM_SNAPSHOT/);
   assert.match(runner, /dist\\installer\\installer-local-paths\.json/);
   assert.match(runner, /EvaluaPro-InstallerHub-docente-local/);
+  assert.match(runner, /function Get-Sha256Hash/);
+  assert.match(runner, /System\.Security\.Cryptography\.SHA256/);
   assert.match(runner, /Assert-Hash/);
+  assert.match(runner, /Captura omitida/);
+  assert.match(runner, /detectionTimeoutSec = if \(\$AllowHostCanary\) \{ 420 \} else \{ 240 \}/);
+  assert.match(runner, /function Get-LatestDetectPrereqsState/);
+  assert.match(runner, /detect-response-ready/);
   assert.match(runner, /Get-EvaluaProUninstallEntries/);
   assert.match(runner, /Invoke-DockerStableStack/);
   assert.match(runner, /Assert-DockerStable/);
   assert.match(runner, /Export-DockerEvidence/);
   assert.match(runner, /Capture-DashboardScreenshots/);
+  assert.match(runner, /Test-UpdateSmoke/);
+  assert.match(runner, /\/api\/update\/status/);
+  assert.match(runner, /update-status\.json/);
+  assert.match(runner, /\$Name -match 'manifest\|config\|update-status'/);
+  assert.match(runner, /RestartNowButton/);
+  assert.match(runner, /restart-required/);
   assert.match(runner, /Write-TutorialMarkdown/);
   assert.match(runner, /Assert-NoActiveEvaluaProAfterUninstall/);
-  assert.match(runner, /docker compose --profile prod up --build -d mongo_local api_docente_prod web_docente_prod/);
+  assert.match(runner, /docker compose --profile prod up --no-build -d mongo_local api_docente_prod web_docente_prod/);
+  assert.doesNotMatch(runner, /--build', '-d', 'mongo_local', 'api_docente_prod', 'web_docente_prod'/);
+  assert.match(runner, /runtime-audit-before\.json/);
+  assert.match(runner, /runtime-audit-after\.json/);
+  assert.match(runner, /docker-images\.json/);
+  assert.match(runner, /docker-context\.json/);
+  assert.match(runner, /desktop-unapproved/);
   assert.match(runner, /docker-ps\.json/);
   assert.match(runner, /docker-inspect\.json/);
   assert.match(runner, /healthchecks\.json/);
@@ -364,6 +430,7 @@ test('Installer Hub tiene runner E2E real docente con guardas de VM y evidencia 
   assert.match(runner, /Invoke-InstallerHubMode -Mode 'uninstall'/);
   assert.match(runner, /Invoke-InstalledBroker -Action 'verify-installation'/);
   assert.match(runner, /Invoke-InstalledBroker -Action 'open-dashboard'/);
+  assert.match(runner, /Test-UpdateSmoke -BaseUrl \$dashboardBase/);
   assert.match(runner, /Wait-BootstrapState/);
   assert.match(runner, /installation\.manifest\.json/);
   assert.match(runner, /update-config\.json/);
@@ -375,10 +442,104 @@ test('Installer Hub tiene runner E2E real docente con guardas de VM y evidencia 
   const tutorial = fs.readFileSync(path.join(root, 'docs', 'tutoriales', 'installer-hub-docente-e2e.md'), 'utf8');
   assert.match(tutorial, /Tutorial visual E2E Installer Hub docente-local/);
   assert.match(tutorial, /Docker stable/);
-  assert.match(tutorial, /docker compose --profile prod up --build -d/);
+  assert.match(tutorial, /Update smoke/);
+  assert.match(tutorial, /run-e2e-launcher\.ps1 -DryRun/);
+  assert.match(tutorial, /acceptsCredentialParameter=true/);
+  assert.match(tutorial, /-Credential/);
+  assert.match(tutorial, /-QaPassSecureString/);
+  assert.match(tutorial, /powershell-direct-e2e-launch\.json/);
+  assert.match(tutorial, /no guardar passwords/i);
+  assert.doesNotMatch(tutorial, /docker compose --profile prod up --build -d/);
+  assert.match(runner, /docker compose --profile prod up --no-build -d/);
   assert.match(tutorial, /report\.json/);
-  assert.match(tutorial, /screenshots\//);
+  assert.match(tutorial, /## Capturas/);
   assert.match(tutorial, /docker\//);
+
+  assert.match(readiness, /No instala, no repara, no arranca el Hub y no modifica la VM/);
+  assert.match(readiness, /Test-WSMan -ComputerName \$ComputerName/);
+  assert.match(readiness, /Get-VM -Name \$VmName/);
+  assert.match(readiness, /EVALUAPRO_E2E_VM_SNAPSHOT/);
+  assert.match(readiness, /installer-hub-vm-readiness\.json/);
+
+  assert.match(elevatedLauncher, /Start-Process[\s\S]*-Verb RunAs/);
+  assert.match(elevatedLauncher, /Start-VM -Name '\$VmName'/);
+  assert.match(elevatedLauncher, /Test-WSMan -ComputerName '\$ExpectedVmComputerName'/);
+  assert.match(elevatedLauncher, /WinRmTimeoutSeconds = 180/);
+  assert.match(elevatedLauncher, /installer-hub-vm-readiness\.ps1/);
+  assert.match(elevatedLauncher, /if \(\`\$LASTEXITCODE -ne 0\) \{ throw 'VM readiness fallo; no se ejecuta E2E mutante\.' \}/);
+  assert.match(elevatedLauncher, /ExpectedVmComputerName = 'EVALPRO-E2E'/);
+  assert.match(elevatedLauncher, /Readiness OK\. Ejecuta el runner mutante dentro de la VM/);
+  assert.doesNotMatch(elevatedLauncher, /installer-hub-e2e-docente\.ps1/);
+  assert.doesNotMatch(elevatedLauncher, /-IUnderstandThisMutatesVm/);
+  assert.match(elevatedLauncher, /\[switch\]\$DryRun/);
+  assert.match(elevatedLauncher, /if \(\$DryRun\)/);
+
+  assert.match(vmLauncher, /Read-Host -AsSecureString -Prompt 'Password QA evaluaqa'/);
+  assert.match(vmLauncher, /\[System\.Management\.Automation\.PSCredential\]\$Credential/);
+  assert.match(vmLauncher, /\[System\.Security\.SecureString\]\$QaPassSecureString/);
+  assert.match(vmLauncher, /if \(-not \$Credential\)/);
+  assert.match(vmLauncher, /if \(-not \$QaPassSecureString\)/);
+  assert.match(vmLauncher, /acceptsCredentialParameter = \$true/);
+  assert.match(vmLauncher, /acceptsQaPassSecureString = \$true/);
+  assert.match(vmLauncher, /\[switch\]\$DryRun/);
+  assert.match(vmLauncher, /function Get-ReadinessReport/);
+  assert.match(vmLauncher, /installer-hub-vm-readiness\.json/);
+  assert.match(vmLauncher, /VM readiness no esta verde/);
+  assert.match(vmLauncher, /State=Running/);
+  assert.match(vmLauncher, /SecureStringToBSTR/);
+  assert.match(vmLauncher, /ZeroFreeBSTR/);
+  assert.match(vmLauncher, /Invoke-Command -VMName \$VMName -Credential \$Credential/);
+  assert.match(vmLauncher, /ArgumentList \$qaPass, \$ExpectedSnapshotName, \$ExpectedVmComputerName/);
+  assert.doesNotMatch(vmLauncher, /ArgumentList\s+'[^']+'/);
+  assert.doesNotMatch(vmLauncher, /EVALUAPRO_QA_PASS=.*[A-Za-z0-9]/);
+  assert.match(vmInVm, /\[Parameter\(Mandatory=\$true\)\]/);
+  assert.match(vmInVm, /QaPass requerido/);
+  assert.match(vmInVm, /ProjectRoot = 'C:\\EvaluaPro'/);
+  assert.match(vmInVm, /function Write-LaunchReport/);
+  assert.match(vmInVm, /powershell-direct-e2e-launch\.json/);
+  assert.match(vmInVm, /missing-project-root/);
+  assert.match(vmInVm, /missing-e2e-runner/);
+  assert.match(vmInVm, /COMPUTERNAME\.Equals\(\$ExpectedVmComputerName/);
+  assert.match(vmInVm, /EVALUAPRO_E2E_VM_SNAPSHOT = \$ExpectedSnapshotName/);
+  assert.doesNotMatch(vmInVm, /installer:hub:vm-readiness/);
+  assert.doesNotMatch(vmInVm, /QaPass\s*=\s*'[^']+'/);
+
+  assert.match(hostCanaryLauncher, /ExpectedHostCanaryComputerName = 'TEZKATLI'/);
+  assert.match(hostCanaryLauncher, /requiresQaPassSecureString = \$true/);
+  assert.match(hostCanaryLauncher, /supportsEnvQaPass = \$true/);
+  assert.match(hostCanaryLauncher, /autoGeneratesEphemeralQaPass = \$true/);
+  assert.match(hostCanaryLauncher, /RandomNumberGenerator/);
+  assert.match(hostCanaryLauncher, /PromptForQaPass/);
+  assert.match(hostCanaryLauncher, /New-SecureStringFromPlainText/);
+  assert.match(hostCanaryLauncher, /System\.Security\.SecureString/);
+  assert.match(hostCanaryLauncher, /qaPassSecretConfigured/);
+  assert.match(hostCanaryLauncher, /Resolve-QaPassSecureString/);
+  assert.match(hostCanaryLauncher, /EVALUAPRO_QA_PASS/);
+  assert.match(hostCanaryLauncher, /ConvertTo-SecureString/);
+  assert.match(hostCanaryLauncher, /mutatesHost = \$true/);
+  assert.match(hostCanaryLauncher, /Read-Host -AsSecureString -Prompt 'Password QA evaluaqa'/);
+  assert.match(hostCanaryLauncher, /EVALUAPRO_DOCKER_RUNTIME = 'desktop'/);
+  assert.match(hostCanaryLauncher, /-AllowHostCanary/);
+  assert.match(hostCanaryLauncher, /-SkipSnapshotCheck/);
+  assert.match(hostCanaryLauncher, /ZeroFreeBSTR/);
+  assert.doesNotMatch(hostCanaryLauncher, /EVALUAPRO_QA_PASS\s*=\s*'[^']+'/);
+
+  assert.match(autoE2eLauncher, /ValidateSet\('host-canary', 'vm', 'all'\)/);
+  assert.match(autoE2eLauncher, /run-e2e-host-canary\.ps1/);
+  assert.match(autoE2eLauncher, /run-e2e-launcher\.ps1/);
+  assert.match(autoE2eLauncher, /start-installer-hub-e2e-elevated\.ps1/);
+  assert.match(autoE2eLauncher, /Invoke-HostCanary/);
+  assert.match(autoE2eLauncher, /Invoke-VmE2E/);
+  assert.match(autoE2eLauncher, /QaPassSecureString/);
+  assert.match(autoE2eLauncher, /QaPassSecretPath/);
+  assert.match(autoE2eLauncher, /PromptForQaPass/);
+  assert.doesNotMatch(autoE2eLauncher, /EVALUAPRO_QA_PASS\s*=\s*'[^']+'/);
+
+  assert.match(qaSecretSetup, /ConvertFrom-SecureString/);
+  assert.match(qaSecretSetup, /current-windows-user-dpapi/);
+  assert.match(qaSecretSetup, /FromEnvironment/);
+  assert.match(qaSecretSetup, /Clear/);
+  assert.doesNotMatch(qaSecretSetup, /EVALUAPRO_QA_PASS\s*=\s*'[^']+'/);
 });
 
 test('build-msi publica BA personalizada y conserva contrato de asset publico por flavor', () => {
@@ -470,6 +631,7 @@ test('helper Burn detecta prerequisitos con contrato JSON estable', () => {
     assert.equal(typeof payload.message, 'string');
     assert.equal(Array.isArray(payload.logs), true);
     assert.equal(typeof payload.data.recommendedMode, 'string');
+    assert.equal(typeof payload.data.system.internetOk, 'boolean');
     assert.equal(Array.isArray(payload.data.prerequisites), true);
     if (payload.data.remediation) {
       assert.equal(typeof payload.data.remediation.requiresRestart, 'boolean');
@@ -480,6 +642,70 @@ test('helper Burn detecta prerequisitos con contrato JSON estable', () => {
   } finally {
     fs.rmSync(tempRoot, { recursive: true, force: true });
   }
+});
+
+test('helper Burn respeta EVALUAPRO_INSTALLER_ASSUME_INTERNET en deteccion', () => {
+  if (process.platform !== 'win32') {
+    return;
+  }
+
+  const tempRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'evaluapro-burn-helper-internet-'));
+  const requestPath = path.join(tempRoot, 'request.json');
+  const responsePath = path.join(tempRoot, 'response.json');
+  fs.writeFileSync(requestPath, JSON.stringify({ flavorId: 'docente-local' }, null, 2), 'utf8');
+
+  try {
+    const shell = getAvailablePowerShell();
+    if (!shell) {
+      return;
+    }
+
+    execFileSync(shell, [
+      '-NoProfile',
+      '-ExecutionPolicy',
+      'Bypass',
+      '-File',
+      burnHelperPath,
+      '-Mode',
+      'detect-prereqs',
+      '-RequestPath',
+      requestPath,
+      '-ResponsePath',
+      responsePath
+    ], {
+      encoding: 'utf8',
+      stdio: ['ignore', 'pipe', 'pipe'],
+      timeout: 60_000,
+      env: {
+        ...process.env,
+        EVALUAPRO_INSTALLER_ASSUME_INTERNET: '1'
+      }
+    });
+
+    const payload = JSON.parse(fs.readFileSync(responsePath, 'utf8').replace(/^\uFEFF/, ''));
+    assert.equal(payload.ok, true);
+    assert.equal(payload.data.system.internetOk, true);
+  } finally {
+    fs.rmSync(tempRoot, { recursive: true, force: true });
+  }
+});
+
+test('helper Burn permite override QA para runtime Node desde host', () => {
+  const helper = fs.readFileSync(burnHelperPath, 'utf8');
+
+  assert.match(helper, /EVALUAPRO_INSTALLER_USE_HOST_NODE_RUNTIME/);
+  assert.match(helper, /Get-Command\s+'node\.exe'/);
+  assert.match(helper, /Copy-Item[\s\S]+Get-EmbeddedNodeMajorVersion/);
+  assert.match(helper, /source\s+=\s+'host-node-override'/);
+});
+
+test('helper Burn alinea rutas de shortcuts con verificacion post-install', () => {
+  const helper = fs.readFileSync(burnHelperPath, 'utf8');
+
+  assert.match(helper, /EVALUAPRO_DESKTOP_PATH[\s\S]+USERPROFILE[\s\S]+Desktop/);
+  assert.match(helper, /EVALUAPRO_STARTMENU_PATH[\s\S]+APPDATA[\s\S]+Start Menu\\Programs\\EvaluaPro/);
+  assert.match(helper, /& \$shortcutsScript -Port 4519 -IncludeDevShortcut \(\[bool\]\$includeDevShortcut\)/);
+  assert.match(helper, /No se pudieron regenerar accesos directos oficiales/);
 });
 
 test('bootstrapper Burn WPF .NET 8 orquesta deteccion, MSI y helper post-install', () => {
@@ -899,6 +1125,37 @@ $runtime = Get-DockerRuntimeStatus
   assert.match(String(parsed.prereq.reason || ''), /daemon no responde/i);
 });
 
+test('detector WSL no marca listo un shim Docker sin version de daemon', () => {
+  const detectorModulePath = path.join(root, 'scripts', 'installer-burn', 'modules', 'PrereqDetector.psm1');
+  const script = `
+$module = Import-Module -Force -WarningAction SilentlyContinue '${detectorModulePath.replace(/'/g, "''")}' -PassThru
+& $module {
+  function Invoke-WslShellCommand {
+    param([string]$Distro, [string]$Command)
+    return "The command 'docker' could not be found in this WSL 2 distro."
+  }
+  Test-WslDockerDaemonReady -Distros @('Ubuntu') | ConvertTo-Json -Depth 8
+}
+`.trim();
+
+  const result = runPowerShell(script);
+  if (result.skipped) {
+    return;
+  }
+
+  const parsed = parseJsonOutput(result.stdout);
+  assert.equal(parsed.ready, false);
+  assert.equal(parsed.distro, '');
+  assert.equal(parsed.serverVersion, '');
+});
+
+test('detector WSL usa timeout tolerante para arranque frio de distro', () => {
+  const detectorSource = fs.readFileSync(path.join(root, 'scripts', 'installer-burn', 'modules', 'PrereqDetector.psm1'), 'utf8');
+
+  assert.match(detectorSource, /function Invoke-WslShellCommand[\s\S]+?\[int\]\$TimeoutSec = 30/);
+  assert.match(detectorSource, /Invoke-PrereqNativeCommand[\s\S]+-TimeoutSec \$TimeoutSec/);
+});
+
 test('docker_runtime_windows acepta Docker Desktop operativo como runtime compatible', () => {
   const detectorModulePath = path.join(root, 'scripts', 'installer-burn', 'modules', 'PrereqDetector.psm1');
   const script = `
@@ -953,6 +1210,35 @@ $runtime | ConvertTo-Json -Depth 8
   assert.equal(parsed.desktopInstalled, true);
   assert.equal(parsed.ready, false);
   assert.match(String(parsed.reason || ''), /prioriza bootstrap WSL2|WSL2 detectado/i);
+});
+
+test('docente-local usa Compose prod image-first y fallback build separado', () => {
+  const compose = fs.readFileSync(dockerComposePath, 'utf8');
+  const prodBuild = fs.readFileSync(dockerComposeProdBuildPath, 'utf8');
+  const packageJson = JSON.parse(fs.readFileSync(path.join(root, 'package.json'), 'utf8'));
+
+  assert.match(compose, /api_docente_local:[\s\S]*?profiles:\s*\["dev"\]/);
+  assert.match(compose, /web_docente_local:[\s\S]*?profiles:\s*\["dev"\]/);
+  assert.match(compose, /api_docente_prod:[\s\S]*?image:\s*\$\{EVALUAPRO_API_DOCENTE_IMAGE:-ghcr\.io\/dtcsrni\/evaluapro_sistema_universitario\/evaluapro-api-docente/);
+  assert.match(compose, /web_docente_prod:[\s\S]*?image:\s*\$\{EVALUAPRO_WEB_DOCENTE_IMAGE:-ghcr\.io\/dtcsrni\/evaluapro_sistema_universitario\/evaluapro-web-docente/);
+  assert.doesNotMatch(compose, /api_docente_prod:[\s\S]*?build:[\s\S]*?profiles:\s*\["prod"\]/);
+  assert.doesNotMatch(compose, /web_docente_prod:[\s\S]*?build:[\s\S]*?profiles:\s*\["prod"\]/);
+  assert.match(prodBuild, /api_docente_prod:[\s\S]*?build:/);
+  assert.match(prodBuild, /web_docente_prod:[\s\S]*?build:/);
+  assert.match(packageJson.scripts['stack:prod:full'], /docker-compose\.prod-build\.yml/);
+  assert.match(packageJson.scripts['api:rebuild'], /docker-compose\.prod-build\.yml/);
+  assert.doesNotMatch(packageJson.scripts['stack:prod'], /--build/);
+});
+
+test('package workflow publica imagenes docente GHCR versionadas', () => {
+  const workflow = fs.readFileSync(packageWorkflowPath, 'utf8');
+
+  assert.match(workflow, /packages:\s*write/);
+  assert.match(workflow, /docker\/login-action@v3/);
+  assert.match(workflow, /ghcr\.io\/\$\{GITHUB_REPOSITORY,,\}\/evaluapro-api-docente/);
+  assert.match(workflow, /ghcr\.io\/\$\{GITHUB_REPOSITORY,,\}\/evaluapro-web-docente/);
+  assert.match(workflow, /docker push \$\{\{ steps\.meta\.outputs\.api_image \}\}:\$\{\{ steps\.meta\.outputs\.version \}\}/);
+  assert.match(workflow, /docker push \$\{\{ steps\.meta\.outputs\.web_image \}\}:\$\{\{ steps\.meta\.outputs\.version \}\}/);
 });
 
 test('bootstrap guiado WSL2 genera guia local y permite simulacion de cierre', () => {
@@ -1044,6 +1330,100 @@ $r | ConvertTo-Json -Depth 10
   } finally {
     fs.rmSync(tempRoot, { recursive: true, force: true });
   }
+});
+
+test('bootstrap semiautomatico WSL2 no reinstala distro ya registrada', () => {
+  const script = `
+$env:EVALUAPRO_INSTALLER_SIMULATE_WSL_DISTROS='Ubuntu'
+$module = Import-Module -Force -WarningAction SilentlyContinue '${prereqInstallerModulePath.replace(/'/g, "''")}' -PassThru
+$global:EvaluaProWslBootstrapLogs = @()
+$plan = [pscustomobject]@{
+  distro = 'Ubuntu'
+  requiresReboot = $true
+  steps = @(
+    [pscustomobject]@{
+      title = 'Instalar distro soportada para WSL2'
+      executor = 'host'
+      autoRunnable = $true
+      command = 'wsl --install -d Ubuntu'
+    }
+  )
+}
+$result = & $module {
+  param($plan)
+  Invoke-DockerRuntimeBootstrapAuto -Plan $plan -OnLog { param($level, $message) $global:EvaluaProWslBootstrapLogs += "$level|$message" } -OnProgress { param($activity, $percent, $status, $meta) }
+} $plan
+[pscustomobject]@{ result = $result; logs = $global:EvaluaProWslBootstrapLogs } | ConvertTo-Json -Depth 10
+`.trim();
+
+  const result = runPowerShell(script);
+  if (result.skipped) {
+    return;
+  }
+
+  const parsed = parseJsonOutput(result.stdout);
+  assert.equal(parsed.result.executed.length, 1);
+  assert.equal(parsed.result.failed.length, 0);
+  assert.match(parsed.logs.join('\n'), /distro WSL ya registrada/i);
+});
+
+test('bootstrap WSL2 conserva nombre completo cuando userDistros llega como string', () => {
+  const detectorModulePath = path.join(root, 'scripts', 'installer-burn', 'modules', 'PrereqDetector.psm1');
+  const script = `
+Import-Module -Force -WarningAction SilentlyContinue '${detectorModulePath.replace(/'/g, "''")}'
+$module = Import-Module -Force -WarningAction SilentlyContinue '${prereqInstallerModulePath.replace(/'/g, "''")}' -PassThru
+& $module {
+  $status = [pscustomobject]@{
+    defaultDistro = 'docker-desktop'
+    userDistros = 'Ubuntu'
+    wslAvailable = $true
+  }
+  New-DockerRuntimeWindowsBootstrapPlan -Status $status | ConvertTo-Json -Depth 8
+}
+`.trim();
+
+  const result = runPowerShell(script);
+  if (result.skipped) {
+    return;
+  }
+
+  const parsed = parseJsonOutput(result.stdout);
+  assert.equal(parsed.distro, 'Ubuntu');
+  assert.equal(parsed.steps.some((step) => String(step.command || '').includes('wsl -d Ubuntu ')), true);
+  assert.equal(parsed.steps.some((step) => String(step.command || '').includes('wsl -d U ')), false);
+});
+
+test('bootstrap WSL2 marca fallido un comando host con exit code no cero', () => {
+  const mockCommand = process.platform === 'win32' ? 'cmd /c exit 7' : 'sh -c "exit 7"';
+  const script = `
+$module = Import-Module -Force -WarningAction SilentlyContinue '${prereqInstallerModulePath.replace(/'/g, "''")}' -PassThru
+$plan = [pscustomobject]@{
+  distro = 'Ubuntu'
+  requiresReboot = $false
+  steps = @(
+    [pscustomobject]@{
+      title = 'Fallo controlado'
+      executor = 'host'
+      autoRunnable = $true
+      command = '${mockCommand}'
+    }
+  )
+}
+& $module {
+  param($plan)
+  Invoke-DockerRuntimeBootstrapAuto -Plan $plan -OnLog { param($level, $message) } -OnProgress { param($activity, $percent, $status, $meta) }
+} $plan | ConvertTo-Json -Depth 10
+`.trim();
+
+  const result = runPowerShell(script);
+  if (result.skipped) {
+    return;
+  }
+
+  const parsed = parseJsonOutput(result.stdout);
+  assert.equal(parsed.executed.length, 0);
+  assert.equal(parsed.failed.length, 1);
+  assert.match(String(parsed.failed[0].error || ''), /exit code 7/i);
 });
 
 test('helper detect-prereqs propaga requiresRestart/restartReason en remediacion', () => {
@@ -1253,6 +1633,8 @@ $r | ConvertTo-Json -Depth 8
 test('blindaje de licencia exige DPAPI local machine e integridad MAC', () => {
   const securityModule = fs.readFileSync(licenseSecurityModulePath, 'utf8');
   assert.match(securityModule, /System\.Security\.Cryptography\.ProtectedData/);
+  assert.match(securityModule, /function Import-DpapiProtectedDataType/);
+  assert.match(securityModule, /Add-Type -AssemblyName \$assemblyName/);
   assert.match(securityModule, /DataProtectionScope\]::LocalMachine/);
   assert.match(securityModule, /Get-HmacSha256Hex/);
   assert.match(securityModule, /Envelope de licencia alterado \(MAC invalido\)/);
@@ -1261,6 +1643,63 @@ test('blindaje de licencia exige DPAPI local machine e integridad MAC', () => {
   assert.match(securityModule, /Invoke-EvaluaProStepUp/);
   assert.match(securityModule, /Get-EvaluaProCurrentTotpCode/);
   assert.match(securityModule, /recovery_code/);
+});
+
+test('runner E2E tolera estados finales sin propiedad timeout', () => {
+  const runner = fs.readFileSync(installerHubE2eDocentePath, 'utf8');
+
+  assert.match(runner, /PSObject\.Properties\.Match\('timeout'\)\.Count -gt 0/);
+  assert.match(runner, /stateTimedOut/);
+});
+
+test('runner E2E acepta post-install helper JSON como estado estable', () => {
+  const runner = fs.readFileSync(installerHubE2eDocentePath, 'utf8');
+
+  assert.match(runner, /function Get-LatestPostInstallHelperState/);
+  assert.match(runner, /MinLastWriteTime/);
+  assert.match(runner, /LastWriteTime -ge \$MinLastWriteTime/);
+  assert.match(runner, /post-install-\*\.response\.json/);
+  assert.match(runner, /Post-install helper OK/);
+});
+
+test('runner E2E ejecuta broker instalado preservando rutas con espacios', () => {
+  const runner = fs.readFileSync(installerHubE2eDocentePath, 'utf8');
+
+  assert.match(runner, /& powershell\.exe @args > \$stdout 2> \$stderr/);
+  assert.match(runner, /\$exitCode = \$LASTEXITCODE/);
+  assert.match(runner, /Copy-ArtifactIfExists -Path \$stdout/);
+  assert.match(runner, /Export-BrokerDiagnostics -Action \$Action -RunId \$RunId/);
+  assert.match(runner, /bootstrap-state-\{0\}\.json/);
+  assert.doesNotMatch(runner, /Start-Process -FilePath 'powershell\.exe' -ArgumentList \$args/);
+});
+
+test('runner E2E falla temprano si memoria o pagefile de VM no alcanzan', () => {
+  const runner = fs.readFileSync(installerHubE2eDocentePath, 'utf8');
+
+  assert.match(runner, /function Get-SystemMemorySnapshot/);
+  assert.match(runner, /Win32_OperatingSystem/);
+  assert.match(runner, /Win32_PageFileUsage/);
+  assert.match(runner, /preflight-memory\.json/);
+  assert.match(runner, /memory-pagefile/);
+  assert.match(runner, /freeVirtualMB -ge 1536/);
+});
+
+test('launcher broker arranca dashboard preservando rutas instaladas con espacios', () => {
+  const broker = fs.readFileSync(path.join(root, 'scripts', 'launcher-broker.ps1'), 'utf8');
+
+  assert.match(broker, /function ConvertTo-NativeArgumentString/);
+  assert.match(broker, /Start-Process -FilePath \$psExe -ArgumentList \(ConvertTo-NativeArgumentString -Arguments \$args\)/);
+});
+
+test('dashboard expone runtime Docker efectivo y alerta Desktop no manual', () => {
+  const dashboard = fs.readFileSync(path.join(root, 'scripts', 'launcher-dashboard.mjs'), 'utf8');
+
+  assert.match(dashboard, /function resolveEffectiveDockerRuntime/);
+  assert.match(dashboard, /desktop-manual/);
+  assert.match(dashboard, /desktop-unapproved/);
+  assert.match(dashboard, /EVALUAPRO_DOCKER_RUNTIME=desktop/);
+  assert.match(dashboard, /runtime: dockerRuntime/);
+  assert.match(dashboard, /dockerRuntimePreference\(\) === 'desktop' \? 'Docker Desktop' : 'WSL2 \+ Docker Engine'/);
 });
 
 test('step-up local inicializa TOTP y permite sesion elevada con recovery/TOTP', () => {

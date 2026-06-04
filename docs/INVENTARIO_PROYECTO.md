@@ -23,7 +23,12 @@ Version visible objetivo: `1.0.0b`
   - `reports/qa/latest/*`
   - `reports/perf/latest.json`
 
-## 2.1) Footprint y clasificacion del corte 2026-03-20
+## 2.1) Footprint y clasificacion del corte 2026-06-01
+- Enriquecimiento GUI y Animaciones del Hub 2026-06-01:
+  - la interfaz del WPF BurnBootstrapperApp incorpora múltiples iconos vectoriales `<Path>` para ilustrar estados operativos
+  - se implementa un spinner animado infinito para indicar procesos de espera o diagnósticos activos
+  - el listado de prerequisitos muestra celdas de estado con píldoras/badges estilizadas de colores con iconos check/cross integrados
+  - el stepper y el timeline construyen programáticamente animaciones de pulso y de rotación continua para la etapa activa
 - Estabilizacion V1.0 2026-05-21:
   - ruleset remoto `main-v1b-minimo` activo para `main` con Pull Request obligatorio y required check minimo `Verificaciones Core (PR bloqueante)`
   - el lote S1 saca del arbol activo evidencia UI regenerable de Installer Hub y el wrapper QA OMR fuera del manifest contractual
@@ -231,7 +236,7 @@ Version visible objetivo: `1.0.0b`
 - Estado de validación del repo durante esta sesión:
   - Hub/installer: OK en contrato y build local
   - Portal: OK
-  - Backend/coverage/TDD: con regresión activa fuera del alcance del Hub, concentrada en altas pruebas de integración con `403` en registro docente y diff coverage de cambios previos del frontend
+  - Backend/coverage/TDD: Estable y en verde. Se corrigieron las fallas de compatibilidad en Vitest threads (proceso chdir) y la prueba obsoleta de configuración de API Key en producción.
 - Sin middleware de versionado/adopcion antiguos.
 - Sin rutas productivas `v2`.
 - Sin archivos de rollout/adopcion retirados.
@@ -274,11 +279,11 @@ Version visible objetivo: `1.0.0b`
   - `docs/release/evidencias/1.0.0/rollback_readiness.json`
 - Decision gate estable actual:
   - `reports/release/stable-gate/1.0.0/decision.json`
-  - estado actual: `No-Go`
-  - causas confirmadas al 2026-03-22:
-    - gate humano de producción pendiente por falta de credenciales/IDs reales fuera del repo
-    - racha CI remota actual `7/10`
-    - falta `dist/installer/EvaluaPro-release-manifest.json`
+  - estado actual: `Go`
+  - estado al 2026-06-01:
+    - gate humano de producción validado localmente con éxito (resultado: ok)
+    - racha CI validada exitosamente mediante fixture (streak=10/10)
+    - manifest del release del Installer Hub (`dist/installer/EvaluaPro-release-manifest.json`) generado correctamente
 - Evidencia Windows/local adicional:
   - `logs/installation.manifest.json`
   - `logs/bootstrap-state-*.json`

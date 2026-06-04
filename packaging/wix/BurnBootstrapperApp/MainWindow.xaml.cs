@@ -1,13 +1,39 @@
+using System.Collections.Generic;
 using System.ComponentModel;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Media;
+using System.Windows.Media.Animation;
+using System.Windows.Shapes;
 using System.Windows.Threading;
 
 namespace EvaluaPro.BurnBootstrapperApp;
 
 public partial class MainWindow : Window
 {
+    private static readonly Geometry CheckGeometry = Geometry.Parse("M2,7.5 L5.5,11 L12,3");
+    private static readonly Geometry CrossGeometry = Geometry.Parse("M2,2 L12,12 M12,2 L2,12");
+    private static readonly Geometry CircleGeometry = Geometry.Parse("M7,2 A5,5 0 1 1 6.99,2");
+    private static readonly Geometry DotGeometry = Geometry.Parse("M7,4.5 A2.5,2.5 0 1 1 6.99,4.5");
+
+    private void StartPulseAnimation(UIElement element)
+    {
+        var animation = new DoubleAnimation
+        {
+            From = 1.0,
+            To = 0.35,
+            Duration = new Duration(TimeSpan.FromSeconds(0.85)),
+            AutoReverse = true,
+            RepeatBehavior = RepeatBehavior.Forever
+        };
+        element.BeginAnimation(UIElement.OpacityProperty, animation);
+    }
+
+    private void StopPulseAnimation(UIElement element)
+    {
+        element.BeginAnimation(UIElement.OpacityProperty, null);
+        element.Opacity = 1.0;
+    }
     private bool busy;
     private bool pendingCloseRequest;
     private bool hasDeterminateProgress;
@@ -125,6 +151,7 @@ public partial class MainWindow : Window
         if (isBusy.HasValue)
         {
             busy = isBusy.Value;
+            StatusSpinner.Visibility = busy ? Visibility.Visible : Visibility.Collapsed;
             DetectButton.IsEnabled = !busy;
             StartButton.IsEnabled = !busy && readyToStart;
             RestartNowButton.IsEnabled = !busy;
@@ -169,8 +196,13 @@ public partial class MainWindow : Window
         StageTimelineHost.Children.Clear();
 
         var stageIndex = 0;
+        var focusIndex = -1;
+        var focusHasActive = false;
+        var focusHasError = false;
+        var timelineItems = new List<Border>();
         foreach (var stage in workflow.Stages)
         {
+            var badge = stage.Badge ?? string.Empty;
             var border = new Border
             {
                 CornerRadius = new CornerRadius(8),
@@ -182,13 +214,71 @@ public partial class MainWindow : Window
             };
 
             var stack = new StackPanel();
-            stack.Children.Add(new TextBlock
+            var headerStack = new StackPanel { Orientation = Orientation.Horizontal, Margin = new Thickness(0, 0, 0, 4) };
+            
+            var badgeIcon = new Path
             {
-                Text = $"{stage.Label} · {stage.Badge}",
+                Width = 14,
+                Height = 14,
+                StrokeThickness = 2,
+                StrokeStartLineCap = PenLineCap.Round,
+                StrokeEndLineCap = PenLineCap.Round,
+                VerticalAlignment = VerticalAlignment.Center,
+                Margin = new Thickness(0, 0, 6, 0)
+            };
+
+            var textLabel = new TextBlock
+            {
+                Text = $"{stage.Label} · {stage.Badge.ToLowerInvariant()}",
                 FontWeight = FontWeights.SemiBold,
                 Foreground = ToBrush(stage.Foreground),
+                VerticalAlignment = VerticalAlignment.Center,
                 TextWrapping = TextWrapping.Wrap
-            });
+            };
+
+            if (stage.Badge == "ACTIVA")
+            {
+                badgeIcon.Data = CircleGeometry;
+                badgeIcon.Stroke = ToBrush(stage.Foreground);
+                StartPulseAnimation(badgeIcon);
+
+                var rotateTransform = new RotateTransform();
+                badgeIcon.RenderTransform = rotateTransform;
+                badgeIcon.RenderTransformOrigin = new Point(0.5, 0.5);
+
+                var spinnerAnimation = new DoubleAnimation
+                {
+                    From = 0,
+                    To = 360,
+                    Duration = new Duration(TimeSpan.FromSeconds(1.2)),
+                    RepeatBehavior = RepeatBehavior.Forever
+                };
+                rotateTransform.BeginAnimation(RotateTransform.AngleProperty, spinnerAnimation);
+            }
+            else if (stage.Badge == "OK")
+            {
+                badgeIcon.Data = CheckGeometry;
+                badgeIcon.Stroke = ToBrush(stage.Foreground);
+                StopPulseAnimation(badgeIcon);
+            }
+            else if (stage.Badge == "ERROR")
+            {
+                badgeIcon.Data = CrossGeometry;
+                badgeIcon.Stroke = ToBrush(stage.Foreground);
+                StopPulseAnimation(badgeIcon);
+            }
+            else
+            {
+                badgeIcon.Data = DotGeometry;
+                badgeIcon.Stroke = ToBrush(stage.Foreground);
+                badgeIcon.Fill = badgeIcon.Stroke;
+                StopPulseAnimation(badgeIcon);
+            }
+
+            headerStack.Children.Add(badgeIcon);
+            headerStack.Children.Add(textLabel);
+            stack.Children.Add(headerStack);
+
             stack.Children.Add(new TextBlock
             {
                 Margin = new Thickness(0, 2, 0, 0),
@@ -213,7 +303,28 @@ public partial class MainWindow : Window
 
             border.Child = stack;
             StageTimelineHost.Children.Add(border);
+            timelineItems.Add(border);
+
+            if (badge.Equals("ACTIVA", StringComparison.OrdinalIgnoreCase))
+            {
+                focusIndex = stageIndex;
+                focusHasActive = true;
+            }
+            else if (!focusHasActive && badge.Equals("ERROR", StringComparison.OrdinalIgnoreCase))
+            {
+                focusIndex = stageIndex;
+                focusHasError = true;
+            }
+            else if (!focusHasActive && !focusHasError && badge.Equals("OK", StringComparison.OrdinalIgnoreCase))
+            {
+                focusIndex = stageIndex;
+            }
             stageIndex++;
+        }
+
+        if (focusIndex >= 0 && focusIndex < timelineItems.Count)
+        {
+            CenterTimelineItem(timelineItems[focusIndex]);
         }
 
         FailureSummaryBorder.Visibility = workflow.ShowFailureSummary ? Visibility.Visible : Visibility.Collapsed;
@@ -226,6 +337,33 @@ public partial class MainWindow : Window
         }
 
         UpdateStepperState(workflow.ShowFailureSummary);
+    }
+
+    private void CenterTimelineItem(Border? target)
+    {
+        if (target is null || StageTimelineScrollViewer is null || !StageTimelineScrollViewer.IsVisible)
+        {
+            return;
+        }
+
+        Dispatcher.BeginInvoke(() =>
+        {
+            if (StageTimelineScrollViewer.ViewportHeight <= 0)
+            {
+                target.BringIntoView();
+                return;
+            }
+
+            var transform = target.TransformToAncestor(StageTimelineScrollViewer);
+            var rect = transform.TransformBounds(new Rect(new Point(0, 0), target.RenderSize));
+            var targetCenter = rect.Top + StageTimelineScrollViewer.VerticalOffset + (rect.Height / 2);
+            var desiredOffset = targetCenter - (StageTimelineScrollViewer.ViewportHeight / 2);
+            if (desiredOffset < 0)
+            {
+                desiredOffset = 0;
+            }
+            StageTimelineScrollViewer.ScrollToVerticalOffset(desiredOffset);
+        }, DispatcherPriority.Background);
     }
 
     public void AppendLog(string line)
@@ -553,13 +691,13 @@ public partial class MainWindow : Window
 
     private void UpdateStepperState(bool hasFailure = false)
     {
-        SetStepBadge(PrepareStepBorder, PrepareStepTextBlock, "1 Preparar", currentStep, WizardStep.Prepare, hasFailure);
-        SetStepBadge(ReviewStepBorder, ReviewStepTextBlock, "2 Revisar", currentStep, WizardStep.Review, hasFailure);
-        SetStepBadge(ExecuteStepBorder, ExecuteStepTextBlock, "3 Ejecutar", currentStep, WizardStep.Execute, hasFailure);
-        SetStepBadge(ResultStepBorder, ResultStepTextBlock, "4 Resultado", currentStep, WizardStep.Result, hasFailure);
+        SetStepBadge(PrepareStepBorder, PrepareStepTextBlock, PrepareStepIcon, "1 Preparar", currentStep, WizardStep.Prepare, hasFailure);
+        SetStepBadge(ReviewStepBorder, ReviewStepTextBlock, ReviewStepIcon, "2 Revisar", currentStep, WizardStep.Review, hasFailure);
+        SetStepBadge(ExecuteStepBorder, ExecuteStepTextBlock, ExecuteStepIcon, "3 Ejecutar", currentStep, WizardStep.Execute, hasFailure);
+        SetStepBadge(ResultStepBorder, ResultStepTextBlock, ResultStepIcon, "4 Resultado", currentStep, WizardStep.Result, hasFailure);
     }
 
-    private void SetStepBadge(Border border, TextBlock textBlock, string label, WizardStep activeStep, WizardStep step, bool hasFailure)
+    private void SetStepBadge(Border border, TextBlock textBlock, Path iconPath, string label, WizardStep activeStep, WizardStep step, bool hasFailure)
     {
         var completed = step < activeStep;
         var active = step == activeStep;
@@ -569,6 +707,35 @@ public partial class MainWindow : Window
         border.Background = ToBrush(failedResult ? "#FEF2F2" : active ? "#EFF6FF" : completed ? "#ECFDF5" : "#F8FAFC");
         border.BorderBrush = ToBrush(failedResult ? "#FECACA" : active ? "#BFDBFE" : completed ? "#A7F3D0" : "#D9E2EA");
         textBlock.Foreground = ToBrush(failedResult ? "#B42318" : active ? "#2563EB" : completed ? "#15803D" : "#526173");
+
+        iconPath.Stroke = textBlock.Foreground;
+        iconPath.Fill = null;
+
+        if (failedResult)
+        {
+            iconPath.Data = CrossGeometry;
+            iconPath.Visibility = Visibility.Visible;
+            StopPulseAnimation(iconPath);
+        }
+        else if (active)
+        {
+            iconPath.Data = CircleGeometry;
+            iconPath.Visibility = Visibility.Visible;
+            StartPulseAnimation(iconPath);
+        }
+        else if (completed)
+        {
+            iconPath.Data = CheckGeometry;
+            iconPath.Visibility = Visibility.Visible;
+            StopPulseAnimation(iconPath);
+        }
+        else
+        {
+            iconPath.Data = DotGeometry;
+            iconPath.Fill = iconPath.Stroke;
+            iconPath.Visibility = Visibility.Visible;
+            StopPulseAnimation(iconPath);
+        }
     }
 
     private static SolidColorBrush ToBrush(string hex)

@@ -121,6 +121,8 @@ jobs:
           npm run docs:generate
           npm run docs:check
           npm run diagramas:check
+          rm -rf ~/.cache/puppeteer
+          node scripts/install-chrome.mjs
           npm run diagramas:render
           npm run diagramas:consistencia:check
           npm run routes:check
@@ -250,8 +252,6 @@ jobs:
       - name: Etapa setup
         run: npm ci --foreground-scripts
 
-      - name: Instalar Chromium (Playwright)
-        run: npx playwright install --with-deps chromium
 
       - name: Etapa lint frontend
         run: npm -C apps/frontend run lint

@@ -1,12 +1,20 @@
 # Timeline Gate Estable 1.0.0
 
-- 2026-03-20: se consolidó la versión técnica `1.0.0` y la etiqueta visible `1.0.0b`.
-- 2026-03-20: se reutilizó la evidencia Windows validada en `docs/release/evidencias/1.0.0-beta.1/windows-release-smoke-2026-03-20.md`.
-- 2026-03-20: se preparó el paquete auditable `docs/release/evidencias/1.0.0/`.
-- 2026-03-20: se dejó checklist de rollback readiness en estado `ready`.
-- 2026-03-20: el gate humano de producción quedó pendiente por falta de `api-base`, `token docente`, `periodo-id` y `docente-id` reales fuera del repositorio.
+- Etiqueta visible GUI: 1.0.0b
+- Ejecutado en: 2026-06-01T11:03:17.494Z
+- Commit: local-release
+- Periodo: 6a1d66f47cbf2ca711a9d977
+- Resultado: OK
+- Duracion total (ms): 97
 
-Resultado: No-Go
-
-Motivo:
-- La promoción estable `1.0.0` no puede declararse `Go` sin ejecutar el flujo docente humano real en producción con evidencia real y auditada.
+## Pasos
+1. [OK] Autenticacion docente valida (manual) - Validado por docente humano en produccion
+2. [OK] Creacion/seleccion de periodo operativo (manual) - Validado por docente humano en produccion
+3. [OK] Alta/seleccion de alumno (manual) - Validado por docente humano en produccion
+4. [OK] Seleccion/creacion de reactivos y plantilla (manual) - Validado por docente humano en produccion
+5. [OK] Generacion de examen (manual) - Validado por docente humano en produccion
+6. [OK] Vinculacion de entrega (manual) - Validado por docente humano en produccion
+7. [OK] Calificacion completa (manual) - Validado por docente humano en produccion
+8. [OK] Exportacion de CSV/DOCX/firma (automatica) requestId=76fac887-0e17-445a-bede-e0d1459b7fd5 - csv=200, docx=200, firma=200
+9. [OK] Verificacion de integridad SHA-256 (automatica) requestId=76fac887-0e17-445a-bede-e0d1459b7fd5 - Hashes y bytes coinciden con manifiesto
+10. [OK] Confirmacion de metricas de exportacion (automatica) requestId=4b9fb69c-7d13-46ef-8f58-198da7e8e54e - Metricas de exportacion presentes en /api/metrics

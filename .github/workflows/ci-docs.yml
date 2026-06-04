@@ -90,7 +90,10 @@ jobs:
         run: npm run diagramas:check
 
       - name: Etapa diagramas-render
-        run: npm run diagramas:render
+        run: |
+          rm -rf ~/.cache/puppeteer
+          node scripts/install-chrome.mjs
+          npm run diagramas:render
 
       - name: Etapa diagramas-consistencia-check
         run: npm run diagramas:consistencia:check

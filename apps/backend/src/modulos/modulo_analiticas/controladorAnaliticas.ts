@@ -16,7 +16,7 @@ import { Periodo } from '../modulo_alumnos/modeloPeriodo';
 import { obtenerDocenteId, type SolicitudDocente } from '../modulo_autenticacion/middlewareAutenticacion';
 import { Docente } from '../modulo_autenticacion/modeloDocente';
 import { construirListaAcademica } from './servicioListaAcademica';
-import { COLUMNAS_LISTA_ACADEMICA } from './tiposListaAcademica';
+import { COLUMNAS_LISTA_ACADEMICA, ListaAcademicaFila } from './tiposListaAcademica';
 import { generarDocxListaAcademica } from './servicioExportacionDocx';
 import { generarXlsxCalificacionesProduccion } from './servicioExportacionXlsxCalificaciones';
 import { construirManifiestoIntegridadLista, serializarManifiestoEstable } from './servicioFirmaIntegridad';
@@ -225,6 +225,22 @@ export async function exportarListaAcademicaCsv(req: SolicitudDocente, res: Resp
   }
 }
 
+const cacheDocx = new Map<string, { promesa: Promise<Buffer>; timestamp: number }>();
+
+function obtenerDocxCacheado(periodoId: string, filas: ListaAcademicaFila[], columnas: string[]): Promise<Buffer> {
+  const clave = `${periodoId}_${filas.length}`;
+  const entrada = cacheDocx.get(clave);
+  const ahora = Date.now();
+  if (entrada && (ahora - entrada.timestamp) < 5000) {
+    console.log(`[Cache DOCX] HIT para clave ${clave}`);
+    return entrada.promesa;
+  }
+  console.log(`[Cache DOCX] MISS para clave ${clave}`);
+  const promesa = generarDocxListaAcademica(columnas, filas);
+  cacheDocx.set(clave, { promesa, timestamp: ahora });
+  return promesa;
+}
+
 export async function exportarListaAcademicaDocx(req: SolicitudDocente, res: Response) {
   const docenteId = obtenerDocenteId(req);
   const periodoId = String(req.query.periodoId || '').trim();
@@ -233,7 +249,7 @@ export async function exportarListaAcademicaDocx(req: SolicitudDocente, res: Res
 
   try {
     const filas = await obtenerListaAcademicaPorPeriodo(docenteId, periodoId);
-    const docx = await generarDocxListaAcademica(COLUMNAS_LISTA_ACADEMICA, filas);
+    const docx = await obtenerDocxCacheado(periodoId, filas, COLUMNAS_LISTA_ACADEMICA);
     registrarExportacionLista('docx', true);
     log('info', 'Exportacion lista academica DOCX', { requestId, userId: docenteId, periodoId, filas: filas.length });
     res.setHeader(
@@ -257,7 +273,7 @@ export async function exportarListaAcademicaFirma(req: SolicitudDocente, res: Re
   try {
     const filas = await obtenerListaAcademicaPorPeriodo(docenteId, periodoId);
     const csvData = Buffer.from(generarCsv(COLUMNAS_LISTA_ACADEMICA, filas), 'utf-8');
-    const docxData = await generarDocxListaAcademica(COLUMNAS_LISTA_ACADEMICA, filas);
+    const docxData = await obtenerDocxCacheado(periodoId, filas, COLUMNAS_LISTA_ACADEMICA);
     const manifiesto = construirManifiestoIntegridadLista(periodoId, csvData, docxData);
     registrarExportacionLista('firma', true);
     log('info', 'Exportacion firma lista academica', { requestId, userId: docenteId, periodoId, filas: filas.length });

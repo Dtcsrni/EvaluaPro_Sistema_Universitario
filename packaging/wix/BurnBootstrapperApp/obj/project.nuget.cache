@@ -1,8 +1,8 @@
 {
   "version": 2,
-  "dgSpecHash": "9Kys7RKG7JQ=",
+  "dgSpecHash": "2D4I7TuwL+k=",
   "success": true,
-  "projectFilePath": "C:\\Users\\evega\\EvaluaPro_Sistema_Universitario\\packaging\\wix\\BurnBootstrapperApp\\EvaluaPro.BurnBootstrapperApp.csproj",
+  "projectFilePath": "V:\\Software\\EvaluaPro\\packaging\\wix\\BurnBootstrapperApp\\EvaluaPro.BurnBootstrapperApp.csproj",
   "expectedPackageFiles": [
     "C:\\Users\\evega\\.nuget\\packages\\microsoft.net.illink.tasks\\8.0.27\\microsoft.net.illink.tasks.8.0.27.nupkg.sha512",
     "C:\\Users\\evega\\.nuget\\packages\\wixtoolset.bootstrapperapplicationapi\\6.0.2\\wixtoolset.bootstrapperapplicationapi.6.0.2.nupkg.sha512",

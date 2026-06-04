@@ -5,6 +5,12 @@ import fs from 'node:fs';
 import { evaluateEnvDoctor, parseNodeMajor, resolveTarget } from '../env-doctor.mjs';
 
 const root = process.cwd();
+const playwrightBrowsers = [
+  'Playwright version: 1.58.2',
+  '  Browsers:',
+  '    C:\\Users\\tester\\AppData\\Local\\ms-playwright\\chromium-1208',
+  '    C:\\Users\\tester\\AppData\\Local\\ms-playwright\\chromium_headless_shell-1208'
+].join('\n');
 
 function buildRunner(map) {
   return (command) => {
@@ -38,6 +44,7 @@ test('env-doctor wsl exitoso con runtime y docker operativos', () => {
     'docker version --format "{{.Client.Version}}"': '26.1.4',
     'docker version --format "{{.Server.Version}}"': '26.1.4',
     'docker compose version': 'Docker Compose version v2.27.1',
+    'npx playwright install --list': playwrightBrowsers,
     [`"${process.execPath}" "${path.join(root, 'scripts', 'docker-runtime-check.mjs')}"`]: JSON.stringify({
       runtime: 'linux-engine',
       docker: { daemonAvailable: true }
@@ -65,6 +72,7 @@ test('env-doctor falla por node menor a 24', () => {
     'docker version --format "{{.Client.Version}}"': '26.0.0',
     'docker version --format "{{.Server.Version}}"': '26.0.0',
     'docker compose version': 'Docker Compose version v2.26.0',
+    'npx playwright install --list': playwrightBrowsers,
     [`"${process.execPath}" "${path.join(root, 'scripts', 'docker-runtime-check.mjs')}"`]: JSON.stringify({
       runtime: 'linux-engine',
       docker: { daemonAvailable: true }
@@ -90,6 +98,7 @@ test('env-doctor falla cuando docker daemon no responde', () => {
     'docker version --format "{{.Client.Version}}"': '26.1.4',
     'docker version --format "{{.Server.Version}}"': { ok: false, stdout: '' },
     'docker compose version': 'Docker Compose version v2.27.1',
+    'npx playwright install --list': playwrightBrowsers,
     [`"${process.execPath}" "${path.join(root, 'scripts', 'docker-runtime-check.mjs')}"`]: JSON.stringify({
       runtime: 'wsl2-detected-no-daemon',
       docker: { daemonAvailable: false }
@@ -116,6 +125,7 @@ test('env-doctor windows acepta Docker operativo dentro de WSL2 aunque no exista
     'docker version --format "{{.Client.Version}}"': { ok: false, stdout: '' },
     'docker version --format "{{.Server.Version}}"': { ok: false, stdout: '' },
     'docker compose version': { ok: false, stdout: '' },
+    'npx playwright install --list': playwrightBrowsers,
     [`"${process.execPath}" "${path.join(root, 'scripts', 'docker-runtime-check.mjs')}"`]: JSON.stringify({
       runtime: 'wsl2-engine',
       docker: {
@@ -149,6 +159,33 @@ test('env-doctor windows acepta Docker operativo dentro de WSL2 aunque no exista
   assert.equal(report.checks.some((item) => item.id === 'docker.compose' && item.status === 'ok'), true);
 });
 
+test('env-doctor falla cuando falta browser Chromium de Playwright para QA GUI', () => {
+  const run = buildRunner({
+    'wsl --status': 'Distribucion predeterminada: Ubuntu',
+    'npm -v': '11.4.0',
+    'docker version --format "{{.Client.Version}}"': '26.1.4',
+    'docker version --format "{{.Server.Version}}"': '26.1.4',
+    'docker compose version': 'Docker Compose version v2.27.1',
+    'npx playwright install --list': 'Playwright version: 1.58.2\n  Browsers:\n    ffmpeg-1011',
+    [`"${process.execPath}" "${path.join(root, 'scripts', 'docker-runtime-check.mjs')}"`]: JSON.stringify({
+      runtime: 'desktop',
+      docker: { daemonAvailable: true }
+    })
+  });
+
+  const report = evaluateEnvDoctor({
+    target: 'windows',
+    platform: 'win32',
+    env: {},
+    nodeVersion: '24.11.1',
+    readFile: () => '',
+    run
+  });
+
+  assert.equal(report.ok, false);
+  assert.equal(report.failures.some((item) => item.id === 'playwright.chromium'), true);
+});
+
 test('env-doctor falla por plataforma incorrecta para target windows', () => {
   const run = buildRunner({
     'wsl --status': { ok: false, stdout: '' },
@@ -156,6 +193,7 @@ test('env-doctor falla por plataforma incorrecta para target windows', () => {
     'docker version --format "{{.Client.Version}}"': '26.1.4',
     'docker version --format "{{.Server.Version}}"': '26.1.4',
     'docker compose version': 'Docker Compose version v2.27.1',
+    'npx playwright install --list': playwrightBrowsers,
     [`"${process.execPath}" "${path.join(root, 'scripts', 'docker-runtime-check.mjs')}"`]: JSON.stringify({
       runtime: 'desktop',
       docker: { daemonAvailable: true }
@@ -181,6 +219,7 @@ test('contrato de salida mantiene llaves principales', () => {
     'docker version --format "{{.Client.Version}}"': '26.1.4',
     'docker version --format "{{.Server.Version}}"': '26.1.4',
     'docker compose version': 'Docker Compose version v2.27.1',
+    'npx playwright install --list': playwrightBrowsers,
     [`"${process.execPath}" "${path.join(root, 'scripts', 'docker-runtime-check.mjs')}"`]: JSON.stringify({
       runtime: 'linux-engine',
       docker: { daemonAvailable: true }

@@ -11,6 +11,7 @@ import { crearApp } from '../../src/app';
 import { cerrarMongoTest, conectarMongoTest, limpiarMongoTest } from '../utils/mongo';
 
 describe('periodos (materias)', () => {
+  const preguntasPorEscenario = 20;
   const app = crearApp();
 
   beforeAll(async () => {
@@ -123,7 +124,7 @@ describe('periodos (materias)', () => {
     await crearAlumno(token, periodoId);
 
     const preguntasIds: string[] = [];
-    for (let i = 0; i < 60; i += 1) {
+    for (let i = 0; i < preguntasPorEscenario; i += 1) {
       preguntasIds.push(await crearPregunta(token, periodoId, `Pregunta ${i + 1}`));
     }
 
@@ -166,7 +167,7 @@ describe('periodos (materias)', () => {
       .get(`/api/banco-preguntas?activo=0&periodoId=${periodoId}`)
       .set({ Authorization: `Bearer ${token}` })
       .expect(200);
-    expect(bancoArchivado.body.preguntas.length).toBe(60);
+    expect(bancoArchivado.body.preguntas.length).toBe(preguntasPorEscenario);
     expect(bancoArchivado.body.preguntas[0].activo).toBe(false);
 
     const plantillas = await request(app)

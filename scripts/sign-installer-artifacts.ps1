@@ -31,7 +31,6 @@ function Resolve-VersionTag {
   if ([string]::IsNullOrWhiteSpace($resolved)) { $resolved = '0.0.0' }
   return (($resolved -replace '[^0-9A-Za-z\.-]', '-').Trim())
 }
-
 function Get-VersionedArtifactName {
   param(
     [Parameter(Mandatory = $true)]
@@ -71,6 +70,7 @@ if ([string]::IsNullOrWhiteSpace($certBase64) -or [string]::IsNullOrWhiteSpace($
 
 function Find-SignTool {
   $candidates = @(
+    (Join-Path $root 'dist\signing-internal\tools\bin\10.0.22621.0\x64\signtool.exe'),
     'C:\\Program Files (x86)\\Windows Kits\\10\\bin\\x64\\signtool.exe',
     'C:\\Program Files\\Windows Kits\\10\\bin\\x64\\signtool.exe'
   )
@@ -115,7 +115,6 @@ function ConvertFrom-PossiblyWrappedBase64 {
     return [Convert]::FromBase64String($urlSafe)
   }
 }
-
 function Resolve-InstallerArtifactPath {
   param(
     [Parameter(Mandatory = $true)]

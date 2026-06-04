@@ -83,6 +83,18 @@ function Resolve-PowerShellExecutable {
   throw 'No se encontro ejecutable de PowerShell.'
 }
 
+function ConvertTo-NativeArgumentString {
+  param([string[]]$Arguments)
+  return ((@($Arguments) | ForEach-Object {
+    $arg = [string]$_
+    if ($arg -match '[\s"]') {
+      '"' + ($arg -replace '"', '\"') + '"'
+    } else {
+      $arg
+    }
+  }) -join ' ')
+}
+
 function Get-LockPort {
   $lockPath = Join-Path $logDir 'dashboard.lock.json'
   try {
@@ -200,7 +212,7 @@ function Ensure-DashboardRunning([string]$bootstrapMode, [int]$requestedPort) {
     '-NoOpen'
   )
   Write-BrokerLog("Iniciando dashboard (mode=$bootstrapMode, port=$requestedPort, runId=$script:RunIdEffective).")
-  Start-Process -FilePath $psExe -ArgumentList $args -WindowStyle Hidden | Out-Null
+  Start-Process -FilePath $psExe -ArgumentList (ConvertTo-NativeArgumentString -Arguments $args) -WindowStyle Hidden | Out-Null
   $ready = Wait-DashboardReady -requestedPort $requestedPort -timeoutMs 90000
   if (-not $ready) {
     throw 'Dashboard no respondio en el tiempo esperado.'

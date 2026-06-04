@@ -11,17 +11,13 @@ vi.mock('../src/modulos/modulo_escaneo_omr/servicioOmr', () => ({
 
 describe('omr tv3 por folio validation', () => {
   let tempDir: string;
-  let cwdOriginal: string;
 
   beforeEach(async () => {
     tempDir = await fs.mkdtemp(path.join(os.tmpdir(), 'omr-por-folio-'));
-    cwdOriginal = process.cwd();
-    process.chdir(tempDir);
     analizarOmrMock.mockReset();
   });
 
   afterEach(async () => {
-    process.chdir(cwdOriginal);
     await fs.rm(tempDir, { recursive: true, force: true });
   });
 

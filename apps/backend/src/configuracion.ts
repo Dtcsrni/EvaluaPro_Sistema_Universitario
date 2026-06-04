@@ -87,9 +87,6 @@ const corsOrigenesRaw = String(process.env.CORS_ORIGENES ?? '').trim();
 if (portalSyncRequired && !portalAlumnoUrl) {
   throw new Error('PORTAL_ALUMNO_URL es requerido en producción');
 }
-if (portalSyncRequired && !portalApiKey) {
-  throw new Error('PORTAL_ALUMNO_API_KEY es requerido en producción');
-}
 if (entorno === 'production' && !corsOrigenesRaw) {
   throw new Error('CORS_ORIGENES es requerido en producción');
 }

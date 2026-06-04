@@ -12,6 +12,10 @@ const viewports: ViewportCase[] = [
   { name: 'mobile', width: 390, height: 844 }
 ];
 
+async function captureEvidence(page: import('@playwright/test').Page, screen: string, viewport: string) {
+  await page.screenshot({ path: `reports/qa/latest/gui-admin-${screen}-${viewport}.png`, fullPage: false });
+}
+
 async function assertNoHorizontalOverflow(page: import('@playwright/test').Page, context: string) {
   const overflow = await page.evaluate(() => {
     const doc = document.documentElement;
@@ -22,6 +26,39 @@ async function assertNoHorizontalOverflow(page: import('@playwright/test').Page,
     return Math.max(docOverflow, rootOverflow);
   });
   expect(overflow, `${context}: overflow horizontal detectado`).toBeLessThanOrEqual(1);
+}
+
+async function assertInteractiveControlsAreNamed(page: import('@playwright/test').Page, context: string) {
+  const unnamed = await page.evaluate(() => {
+    const selector = 'button,a[href],input,select,textarea,[role="button"],[role="link"],[role="tab"],[role="switch"],[role="checkbox"],[role="radio"]';
+
+    function nameFor(element: Element) {
+      const labelledBy = element.getAttribute('aria-labelledby')?.split(/\s+/).filter(Boolean)
+        .map((id) => document.getElementById(id)?.textContent?.trim() ?? '').join(' ') ?? '';
+      const labels = 'labels' in element
+        ? Array.from((element as HTMLInputElement).labels ?? []).map((label) => label.textContent?.trim() ?? '').join(' ')
+        : '';
+      return [
+        element.getAttribute('aria-label'),
+        labelledBy,
+        labels,
+        element.getAttribute('title'),
+        element.getAttribute('placeholder'),
+        (element as HTMLElement).innerText,
+        element.textContent
+      ].filter(Boolean).join(' ').replace(/\s+/g, ' ').trim();
+    }
+
+    return Array.from(document.querySelectorAll(selector))
+      .filter((element) => {
+        const style = window.getComputedStyle(element as HTMLElement);
+        const rect = (element as HTMLElement).getBoundingClientRect();
+        return style.visibility !== 'hidden' && style.display !== 'none' && rect.width > 0 && rect.height > 0;
+      })
+      .filter((element) => nameFor(element).length === 0)
+      .map((element) => element.outerHTML.slice(0, 160));
+  });
+  expect(unnamed, `${context}: controles sin nombre accesible`).toEqual([]);
 }
 
 test.describe('GUI responsive e2e · admin negocio', () => {
@@ -89,6 +126,20 @@ test.describe('GUI responsive e2e · admin negocio', () => {
       await expect(page.getByText(/Cómo operar/i)).toBeVisible();
 
       await assertNoHorizontalOverflow(page, `Admin negocio ${viewport.name}`);
+      await assertInteractiveControlsAreNamed(page, `Admin negocio ${viewport.name}`);
+      if (viewport.name === 'desktop-lg' || viewport.name === 'mobile') {
+        await captureEvidence(page, 'dashboard', viewport.name);
+      }
+
+      await page.getByRole('button', { name: /^Tenants\b/i }).click();
+      await expect(page.getByRole('heading', { name: /Nuevo tenant/i })).toBeVisible();
+      await expect(page.getByLabel('Tenant ID')).toBeVisible();
+
+      await assertNoHorizontalOverflow(page, `Admin negocio tenants ${viewport.name}`);
+      await assertInteractiveControlsAreNamed(page, `Admin negocio tenants ${viewport.name}`);
+      if (viewport.name === 'desktop-lg' || viewport.name === 'mobile') {
+        await captureEvidence(page, 'tenants', viewport.name);
+      }
     });
   }
 });

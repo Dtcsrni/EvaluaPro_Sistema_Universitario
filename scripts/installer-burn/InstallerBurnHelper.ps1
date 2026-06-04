@@ -232,6 +232,10 @@ function Get-InputValue {
 }
 
 function Test-InternetConnectivity {
+  if (@('1', 'true', 'yes', 'on') -contains ([string]$env:EVALUAPRO_INSTALLER_ASSUME_INTERNET).Trim().ToLowerInvariant()) {
+    return $true
+  }
+
   $targets = @(
     'https://api.github.com',
     'https://github.com'
@@ -267,9 +271,20 @@ function Invoke-DesktopAssetRefresh {
   $shortcutsScript = Join-Path $InstallDir 'scripts\create-shortcuts.ps1'
   $manifestScript = Join-Path $InstallDir 'scripts\generate-installation-manifest.ps1'
 
+  if ([string]::IsNullOrWhiteSpace([string]$env:EVALUAPRO_DESKTOP_PATH) -and -not [string]::IsNullOrWhiteSpace([string]$env:USERPROFILE)) {
+    $env:EVALUAPRO_DESKTOP_PATH = Join-Path ([string]$env:USERPROFILE) 'Desktop'
+  }
+  if ([string]::IsNullOrWhiteSpace([string]$env:EVALUAPRO_STARTMENU_PATH) -and -not [string]::IsNullOrWhiteSpace([string]$env:APPDATA)) {
+    $env:EVALUAPRO_STARTMENU_PATH = Join-Path ([string]$env:APPDATA) 'Microsoft\Windows\Start Menu\Programs\EvaluaPro'
+  }
+
   if (Test-Path -LiteralPath $shortcutsScript) {
     $includeDevShortcut = ([string]$FlavorId).Trim().ToLowerInvariant() -ne 'docente-local'
-    & powershell.exe -NoProfile -ExecutionPolicy Bypass -File $shortcutsScript -Port 4519 -IncludeDevShortcut:$includeDevShortcut -SkipManifestUpdate:$SkipManifestUpdate -Force | Out-Null
+    try {
+      $shortcutOutput = & $shortcutsScript -Port 4519 -IncludeDevShortcut ([bool]$includeDevShortcut) -SkipManifestUpdate:$SkipManifestUpdate -Force 2>&1
+    } catch {
+      throw ("No se pudieron regenerar accesos directos oficiales. Error={0}. Output={1}" -f ([string]$_.Exception.Message), (($shortcutOutput | ForEach-Object { [string]$_ }) -join ' '))
+    }
     Add-HelperLog -Level 'ok' -Message 'Accesos directos oficiales regenerados.'
   }
 
@@ -424,6 +439,36 @@ function Install-EmbeddedNodeRuntime {
       path = (Get-EmbeddedNodeRuntimePath -InstallDir $InstallDir)
       version = "${currentMajor}.x"
       downloaded = $false
+    }
+  }
+
+  if (@('1', 'true', 'yes', 'on') -contains ([string]$env:EVALUAPRO_INSTALLER_USE_HOST_NODE_RUNTIME).Trim().ToLowerInvariant()) {
+    $nodeCommand = Get-Command 'node.exe' -ErrorAction SilentlyContinue
+    if (-not $nodeCommand -or [string]::IsNullOrWhiteSpace([string]$nodeCommand.Source)) {
+      throw 'EVALUAPRO_INSTALLER_USE_HOST_NODE_RUNTIME activo, pero no se encontro node.exe en el host.'
+    }
+
+    $hostNodeRoot = Split-Path -Parent ([string]$nodeCommand.Source)
+    $runtimeRoot = Join-Path $InstallDir 'runtime'
+    $nodeRoot = Join-Path $runtimeRoot 'node'
+    if (Test-Path -LiteralPath $nodeRoot) {
+      Remove-Item -LiteralPath $nodeRoot -Recurse -Force -ErrorAction SilentlyContinue
+    }
+    New-Item -ItemType Directory -Path $nodeRoot -Force | Out-Null
+    Copy-Item -Path (Join-Path $hostNodeRoot '*') -Destination $nodeRoot -Recurse -Force
+
+    $copiedMajor = Get-EmbeddedNodeMajorVersion -InstallDir $InstallDir
+    if ($copiedMajor -lt $requiredMajor) {
+      throw ("Node host copiado no cumple version requerida: {0}.x" -f $copiedMajor)
+    }
+
+    Add-HelperLog -Level 'warn' -Message ("Runtime Node embebido preparado desde Node host por override QA: {0}" -f $hostNodeRoot)
+    return [pscustomobject]@{
+      ok = $true
+      path = (Get-EmbeddedNodeRuntimePath -InstallDir $InstallDir)
+      version = "${copiedMajor}.x"
+      downloaded = $false
+      source = 'host-node-override'
     }
   }
 

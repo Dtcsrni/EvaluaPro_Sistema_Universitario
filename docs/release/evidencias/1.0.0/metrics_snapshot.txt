@@ -1,9 +1,12 @@
-release.version=1.0.0
-release.displayVersion=1.0.0b
-release.status=No-Go
-release.reason=gate_humano_produccion_pendiente
-release.windowsEvidence=docs/release/evidencias/1.0.0-beta.1/windows-release-smoke-2026-03-20.md
-installation.shortcuts.desktop=3
-installation.shortcuts.startMenu=3
-installation.license.portable=true
-installation.license.stepUpMethods=totp,recovery_code
+# HELP evaluapro_lista_export_csv_total Total de exportaciones de lista academica en CSV
+# TYPE evaluapro_lista_export_csv_total counter
+evaluapro_lista_export_csv_total 1
+# HELP evaluapro_lista_export_docx_total Total de exportaciones de lista academica en DOCX
+# TYPE evaluapro_lista_export_docx_total counter
+evaluapro_lista_export_docx_total 1
+# HELP evaluapro_lista_export_firma_total Total de exportaciones de manifiesto de integridad
+# TYPE evaluapro_lista_export_firma_total counter
+evaluapro_lista_export_firma_total 1
+# HELP evaluapro_lista_export_error_total Total de fallos de exportacion de lista academica
+# TYPE evaluapro_lista_export_error_total counter
+evaluapro_lista_export_error_total 0
