@@ -1,10 +1,12 @@
 # Changelog
 
-# Changelog
-
 Este archivo sigue el formato "Keep a Changelog" (alto nivel) y SemVer.
 
 ## [Unreleased]
+
+_(sin cambios pendientes)_
+
+## [1.0.0-beta.15] - 2026-06-04
 
 ### Changed
 
