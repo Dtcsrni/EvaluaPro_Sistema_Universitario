@@ -2,13 +2,29 @@
  * install-chrome
  *
  * Responsabilidad: Descargar e instalar la versión exacta de Chrome (131.0.6778.204) necesaria para diagramas en CI/CD.
- * Limites: Usar fetch nativo y extract-zip para máxima portabilidad y evitar fallos por TTY o proxy-agent.
+ * Limites: Usar fetch nativo y unzip/extract-zip de forma condicional por plataforma.
  */
 import fs from 'node:fs/promises';
 import { createWriteStream, existsSync } from 'node:fs';
 import path from 'node:path';
 import os from 'node:os';
+import { spawn } from 'node:child_process';
 import extract from 'extract-zip';
+
+// Registrar manejadores globales para capturar cualquier comportamiento extraño del proceso
+process.on('exit', (code) => {
+  console.log(`[install-chrome] Proceso finalizado con código: ${code}`);
+});
+
+process.on('uncaughtException', (err) => {
+  console.error('[install-chrome] Excepción no capturada:', err);
+  process.exit(1);
+});
+
+process.on('unhandledRejection', (reason, promise) => {
+  console.error('[install-chrome] Promesa rechazada sin manejar en:', promise, 'razón:', reason);
+  process.exit(1);
+});
 
 async function downloadFile(url, dest) {
   const response = await fetch(url);
@@ -30,6 +46,25 @@ async function downloadFile(url, dest) {
       else resolve();
     });
   });
+}
+
+async function extractZip(zipPath, destDir) {
+  if (process.platform === 'win32') {
+    console.log('[install-chrome] Usando extract-zip...');
+    await extract(zipPath, { dir: destDir });
+  } else {
+    console.log('[install-chrome] Usando unzip nativo...');
+    await new Promise((resolve, reject) => {
+      const child = spawn('unzip', ['-q', '-o', zipPath, '-d', destDir]);
+      child.on('close', (code) => {
+        if (code === 0) resolve();
+        else reject(new Error(`unzip falló con código de salida: ${code}`));
+      });
+      child.on('error', (err) => {
+        reject(new Error(`No se pudo ejecutar unzip: ${err.message}`));
+      });
+    });
+  }
 }
 
 async function run() {
@@ -67,7 +102,7 @@ async function run() {
   await downloadFile(url, tempZipPath);
   console.log('[install-chrome] Descarga completada. Extrayendo archivo...');
   
-  await extract(tempZipPath, { dir: targetDir });
+  await extractZip(tempZipPath, targetDir);
   console.log('[install-chrome] Extracción exitosa.');
   
   // Limpiar zip temporal
