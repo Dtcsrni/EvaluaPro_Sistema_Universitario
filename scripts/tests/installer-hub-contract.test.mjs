@@ -1291,6 +1291,7 @@ test('bootstrap semiautomatico WSL2 ejecuta pasos host y reporta trazabilidad', 
 $env:EVALUAPRO_INSTALLER_SIMULATE_DOCKER_RUNTIME_MODE='missing'
 $env:EVALUAPRO_INSTALLER_AUTO_BOOTSTRAP_WSL='1'
 $env:EVALUAPRO_INSTALLER_SIMULATE_AUTO_BOOTSTRAP='1'
+$env:EVALUAPRO_INSTALLER_SIMULATE_WSL_BOOTSTRAP='0'
 $env:EVALUAPRO_INSTALLER_SIMULATE_DOCKER_RUNTIME_MODE_AFTER_AUTO='wsl2-engine'
 Import-Module -Force -WarningAction SilentlyContinue '${detectorModulePath.replace(/'/g, "''")}'
 Import-Module -Force -WarningAction SilentlyContinue '${prereqInstallerModulePath.replace(/'/g, "''")}'
