@@ -172,7 +172,7 @@ jobs:
           if (-not (Test-Path $wixBin)) { throw "No se encontro WiX en $wixBin" }
           "$wixBin" | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
           $wixVersion = (& "$wixBin\wix.exe" --version | Select-Object -First 1)
-          if ($wixVersion -notmatch '^6\.0\.') { throw "Version WiX no permitida: $wixVersion. Se requiere 6.0.x." }
+          if ($wixVersion -notmatch '^6\.0\.\d+(?:[+\-].*)?$') { throw "Version WiX no permitida: $wixVersion. Se requiere 6.0.x." }
           Write-Host "WiX version detectada: $wixVersion"
 
       - name: Etapa policy-check WiX
