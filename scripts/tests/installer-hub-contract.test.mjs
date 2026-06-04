@@ -1291,6 +1291,7 @@ test('bootstrap semiautomatico WSL2 ejecuta pasos host y reporta trazabilidad', 
 $env:EVALUAPRO_INSTALLER_SIMULATE_DOCKER_RUNTIME_MODE='missing'
 $env:EVALUAPRO_INSTALLER_AUTO_BOOTSTRAP_WSL='1'
 $env:EVALUAPRO_INSTALLER_SIMULATE_AUTO_BOOTSTRAP='1'
+$env:EVALUAPRO_INSTALLER_SIMULATE_WSL_BOOTSTRAP='0'
 $env:EVALUAPRO_INSTALLER_SIMULATE_DOCKER_RUNTIME_MODE_AFTER_AUTO='wsl2-engine'
 Import-Module -Force -WarningAction SilentlyContinue '${detectorModulePath.replace(/'/g, "''")}'
 Import-Module -Force -WarningAction SilentlyContinue '${prereqInstallerModulePath.replace(/'/g, "''")}'
@@ -1335,6 +1336,8 @@ $r | ConvertTo-Json -Depth 10
 test('bootstrap semiautomatico WSL2 no reinstala distro ya registrada', () => {
   const script = `
 $env:EVALUAPRO_INSTALLER_SIMULATE_WSL_DISTROS='Ubuntu'
+$env:EVALUAPRO_INSTALLER_SIMULATE_AUTO_BOOTSTRAP='0'
+$env:EVALUAPRO_INSTALLER_SIMULATE_WSL_BOOTSTRAP='0'
 $module = Import-Module -Force -WarningAction SilentlyContinue '${prereqInstallerModulePath.replace(/'/g, "''")}' -PassThru
 $global:EvaluaProWslBootstrapLogs = @()
 $plan = [pscustomobject]@{
@@ -1396,6 +1399,8 @@ $module = Import-Module -Force -WarningAction SilentlyContinue '${prereqInstalle
 test('bootstrap WSL2 marca fallido un comando host con exit code no cero', () => {
   const mockCommand = process.platform === 'win32' ? 'cmd /c exit 7' : 'sh -c "exit 7"';
   const script = `
+$env:EVALUAPRO_INSTALLER_SIMULATE_AUTO_BOOTSTRAP='0'
+$env:EVALUAPRO_INSTALLER_SIMULATE_WSL_BOOTSTRAP='0'
 $module = Import-Module -Force -WarningAction SilentlyContinue '${prereqInstallerModulePath.replace(/'/g, "''")}' -PassThru
 $plan = [pscustomobject]@{
   distro = 'Ubuntu'
@@ -1449,6 +1454,7 @@ test('helper detect-prereqs propaga requiresRestart/restartReason en remediacion
     '$env:EVALUAPRO_INSTALLER_SIMULATE_DOCKER_RUNTIME_MODE=\'missing\'',
     '$env:EVALUAPRO_INSTALLER_AUTO_BOOTSTRAP_WSL=\'1\'',
     '$env:EVALUAPRO_INSTALLER_SIMULATE_AUTO_BOOTSTRAP=\'1\'',
+    '$env:EVALUAPRO_INSTALLER_SIMULATE_WSL_BOOTSTRAP=\'0\'',
     '$env:EVALUAPRO_INSTALLER_SIMULATE_NODE_MAJOR=\'24\'',
     `& '${burnHelperPath.replace(/'/g, "''")}' -Mode detect-prereqs -RequestPath '${requestPath.replace(/'/g, "''")}' -ResponsePath '${responsePath.replace(/'/g, "''")}'`
   ].join('; ');
