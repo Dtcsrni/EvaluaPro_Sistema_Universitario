@@ -260,6 +260,8 @@ jobs:
         run: |
           set -euo pipefail
           files=(
+            dist/installer/saas-completo/EvaluaPro-InstallerHub-saas-completo-v*.exe
+            dist/installer/saas-completo/EvaluaPro-InstallerHub-saas-completo-v*.exe.sha256
             dist/installer/docente-local/EvaluaPro-InstallerHub-docente-local-v*.exe
             dist/installer/docente-local/EvaluaPro-InstallerHub-docente-local-v*.exe.sha256
             "dist/installer/EvaluaPro-release-manifest.json"
