@@ -1758,6 +1758,10 @@ test('script de release manifest incluye contrato extendido de build/deployment/
   assert.match(script, /artifacts\s*=\s*\$artifacts/);
   assert.match(script, /flavors\s*=\s*\$flavors/);
   assert.match(script, /flavorId\s*=/);
+  assert.match(script, /\$publishedAssetPath\s*=\s*\$versionedHubName/);
+  assert.match(script, /\$publishedAssetShaPath\s*=\s*"\$versionedHubName\.sha256"/);
+  assert.match(script, /Join-UrlPath -BaseUrl \$ReleaseBaseUrl -RelativePath \$publishedAssetPath/);
+  assert.match(script, /Join-UrlPath -BaseUrl \$ReleaseBaseUrl -RelativePath \$publishedAssetShaPath/);
   assert.match(script, /deployment\s*=\s*\[ordered\]@{/);
   assert.match(script, /target\s*=\s*if \(\$DeploymentTarget\)/);
 });
