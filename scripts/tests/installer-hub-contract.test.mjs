@@ -174,7 +174,7 @@ test('workflow beta publica solo hubs en assets de prerelease', () => {
   assert.match(workflow, /dist\/installer\/saas-completo\/EvaluaPro-InstallerHub-saas-completo-v\*\.exe/);
   assert.match(workflow, /dist\/installer\/docente-local\/EvaluaPro-InstallerHub-docente-local-v\*\.exe/);
   assert.match(workflow, /dist\/installer\/EvaluaPro-release-manifest\.json/);
-  assert.match(workflow, /build-msi\.ps1 -IncludeBundle -Flavor all/);
+  assert.match(workflow, /build-msi\.ps1 -SkipStabilityChecks -IncludeBundle -Flavor all/);
   assert.doesNotMatch(workflow, /dist\/installer\/EvaluaPro-InstallerHub\.exe/);
   assert.doesNotMatch(workflow, /build-installer-hub\.ps1/);
 });

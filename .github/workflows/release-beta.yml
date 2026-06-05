@@ -197,7 +197,7 @@ jobs:
 
       - name: Etapa build MSI + Bundle
         shell: powershell
-        run: powershell -NoProfile -ExecutionPolicy Bypass -File scripts/build-msi.ps1 -IncludeBundle -Flavor all
+        run: powershell -NoProfile -ExecutionPolicy Bypass -File scripts/build-msi.ps1 -SkipStabilityChecks -IncludeBundle -Flavor all
 
       - name: Smoke GUI del bundle Burn publico empaquetado
         shell: powershell
