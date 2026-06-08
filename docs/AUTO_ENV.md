@@ -260,6 +260,7 @@ este documento se actualiza automáticamente al regenerar.
 - `PORTAL_ALUMNO_API_KEY` (usado en: scripts/perf-collect-business.ts)
 - `PUERTO_API` (usado en: scripts/launcher-dashboard.mjs)
 - `PUERTO_PORTAL` (usado en: scripts/launcher-dashboard.mjs)
+- `PUPPETEER_CACHE_DIR` (usado en: scripts/install-chrome.mjs)
 - `RELEASE_BETA_REASON` (usado en: scripts/release/validate-beta-promotion.mjs)
 - `RELEASE_GATE_API_BASE` (usado en: scripts/release/gate-prod-flow.mjs, scripts/release/preflight-global-prod.mjs)
 - `RELEASE_GATE_CI_GREEN` (usado en: scripts/release/gate-prod-flow.mjs)

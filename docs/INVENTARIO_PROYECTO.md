@@ -23,7 +23,13 @@ Version visible objetivo: `1.0.0b`
   - `reports/qa/latest/*`
   - `reports/perf/latest.json`
 
-## 2.1) Footprint y clasificacion del corte 2026-06-01
+## 2.1) Footprint y clasificacion del corte 2026-06-05
+- Pantalla de Términos y Autoelevación Post-Install 2026-06-05:
+  - se introduce una pantalla independiente y previa de Términos y Condiciones en el bootstrapper WPF
+  - la navegación del asistente se bloquea reactivamente (botones Siguiente e Iniciar/Continuar) si los términos no se aceptan en el modo instalación
+  - el stepper superior del instalador se expande de 4 a 5 pasos visuales incorporando la etapa de Términos
+  - el botón Atrás se inhabilita en el paso de Preparar al transicionar a modos no-instalación (reparación/desinstalación) para evitar retrocesos inválidos
+  - el script helper post-install (`InstallerBurnHelper.ps1`) se autoeleva automáticamente mediante UAC si no cuenta con privilegios de escritura en la carpeta destino (`C:\Program Files\EvaluaPro`)
 - Enriquecimiento GUI y Animaciones del Hub 2026-06-01:
   - la interfaz del WPF BurnBootstrapperApp incorpora múltiples iconos vectoriales `<Path>` para ilustrar estados operativos
   - se implementa un spinner animado infinito para indicar procesos de espera o diagnósticos activos

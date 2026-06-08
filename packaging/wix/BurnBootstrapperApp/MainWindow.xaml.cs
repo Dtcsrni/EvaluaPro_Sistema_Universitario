@@ -41,7 +41,7 @@ public partial class MainWindow : Window
     private bool splashDismissed;
     private DispatcherTimer? splashFallbackTimer;
     private bool suppressModeChangedEvent;
-    private WizardStep currentStep = WizardStep.Prepare;
+    private WizardStep currentStep = WizardStep.Terms;
 
     public MainWindow()
     {
@@ -49,7 +49,7 @@ public partial class MainWindow : Window
         ModeComboBox.SelectedIndex = 0;
         SetHubVersionLabel();
         RefreshOperationalChrome();
-        SetWizardStep(WizardStep.Prepare);
+        SetWizardStep(WizardStep.Terms);
         StartSplashFallbackWatcher();
     }
 
@@ -89,7 +89,9 @@ public partial class MainWindow : Window
             Reason = item.Reason
         }).ToList();
         PrereqListView.ItemsSource = rows;
-        StartButton.IsEnabled = model.Ready && !busy;
+        var isInstall = string.Equals(GetSelectedMode(), "install", StringComparison.OrdinalIgnoreCase);
+        var accepted = AcceptTermsCheckBox.IsChecked == true;
+        StartButton.IsEnabled = model.Ready && !busy && (!isInstall || accepted);
         FooterStatusTextBlock.Text = model.Ready
             ? "Equipo listo. Puedes ejecutar la operación seleccionada."
             : "Revisa prerequisitos antes de ejecutar la operación.";
@@ -130,7 +132,15 @@ public partial class MainWindow : Window
     public void NotifyInitialDetectionCompleted()
     {
         DismissSplashOverlay();
-        SetWizardStep(WizardStep.Review);
+        var isInstall = string.Equals(GetSelectedMode(), "install", StringComparison.OrdinalIgnoreCase);
+        if (isInstall && AcceptTermsCheckBox.IsChecked != true)
+        {
+            SetWizardStep(WizardStep.Terms);
+        }
+        else
+        {
+            SetWizardStep(WizardStep.Review);
+        }
         DetectButton.Focus();
     }
 
@@ -152,11 +162,12 @@ public partial class MainWindow : Window
         {
             busy = isBusy.Value;
             StatusSpinner.Visibility = busy ? Visibility.Visible : Visibility.Collapsed;
-            DetectButton.IsEnabled = !busy;
-            StartButton.IsEnabled = !busy && readyToStart;
+            var isInstall = string.Equals(GetSelectedMode(), "install", StringComparison.OrdinalIgnoreCase);
+            var accepted = AcceptTermsCheckBox.IsChecked == true;
+            StartButton.IsEnabled = !busy && readyToStart && (!isInstall || accepted);
             RestartNowButton.IsEnabled = !busy;
-            BackButton.IsEnabled = !busy && currentStep != WizardStep.Prepare;
-            NextButton.IsEnabled = !busy && currentStep != WizardStep.Result;
+            BackButton.IsEnabled = !busy && currentStep != WizardStep.Terms && (currentStep != WizardStep.Prepare || isInstall);
+            NextButton.IsEnabled = !busy && currentStep != WizardStep.Result && (currentStep != WizardStep.Terms || !isInstall || accepted);
 
             if (busy && !progress.HasValue && !hasDeterminateProgress)
             {
@@ -521,12 +532,15 @@ public partial class MainWindow : Window
             return;
         }
 
+        var isInstall = string.Equals(GetSelectedMode(), "install", StringComparison.OrdinalIgnoreCase);
+
         SetWizardStep(currentStep switch
         {
+            WizardStep.Prepare => isInstall ? WizardStep.Terms : WizardStep.Prepare,
             WizardStep.Review => WizardStep.Prepare,
             WizardStep.Execute => WizardStep.Review,
             WizardStep.Result => WizardStep.Execute,
-            _ => WizardStep.Prepare
+            _ => WizardStep.Terms
         });
     }
 
@@ -539,6 +553,7 @@ public partial class MainWindow : Window
 
         SetWizardStep(currentStep switch
         {
+            WizardStep.Terms => WizardStep.Prepare,
             WizardStep.Prepare => WizardStep.Review,
             WizardStep.Review => WizardStep.Execute,
             WizardStep.Execute => WizardStep.Result,
@@ -570,6 +585,7 @@ public partial class MainWindow : Window
             ?? "install";
         RefreshOperationalChrome(mode, FlavorComboBox.SelectedItem as FlavorItem);
         ModeChanged?.Invoke(this, new ModeChangedEventArgs(mode));
+        RefreshWizardNavigation();
     }
 
     protected override void OnClosing(CancelEventArgs e)
@@ -669,11 +685,18 @@ public partial class MainWindow : Window
         BrandFlavorBadgeTextBlock.Text = selectedFlavor?.DisplayName ?? "EvaluaPro";
         StartButton.Content = GetModeActionLabel(normalizedMode);
         StartButton.SetValue(System.Windows.Automation.AutomationProperties.NameProperty, GetModeActionLabel(normalizedMode).Replace("_", string.Empty));
+
+        if (AcceptTermsCheckBox != null)
+        {
+            var isInstall = string.Equals(normalizedMode, "install", StringComparison.OrdinalIgnoreCase);
+            AcceptTermsCheckBox.Visibility = isInstall ? Visibility.Visible : Visibility.Collapsed;
+        }
     }
 
     private void SetWizardStep(WizardStep step)
     {
         currentStep = step;
+        TermsStepPanel.Visibility = step == WizardStep.Terms ? Visibility.Visible : Visibility.Collapsed;
         PrepareStepPanel.Visibility = step == WizardStep.Prepare ? Visibility.Visible : Visibility.Collapsed;
         ReviewStepPanel.Visibility = step == WizardStep.Review ? Visibility.Visible : Visibility.Collapsed;
         ExecuteStepPanel.Visibility = step == WizardStep.Execute ? Visibility.Visible : Visibility.Collapsed;
@@ -684,17 +707,37 @@ public partial class MainWindow : Window
 
     private void RefreshWizardNavigation()
     {
-        BackButton.IsEnabled = !busy && currentStep != WizardStep.Prepare;
-        NextButton.IsEnabled = !busy && currentStep != WizardStep.Result;
+        var isInstall = string.Equals(GetSelectedMode(), "install", StringComparison.OrdinalIgnoreCase);
+        var accepted = AcceptTermsCheckBox.IsChecked == true;
+
+        BackButton.IsEnabled = !busy && currentStep != WizardStep.Terms && (currentStep != WizardStep.Prepare || isInstall);
+        
+        if (currentStep == WizardStep.Terms)
+        {
+            NextButton.IsEnabled = !busy && (!isInstall || accepted);
+        }
+        else
+        {
+            NextButton.IsEnabled = !busy && currentStep != WizardStep.Result;
+        }
+
+        DetectButton.Visibility = currentStep == WizardStep.Review ? Visibility.Visible : Visibility.Collapsed;
         StartButton.Visibility = currentStep is WizardStep.Review or WizardStep.Execute ? Visibility.Visible : Visibility.Collapsed;
+        StartButton.IsEnabled = !busy && readyToStart && (!isInstall || accepted);
+    }
+
+    private void AcceptTermsCheckBox_OnClick(object sender, RoutedEventArgs e)
+    {
+        RefreshWizardNavigation();
     }
 
     private void UpdateStepperState(bool hasFailure = false)
     {
-        SetStepBadge(PrepareStepBorder, PrepareStepTextBlock, PrepareStepIcon, "1 Preparar", currentStep, WizardStep.Prepare, hasFailure);
-        SetStepBadge(ReviewStepBorder, ReviewStepTextBlock, ReviewStepIcon, "2 Revisar", currentStep, WizardStep.Review, hasFailure);
-        SetStepBadge(ExecuteStepBorder, ExecuteStepTextBlock, ExecuteStepIcon, "3 Ejecutar", currentStep, WizardStep.Execute, hasFailure);
-        SetStepBadge(ResultStepBorder, ResultStepTextBlock, ResultStepIcon, "4 Resultado", currentStep, WizardStep.Result, hasFailure);
+        SetStepBadge(TermsStepBorder, TermsStepTextBlock, TermsStepIcon, "1 Términos", currentStep, WizardStep.Terms, hasFailure);
+        SetStepBadge(PrepareStepBorder, PrepareStepTextBlock, PrepareStepIcon, "2 Preparar", currentStep, WizardStep.Prepare, hasFailure);
+        SetStepBadge(ReviewStepBorder, ReviewStepTextBlock, ReviewStepIcon, "3 Revisar", currentStep, WizardStep.Review, hasFailure);
+        SetStepBadge(ExecuteStepBorder, ExecuteStepTextBlock, ExecuteStepIcon, "4 Ejecutar", currentStep, WizardStep.Execute, hasFailure);
+        SetStepBadge(ResultStepBorder, ResultStepTextBlock, ResultStepIcon, "5 Resultado", currentStep, WizardStep.Result, hasFailure);
     }
 
     private void SetStepBadge(Border border, TextBlock textBlock, Path iconPath, string label, WizardStep activeStep, WizardStep step, bool hasFailure)
@@ -746,10 +789,11 @@ public partial class MainWindow : Window
 
 internal enum WizardStep
 {
-    Prepare = 0,
-    Review = 1,
-    Execute = 2,
-    Result = 3
+    Terms = 0,
+    Prepare = 1,
+    Review = 2,
+    Execute = 3,
+    Result = 4
 }
 
 internal sealed class PrerequisiteRow
