@@ -728,7 +728,15 @@ public partial class MainWindow : Window
 
     private void AcceptTermsCheckBox_OnClick(object sender, RoutedEventArgs e)
     {
-        RefreshWizardNavigation();
+        var isInstall = string.Equals(GetSelectedMode(), "install", StringComparison.OrdinalIgnoreCase);
+        if (isInstall && AcceptTermsCheckBox.IsChecked == true && currentStep == WizardStep.Terms)
+        {
+            SetWizardStep(WizardStep.Prepare);
+        }
+        else
+        {
+            RefreshWizardNavigation();
+        }
     }
 
     private void UpdateStepperState(bool hasFailure = false)
