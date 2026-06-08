@@ -218,12 +218,14 @@ foreach ($flavor in $catalog.flavors) {
   $flavorId = [string]$flavor.flavorId
   $assetPath = ([System.IO.Path]::Combine($flavorId, $versionedHubName) -replace '\\', '/')
   $assetShaPath = "$assetPath.sha256"
+  $publishedAssetPath = $versionedHubName
+  $publishedAssetShaPath = "$versionedHubName.sha256"
   $msiPath = ([System.IO.Path]::Combine('_internal', $flavorId, $msiName) -replace '\\', '/')
   $msiShaPath = "$msiPath.sha256"
   $msiUrl = if ($ReleaseBaseUrl) { Join-UrlPath -BaseUrl $ReleaseBaseUrl -RelativePath $msiPath } else { '' }
   $msiShaUrl = if ($ReleaseBaseUrl) { Join-UrlPath -BaseUrl $ReleaseBaseUrl -RelativePath $msiShaPath } else { '' }
-  $hubUrl = if ($ReleaseBaseUrl) { Join-UrlPath -BaseUrl $ReleaseBaseUrl -RelativePath $assetPath } else { '' }
-  $hubShaUrl = if ($ReleaseBaseUrl) { Join-UrlPath -BaseUrl $ReleaseBaseUrl -RelativePath $assetShaPath } else { '' }
+  $hubUrl = if ($ReleaseBaseUrl) { Join-UrlPath -BaseUrl $ReleaseBaseUrl -RelativePath $publishedAssetPath } else { '' }
+  $hubShaUrl = if ($ReleaseBaseUrl) { Join-UrlPath -BaseUrl $ReleaseBaseUrl -RelativePath $publishedAssetShaPath } else { '' }
 
   $flavors += [ordered]@{
     flavorId = [string]$flavor.flavorId

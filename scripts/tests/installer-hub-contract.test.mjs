@@ -174,7 +174,7 @@ test('workflow beta publica solo hubs en assets de prerelease', () => {
   assert.match(workflow, /dist\/installer\/saas-completo\/EvaluaPro-InstallerHub-saas-completo-v\*\.exe/);
   assert.match(workflow, /dist\/installer\/docente-local\/EvaluaPro-InstallerHub-docente-local-v\*\.exe/);
   assert.match(workflow, /dist\/installer\/EvaluaPro-release-manifest\.json/);
-  assert.match(workflow, /build-msi\.ps1 -IncludeBundle -Flavor all/);
+  assert.match(workflow, /build-msi\.ps1 -SkipStabilityChecks -IncludeBundle -Flavor all/);
   assert.doesNotMatch(workflow, /dist\/installer\/EvaluaPro-InstallerHub\.exe/);
   assert.doesNotMatch(workflow, /build-installer-hub\.ps1/);
 });
@@ -1758,6 +1758,10 @@ test('script de release manifest incluye contrato extendido de build/deployment/
   assert.match(script, /artifacts\s*=\s*\$artifacts/);
   assert.match(script, /flavors\s*=\s*\$flavors/);
   assert.match(script, /flavorId\s*=/);
+  assert.match(script, /\$publishedAssetPath\s*=\s*\$versionedHubName/);
+  assert.match(script, /\$publishedAssetShaPath\s*=\s*"\$versionedHubName\.sha256"/);
+  assert.match(script, /Join-UrlPath -BaseUrl \$ReleaseBaseUrl -RelativePath \$publishedAssetPath/);
+  assert.match(script, /Join-UrlPath -BaseUrl \$ReleaseBaseUrl -RelativePath \$publishedAssetShaPath/);
   assert.match(script, /deployment\s*=\s*\[ordered\]@{/);
   assert.match(script, /target\s*=\s*if \(\$DeploymentTarget\)/);
 });
