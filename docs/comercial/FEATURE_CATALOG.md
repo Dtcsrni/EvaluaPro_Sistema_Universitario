@@ -1,7 +1,7 @@
 # Catalogo de Capacidades
 
 > Documento auto-generado. No editar manualmente.
-> Fecha de sincronizacion: **2026-02-27**
+> Fecha de sincronizacion: **2026-06-08**
 
 ## Matriz por persona y nivel minimo
 

@@ -23,3 +23,14 @@ Para convertir este corte a `Go`, todavía falta ejecutar el gate humano real en
 - `docs/release/manual/prod-flow.json`
 - variables `RELEASE_GATE_*`
 - ventana operativa aprobada
+
+<!-- AUTO:COMMERCIAL-CONTEXT:START -->
+## Contexto Comercial y Soporte
+
+- Rol de este documento: Documentacion funcional/operativa para despliegue, seguridad y cumplimiento.
+- Edicion Comunitaria (AGPL): flujo operativo base para uso real.
+- Edicion Comercial/Institucional: mas automatizacion, soporte SLA, endurecimiento y hoja de ruta prioritaria por nivel.
+- Catalogo dinamico de capacidades: [FEATURE_CATALOG](../../../comercial/FEATURE_CATALOG.md).
+- Licenciamiento comercial y modalidades de pago: [LICENSING_TIERS](../../../comercial/LICENSING_TIERS.md).
+- Ultima sincronizacion automatica: 2026-06-08.
+<!-- AUTO:COMMERCIAL-CONTEXT:END -->
