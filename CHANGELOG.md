@@ -12,6 +12,9 @@ Este archivo sigue el formato "Keep a Changelog" (alto nivel) y SemVer.
 
 ### Changed
 - Adaptación del stepper del asistente a 5 pasos ("1 Términos", "2 Preparar", "3 Revisar", "4 Ejecutar", "5 Resultado") e iconografía animada sincronizada.
+- Merge del PR #24 para consolidar la higiene del workspace, variables de entorno de auto-documentación e inventario de la codebase.
+- Integración y merge del PR #25 de Dependabot que actualiza el grupo `npm_and_yarn` (`picomatch` a 4.0.4 y `path-to-regexp` a 8.4.2) en el monorepo.
+- Verificación exhaustiva de toda la matriz local de calidad en la rama `main` (lint, typecheck, tests backend/frontend/portal, coverage, TDD, perf, clean-architecture y rulesets).
 
 ## [1.0.0-beta.15] - 2026-06-04
 

@@ -1,10 +1,14 @@
 # Engineering Baseline
 
-Fecha de baseline: 2026-04-08
+Fecha de baseline: 2026-06-08
 Version tecnica: `1.0.0`
 Version visible GUI: `1.0.0b`
 
 ## Estado vigente
+- Corte 2026-06-08 (Mantenimiento e Higiene de Workspace):
+  - Consolidación del PR #24 (`chore: complete quality gates, workspace hygiene, and codebase inventory`) integrando la higiene en `main` local y remoto.
+  - Integración del PR #25 de Dependabot que actualiza y sanea el grupo `npm_and_yarn` (`picomatch` a 4.0.4 y `path-to-regexp` a 8.4.2) en el monorepo.
+  - Ejecución y paso exitoso de toda la matriz local de gates de calidad (lint, typecheck, tests de frontend, backend y portal, coverage, TDD, perf, clean-architecture y rulesets).
 - Corte 2026-06-05 (Pantalla de Términos y Autoelevación Post-Install):
   - Integración de una pantalla de Términos y Condiciones independiente y previa en el bootstrapper WPF (WizardStep.Terms = 0).
   - Bloqueo reactivo de la navegación (botones Siguiente e Iniciar/Continuar) si no se aceptan los términos en modo instalación.

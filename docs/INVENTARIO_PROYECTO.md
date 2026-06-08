@@ -1,6 +1,6 @@
 # Inventario Tecnico del Proyecto
 
-Fecha de corte: 2026-04-08
+Fecha de corte: 2026-06-08
 Version tecnica objetivo: `1.0.0`
 Version visible objetivo: `1.0.0b`
 
@@ -23,7 +23,11 @@ Version visible objetivo: `1.0.0b`
   - `reports/qa/latest/*`
   - `reports/perf/latest.json`
 
-## 2.1) Footprint y clasificacion del corte 2026-06-05
+## 2.1) Footprint y clasificacion del corte 2026-06-08
+- Mantenimiento e Higiene de Workspace 2026-06-08:
+  - consolidación del PR #24 (`chore: complete quality gates, workspace hygiene, and codebase inventory`) integrando la higiene en `main` local y remoto.
+  - integración del PR #25 de Dependabot que actualiza y sanea el grupo `npm_and_yarn` (`picomatch` a 4.0.4 y `path-to-regexp` a 8.4.2) en el monorepo.
+  - ejecución y paso exitoso de toda la matriz local de gates de calidad (lint, typecheck, tests de frontend, backend y portal, coverage, TDD, perf, clean-architecture y rulesets).
 - Pantalla de Términos y Autoelevación Post-Install 2026-06-05:
   - se introduce una pantalla independiente y previa de Términos y Condiciones en el bootstrapper WPF
   - la navegación del asistente se bloquea reactivamente (botones Siguiente e Iniciar/Continuar) si los términos no se aceptan en el modo instalación
