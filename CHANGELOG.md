@@ -4,7 +4,14 @@ Este archivo sigue el formato "Keep a Changelog" (alto nivel) y SemVer.
 
 ## [Unreleased]
 
-_(sin cambios pendientes)_
+### Added
+- Pantalla independiente y previa de Términos y Condiciones (WizardStep.Terms = 0) en el bootstrapper del instalador (WPF/C#).
+- Validación estricta y reactiva para habilitar/deshabilitar la navegación (Siguiente e Iniciar/Continuar) según la aceptación de los términos y condiciones (obligatorio para el modo instalación).
+- Deshabilitación dinámica del botón de retroceso (Atrás) en el paso de "Preparar" cuando se opera en modos no-instalación (reparación o desinstalación) para evitar navegación accidental a los términos.
+- Autoelevación automática mediante UAC (`Start-Process -Verb RunAs -Wait`) en el script helper post-install (`InstallerBurnHelper.ps1`) si no se cuenta con permisos de escritura en la carpeta destino (`C:\Program Files\EvaluaPro`).
+
+### Changed
+- Adaptación del stepper del asistente a 5 pasos ("1 Términos", "2 Preparar", "3 Revisar", "4 Ejecutar", "5 Resultado") e iconografía animada sincronizada.
 
 ## [1.0.0-beta.15] - 2026-06-04
 

@@ -5,6 +5,13 @@ Version tecnica: `1.0.0`
 Version visible GUI: `1.0.0b`
 
 ## Estado vigente
+- Corte 2026-06-05 (Pantalla de Términos y Autoelevación Post-Install):
+  - Integración de una pantalla de Términos y Condiciones independiente y previa en el bootstrapper WPF (WizardStep.Terms = 0).
+  - Bloqueo reactivo de la navegación (botones Siguiente e Iniciar/Continuar) si no se aceptan los términos en modo instalación.
+  - El stepper superior del instalador se expande a 5 pasos visuales en lugar de 4.
+  - Inhabilitación dinámica del botón Atrás en el paso Preparar en modos no-instalación (reparación/desinstalación) para evitar retrocesos inválidos.
+  - Autoelevación automática mediante UAC (`Start-Process -Verb RunAs -Wait`) en el script helper post-install (`InstallerBurnHelper.ps1`) si no se cuenta con permisos de escritura en la carpeta destino (`C:\Program Files\EvaluaPro`).
+  - Suite completa de pruebas del backend, frontend, portal y políticas de CI pasando al 100% en verde.
 - Corte 2026-06-03 (Estabilización E2E y pre-release):
   - Solución de las incompatibilidades de Vitest threads (`process.chdir`) en la suite de pruebas OMR de TV3 (`omr.tv3.porFolioValidation.test.ts`).
   - Eliminación del caso de prueba obsoleto que exigía `PORTAL_ALUMNO_API_KEY` en producción en `configuracion.produccion.test.ts`.
@@ -350,7 +357,7 @@ Version visible GUI: `1.0.0b`
 4. Playwright sigue descargando `ffmpeg` durante la instalacion; se elimina del runtime final en la misma capa, pero el coste de build persiste.
 5. La fase de rebrand sigue siendo parcial: quedó coherencia mínima de tema/iconografía, no un reemplazo total de todas las superficies.
 6. El step-up comercial quedó release-ready con TOTP/recovery, pero passkeys/FIDO2 todavía están fuera de este corte.
-7. Siguen activas `5` exclusiones temporales de cobertura backend con vencimiento `2026-03-31`.
+7. Deuda temporal de cobertura backend totalmente resuelta (0 exclusiones activas).
 
 ## Reglas de gobernanza
 1. No merge sin gates base en verde (`lint`, `typecheck`, tests, build).

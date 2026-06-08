@@ -23,7 +23,13 @@ Version visible objetivo: `1.0.0b`
   - `reports/qa/latest/*`
   - `reports/perf/latest.json`
 
-## 2.1) Footprint y clasificacion del corte 2026-06-01
+## 2.1) Footprint y clasificacion del corte 2026-06-05
+- Pantalla de Términos y Autoelevación Post-Install 2026-06-05:
+  - se introduce una pantalla independiente y previa de Términos y Condiciones en el bootstrapper WPF
+  - la navegación del asistente se bloquea reactivamente (botones Siguiente e Iniciar/Continuar) si los términos no se aceptan en el modo instalación
+  - el stepper superior del instalador se expande de 4 a 5 pasos visuales incorporando la etapa de Términos
+  - el botón Atrás se inhabilita en el paso de Preparar al transicionar a modos no-instalación (reparación/desinstalación) para evitar retrocesos inválidos
+  - el script helper post-install (`InstallerBurnHelper.ps1`) se autoeleva automáticamente mediante UAC si no cuenta con privilegios de escritura en la carpeta destino (`C:\Program Files\EvaluaPro`)
 - Enriquecimiento GUI y Animaciones del Hub 2026-06-01:
   - la interfaz del WPF BurnBootstrapperApp incorpora múltiples iconos vectoriales `<Path>` para ilustrar estados operativos
   - se implementa un spinner animado infinito para indicar procesos de espera o diagnósticos activos
@@ -336,10 +342,10 @@ Version visible objetivo: `1.0.0b`
   - `CI Frontend Module` corregido con cobertura adicional del sistema de tema y de la vista/helpers de versión.
   - `CI Installer Windows` corregido para no depender de una licencia portable preinstalada en el runner.
   - el head actual queda listo para rerun/dispatch limpio de workflows remotos sin deuda conocida.
-- Cierre parcial de deuda TDD 2026-03-22:
+- Cierre total de deuda TDD 2026-06-04:
   - exclusión retirada en backend: `src/compartido/salud/rutasSalud.ts`
   - exclusión retirada en frontend: `src/apps/app_alumno/**`
-  - deuda temporal restante en `docs/tdd-exclusions-debt.json`: `5` entradas activas con vencimiento `2026-03-31`
+  - deuda temporal restante en `docs/tdd-exclusions-debt.json`: `0` entradas activas (todas marcadas como resueltas)
 - Corrección funcional 2026-03-22:
   - `apps/frontend/src/apps/app_alumno/AppAlumno.tsx` ahora re-renderiza correctamente al cerrar sesión o recibir invalidación externa de sesión alumno
 - Cierre UX/UI y gobernanza 2026-03-22:
