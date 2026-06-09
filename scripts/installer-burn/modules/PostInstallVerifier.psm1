@@ -128,9 +128,12 @@ function Invoke-PostInstallVerification {
         $issues += 'Runtime Node embebido local no disponible tras instalacion.'
       }
 
-      $wslNodeMajor = Get-WslNodeMajorVersion
-      if ($wslNodeMajor -lt 24) {
-        $issues += 'Node 24 no provisionado dentro de WSL2 tras instalacion.'
+      $runtimeStatus = Get-DockerRuntimeStatus
+      if (-not ([bool]$runtimeStatus.ready -and [string]$runtimeStatus.mode -eq 'desktop')) {
+        $wslNodeMajor = Get-WslNodeMajorVersion
+        if ($wslNodeMajor -lt 24) {
+          $issues += 'Node 24 no provisionado dentro de WSL2 tras instalacion.'
+        }
       }
     } else {
       $nodeMajor = Get-NodeMajorVersion

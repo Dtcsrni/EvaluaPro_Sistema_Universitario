@@ -25,6 +25,7 @@ Version visible objetivo: `1.0.0b`
 
 ## 2.1) Footprint y clasificacion del corte 2026-06-08
 - Mantenimiento e Higiene de Workspace 2026-06-08:
+  - corrección de la prueba E2E de instalación (`scripts/tests/installer-hub-e2e-docente.ps1`) para interactuar con `AcceptTermsCheckBox` y evitar timeouts en modo instalación.
   - consolidación del PR #24 (`chore: complete quality gates, workspace hygiene, and codebase inventory`) integrando la higiene en `main` local y remoto.
   - integración del PR #25 de Dependabot que actualiza y sanea el grupo `npm_and_yarn` (`picomatch` a 4.0.4 y `path-to-regexp` a 8.4.2) en el monorepo.
   - ejecución y paso exitoso de toda la matriz local de gates de calidad (lint, typecheck, tests de frontend, backend y portal, coverage, TDD, perf, clean-architecture y rulesets).

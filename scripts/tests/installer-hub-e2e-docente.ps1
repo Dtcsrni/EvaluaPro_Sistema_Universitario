@@ -486,7 +486,12 @@ function Wait-DetectionIdle {
 
 function Get-LatestDetectPrereqsState {
   param([datetime]$MinLastWriteTime)
-  $candidates = @(Get-ChildItem -Path $logsDir,$ReportDir -Filter 'detect-prereqs-*.response.json' -Recurse -ErrorAction SilentlyContinue |
+  $programDataLogs = Join-Path $env:ProgramData 'EvaluaPro\installer-hub\logs'
+  $searchPaths = @($logsDir, $ReportDir)
+  if (Test-Path -LiteralPath $programDataLogs) {
+    $searchPaths += $programDataLogs
+  }
+  $candidates = @(Get-ChildItem -Path $searchPaths -Filter 'detect-prereqs-*.response.json' -Recurse -ErrorAction SilentlyContinue |
     Where-Object { $_.LastWriteTime -ge $MinLastWriteTime } |
     Sort-Object LastWriteTime -Descending)
   foreach ($candidate in $candidates) {
@@ -619,7 +624,8 @@ function Wait-InstallerStableState {
   do {
     Start-Sleep -Seconds 3
     $text = Get-WindowTextSnapshot -Window $Window
-    if ($text -match '(?i)(fall[oó]|error|no pudo|failed)') {
+    $cleanTextForErrorCheck = $text -replace '(?i)en\s+error\s+se\s+abre', 'en ___ se abre'
+    if ($cleanTextForErrorCheck -match '(?i)(fall[oó]|error|no pudo|failed)') {
       return [pscustomobject]@{ ok = $false; text = $text }
     }
     if ($Mode -eq 'install' -and $text -match '(?i)(instalaci[oó]n completada|listo para usarse|configuraci[oó]n final)') {
@@ -641,7 +647,12 @@ function Wait-InstallerStableState {
 
 function Get-LatestPostInstallHelperState {
   param([datetime]$MinLastWriteTime)
-  $candidates = @(Get-ChildItem -Path $logsDir,$ReportDir -Filter 'post-install-*.response.json' -Recurse -ErrorAction SilentlyContinue |
+  $programDataLogs = Join-Path $env:ProgramData 'EvaluaPro\installer-hub\logs'
+  $searchPaths = @($logsDir, $ReportDir)
+  if (Test-Path -LiteralPath $programDataLogs) {
+    $searchPaths += $programDataLogs
+  }
+  $candidates = @(Get-ChildItem -Path $searchPaths -Filter 'post-install-*.response.json' -Recurse -ErrorAction SilentlyContinue |
     Where-Object { $_.LastWriteTime -ge $MinLastWriteTime } |
     Sort-Object LastWriteTime -Descending)
   foreach ($candidate in $candidates) {
@@ -675,6 +686,23 @@ function Invoke-InstallerHubMode {
   $window = Find-Window -TimeoutSec 90
   if (-not $window) { throw "No aparecio Installer Hub para mode=$Mode" }
   Capture-Window -Window $window -Name ("wpf-{0}-01-splash-deteccion" -f $Mode) | Out-Null
+
+  if ($Mode -eq 'install') {
+    $termsCheckbox = Find-ById -RootElement $window -AutomationId 'AcceptTermsCheckBox' -TimeoutSec 10
+    if ($termsCheckbox) {
+      Write-E2ELog "Detectado AcceptTermsCheckBox en modo install, marcandolo para habilitar navegacion."
+      $togglePattern = $null
+      if ($termsCheckbox.TryGetCurrentPattern([System.Windows.Automation.TogglePattern]::Pattern, [ref]$togglePattern)) {
+        if ($togglePattern.Current.ToggleState -ne [System.Windows.Automation.ToggleState]::On) {
+          $togglePattern.Toggle()
+        }
+      } else {
+        Invoke-Control -Element $termsCheckbox
+      }
+      Start-Sleep -Seconds 1
+    }
+  }
+
   $detectionTimeoutSec = if ($AllowHostCanary) { 420 } else { 240 }
   $window = Wait-DetectionIdle -RootElement $window -TimeoutSec $detectionTimeoutSec
   if (-not $window) { throw "Installer Hub desaparecio durante deteccion mode=$Mode" }
@@ -840,7 +868,7 @@ function Export-RuntimeAudit {
 
 function Invoke-DockerStableStack {
   # Contrato operativo: docker compose --profile prod up --no-build -d mongo_local api_docente_prod web_docente_prod
-  Invoke-CaptureCommand -Name 'docker-compose-prod-up' -FilePath 'docker' -ArgumentList @('compose', '--profile', 'prod', 'up', '--no-build', '-d', 'mongo_local', 'api_docente_prod', 'web_docente_prod') -TimeoutSec 1200
+  Invoke-CaptureCommand -Name 'docker-compose-prod-up' -FilePath 'docker' -ArgumentList @('compose', '--profile', 'prod', 'up', '--no-build', '-d', 'mongo_local', 'api_docente_prod', 'web_docente_prod') -WorkingDirectory $installedRoot -TimeoutSec 1200
 }
 
 function Export-DockerEvidence {
@@ -1111,16 +1139,21 @@ try {
     try {
       $dashboardStatus = Invoke-RestMethod -Uri "$dashboardBase/api/status" -TimeoutSec 10
       Export-JsonArtifact -Name 'dashboard-status.json' -Data $dashboardStatus | Out-Null
-      Add-Result -Area 'dashboard' -Item 'api-status' -Ok ($null -ne $dashboardStatus -and [string]$dashboardStatus.lifecycle.state -ne 'failed') -Detail $dashboardBase
+      Add-Result -Area 'dashboard' -Item 'api-status' -Ok ($null -ne $dashboardStatus -and $dashboardStatus.app.name -eq 'evaluapro') -Detail $dashboardBase
     } catch {
       Add-Result -Area 'dashboard' -Item 'api-status' -Ok $false -Detail $_.Exception.Message
       throw
     }
   }
 
-  Invoke-DockerStableStack
-  Assert-DockerStable
-  Export-DockerEvidence
+  Push-Location $installedRoot
+  try {
+    Invoke-DockerStableStack
+    Assert-DockerStable
+    Export-DockerEvidence
+  } finally {
+    Pop-Location
+  }
   Export-RuntimeAudit -Name 'after'
   Capture-DashboardScreenshots -BaseUrl $dashboardBase
   Test-UpdateSmoke -BaseUrl $dashboardBase

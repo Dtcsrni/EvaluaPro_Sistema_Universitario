@@ -11,6 +11,7 @@ Este archivo sigue el formato "Keep a Changelog" (alto nivel) y SemVer.
 - Autoelevación automática mediante UAC (`Start-Process -Verb RunAs -Wait`) en el script helper post-install (`InstallerBurnHelper.ps1`) si no se cuenta con permisos de escritura en la carpeta destino (`C:\Program Files\EvaluaPro`).
 
 ### Changed
+- Corrección de timeout en el script de prueba E2E de la instalación (`scripts/tests/installer-hub-e2e-docente.ps1`) mediante la marcación automatizada de `AcceptTermsCheckBox` cuando se ejecuta en modo `install`, garantizando el avance automático del asistente a la etapa de prerrequisitos.
 - Adaptación del stepper del asistente a 5 pasos ("1 Términos", "2 Preparar", "3 Revisar", "4 Ejecutar", "5 Resultado") e iconografía animada sincronizada.
 - Merge del PR #24 para consolidar la higiene del workspace, variables de entorno de auto-documentación e inventario de la codebase.
 - Integración y merge del PR #25 de Dependabot que actualiza el grupo `npm_and_yarn` (`picomatch` a 4.0.4 y `path-to-regexp` a 8.4.2) en el monorepo.
