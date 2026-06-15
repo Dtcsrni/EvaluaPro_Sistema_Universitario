@@ -1,11 +1,11 @@
 # Inventario Exhaustivo de Codigo
 
-Fecha de generacion: 2026-06-09 04:23:46
+Fecha de generacion: 2026-06-15 03:05:49
 Fuente: git ls-files filtrado por existencia en workspace (solo archivos versionados presentes, excluye node_modules).
 
 ## Resumen
 
-- Total de piezas de codigo/config ejecutable inventariadas: 1022
+- Total de piezas de codigo/config ejecutable inventariadas: 1030
 - Extensiones incluidas: ts, tsx, js, jsx, mjs, cjs, json, yml, yaml, sh, cmd, ps1.
 
 ## Conteo por area
@@ -18,7 +18,7 @@ Fuente: git ls-files filtrado por existencia en workspace (solo archivos version
 | ci | 17 |
 | scripts | 165 |
 | ops | 3 |
-| docs | 123 |
+| docs | 131 |
 | raiz | 32 |
 
 ## Backend (apps/backend)
@@ -893,8 +893,16 @@ Fuente: git ls-files filtrado por existencia en workspace (solo archivos version
 - docs/handoff/sesiones/2026-06-04/sesion-2026-06-04T10-56-00.930Z.json
 - docs/handoff/sesiones/2026-06-04/sesion-2026-06-04T11-02-14.745Z.json
 - docs/handoff/sesiones/2026-06-04/sesion-2026-06-04T11-36-41.715Z.json
+- docs/handoff/sesiones/2026-06-04/sesion-2026-06-04T11-51-02.129Z.json
+- docs/handoff/sesiones/2026-06-05/sesion-2026-06-05T09-56-13.891Z.json
+- docs/handoff/sesiones/2026-06-05/sesion-2026-06-05T09-56-37.337Z.json
 - docs/handoff/sesiones/2026-06-08/sesion-2026-06-08T03-06-13.006Z.json
 - docs/handoff/sesiones/2026-06-08/sesion-2026-06-08T04-52-32.962Z.json
+- docs/handoff/sesiones/2026-06-08/sesion-2026-06-08T09-44-44.762Z.json
+- docs/handoff/sesiones/2026-06-08/sesion-2026-06-08T09-45-03.646Z.json
+- docs/handoff/sesiones/2026-06-09/sesion-2026-06-09T10-24-03.972Z.json
+- docs/handoff/sesiones/2026-06-09/sesion-2026-06-09T18-03-59.323Z.json
+- docs/handoff/sesiones/2026-06-15/sesion-2026-06-15T06-55-42.234Z.json
 - docs/handoff/trace.schema.json
 - docs/perf/baseline.business.json
 - docs/perf/baseline.json
