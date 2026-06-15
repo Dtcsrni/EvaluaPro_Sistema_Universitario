@@ -29,7 +29,7 @@ Version visible objetivo: `1.0.0b`
   - `apps/backend/Dockerfile`: migración de Playwright/Chromium a Chromium del sistema (`apt-get install chromium`), eliminando `PLAYWRIGHT_BROWSERS_PATH` y la instalación de Playwright con dependencias. Reduce footprint de imagen de producción.
   - `scripts/installer-burn/InstallerBurnHelper.ps1`: `Invoke-DetectPrereqsMode` pasa `-IgnoreInstallerHub` para evitar detección circular del Hub durante prereqs.
   - `scripts/installer-burn/modules/PostInstallVerifier.psm1` y `PrereqDetector.psm1`: alineados al nuevo flujo de detección.
-  - Gates locales de cierre: lint ✅, typecheck ✅, test:frontend:ci (37/114) ✅, test:portal:ci (12/33) ✅, pipeline:contract:check (12/12) ✅, test:backend:ci ⏳.
+  - Gates locales de cierre: lint ✅, typecheck ✅, test:frontend:ci (37/114) ✅, test:portal:ci (12/33) ✅, pipeline:contract:check (12/12) ✅, test:backend:ci (97/338) ✅.
   - Handoff de sesión en `docs/handoff/sesiones/2026-06-15/`.
 - Ciclo E2E docente-local y Gates de Calidad 2026-06-09:
   - diagnóstico y corrección de falla `denied` en GHCR al ejecutar el E2E en VM `EvaluaPro-E2E-Win11`: causa raíz identificada como MTU de Cloudflare WARP (1280) que fragmenta paquetes Docker.

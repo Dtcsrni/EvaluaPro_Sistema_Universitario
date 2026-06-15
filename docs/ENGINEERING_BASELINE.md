@@ -9,7 +9,7 @@ Version visible GUI: `1.0.0b`
   - **Fix WPF desinstalación:** `MainWindow.xaml.cs` — las 4 rutas de evaluación de `StartButton.IsEnabled` ahora incluyen `isUninstall` como bypass de `readyToStart`. Resuelve bloqueo del botón "Iniciar" en modo desinstalación cuando el sistema repor `ready=false`.
   - **Dockerfile backend:** Migración de Playwright/Chromium a Chromium del sistema (`apt-get install chromium`) en la imagen de producción. Se elimina `PLAYWRIGHT_BROWSERS_PATH` y la instalación de Playwright con dependencias, reduciendo footprint y evitando descarga de ffmpeg.
   - **InstallerBurnHelper:** `Invoke-DetectPrereqsMode` pasa `-IgnoreInstallerHub` a `Get-EvaluaProInstallationInfo` para evitar detección circular del Hub en ejecución durante la fase de prerequisitos.
-  - Gates de cierre de corte: lint ✅, typecheck ✅, test:frontend:ci (37/114) ✅, test:portal:ci (12/33) ✅, pipeline:contract:check (12/12) ✅, test:backend:ci en ejecución.
+  - Gates de cierre de corte: lint ✅, typecheck ✅, test:frontend:ci (37/114) ✅, test:portal:ci (12/33) ✅, pipeline:contract:check (12/12) ✅, test:backend:ci (97/338) ✅.
   - Handoff de sesión generado: `docs/handoff/sesiones/2026-06-15/`.
 - Corte 2026-06-09 (Ciclo E2E y Gates de Calidad):
   - Causa raíz del fallo E2E identificada: MTU de Cloudflare WARP (1280) fragmenta paquetes Docker en host WSL2, causando `denied` de GHCR y fallo de `apt-get` en builds.
