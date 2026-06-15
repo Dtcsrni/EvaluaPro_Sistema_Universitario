@@ -39,7 +39,7 @@ function Invoke-PostInstallVerification {
   $allowUnregistered = @('1', 'true', 'yes', 'on') -contains ([string]$env:EVALUAPRO_INSTALLER_ALLOW_UNREGISTERED).Trim().ToLowerInvariant()
 
   if ($Mode -eq 'install' -or $Mode -eq 'repair') {
-    $installation = Get-EvaluaProInstallationInfo
+    $installation = Get-EvaluaProInstallationInfo -IgnoreInstallerHub
     if (-not $installation.Installed -and -not $allowUnregistered) {
       $issues += 'No se detecta EvaluaPro en registro tras instalacion/reparacion.'
     }

@@ -1,6 +1,6 @@
 # Inventario Tecnico del Proyecto
 
-Fecha de corte: 2026-06-08
+Fecha de corte: 2026-06-15
 Version tecnica objetivo: `1.0.0`
 Version visible objetivo: `1.0.0b`
 
@@ -23,7 +23,21 @@ Version visible objetivo: `1.0.0b`
   - `reports/qa/latest/*`
   - `reports/perf/latest.json`
 
-## 2.1) Footprint y clasificacion del corte 2026-06-08
+## 2.1) Footprint y clasificacion del corte 2026-06-15
+- Fixes Installer Hub WPF, Dockerfile backend e InstallerBurnHelper 2026-06-15:
+  - `packaging/wix/BurnBootstrapperApp/MainWindow.xaml.cs`: botón "Iniciar" ahora se habilita en modo desinstalación aunque `readyToStart=false`; corrige bloqueo de desinstalación en sistemas parcialmente configurados.
+  - `apps/backend/Dockerfile`: migración de Playwright/Chromium a Chromium del sistema (`apt-get install chromium`), eliminando `PLAYWRIGHT_BROWSERS_PATH` y la instalación de Playwright con dependencias. Reduce footprint de imagen de producción.
+  - `scripts/installer-burn/InstallerBurnHelper.ps1`: `Invoke-DetectPrereqsMode` pasa `-IgnoreInstallerHub` para evitar detección circular del Hub durante prereqs.
+  - `scripts/installer-burn/modules/PostInstallVerifier.psm1` y `PrereqDetector.psm1`: alineados al nuevo flujo de detección.
+  - Gates locales de cierre: lint ✅, typecheck ✅, test:frontend:ci (37/114) ✅, test:portal:ci (12/33) ✅, pipeline:contract:check (12/12) ✅, test:backend:ci ⏳.
+  - Handoff de sesión en `docs/handoff/sesiones/2026-06-15/`.
+- Ciclo E2E docente-local y Gates de Calidad 2026-06-09:
+  - diagnóstico y corrección de falla `denied` en GHCR al ejecutar el E2E en VM `EvaluaPro-E2E-Win11`: causa raíz identificada como MTU de Cloudflare WARP (1280) que fragmenta paquetes Docker.
+  - creación de `/etc/docker/daemon.json` con `{"mtu":1200}` en WSL del host para corregir la red de build de imágenes Docker.
+  - modificación de `scratch/sync-and-run-e2e.ps1` para construir imágenes de producción localmente en WSL, exportarlas a tar y cargarlas en la VM antes del E2E, evitando dependencia de credenciales GHCR privadas.
+  - ejecución completa de la matriz de gates de calidad local: lint ✅, typecheck ✅, test:frontend:ci (37 files · 114 tests) ✅, test:coverage:ci ✅, test:tdd:enforcement:ci ✅, test:backend:ci (97 files · 338 tests) ✅, test:portal:ci (12 files · 33 tests) ✅, perf:check (4 budgets) ✅, pipeline:contract:check (12 contratos) ✅, ci:policy:audit (44 tests) ✅.
+  - regeneración del inventario de código: 1028 módulos en `docs/INVENTARIO_CODIGO_EXHAUSTIVO.md`.
+  - generación de reporte de handoff en `docs/handoff/sesiones/2026-06-09/`.
 - Mantenimiento e Higiene de Workspace 2026-06-08:
   - corrección de la prueba E2E de instalación (`scripts/tests/installer-hub-e2e-docente.ps1`) para interactuar con `AcceptTermsCheckBox` y evitar timeouts en modo instalación.
   - consolidación del PR #24 (`chore: complete quality gates, workspace hygiene, and codebase inventory`) integrando la higiene en `main` local y remoto.

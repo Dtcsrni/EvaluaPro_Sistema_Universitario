@@ -9,13 +9,18 @@ Este archivo sigue el formato "Keep a Changelog" (alto nivel) y SemVer.
 - Validación estricta y reactiva para habilitar/deshabilitar la navegación (Siguiente e Iniciar/Continuar) según la aceptación de los términos y condiciones (obligatorio para el modo instalación).
 - Deshabilitación dinámica del botón de retroceso (Atrás) en el paso de "Preparar" cuando se opera en modos no-instalación (reparación o desinstalación) para evitar navegación accidental a los términos.
 - Autoelevación automática mediante UAC (`Start-Process -Verb RunAs -Wait`) en el script helper post-install (`InstallerBurnHelper.ps1`) si no se cuenta con permisos de escritura en la carpeta destino (`C:\Program Files\EvaluaPro`).
+- Configuración `/etc/docker/daemon.json` con `{"mtu":1200}` en WSL del host para corregir la fragmentación de paquetes causada por Cloudflare WARP (MTU 1280), habilitando builds Docker y pulls exitosos en el entorno de desarrollo.
+- Estrategia de transferencia de imágenes Docker para E2E: `scratch/sync-and-run-e2e.ps1` ahora construye imágenes de producción en WSL, las exporta a tar y las carga en la VM antes del E2E, eliminando la dependencia de credenciales GHCR privadas.
+- **[WPF Installer]** Botón "Iniciar" ahora se habilita correctamente en modo desinstalación aunque los prerequisitos reporten `ready=false` (fix: las 4 rutas de evaluación de `StartButton.IsEnabled` en `MainWindow.xaml.cs` incluyen `isUninstall` como bypass de `readyToStart`). Resuelve el bloqueo de desinstalación en sistemas parcialmente configurados.
+- **[Dockerfile backend]** Migración de Playwright/Chromium a Chromium del sistema instalado vía `apt-get` en la imagen de producción; se elimina `PLAYWRIGHT_BROWSERS_PATH` y la descarga de Playwright con dependencias. Reduce el tamaño de imagen al evitar artefactos de ffmpeg y de playwright-browsers.
+- **[InstallerBurnHelper]** `Invoke-DetectPrereqsMode` pasa `-IgnoreInstallerHub` a `Get-EvaluaProInstallationInfo` para evitar que el propio Hub en ejecución se detecte como instalación existente, previniendo estados de detección circular durante la detección de prerequisitos.
 
 ### Changed
 - Corrección de timeout en el script de prueba E2E de la instalación (`scripts/tests/installer-hub-e2e-docente.ps1`) mediante la marcación automatizada de `AcceptTermsCheckBox` cuando se ejecuta en modo `install`, garantizando el avance automático del asistente a la etapa de prerrequisitos.
 - Adaptación del stepper del asistente a 5 pasos ("1 Términos", "2 Preparar", "3 Revisar", "4 Ejecutar", "5 Resultado") e iconografía animada sincronizada.
 - Merge del PR #24 para consolidar la higiene del workspace, variables de entorno de auto-documentación e inventario de la codebase.
 - Integración y merge del PR #25 de Dependabot que actualiza el grupo `npm_and_yarn` (`picomatch` a 4.0.4 y `path-to-regexp` a 8.4.2) en el monorepo.
-- Verificación exhaustiva de toda la matriz local de calidad en la rama `main` (lint, typecheck, tests backend/frontend/portal, coverage, TDD, perf, clean-architecture y rulesets).
+- Verificación exhaustiva de toda la matriz local de calidad en las sesiones 2026-06-08 y 2026-06-09 (lint, typecheck, tests backend/frontend/portal, coverage, TDD, perf, pipeline contract y ci:policy:audit).
 
 ## [1.0.0-beta.15] - 2026-06-04
 

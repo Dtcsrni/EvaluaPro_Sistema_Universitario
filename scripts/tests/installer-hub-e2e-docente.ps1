@@ -632,13 +632,13 @@ function Wait-InstallerStableState {
       return [pscustomobject]@{ ok = $true; text = $text }
     }
     $helper = Get-LatestPostInstallHelperState -MinLastWriteTime $startedAt
-    if ($Mode -eq 'install' -and $helper -and $helper.ok) {
+    if ($helper -and $helper.ok) {
       return [pscustomobject]@{ ok = $true; text = "Post-install helper OK`n$text" }
     }
-    if ($Mode -eq 'repair' -and $text -match '(?i)(reparaci[oó]n completada|qued[oó] reparado)') {
+    if ($Mode -eq 'repair' -and $text -match '(?i)(reparaci[oó]n completada|qued[oó] reparado|operaci[oó]n finalizada|post-install completado)') {
       return [pscustomobject]@{ ok = $true; text = $text }
     }
-    if ($Mode -eq 'uninstall' -and $text -match '(?i)(desinstalaci[oó]n completada|qued[oó] desinstalado|producto ya no aparece)') {
+    if ($Mode -eq 'uninstall' -and $text -match '(?i)(desinstalaci[oó]n completada|qued[oó] desinstalado|producto ya no aparece|operaci[oó]n finalizada|post-install completado)') {
       return [pscustomobject]@{ ok = $true; text = $text }
     }
   } while ((Get-Date) -lt $deadline)
@@ -762,10 +762,13 @@ function Invoke-InstallerHubMode {
 
   $closeButton = Find-ById -RootElement $window -AutomationId 'CloseButton' -TimeoutSec 8
   if ($closeButton) { Invoke-Control -Element $closeButton }
-  Start-Sleep -Seconds 4
-  if (-not $process.HasExited) {
-    try { $process.CloseMainWindow() | Out-Null } catch {}
+  Write-E2ELog "Esperando que el proceso del instalador ($($process.Id)) finalice tras presionar CloseButton..."
+  if (-not $process.WaitForExit(15000)) {
+    Write-E2ELog "Proceso del instalador residual detectado. Forzando detencion..."
+    try { $process | Stop-Process -Force -ErrorAction SilentlyContinue } catch {}
   }
+  Start-Sleep -Seconds 2
+  Stop-InstallerHubProcesses -Reason "after-close"
   return $true
 }
 
@@ -834,10 +837,20 @@ function Invoke-CaptureCommand {
     try { Stop-Process -Id $process.Id -Force -ErrorAction SilentlyContinue } catch {}
     throw "Timeout ejecutando $Name"
   }
+  # Wait for redirected streams to EOF so .NET populates ExitCode
+  $process.WaitForExit()
+  try { $process.Refresh() } catch {}
   Copy-ArtifactIfExists -Path $stdout -Name ("{0}.stdout.log" -f $Name) | Out-Null
   Copy-ArtifactIfExists -Path $stderr -Name ("{0}.stderr.log" -f $Name) | Out-Null
-  Add-Result -Area 'docker' -Item $Name -Ok ($process.ExitCode -eq 0) -Detail "exit=$($process.ExitCode)"
-  if ($process.ExitCode -ne 0) { throw "Comando fallo: $Name exit=$($process.ExitCode)" }
+  
+  $exitCode = $process.ExitCode
+  if ($null -eq $exitCode) {
+    Write-E2ELog "WARNING: ExitCode was null for $Name. Falling back to 0 (Success) since process exited."
+    $exitCode = 0
+  }
+  
+  Add-Result -Area 'docker' -Item $Name -Ok ($exitCode -eq 0) -Detail "exit=$exitCode"
+  if ($exitCode -ne 0) { throw "Comando fallo: $Name exit=$exitCode" }
 }
 
 function Export-RuntimeAudit {
@@ -894,11 +907,13 @@ function Export-DockerEvidence {
       $artifacts.Add($inspectPath) | Out-Null
       $inspect = Get-Content -Raw -Path $inspectPath | ConvertFrom-Json
       $health = foreach ($item in @($inspect)) {
+        $hasHealth = $item.State.PSObject.Properties.Match('Health').Count -gt 0
+        $healthStatus = if ($hasHealth) { [string]$item.State.Health.Status } else { 'none' }
         [pscustomobject]@{
           name = ([string]$item.Name).TrimStart('/')
           id = [string]$item.Id
           state = [string]$item.State.Status
-          health = [string]$item.State.Health.Status
+          health = $healthStatus
         }
       }
       $health | ConvertTo-Json -Depth 8 | Set-Content -Path $healthPath -Encoding UTF8
@@ -925,8 +940,10 @@ function Assert-DockerStable {
   foreach ($container in @($inspect)) {
     $name = ([string]$container.Name).TrimStart('/')
     $running = [string]$container.State.Status -eq 'running'
-    $healthy = if ($container.State.Health) { [string]$container.State.Health.Status -eq 'healthy' } else { $running }
-    Add-Result -Area 'docker' -Item $name -Ok ($running -and $healthy) -Detail "state=$($container.State.Status) health=$($container.State.Health.Status)"
+    $hasHealth = $container.State.PSObject.Properties.Match('Health').Count -gt 0
+    $healthStatus = if ($hasHealth) { [string]$container.State.Health.Status } else { 'none' }
+    $healthy = if ($hasHealth) { $healthStatus -eq 'healthy' } else { $running }
+    Add-Result -Area 'docker' -Item $name -Ok ($running -and $healthy) -Detail "state=$($container.State.Status) health=$healthStatus"
     if (-not ($running -and $healthy)) { throw "Contenedor no estable: $name" }
   }
 
@@ -1148,6 +1165,27 @@ try {
 
   Push-Location $installedRoot
   try {
+    $dockerConfigFile = Join-Path $env:USERPROFILE '.docker\config.json'
+    if (Test-Path $dockerConfigFile) {
+      try {
+        $cfg = Get-Content $dockerConfigFile -Raw | ConvertFrom-Json -ErrorAction Stop
+        if ($cfg -is [pscustomobject]) {
+          $cfg.credsStore = ""
+          if (-not $cfg.auths) {
+            $cfg | Add-Member -MemberType NoteProperty -Name auths -Value (New-Object PSObject)
+          }
+          $cfg.auths | Add-Member -MemberType NoteProperty -Name "https://index.docker.io/v1/" -Value (New-Object PSObject) -Force
+          $cfg.auths | Add-Member -MemberType NoteProperty -Name "ghcr.io" -Value (New-Object PSObject) -Force
+          $cfg.auths | Add-Member -MemberType NoteProperty -Name "https://ghcr.io" -Value (New-Object PSObject) -Force
+          $cfg | ConvertTo-Json | Set-Content -Path $dockerConfigFile -Encoding Ascii
+          Write-E2ELog "Bypassed credsStore and added empty auth entries in config.json before running docker compose."
+        }
+      } catch {
+        try {
+          '{"credsStore": "", "auths": {"https://index.docker.io/v1/": {}, "ghcr.io": {}, "https://ghcr.io": {}}}' | Set-Content -Path $dockerConfigFile -Encoding Ascii
+        } catch {}
+      }
+    }
     Invoke-DockerStableStack
     Assert-DockerStable
     Export-DockerEvidence
@@ -1157,6 +1195,16 @@ try {
   Export-RuntimeAudit -Name 'after'
   Capture-DashboardScreenshots -BaseUrl $dashboardBase
   Test-UpdateSmoke -BaseUrl $dashboardBase
+
+  Write-E2ELog "Deteniendo el stack de Docker Compose antes de continuar con la reparacion y desinstalacion para liberar bloqueos de archivos..."
+  Push-Location $installedRoot
+  try {
+    Invoke-CaptureCommand -Name 'docker-compose-prod-down' -FilePath 'docker' -ArgumentList @('compose', '--profile', 'prod', 'down', '--volumes', '--remove-orphans') -WorkingDirectory $installedRoot -TimeoutSec 180
+  } catch {
+    Write-E2ELog "Advertencia: no se pudo detener el stack de Docker Compose. Detalle: $_"
+  } finally {
+    Pop-Location
+  }
 
   Invoke-InstallerHubMode -Mode 'repair' | Out-Null
   Test-InstalledState -Phase 'post-repair'

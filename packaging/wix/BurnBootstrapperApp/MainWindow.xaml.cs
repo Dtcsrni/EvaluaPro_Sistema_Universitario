@@ -90,8 +90,9 @@ public partial class MainWindow : Window
         }).ToList();
         PrereqListView.ItemsSource = rows;
         var isInstall = string.Equals(GetSelectedMode(), "install", StringComparison.OrdinalIgnoreCase);
+        var isUninstall = string.Equals(GetSelectedMode(), "uninstall", StringComparison.OrdinalIgnoreCase);
         var accepted = AcceptTermsCheckBox.IsChecked == true;
-        StartButton.IsEnabled = model.Ready && !busy && (!isInstall || accepted);
+        StartButton.IsEnabled = (model.Ready || isUninstall) && !busy && (!isInstall || accepted);
         FooterStatusTextBlock.Text = model.Ready
             ? "Equipo listo. Puedes ejecutar la operación seleccionada."
             : "Revisa prerequisitos antes de ejecutar la operación.";
@@ -163,8 +164,9 @@ public partial class MainWindow : Window
             busy = isBusy.Value;
             StatusSpinner.Visibility = busy ? Visibility.Visible : Visibility.Collapsed;
             var isInstall = string.Equals(GetSelectedMode(), "install", StringComparison.OrdinalIgnoreCase);
+            var isUninstall = string.Equals(GetSelectedMode(), "uninstall", StringComparison.OrdinalIgnoreCase);
             var accepted = AcceptTermsCheckBox.IsChecked == true;
-            StartButton.IsEnabled = !busy && readyToStart && (!isInstall || accepted);
+            StartButton.IsEnabled = !busy && (readyToStart || isUninstall) && (!isInstall || accepted);
             RestartNowButton.IsEnabled = !busy;
             BackButton.IsEnabled = !busy && currentStep != WizardStep.Terms && (currentStep != WizardStep.Prepare || isInstall);
             NextButton.IsEnabled = !busy && currentStep != WizardStep.Result && (currentStep != WizardStep.Terms || !isInstall || accepted);
@@ -389,7 +391,8 @@ public partial class MainWindow : Window
         hasDeterminateProgress = false;
         InstallProgressBar.IsIndeterminate = false;
         StatusTextBlock.Text = message;
-        StartButton.IsEnabled = !success && readyToStart;
+        var isUninstall = string.Equals(GetSelectedMode(), "uninstall", StringComparison.OrdinalIgnoreCase);
+        StartButton.IsEnabled = !success && (readyToStart || isUninstall);
         DetectButton.IsEnabled = true;
         RestartNowButton.IsEnabled = true;
         FooterStatusTextBlock.Text = success ? "Operación finalizada correctamente." : "Operación detenida. Revisa la evidencia técnica.";
@@ -708,6 +711,7 @@ public partial class MainWindow : Window
     private void RefreshWizardNavigation()
     {
         var isInstall = string.Equals(GetSelectedMode(), "install", StringComparison.OrdinalIgnoreCase);
+        var isUninstall = string.Equals(GetSelectedMode(), "uninstall", StringComparison.OrdinalIgnoreCase);
         var accepted = AcceptTermsCheckBox.IsChecked == true;
 
         BackButton.IsEnabled = !busy && currentStep != WizardStep.Terms && (currentStep != WizardStep.Prepare || isInstall);
@@ -723,7 +727,7 @@ public partial class MainWindow : Window
 
         DetectButton.Visibility = currentStep == WizardStep.Review ? Visibility.Visible : Visibility.Collapsed;
         StartButton.Visibility = currentStep is WizardStep.Review or WizardStep.Execute ? Visibility.Visible : Visibility.Collapsed;
-        StartButton.IsEnabled = !busy && readyToStart && (!isInstall || accepted);
+        StartButton.IsEnabled = !busy && (readyToStart || isUninstall) && (!isInstall || accepted);
     }
 
     private void AcceptTermsCheckBox_OnClick(object sender, RoutedEventArgs e)
