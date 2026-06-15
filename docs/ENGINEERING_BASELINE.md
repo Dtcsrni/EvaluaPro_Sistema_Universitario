@@ -1,11 +1,24 @@
 # Engineering Baseline
 
-Fecha de baseline: 2026-06-08
+Fecha de baseline: 2026-06-15
 Version tecnica: `1.0.0`
 Version visible GUI: `1.0.0b`
 
 ## Estado vigente
+- Corte 2026-06-15 (Fixes Installer Hub WPF, Dockerfile backend, InstallerBurnHelper):
+  - **Fix WPF desinstalación:** `MainWindow.xaml.cs` — las 4 rutas de evaluación de `StartButton.IsEnabled` ahora incluyen `isUninstall` como bypass de `readyToStart`. Resuelve bloqueo del botón "Iniciar" en modo desinstalación cuando el sistema repor `ready=false`.
+  - **Dockerfile backend:** Migración de Playwright/Chromium a Chromium del sistema (`apt-get install chromium`) en la imagen de producción. Se elimina `PLAYWRIGHT_BROWSERS_PATH` y la instalación de Playwright con dependencias, reduciendo footprint y evitando descarga de ffmpeg.
+  - **InstallerBurnHelper:** `Invoke-DetectPrereqsMode` pasa `-IgnoreInstallerHub` a `Get-EvaluaProInstallationInfo` para evitar detección circular del Hub en ejecución durante la fase de prerequisitos.
+  - Gates de cierre de corte: lint ✅, typecheck ✅, test:frontend:ci (37/114) ✅, test:portal:ci (12/33) ✅, pipeline:contract:check (12/12) ✅, test:backend:ci (97/338) ✅.
+  - Handoff de sesión generado: `docs/handoff/sesiones/2026-06-15/`.
+- Corte 2026-06-09 (Ciclo E2E y Gates de Calidad):
+  - Causa raíz del fallo E2E identificada: MTU de Cloudflare WARP (1280) fragmenta paquetes Docker en host WSL2, causando `denied` de GHCR y fallo de `apt-get` en builds.
+  - Corrección aplicada: `/etc/docker/daemon.json` con `{"mtu":1200}` en WSL del host; bridge network ahora opera con `mtu=1200`.
+  - `scratch/sync-and-run-e2e.ps1` modificado para construir imágenes prod localmente (WSL), exportarlas a tar y cargarlas en la VM antes del E2E, eliminando dependencia de GHCR privado.
+  - Matriz completa de gates de calidad local: lint ✅, typecheck ✅, test:frontend:ci (37/114) ✅, test:coverage:ci ✅, test:tdd:enforcement:ci ✅, test:backend:ci (97/338) ✅, test:portal:ci (12/33) ✅, perf:check ✅, pipeline:contract:check (12) ✅, ci:policy:audit (44) ✅.
+  - Inventario de código regenerado: 1028 módulos. Handoff generado en `docs/handoff/sesiones/2026-06-09/`.
 - Corte 2026-06-08 (Mantenimiento e Higiene de Workspace):
+  - Corrección de la prueba E2E de instalación (`scripts/tests/installer-hub-e2e-docente.ps1`) interactuando con `AcceptTermsCheckBox` para evitar timeouts en modo instalación.
   - Consolidación del PR #24 (`chore: complete quality gates, workspace hygiene, and codebase inventory`) integrando la higiene en `main` local y remoto.
   - Integración del PR #25 de Dependabot que actualiza y sanea el grupo `npm_and_yarn` (`picomatch` a 4.0.4 y `path-to-regexp` a 8.4.2) en el monorepo.
   - Ejecución y paso exitoso de toda la matriz local de gates de calidad (lint, typecheck, tests de frontend, backend y portal, coverage, TDD, perf, clean-architecture y rulesets).

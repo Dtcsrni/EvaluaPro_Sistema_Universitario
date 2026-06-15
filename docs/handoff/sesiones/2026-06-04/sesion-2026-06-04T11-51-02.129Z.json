@@ -1,0 +1,243 @@
+{
+  "traceSchemaVersion": "1.0.0",
+  "sessionId": "sesion-2026-06-04T11-51-02.129Z",
+  "status": "draft",
+  "generatedAt": "2026-06-04T11:51:02.129Z",
+  "validationProfile": "quick",
+  "agent": {
+    "name": "unknown",
+    "version": "unknown",
+    "provider": "unknown",
+    "kind": "unknown",
+    "channel": "unknown"
+  },
+  "request": {
+    "summary": "Pendiente de completar por el agente."
+  },
+  "objective": "Pendiente de completar por el agente.",
+  "scope": [],
+  "constraints": [],
+  "actions": [
+    {
+      "type": "validation",
+      "summary": "Ejecucion de lint",
+      "timestamp": "2026-06-04T11:51:02.129Z",
+      "status": "omitido"
+    },
+    {
+      "type": "validation",
+      "summary": "Ejecucion de typecheck",
+      "timestamp": "2026-06-04T11:51:02.129Z",
+      "status": "omitido"
+    },
+    {
+      "type": "validation",
+      "summary": "Ejecucion de test_frontend_ci",
+      "timestamp": "2026-06-04T11:51:02.129Z",
+      "status": "omitido"
+    },
+    {
+      "type": "validation",
+      "summary": "Ejecucion de test_coverage_ci",
+      "timestamp": "2026-06-04T11:51:02.129Z",
+      "status": "omitido"
+    },
+    {
+      "type": "validation",
+      "summary": "Ejecucion de test_tdd_enforcement_ci",
+      "timestamp": "2026-06-04T11:51:02.129Z",
+      "status": "omitido"
+    },
+    {
+      "type": "validation",
+      "summary": "Ejecucion de test_backend_ci",
+      "timestamp": "2026-06-04T11:51:02.129Z",
+      "status": "omitido"
+    },
+    {
+      "type": "validation",
+      "summary": "Ejecucion de test_portal_ci",
+      "timestamp": "2026-06-04T11:51:02.129Z",
+      "status": "omitido"
+    },
+    {
+      "type": "validation",
+      "summary": "Ejecucion de perf_check",
+      "timestamp": "2026-06-04T11:51:02.129Z",
+      "status": "omitido"
+    },
+    {
+      "type": "validation",
+      "summary": "Ejecucion de pipeline_contract_check",
+      "timestamp": "2026-06-04T11:51:02.129Z",
+      "status": "ok"
+    },
+    {
+      "type": "validation",
+      "summary": "Ejecucion de docs_check",
+      "timestamp": "2026-06-04T11:51:02.129Z",
+      "status": "falla"
+    }
+  ],
+  "files": {
+    "read": [],
+    "changed": [
+      "chrome/",
+      "reports/release/beta/",
+      "scratch/check-explorer.ps1",
+      "scratch/check-vm-processes.ps1",
+      "scratch/check-vm.ps1",
+      "scratch/cleanup-resume-and-rerun.ps1",
+      "scratch/cleanup-resume-status.json",
+      "scratch/copy-reports-status.json",
+      "scratch/explorer-status.json",
+      "scratch/full-e2e-pipeline-noelevation.ps1",
+      "scratch/full-e2e-pipeline.ps1",
+      "scratch/full-e2e-pipeline.transcript.log",
+      "scratch/handoff_input.json",
+      "scratch/install-ubuntu-vm.ps1",
+      "scratch/patch-e2e-script.ps1",
+      "scratch/patch-e2e.js",
+      "scratch/query-vm-status.ps1",
+      "scratch/read-log-direct.ps1",
+      "scratch/restart-docker-vm.ps1",
+      "scratch/restore-and-configure-vm.ps1",
+      "scratch/restore-and-configure-vm.report.json",
+      "scratch/restore-and-configure-vm.transcript.log",
+      "scratch/screenshots-status.json",
+      "scratch/setup-noelevation-pipeline.js",
+      "scratch/sync-and-run-e2e.ps1",
+      "scratch/sync-and-run-e2e.report.json",
+      "scratch/sync-and-run-e2e.transcript.log",
+      "scratch/test-api.mjs",
+      "scratch/ubuntu-install-status.json",
+      "scratch/vm-burn-log.json",
+      "scratch/vm-detailed-status.json",
+      "scratch/vm-log-slice.txt",
+      "scratch/vm-processes.json",
+      "scratch/vm-provision-wsl-docker-node-winrm.ps1",
+      "scratch/vm-provision-wsl-docker-node.report.json",
+      "scratch/vm-requests-log.json",
+      "scratch/vm-status.json",
+      "scratch/wpf-install-01-splash-deteccion.png",
+      "tmp/puppeteer-cache/"
+    ],
+    "artifacts": [
+      "docs/handoff/sesiones/2026-06-04/sesion-2026-06-04T11-51-02.129Z.json",
+      "docs/handoff/sesiones/2026-06-04/sesion-2026-06-04T11-51-02.129Z.md"
+    ]
+  },
+  "commands": [
+    {
+      "name": "lint",
+      "command": "npm run lint",
+      "status": "omitido",
+      "exitCode": null,
+      "durationMs": 0,
+      "resultSummary": "omitido por perfil quick",
+      "timestamp": "2026-06-04T11:51:02.129Z"
+    },
+    {
+      "name": "typecheck",
+      "command": "npm run typecheck",
+      "status": "omitido",
+      "exitCode": null,
+      "durationMs": 0,
+      "resultSummary": "omitido por perfil quick",
+      "timestamp": "2026-06-04T11:51:02.129Z"
+    },
+    {
+      "name": "test_frontend_ci",
+      "command": "npm run test:frontend:ci",
+      "status": "omitido",
+      "exitCode": null,
+      "durationMs": 0,
+      "resultSummary": "omitido por perfil quick",
+      "timestamp": "2026-06-04T11:51:02.129Z"
+    },
+    {
+      "name": "test_coverage_ci",
+      "command": "npm run test:coverage:ci",
+      "status": "omitido",
+      "exitCode": null,
+      "durationMs": 0,
+      "resultSummary": "omitido por perfil quick",
+      "timestamp": "2026-06-04T11:51:02.129Z"
+    },
+    {
+      "name": "test_tdd_enforcement_ci",
+      "command": "npm run test:tdd:enforcement:ci",
+      "status": "omitido",
+      "exitCode": null,
+      "durationMs": 0,
+      "resultSummary": "omitido por perfil quick",
+      "timestamp": "2026-06-04T11:51:02.129Z"
+    },
+    {
+      "name": "test_backend_ci",
+      "command": "npm run test:backend:ci",
+      "status": "omitido",
+      "exitCode": null,
+      "durationMs": 0,
+      "resultSummary": "omitido por perfil quick",
+      "timestamp": "2026-06-04T11:51:02.129Z"
+    },
+    {
+      "name": "test_portal_ci",
+      "command": "npm run test:portal:ci",
+      "status": "omitido",
+      "exitCode": null,
+      "durationMs": 0,
+      "resultSummary": "omitido por perfil quick",
+      "timestamp": "2026-06-04T11:51:02.129Z"
+    },
+    {
+      "name": "perf_check",
+      "command": "npm run perf:check",
+      "status": "omitido",
+      "exitCode": null,
+      "durationMs": 0,
+      "resultSummary": "omitido por perfil quick",
+      "timestamp": "2026-06-04T11:51:02.129Z"
+    },
+    {
+      "name": "pipeline_contract_check",
+      "command": "npm run pipeline:contract:check",
+      "status": "ok",
+      "exitCode": 0,
+      "durationMs": 528,
+      "resultSummary": "> evaluapro@1.0.0 pipeline:contract:check | > node scripts/pipeline-contract-check.mjs | ✔ ext_perf_arquitectura prepara sharp antes de perf:check (2.6929ms) | ✔ ext_funcionales usa gate OMR TV generico con version configurable (0.4759ms) | ... | ℹ duration_ms 86.1311 | pipeline contract OK",
+      "timestamp": "2026-06-04T11:51:02.129Z"
+    },
+    {
+      "name": "docs_check",
+      "command": "npm run docs:check",
+      "status": "falla",
+      "exitCode": 1,
+      "durationMs": 842,
+      "resultSummary": "> evaluapro@1.0.0 docs:check | > node scripts/docs.mjs --check | [docs] desactualizado: docs/AUTO_ENV.md | [docs] corre: npm run docs:generate",
+      "timestamp": "2026-06-04T11:51:02.129Z"
+    }
+  ],
+  "decisions": [],
+  "assumptions": [],
+  "risks": [],
+  "nextStep": "Pendiente de completar por el agente.",
+  "completion": {
+    "isComplete": false,
+    "pendingFields": [
+      "request.summary",
+      "objective",
+      "scope",
+      "decisions",
+      "risks",
+      "nextStep"
+    ]
+  },
+  "repo": {
+    "rootDir": "C:\\Users\\evega\\EvaluaPro_Sistema_Universitario",
+    "branch": "chore/document-tdd-clean",
+    "commit": "077b58a",
+    "workingTreeStatus": "?? chrome/\n?? reports/release/beta/\n?? scratch/check-explorer.ps1\n?? scratch/check-vm-processes.ps1\n?? scratch/check-vm.ps1\n?? scratch/cleanup-resume-and-rerun.ps1\n?? scratch/cleanup-resume-status.json\n?? scratch/copy-reports-status.json\n?? scratch/explorer-status.json\n?? scratch/full-e2e-pipeline-noelevation.ps1\n?? scratch/full-e2e-pipeline.ps1\n?? scratch/full-e2e-pipeline.transcript.log\n?? scratch/handoff_input.json\n?? scratch/install-ubuntu-vm.ps1\n?? scratch/patch-e2e-script.ps1\n?? scratch/patch-e2e.js\n?? scratch/query-vm-status.ps1\n?? scratch/read-log-direct.ps1\n?? scratch/restart-docker-vm.ps1\n?? scratch/restore-and-configure-vm.ps1\n?? scratch/restore-and-configure-vm.report.json\n?? scratch/restore-and-configure-vm.transcript.log\n?? scratch/screenshots-status.json\n?? scratch/setup-noelevation-pipeline.js\n?? scratch/sync-and-run-e2e.ps1\n?? scratch/sync-and-run-e2e.report.json\n?? scratch/sync-and-run-e2e.transcript.log\n?? scratch/test-api.mjs\n?? scratch/ubuntu-install-status.json\n?? scratch/vm-burn-log.json\n?? scratch/vm-detailed-status.json\n?? scratch/vm-log-slice.txt\n?? scratch/vm-processes.json\n?? scratch/vm-provision-wsl-docker-node-winrm.ps1\n?? scratch/vm-provision-wsl-docker-node.report.json\n?? scratch/vm-requests-log.json\n?? scratch/vm-status.json\n?? scratch/wpf-install-01-splash-deteccion.png\n?? tmp/puppeteer-cache/"
+  }
+}

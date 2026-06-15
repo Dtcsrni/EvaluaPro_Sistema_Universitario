@@ -39,7 +39,7 @@ function Invoke-PostInstallVerification {
   $allowUnregistered = @('1', 'true', 'yes', 'on') -contains ([string]$env:EVALUAPRO_INSTALLER_ALLOW_UNREGISTERED).Trim().ToLowerInvariant()
 
   if ($Mode -eq 'install' -or $Mode -eq 'repair') {
-    $installation = Get-EvaluaProInstallationInfo
+    $installation = Get-EvaluaProInstallationInfo -IgnoreInstallerHub
     if (-not $installation.Installed -and -not $allowUnregistered) {
       $issues += 'No se detecta EvaluaPro en registro tras instalacion/reparacion.'
     }
@@ -128,9 +128,12 @@ function Invoke-PostInstallVerification {
         $issues += 'Runtime Node embebido local no disponible tras instalacion.'
       }
 
-      $wslNodeMajor = Get-WslNodeMajorVersion
-      if ($wslNodeMajor -lt 24) {
-        $issues += 'Node 24 no provisionado dentro de WSL2 tras instalacion.'
+      $runtimeStatus = Get-DockerRuntimeStatus
+      if (-not ([bool]$runtimeStatus.ready -and [string]$runtimeStatus.mode -eq 'desktop')) {
+        $wslNodeMajor = Get-WslNodeMajorVersion
+        if ($wslNodeMajor -lt 24) {
+          $issues += 'Node 24 no provisionado dentro de WSL2 tras instalacion.'
+        }
       }
     } else {
       $nodeMajor = Get-NodeMajorVersion

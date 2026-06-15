@@ -647,7 +647,7 @@ function Invoke-DetectPrereqsMode {
   $internetOk = Test-InternetConnectivity
   $system = Get-SystemRequirementReport -InstallPath $installDir -MinDiskGb ([int]$flavor.minDiskGb) -InternetOk $internetOk
   $runtime = Get-DockerRuntimeStatus
-  $installation = Get-EvaluaProInstallationInfo
+  $installation = Get-EvaluaProInstallationInfo -IgnoreInstallerHub
   $recommendedMode = Resolve-InstallerMode -RequestedMode 'auto' -Installation $installation
   $prereqs = @()
 

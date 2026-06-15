@@ -1,0 +1,279 @@
+{
+  "traceSchemaVersion": "1.0.0",
+  "sessionId": "sesion-2026-06-05T09-56-13.891Z",
+  "status": "draft",
+  "generatedAt": "2026-06-05T09:56:13.891Z",
+  "validationProfile": "quick",
+  "agent": {
+    "name": "unknown",
+    "version": "unknown",
+    "provider": "unknown",
+    "kind": "unknown",
+    "channel": "unknown"
+  },
+  "request": {
+    "summary": "Pendiente de completar por el agente."
+  },
+  "objective": "Pendiente de completar por el agente.",
+  "scope": [],
+  "constraints": [],
+  "actions": [
+    {
+      "type": "validation",
+      "summary": "Ejecucion de lint",
+      "timestamp": "2026-06-05T09:56:13.891Z",
+      "status": "omitido"
+    },
+    {
+      "type": "validation",
+      "summary": "Ejecucion de typecheck",
+      "timestamp": "2026-06-05T09:56:13.891Z",
+      "status": "omitido"
+    },
+    {
+      "type": "validation",
+      "summary": "Ejecucion de test_frontend_ci",
+      "timestamp": "2026-06-05T09:56:13.891Z",
+      "status": "omitido"
+    },
+    {
+      "type": "validation",
+      "summary": "Ejecucion de test_coverage_ci",
+      "timestamp": "2026-06-05T09:56:13.891Z",
+      "status": "omitido"
+    },
+    {
+      "type": "validation",
+      "summary": "Ejecucion de test_tdd_enforcement_ci",
+      "timestamp": "2026-06-05T09:56:13.891Z",
+      "status": "omitido"
+    },
+    {
+      "type": "validation",
+      "summary": "Ejecucion de test_backend_ci",
+      "timestamp": "2026-06-05T09:56:13.891Z",
+      "status": "omitido"
+    },
+    {
+      "type": "validation",
+      "summary": "Ejecucion de test_portal_ci",
+      "timestamp": "2026-06-05T09:56:13.891Z",
+      "status": "omitido"
+    },
+    {
+      "type": "validation",
+      "summary": "Ejecucion de perf_check",
+      "timestamp": "2026-06-05T09:56:13.891Z",
+      "status": "omitido"
+    },
+    {
+      "type": "validation",
+      "summary": "Ejecucion de pipeline_contract_check",
+      "timestamp": "2026-06-05T09:56:13.891Z",
+      "status": "ok"
+    },
+    {
+      "type": "validation",
+      "summary": "Ejecucion de docs_check",
+      "timestamp": "2026-06-05T09:56:13.891Z",
+      "status": "falla"
+    }
+  ],
+  "files": {
+    "read": [],
+    "changed": [
+      "CHANGELOG.md",
+      "apps/backend/reports/qa/latest/e2e-docente-alumno.json",
+      "apps/backend/reports/qa/latest/global-grade.json",
+      "apps/backend/reports/qa/latest/pdf-print.json",
+      "apps/frontend/reports/qa/latest/ux-visual.json",
+      "docs/ENGINEERING_BASELINE.md",
+      "docs/INVENTARIO_CODIGO_EXHAUSTIVO.md",
+      "docs/INVENTARIO_PROYECTO.md",
+      "packaging/wix/BurnBootstrapperApp/MainWindow.xaml",
+      "packaging/wix/BurnBootstrapperApp/MainWindow.xaml.cs",
+      "packaging/wix/BurnBootstrapperApp/bin/Release/net8.0-windows/win-x64/EvaluaPro.BurnBootstrapperApp.dll",
+      "packaging/wix/BurnBootstrapperApp/bin/Release/net8.0-windows/win-x64/EvaluaPro.BurnBootstrapperApp.exe",
+      "packaging/wix/BurnBootstrapperApp/bin/Release/net8.0-windows/win-x64/EvaluaPro.BurnBootstrapperApp.pdb",
+      "packaging/wix/BurnBootstrapperApp/obj/EvaluaPro.BurnBootstrapperApp.csproj.nuget.dgspec.json",
+      "packaging/wix/BurnBootstrapperApp/obj/Release/net8.0-windows/win-x64/EvaluaPro.BurnBootstrapperApp.AssemblyInfo.cs",
+      "packaging/wix/BurnBootstrapperApp/obj/Release/net8.0-windows/win-x64/EvaluaPro.BurnBootstrapperApp.AssemblyInfoInputs.cache",
+      "packaging/wix/BurnBootstrapperApp/obj/Release/net8.0-windows/win-x64/EvaluaPro.BurnBootstrapperApp.GeneratedMSBuildEditorConfig.editorconfig",
+      "packaging/wix/BurnBootstrapperApp/obj/Release/net8.0-windows/win-x64/EvaluaPro.BurnBootstrapperApp.assets.cache",
+      "packaging/wix/BurnBootstrapperApp/obj/Release/net8.0-windows/win-x64/EvaluaPro.BurnBootstrapperApp.csproj.CoreCompileInputs.cache",
+      "packaging/wix/BurnBootstrapperApp/obj/Release/net8.0-windows/win-x64/EvaluaPro.BurnBootstrapperApp.dll",
+      "packaging/wix/BurnBootstrapperApp/obj/Release/net8.0-windows/win-x64/EvaluaPro.BurnBootstrapperApp.g.resources",
+      "packaging/wix/BurnBootstrapperApp/obj/Release/net8.0-windows/win-x64/EvaluaPro.BurnBootstrapperApp.genruntimeconfig.cache",
+      "packaging/wix/BurnBootstrapperApp/obj/Release/net8.0-windows/win-x64/EvaluaPro.BurnBootstrapperApp.pdb",
+      "packaging/wix/BurnBootstrapperApp/obj/Release/net8.0-windows/win-x64/EvaluaPro.BurnBootstrapperApp.sourcelink.json",
+      "packaging/wix/BurnBootstrapperApp/obj/Release/net8.0-windows/win-x64/EvaluaPro.BurnBootstrapperApp_MarkupCompile.cache",
+      "packaging/wix/BurnBootstrapperApp/obj/Release/net8.0-windows/win-x64/MainWindow.baml",
+      "packaging/wix/BurnBootstrapperApp/obj/Release/net8.0-windows/win-x64/MainWindow.g.cs",
+      "packaging/wix/BurnBootstrapperApp/obj/Release/net8.0-windows/win-x64/ref/EvaluaPro.BurnBootstrapperApp.dll",
+      "packaging/wix/BurnBootstrapperApp/obj/Release/net8.0-windows/win-x64/refint/EvaluaPro.BurnBootstrapperApp.dll",
+      "packaging/wix/BurnBootstrapperApp/obj/Release/net8.0-windows/win-x64/singlefilehost.exe",
+      "packaging/wix/BurnBootstrapperApp/obj/project.assets.json",
+      "packaging/wix/BurnBootstrapperApp/obj/project.nuget.cache",
+      "reports/qa/latest/clean-architecture.json",
+      "scripts/installer-burn/InstallerBurnHelper.ps1",
+      "chrome/",
+      "docs/handoff/sesiones/2026-06-04/sesion-2026-06-04T11-51-02.129Z.json",
+      "docs/handoff/sesiones/2026-06-04/sesion-2026-06-04T11-51-02.129Z.md",
+      "reports/release/beta/",
+      "scratch/check-explorer.ps1",
+      "scratch/check-vm-processes.ps1",
+      "scratch/check-vm.ps1",
+      "scratch/cleanup-resume-and-rerun.ps1",
+      "scratch/cleanup-resume-status.json",
+      "scratch/copy-reports-status.json",
+      "scratch/explorer-status.json",
+      "scratch/full-e2e-pipeline-noelevation.ps1",
+      "scratch/full-e2e-pipeline.ps1",
+      "scratch/full-e2e-pipeline.transcript.log",
+      "scratch/handoff_input.json",
+      "scratch/install-ubuntu-vm.ps1",
+      "scratch/patch-e2e-script.ps1",
+      "scratch/patch-e2e.js",
+      "scratch/query-vm-status.ps1",
+      "scratch/read-log-direct.ps1",
+      "scratch/restart-docker-vm.ps1",
+      "scratch/restore-and-configure-vm.ps1",
+      "scratch/restore-and-configure-vm.report.json",
+      "scratch/restore-and-configure-vm.transcript.log",
+      "scratch/screenshots-status.json",
+      "scratch/setup-noelevation-pipeline.js",
+      "scratch/sync-and-run-e2e.ps1",
+      "scratch/sync-and-run-e2e.report.json",
+      "scratch/sync-and-run-e2e.transcript.log",
+      "scratch/test-api.mjs",
+      "scratch/ubuntu-install-status.json",
+      "scratch/vm-burn-log.json",
+      "scratch/vm-detailed-status.json",
+      "scratch/vm-log-slice.txt",
+      "scratch/vm-processes.json",
+      "scratch/vm-provision-wsl-docker-node-winrm.ps1",
+      "scratch/vm-provision-wsl-docker-node.report.json",
+      "scratch/vm-requests-log.json",
+      "scratch/vm-status.json",
+      "scratch/wpf-install-01-splash-deteccion.png",
+      "tmp/puppeteer-cache/"
+    ],
+    "artifacts": [
+      "docs/handoff/sesiones/2026-06-05/sesion-2026-06-05T09-56-13.891Z.json",
+      "docs/handoff/sesiones/2026-06-05/sesion-2026-06-05T09-56-13.891Z.md"
+    ]
+  },
+  "commands": [
+    {
+      "name": "lint",
+      "command": "npm run lint",
+      "status": "omitido",
+      "exitCode": null,
+      "durationMs": 0,
+      "resultSummary": "omitido por perfil quick",
+      "timestamp": "2026-06-05T09:56:13.891Z"
+    },
+    {
+      "name": "typecheck",
+      "command": "npm run typecheck",
+      "status": "omitido",
+      "exitCode": null,
+      "durationMs": 0,
+      "resultSummary": "omitido por perfil quick",
+      "timestamp": "2026-06-05T09:56:13.891Z"
+    },
+    {
+      "name": "test_frontend_ci",
+      "command": "npm run test:frontend:ci",
+      "status": "omitido",
+      "exitCode": null,
+      "durationMs": 0,
+      "resultSummary": "omitido por perfil quick",
+      "timestamp": "2026-06-05T09:56:13.891Z"
+    },
+    {
+      "name": "test_coverage_ci",
+      "command": "npm run test:coverage:ci",
+      "status": "omitido",
+      "exitCode": null,
+      "durationMs": 0,
+      "resultSummary": "omitido por perfil quick",
+      "timestamp": "2026-06-05T09:56:13.891Z"
+    },
+    {
+      "name": "test_tdd_enforcement_ci",
+      "command": "npm run test:tdd:enforcement:ci",
+      "status": "omitido",
+      "exitCode": null,
+      "durationMs": 0,
+      "resultSummary": "omitido por perfil quick",
+      "timestamp": "2026-06-05T09:56:13.891Z"
+    },
+    {
+      "name": "test_backend_ci",
+      "command": "npm run test:backend:ci",
+      "status": "omitido",
+      "exitCode": null,
+      "durationMs": 0,
+      "resultSummary": "omitido por perfil quick",
+      "timestamp": "2026-06-05T09:56:13.891Z"
+    },
+    {
+      "name": "test_portal_ci",
+      "command": "npm run test:portal:ci",
+      "status": "omitido",
+      "exitCode": null,
+      "durationMs": 0,
+      "resultSummary": "omitido por perfil quick",
+      "timestamp": "2026-06-05T09:56:13.891Z"
+    },
+    {
+      "name": "perf_check",
+      "command": "npm run perf:check",
+      "status": "omitido",
+      "exitCode": null,
+      "durationMs": 0,
+      "resultSummary": "omitido por perfil quick",
+      "timestamp": "2026-06-05T09:56:13.891Z"
+    },
+    {
+      "name": "pipeline_contract_check",
+      "command": "npm run pipeline:contract:check",
+      "status": "ok",
+      "exitCode": 0,
+      "durationMs": 472,
+      "resultSummary": "> evaluapro@1.0.0 pipeline:contract:check | > node scripts/pipeline-contract-check.mjs | ✔ ext_perf_arquitectura prepara sharp antes de perf:check (2.1139ms) | ✔ ext_funcionales usa gate OMR TV generico con version configurable (0.2698ms) | ... | ℹ duration_ms 78.6265 | pipeline contract OK",
+      "timestamp": "2026-06-05T09:56:13.891Z"
+    },
+    {
+      "name": "docs_check",
+      "command": "npm run docs:check",
+      "status": "falla",
+      "exitCode": 1,
+      "durationMs": 651,
+      "resultSummary": "> evaluapro@1.0.0 docs:check | > node scripts/docs.mjs --check | [docs] desactualizado: docs/AUTO_ENV.md | [docs] corre: npm run docs:generate",
+      "timestamp": "2026-06-05T09:56:13.891Z"
+    }
+  ],
+  "decisions": [],
+  "assumptions": [],
+  "risks": [],
+  "nextStep": "Pendiente de completar por el agente.",
+  "completion": {
+    "isComplete": false,
+    "pendingFields": [
+      "request.summary",
+      "objective",
+      "scope",
+      "decisions",
+      "risks",
+      "nextStep"
+    ]
+  },
+  "repo": {
+    "rootDir": "C:\\Users\\evega\\EvaluaPro_Sistema_Universitario",
+    "branch": "chore/document-tdd-clean",
+    "commit": "077b58a",
+    "workingTreeStatus": "M CHANGELOG.md\n M apps/backend/reports/qa/latest/e2e-docente-alumno.json\n M apps/backend/reports/qa/latest/global-grade.json\n M apps/backend/reports/qa/latest/pdf-print.json\n M apps/frontend/reports/qa/latest/ux-visual.json\n M docs/ENGINEERING_BASELINE.md\n M docs/INVENTARIO_CODIGO_EXHAUSTIVO.md\n M docs/INVENTARIO_PROYECTO.md\n M packaging/wix/BurnBootstrapperApp/MainWindow.xaml\n M packaging/wix/BurnBootstrapperApp/MainWindow.xaml.cs\n M packaging/wix/BurnBootstrapperApp/bin/Release/net8.0-windows/win-x64/EvaluaPro.BurnBootstrapperApp.dll\n M packaging/wix/BurnBootstrapperApp/bin/Release/net8.0-windows/win-x64/EvaluaPro.BurnBootstrapperApp.exe\n M packaging/wix/BurnBootstrapperApp/bin/Release/net8.0-windows/win-x64/EvaluaPro.BurnBootstrapperApp.pdb\n M packaging/wix/BurnBootstrapperApp/obj/EvaluaPro.BurnBootstrapperApp.csproj.nuget.dgspec.json\n M packaging/wix/BurnBootstrapperApp/obj/Release/net8.0-windows/win-x64/EvaluaPro.BurnBootstrapperApp.AssemblyInfo.cs\n M packaging/wix/BurnBootstrapperApp/obj/Release/net8.0-windows/win-x64/EvaluaPro.BurnBootstrapperApp.AssemblyInfoInputs.cache\n M packaging/wix/BurnBootstrapperApp/obj/Release/net8.0-windows/win-x64/EvaluaPro.BurnBootstrapperApp.GeneratedMSBuildEditorConfig.editorconfig\n M packaging/wix/BurnBootstrapperApp/obj/Release/net8.0-windows/win-x64/EvaluaPro.BurnBootstrapperApp.assets.cache\n M packaging/wix/BurnBootstrapperApp/obj/Release/net8.0-windows/win-x64/EvaluaPro.BurnBootstrapperApp.csproj.CoreCompileInputs.cache\n M packaging/wix/BurnBootstrapperApp/obj/Release/net8.0-windows/win-x64/EvaluaPro.BurnBootstrapperApp.dll\n M packaging/wix/BurnBootstrapperApp/obj/Release/net8.0-windows/win-x64/EvaluaPro.BurnBootstrapperApp.g.resources\n M packaging/wix/BurnBootstrapperApp/obj/Release/net8.0-windows/win-x64/EvaluaPro.BurnBootstrapperApp.genruntimeconfig.cache\n M packaging/wix/BurnBootstrapperApp/obj/Release/net8.0-windows/win-x64/EvaluaPro.BurnBootstrapperApp.pdb\n M packaging/wix/BurnBootstrapperApp/obj/Release/net8.0-windows/win-x64/EvaluaPro.BurnBootstrapperApp.sourcelink.json\n M packaging/wix/BurnBootstrapperApp/obj/Release/net8.0-windows/win-x64/EvaluaPro.BurnBootstrapperApp_MarkupCompile.cache\n M packaging/wix/BurnBootstrapperApp/obj/Release/net8.0-windows/win-x64/MainWindow.baml\n M packaging/wix/BurnBootstrapperApp/obj/Release/net8.0-windows/win-x64/MainWindow.g.cs\n M packaging/wix/BurnBootstrapperApp/obj/Release/net8.0-windows/win-x64/ref/EvaluaPro.BurnBootstrapperApp.dll\n M packaging/wix/BurnBootstrapperApp/obj/Release/net8.0-windows/win-x64/refint/EvaluaPro.BurnBootstrapperApp.dll\n M packaging/wix/BurnBootstrapperApp/obj/Release/net8.0-windows/win-x64/singlefilehost.exe\n M packaging/wix/BurnBootstrapperApp/obj/project.assets.json\n M packaging/wix/BurnBootstrapperApp/obj/project.nuget.cache\n M reports/qa/latest/clean-architecture.json\n M scripts/installer-burn/InstallerBurnHelper.ps1\n?? chrome/\n?? docs/handoff/sesiones/2026-06-04/sesion-2026-06-04T11-51-02.129Z.json\n?? docs/handoff/sesiones/2026-06-04/sesion-2026-06-04T11-51-02.129Z.md\n?? reports/release/beta/\n?? scratch/check-explorer.ps1\n?? scratch/check-vm-processes.ps1\n?? scratch/check-vm.ps1\n?? scratch/cleanup-resume-and-rerun.ps1\n?? scratch/cleanup-resume-status.json\n?? scratch/copy-reports-status.json\n?? scratch/explorer-status.json\n?? scratch/full-e2e-pipeline-noelevation.ps1\n?? scratch/full-e2e-pipeline.ps1\n?? scratch/full-e2e-pipeline.transcript.log\n?? scratch/handoff_input.json\n?? scratch/install-ubuntu-vm.ps1\n?? scratch/patch-e2e-script.ps1\n?? scratch/patch-e2e.js\n?? scratch/query-vm-status.ps1\n?? scratch/read-log-direct.ps1\n?? scratch/restart-docker-vm.ps1\n?? scratch/restore-and-configure-vm.ps1\n?? scratch/restore-and-configure-vm.report.json\n?? scratch/restore-and-configure-vm.transcript.log\n?? scratch/screenshots-status.json\n?? scratch/setup-noelevation-pipeline.js\n?? scratch/sync-and-run-e2e.ps1\n?? scratch/sync-and-run-e2e.report.json\n?? scratch/sync-and-run-e2e.transcript.log\n?? scratch/test-api.mjs\n?? scratch/ubuntu-install-status.json\n?? scratch/vm-burn-log.json\n?? scratch/vm-detailed-status.json\n?? scratch/vm-log-slice.txt\n?? scratch/vm-processes.json\n?? scratch/vm-provision-wsl-docker-node-winrm.ps1\n?? scratch/vm-provision-wsl-docker-node.report.json\n?? scratch/vm-requests-log.json\n?? scratch/vm-status.json\n?? scratch/wpf-install-01-splash-deteccion.png\n?? tmp/puppeteer-cache/"
+  }
+}

@@ -832,7 +832,7 @@ function Get-EvaluaProInstallationHealth {
 
   $allowUnregistered = @('1', 'true', 'yes', 'on') -contains ([string]$env:EVALUAPRO_INSTALLER_ALLOW_UNREGISTERED).Trim().ToLowerInvariant()
 
-  $info = Get-EvaluaProInstallationInfo
+  $info = Get-EvaluaProInstallationInfo -IgnoreInstallerHub
   $installLocationProp = $info.PSObject.Properties['InstallLocation']
   $installLocation = if ($installLocationProp -and $installLocationProp.Value) { [string]$installLocationProp.Value } else { '' }
   $effectiveDir = if ($InstallDir) { $InstallDir } elseif ($installLocation) { $installLocation } else { '' }
