@@ -13,7 +13,7 @@ Version visible GUI: `1.0.0b`
   - **Panel de Control Docente:** Diseñada la interfaz de control en `SeccionCalificaciones.tsx` que permite inicializar el encuadre (con carga de logos en base64) y monitorear el estado de las firmas de los alumnos.
   - **Vista Pública de Firma Standalone:** Diseñado el componente público `PaginaFirmaEncuadre.tsx` expuesto bajo la ruta hash interceptada `#/firmar-encuadre/:token` en `App.tsx` para firmar digitalmente sin iniciar sesión.
   - **Higiene de Código (Inline Styles):** Saneados todos los estilos inline JSX en `SeccionAlumnos.tsx` y `SeccionCalificaciones.tsx`, extrayéndolos a clases CSS dedicadas en `styles.css`.
-  - **Matriz de Gates de Calidad:** Verificado localmente el pase exitoso en verde: lint ✅, typecheck ✅, test:backend ✅ (incluyendo tests específicos de `servicioEncuadrePdf` e integraciones), test:frontend:ci ✅ (114 tests) y `test:ia:traceability` ✅.
+  - **Matriz de Gates de Calidad:** Verificado localmente el pase exitoso en verde: lint ✅, typecheck ✅, test:backend ✅ (incluyendo tests específicos de `servicioEncuadrePdf` e integraciones), test:frontend:ci ✅ (114 tests), test:coverage:ci ✅, test:tdd:enforcement:ci ✅ y `test:ia:traceability` ✅.
 
 - Corte 2026-06-23 (Rediseño y Mejora Comercial del Portal de Marketing y SPEC-002):
   - **Especificación Técnica Aprobada:** Redactada y aprobada la especificación `docs/specs/marketing_site.spec.md` (`SPEC-002`) que gobierna la semántica, el SEO, los estilos y las aserciones del smoke test de la página comercial.
