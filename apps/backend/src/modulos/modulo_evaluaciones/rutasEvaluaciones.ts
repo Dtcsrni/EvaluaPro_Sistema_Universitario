@@ -11,15 +11,12 @@ import { esquemaBodyVacioOpcional } from '../modulo_alumnos/validacionesPeriodos
 import {
   actualizarMapeoAlumnosCursoController,
   desconectarOauthClassroomController,
-  ejecutarPullClassroom,
   ejecutarImportacionClassroom,
   iniciarOauthClassroom,
   listarActividadesClassroomController,
   listarCursosClassroomController,
   listarHistorialSyncClassroomController,
   listarMapeosClassroom,
-  mapearClassroomEvidencia
-  ,
   obtenerAlumnosCursoClassroomController,
   obtenerEstadoClassroomController,
   previewImportacionClassroom
@@ -48,10 +45,12 @@ import {
 import {
   esquemaActualizarMapeoAlumnosCurso,
   esquemaEjecutarImportacionClassroom,
-  esquemaMapearClassroom,
-  esquemaPreviewImportacionClassroom,
-  esquemaPullClassroom
+  esquemaPreviewImportacionClassroom
 } from '../modulo_integraciones_classroom/validacionesClassroom';
+import {
+  inicializarEncuadre,
+  obtenerEstadoEncuadre
+} from './controladorEncuadre';
 
 const router = Router();
 

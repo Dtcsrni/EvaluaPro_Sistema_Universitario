@@ -5,6 +5,16 @@ Version tecnica: `1.0.0`
 Version visible GUI: `1.0.0b`
 
 ## Estado vigente
+- Corte 2026-06-23 (Automatización de Reglas de Encuadre y Firma Digital Institucional - SPEC-002):
+  - **Especificación Técnica Aprobada:** Redactada y aprobada la especificación `docs/specs/encuadre_firmas.spec.md` (`SPEC-002` v1.1.0) que gobierna el diseño técnico y las aserciones de la firma digital.
+  - **Base de Datos SQLite (Prisma):** Creados los modelos `EncuadreAcademico` y `FirmaEncuadre` en `schema.prisma` y sincronizados localmente mediante `npx prisma db push`.
+  - **Generador PDF Paramétrico (pdf-lib):** Implementado `generarPdfEncuadreBase` con cabecera de 3 columnas, soporte para dos logos y textos completamente parametrizables, replicando con precisión el formato oficial "ENCUADRE LISC.docx".
+  - **Estampado Digital de Conformidad:** Implementado `registrarFirmaPdf` para estampar la firma del docente y alumnos en la Página 2 del PDF con IP, fecha y hash criptográfico HMAC-SHA256.
+  - **Panel de Control Docente:** Diseñada la interfaz de control en `SeccionCalificaciones.tsx` que permite inicializar el encuadre (con carga de logos en base64) y monitorear el estado de las firmas de los alumnos.
+  - **Vista Pública de Firma Standalone:** Diseñado el componente público `PaginaFirmaEncuadre.tsx` expuesto bajo la ruta hash interceptada `#/firmar-encuadre/:token` en `App.tsx` para firmar digitalmente sin iniciar sesión.
+  - **Higiene de Código (Inline Styles):** Saneados todos los estilos inline JSX en `SeccionAlumnos.tsx` y `SeccionCalificaciones.tsx`, extrayéndolos a clases CSS dedicadas en `styles.css`.
+  - **Matriz de Gates de Calidad:** Verificado localmente el pase exitoso en verde: lint ✅, typecheck ✅, test:backend ✅ (incluyendo tests específicos de `servicioEncuadrePdf` e integraciones), test:frontend:ci ✅ (114 tests) y `test:ia:traceability` ✅.
+
 - Corte 2026-06-23 (Rediseño y Mejora Comercial del Portal de Marketing y SPEC-002):
   - **Especificación Técnica Aprobada:** Redactada y aprobada la especificación `docs/specs/marketing_site.spec.md` (`SPEC-002`) que gobierna la semántica, el SEO, los estilos y las aserciones del smoke test de la página comercial.
   - **Rediseño Estético y Responsivo:** Actualizado `site/styles.css` para implementar un tema oscuro premium en base a HSL, luces de neón en tarjetas, glassmorphism (`backdrop-filter`) y tipografía Sora y IBM Plex Sans.

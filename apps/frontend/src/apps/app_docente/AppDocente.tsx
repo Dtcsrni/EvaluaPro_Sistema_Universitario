@@ -920,6 +920,7 @@ export function AppDocente() {
       {vista === 'calificaciones' && (
         <div className="anim-fade-in">
           <SeccionCalificaciones
+          periodos={periodos}
           alumnos={alumnos}
           permisos={permisosUI}
           avisarSinPermiso={avisarSinPermiso}

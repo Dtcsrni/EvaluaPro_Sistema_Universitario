@@ -1,24 +1,24 @@
 # Inventario Exhaustivo de Codigo
 
-Fecha de generacion: 2026-06-23 05:43:42
+Fecha de generacion: 2026-06-23 09:08:09
 Fuente: git ls-files filtrado por existencia en workspace (solo archivos versionados presentes, excluye node_modules).
 
 ## Resumen
 
-- Total de piezas de codigo/config ejecutable inventariadas: 1085
+- Total de piezas de codigo/config ejecutable inventariadas: 1094
 - Extensiones incluidas: ts, tsx, js, jsx, mjs, cjs, json, yml, yaml, sh, cmd, ps1.
 
 ## Conteo por area
 
 | Area | Archivos |
 | --- | ---: |
-| backend | 396 |
+| backend | 400 |
 | frontend | 131 |
 | portal_alumno_cloud | 67 |
 | ci | 17 |
-| scripts | 165 |
+| scripts | 167 |
 | ops | 3 |
-| docs | 148 |
+| docs | 151 |
 | raiz | 32 |
 
 ## Backend (apps/backend)
@@ -208,6 +208,7 @@ Fuente: git ls-files filtrado por existencia en workspace (solo archivos version
 - apps/backend/src/modulos/modulo_escaneo_omr/servicioOmr.ts
 - apps/backend/src/modulos/modulo_escaneo_omr/servicioOmrCv.ts
 - apps/backend/src/modulos/modulo_escaneo_omr/validacionesOmr.ts
+- apps/backend/src/modulos/modulo_evaluaciones/controladorEncuadre.ts
 - apps/backend/src/modulos/modulo_evaluaciones/controladorEvaluaciones.ts
 - apps/backend/src/modulos/modulo_evaluaciones/modeloComponenteExamen.ts
 - apps/backend/src/modulos/modulo_evaluaciones/modeloConfiguracionPeriodoEvaluacion.ts
@@ -215,6 +216,8 @@ Fuente: git ls-files filtrado por existencia en workspace (solo archivos version
 - apps/backend/src/modulos/modulo_evaluaciones/modeloPoliticaCalificacion.ts
 - apps/backend/src/modulos/modulo_evaluaciones/modeloResumenEvaluacionAlumno.ts
 - apps/backend/src/modulos/modulo_evaluaciones/rutasEvaluaciones.ts
+- apps/backend/src/modulos/modulo_evaluaciones/rutasEvaluacionesPublicas.ts
+- apps/backend/src/modulos/modulo_evaluaciones/servicioEncuadrePdf.ts
 - apps/backend/src/modulos/modulo_evaluaciones/servicioPoliticasCalificacion.ts
 - apps/backend/src/modulos/modulo_evaluaciones/validacionesEvaluaciones.ts
 - apps/backend/src/modulos/modulo_generacion_pdf/application/usecases/generacionPlantillas.ts
@@ -405,6 +408,7 @@ Fuente: git ls-files filtrado por existencia en workspace (solo archivos version
 - apps/backend/tests/salud.test.ts
 - apps/backend/tests/servicioClassroomGoogle.test.ts
 - apps/backend/tests/servicioCorreo.test.ts
+- apps/backend/tests/servicioEncuadrePdf.test.ts
 - apps/backend/tests/setup.ts
 - apps/backend/tests/sincronizacion.backupMeta.test.ts
 - apps/backend/tests/sincronizacion.contrato.test.ts
@@ -737,6 +741,7 @@ Fuente: git ls-files filtrado por existencia en workspace (solo archivos version
 - scripts/run-enable-wsl2-vm.ps1
 - scripts/safe-enable-wsl2.ps1
 - scripts/sanitize-xlsx-template.ps1
+- scripts/sdd-audit.mjs
 - scripts/security-env-check.mjs
 - scripts/serena-mcp.ps1
 - scripts/serena-mcp.sh
@@ -789,6 +794,7 @@ Fuente: git ls-files filtrado por existencia en workspace (solo archivos version
 - scripts/tests/release-evidence-contract.test.mjs
 - scripts/tests/release-stable-promotion.test.mjs
 - scripts/tests/ruleset-main.test.mjs
+- scripts/tests/sdd-audit.test.mjs
 - scripts/tests/security-workflow-policy.test.mjs
 - scripts/tests/stabilization-completion-audit.test.mjs
 - scripts/tests/tray-update-action.test.mjs
@@ -956,6 +962,9 @@ Fuente: git ls-files filtrado por existencia en workspace (solo archivos version
 - docs/handoff/sesiones/2026-06-23/sesion-2026-06-23T07-09-49.511Z.json
 - docs/handoff/sesiones/2026-06-23/sesion-2026-06-23T08-57-30.041Z.json
 - docs/handoff/sesiones/2026-06-23/sesion-2026-06-23T09-35-33.244Z.json
+- docs/handoff/sesiones/2026-06-23/sesion-2026-06-23T10-36-52.609Z.json
+- docs/handoff/sesiones/2026-06-23/sesion-2026-06-23T11-22-53.515Z.json
+- docs/handoff/sesiones/2026-06-23/sesion-2026-06-23T11-43-44.882Z.json
 - docs/handoff/trace.schema.json
 - docs/perf/baseline.business.json
 - docs/perf/baseline.json

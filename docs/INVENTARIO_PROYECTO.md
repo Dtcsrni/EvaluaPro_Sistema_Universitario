@@ -24,6 +24,17 @@ Version visible objetivo: `1.0.0b`
   - `reports/perf/latest.json`
 
 #### 2.1) Footprint y clasificacion del corte 2026-06-23
+- Automatización de Reglas de Encuadre y Firma Digital Institucional (SPEC-002) 2026-06-23:
+  - Redacción y aprobación de la especificación técnica `docs/specs/encuadre_firmas.spec.md` (SPEC-002 v1.1.0) que establece el flujo digital local y gratuito para firmas de encuadres académicos.
+  - Creación del modelado Prisma (`EncuadreAcademico` y `FirmaEncuadre`) en `schema.prisma` y sincronización con SQLite local (`npx prisma db push`).
+  - Implementación del generador PDF `generarPdfEncuadreBase` con `pdf-lib` en `servicioEncuadrePdf.ts`, replicando con precisión de píxel el formato oficial "ENCUADRE LISC.docx" con 3 columnas en cabecera, dos logos paramétricos, tabla de datos de asignatura y texto verbatim del reglamento institucional.
+  - Implementación de la función `registrarFirmaPdf` que estampa de forma segura y consistente la firma (Fecha, IP, Hash HMAC-SHA256) en la fila correcta de la Página 2 del PDF de firmas.
+  - Creación del controlador `controladorEncuadre.ts` y las rutas correspondientes (públicas y privadas) para inicialización del encuadre y firmado digital mediante tokens enviados a correos institucionales.
+  - Creación del componente público `PaginaFirmaEncuadre.tsx` con diseño premium, responsivo y adaptado para visualizar el PDF y procesar la firma digital con disclaimer criptográfico.
+  - Integración del panel "Encuadre y Firmas" en `SeccionCalificaciones.tsx` para el docente, con soporte de carga de logos base64 y visualización del listado de firmas en tiempo real.
+  - Incorporación del badge visual "SIN DERECHO (4 O MÁS FALTAS)" en `SeccionAlumnos.tsx` mediante la consulta de resumen global de asistencias.
+  - Pase en verde de la suite de pruebas unitarias/integración de encuadres (`servicioEncuadrePdf.test.ts` y `evaluaciones.modulo.test.ts`) y la suite de auditoría del monorepo (`npm run test:frontend:ci` y `npm run test:ia:traceability`).
+
 - Rediseño y Mejora Comercial del Portal de Marketing y SPEC-002 2026-06-23:
   - Redacción y aprobación de la especificación técnica `SPEC-002` (`docs/specs/marketing_site.spec.md`) que establece las pautas visuales y de smoke test del sitio.
   - Rediseño completo de la landing page comercial (`site/index.html` y `site/styles.css`) bajo un tema oscuro HSL premium con luces de neón en bordes, tipografías Sora e IBM Plex Sans, y efectos glassmorphism.

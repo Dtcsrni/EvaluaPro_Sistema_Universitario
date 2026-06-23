@@ -30,13 +30,27 @@ export async function inicializarEncuadre(req: SolicitudDocente, res: Response) 
       periodoId,
       carrera,
       clave = 'ISCF213',
-      area = 'Área de Ingeniería',
+      area = '',
       horasDocente = 50,
       horasIndependientes = 100,
-      horasTotales = 150,
+      horasTotales,
       creditos = 6.25,
       objetivoGeneral = '(Sin especificar)',
-      cicloLectivo = 'Del 18 de mayo al 26 de junio de 2026'
+      cicloLectivo = 'Del 18 de mayo al 26 de junio de 2026',
+      // Datos institucionales parametrizables
+      institucionNombre,
+      institucionLema,
+      logoBase64,
+      logoCarreraBase64,
+      // Ponderaciones configurables
+      porcentajeExamenes,
+      porcentajeEvalContinua,
+      ponderacion1erParcial,
+      ponderacion2doParcial,
+      ponderacionGlobal,
+      ponderacionExamenEscrito,
+      ponderacionPractica,
+      ejeFormacion
     } = req.body;
 
     if (!periodoId) {
@@ -75,19 +89,47 @@ export async function inicializarEncuadre(req: SolicitudDocente, res: Response) 
       correo: al.correo
     }));
 
+    // Convertir logos base64 a Buffer si existen
+    let logoPngBuffer: Buffer | undefined;
+    let logoCarreraBuffer: Buffer | undefined;
+
+    if (typeof logoBase64 === 'string' && logoBase64.trim().length > 0) {
+      const base64Data = logoBase64.replace(/^data:image\/[a-z]+;base64,/, '');
+      logoPngBuffer = Buffer.from(base64Data, 'base64');
+    }
+
+    if (typeof logoCarreraBase64 === 'string' && logoCarreraBase64.trim().length > 0) {
+      const base64Data = logoCarreraBase64.replace(/^data:image\/[a-z]+;base64,/, '');
+      logoCarreraBuffer = Buffer.from(base64Data, 'base64');
+    }
+
     // Generar PDF base
     const pdfBuffer = await generarPdfEncuadreBase({
       asignatura: periodo.nombre,
-      docenteNombre: periodo.docente.nombre,
-      carrera: carrera || 'Licenciatura en Ingeniería en Sistemas Computacionales',
+      docenteNombre: periodo.docente.nombreCompleto,
+      carrera: carrera || 'Licenciatura en Ingenieria en Sistemas Computacionales',
       cicloLectivo,
       clave,
       area,
       horasDocente,
       horasIndependientes,
-      horasTotales,
+      horasTotales: horasTotales ?? (horasDocente + horasIndependientes),
       creditos,
       objetivoGeneral,
+      ejeFormacion,
+      // Datos institucionales (si no se envían, el servicio usa defaults de CUH)
+      institucionNombre,
+      institucionLema,
+      logoPngBuffer,
+      logoCarreraBuffer,
+      // Ponderaciones (si no se envían, el servicio usa defaults estándar)
+      porcentajeExamenes,
+      porcentajeEvalContinua,
+      ponderacion1erParcial,
+      ponderacion2doParcial,
+      ponderacionGlobal,
+      ponderacionExamenEscrito,
+      ponderacionPractica,
       alumnos: alumnosPdf
     });
 
@@ -131,7 +173,7 @@ export async function inicializarEncuadre(req: SolicitudDocente, res: Response) 
         encuadreId: encuadre.id,
         rol: 'docente',
         usuarioId: docenteId,
-        nombreFirmante: periodo.docente.nombre,
+        nombreFirmante: periodo.docente.nombreCompleto,
         correo: periodo.docente.correo,
         tokenFirma: tokenDocente,
         firmado: false
@@ -161,13 +203,13 @@ export async function inicializarEncuadre(req: SolicitudDocente, res: Response) 
 
     // Correo al Docente
     const linkDocente = `${appUrl}/#/firmar-encuadre/${tokenDocente}`;
-    const contenidoDocente = `Hola ${periodo.docente.nombre},\n\nSe ha generado el documento de encuadre académico para la asignatura "${periodo.nombre}" (${cicloLectivo}).\n\nPor favor, ingresa al siguiente enlace para revisarlo y firmarlo de conformidad:\n${linkDocente}\n\nSaludos,\nSistema EvaluaPro`;
+    const contenidoDocente = `Hola ${periodo.docente.nombreCompleto},\n\nSe ha generado el documento de encuadre académico para la asignatura "${periodo.nombre}" (${cicloLectivo}).\n\nPor favor, ingresa al siguiente enlace para revisarlo y firmarlo de conformidad:\n${linkDocente}\n\nSaludos,\nSistema EvaluaPro`;
     await enviarCorreo(periodo.docente.correo, `Firma de Encuadre Académico - ${periodo.nombre}`, contenidoDocente);
 
     // Correos a los Alumnos
     for (const firmaAlumno of firmasAlumnos) {
       const linkAlumno = `${appUrl}/#/firmar-encuadre/${firmaAlumno.tokenFirma}`;
-      const contenidoAlumno = `Hola ${firmaAlumno.nombreFirmante},\n\nSe ha publicado el encuadre académico de la asignatura "${periodo.nombre}" (${cicloLectivo}) impartida por el profesor ${periodo.docente.nombre}.\n\nEs necesario que revises las ponderaciones y políticas descritas y firmes digitalmente de conformidad ingresando al siguiente enlace con tu correo institucional:\n${linkAlumno}\n\nAtentamente,\nCentro Universitario Hidalguense`;
+      const contenidoAlumno = `Hola ${firmaAlumno.nombreFirmante},\n\nSe ha publicado el encuadre académico de la asignatura "${periodo.nombre}" (${cicloLectivo}) impartida por el profesor ${periodo.docente.nombreCompleto}.\n\nEs necesario que revises las ponderaciones y políticas descritas y firmes digitalmente de conformidad ingresando al siguiente enlace con tu correo institucional:\n${linkAlumno}\n\nAtentamente,\nCentro Universitario Hidalguense`;
       await enviarCorreo(firmaAlumno.correo, `Firma de Encuadre de Asignatura: ${periodo.nombre}`, contenidoAlumno);
     }
 
@@ -194,7 +236,7 @@ export async function obtenerEstadoEncuadre(req: SolicitudDocente, res: Response
     }
 
     const encuadre = await prisma.encuadreAcademico.findUnique({
-      where: { periodoId },
+      where: { periodoId: periodoId as string },
       include: {
         firmas: {
           orderBy: [
@@ -230,9 +272,9 @@ export async function obtenerDetallesFirmaEncuadrePublico(req: Request, res: Res
     }
 
     const firma = await prisma.firmaEncuadre.findUnique({
-      where: { tokenFirma: token },
+      where: { tokenFirma: token as string },
       include: { encuadre: true }
-    });
+    }) as any;
 
     if (!firma) {
       return res.status(404).json({ error: 'Token de firma inválido o no encontrado' });
@@ -273,9 +315,9 @@ export async function descargarPdfEncuadrePublico(req: Request, res: Response) {
     }
 
     const firma = await prisma.firmaEncuadre.findUnique({
-      where: { tokenFirma: token },
+      where: { tokenFirma: token as string },
       include: { encuadre: true }
-    });
+    }) as any;
 
     if (!firma || !firma.encuadre.rutaPdf) {
       return res.status(404).json({ error: 'Archivo no encontrado o inválido' });
@@ -306,9 +348,9 @@ export async function firmarEncuadrePublico(req: Request, res: Response) {
     }
 
     const firma = await prisma.firmaEncuadre.findUnique({
-      where: { tokenFirma: token },
+      where: { tokenFirma: token as string },
       include: { encuadre: true }
-    });
+    }) as any;
 
     if (!firma) {
       return res.status(404).json({ error: 'Firma no encontrada' });
@@ -320,7 +362,7 @@ export async function firmarEncuadrePublico(req: Request, res: Response) {
 
     const ip = String(req.headers['x-forwarded-for'] || req.socket.remoteAddress || '127.0.0.1').split(',')[0].trim();
     const fecha = new Date();
-    const hash = calcularHashFirma(configuracion.jwtSecret || 'test_secret', {
+    const hash = calcularHashFirma(configuracion.jwtSecreto || 'test_secret', {
       usuarioId: firma.usuarioId,
       correo: firma.correo,
       fecha: fecha.toISOString(),

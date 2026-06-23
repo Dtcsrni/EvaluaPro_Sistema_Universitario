@@ -5,6 +5,15 @@ Este archivo sigue el formato "Keep a Changelog" (alto nivel) y SemVer.
 ## [Unreleased]
 
 ### Added
+- **Encuadre Académico Digital (SPEC-002):** Implementada la persistencia completa mediante Prisma (`EncuadreAcademico` y `FirmaEncuadre`) sobre la base de datos SQLite local.
+- **Generador y Firmado de PDFs:** Implementada la lógica de generación del PDF base de encuadres parametrizable con logos (PNG/JPEG) y formato de 3 columnas en cabecera. Implementado el estampado digital seguro (Fecha, IP y Hash criptográfico HMAC-SHA256) en la Página 2 del PDF sin corromper el documento.
+- **Panel Docente de Encuadres:** Agregada la interfaz de configuración y visualización en tiempo real del estado de firmas de alumnos para el docente en `SeccionCalificaciones.tsx`.
+- **Firma Standalone Pública:** Creado el componente público `PaginaFirmaEncuadre.tsx` bajo la interceptación de la ruta hash `#/firmar-encuadre/:token` en `App.tsx` para firmar de conformidad sin iniciar sesión.
+- **Badge "SIN DERECHO" por Faltas:** Integrada la advertencia visual "SIN DERECHO (4 O MÁS FALTAS)" en `SeccionAlumnos.tsx` al superar el límite de inasistencias en la materia.
+- **Higiene del Monorepo (Inline Styles):** Refactorizados y extraídos todos los estilos inline JSX en `SeccionAlumnos.tsx` y `SeccionCalificaciones.tsx` a clases CSS específicas en `styles.css`.
+
+
+### Added
 - Implementada la política global de **Spec-Driven Development (SDD)** en todo el monorepo (`docs/POLITICA_SDD.md`), haciendo obligatoria la creación de especificaciones previas en `docs/specs/*.spec.md` para todo desarrollo.
 - Creado el script DevOps auditor de especificaciones `scripts/sdd-audit.mjs` que valida frontmatters YAML, secciones obligatorias e integridad de tests.
 - Creada la especificación de referencia `docs/specs/sdd_governance.spec.md` y la plantilla de diseño `docs/specs/template.spec.md`.
