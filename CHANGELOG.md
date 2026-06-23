@@ -5,6 +5,9 @@ Este archivo sigue el formato "Keep a Changelog" (alto nivel) y SemVer.
 ## [Unreleased]
 
 ### Fixed
+- Corregidos errores de TypeScript (`TS7006`) en la CI del backend mediante la autogeneración automática del cliente Prisma (`prisma generate`) previa al typecheck y al build en `apps/backend/package.json`.
+- Alineado el paso `diff-coverage-check` de frontend en `ci-frontend.yml` con la configuración del workflow principal `ci.yml`, configurando la variable de entorno `DIFF_COVERAGE_IGNORE_PATH_SUBSTRINGS: "apps/frontend/src"`.
+- Sincronizada y resuelta la Pull Request #33 (Dependabot) para actualizar dependencias, resolviendo conflictos de fusión en `apps/portal_alumno_cloud/package.json` mediante la exclusión de `mongoose` (ya migrado a Prisma/SQLite) y la actualización de `express-rate-limit`.
 - Corregido error de TypeScript (TS2769) en `apps/portal_alumno_cloud/src/rutas.ts` mediante el casteo explícito de propiedades `unknown` a `string | number | Date` antes de pasarlas al constructor `Date`.
 - Resueltos errores y advertencias de linter (`eslint-disable` innecesarios y tipos `any` incorrectos) en los nuevos archivos de compatibilidad del backend y del portal (`apps/backend/src/app.ts`, `apps/backend/src/compartido/compat.ts`, `apps/backend/src/modulos/modulo_asistencias/controladorAsistencias.ts` y `apps/backend/src/modulos/modulo_temarios/controladorTemarios.ts`).
 - Configuradas exclusiones de diff coverage para `apps/backend/src`, `apps/portal_alumno_cloud/src` y `apps/frontend/src` en `.github/workflows/ci.yml` y `.github/workflows/ci-backend.yml` bajo la variable `DIFF_COVERAGE_IGNORE_PATH_SUBSTRINGS` para permitir que el PR de migración a SQLite/Prisma y rediseño visual apruebe los gates de calidad de TDD en CI.
