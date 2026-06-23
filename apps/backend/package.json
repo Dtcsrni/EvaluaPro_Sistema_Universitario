@@ -20,8 +20,8 @@
   "main": "dist/index.js",
   "scripts": {
     "dev": "tsx watch src/index.ts",
-    "build": "tsc --project tsconfig.json",
-    "typecheck": "tsc --noEmit --project tsconfig.json --pretty false",
+    "build": "prisma generate && tsc --project tsconfig.json",
+    "typecheck": "prisma generate && tsc --noEmit --project tsconfig.json --pretty false",
     "start": "node dist/index.js",
     "test": "vitest run",
     "test:coverage": "node ../../scripts/testing/run-backend-coverage-batches.mjs",
