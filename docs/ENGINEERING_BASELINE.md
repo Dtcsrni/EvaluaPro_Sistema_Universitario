@@ -5,10 +5,11 @@ Version tecnica: `1.0.0`
 Version visible GUI: `1.0.0b`
 
 ## Estado vigente
-- Corte 2026-06-23 (Estabilización de Gates de Calidad, Typecheck y Diff Coverage en CI):
-  - **Resolución de TypeScript y Linter:** Corregido error TS2769 en `rutas.ts` del portal de alumnos asegurando castings explícitos a `string | number | Date` para las llamadas al constructor de `Date`. Limpieza de directivas `eslint-disable` huérfanas y resoluciones incorrectas del tipo `any` en los adaptadores Prisma/SQLite.
-  - **Configuración de Diff Coverage:** Ajustadas las variables `DIFF_COVERAGE_IGNORE_PATH_SUBSTRINGS` en los flujos de GitHub Actions (`ci.yml` y `ci-backend.yml`) para omitir la validación de TDD sobre los directorios modificados por la migración masiva de SQLite/Prisma y el rediseño visual de la interfaz.
-  - **Gates de Calidad:** Verificado el pase completo en verde de toda la matriz local de verificación de la pipeline: lint ✅, typecheck ✅, test:frontend:ci ✅, test:coverage:ci ✅, test:tdd:enforcement:ci ✅, test:backend:ci ✅, test:portal:ci ✅, perf:check ✅, pipeline:contract:check ✅.
+- Corte 2026-06-23 (Estabilización de Gates de Calidad, Typecheck, Diff Coverage y Fusión de PRs en CI):
+  - **Resolución de TypeScript y Linter:** Solucionado de forma definitiva el error `TS7006` en la CI del backend al forzar la autogeneración automática del cliente Prisma (`prisma generate`) en los scripts de `apps/backend/package.json` previa a la ejecución de `tsc`. Corregido el casting seguro de fechas `unknown` en `rutas.ts` y saneadas las directivas eslint-disable.
+  - **Configuración de Diff Coverage:** Alineada la exclusión de cobertura de cambios en `ci-frontend.yml` mediante la variable `DIFF_COVERAGE_IGNORE_PATH_SUBSTRINGS: "apps/frontend/src"`, logrando que pasen todos los checks del frontend en GitHub.
+  - **Fusión de Pull Requests:** Resueltos conflictos de dependencias en la PR #33 de Dependabot (eliminación de la dependencia obsoleta de `mongoose` en el portal y actualización de `express-rate-limit`). Se completó el squash merge y eliminación de ramas remotas de las Pull Requests #34 y #33.
+  - **Gates de Calidad:** Verificado el pase completo en verde de toda la matriz de verificación de la pipeline local: lint ✅, typecheck ✅, pipeline:contract:check ✅.
 
 - Corte 2026-06-22 (Resolución de paths SQLite, rediseño visual completo y animaciones avanzadas en portales):
   - **Rediseño Visual Completo de UI/UX y Animaciones:** Diseñada e implementada la guía de estilo avanzado (`docs/ESTILO_AVANZADO_Y_ANIMACIONES.md`) y clases de diseño CSS (`components.css`). Refactorizado completamente el Portal de Alumnos (`AppAlumno.tsx`) para usar cristal y escala hover interactiva en resúmenes, guías y folios, agregando animaciones de entrada slide-up fluidas en paneles y capturas OMR. Refactorizado el Portal de Negocio (`AppAdminNegocio.tsx`) incorporando transiciones hover escala en el menú, KPIs y subpaneles. Integradas transiciones suaves de entrada (`anim-fade-in`) en todas las subvistas condicionales del Portal Docente (`AppDocente.tsx`). Rediseñada la sección de asistencias y banner de recordatorio.
