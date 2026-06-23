@@ -5,6 +5,10 @@ Este archivo sigue el formato "Keep a Changelog" (alto nivel) y SemVer.
 ## [Unreleased]
 
 ### Fixed
+- Fusionada la Pull Request #39 de Dependabot resolviendo y saneando dependencias obsoletas y duplicadas en el monorepo (incluyendo `form-data` a `4.0.6`, `hasown` a `2.0.4`, `js-yaml` a `4.2.0`, `shell-quote` a `1.8.4` y `undici` a `7.28.0` en todas las apps/workspaces).
+- Resuelta y cerrada la Pull Request #37 de Dependabot al quedar sus dependencias subsumidas por la unificación de la PR #39.
+- Estabilizada la ejecución local del gate de performance comercial `perf:collect` en Windows bajo Node 24 mediante la reducción controlada de las iteraciones de calentamiento/muestreo a través de variables de entorno para evitar desbordamiento de sockets.
+- Optimizada la suite de pruebas del backend locally corriendo en modo secuencial (`--maxWorkers=1`) para sortear fallos de violación de acceso por concurrencia nativa en forks sobre Windows.
 - Corregidos errores de TypeScript (`TS7006`) en la CI del backend mediante la autogeneración automática del cliente Prisma (`prisma generate`) previa al typecheck y al build en `apps/backend/package.json`.
 - Alineado el paso `diff-coverage-check` de frontend en `ci-frontend.yml` con la configuración del workflow principal `ci.yml`, configurando la variable de entorno `DIFF_COVERAGE_IGNORE_PATH_SUBSTRINGS: "apps/frontend/src"`.
 - Sincronizada y resuelta la Pull Request #33 (Dependabot) para actualizar dependencias, resolviendo conflictos de fusión en `apps/portal_alumno_cloud/package.json` mediante la exclusión de `mongoose` (ya migrado a Prisma/SQLite) y la actualización de `express-rate-limit`.
