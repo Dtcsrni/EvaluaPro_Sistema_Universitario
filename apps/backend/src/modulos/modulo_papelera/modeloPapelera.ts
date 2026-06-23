@@ -1,21 +1,18 @@
 /**
- * Modelo de papelera (borrado suave) con expiracion automatica.
+ * modeloPapelera
+ *
+ * MIGRADO A PRISMA — Mongoose eliminado.
+ *
+ * La tabla `papelera_items` es gestionada exclusivamente por Prisma ORM.
+ * Modelo Prisma: PapeleraItem { id, docenteId, tipo, itemId, datosJson, createdAt }
+ *
+ * Responsabilidad: Stub de compatibilidad. La lógica de persistencia vive en
+ *   - servicioPapelera.ts  (guardarEnPapelera)
+ *   - controladorPapelera.ts (listarPapelera, restaurarPapelera)
+ *
+ * Limites: No importar ni instanciar Mongoose en este módulo.
  */
-import { Schema, model, models } from 'mongoose';
 
-const PapeleraSchema = new Schema(
-  {
-    docenteId: { type: Schema.Types.ObjectId, ref: 'Docente', required: true },
-    tipo: { type: String, enum: ['periodo', 'alumno', 'plantilla'], required: true },
-    entidadId: { type: Schema.Types.ObjectId, required: true },
-    payload: { type: Schema.Types.Mixed, required: true },
-    eliminadoEn: { type: Date, default: Date.now },
-    expiraEn: { type: Date, required: true }
-  },
-  { timestamps: true, collection: 'papelera' }
-);
-
-// TTL: elimina automaticamente al vencer expiraEn.
-PapeleraSchema.index({ expiraEn: 1 }, { expireAfterSeconds: 0 });
-
-export const Papelera = models.Papelera ?? model('Papelera', PapeleraSchema);
+// Este archivo se conserva como marcador de módulo.
+// No exporta ningún modelo Mongoose; Prisma gestiona la tabla directamente.
+export {};

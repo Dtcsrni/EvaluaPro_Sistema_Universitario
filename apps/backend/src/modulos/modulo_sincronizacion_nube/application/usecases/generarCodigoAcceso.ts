@@ -1,3 +1,9 @@
+/**
+ * generarCodigoAcceso
+ *
+ * Responsabilidad: Modulo interno del sistema.
+ * Limites: Mantener contrato y comportamiento observable del modulo.
+ */
 import { configuracion } from '../../../../configuracion';
 import { enviarCorreo } from '../../../../infraestructura/correo/servicioCorreo';
 import { CodigoAcceso } from '../../modeloCodigoAcceso';

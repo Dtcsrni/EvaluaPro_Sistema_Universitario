@@ -1,3 +1,7 @@
+# installer-hub-e2e-docente.ps1
+#
+# Responsabilidad: Modulo interno del sistema.
+# Limites: Mantener contrato y comportamiento observable del modulo.
 <#
   installer-hub-e2e-docente.ps1
   Validacion real end-to-end del Installer Hub docente-local en VM desechable.

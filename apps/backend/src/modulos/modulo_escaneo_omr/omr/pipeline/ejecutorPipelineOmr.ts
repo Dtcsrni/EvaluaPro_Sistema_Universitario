@@ -1,3 +1,9 @@
+/**
+ * ejecutorPipelineOmr
+ *
+ * Responsabilidad: Modulo interno del sistema.
+ * Limites: Mantener contrato y comportamiento observable del modulo.
+ */
 import type { ResultadoOmr } from '../../servicioOmrCv';
 import { registrarOmrEtapa, registrarOmrPipeline } from '../../../../compartido/observabilidad/metrics';
 import { ejecutarEtapaCalidad } from '../calidad/etapaCalidad';

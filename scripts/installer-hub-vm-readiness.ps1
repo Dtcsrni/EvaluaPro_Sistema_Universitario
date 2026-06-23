@@ -1,3 +1,7 @@
+# installer-hub-vm-readiness.ps1
+#
+# Responsabilidad: Modulo interno del sistema.
+# Limites: Mantener contrato y comportamiento observable del modulo.
 <#
   Preflight no destructivo para el E2E real del Installer Hub.
   No instala, no repara, no arranca el Hub y no modifica la VM.

@@ -23,6 +23,52 @@ Version visible objetivo: `1.0.0b`
   - `reports/qa/latest/*`
   - `reports/perf/latest.json`
 
+### 2.1) Footprint y clasificacion del corte 2026-06-22
+- Rediseño Visual Completo de UI/UX, Estilo Avanzado y Animaciones en Portales 2026-06-22:
+  - Diseño y documentación del estándar estético avanzado en `docs/ESTILO_AVANZADO_Y_ANIMACIONES.md` definiendo reglas para transparencias, efectos de cristal (glassmorphism) y dinámicas de animación.
+  - Implementación de tokens y clases utilitarias CSS en `apps/frontend/src/styles/components.css` (`.glass-card`, `.glass-card-interactive`, `.scale-hover`, `.anim-fade-in`, `.anim-slide-up`, `.pulse-glow`, `.state-badge-pulse`, `.banner-reminder-glass`).
+  - **Portal de Alumnos (`AppAlumno.tsx`):** Refactorizado completamente con tarjetas glass-card, escala hover interactiva, efectos translúcidos en tablas comparativas y capturas OMR con animaciones slide-up fluidas.
+  - **Portal de Administración de Negocio (`AppAdminNegocio.tsx`):** Aplicada la estética de cristal con transiciones hover escala en el menú lateral, KPIs ejecutivos, subpaneles de cobranza/tenants y chips. Actualizadas las capturas de instantáneas (Vitest snapshots) visuales del portal.
+  - **Portal Docente (`AppDocente.tsx` y `SeccionAsistencias.tsx`):** Integradas transiciones suaves de entrada `anim-fade-in` en todas las subsecciones condicionales (Banco, Alumnos, Calificaciones, Plantillas, etc.). Rediseñada la sección de asistencias y banner de recordatorio.
+  
+- Resolución de paths SQLite y benchmarks de performance 2026-06-22:
+  - Corrección de `Error 14 (Unable to open the database file)` en entornos de benchmark forzando rutas absolutas dinámicas mediante `path.resolve` en adaptadores del backend y portal.
+  - Reescritura del recolector de performance comercial (`perf-collect-business.ts`) para inicializar y empujar la base de datos de pruebas SQLite en lugar de levantar `MongoMemoryServer`.
+  - Adaptación de scripts de performance del monorepo (`package.json`) a la sintaxis portable multi-plataforma `npm-run-all` compatible con PowerShell.
+  - Verificación y cumplimiento de toda la suite de gates de calidad de CI en verde: linter, typecheck, tests de backend (339 tests), tests de frontend (114 tests), tests de portal (32 tests), cobertura TDD, perf, clean-architecture y auditoría de políticas.
+
+## 2.1) Footprint y clasificacion del corte 2026-06-19
+- Migración y Estabilización completa a SQLite/Prisma 2026-06-19:
+  - Estabilización y paso de 100% de la suite de pruebas del backend (341/341 tests, 99/99 archivos de prueba) con aislamiento de base de datos SQLite por worker.
+  - Resolución de advertencias y errores de TypeScript (TS2322, TS2339, TS7006) en adaptadores y módulos comerciales agregando tipos explícitos y casting dinámico en mapas.
+  - Implementación de un agregador en memoria `.aggregate()` compatible con Mongoose en el adaptador `compat.ts` para soportar consultas de negocio comerciales en SQLite.
+  - Corrección de la configuración ESLint global para permitir excepciones de tipado explícito (`any`) en código legacy y adaptadores migrados.
+  - Paso exitoso de todos los gates de calidad y contratos de pipeline locales (lint, typecheck, coverage, TDD, backend, frontend, portal, performance y contratos de pipeline).
+  - Regeneración de handoff e inventario exhaustivo de código de la sesión.
+
+## 2.1) Footprint y clasificacion del corte 2026-06-17
+- Migración completa del backend a SQLite y Prisma 2026-06-17:
+  - Reemplazo absoluto del motor de base de datos MongoDB y el ORM Mongoose por SQLite local y Prisma Client.
+  - Diseño y validación exitosa de un esquema relacional unificado en `schema.prisma` que mapea colecciones complejas y subdocumentos dinámicos a campos de texto serializados en JSON.
+  - Adaptación de los endpoints de observabilidad y salud (`rutasSalud.ts` y tipo `RespuestaReadiness`) para monitorear conexiones SQLite en lugar de MongoDB.
+  - Actualización del punto de entrada del backend (`index.ts`) para inicializar `conectarSqlite()` y eliminar tareas redundantes de indexación de MongoDB.
+  - Optimización del helper de limpieza de base de datos de pruebas (`tests/utils/mongo.ts`) para consultar dinámicamente las tablas creadas en SQLite antes de ejecutar sentencias DELETE, eliminando advertencias por tablas no existentes.
+  - Verificación exitosa de compilación TypeScript (`npx tsc --noEmit`) con cero errores en todo el backend.
+  - Suite de pruebas básicas y de integración (`baseDatos.test.ts`, `papelera.servicio.test.ts`, `integracion/asistencia.reglas.test.ts`, `comercial.core.test.ts`, `calificacion.persistencia.test.ts`) pasando exitosamente con el motor de pruebas Vitest redirigido de forma aislada por worker a SQLite.
+
+## 2.1) Footprint y clasificacion del corte 2026-06-16
+- Módulo de Asistencias y Temarios PDF 2026-06-16:
+  - Implementación completa del módulo de control de asistencia docente: clases dictadas, pase de lista "Fast-Check" con semáforo visual de inasistencias y derecho a examen, y autorización de excepciones.
+  - Implementación del módulo de temarios (drag-and-drop de PDF y carga manual) con árbol jerárquico de avance.
+  - Parser robusto de temarios en PDF con pdf-parse en backend con tolerancia a fallos.
+  - Integración de validación de derecho a examen por asistencias en el endpoint de calificación (`calificarExamen`).
+  - Nuevas vistas frontend `SeccionAsistencias.tsx` y `SeccionTemarios.tsx` integradas en el menú principal (`AppDocente.tsx`) adaptadas a la accesibilidad del teclado (A11y/WCAG) y con estilos adaptados a la política de no inline styles.
+  - Creados tests de integración `asistencia.reglas.test.ts` y `temario.pdf.test.ts` pasando al 100% de éxito.
+  - Fix en el ejecutor de cobertura por lotes (`run-backend-coverage-batches.mjs`) para incorporar los nuevos archivos de tests de integración, garantizando la medición real de los nuevos módulos y restaurando el cumplimiento de la cobertura global de ramas.
+  - Verificación exitosa de todos los 10 gates de calidad locales en verde: lint ✅, typecheck ✅, test:frontend:ci (37/114) ✅, test:backend:ci (99/342) ✅, test:portal:ci (12/33) ✅, test:coverage:ci (branches >= 54%) ✅, test:tdd:enforcement:ci ✅, perf:check ✅, pipeline:contract:check (12/12) ✅, env:doctor ✅.
+  - Handoff de sesión en `docs/handoff/sesiones/2026-06-16/`.
+
+
 ## 2.1) Footprint y clasificacion del corte 2026-06-15
 - Fixes Installer Hub WPF, Dockerfile backend e InstallerBurnHelper 2026-06-15:
   - `packaging/wix/BurnBootstrapperApp/MainWindow.xaml.cs`: botón "Iniciar" ahora se habilita en modo desinstalación aunque `readyToStart=false`; corrige bloqueo de desinstalación en sistemas parcialmente configurados.

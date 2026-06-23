@@ -1,3 +1,9 @@
+/**
+ * resolverPdfEngine
+ *
+ * Responsabilidad: Modulo interno del sistema.
+ * Limites: Mantener contrato y comportamiento observable del modulo.
+ */
 import { existsSync } from 'node:fs';
 
 export type PdfEngine = 'pdf-lib-legacy' | 'playwright-html-v1';

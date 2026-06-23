@@ -1,3 +1,9 @@
+/**
+ * validacionesComercial
+ *
+ * Responsabilidad: Contrato de validaciones de entrada/salida del dominio.
+ * Limites: No relajar reglas sin actualizar tests y contratos de API.
+ */
 import { z } from 'zod';
 
 const esquemaPersona = z.enum(['docente', 'coordinacion', 'institucional', 'socio_canal']);

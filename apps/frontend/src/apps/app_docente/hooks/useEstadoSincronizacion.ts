@@ -1,3 +1,9 @@
+/**
+ * useEstadoSincronizacion
+ *
+ * Responsabilidad: Hook transversal del shell docente.
+ * Limites: Mantener estado derivado predecible y efectos idempotentes.
+ */
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { clienteApi } from '../clienteApiDocente';
 import type { RegistroSincronizacion } from '../tipos';

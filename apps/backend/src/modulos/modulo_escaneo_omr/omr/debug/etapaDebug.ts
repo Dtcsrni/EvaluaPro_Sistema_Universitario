@@ -1,3 +1,9 @@
+/**
+ * etapaDebug
+ *
+ * Responsabilidad: Modulo interno del sistema.
+ * Limites: Mantener contrato y comportamiento observable del modulo.
+ */
 import type { ContextoPipelineOmr } from '../types';
 
 export async function ejecutarEtapaDebug(contexto: ContextoPipelineOmr) {

@@ -1,3 +1,9 @@
+/**
+ * omr.cv.engine.test
+ *
+ * Responsabilidad: Modulo interno del sistema.
+ * Limites: Mantener contrato y comportamiento observable del modulo.
+ */
 import sharp from 'sharp';
 import { afterEach, describe, expect, it } from 'vitest';
 import {

@@ -1,3 +1,9 @@
+/**
+ * omr-tv3-eval-golden
+ *
+ * Responsabilidad: Modulo interno del sistema.
+ * Limites: Mantener contrato y comportamiento observable del modulo.
+ */
 import { runOmrTv3E2E } from './omr-tv3-e2e';
 
 type Args = {

@@ -1,3 +1,9 @@
+/**
+ * importarPaquete
+ *
+ * Responsabilidad: Modulo interno del sistema.
+ * Limites: Mantener contrato y comportamiento observable del modulo.
+ */
 import { DefaultPaqueteProcessor, validarBackupMetaImportacion, validarTamanoPaqueteBase64 } from '../../domain/paqueteSincronizacion';
 import { normalizarCorreo, obtenerId } from '../../sincronizacionInterna';
 import { Sincronizacion } from '../../modeloSincronizacion';

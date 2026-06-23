@@ -1,3 +1,9 @@
+/**
+ * politicaAutoCalificacionOmr
+ *
+ * Responsabilidad: Modulo interno del sistema.
+ * Limites: Mantener contrato y comportamiento observable del modulo.
+ */
 type EstadoAnalisisOmr = 'ok' | 'rechazado_calidad' | 'requiere_revision';
 
 export type EntradaAutoCalificacionOmr = {

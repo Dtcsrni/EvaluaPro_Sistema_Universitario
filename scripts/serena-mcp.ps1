@@ -1,3 +1,7 @@
+# serena-mcp.ps1
+#
+# Responsabilidad: Modulo interno del sistema.
+# Limites: Mantener contrato y comportamiento observable del modulo.
 <#
   serena-mcp.ps1
   Arranca Serena MCP en Windows desde PATH o desde uv tool home.

@@ -1,3 +1,9 @@
+/**
+ * exportarPaquete
+ *
+ * Responsabilidad: Modulo interno del sistema.
+ * Limites: Mantener contrato y comportamiento observable del modulo.
+ */
 import { DefaultPaqueteAssembler, resolverDesdeSincronizacion } from '../../domain/paqueteSincronizacion';
 import { MongoSyncDataRepo, syncClock } from '../../infra/repositoriosSync';
 import { Sincronizacion } from '../../modeloSincronizacion';

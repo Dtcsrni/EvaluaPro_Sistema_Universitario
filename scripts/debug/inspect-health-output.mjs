@@ -1,3 +1,9 @@
+/**
+ * inspect-health-output
+ *
+ * Responsabilidad: Modulo interno del sistema.
+ * Limites: Mantener contrato y comportamiento observable del modulo.
+ */
 import { execSync } from 'child_process'
 
 const prereq = 'c:\\Users\\evega\\EvaluaPro_Sistema_Universitario\\scripts\\installer-burn\\modules\\PrereqDetector.psm1'

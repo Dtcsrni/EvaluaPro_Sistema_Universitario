@@ -1,3 +1,9 @@
+/**
+ * pdf.visual.baseline.test
+ *
+ * Responsabilidad: Modulo interno del sistema.
+ * Limites: Mantener contrato y comportamiento observable del modulo.
+ */
 import { describe, expect, it } from 'vitest';
 import { ExamenPdf } from '../src/modulos/modulo_generacion_pdf/domain/examenPdf';
 import { renderExamHtml } from '../src/modulos/modulo_generacion_pdf/infra/html/examPrintTemplate';

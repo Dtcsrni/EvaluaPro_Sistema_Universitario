@@ -1,4 +1,10 @@
 #!/usr/bin/env node
+/**
+ * run-omr-tv-gate
+ *
+ * Responsabilidad: Modulo interno del sistema.
+ * Limites: Mantener contrato y comportamiento observable del modulo.
+ */
 import fs from 'node:fs/promises';
 import path from 'node:path';
 import { spawn } from 'node:child_process';

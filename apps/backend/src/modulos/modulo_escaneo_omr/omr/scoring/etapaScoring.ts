@@ -1,3 +1,9 @@
+/**
+ * etapaScoring
+ *
+ * Responsabilidad: Modulo interno del sistema.
+ * Limites: Mantener contrato y comportamiento observable del modulo.
+ */
 import type { ContextoPipelineOmr } from '../types';
 import { analizarOmr as analizarOmrCv, type ResultadoOmr } from '../../servicioOmrCv';
 import { debeIntentarMotorCv, describirErrorCv, preprocesarImagenOmrCv } from '../../infra/omrCvEngine';

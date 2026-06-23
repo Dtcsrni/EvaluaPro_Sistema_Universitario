@@ -1,3 +1,9 @@
+/**
+ * omrV1Workflow.test
+ *
+ * Responsabilidad: Modulo interno del sistema.
+ * Limites: Mantener contrato y comportamiento observable del modulo.
+ */
 import request from 'supertest';
 import { PDFDocument, StandardFonts } from 'pdf-lib';
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';

@@ -1,3 +1,9 @@
+/**
+ * secure-license-store
+ *
+ * Responsabilidad: Modulo interno del sistema.
+ * Limites: Mantener contrato y comportamiento observable del modulo.
+ */
 import { execFileSync } from 'node:child_process';
 import os from 'node:os';
 

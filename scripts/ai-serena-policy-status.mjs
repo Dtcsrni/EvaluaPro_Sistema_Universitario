@@ -2,6 +2,12 @@
 /**
  * ai-serena-policy-status
  *
+ * Responsabilidad: Modulo interno del sistema.
+ * Limites: Mantener contrato y comportamiento observable del modulo.
+ */
+/**
+ * ai-serena-policy-status
+ *
  * Responsabilidad: validar la politica de aprovechamiento de Serena para ahorro
  * de tokens en capa repo-local y capa global de Codex.
  * Limites: solo inspecciona configuracion/archivos; no instala ni corrige estado.

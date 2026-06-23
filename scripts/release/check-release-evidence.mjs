@@ -1,4 +1,10 @@
 #!/usr/bin/env node
+/**
+ * check-release-evidence
+ *
+ * Responsabilidad: Modulo interno del sistema.
+ * Limites: Mantener contrato y comportamiento observable del modulo.
+ */
 
 import fs from 'node:fs';
 import path from 'node:path';

@@ -9,8 +9,7 @@ import crypto from 'node:crypto';
 import { ErrorAplicacion } from '../../compartido/errores/errorAplicacion';
 import { esCorreoDeDominioPermitido } from '../../compartido/utilidades/correo';
 import { configuracion } from '../../configuracion';
-import { Docente } from './modeloDocente';
-import { RecuperacionContrasenaDocente } from './modeloRecuperacionContrasena';
+import { prisma } from '../../infraestructura/baseDatos/sqlite';
 import { crearHash, compararContrasena } from './servicioHash';
 import { crearTokenDocente } from './servicioTokens';
 import { obtenerDocenteId, type SolicitudDocente } from './middlewareAutenticacion';
@@ -18,6 +17,7 @@ import { cerrarSesionDocente, emitirSesionDocente, refrescarSesionDocente, revoc
 import { verificarCredencialGoogle } from './servicioGoogle';
 import { permisosComoLista, normalizarRoles } from '../../infraestructura/seguridad/rbac';
 import { enviarCorreo } from '../../infraestructura/correo/servicioCorreo';
+import { aTituloPropio } from '../../compartido/utilidades/texto';
 
 function rolesParaToken(roles: unknown): string[] {
   const normalizados = normalizarRoles(roles);
@@ -144,21 +144,22 @@ function obtenerCapacidadesOauthClassroom() {
 async function responderSesionDocente(
   res: Response,
   docente: {
-    _id: unknown;
+    id: string;
     nombreCompleto: string;
-    nombres?: string;
-    apellidos?: string;
+    nombres?: string | null;
+    apellidos?: string | null;
     correo: string;
-    roles?: unknown;
+    roles?: string;
   },
   status = 200
 ) {
-  await emitirSesionDocente(res, String(docente._id));
-  const token = crearTokenDocente({ docenteId: String(docente._id), roles: rolesParaToken(docente.roles) });
+  const rolesArray = typeof docente.roles === 'string' ? JSON.parse(docente.roles) : [];
+  await emitirSesionDocente(res, docente.id);
+  const token = crearTokenDocente({ docenteId: docente.id, roles: rolesParaToken(rolesArray) });
   res.status(status).json({
     token,
     docente: {
-      id: docente._id,
+      id: docente.id,
       nombreCompleto: docente.nombreCompleto,
       ...(docente.nombres ? { nombres: docente.nombres } : {}),
       ...(docente.apellidos ? { apellidos: docente.apellidos } : {}),
@@ -184,21 +185,27 @@ export async function registrarDocente(req: Request, res: Response) {
     );
   }
 
-  const existente = await Docente.findOne({ correo: correoFinal }).lean();
+  const existente = await prisma.docente.findUnique({ where: { correo: correoFinal } });
   if (existente) {
     throw new ErrorAplicacion('DOCENTE_EXISTE', 'El correo ya esta registrado', 409);
   }
 
   const hashContrasena = await crearHash(contrasena);
-  const docente = await Docente.create({
-    ...(typeof nombres === 'string' && nombres.trim() ? { nombres: nombres.trim() } : {}),
-    ...(typeof apellidos === 'string' && apellidos.trim() ? { apellidos: apellidos.trim() } : {}),
-    nombreCompleto: String(nombreCompleto ?? '').trim(),
-    correo: correoFinal,
-    hashContrasena,
-    roles: ['docente'],
-    activo: true,
-    ultimoAcceso: new Date()
+  const nombresFormatted = nombres ? aTituloPropio(nombres) : null;
+  const apellidosFormatted = apellidos ? aTituloPropio(apellidos) : null;
+  const nombreCompletoFormatted = aTituloPropio(nombreCompleto || '');
+
+  const docente = await prisma.docente.create({
+    data: {
+      nombres: nombresFormatted,
+      apellidos: apellidosFormatted,
+      nombreCompleto: nombreCompletoFormatted,
+      correo: correoFinal,
+      hashContrasena,
+      roles: JSON.stringify(['docente']),
+      activo: true,
+      ultimoAcceso: new Date()
+    }
   });
 
   await responderSesionDocente(res, docente, 201);
@@ -216,7 +223,7 @@ export async function registrarDocenteGoogle(req: Request, res: Response) {
   const perfil = await verificarCredencialGoogle(String(credential ?? ''));
   const correo = perfil.correo.toLowerCase();
 
-  const existente = await Docente.findOne({ correo });
+  const existente = await prisma.docente.findUnique({ where: { correo } });
   if (existente) {
     if (!existente.activo) {
       throw new ErrorAplicacion('DOCENTE_INACTIVO', 'Docente inactivo', 403);
@@ -224,14 +231,19 @@ export async function registrarDocenteGoogle(req: Request, res: Response) {
     if (existente.googleSub && existente.googleSub !== perfil.sub) {
       throw new ErrorAplicacion('GOOGLE_SUB_MISMATCH', 'Cuenta Google no coincide con el docente', 401);
     }
-    if (!existente.googleSub) {
-      existente.googleSub = perfil.sub;
-    }
-    const rolesFinales = fusionarRolesGoogleConSuperadmin(existente.roles, perfil.correo);
-    existente.roles = rolesFinales;
-    existente.ultimoAcceso = new Date();
-    await existente.save();
-    await responderSesionDocente(res, existente, 200);
+    
+    const rolesActuales = JSON.parse(existente.roles || '[]');
+    const rolesFinales = fusionarRolesGoogleConSuperadmin(rolesActuales, perfil.correo);
+    
+    const actualizado = await prisma.docente.update({
+      where: { id: existente.id },
+      data: {
+        googleSub: perfil.sub,
+        roles: JSON.stringify(rolesFinales),
+        ultimoAcceso: new Date()
+      }
+    });
+    await responderSesionDocente(res, actualizado, 200);
     return;
   }
 
@@ -241,17 +253,24 @@ export async function registrarDocenteGoogle(req: Request, res: Response) {
   const nombreCompletoReq = String(nombreCompleto ?? '').trim();
   const nombreCompletoFinal = nombreCompletoReq || String(perfil.nombreCompleto ?? '').trim();
   const roles = fusionarRolesGoogleConSuperadmin([], correo);
-  const docente = await Docente.create({
-      ...(typeof nombres === 'string' && String(nombres).trim() ? { nombres: String(nombres).trim() } : {}),
-      ...(typeof apellidos === 'string' && String(apellidos).trim() ? { apellidos: String(apellidos).trim() } : {}),
-      ...(nombreCompletoFinal ? { nombreCompleto: nombreCompletoFinal } : { nombreCompleto: String(perfil.nombreCompleto ?? '').trim() }),
+  
+  const nombresFormatted = typeof nombres === 'string' && String(nombres).trim() ? aTituloPropio(String(nombres)) : null;
+  const apellidosFormatted = typeof apellidos === 'string' && String(apellidos).trim() ? aTituloPropio(String(apellidos)) : null;
+  const nombreCompletoFormatted = aTituloPropio(nombreCompletoFinal);
+
+  const docente = await prisma.docente.create({
+    data: {
+      nombres: nombresFormatted,
+      apellidos: apellidosFormatted,
+      nombreCompleto: nombreCompletoFormatted,
       correo,
-      ...(hashContrasena ? { hashContrasena } : {}),
+      hashContrasena,
       googleSub: perfil.sub,
-      roles,
+      roles: JSON.stringify(roles),
       activo: true,
       ultimoAcceso: new Date()
-    });
+    }
+  });
 
   await responderSesionDocente(res, docente, 201);
 }
@@ -273,7 +292,7 @@ export async function ingresarDocente(req: Request, res: Response) {
     );
   }
 
-  const docente = await Docente.findOne({ correo: correoFinal });
+  const docente = await prisma.docente.findUnique({ where: { correo: correoFinal } });
   if (!docente) {
     throw new ErrorAplicacion('CREDENCIALES_INVALIDAS', 'Credenciales invalidas', 401);
   }
@@ -293,17 +312,19 @@ export async function ingresarDocente(req: Request, res: Response) {
     throw new ErrorAplicacion('CREDENCIALES_INVALIDAS', 'Credenciales invalidas', 401);
   }
 
-  docente.ultimoAcceso = new Date();
-  await docente.save();
+  const actualizado = await prisma.docente.update({
+    where: { id: docente.id },
+    data: { ultimoAcceso: new Date() }
+  });
 
-  await responderSesionDocente(res, docente, 200);
+  await responderSesionDocente(res, actualizado, 200);
 }
 
 export async function ingresarDocenteGoogle(req: Request, res: Response) {
   const { credential } = req.body as { credential?: unknown };
   const perfil = await verificarCredencialGoogle(String(credential ?? ''));
 
-  const docente = await Docente.findOne({ correo: perfil.correo });
+  const docente = await prisma.docente.findUnique({ where: { correo: perfil.correo } });
   if (!docente) {
     throw new ErrorAplicacion('DOCENTE_NO_REGISTRADO', 'No existe una cuenta de docente para ese correo', 401);
   }
@@ -311,22 +332,23 @@ export async function ingresarDocenteGoogle(req: Request, res: Response) {
     throw new ErrorAplicacion('DOCENTE_INACTIVO', 'Docente inactivo', 403);
   }
 
-  // Si ya esta vinculado, exige el mismo subject. Si no, vincula al primer login.
   if (docente.googleSub && docente.googleSub !== perfil.sub) {
     throw new ErrorAplicacion('GOOGLE_SUB_MISMATCH', 'Cuenta Google no coincide con el docente', 401);
   }
-  if (!docente.googleSub) {
-    docente.googleSub = perfil.sub;
-  }
-  const rolesFinales = fusionarRolesGoogleConSuperadmin(docente.roles, perfil.correo);
-  if (String((docente.roles ?? []).join(',')) !== String(rolesFinales.join(','))) {
-    docente.roles = rolesFinales;
-  }
 
-  docente.ultimoAcceso = new Date();
-  await docente.save();
+  const rolesActuales = JSON.parse(docente.roles || '[]');
+  const rolesFinales = fusionarRolesGoogleConSuperadmin(rolesActuales, perfil.correo);
 
-  await responderSesionDocente(res, docente, 200);
+  const actualizado = await prisma.docente.update({
+    where: { id: docente.id },
+    data: {
+      googleSub: perfil.sub,
+      roles: JSON.stringify(rolesFinales),
+      ultimoAcceso: new Date()
+    }
+  });
+
+  await responderSesionDocente(res, actualizado, 200);
 }
 
 export async function recuperarContrasenaGoogle(req: Request, res: Response) {
@@ -334,7 +356,7 @@ export async function recuperarContrasenaGoogle(req: Request, res: Response) {
   const { credential, contrasenaNueva } = req.body as { credential?: unknown; contrasenaNueva?: unknown };
   const perfil = await verificarCredencialGoogle(String(credential ?? ''));
 
-  const docente = await Docente.findOne({ correo: perfil.correo });
+  const docente = await prisma.docente.findUnique({ where: { correo: perfil.correo } });
   if (!docente) {
     throw new ErrorAplicacion('DOCENTE_NO_ENCONTRADO', 'Docente no encontrado', 404);
   }
@@ -342,7 +364,6 @@ export async function recuperarContrasenaGoogle(req: Request, res: Response) {
     throw new ErrorAplicacion('DOCENTE_INACTIVO', 'Docente inactivo', 403);
   }
 
-  // Requiere cuenta Google vinculada y que coincida con el subject.
   if (!docente.googleSub) {
     throw new ErrorAplicacion('GOOGLE_NO_VINCULADO', 'La cuenta no tiene Google vinculado', 401);
   }
@@ -350,15 +371,20 @@ export async function recuperarContrasenaGoogle(req: Request, res: Response) {
     throw new ErrorAplicacion('GOOGLE_SUB_MISMATCH', 'Cuenta Google no coincide con el docente', 401);
   }
 
-  docente.hashContrasena = await crearHash(String(contrasenaNueva ?? ''));
-  docente.ultimoAcceso = new Date();
-  await docente.save();
+  const hashContrasena = await crearHash(String(contrasenaNueva ?? ''));
+  const actualizado = await prisma.docente.update({
+    where: { id: docente.id },
+    data: {
+      hashContrasena,
+      ultimoAcceso: new Date()
+    }
+  });
 
-  // Revoca todas las sesiones previas y emite una nueva.
-  await revocarSesionesDocente(String(docente._id));
-  await emitirSesionDocente(res, String(docente._id));
+  await revocarSesionesDocente(docente.id);
+  await emitirSesionDocente(res, docente.id);
 
-  const token = crearTokenDocente({ docenteId: String(docente._id), roles: rolesParaToken(docente.roles) });
+  const rolesArray = JSON.parse(actualizado.roles || '[]');
+  const token = crearTokenDocente({ docenteId: actualizado.id, roles: rolesParaToken(rolesArray) });
   res.json({ token });
 }
 
@@ -374,13 +400,15 @@ export async function solicitarRecuperacionContrasena(req: Request, res: Respons
 
   const correo = String((req.body as { correo?: unknown })?.correo || '').trim().toLowerCase();
 
-  // Respuesta no-enumerable: nunca revela si existe o no el correo.
   const respuesta = {
     ok: true,
     mensaje: 'Si el correo existe y esta activo, se envio un enlace/codigo de recuperacion.'
   };
 
-  const docente = await Docente.findOne({ correo }).select({ _id: 1, correo: 1, activo: 1, nombreCompleto: 1 }).lean();
+  const docente = await prisma.docente.findUnique({
+    where: { correo },
+    select: { id: true, correo: true, activo: true, nombreCompleto: true }
+  });
   if (!docente || !docente.activo) {
     res.status(202).json(respuesta);
     return;
@@ -395,12 +423,16 @@ export async function solicitarRecuperacionContrasena(req: Request, res: Respons
     ? `Recuperacion de acceso EvaluaPro.\n\nUsa este enlace antes de ${expiraEn.toISOString()}:\n${enlace}\n\nSi no solicitaste este cambio, ignora este mensaje.`
     : `Recuperacion de acceso EvaluaPro.\n\nTu token de recuperacion es:\n${token}\n\nExpira en ${configuracion.passwordResetTokenMinutes} minutos. Si no solicitaste este cambio, ignora este mensaje.`;
 
-  await RecuperacionContrasenaDocente.deleteMany({ docenteId: docente._id, usadoEn: { $exists: false } });
-  await RecuperacionContrasenaDocente.create({
-    docenteId: docente._id,
-    tokenHash,
-    expiraEn,
-    solicitadoIp: ipSolicitud(req)
+  await prisma.recuperacionContrasenaDocente.deleteMany({
+    where: { docenteId: docente.id, usadoEn: null }
+  });
+  await prisma.recuperacionContrasenaDocente.create({
+    data: {
+      docenteId: docente.id,
+      tokenHash,
+      expiraEn,
+      solicitadoIp: ipSolicitud(req)
+    }
   });
 
   await enviarCorreo(String(docente.correo), 'Recuperacion de contrasena - EvaluaPro', contenido);
@@ -427,46 +459,63 @@ export async function restablecerContrasena(req: Request, res: Response) {
   const contrasenaNueva = String((req.body as { contrasenaNueva?: unknown })?.contrasenaNueva || '');
   const tokenHash = hashTokenRecuperacion(token);
 
-  const recuperacion = await RecuperacionContrasenaDocente.findOne({
-    tokenHash,
-    usadoEn: { $exists: false },
-    expiraEn: { $gt: new Date() }
+  const recuperacion = await prisma.recuperacionContrasenaDocente.findFirst({
+    where: {
+      tokenHash,
+      usadoEn: null,
+      expiraEn: { gt: new Date() }
+    }
   });
 
   if (!recuperacion) {
     throw new ErrorAplicacion('TOKEN_RECUPERACION_INVALIDO', 'Token de recuperacion invalido o expirado', 400);
   }
 
-  const docente = await Docente.findById(recuperacion.docenteId);
+  const docente = await prisma.docente.findUnique({ where: { id: recuperacion.docenteId } });
   if (!docente || !docente.activo) {
     throw new ErrorAplicacion('DOCENTE_NO_ENCONTRADO', 'Docente no encontrado', 404);
   }
 
-  docente.hashContrasena = await crearHash(contrasenaNueva);
-  docente.ultimoAcceso = new Date();
-  await docente.save();
+  const hashContrasena = await crearHash(contrasenaNueva);
+  await prisma.docente.update({
+    where: { id: docente.id },
+    data: {
+      hashContrasena,
+      ultimoAcceso: new Date()
+    }
+  });
 
-  recuperacion.usadoEn = new Date();
-  recuperacion.usadoIp = ipSolicitud(req);
-  await recuperacion.save();
-  await RecuperacionContrasenaDocente.deleteMany({ docenteId: docente._id, usadoEn: { $exists: false } });
-  await revocarSesionesDocente(String(docente._id));
+  await prisma.recuperacionContrasenaDocente.update({
+    where: { id: recuperacion.id },
+    data: {
+      usadoEn: new Date(),
+      usadoIp: ipSolicitud(req)
+    }
+  });
+
+  await prisma.recuperacionContrasenaDocente.deleteMany({
+    where: { docenteId: docente.id, usadoEn: null }
+  });
+  await revocarSesionesDocente(docente.id);
 
   res.status(204).end();
 }
 
 export async function refrescarDocente(req: Request, res: Response) {
   const docenteId = await refrescarSesionDocente(req, res);
-  const docente = await Docente.findById(docenteId);
+  const docente = await prisma.docente.findUnique({ where: { id: docenteId } });
   if (!docente || !docente.activo) {
     await cerrarSesionDocente(req, res);
     throw new ErrorAplicacion('NO_AUTORIZADO', 'Sesion requerida', 401);
   }
 
-  docente.ultimoAcceso = new Date();
-  await docente.save();
+  const actualizado = await prisma.docente.update({
+    where: { id: docente.id },
+    data: { ultimoAcceso: new Date() }
+  });
 
-  const token = crearTokenDocente({ docenteId: String(docente._id), roles: rolesParaToken(docente.roles) });
+  const rolesArray = JSON.parse(actualizado.roles || '[]');
+  const token = crearTokenDocente({ docenteId: actualizado.id, roles: rolesParaToken(rolesArray) });
   res.json({ token });
 }
 
@@ -484,7 +533,7 @@ export async function definirContrasenaDocente(req: SolicitudDocente, res: Respo
     credential?: unknown;
   };
 
-  const docente = await Docente.findById(docenteId);
+  const docente = await prisma.docente.findUnique({ where: { id: docenteId } });
   if (!docente) {
     throw new ErrorAplicacion('DOCENTE_NO_ENCONTRADO', 'Docente no encontrado', 404);
   }
@@ -495,9 +544,6 @@ export async function definirContrasenaDocente(req: SolicitudDocente, res: Respo
   const contrasenaActualStr = typeof contrasenaActual === 'string' ? contrasenaActual : '';
   const credentialStr = typeof credential === 'string' ? credential : '';
 
-  // Reautenticacion requerida para una accion sensible.
-  // - Si existe password, se puede validar con contrasenaActual.
-  // - Si existe Google vinculado, se puede validar con credential (ID token).
   let reautenticado = false;
 
   if (docente.hashContrasena && contrasenaActualStr.trim()) {
@@ -527,22 +573,36 @@ export async function definirContrasenaDocente(req: SolicitudDocente, res: Respo
     );
   }
 
-  docente.hashContrasena = await crearHash(String(contrasenaNueva ?? ''));
-  await docente.save();
+  const hashContrasena = await crearHash(String(contrasenaNueva ?? ''));
+  await prisma.docente.update({
+    where: { id: docente.id },
+    data: { hashContrasena }
+  });
 
   res.status(204).end();
 }
 
 export async function perfilDocente(req: SolicitudDocente, res: Response) {
   const docenteId = obtenerDocenteId(req);
-  const docente = await Docente.findById(docenteId).lean();
+  const docente = await prisma.docente.findUnique({ where: { id: docenteId } });
   if (!docente) {
     throw new ErrorAplicacion('DOCENTE_NO_ENCONTRADO', 'Docente no encontrado', 404);
   }
-  const roles = rolesParaToken((docente as unknown as { roles?: unknown }).roles);
+  const rolesArray = JSON.parse(docente.roles || '[]');
+  const roles = rolesParaToken(rolesArray);
+  
+  let preferenciasPdf: any = {};
+  if (docente.preferenciasPdf) {
+    try {
+      preferenciasPdf = JSON.parse(docente.preferenciasPdf);
+    } catch {
+      // ignore
+    }
+  }
+
   res.json({
     docente: {
-      id: docente._id,
+      id: docente.id,
       nombreCompleto: docente.nombreCompleto,
       correo: docente.correo,
       roles,
@@ -551,15 +611,11 @@ export async function perfilDocente(req: SolicitudDocente, res: Response) {
       tieneGoogle: Boolean(docente.googleSub),
       capacidadesIntegraciones: obtenerCapacidadesOauthClassroom(),
       preferenciasPdf: {
-        institucion: String((docente as unknown as { preferenciasPdf?: { institucion?: unknown } })?.preferenciasPdf?.institucion ?? '').trim() || undefined,
-        lema: String((docente as unknown as { preferenciasPdf?: { lema?: unknown } })?.preferenciasPdf?.lema ?? '').trim() || undefined,
+        institucion: String(preferenciasPdf.institucion ?? '').trim() || undefined,
+        lema: String(preferenciasPdf.lema ?? '').trim() || undefined,
         logos: {
-          izquierdaPath:
-            String((docente as unknown as { preferenciasPdf?: { logos?: { izquierdaPath?: unknown } } })?.preferenciasPdf?.logos?.izquierdaPath ?? '').trim() ||
-            undefined,
-          derechaPath:
-            String((docente as unknown as { preferenciasPdf?: { logos?: { derechaPath?: unknown } } })?.preferenciasPdf?.logos?.derechaPath ?? '').trim() ||
-            undefined
+          izquierdaPath: String(preferenciasPdf.logos?.izquierdaPath ?? '').trim() || undefined,
+          derechaPath: String(preferenciasPdf.logos?.derechaPath ?? '').trim() || undefined
         }
       }
     }
@@ -574,35 +630,40 @@ export async function actualizarPreferenciasPdfDocente(req: SolicitudDocente, re
   const docenteId = obtenerDocenteId(req);
   const body = req.body as { institucion?: unknown; lema?: unknown; logos?: { izquierdaPath?: unknown; derechaPath?: unknown } };
 
-  const set: Record<string, unknown> = {};
-  if (typeof body.institucion === 'string') set['preferenciasPdf.institucion'] = body.institucion.trim();
-  if (typeof body.lema === 'string') set['preferenciasPdf.lema'] = body.lema.trim();
-  if (body.logos && typeof body.logos === 'object') {
-    if (typeof body.logos.izquierdaPath === 'string') set['preferenciasPdf.logos.izquierdaPath'] = body.logos.izquierdaPath.trim();
-    if (typeof body.logos.derechaPath === 'string') set['preferenciasPdf.logos.derechaPath'] = body.logos.derechaPath.trim();
-  }
-
-  const actualizado = await Docente.findOneAndUpdate(
-    { _id: docenteId },
-    { $set: set },
-    { returnDocument: 'after' }
-  ).lean();
-
-  if (!actualizado) {
+  const docente = await prisma.docente.findUnique({ where: { id: docenteId } });
+  if (!docente) {
     throw new ErrorAplicacion('DOCENTE_NO_ENCONTRADO', 'Docente no encontrado', 404);
   }
 
+  let prefs: any = {};
+  if (docente.preferenciasPdf) {
+    try {
+      prefs = JSON.parse(docente.preferenciasPdf);
+    } catch {
+      // ignore
+    }
+  }
+
+  if (typeof body.institucion === 'string') prefs.institucion = body.institucion.trim();
+  if (typeof body.lema === 'string') prefs.lema = body.lema.trim();
+  if (body.logos && typeof body.logos === 'object') {
+    if (!prefs.logos) prefs.logos = {};
+    if (typeof body.logos.izquierdaPath === 'string') prefs.logos.izquierdaPath = body.logos.izquierdaPath.trim();
+    if (typeof body.logos.derechaPath === 'string') prefs.logos.derechaPath = body.logos.derechaPath.trim();
+  }
+
+  await prisma.docente.update({
+    where: { id: docenteId },
+    data: { preferenciasPdf: JSON.stringify(prefs) }
+  });
+
   res.json({
     preferenciasPdf: {
-      institucion: String((actualizado as unknown as { preferenciasPdf?: { institucion?: unknown } })?.preferenciasPdf?.institucion ?? '').trim() || undefined,
-      lema: String((actualizado as unknown as { preferenciasPdf?: { lema?: unknown } })?.preferenciasPdf?.lema ?? '').trim() || undefined,
+      institucion: String(prefs.institucion ?? '').trim() || undefined,
+      lema: String(prefs.lema ?? '').trim() || undefined,
       logos: {
-        izquierdaPath:
-          String((actualizado as unknown as { preferenciasPdf?: { logos?: { izquierdaPath?: unknown } } })?.preferenciasPdf?.logos?.izquierdaPath ?? '').trim() ||
-          undefined,
-        derechaPath:
-          String((actualizado as unknown as { preferenciasPdf?: { logos?: { derechaPath?: unknown } } })?.preferenciasPdf?.logos?.derechaPath ?? '').trim() ||
-          undefined
+        izquierdaPath: String(prefs.logos?.izquierdaPath ?? '').trim() || undefined,
+        derechaPath: String(prefs.logos?.derechaPath ?? '').trim() || undefined
       }
     }
   });

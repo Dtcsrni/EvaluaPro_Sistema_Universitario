@@ -1,3 +1,7 @@
+# tmp_validar_identidad_lote.ps1
+#
+# Responsabilidad: Modulo interno del sistema.
+# Limites: Mantener contrato y comportamiento observable del modulo.
 param(
   [Parameter(Mandatory = $true)]
   [string]$LoteId,

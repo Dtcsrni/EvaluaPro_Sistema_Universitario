@@ -1,0 +1,214 @@
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+  output   = "../src/infraestructura/baseDatos/generado/cliente"
+}
+
+model PerfilAlumno {
+  id             String   @id @default(uuid())
+  periodoId      String
+  alumnoId       String
+  matricula      String
+  nombreCompleto String
+  grupo          String?
+  docenteId      String?
+  metadata       String?  // JSON string
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  @@unique([periodoId, alumnoId])
+  @@map("perfil_alumno")
+}
+
+model ResultadoAlumno {
+  id                           String   @id @default(uuid())
+  periodoId                    String
+  docenteId                    String
+  alumnoId                     String
+  examenGeneradoId             String?
+  matricula                    String
+  nombreCompleto               String
+  grupo                        String?
+  folio                        String   @unique
+  tipoExamen                   String
+  totalReactivos               Int?
+  aciertos                     Int?
+  calificacionExamenFinalTexto String
+  calificacionParcialTexto     String?
+  calificacionGlobalTexto      String?
+  evaluacionContinuaTexto      String?
+  proyectoTexto                String?
+  politicaId                   String?
+  versionPolitica              Int?
+  componentesExamen            String?  // JSON string
+  bloqueContinuaDecimal        Float?
+  bloqueExamenesDecimal        Float?
+  finalDecimal                 Float?
+  finalRedondeada              Float?
+  respuestasDetectadas         String?  // JSON string (array)
+  comparativaRespuestas        String?  // JSON string (array)
+  omrCapturas                  String?  // JSON string (array)
+  omrAuditoria                 String?  // JSON string
+  banderas                     String?  // JSON string (array)
+  pdfComprimidoBase64          String?
+  publicadoEn                  DateTime @default(now())
+  createdAt                    DateTime @default(now())
+  updatedAt                    DateTime @updatedAt
+
+  @@map("resultados_alumno")
+}
+
+model MateriaAlumno {
+  id        String   @id @default(uuid())
+  periodoId String
+  alumnoId  String
+  materiaId String
+  nombre    String
+  docente   String?
+  estado    String   @default("activa")
+  metadata  String?  // JSON string
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([periodoId, alumnoId, materiaId])
+  @@map("materias_alumno")
+}
+
+model AgendaAlumno {
+  id          String   @id @default(uuid())
+  periodoId   String
+  alumnoId    String
+  agendaId    String
+  titulo      String
+  descripcion String?
+  fecha       DateTime
+  tipo        String   @default("evento")
+  metadata    String?  // JSON string
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@unique([periodoId, alumnoId, agendaId])
+  @@map("agenda_alumno")
+}
+
+model AvisoAlumno {
+  id          String   @id @default(uuid())
+  periodoId   String
+  alumnoId    String
+  avisoId     String
+  titulo      String
+  mensaje     String
+  severidad   String   @default("info")
+  publicadoEn DateTime @default(now())
+  metadata    String?  // JSON string
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@unique([periodoId, alumnoId, avisoId])
+  @@map("avisos_alumno")
+}
+
+model HistorialAlumno {
+  id                String   @id @default(uuid())
+  periodoId         String
+  alumnoId          String
+  historialId       String
+  folio             String?
+  tipoExamen        String?
+  calificacionTexto String?
+  aciertos          Int?
+  totalReactivos    Int?
+  fecha             DateTime @default(now())
+  metadata          String?  // JSON string
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  @@unique([periodoId, alumnoId, historialId])
+  @@map("historial_alumno")
+}
+
+model CodigoAcceso {
+  id        String   @id @default(uuid())
+  periodoId String
+  codigo    String   @unique
+  expiraEn  DateTime
+  usado     Boolean  @default(false)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("codigos_acceso")
+}
+
+model EventoUsoAlumno {
+  id         String   @id @default(uuid())
+  periodoId  String
+  alumnoId   String
+  sessionId  String?
+  pantalla   String?
+  accion     String
+  exito      Boolean?
+  duracionMs Int?
+  meta       String?  // JSON string
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@map("eventos_uso_alumno")
+}
+
+model SesionAlumno {
+  id        String   @id @default(uuid())
+  periodoId String
+  alumnoId  String
+  tokenHash String   @unique
+  expiraEn  DateTime
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("sesiones_alumno")
+}
+
+model SolicitudRevision {
+  id                       String    @id @default(uuid())
+  externoId                String    @unique
+  periodoId                String
+  docenteId                String
+  alumnoId                 String
+  examenGeneradoId         String?
+  folio                    String
+  numeroPregunta           Int
+  comentario               String?
+  estado                   String    @default("pendiente")
+  solicitadoEn             DateTime
+  atendidoEn               DateTime?
+  respuestaDocente         String?
+  firmaDocente             String?
+  firmadoEn                DateTime?
+  cerradoEn                DateTime?
+  conformidadAlumno        Boolean   @default(false)
+  conformidadActualizadaEn DateTime?
+  origen                   String    @default("portal")
+  createdAt                DateTime  @default(now())
+  updatedAt                DateTime  @updatedAt
+
+  @@map("solicitudes_revision")
+}
+
+model PaqueteSyncDocente {
+  id              String    @id @default(uuid())
+  docenteId       String
+  paqueteBase64   String
+  checksumSha256  String?
+  schemaVersion   Int       @default(2)
+  exportadoEn     DateTime?
+  desde           DateTime?
+  periodoId       String?
+  conteos         String?   // JSON string
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  @@map("paquetes_sync_docente")
+}

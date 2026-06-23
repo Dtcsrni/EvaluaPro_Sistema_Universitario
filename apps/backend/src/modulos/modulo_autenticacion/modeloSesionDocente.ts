@@ -1,21 +1,8 @@
 /**
- * Sesiones persistentes de docente (refresh tokens rotatorios).
+ * modeloSesionDocente
  *
- * Se almacena SOLO un hash del token para evitar leaks.
- * TTL: Mongo elimina documentos expirados automaticamente via `expiraEn`.
+ * Responsabilidad: Definición de modelo compatible con Prisma/SQLite.
  */
-import { Schema, model, models } from 'mongoose';
+import { buildCompatModel } from '../../compartido/compat';
 
-const SesionDocenteSchema = new Schema(
-  {
-    docenteId: { type: Schema.Types.ObjectId, ref: 'Docente', required: true, index: true },
-    tokenHash: { type: String, required: true, unique: true, index: true },
-    creadoEn: { type: Date, required: true, default: () => new Date() },
-    ultimoUso: { type: Date },
-    expiraEn: { type: Date, required: true, index: { expires: 0 } },
-    revocadoEn: { type: Date }
-  },
-  { timestamps: false, collection: 'sesiones_docente' }
-);
-
-export const SesionDocente = models.SesionDocente ?? model('SesionDocente', SesionDocenteSchema);
+export const SesionDocente = buildCompatModel('sesionDocente', {});

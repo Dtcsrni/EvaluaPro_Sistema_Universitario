@@ -1,3 +1,9 @@
+/**
+ * controladorComercialPublico
+ *
+ * Responsabilidad: Adaptador HTTP del dominio (parseo de entrada, invocacion de servicios y respuesta).
+ * Limites: Evitar mover logica de negocio profunda a controlador.
+ */
 import type { Request, Response } from 'express';
 import { ErrorAplicacion } from '../../compartido/errores/errorAplicacion';
 import { configuracion } from '../../configuracion';

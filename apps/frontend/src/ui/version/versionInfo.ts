@@ -1,3 +1,9 @@
+/**
+ * versionInfo
+ *
+ * Responsabilidad: Componente/utilidad de UI reutilizable.
+ * Limites: Preservar accesibilidad y contratos de props existentes.
+ */
 export function obtenerVersionApp(): string {
   return String(import.meta.env.VITE_APP_DISPLAY_VERSION || import.meta.env.VITE_APP_VERSION || '0.0.0');
 }

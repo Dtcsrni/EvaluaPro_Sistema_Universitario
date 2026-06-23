@@ -1,3 +1,9 @@
+/**
+ * omr-cv-smoke
+ *
+ * Responsabilidad: Modulo interno del sistema.
+ * Limites: Mantener contrato y comportamiento observable del modulo.
+ */
 import { describirErrorCv, ejecutarSmokeTestOmrCv } from '../src/modulos/modulo_escaneo_omr/infra/omrCvEngine';
 
 async function main() {

@@ -1,3 +1,9 @@
+/**
+ * check-coverage-exclusions-debt
+ *
+ * Responsabilidad: Modulo interno del sistema.
+ * Limites: Mantener contrato y comportamiento observable del modulo.
+ */
 import fs from 'node:fs/promises';
 import path from 'node:path';
 import process from 'node:process';

@@ -1,0 +1,1 @@
+export * from '../../compartido/compat';

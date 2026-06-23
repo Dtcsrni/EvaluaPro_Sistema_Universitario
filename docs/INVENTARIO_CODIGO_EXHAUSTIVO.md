@@ -1,24 +1,24 @@
 # Inventario Exhaustivo de Codigo
 
-Fecha de generacion: 2026-06-15 03:05:49
+Fecha de generacion: 2026-06-22 04:29:37
 Fuente: git ls-files filtrado por existencia en workspace (solo archivos versionados presentes, excluye node_modules).
 
 ## Resumen
 
-- Total de piezas de codigo/config ejecutable inventariadas: 1030
+- Total de piezas de codigo/config ejecutable inventariadas: 1024
 - Extensiones incluidas: ts, tsx, js, jsx, mjs, cjs, json, yml, yaml, sh, cmd, ps1.
 
 ## Conteo por area
 
 | Area | Archivos |
 | --- | ---: |
-| backend | 385 |
+| backend | 381 |
 | frontend | 129 |
-| portal_alumno_cloud | 44 |
+| portal_alumno_cloud | 41 |
 | ci | 17 |
 | scripts | 165 |
 | ops | 3 |
-| docs | 131 |
+| docs | 132 |
 | raiz | 32 |
 
 ## Backend (apps/backend)
@@ -102,11 +102,9 @@ Fuente: git ls-files filtrado por existencia en workspace (solo archivos version
 - apps/backend/src/configuracion.ts
 - apps/backend/src/index.ts
 - apps/backend/src/infraestructura/archivos/almacenLocal.ts
-- apps/backend/src/infraestructura/baseDatos/mongoose.ts
 - apps/backend/src/infraestructura/correo/servicioCorreo.ts
 - apps/backend/src/infraestructura/logging/logger.ts
 - apps/backend/src/infraestructura/seguridad/rbac.ts
-- apps/backend/src/infraestructura/seguridad/sanitizarMongo.ts
 - apps/backend/src/modulos/modulo_admin_docentes/controladorAdminDocentes.ts
 - apps/backend/src/modulos/modulo_admin_docentes/rutasAdminDocentes.ts
 - apps/backend/src/modulos/modulo_admin_docentes/validacionesAdminDocentes.ts
@@ -308,7 +306,6 @@ Fuente: git ls-files filtrado por existencia en workspace (solo archivos version
 - apps/backend/tests/analiticas.xlsx.sv.contract.test.ts
 - apps/backend/tests/autenticacionServicios.test.ts
 - apps/backend/tests/bancoPreguntas.controlador.test.ts
-- apps/backend/tests/baseDatos.test.ts
 - apps/backend/tests/calificacion.global.reglas.test.ts
 - apps/backend/tests/calificacion.omr.payload.test.ts
 - apps/backend/tests/calificacion.persistencia.test.ts
@@ -391,7 +388,6 @@ Fuente: git ls-files filtrado por existencia en workspace (solo archivos version
 - apps/backend/tests/robustez.test.ts
 - apps/backend/tests/rutasSalud.test.ts
 - apps/backend/tests/salud.test.ts
-- apps/backend/tests/sanitizarMongo.test.ts
 - apps/backend/tests/servicioClassroomGoogle.test.ts
 - apps/backend/tests/servicioCorreo.test.ts
 - apps/backend/tests/setup.ts
@@ -552,11 +548,9 @@ Fuente: git ls-files filtrado por existencia en workspace (solo archivos version
 - apps/portal_alumno_cloud/src/compartido/errores/manejadorErrores.ts
 - apps/portal_alumno_cloud/src/configuracion.ts
 - apps/portal_alumno_cloud/src/index.ts
-- apps/portal_alumno_cloud/src/infraestructura/baseDatos/mongoose.ts
 - apps/portal_alumno_cloud/src/infraestructura/logging/logger.ts
 - apps/portal_alumno_cloud/src/infraestructura/observabilidad/metrics.ts
 - apps/portal_alumno_cloud/src/infraestructura/observabilidad/middlewareObservabilidad.ts
-- apps/portal_alumno_cloud/src/infraestructura/seguridad/sanitizarMongo.ts
 - apps/portal_alumno_cloud/src/modelos/modeloAgendaAlumno.ts
 - apps/portal_alumno_cloud/src/modelos/modeloAvisoAlumno.ts
 - apps/portal_alumno_cloud/src/modelos/modeloCodigoAcceso.ts
@@ -581,7 +575,6 @@ Fuente: git ls-files filtrado por existencia en workspace (solo archivos version
 - apps/portal_alumno_cloud/tests/middlewareSesion.test.ts
 - apps/portal_alumno_cloud/tests/rateLimit.test.ts
 - apps/portal_alumno_cloud/tests/salud.test.ts
-- apps/portal_alumno_cloud/tests/sanitizarMongo.test.ts
 - apps/portal_alumno_cloud/tests/sesion.test.ts
 - apps/portal_alumno_cloud/tests/setup.ts
 - apps/portal_alumno_cloud/tests/utils/mongo.ts
@@ -903,6 +896,7 @@ Fuente: git ls-files filtrado por existencia en workspace (solo archivos version
 - docs/handoff/sesiones/2026-06-09/sesion-2026-06-09T10-24-03.972Z.json
 - docs/handoff/sesiones/2026-06-09/sesion-2026-06-09T18-03-59.323Z.json
 - docs/handoff/sesiones/2026-06-15/sesion-2026-06-15T06-55-42.234Z.json
+- docs/handoff/sesiones/2026-06-15/sesion-2026-06-15T10-50-36.706Z.json
 - docs/handoff/trace.schema.json
 - docs/perf/baseline.business.json
 - docs/perf/baseline.json

@@ -2,6 +2,12 @@
 /**
  * ai-model-router
  *
+ * Responsabilidad: Modulo interno del sistema.
+ * Limites: Mantener contrato y comportamiento observable del modulo.
+ */
+/**
+ * ai-model-router
+ *
  * Responsabilidad: seleccionar automaticamente el modelo mas adecuado segun la tarea.
  * Limites: heuristica ligera; no llama a ningun proveedor ni persiste estado.
  */

@@ -73,7 +73,7 @@ async function resolverContextoPreview(docenteId: unknown, plantillaId: string) 
   const plantilla = await obtenerPlantillaDocente(docenteId, plantillaId);
   const { preguntasDb, temas } = await resolverPreguntasPlantilla({
     docenteId,
-    plantilla: plantilla as { periodoId?: unknown; preguntasIds?: unknown[]; temas?: unknown[] },
+    plantilla: plantilla as { id: string; periodoId?: unknown; preguntasIds?: unknown[]; temas?: unknown[] },
     ordenarPorRecencia: true
   });
 

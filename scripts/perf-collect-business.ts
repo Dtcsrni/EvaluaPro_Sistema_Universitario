@@ -3,7 +3,6 @@ import path from 'node:path';
 import { randomUUID } from 'node:crypto';
 import request from 'supertest';
 import sharp from 'sharp';
-import { MongoMemoryServer } from 'mongodb-memory-server';
 
 type Medicion = {
   service: 'backend';
@@ -146,19 +145,46 @@ async function run() {
     process.env.PERF_BUSINESS_REPORT_PATH || 'reports/perf/business.latest.json'
   );
 
-  const mongod = await MongoMemoryServer.create();
-  process.env.MONGODB_URI = mongod.getUri();
-  process.env.MONGO_URI = mongod.getUri();
+  const dbFile = 'perf_business.db';
+  const dataDir = path.resolve(process.cwd(), 'data');
+  const dbPath = path.resolve(dataDir, dbFile);
+  const dbUrl = `file:${dbPath.replace(/\\/g, '/')}`;
+
+  process.env.DATABASE_URL = dbUrl;
+  process.env.BACKEND_DATABASE_URL = dbUrl;
   process.env.NODE_ENV = process.env.NODE_ENV || 'test';
   process.env.JWT_SECRETO = process.env.JWT_SECRETO || 'perf_business_jwt_secret_2026';
   process.env.PORTAL_ALUMNO_API_KEY = process.env.PORTAL_ALUMNO_API_KEY || 'perf_business_portal_key_2026';
 
-  const { conectarBaseDatos } = await import('../apps/backend/src/infraestructura/baseDatos/mongoose');
-  const mongooseMod = await import('../apps/backend/node_modules/mongoose');
-  const mongooseConn = (mongooseMod as unknown as { default: { disconnect: () => Promise<void> } }).default;
+  await fs.mkdir(dataDir, { recursive: true });
+
+  try {
+    await fs.unlink(dbPath);
+  } catch {}
+
+  const { execSync } = await import('node:child_process');
+  const fsSync = await import('node:fs');
+  let prismaBin = path.resolve(process.cwd(), 'node_modules', '.bin', 'prisma');
+  if (!fsSync.existsSync(prismaBin)) {
+    prismaBin = path.resolve(process.cwd(), 'apps', 'backend', 'node_modules', '.bin', 'prisma');
+  }
+  const schemaPath = path.resolve(process.cwd(), 'apps', 'backend', 'prisma', 'schema.prisma');
+  const cmd = `"${prismaBin}" db push --schema="${schemaPath}" --skip-generate --accept-data-loss`;
+
+  try {
+    execSync(cmd, {
+      env: { ...process.env, DATABASE_URL: dbUrl },
+      stdio: 'pipe'
+    });
+  } catch (error: any) {
+    process.stderr.write(`Error executing prisma db push during perf business: ${String(error.stderr?.toString() || error.message)}\n`);
+    throw error;
+  }
+
+  const { conectarSqlite, desconectarSqlite } = await import('../apps/backend/src/infraestructura/baseDatos/sqlite');
   const { crearApp: crearAppBackend } = await import('../apps/backend/src/app');
 
-  await conectarBaseDatos();
+  await conectarSqlite();
   const app = crearAppBackend();
   const token = await registrarDocente(app);
   const capturaBase64 = await crearCapturaBase64();
@@ -181,8 +207,10 @@ async function run() {
   await fs.writeFile(output, `${JSON.stringify(payload, null, 2)}\n`, 'utf8');
   process.stdout.write(`[perf-collect-business] Reporte generado en ${output}\n`);
 
-  await mongooseConn.disconnect();
-  await mongod.stop();
+  await desconectarSqlite();
+  try {
+    await fs.unlink(dbPath);
+  } catch {}
 }
 
 run().catch((error) => {

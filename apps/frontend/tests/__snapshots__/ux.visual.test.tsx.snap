@@ -3,7 +3,7 @@
 exports[`UX visual regression > admin negocio mantiene layout principal 1`] = `
 <DocumentFragment>
   <div
-    class="panel cuenta-panel admin-negocio-shell superficie-app superficie-app--negocio"
+    class="panel glass-card anim-fade-in cuenta-panel admin-negocio-shell superficie-app superficie-app--negocio"
     data-admin-negocio="true"
   >
     <div

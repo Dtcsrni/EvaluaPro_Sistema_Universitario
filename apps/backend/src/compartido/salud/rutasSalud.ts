@@ -2,7 +2,7 @@
  * Endpoint de salud para monitoreo de API y base de datos.
  */
 import { Router } from 'express';
-import mongoose from 'mongoose';
+import { prisma } from '../../infraestructura/baseDatos/sqlite';
 import os from 'node:os';
 import fs from 'node:fs';
 import path from 'node:path';
@@ -133,9 +133,17 @@ export function obtenerVersionInfo() {
   };
 }
 
-router.get('/', (_req, res) => {
-  const estado = mongoose.connection.readyState; // 0,1,2,3
-  const textoEstado = ['desconectado', 'conectado', 'conectando', 'desconectando'][estado] ?? 'desconocido';
+async function obtenerEstadoDb(): Promise<{ estado: number; textoEstado: string; lista: boolean }> {
+  try {
+    await prisma.$queryRawUnsafe("SELECT 1;");
+    return { estado: 1, textoEstado: 'conectado', lista: true };
+  } catch {
+    return { estado: 0, textoEstado: 'desconectado', lista: false };
+  }
+}
+
+router.get('/', async (_req, res) => {
+  const { estado, textoEstado } = await obtenerEstadoDb();
   const payload: RespuestaSalud & { db: { estado: number; descripcion: string } } = {
     estado: 'ok',
     tiempoActivo: process.uptime(),
@@ -154,15 +162,13 @@ router.get('/live', (_req, res) => {
   res.json(payload);
 });
 
-router.get('/ready', (_req, res) => {
-  const estado = mongoose.connection.readyState; // 0,1,2,3
-  const textoEstado = ['desconectado', 'conectado', 'conectando', 'desconectando'][estado] ?? 'desconocido';
-  const lista = estado === 1;
+router.get('/ready', async (_req, res) => {
+  const { estado, textoEstado, lista } = await obtenerEstadoDb();
   const payload: RespuestaReadiness = {
     estado: lista ? 'ok' : 'degradado',
     tiempoActivo: process.uptime(),
     dependencies: {
-      mongodb: {
+      sqlite: {
         status: lista ? 'ok' : 'fail',
         ready: lista,
         state: estado,
@@ -180,9 +186,9 @@ router.get('/ready', (_req, res) => {
   res.status(lista ? 200 : 503).json(payload);
 });
 
-router.get('/metrics', (_req, res) => {
-  const estadoDb = mongoose.connection.readyState;
-  const payload = `${exportarMetricasPrometheus()}\n\n# HELP evaluapro_db_ready_state Estado de conexión MongoDB (0-3)\n# TYPE evaluapro_db_ready_state gauge\nevaluapro_db_ready_state ${estadoDb}\n`;
+router.get('/metrics', async (_req, res) => {
+  const { estado } = await obtenerEstadoDb();
+  const payload = `${exportarMetricasPrometheus()}\n\n# HELP evaluapro_db_ready_state Estado de conexión SQLite (0-1)\n# TYPE evaluapro_db_ready_state gauge\nevaluapro_db_ready_state ${estado}\n`;
   res.setHeader('Content-Type', 'text/plain; version=0.0.4; charset=utf-8');
   res.send(payload);
 });

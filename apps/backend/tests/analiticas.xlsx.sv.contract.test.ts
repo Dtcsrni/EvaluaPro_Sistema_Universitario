@@ -1,3 +1,9 @@
+/**
+ * analiticas.xlsx.sv.contract.test
+ *
+ * Responsabilidad: Modulo interno del sistema.
+ * Limites: Mantener contrato y comportamiento observable del modulo.
+ */
 import { Workbook, type CellFormulaValue } from 'exceljs';
 import { describe, expect, it } from 'vitest';
 import { generarXlsxCalificacionesProduccion } from '../src/modulos/modulo_analiticas/servicioExportacionXlsxCalificaciones';

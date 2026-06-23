@@ -4,6 +4,14 @@
  * Responsabilidad: Modulo interno del sistema.
  * Limites: Mantener contrato y comportamiento observable del modulo.
  */
+import path from 'node:path';
+const workerId = process.env.VITEST_WORKER_ID || '1';
+const dbFile = `test_${workerId}.db`;
+const dataDir = path.resolve(process.cwd(), 'data');
+const dbPath = path.resolve(dataDir, dbFile);
+process.env.DATABASE_URL = `file:${dbPath}`;
+process.env.BACKEND_DATABASE_URL = `file:${dbPath}`;
+
 import { instalarTestHardening } from '../../../test-utils/vitestStrict';
 
 // Setup comun para pruebas del backend.

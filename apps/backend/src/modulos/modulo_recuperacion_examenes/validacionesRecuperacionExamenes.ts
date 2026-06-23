@@ -1,3 +1,9 @@
+/**
+ * validacionesRecuperacionExamenes
+ *
+ * Responsabilidad: Contrato de validaciones de entrada/salida del dominio.
+ * Limites: No relajar reglas sin actualizar tests y contratos de API.
+ */
 import { z } from 'zod';
 
 const textoOpcional = z

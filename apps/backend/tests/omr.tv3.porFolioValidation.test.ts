@@ -1,3 +1,9 @@
+/**
+ * omr.tv3.porFolioValidation.test
+ *
+ * Responsabilidad: Modulo interno del sistema.
+ * Limites: Mantener contrato y comportamiento observable del modulo.
+ */
 import fs from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';

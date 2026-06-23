@@ -1,3 +1,9 @@
+/**
+ * pdf.image-formats.test
+ *
+ * Responsabilidad: Modulo interno del sistema.
+ * Limites: Mantener contrato y comportamiento observable del modulo.
+ */
 import sharp from 'sharp';
 import { describe, expect, it } from 'vitest';
 import { generarPdfExamen } from '../src/modulos/modulo_generacion_pdf/servicioGeneracionPdf';

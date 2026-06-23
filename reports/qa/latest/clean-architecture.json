@@ -2,13 +2,13 @@
   "version": 1,
   "gate": "clean-architecture",
   "strict": true,
-  "generatedAt": "2026-06-15T10:35:52.573Z",
+  "generatedAt": "2026-06-22T03:34:26.214Z",
   "ok": true,
   "checks": [
     {
       "id": "size.frontend.app_docente.files",
       "ok": true,
-      "detail": "AppDocente=1243, SeccionEscaneo=942"
+      "detail": "AppDocente=1256, SeccionEscaneo=942"
     },
     {
       "id": "token.api.v2",

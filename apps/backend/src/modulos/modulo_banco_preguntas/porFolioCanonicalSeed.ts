@@ -1,3 +1,9 @@
+/**
+ * porFolioCanonicalSeed
+ *
+ * Responsabilidad: Modulo interno del sistema.
+ * Limites: Mantener contrato y comportamiento observable del modulo.
+ */
 type SeedOption = {
   texto: string;
   esCorrecta: boolean;

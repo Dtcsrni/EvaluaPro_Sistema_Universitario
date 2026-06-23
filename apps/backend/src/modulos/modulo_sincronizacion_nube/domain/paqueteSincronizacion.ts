@@ -5,7 +5,7 @@ import { promises as fs } from 'fs';
 import { gunzipSync, gzipSync } from 'zlib';
 import { ErrorAplicacion } from '../../../compartido/errores/errorAplicacion';
 import { guardarPdfExamen } from '../../../infraestructura/archivos/almacenLocal';
-import { Docente } from '../../modulo_autenticacion/modeloDocente';
+import { prisma } from '../../../infraestructura/baseDatos/sqlite';
 import { Alumno } from '../../modulo_alumnos/modeloAlumno';
 import { Periodo } from '../../modulo_alumnos/modeloPeriodo';
 import { BanderaRevision } from '../../modulo_analiticas/modeloBanderaRevision';
@@ -34,7 +34,7 @@ const MAX_TOTAL_COMPRESSED_BYTES = 25 * 1024 * 1024;
 const BACKUP_LOGIC_FINGERPRINT = 'sync-v2-lww-updatedAt-schema2';
 
 async function obtenerCorreoDocente(docenteId: string): Promise<string> {
-  const docente = await Docente.findById(docenteId).select('correo').lean();
+  const docente = await prisma.docente.findUnique({ where: { id: docenteId }, select: { correo: true } });
   const correo = normalizarCorreo((docente as { correo?: unknown })?.correo);
   if (!correo) {
     throw new ErrorAplicacion('DOCENTE_NO_ENCONTRADO', 'Docente no encontrado', 404);

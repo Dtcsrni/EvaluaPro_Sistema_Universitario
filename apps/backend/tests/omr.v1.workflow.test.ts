@@ -1,3 +1,9 @@
+/**
+ * omr.v1.workflow.test
+ *
+ * Responsabilidad: Modulo interno del sistema.
+ * Limites: Mantener contrato y comportamiento observable del modulo.
+ */
 import { describe, expect, it } from 'vitest';
 import {
   agruparPaginasPorHojaV1,

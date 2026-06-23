@@ -1,3 +1,9 @@
+/**
+ * layoutTemplateV10
+ *
+ * Responsabilidad: Modulo interno del sistema.
+ * Limites: Mantener contrato y comportamiento observable del modulo.
+ */
 import { ANCHO_CARTA } from '../shared/tiposPdf';
 
 export const LAYOUT_TEMPLATE_V10 = {

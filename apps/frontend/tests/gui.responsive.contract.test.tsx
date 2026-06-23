@@ -1,3 +1,9 @@
+/**
+ * gui.responsive.contract.test
+ *
+ * Responsabilidad: Modulo interno del sistema.
+ * Limites: Mantener contrato y comportamiento observable del modulo.
+ */
 import fs from 'node:fs/promises';
 import path from 'node:path';
 import { render, screen } from '@testing-library/react';

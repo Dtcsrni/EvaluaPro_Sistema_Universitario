@@ -1,3 +1,9 @@
+/**
+ * examLayoutTokens
+ *
+ * Responsabilidad: Modulo interno del sistema.
+ * Limites: Mantener contrato y comportamiento observable del modulo.
+ */
 import type { ExamenPdf } from '../../domain/examenPdf';
 import { LAYOUT_TEMPLATE_V9, pxAPuntos, roundGrid } from '../../domain/layoutTemplateV9';
 import type {

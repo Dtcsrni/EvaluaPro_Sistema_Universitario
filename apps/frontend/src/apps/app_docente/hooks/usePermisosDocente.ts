@@ -111,7 +111,15 @@ export function usePermisosDocente(docente: Docente | null) {
         push: puede('sincronizacion:push'),
         pull: puede('sincronizacion:pull')
       },
-      cuenta: { leer: puede('cuenta:leer'), actualizar: puede('cuenta:actualizar') }
+      cuenta: { leer: puede('cuenta:leer'), actualizar: puede('cuenta:actualizar') },
+      asistencias: {
+        leer: puede('asistencias:leer') || puede('asistencias:gestionar') || puede('periodos:leer'),
+        gestionar: puede('asistencias:gestionar') || puede('periodos:gestionar')
+      },
+      temarios: {
+        leer: puede('temarios:leer') || puede('temarios:gestionar') || puede('periodos:leer'),
+        gestionar: puede('temarios:gestionar') || puede('periodos:gestionar')
+      }
     }),
     [puede, puedeRehidratarLotes]
   );
@@ -125,6 +133,8 @@ export function usePermisosDocente(docente: Docente | null) {
     const items = [
       { id: 'periodos', label: 'Materias', icono: 'periodos' as const, mostrar: puede('periodos:leer') },
       { id: 'alumnos', label: 'Alumnos', icono: 'alumnos' as const, mostrar: puede('alumnos:leer') },
+      { id: 'asistencias', label: 'Asistencias', icono: 'alumnos' as const, mostrar: puede('asistencias:leer') || puede('asistencias:gestionar') || puede('periodos:leer') },
+      { id: 'temarios', label: 'Temarios', icono: 'pdf' as const, mostrar: puede('temarios:leer') || puede('temarios:gestionar') || puede('periodos:leer') },
       { id: 'banco', label: 'Banco', icono: 'banco' as const, mostrar: puede('banco:leer') },
       { id: 'plantillas', label: 'Plantillas', icono: 'plantillas' as const, mostrar: puede('plantillas:leer') },
       { id: 'entrega', label: 'Entrega', icono: 'recepcion' as const, mostrar: puede('entregas:gestionar') },

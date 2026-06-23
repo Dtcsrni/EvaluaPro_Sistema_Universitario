@@ -1,53 +1,24 @@
 /**
  * papelera.controlador.test
  *
- * Responsabilidad: Cubrir reglas de acceso y restauracion del modulo de papelera
- * sin depender de Mongo real ni mutar modelos persistentes.
+ * Responsabilidad: Verificar las reglas de acceso y restauracion de la papelera usando SQLite.
  */
 import type { Response } from 'express';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
+import { conectarMongoTest, cerrarMongoTest, limpiarMongoTest } from './utils/mongo';
+import { prisma } from '../src/infraestructura/baseDatos/sqlite';
+import { ErrorAplicacion } from '../src/compartido/errores/errorAplicacion';
+import { listarPapelera, restaurarPapelera } from '../src/modulos/modulo_papelera/controladorPapelera';
 
 const {
   mockObtenerDocenteId,
-  mockPapeleraFind,
-  mockPapeleraFindOneLean,
-  mockPapeleraDeleteOne,
-  mockConfiguracion,
-  mockAlumno,
-  mockPeriodo,
-  mockBancoPregunta,
-  mockTemaBanco,
-  mockBanderaRevision,
-  mockCalificacion,
-  mockCodigoAcceso,
-  mockEntrega,
-  mockExamenGenerado,
-  mockExamenPlantilla
+  mockConfiguracion
 } = vi.hoisted(() => ({
   mockObtenerDocenteId: vi.fn(),
-  mockPapeleraFind: vi.fn(),
-  mockPapeleraFindOneLean: vi.fn(),
-  mockPapeleraDeleteOne: vi.fn(),
   mockConfiguracion: {
     entorno: 'development'
-  },
-  mockAlumno: crearModeloRestaurable(),
-  mockPeriodo: crearModeloRestaurable(),
-  mockBancoPregunta: crearModeloRestaurable(),
-  mockTemaBanco: crearModeloRestaurable(),
-  mockBanderaRevision: crearModeloRestaurable(),
-  mockCalificacion: crearModeloRestaurable(),
-  mockCodigoAcceso: crearModeloRestaurable(),
-  mockEntrega: crearModeloRestaurable(),
-  mockExamenGenerado: crearModeloRestaurable(),
-  mockExamenPlantilla: crearModeloRestaurable()
+  }
 }));
-
-function crearModeloRestaurable() {
-  return {
-    findOneAndUpdate: vi.fn().mockResolvedValue(undefined)
-  };
-}
 
 vi.mock('../src/configuracion', () => ({
   configuracion: mockConfiguracion
@@ -57,30 +28,6 @@ vi.mock('../src/modulos/modulo_autenticacion/middlewareAutenticacion', () => ({
   obtenerDocenteId: mockObtenerDocenteId
 }));
 
-vi.mock('../src/modulos/modulo_papelera/modeloPapelera', () => ({
-  Papelera: {
-    find: mockPapeleraFind,
-    findOne: vi.fn(() => ({
-      lean: mockPapeleraFindOneLean
-    })),
-    deleteOne: mockPapeleraDeleteOne
-  }
-}));
-
-vi.mock('../src/modulos/modulo_alumnos/modeloAlumno', () => ({ Alumno: mockAlumno }));
-vi.mock('../src/modulos/modulo_alumnos/modeloPeriodo', () => ({ Periodo: mockPeriodo }));
-vi.mock('../src/modulos/modulo_banco_preguntas/modeloBancoPregunta', () => ({ BancoPregunta: mockBancoPregunta }));
-vi.mock('../src/modulos/modulo_banco_preguntas/modeloTemaBanco', () => ({ TemaBanco: mockTemaBanco }));
-vi.mock('../src/modulos/modulo_analiticas/modeloBanderaRevision', () => ({ BanderaRevision: mockBanderaRevision }));
-vi.mock('../src/modulos/modulo_calificacion/modeloCalificacion', () => ({ Calificacion: mockCalificacion }));
-vi.mock('../src/modulos/modulo_sincronizacion_nube/modeloCodigoAcceso', () => ({ CodigoAcceso: mockCodigoAcceso }));
-vi.mock('../src/modulos/modulo_vinculacion_entrega/modeloEntrega', () => ({ Entrega: mockEntrega }));
-vi.mock('../src/modulos/modulo_generacion_pdf/modeloExamenGenerado', () => ({ ExamenGenerado: mockExamenGenerado }));
-vi.mock('../src/modulos/modulo_generacion_pdf/modeloExamenPlantilla', () => ({ ExamenPlantilla: mockExamenPlantilla }));
-
-import { ErrorAplicacion } from '../src/compartido/errores/errorAplicacion';
-import { listarPapelera, restaurarPapelera } from '../src/modulos/modulo_papelera/controladorPapelera';
-
 function crearRespuesta() {
   return {
     status: vi.fn().mockReturnThis(),
@@ -88,52 +35,58 @@ function crearRespuesta() {
   } as unknown as Response;
 }
 
-function resetModelMocks() {
-  [
-    mockAlumno,
-    mockPeriodo,
-    mockBancoPregunta,
-    mockTemaBanco,
-    mockBanderaRevision,
-    mockCalificacion,
-    mockCodigoAcceso,
-    mockEntrega,
-    mockExamenGenerado,
-    mockExamenPlantilla
-  ].forEach((model) => {
-    model.findOneAndUpdate.mockClear();
+describe('controladorPapelera (integracion)', () => {
+  beforeAll(async () => {
+    await conectarMongoTest();
   });
-}
 
-describe('controladorPapelera', () => {
-  beforeEach(() => {
-    vi.clearAllMocks();
-    resetModelMocks();
+  beforeEach(async () => {
+    await limpiarMongoTest();
     mockConfiguracion.entorno = 'development';
     mockObtenerDocenteId.mockReturnValue('docente-1');
-    mockPapeleraDeleteOne.mockResolvedValue({ deletedCount: 1 });
+  });
+
+  afterAll(async () => {
+    await cerrarMongoTest();
   });
 
   it('lista items por docente y aplica limite positivo solicitado', async () => {
-    const items = [{ _id: 'papelera-1' }, { _id: 'papelera-2' }];
-    const lean = vi.fn().mockResolvedValue(items);
-    const limit = vi.fn(() => ({ lean }));
-    const sort = vi.fn(() => ({ limit }));
-    mockPapeleraFind.mockReturnValue({ sort });
+    await prisma.docente.create({
+      data: {
+        id: 'docente-1',
+        nombreCompleto: 'Docente Prueba',
+        correo: 'docente@evaluapro.local'
+      }
+    });
+
+    await prisma.papeleraItem.create({
+      data: {
+        id: 'papelera-1',
+        docenteId: 'docente-1',
+        tipo: 'alumno',
+        itemId: 'alumno-1',
+        datosJson: JSON.stringify({ alumno: { id: 'alumno-1', nombre: 'Ana' } }),
+        createdAt: new Date('2026-03-24T12:00:00.000Z')
+      }
+    });
+    await prisma.papeleraItem.create({
+      data: {
+        id: 'papelera-2',
+        docenteId: 'docente-1',
+        tipo: 'alumno',
+        itemId: 'alumno-2',
+        datosJson: JSON.stringify({ alumno: { id: 'alumno-2', nombre: 'Luis' } }),
+        createdAt: new Date('2026-03-24T13:00:00.000Z')
+      }
+    });
+
     const res = crearRespuesta();
+    await listarPapelera({ query: { limite: '1' } } as never, res);
 
-    await listarPapelera(
-      {
-        query: { limite: '5' }
-      } as never,
-      res
-    );
-
-    expect(mockPapeleraFind).toHaveBeenCalledWith({ docenteId: 'docente-1' });
-    expect(sort).toHaveBeenCalledWith({ eliminadoEn: -1 });
-    expect(limit).toHaveBeenCalledWith(5);
-    expect(lean).toHaveBeenCalledTimes(1);
-    expect(res.json).toHaveBeenCalledWith({ items });
+    expect(res.json).toHaveBeenCalledTimes(1);
+    const jsonCall = (res.json as any).mock.calls[0][0];
+    expect(jsonCall.items).toHaveLength(1);
+    expect(jsonCall.items[0].id).toBe('papelera-2');
   });
 
   it('rechaza listar/restaurar fuera de modo development', async () => {
@@ -145,12 +98,7 @@ describe('controladorPapelera', () => {
     });
 
     await expect(
-      restaurarPapelera(
-        {
-          params: { id: 'papelera-1' }
-        } as never,
-        crearRespuesta()
-      )
+      restaurarPapelera({ params: { id: 'papelera-1' } } as never, crearRespuesta())
     ).rejects.toMatchObject<Partial<ErrorAplicacion>>({
       codigo: 'SOLO_DEV',
       estadoHttp: 403
@@ -158,15 +106,8 @@ describe('controladorPapelera', () => {
   });
 
   it('falla si el item no existe para el docente autenticado', async () => {
-    mockPapeleraFindOneLean.mockResolvedValue(null);
-
     await expect(
-      restaurarPapelera(
-        {
-          params: { id: 'papelera-404' }
-        } as never,
-        crearRespuesta()
-      )
+      restaurarPapelera({ params: { id: 'papelera-404' } } as never, crearRespuesta())
     ).rejects.toMatchObject<Partial<ErrorAplicacion>>({
       codigo: 'PAPELERA_NO_ENCONTRADA',
       estadoHttp: 404
@@ -174,121 +115,166 @@ describe('controladorPapelera', () => {
   });
 
   it('restaura payload de plantilla y elimina el item de la papelera', async () => {
-    mockPapeleraFindOneLean.mockResolvedValue({
-      _id: 'papelera-plantilla',
-      tipo: 'plantilla',
-      payload: {
-        plantilla: { _id: 'plantilla-1', titulo: 'Parcial 1' },
-        examenes: [{ _id: 'examen-1' }],
-        entregas: [{ _id: 'entrega-1' }],
-        calificaciones: [{ _id: 'calif-1' }],
-        banderas: [{ _id: 'bandera-1' }]
+    await prisma.docente.create({
+      data: {
+        id: 'docente-1',
+        nombreCompleto: 'Docente Prueba',
+        correo: 'docente@evaluapro.local'
       }
     });
+
+    await prisma.periodo.create({
+      data: { id: 'periodo-1', docenteId: 'docente-1', nombre: 'P1', nombreNormalizado: 'p1', fechaInicio: new Date(), fechaFin: new Date(), grupos: '[]' }
+    });
+
+    await prisma.alumno.create({
+      data: { id: 'alumno-1', periodoId: 'periodo-1', matricula: 'M1', nombreCompleto: 'Alumno 1', correo: 'a1@test.com' }
+    });
+
+    await prisma.papeleraItem.create({
+      data: {
+        id: 'papelera-plantilla',
+        docenteId: 'docente-1',
+        tipo: 'plantilla',
+        itemId: 'plantilla-1',
+        datosJson: JSON.stringify({
+          plantilla: { id: 'plantilla-1', docenteId: 'docente-1', tipo: 'parcial', titulo: 'Parcial 1', tituloNormalizado: 'parcial 1' },
+          examenes: [{ id: 'examen-1', docenteId: 'docente-1', plantillaId: 'plantilla-1', folio: 'F-1' }],
+          entregas: [{ id: 'entrega-1', docenteId: 'docente-1', examenGeneradoId: 'examen-1', alumnoId: 'alumno-1' }],
+          calificaciones: [{ id: 'calif-1', docenteId: 'docente-1', examenGeneradoId: 'examen-1', alumnoId: 'alumno-1', tipoExamen: 'parcial', totalReactivos: 10, aciertos: 9, fraccion: '{}', calificacionExamenTexto: '9', bonoTexto: '0', calificacionExamenFinalTexto: '9' }],
+          banderas: [{ id: 'bandera-1', docenteId: 'docente-1', examenGeneradoId: 'examen-1', alumnoId: 'alumno-1', motivo: 'Copia' }]
+        })
+      }
+    });
+
     const res = crearRespuesta();
+    await restaurarPapelera({ params: { id: 'papelera-plantilla' } } as never, res);
 
-    await restaurarPapelera(
-      {
-        params: { id: 'papelera-plantilla' }
-      } as never,
-      res
-    );
-
-    expect(mockExamenPlantilla.findOneAndUpdate).toHaveBeenCalledWith(
-      { _id: 'plantilla-1' },
-      { _id: 'plantilla-1', titulo: 'Parcial 1' },
-      { upsert: true, overwrite: true, setDefaultsOnInsert: true }
-    );
-    expect(mockExamenGenerado.findOneAndUpdate).toHaveBeenCalledTimes(1);
-    expect(mockEntrega.findOneAndUpdate).toHaveBeenCalledTimes(1);
-    expect(mockCalificacion.findOneAndUpdate).toHaveBeenCalledTimes(1);
-    expect(mockBanderaRevision.findOneAndUpdate).toHaveBeenCalledTimes(1);
-    expect(mockPapeleraDeleteOne).toHaveBeenCalledWith({ _id: 'papelera-plantilla', docenteId: 'docente-1' });
     expect(res.json).toHaveBeenCalledWith({ ok: true });
+
+    const restoredPlantilla = await prisma.examenPlantilla.findUnique({ where: { id: 'plantilla-1' } });
+    expect(restoredPlantilla).toBeDefined();
+    expect(restoredPlantilla?.titulo).toBe('Parcial 1');
+
+    const restoredExamen = await prisma.examenGenerado.findUnique({ where: { id: 'examen-1' } });
+    expect(restoredExamen).toBeDefined();
+
+    const deletedItem = await prisma.papeleraItem.findFirst({ where: { id: 'papelera-plantilla' } });
+    expect(deletedItem).toBeNull();
   });
 
   it('restaura payload de alumno con sus relacionados', async () => {
-    mockPapeleraFindOneLean.mockResolvedValue({
-      _id: 'papelera-alumno',
-      tipo: 'alumno',
-      payload: {
-        alumno: { _id: 'alumno-1', nombre: 'Ana' },
-        examenes: [{ _id: 'examen-1' }],
-        entregas: [{ _id: 'entrega-1' }],
-        calificaciones: [{ _id: 'calif-1' }],
-        banderas: [{ _id: 'bandera-1' }]
+    await prisma.docente.create({
+      data: {
+        id: 'docente-1',
+        nombreCompleto: 'Docente Prueba',
+        correo: 'docente@evaluapro.local'
       }
     });
 
-    await restaurarPapelera(
-      {
-        params: { id: 'papelera-alumno' }
-      } as never,
-      crearRespuesta()
-    );
+    await prisma.periodo.create({
+      data: { id: 'periodo-1', docenteId: 'docente-1', nombre: 'P1', nombreNormalizado: 'p1', fechaInicio: new Date(), fechaFin: new Date(), grupos: '[]' }
+    });
 
-    expect(mockAlumno.findOneAndUpdate).toHaveBeenCalledWith(
-      { _id: 'alumno-1' },
-      { _id: 'alumno-1', nombre: 'Ana' },
-      { upsert: true, overwrite: true, setDefaultsOnInsert: true }
-    );
-    expect(mockExamenGenerado.findOneAndUpdate).toHaveBeenCalledTimes(1);
-    expect(mockEntrega.findOneAndUpdate).toHaveBeenCalledTimes(1);
-    expect(mockCalificacion.findOneAndUpdate).toHaveBeenCalledTimes(1);
-    expect(mockBanderaRevision.findOneAndUpdate).toHaveBeenCalledTimes(1);
+    await prisma.examenPlantilla.create({
+      data: { id: 'plantilla-1', docenteId: 'docente-1', tipo: 'parcial', titulo: 'Parcial 1', tituloNormalizado: 'parcial 1', bookletConfig: '{}', omrConfig: '{}', configuracionPdf: '{}' }
+    });
+
+    await prisma.papeleraItem.create({
+      data: {
+        id: 'papelera-alumno',
+        docenteId: 'docente-1',
+        tipo: 'alumno',
+        itemId: 'alumno-1',
+        datosJson: JSON.stringify({
+          alumno: { id: 'alumno-1', periodoId: 'periodo-1', matricula: 'M1', nombreCompleto: 'Ana', correo: 'ana@test.com' },
+          examenes: [{ id: 'examen-1', docenteId: 'docente-1', plantillaId: 'plantilla-1', alumnoId: 'alumno-1', folio: 'F-1' }],
+          entregas: [{ id: 'entrega-1', docenteId: 'docente-1', examenGeneradoId: 'examen-1', alumnoId: 'alumno-1' }],
+          calificaciones: [{ id: 'calif-1', docenteId: 'docente-1', examenGeneradoId: 'examen-1', alumnoId: 'alumno-1', tipoExamen: 'parcial', totalReactivos: 10, aciertos: 9, fraccion: '{}', calificacionExamenTexto: '9', bonoTexto: '0', calificacionExamenFinalTexto: '9' }],
+          banderas: [{ id: 'bandera-1', docenteId: 'docente-1', examenGeneradoId: 'examen-1', alumnoId: 'alumno-1', motivo: 'Copia' }]
+        })
+      }
+    });
+
+    const res = crearRespuesta();
+    await restaurarPapelera({ params: { id: 'papelera-alumno' } } as never, res);
+
+    expect(res.json).toHaveBeenCalledWith({ ok: true });
+
+    const restoredAlumno = await prisma.alumno.findUnique({ where: { id: 'alumno-1' } });
+    expect(restoredAlumno).toBeDefined();
+    expect(restoredAlumno?.nombreCompleto).toBe('Ana');
+
+    const restoredExamen = await prisma.examenGenerado.findUnique({ where: { id: 'examen-1' } });
+    expect(restoredExamen).toBeDefined();
   });
 
   it('restaura payload de periodo incluyendo entidades dependientes', async () => {
-    mockPapeleraFindOneLean.mockResolvedValue({
-      _id: 'papelera-periodo',
-      tipo: 'periodo',
-      payload: {
-        periodo: { _id: 'periodo-1', nombre: '2026-A' },
-        alumnos: [{ _id: 'alumno-1' }],
-        bancoPreguntas: [{ _id: 'preg-1' }],
-        temas: [{ _id: 'tema-1' }],
-        plantillas: [{ _id: 'plantilla-1' }],
-        examenes: [{ _id: 'examen-1' }],
-        entregas: [{ _id: 'entrega-1' }],
-        calificaciones: [{ _id: 'calif-1' }],
-        banderas: [{ _id: 'bandera-1' }],
-        codigosAcceso: [{ _id: 'codigo-1' }]
+    await prisma.docente.create({
+      data: {
+        id: 'docente-1',
+        nombreCompleto: 'Docente Prueba',
+        correo: 'docente@evaluapro.local'
       }
     });
 
-    await restaurarPapelera(
-      {
-        params: { id: 'papelera-periodo' }
-      } as never,
-      crearRespuesta()
-    );
+    await prisma.papeleraItem.create({
+      data: {
+        id: 'papelera-periodo',
+        docenteId: 'docente-1',
+        tipo: 'periodo',
+        itemId: 'periodo-1',
+        datosJson: JSON.stringify({
+          periodo: { id: 'periodo-1', docenteId: 'docente-1', nombre: '2026-A', nombreNormalizado: '2026-a', fechaInicio: new Date(), fechaFin: new Date(), grupos: '[]' },
+          alumnos: [{ id: 'alumno-1', periodoId: 'periodo-1', matricula: 'M1', nombreCompleto: 'Ana', correo: 'ana@test.com' }],
+          bancoPreguntas: [{ id: 'preg-1', docenteId: 'docente-1', periodoId: 'periodo-1', tema: 'Algebra', versionActual: 1 }],
+          temas: [{ id: 'tema-1', docenteId: 'docente-1', periodoId: 'periodo-1', nombre: 'Algebra', clave: 'ALG' }],
+          plantillas: [{ id: 'plantilla-1', docenteId: 'docente-1', periodoId: 'periodo-1', tipo: 'parcial', titulo: 'Parcial 1', tituloNormalizado: 'parcial 1', bookletConfig: '{}', omrConfig: '{}', configuracionPdf: '{}' }],
+          examenes: [{ id: 'examen-1', docenteId: 'docente-1', periodoId: 'periodo-1', plantillaId: 'plantilla-1', alumnoId: 'alumno-1', folio: 'F-1' }],
+          entregas: [{ id: 'entrega-1', docenteId: 'docente-1', examenGeneradoId: 'examen-1', alumnoId: 'alumno-1' }],
+          calificaciones: [{ id: 'calif-1', docenteId: 'docente-1', periodoId: 'periodo-1', examenGeneradoId: 'examen-1', alumnoId: 'alumno-1', tipoExamen: 'parcial', totalReactivos: 10, aciertos: 9, fraccion: '{}', calificacionExamenTexto: '9', bonoTexto: '0', calificacionExamenFinalTexto: '9' }],
+          banderas: [{ id: 'bandera-1', docenteId: 'docente-1', examenGeneradoId: 'examen-1', alumnoId: 'alumno-1', motivo: 'Copia' }],
+          codigosAcceso: [{ id: 'codigo-1', docenteId: 'docente-1', periodoId: 'periodo-1', codigo: 'ABC1234', expiraEn: new Date() }]
+        })
+      }
+    });
 
-    expect(mockPeriodo.findOneAndUpdate).toHaveBeenCalledTimes(1);
-    expect(mockAlumno.findOneAndUpdate).toHaveBeenCalledTimes(1);
-    expect(mockBancoPregunta.findOneAndUpdate).toHaveBeenCalledTimes(1);
-    expect(mockTemaBanco.findOneAndUpdate).toHaveBeenCalledTimes(1);
-    expect(mockExamenPlantilla.findOneAndUpdate).toHaveBeenCalledTimes(1);
-    expect(mockExamenGenerado.findOneAndUpdate).toHaveBeenCalledTimes(1);
-    expect(mockEntrega.findOneAndUpdate).toHaveBeenCalledTimes(1);
-    expect(mockCalificacion.findOneAndUpdate).toHaveBeenCalledTimes(1);
-    expect(mockBanderaRevision.findOneAndUpdate).toHaveBeenCalledTimes(1);
-    expect(mockCodigoAcceso.findOneAndUpdate).toHaveBeenCalledTimes(1);
+    const res = crearRespuesta();
+    await restaurarPapelera({ params: { id: 'papelera-periodo' } } as never, res);
+
+    expect(res.json).toHaveBeenCalledWith({ ok: true });
+
+    const restoredPeriodo = await prisma.periodo.findUnique({ where: { id: 'periodo-1' } });
+    expect(restoredPeriodo).toBeDefined();
+
+    const restoredAlumno = await prisma.alumno.findUnique({ where: { id: 'alumno-1' } });
+    expect(restoredAlumno).toBeDefined();
+
+    const restoredPregunta = await prisma.bancoPregunta.findUnique({ where: { id: 'preg-1' } });
+    expect(restoredPregunta).toBeDefined();
   });
 
   it('rechaza tipos de papelera no soportados', async () => {
-    mockPapeleraFindOneLean.mockResolvedValue({
-      _id: 'papelera-x',
-      tipo: 'desconocido',
-      payload: {}
+    await prisma.docente.create({
+      data: {
+        id: 'docente-1',
+        nombreCompleto: 'Docente Prueba',
+        correo: 'docente@evaluapro.local'
+      }
+    });
+
+    await prisma.papeleraItem.create({
+      data: {
+        id: 'papelera-x',
+        docenteId: 'docente-1',
+        tipo: 'desconocido',
+        itemId: 'algo-1',
+        datosJson: '{}'
+      }
     });
 
     await expect(
-      restaurarPapelera(
-        {
-          params: { id: 'papelera-x' }
-        } as never,
-        crearRespuesta()
-      )
+      restaurarPapelera({ params: { id: 'papelera-x' } } as never, crearRespuesta())
     ).rejects.toMatchObject<Partial<ErrorAplicacion>>({
       codigo: 'PAPELERA_TIPO',
       estadoHttp: 400

@@ -1,12 +1,11 @@
 /**
- * Contrato minimo de respuestas para sincronizacion (behavior lock).
+ * Contrato minimo de respuestas para sincronizacion (behavior lock) usando SQLite.
  */
 import type { Response } from 'express';
 import type { SolicitudDocente } from '../src/modulos/modulo_autenticacion/middlewareAutenticacion';
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import { conectarMongoTest, cerrarMongoTest, limpiarMongoTest } from './utils/mongo';
-import { Docente } from '../src/modulos/modulo_autenticacion/modeloDocente';
-import { Periodo } from '../src/modulos/modulo_alumnos/modeloPeriodo';
+import { prisma } from '../src/infraestructura/baseDatos/sqlite';
 import {
   exportarPaquete,
   importarPaquete,
@@ -42,23 +41,29 @@ describe('sincronizacion contratos minimos', () => {
   });
 
   it('mantiene shape en exportar/importar/listar', async () => {
-    const docenteId = '507f1f77bcf86cd799439201';
-    const periodoId = '507f1f77bcf86cd799439202';
+    const docenteId = 'docente-contrato-1';
+    const periodoId = 'periodo-contrato-1';
 
-    await Docente.create({
-      _id: docenteId,
-      correo: 'contrato-sync@test.com',
-      nombreCompleto: 'Docente Contrato',
-      roles: ['docente'],
-      activo: true
+    await prisma.docente.create({
+      data: {
+        id: docenteId,
+        correo: 'contrato-sync@test.com',
+        nombreCompleto: 'Docente Contrato',
+        roles: '["docente"]',
+        activo: true
+      }
     });
 
-    await Periodo.create({
-      _id: periodoId,
-      docenteId,
-      nombre: 'Contrato Sync',
-      fechaInicio: new Date('2026-01-01T00:00:00.000Z'),
-      fechaFin: new Date('2026-06-30T00:00:00.000Z')
+    await prisma.periodo.create({
+      data: {
+        id: periodoId,
+        docenteId,
+        nombre: 'Contrato Sync',
+        nombreNormalizado: 'contrato sync',
+        fechaInicio: new Date('2026-01-01T00:00:00.000Z'),
+        fechaFin: new Date('2026-06-30T00:00:00.000Z'),
+        grupos: '["A"]'
+      }
     });
 
     const resExport = crearRespuesta();
@@ -97,14 +102,16 @@ describe('sincronizacion contratos minimos', () => {
   });
 
   it('mantiene contrato de error al rechazar backupMeta expirado/incompatible', async () => {
-    const docenteId = '507f1f77bcf86cd799439301';
+    const docenteId = 'docente-contrato-2';
 
-    await Docente.create({
-      _id: docenteId,
-      correo: 'contrato-sync-errores@test.com',
-      nombreCompleto: 'Docente Contrato Errores',
-      roles: ['docente'],
-      activo: true
+    await prisma.docente.create({
+      data: {
+        id: docenteId,
+        correo: 'contrato-sync-errores@test.com',
+        nombreCompleto: 'Docente Contrato Errores',
+        roles: '["docente"]',
+        activo: true
+      }
     });
 
     const paqueteDummy = 'A'.repeat(40);
@@ -154,4 +161,3 @@ describe('sincronizacion contratos minimos', () => {
     });
   });
 });
-

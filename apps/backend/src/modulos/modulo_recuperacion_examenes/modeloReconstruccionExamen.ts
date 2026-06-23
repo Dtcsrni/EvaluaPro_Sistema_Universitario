@@ -1,36 +1,31 @@
-import { Schema, model, models } from 'mongoose';
+/**
+ * modeloReconstruccionExamen
+ *
+ * MIGRADO A PRISMA — Mongoose eliminado.
+ *
+ * La tabla `reconstrucciones_examenes` es gestionada exclusivamente por Prisma ORM.
+ * Modelo Prisma: ReconstruccionExamen {
+ *   id, tipo, estado,
+ *   docenteSolicitanteId, docenteDestinoId,
+ *   bundleHash, manifestHash, loteId, examId, folio,
+ *   signatureValid, recoverable,
+ *   causes            (JSON string — String[]),
+ *   reconstructedQuestionBankIds (JSON string — String[]),
+ *   reconstructedExamIds         (JSON string — String[]),
+ *   conflicts         (JSON string — Record<string,unknown>[]),
+ *   metadata          (JSON string — Record<string,unknown> | null),
+ *   createdAt, updatedAt
+ * }
+ *
+ * Responsabilidad: Stub de compatibilidad. La lógica de persistencia vive en
+ *   servicioRecuperacionExamenes.ts → persistExecutionLog()
+ *
+ * Campos JSON: se serializan con JSON.stringify() en escritura y
+ *   JSON.parse() en lectura. Ver servicioRecuperacionExamenes.ts.
+ *
+ * Limites: No importar ni instanciar Mongoose en este módulo.
+ */
 
-const ReconstruccionExamenSchema = new Schema(
-  {
-    tipo: { type: String, enum: ['manifest', 'bundle'], required: true },
-    estado: {
-      type: String,
-      enum: ['pendiente', 'verificada', 'reconstruida', 'conflicto', 'fallida'],
-      required: true,
-      default: 'pendiente'
-    },
-    docenteSolicitanteId: { type: Schema.Types.ObjectId, ref: 'Docente', required: true },
-    docenteDestinoId: { type: Schema.Types.ObjectId, ref: 'Docente', required: true },
-    bundleHash: { type: String, index: true },
-    manifestHash: { type: String, index: true },
-    loteId: { type: String, index: true },
-    examId: { type: String, index: true },
-    folio: { type: String, index: true },
-    signatureValid: { type: Boolean },
-    recoverable: { type: Boolean },
-    causes: { type: [String], default: [] },
-    reconstructedQuestionBankIds: { type: [Schema.Types.ObjectId], ref: 'BancoPregunta', default: [] },
-    reconstructedExamIds: { type: [Schema.Types.ObjectId], ref: 'ExamenGenerado', default: [] },
-    conflicts: { type: [Schema.Types.Mixed], default: [] },
-    metadata: { type: Schema.Types.Mixed }
-  },
-  { timestamps: true, collection: 'reconstruccionesExamenes' }
-);
-
-ReconstruccionExamenSchema.index(
-  { tipo: 1, docenteDestinoId: 1, bundleHash: 1, manifestHash: 1 },
-  { unique: true, sparse: true }
-);
-
-export const ReconstruccionExamen =
-  models.ReconstruccionExamen ?? model('ReconstruccionExamen', ReconstruccionExamenSchema);
+// Este archivo se conserva como marcador de módulo.
+// No exporta ningún modelo Mongoose; Prisma gestiona la tabla directamente.
+export {};

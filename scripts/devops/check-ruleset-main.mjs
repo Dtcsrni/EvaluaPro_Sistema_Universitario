@@ -1,4 +1,10 @@
 #!/usr/bin/env node
+/**
+ * check-ruleset-main
+ *
+ * Responsabilidad: Modulo interno del sistema.
+ * Limites: Mantener contrato y comportamiento observable del modulo.
+ */
 
 import { spawnSync } from 'node:child_process';
 import fs from 'node:fs';

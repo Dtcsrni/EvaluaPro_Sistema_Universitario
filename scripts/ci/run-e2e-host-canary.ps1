@@ -1,3 +1,7 @@
+# run-e2e-host-canary.ps1
+#
+# Responsabilidad: Modulo interno del sistema.
+# Limites: Mantener contrato y comportamiento observable del modulo.
 param(
   [string]$ExpectedHostCanaryComputerName = 'TEZKATLI',
   [string]$ProjectRoot = 'V:\Software\EvaluaPro',

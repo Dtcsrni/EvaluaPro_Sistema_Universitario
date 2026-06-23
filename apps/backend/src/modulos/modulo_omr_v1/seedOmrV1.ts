@@ -1,3 +1,9 @@
+/**
+ * seedOmrV1
+ *
+ * Responsabilidad: Modulo interno del sistema.
+ * Limites: Mantener contrato y comportamiento observable del modulo.
+ */
 import { FAMILIAS_OMR_V1 } from './familiasOmrV1';
 import { OmrSheetFamily } from './modeloOmrSheetFamily';
 import { OmrSheetRevision } from './modeloOmrSheetRevision';

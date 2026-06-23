@@ -1,3 +1,9 @@
+/**
+ * responsive-alumno.spec
+ *
+ * Responsabilidad: Modulo interno del sistema.
+ * Limites: Mantener contrato y comportamiento observable del modulo.
+ */
 import { expect, test } from '@playwright/test';
 
 type ViewportCase = {

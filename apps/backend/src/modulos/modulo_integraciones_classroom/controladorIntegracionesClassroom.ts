@@ -1,3 +1,9 @@
+/**
+ * controladorIntegracionesClassroom
+ *
+ * Responsabilidad: Adaptador HTTP del dominio (parseo de entrada, invocacion de servicios y respuesta).
+ * Limites: Evitar mover logica de negocio profunda a controlador.
+ */
 import type { Request, Response } from 'express';
 import { URL } from 'node:url';
 import { ErrorAplicacion } from '../../compartido/errores/errorAplicacion';

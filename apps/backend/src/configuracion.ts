@@ -12,7 +12,6 @@ const entorno = process.env.NODE_ENV ?? 'development';
 cargarDotenvRaizSiAplica(entorno);
 
 const puerto = Number(process.env.PUERTO_API ?? process.env.PORT ?? 4000);
-const mongoUri = process.env.MONGODB_URI ?? process.env.MONGO_URI ?? '';
 const limiteJson = process.env.LIMITE_JSON ?? '10mb';
 const corsOrigenes = parsearListaCsv(process.env.CORS_ORIGENES ?? 'http://localhost:5173');
 const dominiosCorreoPermitidos = parsearListaCsv(process.env.DOMINIOS_CORREO_PERMITIDOS, (dominio) =>
@@ -23,9 +22,6 @@ const dominiosCorreoPermitidos = parsearListaCsv(process.env.DOMINIOS_CORREO_PER
 const jwtSecreto = process.env.JWT_SECRETO ?? '';
 if (entorno === 'production' && !jwtSecreto) {
   throw new Error('JWT_SECRETO es requerido en producción');
-}
-if (entorno === 'production' && !mongoUri) {
-  throw new Error('MONGODB_URI es requerido en producción');
 }
 const jwtSecretoEfectivo = jwtSecreto || 'cambia-este-secreto';
 const omrQrHmacSecret = String(process.env.OMR_QR_HMAC_SECRET ?? jwtSecretoEfectivo).trim() || jwtSecretoEfectivo;
@@ -185,7 +181,6 @@ if (correoModuloActivo && (!notificacionesWebhookUrl || !notificacionesWebhookTo
 
 export const configuracion = {
   puerto,
-  mongoUri,
   entorno,
   limiteJson,
   corsOrigenes,

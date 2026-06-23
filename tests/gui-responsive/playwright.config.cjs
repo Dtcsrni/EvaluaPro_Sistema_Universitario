@@ -1,3 +1,9 @@
+/**
+ * playwright.config
+ *
+ * Responsabilidad: Modulo interno del sistema.
+ * Limites: Mantener contrato y comportamiento observable del modulo.
+ */
 const path = require('node:path');
 const { defineConfig } = require('@playwright/test');
 

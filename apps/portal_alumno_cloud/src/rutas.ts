@@ -11,7 +11,7 @@
  * - La telemetria se maneja best-effort (no debe interrumpir la UX).
  */
 import { Router, type Request, type Response } from 'express';
-import mongoose from 'mongoose';
+import { prisma } from './infraestructura/baseDatos/sqlite';
 import fs from 'node:fs';
 import path from 'node:path';
 import { gunzipSync } from 'zlib';
@@ -172,10 +172,15 @@ router.get('/salud/live', (_req, res) => {
   });
 });
 
-router.get('/salud/ready', (_req, res) => {
-  const estadoDb = mongoose.connection.readyState;
-  const textoEstado = ['desconectado', 'conectado', 'conectando', 'desconectando'][estadoDb] ?? 'desconocido';
-  const lista = estadoDb === 1 || !configuracion.mongoUri;
+router.get('/salud/ready', async (_req, res) => {
+  let dbReady = false;
+  try {
+    await prisma.$queryRaw`SELECT 1`;
+    dbReady = true;
+  } catch {
+    // ignore
+  }
+  const lista = dbReady;
   res.status(lista ? 200 : 503).json({
     estado: lista ? 'ok' : 'degradado',
     tiempoActivo: process.uptime(),
@@ -183,14 +188,14 @@ router.get('/salud/ready', (_req, res) => {
       mongodb: {
         status: lista ? 'ok' : 'fail',
         ready: lista,
-        state: estadoDb,
-        description: textoEstado
+        state: lista ? 1 : 0,
+        description: lista ? 'conectado' : 'desconectado'
       }
     },
     dependencias: {
       db: {
-        estado: estadoDb,
-        descripcion: textoEstado,
+        estado: lista ? 1 : 0,
+        descripcion: lista ? 'conectado' : 'desconectado',
         lista
       }
     }
@@ -209,11 +214,18 @@ router.get('/version', (_req, res) => {
   });
 });
 
-router.get('/metrics', (_req, res) => {
-  const estadoDb = mongoose.connection.readyState;
+router.get('/metrics', async (_req, res) => {
+  let dbReady = false;
+  try {
+    await prisma.$queryRaw`SELECT 1`;
+    dbReady = true;
+  } catch {
+    // ignore
+  }
+  const estadoDb = dbReady ? 1 : 0;
   res.setHeader('Content-Type', 'text/plain; version=0.0.4; charset=utf-8');
   res.send(
-    `${exportarMetricasPrometheus()}\n\n# HELP evaluapro_portal_db_ready_state Estado de conexión MongoDB del portal (0-3)\n# TYPE evaluapro_portal_db_ready_state gauge\nevaluapro_portal_db_ready_state ${estadoDb}\n`
+    `${exportarMetricasPrometheus()}\n\n# HELP evaluapro_portal_db_ready_state Estado de conexión SQLite del portal (0-1)\n# TYPE evaluapro_portal_db_ready_state gauge\nevaluapro_portal_db_ready_state ${estadoDb}\n`
   );
 });
 
@@ -631,7 +643,7 @@ router.post('/sincronizacion-docente/pull', async (req, res) => {
   if (desde) filtro.createdAt = { $gt: desde };
 
   const paquetes = await PaqueteSyncDocente.find(filtro).sort({ createdAt: 1 }).limit(limite).lean();
-  const respuesta = paquetes.map((paquete) => ({
+  const respuesta = paquetes.map((paquete: any) => ({
     paqueteBase64: paquete.paqueteBase64,
     checksumSha256: paquete.checksumSha256,
     schemaVersion: paquete.schemaVersion,
@@ -915,7 +927,7 @@ router.post('/sincronizacion-docente/solicitudes-revision/pull', async (req, res
   if (desde) filtro.updatedAt = { $gt: desde };
 
   const solicitudes = await SolicitudRevision.find(filtro).sort({ updatedAt: 1 }).limit(limite).lean();
-  const respuesta = solicitudes.map((s) => ({
+  const respuesta = solicitudes.map((s: any) => ({
     externoId: s.externoId,
     docenteId: s.docenteId,
     periodoId: s.periodoId,
