@@ -1,10 +1,11 @@
 {
-  "generatedAt": "2026-06-08T05:23:58.533Z",
+  "generatedAt": "2026-06-23T07:14:34.450Z",
   "mountedPrefixes": [
     "/admin",
     "/admin-negocio",
     "/alumnos",
     "/analiticas",
+    "/asistencias",
     "/assessments",
     "/autenticacion",
     "/banco-preguntas",
@@ -22,7 +23,8 @@
     "/periodos",
     "/recuperacion",
     "/salud",
-    "/sincronizaciones"
+    "/sincronizaciones",
+    "/temarios"
   ],
   "personas": [
     {

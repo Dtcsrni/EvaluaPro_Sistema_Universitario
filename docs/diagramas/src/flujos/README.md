@@ -23,5 +23,5 @@ Ruta: `docs/diagramas/src/flujos`.
 - Edicion Comercial/Institucional: mas automatizacion, soporte SLA, endurecimiento y hoja de ruta prioritaria por nivel.
 - Catalogo dinamico de capacidades: [FEATURE_CATALOG](../../../comercial/FEATURE_CATALOG.md).
 - Licenciamiento comercial y modalidades de pago: [LICENSING_TIERS](../../../comercial/LICENSING_TIERS.md).
-- Ultima sincronizacion automatica: 2026-06-08.
+- Ultima sincronizacion automatica: 2026-06-23.
 <!-- AUTO:COMMERCIAL-CONTEXT:END -->
