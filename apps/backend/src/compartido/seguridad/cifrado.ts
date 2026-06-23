@@ -1,3 +1,9 @@
+/**
+ * cifrado
+ *
+ * Responsabilidad: Modulo interno del sistema.
+ * Limites: Mantener contrato y comportamiento observable del modulo.
+ */
 import { createCipheriv, createDecipheriv, randomBytes } from 'node:crypto';
 import { ErrorAplicacion } from '../errores/errorAplicacion';
 

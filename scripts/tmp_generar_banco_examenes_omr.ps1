@@ -1,3 +1,7 @@
+# tmp_generar_banco_examenes_omr.ps1
+#
+# Responsabilidad: Modulo interno del sistema.
+# Limites: Mantener contrato y comportamiento observable del modulo.
 $ErrorActionPreference='Stop'
 $root='V:/Software/Generador_Examenes_Universitarios_MERN/sistema-evaluacion-universitaria'
 Set-Location $root

@@ -1,3 +1,7 @@
+# installer-hub-ui-lifecycle.ps1
+#
+# Responsabilidad: Modulo interno del sistema.
+# Limites: Mantener contrato y comportamiento observable del modulo.
 <#
   installer-hub-ui-lifecycle.ps1
   QA no destructivo del Installer Hub WPF usando UIAutomation nativo de Windows.

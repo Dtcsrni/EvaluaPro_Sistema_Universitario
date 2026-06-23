@@ -1,14 +1,13 @@
 /**
  * servicioSesiones
  *
- * Responsabilidad: Servicio de dominio/aplicacion con reglas de negocio reutilizables.
- * Limites: Mantener invariantes del dominio y errores controlados.
+ * Responsabilidad: Servicio de dominio/aplicacion con reglas de negocio para refresh tokens rotatorios.
  */
 import crypto from 'node:crypto';
 import type { Request, Response } from 'express';
 import { ErrorAplicacion } from '../../compartido/errores/errorAplicacion';
 import { configuracion } from '../../configuracion';
-import { SesionDocente } from './modeloSesionDocente';
+import { prisma } from '../../infraestructura/baseDatos/sqlite';
 
 const COOKIE_REFRESH_DOCENTE = 'refreshDocente';
 
@@ -28,7 +27,6 @@ function leerCookie(req: Request, nombre: string): string | null {
   const header = req.headers.cookie;
   if (!header) return null;
 
-  // Parser minimalista: "a=b; c=d".
   const parts = header.split(';');
   for (const p of parts) {
     const [kRaw, ...vParts] = p.trim().split('=');
@@ -60,12 +58,14 @@ export async function emitirSesionDocente(res: Response, docenteId: string) {
   const tokenHash = hashToken(token);
   const ahora = new Date();
 
-  await SesionDocente.create({
-    docenteId,
-    tokenHash,
-    creadoEn: ahora,
-    ultimoUso: ahora,
-    expiraEn: new Date(Date.now() + msDias(configuracion.refreshTokenDias))
+  await prisma.sesionDocente.create({
+    data: {
+      docenteId,
+      tokenHash,
+      creadoEn: ahora,
+      ultimoUso: ahora,
+      expiraEn: new Date(Date.now() + msDias(configuracion.refreshTokenDias))
+    }
   });
 
   res.cookie(COOKIE_REFRESH_DOCENTE, token, opcionesCookieRefresh());
@@ -80,39 +80,48 @@ export async function refrescarSesionDocente(req: Request, res: Response): Promi
   const ahora = new Date();
   const tokenHash = hashToken(token);
 
-  const sesion = await SesionDocente.findOne({ tokenHash, revocadoEn: { $exists: false }, expiraEn: { $gt: ahora } });
+  const sesion = await prisma.sesionDocente.findFirst({
+    where: {
+      tokenHash,
+      revocadoEn: null,
+      expiraEn: { gt: ahora }
+    }
+  });
   if (!sesion) {
     throw new ErrorAplicacion('NO_AUTORIZADO', 'Sesion expirada', 401);
   }
 
-  // Rotacion: reemplaza el token por uno nuevo y extiende la expiracion.
   const nuevoToken = crearTokenRefresh();
-  sesion.tokenHash = hashToken(nuevoToken);
-  sesion.ultimoUso = ahora;
-  sesion.expiraEn = new Date(Date.now() + msDias(configuracion.refreshTokenDias));
-  await sesion.save();
+  await prisma.sesionDocente.update({
+    where: { id: sesion.id },
+    data: {
+      tokenHash: hashToken(nuevoToken),
+      ultimoUso: ahora,
+      expiraEn: new Date(Date.now() + msDias(configuracion.refreshTokenDias))
+    }
+  });
 
   res.cookie(COOKIE_REFRESH_DOCENTE, nuevoToken, opcionesCookieRefresh());
 
-  return String(sesion.docenteId);
+  return sesion.docenteId;
 }
 
 export async function cerrarSesionDocente(req: Request, res: Response) {
   const token = leerCookie(req, COOKIE_REFRESH_DOCENTE);
   if (token) {
     const tokenHash = hashToken(token);
-    await SesionDocente.updateOne(
-      { tokenHash, revocadoEn: { $exists: false } },
-      { $set: { revocadoEn: new Date() } }
-    );
+    await prisma.sesionDocente.updateMany({
+      where: { tokenHash, revocadoEn: null },
+      data: { revocadoEn: new Date() }
+    });
   }
 
   res.clearCookie(COOKIE_REFRESH_DOCENTE, { path: '/api/autenticacion' });
 }
 
 export async function revocarSesionesDocente(docenteId: string) {
-  await SesionDocente.updateMany(
-    { docenteId, revocadoEn: { $exists: false } },
-    { $set: { revocadoEn: new Date() } }
-  );
+  await prisma.sesionDocente.updateMany({
+    where: { docenteId, revocadoEn: null },
+    data: { revocadoEn: new Date() }
+  });
 }

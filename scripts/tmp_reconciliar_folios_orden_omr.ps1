@@ -1,3 +1,7 @@
+# tmp_reconciliar_folios_orden_omr.ps1
+#
+# Responsabilidad: Modulo interno del sistema.
+# Limites: Mantener contrato y comportamiento observable del modulo.
 $ErrorActionPreference='Stop'
 Set-Location 'V:/Software/Generador_Examenes_Universitarios_MERN/sistema-evaluacion-universitaria'
 

@@ -1,11 +1,14 @@
+/**
+ * comercial.webhook.mercadopago.firma.test
+ *
+ * Responsabilidad: Modulo interno del sistema.
+ * Limites: Mantener contrato y comportamiento observable del modulo.
+ */
 import crypto from 'node:crypto';
 import request from 'supertest';
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
-import mongoose from 'mongoose';
 import { conectarMongoTest, cerrarMongoTest, limpiarMongoTest } from '../utils/mongo';
-import { Tenant } from '../../src/modulos/modulo_comercial_core/modeloTenant';
-import { Suscripcion } from '../../src/modulos/modulo_comercial_core/modeloSuscripcion';
-import { Cobranza } from '../../src/modulos/modulo_comercial_core/modeloCobranza';
+import { prisma } from '../../src/infraestructura/baseDatos/sqlite';
 
 function construirFirmaMpOficial(params: {
   secret: string;
@@ -44,26 +47,30 @@ describe('integracion webhook Mercado Pago - firma estricta', () => {
 
   it('acepta firma oficial y procesa payment aprobado', async () => {
     const tenantId = 'tenant_mp_demo';
-    const suscripcionId = new mongoose.Types.ObjectId();
-    await Tenant.create({
-      tenantId,
-      nombre: 'Tenant MP Demo',
-      tipoTenant: 'smb',
-      modalidad: 'saas',
-      estado: 'past_due',
-      pais: 'MX',
-      moneda: 'MXN',
-      ownerDocenteId: new mongoose.Types.ObjectId().toString(),
-      configAislamiento: { estrategia: 'shared' }
+    const suscripcionId = crypto.randomUUID();
+    await prisma.tenant.create({
+      data: {
+        tenantId,
+        nombre: 'Tenant MP Demo',
+        tipoTenant: 'smb',
+        modalidad: 'saas',
+        estado: 'past_due',
+        pais: 'MX',
+        moneda: 'MXN',
+        ownerDocenteId: crypto.randomUUID(),
+        configAislamiento: JSON.stringify({ estrategia: 'shared' })
+      }
     });
-    await Suscripcion.create({
-      _id: suscripcionId,
-      tenantId,
-      planId: 'plan_demo',
-      ciclo: 'mensual',
-      estado: 'past_due',
-      pasarela: 'mercadopago',
-      precioAplicado: 1000
+    await prisma.suscripcion.create({
+      data: {
+        id: suscripcionId,
+        tenantId,
+        planId: 'plan_demo',
+        ciclo: 'mensual',
+        estado: 'past_due',
+        pasarela: 'mercadopago',
+        precioAplicado: 1000
+      }
     });
 
     const paymentId = '123456789';
@@ -101,8 +108,8 @@ describe('integracion webhook Mercado Pago - firma estricta', () => {
       })
       .expect(200);
 
-    const suscripcion = await Suscripcion.findById(suscripcionId).lean();
-    const cobro = await Cobranza.findOne({ suscripcionId }).lean();
+    const suscripcion = await prisma.suscripcion.findUnique({ where: { id: suscripcionId } });
+    const cobro = await prisma.cobranza.findFirst({ where: { suscripcionId } });
     expect(suscripcion?.estado).toBe('activo');
     expect(cobro?.estado).toBe('aprobado');
     expect(cobro?.moneda).toBe('MXN');
@@ -128,26 +135,30 @@ describe('integracion webhook Mercado Pago - firma estricta', () => {
 
   it('procesa payment.updated rechazado y cambia suscripcion a past_due', async () => {
     const tenantId = 'tenant_mp_rejected';
-    const suscripcionId = new mongoose.Types.ObjectId();
-    await Tenant.create({
-      tenantId,
-      nombre: 'Tenant MP Rejected',
-      tipoTenant: 'smb',
-      modalidad: 'saas',
-      estado: 'activo',
-      pais: 'MX',
-      moneda: 'MXN',
-      ownerDocenteId: new mongoose.Types.ObjectId().toString(),
-      configAislamiento: { estrategia: 'shared' }
+    const suscripcionId = crypto.randomUUID();
+    await prisma.tenant.create({
+      data: {
+        tenantId,
+        nombre: 'Tenant MP Rejected',
+        tipoTenant: 'smb',
+        modalidad: 'saas',
+        estado: 'activo',
+        pais: 'MX',
+        moneda: 'MXN',
+        ownerDocenteId: crypto.randomUUID(),
+        configAislamiento: JSON.stringify({ estrategia: 'shared' })
+      }
     });
-    await Suscripcion.create({
-      _id: suscripcionId,
-      tenantId,
-      planId: 'plan_demo',
-      ciclo: 'mensual',
-      estado: 'activo',
-      pasarela: 'mercadopago',
-      precioAplicado: 1200
+    await prisma.suscripcion.create({
+      data: {
+        id: suscripcionId,
+        tenantId,
+        planId: 'plan_demo',
+        ciclo: 'mensual',
+        estado: 'activo',
+        pasarela: 'mercadopago',
+        precioAplicado: 1200
+      }
     });
 
     const paymentId = '5544332211';
@@ -186,34 +197,38 @@ describe('integracion webhook Mercado Pago - firma estricta', () => {
       })
       .expect(200);
 
-    const suscripcion = await Suscripcion.findById(suscripcionId).lean();
-    const cobro = await Cobranza.findOne({ suscripcionId }).lean();
+    const suscripcion = await prisma.suscripcion.findUnique({ where: { id: suscripcionId } });
+    const cobro = await prisma.cobranza.findFirst({ where: { suscripcionId } });
     expect(suscripcion?.estado).toBe('past_due');
     expect(cobro?.estado).toBe('rechazado');
   });
 
   it('mantiene idempotencia cuando llega el mismo eventId duplicado', async () => {
     const tenantId = 'tenant_mp_dup';
-    const suscripcionId = new mongoose.Types.ObjectId();
-    await Tenant.create({
-      tenantId,
-      nombre: 'Tenant MP Dup',
-      tipoTenant: 'smb',
-      modalidad: 'saas',
-      estado: 'past_due',
-      pais: 'MX',
-      moneda: 'MXN',
-      ownerDocenteId: new mongoose.Types.ObjectId().toString(),
-      configAislamiento: { estrategia: 'shared' }
+    const suscripcionId = crypto.randomUUID();
+    await prisma.tenant.create({
+      data: {
+        tenantId,
+        nombre: 'Tenant MP Dup',
+        tipoTenant: 'smb',
+        modalidad: 'saas',
+        estado: 'past_due',
+        pais: 'MX',
+        moneda: 'MXN',
+        ownerDocenteId: crypto.randomUUID(),
+        configAislamiento: JSON.stringify({ estrategia: 'shared' })
+      }
     });
-    await Suscripcion.create({
-      _id: suscripcionId,
-      tenantId,
-      planId: 'plan_demo',
-      ciclo: 'mensual',
-      estado: 'past_due',
-      pasarela: 'mercadopago',
-      precioAplicado: 950
+    await prisma.suscripcion.create({
+      data: {
+        id: suscripcionId,
+        tenantId,
+        planId: 'plan_demo',
+        ciclo: 'mensual',
+        estado: 'past_due',
+        pasarela: 'mercadopago',
+        precioAplicado: 950
+      }
     });
 
     const paymentId = '9988776655';
@@ -263,7 +278,7 @@ describe('integracion webhook Mercado Pago - firma estricta', () => {
 
     expect(Boolean(r1.body?.duplicado)).toBe(false);
     expect(Boolean(r2.body?.duplicado)).toBe(true);
-    const totalCobros = await Cobranza.countDocuments({ suscripcionId });
+    const totalCobros = await prisma.cobranza.count({ where: { suscripcionId } });
     expect(totalCobros).toBe(1);
   });
 });

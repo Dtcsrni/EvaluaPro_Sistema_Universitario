@@ -1,3 +1,9 @@
+/**
+ * autenticacion.googleOnly.test
+ *
+ * Responsabilidad: Modulo interno del sistema.
+ * Limites: Mantener contrato y comportamiento observable del modulo.
+ */
 import request from 'supertest';
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import { Docente } from '../../src/modulos/modulo_autenticacion/modeloDocente';

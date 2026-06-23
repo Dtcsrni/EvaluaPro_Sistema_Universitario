@@ -1,3 +1,9 @@
+/**
+ * usePlantillasOmrV1Actions
+ *
+ * Responsabilidad: Hook de orquestacion de estado/efectos para el feature docente.
+ * Limites: Mantener dependencia unidireccional: hooks -> services -> clienteApi.
+ */
 import { useCallback } from 'react';
 import { accionToastSesionParaError } from '../../../../../servicios_api/clienteComun';
 import { obtenerTokenDocente } from '../../../../../servicios_api/clienteApi';

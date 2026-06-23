@@ -1,3 +1,9 @@
+/**
+ * imagenProcesamientoLegacy
+ *
+ * Responsabilidad: Modulo interno del sistema.
+ * Limites: Mantener contrato y comportamiento observable del modulo.
+ */
 import jsQR from 'jsqr';
 
 export type Punto = { x: number; y: number };

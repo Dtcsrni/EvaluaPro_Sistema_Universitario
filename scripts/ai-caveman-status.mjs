@@ -2,6 +2,12 @@
 /**
  * ai-caveman-status
  *
+ * Responsabilidad: Modulo interno del sistema.
+ * Limites: Mantener contrato y comportamiento observable del modulo.
+ */
+/**
+ * ai-caveman-status
+ *
  * Responsabilidad: validar si la integracion repo-local de Caveman para Codex
  * esta presente y lista para usarse.
  * Limites: solo inspecciona archivos locales; no instala plugins ni modifica estado.

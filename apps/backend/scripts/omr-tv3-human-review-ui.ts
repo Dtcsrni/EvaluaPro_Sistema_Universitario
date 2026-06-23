@@ -1,3 +1,9 @@
+/**
+ * omr-tv3-human-review-ui
+ *
+ * Responsabilidad: Modulo interno del sistema.
+ * Limites: Mantener contrato y comportamiento observable del modulo.
+ */
 import fs from 'node:fs/promises';
 import path from 'node:path';
 import { createServer, IncomingMessage, ServerResponse } from 'node:http';

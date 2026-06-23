@@ -1,3 +1,9 @@
+/**
+ * controladorComercial
+ *
+ * Responsabilidad: Adaptador HTTP del dominio (parseo de entrada, invocacion de servicios y respuesta).
+ * Limites: Evitar mover logica de negocio profunda a controlador.
+ */
 import type { Response } from 'express';
 import { obtenerDocenteId, type SolicitudDocente } from '../modulo_autenticacion/middlewareAutenticacion';
 import {

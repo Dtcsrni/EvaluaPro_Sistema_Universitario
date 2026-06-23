@@ -1,3 +1,9 @@
+/**
+ * omr-tv3-analyze-photo-exam-content
+ *
+ * Responsabilidad: Modulo interno del sistema.
+ * Limites: Mantener contrato y comportamiento observable del modulo.
+ */
 import fs from 'node:fs/promises';
 import path from 'node:path';
 import sharp from 'sharp';

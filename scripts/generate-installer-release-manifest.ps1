@@ -1,3 +1,7 @@
+# generate-installer-release-manifest.ps1
+#
+# Responsabilidad: Modulo interno del sistema.
+# Limites: Mantener contrato y comportamiento observable del modulo.
 param(
   [string]$Version = '',
   [string]$Channel = 'stable',

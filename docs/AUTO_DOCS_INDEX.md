@@ -15,6 +15,7 @@ No editar a mano: los cambios se pisan al regenerar.
 - [DOCENTE_LOCAL_LITE.md](DOCENTE_LOCAL_LITE.md) — Docente Local Lite
 - [ENGINEERING_BASELINE.md](ENGINEERING_BASELINE.md) — Engineering Baseline
 - [ESTABILIZACION_FALLOS_Y_APRENDIZAJES.md](ESTABILIZACION_FALLOS_Y_APRENDIZAJES.md) — Estabilizacion: Fallos Y Aprendizajes
+- [ESTILO_AVANZADO_Y_ANIMACIONES.md](ESTILO_AVANZADO_Y_ANIMACIONES.md) — Guía de Estilo Avanzado, Transparencias y Animaciones
 - [FILES.md](FILES.md) — Mapa de archivos
 - [FLUJO_EXAMEN.md](FLUJO_EXAMEN.md) — Flujo de examen
 - [FORMATO_PDF.md](FORMATO_PDF.md) — Formato PDF y OMR

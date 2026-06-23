@@ -1,4 +1,4 @@
-﻿import path from 'node:path';
+import path from 'node:path';
 import { buildPorFolioDataset } from '../src/modulos/modulo_escaneo_omr/porFolioDataset';
 
 type Args = {

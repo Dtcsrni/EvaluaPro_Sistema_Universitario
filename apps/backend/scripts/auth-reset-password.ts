@@ -1,3 +1,9 @@
+/**
+ * auth-reset-password
+ *
+ * Responsabilidad: Modulo interno del sistema.
+ * Limites: Mantener contrato y comportamiento observable del modulo.
+ */
 import mongoose from 'mongoose';
 import { Docente } from '../src/modulos/modulo_autenticacion/modeloDocente';
 import { crearHash } from '../src/modulos/modulo_autenticacion/servicioHash';

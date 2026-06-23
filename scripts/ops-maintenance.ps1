@@ -1,3 +1,7 @@
+# ops-maintenance.ps1
+#
+# Responsabilidad: Modulo interno del sistema.
+# Limites: Mantener contrato y comportamiento observable del modulo.
 param(
   [ValidateSet('report','weekly','monthly')]
   [string]$Mode = 'report',

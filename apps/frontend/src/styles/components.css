@@ -228,3 +228,318 @@
 :root[data-theme="dark"] .helper-panel {
   box-shadow: var(--shadow-soft);
 }
+
+/* --- Estilos Avanzados y Animaciones de EvaluaPro --- */
+
+.glass-card {
+  background: var(--surface-0);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid var(--surface-border-strong);
+  box-shadow: var(--shadow-soft);
+  transition: background 250ms ease, border-color 250ms ease, box-shadow 250ms ease;
+}
+
+.glass-card-interactive {
+  cursor: pointer;
+}
+
+.glass-card-interactive:hover {
+  background: var(--surface-1);
+  border-color: color-mix(in srgb, var(--surface-border-strong) 60%, var(--app-accent, var(--primario)) 40%);
+  box-shadow: var(--shadow-panel);
+}
+
+.anim-fade-in {
+  animation: fadeIn 350ms cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+.anim-slide-up {
+  animation: slideUp 400ms cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+.scale-hover {
+  transition: transform 200ms cubic-bezier(0.16, 1, 0.3, 1), box-shadow 200ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.scale-hover:hover {
+  transform: translateY(-2px) scale(1.01);
+}
+
+.pulse-glow {
+  animation: pulseGlow 1.5s infinite alternate ease-in-out;
+}
+
+.state-badge-pulse {
+  animation: popBadge 250ms cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
+}
+
+/* Banner de recordatorio premium */
+.banner-reminder-glass {
+  background: color-mix(in srgb, var(--avisoBg) 45%, transparent 55%);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid color-mix(in srgb, var(--avisoTexto) 35%, transparent);
+  border-radius: var(--radius-sm);
+  box-shadow: var(--shadow-soft);
+  color: var(--texto);
+  transition: all 300ms ease;
+}
+
+.banner-reminder-glass:hover {
+  border-color: color-mix(in srgb, var(--avisoTexto) 60%, transparent);
+  box-shadow: var(--shadow-panel);
+}
+
+/* Animaciones */
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes slideUp {
+  from {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes pulseGlow {
+  from {
+    box-shadow: 0 0 0 0px color-mix(in srgb, var(--app-accent, var(--primario)) 25%, transparent);
+  }
+  to {
+    box-shadow: 0 0 12px 4px color-mix(in srgb, var(--app-accent, var(--primario)) 8%, transparent);
+  }
+}
+
+@keyframes popBadge {
+  0% { transform: scale(0.85); }
+  50% { transform: scale(1.1); }
+  100% { transform: scale(1); }
+}
+
+/* Clases específicas para mejorar la UX de Asistencias */
+.asistencias-seccion {
+  padding: var(--space-4) var(--space-5);
+}
+
+.asistencias-titulo {
+  margin: 0 0 var(--space-4);
+  font-weight: 700;
+  font-size: 1.5rem;
+}
+
+.asistencias-filtros {
+  display: flex;
+  gap: var(--space-3);
+  flex-wrap: wrap;
+  margin-bottom: var(--space-4);
+}
+
+.asistencias-select, .asistencias-input {
+  min-height: 40px;
+  padding: var(--space-2) var(--space-3);
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--surface-border-strong);
+  background: var(--surface-2);
+  color: var(--texto);
+  font-size: 0.9rem;
+  transition: border-color 200ms ease, box-shadow 200ms ease;
+}
+
+.asistencias-select:focus, .asistencias-input:focus {
+  outline: none;
+  border-color: var(--app-accent, var(--primario));
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--app-accent, var(--primario)) 15%, transparent);
+}
+
+.asistencias-tabs {
+  display: flex;
+  gap: var(--space-2);
+  margin-bottom: var(--space-4);
+  border-bottom: 1px solid var(--surface-border-strong);
+  padding-bottom: var(--space-2);
+}
+
+.asistencias-tab-btn {
+  padding: var(--space-2) var(--space-4);
+  border-radius: var(--radius-sm);
+  border: 1px solid transparent;
+  background: transparent;
+  color: var(--muted);
+  cursor: pointer;
+  font-size: 0.92rem;
+  font-weight: 600;
+  transition: all 200ms ease;
+}
+
+.asistencias-tab-btn:hover {
+  color: var(--texto);
+  background: var(--surface-1);
+}
+
+.asistencias-tab-btn.activo {
+  background: var(--app-accent, var(--primario));
+  color: #fff;
+  border-color: var(--app-accent, var(--primario));
+  box-shadow: 0 4px 12px -4px color-mix(in srgb, var(--app-accent, var(--primario)) 50%, transparent);
+}
+
+.asistencias-form-crear {
+  display: flex;
+  gap: var(--space-3);
+  flex-wrap: wrap;
+  align-items: center;
+}
+
+.asistencias-btn-primario {
+  min-height: 40px;
+  padding-inline: var(--space-4);
+  border-radius: var(--radius-sm);
+  background: var(--app-accent, var(--primario));
+  color: #fff;
+  border: none;
+  cursor: pointer;
+  font-weight: 700;
+  font-size: 0.9rem;
+  transition: transform 150ms ease, background 150ms ease, box-shadow 150ms ease;
+}
+
+.asistencias-btn-primario:hover {
+  transform: translateY(-1px);
+  background: var(--primarioHover);
+  box-shadow: 0 6px 15px -6px color-mix(in srgb, var(--app-accent, var(--primario)) 50%, transparent);
+}
+
+.asistencias-btn-primario:active {
+  transform: translateY(0);
+}
+
+.asistencias-btn-secundario {
+  min-height: 34px;
+  padding: 0.35rem 0.8rem;
+  border-radius: var(--radius-sm);
+  background: var(--surface-2);
+  border: 1px solid var(--surface-border-strong);
+  color: var(--texto);
+  cursor: pointer;
+  font-size: 0.82rem;
+  font-weight: 600;
+  transition: all 150ms ease;
+}
+
+.asistencias-btn-secundario:hover {
+  background: var(--surface-1);
+  border-color: color-mix(in srgb, var(--surface-border-strong) 50%, var(--app-accent, var(--primario)) 50%);
+}
+
+.asistencias-tabla {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.9rem;
+}
+
+.asistencias-th {
+  text-align: left;
+  padding: var(--space-3) var(--space-2);
+  border-bottom: 2px solid var(--surface-border-strong);
+  font-weight: 700;
+  font-size: 0.85rem;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.asistencias-td {
+  padding: var(--space-3) var(--space-2);
+  vertical-align: middle;
+}
+
+.asistencias-tr {
+  border-bottom: 1px solid var(--surface-border-strong);
+  transition: background 150ms ease;
+}
+
+.asistencias-tr:hover {
+  background: color-mix(in srgb, var(--app-accent-soft, rgba(13, 110, 115, 0.12)) 30%, transparent);
+}
+
+.asistencias-chip-sesion {
+  padding: var(--space-2) var(--space-3);
+  border-radius: 9999px;
+  background: var(--surface-2);
+  border: 1px solid var(--surface-border-strong);
+  color: var(--texto);
+  cursor: pointer;
+  font-size: 0.82rem;
+  transition: all 150ms ease;
+}
+
+.asistencias-chip-sesion:hover {
+  transform: translateY(-1px);
+  background: var(--surface-1);
+  border-color: var(--app-accent, var(--primario));
+  box-shadow: var(--shadow-soft);
+}
+
+.asistencias-alumno-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-4);
+  padding: var(--space-3) var(--space-4);
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--surface-border-strong);
+  background: var(--surface-1);
+  cursor: pointer;
+  user-select: none;
+  transition: all 200ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.asistencias-alumno-row:hover {
+  transform: translateX(4px);
+  border-color: color-mix(in srgb, var(--surface-border-strong) 40%, var(--app-accent, var(--primario)) 60%);
+  background: var(--surface-2);
+  box-shadow: var(--shadow-soft);
+}
+
+.asistencias-alumno-row.falta {
+  background: color-mix(in srgb, var(--peligroBg) 40%, transparent 60%);
+  border-color: color-mix(in srgb, var(--peligroTexto) 30%, transparent);
+}
+
+.asistencias-alumno-row.retardo {
+  background: color-mix(in srgb, var(--avisoBg) 40%, transparent 60%);
+  border-color: color-mix(in srgb, var(--avisoTexto) 30%, transparent);
+}
+
+.asistencias-alumno-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2.2rem;
+  height: 2.2rem;
+  border-radius: 50%;
+  color: #fff;
+  font-weight: 800;
+  font-size: 0.9rem;
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
+  transition: transform 200ms cubic-bezier(0.175, 0.885, 0.32, 1.275);
+}
+
+.asistencias-alumno-badge:active {
+  transform: scale(0.9);
+}
+
+.asistencias-config-retardo-box {
+  margin-top: var(--space-4);
+  padding: var(--space-4);
+  border-radius: var(--radius-sm);
+  background: color-mix(in srgb, var(--app-accent-soft, rgba(13, 110, 115, 0.12)) 20%, var(--surface-1));
+  border: 1px dashed color-mix(in srgb, var(--app-accent, var(--primario)) 40%, transparent);
+}
+

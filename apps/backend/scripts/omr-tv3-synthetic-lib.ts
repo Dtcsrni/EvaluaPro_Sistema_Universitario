@@ -1,3 +1,9 @@
+/**
+ * omr-tv3-synthetic-lib
+ *
+ * Responsabilidad: Modulo interno del sistema.
+ * Limites: Mantener contrato y comportamiento observable del modulo.
+ */
 import crypto from 'node:crypto';
 import fs from 'node:fs/promises';
 import path from 'node:path';

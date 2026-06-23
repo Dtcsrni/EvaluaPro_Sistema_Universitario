@@ -1,3 +1,9 @@
+/**
+ * tv3Compat
+ *
+ * Responsabilidad: Modulo interno del sistema.
+ * Limites: Mantener contrato y comportamiento observable del modulo.
+ */
 import { ErrorAplicacion } from '../../../compartido/errores/errorAplicacion';
 import type { MapaVariante, PreguntaBase, ResultadoGeneracionPdf, TemplateVersion } from '../shared/tiposPdf';
 

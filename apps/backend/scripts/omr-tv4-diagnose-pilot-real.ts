@@ -1,3 +1,9 @@
+/**
+ * omr-tv4-diagnose-pilot-real
+ *
+ * Responsabilidad: Modulo interno del sistema.
+ * Limites: Mantener contrato y comportamiento observable del modulo.
+ */
 import fs from 'node:fs/promises';
 import path from 'node:path';
 import { analizarOmr } from '../src/modulos/modulo_escaneo_omr/servicioOmr';

@@ -5,6 +5,7 @@
  * Limites: Conservar UX y permisos; extraer logica compleja a hooks/components.
  */
 /* eslint-disable @typescript-eslint/no-unused-vars */
+
 /**
  * App docente: panel basico para banco, examenes, entrega y calificacion.
  */

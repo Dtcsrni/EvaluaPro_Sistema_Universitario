@@ -1,10 +1,9 @@
 /**
  * seedAdmin
  *
- * Responsabilidad: Modulo interno del sistema.
- * Limites: Mantener contrato y comportamiento observable del modulo.
+ * Responsabilidad: Crear el docente administrador por defecto si no existe en SQLite.
  */
-import { Docente } from './modeloDocente';
+import { prisma } from '../../infraestructura/baseDatos/sqlite';
 import { crearHash } from './servicioHash';
 
 function shouldSeed(): boolean {
@@ -30,43 +29,48 @@ export async function seedAdminDocente() {
 
   if (!correo || !contrasena) return;
 
-  const existente = await Docente.findOne({ correo });
+  const existente = await prisma.docente.findUnique({ where: { correo } });
   const nombresPartes = nombreCompleto.split(' ').map((p) => p.trim()).filter(Boolean);
   const nombres = nombresPartes.length ? nombresPartes.slice(0, -1).join(' ') || nombresPartes[0] : undefined;
   const apellidos = nombresPartes.length >= 2 ? nombresPartes.slice(-1).join(' ') : undefined;
 
   if (existente) {
-    const rolesActuales = Array.isArray((existente as unknown as { roles?: unknown }).roles)
-      ? ((existente as unknown as { roles?: string[] }).roles || [])
+    const rolesActuales = Array.isArray(JSON.parse(existente.roles || '[]'))
+      ? JSON.parse(existente.roles || '[]')
       : [];
 
     const debeAgregarAdmin = !rolesActuales.includes('admin');
     const debeAgregarDocente = !rolesActuales.includes('docente');
 
-    const set: Record<string, unknown> = {};
+    const updateData: Record<string, any> = {};
     const roles = [...rolesActuales];
     if (debeAgregarAdmin) roles.push('admin');
     if (debeAgregarDocente) roles.push('docente');
-    if (debeAgregarAdmin || debeAgregarDocente) set.roles = roles;
+    if (debeAgregarAdmin || debeAgregarDocente) updateData.roles = JSON.stringify(roles);
 
-    if (!existente.hashContrasena) set.hashContrasena = await crearHash(contrasena);
-    if (!existente.activo) set.activo = true;
+    if (!existente.hashContrasena) updateData.hashContrasena = await crearHash(contrasena);
+    if (!existente.activo) updateData.activo = true;
 
-    if (Object.keys(set).length) {
-      await Docente.updateOne({ _id: existente._id }, { $set: set });
+    if (Object.keys(updateData).length) {
+      await prisma.docente.update({
+        where: { id: existente.id },
+        data: updateData
+      });
     }
     return;
   }
 
   const hashContrasena = await crearHash(contrasena);
-  await Docente.create({
-    ...(typeof nombres === 'string' && nombres ? { nombres } : {}),
-    ...(typeof apellidos === 'string' && apellidos ? { apellidos } : {}),
-    nombreCompleto,
-    correo,
-    hashContrasena,
-    activo: true,
-    roles: ['admin', 'docente'],
-    ultimoAcceso: new Date()
+  await prisma.docente.create({
+    data: {
+      nombres: nombres || null,
+      apellidos: apellidos || null,
+      nombreCompleto,
+      correo,
+      hashContrasena,
+      activo: true,
+      roles: JSON.stringify(['admin', 'docente']),
+      ultimoAcceso: new Date()
+    }
   });
 }

@@ -1,3 +1,9 @@
+/**
+ * release-beta-promotion.test
+ *
+ * Responsabilidad: Modulo interno del sistema.
+ * Limites: Mantener contrato y comportamiento observable del modulo.
+ */
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { buildBetaDiffSummary, buildBetaNotes, classifyBetaScope, resolveNextBetaVersion } from '../release/validate-beta-promotion.mjs';

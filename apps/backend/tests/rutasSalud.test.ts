@@ -8,7 +8,7 @@ import express from 'express';
 import os from 'node:os';
 import request from 'supertest';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import mongoose from 'mongoose';
+import { prisma } from '../src/infraestructura/baseDatos/sqlite';
 import rutasSalud, { obtenerVersionInfo } from '../src/compartido/salud/rutasSalud';
 
 function crearApp() {
@@ -23,10 +23,6 @@ describe('rutasSalud', () => {
 
   beforeEach(() => {
     vi.restoreAllMocks();
-    Object.defineProperty(mongoose.connection, 'readyState', {
-      configurable: true,
-      value: 1
-    });
     delete process.env.HOST_IP;
     delete process.env.EVALUAPRO_DEVELOPER_NAME;
     delete process.env.EVALUAPRO_DEVELOPER_ROLE;
@@ -37,30 +33,24 @@ describe('rutasSalud', () => {
   });
 
   it('expone salud general y describe el estado de la base de datos', async () => {
-    Object.defineProperty(mongoose.connection, 'readyState', {
-      configurable: true,
-      value: 2
-    });
+    prisma.$queryRawUnsafe = vi.fn().mockResolvedValue(1) as any;
 
     const respuesta = await request(app).get('/salud').expect(200);
 
     expect(respuesta.body.estado).toBe('ok');
     expect(respuesta.body.db).toEqual({
-      estado: 2,
-      descripcion: 'conectando'
+      estado: 1,
+      descripcion: 'conectado'
     });
   });
 
-  it('reporta readiness degradado cuando MongoDB no está lista', async () => {
-    Object.defineProperty(mongoose.connection, 'readyState', {
-      configurable: true,
-      value: 0
-    });
+  it('reporta readiness degradado cuando SQLite no está lista', async () => {
+    prisma.$queryRawUnsafe = vi.fn().mockRejectedValue(new Error('DB Error')) as any;
 
     const respuesta = await request(app).get('/salud/ready').expect(503);
 
     expect(respuesta.body.estado).toBe('degradado');
-    expect(respuesta.body.dependencies.mongodb).toMatchObject({
+    expect(respuesta.body.dependencies.sqlite).toMatchObject({
       status: 'fail',
       ready: false,
       state: 0,
@@ -69,11 +59,8 @@ describe('rutasSalud', () => {
     expect(respuesta.body.dependencias.db.lista).toBe(false);
   });
 
-  it('expone liveness y métricas Prometheus con el gauge de MongoDB', async () => {
-    Object.defineProperty(mongoose.connection, 'readyState', {
-      configurable: true,
-      value: 3
-    });
+  it('expone liveness y métricas Prometheus con el gauge de SQLite', async () => {
+    prisma.$queryRawUnsafe = vi.fn().mockResolvedValue(1) as any;
 
     const live = await request(app).get('/salud/live').expect(200);
     expect(live.body).toMatchObject({
@@ -83,7 +70,7 @@ describe('rutasSalud', () => {
 
     const metrics = await request(app).get('/salud/metrics').expect(200);
     expect(String(metrics.headers['content-type'])).toContain('text/plain');
-    expect(metrics.text).toContain('evaluapro_db_ready_state 3');
+    expect(metrics.text).toContain('evaluapro_db_ready_state 1');
   });
 
   it('expone version-info con displayVersion, catálogo y datos del desarrollador', async () => {

@@ -1,3 +1,9 @@
+/**
+ * tv4Compat
+ *
+ * Responsabilidad: Modulo interno del sistema.
+ * Limites: Mantener contrato y comportamiento observable del modulo.
+ */
 import type { MapaVariante, PreguntaBase } from '../shared/tiposPdf';
 import {
   TEMPLATE_VERSION_TV4,

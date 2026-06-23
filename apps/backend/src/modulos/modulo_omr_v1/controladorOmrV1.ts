@@ -1,3 +1,9 @@
+/**
+ * controladorOmrV1
+ *
+ * Responsabilidad: Adaptador HTTP del dominio (parseo de entrada, invocacion de servicios y respuesta).
+ * Limites: Evitar mover logica de negocio profunda a controlador.
+ */
 import fs from 'node:fs/promises';
 import type { Response } from 'express';
 import { createHash, randomUUID } from 'node:crypto';
@@ -11,7 +17,7 @@ import { obtenerDocenteId, type SolicitudDocente } from '../modulo_autenticacion
 import { requerirPermiso } from '../modulo_autenticacion/middlewarePermisos';
 import { validarCuerpo } from '../../compartido/validaciones/validar';
 import { BancoPregunta } from '../modulo_banco_preguntas/modeloBancoPregunta';
-import { Docente } from '../modulo_autenticacion/modeloDocente';
+import { prisma } from '../../infraestructura/baseDatos/sqlite';
 import { Periodo } from '../modulo_alumnos/modeloPeriodo';
 import { ExamenPlantilla } from '../modulo_generacion_pdf/modeloExamenPlantilla';
 import { ExamenGenerado } from '../modulo_generacion_pdf/modeloExamenGenerado';
@@ -654,7 +660,11 @@ export async function generarAssessment(req: SolicitudDocente, res: Response) {
   const versions = generarVersionesDeterministasV1({ preguntas, versionCount, generationSeed });
   const prefillMode = 'none' as const;
   const [docente, periodo] = await Promise.all([
-    Docente.findById(docenteId).lean(),
+    prisma.docente.findUnique({ where: { id: docenteId } }).then(doc => doc ? {
+      ...doc,
+      _id: doc.id,
+      roles: typeof doc.roles === 'string' ? JSON.parse(doc.roles) : doc.roles
+    } : null),
     plantilla.periodoId ? Periodo.findById(plantilla.periodoId).lean() : Promise.resolve(null)
   ]);
   const folio = createHash('sha1').update(`${String(plantilla._id)}:${generationSeed}`).digest('hex').slice(0, 10).toUpperCase();

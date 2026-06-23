@@ -1,24 +1,19 @@
 /**
- * Modelo de codigo de acceso para portal alumno.
+ * modeloCodigoAcceso
  *
- * Flujo:
- * - El backend genera un codigo por periodo y docente.
- * - El alumno usa el codigo + matricula en el portal cloud para crear sesion.
- * - El codigo es de un solo uso y expira.
+ * Responsabilidad: Definición de modelo compatible con Prisma/SQLite.
  */
-import { Schema, model, models } from 'mongoose';
+import { buildCompatModel } from '../../compartido/compat';
 
-const CodigoAccesoSchema = new Schema(
-  {
-    docenteId: { type: Schema.Types.ObjectId, ref: 'Docente', required: true },
-    periodoId: { type: Schema.Types.ObjectId, ref: 'Periodo', required: true },
-    codigo: { type: String, required: true },
-    expiraEn: { type: Date, required: true },
-    usado: { type: Boolean, default: false }
-  },
-  { timestamps: true, collection: 'codigosAcceso' }
-);
-
-CodigoAccesoSchema.index({ codigo: 1 }, { unique: true });
-
-export const CodigoAcceso = models.CodigoAcceso ?? model('CodigoAcceso', CodigoAccesoSchema);
+export const CodigoAcceso = buildCompatModel('codigoAcceso', {
+  columns: [
+    'id',
+    'docenteId',
+    'periodoId',
+    'codigo',
+    'expiraEn',
+    'usado',
+    'createdAt',
+    'updatedAt'
+  ]
+});

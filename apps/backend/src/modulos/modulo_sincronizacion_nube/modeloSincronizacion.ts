@@ -1,23 +1,24 @@
 /**
- * Modelo de sincronizacion local -> cloud.
+ * modeloSincronizacion
  *
- * Se usa como bitacora/auditoria:
- * - quien (docenteId)
- * - que (tipo)
- * - resultado (estado)
- * - cuando (ejecutadoEn + timestamps)
+ * Responsabilidad: Definición de modelo compatible con Prisma/SQLite.
  */
-import { Schema, model, models } from 'mongoose';
+import { buildCompatModel } from '../../compartido/compat';
 
-const SincronizacionSchema = new Schema(
-  {
-    docenteId: { type: Schema.Types.ObjectId, ref: 'Docente', required: true },
-    estado: { type: String, enum: ['pendiente', 'exitoso', 'fallido'], default: 'pendiente' },
-    tipo: { type: String, default: 'publicacion' },
-    detalles: { type: Schema.Types.Mixed },
-    ejecutadoEn: { type: Date }
+export const Sincronizacion = buildCompatModel('sincronizacion', {
+  jsonFields: ['detalles'],
+  fieldMappings: {
+    detalles: 'metadata',
+    ejecutadoEn: 'sincronizadoEn'
   },
-  { timestamps: true, collection: 'sincronizaciones' }
-);
-
-export const Sincronizacion = models.Sincronizacion ?? model('Sincronizacion', SincronizacionSchema);
+  columns: [
+    'id',
+    'docenteId',
+    'tipo',
+    'estado',
+    'metadata',
+    'sincronizadoEn',
+    'createdAt',
+    'updatedAt'
+  ]
+});

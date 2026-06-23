@@ -1,3 +1,9 @@
+/**
+ * familiasOmrV1
+ *
+ * Responsabilidad: Modulo interno del sistema.
+ * Limites: Mantener contrato y comportamiento observable del modulo.
+ */
 import type { OmrSheetFamilyCode, OmrSheetFamilyDescriptor } from './contratosOmrV1';
 
 const MM_A_PT = 72 / 25.4;

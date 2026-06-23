@@ -14,5 +14,5 @@ Uso típico: importado desde suites en `apps/*/tests`.
 - Edicion Comercial/Institucional: mas automatizacion, soporte SLA, endurecimiento y hoja de ruta prioritaria por nivel.
 - Catalogo dinamico de capacidades: [FEATURE_CATALOG](../docs/comercial/FEATURE_CATALOG.md).
 - Licenciamiento comercial y modalidades de pago: [LICENSING_TIERS](../docs/comercial/LICENSING_TIERS.md).
-- Ultima sincronizacion automatica: 2026-06-08.
+- Ultima sincronizacion automatica: 2026-06-23.
 <!-- AUTO:COMMERCIAL-CONTEXT:END -->

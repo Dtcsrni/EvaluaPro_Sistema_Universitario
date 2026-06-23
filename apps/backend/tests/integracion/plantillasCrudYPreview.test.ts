@@ -210,19 +210,30 @@ describe('plantillas CRUD + previsualizacion', () => {
 
     const pregunta = await BancoPregunta.findById(preguntasIds[0]);
     expect(pregunta).toBeTruthy();
-    pregunta!.versionActual = 2;
-    pregunta!.versiones.push({
-      numeroVersion: 2,
-      enunciado: 'Pregunta 1 actualizada para invalidar preview',
-      opciones: [
-        { texto: 'Opcion A', esCorrecta: true },
-        { texto: 'Opcion B', esCorrecta: false },
-        { texto: 'Opcion C', esCorrecta: false },
-        { texto: 'Opcion D', esCorrecta: false },
-        { texto: 'Opcion E', esCorrecta: false }
-      ]
+    
+    // Usar prisma directamente para actualizar las versiones de la pregunta
+    const { prisma } = await import('../../src/infraestructura/baseDatos/sqlite');
+    await prisma.bancoPregunta.update({
+      where: { id: preguntasIds[0] },
+      data: {
+        versionActual: 2,
+        versiones: {
+          create: {
+            numeroVersion: 2,
+            enunciado: 'Pregunta 1 actualizada para invalidar preview',
+            opciones: {
+              create: [
+                { texto: 'Opcion A', esCorrecta: true },
+                { texto: 'Opcion B', esCorrecta: false },
+                { texto: 'Opcion C', esCorrecta: false },
+                { texto: 'Opcion D', esCorrecta: false },
+                { texto: 'Opcion E', esCorrecta: false }
+              ]
+            }
+          }
+        }
+      }
     });
-    await pregunta!.save();
 
     const previewDespues = await descargarPreviewPdf(auth, plantillaId);
 

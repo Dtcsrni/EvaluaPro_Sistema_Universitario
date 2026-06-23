@@ -1,0 +1,1058 @@
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider      = "prisma-client-js"
+  binaryTargets = ["native", "debian-openssl-3.0.x"]
+}
+
+// ─── AUTENTICACIÓN Y DOCENTE ──────────────────────────────────────────────────
+
+model Docente {
+  id                   String                @id @default(uuid())
+  nombres              String?
+  apellidos            String?
+  nombreCompleto       String
+  correo               String                @unique
+  hashContrasena       String?
+  googleSub            String?
+  roles                String                @default("[]") // JSON array de roles
+  activo               Boolean               @default(true)
+  ultimoAcceso         DateTime?
+  preferenciasPdf      String?               // JSON string (institucion, lema, logos)
+  periodos             Periodo[]
+  asistenciaReglas     AsistenciaRegla[]
+  asistenciaSesiones   AsistenciaSesion[]
+  asistenciaExcepcion  AsistenciaExcepcion[]
+  bancoPreguntas       BancoPregunta[]
+  examenesPlantilla    ExamenPlantilla[]
+  examenesGenerados    ExamenGenerado[]
+  calificaciones       Calificacion[]
+  banderasRevision     BanderaRevision[]
+  eventosUso           EventoUso[]
+  recuperacionesBundle ExamenRecoveryBundle[]
+  recuperacionesManif  ExamenRecoveryManifest[]
+  papeleraItems        PapeleraItem[]
+  politicasCalificacion PoliticaCalificacion[]
+  solicitudesRevision  SolicitudRevisionAlumno[]
+  sesiones             SesionDocente[]
+  recuperacionesContrasena RecuperacionContrasenaDocente[]
+  entregas             Entrega[]
+  codigosAcceso        CodigoAcceso[]
+  bancoTemas           TemaBanco[]
+  createdAt            DateTime              @default(now())
+  updatedAt            DateTime              @updatedAt
+
+  @@map("docentes")
+}
+
+model SesionDocente {
+  id         String    @id @default(uuid())
+  docenteId  String
+  docente    Docente   @relation(fields: [docenteId], references: [id], onDelete: Cascade)
+  tokenHash  String    @unique
+  creadoEn   DateTime  @default(now())
+  ultimoUso  DateTime?
+  expiraEn   DateTime
+  revocadoEn DateTime?
+
+  @@map("sesiones_docente")
+}
+
+model RecuperacionContrasenaDocente {
+  id           String    @id @default(uuid())
+  docenteId    String
+  docente      Docente   @relation(fields: [docenteId], references: [id], onDelete: Cascade)
+  tokenHash    String    @unique
+  expiraEn     DateTime
+  solicitadoIp String?
+  usadoEn      DateTime?
+  usadoIp      String?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  @@map("recuperacion_contrasena_docente")
+}
+
+model Periodo {
+  id                   String                @id @default(uuid())
+  docenteId            String
+  docente              Docente               @relation(fields: [docenteId], references: [id], onDelete: Cascade)
+  nombre               String
+  nombreNormalizado    String
+  fechaInicio          DateTime
+  fechaFin             DateTime
+  grupos               String                // JSON array de grupos
+  activo               Boolean               @default(true)
+  archivadoEn          DateTime?
+  resumenArchivado     String?               // JSON string
+  alumnos              Alumno[]
+  asistenciaReglas     AsistenciaRegla[]
+  asistenciaSesiones   AsistenciaSesion[]
+  asistenciaExcepcion  AsistenciaExcepcion[]
+  temarios             Temario[]
+  bancoPreguntas       BancoPregunta[]
+  examenesPlantilla    ExamenPlantilla[]
+  examenesGenerados    ExamenGenerado[]
+  calificaciones       Calificacion[]
+  codigosAcceso        CodigoAcceso[]
+  bancoTemas           TemaBanco[]
+  solicitudesRevision  SolicitudRevisionAlumno[]
+  createdAt            DateTime              @default(now())
+  updatedAt            DateTime              @updatedAt
+
+  @@unique([docenteId, nombreNormalizado])
+  @@map("periodos")
+}
+
+model Alumno {
+  id                   String                @id @default(uuid())
+  periodoId            String
+  periodo              Periodo               @relation(fields: [periodoId], references: [id], onDelete: Cascade)
+  matricula            String
+  nombres              String?
+  apellidos            String?
+  nombreCompleto       String
+  correo               String
+  grupo                String?
+  activo               Boolean               @default(true)
+  registrosAsistencia  AsistenciaRegistro[]
+  asistenciaExcepcion  AsistenciaExcepcion?
+  examenesGenerados    ExamenGenerado[]
+  calificaciones       Calificacion[]
+  banderasRevision     BanderaRevision[]
+  solicitudesRevision  SolicitudRevisionAlumno[]
+  entregas             Entrega[]
+  createdAt            DateTime              @default(now())
+  updatedAt            DateTime              @updatedAt
+
+  @@unique([periodoId, matricula])
+  @@map("alumnos")
+}
+
+model AsistenciaRegla {
+  id                    String   @id @default(uuid())
+  docenteId             String
+  docente               Docente  @relation(fields: [docenteId], references: [id])
+  periodoId             String
+  periodo               Periodo  @relation(fields: [periodoId], references: [id], onDelete: Cascade)
+  grupo                 String?
+  maxFaltas             Int      @default(4)
+  accion                String   @default("bloquear_examen")
+  excepcionPermitida    Boolean  @default(true)
+  /// Si es true, los retardos se convierten en faltas equivalentes según retardosEquivalenFalta
+  contarRetardos        Boolean  @default(false)
+  /// Cuántos retardos equivalen a 1 falta (sólo aplica cuando contarRetardos=true)
+  retardosEquivalenFalta Int     @default(3)
+  createdAt             DateTime @default(now())
+  updatedAt             DateTime @updatedAt
+
+  @@map("asistencia_reglas")
+}
+
+model AsistenciaSesion {
+  id            String               @id @default(uuid())
+  docenteId     String
+  docente       Docente              @relation(fields: [docenteId], references: [id])
+  periodoId     String
+  periodo       Periodo              @relation(fields: [periodoId], references: [id], onDelete: Cascade)
+  fecha         DateTime
+  grupo         String
+  temaId        String?
+  temaNombre    String?
+  observaciones String?
+  modo          String               @default("manual")
+  registros     AsistenciaRegistro[]
+  createdAt     DateTime             @default(now())
+  updatedAt     DateTime             @updatedAt
+
+  @@unique([periodoId, fecha, grupo])
+  @@map("asistencia_sesiones")
+}
+
+model AsistenciaRegistro {
+  id            String           @id @default(uuid())
+  sesionId      String
+  sesion        AsistenciaSesion @relation(fields: [sesionId], references: [id], onDelete: Cascade)
+  alumnoId      String
+  alumno        Alumno           @relation(fields: [alumnoId], references: [id], onDelete: Cascade)
+  docenteId     String
+  periodoId     String
+  grupo         String
+  fecha         DateTime
+  estado        String
+  justificacion String?
+  qrToken       String?
+  createdAt     DateTime         @default(now())
+  updatedAt     DateTime         @updatedAt
+
+  @@unique([sesionId, alumnoId])
+  @@map("asistencia_registros")
+}
+
+model AsistenciaExcepcion {
+  id        String   @id @default(uuid())
+  docenteId String
+  docente   Docente  @relation(fields: [docenteId], references: [id])
+  periodoId String
+  periodo   Periodo  @relation(fields: [periodoId], references: [id], onDelete: Cascade)
+  alumnoId  String   @unique
+  alumno    Alumno   @relation(fields: [alumnoId], references: [id], onDelete: Cascade)
+  motivo    String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([periodoId, alumnoId])
+  @@map("asistencia_excepciones")
+}
+
+model Temario {
+  id               String        @id @default(uuid())
+  periodoId        String        @unique
+  periodo          Periodo       @relation(fields: [periodoId], references: [id], onDelete: Cascade)
+  nombre           String
+  textoOriginal    String?
+  totalNodos       Int           @default(0)
+  porcentajeAvance Int           @default(0)
+  nodos            TemarioNodo[]
+  createdAt        DateTime      @default(now())
+  updatedAt        DateTime      @updatedAt
+
+  @@map("temarios")
+}
+
+model TemarioNodo {
+  id                 String   @id @default(uuid())
+  temarioId          String
+  temario            Temario  @relation(fields: [temarioId], references: [id], onDelete: Cascade)
+  numero             String
+  nivel              Int
+  titulo             String
+  estado             String
+  sesionAsistenciaId String?
+  notas              String?
+  cubiertaEn         DateTime?
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+
+  @@map("temario_nodos")
+}
+
+model BancoPregunta {
+  id             String            @id @default(uuid())
+  docenteId      String
+  docente        Docente           @relation(fields: [docenteId], references: [id])
+  periodoId      String
+  periodo        Periodo           @relation(fields: [periodoId], references: [id], onDelete: Cascade)
+  tema           String?
+  activo         Boolean           @default(true)
+  archivadoEn    DateTime?
+  recoverySource String?           // JSON string
+  versionActual  Int               @default(1)
+  versiones      VersionPregunta[]
+  plantillas     PreguntaPlantilla[]
+  createdAt      DateTime          @default(now())
+  updatedAt      DateTime          @updatedAt
+
+  @@map("banco_preguntas")
+}
+
+model VersionPregunta {
+  id            String          @id @default(uuid())
+  preguntaId    String
+  pregunta      BancoPregunta   @relation(fields: [preguntaId], references: [id], onDelete: Cascade)
+  numeroVersion Int
+  enunciado     String
+  imagenUrl     String?
+  opciones      OpcionPregunta[]
+  createdAt     DateTime        @default(now())
+  updatedAt     DateTime        @updatedAt
+
+  @@unique([preguntaId, numeroVersion])
+  @@map("version_preguntas")
+}
+
+model OpcionPregunta {
+  id                String          @id @default(uuid())
+  versionPreguntaId String
+  versionPregunta   VersionPregunta @relation(fields: [versionPreguntaId], references: [id], onDelete: Cascade)
+  texto             String
+  esCorrecta        Boolean
+  createdAt         DateTime        @default(now())
+  updatedAt         DateTime        @updatedAt
+
+  @@map("opcion_preguntas")
+}
+
+model ExamenPlantilla {
+  id                  String              @id @default(uuid())
+  docenteId           String
+  docente             Docente             @relation(fields: [docenteId], references: [id])
+  periodoId           String?
+  periodo             Periodo?            @relation(fields: [periodoId], references: [id])
+  tipo                String
+  titulo              String
+  tituloNormalizado   String
+  instrucciones       String?
+  numeroPaginas       Int                 @default(1)
+  reactivosObjetivo   Int                 @default(20)
+  defaultVersionCount Int                 @default(1)
+  answerKeyMode       String              @default("digital")
+  temas               String              @default("[]") // JSON string array
+  archivadoEn         DateTime?
+  bookletConfig       String              // JSON string
+  omrConfig           String              // JSON string
+  configuracionPdf    String              // JSON string
+  preguntas           PreguntaPlantilla[]
+  examenesGenerados   ExamenGenerado[]
+  createdAt           DateTime            @default(now())
+  updatedAt           DateTime            @updatedAt
+
+  @@map("examenes_plantilla")
+}
+
+model PreguntaPlantilla {
+  id          String          @id @default(uuid())
+  plantillaId String
+  plantilla   ExamenPlantilla @relation(fields: [plantillaId], references: [id], onDelete: Cascade)
+  preguntaId  String
+  pregunta    BancoPregunta   @relation(fields: [preguntaId], references: [id], onDelete: Cascade)
+  orden       Int             @default(0)
+
+  @@unique([plantillaId, preguntaId])
+  @@map("pregunta_plantilla")
+}
+
+model ExamenGenerado {
+  id                       String                    @id @default(uuid())
+  docenteId                String
+  docente                  Docente                   @relation(fields: [docenteId], references: [id])
+  periodoId                String?
+  periodo                  Periodo?                  @relation(fields: [periodoId], references: [id])
+  plantillaId              String
+  plantilla                ExamenPlantilla           @relation(fields: [plantillaId], references: [id], onDelete: Cascade)
+  alumnoId                 String?
+  alumno                   Alumno?                   @relation(fields: [alumnoId], references: [id])
+  loteId                   String?
+  origenGeneracion         String                    @default("individual")
+  folio                    String                    @unique
+  estado                   String                    @default("generado")
+  entregadoEn              DateTime?
+  mapaVariante             String                    // JSON string
+  mapaOmr                  String?                   // JSON string
+  paginas                  String                    @default("[]") // JSON string
+  rutaPdf                  String?
+  bookletArtifact          String?                   // JSON string
+  omrSheetArtifact         String?                   // JSON string
+  studentPacketArtifacts   String                    @default("[]") // JSON string array
+  studentPacketZipArtifact String?                   // JSON string
+  manifestArtifact         String?                   // JSON string
+  answerKeyArtifact        String?                   // JSON string
+  recoveryKeyId            String?
+  recoveryManifestHash     String?
+  recoveryManifest         String?                   // JSON string
+  recoveryBundleId         String?
+  recoveryBundleHash       String?
+  reconstructedFrom        String?                   // JSON string
+  questionMap              String?                   // JSON string
+  answerKeySet             String?                   // JSON string
+  versionSet               String                    @default("[]") // JSON string array
+  sheetInstances           String                    @default("[]") // JSON string array
+  generationSeed           String?
+  previewFingerprint       String?
+  statisticsSummary        String?                   // JSON string
+  omrRuntimeVersion        Int?
+  retentionStatus          String                    @default("active")
+  artifactsPurgedAt        DateTime?
+  artifactsPurgeReason     String?
+  generadoEn               DateTime                  @default(now())
+  descargadoEn             DateTime?
+  archivadoEn              DateTime?
+  calificaciones           Calificacion[]
+  solicitudesRevision      SolicitudRevisionAlumno[]
+  entregas                 Entrega[]
+  createdAt                DateTime                  @default(now())
+  updatedAt                DateTime                  @updatedAt
+
+  @@map("examenes_generados")
+}
+
+model PoliticaCalificacion {
+  id            String   @id @default(uuid())
+  docenteId     String
+  docente       Docente  @relation(fields: [docenteId], references: [id])
+  nombre        String
+  configuracion String   // JSON string
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@map("politicas_calificacion")
+}
+
+model Calificacion {
+  id                           String         @id @default(uuid())
+  docenteId                    String
+  docente                      Docente        @relation(fields: [docenteId], references: [id])
+  periodoId                    String?
+  periodo                      Periodo?       @relation(fields: [periodoId], references: [id])
+  examenGeneradoId             String
+  examenGenerado               ExamenGenerado @relation(fields: [examenGeneradoId], references: [id], onDelete: Cascade)
+  alumnoId                     String
+  alumno                       Alumno         @relation(fields: [alumnoId], references: [id], onDelete: Cascade)
+  tipoExamen                   String
+  totalReactivos               Int
+  aciertos                     Int
+  fraccion                     String         // JSON string
+  calificacionExamenTexto      String
+  bonoTexto                    String
+  calificacionExamenFinalTexto String
+  evaluacionContinuaTexto      String?
+  proyectoTexto                String?
+  calificacionParcialTexto     String?
+  calificacionGlobalTexto      String?
+  retroalimentacion            String?
+  respuestasDetectadas         String?        // JSON string
+  omrAuditoria                 String?        // JSON string
+  politicaId                   String?
+  versionPolitica              Int?
+  componentesExamen            String?        // JSON string
+  bloqueContinuaDecimal        Float?
+  bloqueExamenesDecimal        Float?
+  finalDecimal                 Float?
+  finalRedondeada              Float?
+  createdAt                    DateTime       @default(now())
+  updatedAt                    DateTime       @updatedAt
+
+  @@map("calificaciones")
+}
+
+model SolicitudRevisionAlumno {
+  id                       String          @id @default(uuid())
+  externoId                String?         @unique
+  docenteId                String
+  docente                  Docente         @relation(fields: [docenteId], references: [id])
+  periodoId                String?
+  periodo                  Periodo?        @relation(fields: [periodoId], references: [id])
+  examenGeneradoId         String?
+  examenGenerado           ExamenGenerado? @relation(fields: [examenGeneradoId], references: [id], onDelete: Cascade)
+  alumnoId                 String?
+  alumno                   Alumno?         @relation(fields: [alumnoId], references: [id], onDelete: Cascade)
+  folio                    String
+  numeroPregunta           Int
+  comentario               String?
+  estado                   String          @default("pendiente")
+  solicitadoEn             DateTime        @default(now())
+  atendidoEn               DateTime?
+  respuestaDocente         String?
+  firmaDocente             String?
+  firmadoEn                DateTime?
+  cerradoEn                DateTime?
+  alumnoNombreCompleto     String?
+  conformidadAlumno        Boolean         @default(false)
+  conformidadActualizadaEn DateTime?
+  origen                   String          @default("portal")
+  createdAt                DateTime        @default(now())
+  updatedAt                DateTime        @updatedAt
+
+  @@map("solicitudes_revision")
+}
+
+model BanderaRevision {
+  id               String   @id @default(uuid())
+  examenGeneradoId String
+  alumnoId         String
+  alumno           Alumno   @relation(fields: [alumnoId], references: [id], onDelete: Cascade)
+  docenteId        String
+  docente          Docente  @relation(fields: [docenteId], references: [id])
+  motivo           String
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  @@map("banderas_revision")
+}
+
+model EventoUso {
+  id        String   @id @default(uuid())
+  docenteId String
+  docente   Docente  @relation(fields: [docenteId], references: [id])
+  accion    String
+  meta      String?  // JSON string
+  createdAt DateTime @default(now())
+
+  @@map("eventos_uso")
+}
+
+model ExamenRecoveryBundle {
+  id         String   @id @default(uuid())
+  docenteId  String
+  docente    Docente  @relation(fields: [docenteId], references: [id])
+  bundleHash String   @unique
+  nombre     String
+  metadata   String?  // JSON string
+  createdAt  DateTime @default(now())
+
+  @@map("examen_recovery_bundles")
+}
+
+model ExamenRecoveryManifest {
+  id           String   @id @default(uuid())
+  docenteId    String
+  docente      Docente  @relation(fields: [docenteId], references: [id])
+  manifestHash String   @unique
+  nombre       String
+  metadata     String?  // JSON string
+  createdAt    DateTime @default(now())
+
+  @@map("examen_recovery_manifests")
+}
+
+model PapeleraItem {
+  id        String   @id @default(uuid())
+  docenteId String
+  docente   Docente  @relation(fields: [docenteId], references: [id])
+  tipo      String
+  itemId    String
+  datosJson String   // JSON string
+  createdAt DateTime @default(now())
+
+  @@map("papelera_items")
+}
+
+model Entrega {
+  id                String         @id @default(uuid())
+  examenGeneradoId  String
+  examenGenerado    ExamenGenerado @relation(fields: [examenGeneradoId], references: [id], onDelete: Cascade)
+  alumnoId          String
+  alumno            Alumno         @relation(fields: [alumnoId], references: [id], onDelete: Cascade)
+  docenteId         String
+  docente           Docente        @relation(fields: [docenteId], references: [id])
+  estado            String         @default("pendiente")
+  fechaEntrega      DateTime?
+  acordeonEntregado Boolean        @default(false)
+  bonoAcordeon      Float          @default(0)
+  motivoDeshacer    String?
+  createdAt         DateTime       @default(now())
+  updatedAt         DateTime       @updatedAt
+
+  @@map("entregas")
+}
+
+model CodigoAcceso {
+  id        String   @id @default(uuid())
+  docenteId String
+  docente   Docente  @relation(fields: [docenteId], references: [id])
+  periodoId String
+  periodo   Periodo  @relation(fields: [periodoId], references: [id], onDelete: Cascade)
+  codigo    String   @unique
+  expiraEn  DateTime
+  usado     Boolean  @default(false)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("codigos_acceso")
+}
+
+model TemaBanco {
+  id          String    @id @default(uuid())
+  docenteId   String
+  docente     Docente   @relation(fields: [docenteId], references: [id])
+  periodoId   String
+  periodo     Periodo   @relation(fields: [periodoId], references: [id], onDelete: Cascade)
+  nombre      String
+  clave       String
+  activo      Boolean   @default(true)
+  archivadoEn DateTime?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  @@unique([docenteId, periodoId, clave])
+  @@map("banco_temas")
+}
+
+model EscaneoOmrArchivado {
+  id                       String   @id @default(uuid())
+  docenteId                String
+  alumnoId                 String?
+  periodoId                String?
+  plantillaId              String?
+  examenGeneradoId         String
+  folio                    String
+  numeroPagina             Int
+  intento                  Int      @default(1)
+  materia                  String?
+  mimeType                 String
+  algoritmoCompresion      String   @default("gzip")
+  tamanoOriginalBytes      Int
+  tamanoComprimidoBytes    Int
+  sha256Original           String
+  templateVersionDetectada Int?
+  engineVersion            String?
+  estadoAnalisis           String
+  motivosRevision          String   @default("[]") // JSON string array
+  payloadComprimido        Bytes
+  createdAt                DateTime @default(now())
+  updatedAt                DateTime @updatedAt
+
+  @@unique([examenGeneradoId, numeroPagina, intento])
+  @@map("escaneos_omr_archivados")
+}
+
+model ReconstruccionExamen {
+  id                           String   @id @default(uuid())
+  tipo                         String
+  estado                       String
+  docenteSolicitanteId         String
+  docenteDestinoId             String
+  bundleHash                   String?
+  manifestHash                 String?
+  loteId                       String?
+  examId                       String?
+  folio                        String?
+  signatureValid               Boolean?
+  recoverable                  Boolean?
+  causes                       String   @default("[]") // JSON string array
+  reconstructedQuestionBankIds String   @default("[]") // JSON string array
+  reconstructedExamIds         String   @default("[]") // JSON string array
+  conflicts                    String   @default("[]") // JSON string
+  metadata                     String?  // JSON string
+  createdAt                    DateTime @default(now())
+  updatedAt                    DateTime @updatedAt
+
+  @@unique([tipo, docenteDestinoId, bundleHash, manifestHash])
+  @@map("reconstrucciones_examenes")
+}
+
+model ConfiguracionPeriodoEvaluacion {
+  id              String   @id @default(uuid())
+  docenteId       String
+  periodoId       String
+  politicaCodigo  String
+  politicaVersion Int      @default(1)
+  cortes          String   @default("[]") // JSON array
+  pesosGlobales   String   @default("{}") // JSON
+  pesosExamenes   String   @default("{}") // JSON
+  reglasCierre    String   @default("{}") // JSON
+  activo          Boolean  @default(true)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@unique([docenteId, periodoId])
+  @@map("configuraciones_periodo_evaluacion")
+}
+
+model EvidenciaEvaluacion {
+  id                  String   @id @default(uuid())
+  docenteId           String
+  periodoId           String
+  alumnoId            String
+  titulo              String
+  descripcion         String?
+  calificacionDecimal Float?
+  ponderacion         Float    @default(1)
+  fechaEvidencia      DateTime
+  corte               Int?
+  fuente              String   @default("manual")
+  estadoCaptura       String   @default("calificada")
+  classroomData       String?  // JSON string
+  metadata            String?  // JSON string
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+
+  @@map("evidencias_evaluacion")
+}
+
+model ComponenteExamen {
+  id                      String   @id @default(uuid())
+  docenteId               String
+  periodoId               String
+  alumnoId                String
+  corte                   String
+  teoricoDecimal          Float
+  practicas               String   @default("[]") // JSON array of numbers
+  practicaPromedioDecimal Float
+  examenCorteDecimal      Float
+  origen                  String   @default("manual")
+  examenGeneradoId        String?
+  metadata                String?  // JSON string
+  createdAt               DateTime @default(now())
+  updatedAt               DateTime @updatedAt
+
+  @@unique([docenteId, periodoId, alumnoId, corte])
+  @@map("componentes_examen")
+}
+
+model ResumenEvaluacionAlumno {
+  id                    String   @id @default(uuid())
+  docenteId             String
+  periodoId             String
+  alumnoId              String
+  politicaCodigo        String
+  politicaVersion       Int      @default(1)
+  continuaPorCorte      String   @default("{}") // JSON
+  examenesPorCorte      String   @default("{}") // JSON
+  bloqueContinuaDecimal Float    @default(0)
+  bloqueExamenesDecimal Float    @default(0)
+  finalDecimal          Float    @default(0)
+  finalRedondeada       Float    @default(0)
+  estado                String   @default("incompleto")
+  faltantes             String   @default("[]") // JSON array
+  auditoria             String?  // JSON string
+  calculadoEn           DateTime @default(now())
+  createdAt             DateTime @default(now())
+  updatedAt             DateTime @updatedAt
+
+  @@unique([docenteId, periodoId, alumnoId])
+  @@map("resumenes_evaluacion_alumno")
+}
+
+model EventoCumplimiento {
+  id          String   @id @default(uuid())
+  docenteId   String?
+  alumnoId    String?
+  tipo        String?
+  descripcion String?
+  metadata    String?  // JSON string
+  accion      String?
+  severidad   String?  @default("info")
+  detalles    String?  // JSON string
+  createdAt   DateTime @default(now())
+
+  @@map("eventos_cumplimiento")
+}
+
+model SolicitudDsr {
+  id             String    @id @default(uuid())
+  docenteId      String?
+  nombre         String?
+  correo         String?
+  tipo           String
+  descripcion    String?
+  estado         String?   @default("pendiente")
+  resolvidaEn    DateTime?
+  respuesta      String?
+  metadata       String?   // JSON string
+  titularRef     String?
+  scope          String?
+  status         String?   @default("pendiente")
+  requestedAt    DateTime? @default(now())
+  resolvedAt     DateTime?
+  resolutionNote String?   @default("")
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  @@map("solicitudes_dsr")
+}
+
+model IntegracionClassroom {
+  id            String    @id @default(uuid())
+  docenteId     String    @unique
+  googleSub     String?
+  accessToken   String?
+  refreshToken  String?
+  tokenExpiraEn DateTime?
+  activo        Boolean   @default(true)
+  metadata      String?   // JSON string
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  @@map("integraciones_classroom")
+}
+
+model BitacoraSyncClassroom {
+  id        String   @id @default(uuid())
+  docenteId String
+  periodoId String?
+  courseId  String?
+  tipo      String
+  estado    String   @default("ok")
+  resumen   String?  // JSON string
+  errores   String?  // JSON string array
+  createdAt DateTime @default(now())
+
+  @@map("bitacora_sync_classroom")
+}
+
+model MapeoClassroomAlumnoCurso {
+  id              String   @id @default(uuid())
+  docenteId       String
+  periodoId       String
+  alumnoId        String
+  courseId        String
+  classroomUserId String?
+  classroomEmail  String?
+  metadata        String?  // JSON string
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@unique([docenteId, periodoId, alumnoId, courseId])
+  @@map("mapeos_classroom_alumno_curso")
+}
+
+model MapeoClassroomEvidencia {
+  id           String   @id @default(uuid())
+  docenteId    String
+  periodoId    String
+  alumnoId     String
+  courseId     String
+  courseWorkId String
+  submissionId String?
+  evidenciaId  String?
+  estado       String   @default("pendiente")
+  metadata     String?  // JSON string
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@map("mapeos_classroom_evidencia")
+}
+
+model OmrSheetFamily {
+  id            String   @id @default(uuid())
+  docenteId     String
+  periodoId     String?
+  plantillaId   String?
+  nombre        String
+  configuracion String   // JSON string
+  activo        Boolean  @default(true)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@map("omr_sheet_families")
+}
+
+model OmrSheetRevision {
+  id            String   @id @default(uuid())
+  docenteId     String
+  familiaId     String
+  revision      Int      @default(1)
+  configuracion String   // JSON string
+  motivo        String?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@map("omr_sheet_revisions")
+}
+
+model OmrScanJob {
+  id           String    @id @default(uuid())
+  docenteId    String
+  periodoId    String?
+  plantillaId  String?
+  estado       String    @default("pendiente")
+  totalHojas   Int       @default(0)
+  procesadas   Int       @default(0)
+  errores      String    @default("[]") // JSON array
+  metadata     String?   // JSON string
+  iniciadoEn   DateTime?
+  completadoEn DateTime?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  @@map("omr_scan_jobs")
+}
+
+model Sincronizacion {
+  id             String    @id @default(uuid())
+  docenteId      String
+  tipo           String
+  estado         String    @default("pendiente")
+  metadata       String?   // JSON string
+  sincronizadoEn DateTime?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  @@map("sincronizaciones")
+}
+
+// ─── MODELOS COMERCIAL CORE Y TENANCY ─────────────────────────────────────────
+
+model Tenant {
+  id                String          @id @default(uuid())
+  tenantId          String          @unique
+  nombre            String
+  tipoTenant        String
+  modalidad         String
+  estado            String
+  pais              String
+  moneda            String
+  ownerDocenteId    String
+  contacto          String?         // JSON string
+  configAislamiento String          // JSON string
+  tags              String          @default("[]") // JSON array
+  createdAt         DateTime        @default(now())
+  updatedAt         DateTime        @updatedAt
+
+  @@map("tenants")
+}
+
+model Suscripcion {
+  id                   String          @id @default(uuid())
+  tenantId             String
+  planId               String
+  ciclo                String
+  estado               String
+  pasarela             String
+  precioAplicado       Float
+  tokenPreaprobacion   String?
+  siguienteVencimiento DateTime?
+  trial                String?         // JSON string
+  fechaRenovacion      DateTime?
+  descuentoAplicado    Float           @default(0)
+  createdAt            DateTime        @default(now())
+  updatedAt            DateTime        @updatedAt
+
+  @@map("suscripciones")
+}
+
+model Cobranza {
+  id                String          @id @default(uuid())
+  tenantId          String
+  suscripcionId     String
+  monto             Float
+  moneda            String
+  pasarela          String
+  estado            String
+  fechaPago         DateTime?
+  metodoPago        String?
+  notificadoWebhook Boolean         @default(false)
+  referenciaExterna String?
+  webhookEventId    String?         @unique
+  metadata          String?         // JSON string
+  createdAt         DateTime        @default(now())
+  updatedAt         DateTime        @updatedAt
+
+  @@map("cobranzas")
+}
+
+model Licencia {
+  id                       String    @id @default(uuid())
+  licenciaId               String    @unique
+  tenantId                 String
+  planId                   String
+  tipo                     String
+  canalRelease             String
+  firmaToken               String
+  limiteDispositivos       Int       @default(1)
+  expiraEn                 DateTime?
+  activo                   Boolean   @default(true)
+  tokenLicencia            String    @unique
+  tokenLicenciaHash        String    @unique
+  codigoActivacion         String    @unique
+  graciaOfflineDias        Int       @default(7)
+  estado                   String    @default("generada")
+  activadaEn               DateTime?
+  ultimoHeartbeatEn        DateTime?
+  ultimoCanalRelease       String    @default("stable")
+  dispositivoVinculadoHash String?
+  nonceUltimo              String?
+  contadorHeartbeat        Int       @default(0)
+  intentosFallidos         Int       @default(0)
+  puntajeAnomalia          Int       @default(0)
+  revocadaRazon            String?
+  metaDispositivo          String?   // JSON string
+  createdAt                DateTime  @default(now())
+  updatedAt                DateTime  @updatedAt
+
+  @@map("licencias")
+}
+
+model Cupon {
+  id              String          @id @default(uuid())
+  codigo          String          @unique
+  descuentoPct    Float
+  planId          String?
+  fechaExpiracion DateTime?
+  usosActuales    Int             @default(0)
+  usosMaximos     Int             @default(100)
+  activo          Boolean         @default(true)
+  createdAt       DateTime        @default(now())
+  updatedAt       DateTime        @updatedAt
+
+  @@map("cupones")
+}
+
+model Campana {
+  id          String    @id @default(uuid())
+  slug        String    @unique
+  titulo      String
+  descripcion String?
+  segmento    String?
+  estado      String    @default("draft")
+  startsAt    DateTime?
+  endsAt      DateTime?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  @@map("campanas")
+}
+
+model ConsentimientoComercial {
+  id          String   @id @default(uuid())
+  tenantId    String
+  finalidades String   // JSON string
+  ip          String?
+  userAgent   String?
+  createdAt   DateTime @default(now())
+
+  @@map("consentimientos_comerciales")
+}
+
+model EventoComercial {
+  id        String   @id @default(uuid())
+  tenantId  String
+  tipo      String
+  payload   String?  // JSON string
+  createdAt DateTime @default(now())
+
+  @@map("eventos_comerciales")
+}
+
+model AuditoriaComercial {
+  id             String   @id @default(uuid())
+  actorDocenteId String?
+  tenantId       String?
+  accion         String
+  recurso        String
+  recursoId      String?
+  origen         String   @default("panel_admin_negocio")
+  ip             String?
+  diff           String?  // JSON string
+  createdAt      DateTime @default(now())
+
+  @@map("auditorias_comerciales")
+}
+
+model PlanComercial {
+  id                   String   @id @default(uuid())
+  planId               String   @unique
+  nombre               String
+  precioMensual        Float
+  precioAnual          Float
+  moneda               String   @default("MXN")
+  limites              String   // JSON string
+  activo               Boolean  @default(true)
+  lineaPersona         String
+  nivel                Int
+  costoMensualEstimado Float
+  margenObjetivoMinimo Float    @default(0.6)
+  slaHoras             Int?
+  createdAt            DateTime @default(now())
+  updatedAt            DateTime @updatedAt
+
+  @@map("planes_comerciales")
+}
+
+model PlantillaNotificacion {
+  id          String   @id @default(uuid())
+  slug        String   @unique
+  canal       String
+  asunto      String?
+  cuerpoTexto String
+  cuerpoHtml  String?
+  activo      Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@map("plantillas_notificaciones")
+}

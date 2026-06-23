@@ -1,3 +1,9 @@
+/**
+ * SeccionRehidratacionLotes
+ *
+ * Responsabilidad: Seccion funcional del shell docente.
+ * Limites: Conservar UX y permisos; extraer logica compleja a hooks/components.
+ */
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { emitToast } from '../../ui/toast/toastBus';
 import { Boton } from '../../ui/ux/componentes/Boton';

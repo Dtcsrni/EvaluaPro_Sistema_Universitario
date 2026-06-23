@@ -1,3 +1,9 @@
+/**
+ * schedulerCobranza
+ *
+ * Responsabilidad: Modulo interno del sistema.
+ * Limites: Mantener contrato y comportamiento observable del modulo.
+ */
 import { log, logError } from '../../infraestructura/logging/logger';
 import { configuracion } from '../../configuracion';
 import { ejecutarCicloCobranzaAutomatica } from './servicioComercialCore';

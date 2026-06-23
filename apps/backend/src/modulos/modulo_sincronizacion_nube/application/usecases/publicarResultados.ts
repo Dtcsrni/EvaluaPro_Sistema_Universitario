@@ -30,8 +30,8 @@ export async function publicarResultadosUseCase(params: { docenteId: string; per
   const banderas = await BanderaRevision.find({ docenteId }).lean();
   const examenes = await ExamenGenerado.find({ docenteId, periodoId }).lean();
 
-  const resumenPorAlumno = new Map(
-    resumenesEvaluacion.map((item) => [
+  const resumenPorAlumno = new Map<string, any>(
+    resumenesEvaluacion.map((item: any) => [
       String(item.alumnoId),
       {
         politicaId: String(item.politicaCodigo || '').trim() || undefined,
@@ -54,15 +54,15 @@ export async function publicarResultadosUseCase(params: { docenteId: string; per
     if (capturas.length > 0) capturasOmrPorExamen.set(examenId, capturas);
   }
 
-  const examenesMap = new Map<string, Record<string, unknown>>(examenes.map((examen) => [String(examen._id), examen as Record<string, unknown>]));
+  const examenesMap = new Map<string, Record<string, unknown>>(examenes.map((examen: any) => [String(examen._id), examen as Record<string, unknown>]));
   const preguntasIds = Array.from(
     new Set(
       examenes
-        .flatMap((examen) => {
+        .flatMap((examen: any) => {
           const orden = (examen.mapaVariante?.ordenPreguntas ?? []) as unknown[];
           return Array.isArray(orden) ? orden : [];
         })
-        .map((id) => String(id))
+        .map((id: any) => String(id))
         .filter(Boolean)
     )
   );
@@ -91,23 +91,23 @@ export async function publicarResultadosUseCase(params: { docenteId: string; per
     schemaVersion: 3,
     docenteId,
     periodo: { _id: periodo._id },
-    alumnos: alumnos.map((alumno) => ({
+    alumnos: alumnos.map((alumno: any) => ({
       _id: alumno._id,
       matricula: alumno.matricula,
       nombreCompleto: alumno.nombreCompleto,
       grupo: alumno.grupo
     })),
-    calificaciones: calificaciones.map((calificacion) => ({
+    calificaciones: calificaciones.map((calificacion: any) => ({
       ...(() => {
         const resumenAlumno = resumenPorAlumno.get(String(calificacion.alumnoId));
         const respuestasDetectadas = Array.isArray(calificacion.respuestasDetectadas)
           ? (calificacion.respuestasDetectadas as Array<{ numeroPregunta?: unknown; opcion?: unknown; confianza?: unknown }>)
-              .map((respuesta) => ({
+              .map((respuesta: any) => ({
                 numeroPregunta: Number(respuesta?.numeroPregunta),
                 opcion: typeof respuesta?.opcion === 'string' ? respuesta.opcion.toUpperCase() : null,
                 ...(typeof respuesta?.confianza === 'number' ? { confianza: respuesta.confianza } : {})
               }))
-              .filter((respuesta) => Number.isInteger(respuesta.numeroPregunta) && respuesta.numeroPregunta > 0)
+              .filter((respuesta: any) => Number.isInteger(respuesta.numeroPregunta) && respuesta.numeroPregunta > 0)
           : [];
 
         return {
@@ -156,7 +156,7 @@ export async function publicarResultadosUseCase(params: { docenteId: string; per
       omrAuditoria: calificacion.omrAuditoria && typeof calificacion.omrAuditoria === 'object' ? calificacion.omrAuditoria : undefined
     })),
     examenes: examenesPayload,
-    banderas: banderas.map((bandera) => ({
+    banderas: banderas.map((bandera: any) => ({
       examenGeneradoId: bandera.examenGeneradoId,
       alumnoId: bandera.alumnoId,
       tipo: bandera.tipo,
@@ -185,6 +185,7 @@ export async function publicarResultadosUseCase(params: { docenteId: string; per
   });
 
   if (!respuesta.ok) {
+    console.error('PORTAL SYNC FAILED:', { status: respuesta.status, payload: respuesta.payload });
     throw new ErrorAplicacion('PUBLICACION_FALLIDA', 'No se pudo publicar en la nube', 502);
   }
 

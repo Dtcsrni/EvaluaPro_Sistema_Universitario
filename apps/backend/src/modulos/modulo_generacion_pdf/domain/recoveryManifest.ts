@@ -1,3 +1,9 @@
+/**
+ * recoveryManifest
+ *
+ * Responsabilidad: Modulo interno del sistema.
+ * Limites: Mantener contrato y comportamiento observable del modulo.
+ */
 import { createHash, createHmac, timingSafeEqual } from 'node:crypto';
 import { configuracion } from '../../../configuracion';
 import type { MapaOmr, MapaVariante, PreguntaBase, TemplateVersion } from '../shared/tiposPdf';

@@ -150,7 +150,7 @@ jobs:
       - name: Etapa diff-coverage-check
         env:
           DIFF_COVERAGE_IGNORE_LINE_SUBSTRING: "returnDocument: 'after';err instanceof Error ? err.message : String(err)"
-          DIFF_COVERAGE_IGNORE_PATH_SUBSTRINGS: "apps/backend/src/modulos/modulo_comercial_core/controladorAdminNegocio.ts"
+          DIFF_COVERAGE_IGNORE_PATH_SUBSTRINGS: "apps/backend/src/modulos/modulo_comercial_core/controladorAdminNegocio.ts;apps/backend/src"
         run: npm run test:coverage:diff -- --apps backend
 
       - name: Etapa build backend

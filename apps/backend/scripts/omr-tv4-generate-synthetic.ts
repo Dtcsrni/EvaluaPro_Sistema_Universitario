@@ -1,3 +1,9 @@
+/**
+ * omr-tv4-generate-synthetic
+ *
+ * Responsabilidad: Modulo interno del sistema.
+ * Limites: Mantener contrato y comportamiento observable del modulo.
+ */
 import { generateSyntheticTv4Dataset } from './omr-tv4-synthetic-lib';
 
 type Args = {

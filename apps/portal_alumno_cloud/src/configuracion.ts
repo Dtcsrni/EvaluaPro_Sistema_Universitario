@@ -7,13 +7,13 @@ const entorno = process.env.NODE_ENV ?? 'development';
 cargarDotenvRaizSiAplica(entorno);
 
 const puerto = Number(process.env.PUERTO_PORTAL ?? process.env.PORT ?? 8080);
-const mongoUri = process.env.MONGODB_URI ?? '';
+const databaseUrl = process.env.DATABASE_URL ?? 'file:./data/portal.db';
 const corsOrigenesRaw = String(process.env.CORS_ORIGENES ?? '').trim();
 const corsOrigenes = parsearListaCsv(process.env.CORS_ORIGENES ?? '*');
 const portalApiKey = process.env.PORTAL_API_KEY ?? '';
 const codigoAccesoHoras = Number(process.env.CODIGO_ACCESO_HORAS ?? 12);
-if (entorno === 'production' && !mongoUri) {
-  throw new Error('MONGODB_URI es requerido en producción (portal)');
+if (entorno === 'production' && !databaseUrl) {
+  throw new Error('DATABASE_URL es requerido en producción (portal)');
 }
 if (entorno === 'production' && !portalApiKey) {
   throw new Error('PORTAL_API_KEY es requerido en producción (portal)');
@@ -33,7 +33,7 @@ const rateLimitLimit = parsearNumeroSeguro(process.env.RATE_LIMIT_LIMIT, 200, { 
 
 export const configuracion = {
   puerto,
-  mongoUri,
+  databaseUrl,
   entorno,
   corsOrigenes,
   portalApiKey,

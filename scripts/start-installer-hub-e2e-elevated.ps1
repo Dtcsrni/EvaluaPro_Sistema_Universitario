@@ -1,3 +1,7 @@
+# start-installer-hub-e2e-elevated.ps1
+#
+# Responsabilidad: Modulo interno del sistema.
+# Limites: Mantener contrato y comportamiento observable del modulo.
 <#
   Prepara el E2E real del Installer Hub docente-local desde el host.
   La ventana elevada arranca la VM si hace falta, ejecuta el preflight y se detiene antes de mutar si no esta dentro de la VM.

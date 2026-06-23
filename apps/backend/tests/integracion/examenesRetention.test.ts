@@ -11,7 +11,7 @@ import path from 'node:path';
 import request from 'supertest';
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { crearApp } from '../../src/app';
-import { ExamenGenerado } from '../../src/modulos/modulo_generacion_pdf/modeloExamenGenerado';
+import { prisma } from '../../src/infraestructura/baseDatos/sqlite';
 import { cerrarMongoTest, conectarMongoTest, limpiarMongoTest } from '../utils/mongo';
 
 describe('retención de exámenes generados', () => {
@@ -144,7 +144,7 @@ describe('retención de exámenes generados', () => {
     expect(purgeReal.body?.data?.candidatos).toBe(1);
     expect(purgeReal.body?.data?.documentosActualizados).toBe(1);
 
-    const examen = await ExamenGenerado.findById(escenario.examenId).lean();
+    const examen = await prisma.examenGenerado.findUnique({ where: { id: escenario.examenId } });
     expect(examen?.retentionStatus).toBe('artifacts_purged');
     expect(examen?.rutaPdf ?? null).toBeNull();
     await expect(fs.access(escenario.rutaPdf)).rejects.toThrow();
@@ -215,7 +215,7 @@ describe('retención de exámenes generados', () => {
       .expect(410);
     expect(descargaDespues.body?.error?.codigo).toBe('EXAMEN_ARTIFACTOS_EXPURGADOS');
 
-    const examenesLote = await ExamenGenerado.find({ loteId }).lean();
+    const examenesLote = await prisma.examenGenerado.findMany({ where: { loteId } });
     expect(examenesLote).toHaveLength(2);
     for (const examen of examenesLote) {
       expect(examen.retentionStatus).toBe('artifacts_purged');

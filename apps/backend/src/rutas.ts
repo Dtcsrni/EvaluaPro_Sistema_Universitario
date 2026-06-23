@@ -32,6 +32,8 @@ import rutasComercial from './modulos/modulo_comercial/rutasComercial';
 import rutasAdminNegocio from './modulos/modulo_comercial_core/rutasAdminNegocio';
 import rutasComercialPublico from './modulos/modulo_comercial_core/rutasComercialPublico';
 import rutasRecuperacionExamenes from './modulos/modulo_recuperacion_examenes/rutasRecuperacionExamenes';
+import rutasAsistencias from './modulos/modulo_asistencias/rutasAsistencias';
+import rutasTemarios from './modulos/modulo_temarios/rutasTemarios';
 import { exportarMetricasPrometheus } from './compartido/observabilidad/metrics';
 
 export function crearRouterApi() {
@@ -78,6 +80,8 @@ export function crearRouterApi() {
   router.use('/comercial', rutasComercial);
   router.use('/admin-negocio', rutasAdminNegocio);
   router.use('/recuperacion', rutasRecuperacionExamenes);
+  router.use('/asistencias', rutasAsistencias);
+  router.use('/temarios', rutasTemarios);
   router.use('/papelera', rutasPapelera);
   router.use('/admin', rutasAdminDocentes);
 

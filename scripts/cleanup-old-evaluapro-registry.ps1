@@ -1,3 +1,7 @@
+# cleanup-old-evaluapro-registry.ps1
+#
+# Responsabilidad: Modulo interno del sistema.
+# Limites: Mantener contrato y comportamiento observable del modulo.
 [CmdletBinding()]
 # Cleanup helper for old EvaluaPro uninstall registry entries.
 # Backups HKLM/HKCU and removes only legacy EvaluaPro uninstall keys.

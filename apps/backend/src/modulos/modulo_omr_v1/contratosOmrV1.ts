@@ -1,3 +1,9 @@
+/**
+ * contratosOmrV1
+ *
+ * Responsabilidad: Modulo interno del sistema.
+ * Limites: Mantener contrato y comportamiento observable del modulo.
+ */
 export type OmrRuntimeVersion = 1;
 
 export type OmrSheetFamilyCode =

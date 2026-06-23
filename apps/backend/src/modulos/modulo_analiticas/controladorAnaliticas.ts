@@ -7,14 +7,9 @@
  */
 import type { Response } from 'express';
 import { ErrorAplicacion } from '../../compartido/errores/errorAplicacion';
-import { BanderaRevision } from './modeloBanderaRevision';
-import { EventoUso } from './modeloEventoUso';
+import { prisma } from '../../infraestructura/baseDatos/sqlite';
 import { generarCsv } from './servicioExportacionCsv';
-import { Calificacion } from '../modulo_calificacion/modeloCalificacion';
-import { Alumno } from '../modulo_alumnos/modeloAlumno';
-import { Periodo } from '../modulo_alumnos/modeloPeriodo';
 import { obtenerDocenteId, type SolicitudDocente } from '../modulo_autenticacion/middlewareAutenticacion';
-import { Docente } from '../modulo_autenticacion/modeloDocente';
 import { construirListaAcademica } from './servicioListaAcademica';
 import { COLUMNAS_LISTA_ACADEMICA, ListaAcademicaFila } from './tiposListaAcademica';
 import { generarDocxListaAcademica } from './servicioExportacionDocx';
@@ -39,18 +34,25 @@ export async function registrarEventosUso(req: SolicitudDocente, res: Response) 
     meta?: unknown;
   }>;
 
-  const docs = eventos.map((evento) => ({
-    docenteId,
-    sessionId: typeof evento.sessionId === 'string' ? evento.sessionId : undefined,
-    pantalla: typeof evento.pantalla === 'string' ? evento.pantalla : undefined,
-    accion: String(evento.accion || ''),
-    exito: typeof evento.exito === 'boolean' ? evento.exito : undefined,
-    duracionMs: typeof evento.duracionMs === 'number' ? evento.duracionMs : undefined,
-    meta: evento.meta
-  }));
+  const docs = eventos.map((evento) => {
+    const metaObj = {
+      sessionId: typeof evento.sessionId === 'string' ? evento.sessionId : undefined,
+      pantalla: typeof evento.pantalla === 'string' ? evento.pantalla : undefined,
+      exito: typeof evento.exito === 'boolean' ? evento.exito : undefined,
+      duracionMs: typeof evento.duracionMs === 'number' ? evento.duracionMs : undefined,
+      meta: evento.meta
+    };
+    return {
+      docenteId,
+      accion: String(evento.accion || ''),
+      meta: JSON.stringify(metaObj)
+    };
+  });
 
   try {
-    await EventoUso.insertMany(docs, { ordered: false });
+    await prisma.eventoUso.createMany({
+      data: docs
+    });
     res.status(201).json({ ok: true, recibidos: docs.length });
   } catch {
     // Best-effort: la telemetria no debe romper la UX.
@@ -60,28 +62,63 @@ export async function registrarEventosUso(req: SolicitudDocente, res: Response) 
 
 export async function listarBanderas(req: SolicitudDocente, res: Response) {
   const docenteId = obtenerDocenteId(req);
-  const filtro: Record<string, string> = {};
-  if (req.query.examenGeneradoId) filtro.examenGeneradoId = String(req.query.examenGeneradoId);
-  if (req.query.alumnoId) filtro.alumnoId = String(req.query.alumnoId);
-  filtro.docenteId = docenteId;
+  const where: any = { docenteId };
+  if (req.query.examenGeneradoId) where.examenGeneradoId = String(req.query.examenGeneradoId);
+  if (req.query.alumnoId) where.alumnoId = String(req.query.alumnoId);
 
   const limite = Number(req.query.limite ?? 0);
-  const consulta = BanderaRevision.find(filtro);
-  const banderas = await (limite > 0 ? consulta.limit(limite) : consulta).lean();
+  const records = await prisma.banderaRevision.findMany({
+    where,
+    take: limite > 0 ? limite : undefined
+  });
+
+  const banderas = records.map((b) => ({
+    _id: b.id,
+    id: b.id,
+    docenteId: b.docenteId,
+    examenGeneradoId: b.examenGeneradoId,
+    alumnoId: b.alumnoId,
+    tipo: b.motivo, // Map motivo -> tipo
+    severidad: 'baja',
+    descripcion: '',
+    sugerencia: '',
+    createdAt: b.createdAt,
+    updatedAt: b.updatedAt
+  }));
+
   res.json({ banderas });
 }
 
 export async function crearBandera(req: SolicitudDocente, res: Response) {
   const docenteId = obtenerDocenteId(req);
-  const bandera = await BanderaRevision.create({ ...req.body, docenteId });
+  const created = await prisma.banderaRevision.create({
+    data: {
+      examenGeneradoId: req.body.examenGeneradoId,
+      alumnoId: req.body.alumnoId,
+      docenteId,
+      motivo: req.body.tipo || req.body.motivo || ''
+    }
+  });
+
+  const bandera = {
+    _id: created.id,
+    id: created.id,
+    docenteId: created.docenteId,
+    examenGeneradoId: created.examenGeneradoId,
+    alumnoId: created.alumnoId,
+    tipo: created.motivo,
+    severidad: 'baja',
+    descripcion: '',
+    sugerencia: '',
+    createdAt: created.createdAt,
+    updatedAt: created.updatedAt
+  };
+
   res.status(201).json({ bandera });
 }
 
 /**
  * Exporta CSV generico (sin persistencia).
- *
- * Seguridad: se invoca `obtenerDocenteId` para asegurar que la ruta este autenticada,
- * aunque el contenido lo provea el cliente.
  */
 export function exportarCsv(req: SolicitudDocente, res: Response) {
   obtenerDocenteId(req);
@@ -100,9 +137,6 @@ export function exportarCsv(req: SolicitudDocente, res: Response) {
 
 /**
  * Exporta CSV de calificaciones de un periodo del docente.
- *
- * Contrato de autorizacion por objeto:
- * - `periodoId` se valida y se usa junto con `docenteId` para acotar datos.
  */
 export async function exportarCsvCalificaciones(req: SolicitudDocente, res: Response) {
   const docenteId = obtenerDocenteId(req);
@@ -111,21 +145,27 @@ export async function exportarCsvCalificaciones(req: SolicitudDocente, res: Resp
     throw new ErrorAplicacion('DATOS_INVALIDOS', 'periodoId requerido', 400);
   }
 
-  const alumnos = await Alumno.find({ docenteId, periodoId }).lean();
-  const calificaciones = await Calificacion.find({ docenteId, periodoId }).lean();
-  const banderas = await BanderaRevision.find({ docenteId }).lean();
+  const alumnos = await prisma.alumno.findMany({
+    where: { periodo: { id: periodoId, docenteId } }
+  });
+  const calificaciones = await prisma.calificacion.findMany({
+    where: { docenteId, periodoId }
+  });
+  const banderas = await prisma.banderaRevision.findMany({
+    where: { docenteId }
+  });
 
   const columnas = ['matricula', 'nombre', 'grupo', 'parcial1', 'parcial2', 'global', 'final', 'banderas'];
   const banderasPorAlumno = new Map<string, string[]>();
   banderas.forEach((bandera) => {
     const alumnoId = String(bandera.alumnoId);
     const lista = banderasPorAlumno.get(alumnoId) ?? [];
-    lista.push(bandera.tipo);
+    lista.push(bandera.motivo); // Map motivo -> tipo
     banderasPorAlumno.set(alumnoId, lista);
   });
 
   const filas = alumnos.map((alumno) => {
-    const calificacion = calificaciones.find((item) => String(item.alumnoId) === String(alumno._id));
+    const calificacion = calificaciones.find((item) => String(item.alumnoId) === String(alumno.id));
     const parcial = calificacion?.calificacionParcialTexto ?? '';
     const global = calificacion?.calificacionGlobalTexto ?? '';
     const final = global || parcial || calificacion?.calificacionExamenFinalTexto || '';
@@ -137,7 +177,7 @@ export async function exportarCsvCalificaciones(req: SolicitudDocente, res: Resp
       parcial2: '',
       global: calificacion?.tipoExamen === 'global' ? global : '',
       final,
-      banderas: (banderasPorAlumno.get(String(alumno._id)) ?? []).join(';')
+      banderas: (banderasPorAlumno.get(String(alumno.id)) ?? []).join(';')
     };
   });
 
@@ -166,22 +206,25 @@ export async function exportarXlsxCalificaciones(req: SolicitudDocente, res: Res
   }
 
   const [docente, periodo, alumnos, calificaciones] = await Promise.all([
-    Docente.findById(docenteId).lean(),
-    Periodo.findOne({ _id: periodoId, docenteId }).lean(),
-    Alumno.find({ docenteId, periodoId }).lean(),
-    Calificacion.find({ docenteId, periodoId }).lean()
+    prisma.docente.findUnique({ where: { id: docenteId } }),
+    prisma.periodo.findFirst({ where: { id: periodoId, docenteId } }),
+    prisma.alumno.findMany({ where: { periodo: { id: periodoId, docenteId } } }),
+    prisma.calificacion.findMany({ where: { docenteId, periodoId } })
   ]);
 
   if (!periodo) {
     throw new ErrorAplicacion('PERIODO_NO_ENCONTRADO', 'Periodo no encontrado', 404);
   }
 
+  const mappedAlumnos = alumnos.map((a) => ({ ...a, _id: a.id }));
+  const mappedCalificaciones = calificaciones.map((c) => ({ ...c, _id: c.id, tipoExamen: c.tipoExamen as 'parcial' | 'global' }));
+
   const xlsx = await generarXlsxCalificacionesProduccion({
     docenteNombre: String(docente?.nombreCompleto || ''),
     nombrePeriodo: String(periodo.nombre || ''),
     cicloLectivo: cicloLectivo(periodo.fechaInicio, periodo.fechaFin),
-    alumnos,
-    calificaciones
+    alumnos: mappedAlumnos,
+    calificaciones: mappedCalificaciones as any
   });
 
   res.setHeader(
@@ -193,10 +236,25 @@ export async function exportarXlsxCalificaciones(req: SolicitudDocente, res: Res
 }
 
 async function obtenerListaAcademicaPorPeriodo(docenteId: string, periodoId: string) {
-  const alumnos = await Alumno.find({ docenteId, periodoId }).lean();
-  const calificaciones = await Calificacion.find({ docenteId, periodoId }).lean();
-  const banderas = await BanderaRevision.find({ docenteId }).lean();
-  return construirListaAcademica(alumnos, calificaciones, banderas);
+  const alumnos = await prisma.alumno.findMany({
+    where: { periodo: { id: periodoId, docenteId } }
+  });
+  const calificaciones = await prisma.calificacion.findMany({
+    where: { docenteId, periodoId }
+  });
+  const banderas = await prisma.banderaRevision.findMany({
+    where: { docenteId }
+  });
+
+  const mappedAlumnos = alumnos.map((a) => ({ ...a, _id: a.id }));
+  const mappedCalificaciones = calificaciones.map((c) => ({ ...c, _id: c.id }));
+  const mappedBanderas = banderas.map((b) => ({
+    ...b,
+    _id: b.id,
+    tipo: b.motivo // Map motivo -> tipo
+  }));
+
+  return construirListaAcademica(mappedAlumnos, mappedCalificaciones, mappedBanderas);
 }
 
 function validarPeriodoId(periodoId: string) {

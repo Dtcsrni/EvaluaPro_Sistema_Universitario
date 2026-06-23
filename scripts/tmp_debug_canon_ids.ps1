@@ -1,3 +1,7 @@
+# tmp_debug_canon_ids.ps1
+#
+# Responsabilidad: Modulo interno del sistema.
+# Limites: Mantener contrato y comportamiento observable del modulo.
 $ErrorActionPreference='Stop'
 Set-Location 'V:/Software/Generador_Examenes_Universitarios_MERN/sistema-evaluacion-universitaria'
 $api='http://127.0.0.1:4000/api'

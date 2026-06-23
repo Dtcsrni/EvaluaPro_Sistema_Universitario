@@ -3,24 +3,15 @@
  *
  * Responsabilidad: centralizar helpers y reglas reutilizables del módulo PDF
  * para que el controlador HTTP sea una fachada delgada.
- *
- * Limites:
- * - No define rutas HTTP.
- * - No escribe respuestas Express.
- * - Conserva contratos internos ya validados del flujo PDF/preview/lote.
  */
 import fs from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
-import { Types } from 'mongoose';
+import { prisma } from '../../../infraestructura/baseDatos/sqlite';
 import { barajar } from '../../../compartido/utilidades/aleatoriedad';
 import { ErrorAplicacion } from '../../../compartido/errores/errorAplicacion';
 import { configuracion } from '../../../configuracion';
 import { normalizarParaNombreArchivo } from '../../../compartido/utilidades/texto';
-import { BancoPregunta } from '../../modulo_banco_preguntas/modeloBancoPregunta';
-import { Periodo } from '../../modulo_alumnos/modeloPeriodo';
-import { Docente } from '../../modulo_autenticacion/modeloDocente';
-import { ExamenPlantilla, normalizarTituloPlantilla } from '../modeloExamenPlantilla';
 import { resolverPdfEngine } from '../infra/resolverPdfEngine';
 import { construirFirmaVisualPdf } from '../infra/pdfVisualBaseline';
 import {
@@ -28,6 +19,7 @@ import {
   extraerPreguntasUsadasMapaOmr,
   normalizarPreguntasParaTv4
 } from '../domain/tv4Compat';
+import { normalizarTituloPlantilla } from '../modeloExamenPlantilla';
 
 export type MapaVariante = {
   ordenPreguntas: string[];
@@ -36,6 +28,7 @@ export type MapaVariante = {
 
 export type BancoPreguntaLean = {
   _id: unknown;
+  id: string;
   tema?: string;
   updatedAt?: unknown;
   versionActual: number;
@@ -55,6 +48,68 @@ export function normalizarNombreTemaPreview(valor: unknown): string {
 
 export function claveTemaPreview(valor: unknown): string {
   return normalizarNombreTemaPreview(valor).toLowerCase();
+}
+
+function parseJsonSafe<T>(val: unknown): T | null {
+  if (typeof val === 'string') {
+    try {
+      return JSON.parse(val) as T;
+    } catch {
+      return null;
+    }
+  }
+  return val as T;
+}
+
+function formatearPlantillaPrisma(raw: any, preguntasIds: string[] = []) {
+  if (!raw) return null;
+  return {
+    _id: raw.id,
+    id: raw.id,
+    docenteId: raw.docenteId,
+    periodoId: raw.periodoId ?? undefined,
+    tipo: raw.tipo,
+    titulo: raw.titulo,
+    tituloNormalizado: raw.tituloNormalizado,
+    instrucciones: raw.instrucciones ?? undefined,
+    numeroPaginas: raw.numeroPaginas,
+    reactivosObjetivo: raw.reactivosObjetivo,
+    defaultVersionCount: raw.defaultVersionCount,
+    answerKeyMode: raw.answerKeyMode,
+    archivadoEn: raw.archivadoEn ?? undefined,
+    bookletConfig: parseJsonSafe<any>(raw.bookletConfig),
+    omrConfig: parseJsonSafe<any>(raw.omrConfig),
+    configuracionPdf: parseJsonSafe<any>(raw.configuracionPdf),
+    temas: parseJsonSafe<string[]>(raw.temas) ?? [],
+    preguntasIds,
+    createdAt: raw.createdAt,
+    updatedAt: raw.updatedAt
+  };
+}
+
+function formatearPreguntaPrisma(raw: any) {
+  if (!raw) return null;
+  return {
+    _id: raw.id,
+    id: raw.id,
+    docenteId: raw.docenteId,
+    periodoId: raw.periodoId,
+    tema: raw.tema ?? undefined,
+    activo: raw.activo,
+    versionActual: raw.versionActual,
+    recoverySource: raw.recoverySource ? JSON.parse(raw.recoverySource) : undefined,
+    createdAt: raw.createdAt,
+    updatedAt: raw.updatedAt,
+    versiones: (raw.versiones || []).map((v: any) => ({
+      numeroVersion: v.numeroVersion,
+      enunciado: v.enunciado,
+      imagenUrl: v.imagenUrl ?? undefined,
+      opciones: (v.opciones || []).map((o: any) => ({
+        texto: o.texto,
+        esCorrecta: o.esCorrecta
+      }))
+    }))
+  };
 }
 
 export function construirNombrePdfExamen(parametros: {
@@ -194,29 +249,20 @@ export async function validarTituloPlantillaDisponible(params: {
   const tituloNormalizado = normalizarTituloPlantilla(titulo);
   if (!tituloNormalizado) return;
 
-  const filtroBase: Record<string, unknown> = {
-    docenteId: params.docenteId,
-    archivadoEn: { $exists: false }
+  const docId = String(params.docenteId);
+  const where: any = {
+    docenteId: docId,
+    archivadoEn: null,
+    OR: [
+      { tituloNormalizado },
+      { titulo: { equals: titulo } }
+    ]
   };
   if (params.excluirPlantillaId) {
-    filtroBase._id = { $ne: params.excluirPlantillaId };
+    where.id = { not: params.excluirPlantillaId };
   }
 
-  const existente = await ExamenPlantilla.findOne({
-    ...filtroBase,
-    $or: [
-      { tituloNormalizado },
-      {
-        titulo: {
-          $regex: `^\\s*${titulo.replace(/[.*+?^${}()|[\]\\]/g, '\\$&').replace(/\s+/g, '\\s+')}\\s*$`,
-          $options: 'i'
-        }
-      }
-    ]
-  })
-    .select({ _id: 1 })
-    .lean();
-
+  const existente = await prisma.examenPlantilla.findFirst({ where });
   if (existente) {
     throw new ErrorAplicacion('PLANTILLA_DUPLICADA', 'Ya existe una plantilla activa con ese nombre', 409);
   }
@@ -276,7 +322,7 @@ export function construirFingerprintPreguntasPreview(preguntasDb: BancoPreguntaL
   const partes = preguntasDb.map((pregunta) => {
     const version = Number(pregunta.versionActual ?? 0);
     const updatedAt = String(pregunta.updatedAt ?? '');
-    return `${String(pregunta._id ?? '')}:${version}:${updatedAt}`;
+    return `${String(pregunta.id ?? '')}:${version}:${updatedAt}`;
   });
   return hash32(partes.join('|')).toString(16);
 }
@@ -433,14 +479,26 @@ export function esEntornoDevelopment() {
 }
 
 export async function obtenerPlantillaDocente(docenteId: unknown, plantillaId: string) {
-  const plantilla = await ExamenPlantilla.findById(plantillaId).lean();
-  if (!plantilla) {
+  const docId = String(docenteId);
+  const raw = await prisma.examenPlantilla.findUnique({
+    where: { id: plantillaId }
+  });
+  if (!raw) {
     throw new ErrorAplicacion('PLANTILLA_NO_ENCONTRADA', 'Plantilla no encontrada', 404);
   }
-  if (String(plantilla.docenteId) !== String(docenteId)) {
-    throw new ErrorAplicacion('NO_AUTORIZADO', 'Sin acceso a la plantilla', 403);
+  if (raw.docenteId !== docId) {
+    throw new ErrorAplicacion('NO_AUTORIZADO', 'No autorizado', 403);
   }
-  return plantilla;
+  const junction = await prisma.preguntaPlantilla.findMany({
+    where: { plantillaId },
+    orderBy: { orden: 'asc' }
+  });
+  const preguntasIds = junction.map((j) => j.preguntaId);
+  const formatted = formatearPlantillaPrisma(raw, preguntasIds);
+  if (!formatted) {
+    throw new ErrorAplicacion('PLANTILLA_NO_ENCONTRADA', 'Plantilla no encontrada', 404);
+  }
+  return formatted;
 }
 
 export function asegurarPlantillaActiva(plantilla: { archivadoEn?: unknown }) {
@@ -451,30 +509,55 @@ export function asegurarPlantillaActiva(plantilla: { archivadoEn?: unknown }) {
 
 export async function validarPeriodoDocenteActivo(docenteId: unknown, periodoId?: unknown) {
   if (!periodoId) return null;
-  const periodo = await Periodo.findOne({ _id: String(periodoId).trim(), docenteId }).lean();
+  const docId = String(docenteId);
+  const pId = String(periodoId).trim();
+  const periodo = await prisma.periodo.findFirst({
+    where: { id: pId, docenteId: docId }
+  });
   if (!periodo) {
     throw new ErrorAplicacion('PERIODO_NO_ENCONTRADO', 'Materia no encontrada', 404);
   }
-  if ((periodo as { activo?: boolean }).activo === false) {
+  if (periodo.activo === false) {
     throw new ErrorAplicacion('PERIODO_INACTIVO', 'La materia esta archivada', 409);
   }
-  return periodo;
+  return {
+    ...periodo,
+    _id: periodo.id,
+    grupos: parseJsonSafe(periodo.grupos)
+  };
 }
 
 export async function resolverPeriodoPlantillaActivo(plantilla: { periodoId?: unknown }) {
   if (!plantilla.periodoId) return null;
-  const periodo = await Periodo.findById(plantilla.periodoId).lean();
+  const pId = String(plantilla.periodoId);
+  const periodo = await prisma.periodo.findUnique({
+    where: { id: pId }
+  });
   if (!periodo) {
     throw new ErrorAplicacion('PERIODO_NO_ENCONTRADO', 'Materia no encontrada', 404);
   }
-  if ((periodo as { activo?: boolean }).activo === false) {
+  if (periodo.activo === false) {
     throw new ErrorAplicacion('PERIODO_INACTIVO', 'La materia esta archivada', 409);
   }
-  return periodo;
+  return {
+    ...periodo,
+    _id: periodo.id,
+    grupos: parseJsonSafe(periodo.grupos)
+  };
 }
 
 export async function resolverDocentePdf(docenteId: unknown) {
-  return Docente.findById(docenteId).lean();
+  const dId = String(docenteId);
+  const docente = await prisma.docente.findUnique({
+    where: { id: dId }
+  });
+  if (!docente) return null;
+  return {
+    ...docente,
+    _id: docente.id,
+    roles: parseJsonSafe(docente.roles),
+    preferenciasPdf: parseJsonSafe(docente.preferenciasPdf)
+  };
 }
 
 export function resolverTemasPlantilla(plantilla: { temas?: unknown[] }) {
@@ -483,40 +566,75 @@ export function resolverTemasPlantilla(plantilla: { temas?: unknown[] }) {
 
 export async function resolverPreguntasPlantilla(params: {
   docenteId: unknown;
-  plantilla: { periodoId?: unknown; preguntasIds?: unknown[]; temas?: unknown[] };
+  plantilla: { id: string; periodoId?: unknown; preguntasIds?: unknown[]; temas?: unknown[] };
   ordenarPorRecencia?: boolean;
 }) {
-  const preguntasIds = Array.isArray(params.plantilla.preguntasIds) ? params.plantilla.preguntasIds : [];
+  const docId = String(params.docenteId);
   const temas = resolverTemasPlantilla(params.plantilla);
 
-  let consulta;
+  let rawPreguntas: any[] = [];
   if (temas.length > 0) {
     if (!params.plantilla.periodoId) {
       throw new ErrorAplicacion('PLANTILLA_INVALIDA', 'La plantilla por temas requiere materia (periodoId)', 400);
     }
-    consulta = BancoPregunta.find({
-      docenteId: params.docenteId,
-      activo: true,
-      periodoId: params.plantilla.periodoId,
-      tema: { $in: temas }
+    rawPreguntas = await prisma.bancoPregunta.findMany({
+      where: {
+        docenteId: docId,
+        activo: true,
+        periodoId: String(params.plantilla.periodoId),
+        tema: { in: temas }
+      },
+      include: {
+        versiones: {
+          include: {
+            opciones: true
+          }
+        }
+      },
+      orderBy: params.ordenarPorRecencia
+        ? [{ updatedAt: 'desc' }, { id: 'desc' }]
+        : undefined
     });
   } else {
-    consulta = BancoPregunta.find({
-      docenteId: params.docenteId,
-      activo: true,
-      ...(params.plantilla.periodoId ? { periodoId: params.plantilla.periodoId } : {}),
-      _id: { $in: preguntasIds }
+    let listIds = params.plantilla.preguntasIds as string[];
+    if (!listIds || listIds.length === 0) {
+      const junction = await prisma.preguntaPlantilla.findMany({
+        where: { plantillaId: params.plantilla.id },
+        orderBy: { orden: 'asc' }
+      });
+      listIds = junction.map((j) => j.preguntaId);
+    }
+
+    rawPreguntas = await prisma.bancoPregunta.findMany({
+      where: {
+        docenteId: docId,
+        activo: true,
+        id: { in: listIds }
+      },
+      include: {
+        versiones: {
+          include: {
+            opciones: true
+          }
+        }
+      },
+      orderBy: params.ordenarPorRecencia
+        ? [{ updatedAt: 'desc' }, { id: 'desc' }]
+        : undefined
     });
+
+    if (!params.ordenarPorRecencia && listIds && listIds.length > 0) {
+      const map = new Map(rawPreguntas.map((p) => [p.id, p]));
+      rawPreguntas = listIds.map((id) => map.get(id)).filter(Boolean);
+    }
   }
 
-  if (params.ordenarPorRecencia) {
-    consulta = consulta.sort({ updatedAt: -1, _id: -1 });
-  }
-
-  const preguntasDb = (await consulta.lean()) as BancoPreguntaLean[];
-  if (preguntasDb.length === 0) {
+  if (rawPreguntas.length === 0) {
     throw new ErrorAplicacion('SIN_PREGUNTAS', 'La plantilla no tiene preguntas asociadas', 400);
   }
+
+  const preguntasDb = rawPreguntas.map(formatearPreguntaPrisma) as BancoPreguntaLean[];
+  const preguntasIds = rawPreguntas.map((p) => p.id);
 
   return { preguntasDb, preguntasIds, temas };
 }
@@ -528,7 +646,7 @@ export function mapearPreguntasBase(preguntasDb: BancoPreguntaLean[]) {
         pregunta.versiones.find((item: { numeroVersion: number }) => item.numeroVersion === pregunta.versionActual) ??
         pregunta.versiones[0];
       return {
-        id: String(pregunta._id),
+        id: String(pregunta.id),
         enunciado: version.enunciado,
         imagenUrl: version.imagenUrl ?? undefined,
         opciones: version.opciones
@@ -539,15 +657,25 @@ export function mapearPreguntasBase(preguntasDb: BancoPreguntaLean[]) {
 
 export async function obtenerConteoTemasMateria(params: { docenteId: unknown; periodoId: unknown }) {
   try {
-    const docenteObjectId = new Types.ObjectId(String(params.docenteId));
-    const periodoObjectId = new Types.ObjectId(String(params.periodoId));
-    return (await BancoPregunta.aggregate([
-      { $match: { docenteId: docenteObjectId, activo: true, periodoId: periodoObjectId } },
-      { $project: { tema: { $ifNull: ['$tema', ''] } } },
-      { $group: { _id: '$tema', disponibles: { $sum: 1 } } },
-      { $sort: { disponibles: -1, _id: 1 } },
-      { $limit: 30 }
-    ])) as Array<{ _id: unknown; disponibles: number }>;
+    const questions = await prisma.bancoPregunta.findMany({
+      where: {
+        docenteId: String(params.docenteId),
+        activo: true,
+        periodoId: String(params.periodoId)
+      },
+      select: { tema: true }
+    });
+    const counts = new Map<string, number>();
+    for (const q of questions) {
+      const t = q.tema || '';
+      counts.set(t, (counts.get(t) ?? 0) + 1);
+    }
+    const result = Array.from(counts.entries()).map(([tema, disponibles]) => ({
+      _id: tema,
+      disponibles
+    }));
+    result.sort((a, b) => b.disponibles - a.disponibles || String(a._id).localeCompare(String(b._id)));
+    return result.slice(0, 30);
   } catch {
     return [];
   }

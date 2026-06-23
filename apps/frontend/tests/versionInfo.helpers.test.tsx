@@ -1,3 +1,9 @@
+/**
+ * versionInfo.helpers.test
+ *
+ * Responsabilidad: Modulo interno del sistema.
+ * Limites: Mantener contrato y comportamiento observable del modulo.
+ */
 import { render, screen } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { VersionInfoPage } from '../src/ui/version/VersionInfoPage';

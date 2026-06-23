@@ -1,4 +1,10 @@
 #!/usr/bin/env node
+/**
+ * diagramas-render-linux
+ *
+ * Responsabilidad: Modulo interno del sistema.
+ * Limites: Mantener contrato y comportamiento observable del modulo.
+ */
 import { spawn } from 'node:child_process';
 import path from 'node:path';
 import process from 'node:process';

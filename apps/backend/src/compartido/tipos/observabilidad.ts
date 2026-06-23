@@ -29,7 +29,7 @@ export type RespuestaLiveness = RespuestaSalud & {
 
 export type RespuestaReadiness = RespuestaSalud & {
   dependencies?: {
-    mongodb: {
+    sqlite: {
       status: 'ok' | 'fail';
       ready: boolean;
       state: number;

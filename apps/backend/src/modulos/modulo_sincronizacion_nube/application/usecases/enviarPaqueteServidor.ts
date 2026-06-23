@@ -1,3 +1,9 @@
+/**
+ * enviarPaqueteServidor
+ *
+ * Responsabilidad: Modulo interno del sistema.
+ * Limites: Mantener contrato y comportamiento observable del modulo.
+ */
 import { DefaultPaqueteAssembler, resolverDesdeSincronizacion } from '../../domain/paqueteSincronizacion';
 import { normalizarErrorServidorSincronizacion } from '../../domain/erroresSincronizacion';
 import { crearClientePortal } from '../../infra/portalSyncClient';

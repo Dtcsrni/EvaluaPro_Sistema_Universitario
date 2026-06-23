@@ -1,22 +1,23 @@
+/**
+ * controladorEvaluaciones
+ *
+ * Responsabilidad: Adaptador HTTP del dominio (parseo de entrada, invocacion de servicios y respuesta).
+ * Limites: Evitar mover logica de negocio profunda a controlador.
+ */
 import type { Response } from 'express';
 import { ErrorAplicacion } from '../../compartido/errores/errorAplicacion';
 import { obtenerDocenteId, type SolicitudDocente } from '../modulo_autenticacion/middlewareAutenticacion';
-import { Calificacion } from '../modulo_calificacion/modeloCalificacion';
-import { ComponenteExamen } from './modeloComponenteExamen';
-import { ConfiguracionPeriodoEvaluacion } from './modeloConfiguracionPeriodoEvaluacion';
-import { EvidenciaEvaluacion } from './modeloEvidenciaEvaluacion';
 import {
   CODIGOS_POLITICA,
-  PoliticaCalificacion,
   type CodigoPoliticaCalificacion
 } from './modeloPoliticaCalificacion';
-import { ResumenEvaluacionAlumno } from './modeloResumenEvaluacionAlumno';
 import {
   calcularExamenCorte,
   calcularPoliticaLisc,
   promedioPonderado,
   redondearFinalInstitucional
 } from './servicioPoliticasCalificacion';
+import { prisma } from '../../infraestructura/baseDatos/sqlite';
 
 const POLITICAS_BASE: Array<{
   codigo: CodigoPoliticaCalificacion;
@@ -64,24 +65,17 @@ function esCorteExamen(valor: string): valor is CorteExamen {
   return CORTES_EXAMEN.includes(valor as CorteExamen);
 }
 
-async function asegurarPoliticasBase() {
-  for (const politica of POLITICAS_BASE) {
-    await PoliticaCalificacion.updateOne(
-      { codigo: politica.codigo, version: politica.version },
-      {
-        $setOnInsert: {
-          codigo: politica.codigo,
-          version: politica.version,
-          nombre: politica.nombre,
-          descripcion: politica.descripcion,
-          parametros: politica.parametros,
-          activa: true
-        }
-      },
-      { upsert: true }
-    );
-  }
+function mapearConfiguracionPrismaALean(config: any) {
+  if (!config) return null;
+  return {
+    ...config,
+    cortes: config.cortes ? JSON.parse(config.cortes) : [],
+    pesosGlobales: config.pesosGlobales ? JSON.parse(config.pesosGlobales) : {},
+    pesosExamenes: config.pesosExamenes ? JSON.parse(config.pesosExamenes) : {},
+    reglasCierre: config.reglasCierre ? JSON.parse(config.reglasCierre) : {}
+  };
 }
+
 
 function numeroSeguro(valor: unknown): number {
   const n = Number(valor);
@@ -240,17 +234,41 @@ function faltantesLisc(params: {
 }
 
 async function calcularResumenLisc(docenteId: string, periodoId: string, alumnoId: string) {
-  const config =
-    (await ConfiguracionPeriodoEvaluacion.findOne({ docenteId, periodoId }).lean()) ??
-    configDefaultLisc(docenteId, periodoId);
+  const configRaw = await prisma.configuracionPeriodoEvaluacion.findUnique({
+    where: {
+      docenteId_periodoId: {
+        docenteId,
+        periodoId
+      }
+    }
+  });
 
-  const [evidencias, componentes] = await Promise.all([
-    EvidenciaEvaluacion.find({ docenteId, periodoId, alumnoId }).lean(),
-    ComponenteExamen.find({ docenteId, periodoId, alumnoId }).lean()
+  const config = mapearConfiguracionPrismaALean(configRaw) ?? configDefaultLisc(docenteId, periodoId);
+
+  const [evidenciasRaw, componentesRaw] = await Promise.all([
+    prisma.evidenciaEvaluacion.findMany({
+      where: { docenteId, periodoId, alumnoId }
+    }),
+    prisma.componenteExamen.findMany({
+      where: { docenteId, periodoId, alumnoId }
+    })
   ]);
 
+  const evidencias = evidenciasRaw.map((ev) => ({
+    ...ev,
+    classroom: ev.classroomData ? JSON.parse(ev.classroomData) : null,
+    classroomData: ev.classroomData ? JSON.parse(ev.classroomData) : null,
+    metadata: ev.metadata ? JSON.parse(ev.metadata) : null
+  }));
+
+  const componentes = componentesRaw.map((comp) => ({
+    ...comp,
+    practicas: comp.practicas ? JSON.parse(comp.practicas) : [],
+    metadata: comp.metadata ? JSON.parse(comp.metadata) : null
+  }));
+
   const continuaPorCorte = determinarContinuaPorCortes({
-    evidencias: evidencias as Array<Record<string, unknown>>,
+    evidencias,
     cortesConfig: (config.cortes ?? []) as Array<Record<string, unknown>>
   });
   const { examenesPorCorte, estadoComponentes } = determinarExamenesPorCorte(
@@ -302,17 +320,44 @@ async function calcularResumenLisc(docenteId: string, periodoId: string, alumnoI
     calculadoEn: new Date()
   };
 
-  await ResumenEvaluacionAlumno.updateOne(
-    { docenteId, periodoId, alumnoId },
-    { $set: resumen },
-    { upsert: true }
-  );
+  const dbData = {
+    docenteId,
+    periodoId,
+    alumnoId,
+    politicaCodigo: resumen.politicaCodigo,
+    politicaVersion: resumen.politicaVersion,
+    continuaPorCorte: JSON.stringify(resumen.continuaPorCorte),
+    examenesPorCorte: JSON.stringify(resumen.examenesPorCorte),
+    bloqueContinuaDecimal: resumen.bloqueContinuaDecimal,
+    bloqueExamenesDecimal: resumen.bloqueExamenesDecimal,
+    finalDecimal: resumen.finalDecimal,
+    finalRedondeada: resumen.finalRedondeada,
+    estado: resumen.estado,
+    faltantes: JSON.stringify(resumen.faltantes),
+    auditoria: JSON.stringify(resumen.auditoria),
+    calculadoEn: resumen.calculadoEn
+  };
+
+  await prisma.resumenEvaluacionAlumno.upsert({
+    where: {
+      docenteId_periodoId_alumnoId: {
+        docenteId,
+        periodoId,
+        alumnoId
+      }
+    },
+    update: dbData,
+    create: dbData
+  });
 
   return resumen;
 }
 
 async function calcularResumenSv(docenteId: string, periodoId: string, alumnoId: string) {
-  const calificaciones = await Calificacion.find({ docenteId, periodoId, alumnoId }).sort({ createdAt: 1 }).lean();
+  const calificaciones = await prisma.calificacion.findMany({
+    where: { docenteId, periodoId, alumnoId },
+    orderBy: { createdAt: 'asc' }
+  });
   const parciales = calificaciones.filter((item) => item.tipoExamen === 'parcial');
   const global = calificaciones.find((item) => item.tipoExamen === 'global');
 
@@ -345,47 +390,75 @@ async function calcularResumenSv(docenteId: string, periodoId: string, alumnoId:
     finalDecimal,
     finalRedondeada,
     estado: 'completo',
-    faltantes: [],
+    faltantes: [] as string[],
     auditoria: {
       fuente: 'sv_excel_legacy'
     },
     calculadoEn: new Date()
   };
 
-  await ResumenEvaluacionAlumno.updateOne(
-    { docenteId, periodoId, alumnoId },
-    { $set: resumen },
-    { upsert: true }
-  );
+  const dbData = {
+    docenteId,
+    periodoId,
+    alumnoId,
+    politicaCodigo: resumen.politicaCodigo,
+    politicaVersion: resumen.politicaVersion,
+    continuaPorCorte: JSON.stringify(resumen.continuaPorCorte),
+    examenesPorCorte: JSON.stringify(resumen.examenesPorCorte),
+    bloqueContinuaDecimal: resumen.bloqueContinuaDecimal,
+    bloqueExamenesDecimal: resumen.bloqueExamenesDecimal,
+    finalDecimal: resumen.finalDecimal,
+    finalRedondeada: resumen.finalRedondeada,
+    estado: resumen.estado,
+    faltantes: JSON.stringify(resumen.faltantes),
+    auditoria: JSON.stringify(resumen.auditoria),
+    calculadoEn: resumen.calculadoEn
+  };
+
+  await prisma.resumenEvaluacionAlumno.upsert({
+    where: {
+      docenteId_periodoId_alumnoId: {
+        docenteId,
+        periodoId,
+        alumnoId
+      }
+    },
+    update: dbData,
+    create: dbData
+  });
 
   return resumen;
 }
 
 export async function listarPoliticasCalificacion(_req: SolicitudDocente, res: Response) {
-  await asegurarPoliticasBase();
-  const politicas = await PoliticaCalificacion.find({ activa: true }).sort({ codigo: 1, version: -1 }).lean();
-  res.json({ politicas });
+  res.json({ politicas: POLITICAS_BASE });
 }
 
 export async function obtenerContextoEvaluacionesV2(req: SolicitudDocente, res: Response) {
   const docenteId = obtenerDocenteId(req);
   const periodoId = String(req.query.periodoId ?? '').trim();
 
-  await asegurarPoliticasBase();
-  const [politicas, configuracion] = await Promise.all([
-    PoliticaCalificacion.find({ activa: true }).sort({ codigo: 1, version: -1 }).lean(),
-    periodoId ? ConfiguracionPeriodoEvaluacion.findOne({ docenteId, periodoId }).lean() : Promise.resolve(null)
-  ]);
+  const configRaw = periodoId
+    ? await prisma.configuracionPeriodoEvaluacion.findUnique({
+        where: {
+          docenteId_periodoId: {
+            docenteId,
+            periodoId
+          }
+        }
+      })
+    : null;
+
+  const configuracion = mapearConfiguracionPrismaALean(configRaw);
 
   res.json({
-    politicas,
+    politicas: POLITICAS_BASE,
     configuracion: configuracion ?? null
   });
 }
 
-export async function crearPoliticaCalificacion(req: SolicitudDocente, res: Response) {
-  const politica = await PoliticaCalificacion.create(req.body);
-  res.status(201).json({ politica });
+export async function crearPoliticaCalificacion(_req: SolicitudDocente, res: Response) {
+  res.sendStatus(501);
 }
 
 export async function obtenerConfiguracionPeriodo(req: SolicitudDocente, res: Response) {
@@ -395,7 +468,15 @@ export async function obtenerConfiguracionPeriodo(req: SolicitudDocente, res: Re
     throw new ErrorAplicacion('DATOS_INVALIDOS', 'periodoId requerido', 400);
   }
 
-  const config = await ConfiguracionPeriodoEvaluacion.findOne({ docenteId, periodoId }).lean();
+  const configRaw = await prisma.configuracionPeriodoEvaluacion.findUnique({
+    where: {
+      docenteId_periodoId: {
+        docenteId,
+        periodoId
+      }
+    }
+  });
+  const config = mapearConfiguracionPrismaALean(configRaw);
   res.json({ configuracion: config ?? null });
 }
 
@@ -425,29 +506,39 @@ export async function guardarConfiguracionPeriodo(req: SolicitudDocente, res: Re
     };
   });
 
+  const defaultCortes = configDefaultLisc(docenteId, periodoId).cortes;
+
   const update = {
     docenteId,
     periodoId,
     politicaCodigo,
     politicaVersion: numeroSeguro(payload.politicaVersion) || 1,
-    cortes: cortesNormalizados.length > 0 ? cortesNormalizados : configDefaultLisc(docenteId, periodoId).cortes,
-    pesosGlobales: payload.pesosGlobales ?? { continua: 0.5, examenes: 0.5 },
-    pesosExamenes: payload.pesosExamenes ?? { parcial1: 0.2, parcial2: 0.2, global: 0.6 },
-    reglasCierre:
+    cortes: JSON.stringify(cortesNormalizados.length > 0 ? cortesNormalizados : defaultCortes),
+    pesosGlobales: JSON.stringify(payload.pesosGlobales ?? { continua: 0.5, examenes: 0.5 }),
+    pesosExamenes: JSON.stringify(payload.pesosExamenes ?? { parcial1: 0.2, parcial2: 0.2, global: 0.6 }),
+    reglasCierre: JSON.stringify(
       payload.reglasCierre ?? {
         requiereTeorico: true,
         requierePractica: true,
         requiereContinuaMinima: false,
         continuaMinima: 0
-      },
+      }
+    ),
     activo: payload.activo === false ? false : true
   };
 
-  const configuracion = await ConfiguracionPeriodoEvaluacion.findOneAndUpdate(
-    { docenteId, periodoId },
-    { $set: update },
-    { upsert: true, returnDocument: 'after' }
-  ).lean();
+  const configuracionRaw = await prisma.configuracionPeriodoEvaluacion.upsert({
+    where: {
+      docenteId_periodoId: {
+        docenteId,
+        periodoId
+      }
+    },
+    update,
+    create: update
+  });
+
+  const configuracion = mapearConfiguracionPrismaALean(configuracionRaw);
 
   res.json({ configuracion });
 }
@@ -458,24 +549,66 @@ export async function listarEvidenciasEvaluacion(req: SolicitudDocente, res: Res
   const alumnoId = String(req.query.alumnoId ?? '').trim();
   const limite = Math.max(1, Math.min(400, numeroSeguro(req.query.limite) || 120));
 
-  const filtro: Record<string, unknown> = { docenteId };
-  if (periodoId) filtro.periodoId = periodoId;
-  if (alumnoId) filtro.alumnoId = alumnoId;
+  const evidenciasRaw = await prisma.evidenciaEvaluacion.findMany({
+    where: {
+      docenteId,
+      ...(periodoId ? { periodoId } : {}),
+      ...(alumnoId ? { alumnoId } : {})
+    },
+    orderBy: [
+      { fechaEvidencia: 'desc' },
+      { createdAt: 'desc' }
+    ],
+    take: limite
+  });
 
-  const evidencias = await EvidenciaEvaluacion.find(filtro).sort({ fechaEvidencia: -1, createdAt: -1 }).limit(limite).lean();
+  const evidencias = evidenciasRaw.map((ev) => {
+    const classroom = ev.classroomData ? JSON.parse(ev.classroomData) : null;
+    const metadata = ev.metadata ? JSON.parse(ev.metadata) : null;
+    return {
+      ...ev,
+      classroom,
+      classroomData: classroom,
+      metadata
+    };
+  });
+
   res.json({ evidencias });
 }
 
 export async function crearEvidenciaEvaluacion(req: SolicitudDocente, res: Response) {
   const docenteId = obtenerDocenteId(req);
   const payload = req.body as Record<string, unknown>;
-  const evidencia = await EvidenciaEvaluacion.create({
-    ...payload,
-    docenteId,
-    fechaEvidencia: payload.fechaEvidencia ? new Date(String(payload.fechaEvidencia)) : new Date(),
-    fuente: payload.fuente ?? 'manual',
-    estadoCaptura: payload.estadoCaptura ?? 'calificada'
+
+  const classroomObj = payload.classroom || payload.classroomData;
+  const classroomDataStr = classroomObj ? JSON.stringify(classroomObj) : null;
+  const metadataStr = payload.metadata ? JSON.stringify(payload.metadata) : null;
+
+  const evidenciaRaw = await prisma.evidenciaEvaluacion.create({
+    data: {
+      docenteId,
+      periodoId: String(payload.periodoId),
+      alumnoId: String(payload.alumnoId),
+      titulo: String(payload.titulo),
+      descripcion: payload.descripcion ? String(payload.descripcion) : null,
+      calificacionDecimal: payload.calificacionDecimal !== undefined ? Number(payload.calificacionDecimal) : null,
+      ponderacion: payload.ponderacion !== undefined ? Number(payload.ponderacion) : 1.0,
+      fechaEvidencia: payload.fechaEvidencia ? new Date(String(payload.fechaEvidencia)) : new Date(),
+      corte: payload.corte !== undefined ? Number(payload.corte) : null,
+      fuente: payload.fuente ? String(payload.fuente) : 'manual',
+      estadoCaptura: payload.estadoCaptura ? String(payload.estadoCaptura) : 'calificada',
+      classroomData: classroomDataStr,
+      metadata: metadataStr
+    }
   });
+
+  const evidencia = {
+    ...evidenciaRaw,
+    classroom: classroomObj,
+    classroomData: classroomObj,
+    metadata: payload.metadata ?? null
+  };
+
   res.status(201).json({ evidencia });
 }
 
@@ -489,30 +622,38 @@ export async function upsertComponenteExamen(req: SolicitudDocente, res: Respons
   const practicaPromedioDecimal = round4(practicas.length > 0 ? practicas.reduce((s, n) => s + n, 0) / practicas.length : 0);
   const examenCorteDecimal = round4(calcularExamenCorte(teoricoDecimal, practicas));
 
-  const componente = await ComponenteExamen.findOneAndUpdate(
-    {
-      docenteId,
-      periodoId: String(payload.periodoId),
-      alumnoId: String(payload.alumnoId),
-      corte: String(payload.corte)
-    },
-    {
-      $set: {
+  const update = {
+    docenteId,
+    periodoId: String(payload.periodoId),
+    alumnoId: String(payload.alumnoId),
+    corte: String(payload.corte),
+    teoricoDecimal,
+    practicas: JSON.stringify(practicas),
+    practicaPromedioDecimal,
+    examenCorteDecimal,
+    origen: payload.origen ? String(payload.origen) : 'manual',
+    examenGeneradoId: payload.examenGeneradoId ? String(payload.examenGeneradoId) : null,
+    metadata: payload.metadata ? JSON.stringify(payload.metadata) : null
+  };
+
+  const componenteRaw = await prisma.componenteExamen.upsert({
+    where: {
+      docenteId_periodoId_alumnoId_corte: {
         docenteId,
         periodoId: String(payload.periodoId),
         alumnoId: String(payload.alumnoId),
-        corte: String(payload.corte),
-        teoricoDecimal,
-        practicas,
-        practicaPromedioDecimal,
-        examenCorteDecimal,
-        origen: payload.origen ?? 'manual',
-        examenGeneradoId: payload.examenGeneradoId ?? undefined,
-        metadata: payload.metadata ?? undefined
+        corte: String(payload.corte)
       }
     },
-    { upsert: true, returnDocument: 'after' }
-  ).lean();
+    update,
+    create: update
+  });
+
+  const componente = {
+    ...componenteRaw,
+    practicas,
+    metadata: payload.metadata ?? null
+  };
 
   res.status(201).json({ componente });
 }
@@ -526,7 +667,15 @@ export async function obtenerResumenEvaluacionAlumno(req: SolicitudDocente, res:
     throw new ErrorAplicacion('DATOS_INVALIDOS', 'alumnoId y periodoId son requeridos', 400);
   }
 
-  const config = await ConfiguracionPeriodoEvaluacion.findOne({ docenteId, periodoId }).lean();
+  const configRaw = await prisma.configuracionPeriodoEvaluacion.findUnique({
+    where: {
+      docenteId_periodoId: {
+        docenteId,
+        periodoId
+      }
+    }
+  });
+  const config = mapearConfiguracionPrismaALean(configRaw);
   const politica = String(config?.politicaCodigo ?? 'POLICY_SV_EXCEL_2026');
 
   const resumen = politica === 'POLICY_LISC_ENCUADRE_2026'

@@ -1,3 +1,9 @@
+/**
+ * types
+ *
+ * Responsabilidad: Modulo interno del sistema.
+ * Limites: Mantener contrato y comportamiento observable del modulo.
+ */
 export type EtapaOmr = 'deteccion' | 'scoring' | 'calidad' | 'qr' | 'debug';
 
 export type MetricaEtapaOmr = {

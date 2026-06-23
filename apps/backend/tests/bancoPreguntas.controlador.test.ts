@@ -2,103 +2,83 @@
  * bancoPreguntas.controlador.test
  *
  * Responsabilidad: Cubrir reglas del controlador de banco de preguntas con
- * mocks directos de modelos, preservando contratos de duplicados y de tema.
+ * mocks directos del cliente Prisma, preservando contratos de duplicados y de tema.
  */
 import type { Response } from 'express';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const {
   mockObtenerDocenteId,
-  mockPeriodoFindOneLean,
-  mockTemaFindOneLean,
-  mockTemaFindOneDoc,
-  mockTemaFindSortLean,
-  mockTemaCreate,
-  mockBancoFindLean,
-  mockBancoFindDoc,
+  mockBancoFindMany,
+  mockBancoFindUnique,
+  mockBancoFindFirst,
   mockBancoCreate,
-  mockBancoDeleteOne,
+  mockBancoUpdate,
   mockBancoUpdateMany,
-  mockPlantillaUpdateMany
+  mockBancoDelete,
+  mockTemaFindFirst,
+  mockTemaFindMany,
+  mockTemaCreate,
+  mockTemaUpdate,
+  mockVersionCreate,
+  mockOpcionCreateMany,
+  mockPeriodoFindFirst,
+  mockPlantillaFindMany,
+  mockPlantillaUpdate
 } = vi.hoisted(() => ({
   mockObtenerDocenteId: vi.fn(),
-  mockPeriodoFindOneLean: vi.fn(),
-  mockTemaFindOneLean: vi.fn(),
-  mockTemaFindOneDoc: vi.fn(),
-  mockTemaFindSortLean: vi.fn(),
-  mockTemaCreate: vi.fn(),
-  mockBancoFindLean: vi.fn(),
-  mockBancoFindDoc: vi.fn(),
+  mockBancoFindMany: vi.fn(),
+  mockBancoFindUnique: vi.fn(),
+  mockBancoFindFirst: vi.fn(),
   mockBancoCreate: vi.fn(),
-  mockBancoDeleteOne: vi.fn(),
+  mockBancoUpdate: vi.fn(),
   mockBancoUpdateMany: vi.fn(),
-  mockPlantillaUpdateMany: vi.fn()
+  mockBancoDelete: vi.fn(),
+  mockTemaFindFirst: vi.fn(),
+  mockTemaFindMany: vi.fn(),
+  mockTemaCreate: vi.fn(),
+  mockTemaUpdate: vi.fn(),
+  mockVersionCreate: vi.fn(),
+  mockOpcionCreateMany: vi.fn(),
+  mockPeriodoFindFirst: vi.fn(),
+  mockPlantillaFindMany: vi.fn(),
+  mockPlantillaUpdate: vi.fn()
 }));
 
 vi.mock('../src/modulos/modulo_autenticacion/middlewareAutenticacion', () => ({
   obtenerDocenteId: mockObtenerDocenteId
 }));
 
-vi.mock('../src/modulos/modulo_alumnos/modeloPeriodo', () => ({
-  Periodo: {
-    findOne: vi.fn(() => ({
-      lean: mockPeriodoFindOneLean
-    }))
-  }
-}));
-
-vi.mock('../src/modulos/modulo_banco_preguntas/modeloTemaBanco', () => ({
-  TemaBanco: {
-    findOne: vi.fn((...args) => {
-      const query = args[0] as Record<string, unknown>;
-      const hasLeanQuery = Object.prototype.hasOwnProperty.call(query, 'activo')
-        || (typeof query._id === 'object' && query._id !== null);
-      if (hasLeanQuery) {
-        return { lean: mockTemaFindOneLean };
-      }
-      return mockTemaFindOneDoc();
-    }),
-    find: vi.fn(() => ({
-      sort: vi.fn(() => ({
-        lean: mockTemaFindSortLean
-      }))
-    })),
-    create: mockTemaCreate
-  }
-}));
-
-vi.mock('../src/modulos/modulo_banco_preguntas/modeloBancoPregunta', () => ({
-  BancoPregunta: {
-    find: vi.fn(() => ({
-      sort: vi.fn(() => ({
-        limit: vi.fn(() => ({
-          lean: mockBancoFindLean
-        })),
-        lean: mockBancoFindLean
-      })),
-      select: vi.fn(() => ({
-        lean: mockBancoFindLean
-      })),
-      lean: mockBancoFindLean
-    })),
-    findOne: vi.fn((query: Record<string, unknown>) => {
-      const isDocQuery = Object.keys(query).includes('_id') && !Object.prototype.hasOwnProperty.call(query, 'activo');
-      if (isDocQuery) {
-        return mockBancoFindDoc();
-      }
-      return {
-        lean: mockBancoFindDoc.mock.calls.length > 0 ? mockBancoFindLean : mockBancoFindLean
-      };
-    }),
-    create: mockBancoCreate,
-    deleteOne: mockBancoDeleteOne,
-    updateMany: mockBancoUpdateMany
-  }
-}));
-
-vi.mock('../src/modulos/modulo_generacion_pdf/modeloExamenPlantilla', () => ({
-  ExamenPlantilla: {
-    updateMany: mockPlantillaUpdateMany
+vi.mock('../src/infraestructura/baseDatos/sqlite', () => ({
+  prisma: {
+    bancoPregunta: {
+      findMany: mockBancoFindMany,
+      findUnique: mockBancoFindUnique,
+      findFirst: mockBancoFindFirst,
+      create: mockBancoCreate,
+      update: mockBancoUpdate,
+      updateMany: mockBancoUpdateMany,
+      delete: mockBancoDelete
+    },
+    temaBanco: {
+      findFirst: mockTemaFindFirst,
+      findMany: mockTemaFindMany,
+      create: mockTemaCreate,
+      update: mockTemaUpdate
+    },
+    versionPregunta: {
+      create: mockVersionCreate
+    },
+    opcionPregunta: {
+      createMany: mockOpcionCreateMany
+    },
+    periodo: {
+      findFirst: mockPeriodoFindFirst
+    },
+    examenPlantilla: {
+      findMany: mockPlantillaFindMany,
+      update: mockPlantillaUpdate
+    }
   }
 }));
 
@@ -138,16 +118,17 @@ function crearVersion(enunciado = 'Pregunta ejemplo', opciones?: Array<{ texto: 
   };
 }
 
-function crearPreguntaDoc(overrides: Record<string, unknown> = {}) {
+function crearPreguntaRaw(overrides: Record<string, unknown> = {}) {
   return {
-    _id: 'preg-1',
+    id: 'preg-1',
     docenteId: 'docente-1',
     periodoId: 'periodo-1',
     tema: 'Tema Base',
     activo: true,
     versionActual: 1,
     versiones: [crearVersion()],
-    save: vi.fn().mockResolvedValue(undefined),
+    createdAt: new Date(),
+    updatedAt: new Date(),
     ...overrides
   };
 }
@@ -156,22 +137,19 @@ describe('controladorBancoPreguntas', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mockObtenerDocenteId.mockReturnValue('docente-1');
-    mockPeriodoFindOneLean.mockResolvedValue({ _id: 'periodo-1', nombre: 'Materia 1' });
-    mockTemaFindOneLean.mockResolvedValue({ _id: 'tema-1', nombre: 'Tema Base', clave: 'tema base', activo: true });
-    mockTemaFindSortLean.mockResolvedValue([{ _id: 'tema-1', nombre: 'Tema Base' }]);
-    mockBancoFindLean.mockResolvedValue([]);
-    mockBancoCreate.mockResolvedValue({ _id: 'preg-1' });
-    mockBancoDeleteOne.mockResolvedValue({ deletedCount: 1 });
-    mockBancoUpdateMany.mockResolvedValue({ modifiedCount: 2 });
-    mockPlantillaUpdateMany.mockResolvedValue({ modifiedCount: 1 });
-    mockTemaCreate.mockResolvedValue({ _id: 'tema-1', nombre: 'Tema Base' });
-    mockTemaFindOneDoc.mockReturnValue(null);
-    mockBancoFindDoc.mockReturnValue(null);
+    mockPeriodoFindFirst.mockResolvedValue({ id: 'periodo-1', nombre: 'Materia 1' });
+    mockTemaFindFirst.mockResolvedValue({ id: 'tema-1', nombre: 'Tema Base', clave: 'tema base', activo: true });
+    mockTemaFindMany.mockResolvedValue([{ id: 'tema-1', nombre: 'Tema Base' }]);
+    mockBancoFindMany.mockResolvedValue([]);
+    mockBancoCreate.mockResolvedValue({ id: 'preg-1' });
+    mockBancoUpdateMany.mockResolvedValue({ count: 2 });
+    mockPlantillaUpdate.mockResolvedValue({ count: 1 });
+    mockTemaCreate.mockResolvedValue({ id: 'tema-1', nombre: 'Tema Base' });
   });
 
   it('lista preguntas activas por docente con limite', async () => {
-    const preguntas = [{ _id: 'preg-1' }];
-    mockBancoFindLean.mockResolvedValue(preguntas);
+    const rawPreguntas = [crearPreguntaRaw({ id: 'preg-1' })];
+    mockBancoFindMany.mockResolvedValue(rawPreguntas);
     const res = crearRespuesta();
 
     await listarBancoPreguntas(
@@ -181,11 +159,38 @@ describe('controladorBancoPreguntas', () => {
       res
     );
 
-    expect(res.json).toHaveBeenCalledWith({ preguntas });
+    expect(res.json).toHaveBeenCalledWith({
+      preguntas: [
+        {
+          _id: 'preg-1',
+          id: 'preg-1',
+          docenteId: 'docente-1',
+          periodoId: 'periodo-1',
+          tema: 'Tema Base',
+          activo: true,
+          versionActual: 1,
+          createdAt: expect.any(Date),
+          updatedAt: expect.any(Date),
+          versiones: [
+            {
+              numeroVersion: 1,
+              enunciado: 'Pregunta ejemplo',
+              opciones: [
+                { texto: 'A', esCorrecta: true },
+                { texto: 'B', esCorrecta: false },
+                { texto: 'C', esCorrecta: false },
+                { texto: 'D', esCorrecta: false },
+                { texto: 'E', esCorrecta: false }
+              ]
+            }
+          ]
+        }
+      ]
+    });
   });
 
   it('rechaza crear pregunta si el tema no existe', async () => {
-    mockTemaFindOneLean.mockResolvedValue(null);
+    mockTemaFindFirst.mockResolvedValue(null);
 
     await expect(
       crearPregunta(
@@ -206,11 +211,11 @@ describe('controladorBancoPreguntas', () => {
   });
 
   it('rechaza crear pregunta duplicada por enunciado en el mismo tema', async () => {
-    mockBancoFindLean.mockResolvedValue([
-      {
+    mockBancoFindMany.mockResolvedValue([
+      crearPreguntaRaw({
         versionActual: 1,
         versiones: [crearVersion('  Pregunta   ejemplo  ')]
-      }
+      })
     ]);
 
     await expect(
@@ -232,8 +237,28 @@ describe('controladorBancoPreguntas', () => {
   });
 
   it('actualiza pregunta agregando nueva version y conserva datos previos faltantes', async () => {
-    const pregunta = crearPreguntaDoc();
-    mockBancoFindDoc.mockReturnValue(pregunta);
+    const rawPregunta = crearPreguntaRaw({
+      id: 'preg-1',
+      versionActual: 1,
+      versiones: [crearVersion('Pregunta anterior')]
+    });
+    mockBancoFindFirst.mockResolvedValue(rawPregunta);
+
+    const updatedRaw = {
+      ...rawPregunta,
+      versionActual: 2,
+      versiones: [
+        crearVersion('Pregunta anterior'),
+        {
+          numeroVersion: 2,
+          enunciado: 'Pregunta editada',
+          opciones: crearVersion().opciones
+        }
+      ]
+    };
+    mockBancoUpdate.mockResolvedValue(updatedRaw);
+    mockVersionCreate.mockResolvedValue({ id: 'v2' });
+
     const res = crearRespuesta();
 
     await actualizarPregunta(
@@ -244,30 +269,43 @@ describe('controladorBancoPreguntas', () => {
       res
     );
 
-    expect(pregunta.versionActual).toBe(2);
-    expect(pregunta.versiones).toHaveLength(2);
-    expect(pregunta.versiones[1]).toMatchObject({
-      numeroVersion: 2,
-      enunciado: 'Pregunta editada'
+    expect(mockVersionCreate).toHaveBeenCalledWith({
+      data: expect.objectContaining({
+        preguntaId: 'preg-1',
+        numeroVersion: 2,
+        enunciado: 'Pregunta editada'
+      })
     });
-    expect(pregunta.save).toHaveBeenCalledTimes(1);
-    expect(res.json).toHaveBeenCalledWith({ pregunta });
+    expect(mockBancoUpdate).toHaveBeenCalledWith({
+      where: { id: 'preg-1' },
+      data: {
+        versionActual: 2,
+        tema: 'Tema Base'
+      },
+      include: { versiones: { include: { opciones: true } } }
+    });
+    expect(res.json).toHaveBeenCalledWith({
+      pregunta: expect.objectContaining({
+        id: 'preg-1',
+        versionActual: 2
+      })
+    });
   });
 
   it('rechaza mover preguntas si el destino ya contiene el mismo enunciado', async () => {
-    mockBancoFindLean
+    mockBancoFindMany
       .mockResolvedValueOnce([
-        {
-          _id: 'preg-1',
+        crearPreguntaRaw({
+          id: 'preg-1',
           versionActual: 1,
           versiones: [crearVersion('Pregunta repetida')]
-        }
+        })
       ])
       .mockResolvedValueOnce([
-        {
+        crearPreguntaRaw({
           versionActual: 1,
           versiones: [crearVersion('pregunta repetida')]
-        }
+        })
       ]);
 
     await expect(
@@ -288,29 +326,27 @@ describe('controladorBancoPreguntas', () => {
   });
 
   it('mueve preguntas al tema destino y reporta el total actualizado', async () => {
-    mockTemaFindOneLean.mockResolvedValue({ _id: 'tema-1', nombre: ' Tema Destino ', activo: true });
-    mockBancoFindLean
+    mockTemaFindFirst.mockResolvedValue({ id: 'tema-1', nombre: ' Tema Destino ', activo: true });
+    mockBancoFindMany
       .mockResolvedValueOnce([
-        {
-          _id: 'preg-1',
+        crearPreguntaRaw({
+          id: 'preg-1',
           versionActual: 1,
           versiones: [crearVersion('Pregunta 1')]
-        },
-        {
-          _id: 'preg-2',
+        }),
+        crearPreguntaRaw({
+          id: 'preg-2',
           versionActual: 1,
           versiones: [
             crearVersion('Pregunta 2', [
-              { texto: 'A2', esCorrecta: true },
-              { texto: 'B2', esCorrecta: false },
-              { texto: 'C2', esCorrecta: false },
-              { texto: 'D2', esCorrecta: false },
-              { texto: 'E2', esCorrecta: false }
+              { texto: 'Opcion A2', esCorrecta: true },
+              { texto: 'Opcion B2', esCorrecta: false }
             ])
           ]
-        }
+        })
       ])
       .mockResolvedValueOnce([]);
+
     const res = crearRespuesta();
 
     await moverPreguntasTemaBanco(
@@ -324,15 +360,23 @@ describe('controladorBancoPreguntas', () => {
       res
     );
 
-    expect(mockBancoUpdateMany).toHaveBeenCalledWith(
-      { _id: { $in: ['preg-1', 'preg-2'] }, docenteId: 'docente-1', periodoId: 'periodo-1', activo: true },
-      { $set: { tema: 'Tema Destino' } }
-    );
+    expect(mockBancoUpdateMany).toHaveBeenCalledWith({
+      where: {
+        id: { in: ['preg-1', 'preg-2'] },
+        docenteId: 'docente-1',
+        periodoId: 'periodo-1',
+        activo: true
+      },
+      data: { tema: 'Tema Destino' }
+    });
     expect(res.json).toHaveBeenCalledWith({ movidas: 2 });
   });
 
   it('quita tema a preguntas validadas por materia', async () => {
-    mockBancoFindLean.mockResolvedValue([{ _id: 'preg-1' }, { _id: 'preg-2' }]);
+    mockBancoFindMany.mockResolvedValue([
+      crearPreguntaRaw({ id: 'preg-1' }),
+      crearPreguntaRaw({ id: 'preg-2' })
+    ]);
     const res = crearRespuesta();
 
     await quitarTemaBanco(
@@ -345,10 +389,15 @@ describe('controladorBancoPreguntas', () => {
       res
     );
 
-    expect(mockBancoUpdateMany).toHaveBeenCalledWith(
-      { _id: { $in: ['preg-1', 'preg-2'] }, docenteId: 'docente-1', periodoId: 'periodo-1', activo: true },
-      { $unset: { tema: 1 } }
-    );
+    expect(mockBancoUpdateMany).toHaveBeenCalledWith({
+      where: {
+        id: { in: ['preg-1', 'preg-2'] },
+        docenteId: 'docente-1',
+        periodoId: 'periodo-1',
+        activo: true
+      },
+      data: { tema: null }
+    });
     expect(res.json).toHaveBeenCalledWith({ actualizadas: 2 });
   });
 
@@ -367,13 +416,14 @@ describe('controladorBancoPreguntas', () => {
   });
 
   it('reactiva tema archivado al crearlo de nuevo', async () => {
-    const tema = {
+    const temaArchivado = {
+      id: 'tema-1',
       activo: false,
       nombre: 'Tema Base',
-      clave: 'tema base',
-      save: vi.fn().mockResolvedValue(undefined)
+      clave: 'tema base'
     };
-    mockTemaFindOneDoc.mockReturnValue(tema);
+    mockTemaFindFirst.mockResolvedValue(temaArchivado);
+    mockTemaUpdate.mockResolvedValue({ ...temaArchivado, activo: true });
     const res = crearRespuesta();
 
     await crearTemaBanco(
@@ -386,23 +436,29 @@ describe('controladorBancoPreguntas', () => {
       res
     );
 
-    expect(tema.activo).toBe(true);
-    expect(tema.nombre).toBe('Tema Base');
-    expect(tema.clave).toBe('tema base');
-    expect(tema.save).toHaveBeenCalledTimes(1);
+    expect(mockTemaUpdate).toHaveBeenCalledWith({
+      where: { id: 'tema-1' },
+      data: {
+        activo: true,
+        nombre: 'Tema Base',
+        clave: 'tema base'
+      }
+    });
     expect(res.status).toHaveBeenCalledWith(201);
   });
 
   it('actualiza tema y propaga el rename a preguntas y plantillas', async () => {
     const tema = {
+      id: 'tema-1',
       periodoId: 'periodo-1',
       nombre: 'Tema Viejo',
       clave: 'tema viejo',
-      activo: true,
-      save: vi.fn().mockResolvedValue(undefined)
+      activo: true
     };
-    mockTemaFindOneDoc.mockReturnValue(tema);
-    mockTemaFindOneLean.mockResolvedValue(null);
+    mockTemaFindFirst.mockResolvedValueOnce(tema).mockResolvedValueOnce(null);
+    mockTemaUpdate.mockResolvedValue({ ...tema, nombre: 'Tema Nuevo', clave: 'tema nuevo' });
+    mockPlantillaFindMany.mockResolvedValue([{ id: 'plantilla-1', temas: '["Tema Viejo"]' }]);
+
     const res = crearRespuesta();
 
     await actualizarTemaBanco(
@@ -413,21 +469,33 @@ describe('controladorBancoPreguntas', () => {
       res
     );
 
-    expect(mockBancoUpdateMany).toHaveBeenCalledWith(
-      { docenteId: 'docente-1', periodoId: 'periodo-1', tema: 'Tema Viejo' },
-      { $set: { tema: 'Tema Nuevo' } }
-    );
-    expect(mockPlantillaUpdateMany).toHaveBeenCalledWith(
-      { docenteId: 'docente-1', periodoId: 'periodo-1', temas: 'Tema Viejo' },
-      { $set: { 'temas.$[t]': 'Tema Nuevo' } },
-      { arrayFilters: [{ t: 'Tema Viejo' }] }
-    );
-    expect(res.json).toHaveBeenCalledWith({ tema });
+    expect(mockTemaUpdate).toHaveBeenCalledWith({
+      where: { id: 'tema-1' },
+      data: {
+        nombre: 'Tema Nuevo',
+        clave: 'tema nuevo',
+        activo: true
+      }
+    });
+    expect(mockBancoUpdateMany).toHaveBeenCalledWith({
+      where: { docenteId: 'docente-1', periodoId: 'periodo-1', tema: 'Tema Viejo' },
+      data: { tema: 'Tema Nuevo' }
+    });
+    expect(mockPlantillaUpdate).toHaveBeenCalledWith({
+      where: { id: 'plantilla-1' },
+      data: { temas: '["Tema Nuevo"]' }
+    });
+    expect(res.json).toHaveBeenCalledWith({
+      tema: expect.objectContaining({
+        nombre: 'Tema Nuevo'
+      })
+    });
   });
 
   it('archiva pregunta marcandola inactiva', async () => {
-    const pregunta = crearPreguntaDoc();
-    mockBancoFindDoc.mockReturnValue(pregunta);
+    const rawPregunta = crearPreguntaRaw({ id: 'preg-1', activo: true });
+    mockBancoFindFirst.mockResolvedValue(rawPregunta);
+    mockBancoUpdate.mockResolvedValue({ ...rawPregunta, activo: false });
     const res = crearRespuesta();
 
     await archivarPregunta(
@@ -437,15 +505,25 @@ describe('controladorBancoPreguntas', () => {
       res
     );
 
-    expect(pregunta.activo).toBe(false);
-    expect((pregunta as { archivadoEn?: Date }).archivadoEn).toBeInstanceOf(Date);
-    expect(pregunta.save).toHaveBeenCalledTimes(1);
-    expect(res.json).toHaveBeenCalledWith({ pregunta });
+    expect(mockBancoUpdate).toHaveBeenCalledWith({
+      where: { id: 'preg-1' },
+      data: expect.objectContaining({
+        activo: false,
+        archivadoEn: expect.any(Date)
+      }),
+      include: { versiones: { include: { opciones: true } } }
+    });
+    expect(res.json).toHaveBeenCalledWith({
+      pregunta: expect.objectContaining({
+        activo: false
+      })
+    });
   });
 
   it('elimina pregunta y limpia referencias en plantillas', async () => {
-    const pregunta = crearPreguntaDoc();
-    mockBancoFindDoc.mockReturnValue(pregunta);
+    const rawPregunta = crearPreguntaRaw({ id: 'preg-1', periodoId: 'periodo-1' });
+    mockBancoFindFirst.mockResolvedValue(rawPregunta);
+
     const res = crearRespuesta();
 
     await eliminarPregunta(
@@ -455,22 +533,23 @@ describe('controladorBancoPreguntas', () => {
       res
     );
 
-    expect(mockBancoDeleteOne).toHaveBeenCalledWith({ _id: 'preg-1', docenteId: 'docente-1' });
-    expect(mockPlantillaUpdateMany).toHaveBeenCalledWith(
-      { docenteId: 'docente-1', periodoId: 'periodo-1', preguntasIds: 'preg-1' },
-      { $pull: { preguntasIds: 'preg-1' } }
-    );
+    expect(mockBancoDelete).toHaveBeenCalledWith({
+      where: { id: 'preg-1' }
+    });
     expect(res.json).toHaveBeenCalledWith({ ok: true, preguntaId: 'preg-1' });
   });
 
   it('archiva tema y remueve referencias asociadas', async () => {
     const tema = {
+      id: 'tema-1',
       periodoId: 'periodo-1',
       nombre: 'Tema Base',
-      activo: true,
-      save: vi.fn().mockResolvedValue(undefined)
+      activo: true
     };
-    mockTemaFindOneDoc.mockReturnValue(tema);
+    mockTemaFindFirst.mockResolvedValue(tema);
+    mockTemaUpdate.mockResolvedValue({ ...tema, activo: false });
+    mockPlantillaFindMany.mockResolvedValue([{ id: 'plantilla-1', temas: '["Tema Base"]' }]);
+
     const res = crearRespuesta();
 
     await archivarTemaBanco(
@@ -480,16 +559,25 @@ describe('controladorBancoPreguntas', () => {
       res
     );
 
-    expect(tema.activo).toBe(false);
-    expect((tema as { archivadoEn?: Date }).archivadoEn).toBeInstanceOf(Date);
-    expect(mockBancoUpdateMany).toHaveBeenCalledWith(
-      { docenteId: 'docente-1', periodoId: 'periodo-1', tema: 'Tema Base' },
-      { $unset: { tema: 1 } }
-    );
-    expect(mockPlantillaUpdateMany).toHaveBeenCalledWith(
-      { docenteId: 'docente-1', periodoId: 'periodo-1', temas: 'Tema Base' },
-      { $pull: { temas: 'Tema Base' } }
-    );
-    expect(res.json).toHaveBeenCalledWith({ tema });
+    expect(mockTemaUpdate).toHaveBeenCalledWith({
+      where: { id: 'tema-1' },
+      data: expect.objectContaining({
+        activo: false,
+        archivadoEn: expect.any(Date)
+      })
+    });
+    expect(mockBancoUpdateMany).toHaveBeenCalledWith({
+      where: { docenteId: 'docente-1', periodoId: 'periodo-1', tema: 'Tema Base' },
+      data: { tema: null }
+    });
+    expect(mockPlantillaUpdate).toHaveBeenCalledWith({
+      where: { id: 'plantilla-1' },
+      data: { temas: '[]' }
+    });
+    expect(res.json).toHaveBeenCalledWith({
+      tema: expect.objectContaining({
+        activo: false
+      })
+    });
   });
 });

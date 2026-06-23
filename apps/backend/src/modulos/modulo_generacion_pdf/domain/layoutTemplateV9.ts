@@ -1,3 +1,9 @@
+/**
+ * layoutTemplateV9
+ *
+ * Responsabilidad: Modulo interno del sistema.
+ * Limites: Mantener contrato y comportamiento observable del modulo.
+ */
 import { ANCHO_CARTA, ALTO_CARTA } from '../shared/tiposPdf';
 
 export const PX_POR_PUNTO = 816 / ANCHO_CARTA;

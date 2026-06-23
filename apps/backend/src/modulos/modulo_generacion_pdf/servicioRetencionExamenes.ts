@@ -6,34 +6,14 @@
  * - responder de forma consistente cuando un examen ya no es descargable,
  * - unificar la política entre generación clásica y assessments OMR.
  */
-import type { UpdateQuery } from 'mongoose';
 import { promises as fs } from 'node:fs';
 import path from 'node:path';
-import { ExamenGenerado } from './modeloExamenGenerado';
+import { prisma } from '../../infraestructura/baseDatos/sqlite';
 import { eliminarArchivoExamen, resolverRutaPdfExamen } from '../../infraestructura/archivos/almacenLocal';
 import { ErrorAplicacion } from '../../compartido/errores/errorAplicacion';
 
-type ArtifactRef = { path?: unknown };
-
 export type PurgeScope = 'ttl' | 'all';
 export type PurgeReason = 'ttl' | 'manual_initial_cleanup' | 'manual';
-
-type ExamenGeneradoLean = {
-  _id?: unknown;
-  docenteId?: unknown;
-  loteId?: unknown;
-  folio?: unknown;
-  rutaPdf?: unknown;
-  bookletArtifact?: ArtifactRef | null;
-  omrSheetArtifact?: ArtifactRef | null;
-  studentPacketArtifacts?: Array<ArtifactRef | null> | null;
-  studentPacketZipArtifact?: ArtifactRef | null;
-  manifestArtifact?: ArtifactRef | null;
-  answerKeyArtifact?: ArtifactRef | null;
-  generadoEn?: unknown;
-  retentionStatus?: unknown;
-  artifactsPurgedAt?: unknown;
-};
 
 export type PurgeSummary = {
   dryRun: boolean;
@@ -58,17 +38,28 @@ function toText(value: unknown) {
   return String(value ?? '').trim();
 }
 
-export function examenTieneArtefactosDisponibles(examen: Record<string, unknown> | null | undefined) {
+function parseJsonSafe<T>(val: unknown): T | null {
+  if (typeof val === 'string') {
+    try {
+      return JSON.parse(val) as T;
+    } catch {
+      return null;
+    }
+  }
+  return val as T;
+}
+
+export function examenTieneArtefactosDisponibles(examen: any) {
   if (!examen || typeof examen !== 'object') return false;
-  const status = toText((examen as { retentionStatus?: unknown }).retentionStatus) || 'active';
+  const status = toText(examen.retentionStatus) || 'active';
   if (status === 'artifacts_purged') return false;
-  const paths = collectArtifactPaths(examen as ExamenGeneradoLean);
+  const paths = collectArtifactPaths(examen);
   return paths.length > 0;
 }
 
-export function construirMetadataRetencion(examen: Record<string, unknown> | null | undefined) {
-  const retentionStatus = toText((examen as { retentionStatus?: unknown } | undefined)?.retentionStatus) || 'active';
-  const artifactsPurgedAt = (examen as { artifactsPurgedAt?: unknown } | undefined)?.artifactsPurgedAt ?? null;
+export function construirMetadataRetencion(examen: any) {
+  const retentionStatus = toText(examen?.retentionStatus) || 'active';
+  const artifactsPurgedAt = examen?.artifactsPurgedAt ?? null;
   return {
     retentionStatus,
     artifactsPurgedAt,
@@ -77,14 +68,14 @@ export function construirMetadataRetencion(examen: Record<string, unknown> | nul
 }
 
 export function asegurarExamenDescargable(
-  examen: Record<string, unknown> | null | undefined,
+  examen: any,
   codigoNoDisponible: string,
   mensaje: string
 ) {
   if (!examen) {
     throw new ErrorAplicacion('EXAMEN_NO_ENCONTRADO', 'Examen no encontrado', 404);
   }
-  const retentionStatus = toText((examen as { retentionStatus?: unknown }).retentionStatus) || 'active';
+  const retentionStatus = toText(examen.retentionStatus) || 'active';
   if (retentionStatus === 'artifacts_purged') {
     throw new ErrorAplicacion(
       'EXAMEN_ARTIFACTOS_EXPURGADOS',
@@ -93,7 +84,7 @@ export function asegurarExamenDescargable(
       {
         codigoDescarga: codigoNoDisponible,
         retentionStatus,
-        artifactsPurgedAt: (examen as { artifactsPurgedAt?: unknown }).artifactsPurgedAt ?? null
+        artifactsPurgedAt: examen.artifactsPurgedAt ?? null
       }
     );
   }
@@ -102,20 +93,27 @@ export function asegurarExamenDescargable(
   }
 }
 
-function collectArtifactPaths(examen: ExamenGeneradoLean) {
+function collectArtifactPaths(examen: any) {
+  const booklet = parseJsonSafe<{ path?: string }>(examen.bookletArtifact);
+  const omrSheet = parseJsonSafe<{ path?: string }>(examen.omrSheetArtifact);
+  const studentPacketZip = parseJsonSafe<{ path?: string }>(examen.studentPacketZipArtifact);
+  const manifest = parseJsonSafe<{ path?: string }>(examen.manifestArtifact);
+  const answerKey = parseJsonSafe<{ path?: string }>(examen.answerKeyArtifact);
+  const studentPackets = parseJsonSafe<Array<{ path?: string }>>(examen.studentPacketArtifacts) || [];
+
   const candidates = [
     toText(examen.rutaPdf),
-    toText(examen.bookletArtifact?.path),
-    toText(examen.omrSheetArtifact?.path),
-    toText(examen.studentPacketZipArtifact?.path),
-    toText(examen.manifestArtifact?.path),
-    toText(examen.answerKeyArtifact?.path),
-    ...(Array.isArray(examen.studentPacketArtifacts) ? examen.studentPacketArtifacts.map((item) => toText(item?.path)) : [])
+    toText(booklet?.path),
+    toText(omrSheet?.path),
+    toText(studentPacketZip?.path),
+    toText(manifest?.path),
+    toText(answerKey?.path),
+    ...studentPackets.map((item) => toText(item?.path))
   ].filter(Boolean);
   return Array.from(new Set(candidates));
 }
 
-async function collectDerivedBatchPaths(examen: ExamenGeneradoLean) {
+async function collectDerivedBatchPaths(examen: any) {
   const loteId = toText(examen.loteId);
   if (!loteId) return [] as string[];
   const dataDir = path.dirname(resolverRutaPdfExamen('placeholder.pdf'));
@@ -129,24 +127,22 @@ async function collectDerivedBatchPaths(examen: ExamenGeneradoLean) {
   }
 }
 
-function buildPurgeUpdate(reason: PurgeReason): UpdateQuery<ExamenGeneradoLean> {
+function buildPurgeUpdate(reason: PurgeReason) {
   return {
-    $set: {
-      retentionStatus: 'artifacts_purged',
-      artifactsPurgedAt: new Date(),
-      artifactsPurgeReason: reason,
-      rutaPdf: null,
-      bookletArtifact: null,
-      omrSheetArtifact: null,
-      studentPacketArtifacts: [],
-      studentPacketZipArtifact: null,
-      manifestArtifact: null,
-      answerKeyArtifact: null
-    }
+    retentionStatus: 'artifacts_purged',
+    artifactsPurgedAt: new Date(),
+    artifactsPurgeReason: reason,
+    rutaPdf: null,
+    bookletArtifact: null,
+    omrSheetArtifact: null,
+    studentPacketArtifacts: '[]',
+    studentPacketZipArtifact: null,
+    manifestArtifact: null,
+    answerKeyArtifact: null
   };
 }
 
-async function purgeSingleExamArtifacts(examen: ExamenGeneradoLean, reason: PurgeReason, dryRun: boolean) {
+async function purgeSingleExamArtifacts(examen: any, reason: PurgeReason, dryRun: boolean) {
   const paths = Array.from(new Set([...(await collectDerivedBatchPaths(examen)), ...collectArtifactPaths(examen)]));
   let archivosEliminados = 0;
   let archivosFaltantes = 0;
@@ -157,11 +153,14 @@ async function purgeSingleExamArtifacts(examen: ExamenGeneradoLean, reason: Purg
       if (eliminado) archivosEliminados += 1;
       else archivosFaltantes += 1;
     }
-    await ExamenGenerado.updateOne({ _id: examen._id }, buildPurgeUpdate(reason));
+    await prisma.examenGenerado.update({
+      where: { id: examen.id },
+      data: buildPurgeUpdate(reason)
+    });
   }
 
   return {
-    examenId: toText(examen._id),
+    examenId: toText(examen.id),
     folio: toText(examen.folio),
     loteId: toText(examen.loteId) || undefined,
     archivosEliminados: dryRun ? 0 : archivosEliminados,
@@ -183,19 +182,19 @@ export async function ejecutarPurgeExamenesGenerados(params: {
   const reason = params.reason ?? (scope === 'all' ? 'manual_initial_cleanup' : 'ttl');
   const fechaCorte = new Date(Date.now() - olderThanDays * 24 * 60 * 60 * 1000);
 
-  const filtro: Record<string, unknown> = {
-    retentionStatus: { $ne: 'artifacts_purged' }
+  const where: any = {
+    retentionStatus: { not: 'artifacts_purged' }
   };
-  if (params.docenteId) filtro.docenteId = params.docenteId;
-  if (scope === 'ttl') filtro.generadoEn = { $lte: fechaCorte };
+  if (params.docenteId) where.docenteId = params.docenteId;
+  if (scope === 'ttl') where.generadoEn = { lte: fechaCorte };
 
-  const candidatos = await ExamenGenerado.find(filtro).lean();
+  const candidatos = await prisma.examenGenerado.findMany({ where });
   const detalles: PurgeSummary['detalles'] = [];
   let documentosActualizados = 0;
   let archivosEliminados = 0;
   let archivosFaltantes = 0;
 
-  for (const examen of candidatos as unknown as ExamenGeneradoLean[]) {
+  for (const examen of candidatos) {
     const detalle = await purgeSingleExamArtifacts(examen, reason, dryRun);
     detalles.push(detalle);
     archivosEliminados += detalle.archivosEliminados;

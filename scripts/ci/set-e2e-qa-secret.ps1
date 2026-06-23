@@ -1,3 +1,7 @@
+# set-e2e-qa-secret.ps1
+#
+# Responsabilidad: Modulo interno del sistema.
+# Limites: Mantener contrato y comportamiento observable del modulo.
 param(
   [string]$QaPassSecretPath = (Join-Path $env:APPDATA 'EvaluaPro\e2e-qa-pass.dpapi'),
   [System.Security.SecureString]$QaPassSecureString,

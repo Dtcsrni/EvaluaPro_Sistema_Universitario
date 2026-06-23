@@ -1,5 +1,11 @@
 #!/usr/bin/env node
 /**
+ * portable-license
+ *
+ * Responsabilidad: Modulo interno del sistema.
+ * Limites: Mantener contrato y comportamiento observable del modulo.
+ */
+/**
  * Portable license tooling for EvaluaPro.
  * Commands:
  *   init-admin --root <dir> --holder "<name>" --out <file>

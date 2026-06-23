@@ -1,3 +1,9 @@
+/**
+ * servicioClassroomGoogle
+ *
+ * Responsabilidad: Servicio de dominio/aplicacion con reglas de negocio reutilizables.
+ * Limites: Mantener invariantes del dominio y errores controlados.
+ */
 import jwt from 'jsonwebtoken';
 import { OAuth2Client } from 'google-auth-library';
 import { ErrorAplicacion } from '../../compartido/errores/errorAplicacion';

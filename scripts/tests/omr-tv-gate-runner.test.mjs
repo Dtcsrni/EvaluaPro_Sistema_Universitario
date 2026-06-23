@@ -1,3 +1,9 @@
+/**
+ * omr-tv-gate-runner.test
+ *
+ * Responsabilidad: Modulo interno del sistema.
+ * Limites: Mantener contrato y comportamiento observable del modulo.
+ */
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { resolveConfig } from '../testing/run-omr-tv-gate.mjs';

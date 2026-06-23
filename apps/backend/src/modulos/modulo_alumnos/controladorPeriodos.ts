@@ -1,26 +1,18 @@
 /**
  * Controlador de periodos.
- *
- * Contrato:
- * - Los periodos pertenecen a un docente; siempre se filtran/crean con `docenteId`.
- * - Las fechas se normalizan a `Date` al persistir.
  */
 import type { Response } from 'express';
 import { ErrorAplicacion } from '../../compartido/errores/errorAplicacion';
 import { configuracion } from '../../configuracion';
 import { obtenerDocenteId } from '../modulo_autenticacion/middlewareAutenticacion';
 import type { SolicitudDocente } from '../modulo_autenticacion/middlewareAutenticacion';
-import { BanderaRevision } from '../modulo_analiticas/modeloBanderaRevision';
-import { Alumno } from './modeloAlumno';
-import { BancoPregunta } from '../modulo_banco_preguntas/modeloBancoPregunta';
-import { TemaBanco } from '../modulo_banco_preguntas/modeloTemaBanco';
-import { Calificacion } from '../modulo_calificacion/modeloCalificacion';
-import { ExamenGenerado } from '../modulo_generacion_pdf/modeloExamenGenerado';
-import { ExamenPlantilla } from '../modulo_generacion_pdf/modeloExamenPlantilla';
-import { CodigoAcceso } from '../modulo_sincronizacion_nube/modeloCodigoAcceso';
-import { Entrega } from '../modulo_vinculacion_entrega/modeloEntrega';
-import { normalizarNombrePeriodo, Periodo } from './modeloPeriodo';
+import { prisma } from '../../infraestructura/baseDatos/sqlite';
+import { aTituloPropio, normalizarEspacios } from '../../compartido/utilidades/texto';
 import { guardarEnPapelera } from '../modulo_papelera/servicioPapelera';
+
+export function normalizarNombrePeriodo(nombre: string): string {
+  return normalizarEspacios(nombre).toLowerCase();
+}
 
 function validarAdminDev() {
   if (String(configuracion.entorno).toLowerCase() !== 'development') {
@@ -42,15 +34,29 @@ function parsearQueryActivo(valor: unknown): boolean | null {
  */
 export async function listarPeriodos(req: SolicitudDocente, res: Response) {
   const docenteId = obtenerDocenteId(req);
-  const filtro: Record<string, string | boolean> = { docenteId };
-
-  // Por defecto, solo materias activas.
-  const activo = parsearQueryActivo(req.query.activo);
-  filtro.activo = activo ?? true;
-
+  const activo = parsearQueryActivo(req.query.activo) ?? true;
   const limite = Number(req.query.limite ?? 0);
-  const consulta = Periodo.find(filtro).sort({ createdAt: -1 });
-  const periodos = await (limite > 0 ? consulta.limit(limite) : consulta).lean();
+
+  const query: any = {
+    where: {
+      docenteId,
+      activo
+    },
+    orderBy: {
+      createdAt: 'desc'
+    }
+  };
+  if (limite > 0) {
+    query.take = limite;
+  }
+
+  const rawPeriodos = await prisma.periodo.findMany(query);
+  const periodos = rawPeriodos.map((p) => ({
+    ...p,
+    grupos: JSON.parse(p.grupos || '[]'),
+    resumenArchivado: p.resumenArchivado ? JSON.parse(p.resumenArchivado) : null
+  }));
+
   res.json({ periodos });
 }
 
@@ -59,23 +65,41 @@ export async function listarPeriodos(req: SolicitudDocente, res: Response) {
  */
 export async function crearPeriodo(req: SolicitudDocente, res: Response) {
   const docenteId = obtenerDocenteId(req);
-
   const nombre = String(req.body.nombre ?? '').trim();
   const nombreNormalizado = normalizarNombrePeriodo(nombre);
-  const existente = await Periodo.findOne({ docenteId, nombreNormalizado }).lean();
+
+  const existente = await prisma.periodo.findUnique({
+    where: {
+      docenteId_nombreNormalizado: {
+        docenteId,
+        nombreNormalizado
+      }
+    }
+  });
   if (existente) {
     throw new ErrorAplicacion('PERIODO_DUPLICADO', 'Ya existe una materia con ese nombre', 409);
   }
 
-  const { fechaInicio, fechaFin } = req.body as { fechaInicio: Date; fechaFin: Date };
-  const periodo = await Periodo.create({
-    ...req.body,
-    nombre,
-    nombreNormalizado,
-    docenteId,
-    fechaInicio,
-    fechaFin
+  const { fechaInicio, fechaFin, grupos } = req.body as { fechaInicio: Date | string; fechaFin: Date | string; grupos?: string[] };
+  const nombreTitulo = aTituloPropio(nombre);
+
+  const rawPeriodo = await prisma.periodo.create({
+    data: {
+      nombre: nombreTitulo,
+      nombreNormalizado,
+      docenteId,
+      fechaInicio: new Date(fechaInicio),
+      fechaFin: new Date(fechaFin),
+      grupos: JSON.stringify(grupos || []),
+      activo: true
+    }
   });
+
+  const periodo = {
+    ...rawPeriodo,
+    grupos: JSON.parse(rawPeriodo.grupos || '[]')
+  };
+
   res.status(201).json({ periodo });
 }
 
@@ -86,7 +110,9 @@ export async function actualizarPeriodo(req: SolicitudDocente, res: Response) {
   const docenteId = obtenerDocenteId(req);
   const periodoId = String(req.params.periodoId ?? '').trim();
 
-  const periodo = await Periodo.findOne({ _id: periodoId, docenteId }).lean();
+  const periodo = await prisma.periodo.findFirst({
+    where: { id: periodoId, docenteId }
+  });
   if (!periodo) {
     throw new ErrorAplicacion('PERIODO_NO_ENCONTRADO', 'Materia no encontrada', 404);
   }
@@ -96,93 +122,119 @@ export async function actualizarPeriodo(req: SolicitudDocente, res: Response) {
 
   const payload = req.body as {
     nombre?: string;
-    fechaInicio?: Date;
-    fechaFin?: Date;
+    fechaInicio?: Date | string;
+    fechaFin?: Date | string;
     grupos?: string[];
   };
 
-  const cambios: Record<string, unknown> = {};
+  const data: Record<string, any> = {};
+
   if (payload.nombre !== undefined) {
     const nombre = String(payload.nombre ?? '').trim();
     const nombreNormalizado = normalizarNombrePeriodo(nombre);
-    const existente = await Periodo.findOne({
-      docenteId,
-      nombreNormalizado,
-      _id: { $ne: periodoId }
-    }).lean();
+
+    const existente = await prisma.periodo.findFirst({
+      where: {
+        docenteId,
+        nombreNormalizado,
+        id: { not: periodoId }
+      }
+    });
     if (existente) {
       throw new ErrorAplicacion('PERIODO_DUPLICADO', 'Ya existe una materia con ese nombre', 409);
     }
-    cambios.nombre = nombre;
-    cambios.nombreNormalizado = nombreNormalizado;
+    data.nombre = aTituloPropio(nombre);
+    data.nombreNormalizado = nombreNormalizado;
   }
 
-  const fechaInicioNueva = payload.fechaInicio ?? (periodo.fechaInicio as Date);
-  const fechaFinNueva = payload.fechaFin ?? (periodo.fechaFin as Date);
+  const fechaInicioNueva = payload.fechaInicio ? new Date(payload.fechaInicio) : new Date(periodo.fechaInicio);
+  const fechaFinNueva = payload.fechaFin ? new Date(payload.fechaFin) : new Date(periodo.fechaFin);
   if (fechaFinNueva < fechaInicioNueva) {
     throw new ErrorAplicacion('PERIODO_FECHAS_INVALIDAS', 'La fecha fin debe ser igual o posterior a la fecha inicio', 400);
   }
-  if (payload.fechaInicio !== undefined) cambios.fechaInicio = payload.fechaInicio;
-  if (payload.fechaFin !== undefined) cambios.fechaFin = payload.fechaFin;
-  if (payload.grupos !== undefined) cambios.grupos = payload.grupos;
 
-  const actualizado = await Periodo.findOneAndUpdate({ _id: periodoId, docenteId }, { $set: cambios }, { returnDocument: 'after' }).lean();
+  if (payload.fechaInicio !== undefined) data.fechaInicio = fechaInicioNueva;
+  if (payload.fechaFin !== undefined) data.fechaFin = fechaFinNueva;
+  if (payload.grupos !== undefined) data.grupos = JSON.stringify(payload.grupos);
+
+  const rawActualizado = await prisma.periodo.update({
+    where: { id: periodoId },
+    data
+  });
+
+  const actualizado = {
+    ...rawActualizado,
+    grupos: JSON.parse(rawActualizado.grupos || '[]'),
+    resumenArchivado: rawActualizado.resumenArchivado ? JSON.parse(rawActualizado.resumenArchivado) : null
+  };
+
   res.json({ ok: true, periodo: actualizado });
 }
 
 /**
  * Archiva un periodo (materia): lo marca como inactivo, registra timestamp y genera un resumen.
- * Nota: no borra datos; desactiva entidades asociadas que soportan `activo`.
  */
 export async function archivarPeriodo(req: SolicitudDocente, res: Response) {
   const docenteId = obtenerDocenteId(req);
   const periodoId = String(req.params.periodoId ?? '').trim();
 
-  const periodo = await Periodo.findOne({ _id: periodoId, docenteId }).lean();
+  const periodo = await prisma.periodo.findFirst({
+    where: { id: periodoId, docenteId }
+  });
   if (!periodo) {
     throw new ErrorAplicacion('PERIODO_NO_ENCONTRADO', 'Materia no encontrada', 404);
   }
 
   if (periodo.activo === false) {
-    const actualizado = await Periodo.findOne({ _id: periodoId, docenteId }).lean();
+    const actualizado = {
+      ...periodo,
+      grupos: JSON.parse(periodo.grupos || '[]'),
+      resumenArchivado: periodo.resumenArchivado ? JSON.parse(periodo.resumenArchivado) : null
+    };
     return res.json({ ok: true, periodo: actualizado });
   }
 
   const [alumnos, bancoPreguntas, plantillas, generados, calificaciones, codigosAcceso] = await Promise.all([
-    Alumno.countDocuments({ docenteId, periodoId }),
-    BancoPregunta.countDocuments({ docenteId, periodoId }),
-    ExamenPlantilla.countDocuments({ docenteId, periodoId }),
-    ExamenGenerado.countDocuments({ docenteId, periodoId }),
-    Calificacion.countDocuments({ docenteId, periodoId }),
-    CodigoAcceso.countDocuments({ docenteId, periodoId })
+    prisma.alumno.count({ where: { periodoId } }),
+    prisma.bancoPregunta.count({ where: { periodoId } }),
+    prisma.examenPlantilla.count({ where: { periodoId } }),
+    prisma.examenGenerado.count({ where: { periodoId } }),
+    prisma.calificacion.count({ where: { periodoId } }),
+    prisma.codigoAcceso.count({ where: { periodoId } })
   ]);
+
+  const resumenArchivado = {
+    alumnos,
+    bancoPreguntas,
+    plantillas,
+    examenesGenerados: generados,
+    calificaciones,
+    codigosAcceso
+  };
+
+  const rawActualizado = await prisma.periodo.update({
+    where: { id: periodoId },
+    data: {
+      activo: false,
+      archivadoEn: new Date(),
+      resumenArchivado: JSON.stringify(resumenArchivado)
+    }
+  });
 
   await Promise.all([
-    Periodo.updateOne(
-      { _id: periodoId, docenteId },
-      {
-        $set: {
-          activo: false,
-          archivadoEn: new Date(),
-          resumenArchivado: {
-            alumnos,
-            bancoPreguntas,
-            plantillas,
-            examenesGenerados: generados,
-            calificaciones,
-            codigosAcceso
-          }
-        }
-      }
-    ),
-    Alumno.updateMany({ docenteId, periodoId }, { $set: { activo: false } }),
-    BancoPregunta.updateMany({ docenteId, periodoId }, { $set: { activo: false, archivadoEn: new Date() } }),
-    TemaBanco.updateMany({ docenteId, periodoId }, { $set: { activo: false, archivadoEn: new Date() } }),
-    ExamenPlantilla.updateMany({ docenteId, periodoId }, { $set: { archivadoEn: new Date() } }),
-    ExamenGenerado.updateMany({ docenteId, periodoId }, { $set: { archivadoEn: new Date() } })
+    prisma.alumno.updateMany({ where: { periodoId }, data: { activo: false } }),
+    prisma.bancoPregunta.updateMany({ where: { periodoId }, data: { activo: false, archivadoEn: new Date() } }),
+    prisma.temaBanco.updateMany({ where: { periodoId }, data: { activo: false, archivadoEn: new Date() } }),
+    prisma.examenPlantilla.updateMany({ where: { periodoId }, data: { archivadoEn: new Date() } }),
+    prisma.examenGenerado.updateMany({ where: { periodoId }, data: { archivadoEn: new Date() } })
   ]);
 
-  const actualizado = await Periodo.findOne({ _id: periodoId, docenteId }).lean();
+  const actualizado = {
+    ...rawActualizado,
+    grupos: JSON.parse(rawActualizado.grupos || '[]'),
+    resumenArchivado
+  };
+
   res.json({ ok: true, periodo: actualizado });
 }
 
@@ -194,13 +246,15 @@ export async function eliminarPeriodoDev(req: SolicitudDocente, res: Response) {
   validarAdminDev();
   const periodoId = String(req.params.periodoId ?? '').trim();
 
-  const periodo = await Periodo.findOne({ _id: periodoId, docenteId }).lean();
+  const periodo = await prisma.periodo.findFirst({
+    where: { id: periodoId, docenteId }
+  });
   if (!periodo) {
     throw new ErrorAplicacion('PERIODO_NO_ENCONTRADO', 'Materia no encontrada', 404);
   }
 
-  const examenes = await ExamenGenerado.find({ docenteId, periodoId }).select('_id').lean();
-  const examenesIds = examenes.map((examen) => String(examen._id));
+  const examenesDocs = await prisma.examenGenerado.findMany({ where: { periodoId } });
+  const examenesIds = examenesDocs.map((examen) => examen.id);
 
   const [
     alumnosDocs,
@@ -212,14 +266,14 @@ export async function eliminarPeriodoDev(req: SolicitudDocente, res: Response) {
     entregasDocs,
     banderasDocs
   ] = await Promise.all([
-    Alumno.find({ docenteId, periodoId }).lean(),
-    BancoPregunta.find({ docenteId, periodoId }).lean(),
-    TemaBanco.find({ docenteId, periodoId }).lean(),
-    ExamenPlantilla.find({ docenteId, periodoId }).lean(),
-    Calificacion.find({ docenteId, periodoId }).lean(),
-    CodigoAcceso.find({ docenteId, periodoId }).lean(),
-    examenesIds.length ? Entrega.find({ docenteId, examenGeneradoId: { $in: examenesIds } }).lean() : Promise.resolve([]),
-    examenesIds.length ? BanderaRevision.find({ docenteId, examenGeneradoId: { $in: examenesIds } }).lean() : Promise.resolve([])
+    prisma.alumno.findMany({ where: { periodoId } }),
+    prisma.bancoPregunta.findMany({ where: { periodoId } }),
+    prisma.temaBanco.findMany({ where: { periodoId } }),
+    prisma.examenPlantilla.findMany({ where: { periodoId } }),
+    prisma.calificacion.findMany({ where: { periodoId } }),
+    prisma.codigoAcceso.findMany({ where: { periodoId } }),
+    examenesIds.length ? prisma.entrega.findMany({ where: { examenGeneradoId: { in: examenesIds } } }) : Promise.resolve([]),
+    examenesIds.length ? prisma.banderaRevision.findMany({ where: { examenGeneradoId: { in: examenesIds } } }) : Promise.resolve([])
   ]);
 
   await guardarEnPapelera({
@@ -227,12 +281,15 @@ export async function eliminarPeriodoDev(req: SolicitudDocente, res: Response) {
     tipo: 'periodo',
     entidadId: periodoId,
     payload: {
-      periodo,
+      periodo: {
+        ...periodo,
+        grupos: JSON.parse(periodo.grupos || '[]')
+      },
       alumnos: alumnosDocs,
       bancoPreguntas: bancoDocs,
       temas: temasDocs,
       plantillas: plantillasDocs,
-      examenes,
+      examenes: examenesDocs,
       entregas: entregasDocs,
       calificaciones: calificacionesDocs,
       banderas: banderasDocs,
@@ -240,16 +297,12 @@ export async function eliminarPeriodoDev(req: SolicitudDocente, res: Response) {
     }
   });
 
-  const [entregasResp, banderasResp] = examenesIds.length
-    ? await Promise.all([
-        Entrega.deleteMany({ docenteId, examenGeneradoId: { $in: examenesIds } }),
-        BanderaRevision.deleteMany({ docenteId, examenGeneradoId: { $in: examenesIds } })
-      ])
-    : [{ deletedCount: 0 }, { deletedCount: 0 }];
-
-  const examenesResp = examenesIds.length
-    ? await ExamenGenerado.deleteMany({ docenteId, _id: { $in: examenesIds } })
-    : { deletedCount: 0 };
+  if (examenesIds.length > 0) {
+    await Promise.all([
+      prisma.entrega.deleteMany({ where: { examenGeneradoId: { in: examenesIds } } }),
+      prisma.banderaRevision.deleteMany({ where: { examenGeneradoId: { in: examenesIds } } })
+    ]);
+  }
 
   const [
     alumnosResp,
@@ -260,28 +313,28 @@ export async function eliminarPeriodoDev(req: SolicitudDocente, res: Response) {
     codigosResp,
     periodoResp
   ] = await Promise.all([
-    Alumno.deleteMany({ docenteId, periodoId }),
-    BancoPregunta.deleteMany({ docenteId, periodoId }),
-    TemaBanco.deleteMany({ docenteId, periodoId }),
-    ExamenPlantilla.deleteMany({ docenteId, periodoId }),
-    Calificacion.deleteMany({ docenteId, periodoId }),
-    CodigoAcceso.deleteMany({ docenteId, periodoId }),
-    Periodo.deleteOne({ _id: periodoId, docenteId })
+    prisma.alumno.deleteMany({ where: { periodoId } }),
+    prisma.bancoPregunta.deleteMany({ where: { periodoId } }),
+    prisma.temaBanco.deleteMany({ where: { periodoId } }),
+    prisma.examenPlantilla.deleteMany({ where: { periodoId } }),
+    prisma.calificacion.deleteMany({ where: { periodoId } }),
+    prisma.codigoAcceso.deleteMany({ where: { periodoId } }),
+    prisma.periodo.deleteMany({ where: { id: periodoId, docenteId } })
   ]);
 
   res.json({
     ok: true,
     eliminados: {
-      periodos: periodoResp.deletedCount ?? 0,
-      alumnos: (alumnosResp as { deletedCount?: number }).deletedCount ?? 0,
-      bancoPreguntas: (bancoResp as { deletedCount?: number }).deletedCount ?? 0,
-      temas: (temasResp as { deletedCount?: number }).deletedCount ?? 0,
-      plantillas: (plantillasResp as { deletedCount?: number }).deletedCount ?? 0,
-      examenes: examenesResp.deletedCount ?? 0,
-      entregas: (entregasResp as { deletedCount?: number }).deletedCount ?? 0,
-      calificaciones: (calificacionesResp as { deletedCount?: number }).deletedCount ?? 0,
-      banderas: (banderasResp as { deletedCount?: number }).deletedCount ?? 0,
-      codigosAcceso: (codigosResp as { deletedCount?: number }).deletedCount ?? 0
+      periodos: periodoResp.count,
+      alumnos: alumnosResp.count,
+      bancoPreguntas: bancoResp.count,
+      temas: temasResp.count,
+      plantillas: plantillasResp.count,
+      examenes: examenesIds.length,
+      entregas: entregasDocs.length,
+      calificaciones: calificacionesResp.count,
+      banderas: banderasDocs.length,
+      codigosAcceso: codigosResp.count
     }
   });
 }

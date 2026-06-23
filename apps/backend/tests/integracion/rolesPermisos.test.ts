@@ -10,6 +10,7 @@ import { crearApp } from '../../src/app';
 import { Docente } from '../../src/modulos/modulo_autenticacion/modeloDocente';
 import { crearTokenDocente } from '../../src/modulos/modulo_autenticacion/servicioTokens';
 import { cerrarMongoTest, conectarMongoTest, limpiarMongoTest } from '../utils/mongo';
+import { prisma } from '../../src/infraestructura/baseDatos/sqlite';
 
 describe('roles y permisos', () => {
   const app = crearApp();
@@ -110,14 +111,13 @@ describe('roles y permisos', () => {
     const auth = authPara(docente, ['docente']);
     const error = new Error('consulta docente no disponible');
 
-    vi.spyOn(Docente, 'findById').mockImplementationOnce(() => ({
-      select: () => ({
-        lean: () => Promise.reject(error)
-      })
-    }) as never);
+    const originalFindUnique = prisma.docente.findUnique;
+    prisma.docente.findUnique = vi.fn().mockRejectedValueOnce(error);
 
     const respuesta = await request(app).get('/api/autenticacion/perfil').set(auth).expect(500);
     expect(respuesta.body?.error?.codigo).toBe('ERROR_INTERNO');
+
+    prisma.docente.findUnique = originalFindUnique;
   });
 
   it('permite leer evaluaciones a lector pero bloquea gestión', async () => {

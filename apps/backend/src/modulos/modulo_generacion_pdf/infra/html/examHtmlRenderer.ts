@@ -1,3 +1,9 @@
+/**
+ * examHtmlRenderer
+ *
+ * Responsabilidad: Modulo interno del sistema.
+ * Limites: Mantener contrato y comportamiento observable del modulo.
+ */
 import QRCode from 'qrcode';
 import type { ExamenPdf } from '../../domain/examenPdf';
 import type { PerfilLayoutImpresion, PerfilPlantillaOmr, ResultadoGeneracionPdf } from '../../shared/tiposPdf';

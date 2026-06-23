@@ -1,3 +1,9 @@
+/**
+ * sincronizacionUtils
+ *
+ * Responsabilidad: Modulo interno del sistema.
+ * Limites: Mantener contrato y comportamiento observable del modulo.
+ */
 import type { RegistroSincronizacion } from './tipos';
 
 export type EstadoSincronizacion = 'ok' | 'error' | 'warn' | 'info';

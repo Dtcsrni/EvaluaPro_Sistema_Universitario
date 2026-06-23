@@ -5,8 +5,7 @@ import type { Response } from 'express';
 import { configuracion } from '../../configuracion';
 import { ErrorAplicacion } from '../../compartido/errores/errorAplicacion';
 import { obtenerDocenteId, type SolicitudDocente } from '../modulo_autenticacion/middlewareAutenticacion';
-import { EventoCumplimiento } from './modeloEventoCumplimiento';
-import { SolicitudDsr } from './modeloSolicitudDsr';
+import { prisma } from '../../infraestructura/baseDatos/sqlite';
 import type { ComplianceStatus, DsrStatus } from './shared/tiposCompliance';
 
 function toObjectIdOrThrow(id: string): string {
@@ -18,7 +17,12 @@ function toObjectIdOrThrow(id: string): string {
 
 export async function obtenerEstadoCompliance(req: SolicitudDocente, res: Response) {
   const docenteId = toObjectIdOrThrow(obtenerDocenteId(req));
-  const pendingDsr = await SolicitudDsr.countDocuments({ docenteId, status: { $in: ['pendiente', 'en_proceso'] } });
+  const pendingDsr = await prisma.solicitudDsr.count({
+    where: {
+      docenteId,
+      status: { in: ['pendiente', 'en_proceso'] }
+    }
+  });
 
   const status: ComplianceStatus = {
     encryptionAtRest: true,
@@ -45,29 +49,33 @@ export async function crearSolicitudDsr(req: SolicitudDocente, res: Response) {
   const now = new Date();
   const status: DsrStatus = body.status ?? 'pendiente';
 
-  const solicitud = await SolicitudDsr.create({
-    docenteId,
-    tipo: body.tipo,
-    titularRef: body.titularRef,
-    scope: body.scope,
-    status,
-    requestedAt: now,
-    resolvedAt: status === 'resuelto' || status === 'rechazado' ? now : null,
-    resolutionNote: body.resolutionNote ?? ''
-  });
-
-  await EventoCumplimiento.create({
-    docenteId,
-    accion: 'dsr.crear',
-    severidad: 'info',
-    detalles: {
-      solicitudId: String(solicitud._id),
+  const solicitud = await prisma.solicitudDsr.create({
+    data: {
+      docenteId,
       tipo: body.tipo,
-      status
+      titularRef: body.titularRef,
+      scope: body.scope,
+      status,
+      requestedAt: now,
+      resolvedAt: status === 'resuelto' || status === 'rechazado' ? now : null,
+      resolutionNote: body.resolutionNote ?? ''
     }
   });
 
-  res.status(201).json({ ok: true, data: { id: String(solicitud._id), status } });
+  await prisma.eventoCumplimiento.create({
+    data: {
+      docenteId,
+      accion: 'dsr.crear',
+      severidad: 'info',
+      detalles: JSON.stringify({
+        solicitudId: solicitud.id,
+        tipo: body.tipo,
+        status
+      })
+    }
+  });
+
+  res.status(201).json({ ok: true, data: { id: solicitud.id, status } });
 }
 
 export async function purgarCompliance(req: SolicitudDocente, res: Response) {
@@ -79,35 +87,40 @@ export async function purgarCompliance(req: SolicitudDocente, res: Response) {
 
   const filtroDsr = {
     docenteId,
-    status: { $in: ['resuelto', 'rechazado'] },
-    resolvedAt: { $lte: fechaCorte }
+    status: { in: ['resuelto', 'rechazado'] },
+    resolvedAt: { lte: fechaCorte }
   };
   const filtroEventos = {
     docenteId,
-    createdAt: { $lte: fechaCorte }
+    createdAt: { lte: fechaCorte }
   };
 
   const [dsrCandidatos, eventosCandidatos] = await Promise.all([
-    SolicitudDsr.countDocuments(filtroDsr),
-    EventoCumplimiento.countDocuments(filtroEventos)
+    prisma.solicitudDsr.count({ where: filtroDsr }),
+    prisma.eventoCumplimiento.count({ where: filtroEventos })
   ]);
 
   let dsrEliminados = 0;
   let eventosEliminados = 0;
   if (!dryRun) {
-    const [r1, r2] = await Promise.all([SolicitudDsr.deleteMany(filtroDsr), EventoCumplimiento.deleteMany(filtroEventos)]);
-    dsrEliminados = r1.deletedCount ?? 0;
-    eventosEliminados = r2.deletedCount ?? 0;
+    const [r1, r2] = await Promise.all([
+      prisma.solicitudDsr.deleteMany({ where: filtroDsr }),
+      prisma.eventoCumplimiento.deleteMany({ where: filtroEventos })
+    ]);
+    dsrEliminados = r1.count;
+    eventosEliminados = r2.count;
 
-    await EventoCumplimiento.create({
-      docenteId,
-      accion: 'compliance.purge',
-      severidad: 'warn',
-      detalles: {
-        fechaCorte: fechaCorte.toISOString(),
-        olderThanDays,
-        dsrEliminados,
-        eventosEliminados
+    await prisma.eventoCumplimiento.create({
+      data: {
+        docenteId,
+        accion: 'compliance.purge',
+        severidad: 'warn',
+        detalles: JSON.stringify({
+          fechaCorte: fechaCorte.toISOString(),
+          olderThanDays,
+          dsrEliminados,
+          eventosEliminados
+        })
       }
     });
   }
@@ -131,6 +144,17 @@ export async function listarAuditoriaCompliance(req: SolicitudDocente, res: Resp
   const limiteRaw = Number(req.query.limite ?? 100);
   const limite = Number.isFinite(limiteRaw) ? Math.max(1, Math.min(500, Math.trunc(limiteRaw))) : 100;
 
-  const eventos = await EventoCumplimiento.find({ docenteId }).sort({ createdAt: -1 }).limit(limite).lean();
+  const eventosRaw = await prisma.eventoCumplimiento.findMany({
+    where: { docenteId },
+    orderBy: { createdAt: 'desc' },
+    take: limite
+  });
+
+  const eventos = eventosRaw.map(ev => ({
+    ...ev,
+    _id: ev.id,
+    detalles: ev.detalles ? JSON.parse(ev.detalles) : null
+  }));
+
   res.json({ ok: true, data: { eventos } });
 }

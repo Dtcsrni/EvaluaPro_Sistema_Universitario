@@ -1,3 +1,9 @@
+/**
+ * UpdatePanel
+ *
+ * Responsabilidad: Componente/utilidad de UI reutilizable.
+ * Limites: Preservar accesibilidad y contratos de props existentes.
+ */
 import type { ReactElement } from 'react';
 
 export type UpdatePanelStatus = {

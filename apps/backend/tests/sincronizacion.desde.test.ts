@@ -1,3 +1,9 @@
+/**
+ * sincronizacion.desde.test
+ *
+ * Responsabilidad: Modulo interno del sistema.
+ * Limites: Mantener contrato y comportamiento observable del modulo.
+ */
 import { describe, expect, it } from 'vitest';
 import { ErrorAplicacion } from '../src/compartido/errores/errorAplicacion';
 import { resolverDesdeSincronizacion } from '../src/modulos/modulo_sincronizacion_nube/domain/paqueteSincronizacion';

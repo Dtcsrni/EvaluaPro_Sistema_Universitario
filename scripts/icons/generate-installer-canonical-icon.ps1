@@ -1,3 +1,7 @@
+# generate-installer-canonical-icon.ps1
+#
+# Responsabilidad: Modulo interno del sistema.
+# Limites: Mantener contrato y comportamiento observable del modulo.
 param(
   [string]$OutputPath = ''
 )

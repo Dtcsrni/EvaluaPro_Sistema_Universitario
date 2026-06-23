@@ -14,11 +14,19 @@ import { ErrorAplicacion } from '../../compartido/errores/errorAplicacion';
 import { registrarOmrResultadoAnalisis } from '../../compartido/observabilidad/metrics';
 import { obtenerDocenteId, type SolicitudDocente } from '../modulo_autenticacion/middlewareAutenticacion';
 import { construirQrExamenLegacy, extraerResumenQrExamen } from '../modulo_generacion_pdf/domain/qrExamen';
-import { ExamenGenerado } from '../modulo_generacion_pdf/modeloExamenGenerado';
-import { ExamenPlantilla } from '../modulo_generacion_pdf/modeloExamenPlantilla';
-import { Periodo } from '../modulo_alumnos/modeloPeriodo';
-import { EscaneoOmrArchivado } from './modeloEscaneoOmrArchivado';
+import { prisma } from '../../infraestructura/baseDatos/sqlite';
 import { analizarOmr, leerQrDesdeImagen } from './servicioOmr';
+
+function parseJsonSafe<T>(val: unknown): T | null {
+  if (typeof val === 'string') {
+    try {
+      return JSON.parse(val) as T;
+    } catch {
+      return null;
+    }
+  }
+  return val as T;
+}
 
 const comprimirGzip = promisify(gzip);
 
@@ -61,10 +69,18 @@ export async function analizarImagen(req: SolicitudDocente, res: Response) {
   const paginaSolicitada = Number(numeroPagina);
   const pagina = Number.isFinite(paginaSolicitada) && paginaSolicitada > 0 ? paginaSolicitada : Number(paginaDetectada || 1);
 
-  const examen = await ExamenGenerado.findOne({ folio: folioNormalizado, docenteId }).lean();
-  if (!examen) {
+  const rawExamen = await prisma.examenGenerado.findFirst({
+    where: { folio: folioNormalizado, docenteId }
+  });
+  if (!rawExamen) {
     throw new ErrorAplicacion('EXAMEN_NO_ENCONTRADO', 'Examen no encontrado', 404);
   }
+  const examen = {
+    ...rawExamen,
+    _id: rawExamen.id,
+    mapaOmr: parseJsonSafe<any>(rawExamen.mapaOmr),
+    paginas: parseJsonSafe<any[]>(rawExamen.paginas) ?? []
+  };
 
   const mapaOmr = examen.mapaOmr?.paginas?.find((item: { numeroPagina: number }) => item.numeroPagina === pagina);
   if (!mapaOmr) {
@@ -260,19 +276,23 @@ function extraerBase64Imagen(base64: string): { mimeType: string; contenido: str
 }
 
 async function calcularSiguienteIntentoOmr(examenGeneradoId: unknown, numeroPagina: number) {
-  const ultimo = await EscaneoOmrArchivado.findOne({
-    examenGeneradoId,
-    numeroPagina
-  })
-    .sort({ intento: -1, createdAt: -1 })
-    .select({ intento: 1 })
-    .lean();
-  const intentoActual = Number((ultimo as { intento?: unknown } | null)?.intento ?? 0);
+  const ultimo = await prisma.escaneoOmrArchivado.findFirst({
+    where: {
+      examenGeneradoId: String(examenGeneradoId),
+      numeroPagina
+    },
+    orderBy: [
+      { intento: 'desc' },
+      { createdAt: 'desc' }
+    ]
+  });
+  const intentoActual = Number(ultimo?.intento ?? 0);
   return Number.isFinite(intentoActual) && intentoActual > 0 ? intentoActual + 1 : 1;
 }
 
-function esErrorDuplicadoMongo(error: unknown) {
-  return Number((error as { code?: unknown } | null)?.code ?? 0) === 11000;
+function esErrorDuplicadoPrisma(error: unknown) {
+  return String((error as { code?: unknown } | null)?.code ?? '') === 'P2002' ||
+         String(error).includes('Unique constraint failed');
 }
 
 async function archivarEscaneoOmrIntento({
@@ -310,44 +330,47 @@ async function archivarEscaneoOmrIntento({
   const sha256Original = createHash('sha256').update(original).digest('hex');
 
   const [periodo, plantilla] = await Promise.all([
-    examen.periodoId ? Periodo.findById(examen.periodoId).select({ nombre: 1 }).lean() : Promise.resolve(null),
-    examen.plantillaId ? ExamenPlantilla.findById(examen.plantillaId).select({ titulo: 1, temas: 1 }).lean() : Promise.resolve(null)
+    examen.periodoId ? prisma.periodo.findUnique({ where: { id: String(examen.periodoId) } }) : Promise.resolve(null),
+    examen.plantillaId ? prisma.examenPlantilla.findUnique({ where: { id: String(examen.plantillaId) } }) : Promise.resolve(null)
   ]);
+  const temasPlantilla = plantilla ? (parseJsonSafe<string[]>(plantilla.temas) ?? []) : [];
   const materia = String(
     periodo?.nombre ??
-      (Array.isArray(plantilla?.temas) && plantilla.temas.length > 0 ? plantilla.temas.join(' · ') : plantilla?.titulo ?? '')
+      (temasPlantilla.length > 0 ? temasPlantilla.join(' · ') : plantilla?.titulo ?? '')
   ).trim();
 
   for (let reintento = 0; reintento < 3; reintento += 1) {
     const intento = await calcularSiguienteIntentoOmr(examen._id, numeroPagina);
     try {
-      await EscaneoOmrArchivado.create({
-        docenteId,
-        alumnoId: examen.alumnoId ?? null,
-        periodoId: examen.periodoId ?? null,
-        plantillaId: examen.plantillaId ?? null,
-        examenGeneradoId: examen._id,
-        folio,
-        numeroPagina,
-        intento,
-        materia: materia || undefined,
-        mimeType,
-        algoritmoCompresion: 'gzip',
-        tamanoOriginalBytes: original.length,
-        tamanoComprimidoBytes: comprimido.length,
-        sha256Original,
-        templateVersionDetectada,
-        engineVersion,
-        estadoAnalisis:
-          estadoAnalisis === 'ok' || estadoAnalisis === 'rechazado_calidad' || estadoAnalisis === 'requiere_revision'
-            ? estadoAnalisis
-            : 'ok',
-        motivosRevision: Array.isArray(motivosRevision) ? motivosRevision.slice(0, 24) : [],
-        payloadComprimido: comprimido
+      await prisma.escaneoOmrArchivado.create({
+        data: {
+          docenteId,
+          alumnoId: examen.alumnoId ? String(examen.alumnoId) : null,
+          periodoId: examen.periodoId ? String(examen.periodoId) : null,
+          plantillaId: examen.plantillaId ? String(examen.plantillaId) : null,
+          examenGeneradoId: String(examen._id),
+          folio,
+          numeroPagina,
+          intento,
+          materia: materia || null,
+          mimeType,
+          algoritmoCompresion: 'gzip',
+          tamanoOriginalBytes: original.length,
+          tamanoComprimidoBytes: comprimido.length,
+          sha256Original,
+          templateVersionDetectada,
+          engineVersion,
+          estadoAnalisis:
+            estadoAnalisis === 'ok' || estadoAnalisis === 'rechazado_calidad' || estadoAnalisis === 'requiere_revision'
+              ? estadoAnalisis
+              : 'ok',
+          motivosRevision: JSON.stringify(Array.isArray(motivosRevision) ? motivosRevision.slice(0, 24) : []),
+          payloadComprimido: comprimido
+        }
       });
       return;
     } catch (error) {
-      if (esErrorDuplicadoMongo(error) && reintento < 2) continue;
+      if (esErrorDuplicadoPrisma(error) && reintento < 2) continue;
       throw error;
     }
   }

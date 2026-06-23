@@ -1,5 +1,5 @@
 import type { Response } from 'express';
-import { Types } from 'mongoose';
+import { randomUUID } from 'node:crypto';
 import { ErrorAplicacion } from '../../compartido/errores/errorAplicacion';
 import { obtenerDocenteId, type SolicitudDocente } from '../modulo_autenticacion/middlewareAutenticacion';
 import {
@@ -42,7 +42,8 @@ function normalizarSlugIdentificador(valor: unknown, codigo: string, mensaje: st
 
 function normalizarObjectId(valor: unknown, codigo: string, mensaje: string) {
   const normalizado = String(valor || '').trim();
-  if (!Types.ObjectId.isValid(normalizado)) {
+  const isValid = /^[0-9a-fA-F]{24}$/.test(normalizado) || /^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$/.test(normalizado);
+  if (!isValid) {
     throw new ErrorAplicacion(codigo, mensaje, 422);
   }
   return normalizado;
@@ -514,7 +515,7 @@ export async function actualizarPlantillaNotificacion(req: SolicitudDocente, res
 
 export async function obtenerMetricasMrr(_req: SolicitudDocente, res: Response) {
   const activas = await Suscripcion.find({ estado: 'activo' }).lean();
-  const totalMrr = activas.reduce((sum, item) => sum + Number(item.precioAplicado || 0), 0);
+  const totalMrr = activas.reduce((sum: number, item: any) => sum + Number(item.precioAplicado || 0), 0);
   const arr = totalMrr * 12;
   res.json({ mrrMxn: totalMrr, arrMxn: arr, suscripcionesActivas: activas.length });
 }
@@ -554,9 +555,9 @@ export async function generarLicencia(req: SolicitudDocente, res: Response) {
 
   const tipo = req.body.tipo;
   const codigoActivacion = generarCodigoActivacion();
-  const licenciaId = new Types.ObjectId();
+  const licenciaId = randomUUID();
   const tokenLicencia = emitirTokenLicencia({
-    licenciaId: String(licenciaId),
+    licenciaId: licenciaId,
     tenantId,
     tipo,
     canalRelease: req.body.canalRelease
@@ -761,7 +762,7 @@ export async function listarLicencias(_req: SolicitudDocente, res: Response) {
   const licencias = await Licencia.find({}).sort({ createdAt: -1 }).lean();
   const ahora = Date.now();
   res.json({
-    licencias: licencias.map((licencia) => {
+    licencias: licencias.map((licencia: any) => {
       const horasSinHeartbeat = licencia.ultimoHeartbeatEn
         ? (ahora - new Date(licencia.ultimoHeartbeatEn).getTime()) / (1000 * 60 * 60)
         : null;
@@ -779,7 +780,7 @@ export async function listarLicencias(_req: SolicitudDocente, res: Response) {
 
 export async function obtenerMetricasGuardrails(_req: SolicitudDocente, res: Response) {
   const planes = await PlanComercial.find({ activo: true }).lean();
-  const resumen = planes.map((plan) => ({
+  const resumen = planes.map((plan: any) => ({
     planId: plan.planId,
     margen: calcularMargen(plan.precioMensual, plan.costoMensualEstimado),
     margenObjetivoMinimo: plan.margenObjetivoMinimo ?? 0.6

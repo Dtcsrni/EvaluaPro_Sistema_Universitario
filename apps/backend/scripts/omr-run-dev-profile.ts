@@ -1,3 +1,9 @@
+/**
+ * omr-run-dev-profile
+ *
+ * Responsabilidad: Modulo interno del sistema.
+ * Limites: Mantener contrato y comportamiento observable del modulo.
+ */
 import { spawn } from 'node:child_process';
 
 type Perfil = 'actual' | 'geo_tight_search';

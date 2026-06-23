@@ -1,20 +1,13 @@
 /**
  * sincronizacion.test
  *
- * Responsabilidad: Modulo interno del sistema.
- * Limites: Mantener contrato y comportamiento observable del modulo.
+ * Responsabilidad: Verificar el correcto funcionamiento del modulo de sincronizacion en nube usando Prisma y SQLite.
  */
-// Pruebas del modulo de sincronizacion a nube.
 import type { Response } from 'express';
 import type { SolicitudDocente } from '../src/modulos/modulo_autenticacion/middlewareAutenticacion';
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import { conectarMongoTest, cerrarMongoTest, limpiarMongoTest } from './utils/mongo';
-import { CodigoAcceso } from '../src/modulos/modulo_sincronizacion_nube/modeloCodigoAcceso';
-import { Periodo } from '../src/modulos/modulo_alumnos/modeloPeriodo';
-import { Alumno } from '../src/modulos/modulo_alumnos/modeloAlumno';
-import { BancoPregunta } from '../src/modulos/modulo_banco_preguntas/modeloBancoPregunta';
-import { ExamenPlantilla } from '../src/modulos/modulo_generacion_pdf/modeloExamenPlantilla';
-import { Docente } from '../src/modulos/modulo_autenticacion/modeloDocente';
+import { prisma } from '../src/infraestructura/baseDatos/sqlite';
 
 vi.mock('../src/configuracion', () => ({
   configuracion: {
@@ -43,12 +36,16 @@ async function esperar(ms: number) {
 }
 
 async function asegurarDocente(docenteId: string, correo: string) {
-  await Docente.create({
-    _id: docenteId,
-    correo,
-    nombreCompleto: 'Docente Test',
-    roles: ['docente'],
-    activo: true
+  await prisma.docente.upsert({
+    where: { id: docenteId },
+    update: { correo },
+    create: {
+      id: docenteId,
+      correo,
+      nombreCompleto: 'Docente Test',
+      roles: '["docente"]',
+      activo: true
+    }
   });
 }
 
@@ -73,9 +70,24 @@ describe('sincronizacion nube', () => {
   });
 
   it('genera codigo de acceso y lo persiste', async () => {
+    const docenteId = '507f1f77bcf86cd799439012';
+    const periodoId = '507f1f77bcf86cd799439011';
+    await asegurarDocente(docenteId, 'docente@test.com');
+    await prisma.periodo.create({
+      data: {
+        id: periodoId,
+        docenteId,
+        nombre: 'Matematicas I',
+        nombreNormalizado: 'matematicas i',
+        fechaInicio: new Date(),
+        fechaFin: new Date(),
+        grupos: '["A"]'
+      }
+    });
+
     const req = {
-      body: { periodoId: '507f1f77bcf86cd799439011' },
-      docenteId: '507f1f77bcf86cd799439012'
+      body: { periodoId },
+      docenteId
     } as SolicitudDocente;
     const res = crearRespuesta();
 
@@ -85,9 +97,11 @@ describe('sincronizacion nube', () => {
     const payload = (res.json as ReturnType<typeof vi.fn>).mock.calls[0][0] as { codigo: string };
     expect(payload.codigo).toHaveLength(8);
 
-    const registro = await CodigoAcceso.findOne({ codigo: payload.codigo }).lean();
+    const registro = await prisma.codigoAcceso.findUnique({
+      where: { codigo: payload.codigo }
+    });
     expect(registro).toBeTruthy();
-    expect(String(registro?.docenteId)).toBe(req.docenteId);
+    expect(registro?.docenteId).toBe(req.docenteId);
   });
 
   it('falla si el portal alumno no esta configurado', async () => {
@@ -123,51 +137,78 @@ describe('sincronizacion nube', () => {
     const periodoId = '507f1f77bcf86cd799439011';
     await asegurarDocente(docenteId, 'docente@test.com');
 
-    await Periodo.create({
-      _id: periodoId,
-      docenteId,
-      nombre: 'Matematicas I',
-      fechaInicio: new Date('2026-01-01T00:00:00.000Z'),
-      fechaFin: new Date('2026-06-30T00:00:00.000Z'),
-      grupos: ['A']
+    await prisma.periodo.create({
+      data: {
+        id: periodoId,
+        docenteId,
+        nombre: 'Matematicas I',
+        nombreNormalizado: 'matematicas i',
+        fechaInicio: new Date('2026-01-01T00:00:00.000Z'),
+        fechaFin: new Date('2026-06-30T00:00:00.000Z'),
+        grupos: '["A"]'
+      }
     });
 
-    const alumno = await Alumno.create({
-      docenteId,
-      periodoId,
-      matricula: '2024-001',
-      nombres: 'Ana',
-      apellidos: 'Lopez',
-      nombreCompleto: 'Ana Lopez',
-      grupo: 'A'
+    const alumno = await prisma.alumno.create({
+      data: {
+        id: 'alumno-1',
+        periodoId,
+        matricula: '2024-001',
+        nombreCompleto: 'Ana Lopez',
+        correo: 'ana@evaluapro.local',
+        grupo: 'A'
+      }
     });
 
-    const pregunta = await BancoPregunta.create({
-      docenteId,
-      periodoId,
-      tema: 'Algebra',
-      versiones: [
-        {
-          numeroVersion: 1,
-          enunciado: '2+2=?',
-          opciones: [
-            { texto: '4', esCorrecta: true },
-            { texto: '3', esCorrecta: false },
-            { texto: '5', esCorrecta: false },
-            { texto: '1', esCorrecta: false },
-            { texto: '0', esCorrecta: false }
+    const pregunta = await prisma.bancoPregunta.create({
+      data: {
+        id: 'preg-1',
+        docenteId,
+        periodoId,
+        tema: 'Algebra',
+        versionActual: 1,
+        versiones: {
+          create: [
+            {
+              id: 'preg-ver-1',
+              numeroVersion: 1,
+              enunciado: '2+2=?',
+              opciones: {
+                create: [
+                  { texto: '4', esCorrecta: true },
+                  { texto: '3', esCorrecta: false },
+                  { texto: '5', esCorrecta: false },
+                  { texto: '1', esCorrecta: false },
+                  { texto: '0', esCorrecta: false }
+                ]
+              }
+            }
           ]
         }
-      ]
+      }
     });
 
-    await ExamenPlantilla.create({
-      docenteId,
-      periodoId,
-      tipo: 'parcial',
-      titulo: 'Parcial 1',
-      numeroPaginas: 1,
-      preguntasIds: [pregunta._id]
+    await prisma.examenPlantilla.create({
+      data: {
+        id: 'plantilla-1',
+        docenteId,
+        periodoId,
+        tipo: 'parcial',
+        titulo: 'Parcial 1',
+        tituloNormalizado: 'parcial 1',
+        numeroPaginas: 1,
+        bookletConfig: '{}',
+        omrConfig: '{}',
+        configuracionPdf: '{}',
+        preguntas: {
+          create: [
+            {
+              preguntaId: pregunta.id,
+              orden: 0
+            }
+          ]
+        }
+      }
     });
 
     const reqExport = {
@@ -188,12 +229,14 @@ describe('sincronizacion nube', () => {
     expect(payload.conteos.bancoPreguntas).toBe(1);
     expect(payload.conteos.plantillas).toBe(1);
 
-    await Promise.all([
-      Alumno.deleteMany({ docenteId }),
-      BancoPregunta.deleteMany({ docenteId }),
-      ExamenPlantilla.deleteMany({ docenteId }),
-      Periodo.deleteMany({ docenteId })
-    ]);
+    // Limpiar base de datos para simular ambiente vacío
+    await prisma.preguntaPlantilla.deleteMany();
+    await prisma.examenPlantilla.deleteMany();
+    await prisma.opcionPregunta.deleteMany();
+    await prisma.versionPregunta.deleteMany();
+    await prisma.bancoPregunta.deleteMany();
+    await prisma.alumno.deleteMany();
+    await prisma.periodo.deleteMany();
 
     const reqImport = {
       body: { paqueteBase64: payload.paqueteBase64 },
@@ -203,33 +246,38 @@ describe('sincronizacion nube', () => {
 
     await importarPaquete(reqImport, resImport);
 
-    expect(await Periodo.countDocuments({ docenteId })).toBe(1);
-    expect(await Alumno.countDocuments({ docenteId })).toBe(1);
-    expect(await BancoPregunta.countDocuments({ docenteId })).toBe(1);
-    expect(await ExamenPlantilla.countDocuments({ docenteId })).toBe(1);
+    expect(await prisma.periodo.count({ where: { docenteId } })).toBe(1);
+    expect(await prisma.alumno.count({ where: { periodo: { docenteId } } })).toBe(1);
+    expect(await prisma.bancoPregunta.count({ where: { docenteId } })).toBe(1);
+    expect(await prisma.examenPlantilla.count({ where: { docenteId } })).toBe(1);
 
     // Idempotencia: reimportar no duplica ni rompe.
     await importarPaquete(reqImport, crearRespuesta());
-    expect(await Alumno.countDocuments({ docenteId })).toBe(1);
+    expect(await prisma.alumno.count({ where: { periodo: { docenteId } } })).toBe(1);
 
-    const alumnoImportado = await Alumno.findById(alumno._id).lean();
+    const alumnoImportado = await prisma.alumno.findUnique({
+      where: { id: alumno.id }
+    });
     expect(alumnoImportado?.nombreCompleto).toBe('Ana Lopez');
   });
 
   it('permite importar por correo cuando cambia el docenteId', async () => {
-    const docenteIdOrigen = '507f1f77bcf86cd799439112';
-    const docenteIdDestino = '507f1f77bcf86cd799439113';
+    const docenteIdOrigen = 'docente-origen-1';
+    const docenteIdDestino = 'docente-destino-1';
     const correo = 'docente-mismo@test.com';
     const periodoId = '507f1f77bcf86cd799439111';
 
     await asegurarDocente(docenteIdOrigen, correo);
-    await Periodo.create({
-      _id: periodoId,
-      docenteId: docenteIdOrigen,
-      nombre: 'Historia',
-      fechaInicio: new Date('2026-01-01T00:00:00.000Z'),
-      fechaFin: new Date('2026-06-30T00:00:00.000Z'),
-      grupos: ['A']
+    await prisma.periodo.create({
+      data: {
+        id: periodoId,
+        docenteId: docenteIdOrigen,
+        nombre: 'Historia',
+        nombreNormalizado: 'historia',
+        fechaInicio: new Date('2026-01-01T00:00:00.000Z'),
+        fechaFin: new Date('2026-06-30T00:00:00.000Z'),
+        grupos: '["A"]'
+      }
     });
 
     const resExport = crearRespuesta();
@@ -248,31 +296,36 @@ describe('sincronizacion nube', () => {
       resImport
     );
 
-    expect(await Periodo.countDocuments({ docenteId: docenteIdDestino })).toBe(1);
-    expect(await Periodo.countDocuments({ docenteId: docenteIdOrigen })).toBe(0);
+    expect(await prisma.periodo.count({ where: { docenteId: docenteIdDestino } })).toBe(1);
+    expect(await prisma.periodo.count({ where: { docenteId: docenteIdOrigen } })).toBe(0);
   });
 
   it('bloquea importacion si el checksum no coincide (anti-corrupcion)', async () => {
-    const docenteId = '507f1f77bcf86cd799439032';
-    const periodoId = '507f1f77bcf86cd799439031';
+    const docenteId = 'docente-check-1';
+    const periodoId = 'periodo-check-1';
     await asegurarDocente(docenteId, 'docente-check@test.com');
 
-    await Periodo.create({
-      _id: periodoId,
-      docenteId,
-      nombre: 'Quimica',
-      fechaInicio: new Date('2026-01-01T00:00:00.000Z'),
-      fechaFin: new Date('2026-06-30T00:00:00.000Z')
+    await prisma.periodo.create({
+      data: {
+        id: periodoId,
+        docenteId,
+        nombre: 'Quimica',
+        nombreNormalizado: 'quimica',
+        fechaInicio: new Date('2026-01-01T00:00:00.000Z'),
+        fechaFin: new Date('2026-06-30T00:00:00.000Z'),
+        grupos: '["A"]'
+      }
     });
 
-    await Alumno.create({
-      docenteId,
-      periodoId,
-      matricula: '2024-003',
-      nombres: 'Maria',
-      apellidos: 'Gomez',
-      nombreCompleto: 'Maria Gomez',
-      grupo: 'C'
+    await prisma.alumno.create({
+      data: {
+        id: 'alumno-check-1',
+        periodoId,
+        matricula: '2024-003',
+        nombreCompleto: 'Maria Gomez',
+        correo: 'maria@evaluapro.local',
+        grupo: 'C'
+      }
     });
 
     const resExport = crearRespuesta();
@@ -282,8 +335,9 @@ describe('sincronizacion nube', () => {
     };
 
     // Limpia DB para validar que no se re-inserta si el checksum es incorrecto.
-    await Promise.all([Alumno.deleteMany({ docenteId }), Periodo.deleteMany({ docenteId })]);
-    expect(await Periodo.countDocuments({ docenteId })).toBe(0);
+    await prisma.alumno.deleteMany();
+    await prisma.periodo.deleteMany();
+    expect(await prisma.periodo.count({ where: { docenteId } })).toBe(0);
 
     await expect(
       importarPaquete(
@@ -292,30 +346,35 @@ describe('sincronizacion nube', () => {
       )
     ).rejects.toMatchObject({ codigo: 'SYNC_CHECKSUM' });
 
-    expect(await Periodo.countDocuments({ docenteId })).toBe(0);
-    expect(await Alumno.countDocuments({ docenteId })).toBe(0);
+    expect(await prisma.periodo.count({ where: { docenteId } })).toBe(0);
+    expect(await prisma.alumno.count({ where: { periodo: { docenteId } } })).toBe(0);
   });
 
   it('permite dryRun para validar sin aplicar cambios', async () => {
-    const docenteId = '507f1f77bcf86cd799439042';
-    const periodoId = '507f1f77bcf86cd799439041';
+    const docenteId = 'docente-dry-1';
+    const periodoId = 'periodo-dry-1';
     await asegurarDocente(docenteId, 'docente-dry@test.com');
 
-    await Periodo.create({
-      _id: periodoId,
-      docenteId,
-      nombre: 'Programacion',
-      fechaInicio: new Date('2026-01-01T00:00:00.000Z'),
-      fechaFin: new Date('2026-06-30T00:00:00.000Z')
+    await prisma.periodo.create({
+      data: {
+        id: periodoId,
+        docenteId,
+        nombre: 'Programacion',
+        nombreNormalizado: 'programacion',
+        fechaInicio: new Date('2026-01-01T00:00:00.000Z'),
+        fechaFin: new Date('2026-06-30T00:00:00.000Z'),
+        grupos: '["A"]'
+      }
     });
-    await Alumno.create({
-      docenteId,
-      periodoId,
-      matricula: '2024-004',
-      nombres: 'Jose',
-      apellidos: 'Hernandez',
-      nombreCompleto: 'Jose Hernandez',
-      grupo: 'A'
+    await prisma.alumno.create({
+      data: {
+        id: 'alumno-dry-1',
+        periodoId,
+        matricula: '2024-004',
+        nombreCompleto: 'Jose Hernandez',
+        correo: 'jose@evaluapro.local',
+        grupo: 'A'
+      }
     });
 
     const resExport = crearRespuesta();
@@ -326,7 +385,8 @@ describe('sincronizacion nube', () => {
       conteos: Record<string, number>;
     };
 
-    await Promise.all([Alumno.deleteMany({ docenteId }), Periodo.deleteMany({ docenteId })]);
+    await prisma.alumno.deleteMany();
+    await prisma.periodo.deleteMany();
 
     const resDry = crearRespuesta();
     await importarPaquete(
@@ -336,21 +396,25 @@ describe('sincronizacion nube', () => {
 
     const dryPayload = (resDry.json as ReturnType<typeof vi.fn>).mock.calls[0][0] as { conteos?: Record<string, number> };
     expect(dryPayload.conteos?.periodos).toBe(payload.conteos.periodos);
-    expect(await Periodo.countDocuments({ docenteId })).toBe(0);
-    expect(await Alumno.countDocuments({ docenteId })).toBe(0);
+    expect(await prisma.periodo.count({ where: { docenteId } })).toBe(0);
+    expect(await prisma.alumno.count({ where: { periodo: { docenteId } } })).toBe(0);
   });
 
   it('rechaza importacion con backupMeta expirado (SYNC_BACKUP_EXPIRADO)', async () => {
-    const docenteId = '507f1f77bcf86cd799439062';
-    const periodoId = '507f1f77bcf86cd799439061';
+    const docenteId = 'docente-expirado-1';
+    const periodoId = 'periodo-expirado-1';
     await asegurarDocente(docenteId, 'docente-expirado@test.com');
 
-    await Periodo.create({
-      _id: periodoId,
-      docenteId,
-      nombre: 'Probabilidad',
-      fechaInicio: new Date('2026-01-01T00:00:00.000Z'),
-      fechaFin: new Date('2026-06-30T00:00:00.000Z')
+    await prisma.periodo.create({
+      data: {
+        id: periodoId,
+        docenteId,
+        nombre: 'Probabilidad',
+        nombreNormalizado: 'probabilidad',
+        fechaInicio: new Date('2026-01-01T00:00:00.000Z'),
+        fechaFin: new Date('2026-06-30T00:00:00.000Z'),
+        grupos: '["A"]'
+      }
     });
 
     const resExport = crearRespuesta();
@@ -385,16 +449,20 @@ describe('sincronizacion nube', () => {
   });
 
   it('rechaza importacion con backupMeta invalidado (SYNC_BACKUP_INVALIDADO)', async () => {
-    const docenteId = '507f1f77bcf86cd799439072';
-    const periodoId = '507f1f77bcf86cd799439071';
+    const docenteId = 'docente-invalido-1';
+    const periodoId = 'periodo-invalido-1';
     await asegurarDocente(docenteId, 'docente-invalido@test.com');
 
-    await Periodo.create({
-      _id: periodoId,
-      docenteId,
-      nombre: 'Topologia',
-      fechaInicio: new Date('2026-01-01T00:00:00.000Z'),
-      fechaFin: new Date('2026-06-30T00:00:00.000Z')
+    await prisma.periodo.create({
+      data: {
+        id: periodoId,
+        docenteId,
+        nombre: 'Topologia',
+        nombreNormalizado: 'topologia',
+        fechaInicio: new Date('2026-01-01T00:00:00.000Z'),
+        fechaFin: new Date('2026-06-30T00:00:00.000Z'),
+        grupos: '["A"]'
+      }
     });
 
     const resExport = crearRespuesta();
@@ -429,26 +497,31 @@ describe('sincronizacion nube', () => {
   });
 
   it('no sobreescribe registros mas nuevos (LWW por updatedAt)', async () => {
-    const docenteId = '507f1f77bcf86cd799439022';
-    const periodoId = '507f1f77bcf86cd799439021';
+    const docenteId = 'docente-lww-1';
+    const periodoId = 'periodo-lww-1';
     await asegurarDocente(docenteId, 'docente-lww@test.com');
 
-    await Periodo.create({
-      _id: periodoId,
-      docenteId,
-      nombre: 'Fisica',
-      fechaInicio: new Date('2026-01-01T00:00:00.000Z'),
-      fechaFin: new Date('2026-06-30T00:00:00.000Z')
+    await prisma.periodo.create({
+      data: {
+        id: periodoId,
+        docenteId,
+        nombre: 'Fisica',
+        nombreNormalizado: 'fisica',
+        fechaInicio: new Date('2026-01-01T00:00:00.000Z'),
+        fechaFin: new Date('2026-06-30T00:00:00.000Z'),
+        grupos: '["A"]'
+      }
     });
 
-    const alumno = await Alumno.create({
-      docenteId,
-      periodoId,
-      matricula: '2024-002',
-      nombres: 'Luis',
-      apellidos: 'Perez',
-      nombreCompleto: 'Luis Perez',
-      grupo: 'B'
+    const alumno = await prisma.alumno.create({
+      data: {
+        id: 'alumno-lww-1',
+        periodoId,
+        matricula: '2024-002',
+        nombreCompleto: 'Luis Perez',
+        correo: 'luis@evaluapro.local',
+        grupo: 'B'
+      }
     });
 
     const reqExport = {
@@ -460,8 +533,11 @@ describe('sincronizacion nube', () => {
     const payload = (resExport.json as ReturnType<typeof vi.fn>).mock.calls[0][0] as { paqueteBase64: string };
 
     // Hacemos el registro local mas nuevo que el del paquete.
-    await Alumno.updateOne({ _id: alumno._id }, { $set: { nombreCompleto: 'Luis Perez (editado)' } });
-    const alumnoAntes = await Alumno.findById(alumno._id).lean();
+    await prisma.alumno.update({
+      where: { id: alumno.id },
+      data: { nombreCompleto: 'Luis Perez (editado)' }
+    });
+    const alumnoAntes = await prisma.alumno.findUnique({ where: { id: alumno.id } });
     expect(alumnoAntes?.nombreCompleto).toBe('Luis Perez (editado)');
 
     const reqImport = {
@@ -470,31 +546,36 @@ describe('sincronizacion nube', () => {
     } as SolicitudDocente;
 
     await importarPaquete(reqImport, crearRespuesta());
-    const alumnoDespues = await Alumno.findById(alumno._id).lean();
+    const alumnoDespues = await prisma.alumno.findUnique({ where: { id: alumno.id } });
     expect(alumnoDespues?.nombreCompleto).toBe('Luis Perez (editado)');
   });
 
   it('sincroniza entre computadoras aplicando version mas reciente aunque lleguen paquetes fuera de orden', async () => {
-    const docenteId = '507f1f77bcf86cd799439052';
-    const periodoId = '507f1f77bcf86cd799439051';
+    const docenteId = 'docente-equipos-1';
+    const periodoId = 'periodo-equipos-1';
     await asegurarDocente(docenteId, 'docente-equipos@test.com');
 
-    await Periodo.create({
-      _id: periodoId,
-      docenteId,
-      nombre: 'Sistemas Distribuidos',
-      fechaInicio: new Date('2026-01-01T00:00:00.000Z'),
-      fechaFin: new Date('2026-06-30T00:00:00.000Z')
+    await prisma.periodo.create({
+      data: {
+        id: periodoId,
+        docenteId,
+        nombre: 'Sistemas Distribuidos',
+        nombreNormalizado: 'sistemas distribuidos',
+        fechaInicio: new Date('2026-01-01T00:00:00.000Z'),
+        fechaFin: new Date('2026-06-30T00:00:00.000Z'),
+        grupos: '["A"]'
+      }
     });
 
-    const alumno = await Alumno.create({
-      docenteId,
-      periodoId,
-      matricula: '2024-010',
-      nombres: 'Carla',
-      apellidos: 'Nava',
-      nombreCompleto: 'Carla Nava',
-      grupo: 'A'
+    const alumno = await prisma.alumno.create({
+      data: {
+        id: 'alumno-equipos-1',
+        periodoId,
+        matricula: '2024-010',
+        nombreCompleto: 'Carla Nava',
+        correo: 'carla@evaluapro.local',
+        grupo: 'A'
+      }
     });
 
     const resV1 = crearRespuesta();
@@ -507,7 +588,10 @@ describe('sincronizacion nube', () => {
     // Fuerza monotonicidad de timestamps para probar LWW aun si los paquetes
     // se generan muy rapido en el mismo ms.
     await esperar(15);
-    await Alumno.updateOne({ _id: alumno._id }, { $set: { nombreCompleto: 'Carla Nava V2', grupo: 'B' } });
+    await prisma.alumno.update({
+      where: { id: alumno.id },
+      data: { nombreCompleto: 'Carla Nava V2', grupo: 'B' }
+    });
     await esperar(15);
 
     const resV2 = crearRespuesta();
@@ -524,7 +608,7 @@ describe('sincronizacion nube', () => {
       { body: { paqueteBase64: paqueteV1.paqueteBase64, checksumSha256: paqueteV1.checksumSha256 }, docenteId } as SolicitudDocente,
       crearRespuesta()
     );
-    let alumnoEnEquipo2 = await Alumno.findById(alumno._id).lean();
+    let alumnoEnEquipo2 = await prisma.alumno.findUnique({ where: { id: alumno.id } });
     expect(alumnoEnEquipo2?.nombreCompleto).toBe('Carla Nava');
     expect(alumnoEnEquipo2?.grupo).toBe('A');
 
@@ -532,7 +616,7 @@ describe('sincronizacion nube', () => {
       { body: { paqueteBase64: paqueteV2.paqueteBase64, checksumSha256: paqueteV2.checksumSha256 }, docenteId } as SolicitudDocente,
       crearRespuesta()
     );
-    alumnoEnEquipo2 = await Alumno.findById(alumno._id).lean();
+    alumnoEnEquipo2 = await prisma.alumno.findUnique({ where: { id: alumno.id } });
     expect(alumnoEnEquipo2?.nombreCompleto).toBe('Carla Nava V2');
     expect(alumnoEnEquipo2?.grupo).toBe('B');
 
@@ -541,9 +625,8 @@ describe('sincronizacion nube', () => {
       { body: { paqueteBase64: paqueteV1.paqueteBase64, checksumSha256: paqueteV1.checksumSha256 }, docenteId } as SolicitudDocente,
       crearRespuesta()
     );
-    alumnoEnEquipo2 = await Alumno.findById(alumno._id).lean();
+    alumnoEnEquipo2 = await prisma.alumno.findUnique({ where: { id: alumno.id } });
     expect(alumnoEnEquipo2?.nombreCompleto).toBe('Carla Nava V2');
     expect(alumnoEnEquipo2?.grupo).toBe('B');
   });
 });
-

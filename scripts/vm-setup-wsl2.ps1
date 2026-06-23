@@ -1,3 +1,7 @@
+# vm-setup-wsl2.ps1
+#
+# Responsabilidad: Modulo interno del sistema.
+# Limites: Mantener contrato y comportamiento observable del modulo.
 Write-Output 'VM-side WSL2 + Docker Desktop setup script started.'
 
 # Ensure running as Administrator

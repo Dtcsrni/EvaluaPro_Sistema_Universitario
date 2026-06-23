@@ -1,3 +1,9 @@
+/**
+ * app
+ *
+ * Responsabilidad: Modulo interno del sistema.
+ * Limites: Mantener contrato y comportamiento observable del modulo.
+ */
 const revealItems = Array.from(document.querySelectorAll(".reveal"));
 
 if ("IntersectionObserver" in window) {

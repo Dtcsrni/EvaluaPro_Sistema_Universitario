@@ -1,3 +1,9 @@
+/**
+ * workflowOmrV1
+ *
+ * Responsabilidad: Modulo interno del sistema.
+ * Limites: Mantener contrato y comportamiento observable del modulo.
+ */
 import { createHash, randomUUID } from 'node:crypto';
 
 export type PreguntaBaseWorkflowV1 = {

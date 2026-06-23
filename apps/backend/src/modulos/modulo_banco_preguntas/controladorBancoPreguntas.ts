@@ -1,18 +1,11 @@
 /**
  * Controlador de banco de preguntas.
- *
- * Contrato:
- * - El banco de preguntas es multi-tenant por `docenteId`.
- * - Al crear una pregunta se inicializa con `versionActual = 1` y una sola version.
  */
 import type { Response } from 'express';
 import { ErrorAplicacion } from '../../compartido/errores/errorAplicacion';
 import { obtenerDocenteId } from '../modulo_autenticacion/middlewareAutenticacion';
 import type { SolicitudDocente } from '../modulo_autenticacion/middlewareAutenticacion';
-import { Periodo } from '../modulo_alumnos/modeloPeriodo';
-import { BancoPregunta } from './modeloBancoPregunta';
-import { TemaBanco } from './modeloTemaBanco';
-import { ExamenPlantilla } from '../modulo_generacion_pdf/modeloExamenPlantilla';
+import { prisma } from '../../infraestructura/baseDatos/sqlite';
 
 function normalizarTema(valor: unknown): string | undefined {
   const texto = String(valor ?? '')
@@ -47,6 +40,31 @@ function obtenerVersionActiva(pregunta: BancoPreguntaDoc): VersionBanco | undefi
   return actual ?? versiones[0];
 }
 
+function formatearPreguntaPrisma(raw: any) {
+  if (!raw) return null;
+  return {
+    _id: raw.id,
+    id: raw.id,
+    docenteId: raw.docenteId,
+    periodoId: raw.periodoId,
+    tema: raw.tema ?? undefined,
+    activo: raw.activo,
+    versionActual: raw.versionActual,
+    recoverySource: raw.recoverySource ? JSON.parse(raw.recoverySource) : undefined,
+    createdAt: raw.createdAt,
+    updatedAt: raw.updatedAt,
+    versiones: (raw.versiones || []).map((v: any) => ({
+      numeroVersion: v.numeroVersion,
+      enunciado: v.enunciado,
+      imagenUrl: v.imagenUrl ?? undefined,
+      opciones: (v.opciones || []).map((o: any) => ({
+        texto: o.texto,
+        esCorrecta: o.esCorrecta
+      }))
+    }))
+  };
+}
+
 /**
  * Lista preguntas del docente (opcionalmente por periodo).
  */
@@ -54,15 +72,32 @@ export async function listarBancoPreguntas(req: SolicitudDocente, res: Response)
   const docenteId = obtenerDocenteId(req);
   const queryActivo = String(req.query.activo ?? '').trim().toLowerCase();
   const activo = queryActivo === '' ? true : !(queryActivo === '0' || queryActivo === 'false');
+  const periodoId = req.query.periodoId ? String(req.query.periodoId) : undefined;
+  const limite = Number(req.query.limite ?? 0);
 
-  const filtro: Record<string, unknown> = { docenteId, activo };
-  if (req.query.periodoId) {
-    filtro.periodoId = String(req.query.periodoId);
+  const query: any = {
+    where: {
+      docenteId,
+      activo,
+      periodoId
+    },
+    include: {
+      versiones: {
+        include: {
+          opciones: true
+        }
+      }
+    },
+    orderBy: {
+      createdAt: 'desc'
+    }
+  };
+  if (limite > 0) {
+    query.take = limite;
   }
 
-  const limite = Number(req.query.limite ?? 0);
-  const consulta = BancoPregunta.find(filtro).sort({ createdAt: -1 });
-  const preguntas = await (limite > 0 ? consulta.limit(limite) : consulta).lean();
+  const rawPreguntas = await prisma.bancoPregunta.findMany(query);
+  const preguntas = rawPreguntas.map(formatearPreguntaPrisma);
   res.json({ preguntas });
 }
 
@@ -75,20 +110,24 @@ export async function crearPregunta(req: SolicitudDocente, res: Response) {
 
   const temaFinal = normalizarTema(tema);
   if (temaFinal) {
-    const existeTema = await TemaBanco.findOne({ docenteId, periodoId: String(periodoId), clave: claveTema(temaFinal), activo: true }).lean();
+    const existeTema = await prisma.temaBanco.findFirst({
+      where: { docenteId, periodoId: String(periodoId), clave: claveTema(temaFinal), activo: true }
+    });
     if (!existeTema) {
       throw new ErrorAplicacion('TEMA_NO_ENCONTRADO', 'Tema no encontrado', 404);
     }
 
-    const candidatos = await BancoPregunta.find({ docenteId, periodoId: String(periodoId), tema: temaFinal, activo: true })
-      .select({ versiones: 1, versionActual: 1 })
-      .lean();
+    const candidatos = await prisma.bancoPregunta.findMany({
+      where: { docenteId, periodoId: String(periodoId), tema: temaFinal, activo: true },
+      include: { versiones: { include: { opciones: true } } }
+    });
 
     const enunciadoNuevo = normalizarTextoComparable(enunciado);
     const opcionesNuevaFirma = firmaOpciones(opciones as OpcionBanco[]);
 
-    for (const cand of candidatos as unknown as BancoPreguntaDoc[]) {
-      const v = obtenerVersionActiva(cand);
+    for (const cand of candidatos) {
+      const formatted = formatearPreguntaPrisma(cand);
+      const v = obtenerVersionActiva(formatted as any);
       if (!v) continue;
       if (normalizarTextoComparable(v.enunciado) === enunciadoNuevo) {
         throw new ErrorAplicacion('PREGUNTA_DUPLICADA', 'Ya existe una pregunta con ese enunciado en este tema', 409);
@@ -99,22 +138,39 @@ export async function crearPregunta(req: SolicitudDocente, res: Response) {
     }
   }
 
-  const pregunta = await BancoPregunta.create({
-    docenteId,
-    periodoId,
-    tema: temaFinal,
-    versionActual: 1,
-    versiones: [
-      {
-        numeroVersion: 1,
-        enunciado,
-        imagenUrl,
-        opciones
-      }
-    ]
+  const rawPregunta = await prisma.bancoPregunta.create({
+    data: {
+      docenteId,
+      periodoId,
+      tema: temaFinal || null,
+      versionActual: 1,
+      activo: true
+    }
   });
 
-  res.status(201).json({ pregunta });
+  const rawVersion = await prisma.versionPregunta.create({
+    data: {
+      preguntaId: rawPregunta.id,
+      numeroVersion: 1,
+      enunciado,
+      imagenUrl: imagenUrl || null
+    }
+  });
+
+  await prisma.opcionPregunta.createMany({
+    data: (opciones || []).map((o: any) => ({
+      versionPreguntaId: rawVersion.id,
+      texto: o.texto,
+      esCorrecta: o.esCorrecta
+    }))
+  });
+
+  const complete = await prisma.bancoPregunta.findUnique({
+    where: { id: rawPregunta.id },
+    include: { versiones: { include: { opciones: true } } }
+  });
+
+  res.status(201).json({ pregunta: formatearPreguntaPrisma(complete) });
 }
 
 /**
@@ -130,36 +186,38 @@ export async function actualizarPregunta(req: SolicitudDocente, res: Response) {
     opciones?: Array<{ texto: string; esCorrecta: boolean }>;
   };
 
-  const pregunta = await BancoPregunta.findOne({ _id: preguntaId, docenteId });
+  const pregunta = await prisma.bancoPregunta.findFirst({
+    where: { id: preguntaId, docenteId },
+    include: { versiones: { include: { opciones: true } } }
+  });
   if (!pregunta) {
     throw new ErrorAplicacion('PREGUNTA_NO_ENCONTRADA', 'Pregunta no encontrada', 404);
   }
 
-  const preguntaDoc = pregunta as unknown as BancoPreguntaDoc & {
-    versiones: VersionBanco[];
-    versionActual: number;
-  };
-
-  const periodoActual = String((pregunta as unknown as { periodoId?: unknown }).periodoId ?? '');
+  const preguntaDoc = formatearPreguntaPrisma(pregunta) as any;
+  const periodoActual = pregunta.periodoId;
 
   const versionActual = obtenerVersionActiva(preguntaDoc);
   if (!versionActual) {
     throw new ErrorAplicacion('PREGUNTA_INVALIDA', 'La pregunta no tiene versiones', 500);
   }
 
-  const versiones = Array.isArray(preguntaDoc.versiones) ? preguntaDoc.versiones : [];
-  const maxNumero = versiones.reduce((max, v) => Math.max(max, Number(v?.numeroVersion ?? 0)), 0);
-  const siguienteNumero = Math.max(maxNumero, Number(preguntaDoc.versionActual ?? 0)) + 1;
+  const versiones = preguntaDoc.versiones || [];
+  const maxNumero = versiones.reduce((max: number, v: any) => Math.max(max, Number(v?.numeroVersion ?? 0)), 0);
+  const siguienteNumero = Math.max(maxNumero, Number(pregunta.versionActual ?? 0)) + 1;
 
+  let temaFinal = pregunta.tema;
   if (tema !== undefined) {
-    const temaFinal = normalizarTema(tema);
-    if (temaFinal) {
-      const existeTema = await TemaBanco.findOne({ docenteId, periodoId: periodoActual, clave: claveTema(temaFinal), activo: true }).lean();
+    const normTema = normalizarTema(tema);
+    if (normTema) {
+      const existeTema = await prisma.temaBanco.findFirst({
+        where: { docenteId, periodoId: periodoActual, clave: claveTema(normTema), activo: true }
+      });
       if (!existeTema) {
         throw new ErrorAplicacion('TEMA_NO_ENCONTRADO', 'Tema no encontrado', 404);
       }
     }
-    preguntaDoc.tema = temaFinal;
+    temaFinal = normTema || null;
   }
 
   const nueva = {
@@ -169,23 +227,24 @@ export async function actualizarPregunta(req: SolicitudDocente, res: Response) {
     opciones: opciones ?? versionActual.opciones
   };
 
-  const temaFinal = normalizarTema(preguntaDoc.tema);
   if (temaFinal) {
-    const candidatos = await BancoPregunta.find({
-      docenteId,
-      periodoId: periodoActual,
-      tema: temaFinal,
-      activo: true,
-      _id: { $ne: preguntaId }
-    })
-      .select({ versiones: 1, versionActual: 1 })
-      .lean();
+    const candidatos = await prisma.bancoPregunta.findMany({
+      where: {
+        docenteId,
+        periodoId: periodoActual,
+        tema: temaFinal,
+        activo: true,
+        id: { not: preguntaId }
+      },
+      include: { versiones: { include: { opciones: true } } }
+    });
 
     const enunciadoNuevo = normalizarTextoComparable(nueva.enunciado);
     const opcionesNuevaFirma = firmaOpciones(nueva.opciones);
 
-    for (const cand of candidatos as unknown as BancoPreguntaDoc[]) {
-      const v = obtenerVersionActiva(cand);
+    for (const cand of candidatos) {
+      const formatted = formatearPreguntaPrisma(cand);
+      const v = obtenerVersionActiva(formatted as any);
       if (!v) continue;
       if (normalizarTextoComparable(v.enunciado) === enunciadoNuevo) {
         throw new ErrorAplicacion('PREGUNTA_DUPLICADA', 'Ya existe una pregunta con ese enunciado en este tema', 409);
@@ -196,11 +255,33 @@ export async function actualizarPregunta(req: SolicitudDocente, res: Response) {
     }
   }
 
-  preguntaDoc.versiones = [...versiones, nueva];
-  preguntaDoc.versionActual = siguienteNumero;
-  await pregunta.save();
+  const rawVersion = await prisma.versionPregunta.create({
+    data: {
+      preguntaId,
+      numeroVersion: siguienteNumero,
+      enunciado: nueva.enunciado,
+      imagenUrl: nueva.imagenUrl || null
+    }
+  });
 
-  res.json({ pregunta });
+  await prisma.opcionPregunta.createMany({
+    data: nueva.opciones.map((o: any) => ({
+      versionPreguntaId: rawVersion.id,
+      texto: o.texto,
+      esCorrecta: o.esCorrecta
+    }))
+  });
+
+  const updatedPregunta = await prisma.bancoPregunta.update({
+    where: { id: preguntaId },
+    data: {
+      versionActual: siguienteNumero,
+      tema: temaFinal
+    },
+    include: { versiones: { include: { opciones: true } } }
+  });
+
+  res.json({ pregunta: formatearPreguntaPrisma(updatedPregunta) });
 }
 
 /**
@@ -210,47 +291,54 @@ export async function archivarPregunta(req: SolicitudDocente, res: Response) {
   const docenteId = obtenerDocenteId(req);
   const preguntaId = String(req.params.preguntaId ?? '').trim();
 
-  const pregunta = await BancoPregunta.findOne({ _id: preguntaId, docenteId });
+  const pregunta = await prisma.bancoPregunta.findFirst({
+    where: { id: preguntaId, docenteId }
+  });
   if (!pregunta) {
     throw new ErrorAplicacion('PREGUNTA_NO_ENCONTRADA', 'Pregunta no encontrada', 404);
   }
 
-  const preguntaDoc = pregunta as unknown as BancoPreguntaDoc;
-  preguntaDoc.activo = false;
-  (preguntaDoc as { archivadoEn?: Date }).archivadoEn = new Date();
-  await pregunta.save();
-  res.json({ pregunta });
+  const updated = await prisma.bancoPregunta.update({
+    where: { id: preguntaId },
+    data: {
+      activo: false,
+      archivadoEn: new Date()
+    },
+    include: {
+      versiones: {
+        include: {
+          opciones: true
+        }
+      }
+    }
+  });
+
+  res.json({ pregunta: formatearPreguntaPrisma(updated) });
 }
 
 /**
  * Elimina de forma permanente una pregunta del banco.
- * Tambien limpia referencias en plantillas que la incluyan.
  */
 export async function eliminarPregunta(req: SolicitudDocente, res: Response) {
   const docenteId = obtenerDocenteId(req);
   const preguntaId = String(req.params.preguntaId ?? '').trim();
 
-  const pregunta = await BancoPregunta.findOne({ _id: preguntaId, docenteId });
+  const pregunta = await prisma.bancoPregunta.findFirst({
+    where: { id: preguntaId, docenteId }
+  });
   if (!pregunta) {
     throw new ErrorAplicacion('PREGUNTA_NO_ENCONTRADA', 'Pregunta no encontrada', 404);
   }
 
-  const periodoId = String((pregunta as unknown as { periodoId?: unknown }).periodoId ?? '');
-
-  await Promise.all([
-    BancoPregunta.deleteOne({ _id: preguntaId, docenteId }),
-    ExamenPlantilla.updateMany(
-      { docenteId, periodoId, preguntasIds: preguntaId },
-      { $pull: { preguntasIds: preguntaId } }
-    )
-  ]);
+  await prisma.bancoPregunta.delete({
+    where: { id: preguntaId }
+  });
 
   res.json({ ok: true, preguntaId });
 }
 
 /**
  * Mueve (reasigna) multiples preguntas a otro tema.
- * Util para "quitar" preguntas de un tema sin borrarlas.
  */
 export async function moverPreguntasTemaBanco(req: SolicitudDocente, res: Response) {
   const docenteId = obtenerDocenteId(req);
@@ -274,41 +362,47 @@ export async function moverPreguntasTemaBanco(req: SolicitudDocente, res: Respon
     throw new ErrorAplicacion('PREGUNTAS_REQUERIDAS', 'Debes enviar al menos una pregunta', 400);
   }
 
-  const materia = await Periodo.findOne({ _id: periodoIdFinal, docenteId }).lean();
+  const materia = await prisma.periodo.findFirst({
+    where: { id: periodoIdFinal, docenteId }
+  });
   if (!materia) {
     throw new ErrorAplicacion('MATERIA_NO_ENCONTRADA', 'Materia no encontrada', 404);
   }
 
-  const temaDestino = await TemaBanco.findOne({ _id: temaIdDestinoFinal, docenteId, periodoId: periodoIdFinal, activo: true }).lean();
+  const temaDestino = await prisma.temaBanco.findFirst({
+    where: { id: temaIdDestinoFinal, docenteId, periodoId: periodoIdFinal, activo: true }
+  });
   if (!temaDestino) {
     throw new ErrorAplicacion('TEMA_NO_ENCONTRADO', 'Tema destino no encontrado', 404);
   }
-  const nombreDestino = normalizarTema((temaDestino as unknown as { nombre?: unknown }).nombre);
+  const nombreDestino = normalizarTema(temaDestino.nombre)!;
 
-  const preguntasMover = await BancoPregunta.find({ _id: { $in: ids }, docenteId, periodoId: periodoIdFinal, activo: true })
-    .select({ _id: 1, versiones: 1, versionActual: 1, tema: 1 })
-    .lean();
+  const preguntasMover = await prisma.bancoPregunta.findMany({
+    where: { id: { in: ids }, docenteId, periodoId: periodoIdFinal, activo: true },
+    include: { versiones: { include: { opciones: true } } }
+  });
 
   if (preguntasMover.length !== ids.length) {
     throw new ErrorAplicacion('PREGUNTA_NO_ENCONTRADA', 'Alguna pregunta no existe (o no pertenece a esta materia)', 404);
   }
 
-  // Validar duplicados en destino (y dentro del propio lote)
-  const existentesDestino = await BancoPregunta.find({
-    docenteId,
-    periodoId: periodoIdFinal,
-    tema: nombreDestino,
-    activo: true,
-    _id: { $nin: ids }
-  })
-    .select({ versiones: 1, versionActual: 1 })
-    .lean();
+  const existentesDestino = await prisma.bancoPregunta.findMany({
+    where: {
+      docenteId,
+      periodoId: periodoIdFinal,
+      tema: nombreDestino,
+      activo: true,
+      id: { notIn: ids }
+    },
+    include: { versiones: { include: { opciones: true } } }
+  });
 
   const enunciadosDestino = new Set<string>();
   const opcionesDestino = new Set<string>();
 
-  for (const cand of existentesDestino as unknown as BancoPreguntaDoc[]) {
-    const v = obtenerVersionActiva(cand);
+  for (const cand of existentesDestino) {
+    const formatted = formatearPreguntaPrisma(cand);
+    const v = obtenerVersionActiva(formatted as any);
     if (!v) continue;
     enunciadosDestino.add(normalizarTextoComparable(v.enunciado));
     opcionesDestino.add(firmaOpciones(v.opciones));
@@ -317,8 +411,9 @@ export async function moverPreguntasTemaBanco(req: SolicitudDocente, res: Respon
   const enunciadosLote = new Set<string>();
   const opcionesLote = new Set<string>();
 
-  for (const cand of preguntasMover as unknown as BancoPreguntaDoc[]) {
-    const v = obtenerVersionActiva(cand);
+  for (const cand of preguntasMover) {
+    const formatted = formatearPreguntaPrisma(cand);
+    const v = obtenerVersionActiva(formatted as any);
     if (!v) continue;
 
     const enunciadoN = normalizarTextoComparable(v.enunciado);
@@ -335,12 +430,12 @@ export async function moverPreguntasTemaBanco(req: SolicitudDocente, res: Respon
     opcionesLote.add(firma);
   }
 
-  const resultado = await BancoPregunta.updateMany(
-    { _id: { $in: ids }, docenteId, periodoId: periodoIdFinal, activo: true },
-    { $set: { tema: nombreDestino } }
-  );
+  const resultado = await prisma.bancoPregunta.updateMany({
+    where: { id: { in: ids }, docenteId, periodoId: periodoIdFinal, activo: true },
+    data: { tema: nombreDestino }
+  });
 
-  res.json({ movidas: Number((resultado as unknown as { modifiedCount?: number }).modifiedCount ?? 0) });
+  res.json({ movidas: resultado.count });
 }
 
 /**
@@ -363,24 +458,26 @@ export async function quitarTemaBanco(req: SolicitudDocente, res: Response) {
     throw new ErrorAplicacion('PREGUNTAS_REQUERIDAS', 'Debes enviar al menos una pregunta', 400);
   }
 
-  const materia = await Periodo.findOne({ _id: periodoIdFinal, docenteId }).lean();
+  const materia = await prisma.periodo.findFirst({
+    where: { id: periodoIdFinal, docenteId }
+  });
   if (!materia) {
     throw new ErrorAplicacion('MATERIA_NO_ENCONTRADA', 'Materia no encontrada', 404);
   }
 
-  const existentes = await BancoPregunta.find({ _id: { $in: ids }, docenteId, periodoId: periodoIdFinal, activo: true })
-    .select({ _id: 1 })
-    .lean();
+  const existentes = await prisma.bancoPregunta.findMany({
+    where: { id: { in: ids }, docenteId, periodoId: periodoIdFinal, activo: true }
+  });
   if (existentes.length !== ids.length) {
     throw new ErrorAplicacion('PREGUNTA_NO_ENCONTRADA', 'Alguna pregunta no existe (o no pertenece a esta materia)', 404);
   }
 
-  const resultado = await BancoPregunta.updateMany(
-    { _id: { $in: ids }, docenteId, periodoId: periodoIdFinal, activo: true },
-    { $unset: { tema: 1 } }
-  );
+  const resultado = await prisma.bancoPregunta.updateMany({
+    where: { id: { in: ids }, docenteId, periodoId: periodoIdFinal, activo: true },
+    data: { tema: null }
+  });
 
-  res.json({ actualizadas: Number((resultado as unknown as { modifiedCount?: number }).modifiedCount ?? 0) });
+  res.json({ actualizadas: resultado.count });
 }
 
 /**
@@ -393,12 +490,17 @@ export async function listarTemasBanco(req: SolicitudDocente, res: Response) {
     throw new ErrorAplicacion('PERIODO_REQUERIDO', 'Materia requerida', 400);
   }
 
-  const materia = await Periodo.findOne({ _id: periodoId, docenteId }).lean();
+  const materia = await prisma.periodo.findFirst({
+    where: { id: periodoId, docenteId }
+  });
   if (!materia) {
     throw new ErrorAplicacion('MATERIA_NO_ENCONTRADA', 'Materia no encontrada', 404);
   }
 
-  const temas = await TemaBanco.find({ docenteId, periodoId, activo: true }).sort({ nombre: 1 }).lean();
+  const temas = await prisma.temaBanco.findMany({
+    where: { docenteId, periodoId, activo: true },
+    orderBy: { nombre: 'asc' }
+  });
   res.json({ temas });
 }
 
@@ -416,26 +518,35 @@ export async function crearTemaBanco(req: SolicitudDocente, res: Response) {
     throw new ErrorAplicacion('TEMA_INVALIDO', 'Tema invalido', 400);
   }
 
-  const materia = await Periodo.findOne({ _id: periodoId, docenteId }).lean();
+  const materia = await prisma.periodo.findFirst({
+    where: { id: periodoId, docenteId }
+  });
   if (!materia) {
     throw new ErrorAplicacion('MATERIA_NO_ENCONTRADA', 'Materia no encontrada', 404);
   }
 
   const clave = claveTema(nombreFinal);
-  const existente = await TemaBanco.findOne({ docenteId, periodoId, clave });
+  const existente = await prisma.temaBanco.findFirst({
+    where: { docenteId, periodoId, clave }
+  });
   if (existente) {
-    const doc = existente as unknown as { activo?: boolean; nombre?: string; clave?: string };
-    if (doc.activo === false) {
-      doc.activo = true;
-      doc.nombre = nombreFinal;
-      doc.clave = clave;
-      await existente.save();
-      return res.status(201).json({ tema: existente });
+    if (existente.activo === false) {
+      const actualizado = await prisma.temaBanco.update({
+        where: { id: existente.id },
+        data: {
+          activo: true,
+          nombre: nombreFinal,
+          clave
+        }
+      });
+      return res.status(201).json({ tema: actualizado });
     }
     throw new ErrorAplicacion('TEMA_DUPLICADO', 'Ya existe un tema con ese nombre', 409);
   }
 
-  const tema = await TemaBanco.create({ docenteId, periodoId, nombre: nombreFinal, clave, activo: true });
+  const tema = await prisma.temaBanco.create({
+    data: { docenteId, periodoId, nombre: nombreFinal, clave, activo: true }
+  });
   res.status(201).json({ tema });
 }
 
@@ -451,38 +562,56 @@ export async function actualizarTemaBanco(req: SolicitudDocente, res: Response) 
     throw new ErrorAplicacion('TEMA_INVALIDO', 'Tema invalido', 400);
   }
 
-  const tema = await TemaBanco.findOne({ _id: temaId, docenteId });
+  const tema = await prisma.temaBanco.findFirst({
+    where: { id: temaId, docenteId }
+  });
   if (!tema) {
     throw new ErrorAplicacion('TEMA_NO_ENCONTRADO', 'Tema no encontrado', 404);
   }
 
-  const doc = tema as unknown as { periodoId: unknown; nombre: string; clave: string; activo?: boolean };
-  const periodoId = String(doc.periodoId);
-  const nombreAnterior = doc.nombre;
+  const periodoId = tema.periodoId;
+  const nombreAnterior = tema.nombre;
   const claveNueva = claveTema(nombreFinal);
 
-  const duplicado = await TemaBanco.findOne({ docenteId, periodoId, clave: claveNueva, _id: { $ne: temaId } }).lean();
+  const duplicado = await prisma.temaBanco.findFirst({
+    where: { docenteId, periodoId, clave: claveNueva, id: { not: temaId } }
+  });
   if (duplicado) {
     throw new ErrorAplicacion('TEMA_DUPLICADO', 'Ya existe un tema con ese nombre', 409);
   }
 
-  doc.nombre = nombreFinal;
-  doc.clave = claveNueva;
-  doc.activo = true;
-  await tema.save();
+  const actualizado = await prisma.temaBanco.update({
+    where: { id: temaId },
+    data: {
+      nombre: nombreFinal,
+      clave: claveNueva,
+      activo: true
+    }
+  });
 
   if (nombreAnterior !== nombreFinal) {
-    await Promise.all([
-      BancoPregunta.updateMany({ docenteId, periodoId, tema: nombreAnterior }, { $set: { tema: nombreFinal } }),
-      ExamenPlantilla.updateMany(
-        { docenteId, periodoId, temas: nombreAnterior },
-        { $set: { 'temas.$[t]': nombreFinal } },
-        { arrayFilters: [{ t: nombreAnterior }] }
-      )
-    ]);
+    await prisma.bancoPregunta.updateMany({
+      where: { docenteId, periodoId, tema: nombreAnterior },
+      data: { tema: nombreFinal }
+    });
+
+    const plantillas = await prisma.examenPlantilla.findMany({
+      where: { docenteId, periodoId }
+    });
+
+    for (const p of plantillas) {
+      const temasList = JSON.parse(p.temas || '[]');
+      if (temasList.includes(nombreAnterior)) {
+        const nuevoTemas = temasList.map((t: string) => t === nombreAnterior ? nombreFinal : t);
+        await prisma.examenPlantilla.update({
+          where: { id: p.id },
+          data: { temas: JSON.stringify(nuevoTemas) }
+        });
+      }
+    }
   }
 
-  res.json({ tema });
+  res.json({ tema: actualizado });
 }
 
 /**
@@ -492,23 +621,43 @@ export async function archivarTemaBanco(req: SolicitudDocente, res: Response) {
   const docenteId = obtenerDocenteId(req);
   const temaId = String(req.params.temaId ?? '').trim();
 
-  const tema = await TemaBanco.findOne({ _id: temaId, docenteId });
+  const tema = await prisma.temaBanco.findFirst({
+    where: { id: temaId, docenteId }
+  });
   if (!tema) {
     throw new ErrorAplicacion('TEMA_NO_ENCONTRADO', 'Tema no encontrado', 404);
   }
 
-  const doc = tema as unknown as { periodoId: unknown; nombre: string; activo?: boolean; archivadoEn?: Date };
-  const periodoId = String(doc.periodoId);
-  const nombreTema = doc.nombre;
+  const periodoId = tema.periodoId;
+  const nombreTema = tema.nombre;
 
-  doc.activo = false;
-  doc.archivadoEn = new Date();
-  await tema.save();
+  const actualizado = await prisma.temaBanco.update({
+    where: { id: temaId },
+    data: {
+      activo: false,
+      archivadoEn: new Date()
+    }
+  });
 
-  await Promise.all([
-    BancoPregunta.updateMany({ docenteId, periodoId, tema: nombreTema }, { $unset: { tema: 1 } }),
-    ExamenPlantilla.updateMany({ docenteId, periodoId, temas: nombreTema }, { $pull: { temas: nombreTema } })
-  ]);
+  await prisma.bancoPregunta.updateMany({
+    where: { docenteId, periodoId, tema: nombreTema },
+    data: { tema: null }
+  });
 
-  res.json({ tema });
+  const plantillas = await prisma.examenPlantilla.findMany({
+    where: { docenteId, periodoId }
+  });
+
+  for (const p of plantillas) {
+    const temasList = JSON.parse(p.temas || '[]');
+    if (temasList.includes(nombreTema)) {
+      const nuevoTemas = temasList.filter((t: string) => t !== nombreTema);
+      await prisma.examenPlantilla.update({
+        where: { id: p.id },
+        data: { temas: JSON.stringify(nuevoTemas) }
+      });
+    }
+  }
+
+  res.json({ tema: actualizado });
 }
