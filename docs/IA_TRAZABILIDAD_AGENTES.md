@@ -6,14 +6,15 @@ Objetivo: continuidad verificable entre agentes heterogeneos con evidencia repro
 ## 1) Fuentes de verdad para agentes
 1. `AGENTS.md`
 2. `docs/IA_TRAZABILIDAD_AGENTES.md`
-3. `.github/copilot-instructions.md`
-4. `ci/pipeline.contract.md`
-5. `ci/pipeline.matrix.json`
-6. `.github/workflows/ci.yml`
-7. `docs/INVENTARIO_PROYECTO.md`
-8. `docs/ENGINEERING_BASELINE.md`
-9. `docs/RELEASE_GATE_STABLE.md`
-10. `CHANGELOG.md`
+3. `docs/POLITICA_SDD.md`
+4. `.github/copilot-instructions.md`
+5. `ci/pipeline.contract.md`
+6. `ci/pipeline.matrix.json`
+7. `.github/workflows/ci.yml`
+8. `docs/INVENTARIO_PROYECTO.md`
+9. `docs/ENGINEERING_BASELINE.md`
+10. `docs/RELEASE_GATE_STABLE.md`
+11. `CHANGELOG.md`
 
 ## 2) Contrato canonico de trazabilidad
 - Schema machine-readable: `docs/handoff/trace.schema.json`
@@ -72,6 +73,7 @@ Objetivo: continuidad verificable entre agentes heterogeneos con evidencia repro
    - `docs/README.md`
    - `docs/IA_TRAZABILIDAD_AGENTES.md`
    - `.github/copilot-instructions.md`
+   - `docs/POLITICA_SDD.md`
 1.1. Activar Caveman al inicio de la sesion (`$caveman`) y mantenerlo activo durante la ejecucion del trabajo, salvo excepcion explicita del usuario.
 2. Verificar estado real antes de editar; no asumir olas, gates o release.
 2.1. Si la sesion toca runtime local/launcher/instalador, verificar por CLI:
@@ -85,6 +87,8 @@ Objetivo: continuidad verificable entre agentes heterogeneos con evidencia repro
 5. Si se toca el contrato de trazabilidad IA, ejecutar:
    - `npm run test:ia:traceability`
    - `npm run ci:policy:audit`
+6. Cumplir estrictamente con la política de Spec-Driven Development (SDD). Verificar que toda especificación en `docs/specs/*.spec.md` sea válida ejecutando:
+   - `npm run sdd:audit`
 
 ## 6) Validacion y enforcement
 - Validacion dedicada del contrato IA:

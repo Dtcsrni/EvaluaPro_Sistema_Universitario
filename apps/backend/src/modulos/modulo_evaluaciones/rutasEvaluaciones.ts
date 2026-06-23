@@ -135,17 +135,9 @@ router.post(
   ejecutarImportacionClassroom
 );
 router.get('/v2/classroom/mapeos', requerirPermiso('classroom:pull'), listarMapeosClassroom);
-router.post(
-  '/v2/classroom/mapeos',
-  requerirPermiso('classroom:pull'),
-  validarCuerpo(esquemaMapearClassroom, { strict: true }),
-  mapearClassroomEvidencia
-);
-router.post(
-  '/v2/classroom/pull',
-  requerirPermiso('classroom:pull'),
-  validarCuerpo(esquemaPullClassroom, { strict: true }),
-  ejecutarPullClassroom
-);
+
+// --- Encuadre Académico CUH ---
+router.post('/encuadre/inicializar', requerirPermiso('evaluaciones:gestionar'), inicializarEncuadre);
+router.get('/encuadre/estado/:periodoId', requerirPermiso('evaluaciones:leer'), obtenerEstadoEncuadre);
 
 export default router;

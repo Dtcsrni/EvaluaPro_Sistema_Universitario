@@ -4,6 +4,13 @@ Este archivo sigue el formato "Keep a Changelog" (alto nivel) y SemVer.
 
 ## [Unreleased]
 
+### Added
+- Implementada la política global de **Spec-Driven Development (SDD)** en todo el monorepo (`docs/POLITICA_SDD.md`), haciendo obligatoria la creación de especificaciones previas en `docs/specs/*.spec.md` para todo desarrollo.
+- Creado el script DevOps auditor de especificaciones `scripts/sdd-audit.mjs` que valida frontmatters YAML, secciones obligatorias e integridad de tests.
+- Creada la especificación de referencia `docs/specs/sdd_governance.spec.md` y la plantilla de diseño `docs/specs/template.spec.md`.
+- Creadas las pruebas unitarias para el validador en `scripts/tests/sdd-audit.test.mjs`.
+- Integrada la validación de specs y tests asociados al pipeline de CI de forma bloqueante mediante `"ci:policy:audit"`.
+
 ## [1.0.0] - 2026-06-23
 
 ### Fixed
@@ -27,6 +34,11 @@ Este archivo sigue el formato "Keep a Changelog" (alto nivel) y SemVer.
   - la opción UI de licencia obligatoria queda activa y bloqueada para evitar instalaciones sin activación
 
 ### Added
+- Integrada la especificación técnica `SPEC-002` (`docs/specs/marketing_site.spec.md`) aprobada para el portal de marketing y promoción comercial de EvaluaPro.
+- Rediseño estético y responsivo premium del sitio de marketing (`site/index.html` y `site/styles.css`) bajo un esquema de tema oscuro HSL con luces de neón, glassmorphism y tipografías premium.
+- Creada una réplica visual de alta fidelidad en HTML/CSS del Dashboard del Docente dentro del flujo del sitio (métricas simuladas y cursos activos).
+- Creada una simulación en CSS de lectura OMR que emula con exactitud la detección digital de burbujas en verde (aciertos) y rojo (errores) del software real.
+- Rediseñadas las tablas comparativas de licenciamiento (AGPL vs Comercial vs Institucional) y los acordeones fluidos de preguntas frecuentes (FAQ).
 - Pantalla independiente y previa de Términos y Condiciones (WizardStep.Terms = 0) en el bootstrapper del instalador (WPF/C#).
 - Validación estricta y reactiva para habilitar/deshabilitar la navegación (Siguiente e Iniciar/Continuar) según la aceptación de los términos y condiciones (obligatorio para el modo instalación).
 - Deshabilitación dinámica del botón de retroceso (Atrás) en el paso de "Preparar" cuando se opera en modos no-instalación (reparación o desinstalación) para evitar navegación accidental a los términos.

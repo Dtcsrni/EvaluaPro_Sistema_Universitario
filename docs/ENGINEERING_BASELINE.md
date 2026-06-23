@@ -5,6 +5,21 @@ Version tecnica: `1.0.0`
 Version visible GUI: `1.0.0b`
 
 ## Estado vigente
+- Corte 2026-06-23 (Rediseño y Mejora Comercial del Portal de Marketing y SPEC-002):
+  - **Especificación Técnica Aprobada:** Redactada y aprobada la especificación `docs/specs/marketing_site.spec.md` (`SPEC-002`) que gobierna la semántica, el SEO, los estilos y las aserciones del smoke test de la página comercial.
+  - **Rediseño Estético y Responsivo:** Actualizado `site/styles.css` para implementar un tema oscuro premium en base a HSL, luces de neón en tarjetas, glassmorphism (`backdrop-filter`) y tipografía Sora y IBM Plex Sans.
+  - **Live UI Mockups en HTML/CSS:** Implementadas réplicas visuales estáticas detalladas del Dashboard del Docente (KPIs en vivo, cursos y estado de exámenes) y de la detección óptica OMR (examen simulado con marcas circulares y cajas de acierto/error en verde/rojo).
+  - **FAQs y Licenciamiento:** Integrada la sección de FAQ interactivas mediante acordeones nativos (`<details>` y `<summary>` estilizados) y rediseñadas las tablas comparativas de licenciamiento (AGPL vs Comercial vs Institucional).
+  - **Pase de Gates:** Verificado localmente en verde el smoke test del portal (`node scripts/tests/marketing-site.smoke.test.mjs`) y el validador de gobernanza del monorepo (`npm run ci:policy:audit`).
+
+- Corte 2026-06-23 (Implementación de Política Global de Spec-Driven Development - SDD):
+  - **Política SDD y Plantilla:** Creada `docs/POLITICA_SDD.md` estableciendo el ciclo de vida de especificaciones, formato YAML, y directrices para la Matriz de Trazabilidad. Diseñada la plantilla base en `docs/specs/template.spec.md`.
+  - **DevOps y Auditoría de Specs:** Desarrollado `scripts/sdd-audit.mjs` para validar la presencia de YAML frontmatter, secciones requeridas, y la existencia real de los archivos de prueba declarados en la matriz.
+  - **Pruebas Unitarias del Auditor:** Implementada la suite de pruebas unitarias `scripts/tests/sdd-audit.test.mjs` con cobertura para especificaciones válidas, campos faltantes, secciones ausentes y fallas por tests inexistentes.
+  - **Gobernanza Viva:** Redactada la primera especificación viva en `docs/specs/sdd_governance.spec.md` para documentar la gobernanza de SDD y autovalidar el funcionamiento del script auditor.
+  - **Integración de Calidad (Gates):** Registrados scripts en `package.json` (`sdd:audit` y `test:sdd:policy`) e integrados de forma obligatoria en la verificación consolidada local/CI `"ci:policy:audit"`.
+  - **Gobernanza de Agentes:** Modificados `AGENTS.md` y `docs/IA_TRAZABILIDAD_AGENTES.md` para incorporar SDD de forma obligatoria en las directrices de ejecución de agentes de IA.
+
 - Corte 2026-06-23 (Promoción a Release Estable v1.0.0 y Limpieza de Git Tags):
   - **Limpieza de Git Tags:** Eliminadas exitosamente las 20 tags locales beta (`v1.0.0-beta.0` a `v1.0.0-beta.23`) y las 25 tags remotas beta (`v1.0.0-beta.0` a `v1.0.0-beta.24`) en `origin`, saneando el repositorio y su historial de releases.
   - **Promoción Estable v1.0.0:** Re-ubicada la tag estable `v1.0.0` para que apunte al HEAD de `main` (commit `81790384`) y empujada a `origin` para disparar automáticamente el pipeline `release-stable-gate.yml` en GitHub Actions.

@@ -282,6 +282,32 @@ async function calcularResumenLisc(docenteId: string, periodoId: string, alumnoI
     pesosExamenes: (config.pesosExamenes ?? {}) as { parcial1?: number; parcial2?: number; global?: number }
   });
 
+  // Regla de Asistencia CUH: 4 o más faltas pierde derecho a examen
+  const faltasCount = await prisma.asistenciaRegistro.count({
+    where: {
+      periodoId,
+      alumnoId,
+      estado: 'F'
+    }
+  });
+  const sinDerecho = faltasCount >= 4;
+
+  let finalDecimal = calculo.finalDecimal;
+  let finalRedondeada = calculo.finalRedondeada;
+  let bloqueExamenesDecimal = calculo.bloqueExamenesDecimal;
+  let examenesPorCorteFinal = { ...calculo.examenesPorCorte };
+
+  if (sinDerecho) {
+    bloqueExamenesDecimal = 0;
+    examenesPorCorteFinal = { parcial1: 0, parcial2: 0, global: 0 };
+    // Recalcular nota final: bloqueContinua * pesoContinua + 0
+    const pesoContinua = Number(config.pesosGlobales?.continua ?? 0.5);
+    finalDecimal = Number((calculo.bloqueContinuaDecimal * pesoContinua).toFixed(4));
+    // Importamos redondearFinalInstitucional para asegurar consistencia
+    const { redondearFinalInstitucional } = await import('./servicioPoliticasCalificacion');
+    finalRedondeada = redondearFinalInstitucional(finalDecimal);
+  }
+
   const faltantes = faltantesLisc({
     config: config as Record<string, unknown>,
     continuaPorCorte,
@@ -296,13 +322,15 @@ async function calcularResumenLisc(docenteId: string, periodoId: string, alumnoI
     politicaCodigo: 'POLICY_LISC_ENCUADRE_2026',
     politicaVersion: numeroSeguro(config.politicaVersion) || 1,
     continuaPorCorte: calculo.continuaPorCorte,
-    examenesPorCorte: calculo.examenesPorCorte,
+    examenesPorCorte: examenesPorCorteFinal,
     bloqueContinuaDecimal: calculo.bloqueContinuaDecimal,
-    bloqueExamenesDecimal: calculo.bloqueExamenesDecimal,
-    finalDecimal: calculo.finalDecimal,
-    finalRedondeada: calculo.finalRedondeada,
+    bloqueExamenesDecimal: bloqueExamenesDecimal,
+    finalDecimal,
+    finalRedondeada,
     estado,
     faltantes,
+    sinDerecho,
+    faltas: faltasCount,
     auditoria: {
       politicaCodigo: 'POLICY_LISC_ENCUADRE_2026',
       politicaVersion: numeroSeguro(config.politicaVersion) || 1,
@@ -310,7 +338,7 @@ async function calcularResumenLisc(docenteId: string, periodoId: string, alumnoI
       pesosGlobales: config.pesosGlobales ?? {},
       pesosExamenes: config.pesosExamenes ?? {},
       formulas: {
-        examenCorte: '0.5*teorico + 0.5*promedio(practicas)',
+        examenCorte: '0.6*teorico + 0.4*promedio(practicas)',
         bloqueExamenes: '0.2*parcial1 + 0.2*parcial2 + 0.6*global',
         bloqueContinua: '0.2*c1 + 0.2*c2 + 0.6*c3',
         final: '0.5*bloqueContinua + 0.5*bloqueExamenes',

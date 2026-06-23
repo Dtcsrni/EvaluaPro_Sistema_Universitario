@@ -60,7 +60,7 @@ export function promedioPonderado(valores: Array<{ valor: number; peso?: number 
 export function calcularExamenCorte(teoricoDecimal: number, practicas: number[]): number {
   const teorico = clamp0a10(teoricoDecimal);
   const practico = clamp0a10(promedioSimple(practicas));
-  return teorico.mul(0.5).add(practico.mul(0.5)).toDecimalPlaces(4).toNumber();
+  return teorico.mul(0.6).add(practico.mul(0.4)).toDecimalPlaces(4).toNumber();
 }
 
 export function redondearFinalInstitucional(finalDecimal: number): number {

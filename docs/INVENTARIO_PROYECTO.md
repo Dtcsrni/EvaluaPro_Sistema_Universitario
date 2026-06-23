@@ -24,6 +24,22 @@ Version visible objetivo: `1.0.0b`
   - `reports/perf/latest.json`
 
 #### 2.1) Footprint y clasificacion del corte 2026-06-23
+- Rediseño y Mejora Comercial del Portal de Marketing y SPEC-002 2026-06-23:
+  - Redacción y aprobación de la especificación técnica `SPEC-002` (`docs/specs/marketing_site.spec.md`) que establece las pautas visuales y de smoke test del sitio.
+  - Rediseño completo de la landing page comercial (`site/index.html` y `site/styles.css`) bajo un tema oscuro HSL premium con luces de neón en bordes, tipografías Sora e IBM Plex Sans, y efectos glassmorphism.
+  - Implementación de mockups en HTML/CSS de alta fidelidad:
+    - **Dashboard del Docente:** Réplica visual del tablero real (métricas clave en vivo, cursos activos y listado de exámenes calificados/procesando).
+    - **Detección OMR en CSS:** Simulación visual de hoja de examen real mostrando la superposición de cajas de acierto/error (verde/rojo) del motor OMR.
+  - Incorporación de acordeones con `<details>` y `<summary>` fluidos en FAQs, y tablas comparativas de licenciamiento detallando capacidades (AGPL vs Comercial vs Institucional).
+  - Ejecución y pase en verde del smoke test (`node scripts/tests/marketing-site.smoke.test.mjs`) y de la suite de auditoría del monorepo (`npm run ci:policy:audit`).
+
+- Implementación de Política Global de Spec-Driven Development (SDD) 2026-06-23:
+  - Definición formal del marco de desarrollo y ciclo de vida de especificaciones en `docs/POLITICA_SDD.md` y plantilla `docs/specs/template.spec.md`.
+  - Creación del script auditor automatizado `scripts/sdd-audit.mjs` y su suite de pruebas unitarias asociadas en `scripts/tests/sdd-audit.test.mjs`.
+  - Registro de los nuevos scripts de validación en `package.json` (`sdd:audit` y `test:sdd:policy`) e integración obligatoria en el pipeline integrador local/CI `"ci:policy:audit"`.
+  - Redacción de la primera especificación viva `docs/specs/sdd_governance.spec.md` detallando las reglas de auditoría y trazabilidad del propio validador.
+  - Modificación de las directrices operativas en `AGENTS.md` y `docs/IA_TRAZABILIDAD_AGENTES.md` para requerir mandatoriamente el cumplimiento de SDD antes de escribir código o pruebas de producción.
+
 - Promoción a Release Estable v1.0.0 y Limpieza de Git Tags 2026-06-23:
   - Remoción completa de las 20 tags locales beta (`v1.0.0-beta.0` a `v1.0.0-beta.23`) y las 25 remotas (`v1.0.0-beta.0` a `v1.0.0-beta.24`) en `origin`, saneando el repositorio de ramas y tags de pre-release.
   - Re-apuntamiento y promoción de la tag de versión estable `v1.0.0` al HEAD actual de `main` (commit `81790384`).

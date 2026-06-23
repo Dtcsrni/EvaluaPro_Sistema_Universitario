@@ -12,9 +12,9 @@ import {
 } from '../src/modulos/modulo_evaluaciones/servicioPoliticasCalificacion';
 
 describe('politica LISC', () => {
-  it('calcula examen de corte con 50/50 teorico-practico', () => {
+  it('calcula examen de corte con 60/40 teorico-practico', () => {
     expect(calcularExamenCorte(8, [10, 8, 6])).toBe(8);
-    expect(calcularExamenCorte(10, [])).toBe(5);
+    expect(calcularExamenCorte(10, [])).toBe(6);
   });
 
   it('calcula bloques y final con pesos 20/20/60 y 50/50', () => {
