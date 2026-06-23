@@ -24,6 +24,13 @@ Version visible objetivo: `1.0.0b`
   - `reports/perf/latest.json`
 
 #### 2.1) Footprint y clasificacion del corte 2026-06-23
+- Promoción a Release Estable v1.0.0 y Limpieza de Git Tags 2026-06-23:
+  - Remoción completa de las 20 tags locales beta (`v1.0.0-beta.0` a `v1.0.0-beta.23`) y las 25 remotas (`v1.0.0-beta.0` a `v1.0.0-beta.24`) en `origin`, saneando el repositorio de ramas y tags de pre-release.
+  - Re-apuntamiento y promoción de la tag de versión estable `v1.0.0` al HEAD actual de `main` (commit `81790384`).
+  - Empujada la tag estable `v1.0.0` a `origin` para disparar automáticamente el pipeline de compilación, empaquetado y publicación `release-stable-gate.yml` en GitHub Actions.
+  - Ejecución y paso exitoso de todas las matrices locales de calidad integradoras de rampa estable (lint, typecheck, tests frontend/backend/portal, coverage TDD, perf, rulesets, y contratos de pipeline).
+  - Validación del release gate estable local con el script orquestador (`validate-stable-promotion.mjs`) obteniendo veredicto "Go" en verde.
+
 - Estabilización de Gates de Calidad, Integración Continua y Fusión de PRs 2026-06-23:
   - Solución definitiva a los errores de compilación TypeScript (`TS7006`) en la CI del backend forzando la autogeneración automática de Prisma Client (`prisma generate`) en los scripts de `apps/backend/package.json` antes de correr `tsc`.
   - Alineamiento del workflow `ci-frontend.yml` con `ci.yml` mediante la configuración de la exclusión `DIFF_COVERAGE_IGNORE_PATH_SUBSTRINGS: "apps/frontend/src"`, resolviendo el bloqueo de cobertura de cambios en el frontend.

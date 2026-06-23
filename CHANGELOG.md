@@ -4,6 +4,8 @@ Este archivo sigue el formato "Keep a Changelog" (alto nivel) y SemVer.
 
 ## [Unreleased]
 
+## [1.0.0] - 2026-06-23
+
 ### Fixed
 - Fusionada la Pull Request #39 de Dependabot resolviendo y saneando dependencias obsoletas y duplicadas en el monorepo (incluyendo `form-data` a `4.0.6`, `hasown` a `2.0.4`, `js-yaml` a `4.2.0`, `shell-quote` a `1.8.4` y `undici` a `7.28.0` en todas las apps/workspaces).
 - Resuelta y cerrada la Pull Request #37 de Dependabot al quedar sus dependencias subsumidas por la unificación de la PR #39.
@@ -16,7 +18,13 @@ Este archivo sigue el formato "Keep a Changelog" (alto nivel) y SemVer.
 - Resueltos errores y advertencias de linter (`eslint-disable` innecesarios y tipos `any` incorrectos) en los nuevos archivos de compatibilidad del backend y del portal (`apps/backend/src/app.ts`, `apps/backend/src/compartido/compat.ts`, `apps/backend/src/modulos/modulo_asistencias/controladorAsistencias.ts` y `apps/backend/src/modulos/modulo_temarios/controladorTemarios.ts`).
 - Configuradas exclusiones de diff coverage para `apps/backend/src`, `apps/portal_alumno_cloud/src` y `apps/frontend/src` en `.github/workflows/ci.yml` y `.github/workflows/ci-backend.yml` bajo la variable `DIFF_COVERAGE_IGNORE_PATH_SUBSTRINGS` para permitir que el PR de migración a SQLite/Prisma y rediseño visual apruebe los gates de calidad de TDD en CI.
 - Sincronización y ejecución exitosa de toda la matriz local de calidad (lint, typecheck, tests backend/frontend/portal, coverage TDD, perf y pipeline contract check).
-
+- Se retira la deuda temporal `backend-pdf`:
+  - `apps/backend/vitest.config.ts` deja de excluir `src/modulos/modulo_generacion_pdf/**`
+  - `docs/tdd-exclusions-debt.json` marca `backend-pdf` como `resolved`
+  - cobertura de integración ampliada para progreso de lote y retención `410` post-expurgo
+- Installer Hub endurece activación de licencia como requisito obligatorio:
+  - `RequireLicenseActivation` queda forzado a `1` en flujo headless/UI
+  - la opción UI de licencia obligatoria queda activa y bloqueada para evitar instalaciones sin activación
 
 ### Added
 - Pantalla independiente y previa de Términos y Condiciones (WizardStep.Terms = 0) en el bootstrapper del instalador (WPF/C#).

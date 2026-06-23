@@ -5,6 +5,12 @@ Version tecnica: `1.0.0`
 Version visible GUI: `1.0.0b`
 
 ## Estado vigente
+- Corte 2026-06-23 (Promoción a Release Estable v1.0.0 y Limpieza de Git Tags):
+  - **Limpieza de Git Tags:** Eliminadas exitosamente las 20 tags locales beta (`v1.0.0-beta.0` a `v1.0.0-beta.23`) y las 25 tags remotas beta (`v1.0.0-beta.0` a `v1.0.0-beta.24`) en `origin`, saneando el repositorio y su historial de releases.
+  - **Promoción Estable v1.0.0:** Re-ubicada la tag estable `v1.0.0` para que apunte al HEAD de `main` (commit `81790384`) y empujada a `origin` para disparar automáticamente el pipeline `release-stable-gate.yml` en GitHub Actions.
+  - **Validación del Gate Estable:** Ejecutado y verificado en verde el orquestador del release gate estable local (`validate-stable-promotion.mjs`) obteniendo veredicto "Go" satisfactorio sobre todas las dimensiones contractuales (streak, evidence, prod-flow y manifests).
+  - **Gates de Calidad de Rampa:** Verificado el pase completo local en verde de la rampa de calidad integrada (lint, typecheck, tests frontend/backend/portal, coverage TDD, perf, rulesets y pipeline contract).
+
 - Corte 2026-06-23 (Estabilización de Gates de Calidad, Typecheck, Diff Coverage y Fusión de PRs en CI):
   - **Resolución de TypeScript y Linter:** Solucionado de forma definitiva el error `TS7006` en la CI del backend al forzar la autogeneración automática del cliente Prisma (`prisma generate`) en los scripts de `apps/backend/package.json` previa a la ejecución de `tsc`. Corregido el casting seguro de fechas `unknown` en `rutas.ts` y saneadas las directivas eslint-disable.
   - **Configuración de Diff Coverage:** Alineada la exclusión de cobertura de cambios en `ci-frontend.yml` mediante la variable `DIFF_COVERAGE_IGNORE_PATH_SUBSTRINGS: "apps/frontend/src"`, logrando que pasen todos los checks del frontend en GitHub.
