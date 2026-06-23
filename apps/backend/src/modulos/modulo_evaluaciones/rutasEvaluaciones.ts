@@ -40,7 +40,8 @@ import {
   esquemaComponenteExamen,
   esquemaConfigurarPeriodo,
   esquemaCrearEvidencia,
-  esquemaCrearPolitica
+  esquemaCrearPolitica,
+  esquemaInicializarEncuadre
 } from './validacionesEvaluaciones';
 import {
   esquemaActualizarMapeoAlumnosCurso,
@@ -136,7 +137,12 @@ router.post(
 router.get('/v2/classroom/mapeos', requerirPermiso('classroom:pull'), listarMapeosClassroom);
 
 // --- Encuadre Académico CUH ---
-router.post('/encuadre/inicializar', requerirPermiso('evaluaciones:gestionar'), inicializarEncuadre);
+router.post(
+  '/encuadre/inicializar',
+  requerirPermiso('evaluaciones:gestionar'),
+  validarCuerpo(esquemaInicializarEncuadre, { strict: true }),
+  inicializarEncuadre
+);
 router.get('/encuadre/estado/:periodoId', requerirPermiso('evaluaciones:leer'), obtenerEstadoEncuadre);
 
 export default router;
