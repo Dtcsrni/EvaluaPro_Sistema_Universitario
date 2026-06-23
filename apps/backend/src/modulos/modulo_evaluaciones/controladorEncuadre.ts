@@ -136,8 +136,19 @@ export async function inicializarEncuadre(req: SolicitudDocente, res: Response) 
     // Guardar archivo PDF en disco local
     const encuadresDir = path.resolve('apps/backend/data/encuadres');
     await fs.mkdir(encuadresDir, { recursive: true });
-    const pdfRelativePath = `data/encuadres/${periodoId}_encuadre_base.pdf`;
-    const pdfFullPath = path.resolve('apps/backend', pdfRelativePath);
+
+    // Prevenir path traversal en periodoId
+    const safePeriodoId = String(periodoId).replace(/[^a-zA-Z0-9-]/g, '');
+    if (safePeriodoId !== periodoId) {
+      throw new ErrorAplicacion('DATOS_INVALIDOS', 'periodoId no válido', 400);
+    }
+
+    const pdfFullPath = path.resolve(encuadresDir, `${safePeriodoId}_encuadre_base.pdf`);
+    if (!pdfFullPath.startsWith(encuadresDir)) {
+      throw new ErrorAplicacion('ACCESO_DENEGADO', 'Ruta de archivo no permitida', 400);
+    }
+
+    const pdfRelativePath = `data/encuadres/${safePeriodoId}_encuadre_base.pdf`;
     await fs.writeFile(pdfFullPath, pdfBuffer);
 
     // Crear registro base del encuadre
@@ -323,7 +334,11 @@ export async function descargarPdfEncuadrePublico(req: Request, res: Response) {
       return res.status(404).json({ error: 'Archivo no encontrado o inválido' });
     }
 
+    const encuadresDir = path.resolve('apps/backend/data/encuadres');
     const pdfFullPath = path.resolve('apps/backend', firma.encuadre.rutaPdf);
+    if (!pdfFullPath.startsWith(encuadresDir)) {
+      return res.status(400).json({ error: 'Acceso denegado a la ruta del archivo' });
+    }
     try {
       await fs.access(pdfFullPath);
     } catch {
@@ -383,7 +398,11 @@ export async function firmarEncuadrePublico(req: Request, res: Response) {
     }
 
     // Cargar y estampar el PDF
+    const encuadresDir = path.resolve('apps/backend/data/encuadres');
     const pdfFullPath = path.resolve('apps/backend', firma.encuadre.rutaPdf || '');
+    if (!pdfFullPath.startsWith(encuadresDir)) {
+      return res.status(400).json({ error: 'Acceso denegado a la ruta del archivo' });
+    }
     let pdfBuffer: Buffer;
     try {
       pdfBuffer = await fs.readFile(pdfFullPath);

@@ -49,6 +49,7 @@ const integrationFilesAM = [
   'tests/integracion/classroom.v2.test.ts',
   'tests/integracion/comercial.webhook.mercadopago.firma.test.ts',
   'tests/integracion/compliance.arco.test.ts',
+  'tests/integracion/encuadre.modulo.test.ts',
   'tests/integracion/evaluaciones.modulo.test.ts',
   'tests/integracion/examenesRetention.test.ts',
   'tests/integracion/flujoDocenteAlumnoProduccionLikeE2E.test.ts'

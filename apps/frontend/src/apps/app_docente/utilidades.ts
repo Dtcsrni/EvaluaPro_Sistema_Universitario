@@ -183,24 +183,30 @@ function numeroSeguro(valor: unknown): number {
   return Number.isFinite(n) ? n : 0;
 }
 
-function opcionOmrSegura(valor: unknown): string | null {
-  return typeof valor === 'string' && valor ? valor : null;
-}
-
 function normalizarEstadoAnalisis(estado: unknown): ResultadoOmr['estadoAnalisis'] {
   if (estado === 'ok' || estado === 'rechazado_calidad' || estado === 'requiere_revision') return estado;
   return 'requiere_revision';
 }
 
-function normalizarRespuestasDetectadas(
-  respuestas: Partial<ResultadoOmr>['respuestasDetectadas']
-): ResultadoOmr['respuestasDetectadas'] {
+export function normalizarRespuestasDetectadas(
+  respuestas: Array<{ numeroPregunta: number; opcion: string | null; confianza?: number }> | undefined
+): Array<{ numeroPregunta: number; opcion: string | null; confianza: number }> {
   if (!Array.isArray(respuestas)) return [];
-  return respuestas.map((item) => ({
-    numeroPregunta: numeroSeguro(item?.numeroPregunta),
-    opcion: opcionOmrSegura(item?.opcion),
-    confianza: numeroSeguro(item?.confianza)
-  }));
+  const normalizadas = new Map<number, { numeroPregunta: number; opcion: string | null; confianza: number }>();
+  for (const item of respuestas) {
+    const numeroPregunta = Number(item?.numeroPregunta);
+    if (!Number.isInteger(numeroPregunta) || numeroPregunta <= 0) continue;
+    const opcionCruda = typeof item?.opcion === 'string' ? item.opcion.trim().toUpperCase() : '';
+    const opcion = opcionCruda.length === 1 && ['A', 'B', 'C', 'D', 'E'].includes(opcionCruda) ? opcionCruda : null;
+    const confianzaRaw = Number(item?.confianza);
+    const confianza = (Number.isFinite(confianzaRaw) && confianzaRaw >= 0 && confianzaRaw <= 1) ? confianzaRaw : 0;
+    normalizadas.set(numeroPregunta, {
+      numeroPregunta,
+      opcion,
+      confianza
+    });
+  }
+  return [...normalizadas.values()].sort((a, b) => a.numeroPregunta - b.numeroPregunta);
 }
 
 export function normalizarResultadoOmr(entrada: Partial<ResultadoOmr> | null | undefined): ResultadoOmr {

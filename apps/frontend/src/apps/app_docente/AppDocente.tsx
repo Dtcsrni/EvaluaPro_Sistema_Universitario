@@ -21,6 +21,7 @@ import { SeccionAsistencias } from './SeccionAsistencias';
 import { SeccionTemarios } from './SeccionTemarios';
 import { usePermisosDocente } from './hooks/usePermisosDocente';
 import { useSesionDocente } from './hooks/useSesionDocente';
+import { useRecordatorioPaseLista } from './hooks/useRecordatorioPaseLista';
 import { registrarAccionDocente } from './telemetriaDocente';
 import type {
   Alumno,
@@ -45,9 +46,11 @@ import {
   construirClaveCorrectaExamen,
   normalizarResultadoOmr,
   normalizarTemplateVersionOmrDetectada,
-  obtenerVistaInicial
+  obtenerVistaInicial,
+  normalizarRespuestasDetectadas
 } from './utilidades';
 export function AppDocente() {
+  const montadoRef = useRef(true);
   const [docente, setDocente] = useState<Docente | null>(null);
   const [capacidadesIntegraciones, setCapacidadesIntegraciones] = useState<{
     oauthGoogleBackend: boolean;
@@ -130,37 +133,13 @@ export function AppDocente() {
   const [marcaActualizacionCalificados, setMarcaActualizacionCalificados] = useState<number>(0);
   const [cargandoDatos, setCargandoDatos] = useState(false);
   const [ultimaActualizacionDatos, setUltimaActualizacionDatos] = useState<number | null>(null);
-  const [recordatorioPaseLista, setRecordatorioPaseLista] = useState(false);
-  const recordatorioCerradoRef = useRef(false);
-
-  const verificarRecordatorioPaseLista = useCallback(() => {
-    if (!docente || !permisosUI.asistencias?.leer || periodos.length === 0 || recordatorioCerradoRef.current) {
-      setRecordatorioPaseLista(false);
-      return;
-    }
-    const hoyStr = new Date().toISOString().slice(0, 10);
-    clienteApi
-      .obtener<{ sesiones: Array<{ fecha: string }> }>(`/asistencias/sesiones?periodoId=${periodos[0]._id}`)
-      .then((data) => {
-        const tieneHoy = (data.sesiones ?? []).some((s) => s.fecha.startsWith(hoyStr));
-        setRecordatorioPaseLista(!tieneHoy);
-      })
-      .catch(() => {
-        setRecordatorioPaseLista(false);
-      });
-  }, [docente, periodos, permisosUI.asistencias]);
-
-  const cerrarRecordatorioPaseLista = useCallback(() => {
-    recordatorioCerradoRef.current = true;
-    setRecordatorioPaseLista(false);
-  }, []);
-
-  useEffect(() => {
-    verificarRecordatorioPaseLista();
-  }, [periodos, verificarRecordatorioPaseLista]);
+  const { recordatorioPaseLista, cerrarRecordatorioPaseLista } = useRecordatorioPaseLista({
+    docente,
+    permisosUI,
+    periodos
+  });
 
   function cerrarSesion() {
-    // Best-effort: limpia refresh token server-side.
     void clienteApi.enviar('/autenticacion/salir', {});
     limpiarTokenDocente();
     setDocente(null);
@@ -168,8 +147,6 @@ export function AppDocente() {
     registrarAccionDocente('logout', true);
   }
   const tabsRef = useRef<Array<HTMLButtonElement | null>>([]);
-  const montadoRef = useRef(true);
-  // Nota UX: ocultamos el badge de estado API (no aporta al flujo docente).
   useEffect(() => {
     if (itemsVista.length === 0) return;
     const vistaBase = vista === 'periodos_archivados' ? 'periodos' : vista;
@@ -222,6 +199,34 @@ export function AppDocente() {
   const smtpDisponible = Boolean(capacidadesIntegraciones?.smtpBackend);
   const requireGoogleOAuth = Boolean(capacidadesIntegraciones?.requireGoogleOAuth);
   const passwordLoginAllowed = capacidadesIntegraciones?.passwordLoginAllowed !== false;
+  const refrescarMaterias = useCallback(() => {
+    if (!permisosUI.periodos.leer) {
+      setPeriodos([]);
+      setPeriodosArchivados([]);
+      return Promise.resolve();
+    }
+    return Promise.all([
+      clienteApi.obtener<{ periodos?: Periodo[]; materias?: Periodo[] }>('/periodos?activo=1'),
+      clienteApi.obtener<{ periodos?: Periodo[]; materias?: Periodo[] }>('/periodos?activo=0')
+    ]).then(([peActivas, peArchivadas]) => {
+      if (!montadoRef.current) return;
+      const activas = peActivas.periodos ?? peActivas.materias ?? [];
+      const archivadas = peArchivadas.periodos ?? peArchivadas.materias ?? [];
+      const activasArray = Array.isArray(activas) ? activas : [];
+      const archivadasArray = Array.isArray(archivadas) ? archivadas : [];
+      const ids = (lista: Periodo[]) => lista.map((m) => m._id).filter(Boolean).sort().join('|');
+      const mismoContenido = activasArray.length > 0 && ids(activasArray) === ids(archivadasArray);
+      if (mismoContenido) {
+        setPeriodos(activasArray.filter((m) => m.activo !== false));
+        setPeriodosArchivados(activasArray.filter((m) => m.activo === false));
+      } else {
+        setPeriodos(activasArray);
+        setPeriodosArchivados(archivadasArray);
+      }
+      setUltimaActualizacionDatos(Date.now());
+    });
+  }, [permisosUI.periodos.leer]);
+
   const refrescarDatos = useCallback(async () => {
     if (!docente) return;
     if (montadoRef.current) setCargandoDatos(true);
@@ -237,32 +242,7 @@ export function AppDocente() {
         setAlumnos([]);
       }
       if (permisosUI.periodos.leer) {
-        tareas.push(
-          Promise.all([
-            clienteApi.obtener<{ periodos?: Periodo[]; materias?: Periodo[] }>('/periodos?activo=1'),
-            clienteApi.obtener<{ periodos?: Periodo[]; materias?: Periodo[] }>('/periodos?activo=0')
-          ]).then(([peActivas, peArchivadas]) => {
-            if (!montadoRef.current) return;
-            const activas = (peActivas as unknown as { periodos?: Periodo[]; materias?: Periodo[] }).periodos ??
-              (peActivas as unknown as { periodos?: Periodo[]; materias?: Periodo[] }).materias ??
-              [];
-            const archivadas = (peArchivadas as unknown as { periodos?: Periodo[]; materias?: Periodo[] }).periodos ??
-              (peArchivadas as unknown as { periodos?: Periodo[]; materias?: Periodo[] }).materias ??
-              [];
-            const activasArray = Array.isArray(activas) ? activas : [];
-            const archivadasArray = Array.isArray(archivadas) ? archivadas : [];
-            const ids = (lista: Periodo[]) => lista.map((m) => m._id).filter(Boolean).sort().join('|');
-            const mismoContenido = activasArray.length > 0 && ids(activasArray) === ids(archivadasArray);
-            // Fallback: si el backend ignora ?activo y devuelve lo mismo, separa localmente.
-            if (mismoContenido) {
-              setPeriodos(activasArray.filter((m) => m.activo !== false));
-              setPeriodosArchivados(activasArray.filter((m) => m.activo === false));
-            } else {
-              setPeriodos(activasArray);
-              setPeriodosArchivados(archivadasArray);
-            }
-          })
-        );
+        tareas.push(refrescarMaterias());
       } else {
         setPeriodos([]);
         setPeriodosArchivados([]);
@@ -290,7 +270,7 @@ export function AppDocente() {
     } finally {
       if (montadoRef.current) setCargandoDatos(false);
     }
-  }, [docente, permisosUI.alumnos.leer, permisosUI.banco.leer, permisosUI.periodos.leer, permisosUI.plantillas.leer]);
+  }, [docente, permisosUI.alumnos.leer, permisosUI.banco.leer, permisosUI.periodos.leer, permisosUI.plantillas.leer, refrescarMaterias]);
   useEffect(() => {
     void refrescarDatos();
   }, [refrescarDatos]);
@@ -305,32 +285,6 @@ export function AppDocente() {
         setSolicitudesRevision([]);
       });
   }, [docente, permisosUI.calificaciones.calificar, vista]);
-  function refrescarMaterias() {
-    if (!permisosUI.periodos.leer) {
-      setPeriodos([]);
-      setPeriodosArchivados([]);
-      return Promise.resolve();
-    }
-    return Promise.all([
-      clienteApi.obtener<{ periodos?: Periodo[]; materias?: Periodo[] }>('/periodos?activo=1'),
-      clienteApi.obtener<{ periodos?: Periodo[]; materias?: Periodo[] }>('/periodos?activo=0')
-    ]).then(([peActivas, peArchivadas]) => {
-      const activas = peActivas.periodos ?? peActivas.materias ?? [];
-      const archivadas = peArchivadas.periodos ?? peArchivadas.materias ?? [];
-      const activasArray = Array.isArray(activas) ? activas : [];
-      const archivadasArray = Array.isArray(archivadas) ? archivadas : [];
-      const ids = (lista: Periodo[]) => lista.map((m) => m._id).filter(Boolean).sort().join('|');
-      const mismoContenido = activasArray.length > 0 && ids(activasArray) === ids(archivadasArray);
-      if (mismoContenido) {
-        setPeriodos(activasArray.filter((m) => m.activo !== false));
-        setPeriodosArchivados(activasArray.filter((m) => m.activo === false));
-      } else {
-        setPeriodos(activasArray);
-        setPeriodosArchivados(archivadasArray);
-      }
-      setUltimaActualizacionDatos(Date.now());
-    });
-  }
   const examenOmrActivo = useMemo(
     () => revisionesOmr.find((item) => item.examenId === examenIdOmr) ?? null,
     [examenIdOmr, revisionesOmr]
@@ -404,28 +358,7 @@ export function AppDocente() {
         .join('|');
     return firma(respuestasEditadas) !== firma(pagina.respuestas);
   }, [examenOmrActivo, paginaOmrActiva, respuestasEditadas]);
-  const normalizarRespuestasDetectadas = useCallback(
-    (
-      respuestas: Array<{ numeroPregunta: number; opcion: string | null; confianza?: number }> | undefined
-    ): Array<{ numeroPregunta: number; opcion: string | null; confianza?: number }> => {
-      if (!Array.isArray(respuestas)) return [];
-      const normalizadas = new Map<number, { numeroPregunta: number; opcion: string | null; confianza?: number }>();
-      for (const item of respuestas) {
-        const numeroPregunta = Number(item?.numeroPregunta);
-        if (!Number.isInteger(numeroPregunta) || numeroPregunta <= 0) continue;
-        const opcionCruda = typeof item?.opcion === 'string' ? item.opcion.trim().toUpperCase() : '';
-        const opcion = opcionCruda.length === 1 && ['A', 'B', 'C', 'D', 'E'].includes(opcionCruda) ? opcionCruda : null;
-        const confianza = Number(item?.confianza);
-        normalizadas.set(numeroPregunta, {
-          numeroPregunta,
-          opcion,
-          ...(Number.isFinite(confianza) && confianza >= 0 && confianza <= 1 ? { confianza } : {})
-        });
-      }
-      return [...normalizadas.values()].sort((a, b) => a.numeroPregunta - b.numeroPregunta);
-    },
-    []
-  );
+
   const llaveBorradorOmr = useCallback((examenId: string, numeroPagina: number) => `${examenId}::${numeroPagina}`, []);
   const seleccionarRevisionOmr = useCallback(
     (examenId: string, numeroPagina: number) => {
@@ -1344,4 +1277,3 @@ export function AppDocente() {
   );
   return <ShellDocente docente={docente} onCerrarSesion={cerrarSesion}>{contenido}</ShellDocente>;
 }
-
