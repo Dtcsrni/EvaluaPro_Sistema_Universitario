@@ -5,6 +5,37 @@ Version tecnica: `1.0.0`
 Version visible GUI: `1.0.0b`
 
 ## Estado vigente
+- Corte 2026-06-23 (Automatización de Reglas de Encuadre y Firma Digital Institucional - SPEC-002):
+  - **Especificación Técnica Aprobada:** Redactada y aprobada la especificación `docs/specs/encuadre_firmas.spec.md` (`SPEC-002` v1.1.0) que gobierna el diseño técnico y las aserciones de la firma digital.
+  - **Base de Datos SQLite (Prisma):** Creados los modelos `EncuadreAcademico` y `FirmaEncuadre` en `schema.prisma` y sincronizados localmente mediante `npx prisma db push`.
+  - **Generador PDF Paramétrico (pdf-lib):** Implementado `generarPdfEncuadreBase` con cabecera de 3 columnas, soporte para dos logos y textos completamente parametrizables, replicando con precisión el formato oficial "ENCUADRE LISC.docx".
+  - **Estampado Digital de Conformidad:** Implementado `registrarFirmaPdf` para estampar la firma del docente y alumnos en la Página 2 del PDF con IP, fecha y hash criptográfico HMAC-SHA256.
+  - **Panel de Control Docente:** Diseñada la interfaz de control en `SeccionCalificaciones.tsx` que permite inicializar el encuadre (con carga de logos en base64) y monitorear el estado de las firmas de los alumnos.
+  - **Vista Pública de Firma Standalone:** Diseñado el componente público `PaginaFirmaEncuadre.tsx` expuesto bajo la ruta hash interceptada `#/firmar-encuadre/:token` en `App.tsx` para firmar digitalmente sin iniciar sesión.
+  - **Higiene de Código (Inline Styles):** Saneados todos los estilos inline JSX en `SeccionAlumnos.tsx` y `SeccionCalificaciones.tsx`, extrayéndolos a clases CSS dedicadas en `styles.css`.
+  - **Matriz de Gates de Calidad:** Verificado localmente el pase exitoso en verde: lint ✅, typecheck ✅, test:backend ✅ (incluyendo tests específicos de `servicioEncuadrePdf` e integraciones), test:frontend:ci ✅ (114 tests), test:coverage:ci ✅, test:tdd:enforcement:ci ✅ y `test:ia:traceability` ✅.
+
+- Corte 2026-06-23 (Rediseño y Mejora Comercial del Portal de Marketing y SPEC-002):
+  - **Especificación Técnica Aprobada:** Redactada y aprobada la especificación `docs/specs/marketing_site.spec.md` (`SPEC-002`) que gobierna la semántica, el SEO, los estilos y las aserciones del smoke test de la página comercial.
+  - **Rediseño Estético y Responsivo:** Actualizado `site/styles.css` para implementar un tema oscuro premium en base a HSL, luces de neón en tarjetas, glassmorphism (`backdrop-filter`) y tipografía Sora y IBM Plex Sans.
+  - **Live UI Mockups en HTML/CSS:** Implementadas réplicas visuales estáticas detalladas del Dashboard del Docente (KPIs en vivo, cursos y estado de exámenes) y de la detección óptica OMR (examen simulado con marcas circulares y cajas de acierto/error en verde/rojo).
+  - **FAQs y Licenciamiento:** Integrada la sección de FAQ interactivas mediante acordeones nativos (`<details>` y `<summary>` estilizados) y rediseñadas las tablas comparativas de licenciamiento (AGPL vs Comercial vs Institucional).
+  - **Pase de Gates:** Verificado localmente en verde el smoke test del portal (`node scripts/tests/marketing-site.smoke.test.mjs`) y el validador de gobernanza del monorepo (`npm run ci:policy:audit`).
+
+- Corte 2026-06-23 (Implementación de Política Global de Spec-Driven Development - SDD):
+  - **Política SDD y Plantilla:** Creada `docs/POLITICA_SDD.md` estableciendo el ciclo de vida de especificaciones, formato YAML, y directrices para la Matriz de Trazabilidad. Diseñada la plantilla base en `docs/specs/template.spec.md`.
+  - **DevOps y Auditoría de Specs:** Desarrollado `scripts/sdd-audit.mjs` para validar la presencia de YAML frontmatter, secciones requeridas, y la existencia real de los archivos de prueba declarados en la matriz.
+  - **Pruebas Unitarias del Auditor:** Implementada la suite de pruebas unitarias `scripts/tests/sdd-audit.test.mjs` con cobertura para especificaciones válidas, campos faltantes, secciones ausentes y fallas por tests inexistentes.
+  - **Gobernanza Viva:** Redactada la primera especificación viva en `docs/specs/sdd_governance.spec.md` para documentar la gobernanza de SDD y autovalidar el funcionamiento del script auditor.
+  - **Integración de Calidad (Gates):** Registrados scripts en `package.json` (`sdd:audit` y `test:sdd:policy`) e integrados de forma obligatoria en la verificación consolidada local/CI `"ci:policy:audit"`.
+  - **Gobernanza de Agentes:** Modificados `AGENTS.md` y `docs/IA_TRAZABILIDAD_AGENTES.md` para incorporar SDD de forma obligatoria en las directrices de ejecución de agentes de IA.
+
+- Corte 2026-06-23 (Promoción a Release Estable v1.0.0 y Limpieza de Git Tags):
+  - **Limpieza de Git Tags:** Eliminadas exitosamente las 20 tags locales beta (`v1.0.0-beta.0` a `v1.0.0-beta.23`) y las 25 tags remotas beta (`v1.0.0-beta.0` a `v1.0.0-beta.24`) en `origin`, saneando el repositorio y su historial de releases.
+  - **Promoción Estable v1.0.0:** Re-ubicada la tag estable `v1.0.0` para que apunte al HEAD de `main` (commit `81790384`) y empujada a `origin` para disparar automáticamente el pipeline `release-stable-gate.yml` en GitHub Actions.
+  - **Validación del Gate Estable:** Ejecutado y verificado en verde el orquestador del release gate estable local (`validate-stable-promotion.mjs`) obteniendo veredicto "Go" satisfactorio sobre todas las dimensiones contractuales (streak, evidence, prod-flow y manifests).
+  - **Gates de Calidad de Rampa:** Verificado el pase completo local en verde de la rampa de calidad integrada (lint, typecheck, tests frontend/backend/portal, coverage TDD, perf, rulesets y pipeline contract).
+
 - Corte 2026-06-23 (Estabilización de Gates de Calidad, Typecheck, Diff Coverage y Fusión de PRs en CI):
   - **Resolución de TypeScript y Linter:** Solucionado de forma definitiva el error `TS7006` en la CI del backend al forzar la autogeneración automática del cliente Prisma (`prisma generate`) en los scripts de `apps/backend/package.json` previa a la ejecución de `tsc`. Corregido el casting seguro de fechas `unknown` en `rutas.ts` y saneadas las directivas eslint-disable.
   - **Configuración de Diff Coverage:** Alineada la exclusión de cobertura de cambios en `ci-frontend.yml` mediante la variable `DIFF_COVERAGE_IGNORE_PATH_SUBSTRINGS: "apps/frontend/src"`, logrando que pasen todos los checks del frontend en GitHub.

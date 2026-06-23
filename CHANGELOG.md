@@ -4,6 +4,24 @@ Este archivo sigue el formato "Keep a Changelog" (alto nivel) y SemVer.
 
 ## [Unreleased]
 
+### Added
+- **Encuadre Académico Digital (SPEC-002):** Implementada la persistencia completa mediante Prisma (`EncuadreAcademico` y `FirmaEncuadre`) sobre la base de datos SQLite local.
+- **Generador y Firmado de PDFs:** Implementada la lógica de generación del PDF base de encuadres parametrizable con logos (PNG/JPEG) y formato de 3 columnas en cabecera. Implementado el estampado digital seguro (Fecha, IP y Hash criptográfico HMAC-SHA256) en la Página 2 del PDF sin corromper el documento.
+- **Panel Docente de Encuadres:** Agregada la interfaz de configuración y visualización en tiempo real del estado de firmas de alumnos para el docente en `SeccionCalificaciones.tsx`.
+- **Firma Standalone Pública:** Creado el componente público `PaginaFirmaEncuadre.tsx` bajo la interceptación de la ruta hash `#/firmar-encuadre/:token` en `App.tsx` para firmar de conformidad sin iniciar sesión.
+- **Badge "SIN DERECHO" por Faltas:** Integrada la advertencia visual "SIN DERECHO (4 O MÁS FALTAS)" en `SeccionAlumnos.tsx` al superar el límite de inasistencias en la materia.
+- **Higiene del Monorepo (Inline Styles):** Refactorizados y extraídos todos los estilos inline JSX en `SeccionAlumnos.tsx` y `SeccionCalificaciones.tsx` a clases CSS específicas en `styles.css`.
+
+
+### Added
+- Implementada la política global de **Spec-Driven Development (SDD)** en todo el monorepo (`docs/POLITICA_SDD.md`), haciendo obligatoria la creación de especificaciones previas en `docs/specs/*.spec.md` para todo desarrollo.
+- Creado el script DevOps auditor de especificaciones `scripts/sdd-audit.mjs` que valida frontmatters YAML, secciones obligatorias e integridad de tests.
+- Creada la especificación de referencia `docs/specs/sdd_governance.spec.md` y la plantilla de diseño `docs/specs/template.spec.md`.
+- Creadas las pruebas unitarias para el validador en `scripts/tests/sdd-audit.test.mjs`.
+- Integrada la validación de specs y tests asociados al pipeline de CI de forma bloqueante mediante `"ci:policy:audit"`.
+
+## [1.0.0] - 2026-06-23
+
 ### Fixed
 - Fusionada la Pull Request #39 de Dependabot resolviendo y saneando dependencias obsoletas y duplicadas en el monorepo (incluyendo `form-data` a `4.0.6`, `hasown` a `2.0.4`, `js-yaml` a `4.2.0`, `shell-quote` a `1.8.4` y `undici` a `7.28.0` en todas las apps/workspaces).
 - Resuelta y cerrada la Pull Request #37 de Dependabot al quedar sus dependencias subsumidas por la unificación de la PR #39.
@@ -16,9 +34,20 @@ Este archivo sigue el formato "Keep a Changelog" (alto nivel) y SemVer.
 - Resueltos errores y advertencias de linter (`eslint-disable` innecesarios y tipos `any` incorrectos) en los nuevos archivos de compatibilidad del backend y del portal (`apps/backend/src/app.ts`, `apps/backend/src/compartido/compat.ts`, `apps/backend/src/modulos/modulo_asistencias/controladorAsistencias.ts` y `apps/backend/src/modulos/modulo_temarios/controladorTemarios.ts`).
 - Configuradas exclusiones de diff coverage para `apps/backend/src`, `apps/portal_alumno_cloud/src` y `apps/frontend/src` en `.github/workflows/ci.yml` y `.github/workflows/ci-backend.yml` bajo la variable `DIFF_COVERAGE_IGNORE_PATH_SUBSTRINGS` para permitir que el PR de migración a SQLite/Prisma y rediseño visual apruebe los gates de calidad de TDD en CI.
 - Sincronización y ejecución exitosa de toda la matriz local de calidad (lint, typecheck, tests backend/frontend/portal, coverage TDD, perf y pipeline contract check).
-
+- Se retira la deuda temporal `backend-pdf`:
+  - `apps/backend/vitest.config.ts` deja de excluir `src/modulos/modulo_generacion_pdf/**`
+  - `docs/tdd-exclusions-debt.json` marca `backend-pdf` como `resolved`
+  - cobertura de integración ampliada para progreso de lote y retención `410` post-expurgo
+- Installer Hub endurece activación de licencia como requisito obligatorio:
+  - `RequireLicenseActivation` queda forzado a `1` en flujo headless/UI
+  - la opción UI de licencia obligatoria queda activa y bloqueada para evitar instalaciones sin activación
 
 ### Added
+- Integrada la especificación técnica `SPEC-002` (`docs/specs/marketing_site.spec.md`) aprobada para el portal de marketing y promoción comercial de EvaluaPro.
+- Rediseño estético y responsivo premium del sitio de marketing (`site/index.html` y `site/styles.css`) bajo un esquema de tema oscuro HSL con luces de neón, glassmorphism y tipografías premium.
+- Creada una réplica visual de alta fidelidad en HTML/CSS del Dashboard del Docente dentro del flujo del sitio (métricas simuladas y cursos activos).
+- Creada una simulación en CSS de lectura OMR que emula con exactitud la detección digital de burbujas en verde (aciertos) y rojo (errores) del software real.
+- Rediseñadas las tablas comparativas de licenciamiento (AGPL vs Comercial vs Institucional) y los acordeones fluidos de preguntas frecuentes (FAQ).
 - Pantalla independiente y previa de Términos y Condiciones (WizardStep.Terms = 0) en el bootstrapper del instalador (WPF/C#).
 - Validación estricta y reactiva para habilitar/deshabilitar la navegación (Siguiente e Iniciar/Continuar) según la aceptación de los términos y condiciones (obligatorio para el modo instalación).
 - Deshabilitación dinámica del botón de retroceso (Atrás) en el paso de "Preparar" cuando se opera en modos no-instalación (reparación o desinstalación) para evitar navegación accidental a los términos.

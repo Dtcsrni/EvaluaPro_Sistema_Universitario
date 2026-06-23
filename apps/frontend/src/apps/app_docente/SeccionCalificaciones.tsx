@@ -63,6 +63,7 @@ import {
 
 
 export function SeccionCalificaciones({
+  periodos = [],
   alumnos,
   onAnalizar,
   onPrevisualizar,
@@ -96,6 +97,7 @@ export function SeccionCalificaciones({
   permisos,
   avisarSinPermiso
 }: {
+  periodos?: Periodo[];
   alumnos: Alumno[];
   onAnalizar: (
     folio: string,
@@ -216,6 +218,117 @@ export function SeccionCalificaciones({
   const [activandoManual, setActivandoManual] = useState(false);
   const [manualMensaje, setManualMensaje] = useState('');
   const [cargandoSolicitudes, setCargandoSolicitudes] = useState(false);
+  // States for Encuadre Académico
+  const [selectedPeriodoId, setSelectedPeriodoId] = useState('');
+  const [encuadreEstado, setEncuadreEstado] = useState<any>(null);
+  const [loadingEncuadre, setLoadingEncuadre] = useState(false);
+  const [errorEncuadre, setErrorEncuadre] = useState<string | null>(null);
+  const [mostrarFormulario, setMostrarFormulario] = useState(false);
+  const [guardandoEncuadre, setGuardandoEncuadre] = useState(false);
+
+  // Form fields for Encuadre
+  const [instNombre, setInstNombre] = useState('Centro Universitario Hidalguense');
+  const [instLema, setInstLema] = useState('LA SABIDURIA ES NUESTRA FUERZA');
+  const [logoBase64, setLogoBase64] = useState('');
+  const [logoCarreraBase64, setLogoCarreraBase64] = useState('');
+  const [carrera, setCarrera] = useState('Licenciatura en Ingeniería en Sistemas Computacionales');
+  const [clave, setClave] = useState('ISCF213');
+  const [area, setArea] = useState('Área de Ingeniería');
+  const [ejeFormacion, setEjeFormacion] = useState('Profesional');
+  const [horasDocente, setHorasDocente] = useState(50);
+  const [horasIndependientes, setHorasIndependientes] = useState(100);
+  const [creditos, setCreditos] = useState(6.25);
+  const [objetivoGeneral, setObjetivoGeneral] = useState('');
+  const [cicloLectivo, setCicloLectivo] = useState('Del 18 de mayo al 26 de junio de 2026');
+  
+  // Weights
+  const [pctExamenes, setPctExamenes] = useState(50);
+  const [pctEvalContinua, setPctEvalContinua] = useState(50);
+  const [pond1er, setPond1er] = useState(20);
+  const [pond2do, setPond2do] = useState(20);
+  const [pondGlobal, setPondGlobal] = useState(60);
+  const [pondEscrito, setPondEscrito] = useState(60);
+  const [pondPractica, setPondPractica] = useState(40);
+
+  const cargarEstadoEncuadre = useCallback((periodoId: string) => {
+    if (!periodoId) {
+      setEncuadreEstado(null);
+      return;
+    }
+    setLoadingEncuadre(true);
+    setErrorEncuadre(null);
+    clienteApi.obtener(`/evaluaciones/encuadre/estado/${periodoId}`)
+      .then((res: any) => {
+        setEncuadreEstado(res);
+        setLoadingEncuadre(false);
+      })
+      .catch((err: any) => {
+        setEncuadreEstado(null);
+        setLoadingEncuadre(false);
+        if (err.status !== 404) {
+          setErrorEncuadre(err.message || 'Error al obtener estado de firmas');
+        }
+      });
+  }, []);
+
+  useEffect(() => {
+    if (selectedPeriodoId) {
+      cargarEstadoEncuadre(selectedPeriodoId);
+    } else if (periodos.length > 0) {
+      const firstId = String(periodos[0]._id || '');
+      setSelectedPeriodoId(firstId);
+      cargarEstadoEncuadre(firstId);
+    }
+  }, [selectedPeriodoId, periodos, cargarEstadoEncuadre]);
+
+  const handleLogoChange = (e: React.ChangeEvent<HTMLInputElement>, setter: (val: string) => void) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onloadend = () => {
+      setter(reader.result as string);
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const handleInicializarEncuadre = async () => {
+    if (!selectedPeriodoId) return;
+    setGuardandoEncuadre(true);
+    setErrorEncuadre(null);
+    try {
+      await clienteApi.enviar('/evaluaciones/encuadre/inicializar', {
+        periodoId: selectedPeriodoId,
+        carrera,
+        clave,
+        area,
+        horasDocente,
+        horasIndependientes,
+        creditos,
+        objetivoGeneral,
+        cicloLectivo,
+        institucionNombre: instNombre,
+        institucionLema: instLema,
+        logoBase64,
+        logoCarreraBase64,
+        porcentajeExamenes: pctExamenes,
+        porcentajeEvalContinua: pctEvalContinua,
+        ponderacion1erParcial: pond1er,
+        ponderacion2doParcial: pond2do,
+        ponderacionGlobal: pondGlobal,
+        ponderacionExamenEscrito: pondEscrito,
+        ponderacionPractica: pondPractica,
+        ejeFormacion
+      });
+      emitToast({ level: 'ok', title: 'Encuadre', message: 'Encuadre digital inicializado y notificado por correo.' });
+      setMostrarFormulario(false);
+      cargarEstadoEncuadre(selectedPeriodoId);
+    } catch (err: any) {
+      setErrorEncuadre(err.message || 'Error al inicializar el encuadre');
+    } finally {
+      setGuardandoEncuadre(false);
+    }
+  };
+
   const [resolviendoSolicitudId, setResolviendoSolicitudId] = useState('');
   const [mensajeRevision, setMensajeRevision] = useState('');
   const [filtroSolicitudes, setFiltroSolicitudes] = useState('');
@@ -894,6 +1007,189 @@ export function SeccionCalificaciones({
           />
         </div>
         <aside className="calificaciones-layout__aside" aria-label="Panel de calificación">
+          <section className="panel calificaciones-encuadre-panel">
+            <h3>
+              <Icono nombre="pdf" /> Encuadre Académico y Firmas
+            </h3>
+            <p className="nota">Configura el formato de encuadre digital y notifica a los alumnos para su firma desde su correo institucional.</p>
+            
+            <label className="campo">
+              Materia / Periodo
+              <select value={selectedPeriodoId} onChange={(e) => setSelectedPeriodoId(e.target.value)}>
+                <option value="">Selecciona materia</option>
+                {periodos.map((p) => (
+                  <option key={p._id} value={p._id}>
+                    {p.nombre}
+                  </option>
+                ))}
+              </select>
+            </label>
+
+            {loadingEncuadre && <p className="nota">Cargando estado del encuadre...</p>}
+            {errorEncuadre && <div className="alert alert--danger">{errorEncuadre}</div>}
+
+            {encuadreEstado ? (
+              <div className="encuadre-status-box">
+                <div className="status-header">
+                  <span className="badge ok">Encuadre Inicializado</span>
+                  <span className="font-uppercase">Estado: {encuadreEstado.estado}</span>
+                </div>
+                
+                <div className="firmas-list encuadre-firmas-list-container">
+                  <strong>Estado de Firmas:</strong>
+                  {Array.isArray(encuadreEstado.firmas) && encuadreEstado.firmas.map((f: any) => (
+                    <div key={f.id} className="firma-row encuadre-firma-row-item">
+                      <div>
+                        <span className="encuadre-firma-rol-label">{f.rol}</span>
+                        <span>{f.nombreFirmante}</span>
+                      </div>
+                      <span className={`badge ${f.firmado ? 'ok' : 'warning'} encuadre-firma-badge-status`}>
+                        {f.firmado ? '✓ Firmado' : '⌛ Pendiente'}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+
+                <div className="encuadre-actions-container">
+                  <a href={`/api/evaluaciones-publicas/encuadre/pdf/${encuadreEstado.firmas?.[0]?.tokenFirma}`} target="_blank" rel="noreferrer" className="btn btn--secondary btn-sm encuadre-btn-sm">
+                    Ver PDF Oficial ↗
+                  </a>
+                  <button type="button" className="btn btn--primary btn-sm encuadre-btn-sm" onClick={() => setMostrarFormulario(true)}>
+                    Reconfigurar Encuadre
+                  </button>
+                </div>
+              </div>
+            ) : (
+              selectedPeriodoId && !loadingEncuadre && (
+                <div className="encuadre-margin-top-1rem">
+                  <InlineMensaje tipo="info">No se ha generado el encuadre para esta asignatura.</InlineMensaje>
+                  <button type="button" className="btn btn--primary w-full encuadre-margin-top-point75rem" onClick={() => setMostrarFormulario(true)}>
+                    Configurar y Generar Encuadre
+                  </button>
+                </div>
+              )
+            )}
+
+            {mostrarFormulario && (
+              <div className="encuadre-form-overlay encuadre-form-overlay-box">
+                <h4 className="encuadre-form-title-h4">Configuración de Formato y Ponderaciones</h4>
+                
+                <label className="campo">
+                  Nombre Institución
+                  <input value={instNombre} onChange={(e) => setInstNombre(e.target.value)} />
+                </label>
+                <label className="campo">
+                  Lema Institucional
+                  <input value={instLema} onChange={(e) => setInstLema(e.target.value)} />
+                </label>
+                
+                <div className="encuadre-grid-2col-layout">
+                  <label className="campo">
+                    Logo Principal (Izquierdo)
+                    <input type="file" accept="image/png, image/jpeg" onChange={(e) => handleLogoChange(e, setLogoBase64)} className="encuadre-file-input-field" />
+                  </label>
+                  <label className="campo">
+                    Logo Carrera (Derecho)
+                    <input type="file" accept="image/png, image/jpeg" onChange={(e) => handleLogoChange(e, setLogoCarreraBase64)} className="encuadre-file-input-field" />
+                  </label>
+                </div>
+
+                <label className="campo">
+                  Carrera / Licenciatura
+                  <input value={carrera} onChange={(e) => setCarrera(e.target.value)} />
+                </label>
+
+                <div className="encuadre-grid-2col-layout">
+                  <label className="campo">
+                    Clave Asignatura
+                    <input value={clave} onChange={(e) => setClave(e.target.value)} />
+                  </label>
+                  <label className="campo">
+                    Área
+                    <input value={area} onChange={(e) => setArea(e.target.value)} />
+                  </label>
+                </div>
+
+                <div className="encuadre-grid-3col-layout">
+                  <label className="campo">
+                    Hrs Docente
+                    <input type="number" value={horasDocente} onChange={(e) => setHorasDocente(Number(e.target.value))} />
+                  </label>
+                  <label className="campo">
+                    Hrs Indep.
+                    <input type="number" value={horasIndependientes} onChange={(e) => setHorasIndependientes(Number(e.target.value))} />
+                  </label>
+                  <label className="campo">
+                    Créditos
+                    <input type="number" step="0.01" value={creditos} onChange={(e) => setCreditos(Number(e.target.value))} />
+                  </label>
+                </div>
+
+                <label className="campo">
+                  Eje Formación
+                  <input value={ejeFormacion} onChange={(e) => setEjeFormacion(e.target.value)} />
+                </label>
+
+                <label className="campo">
+                  Objetivo General Asignatura
+                  <textarea value={objetivoGeneral} onChange={(e) => setObjetivoGeneral(e.target.value)} rows={3} placeholder="Describe el objetivo académico principal..." />
+                </label>
+
+                <label className="campo">
+                  Ciclo Lectivo / Horario
+                  <input value={cicloLectivo} onChange={(e) => setCicloLectivo(e.target.value)} />
+                </label>
+
+                <div className="encuadre-divider-dashed-line">
+                  <h5 className="encuadre-form-subtitle-h5">Ponderaciones del Periodo (%)</h5>
+                  <div className="encuadre-grid-2col-layout">
+                    <label className="campo">
+                      Exámenes Bloque (%)
+                      <input type="number" value={pctExamenes} onChange={(e) => setPctExamenes(Number(e.target.value))} />
+                    </label>
+                    <label className="campo">
+                      Eval. Continua (%)
+                      <input type="number" value={pctEvalContinua} onChange={(e) => setPctEvalContinua(Number(e.target.value))} />
+                    </label>
+                  </div>
+                  <div className="encuadre-grid-3col-layout">
+                    <label className="campo">
+                      1er Parcial
+                      <input type="number" value={pond1er} onChange={(e) => setPond1er(Number(e.target.value))} />
+                    </label>
+                    <label className="campo">
+                      2do Parcial
+                      <input type="number" value={pond2do} onChange={(e) => setPond2do(Number(e.target.value))} />
+                    </label>
+                    <label className="campo">
+                      Global Final
+                      <input type="number" value={pondGlobal} onChange={(e) => setPondGlobal(Number(e.target.value))} />
+                    </label>
+                  </div>
+                  <div className="encuadre-grid-2col-layout">
+                    <label className="campo">
+                      Examen Escrito (%)
+                      <input type="number" value={pondEscrito} onChange={(e) => setPondEscrito(Number(e.target.value))} />
+                    </label>
+                    <label className="campo">
+                      Prácticas/Proyecto (%)
+                      <input type="number" value={pondPractica} onChange={(e) => setPondPractica(Number(e.target.value))} />
+                    </label>
+                  </div>
+                </div>
+
+                <div className="encuadre-flex-gap-1rem">
+                  <button type="button" className="btn btn--primary w-full" disabled={guardandoEncuadre} onClick={handleInicializarEncuadre}>
+                    {guardandoEncuadre ? 'Generando PDF y Notificando...' : 'Generar y Enviar a Firmar'}
+                  </button>
+                  <button type="button" className="btn btn--secondary" onClick={() => setMostrarFormulario(false)}>
+                    Cancelar
+                  </button>
+                </div>
+              </div>
+            )}
+          </section>
+
           <section className="panel calificaciones-manual-panel">
             <h3>
               <Icono nombre="alumno" /> Selección manual por entregado

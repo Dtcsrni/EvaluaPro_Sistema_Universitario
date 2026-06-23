@@ -25,6 +25,7 @@ import rutasSincronizacionNube from './modulos/modulo_sincronizacion_nube/rutasS
 import rutasAdminDocentes from './modulos/modulo_admin_docentes/rutasAdminDocentes';
 import rutasPapelera from './modulos/modulo_papelera/rutasPapelera';
 import rutasEvaluaciones from './modulos/modulo_evaluaciones/rutasEvaluaciones';
+import rutasEvaluacionesPublicas from './modulos/modulo_evaluaciones/rutasEvaluacionesPublicas';
 import rutasIntegracionesClassroomPublicas from './modulos/modulo_integraciones_classroom/rutasIntegracionesClassroomPublicas';
 import rutasIntegracionesClassroom from './modulos/modulo_integraciones_classroom/rutasIntegracionesClassroom';
 import rutasCompliance from './modulos/modulo_compliance/rutasCompliance';
@@ -60,6 +61,7 @@ export function crearRouterApi() {
   router.use('/autenticacion', rutasAutenticacion);
   router.use('/integraciones/classroom', rutasIntegracionesClassroomPublicas);
   router.use('/comercial-publico', rutasComercialPublico);
+  router.use('/evaluaciones-publicas', rutasEvaluacionesPublicas);
 
   // A partir de aqui: todas las rutas requieren sesion de docente.
   router.use(requerirDocente);

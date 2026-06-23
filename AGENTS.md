@@ -5,20 +5,21 @@ Guia operativa para cualquier agente de IA que trabaje en este repositorio.
 ## 1) Fuente de verdad (orden de precedencia)
 1. Este archivo (`AGENTS.md`).
 2. `docs/IA_TRAZABILIDAD_AGENTES.md`.
-3. `docs/POLITICA_ECONOMIA_TOKENS_CODEX.md`.
-4. Instrucciones de asistente IDE:
+3. `docs/POLITICA_SDD.md`.
+4. `docs/POLITICA_ECONOMIA_TOKENS_CODEX.md`.
+5. Instrucciones de asistente IDE:
    - `.github/copilot-instructions.md`
-5. Contrato CI/CD:
+6. Contrato CI/CD:
    - `ci/pipeline.contract.md`
    - `ci/pipeline.matrix.json`
-6. Workflows:
+7. Workflows:
    - `.github/workflows/ci.yml`
    - `.github/workflows/package.yml`
-7. Gates de release y operacion:
+8. Gates de release y operacion:
    - `docs/RELEASE_GATE_STABLE.md`
    - `docs/RUNBOOK_OPERACION.md`
    - `docs/SEGURIDAD_OPERATIVA.md`
-8. Baselines y versionado:
+9. Baselines y versionado:
    - `docs/ENGINEERING_BASELINE.md`
    - `docs/DEVOPS_BASELINE.md`
    - `docs/VERSIONADO.md`
@@ -31,6 +32,7 @@ Si hay conflicto entre documentos, actualizar todos para alinear el estado real 
    - `docs/README.md`
    - `docs/IA_TRAZABILIDAD_AGENTES.md`
    - `.github/copilot-instructions.md`
+   - `docs/POLITICA_SDD.md`
 2. No asumir estado de olas/gates sin verificar con comandos reales.
 3. Mantener trazabilidad:
    - objetivo de la sesion,
@@ -66,6 +68,7 @@ Si hay conflicto entre documentos, actualizar todos para alinear el estado real 
    - mantener Caveman activo durante toda la sesion,
    - si por plataforma no se activa via hooks, activarlo manualmente,
    - solo desactivarlo temporalmente si el usuario lo solicita de forma explicita.
+12. Cumplimiento obligatorio de Spec-Driven Development (SDD) según `docs/POLITICA_SDD.md`: ningún cambio en código o pruebas se realizará sin redactar o actualizar previamente la especificación de desarrollo correspondiente en `docs/specs/*.spec.md`.
 
 ## 2.1) Inventario exhaustivo de instrucciones IA
 1. El inventario oficial vive en:

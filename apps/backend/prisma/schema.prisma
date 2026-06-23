@@ -100,6 +100,7 @@ model Periodo {
   codigosAcceso        CodigoAcceso[]
   bancoTemas           TemaBanco[]
   solicitudesRevision  SolicitudRevisionAlumno[]
+  encuadre             EncuadreAcademico?
   createdAt            DateTime              @default(now())
   updatedAt            DateTime              @updatedAt
 
@@ -1055,4 +1056,44 @@ model PlantillaNotificacion {
   updatedAt   DateTime @updatedAt
 
   @@map("plantillas_notificaciones")
+}
+
+model EncuadreAcademico {
+  id              String         @id @default(uuid())
+  periodoId       String         @unique
+  periodo         Periodo        @relation(fields: [periodoId], references: [id], onDelete: Cascade)
+  docenteId       String
+  carrera         String         // Ej: "Ingeniería en Sistemas Computacionales"
+  asignatura      String         // Ej: "Diseño Digital"
+  cicloLectivo    String         // Ej: "Abril-Mayo 2026"
+  horasDocente    Int            @default(50)
+  creditos        Float          @default(6.25)
+  ponderaciones   String         // JSON: pesos de actividades, exámenes escritos, prácticas y global
+  rutaPdf         String?        // Ruta al PDF del encuadre firmado/en proceso
+  firmas          FirmaEncuadre[]
+  estado          String         @default("pendiente_firmas") // "pendiente_firmas", "completado"
+  createdAt       DateTime       @default(now())
+  updatedAt       DateTime       @updatedAt
+
+  @@map("encuadres_academicos")
+}
+
+model FirmaEncuadre {
+  id              String            @id @default(uuid())
+  encuadreId      String
+  encuadre        EncuadreAcademico @relation(fields: [encuadreId], references: [id], onDelete: Cascade)
+  rol             String            // "docente" | "alumno"
+  usuarioId       String            // docenteId o alumnoId
+  nombreFirmante  String
+  correo          String
+  tokenFirma      String            @unique // Token único enviado por correo
+  firmado         Boolean           @default(false)
+  firmadoEn       DateTime?
+  direccionIp     String?
+  hashIntegridad  String?           // Hash criptográfico SHA256 que vincula el PDF, el firmante y la fecha
+  createdAt       DateTime          @default(now())
+  updatedAt       DateTime          @updatedAt
+
+  @@unique([encuadreId, usuarioId])
+  @@map("firmas_encuadre")
 }

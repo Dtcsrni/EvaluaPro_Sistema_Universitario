@@ -9,6 +9,7 @@ import { AppDocente } from './apps/app_docente/AppDocente';
 import { TemaProvider } from './tema/TemaProvider';
 import { TooltipLayer } from './ui/ux/tooltip/TooltipLayer';
 import { VersionInfoPage } from './ui/version/VersionInfoPage';
+import { PaginaFirmaEncuadre } from './ui/encuadre/PaginaFirmaEncuadre';
 
 function normalizarRutaAsset(valor: string): string {
   const limpio = String(valor || '').trim();
@@ -55,6 +56,9 @@ function App() {
   const destino = import.meta.env.VITE_APP_DESTINO || 'docente';
   const googleClientId = String(import.meta.env.VITE_GOOGLE_CLIENT_ID || '').trim();
   const esVersionInfo = typeof window !== 'undefined' && String(window.location.hash || '').startsWith('#/version-info');
+  const hash = typeof window !== 'undefined' ? window.location.hash : '';
+  const esFirmaEncuadre = hash.startsWith('#/firmar-encuadre/');
+  const tokenFirma = esFirmaEncuadre ? hash.replace('#/firmar-encuadre/', '') : '';
 
   useEffect(() => {
     const esAlumno = destino === 'alumno';
@@ -142,7 +146,9 @@ function App() {
 
   const contenido = esVersionInfo
     ? <VersionInfoPage />
-    : (destino === 'alumno' ? <AppAlumno /> : destino === 'admin_negocio' ? <AppAdminNegocio /> : <AppDocente />);
+    : esFirmaEncuadre
+      ? <PaginaFirmaEncuadre token={tokenFirma} />
+      : (destino === 'alumno' ? <AppAlumno /> : destino === 'admin_negocio' ? <AppAdminNegocio /> : <AppDocente />);
 
   return (
     <TemaProvider>

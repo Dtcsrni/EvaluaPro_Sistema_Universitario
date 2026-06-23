@@ -24,6 +24,40 @@ Version visible objetivo: `1.0.0b`
   - `reports/perf/latest.json`
 
 #### 2.1) Footprint y clasificacion del corte 2026-06-23
+- Automatización de Reglas de Encuadre y Firma Digital Institucional (SPEC-002) 2026-06-23:
+  - Redacción y aprobación de la especificación técnica `docs/specs/encuadre_firmas.spec.md` (SPEC-002 v1.1.0) que establece el flujo digital local y gratuito para firmas de encuadres académicos.
+  - Creación del modelado Prisma (`EncuadreAcademico` y `FirmaEncuadre`) en `schema.prisma` y sincronización con SQLite local (`npx prisma db push`).
+  - Implementación del generador PDF `generarPdfEncuadreBase` con `pdf-lib` en `servicioEncuadrePdf.ts`, replicando con precisión de píxel el formato oficial "ENCUADRE LISC.docx" con 3 columnas en cabecera, dos logos paramétricos, tabla de datos de asignatura y texto verbatim del reglamento institucional.
+  - Implementación de la función `registrarFirmaPdf` que estampa de forma segura y consistente la firma (Fecha, IP, Hash HMAC-SHA256) en la fila correcta de la Página 2 del PDF de firmas.
+  - Creación del controlador `controladorEncuadre.ts` y las rutas correspondientes (públicas y privadas) para inicialización del encuadre y firmado digital mediante tokens enviados a correos institucionales.
+  - Creación del componente público `PaginaFirmaEncuadre.tsx` con diseño premium, responsivo y adaptado para visualizar el PDF y procesar la firma digital con disclaimer criptográfico.
+  - Integración del panel "Encuadre y Firmas" en `SeccionCalificaciones.tsx` para el docente, con soporte de carga de logos base64 y visualización del listado de firmas en tiempo real.
+  - Incorporación del badge visual "SIN DERECHO (4 O MÁS FALTAS)" en `SeccionAlumnos.tsx` mediante la consulta de resumen global de asistencias.
+  - Pase en verde de la suite de pruebas unitarias/integración de encuadres (`servicioEncuadrePdf.test.ts` y `evaluaciones.modulo.test.ts`) y la suite de auditoría del monorepo (`npm run test:frontend:ci` y `npm run test:ia:traceability`).
+
+- Rediseño y Mejora Comercial del Portal de Marketing y SPEC-002 2026-06-23:
+  - Redacción y aprobación de la especificación técnica `SPEC-002` (`docs/specs/marketing_site.spec.md`) que establece las pautas visuales y de smoke test del sitio.
+  - Rediseño completo de la landing page comercial (`site/index.html` y `site/styles.css`) bajo un tema oscuro HSL premium con luces de neón en bordes, tipografías Sora e IBM Plex Sans, y efectos glassmorphism.
+  - Implementación de mockups en HTML/CSS de alta fidelidad:
+    - **Dashboard del Docente:** Réplica visual del tablero real (métricas clave en vivo, cursos activos y listado de exámenes calificados/procesando).
+    - **Detección OMR en CSS:** Simulación visual de hoja de examen real mostrando la superposición de cajas de acierto/error (verde/rojo) del motor OMR.
+  - Incorporación de acordeones con `<details>` y `<summary>` fluidos en FAQs, y tablas comparativas de licenciamiento detallando capacidades (AGPL vs Comercial vs Institucional).
+  - Ejecución y pase en verde del smoke test (`node scripts/tests/marketing-site.smoke.test.mjs`) y de la suite de auditoría del monorepo (`npm run ci:policy:audit`).
+
+- Implementación de Política Global de Spec-Driven Development (SDD) 2026-06-23:
+  - Definición formal del marco de desarrollo y ciclo de vida de especificaciones en `docs/POLITICA_SDD.md` y plantilla `docs/specs/template.spec.md`.
+  - Creación del script auditor automatizado `scripts/sdd-audit.mjs` y su suite de pruebas unitarias asociadas en `scripts/tests/sdd-audit.test.mjs`.
+  - Registro de los nuevos scripts de validación en `package.json` (`sdd:audit` y `test:sdd:policy`) e integración obligatoria en el pipeline integrador local/CI `"ci:policy:audit"`.
+  - Redacción de la primera especificación viva `docs/specs/sdd_governance.spec.md` detallando las reglas de auditoría y trazabilidad del propio validador.
+  - Modificación de las directrices operativas en `AGENTS.md` y `docs/IA_TRAZABILIDAD_AGENTES.md` para requerir mandatoriamente el cumplimiento de SDD antes de escribir código o pruebas de producción.
+
+- Promoción a Release Estable v1.0.0 y Limpieza de Git Tags 2026-06-23:
+  - Remoción completa de las 20 tags locales beta (`v1.0.0-beta.0` a `v1.0.0-beta.23`) y las 25 remotas (`v1.0.0-beta.0` a `v1.0.0-beta.24`) en `origin`, saneando el repositorio de ramas y tags de pre-release.
+  - Re-apuntamiento y promoción de la tag de versión estable `v1.0.0` al HEAD actual de `main` (commit `81790384`).
+  - Empujada la tag estable `v1.0.0` a `origin` para disparar automáticamente el pipeline de compilación, empaquetado y publicación `release-stable-gate.yml` en GitHub Actions.
+  - Ejecución y paso exitoso de todas las matrices locales de calidad integradoras de rampa estable (lint, typecheck, tests frontend/backend/portal, coverage TDD, perf, rulesets, y contratos de pipeline).
+  - Validación del release gate estable local con el script orquestador (`validate-stable-promotion.mjs`) obteniendo veredicto "Go" en verde.
+
 - Estabilización de Gates de Calidad, Integración Continua y Fusión de PRs 2026-06-23:
   - Solución definitiva a los errores de compilación TypeScript (`TS7006`) en la CI del backend forzando la autogeneración automática de Prisma Client (`prisma generate`) en los scripts de `apps/backend/package.json` antes de correr `tsc`.
   - Alineamiento del workflow `ci-frontend.yml` con `ci.yml` mediante la configuración de la exclusión `DIFF_COVERAGE_IGNORE_PATH_SUBSTRINGS: "apps/frontend/src"`, resolviendo el bloqueo de cobertura de cambios en el frontend.

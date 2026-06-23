@@ -184,7 +184,7 @@ este documento se actualiza automáticamente al regenerar.
 ## Frontend
 - `DEV` (usado en: apps/frontend/src/apps/app_docente/SeccionAutenticacion.tsx, apps/frontend/src/apps/app_docente/hooks/usePermisosDocente.ts, apps/frontend/src/ui/errores/ErrorBoundary.tsx)
 - `PROD` (usado en: apps/frontend/src/App.tsx, apps/frontend/src/pwa.ts)
-- `VITE_API_BASE_URL` (usado en: apps/frontend/src/servicios_api/clienteApi.ts)
+- `VITE_API_BASE_URL` (usado en: apps/frontend/src/servicios_api/clienteApi.ts, apps/frontend/src/ui/encuadre/PaginaFirmaEncuadre.tsx)
 - `VITE_APP_DESTINO` (usado en: apps/frontend/src/App.tsx, apps/frontend/src/pwa.ts)
 - `VITE_APP_DISPLAY_VERSION` (usado en: apps/frontend/src/App.tsx, apps/frontend/src/pwa.ts, apps/frontend/src/ui/version/versionInfo.ts, apps/frontend/vite.config.ts)
 - `VITE_APP_NAME` (usado en: apps/frontend/vite.config.ts)

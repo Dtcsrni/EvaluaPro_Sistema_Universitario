@@ -14,6 +14,7 @@ import { InlineMensaje } from '../../ui/ux/componentes/InlineMensaje';
 import { AyudaFormulario } from './AyudaFormulario';
 import { registrarAccionDocente } from './telemetriaDocente';
 import type { Alumno, EnviarConPermiso, Periodo, PermisosUI } from './tipos';
+import { clienteApi } from './clienteApiDocente';
 import {
   esCorreoDeDominioPermitidoFrontend,
   esMensajeError,
@@ -59,6 +60,21 @@ export function SeccionAlumnos({
   const [eliminandoAlumnoId, setEliminandoAlumnoId] = useState<string | null>(null);
   const [filtroAlumno, setFiltroAlumno] = useState('');
   const [filtroGrupo, setFiltroGrupo] = useState('');
+  const [resumenAsistencias, setResumenAsistencias] = useState<any[]>([]);
+
+  useEffect(() => {
+    if (!periodoIdLista) {
+      setResumenAsistencias([]);
+      return;
+    }
+    clienteApi.obtener<{ resumen: any[] }>(`/asistencias/resumen?periodoId=${periodoIdLista}`)
+      .then((res: any) => {
+        setResumenAsistencias(res?.resumen || []);
+      })
+      .catch(() => {
+        setResumenAsistencias([]);
+      });
+  }, [periodoIdLista]);
   const confirm = useConfirmDialog();
   const puedeGestionar = permisos.alumnos.gestionar;
   const bloqueoEdicion = !puedeGestionar;
@@ -582,8 +598,13 @@ export function SeccionAlumnos({
               <div className="item-glass alumnos-lista__item">
                 <div className="item-row">
                   <div>
-                    <div className="item-title">
+                    <div className="item-title alumnos-lista-title-container">
                       {alumno.matricula} - {alumno.nombreCompleto}
+                      {(resumenAsistencias.find(r => r.alumnoId === alumno._id)?.faltas ?? 0) >= 4 && (
+                        <span className="badge badge-alerta badge-alerta-sin-derecho">
+                          SIN DERECHO (4 O MÁS FALTAS)
+                        </span>
+                      )}
                     </div>
                     <div className="item-meta">
                       <span>ID: {idCortoMateria(alumno._id)}</span>

@@ -30,6 +30,7 @@ No editar a mano: los cambios se pisan al regenerar.
 - [PILOTO_DIA0_CHECKLIST.md](PILOTO_DIA0_CHECKLIST.md) — Checklist Operativo Dia 0 (Piloto Hibrido)
 - [POLITICA_ECONOMIA_TOKENS_CODEX.md](POLITICA_ECONOMIA_TOKENS_CODEX.md) — Politica Repo-Local de Economia de Tokens para Codex
 - [POLITICA_OPTIMIZACION_RECURSOS.md](POLITICA_OPTIMIZACION_RECURSOS.md) — POLITICA_OPTIMIZACION_RECURSOS
+- [POLITICA_SDD.md](POLITICA_SDD.md) — Política de Spec-Driven Development (SDD)
 - [PRUEBAS.md](PRUEBAS.md) — Pruebas automatizadas
 - [QA_GATE_CRITERIA.md](QA_GATE_CRITERIA.md) — QA Gate Criteria (`1.0.0-beta.0`)
 - [QA_INSTALLER_HUB_DOCENTE_2026-05-20.md](QA_INSTALLER_HUB_DOCENTE_2026-05-20.md) — QA Installer Hub docente-local - 2026-05-20
