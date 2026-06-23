@@ -28,8 +28,11 @@ Version visible objetivo: `1.0.0b`
   - Solución definitiva a los errores de compilación TypeScript (`TS7006`) en la CI del backend forzando la autogeneración automática de Prisma Client (`prisma generate`) en los scripts de `apps/backend/package.json` antes de correr `tsc`.
   - Alineamiento del workflow `ci-frontend.yml` con `ci.yml` mediante la configuración de la exclusión `DIFF_COVERAGE_IGNORE_PATH_SUBSTRINGS: "apps/frontend/src"`, resolviendo el bloqueo de cobertura de cambios en el frontend.
   - Rebase y resolución de conflictos de dependencias en la PR #33 de Dependabot (eliminación de la dependencia obsoleta de `mongoose` en el portal y actualización de `express-rate-limit`).
-  - Squash merge exitoso de las Pull Requests #34 y #33 en `main`, eliminando ramas huérfanas y estabilizando el repositorio de forma definitiva.
-  - Ejecución y paso en verde local del 100% de la matriz de verificación requerida por el runbook (lint, typecheck y pipeline contract check).
+  - Squash merge exitoso de las Pull Requests #34, #33 y #39 en `main`, saneando y actualizando el monorepo y eliminando todas las ramas remotas obsoletas.
+  - Saneamiento y actualización de dependencias mediante la PR #39 de Dependabot (incluyendo `form-data`, `hasown`, `js-yaml`, `shell-quote` y `undici` en todas las apps/workspaces), resolviendo y cerrando automáticamente la PR #37.
+  - Mitigación del fallo local de performance (`perf:collect`) en Windows y Node 24 reduciendo las iteraciones a través de variables de entorno para evitar el desbordamiento de sockets.
+  - Corrección de la violación de acceso en los tests paralelos del backend (`test:backend:ci`) bajo Windows forzando su ejecución secuencial (`--maxWorkers=1`).
+  - Ejecución y paso en verde local del 100% de la matriz de verificación requerida por el runbook (lint, typecheck, tests frontend/backend/portal, coverage TDD, perf y pipeline contract check).
 
 ### 2.1) Footprint y clasificacion del corte 2026-06-22
 - Rediseño Visual Completo de UI/UX, Estilo Avanzado y Animaciones en Portales 2026-06-22:
