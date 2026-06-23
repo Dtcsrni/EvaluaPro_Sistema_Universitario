@@ -1,0 +1,19 @@
+{
+  "version": "1.0.1",
+  "status": "ready",
+  "previousStableVersion": "1.0.0",
+  "activationCriteria": [
+    "Fallo crítico en estampado de firma digital",
+    "Pérdida de consistencia en el redondeo de calificaciones"
+  ],
+  "rollbackSteps": [
+    "Revertir tag v1.0.1 en main y redeploy de v1.0.0",
+    "Restaurar base de datos SQLite al backup previo"
+  ],
+  "postRollbackChecks": [
+    "Verificar GET /api/salud/readiness en backend",
+    "Validar firma digital de encuadre en frontend"
+  ],
+  "approvedBy": "evega",
+  "approvedAt": "2026-06-23T22:15:00.000Z"
+}

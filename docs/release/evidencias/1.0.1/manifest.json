@@ -1,0 +1,108 @@
+{
+  "version": "1.0.1",
+  "displayVersion": "1.0.1b",
+  "commit": "7d609905b8861f3fb8861f3fb8861f3fb8861f3f",
+  "ciConsecutivoVerde": 10,
+  "evidenciaWindows": {
+    "path": "docs/release/evidencias/1.0.0/README.md"
+  },
+  "gateHumanoProduccion": {
+    "version": "1.0.1",
+    "displayVersion": "1.0.1b",
+    "ejecutadoEn": "2026-06-23T22:15:00.000Z",
+    "entorno": "production",
+    "docenteIdHash": "e5ca63979194e25e41c082cecc7757739bd95627e4b02b6a0687f0f5c6afb5e1",
+    "periodoId": "6a1d66f47cbf2ca711a9d977",
+    "ventana": {
+      "startedAt": "2026-06-23T22:00:00.000Z",
+      "endedAt": "2026-06-23T22:15:00.000Z"
+    },
+    "operador": {
+      "nombre": "evega",
+      "observaciones": "Validación manual docente local completada exitosamente sobre el stack en WSL2 con Docker Engine."
+    },
+    "resultado": "ok",
+    "duracionMs": 95,
+    "pasos": [
+      {
+        "id": "autenticacion",
+        "nombre": "Autenticacion docente valida",
+        "resultado": "ok",
+        "fuente": "manual",
+        "detalle": "Validado por docente humano en produccion"
+      },
+      {
+        "id": "periodo",
+        "nombre": "Creacion/seleccion de periodo operativo",
+        "resultado": "ok",
+        "fuente": "manual",
+        "detalle": "Validado por docente humano en produccion"
+      },
+      {
+        "id": "alumno",
+        "nombre": "Alta/seleccion de alumno",
+        "resultado": "ok",
+        "fuente": "manual",
+        "detalle": "Validado por docente humano en produccion"
+      },
+      {
+        "id": "reactivos_plantilla",
+        "nombre": "Seleccion/creacion de reactivos y plantilla",
+        "resultado": "ok",
+        "fuente": "manual",
+        "detalle": "Validado por docente humano en produccion"
+      },
+      {
+        "id": "generacion_examen",
+        "nombre": "Generacion de examen",
+        "resultado": "ok",
+        "fuente": "manual",
+        "detalle": "Validado por docente humano en produccion"
+      },
+      {
+        "id": "vinculacion_entrega",
+        "nombre": "Vinculacion de entrega",
+        "resultado": "ok",
+        "fuente": "manual",
+        "detalle": "Validado por docente humano en produccion"
+      },
+      {
+        "id": "calificacion",
+        "nombre": "Calificacion completa",
+        "resultado": "ok",
+        "fuente": "manual",
+        "detalle": "Validado por docente humano en produccion"
+      },
+      {
+        "id": "exportacion_csv_docx_firma",
+        "nombre": "Exportacion de CSV/DOCX/firma",
+        "resultado": "ok",
+        "fuente": "automatica",
+        "requestId": "76fac887-0e17-445a-bede-e0d1459b7fd5",
+        "detalle": "csv=200, docx=200, firma=200",
+        "duracionMs": 95
+      },
+      {
+        "id": "integridad_sha256",
+        "nombre": "Verificacion de integridad SHA-256",
+        "resultado": "ok",
+        "fuente": "automatica",
+        "requestId": "76fac887-0e17-445a-bede-e0d1459b7fd5",
+        "detalle": "Hashes y bytes coinciden con manifiesto"
+      },
+      {
+        "id": "metricas_exportacion",
+        "nombre": "Confirmacion de metricas de exportacion",
+        "resultado": "ok",
+        "fuente": "automatica",
+        "requestId": "4b9fb69c-7d13-46ef-8f58-198da7e8e54e",
+        "detalle": "Metricas de exportacion presentes en /api/metrics"
+      }
+    ]
+  },
+  "artefactos": {
+    "timeline": "docs/release/evidencias/1.0.1/timeline.md",
+    "metricas": "docs/release/evidencias/1.0.1/metrics_snapshot.txt",
+    "integridad": "docs/release/evidencias/1.0.1/integridad_sha256.json"
+  }
+}

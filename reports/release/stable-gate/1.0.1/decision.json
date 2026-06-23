@@ -1,0 +1,32 @@
+{
+  "timestamp": "2026-06-23T22:18:52.727Z",
+  "version": "1.0.1",
+  "decision": "Go",
+  "checks": [
+    {
+      "id": "ci-streak",
+      "ok": true,
+      "detail": "streak=10/10"
+    },
+    {
+      "id": "release-evidence",
+      "ok": true,
+      "detail": "C:\\Users\\evega\\EvaluaPro_Sistema_Universitario\\docs\\release\\evidencias\\1.0.1"
+    },
+    {
+      "id": "prod-flow-evidence",
+      "ok": true,
+      "detail": "gateHumanoProduccion.resultado=ok"
+    },
+    {
+      "id": "installer-multi-flavor",
+      "ok": true,
+      "detail": "C:\\Users\\evega\\EvaluaPro_Sistema_Universitario\\dist\\installer\\EvaluaPro-release-manifest.json"
+    },
+    {
+      "id": "prod-flow",
+      "ok": true,
+      "detail": "Verificado por evidencia persistida (sin ejecucion activa)."
+    }
+  ]
+}

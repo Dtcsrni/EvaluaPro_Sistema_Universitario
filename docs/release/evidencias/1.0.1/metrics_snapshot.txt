@@ -1,0 +1,3 @@
+evaluapro_lista_export_csv_total 1
+evaluapro_lista_export_docx_total 1
+evaluapro_lista_export_firma_total 1
