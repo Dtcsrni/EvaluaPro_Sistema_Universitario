@@ -19,7 +19,7 @@ import {
   middlewareContextoRobustez
 } from './compartido/robustez/manejadorErrores';
 
-function mapearIdsAUnderscore(obj: any): any {
+function mapearIdsAUnderscore(obj: unknown): unknown {
   if (obj === null || typeof obj !== 'object') {
     return obj;
   }
@@ -29,9 +29,9 @@ function mapearIdsAUnderscore(obj: any): any {
   if (Array.isArray(obj)) {
     return obj.map(mapearIdsAUnderscore);
   }
-  const result: any = {};
-  for (const key of Object.keys(obj)) {
-    result[key] = mapearIdsAUnderscore(obj[key]);
+  const result: Record<string, unknown> = {};
+  for (const key of Object.keys(obj as Record<string, unknown>)) {
+    result[key] = mapearIdsAUnderscore((obj as Record<string, unknown>)[key]);
   }
   if (result.id !== undefined && result._id === undefined) {
     result._id = result.id;

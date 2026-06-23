@@ -42,7 +42,7 @@ export async function crearSesion(req: SolicitudDocente, res: Response) {
 
 export async function listarSesiones(req: SolicitudDocente, res: Response) {
   const docenteId = obtenerDocenteId(req);
-  const filtro: Record<string, any> = { docenteId };
+  const filtro: Record<string, unknown> = { docenteId };
   if (req.query['periodoId']) filtro['periodoId'] = String(req.query['periodoId']);
   if (req.query['grupo']) filtro['grupo'] = String(req.query['grupo']).trim();
   
@@ -136,7 +136,7 @@ export async function obtenerResumen(req: SolicitudDocente, res: Response) {
   const periodoId = String(req.query['periodoId']);
   const grupo = req.query['grupo'] ? String(req.query['grupo']).trim() : undefined;
 
-  const filtroBase: any = {
+  const filtroBase: Record<string, unknown> = {
     docenteId,
     periodoId
   };
@@ -319,7 +319,7 @@ export async function verificarDerechoExamen(req: SolicitudDocente, res: Respons
 
 export async function listarReglas(req: SolicitudDocente, res: Response) {
   const docenteId = obtenerDocenteId(req);
-  const filtro: Record<string, any> = { docenteId };
+  const filtro: Record<string, unknown> = { docenteId };
   if (req.query['periodoId']) filtro['periodoId'] = String(req.query['periodoId']);
   
   const reglas = await prisma.asistenciaRegla.findMany({
@@ -449,7 +449,7 @@ export async function eliminarExcepcion(req: SolicitudDocente, res: Response) {
 
 export async function listarExcepciones(req: SolicitudDocente, res: Response) {
   const docenteId = obtenerDocenteId(req);
-  const filtro: Record<string, any> = { docenteId };
+  const filtro: Record<string, unknown> = { docenteId };
   if (req.query['periodoId']) filtro['periodoId'] = String(req.query['periodoId']);
   
   const excepciones = await prisma.asistenciaExcepcion.findMany({

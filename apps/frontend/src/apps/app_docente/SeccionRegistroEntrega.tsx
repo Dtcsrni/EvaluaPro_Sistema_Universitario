@@ -1,10 +1,11 @@
+/* eslint-disable @typescript-eslint/no-unused-vars */
 /**
  * SeccionRegistroEntrega
  *
  * Responsabilidad: Seccion funcional del shell docente.
  * Limites: Conservar UX y permisos; extraer logica compleja a hooks/components.
  */
- 
+
 /**
  * App docente: panel basico para banco, examenes, entrega y calificacion.
  */

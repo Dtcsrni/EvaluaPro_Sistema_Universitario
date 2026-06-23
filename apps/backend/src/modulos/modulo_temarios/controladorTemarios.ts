@@ -186,7 +186,7 @@ export async function actualizarEstadoNodo(req: SolicitudDocente, res: Response)
     notas?: string;
   };
 
-  const notasFinal = notas || (req.body as any).notes;
+  const notasFinal = notas || (req.body as Record<string, unknown>).notes;
 
   const nodo = await prisma.temarioNodo.findFirst({
     where: {

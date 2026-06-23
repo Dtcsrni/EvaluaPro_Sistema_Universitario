@@ -48,8 +48,9 @@ export async function conectarMongoTest() {
       env: { ...process.env, DATABASE_URL: process.env.PORTAL_DATABASE_URL },
       stdio: 'pipe'
     });
-  } catch (error: any) {
-    console.error("Error executing portal prisma db push during tests:", error.stderr?.toString() || error.message);
+  } catch (error: unknown) {
+    const err = error as { stderr?: { toString(): string }; message?: string };
+    console.error("Error executing portal prisma db push during tests:", err.stderr?.toString() || err.message);
     throw error;
   }
 

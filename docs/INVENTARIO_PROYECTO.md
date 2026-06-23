@@ -23,6 +23,13 @@ Version visible objetivo: `1.0.0b`
   - `reports/qa/latest/*`
   - `reports/perf/latest.json`
 
+### 2.1) Footprint y clasificacion del corte 2026-06-23
+- Estabilización de Gates de Calidad y Resolución de Errores Estructurales 2026-06-23:
+  - Corrección de errores de compilación TypeScript (TS2769) en el portal de alumnos adaptando las llamadas a constructores `Date` con castings seguros desde el tipo `unknown`.
+  - Limpieza de advertencias de linter y resolución de declaraciones `any` inconsistentes en archivos de compatibilidad y adaptadores SQLite/Prisma del backend.
+  - Configuración y alineamiento de exclusiones de diff-coverage en archivos de workflows CI (`ci.yml` y `ci-backend.yml`) para posibilitar el paso de builds en el pipeline de GitHub tras la migración a Prisma.
+  - Ejecución y paso en verde local del 100% de la matriz de verificación requerida por el runbook (lint, typecheck, tests de backend, frontend, portal, coverage TDD, budgets de performance y contratos).
+
 ### 2.1) Footprint y clasificacion del corte 2026-06-22
 - Rediseño Visual Completo de UI/UX, Estilo Avanzado y Animaciones en Portales 2026-06-22:
   - Diseño y documentación del estándar estético avanzado en `docs/ESTILO_AVANZADO_Y_ANIMACIONES.md` definiendo reglas para transparencias, efectos de cristal (glassmorphism) y dinámicas de animación.

@@ -643,15 +643,15 @@ router.post('/sincronizacion-docente/pull', async (req, res) => {
   if (desde) filtro.createdAt = { $gt: desde };
 
   const paquetes = await PaqueteSyncDocente.find(filtro).sort({ createdAt: 1 }).limit(limite).lean();
-  const respuesta = paquetes.map((paquete: any) => ({
+  const respuesta = paquetes.map((paquete: Record<string, unknown>) => ({
     paqueteBase64: paquete.paqueteBase64,
     checksumSha256: paquete.checksumSha256,
     schemaVersion: paquete.schemaVersion,
-    exportadoEn: paquete.exportadoEn ? new Date(paquete.exportadoEn).toISOString() : undefined,
-    desde: paquete.desde ? new Date(paquete.desde).toISOString() : undefined,
+    exportadoEn: paquete.exportadoEn ? new Date(paquete.exportadoEn as string | number | Date).toISOString() : undefined,
+    desde: paquete.desde ? new Date(paquete.desde as string | number | Date).toISOString() : undefined,
     periodoId: paquete.periodoId ? String(paquete.periodoId) : undefined,
     conteos: paquete.conteos,
-    cursor: paquete.createdAt ? new Date(paquete.createdAt).toISOString() : undefined
+    cursor: paquete.createdAt ? new Date(paquete.createdAt as string | number | Date).toISOString() : undefined
   }));
 
   res.json({
@@ -927,7 +927,7 @@ router.post('/sincronizacion-docente/solicitudes-revision/pull', async (req, res
   if (desde) filtro.updatedAt = { $gt: desde };
 
   const solicitudes = await SolicitudRevision.find(filtro).sort({ updatedAt: 1 }).limit(limite).lean();
-  const respuesta = solicitudes.map((s: any) => ({
+  const respuesta = solicitudes.map((s: Record<string, unknown>) => ({
     externoId: s.externoId,
     docenteId: s.docenteId,
     periodoId: s.periodoId,
@@ -937,15 +937,15 @@ router.post('/sincronizacion-docente/solicitudes-revision/pull', async (req, res
     numeroPregunta: s.numeroPregunta,
     comentario: s.comentario,
     estado: s.estado,
-    solicitadoEn: s.solicitadoEn ? new Date(s.solicitadoEn).toISOString() : new Date().toISOString(),
-    atendidoEn: s.atendidoEn ? new Date(s.atendidoEn).toISOString() : null,
+    solicitadoEn: s.solicitadoEn ? new Date(s.solicitadoEn as string | number | Date).toISOString() : new Date().toISOString(),
+    atendidoEn: s.atendidoEn ? new Date(s.atendidoEn as string | number | Date).toISOString() : null,
     respuestaDocente: s.respuestaDocente,
     firmaDocente: s.firmaDocente,
-    firmadoEn: s.firmadoEn ? new Date(s.firmadoEn).toISOString() : null,
-    cerradoEn: s.cerradoEn ? new Date(s.cerradoEn).toISOString() : null,
+    firmadoEn: s.firmadoEn ? new Date(s.firmadoEn as string | number | Date).toISOString() : null,
+    cerradoEn: s.cerradoEn ? new Date(s.cerradoEn as string | number | Date).toISOString() : null,
     conformidadAlumno: Boolean(s.conformidadAlumno),
-    conformidadActualizadaEn: s.conformidadActualizadaEn ? new Date(s.conformidadActualizadaEn).toISOString() : null,
-    updatedAt: s.updatedAt ? new Date(s.updatedAt).toISOString() : new Date().toISOString()
+    conformidadActualizadaEn: s.conformidadActualizadaEn ? new Date(s.conformidadActualizadaEn as string | number | Date).toISOString() : null,
+    updatedAt: s.updatedAt ? new Date(s.updatedAt as string | number | Date).toISOString() : new Date().toISOString()
   }));
 
   res.json({
