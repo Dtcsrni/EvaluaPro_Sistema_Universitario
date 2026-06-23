@@ -22,6 +22,8 @@ module.exports = {
       files: [
         'apps/backend/scripts/*.ts',
         'apps/backend/src/modulos/**/*.ts',
+        'apps/backend/tests/**/*.ts',
+        'tests/**/*.ts',
         'apps/frontend/src/apps/**/*.tsx',
         'apps/frontend/src/apps/app_docente/mensajeInline.ts',
         'apps/frontend/src/servicios_api/clienteComun.ts',
@@ -40,7 +42,8 @@ module.exports = {
       rules: {
         complexity: 'off',
         'max-depth': 'off',
-        'max-params': 'off'
+        'max-params': 'off',
+        '@typescript-eslint/no-explicit-any': 'off'
       }
     }
   ],
