@@ -1,24 +1,24 @@
 # Inventario Exhaustivo de Codigo
 
-Fecha de generacion: 2026-06-23 01:08:39
+Fecha de generacion: 2026-06-23 02:57:34
 Fuente: git ls-files filtrado por existencia en workspace (solo archivos versionados presentes, excluye node_modules).
 
 ## Resumen
 
-- Total de piezas de codigo/config ejecutable inventariadas: 1079
+- Total de piezas de codigo/config ejecutable inventariadas: 1083
 - Extensiones incluidas: ts, tsx, js, jsx, mjs, cjs, json, yml, yaml, sh, cmd, ps1.
 
 ## Conteo por area
 
 | Area | Archivos |
 | --- | ---: |
-| backend | 395 |
+| backend | 396 |
 | frontend | 131 |
 | portal_alumno_cloud | 67 |
 | ci | 17 |
 | scripts | 165 |
 | ops | 3 |
-| docs | 143 |
+| docs | 146 |
 | raiz | 32 |
 
 ## Backend (apps/backend)
@@ -309,6 +309,7 @@ Fuente: git ls-files filtrado por existencia en workspace (solo archivos version
 - apps/backend/src/modulos/modulo_temarios/modeloTemario.ts
 - apps/backend/src/modulos/modulo_temarios/rutasTemarios.ts
 - apps/backend/src/modulos/modulo_temarios/servicioParserTemario.ts
+- apps/backend/src/modulos/modulo_temarios/validacionesTemarios.ts
 - apps/backend/src/modulos/modulo_vinculacion_entrega/controladorVinculacionEntrega.ts
 - apps/backend/src/modulos/modulo_vinculacion_entrega/modeloEntrega.ts
 - apps/backend/src/modulos/modulo_vinculacion_entrega/rutasVinculacionEntrega.ts
@@ -950,6 +951,9 @@ Fuente: git ls-files filtrado por existencia en workspace (solo archivos version
 - docs/handoff/sesiones/2026-06-22/sesion-2026-06-22T09-50-30.454Z.json
 - docs/handoff/sesiones/2026-06-22/sesion-2026-06-22T10-30-34.290Z.json
 - docs/handoff/sesiones/2026-06-22/sesion-2026-06-22T10-32-30.089Z.json
+- docs/handoff/sesiones/2026-06-23/sesion-2026-06-23T07-08-43.925Z.json
+- docs/handoff/sesiones/2026-06-23/sesion-2026-06-23T07-09-36.914Z.json
+- docs/handoff/sesiones/2026-06-23/sesion-2026-06-23T07-09-49.511Z.json
 - docs/handoff/trace.schema.json
 - docs/perf/baseline.business.json
 - docs/perf/baseline.json
