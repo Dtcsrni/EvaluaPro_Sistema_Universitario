@@ -4,8 +4,9 @@ datasource db {
 }
 
 generator client {
-  provider = "prisma-client-js"
-  output   = "../src/infraestructura/baseDatos/generado/cliente"
+  provider      = "prisma-client-js"
+  output        = "../src/infraestructura/baseDatos/generado/cliente"
+  binaryTargets = ["native", "debian-openssl-3.0.x"]
 }
 
 model PerfilAlumno {
