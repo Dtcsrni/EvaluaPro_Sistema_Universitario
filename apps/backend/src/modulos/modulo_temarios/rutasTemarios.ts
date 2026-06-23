@@ -6,6 +6,7 @@
  */
 import { Router } from 'express';
 import multer from 'multer';
+import { validarCuerpo } from '../../compartido/validaciones/validar';
 import { requerirPermiso } from '../modulo_autenticacion/middlewarePermisos';
 import {
   listarTemarios,
@@ -15,6 +16,12 @@ import {
   actualizarEstadoNodo,
   eliminarTemario
 } from './controladorTemarios';
+import {
+  esquemaCrearTemarioManual,
+  esquemaCrearTemarioPdf,
+  esquemaActualizarEstadoNodo,
+  esquemaBodyVacioOpcional
+} from './validacionesTemarios';
 
 const router = Router();
 
@@ -37,6 +44,7 @@ router.get('/', requerirPermiso('temarios:leer'), listarTemarios);
 router.post(
   '/manual',
   requerirPermiso('temarios:gestionar'),
+  validarCuerpo(esquemaCrearTemarioManual, { strict: true }),
   crearTemarioManual
 );
 
@@ -44,12 +52,14 @@ router.post(
   '/desde-pdf',
   requerirPermiso('temarios:gestionar'),
   upload.single('archivo'),
+  validarCuerpo(esquemaCrearTemarioPdf, { strict: true }),
   crearTemarioDesdePdf
 );
 
 router.post(
   '/:temarioId/eliminar',
   requerirPermiso('temarios:gestionar'),
+  validarCuerpo(esquemaBodyVacioOpcional, { strict: true }),
   eliminarTemario
 );
 
@@ -63,6 +73,7 @@ router.get(
 router.post(
   '/nodos/:nodoId/estado',
   requerirPermiso('temarios:gestionar'),
+  validarCuerpo(esquemaActualizarEstadoNodo, { strict: true }),
   actualizarEstadoNodo
 );
 

@@ -25,7 +25,8 @@ import {
   esquemaCrearSesion,
   esquemaGuardarRegistros,
   esquemaCrearRegla,
-  esquemaCrearExcepcion
+  esquemaCrearExcepcion,
+  esquemaBodyVacioOpcional
 } from './validacionesAsistencias';
 
 const router = Router();
@@ -41,6 +42,7 @@ router.post(
 router.post(
   '/sesiones/:sesionId/eliminar',
   requerirPermiso('asistencias:gestionar'),
+  validarCuerpo(esquemaBodyVacioOpcional, { strict: true }),
   eliminarSesion
 );
 
@@ -75,7 +77,12 @@ router.post(
   validarCuerpo(esquemaCrearRegla, { strict: true }),
   crearOActualizarRegla
 );
-router.post('/reglas/:reglaId/eliminar', requerirPermiso('asistencias:gestionar'), eliminarRegla);
+router.post(
+  '/reglas/:reglaId/eliminar',
+  requerirPermiso('asistencias:gestionar'),
+  validarCuerpo(esquemaBodyVacioOpcional, { strict: true }),
+  eliminarRegla
+);
 
 // ─── Excepciones ─────────────────────────────────────────────────────────────
 router.get('/excepciones', requerirPermiso('asistencias:leer'), listarExcepciones);
@@ -88,6 +95,7 @@ router.post(
 router.post(
   '/excepciones/:excepcionId/eliminar',
   requerirPermiso('asistencias:gestionar'),
+  validarCuerpo(esquemaBodyVacioOpcional, { strict: true }),
   eliminarExcepcion
 );
 

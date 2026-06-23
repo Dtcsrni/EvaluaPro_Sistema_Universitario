@@ -77,3 +77,6 @@ export const esquemaQueryResumen = z
     grupo: z.string().optional()
   })
   .strict();
+
+export const esquemaBodyVacioOpcional = z.object({}).strict().optional();
+
