@@ -1,0 +1,113 @@
+{
+  "version": "1.0.1",
+  "displayVersion": "1.0.1",
+  "commit": "ad425d1c99871d276ffb6e90ab0d2c48cbb80791",
+  "ciConsecutivoVerde": 1,
+  "evidenciaWindows": {
+    "path": "docs/release/evidencias/1.0.0-beta.1/windows-release-smoke-2026-03-20.md"
+  },
+  "gateHumanoProduccion": {
+    "version": "1.0.1",
+    "displayVersion": "1.0.1",
+    "ejecutadoEn": "2026-06-25T14:59:18Z",
+    "entorno": "main-ci",
+    "docenteIdHash": "e5ca63979194e25e41c082cecc7757739bd95627e4b02b6a0687f0f5c6afb5e1",
+    "periodoId": "6a1d66f47cbf2ca711a9d977",
+    "ventana": {
+      "startedAt": "2026-06-25T14:37:11Z",
+      "endedAt": "2026-06-25T14:59:18Z"
+    },
+    "operador": {
+      "nombre": "codex",
+      "observaciones": "Validacion post-merge de main completada en GitHub Actions para Core y Extended."
+    },
+    "resultado": "ok",
+    "duracionMs": 1327000,
+    "pasos": [
+      {
+        "id": "core_contract_docs_gov",
+        "nombre": "Core Contract/Docs/Gov",
+        "resultado": "ok",
+        "fuente": "github-actions",
+        "detalle": "CI Checks job completo en success"
+      },
+      {
+        "id": "core_backend_portal",
+        "nombre": "Core Backend/Portal",
+        "resultado": "ok",
+        "fuente": "github-actions",
+        "detalle": "Lint, typecheck, tests, coverage y build en success"
+      },
+      {
+        "id": "core_frontend",
+        "nombre": "Core Frontend",
+        "resultado": "ok",
+        "fuente": "github-actions",
+        "detalle": "Lint, typecheck, tests, UX, coverage y build en success"
+      },
+      {
+        "id": "core_security_compliance",
+        "nombre": "Core Security/Compliance",
+        "resultado": "ok",
+        "fuente": "github-actions",
+        "detalle": "Security scan, legal docs, PII y retention en success"
+      },
+      {
+        "id": "extended_compliance_evidencia",
+        "nombre": "Extended Compliance/Evidencia",
+        "resultado": "ok",
+        "fuente": "github-actions",
+        "detalle": "QA manifest, DSR flow y compliance evidence en success"
+      },
+      {
+        "id": "extended_funcionales",
+        "nombre": "Extended Funcionales",
+        "resultado": "ok",
+        "fuente": "github-actions",
+        "detalle": "Flujo docente, dataset prodlike, OMR, global-grade, PDF/visual y UX en success"
+      },
+      {
+        "id": "extended_perf_arquitectura",
+        "nombre": "Extended Perf/Arquitectura",
+        "resultado": "ok",
+        "fuente": "github-actions",
+        "detalle": "Perf, perf-business y clean architecture en success"
+      },
+      {
+        "id": "verificaciones_core",
+        "nombre": "Verificaciones Core",
+        "resultado": "ok",
+        "fuente": "github-actions",
+        "detalle": "Agregador Core en success"
+      },
+      {
+        "id": "verificaciones_extendidas",
+        "nombre": "Verificaciones Extendidas",
+        "resultado": "ok",
+        "fuente": "github-actions",
+        "detalle": "Agregador Extended Main/Release en success"
+      },
+      {
+        "id": "release_notes",
+        "nombre": "Notas de release ampliadas",
+        "resultado": "ok",
+        "fuente": "repo",
+        "detalle": "Incluye curso iniciado, examen global y fix CI extendido"
+      }
+    ]
+  },
+  "artefactos": {
+    "timeline": "docs/release/evidencias/1.0.1/timeline.md",
+    "metricas": "docs/release/evidencias/1.0.1/metrics_snapshot.txt",
+    "integridad": "docs/release/evidencias/1.0.1/integridad_sha256.json",
+    "releaseNotes": "docs/release/evidencias/1.0.1/RELEASE_NOTES.md",
+    "procesoGlobalCursoIniciado": "docs/PROCESO_GLOBAL_CURSO_INICIADO.md"
+  },
+  "ci": {
+    "provider": "github-actions",
+    "workflow": "CI Checks",
+    "runId": 28178008367,
+    "url": "https://github.com/Dtcsrni/EvaluaPro_Sistema_Universitario/actions/runs/28178008367",
+    "conclusion": "success"
+  }
+}
