@@ -4,6 +4,10 @@ Este archivo sigue el formato "Keep a Changelog" (alto nivel) y SemVer.
 
 ## [Unreleased]
 
+_(sin cambios pendientes)_
+
+## [1.0.0-beta.15] - 2026-06-04
+
 ### Changed
 
 - Decisión de distribución para MVP consolidada bajo la Opción A (firma interna con CA autogenerada) sin pasivos financieros continuos, planificando la migración del instalador a la Microsoft Store para la distribución pública masiva.

@@ -1,11 +1,11 @@
 # Inventario Exhaustivo de Codigo
 
-Fecha de generacion: 2026-06-12 22:34:01
+Fecha de generacion: 2026-06-25 03:13:01
 Fuente: git ls-files filtrado por existencia en workspace (solo archivos versionados presentes, excluye node_modules).
 
 ## Resumen
 
-- Total de piezas de codigo/config ejecutable inventariadas: 1016
+- Total de piezas de codigo/config ejecutable inventariadas: 1043
 - Extensiones incluidas: ts, tsx, js, jsx, mjs, cjs, json, yml, yaml, sh, cmd, ps1.
 
 ## Conteo por area
@@ -15,10 +15,10 @@ Fuente: git ls-files filtrado por existencia en workspace (solo archivos version
 | backend | 385 |
 | frontend | 129 |
 | portal_alumno_cloud | 44 |
-| ci | 17 |
-| scripts | 165 |
+| ci | 21 |
+| scripts | 168 |
 | ops | 3 |
-| docs | 114 |
+| docs | 134 |
 | raiz | 32 |
 
 ## Backend (apps/backend)
@@ -596,11 +596,15 @@ Fuente: git ls-files filtrado por existencia en workspace (solo archivos version
 - .github/workflows/ci-docs.yml
 - .github/workflows/ci-frontend.yml
 - .github/workflows/ci-installer-windows.yml
+- .github/workflows/ci-installer-windows.yml
+- .github/workflows/ci-installer-windows.yml
 - .github/workflows/ci-policy-audit.yml
 - .github/workflows/ci-portal.yml
 - .github/workflows/ci.yml
 - .github/workflows/package.yml
 - .github/workflows/pages-marketing.yml
+- .github/workflows/release-beta.yml
+- .github/workflows/release-beta.yml
 - .github/workflows/release-beta.yml
 - .github/workflows/release-stable-gate.yml
 - .github/workflows/security-codeql.yml
@@ -616,6 +620,7 @@ Fuente: git ls-files filtrado por existencia en workspace (solo archivos version
 - scripts/ai-serena-policy-status.mjs
 - scripts/ai-serena-status.mjs
 - scripts/ai-session-start.mjs
+- scripts/ai-skills-mcp-policy-status.mjs
 - scripts/build-msi.ps1
 - scripts/ci/run-e2e-auto.ps1
 - scripts/ci/run-e2e-host-canary.ps1
@@ -722,6 +727,7 @@ Fuente: git ls-files filtrado por existencia en workspace (solo archivos version
 - scripts/testing/import-anon-fixture.mjs
 - scripts/testing/resolve-affected-ci.mjs
 - scripts/testing/run-backend-coverage-batches.mjs
+- scripts/testing/run-backend-test-batches.mjs
 - scripts/testing/run-client-proyectos-vite-tests.mjs
 - scripts/testing/run-gate-with-report.mjs
 - scripts/testing/run-omr-tv-gate.mjs
@@ -732,6 +738,7 @@ Fuente: git ls-files filtrado por existencia en workspace (solo archivos version
 - scripts/tests/ai-openai-client.test.mjs
 - scripts/tests/ai-serena-policy-status.test.mjs
 - scripts/tests/backend-coverage-batches.test.mjs
+- scripts/tests/backend-test-batches.test.mjs
 - scripts/tests/ci-workflow-contract.test.mjs
 - scripts/tests/dashboard-pwa-contract.test.mjs
 - scripts/tests/dashboard-repair.test.mjs
@@ -886,6 +893,26 @@ Fuente: git ls-files filtrado por existencia en workspace (solo archivos version
 - docs/handoff/sesiones/2026-06-03/sesion-2026-06-03T10-25-40.513Z.json
 - docs/handoff/sesiones/2026-06-03/sesion-2026-06-03T10-25-59.228Z.json
 - docs/handoff/sesiones/2026-06-03/sesion-2026-06-03T11-05-04.909Z.json
+- docs/handoff/sesiones/2026-06-04/sesion-2026-06-04T08-52-48.933Z.json
+- docs/handoff/sesiones/2026-06-04/sesion-2026-06-04T10-22-11.207Z.json
+- docs/handoff/sesiones/2026-06-04/sesion-2026-06-04T10-31-51.552Z.json
+- docs/handoff/sesiones/2026-06-04/sesion-2026-06-04T10-37-43.851Z.json
+- docs/handoff/sesiones/2026-06-04/sesion-2026-06-04T10-56-00.930Z.json
+- docs/handoff/sesiones/2026-06-04/sesion-2026-06-04T11-02-14.745Z.json
+- docs/handoff/sesiones/2026-06-04/sesion-2026-06-04T23-45-33.800Z.json
+- docs/handoff/sesiones/2026-06-07/sesion-2026-06-07T04-44-22.972Z.json
+- docs/handoff/sesiones/2026-06-07/sesion-2026-06-07T04-46-49.911Z.json
+- docs/handoff/sesiones/2026-06-07/sesion-2026-06-07T04-47-51.927Z.json
+- docs/handoff/sesiones/2026-06-07/sesion-2026-06-07T05-35-52.272Z.json
+- docs/handoff/sesiones/2026-06-07/sesion-2026-06-07T07-26-08.533Z.json
+- docs/handoff/sesiones/2026-06-07/sesion-2026-06-07T08-04-49.794Z.json
+- docs/handoff/sesiones/2026-06-07/sesion-2026-06-07T08-21-03.639Z.json
+- docs/handoff/sesiones/2026-06-07/sesion-2026-06-07T08-24-02.150Z.json
+- docs/handoff/sesiones/2026-06-07/sesion-2026-06-07T08-24-27.640Z.json
+- docs/handoff/sesiones/2026-06-13/sesion-2026-06-13T03-24-42.533Z.json
+- docs/handoff/sesiones/2026-06-13/sesion-2026-06-13T03-41-01.209Z.json
+- docs/handoff/sesiones/2026-06-13/sesion-2026-06-13T04-34-01.342Z.json
+- docs/handoff/sesiones/2026-06-13/sesion-2026-06-13T04-35-02.550Z.json
 - docs/handoff/trace.schema.json
 - docs/perf/baseline.business.json
 - docs/perf/baseline.json

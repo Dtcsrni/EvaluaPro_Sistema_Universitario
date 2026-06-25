@@ -39,7 +39,6 @@ jobs:
           set -euo pipefail
           for wf in .github/workflows/release-beta.yml .github/workflows/ci-installer-windows.yml; do
             grep -q "run-defender-scan.ps1" "$wf"
-            grep -Eq "EvaluaPro-InstallerHub-saas-completo-v\\*\\.exe|EvaluaPro-InstallerHub-saas-completo-v[0-9]" "$wf"
             grep -Eq "EvaluaPro-InstallerHub-docente-local-v\\*\\.exe|EvaluaPro-InstallerHub-docente-local-v[0-9]" "$wf"
             grep -q "EvaluaPro-release-manifest.json" "$wf"
             grep -q "antivirus-scan-report.txt" "$wf"

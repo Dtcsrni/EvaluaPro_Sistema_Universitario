@@ -160,18 +160,24 @@ jobs:
       - name: Instalar dependencias
         run: npm ci --foreground-scripts
 
-      - name: Instalar WiX CLI estable (v6+)
+      - name: Instalar WiX CLI estable (v6.0.2)
         shell: powershell
         run: |
-          winget install --id WiXToolset.WiXCLI --accept-source-agreements --accept-package-agreements
+          dotnet tool install --global wix --version 6.0.2
 
-      - name: Registrar WiX en PATH
+      - name: Registrar WiX en PATH y Validar Versión
         shell: powershell
         run: |
-          $wixBin = 'C:\Program Files\WiX Toolset v6.0\bin'
-          if (-not (Test-Path $wixBin)) { throw "No se encontro WiX en $wixBin" }
-          "$wixBin" | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
-          $wixVersion = (& "$wixBin\wix.exe" --version | Select-Object -First 1)
+          $dotnetToolsDir = Join-Path $env:USERPROFILE ".dotnet\tools"
+          if (-not (Test-Path $dotnetToolsDir)) {
+            New-Item -ItemType Directory -Path $dotnetToolsDir -Force | Out-Null
+          }
+          "$dotnetToolsDir" | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
+          $wixPath = Join-Path $dotnetToolsDir "wix.exe"
+          if (-not (Test-Path $wixPath)) {
+            throw "No se encontro wix.exe en la carpeta de herramientas .NET global ($dotnetToolsDir)"
+          }
+          $wixVersion = (& $wixPath --version | Select-Object -First 1)
           if ($wixVersion -notmatch '^6\.0\.\d+(?:[+\-].*)?$') { throw "Version WiX no permitida: $wixVersion. Se requiere 6.0.x." }
           Write-Host "WiX version detectada: $wixVersion"
 
