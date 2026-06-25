@@ -69,3 +69,13 @@ omr_samples_tv3/maps/
 omr_samples_tv3/reports/
 omr_samples_tv3/answer_key.json
 reports/qa/latest/omr/
+reports/qa/latest/burn-extract-current/
+reports/qa/latest/wsl-offline/
+reports/qa/latest/signed-e2e-*/
+reports/qa/latest/evaluapro-docente-prod-images.tar
+reports/qa/latest/docker-*.txt
+reports/qa/latest/hyperv-*.txt
+reports/qa/latest/installer-hub-e2e-*-transcript.txt
+reports/qa/latest/interactive-e2e-*.txt
+reports/qa/latest/interactive-e2e-*.json
+reports/qa/latest/vmconnect-*.txt
