@@ -26,6 +26,9 @@ export async function conectarMongoTest() {
   if (!fs.existsSync(dataDir)) {
     fs.mkdirSync(dataDir, { recursive: true });
   }
+  if (!fs.existsSync(dbPath)) {
+    fs.closeSync(fs.openSync(dbPath, 'w'));
+  }
 
   // Resolver rutas de Prisma CLI y esquema de forma robusta usando __dirname
   let prismaBin = path.resolve(__dirname, '..', '..', 'node_modules', '.bin', 'prisma');

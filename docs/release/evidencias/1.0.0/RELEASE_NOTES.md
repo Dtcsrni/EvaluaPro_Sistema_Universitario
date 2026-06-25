@@ -24,11 +24,18 @@ Esta versión consolida los esfuerzos de la fase de desarrollo y estabilización
 - **Control de Caché Inteligente:** Invalidación automática del caché de previsualización al modificar reactivos o la firma del layout.
 - **Seguridad en Lotes:** Progreso en tiempo real de la generación de lotes y descargas insensibles a mayúsculas/minúsculas.
 
-### 4. Sincronización en la Nube y Portal del Alumno
+### 4. Preparación de Curso Iniciado y Examen Global
+- **Proceso docente estandarizado:** Se documenta el flujo para iniciar operación desde un curso ya avanzado: importar lista existente, mapear columnas, hidratar alumnos, reconocer temario/encuadre y registrar parciales previos como insumos del examen global.
+- **Insumos reales validados:** El corte incluye revisión de archivos DOCX/XLSX de Administración de la Calidad y Electrónica y Aplicaciones Digitales, con listas de calificaciones, temarios, encuadres y parciales previos.
+- **Global desde evidencia previa:** El proceso permite preparar un global aunque los parciales anteriores no hayan sido generados por EvaluaPro, siempre que se ingesten como documentos de referencia y se valide el mapeo antes de crear el banco de reactivos.
+- **Trazabilidad esperada:** Cada hidratación debe conservar vista previa, decisión docente, reporte de importación, conteo de alumnos creados/actualizados, parciales anexados y temas marcados como cubiertos.
+- **Referencia operativa:** Ver `docs/PROCESO_GLOBAL_CURSO_INICIADO.md` para el contrato de importación, criterios MVP día 1 y flujo recomendado.
+
+### 5. Sincronización en la Nube y Portal del Alumno
 - **Portal Cloud v3:** Sincronización de historial académico, avisos, agenda y calificaciones con sincronización diferencial robusta (Fingerprint v2 y LWW).
 - **Flujo de Solicitud de Revisiones:** Los alumnos pueden solicitar revisiones específicas por pregunta desde el portal, las cuales se sincronizan directamente al panel del docente para su resolución.
 
-### 5. Seguridad Comercial y Licenciamiento Portable
+### 6. Seguridad Comercial y Licenciamiento Portable
 - **Licencia Firmada Offline (`.epl`):** Soporte para activación obligatoria de licencias comerciales firmadas con llaves RSA/ECDSA por `kid`.
 - **Step-up de Seguridad Local:** Acceso a configuraciones del actualizador y del Hub protegido por TOTP (códigos de un solo uso) y sesión firmada localmente por máquina.
 
@@ -38,6 +45,7 @@ Esta versión consolida los esfuerzos de la fase de desarrollo y estabilización
 - **Compatibilidad con Workers (Vitest):** Se eliminó el uso de `process.chdir()` en las pruebas de validación OMR de TV3, permitiendo la ejecución paralela e hilos de Vitest sin bloqueos en Windows.
 - **Flexibilidad de Configuración:** Se marcó `PORTAL_ALUMNO_API_KEY` como opcional para facilitar el flavor `docente-local` sin requerir conexión obligatoria a la nube de entrada.
 - **Resolución de Colisión SHA-256:** Se corrigió un error en la función `hashHex` del orquestador que corrompía buffers binarios en la exportación de reportes DOCX.
+- **Release docente enriquecido:** Se incorpora evidencia de preparación para cursos ya iniciados y generación de global con insumos externos, más una corrección al contrato E2E para que fallas de captura Playwright bloqueen el gate en vez de registrarse como advertencia exitosa.
 
 ---
 

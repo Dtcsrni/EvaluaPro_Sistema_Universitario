@@ -442,34 +442,49 @@ function Install-EmbeddedNodeRuntime {
     }
   }
 
-  if (@('1', 'true', 'yes', 'on') -contains ([string]$env:EVALUAPRO_INSTALLER_USE_HOST_NODE_RUNTIME).Trim().ToLowerInvariant()) {
-    $nodeCommand = Get-Command 'node.exe' -ErrorAction SilentlyContinue
-    if (-not $nodeCommand -or [string]::IsNullOrWhiteSpace([string]$nodeCommand.Source)) {
-      throw 'EVALUAPRO_INSTALLER_USE_HOST_NODE_RUNTIME activo, pero no se encontro node.exe en el host.'
+  $useHostNodeRuntime = (@('1', 'true', 'yes', 'on') -contains ([string]$env:EVALUAPRO_INSTALLER_USE_HOST_NODE_RUNTIME).Trim().ToLowerInvariant())
+  $nodeCommand = Get-Command 'node.exe' -ErrorAction SilentlyContinue
+  if ($nodeCommand -and -not [string]::IsNullOrWhiteSpace([string]$nodeCommand.Source)) {
+    $hostMajor = 0
+    try {
+      $hostVersionRaw = (& ([string]$nodeCommand.Source) -v 2>$null | Select-Object -First 1)
+      if ($hostVersionRaw) {
+        $hostMajor = [int](([string]$hostVersionRaw).Trim().TrimStart('v', 'V').Split('.')[0])
+      }
+    } catch {
+      $hostMajor = 0
     }
 
-    $hostNodeRoot = Split-Path -Parent ([string]$nodeCommand.Source)
-    $runtimeRoot = Join-Path $InstallDir 'runtime'
-    $nodeRoot = Join-Path $runtimeRoot 'node'
-    if (Test-Path -LiteralPath $nodeRoot) {
-      Remove-Item -LiteralPath $nodeRoot -Recurse -Force -ErrorAction SilentlyContinue
-    }
-    New-Item -ItemType Directory -Path $nodeRoot -Force | Out-Null
-    Copy-Item -Path (Join-Path $hostNodeRoot '*') -Destination $nodeRoot -Recurse -Force
-
-    $copiedMajor = Get-EmbeddedNodeMajorVersion -InstallDir $InstallDir
-    if ($copiedMajor -lt $requiredMajor) {
-      throw ("Node host copiado no cumple version requerida: {0}.x" -f $copiedMajor)
+    if ($hostMajor -lt $requiredMajor -and $useHostNodeRuntime) {
+      throw ("EVALUAPRO_INSTALLER_USE_HOST_NODE_RUNTIME activo, pero node.exe host no cumple version requerida: {0}.x" -f $hostMajor)
     }
 
-    Add-HelperLog -Level 'warn' -Message ("Runtime Node embebido preparado desde Node host por override QA: {0}" -f $hostNodeRoot)
-    return [pscustomobject]@{
-      ok = $true
-      path = (Get-EmbeddedNodeRuntimePath -InstallDir $InstallDir)
-      version = "${copiedMajor}.x"
-      downloaded = $false
-      source = 'host-node-override'
+    if ($hostMajor -ge $requiredMajor) {
+      $hostNodeRoot = Split-Path -Parent ([string]$nodeCommand.Source)
+      $runtimeRoot = Join-Path $InstallDir 'runtime'
+      $nodeRoot = Join-Path $runtimeRoot 'node'
+      if (Test-Path -LiteralPath $nodeRoot) {
+        Remove-Item -LiteralPath $nodeRoot -Recurse -Force -ErrorAction SilentlyContinue
+      }
+      New-Item -ItemType Directory -Path $nodeRoot -Force | Out-Null
+      Copy-Item -Path (Join-Path $hostNodeRoot '*') -Destination $nodeRoot -Recurse -Force
+
+      $copiedMajor = Get-EmbeddedNodeMajorVersion -InstallDir $InstallDir
+      if ($copiedMajor -lt $requiredMajor) {
+        throw ("Node host copiado no cumple version requerida: {0}.x" -f $copiedMajor)
+      }
+
+      Add-HelperLog -Level 'ok' -Message ("Runtime Node embebido preparado desde Node host: {0}" -f $hostNodeRoot)
+      return [pscustomobject]@{
+        ok = $true
+        path = (Get-EmbeddedNodeRuntimePath -InstallDir $InstallDir)
+        version = "${copiedMajor}.x"
+        downloaded = $false
+        source = 'host-node'
+      }
     }
+  } elseif ($useHostNodeRuntime) {
+    throw 'EVALUAPRO_INSTALLER_USE_HOST_NODE_RUNTIME activo, pero no se encontro node.exe en el host.'
   }
 
   $package = Resolve-EmbeddedNodeBootstrapPackage
@@ -494,7 +509,11 @@ function Install-EmbeddedNodeRuntime {
   New-Item -ItemType Directory -Path $runtimeRoot -Force | Out-Null
 
   Add-HelperLog -Level 'info' -Message 'Descargando runtime Node embebido para Windows.'
-  Invoke-InstallerHubDownloadFile -Url ([string]$selection.downloadUrl) -Destination $zipPath -RetryCount 2
+  $downloadProgress = {
+    param($activity, $percent, $status, $meta)
+    Write-HelperProgress -Activity $activity -Percent $percent -Status $status -Meta $meta
+  }
+  Invoke-InstallerHubDownloadFile -Url ([string]$selection.downloadUrl) -Destination $zipPath -RetryCount 2 -OnProgress $downloadProgress
   $expected = [string]$selection.expectedSha256
   $actual = Get-InstallerHubFileSha256 -Path $zipPath
   if ($actual -ne $expected) {
@@ -551,7 +570,9 @@ function Invoke-HelperPhase {
 
   try {
     Add-HelperLog -Level 'info' -Message ("Fase helper: {0}" -f $Name)
+    Write-HelperProgress -Activity 'helper-phase' -Percent 0 -Status ("Fase helper: {0}" -f $Name) -Meta @{ phase = $Name }
     & $Action
+    Write-HelperProgress -Activity 'helper-phase' -Percent 100 -Status ("Fase completada: {0}" -f $Name) -Meta @{ phase = $Name }
   } catch {
     $exception = New-Object System.Exception($_.Exception.Message, $_.Exception)
     $exception.Data['phase'] = $Name

@@ -29,7 +29,7 @@ El carril local/no destructivo queda validado con evidencia actual. El cierre re
 | Lanzador elevado seguro del E2E VM | Cumplido como preparacion | `npm run installer:hub:e2e:elevated` abre UAC, define snapshot, ejecuta readiness y se detiene si no esta dentro de `EVALPRO-E2E` |
 | Guarda anti-host del E2E mutante | Cumplido como seguridad | `scripts/tests/installer-hub-e2e-docente.ps1` exige `COMPUTERNAME=EVALPRO-E2E` antes de instalar/reparar/desinstalar |
 | Gates base AGENTS locales | Cumplido local | `npm run lint`, `npm run typecheck`, y gates registrados en `docs/ENGINEERING_BASELINE.md` |
-| E2E VM release-like Installer Hub | Pendiente | Runner `scripts/tests/installer-hub-e2e-docente.ps1` requiere `-IUnderstandThisMutatesVm`, VM limpia y `EVALUAPRO_E2E_VM_SNAPSHOT`; no hay evidencia actual de ciclo completo |
+| E2E VM release-like Installer Hub | Pendiente | Recuperacion 2026-06-02 documentada en `docs/release/manual/installer-hub-e2e-vm-recovery-2026-06-02.md`; credencial `evaluaqa`, DPAPI, `C:\EvaluaPro` y pagefile quedaron corregidos, pero falta sesion interactiva real con Docker listo y `report.json` completo |
 
 ## Readiness VM Actual
 
@@ -44,8 +44,13 @@ El carril local/no destructivo queda validado con evidencia actual. El cierre re
 - `scripts/ci/run-e2e-launcher.ps1 -DryRun` valida readiness sin pedir credenciales; salida actual confirma `readinessGeneratedAt=2026-05-31T14:28:56.0192680-06:00`.
 - `scripts/ci/run-e2e-launcher.ps1` acepta `-Credential` y `-QaPassSecureString` para ejecucion no interactiva desde una sesion segura ya preparada; no persiste secretos.
 - Transcript actual: `reports/qa/latest/installer-hub-e2e-elevated-transcript.txt`; confirma `Readiness OK` y detencion segura porque el runner mutante debe ejecutarse dentro de `EVALPRO-E2E`.
-- WinRM remoting con `Invoke-Command -ComputerName EVALPRO-E2E` falla por autenticacion Negotiate `0x8009030e`.
-- PowerShell Direct con `Invoke-Command -VMName EvaluaPro-E2E-Win11` requiere `-Credential`.
+- Recuperacion 2026-06-02:
+  - WinRM con `EVALPRO-E2E\evaluaqa` vuelve a autenticar.
+  - El secreto QA queda disponible con DPAPI en `%APPDATA%\EvaluaPro\e2e-qa-pass.dpapi`; no versionar la pass literal.
+  - `C:\EvaluaPro` fue sincronizado dentro de la VM.
+  - Pagefile VM efectivo: `C:\pagefile.sys`, `AllocatedBaseSize=4096`.
+  - Evidencia parcial copiada: `reports/qa/installer-hub-e2e-docente/20260602-042758/report.json`.
+  - Bloqueo restante: WinRM no interactivo no muestra la UI del Hub (`No aparecio Installer Hub para mode=install`) y AtLogon no dejo sesion interactiva real (`quser: No User exists`) ni Docker listo.
 
 ## Criterio De Cierre
 

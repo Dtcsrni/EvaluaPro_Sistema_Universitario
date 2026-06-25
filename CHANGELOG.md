@@ -69,6 +69,35 @@ Este archivo sigue el formato "Keep a Changelog" (alto nivel) y SemVer.
 
 ### Changed
 
+- Decisión de distribución para MVP consolidada bajo la Opción A (firma interna con CA autogenerada) sin pasivos financieros continuos, planificando la migración del instalador a la Microsoft Store para la distribución pública masiva.
+- Estabilización del Installer Hub `docente-local` y E2E VM de release:
+  - Firma Burn-aware correcta usando `wix burn detach/reattach` para no romper el contenedor `WixAttachedContainer`.
+  - Soporte de firma por thumbprint mediante `EVALUAPRO_SIGN_CERT_THUMBPRINT` sin necesidad de exportar claves privadas en archivos temporales.
+  - El runner E2E ahora escribe de forma incremental el reporte `report.json` en cada fase `Add-Result`, evitando colgarse sin diagnóstico de progreso.
+  - El runner E2E prioriza el `.env` del instalador antes de ejecutar `docker compose up`, evitando falsos negativos por falta de secretos requeridos como `JWT_SECRETO`.
+  - Documentación del protocolo de control de calidad (QA) eficiente, abarcando la verificación de hashes, contratos locales y preflights de VM/WSL/Compose.
+  - `windows-release-smoke` cierra el bundle Burn con timeout y fallback `taskkill`, evitando que el gate local quede colgado si el proceso no responde a `SIGTERM`.
+  - `ci-streak` mantiene el umbral de 10 éxitos y omite conclusiones neutrales/canceladas (`cancelled`, `skipped`, `neutral`) porque no prueban regresión.
+  - `test:backend:ci` usa runner por lotes para evitar crashes de workers de Vitest en Windows sin reducir la selección de pruebas.
+  - Sincronización cloud usa upsert `$set/$setOnInsert` compatible con MongoDB 7.
+  - La descarga de PDF persiste `descargadoEn` antes de responder, cerrando la carrera del guardrail de regeneración.
+  - ESLint frontend mantiene el contrato clásico de hooks y difiere reglas React Compiler hasta migración explícita.
+
+### Verification
+
+- `node --test scripts/tests/installer-hub-contract.test.mjs` en verde (59/59 passing).
+- `npm run test:installer-hub:contract` en verde (64/64 passing), incluyendo `windows-release-smoke`.
+- `npm run lint`, `npm run typecheck`, `npm run test:frontend:ci`, `npm run test:backend:ci`, `npm run test:portal:ci`, `npm run test:coverage:ci`, `npm run perf:check`, `npm run pipeline:contract:check`, `npm run test:tdd:enforcement:ci` y `npm run test:stabilization:completion-audit` en verde.
+- `node --test scripts/tests/release-ci-streak.test.mjs scripts/tests/release-stable-promotion.test.mjs` en verde (6/6 passing).
+- `node scripts/release/validate-stable-promotion.mjs --version=1.0.0 --repo=Dtcsrni/EvaluaPro_Sistema_Universitario` en verde: `decision=Go`, `ci-streak=21/10`.
+- Bundle firmado actual: `dist\installer\docente-local\EvaluaPro-InstallerHub-docente-local-v1.0.0.exe`, SHA256 `5F0D95768A6B9AD71B5C9F492CA726CCE619DD4269DEE79E3B19B3BBA22B6656`, Authenticode `Valid` con `CN=EvaluaPro Internal Code Signing`.
+- E2E VM firmado completado exitosamente: corrida `20260607-001853`, `status=passed`, `lastTaskResult=0`, 44/44 verificaciones correctas. Evidencia guardada en `reports/qa/latest/signed-e2e-20260607-001853/report.json`.
+- Documentación del reporte de preparación del MVP: `docs/release/manual/installer-hub-mvp-readiness-2026-06-07.md`.
+
+## [1.0.0-beta.15] - 2026-06-04
+
+### Changed
+
 - Adaptación de la función `Test-IsAdministrator` en `scripts/installer-burn/modules/Common.psm1` para evitar la resolución estática de tipos de Windows (`Security.Principal.*`) en entornos no-Windows, solucionando errores de importación en Linux (Ubuntu).
 - Adaptación de comandos de simulación en la suite de pruebas `scripts/tests/installer-hub-contract.test.mjs` para ser condicionales al sistema operativo (`cmd /c exit 7` en Windows frente a `sh -c "exit 7"` en Linux).
 - Instalación explícita del navegador Chrome de Puppeteer (`npx puppeteer browsers install chrome`) previo a la generación de diagramas en `.github/workflows/ci.yml` y `.github/workflows/ci-docs.yml`.
@@ -359,8 +388,8 @@ Este archivo sigue el formato "Keep a Changelog" (alto nivel) y SemVer.
   - nueva cobertura en `scripts/tests/release-stable-promotion.test.mjs` para el caso `prod-flow-evidence` fallido
 - Decision reproducible de release estable generada:
   - `npm run release:validate:stable -- --version=1.0.0 --runs-fixture=docs/release/evidencias/1.0.0/ci-runs.fixture.json --installer-manifest=docs/release/evidencias/1.0.0/installer-release-manifest.fixture.json`
-  - resultado actual: `No-Go`
-  - motivo real: falta ejecutar el gate humano en producción con `api-base`, `token docente`, `periodo-id` y `docente-id` reales fuera del repositorio
+  - resultado de ese corte: `No-Go`
+  - motivo de ese corte: faltaba ejecutar el gate humano en producción con `api-base`, `token docente`, `periodo-id` y `docente-id` reales fuera del repositorio
 - Evidencia reusable de aceptación Windows para release:
   - smoke aislado/agresivo en `scripts/tests/windows-release-smoke.test.mjs`
   - damage harness reproducible sobre `InstallDir` temporal sin tocar Docker ni datos reales
@@ -627,8 +656,8 @@ Este archivo sigue el formato "Keep a Changelog" (alto nivel) y SemVer.
   - frontend `src/apps/app_alumno/**`
 - Validación real de release estable actualizada con repo remoto:
   - `npm run release:validate:stable -- --version=1.0.0 --repo=Dtcsrni/EvaluaPro_Sistema_Universitario`
-  - resultado actual: `No-Go`
-  - blockers reales confirmados:
+  - resultado de ese corte: `No-Go`
+  - blockers confirmados en ese corte:
     - `ci-streak=7/10`
     - `gateHumanoProduccion.resultado=fallo`
     - falta `dist/installer/EvaluaPro-release-manifest.json`

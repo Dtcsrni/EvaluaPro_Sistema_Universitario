@@ -139,6 +139,28 @@ async function sleep(ms) {
   await new Promise((resolve) => setTimeout(resolve, ms));
 }
 
+async function terminateChild(child, timeoutMs = 5_000) {
+  if (!child || child.exitCode !== null || child.signalCode !== null) return;
+  try { child.kill('SIGTERM'); } catch {}
+  const exited = await Promise.race([
+    new Promise((resolve) => child.once('exit', () => resolve(true))),
+    sleep(timeoutMs).then(() => false)
+  ]);
+  if (!exited && process.platform === 'win32' && child.pid) {
+    try {
+      execFileSync('taskkill.exe', ['/PID', String(child.pid), '/T', '/F'], {
+        encoding: 'utf8',
+        stdio: 'ignore',
+        timeout: 10_000
+      });
+    } catch {}
+    await Promise.race([
+      new Promise((resolve) => child.once('exit', () => resolve(true))),
+      sleep(2_000).then(() => false)
+    ]);
+  }
+}
+
 async function httpJson(url, timeoutMs = 8_000) {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), timeoutMs);
@@ -302,8 +324,7 @@ test('smoke GUI no destructivo valida el bundle Burn publico empaquetado', { tim
 
   await sleep(1800);
   assert.equal(child.exitCode, null, 'El bundle Burn se cerro antes del umbral de smoke.');
-  try { child.kill('SIGTERM'); } catch {}
-  await new Promise((resolve) => child.once('exit', resolve));
+  await terminateChild(child);
   assert.equal(child.exitCode !== null || child.signalCode !== null, true);
 });
 

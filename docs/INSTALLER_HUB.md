@@ -8,7 +8,7 @@ El contrato visual y UX del Hub vive en `docs/DESIGN.md`.
 
 - Ejecutar instalacion, reparacion o desinstalacion desde una GUI guiada.
 - Verificar y preparar prerequisitos de Windows con runtime Docker compatible.
-- Para `docente-local`, priorizar y remediar `WSL2 + Docker Engine` sin instalar ni requerir `Docker Desktop` en la ruta feliz.
+- Para `docente-local`, priorizar y remediar `WSL2 + Docker Engine` sin instalar ni requerir `Docker Desktop` en la ruta feliz; si el equipo ya trae `Docker Desktop` instalado y sano, puede aceptarse como compatibilidad para evitar doble runtime o conflicto local.
 - Para `docente-local`, preparar `Node 24` host en Windows y desplegar un runtime Node embebido local para dashboard/tray/shortcuts. `Node 24` dentro de WSL2 es obligatorio para el target `WSL2 + Docker Engine`.
 - Encadenar el `MSI` por medio de `Burn` con elevacion, cache, repair/uninstall y logging nativos.
 - Ejecutar configuracion operativa, activacion de licencia y validacion final con helper controlado bajo contrato JSON.
@@ -195,8 +195,9 @@ Regla de publicacion:
 ## Manejo de fallos y casos limite
 
 - Si falta runtime Docker compatible:
-  - en `docente-local`, priorizar `WSL2 + Docker Engine`;
-  - `Docker Desktop` solo opera como compatibilidad explicita y debe quedar sano antes de aceptarse;
+  - en `docente-local`, priorizar `WSL2 + Docker Engine` cuando no exista runtime compatible sano;
+  - si `Docker Desktop` ya esta instalado y sano, puede preferirse como compatibilidad para no introducir un segundo runtime;
+  - si `Docker Desktop` existe pero causa conflicto o no responde, debe remediarse `WSL2 + Docker Engine`;
   - generar y seguir la guía local de bootstrap WSL2/Docker Engine emitida por el Hub;
   - validar siempre por CLI (`docker version`, `docker context`, `wsl --status`) y no por GUI.
 

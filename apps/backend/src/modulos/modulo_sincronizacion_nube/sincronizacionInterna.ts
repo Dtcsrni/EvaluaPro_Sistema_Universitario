@@ -129,12 +129,14 @@ export async function upsertLwwPorUpdatedAt({
       continue;
     }
 
+    const camposActualizables = { ...doc };
+    delete camposActualizables._id;
+
     await Model.findOneAndUpdate(
       { _id: id },
-      doc,
+      { $set: camposActualizables, $setOnInsert: { _id: id } },
       {
         upsert: true,
-        overwrite: true,
         setDefaultsOnInsert: true,
         // Preserva updatedAt/createdAt del paquete para que LWW por updatedAt
         // sea consistente entre equipos y entre importaciones fuera de orden.

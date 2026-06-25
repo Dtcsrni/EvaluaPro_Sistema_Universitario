@@ -1,11 +1,11 @@
 # Inventario Exhaustivo de Codigo
 
-Fecha de generacion: 2026-06-23 15:57:36
+Fecha de generacion: 2026-06-25 07:10:14
 Fuente: git ls-files filtrado por existencia en workspace (solo archivos versionados presentes, excluye node_modules).
 
 ## Resumen
 
-- Total de piezas de codigo/config ejecutable inventariadas: 1100
+- Total de piezas de codigo/config ejecutable inventariadas: 1118
 - Extensiones incluidas: ts, tsx, js, jsx, mjs, cjs, json, yml, yaml, sh, cmd, ps1.
 
 ## Conteo por area
@@ -16,9 +16,9 @@ Fuente: git ls-files filtrado por existencia en workspace (solo archivos version
 | frontend | 133 |
 | portal_alumno_cloud | 67 |
 | ci | 17 |
-| scripts | 167 |
+| scripts | 170 |
 | ops | 3 |
-| docs | 153 |
+| docs | 168 |
 | raiz | 32 |
 
 ## Backend (apps/backend)
@@ -659,6 +659,7 @@ Fuente: git ls-files filtrado por existencia en workspace (solo archivos version
 - scripts/ai-serena-policy-status.mjs
 - scripts/ai-serena-status.mjs
 - scripts/ai-session-start.mjs
+- scripts/ai-skills-mcp-policy-status.mjs
 - scripts/build-msi.ps1
 - scripts/ci/run-e2e-auto.ps1
 - scripts/ci/run-e2e-host-canary.ps1
@@ -766,6 +767,7 @@ Fuente: git ls-files filtrado por existencia en workspace (solo archivos version
 - scripts/testing/import-anon-fixture.mjs
 - scripts/testing/resolve-affected-ci.mjs
 - scripts/testing/run-backend-coverage-batches.mjs
+- scripts/testing/run-backend-test-batches.mjs
 - scripts/testing/run-client-proyectos-vite-tests.mjs
 - scripts/testing/run-gate-with-report.mjs
 - scripts/testing/run-omr-tv-gate.mjs
@@ -776,6 +778,7 @@ Fuente: git ls-files filtrado por existencia en workspace (solo archivos version
 - scripts/tests/ai-openai-client.test.mjs
 - scripts/tests/ai-serena-policy-status.test.mjs
 - scripts/tests/backend-coverage-batches.test.mjs
+- scripts/tests/backend-test-batches.test.mjs
 - scripts/tests/ci-workflow-contract.test.mjs
 - scripts/tests/dashboard-pwa-contract.test.mjs
 - scripts/tests/dashboard-repair.test.mjs
@@ -939,14 +942,28 @@ Fuente: git ls-files filtrado por existencia en workspace (solo archivos version
 - docs/handoff/sesiones/2026-06-04/sesion-2026-06-04T11-02-14.745Z.json
 - docs/handoff/sesiones/2026-06-04/sesion-2026-06-04T11-36-41.715Z.json
 - docs/handoff/sesiones/2026-06-04/sesion-2026-06-04T11-51-02.129Z.json
+- docs/handoff/sesiones/2026-06-04/sesion-2026-06-04T23-45-33.800Z.json
 - docs/handoff/sesiones/2026-06-05/sesion-2026-06-05T09-56-13.891Z.json
 - docs/handoff/sesiones/2026-06-05/sesion-2026-06-05T09-56-37.337Z.json
+- docs/handoff/sesiones/2026-06-07/sesion-2026-06-07T04-44-22.972Z.json
+- docs/handoff/sesiones/2026-06-07/sesion-2026-06-07T04-46-49.911Z.json
+- docs/handoff/sesiones/2026-06-07/sesion-2026-06-07T04-47-51.927Z.json
+- docs/handoff/sesiones/2026-06-07/sesion-2026-06-07T05-35-52.272Z.json
+- docs/handoff/sesiones/2026-06-07/sesion-2026-06-07T07-26-08.533Z.json
+- docs/handoff/sesiones/2026-06-07/sesion-2026-06-07T08-04-49.794Z.json
+- docs/handoff/sesiones/2026-06-07/sesion-2026-06-07T08-21-03.639Z.json
+- docs/handoff/sesiones/2026-06-07/sesion-2026-06-07T08-24-02.150Z.json
+- docs/handoff/sesiones/2026-06-07/sesion-2026-06-07T08-24-27.640Z.json
 - docs/handoff/sesiones/2026-06-08/sesion-2026-06-08T03-06-13.006Z.json
 - docs/handoff/sesiones/2026-06-08/sesion-2026-06-08T04-52-32.962Z.json
 - docs/handoff/sesiones/2026-06-08/sesion-2026-06-08T09-44-44.762Z.json
 - docs/handoff/sesiones/2026-06-08/sesion-2026-06-08T09-45-03.646Z.json
 - docs/handoff/sesiones/2026-06-09/sesion-2026-06-09T10-24-03.972Z.json
 - docs/handoff/sesiones/2026-06-09/sesion-2026-06-09T18-03-59.323Z.json
+- docs/handoff/sesiones/2026-06-13/sesion-2026-06-13T03-24-42.533Z.json
+- docs/handoff/sesiones/2026-06-13/sesion-2026-06-13T03-41-01.209Z.json
+- docs/handoff/sesiones/2026-06-13/sesion-2026-06-13T04-34-01.342Z.json
+- docs/handoff/sesiones/2026-06-13/sesion-2026-06-13T04-35-02.550Z.json
 - docs/handoff/sesiones/2026-06-15/sesion-2026-06-15T06-55-42.234Z.json
 - docs/handoff/sesiones/2026-06-15/sesion-2026-06-15T10-50-36.706Z.json
 - docs/handoff/sesiones/2026-06-16/sesion-2026-06-16T06-58-11.122Z.json
@@ -970,6 +987,7 @@ Fuente: git ls-files filtrado por existencia en workspace (solo archivos version
 - docs/handoff/sesiones/2026-06-23/sesion-2026-06-23T11-43-44.882Z.json
 - docs/handoff/sesiones/2026-06-23/sesion-2026-06-23T15-00-02.613Z.json
 - docs/handoff/sesiones/2026-06-23/sesion-2026-06-23T15-08-11.999Z.json
+- docs/handoff/sesiones/2026-06-23/sesion-2026-06-23T21-58-30.547Z.json
 - docs/handoff/trace.schema.json
 - docs/perf/baseline.business.json
 - docs/perf/baseline.json

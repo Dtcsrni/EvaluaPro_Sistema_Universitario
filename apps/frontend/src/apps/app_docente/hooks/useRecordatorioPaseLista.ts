@@ -41,7 +41,6 @@ export function useRecordatorioPaseLista({ docente, permisosUI, periodos }: Para
   }, []);
 
   useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect
     verificarRecordatorioPaseLista();
   }, [periodos, verificarRecordatorioPaseLista]);
 

@@ -649,9 +649,37 @@ function Invoke-StreamingFileDownload {
   try {
     if (Get-Command Start-BitsTransfer -ErrorAction SilentlyContinue) {
       Invoke-InstallerHubProgressCallback -OnProgress $OnProgress -Activity 'download' -Percent 15 -Status ("Descarga por BITS: {0}" -f (Split-Path -Leaf $Destination))
-      Start-BitsTransfer -Source $Url -Destination $Destination -TransferPolicy Always -ErrorAction Stop
-      Invoke-InstallerHubProgressCallback -OnProgress $OnProgress -Activity 'download' -Percent 100 -Status ("Descarga completada por BITS: {0}" -f (Split-Path -Leaf $Destination))
-      return
+      $bitsJob = $null
+      try {
+        $bitsJob = Start-BitsTransfer -Source $Url -Destination $Destination -TransferPolicy Always -Asynchronous -ErrorAction Stop
+        $deadline = [DateTimeOffset]::UtcNow.AddMinutes(3)
+        while ($bitsJob.JobState -in @('Connecting', 'Transferring', 'Queued')) {
+          if ([DateTimeOffset]::UtcNow -gt $deadline) {
+            throw "Timeout BITS tras 180s descargando $Url"
+          }
+          Start-Sleep -Seconds 2
+          $bitsJob = Get-BitsTransfer -JobId $bitsJob.JobId -ErrorAction Stop
+          if ($bitsJob.BytesTotal -gt 0) {
+            $percent = [int][Math]::Floor(($bitsJob.BytesTransferred / [double]$bitsJob.BytesTotal) * 100)
+            Invoke-InstallerHubProgressCallback -OnProgress $OnProgress -Activity 'download' -Percent $percent -Status ("Descargando por BITS: {0} ({1}%)" -f (Split-Path -Leaf $Destination), $percent) -Meta @{
+              bytesReceived = [int64]$bitsJob.BytesTransferred
+              totalBytes = [int64]$bitsJob.BytesTotal
+            }
+          }
+        }
+
+        if ($bitsJob.JobState -eq 'Transferred') {
+          Complete-BitsTransfer -BitsJob $bitsJob -ErrorAction Stop
+          Invoke-InstallerHubProgressCallback -OnProgress $OnProgress -Activity 'download' -Percent 100 -Status ("Descarga completada por BITS: {0}" -f (Split-Path -Leaf $Destination))
+          return
+        }
+
+        throw "BITS termino en estado no exitoso: $($bitsJob.JobState)"
+      } finally {
+        if ($bitsJob -and $bitsJob.JobState -ne 'Transferred') {
+          Remove-BitsTransfer -BitsJob $bitsJob -Confirm:$false -ErrorAction SilentlyContinue
+        }
+      }
     }
   } catch {
     $httpError = if ([string]::IsNullOrWhiteSpace($httpError)) { $_.Exception.Message } else { "$httpError | BITS: $($_.Exception.Message)" }

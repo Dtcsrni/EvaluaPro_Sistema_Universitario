@@ -23,8 +23,11 @@ test('auditoria de completitud conserva cierre parcial y evidencia requerida', (
   assert.match(audit, /-IUnderstandThisMutatesVm/);
   assert.match(audit, /Get-VM EvaluaPro-E2E-Win11.*Running.*MemoryAssigned=3221225472/s);
   assert.match(audit, /Test-WSMan EVALPRO-E2E.*responde/s);
-  assert.match(audit, /WinRM remoting.*0x8009030e/s);
-  assert.match(audit, /PowerShell Direct.*requiere `-Credential`/s);
+  assert.match(audit, /WinRM con `EVALPRO-E2E\\evaluaqa` vuelve a autenticar/s);
+  assert.match(audit, /%APPDATA%\\EvaluaPro\\e2e-qa-pass\.dpapi/s);
+  assert.match(audit, /reports\/qa\/installer-hub-e2e-docente\/20260602-042758\/report\.json/s);
+  assert.match(audit, /No aparecio Installer Hub para mode=install/s);
+  assert.match(audit, /quser: No User exists/s);
 
   for (const command of [
     'npm run test:gui:screen-matrix',

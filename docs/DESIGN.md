@@ -59,7 +59,8 @@ Fuente de verdad visual y UX para las superficies operativas de EvaluaPro: front
 - `Revisar`: deteccion de prerequisitos, resumen accionable y tabla estable con scroll si aplica.
   - El Hub debe ser autonomo y adaptativo: ninguna sonda de `docker`, `wsl.exe` o prerequisito externo puede bloquear la UI sin timeout.
   - En `docente-local`, el runtime objetivo es `WSL2 + Docker Engine`; la ruta feliz no instala ni requiere `Docker Desktop`.
-  - `Docker Desktop` queda como compatibilidad explicita si ya existe o si soporte la selecciona; no debe desplazar el bootstrap WSL2 de `docente-local` cuando su daemon no responde.
+  - Si el equipo del docente ya trae `Docker Desktop` instalado y sano, el Hub puede aceptarlo como runtime compatible para evitar doble runtime o conflictos locales.
+  - Si `Docker Desktop` existe pero causa conflicto o su daemon no responde, no debe bloquear la ruta feliz: el Hub debe preferir/remediar `WSL2 + Docker Engine`.
   - `Docker Runtime Windows` significa runtime Docker operativo bajo el target efectivo del flavor.
   - `Node.js WSL2` es obligatorio para el target `WSL2 + Docker Engine`; solo se marca no requerido cuando se ha seleccionado compatibilidad `Docker Desktop` y el daemon esta sano.
 - `Ejecutar`: progreso, etapa actual y linea de tareas.

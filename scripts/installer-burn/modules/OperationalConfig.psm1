@@ -328,6 +328,10 @@ function Invoke-EvaluaProOperationalConfiguration {
   Write-EnvMap -Path $envPath -Map $envMap
 
   $updateConfigPath = Join-Path $InstallDir 'config\update-config.json'
+  $updateConfigDir = Split-Path -Parent $updateConfigPath
+  if (-not [string]::IsNullOrWhiteSpace($updateConfigDir)) {
+    New-Item -ItemType Directory -Force -Path $updateConfigDir | Out-Null
+  }
   $updateCfg = Read-JsonMap -Path $updateConfigPath
   if ($updateCfg -isnot [hashtable] -and $updateCfg -isnot [pscustomobject]) {
     $updateCfg = @{}

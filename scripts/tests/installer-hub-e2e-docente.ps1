@@ -89,6 +89,8 @@ $processes = New-Object System.Collections.Generic.List[System.Diagnostics.Proce
 $failed = $false
 $bundlePath = ''
 $installedRoot = ''
+$LastDockerExitCode = 0
+$script:LastDockerExitCode = 0
 
 function Write-E2ELog {
   param([string]$Message)
@@ -112,6 +114,9 @@ function Add-Result {
     detail = $Detail
     at = (Get-Date).ToString('o')
   }) | Out-Null
+  if ($script:reportPath) {
+    Save-Report -Status 'running'
+  }
 }
 
 function Save-Report {
@@ -625,12 +630,17 @@ function Wait-InstallerStableState {
     [int]$TimeoutMinutes = 45
   )
   $deadline = (Get-Date).AddMinutes($TimeoutMinutes)
+  $lastText = ''
   do {
     Start-Sleep -Seconds 3
-    $text = Get-WindowTextSnapshot -Window $Window
+    $lastText = Get-WindowTextSnapshot -Window $Window
+    $text = $lastText
     $cleanTextForErrorCheck = $text -replace '(?i)en\s+error\s+se\s+abre', 'en ___ se abre'
     if ($cleanTextForErrorCheck -match '(?i)(fall[oó]|error|no pudo|failed)') {
       return [pscustomobject]@{ ok = $false; text = $text }
+    }
+    if ($text -match '(?i)(estado completado|post-install completado|todas las etapas terminaron correctamente|operaci[oó]n finalizada correctamente)') {
+      return [pscustomobject]@{ ok = $true; text = $text }
     }
     if ($Mode -eq 'install' -and $text -match '(?i)(instalaci[oó]n completada|listo para usarse|configuraci[oó]n final)') {
       return [pscustomobject]@{ ok = $true; text = $text }
@@ -645,8 +655,11 @@ function Wait-InstallerStableState {
     if ($Mode -eq 'uninstall' -and $text -match '(?i)(desinstalaci[oó]n completada|qued[oó] desinstalado|producto ya no aparece|operaci[oó]n finalizada|post-install completado)') {
       return [pscustomobject]@{ ok = $true; text = $text }
     }
+    if ($text -match '(?i)(fall[oó]|error|no pudo|failed)') {
+      return [pscustomobject]@{ ok = $false; text = $text }
+    }
   } while ((Get-Date) -lt $deadline)
-  return [pscustomobject]@{ ok = $false; text = (Get-WindowTextSnapshot -Window $Window); timeout = $true }
+  return [pscustomobject]@{ ok = $false; text = $lastText; timeout = $true }
 }
 
 function Get-LatestPostInstallHelperState {
@@ -687,7 +700,8 @@ function Invoke-InstallerHubMode {
   }
   $processes.Add($process) | Out-Null
   Write-E2ELog "Installer Hub iniciado mode=$Mode pid=$($process.Id)"
-  $window = Find-Window -TimeoutSec 90
+  $freshWindow = Find-Window -TimeoutSec 1
+  $window = if ($freshWindow) { $freshWindow } else { Find-Window -TimeoutSec 90 }
   if (-not $window) { throw "No aparecio Installer Hub para mode=$Mode" }
   Capture-Window -Window $window -Name ("wpf-{0}-01-splash-deteccion" -f $Mode) | Out-Null
 
@@ -836,6 +850,23 @@ function Invoke-CaptureCommand {
   )
   $stdout = Join-Path $ReportDir ("{0}.stdout.log" -f $Name)
   $stderr = Join-Path $ReportDir ("{0}.stderr.log" -f $Name)
+  if ($FilePath -eq 'docker') {
+    $output = @()
+    try {
+      $output = @(Invoke-DockerCli -ArgumentList $ArgumentList -WorkingDirectory $WorkingDirectory 2>&1)
+      $exitCode = [int]$script:LastDockerExitCode
+    } catch {
+      $output = @($_.Exception.Message)
+      $exitCode = 1
+    }
+    $output | Set-Content -Path $stdout -Encoding UTF8
+    '' | Set-Content -Path $stderr -Encoding UTF8
+    Copy-ArtifactIfExists -Path $stdout -Name ("{0}.stdout.log" -f $Name) | Out-Null
+    Copy-ArtifactIfExists -Path $stderr -Name ("{0}.stderr.log" -f $Name) | Out-Null
+    Add-Result -Area 'docker' -Item $Name -Ok ($exitCode -eq 0) -Detail "exit=$exitCode"
+    if ($exitCode -ne 0) { throw "Comando fallo: $Name exit=$exitCode" }
+    return
+  }
   $process = Start-Process -FilePath $FilePath -ArgumentList $ArgumentList -WorkingDirectory $WorkingDirectory -NoNewWindow -PassThru -RedirectStandardOutput $stdout -RedirectStandardError $stderr
   if (-not $process.WaitForExit($TimeoutSec * 1000)) {
     try { Stop-Process -Id $process.Id -Force -ErrorAction SilentlyContinue } catch {}
@@ -857,17 +888,65 @@ function Invoke-CaptureCommand {
   if ($exitCode -ne 0) { throw "Comando fallo: $Name exit=$exitCode" }
 }
 
+function ConvertTo-WslPath {
+  param([string]$Path)
+  $resolved = (Resolve-Path -LiteralPath $Path).Path
+  if ($resolved -match '^([A-Za-z]):\\(.*)$') {
+    $drive = $matches[1].ToLowerInvariant()
+    $rest = $matches[2] -replace '\\', '/'
+    return "/mnt/$drive/$rest"
+  }
+  return $resolved
+}
+
+function Join-ShellArguments {
+  param([string[]]$ArgumentList)
+  $quoted = foreach ($arg in @($ArgumentList)) {
+    "'" + ([string]$arg).Replace("'", "'\''") + "'"
+  }
+  return ($quoted -join ' ')
+}
+
+function Invoke-DockerCli {
+  param(
+    [string[]]$ArgumentList,
+    [string]$WorkingDirectory = $root
+  )
+  if ([string]$env:EVALUAPRO_DOCKER_RUNTIME -eq 'wsl2-engine') {
+    $wslCwd = ConvertTo-WslPath -Path $WorkingDirectory
+    $dockerArgs = Join-ShellArguments -ArgumentList $ArgumentList
+    $quotedCwd = Join-ShellArguments -ArgumentList @($wslCwd)
+    $bashCommand = "cd $quotedCwd && docker $dockerArgs"
+    $stdout = Join-Path $env:TEMP ("evaluapro-docker-{0}.out.log" -f [Guid]::NewGuid().ToString('N'))
+    $stderr = Join-Path $env:TEMP ("evaluapro-docker-{0}.err.log" -f [Guid]::NewGuid().ToString('N'))
+    try {
+      $wslArgs = @('-d', 'Ubuntu', '-u', 'root', '--', 'bash', '-lc', $bashCommand)
+      $proc = Start-Process -FilePath 'wsl.exe' -ArgumentList $wslArgs -Wait -NoNewWindow -PassThru -RedirectStandardOutput $stdout -RedirectStandardError $stderr
+      $script:LastDockerExitCode = [int]$proc.ExitCode
+      $out = if (Test-Path -LiteralPath $stdout) { @(Get-Content -Path $stdout -ErrorAction SilentlyContinue) } else { @() }
+      $err = if (Test-Path -LiteralPath $stderr) { @(Get-Content -Path $stderr -ErrorAction SilentlyContinue) } else { @() }
+      return @($out + $err)
+    } finally {
+      if (Test-Path -LiteralPath $stdout) { Remove-Item -LiteralPath $stdout -Force -ErrorAction SilentlyContinue }
+      if (Test-Path -LiteralPath $stderr) { Remove-Item -LiteralPath $stderr -Force -ErrorAction SilentlyContinue }
+    }
+  }
+  $output = & docker @ArgumentList
+  $script:LastDockerExitCode = if ($null -eq $LASTEXITCODE) { 0 } else { [int]$LASTEXITCODE }
+  return $output
+}
+
 function Export-RuntimeAudit {
   param([string]$Name)
   $context = ''
   $images = ''
   try {
-    $context = (& docker context ls --format json 2>&1) -join "`n"
+    $context = (Invoke-DockerCli -ArgumentList @('context', 'ls', '--format', 'json') 2>&1) -join "`n"
   } catch {
     $context = $_.Exception.Message
   }
   try {
-    $images = (& docker images --format json 2>&1) -join "`n"
+    $images = (Invoke-DockerCli -ArgumentList @('images', '--format', 'json') 2>&1) -join "`n"
   } catch {
     $images = $_.Exception.Message
   }
@@ -885,7 +964,64 @@ function Export-RuntimeAudit {
 
 function Invoke-DockerStableStack {
   # Contrato operativo: docker compose --profile prod up --no-build -d mongo_local api_docente_prod web_docente_prod
-  Invoke-CaptureCommand -Name 'docker-compose-prod-up' -FilePath 'docker' -ArgumentList @('compose', '--profile', 'prod', 'up', '--no-build', '-d', 'mongo_local', 'api_docente_prod', 'web_docente_prod') -WorkingDirectory $installedRoot -TimeoutSec 1200
+  $workingDirectory = Resolve-DockerWorkingDirectory
+  $installedEnvPath = Join-Path $installedRoot '.env'
+  $runnerEnvPath = Join-Path $root '.env'
+  if (Test-Path -LiteralPath $installedEnvPath) {
+    Copy-Item -LiteralPath $installedEnvPath -Destination $runnerEnvPath -Force
+    Copy-ArtifactIfExists -Path $runnerEnvPath -Name 'runner-compose-env-shim.env' | Out-Null
+  }
+  Invoke-CaptureCommand -Name 'docker-compose-prod-up' -FilePath 'docker' -ArgumentList ((Get-DockerComposeArguments -WorkingDirectory $workingDirectory) + @('up', '--no-build', '-d', 'mongo_local', 'api_docente_prod', 'web_docente_prod')) -WorkingDirectory $workingDirectory -TimeoutSec 1200
+}
+
+function Resolve-DockerWorkingDirectory {
+  if (-not [string]::IsNullOrWhiteSpace($installedRoot)) {
+    $installedCompose = Join-Path $installedRoot 'docker-compose.yml'
+    if (Test-Path -LiteralPath $installedCompose) {
+      return $installedRoot
+    }
+  }
+  if (-not [string]::IsNullOrWhiteSpace($InstallDir)) {
+    $installDirCompose = Join-Path $InstallDir 'docker-compose.yml'
+    if (Test-Path -LiteralPath $installDirCompose) {
+      return $InstallDir
+    }
+  }
+  return $root
+}
+
+function Get-DockerComposeBaseArgs {
+  param([string]$WorkingDirectory)
+  $composeFilePath = Join-Path $WorkingDirectory 'docker-compose.yml'
+  if ([string]$env:EVALUAPRO_DOCKER_RUNTIME -eq 'wsl2-engine') {
+    return @(
+      'compose',
+      '--project-directory', (ConvertTo-WslPath -Path $WorkingDirectory),
+      '-f', (ConvertTo-WslPath -Path $composeFilePath),
+      '--profile', 'prod'
+    )
+  }
+  return @(
+    'compose',
+    '--project-directory', $WorkingDirectory,
+    '-f', $composeFilePath,
+    '--profile', 'prod'
+  )
+}
+
+function Get-DockerComposeArguments {
+  param([string]$WorkingDirectory)
+  $args = @(Get-DockerComposeBaseArgs -WorkingDirectory $WorkingDirectory)
+  $envFile = Join-Path $root '.env'
+  if (Test-Path -LiteralPath $envFile) {
+    $resolvedEnvFile = if ([string]$env:EVALUAPRO_DOCKER_RUNTIME -eq 'wsl2-engine') {
+      ConvertTo-WslPath -Path $envFile
+    } else {
+      $envFile
+    }
+    $args += @('--env-file', $resolvedEnvFile)
+  }
+  return $args
 }
 
 function Export-DockerEvidence {
@@ -895,19 +1031,21 @@ function Export-DockerEvidence {
   $logsOutDir = Join-Path $dockerDir 'docker-logs'
   New-Item -ItemType Directory -Force -Path $logsOutDir | Out-Null
 
+  $workingDirectory = Resolve-DockerWorkingDirectory
+  $composeArgs = Get-DockerComposeArguments -WorkingDirectory $workingDirectory
   try {
-    & docker compose --profile prod ps --format json | Set-Content -Path $psJsonPath -Encoding UTF8
+    Invoke-DockerCli -ArgumentList ($composeArgs + @('ps', '--format', 'json')) -WorkingDirectory $workingDirectory | Set-Content -Path $psJsonPath -Encoding UTF8
     $artifacts.Add($psJsonPath) | Out-Null
   } catch {}
 
   $containerIds = @()
   try {
-    $containerIds = @(& docker compose --profile prod ps -q mongo_local api_docente_prod web_docente_prod | Where-Object { -not [string]::IsNullOrWhiteSpace($_) })
+    $containerIds = @(Invoke-DockerCli -ArgumentList ($composeArgs + @('ps', '-q', 'mongo_local', 'api_docente_prod', 'web_docente_prod')) -WorkingDirectory $workingDirectory | Where-Object { -not [string]::IsNullOrWhiteSpace($_) })
   } catch {}
 
   if ($containerIds.Count -gt 0) {
     try {
-    & docker inspect $containerIds | Set-Content -Path $inspectPath -Encoding UTF8
+    Invoke-DockerCli -ArgumentList (@('inspect') + $containerIds) -WorkingDirectory $workingDirectory | Set-Content -Path $inspectPath -Encoding UTF8
       $artifacts.Add($inspectPath) | Out-Null
       $inspect = Get-Content -Raw -Path $inspectPath | ConvertFrom-Json
       $health = foreach ($item in @($inspect)) {
@@ -928,7 +1066,7 @@ function Export-DockerEvidence {
   foreach ($service in @('mongo_local', 'api_docente_prod', 'web_docente_prod')) {
     try {
       $logPathService = Join-Path $logsOutDir ("{0}.log" -f $service)
-      & docker compose --profile prod logs --no-color --tail 300 $service | Set-Content -Path $logPathService -Encoding UTF8
+      Invoke-DockerCli -ArgumentList ($composeArgs + @('logs', '--no-color', '--tail', '300', $service)) -WorkingDirectory $workingDirectory | Set-Content -Path $logPathService -Encoding UTF8
       $artifacts.Add($logPathService) | Out-Null
     } catch {}
   }
@@ -936,16 +1074,18 @@ function Export-DockerEvidence {
 
 function Assert-DockerStable {
   $required = @('mongo_local', 'api_docente_prod', 'web_docente_prod')
-  $ids = @(& docker compose --profile prod ps -q $required | Where-Object { -not [string]::IsNullOrWhiteSpace($_) })
+  $workingDirectory = Resolve-DockerWorkingDirectory
+  $composeArgs = Get-DockerComposeArguments -WorkingDirectory $workingDirectory
+  $ids = @(Invoke-DockerCli -ArgumentList ($composeArgs + @('ps', '-q') + $required) -WorkingDirectory $workingDirectory | Where-Object { -not [string]::IsNullOrWhiteSpace($_) })
   Add-Result -Area 'docker' -Item 'container-count' -Ok ($ids.Count -ge 3) -Detail "count=$($ids.Count)"
   if ($ids.Count -lt 3) { throw 'Docker stack prod incompleto.' }
 
-  $inspect = & docker inspect $ids | ConvertFrom-Json
+  $inspect = Invoke-DockerCli -ArgumentList (@('inspect') + $ids) -WorkingDirectory $workingDirectory | ConvertFrom-Json
   foreach ($container in @($inspect)) {
     $name = ([string]$container.Name).TrimStart('/')
     $running = [string]$container.State.Status -eq 'running'
-    $hasHealth = $container.State.PSObject.Properties.Match('Health').Count -gt 0
-    $healthStatus = if ($hasHealth) { [string]$container.State.Health.Status } else { 'none' }
+    $hasHealth = $container.State.PSObject.Properties.Match('Health').Count -gt 0 -and $null -ne $container.State.Health
+    $healthStatus = if ($hasHealth) { [string]$container.State.Health.Status } else { 'not-defined' }
     $healthy = if ($hasHealth) { $healthStatus -eq 'healthy' } else { $running }
     Add-Result -Area 'docker' -Item $name -Ok ($running -and $healthy) -Detail "state=$($container.State.Status) health=$healthStatus"
     if (-not ($running -and $healthy)) { throw "Contenedor no estable: $name" }
@@ -978,14 +1118,18 @@ function Capture-UrlWithPlaywright {
   $target = Join-Path $screenshotsDir ("{0}.png" -f $Name)
   try {
     $args = @('playwright', 'screenshot', '--browser=chromium', '--timeout=30000', "--viewport-size=$Width,$Height", $Url, $target)
-    Invoke-CaptureCommand -Name ("playwright-{0}" -f $Name) -FilePath 'npx.cmd' -ArgumentList $args -TimeoutSec 90
+    Invoke-CaptureCommand -Name ("playwright-{0}" -f $Name) -FilePath 'npx.cmd' -ArgumentList $args -TimeoutSec 45
     if (Test-Path -LiteralPath $target) {
       $screenshots.Add($target) | Out-Null
       Add-Result -Area 'screenshots' -Item $Name -Ok $true -Detail $Url
       return $target
     }
   } catch {
-    Add-Result -Area 'screenshots' -Item $Name -Ok $false -Detail $_.Exception.Message
+    Get-CimInstance Win32_Process -ErrorAction SilentlyContinue |
+      Where-Object { $_.CommandLine -like "*$target*" -or $_.CommandLine -like "*playwright screenshot*" } |
+      ForEach-Object { try { Stop-Process -Id $_.ProcessId -Force -ErrorAction SilentlyContinue } catch {} }
+    Add-Result -Area 'screenshots' -Item $Name -Ok $false -Detail ("captura fallida; {0}" -f $_.Exception.Message)
+    throw
   }
   return ''
 }
@@ -1154,13 +1298,20 @@ try {
   Invoke-InstalledBroker -Action 'open-dashboard' -RunId $openRunId
   $state = Wait-BootstrapState -RunId $openRunId -AcceptedStates @('healthy', 'degraded') -TimeoutSec 240
   Export-JsonArtifact -Name 'dashboard-bootstrap-state.json' -Data $state | Out-Null
-  Add-Result -Area 'dashboard' -Item 'bootstrap-state' -Ok ([string]$state.state -ne 'failed') -Detail ([string]$state.state)
-  $dashboardBase = [string]$state.meta.base
+  $dashboardState = if ($state.PSObject.Properties.Match('state').Count -gt 0) { [string]$state.state } else { 'unknown' }
+  Add-Result -Area 'dashboard' -Item 'bootstrap-state' -Ok ($dashboardState -in @('healthy', 'degraded')) -Detail $dashboardState
+  $dashboardBase = if ($state.PSObject.Properties.Match('meta').Count -gt 0 -and $state.meta.PSObject.Properties.Match('base').Count -gt 0) { [string]$state.meta.base } else { '' }
   if (-not [string]::IsNullOrWhiteSpace($dashboardBase)) {
     try {
       $dashboardStatus = Invoke-RestMethod -Uri "$dashboardBase/api/status" -TimeoutSec 10
       Export-JsonArtifact -Name 'dashboard-status.json' -Data $dashboardStatus | Out-Null
-      Add-Result -Area 'dashboard' -Item 'api-status' -Ok ($null -ne $dashboardStatus -and $dashboardStatus.app.name -eq 'evaluapro') -Detail $dashboardBase
+      $dashboardLifecycleState = if ($dashboardStatus.PSObject.Properties.Match('lifecycle').Count -gt 0 -and $dashboardStatus.lifecycle.PSObject.Properties.Match('state').Count -gt 0) {
+        [string]$dashboardStatus.lifecycle.state
+      } else {
+        'unknown'
+      }
+      $dashboardAppOk = $null -ne $dashboardStatus -and $dashboardStatus.app.name -eq 'evaluapro'
+      Add-Result -Area 'dashboard' -Item 'api-status' -Ok ($dashboardAppOk -and $dashboardLifecycleState -ne 'failed') -Detail ("{0} lifecycle={1}" -f $dashboardBase, $dashboardLifecycleState)
     } catch {
       Add-Result -Area 'dashboard' -Item 'api-status' -Ok $false -Detail $_.Exception.Message
       throw

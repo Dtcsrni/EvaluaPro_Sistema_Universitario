@@ -20,6 +20,7 @@ No editar a mano: los cambios se pisan al regenerar.
 - [FLUJO_EXAMEN.md](FLUJO_EXAMEN.md) — Flujo de examen
 - [FORMATO_PDF.md](FORMATO_PDF.md) — Formato PDF y OMR
 - [GUIA_FORMULARIOS.md](GUIA_FORMULARIOS.md) — Guía para llenar formularios (UI)
+- [IA_SKILLS_MCP_POLICY.md](IA_SKILLS_MCP_POLICY.md) — Politica de Skills y MCP para EvaluaPro
 - [IA_TRAZABILIDAD_AGENTES.md](IA_TRAZABILIDAD_AGENTES.md) — Trazabilidad IA del Proyecto
 - [INSTALLER_HUB.md](INSTALLER_HUB.md) — Installer Hub (Windows)
 - [INVENTARIO_CODIGO_EXHAUSTIVO.md](INVENTARIO_CODIGO_EXHAUSTIVO.md) — Inventario Exhaustivo de Codigo
@@ -31,6 +32,7 @@ No editar a mano: los cambios se pisan al regenerar.
 - [POLITICA_ECONOMIA_TOKENS_CODEX.md](POLITICA_ECONOMIA_TOKENS_CODEX.md) — Politica Repo-Local de Economia de Tokens para Codex
 - [POLITICA_OPTIMIZACION_RECURSOS.md](POLITICA_OPTIMIZACION_RECURSOS.md) — POLITICA_OPTIMIZACION_RECURSOS
 - [POLITICA_SDD.md](POLITICA_SDD.md) — Política de Spec-Driven Development (SDD)
+- [PROCESO_GLOBAL_CURSO_INICIADO.md](PROCESO_GLOBAL_CURSO_INICIADO.md) — Proceso estandar para global desde curso iniciado
 - [PRUEBAS.md](PRUEBAS.md) — Pruebas automatizadas
 - [QA_GATE_CRITERIA.md](QA_GATE_CRITERIA.md) — QA Gate Criteria (`1.0.0-beta.0`)
 - [QA_INSTALLER_HUB_DOCENTE_2026-05-20.md](QA_INSTALLER_HUB_DOCENTE_2026-05-20.md) — QA Installer Hub docente-local - 2026-05-20

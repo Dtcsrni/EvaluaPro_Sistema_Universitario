@@ -103,6 +103,29 @@
   "artefactos": {
     "timeline": "docs/release/evidencias/1.0.0/timeline.md",
     "metricas": "docs/release/evidencias/1.0.0/metrics_snapshot.txt",
-    "integridad": "docs/release/evidencias/1.0.0/integridad_sha256.json"
+    "integridad": "docs/release/evidencias/1.0.0/integridad_sha256.json",
+    "releaseNotes": "docs/release/evidencias/1.0.0/RELEASE_NOTES.md",
+    "procesoGlobalCursoIniciado": "docs/PROCESO_GLOBAL_CURSO_INICIADO.md"
+  },
+  "alcanceDocente": {
+    "cursoIniciado": {
+      "estado": "documentado",
+      "objetivo": "Aportar desde el primer dia aun cuando el curso ya tenga lista, temario, encuadre y parciales previos fuera de EvaluaPro.",
+      "insumosRevisados": [
+        "XLSX de listas/calificaciones existentes",
+        "DOCX de temario y encuadre",
+        "DOCX de primer y segundo parcial previos",
+        "material docente complementario para banco global"
+      ],
+      "capacidadesCubiertasPorProceso": [
+        "preview de importacion antes de persistir datos",
+        "mapeo de columnas y normalizacion de alumnos",
+        "hidratacion de curso y datos academicos historicos",
+        "asociacion de parciales previos como evidencia externa",
+        "preparacion de paquete base para examen global",
+        "trazabilidad de decision docente y reporte de importacion"
+      ],
+      "siguienteImplementacion": "Modulo hidratacion-cursos con endpoints de preview/importacion y UI docente para validacion asistida."
+    }
   }
 }

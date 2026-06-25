@@ -28,8 +28,12 @@ function runGhJson(args) {
 export function countSuccessfulStreak(runs = []) {
   let streak = 0;
   for (const run of runs) {
-    if (String(run?.conclusion || '') === 'success') {
+    const conclusion = String(run?.conclusion || '').toLowerCase();
+    if (conclusion === 'success') {
       streak += 1;
+      continue;
+    }
+    if (['cancelled', 'skipped', 'neutral'].includes(conclusion)) {
       continue;
     }
     break;
