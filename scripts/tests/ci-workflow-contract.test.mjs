@@ -143,6 +143,26 @@ test('workflow CI mantiene schedule full para jobs extended', () => {
   assert.match(compliance, /github\.event_name == 'schedule'/);
 });
 
+test('jobs extended generan Prisma antes de importar backend', () => {
+  const workflow = fs.readFileSync(workflowPath, 'utf8');
+  const cases = [
+    ['ext_funcionales', 'run: npm run test:flujo-docente:ci'],
+    ['ext_perf_arquitectura', 'run: npm run perf:check'],
+    ['ext_compliance_evidencia', 'run: npm run test:compliance:dsr-flow']
+  ];
+
+  for (const [jobKey, firstBackendCommand] of cases) {
+    const block = extractJobBlock(workflow, jobKey);
+    const setupIndex = block.indexOf('run: npm ci --foreground-scripts');
+    const prismaIndex = block.indexOf('npx prisma generate --schema=apps/backend/prisma/schema.prisma');
+    const commandIndex = block.indexOf(firstBackendCommand);
+
+    assert.ok(setupIndex >= 0, `${jobKey}: faltante npm ci`);
+    assert.ok(prismaIndex > setupIndex, `${jobKey}: prisma generate debe ejecutarse despues de npm ci`);
+    assert.ok(commandIndex > prismaIndex, `${jobKey}: comandos backend deben ejecutarse despues de prisma generate`);
+  }
+});
+
 test('workflows usan actions oficiales compatibles con runtime Node 24', () => {
   const workflows = fs.readdirSync(workflowDir).filter((file) => /\.ya?ml$/i.test(file));
   const deprecatedRuntimeActions = [

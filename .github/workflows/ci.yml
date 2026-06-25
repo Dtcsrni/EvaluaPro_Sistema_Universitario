@@ -418,6 +418,9 @@ jobs:
       - name: Etapa setup
         run: npm ci --foreground-scripts
 
+      - name: Preparar Prisma backend
+        run: npx prisma generate --schema=apps/backend/prisma/schema.prisma
+
       - name: Preparar runtime sharp (linux-x64)
         run: npm install --no-save --include=optional --os=linux --cpu=x64 sharp
 
@@ -493,6 +496,9 @@ jobs:
       - name: Etapa setup
         run: npm ci --foreground-scripts
 
+      - name: Preparar Prisma backend
+        run: npx prisma generate --schema=apps/backend/prisma/schema.prisma
+
       - name: Preparar runtime sharp (linux-x64)
         run: npm install --no-save --include=optional --os=linux --cpu=x64 sharp
 
@@ -553,6 +559,9 @@ jobs:
 
       - name: Etapa setup
         run: npm ci --foreground-scripts
+
+      - name: Preparar Prisma backend
+        run: npx prisma generate --schema=apps/backend/prisma/schema.prisma
 
       - name: Preparar runtime sharp (linux-x64)
         run: npm install --no-save --include=optional --os=linux --cpu=x64 sharp
