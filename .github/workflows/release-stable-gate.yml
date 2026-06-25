@@ -62,6 +62,8 @@ jobs:
           echo "target=$TARGET" >> "$GITHUB_OUTPUT"
 
       - name: Ejecutar gate estable
+        env:
+          GH_TOKEN: ${{ github.token }}
         run: >
           node scripts/release/validate-stable-promotion.mjs
           --repo=${{ github.repository }}

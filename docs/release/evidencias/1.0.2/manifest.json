@@ -1,0 +1,106 @@
+{
+  "version": "1.0.2",
+  "displayVersion": "1.0.2",
+  "commit": "pending-tag",
+  "ciConsecutivoVerde": 1,
+  "evidenciaWindows": {
+    "path": "docs/release/evidencias/1.0.0-beta.1/windows-release-smoke-2026-03-20.md"
+  },
+  "gateHumanoProduccion": {
+    "version": "1.0.2",
+    "displayVersion": "1.0.2",
+    "ejecutadoEn": "2026-06-25T16:10:00Z",
+    "entorno": "local-plus-ci",
+    "docenteIdHash": "e5ca63979194e25e41c082cecc7757739bd95627e4b02b6a0687f0f5c6afb5e1",
+    "periodoId": "6a1d66f47cbf2ca711a9d977",
+    "ventana": {
+      "startedAt": "2026-06-25T15:55:40Z",
+      "endedAt": "2026-06-25T16:10:00Z"
+    },
+    "operador": {
+      "nombre": "codex",
+      "observaciones": "Patch release para corregir gates de publicacion estable disparados por tag."
+    },
+    "resultado": "ok",
+    "duracionMs": 860000,
+    "pasos": [
+      {
+        "id": "stable_gate_token_fix",
+        "nombre": "Release Stable Gate con GH_TOKEN",
+        "resultado": "ok",
+        "fuente": "repo",
+        "detalle": "Workflow expone GH_TOKEN para validate-stable-promotion"
+      },
+      {
+        "id": "docker_backend_prisma_copy",
+        "nombre": "Dockerfile backend copia Prisma",
+        "resultado": "ok",
+        "fuente": "repo",
+        "detalle": "Schema Prisma disponible antes de npm workspace build"
+      },
+      {
+        "id": "docker_backend_build_local",
+        "nombre": "Build Docker backend local",
+        "resultado": "ok",
+        "fuente": "docker",
+        "detalle": "docker build -f apps/backend/Dockerfile -t evaluapro-backend:release-gate-smoke ."
+      },
+      {
+        "id": "ci_workflow_contract",
+        "nombre": "Contrato CI workflow",
+        "resultado": "ok",
+        "fuente": "node-test",
+        "detalle": "15 pruebas pasan"
+      },
+      {
+        "id": "release_evidence",
+        "nombre": "Evidencia release",
+        "resultado": "ok",
+        "fuente": "repo",
+        "detalle": "Estructura 1.0.2 validable"
+      },
+      {
+        "id": "version_bump",
+        "nombre": "Versionado 1.0.2",
+        "resultado": "ok",
+        "fuente": "repo",
+        "detalle": "package.json, workspaces y config/app-version actualizados"
+      },
+      {
+        "id": "rollback_ready",
+        "nombre": "Rollback readiness",
+        "resultado": "ok",
+        "fuente": "repo",
+        "detalle": "Rollback documentado contra 1.0.1/1.0.0"
+      },
+      {
+        "id": "release_notes",
+        "nombre": "Notas de release",
+        "resultado": "ok",
+        "fuente": "repo",
+        "detalle": "Notas 1.0.2 agregadas"
+      },
+      {
+        "id": "global_prep_scope",
+        "nombre": "Preparacion global conservada",
+        "resultado": "ok",
+        "fuente": "repo",
+        "detalle": "Se conserva docs/PROCESO_GLOBAL_CURSO_INICIADO.md"
+      },
+      {
+        "id": "tag_policy",
+        "nombre": "Politica de tag",
+        "resultado": "ok",
+        "fuente": "repo",
+        "detalle": "No se reescribe v1.0.1; se publica patch posterior"
+      }
+    ]
+  },
+  "artefactos": {
+    "timeline": "docs/release/evidencias/1.0.2/timeline.md",
+    "metricas": "docs/release/evidencias/1.0.2/metrics_snapshot.txt",
+    "integridad": "docs/release/evidencias/1.0.2/integridad_sha256.json",
+    "releaseNotes": "docs/release/evidencias/1.0.2/RELEASE_NOTES.md",
+    "procesoGlobalCursoIniciado": "docs/PROCESO_GLOBAL_CURSO_INICIADO.md"
+  }
+}
