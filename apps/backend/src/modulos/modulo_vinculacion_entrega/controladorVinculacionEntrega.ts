@@ -9,9 +9,8 @@
  */
 import type { Response } from 'express';
 import { ErrorAplicacion } from '../../compartido/errores/errorAplicacion';
-import { ExamenGenerado } from '../modulo_generacion_pdf/modeloExamenGenerado';
 import { obtenerDocenteId, type SolicitudDocente } from '../modulo_autenticacion/middlewareAutenticacion';
-import { Entrega } from './modeloEntrega';
+import { prisma } from '../../infraestructura/baseDatos/sqlite';
 
 /**
  * Vincula un examen por id.
@@ -24,11 +23,13 @@ export async function vincularEntrega(req: SolicitudDocente, res: Response) {
   const { examenGeneradoId, alumnoId, acordeonEntregado, bonoAcordeon } = req.body;
   const docenteId = obtenerDocenteId(req);
 
-  const examen = await ExamenGenerado.findById(examenGeneradoId);
+  const examen = await prisma.examenGenerado.findUnique({
+    where: { id: examenGeneradoId }
+  });
   if (!examen) {
     throw new ErrorAplicacion('EXAMEN_NO_ENCONTRADO', 'Examen no encontrado', 404);
   }
-  if (String(examen.docenteId) !== String(docenteId)) {
+  if (examen.docenteId !== docenteId) {
     throw new ErrorAplicacion('NO_AUTORIZADO', 'Sin acceso a este examen', 403);
   }
   const estadoActual = String(examen.estado ?? '').toLowerCase();
@@ -36,23 +37,29 @@ export async function vincularEntrega(req: SolicitudDocente, res: Response) {
     throw new ErrorAplicacion('EXAMEN_YA_ENTREGADO', 'Este examen ya fue entregado', 409);
   }
 
-  examen.alumnoId = alumnoId;
-  examen.estado = 'entregado';
-  examen.entregadoEn = new Date();
-  await examen.save();
+  await prisma.examenGenerado.update({
+    where: { id: examenGeneradoId },
+    data: {
+      alumnoId,
+      estado: 'entregado',
+      entregadoEn: new Date()
+    }
+  });
 
-  const entrega = await Entrega.create({
-    examenGeneradoId,
-    alumnoId,
-    docenteId,
-    estado: 'entregado',
-    fechaEntrega: new Date(),
-    acordeonEntregado: Boolean(acordeonEntregado),
-    bonoAcordeon: acordeonEntregado
-      ? Number.isFinite(Number(bonoAcordeon))
-        ? Math.max(0, Math.min(0.5, Number(bonoAcordeon)))
-        : 0.25
-      : 0
+  const entrega = await prisma.entrega.create({
+    data: {
+      examenGeneradoId,
+      alumnoId,
+      docenteId,
+      estado: 'entregado',
+      fechaEntrega: new Date(),
+      acordeonEntregado: Boolean(acordeonEntregado),
+      bonoAcordeon: acordeonEntregado
+        ? Number.isFinite(Number(bonoAcordeon))
+          ? Math.max(0, Math.min(0.5, Number(bonoAcordeon)))
+          : 0.25
+        : 0
+    }
   });
 
   res.status(201).json({ entrega });
@@ -69,7 +76,9 @@ export async function vincularEntregaPorFolio(req: SolicitudDocente, res: Respon
   const { alumnoId, acordeonEntregado, bonoAcordeon } = req.body;
   const docenteId = obtenerDocenteId(req);
 
-  const examen = await ExamenGenerado.findOne({ folio, docenteId });
+  const examen = await prisma.examenGenerado.findFirst({
+    where: { folio, docenteId }
+  });
   if (!examen) {
     throw new ErrorAplicacion('EXAMEN_NO_ENCONTRADO', 'Examen no encontrado', 404);
   }
@@ -78,23 +87,29 @@ export async function vincularEntregaPorFolio(req: SolicitudDocente, res: Respon
     throw new ErrorAplicacion('EXAMEN_YA_ENTREGADO', 'Este examen ya fue entregado', 409);
   }
 
-  examen.alumnoId = alumnoId;
-  examen.estado = 'entregado';
-  examen.entregadoEn = new Date();
-  await examen.save();
+  await prisma.examenGenerado.update({
+    where: { id: examen.id },
+    data: {
+      alumnoId,
+      estado: 'entregado',
+      entregadoEn: new Date()
+    }
+  });
 
-  const entrega = await Entrega.create({
-    examenGeneradoId: examen._id,
-    alumnoId,
-    docenteId,
-    estado: 'entregado',
-    fechaEntrega: new Date(),
-    acordeonEntregado: Boolean(acordeonEntregado),
-    bonoAcordeon: acordeonEntregado
-      ? Number.isFinite(Number(bonoAcordeon))
-        ? Math.max(0, Math.min(0.5, Number(bonoAcordeon)))
-        : 0.25
-      : 0
+  const entrega = await prisma.entrega.create({
+    data: {
+      examenGeneradoId: examen.id,
+      alumnoId,
+      docenteId,
+      estado: 'entregado',
+      fechaEntrega: new Date(),
+      acordeonEntregado: Boolean(acordeonEntregado),
+      bonoAcordeon: acordeonEntregado
+        ? Number.isFinite(Number(bonoAcordeon))
+          ? Math.max(0, Math.min(0.5, Number(bonoAcordeon)))
+          : 0.25
+        : 0
+    }
   });
 
   res.status(201).json({ entrega });
@@ -113,7 +128,9 @@ export async function deshacerEntregaPorFolio(req: SolicitudDocente, res: Respon
   const motivo = String(req.body.motivo || '').trim();
   const docenteId = obtenerDocenteId(req);
 
-  const examen = await ExamenGenerado.findOne({ folio, docenteId });
+  const examen = await prisma.examenGenerado.findFirst({
+    where: { folio, docenteId }
+  });
   if (!examen) {
     throw new ErrorAplicacion('EXAMEN_NO_ENCONTRADO', 'Examen no encontrado', 404);
   }
@@ -126,18 +143,31 @@ export async function deshacerEntregaPorFolio(req: SolicitudDocente, res: Respon
     return res.status(200).json({ actualizado: false, estado: examen.estado });
   }
 
-  examen.alumnoId = null;
-  examen.estado = 'generado';
-  examen.entregadoEn = undefined;
-  await examen.save();
+  const updatedExamen = await prisma.examenGenerado.update({
+    where: { id: examen.id },
+    data: {
+      alumnoId: null,
+      estado: 'generado',
+      entregadoEn: null
+    }
+  });
 
-  const entrega = await Entrega.findOne({ examenGeneradoId: examen._id, docenteId }).sort({ createdAt: -1 });
+  const lasEntregas = await prisma.entrega.findMany({
+    where: { examenGeneradoId: examen.id, docenteId },
+    orderBy: { createdAt: 'desc' },
+    take: 1
+  });
+  const entrega = lasEntregas[0];
   if (entrega) {
-    entrega.estado = 'pendiente';
-    entrega.fechaEntrega = undefined;
-    entrega.motivoDeshacer = motivo ? motivo : undefined;
-    await entrega.save();
+    await prisma.entrega.update({
+      where: { id: entrega.id },
+      data: {
+        estado: 'pendiente',
+        fechaEntrega: null,
+        motivoDeshacer: motivo || null
+      }
+    });
   }
 
-  res.status(200).json({ actualizado: true, estado: examen.estado });
+  res.status(200).json({ actualizado: true, estado: updatedExamen.estado });
 }

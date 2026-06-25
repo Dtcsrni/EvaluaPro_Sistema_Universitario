@@ -1,3 +1,9 @@
+/**
+ * sincronizacionInterna
+ *
+ * Responsabilidad: Modulo interno del sistema.
+ * Limites: Mantener contrato y comportamiento observable del modulo.
+ */
 import { createHash, randomBytes } from 'crypto';
 import { gzipSync } from 'zlib';
 import { ErrorAplicacion } from '../../compartido/errores/errorAplicacion';

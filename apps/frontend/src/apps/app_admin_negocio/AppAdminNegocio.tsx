@@ -1,3 +1,12 @@
+/**
+ * AppAdminNegocio
+ *
+ * Responsabilidad: Modulo interno del sistema.
+ * Limites: Mantener contrato y comportamiento observable del modulo.
+ *
+ * Mejoras de UX/UI: Aplicación de la guía de diseño avanzado (glassmorphism,
+ * transparencias y animaciones de entrada).
+ */
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { clienteAdminNegocioApi } from './clienteAdminNegocioApi';
 import { emitToast } from '../../ui/toast/toastBus';
@@ -507,7 +516,7 @@ export function AppAdminNegocio() {
   }, [vista, plantillasNotificacion, plantillaSeleccionadaId, seleccionarPlantillaNotificacion]);
 
   return (
-    <div className="panel cuenta-panel admin-negocio-shell superficie-app superficie-app--negocio" data-admin-negocio="true">
+    <div className="panel glass-card anim-fade-in cuenta-panel admin-negocio-shell superficie-app superficie-app--negocio" data-admin-negocio="true">
       <div className="admin-negocio-shell__header">
         <div>
           <p className="eyebrow">
@@ -539,7 +548,7 @@ export function AppAdminNegocio() {
               pasos={ayudaVista.pasos}
               notas={<span className="ayuda">Usa los datos crudos como evidencia operativa y recarga después de cada acción crítica.</span>}
             />
-          <div className="subpanel superadmin-overview">
+          <div className="subpanel glass-card superadmin-overview">
             <div className="superadmin-overview__head">
               <div>
                 <h3>Control Maestro Superadmin</h3>
@@ -549,7 +558,7 @@ export function AppAdminNegocio() {
               </div>
               <button
                 type="button"
-                className="chip"
+                className="chip scale-hover"
                 onClick={() => {
                   void cargarResumenDashboard();
                   void cargarVistaActual(vista);
@@ -559,50 +568,50 @@ export function AppAdminNegocio() {
               </button>
             </div>
             <div className="superadmin-kpis">
-              <article className="superadmin-kpi">
+              <article className="superadmin-kpi glass-card scale-hover">
                 <span>Tenants</span>
                 <b>{resumenDashboard?.totalTenants ?? 0}</b>
               </article>
-              <article className="superadmin-kpi">
+              <article className="superadmin-kpi glass-card scale-hover">
                 <span>Suscripciones activas</span>
                 <b>{resumenDashboard?.suscripcionesActivas ?? 0}</b>
               </article>
-              <article className="superadmin-kpi">
+              <article className="superadmin-kpi glass-card scale-hover">
                 <span>Past due</span>
                 <b>{resumenDashboard?.suscripcionesPastDue ?? 0}</b>
               </article>
-              <article className="superadmin-kpi">
+              <article className="superadmin-kpi glass-card scale-hover">
                 <span>MRR</span>
                 <b>{formatearMoneda(resumenDashboard?.mrrMxn)}</b>
               </article>
-              <article className="superadmin-kpi">
+              <article className="superadmin-kpi glass-card scale-hover">
                 <span>Cobranza pendiente</span>
                 <b>{formatearMoneda(resumenDashboard?.cobranzaPendienteMxn)}</b>
               </article>
-              <article className="superadmin-kpi">
+              <article className="superadmin-kpi glass-card scale-hover">
                 <span>Conversión trial</span>
                 <b>{formatearPct(resumenDashboard?.conversionTrial)}</b>
               </article>
-              <article className="superadmin-kpi">
+              <article className="superadmin-kpi glass-card scale-hover">
                 <span>Churn mensual</span>
                 <b>{formatearPct(resumenDashboard?.churnMensual)}</b>
               </article>
-              <article className="superadmin-kpi">
+              <article className="superadmin-kpi glass-card scale-hover">
                 <span>Margen bruto mínimo</span>
                 <b>{formatearPct(resumenDashboard?.margenBrutoMinimo)}</b>
               </article>
             </div>
             <div className="acciones acciones--mt">
-              <button type="button" className="chip" onClick={() => setVista('dashboard')}>
+              <button type="button" className="chip scale-hover" onClick={() => setVista('dashboard')}>
                 Vista ejecutiva
               </button>
-              <button type="button" className="chip" onClick={() => setVista('licencias')}>
+              <button type="button" className="chip scale-hover" onClick={() => setVista('licencias')}>
                 Poder: licencias
               </button>
-              <button type="button" className="chip" onClick={() => setVista('cobranza')}>
+              <button type="button" className="chip scale-hover" onClick={() => setVista('cobranza')}>
                 Poder: cobranza
               </button>
-              <button type="button" className="chip" onClick={() => setVista('auditoria')}>
+              <button type="button" className="chip scale-hover" onClick={() => setVista('auditoria')}>
                 Poder: auditoría
               </button>
             </div>
@@ -613,7 +622,7 @@ export function AppAdminNegocio() {
               <button
                 key={item.id}
                 type="button"
-                className={`admin-negocio-nav__item${vista === item.id ? ' admin-negocio-nav__item--activo' : ''}`}
+                className={`admin-negocio-nav__item scale-hover${vista === item.id ? ' admin-negocio-nav__item--activo' : ''}`}
                 disabled={cargando}
                 data-tooltip={`Abrir ${item.label}`}
                 onClick={() => setVista(item.id)}
@@ -624,7 +633,7 @@ export function AppAdminNegocio() {
             ))}
             <button
               type="button"
-              className="admin-negocio-nav__item admin-negocio-nav__item--refresh"
+              className="admin-negocio-nav__item admin-negocio-nav__item--refresh scale-hover"
               onClick={() => {
                 void cargarVistaActual(vista);
                 void cargarResumenDashboard();
@@ -636,28 +645,28 @@ export function AppAdminNegocio() {
           </div>
 
           {vista === 'tenants' && (
-            <div className="subpanel">
+            <div className="subpanel glass-card anim-slide-up">
               <h3>Nuevo tenant</h3>
               <label className="campo">Tenant ID<input value={nuevoTenant.tenantId} onChange={(e) => setNuevoTenant({ ...nuevoTenant, tenantId: e.target.value })} /></label>
               <label className="campo">Nombre<input value={nuevoTenant.nombre} onChange={(e) => setNuevoTenant({ ...nuevoTenant, nombre: e.target.value })} /></label>
               <label className="campo">Owner Docente ID<input value={nuevoTenant.ownerDocenteId} onChange={(e) => setNuevoTenant({ ...nuevoTenant, ownerDocenteId: e.target.value })} /></label>
               <label className="campo">Correo contacto<input value={nuevoTenant.contactoCorreo} onChange={(e) => setNuevoTenant({ ...nuevoTenant, contactoCorreo: e.target.value })} /></label>
               <label className="campo">Teléfono contacto<input value={nuevoTenant.contactoTelefono} onChange={(e) => setNuevoTenant({ ...nuevoTenant, contactoTelefono: e.target.value })} /></label>
-              <div className="acciones"><button type="button" className="chip" onClick={() => void crearTenant()}>Crear tenant</button></div>
+              <div className="acciones"><button type="button" className="chip scale-hover" onClick={() => void crearTenant()}>Crear tenant</button></div>
             </div>
           )}
 
           {vista === 'planes' && (
-            <div className="subpanel">
+            <div className="subpanel glass-card anim-slide-up">
               <h3>Nuevo plan</h3>
               <label className="campo">Plan ID<input value={nuevoPlan.planId} onChange={(e) => setNuevoPlan({ ...nuevoPlan, planId: e.target.value })} /></label>
               <label className="campo">Nombre<input value={nuevoPlan.nombre} onChange={(e) => setNuevoPlan({ ...nuevoPlan, nombre: e.target.value })} /></label>
-              <div className="acciones"><button type="button" className="chip" onClick={() => void crearPlan()}>Crear plan</button></div>
+              <div className="acciones"><button type="button" className="chip scale-hover" onClick={() => void crearPlan()}>Crear plan</button></div>
             </div>
           )}
 
           {vista === 'suscripciones' && (
-            <div className="subpanel">
+            <div className="subpanel glass-card anim-slide-up">
               <h3>Nueva suscripcion</h3>
               <label className="campo">Tenant ID<input value={nuevaSuscripcion.tenantId} onChange={(e) => setNuevaSuscripcion({ ...nuevaSuscripcion, tenantId: e.target.value })} /></label>
               <label className="campo">Plan ID<input value={nuevaSuscripcion.planId} onChange={(e) => setNuevaSuscripcion({ ...nuevaSuscripcion, planId: e.target.value })} /></label>
@@ -684,21 +693,21 @@ export function AppAdminNegocio() {
                 />
                 Activar trial 35 dias
               </label>
-              <div className="acciones"><button type="button" className="chip" onClick={() => void crearSuscripcion()}>Crear suscripcion</button></div>
+              <div className="acciones"><button type="button" className="chip scale-hover" onClick={() => void crearSuscripcion()}>Crear suscripcion</button></div>
             </div>
           )}
 
           {vista === 'cupones' && (
-            <div className="subpanel">
+            <div className="subpanel glass-card anim-slide-up">
               <h3>Nuevo cupon</h3>
               <label className="campo">Codigo<input value={nuevoCupon.codigo} onChange={(e) => setNuevoCupon({ ...nuevoCupon, codigo: e.target.value })} /></label>
               <label className="campo">Valor descuento<input type="number" value={nuevoCupon.valorDescuento} onChange={(e) => setNuevoCupon({ ...nuevoCupon, valorDescuento: Number(e.target.value || 0) })} /></label>
-              <div className="acciones"><button type="button" className="chip" onClick={() => void crearCupon()}>Crear cupon</button></div>
+              <div className="acciones"><button type="button" className="chip scale-hover" onClick={() => void crearCupon()}>Crear cupon</button></div>
             </div>
           )}
 
           {vista === 'campanas' && (
-            <div className="subpanel">
+            <div className="subpanel glass-card anim-slide-up">
               <h3>Nueva campana</h3>
               <label className="campo">Nombre<input value={nuevaCampana.nombre} onChange={(e) => setNuevaCampana({ ...nuevaCampana, nombre: e.target.value })} /></label>
               <label className="campo">Canal
@@ -708,12 +717,12 @@ export function AppAdminNegocio() {
                   ))}
                 </select>
               </label>
-              <div className="acciones"><button type="button" className="chip" onClick={() => void crearCampana()}>Crear campana</button></div>
+              <div className="acciones"><button type="button" className="chip scale-hover" onClick={() => void crearCampana()}>Crear campana</button></div>
             </div>
           )}
 
           {vista === 'plantillas_notificacion' && (
-            <div className="subpanel">
+            <div className="subpanel glass-card anim-slide-up">
               <h3>Nueva plantilla de notificación</h3>
               {!smtpDisponible ? (
                 <p className="nota">SMTP no configurado: el canal email está oculto y deshabilitado.</p>
@@ -738,7 +747,7 @@ export function AppAdminNegocio() {
               <label className="campo">Contenido
                 <textarea value={nuevaPlantillaNotificacion.contenido} onChange={(e) => setNuevaPlantillaNotificacion({ ...nuevaPlantillaNotificacion, contenido: e.target.value })} rows={4} />
               </label>
-              <div className="acciones"><button type="button" className="chip" onClick={() => void crearPlantillaNotificacion()}>Crear plantilla</button></div>
+              <div className="acciones"><button type="button" className="chip scale-hover" onClick={() => void crearPlantillaNotificacion()}>Crear plantilla</button></div>
               <h3 className="admin-negocio__editor-title">Editor de plantilla existente</h3>
               <label className="campo">Plantilla
                 <select value={plantillaSeleccionadaId} onChange={(e) => seleccionarPlantillaNotificacion(e.target.value)}>
@@ -778,7 +787,7 @@ export function AppAdminNegocio() {
                 Activa
               </label>
               <div className="acciones">
-                <button type="button" className="chip" onClick={() => void actualizarPlantillaNotificacion()} disabled={!plantillaSeleccionadaId}>
+                <button type="button" className="chip scale-hover" onClick={() => void actualizarPlantillaNotificacion()} disabled={!plantillaSeleccionadaId}>
                   Guardar cambios
                 </button>
               </div>
@@ -786,15 +795,15 @@ export function AppAdminNegocio() {
           )}
 
           {vista === 'licencias' && (
-            <div className="subpanel">
+            <div className="subpanel glass-card anim-slide-up">
               <h3>Generar licencia</h3>
               <label className="campo">Tenant ID<input value={nuevaLicencia.tenantId} onChange={(e) => setNuevaLicencia({ ...nuevaLicencia, tenantId: e.target.value })} /></label>
-              <div className="acciones"><button type="button" className="chip" onClick={() => void generarLicencia()}>Generar licencia</button></div>
+              <div className="acciones"><button type="button" className="chip scale-hover" onClick={() => void generarLicencia()}>Generar licencia</button></div>
             </div>
           )}
 
           {vista === 'cobranza' && (
-            <div className="subpanel">
+            <div className="subpanel glass-card anim-slide-up">
               <h3>Crear preferencia Mercado Pago</h3>
               <label className="campo">
                 Suscripcion ID
@@ -809,14 +818,14 @@ export function AppAdminNegocio() {
                 <input type="number" value={nuevoCobroMp.monto} onChange={(e) => setNuevoCobroMp({ ...nuevoCobroMp, monto: Number(e.target.value || 0) })} />
               </label>
               <div className="acciones">
-                <button type="button" className="chip" onClick={() => void crearPreferenciaMercadoPago()}>
+                <button type="button" className="chip scale-hover" onClick={() => void crearPreferenciaMercadoPago()}>
                   Crear preferencia
                 </button>
-                <button type="button" className="chip" onClick={() => void ejecutarCicloCobranza()}>
+                <button type="button" className="chip scale-hover" onClick={() => void ejecutarCicloCobranza()}>
                   Ejecutar ciclo mora
                 </button>
                 {ultimoInitPoint ? (
-                  <a className="chip" href={ultimoInitPoint} target="_blank" rel="noreferrer">
+                  <a className="chip scale-hover" href={ultimoInitPoint} target="_blank" rel="noreferrer">
                     Abrir checkout
                   </a>
                 ) : null}
@@ -831,7 +840,7 @@ export function AppAdminNegocio() {
             </div>
           )}
 
-          <div className="subpanel">
+          <div className="subpanel glass-card">
             <h3>Datos</h3>
             {cargando ? <p className="nota">Cargando...</p> : <pre className="admin-negocio__payload-json">{JSON.stringify(data, null, 2)}</pre>}
           </div>

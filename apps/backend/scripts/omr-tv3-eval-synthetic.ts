@@ -1,3 +1,9 @@
+/**
+ * omr-tv3-eval-synthetic
+ *
+ * Responsabilidad: Modulo interno del sistema.
+ * Limites: Mantener contrato y comportamiento observable del modulo.
+ */
 import { evaluateSyntheticTv3Dataset } from './omr-tv3-synthetic-lib';
 
 type Args = {

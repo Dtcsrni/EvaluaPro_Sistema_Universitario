@@ -131,12 +131,28 @@ export function crearClienteApi() {
     }
   });
 
+  async function enviarFormData<T>(ruta: string, formData: FormData): Promise<T> {
+    const token = obtenerTokenDocente();
+    const resp = await fetch(`${baseApi}${ruta}`, {
+      method: 'POST',
+      headers: token ? { Authorization: `Bearer ${token}` } : {},
+      credentials: 'include',
+      body: formData
+    });
+    if (!resp.ok) {
+      const body = await resp.json().catch(() => ({})) as { error?: { mensaje?: string } };
+      throw new Error(body?.error?.mensaje ?? `Error HTTP ${resp.status}`);
+    }
+    return resp.json() as Promise<T>;
+  }
+
   return {
     baseApi,
     obtener: <T>(ruta: string, opciones?: RequestOptions) => clienteBase.obtener<T>(ruta, opciones),
     enviar: <T>(ruta: string, payload: unknown, opciones?: RequestOptions) => clienteBase.enviar<T>(ruta, payload, opciones),
     actualizar: <T>(ruta: string, payload: unknown, opciones?: RequestOptions) => clienteBase.actualizar<T>(ruta, payload, opciones),
     eliminar: <T>(ruta: string, opciones?: RequestOptions) => clienteBase.eliminar<T>(ruta, opciones),
+    enviarFormData,
     registrarEventosUso,
     mensajeUsuarioDeError,
     intentarRefrescarToken

@@ -37,7 +37,7 @@ describe('salud', () => {
     expect(ready.body).toEqual(
       expect.objectContaining({
         dependencies: expect.objectContaining({
-          mongodb: expect.objectContaining({
+          sqlite: expect.objectContaining({
             status: expect.any(String),
             ready: expect.any(Boolean),
             state: expect.any(Number)

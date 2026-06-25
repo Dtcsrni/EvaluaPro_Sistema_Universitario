@@ -2,7 +2,7 @@
  * Repositorios de infraestructura para sincronizacion nube.
  */
 import { ErrorAplicacion } from '../../../compartido/errores/errorAplicacion';
-import { Docente } from '../../modulo_autenticacion/modeloDocente';
+import { prisma } from '../../../infraestructura/baseDatos/sqlite';
 import { Sincronizacion } from '../modeloSincronizacion';
 import { normalizarCorreo, parsearFechaIso } from '../sincronizacionInterna';
 import type { SyncAuditRepo, SyncClock, SyncDataRepo } from '../shared/tiposSync';
@@ -13,7 +13,7 @@ export const syncClock: SyncClock = {
 
 export class MongoSyncDataRepo implements SyncDataRepo {
   async obtenerCorreoDocente(docenteId: string): Promise<string> {
-    const docente = await Docente.findById(docenteId).select('correo').lean();
+    const docente = await prisma.docente.findUnique({ where: { id: docenteId }, select: { correo: true } });
     const correo = normalizarCorreo((docente as { correo?: unknown })?.correo);
     if (!correo) {
       throw new ErrorAplicacion('DOCENTE_NO_ENCONTRADO', 'Docente no encontrado', 404);

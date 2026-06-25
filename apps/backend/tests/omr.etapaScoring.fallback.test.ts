@@ -1,3 +1,9 @@
+/**
+ * omr.etapaScoring.fallback.test
+ *
+ * Responsabilidad: Modulo interno del sistema.
+ * Limites: Mantener contrato y comportamiento observable del modulo.
+ */
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const { mockAnalizarOmrCv, mockPreprocesar } = vi.hoisted(() => ({

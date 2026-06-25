@@ -6,7 +6,7 @@ Objetivo: continuidad verificable entre agentes heterogeneos con evidencia repro
 ## 1) Fuentes de verdad para agentes
 1. `AGENTS.md`
 2. `docs/IA_TRAZABILIDAD_AGENTES.md`
-3. `docs/IA_SKILLS_MCP_POLICY.md`
+3. `docs/POLITICA_SDD.md`
 4. `.github/copilot-instructions.md`
 5. `ci/pipeline.contract.md`
 6. `ci/pipeline.matrix.json`
@@ -33,7 +33,6 @@ Objetivo: continuidad verificable entre agentes heterogeneos con evidencia repro
 3. Si el runtime no expone identidad tecnica exacta del agente, usar `unknown`; no inventar valores.
 4. Si la sesion trata sobre seleccion de modelo, compactacion de contexto o apertura de chat nuevo para Codex en VS Code, consultar `docs/POLITICA_ECONOMIA_TOKENS_CODEX.md`; esa politica es repo-local y no forma parte del contrato del sistema ni de los gates.
 4.1. En sesiones de agentes en este repo, Caveman es obligatorio como modo operativo por defecto; debe activarse al inicio de sesion y mantenerse activo salvo peticion explicita del usuario.
-4.2. Para seleccionar skills, plugins o MCP, consultar `docs/IA_SKILLS_MCP_POLICY.md`; Figma y Canva quedan excluidos por defecto y Excalidraw es la alternativa gratuita para bocetos.
 5. Toda sesion nueva debe incluir como minimo:
    - `traceSchemaVersion`
    - `sessionId`
@@ -73,8 +72,8 @@ Objetivo: continuidad verificable entre agentes heterogeneos con evidencia repro
    - `README.md`
    - `docs/README.md`
    - `docs/IA_TRAZABILIDAD_AGENTES.md`
-   - `docs/IA_SKILLS_MCP_POLICY.md`
    - `.github/copilot-instructions.md`
+   - `docs/POLITICA_SDD.md`
 1.1. Activar Caveman al inicio de la sesion (`$caveman`) y mantenerlo activo durante la ejecucion del trabajo, salvo excepcion explicita del usuario.
 2. Verificar estado real antes de editar; no asumir olas, gates o release.
 2.1. Si la sesion toca runtime local/launcher/instalador, verificar por CLI:
@@ -88,6 +87,8 @@ Objetivo: continuidad verificable entre agentes heterogeneos con evidencia repro
 5. Si se toca el contrato de trazabilidad IA, ejecutar:
    - `npm run test:ia:traceability`
    - `npm run ci:policy:audit`
+6. Cumplir estrictamente con la política de Spec-Driven Development (SDD). Verificar que toda especificación en `docs/specs/*.spec.md` sea válida ejecutando:
+   - `npm run sdd:audit`
 
 ## 6) Validacion y enforcement
 - Validacion dedicada del contrato IA:

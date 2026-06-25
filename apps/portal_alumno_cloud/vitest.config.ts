@@ -16,6 +16,10 @@ export default defineConfig({
     setupFiles: ['tests/setup.ts'],
     coverage: {
       ...baseVitestConfig.coverage,
+      exclude: [
+        ...(baseVitestConfig.coverage.exclude || []),
+        '**/generado/**'
+      ],
       thresholds: {
         lines: 50,
         functions: 50,

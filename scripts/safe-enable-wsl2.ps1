@@ -1,3 +1,7 @@
+# safe-enable-wsl2.ps1
+#
+# Responsabilidad: Modulo interno del sistema.
+# Limites: Mantener contrato y comportamiento observable del modulo.
 <#
   scripts/safe-enable-wsl2.ps1
   Script helper seguro para habilitar WSL2/VirtualMachinePlatform en Host o VM.

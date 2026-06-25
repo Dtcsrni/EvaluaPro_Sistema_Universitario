@@ -1,13 +1,13 @@
+/**
+ * calificacion.persistencia.test
+ *
+ * Responsabilidad: Verificar la persistencia de calificaciones usando Prisma y SQLite.
+ */
 import type { Response } from 'express';
-import { Types } from 'mongoose';
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import { conectarMongoTest, cerrarMongoTest, limpiarMongoTest } from './utils/mongo';
+import { prisma } from '../src/infraestructura/baseDatos/sqlite';
 import { calificarExamen, obtenerCalificacionPorExamen } from '../src/modulos/modulo_calificacion/controladorCalificacion';
-import { BancoPregunta } from '../src/modulos/modulo_banco_preguntas/modeloBancoPregunta';
-import { ExamenGenerado } from '../src/modulos/modulo_generacion_pdf/modeloExamenGenerado';
-import { ExamenPlantilla } from '../src/modulos/modulo_generacion_pdf/modeloExamenPlantilla';
-import { Calificacion } from '../src/modulos/modulo_calificacion/modeloCalificacion';
-import { EscaneoOmrArchivado } from '../src/modulos/modulo_escaneo_omr/modeloEscaneoOmrArchivado';
 import type { SolicitudDocente } from '../src/modulos/modulo_autenticacion/middlewareAutenticacion';
 
 function crearRespuesta() {
@@ -45,64 +45,123 @@ describe('calificaciones persistencia', () => {
     await cerrarMongoTest();
   });
 
-  it('guarda calificación y luego la recupera por examen', async () => {
-    const docenteId = new Types.ObjectId();
-    const periodoId = new Types.ObjectId();
-    const alumnoId = new Types.ObjectId();
+  async function seedDocentePeriodoAlumno(docenteId: string, periodoId: string, alumnoId: string) {
+    await prisma.docente.create({
+      data: {
+        id: docenteId,
+        nombreCompleto: 'Docente Prueba',
+        correo: `docente-${docenteId}@evaluapro.local`
+      }
+    });
 
-    const pregunta = await BancoPregunta.create({
-      docenteId,
-      periodoId,
-      tema: 'Álgebra',
-      versionActual: 1,
-      versiones: [
-        {
-          numeroVersion: 1,
-          enunciado: '2 + 2 = ?',
-          opciones: [
-            { texto: '4', esCorrecta: true },
-            { texto: '3', esCorrecta: false },
-            { texto: '2', esCorrecta: false },
-            { texto: '1', esCorrecta: false },
-            { texto: '0', esCorrecta: false }
+    await prisma.periodo.create({
+      data: {
+        id: periodoId,
+        docenteId,
+        nombre: 'Periodo 1',
+        nombreNormalizado: 'periodo 1',
+        fechaInicio: new Date(),
+        fechaFin: new Date(),
+        grupos: '["A"]'
+      }
+    });
+
+    await prisma.alumno.create({
+      data: {
+        id: alumnoId,
+        periodoId,
+        matricula: `MAT-${alumnoId}`,
+        nombreCompleto: 'Alumno Prueba',
+        correo: 'alumno@evaluapro.local',
+        grupo: 'A'
+      }
+    });
+  }
+
+  it('guarda calificación y luego la recupera por examen', async () => {
+    const docenteId = 'docente-1';
+    const periodoId = 'periodo-1';
+    const alumnoId = 'alumno-1';
+
+    await seedDocentePeriodoAlumno(docenteId, periodoId, alumnoId);
+
+    const pregunta = await prisma.bancoPregunta.create({
+      data: {
+        id: 'preg-1',
+        docenteId,
+        periodoId,
+        tema: 'Álgebra',
+        versionActual: 1,
+        versiones: {
+          create: [
+            {
+              id: 'preg-ver-1',
+              numeroVersion: 1,
+              enunciado: '2 + 2 = ?',
+              opciones: {
+                create: [
+                  { texto: '4', esCorrecta: true },
+                  { texto: '3', esCorrecta: false },
+                  { texto: '2', esCorrecta: false },
+                  { texto: '1', esCorrecta: false },
+                  { texto: '0', esCorrecta: false }
+                ]
+              }
+            }
           ]
         }
-      ]
+      }
     });
 
-    const plantilla = await ExamenPlantilla.create({
-      docenteId,
-      periodoId,
-      tipo: 'parcial',
-      titulo: 'Parcial de prueba',
-      numeroPaginas: 1,
-      preguntasIds: [pregunta._id]
-    });
-
-    const examen = await ExamenGenerado.create({
-      docenteId,
-      periodoId,
-      plantillaId: plantilla._id,
-      alumnoId,
-      folio: 'FOL-PERSIST-001',
-      estado: 'entregado',
-      preguntasIds: [pregunta._id],
-      mapaVariante: {
-        ordenPreguntas: [String(pregunta._id)],
-        ordenOpcionesPorPregunta: {
-          [String(pregunta._id)]: [0, 1, 2, 3, 4]
+    const plantilla = await prisma.examenPlantilla.create({
+      data: {
+        id: 'plantilla-1',
+        docenteId,
+        periodoId,
+        tipo: 'parcial',
+        titulo: 'Parcial de prueba',
+        tituloNormalizado: 'parcial de prueba',
+        numeroPaginas: 1,
+        bookletConfig: '{}',
+        omrConfig: '{}',
+        configuracionPdf: '{}',
+        preguntas: {
+          create: [
+            {
+              preguntaId: pregunta.id,
+              orden: 0
+            }
+          ]
         }
-      },
-      mapaOmr: {
-        templateVersion: 3,
-        paginas: []
+      }
+    });
+
+    const examen = await prisma.examenGenerado.create({
+      data: {
+        id: 'examen-1',
+        docenteId,
+        periodoId,
+        plantillaId: plantilla.id,
+        alumnoId,
+        folio: 'FOL-PERSIST-001',
+        estado: 'entregado',
+        mapaVariante: JSON.stringify({
+          ordenPreguntas: [pregunta.id],
+          ordenOpcionesPorPregunta: {
+            [pregunta.id]: [0, 1, 2, 3, 4]
+          }
+        }),
+        mapaOmr: JSON.stringify({
+          templateVersion: 3,
+          paginas: []
+        })
       }
     });
 
     const reqGuardar = {
-      docenteId: String(docenteId),
+      docenteId,
       body: {
-        examenGeneradoId: String(examen._id),
+        examenGeneradoId: examen.id,
         respuestasDetectadas: [{ numeroPregunta: 1, opcion: 'A' }],
         omrAnalisis: crearAnalisisOmrOk(),
         bonoSolicitado: 0,
@@ -119,25 +178,29 @@ describe('calificaciones persistencia', () => {
     await calificarExamen(reqGuardar, resGuardar);
 
     expect((resGuardar.status as ReturnType<typeof vi.fn>).mock.calls[0][0]).toBe(201);
-    const calificacionGuardada = await Calificacion.findOne({
-      docenteId,
-      examenGeneradoId: examen._id
-    }).lean();
+    const calificacionGuardada = await prisma.calificacion.findFirst({
+      where: {
+        docenteId,
+        examenGeneradoId: examen.id
+      }
+    });
     expect(calificacionGuardada).toBeTruthy();
     expect(calificacionGuardada?.aciertos).toBe(1);
-    expect(calificacionGuardada?.respuestasDetectadas).toEqual([{ numeroPregunta: 1, opcion: 'A' }]);
+    expect(JSON.parse(calificacionGuardada?.respuestasDetectadas ?? '[]')).toEqual([{ numeroPregunta: 1, opcion: 'A' }]);
     expect(calificacionGuardada?.versionPolitica).toBe(1);
     expect(calificacionGuardada?.bloqueContinuaDecimal).toBe(8.75);
     expect(calificacionGuardada?.bloqueExamenesDecimal).toBe(9.25);
     expect(calificacionGuardada?.finalDecimal).toBe(9);
     expect(calificacionGuardada?.finalRedondeada).toBe(9);
 
-    const examenActualizado = await ExamenGenerado.findById(examen._id).lean();
+    const examenActualizado = await prisma.examenGenerado.findUnique({
+      where: { id: examen.id }
+    });
     expect(examenActualizado?.estado).toBe('calificado');
 
     const reqRecuperar = {
-      docenteId: String(docenteId),
-      params: { examenGeneradoId: String(examen._id) }
+      docenteId,
+      params: { examenGeneradoId: examen.id }
     } as unknown as SolicitudDocente;
     const resRecuperar = crearRespuesta();
 
@@ -146,68 +209,94 @@ describe('calificaciones persistencia', () => {
     const payloadRecuperado = (resRecuperar.json as ReturnType<typeof vi.fn>).mock.calls[0][0] as {
       calificacion: { examenGeneradoId: string; respuestasDetectadas: Array<{ numeroPregunta: number; opcion: string }> };
     };
-    expect(String(payloadRecuperado.calificacion.examenGeneradoId)).toBe(String(examen._id));
+    expect(payloadRecuperado.calificacion.examenGeneradoId).toBe(examen.id);
     expect(payloadRecuperado.calificacion.respuestasDetectadas).toEqual([{ numeroPregunta: 1, opcion: 'A' }]);
   });
 
   it('guarda imágenes OMR por página al calificar y las recupera en paginasOmr', async () => {
-    const docenteId = new Types.ObjectId();
-    const periodoId = new Types.ObjectId();
-    const alumnoId = new Types.ObjectId();
+    const docenteId = 'docente-2';
+    const periodoId = 'periodo-2';
+    const alumnoId = 'alumno-2';
 
-    const pregunta = await BancoPregunta.create({
-      docenteId,
-      periodoId,
-      tema: 'Álgebra',
-      versionActual: 1,
-      versiones: [
-        {
-          numeroVersion: 1,
-          enunciado: '3 + 2 = ?',
-          opciones: [
-            { texto: '5', esCorrecta: true },
-            { texto: '4', esCorrecta: false },
-            { texto: '3', esCorrecta: false },
-            { texto: '2', esCorrecta: false },
-            { texto: '1', esCorrecta: false }
+    await seedDocentePeriodoAlumno(docenteId, periodoId, alumnoId);
+
+    const pregunta = await prisma.bancoPregunta.create({
+      data: {
+        id: 'preg-2',
+        docenteId,
+        periodoId,
+        tema: 'Álgebra',
+        versionActual: 1,
+        versiones: {
+          create: [
+            {
+              id: 'preg-ver-2',
+              numeroVersion: 1,
+              enunciado: '3 + 2 = ?',
+              opciones: {
+                create: [
+                  { texto: '5', esCorrecta: true },
+                  { texto: '4', esCorrecta: false },
+                  { texto: '3', esCorrecta: false },
+                  { texto: '2', esCorrecta: false },
+                  { texto: '1', esCorrecta: false }
+                ]
+              }
+            }
           ]
         }
-      ]
+      }
     });
 
-    const plantilla = await ExamenPlantilla.create({
-      docenteId,
-      periodoId,
-      tipo: 'parcial',
-      titulo: 'Parcial OMR 2 páginas',
-      numeroPaginas: 2,
-      preguntasIds: [pregunta._id]
-    });
-
-    const examen = await ExamenGenerado.create({
-      docenteId,
-      periodoId,
-      plantillaId: plantilla._id,
-      alumnoId,
-      folio: 'FOL-PERSIST-OMR-002',
-      estado: 'entregado',
-      preguntasIds: [pregunta._id],
-      mapaVariante: {
-        ordenPreguntas: [String(pregunta._id)],
-        ordenOpcionesPorPregunta: {
-          [String(pregunta._id)]: [0, 1, 2, 3, 4]
+    const plantilla = await prisma.examenPlantilla.create({
+      data: {
+        id: 'plantilla-2',
+        docenteId,
+        periodoId,
+        tipo: 'parcial',
+        titulo: 'Parcial OMR 2 páginas',
+        tituloNormalizado: 'parcial omr 2 paginas',
+        numeroPaginas: 2,
+        bookletConfig: '{}',
+        omrConfig: '{}',
+        configuracionPdf: '{}',
+        preguntas: {
+          create: [
+            {
+              preguntaId: pregunta.id,
+              orden: 0
+            }
+          ]
         }
-      },
-      mapaOmr: {
-        templateVersion: 3,
-        paginas: []
+      }
+    });
+
+    const examen = await prisma.examenGenerado.create({
+      data: {
+        id: 'examen-2',
+        docenteId,
+        periodoId,
+        plantillaId: plantilla.id,
+        alumnoId,
+        folio: 'FOL-PERSIST-OMR-002',
+        estado: 'entregado',
+        mapaVariante: JSON.stringify({
+          ordenPreguntas: [pregunta.id],
+          ordenOpcionesPorPregunta: {
+            [pregunta.id]: [0, 1, 2, 3, 4]
+          }
+        }),
+        mapaOmr: JSON.stringify({
+          templateVersion: 3,
+          paginas: []
+        })
       }
     });
 
     const reqGuardar = {
-      docenteId: String(docenteId),
+      docenteId,
       body: {
-        examenGeneradoId: String(examen._id),
+        examenGeneradoId: examen.id,
         respuestasDetectadas: [{ numeroPregunta: 1, opcion: 'A' }],
         omrAnalisis: crearAnalisisOmrOk(),
         paginasOmr: [
@@ -228,12 +317,13 @@ describe('calificaciones persistencia', () => {
 
     expect((resGuardar.status as ReturnType<typeof vi.fn>).mock.calls[0][0]).toBe(201);
 
-    const capturas = await EscaneoOmrArchivado.find({
-      docenteId,
-      examenGeneradoId: examen._id
-    })
-      .sort({ numeroPagina: 1 })
-      .lean();
+    const capturas = await prisma.escaneoOmrArchivado.findMany({
+      where: {
+        docenteId,
+        examenGeneradoId: examen.id
+      },
+      orderBy: { numeroPagina: 'asc' }
+    });
     expect(capturas).toHaveLength(2);
     expect(capturas[0]?.numeroPagina).toBe(1);
     expect(capturas[1]?.numeroPagina).toBe(2);
@@ -241,8 +331,8 @@ describe('calificaciones persistencia', () => {
     expect(capturas[1]?.tamanoComprimidoBytes).toBeGreaterThan(0);
 
     const reqRecuperar = {
-      docenteId: String(docenteId),
-      params: { examenGeneradoId: String(examen._id) }
+      docenteId,
+      params: { examenGeneradoId: examen.id }
     } as unknown as SolicitudDocente;
     const resRecuperar = crearRespuesta();
 
@@ -262,68 +352,94 @@ describe('calificaciones persistencia', () => {
   });
 
   it('conserva historial por intento y expone solo la última captura por página', async () => {
-    const docenteId = new Types.ObjectId();
-    const periodoId = new Types.ObjectId();
-    const alumnoId = new Types.ObjectId();
+    const docenteId = 'docente-3';
+    const periodoId = 'periodo-3';
+    const alumnoId = 'alumno-3';
 
-    const pregunta = await BancoPregunta.create({
-      docenteId,
-      periodoId,
-      tema: 'Historia',
-      versionActual: 1,
-      versiones: [
-        {
-          numeroVersion: 1,
-          enunciado: 'Capital de Francia',
-          opciones: [
-            { texto: 'Paris', esCorrecta: true },
-            { texto: 'Roma', esCorrecta: false },
-            { texto: 'Madrid', esCorrecta: false },
-            { texto: 'Berlin', esCorrecta: false },
-            { texto: 'Lisboa', esCorrecta: false }
+    await seedDocentePeriodoAlumno(docenteId, periodoId, alumnoId);
+
+    const pregunta = await prisma.bancoPregunta.create({
+      data: {
+        id: 'preg-3',
+        docenteId,
+        periodoId,
+        tema: 'Historia',
+        versionActual: 1,
+        versiones: {
+          create: [
+            {
+              id: 'preg-ver-3',
+              numeroVersion: 1,
+              enunciado: 'Capital de Francia',
+              opciones: {
+                create: [
+                  { texto: 'Paris', esCorrecta: true },
+                  { texto: 'Roma', esCorrecta: false },
+                  { texto: 'Madrid', esCorrecta: false },
+                  { texto: 'Berlin', esCorrecta: false },
+                  { texto: 'Lisboa', esCorrecta: false }
+                ]
+              }
+            }
           ]
         }
-      ]
+      }
     });
 
-    const plantilla = await ExamenPlantilla.create({
-      docenteId,
-      periodoId,
-      tipo: 'parcial',
-      titulo: 'Parcial intentos OMR',
-      numeroPaginas: 1,
-      preguntasIds: [pregunta._id]
-    });
-
-    const examen = await ExamenGenerado.create({
-      docenteId,
-      periodoId,
-      plantillaId: plantilla._id,
-      alumnoId,
-      folio: 'FOL-PERSIST-OMR-ATTEMPT',
-      estado: 'entregado',
-      preguntasIds: [pregunta._id],
-      mapaVariante: {
-        ordenPreguntas: [String(pregunta._id)],
-        ordenOpcionesPorPregunta: {
-          [String(pregunta._id)]: [0, 1, 2, 3, 4]
+    const plantilla = await prisma.examenPlantilla.create({
+      data: {
+        id: 'plantilla-3',
+        docenteId,
+        periodoId,
+        tipo: 'parcial',
+        titulo: 'Parcial intentos OMR',
+        tituloNormalizado: 'parcial intentos omr',
+        numeroPaginas: 1,
+        bookletConfig: '{}',
+        omrConfig: '{}',
+        configuracionPdf: '{}',
+        preguntas: {
+          create: [
+            {
+              preguntaId: pregunta.id,
+              orden: 0
+            }
+          ]
         }
-      },
-      mapaOmr: {
-        templateVersion: 3,
-        paginas: []
+      }
+    });
+
+    const examen = await prisma.examenGenerado.create({
+      data: {
+        id: 'examen-3',
+        docenteId,
+        periodoId,
+        plantillaId: plantilla.id,
+        alumnoId,
+        folio: 'FOL-PERSIST-OMR-ATTEMPT',
+        estado: 'entregado',
+        mapaVariante: JSON.stringify({
+          ordenPreguntas: [pregunta.id],
+          ordenOpcionesPorPregunta: {
+            [pregunta.id]: [0, 1, 2, 3, 4]
+          }
+        }),
+        mapaOmr: JSON.stringify({
+          templateVersion: 3,
+          paginas: []
+        })
       }
     });
 
     const cuerpoBase = {
-      examenGeneradoId: String(examen._id),
+      examenGeneradoId: examen.id,
       respuestasDetectadas: [{ numeroPregunta: 1, opcion: 'A' }],
       omrAnalisis: crearAnalisisOmrOk()
     };
 
     await calificarExamen(
       {
-        docenteId: String(docenteId),
+        docenteId,
         body: {
           ...cuerpoBase,
           paginasOmr: [{ numeroPagina: 1, imagenBase64: 'data:image/png;base64,AQIDBA==' }]
@@ -334,7 +450,7 @@ describe('calificaciones persistencia', () => {
 
     await calificarExamen(
       {
-        docenteId: String(docenteId),
+        docenteId,
         body: {
           ...cuerpoBase,
           paginasOmr: [{ numeroPagina: 1, imagenBase64: 'data:image/png;base64,BQYHCA==' }]
@@ -343,9 +459,10 @@ describe('calificaciones persistencia', () => {
       crearRespuesta()
     );
 
-    const capturas = await EscaneoOmrArchivado.find({ docenteId, examenGeneradoId: examen._id })
-      .sort({ numeroPagina: 1, intento: 1 })
-      .lean();
+    const capturas = await prisma.escaneoOmrArchivado.findMany({
+      where: { docenteId, examenGeneradoId: examen.id },
+      orderBy: [{ numeroPagina: 'asc' }, { intento: 'asc' }]
+    });
     expect(capturas).toHaveLength(2);
     expect(capturas[0]?.intento).toBe(1);
     expect(capturas[1]?.intento).toBe(2);
@@ -353,8 +470,8 @@ describe('calificaciones persistencia', () => {
     const resRecuperar = crearRespuesta();
     await obtenerCalificacionPorExamen(
       {
-        docenteId: String(docenteId),
-        params: { examenGeneradoId: String(examen._id) }
+        docenteId,
+        params: { examenGeneradoId: examen.id }
       } as unknown as SolicitudDocente,
       resRecuperar
     );

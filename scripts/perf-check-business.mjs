@@ -1,4 +1,10 @@
 #!/usr/bin/env node
+/**
+ * perf-check-business
+ *
+ * Responsabilidad: Modulo interno del sistema.
+ * Limites: Mantener contrato y comportamiento observable del modulo.
+ */
 import fs from 'node:fs/promises';
 import path from 'node:path';
 

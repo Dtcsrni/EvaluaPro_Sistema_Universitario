@@ -1,3 +1,9 @@
+/**
+ * rutasOmrV1
+ *
+ * Responsabilidad: Registro de rutas HTTP del dominio y aplicacion de middleware de seguridad/validacion.
+ * Limites: No cambiar orden o permisos de rutas sin validar impacto en contratos y tests.
+ */
 import { Router } from 'express';
 import { middlewaresOmrV1 } from './controladorOmrV1';
 

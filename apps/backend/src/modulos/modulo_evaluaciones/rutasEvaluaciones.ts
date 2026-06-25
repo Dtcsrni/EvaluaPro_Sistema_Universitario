@@ -1,3 +1,9 @@
+/**
+ * rutasEvaluaciones
+ *
+ * Responsabilidad: Registro de rutas HTTP del dominio y aplicacion de middleware de seguridad/validacion.
+ * Limites: No cambiar orden o permisos de rutas sin validar impacto en contratos y tests.
+ */
 import { Router } from 'express';
 import { validarCuerpo } from '../../compartido/validaciones/validar';
 import { requerirPermiso } from '../modulo_autenticacion/middlewarePermisos';
@@ -5,15 +11,12 @@ import { esquemaBodyVacioOpcional } from '../modulo_alumnos/validacionesPeriodos
 import {
   actualizarMapeoAlumnosCursoController,
   desconectarOauthClassroomController,
-  ejecutarPullClassroom,
   ejecutarImportacionClassroom,
   iniciarOauthClassroom,
   listarActividadesClassroomController,
   listarCursosClassroomController,
   listarHistorialSyncClassroomController,
   listarMapeosClassroom,
-  mapearClassroomEvidencia
-  ,
   obtenerAlumnosCursoClassroomController,
   obtenerEstadoClassroomController,
   previewImportacionClassroom
@@ -37,15 +40,18 @@ import {
   esquemaComponenteExamen,
   esquemaConfigurarPeriodo,
   esquemaCrearEvidencia,
-  esquemaCrearPolitica
+  esquemaCrearPolitica,
+  esquemaInicializarEncuadre
 } from './validacionesEvaluaciones';
 import {
   esquemaActualizarMapeoAlumnosCurso,
   esquemaEjecutarImportacionClassroom,
-  esquemaMapearClassroom,
-  esquemaPreviewImportacionClassroom,
-  esquemaPullClassroom
+  esquemaPreviewImportacionClassroom
 } from '../modulo_integraciones_classroom/validacionesClassroom';
+import {
+  inicializarEncuadre,
+  obtenerEstadoEncuadre
+} from './controladorEncuadre';
 
 const router = Router();
 
@@ -129,17 +135,14 @@ router.post(
   ejecutarImportacionClassroom
 );
 router.get('/v2/classroom/mapeos', requerirPermiso('classroom:pull'), listarMapeosClassroom);
+
+// --- Encuadre Académico CUH ---
 router.post(
-  '/v2/classroom/mapeos',
-  requerirPermiso('classroom:pull'),
-  validarCuerpo(esquemaMapearClassroom, { strict: true }),
-  mapearClassroomEvidencia
+  '/encuadre/inicializar',
+  requerirPermiso('evaluaciones:gestionar'),
+  validarCuerpo(esquemaInicializarEncuadre, { strict: true }),
+  inicializarEncuadre
 );
-router.post(
-  '/v2/classroom/pull',
-  requerirPermiso('classroom:pull'),
-  validarCuerpo(esquemaPullClassroom, { strict: true }),
-  ejecutarPullClassroom
-);
+router.get('/encuadre/estado/:periodoId', requerirPermiso('evaluaciones:leer'), obtenerEstadoEncuadre);
 
 export default router;

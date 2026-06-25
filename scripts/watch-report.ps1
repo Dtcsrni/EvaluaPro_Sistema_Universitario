@@ -1,3 +1,7 @@
+# watch-report.ps1
+#
+# Responsabilidad: Modulo interno del sistema.
+# Limites: Mantener contrato y comportamiento observable del modulo.
 $path = 'v:\Software\EvaluaPro\reports\qa\installer-hub-e2e-docente'
 if (-not (Test-Path $path)) { Write-Output 'PATH_MISSING'; exit 1 }
 $fsw = New-Object System.IO.FileSystemWatcher $path, 'report.json'

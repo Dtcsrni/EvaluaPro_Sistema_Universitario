@@ -1,3 +1,9 @@
+/**
+ * VersionInfoPage
+ *
+ * Responsabilidad: Componente/utilidad de UI reutilizable.
+ * Limites: Preservar accesibilidad y contratos de props existentes.
+ */
 import { useEffect, useMemo, useState } from 'react';
 import { obtenerVersionApp, obtenerVersionTecnicaApp } from './versionInfo';
 

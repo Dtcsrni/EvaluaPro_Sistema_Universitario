@@ -14,11 +14,30 @@ import { configuracion } from './configuracion';
 import { crearRouterApi } from './rutas';
 import { manejadorErrores } from './compartido/errores/manejadorErrores';
 import { middlewareIdSolicitud, middlewareRegistroSolicitud } from './compartido/observabilidad/middlewareObservabilidad';
-import { sanitizarMongo } from './infraestructura/seguridad/sanitizarMongo';
 import {
   middlewareManejadorErroresRobusto,
   middlewareContextoRobustez
 } from './compartido/robustez/manejadorErrores';
+
+function mapearIdsAUnderscore(obj: unknown): unknown {
+  if (obj === null || typeof obj !== 'object') {
+    return obj;
+  }
+  if (obj instanceof Date) {
+    return obj;
+  }
+  if (Array.isArray(obj)) {
+    return obj.map(mapearIdsAUnderscore);
+  }
+  const result: Record<string, unknown> = {};
+  for (const key of Object.keys(obj as Record<string, unknown>)) {
+    result[key] = mapearIdsAUnderscore((obj as Record<string, unknown>)[key]);
+  }
+  if (result.id !== undefined && result._id === undefined) {
+    result._id = result.id;
+  }
+  return result;
+}
 
 export function crearApp() {
   const app = express();
@@ -37,7 +56,6 @@ export function crearApp() {
     })
   );
   app.use(express.json({ limit: configuracion.limiteJson }));
-  app.use(sanitizarMongo());
   app.use(middlewareContextoRobustez);
   app.use(middlewareIdSolicitud);
   app.use(middlewareRegistroSolicitud);
@@ -50,6 +68,18 @@ export function crearApp() {
       skip: (req) => req.path.startsWith('/api/salud')
     })
   );
+
+  // Interceptor para mapear 'id' a '_id' y asegurar compatibilidad absoluta con el frontend y tests legacy
+  app.use((req, res, next) => {
+    const originalJson = res.json;
+    res.json = function (body) {
+      if (body) {
+        body = mapearIdsAUnderscore(body);
+      }
+      return originalJson.call(this, body);
+    };
+    next();
+  });
 
   app.use('/api', crearRouterApi());
 

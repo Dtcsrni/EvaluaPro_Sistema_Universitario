@@ -4,15 +4,7 @@
  * Responsabilidad: Servicio de dominio/aplicacion con reglas de negocio reutilizables.
  * Limites: Mantener invariantes del dominio y errores controlados.
  */
-import { Papelera } from './modeloPapelera';
-
-const DIAS_RETENCION = 45;
-
-function calcularExpiraEn(base: Date = new Date()): Date {
-  const expira = new Date(base.getTime());
-  expira.setDate(expira.getDate() + DIAS_RETENCION);
-  return expira;
-}
+import { prisma } from '../../infraestructura/baseDatos/sqlite';
 
 export async function guardarEnPapelera(params: {
   docenteId: string;
@@ -20,7 +12,13 @@ export async function guardarEnPapelera(params: {
   entidadId: string;
   payload: Record<string, unknown>;
 }) {
-  const eliminadoEn = new Date();
-  const expiraEn = calcularExpiraEn(eliminadoEn);
-  return Papelera.create({ ...params, eliminadoEn, expiraEn });
+  return prisma.papeleraItem.create({
+    data: {
+      docenteId: params.docenteId,
+      tipo: params.tipo,
+      itemId: params.entidadId,
+      datosJson: JSON.stringify(params.payload),
+    },
+  });
 }
+

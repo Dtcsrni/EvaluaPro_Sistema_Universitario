@@ -1,3 +1,9 @@
+/**
+ * validacionesOmrV1
+ *
+ * Responsabilidad: Contrato de validaciones de entrada/salida del dominio.
+ * Limites: No relajar reglas sin actualizar tests y contratos de API.
+ */
 import { z } from 'zod';
 import { esquemaObjectId } from '../../compartido/validaciones/esquemas';
 import { configuracion } from '../../configuracion';

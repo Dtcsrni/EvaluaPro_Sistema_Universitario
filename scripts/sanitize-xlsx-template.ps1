@@ -1,3 +1,7 @@
+# sanitize-xlsx-template.ps1
+#
+# Responsabilidad: Modulo interno del sistema.
+# Limites: Mantener contrato y comportamiento observable del modulo.
 $ErrorActionPreference='Stop'
 $repo = Resolve-Path (Join-Path $PSScriptRoot '..')
 $root = Join-Path $repo 'apps/backend/src/modulos/modulo_analiticas/plantillas'

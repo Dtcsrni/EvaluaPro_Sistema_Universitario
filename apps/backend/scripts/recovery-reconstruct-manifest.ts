@@ -1,3 +1,9 @@
+/**
+ * recovery-reconstruct-manifest
+ *
+ * Responsabilidad: Modulo interno del sistema.
+ * Limites: Mantener contrato y comportamiento observable del modulo.
+ */
 import mongoose from 'mongoose';
 import { conectarBaseDatos } from '../src/infraestructura/baseDatos/mongoose';
 import { reconstruirDesdeManifest } from '../src/modulos/modulo_recuperacion_examenes/servicioRecuperacionExamenes';

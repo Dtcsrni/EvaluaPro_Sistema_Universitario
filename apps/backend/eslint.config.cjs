@@ -1,3 +1,9 @@
+/**
+ * eslint.config
+ *
+ * Responsabilidad: Modulo interno del sistema.
+ * Limites: Mantener contrato y comportamiento observable del modulo.
+ */
 const { FlatCompat } = require('@eslint/eslintrc');
 const js = require('@eslint/js');
 

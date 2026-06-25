@@ -6,17 +6,11 @@
  */
 import { randomUUID } from 'crypto';
 import fs from 'node:fs/promises';
-import { Types } from 'mongoose';
 import { PDFDocument } from 'pdf-lib';
-import { Alumno } from '../../../modulo_alumnos/modeloAlumno';
-import { Periodo } from '../../../modulo_alumnos/modeloPeriodo';
+import { prisma } from '../../../../infraestructura/baseDatos/sqlite';
 import { ErrorAplicacion } from '../../../../compartido/errores/errorAplicacion';
 import { guardarPdfExamen, resolverRutaPdfExamen } from '../../../../infraestructura/archivos/almacenLocal';
 import { normalizarParaNombreArchivo } from '../../../../compartido/utilidades/texto';
-import { ExamenGenerado } from '../../modeloExamenGenerado';
-import { ExamenRecoveryBundle } from '../../modeloExamenRecoveryBundle';
-import { ExamenRecoveryManifest } from '../../modeloExamenRecoveryManifest';
-import { ExamenPlantilla } from '../../modeloExamenPlantilla';
 import { construirMetadataRetencion } from '../../servicioRetencionExamenes';
 import { generarPdfExamen } from '../../servicioGeneracionPdf';
 import { generarVariante } from '../../servicioVariantes';
@@ -44,20 +38,22 @@ import {
   resolverTemplateVersionOmr
 } from '../../shared/controladorGeneracionPdfShared';
 
+
 export async function generarExamenUseCase(params: {
   docenteId: unknown;
   plantillaId: string;
 }) {
-  const plantilla = await obtenerPlantillaDocente(params.docenteId, params.plantillaId);
-  if ((plantilla as { archivadoEn?: unknown }).archivadoEn) {
+  const docId = String(params.docenteId);
+  const plantilla = await obtenerPlantillaDocente(docId, params.plantillaId);
+  if (plantilla.archivadoEn) {
     throw new ErrorAplicacion('PLANTILLA_ARCHIVADA', 'La plantilla esta archivada', 409);
   }
 
   const periodo = await resolverPeriodoPlantillaActivo(plantilla as { periodoId?: unknown });
-  const docenteDb = await resolverDocentePdf(params.docenteId);
+  const docenteDb = await resolverDocentePdf(docId);
   const { preguntasDb, temas } = await resolverPreguntasPlantilla({
-    docenteId: params.docenteId,
-    plantilla: plantilla as { periodoId?: unknown; preguntasIds?: unknown[]; temas?: unknown[] }
+    docenteId: docId,
+    plantilla: plantilla as any
   });
 
   const numeroPaginas = resolverNumeroPaginasPlantilla(plantilla as { numeroPaginas?: unknown });
@@ -66,17 +62,17 @@ export async function generarExamenUseCase(params: {
   const mapaVariante = generarVariante(preguntasCandidatas);
   const loteId = randomUUID().split('-')[0].toUpperCase();
   const folio = randomUUID().split('-')[0].toUpperCase();
-  const examenGeneradoId = new Types.ObjectId();
+  const examenGeneradoId = randomUUID();
   const templateVersionOmr = resolverTemplateVersionOmr({
-    docenteId: params.docenteId,
+    docenteId: docId,
     periodoId: plantilla.periodoId,
-    plantillaId: plantilla._id
+    plantillaId: plantilla.id
   });
 
   const resultadoPdf = await generarPdfExamen({
     titulo: plantilla.titulo,
     folio,
-    examId: String(examenGeneradoId),
+    examId: examenGeneradoId,
     preguntas: preguntasCandidatas,
     mapaVariante,
     tipoExamen: plantilla.tipo as 'parcial' | 'global',
@@ -86,7 +82,7 @@ export async function generarExamenUseCase(params: {
     encabezado: construirEncabezadoPdf({
       periodo,
       docenteDb,
-      instrucciones: (plantilla as { instrucciones?: unknown }).instrucciones,
+      instrucciones: plantilla.instrucciones,
       incluirPrefijosDocente: true
     })
   });
@@ -140,10 +136,10 @@ export async function generarExamenUseCase(params: {
   });
   const rutaPdf = await guardarPdfExamen(nombreArchivo, pdfBytes);
   const recoveryManifest = construirRecoveryManifest({
-    examId: String(examenGeneradoId),
-    docenteId: String(params.docenteId),
+    examId: examenGeneradoId,
+    docenteId: docId,
     periodoId: plantilla.periodoId ? String(plantilla.periodoId) : undefined,
-    plantillaId: String(plantilla._id),
+    plantillaId: String(plantilla.id),
     loteId,
     folio,
     templateVersion: templateVersionOmr,
@@ -153,36 +149,57 @@ export async function generarExamenUseCase(params: {
     paginas
   });
 
-  const examenGenerado = await ExamenGenerado.create({
-    _id: examenGeneradoId,
-    docenteId: params.docenteId,
-    periodoId: plantilla.periodoId,
-    plantillaId: plantilla._id,
-    loteId,
-    origenGeneracion: 'individual',
-    folio,
-    estado: 'generado',
-    preguntasIds: mapaVarianteUsada.ordenPreguntas,
+  const raw = await prisma.examenGenerado.create({
+    data: {
+      id: examenGeneradoId,
+      docenteId: docId,
+      periodoId: plantilla.periodoId ? String(plantilla.periodoId) : null,
+      plantillaId: String(plantilla.id),
+      loteId,
+      origenGeneracion: 'individual',
+      folio,
+      estado: 'generado',
+      mapaVariante: JSON.stringify(mapaVarianteUsada),
+      paginas: JSON.stringify(paginas),
+      mapaOmr: JSON.stringify(mapaOmr),
+      rutaPdf,
+      retentionStatus: 'active',
+      recoveryKeyId: recoveryManifest.keyId,
+      recoveryManifestHash: recoveryManifest.manifestHash,
+      recoveryManifest: JSON.stringify(recoveryManifest)
+    }
+  });
+
+  await prisma.examenRecoveryManifest.create({
+    data: {
+      docenteId: docId,
+      manifestHash: recoveryManifest.manifestHash,
+      nombre: `manifest-${folio}`,
+      metadata: JSON.stringify(recoveryManifest)
+    }
+  });
+
+  let preguntasIds: string[] = [];
+  const mvUsada = mapaVarianteUsada as any;
+  if (mvUsada && mvUsada.versions) {
+    const firstVer = Object.values(mvUsada.versions)[0] as { ordenPreguntas?: string[] };
+    if (firstVer && Array.isArray(firstVer.ordenPreguntas)) {
+      preguntasIds = firstVer.ordenPreguntas;
+    }
+  } else if (mvUsada && Array.isArray(mvUsada.ordenPreguntas)) {
+    preguntasIds = mvUsada.ordenPreguntas;
+  }
+
+  // Convert to Mongoose-like output structure to preserve API compatibility
+  const examenGenerado = {
+    ...raw,
+    _id: raw.id,
     mapaVariante: mapaVarianteUsada,
     paginas,
     mapaOmr,
-    rutaPdf,
-    retentionStatus: 'active',
-    recoveryKeyId: recoveryManifest.keyId,
-    recoveryManifestHash: recoveryManifest.manifestHash,
-    recoveryManifest
-  });
-  await ExamenRecoveryManifest.create({
-    docenteId: params.docenteId,
-    periodoId: plantilla.periodoId,
-    plantillaId: plantilla._id,
-    examId: String(examenGeneradoId),
-    folio,
-    loteId,
-    keyId: recoveryManifest.keyId,
-    manifestHash: recoveryManifest.manifestHash,
-    manifest: recoveryManifest
-  });
+    recoveryManifest,
+    preguntasIds
+  };
 
   return { examenGenerado, advertencias };
 }
@@ -193,8 +210,9 @@ export async function generarExamenesLoteUseCase(params: {
   confirmarMasivo?: boolean;
   loteId?: string;
 }) {
-  const plantilla = await obtenerPlantillaDocente(params.docenteId, params.plantillaId);
-  if ((plantilla as { archivadoEn?: unknown }).archivadoEn) {
+  const docId = String(params.docenteId);
+  const plantilla = await obtenerPlantillaDocente(docId, params.plantillaId);
+  if (plantilla.archivadoEn) {
     throw new ErrorAplicacion('PLANTILLA_ARCHIVADA', 'La plantilla esta archivada', 409);
   }
   if (!plantilla.periodoId) {
@@ -204,15 +222,19 @@ export async function generarExamenesLoteUseCase(params: {
   const loteIdNormalizado = normalizarLoteId(params.loteId);
   let loteId = loteIdNormalizado || randomUUID().split('-')[0].toUpperCase();
   if (loteIdNormalizado) {
-    const loteExistente = await ExamenGenerado.exists({ docenteId: params.docenteId, loteId });
+    const loteExistente = await prisma.examenGenerado.findFirst({
+      where: { docenteId: docId, loteId }
+    });
     if (loteExistente) {
       loteId = randomUUID().split('-')[0].toUpperCase();
     }
   }
 
   const periodo = await resolverPeriodoPlantillaActivo(plantilla as { periodoId?: unknown });
-  const docenteDb = await resolverDocentePdf(params.docenteId);
-  const alumnos = await Alumno.find({ docenteId: params.docenteId, periodoId: plantilla.periodoId, activo: true }).lean();
+  const docenteDb = await resolverDocentePdf(docId);
+  const alumnos = await prisma.alumno.findMany({
+    where: { periodoId: String(plantilla.periodoId), activo: true }
+  });
   const totalAlumnos = Array.isArray(alumnos) ? alumnos.length : 0;
   const esTest = esEntornoTest();
 
@@ -228,22 +250,22 @@ export async function generarExamenesLoteUseCase(params: {
   }
 
   const { preguntasDb, temas } = await resolverPreguntasPlantilla({
-    docenteId: params.docenteId,
-    plantilla: plantilla as { periodoId?: unknown; preguntasIds?: unknown[]; temas?: unknown[] }
+    docenteId: docId,
+    plantilla: plantilla as any
   });
   const numeroPaginas = resolverNumeroPaginasPlantilla(plantilla as { numeroPaginas?: unknown });
   const preguntasBase = mapearPreguntasBase(preguntasDb);
   const templateVersionOmr = resolverTemplateVersionOmr({
-    docenteId: params.docenteId,
+    docenteId: docId,
     periodoId: plantilla.periodoId,
-    plantillaId: plantilla._id
+    plantillaId: plantilla.id
   });
 
   let preguntasBaseLote: ReturnType<typeof mapearPreguntasBase> = [];
   let reactivosTotalesLote = 0;
   {
-    const preguntasCandidatas = ordenarPreguntasDeterminista(preguntasBase, hash32(`${String(plantilla._id)}:${loteId}:lote-base`));
-    const mapaVariante = generarVarianteDeterminista(preguntasCandidatas, `plantilla:${plantilla._id}:lote-base:${loteId}`);
+    const preguntasCandidatas = ordenarPreguntasDeterminista(preguntasBase, hash32(`${String(plantilla.id)}:${loteId}:lote-base`));
+    const mapaVariante = generarVarianteDeterminista(preguntasCandidatas, `plantilla:${plantilla.id}:lote-base:${loteId}`);
     const { metricasPaginas, mapaOmr, preguntasRestantes } = await generarPdfExamen({
       titulo: plantilla.titulo,
       folio: 'PRECHECK',
@@ -256,7 +278,7 @@ export async function generarExamenesLoteUseCase(params: {
       encabezado: construirEncabezadoPdf({
         periodo,
         docenteDb,
-        instrucciones: (plantilla as { instrucciones?: unknown }).instrucciones,
+        instrucciones: plantilla.instrucciones,
         incluirPrefijosDocente: true
       })
     });
@@ -314,11 +336,11 @@ export async function generarExamenesLoteUseCase(params: {
       const esUltimoIntentoVariante = intento + 1 >= maxIntentosVarianteUnica;
       let folio = randomUUID().split('-')[0].toUpperCase();
       try {
-        const examenGeneradoId = new Types.ObjectId();
+        const examenGeneradoId = randomUUID();
         const { pdfBytes, paginas, metricasPaginas, mapaOmr, preguntasRestantes } = await generarPdfExamen({
           titulo: plantilla.titulo,
           folio,
-          examId: String(examenGeneradoId),
+          examId: examenGeneradoId,
           preguntas: preguntasCandidatas,
           mapaVariante,
           tipoExamen: plantilla.tipo as 'parcial' | 'global',
@@ -328,7 +350,7 @@ export async function generarExamenesLoteUseCase(params: {
           encabezado: construirEncabezadoPdf({
             periodo,
             docenteDb,
-            instrucciones: (plantilla as { instrucciones?: unknown }).instrucciones,
+            instrucciones: plantilla.instrucciones,
             incluirPrefijosDocente: true
           })
         });
@@ -369,10 +391,10 @@ export async function generarExamenesLoteUseCase(params: {
         });
         const rutaPdf = await guardarPdfExamen(nombreArchivo, pdfBytes);
         const recoveryManifest = construirRecoveryManifest({
-          examId: String(examenGeneradoId),
-          docenteId: String(params.docenteId),
+          examId: examenGeneradoId,
+          docenteId: docId,
           periodoId: plantilla.periodoId ? String(plantilla.periodoId) : undefined,
-          plantillaId: String(plantilla._id),
+          plantillaId: String(plantilla.id),
           loteId,
           folio,
           templateVersion: templateVersionOmr,
@@ -382,39 +404,46 @@ export async function generarExamenesLoteUseCase(params: {
           paginas
         });
 
-        const examenGenerado = await ExamenGenerado.create({
-          _id: examenGeneradoId,
-          docenteId: params.docenteId,
-          periodoId: plantilla.periodoId,
-          plantillaId: plantilla._id,
-          loteId,
-          origenGeneracion: 'lote',
-          folio,
-          estado: 'generado',
-          preguntasIds: mapaVarianteUsada.ordenPreguntas,
-          mapaVariante: mapaVarianteUsada,
-          paginas,
-          mapaOmr,
-          rutaPdf,
-          retentionStatus: 'active',
-          recoveryKeyId: recoveryManifest.keyId,
-          recoveryManifestHash: recoveryManifest.manifestHash,
-          recoveryManifest
+        const raw = await prisma.examenGenerado.create({
+          data: {
+            id: examenGeneradoId,
+            docenteId: docId,
+            periodoId: plantilla.periodoId ? String(plantilla.periodoId) : null,
+            plantillaId: String(plantilla.id),
+            loteId,
+            origenGeneracion: 'lote',
+            folio,
+            estado: 'generado',
+            mapaVariante: JSON.stringify(mapaVarianteUsada),
+            paginas: JSON.stringify(paginas),
+            mapaOmr: JSON.stringify(mapaOmr),
+            rutaPdf,
+            retentionStatus: 'active',
+            recoveryKeyId: recoveryManifest.keyId,
+            recoveryManifestHash: recoveryManifest.manifestHash,
+            recoveryManifest: JSON.stringify(recoveryManifest)
+          }
         });
-        await ExamenRecoveryManifest.create({
-          docenteId: params.docenteId,
-          periodoId: plantilla.periodoId,
-          plantillaId: plantilla._id,
-          examId: String(examenGeneradoId),
-          folio,
-          loteId,
-          keyId: recoveryManifest.keyId,
-          manifestHash: recoveryManifest.manifestHash,
-          manifest: recoveryManifest
+
+        await prisma.examenRecoveryManifest.create({
+          data: {
+            docenteId: docId,
+            manifestHash: recoveryManifest.manifestHash,
+            nombre: `manifest-${folio}`,
+            metadata: JSON.stringify(recoveryManifest)
+          }
         });
 
         firmasVariantesLote.add(firmaVariante);
-        return { examenGenerado, pdfBytes, recoveryManifest };
+
+        const formatted = {
+          ...raw,
+          _id: raw.id,
+          mapaVariante: mapaVarianteUsada,
+          paginas,
+          mapaOmr
+        };
+        return { examenGenerado: formatted, pdfBytes, recoveryManifest };
       } catch (error) {
         const msg = String((error as { message?: unknown }).message ?? '');
         if (msg.includes('E11000') && msg.toLowerCase().includes('folio')) {
@@ -433,7 +462,7 @@ export async function generarExamenesLoteUseCase(params: {
   for (let indice = 0; indice < totalAlumnos; indice += 1) {
     const { examenGenerado, pdfBytes, recoveryManifest } = await crearExamenSinAlumno();
     examenesGenerados.push({
-      _id: String(examenGenerado._id),
+      _id: String(examenGenerado.id),
       folio: examenGenerado.folio,
       generadoEn: examenGenerado.generadoEn
     });
@@ -444,30 +473,27 @@ export async function generarExamenesLoteUseCase(params: {
   if (recoveryManifests.length > 0) {
     const recoveryBundle = construirRecoveryBundle({
       loteId,
-      docenteId: String(params.docenteId),
+      docenteId: docId,
       periodoId: plantilla.periodoId ? String(plantilla.periodoId) : undefined,
-      plantillaId: String(plantilla._id),
+      plantillaId: String(plantilla.id),
       templateVersion: templateVersionOmr,
       manifests: recoveryManifests
     });
-    const bundlePersistido = await ExamenRecoveryBundle.create({
-      docenteId: params.docenteId,
-      periodoId: plantilla.periodoId,
-      plantillaId: plantilla._id,
-      loteId,
-      keyId: recoveryBundle.keyId,
-      bundleHash: recoveryBundle.bundleHash,
-      bundle: recoveryBundle
-    });
-    await ExamenGenerado.updateMany(
-      { docenteId: params.docenteId, loteId },
-      {
-        $set: {
-          recoveryBundleId: bundlePersistido._id,
-          recoveryBundleHash: recoveryBundle.bundleHash
-        }
+    const bundlePersistido = await prisma.examenRecoveryBundle.create({
+      data: {
+        docenteId: docId,
+        bundleHash: recoveryBundle.bundleHash,
+        nombre: `bundle-${loteId}`,
+        metadata: JSON.stringify(recoveryBundle)
       }
-    );
+    });
+    await prisma.examenGenerado.updateMany({
+      where: { docenteId: docId, loteId },
+      data: {
+        recoveryBundleId: bundlePersistido.id,
+        recoveryBundleHash: recoveryBundle.bundleHash
+      }
+    });
   }
 
   let lotePdfUrl: string | undefined;
@@ -483,7 +509,7 @@ export async function generarExamenesLoteUseCase(params: {
     const nombreArchivo = construirNombrePdfLote({
       loteId: loteSafe,
       materiaNombre: String((periodo as { nombre?: unknown } | null)?.nombre ?? ''),
-      plantillaTitulo: String((plantilla as { titulo?: unknown }).titulo ?? ''),
+      plantillaTitulo: String(plantilla.titulo ?? ''),
       totalExamenes: totalAlumnos
     });
     await guardarPdfExamen(nombreArchivo, loteBytes);
@@ -498,6 +524,7 @@ export async function obtenerProgresoGeneracionLoteUseCase(params: {
   loteId: string;
   plantillaId?: string;
 }) {
+  const docId = String(params.docenteId);
   const lote = normalizarLoteId(params.loteId);
   if (!lote) {
     throw new ErrorAplicacion('LOTE_INVALIDO', 'Lote invalido', 400);
@@ -505,20 +532,22 @@ export async function obtenerProgresoGeneracionLoteUseCase(params: {
 
   let totalEsperado = 0;
   if (params.plantillaId) {
-    const plantilla = await ExamenPlantilla.findById(params.plantillaId).lean();
-    if (plantilla && String(plantilla.docenteId) === String(params.docenteId) && plantilla.periodoId) {
-      totalEsperado = await Alumno.countDocuments({
-        docenteId: params.docenteId,
-        periodoId: plantilla.periodoId,
-        activo: true
+    const raw = await prisma.examenPlantilla.findFirst({
+      where: { id: params.plantillaId, docenteId: docId }
+    });
+    if (raw && raw.periodoId) {
+      totalEsperado = await prisma.alumno.count({
+        where: { periodoId: raw.periodoId, activo: true }
       });
     }
   }
 
-  const generados = await ExamenGenerado.countDocuments({
-    docenteId: params.docenteId,
-    loteId: lote,
-    archivadoEn: { $exists: false }
+  const generados = await prisma.examenGenerado.count({
+    where: {
+      docenteId: docId,
+      loteId: lote,
+      archivadoEn: null
+    }
   });
   const porcentajeBase = totalEsperado > 0 ? Math.round((generados / totalEsperado) * 100) : 0;
   const porcentaje = Math.max(0, Math.min(100, porcentajeBase));
@@ -539,17 +568,18 @@ export async function descargarPdfLoteUseCase(params: {
   docenteId: unknown;
   loteId: string;
 }) {
+  const docId = String(params.docenteId);
   const lote = normalizarLoteId(params.loteId);
   if (!lote) {
     throw new ErrorAplicacion('LOTE_INVALIDO', 'Lote invalido', 400);
   }
 
-  const examenLote = await ExamenGenerado.findOne({ docenteId: params.docenteId, loteId: lote })
-    .sort({ generadoEn: -1, _id: -1 })
-    .select({ plantillaId: 1, periodoId: 1, retentionStatus: 1, artifactsPurgedAt: 1 })
-    .lean();
+  const examenLote = await prisma.examenGenerado.findFirst({
+    where: { docenteId: docId, loteId: lote },
+    orderBy: { generadoEn: 'desc' }
+  });
   if (examenLote) {
-    const retention = construirMetadataRetencion(examenLote as unknown as Record<string, unknown>);
+    const retention = construirMetadataRetencion(examenLote);
     if (retention.retentionStatus === 'artifacts_purged') {
       throw new ErrorAplicacion(
         'EXAMEN_ARTIFACTOS_EXPURGADOS',
@@ -560,26 +590,29 @@ export async function descargarPdfLoteUseCase(params: {
     }
   }
 
+  const plantillaId = examenLote?.plantillaId || undefined;
+  const periodoId = examenLote?.periodoId || undefined;
+
   const [plantilla, periodo, totalExamenes] = await Promise.all([
-    (examenLote as { plantillaId?: unknown } | null)?.plantillaId
-      ? ExamenPlantilla.findById(String((examenLote as { plantillaId?: unknown }).plantillaId ?? '')).lean()
+    plantillaId
+      ? prisma.examenPlantilla.findUnique({ where: { id: plantillaId } })
       : Promise.resolve(null),
-    (examenLote as { periodoId?: unknown } | null)?.periodoId
-      ? Periodo.findById(String((examenLote as { periodoId?: unknown }).periodoId ?? '')).lean()
+    periodoId
+      ? prisma.periodo.findUnique({ where: { id: periodoId } })
       : Promise.resolve(null),
-    ExamenGenerado.countDocuments({ docenteId: params.docenteId, loteId: lote })
+    prisma.examenGenerado.count({ where: { docenteId: docId, loteId: lote } })
   ]);
 
   const fileName = construirNombrePdfLote({
     loteId: lote,
-    materiaNombre: String((periodo as { nombre?: unknown } | null)?.nombre ?? ''),
-    plantillaTitulo: String((plantilla as { titulo?: unknown } | null)?.titulo ?? ''),
+    materiaNombre: String(periodo?.nombre ?? ''),
+    plantillaTitulo: String(plantilla?.titulo ?? ''),
     totalExamenes: Number(totalExamenes ?? 0)
   });
   const nombreArchivoAnterior = construirNombrePdfLoteAnterior({
     loteId: lote,
-    materiaNombre: String((periodo as { nombre?: unknown } | null)?.nombre ?? ''),
-    plantillaTitulo: String((plantilla as { titulo?: unknown } | null)?.titulo ?? '')
+    materiaNombre: String(periodo?.nombre ?? ''),
+    plantillaTitulo: String(plantilla?.titulo ?? '')
   });
 
   const ruta = resolverRutaPdfExamen(fileName);
@@ -598,6 +631,6 @@ export async function descargarPdfLoteUseCase(params: {
     }
     return { buffer, fileName };
   } catch {
-    throw new ErrorAplicacion('PDF_NO_DISPONIBLE', 'PDF de lote no disponible', 404, { docenteId: params.docenteId });
+    throw new ErrorAplicacion('PDF_NO_DISPONIBLE', 'PDF de lote no disponible', 404, { docenteId: docId });
   }
 }

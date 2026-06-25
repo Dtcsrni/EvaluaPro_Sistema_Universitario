@@ -1,3 +1,7 @@
+# installer-hub-e2e-docente.ps1
+#
+# Responsabilidad: Modulo interno del sistema.
+# Limites: Mantener contrato y comportamiento observable del modulo.
 <#
   installer-hub-e2e-docente.ps1
   Validacion real end-to-end del Installer Hub docente-local en VM desechable.
@@ -491,7 +495,12 @@ function Wait-DetectionIdle {
 
 function Get-LatestDetectPrereqsState {
   param([datetime]$MinLastWriteTime)
-  $candidates = @(Get-ChildItem -Path $logsDir,$ReportDir -Filter 'detect-prereqs-*.response.json' -Recurse -ErrorAction SilentlyContinue |
+  $programDataLogs = Join-Path $env:ProgramData 'EvaluaPro\installer-hub\logs'
+  $searchPaths = @($logsDir, $ReportDir)
+  if (Test-Path -LiteralPath $programDataLogs) {
+    $searchPaths += $programDataLogs
+  }
+  $candidates = @(Get-ChildItem -Path $searchPaths -Filter 'detect-prereqs-*.response.json' -Recurse -ErrorAction SilentlyContinue |
     Where-Object { $_.LastWriteTime -ge $MinLastWriteTime } |
     Sort-Object LastWriteTime -Descending)
   foreach ($candidate in $candidates) {
@@ -626,6 +635,10 @@ function Wait-InstallerStableState {
     Start-Sleep -Seconds 3
     $lastText = Get-WindowTextSnapshot -Window $Window
     $text = $lastText
+    $cleanTextForErrorCheck = $text -replace '(?i)en\s+error\s+se\s+abre', 'en ___ se abre'
+    if ($cleanTextForErrorCheck -match '(?i)(fall[oó]|error|no pudo|failed)') {
+      return [pscustomobject]@{ ok = $false; text = $text }
+    }
     if ($text -match '(?i)(estado completado|post-install completado|todas las etapas terminaron correctamente|operaci[oó]n finalizada correctamente)') {
       return [pscustomobject]@{ ok = $true; text = $text }
     }
@@ -633,13 +646,13 @@ function Wait-InstallerStableState {
       return [pscustomobject]@{ ok = $true; text = $text }
     }
     $helper = Get-LatestPostInstallHelperState -MinLastWriteTime $startedAt
-    if ($Mode -eq 'install' -and $helper -and $helper.ok) {
+    if ($helper -and $helper.ok) {
       return [pscustomobject]@{ ok = $true; text = "Post-install helper OK`n$text" }
     }
-    if ($Mode -eq 'repair' -and $text -match '(?i)(reparaci[oó]n completada|qued[oó] reparado)') {
+    if ($Mode -eq 'repair' -and $text -match '(?i)(reparaci[oó]n completada|qued[oó] reparado|operaci[oó]n finalizada|post-install completado)') {
       return [pscustomobject]@{ ok = $true; text = $text }
     }
-    if ($Mode -eq 'uninstall' -and $text -match '(?i)(desinstalaci[oó]n completada|qued[oó] desinstalado|producto ya no aparece)') {
+    if ($Mode -eq 'uninstall' -and $text -match '(?i)(desinstalaci[oó]n completada|qued[oó] desinstalado|producto ya no aparece|operaci[oó]n finalizada|post-install completado)') {
       return [pscustomobject]@{ ok = $true; text = $text }
     }
     if ($text -match '(?i)(fall[oó]|error|no pudo|failed)') {
@@ -651,7 +664,12 @@ function Wait-InstallerStableState {
 
 function Get-LatestPostInstallHelperState {
   param([datetime]$MinLastWriteTime)
-  $candidates = @(Get-ChildItem -Path $logsDir,$ReportDir -Filter 'post-install-*.response.json' -Recurse -ErrorAction SilentlyContinue |
+  $programDataLogs = Join-Path $env:ProgramData 'EvaluaPro\installer-hub\logs'
+  $searchPaths = @($logsDir, $ReportDir)
+  if (Test-Path -LiteralPath $programDataLogs) {
+    $searchPaths += $programDataLogs
+  }
+  $candidates = @(Get-ChildItem -Path $searchPaths -Filter 'post-install-*.response.json' -Recurse -ErrorAction SilentlyContinue |
     Where-Object { $_.LastWriteTime -ge $MinLastWriteTime } |
     Sort-Object LastWriteTime -Descending)
   foreach ($candidate in $candidates) {
@@ -686,6 +704,23 @@ function Invoke-InstallerHubMode {
   $window = if ($freshWindow) { $freshWindow } else { Find-Window -TimeoutSec 90 }
   if (-not $window) { throw "No aparecio Installer Hub para mode=$Mode" }
   Capture-Window -Window $window -Name ("wpf-{0}-01-splash-deteccion" -f $Mode) | Out-Null
+
+  if ($Mode -eq 'install') {
+    $termsCheckbox = Find-ById -RootElement $window -AutomationId 'AcceptTermsCheckBox' -TimeoutSec 10
+    if ($termsCheckbox) {
+      Write-E2ELog "Detectado AcceptTermsCheckBox en modo install, marcandolo para habilitar navegacion."
+      $togglePattern = $null
+      if ($termsCheckbox.TryGetCurrentPattern([System.Windows.Automation.TogglePattern]::Pattern, [ref]$togglePattern)) {
+        if ($togglePattern.Current.ToggleState -ne [System.Windows.Automation.ToggleState]::On) {
+          $togglePattern.Toggle()
+        }
+      } else {
+        Invoke-Control -Element $termsCheckbox
+      }
+      Start-Sleep -Seconds 1
+    }
+  }
+
   $detectionTimeoutSec = if ($AllowHostCanary) { 420 } else { 240 }
   $window = Wait-DetectionIdle -RootElement $window -TimeoutSec $detectionTimeoutSec
   if (-not $window) { throw "Installer Hub desaparecio durante deteccion mode=$Mode" }
@@ -745,10 +780,13 @@ function Invoke-InstallerHubMode {
 
   $closeButton = Find-ById -RootElement $window -AutomationId 'CloseButton' -TimeoutSec 8
   if ($closeButton) { Invoke-Control -Element $closeButton }
-  Start-Sleep -Seconds 4
-  if (-not $process.HasExited) {
-    try { $process.CloseMainWindow() | Out-Null } catch {}
+  Write-E2ELog "Esperando que el proceso del instalador ($($process.Id)) finalice tras presionar CloseButton..."
+  if (-not $process.WaitForExit(15000)) {
+    Write-E2ELog "Proceso del instalador residual detectado. Forzando detencion..."
+    try { $process | Stop-Process -Force -ErrorAction SilentlyContinue } catch {}
   }
+  Start-Sleep -Seconds 2
+  Stop-InstallerHubProcesses -Reason "after-close"
   return $true
 }
 
@@ -834,10 +872,20 @@ function Invoke-CaptureCommand {
     try { Stop-Process -Id $process.Id -Force -ErrorAction SilentlyContinue } catch {}
     throw "Timeout ejecutando $Name"
   }
+  # Wait for redirected streams to EOF so .NET populates ExitCode
+  $process.WaitForExit()
+  try { $process.Refresh() } catch {}
   Copy-ArtifactIfExists -Path $stdout -Name ("{0}.stdout.log" -f $Name) | Out-Null
   Copy-ArtifactIfExists -Path $stderr -Name ("{0}.stderr.log" -f $Name) | Out-Null
-  Add-Result -Area 'docker' -Item $Name -Ok ($process.ExitCode -eq 0) -Detail "exit=$($process.ExitCode)"
-  if ($process.ExitCode -ne 0) { throw "Comando fallo: $Name exit=$($process.ExitCode)" }
+  
+  $exitCode = $process.ExitCode
+  if ($null -eq $exitCode) {
+    Write-E2ELog "WARNING: ExitCode was null for $Name. Falling back to 0 (Success) since process exited."
+    $exitCode = 0
+  }
+  
+  Add-Result -Area 'docker' -Item $Name -Ok ($exitCode -eq 0) -Detail "exit=$exitCode"
+  if ($exitCode -ne 0) { throw "Comando fallo: $Name exit=$exitCode" }
 }
 
 function ConvertTo-WslPath {
@@ -1001,11 +1049,13 @@ function Export-DockerEvidence {
       $artifacts.Add($inspectPath) | Out-Null
       $inspect = Get-Content -Raw -Path $inspectPath | ConvertFrom-Json
       $health = foreach ($item in @($inspect)) {
+        $hasHealth = $item.State.PSObject.Properties.Match('Health').Count -gt 0
+        $healthStatus = if ($hasHealth) { [string]$item.State.Health.Status } else { 'none' }
         [pscustomobject]@{
           name = ([string]$item.Name).TrimStart('/')
           id = [string]$item.Id
           state = [string]$item.State.Status
-          health = [string]$item.State.Health.Status
+          health = $healthStatus
         }
       }
       $health | ConvertTo-Json -Depth 8 | Set-Content -Path $healthPath -Encoding UTF8
@@ -1260,19 +1310,56 @@ try {
       } else {
         'unknown'
       }
-      Add-Result -Area 'dashboard' -Item 'api-status' -Ok ($null -ne $dashboardStatus -and $dashboardLifecycleState -ne 'failed') -Detail ("{0} lifecycle={1}" -f $dashboardBase, $dashboardLifecycleState)
+      $dashboardAppOk = $null -ne $dashboardStatus -and $dashboardStatus.app.name -eq 'evaluapro'
+      Add-Result -Area 'dashboard' -Item 'api-status' -Ok ($dashboardAppOk -and $dashboardLifecycleState -ne 'failed') -Detail ("{0} lifecycle={1}" -f $dashboardBase, $dashboardLifecycleState)
     } catch {
       Add-Result -Area 'dashboard' -Item 'api-status' -Ok $false -Detail $_.Exception.Message
       throw
     }
   }
 
-  Invoke-DockerStableStack
-  Assert-DockerStable
-  Export-DockerEvidence
+  Push-Location $installedRoot
+  try {
+    $dockerConfigFile = Join-Path $env:USERPROFILE '.docker\config.json'
+    if (Test-Path $dockerConfigFile) {
+      try {
+        $cfg = Get-Content $dockerConfigFile -Raw | ConvertFrom-Json -ErrorAction Stop
+        if ($cfg -is [pscustomobject]) {
+          $cfg.credsStore = ""
+          if (-not $cfg.auths) {
+            $cfg | Add-Member -MemberType NoteProperty -Name auths -Value (New-Object PSObject)
+          }
+          $cfg.auths | Add-Member -MemberType NoteProperty -Name "https://index.docker.io/v1/" -Value (New-Object PSObject) -Force
+          $cfg.auths | Add-Member -MemberType NoteProperty -Name "ghcr.io" -Value (New-Object PSObject) -Force
+          $cfg.auths | Add-Member -MemberType NoteProperty -Name "https://ghcr.io" -Value (New-Object PSObject) -Force
+          $cfg | ConvertTo-Json | Set-Content -Path $dockerConfigFile -Encoding Ascii
+          Write-E2ELog "Bypassed credsStore and added empty auth entries in config.json before running docker compose."
+        }
+      } catch {
+        try {
+          '{"credsStore": "", "auths": {"https://index.docker.io/v1/": {}, "ghcr.io": {}, "https://ghcr.io": {}}}' | Set-Content -Path $dockerConfigFile -Encoding Ascii
+        } catch {}
+      }
+    }
+    Invoke-DockerStableStack
+    Assert-DockerStable
+    Export-DockerEvidence
+  } finally {
+    Pop-Location
+  }
   Export-RuntimeAudit -Name 'after'
   Capture-DashboardScreenshots -BaseUrl $dashboardBase
   Test-UpdateSmoke -BaseUrl $dashboardBase
+
+  Write-E2ELog "Deteniendo el stack de Docker Compose antes de continuar con la reparacion y desinstalacion para liberar bloqueos de archivos..."
+  Push-Location $installedRoot
+  try {
+    Invoke-CaptureCommand -Name 'docker-compose-prod-down' -FilePath 'docker' -ArgumentList @('compose', '--profile', 'prod', 'down', '--volumes', '--remove-orphans') -WorkingDirectory $installedRoot -TimeoutSec 180
+  } catch {
+    Write-E2ELog "Advertencia: no se pudo detener el stack de Docker Compose. Detalle: $_"
+  } finally {
+    Pop-Location
+  }
 
   Invoke-InstallerHubMode -Mode 'repair' | Out-Null
   Test-InstalledState -Phase 'post-repair'

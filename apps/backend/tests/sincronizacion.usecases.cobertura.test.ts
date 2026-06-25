@@ -1,3 +1,9 @@
+/**
+ * sincronizacion.usecases.cobertura.test
+ *
+ * Responsabilidad: Modulo interno del sistema.
+ * Limites: Mantener contrato y comportamiento observable del modulo.
+ */
 import { describe, expect, it } from 'vitest';
 import { enviarPaqueteServidorUseCase } from '../src/modulos/modulo_sincronizacion_nube/application/usecases/enviarPaqueteServidor';
 import { traerPaquetesServidorUseCase } from '../src/modulos/modulo_sincronizacion_nube/application/usecases/traerPaquetesServidor';

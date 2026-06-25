@@ -1,5 +1,11 @@
 #!/usr/bin/env node
 /**
+ * preflight-global-prod
+ *
+ * Responsabilidad: Modulo interno del sistema.
+ * Limites: Mantener contrato y comportamiento observable del modulo.
+ */
+/**
  * Preflight operativo para habilitar generacion de examenes globales en produccion.
  *
  * Modo por defecto:

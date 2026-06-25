@@ -668,7 +668,7 @@ function Invoke-DetectPrereqsMode {
   $internetOk = Test-InternetConnectivity
   $system = Get-SystemRequirementReport -InstallPath $installDir -MinDiskGb ([int]$flavor.minDiskGb) -InternetOk $internetOk
   $runtime = Get-DockerRuntimeStatus
-  $installation = Get-EvaluaProInstallationInfo
+  $installation = Get-EvaluaProInstallationInfo -IgnoreInstallerHub
   $recommendedMode = Resolve-InstallerMode -RequestedMode 'auto' -Installation $installation
   $prereqs = @()
 
@@ -834,6 +834,36 @@ function Invoke-PostInstallMode {
   $isRepairMode = ([string]$mode).Trim().ToLowerInvariant() -eq 'repair'
   $canWriteInstallDir = Test-DirectoryWriteAccess -Path $installDir
   $skipRestrictedRepairPhases = ($isRepairMode -and -not $canWriteInstallDir)
+
+  if ($mode -ne 'uninstall' -and -not $skipRestrictedRepairPhases -and -not $canWriteInstallDir -and -not (Test-IsAdministrator)) {
+    Add-HelperLog -Level 'info' -Message "Se requieren permisos de administrador para realizar cambios en $installDir. Solicitando elevacion UAC..."
+    $quotedArgs = @(
+      '-NoProfile',
+      '-ExecutionPolicy', 'Bypass',
+      '-File', ('"{0}"' -f $PSCommandPath),
+      '-Mode', $Mode,
+      '-RequestPath', ('"{0}"' -f $RequestPath),
+      '-ResponsePath', ('"{0}"' -f $ResponsePath)
+    )
+    try {
+      $startInfo = @{
+        FilePath = 'powershell.exe'
+        Verb = 'RunAs'
+        ArgumentList = ($quotedArgs -join ' ')
+        Wait = $true
+        PassThru = $true
+      }
+      $proc = Start-Process @startInfo
+      if ($proc.ExitCode -eq 0) {
+        Add-HelperLog -Level 'ok' -Message "Fase post-install completada en sesion elevada."
+        exit 0
+      } else {
+        throw "La sesion elevada de post-instalacion termino con codigo de error: $($proc.ExitCode)"
+      }
+    } catch {
+      throw "No se pudo solicitar la elevacion de privilegios UAC: $($_.Exception.Message)"
+    }
+  }
 
   if ($skipRestrictedRepairPhases) {
     $warnMessage = 'Repair detectado sin permisos de escritura en la carpeta de instalacion. Se omiten ajustes locales que requieren elevacion.'

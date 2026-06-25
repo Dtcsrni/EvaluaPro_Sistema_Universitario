@@ -1,3 +1,9 @@
+/**
+ * servicioComercialCore
+ *
+ * Responsabilidad: Servicio de dominio/aplicacion con reglas de negocio reutilizables.
+ * Limites: Mantener invariantes del dominio y errores controlados.
+ */
 import crypto from 'node:crypto';
 import jwt from 'jsonwebtoken';
 import { ErrorAplicacion } from '../../compartido/errores/errorAplicacion';
@@ -14,7 +20,7 @@ import { PlanComercial } from './modeloPlanComercial';
 import { PlantillaNotificacion } from './modeloPlantillaNotificacion';
 import { Suscripcion } from './modeloSuscripcion';
 import { Tenant } from './modeloTenant';
-import { Docente } from '../modulo_autenticacion/modeloDocente';
+import { prisma } from '../../infraestructura/baseDatos/sqlite';
 
 const MARGEN_MINIMO = 0.6;
 const LICENCIA_ISSUER = 'evaluapro.licencias';
@@ -511,7 +517,12 @@ export async function ejecutarCicloCobranzaAutomatica(params?: {
 
   for (const suscripcion of suscripciones) {
     const tenant = await Tenant.findOne({ tenantId: suscripcion.tenantId }).lean();
-    const owner = tenant?.ownerDocenteId ? await Docente.findById(tenant.ownerDocenteId).lean() : null;
+    const docOwner = tenant?.ownerDocenteId ? await prisma.docente.findUnique({ where: { id: tenant.ownerDocenteId } }) : null;
+    const owner = docOwner ? {
+      ...docOwner,
+      _id: docOwner.id,
+      roles: typeof docOwner.roles === 'string' ? JSON.parse(docOwner.roles) : docOwner.roles
+    } : null;
     const correoDestino = String((tenant as { contacto?: { correo?: string } } | null)?.contacto?.correo || owner?.correo || '').trim().toLowerCase();
     const telefonoDestino = String((tenant as { contacto?: { telefono?: string } } | null)?.contacto?.telefono || '').trim();
     const nombreTenant = String((tenant as { nombre?: string } | null)?.nombre || suscripcion.tenantId).trim();

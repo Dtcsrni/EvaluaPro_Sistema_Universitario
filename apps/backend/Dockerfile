@@ -25,14 +25,17 @@ FROM node:24-slim AS runner
 WORKDIR /app/apps/backend
 ARG INSTALL_PLAYWRIGHT=1
 ENV NODE_ENV=production
-ENV PLAYWRIGHT_BROWSERS_PATH=/ms-playwright
 ENV PLAYWRIGHT_CHROMIUM_EXECUTABLE=/usr/local/bin/evaluapro-chromium
 RUN npm install -g npm@11.11.0
+RUN if [ "$INSTALL_PLAYWRIGHT" = "1" ]; then \
+      apt-get update \
+      && apt-get install -y --no-install-recommends chromium \
+      && ln -s /usr/bin/chromium /usr/local/bin/evaluapro-chromium \
+      && rm -rf /var/lib/apt/lists/*; \
+    fi
 COPY apps/backend/package*.json ./
 RUN npm ci --omit=dev --include=optional \
   && npm install --omit=dev --include=optional --os=linux --cpu=x64 --no-save sharp \
-  && if [ "$INSTALL_PLAYWRIGHT" = "1" ]; then npx playwright install --with-deps --no-shell chromium; else echo "Skipping Playwright install (INSTALL_PLAYWRIGHT=$INSTALL_PLAYWRIGHT)"; fi \
-  && if [ "$INSTALL_PLAYWRIGHT" = "1" ]; then node -e "const { chromium } = require('playwright'); process.stdout.write(chromium.executablePath())" > /tmp/chromium-path; actual_path=$(tr -d '\"\\r' < /tmp/chromium-path); printf '%s\n' '#!/bin/sh' "exec \"$actual_path\" \"\$@\"" > /usr/local/bin/evaluapro-chromium; chmod +x /usr/local/bin/evaluapro-chromium; rm -f /tmp/chromium-path; rm -rf /ms-playwright/ffmpeg-* /ms-playwright/*headless*; fi \
   && npm cache clean --force
 COPY --from=builder /app/apps/backend/dist ./dist
 EXPOSE 4000

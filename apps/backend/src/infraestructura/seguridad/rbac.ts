@@ -63,7 +63,11 @@ export const PERMISOS = [
   'comercial:cobranza:gestionar',
   'comercial:auditoria:leer',
   'recuperacion:leer',
-  'recuperacion:reconstruir'
+  'recuperacion:reconstruir',
+  'asistencias:leer',
+  'asistencias:gestionar',
+  'temarios:leer',
+  'temarios:gestionar'
 ] as const;
 
 export type Permiso = (typeof PERMISOS)[number];
@@ -118,7 +122,11 @@ const PERMISOS_DOCENTE: Permiso[] = [
   'cuenta:leer',
   'cuenta:actualizar',
   'recuperacion:leer',
-  'recuperacion:reconstruir'
+  'recuperacion:reconstruir',
+  'asistencias:leer',
+  'asistencias:gestionar',
+  'temarios:leer',
+  'temarios:gestionar'
 ];
 
 const PERMISOS_COORDINADOR: Permiso[] = [
@@ -152,7 +160,11 @@ const PERMISOS_COORDINADOR: Permiso[] = [
   'sincronizacion:pull',
   'compliance:leer',
   'cuenta:leer',
-  'cuenta:actualizar'
+  'cuenta:actualizar',
+  'asistencias:leer',
+  'asistencias:gestionar',
+  'temarios:leer',
+  'temarios:gestionar'
 ];
 
 const PERMISOS_AUXILIAR: Permiso[] = [
@@ -169,7 +181,10 @@ const PERMISOS_AUXILIAR: Permiso[] = [
   'evaluaciones:leer',
   'analiticas:leer',
   'compliance:leer',
-  'cuenta:leer'
+  'cuenta:leer',
+  'asistencias:leer',
+  'asistencias:gestionar',
+  'temarios:leer'
 ];
 
 const PERMISOS_LECTOR: Permiso[] = [

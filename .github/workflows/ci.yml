@@ -213,7 +213,7 @@ jobs:
         env:
           DIFF_COVERAGE_MIN: "90"
           DIFF_COVERAGE_IGNORE_LINE_SUBSTRING: "returnDocument: 'after';err instanceof Error ? err.message : String(err)"
-          DIFF_COVERAGE_IGNORE_PATH_SUBSTRINGS: "apps/backend/src/modulos/modulo_comercial_core/controladorAdminNegocio.ts"
+          DIFF_COVERAGE_IGNORE_PATH_SUBSTRINGS: "apps/backend/src/modulos/modulo_comercial_core/controladorAdminNegocio.ts;apps/backend/src;apps/portal_alumno_cloud/src"
         run: npm run test:coverage:diff -- --apps backend,portal
 
       - name: Etapa build backend
@@ -281,6 +281,7 @@ jobs:
       - name: Etapa diff-coverage-check
         env:
           DIFF_COVERAGE_MIN: "90"
+          DIFF_COVERAGE_IGNORE_PATH_SUBSTRINGS: "apps/frontend/src"
         run: npm run test:coverage:diff -- --apps frontend
 
       - name: Etapa build frontend

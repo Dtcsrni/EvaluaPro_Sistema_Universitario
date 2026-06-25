@@ -1,3 +1,9 @@
+/**
+ * tmp-query-templates
+ *
+ * Responsabilidad: Modulo interno del sistema.
+ * Limites: Mantener contrato y comportamiento observable del modulo.
+ */
 const mongoose = require("mongoose");
 (async () => {
   const uris = [

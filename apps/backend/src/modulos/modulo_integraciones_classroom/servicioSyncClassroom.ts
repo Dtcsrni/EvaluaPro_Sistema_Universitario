@@ -1,3 +1,9 @@
+/**
+ * servicioSyncClassroom
+ *
+ * Responsabilidad: Servicio de dominio/aplicacion con reglas de negocio reutilizables.
+ * Limites: Mantener invariantes del dominio y errores controlados.
+ */
 import { ErrorAplicacion } from '../../compartido/errores/errorAplicacion';
 import { Alumno } from '../modulo_alumnos/modeloAlumno';
 import { EvidenciaEvaluacion } from '../modulo_evaluaciones/modeloEvidenciaEvaluacion';
@@ -188,7 +194,7 @@ async function obtenerAlumnosLocales(periodoId: string, docenteId: string): Prom
     .select({ _id: 1, nombreCompleto: 1, matricula: 1, correo: 1 })
     .sort({ nombreCompleto: 1 })
     .lean();
-  return alumnos.map((alumno) => ({
+  return alumnos.map((alumno: any) => ({
     _id: String(alumno._id),
     nombreCompleto: String(alumno.nombreCompleto || '').trim(),
     matricula: normalizarTexto(alumno.matricula),
@@ -206,8 +212,8 @@ async function obtenerMapeoManualPorCurso(
     .lean();
   return new Map(
     filas
-      .map((fila) => [normalizarTexto(fila.classroomUserId), normalizarTexto(fila.alumnoId)] as [string, string])
-      .filter((fila) => Boolean(fila[0] && fila[1]))
+      .map((fila: any) => [normalizarTexto(fila.classroomUserId), normalizarTexto(fila.alumnoId)] as [string, string])
+      .filter((fila: any) => Boolean(fila[0] && fila[1]))
   );
 }
 
@@ -344,7 +350,7 @@ export async function listarActividadesPorCurso(docenteId: string, courseId: str
       : Promise.resolve([])
   ]);
   const mapeosPorActividad = new Map(
-    mapeos.map((mapeo) => [normalizarTexto(mapeo.courseWorkId), mapeo])
+    mapeos.map((mapeo: any) => [normalizarTexto(mapeo.courseWorkId), mapeo])
   );
 
   return courseWork.map((actividad) => {
@@ -800,7 +806,7 @@ export async function listarHistorialSyncClassroom(docenteId: string, periodoId:
     .limit(20)
     .lean();
 
-  return items.map((item) => ({
+  return items.map((item: any) => ({
     _id: String(item._id),
     tipo: item.tipo,
     periodoId: normalizarTexto(item.periodoId),

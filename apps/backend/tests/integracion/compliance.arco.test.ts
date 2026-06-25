@@ -27,7 +27,7 @@ describe('modulo compliance', () => {
     const docente = await Docente.create({
       nombreCompleto: 'Docente Compliance',
       correo,
-      passwordHash: 'hash-temp',
+      hashContrasena: 'hash-temp',
       roles,
       activo: true
     });

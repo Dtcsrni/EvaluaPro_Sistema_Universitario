@@ -15,6 +15,7 @@ No editar a mano: los cambios se pisan al regenerar.
 - [DOCENTE_LOCAL_LITE.md](DOCENTE_LOCAL_LITE.md) — Docente Local Lite
 - [ENGINEERING_BASELINE.md](ENGINEERING_BASELINE.md) — Engineering Baseline
 - [ESTABILIZACION_FALLOS_Y_APRENDIZAJES.md](ESTABILIZACION_FALLOS_Y_APRENDIZAJES.md) — Estabilizacion: Fallos Y Aprendizajes
+- [ESTILO_AVANZADO_Y_ANIMACIONES.md](ESTILO_AVANZADO_Y_ANIMACIONES.md) — Guía de Estilo Avanzado, Transparencias y Animaciones
 - [FILES.md](FILES.md) — Mapa de archivos
 - [FLUJO_EXAMEN.md](FLUJO_EXAMEN.md) — Flujo de examen
 - [FORMATO_PDF.md](FORMATO_PDF.md) — Formato PDF y OMR
@@ -30,6 +31,7 @@ No editar a mano: los cambios se pisan al regenerar.
 - [PILOTO_DIA0_CHECKLIST.md](PILOTO_DIA0_CHECKLIST.md) — Checklist Operativo Dia 0 (Piloto Hibrido)
 - [POLITICA_ECONOMIA_TOKENS_CODEX.md](POLITICA_ECONOMIA_TOKENS_CODEX.md) — Politica Repo-Local de Economia de Tokens para Codex
 - [POLITICA_OPTIMIZACION_RECURSOS.md](POLITICA_OPTIMIZACION_RECURSOS.md) — POLITICA_OPTIMIZACION_RECURSOS
+- [POLITICA_SDD.md](POLITICA_SDD.md) — Política de Spec-Driven Development (SDD)
 - [PROCESO_GLOBAL_CURSO_INICIADO.md](PROCESO_GLOBAL_CURSO_INICIADO.md) — Proceso estandar para global desde curso iniciado
 - [PRUEBAS.md](PRUEBAS.md) — Pruebas automatizadas
 - [QA_GATE_CRITERIA.md](QA_GATE_CRITERIA.md) — QA Gate Criteria (`1.0.0-beta.0`)

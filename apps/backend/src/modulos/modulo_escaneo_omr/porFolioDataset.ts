@@ -1,4 +1,10 @@
-﻿import fs from 'node:fs/promises';
+/**
+ * porFolioDataset
+ *
+ * Responsabilidad: Modulo interno del sistema.
+ * Limites: Mantener contrato y comportamiento observable del modulo.
+ */
+import fs from 'node:fs/promises';
 import fsSync from 'node:fs';
 import path from 'node:path';
 import sharp from 'sharp';

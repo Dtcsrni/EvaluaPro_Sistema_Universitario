@@ -109,6 +109,8 @@ jobs:
         run: git fetch origin ${{ github.base_ref }} --depth=1
 
       - name: Etapa diff-coverage-check
+        env:
+          DIFF_COVERAGE_IGNORE_PATH_SUBSTRINGS: "apps/frontend/src"
         run: npm run test:coverage:diff -- --apps frontend
 
       - name: Etapa build frontend

@@ -1,23 +1,31 @@
 {
-  "generatedAt": "2026-02-27T09:55:26.840Z",
+  "generatedAt": "2026-06-23T15:08:44.851Z",
   "mountedPrefixes": [
     "/admin",
+    "/admin-negocio",
     "/alumnos",
     "/analiticas",
+    "/asistencias",
+    "/assessments",
     "/autenticacion",
     "/banco-preguntas",
     "/calificaciones",
+    "/comercial",
+    "/comercial-publico",
     "/compliance",
     "/entregas",
     "/evaluaciones",
+    "/evaluaciones-publicas",
     "/examenes",
     "/integraciones/classroom",
     "/metrics",
     "/omr",
     "/papelera",
     "/periodos",
+    "/recuperacion",
     "/salud",
-    "/sincronizaciones"
+    "/sincronizaciones",
+    "/temarios"
   ],
   "personas": [
     {

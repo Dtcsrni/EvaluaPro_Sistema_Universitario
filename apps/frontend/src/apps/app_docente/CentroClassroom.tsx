@@ -1,3 +1,9 @@
+/**
+ * CentroClassroom
+ *
+ * Responsabilidad: Modulo interno del sistema.
+ * Limites: Mantener contrato y comportamiento observable del modulo.
+ */
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { emitToast } from '../../ui/toast/toastBus';
 import { Boton } from '../../ui/ux/componentes/Boton';

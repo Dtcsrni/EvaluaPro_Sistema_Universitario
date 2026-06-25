@@ -1,24 +1,24 @@
 # Inventario Exhaustivo de Codigo
 
-Fecha de generacion: 2026-06-25 03:13:01
+Fecha de generacion: 2026-06-25 07:10:14
 Fuente: git ls-files filtrado por existencia en workspace (solo archivos versionados presentes, excluye node_modules).
 
 ## Resumen
 
-- Total de piezas de codigo/config ejecutable inventariadas: 1043
+- Total de piezas de codigo/config ejecutable inventariadas: 1118
 - Extensiones incluidas: ts, tsx, js, jsx, mjs, cjs, json, yml, yaml, sh, cmd, ps1.
 
 ## Conteo por area
 
 | Area | Archivos |
 | --- | ---: |
-| backend | 385 |
-| frontend | 129 |
-| portal_alumno_cloud | 44 |
-| ci | 21 |
-| scripts | 168 |
+| backend | 401 |
+| frontend | 133 |
+| portal_alumno_cloud | 67 |
+| ci | 17 |
+| scripts | 170 |
 | ops | 3 |
-| docs | 134 |
+| docs | 168 |
 | raiz | 32 |
 
 ## Backend (apps/backend)
@@ -75,6 +75,7 @@ Fuente: git ls-files filtrado por existencia en workspace (solo archivos version
 - apps/backend/scripts/recovery-reconstruct-manifest.ts
 - apps/backend/scripts/recovery-verify.ts
 - apps/backend/src/app.ts
+- apps/backend/src/compartido/compat.ts
 - apps/backend/src/compartido/configuracion/env.ts
 - apps/backend/src/compartido/errores/errorAplicacion.ts
 - apps/backend/src/compartido/errores/manejadorErrores.ts
@@ -102,11 +103,10 @@ Fuente: git ls-files filtrado por existencia en workspace (solo archivos version
 - apps/backend/src/configuracion.ts
 - apps/backend/src/index.ts
 - apps/backend/src/infraestructura/archivos/almacenLocal.ts
-- apps/backend/src/infraestructura/baseDatos/mongoose.ts
+- apps/backend/src/infraestructura/baseDatos/sqlite.ts
 - apps/backend/src/infraestructura/correo/servicioCorreo.ts
 - apps/backend/src/infraestructura/logging/logger.ts
 - apps/backend/src/infraestructura/seguridad/rbac.ts
-- apps/backend/src/infraestructura/seguridad/sanitizarMongo.ts
 - apps/backend/src/modulos/modulo_admin_docentes/controladorAdminDocentes.ts
 - apps/backend/src/modulos/modulo_admin_docentes/rutasAdminDocentes.ts
 - apps/backend/src/modulos/modulo_admin_docentes/validacionesAdminDocentes.ts
@@ -130,6 +130,11 @@ Fuente: git ls-files filtrado por existencia en workspace (solo archivos version
 - apps/backend/src/modulos/modulo_analiticas/tiposListaAcademica.ts
 - apps/backend/src/modulos/modulo_analiticas/validacionesAnaliticas.ts
 - apps/backend/src/modulos/modulo_analiticas/validacionesEventosUso.ts
+- apps/backend/src/modulos/modulo_asistencias/controladorAsistencias.ts
+- apps/backend/src/modulos/modulo_asistencias/modeloAsistencia.ts
+- apps/backend/src/modulos/modulo_asistencias/rutasAsistencias.ts
+- apps/backend/src/modulos/modulo_asistencias/tiposAsistencias.ts
+- apps/backend/src/modulos/modulo_asistencias/validacionesAsistencias.ts
 - apps/backend/src/modulos/modulo_autenticacion/controladorAutenticacion.ts
 - apps/backend/src/modulos/modulo_autenticacion/middlewareAutenticacion.ts
 - apps/backend/src/modulos/modulo_autenticacion/middlewarePermisos.ts
@@ -155,6 +160,7 @@ Fuente: git ls-files filtrado por existencia en workspace (solo archivos version
 - apps/backend/src/modulos/modulo_calificacion/rutasCalificaciones.ts
 - apps/backend/src/modulos/modulo_calificacion/servicioCalificacion.ts
 - apps/backend/src/modulos/modulo_calificacion/validacionesCalificacion.ts
+- apps/backend/src/modulos/modulo_comercial_core/compat.ts
 - apps/backend/src/modulos/modulo_comercial_core/controladorAdminNegocio.ts
 - apps/backend/src/modulos/modulo_comercial_core/controladorComercialPublico.ts
 - apps/backend/src/modulos/modulo_comercial_core/modeloAuditoriaComercial.ts
@@ -202,6 +208,7 @@ Fuente: git ls-files filtrado por existencia en workspace (solo archivos version
 - apps/backend/src/modulos/modulo_escaneo_omr/servicioOmr.ts
 - apps/backend/src/modulos/modulo_escaneo_omr/servicioOmrCv.ts
 - apps/backend/src/modulos/modulo_escaneo_omr/validacionesOmr.ts
+- apps/backend/src/modulos/modulo_evaluaciones/controladorEncuadre.ts
 - apps/backend/src/modulos/modulo_evaluaciones/controladorEvaluaciones.ts
 - apps/backend/src/modulos/modulo_evaluaciones/modeloComponenteExamen.ts
 - apps/backend/src/modulos/modulo_evaluaciones/modeloConfiguracionPeriodoEvaluacion.ts
@@ -209,6 +216,8 @@ Fuente: git ls-files filtrado por existencia en workspace (solo archivos version
 - apps/backend/src/modulos/modulo_evaluaciones/modeloPoliticaCalificacion.ts
 - apps/backend/src/modulos/modulo_evaluaciones/modeloResumenEvaluacionAlumno.ts
 - apps/backend/src/modulos/modulo_evaluaciones/rutasEvaluaciones.ts
+- apps/backend/src/modulos/modulo_evaluaciones/rutasEvaluacionesPublicas.ts
+- apps/backend/src/modulos/modulo_evaluaciones/servicioEncuadrePdf.ts
 - apps/backend/src/modulos/modulo_evaluaciones/servicioPoliticasCalificacion.ts
 - apps/backend/src/modulos/modulo_evaluaciones/validacionesEvaluaciones.ts
 - apps/backend/src/modulos/modulo_generacion_pdf/application/usecases/generacionPlantillas.ts
@@ -299,6 +308,11 @@ Fuente: git ls-files filtrado por existencia en workspace (solo archivos version
 - apps/backend/src/modulos/modulo_sincronizacion_nube/shared/tiposSync.ts
 - apps/backend/src/modulos/modulo_sincronizacion_nube/sincronizacionInterna.ts
 - apps/backend/src/modulos/modulo_sincronizacion_nube/validacionesSincronizacion.ts
+- apps/backend/src/modulos/modulo_temarios/controladorTemarios.ts
+- apps/backend/src/modulos/modulo_temarios/modeloTemario.ts
+- apps/backend/src/modulos/modulo_temarios/rutasTemarios.ts
+- apps/backend/src/modulos/modulo_temarios/servicioParserTemario.ts
+- apps/backend/src/modulos/modulo_temarios/validacionesTemarios.ts
 - apps/backend/src/modulos/modulo_vinculacion_entrega/controladorVinculacionEntrega.ts
 - apps/backend/src/modulos/modulo_vinculacion_entrega/modeloEntrega.ts
 - apps/backend/src/modulos/modulo_vinculacion_entrega/rutasVinculacionEntrega.ts
@@ -308,7 +322,6 @@ Fuente: git ls-files filtrado por existencia en workspace (solo archivos version
 - apps/backend/tests/analiticas.xlsx.sv.contract.test.ts
 - apps/backend/tests/autenticacionServicios.test.ts
 - apps/backend/tests/bancoPreguntas.controlador.test.ts
-- apps/backend/tests/baseDatos.test.ts
 - apps/backend/tests/calificacion.global.reglas.test.ts
 - apps/backend/tests/calificacion.omr.payload.test.ts
 - apps/backend/tests/calificacion.persistencia.test.ts
@@ -331,6 +344,7 @@ Fuente: git ls-files filtrado por existencia en workspace (solo archivos version
 - apps/backend/tests/integracion/aislamientoDocente.test.ts
 - apps/backend/tests/integracion/alumnosEdicion.test.ts
 - apps/backend/tests/integracion/archivarExamenGenerado.test.ts
+- apps/backend/tests/integracion/asistencia.reglas.test.ts
 - apps/backend/tests/integracion/autenticacion.googleOnly.test.ts
 - apps/backend/tests/integracion/autenticacion.recuperacion.test.ts
 - apps/backend/tests/integracion/autenticacionSesion.test.ts
@@ -343,6 +357,7 @@ Fuente: git ls-files filtrado por existencia en workspace (solo archivos version
 - apps/backend/tests/integracion/classroom.v2.test.ts
 - apps/backend/tests/integracion/comercial.webhook.mercadopago.firma.test.ts
 - apps/backend/tests/integracion/compliance.arco.test.ts
+- apps/backend/tests/integracion/encuadre.modulo.test.ts
 - apps/backend/tests/integracion/evaluaciones.modulo.test.ts
 - apps/backend/tests/integracion/examenesRetention.test.ts
 - apps/backend/tests/integracion/flujoDocenteAlumnoProduccionLikeE2E.test.ts
@@ -360,6 +375,7 @@ Fuente: git ls-files filtrado por existencia en workspace (solo archivos version
 - apps/backend/tests/integracion/recuperacionExamenes.test.ts
 - apps/backend/tests/integracion/regenerarExamenGenerado.test.ts
 - apps/backend/tests/integracion/rolesPermisos.test.ts
+- apps/backend/tests/integracion/temario.pdf.test.ts
 - apps/backend/tests/integracion/versionadoApiV2Contratos.test.ts
 - apps/backend/tests/monetizacion.comunitaria.test.ts
 - apps/backend/tests/omr.contrato.test.ts
@@ -391,9 +407,9 @@ Fuente: git ls-files filtrado por existencia en workspace (solo archivos version
 - apps/backend/tests/robustez.test.ts
 - apps/backend/tests/rutasSalud.test.ts
 - apps/backend/tests/salud.test.ts
-- apps/backend/tests/sanitizarMongo.test.ts
 - apps/backend/tests/servicioClassroomGoogle.test.ts
 - apps/backend/tests/servicioCorreo.test.ts
+- apps/backend/tests/servicioEncuadrePdf.test.ts
 - apps/backend/tests/setup.ts
 - apps/backend/tests/sincronizacion.backupMeta.test.ts
 - apps/backend/tests/sincronizacion.contrato.test.ts
@@ -445,10 +461,12 @@ Fuente: git ls-files filtrado por existencia en workspace (solo archivos version
 - apps/frontend/src/apps/app_docente/features/plantillas/hooks/usePlantillasPreviewActions.ts
 - apps/frontend/src/apps/app_docente/hooks/useEstadoSincronizacion.ts
 - apps/frontend/src/apps/app_docente/hooks/usePermisosDocente.ts
+- apps/frontend/src/apps/app_docente/hooks/useRecordatorioPaseLista.ts
 - apps/frontend/src/apps/app_docente/hooks/useSesionDocente.ts
 - apps/frontend/src/apps/app_docente/mensajeInline.ts
 - apps/frontend/src/apps/app_docente/QrAccesoMovil.tsx
 - apps/frontend/src/apps/app_docente/SeccionAlumnos.tsx
+- apps/frontend/src/apps/app_docente/SeccionAsistencias.tsx
 - apps/frontend/src/apps/app_docente/SeccionAutenticacion.tsx
 - apps/frontend/src/apps/app_docente/SeccionBanco.helpers.ts
 - apps/frontend/src/apps/app_docente/SeccionBanco.tsx
@@ -466,6 +484,7 @@ Fuente: git ls-files filtrado por existencia en workspace (solo archivos version
 - apps/frontend/src/apps/app_docente/SeccionRehidratacionLotes.tsx
 - apps/frontend/src/apps/app_docente/SeccionSincronizacion.tsx
 - apps/frontend/src/apps/app_docente/SeccionSincronizacionEquipos.tsx
+- apps/frontend/src/apps/app_docente/SeccionTemarios.tsx
 - apps/frontend/src/apps/app_docente/services/bancoApi.ts
 - apps/frontend/src/apps/app_docente/ShellDocente.tsx
 - apps/frontend/src/apps/app_docente/sincronizacionUtils.ts
@@ -483,6 +502,7 @@ Fuente: git ls-files filtrado por existencia en workspace (solo archivos version
 - apps/frontend/src/tipos/jsqr.d.ts
 - apps/frontend/src/tipos/observabilidad.ts
 - apps/frontend/src/tipos/tesseract-js.d.ts
+- apps/frontend/src/ui/encuadre/PaginaFirmaEncuadre.tsx
 - apps/frontend/src/ui/errores/ErrorBoundary.tsx
 - apps/frontend/src/ui/feedback/ConfirmDialogProvider.tsx
 - apps/frontend/src/ui/feedback/uxCopy.ts
@@ -552,11 +572,35 @@ Fuente: git ls-files filtrado por existencia en workspace (solo archivos version
 - apps/portal_alumno_cloud/src/compartido/errores/manejadorErrores.ts
 - apps/portal_alumno_cloud/src/configuracion.ts
 - apps/portal_alumno_cloud/src/index.ts
-- apps/portal_alumno_cloud/src/infraestructura/baseDatos/mongoose.ts
+- apps/portal_alumno_cloud/src/infraestructura/baseDatos/compat.ts
+- apps/portal_alumno_cloud/src/infraestructura/baseDatos/generado/cliente/client.d.ts
+- apps/portal_alumno_cloud/src/infraestructura/baseDatos/generado/cliente/client.js
+- apps/portal_alumno_cloud/src/infraestructura/baseDatos/generado/cliente/default.d.ts
+- apps/portal_alumno_cloud/src/infraestructura/baseDatos/generado/cliente/default.js
+- apps/portal_alumno_cloud/src/infraestructura/baseDatos/generado/cliente/edge.d.ts
+- apps/portal_alumno_cloud/src/infraestructura/baseDatos/generado/cliente/edge.js
+- apps/portal_alumno_cloud/src/infraestructura/baseDatos/generado/cliente/index-browser.js
+- apps/portal_alumno_cloud/src/infraestructura/baseDatos/generado/cliente/index.d.ts
+- apps/portal_alumno_cloud/src/infraestructura/baseDatos/generado/cliente/index.js
+- apps/portal_alumno_cloud/src/infraestructura/baseDatos/generado/cliente/package.json
+- apps/portal_alumno_cloud/src/infraestructura/baseDatos/generado/cliente/query_engine_bg.js
+- apps/portal_alumno_cloud/src/infraestructura/baseDatos/generado/cliente/runtime/edge-esm.js
+- apps/portal_alumno_cloud/src/infraestructura/baseDatos/generado/cliente/runtime/edge.js
+- apps/portal_alumno_cloud/src/infraestructura/baseDatos/generado/cliente/runtime/index-browser.d.ts
+- apps/portal_alumno_cloud/src/infraestructura/baseDatos/generado/cliente/runtime/index-browser.js
+- apps/portal_alumno_cloud/src/infraestructura/baseDatos/generado/cliente/runtime/library.d.ts
+- apps/portal_alumno_cloud/src/infraestructura/baseDatos/generado/cliente/runtime/library.js
+- apps/portal_alumno_cloud/src/infraestructura/baseDatos/generado/cliente/runtime/react-native.js
+- apps/portal_alumno_cloud/src/infraestructura/baseDatos/generado/cliente/runtime/wasm-compiler-edge.js
+- apps/portal_alumno_cloud/src/infraestructura/baseDatos/generado/cliente/runtime/wasm-engine-edge.js
+- apps/portal_alumno_cloud/src/infraestructura/baseDatos/generado/cliente/wasm-edge-light-loader.mjs
+- apps/portal_alumno_cloud/src/infraestructura/baseDatos/generado/cliente/wasm-worker-loader.mjs
+- apps/portal_alumno_cloud/src/infraestructura/baseDatos/generado/cliente/wasm.d.ts
+- apps/portal_alumno_cloud/src/infraestructura/baseDatos/generado/cliente/wasm.js
+- apps/portal_alumno_cloud/src/infraestructura/baseDatos/sqlite.ts
 - apps/portal_alumno_cloud/src/infraestructura/logging/logger.ts
 - apps/portal_alumno_cloud/src/infraestructura/observabilidad/metrics.ts
 - apps/portal_alumno_cloud/src/infraestructura/observabilidad/middlewareObservabilidad.ts
-- apps/portal_alumno_cloud/src/infraestructura/seguridad/sanitizarMongo.ts
 - apps/portal_alumno_cloud/src/modelos/modeloAgendaAlumno.ts
 - apps/portal_alumno_cloud/src/modelos/modeloAvisoAlumno.ts
 - apps/portal_alumno_cloud/src/modelos/modeloCodigoAcceso.ts
@@ -581,7 +625,6 @@ Fuente: git ls-files filtrado por existencia en workspace (solo archivos version
 - apps/portal_alumno_cloud/tests/middlewareSesion.test.ts
 - apps/portal_alumno_cloud/tests/rateLimit.test.ts
 - apps/portal_alumno_cloud/tests/salud.test.ts
-- apps/portal_alumno_cloud/tests/sanitizarMongo.test.ts
 - apps/portal_alumno_cloud/tests/sesion.test.ts
 - apps/portal_alumno_cloud/tests/setup.ts
 - apps/portal_alumno_cloud/tests/utils/mongo.ts
@@ -596,15 +639,11 @@ Fuente: git ls-files filtrado por existencia en workspace (solo archivos version
 - .github/workflows/ci-docs.yml
 - .github/workflows/ci-frontend.yml
 - .github/workflows/ci-installer-windows.yml
-- .github/workflows/ci-installer-windows.yml
-- .github/workflows/ci-installer-windows.yml
 - .github/workflows/ci-policy-audit.yml
 - .github/workflows/ci-portal.yml
 - .github/workflows/ci.yml
 - .github/workflows/package.yml
 - .github/workflows/pages-marketing.yml
-- .github/workflows/release-beta.yml
-- .github/workflows/release-beta.yml
 - .github/workflows/release-beta.yml
 - .github/workflows/release-stable-gate.yml
 - .github/workflows/security-codeql.yml
@@ -706,6 +745,7 @@ Fuente: git ls-files filtrado por existencia en workspace (solo archivos version
 - scripts/run-enable-wsl2-vm.ps1
 - scripts/safe-enable-wsl2.ps1
 - scripts/sanitize-xlsx-template.ps1
+- scripts/sdd-audit.mjs
 - scripts/security-env-check.mjs
 - scripts/serena-mcp.ps1
 - scripts/serena-mcp.sh
@@ -760,6 +800,7 @@ Fuente: git ls-files filtrado por existencia en workspace (solo archivos version
 - scripts/tests/release-evidence-contract.test.mjs
 - scripts/tests/release-stable-promotion.test.mjs
 - scripts/tests/ruleset-main.test.mjs
+- scripts/tests/sdd-audit.test.mjs
 - scripts/tests/security-workflow-policy.test.mjs
 - scripts/tests/stabilization-completion-audit.test.mjs
 - scripts/tests/tray-update-action.test.mjs
@@ -899,7 +940,11 @@ Fuente: git ls-files filtrado por existencia en workspace (solo archivos version
 - docs/handoff/sesiones/2026-06-04/sesion-2026-06-04T10-37-43.851Z.json
 - docs/handoff/sesiones/2026-06-04/sesion-2026-06-04T10-56-00.930Z.json
 - docs/handoff/sesiones/2026-06-04/sesion-2026-06-04T11-02-14.745Z.json
+- docs/handoff/sesiones/2026-06-04/sesion-2026-06-04T11-36-41.715Z.json
+- docs/handoff/sesiones/2026-06-04/sesion-2026-06-04T11-51-02.129Z.json
 - docs/handoff/sesiones/2026-06-04/sesion-2026-06-04T23-45-33.800Z.json
+- docs/handoff/sesiones/2026-06-05/sesion-2026-06-05T09-56-13.891Z.json
+- docs/handoff/sesiones/2026-06-05/sesion-2026-06-05T09-56-37.337Z.json
 - docs/handoff/sesiones/2026-06-07/sesion-2026-06-07T04-44-22.972Z.json
 - docs/handoff/sesiones/2026-06-07/sesion-2026-06-07T04-46-49.911Z.json
 - docs/handoff/sesiones/2026-06-07/sesion-2026-06-07T04-47-51.927Z.json
@@ -909,10 +954,40 @@ Fuente: git ls-files filtrado por existencia en workspace (solo archivos version
 - docs/handoff/sesiones/2026-06-07/sesion-2026-06-07T08-21-03.639Z.json
 - docs/handoff/sesiones/2026-06-07/sesion-2026-06-07T08-24-02.150Z.json
 - docs/handoff/sesiones/2026-06-07/sesion-2026-06-07T08-24-27.640Z.json
+- docs/handoff/sesiones/2026-06-08/sesion-2026-06-08T03-06-13.006Z.json
+- docs/handoff/sesiones/2026-06-08/sesion-2026-06-08T04-52-32.962Z.json
+- docs/handoff/sesiones/2026-06-08/sesion-2026-06-08T09-44-44.762Z.json
+- docs/handoff/sesiones/2026-06-08/sesion-2026-06-08T09-45-03.646Z.json
+- docs/handoff/sesiones/2026-06-09/sesion-2026-06-09T10-24-03.972Z.json
+- docs/handoff/sesiones/2026-06-09/sesion-2026-06-09T18-03-59.323Z.json
 - docs/handoff/sesiones/2026-06-13/sesion-2026-06-13T03-24-42.533Z.json
 - docs/handoff/sesiones/2026-06-13/sesion-2026-06-13T03-41-01.209Z.json
 - docs/handoff/sesiones/2026-06-13/sesion-2026-06-13T04-34-01.342Z.json
 - docs/handoff/sesiones/2026-06-13/sesion-2026-06-13T04-35-02.550Z.json
+- docs/handoff/sesiones/2026-06-15/sesion-2026-06-15T06-55-42.234Z.json
+- docs/handoff/sesiones/2026-06-15/sesion-2026-06-15T10-50-36.706Z.json
+- docs/handoff/sesiones/2026-06-16/sesion-2026-06-16T06-58-11.122Z.json
+- docs/handoff/sesiones/2026-06-16/sesion-2026-06-16T07-11-03.044Z.json
+- docs/handoff/sesiones/2026-06-16/sesion-2026-06-16T07-31-06.059Z.json
+- docs/handoff/sesiones/2026-06-19/sesion-2026-06-19T23-39-50.464Z.json
+- docs/handoff/sesiones/2026-06-22/sesion-2026-06-22T03-35-01.224Z.json
+- docs/handoff/sesiones/2026-06-22/sesion-2026-06-22T06-07-26.883Z.json
+- docs/handoff/sesiones/2026-06-22/sesion-2026-06-22T06-31-48.523Z.json
+- docs/handoff/sesiones/2026-06-22/sesion-2026-06-22T09-04-08.962Z.json
+- docs/handoff/sesiones/2026-06-22/sesion-2026-06-22T09-50-30.454Z.json
+- docs/handoff/sesiones/2026-06-22/sesion-2026-06-22T10-30-34.290Z.json
+- docs/handoff/sesiones/2026-06-22/sesion-2026-06-22T10-32-30.089Z.json
+- docs/handoff/sesiones/2026-06-23/sesion-2026-06-23T07-08-43.925Z.json
+- docs/handoff/sesiones/2026-06-23/sesion-2026-06-23T07-09-36.914Z.json
+- docs/handoff/sesiones/2026-06-23/sesion-2026-06-23T07-09-49.511Z.json
+- docs/handoff/sesiones/2026-06-23/sesion-2026-06-23T08-57-30.041Z.json
+- docs/handoff/sesiones/2026-06-23/sesion-2026-06-23T09-35-33.244Z.json
+- docs/handoff/sesiones/2026-06-23/sesion-2026-06-23T10-36-52.609Z.json
+- docs/handoff/sesiones/2026-06-23/sesion-2026-06-23T11-22-53.515Z.json
+- docs/handoff/sesiones/2026-06-23/sesion-2026-06-23T11-43-44.882Z.json
+- docs/handoff/sesiones/2026-06-23/sesion-2026-06-23T15-00-02.613Z.json
+- docs/handoff/sesiones/2026-06-23/sesion-2026-06-23T15-08-11.999Z.json
+- docs/handoff/sesiones/2026-06-23/sesion-2026-06-23T21-58-30.547Z.json
 - docs/handoff/trace.schema.json
 - docs/perf/baseline.business.json
 - docs/perf/baseline.json

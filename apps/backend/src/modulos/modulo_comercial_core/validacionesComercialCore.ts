@@ -1,3 +1,9 @@
+/**
+ * validacionesComercialCore
+ *
+ * Responsabilidad: Contrato de validaciones de entrada/salida del dominio.
+ * Limites: No relajar reglas sin actualizar tests y contratos de API.
+ */
 import { z } from 'zod';
 
 const moneda = z.string().trim().min(3).max(4).default('MXN');

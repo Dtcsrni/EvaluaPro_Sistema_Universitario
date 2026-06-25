@@ -1,4 +1,10 @@
 #!/usr/bin/env node
+/**
+ * legal-docs-check
+ *
+ * Responsabilidad: Modulo interno del sistema.
+ * Limites: Mantener contrato y comportamiento observable del modulo.
+ */
 import fs from 'node:fs';
 import path from 'node:path';
 

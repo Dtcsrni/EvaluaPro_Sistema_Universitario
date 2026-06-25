@@ -183,28 +183,34 @@
                     </Grid.RowDefinitions>
 
                     <StackPanel x:Name="StepperHost" Orientation="Horizontal" Margin="0,0,0,14" AutomationProperties.Name="Progreso del asistente">
-                        <Border x:Name="PrepareStepBorder" Style="{StaticResource StatusBadgeStyle}" MinWidth="138">
+                        <Border x:Name="TermsStepBorder" Style="{StaticResource StatusBadgeStyle}" MinWidth="118">
+                            <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                                <Path x:Name="TermsStepIcon" Width="14" Height="14" Margin="0,0,6,0" StrokeThickness="2" StrokeStartLineCap="Round" StrokeEndLineCap="Round" VerticalAlignment="Center" SnapsToDevicePixels="True" />
+                                <TextBlock x:Name="TermsStepTextBlock" Text="1 Términos · activo" FontWeight="SemiBold" VerticalAlignment="Center" />
+                            </StackPanel>
+                        </Border>
+                        <Border x:Name="PrepareStepBorder" Style="{StaticResource StatusBadgeStyle}" MinWidth="118" Background="#F8FAFC" BorderBrush="{StaticResource BorderBrushNeutral}">
                             <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
                                 <Path x:Name="PrepareStepIcon" Width="14" Height="14" Margin="0,0,6,0" StrokeThickness="2" StrokeStartLineCap="Round" StrokeEndLineCap="Round" VerticalAlignment="Center" SnapsToDevicePixels="True" />
-                                <TextBlock x:Name="PrepareStepTextBlock" Text="1 Preparar · activo" FontWeight="SemiBold" VerticalAlignment="Center" />
+                                <TextBlock x:Name="PrepareStepTextBlock" Text="2 Preparar · pendiente" FontWeight="SemiBold" Foreground="{StaticResource MutedTextBrush}" VerticalAlignment="Center" />
                             </StackPanel>
                         </Border>
-                        <Border x:Name="ReviewStepBorder" Style="{StaticResource StatusBadgeStyle}" MinWidth="138" Background="#F8FAFC" BorderBrush="{StaticResource BorderBrushNeutral}">
+                        <Border x:Name="ReviewStepBorder" Style="{StaticResource StatusBadgeStyle}" MinWidth="118" Background="#F8FAFC" BorderBrush="{StaticResource BorderBrushNeutral}">
                             <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
                                 <Path x:Name="ReviewStepIcon" Width="14" Height="14" Margin="0,0,6,0" StrokeThickness="2" StrokeStartLineCap="Round" StrokeEndLineCap="Round" VerticalAlignment="Center" SnapsToDevicePixels="True" />
-                                <TextBlock x:Name="ReviewStepTextBlock" Text="2 Revisar · pendiente" FontWeight="SemiBold" Foreground="{StaticResource MutedTextBrush}" VerticalAlignment="Center" />
+                                <TextBlock x:Name="ReviewStepTextBlock" Text="3 Revisar · pendiente" FontWeight="SemiBold" Foreground="{StaticResource MutedTextBrush}" VerticalAlignment="Center" />
                             </StackPanel>
                         </Border>
-                        <Border x:Name="ExecuteStepBorder" Style="{StaticResource StatusBadgeStyle}" MinWidth="138" Background="#F8FAFC" BorderBrush="{StaticResource BorderBrushNeutral}">
+                        <Border x:Name="ExecuteStepBorder" Style="{StaticResource StatusBadgeStyle}" MinWidth="118" Background="#F8FAFC" BorderBrush="{StaticResource BorderBrushNeutral}">
                             <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
                                 <Path x:Name="ExecuteStepIcon" Width="14" Height="14" Margin="0,0,6,0" StrokeThickness="2" StrokeStartLineCap="Round" StrokeEndLineCap="Round" VerticalAlignment="Center" SnapsToDevicePixels="True" />
-                                <TextBlock x:Name="ExecuteStepTextBlock" Text="3 Ejecutar · pendiente" FontWeight="SemiBold" Foreground="{StaticResource MutedTextBrush}" VerticalAlignment="Center" />
+                                <TextBlock x:Name="ExecuteStepTextBlock" Text="4 Ejecutar · pendiente" FontWeight="SemiBold" Foreground="{StaticResource MutedTextBrush}" VerticalAlignment="Center" />
                             </StackPanel>
                         </Border>
-                        <Border x:Name="ResultStepBorder" Style="{StaticResource StatusBadgeStyle}" MinWidth="138" Background="#F8FAFC" BorderBrush="{StaticResource BorderBrushNeutral}">
+                        <Border x:Name="ResultStepBorder" Style="{StaticResource StatusBadgeStyle}" MinWidth="118" Background="#F8FAFC" BorderBrush="{StaticResource BorderBrushNeutral}">
                             <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
                                 <Path x:Name="ResultStepIcon" Width="14" Height="14" Margin="0,0,6,0" StrokeThickness="2" StrokeStartLineCap="Round" StrokeEndLineCap="Round" VerticalAlignment="Center" SnapsToDevicePixels="True" />
-                                <TextBlock x:Name="ResultStepTextBlock" Text="4 Resultado · pendiente" FontWeight="SemiBold" Foreground="{StaticResource MutedTextBrush}" VerticalAlignment="Center" />
+                                <TextBlock x:Name="ResultStepTextBlock" Text="5 Resultado · pendiente" FontWeight="SemiBold" Foreground="{StaticResource MutedTextBrush}" VerticalAlignment="Center" />
                             </StackPanel>
                         </Border>
                     </StackPanel>
@@ -243,7 +249,50 @@
                     </Border>
 
                     <Grid x:Name="StepHost" Grid.Row="2">
-                        <ScrollViewer x:Name="PrepareStepPanel" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+                        <!-- Pantalla Independiente de Términos y Condiciones -->
+                        <Grid x:Name="TermsStepPanel" Visibility="Visible">
+                            <Border Style="{StaticResource PanelCardStyle}">
+                                <Grid>
+                                    <Grid.RowDefinitions>
+                                        <RowDefinition Height="Auto" />
+                                        <RowDefinition Height="Auto" />
+                                        <RowDefinition Height="*" />
+                                        <RowDefinition Height="Auto" />
+                                    </Grid.RowDefinitions>
+                                    <TextBlock Text="Términos y condiciones de licencia y privacidad" FontSize="20" FontWeight="SemiBold" Foreground="{StaticResource TextBrush}" />
+                                    <TextBlock Grid.Row="1" Style="{StaticResource HelpTextStyle}" Margin="0,4,0,12" Text="Debes leer y aceptar los términos y condiciones antes de instalar o configurar el software." />
+                                    
+                                    <Border Grid.Row="2" BorderThickness="1" BorderBrush="{StaticResource BorderBrushNeutral}" CornerRadius="4" Background="White" Padding="12">
+                                        <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+                                            <TextBlock x:Name="TermsText" TextWrapping="Wrap" FontSize="12.5" Foreground="{StaticResource MutedTextBrush}" LineHeight="18" xml:space="preserve">
+TÉRMINOS Y CONDICIONES DE LICENCIA Y PRIVACIDAD
+
+Por favor, lee atentamente los siguientes términos antes de proceder con la instalación de EvaluaPro. Al continuar, aceptas estar sujeto a estas condiciones:
+
+1. MODELO DE LICENCIA DUAL
+- Edición Comunitaria: Distribuida gratuitamente bajo la licencia de código abierto AGPLv3 (GNU Affero General Public License). Cualquier modificación o distribución del núcleo debe respetar los términos copyleft correspondientes.
+- Edición Comercial / Institucional: Habilitada mediante una licencia propietaria de pago, la cual exime al usuario de las restricciones copyleft para despliegues privados y otorga acceso a capacidades adicionales, actualizaciones y soporte técnico SLA específico.
+
+2. SUSCRIPCIÓN DE PRUEBA Y DATOS OPERATIVOS
+- Al utilizar la promoción de prueba comercial de 35 días, aceptas que EvaluaPro recopile y procese datos de uso técnico y métricas operativas con fines de soporte, mejora del producto y conversión comercial.
+- Todos los datos procesados respetan el Aviso de Privacidad y cumplen con los derechos ARCO/DSR aplicables.
+
+3. RESTRICCIONES DE USO
+- Queda expresamente prohibida la redistribución, modificación o ingeniería inversa de los componentes propietarios sin la previa autorización por escrito del titular del copyright.
+- No está permitido remover ni alterar los avisos de autoría, derechos de propiedad intelectual o firmas de trazabilidad del sistema.
+
+4. SOPORTE Y CONTACTO
+- Para cualquier aclaración, activación de licencias o temas de privacidad, puedes contactar al DPO en: armsystechno@gmail.com
+</TextBlock>
+                                        </ScrollViewer>
+                                    </Border>
+                                    
+                                    <CheckBox x:Name="AcceptTermsCheckBox" Grid.Row="3" Content="Acepto los términos y condiciones de licencia, uso y privacidad de EvaluaPro." IsChecked="False" Margin="0,14,0,0" FontSize="13" FontWeight="SemiBold" ToolTip="Debe marcar esta casilla para poder avanzar." Click="AcceptTermsCheckBox_OnClick" TabIndex="5" />
+                                </Grid>
+                            </Border>
+                        </Grid>
+
+                        <ScrollViewer x:Name="PrepareStepPanel" Visibility="Collapsed" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
                             <Grid>
                             <Grid.ColumnDefinitions>
                                 <ColumnDefinition Width="1.05*" />

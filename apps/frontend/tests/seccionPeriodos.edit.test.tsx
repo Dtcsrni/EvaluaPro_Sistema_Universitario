@@ -1,3 +1,9 @@
+/**
+ * seccionPeriodos.edit.test
+ *
+ * Responsabilidad: Modulo interno del sistema.
+ * Limites: Mantener contrato y comportamiento observable del modulo.
+ */
 import { fireEvent, render, screen } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 import { SeccionPeriodos } from '../src/apps/app_docente/SeccionPeriodos';

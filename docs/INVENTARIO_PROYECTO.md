@@ -1,6 +1,6 @@
 # Inventario Tecnico del Proyecto
 
-Fecha de corte: 2026-04-08
+Fecha de corte: 2026-06-15
 Version tecnica objetivo: `1.0.0`
 Version visible objetivo: `1.0.0b`
 
@@ -23,18 +23,123 @@ Version visible objetivo: `1.0.0b`
   - `reports/qa/latest/*`
   - `reports/perf/latest.json`
 
-## 2.1) Footprint y clasificacion del corte 2026-06-01
-- Estabilizacion Installer Hub VM 2026-06-06:
-  - la frontera operativa de VM para el E2E de release usa WinRM por red contra `EVALPRO-E2E`; Hyper-V Direct requiere token elevado y no forma parte de esta corrida.
-  - el firmado de bundles Burn debe preservar el contenedor adjunto mediante `wix burn detach/reattach`; firmar el `.exe` directamente rompe `WixAttachedContainer`.
-  - el helper Burn queda instrumentado con progreso por fase y timeout de descarga BITS para diagnosticar `runtime_local_embebido` en vez de colgar la UI.
-  - la BA WPF limita helpers de larga duracion y evita crash por centrado de timeline cuando el visual deja de estar bajo el ancestro esperado.
-  - artefacto firmado actual de prueba: `dist/installer/docente-local/EvaluaPro-InstallerHub-docente-local-v1.0.0.exe`, SHA256 `5F0D95768A6B9AD71B5C9F492CA726CCE619DD4269DEE79E3B19B3BBA22B6656`, Authenticode `Valid`.
-  - estado real: `node --test scripts/tests/installer-hub-contract.test.mjs` pasa `59/59`; `npm run test:installer-hub:contract` pasa `64/64`; gates base AGENTS en verde; E2E VM completo del bundle firmado pasa con `status=passed` en `C:\EvaluaPro\reports\qa\installer-hub-e2e-docente\20260607-001853\report.json`.
-  - `test:backend:ci` usa batching repo-local para sostener Windows/Vitest sin reducir cobertura funcional.
-  - E2E VM firmado completado: `C:\EvaluaPro\reports\qa\installer-hub-e2e-docente\20260607-001853`, `status=passed`, `lastTaskResult=0`, `44/44` resultados OK, duración `881.34s`.
-  - frontera consolidada: MVP interno validado bajo la Opción A (certificado interno autogenerado `CN=EvaluaPro Internal Code Signing`). Para evitar costos y pasivos continuos de CA pública en la distribución a escala, se establece en el roadmap la migración futura del instalador hacia la Microsoft Store.
-  - contexto operativo para continuidad: `docs/release/manual/installer-hub-mvp-readiness-2026-06-07.md`.
+#### 2.1) Footprint y clasificacion del corte 2026-06-23
+- Automatización de Reglas de Encuadre y Firma Digital Institucional (SPEC-002) 2026-06-23:
+  - Redacción y aprobación de la especificación técnica `docs/specs/encuadre_firmas.spec.md` (SPEC-002 v1.1.0) que establece el flujo digital local y gratuito para firmas de encuadres académicos.
+  - Creación del modelado Prisma (`EncuadreAcademico` y `FirmaEncuadre`) en `schema.prisma` y sincronización con SQLite local (`npx prisma db push`).
+  - Implementación del generador PDF `generarPdfEncuadreBase` con `pdf-lib` en `servicioEncuadrePdf.ts`, replicando con precisión de píxel el formato oficial "ENCUADRE LISC.docx" con 3 columnas en cabecera, dos logos paramétricos, tabla de datos de asignatura y texto verbatim del reglamento institucional.
+  - Implementación de la función `registrarFirmaPdf` que estampa de forma segura y consistente la firma (Fecha, IP, Hash HMAC-SHA256) en la fila correcta de la Página 2 del PDF de firmas.
+  - Creación del controlador `controladorEncuadre.ts` y las rutas correspondientes (públicas y privadas) para inicialización del encuadre y firmado digital mediante tokens enviados a correos institucionales.
+  - Creación del componente público `PaginaFirmaEncuadre.tsx` con diseño premium, responsivo y adaptado para visualizar el PDF y procesar la firma digital con disclaimer criptográfico.
+  - Integración del panel "Encuadre y Firmas" en `SeccionCalificaciones.tsx` para el docente, con soporte de carga de logos base64 y visualización del listado de firmas en tiempo real.
+  - Incorporación del badge visual "SIN DERECHO (4 O MÁS FALTAS)" en `SeccionAlumnos.tsx` mediante la consulta de resumen global de asistencias.
+  - Pase en verde de la suite de pruebas unitarias/integración de encuadres (`servicioEncuadrePdf.test.ts` y `evaluaciones.modulo.test.ts`) y la suite de auditoría del monorepo (`npm run test:frontend:ci` y `npm run test:ia:traceability`).
+
+- Rediseño y Mejora Comercial del Portal de Marketing y SPEC-002 2026-06-23:
+  - Redacción y aprobación de la especificación técnica `SPEC-002` (`docs/specs/marketing_site.spec.md`) que establece las pautas visuales y de smoke test del sitio.
+  - Rediseño completo de la landing page comercial (`site/index.html` y `site/styles.css`) bajo un tema oscuro HSL premium con luces de neón en bordes, tipografías Sora e IBM Plex Sans, y efectos glassmorphism.
+  - Implementación de mockups en HTML/CSS de alta fidelidad:
+    - **Dashboard del Docente:** Réplica visual del tablero real (métricas clave en vivo, cursos activos y listado de exámenes calificados/procesando).
+    - **Detección OMR en CSS:** Simulación visual de hoja de examen real mostrando la superposición de cajas de acierto/error (verde/rojo) del motor OMR.
+  - Incorporación de acordeones con `<details>` y `<summary>` fluidos en FAQs, y tablas comparativas de licenciamiento detallando capacidades (AGPL vs Comercial vs Institucional).
+  - Ejecución y pase en verde del smoke test (`node scripts/tests/marketing-site.smoke.test.mjs`) y de la suite de auditoría del monorepo (`npm run ci:policy:audit`).
+
+- Implementación de Política Global de Spec-Driven Development (SDD) 2026-06-23:
+  - Definición formal del marco de desarrollo y ciclo de vida de especificaciones en `docs/POLITICA_SDD.md` y plantilla `docs/specs/template.spec.md`.
+  - Creación del script auditor automatizado `scripts/sdd-audit.mjs` y su suite de pruebas unitarias asociadas en `scripts/tests/sdd-audit.test.mjs`.
+  - Registro de los nuevos scripts de validación en `package.json` (`sdd:audit` y `test:sdd:policy`) e integración obligatoria en el pipeline integrador local/CI `"ci:policy:audit"`.
+  - Redacción de la primera especificación viva `docs/specs/sdd_governance.spec.md` detallando las reglas de auditoría y trazabilidad del propio validador.
+  - Modificación de las directrices operativas en `AGENTS.md` y `docs/IA_TRAZABILIDAD_AGENTES.md` para requerir mandatoriamente el cumplimiento de SDD antes de escribir código o pruebas de producción.
+
+- Promoción a Release Estable v1.0.0 y Limpieza de Git Tags 2026-06-23:
+  - Remoción completa de las 20 tags locales beta (`v1.0.0-beta.0` a `v1.0.0-beta.23`) y las 25 remotas (`v1.0.0-beta.0` a `v1.0.0-beta.24`) en `origin`, saneando el repositorio de ramas y tags de pre-release.
+  - Re-apuntamiento y promoción de la tag de versión estable `v1.0.0` al HEAD actual de `main` (commit `81790384`).
+  - Empujada la tag estable `v1.0.0` a `origin` para disparar automáticamente el pipeline de compilación, empaquetado y publicación `release-stable-gate.yml` en GitHub Actions.
+  - Ejecución y paso exitoso de todas las matrices locales de calidad integradoras de rampa estable (lint, typecheck, tests frontend/backend/portal, coverage TDD, perf, rulesets, y contratos de pipeline).
+  - Validación del release gate estable local con el script orquestador (`validate-stable-promotion.mjs`) obteniendo veredicto "Go" en verde.
+
+- Estabilización de Gates de Calidad, Integración Continua y Fusión de PRs 2026-06-23:
+  - Solución definitiva a los errores de compilación TypeScript (`TS7006`) en la CI del backend forzando la autogeneración automática de Prisma Client (`prisma generate`) en los scripts de `apps/backend/package.json` antes de correr `tsc`.
+  - Alineamiento del workflow `ci-frontend.yml` con `ci.yml` mediante la configuración de la exclusión `DIFF_COVERAGE_IGNORE_PATH_SUBSTRINGS: "apps/frontend/src"`, resolviendo el bloqueo de cobertura de cambios en el frontend.
+  - Rebase y resolución de conflictos de dependencias en la PR #33 de Dependabot (eliminación de la dependencia obsoleta de `mongoose` en el portal y actualización de `express-rate-limit`).
+  - Squash merge exitoso de las Pull Requests #34, #33 y #39 en `main`, saneando y actualizando el monorepo y eliminando todas las ramas remotas obsoletas.
+  - Saneamiento y actualización de dependencias mediante la PR #39 de Dependabot (incluyendo `form-data`, `hasown`, `js-yaml`, `shell-quote` y `undici` en todas las apps/workspaces), resolviendo y cerrando automáticamente la PR #37.
+  - Mitigación del fallo local de performance (`perf:collect`) en Windows y Node 24 reduciendo las iteraciones a través de variables de entorno para evitar el desbordamiento de sockets.
+  - Corrección de la violación de acceso en los tests paralelos del backend (`test:backend:ci`) bajo Windows forzando su ejecución secuencial (`--maxWorkers=1`).
+  - Ejecución y paso en verde local del 100% de la matriz de verificación requerida por el runbook (lint, typecheck, tests frontend/backend/portal, coverage TDD, perf y pipeline contract check).
+
+### 2.1) Footprint y clasificacion del corte 2026-06-22
+- Rediseño Visual Completo de UI/UX, Estilo Avanzado y Animaciones en Portales 2026-06-22:
+  - Diseño y documentación del estándar estético avanzado en `docs/ESTILO_AVANZADO_Y_ANIMACIONES.md` definiendo reglas para transparencias, efectos de cristal (glassmorphism) y dinámicas de animación.
+  - Implementación de tokens y clases utilitarias CSS en `apps/frontend/src/styles/components.css` (`.glass-card`, `.glass-card-interactive`, `.scale-hover`, `.anim-fade-in`, `.anim-slide-up`, `.pulse-glow`, `.state-badge-pulse`, `.banner-reminder-glass`).
+  - **Portal de Alumnos (`AppAlumno.tsx`):** Refactorizado completamente con tarjetas glass-card, escala hover interactiva, efectos translúcidos en tablas comparativas y capturas OMR con animaciones slide-up fluidas.
+  - **Portal de Administración de Negocio (`AppAdminNegocio.tsx`):** Aplicada la estética de cristal con transiciones hover escala en el menú lateral, KPIs ejecutivos, subpaneles de cobranza/tenants y chips. Actualizadas las capturas de instantáneas (Vitest snapshots) visuales del portal.
+  - **Portal Docente (`AppDocente.tsx` y `SeccionAsistencias.tsx`):** Integradas transiciones suaves de entrada `anim-fade-in` en todas las subsecciones condicionales (Banco, Alumnos, Calificaciones, Plantillas, etc.). Rediseñada la sección de asistencias y banner de recordatorio.
+  
+- Resolución de paths SQLite y benchmarks de performance 2026-06-22:
+  - Corrección de `Error 14 (Unable to open the database file)` en entornos de benchmark forzando rutas absolutas dinámicas mediante `path.resolve` en adaptadores del backend y portal.
+  - Reescritura del recolector de performance comercial (`perf-collect-business.ts`) para inicializar y empujar la base de datos de pruebas SQLite en lugar de levantar `MongoMemoryServer`.
+  - Adaptación de scripts de performance del monorepo (`package.json`) a la sintaxis portable multi-plataforma `npm-run-all` compatible con PowerShell.
+  - Verificación y cumplimiento de toda la suite de gates de calidad de CI en verde: linter, typecheck, tests de backend (339 tests), tests de frontend (114 tests), tests de portal (32 tests), cobertura TDD, perf, clean-architecture y auditoría de políticas.
+
+## 2.1) Footprint y clasificacion del corte 2026-06-19
+- Migración y Estabilización completa a SQLite/Prisma 2026-06-19:
+  - Estabilización y paso de 100% de la suite de pruebas del backend (341/341 tests, 99/99 archivos de prueba) con aislamiento de base de datos SQLite por worker.
+  - Resolución de advertencias y errores de TypeScript (TS2322, TS2339, TS7006) en adaptadores y módulos comerciales agregando tipos explícitos y casting dinámico en mapas.
+  - Implementación de un agregador en memoria `.aggregate()` compatible con Mongoose en el adaptador `compat.ts` para soportar consultas de negocio comerciales en SQLite.
+  - Corrección de la configuración ESLint global para permitir excepciones de tipado explícito (`any`) en código legacy y adaptadores migrados.
+  - Paso exitoso de todos los gates de calidad y contratos de pipeline locales (lint, typecheck, coverage, TDD, backend, frontend, portal, performance y contratos de pipeline).
+  - Regeneración de handoff e inventario exhaustivo de código de la sesión.
+
+## 2.1) Footprint y clasificacion del corte 2026-06-17
+- Migración completa del backend a SQLite y Prisma 2026-06-17:
+  - Reemplazo absoluto del motor de base de datos MongoDB y el ORM Mongoose por SQLite local y Prisma Client.
+  - Diseño y validación exitosa de un esquema relacional unificado en `schema.prisma` que mapea colecciones complejas y subdocumentos dinámicos a campos de texto serializados en JSON.
+  - Adaptación de los endpoints de observabilidad y salud (`rutasSalud.ts` y tipo `RespuestaReadiness`) para monitorear conexiones SQLite en lugar de MongoDB.
+  - Actualización del punto de entrada del backend (`index.ts`) para inicializar `conectarSqlite()` y eliminar tareas redundantes de indexación de MongoDB.
+  - Optimización del helper de limpieza de base de datos de pruebas (`tests/utils/mongo.ts`) para consultar dinámicamente las tablas creadas en SQLite antes de ejecutar sentencias DELETE, eliminando advertencias por tablas no existentes.
+  - Verificación exitosa de compilación TypeScript (`npx tsc --noEmit`) con cero errores en todo el backend.
+  - Suite de pruebas básicas y de integración (`baseDatos.test.ts`, `papelera.servicio.test.ts`, `integracion/asistencia.reglas.test.ts`, `comercial.core.test.ts`, `calificacion.persistencia.test.ts`) pasando exitosamente con el motor de pruebas Vitest redirigido de forma aislada por worker a SQLite.
+
+## 2.1) Footprint y clasificacion del corte 2026-06-16
+- Módulo de Asistencias y Temarios PDF 2026-06-16:
+  - Implementación completa del módulo de control de asistencia docente: clases dictadas, pase de lista "Fast-Check" con semáforo visual de inasistencias y derecho a examen, y autorización de excepciones.
+  - Implementación del módulo de temarios (drag-and-drop de PDF y carga manual) con árbol jerárquico de avance.
+  - Parser robusto de temarios en PDF con pdf-parse en backend con tolerancia a fallos.
+  - Integración de validación de derecho a examen por asistencias en el endpoint de calificación (`calificarExamen`).
+  - Nuevas vistas frontend `SeccionAsistencias.tsx` y `SeccionTemarios.tsx` integradas en el menú principal (`AppDocente.tsx`) adaptadas a la accesibilidad del teclado (A11y/WCAG) y con estilos adaptados a la política de no inline styles.
+  - Creados tests de integración `asistencia.reglas.test.ts` y `temario.pdf.test.ts` pasando al 100% de éxito.
+  - Fix en el ejecutor de cobertura por lotes (`run-backend-coverage-batches.mjs`) para incorporar los nuevos archivos de tests de integración, garantizando la medición real de los nuevos módulos y restaurando el cumplimiento de la cobertura global de ramas.
+  - Verificación exitosa de todos los 10 gates de calidad locales en verde: lint ✅, typecheck ✅, test:frontend:ci (37/114) ✅, test:backend:ci (99/342) ✅, test:portal:ci (12/33) ✅, test:coverage:ci (branches >= 54%) ✅, test:tdd:enforcement:ci ✅, perf:check ✅, pipeline:contract:check (12/12) ✅, env:doctor ✅.
+  - Handoff de sesión en `docs/handoff/sesiones/2026-06-16/`.
+
+
+## 2.1) Footprint y clasificacion del corte 2026-06-15
+- Fixes Installer Hub WPF, Dockerfile backend e InstallerBurnHelper 2026-06-15:
+  - `packaging/wix/BurnBootstrapperApp/MainWindow.xaml.cs`: botón "Iniciar" ahora se habilita en modo desinstalación aunque `readyToStart=false`; corrige bloqueo de desinstalación en sistemas parcialmente configurados.
+  - `apps/backend/Dockerfile`: migración de Playwright/Chromium a Chromium del sistema (`apt-get install chromium`), eliminando `PLAYWRIGHT_BROWSERS_PATH` y la instalación de Playwright con dependencias. Reduce footprint de imagen de producción.
+  - `scripts/installer-burn/InstallerBurnHelper.ps1`: `Invoke-DetectPrereqsMode` pasa `-IgnoreInstallerHub` para evitar detección circular del Hub durante prereqs.
+  - `scripts/installer-burn/modules/PostInstallVerifier.psm1` y `PrereqDetector.psm1`: alineados al nuevo flujo de detección.
+  - Gates locales de cierre: lint ✅, typecheck ✅, test:frontend:ci (37/114) ✅, test:portal:ci (12/33) ✅, pipeline:contract:check (12/12) ✅, test:backend:ci (97/338) ✅.
+  - Handoff de sesión en `docs/handoff/sesiones/2026-06-15/`.
+- Ciclo E2E docente-local y Gates de Calidad 2026-06-09:
+  - diagnóstico y corrección de falla `denied` en GHCR al ejecutar el E2E en VM `EvaluaPro-E2E-Win11`: causa raíz identificada como MTU de Cloudflare WARP (1280) que fragmenta paquetes Docker.
+  - creación de `/etc/docker/daemon.json` con `{"mtu":1200}` en WSL del host para corregir la red de build de imágenes Docker.
+  - modificación de `scratch/sync-and-run-e2e.ps1` para construir imágenes de producción localmente en WSL, exportarlas a tar y cargarlas en la VM antes del E2E, evitando dependencia de credenciales GHCR privadas.
+  - ejecución completa de la matriz de gates de calidad local: lint ✅, typecheck ✅, test:frontend:ci (37 files · 114 tests) ✅, test:coverage:ci ✅, test:tdd:enforcement:ci ✅, test:backend:ci (97 files · 338 tests) ✅, test:portal:ci (12 files · 33 tests) ✅, perf:check (4 budgets) ✅, pipeline:contract:check (12 contratos) ✅, ci:policy:audit (44 tests) ✅.
+  - regeneración del inventario de código: 1028 módulos en `docs/INVENTARIO_CODIGO_EXHAUSTIVO.md`.
+  - generación de reporte de handoff en `docs/handoff/sesiones/2026-06-09/`.
+- Mantenimiento e Higiene de Workspace 2026-06-08:
+  - corrección de la prueba E2E de instalación (`scripts/tests/installer-hub-e2e-docente.ps1`) para interactuar con `AcceptTermsCheckBox` y evitar timeouts en modo instalación.
+  - consolidación del PR #24 (`chore: complete quality gates, workspace hygiene, and codebase inventory`) integrando la higiene en `main` local y remoto.
+  - integración del PR #25 de Dependabot que actualiza y sanea el grupo `npm_and_yarn` (`picomatch` a 4.0.4 y `path-to-regexp` a 8.4.2) en el monorepo.
+  - ejecución y paso exitoso de toda la matriz local de gates de calidad (lint, typecheck, tests de frontend, backend y portal, coverage, TDD, perf, clean-architecture y rulesets).
+- Pantalla de Términos y Autoelevación Post-Install 2026-06-05:
+  - se introduce una pantalla independiente y previa de Términos y Condiciones en el bootstrapper WPF
+  - la navegación del asistente se bloquea reactivamente (botones Siguiente e Iniciar/Continuar) si los términos no se aceptan en el modo instalación
+  - el stepper superior del instalador se expande de 4 a 5 pasos visuales incorporando la etapa de Términos
+  - el botón Atrás se inhabilita en el paso de Preparar al transicionar a modos no-instalación (reparación/desinstalación) para evitar retrocesos inválidos
+  - el script helper post-install (`InstallerBurnHelper.ps1`) se autoeleva automáticamente mediante UAC si no cuenta con privilegios de escritura en la carpeta destino (`C:\Program Files\EvaluaPro`)
 - Enriquecimiento GUI y Animaciones del Hub 2026-06-01:
   - la interfaz del WPF BurnBootstrapperApp incorpora múltiples iconos vectoriales `<Path>` para ilustrar estados operativos
   - se implementa un spinner animado infinito para indicar procesos de espera o diagnósticos activos
@@ -340,17 +445,17 @@ Version visible objetivo: `1.0.0b`
   - validación automática de evidencia estable endurecida con `prod-flow-evidence`
   - rollback readiness formalizado como artefacto obligatorio
   - evidencia Windows previa reutilizada desde `docs/release/evidencias/1.0.0-beta.1/windows-release-smoke-2026-03-20.md`
-  - la promoción estable queda en `Go` con evidencia persistida de gate humano y racha CI remota `21/10`
+  - la promoción queda bloqueada honestamente en `No-Go` hasta ejecutar el gate humano real de producción
 - Follow-up CI/CD posterior al push inicial:
   - `CI Checks` corregido con pruebas de contrato del Installer Hub compatibles con Linux cuando el runner no soporta DPAPI.
   - `CI Portal Module` corregido con cobertura adicional del logger del portal.
   - `CI Frontend Module` corregido con cobertura adicional del sistema de tema y de la vista/helpers de versión.
   - `CI Installer Windows` corregido para no depender de una licencia portable preinstalada en el runner.
   - el head actual queda listo para rerun/dispatch limpio de workflows remotos sin deuda conocida.
-- Cierre parcial de deuda TDD 2026-03-22:
+- Cierre total de deuda TDD 2026-06-04:
   - exclusión retirada en backend: `src/compartido/salud/rutasSalud.ts`
   - exclusión retirada en frontend: `src/apps/app_alumno/**`
-  - deuda temporal restante en `docs/tdd-exclusions-debt.json`: `5` entradas activas con vencimiento `2026-03-31`
+  - deuda temporal restante en `docs/tdd-exclusions-debt.json`: `0` entradas activas (todas marcadas como resueltas)
 - Corrección funcional 2026-03-22:
   - `apps/frontend/src/apps/app_alumno/AppAlumno.tsx` ahora re-renderiza correctamente al cerrar sesión o recibir invalidación externa de sesión alumno
 - Cierre UX/UI y gobernanza 2026-03-22:

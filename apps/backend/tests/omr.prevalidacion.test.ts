@@ -1,3 +1,9 @@
+/**
+ * omr.prevalidacion.test
+ *
+ * Responsabilidad: Modulo interno del sistema.
+ * Limites: Mantener contrato y comportamiento observable del modulo.
+ */
 import type { Response } from 'express';
 import { describe, expect, it, vi } from 'vitest';
 import { prevalidarLoteCapturas } from '../src/modulos/modulo_escaneo_omr/controladorEscaneoOmr';

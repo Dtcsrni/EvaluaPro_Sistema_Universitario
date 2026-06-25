@@ -1,3 +1,9 @@
+/**
+ * pdf.numeroPaginasPlantilla.test
+ *
+ * Responsabilidad: Modulo interno del sistema.
+ * Limites: Mantener contrato y comportamiento observable del modulo.
+ */
 import { describe, expect, it } from 'vitest';
 import { resolverNumeroPaginasPlantilla } from '../src/modulos/modulo_generacion_pdf/domain/resolverNumeroPaginasPlantilla';
 

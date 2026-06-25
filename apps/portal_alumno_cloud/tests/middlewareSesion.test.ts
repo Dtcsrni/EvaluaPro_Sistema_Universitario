@@ -6,7 +6,6 @@
  */
 // Pruebas del middleware de sesion alumno.
 import express from 'express';
-import mongoose from 'mongoose';
 import request from 'supertest';
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { requerirSesionAlumno, type SolicitudAlumno } from '../src/servicios/middlewareSesion';
@@ -51,8 +50,8 @@ describe('requerirSesionAlumno', () => {
   });
 
   it('permite acceso con sesion valida', async () => {
-    const alumnoId = new mongoose.Types.ObjectId();
-    const periodoId = new mongoose.Types.ObjectId();
+    const alumnoId = 'alumno_id_test_123';
+    const periodoId = 'periodo_id_test_123';
     const token = 'token-valido';
 
     await SesionAlumno.create({
@@ -67,7 +66,7 @@ describe('requerirSesionAlumno', () => {
       .set({ Authorization: `Bearer ${token}` })
       .expect(200);
 
-    expect(respuesta.body.alumnoId).toBe(String(alumnoId));
-    expect(respuesta.body.periodoId).toBe(String(periodoId));
+    expect(respuesta.body.alumnoId).toBe(alumnoId);
+    expect(respuesta.body.periodoId).toBe(periodoId);
   });
 });

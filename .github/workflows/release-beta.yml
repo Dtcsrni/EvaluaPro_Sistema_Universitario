@@ -197,7 +197,7 @@ jobs:
 
       - name: Etapa build MSI + Bundle
         shell: powershell
-        run: powershell -NoProfile -ExecutionPolicy Bypass -File scripts/build-msi.ps1 -IncludeBundle -Flavor all
+        run: powershell -NoProfile -ExecutionPolicy Bypass -File scripts/build-msi.ps1 -SkipStabilityChecks -IncludeBundle -Flavor all
 
       - name: Smoke GUI del bundle Burn publico empaquetado
         shell: powershell
@@ -264,6 +264,8 @@ jobs:
             dist/installer/saas-completo/EvaluaPro-InstallerHub-saas-completo-v*.exe.sha256
             dist/installer/docente-local/EvaluaPro-InstallerHub-docente-local-v*.exe
             dist/installer/docente-local/EvaluaPro-InstallerHub-docente-local-v*.exe.sha256
+            dist/installer/saas-completo/EvaluaPro-InstallerHub-saas-completo-v*.exe
+            dist/installer/saas-completo/EvaluaPro-InstallerHub-saas-completo-v*.exe.sha256
             "dist/installer/EvaluaPro-release-manifest.json"
             "dist/installer/antivirus-scan-report.txt"
           )

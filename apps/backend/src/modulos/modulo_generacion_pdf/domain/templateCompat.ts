@@ -1,3 +1,9 @@
+/**
+ * templateCompat
+ *
+ * Responsabilidad: Modulo interno del sistema.
+ * Limites: Mantener contrato y comportamiento observable del modulo.
+ */
 import { ErrorAplicacion } from '../../../compartido/errores/errorAplicacion';
 import type { MapaVariante, PreguntaBase, ResultadoGeneracionPdf, TemplateVersion } from '../shared/tiposPdf';
 
@@ -105,7 +111,9 @@ export function construirMapaVarianteUsadaParaTemplate(
   mapaVariante: MapaVariante,
   usados: Set<string>
 ): { ordenPreguntas: string[]; ordenOpcionesPorPregunta: Record<string, number[]> } {
-  const ordenUsado = (mapaVariante.ordenPreguntas ?? []).filter((id) => usados.has(id));
+  const ordenUsado = usados.size > 0
+    ? (mapaVariante.ordenPreguntas ?? []).filter((id) => usados.has(id))
+    : (mapaVariante.ordenPreguntas ?? []);
   return {
     ordenPreguntas: ordenUsado,
     ordenOpcionesPorPregunta: Object.fromEntries(

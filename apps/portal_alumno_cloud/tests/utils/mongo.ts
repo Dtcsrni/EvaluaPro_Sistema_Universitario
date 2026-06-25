@@ -1,51 +1,106 @@
 /**
  * mongo
  *
- * Responsabilidad: Modulo interno del sistema.
- * Limites: Mantener contrato y comportamiento observable del modulo.
+ * Responsabilidad: Mock de base de datos para pruebas del portal.
+ * Redirige llamadas de MongoDB/Mongoose a SQLite/Prisma Client con aislamiento por worker de Vitest.
  */
-// Helpers de Mongo en memoria para portal.
-import mongoose from 'mongoose';
-import { MongoMemoryServer } from 'mongodb-memory-server';
-import net from 'node:net';
+import { execSync } from 'node:child_process';
+import path from 'node:path';
+import fs from 'node:fs';
 
-let servidor: MongoMemoryServer | null = null;
+const workerId = process.env.VITEST_WORKER_ID || '1';
+const dbFile = `portal_test_${workerId}.db`;
+const dataDir = path.resolve(process.cwd(), 'data');
+const dbPath = path.resolve(dataDir, dbFile);
 
-async function obtenerPuertoLibreLocal(): Promise<number> {
-  return await new Promise((resolve, reject) => {
-    const server = net.createServer();
-    server.unref();
-    server.on('error', reject);
-    server.listen(0, '127.0.0.1', () => {
-      const address = server.address();
-      if (!address || typeof address === 'string') {
-        server.close(() => reject(new Error('No se pudo obtener un puerto libre')));
-        return;
-      }
-      const { port } = address;
-      server.close(() => resolve(port));
-    });
-  });
-}
+// Configurar la variable de entorno DATABASE_URL para el test runner
+process.env.DATABASE_URL = `file:${dbPath}`;
+process.env.PORTAL_DATABASE_URL = `file:${dbPath}`;
+
+import { prisma } from '../../src/infraestructura/baseDatos/sqlite';
 
 export async function conectarMongoTest() {
-  if (mongoose.connection.readyState === 1) return;
-  const port = await obtenerPuertoLibreLocal();
-  servidor = await MongoMemoryServer.create({ instance: { ip: '127.0.0.1', port } });
-  await mongoose.connect(servidor.getUri());
+  process.env.DATABASE_URL = `file:${dbPath}`;
+  process.env.PORTAL_DATABASE_URL = `file:${dbPath}`;
+
+  if (!fs.existsSync(dataDir)) {
+    fs.mkdirSync(dataDir, { recursive: true });
+  }
+  if (!fs.existsSync(dbPath)) {
+    fs.closeSync(fs.openSync(dbPath, 'w'));
+  }
+
+  // Resolver rutas de Prisma CLI y esquema de forma robusta usando __dirname
+  let prismaBin = path.resolve(__dirname, '..', '..', 'node_modules', '.bin', 'prisma');
+  if (!fs.existsSync(prismaBin)) {
+    prismaBin = path.resolve(__dirname, '..', '..', '..', '..', 'node_modules', '.bin', 'prisma');
+  }
+  if (!fs.existsSync(prismaBin)) {
+    prismaBin = path.resolve(process.cwd(), 'node_modules', '.bin', 'prisma');
+  }
+
+  let schemaPath = path.resolve(__dirname, '..', '..', 'prisma', 'schema.prisma');
+  if (!fs.existsSync(schemaPath)) {
+    schemaPath = path.resolve(process.cwd(), 'prisma', 'schema.prisma');
+  }
+
+  const cmd = `"${prismaBin}" db push --schema="${schemaPath}" --skip-generate --accept-data-loss`;
+  
+  try {
+    execSync(cmd, {
+      env: { ...process.env, DATABASE_URL: process.env.PORTAL_DATABASE_URL },
+      stdio: 'pipe'
+    });
+  } catch (error: unknown) {
+    const err = error as { stderr?: { toString(): string }; message?: string };
+    console.error("Error executing portal prisma db push during tests:", err.stderr?.toString() || err.message);
+    throw error;
+  }
+
+  await prisma.$connect();
 }
 
 export async function limpiarMongoTest() {
-  const colecciones = mongoose.connection.collections;
-  const tareas = Object.keys(colecciones).map((clave) => colecciones[clave].deleteMany({}));
-  await Promise.all(tareas);
+  await prisma.$executeRawUnsafe('PRAGMA foreign_keys = OFF;');
+  try {
+    const existingTables = await prisma.$queryRawUnsafe<{ name: string }[]>(
+      "SELECT name FROM sqlite_master WHERE type='table';"
+    );
+    const existingNames = new Set(existingTables.map((t) => t.name.toLowerCase()));
+
+    const tables = [
+      'perfil_alumno',
+      'resultados_alumno',
+      'materias_alumno',
+      'agenda_alumno',
+      'avisos_alumno',
+      'historial_alumno',
+      'codigos_acceso',
+      'eventos_uso_alumno',
+      'sesiones_alumno',
+      'solicitudes_revision',
+      'paquetes_sync_docente'
+    ];
+
+    for (const table of tables) {
+      if (existingNames.has(table.toLowerCase())) {
+        await prisma.$executeRawUnsafe(`DELETE FROM ${table};`);
+      }
+    }
+  } catch {
+    // Ignorar errores
+  }
+  await prisma.$executeRawUnsafe('PRAGMA foreign_keys = ON;');
 }
 
 export async function cerrarMongoTest() {
-  await mongoose.disconnect();
-  if (servidor) {
-    await servidor.stop();
-    servidor = null;
+  await prisma.$disconnect();
+  // Limpieza del archivo de base de datos del test
+  if (fs.existsSync(dbPath)) {
+    try {
+      fs.unlinkSync(dbPath);
+    } catch {
+      // Ignorar si está bloqueado temporalmente
+    }
   }
 }
-

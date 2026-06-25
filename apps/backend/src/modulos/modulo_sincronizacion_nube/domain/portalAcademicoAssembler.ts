@@ -1,3 +1,9 @@
+/**
+ * portalAcademicoAssembler
+ *
+ * Responsabilidad: Modulo interno del sistema.
+ * Limites: Mantener contrato y comportamiento observable del modulo.
+ */
 type Registro = Record<string, unknown>;
 
 export function construirColeccionesAcademicasPortal(params: {

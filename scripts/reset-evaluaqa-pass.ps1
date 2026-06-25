@@ -1,3 +1,7 @@
+# reset-evaluaqa-pass.ps1
+#
+# Responsabilidad: Modulo interno del sistema.
+# Limites: Mantener contrato y comportamiento observable del modulo.
 param(
     [string]$VMName = 'EvaluaPro-E2E-Win11',
     [string]$User = 'evaluaqa'

@@ -1,3 +1,9 @@
+/**
+ * ai-openai-client.test
+ *
+ * Responsabilidad: Modulo interno del sistema.
+ * Limites: Mantener contrato y comportamiento observable del modulo.
+ */
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { enviarSolicitudAutomaticaOpenAI, resolverModeloOpenAI } from '../ai-openai-client.mjs';

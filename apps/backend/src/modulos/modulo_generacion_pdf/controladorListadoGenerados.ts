@@ -9,18 +9,13 @@ import type { Response } from 'express';
 import { ErrorAplicacion } from '../../compartido/errores/errorAplicacion';
 import { configuracion } from '../../configuracion';
 import { obtenerDocenteId, type SolicitudDocente } from '../modulo_autenticacion/middlewareAutenticacion';
-import { ExamenGenerado } from './modeloExamenGenerado';
 import { promises as fs } from 'fs';
-import { ExamenPlantilla } from './modeloExamenPlantilla';
-import { BancoPregunta } from '../modulo_banco_preguntas/modeloBancoPregunta';
+import { prisma } from '../../infraestructura/baseDatos/sqlite';
 import { generarPdfExamen } from './servicioGeneracionPdf';
 import { guardarPdfExamen } from '../../infraestructura/archivos/almacenLocal';
-import { Periodo } from '../modulo_alumnos/modeloPeriodo';
 import { normalizarParaNombreArchivo } from '../../compartido/utilidades/texto';
-import { Docente } from '../modulo_autenticacion/modeloDocente';
 import { resolverNumeroPaginasPlantilla } from './domain/resolverNumeroPaginasPlantilla';
 import { TEMPLATE_VERSION_TV4 } from './domain/templateCompat';
-import { Entrega } from '../modulo_vinculacion_entrega/modeloEntrega';
 import {
   asegurarExamenDescargable,
   construirMetadataRetencion,
@@ -29,6 +24,7 @@ import {
 
 type BancoPreguntaLean = {
   _id: unknown;
+  id: string;
   versionActual: number;
   versiones: Array<{
     numeroVersion: number;
@@ -43,21 +39,82 @@ const REGEX_OBJECT_ID = /^[0-9a-fA-F]{24}$/;
 function normalizarObjectId(valor: unknown): string {
   if (typeof valor === 'string') {
     const trimmed = valor.trim();
-    return REGEX_OBJECT_ID.test(trimmed) ? trimmed : '';
+    return REGEX_OBJECT_ID.test(trimmed) ? trimmed : trimmed; // In sqlite we support uuid as well, so don't reject non-mongo IDs
   }
   if (valor && typeof valor === 'object') {
     const conHex = valor as { toHexString?: () => string };
     if (typeof conHex.toHexString === 'function') {
-      const hex = String(conHex.toHexString()).trim();
-      return REGEX_OBJECT_ID.test(hex) ? hex : '';
+      return String(conHex.toHexString()).trim();
     }
     const conOid = valor as { $oid?: unknown };
     if (typeof conOid.$oid === 'string') {
-      const hex = conOid.$oid.trim();
-      return REGEX_OBJECT_ID.test(hex) ? hex : '';
+      return conOid.$oid.trim();
     }
   }
-  return '';
+  return String(valor ?? '').trim();
+}
+
+function parseJsonSafe<T>(val: unknown): T | null {
+  if (typeof val === 'string') {
+    try {
+      return JSON.parse(val) as T;
+    } catch {
+      return null;
+    }
+  }
+  return val as T;
+}
+
+function formatearExamenGeneradoPrisma(raw: any) {
+  if (!raw) return null;
+  const mapaVarianteObj = parseJsonSafe<any>(raw.mapaVariante);
+  const preguntasIds = Array.isArray(mapaVarianteObj?.ordenPreguntas) ? mapaVarianteObj.ordenPreguntas : [];
+  return {
+    ...raw,
+    _id: raw.id,
+    mapaVariante: mapaVarianteObj,
+    mapaOmr: parseJsonSafe(raw.mapaOmr),
+    paginas: parseJsonSafe(raw.paginas) ?? [],
+    bookletArtifact: parseJsonSafe(raw.bookletArtifact) ?? undefined,
+    omrSheetArtifact: parseJsonSafe(raw.omrSheetArtifact) ?? undefined,
+    studentPacketArtifacts: parseJsonSafe(raw.studentPacketArtifacts) ?? [],
+    studentPacketZipArtifact: parseJsonSafe(raw.studentPacketZipArtifact) ?? undefined,
+    manifestArtifact: parseJsonSafe(raw.manifestArtifact) ?? undefined,
+    answerKeyArtifact: parseJsonSafe(raw.answerKeyArtifact) ?? undefined,
+    recoveryManifest: parseJsonSafe(raw.recoveryManifest) ?? undefined,
+    reconstructedFrom: parseJsonSafe(raw.reconstructedFrom) ?? undefined,
+    questionMap: parseJsonSafe(raw.questionMap) ?? undefined,
+    answerKeySet: parseJsonSafe(raw.answerKeySet) ?? undefined,
+    versionSet: parseJsonSafe(raw.versionSet) ?? [],
+    sheetInstances: parseJsonSafe(raw.sheetInstances) ?? [],
+    statisticsSummary: parseJsonSafe(raw.statisticsSummary) ?? undefined,
+    preguntasIds
+  };
+}
+
+function formatearPreguntaPrisma(raw: any) {
+  if (!raw) return null;
+  return {
+    _id: raw.id,
+    id: raw.id,
+    docenteId: raw.docenteId,
+    periodoId: raw.periodoId,
+    tema: raw.tema ?? undefined,
+    activo: raw.activo,
+    versionActual: raw.versionActual,
+    recoverySource: raw.recoverySource ? JSON.parse(raw.recoverySource) : undefined,
+    createdAt: raw.createdAt,
+    updatedAt: raw.updatedAt,
+    versiones: (raw.versiones || []).map((v: any) => ({
+      numeroVersion: v.numeroVersion,
+      enunciado: v.enunciado,
+      imagenUrl: v.imagenUrl ?? undefined,
+      opciones: (v.opciones || []).map((o: any) => ({
+        texto: o.texto,
+        esCorrecta: o.esCorrecta
+      }))
+    }))
+  };
 }
 
 function construirNombrePdfExamen(parametros: {
@@ -97,39 +154,36 @@ function construirNombrePdfExamen(parametros: {
  */
 export async function listarExamenesGenerados(req: SolicitudDocente, res: Response) {
   const docenteId = obtenerDocenteId(req);
-  const filtro: Record<string, unknown> = { docenteId };
-  if (req.query.periodoId) filtro.periodoId = String(req.query.periodoId).trim();
-  if (req.query.alumnoId) filtro.alumnoId = String(req.query.alumnoId).trim();
-  if (req.query.plantillaId) filtro.plantillaId = String(req.query.plantillaId).trim();
-  if (req.query.folio) filtro.folio = String(req.query.folio).trim().toUpperCase();
+  const where: any = { docenteId };
+  if (req.query.periodoId) where.periodoId = String(req.query.periodoId).trim();
+  if (req.query.alumnoId) where.alumnoId = String(req.query.alumnoId).trim();
+  if (req.query.plantillaId) where.plantillaId = String(req.query.plantillaId).trim();
+  if (req.query.folio) where.folio = String(req.query.folio).trim().toUpperCase();
   const queryArchivado = String(req.query.archivado ?? '').trim().toLowerCase();
   const filtrarArchivadas = queryArchivado === '1' || queryArchivado === 'true' || queryArchivado === 'si' || queryArchivado === 's';
-  if (filtrarArchivadas) {
-    filtro.archivadoEn = { $exists: true };
-  } else {
-    filtro.archivadoEn = { $exists: false };
-  }
+  where.archivadoEn = filtrarArchivadas ? { not: null } : null;
 
   const limite = Number(req.query.limite ?? 0);
-  const consulta = ExamenGenerado.find(filtro).sort({ generadoEn: -1, _id: -1 });
-  const examenes = await (limite > 0 ? consulta.limit(limite) : consulta).lean();
+  const rawExamenes = await prisma.examenGenerado.findMany({
+    where,
+    take: limite > 0 ? limite : undefined,
+    orderBy: [{ generadoEn: 'desc' }, { id: 'desc' }]
+  });
 
-  const examenesIds = examenes
-    .map((examen) => String((examen as unknown as { _id?: unknown })?._id ?? '').trim())
-    .filter(Boolean);
-
+  const examenesIds = rawExamenes.map((e) => e.id);
   const entregas = examenesIds.length
-    ? await Entrega.find({ docenteId, examenGeneradoId: { $in: examenesIds } })
-      .sort({ createdAt: -1 })
-      .lean()
+    ? await prisma.entrega.findMany({
+        where: { docenteId, examenGeneradoId: { in: examenesIds } },
+        orderBy: { createdAt: 'desc' }
+      })
     : [];
 
   const entregaPorExamenId = new Map<string, { acordeonEntregado: boolean; bonoAcordeon: number }>();
   for (const entrega of entregas) {
-    const examenId = String((entrega as unknown as { examenGeneradoId?: unknown })?.examenGeneradoId ?? '').trim();
+    const examenId = String(entrega.examenGeneradoId ?? '').trim();
     if (!examenId || entregaPorExamenId.has(examenId)) continue;
-    const acordeonEntregado = Boolean((entrega as unknown as { acordeonEntregado?: unknown })?.acordeonEntregado);
-    const bonoAcordeonRaw = Number((entrega as unknown as { bonoAcordeon?: unknown })?.bonoAcordeon ?? 0);
+    const acordeonEntregado = Boolean(entrega.acordeonEntregado);
+    const bonoAcordeonRaw = Number(entrega.bonoAcordeon ?? 0);
     entregaPorExamenId.set(examenId, {
       acordeonEntregado,
       bonoAcordeon: acordeonEntregado
@@ -140,12 +194,12 @@ export async function listarExamenesGenerados(req: SolicitudDocente, res: Respon
     });
   }
 
-  const examenesConEntrega = examenes.map((examen) => {
-    const examenId = String((examen as unknown as { _id?: unknown })?._id ?? '').trim();
-    const entrega = entregaPorExamenId.get(examenId);
+  const examenesConEntrega = rawExamenes.map((raw) => {
+    const formatted = formatearExamenGeneradoPrisma(raw) as any;
+    const entrega = entregaPorExamenId.get(raw.id);
     return {
-      ...examen,
-      ...construirMetadataRetencion(examen as unknown as Record<string, unknown>),
+      ...formatted,
+      ...construirMetadataRetencion(formatted),
       acordeonEntregado: Boolean(entrega?.acordeonEntregado),
       bonoAcordeon: Number(entrega?.bonoAcordeon ?? 0)
     };
@@ -160,55 +214,57 @@ export async function listarExamenesGenerados(req: SolicitudDocente, res: Respon
 export async function obtenerExamenPorFolio(req: SolicitudDocente, res: Response) {
   const docenteId = obtenerDocenteId(req);
   const folio = String(req.params.folio || '').trim().toUpperCase();
-  const examen = await ExamenGenerado.findOne({ folio, docenteId }).lean();
-  if (!examen) {
+  const raw = await prisma.examenGenerado.findFirst({
+    where: { folio, docenteId }
+  });
+  if (!raw) {
     throw new ErrorAplicacion('EXAMEN_NO_ENCONTRADO', 'Examen no encontrado', 404);
   }
-  res.json({ examen: { ...examen, ...construirMetadataRetencion(examen as unknown as Record<string, unknown>) } });
+  const formatted = formatearExamenGeneradoPrisma(raw);
+  res.json({ examen: { ...formatted, ...construirMetadataRetencion(formatted) } });
 }
 
 /**
  * Descarga el PDF asociado a un examen.
- *
- * Nota: este endpoint hace IO a disco (almacen local). Si el archivo desaparecio,
- * se responde con error 500 para indicar inconsistencia de almacenamiento.
  */
 export async function descargarPdf(req: SolicitudDocente, res: Response) {
   const docenteId = obtenerDocenteId(req);
   const examenId = String(req.params.id || '');
-  const examen = await ExamenGenerado.findOne({ _id: examenId, docenteId }).lean();
-  asegurarExamenDescargable(examen as unknown as Record<string, unknown> | null, 'EXAMEN_NO_DESCARGABLE_POR_RETENCION', 'PDF no disponible');
-  if (!examen?.rutaPdf) throw new ErrorAplicacion('PDF_NO_DISPONIBLE', 'PDF no disponible', 404);
+  const raw = await prisma.examenGenerado.findFirst({
+    where: { id: examenId, docenteId }
+  });
+  if (!raw) {
+    throw new ErrorAplicacion('EXAMEN_NO_ENCONTRADO', 'Examen no encontrado', 404);
+  }
+  const formatted = formatearExamenGeneradoPrisma(raw) as any;
+  asegurarExamenDescargable(formatted, 'EXAMEN_NO_DESCARGABLE_POR_RETENCION', 'PDF no disponible');
+  if (!formatted?.rutaPdf) throw new ErrorAplicacion('PDF_NO_DISPONIBLE', 'PDF no disponible', 404);
 
   try {
-    const buffer = await fs.readFile(examen.rutaPdf);
+    const buffer = await fs.readFile(formatted.rutaPdf);
 
-    const [plantilla, periodo] = await Promise.all([
-      ExamenPlantilla.findById(String((examen as unknown as { plantillaId?: unknown })?.plantillaId ?? '')).lean(),
-      (examen as unknown as { periodoId?: unknown })?.periodoId
-        ? Periodo.findById(String((examen as unknown as { periodoId?: unknown })?.periodoId ?? '')).lean()
+    const [plantillaRaw, periodoRaw] = await Promise.all([
+      prisma.examenPlantilla.findUnique({ where: { id: String(formatted.plantillaId) } }),
+      formatted.periodoId
+        ? prisma.periodo.findUnique({ where: { id: String(formatted.periodoId) } })
         : Promise.resolve(null)
     ]);
 
-    const temas = Array.isArray((plantilla as unknown as { temas?: unknown[] })?.temas)
-      ? (((plantilla as unknown as { temas?: unknown[] })?.temas ?? []) as unknown[]).map((t) => String(t ?? '').trim()).filter(Boolean)
-      : [];
-
+    const temas = parseJsonSafe<string[]>(plantillaRaw?.temas) ?? [];
     const nombreDescarga = construirNombrePdfExamen({
-      folio: String((examen as unknown as { folio?: unknown })?.folio ?? 'examen'),
-      loteId: String((examen as unknown as { loteId?: unknown })?.loteId ?? ''),
-      materiaNombre: String((periodo as unknown as { nombre?: unknown })?.nombre ?? ''),
+      folio: String(formatted.folio ?? 'examen'),
+      loteId: String(formatted.loteId ?? ''),
+      materiaNombre: String(periodoRaw?.nombre ?? ''),
       temas,
-      plantillaTitulo: String((plantilla as unknown as { titulo?: unknown })?.titulo ?? '')
+      plantillaTitulo: String(plantillaRaw?.titulo ?? '')
     });
 
-    // Best-effort: marca el momento de descarga antes de responder para que
-    // el guardrail de regeneracion vea un estado consistente inmediatamente.
-    try {
-      await ExamenGenerado.updateOne({ _id: examenId, docenteId }, { $set: { descargadoEn: new Date() } });
-    } catch {
+    void prisma.examenGenerado.update({
+      where: { id: examenId },
+      data: { descargadoEn: new Date() }
+    }).catch(() => {
       // no-op
-    }
+    });
 
     res.setHeader('Content-Type', 'application/pdf');
     res.setHeader('Content-Disposition', `attachment; filename="${nombreDescarga}"`);
@@ -220,22 +276,21 @@ export async function descargarPdf(req: SolicitudDocente, res: Response) {
 
 /**
  * Regenera el PDF asociado a un examen (y recalcula metadata de paginas / mapa OMR).
- *
- * Guardrails:
- * - Solo permite regenerar si el examen esta en estado `generado`.
- * - Si ya fue descargado, requiere `forzar=true` (para evitar regeneraciones accidentales).
  */
 export async function regenerarPdfExamen(req: SolicitudDocente, res: Response) {
   const docenteId = obtenerDocenteId(req);
   const examenId = String(req.params.id || '').trim();
   const forzar = Boolean((req.body as { forzar?: unknown })?.forzar);
 
-  const examen = await ExamenGenerado.findOne({ _id: examenId, docenteId }).lean();
-  if (!examen) {
+  const rawExamen = await prisma.examenGenerado.findFirst({
+    where: { id: examenId, docenteId }
+  });
+  if (!rawExamen) {
     throw new ErrorAplicacion('EXAMEN_NO_ENCONTRADO', 'Examen no encontrado', 404);
   }
+  const examen = formatearExamenGeneradoPrisma(rawExamen) as any;
 
-  const estado = String((examen as unknown as { estado?: unknown })?.estado ?? '');
+  const estado = String(examen?.estado ?? '');
   if (estado && estado !== 'generado') {
     throw new ErrorAplicacion(
       'EXAMEN_NO_REGENERABLE',
@@ -244,7 +299,7 @@ export async function regenerarPdfExamen(req: SolicitudDocente, res: Response) {
     );
   }
 
-  const yaDescargado = Boolean((examen as unknown as { descargadoEn?: unknown })?.descargadoEn);
+  const yaDescargado = Boolean(examen?.descargadoEn);
   if (yaDescargado && !forzar) {
     throw new ErrorAplicacion(
       'EXAMEN_REQUIERE_FORZAR',
@@ -253,32 +308,29 @@ export async function regenerarPdfExamen(req: SolicitudDocente, res: Response) {
     );
   }
 
-  const plantillaId = String((examen as unknown as { plantillaId?: unknown })?.plantillaId ?? '').trim();
-  const plantilla = await ExamenPlantilla.findById(plantillaId).lean();
-  if (!plantilla) {
+  const plantillaId = String(examen?.plantillaId ?? '').trim();
+  const plantillaRaw = await prisma.examenPlantilla.findUnique({ where: { id: plantillaId } });
+  if (!plantillaRaw) {
     throw new ErrorAplicacion('PLANTILLA_NO_ENCONTRADA', 'No se encontro la plantilla para regenerar este examen', 404);
   }
-  if (String(plantilla.docenteId) !== String(docenteId)) {
+  if (String(plantillaRaw.docenteId) !== String(docenteId)) {
     throw new ErrorAplicacion('NO_AUTORIZADO', 'Sin acceso a la plantilla', 403);
   }
 
-  const folio = String((examen as unknown as { folio?: unknown })?.folio ?? '').trim().toUpperCase();
+  const folio = String(examen?.folio ?? '').trim().toUpperCase();
   if (!folio) {
     throw new ErrorAplicacion('EXAMEN_INVALIDO', 'El examen no tiene folio', 500);
   }
 
-  const mapaVariante = (examen as unknown as { mapaVariante?: unknown })?.mapaVariante as
-    | { ordenPreguntas?: unknown; ordenOpcionesPorPregunta?: unknown }
-    | undefined;
-
-  const preguntasIdsBrutos = Array.isArray((examen as unknown as { preguntasIds?: unknown })?.preguntasIds)
-    ? (((examen as unknown as { preguntasIds?: unknown })?.preguntasIds ?? []) as unknown[])
+  const mapaVariante = examen?.mapaVariante;
+  const preguntasIdsBrutos = Array.isArray(examen?.preguntasIds)
+    ? examen.preguntasIds
     : Array.isArray(mapaVariante?.ordenPreguntas)
-      ? (mapaVariante?.ordenPreguntas as unknown[])
+      ? mapaVariante.ordenPreguntas
       : [];
 
-  const preguntasIds = preguntasIdsBrutos.map((x) => normalizarObjectId(x)).filter((id) => Boolean(id));
-  const preguntasIdsUnicos = Array.from(new Set(preguntasIds));
+  const preguntasIds = preguntasIdsBrutos.map((x: any) => normalizarObjectId(x)).filter((id: string) => Boolean(id));
+  const preguntasIdsUnicos = Array.from(new Set(preguntasIds)) as string[];
 
   if (preguntasIdsUnicos.length === 0) {
     throw new ErrorAplicacion('EXAMEN_SIN_PREGUNTAS', 'No se pudo determinar el set de preguntas del examen', 409);
@@ -293,17 +345,21 @@ export async function regenerarPdfExamen(req: SolicitudDocente, res: Response) {
     );
   }
 
-  const preguntasDb = (await BancoPregunta.find({ docenteId, _id: { $in: preguntasIdsUnicos } }).lean()) as BancoPreguntaLean[];
-  if (!Array.isArray(preguntasDb) || preguntasDb.length !== preguntasIdsUnicos.length) {
+  const rawPreguntas = await prisma.bancoPregunta.findMany({
+    where: { docenteId, id: { in: preguntasIdsUnicos } },
+    include: { versiones: { include: { opciones: true } } }
+  });
+  if (!Array.isArray(rawPreguntas) || rawPreguntas.length !== preguntasIdsUnicos.length) {
     throw new ErrorAplicacion(
       'PREGUNTAS_NO_DISPONIBLES',
-      `No se pudieron cargar todas las preguntas del examen (esperadas: ${preguntasIdsUnicos.length}, encontradas: ${preguntasDb.length})`,
+      `No se pudieron cargar todas las preguntas del examen (esperadas: ${preguntasIdsUnicos.length}, encontradas: ${rawPreguntas.length})`,
       409
     );
   }
 
+  const preguntasDb = rawPreguntas.map(formatearPreguntaPrisma) as BancoPreguntaLean[];
   const porId = new Map<string, BancoPreguntaLean>();
-  for (const p of preguntasDb) porId.set(String(p._id), p);
+  for (const p of preguntasDb) porId.set(String(p.id), p);
 
   const preguntasBase = preguntasIdsUnicos.map((id) => {
     const pregunta = porId.get(String(id));
@@ -313,7 +369,7 @@ export async function regenerarPdfExamen(req: SolicitudDocente, res: Response) {
     const version =
       pregunta.versiones.find((item) => item.numeroVersion === pregunta.versionActual) ?? pregunta.versiones[0];
     return {
-      id: String(pregunta._id),
+      id: String(pregunta.id),
       enunciado: version.enunciado,
       imagenUrl: version.imagenUrl ?? undefined,
       opciones: version.opciones
@@ -321,38 +377,37 @@ export async function regenerarPdfExamen(req: SolicitudDocente, res: Response) {
   });
 
   const [periodo, docenteDb] = await Promise.all([
-    (examen as unknown as { periodoId?: unknown })?.periodoId
-      ? Periodo.findById(String((examen as unknown as { periodoId?: unknown })?.periodoId ?? '')).lean()
+    examen?.periodoId
+      ? prisma.periodo.findUnique({ where: { id: String(examen.periodoId) } })
       : Promise.resolve(null),
-    Docente.findById(docenteId).lean()
+    prisma.docente.findUnique({ where: { id: docenteId } })
   ]);
 
-  const numeroPaginas = resolverNumeroPaginasPlantilla(plantilla as unknown as { numeroPaginas?: unknown });
+  const numeroPaginas = resolverNumeroPaginasPlantilla(plantillaRaw as any);
   const templateVersion = TEMPLATE_VERSION_TV4;
 
   const generarConPaginas = (paginasObjetivo: number) =>
     generarPdfExamen({
-      titulo: String(plantilla.titulo ?? ''),
+      titulo: String(plantillaRaw.titulo ?? ''),
       folio,
       preguntas: preguntasBase,
-      // Reutiliza la variante para mantener el orden de preguntas/opciones.
-      mapaVariante: (examen as unknown as { mapaVariante?: unknown })?.mapaVariante as never,
-      tipoExamen: plantilla.tipo as 'parcial' | 'global',
+      mapaVariante: examen?.mapaVariante as never,
+      tipoExamen: plantillaRaw.tipo as 'parcial' | 'global',
       totalPaginas: paginasObjetivo,
-      margenMm: (plantilla as unknown as { configuracionPdf?: { margenMm?: number } })?.configuracionPdf?.margenMm ?? 10,
+      margenMm: parseJsonSafe<any>(plantillaRaw.configuracionPdf)?.margenMm ?? 10,
       templateVersion,
       encabezado: {
-        materia: String((periodo as unknown as { nombre?: unknown })?.nombre ?? ''),
-        docente: String((docenteDb as unknown as { nombreCompleto?: unknown })?.nombreCompleto ?? ''),
-        instrucciones: String((plantilla as unknown as { instrucciones?: unknown })?.instrucciones ?? '').trim() || undefined,
-        institucion: String((docenteDb as unknown as { preferenciasPdf?: { institucion?: unknown } })?.preferenciasPdf?.institucion ?? '').trim() || undefined,
-        lema: String((docenteDb as unknown as { preferenciasPdf?: { lema?: unknown } })?.preferenciasPdf?.lema ?? '').trim() || undefined,
+        materia: String(periodo?.nombre ?? ''),
+        docente: String(docenteDb?.nombreCompleto ?? ''),
+        instrucciones: String(plantillaRaw.instrucciones ?? '').trim() || undefined,
+        institucion: String(parseJsonSafe<any>(docenteDb?.preferenciasPdf)?.institucion ?? '').trim() || undefined,
+        lema: String(parseJsonSafe<any>(docenteDb?.preferenciasPdf)?.lema ?? '').trim() || undefined,
         logos: {
           izquierdaPath:
-            String((docenteDb as unknown as { preferenciasPdf?: { logos?: { izquierdaPath?: unknown } } })?.preferenciasPdf?.logos?.izquierdaPath ?? '').trim() ||
+            String(parseJsonSafe<any>(docenteDb?.preferenciasPdf)?.logos?.izquierdaPath ?? '').trim() ||
             undefined,
           derechaPath:
-            String((docenteDb as unknown as { preferenciasPdf?: { logos?: { derechaPath?: unknown } } })?.preferenciasPdf?.logos?.derechaPath ?? '').trim() ||
+            String(parseJsonSafe<any>(docenteDb?.preferenciasPdf)?.logos?.derechaPath ?? '').trim() ||
             undefined
         }
       }
@@ -375,10 +430,7 @@ export async function regenerarPdfExamen(req: SolicitudDocente, res: Response) {
   }
 
   const { pdfBytes, paginas, mapaOmr, preguntasRestantes } = resultadoPdf;
-
-  const temas = Array.isArray((plantilla as unknown as { temas?: unknown[] })?.temas)
-    ? (((plantilla as unknown as { temas?: unknown[] })?.temas ?? []) as unknown[]).map((t) => String(t ?? '').trim()).filter(Boolean)
-    : [];
+  const temas = parseJsonSafe<string[]>(plantillaRaw.temas) ?? [];
 
   if ((preguntasRestantes ?? 0) > 0) {
     throw new ErrorAplicacion(
@@ -391,30 +443,26 @@ export async function regenerarPdfExamen(req: SolicitudDocente, res: Response) {
 
   const nombreArchivo = construirNombrePdfExamen({
     folio,
-    loteId: String((examen as unknown as { loteId?: unknown })?.loteId ?? ''),
-    materiaNombre: String((periodo as unknown as { nombre?: unknown })?.nombre ?? ''),
+    loteId: String(examen?.loteId ?? ''),
+    materiaNombre: String(periodo?.nombre ?? ''),
     temas,
-    plantillaTitulo: String((plantilla as unknown as { titulo?: unknown })?.titulo ?? '')
+    plantillaTitulo: String(plantillaRaw.titulo ?? '')
   });
   const rutaPdf = await guardarPdfExamen(nombreArchivo, pdfBytes);
 
-  await ExamenGenerado.updateOne(
-    { _id: examenId, docenteId },
-    {
-      $set: {
-        preguntasIds,
-        paginas,
-        mapaOmr,
-        rutaPdf,
-        retentionStatus: 'active',
-        artifactsPurgedAt: null,
-        artifactsPurgeReason: null
-      }
+  const rawUpdated = await prisma.examenGenerado.update({
+    where: { id: examenId },
+    data: {
+      paginas: JSON.stringify(paginas),
+      mapaOmr: JSON.stringify(mapaOmr),
+      rutaPdf,
+      retentionStatus: 'active',
+      artifactsPurgedAt: null,
+      artifactsPurgeReason: null
     }
-  );
+  });
 
-  const actualizado = await ExamenGenerado.findOne({ _id: examenId, docenteId }).lean();
-  res.json({ examenGenerado: actualizado });
+  res.json({ examenGenerado: formatearExamenGeneradoPrisma(rawUpdated) });
 }
 
 /**
@@ -424,22 +472,23 @@ export async function archivarExamenGenerado(req: SolicitudDocente, res: Respons
   const docenteId = obtenerDocenteId(req);
   const examenId = String(req.params.id || '').trim();
 
-  const examen = await ExamenGenerado.findOne({ _id: examenId, docenteId }).lean();
+  const examen = await prisma.examenGenerado.findFirst({
+    where: { id: examenId, docenteId }
+  });
   if (!examen) {
     throw new ErrorAplicacion('EXAMEN_NO_ENCONTRADO', 'Examen no encontrado', 404);
   }
 
-  if ((examen as unknown as { archivadoEn?: unknown }).archivadoEn) {
-    return res.json({ ok: true, examen });
+  if (examen.archivadoEn) {
+    return res.json({ ok: true, examen: formatearExamenGeneradoPrisma(examen) });
   }
 
-  const actualizado = await ExamenGenerado.findOneAndUpdate(
-    { _id: examenId, docenteId },
-    { $set: { archivadoEn: new Date() } },
-    { returnDocument: 'after' }
-  ).lean();
+  const rawUpdated = await prisma.examenGenerado.update({
+    where: { id: examenId },
+    data: { archivadoEn: new Date() }
+  });
 
-  res.json({ ok: true, examen: actualizado });
+  res.json({ ok: true, examen: formatearExamenGeneradoPrisma(rawUpdated) });
 }
 
 export async function purgarExamenesGenerados(req: SolicitudDocente, res: Response) {

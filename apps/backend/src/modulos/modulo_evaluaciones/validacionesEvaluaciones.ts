@@ -1,3 +1,9 @@
+/**
+ * validacionesEvaluaciones
+ *
+ * Responsabilidad: Contrato de validaciones de entrada/salida del dominio.
+ * Limites: No relajar reglas sin actualizar tests y contratos de API.
+ */
 import { z } from 'zod';
 import { esquemaObjectId } from '../../compartido/validaciones/esquemas';
 
@@ -129,5 +135,32 @@ export const esquemaComponenteExamen = z
     origen: z.enum(['manual', 'omr']).optional(),
     examenGeneradoId: esquemaObjectId.optional(),
     metadata: z.record(z.string(), z.unknown()).optional()
+  })
+  .strict();
+
+export const esquemaInicializarEncuadre = z
+  .object({
+    periodoId: esquemaObjectId,
+    carrera: z.string().trim().min(1).optional(),
+    clave: z.string().trim().min(1).optional(),
+    area: z.string().trim().optional(),
+    horasDocente: z.number().int().min(0).optional(),
+    horasIndependientes: z.number().int().min(0).optional(),
+    horasTotales: z.number().int().min(0).optional(),
+    creditos: z.number().min(0).optional(),
+    objetivoGeneral: z.string().trim().optional(),
+    cicloLectivo: z.string().trim().optional(),
+    institucionNombre: z.string().trim().optional(),
+    institucionLema: z.string().trim().optional(),
+    logoBase64: z.string().trim().optional(),
+    logoCarreraBase64: z.string().trim().optional(),
+    porcentajeExamenes: z.number().min(0).max(100).optional(),
+    porcentajeEvalContinua: z.number().min(0).max(100).optional(),
+    ponderacion1erParcial: z.number().min(0).max(100).optional(),
+    ponderacion2doParcial: z.number().min(0).max(100).optional(),
+    ponderacionGlobal: z.number().min(0).max(100).optional(),
+    ponderacionExamenEscrito: z.number().min(0).max(100).optional(),
+    ponderacionPractica: z.number().min(0).max(100).optional(),
+    ejeFormacion: z.string().trim().optional()
   })
   .strict();

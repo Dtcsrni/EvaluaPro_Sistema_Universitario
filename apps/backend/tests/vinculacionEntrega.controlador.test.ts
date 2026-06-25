@@ -9,33 +9,38 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const {
   mockObtenerDocenteId,
-  mockFindById,
-  mockFindOneExamen,
+  mockExamenFindUnique,
+  mockExamenFindFirst,
+  mockExamenUpdate,
   mockEntregaCreate,
-  mockEntregaFindOne
+  mockEntregaFindMany,
+  mockEntregaUpdate
 } = vi.hoisted(() => ({
   mockObtenerDocenteId: vi.fn(),
-  mockFindById: vi.fn(),
-  mockFindOneExamen: vi.fn(),
+  mockExamenFindUnique: vi.fn(),
+  mockExamenFindFirst: vi.fn(),
+  mockExamenUpdate: vi.fn(),
   mockEntregaCreate: vi.fn(),
-  mockEntregaFindOne: vi.fn()
+  mockEntregaFindMany: vi.fn(),
+  mockEntregaUpdate: vi.fn()
 }));
 
 vi.mock('../src/modulos/modulo_autenticacion/middlewareAutenticacion', () => ({
   obtenerDocenteId: mockObtenerDocenteId
 }));
 
-vi.mock('../src/modulos/modulo_generacion_pdf/modeloExamenGenerado', () => ({
-  ExamenGenerado: {
-    findById: mockFindById,
-    findOne: mockFindOneExamen
-  }
-}));
-
-vi.mock('../src/modulos/modulo_vinculacion_entrega/modeloEntrega', () => ({
-  Entrega: {
-    create: mockEntregaCreate,
-    findOne: mockEntregaFindOne
+vi.mock('../src/infraestructura/baseDatos/sqlite', () => ({
+  prisma: {
+    examenGenerado: {
+      findUnique: mockExamenFindUnique,
+      findFirst: mockExamenFindFirst,
+      update: mockExamenUpdate
+    },
+    entrega: {
+      create: mockEntregaCreate,
+      findMany: mockEntregaFindMany,
+      update: mockEntregaUpdate
+    }
   }
 }));
 
@@ -55,12 +60,11 @@ function crearRespuesta() {
 
 function crearExamen(overrides: Record<string, unknown> = {}) {
   return {
-    _id: 'examen-1',
+    id: 'examen-1',
     docenteId: 'docente-1',
     alumnoId: null,
     estado: 'generado',
-    entregadoEn: undefined,
-    save: vi.fn().mockResolvedValue(undefined),
+    entregadoEn: null,
     ...overrides
   };
 }
@@ -72,7 +76,7 @@ describe('controladorVinculacionEntrega', () => {
   });
 
   it('rechaza vincular por id cuando el examen no existe', async () => {
-    mockFindById.mockResolvedValue(null);
+    mockExamenFindUnique.mockResolvedValue(null);
 
     await expect(
       vincularEntrega(
@@ -91,7 +95,7 @@ describe('controladorVinculacionEntrega', () => {
   });
 
   it('rechaza vincular por id cuando el docente no tiene acceso', async () => {
-    mockFindById.mockResolvedValue(crearExamen({ docenteId: 'docente-ajeno' }));
+    mockExamenFindUnique.mockResolvedValue(crearExamen({ docenteId: 'docente-ajeno' }));
 
     await expect(
       vincularEntrega(
@@ -112,9 +116,9 @@ describe('controladorVinculacionEntrega', () => {
   it('vincula por id y acota el bono de acordeon al maximo permitido', async () => {
     const examen = crearExamen();
     const res = crearRespuesta();
-    const entrega = { _id: 'entrega-1', estado: 'entregado' };
+    const entrega = { id: 'entrega-1', estado: 'entregado' };
 
-    mockFindById.mockResolvedValue(examen);
+    mockExamenFindUnique.mockResolvedValue(examen);
     mockEntregaCreate.mockResolvedValue(entrega);
 
     await vincularEntrega(
@@ -129,25 +133,29 @@ describe('controladorVinculacionEntrega', () => {
       res
     );
 
-    expect(examen.alumnoId).toBe('alumno-1');
-    expect(examen.estado).toBe('entregado');
-    expect(examen.entregadoEn).toBeInstanceOf(Date);
-    expect(examen.save).toHaveBeenCalledTimes(1);
-    expect(mockEntregaCreate).toHaveBeenCalledWith(
-      expect.objectContaining({
+    expect(mockExamenUpdate).toHaveBeenCalledWith({
+      where: { id: 'examen-1' },
+      data: expect.objectContaining({
+        alumnoId: 'alumno-1',
+        estado: 'entregado',
+        entregadoEn: expect.any(Date)
+      })
+    });
+    expect(mockEntregaCreate).toHaveBeenCalledWith({
+      data: expect.objectContaining({
         examenGeneradoId: 'examen-1',
         alumnoId: 'alumno-1',
         docenteId: 'docente-1',
         acordeonEntregado: true,
         bonoAcordeon: 0.5
       })
-    );
+    });
     expect(res.status).toHaveBeenCalledWith(201);
     expect(res.json).toHaveBeenCalledWith({ entrega });
   });
 
   it('rechaza vincular por folio si el examen ya fue entregado', async () => {
-    mockFindOneExamen.mockResolvedValue(crearExamen({ estado: 'entregado' }));
+    mockExamenFindFirst.mockResolvedValue(crearExamen({ estado: 'entregado' }));
 
     await expect(
       vincularEntregaPorFolio(
@@ -166,11 +174,11 @@ describe('controladorVinculacionEntrega', () => {
   });
 
   it('vincula por folio usando mayusculas y aplica bono por defecto cuando hay acordeon', async () => {
-    const examen = crearExamen({ _id: 'examen-folio-1' });
+    const examen = crearExamen({ id: 'examen-folio-1' });
     const res = crearRespuesta();
-    const entrega = { _id: 'entrega-folio-1', estado: 'entregado' };
+    const entrega = { id: 'entrega-folio-1', estado: 'entregado' };
 
-    mockFindOneExamen.mockResolvedValue(examen);
+    mockExamenFindFirst.mockResolvedValue(examen);
     mockEntregaCreate.mockResolvedValue(entrega);
 
     await vincularEntregaPorFolio(
@@ -184,16 +192,26 @@ describe('controladorVinculacionEntrega', () => {
       res
     );
 
-    expect(mockFindOneExamen).toHaveBeenCalledWith({ folio: 'FOL-001', docenteId: 'docente-1' });
-    expect(mockEntregaCreate).toHaveBeenCalledWith(
-      expect.objectContaining({
+    expect(mockExamenFindFirst).toHaveBeenCalledWith({
+      where: { folio: 'FOL-001', docenteId: 'docente-1' }
+    });
+    expect(mockExamenUpdate).toHaveBeenCalledWith({
+      where: { id: 'examen-folio-1' },
+      data: expect.objectContaining({
+        alumnoId: 'alumno-1',
+        estado: 'entregado',
+        entregadoEn: expect.any(Date)
+      })
+    });
+    expect(mockEntregaCreate).toHaveBeenCalledWith({
+      data: expect.objectContaining({
         examenGeneradoId: 'examen-folio-1',
         alumnoId: 'alumno-1',
         docenteId: 'docente-1',
         acordeonEntregado: true,
         bonoAcordeon: 0.25
       })
-    );
+    });
     expect(res.status).toHaveBeenCalledWith(201);
     expect(res.json).toHaveBeenCalledWith({ entrega });
   });
@@ -202,7 +220,7 @@ describe('controladorVinculacionEntrega', () => {
     const examen = crearExamen({ estado: 'generado' });
     const res = crearRespuesta();
 
-    mockFindOneExamen.mockResolvedValue(examen);
+    mockExamenFindFirst.mockResolvedValue(examen);
 
     await deshacerEntregaPorFolio(
       {
@@ -211,14 +229,14 @@ describe('controladorVinculacionEntrega', () => {
       res
     );
 
-    expect(examen.save).not.toHaveBeenCalled();
-    expect(mockEntregaFindOne).not.toHaveBeenCalled();
+    expect(mockExamenUpdate).not.toHaveBeenCalled();
+    expect(mockEntregaFindMany).not.toHaveBeenCalled();
     expect(res.status).toHaveBeenCalledWith(200);
     expect(res.json).toHaveBeenCalledWith({ actualizado: false, estado: 'generado' });
   });
 
   it('rechaza deshacer por folio cuando el examen ya esta calificado', async () => {
-    mockFindOneExamen.mockResolvedValue(crearExamen({ estado: 'calificado' }));
+    mockExamenFindFirst.mockResolvedValue(crearExamen({ estado: 'calificado' }));
 
     await expect(
       deshacerEntregaPorFolio(
@@ -234,24 +252,24 @@ describe('controladorVinculacionEntrega', () => {
   });
 
   it('deshace la ultima entrega registrada y conserva el motivo', async () => {
+    const res = crearRespuesta();
     const examen = crearExamen({
-      _id: 'examen-entregado-1',
+      id: 'examen-entregado-1',
+      docenteId: 'docente-1',
       alumnoId: 'alumno-1',
       estado: 'entregado',
       entregadoEn: new Date('2026-03-24T00:00:00.000Z')
     });
     const entrega = {
+      id: 'entrega-1',
       estado: 'entregado',
       fechaEntrega: new Date('2026-03-24T00:00:00.000Z'),
-      motivoDeshacer: undefined,
-      save: vi.fn().mockResolvedValue(undefined)
+      motivoDeshacer: null
     };
-    const res = crearRespuesta();
 
-    mockFindOneExamen.mockResolvedValue(examen);
-    mockEntregaFindOne.mockReturnValue({
-      sort: vi.fn().mockResolvedValue(entrega)
-    });
+    mockExamenFindFirst.mockResolvedValue(examen);
+    mockExamenUpdate.mockResolvedValue({ estado: 'generado' });
+    mockEntregaFindMany.mockResolvedValue([entrega]);
 
     await deshacerEntregaPorFolio(
       {
@@ -260,18 +278,27 @@ describe('controladorVinculacionEntrega', () => {
       res
     );
 
-    expect(examen.alumnoId).toBeNull();
-    expect(examen.estado).toBe('generado');
-    expect(examen.entregadoEn).toBeUndefined();
-    expect(examen.save).toHaveBeenCalledTimes(1);
-    expect(mockEntregaFindOne).toHaveBeenCalledWith({
-      examenGeneradoId: 'examen-entregado-1',
-      docenteId: 'docente-1'
+    expect(mockExamenUpdate).toHaveBeenCalledWith({
+      where: { id: 'examen-entregado-1' },
+      data: {
+        alumnoId: null,
+        estado: 'generado',
+        entregadoEn: null
+      }
     });
-    expect(entrega.estado).toBe('pendiente');
-    expect(entrega.fechaEntrega).toBeUndefined();
-    expect(entrega.motivoDeshacer).toBe('captura duplicada');
-    expect(entrega.save).toHaveBeenCalledTimes(1);
+    expect(mockEntregaFindMany).toHaveBeenCalledWith({
+      where: { examenGeneradoId: 'examen-entregado-1', docenteId: 'docente-1' },
+      orderBy: { createdAt: 'desc' },
+      take: 1
+    });
+    expect(mockEntregaUpdate).toHaveBeenCalledWith({
+      where: { id: 'entrega-1' },
+      data: {
+        estado: 'pendiente',
+        fechaEntrega: null,
+        motivoDeshacer: 'captura duplicada'
+      }
+    });
     expect(res.status).toHaveBeenCalledWith(200);
     expect(res.json).toHaveBeenCalledWith({ actualizado: true, estado: 'generado' });
   });

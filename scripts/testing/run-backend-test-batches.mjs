@@ -28,7 +28,7 @@ function toTestArgs(batch) {
     if (String(arg).startsWith('--outputFile.')) continue;
     filters.push(arg);
   }
-  return ['run', ...filters, '--pool=threads', '--reporter=default'];
+  return ['run', ...filters, '--pool=forks', '--reporter=default'];
 }
 
 function runVitest(args, name) {

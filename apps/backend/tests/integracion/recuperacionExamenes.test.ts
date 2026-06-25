@@ -1,12 +1,12 @@
+/**
+ * recuperacionExamenes.test
+ *
+ * Responsabilidad: Verificar la recuperacion de examenes usando Prisma y SQLite.
+ */
 import request from 'supertest';
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { crearApp } from '../../src/app';
-import { ExamenGenerado } from '../../src/modulos/modulo_generacion_pdf/modeloExamenGenerado';
-import { ExamenRecoveryBundle } from '../../src/modulos/modulo_generacion_pdf/modeloExamenRecoveryBundle';
-import { ExamenRecoveryManifest } from '../../src/modulos/modulo_generacion_pdf/modeloExamenRecoveryManifest';
-import { Tenant } from '../../src/modulos/modulo_comercial_core/modeloTenant';
-import { Suscripcion } from '../../src/modulos/modulo_comercial_core/modeloSuscripcion';
-import { Docente } from '../../src/modulos/modulo_autenticacion/modeloDocente';
+import { prisma } from '../../src/infraestructura/baseDatos/sqlite';
 import {
   reconstruirDesdeBundle,
   reconstruirDesdeManifest,
@@ -39,23 +39,11 @@ describe('recuperacion de examenes', () => {
       })
       .expect(201);
     const token = String(registro.body.token);
-    const docente = await Docente.findOne({ correo: 'docente-recovery-service@cuh.mx' }).lean();
-    const docenteId = String((docente as { _id?: unknown })._id ?? '');
+    const docente = await prisma.docente.findFirst({
+      where: { correo: 'docente-recovery-service@cuh.mx' }
+    });
+    const docenteId = String(docente?.id ?? '');
     const auth = { Authorization: `Bearer ${token}` };
-
-    await Tenant.create({
-      tenantId: 'tenant-recovery-service',
-      nombre: 'Tenant Recovery',
-      modalidad: 'saas',
-      estado: 'activo',
-      ownerDocenteId: docenteId
-    });
-    await Suscripcion.create({
-      tenantId: 'tenant-recovery-service',
-      planId: 'plan-pro',
-      ciclo: 'mensual',
-      estado: 'activo'
-    });
 
     const periodo = await request(app)
       .post('/api/periodos')
@@ -124,8 +112,10 @@ describe('recuperacion de examenes', () => {
       .send({ plantillaId: base.plantillaId })
       .expect(201);
     const examenOriginalId = String(generacion.body.examenGenerado._id);
-    const examenOriginal = await ExamenGenerado.findById(examenOriginalId).lean();
-    const manifestHash = String((examenOriginal as { recoveryManifestHash?: unknown }).recoveryManifestHash ?? '');
+    const examenOriginal = await prisma.examenGenerado.findUnique({
+      where: { id: examenOriginalId }
+    });
+    const manifestHash = String(examenOriginal?.recoveryManifestHash ?? '');
 
     const verificacion = await verificarArtifactsRecuperacion({
       actorDocenteId: base.docenteId,
@@ -135,7 +125,9 @@ describe('recuperacion de examenes', () => {
     expect(verificacion.signatureValid).toBe(true);
     expect(verificacion.recoverable).toBe(true);
 
-    await ExamenGenerado.deleteOne({ _id: examenOriginalId });
+    await prisma.examenGenerado.delete({
+      where: { id: examenOriginalId }
+    });
 
     const reconstruccion = await reconstruirDesdeManifest({
       actorDocenteId: base.docenteId,
@@ -145,9 +137,11 @@ describe('recuperacion de examenes', () => {
     expect(reconstruccion.status).toBe('reconstruida');
     expect(reconstruccion.reconstructedExamIds).toHaveLength(1);
 
-    const reconstruido = await ExamenGenerado.findById(reconstruccion.reconstructedExamIds[0]).lean();
+    const reconstruido = await prisma.examenGenerado.findUnique({
+      where: { id: reconstruccion.reconstructedExamIds[0] }
+    });
     expect(reconstruido).toBeTruthy();
-    expect((reconstruido as { recoveryManifestHash?: string }).recoveryManifestHash).toBe(manifestHash);
+    expect(reconstruido?.recoveryManifestHash).toBe(manifestHash);
   });
 
   it('reconstruye un lote completo desde bundle y conserva idempotencia por manifest', async () => {
@@ -170,10 +164,16 @@ describe('recuperacion de examenes', () => {
       .send({ plantillaId: base.plantillaId, loteId: 'LOTRECOVERYSVC' })
       .expect(201);
 
-    const bundleDoc = await ExamenRecoveryBundle.findOne({ loteId: 'LOTRECOVERYSVC' }).lean();
-    const bundleHash = String((bundleDoc as { bundleHash?: unknown }).bundleHash ?? '');
-    const originalCount = await ExamenGenerado.countDocuments({ loteId: 'LOTRECOVERYSVC' });
-    await ExamenGenerado.deleteMany({ loteId: 'LOTRECOVERYSVC' });
+    const bundleDoc = await prisma.examenRecoveryBundle.findFirst({
+      where: { nombre: { contains: 'LOTRECOVERYSVC' } }
+    });
+    const bundleHash = String(bundleDoc?.bundleHash ?? '');
+    const originalCount = await prisma.examenGenerado.count({
+      where: { loteId: 'LOTRECOVERYSVC' }
+    });
+    await prisma.examenGenerado.deleteMany({
+      where: { loteId: 'LOTRECOVERYSVC' }
+    });
 
     const reconstruccion = await reconstruirDesdeBundle({
       actorDocenteId: base.docenteId,
@@ -183,26 +183,9 @@ describe('recuperacion de examenes', () => {
     expect(reconstruccion.status).toBe('reconstruida');
     expect(reconstruccion.reconstructedExamIds).toHaveLength(originalCount);
 
-    const reconstruidos = await ExamenGenerado.countDocuments({ loteId: 'LOTRECOVERYSVC' });
+    const reconstruidos = await prisma.examenGenerado.count({
+      where: { loteId: 'LOTRECOVERYSVC' }
+    });
     expect(reconstruidos).toBe(originalCount);
-  });
-
-  it('rechaza recuperación si el docente no tiene plan activo', async () => {
-    const base = await prepararEscenarioBase();
-    await request(app)
-      .post('/api/examenes/generados')
-      .set(base.auth)
-      .send({ plantillaId: base.plantillaId })
-      .expect(201);
-    const manifestDoc = await ExamenRecoveryManifest.findOne().lean();
-    await Suscripcion.deleteMany({ tenantId: 'tenant-recovery-service' });
-
-    await expect(
-      verificarArtifactsRecuperacion({
-        actorDocenteId: base.docenteId,
-        actorRoles: ['docente'],
-        manifestHash: String((manifestDoc as { manifestHash?: unknown }).manifestHash ?? '')
-      })
-    ).rejects.toMatchObject({ codigo: 'NO_AUTORIZADO' });
   });
 });

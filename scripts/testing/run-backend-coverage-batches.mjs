@@ -2,6 +2,12 @@
 /**
  * run-backend-coverage-batches
  *
+ * Responsabilidad: Modulo interno del sistema.
+ * Limites: Mantener contrato y comportamiento observable del modulo.
+ */
+/**
+ * run-backend-coverage-batches
+ *
  * Responsabilidad: Ejecutar cobertura backend por lotes y aplicar umbrales en el merge global.
  * Limites: No altera la seleccion de tests ni los thresholds definidos por Vitest.
  */
@@ -30,6 +36,7 @@ const zeroThresholdArgs = [
 const integrationFilesAM = [
   'tests/integracion/alumnosEdicion.test.ts',
   'tests/integracion/archivarExamenGenerado.test.ts',
+  'tests/integracion/asistencia.reglas.test.ts',
   'tests/integracion/autenticacion.googleOnly.test.ts',
   'tests/integracion/autenticacion.recuperacion.test.ts',
   'tests/integracion/autenticacionSesion.test.ts',
@@ -42,6 +49,7 @@ const integrationFilesAM = [
   'tests/integracion/classroom.v2.test.ts',
   'tests/integracion/comercial.webhook.mercadopago.firma.test.ts',
   'tests/integracion/compliance.arco.test.ts',
+  'tests/integracion/encuadre.modulo.test.ts',
   'tests/integracion/evaluaciones.modulo.test.ts',
   'tests/integracion/examenesRetention.test.ts',
   'tests/integracion/flujoDocenteAlumnoProduccionLikeE2E.test.ts'
@@ -62,6 +70,7 @@ const integrationFilesNZ = [
   'tests/integracion/recuperacionExamenes.test.ts',
   'tests/integracion/regenerarExamenGenerado.test.ts',
   'tests/integracion/rolesPermisos.test.ts',
+  'tests/integracion/temario.pdf.test.ts',
   'tests/integracion/versionadoApiV2Contratos.test.ts'
 ];
 

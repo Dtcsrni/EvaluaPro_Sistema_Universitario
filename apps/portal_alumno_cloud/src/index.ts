@@ -3,11 +3,11 @@
  */
 import { crearApp } from './app';
 import { configuracion } from './configuracion';
-import { conectarBaseDatos } from './infraestructura/baseDatos/mongoose';
+import { conectarSqlite } from './infraestructura/baseDatos/sqlite';
 import { log, logError } from './infraestructura/logging/logger';
 
 async function iniciar() {
-  await conectarBaseDatos();
+  await conectarSqlite();
   const app = crearApp();
 
   app.listen(configuracion.puerto, () => {

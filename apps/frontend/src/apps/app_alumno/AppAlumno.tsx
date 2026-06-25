@@ -528,21 +528,21 @@ export function AppAlumno() {
             </div>
           </div>
           <div className="portal-alumno-shell__summary" aria-label="Resumen visual del portal alumno">
-            <article className="portal-alumno-shell__summaryCard">
+            <article className="portal-alumno-shell__summaryCard glass-card scale-hover">
               <span>Folios</span>
               <strong>{`${resultados.length} ${resultados.length === 1 ? 'folio' : 'folios'}`}</strong>
             </article>
-            <article className="portal-alumno-shell__summaryCard">
+            <article className="portal-alumno-shell__summaryCard glass-card scale-hover">
               <span>Materias</span>
               <strong>{`${materias.length} ${materias.length === 1 ? 'materia' : 'materias'}`}</strong>
             </article>
-            <article className="portal-alumno-shell__summaryCard">
+            <article className="portal-alumno-shell__summaryCard glass-card scale-hover">
               <span>Avisos</span>
               <strong>{`${avisos.length} ${avisos.length === 1 ? 'aviso' : 'avisos'}`}</strong>
             </article>
           </div>
           <div className="guia-grid">
-            <div className="item-glass portal-alumno-card">
+            <div className="item-glass portal-alumno-card glass-card scale-hover">
               <div className="item-title portal-card-title">
                 <span className="portal-card-icon portal-card-icon--perfil"><Icono nombre="alumno" /></span> Perfil
               </div>
@@ -552,7 +552,7 @@ export function AppAlumno() {
                 <span>Grupo: {perfil?.grupo || '-'}</span>
               </div>
             </div>
-            <div className="item-glass portal-alumno-card">
+            <div className="item-glass portal-alumno-card glass-card scale-hover">
               <div className="item-title portal-card-title">
                 <span className="portal-card-icon portal-card-icon--materias"><Icono nombre="periodos" /></span> Materias
               </div>
@@ -561,7 +561,7 @@ export function AppAlumno() {
                 <span>{materias.slice(0, 2).map((m) => m.nombre).filter(Boolean).join(' · ') || '-'}</span>
               </div>
             </div>
-            <div className="item-glass portal-alumno-card">
+            <div className="item-glass portal-alumno-card glass-card scale-hover">
               <div className="item-title portal-card-title">
                 <span className="portal-card-icon portal-card-icon--agenda"><Icono nombre="info" /></span> Agenda
               </div>
@@ -570,7 +570,7 @@ export function AppAlumno() {
                 <span>{agenda[0]?.titulo || '-'}</span>
               </div>
             </div>
-            <div className="item-glass portal-alumno-card">
+            <div className="item-glass portal-alumno-card glass-card scale-hover">
               <div className="item-title portal-card-title">
                 <span className="portal-card-icon portal-card-icon--avisos"><Icono nombre="alerta" /></span> Avisos
               </div>
@@ -579,7 +579,7 @@ export function AppAlumno() {
                 <span>{avisos[0]?.titulo || '-'}</span>
               </div>
             </div>
-            <div className="item-glass portal-alumno-card">
+            <div className="item-glass portal-alumno-card glass-card scale-hover">
               <div className="item-title portal-card-title">
                 <span className="portal-card-icon portal-card-icon--historial"><Icono nombre="recargar" /></span> Historial
               </div>
@@ -600,8 +600,8 @@ export function AppAlumno() {
           />
           <ul className="lista lista-items">
             {resultados.map((resultado) => (
-              <li key={resultado.folio}>
-                <div className="item-glass portal-resultado-card">
+              <li key={resultado.folio} className="anim-slide-up">
+                <div className="item-glass glass-card-interactive scale-hover portal-resultado-card">
                   <div className="item-row">
                     <div>
                       <div className="item-title portal-card-title">
@@ -694,7 +694,7 @@ export function AppAlumno() {
                     </div>
                   </div>
                   {detalleAbiertoFolio === resultado.folio && (
-                    <div className="alumno-detalle">
+                    <div className="alumno-detalle anim-slide-up">
                       {cargandoDetallePorFolio[resultado.folio] && (
                         <p className="mensaje" role="status">
                           <Spinner /> Cargando detalle del examen...
@@ -834,14 +834,14 @@ export function AppAlumno() {
                                   </div>
                                 )}
                                 {Array.isArray(detalle.omrCapturas) && detalle.omrCapturas.length > 0 && (
-                                  <div className="panel alumno-detalle" aria-label="Capturas OMR por página">
+                                  <div className="panel alumno-detalle anim-slide-up" aria-label="Capturas OMR por página">
                                     <h4>Capturas OMR por página</h4>
                                     <div className="guia-grid">
                                       {detalle.omrCapturas
                                         .slice()
                                         .sort((a, b) => Number(a.numeroPagina) - Number(b.numeroPagina))
                                         .map((captura) => (
-                                          <div className="item-glass" key={`${resultado.folio}-captura-${captura.numeroPagina}`}>
+                                          <div className="item-glass glass-card-interactive scale-hover" key={`${resultado.folio}-captura-${captura.numeroPagina}`}>
                                             <div className="item-meta">
                                               <span>Página {captura.numeroPagina}</span>
                                               {typeof captura.calidad === 'number' && <span>Calidad: {(captura.calidad * 100).toFixed(0)}%</span>}

@@ -1,3 +1,9 @@
+/**
+ * seccionAutenticacion.googleOnly.test
+ *
+ * Responsabilidad: Modulo interno del sistema.
+ * Limites: Mantener contrato y comportamiento observable del modulo.
+ */
 import { render, screen } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 import { SeccionAutenticacion } from '../src/apps/app_docente/SeccionAutenticacion';

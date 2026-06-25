@@ -23,7 +23,7 @@ test('backend test batches conserva filtros y elimina flags de coverage', () => 
     '--exclude',
     'tests/integracion/**',
     'tests/unitario.test.ts',
-    '--pool=threads',
+    '--pool=forks',
     '--reporter=default'
   ]);
 });

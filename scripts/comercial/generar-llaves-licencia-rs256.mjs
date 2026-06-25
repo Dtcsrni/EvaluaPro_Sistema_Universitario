@@ -1,3 +1,9 @@
+/**
+ * generar-llaves-licencia-rs256
+ *
+ * Responsabilidad: Modulo interno del sistema.
+ * Limites: Mantener contrato y comportamiento observable del modulo.
+ */
 import crypto from 'node:crypto';
 
 function nowKid() {

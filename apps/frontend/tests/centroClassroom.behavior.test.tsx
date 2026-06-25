@@ -1,3 +1,9 @@
+/**
+ * centroClassroom.behavior.test
+ *
+ * Responsabilidad: Modulo interno del sistema.
+ * Limites: Mantener contrato y comportamiento observable del modulo.
+ */
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { ErrorRemoto } from '../src/servicios_api/clienteApi';

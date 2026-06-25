@@ -1,3 +1,9 @@
+/**
+ * confirmDialogProvider.test
+ *
+ * Responsabilidad: Modulo interno del sistema.
+ * Limites: Mantener contrato y comportamiento observable del modulo.
+ */
 import { renderHook } from '@testing-library/react';
 import { describe, expect, it } from 'vitest';
 import { useConfirmDialog } from '../src/ui/feedback/ConfirmDialogProvider';

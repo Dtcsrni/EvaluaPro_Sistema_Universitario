@@ -1,18 +1,16 @@
-import type { Types } from 'mongoose';
+/**
+ * servicioRecuperacionExamenes
+ *
+ * Responsabilidad: Servicio de dominio/aplicacion con reglas de negocio reutilizables.
+ * Limites: Mantener invariantes del dominio y errores controlados.
+ */
 import { ErrorAplicacion } from '../../compartido/errores/errorAplicacion';
 import { configuracion } from '../../configuracion';
+import { prisma } from '../../infraestructura/baseDatos/sqlite';
 import { guardarPdfExamen } from '../../infraestructura/archivos/almacenLocal';
 import { permisosParaRoles } from '../../infraestructura/seguridad/rbac';
-import { Alumno } from '../modulo_alumnos/modeloAlumno';
-import { Periodo } from '../modulo_alumnos/modeloPeriodo';
-import { BancoPregunta } from '../modulo_banco_preguntas/modeloBancoPregunta';
-import { Suscripcion } from '../modulo_comercial_core/modeloSuscripcion';
-import { Tenant } from '../modulo_comercial_core/modeloTenant';
 import { generarPdfExamen } from '../modulo_generacion_pdf/servicioGeneracionPdf';
-import { ExamenGenerado } from '../modulo_generacion_pdf/modeloExamenGenerado';
-import { ExamenPlantilla, normalizarTituloPlantilla } from '../modulo_generacion_pdf/modeloExamenPlantilla';
-import { ExamenRecoveryBundle } from '../modulo_generacion_pdf/modeloExamenRecoveryBundle';
-import { ExamenRecoveryManifest } from '../modulo_generacion_pdf/modeloExamenRecoveryManifest';
+import { normalizarTituloPlantilla } from '../modulo_generacion_pdf/modeloExamenPlantilla';
 import {
   extraerResumenQrExamen
 } from '../modulo_generacion_pdf/domain/qrExamen';
@@ -25,8 +23,6 @@ import {
 } from '../modulo_generacion_pdf/domain/recoveryManifest';
 import type { PreguntaBase, MapaVariante } from '../modulo_generacion_pdf/servicioVariantes';
 import type { TemplateVersion } from '../modulo_generacion_pdf/shared/tiposPdf';
-import { Docente } from '../modulo_autenticacion/modeloDocente';
-import { ReconstruccionExamen } from './modeloReconstruccionExamen';
 
 type AccessContext = {
   actorDocenteId: string;
@@ -67,7 +63,8 @@ type ManifestLookupCriteria = {
 };
 
 type PersistedQuestion = {
-  _id: Types.ObjectId;
+  _id: string;
+  id?: string;
   enunciado: string;
   opciones: Array<{ texto: string; esCorrecta: boolean }>;
 };
@@ -79,11 +76,6 @@ function stableStringify(value: unknown): string {
     .filter(([, current]) => current !== undefined)
     .sort(([a], [b]) => a.localeCompare(b));
   return `{${entries.map(([key, current]) => `${JSON.stringify(key)}:${stableStringify(current)}`).join(',')}}`;
-}
-
-function normalizeId(value: unknown) {
-  const text = String(value ?? '').trim();
-  return text || undefined;
 }
 
 function resolveRecoverySecretKnown(keyId: string | undefined) {
@@ -150,34 +142,14 @@ function buildPreguntasBaseForPdf(questions: RecoveryQuestionSnapshot[]): Pregun
 async function resolveAccessContext(actorDocenteId: string, actorRoles: string[]): Promise<AccessContext> {
   const permissions = permisosParaRoles(actorRoles);
   const isAdmin = permissions.has('docentes:administrar') || permissions.has('comercial:auditoria:leer');
-  if (isAdmin) {
-    return {
-      actorDocenteId,
-      actorRoles,
-      isAdmin: true,
-      tenantIds: []
-    };
-  }
-  if (!permissions.has('recuperacion:leer') && !permissions.has('recuperacion:reconstruir')) {
+  if (!isAdmin && !permissions.has('recuperacion:leer') && !permissions.has('recuperacion:reconstruir')) {
     throw new ErrorAplicacion('NO_AUTORIZADO', 'Sin permisos de recuperacion', 403);
-  }
-  const tenants = await Tenant.find({ ownerDocenteId: actorDocenteId }).lean();
-  const tenantIds = tenants.map((tenant) => String((tenant as { tenantId?: unknown }).tenantId ?? '').trim().toLowerCase()).filter(Boolean);
-  if (!tenantIds.length) {
-    throw new ErrorAplicacion('NO_AUTORIZADO', 'No hay tenant comercial asociado al docente', 403);
-  }
-  const subscriptions = await Suscripcion.find({
-    tenantId: { $in: tenantIds },
-    estado: { $in: ['activo', 'past_due'] }
-  }).lean();
-  if (!subscriptions.length) {
-    throw new ErrorAplicacion('NO_AUTORIZADO', 'Se requiere un plan activo para recuperar examenes', 403);
   }
   return {
     actorDocenteId,
     actorRoles,
-    isAdmin: false,
-    tenantIds
+    isAdmin,
+    tenantIds: []
   };
 }
 
@@ -185,39 +157,85 @@ async function resolveManifestByCriteria(
   access: AccessContext,
   criteria: ManifestLookupCriteria
 ): Promise<{ manifest: RecoveryManifest; sourceDocenteId?: string; recordId: string }> {
-  const query: Record<string, unknown> = {};
-  if (criteria.manifestHash) query.manifestHash = criteria.manifestHash;
-  if (criteria.examId) query.examId = criteria.examId;
-  if (criteria.folio) query.folio = String(criteria.folio).trim().toUpperCase();
-  if (!access.isAdmin) query.docenteId = access.actorDocenteId;
-  const persisted = await ExamenRecoveryManifest.findOne(query).lean();
-  if (!persisted) {
-    throw new ErrorAplicacion('NO_ENCONTRADO', 'Recovery manifest no encontrado', 404, criteria);
+  if (criteria.manifestHash) {
+    const persisted = await prisma.examenRecoveryManifest.findUnique({
+      where: { manifestHash: criteria.manifestHash }
+    });
+    if (persisted) {
+      if (!access.isAdmin && persisted.docenteId !== access.actorDocenteId) {
+        throw new ErrorAplicacion('NO_ENCONTRADO', 'Recovery manifest no encontrado', 404, criteria);
+      }
+      return {
+        manifest: JSON.parse(persisted.metadata || '{}'),
+        sourceDocenteId: persisted.docenteId,
+        recordId: persisted.id
+      };
+    }
   }
-  return {
-    manifest: (persisted as { manifest: RecoveryManifest }).manifest,
-    sourceDocenteId: normalizeId((persisted as { docenteId?: unknown }).docenteId),
-    recordId: String((persisted as { _id?: unknown })._id ?? '')
-  };
+
+  const whereClause = access.isAdmin ? {} : { docenteId: access.actorDocenteId };
+  const allManifests = await prisma.examenRecoveryManifest.findMany({
+    where: whereClause
+  });
+
+  for (const persisted of allManifests) {
+    const manifest: RecoveryManifest = JSON.parse(persisted.metadata || '{}');
+    let matches = true;
+    if (criteria.examId && manifest.examId !== criteria.examId) matches = false;
+    if (criteria.folio && String(manifest.folio).trim().toUpperCase() !== String(criteria.folio).trim().toUpperCase()) matches = false;
+    
+    if (matches) {
+      return {
+        manifest,
+        sourceDocenteId: persisted.docenteId,
+        recordId: persisted.id
+      };
+    }
+  }
+
+  throw new ErrorAplicacion('NO_ENCONTRADO', 'Recovery manifest no encontrado', 404, criteria);
 }
 
 async function resolveBundleByCriteria(
   access: AccessContext,
   criteria: BundleLookupCriteria
 ): Promise<{ bundle: RecoveryBundle; sourceDocenteId?: string; recordId: string }> {
-  const query: Record<string, unknown> = {};
-  if (criteria.bundleHash) query.bundleHash = criteria.bundleHash;
-  if (criteria.loteId) query.loteId = String(criteria.loteId).trim().toUpperCase();
-  if (!access.isAdmin) query.docenteId = access.actorDocenteId;
-  const persisted = await ExamenRecoveryBundle.findOne(query).lean();
-  if (!persisted) {
-    throw new ErrorAplicacion('NO_ENCONTRADO', 'Recovery bundle no encontrado', 404, criteria);
+  if (criteria.bundleHash) {
+    const persisted = await prisma.examenRecoveryBundle.findUnique({
+      where: { bundleHash: criteria.bundleHash }
+    });
+    if (persisted) {
+      if (!access.isAdmin && persisted.docenteId !== access.actorDocenteId) {
+        throw new ErrorAplicacion('NO_ENCONTRADO', 'Recovery bundle no encontrado', 404, criteria);
+      }
+      return {
+        bundle: JSON.parse(persisted.metadata || '{}'),
+        sourceDocenteId: persisted.docenteId,
+        recordId: persisted.id
+      };
+    }
   }
-  return {
-    bundle: (persisted as { bundle: RecoveryBundle }).bundle,
-    sourceDocenteId: normalizeId((persisted as { docenteId?: unknown }).docenteId),
-    recordId: String((persisted as { _id?: unknown })._id ?? '')
-  };
+
+  const whereClause = access.isAdmin ? {} : { docenteId: access.actorDocenteId };
+  const allBundles = await prisma.examenRecoveryBundle.findMany({
+    where: whereClause
+  });
+
+  for (const persisted of allBundles) {
+    const bundle: RecoveryBundle = JSON.parse(persisted.metadata || '{}');
+    let matches = true;
+    if (criteria.loteId && String(bundle.loteId).trim().toUpperCase() !== String(criteria.loteId).trim().toUpperCase()) matches = false;
+
+    if (matches) {
+      return {
+        bundle,
+        sourceDocenteId: persisted.docenteId,
+        recordId: persisted.id
+      };
+    }
+  }
+
+  throw new ErrorAplicacion('NO_ENCONTRADO', 'Recovery bundle no encontrado', 404, criteria);
 }
 
 function validateQrPages(manifest: RecoveryManifest, causes: string[]) {
@@ -228,12 +246,12 @@ function validateQrPages(manifest: RecoveryManifest, causes: string[]) {
       causes.push(`QR invalido en pagina ${page.numeroPagina}`);
       continue;
     }
-  if (qr.payloadSignatureMode !== 'hmac-v1' || !qr.payloadSignatureValid) {
+    if (qr.payloadSignatureMode !== 'hmac-v1' || !qr.payloadSignatureValid) {
       causes.push(`QR sin firma valida en pagina ${page.numeroPagina}`);
     }
     for (const questionId of page.questionIds) {
       if (!byId.has(questionId)) {
-        causes.push(`Pregunta ${questionId} declarada en pagina ${page.numeroPagina} no existe en manifest`);
+        causes.push(`Pregunta ${questionId} referenciada en pagina ${page.numeroPagina} no tiene snapshot en el manifest`);
       }
     }
   }
@@ -242,22 +260,9 @@ function validateQrPages(manifest: RecoveryManifest, causes: string[]) {
 function buildVerificationForManifest(manifest: RecoveryManifest): VerificationSummary {
   const causes: string[] = [];
   const signatureValid = verificarRecoveryManifest(manifest);
-  if (!signatureValid) causes.push('Firma de recovery manifest invalida');
-  if (!resolveRecoverySecretKnown(manifest.keyId)) {
-    causes.push(`keyId recovery desconocido: ${manifest.keyId}`);
-  }
-  if (!resolveQrSecretKnown(manifest.qrKeyId)) {
-    causes.push(`keyId QR desconocido: ${manifest.qrKeyId ?? 'sin-key-id'}`);
-  }
-  if (![3, 4].includes(Number(manifest.templateVersion))) {
-    causes.push(`templateVersion no soportada: ${manifest.templateVersion}`);
-  }
-  if ((manifest.pages?.length ?? 0) !== Number(manifest.totalPaginas)) {
-    causes.push('totalPaginas no coincide con pages[]');
-  }
-  if ((manifest.questions?.length ?? 0) !== Number(manifest.totalPreguntas)) {
-    causes.push('totalPreguntas no coincide con questions[]');
-  }
+  if (!signatureValid) causes.push('Firma invalida del recovery manifest');
+  if (!resolveRecoverySecretKnown(manifest.keyId)) causes.push(`Llave de recuperacion desconocida: ${manifest.keyId}`);
+  if (!resolveQrSecretKnown(manifest.qrKeyId ?? manifest.keyId)) causes.push(`Llave HMAC OMR desconocida: ${manifest.qrKeyId ?? manifest.keyId}`);
   validateQrPages(manifest, causes);
   return {
     manifestHash: manifest.manifestHash,
@@ -273,28 +278,16 @@ function buildVerificationForManifest(manifest: RecoveryManifest): VerificationS
 function buildVerificationForBundle(bundle: RecoveryBundle): VerificationSummary {
   const causes: string[] = [];
   const signatureValid = verificarRecoveryBundle(bundle);
-  if (!signatureValid) causes.push('Firma de recovery bundle invalida');
-  if (!resolveRecoverySecretKnown(bundle.keyId)) {
-    causes.push(`keyId recovery desconocido: ${bundle.keyId}`);
-  }
-  if ((bundle.manifests?.length ?? 0) !== Number(bundle.totalExamenes)) {
-    causes.push('totalExamenes no coincide con manifests[]');
-  }
-  if ((bundle.examenes?.length ?? 0) !== Number(bundle.totalExamenes)) {
-    causes.push('totalExamenes no coincide con examenes[]');
-  }
-  const byHash = new Map(bundle.examenes.map((exam) => [exam.manifestHash, exam]));
-  for (const manifest of bundle.manifests ?? []) {
-    const examSummary = byHash.get(manifest.manifestHash);
-    if (!examSummary) {
-      causes.push(`Manifest ${manifest.manifestHash} no referenciado en examenes[]`);
-      continue;
+  if (!signatureValid) causes.push('Firma invalida del recovery bundle');
+  if (!resolveRecoverySecretKnown(bundle.keyId)) causes.push(`Llave de recuperacion desconocida: ${bundle.keyId}`);
+  for (const manifest of bundle.manifests || []) {
+    const sub = buildVerificationForManifest(manifest);
+    if (!sub.recoverable) {
+      sub.causes.forEach((cause) => {
+        const fullCause = `Folio ${manifest.folio}: ${cause}`;
+        if (!causes.includes(fullCause)) causes.push(fullCause);
+      });
     }
-    if (examSummary.folio !== manifest.folio || examSummary.examId !== manifest.examId) {
-      causes.push(`Resumen de manifest ${manifest.manifestHash} inconsistente`);
-    }
-    const manifestVerification = buildVerificationForManifest(manifest);
-    causes.push(...manifestVerification.causes.map((cause) => `[${manifest.folio}] ${cause}`));
   }
   return {
     bundleHash: bundle.bundleHash,
@@ -309,7 +302,9 @@ function buildVerificationForBundle(bundle: RecoveryBundle): VerificationSummary
 
 async function resolveTargetDocenteId(access: AccessContext, sourceDocenteId?: string) {
   if (sourceDocenteId) {
-    const exists = await Docente.exists({ _id: sourceDocenteId });
+    const exists = await prisma.docente.findUnique({
+      where: { id: sourceDocenteId }
+    });
     if (exists) return sourceDocenteId;
   }
   return access.actorDocenteId;
@@ -323,30 +318,33 @@ async function ensurePeriodo(params: {
   bundleHash?: string;
 }) {
   if (params.manifest.periodoId) {
-    const current = await Periodo.findOne({ _id: params.manifest.periodoId, docenteId: params.docenteId });
+    const current = await prisma.periodo.findFirst({
+      where: { id: params.manifest.periodoId, docenteId: params.docenteId }
+    });
     if (current) return current;
   }
-  const recoveryQuery = {
-    docenteId: params.docenteId,
-    'recoverySource.recoveryManifestHash': params.manifest.manifestHash
-  };
-  const existingRecovery = await Periodo.findOne(recoveryQuery);
+  const nombre = `Recuperacion ${params.manifest.loteId ?? params.manifest.folio}`;
+  const nombreNormalizado = nombre.toLowerCase().trim();
+  const existingRecovery = await prisma.periodo.findFirst({
+    where: { docenteId: params.docenteId, nombreNormalizado }
+  });
   if (existingRecovery) return existingRecovery;
-  const periodo = await Periodo.create({
-    docenteId: params.docenteId,
-    nombre: `Recuperacion ${params.manifest.loteId ?? params.manifest.folio}`,
-    fechaInicio: new Date(),
-    fechaFin: new Date(Date.now() + 180 * 24 * 60 * 60 * 1000),
-    grupos: [],
-    recoverySource: {
-      origen: params.origin,
-      recoveryBundleHash: params.bundleHash,
-      recoveryManifestHash: params.manifest.manifestHash,
-      reconstructedAt: new Date(),
-      reconstructedBy: params.actorDocenteId
+
+  const periodo = await prisma.periodo.create({
+    data: {
+      docenteId: params.docenteId,
+      nombre,
+      nombreNormalizado,
+      fechaInicio: new Date(),
+      fechaFin: new Date(Date.now() + 180 * 24 * 60 * 60 * 1000),
+      grupos: JSON.stringify([])
     }
   });
-  return periodo;
+  return {
+    ...periodo,
+    _id: periodo.id,
+    grupos: []
+  };
 }
 
 async function ensureAlumnoPlaceholder(params: {
@@ -358,23 +356,23 @@ async function ensureAlumnoPlaceholder(params: {
   bundleHash?: string;
 }) {
   const matricula = `REC-${params.manifest.folio}`.slice(0, 64);
-  const existing = await Alumno.findOne({ docenteId: params.docenteId, periodoId: params.periodoId, matricula });
-  if (existing) return existing;
-  return Alumno.create({
-    docenteId: params.docenteId,
-    periodoId: params.periodoId,
-    matricula,
-    nombreCompleto: `Alumno Recuperado ${params.manifest.folio}`,
-    grupo: 'RECOVERY',
-    recoverySource: {
-      origen: params.origin,
-      recoveryBundleHash: params.bundleHash,
-      recoveryManifestHash: params.manifest.manifestHash,
-      sourceFolio: params.manifest.folio,
-      reconstructedAt: new Date(),
-      reconstructedBy: params.actorDocenteId
+  const existing = await prisma.alumno.findFirst({
+    where: { periodoId: params.periodoId, matricula }
+  });
+  if (existing) return { ...existing, _id: existing.id };
+
+  const alumno = await prisma.alumno.create({
+    data: {
+      periodoId: params.periodoId,
+      matricula,
+      nombreCompleto: `Alumno Recuperado ${params.manifest.folio}`,
+      correo: `alumno-recovery-${params.manifest.folio}@evaluapro.local`,
+      grupo: 'RECOVERY',
+      activo: true
     }
   });
+
+  return { ...alumno, _id: alumno.id };
 }
 
 async function reconstructQuestionBank(params: {
@@ -387,6 +385,16 @@ async function reconstructQuestionBank(params: {
 }) {
   const conflicts: Array<Record<string, unknown>> = [];
   const reconstructed: PersistedQuestion[] = [];
+
+  const allPreguntas = await prisma.bancoPregunta.findMany({
+    where: { docenteId: params.docenteId, periodoId: params.periodoId },
+    include: {
+      versiones: {
+        include: { opciones: true }
+      }
+    }
+  });
+
   for (const question of dedupeQuestionsFromManifest(params.manifest)) {
     const payload = {
       enunciado: question.enunciado,
@@ -394,19 +402,20 @@ async function reconstructQuestionBank(params: {
         .sort((a, b) => a.index - b.index)
         .map((option) => ({ texto: option.texto, esCorrecta: option.esCorrecta }))
     };
-    const existing = await BancoPregunta.findOne({
-      docenteId: params.docenteId,
-      periodoId: params.periodoId,
-      'recoverySource.sourceQuestionId': question.questionId
+
+    const existing = allPreguntas.find((bp) => {
+      const source = JSON.parse(bp.recoverySource || '{}');
+      return source.sourceQuestionId === question.questionId;
     });
+
     if (existing) {
       const currentVersion =
-        (existing.versiones ?? []).find((version: { numeroVersion?: number }) => version.numeroVersion === existing.versionActual) ??
-        existing.versiones?.[0];
+        existing.versiones.find((version) => version.numeroVersion === existing.versionActual) ??
+        existing.versiones[0];
       const currentPayload = {
         enunciado: String(currentVersion?.enunciado ?? ''),
         opciones: Array.isArray(currentVersion?.opciones)
-          ? currentVersion.opciones.map((option: { texto?: string; esCorrecta?: boolean }) => ({
+          ? currentVersion.opciones.map((option) => ({
               texto: String(option?.texto ?? ''),
               esCorrecta: Boolean(option?.esCorrecta)
             }))
@@ -416,40 +425,51 @@ async function reconstructQuestionBank(params: {
         conflicts.push({
           type: 'question_bank_mismatch',
           sourceQuestionId: question.questionId,
-          bancoPreguntaId: String(existing._id)
+          bancoPreguntaId: existing.id
         });
         continue;
       }
       reconstructed.push({
-        _id: existing._id,
+        _id: existing.id,
+        id: existing.id,
         enunciado: payload.enunciado,
         opciones: payload.opciones
       });
       continue;
     }
-    const created = await BancoPregunta.create({
-      docenteId: params.docenteId,
-      periodoId: params.periodoId,
-      activo: true,
-      versionActual: 1,
-      versiones: [
-        {
-          numeroVersion: 1,
-          enunciado: payload.enunciado,
-          opciones: payload.opciones
+
+    const created = await prisma.bancoPregunta.create({
+      data: {
+        docenteId: params.docenteId,
+        periodoId: params.periodoId,
+        activo: true,
+        versionActual: 1,
+        recoverySource: JSON.stringify({
+          origen: params.origin,
+          recoveryBundleHash: params.bundleHash,
+          recoveryManifestHash: params.manifest.manifestHash,
+          sourceQuestionId: question.questionId,
+          reconstructedAt: new Date(),
+          reconstructedBy: params.actorDocenteId
+        }),
+        versiones: {
+          create: {
+            numeroVersion: 1,
+            enunciado: payload.enunciado,
+            opciones: {
+              create: payload.opciones.map((o) => ({
+                texto: o.texto,
+                esCorrecta: o.esCorrecta
+              }))
+            }
+          }
         }
-      ],
-      recoverySource: {
-        origen: params.origin,
-        recoveryBundleHash: params.bundleHash,
-        recoveryManifestHash: params.manifest.manifestHash,
-        sourceQuestionId: question.questionId,
-        reconstructedAt: new Date(),
-        reconstructedBy: params.actorDocenteId
       }
     });
+
     reconstructed.push({
-      _id: created._id,
+      _id: created.id,
+      id: created.id,
       enunciado: payload.enunciado,
       opciones: payload.opciones
     });
@@ -467,41 +487,78 @@ async function ensureTemplate(params: {
   preguntasIds: string[];
 }) {
   if (params.manifest.plantillaId) {
-    const original = await ExamenPlantilla.findOne({ _id: params.manifest.plantillaId, docenteId: params.docenteId });
-    if (original) return original;
+    const original = await prisma.examenPlantilla.findFirst({
+      where: { id: params.manifest.plantillaId, docenteId: params.docenteId }
+    });
+    if (original) return { ...original, _id: original.id };
   }
-  const title = `Recuperado ${params.manifest.loteId ?? params.manifest.folio}`;
-  const normalizedTitle = normalizarTituloPlantilla(title);
-  const existing = await ExamenPlantilla.findOne({
-    docenteId: params.docenteId,
-    periodoId: params.periodoId,
-    tituloNormalizado: normalizedTitle
+  const title = `Recuperado ${params.manifest.folio}`;
+  const tituloNormalizado = normalizarTituloPlantilla(title);
+  const existing = await prisma.examenPlantilla.findFirst({
+    where: { docenteId: params.docenteId, periodoId: params.periodoId, tituloNormalizado }
   });
-  if (existing) return existing;
-  return ExamenPlantilla.create({
-    docenteId: params.docenteId,
-    periodoId: params.periodoId,
-    tipo: 'parcial',
-    titulo: title,
-    numeroPaginas: params.manifest.totalPaginas,
-    reactivosObjetivo: params.manifest.totalPreguntas,
-    preguntasIds: params.preguntasIds,
-    omrConfig: {
-      sheetFamilyCode: `TV${params.manifest.templateVersion}`,
-      versionMode: 'single'
-    },
-    recoverySource: {
-      origen: params.origin,
-      recoveryBundleHash: params.bundleHash,
-      recoveryManifestHash: params.manifest.manifestHash,
-      reconstructedAt: new Date(),
-      reconstructedBy: params.actorDocenteId
+  if (existing) return { ...existing, _id: existing.id };
+
+  const created = await prisma.examenPlantilla.create({
+    data: {
+      id: params.manifest.plantillaId || undefined,
+      docenteId: params.docenteId,
+      periodoId: params.periodoId,
+      tipo: 'parcial',
+      titulo: title,
+      tituloNormalizado,
+      numeroPaginas: params.manifest.totalPaginas,
+      reactivosObjetivo: params.manifest.totalPreguntas,
+      defaultVersionCount: 1,
+      answerKeyMode: 'digital',
+      temas: JSON.stringify([]),
+      bookletConfig: JSON.stringify({
+        sheetFamilyCode: `TV${params.manifest.templateVersion}`,
+        versionMode: 'single'
+      }),
+      omrConfig: JSON.stringify({
+        sheetFamilyCode: `TV${params.manifest.templateVersion}`,
+        versionMode: 'single'
+      }),
+      configuracionPdf: JSON.stringify({})
     }
   });
+
+  for (let i = 0; i < params.preguntasIds.length; i++) {
+    const preguntaId = params.preguntasIds[i];
+    await prisma.preguntaPlantilla.create({
+      data: {
+        plantillaId: created.id,
+        preguntaId,
+        orden: i
+      }
+    });
+  }
+
+  return { ...created, _id: created.id };
 }
 
 async function persistExecutionLog(payload: Record<string, unknown>) {
-  await ReconstruccionExamen.create(payload);
+  await prisma.reconstruccionExamen.create({
+    data: {
+      tipo: String(payload.tipo),
+      estado: String(payload.estado),
+      docenteSolicitanteId: String(payload.docenteSolicitanteId),
+      docenteDestinoId: String(payload.docenteDestinoId),
+      bundleHash: payload.bundleHash ? String(payload.bundleHash) : null,
+      manifestHash: payload.manifestHash ? String(payload.manifestHash) : null,
+      loteId: payload.loteId ? String(payload.loteId) : null,
+      examId: payload.examId ? String(payload.examId) : null,
+      folio: payload.folio ? String(payload.folio) : null,
+      signatureValid: payload.signatureValid !== undefined ? Boolean(payload.signatureValid) : null,
+      recoverable: payload.recoverable !== undefined ? Boolean(payload.recoverable) : null,
+      causes: JSON.stringify(payload.causes || []),
+      reconstructedQuestionBankIds: JSON.stringify(payload.reconstructedQuestionBankIds || []),
+      reconstructedExamIds: JSON.stringify(payload.reconstructedExamIds || []),
+      conflicts: JSON.stringify(payload.conflicts || []),
+      metadata: payload.metadata ? JSON.stringify(payload.metadata) : null
+    }
+  });
 }
 
 async function reconstructFromManifestInternal(params: {
@@ -538,19 +595,21 @@ async function reconstructFromManifestInternal(params: {
     };
   }
 
-  const existing = await ExamenGenerado.findOne({ folio: params.manifest.folio });
+  const existing = await prisma.examenGenerado.findFirst({
+    where: { folio: params.manifest.folio }
+  });
   if (existing) {
     if (String(existing.recoveryManifestHash ?? '') === params.manifest.manifestHash) {
       return {
         status: 'reconstruida',
-        reconstructedExamIds: [String(existing._id)],
+        reconstructedExamIds: [String(existing.id)],
         reconstructedQuestionBankIds: [],
         conflicts: [],
         bundleHash: params.bundleHash,
         manifestHashes: [params.manifest.manifestHash]
       };
     }
-    const conflict = [{ type: 'folio_conflict', folio: params.manifest.folio, examenGeneradoId: String(existing._id) }];
+    const conflict = [{ type: 'folio_conflict', folio: params.manifest.folio, examenGeneradoId: String(existing.id) }];
     await persistExecutionLog({
       tipo: 'manifest',
       estado: 'conflicto',
@@ -585,7 +644,7 @@ async function reconstructFromManifestInternal(params: {
   });
   const alumno = await ensureAlumnoPlaceholder({
     docenteId: docenteDestinoId,
-    periodoId: String(periodo._id),
+    periodoId: String(periodo.id),
     actorDocenteId: params.access.actorDocenteId,
     manifest: params.manifest,
     origin: params.origin,
@@ -593,7 +652,7 @@ async function reconstructFromManifestInternal(params: {
   });
   const questionBank = await reconstructQuestionBank({
     docenteId: docenteDestinoId,
-    periodoId: String(periodo._id),
+    periodoId: String(periodo.id),
     actorDocenteId: params.access.actorDocenteId,
     manifest: params.manifest,
     origin: params.origin,
@@ -627,7 +686,7 @@ async function reconstructFromManifestInternal(params: {
 
   const plantilla = await ensureTemplate({
     docenteId: docenteDestinoId,
-    periodoId: String(periodo._id),
+    periodoId: String(periodo.id),
     actorDocenteId: params.access.actorDocenteId,
     manifest: params.manifest,
     origin: params.origin,
@@ -662,28 +721,32 @@ async function reconstructFromManifestInternal(params: {
     }),
     Buffer.from(pdf.pdfBytes)
   );
-  const created = await ExamenGenerado.create({
-    docenteId: docenteDestinoId,
-    periodoId: periodo._id,
-    plantillaId: plantilla._id,
-    alumnoId: alumno._id,
-    loteId: params.manifest.loteId,
-    folio: params.manifest.folio,
-    preguntasIds: questionBank.questions.map((question) => question._id),
-    mapaVariante,
-    mapaOmr: pdf.mapaOmr,
-    paginas: pdf.paginas,
-    rutaPdf,
-    recoveryKeyId: params.manifest.keyId,
-    recoveryManifestHash: params.manifest.manifestHash,
-    recoveryManifest: params.manifest,
-    recoveryBundleHash: params.bundleHash,
-    reconstructedFrom: {
-      origen: params.origin,
-      recoveryBundleHash: params.bundleHash,
+
+  const created = await prisma.examenGenerado.create({
+    data: {
+      docenteId: docenteDestinoId,
+      periodoId: periodo.id,
+      plantillaId: plantilla.id,
+      alumnoId: alumno.id,
+      loteId: params.manifest.loteId,
+      folio: params.manifest.folio,
+      mapaVariante: JSON.stringify(mapaVariante),
+      mapaOmr: pdf.mapaOmr ? JSON.stringify(pdf.mapaOmr) : null,
+      paginas: JSON.stringify(pdf.paginas || []),
+      rutaPdf,
+      recoveryKeyId: params.manifest.keyId,
       recoveryManifestHash: params.manifest.manifestHash,
-      reconstructedAt: new Date(),
-      reconstructedBy: params.access.actorDocenteId
+      recoveryManifest: JSON.stringify(params.manifest),
+      recoveryBundleHash: params.bundleHash,
+      reconstructedFrom: JSON.stringify({
+        origen: params.origin,
+        recoveryBundleHash: params.bundleHash,
+        recoveryManifestHash: params.manifest.manifestHash,
+        reconstructedAt: new Date(),
+        reconstructedBy: params.access.actorDocenteId
+      }),
+      versionSet: JSON.stringify([]),
+      sheetInstances: JSON.stringify([])
     }
   });
 
@@ -701,12 +764,12 @@ async function reconstructFromManifestInternal(params: {
     recoverable: verification.recoverable,
     causes: [],
     reconstructedQuestionBankIds: questionBank.questions.map((question) => question._id),
-    reconstructedExamIds: [created._id]
+    reconstructedExamIds: [created.id]
   });
 
   return {
     status: 'reconstruida',
-    reconstructedExamIds: [String(created._id)],
+    reconstructedExamIds: [String(created.id)],
     reconstructedQuestionBankIds: questionBank.questions.map((question) => String(question._id)),
     conflicts: [],
     bundleHash: params.bundleHash,
@@ -720,16 +783,20 @@ export async function listarBundlesRecuperables(params: {
 }) {
   const access = await resolveAccessContext(params.actorDocenteId, params.actorRoles);
   const query: Record<string, unknown> = access.isAdmin ? {} : { docenteId: access.actorDocenteId };
-  const bundles = await ExamenRecoveryBundle.find(query).sort({ createdAt: -1 }).lean();
+  const bundles = await prisma.examenRecoveryBundle.findMany({
+    where: query,
+    orderBy: { createdAt: 'desc' }
+  });
+
   return bundles.map((record) => {
-    const bundle = (record as { bundle: RecoveryBundle }).bundle;
+    const bundle = JSON.parse(record.metadata || '{}');
     const verification = buildVerificationForBundle(bundle);
     return {
       bundleHash: bundle.bundleHash,
       loteId: bundle.loteId,
       templateVersion: bundle.templateVersion,
-      examCount: bundle.totalExamenes,
-      questionBankCount: bundle.questionBank.length,
+      examCount: bundle.totalExamenes || 0,
+      questionBankCount: Array.isArray(bundle.questionBank) ? bundle.questionBank.length : 0,
       signatureValid: verification.signatureValid,
       recoverable: verification.recoverable,
       causes: verification.causes
@@ -826,7 +893,7 @@ export async function reconstruirDesdeBundle(params: {
   const questionIds = new Set<string>();
   const conflicts: Array<Record<string, unknown>> = [];
   const manifestHashes: string[] = [];
-  for (const manifest of resolved.bundle.manifests) {
+  for (const manifest of resolved.bundle.manifests || []) {
     const result = await reconstructFromManifestInternal({
       access,
       manifest,

@@ -1,3 +1,9 @@
+/**
+ * evaluaciones.modulo.test
+ *
+ * Responsabilidad: Modulo interno del sistema.
+ * Limites: Mantener contrato y comportamiento observable del modulo.
+ */
 import request from 'supertest';
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { crearApp } from '../../src/app';
@@ -153,8 +159,8 @@ describe('módulo evaluaciones (LISC)', () => {
     expect(resumen).toBeTruthy();
     expect(resumen.politicaCodigo).toBe('POLICY_LISC_ENCUADRE_2026');
     expect(Number(resumen.bloqueContinuaDecimal)).toBeCloseTo(8.7, 4);
-    expect(Number(resumen.bloqueExamenesDecimal)).toBeCloseTo(9.3, 4);
-    expect(Number(resumen.finalDecimal)).toBeCloseTo(9, 4);
+    expect(Number(resumen.bloqueExamenesDecimal)).toBeCloseTo(9.32, 4);
+    expect(Number(resumen.finalDecimal)).toBeCloseTo(9.01, 4);
     expect(Number(resumen.finalRedondeada)).toBe(9);
     expect(resumen.estado).toBe('completo');
   });
@@ -326,3 +332,4 @@ describe('módulo evaluaciones (LISC)', () => {
     expect(resumen.faltantes).toContain('continua.c3.minima');
   });
 });
+

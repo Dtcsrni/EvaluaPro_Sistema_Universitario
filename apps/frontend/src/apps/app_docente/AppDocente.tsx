@@ -17,8 +17,11 @@ import { SeccionCalificaciones } from './SeccionCalificaciones';
 import { SeccionRehidratacionLotes } from './SeccionRehidratacionLotes';
 import { SeccionSincronizacion } from './SeccionSincronizacion';
 import { SeccionEvaluaciones } from './SeccionEvaluaciones';
+import { SeccionAsistencias } from './SeccionAsistencias';
+import { SeccionTemarios } from './SeccionTemarios';
 import { usePermisosDocente } from './hooks/usePermisosDocente';
 import { useSesionDocente } from './hooks/useSesionDocente';
+import { useRecordatorioPaseLista } from './hooks/useRecordatorioPaseLista';
 import { registrarAccionDocente } from './telemetriaDocente';
 import type {
   Alumno,
@@ -43,9 +46,11 @@ import {
   construirClaveCorrectaExamen,
   normalizarResultadoOmr,
   normalizarTemplateVersionOmrDetectada,
-  obtenerVistaInicial
+  obtenerVistaInicial,
+  normalizarRespuestasDetectadas
 } from './utilidades';
 export function AppDocente() {
+  const montadoRef = useRef(true);
   const [docente, setDocente] = useState<Docente | null>(null);
   const [capacidadesIntegraciones, setCapacidadesIntegraciones] = useState<{
     oauthGoogleBackend: boolean;
@@ -128,8 +133,13 @@ export function AppDocente() {
   const [marcaActualizacionCalificados, setMarcaActualizacionCalificados] = useState<number>(0);
   const [cargandoDatos, setCargandoDatos] = useState(false);
   const [ultimaActualizacionDatos, setUltimaActualizacionDatos] = useState<number | null>(null);
+  const { recordatorioPaseLista, cerrarRecordatorioPaseLista } = useRecordatorioPaseLista({
+    docente,
+    permisosUI,
+    periodos
+  });
+
   function cerrarSesion() {
-    // Best-effort: limpia refresh token server-side.
     void clienteApi.enviar('/autenticacion/salir', {});
     limpiarTokenDocente();
     setDocente(null);
@@ -137,8 +147,6 @@ export function AppDocente() {
     registrarAccionDocente('logout', true);
   }
   const tabsRef = useRef<Array<HTMLButtonElement | null>>([]);
-  const montadoRef = useRef(true);
-  // Nota UX: ocultamos el badge de estado API (no aporta al flujo docente).
   useEffect(() => {
     if (itemsVista.length === 0) return;
     const vistaBase = vista === 'periodos_archivados' ? 'periodos' : vista;
@@ -191,6 +199,34 @@ export function AppDocente() {
   const smtpDisponible = Boolean(capacidadesIntegraciones?.smtpBackend);
   const requireGoogleOAuth = Boolean(capacidadesIntegraciones?.requireGoogleOAuth);
   const passwordLoginAllowed = capacidadesIntegraciones?.passwordLoginAllowed !== false;
+  const refrescarMaterias = useCallback(() => {
+    if (!permisosUI.periodos.leer) {
+      setPeriodos([]);
+      setPeriodosArchivados([]);
+      return Promise.resolve();
+    }
+    return Promise.all([
+      clienteApi.obtener<{ periodos?: Periodo[]; materias?: Periodo[] }>('/periodos?activo=1'),
+      clienteApi.obtener<{ periodos?: Periodo[]; materias?: Periodo[] }>('/periodos?activo=0')
+    ]).then(([peActivas, peArchivadas]) => {
+      if (!montadoRef.current) return;
+      const activas = peActivas.periodos ?? peActivas.materias ?? [];
+      const archivadas = peArchivadas.periodos ?? peArchivadas.materias ?? [];
+      const activasArray = Array.isArray(activas) ? activas : [];
+      const archivadasArray = Array.isArray(archivadas) ? archivadas : [];
+      const ids = (lista: Periodo[]) => lista.map((m) => m._id).filter(Boolean).sort().join('|');
+      const mismoContenido = activasArray.length > 0 && ids(activasArray) === ids(archivadasArray);
+      if (mismoContenido) {
+        setPeriodos(activasArray.filter((m) => m.activo !== false));
+        setPeriodosArchivados(activasArray.filter((m) => m.activo === false));
+      } else {
+        setPeriodos(activasArray);
+        setPeriodosArchivados(archivadasArray);
+      }
+      setUltimaActualizacionDatos(Date.now());
+    });
+  }, [permisosUI.periodos.leer]);
+
   const refrescarDatos = useCallback(async () => {
     if (!docente) return;
     if (montadoRef.current) setCargandoDatos(true);
@@ -206,32 +242,7 @@ export function AppDocente() {
         setAlumnos([]);
       }
       if (permisosUI.periodos.leer) {
-        tareas.push(
-          Promise.all([
-            clienteApi.obtener<{ periodos?: Periodo[]; materias?: Periodo[] }>('/periodos?activo=1'),
-            clienteApi.obtener<{ periodos?: Periodo[]; materias?: Periodo[] }>('/periodos?activo=0')
-          ]).then(([peActivas, peArchivadas]) => {
-            if (!montadoRef.current) return;
-            const activas = (peActivas as unknown as { periodos?: Periodo[]; materias?: Periodo[] }).periodos ??
-              (peActivas as unknown as { periodos?: Periodo[]; materias?: Periodo[] }).materias ??
-              [];
-            const archivadas = (peArchivadas as unknown as { periodos?: Periodo[]; materias?: Periodo[] }).periodos ??
-              (peArchivadas as unknown as { periodos?: Periodo[]; materias?: Periodo[] }).materias ??
-              [];
-            const activasArray = Array.isArray(activas) ? activas : [];
-            const archivadasArray = Array.isArray(archivadas) ? archivadas : [];
-            const ids = (lista: Periodo[]) => lista.map((m) => m._id).filter(Boolean).sort().join('|');
-            const mismoContenido = activasArray.length > 0 && ids(activasArray) === ids(archivadasArray);
-            // Fallback: si el backend ignora ?activo y devuelve lo mismo, separa localmente.
-            if (mismoContenido) {
-              setPeriodos(activasArray.filter((m) => m.activo !== false));
-              setPeriodosArchivados(activasArray.filter((m) => m.activo === false));
-            } else {
-              setPeriodos(activasArray);
-              setPeriodosArchivados(archivadasArray);
-            }
-          })
-        );
+        tareas.push(refrescarMaterias());
       } else {
         setPeriodos([]);
         setPeriodosArchivados([]);
@@ -259,7 +270,7 @@ export function AppDocente() {
     } finally {
       if (montadoRef.current) setCargandoDatos(false);
     }
-  }, [docente, permisosUI.alumnos.leer, permisosUI.banco.leer, permisosUI.periodos.leer, permisosUI.plantillas.leer]);
+  }, [docente, permisosUI.alumnos.leer, permisosUI.banco.leer, permisosUI.periodos.leer, permisosUI.plantillas.leer, refrescarMaterias]);
   useEffect(() => {
     void refrescarDatos();
   }, [refrescarDatos]);
@@ -274,32 +285,6 @@ export function AppDocente() {
         setSolicitudesRevision([]);
       });
   }, [docente, permisosUI.calificaciones.calificar, vista]);
-  function refrescarMaterias() {
-    if (!permisosUI.periodos.leer) {
-      setPeriodos([]);
-      setPeriodosArchivados([]);
-      return Promise.resolve();
-    }
-    return Promise.all([
-      clienteApi.obtener<{ periodos?: Periodo[]; materias?: Periodo[] }>('/periodos?activo=1'),
-      clienteApi.obtener<{ periodos?: Periodo[]; materias?: Periodo[] }>('/periodos?activo=0')
-    ]).then(([peActivas, peArchivadas]) => {
-      const activas = peActivas.periodos ?? peActivas.materias ?? [];
-      const archivadas = peArchivadas.periodos ?? peArchivadas.materias ?? [];
-      const activasArray = Array.isArray(activas) ? activas : [];
-      const archivadasArray = Array.isArray(archivadas) ? archivadas : [];
-      const ids = (lista: Periodo[]) => lista.map((m) => m._id).filter(Boolean).sort().join('|');
-      const mismoContenido = activasArray.length > 0 && ids(activasArray) === ids(archivadasArray);
-      if (mismoContenido) {
-        setPeriodos(activasArray.filter((m) => m.activo !== false));
-        setPeriodosArchivados(activasArray.filter((m) => m.activo === false));
-      } else {
-        setPeriodos(activasArray);
-        setPeriodosArchivados(archivadasArray);
-      }
-      setUltimaActualizacionDatos(Date.now());
-    });
-  }
   const examenOmrActivo = useMemo(
     () => revisionesOmr.find((item) => item.examenId === examenIdOmr) ?? null,
     [examenIdOmr, revisionesOmr]
@@ -373,28 +358,7 @@ export function AppDocente() {
         .join('|');
     return firma(respuestasEditadas) !== firma(pagina.respuestas);
   }, [examenOmrActivo, paginaOmrActiva, respuestasEditadas]);
-  const normalizarRespuestasDetectadas = useCallback(
-    (
-      respuestas: Array<{ numeroPregunta: number; opcion: string | null; confianza?: number }> | undefined
-    ): Array<{ numeroPregunta: number; opcion: string | null; confianza?: number }> => {
-      if (!Array.isArray(respuestas)) return [];
-      const normalizadas = new Map<number, { numeroPregunta: number; opcion: string | null; confianza?: number }>();
-      for (const item of respuestas) {
-        const numeroPregunta = Number(item?.numeroPregunta);
-        if (!Number.isInteger(numeroPregunta) || numeroPregunta <= 0) continue;
-        const opcionCruda = typeof item?.opcion === 'string' ? item.opcion.trim().toUpperCase() : '';
-        const opcion = opcionCruda.length === 1 && ['A', 'B', 'C', 'D', 'E'].includes(opcionCruda) ? opcionCruda : null;
-        const confianza = Number(item?.confianza);
-        normalizadas.set(numeroPregunta, {
-          numeroPregunta,
-          opcion,
-          ...(Number.isFinite(confianza) && confianza >= 0 && confianza <= 1 ? { confianza } : {})
-        });
-      }
-      return [...normalizadas.values()].sort((a, b) => a.numeroPregunta - b.numeroPregunta);
-    },
-    []
-  );
+
   const llaveBorradorOmr = useCallback((examenId: string, numeroPagina: number) => `${examenId}::${numeroPagina}`, []);
   const seleccionarRevisionOmr = useCallback(
     (examenId: string, numeroPagina: number) => {
@@ -713,118 +677,183 @@ export function AppDocente() {
           </InlineMensaje>
         </div>
       )}
+      {/* ── Banner recordatorio pase de lista ── */}
+      {recordatorioPaseLista && (
+        <div
+          role="alert"
+          aria-live="polite"
+          className="banner-reminder-glass anim-fade-in"
+          style={ {
+            margin: '0.5rem 1rem',
+            padding: '0.75rem 1.25rem',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '0.85rem',
+            fontSize: '0.88rem'
+          } }
+        >
+          <span className="pulse-glow" style={ { fontSize: '1.25rem', display: 'inline-flex' } }>🗓️</span>
+          <span style={ { flex: 1, fontWeight: 500 } }>
+            <strong>Recordatorio de Asistencia:</strong> Aún no has registrado el pase de lista de hoy.
+          </span>
+          <button
+            onClick={() => { cerrarRecordatorioPaseLista(); setVista('asistencias'); }}
+            className="asistencias-btn-primario pulse-glow"
+            style={ { minHeight: '32px', paddingInline: '0.9rem', fontSize: '0.82rem' } }
+          >
+            Pasar lista
+          </button>
+          <button
+            onClick={cerrarRecordatorioPaseLista}
+            aria-label="Cerrar recordatorio"
+            className="scale-hover"
+            style={ { background: 'none', border: 'none', cursor: 'pointer', fontSize: '1.25rem', padding: '0 0.25rem', lineHeight: 1, color: 'var(--avisoTexto)' } }
+          >
+            ×
+          </button>
+        </div>
+      )}
       {vista === 'banco' && (
-        <SeccionBanco
-          preguntas={preguntas}
-          periodos={periodos}
-          permisos={permisosUI}
-          enviarConPermiso={enviarConPermiso}
-          avisarSinPermiso={avisarSinPermiso}
-          paginasEstimadasBackendPorTema={paginasEstimadasBackendPorTema}
-          onRefrescar={() => {
-            if (!permisosUI.banco.leer) {
-              avisarSinPermiso('No tienes permiso para ver el banco.');
-              return Promise.reject(new Error('SIN_PERMISO'));
-            }
-            return clienteApi.obtener<{ preguntas: Pregunta[] }>('/banco-preguntas').then((p) => setPreguntas(p.preguntas));
-          }}
-          onRefrescarPlantillas={() => {
-            if (!permisosUI.plantillas.leer) {
-              avisarSinPermiso('No tienes permiso para ver plantillas.');
-              return Promise.reject(new Error('SIN_PERMISO'));
-            }
-            return clienteApi.obtener<{ plantillas: Plantilla[] }>('/examenes/plantillas').then((p) => setPlantillas(p.plantillas));
-          }}
-        />
+        <div className="anim-fade-in">
+          <SeccionBanco
+            preguntas={preguntas}
+            periodos={periodos}
+            permisos={permisosUI}
+            enviarConPermiso={enviarConPermiso}
+            avisarSinPermiso={avisarSinPermiso}
+            paginasEstimadasBackendPorTema={paginasEstimadasBackendPorTema}
+            onRefrescar={() => {
+              if (!permisosUI.banco.leer) {
+                avisarSinPermiso('No tienes permiso para ver el banco.');
+                return Promise.reject(new Error('SIN_PERMISO'));
+              }
+              return clienteApi.obtener<{ preguntas: Pregunta[] }>('/banco-preguntas').then((p) => setPreguntas(p.preguntas));
+            }}
+            onRefrescarPlantillas={() => {
+              if (!permisosUI.plantillas.leer) {
+                avisarSinPermiso('No tienes permiso para ver plantillas.');
+                return Promise.reject(new Error('SIN_PERMISO'));
+              }
+              return clienteApi.obtener<{ plantillas: Plantilla[] }>('/examenes/plantillas').then((p) => setPlantillas(p.plantillas));
+            }}
+          />
+        </div>
       )}
       {vista === 'periodos' && (
-        <SeccionPeriodos
-          periodos={periodos}
-          onRefrescar={refrescarMaterias}
-          onVerArchivadas={() => setVista('periodos_archivados')}
-          permisos={permisosUI}
-          puedeEliminarMateriaDev={puedeEliminarMateriaDev}
-          enviarConPermiso={enviarConPermiso}
-          avisarSinPermiso={avisarSinPermiso}
-        />
+        <div className="anim-fade-in">
+          <SeccionPeriodos
+            periodos={periodos}
+            onRefrescar={refrescarMaterias}
+            onVerArchivadas={() => setVista('periodos_archivados')}
+            permisos={permisosUI}
+            puedeEliminarMateriaDev={puedeEliminarMateriaDev}
+            enviarConPermiso={enviarConPermiso}
+            avisarSinPermiso={avisarSinPermiso}
+          />
+        </div>
       )}
       {vista === 'periodos_archivados' && (
-        <SeccionPeriodosArchivados
-          periodos={periodosArchivados}
-          onVerActivas={() => setVista('periodos')}
-        />
+        <div className="anim-fade-in">
+          <SeccionPeriodosArchivados
+            periodos={periodosArchivados}
+            onVerActivas={() => setVista('periodos')}
+          />
+        </div>
       )}
       {vista === 'alumnos' && (
-        <SeccionAlumnos
-          alumnos={alumnos}
-          periodosActivos={periodos}
-          periodosTodos={[...periodos, ...periodosArchivados]}
-          permisos={permisosUI}
-          puedeEliminarAlumnoDev={puedeEliminarAlumnoDev}
-          enviarConPermiso={enviarConPermiso}
-          avisarSinPermiso={avisarSinPermiso}
-          onRefrescar={() => {
-            if (!permisosUI.alumnos.leer) {
-              avisarSinPermiso('No tienes permiso para ver alumnos.');
-              return Promise.reject(new Error('SIN_PERMISO'));
-            }
-            return clienteApi.obtener<{ alumnos: Alumno[] }>('/alumnos').then((p) => setAlumnos(p.alumnos));
-          }}
-        />
+        <div className="anim-fade-in">
+          <SeccionAlumnos
+            alumnos={alumnos}
+            periodosActivos={periodos}
+            periodosTodos={[...periodos, ...periodosArchivados]}
+            permisos={permisosUI}
+            puedeEliminarAlumnoDev={puedeEliminarAlumnoDev}
+            enviarConPermiso={enviarConPermiso}
+            avisarSinPermiso={avisarSinPermiso}
+            onRefrescar={() => {
+              if (!permisosUI.alumnos.leer) {
+                avisarSinPermiso('No tienes permiso para ver alumnos.');
+                return Promise.reject(new Error('SIN_PERMISO'));
+              }
+              return clienteApi.obtener<{ alumnos: Alumno[] }>('/alumnos').then((p) => setAlumnos(p.alumnos));
+            }}
+          />
+        </div>
+      )}
+      {vista === 'asistencias' && (
+        <div className="anim-fade-in">
+          <SeccionAsistencias
+            periodos={periodos}
+            alumnos={alumnos}
+          />
+        </div>
+      )}
+      {vista === 'temarios' && (
+        <div className="anim-fade-in">
+          <SeccionTemarios
+            periodos={periodos}
+          />
+        </div>
       )}
       {vista === 'plantillas' && (
-        <SeccionPlantillas
-          plantillas={plantillas}
-          periodos={periodos}
-          preguntas={preguntas}
-          permisos={permisosUI}
-          enviarConPermiso={enviarConPermiso}
-          avisarSinPermiso={avisarSinPermiso}
-          alumnos={alumnos}
-          previewPorPlantillaId={previewPorPlantillaId}
-          setPreviewPorPlantillaId={setPreviewPorPlantillaId}
-          cargandoPreviewPlantillaId={cargandoPreviewPlantillaId}
-          setCargandoPreviewPlantillaId={setCargandoPreviewPlantillaId}
-          plantillaPreviewId={plantillaPreviewId}
-          setPlantillaPreviewId={setPlantillaPreviewId}
-          previewPdfUrlPorPlantillaId={previewPdfUrlPorPlantillaId}
-          setPreviewPdfUrlPorPlantillaId={setPreviewPdfUrlPorPlantillaId}
-          cargandoPreviewPdfPlantillaId={cargandoPreviewPdfPlantillaId}
-          setCargandoPreviewPdfPlantillaId={setCargandoPreviewPdfPlantillaId}
-          onRefrescar={() => {
-            if (!permisosUI.plantillas.leer) {
-              avisarSinPermiso('No tienes permiso para ver plantillas.');
-              return Promise.reject(new Error('SIN_PERMISO'));
-            }
-            return clienteApi.obtener<{ plantillas: Plantilla[] }>('/examenes/plantillas').then((p) => setPlantillas(p.plantillas));
-          }}
-        />
+        <div className="anim-fade-in">
+          <SeccionPlantillas
+            plantillas={plantillas}
+            periodos={periodos}
+            preguntas={preguntas}
+            permisos={permisosUI}
+            enviarConPermiso={enviarConPermiso}
+            avisarSinPermiso={avisarSinPermiso}
+            alumnos={alumnos}
+            previewPorPlantillaId={previewPorPlantillaId}
+            setPreviewPorPlantillaId={setPreviewPorPlantillaId}
+            cargandoPreviewPlantillaId={cargandoPreviewPlantillaId}
+            setCargandoPreviewPlantillaId={setCargandoPreviewPlantillaId}
+            plantillaPreviewId={plantillaPreviewId}
+            setPlantillaPreviewId={setPlantillaPreviewId}
+            previewPdfUrlPorPlantillaId={previewPdfUrlPorPlantillaId}
+            setPreviewPdfUrlPorPlantillaId={setPreviewPdfUrlPorPlantillaId}
+            cargandoPreviewPdfPlantillaId={cargandoPreviewPdfPlantillaId}
+            setCargandoPreviewPdfPlantillaId={setCargandoPreviewPdfPlantillaId}
+            onRefrescar={() => {
+              if (!permisosUI.plantillas.leer) {
+                avisarSinPermiso('No tienes permiso para ver plantillas.');
+                return Promise.reject(new Error('SIN_PERMISO'));
+              }
+              return clienteApi.obtener<{ plantillas: Plantilla[] }>('/examenes/plantillas').then((p) => setPlantillas(p.plantillas));
+            }}
+          />
+        </div>
       )}
       {vista === 'entrega' && (
-        <SeccionEntrega
-          alumnos={alumnos}
-          plantillas={plantillas}
-          periodos={periodos}
-          permisos={permisosUI}
-          avisarSinPermiso={avisarSinPermiso}
-          enviarConPermiso={enviarConPermiso}
-          onVincular={(folio, alumnoId, opciones) => {
-            if (!permisosUI.entregas.gestionar) {
-              avisarSinPermiso('No tienes permiso para vincular entregas.');
-              return Promise.reject(new Error('SIN_PERMISO'));
-            }
-            return clienteApi.enviar('/entregas/vincular-folio', {
-              folio,
-              alumnoId,
-              ...(opciones?.acordeonEntregado
-                ? { acordeonEntregado: true, bonoAcordeon: Number(opciones.bonoAcordeon ?? 0.25) }
-                : { acordeonEntregado: false, bonoAcordeon: 0 })
-            });
-          }}
-        />
+        <div className="anim-fade-in">
+          <SeccionEntrega
+            alumnos={alumnos}
+            plantillas={plantillas}
+            periodos={periodos}
+            permisos={permisosUI}
+            avisarSinPermiso={avisarSinPermiso}
+            enviarConPermiso={enviarConPermiso}
+            onVincular={(folio, alumnoId, opciones) => {
+              if (!permisosUI.entregas.gestionar) {
+                avisarSinPermiso('No tienes permiso para vincular entregas.');
+                return Promise.reject(new Error('SIN_PERMISO'));
+              }
+              return clienteApi.enviar('/entregas/vincular-folio', {
+                folio,
+                alumnoId,
+                ...(opciones?.acordeonEntregado
+                  ? { acordeonEntregado: true, bonoAcordeon: Number(opciones.bonoAcordeon ?? 0.25) }
+                  : { acordeonEntregado: false, bonoAcordeon: 0 })
+              });
+            }}
+          />
+        </div>
       )}
       {vista === 'calificaciones' && (
-        <SeccionCalificaciones
+        <div className="anim-fade-in">
+          <SeccionCalificaciones
+          periodos={periodos}
           alumnos={alumnos}
           permisos={permisosUI}
           avisarSinPermiso={avisarSinPermiso}
@@ -1124,26 +1153,32 @@ export function AppDocente() {
           onLimpiarColaEscaneos={limpiarColaEscaneosOmr}
           onCargarRevisionHistoricaCalificada={cargarRevisionHistoricaCalificada}
         />
+        </div>
       )}
       {vista === 'rehidratacion' && (
-        <SeccionRehidratacionLotes
-          docente={docente}
-          esAdmin={esAdmin}
-          puedeUsar={permisosUI.rehidratacion.usar}
-        />
+        <div className="anim-fade-in">
+          <SeccionRehidratacionLotes
+            docente={docente}
+            esAdmin={esAdmin}
+            puedeUsar={permisosUI.rehidratacion.usar}
+          />
+        </div>
       )}
       {vista === 'evaluaciones' && (
-        <SeccionEvaluaciones
-          periodos={periodos}
-          alumnos={alumnos}
-          puedeGestionar={permisosUI.evaluaciones.gestionar}
-          puedeClassroomConectar={permisosUI.classroom.conectar}
-          puedeClassroomPull={permisosUI.classroom.pull}
-          classroomDisponible={classroomDisponible}
-        />
+        <div className="anim-fade-in">
+          <SeccionEvaluaciones
+            periodos={periodos}
+            alumnos={alumnos}
+            puedeGestionar={permisosUI.evaluaciones.gestionar}
+            puedeClassroomConectar={permisosUI.classroom.conectar}
+            puedeClassroomPull={permisosUI.classroom.pull}
+            classroomDisponible={classroomDisponible}
+          />
+        </div>
       )}
       {vista === 'publicar' && (
-        <SeccionSincronizacion
+        <div className="anim-fade-in">
+          <SeccionSincronizacion
           periodos={periodos}
           periodosArchivados={periodosArchivados}
           alumnos={alumnos}
@@ -1209,18 +1244,21 @@ export function AppDocente() {
             return clienteApi.enviar<RespuestaSyncPull>('/sincronizaciones/pull', payload);
           }}
         />
+        </div>
       )}
       {vista === 'cuenta' && (
-        <SeccionCuenta
-          docente={docente}
-          onDocenteActualizado={setDocente}
-          esAdmin={esAdmin}
-          esDev={esDev}
-          oauthGoogleDisponible={oauthGoogleDisponible}
-          classroomDisponible={classroomDisponible}
-          smtpDisponible={smtpDisponible}
-          requireGoogleOAuth={requireGoogleOAuth}
-        />
+        <div className="anim-fade-in">
+          <SeccionCuenta
+            docente={docente}
+            onDocenteActualizado={setDocente}
+            esAdmin={esAdmin}
+            esDev={esDev}
+            oauthGoogleDisponible={oauthGoogleDisponible}
+            classroomDisponible={classroomDisponible}
+            smtpDisponible={smtpDisponible}
+            requireGoogleOAuth={requireGoogleOAuth}
+          />
+        </div>
       )}
     </div>
   ) : (
@@ -1239,4 +1277,3 @@ export function AppDocente() {
   );
   return <ShellDocente docente={docente} onCerrarSesion={cerrarSesion}>{contenido}</ShellDocente>;
 }
-
