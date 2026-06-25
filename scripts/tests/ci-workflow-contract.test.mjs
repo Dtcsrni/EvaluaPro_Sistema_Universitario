@@ -154,10 +154,9 @@ test('workflows usan actions oficiales compatibles con runtime Node 24', () => {
   }
 });
 
-test('gate backend CI conserva fallback de Vitest threads tras fallo de forks', () => {
+test('gate backend CI usa runner por lotes para evitar crashes monoliticos de workers', () => {
   const packageJson = JSON.parse(fs.readFileSync(packageJsonPath, 'utf8'));
   const gate = String(packageJson.scripts?.['test:backend:ci'] ?? '');
 
-  assert.match(gate, /--command "npm -C apps\/backend run test -- --pool=forks"/);
-  assert.match(gate, /--fallback-command "npm -C apps\/backend run test -- --pool=threads"/);
+  assert.match(gate, /node scripts\/testing\/run-backend-test-batches\.mjs/);
 });

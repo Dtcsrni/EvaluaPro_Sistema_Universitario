@@ -49,6 +49,7 @@ function Get-VersionedArtifactName {
 
 $certBase64 = [string]$env:EVALUAPRO_SIGN_CERT_BASE64
 $certPassword = [string]$env:EVALUAPRO_SIGN_CERT_PASSWORD
+$certThumbprint = [string]$env:EVALUAPRO_SIGN_CERT_THUMBPRINT
 $timestampUrl = [string]$env:EVALUAPRO_SIGN_TIMESTAMP_URL
 if (-not $timestampUrl) {
   $timestampUrl = 'http://timestamp.digicert.com'
@@ -56,7 +57,7 @@ if (-not $timestampUrl) {
 
 $markerPath = Join-Path $InstallerDir 'SIGNING-NOT-PRODUCTION.txt'
 
-if ([string]::IsNullOrWhiteSpace($certBase64) -or [string]::IsNullOrWhiteSpace($certPassword)) {
+if (([string]::IsNullOrWhiteSpace($certBase64) -or [string]::IsNullOrWhiteSpace($certPassword)) -and [string]::IsNullOrWhiteSpace($certThumbprint)) {
   $marker = @(
     'NO_PRODUCTION_SIGNATURE',
     'Installer artifacts were generated without code-signing certificate.',
@@ -151,14 +152,103 @@ function Resolve-InstallerArtifactPath {
   return ''
 }
 
+function Find-WixTool {
+  $cmd = Get-Command 'wix.exe' -ErrorAction SilentlyContinue
+  if ($cmd) { return $cmd.Source }
+
+  $candidate = Join-Path $root '.wix\wix.exe'
+  if (Test-Path -LiteralPath $candidate) { return $candidate }
+
+  return ''
+}
+
+function Invoke-SignTool {
+  param(
+    [Parameter(Mandatory = $true)]
+    [string]$TargetPath,
+    [string]$PfxPath = '',
+    [string]$PfxPassword = '',
+    [string]$Thumbprint = '',
+    [Parameter(Mandatory = $true)]
+    [string]$TimestampUrl
+  )
+
+  if (-not [string]::IsNullOrWhiteSpace($PfxPath)) {
+    & $signtool sign /fd SHA256 /f $PfxPath /p $PfxPassword /tr $TimestampUrl /td SHA256 $TargetPath
+  } elseif (-not [string]::IsNullOrWhiteSpace($Thumbprint)) {
+    & $signtool sign /fd SHA256 /sha1 $Thumbprint /tr $TimestampUrl /td SHA256 $TargetPath
+  } else {
+    throw 'No se configuro PFX ni thumbprint para firmar.'
+  }
+  if ($LASTEXITCODE -ne 0) {
+    throw "Fallo firma de $TargetPath (exit=$LASTEXITCODE)."
+  }
+}
+
+function Test-IsBurnBundle {
+  param([Parameter(Mandatory = $true)][string]$TargetPath)
+
+  $fileName = [System.IO.Path]::GetFileName($TargetPath)
+  return ($fileName -match '^EvaluaPro-InstallerHub-.+\.exe$')
+}
+
+function Invoke-BurnAwareBundleSigning {
+  param(
+    [Parameter(Mandatory = $true)]
+    [string]$BundlePath,
+    [string]$PfxPath = '',
+    [string]$PfxPassword = '',
+    [string]$Thumbprint = '',
+    [Parameter(Mandatory = $true)]
+    [string]$TimestampUrl
+  )
+
+  if (-not $wixtool) {
+    throw 'No se encontro wix.exe para firma Burn-aware del bundle.'
+  }
+
+  $workDir = Join-Path $env:TEMP ('evaluapro-burn-sign-' + [Guid]::NewGuid().ToString('N'))
+  New-Item -ItemType Directory -Path $workDir -Force | Out-Null
+
+  try {
+    $enginePath = Join-Path $workDir 'engine.exe'
+    $signedEnginePath = Join-Path $workDir 'engine.signed.exe'
+    $finalBundlePath = Join-Path $workDir ([System.IO.Path]::GetFileName($BundlePath))
+
+    & $wixtool burn detach $BundlePath -engine $enginePath
+    if ($LASTEXITCODE -ne 0) {
+      throw "Fallo detach Burn de $BundlePath (exit=$LASTEXITCODE)."
+    }
+
+    Copy-Item -LiteralPath $enginePath -Destination $signedEnginePath -Force
+    Invoke-SignTool -TargetPath $signedEnginePath -PfxPath $PfxPath -PfxPassword $PfxPassword -Thumbprint $Thumbprint -TimestampUrl $TimestampUrl
+
+    & $wixtool burn reattach $BundlePath -engine $signedEnginePath -o $finalBundlePath
+    if ($LASTEXITCODE -ne 0) {
+      throw "Fallo reattach Burn de $BundlePath (exit=$LASTEXITCODE)."
+    }
+
+    Invoke-SignTool -TargetPath $finalBundlePath -PfxPath $PfxPath -PfxPassword $PfxPassword -Thumbprint $Thumbprint -TimestampUrl $TimestampUrl
+    Move-Item -LiteralPath $finalBundlePath -Destination $BundlePath -Force
+  } finally {
+    if (Test-Path -LiteralPath $workDir) {
+      Remove-Item -LiteralPath $workDir -Recurse -Force -ErrorAction SilentlyContinue
+    }
+  }
+}
+
 $signtool = Find-SignTool
 if (-not $signtool) {
   throw 'No se encontro signtool.exe para firmar artefactos.'
 }
+$wixtool = Find-WixTool
 
-$pfxPath = Join-Path $env:TEMP ('evaluapro-sign-' + [Guid]::NewGuid().ToString('N') + '.pfx')
+$pfxPath = ''
 try {
-  [IO.File]::WriteAllBytes($pfxPath, (ConvertFrom-PossiblyWrappedBase64 -RawValue $certBase64))
+  if (-not [string]::IsNullOrWhiteSpace($certBase64)) {
+    $pfxPath = Join-Path $env:TEMP ('evaluapro-sign-' + [Guid]::NewGuid().ToString('N') + '.pfx')
+    [IO.File]::WriteAllBytes($pfxPath, (ConvertFrom-PossiblyWrappedBase64 -RawValue $certBase64))
+  }
   $versionTag = Resolve-VersionTag -RootPath $root
 
   $targets = @()
@@ -184,9 +274,10 @@ try {
 
   foreach ($target in $targets) {
     Write-Host "[signing] Firmando $target"
-    & $signtool sign /fd SHA256 /f $pfxPath /p $certPassword /tr $timestampUrl /td SHA256 $target
-    if ($LASTEXITCODE -ne 0) {
-      throw "Fallo firma de $target (exit=$LASTEXITCODE)."
+    if (Test-IsBurnBundle -TargetPath $target) {
+      Invoke-BurnAwareBundleSigning -BundlePath $target -PfxPath $pfxPath -PfxPassword $certPassword -Thumbprint $certThumbprint -TimestampUrl $timestampUrl
+    } else {
+      Invoke-SignTool -TargetPath $target -PfxPath $pfxPath -PfxPassword $certPassword -Thumbprint $certThumbprint -TimestampUrl $timestampUrl
     }
   }
 
@@ -196,7 +287,7 @@ try {
 
   Write-Host '[signing] Firma completada con timestamp.'
 } finally {
-  if (Test-Path $pfxPath) {
+  if (-not [string]::IsNullOrWhiteSpace($pfxPath) -and (Test-Path $pfxPath)) {
     Remove-Item -LiteralPath $pfxPath -Force -ErrorAction SilentlyContinue
   }
 }

@@ -1,0 +1,267 @@
+{
+  "traceSchemaVersion": "1.0.0",
+  "sessionId": "sesion-2026-06-13T03-24-42.533Z",
+  "status": "draft",
+  "generatedAt": "2026-06-13T03:24:42.533Z",
+  "validationProfile": "quick",
+  "agent": {
+    "name": "unknown",
+    "version": "unknown",
+    "provider": "unknown",
+    "kind": "unknown",
+    "channel": "unknown"
+  },
+  "request": {
+    "summary": "Pendiente de completar por el agente."
+  },
+  "objective": "Pendiente de completar por el agente.",
+  "scope": [],
+  "constraints": [],
+  "actions": [
+    {
+      "type": "validation",
+      "summary": "Ejecucion de lint",
+      "timestamp": "2026-06-13T03:24:42.533Z",
+      "status": "omitido"
+    },
+    {
+      "type": "validation",
+      "summary": "Ejecucion de typecheck",
+      "timestamp": "2026-06-13T03:24:42.533Z",
+      "status": "omitido"
+    },
+    {
+      "type": "validation",
+      "summary": "Ejecucion de test_frontend_ci",
+      "timestamp": "2026-06-13T03:24:42.533Z",
+      "status": "omitido"
+    },
+    {
+      "type": "validation",
+      "summary": "Ejecucion de test_coverage_ci",
+      "timestamp": "2026-06-13T03:24:42.533Z",
+      "status": "omitido"
+    },
+    {
+      "type": "validation",
+      "summary": "Ejecucion de test_tdd_enforcement_ci",
+      "timestamp": "2026-06-13T03:24:42.533Z",
+      "status": "omitido"
+    },
+    {
+      "type": "validation",
+      "summary": "Ejecucion de test_backend_ci",
+      "timestamp": "2026-06-13T03:24:42.533Z",
+      "status": "omitido"
+    },
+    {
+      "type": "validation",
+      "summary": "Ejecucion de test_portal_ci",
+      "timestamp": "2026-06-13T03:24:42.533Z",
+      "status": "omitido"
+    },
+    {
+      "type": "validation",
+      "summary": "Ejecucion de perf_check",
+      "timestamp": "2026-06-13T03:24:42.533Z",
+      "status": "omitido"
+    },
+    {
+      "type": "validation",
+      "summary": "Ejecucion de pipeline_contract_check",
+      "timestamp": "2026-06-13T03:24:42.533Z",
+      "status": "ok"
+    },
+    {
+      "type": "validation",
+      "summary": "Ejecucion de docs_check",
+      "timestamp": "2026-06-13T03:24:42.533Z",
+      "status": "ok"
+    }
+  ],
+  "files": {
+    "read": [],
+    "changed": [
+      "AGENTS.md",
+      "CHANGELOG.md",
+      "docs/AUTO_DOCS_INDEX.md",
+      "docs/AUTO_ENV.md",
+      "docs/DESIGN.md",
+      "docs/ENGINEERING_BASELINE.md",
+      "docs/IA_TRAZABILIDAD_AGENTES.md",
+      "docs/INSTALLER_HUB.md",
+      "docs/INVENTARIO_CODIGO_EXHAUSTIVO.md",
+      "docs/INVENTARIO_PROYECTO.md",
+      "docs/POLITICA_ECONOMIA_TOKENS_CODEX.md",
+      "docs/QA_VALIDACION_PLAN.md",
+      "docs/release/evidencias/1.0.0/README.md",
+      "docs/release/manual/stabilization-completion-audit-2026-05-27.md",
+      "package-lock.json",
+      "package.json",
+      "packaging/wix/Product.wxs",
+      "reports/qa/latest/installer-hub-e2e-elevated-transcript.txt",
+      "reports/qa/latest/installer-hub-vm-readiness.json",
+      "reports/release/stable-gate/1.0.0/decision.json",
+      "scripts/build-msi.ps1",
+      "scripts/installer-burn/InstallerBurnHelper.ps1",
+      "scripts/installer-burn/modules/Common.psm1",
+      "scripts/installer-burn/modules/OperationalConfig.psm1",
+      "scripts/installer-burn/modules/PrereqDetector.psm1",
+      "scripts/launcher-dashboard.mjs",
+      "scripts/release/check-ci-streak.mjs",
+      "scripts/sign-installer-artifacts.ps1",
+      "scripts/tests/installer-hub-contract.test.mjs",
+      "scripts/tests/installer-hub-e2e-docente.ps1",
+      "scripts/tests/release-ci-streak.test.mjs",
+      "scripts/tests/stabilization-completion-audit.test.mjs",
+      "docs/IA_SKILLS_MCP_POLICY.md",
+      "docs/handoff/sesiones/2026-06-04/",
+      "docs/handoff/sesiones/2026-06-07/",
+      "docs/release/manual/installer-hub-e2e-vm-recovery-2026-06-02.md",
+      "docs/release/manual/installer-hub-mvp-readiness-2026-06-07.md",
+      "reports/qa/latest/burn-extract-current/",
+      "reports/qa/latest/docker-desktop-uninstall.txt",
+      "reports/qa/latest/docker-load-prod-images.txt",
+      "reports/qa/latest/docker-version-after-license-accept.txt",
+      "reports/qa/latest/docker-version-before-manual-e2e.txt",
+      "reports/qa/latest/evaluapro-docente-prod-images.tar",
+      "reports/qa/latest/hyperv-checkpoints.txt",
+      "reports/qa/latest/hyperv-offline-reset-cleanup.txt",
+      "reports/qa/latest/hyperv-offline-reset-stage-sethc.txt",
+      "reports/qa/latest/hyperv-offline-reset-stage.txt",
+      "reports/qa/latest/hyperv-offline-service-reset.txt",
+      "reports/qa/latest/hyperv-restart-after-pagefile.txt",
+      "reports/qa/latest/hyperv-restart-for-interactive-e2e.txt",
+      "reports/qa/latest/hyperv-restore-pre-e2e.txt",
+      "reports/qa/latest/hyperv-start-after-reset-service.txt",
+      "reports/qa/latest/hyperv-state.txt",
+      "reports/qa/latest/installer-hub-e2e-launcher-elevated-transcript.txt",
+      "reports/qa/latest/installer-hub-e2e-winrm-transcript.txt",
+      "reports/qa/latest/interactive-e2e-manual-transcript.txt",
+      "reports/qa/latest/interactive-e2e-manual-watch.json",
+      "reports/qa/latest/interactive-e2e-watch.json",
+      "reports/qa/latest/signed-e2e-20260607-001853/",
+      "reports/qa/latest/vmconnect-login.txt",
+      "reports/qa/latest/vmconnect-sendkeys-reset.txt",
+      "reports/qa/latest/wsl-offline/",
+      "scripts/ai-skills-mcp-policy-status.mjs"
+    ],
+    "artifacts": [
+      "docs/handoff/sesiones/2026-06-13/sesion-2026-06-13T03-24-42.533Z.json",
+      "docs/handoff/sesiones/2026-06-13/sesion-2026-06-13T03-24-42.533Z.md"
+    ]
+  },
+  "commands": [
+    {
+      "name": "lint",
+      "command": "npm run lint",
+      "status": "omitido",
+      "exitCode": null,
+      "durationMs": 0,
+      "resultSummary": "omitido por perfil quick",
+      "timestamp": "2026-06-13T03:24:42.533Z"
+    },
+    {
+      "name": "typecheck",
+      "command": "npm run typecheck",
+      "status": "omitido",
+      "exitCode": null,
+      "durationMs": 0,
+      "resultSummary": "omitido por perfil quick",
+      "timestamp": "2026-06-13T03:24:42.533Z"
+    },
+    {
+      "name": "test_frontend_ci",
+      "command": "npm run test:frontend:ci",
+      "status": "omitido",
+      "exitCode": null,
+      "durationMs": 0,
+      "resultSummary": "omitido por perfil quick",
+      "timestamp": "2026-06-13T03:24:42.533Z"
+    },
+    {
+      "name": "test_coverage_ci",
+      "command": "npm run test:coverage:ci",
+      "status": "omitido",
+      "exitCode": null,
+      "durationMs": 0,
+      "resultSummary": "omitido por perfil quick",
+      "timestamp": "2026-06-13T03:24:42.533Z"
+    },
+    {
+      "name": "test_tdd_enforcement_ci",
+      "command": "npm run test:tdd:enforcement:ci",
+      "status": "omitido",
+      "exitCode": null,
+      "durationMs": 0,
+      "resultSummary": "omitido por perfil quick",
+      "timestamp": "2026-06-13T03:24:42.533Z"
+    },
+    {
+      "name": "test_backend_ci",
+      "command": "npm run test:backend:ci",
+      "status": "omitido",
+      "exitCode": null,
+      "durationMs": 0,
+      "resultSummary": "omitido por perfil quick",
+      "timestamp": "2026-06-13T03:24:42.533Z"
+    },
+    {
+      "name": "test_portal_ci",
+      "command": "npm run test:portal:ci",
+      "status": "omitido",
+      "exitCode": null,
+      "durationMs": 0,
+      "resultSummary": "omitido por perfil quick",
+      "timestamp": "2026-06-13T03:24:42.533Z"
+    },
+    {
+      "name": "perf_check",
+      "command": "npm run perf:check",
+      "status": "omitido",
+      "exitCode": null,
+      "durationMs": 0,
+      "resultSummary": "omitido por perfil quick",
+      "timestamp": "2026-06-13T03:24:42.533Z"
+    },
+    {
+      "name": "pipeline_contract_check",
+      "command": "npm run pipeline:contract:check",
+      "status": "ok",
+      "exitCode": 0,
+      "durationMs": 751,
+      "resultSummary": "> evaluapro@1.0.0 pipeline:contract:check | > node scripts/pipeline-contract-check.mjs | ✔ ext_perf_arquitectura prepara sharp antes de perf:check (2.6325ms) | ✔ ext_funcionales usa gate OMR TV generico con version configurable (0.2883ms) | ... | ℹ duration_ms 92.0216 | pipeline contract OK",
+      "timestamp": "2026-06-13T03:24:42.533Z"
+    },
+    {
+      "name": "docs_check",
+      "command": "npm run docs:check",
+      "status": "ok",
+      "exitCode": 0,
+      "durationMs": 597,
+      "resultSummary": "> evaluapro@1.0.0 docs:check | > node scripts/docs.mjs --check | [docs] ok",
+      "timestamp": "2026-06-13T03:24:42.533Z"
+    }
+  ],
+  "decisions": [],
+  "assumptions": [],
+  "risks": [],
+  "nextStep": "Pendiente de completar por el agente.",
+  "completion": {
+    "isComplete": false,
+    "pendingFields": [
+      "request.summary",
+      "objective",
+      "scope",
+      "decisions",
+      "risks",
+      "nextStep"
+    ]
+  },
+  "repo": {
+    "rootDir": "V:\\Software\\EvaluaPro",
+    "branch": "stabilization/v1.0",
+    "commit": "c628ad63",
+    "workingTreeStatus": "M AGENTS.md\n M CHANGELOG.md\n M docs/AUTO_DOCS_INDEX.md\n M docs/AUTO_ENV.md\n M docs/DESIGN.md\n M docs/ENGINEERING_BASELINE.md\n M docs/IA_TRAZABILIDAD_AGENTES.md\n M docs/INSTALLER_HUB.md\n M docs/INVENTARIO_CODIGO_EXHAUSTIVO.md\n M docs/INVENTARIO_PROYECTO.md\n M docs/POLITICA_ECONOMIA_TOKENS_CODEX.md\n M docs/QA_VALIDACION_PLAN.md\n M docs/release/evidencias/1.0.0/README.md\n M docs/release/manual/stabilization-completion-audit-2026-05-27.md\n M package-lock.json\n M package.json\n M packaging/wix/Product.wxs\n M reports/qa/latest/installer-hub-e2e-elevated-transcript.txt\n M reports/qa/latest/installer-hub-vm-readiness.json\n M reports/release/stable-gate/1.0.0/decision.json\n M scripts/build-msi.ps1\n M scripts/installer-burn/InstallerBurnHelper.ps1\n M scripts/installer-burn/modules/Common.psm1\n M scripts/installer-burn/modules/OperationalConfig.psm1\n M scripts/installer-burn/modules/PrereqDetector.psm1\n M scripts/launcher-dashboard.mjs\n M scripts/release/check-ci-streak.mjs\n M scripts/sign-installer-artifacts.ps1\n M scripts/tests/installer-hub-contract.test.mjs\n M scripts/tests/installer-hub-e2e-docente.ps1\n M scripts/tests/release-ci-streak.test.mjs\n M scripts/tests/stabilization-completion-audit.test.mjs\n?? docs/IA_SKILLS_MCP_POLICY.md\n?? docs/handoff/sesiones/2026-06-04/\n?? docs/handoff/sesiones/2026-06-07/\n?? docs/release/manual/installer-hub-e2e-vm-recovery-2026-06-02.md\n?? docs/release/manual/installer-hub-mvp-readiness-2026-06-07.md\n?? reports/qa/latest/burn-extract-current/\n?? reports/qa/latest/docker-desktop-uninstall.txt\n?? reports/qa/latest/docker-load-prod-images.txt\n?? reports/qa/latest/docker-version-after-license-accept.txt\n?? reports/qa/latest/docker-version-before-manual-e2e.txt\n?? reports/qa/latest/evaluapro-docente-prod-images.tar\n?? reports/qa/latest/hyperv-checkpoints.txt\n?? reports/qa/latest/hyperv-offline-reset-cleanup.txt\n?? reports/qa/latest/hyperv-offline-reset-stage-sethc.txt\n?? reports/qa/latest/hyperv-offline-reset-stage.txt\n?? reports/qa/latest/hyperv-offline-service-reset.txt\n?? reports/qa/latest/hyperv-restart-after-pagefile.txt\n?? reports/qa/latest/hyperv-restart-for-interactive-e2e.txt\n?? reports/qa/latest/hyperv-restore-pre-e2e.txt\n?? reports/qa/latest/hyperv-start-after-reset-service.txt\n?? reports/qa/latest/hyperv-state.txt\n?? reports/qa/latest/installer-hub-e2e-launcher-elevated-transcript.txt\n?? reports/qa/latest/installer-hub-e2e-winrm-transcript.txt\n?? reports/qa/latest/interactive-e2e-manual-transcript.txt\n?? reports/qa/latest/interactive-e2e-manual-watch.json\n?? reports/qa/latest/interactive-e2e-watch.json\n?? reports/qa/latest/signed-e2e-20260607-001853/\n?? reports/qa/latest/vmconnect-login.txt\n?? reports/qa/latest/vmconnect-sendkeys-reset.txt\n?? reports/qa/latest/wsl-offline/\n?? scripts/ai-skills-mcp-policy-status.mjs"
+  }
+}

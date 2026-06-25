@@ -1175,6 +1175,44 @@ function safeExecFast(command, fallback, timeoutMs = 1400) {
   }
 }
 
+function toWslPath(windowsPath) {
+  const resolved = path.resolve(windowsPath);
+  const match = /^([a-zA-Z]):[\\/](.*)$/.exec(resolved);
+  if (!match) return resolved.replaceAll('\\', '/');
+  return `/mnt/${match[1].toLowerCase()}/${match[2].replaceAll('\\', '/')}`;
+}
+
+function quoteSh(value) {
+  return `'${String(value).replaceAll("'", "'\\''")}'`;
+}
+
+function quoteCmd(value) {
+  return `"${String(value).replaceAll('"', '\\"')}"`;
+}
+
+function dockerCliArgs(args = [], options = {}) {
+  const effectiveRuntime = dockerRuntimePreference() === 'wsl2-engine' ? 'wsl2-engine' : 'desktop';
+  if (effectiveRuntime !== 'wsl2-engine') return ['docker', ...args];
+
+  const cwd = options.cwd || root;
+  const command = `cd ${quoteSh(toWslPath(cwd))} && docker ${args.map(quoteSh).join(' ')}`;
+  return ['wsl', '-d', 'Ubuntu', '-u', 'root', '--', 'sh', '-lc', command];
+}
+
+function dockerCommandForShell(args = [], options = {}) {
+  return dockerCliArgs(args, options).map(quoteCmd).join(' ');
+}
+
+function execDocker(args = [], options = {}) {
+  const cliArgs = dockerCliArgs(args, options);
+  return execSync(cliArgs.map(quoteCmd).join(' '), {
+    cwd: options.cwd || root,
+    stdio: ['ignore', 'pipe', options.stderr || 'ignore'],
+    encoding: 'utf8',
+    timeout: options.timeoutMs || 1600
+  }).trim();
+}
+
 function setDockerAutostart(patch) {
   Object.assign(dockerAutostart, patch);
   dockerAutostart.lastChangedAt = Date.now();
@@ -1185,18 +1223,24 @@ function dockerDisplayString() {
   if (dockerAutostart.state === 'checking') return 'Comprobando runtime Docker...';
   if (dockerAutostart.state === 'error') return dockerAutostart.lastError || 'El runtime Docker no responde.';
   if (dockerAutostart.ready && dockerAutostart.version) return dockerAutostart.version;
-  const v = safeExecFast('docker version --format "{{.Server.Version}}"', '', 900);
+  const v = tryGetDockerVersion();
   return v || 'No disponible';
 }
 
 function tryGetDockerVersion() {
-  const v = safeExecFast('docker version --format "{{.Server.Version}}"', '', 1200);
-  return v && v !== 'No disponible' ? v : '';
+  try {
+    return execDocker(['version', '--format', '{{.Server.Version}}'], { timeoutMs: 1800 }) || '';
+  } catch {
+    return '';
+  }
 }
 
 function tryGetDockerContext() {
-  const v = safeExecFast('docker context show', '', 1200);
-  return v && v !== 'No disponible' ? v : '';
+  try {
+    return execDocker(['context', 'show'], { timeoutMs: 1800 }) || '';
+  } catch {
+    return '';
+  }
 }
 
 function dockerRuntimePreference() {
@@ -1276,7 +1320,7 @@ function shouldAttemptDesktopCompatStart() {
 }
 
 function composeBaseArgsForMode(desiredMode) {
-  const args = ['docker', 'compose', '-f', composeFile];
+  const args = ['compose', '-f', path.basename(composeFile)];
   if (desiredMode === 'prod') args.push('--profile', 'prod');
   return args;
 }
@@ -1284,16 +1328,8 @@ function composeBaseArgsForMode(desiredMode) {
 function isComposeServiceRunning(desiredMode, service) {
   if (!composeFile || !fs.existsSync(composeFile)) return false;
   const base = composeBaseArgsForMode(desiredMode);
-  const fileQuoted = `"${composeFile.replaceAll('"', '\\"')}"`;
-  const profile = desiredMode === 'prod' ? '--profile prod ' : '';
-  const cmd = `docker compose -f ${fileQuoted} ${profile}ps -q ${service}`;
   try {
-    const out = execSync(cmd, {
-      cwd: root,
-      stdio: ['ignore', 'pipe', 'ignore'],
-      encoding: 'utf8',
-      timeout: 1600
-    }).trim();
+    const out = execDocker([...base, 'ps', '-q', service], { timeoutMs: 2200 });
     return Boolean(out);
   } catch {
     return false;
@@ -3382,6 +3418,15 @@ function getCommand(taskName) {
   if (!task) return null;
   if (task === 'portal') {
     return mode === 'prod' ? baseCommands['portal-prod'] : baseCommands['portal-dev'];
+  }
+  if (task === 'prod' && dockerRuntimePreference() === 'wsl2-engine') {
+    return dockerCommandForShell(['compose', '-f', path.basename(composeFile), '--profile', 'prod', 'up', '--no-build', '-d', 'mongo_local', 'api_docente_prod', 'web_docente_prod']);
+  }
+  if (task === 'docker-ps' && dockerRuntimePreference() === 'wsl2-engine') {
+    return dockerCommandForShell(['ps']);
+  }
+  if (task === 'docker-down' && dockerRuntimePreference() === 'wsl2-engine') {
+    return dockerCommandForShell(['compose', '-f', path.basename(composeFile), 'down', '--remove-orphans']);
   }
   return baseCommands[task] ?? null;
 }

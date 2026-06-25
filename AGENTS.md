@@ -6,19 +6,20 @@ Guia operativa para cualquier agente de IA que trabaje en este repositorio.
 1. Este archivo (`AGENTS.md`).
 2. `docs/IA_TRAZABILIDAD_AGENTES.md`.
 3. `docs/POLITICA_ECONOMIA_TOKENS_CODEX.md`.
-4. Instrucciones de asistente IDE:
+4. `docs/IA_SKILLS_MCP_POLICY.md`.
+5. Instrucciones de asistente IDE:
    - `.github/copilot-instructions.md`
-5. Contrato CI/CD:
+6. Contrato CI/CD:
    - `ci/pipeline.contract.md`
    - `ci/pipeline.matrix.json`
-6. Workflows:
+7. Workflows:
    - `.github/workflows/ci.yml`
    - `.github/workflows/package.yml`
-7. Gates de release y operacion:
+8. Gates de release y operacion:
    - `docs/RELEASE_GATE_STABLE.md`
    - `docs/RUNBOOK_OPERACION.md`
    - `docs/SEGURIDAD_OPERATIVA.md`
-8. Baselines y versionado:
+9. Baselines y versionado:
    - `docs/ENGINEERING_BASELINE.md`
    - `docs/DEVOPS_BASELINE.md`
    - `docs/VERSIONADO.md`
@@ -66,6 +67,10 @@ Si hay conflicto entre documentos, actualizar todos para alinear el estado real 
    - mantener Caveman activo durante toda la sesion,
    - si por plataforma no se activa via hooks, activarlo manualmente,
    - solo desactivarlo temporalmente si el usuario lo solicita de forma explicita.
+12. Uso de skills/MCP:
+   - aplicar `docs/IA_SKILLS_MCP_POLICY.md` antes de elegir conectores o skills,
+   - usar GitHub, Codex Security, Browser y Superpowers segun el tipo de tarea,
+   - no usar Figma ni Canva por defecto; Excalidraw es la alternativa gratuita para bocetos y la aceptacion UI vive en componentes reales, `docs/DESIGN.md`, `docs/UX_QUALITY_CRITERIA.md` y Playwright.
 
 ## 2.1) Inventario exhaustivo de instrucciones IA
 1. El inventario oficial vive en:

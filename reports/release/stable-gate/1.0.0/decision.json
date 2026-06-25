@@ -1,17 +1,17 @@
 {
-  "timestamp": "2026-06-01T11:10:16.350Z",
+  "timestamp": "2026-06-13T04:33:28.276Z",
   "version": "1.0.0",
   "decision": "Go",
   "checks": [
     {
       "id": "ci-streak",
       "ok": true,
-      "detail": "streak=10/10"
+      "detail": "streak=21/10"
     },
     {
       "id": "release-evidence",
       "ok": true,
-      "detail": "C:\\Users\\evega\\EvaluaPro_Sistema_Universitario\\docs\\release\\evidencias\\1.0.0"
+      "detail": "V:\\Software\\EvaluaPro\\docs\\release\\evidencias\\1.0.0"
     },
     {
       "id": "prod-flow-evidence",
@@ -21,7 +21,7 @@
     {
       "id": "installer-multi-flavor",
       "ok": true,
-      "detail": "C:\\Users\\evega\\EvaluaPro_Sistema_Universitario\\dist\\installer\\EvaluaPro-release-manifest.json"
+      "detail": "V:\\Software\\EvaluaPro\\dist\\installer\\EvaluaPro-release-manifest.json"
     },
     {
       "id": "prod-flow",

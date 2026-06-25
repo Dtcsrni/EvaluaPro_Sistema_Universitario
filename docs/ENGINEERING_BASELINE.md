@@ -5,6 +5,21 @@ Version tecnica: `1.0.0`
 Version visible GUI: `1.0.0b`
 
 ## Estado vigente
+- Corte 2026-06-06 (Installer Hub VM E2E hacia release):
+  - Hyper-V Direct queda descartado para la corrida actual por token no elevado; la operacion VM continua por WinRM de red contra `EVALPRO-E2E`.
+  - Firma de bundles Burn corregida a flujo `wix burn detach` + firma de engine + `wix burn reattach`, evitando corromper el contenedor `WixAttachedContainer`.
+  - Bootstrapper WPF agrega timeout para helper `post-install` y manejo defensivo de `CenterTimelineItem` para no cerrar la UI por `TransformToAncestor` invalido.
+  - Helper Burn emite progreso por fase y la descarga BITS queda limitada por timeout para que `runtime_local_embebido` no bloquee el E2E sin diagnostico.
+  - E2E VM completado con bundle sin firma `dist/installer/docente-local/EvaluaPro-InstallerHub-docente-local-v1.0.0.exe`, SHA256 `62AD731CA73614DC0AD59EAD9C6856FC711A7D9E0737BCF20505A02A8CE61489`.
+  - Evidencia VM sin firma: `C:\EvaluaPro\reports\qa\installer-hub-e2e-docente\20260606-232957\report.json`, `status=passed`, `lastTaskResult=0`.
+  - Bundle firmado actual: SHA256 `5F0D95768A6B9AD71B5C9F492CA726CCE619DD4269DEE79E3B19B3BBA22B6656`, Authenticode `Valid`, `CN=EvaluaPro Internal Code Signing`.
+  - E2E VM firmado completado: `C:\EvaluaPro\reports\qa\installer-hub-e2e-docente\20260607-001853`, `status=passed`, `lastTaskResult=0`, `44/44` resultados OK, duración `881.34s`; evidencia local en `reports/qa/latest/signed-e2e-20260607-001853/`.
+  - Validacion local confirmada: `node --test scripts/tests/installer-hub-contract.test.mjs` pasa `59/59`.
+  - Contrato completo Installer Hub confirmado: `npm run test:installer-hub:contract` pasa `64/64`, incluyendo `windows-release-smoke`.
+  - Gates base de cierre confirmados en verde: `lint`, `typecheck`, `test:frontend:ci`, `test:backend:ci`, `test:portal:ci`, `test:coverage:ci`, `perf:check`, `pipeline:contract:check`, `test:tdd:enforcement:ci` y `test:stabilization:completion-audit`.
+  - `test:backend:ci` queda particionado por lotes para Windows, preservando la seleccion de pruebas y evitando crashes monoliticos de workers.
+  - Estado de release: firma interna y E2E VM del hash firmado cerrados y consolidados bajo la Opción A. Se descarta el pasivo continuo de CA pública en la distribución, orientando el roadmap futuro de publicación masiva hacia la Microsoft Store.
+  - Reporte operativo: `docs/release/manual/installer-hub-mvp-readiness-2026-06-07.md`.
 - Corte 2026-06-03 (Estabilización E2E y pre-release):
   - Solución de las incompatibilidades de Vitest threads (`process.chdir`) en la suite de pruebas OMR de TV3 (`omr.tv3.porFolioValidation.test.ts`).
   - Eliminación del caso de prueba obsoleto que exigía `PORTAL_ALUMNO_API_KEY` en producción en `configuracion.produccion.test.ts`.
@@ -294,11 +309,11 @@ Version visible GUI: `1.0.0b`
   - cobertura frontend ampliada con `apps/frontend/tests/centroClassroom.behavior.test.tsx`
   - dictamen técnico documentado en `docs/CLASSROOM_AUDIT_2026-03-22.md`
   - bloqueo operativo confirmado para E2E real por falta de credenciales Google/Classroom en el entorno actual
-- `npm run release:validate:stable -- --version=1.0.0 --repo=Dtcsrni/EvaluaPro_Sistema_Universitario` ❌ esperado (`No-Go`)
-  - bloqueo real actualizado:
-    - `ci-streak=7/10`
-    - `gateHumanoProduccion.resultado=fallo`
-    - falta `dist/installer/EvaluaPro-release-manifest.json`
+- `node scripts/release/validate-stable-promotion.mjs --version=1.0.0 --repo=Dtcsrni/EvaluaPro_Sistema_Universitario` ✅ (`Go`)
+  - evidencia remota actualizada:
+    - `ci-streak=21/10`
+    - `gateHumanoProduccion.resultado=ok`
+    - `dist/installer/EvaluaPro-release-manifest.json` presente y validado
 - Resultado del corte:
   - todos los gates obligatorios de `AGENTS.md` quedaron en verde
   - la optimización PWA quedó validada con contratos específicos para manifest, SW y estado observable

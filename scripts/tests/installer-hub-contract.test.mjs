@@ -192,9 +192,23 @@ test('runtime Docker Windows queda abstracto en dashboard, WiX y package scripts
   assert.match(productWxs, /\<\?if \$\(var\.FlavorId\) != docente-local \?\>/);
   assert.match(productWxs, /Installed OR REQUIRE_INSTALLER_HUB = 1 OR BURNMSIINSTALL = 1/);
   assert.match(productWxs, /SKIP_DOCKER_RUNTIME_CHECK = 1 OR REQUIRE_INSTALLER_HUB = 1 OR BURNMSIINSTALL = 1 OR DOCKERINSTALLED64 OR DOCKERINSTALLEDUSER OR WSLINSTALLED/);
+  assert.match(productWxs, /<Directory Id="INSTALLFOLDER" Name="\$\(var\.InstallFolderName\)" \/>/);
   assert.match(bundleWxs, /MsiProperty Name="REQUIRE_INSTALLER_HUB" Value="1"/);
   assert.match(productWxs, /runtime Docker compatible/i);
   assert.equal(packageJson.scripts['docker:runtime:check'], 'node scripts/docker-runtime-check.mjs');
+});
+
+test('build-msi valida contenedor adjunto Burn antes de publicar bundle', () => {
+  const buildMsi = fs.readFileSync(path.join(root, 'scripts', 'build-msi.ps1'), 'utf8');
+
+  assert.match(buildMsi, /function Assert-BurnBundleAttachedContainer/);
+  assert.match(buildMsi, /'burn', 'extract'/);
+  assert.match(buildMsi, /MinimumPayloadBytes/);
+  assert.match(buildMsi, /Assert-BurnBundleAttachedContainer -WixExecutable \$wixExe -BundlePath \$bundleOut/);
+  assert.match(buildMsi, /function Assert-MsiInstallsAppPayload/);
+  assert.match(buildMsi, /Assert-MsiInstallsAppPayload -MsiPath \$productOut -InstallFolderName \$installFolderName/);
+  assert.match(buildMsi, /'docker-compose\.yml'/);
+  assert.match(buildMsi, /'docker-compose\.prod-build\.yml'/);
 });
 
 test('installer hub WPF publica timeline por etapas y resumen de error MSI visible', () => {
@@ -395,6 +409,12 @@ test('Installer Hub tiene runner E2E real docente con guardas de VM y evidencia 
   assert.match(runner, /detect-response-ready/);
   assert.match(runner, /Get-EvaluaProUninstallEntries/);
   assert.match(runner, /Invoke-DockerStableStack/);
+  assert.match(runner, /function Resolve-DockerWorkingDirectory/);
+  assert.match(runner, /function Get-DockerComposeArguments/);
+  assert.match(runner, /\$LastDockerExitCode = 0/);
+  assert.match(runner, /Start-Process -FilePath 'wsl\.exe'/);
+  assert.match(runner, /\$script:LastDockerExitCode = \[int\]\$proc\.ExitCode/);
+  assert.match(runner, /--env-file/);
   assert.match(runner, /Assert-DockerStable/);
   assert.match(runner, /Export-DockerEvidence/);
   assert.match(runner, /Capture-DashboardScreenshots/);
@@ -432,6 +452,8 @@ test('Installer Hub tiene runner E2E real docente con guardas de VM y evidencia 
   assert.match(runner, /Invoke-InstalledBroker -Action 'open-dashboard'/);
   assert.match(runner, /Test-UpdateSmoke -BaseUrl \$dashboardBase/);
   assert.match(runner, /Wait-BootstrapState/);
+  assert.match(runner, /\$freshWindow = Find-Window -TimeoutSec 1/);
+  assert.match(runner, /\$lastText = Get-WindowTextSnapshot -Window \$Window/);
   assert.match(runner, /installation\.manifest\.json/);
   assert.match(runner, /update-config\.json/);
   assert.match(runner, /programdata-installer-hub-logs/);
@@ -690,13 +712,14 @@ test('helper Burn respeta EVALUAPRO_INSTALLER_ASSUME_INTERNET en deteccion', () 
   }
 });
 
-test('helper Burn permite override QA para runtime Node desde host', () => {
+test('helper Burn prioriza runtime Node host valido antes de descarga remota', () => {
   const helper = fs.readFileSync(burnHelperPath, 'utf8');
 
   assert.match(helper, /EVALUAPRO_INSTALLER_USE_HOST_NODE_RUNTIME/);
   assert.match(helper, /Get-Command\s+'node\.exe'/);
+  assert.match(helper, /\$hostMajor -ge \$requiredMajor/);
   assert.match(helper, /Copy-Item[\s\S]+Get-EmbeddedNodeMajorVersion/);
-  assert.match(helper, /source\s+=\s+'host-node-override'/);
+  assert.match(helper, /source\s+=\s+'host-node'/);
 });
 
 test('helper Burn alinea rutas de shortcuts con verificacion post-install', () => {
@@ -876,6 +899,7 @@ test('runtime Burn concentra configuracion operativa, prerequisitos y blindaje d
   assert.match(operationalConfig, /UpdateAssetName|updateAssetName/);
   assert.match(operationalConfig, /UpdateShaAssetName|updateShaAssetName/);
   assert.match(operationalConfig, /UpdateRequireSha256|updateRequireSha256/);
+  assert.match(operationalConfig, /New-Item -ItemType Directory -Force -Path \$updateConfigDir/);
   assert.match(license, /Initialize-EvaluaProPortableAdminLicense/);
   assert.match(prereqInstaller, /Invoke-PrerequisiteInstallationFlow/);
 });
@@ -883,6 +907,9 @@ test('runtime Burn concentra configuracion operativa, prerequisitos y blindaje d
 test('runtime embebido rehace runtime y evita Move-Item frágil', () => {
   const helper = fs.readFileSync(burnHelperPath, 'utf8');
 
+  assert.match(helper, /Runtime Node embebido preparado desde Node host/);
+  assert.match(helper, /source = 'host-node'/);
+  assert.match(helper, /\$hostMajor -ge \$requiredMajor/);
   assert.match(helper, /Remove-Item -LiteralPath \$runtimeRoot -Recurse -Force -ErrorAction Stop/);
   assert.match(helper, /New-Item -ItemType Directory -Path \$runtimeRoot -Force \| Out-Null/);
   assert.match(helper, /Copy-Item -Path \(Join-Path \$expandedRoot\.FullName '\*'\) -Destination \$stagingRoot -Recurse -Force/);
@@ -1695,6 +1722,10 @@ test('dashboard expone runtime Docker efectivo y alerta Desktop no manual', () =
   const dashboard = fs.readFileSync(path.join(root, 'scripts', 'launcher-dashboard.mjs'), 'utf8');
 
   assert.match(dashboard, /function resolveEffectiveDockerRuntime/);
+  assert.match(dashboard, /function dockerCliArgs/);
+  assert.match(dashboard, /function dockerCommandForShell/);
+  assert.match(dashboard, /wsl', '-d', 'Ubuntu', '-u', 'root'/);
+  assert.match(dashboard, /--no-build', '-d', 'mongo_local', 'api_docente_prod', 'web_docente_prod'/);
   assert.match(dashboard, /desktop-manual/);
   assert.match(dashboard, /desktop-unapproved/);
   assert.match(dashboard, /EVALUAPRO_DOCKER_RUNTIME=desktop/);

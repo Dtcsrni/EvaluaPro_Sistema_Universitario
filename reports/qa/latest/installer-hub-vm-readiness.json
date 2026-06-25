@@ -1,14 +1,14 @@
 ﻿{
     "ok":  false,
-    "generatedAt":  "2026-06-02T01:07:19.4459833-06:00",
+    "generatedAt":  "2026-06-04T20:50:33.3133115-06:00",
     "vmName":  "EvaluaPro-E2E-Win11",
     "computerName":  "EVALPRO-E2E",
     "expectedSnapshotName":  "pre-evaluapro-installer-e2e",
     "checks":  [
                    {
                        "id":  "snapshot.env",
-                       "ok":  false,
-                       "detail":  "EVALUAPRO_E2E_VM_SNAPSHOT=; expected=pre-evaluapro-installer-e2e"
+                       "ok":  true,
+                       "detail":  "EVALUAPRO_E2E_VM_SNAPSHOT=pre-evaluapro-installer-e2e; expected=pre-evaluapro-installer-e2e"
                    },
                    {
                        "id":  "winrm.trusted-hosts",

@@ -202,11 +202,13 @@ export async function descargarPdf(req: SolicitudDocente, res: Response) {
       plantillaTitulo: String((plantilla as unknown as { titulo?: unknown })?.titulo ?? '')
     });
 
-    // Best-effort: marca el momento de descarga (se actualiza aunque el PDF ya se haya descargado antes).
-    // Si la actualizacion falla, no se bloquea la descarga.
-    void ExamenGenerado.updateOne({ _id: examenId, docenteId }, { $set: { descargadoEn: new Date() } }).catch(() => {
+    // Best-effort: marca el momento de descarga antes de responder para que
+    // el guardrail de regeneracion vea un estado consistente inmediatamente.
+    try {
+      await ExamenGenerado.updateOne({ _id: examenId, docenteId }, { $set: { descargadoEn: new Date() } });
+    } catch {
       // no-op
-    });
+    }
 
     res.setHeader('Content-Type', 'application/pdf');
     res.setHeader('Content-Disposition', `attachment; filename="${nombreDescarga}"`);

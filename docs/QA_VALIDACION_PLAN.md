@@ -11,7 +11,7 @@ Objetivo: ejecutar validacion humana y automatizada sin bajar gates, usando cred
 - VM: `EvaluaPro-E2E-Win11`, snapshot `pre-evaluapro-installer-e2e`.
 - Runtime: WSL2 + Ubuntu + Docker Engine operativo.
 - Node >= 24, `npm install` desde la raiz.
-- No usar Docker Desktop salvo override `EVALUAPRO_DOCKER_RUNTIME=desktop`.
+- No instalar Docker Desktop para `docente-local`; aceptar Docker Desktop solo si ya existe, esta sano y evita doble runtime/conflicto local, o con override explicito `EVALUAPRO_DOCKER_RUNTIME=desktop`.
 
 ## 2) Credenciales default locales (protegidas con env vars)
 
@@ -112,4 +112,4 @@ Matriz oficial: [ci/pipeline.matrix.json](ci/pipeline.matrix.json)
 ## 8) Notas de seguridad operativa
 - No colocar credenciales en archivos versionados.
 - No ejecutar el runner mutante sin snapshot valido.
-- No usar Docker Desktop en docente-local salvo excepcion documentada.
+- No instalar Docker Desktop en docente-local. Si ya existe en el equipo del docente y su daemon esta sano, puede usarse como compatibilidad documentada; si causa conflicto o no responde, volver a `WSL2 + Docker Engine`.

@@ -24,6 +24,17 @@ Version visible objetivo: `1.0.0b`
   - `reports/perf/latest.json`
 
 ## 2.1) Footprint y clasificacion del corte 2026-06-01
+- Estabilizacion Installer Hub VM 2026-06-06:
+  - la frontera operativa de VM para el E2E de release usa WinRM por red contra `EVALPRO-E2E`; Hyper-V Direct requiere token elevado y no forma parte de esta corrida.
+  - el firmado de bundles Burn debe preservar el contenedor adjunto mediante `wix burn detach/reattach`; firmar el `.exe` directamente rompe `WixAttachedContainer`.
+  - el helper Burn queda instrumentado con progreso por fase y timeout de descarga BITS para diagnosticar `runtime_local_embebido` en vez de colgar la UI.
+  - la BA WPF limita helpers de larga duracion y evita crash por centrado de timeline cuando el visual deja de estar bajo el ancestro esperado.
+  - artefacto firmado actual de prueba: `dist/installer/docente-local/EvaluaPro-InstallerHub-docente-local-v1.0.0.exe`, SHA256 `5F0D95768A6B9AD71B5C9F492CA726CCE619DD4269DEE79E3B19B3BBA22B6656`, Authenticode `Valid`.
+  - estado real: `node --test scripts/tests/installer-hub-contract.test.mjs` pasa `59/59`; `npm run test:installer-hub:contract` pasa `64/64`; gates base AGENTS en verde; E2E VM completo del bundle firmado pasa con `status=passed` en `C:\EvaluaPro\reports\qa\installer-hub-e2e-docente\20260607-001853\report.json`.
+  - `test:backend:ci` usa batching repo-local para sostener Windows/Vitest sin reducir cobertura funcional.
+  - E2E VM firmado completado: `C:\EvaluaPro\reports\qa\installer-hub-e2e-docente\20260607-001853`, `status=passed`, `lastTaskResult=0`, `44/44` resultados OK, duración `881.34s`.
+  - frontera consolidada: MVP interno validado bajo la Opción A (certificado interno autogenerado `CN=EvaluaPro Internal Code Signing`). Para evitar costos y pasivos continuos de CA pública en la distribución a escala, se establece en el roadmap la migración futura del instalador hacia la Microsoft Store.
+  - contexto operativo para continuidad: `docs/release/manual/installer-hub-mvp-readiness-2026-06-07.md`.
 - Enriquecimiento GUI y Animaciones del Hub 2026-06-01:
   - la interfaz del WPF BurnBootstrapperApp incorpora múltiples iconos vectoriales `<Path>` para ilustrar estados operativos
   - se implementa un spinner animado infinito para indicar procesos de espera o diagnósticos activos
@@ -329,7 +340,7 @@ Version visible objetivo: `1.0.0b`
   - validación automática de evidencia estable endurecida con `prod-flow-evidence`
   - rollback readiness formalizado como artefacto obligatorio
   - evidencia Windows previa reutilizada desde `docs/release/evidencias/1.0.0-beta.1/windows-release-smoke-2026-03-20.md`
-  - la promoción queda bloqueada honestamente en `No-Go` hasta ejecutar el gate humano real de producción
+  - la promoción estable queda en `Go` con evidencia persistida de gate humano y racha CI remota `21/10`
 - Follow-up CI/CD posterior al push inicial:
   - `CI Checks` corregido con pruebas de contrato del Installer Hub compatibles con Linux cuando el runner no soporta DPAPI.
   - `CI Portal Module` corregido con cobertura adicional del logger del portal.

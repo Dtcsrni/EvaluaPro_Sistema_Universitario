@@ -72,7 +72,9 @@ function New-InstallerBuildStagingRoot {
   Write-Host "[msi] Staging temporal: $stagingRoot"
 
   $allowedRootFiles = @(
-    'package.json'
+    'package.json',
+    'docker-compose.yml',
+    'docker-compose.prod-build.yml'
   )
   $allowedTopLevelPrefixes = @(
     'accesos-directos/',
@@ -349,6 +351,82 @@ function Invoke-CheckedStep {
   $exitCode = if ($null -ne $proc -and $null -ne $proc.ExitCode) { [int]$proc.ExitCode } else { 1 }
   if ($exitCode -ne 0) {
     throw "Fallo en paso '$Title' (exit=$exitCode): $Command"
+  }
+}
+
+function Assert-BurnBundleAttachedContainer {
+  param(
+    [Parameter(Mandatory = $true)]
+    [string]$WixExecutable,
+    [Parameter(Mandatory = $true)]
+    [string]$BundlePath,
+    [Parameter(Mandatory = $true)]
+    [int64]$MinimumPayloadBytes
+  )
+
+  if (-not (Test-Path -LiteralPath $BundlePath)) {
+    throw "No existe bundle Burn para validar contenedor adjunto: $BundlePath"
+  }
+
+  $extractRoot = Join-Path $env:TEMP ("evaluapro-burn-extract-" + [Guid]::NewGuid().ToString('N'))
+  New-Item -ItemType Directory -Path $extractRoot -Force | Out-Null
+  try {
+    $extractArgs = @('burn', 'extract', $BundlePath, '-out', $extractRoot)
+    $extractExit = Invoke-WixBuildProcess -WixExecutable $WixExecutable -Arguments $extractArgs
+    if ($extractExit -ne 0) {
+      throw "Falló validacion de contenedor Burn para $BundlePath (exit=$extractExit)"
+    }
+
+    $payloads = @(Get-ChildItem -LiteralPath $extractRoot -File -Recurse -ErrorAction SilentlyContinue)
+    $largestPayload = @($payloads | Sort-Object Length -Descending | Select-Object -First 1)
+    $largestPayloadBytes = if ($largestPayload.Count -gt 0) { [int64]$largestPayload[0].Length } else { [int64]0 }
+    if ($payloads.Count -lt 1 -or $largestPayload.Count -lt 1 -or $largestPayloadBytes -lt $MinimumPayloadBytes) {
+      throw "Bundle Burn sin payload adjunto suficiente: $BundlePath. Payloads=$($payloads.Count), maxBytes=$largestPayloadBytes, esperadoMinimo=$MinimumPayloadBytes"
+    }
+
+    Write-Host "[msi] Contenedor Burn validado: $BundlePath (payloads=$($payloads.Count), maxBytes=$largestPayloadBytes)"
+  } finally {
+    Remove-Item -LiteralPath $extractRoot -Recurse -Force -ErrorAction SilentlyContinue
+  }
+}
+
+function Assert-MsiInstallsAppPayload {
+  param(
+    [Parameter(Mandatory = $true)]
+    [string]$MsiPath,
+    [Parameter(Mandatory = $true)]
+    [string]$InstallFolderName
+  )
+  if (-not (Test-Path -LiteralPath $MsiPath)) {
+    throw "MSI no existe para validar payload instalado: $MsiPath"
+  }
+  $extractRoot = Join-Path $env:TEMP ("evaluapro-msi-admin-{0}" -f [Guid]::NewGuid().ToString('N'))
+  New-Item -ItemType Directory -Path $extractRoot -Force | Out-Null
+  try {
+    $proc = Start-Process -FilePath 'msiexec.exe' -ArgumentList @('/a', $MsiPath, "TARGETDIR=$extractRoot", '/qn', '/norestart') -Wait -NoNewWindow -PassThru
+    if ($proc.ExitCode -ne 0) {
+      throw "Extraccion administrativa MSI fallo (exit=$($proc.ExitCode)): $MsiPath"
+    }
+    $packageCandidates = @(
+      (Join-Path $extractRoot ("PFiles64\{0}\package.json" -f $InstallFolderName)),
+      (Join-Path $extractRoot ("ProgramFiles64Folder\{0}\package.json" -f $InstallFolderName))
+    )
+    $packageOk = $false
+    foreach ($candidate in $packageCandidates) {
+      if (Test-Path -LiteralPath $candidate) {
+        $packageOk = $true
+        break
+      }
+    }
+    if (-not $packageOk) {
+      $sample = @(Get-ChildItem -LiteralPath $extractRoot -Recurse -File -ErrorAction SilentlyContinue | Select-Object -First 20 -ExpandProperty FullName)
+      throw "MSI no instala package.json bajo carpeta de producto '$InstallFolderName'. Muestras: $($sample -join ' | ')"
+    }
+    Write-Host "[msi] Payload MSI validado bajo carpeta de producto: $InstallFolderName"
+  } finally {
+    if (Test-Path -LiteralPath $extractRoot) {
+      Remove-Item -LiteralPath $extractRoot -Recurse -Force -ErrorAction SilentlyContinue
+    }
   }
 }
 
@@ -831,6 +909,7 @@ if ($buildBundle) {
     if (-not (Test-Path -LiteralPath $productOut)) {
       throw "Build de Product.wxs para $flavorId no genero MSI esperado: $productOut"
     }
+    Assert-MsiInstallsAppPayload -MsiPath $productOut -InstallFolderName $installFolderName
     $idx += 1
 
     if ($buildBundle) {
@@ -867,6 +946,8 @@ if ($buildBundle) {
       if (-not (Test-Path -LiteralPath $bundleOut)) {
         throw "Build de Bundle.wxs para $flavorId no genero bundle esperado: $bundleOut"
       }
+      $msiBytes = (Get-Item -LiteralPath $productOut).Length
+      Assert-BurnBundleAttachedContainer -WixExecutable $wixExe -BundlePath $bundleOut -MinimumPayloadBytes ([int64]([Math]::Max(1, [Math]::Floor($msiBytes * 0.75))))
       $bundleWixPdb = Join-Path $publicFlavorOut ([System.IO.Path]::GetFileNameWithoutExtension($bundleName) + '.wixpdb')
       if (Test-Path $bundleWixPdb) {
         Move-Item -LiteralPath $bundleWixPdb -Destination (Join-Path $internalFlavorOut (Split-Path -Leaf $bundleWixPdb)) -Force

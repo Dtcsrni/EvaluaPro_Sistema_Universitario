@@ -17,7 +17,23 @@ module.exports = {
   },
   plugins: ['react', 'jsx-a11y'],
   rules: {
-    'react/react-in-jsx-scope': 'off'
+    'react/react-in-jsx-scope': 'off',
+    // React Compiler rules landed in eslint-plugin-react-hooks v7 recommended.
+    // Keep the classic hooks contract active until the frontend is migrated deliberately.
+    'react-hooks/config': 'off',
+    'react-hooks/error-boundaries': 'off',
+    'react-hooks/gating': 'off',
+    'react-hooks/globals': 'off',
+    'react-hooks/immutability': 'off',
+    'react-hooks/incompatible-library': 'off',
+    'react-hooks/preserve-manual-memoization': 'off',
+    'react-hooks/purity': 'off',
+    'react-hooks/refs': 'off',
+    'react-hooks/set-state-in-effect': 'off',
+    'react-hooks/set-state-in-render': 'off',
+    'react-hooks/static-components': 'off',
+    'react-hooks/unsupported-syntax': 'off',
+    'react-hooks/use-memo': 'off'
   },
   overrides: [
     {

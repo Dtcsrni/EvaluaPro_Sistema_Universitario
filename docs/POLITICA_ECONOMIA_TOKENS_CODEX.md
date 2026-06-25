@@ -46,6 +46,10 @@ Esta guia define una politica repo-local para usar Codex en VS Code con menos de
   - `npm run ai:model:pick -- --task "<descripcion>" [--budget low|balanced|high] [--mode auto|coding|reasoning|cheap] [--json]`
 - Prueba local del router:
   - `npm run test:ai:model-router`
+- Politica repo-local de skills/MCP:
+  - `docs/IA_SKILLS_MCP_POLICY.md`
+- Verificador repo/global de skills/MCP:
+  - `npm run ai:skills-mcp:status -- --json`
 
 ## Integracion Caveman (repo-local)
 - Objetivo: reducir tokens de salida y mejorar legibilidad operativa en sesiones con agentes.
@@ -108,8 +112,11 @@ Regla: **Serena obligatorio por defecto** en tareas de codigo (explorar, leer, l
   - `mcp_servers.serena` activo con `--project-from-cwd` y `--context=codex`.
   - `features.codex_hooks=true`.
   - hook `SessionStart` con recordatorio de activacion de proyecto + protocolo de acotacion.
+  - plugins prioritarios activos: GitHub, Browser, Codex Security, Superpowers, Google Drive, Cloudflare, Documents, Spreadsheets y Presentations.
+  - Figma y Canva deshabilitados o no recomendados por defecto; usarlos solo por peticion explicita.
 - Verificacion integral:
   - `npm run ai:serena:policy:status -- --json`
+  - `npm run ai:skills-mcp:status -- --json`
 
 ## Regla de oro
 - Si la tarea es de politica o estrategia sobre Codex, VS Code o economia de tokens, priorizar razonamiento y claridad antes que ahorro de tokens.

@@ -1,11 +1,11 @@
 # Inventario Exhaustivo de Codigo
 
-Fecha de generacion: 2026-06-03 22:25:47
+Fecha de generacion: 2026-06-12 22:34:01
 Fuente: git ls-files filtrado por existencia en workspace (solo archivos versionados presentes, excluye node_modules).
 
 ## Resumen
 
-- Total de piezas de codigo/config ejecutable inventariadas: 1015
+- Total de piezas de codigo/config ejecutable inventariadas: 1016
 - Extensiones incluidas: ts, tsx, js, jsx, mjs, cjs, json, yml, yaml, sh, cmd, ps1.
 
 ## Conteo por area
@@ -16,7 +16,7 @@ Fuente: git ls-files filtrado por existencia en workspace (solo archivos version
 | frontend | 129 |
 | portal_alumno_cloud | 44 |
 | ci | 17 |
-| scripts | 164 |
+| scripts | 165 |
 | ops | 3 |
 | docs | 114 |
 | raiz | 32 |
@@ -665,6 +665,7 @@ Fuente: git ls-files filtrado por existencia en workspace (solo archivos version
 - scripts/icons/generate-installer-flavor-icon.ps1
 - scripts/icons/generate-official-hero.ps1
 - scripts/import-backup.mjs
+- scripts/install-chrome.mjs
 - scripts/Install-EvaluaPro.ps1
 - scripts/install-maintenance-tasks.ps1
 - scripts/installer-burn/InstallerBurnHelper.ps1

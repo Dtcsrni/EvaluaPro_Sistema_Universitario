@@ -910,8 +910,15 @@ function Get-SystemRequirementReport {
     [bool]$InternetOk = $false
   )
 
-  $os = Get-CimInstance -ClassName Win32_OperatingSystem
-  $osVersion = [Version]::new(($os.Version.Split('.') | Select-Object -First 4) -join '.')
+  try {
+    $os = Get-CimInstance -ClassName Win32_OperatingSystem -ErrorAction Stop
+    $osVersionRaw = [string]$os.Version
+    $osCaption = [string]$os.Caption
+  } catch {
+    $osVersionRaw = [Environment]::OSVersion.Version.ToString()
+    $osCaption = 'Windows'
+  }
+  $osVersion = [Version]::new(($osVersionRaw.Split('.') | Select-Object -First 4) -join '.')
   $isWindows10Plus = $osVersion.Major -ge 10
   $is64 = [Environment]::Is64BitOperatingSystem
 
@@ -936,8 +943,8 @@ function Get-SystemRequirementReport {
   if (-not $InternetOk) { $issues += 'No se detecta conectividad a Internet.' }
 
   return [pscustomobject]@{
-    OsCaption = [string]$os.Caption
-    OsVersion = [string]$os.Version
+    OsCaption = $osCaption
+    OsVersion = $osVersionRaw
     IsWindows10Plus = $isWindows10Plus
     Is64Bit = $is64
     DiskFreeGb = $freeGb

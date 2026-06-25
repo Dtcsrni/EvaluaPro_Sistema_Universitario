@@ -6,14 +6,15 @@ Objetivo: continuidad verificable entre agentes heterogeneos con evidencia repro
 ## 1) Fuentes de verdad para agentes
 1. `AGENTS.md`
 2. `docs/IA_TRAZABILIDAD_AGENTES.md`
-3. `.github/copilot-instructions.md`
-4. `ci/pipeline.contract.md`
-5. `ci/pipeline.matrix.json`
-6. `.github/workflows/ci.yml`
-7. `docs/INVENTARIO_PROYECTO.md`
-8. `docs/ENGINEERING_BASELINE.md`
-9. `docs/RELEASE_GATE_STABLE.md`
-10. `CHANGELOG.md`
+3. `docs/IA_SKILLS_MCP_POLICY.md`
+4. `.github/copilot-instructions.md`
+5. `ci/pipeline.contract.md`
+6. `ci/pipeline.matrix.json`
+7. `.github/workflows/ci.yml`
+8. `docs/INVENTARIO_PROYECTO.md`
+9. `docs/ENGINEERING_BASELINE.md`
+10. `docs/RELEASE_GATE_STABLE.md`
+11. `CHANGELOG.md`
 
 ## 2) Contrato canonico de trazabilidad
 - Schema machine-readable: `docs/handoff/trace.schema.json`
@@ -32,6 +33,7 @@ Objetivo: continuidad verificable entre agentes heterogeneos con evidencia repro
 3. Si el runtime no expone identidad tecnica exacta del agente, usar `unknown`; no inventar valores.
 4. Si la sesion trata sobre seleccion de modelo, compactacion de contexto o apertura de chat nuevo para Codex en VS Code, consultar `docs/POLITICA_ECONOMIA_TOKENS_CODEX.md`; esa politica es repo-local y no forma parte del contrato del sistema ni de los gates.
 4.1. En sesiones de agentes en este repo, Caveman es obligatorio como modo operativo por defecto; debe activarse al inicio de sesion y mantenerse activo salvo peticion explicita del usuario.
+4.2. Para seleccionar skills, plugins o MCP, consultar `docs/IA_SKILLS_MCP_POLICY.md`; Figma y Canva quedan excluidos por defecto y Excalidraw es la alternativa gratuita para bocetos.
 5. Toda sesion nueva debe incluir como minimo:
    - `traceSchemaVersion`
    - `sessionId`
@@ -71,6 +73,7 @@ Objetivo: continuidad verificable entre agentes heterogeneos con evidencia repro
    - `README.md`
    - `docs/README.md`
    - `docs/IA_TRAZABILIDAD_AGENTES.md`
+   - `docs/IA_SKILLS_MCP_POLICY.md`
    - `.github/copilot-instructions.md`
 1.1. Activar Caveman al inicio de la sesion (`$caveman`) y mantenerlo activo durante la ejecucion del trabajo, salvo excepcion explicita del usuario.
 2. Verificar estado real antes de editar; no asumir olas, gates o release.
