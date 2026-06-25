@@ -13,6 +13,7 @@ const root = process.cwd();
 const workflowPath = path.join(root, '.github', 'workflows', 'ci.yml');
 const workflowDir = path.join(root, '.github', 'workflows');
 const packageJsonPath = path.join(root, 'package.json');
+const backendDockerfilePath = path.join(root, 'apps', 'backend', 'Dockerfile');
 
 function extractJobBlock(workflow, jobKey) {
   const startMarker = `  ${jobKey}:\n`;
@@ -185,4 +186,20 @@ test('gate backend CI usa runner por lotes para evitar crashes monoliticos de wo
   const gate = String(packageJson.scripts?.['test:backend:ci'] ?? '');
 
   assert.match(gate, /node scripts\/testing\/run-backend-test-batches\.mjs/);
+});
+
+test('release stable gate expone GH_TOKEN para gh cli', () => {
+  const workflow = fs.readFileSync(path.join(workflowDir, 'release-stable-gate.yml'), 'utf8');
+
+  assert.match(workflow, /GH_TOKEN:\s*\$\{\{\s*github\.token\s*\}\}/);
+  assert.match(workflow, /validate-stable-promotion\.mjs/);
+});
+
+test('Dockerfile backend incluye schema Prisma antes del build', () => {
+  const dockerfile = fs.readFileSync(backendDockerfilePath, 'utf8');
+  const prismaIndex = dockerfile.indexOf('COPY apps/backend/prisma ./apps/backend/prisma');
+  const buildIndex = dockerfile.indexOf('npm --workspace apps/backend run build');
+
+  assert.ok(prismaIndex >= 0, 'Dockerfile backend debe copiar apps/backend/prisma');
+  assert.ok(buildIndex > prismaIndex, 'backend build debe ejecutarse despues de copiar Prisma');
 });

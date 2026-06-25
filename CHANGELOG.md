@@ -20,6 +20,15 @@ Este archivo sigue el formato "Keep a Changelog" (alto nivel) y SemVer.
 - Creadas las pruebas unitarias para el validador en `scripts/tests/sdd-audit.test.mjs`.
 - Integrada la validación de specs y tests asociados al pipeline de CI de forma bloqueante mediante `"ci:policy:audit"`.
 
+## [1.0.2] - 2026-06-25
+
+### Fixed
+- Corregido `Release Stable Gate` para exponer `GH_TOKEN` al uso de GitHub CLI dentro del workflow.
+- Corregido `apps/backend/Dockerfile` para copiar `apps/backend/prisma` antes de ejecutar `npm --workspace apps/backend run build`.
+
+### Added
+- Agregadas pruebas de contrato para proteger el token del gate estable y la inclusion del schema Prisma en el Dockerfile backend.
+
 ## [1.0.1] - 2026-06-25
 
 ### Fixed

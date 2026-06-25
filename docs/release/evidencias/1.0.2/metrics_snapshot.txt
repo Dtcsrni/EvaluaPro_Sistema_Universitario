@@ -1,0 +1,5 @@
+ci_workflow_contract_tests_passed 15
+docker_backend_build_local_success 1
+release_stable_gate_token_fix_present 1
+docker_backend_prisma_copy_present 1
+release_patch_no_tag_rewrite 1

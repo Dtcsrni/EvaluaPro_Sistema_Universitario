@@ -14,6 +14,7 @@ COPY package*.json ./
 COPY tsconfig.base.json ./
 COPY apps/backend/package*.json ./apps/backend/
 COPY apps/backend/tsconfig.json ./apps/backend/
+COPY apps/backend/prisma ./apps/backend/prisma
 COPY apps/backend/scripts ./apps/backend/scripts
 COPY apps/backend/src ./apps/backend/src
 RUN npm install --include=optional \
