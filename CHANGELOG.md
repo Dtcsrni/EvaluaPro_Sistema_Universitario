@@ -20,6 +20,16 @@ Este archivo sigue el formato "Keep a Changelog" (alto nivel) y SemVer.
 - Creadas las pruebas unitarias para el validador en `scripts/tests/sdd-audit.test.mjs`.
 - Integrada la validación de specs y tests asociados al pipeline de CI de forma bloqueante mediante `"ci:policy:audit"`.
 
+## [1.0.1] - 2026-06-25
+
+### Fixed
+- Corregido el CI extendido de `main/release` para generar Prisma Client antes de ejecutar suites que importan backend (`Extended Funcionales`, `Extended Perf/Arquitectura` y `Extended Compliance/Evidencia`).
+- Agregada prueba de contrato para evitar regresiones del setup Prisma en jobs extendidos.
+
+### Added
+- Publicado paquete de evidencia `docs/release/evidencias/1.0.1` con commit validado, timeline, metricas, rollback readiness y notas de release.
+- Documentado el alcance de preparacion de curso iniciado y examen global con insumos externos dentro del corte patch.
+
 ## [1.0.0] - 2026-06-23
 
 ### Fixed

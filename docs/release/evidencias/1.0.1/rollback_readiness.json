@@ -1,0 +1,21 @@
+{
+  "version": "1.0.1",
+  "status": "ready",
+  "previousStableVersion": "1.0.0",
+  "activationCriteria": [
+    "Falla regresiva en arranque docente local o flujos extendidos despues de publicar 1.0.1",
+    "Inconsistencia entre tag v1.0.1 y artefactos publicados"
+  ],
+  "rollbackSteps": [
+    "Marcar v1.0.1 como no recomendado en notas de release",
+    "Conservar v1.0.0 como estable previo",
+    "Abrir hotfix desde main con evidencia de reproduccion"
+  ],
+  "postRollbackChecks": [
+    "gh release view v1.0.0",
+    "npm run release:check:evidence -- --version=1.0.0",
+    "Validar acceso a instalador y notas de release previas"
+  ],
+  "approvedBy": "codex",
+  "approvedAt": "2026-06-25T14:59:18Z"
+}

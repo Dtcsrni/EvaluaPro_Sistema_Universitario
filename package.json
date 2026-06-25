@@ -1,7 +1,7 @@
 {
   "name": "evaluapro",
   "description": "Plataforma MERN para evaluación universitaria: generación de exámenes en PDF, vinculación por QR, calificación asistida (OMR) y operación local con docker compose, WSL2 + Docker Engine por defecto y dashboard.",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "author": {
     "name": "I.S.C. Erick Renato Vega Ceron",
     "email": "armsystechno@gmail.com"
