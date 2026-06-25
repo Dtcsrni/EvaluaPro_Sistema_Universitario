@@ -61,6 +61,28 @@ jobs:
           TARGET="${TARGET#v}"
           echo "target=$TARGET" >> "$GITHUB_OUTPUT"
 
+      - name: Materializar manifest del instalador publicado
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          mkdir -p dist/installer
+          TAG="v${{ steps.resolve_version.outputs.target }}"
+          for attempt in {1..40}; do
+            if gh release download "$TAG" \
+              --repo "${{ github.repository }}" \
+              --pattern "EvaluaPro-release-manifest.json" \
+              --dir "dist/installer" \
+              --clobber; then
+              test -s "dist/installer/EvaluaPro-release-manifest.json"
+              exit 0
+            fi
+            echo "Manifest de instalador no disponible aun para $TAG (intento $attempt/40)."
+            sleep 30
+          done
+          echo "No se pudo descargar EvaluaPro-release-manifest.json para $TAG." >&2
+          exit 1
+
       - name: Ejecutar gate estable
         env:
           GH_TOKEN: ${{ github.token }}
