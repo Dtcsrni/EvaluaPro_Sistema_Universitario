@@ -195,6 +195,17 @@ test('release stable gate expone GH_TOKEN para gh cli', () => {
   assert.match(workflow, /validate-stable-promotion\.mjs/);
 });
 
+test('release stable gate materializa manifest del instalador antes de validar', () => {
+  const workflow = fs.readFileSync(path.join(workflowDir, 'release-stable-gate.yml'), 'utf8');
+  const downloadIndex = workflow.indexOf('gh release download "$TAG"');
+  const manifestIndex = workflow.indexOf('dist/installer/EvaluaPro-release-manifest.json');
+  const validateIndex = workflow.indexOf('validate-stable-promotion.mjs');
+
+  assert.ok(downloadIndex >= 0, 'release stable gate debe descargar manifest desde release assets');
+  assert.ok(manifestIndex > downloadIndex, 'release stable gate debe materializar manifest en dist/installer');
+  assert.ok(validateIndex > manifestIndex, 'release stable gate debe validar despues de descargar el manifest');
+});
+
 test('Dockerfile backend incluye schema Prisma antes del build', () => {
   const dockerfile = fs.readFileSync(backendDockerfilePath, 'utf8');
   const prismaIndex = dockerfile.indexOf('COPY apps/backend/prisma ./apps/backend/prisma');
