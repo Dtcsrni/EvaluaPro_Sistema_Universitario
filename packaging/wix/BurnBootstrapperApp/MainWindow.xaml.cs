@@ -15,6 +15,10 @@ public partial class MainWindow : Window
     private static readonly Geometry CrossGeometry = Geometry.Parse("M2,2 L12,12 M12,2 L2,12");
     private static readonly Geometry CircleGeometry = Geometry.Parse("M7,2 A5,5 0 1 1 6.99,2");
     private static readonly Geometry DotGeometry = Geometry.Parse("M7,4.5 A2.5,2.5 0 1 1 6.99,4.5");
+    private static readonly Geometry InstallGeometry = Geometry.Parse("M6,22 L15,31 L34,12");
+    private static readonly Geometry RepairGeometry = Geometry.Parse("M10,12 L16,6 L22,12 L18,16 L30,28 L26,32 L14,20 L10,24 L6,20");
+    private static readonly Geometry UninstallGeometry = Geometry.Parse("M10,10 L34,34 M34,10 L10,34");
+    private static readonly Geometry DocumentGeometry = Geometry.Parse("M11,6 L27,6 L33,12 L33,36 L11,36 Z M27,6 L27,12 L33,12 M15,20 L29,20 M15,26 L29,26 M15,32 L24,32");
 
     private void StartPulseAnimation(UIElement element)
     {
@@ -89,6 +93,7 @@ public partial class MainWindow : Window
             Reason = item.Reason
         }).ToList();
         PrereqListView.ItemsSource = rows;
+        RefreshPrerequisiteSummary(rows);
         var isInstall = string.Equals(GetSelectedMode(), "install", StringComparison.OrdinalIgnoreCase);
         var isUninstall = string.Equals(GetSelectedMode(), "uninstall", StringComparison.OrdinalIgnoreCase);
         var accepted = AcceptTermsCheckBox.IsChecked == true;
@@ -96,6 +101,7 @@ public partial class MainWindow : Window
         FooterStatusTextBlock.Text = model.Ready
             ? "Equipo listo. Puedes ejecutar la operación seleccionada."
             : "Revisa prerequisitos antes de ejecutar la operación.";
+        RefreshFooterGuidance();
     }
 
     public void ConfigureInitialFlavorLayout(IReadOnlyList<FlavorItem> availableFlavors, string requestedFlavorId)
@@ -150,6 +156,7 @@ public partial class MainWindow : Window
         if (!string.IsNullOrWhiteSpace(statusText))
         {
             StatusTextBlock.Text = statusText;
+            SetLiveExplanation("Estado actualizado", $"El instalador reporta: {statusText}");
         }
 
         if (progress.HasValue)
@@ -175,6 +182,7 @@ public partial class MainWindow : Window
             {
                 SetWizardStep(WizardStep.Execute);
                 InstallProgressBar.IsIndeterminate = true;
+                SetLiveExplanation("Operación en curso", "El asistente está ejecutando tareas del instalador. No cierres la ventana hasta que termine o se solicite reinicio.");
             }
 
             if (!busy)
@@ -182,6 +190,7 @@ public partial class MainWindow : Window
                 InstallProgressBar.IsIndeterminate = false;
                 TryHonorPendingCloseRequest();
                 RefreshWizardNavigation();
+                SetLiveExplanation("Listo para continuar", "La tarea activa terminó. Revisa el estado visible y usa la acción recomendada en la parte inferior.");
             }
         }
     }
@@ -195,8 +204,10 @@ public partial class MainWindow : Window
         StatusBadgeTextBlock.Foreground = ToBrush(workflow.HeaderForeground);
         StatusTextBlock.Foreground = ToBrush(workflow.HeaderForeground);
         StatusHintTextBlock.Foreground = ToBrush(workflow.HeaderForeground);
+        RefreshStatusVisual(workflow);
         WorkflowHeaderTitleTextBlock.Text = workflow.WorkflowTitle;
         WorkflowHeaderHintTextBlock.Text = workflow.WorkflowHint;
+        SetLiveExplanation(workflow.CurrentStageTitle, workflow.CurrentStageText);
 
         StageSummaryBorder.Background = ToBrush(workflow.SummaryBackground);
         StageSummaryBorder.BorderBrush = ToBrush(workflow.SummaryBorder);
@@ -242,14 +253,14 @@ public partial class MainWindow : Window
 
             var textLabel = new TextBlock
             {
-                Text = $"{stage.Label} · {stage.Badge.ToLowerInvariant()}",
+                Text = $"{stage.Label} · {badge.ToLowerInvariant()}",
                 FontWeight = FontWeights.SemiBold,
                 Foreground = ToBrush(stage.Foreground),
                 VerticalAlignment = VerticalAlignment.Center,
                 TextWrapping = TextWrapping.Wrap
             };
 
-            if (stage.Badge == "ACTIVA")
+            if (badge == "ACTIVA")
             {
                 badgeIcon.Data = CircleGeometry;
                 badgeIcon.Stroke = ToBrush(stage.Foreground);
@@ -268,13 +279,13 @@ public partial class MainWindow : Window
                 };
                 rotateTransform.BeginAnimation(RotateTransform.AngleProperty, spinnerAnimation);
             }
-            else if (stage.Badge == "OK")
+            else if (badge == "OK")
             {
                 badgeIcon.Data = CheckGeometry;
                 badgeIcon.Stroke = ToBrush(stage.Foreground);
                 StopPulseAnimation(badgeIcon);
             }
-            else if (stage.Badge == "ERROR")
+            else if (badge == "ERROR")
             {
                 badgeIcon.Data = CrossGeometry;
                 badgeIcon.Stroke = ToBrush(stage.Foreground);
@@ -391,12 +402,20 @@ public partial class MainWindow : Window
         hasDeterminateProgress = false;
         InstallProgressBar.IsIndeterminate = false;
         StatusTextBlock.Text = message;
+        StatusHintTextBlock.Text = success
+            ? "La operación terminó y el resultado queda disponible para revisión."
+            : "La operación no terminó correctamente. La bitácora técnica queda disponible para diagnóstico.";
         var isUninstall = string.Equals(GetSelectedMode(), "uninstall", StringComparison.OrdinalIgnoreCase);
         StartButton.IsEnabled = !success && (readyToStart || isUninstall);
         DetectButton.IsEnabled = true;
         RestartNowButton.IsEnabled = true;
         FooterStatusTextBlock.Text = success ? "Operación finalizada correctamente." : "Operación detenida. Revisa la evidencia técnica.";
         SetWizardStep(WizardStep.Result);
+        SetLiveExplanation(
+            success ? "Operación completada" : "Operación detenida",
+            success
+                ? "El flujo finalizó correctamente. Revisa si hay reinicio pendiente o cierra el asistente."
+                : "Revisa el resumen de error y la bitácora técnica antes de volver a intentar.");
         TryHonorPendingCloseRequest();
     }
 
@@ -409,6 +428,7 @@ public partial class MainWindow : Window
             StatusHintTextBlock.Text = message;
             FooterStatusTextBlock.Text = message;
             SetWizardStep(WizardStep.Result);
+            SetLiveExplanation("Reinicio requerido", "Windows necesita reiniciar para completar prerequisitos o retomar la instalación con el estado correcto.");
         }
     }
 
@@ -419,6 +439,7 @@ public partial class MainWindow : Window
         StatusTextBlock.Text = "Hay una operación en progreso; espera a que termine antes de cerrar.";
         StatusHintTextBlock.Text = "El cierre se bloqueó para proteger la transacción actual.";
         FooterStatusTextBlock.Text = "Cierre bloqueado mientras la operación está activa.";
+        SetLiveExplanation("Cierre bloqueado", "El asistente conserva la ventana abierta para evitar una instalación, reparación o desinstalación incompleta.");
     }
 
     private void TryHonorPendingCloseRequest()
@@ -506,6 +527,8 @@ public partial class MainWindow : Window
     private void DetectButton_OnClick(object sender, RoutedEventArgs e)
     {
         SetWizardStep(WizardStep.Review);
+        FooterStatusTextBlock.Text = "Revisando prerequisitos del equipo.";
+        SetLiveExplanation("Revisión en curso", "Se están validando requisitos locales como Windows, WSL, Docker, Node y configuración necesaria para ejecutar EvaluaPro.");
         hasDeterminateProgress = false;
         InstallProgressBar.IsIndeterminate = true;
         InstallProgressBar.Value = 0;
@@ -515,6 +538,8 @@ public partial class MainWindow : Window
     private void StartButton_OnClick(object sender, RoutedEventArgs e)
     {
         SetWizardStep(WizardStep.Execute);
+        FooterStatusTextBlock.Text = "Ejecutando operación seleccionada.";
+        SetLiveExplanation("Ejecución iniciada", "El asistente aplicará la acción seleccionada y actualizará la línea de tareas con cada etapa completada.");
         StartRequested?.Invoke(this, BuildRequest());
     }
 
@@ -688,12 +713,106 @@ public partial class MainWindow : Window
         BrandFlavorBadgeTextBlock.Text = selectedFlavor?.DisplayName ?? "EvaluaPro";
         StartButton.Content = GetModeActionLabel(normalizedMode);
         StartButton.SetValue(System.Windows.Automation.AutomationProperties.NameProperty, GetModeActionLabel(normalizedMode).Replace("_", string.Empty));
+        RefreshModeImpact(normalizedMode);
 
         if (AcceptTermsCheckBox != null)
         {
             var isInstall = string.Equals(normalizedMode, "install", StringComparison.OrdinalIgnoreCase);
             AcceptTermsCheckBox.Visibility = isInstall ? Visibility.Visible : Visibility.Collapsed;
         }
+    }
+
+    private void RefreshModeImpact(string mode)
+    {
+        var normalized = string.IsNullOrWhiteSpace(mode) ? "install" : mode.Trim().ToLowerInvariant();
+        switch (normalized)
+        {
+            case "repair":
+                ModeImpactTitleTextBlock.Text = "Reparar instalación";
+                ModeImpactTextBlock.Text = "Revalida runtime, restaura configuración/accesos y conserva datos locales.";
+                ModeImpactChecklistTextBlock.Text = "No borra cursos ni base local; revisa prerequisitos antes de reparar.";
+                ModeImpactBorder.Background = ToBrush("#EFF6FF");
+                ModeImpactBorder.BorderBrush = ToBrush("#BFDBFE");
+                ModeImpactIcon.Data = RepairGeometry;
+                ModeImpactIcon.Stroke = ToBrush("#2563EB");
+                ModeImpactIconPlate.Background = ToBrush("#EFF6FF");
+                ModeImpactIconPlate.BorderBrush = ToBrush("#BFDBFE");
+                break;
+            case "uninstall":
+                ModeImpactTitleTextBlock.Text = "Desinstalar";
+                ModeImpactTextBlock.Text = "Retira componentes instalados por MSI/Burn en este equipo.";
+                ModeImpactChecklistTextBlock.Text = "Revisa respaldo de datos antes de continuar; la operación cambia el estado local.";
+                ModeImpactBorder.Background = ToBrush("#FFFBEB");
+                ModeImpactBorder.BorderBrush = ToBrush("#FDE68A");
+                ModeImpactIcon.Data = UninstallGeometry;
+                ModeImpactIcon.Stroke = ToBrush("#B45309");
+                ModeImpactIconPlate.Background = ToBrush("#FFFBEB");
+                ModeImpactIconPlate.BorderBrush = ToBrush("#FDE68A");
+                break;
+            default:
+                ModeImpactTitleTextBlock.Text = "Instalar o actualizar";
+                ModeImpactTextBlock.Text = "Configura prerequisitos, escribe configuración operativa y crea accesos.";
+                ModeImpactChecklistTextBlock.Text = "Se revisa WSL2/Docker/Node, carpeta destino y accesos.";
+                ModeImpactBorder.Background = ToBrush("#EFF6FF");
+                ModeImpactBorder.BorderBrush = ToBrush("#BFDBFE");
+                ModeImpactIcon.Data = InstallGeometry;
+                ModeImpactIcon.Stroke = ToBrush("#2563EB");
+                ModeImpactIconPlate.Background = ToBrush("#EFF6FF");
+                ModeImpactIconPlate.BorderBrush = ToBrush("#BFDBFE");
+                break;
+        }
+    }
+
+    private void RefreshStatusVisual(InstallerWorkflowView workflow)
+    {
+        var failed = workflow.ShowFailureSummary
+            || workflow.BadgeText.Contains("error", StringComparison.OrdinalIgnoreCase)
+            || workflow.SummaryBadge.Contains("error", StringComparison.OrdinalIgnoreCase);
+
+        StatusVisualIcon.Data = failed ? CrossGeometry : workflow.Stages.Any(stage => stage.Badge == "ACTIVA") ? CircleGeometry : CheckGeometry;
+        StatusVisualIcon.Stroke = ToBrush(failed ? "#B42318" : workflow.Stages.Any(stage => stage.Badge == "ACTIVA") ? "#2563EB" : "#15803D");
+        StatusVisualPlate.Background = ToBrush(failed ? "#FEF2F2" : workflow.Stages.Any(stage => stage.Badge == "ACTIVA") ? "#EFF6FF" : "#ECFDF5");
+        StatusVisualPlate.BorderBrush = ToBrush(failed ? "#FECACA" : workflow.Stages.Any(stage => stage.Badge == "ACTIVA") ? "#BFDBFE" : "#A7F3D0");
+    }
+
+    private void RefreshPrerequisiteSummary(IReadOnlyCollection<PrerequisiteRow> rows)
+    {
+        if (rows.Count == 0)
+        {
+            PrereqSummaryTextBlock.Text = "Sin prerequisitos detectados";
+            PrereqSummaryHintTextBlock.Text = "Pulsa Revisar equipo para generar una lectura actual del equipo.";
+            PrereqSummaryBorder.Background = ToBrush("#F8FAFC");
+            PrereqSummaryBorder.BorderBrush = ToBrush("#D9E2EA");
+            PrereqSummaryIcon.Data = DocumentGeometry;
+            PrereqSummaryIcon.Stroke = ToBrush("#526173");
+            PrereqSummaryIconPlate.Background = ToBrush("#F8FAFC");
+            PrereqSummaryIconPlate.BorderBrush = ToBrush("#D9E2EA");
+            return;
+        }
+
+        var missingCount = rows.Count(item => string.Equals(item.InstalledLabel, "FALTA", StringComparison.OrdinalIgnoreCase));
+        var readyCount = rows.Count - missingCount;
+        if (missingCount == 0)
+        {
+            PrereqSummaryTextBlock.Text = $"Listo: {readyCount} requisito(s) OK";
+            PrereqSummaryHintTextBlock.Text = "Puedes ejecutar la acción primaria o revisar la bitácora si necesitas evidencia.";
+            PrereqSummaryBorder.Background = ToBrush("#ECFDF5");
+            PrereqSummaryBorder.BorderBrush = ToBrush("#A7F3D0");
+            PrereqSummaryIcon.Data = CheckGeometry;
+            PrereqSummaryIcon.Stroke = ToBrush("#15803D");
+            PrereqSummaryIconPlate.Background = ToBrush("#ECFDF5");
+            PrereqSummaryIconPlate.BorderBrush = ToBrush("#A7F3D0");
+            return;
+        }
+
+        PrereqSummaryTextBlock.Text = $"Atención: {missingCount} pendiente(s), {readyCount} OK";
+        PrereqSummaryHintTextBlock.Text = "Revisa filas FALTA y corrige antes de instalar o reparar.";
+        PrereqSummaryBorder.Background = ToBrush("#FEF2F2");
+        PrereqSummaryBorder.BorderBrush = ToBrush("#FECACA");
+        PrereqSummaryIcon.Data = CrossGeometry;
+        PrereqSummaryIcon.Stroke = ToBrush("#B42318");
+        PrereqSummaryIconPlate.Background = ToBrush("#FEF2F2");
+        PrereqSummaryIconPlate.BorderBrush = ToBrush("#FECACA");
     }
 
     private void SetWizardStep(WizardStep step)
@@ -706,6 +825,7 @@ public partial class MainWindow : Window
         ResultStepPanel.Visibility = step == WizardStep.Result ? Visibility.Visible : Visibility.Collapsed;
         RefreshWizardNavigation();
         UpdateStepperState(FailureSummaryBorder.Visibility == Visibility.Visible);
+        RefreshLiveExplanationForStep();
     }
 
     private void RefreshWizardNavigation()
@@ -728,6 +848,59 @@ public partial class MainWindow : Window
         DetectButton.Visibility = currentStep == WizardStep.Review ? Visibility.Visible : Visibility.Collapsed;
         StartButton.Visibility = currentStep is WizardStep.Review or WizardStep.Execute ? Visibility.Visible : Visibility.Collapsed;
         StartButton.IsEnabled = !busy && (readyToStart || isUninstall) && (!isInstall || accepted);
+        RefreshFooterGuidance();
+    }
+
+    private void RefreshFooterGuidance()
+    {
+        FooterNextActionTextBlock.Text = currentStep switch
+        {
+            WizardStep.Terms => "Qué sigue: acepta términos para continuar con instalación o configuración.",
+            WizardStep.Prepare => "Qué sigue: confirma modo, ruta y accesos; luego avanza a revisión.",
+            WizardStep.Review when readyToStart => "Qué sigue: equipo listo; ejecuta la acción primaria.",
+            WizardStep.Review => "Qué sigue: pulsa Revisar equipo o corrige prerequisitos pendientes.",
+            WizardStep.Execute => "Qué sigue: mantén esta ventana abierta mientras termina la operación.",
+            WizardStep.Result => "Qué sigue: revisa resultado, reinicio pendiente y bitácora técnica.",
+            _ => "Sigue el paso activo del asistente."
+        };
+    }
+
+    private void RefreshLiveExplanationForStep()
+    {
+        if (busy)
+        {
+            return;
+        }
+
+        switch (currentStep)
+        {
+            case WizardStep.Terms:
+                SetLiveExplanation("Leyendo términos", "El instalador espera confirmación legal antes de modificar archivos, servicios o configuración local.");
+                break;
+            case WizardStep.Prepare:
+                SetLiveExplanation("Preparando operación", "Aquí defines edición, modo y rutas. Todavía no se ejecutan cambios de instalación.");
+                break;
+            case WizardStep.Review when readyToStart:
+                SetLiveExplanation("Equipo validado", "Los prerequisitos detectados permiten continuar. La acción primaria ejecutará el modo seleccionado.");
+                break;
+            case WizardStep.Review:
+                SetLiveExplanation("Revisando equipo", "Este paso compara prerequisitos instalados contra lo necesario y explica qué falta corregir.");
+                break;
+            case WizardStep.Execute:
+                SetLiveExplanation("Ejecutando cambios", "El instalador está aplicando tareas. La barra y la línea de tareas indican avance y etapa actual.");
+                break;
+            case WizardStep.Result:
+                SetLiveExplanation("Resultado disponible", "El flujo terminó o requiere atención. Usa el resumen, reinicio pendiente y bitácora para decidir el siguiente paso.");
+                break;
+        }
+    }
+
+    private void SetLiveExplanation(string title, string description)
+    {
+        LiveExplanationTitleTextBlock.Text = string.IsNullOrWhiteSpace(title) ? "Qué está pasando" : title;
+        LiveExplanationTextBlock.Text = string.IsNullOrWhiteSpace(description)
+            ? "El asistente está esperando el siguiente paso disponible."
+            : description;
     }
 
     private void AcceptTermsCheckBox_OnClick(object sender, RoutedEventArgs e)
@@ -750,6 +923,26 @@ public partial class MainWindow : Window
         SetStepBadge(ReviewStepBorder, ReviewStepTextBlock, ReviewStepIcon, "3 Revisar", currentStep, WizardStep.Review, hasFailure);
         SetStepBadge(ExecuteStepBorder, ExecuteStepTextBlock, ExecuteStepIcon, "4 Ejecutar", currentStep, WizardStep.Execute, hasFailure);
         SetStepBadge(ResultStepBorder, ResultStepTextBlock, ResultStepIcon, "5 Resultado", currentStep, WizardStep.Result, hasFailure);
+        RefreshStepConnectors(hasFailure);
+    }
+
+    private void RefreshStepConnectors(bool hasFailure)
+    {
+        SetStepConnector(StepConnectorTermsPrepare, WizardStep.Prepare, hasFailure);
+        SetStepConnector(StepConnectorPrepareReview, WizardStep.Review, hasFailure);
+        SetStepConnector(StepConnectorReviewExecute, WizardStep.Execute, hasFailure);
+        SetStepConnector(StepConnectorExecuteResult, WizardStep.Result, hasFailure);
+    }
+
+    private void SetStepConnector(Rectangle connector, WizardStep targetStep, bool hasFailure)
+    {
+        if (hasFailure && targetStep == WizardStep.Result)
+        {
+            connector.Fill = ToBrush("#FECACA");
+            return;
+        }
+
+        connector.Fill = currentStep >= targetStep ? ToBrush("#A7F3D0") : ToBrush("#D9E2EA");
     }
 
     private void SetStepBadge(Border border, TextBlock textBlock, Path iconPath, string label, WizardStep activeStep, WizardStep step, bool hasFailure)
@@ -817,6 +1010,10 @@ internal sealed class PrerequisiteRow
     public string ActualVersion { get; set; } = string.Empty;
 
     public string Reason { get; set; } = string.Empty;
+
+    public string ToolTipText => $"{Name}: {InstalledLabel}. Versión: {ActualVersion}. {Reason}";
+
+    public string AccessibleSummary => $"{Name}, {InstalledLabel}, versión {ActualVersion}. {Reason}";
 }
 
 public sealed class ModeChangedEventArgs : EventArgs

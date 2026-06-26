@@ -54,6 +54,25 @@
             <Setter Property="BorderThickness" Value="1" />
         </Style>
 
+        <Style x:Key="BrandTileStyle" TargetType="Border">
+            <Setter Property="CornerRadius" Value="8" />
+            <Setter Property="Padding" Value="8,6" />
+            <Setter Property="Margin" Value="0,8,8,0" />
+            <Setter Property="Background" Value="#F8FAFC" />
+            <Setter Property="BorderBrush" Value="{StaticResource BorderBrushNeutral}" />
+            <Setter Property="BorderThickness" Value="1" />
+        </Style>
+
+        <Style x:Key="IconPlateStyle" TargetType="Border">
+            <Setter Property="Width" Value="44" />
+            <Setter Property="Height" Value="44" />
+            <Setter Property="CornerRadius" Value="8" />
+            <Setter Property="Background" Value="#ECFEFF" />
+            <Setter Property="BorderBrush" Value="#99F6E4" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="Margin" Value="0,0,12,0" />
+        </Style>
+
         <Style x:Key="FieldLabelStyle" TargetType="TextBlock">
             <Setter Property="Foreground" Value="{StaticResource TextBrush}" />
             <Setter Property="FontWeight" Value="SemiBold" />
@@ -99,6 +118,17 @@
             <Setter Property="Height" Value="14" />
             <Setter Property="Foreground" Value="{StaticResource PrimaryBrush}" />
             <Setter Property="Background" Value="#E5E7EB" />
+        </Style>
+
+        <Style TargetType="ToolTip">
+            <Setter Property="MaxWidth" Value="360" />
+            <Setter Property="Padding" Value="10,8" />
+            <Setter Property="Background" Value="#111827" />
+            <Setter Property="Foreground" Value="White" />
+            <Setter Property="BorderBrush" Value="#374151" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="FontSize" Value="12" />
+            <Setter Property="HasDropShadow" Value="True" />
         </Style>
 
         <Style x:Key="SecondaryButtonStyle" TargetType="Button">
@@ -149,12 +179,39 @@
                         <ColumnDefinition Width="*" />
                         <ColumnDefinition Width="Auto" />
                     </Grid.ColumnDefinitions>
-                    <Border Width="54" Height="54" CornerRadius="8" Background="#ECFEFF" BorderBrush="#99F6E4" BorderThickness="1" Padding="7" Margin="0,0,14,0">
-                        <Image Source="pack://application:,,,/assets/evaluapro-official-imagotipo.png" Stretch="Uniform" />
+                    <Border x:Name="OfficialLogoFrame" Width="76" Height="76" CornerRadius="8" Background="#ECFEFF" BorderBrush="#99F6E4" BorderThickness="1" Padding="8" Margin="0,0,16,0" ToolTip="Logo oficial de EvaluaPro integrado al Installer Hub.">
+                        <Grid>
+                            <Border CornerRadius="8" Background="White" BorderBrush="#CCFBF1" BorderThickness="1" Padding="5">
+                                <Image x:Name="OfficialLogoImage" Source="pack://application:,,,/assets/evaluapro-official-imagotipo.png" Stretch="Uniform" RenderOptions.BitmapScalingMode="HighQuality" AutomationProperties.Name="Logo oficial EvaluaPro" />
+                            </Border>
+                            <Border Width="22" Height="22" CornerRadius="8" Background="#0F766E" BorderBrush="White" BorderThickness="2" HorizontalAlignment="Right" VerticalAlignment="Bottom" Margin="0,0,-4,-4">
+                                <Path Data="M4,11 L9,16 L18,6" Stroke="White" StrokeThickness="2" StrokeStartLineCap="Round" StrokeEndLineCap="Round" Stretch="Uniform" Margin="4" />
+                            </Border>
+                        </Grid>
                     </Border>
                     <StackPanel Grid.Column="1" VerticalAlignment="Center">
                         <TextBlock Text="EvaluaPro Installer Hub" FontSize="22" FontWeight="SemiBold" Foreground="{StaticResource TextBrush}" />
                         <TextBlock x:Name="BrandStatementTextBlock" Margin="0,2,0,0" FontSize="12" Foreground="{StaticResource MutedTextBrush}" Text="Asistente guiado para instalar, reparar, actualizar y desinstalar con evidencia operativa." TextWrapping="Wrap" />
+                        <WrapPanel x:Name="BrandGraphicStrip" Margin="0,2,0,0">
+                            <Border Style="{StaticResource BrandTileStyle}" ToolTip="Instalación local para uso docente, con prerequisitos validados antes de ejecutar cambios.">
+                                <StackPanel Orientation="Horizontal">
+                                    <Path Width="14" Height="14" Data="M3,4 L11,4 M3,7 L11,7 M3,10 L8,10" Stroke="{StaticResource PrimaryBrush}" StrokeThickness="1.8" StrokeStartLineCap="Round" StrokeEndLineCap="Round" Margin="0,0,6,0" />
+                                    <TextBlock Text="Docente local" FontSize="11" FontWeight="SemiBold" Foreground="{StaticResource TextBrush}" />
+                                </StackPanel>
+                            </Border>
+                            <Border Style="{StaticResource BrandTileStyle}" ToolTip="El Hub mantiene evidencia técnica de detección, ejecución y resultado.">
+                                <StackPanel Orientation="Horizontal">
+                                    <Path Width="14" Height="14" Data="M2,11 L5,8 L8,10 L12,4 M12,4 L12,8 M12,4 L8,4" Stroke="{StaticResource AccentBrush}" StrokeThickness="1.8" StrokeStartLineCap="Round" StrokeEndLineCap="Round" Margin="0,0,6,0" />
+                                    <TextBlock Text="Evidencia" FontSize="11" FontWeight="SemiBold" Foreground="{StaticResource TextBrush}" />
+                                </StackPanel>
+                            </Border>
+                            <Border Style="{StaticResource BrandTileStyle}" ToolTip="Operación con estado claro: preparar, revisar, ejecutar y resultado.">
+                                <StackPanel Orientation="Horizontal">
+                                    <Path Width="14" Height="14" Data="M7,2 L12,5 L12,10 L7,13 L2,10 L2,5 Z M7,5 L7,9" Stroke="{StaticResource WarningBrush}" StrokeThickness="1.7" StrokeStartLineCap="Round" StrokeEndLineCap="Round" StrokeLineJoin="Round" Margin="0,0,6,0" />
+                                    <TextBlock Text="Guiado" FontSize="11" FontWeight="SemiBold" Foreground="{StaticResource TextBrush}" />
+                                </StackPanel>
+                            </Border>
+                        </WrapPanel>
                     </StackPanel>
                     <StackPanel Grid.Column="2" Orientation="Horizontal" VerticalAlignment="Center">
                         <Border Style="{StaticResource StatusBadgeStyle}">
@@ -189,24 +246,28 @@
                                 <TextBlock x:Name="TermsStepTextBlock" Text="1 Términos · activo" FontWeight="SemiBold" VerticalAlignment="Center" />
                             </StackPanel>
                         </Border>
+                        <Rectangle x:Name="StepConnectorTermsPrepare" Width="16" Height="2" Fill="#D9E2EA" VerticalAlignment="Center" Margin="-4,0,4,0" RadiusX="1" RadiusY="1" />
                         <Border x:Name="PrepareStepBorder" Style="{StaticResource StatusBadgeStyle}" MinWidth="118" Background="#F8FAFC" BorderBrush="{StaticResource BorderBrushNeutral}">
                             <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
                                 <Path x:Name="PrepareStepIcon" Width="14" Height="14" Margin="0,0,6,0" StrokeThickness="2" StrokeStartLineCap="Round" StrokeEndLineCap="Round" VerticalAlignment="Center" SnapsToDevicePixels="True" />
                                 <TextBlock x:Name="PrepareStepTextBlock" Text="2 Preparar · pendiente" FontWeight="SemiBold" Foreground="{StaticResource MutedTextBrush}" VerticalAlignment="Center" />
                             </StackPanel>
                         </Border>
+                        <Rectangle x:Name="StepConnectorPrepareReview" Width="16" Height="2" Fill="#D9E2EA" VerticalAlignment="Center" Margin="-4,0,4,0" RadiusX="1" RadiusY="1" />
                         <Border x:Name="ReviewStepBorder" Style="{StaticResource StatusBadgeStyle}" MinWidth="118" Background="#F8FAFC" BorderBrush="{StaticResource BorderBrushNeutral}">
                             <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
                                 <Path x:Name="ReviewStepIcon" Width="14" Height="14" Margin="0,0,6,0" StrokeThickness="2" StrokeStartLineCap="Round" StrokeEndLineCap="Round" VerticalAlignment="Center" SnapsToDevicePixels="True" />
                                 <TextBlock x:Name="ReviewStepTextBlock" Text="3 Revisar · pendiente" FontWeight="SemiBold" Foreground="{StaticResource MutedTextBrush}" VerticalAlignment="Center" />
                             </StackPanel>
                         </Border>
+                        <Rectangle x:Name="StepConnectorReviewExecute" Width="16" Height="2" Fill="#D9E2EA" VerticalAlignment="Center" Margin="-4,0,4,0" RadiusX="1" RadiusY="1" />
                         <Border x:Name="ExecuteStepBorder" Style="{StaticResource StatusBadgeStyle}" MinWidth="118" Background="#F8FAFC" BorderBrush="{StaticResource BorderBrushNeutral}">
                             <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
                                 <Path x:Name="ExecuteStepIcon" Width="14" Height="14" Margin="0,0,6,0" StrokeThickness="2" StrokeStartLineCap="Round" StrokeEndLineCap="Round" VerticalAlignment="Center" SnapsToDevicePixels="True" />
                                 <TextBlock x:Name="ExecuteStepTextBlock" Text="4 Ejecutar · pendiente" FontWeight="SemiBold" Foreground="{StaticResource MutedTextBrush}" VerticalAlignment="Center" />
                             </StackPanel>
                         </Border>
+                        <Rectangle x:Name="StepConnectorExecuteResult" Width="16" Height="2" Fill="#D9E2EA" VerticalAlignment="Center" Margin="-4,0,4,0" RadiusX="1" RadiusY="1" />
                         <Border x:Name="ResultStepBorder" Style="{StaticResource StatusBadgeStyle}" MinWidth="118" Background="#F8FAFC" BorderBrush="{StaticResource BorderBrushNeutral}">
                             <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
                                 <Path x:Name="ResultStepIcon" Width="14" Height="14" Margin="0,0,6,0" StrokeThickness="2" StrokeStartLineCap="Round" StrokeEndLineCap="Round" VerticalAlignment="Center" SnapsToDevicePixels="True" />
@@ -215,15 +276,19 @@
                         </Border>
                     </StackPanel>
 
-                    <Border x:Name="StatusCardBorder" Grid.Row="1" Padding="12" CornerRadius="8" Background="#EFF6FF" BorderBrush="#BFDBFE" BorderThickness="1" Margin="0,0,0,14">
+                    <Border x:Name="StatusCardBorder" Grid.Row="1" Padding="12" CornerRadius="8" Background="#EFF6FF" BorderBrush="#BFDBFE" BorderThickness="1" Margin="0,0,0,82">
                         <Grid>
                             <Grid.ColumnDefinitions>
                                 <ColumnDefinition Width="Auto" />
                                 <ColumnDefinition Width="Auto" />
+                                <ColumnDefinition Width="Auto" />
                                 <ColumnDefinition Width="*" />
                             </Grid.ColumnDefinitions>
+                            <Border x:Name="StatusVisualPlate" Style="{StaticResource IconPlateStyle}" ToolTip="Indicador visual del estado general de la operación.">
+                                <Path x:Name="StatusVisualIcon" Data="M6,22 L15,31 L34,12" Stroke="{StaticResource PrimaryBrush}" StrokeThickness="3" StrokeStartLineCap="Round" StrokeEndLineCap="Round" Stretch="Uniform" Margin="10" />
+                            </Border>
                             <!-- Animated Circular Vector Process Spinner -->
-                            <Grid x:Name="StatusSpinner" Margin="0,0,10,0" VerticalAlignment="Center" Width="20" Height="20" Visibility="Collapsed">
+                            <Grid x:Name="StatusSpinner" Grid.Column="1" Margin="0,0,10,0" VerticalAlignment="Center" Width="20" Height="20" Visibility="Collapsed">
                                 <Ellipse Stroke="#E5E7EB" StrokeThickness="2.5" Width="20" Height="20" HorizontalAlignment="Center" VerticalAlignment="Center" />
                                 <Path Stroke="{Binding ElementName=StatusBadgeTextBlock, Path=Foreground}" StrokeThickness="2.5" StrokeStartLineCap="Round" Width="20" Height="20" Data="M10,1.25 A8.75,8.75 0 0 1 18.75,10" HorizontalAlignment="Center" VerticalAlignment="Center">
                                     <Path.RenderTransform>
@@ -240,10 +305,24 @@
                                     </Path.Triggers>
                                 </Path>
                             </Grid>
-                            <TextBlock x:Name="StatusBadgeTextBlock" Grid.Column="1" Text="Estado activo" FontWeight="Bold" Foreground="{StaticResource AccentBrush}" Margin="0,0,14,0" VerticalAlignment="Center" />
-                            <StackPanel Grid.Column="2">
+                            <TextBlock x:Name="StatusBadgeTextBlock" Grid.Column="2" Text="Estado activo" FontWeight="Bold" Foreground="{StaticResource AccentBrush}" Margin="0,0,14,0" VerticalAlignment="Center" />
+                            <StackPanel Grid.Column="3">
                                 <TextBlock x:Name="StatusTextBlock" Text="Analizando prerequisitos..." Foreground="{StaticResource TextBrush}" FontSize="15" FontWeight="SemiBold" TextWrapping="Wrap" />
                                 <TextBlock x:Name="StatusHintTextBlock" Text="La operación todavía no termina." Foreground="{StaticResource MutedTextBrush}" FontSize="12" TextWrapping="Wrap" />
+                            </StackPanel>
+                        </Grid>
+                    </Border>
+
+                    <Border x:Name="LiveExplanationBorder" Grid.Row="1" Margin="0,74,0,14" Padding="10" CornerRadius="8" Background="#F8FAFC" BorderBrush="{StaticResource BorderBrushNeutral}" BorderThickness="1" ToolTip="Explica qué está pasando y qué espera el asistente en este momento.">
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto" />
+                                <ColumnDefinition Width="*" />
+                            </Grid.ColumnDefinitions>
+                            <Path x:Name="LiveExplanationIcon" Width="18" Height="18" Data="M9,2 A7,7 0 1 1 8.99,2 M9,6 L9,10 M9,13 L9,13.5" Stroke="{StaticResource AccentBrush}" StrokeThickness="2" StrokeStartLineCap="Round" StrokeEndLineCap="Round" Stretch="Uniform" Margin="0,0,10,0" VerticalAlignment="Center" />
+                            <StackPanel Grid.Column="1">
+                                <TextBlock x:Name="LiveExplanationTitleTextBlock" Text="Qué está pasando" FontSize="12" FontWeight="Bold" Foreground="{StaticResource TextBrush}" />
+                                <TextBlock x:Name="LiveExplanationTextBlock" Text="El asistente está esperando que completes el paso visible antes de continuar." FontSize="12" Foreground="{StaticResource MutedTextBrush}" TextWrapping="Wrap" Margin="0,3,0,0" />
                             </StackPanel>
                         </Grid>
                     </Border>
@@ -302,6 +381,22 @@ Por favor, lee atentamente los siguientes términos antes de proceder con la ins
                                 <StackPanel>
                                     <TextBlock Text="Preparar operación" FontSize="20" FontWeight="SemiBold" Foreground="{StaticResource TextBrush}" />
                                     <TextBlock Style="{StaticResource HelpTextStyle}" Text="Confirma edición, modo, carpeta destino y accesos antes de revisar el equipo." />
+                                    <Border x:Name="ModeImpactBorder" Margin="0,14,0,0" Padding="12" CornerRadius="8" Background="#EFF6FF" BorderBrush="#BFDBFE" BorderThickness="1" ToolTip="Resumen práctico del impacto del modo seleccionado antes de ejecutar cambios en este equipo.">
+                                        <Grid>
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="Auto" />
+                                                <ColumnDefinition Width="*" />
+                                            </Grid.ColumnDefinitions>
+                                            <Border x:Name="ModeImpactIconPlate" Style="{StaticResource IconPlateStyle}">
+                                                <Path x:Name="ModeImpactIcon" Data="M6,22 L15,31 L34,12" Stroke="{StaticResource AccentBrush}" StrokeThickness="3" StrokeStartLineCap="Round" StrokeEndLineCap="Round" Stretch="Uniform" Margin="10" />
+                                            </Border>
+                                            <StackPanel Grid.Column="1">
+                                                <TextBlock x:Name="ModeImpactTitleTextBlock" Text="Instalar o actualizar" FontWeight="Bold" Foreground="{StaticResource AccentBrush}" />
+                                                <TextBlock x:Name="ModeImpactTextBlock" Margin="0,6,0,0" Text="Configura prerequisitos, escribe configuración operativa y crea accesos." TextWrapping="Wrap" Foreground="{StaticResource TextBrush}" />
+                                                <TextBlock x:Name="ModeImpactChecklistTextBlock" Margin="0,6,0,0" Text="Se revisa WSL2/Docker/Node, carpeta destino y accesos." TextWrapping="Wrap" Foreground="{StaticResource MutedTextBrush}" />
+                                            </StackPanel>
+                                        </Grid>
+                                    </Border>
                                     <Grid Margin="0,16,0,0">
                                         <Grid.ColumnDefinitions>
                                             <ColumnDefinition Width="*" />
@@ -310,12 +405,29 @@ Por favor, lee atentamente los siguientes términos antes de proceder con la ins
                                         <StackPanel x:Name="FlavorPanel" Margin="0,0,10,0">
                                             <TextBlock Text="Edición" Style="{StaticResource FieldLabelStyle}" />
                                             <TextBlock Text="Perfil funcional del paquete." Style="{StaticResource HelpTextStyle}" />
-                                            <ComboBox x:Name="FlavorComboBox" Margin="0,8,0,0" SelectionChanged="FlavorComboBox_OnSelectionChanged" ToolTip="Selecciona la edición del instalador." AutomationProperties.Name="Edición del instalador" AutomationProperties.HelpText="Selecciona el flavor de EvaluaPro que se instalará o mantendrá en este equipo." TabIndex="0" />
+                                            <ComboBox x:Name="FlavorComboBox" Margin="0,8,0,0" SelectionChanged="FlavorComboBox_OnSelectionChanged" AutomationProperties.Name="Edición del instalador" AutomationProperties.HelpText="Selecciona el flavor de EvaluaPro que se instalará o mantendrá en este equipo." TabIndex="0">
+                                                <ComboBox.ToolTip>
+                                                    <ToolTip>
+                                                        <StackPanel>
+                                                            <TextBlock Text="Edición del instalador" FontWeight="SemiBold" />
+                                                            <TextBlock Text="docente-local es el perfil recomendado para aportar desde el primer día en un equipo docente." TextWrapping="Wrap" />
+                                                        </StackPanel>
+                                                    </ToolTip>
+                                                </ComboBox.ToolTip>
+                                            </ComboBox>
                                         </StackPanel>
                                         <StackPanel x:Name="ModePanel" Grid.Column="1" Margin="10,0,0,0">
                                             <TextBlock Text="Modo" Style="{StaticResource FieldLabelStyle}" />
                                             <TextBlock Text="Instalar, reparar o desinstalar." Style="{StaticResource HelpTextStyle}" />
-                                            <ComboBox x:Name="ModeComboBox" Margin="0,8,0,0" SelectionChanged="ModeComboBox_OnSelectionChanged" ToolTip="Elige qué operación ejecutar sobre EvaluaPro en este equipo." AutomationProperties.Name="Modo de operación" AutomationProperties.HelpText="Instalar o actualizar, reparar la instalación existente, o desinstalar EvaluaPro." TabIndex="1">
+                                            <ComboBox x:Name="ModeComboBox" Margin="0,8,0,0" SelectionChanged="ModeComboBox_OnSelectionChanged" AutomationProperties.Name="Modo de operación" AutomationProperties.HelpText="Instalar o actualizar, reparar la instalación existente, o desinstalar EvaluaPro." TabIndex="1">
+                                                <ComboBox.ToolTip>
+                                                    <ToolTip>
+                                                        <StackPanel>
+                                                            <TextBlock Text="Modo de operación" FontWeight="SemiBold" />
+                                                            <TextBlock Text="Cambia la intención del asistente. La tarjeta azul resume qué hará cada modo antes de revisar prerequisitos." TextWrapping="Wrap" />
+                                                        </StackPanel>
+                                                    </ToolTip>
+                                                </ComboBox.ToolTip>
                                                 <ComboBoxItem Tag="install" Content="Instalar" />
                                                 <ComboBoxItem Tag="repair" Content="Reparar" />
                                                 <ComboBoxItem Tag="uninstall" Content="Desinstalar" />
@@ -326,7 +438,16 @@ Por favor, lee atentamente los siguientes términos antes de proceder con la ins
                                         <StackPanel>
                                             <TextBlock Text="Ruta de instalación" Style="{StaticResource FieldLabelStyle}" />
                                             <TextBlock Text="Carpeta destino usada por instalación, reparación o desinstalación." Style="{StaticResource HelpTextStyle}" />
-                                            <TextBox x:Name="InstallDirTextBox" Margin="0,8,0,0" ToolTip="Ruta donde se instalará EvaluaPro." AutomationProperties.Name="Ruta de instalación" AutomationProperties.HelpText="Carpeta destino donde se instalará EvaluaPro." TabIndex="2" />
+                                            <TextBox x:Name="InstallDirTextBox" Margin="0,8,0,0" AutomationProperties.Name="Ruta de instalación" AutomationProperties.HelpText="Carpeta destino donde se instalará EvaluaPro." TabIndex="2">
+                                                <TextBox.ToolTip>
+                                                    <ToolTip>
+                                                        <StackPanel>
+                                                            <TextBlock Text="Ruta de instalación" FontWeight="SemiBold" />
+                                                            <TextBlock Text="Usa una carpeta local estable. En reparación se reutiliza para ubicar configuración y accesos existentes." TextWrapping="Wrap" />
+                                                        </StackPanel>
+                                                    </ToolTip>
+                                                </TextBox.ToolTip>
+                                            </TextBox>
                                             <WrapPanel Margin="0,12,0,0">
                                                 <CheckBox x:Name="DesktopShortcutsCheckBox" Content="Accesos en escritorio" IsChecked="True" Margin="0,0,18,8" ToolTip="Crea accesos directos en el escritorio." AutomationProperties.Name="Crear accesos en escritorio" TabIndex="3" />
                                                 <CheckBox x:Name="StartMenuShortcutsCheckBox" Content="Accesos en menú Inicio" IsChecked="True" Margin="0,0,18,8" ToolTip="Crea accesos directos en el menú Inicio." AutomationProperties.Name="Crear accesos en menú Inicio" TabIndex="4" />
@@ -398,7 +519,28 @@ Por favor, lee atentamente los siguientes términos antes de proceder con la ins
                                     <TextBlock Text="Revisar prerequisitos" FontSize="20" FontWeight="SemiBold" Foreground="{StaticResource TextBrush}" />
                                     <TextBlock Style="{StaticResource HelpTextStyle}" Text="Valida requisitos antes de ejecutar la operación seleccionada." />
                                     <TextBlock x:Name="DetectionSummaryTextBlock" Margin="0,12,0,10" TextWrapping="Wrap" ToolTip="Resumen automático del diagnóstico del equipo." />
+                                    <Border x:Name="PrereqSummaryBorder" Margin="0,0,0,10" Padding="12" CornerRadius="8" Background="#F8FAFC" BorderBrush="{StaticResource BorderBrushNeutral}" BorderThickness="1" ToolTip="Conteo rápido para decidir si puedes continuar o debes corregir prerequisitos.">
+                                        <Grid>
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="Auto" />
+                                                <ColumnDefinition Width="*" />
+                                            </Grid.ColumnDefinitions>
+                                            <Border x:Name="PrereqSummaryIconPlate" Style="{StaticResource IconPlateStyle}">
+                                                <Path x:Name="PrereqSummaryIcon" Data="M8,24 L17,32 L34,12" Stroke="{StaticResource MutedTextBrush}" StrokeThickness="3" StrokeStartLineCap="Round" StrokeEndLineCap="Round" Stretch="Uniform" Margin="10" />
+                                            </Border>
+                                            <StackPanel Grid.Column="1">
+                                                <TextBlock x:Name="PrereqSummaryTextBlock" Text="Sin diagnóstico reciente" FontWeight="Bold" Foreground="{StaticResource TextBrush}" />
+                                                <TextBlock x:Name="PrereqSummaryHintTextBlock" Margin="0,5,0,0" Text="Pulsa Revisar equipo para actualizar el estado." Foreground="{StaticResource MutedTextBrush}" TextWrapping="Wrap" />
+                                            </StackPanel>
+                                        </Grid>
+                                    </Border>
                                     <ListView x:Name="PrereqListView" Height="300" HorizontalContentAlignment="Stretch" AutomationProperties.Name="Resultado de prerequisitos" AutomationProperties.HelpText="Lista de requisitos detectados con versión y motivo." TabIndex="5">
+                                        <ListView.ItemContainerStyle>
+                                            <Style TargetType="ListViewItem">
+                                                <Setter Property="ToolTip" Value="{Binding ToolTipText}" />
+                                                <Setter Property="AutomationProperties.Name" Value="{Binding AccessibleSummary}" />
+                                            </Style>
+                                        </ListView.ItemContainerStyle>
                                         <ListView.View>
                                             <GridView>
                                                 <GridViewColumn Header="Prerequisito" Width="175" DisplayMemberBinding="{Binding Name}" />
@@ -584,7 +726,10 @@ Por favor, lee atentamente los siguientes términos antes de proceder con la ins
                         <ColumnDefinition Width="*" />
                         <ColumnDefinition Width="Auto" />
                     </Grid.ColumnDefinitions>
-                    <TextBlock x:Name="FooterStatusTextBlock" Text="Listo para guiar la operación." Foreground="{StaticResource MutedTextBrush}" VerticalAlignment="Center" TextWrapping="Wrap" />
+                    <StackPanel VerticalAlignment="Center" Margin="0,0,16,0">
+                        <TextBlock x:Name="FooterStatusTextBlock" Text="Listo para guiar la operación." Foreground="{StaticResource MutedTextBrush}" TextWrapping="Wrap" />
+                        <TextBlock x:Name="FooterNextActionTextBlock" Text="Acepta términos para continuar." Foreground="{StaticResource TextBrush}" FontWeight="SemiBold" Margin="0,4,0,0" TextWrapping="Wrap" />
+                    </StackPanel>
                     <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
                         <Button x:Name="DetectButton" Content="_Revisar equipo" Style="{StaticResource SecondaryButtonStyle}" MinWidth="130" Margin="0,0,8,0" Click="DetectButton_OnClick" ToolTip="Ejecuta nuevamente la revisión de prerequisitos." AutomationProperties.Name="Revisar equipo" AutomationProperties.HelpText="Ejecuta el diagnóstico de prerequisitos de Windows, WSL, Docker y Node." TabIndex="20" />
                         <Button x:Name="BackButton" Content="_Atrás" Style="{StaticResource SecondaryButtonStyle}" MinWidth="90" Margin="0,0,8,0" Click="BackButton_OnClick" ToolTip="Vuelve al paso anterior." AutomationProperties.Name="Atrás" AutomationProperties.HelpText="Vuelve al paso anterior del asistente." TabIndex="21" />
@@ -597,14 +742,47 @@ Por favor, lee atentamente los siguientes términos antes de proceder con la ins
             </Border>
 
             <Grid x:Name="SplashOverlay" Grid.RowSpan="3" Panel.ZIndex="99" Background="#CC111827" Visibility="Visible">
-                <Border Width="520" Height="278" CornerRadius="8" Background="#0F766E" HorizontalAlignment="Center" VerticalAlignment="Center" Padding="24">
-                    <StackPanel VerticalAlignment="Center">
-                        <Border Width="118" Height="118" CornerRadius="8" Background="#ECFEFF" BorderBrush="#99F6E4" BorderThickness="1" Padding="12" HorizontalAlignment="Center" Margin="0,0,0,18">
-                            <Image Source="pack://application:,,,/assets/evaluapro-official-imagotipo.png" Stretch="Uniform" />
+                <Border Width="560" Height="310" CornerRadius="8" Background="#0F766E" BorderBrush="#5EEAD4" BorderThickness="1" HorizontalAlignment="Center" VerticalAlignment="Center" Padding="24">
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="170" />
+                            <ColumnDefinition Width="*" />
+                        </Grid.ColumnDefinitions>
+                        <Border Width="138" Height="138" CornerRadius="8" Background="#ECFEFF" BorderBrush="#99F6E4" BorderThickness="1" Padding="10" HorizontalAlignment="Center" VerticalAlignment="Center">
+                            <Grid>
+                                <Border CornerRadius="8" Background="White" BorderBrush="#CCFBF1" BorderThickness="1" Padding="8">
+                                    <Image x:Name="SplashOfficialLogoImage" Source="pack://application:,,,/assets/evaluapro-official-imagotipo.png" Stretch="Uniform" RenderOptions.BitmapScalingMode="HighQuality" AutomationProperties.Name="Logo oficial EvaluaPro en inicio" />
+                                </Border>
+                                <Border Width="34" Height="34" CornerRadius="8" Background="#2563EB" BorderBrush="White" BorderThickness="2" HorizontalAlignment="Right" VerticalAlignment="Bottom" Margin="0,0,-6,-6">
+                                    <Path Data="M6,17 L14,24 L28,9" Stroke="White" StrokeThickness="3" StrokeStartLineCap="Round" StrokeEndLineCap="Round" Stretch="Uniform" Margin="6" />
+                                </Border>
+                            </Grid>
                         </Border>
-                        <TextBlock Text="EvaluaPro Installer Hub" Foreground="White" FontSize="28" FontWeight="SemiBold" HorizontalAlignment="Center" />
-                        <TextBlock Text="Inicializando asistente guiado..." Foreground="#CCFBF1" Margin="0,10,0,0" FontSize="14" HorizontalAlignment="Center" />
-                    </StackPanel>
+                        <StackPanel Grid.Column="1" VerticalAlignment="Center" Margin="18,0,0,0">
+                            <TextBlock Text="EvaluaPro Installer Hub" Foreground="White" FontSize="28" FontWeight="SemiBold" />
+                            <TextBlock Text="Inicializando asistente guiado..." Foreground="#CCFBF1" Margin="0,8,0,0" FontSize="14" />
+                            <UniformGrid x:Name="SplashGraphicIndicators" Columns="3" Margin="0,22,0,0">
+                                <Border CornerRadius="8" Background="#134E4A" BorderBrush="#5EEAD4" BorderThickness="1" Padding="10" Margin="0,0,8,0">
+                                    <StackPanel>
+                                        <Path Width="22" Height="22" Data="M4,6 L18,6 M4,11 L18,11 M4,16 L13,16" Stroke="#99F6E4" StrokeThickness="2" StrokeStartLineCap="Round" StrokeEndLineCap="Round" HorizontalAlignment="Left" />
+                                        <TextBlock Text="Preparar" Foreground="White" FontSize="12" FontWeight="SemiBold" Margin="0,8,0,0" />
+                                    </StackPanel>
+                                </Border>
+                                <Border CornerRadius="8" Background="#134E4A" BorderBrush="#5EEAD4" BorderThickness="1" Padding="10" Margin="0,0,8,0">
+                                    <StackPanel>
+                                        <Path Width="22" Height="22" Data="M4,12 L9,17 L18,6" Stroke="#99F6E4" StrokeThickness="2.4" StrokeStartLineCap="Round" StrokeEndLineCap="Round" HorizontalAlignment="Left" />
+                                        <TextBlock Text="Validar" Foreground="White" FontSize="12" FontWeight="SemiBold" Margin="0,8,0,0" />
+                                    </StackPanel>
+                                </Border>
+                                <Border CornerRadius="8" Background="#134E4A" BorderBrush="#5EEAD4" BorderThickness="1" Padding="10">
+                                    <StackPanel>
+                                        <Path Width="22" Height="22" Data="M5,5 L17,5 L17,17 L5,17 Z M8,12 L10,14 L14,9" Stroke="#99F6E4" StrokeThickness="2" StrokeStartLineCap="Round" StrokeEndLineCap="Round" StrokeLineJoin="Round" HorizontalAlignment="Left" />
+                                        <TextBlock Text="Ejecutar" Foreground="White" FontSize="12" FontWeight="SemiBold" Margin="0,8,0,0" />
+                                    </StackPanel>
+                                </Border>
+                            </UniformGrid>
+                        </StackPanel>
+                    </Grid>
                 </Border>
             </Grid>
         </Grid>

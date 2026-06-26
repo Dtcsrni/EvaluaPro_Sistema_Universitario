@@ -283,6 +283,35 @@ test('Installer Hub cumple contrato DESIGN.md de layout y accesibilidad WPF', ()
   assert.match(mainWindowXaml, /Text="Evidencia técnica"[\s\S]*?%ProgramData%\\EvaluaPro\\installer-hub\\logs/);
   assert.match(mainWindowXaml, /AutomationProperties\.Name="Ruta de bitácoras técnicas"/);
   assert.doesNotMatch(mainWindowXaml, /ToolTip="Detalle por requisito\."/);
+  assert.match(mainWindowXaml, /<Style TargetType="ToolTip">[\s\S]*?<Setter Property="MaxWidth" Value="360"/);
+  assert.match(mainWindowXaml, /x:Name="ModeImpactBorder"/);
+  assert.match(mainWindowXaml, /x:Name="ModeImpactTitleTextBlock"/);
+  assert.match(mainWindowXaml, /x:Name="ModeImpactChecklistTextBlock"/);
+  assert.match(mainWindowXaml, /x:Name="PrereqSummaryBorder"/);
+  assert.match(mainWindowXaml, /x:Name="PrereqSummaryTextBlock"/);
+  assert.match(mainWindowXaml, /x:Name="PrereqSummaryHintTextBlock"/);
+  assert.match(mainWindowXaml, /x:Name="FooterNextActionTextBlock"/);
+  assert.match(mainWindowXaml, /<Setter Property="ToolTip" Value="\{Binding ToolTipText\}"/);
+  assert.match(mainWindowXaml, /<Setter Property="AutomationProperties\.Name" Value="\{Binding AccessibleSummary\}"/);
+  assert.match(mainWindowXaml, /x:Name="OfficialLogoFrame"/);
+  assert.match(mainWindowXaml, /x:Name="OfficialLogoImage"[\s\S]*?RenderOptions\.BitmapScalingMode="HighQuality"/);
+  assert.match(mainWindowXaml, /x:Name="BrandGraphicStrip"/);
+  assert.match(mainWindowXaml, /x:Name="SplashOfficialLogoImage"[\s\S]*?RenderOptions\.BitmapScalingMode="HighQuality"/);
+  assert.match(mainWindowXaml, /x:Name="SplashGraphicIndicators"/);
+  assert.match(mainWindowXaml, /BrandTileStyle/);
+  assert.match(mainWindowXaml, /x:Name="StepConnectorTermsPrepare"/);
+  assert.match(mainWindowXaml, /x:Name="StepConnectorExecuteResult"/);
+  assert.match(mainWindowXaml, /x:Name="StatusVisualPlate"/);
+  assert.match(mainWindowXaml, /x:Name="StatusVisualIcon"/);
+  assert.match(mainWindowXaml, /x:Name="ModeImpactIconPlate"/);
+  assert.match(mainWindowXaml, /x:Name="ModeImpactIcon"/);
+  assert.match(mainWindowXaml, /x:Name="PrereqSummaryIconPlate"/);
+  assert.match(mainWindowXaml, /x:Name="PrereqSummaryIcon"/);
+  assert.match(mainWindowXaml, /IconPlateStyle/);
+  assert.match(mainWindowXaml, /x:Name="LiveExplanationBorder"/);
+  assert.match(mainWindowXaml, /x:Name="LiveExplanationTitleTextBlock"/);
+  assert.match(mainWindowXaml, /x:Name="LiveExplanationTextBlock"/);
+  assert.match(mainWindowXaml, /Qué está pasando/);
 
   for (const controlName of [
     'FlavorComboBox',
@@ -314,6 +343,20 @@ test('Installer Hub cumple contrato DESIGN.md de layout y accesibilidad WPF', ()
   assert.match(mainWindowCode, /SetWizardStep\(WizardStep\.Prepare\)/);
   assert.match(mainWindowCode, /BackButton_OnClick/);
   assert.match(mainWindowCode, /NextButton_OnClick/);
+  assert.match(mainWindowCode, /RefreshModeImpact\(normalizedMode\)/);
+  assert.match(mainWindowCode, /RefreshPrerequisiteSummary\(rows\)/);
+  assert.match(mainWindowCode, /RefreshFooterGuidance\(\)/);
+  assert.match(mainWindowCode, /RefreshStatusVisual\(workflow\)/);
+  assert.match(mainWindowCode, /RefreshStepConnectors\(hasFailure\)/);
+  assert.match(mainWindowCode, /SetStepConnector\(Rectangle connector/);
+  assert.match(mainWindowCode, /ModeImpactIcon\.Data = RepairGeometry/);
+  assert.match(mainWindowCode, /PrereqSummaryIcon\.Data = CrossGeometry/);
+  assert.match(mainWindowCode, /RefreshLiveExplanationForStep\(\)/);
+  assert.match(mainWindowCode, /SetLiveExplanation\(string title, string description\)/);
+  assert.match(mainWindowCode, /SetLiveExplanation\("Revisión en curso"/);
+  assert.match(mainWindowCode, /SetLiveExplanation\("Ejecución iniciada"/);
+  assert.match(mainWindowCode, /ToolTipText =>/);
+  assert.match(mainWindowCode, /AccessibleSummary =>/);
 });
 
 test('Installer Hub tiene QA UIAutomation no destructivo para ciclo de vida visual', () => {
