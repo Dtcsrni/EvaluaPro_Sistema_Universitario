@@ -35,6 +35,7 @@ import rutasComercialPublico from './modulos/modulo_comercial_core/rutasComercia
 import rutasRecuperacionExamenes from './modulos/modulo_recuperacion_examenes/rutasRecuperacionExamenes';
 import rutasAsistencias from './modulos/modulo_asistencias/rutasAsistencias';
 import rutasTemarios from './modulos/modulo_temarios/rutasTemarios';
+import rutasHidratacionCursos from './modulos/modulo_hidratacion_cursos/rutasHidratacionCursos';
 import { exportarMetricasPrometheus } from './compartido/observabilidad/metrics';
 
 export function crearRouterApi() {
@@ -84,6 +85,7 @@ export function crearRouterApi() {
   router.use('/recuperacion', rutasRecuperacionExamenes);
   router.use('/asistencias', rutasAsistencias);
   router.use('/temarios', rutasTemarios);
+  router.use('/hidratacion-cursos', rutasHidratacionCursos);
   router.use('/papelera', rutasPapelera);
   router.use('/admin', rutasAdminDocentes);
 
