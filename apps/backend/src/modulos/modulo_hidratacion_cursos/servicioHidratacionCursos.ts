@@ -150,7 +150,7 @@ function determinarRolColumna(titulo: string): ColumnaDetectada['rol'] {
 
 function numeroSeguro(valor: unknown): number | null {
   if (typeof valor === 'number' && Number.isFinite(valor)) return valor;
-  const texto = valorCeldaTexto(valor).replace('%', '').replace(',', '.');
+  const texto = valorCeldaTexto(valor).replace(/%/g, '').replace(/,/g, '.');
   if (!texto) return null;
   const numero = Number(texto);
   return Number.isFinite(numero) ? numero : null;
@@ -276,9 +276,11 @@ async function extraerTextoDocx(buffer: Buffer) {
   xml = xml.replace(/<w:tab[^>]*\/>/g, '\t').replace(/<\/w:p>/g, '\n');
   return xml
     .replace(/<[^>]+>/g, '')
+    .replace(/&lt;/g, '[')
+    .replace(/&gt;/g, ']')
+    .replace(/&quot;/g, '"')
+    .replace(/&apos;/g, "'")
     .replace(/&amp;/g, '&')
-    .replace(/&lt;/g, '<')
-    .replace(/&gt;/g, '>')
     .replace(/\n{3,}/g, '\n\n')
     .trim();
 }
