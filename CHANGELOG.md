@@ -4,7 +4,14 @@ Este archivo sigue el formato "Keep a Changelog" (alto nivel) y SemVer.
 
 ## [Unreleased]
 
+## [1.1.0] - 2026-06-25
+
 ### Added
+- Implementado el módulo backend de hidratación de cursos iniciados con `POST /api/hidratacion-cursos/preview` y `POST /api/hidratacion-cursos/importar`.
+- Agregado import idempotente de alumnos desde XLSX por `periodoId + matricula`, registro de evidencias históricas desde columnas numéricas y deduplicación documental DOCX por SHA-256.
+- Agregada clasificación DOCX de `encuadre`, `parcial_externo` y `temario_o_material`, con conteo de reactivos/opciones para reutilización en preparación de examen global.
+- Validado preview con documentos reales de Electrónica y Aplicaciones Digitales: lista XLSX, encuadre y dos parciales externos.
+- Mejorada la UX del Installer Hub con guía operativa, descripciones de estado, tooltips y refuerzo visual de marca en el flujo de instalación.
 - **Encuadre Académico Digital (SPEC-002):** Implementada la persistencia completa mediante Prisma (`EncuadreAcademico` y `FirmaEncuadre`) sobre la base de datos SQLite local.
 - **Generador y Firmado de PDFs:** Implementada la lógica de generación del PDF base de encuadres parametrizable con logos (PNG/JPEG) y formato de 3 columnas en cabecera. Implementado el estampado digital seguro (Fecha, IP y Hash criptográfico HMAC-SHA256) en la Página 2 del PDF sin corromper el documento.
 - **Panel Docente de Encuadres:** Agregada la interfaz de configuración y visualización en tiempo real del estado de firmas de alumnos para el docente en `SeccionCalificaciones.tsx`.
