@@ -272,17 +272,31 @@ async function extraerTextoDocx(buffer: Buffer) {
   if (!documentXml) {
     throw new ErrorAplicacion('DOCX_INVALIDO', 'No se encontro word/document.xml en el DOCX', 400);
   }
-  let xml = await documentXml.async('text');
-  xml = xml.replace(/<w:tab[^>]*\/>/g, '\t').replace(/<\/w:p>/g, '\n');
-  return xml
-    .replace(/<[^>]+>/g, '')
-    .replace(/&lt;/g, '[')
-    .replace(/&gt;/g, ']')
-    .replace(/&quot;/g, '"')
-    .replace(/&apos;/g, "'")
-    .replace(/&amp;/g, '&')
-    .replace(/\n{3,}/g, '\n\n')
-    .trim();
+  const xml = await documentXml.async('text');
+  const tokens: string[] = [];
+  const patron = /<w:t(?:\s[^>]*)?>([\s\S]*?)<\/w:t>|<w:tab[^>]*\/>|<\/w:p>/g;
+  for (const match of xml.matchAll(patron)) {
+    const completo = match[0] ?? '';
+    if (completo.startsWith('<w:tab')) {
+      tokens.push('\t');
+      continue;
+    }
+    if (completo === '</w:p>') {
+      tokens.push('\n');
+      continue;
+    }
+    const texto = String(match[1] ?? '');
+    if (texto.includes('<')) continue;
+    tokens.push(
+      texto
+        .replace(/&lt;/g, '[')
+        .replace(/&gt;/g, ']')
+        .replace(/&quot;/g, '"')
+        .replace(/&apos;/g, "'")
+        .replace(/&amp;/g, '&')
+    );
+  }
+  return tokens.join('').replace(/\n{3,}/g, '\n\n').trim();
 }
 
 function clasificarDocx(nombre: string, texto: string): PreviewDocx['tipo'] {
