@@ -6,8 +6,10 @@
  */
 import { Router } from 'express';
 import multer from 'multer';
+import { validarCuerpo } from '../../compartido/validaciones/validar';
 import { requerirPermiso } from '../modulo_autenticacion/middlewarePermisos';
 import { importarHidratacion, previsualizarHidratacion } from './controladorHidratacionCursos';
+import { esquemaHidratacionMultipart } from './validacionesHidratacionCursos';
 
 const router = Router();
 
@@ -30,6 +32,7 @@ router.post(
   '/preview',
   requerirPermiso('evaluaciones:gestionar'),
   upload.array('archivos', 8),
+  validarCuerpo(esquemaHidratacionMultipart, { strict: true }),
   previsualizarHidratacion
 );
 
@@ -37,6 +40,7 @@ router.post(
   '/importar',
   requerirPermiso('evaluaciones:gestionar'),
   upload.array('archivos', 8),
+  validarCuerpo(esquemaHidratacionMultipart, { strict: true }),
   importarHidratacion
 );
 
