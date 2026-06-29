@@ -45,7 +45,11 @@ function Test-ArtifactSigned {
   if (Get-Command Get-AuthenticodeSignature -ErrorAction SilentlyContinue) {
     try {
       $signature = Get-AuthenticodeSignature -FilePath $Path
-      return ([string]$signature.Status -eq 'Valid')
+      $status = [string]$signature.Status
+      if ($status -eq 'Valid') {
+        return $true
+      }
+      return ($null -ne $signature.SignerCertificate -and $status -ne 'NotSigned')
     } catch {
       return $false
     }

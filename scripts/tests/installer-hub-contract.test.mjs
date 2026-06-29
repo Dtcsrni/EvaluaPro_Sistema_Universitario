@@ -1852,4 +1852,6 @@ test('script de release manifest incluye contrato extendido de build/deployment/
   assert.match(script, /Join-UrlPath -BaseUrl \$ReleaseBaseUrl -RelativePath \$publishedAssetShaPath/);
   assert.match(script, /deployment\s*=\s*\[ordered\]@{/);
   assert.match(script, /target\s*=\s*if \(\$DeploymentTarget\)/);
+  assert.match(script, /SignerCertificate/);
+  assert.match(script, /NotSigned/);
 });
