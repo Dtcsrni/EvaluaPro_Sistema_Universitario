@@ -59,6 +59,7 @@ const integrationFilesNZ = [
   'tests/integracion/flujoDocenteGlobalE2E.test.ts',
   'tests/integracion/flujoDocenteParcialE2E.test.ts',
   'tests/integracion/flujoExamen.test.ts',
+  'tests/integracion/hidratacionCursos.test.ts',
   'tests/integracion/listaAcademicaContratos.test.ts',
   'tests/integracion/omrV1Workflow.test.ts',
   'tests/integracion/pdfImpresionContrato.test.ts',

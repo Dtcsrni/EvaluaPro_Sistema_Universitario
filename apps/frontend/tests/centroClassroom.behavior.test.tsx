@@ -4,7 +4,7 @@
  * Responsabilidad: Modulo interno del sistema.
  * Limites: Mantener contrato y comportamiento observable del modulo.
  */
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { ErrorRemoto } from '../src/servicios_api/clienteApi';
 import { CentroClassroom } from '../src/apps/app_docente/CentroClassroom';
@@ -114,6 +114,14 @@ describe('CentroClassroom behavior', () => {
               alumnoIdConfirmado: null,
               alumnoIdSugerido: 'alu-1',
               matchStrategy: 'email'
+            },
+            {
+              classroomUserId: 'user-2',
+              fullName: 'Alumno Dos GC',
+              emailAddress: 'dos@classroom.test',
+              alumnoIdConfirmado: null,
+              alumnoIdSugerido: 'alu-2',
+              matchStrategy: 'matricula'
             }
           ]
         };
@@ -224,6 +232,14 @@ describe('CentroClassroom behavior', () => {
 
     await waitFor(() => expect(screen.getByText(/Actividad 1/i)).toBeInTheDocument());
     await waitFor(() => expect(screen.getByText(/Alumno Uno GC/i)).toBeInTheDocument());
+    await waitFor(() => expect(screen.getByText(/Mostrando 2 de 2 alumnos/i)).toBeInTheDocument());
+
+    fireEvent.change(screen.getByLabelText(/Buscar alumno Classroom/i), { target: { value: 'dos' } });
+    const panelMapeo = screen.getByTestId('classroom-mapeo-alumnos');
+    expect(within(panelMapeo).queryByText(/Alumno Uno GC/i)).not.toBeInTheDocument();
+    expect(within(panelMapeo).getByText(/Alumno Dos GC/i)).toBeInTheDocument();
+    expect(screen.getByText(/Mostrando 1 de 2 alumnos/i)).toBeInTheDocument();
+    fireEvent.change(screen.getByLabelText(/Buscar alumno Classroom/i), { target: { value: '' } });
 
     fireEvent.click(screen.getByRole('checkbox'));
     fireEvent.click(screen.getByRole('button', { name: /Guardar mapeo/i }));
@@ -235,6 +251,14 @@ describe('CentroClassroom behavior', () => {
     await waitFor(() => expect(enviarMock).toHaveBeenCalledWith('/evaluaciones/v2/classroom/importaciones/preview', expect.anything()));
     await waitFor(() => expect(screen.getByText(/Procesadas: 2 \| Matched: 1/i)).toBeInTheDocument());
     expect(screen.getByText(/Alumno Uno GC -> Alumno Uno/i)).toBeInTheDocument();
+    expect(screen.getByText(/Mostrando 2 de 2 submissions/i)).toBeInTheDocument();
+
+    fireEvent.change(screen.getByLabelText(/Buscar submission Classroom/i), { target: { value: 'sin match' } });
+    const panelPreview = screen.getByTestId('classroom-preview');
+    expect(within(panelPreview).queryByText(/Alumno Uno GC -> Alumno Uno/i)).not.toBeInTheDocument();
+    expect(within(panelPreview).getByText(/Alumno Sin Match -> Sin mapear/i)).toBeInTheDocument();
+    expect(screen.getByText(/Mostrando 1 de 2 submissions/i)).toBeInTheDocument();
+    fireEvent.change(screen.getByLabelText(/Buscar submission Classroom/i), { target: { value: '' } });
 
     fireEvent.click(screen.getByRole('button', { name: /Ejecutar importación/i }));
     await waitFor(() => expect(enviarMock).toHaveBeenCalledWith('/evaluaciones/v2/classroom/importaciones/ejecutar', expect.anything()));

@@ -83,6 +83,15 @@ function isCoverableFile(filePath) {
 async function runGitDiff(baseRef, headRef, apps) {
   const scopes = apps.map((app) => app.scope);
 
+  if (headRef === 'WORKTREE') {
+    const { stdout } = await execFile(
+      'git',
+      ['diff', '--unified=0', '--no-color', baseRef, '--', ...scopes],
+      { cwd: rootDir, windowsHide: true, maxBuffer: 20 * 1024 * 1024 }
+    );
+    return stdout;
+  }
+
   try {
     const { stdout } = await execFile(
       'git',
@@ -243,6 +252,16 @@ function resolveHeadRef() {
   return getArg('--head') ?? 'HEAD';
 }
 
+async function hasWorkingTreeChanges(apps) {
+  const scopes = apps.map((app) => app.scope);
+  const { stdout } = await execFile(
+    'git',
+    ['status', '--porcelain', '--', ...scopes],
+    { cwd: rootDir, windowsHide: true, maxBuffer: 20 * 1024 * 1024 }
+  );
+  return stdout.trim().length > 0;
+}
+
 function resolveThreshold() {
   const raw = getArg('--min') ?? process.env.DIFF_COVERAGE_MIN ?? '90';
   const parsed = Number(raw);
@@ -278,6 +297,7 @@ function isStructuralOnlyLine(sourceLine) {
   const isCommentOnly = /^(?:\/\/|\/\*|\*|\*\/)/.test(trimmed);
   const isImport = /^import\s/.test(trimmed);
   const isTypeDeclaration = /^(?:export\s+)?type\s/.test(trimmed);
+  const isTypeField = /^[A-Za-z_$][\w$]*\??:\s*[^=;]+[;,]?$/.test(trimmed);
   const isFunctionDeclaration = /^(?:export\s+)?(?:async\s+)?function\s+\w+\s*\([^)]*\)\s*{\s*$/.test(trimmed);
   return (
     /^[\s{}()[\];,]*$/.test(sourceLine) ||
@@ -285,6 +305,7 @@ function isStructuralOnlyLine(sourceLine) {
     isCommentOnly ||
     isImport ||
     isTypeDeclaration ||
+    isTypeField ||
     isFunctionDeclaration
   );
 }
@@ -308,9 +329,16 @@ async function main() {
   const minCoverage = resolveThreshold();
   const ignoreLineSubstrings = resolveIgnoreLineSubstrings();
   const ignorePathSubstrings = resolveIgnorePathSubstrings();
-  const baseRef = resolveBaseRef();
-  const headRef = resolveHeadRef();
   const selectedApps = resolveSelectedApps();
+  const explicitBase = Boolean(getArg('--base') || process.env.GITHUB_BASE_REF);
+  const explicitHead = Boolean(getArg('--head'));
+  let baseRef = resolveBaseRef();
+  let headRef = resolveHeadRef();
+
+  if (!explicitBase && !explicitHead && (await hasWorkingTreeChanges(selectedApps))) {
+    baseRef = 'HEAD';
+    headRef = 'WORKTREE';
+  }
 
   const diffOutput = await runGitDiff(baseRef, headRef, selectedApps);
   const touched = parseTouchedLines(diffOutput);
@@ -342,6 +370,7 @@ async function main() {
   let ignored = 0;
   let ignoredByPath = 0;
   let ignoredStructural = 0;
+  let ignoredNonExecutable = 0;
   const missing = [];
 
   for (const [file, lines] of touchedCoverable.entries()) {
@@ -367,8 +396,13 @@ async function main() {
         continue;
       }
 
+      if (!lineHits?.has(line)) {
+        ignoredNonExecutable += 1;
+        continue;
+      }
+
       total += 1;
-      const hits = lineHits?.get(line) ?? 0;
+      const hits = lineHits.get(line) ?? 0;
       if (hits > 0) {
         covered += 1;
       } else {
@@ -384,6 +418,9 @@ async function main() {
   }
   if (ignoredStructural > 0) {
     console.log(`[diff-coverage] Líneas estructurales ignoradas: ${ignoredStructural}`);
+  }
+  if (ignoredNonExecutable > 0) {
+    console.log(`[diff-coverage] Líneas no instrumentables ignoradas: ${ignoredNonExecutable}`);
   }
   if (ignorePathSubstrings.length > 0) {
     console.log(`[diff-coverage] Líneas ignoradas por ruta: ${ignoredByPath} (${ignorePathSubstrings.join(';')})`);

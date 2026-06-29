@@ -37,6 +37,7 @@ Opciones:
   --api-base=<url>            Base API (default: env RELEASE_GATE_API_BASE o http://localhost:3000/api)
   --token=<jwt>               Token docente (default: env RELEASE_GATE_DOCENTE_TOKEN)
   --docente-id=<valor>        Identificador docente para hash (default: manual.docenteId o env RELEASE_GATE_DOCENTE_ID)
+  --entorno=<valor>           Entorno de evidencia (default: env RELEASE_GATE_ENTORNO o production)
   --commit=<sha>              Commit (default: env GITHUB_SHA o "local")
   --ci-green=<n>              Corridas verdes consecutivas (default: env RELEASE_GATE_CI_GREEN o 0)
 `;
@@ -153,6 +154,7 @@ async function run() {
   const token = arg('token', process.env.RELEASE_GATE_DOCENTE_TOKEN || '');
   const commit = arg('commit', process.env.GITHUB_SHA || 'local');
   const ciGreen = Number(arg('ci-green', process.env.RELEASE_GATE_CI_GREEN || '0'));
+  const entorno = arg('entorno', process.env.RELEASE_GATE_ENTORNO || 'production') || 'production';
   const versionMeta = await leerVersionMetadata();
 
   if (!version) throw new Error('Falta --version');
@@ -169,6 +171,10 @@ async function run() {
 
   const inicioGlobal = Date.now();
   const pasos = [];
+  const detalleManualOk =
+    entorno === 'production'
+      ? 'Validado por docente humano en produccion'
+      : `Validado por evidencia manual en entorno ${entorno}`;
 
   for (const paso of PASOS_MANUALES) {
     const ok = Boolean(manual[paso.campo]);
@@ -177,7 +183,7 @@ async function run() {
       nombre: paso.nombre,
       resultado: ok ? 'ok' : 'fallo',
       fuente: 'manual',
-      detalle: ok ? 'Validado por docente humano en produccion' : `Fallo manual en campo ${paso.campo}`
+      detalle: ok ? detalleManualOk : `Fallo manual en campo ${paso.campo}`
     });
   }
 
@@ -276,7 +282,7 @@ async function run() {
       version: versionMeta.version || version,
       displayVersion: versionMeta.displayVersion || versionMeta.version || version,
       ejecutadoEn,
-      entorno: 'production',
+      entorno,
       docenteIdHash,
       periodoId,
       ventana: {

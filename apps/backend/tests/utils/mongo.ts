@@ -7,9 +7,9 @@
 import { execSync } from 'node:child_process';
 import path from 'node:path';
 import fs from 'node:fs';
+import { resolverNombreDbTest } from './testDbPath';
 
-const workerId = process.env.VITEST_WORKER_ID || '1';
-const dbFile = `test_${workerId}.db`;
+const dbFile = resolverNombreDbTest();
 const dataDir = path.resolve(process.cwd(), 'data');
 const dbPath = path.resolve(dataDir, dbFile);
 

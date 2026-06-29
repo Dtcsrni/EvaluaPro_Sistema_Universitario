@@ -289,6 +289,12 @@ try {
     Remove-Item -LiteralPath $markerPath -Force
   }
 
+  $hashScript = Join-Path $root 'scripts\generate-installer-hashes.ps1'
+  & $hashScript -InstallerDir $InstallerDir
+  if ($LASTEXITCODE -ne 0) {
+    throw "Fallo regeneracion de hashes/manifest post-firma (exit=$LASTEXITCODE)."
+  }
+
   Write-Host '[signing] Firma completada con timestamp.'
 } finally {
   if (-not [string]::IsNullOrWhiteSpace($pfxPath) -and (Test-Path $pfxPath)) {

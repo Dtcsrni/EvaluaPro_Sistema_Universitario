@@ -53,7 +53,7 @@ type PreviewXlsx = {
 };
 
 type PreviewDocx = {
-  tipo: 'encuadre' | 'parcial_externo' | 'temario_o_material';
+  tipo: 'encuadre' | 'parcial_externo' | 'global_externo' | 'temario_o_material';
   archivo: string;
   sha256: string;
   bytes: number;
@@ -66,6 +66,16 @@ type PreviewDocx = {
 };
 
 export type PreviewArchivoHidratacion = PreviewXlsx | PreviewDocx;
+
+type ReactivoImportable = {
+  numero: number;
+  enunciado: string;
+  opciones: Array<{
+    letra: string;
+    texto: string;
+    esCorrecta: boolean;
+  }>;
+};
 
 export type PreviewHidratacion = {
   periodoId: string;
@@ -88,6 +98,8 @@ type ResultadoImportacion = {
     evidenciasHistoricasCreadas: number;
     evidenciasDocumentalesCreadas: number;
     evidenciasDocumentalesOmitidas: number;
+    bancoPreguntasCreadas: number;
+    bancoPreguntasOmitidas: number;
     conflictos: number;
   };
   archivos: PreviewArchivoHidratacion[];
@@ -299,10 +311,88 @@ async function extraerTextoDocx(buffer: Buffer) {
   return tokens.join('').replace(/\n{3,}/g, '\n\n').trim();
 }
 
+function extraerOpcionesLinea(linea: string) {
+  const opciones: Array<{ letra: string; texto: string }> = [];
+  const patron = /(?:^|\s)([A-E])[).-]\s*([\s\S]*?)(?=\s+[A-E][).-]\s*|$)/gi;
+  for (const match of linea.matchAll(patron)) {
+    const letra = String(match[1] ?? '').toUpperCase();
+    const texto = String(match[2] ?? '').trim();
+    if (letra && texto) opciones.push({ letra, texto });
+  }
+  return opciones;
+}
+
+function extraerClaveRespuesta(linea: string) {
+  const match = linea.match(/respuesta\s+(?:correcta\s*)?:?\s*([A-E])/i) ?? linea.match(/\bclave\s*:?\s*([A-E])\b/i);
+  return match ? String(match[1]).toUpperCase() : null;
+}
+
+function extraerReactivosDocx(texto: string): ReactivoImportable[] {
+  const lineas = texto.split(/\r?\n/).map((linea) => linea.trim()).filter(Boolean);
+  const reactivos: ReactivoImportable[] = [];
+  let actual: {
+    numero: number;
+    partesEnunciado: string[];
+    opciones: Array<{ letra: string; texto: string }>;
+    correcta: string | null;
+  } | null = null;
+
+  const cerrarActual = () => {
+    if (!actual) return;
+    const opciones = actual.opciones
+      .filter((opcion, index, arr) => arr.findIndex((item) => item.letra === opcion.letra) === index)
+      .map((opcion) => ({
+        ...opcion,
+        esCorrecta: actual?.correcta === opcion.letra
+      }));
+    const enunciado = actual.partesEnunciado.join(' ').replace(/\s+/g, ' ').trim();
+    if (enunciado && opciones.length >= 2) {
+      reactivos.push({ numero: actual.numero, enunciado, opciones });
+    }
+  };
+
+  for (const linea of lineas) {
+    const inicio = linea.match(/^(\d+)[).\s-]+(.+)$/);
+    if (inicio) {
+      cerrarActual();
+      actual = {
+        numero: Number(inicio[1]),
+        partesEnunciado: [String(inicio[2] ?? '').trim()],
+        opciones: [],
+        correcta: null
+      };
+      const opcionesEnLinea = extraerOpcionesLinea(String(inicio[2] ?? ''));
+      if (opcionesEnLinea.length) {
+        actual.partesEnunciado = [String(inicio[2] ?? '').replace(/(?:^|\s)[A-E][).-]\s*[\s\S]*$/i, '').trim()];
+        actual.opciones.push(...opcionesEnLinea);
+      }
+      continue;
+    }
+
+    if (!actual) continue;
+    const correcta = extraerClaveRespuesta(linea);
+    if (correcta) {
+      actual.correcta = correcta;
+      continue;
+    }
+
+    const opciones = extraerOpcionesLinea(linea);
+    if (opciones.length) {
+      actual.opciones.push(...opciones);
+    } else {
+      actual.partesEnunciado.push(linea);
+    }
+  }
+  cerrarActual();
+
+  return reactivos;
+}
+
 function clasificarDocx(nombre: string, texto: string): PreviewDocx['tipo'] {
   const base = `${nombre} ${texto.slice(0, 1500)}`;
   const normalizado = normalizarTexto(base);
   if (normalizado.includes('encuadre') || normalizado.includes('formato de asignatura')) return 'encuadre';
+  if (normalizado.includes('examen') && normalizado.includes('global')) return 'global_externo';
   if (normalizado.includes('examen') && normalizado.includes('parcial')) return 'parcial_externo';
   return 'temario_o_material';
 }
@@ -317,8 +407,8 @@ async function analizarDocx(archivo: ArchivoHidratacion): Promise<PreviewDocx> {
     lineas.find((linea) => /examen|encuadre|temario|asignatura/i.test(linea)) ??
     archivo.originalname.replace(/\.docx$/i, '');
   const advertencias: string[] = [];
-  if (tipo === 'parcial_externo' && reactivosDetectados === 0) {
-    advertencias.push('El documento parece parcial, pero no se detectaron reactivos numerados.');
+  if ((tipo === 'parcial_externo' || tipo === 'global_externo') && reactivosDetectados === 0) {
+    advertencias.push('El documento parece examen, pero no se detectaron reactivos numerados.');
   }
 
   return {
@@ -511,6 +601,7 @@ async function importarDocx(params: {
   docenteId: string;
   periodoId: string;
   preview: PreviewDocx;
+  archivo: ArchivoHidratacion;
 }) {
   const alumnoSistema = await prisma.alumno.upsert({
     where: {
@@ -549,32 +640,120 @@ async function importarDocx(params: {
       return false;
     }
   });
-  if (yaExiste) return { creada: false };
+  let evidenciaCreada = false;
 
-  await prisma.evidenciaEvaluacion.create({
-    data: {
+  if (!yaExiste) {
+    await prisma.evidenciaEvaluacion.create({
+      data: {
+        docenteId: params.docenteId,
+        periodoId: params.periodoId,
+        alumnoId: alumnoSistema.id,
+        titulo: params.preview.tituloSugerido,
+        descripcion: `Documento importado para hidratacion de curso: ${params.preview.tipo}.`,
+        ponderacion: 1,
+        fechaEvidencia: new Date(),
+        corte:
+          params.preview.tipo === 'parcial_externo' || params.preview.tipo === 'global_externo'
+            ? corteDesdeTitulo(params.preview.tituloSugerido)
+            : null,
+        fuente: 'importacion_docx',
+        estadoCaptura: 'documental',
+        metadata: JSON.stringify({
+          origen: 'hidratacion_docx',
+          archivoOrigenHash: params.preview.sha256,
+          archivo: params.preview.archivo,
+          tipoDocumento: params.preview.tipo,
+          reactivosDetectados: params.preview.reactivosDetectados,
+          opcionesDetectadas: params.preview.opcionesDetectadas,
+          caracteres: params.preview.caracteres
+        })
+      }
+    });
+    evidenciaCreada = true;
+  }
+
+  const banco = await importarBancoPreguntasDesdeDocx(params);
+  return { creada: evidenciaCreada, bancoPreguntasCreadas: banco.creadas, bancoPreguntasOmitidas: banco.omitidas };
+}
+
+async function importarBancoPreguntasDesdeDocx(params: {
+  docenteId: string;
+  periodoId: string;
+  preview: PreviewDocx;
+  archivo: ArchivoHidratacion;
+}) {
+  if (params.preview.tipo !== 'parcial_externo' && params.preview.tipo !== 'global_externo') {
+    return { creadas: 0, omitidas: 0 };
+  }
+
+  const texto = await extraerTextoDocx(params.archivo.buffer);
+  const reactivos = extraerReactivosDocx(texto);
+  let creadas = 0;
+  let omitidas = 0;
+  const corte = corteDesdeTitulo(params.preview.tituloSugerido);
+  const tema =
+    params.preview.tipo === 'global_externo'
+      ? 'Examen Global'
+      : corte === 2
+        ? 'Examen Segundo Parcial'
+        : 'Examen Primer Parcial';
+  const existentes = await prisma.bancoPregunta.findMany({
+    where: {
       docenteId: params.docenteId,
       periodoId: params.periodoId,
-      alumnoId: alumnoSistema.id,
-      titulo: params.preview.tituloSugerido,
-      descripcion: `Documento importado para hidratacion de curso: ${params.preview.tipo}.`,
-      ponderacion: 1,
-      fechaEvidencia: new Date(),
-      corte: params.preview.tipo === 'parcial_externo' ? corteDesdeTitulo(params.preview.tituloSugerido) : null,
-      fuente: 'importacion_docx',
-      estadoCaptura: 'documental',
-      metadata: JSON.stringify({
-        origen: 'hidratacion_docx',
-        archivoOrigenHash: params.preview.sha256,
-        archivo: params.preview.archivo,
-        tipoDocumento: params.preview.tipo,
-        reactivosDetectados: params.preview.reactivosDetectados,
-        opcionesDetectadas: params.preview.opcionesDetectadas,
-        caracteres: params.preview.caracteres
-      })
+      activo: true
     }
   });
-  return { creada: true };
+
+  for (const reactivo of reactivos) {
+    const yaExiste = existentes.some((pregunta) => {
+      try {
+        const meta = JSON.parse(String(pregunta.recoverySource ?? '{}')) as Record<string, unknown>;
+        return meta['archivoOrigenHash'] === params.preview.sha256 && meta['numeroReactivo'] === reactivo.numero;
+      } catch {
+        return false;
+      }
+    });
+    if (yaExiste) {
+      omitidas += 1;
+      continue;
+    }
+
+    const pregunta = await prisma.bancoPregunta.create({
+      data: {
+        docenteId: params.docenteId,
+        periodoId: params.periodoId,
+        tema,
+        versionActual: 1,
+        activo: true,
+        recoverySource: JSON.stringify({
+          origen: 'hidratacion_docx',
+          archivoOrigenHash: params.preview.sha256,
+          archivo: params.preview.archivo,
+          tipoDocumento: params.preview.tipo,
+          numeroReactivo: reactivo.numero
+        })
+      }
+    });
+    existentes.push(pregunta);
+    const version = await prisma.versionPregunta.create({
+      data: {
+        preguntaId: pregunta.id,
+        numeroVersion: 1,
+        enunciado: reactivo.enunciado
+      }
+    });
+    await prisma.opcionPregunta.createMany({
+      data: reactivo.opciones.map((opcion) => ({
+        versionPreguntaId: version.id,
+        texto: opcion.texto,
+        esCorrecta: opcion.esCorrecta
+      }))
+    });
+    creadas += 1;
+  }
+
+  return { creadas, omitidas };
 }
 
 export async function importarHidratacionCurso(params: {
@@ -591,6 +770,8 @@ export async function importarHidratacionCurso(params: {
     evidenciasHistoricasCreadas: 0,
     evidenciasDocumentalesCreadas: 0,
     evidenciasDocumentalesOmitidas: 0,
+    bancoPreguntasCreadas: 0,
+    bancoPreguntasOmitidas: 0,
     conflictos: 0
   };
 
@@ -612,13 +793,18 @@ export async function importarHidratacionCurso(params: {
       resumen.evidenciasHistoricasCreadas += resultado.evidenciasHistoricasCreadas;
       resumen.conflictos += resultado.conflictos;
     } else {
+      const archivoOriginal = params.archivos.find((archivo) => hashSha256(archivo.buffer) === archivoPreview.sha256);
+      if (!archivoOriginal) continue;
       const resultado = await importarDocx({
         docenteId: params.docenteId,
         periodoId: params.periodoId,
-        preview: archivoPreview
+        preview: archivoPreview,
+        archivo: archivoOriginal
       });
       if (resultado.creada) resumen.evidenciasDocumentalesCreadas += 1;
       else resumen.evidenciasDocumentalesOmitidas += 1;
+      resumen.bancoPreguntasCreadas += resultado.bancoPreguntasCreadas;
+      resumen.bancoPreguntasOmitidas += resultado.bancoPreguntasOmitidas;
     }
   }
 

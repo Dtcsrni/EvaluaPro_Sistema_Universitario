@@ -1,10 +1,28 @@
 # Engineering Baseline
 
-Fecha de baseline: 2026-06-15
-Version tecnica: `1.0.0`
-Version visible GUI: `1.0.0b`
+Fecha de baseline: 2026-06-27
+Version tecnica: `1.1.0`
+Version visible GUI: `1.1.0`
 
 ## Estado vigente
+- Corte 2026-06-29 (listas institucionales, QA automatizada y release 1.1.0 Go):
+  - **Classroom UX:** `CentroClassroom` permite filtrar roster y submissions por nombre, correo, matricula, alumno local, estado y estrategia de match; agrega contadores visibles para operar grupos grandes sin revisar listas completas manualmente.
+  - **Classroom backend:** `servicioSyncClassroom` resuelve alumnos locales con un indice en memoria por correo/matricula/id y evita consultas N+1 a `Alumno.findOne`/`Alumno.findById` durante importaciones paginadas.
+  - **SDD:** Implementadas `docs/specs/classroom_experiencia_usuario.spec.md`, `docs/specs/release_stable_installer_firma.spec.md` y `docs/specs/listas_institucionales_por_plantilla.spec.md`.
+  - **Release Stable Gate:** `validate-stable-promotion.mjs` rechaza cualquier manifest de instalador con artefactos `signed !== true` o sin `name/path/sha256`, y exige evidencia QA automatizada completa en `reports/qa/latest/manifest.json`; Classroom/manual real queda como smoke operativo opcional, no bloqueante para stable.
+  - **Post-firma:** `sign-installer-artifacts.ps1` regenera hashes y `EvaluaPro-release-manifest.json` despues de firmar para mantener SHA256 y `signed` sincronizados con los binarios finales.
+  - **Firma instaladores:** MSI/EXE 1.1.0 firmados con certificado interno local `CN=EvaluaPro Internal Code Signing`; `EvaluaPro-release-manifest.json` reporta `signed=true` para artefactos MSI/EXE y el gate estable ya no falla por `installer-multi-flavor`.
+  - **Aislamiento de pruebas backend:** `apps/backend/tests/setup.ts` y `apps/backend/tests/utils/mongo.ts` comparten un resolver de DB temporal por worker/pool/proceso; se verifico que `hidratacionCursos`, `test:classroom:audit:ci` y `test:global-grade:ci` pueden ejecutarse en paralelo sin colisiones SQLite.
+  - **Frontend/Portal/Perf:** `test:frontend:ci`, `test:portal:ci`, `perf:check` y `ci:policy:audit` verificados en verde despues del cierre de Classroom/hidratacion; los tests frontend evitan asignaciones directas a `window.location.hash` en los casos ajustados.
+  - **Evidencia 1.1.0:** `docs/release/evidencias/1.1.0/` y `reports/release/stable-gate/1.1.0/decision.json` generados. Estado actual: `Go` con `ci-streak`, `release-evidence`, `automated-qa-evidence`, `installer-multi-flavor` y `prod-flow` en verde.
+  - **Gates verificados:** `test:ci` ✅, `test:coverage:ci` ✅, `test:tdd:enforcement:ci` ✅ (`diff coverage 95.45%`), `test:classroom:audit:ci` ✅, `qa:full` ✅, `perf:check` ✅, `ci:policy:audit` ✅, `test:installer-hub:contract` ✅, `release:check:evidence -- --version=1.1.0` ✅, `docs:check` ✅.
+  - **Frontera productiva:** Classroom real y flujo humano productivo se mantienen como validaciones operativas recomendadas; no son condicion bloqueante del release estable si la QA automatizada obligatoria esta completa. La firma actual usa certificado interno local y debe sustituirse por certificado productivo si el canal stable requiere confianza publica de Windows.
+  - **Validacion local ampliada 2026-06-29:** `lint`, `typecheck`, `test:backend:ci`, `test:frontend:ci`, `test:coverage:ci`, `test:tdd:enforcement:ci`, `test:release:policy`, `ci:policy:audit`, `sdd:audit`, `release:check:evidence -- --version=1.1.0` y `release:validate:stable -- --version=1.1.0 --repo=Dtcsrni/EvaluaPro_Sistema_Universitario --ci-green=13` completan en verde.
+  - **Smoke prod-flow local mayo-junio:** `node scripts/release/prod-flow-local-smoke.mjs` genera `docs/release/evidencias/1.1.0-local.0/manifest.json` con `gateHumanoProduccion.entorno=local-smoke` y `resultado=ok`; valida API local, JWT docente local, lista academica CSV/DOCX/firma, SHA-256 y metricas sin reemplazar la evidencia productiva `1.1.0`.
+  - **Classroom E2E externo:** queda formalizado el template `docs/release/manual/classroom-e2e-real-mayo-junio.template.json`, el doctor `npm run classroom:doctor` y el validador `npm run release:check:classroom-e2e`; sirve como evidencia operativa opcional sin exponer secretos.
+  - **Verificacion de cobertura posterior:** `test:tdd:enforcement:ci` y `test:coverage:ci` pasaron despues de agregar `classroom:doctor`, `release:check:classroom-e2e` y el gate estable por QA automatizada. `classroom:doctor` reporta correctamente faltantes reales de `GOOGLE_CLASSROOM_CLIENT_ID`, `GOOGLE_CLASSROOM_CLIENT_SECRET`, `GOOGLE_CLASSROOM_REDIRECT_URI` y `CLASSROOM_TOKEN_CIPHER_KEY` sin exponer valores.
+  - **Nota de concurrencia Windows:** `build` debe ejecutarse sin otros procesos que usen Prisma Client; en ejecucion simultanea con cobertura/tests puede aparecer `EPERM` al reemplazar `query_engine-windows.dll.node`. Repetido aislado queda verde.
+
 - Corte 2026-06-23 (Automatización de Reglas de Encuadre y Firma Digital Institucional - SPEC-002):
   - **Especificación Técnica Aprobada:** Redactada y aprobada la especificación `docs/specs/encuadre_firmas.spec.md` (`SPEC-002` v1.1.0) que gobierna el diseño técnico y las aserciones de la firma digital.
   - **Base de Datos SQLite (Prisma):** Creados los modelos `EncuadreAcademico` y `FirmaEncuadre` en `schema.prisma` y sincronizados localmente mediante `npx prisma db push`.

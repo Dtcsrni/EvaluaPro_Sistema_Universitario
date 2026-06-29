@@ -6,6 +6,8 @@ data/
 logs/
 .env
 .env.*
+.secrets/
+client_secret_*.json
 .DS_Store
 npm-debug.log*
 yarn-debug.log*

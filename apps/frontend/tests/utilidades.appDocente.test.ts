@@ -46,7 +46,6 @@ const preguntaBase = {
 
 describe('utilidades app docente', () => {
   it('obtenerVistaInicial respeta vistas validas y aliases', () => {
-    const original = window.location.href;
     window.history.pushState({}, '', '/?vista=banco');
     expect(obtenerVistaInicial()).toBe('banco');
     window.history.pushState({}, '', '/?vista=recepcion');
@@ -55,7 +54,7 @@ describe('utilidades app docente', () => {
     expect(obtenerVistaInicial()).toBe('calificaciones');
     window.history.pushState({}, '', '/?vista=invalida');
     expect(obtenerVistaInicial()).toBe('periodos');
-    window.history.pushState({}, '', original);
+    window.history.pushState({}, '', '/');
   });
 
   it('obtenerVersionPregunta usa version actual y fallback a ultima', () => {

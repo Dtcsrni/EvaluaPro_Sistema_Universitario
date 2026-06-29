@@ -100,6 +100,12 @@ type AlumnoLocal = {
   correo?: string;
 };
 
+type IndiceAlumnosLocales = {
+  porId: Map<string, AlumnoLocal>;
+  porEmail: Map<string, AlumnoLocal>;
+  porMatricula: Map<string, AlumnoLocal>;
+};
+
 type EstrategiaMapeo = 'manual' | 'email' | 'matricula' | 'none';
 
 type ResolucionAlumno = {
@@ -202,6 +208,22 @@ async function obtenerAlumnosLocales(periodoId: string, docenteId: string): Prom
   }));
 }
 
+function crearIndiceAlumnosLocales(alumnosLocales: AlumnoLocal[]): IndiceAlumnosLocales {
+  const porId = new Map<string, AlumnoLocal>();
+  const porEmail = new Map<string, AlumnoLocal>();
+  const porMatricula = new Map<string, AlumnoLocal>();
+
+  for (const alumno of alumnosLocales) {
+    porId.set(alumno._id, alumno);
+    const correo = normalizarEmail(alumno.correo);
+    if (correo) porEmail.set(correo, alumno);
+    const matricula = normalizarTexto(alumno.matricula).toUpperCase();
+    if (matricula) porMatricula.set(matricula, alumno);
+  }
+
+  return { porId, porEmail, porMatricula };
+}
+
 async function obtenerMapeoManualPorCurso(
   docenteId: string,
   periodoId: string,
@@ -217,32 +239,31 @@ async function obtenerMapeoManualPorCurso(
   );
 }
 
-async function resolverAlumnoId(params: {
-  docenteId: string;
-  periodoId: string;
+function resolverAlumnoId(params: {
   classroomUserId: string;
   courseId: string;
   cursoEstudiantes: Map<string, EstudianteClassroom>;
   mapeoManual: Map<string, string>;
+  indiceAlumnosLocales: IndiceAlumnosLocales;
   mapeoLegacy?: Map<string, string>;
-}): Promise<ResolucionAlumno> {
-  const { docenteId, periodoId, classroomUserId, cursoEstudiantes, mapeoManual, mapeoLegacy } = params;
+}): ResolucionAlumno {
+  const { classroomUserId, cursoEstudiantes, mapeoManual, indiceAlumnosLocales, mapeoLegacy } = params;
   const asignado = mapeoManual.get(classroomUserId) || mapeoLegacy?.get(classroomUserId);
   if (asignado) return { alumnoId: asignado, strategy: 'manual' };
 
   const estudiante = cursoEstudiantes.get(classroomUserId);
   const email = normalizarEmail(estudiante?.emailAddress);
   if (email) {
-    const alumnoCorreo = await Alumno.findOne({ docenteId, periodoId, correo: email }).select({ _id: 1 }).lean();
+    const alumnoCorreo = indiceAlumnosLocales.porEmail.get(email);
     if (alumnoCorreo?._id) {
-      return { alumnoId: String(alumnoCorreo._id), strategy: 'email' };
+      return { alumnoId: alumnoCorreo._id, strategy: 'email' };
     }
 
     const localPart = email.split('@')[0]?.trim().toUpperCase();
     if (localPart) {
-      const alumnoMatricula = await Alumno.findOne({ docenteId, periodoId, matricula: localPart }).select({ _id: 1 }).lean();
+      const alumnoMatricula = indiceAlumnosLocales.porMatricula.get(localPart);
       if (alumnoMatricula?._id) {
-        return { alumnoId: String(alumnoMatricula._id), strategy: 'matricula' };
+        return { alumnoId: alumnoMatricula._id, strategy: 'matricula' };
       }
     }
   }
@@ -385,20 +406,18 @@ export async function obtenerAlumnosCursoClassroom(docenteId: string, periodoId:
     obtenerMapeoManualPorCurso(docenteId, periodoId, courseId)
   ]);
 
-  const alumnosLocalesPorId = new Map(alumnosLocales.map((alumno) => [alumno._id, alumno]));
-  const alumnosClassroom = await Promise.all(
-    [...cursoEstudiantes.values()].map(async (estudiante) => {
-      const resolucion = await resolverAlumnoId({
-        docenteId,
-        periodoId,
+  const indiceAlumnosLocales = crearIndiceAlumnosLocales(alumnosLocales);
+  const alumnosClassroom = [...cursoEstudiantes.values()].map((estudiante) => {
+      const resolucion = resolverAlumnoId({
         classroomUserId: estudiante.userId,
         courseId,
         cursoEstudiantes,
-        mapeoManual
+        mapeoManual,
+        indiceAlumnosLocales
       });
       const alumnoConfirmadoId = mapeoManual.get(estudiante.userId) || null;
-      const alumnoConfirmado = alumnoConfirmadoId ? alumnosLocalesPorId.get(alumnoConfirmadoId) ?? null : null;
-      const alumnoSugerido = resolucion.alumnoId ? alumnosLocalesPorId.get(resolucion.alumnoId) ?? null : null;
+      const alumnoConfirmado = alumnoConfirmadoId ? indiceAlumnosLocales.porId.get(alumnoConfirmadoId) ?? null : null;
+      const alumnoSugerido = resolucion.alumnoId ? indiceAlumnosLocales.porId.get(resolucion.alumnoId) ?? null : null;
       return {
         classroomUserId: estudiante.userId,
         fullName: estudiante.fullName || undefined,
@@ -409,8 +428,7 @@ export async function obtenerAlumnosCursoClassroom(docenteId: string, periodoId:
         alumnoSugerido: resolucion.strategy === 'manual' ? null : alumnoSugerido,
         matchStrategy: alumnoConfirmadoId ? 'manual' : resolucion.strategy
       };
-    })
-  );
+    });
 
   return {
     courseId,
@@ -494,6 +512,7 @@ export async function sincronizarImportacionClassroom(params: {
   const courseCache = new Map<string, Record<string, unknown>>();
   const estudiantesPorCurso = new Map<string, Map<string, EstudianteClassroom>>();
   const mapeoManualPorCurso = new Map<string, Map<string, string>>();
+  const indiceAlumnosLocales = crearIndiceAlumnosLocales(await obtenerAlumnosLocales(params.periodoId, params.docenteId));
   const limiteSubmissions = Math.max(1, Math.min(500, Number(params.limiteSubmissions ?? 200) || 200));
 
   const resultados: ResultadoActividad[] = [];
@@ -585,20 +604,15 @@ export async function sincronizarImportacionClassroom(params: {
             continue;
           }
 
-          const resolucionAlumno = await resolverAlumnoId({
-            docenteId: params.docenteId,
-            periodoId: params.periodoId,
+          const resolucionAlumno = resolverAlumnoId({
             classroomUserId,
             courseId: actividad.courseId,
             cursoEstudiantes,
             mapeoManual,
+            indiceAlumnosLocales,
             mapeoLegacy
           });
-          const alumno = resolucionAlumno.alumnoId
-            ? await Alumno.findById(resolucionAlumno.alumnoId)
-                .select({ _id: 1, nombreCompleto: 1 })
-                .lean()
-            : null;
+          const alumno = resolucionAlumno.alumnoId ? indiceAlumnosLocales.porId.get(resolucionAlumno.alumnoId) ?? null : null;
 
           const calificacionCalculada = calcularCalificacionDecimal({
             assignedGrade: submission.assignedGrade,
@@ -631,7 +645,7 @@ export async function sincronizarImportacionClassroom(params: {
             studentName: estudiante?.fullName || undefined,
             studentEmail: estudiante?.emailAddress || undefined,
             alumnoId: resolucionAlumno.alumnoId,
-            alumnoNombre: alumno?.nombreCompleto ? String(alumno.nombreCompleto) : null,
+            alumnoNombre: alumno?.nombreCompleto || null,
             matchStrategy: resolucionAlumno.strategy,
             estadoCaptura,
             graded: estadoCaptura === 'calificada',

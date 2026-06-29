@@ -55,6 +55,37 @@ function writeEvidenceDir(baseDir) {
   }, null, 2)}\n`);
 }
 
+function writeQaEvidence(baseDir, overrides = {}) {
+  const qaDir = path.join(baseDir, 'reports', 'qa', 'latest');
+  fs.mkdirSync(qaDir, { recursive: true });
+  const gates = [
+    'dataset-prodlike',
+    'e2e-docente-alumno',
+    'global-grade',
+    'evaluaciones-policy',
+    'evaluaciones-e2e',
+    'pdf-print',
+    'ux-visual',
+    'clean-architecture'
+  ];
+  const artefactos = [];
+  for (const gate of gates) {
+    const rel = `reports/qa/latest/${gate}.json`;
+    const abs = path.join(baseDir, rel);
+    fs.writeFileSync(abs, `${JSON.stringify({ version: '1', gate, ok: true }, null, 2)}\n`);
+    artefactos.push({ archivo: rel, existe: true, bytes: 64 });
+  }
+  const manifest = {
+    version: '1',
+    artefactos,
+    resumen: { total: gates.length, presentes: gates.length, faltantes: 0, estado: 'ok' },
+    ...overrides
+  };
+  const manifestPath = path.join(baseDir, 'reports', 'qa', 'latest', 'manifest.json');
+  fs.writeFileSync(manifestPath, `${JSON.stringify(manifest, null, 2)}\n`);
+  return manifestPath;
+}
+
 function writeInstallerManifest(baseDir) {
   const manifest = {
     build: {
@@ -64,8 +95,9 @@ function writeInstallerManifest(baseDir) {
     artifacts: [
       {
         name: 'EvaluaPro-release-manifest.json',
+        path: 'EvaluaPro-release-manifest.json',
         sha256: 'abc',
-        signed: false
+        signed: true
       }
     ],
     deployment: {
@@ -91,51 +123,121 @@ function writeInstallerManifest(baseDir) {
   return manifestPath;
 }
 
+function writeClassroomEvidence(baseDir, overrides = {}) {
+  const evidence = {
+    displayVersion: '1.0.0',
+    operatorName: 'qa-classroom',
+    windowStartedAt: '2026-06-27T00:00:00.000-06:00',
+    windowEndedAt: '2026-06-27T00:30:00.000-06:00',
+    entorno: 'google-classroom-real',
+    periodoLabel: 'mayo-junio',
+    apiBase: 'https://api.example.test/api',
+    docenteIdHash: 'docente-hash',
+    googleWorkspace: {
+      dominio: 'example.edu',
+      oauthClientConfigurado: true,
+      redirectUriRegistrado: true,
+      classroomTokenCipherKeyPresente: true,
+      scopesClassroomAprobados: true
+    },
+    curso: {
+      courseId: 'course-123',
+      nombre: 'Electronica mayo-junio',
+      periodoId: 'periodo-mayo-junio',
+      alumnosClassroomTotal: 2,
+      alumnosLocalesVinculados: 2
+    },
+    actividad: {
+      courseWorkId: 'work-123',
+      titulo: 'Primer parcial',
+      submissionsTotal: 2,
+      submissionsConCalificacion: 2,
+      submissionsImportadas: 2,
+      submissionsSinMatch: 0
+    },
+    pasos: {
+      configuracionOAuthValidada: true,
+      loginDocenteValidado: true,
+      oauthClassroomCompletado: true,
+      cursoListadoDesdeGoogle: true,
+      rosterListadoDesdeGoogle: true,
+      mapeoAlumnosGuardado: true,
+      actividadListadaDesdeGoogle: true,
+      previewImportacionRevisado: true,
+      importacionPersistenteEjecutada: true,
+      reimportacionIdempotenteValidada: true,
+      filtrosUxUsadosEnRosterYPreview: true,
+      historialSincronizacionRevisado: true
+    },
+    evidencias: {
+      capturaRoster: 'roster.png',
+      capturaPreview: 'preview.png',
+      capturaResultadoImportacion: 'importacion.png',
+      capturaHistorial: 'historial.png',
+      requestIds: ['req-123']
+    },
+    resultado: 'ok',
+    ...overrides
+  };
+  const evidencePath = path.join(baseDir, 'classroom-e2e.json');
+  fs.writeFileSync(evidencePath, `${JSON.stringify(evidence, null, 2)}\n`);
+  return evidencePath;
+}
+
 test('stable promotion pasa con evidencia completa, streak y manifest multi-flavor', () => {
   const evidenceDir = mkTempDir('evaluapro-stable-evidence-');
   const installerDir = mkTempDir('evaluapro-installer-manifest-');
+  const qaDir = mkTempDir('evaluapro-qa-evidence-');
   writeEvidenceDir(evidenceDir);
   const installerManifestPath = writeInstallerManifest(installerDir);
+  const qaManifestPath = writeQaEvidence(qaDir);
 
   const runs = Array.from({ length: 10 }).map((_, index) => ({ id: index + 1, conclusion: 'success' }));
   const result = evaluateStablePromotion({
     requiredStreak: 10,
     runs,
     evidenceDir,
-    installerManifestPath
+    installerManifestPath,
+    qaManifestPath
   });
 
   assert.equal(result.ok, true);
   assert.equal(result.checks.every((item) => item.ok), true);
 });
 
-test('stable promotion falla si el gate humano persistido no esta en ok', () => {
+test('stable promotion no exige gate humano ni Classroom manual cuando QA automatizada esta completa', () => {
   const evidenceDir = mkTempDir('evaluapro-stable-evidence-failed-');
   const installerDir = mkTempDir('evaluapro-installer-manifest-failed-');
+  const qaDir = mkTempDir('evaluapro-qa-evidence-failed-');
   writeEvidenceDir(evidenceDir);
   const manifestPath = path.join(evidenceDir, 'manifest.json');
   const manifest = JSON.parse(fs.readFileSync(manifestPath, 'utf8'));
   manifest.gateHumanoProduccion.resultado = 'fallo';
   fs.writeFileSync(manifestPath, `${JSON.stringify(manifest, null, 2)}\n`);
   const installerManifestPath = writeInstallerManifest(installerDir);
+  const qaManifestPath = writeQaEvidence(qaDir);
 
   const runs = Array.from({ length: 10 }).map((_, index) => ({ id: index + 1, conclusion: 'success' }));
   const result = evaluateStablePromotion({
     requiredStreak: 10,
     runs,
     evidenceDir,
-    installerManifestPath
+    installerManifestPath,
+    qaManifestPath,
+    classroomE2eManualPath: path.join(qaDir, 'missing-classroom.json')
   });
 
-  assert.equal(result.ok, false);
-  assert.equal(result.checks.some((item) => item.id === 'prod-flow-evidence' && item.ok === false), true);
+  assert.equal(result.ok, true);
+  assert.equal(result.checks.some((item) => item.id === 'automated-qa-evidence' && item.ok === true), true);
 });
 
 test('stable promotion falla si el manifest release es incompleto aunque tenga flavors requeridos', () => {
   const evidenceDir = mkTempDir('evaluapro-stable-evidence-invalid-manifest-');
   const installerDir = mkTempDir('evaluapro-installer-manifest-invalid-');
+  const qaDir = mkTempDir('evaluapro-qa-evidence-invalid-manifest-');
   writeEvidenceDir(evidenceDir);
   const installerManifestPath = writeInstallerManifest(installerDir);
+  const qaManifestPath = writeQaEvidence(qaDir);
   const installerManifest = JSON.parse(fs.readFileSync(installerManifestPath, 'utf8'));
   delete installerManifest.build;
   fs.writeFileSync(installerManifestPath, `${JSON.stringify(installerManifest, null, 2)}\n`);
@@ -145,10 +247,92 @@ test('stable promotion falla si el manifest release es incompleto aunque tenga f
     requiredStreak: 10,
     runs,
     evidenceDir,
-    installerManifestPath
+    installerManifestPath,
+    qaManifestPath
   });
 
   assert.equal(result.ok, false);
   assert.equal(result.checks.some((item) => item.id === 'installer-multi-flavor' && item.ok === false), true);
 });
 
+test('stable promotion falla si algun artefacto de instalador no esta firmado', () => {
+  const evidenceDir = mkTempDir('evaluapro-stable-evidence-unsigned-installer-');
+  const installerDir = mkTempDir('evaluapro-installer-manifest-unsigned-');
+  const qaDir = mkTempDir('evaluapro-qa-evidence-unsigned-installer-');
+  writeEvidenceDir(evidenceDir);
+  const installerManifestPath = writeInstallerManifest(installerDir);
+  const qaManifestPath = writeQaEvidence(qaDir);
+  const installerManifest = JSON.parse(fs.readFileSync(installerManifestPath, 'utf8'));
+  installerManifest.artifacts.push({
+    name: 'EvaluaPro-InstallerHub-docente-local-v1.0.0.exe',
+    path: 'docente-local/EvaluaPro-InstallerHub-docente-local-v1.0.0.exe',
+    sha256: 'def',
+    signed: false
+  });
+  fs.writeFileSync(installerManifestPath, `${JSON.stringify(installerManifest, null, 2)}\n`);
+
+  const runs = Array.from({ length: 10 }).map((_, index) => ({ id: index + 1, conclusion: 'success' }));
+  const result = evaluateStablePromotion({
+    requiredStreak: 10,
+    runs,
+    evidenceDir,
+    installerManifestPath,
+    qaManifestPath
+  });
+
+  assert.equal(result.ok, false);
+  assert.equal(
+    result.checks.some((item) => item.id === 'installer-multi-flavor' && item.ok === false && /sin firma/i.test(item.detail)),
+    true
+  );
+});
+
+test('stable promotion falla si un artefacto firmado no tiene path verificable', () => {
+  const evidenceDir = mkTempDir('evaluapro-stable-evidence-artifact-no-path-');
+  const installerDir = mkTempDir('evaluapro-installer-manifest-artifact-no-path-');
+  const qaDir = mkTempDir('evaluapro-qa-evidence-artifact-no-path-');
+  writeEvidenceDir(evidenceDir);
+  const installerManifestPath = writeInstallerManifest(installerDir);
+  const qaManifestPath = writeQaEvidence(qaDir);
+  const installerManifest = JSON.parse(fs.readFileSync(installerManifestPath, 'utf8'));
+  delete installerManifest.artifacts[0].path;
+  fs.writeFileSync(installerManifestPath, `${JSON.stringify(installerManifest, null, 2)}\n`);
+
+  const runs = Array.from({ length: 10 }).map((_, index) => ({ id: index + 1, conclusion: 'success' }));
+  const result = evaluateStablePromotion({
+    requiredStreak: 10,
+    runs,
+    evidenceDir,
+    installerManifestPath,
+    qaManifestPath
+  });
+
+  assert.equal(result.ok, false);
+  assert.equal(
+    result.checks.some((item) => item.id === 'installer-multi-flavor' && item.ok === false && /path o sha256/i.test(item.detail)),
+    true
+  );
+});
+
+test('stable promotion falla si falta evidencia automatizada de UX/UI y flujo docente', () => {
+  const evidenceDir = mkTempDir('evaluapro-stable-evidence-no-qa-');
+  const installerDir = mkTempDir('evaluapro-installer-manifest-no-qa-');
+  const qaDir = mkTempDir('evaluapro-qa-evidence-missing-');
+  writeEvidenceDir(evidenceDir);
+  const installerManifestPath = writeInstallerManifest(installerDir);
+  const qaManifestPath = writeQaEvidence(qaDir, {
+    resumen: { total: 8, presentes: 7, faltantes: 1, estado: 'missing-artifacts' }
+  });
+
+  const runs = Array.from({ length: 10 }).map((_, index) => ({ id: index + 1, conclusion: 'success' }));
+  const result = evaluateStablePromotion({
+    requiredStreak: 10,
+    runs,
+    evidenceDir,
+    installerManifestPath,
+    qaManifestPath
+  });
+
+  assert.equal(result.ok, false);
+  assert.equal(result.checks.some((item) => item.id === 'automated-qa-evidence' && item.ok === false), true);
+});

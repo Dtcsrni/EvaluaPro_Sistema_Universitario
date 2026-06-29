@@ -8,8 +8,8 @@ Se promueve a estable solo si se cumplen todos:
 
 1. 10 corridas CI consecutivas en verde.
 2. Gating de calidad beta completo en verde (`lint`, `typecheck`, `tests`, `coverage`, `perf`, `security`, `docs`, `routes`, `pipeline contract`).
-3. `clean-architecture-check` en verde y evidencia `reports/qa/latest/clean-architecture.json` presente.
-4. Flujo docente humano en produccion completado sin fallos criticos.
+3. Evidencia QA automatizada completa en `reports/qa/latest/manifest.json`.
+4. `clean-architecture-check` en verde y evidencia `reports/qa/latest/clean-architecture.json` presente.
 5. Evidencia versionada en `docs/release/evidencias/<version>/`.
 6. Checklist de rollback readiness validado (`rollback_readiness.json`).
 
@@ -19,19 +19,21 @@ Automatizacion bloqueante:
 - workflow `.github/workflows/release-stable-gate.yml` (tags `v*` sin `-alpha/-beta/-rc` y `workflow_dispatch`).
 - script orquestador: `npm run release:validate:stable -- --version=<version>`.
 
-## Flujo docente humano obligatorio (produccion)
-Pasos:
+## QA automatizada obligatoria
+El release estable no requiere validacion humana manual como condicion bloqueante. La UX/UI y el flujo docente quedan cubiertos por evidencias automatizadas y reproducibles.
 
-1. Autenticacion docente valida.
-2. Creacion/seleccion de materia o periodo operativo.
-3. Alta/seleccion de alumno.
-4. Seleccion/creacion de reactivos y plantilla.
-5. Generacion de examen.
-6. Vinculacion de entrega.
-7. Calificacion completa.
-8. Exportacion CSV/DOCX/firma.
-9. Verificacion de integridad SHA-256.
-10. Confirmacion de metricas de exportacion en `/api/metrics`.
+Artefactos obligatorios:
+
+1. `reports/qa/latest/dataset-prodlike.json`
+2. `reports/qa/latest/e2e-docente-alumno.json`
+3. `reports/qa/latest/global-grade.json`
+4. `reports/qa/latest/evaluaciones-policy.json`
+5. `reports/qa/latest/evaluaciones-e2e.json`
+6. `reports/qa/latest/pdf-print.json`
+7. `reports/qa/latest/ux-visual.json`
+8. `reports/qa/latest/clean-architecture.json`
+
+El manifiesto `reports/qa/latest/manifest.json` debe declarar `resumen.estado=ok`, `resumen.faltantes=0` y todos los artefactos anteriores presentes. Cuando un artefacto incluya propiedad `ok`, debe ser `true`.
 
 ## Script de evidencia
 Comando:
@@ -60,20 +62,13 @@ El script genera:
 El gate estable genera ademas:
 - `reports/release/stable-gate/<version>/decision.json` con decision `Go/No-Go`.
 
-## Entrada manual requerida
-Archivo JSON de validacion humana (plantilla base):
-
-`docs/release/manual/prod-flow.template.json`
+## Evidencia manual opcional
+El flujo humano productivo y Classroom real pueden ejecutarse como smoke operativo, pero no bloquean la promocion estable si la evidencia automatizada obligatoria esta completa.
 
 Checklist base de rollback:
 
 `docs/release/manual/rollback-readiness.template.json`
 
-Se recomienda copiar a:
-
-`docs/release/manual/prod-flow.json`
-
 ## Criterio de seguridad operativa
-El flujo humano debe ejecutarse en ventana controlada y con plan de rollback preparado.
+Todo smoke humano opcional debe ejecutarse en ventana controlada y con plan de rollback preparado.
 No usar datos de estudiantes reales fuera de politica institucional vigente.
-

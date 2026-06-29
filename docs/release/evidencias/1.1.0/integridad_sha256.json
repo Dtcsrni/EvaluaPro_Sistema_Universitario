@@ -1,0 +1,15 @@
+{
+  "algoritmo": "sha256",
+  "csv": {
+    "hashCalculado": "pendiente-gate-humano-produccion",
+    "hashManifiesto": null,
+    "bytesCalculados": 0,
+    "bytesManifiesto": null
+  },
+  "docx": {
+    "hashCalculado": "pendiente-gate-humano-produccion",
+    "hashManifiesto": null,
+    "bytesCalculados": 0,
+    "bytesManifiesto": null
+  }
+}

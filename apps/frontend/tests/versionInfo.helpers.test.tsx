@@ -37,7 +37,7 @@ describe('version info helpers', () => {
   it('renderiza fallback tecnico, portal alumno y mensaje sin tecnologias cuando falta displayVersion', async () => {
     vi.stubEnv('VITE_APP_DISPLAY_VERSION', '');
     vi.stubEnv('VITE_APP_VERSION', '1.0.0');
-    window.location.hash = '#/version-info?portal=alumno';
+    window.history.replaceState({}, '', '/#/version-info?portal=alumno');
     vi.stubGlobal('fetch', vi.fn().mockResolvedValue({
       ok: true,
       json: async () => ({

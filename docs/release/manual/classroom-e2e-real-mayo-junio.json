@@ -1,0 +1,55 @@
+{
+  "displayVersion": "1.1.0",
+  "operatorName": "responsable-classroom",
+  "windowStartedAt": "2026-06-27T00:00:00.000-06:00",
+  "windowEndedAt": "2026-06-27T00:30:00.000-06:00",
+  "notes": "Completar solo despues de operar Google Classroom real con credenciales validas, redirect URI registrado, curso real mayo-junio y actividad real con submissions. No incluir secretos, tokens ni correos sensibles completos si el archivo se va a versionar.",
+  "entorno": "google-classroom-real",
+  "periodoLabel": "mayo-junio",
+  "apiBase": "<api-base-real-sin-token>",
+  "docenteIdHash": "<hash-o-identificador-no-sensible>",
+  "googleWorkspace": {
+    "dominio": "<dominio-o-institucion>",
+    "oauthClientConfigurado": false,
+    "redirectUriRegistrado": false,
+    "classroomTokenCipherKeyPresente": false,
+    "scopesClassroomAprobados": false
+  },
+  "curso": {
+    "courseId": "<course-id-real>",
+    "nombre": "<nombre-curso-real>",
+    "periodoId": "<periodo-id-mayo-junio>",
+    "alumnosClassroomTotal": 0,
+    "alumnosLocalesVinculados": 0
+  },
+  "actividad": {
+    "courseWorkId": "<coursework-id-real>",
+    "titulo": "<actividad-real>",
+    "submissionsTotal": 0,
+    "submissionsConCalificacion": 0,
+    "submissionsImportadas": 0,
+    "submissionsSinMatch": 0
+  },
+  "pasos": {
+    "configuracionOAuthValidada": false,
+    "loginDocenteValidado": false,
+    "oauthClassroomCompletado": false,
+    "cursoListadoDesdeGoogle": false,
+    "rosterListadoDesdeGoogle": false,
+    "mapeoAlumnosGuardado": false,
+    "actividadListadaDesdeGoogle": false,
+    "previewImportacionRevisado": false,
+    "importacionPersistenteEjecutada": false,
+    "reimportacionIdempotenteValidada": false,
+    "filtrosUxUsadosEnRosterYPreview": false,
+    "historialSincronizacionRevisado": false
+  },
+  "evidencias": {
+    "capturaRoster": "<ruta-o-id-evidencia>",
+    "capturaPreview": "<ruta-o-id-evidencia>",
+    "capturaResultadoImportacion": "<ruta-o-id-evidencia>",
+    "capturaHistorial": "<ruta-o-id-evidencia>",
+    "requestIds": []
+  },
+  "resultado": "pendiente"
+}

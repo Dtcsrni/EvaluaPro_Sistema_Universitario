@@ -13,6 +13,17 @@ import { pathToFileURL } from 'node:url';
 import { evaluateStreak, fetchRunsFromGitHub } from './check-ci-streak.mjs';
 import { validateEvidenceContract } from './check-release-evidence.mjs';
 
+const REQUIRED_QA_ARTIFACTS = [
+  'dataset-prodlike',
+  'e2e-docente-alumno',
+  'global-grade',
+  'evaluaciones-policy',
+  'evaluaciones-e2e',
+  'pdf-print',
+  'ux-visual',
+  'clean-architecture'
+];
+
 function getArg(name, fallback = '') {
   const prefix = `--${name}=`;
   const found = process.argv.find((arg) => arg.startsWith(prefix));
@@ -40,6 +51,47 @@ function readJsonFile(filePath) {
   return fs.readFileSync(filePath, 'utf8').replace(/^\uFEFF/, '');
 }
 
+function validateAutomatedQaEvidence(qaManifestPath) {
+  const manifestPath = path.resolve(process.cwd(), qaManifestPath || 'reports/qa/latest/manifest.json');
+  const manifest = JSON.parse(readJsonFile(manifestPath));
+  const artifacts = Array.isArray(manifest?.artefactos) ? manifest.artefactos : [];
+  const resumen = manifest?.resumen || {};
+  const estado = String(resumen?.estado || '').trim().toLowerCase();
+  const faltantes = Number(resumen?.faltantes ?? NaN);
+
+  if (estado !== 'ok' || faltantes !== 0) {
+    throw new Error(`Manifest QA no esta en verde: estado=${estado || 'invalido'} faltantes=${Number.isNaN(faltantes) ? 'invalido' : faltantes}`);
+  }
+
+  const missing = REQUIRED_QA_ARTIFACTS.filter((artifactId) => {
+    return !artifacts.some((artifact) => {
+      const artifactPath = String(artifact?.archivo || '').replace(/\\/g, '/');
+      return artifact?.existe === true && artifactPath.endsWith(`${artifactId}.json`);
+    });
+  });
+  if (missing.length > 0) {
+    throw new Error(`Manifest QA incompleto: ${missing.join(', ')}`);
+  }
+
+  const failing = [];
+  for (const artifact of artifacts) {
+    const artifactPath = String(artifact?.archivo || '').trim();
+    if (!artifactPath) continue;
+    const artifactName = path.basename(artifactPath, '.json');
+    if (!REQUIRED_QA_ARTIFACTS.includes(artifactName)) continue;
+    const absoluteArtifactPath = path.resolve(process.cwd(), artifactPath);
+    const payload = JSON.parse(readJsonFile(absoluteArtifactPath));
+    if (Object.prototype.hasOwnProperty.call(payload, 'ok') && payload.ok !== true) {
+      failing.push(artifactName);
+    }
+  }
+  if (failing.length > 0) {
+    throw new Error(`Artefactos QA en fallo: ${failing.join(', ')}`);
+  }
+
+  return manifestPath;
+}
+
 export function evaluateStablePromotion(options) {
   const checks = [];
   const runs = options.runs || [];
@@ -58,19 +110,10 @@ export function evaluateStablePromotion(options) {
   }
 
   try {
-    const manifestPath = path.resolve(options.evidenceDir, 'manifest.json');
-    const manifest = JSON.parse(readJsonFile(manifestPath));
-    const gate = manifest?.gateHumanoProduccion || {};
-    const resultado = String(gate?.resultado || '').trim().toLowerCase();
-    checks.push({
-      id: 'prod-flow-evidence',
-      ok: resultado === 'ok',
-      detail: resultado === 'ok'
-        ? 'gateHumanoProduccion.resultado=ok'
-        : `gateHumanoProduccion.resultado=${resultado || 'invalido'}`
-    });
+    const qaManifestPath = validateAutomatedQaEvidence(options.qaManifestPath);
+    checks.push({ id: 'automated-qa-evidence', ok: true, detail: qaManifestPath });
   } catch (error) {
-    checks.push({ id: 'prod-flow-evidence', ok: false, detail: String(error?.message || error) });
+    checks.push({ id: 'automated-qa-evidence', ok: false, detail: String(error?.message || error) });
   }
 
   try {
@@ -91,6 +134,18 @@ export function evaluateStablePromotion(options) {
     }
     if (artifacts.length === 0) {
       throw new Error('Manifest release incompleto: falta catalogo de artifacts');
+    }
+    const incompleteArtifacts = artifacts
+      .filter((artifact) => !String(artifact?.name || '').trim() || !String(artifact?.path || '').trim() || !String(artifact?.sha256 || '').trim())
+      .map((artifact) => String(artifact?.name || '<sin-nombre>'));
+    if (incompleteArtifacts.length > 0) {
+      throw new Error(`Manifest release contiene artefactos sin path o sha256: ${incompleteArtifacts.join(', ')}`);
+    }
+    const unsignedArtifacts = artifacts
+      .filter((artifact) => artifact?.signed !== true)
+      .map((artifact) => String(artifact?.name || '<sin-nombre>'));
+    if (unsignedArtifacts.length > 0) {
+      throw new Error(`Manifest release contiene artefactos sin firma: ${unsignedArtifacts.join(', ')}`);
     }
     for (const flavor of flavors) {
       const flavorId = String(flavor?.flavorId || '').trim();
@@ -165,7 +220,8 @@ export async function main() {
     runs,
     evidenceDir,
     prodFlowResult,
-    installerManifestPath: getArg('installer-manifest', '')
+    installerManifestPath: getArg('installer-manifest', ''),
+    qaManifestPath: getArg('qa-manifest', process.env.RELEASE_GATE_QA_MANIFEST || '')
   });
 
   const decision = {

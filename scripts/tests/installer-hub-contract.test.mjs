@@ -639,6 +639,14 @@ test('generador de hashes publica SHASUMS256 agregado por directorio contractual
   assert.match(hashScript, /GetEnumerator\(\)/);
 });
 
+test('firma de instaladores regenera hashes y manifest despues de mutar binarios', () => {
+  const signScript = fs.readFileSync(path.join(root, 'scripts', 'sign-installer-artifacts.ps1'), 'utf8');
+
+  assert.match(signScript, /generate-installer-hashes\.ps1/);
+  assert.match(signScript, /-InstallerDir \$InstallerDir/);
+  assert.match(signScript, /post-firma/);
+});
+
 test('wrapper Install-EvaluaPro lanza el Hub sin forzar RunAs', () => {
   const wrapper = fs.readFileSync(path.join(root, 'scripts', 'Install-EvaluaPro.ps1'), 'utf8');
 

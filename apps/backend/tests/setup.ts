@@ -5,8 +5,9 @@
  * Limites: Mantener contrato y comportamiento observable del modulo.
  */
 import path from 'node:path';
-const workerId = process.env.VITEST_WORKER_ID || '1';
-const dbFile = `test_${workerId}.db`;
+import { resolverNombreDbTest } from './utils/testDbPath';
+
+const dbFile = resolverNombreDbTest();
 const dataDir = path.resolve(process.cwd(), 'data');
 const dbPath = path.resolve(dataDir, dbFile);
 process.env.DATABASE_URL = `file:${dbPath}`;
