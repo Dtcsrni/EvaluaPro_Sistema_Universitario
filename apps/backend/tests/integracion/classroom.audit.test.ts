@@ -257,6 +257,8 @@ describe('auditoria integración classroom', () => {
         updateTime: '2026-02-16T10:00:00.000Z'
       };
     });
+    const alumnoFindOneSpy = vi.spyOn(Alumno, 'findOne');
+    const alumnoFindByIdSpy = vi.spyOn(Alumno, 'findById');
 
     const ejecucion = await request(app)
       .post('/api/evaluaciones/v2/classroom/importaciones/ejecutar')
@@ -270,6 +272,8 @@ describe('auditoria integración classroom', () => {
     expect(ejecucion.body?.submissionsProcesadas).toBe(2);
     expect(ejecucion.body?.matched).toBe(2);
     expect(ejecucion.body?.importadas).toBe(2);
+    expect(alumnoFindOneSpy).not.toHaveBeenCalled();
+    expect(alumnoFindByIdSpy).not.toHaveBeenCalled();
 
     const evidencias = await EvidenciaEvaluacion.find({ docenteId: docente._id, periodoId: periodo._id }).sort({ 'classroom.submissionId': 1 }).lean();
     expect(evidencias).toHaveLength(2);

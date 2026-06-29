@@ -32,16 +32,46 @@ async function crearXlsxCalificaciones() {
   return Buffer.from(await workbook.xlsx.writeBuffer());
 }
 
-async function crearDocxParcial() {
+async function crearDocxParcial(params?: {
+  titulo?: string;
+  numero?: number;
+  enunciado?: string;
+  opciones?: string;
+  correcta?: string;
+}) {
+  const titulo = params?.titulo ?? 'Examen Primer Parcial Electrónica y Aplicaciones Digitales';
+  const numero = params?.numero ?? 1;
+  const enunciado = params?.enunciado ?? 'Un sistema digital representa información mediante niveles discretos.';
+  const opciones = params?.opciones ?? 'A) Continuo B) Discreto C) Analogico D) Ninguno';
+  const correcta = params?.correcta ?? 'B';
   const zip = new JSZip();
   zip.file(
     'word/document.xml',
     `<?xml version="1.0" encoding="UTF-8"?>
     <w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main">
       <w:body>
-        <w:p><w:r><w:t>Examen Primer Parcial Electrónica y Aplicaciones Digitales</w:t></w:r></w:p>
-        <w:p><w:r><w:t>1. Un sistema digital representa información mediante niveles discretos.</w:t></w:r></w:p>
-        <w:p><w:r><w:t>A) Continuo B) Discreto C) Analogico D) Ninguno</w:t></w:r></w:p>
+        <w:p><w:r><w:t>${titulo}</w:t></w:r></w:p>
+        <w:p><w:r><w:t>${numero}. ${enunciado}</w:t></w:r></w:p>
+        <w:p><w:r><w:t>${opciones}</w:t></w:r></w:p>
+        <w:p><w:r><w:t>Respuesta correcta: ${correcta}</w:t></w:r></w:p>
+      </w:body>
+    </w:document>`
+  );
+  return zip.generateAsync({ type: 'nodebuffer' });
+}
+
+async function crearDocxGlobal() {
+  const zip = new JSZip();
+  zip.file(
+    'word/document.xml',
+    `<?xml version="1.0" encoding="UTF-8"?>
+    <w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main">
+      <w:body>
+        <w:p><w:r><w:t>EXAMEN GLOBAL - ELECTRÓNICA Y APLICACIONES DIGITALES</w:t></w:r></w:p>
+        <w:p><w:r><w:t>1. La base decimal usa diez símbolos.</w:t></w:r></w:p>
+        <w:p><w:r><w:t>A) Verdadero B) Falso C) Solo binario D) Ninguno</w:t></w:r></w:p>
+        <w:p><w:r><w:t>2. Una compuerta AND entrega uno cuando todas sus entradas son uno.</w:t></w:r></w:p>
+        <w:p><w:r><w:t>A) Verdadero B) Falso C) Indeterminado D) Alta impedancia</w:t></w:r></w:p>
       </w:body>
     </w:document>`
   );
@@ -82,6 +112,13 @@ describe('Integración: Hidratación de cursos iniciados', () => {
   it('previsualiza XLSX/DOCX e importa alumnos y evidencias de forma idempotente', async () => {
     const xlsx = await crearXlsxCalificaciones();
     const docx = await crearDocxParcial();
+    const docxSegundoParcial = await crearDocxParcial({
+      titulo: 'Examen Segundo Parcial Electrónica y Aplicaciones Digitales',
+      numero: 2,
+      enunciado: 'Una compuerta OR entrega uno cuando alguna entrada es uno.',
+      opciones: 'A) AND B) NOT C) OR D) XOR',
+      correcta: 'C'
+    });
 
     const previewResp = await request(app)
       .post('/api/hidratacion-cursos/preview')
@@ -89,14 +126,17 @@ describe('Integración: Hidratación de cursos iniciados', () => {
       .field('periodoId', periodoId)
       .attach('archivos', xlsx, 'electro_app_digital_mayo-junio.xlsx')
       .attach('archivos', docx, 'Examen_Primer_Parcial_Electronica.docx')
+      .attach('archivos', docxSegundoParcial, 'Examen_Segundo_Parcial_Electronica.docx')
       .expect(200);
 
     expect(previewResp.body.planImportacion.alumnosDetectados).toBe(2);
-    expect(previewResp.body.planImportacion.documentosDetectados).toBe(1);
+    expect(previewResp.body.planImportacion.documentosDetectados).toBe(2);
     expect(previewResp.body.archivos[0].tipo).toBe('lista_calificaciones_xlsx');
     expect(previewResp.body.archivos[0].filaEncabezado).toBe(10);
     expect(previewResp.body.archivos[1].tipo).toBe('parcial_externo');
     expect(previewResp.body.archivos[1].reactivosDetectados).toBeGreaterThan(0);
+    expect(previewResp.body.archivos[2].tipo).toBe('parcial_externo');
+    expect(previewResp.body.archivos[2].reactivosDetectados).toBeGreaterThan(0);
 
     const importarResp = await request(app)
       .post('/api/hidratacion-cursos/importar')
@@ -104,11 +144,13 @@ describe('Integración: Hidratación de cursos iniciados', () => {
       .field('periodoId', periodoId)
       .attach('archivos', xlsx, 'electro_app_digital_mayo-junio.xlsx')
       .attach('archivos', docx, 'Examen_Primer_Parcial_Electronica.docx')
+      .attach('archivos', docxSegundoParcial, 'Examen_Segundo_Parcial_Electronica.docx')
       .expect(201);
 
     expect(importarResp.body.resumen.alumnosCreados).toBe(2);
     expect(importarResp.body.resumen.evidenciasHistoricasCreadas).toBe(4);
-    expect(importarResp.body.resumen.evidenciasDocumentalesCreadas).toBe(1);
+    expect(importarResp.body.resumen.evidenciasDocumentalesCreadas).toBe(2);
+    expect(importarResp.body.resumen.bancoPreguntasCreadas).toBe(2);
 
     await request(app)
       .post('/api/hidratacion-cursos/importar')
@@ -116,6 +158,7 @@ describe('Integración: Hidratación de cursos iniciados', () => {
       .field('periodoId', periodoId)
       .attach('archivos', xlsx, 'electro_app_digital_mayo-junio.xlsx')
       .attach('archivos', docx, 'Examen_Primer_Parcial_Electronica.docx')
+      .attach('archivos', docxSegundoParcial, 'Examen_Segundo_Parcial_Electronica.docx')
       .expect(201);
 
     const alumnos = await prisma.alumno.findMany({ where: { periodoId, matricula: { in: ['CUH001', 'CUH002'] } } });
@@ -125,9 +168,61 @@ describe('Integración: Hidratación de cursos iniciados', () => {
     const evidenciasDocx = await prisma.evidenciaEvaluacion.findMany({
       where: { periodoId, fuente: 'importacion_docx' }
     });
+    const preguntas = await prisma.bancoPregunta.findMany({
+      where: { periodoId },
+      include: { versiones: { include: { opciones: true } } }
+    });
 
     expect(alumnos).toHaveLength(2);
     expect(evidenciasHistoricas).toHaveLength(4);
+    expect(evidenciasDocx).toHaveLength(2);
+    expect(preguntas).toHaveLength(2);
+    const preguntaPrimerParcial = preguntas.find((pregunta) => pregunta.tema === 'Examen Primer Parcial');
+    const preguntaSegundoParcial = preguntas.find((pregunta) => pregunta.tema === 'Examen Segundo Parcial');
+    expect(preguntaPrimerParcial?.versiones[0]?.enunciado).toContain('sistema digital');
+    expect(preguntaPrimerParcial?.versiones[0]?.opciones).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ texto: 'Discreto', esCorrecta: true }),
+        expect.objectContaining({ texto: 'Continuo', esCorrecta: false })
+      ])
+    );
+    expect(preguntaSegundoParcial?.versiones[0]?.enunciado).toContain('compuerta OR');
+    expect(preguntaSegundoParcial?.versiones[0]?.opciones).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ texto: 'OR', esCorrecta: true }),
+        expect.objectContaining({ texto: 'AND', esCorrecta: false })
+      ])
+    );
+  });
+
+  it('clasifica un examen global DOCX con reactivos como global externo', async () => {
+    const docxGlobal = await crearDocxGlobal();
+
+    const previewResp = await request(app)
+      .post('/api/hidratacion-cursos/preview')
+      .set(auth)
+      .field('periodoId', periodoId)
+      .attach('archivos', docxGlobal, 'Examen_Global_Electronica_Aplicaciones_Digitales.docx')
+      .expect(200);
+
+    expect(previewResp.body.planImportacion.documentosDetectados).toBe(1);
+    expect(previewResp.body.archivos[0].tipo).toBe('global_externo');
+    expect(previewResp.body.archivos[0].reactivosDetectados).toBeGreaterThanOrEqual(2);
+
+    const importarResp = await request(app)
+      .post('/api/hidratacion-cursos/importar')
+      .set(auth)
+      .field('periodoId', periodoId)
+      .attach('archivos', docxGlobal, 'Examen_Global_Electronica_Aplicaciones_Digitales.docx')
+      .expect(201);
+
+    expect(importarResp.body.resumen.evidenciasDocumentalesCreadas).toBe(1);
+
+    const evidenciasDocx = await prisma.evidenciaEvaluacion.findMany({
+      where: { periodoId, fuente: 'importacion_docx' }
+    });
     expect(evidenciasDocx).toHaveLength(1);
+    expect(evidenciasDocx[0]?.corte).toBe(3);
+    expect(JSON.parse(String(evidenciasDocx[0]?.metadata ?? '{}')).tipoDocumento).toBe('global_externo');
   });
 });

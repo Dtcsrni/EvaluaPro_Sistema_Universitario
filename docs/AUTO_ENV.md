@@ -151,7 +151,6 @@ este documento se actualiza automáticamente al regenerar.
 - `SEED_ADMIN_NOMBRE_COMPLETO` (usado en: apps/backend/src/modulos/modulo_autenticacion/seedAdmin.ts)
 - `SEED_ADMIN_PASSWORD` (usado en: apps/backend/src/modulos/modulo_autenticacion/seedAdmin.ts)
 - `SUPERADMIN_GOOGLE_EMAILS` (usado en: apps/backend/tests/configuracion.correo.test.ts)
-- `VITEST_WORKER_ID` (usado en: apps/backend/tests/setup.ts, apps/backend/tests/utils/mongo.ts)
 
 ## Portal alumno cloud
 - `CODIGO_ACCESO_HORAS` (usado en: apps/portal_alumno_cloud/src/configuracion.ts)
@@ -284,7 +283,9 @@ este documento se actualiza automáticamente al regenerar.
 - `RELEASE_GATE_DOCENTE_HASH_SALT` (usado en: scripts/release/gate-prod-flow.mjs)
 - `RELEASE_GATE_DOCENTE_ID` (usado en: scripts/release/gate-prod-flow.mjs)
 - `RELEASE_GATE_DOCENTE_TOKEN` (usado en: scripts/release/gate-prod-flow.mjs, scripts/release/preflight-global-prod.mjs)
+- `RELEASE_GATE_ENTORNO` (usado en: scripts/release/gate-prod-flow.mjs)
 - `RELEASE_GATE_PERIODO_ID` (usado en: scripts/release/preflight-global-prod.mjs)
+- `RELEASE_GATE_QA_MANIFEST` (usado en: scripts/release/validate-stable-promotion.mjs)
 - `RELEASE_GATE_WINDOWS_EVIDENCE` (usado en: scripts/release/gate-prod-flow.mjs)
 - `RELEASE_VERSION` (usado en: scripts/release/validate-stable-promotion.mjs)
 - `RULESET_FIXTURE_PATH` (usado en: scripts/devops/check-ruleset-main.mjs)

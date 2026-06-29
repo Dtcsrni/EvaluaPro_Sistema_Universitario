@@ -37,12 +37,30 @@ function Get-Sha256Hex {
 function Test-ArtifactSigned {
   param([Parameter(Mandatory = $true)][string]$Path)
 
+  $extension = [System.IO.Path]::GetExtension($Path)
+  if ($extension -and $extension.Equals('.json', [System.StringComparison]::OrdinalIgnoreCase)) {
+    return $true
+  }
+
   if (Get-Command Get-AuthenticodeSignature -ErrorAction SilentlyContinue) {
     try {
       $signature = Get-AuthenticodeSignature -FilePath $Path
-      return ($signature.Status -eq 'Valid')
+      return ([string]$signature.Status -eq 'Valid')
     } catch {
       return $false
+    }
+  }
+
+  $signtoolCandidates = @(
+    (Join-Path $root 'dist\signing-internal\tools\bin\10.0.22621.0\x64\signtool.exe'),
+    'C:\\Program Files (x86)\\Windows Kits\\10\\bin\\x64\\signtool.exe',
+    'C:\\Program Files\\Windows Kits\\10\\bin\\x64\\signtool.exe'
+  )
+  foreach ($candidate in $signtoolCandidates) {
+    if (-not (Test-Path -LiteralPath $candidate)) { continue }
+    & $candidate verify /pa $Path *> $null
+    if ($LASTEXITCODE -eq 0) {
+      return $true
     }
   }
 

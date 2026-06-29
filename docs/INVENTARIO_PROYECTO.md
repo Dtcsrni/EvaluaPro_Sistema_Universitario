@@ -1,8 +1,8 @@
 # Inventario Tecnico del Proyecto
 
-Fecha de corte: 2026-06-15
-Version tecnica objetivo: `1.0.0`
-Version visible objetivo: `1.0.0b`
+Fecha de corte: 2026-06-27
+Version tecnica objetivo: `1.1.0`
+Version visible objetivo: `1.1.0`
 
 ## 1) Alcance
 - Monorepo completo: `apps/*`, `scripts/*`, `docs/*`, `ci/*`, `.github/workflows/*`.
@@ -22,6 +22,26 @@ Version visible objetivo: `1.0.0b`
 - QA:
   - `reports/qa/latest/*`
   - `reports/perf/latest.json`
+
+#### 2.1) Footprint y clasificacion del corte 2026-06-27
+- Cierre de experiencia de usuario Classroom y preparacion release 1.1.0:
+  - `CentroClassroom` agrega busqueda operativa en roster y preview para grupos grandes, con contadores visibles de alumnos/submissions mostrados contra total cargado.
+  - `servicioSyncClassroom` evita N+1 en la resolucion de alumnos locales durante importaciones paginadas usando indices en memoria por correo, matricula e id; protegido por `apps/backend/tests/integracion/classroom.audit.test.ts`.
+  - Nueva spec `docs/specs/classroom_experiencia_usuario.spec.md` en estado `implemented`.
+  - Gate focal Classroom en verde: `npm run test:classroom:audit:ci`.
+  - Matriz local de calidad verificada: `test:ci`, `test:coverage:ci`, `test:tdd:enforcement:ci`, `qa:full`, `perf:check`, `ci:policy:audit`, `docs:check`.
+  - Evidencia versionada `docs/release/evidencias/1.1.0/` generada con decision Go.
+  - `release:validate:stable -- --version=1.1.0 --repo=Dtcsrni/EvaluaPro_Sistema_Universitario --ci-green=13` queda en Go con `automated-qa-evidence`.
+  - `scripts/release/validate-stable-promotion.mjs` bloquea promocion estable si el manifest del instalador contiene cualquier artefacto no firmado o sin `name/path/sha256`, o si falta evidencia QA automatizada de UX/UI y flujo docente; protegido por `scripts/tests/release-stable-promotion.test.mjs`.
+  - `scripts/sign-installer-artifacts.ps1` regenera hashes y manifest post-firma para que los checksums y `signed` correspondan a los binarios finales.
+  - `apps/backend/tests/setup.ts` y `apps/backend/tests/utils/mongo.ts` usan un resolver comun de SQLite temporal por worker/pool/proceso; los gates `hidratacionCursos`, `test:classroom:audit:ci` y `test:global-grade:ci` fueron reproducidos en paralelo y quedaron verdes.
+  - `apps/frontend/tests/app.selector.test.tsx`, `apps/frontend/tests/versionInfo.helpers.test.tsx` y `apps/frontend/tests/utilidades.appDocente.test.ts` evitan navegaciones reales durante pruebas usando `history.replaceState`/`pushState`.
+  - Gates ampliados verificados en verde: `test:frontend:ci`, `test:portal:ci`, `perf:check`, `ci:policy:audit`, `lint`, `typecheck` y `test:tdd:enforcement:ci`.
+  - Gates de cierre ampliado verificados en verde tras repetirlos sin contencion de Prisma: `build`, `test:coverage:ci` y `qa:full`.
+  - Nueva spec `docs/specs/release_stable_installer_firma.spec.md` en estado `implemented`.
+  - Smoke local `node scripts/release/prod-flow-local-smoke.mjs` en verde para mayo-junio; escribe evidencia separada `docs/release/evidencias/1.1.0-local.0/` con `entorno=local-smoke`.
+  - Template, doctor y validador de cierre externo Classroom real agregados en `docs/release/manual/classroom-e2e-real-mayo-junio.template.json`, `npm run classroom:doctor` y `npm run release:check:classroom-e2e`; quedan como smoke operativo opcional.
+  - Verificacion posterior de cobertura en verde: `test:tdd:enforcement:ci` con diff coverage `95.45%` y `test:coverage:ci` completo. `classroom:doctor` falla de forma esperada en el entorno actual por variables Classroom reales faltantes y no imprime secretos.
 
 #### 2.1) Footprint y clasificacion del corte 2026-06-23
 - Automatización de Reglas de Encuadre y Firma Digital Institucional (SPEC-002) 2026-06-23:

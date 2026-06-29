@@ -378,6 +378,16 @@ export function SeccionPeriodos({
     }
   }
 
+  function descargarListaInstitucional(periodo: Periodo, formato: 'xlsx' | 'pdf') {
+    const params = new URLSearchParams({
+      periodoId: periodo._id,
+      templateId: 'asistencia_cuh_control',
+      formato
+    });
+    window.open(`/api/listas-institucionales/generar?${params.toString()}`, '_blank', 'noopener,noreferrer');
+    registrarAccionDocente(`descargar_lista_cuh_${formato}`, true);
+  }
+
   return (
     <div className="panel materias-panel">
       <div className="materias-panel__head">
@@ -583,6 +593,12 @@ export function SeccionPeriodos({
                           disabled={!puedeArchivar}
                         >
                           Archivar
+                        </Boton>
+                        <Boton variante="secundario" type="button" onClick={() => descargarListaInstitucional(periodo, 'xlsx')}>
+                          Lista CUH XLSX
+                        </Boton>
+                        <Boton variante="secundario" type="button" onClick={() => descargarListaInstitucional(periodo, 'pdf')}>
+                          Lista CUH PDF
                         </Boton>
                         {puedeEliminarMateriaDev && (
                           <Boton

@@ -29,6 +29,10 @@ type ActividadEditable = {
   activo: boolean;
 };
 
+function normalizarBusqueda(valor: unknown): string {
+  return String(valor ?? '').trim().toLowerCase();
+}
+
 function apiOrigin(): string {
   try {
     return new URL(clienteApi.baseApi, window.location.origin).origin;
@@ -58,6 +62,8 @@ export function CentroClassroom({
   const [alumnosClassroom, setAlumnosClassroom] = useState<ClassroomAlumnoCurso[]>([]);
   const [mapeoEditable, setMapeoEditable] = useState<Record<string, string>>({});
   const [preview, setPreview] = useState<ClassroomPreviewResultado | null>(null);
+  const [busquedaAlumnos, setBusquedaAlumnos] = useState('');
+  const [busquedaSubmissions, setBusquedaSubmissions] = useState('');
   const [historial, setHistorial] = useState<
     Array<{ _id: string; tipo: 'preview' | 'ejecucion'; resumen?: Record<string, unknown>; ejecutadoEn?: string }>
   >([]);
@@ -73,6 +79,36 @@ export function CentroClassroom({
     () => actividades.filter((actividad) => actividadIdsSeleccionados.includes(actividad.id)),
     [actividadIdsSeleccionados, actividades]
   );
+
+  const alumnosLocalesPorId = useMemo(
+    () => new Map(alumnosLocales.map((alumno) => [alumno._id, alumno])),
+    [alumnosLocales]
+  );
+
+  const alumnosClassroomFiltrados = useMemo(() => {
+    const busqueda = normalizarBusqueda(busquedaAlumnos);
+    if (!busqueda) return alumnosClassroom;
+    return alumnosClassroom.filter((fila) => {
+      const alumnoLocal =
+        alumnosLocalesPorId.get(mapeoEditable[fila.classroomUserId] || '') ||
+        fila.alumnoConfirmado ||
+        fila.alumnoSugerido ||
+        null;
+      return [
+        fila.classroomUserId,
+        fila.fullName,
+        fila.emailAddress,
+        fila.matchStrategy,
+        alumnoLocal?.nombreCompleto,
+        alumnoLocal?.matricula,
+        alumnoLocal?.correo
+      ]
+        .map(normalizarBusqueda)
+        .some((valor) => valor.includes(busqueda));
+    });
+  }, [alumnosClassroom, alumnosLocalesPorId, busquedaAlumnos, mapeoEditable]);
+
+  const busquedaSubmissionsNormalizada = useMemo(() => normalizarBusqueda(busquedaSubmissions), [busquedaSubmissions]);
 
   const cargarEstado = useCallback(async () => {
     if (!puedeClassroomPull) return;
@@ -193,6 +229,8 @@ export function CentroClassroom({
     setActividades([]);
     setAlumnosLocales([]);
     setAlumnosClassroom([]);
+    setBusquedaAlumnos('');
+    setBusquedaSubmissions('');
     if (!courseIdSeleccionado || !periodoId || !estado?.conectado) return;
     void cargarActividades(courseIdSeleccionado);
     void cargarRoster(courseIdSeleccionado);
@@ -457,36 +495,49 @@ export function CentroClassroom({
                 <h5>Mapeo de alumnos por curso</h5>
                 {cargandoRoster && <InlineMensaje tipo="info">Cargando alumnos Classroom...</InlineMensaje>}
                 {alumnosClassroom.length > 0 && (
-                  <div className="lista lista--compacta">
-                    {alumnosClassroom.map((fila) => (
-                      <div key={fila.classroomUserId} className="item-row">
-                        <div>
-                          <div><b>{fila.fullName || fila.classroomUserId}</b></div>
-                          <div>{fila.emailAddress || '-'}</div>
-                          <div>Estrategia sugerida: {fila.matchStrategy}</div>
+                  <>
+                    <div className="item-row">
+                      <label>
+                        Buscar alumno Classroom
+                        <input
+                          value={busquedaAlumnos}
+                          onChange={(event) => setBusquedaAlumnos(event.target.value)}
+                          placeholder="Nombre, correo, matricula o match"
+                        />
+                      </label>
+                      <p>Mostrando {alumnosClassroomFiltrados.length} de {alumnosClassroom.length} alumnos</p>
+                    </div>
+                    <div className="lista lista--compacta" data-testid="classroom-mapeo-alumnos">
+                      {alumnosClassroomFiltrados.map((fila) => (
+                        <div key={fila.classroomUserId} className="item-row">
+                          <div>
+                            <div><b>{fila.fullName || fila.classroomUserId}</b></div>
+                            <div>{fila.emailAddress || '-'}</div>
+                            <div>Estrategia sugerida: {fila.matchStrategy}</div>
+                          </div>
+                          <label>
+                            Alumno local
+                            <select
+                              value={mapeoEditable[fila.classroomUserId] || ''}
+                              onChange={(event) =>
+                                setMapeoEditable((prev) => ({
+                                  ...prev,
+                                  [fila.classroomUserId]: event.target.value
+                                }))
+                              }
+                            >
+                              <option value="">Sin asignar</option>
+                              {alumnosLocales.map((alumno) => (
+                                <option key={alumno._id} value={alumno._id}>
+                                  {alumno.nombreCompleto} {alumno.matricula ? `(${alumno.matricula})` : ''}
+                                </option>
+                              ))}
+                            </select>
+                          </label>
                         </div>
-                        <label>
-                          Alumno local
-                          <select
-                            value={mapeoEditable[fila.classroomUserId] || ''}
-                            onChange={(event) =>
-                              setMapeoEditable((prev) => ({
-                                ...prev,
-                                [fila.classroomUserId]: event.target.value
-                              }))
-                            }
-                          >
-                            <option value="">Sin asignar</option>
-                            {alumnosLocales.map((alumno) => (
-                              <option key={alumno._id} value={alumno._id}>
-                                {alumno.nombreCompleto} {alumno.matricula ? `(${alumno.matricula})` : ''}
-                              </option>
-                            ))}
-                          </select>
-                        </label>
-                      </div>
-                    ))}
-                  </div>
+                      ))}
+                    </div>
+                  </>
                 )}
                 <div className="acciones acciones--mt">
                   <Boton type="button" disabled={guardandoMapeo || alumnosClassroom.length === 0} onClick={() => void guardarMapeoCurso()}>
@@ -505,12 +556,20 @@ export function CentroClassroom({
               </div>
 
               {preview && (
-                <div className="panel">
+                <div className="panel" data-testid="classroom-preview">
                   <h5>{preview.tipo === 'preview' ? 'Preview' : 'Resultado de importación'}</h5>
                   <p>
                     Procesadas: {preview.submissionsProcesadas} | Matched: {preview.matched} | Pendientes: {preview.pending} |
                     Calificadas: {preview.graded} | Unmatched: {preview.unmatched}
                   </p>
+                  <label>
+                    Buscar submission Classroom
+                    <input
+                      value={busquedaSubmissions}
+                      onChange={(event) => setBusquedaSubmissions(event.target.value)}
+                      placeholder="Alumno, estado, match o submission"
+                    />
+                  </label>
                   {preview.actividades.map((actividad) => (
                     <div key={`${actividad.courseId}-${actividad.courseWorkId}`} className="item-glass">
                       <div>
@@ -521,12 +580,35 @@ export function CentroClassroom({
                       </div>
                       {actividad.submissions.length > 0 && (
                         <div className="lista lista--compacta">
-                          {actividad.submissions.slice(0, 12).map((submission) => (
-                            <div key={submission.submissionId}>
-                              {submission.studentName || submission.classroomUserId}{' -> '}{submission.alumnoNombre || 'Sin mapear'} · {submission.estadoCaptura}
-                              {typeof submission.calificacionDecimal === 'number' ? ` · ${submission.calificacionDecimal}` : ''}
-                            </div>
-                          ))}
+                          {(() => {
+                            const submissionsFiltradas = busquedaSubmissionsNormalizada
+                              ? actividad.submissions.filter((submission) =>
+                                  [
+                                    submission.submissionId,
+                                    submission.classroomUserId,
+                                    submission.studentName,
+                                    submission.studentEmail,
+                                    submission.alumnoNombre,
+                                    submission.matchStrategy,
+                                    submission.estadoCaptura,
+                                    typeof submission.calificacionDecimal === 'number' ? String(submission.calificacionDecimal) : ''
+                                  ]
+                                    .map(normalizarBusqueda)
+                                    .some((valor) => valor.includes(busquedaSubmissionsNormalizada))
+                                )
+                              : actividad.submissions;
+                            return (
+                              <>
+                                <p>Mostrando {submissionsFiltradas.length} de {actividad.submissions.length} submissions</p>
+                                {submissionsFiltradas.map((submission) => (
+                                  <div key={submission.submissionId}>
+                                    {submission.studentName || submission.classroomUserId}{' -> '}{submission.alumnoNombre || 'Sin mapear'} · {submission.estadoCaptura}
+                                    {typeof submission.calificacionDecimal === 'number' ? ` · ${submission.calificacionDecimal}` : ''}
+                                  </div>
+                                ))}
+                              </>
+                            );
+                          })()}
                         </div>
                       )}
                       {actividad.errors.length > 0 && (

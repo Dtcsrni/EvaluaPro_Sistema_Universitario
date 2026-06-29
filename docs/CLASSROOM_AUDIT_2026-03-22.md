@@ -70,3 +70,25 @@ Alcance: backend + frontend docente + evidencia de ejecucion local + bloqueo E2E
   - optimizar el importador para reducir N+1
   - reforzar UX del preview y del historial
   - reducir dependencia de configuración manual operativa
+
+## Adenda 2026-06-27
+- Estado interno actualizado: `funciona sin riesgos internos conocidos de escalabilidad basica`; el gate externo real de Google Classroom sigue bloqueado si no hay credenciales/dataset reales.
+- Riesgo de escalabilidad visual reducido:
+  - `apps/frontend/src/apps/app_docente/CentroClassroom.tsx` agrega busqueda de roster por nombre, correo, matricula, alumno local o estrategia de match.
+  - El preview/resultado de importacion ya no queda limitado operativamente a las primeras 12 submissions; permite filtrar por alumno, correo, estado, match e id.
+  - `apps/frontend/tests/centroClassroom.behavior.test.tsx` cubre filtros y contadores visibles.
+- Riesgo N+1 reducido:
+  - `apps/backend/src/modulos/modulo_integraciones_classroom/servicioSyncClassroom.ts` resuelve alumnos locales con indices en memoria por id, correo y matricula durante importaciones paginadas.
+  - `apps/backend/tests/integracion/classroom.audit.test.ts` protege que la importacion paginada no invoque `Alumno.findOne` ni `Alumno.findById` por submission.
+- Evidencia focal actual:
+  - `npm run test:classroom:audit:ci`
+  - `npm run test:frontend:ci`
+  - `npm run qa:full`
+- Pendiente externo que permanece:
+  - validacion E2E con Google Classroom real, credenciales reales, redirect URI registrado, curso real, tareas reales y evidencia de importacion/reimportacion exitosa.
+- Formato de cierre externo:
+  - Copiar `docs/release/manual/classroom-e2e-real-mayo-junio.template.json` a `docs/release/manual/classroom-e2e-real-mayo-junio.json`.
+  - Ejecutar `npm run classroom:doctor` para validar prerequisitos locales sin imprimir secretos.
+  - Completar los campos con datos no sensibles despues de operar el flujo real.
+  - Mantener `resultado=pendiente` hasta que todos los pasos booleanos esten en `true`, haya conteos reales de curso/actividad y existan evidencias de roster, preview, importacion e historial.
+  - Validar el cierre con `npm run release:check:classroom-e2e -- --manual=docs/release/manual/classroom-e2e-real-mayo-junio.json`.

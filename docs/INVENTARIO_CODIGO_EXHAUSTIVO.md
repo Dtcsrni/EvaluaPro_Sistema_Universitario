@@ -1,24 +1,24 @@
 # Inventario Exhaustivo de Codigo
 
-Fecha de generacion: 2026-06-25 07:10:14
+Fecha de generacion: 2026-06-29 01:43:08
 Fuente: git ls-files filtrado por existencia en workspace (solo archivos versionados presentes, excluye node_modules).
 
 ## Resumen
 
-- Total de piezas de codigo/config ejecutable inventariadas: 1118
+- Total de piezas de codigo/config ejecutable inventariadas: 1131
 - Extensiones incluidas: ts, tsx, js, jsx, mjs, cjs, json, yml, yaml, sh, cmd, ps1.
 
 ## Conteo por area
 
 | Area | Archivos |
 | --- | ---: |
-| backend | 401 |
+| backend | 406 |
 | frontend | 133 |
 | portal_alumno_cloud | 67 |
 | ci | 17 |
 | scripts | 170 |
 | ops | 3 |
-| docs | 168 |
+| docs | 174 |
 | raiz | 32 |
 
 ## Backend (apps/backend)
@@ -257,6 +257,10 @@ Fuente: git ls-files filtrado por existencia en workspace (solo archivos version
 - apps/backend/src/modulos/modulo_generacion_pdf/shared/controladorGeneracionPdfShared.ts
 - apps/backend/src/modulos/modulo_generacion_pdf/shared/tiposPdf.ts
 - apps/backend/src/modulos/modulo_generacion_pdf/validacionesExamenes.ts
+- apps/backend/src/modulos/modulo_hidratacion_cursos/controladorHidratacionCursos.ts
+- apps/backend/src/modulos/modulo_hidratacion_cursos/rutasHidratacionCursos.ts
+- apps/backend/src/modulos/modulo_hidratacion_cursos/servicioHidratacionCursos.ts
+- apps/backend/src/modulos/modulo_hidratacion_cursos/validacionesHidratacionCursos.ts
 - apps/backend/src/modulos/modulo_integraciones_classroom/controladorIntegracionesClassroom.ts
 - apps/backend/src/modulos/modulo_integraciones_classroom/modeloBitacoraSyncClassroom.ts
 - apps/backend/src/modulos/modulo_integraciones_classroom/modeloIntegracionClassroom.ts
@@ -364,6 +368,7 @@ Fuente: git ls-files filtrado por existencia en workspace (solo archivos version
 - apps/backend/tests/integracion/flujoDocenteGlobalE2E.test.ts
 - apps/backend/tests/integracion/flujoDocenteParcialE2E.test.ts
 - apps/backend/tests/integracion/flujoExamen.test.ts
+- apps/backend/tests/integracion/hidratacionCursos.test.ts
 - apps/backend/tests/integracion/listaAcademicaContratos.test.ts
 - apps/backend/tests/integracion/omrV1Workflow.test.ts
 - apps/backend/tests/integracion/pdfImpresionContrato.test.ts
@@ -996,6 +1001,12 @@ Fuente: git ls-files filtrado por existencia en workspace (solo archivos version
 - docs/release/evidencias/1.0.0/integridad_sha256.json
 - docs/release/evidencias/1.0.0/manifest.json
 - docs/release/evidencias/1.0.0/rollback_readiness.json
+- docs/release/evidencias/1.0.1/integridad_sha256.json
+- docs/release/evidencias/1.0.1/manifest.json
+- docs/release/evidencias/1.0.1/rollback_readiness.json
+- docs/release/evidencias/1.0.2/integridad_sha256.json
+- docs/release/evidencias/1.0.2/manifest.json
+- docs/release/evidencias/1.0.2/rollback_readiness.json
 - docs/release/manual/prod-flow.template.json
 - docs/release/manual/rollback-readiness.json
 - docs/release/manual/rollback-readiness.template.json

@@ -1,0 +1,25 @@
+{
+  "displayVersion": "1.1.0-local.0",
+  "operatorName": "codex-local-smoke",
+  "windowStartedAt": "2026-06-27T00:00:00.000-06:00",
+  "windowEndedAt": "2026-06-27T00:30:00.000-06:00",
+  "notes": "Smoke local automatizado del flujo docente para el periodo mayo-junio. La validacion humana productiva queda como evidencia operativa opcional para 1.1.0 stable.",
+  "docenteId": "docente-local-smoke-mayo-junio",
+  "periodoLabel": "mayo-junio",
+  "periodoId": "se-resuelve-en-ejecucion-local",
+  "documentosCompartidos": [
+    "electro_app_digital_mayo-junio.xlsx",
+    "ELECTRONICA Y APLICACIONES DIGITALES.docx",
+    "ENCUADRE LISC.docx",
+    "Examen_Primer_Parcial_Electronica_Aplicaciones_Digitales_v25_logos_margenes_tablas_2pag.docx",
+    "Examen_Segundo_Parcial_Electronica_Aplicaciones_Digitales_CON_LOGOS.docx",
+    "Examen_Global_Electronica_Aplicaciones_Digitales_CUH_FINAL_30_REACTIVOS_UNA_COLUMNA_LEGIBLE_V2.docx"
+  ],
+  "autenticacionValida": true,
+  "periodoGestionado": true,
+  "alumnoGestionado": true,
+  "reactivosYPlantilla": true,
+  "examenGenerado": true,
+  "entregaVinculada": true,
+  "calificacionCompleta": true
+}

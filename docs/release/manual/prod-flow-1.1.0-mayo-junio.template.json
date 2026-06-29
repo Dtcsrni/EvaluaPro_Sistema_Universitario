@@ -1,0 +1,25 @@
+{
+  "displayVersion": "1.1.0",
+  "operatorName": "responsable-release",
+  "windowStartedAt": "2026-06-27T00:00:00.000-06:00",
+  "windowEndedAt": "2026-06-27T00:30:00.000-06:00",
+  "notes": "Validacion humana del flujo docente productivo para el periodo mayo-junio con documentos compartidos de Electronica y Aplicaciones Digitales. Completar solo despues de operar el flujo real contra la API candidata.",
+  "docenteId": "<docente-id-real>",
+  "periodoLabel": "mayo-junio",
+  "periodoId": "<periodo-id-real-mayo-junio>",
+  "documentosCompartidos": [
+    "electro_app_digital_mayo-junio.xlsx",
+    "ELECTRONICA Y APLICACIONES DIGITALES.docx",
+    "ENCUADRE LISC.docx",
+    "Examen_Primer_Parcial_Electronica_Aplicaciones_Digitales_v25_logos_margenes_tablas_2pag.docx",
+    "Examen_Segundo_Parcial_Electronica_Aplicaciones_Digitales_CON_LOGOS.docx",
+    "Examen_Global_Electronica_Aplicaciones_Digitales_CUH_FINAL_30_REACTIVOS_UNA_COLUMNA_LEGIBLE_V2.docx"
+  ],
+  "autenticacionValida": false,
+  "periodoGestionado": false,
+  "alumnoGestionado": false,
+  "reactivosYPlantilla": false,
+  "examenGenerado": false,
+  "entregaVinculada": false,
+  "calificacionCompleta": false
+}

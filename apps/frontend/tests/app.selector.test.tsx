@@ -44,7 +44,7 @@ import App from '../src/App';
 describe('App selector', () => {
   beforeEach(() => {
     vi.unstubAllEnvs();
-    window.location.hash = '';
+    window.history.replaceState({}, '', '/');
     document.title = '';
     document.head.innerHTML = '';
     mocks.googleProvider.mockClear();
@@ -52,7 +52,7 @@ describe('App selector', () => {
 
   afterEach(() => {
     vi.unstubAllEnvs();
-    window.location.hash = '';
+    window.history.replaceState({}, '', '/');
   });
 
   it('renderiza alumno sin Google OAuth y marca el destino en el shell', () => {
@@ -83,7 +83,7 @@ describe('App selector', () => {
   it('muestra version info sin tooltip cuando la ruta hash apunta a esa vista', () => {
     vi.stubEnv('VITE_APP_DESTINO', 'docente');
     vi.stubEnv('VITE_GOOGLE_CLIENT_ID', 'google-client-id');
-    window.location.hash = '#/version-info';
+    window.history.replaceState({}, '', '/#/version-info');
 
     render(<App />);
 
