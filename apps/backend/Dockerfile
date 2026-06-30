@@ -1,3 +1,9 @@
+# [EDICION SERVER / INSTITUCIONAL]
+# IMPORTANTE: Este Dockerfile y toda su infraestructura de contenedores ya NO se 
+# utiliza para la Edición Docente (el Hub instalador de escritorio de Windows).
+# Está preservado EXCLUSIVAMENTE para despliegues institucionales en servidores 
+# en la nube o infraestructura universitaria.
+# 
 # Etapa de build: compila el backend usando el layout del monorepo.
 FROM node:24-slim AS builder
 WORKDIR /app

@@ -502,6 +502,7 @@ public partial class MainWindow : Window
             InstallDir = InstallDirTextBox.Text.Trim(),
             InstallDesktopShortcuts = DesktopShortcutsCheckBox.IsChecked == true,
             InstallStartMenuShortcuts = StartMenuShortcutsCheckBox.IsChecked == true,
+            ExportData = ExportDataCheckBox.IsChecked == true,
             MongoUri = MongoUriTextBox.Text.Trim(),
             NodeEnv = NodeEnvTextBox.Text.Trim(),
             ApiPort = ApiPortTextBox.Text.Trim(),
@@ -528,7 +529,7 @@ public partial class MainWindow : Window
     {
         SetWizardStep(WizardStep.Review);
         FooterStatusTextBlock.Text = "Revisando prerequisitos del equipo.";
-        SetLiveExplanation("Revisión en curso", "Se están validando requisitos locales como Windows, WSL, Docker, Node y configuración necesaria para ejecutar EvaluaPro.");
+        SetLiveExplanation("Revisión en curso", "Se están validando requisitos locales y el entorno nativo necesario para ejecutar EvaluaPro.");
         hasDeterminateProgress = false;
         InstallProgressBar.IsIndeterminate = true;
         InstallProgressBar.Value = 0;
@@ -611,6 +612,10 @@ public partial class MainWindow : Window
         var mode = modeItem?.Tag?.ToString()
             ?? modeItem?.Content?.ToString()
             ?? "install";
+        
+        ExportDataCheckBox.Visibility = string.Equals(mode, "uninstall", StringComparison.OrdinalIgnoreCase) 
+            ? Visibility.Visible : Visibility.Collapsed;
+            
         RefreshOperationalChrome(mode, FlavorComboBox.SelectedItem as FlavorItem);
         ModeChanged?.Invoke(this, new ModeChangedEventArgs(mode));
         RefreshWizardNavigation();
@@ -752,7 +757,7 @@ public partial class MainWindow : Window
             default:
                 ModeImpactTitleTextBlock.Text = "Instalar o actualizar";
                 ModeImpactTextBlock.Text = "Configura prerequisitos, escribe configuración operativa y crea accesos.";
-                ModeImpactChecklistTextBlock.Text = "Se revisa WSL2/Docker/Node, carpeta destino y accesos.";
+                ModeImpactChecklistTextBlock.Text = "Se descargan dependencias nativas, carpeta destino y accesos.";
                 ModeImpactBorder.Background = ToBrush("#EFF6FF");
                 ModeImpactBorder.BorderBrush = ToBrush("#BFDBFE");
                 ModeImpactIcon.Data = InstallGeometry;

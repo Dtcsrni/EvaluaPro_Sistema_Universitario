@@ -7,6 +7,10 @@ Este archivo sigue el formato "Keep a Changelog" (alto nivel) y SemVer.
 ## [1.1.0] - 2026-06-30
 
 ### Added
+- Migración de la arquitectura del instalador local (docente) a una distribución nativa Ultra-Ligera en Windows (removiendo hipervisor, WSL y Docker Desktop) mediante Node.js Portable embebido.
+- Interfaz gráfica actualizada en Bootstrapper para soportar flujo de exportación de base de datos local de SQLite durante desinstalación.
+- Scripts E2E consolidados para validar el instalador Bootstrapper en flujo local simulando el paso a paso gráfico con exportación de respaldo y limpieza.
+- Corrección de script de WiX para pasar argumento Version desde el orquestador (`build-msi.ps1`).
 - Agregada búsqueda operativa en Google Classroom para filtrar roster de alumnos por nombre, correo, matrícula, alumno local o estrategia de match.
 - Agregada búsqueda en preview/resultado de importación Classroom para localizar submissions por alumno, correo, estado, match o id.
 - Agregada la spec `SPEC-CLASSROOM-EXPERIENCIA-USUARIO` para cubrir experiencia de Classroom en grupos grandes.

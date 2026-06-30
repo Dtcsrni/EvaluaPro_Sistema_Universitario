@@ -587,6 +587,9 @@ function Capture-Window {
     $bitmap.Save($path, [System.Drawing.Imaging.ImageFormat]::Png)
     $script:screenshots.Add($path) | Out-Null
     return $path
+  } catch {
+    Write-E2ELog "Advertencia: Error tomando screenshot de UI: $_"
+    return ""
   } finally {
     $graphics.Dispose()
     $bitmap.Dispose()
@@ -734,6 +737,20 @@ function Invoke-InstallerHubMode {
       'uninstall' { 'Desinstalar' }
     }
     Select-ComboItem -Combo $modeCombo -ItemName $label
+  }
+
+  if ($Mode -eq 'uninstall') {
+    $exportCheckbox = Find-ById -RootElement $window -AutomationId 'ExportDataCheckBox' -TimeoutSec 2
+    if ($exportCheckbox) {
+      $togglePattern = $null
+      if ($exportCheckbox.TryGetCurrentPattern([System.Windows.Automation.TogglePattern]::Pattern, [ref]$togglePattern)) {
+        if ($togglePattern.Current.ToggleState -ne [System.Windows.Automation.ToggleState]::On) {
+          $togglePattern.Toggle()
+        }
+      } else {
+        Invoke-Control -Element $exportCheckbox
+      }
+    }
   }
 
   $detectButton = Find-ById -RootElement $window -AutomationId 'DetectButton' -TimeoutSec 5
@@ -954,156 +971,46 @@ function Export-RuntimeAudit {
   $auditName = if ($Name -eq 'before') { 'runtime-audit-before.json' } else { 'runtime-audit-after.json' }
   Export-JsonArtifact -Name $auditName -Data ([pscustomobject]@{
     generatedAt = (Get-Date).ToString('o')
-    dockerRuntime = [string]$env:EVALUAPRO_DOCKER_RUNTIME
-    warning = $runtimeWarning
-    contextRaw = $context
   }) | Out-Null
-  Export-JsonArtifact -Name 'docker-images.json' -Data ([pscustomobject]@{ raw = $images }) | Out-Null
-  Export-JsonArtifact -Name 'docker-context.json' -Data ([pscustomobject]@{ raw = $context }) | Out-Null
 }
 
-function Invoke-DockerStableStack {
-  # Contrato operativo: docker compose --profile prod up --no-build -d mongo_local api_docente_prod web_docente_prod
-  $workingDirectory = Resolve-DockerWorkingDirectory
-  $installedEnvPath = Join-Path $installedRoot '.env'
-  $runnerEnvPath = Join-Path $root '.env'
-  if (Test-Path -LiteralPath $installedEnvPath) {
-    Copy-Item -LiteralPath $installedEnvPath -Destination $runnerEnvPath -Force
-    Copy-ArtifactIfExists -Path $runnerEnvPath -Name 'runner-compose-env-shim.env' | Out-Null
-  }
-  Invoke-CaptureCommand -Name 'docker-compose-prod-up' -FilePath 'docker' -ArgumentList ((Get-DockerComposeArguments -WorkingDirectory $workingDirectory) + @('up', '--no-build', '-d', 'mongo_local', 'api_docente_prod', 'web_docente_prod')) -WorkingDirectory $workingDirectory -TimeoutSec 1200
+function Invoke-NativeStableStack {
+  Write-E2ELog "Esperando estabilizacion del servicio nativo..."
+  Start-Sleep -Seconds 10
 }
 
-function Resolve-DockerWorkingDirectory {
-  if (-not [string]::IsNullOrWhiteSpace($installedRoot)) {
-    $installedCompose = Join-Path $installedRoot 'docker-compose.yml'
-    if (Test-Path -LiteralPath $installedCompose) {
-      return $installedRoot
-    }
+function Export-NativeEvidence {
+  # Solo para mantener la compatibilidad con el reporte si es necesario.
+  $nativeDir = Join-Path $ReportDir 'native'
+  if (-not (Test-Path $nativeDir)) {
+    New-Item -ItemType Directory -Force -Path $nativeDir | Out-Null
   }
-  if (-not [string]::IsNullOrWhiteSpace($InstallDir)) {
-    $installDirCompose = Join-Path $InstallDir 'docker-compose.yml'
-    if (Test-Path -LiteralPath $installDirCompose) {
-      return $InstallDir
-    }
-  }
-  return $root
-}
-
-function Get-DockerComposeBaseArgs {
-  param([string]$WorkingDirectory)
-  $composeFilePath = Join-Path $WorkingDirectory 'docker-compose.yml'
-  if ([string]$env:EVALUAPRO_DOCKER_RUNTIME -eq 'wsl2-engine') {
-    return @(
-      'compose',
-      '--project-directory', (ConvertTo-WslPath -Path $WorkingDirectory),
-      '-f', (ConvertTo-WslPath -Path $composeFilePath),
-      '--profile', 'prod'
-    )
-  }
-  return @(
-    'compose',
-    '--project-directory', $WorkingDirectory,
-    '-f', $composeFilePath,
-    '--profile', 'prod'
-  )
-}
-
-function Get-DockerComposeArguments {
-  param([string]$WorkingDirectory)
-  $args = @(Get-DockerComposeBaseArgs -WorkingDirectory $WorkingDirectory)
-  $envFile = Join-Path $root '.env'
-  if (Test-Path -LiteralPath $envFile) {
-    $resolvedEnvFile = if ([string]$env:EVALUAPRO_DOCKER_RUNTIME -eq 'wsl2-engine') {
-      ConvertTo-WslPath -Path $envFile
-    } else {
-      $envFile
-    }
-    $args += @('--env-file', $resolvedEnvFile)
-  }
-  return $args
-}
-
-function Export-DockerEvidence {
-  $psJsonPath = Join-Path $dockerDir 'docker-ps.json'
-  $inspectPath = Join-Path $dockerDir 'docker-inspect.json'
-  $healthPath = Join-Path $dockerDir 'healthchecks.json'
-  $logsOutDir = Join-Path $dockerDir 'docker-logs'
-  New-Item -ItemType Directory -Force -Path $logsOutDir | Out-Null
-
-  $workingDirectory = Resolve-DockerWorkingDirectory
-  $composeArgs = Get-DockerComposeArguments -WorkingDirectory $workingDirectory
-  try {
-    Invoke-DockerCli -ArgumentList ($composeArgs + @('ps', '--format', 'json')) -WorkingDirectory $workingDirectory | Set-Content -Path $psJsonPath -Encoding UTF8
-    $artifacts.Add($psJsonPath) | Out-Null
-  } catch {}
-
-  $containerIds = @()
-  try {
-    $containerIds = @(Invoke-DockerCli -ArgumentList ($composeArgs + @('ps', '-q', 'mongo_local', 'api_docente_prod', 'web_docente_prod')) -WorkingDirectory $workingDirectory | Where-Object { -not [string]::IsNullOrWhiteSpace($_) })
-  } catch {}
-
-  if ($containerIds.Count -gt 0) {
-    try {
-    Invoke-DockerCli -ArgumentList (@('inspect') + $containerIds) -WorkingDirectory $workingDirectory | Set-Content -Path $inspectPath -Encoding UTF8
-      $artifacts.Add($inspectPath) | Out-Null
-      $inspect = Get-Content -Raw -Path $inspectPath | ConvertFrom-Json
-      $health = foreach ($item in @($inspect)) {
-        $hasHealth = $item.State.PSObject.Properties.Match('Health').Count -gt 0
-        $healthStatus = if ($hasHealth) { [string]$item.State.Health.Status } else { 'none' }
-        [pscustomobject]@{
-          name = ([string]$item.Name).TrimStart('/')
-          id = [string]$item.Id
-          state = [string]$item.State.Status
-          health = $healthStatus
-        }
-      }
-      $health | ConvertTo-Json -Depth 8 | Set-Content -Path $healthPath -Encoding UTF8
-      $artifacts.Add($healthPath) | Out-Null
-    } catch {}
-  }
-
-  foreach ($service in @('mongo_local', 'api_docente_prod', 'web_docente_prod')) {
-    try {
-      $logPathService = Join-Path $logsOutDir ("{0}.log" -f $service)
-      Invoke-DockerCli -ArgumentList ($composeArgs + @('logs', '--no-color', '--tail', '300', $service)) -WorkingDirectory $workingDirectory | Set-Content -Path $logPathService -Encoding UTF8
-      $artifacts.Add($logPathService) | Out-Null
-    } catch {}
+  $processes = Get-Process -Name "node" -ErrorAction SilentlyContinue
+  if ($processes) {
+    $processes | ConvertTo-Json -Depth 2 | Set-Content -Path (Join-Path $nativeDir 'node-processes.json') -Encoding UTF8
   }
 }
 
-function Assert-DockerStable {
-  $required = @('mongo_local', 'api_docente_prod', 'web_docente_prod')
-  $workingDirectory = Resolve-DockerWorkingDirectory
-  $composeArgs = Get-DockerComposeArguments -WorkingDirectory $workingDirectory
-  $ids = @(Invoke-DockerCli -ArgumentList ($composeArgs + @('ps', '-q') + $required) -WorkingDirectory $workingDirectory | Where-Object { -not [string]::IsNullOrWhiteSpace($_) })
-  Add-Result -Area 'docker' -Item 'container-count' -Ok ($ids.Count -ge 3) -Detail "count=$($ids.Count)"
-  if ($ids.Count -lt 3) { throw 'Docker stack prod incompleto.' }
-
-  $inspect = Invoke-DockerCli -ArgumentList (@('inspect') + $ids) -WorkingDirectory $workingDirectory | ConvertFrom-Json
-  foreach ($container in @($inspect)) {
-    $name = ([string]$container.Name).TrimStart('/')
-    $running = [string]$container.State.Status -eq 'running'
-    $hasHealth = $container.State.PSObject.Properties.Match('Health').Count -gt 0 -and $null -ne $container.State.Health
-    $healthStatus = if ($hasHealth) { [string]$container.State.Health.Status } else { 'not-defined' }
-    $healthy = if ($hasHealth) { $healthStatus -eq 'healthy' } else { $running }
-    Add-Result -Area 'docker' -Item $name -Ok ($running -and $healthy) -Detail "state=$($container.State.Status) health=$healthStatus"
-    if (-not ($running -and $healthy)) { throw "Contenedor no estable: $name" }
-  }
+function Assert-NativeStable {
+  $running = Get-Process -Name "node" -ErrorAction SilentlyContinue
+  $count = if ($running) { @($running).Count } else { 0 }
+  Add-Result -Area 'native' -Item 'node-process' -Ok ($count -ge 1) -Detail "count=$count"
+  
+  if ($count -lt 1) { throw 'Servicio Node.js nativo no esta corriendo.' }
 
   try {
     $api = Invoke-RestMethod -Uri 'http://127.0.0.1:4000/api/salud' -TimeoutSec 10
-    Add-Result -Area 'docker' -Item 'api-salud' -Ok $true -Detail ($api | ConvertTo-Json -Compress)
+    Add-Result -Area 'native' -Item 'api-salud' -Ok $true -Detail ($api | ConvertTo-Json -Compress)
   } catch {
-    Add-Result -Area 'docker' -Item 'api-salud' -Ok $false -Detail $_.Exception.Message
+    Add-Result -Area 'native' -Item 'api-salud' -Ok $false -Detail $_.Exception.Message
     throw
   }
 
   try {
-    $web = Invoke-WebRequest -Uri 'http://127.0.0.1:4173' -UseBasicParsing -TimeoutSec 10
-    Add-Result -Area 'docker' -Item 'web-docente' -Ok ($web.StatusCode -eq 200) -Detail "status=$($web.StatusCode)"
+    $web = Invoke-WebRequest -Uri 'http://127.0.0.1:4000/' -UseBasicParsing -TimeoutSec 10
+    Add-Result -Area 'native' -Item 'web-docente' -Ok ($web.StatusCode -eq 200) -Detail "status=$($web.StatusCode)"
   } catch {
-    Add-Result -Area 'docker' -Item 'web-docente' -Ok $false -Detail $_.Exception.Message
+    Add-Result -Area 'native' -Item 'web-docente' -Ok $false -Detail $_.Exception.Message
     throw
   }
 }
@@ -1341,9 +1248,9 @@ try {
         } catch {}
       }
     }
-    Invoke-DockerStableStack
-    Assert-DockerStable
-    Export-DockerEvidence
+    Invoke-NativeStableStack
+    Assert-NativeStable
+    Export-NativeEvidence
   } finally {
     Pop-Location
   }
@@ -1369,6 +1276,11 @@ try {
   Export-JsonArtifact -Name 'post-uninstall-entries.json' -Data $remainingEntries | Out-Null
   Add-Result -Area 'post-uninstall' -Item 'uninstall-registry' -Ok ($remainingEntries.Count -eq 0) -Detail ("entries={0}" -f $remainingEntries.Count)
   Add-Result -Area 'post-uninstall' -Item 'install-dir-removed' -Ok (-not (Test-Path -LiteralPath $installedRoot)) -Detail $installedRoot
+
+  $backupDir = "C:\Users\Public\Documents\EvaluaPro_Backup"
+  $backupFolders = @(Get-ChildItem -Path $backupDir -Directory -Filter "data_*" -ErrorAction SilentlyContinue)
+  Add-Result -Area 'post-uninstall' -Item 'backup-created' -Ok ($backupFolders.Count -gt 0) -Detail ("backup_folders={0}" -f $backupFolders.Count)
+
   Assert-NoActiveEvaluaProAfterUninstall
 
   Export-InstallerLogs
@@ -1383,7 +1295,7 @@ try {
 }
 catch {
   Add-Result -Area 'runner' -Item 'fatal' -Ok $false -Detail ("{0}`n{1}" -f $_.Exception.ToString(), $_.ScriptStackTrace)
-  Export-DockerEvidence
+  Export-NativeEvidence
   Export-InstallerLogs
   Export-JsonArtifact -Name 'processes-error.json' -Data (Get-ProcessSnapshot) | Out-Null
   Write-TutorialMarkdown

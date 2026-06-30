@@ -906,7 +906,7 @@ if ($buildBundle) {
       "-d", "BundleName=$bundleName",
       "-o", (Join-Path $internalFlavorOut $msiName)
     )
-    if ($Version) { $productArgs += @("-d", "Version=$Version") }
+    $productArgs += @("-d", "Version=$effectiveVersionTag")
     $productExit = Invoke-WixBuildProcess -WixExecutable $wixExe -Arguments $productArgs
     if ($productExit -ne 0) { throw "Falló build de Product.wxs para $flavorId (exit=$productExit)" }
     $productOut = Join-Path $internalFlavorOut $msiName
@@ -943,7 +943,7 @@ if ($buildBundle) {
         "-d", "BundleIconPath=$flavorBundleIconPath",
         "-o", (Join-Path $publicFlavorOut $bundleName)
       )
-      if ($Version) { $bundleArgs += @("-d", "Version=$Version") }
+      $bundleArgs += @("-d", "Version=$effectiveVersionTag")
       $bundleExit = Invoke-WixBuildProcess -WixExecutable $wixExe -Arguments $bundleArgs
       if ($bundleExit -ne 0) { throw "Falló build de Bundle.wxs para $flavorId (exit=$bundleExit)" }
       $bundleOut = Join-Path $publicFlavorOut $bundleName

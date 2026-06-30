@@ -8,7 +8,13 @@ import path from 'node:path';
 
 // Asegurar que el directorio data/ existe para guardar evaluapro.db
 import fs from 'node:fs';
-const dataDir = path.resolve(process.cwd(), 'data');
+
+let dataDir = path.resolve(process.cwd(), 'data');
+if (process.env.NODE_ENV === 'production') {
+  // In native production, always use ProgramData to persist across upgrades/uninstalls and avoid System32
+  dataDir = path.resolve(process.env.PROGRAMDATA || 'C:\\ProgramData', 'EvaluaPro', 'data');
+}
+
 if (!fs.existsSync(dataDir)) {
   fs.mkdirSync(dataDir, { recursive: true });
 }
