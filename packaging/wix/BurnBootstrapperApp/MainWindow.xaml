@@ -451,6 +451,7 @@ Por favor, lee atentamente los siguientes términos antes de proceder con la ins
                                             <WrapPanel Margin="0,12,0,0">
                                                 <CheckBox x:Name="DesktopShortcutsCheckBox" Content="Accesos en escritorio" IsChecked="True" Margin="0,0,18,8" ToolTip="Crea accesos directos en el escritorio." AutomationProperties.Name="Crear accesos en escritorio" TabIndex="3" />
                                                 <CheckBox x:Name="StartMenuShortcutsCheckBox" Content="Accesos en menú Inicio" IsChecked="True" Margin="0,0,18,8" ToolTip="Crea accesos directos en el menú Inicio." AutomationProperties.Name="Crear accesos en menú Inicio" TabIndex="4" />
+                                                <CheckBox x:Name="ExportDataCheckBox" Content="Respaldar mis datos localmente antes de desinstalar" IsChecked="False" Margin="0,0,18,8" ToolTip="Copia la base de datos a Documentos Públicos antes de borrar la instalación." Visibility="Collapsed" AutomationProperties.Name="Respaldar datos" TabIndex="5" Foreground="{StaticResource PrimaryBrush}" FontWeight="SemiBold" />
                                             </WrapPanel>
                                         </StackPanel>
                                     </Border>

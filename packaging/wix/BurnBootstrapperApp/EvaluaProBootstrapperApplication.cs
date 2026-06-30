@@ -2161,6 +2161,7 @@ public sealed class BootstrapperRequest
     public string InstallDir { get; set; } = string.Empty;
     public bool InstallDesktopShortcuts { get; set; } = true;
     public bool InstallStartMenuShortcuts { get; set; } = true;
+    public bool ExportData { get; set; }
     public string MongoUri { get; set; } = "mongodb://mongo_local:27017/evaluapro";
     public string NodeEnv { get; set; } = "production";
     public string ApiPort { get; set; } = "4000";

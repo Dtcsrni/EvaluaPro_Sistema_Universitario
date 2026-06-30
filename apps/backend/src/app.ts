@@ -69,19 +69,26 @@ export function crearApp() {
     })
   );
 
-  // Interceptor para mapear 'id' a '_id' y asegurar compatibilidad absoluta con el frontend y tests legacy
-  app.use((req, res, next) => {
+  // Interceptor para SQLite/Prisma que mapea `id` a `_id` en respuestas
+  app.use((_req, res, next) => {
     const originalJson = res.json;
     res.json = function (body) {
-      if (body) {
-        body = mapearIdsAUnderscore(body);
-      }
-      return originalJson.call(this, body);
+      const mappedBody = mapearIdsAUnderscore(body);
+      return originalJson.call(this, mappedBody);
     };
     next();
   });
 
   app.use('/api', crearRouterApi());
+
+  // Servir frontend nativo si estamos en modo Desktop/Native
+  if (process.env.EVALUAPRO_NATIVE_STATIC_DIR) {
+    app.use(express.static(process.env.EVALUAPRO_NATIVE_STATIC_DIR));
+    // SPA Fallback para React Router
+    app.get('*', (_req, res) => {
+      res.sendFile('index.html', { root: process.env.EVALUAPRO_NATIVE_STATIC_DIR });
+    });
+  }
 
   // Middleware de error handling robusto principal.
   app.use(middlewareManejadorErroresRobusto);

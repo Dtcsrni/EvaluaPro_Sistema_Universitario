@@ -33,6 +33,3 @@ Este tutorial se genera desde la evidencia real de VM. Muestra el flujo completo
 
 ## Capturas
 
-### wpf-install-01-splash-deteccion
-
-![](./screenshots/wpf-install-01-splash-deteccion.png)

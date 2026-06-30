@@ -1,0 +1,226 @@
+{
+  "traceSchemaVersion": "1.0.0",
+  "sessionId": "sesion-2026-06-30T12-11-26.072Z",
+  "status": "draft",
+  "generatedAt": "2026-06-30T12:11:26.072Z",
+  "validationProfile": "quick",
+  "agent": {
+    "name": "unknown",
+    "version": "unknown",
+    "provider": "unknown",
+    "kind": "unknown",
+    "channel": "unknown"
+  },
+  "request": {
+    "summary": "Pendiente de completar por el agente."
+  },
+  "objective": "Pendiente de completar por el agente.",
+  "scope": [],
+  "constraints": [],
+  "actions": [
+    {
+      "type": "validation",
+      "summary": "Ejecucion de lint",
+      "timestamp": "2026-06-30T12:11:26.072Z",
+      "status": "omitido"
+    },
+    {
+      "type": "validation",
+      "summary": "Ejecucion de typecheck",
+      "timestamp": "2026-06-30T12:11:26.072Z",
+      "status": "omitido"
+    },
+    {
+      "type": "validation",
+      "summary": "Ejecucion de test_frontend_ci",
+      "timestamp": "2026-06-30T12:11:26.072Z",
+      "status": "omitido"
+    },
+    {
+      "type": "validation",
+      "summary": "Ejecucion de test_coverage_ci",
+      "timestamp": "2026-06-30T12:11:26.072Z",
+      "status": "omitido"
+    },
+    {
+      "type": "validation",
+      "summary": "Ejecucion de test_tdd_enforcement_ci",
+      "timestamp": "2026-06-30T12:11:26.072Z",
+      "status": "omitido"
+    },
+    {
+      "type": "validation",
+      "summary": "Ejecucion de test_backend_ci",
+      "timestamp": "2026-06-30T12:11:26.072Z",
+      "status": "omitido"
+    },
+    {
+      "type": "validation",
+      "summary": "Ejecucion de test_portal_ci",
+      "timestamp": "2026-06-30T12:11:26.072Z",
+      "status": "omitido"
+    },
+    {
+      "type": "validation",
+      "summary": "Ejecucion de perf_check",
+      "timestamp": "2026-06-30T12:11:26.072Z",
+      "status": "omitido"
+    },
+    {
+      "type": "validation",
+      "summary": "Ejecucion de pipeline_contract_check",
+      "timestamp": "2026-06-30T12:11:26.072Z",
+      "status": "ok"
+    },
+    {
+      "type": "validation",
+      "summary": "Ejecucion de docs_check",
+      "timestamp": "2026-06-30T12:11:26.072Z",
+      "status": "falla"
+    }
+  ],
+  "files": {
+    "read": [],
+    "changed": [
+      "apps/backend/Dockerfile",
+      "apps/backend/reports/qa/latest/e2e-docente-alumno.json",
+      "apps/backend/reports/qa/latest/global-grade.json",
+      "apps/backend/reports/qa/latest/pdf-print.json",
+      "apps/backend/src/app.ts",
+      "apps/frontend/reports/qa/latest/ux-visual.json",
+      "docs/INVENTARIO_CODIGO_EXHAUSTIVO.md",
+      "docs/tutoriales/installer-hub-docente-e2e.md",
+      "package.json",
+      "packaging/wix/Bundle.wxs",
+      "packaging/wix/BurnBootstrapperApp/MainWindow.xaml.cs",
+      "packaging/wix/Product.wxs",
+      "scripts/installer-burn/InstallerBurnHelper.ps1",
+      "scripts/installer-burn/modules/PrereqDetector.psm1",
+      "scripts/tests/installer-hub-e2e-docente.ps1",
+      "dist-native/",
+      "docs/handoff-input.json",
+      "docs/handoff-input.txt",
+      "docs/handoff/sesiones/2026-06-30/sesion-2026-06-30T12-03-50.299Z.json",
+      "docs/handoff/sesiones/2026-06-30/sesion-2026-06-30T12-03-50.299Z.md",
+      "evaluapro-native-dist.zip",
+      "scripts/build-native-dist.ps1"
+    ],
+    "artifacts": [
+      "docs/handoff/sesiones/2026-06-30/sesion-2026-06-30T12-11-26.072Z.json",
+      "docs/handoff/sesiones/2026-06-30/sesion-2026-06-30T12-11-26.072Z.md"
+    ]
+  },
+  "commands": [
+    {
+      "name": "lint",
+      "command": "npm run lint",
+      "status": "omitido",
+      "exitCode": null,
+      "durationMs": 0,
+      "resultSummary": "omitido por perfil quick",
+      "timestamp": "2026-06-30T12:11:26.072Z"
+    },
+    {
+      "name": "typecheck",
+      "command": "npm run typecheck",
+      "status": "omitido",
+      "exitCode": null,
+      "durationMs": 0,
+      "resultSummary": "omitido por perfil quick",
+      "timestamp": "2026-06-30T12:11:26.072Z"
+    },
+    {
+      "name": "test_frontend_ci",
+      "command": "npm run test:frontend:ci",
+      "status": "omitido",
+      "exitCode": null,
+      "durationMs": 0,
+      "resultSummary": "omitido por perfil quick",
+      "timestamp": "2026-06-30T12:11:26.072Z"
+    },
+    {
+      "name": "test_coverage_ci",
+      "command": "npm run test:coverage:ci",
+      "status": "omitido",
+      "exitCode": null,
+      "durationMs": 0,
+      "resultSummary": "omitido por perfil quick",
+      "timestamp": "2026-06-30T12:11:26.072Z"
+    },
+    {
+      "name": "test_tdd_enforcement_ci",
+      "command": "npm run test:tdd:enforcement:ci",
+      "status": "omitido",
+      "exitCode": null,
+      "durationMs": 0,
+      "resultSummary": "omitido por perfil quick",
+      "timestamp": "2026-06-30T12:11:26.072Z"
+    },
+    {
+      "name": "test_backend_ci",
+      "command": "npm run test:backend:ci",
+      "status": "omitido",
+      "exitCode": null,
+      "durationMs": 0,
+      "resultSummary": "omitido por perfil quick",
+      "timestamp": "2026-06-30T12:11:26.072Z"
+    },
+    {
+      "name": "test_portal_ci",
+      "command": "npm run test:portal:ci",
+      "status": "omitido",
+      "exitCode": null,
+      "durationMs": 0,
+      "resultSummary": "omitido por perfil quick",
+      "timestamp": "2026-06-30T12:11:26.072Z"
+    },
+    {
+      "name": "perf_check",
+      "command": "npm run perf:check",
+      "status": "omitido",
+      "exitCode": null,
+      "durationMs": 0,
+      "resultSummary": "omitido por perfil quick",
+      "timestamp": "2026-06-30T12:11:26.072Z"
+    },
+    {
+      "name": "pipeline_contract_check",
+      "command": "npm run pipeline:contract:check",
+      "status": "ok",
+      "exitCode": 0,
+      "durationMs": 622,
+      "resultSummary": "> evaluapro@1.1.0 pipeline:contract:check | > node scripts/pipeline-contract-check.mjs | ✔ ext_perf_arquitectura prepara sharp antes de perf:check (2.8992ms) | ✔ ext_funcionales usa gate OMR TV generico con version configurable (0.5761ms) | ... | ℹ duration_ms 102.329 | pipeline contract OK",
+      "timestamp": "2026-06-30T12:11:26.072Z"
+    },
+    {
+      "name": "docs_check",
+      "command": "npm run docs:check",
+      "status": "falla",
+      "exitCode": 1,
+      "durationMs": 1372,
+      "resultSummary": "> evaluapro@1.1.0 docs:check | > node scripts/docs.mjs --check | [docs] desactualizado: docs/AUTO_ENV.md | [docs] corre: npm run docs:generate",
+      "timestamp": "2026-06-30T12:11:26.072Z"
+    }
+  ],
+  "decisions": [],
+  "assumptions": [],
+  "risks": [],
+  "nextStep": "Pendiente de completar por el agente.",
+  "completion": {
+    "isComplete": false,
+    "pendingFields": [
+      "request.summary",
+      "objective",
+      "scope",
+      "decisions",
+      "risks",
+      "nextStep"
+    ]
+  },
+  "repo": {
+    "rootDir": "C:\\Users\\evega\\EvaluaPro_Sistema_Universitario",
+    "branch": "chore/gitignore-scratch-cleanup",
+    "commit": "679e8515",
+    "workingTreeStatus": "M apps/backend/Dockerfile\n M apps/backend/reports/qa/latest/e2e-docente-alumno.json\n M apps/backend/reports/qa/latest/global-grade.json\n M apps/backend/reports/qa/latest/pdf-print.json\n M apps/backend/src/app.ts\n M apps/frontend/reports/qa/latest/ux-visual.json\n M docs/INVENTARIO_CODIGO_EXHAUSTIVO.md\n M docs/tutoriales/installer-hub-docente-e2e.md\n M package.json\n M packaging/wix/Bundle.wxs\n M packaging/wix/BurnBootstrapperApp/MainWindow.xaml.cs\n M packaging/wix/Product.wxs\n M scripts/installer-burn/InstallerBurnHelper.ps1\n M scripts/installer-burn/modules/PrereqDetector.psm1\n M scripts/tests/installer-hub-e2e-docente.ps1\n?? dist-native/\n?? docs/handoff-input.json\n?? docs/handoff-input.txt\n?? docs/handoff/sesiones/2026-06-30/sesion-2026-06-30T12-03-50.299Z.json\n?? docs/handoff/sesiones/2026-06-30/sesion-2026-06-30T12-03-50.299Z.md\n?? evaluapro-native-dist.zip\n?? scripts/build-native-dist.ps1"
+  }
+}

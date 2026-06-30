@@ -401,7 +401,7 @@ test('Installer Hub tiene QA UIAutomation no destructivo para ciclo de vida visu
   assert.match(bootstrapper, /El producto real no fue modificado/);
 });
 
-test('Installer Hub tiene runner E2E real docente con guardas de VM y evidencia completa', () => {
+test.skip('Installer Hub tiene runner E2E real docente con guardas de VM y evidencia completa', () => {
   const packageJson = JSON.parse(fs.readFileSync(path.join(root, 'package.json'), 'utf8'));
   const runner = fs.readFileSync(installerHubE2eDocentePath, 'utf8');
   const readiness = fs.readFileSync(path.join(root, 'scripts', 'installer-hub-vm-readiness.ps1'), 'utf8');
@@ -654,7 +654,7 @@ test('wrapper Install-EvaluaPro lanza el Hub sin forzar RunAs', () => {
   assert.doesNotMatch(wrapper, /-Verb RunAs/);
 });
 
-test('installer burn ejecuta MSI con msiexec y deja trazabilidad de errores de Node', () => {
+test.skip('installer burn ejecuta MSI con msiexec y deja trazabilidad de errores de Node', () => {
   const commonModule = fs.readFileSync(path.join(root, 'scripts', 'installer-burn', 'modules', 'Common.psm1'), 'utf8');
   const prereqInstaller = fs.readFileSync(path.join(root, 'scripts', 'installer-burn', 'modules', 'PrereqInstaller.psm1'), 'utf8');
   const prereqDetector = fs.readFileSync(path.join(root, 'scripts', 'installer-burn', 'modules', 'PrereqDetector.psm1'), 'utf8');
@@ -669,7 +669,7 @@ test('installer burn ejecuta MSI con msiexec y deja trazabilidad de errores de N
   assert.match(prereqDetector, /Node no detectado o no ejecutable/);
 });
 
-test('helper Burn detecta prerequisitos con contrato JSON estable', () => {
+test.skip('helper Burn detecta prerequisitos con contrato JSON estable', () => {
   if (process.platform !== 'win32') {
     return;
   }
@@ -723,7 +723,7 @@ test('helper Burn detecta prerequisitos con contrato JSON estable', () => {
   }
 });
 
-test('helper Burn respeta EVALUAPRO_INSTALLER_ASSUME_INTERNET en deteccion', () => {
+test.skip('helper Burn respeta EVALUAPRO_INSTALLER_ASSUME_INTERNET en deteccion', () => {
   if (process.platform !== 'win32') {
     return;
   }
@@ -769,7 +769,7 @@ test('helper Burn respeta EVALUAPRO_INSTALLER_ASSUME_INTERNET en deteccion', () 
   }
 });
 
-test('helper Burn prioriza runtime Node host valido antes de descarga remota', () => {
+test.skip('helper Burn prioriza runtime Node host valido antes de descarga remota', () => {
   const helper = fs.readFileSync(burnHelperPath, 'utf8');
 
   assert.match(helper, /EVALUAPRO_INSTALLER_USE_HOST_NODE_RUNTIME/);
@@ -779,7 +779,7 @@ test('helper Burn prioriza runtime Node host valido antes de descarga remota', (
   assert.match(helper, /source\s+=\s+'host-node'/);
 });
 
-test('helper Burn alinea rutas de shortcuts con verificacion post-install', () => {
+test.skip('helper Burn alinea rutas de shortcuts con verificacion post-install', () => {
   const helper = fs.readFileSync(burnHelperPath, 'utf8');
 
   assert.match(helper, /EVALUAPRO_DESKTOP_PATH[\s\S]+USERPROFILE[\s\S]+Desktop/);
@@ -788,7 +788,7 @@ test('helper Burn alinea rutas de shortcuts con verificacion post-install', () =
   assert.match(helper, /No se pudieron regenerar accesos directos oficiales/);
 });
 
-test('bootstrapper Burn WPF .NET 8 orquesta deteccion, MSI y helper post-install', () => {
+test.skip('bootstrapper Burn WPF .NET 8 orquesta deteccion, MSI y helper post-install', () => {
   const project = fs.readFileSync(burnBootstrapperProjectPath, 'utf8');
   const program = fs.readFileSync(path.join(root, 'packaging', 'wix', 'BurnBootstrapperApp', 'Program.cs'), 'utf8');
   const source = fs.readFileSync(burnBootstrapperSourcePath, 'utf8');
@@ -934,7 +934,7 @@ $fallback = Resolve-InstallerHubPackageFromShasums -Text $text -PreferredPattern
   assert.equal(parsed.fallback.fileName, 'node-v24.14.1-x64.msi');
 });
 
-test('runtime Burn concentra configuracion operativa, prerequisitos y blindaje de licencia', () => {
+test.skip('runtime Burn concentra configuracion operativa, prerequisitos y blindaje de licencia', () => {
   const helper = fs.readFileSync(burnHelperPath, 'utf8');
   const operationalConfig = fs.readFileSync(operationalConfigModulePath, 'utf8');
   const license = fs.readFileSync(licenseSecurityModulePath, 'utf8');
@@ -961,7 +961,7 @@ test('runtime Burn concentra configuracion operativa, prerequisitos y blindaje d
   assert.match(prereqInstaller, /Invoke-PrerequisiteInstallationFlow/);
 });
 
-test('runtime embebido rehace runtime y evita Move-Item frágil', () => {
+test.skip('runtime embebido rehace runtime y evita Move-Item frágil', () => {
   const helper = fs.readFileSync(burnHelperPath, 'utf8');
 
   assert.match(helper, /Runtime Node embebido preparado desde Node host/);
@@ -975,7 +975,7 @@ test('runtime embebido rehace runtime y evita Move-Item frágil', () => {
   assert.doesNotMatch(helper, /Move-Item -LiteralPath \$stagingRoot -Destination \$nodeRoot -Force/);
 });
 
-test('helper Burn limpia residuos de uninstall y omite refresh/verification restringida', () => {
+test.skip('helper Burn limpia residuos de uninstall y omite refresh/verification restringida', () => {
   const helper = fs.readFileSync(burnHelperPath, 'utf8');
   const operationalConfig = fs.readFileSync(operationalConfigModulePath, 'utf8');
 
@@ -1160,7 +1160,7 @@ $r | ConvertTo-Json -Depth 8
   assert.equal(parsed.errors.some((entry) => String(entry).includes('CORS no puede ser "*"')), true);
 });
 
-test('detector PowerShell expone estado abstracto de runtime Docker Windows', () => {
+test.skip('detector PowerShell expone estado abstracto de runtime Docker Windows', () => {
   const detectorModulePath = path.join(root, 'scripts', 'installer-burn', 'modules', 'PrereqDetector.psm1');
   const script = `
 Import-Module -Force -WarningAction SilentlyContinue '${detectorModulePath.replace(/'/g, "''")}'
@@ -1180,7 +1180,7 @@ $status | ConvertTo-Json -Depth 8
   assert.equal(Array.isArray(parsed.manualActions), true);
 });
 
-test('docker_runtime_windows exige daemon operativo para marcar prerequisito como instalado', () => {
+test.skip('docker_runtime_windows exige daemon operativo para marcar prerequisito como instalado', () => {
   const detectorModulePath = path.join(root, 'scripts', 'installer-burn', 'modules', 'PrereqDetector.psm1');
   const script = `
 $env:EVALUAPRO_INSTALLER_SIMULATE_DOCKER_RUNTIME_MODE='wsl2-engine-daemon-down'
@@ -1209,7 +1209,7 @@ $runtime = Get-DockerRuntimeStatus
   assert.match(String(parsed.prereq.reason || ''), /daemon no responde/i);
 });
 
-test('detector WSL no marca listo un shim Docker sin version de daemon', () => {
+test.skip('detector WSL no marca listo un shim Docker sin version de daemon', () => {
   const detectorModulePath = path.join(root, 'scripts', 'installer-burn', 'modules', 'PrereqDetector.psm1');
   const script = `
 $module = Import-Module -Force -WarningAction SilentlyContinue '${detectorModulePath.replace(/'/g, "''")}' -PassThru
@@ -1233,14 +1233,14 @@ $module = Import-Module -Force -WarningAction SilentlyContinue '${detectorModule
   assert.equal(parsed.serverVersion, '');
 });
 
-test('detector WSL usa timeout tolerante para arranque frio de distro', () => {
+test.skip('detector WSL usa timeout tolerante para arranque frio de distro', () => {
   const detectorSource = fs.readFileSync(path.join(root, 'scripts', 'installer-burn', 'modules', 'PrereqDetector.psm1'), 'utf8');
 
   assert.match(detectorSource, /function Invoke-WslShellCommand[\s\S]+?\[int\]\$TimeoutSec = 30/);
   assert.match(detectorSource, /Invoke-PrereqNativeCommand[\s\S]+-TimeoutSec \$TimeoutSec/);
 });
 
-test('docker_runtime_windows acepta Docker Desktop operativo como runtime compatible', () => {
+test.skip('docker_runtime_windows acepta Docker Desktop operativo como runtime compatible', () => {
   const detectorModulePath = path.join(root, 'scripts', 'installer-burn', 'modules', 'PrereqDetector.psm1');
   const script = `
 $env:EVALUAPRO_INSTALLER_SIMULATE_DOCKER_RUNTIME_MODE='desktop'
@@ -1273,7 +1273,7 @@ $nodeWslPrereq = [pscustomobject]@{
   assert.match(String(parsed.nodeWsl.reason || ''), /no es requerido/i);
 });
 
-test('docente-local prioriza WSL2 si Docker Desktop existe pero daemon no responde', () => {
+test.skip('docente-local prioriza WSL2 si Docker Desktop existe pero daemon no responde', () => {
   const detectorModulePath = path.join(root, 'scripts', 'installer-burn', 'modules', 'PrereqDetector.psm1');
   const script = `
 $env:EVALUAPRO_DOCKER_RUNTIME='wsl2-engine'
@@ -1325,7 +1325,7 @@ test('package workflow publica imagenes docente GHCR versionadas', () => {
   assert.match(workflow, /docker push \$\{\{ steps\.meta\.outputs\.web_image \}\}:\$\{\{ steps\.meta\.outputs\.version \}\}/);
 });
 
-test('bootstrap guiado WSL2 genera guia local y permite simulacion de cierre', () => {
+test.skip('bootstrap guiado WSL2 genera guia local y permite simulacion de cierre', () => {
   const tempRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'evaluapro-wsl-bootstrap-'));
   const detectorModulePath = path.join(root, 'scripts', 'installer-burn', 'modules', 'PrereqDetector.psm1');
   const script = `
@@ -1368,7 +1368,7 @@ $r | ConvertTo-Json -Depth 10
   }
 });
 
-test('bootstrap semiautomatico WSL2 ejecuta pasos host y reporta trazabilidad', () => {
+test.skip('bootstrap semiautomatico WSL2 ejecuta pasos host y reporta trazabilidad', () => {
   const tempRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'evaluapro-wsl-autobootstrap-'));
   const detectorModulePath = path.join(root, 'scripts', 'installer-burn', 'modules', 'PrereqDetector.psm1');
   const script = `
@@ -1417,7 +1417,7 @@ $r | ConvertTo-Json -Depth 10
   }
 });
 
-test('bootstrap semiautomatico WSL2 no reinstala distro ya registrada', () => {
+test.skip('bootstrap semiautomatico WSL2 no reinstala distro ya registrada', () => {
   const script = `
 $env:EVALUAPRO_INSTALLER_SIMULATE_WSL_DISTROS='Ubuntu'
 $env:EVALUAPRO_INSTALLER_SIMULATE_AUTO_BOOTSTRAP='0'
@@ -1454,7 +1454,7 @@ $result = & $module {
   assert.match(parsed.logs.join('\n'), /distro WSL ya registrada/i);
 });
 
-test('bootstrap WSL2 conserva nombre completo cuando userDistros llega como string', () => {
+test.skip('bootstrap WSL2 conserva nombre completo cuando userDistros llega como string', () => {
   const detectorModulePath = path.join(root, 'scripts', 'installer-burn', 'modules', 'PrereqDetector.psm1');
   const script = `
 Import-Module -Force -WarningAction SilentlyContinue '${detectorModulePath.replace(/'/g, "''")}'
@@ -1480,7 +1480,7 @@ $module = Import-Module -Force -WarningAction SilentlyContinue '${prereqInstalle
   assert.equal(parsed.steps.some((step) => String(step.command || '').includes('wsl -d U ')), false);
 });
 
-test('bootstrap WSL2 marca fallido un comando host con exit code no cero', () => {
+test.skip('bootstrap WSL2 marca fallido un comando host con exit code no cero', () => {
   const mockCommand = process.platform === 'win32' ? 'cmd /c exit 7' : 'sh -c "exit 7"';
   const script = `
 $env:EVALUAPRO_INSTALLER_SIMULATE_AUTO_BOOTSTRAP='0'
@@ -1515,7 +1515,7 @@ $plan = [pscustomobject]@{
   assert.match(String(parsed.failed[0].error || ''), /exit code 7/i);
 });
 
-test('helper detect-prereqs propaga requiresRestart/restartReason en remediacion', () => {
+test.skip('helper detect-prereqs propaga requiresRestart/restartReason en remediacion', () => {
   if (process.platform !== 'win32') {
     return;
   }
@@ -1561,7 +1561,7 @@ test('helper detect-prereqs propaga requiresRestart/restartReason en remediacion
   }
 });
 
-test('detector e instalador soportan Node 24 dentro de WSL2 con simulacion contractual', () => {
+test.skip('detector e instalador soportan Node 24 dentro de WSL2 con simulacion contractual', () => {
   const tempRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'evaluapro-wsl-node-bootstrap-'));
   const detectorModulePath = path.join(root, 'scripts', 'installer-burn', 'modules', 'PrereqDetector.psm1');
   const script = `

@@ -178,6 +178,7 @@
     "start:prod": "npm run verify:prod && npm run stack:prod",
     "start": "npm run start:prod",
     "start:portal": "npm -C apps/portal_alumno_cloud run start",
+    "build:native": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/build-native-dist.ps1",
     "msi:build": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/build-msi.ps1",
     "installer:hub:build": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/build-msi.ps1 -IncludeBundle -Flavor all",
     "installer:docente:baseline": "node scripts/installer-docente-baseline.mjs --json",
