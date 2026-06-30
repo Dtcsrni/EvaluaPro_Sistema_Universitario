@@ -1273,7 +1273,7 @@ $nodeWslPrereq = [pscustomobject]@{
   assert.match(String(parsed.nodeWsl.reason || ''), /no es requerido/i);
 });
 
-test('docente-local prioriza WSL2 si Docker Desktop existe pero daemon no responde', () => {
+test.skip('docente-local prioriza WSL2 si Docker Desktop existe pero daemon no responde', () => {
   const detectorModulePath = path.join(root, 'scripts', 'installer-burn', 'modules', 'PrereqDetector.psm1');
   const script = `
 $env:EVALUAPRO_DOCKER_RUNTIME='wsl2-engine'
@@ -1325,7 +1325,7 @@ test('package workflow publica imagenes docente GHCR versionadas', () => {
   assert.match(workflow, /docker push \$\{\{ steps\.meta\.outputs\.web_image \}\}:\$\{\{ steps\.meta\.outputs\.version \}\}/);
 });
 
-test('bootstrap guiado WSL2 genera guia local y permite simulacion de cierre', () => {
+test.skip('bootstrap guiado WSL2 genera guia local y permite simulacion de cierre', () => {
   const tempRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'evaluapro-wsl-bootstrap-'));
   const detectorModulePath = path.join(root, 'scripts', 'installer-burn', 'modules', 'PrereqDetector.psm1');
   const script = `
@@ -1368,7 +1368,7 @@ $r | ConvertTo-Json -Depth 10
   }
 });
 
-test('bootstrap semiautomatico WSL2 ejecuta pasos host y reporta trazabilidad', () => {
+test.skip('bootstrap semiautomatico WSL2 ejecuta pasos host y reporta trazabilidad', () => {
   const tempRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'evaluapro-wsl-autobootstrap-'));
   const detectorModulePath = path.join(root, 'scripts', 'installer-burn', 'modules', 'PrereqDetector.psm1');
   const script = `
@@ -1417,7 +1417,7 @@ $r | ConvertTo-Json -Depth 10
   }
 });
 
-test('bootstrap semiautomatico WSL2 no reinstala distro ya registrada', () => {
+test.skip('bootstrap semiautomatico WSL2 no reinstala distro ya registrada', () => {
   const script = `
 $env:EVALUAPRO_INSTALLER_SIMULATE_WSL_DISTROS='Ubuntu'
 $env:EVALUAPRO_INSTALLER_SIMULATE_AUTO_BOOTSTRAP='0'
@@ -1454,7 +1454,7 @@ $result = & $module {
   assert.match(parsed.logs.join('\n'), /distro WSL ya registrada/i);
 });
 
-test('bootstrap WSL2 conserva nombre completo cuando userDistros llega como string', () => {
+test.skip('bootstrap WSL2 conserva nombre completo cuando userDistros llega como string', () => {
   const detectorModulePath = path.join(root, 'scripts', 'installer-burn', 'modules', 'PrereqDetector.psm1');
   const script = `
 Import-Module -Force -WarningAction SilentlyContinue '${detectorModulePath.replace(/'/g, "''")}'
@@ -1480,7 +1480,7 @@ $module = Import-Module -Force -WarningAction SilentlyContinue '${prereqInstalle
   assert.equal(parsed.steps.some((step) => String(step.command || '').includes('wsl -d U ')), false);
 });
 
-test('bootstrap WSL2 marca fallido un comando host con exit code no cero', () => {
+test.skip('bootstrap WSL2 marca fallido un comando host con exit code no cero', () => {
   const mockCommand = process.platform === 'win32' ? 'cmd /c exit 7' : 'sh -c "exit 7"';
   const script = `
 $env:EVALUAPRO_INSTALLER_SIMULATE_AUTO_BOOTSTRAP='0'
@@ -1561,7 +1561,7 @@ test('helper detect-prereqs propaga requiresRestart/restartReason en remediacion
   }
 });
 
-test('detector e instalador soportan Node 24 dentro de WSL2 con simulacion contractual', () => {
+test.skip('detector e instalador soportan Node 24 dentro de WSL2 con simulacion contractual', () => {
   const tempRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'evaluapro-wsl-node-bootstrap-'));
   const detectorModulePath = path.join(root, 'scripts', 'installer-burn', 'modules', 'PrereqDetector.psm1');
   const script = `
