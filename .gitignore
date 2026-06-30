@@ -65,6 +65,13 @@ tmp_elevated_runner.ps1
 packaging/wix/**/PublishOutputs.*.txt
 scripts/tests/*.tmp
 
+# Scratch session artifacts (Codex VM/E2E sessions, never versioned)
+scratch/
+apps/backend/scratch/
+apps/backend/src/assets/
+chrome/
+tmp/
+
 # OMR synthetic artifacts
 omr_samples_tv3/images/
 omr_samples_tv3/maps/
