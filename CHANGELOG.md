@@ -4,7 +4,7 @@ Este archivo sigue el formato "Keep a Changelog" (alto nivel) y SemVer.
 
 ## [Unreleased]
 
-## [1.1.0] - 2026-06-30
+## [1.1.1] - 2026-06-30
 
 ### Added
 - Migración de la arquitectura del instalador local (docente) a una distribución nativa Ultra-Ligera en Windows (removiendo hipervisor, WSL y Docker Desktop) mediante Node.js Portable embebido.
