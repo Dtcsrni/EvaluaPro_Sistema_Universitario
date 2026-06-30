@@ -4,6 +4,8 @@ Este archivo sigue el formato "Keep a Changelog" (alto nivel) y SemVer.
 
 ## [Unreleased]
 
+## [1.1.0] - 2026-06-30
+
 ### Added
 - Agregada búsqueda operativa en Google Classroom para filtrar roster de alumnos por nombre, correo, matrícula, alumno local o estrategia de match.
 - Agregada búsqueda en preview/resultado de importación Classroom para localizar submissions por alumno, correo, estado, match o id.
@@ -15,6 +17,7 @@ Este archivo sigue el formato "Keep a Changelog" (alto nivel) y SemVer.
 - Agregado `classroom:doctor` para revisar prerequisitos OAuth/Classroom sin imprimir secretos.
 - Agregado módulo de listas institucionales por plantilla con catálogo y exportación CUH inicial en XLSX/PDF.
 - Agregadas pruebas de hidratación con XLSX reales mayo-junio para Electrónica y Administración de la Calidad, incluyendo calificaciones históricas `AL:BA`.
+- Implementado el módulo backend de hidratación de cursos iniciados con `POST /api/hidratacion-cursos/preview` y `POST /api/hidratacion-cursos/importar`.
 
 ### Changed
 - El preview de Classroom ahora muestra todas las submissions coincidentes con contador visible, en lugar de limitar la revisión a las primeras 12 filas.
@@ -27,11 +30,6 @@ Este archivo sigue el formato "Keep a Changelog" (alto nivel) y SemVer.
 - `release:gate:prod-flow` permite registrar el entorno de evidencia (`production` por defecto, `local-smoke` para validación local separada).
 - `release:validate:stable` ahora exige evidencia QA automatizada de UX/UI y flujo docente desde `reports/qa/latest/manifest.json`; Classroom real queda como smoke operativo opcional.
 - La vista de Materias permite descargar la lista institucional CUH en XLSX editable o PDF imprimible por periodo activo.
-
-## [1.1.0] - 2026-06-25
-
-### Added
-- Implementado el módulo backend de hidratación de cursos iniciados con `POST /api/hidratacion-cursos/preview` y `POST /api/hidratacion-cursos/importar`.
 - Agregado import idempotente de alumnos desde XLSX por `periodoId + matricula`, registro de evidencias históricas desde columnas numéricas y deduplicación documental DOCX por SHA-256.
 - Agregada clasificación DOCX de `encuadre`, `parcial_externo` y `temario_o_material`, con conteo de reactivos/opciones para reutilización en preparación de examen global.
 - Validado preview con documentos reales de Electrónica y Aplicaciones Digitales: lista XLSX, encuadre y dos parciales externos.

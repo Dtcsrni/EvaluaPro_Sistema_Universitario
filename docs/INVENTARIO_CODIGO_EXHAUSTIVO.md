@@ -1,24 +1,24 @@
 # Inventario Exhaustivo de Codigo
 
-Fecha de generacion: 2026-06-29 01:43:08
+Fecha de generacion: 2026-06-30 04:07:40
 Fuente: git ls-files filtrado por existencia en workspace (solo archivos versionados presentes, excluye node_modules).
 
 ## Resumen
 
-- Total de piezas de codigo/config ejecutable inventariadas: 1131
+- Total de piezas de codigo/config ejecutable inventariadas: 1154
 - Extensiones incluidas: ts, tsx, js, jsx, mjs, cjs, json, yml, yaml, sh, cmd, ps1.
 
 ## Conteo por area
 
 | Area | Archivos |
 | --- | ---: |
-| backend | 406 |
-| frontend | 133 |
+| backend | 413 |
+| frontend | 134 |
 | portal_alumno_cloud | 67 |
 | ci | 17 |
-| scripts | 170 |
+| scripts | 175 |
 | ops | 3 |
-| docs | 174 |
+| docs | 183 |
 | raiz | 32 |
 
 ## Backend (apps/backend)
@@ -271,6 +271,9 @@ Fuente: git ls-files filtrado por existencia en workspace (solo archivos version
 - apps/backend/src/modulos/modulo_integraciones_classroom/servicioClassroomGoogle.ts
 - apps/backend/src/modulos/modulo_integraciones_classroom/servicioSyncClassroom.ts
 - apps/backend/src/modulos/modulo_integraciones_classroom/validacionesClassroom.ts
+- apps/backend/src/modulos/modulo_listas_institucionales/controladorListasInstitucionales.ts
+- apps/backend/src/modulos/modulo_listas_institucionales/rutasListasInstitucionales.ts
+- apps/backend/src/modulos/modulo_listas_institucionales/servicioListasInstitucionales.ts
 - apps/backend/src/modulos/modulo_omr_v1/contratosOmrV1.ts
 - apps/backend/src/modulos/modulo_omr_v1/controladorOmrV1.ts
 - apps/backend/src/modulos/modulo_omr_v1/familiasOmrV1.ts
@@ -370,11 +373,13 @@ Fuente: git ls-files filtrado por existencia en workspace (solo archivos version
 - apps/backend/tests/integracion/flujoExamen.test.ts
 - apps/backend/tests/integracion/hidratacionCursos.test.ts
 - apps/backend/tests/integracion/listaAcademicaContratos.test.ts
+- apps/backend/tests/integracion/listasInstitucionales.test.ts
 - apps/backend/tests/integracion/omrV1Workflow.test.ts
 - apps/backend/tests/integracion/pdfImpresionContrato.test.ts
 - apps/backend/tests/integracion/periodosBorradoDuplicados.test.ts
 - apps/backend/tests/integracion/plantillasCrudYPreview.test.ts
 - apps/backend/tests/integracion/plantillasDuplicadas.test.ts
+- apps/backend/tests/integracion/prodFlowLocalSmoke.test.ts
 - apps/backend/tests/integracion/qrEscaneoOmr.test.ts
 - apps/backend/tests/integracion/recoveryBundleGeneracion.test.ts
 - apps/backend/tests/integracion/recuperacionExamenes.test.ts
@@ -421,7 +426,9 @@ Fuente: git ls-files filtrado por existencia en workspace (solo archivos version
 - apps/backend/tests/sincronizacion.desde.test.ts
 - apps/backend/tests/sincronizacion.test.ts
 - apps/backend/tests/sincronizacion.usecases.cobertura.test.ts
+- apps/backend/tests/utils/mongo.test.ts
 - apps/backend/tests/utils/mongo.ts
+- apps/backend/tests/utils/testDbPath.ts
 - apps/backend/tests/utils/token.ts
 - apps/backend/tests/validar.test.ts
 - apps/backend/tests/variantes.test.ts
@@ -552,6 +559,7 @@ Fuente: git ls-files filtrado por existencia en workspace (solo archivos version
 - apps/frontend/tests/seccionCalificaciones.manualSelector.test.tsx
 - apps/frontend/tests/seccionEvaluaciones.test.tsx
 - apps/frontend/tests/seccionPeriodos.edit.test.tsx
+- apps/frontend/tests/seccionPeriodos.listasInstitucionales.test.tsx
 - apps/frontend/tests/setup.ts
 - apps/frontend/tests/sincronizacion.behavior.test.tsx
 - apps/frontend/tests/tema.provider.test.ts
@@ -671,6 +679,7 @@ Fuente: git ls-files filtrado por existencia en workspace (solo archivos version
 - scripts/ci/run-e2e-in-vm.ps1
 - scripts/ci/run-e2e-launcher.ps1
 - scripts/ci/set-e2e-qa-secret.ps1
+- scripts/classroom-doctor.mjs
 - scripts/clean-architecture-check.mjs
 - scripts/cleanup-old-evaluapro-registry.ps1
 - scripts/comercial/generar-llaves-licencia-rs256.mjs
@@ -735,9 +744,11 @@ Fuente: git ls-files filtrado por existencia en workspace (solo archivos version
 - scripts/perf-collect.ts
 - scripts/pipeline-contract-check.mjs
 - scripts/release/check-ci-streak.mjs
+- scripts/release/check-classroom-e2e-evidence.mjs
 - scripts/release/check-release-evidence.mjs
 - scripts/release/gate-prod-flow.mjs
 - scripts/release/preflight-global-prod.mjs
+- scripts/release/prod-flow-local-smoke.mjs
 - scripts/release/resolve-affected-installer-flavors.mjs
 - scripts/release/run-defender-scan.ps1
 - scripts/release/smoke-piloto-hibrido.mjs
@@ -785,6 +796,8 @@ Fuente: git ls-files filtrado por existencia en workspace (solo archivos version
 - scripts/tests/backend-coverage-batches.test.mjs
 - scripts/tests/backend-test-batches.test.mjs
 - scripts/tests/ci-workflow-contract.test.mjs
+- scripts/tests/classroom-doctor.test.mjs
+- scripts/tests/classroom-e2e-evidence.test.mjs
 - scripts/tests/dashboard-pwa-contract.test.mjs
 - scripts/tests/dashboard-repair.test.mjs
 - scripts/tests/dashboard-sw.test.mjs
@@ -1007,6 +1020,15 @@ Fuente: git ls-files filtrado por existencia en workspace (solo archivos version
 - docs/release/evidencias/1.0.2/integridad_sha256.json
 - docs/release/evidencias/1.0.2/manifest.json
 - docs/release/evidencias/1.0.2/rollback_readiness.json
+- docs/release/evidencias/1.1.0-local.0/integridad_sha256.json
+- docs/release/evidencias/1.1.0-local.0/manifest.json
+- docs/release/evidencias/1.1.0/integridad_sha256.json
+- docs/release/evidencias/1.1.0/manifest.json
+- docs/release/evidencias/1.1.0/rollback_readiness.json
+- docs/release/manual/classroom-e2e-real-mayo-junio.json
+- docs/release/manual/classroom-e2e-real-mayo-junio.template.json
+- docs/release/manual/prod-flow-1.1.0-mayo-junio.local.json
+- docs/release/manual/prod-flow-1.1.0-mayo-junio.template.json
 - docs/release/manual/prod-flow.template.json
 - docs/release/manual/rollback-readiness.json
 - docs/release/manual/rollback-readiness.template.json
