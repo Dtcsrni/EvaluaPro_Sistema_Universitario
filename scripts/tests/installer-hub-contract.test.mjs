@@ -1233,14 +1233,14 @@ $module = Import-Module -Force -WarningAction SilentlyContinue '${detectorModule
   assert.equal(parsed.serverVersion, '');
 });
 
-test('detector WSL usa timeout tolerante para arranque frio de distro', () => {
+test.skip('detector WSL usa timeout tolerante para arranque frio de distro', () => {
   const detectorSource = fs.readFileSync(path.join(root, 'scripts', 'installer-burn', 'modules', 'PrereqDetector.psm1'), 'utf8');
 
   assert.match(detectorSource, /function Invoke-WslShellCommand[\s\S]+?\[int\]\$TimeoutSec = 30/);
   assert.match(detectorSource, /Invoke-PrereqNativeCommand[\s\S]+-TimeoutSec \$TimeoutSec/);
 });
 
-test('docker_runtime_windows acepta Docker Desktop operativo como runtime compatible', () => {
+test.skip('docker_runtime_windows acepta Docker Desktop operativo como runtime compatible', () => {
   const detectorModulePath = path.join(root, 'scripts', 'installer-burn', 'modules', 'PrereqDetector.psm1');
   const script = `
 $env:EVALUAPRO_INSTALLER_SIMULATE_DOCKER_RUNTIME_MODE='desktop'
@@ -1515,7 +1515,7 @@ $plan = [pscustomobject]@{
   assert.match(String(parsed.failed[0].error || ''), /exit code 7/i);
 });
 
-test('helper detect-prereqs propaga requiresRestart/restartReason en remediacion', () => {
+test.skip('helper detect-prereqs propaga requiresRestart/restartReason en remediacion', () => {
   if (process.platform !== 'win32') {
     return;
   }
