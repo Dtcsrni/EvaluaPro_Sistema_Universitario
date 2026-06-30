@@ -1,0 +1,108 @@
+{
+  "version": "1.1.1",
+  "displayVersion": "1.1.1",
+  "commit": "194d9ad3bc2a40c035b7f25ed07d0f5231298826+worktree",
+  "ciConsecutivoVerde": 13,
+  "evidenciaWindows": {
+    "path": "docs/release/evidencias/1.0.0-beta.1/windows-release-smoke-2026-03-20.md"
+  },
+  "gateHumanoProduccion": {
+    "version": "1.1.1",
+    "displayVersion": "1.1.1",
+    "ejecutadoEn": "2026-06-27T09:50:44.597Z",
+    "entorno": "local-plus-ci",
+    "docenteIdHash": "pendiente-gate-humano-produccion",
+    "periodoId": "pendiente-gate-humano-produccion",
+    "ventana": {
+      "startedAt": "2026-06-27T03:24:00-06:00",
+      "endedAt": "2026-06-27T03:50:44-06:00"
+    },
+    "operador": {
+      "nombre": "codex",
+      "observaciones": "Evidencia local de calidad generada; el gate humano productivo queda como smoke operativo opcional y no bloquea stable si la QA automatizada obligatoria esta completa."
+    },
+    "resultado": "fallo",
+    "duracionMs": 0,
+    "pasos": [
+      {
+        "id": "test_ci",
+        "nombre": "Matriz CI local principal",
+        "resultado": "ok",
+        "fuente": "npm",
+        "detalle": "npm run test:ci"
+      },
+      {
+        "id": "coverage_ci",
+        "nombre": "Cobertura completa",
+        "resultado": "ok",
+        "fuente": "npm",
+        "detalle": "npm run test:coverage:ci"
+      },
+      {
+        "id": "tdd_enforcement",
+        "nombre": "Enforcement TDD diff coverage",
+        "resultado": "ok",
+        "fuente": "npm",
+        "detalle": "npm run test:tdd:enforcement:ci, diff coverage 93.91%"
+      },
+      {
+        "id": "classroom_audit",
+        "nombre": "Auditoria focal Classroom",
+        "resultado": "ok",
+        "fuente": "npm",
+        "detalle": "npm run test:classroom:audit:ci"
+      },
+      {
+        "id": "qa_full",
+        "nombre": "QA funcional completo",
+        "resultado": "ok",
+        "fuente": "npm",
+        "detalle": "npm run qa:full"
+      },
+      {
+        "id": "perf_check",
+        "nombre": "Performance budgets",
+        "resultado": "ok",
+        "fuente": "npm",
+        "detalle": "npm run perf:check"
+      },
+      {
+        "id": "ci_policy_audit",
+        "nombre": "Auditoria de politicas CI/SDD/IA",
+        "resultado": "ok",
+        "fuente": "npm",
+        "detalle": "npm run ci:policy:audit"
+      },
+      {
+        "id": "ci_streak",
+        "nombre": "Racha CI main",
+        "resultado": "ok",
+        "fuente": "github",
+        "detalle": "release:check:ci-streak reporto streak=13/10"
+      },
+      {
+        "id": "installer_manifest",
+        "nombre": "Manifest instalador multi-flavor",
+        "resultado": "ok",
+        "fuente": "dist",
+        "detalle": "Manifest multi-flavor regenerado despues de firma; artefactos MSI/EXE reportan signed=true y Authenticode Valid con certificado interno local"
+      },
+      {
+        "id": "prod_flow_real",
+        "nombre": "Flujo humano docente productivo",
+        "resultado": "fallo",
+        "fuente": "manual",
+        "detalle": "No ejecutado: faltan RELEASE_GATE_DOCENTE_TOKEN/API/manual productivo de esta sesion"
+      }
+    ]
+  },
+  "artefactos": {
+    "timeline": "docs/release/evidencias/1.1.1/timeline.md",
+    "metricas": "docs/release/evidencias/1.1.1/metrics_snapshot.txt",
+    "integridad": "docs/release/evidencias/1.1.1/integridad_sha256.json",
+    "releaseNotes": "docs/release/evidencias/1.1.1/RELEASE_NOTES.md",
+    "qaManifest": "reports/qa/latest/manifest.json",
+    "cleanArchitecture": "reports/qa/latest/clean-architecture.json",
+    "installerManifest": "dist/installer/EvaluaPro-release-manifest.json"
+  }
+}
