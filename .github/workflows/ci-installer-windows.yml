@@ -121,11 +121,15 @@ jobs:
       - name: Verificar artefactos
         shell: powershell
         run: |
-          $saasExe = Get-ChildItem -LiteralPath 'dist/installer/saas-completo' -Filter 'EvaluaPro-InstallerHub-saas-completo-v*.exe' -File | Select-Object -First 1
-          $docExe = Get-ChildItem -LiteralPath 'dist/installer/docente-local' -Filter 'EvaluaPro-InstallerHub-docente-local-v*.exe' -File | Select-Object -First 1
-          if (-not $saasExe) { throw "No existe dist/installer/saas-completo/EvaluaPro-InstallerHub-saas-completo-v*.exe" }
+          $saasExeList = @(Get-ChildItem -LiteralPath 'dist/installer/saas-completo' -Filter 'EvaluaPro-InstallerHub-saas-completo-v*.exe' -File)
+          if ($saasExeList.Count -ne 1) { throw "Debe existir exactamente UN (1) instalador saas-completo (se encontraron $($saasExeList.Count)). Esto previene subir versiones viejas a la release." }
+          $saasExe = $saasExeList[0]
+          
+          $docExeList = @(Get-ChildItem -LiteralPath 'dist/installer/docente-local' -Filter 'EvaluaPro-InstallerHub-docente-local-v*.exe' -File)
+          if ($docExeList.Count -ne 1) { throw "Debe existir exactamente UN (1) instalador docente-local (se encontraron $($docExeList.Count))." }
+          $docExe = $docExeList[0]
+          
           if (-not (Test-Path ($saasExe.FullName + '.sha256'))) { throw "No existe hash para $($saasExe.Name)" }
-          if (-not $docExe) { throw "No existe dist/installer/docente-local/EvaluaPro-InstallerHub-docente-local-v*.exe" }
           if (-not (Test-Path ($docExe.FullName + '.sha256'))) { throw "No existe hash para $($docExe.Name)" }
           if (Test-Path "dist/installer/EvaluaPro-InstallerHub-saas-completo.exe") { throw "No debe existir nombre legacy sin version: dist/installer/EvaluaPro-InstallerHub-saas-completo.exe" }
           if (Test-Path "dist/installer/EvaluaPro-InstallerHub-docente-local.exe") { throw "No debe existir nombre legacy sin version: dist/installer/EvaluaPro-InstallerHub-docente-local.exe" }
