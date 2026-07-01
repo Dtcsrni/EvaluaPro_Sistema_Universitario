@@ -14,6 +14,7 @@ Este archivo sigue el formato "Keep a Changelog" (alto nivel) y SemVer.
 - Agregada búsqueda operativa en Google Classroom para filtrar roster de alumnos por nombre, correo, matrícula, alumno local o estrategia de match.
 - Agregada búsqueda en preview/resultado de importación Classroom para localizar submissions por alumno, correo, estado, match o id.
 - Agregada la spec `SPEC-CLASSROOM-EXPERIENCIA-USUARIO` para cubrir experiencia de Classroom en grupos grandes.
+- `scripts/tests/installer-hub-contract.test.mjs`: Tests de contrato actualizados y aserciones obsoletas sobre WSL/Docker ignoradas para alinear con la nueva arquitectura nativa Node.js del instalador.
 - Agregado contrato de release estable que bloquea promoción si el manifest de instalador contiene artefactos sin firma.
 - Agregado smoke local reproducible del gate docente mayo-junio (`1.1.0-local.0`) para validar API, exportaciones CSV/DOCX/firma, métricas e integridad sin marcar producción como aprobada.
 - Agregado template manual para cerrar el E2E externo de Google Classroom real del periodo mayo-junio sin versionar secretos.
@@ -28,6 +29,7 @@ Este archivo sigue el formato "Keep a Changelog" (alto nivel) y SemVer.
 - La sincronización Classroom ahora resuelve alumnos locales desde índices en memoria por correo, matrícula e id, evitando consultas N+1 a `Alumno` por submission en grupos grandes.
 - El setup de pruebas backend usa bases SQLite temporales aisladas por worker, pool y proceso, evitando carreras entre gates Vitest ejecutados en paralelo.
 - Las pruebas frontend restauran rutas con `history.replaceState`/`pushState` para evitar navegaciones reales de jsdom durante validaciones de selector y utilidades.
+- `apps/backend/tests/integracion/classroom.v2.test.ts`: Resuelto error de linter por variable no usada (`ejecucion`).
 - `installer:sign` regenera hashes y manifest de release después de firmar, evitando publicar checksums o `signed` obsoletos tras mutar binarios.
 - El manifest de release de instaladores ahora valida firma con Authenticode/signtool y no bloquea por el JSON de manifest, que no es un binario firmable.
 - `release:validate:stable` exige que cada artefacto del manifest tenga `name`, `path`, `sha256` y firma válida declarada antes de aprobar estable.

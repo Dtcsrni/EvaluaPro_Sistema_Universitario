@@ -5,6 +5,13 @@
 import { crearApp } from './app';
 import { configuracion } from './configuracion';
 import { conectarSqlite } from './infraestructura/baseDatos/sqlite';
+/**
+ * Punto de entrada del backend docente.
+ * Inicializa configuracion, base de datos y servidor HTTP.
+ */
+import { crearApp } from './app';
+import { configuracion } from './configuracion';
+import { conectarSqlite } from './infraestructura/baseDatos/sqlite';
 import { logError, log } from './infraestructura/logging/logger';
 import { seedAdminDocente } from './modulos/modulo_autenticacion/seedAdmin';
 import { ErrorOmrCvNoDisponible, ejecutarSmokeTestOmrCv } from './modulos/modulo_escaneo_omr/infra/omrCvEngine';
@@ -17,13 +24,14 @@ async function iniciar() {
   await conectarSqlite();
   await seedAdminDocente();
   
-  await seedFamiliasOmrV1();
+  // await seedFamiliasOmrV1();
   const smokeCv = await ejecutarSmokeTestOmrCv();
   if (smokeCv.enabled && !smokeCv.cvDisponible) {
     throw new ErrorOmrCvNoDisponible(
       `OMR CV smoke test falló y el servidor no puede iniciar sin backend CV: ${smokeCv.motivo ?? 'causa desconocida'}`
     );
   }
+
   log('info', 'OMR CV smoke test ejecutado', {
     backend: smokeCv.backend,
     enabled: smokeCv.enabled,

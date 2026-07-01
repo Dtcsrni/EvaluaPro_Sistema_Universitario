@@ -188,4 +188,41 @@ describe('classroom v2', () => {
       .expect(200);
     expect(historial.body?.historial?.length).toBeGreaterThanOrEqual(2);
   });
+
+  it('maneja errores de red durante la importación (Network Error)', async () => {
+    const { periodo, auth } = await crearContexto();
+
+    vi.mocked(obtenerTokenAccesoClassroom).mockResolvedValue('token-mock');
+    // Simulamos que la API de Google falla abruptamente por error de red
+    vi.mocked(classroomGet).mockRejectedValue(new Error('Network Error from Google API'));
+
+    const ejecucion = await request(app)
+      .post('/api/evaluaciones/v2/classroom/importaciones/ejecutar')
+      .set(auth)
+      .send({
+        periodoId: String(periodo._id),
+        actividades: [{ courseId: 'course-1', courseWorkId: 'cw-1', tituloEvidencia: 'Actividad importada', ponderacion: 1, corte: 1 }]
+      })
+      .expect(200); // El controlador v2 devuelve 200 con reporte de errores, no crashea
+
+    expect(ejecucion.body?.importadas).toBe(0);
+    expect(ejecucion.body?.errores?.length).toBeGreaterThan(0);
+    // El backend enmascara errores genéricos por seguridad
+    expect(ejecucion.body?.errores[0]?.mensaje).toBe('Error al sincronizar actividad');
+  });
+
+  it('maneja expiración de token de Google en medio de la solicitud (Token Expired)', async () => {
+    const { periodo, auth } = await crearContexto();
+
+    vi.mocked(obtenerTokenAccesoClassroom).mockRejectedValue(new Error('Google OAuth token expired or revoked'));
+
+    await request(app)
+      .post('/api/evaluaciones/v2/classroom/importaciones/ejecutar')
+      .set(auth)
+      .send({
+        periodoId: String(periodo._id),
+        actividades: [{ courseId: 'course-1', courseWorkId: 'cw-1', tituloEvidencia: 'Actividad importada', ponderacion: 1, corte: 1 }]
+      })
+      .expect(500); // Si obtenerToken falla fuera del try-catch de actividades, arroja error global
+  });
 });

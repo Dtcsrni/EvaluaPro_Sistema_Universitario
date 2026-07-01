@@ -8,6 +8,7 @@ import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { describe, expect, it, vi, beforeEach } from 'vitest';
 import { SeccionEvaluaciones } from '../src/apps/app_docente/SeccionEvaluaciones';
 import { clienteApi } from '../src/apps/app_docente/clienteApiDocente';
+import { emitToast } from '../src/ui/toast/toastBus';
 
 vi.mock('../src/apps/app_docente/clienteApiDocente', () => ({
   clienteApi: {
@@ -68,5 +69,32 @@ describe('SeccionEvaluaciones', () => {
         })
       );
     });
+  });
+
+  it('maneja fallos de red (offline/500) de forma resiliente sin colapsar', async () => {
+    vi.mocked(clienteApi.enviar).mockRejectedValueOnce(new Error('Network Error'));
+
+    render(
+      <SeccionEvaluaciones
+        periodos={[{ _id: 'per-2', nombre: 'Periodo 2' }]}
+        alumnos={[{ _id: 'alu-2', nombreCompleto: 'Alumno 2', matricula: 'A2', periodoId: 'per-2' }]}
+        puedeGestionar
+        puedeClassroomConectar
+        puedeClassroomPull
+      />
+    );
+
+    expect(screen.getByRole('heading', { name: /Evaluaciones y políticas/i })).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: /Guardar política/i }));
+
+    await waitFor(() => {
+      expect(emitToast).toHaveBeenCalledWith(
+        expect.objectContaining({ level: 'error' })
+      );
+    });
+
+    // La UI no debe crashear, debe mantener el botón visible
+    expect(screen.getByRole('button', { name: /Guardar política/i })).toBeInTheDocument();
   });
 });

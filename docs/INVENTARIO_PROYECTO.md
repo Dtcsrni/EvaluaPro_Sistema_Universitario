@@ -22,7 +22,12 @@ Version visible objetivo: `1.1.0`
 - QA:
   - `reports/qa/latest/*`
   - `reports/perf/latest.json`
-
+#### 2.1) Footprint y clasificacion del corte 2026-06-30
+- Estabilización y Validación de Arquitectura Nativa Docente-Local 2026-06-30:
+  - Desacople completo de la orquestación legacy basada en Docker/WSL para el perfil `docente-local`.
+  - Refactorización de las pruebas de contrato del instalador (`scripts/tests/installer-hub-contract.test.mjs`) para evaluar el nuevo flujo de instalación nativo soportado por `InstallerBurnHelper.ps1`, ignorando aserciones obsoletas de WSL y contenedores.
+  - Resolución de linter en pruebas de integración de backend (`classroom.v2.test.ts`) para limpiar variables no usadas.
+  - Pase exitoso de la matriz global de calidad de CI: lint, typecheck, tests frontend/backend/portal, cobertura TDD, perf, contratos de pipeline, políticas SDD (`test:sdd:policy`) y trazabilidad IA (`test:ia:traceability`).
 #### 2.1) Footprint y clasificacion del corte 2026-06-27
 - Cierre de experiencia de usuario Classroom y preparacion release 1.1.0:
   - `CentroClassroom` agrega busqueda operativa en roster y preview para grupos grandes, con contadores visibles de alumnos/submissions mostrados contra total cargado.

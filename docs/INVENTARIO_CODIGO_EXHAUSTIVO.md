@@ -1,11 +1,11 @@
 # Inventario Exhaustivo de Codigo
 
-Fecha de generacion: 2026-06-30 07:56:36
+Fecha de generacion: 2026-06-30 12:50:10
 Fuente: git ls-files filtrado por existencia en workspace (solo archivos versionados presentes, excluye node_modules).
 
 ## Resumen
 
-- Total de piezas de codigo/config ejecutable inventariadas: 1155
+- Total de piezas de codigo/config ejecutable inventariadas: 1163
 - Extensiones incluidas: ts, tsx, js, jsx, mjs, cjs, json, yml, yaml, sh, cmd, ps1.
 
 ## Conteo por area
@@ -16,9 +16,9 @@ Fuente: git ls-files filtrado por existencia en workspace (solo archivos version
 | frontend | 134 |
 | portal_alumno_cloud | 67 |
 | ci | 17 |
-| scripts | 175 |
+| scripts | 176 |
 | ops | 3 |
-| docs | 184 |
+| docs | 191 |
 | raiz | 32 |
 
 ## Backend (apps/backend)
@@ -674,6 +674,7 @@ Fuente: git ls-files filtrado por existencia en workspace (solo archivos version
 - scripts/ai-session-start.mjs
 - scripts/ai-skills-mcp-policy-status.mjs
 - scripts/build-msi.ps1
+- scripts/build-native-dist.ps1
 - scripts/ci/run-e2e-auto.ps1
 - scripts/ci/run-e2e-host-canary.ps1
 - scripts/ci/run-e2e-in-vm.ps1
@@ -854,6 +855,7 @@ Fuente: git ls-files filtrado por existencia en workspace (solo archivos version
 - docs/comercial/feature-catalog.generated.json
 - docs/diagramas/mermaid.config.json
 - docs/diagramas/puppeteer.config.json
+- docs/handoff-input.json
 - docs/handoff/sesiones/2026-03-22/audit-sesion-2026-03-22T11-52-57.961Z.json
 - docs/handoff/sesiones/2026-03-22/implementacion-trazabilidad-agnostica.json
 - docs/handoff/sesiones/2026-03-22/sesion-2026-03-22T10-54-43.380Z.json
@@ -1007,6 +1009,9 @@ Fuente: git ls-files filtrado por existencia en workspace (solo archivos version
 - docs/handoff/sesiones/2026-06-23/sesion-2026-06-23T15-08-11.999Z.json
 - docs/handoff/sesiones/2026-06-23/sesion-2026-06-23T21-58-30.547Z.json
 - docs/handoff/sesiones/2026-06-30/sesion-2026-06-30T10-08-24.456Z.json
+- docs/handoff/sesiones/2026-06-30/sesion-2026-06-30T12-03-50.299Z.json
+- docs/handoff/sesiones/2026-06-30/sesion-2026-06-30T12-11-26.072Z.json
+- docs/handoff/sesiones/2026-06-30/sesion-2026-06-30T13-56-40.691Z.json
 - docs/handoff/trace.schema.json
 - docs/perf/baseline.business.json
 - docs/perf/baseline.json
@@ -1026,6 +1031,9 @@ Fuente: git ls-files filtrado por existencia en workspace (solo archivos version
 - docs/release/evidencias/1.1.0/integridad_sha256.json
 - docs/release/evidencias/1.1.0/manifest.json
 - docs/release/evidencias/1.1.0/rollback_readiness.json
+- docs/release/evidencias/1.1.1/integridad_sha256.json
+- docs/release/evidencias/1.1.1/manifest.json
+- docs/release/evidencias/1.1.1/rollback_readiness.json
 - docs/release/manual/classroom-e2e-real-mayo-junio.json
 - docs/release/manual/classroom-e2e-real-mayo-junio.template.json
 - docs/release/manual/prod-flow-1.1.0-mayo-junio.local.json

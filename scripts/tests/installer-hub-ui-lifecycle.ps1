@@ -315,14 +315,23 @@ function Capture-Window {
   )
   $rectangle = $Window.Current.BoundingRectangle
   if ($rectangle.Width -le 0 -or $rectangle.Height -le 0) { return '' }
-  $bitmap = New-Object System.Drawing.Bitmap([int]$rectangle.Width, [int]$rectangle.Height)
+  $x = [int]$rectangle.X
+  $y = [int]$rectangle.Y
+  $w = [int]$rectangle.Width
+  $h = [int]$rectangle.Height
+  if ($x -lt 0) { $x = 0 }
+  if ($y -lt 0) { $y = 0 }
+  $bitmap = New-Object System.Drawing.Bitmap($w, $h)
   $graphics = [System.Drawing.Graphics]::FromImage($bitmap)
   try {
-    $graphics.CopyFromScreen([int]$rectangle.X, [int]$rectangle.Y, 0, 0, $bitmap.Size)
+    $graphics.CopyFromScreen($x, $y, 0, 0, $bitmap.Size)
     $path = Join-Path $ReportDir ("{0}.png" -f $Name)
     $bitmap.Save($path, [System.Drawing.Imaging.ImageFormat]::Png)
     $script:screenshots.Add($path) | Out-Null
     return $path
+  } catch {
+    Write-QaLog "No se pudo capturar la ventana $Name en ($x, $y, $w, $h). Posible entorno sin display. Ignorando."
+    return ''
   } finally {
     $graphics.Dispose()
     $bitmap.Dispose()
