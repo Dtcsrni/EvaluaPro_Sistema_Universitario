@@ -742,7 +742,7 @@ Por favor, lee atentamente los siguientes términos antes de proceder con la ins
                 </Grid>
             </Border>
 
-            <Grid x:Name="SplashOverlay" Grid.RowSpan="3" Panel.ZIndex="99" Background="#CC111827" Visibility="Visible">
+            <Grid x:Name="SplashOverlay" Grid.RowSpan="3" Panel.ZIndex="99" Background="#CC111827" Visibility="Collapsed">
                 <Border Width="560" Height="310" CornerRadius="8" Background="#0F766E" BorderBrush="#5EEAD4" BorderThickness="1" HorizontalAlignment="Center" VerticalAlignment="Center" Padding="24">
                     <Grid>
                         <Grid.ColumnDefinitions>

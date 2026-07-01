@@ -4,6 +4,12 @@ Este archivo sigue el formato "Keep a Changelog" (alto nivel) y SemVer.
 
 ## [Unreleased]
 
+### Fixed
+- Installer Hub (Bootstrapper): Corregida la versión mostrada en el ejecutable a 1.1.1.
+- Installer Hub (Bootstrapper): Actualizado el logo a la versión correcta de alta calidad (`logo_sys.png`).
+- Installer Hub (Bootstrapper): Se retiró el Splash Overlay inicial para garantizar que la pantalla de confirmación de términos y condiciones sea siempre visible como el primer paso antes y durante la detección del entorno.
+
+
 ## [1.1.1] - 2026-06-30
 
 ### Added
