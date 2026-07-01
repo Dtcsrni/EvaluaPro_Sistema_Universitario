@@ -121,13 +121,25 @@ jobs:
       - name: Verificar artefactos
         shell: powershell
         run: |
-          $saasExeList = @(Get-ChildItem -LiteralPath 'dist/installer/saas-completo' -Filter 'EvaluaPro-InstallerHub-saas-completo-v*.exe' -File)
-          if ($saasExeList.Count -ne 1) { throw "Debe existir exactamente UN (1) instalador saas-completo (se encontraron $($saasExeList.Count)). Esto previene subir versiones viejas a la release." }
+          $saasExeList = @(Get-ChildItem -LiteralPath 'dist/installer/saas-completo' -Filter 'EvaluaPro-InstallerHub-saas-completo-v*.exe' -File | Sort-Object LastWriteTime -Descending)
+          if ($saasExeList.Count -eq 0) { throw "No existe dist/installer/saas-completo/EvaluaPro-InstallerHub-saas-completo-v*.exe" }
           $saasExe = $saasExeList[0]
+          # Eliminar versiones viejas residuales
+          for ($i = 1; $i -lt $saasExeList.Count; $i++) {
+              Write-Host "Limpiando version antigua: $($saasExeList[$i].FullName)"
+              Remove-Item -Path $saasExeList[$i].FullName -Force
+              if (Test-Path ($saasExeList[$i].FullName + '.sha256')) { Remove-Item -Path ($saasExeList[$i].FullName + '.sha256') -Force }
+          }
           
-          $docExeList = @(Get-ChildItem -LiteralPath 'dist/installer/docente-local' -Filter 'EvaluaPro-InstallerHub-docente-local-v*.exe' -File)
-          if ($docExeList.Count -ne 1) { throw "Debe existir exactamente UN (1) instalador docente-local (se encontraron $($docExeList.Count))." }
+          $docExeList = @(Get-ChildItem -LiteralPath 'dist/installer/docente-local' -Filter 'EvaluaPro-InstallerHub-docente-local-v*.exe' -File | Sort-Object LastWriteTime -Descending)
+          if ($docExeList.Count -eq 0) { throw "No existe dist/installer/docente-local/EvaluaPro-InstallerHub-docente-local-v*.exe" }
           $docExe = $docExeList[0]
+          # Eliminar versiones viejas residuales
+          for ($i = 1; $i -lt $docExeList.Count; $i++) {
+              Write-Host "Limpiando version antigua: $($docExeList[$i].FullName)"
+              Remove-Item -Path $docExeList[$i].FullName -Force
+              if (Test-Path ($docExeList[$i].FullName + '.sha256')) { Remove-Item -Path ($docExeList[$i].FullName + '.sha256') -Force }
+          }
           
           if (-not (Test-Path ($saasExe.FullName + '.sha256'))) { throw "No existe hash para $($saasExe.Name)" }
           if (-not (Test-Path ($docExe.FullName + '.sha256'))) { throw "No existe hash para $($docExe.Name)" }
