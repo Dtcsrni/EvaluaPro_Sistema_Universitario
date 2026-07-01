@@ -16,7 +16,7 @@ import { logError, log } from './infraestructura/logging/logger';
 import { seedAdminDocente } from './modulos/modulo_autenticacion/seedAdmin';
 import { ErrorOmrCvNoDisponible, ejecutarSmokeTestOmrCv } from './modulos/modulo_escaneo_omr/infra/omrCvEngine';
 
-import { seedFamiliasOmrV1 } from './modulos/modulo_omr_v1/seedOmrV1';
+// import { seedFamiliasOmrV1 } from './modulos/modulo_omr_v1/seedOmrV1';
 import { iniciarSchedulerCobranzaAutomatica } from './modulos/modulo_comercial_core/schedulerCobranza';
 import { iniciarSchedulerRetencionExamenes } from './modulos/modulo_generacion_pdf/schedulerRetencionExamenes';
 
