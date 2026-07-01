@@ -1,11 +1,11 @@
 # Inventario Exhaustivo de Codigo
 
-Fecha de generacion: 2026-06-30 12:50:10
+Fecha de generacion: 2026-07-01 14:57:39
 Fuente: git ls-files filtrado por existencia en workspace (solo archivos versionados presentes, excluye node_modules).
 
 ## Resumen
 
-- Total de piezas de codigo/config ejecutable inventariadas: 1163
+- Total de piezas de codigo/config ejecutable inventariadas: 1171
 - Extensiones incluidas: ts, tsx, js, jsx, mjs, cjs, json, yml, yaml, sh, cmd, ps1.
 
 ## Conteo por area
@@ -13,12 +13,12 @@ Fuente: git ls-files filtrado por existencia en workspace (solo archivos version
 | Area | Archivos |
 | --- | ---: |
 | backend | 413 |
-| frontend | 134 |
+| frontend | 135 |
 | portal_alumno_cloud | 67 |
 | ci | 17 |
-| scripts | 176 |
+| scripts | 177 |
 | ops | 3 |
-| docs | 191 |
+| docs | 195 |
 | raiz | 32 |
 
 ## Backend (apps/backend)
@@ -554,6 +554,7 @@ Fuente: git ls-files filtrado por existencia en workspace (solo archivos version
 - apps/frontend/tests/plantillas.refactor.test.tsx
 - apps/frontend/tests/portalSw.contract.test.ts
 - apps/frontend/tests/pwa.contract.test.ts
+- apps/frontend/tests/seccionAsistencias.test.tsx
 - apps/frontend/tests/seccionAutenticacion.googleOnly.test.tsx
 - apps/frontend/tests/seccionAutenticacion.test.tsx
 - apps/frontend/tests/seccionCalificaciones.manualSelector.test.tsx
@@ -819,6 +820,7 @@ Fuente: git ls-files filtrado por existencia en workspace (solo archivos version
 - scripts/tests/release-evidence-contract.test.mjs
 - scripts/tests/release-stable-promotion.test.mjs
 - scripts/tests/ruleset-main.test.mjs
+- scripts/tests/run-real-os-e2e.ps1
 - scripts/tests/sdd-audit.test.mjs
 - scripts/tests/security-workflow-policy.test.mjs
 - scripts/tests/stabilization-completion-audit.test.mjs
@@ -1012,6 +1014,10 @@ Fuente: git ls-files filtrado por existencia en workspace (solo archivos version
 - docs/handoff/sesiones/2026-06-30/sesion-2026-06-30T12-03-50.299Z.json
 - docs/handoff/sesiones/2026-06-30/sesion-2026-06-30T12-11-26.072Z.json
 - docs/handoff/sesiones/2026-06-30/sesion-2026-06-30T13-56-40.691Z.json
+- docs/handoff/sesiones/2026-06-30/sesion-2026-06-30T18-50-04.682Z.json
+- docs/handoff/sesiones/2026-06-30/sesion-2026-06-30T18-50-26.082Z.json
+- docs/handoff/sesiones/2026-06-30/sesion-2026-06-30T18-50-59.220Z.json
+- docs/handoff/sesiones/2026-07-01/sesion-2026-07-01T15-08-17.978Z.json
 - docs/handoff/trace.schema.json
 - docs/perf/baseline.business.json
 - docs/perf/baseline.json
