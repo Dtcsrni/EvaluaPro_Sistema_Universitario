@@ -1,17 +1,17 @@
 {
   "format": 1,
   "restore": {
-    "V:\\Software\\EvaluaPro\\packaging\\wix\\BurnBootstrapperApp\\EvaluaPro.BurnBootstrapperApp.csproj": {}
+    "C:\\Users\\evega\\EvaluaPro_Sistema_Universitario\\packaging\\wix\\BurnBootstrapperApp\\EvaluaPro.BurnBootstrapperApp.csproj": {}
   },
   "projects": {
-    "V:\\Software\\EvaluaPro\\packaging\\wix\\BurnBootstrapperApp\\EvaluaPro.BurnBootstrapperApp.csproj": {
-      "version": "1.0.0",
+    "C:\\Users\\evega\\EvaluaPro_Sistema_Universitario\\packaging\\wix\\BurnBootstrapperApp\\EvaluaPro.BurnBootstrapperApp.csproj": {
+      "version": "1.1.1",
       "restore": {
-        "projectUniqueName": "V:\\Software\\EvaluaPro\\packaging\\wix\\BurnBootstrapperApp\\EvaluaPro.BurnBootstrapperApp.csproj",
+        "projectUniqueName": "C:\\Users\\evega\\EvaluaPro_Sistema_Universitario\\packaging\\wix\\BurnBootstrapperApp\\EvaluaPro.BurnBootstrapperApp.csproj",
         "projectName": "EvaluaPro.BurnBootstrapperApp",
-        "projectPath": "V:\\Software\\EvaluaPro\\packaging\\wix\\BurnBootstrapperApp\\EvaluaPro.BurnBootstrapperApp.csproj",
+        "projectPath": "C:\\Users\\evega\\EvaluaPro_Sistema_Universitario\\packaging\\wix\\BurnBootstrapperApp\\EvaluaPro.BurnBootstrapperApp.csproj",
         "packagesPath": "C:\\Users\\evega\\.nuget\\packages\\",
-        "outputPath": "V:\\Software\\EvaluaPro\\packaging\\wix\\BurnBootstrapperApp\\obj\\",
+        "outputPath": "C:\\Users\\evega\\EvaluaPro_Sistema_Universitario\\packaging\\wix\\BurnBootstrapperApp\\obj\\",
         "projectStyle": "PackageReference",
         "configFilePaths": [
           "C:\\Users\\evega\\AppData\\Roaming\\NuGet\\NuGet.Config"
@@ -46,7 +46,7 @@
             "Microsoft.NET.ILLink.Tasks": {
               "suppressParent": "All",
               "target": "Package",
-              "version": "[8.0.27, )",
+              "version": "[8.0.28, )",
               "autoReferenced": true
             },
             "WixToolset.BootstrapperApplicationApi": {
@@ -68,15 +68,15 @@
           "downloadDependencies": [
             {
               "name": "Microsoft.AspNetCore.App.Runtime.win-x64",
-              "version": "[8.0.27, 8.0.27]"
+              "version": "[8.0.28, 8.0.28]"
             },
             {
               "name": "Microsoft.NETCore.App.Runtime.win-x64",
-              "version": "[8.0.27, 8.0.27]"
+              "version": "[8.0.28, 8.0.28]"
             },
             {
               "name": "Microsoft.WindowsDesktop.App.Runtime.win-x64",
-              "version": "[8.0.27, 8.0.27]"
+              "version": "[8.0.28, 8.0.28]"
             }
           ],
           "frameworkReferences": {
@@ -87,7 +87,7 @@
               "privateAssets": "none"
             }
           },
-          "runtimeIdentifierGraphPath": "C:\\Program Files\\dotnet\\sdk\\8.0.421/PortableRuntimeIdentifierGraph.json"
+          "runtimeIdentifierGraphPath": "C:\\Program Files\\dotnet\\sdk\\8.0.422/PortableRuntimeIdentifierGraph.json"
         }
       },
       "runtimes": {
