@@ -303,7 +303,11 @@ test('Installer Hub cumple contrato DESIGN.md de layout y accesibilidad WPF', ()
   assert.match(mainWindowXaml, /#15803D/);
   assert.doesNotMatch(mainWindowXaml, /#F3EFE7|#F7F2E9|#F4F1EA/);
   assert.doesNotMatch(mainWindowXaml, /LinearGradientBrush/);
-  assert.match(mainWindowXaml, /x:Name="AdvancedConfigExpander"[\s\S]*?IsExpanded="False"/);
+  assert.doesNotMatch(mainWindowXaml, /x:Name="AdvancedConfigExpander"/);
+  assert.doesNotMatch(mainWindowXaml, /Configuración avanzada|Mongo URI|MongoDB/i);
+  assert.doesNotMatch(mainWindowXaml, /x:Name="MongoUriTextBox"|x:Name="NodeEnvTextBox"|x:Name="ApiPortTextBox"/);
+  assert.match(mainWindowXaml, /x:Name="PrereqListView"[\s\S]*?MinHeight="120"[\s\S]*?MaxHeight="180"/);
+  assert.doesNotMatch(mainWindowXaml, /x:Name="PrereqListView"[^>]*Height="300"/);
   assert.match(mainWindowXaml, /x:Name="LogExpander"[\s\S]*?IsExpanded="False"/);
   assert.match(mainWindowXaml, /Text="Evidencia técnica"[\s\S]*?%ProgramData%\\EvaluaPro\\installer-hub\\logs/);
   assert.match(mainWindowXaml, /AutomationProperties\.Name="Ruta de bitácoras técnicas"/);
@@ -887,8 +891,8 @@ test.skip('bootstrapper Burn WPF .NET 8 orquesta deteccion, MSI y helper post-in
   assert.match(windowXaml, /BrandVersionBadgeTextBlock/);
   assert.match(windowXaml, /BrandStatementTextBlock/);
   assert.match(windowXaml, /Analizando prerequisitos\.\.\./);
-  assert.match(windowXaml, /Configuración avanzada/);
-  assert.match(windowXaml, /Requerir activación de licencia/);
+  assert.doesNotMatch(windowXaml, /Configuración avanzada|Mongo URI|MongoDB/i);
+  assert.doesNotMatch(windowXaml, /Requerir activación de licencia/);
   assert.match(windowXaml, /SplashOverlay/);
   assert.match(windowXaml, /RestartNowButton/);
   assert.match(windowXaml, /evaluapro-installer-logo\.png/);

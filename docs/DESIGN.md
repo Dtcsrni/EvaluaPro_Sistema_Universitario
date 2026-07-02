@@ -55,7 +55,7 @@ Fuente de verdad visual y UX para las superficies operativas de EvaluaPro: front
 
 ## Pasos del Wizard
 
-- `Preparar`: flavor, modo, ruta, accesos y configuracion avanzada colapsada.
+- `Preparar`: flavor, modo, ruta y accesos. La configuracion tecnica del flavor se resuelve con defaults internos; no debe exponerse como panel avanzado al usuario final.
 - `Revisar`: deteccion de prerequisitos, resumen accionable y tabla estable con scroll si aplica.
   - El Hub debe ser autonomo y adaptativo: ninguna sonda de `docker`, `wsl.exe` o prerequisito externo puede bloquear la UI sin timeout.
   - En `docente-local`, el runtime objetivo es `WSL2 + Docker Engine`; la ruta feliz no instala ni requiere `Docker Desktop`.

@@ -117,7 +117,7 @@ En este repo/equipo, el ejecutable recomendado para instalacion docente local qu
 
 ## Configuracion operativa y primer uso
 
-- El Hub detecta automaticamente valores existentes desde `.env` previo (si existe) y los precarga en la UI.
+- El Hub no expone configuracion avanzada en la UI. Para `docente-local`, resuelve la configuracion tecnica con defaults internos y valores existentes cuando aplique, sin mostrar campos de Mongo/puertos/CORS al usuario final.
 - Si falta configuracion critica del stack local, el flujo falla en `configuracion_operativa` (fail-fast) y no permite dejar instalacion incompleta.
 - En `docente-local`, portal/sync, OAuth/Classroom, correo y activacion comercial no exigida se difieren al primer uso. El stack local debe poder quedar listo sin URL ni credenciales de portal.
 - Defaults estandar recomendados (si no hay config previa):

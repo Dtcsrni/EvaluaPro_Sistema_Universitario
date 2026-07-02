@@ -26,6 +26,7 @@ Una promocion estable para usuarios finales de Windows no debe aprobarse si los 
 - **REQ-010:** Un workflow de build de instalador no debe marcar un release estable como `Latest`; solo el workflow de gate estable puede hacerlo despues de aprobar `release:validate:stable`.
 - **REQ-011:** Los procesos WiX del build deben tener timeout interno y limpiar procesos hijos para evitar builds colgados que dejen artefactos parciales.
 - **REQ-012:** `release:validate:stable` debe fallar si `docs/release/evidencias/<version>/manifest.json` no corresponde a la version objetivo.
+- **REQ-013:** El Installer Hub WPF no debe exponer configuracion avanzada legacy ni campos tecnicos de Mongo/puertos/CORS/licencia en la UI de usuario final; el flujo `docente-local` debe usar defaults internos verificables.
 
 ## Criterios de Aceptación
 - **AC-001 (REQ-001):** Un manifest completo con flavors requeridos y artefactos firmados permite aprobar el check de instalador.
@@ -40,6 +41,7 @@ Una promocion estable para usuarios finales de Windows no debe aprobarse si los 
 - **AC-010 (REQ-010):** `ci-installer-windows.yml` usa `make_latest:false` y `release-stable-gate.yml` ejecuta `gh release edit ... --latest` solo despues del gate.
 - **AC-011 (REQ-011):** `Invoke-WixBuildProcess` respeta `EVALUAPRO_WIX_PROCESS_TIMEOUT_SECONDS` y falla con mensaje accionable si WiX excede el tiempo permitido.
 - **AC-012 (REQ-012):** Una ejecucion con `--version=1.1.1` y evidencia `manifest.json` de `1.0.0` produce `No-Go` en `release-evidence`.
+- **AC-013 (REQ-013):** El contrato del Hub falla si aparecen `AdvancedConfigExpander`, `Configuración avanzada`, `Mongo URI`, `MongoDB` o controles XAML legacy de configuracion avanzada.
 
 ## Matriz de Trazabilidad
 
@@ -57,3 +59,4 @@ Una promocion estable para usuarios finales de Windows no debe aprobarse si los 
 | REQ-010 | Latest solo se marca despues del gate estable | scripts/tests/installer-hub-contract.test.mjs; scripts/tests/ci-workflow-contract.test.mjs | Completado |
 | REQ-011 | WiX no puede quedar colgado indefinidamente | scripts/tests/installer-hub-contract.test.mjs | Completado |
 | REQ-012 | Evidencia release debe coincidir con version objetivo | scripts/tests/release-stable-promotion.test.mjs | Completado |
+| REQ-013 | Hub no expone configuracion avanzada legacy | scripts/tests/installer-hub-contract.test.mjs | Completado |

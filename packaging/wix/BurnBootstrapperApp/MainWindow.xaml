@@ -365,10 +365,6 @@ Por favor, lee atentamente los siguientes términos antes de proceder con la ins
                                         </Grid>
                                     </Border>
                                     <Grid Margin="0,16,0,0">
-                                        <Grid.ColumnDefinitions>
-                                            <ColumnDefinition Width="*" />
-                                            <ColumnDefinition Width="*" />
-                                        </Grid.ColumnDefinitions>
                                         <StackPanel x:Name="FlavorPanel" Margin="0,0,10,0">
                                             <TextBlock Text="Edición" Style="{StaticResource FieldLabelStyle}" />
                                             <TextBlock Text="Perfil funcional del paquete." Style="{StaticResource HelpTextStyle}" />
@@ -425,55 +421,6 @@ Por favor, lee atentamente los siguientes términos antes de proceder con la ins
                                 </StackPanel>
                             </Border>
 
-                            <Expander x:Name="AdvancedConfigExpander" Grid.Column="1" Header="Configuración avanzada" IsExpanded="False" ToolTip="Opciones técnicas. En escenarios estándar conserva valores por defecto.">
-                                <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
-                                    <StackPanel Margin="0,10,0,0">
-                                        <TextBlock Text="Mongo URI" Style="{StaticResource FieldLabelStyle}" />
-                                        <TextBox x:Name="MongoUriTextBox" Margin="0,6,0,10" Text="mongodb://mongo_local:27017/evaluapro" ToolTip="Cadena de conexión a MongoDB usada por la API docente." />
-                                        <TextBlock Text="Entorno Node" Style="{StaticResource FieldLabelStyle}" />
-                                        <TextBox x:Name="NodeEnvTextBox" Margin="0,6,0,10" Text="production" ToolTip="Entorno de ejecución para Node.js." />
-                                        <Grid>
-                                            <Grid.ColumnDefinitions>
-                                                <ColumnDefinition Width="*" />
-                                                <ColumnDefinition Width="*" />
-                                            </Grid.ColumnDefinitions>
-                                            <StackPanel Margin="0,0,8,10">
-                                                <TextBlock Text="Puerto API" Style="{StaticResource FieldLabelStyle}" />
-                                                <TextBox x:Name="ApiPortTextBox" Margin="0,6,0,0" Text="4000" ToolTip="Puerto local de la API docente." />
-                                            </StackPanel>
-                                            <StackPanel Grid.Column="1" Margin="8,0,0,10">
-                                                <TextBlock Text="Puerto Portal" Style="{StaticResource FieldLabelStyle}" />
-                                                <TextBox x:Name="PortalPortTextBox" Margin="0,6,0,0" Text="4518" ToolTip="Puerto local del portal." />
-                                            </StackPanel>
-                                        </Grid>
-                                        <TextBlock Text="CORS" Style="{StaticResource FieldLabelStyle}" />
-                                        <TextBox x:Name="CorsOriginsTextBox" Margin="0,6,0,10" Text="http://localhost:4173,http://127.0.0.1:4173" ToolTip="Orígenes permitidos para llamadas del frontend a la API." />
-                                        <TextBlock Text="Portal alumno URL" Style="{StaticResource FieldLabelStyle}" />
-                                        <TextBox x:Name="PortalAlumnoUrlTextBox" Margin="0,6,0,10" Text="" ToolTip="Opcional en docente-local. Configura URL pública del portal al activar sincronización." />
-                                        <TextBlock Text="Clave API de portal" Style="{StaticResource FieldLabelStyle}" />
-                                        <TextBox x:Name="PortalApiKeyTextBox" Margin="0,6,0,10" Text="portal-key-shared" ToolTip="Clave compartida entre backend y portal." />
-                                        <CheckBox x:Name="PasswordResetEnabledCheckBox" Content="Habilitar restablecimiento de contraseña" Margin="0,0,0,10" ToolTip="Activa recuperación de contraseña." />
-                                        <TextBlock Text="URL base de restablecimiento de contraseña" Style="{StaticResource FieldLabelStyle}" />
-                                        <TextBox x:Name="PasswordResetUrlBaseTextBox" Margin="0,6,0,10" ToolTip="URL base usada en enlaces de recuperación." />
-                                        <Separator Margin="0,4,0,10" />
-                                        <CheckBox x:Name="RequireLicenseCheckBox" Content="Requerir activación de licencia" Margin="0,0,0,10" ToolTip="Exige credenciales de licencia válidas." />
-                                        <TextBlock Text="API comercial" Style="{StaticResource FieldLabelStyle}" />
-                                        <TextBox x:Name="LicenseApiBaseUrlTextBox" Margin="0,6,0,10" ToolTip="URL base del servicio comercial de licencias." />
-                                        <TextBlock Text="ID de tenant" Style="{StaticResource FieldLabelStyle}" />
-                                        <TextBox x:Name="TenantIdTextBox" Margin="0,6,0,10" ToolTip="Identificador de organización." />
-                                        <TextBlock Text="Código de activación" Style="{StaticResource FieldLabelStyle}" />
-                                        <TextBox x:Name="ActivationCodeTextBox" Margin="0,6,0,10" ToolTip="Código de activación." />
-                                        <TextBlock Text="Correo titular licencia" Style="{StaticResource FieldLabelStyle}" />
-                                        <TextBox x:Name="LicenseEmailTextBox" Margin="0,6,0,10" Text="soporte@tu-institucion.mx" ToolTip="Correo asociado a la licencia." />
-                                        <TextBlock Text="Canal de actualización" Style="{StaticResource FieldLabelStyle}" />
-                                        <TextBox x:Name="UpdateChannelTextBox" Margin="0,6,0,10" Text="stable" ToolTip="Canal remoto de actualización." />
-                                        <TextBlock Text="Asset público" Style="{StaticResource FieldLabelStyle}" />
-                                        <TextBox x:Name="UpdateAssetNameTextBox" Margin="0,6,0,10" IsReadOnly="True" ToolTip="Nombre del ejecutable público esperado." />
-                                        <TextBlock Text="Propietario / Repositorio" Style="{StaticResource FieldLabelStyle}" />
-                                        <TextBox x:Name="UpdateOwnerRepoTextBox" Margin="0,6,0,0" Text="Dtcsrni / EvaluaPro_Sistema_Universitario" IsReadOnly="True" ToolTip="Origen del release oficial." />
-                                    </StackPanel>
-                                </ScrollViewer>
-                            </Expander>
                             </Grid>
                         </ScrollViewer>
 
@@ -502,7 +449,7 @@ Por favor, lee atentamente los siguientes términos antes de proceder con la ins
                                             </StackPanel>
                                         </Grid>
                                     </Border>
-                                    <ListView x:Name="PrereqListView" Height="300" HorizontalContentAlignment="Stretch" AutomationProperties.Name="Resultado de prerequisitos" AutomationProperties.HelpText="Lista de requisitos detectados con versión y motivo." TabIndex="5">
+                                    <ListView x:Name="PrereqListView" MinHeight="120" MaxHeight="180" HorizontalContentAlignment="Stretch" AutomationProperties.Name="Resultado de prerequisitos" AutomationProperties.HelpText="Lista de requisitos detectados con versión y motivo." TabIndex="5">
                                         <ListView.ItemContainerStyle>
                                             <Style TargetType="ListViewItem">
                                                 <Setter Property="ToolTip" Value="{Binding ToolTipText}" />
