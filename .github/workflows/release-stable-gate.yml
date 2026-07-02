@@ -19,6 +19,9 @@ concurrency:
   group: release-stable-gate-${{ github.workflow }}-${{ inputs.version || github.ref_name || github.run_id }}
   cancel-in-progress: true
 
+permissions:
+  contents: write
+
 jobs:
   stable_gate:
     name: Stable Promotion Gate
@@ -94,6 +97,11 @@ jobs:
           --workflow=ci.yml
           --branch=main
           ${{ inputs.evidence_dir && format('--evidence-dir={0}', inputs.evidence_dir) || '' }}
+
+      - name: Marcar release como Latest
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release edit "v${{ steps.resolve_version.outputs.target }}" --repo "${{ github.repository }}" --latest
 
       - name: Publicar decision de auditoria
         if: always()

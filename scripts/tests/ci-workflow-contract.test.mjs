@@ -206,6 +206,20 @@ test('release stable gate materializa manifest del instalador antes de validar',
   assert.ok(validateIndex > manifestIndex, 'release stable gate debe validar despues de descargar el manifest');
 });
 
+test('release stable gate es el unico que promueve Latest despues de validar', () => {
+  const installerWorkflow = fs.readFileSync(path.join(workflowDir, 'ci-installer-windows.yml'), 'utf8');
+  const stableGateWorkflow = fs.readFileSync(path.join(workflowDir, 'release-stable-gate.yml'), 'utf8');
+  const validateIndex = stableGateWorkflow.indexOf('validate-stable-promotion.mjs');
+  const latestIndex = stableGateWorkflow.indexOf('gh release edit "v${{ steps.resolve_version.outputs.target }}"');
+
+  assert.match(installerWorkflow, /make_latest:\s*false/);
+  assert.doesNotMatch(installerWorkflow, /make_latest:\s*\$\{\{[^}]*!\(/);
+  assert.match(stableGateWorkflow, /permissions:\s*\n\s*contents:\s*write/);
+  assert.ok(validateIndex >= 0, 'release stable gate debe ejecutar validate-stable-promotion');
+  assert.ok(latestIndex > validateIndex, 'release stable gate debe marcar Latest solo despues de validar');
+  assert.match(stableGateWorkflow.slice(latestIndex), /--latest/);
+});
+
 test('Dockerfile backend incluye schema Prisma antes del build', () => {
   const dockerfile = fs.readFileSync(backendDockerfilePath, 'utf8');
   const prismaIndex = dockerfile.indexOf('COPY apps/backend/prisma ./apps/backend/prisma');

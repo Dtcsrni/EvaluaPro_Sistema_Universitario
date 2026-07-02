@@ -28,6 +28,7 @@ const dockerComposePath = path.join(root, 'docker-compose.yml');
 const dockerComposeProdBuildPath = path.join(root, 'docker-compose.prod-build.yml');
 const packageWorkflowPath = path.join(root, '.github', 'workflows', 'package.yml');
 const burnHelperPath = path.join(root, 'scripts', 'installer-burn', 'InstallerBurnHelper.ps1');
+const installerHubBundleGuardPath = path.join(root, 'scripts', 'assert-installer-hub-bundle.ps1');
 const operationalConfigModulePath = path.join(root, 'scripts', 'installer-burn', 'modules', 'OperationalConfig.psm1');
 const licenseSecurityModulePath = path.join(root, 'scripts', 'installer-burn', 'modules', 'LicenseClientSecurity.psm1');
 const prereqInstallerModulePath = path.join(root, 'scripts', 'installer-burn', 'modules', 'PrereqInstaller.psm1');
@@ -151,6 +152,7 @@ test('canal update por defecto es stable en config y scripts', () => {
 
 test('workflow de installer publica contratos nuevos de release', () => {
   const workflow = fs.readFileSync(path.join(root, '.github', 'workflows', 'ci-installer-windows.yml'), 'utf8');
+  const stableGateWorkflow = fs.readFileSync(path.join(root, '.github', 'workflows', 'release-stable-gate.yml'), 'utf8');
 
   assert.match(workflow, /actions\/setup-dotnet@v4/);
   assert.match(workflow, /dotnet-version:\s*8\.0\.x/);
@@ -161,6 +163,9 @@ test('workflow de installer publica contratos nuevos de release', () => {
   assert.match(workflow, /dist\/installer\/_internal\/\*\*/);
   assert.match(workflow, /Publicar release assets \(tags v\*\)/);
   assert.match(workflow, /steps\.stable_release_assets\.outputs\.files/);
+  assert.match(workflow, /make_latest:\s*false/);
+  assert.match(stableGateWorkflow, /permissions:\s*\n\s*contents:\s*write/);
+  assert.match(stableGateWorkflow, /gh release edit "v\$\{\{ steps\.resolve_version\.outputs\.target \}\}".*--latest/);
   assert.match(workflow, /dist\/installer\/saas-completo\/EvaluaPro-InstallerHub-saas-completo-v\*\.exe/);
   assert.match(workflow, /dist\/installer\/docente-local\/EvaluaPro-InstallerHub-docente-local-v\*\.exe/);
   assert.match(workflow, /dist\/installer\/_internal\/saas-completo\/EvaluaPro-saas-completo\.msi/);
@@ -206,15 +211,34 @@ test('runtime Docker Windows queda abstracto en dashboard, WiX y package scripts
 
 test('build-msi valida contenedor adjunto Burn antes de publicar bundle', () => {
   const buildMsi = fs.readFileSync(path.join(root, 'scripts', 'build-msi.ps1'), 'utf8');
+  const bundleGuard = fs.readFileSync(installerHubBundleGuardPath, 'utf8');
 
   assert.match(buildMsi, /function Assert-BurnBundleAttachedContainer/);
+  assert.match(buildMsi, /EVALUAPRO_WIX_PROCESS_TIMEOUT_SECONDS/);
+  assert.match(buildMsi, /WiX excedio timeout/);
+  assert.match(buildMsi, /ParentProcessId -eq \$proc\.Id/);
   assert.match(buildMsi, /'burn', 'extract'/);
   assert.match(buildMsi, /MinimumPayloadBytes/);
   assert.match(buildMsi, /Assert-BurnBundleAttachedContainer -WixExecutable \$wixExe -BundlePath \$bundleOut/);
+  assert.match(buildMsi, /function Assert-InstallerHubBundleVersion/);
+  assert.match(buildMsi, /assert-installer-hub-bundle\.ps1/);
+  assert.match(buildMsi, /Assert-InstallerHubBundleVersion -BundlePath \$bundleOut -ExpectedVersion \$effectiveVersionTag -WixExecutable \$wixExe/);
+  assert.match(bundleGuard, /Bootstrapper Application FileVersion/);
+  assert.match(bundleGuard, /Bootstrapper Application ProductVersion/);
+  assert.match(bundleGuard, /Regex\]::Escape\(\$Expected\)/);
+  assert.match(bundleGuard, /\^\{0\}\(\$\|\[\.\+-\]\)/);
+  assert.match(bundleGuard, /WixExecutable/);
+  assert.match(bundleGuard, /'burn', 'extract'/);
   assert.match(buildMsi, /function Assert-MsiInstallsAppPayload/);
   assert.match(buildMsi, /Assert-MsiInstallsAppPayload -MsiPath \$productOut -InstallFolderName \$installFolderName/);
   assert.match(buildMsi, /'docker-compose\.yml'/);
   assert.match(buildMsi, /'docker-compose\.prod-build\.yml'/);
+  assert.match(buildMsi, /-p:AssemblyVersion=\$VersionTag\.0/);
+  assert.match(buildMsi, /-p:FileVersion=\$VersionTag\.0/);
+  assert.match(buildMsi, /-p:InformationalVersion=\$VersionTag/);
+  assert.match(buildMsi, /Bootstrapper Application Burn publicada con version invalida/);
+  assert.match(buildMsi, /Publicando Bootstrapper Application Burn desde fuente/);
+  assert.doesNotMatch(buildMsi, /Reutilizando Bootstrapper Application Burn ya publicada/);
 });
 
 test('installer hub WPF publica timeline por etapas y resumen de error MSI visible', () => {
