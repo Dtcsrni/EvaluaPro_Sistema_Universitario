@@ -262,6 +262,7 @@ test('Installer Hub cumple contrato DESIGN.md de layout y accesibilidad WPF', ()
   const installerHubDocs = fs.readFileSync(path.join(root, 'docs', 'INSTALLER_HUB.md'), 'utf8');
   const mainWindowXaml = fs.readFileSync(burnBootstrapperWindowPath, 'utf8');
   const mainWindowCode = fs.readFileSync(burnBootstrapperWindowCodePath, 'utf8');
+  const bootstrapperProject = fs.readFileSync(burnBootstrapperProjectPath, 'utf8');
 
   assert.match(design, /Fuente de verdad visual y UX para las superficies operativas de EvaluaPro/);
   assert.match(design, /frontend docente, portal alumno, admin negocio, Dashboard local e Installer Hub/);
@@ -317,10 +318,23 @@ test('Installer Hub cumple contrato DESIGN.md de layout y accesibilidad WPF', ()
   assert.match(mainWindowXaml, /x:Name="FooterNextActionTextBlock"/);
   assert.match(mainWindowXaml, /<Setter Property="ToolTip" Value="\{Binding ToolTipText\}"/);
   assert.match(mainWindowXaml, /<Setter Property="AutomationProperties\.Name" Value="\{Binding AccessibleSummary\}"/);
-  assert.match(mainWindowXaml, /x:Name="OfficialLogoFrame"/);
-  assert.match(mainWindowXaml, /x:Name="OfficialLogoImage"[\s\S]*?RenderOptions\.BitmapScalingMode="HighQuality"/);
-  assert.match(mainWindowXaml, /x:Name="BrandGraphicStrip"/);
-  assert.match(mainWindowXaml, /x:Name="SplashOfficialLogoImage"[\s\S]*?RenderOptions\.BitmapScalingMode="HighQuality"/);
+  assert.match(mainWindowXaml, /x:Name="InstallerLogoFrame"/);
+  assert.match(mainWindowXaml, /x:Name="InstallerLogoImage"[\s\S]*?evaluapro-installer-logo\.png[\s\S]*?RenderOptions\.BitmapScalingMode="HighQuality"/);
+  assert.match(mainWindowXaml, /x:Name="SplashInstallerLogoImage"[\s\S]*?evaluapro-installer-logo\.png[\s\S]*?RenderOptions\.BitmapScalingMode="HighQuality"/);
+  assert.doesNotMatch(mainWindowXaml, /x:Name="OfficialLogoFrame"/);
+  assert.doesNotMatch(mainWindowXaml, /x:Name="OfficialLogoImage"/);
+  assert.doesNotMatch(mainWindowXaml, /x:Name="BrandGraphicStrip"/);
+  assert.doesNotMatch(mainWindowXaml, /x:Name="SplashOfficialLogoImage"/);
+  assert.match(mainWindowXaml, /Icon="pack:\/\/application:,,,\/assets\/evaluapro-installer-logo\.png"/);
+  assert.match(bootstrapperProject, /ApplicationIcon>[\s\S]*installer-logo-contrast\.ico/);
+  assert.match(bootstrapperProject, /logos\\evaluapro-installer-logo-contrast\.png" Link="assets\/evaluapro-installer-logo\.png"/);
+  assert.doesNotMatch(bootstrapperProject, /logos\\evaluapro-official-hero\.png" Link="assets\/evaluapro-installer-logo\.png"/);
+  assert.doesNotMatch(bootstrapperProject, /logos\\logo_sys\.png" Link="assets\/evaluapro-official-imagotipo\.png"/);
+  assert.doesNotMatch(bootstrapperProject, /oauth-logo-evaluapro-512\.png" Link="assets\/evaluapro-installer-logo\.png"/);
+  assert.doesNotMatch(mainWindowXaml, /evaluapro-official-(hero|imagotipo)\.png/);
+  assert.doesNotMatch(mainWindowXaml, />Docente local</);
+  assert.doesNotMatch(mainWindowXaml, />Evidencia</);
+  assert.doesNotMatch(mainWindowXaml, />Guiado</);
   assert.match(mainWindowXaml, /x:Name="SplashGraphicIndicators"/);
   assert.match(mainWindowXaml, /BrandTileStyle/);
   assert.match(mainWindowXaml, /x:Name="StepConnectorTermsPrepare"/);
@@ -667,7 +681,12 @@ test('firma de instaladores regenera hashes y manifest despues de mutar binarios
   const signScript = fs.readFileSync(path.join(root, 'scripts', 'sign-installer-artifacts.ps1'), 'utf8');
 
   assert.match(signScript, /generate-installer-hashes\.ps1/);
-  assert.match(signScript, /-InstallerDir \$InstallerDir/);
+  assert.match(signScript, /Test-AlreadySignedValid/);
+  assert.match(signScript, /Ya firmado y valido; se omite/);
+  assert.match(signScript, /'-InstallerDir'[\s\S]*\$InstallerDir/);
+  assert.match(signScript, /Start-Process[\s\S]*'-File'[\s\S]*\$hashScript[\s\S]*-PassThru/);
+  assert.match(signScript, /\$hashProcess\.ExitCode/);
+  assert.doesNotMatch(signScript, /& \$hashScript -InstallerDir \$InstallerDir\s+if \(\$LASTEXITCODE -ne 0\)/);
   assert.match(signScript, /post-firma/);
 });
 
@@ -863,8 +882,8 @@ test.skip('bootstrapper Burn WPF .NET 8 orquesta deteccion, MSI y helper post-in
   assert.match(windowXaml, /repair/);
   assert.match(windowXaml, /uninstall/);
   assert.match(windowXaml, /SelectionChanged="ModeComboBox_OnSelectionChanged"/);
-  assert.match(windowXaml, /BrandModeBadgeTextBlock/);
-  assert.match(windowXaml, /BrandFlavorBadgeTextBlock/);
+  assert.doesNotMatch(windowXaml, /BrandModeBadgeTextBlock/);
+  assert.doesNotMatch(windowXaml, /BrandFlavorBadgeTextBlock/);
   assert.match(windowXaml, /BrandVersionBadgeTextBlock/);
   assert.match(windowXaml, /BrandStatementTextBlock/);
   assert.match(windowXaml, /Analizando prerequisitos\.\.\./);
@@ -872,7 +891,8 @@ test.skip('bootstrapper Burn WPF .NET 8 orquesta deteccion, MSI y helper post-in
   assert.match(windowXaml, /Requerir activación de licencia/);
   assert.match(windowXaml, /SplashOverlay/);
   assert.match(windowXaml, /RestartNowButton/);
-  assert.match(windowXaml, /evaluapro-official-(hero|imagotipo)\.png/);
+  assert.match(windowXaml, /evaluapro-installer-logo\.png/);
+  assert.doesNotMatch(windowXaml, /evaluapro-official-(hero|imagotipo)\.png/);
   assert.match(windowCode, /ConfigureInitialFlavorLayout/);
   assert.match(windowCode, /NotifyInitialDetectionCompleted/);
   assert.match(windowCode, /SetRestartActionVisible/);

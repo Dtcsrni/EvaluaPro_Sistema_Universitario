@@ -189,6 +189,13 @@ function Invoke-SignTool {
   }
 }
 
+function Test-AlreadySignedValid {
+  param([Parameter(Mandatory = $true)][string]$TargetPath)
+
+  $signature = Get-AuthenticodeSignature -FilePath $TargetPath
+  return $signature.Status -eq 'Valid'
+}
+
 function Test-IsBurnBundle {
   param([Parameter(Mandatory = $true)][string]$TargetPath)
 
@@ -277,6 +284,11 @@ try {
   }
 
   foreach ($target in $targets) {
+    if (Test-AlreadySignedValid -TargetPath $target) {
+      Write-Host "[signing] Ya firmado y valido; se omite $target"
+      continue
+    }
+
     Write-Host "[signing] Firmando $target"
     if (Test-IsBurnBundle -TargetPath $target) {
       Invoke-BurnAwareBundleSigning -BundlePath $target -PfxPath $pfxPath -PfxPassword $certPassword -Thumbprint $certThumbprint -TimestampUrl $timestampUrl
@@ -290,9 +302,17 @@ try {
   }
 
   $hashScript = Join-Path $root 'scripts\generate-installer-hashes.ps1'
-  & $hashScript -InstallerDir $InstallerDir
-  if ($LASTEXITCODE -ne 0) {
-    throw "Fallo regeneracion de hashes/manifest post-firma (exit=$LASTEXITCODE)."
+  $hashProcess = Start-Process -FilePath (Get-Process -Id $PID).Path -ArgumentList @(
+    '-NoProfile',
+    '-ExecutionPolicy',
+    'Bypass',
+    '-File',
+    $hashScript,
+    '-InstallerDir',
+    $InstallerDir
+  ) -NoNewWindow -Wait -PassThru
+  if ($hashProcess.ExitCode -ne 0) {
+    throw "Fallo regeneracion de hashes/manifest post-firma (exit=$($hashProcess.ExitCode))."
   }
 
   Write-Host '[signing] Firma completada con timestamp.'

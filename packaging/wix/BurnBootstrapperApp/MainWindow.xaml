@@ -9,7 +9,7 @@
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         mc:Ignorable="d"
         Title="EvaluaPro Installer Hub"
-        Icon="pack://application:,,,/assets/evaluapro-official-imagotipo.png"
+        Icon="pack://application:,,,/assets/evaluapro-installer-logo.png"
         Width="1040"
         Height="760"
         MinWidth="980"
@@ -179,49 +179,16 @@
                         <ColumnDefinition Width="*" />
                         <ColumnDefinition Width="Auto" />
                     </Grid.ColumnDefinitions>
-                    <Border x:Name="OfficialLogoFrame" Width="76" Height="76" CornerRadius="8" Background="#ECFEFF" BorderBrush="#99F6E4" BorderThickness="1" Padding="8" Margin="0,0,16,0" ToolTip="Logo oficial de EvaluaPro integrado al Installer Hub.">
-                        <Grid>
-                            <Border CornerRadius="8" Background="White" BorderBrush="#CCFBF1" BorderThickness="1" Padding="5">
-                                <Image x:Name="OfficialLogoImage" Source="pack://application:,,,/assets/evaluapro-official-imagotipo.png" Stretch="Uniform" RenderOptions.BitmapScalingMode="HighQuality" AutomationProperties.Name="Logo oficial EvaluaPro" />
-                            </Border>
-                            <Border Width="22" Height="22" CornerRadius="8" Background="#0F766E" BorderBrush="White" BorderThickness="2" HorizontalAlignment="Right" VerticalAlignment="Bottom" Margin="0,0,-4,-4">
-                                <Path Data="M4,11 L9,16 L18,6" Stroke="White" StrokeThickness="2" StrokeStartLineCap="Round" StrokeEndLineCap="Round" Stretch="Uniform" Margin="4" />
-                            </Border>
-                        </Grid>
+                    <Border x:Name="InstallerLogoFrame" Width="76" Height="76" CornerRadius="8" Background="#F8FAFC" BorderBrush="{StaticResource BorderBrushNeutral}" BorderThickness="1" Padding="7" Margin="0,0,16,0" ToolTip="Identidad EvaluaPro del instalador.">
+                        <Image x:Name="InstallerLogoImage" Source="pack://application:,,,/assets/evaluapro-installer-logo.png" Stretch="Uniform" RenderOptions.BitmapScalingMode="HighQuality" AutomationProperties.Name="Logo EvaluaPro Installer Hub" />
                     </Border>
                     <StackPanel Grid.Column="1" VerticalAlignment="Center">
                         <TextBlock Text="EvaluaPro Installer Hub" FontSize="22" FontWeight="SemiBold" Foreground="{StaticResource TextBrush}" />
                         <TextBlock x:Name="BrandStatementTextBlock" Margin="0,2,0,0" FontSize="12" Foreground="{StaticResource MutedTextBrush}" Text="Asistente guiado para instalar, reparar, actualizar y desinstalar con evidencia operativa." TextWrapping="Wrap" />
-                        <WrapPanel x:Name="BrandGraphicStrip" Margin="0,2,0,0">
-                            <Border Style="{StaticResource BrandTileStyle}" ToolTip="Instalación local para uso docente, con prerequisitos validados antes de ejecutar cambios.">
-                                <StackPanel Orientation="Horizontal">
-                                    <Path Width="14" Height="14" Data="M3,4 L11,4 M3,7 L11,7 M3,10 L8,10" Stroke="{StaticResource PrimaryBrush}" StrokeThickness="1.8" StrokeStartLineCap="Round" StrokeEndLineCap="Round" Margin="0,0,6,0" />
-                                    <TextBlock Text="Docente local" FontSize="11" FontWeight="SemiBold" Foreground="{StaticResource TextBrush}" />
-                                </StackPanel>
-                            </Border>
-                            <Border Style="{StaticResource BrandTileStyle}" ToolTip="El Hub mantiene evidencia técnica de detección, ejecución y resultado.">
-                                <StackPanel Orientation="Horizontal">
-                                    <Path Width="14" Height="14" Data="M2,11 L5,8 L8,10 L12,4 M12,4 L12,8 M12,4 L8,4" Stroke="{StaticResource AccentBrush}" StrokeThickness="1.8" StrokeStartLineCap="Round" StrokeEndLineCap="Round" Margin="0,0,6,0" />
-                                    <TextBlock Text="Evidencia" FontSize="11" FontWeight="SemiBold" Foreground="{StaticResource TextBrush}" />
-                                </StackPanel>
-                            </Border>
-                            <Border Style="{StaticResource BrandTileStyle}" ToolTip="Operación con estado claro: preparar, revisar, ejecutar y resultado.">
-                                <StackPanel Orientation="Horizontal">
-                                    <Path Width="14" Height="14" Data="M7,2 L12,5 L12,10 L7,13 L2,10 L2,5 Z M7,5 L7,9" Stroke="{StaticResource WarningBrush}" StrokeThickness="1.7" StrokeStartLineCap="Round" StrokeEndLineCap="Round" StrokeLineJoin="Round" Margin="0,0,6,0" />
-                                    <TextBlock Text="Guiado" FontSize="11" FontWeight="SemiBold" Foreground="{StaticResource TextBrush}" />
-                                </StackPanel>
-                            </Border>
-                        </WrapPanel>
                     </StackPanel>
                     <StackPanel Grid.Column="2" Orientation="Horizontal" VerticalAlignment="Center">
                         <Border Style="{StaticResource StatusBadgeStyle}">
                             <TextBlock x:Name="HubVersionTextBlock" Text="v-" FontSize="12" FontWeight="SemiBold" Foreground="{StaticResource TextBrush}" />
-                        </Border>
-                        <Border Style="{StaticResource StatusBadgeStyle}" Background="#EFF6FF" BorderBrush="#BFDBFE">
-                            <TextBlock x:Name="BrandModeBadgeTextBlock" Text="Instalación" FontSize="12" FontWeight="SemiBold" Foreground="{StaticResource AccentBrush}" />
-                        </Border>
-                        <Border Style="{StaticResource StatusBadgeStyle}" Background="#F8FAFC" BorderBrush="{StaticResource BorderBrushNeutral}">
-                            <TextBlock x:Name="BrandFlavorBadgeTextBlock" Text="EvaluaPro" FontSize="12" FontWeight="SemiBold" Foreground="{StaticResource TextBrush}" />
                         </Border>
                         <Border Style="{StaticResource StatusBadgeStyle}" Visibility="Collapsed">
                             <TextBlock x:Name="BrandVersionBadgeTextBlock" Text="Burn + MSI + helper" />
@@ -752,7 +719,7 @@ Por favor, lee atentamente los siguientes términos antes de proceder con la ins
                         <Border Width="138" Height="138" CornerRadius="8" Background="#ECFEFF" BorderBrush="#99F6E4" BorderThickness="1" Padding="10" HorizontalAlignment="Center" VerticalAlignment="Center">
                             <Grid>
                                 <Border CornerRadius="8" Background="White" BorderBrush="#CCFBF1" BorderThickness="1" Padding="8">
-                                    <Image x:Name="SplashOfficialLogoImage" Source="pack://application:,,,/assets/evaluapro-official-imagotipo.png" Stretch="Uniform" RenderOptions.BitmapScalingMode="HighQuality" AutomationProperties.Name="Logo oficial EvaluaPro en inicio" />
+                                    <Image x:Name="SplashInstallerLogoImage" Source="pack://application:,,,/assets/evaluapro-installer-logo.png" Stretch="Uniform" RenderOptions.BitmapScalingMode="HighQuality" AutomationProperties.Name="Logo EvaluaPro Installer Hub en inicio" />
                                 </Border>
                                 <Border Width="34" Height="34" CornerRadius="8" Background="#2563EB" BorderBrush="White" BorderThickness="2" HorizontalAlignment="Right" VerticalAlignment="Bottom" Margin="0,0,-6,-6">
                                     <Path Data="M6,17 L14,24 L28,9" Stroke="White" StrokeThickness="3" StrokeStartLineCap="Round" StrokeEndLineCap="Round" Stretch="Uniform" Margin="6" />

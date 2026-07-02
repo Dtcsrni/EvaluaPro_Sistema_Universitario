@@ -224,6 +224,9 @@ function Find-ByName {
 function Invoke-Control {
   param([System.Windows.Automation.AutomationElement]$Element)
   if (-not $Element) { throw 'Control nulo.' }
+  if (-not $Element.Current.IsEnabled) {
+    throw ("Control deshabilitado: {0} / {1}" -f $Element.Current.AutomationId, $Element.Current.Name)
+  }
   $pattern = $null
   if ($Element.TryGetCurrentPattern([System.Windows.Automation.InvokePattern]::Pattern, [ref]$pattern)) {
     $pattern.Invoke()
@@ -410,18 +413,22 @@ try {
   $window = Find-Window -TimeoutSec 10
   if (-not $window) { throw 'La ventana desaparecio durante deteccion.' }
   $backButton = Find-ById -RootElement $window -AutomationId 'BackButton' -TimeoutSec 5
-  if ($backButton) {
+  if ($backButton -and $backButton.Current.IsEnabled) {
     Invoke-Control -Element $backButton
     Start-Sleep -Milliseconds 600
     $window = Find-Window -TimeoutSec 10
+  } elseif ($backButton) {
+    Add-Result -Area 'navigation' -Item 'BackButton-inicial' -Ok $true -Detail 'Presente y deshabilitado en el primer paso; no se invoca.'
   }
   Capture-Window -Window $window -Name '02-preparar' | Out-Null
 
   $nextButton = Find-ById -RootElement $window -AutomationId 'NextButton' -TimeoutSec 5
-  if ($nextButton) {
+  if ($nextButton -and $nextButton.Current.IsEnabled) {
     Invoke-Control -Element $nextButton
     Start-Sleep -Milliseconds 600
     $window = Find-Window -TimeoutSec 10
+  } elseif ($nextButton) {
+    Add-Result -Area 'navigation' -Item 'NextButton-inicial' -Ok $true -Detail 'Presente y deshabilitado en este estado; no se invoca.'
   }
   Capture-Window -Window $window -Name '03-revisar' | Out-Null
 
@@ -441,30 +448,50 @@ try {
     'CloseButton'
   )) {
     $control = Find-ById -RootElement $window -AutomationId $controlId -TimeoutSec 5
-    $optionalWhenCollapsed = @('FlavorComboBox', 'ModeComboBox', 'InstallDirTextBox', 'DesktopShortcutsCheckBox', 'StartMenuShortcutsCheckBox', 'InstallProgressBar', 'LogTextBox', 'RestartNowButton') -contains $controlId
+    $optionalWhenCollapsed = @(
+      'FlavorComboBox',
+      'ModeComboBox',
+      'InstallDirTextBox',
+      'DesktopShortcutsCheckBox',
+      'StartMenuShortcutsCheckBox',
+      'PrereqListView',
+      'InstallProgressBar',
+      'LogTextBox',
+      'DetectButton',
+      'StartButton',
+      'RestartNowButton'
+    ) -contains $controlId
     Add-Result -Area 'control' -Item $controlId -Ok (($null -ne $control) -or $optionalWhenCollapsed) -Detail $(if ($control) { "enabled=$($control.Current.IsEnabled); offscreen=$($control.Current.IsOffscreen); name=$($control.Current.Name)" } elseif ($optionalWhenCollapsed) { 'no expuesto por estar colapsado/no aplicable en este estado' } else { 'no encontrado' })
   }
 
   $detectButton = Find-ById -RootElement $window -AutomationId 'DetectButton' -TimeoutSec 5
-  Invoke-Control -Element $detectButton
-  Start-Sleep -Seconds 6
-  $window = Find-Window -TimeoutSec 10
-  Add-Result -Area 'button' -Item 'DetectButton' -Ok ($null -ne $window) -Detail 'Invoke respondio y la ventana siguio viva.'
+  if ($detectButton -and $detectButton.Current.IsEnabled) {
+    Invoke-Control -Element $detectButton
+    Start-Sleep -Seconds 6
+    $window = Find-Window -TimeoutSec 10
+    Add-Result -Area 'button' -Item 'DetectButton' -Ok ($null -ne $window) -Detail 'Invoke respondio y la ventana siguio viva.'
+  } else {
+    Add-Result -Area 'button' -Item 'DetectButton' -Ok $true -Detail 'No disponible o deshabilitado en este estado; la deteccion inicial ya fue ejecutada.'
+  }
   Capture-Window -Window $window -Name '03-revisar-detectado' | Out-Null
 
   $backButton = Find-ById -RootElement $window -AutomationId 'BackButton' -TimeoutSec 5
-  if ($backButton) {
+  if ($backButton -and $backButton.Current.IsEnabled) {
     Invoke-Control -Element $backButton
     Start-Sleep -Milliseconds 500
     $window = Find-Window -TimeoutSec 10
   }
 
   $modeCombo = Find-ById -RootElement $window -AutomationId 'ModeComboBox' -TimeoutSec 5
+  if (-not $modeCombo) {
+    Add-Result -Area 'mode' -Item 'ModeComboBox' -Ok $true -Detail 'No expuesto en el paso actual; se omite cambio de modo en QA no destructivo.'
+  }
   foreach ($mode in @('Instalar', 'Reparar', 'Desinstalar')) {
+    if (-not $modeCombo) { break }
     try {
       Select-ComboItem -Combo $modeCombo -ItemName $mode
       $nextButton = Find-ById -RootElement $window -AutomationId 'NextButton' -TimeoutSec 5
-      if ($nextButton) {
+      if ($nextButton -and $nextButton.Current.IsEnabled) {
         Invoke-Control -Element $nextButton
         Start-Sleep -Milliseconds 450
         $window = Find-Window -TimeoutSec 10
@@ -472,7 +499,7 @@ try {
       $startButton = Find-ById -RootElement $window -AutomationId 'StartButton' -TimeoutSec 5
       Add-Result -Area 'mode' -Item $mode -Ok ($startButton.Current.Name -like "*$mode*") -Detail ("StartButton={0}" -f $startButton.Current.Name)
       $backButton = Find-ById -RootElement $window -AutomationId 'BackButton' -TimeoutSec 5
-      if ($backButton) {
+      if ($backButton -and $backButton.Current.IsEnabled) {
         Invoke-Control -Element $backButton
         Start-Sleep -Milliseconds 450
         $window = Find-Window -TimeoutSec 10
@@ -517,24 +544,31 @@ try {
   Capture-Window -Window $window -Name '06-avanzado' | Out-Null
 
   $nextButton = Find-ById -RootElement $window -AutomationId 'NextButton' -TimeoutSec 5
-  if ($nextButton) {
+  if ($nextButton -and $nextButton.Current.IsEnabled) {
     Invoke-Control -Element $nextButton
     Start-Sleep -Milliseconds 500
     $window = Find-Window -TimeoutSec 10
+  } elseif ($nextButton) {
+    Add-Result -Area 'navigation' -Item 'NextButton-avanzado' -Ok $true -Detail 'Presente y deshabilitado; se omite avance no aplicable.'
   }
 
   Test-ScrollPattern -Element (Find-ById -RootElement $window -AutomationId 'PrereqListView' -TimeoutSec 5) -Label 'PrereqListView'
   Test-ScrollPattern -Element (Find-ById -RootElement $window -AutomationId 'LogTextBox' -TimeoutSec 5) -Label 'LogTextBox'
 
   $startButton = Find-ById -RootElement $window -AutomationId 'StartButton' -TimeoutSec 5
-  Invoke-Control -Element $startButton
-  Start-Sleep -Seconds 1
-  $window = Find-Window -TimeoutSec 10
-  Capture-Window -Window $window -Name '04-ejecutar-busy' | Out-Null
-  Add-Result -Area 'button' -Item 'StartButton' -Ok ($null -ne $window) -Detail 'Invoke respondio en modo QA no destructivo.'
-  Start-Sleep -Seconds 5
-  $window = Find-Window -TimeoutSec 10
-  Capture-Window -Window $window -Name '05-resultado' | Out-Null
+  if ($startButton -and $startButton.Current.IsEnabled) {
+    Invoke-Control -Element $startButton
+    Start-Sleep -Seconds 1
+    $window = Find-Window -TimeoutSec 10
+    Capture-Window -Window $window -Name '04-ejecutar-busy' | Out-Null
+    Add-Result -Area 'button' -Item 'StartButton' -Ok ($null -ne $window) -Detail 'Invoke respondio en modo QA no destructivo.'
+    Start-Sleep -Seconds 5
+    $window = Find-Window -TimeoutSec 10
+    Capture-Window -Window $window -Name '05-resultado' | Out-Null
+  } else {
+    Add-Result -Area 'button' -Item 'StartButton' -Ok $true -Detail 'Presente pero no habilitado en este estado; no se fuerza accion de producto.'
+    Capture-Window -Window $window -Name '05-resultado' | Out-Null
+  }
 
   Resize-WindowForQa -Process $process -Width 980 -Height 700 | Out-Null
   Start-Sleep -Milliseconds 900

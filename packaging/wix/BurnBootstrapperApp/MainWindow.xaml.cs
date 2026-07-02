@@ -372,21 +372,34 @@ public partial class MainWindow : Window
 
         Dispatcher.BeginInvoke(() =>
         {
+            if (!target.IsVisible || !target.IsDescendantOf(StageTimelineScrollViewer))
+            {
+                return;
+            }
+
             if (StageTimelineScrollViewer.ViewportHeight <= 0)
             {
                 target.BringIntoView();
                 return;
             }
 
-            var transform = target.TransformToAncestor(StageTimelineScrollViewer);
-            var rect = transform.TransformBounds(new Rect(new Point(0, 0), target.RenderSize));
-            var targetCenter = rect.Top + StageTimelineScrollViewer.VerticalOffset + (rect.Height / 2);
-            var desiredOffset = targetCenter - (StageTimelineScrollViewer.ViewportHeight / 2);
-            if (desiredOffset < 0)
+            try
             {
-                desiredOffset = 0;
+                var transform = target.TransformToAncestor(StageTimelineScrollViewer);
+                var rect = transform.TransformBounds(new Rect(new Point(0, 0), target.RenderSize));
+                var targetCenter = rect.Top + StageTimelineScrollViewer.VerticalOffset + (rect.Height / 2);
+                var desiredOffset = targetCenter - (StageTimelineScrollViewer.ViewportHeight / 2);
+                if (desiredOffset < 0)
+                {
+                    desiredOffset = 0;
+                }
+
+                StageTimelineScrollViewer.ScrollToVerticalOffset(desiredOffset);
             }
-            StageTimelineScrollViewer.ScrollToVerticalOffset(desiredOffset);
+            catch (InvalidOperationException)
+            {
+                target.BringIntoView();
+            }
         }, DispatcherPriority.Background);
     }
 
@@ -712,10 +725,7 @@ public partial class MainWindow : Window
     private void RefreshOperationalChrome(string? mode = null, FlavorItem? flavor = null)
     {
         var normalizedMode = string.IsNullOrWhiteSpace(mode) ? GetSelectedMode() : mode;
-        var selectedFlavor = flavor ?? FlavorComboBox.SelectedItem as FlavorItem;
 
-        BrandModeBadgeTextBlock.Text = GetModeLabel(normalizedMode);
-        BrandFlavorBadgeTextBlock.Text = selectedFlavor?.DisplayName ?? "EvaluaPro";
         StartButton.Content = GetModeActionLabel(normalizedMode);
         StartButton.SetValue(System.Windows.Automation.AutomationProperties.NameProperty, GetModeActionLabel(normalizedMode).Replace("_", string.Empty));
         RefreshModeImpact(normalizedMode);
