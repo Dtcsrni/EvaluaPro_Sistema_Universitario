@@ -340,11 +340,7 @@ Por favor, lee atentamente los siguientes términos antes de proceder con la ins
 
                         <ScrollViewer x:Name="PrepareStepPanel" Visibility="Collapsed" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
                             <Grid>
-                            <Grid.ColumnDefinitions>
-                                <ColumnDefinition Width="1.05*" />
-                                <ColumnDefinition Width="0.95*" />
-                            </Grid.ColumnDefinitions>
-                            <Border Style="{StaticResource PanelCardStyle}" Margin="0,0,12,0">
+                            <Border Style="{StaticResource PanelCardStyle}">
                                 <StackPanel>
                                     <TextBlock Text="Preparar operación" FontSize="20" FontWeight="SemiBold" Foreground="{StaticResource TextBrush}" />
                                     <TextBlock Style="{StaticResource HelpTextStyle}" Text="Confirma edición, modo, carpeta destino y accesos antes de revisar el equipo." />
@@ -365,6 +361,10 @@ Por favor, lee atentamente los siguientes términos antes de proceder con la ins
                                         </Grid>
                                     </Border>
                                     <Grid Margin="0,16,0,0">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="*" />
+                                            <ColumnDefinition Width="*" />
+                                        </Grid.ColumnDefinitions>
                                         <StackPanel x:Name="FlavorPanel" Margin="0,0,10,0">
                                             <TextBlock Text="Edición" Style="{StaticResource FieldLabelStyle}" />
                                             <TextBlock Text="Perfil funcional del paquete." Style="{StaticResource HelpTextStyle}" />
@@ -449,7 +449,7 @@ Por favor, lee atentamente los siguientes términos antes de proceder con la ins
                                             </StackPanel>
                                         </Grid>
                                     </Border>
-                                    <ListView x:Name="PrereqListView" MinHeight="120" MaxHeight="180" HorizontalContentAlignment="Stretch" AutomationProperties.Name="Resultado de prerequisitos" AutomationProperties.HelpText="Lista de requisitos detectados con versión y motivo." TabIndex="5">
+                                    <ListView x:Name="PrereqListView" MinHeight="72" MaxHeight="96" HorizontalContentAlignment="Stretch" AutomationProperties.Name="Resultado de prerequisitos" AutomationProperties.HelpText="Lista de requisitos detectados con versión y motivo." TabIndex="5">
                                         <ListView.ItemContainerStyle>
                                             <Style TargetType="ListViewItem">
                                                 <Setter Property="ToolTip" Value="{Binding ToolTipText}" />

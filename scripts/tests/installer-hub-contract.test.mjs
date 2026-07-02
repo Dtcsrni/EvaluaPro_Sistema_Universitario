@@ -306,7 +306,7 @@ test('Installer Hub cumple contrato DESIGN.md de layout y accesibilidad WPF', ()
   assert.doesNotMatch(mainWindowXaml, /x:Name="AdvancedConfigExpander"/);
   assert.doesNotMatch(mainWindowXaml, /Configuración avanzada|Mongo URI|MongoDB/i);
   assert.doesNotMatch(mainWindowXaml, /x:Name="MongoUriTextBox"|x:Name="NodeEnvTextBox"|x:Name="ApiPortTextBox"/);
-  assert.match(mainWindowXaml, /x:Name="PrereqListView"[\s\S]*?MinHeight="120"[\s\S]*?MaxHeight="180"/);
+  assert.match(mainWindowXaml, /x:Name="PrereqListView"[\s\S]*?MinHeight="72"[\s\S]*?MaxHeight="96"/);
   assert.doesNotMatch(mainWindowXaml, /x:Name="PrereqListView"[^>]*Height="300"/);
   assert.match(mainWindowXaml, /x:Name="LogExpander"[\s\S]*?IsExpanded="False"/);
   assert.match(mainWindowXaml, /Text="Evidencia técnica"[\s\S]*?%ProgramData%\\EvaluaPro\\installer-hub\\logs/);
