@@ -573,7 +573,8 @@ function Publish-BurnBootstrapperApp {
     [string]$ProjectPath,
     [Parameter(Mandatory = $true)]
     [string]$OutputDirectory,
-    [string]$ConfigurationName = 'Release'
+    [string]$ConfigurationName = 'Release',
+    [string]$VersionTag
   )
 
   if (-not (Test-Path $ProjectPath)) {
@@ -593,9 +594,12 @@ function Publish-BurnBootstrapperApp {
     '--self-contained', 'true',
     '-p:PublishSingleFile=true',
     '-p:IncludeNativeLibrariesForSelfExtract=true',
-    '-p:EnableCompressionInSingleFile=true',
-    '-o', $OutputDirectory
+    '-p:EnableCompressionInSingleFile=true'
   )
+  if (![string]::IsNullOrEmpty($VersionTag)) {
+    $publishArgs += "-p:Version=$VersionTag"
+  }
+  $publishArgs += @('-o', $OutputDirectory)
   # Contract marker for installer-hub tests: "$DotNetExecutable publish"
   Write-Verbose ("[msi] command: {0} publish {1}" -f $DotNetExecutable, ($publishArgs -join ' '))
   $publishProc = Start-Process -FilePath $DotNetExecutable -ArgumentList $publishArgs -Wait -NoNewWindow -PassThru
@@ -615,7 +619,8 @@ function Resolve-BurnBootstrapperAppExe {
   param(
     [Parameter(Mandatory = $true)]
     [string]$RootPath,
-    [string]$ConfigurationName = 'Release'
+    [string]$ConfigurationName = 'Release',
+    [string]$VersionTag
   )
 
   $candidatePaths = @(
@@ -634,7 +639,7 @@ function Resolve-BurnBootstrapperAppExe {
   $dotnetExe = Resolve-DotNetExecutable
   $bootstrapperProject = Join-Path $RootPath 'packaging\wix\BurnBootstrapperApp\EvaluaPro.BurnBootstrapperApp.csproj'
   $bootstrapperOut = Join-Path $RootPath 'dist\installer\_internal\burn-bootstrapper-app'
-  return (Publish-BurnBootstrapperApp -DotNetExecutable $dotnetExe -ProjectPath $bootstrapperProject -OutputDirectory $bootstrapperOut -ConfigurationName $ConfigurationName)
+  return (Publish-BurnBootstrapperApp -DotNetExecutable $dotnetExe -ProjectPath $bootstrapperProject -OutputDirectory $bootstrapperOut -ConfigurationName $ConfigurationName -VersionTag $VersionTag)
 }
 
 function Get-SelectedFlavors {
@@ -872,7 +877,7 @@ if ($buildBundle) {
   Write-Host "[msi] Extension BAL resuelta: $balExtDll"
   Write-Progress -Activity "EvaluaPro MSI (estable)" -Status "Publicar Bootstrapper Application Burn" -PercentComplete ([Math]::Floor((($idx - 1) * 100) / [Math]::Max(1, $totalSteps)))
   Write-Host "[msi][step $idx/$totalSteps] Publicar Bootstrapper Application Burn"
-  $bootstrapperAppExe = Resolve-BurnBootstrapperAppExe -RootPath $root -ConfigurationName $Configuration
+  $bootstrapperAppExe = Resolve-BurnBootstrapperAppExe -RootPath $root -ConfigurationName $Configuration -VersionTag $effectiveVersionTag
   Write-Host "[msi] Bootstrapper Application Burn resuelta: $bootstrapperAppExe"
   $idx += 1
 }

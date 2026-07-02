@@ -482,4 +482,70 @@ describe('calificaciones persistencia', () => {
     expect(payload.calificacion.paginasOmr[0]?.numeroPagina).toBe(1);
     expect(payload.calificacion.paginasOmr[0]?.imagenBase64).toContain('data:image/png;base64,');
   });
+
+  it('maneja fallos de conexión a la base de datos de manera controlada (resiliencia)', async () => {
+    const docenteId = 'docente-fallo-db';
+    const periodoId = 'periodo-fallo-db';
+    const alumnoId = 'alumno-fallo-db';
+
+    await seedDocentePeriodoAlumno(docenteId, periodoId, alumnoId);
+
+    const pregunta = await prisma.bancoPregunta.create({
+      data: {
+        id: 'preg-fallo',
+        docenteId,
+        periodoId,
+        tema: 'Fallo DB',
+        versionActual: 1,
+        versiones: { create: [{ id: 'preg-ver-fallo', numeroVersion: 1, enunciado: 'Q', opciones: { create: [{ texto: 'A', esCorrecta: true }] } }] }
+      }
+    });
+
+    const plantilla = await prisma.examenPlantilla.create({
+      data: {
+        id: 'plantilla-fallo',
+        docenteId,
+        periodoId,
+        tipo: 'parcial',
+        titulo: 'Fallo',
+        tituloNormalizado: 'fallo',
+        numeroPaginas: 1,
+        bookletConfig: '{}',
+        omrConfig: '{}',
+        configuracionPdf: '{}',
+        preguntas: { create: [{ preguntaId: pregunta.id, orden: 0 }] }
+      }
+    });
+
+    const examen = await prisma.examenGenerado.create({
+      data: {
+        id: 'examen-fallo',
+        docenteId,
+        periodoId,
+        plantillaId: plantilla.id,
+        alumnoId,
+        folio: 'FOL-FALLO',
+        estado: 'entregado',
+        mapaVariante: '{}',
+        mapaOmr: '{}'
+      }
+    });
+
+    const reqGuardar = {
+      docenteId,
+      body: {
+        examenGeneradoId: examen.id,
+        respuestasDetectadas: [],
+        omrAnalisis: crearAnalisisOmrOk()
+      }
+    } as unknown as SolicitudDocente;
+    const resGuardar = crearRespuesta();
+
+    // Simulamos un fallo forzado espiando a Prisma y lanzando error
+    const spy = vi.spyOn(prisma.calificacion, 'create').mockRejectedValueOnce(new Error('DB Timeout Connection'));
+
+    await expect(calificarExamen(reqGuardar, resGuardar)).rejects.toThrow('DB Timeout Connection');
+
+    spy.mockRestore();
+  });
 });

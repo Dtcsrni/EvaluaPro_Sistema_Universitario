@@ -406,6 +406,23 @@ export async function crearExcepcion(req: SolicitudDocente, res: Response) {
     motivo?: string;
   };
 
+  const alumno = await prisma.alumno.findFirst({
+    where: { id: alumnoId, periodoId }
+  });
+  if (!alumno) throw new ErrorAplicacion('NO_ENCONTRADO', 'Alumno no encontrado en este periodo', 404);
+
+  const regla = await prisma.asistenciaRegla.findFirst({
+    where: {
+      docenteId,
+      periodoId,
+      OR: [{ grupo: alumno.grupo ?? null }, { grupo: null }]
+    }
+  });
+
+  if (regla && regla.excepcionPermitida === false) {
+    throw new ErrorAplicacion('EXCEPCIONES_NO_PERMITIDAS', 'Las excepciones no están permitidas por la regla de este periodo', 403);
+  }
+
   const existente = await prisma.asistenciaExcepcion.findUnique({
     where: { alumnoId }
   });

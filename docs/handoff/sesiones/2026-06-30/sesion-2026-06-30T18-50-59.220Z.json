@@ -1,0 +1,226 @@
+{
+  "traceSchemaVersion": "1.0.0",
+  "sessionId": "sesion-2026-06-30T18-50-59.220Z",
+  "status": "draft",
+  "generatedAt": "2026-06-30T18:50:59.220Z",
+  "validationProfile": "quick",
+  "agent": {
+    "name": "unknown",
+    "version": "unknown",
+    "provider": "unknown",
+    "kind": "unknown",
+    "channel": "unknown"
+  },
+  "request": {
+    "summary": "Pendiente de completar por el agente."
+  },
+  "objective": "Pendiente de completar por el agente.",
+  "scope": [],
+  "constraints": [],
+  "actions": [
+    {
+      "type": "validation",
+      "summary": "Ejecucion de lint",
+      "timestamp": "2026-06-30T18:50:59.220Z",
+      "status": "omitido"
+    },
+    {
+      "type": "validation",
+      "summary": "Ejecucion de typecheck",
+      "timestamp": "2026-06-30T18:50:59.220Z",
+      "status": "omitido"
+    },
+    {
+      "type": "validation",
+      "summary": "Ejecucion de test_frontend_ci",
+      "timestamp": "2026-06-30T18:50:59.220Z",
+      "status": "omitido"
+    },
+    {
+      "type": "validation",
+      "summary": "Ejecucion de test_coverage_ci",
+      "timestamp": "2026-06-30T18:50:59.220Z",
+      "status": "omitido"
+    },
+    {
+      "type": "validation",
+      "summary": "Ejecucion de test_tdd_enforcement_ci",
+      "timestamp": "2026-06-30T18:50:59.220Z",
+      "status": "omitido"
+    },
+    {
+      "type": "validation",
+      "summary": "Ejecucion de test_backend_ci",
+      "timestamp": "2026-06-30T18:50:59.220Z",
+      "status": "omitido"
+    },
+    {
+      "type": "validation",
+      "summary": "Ejecucion de test_portal_ci",
+      "timestamp": "2026-06-30T18:50:59.220Z",
+      "status": "omitido"
+    },
+    {
+      "type": "validation",
+      "summary": "Ejecucion de perf_check",
+      "timestamp": "2026-06-30T18:50:59.220Z",
+      "status": "omitido"
+    },
+    {
+      "type": "validation",
+      "summary": "Ejecucion de pipeline_contract_check",
+      "timestamp": "2026-06-30T18:50:59.220Z",
+      "status": "ok"
+    },
+    {
+      "type": "validation",
+      "summary": "Ejecucion de docs_check",
+      "timestamp": "2026-06-30T18:50:59.220Z",
+      "status": "ok"
+    }
+  ],
+  "files": {
+    "read": [],
+    "changed": [
+      "CHANGELOG.md",
+      "apps/backend/reports/qa/latest/e2e-docente-alumno.json",
+      "apps/backend/reports/qa/latest/global-grade.json",
+      "apps/backend/reports/qa/latest/pdf-print.json",
+      "apps/backend/src/modulos/modulo_asistencias/controladorAsistencias.ts",
+      "apps/backend/tests/calificacion.persistencia.test.ts",
+      "apps/backend/tests/integracion/asistencia.reglas.test.ts",
+      "apps/backend/tests/integracion/classroom.v2.test.ts",
+      "apps/frontend/reports/qa/latest/ux-visual.json",
+      "apps/frontend/tests/seccionEvaluaciones.test.tsx",
+      "config/installer-prereqs.manifest.json",
+      "docs/AUTO_ENV.md",
+      "docs/ENGINEERING_BASELINE.md",
+      "docs/INVENTARIO_CODIGO_EXHAUSTIVO.md",
+      "docs/INVENTARIO_PROYECTO.md",
+      "scripts/tests/installer-hub-contract.test.mjs",
+      "apps/frontend/tests/seccionAsistencias.test.tsx",
+      "docs/handoff/sesiones/2026-06-30/sesion-2026-06-30T18-50-04.682Z.json",
+      "docs/handoff/sesiones/2026-06-30/sesion-2026-06-30T18-50-04.682Z.md",
+      "docs/handoff/sesiones/2026-06-30/sesion-2026-06-30T18-50-26.082Z.json",
+      "docs/handoff/sesiones/2026-06-30/sesion-2026-06-30T18-50-26.082Z.md",
+      "docs/specs/SPEC-RESILIENCIA-PRUEBAS.md"
+    ],
+    "artifacts": [
+      "docs/handoff/sesiones/2026-06-30/sesion-2026-06-30T18-50-59.220Z.json",
+      "docs/handoff/sesiones/2026-06-30/sesion-2026-06-30T18-50-59.220Z.md"
+    ]
+  },
+  "commands": [
+    {
+      "name": "lint",
+      "command": "npm run lint",
+      "status": "omitido",
+      "exitCode": null,
+      "durationMs": 0,
+      "resultSummary": "omitido por perfil quick",
+      "timestamp": "2026-06-30T18:50:59.220Z"
+    },
+    {
+      "name": "typecheck",
+      "command": "npm run typecheck",
+      "status": "omitido",
+      "exitCode": null,
+      "durationMs": 0,
+      "resultSummary": "omitido por perfil quick",
+      "timestamp": "2026-06-30T18:50:59.220Z"
+    },
+    {
+      "name": "test_frontend_ci",
+      "command": "npm run test:frontend:ci",
+      "status": "omitido",
+      "exitCode": null,
+      "durationMs": 0,
+      "resultSummary": "omitido por perfil quick",
+      "timestamp": "2026-06-30T18:50:59.220Z"
+    },
+    {
+      "name": "test_coverage_ci",
+      "command": "npm run test:coverage:ci",
+      "status": "omitido",
+      "exitCode": null,
+      "durationMs": 0,
+      "resultSummary": "omitido por perfil quick",
+      "timestamp": "2026-06-30T18:50:59.220Z"
+    },
+    {
+      "name": "test_tdd_enforcement_ci",
+      "command": "npm run test:tdd:enforcement:ci",
+      "status": "omitido",
+      "exitCode": null,
+      "durationMs": 0,
+      "resultSummary": "omitido por perfil quick",
+      "timestamp": "2026-06-30T18:50:59.220Z"
+    },
+    {
+      "name": "test_backend_ci",
+      "command": "npm run test:backend:ci",
+      "status": "omitido",
+      "exitCode": null,
+      "durationMs": 0,
+      "resultSummary": "omitido por perfil quick",
+      "timestamp": "2026-06-30T18:50:59.220Z"
+    },
+    {
+      "name": "test_portal_ci",
+      "command": "npm run test:portal:ci",
+      "status": "omitido",
+      "exitCode": null,
+      "durationMs": 0,
+      "resultSummary": "omitido por perfil quick",
+      "timestamp": "2026-06-30T18:50:59.220Z"
+    },
+    {
+      "name": "perf_check",
+      "command": "npm run perf:check",
+      "status": "omitido",
+      "exitCode": null,
+      "durationMs": 0,
+      "resultSummary": "omitido por perfil quick",
+      "timestamp": "2026-06-30T18:50:59.220Z"
+    },
+    {
+      "name": "pipeline_contract_check",
+      "command": "npm run pipeline:contract:check",
+      "status": "ok",
+      "exitCode": 0,
+      "durationMs": 474,
+      "resultSummary": "> evaluapro@1.1.1 pipeline:contract:check | > node scripts/pipeline-contract-check.mjs | ✔ ext_perf_arquitectura prepara sharp antes de perf:check (2.0513ms) | ✔ ext_funcionales usa gate OMR TV generico con version configurable (0.5217ms) | ... | ℹ duration_ms 76.8685 | pipeline contract OK",
+      "timestamp": "2026-06-30T18:50:59.220Z"
+    },
+    {
+      "name": "docs_check",
+      "command": "npm run docs:check",
+      "status": "ok",
+      "exitCode": 0,
+      "durationMs": 771,
+      "resultSummary": "> evaluapro@1.1.1 docs:check | > node scripts/docs.mjs --check | [docs] ok",
+      "timestamp": "2026-06-30T18:50:59.220Z"
+    }
+  ],
+  "decisions": [],
+  "assumptions": [],
+  "risks": [],
+  "nextStep": "Pendiente de completar por el agente.",
+  "completion": {
+    "isComplete": false,
+    "pendingFields": [
+      "request.summary",
+      "objective",
+      "scope",
+      "decisions",
+      "risks",
+      "nextStep"
+    ]
+  },
+  "repo": {
+    "rootDir": "C:\\Users\\evega\\EvaluaPro_Sistema_Universitario",
+    "branch": "main",
+    "commit": "fd4729f7",
+    "workingTreeStatus": "M CHANGELOG.md\n M apps/backend/reports/qa/latest/e2e-docente-alumno.json\n M apps/backend/reports/qa/latest/global-grade.json\n M apps/backend/reports/qa/latest/pdf-print.json\n M apps/backend/src/modulos/modulo_asistencias/controladorAsistencias.ts\n M apps/backend/tests/calificacion.persistencia.test.ts\n M apps/backend/tests/integracion/asistencia.reglas.test.ts\n M apps/backend/tests/integracion/classroom.v2.test.ts\n M apps/frontend/reports/qa/latest/ux-visual.json\n M apps/frontend/tests/seccionEvaluaciones.test.tsx\n M config/installer-prereqs.manifest.json\n M docs/AUTO_ENV.md\n M docs/ENGINEERING_BASELINE.md\n M docs/INVENTARIO_CODIGO_EXHAUSTIVO.md\n M docs/INVENTARIO_PROYECTO.md\n M scripts/tests/installer-hub-contract.test.mjs\n?? apps/frontend/tests/seccionAsistencias.test.tsx\n?? docs/handoff/sesiones/2026-06-30/sesion-2026-06-30T18-50-04.682Z.json\n?? docs/handoff/sesiones/2026-06-30/sesion-2026-06-30T18-50-04.682Z.md\n?? docs/handoff/sesiones/2026-06-30/sesion-2026-06-30T18-50-26.082Z.json\n?? docs/handoff/sesiones/2026-06-30/sesion-2026-06-30T18-50-26.082Z.md\n?? docs/specs/SPEC-RESILIENCIA-PRUEBAS.md"
+  }
+}

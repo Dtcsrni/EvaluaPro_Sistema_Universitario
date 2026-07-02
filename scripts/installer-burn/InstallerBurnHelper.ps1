@@ -44,7 +44,7 @@ function Detect-Prerequisites {
       Name = "Microsoft Edge WebView2 (Nativo)"
       Installed = $edgeInstalled
       ActualVersion = $edgeVersion
-      Reason = "Requerido para generar los PDF (OMR) eficientemente sin contenedores."
+      Reason = "Permite la generación nativa de exámenes PDF (OMR) y visualización de la interfaz."
     }
   )
 

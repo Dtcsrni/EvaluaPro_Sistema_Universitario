@@ -1,4 +1,4 @@
-﻿<Project Sdk="Microsoft.NET.Sdk">
+<Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
     <OutputType>WinExe</OutputType>
@@ -24,7 +24,7 @@
 
   <ItemGroup>
     <Resource Include="..\..\..\scripts\icons\installer-canonical.ico" Link="installer-canonical.ico" />
-    <Resource Include="..\..\..\logos\evaluapro-official-hero.png" Link="assets/evaluapro-official-imagotipo.png" />
+    <Resource Include="..\..\..\logos\logo_sys.png" Link="assets/evaluapro-official-imagotipo.png" />
   </ItemGroup>
 
 </Project>

@@ -160,5 +160,29 @@ describe('Integración: Asistencias, Reglas y Excepciones', () => {
       .expect(200);
 
     expect(derecho3Resp.body.tieneDerecho).toBe(false);
+
+    // 10. Actualizar regla para no permitir excepciones
+    await request(app)
+      .post('/api/asistencias/reglas')
+      .set(auth)
+      .send({
+        periodoId,
+        grupo: 'A',
+        maxFaltas: 0,
+        accion: 'bloquear_examen',
+        excepcionPermitida: false
+      })
+      .expect(200);
+
+    // 11. Intentar crear excepción, debe rechazar por límite de regla
+    await request(app)
+      .post('/api/asistencias/excepciones')
+      .set(auth)
+      .send({
+        alumnoId,
+        periodoId,
+        motivo: 'Falta justificada pero no permitida'
+      })
+      .expect(403);
   });
 });

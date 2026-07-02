@@ -1,0 +1,278 @@
+{
+  "traceSchemaVersion": "1.0.0",
+  "sessionId": "sesion-2026-07-01T15-08-17.978Z",
+  "status": "draft",
+  "generatedAt": "2026-07-01T15:08:17.978Z",
+  "validationProfile": "quick",
+  "agent": {
+    "name": "unknown",
+    "version": "unknown",
+    "provider": "unknown",
+    "kind": "unknown",
+    "channel": "unknown"
+  },
+  "request": {
+    "summary": "Pendiente de completar por el agente."
+  },
+  "objective": "Pendiente de completar por el agente.",
+  "scope": [],
+  "constraints": [],
+  "actions": [
+    {
+      "type": "validation",
+      "summary": "Ejecucion de lint",
+      "timestamp": "2026-07-01T15:08:17.978Z",
+      "status": "omitido"
+    },
+    {
+      "type": "validation",
+      "summary": "Ejecucion de typecheck",
+      "timestamp": "2026-07-01T15:08:17.978Z",
+      "status": "omitido"
+    },
+    {
+      "type": "validation",
+      "summary": "Ejecucion de test_frontend_ci",
+      "timestamp": "2026-07-01T15:08:17.978Z",
+      "status": "omitido"
+    },
+    {
+      "type": "validation",
+      "summary": "Ejecucion de test_coverage_ci",
+      "timestamp": "2026-07-01T15:08:17.978Z",
+      "status": "omitido"
+    },
+    {
+      "type": "validation",
+      "summary": "Ejecucion de test_tdd_enforcement_ci",
+      "timestamp": "2026-07-01T15:08:17.978Z",
+      "status": "omitido"
+    },
+    {
+      "type": "validation",
+      "summary": "Ejecucion de test_backend_ci",
+      "timestamp": "2026-07-01T15:08:17.978Z",
+      "status": "omitido"
+    },
+    {
+      "type": "validation",
+      "summary": "Ejecucion de test_portal_ci",
+      "timestamp": "2026-07-01T15:08:17.978Z",
+      "status": "omitido"
+    },
+    {
+      "type": "validation",
+      "summary": "Ejecucion de perf_check",
+      "timestamp": "2026-07-01T15:08:17.978Z",
+      "status": "omitido"
+    },
+    {
+      "type": "validation",
+      "summary": "Ejecucion de pipeline_contract_check",
+      "timestamp": "2026-07-01T15:08:17.978Z",
+      "status": "ok"
+    },
+    {
+      "type": "validation",
+      "summary": "Ejecucion de docs_check",
+      "timestamp": "2026-07-01T15:08:17.978Z",
+      "status": "ok"
+    }
+  ],
+  "files": {
+    "read": [],
+    "changed": [
+      "CHANGELOG.md",
+      "apps/backend/reports/qa/latest/e2e-docente-alumno.json",
+      "apps/backend/reports/qa/latest/global-grade.json",
+      "apps/backend/reports/qa/latest/pdf-print.json",
+      "apps/backend/src/index.ts",
+      "apps/backend/src/modulos/modulo_asistencias/controladorAsistencias.ts",
+      "apps/backend/tests/calificacion.persistencia.test.ts",
+      "apps/backend/tests/integracion/asistencia.reglas.test.ts",
+      "apps/backend/tests/integracion/classroom.v2.test.ts",
+      "apps/frontend/reports/qa/latest/ux-visual.json",
+      "apps/frontend/tests/seccionEvaluaciones.test.tsx",
+      "config/installer-prereqs.manifest.json",
+      "docs/AUTO_ENV.md",
+      "docs/ENGINEERING_BASELINE.md",
+      "docs/INVENTARIO_CODIGO_EXHAUSTIVO.md",
+      "docs/INVENTARIO_PROYECTO.md",
+      "reports/qa/latest/clean-architecture.json",
+      "reports/qa/latest/dataset-prodlike.json",
+      "reports/qa/latest/e2e-docente-alumno.json",
+      "reports/qa/latest/evaluaciones-e2e.json",
+      "reports/qa/latest/evaluaciones-policy.json",
+      "reports/qa/latest/global-grade.json",
+      "reports/qa/latest/manifest.json",
+      "reports/qa/latest/pdf-print.json",
+      "reports/qa/latest/ux-visual.json",
+      "scripts/tests/installer-hub-contract.test.mjs",
+      "scripts/tests/installer-hub-ui-lifecycle.ps1",
+      "tests/gui-responsive/responsive-admin.spec.ts",
+      "tests/gui-responsive/responsive-alumno.spec.ts",
+      "tests/gui-responsive/responsive-docente.spec.ts",
+      "apps/frontend/tests/seccionAsistencias.test.tsx",
+      "docs/assets/",
+      "docs/comercial/PRESENTACION_PRODUCTO.md",
+      "docs/handoff/sesiones/2026-06-30/sesion-2026-06-30T18-50-04.682Z.json",
+      "docs/handoff/sesiones/2026-06-30/sesion-2026-06-30T18-50-04.682Z.md",
+      "docs/handoff/sesiones/2026-06-30/sesion-2026-06-30T18-50-26.082Z.json",
+      "docs/handoff/sesiones/2026-06-30/sesion-2026-06-30T18-50-26.082Z.md",
+      "docs/handoff/sesiones/2026-06-30/sesion-2026-06-30T18-50-59.220Z.json",
+      "docs/handoff/sesiones/2026-06-30/sesion-2026-06-30T18-50-59.220Z.md",
+      "docs/specs/SPEC-RESILIENCIA-PRUEBAS.md",
+      "docs/tutoriales/MANUAL_USUARIO.md",
+      "reports/qa/latest/gui-admin-dashboard-desktop-lg.png",
+      "reports/qa/latest/gui-admin-dashboard-mobile.png",
+      "reports/qa/latest/gui-admin-tenants-desktop-lg.png",
+      "reports/qa/latest/gui-admin-tenants-mobile.png",
+      "reports/qa/latest/gui-alumno-login-desktop-lg.png",
+      "reports/qa/latest/gui-alumno-login-mobile.png",
+      "reports/qa/latest/gui-alumno-resultados-desktop-lg.png",
+      "reports/qa/latest/gui-alumno-resultados-mobile.png",
+      "reports/qa/latest/gui-docente-alumnos-desktop-lg.png",
+      "reports/qa/latest/gui-docente-alumnos-mobile.png",
+      "reports/qa/latest/gui-docente-banco-desktop-lg.png",
+      "reports/qa/latest/gui-docente-banco-mobile.png",
+      "reports/qa/latest/gui-docente-calificaciones-desktop-lg.png",
+      "reports/qa/latest/gui-docente-calificaciones-mobile.png",
+      "reports/qa/latest/gui-docente-cuenta-desktop-lg.png",
+      "reports/qa/latest/gui-docente-cuenta-mobile.png",
+      "reports/qa/latest/gui-docente-entrega-desktop-lg.png",
+      "reports/qa/latest/gui-docente-entrega-mobile.png",
+      "reports/qa/latest/gui-docente-evaluaciones-desktop-lg.png",
+      "reports/qa/latest/gui-docente-evaluaciones-mobile.png",
+      "reports/qa/latest/gui-docente-login-desktop-lg.png",
+      "reports/qa/latest/gui-docente-login-mobile.png",
+      "reports/qa/latest/gui-docente-periodos-desktop-lg.png",
+      "reports/qa/latest/gui-docente-periodos-mobile.png",
+      "reports/qa/latest/gui-docente-plantillas-desktop-lg.png",
+      "reports/qa/latest/gui-docente-plantillas-mobile.png",
+      "reports/qa/latest/gui-docente-rehidratacion-desktop-lg.png",
+      "reports/qa/latest/gui-docente-rehidratacion-mobile.png",
+      "reports/qa/latest/gui-docente-sincronizacion-desktop-lg.png",
+      "reports/qa/latest/gui-docente-sincronizacion-mobile.png",
+      "scripts/tests/run-real-os-e2e.ps1",
+      "tests/gui-responsive/ciclo-completo.spec.ts",
+      "tests/gui-responsive/playwright.ciclo.config.cjs"
+    ],
+    "artifacts": [
+      "docs/handoff/sesiones/2026-07-01/sesion-2026-07-01T15-08-17.978Z.json",
+      "docs/handoff/sesiones/2026-07-01/sesion-2026-07-01T15-08-17.978Z.md"
+    ]
+  },
+  "commands": [
+    {
+      "name": "lint",
+      "command": "npm run lint",
+      "status": "omitido",
+      "exitCode": null,
+      "durationMs": 0,
+      "resultSummary": "omitido por perfil quick",
+      "timestamp": "2026-07-01T15:08:17.978Z"
+    },
+    {
+      "name": "typecheck",
+      "command": "npm run typecheck",
+      "status": "omitido",
+      "exitCode": null,
+      "durationMs": 0,
+      "resultSummary": "omitido por perfil quick",
+      "timestamp": "2026-07-01T15:08:17.978Z"
+    },
+    {
+      "name": "test_frontend_ci",
+      "command": "npm run test:frontend:ci",
+      "status": "omitido",
+      "exitCode": null,
+      "durationMs": 0,
+      "resultSummary": "omitido por perfil quick",
+      "timestamp": "2026-07-01T15:08:17.978Z"
+    },
+    {
+      "name": "test_coverage_ci",
+      "command": "npm run test:coverage:ci",
+      "status": "omitido",
+      "exitCode": null,
+      "durationMs": 0,
+      "resultSummary": "omitido por perfil quick",
+      "timestamp": "2026-07-01T15:08:17.978Z"
+    },
+    {
+      "name": "test_tdd_enforcement_ci",
+      "command": "npm run test:tdd:enforcement:ci",
+      "status": "omitido",
+      "exitCode": null,
+      "durationMs": 0,
+      "resultSummary": "omitido por perfil quick",
+      "timestamp": "2026-07-01T15:08:17.978Z"
+    },
+    {
+      "name": "test_backend_ci",
+      "command": "npm run test:backend:ci",
+      "status": "omitido",
+      "exitCode": null,
+      "durationMs": 0,
+      "resultSummary": "omitido por perfil quick",
+      "timestamp": "2026-07-01T15:08:17.978Z"
+    },
+    {
+      "name": "test_portal_ci",
+      "command": "npm run test:portal:ci",
+      "status": "omitido",
+      "exitCode": null,
+      "durationMs": 0,
+      "resultSummary": "omitido por perfil quick",
+      "timestamp": "2026-07-01T15:08:17.978Z"
+    },
+    {
+      "name": "perf_check",
+      "command": "npm run perf:check",
+      "status": "omitido",
+      "exitCode": null,
+      "durationMs": 0,
+      "resultSummary": "omitido por perfil quick",
+      "timestamp": "2026-07-01T15:08:17.978Z"
+    },
+    {
+      "name": "pipeline_contract_check",
+      "command": "npm run pipeline:contract:check",
+      "status": "ok",
+      "exitCode": 0,
+      "durationMs": 481,
+      "resultSummary": "> evaluapro@1.1.1 pipeline:contract:check | > node scripts/pipeline-contract-check.mjs | ✔ ext_perf_arquitectura prepara sharp antes de perf:check (2.6255ms) | ✔ ext_funcionales usa gate OMR TV generico con version configurable (0.6319ms) | ... | ℹ duration_ms 87.2729 | pipeline contract OK",
+      "timestamp": "2026-07-01T15:08:17.978Z"
+    },
+    {
+      "name": "docs_check",
+      "command": "npm run docs:check",
+      "status": "ok",
+      "exitCode": 0,
+      "durationMs": 899,
+      "resultSummary": "> evaluapro@1.1.1 docs:check | > node scripts/docs.mjs --check | [docs] ok",
+      "timestamp": "2026-07-01T15:08:17.978Z"
+    }
+  ],
+  "decisions": [],
+  "assumptions": [],
+  "risks": [],
+  "nextStep": "Pendiente de completar por el agente.",
+  "completion": {
+    "isComplete": false,
+    "pendingFields": [
+      "request.summary",
+      "objective",
+      "scope",
+      "decisions",
+      "risks",
+      "nextStep"
+    ]
+  },
+  "repo": {
+    "rootDir": "C:\\Users\\evega\\EvaluaPro_Sistema_Universitario",
+    "branch": "main",
+    "commit": "fd4729f7",
+    "workingTreeStatus": "M CHANGELOG.md\n M apps/backend/reports/qa/latest/e2e-docente-alumno.json\n M apps/backend/reports/qa/latest/global-grade.json\n M apps/backend/reports/qa/latest/pdf-print.json\n M apps/backend/src/index.ts\n M apps/backend/src/modulos/modulo_asistencias/controladorAsistencias.ts\n M apps/backend/tests/calificacion.persistencia.test.ts\n M apps/backend/tests/integracion/asistencia.reglas.test.ts\n M apps/backend/tests/integracion/classroom.v2.test.ts\n M apps/frontend/reports/qa/latest/ux-visual.json\n M apps/frontend/tests/seccionEvaluaciones.test.tsx\n M config/installer-prereqs.manifest.json\n M docs/AUTO_ENV.md\n M docs/ENGINEERING_BASELINE.md\n M docs/INVENTARIO_CODIGO_EXHAUSTIVO.md\n M docs/INVENTARIO_PROYECTO.md\n M reports/qa/latest/clean-architecture.json\n M reports/qa/latest/dataset-prodlike.json\n M reports/qa/latest/e2e-docente-alumno.json\n M reports/qa/latest/evaluaciones-e2e.json\n M reports/qa/latest/evaluaciones-policy.json\n M reports/qa/latest/global-grade.json\n M reports/qa/latest/manifest.json\n M reports/qa/latest/pdf-print.json\n M reports/qa/latest/ux-visual.json\n M scripts/tests/installer-hub-contract.test.mjs\n M scripts/tests/installer-hub-ui-lifecycle.ps1\n M tests/gui-responsive/responsive-admin.spec.ts\n M tests/gui-responsive/responsive-alumno.spec.ts\n M tests/gui-responsive/responsive-docente.spec.ts\n?? apps/frontend/tests/seccionAsistencias.test.tsx\n?? docs/assets/\n?? docs/comercial/PRESENTACION_PRODUCTO.md\n?? docs/handoff/sesiones/2026-06-30/sesion-2026-06-30T18-50-04.682Z.json\n?? docs/handoff/sesiones/2026-06-30/sesion-2026-06-30T18-50-04.682Z.md\n?? docs/handoff/sesiones/2026-06-30/sesion-2026-06-30T18-50-26.082Z.json\n?? docs/handoff/sesiones/2026-06-30/sesion-2026-06-30T18-50-26.082Z.md\n?? docs/handoff/sesiones/2026-06-30/sesion-2026-06-30T18-50-59.220Z.json\n?? docs/handoff/sesiones/2026-06-30/sesion-2026-06-30T18-50-59.220Z.md\n?? docs/specs/SPEC-RESILIENCIA-PRUEBAS.md\n?? docs/tutoriales/MANUAL_USUARIO.md\n?? reports/qa/latest/gui-admin-dashboard-desktop-lg.png\n?? reports/qa/latest/gui-admin-dashboard-mobile.png\n?? reports/qa/latest/gui-admin-tenants-desktop-lg.png\n?? reports/qa/latest/gui-admin-tenants-mobile.png\n?? reports/qa/latest/gui-alumno-login-desktop-lg.png\n?? reports/qa/latest/gui-alumno-login-mobile.png\n?? reports/qa/latest/gui-alumno-resultados-desktop-lg.png\n?? reports/qa/latest/gui-alumno-resultados-mobile.png\n?? reports/qa/latest/gui-docente-alumnos-desktop-lg.png\n?? reports/qa/latest/gui-docente-alumnos-mobile.png\n?? reports/qa/latest/gui-docente-banco-desktop-lg.png\n?? reports/qa/latest/gui-docente-banco-mobile.png\n?? reports/qa/latest/gui-docente-calificaciones-desktop-lg.png\n?? reports/qa/latest/gui-docente-calificaciones-mobile.png\n?? reports/qa/latest/gui-docente-cuenta-desktop-lg.png\n?? reports/qa/latest/gui-docente-cuenta-mobile.png\n?? reports/qa/latest/gui-docente-entrega-desktop-lg.png\n?? reports/qa/latest/gui-docente-entrega-mobile.png\n?? reports/qa/latest/gui-docente-evaluaciones-desktop-lg.png\n?? reports/qa/latest/gui-docente-evaluaciones-mobile.png\n?? reports/qa/latest/gui-docente-login-desktop-lg.png\n?? reports/qa/latest/gui-docente-login-mobile.png\n?? reports/qa/latest/gui-docente-periodos-desktop-lg.png\n?? reports/qa/latest/gui-docente-periodos-mobile.png\n?? reports/qa/latest/gui-docente-plantillas-desktop-lg.png\n?? reports/qa/latest/gui-docente-plantillas-mobile.png\n?? reports/qa/latest/gui-docente-rehidratacion-desktop-lg.png\n?? reports/qa/latest/gui-docente-rehidratacion-mobile.png\n?? reports/qa/latest/gui-docente-sincronizacion-desktop-lg.png\n?? reports/qa/latest/gui-docente-sincronizacion-mobile.png\n?? scripts/tests/run-real-os-e2e.ps1\n?? tests/gui-responsive/ciclo-completo.spec.ts\n?? tests/gui-responsive/playwright.ciclo.config.cjs"
+  }
+}

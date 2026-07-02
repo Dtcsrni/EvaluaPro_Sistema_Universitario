@@ -5,6 +5,10 @@ Version tecnica: `1.1.0`
 Version visible GUI: `1.1.0`
 
 ## Estado vigente
+- Corte 2026-06-30 (Migración a Arquitectura Nativa Docente-Local y Estabilización):
+  - **Installer Hub Contract Tests:** Refactorizados los tests de contrato (`scripts/tests/installer-hub-contract.test.mjs`) para omitir aserciones de WSL y Docker Desktop obsoletos, alineándose con la distribución nativa ultra-ligera en Windows basada en Node.js embebido gestionada por `InstallerBurnHelper.ps1`.
+  - **Linter Fix:** Corregido error de linter (`@typescript-eslint/no-unused-vars`) en `apps/backend/tests/integracion/classroom.v2.test.ts`.
+  - **Gates Verificados:** Se ejecutó satisfactoriamente toda la suite de validación CI local: `npm run lint` ✅, `npm run typecheck` ✅, `npm run test:frontend:ci` ✅, `npm run test:coverage:ci` ✅, `npm run test:tdd:enforcement:ci` ✅, `npm run test:backend:ci` ✅, `npm run test:portal:ci` ✅, `npm run perf:check` ✅, `npm run pipeline:contract:check` ✅, `npm run test:sdd:policy` ✅, `npm run test:ia:traceability` ✅, confirmando total estabilización del sistema en la nueva arquitectura nativa.
 - Corte 2026-06-29 (listas institucionales, QA automatizada y release 1.1.0 Go):
   - **Classroom UX:** `CentroClassroom` permite filtrar roster y submissions por nombre, correo, matricula, alumno local, estado y estrategia de match; agrega contadores visibles para operar grupos grandes sin revisar listas completas manualmente.
   - **Classroom backend:** `servicioSyncClassroom` resuelve alumnos locales con un indice en memoria por correo/matricula/id y evita consultas N+1 a `Alumno.findOne`/`Alumno.findById` durante importaciones paginadas.
