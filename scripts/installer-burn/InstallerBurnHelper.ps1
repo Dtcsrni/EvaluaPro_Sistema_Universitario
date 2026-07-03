@@ -13,6 +13,12 @@ param(
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
 
+$modulesRoot = Join-Path $PSScriptRoot 'modules'
+$operationalConfigModule = Join-Path $modulesRoot 'OperationalConfig.psm1'
+if (Test-Path -LiteralPath $operationalConfigModule) {
+  Import-Module $operationalConfigModule -Force
+}
+
 function Write-Response {
   param([hashtable]$Payload)
   $json = $Payload | ConvertTo-Json -Depth 10
@@ -61,6 +67,28 @@ function Get-RequestConfigValue {
     return [string]$configProperty.Value
   }
   return $DefaultValue
+}
+
+function ConvertTo-InstallerHashtable {
+  param([object]$Value)
+
+  if ($null -eq $Value) { return @{} }
+  if ($Value -is [hashtable]) { return $Value }
+
+  $map = @{}
+  foreach ($property in $Value.PSObject.Properties) {
+    $map[$property.Name] = $property.Value
+  }
+  return $map
+}
+
+function Get-RequestConfigMap {
+  param([object]$Request)
+
+  if ($null -eq $Request) { return @{} }
+  $match = $Request.PSObject.Properties.Match('config')
+  if ($match.Count -eq 0 -or $null -eq $match[0].Value) { return @{} }
+  return ConvertTo-InstallerHashtable -Value $match[0].Value
 }
 
 function ConvertTo-VbsStringLiteralContent {
@@ -158,6 +186,31 @@ function Write-InstallerRuntimeEnv {
   Write-InstallerEnvMap -Path $envPath -Map $envMap
 }
 
+function Assert-InstallerRuntimeEnv {
+  param([Parameter(Mandatory = $true)][string]$TargetDir)
+
+  $envPath = Join-Path $TargetDir '.env'
+  $envMap = Read-InstallerEnvMap -Path $envPath
+  $required = @(
+    'MONGODB_URI',
+    'JWT_SECRETO',
+    'NODE_ENV',
+    'PUERTO_API',
+    'CORS_ORIGENES',
+    'EVALUAPRO_IMAGE_TAG'
+  )
+  $missing = @()
+  foreach ($key in $required) {
+    if (-not $envMap.Contains($key) -or [string]::IsNullOrWhiteSpace([string]$envMap[$key])) {
+      $missing += $key
+    }
+  }
+  if ($missing.Count -gt 0) {
+    throw "Contrato runtime incompleto en .env. Faltan: $($missing -join ', ')"
+  }
+  return $envPath
+}
+
 function Ensure-InstallerRuntimeContract {
   param(
     [Parameter(Mandatory = $true)][string]$TargetDir,
@@ -244,6 +297,18 @@ function Invoke-PostInstall {
     New-Item -ItemType Directory -Path $targetDir -Force | Out-Null
   }
   Ensure-InstallerRuntimeContract -TargetDir $targetDir -Request $requestJson
+  if (Get-Command Invoke-EvaluaProOperationalConfiguration -ErrorAction SilentlyContinue) {
+    $configMap = Get-RequestConfigMap -Request $requestJson
+    if (-not $configMap.ContainsKey('flavorId')) {
+      $configMap['flavorId'] = [string](Get-RequestValue -Request $requestJson -Names @('flavorId', 'FlavorId') -DefaultValue 'docente-local')
+    }
+    $mode = [string](Get-RequestValue -Request $requestJson -Names @('mode', 'Mode') -DefaultValue 'install')
+    Invoke-EvaluaProOperationalConfiguration -Mode $mode -InstallDir $targetDir -Config $configMap -OnLog {
+      param([string]$level, [string]$message)
+      Write-Host "[$level] $message"
+    } | Out-Null
+  }
+  $envPath = Assert-InstallerRuntimeEnv -TargetDir $targetDir
 
   $nodeDir = Join-Path $targetDir "node-lts"
   if (-not (Test-Path $nodeDir)) {
@@ -302,6 +367,7 @@ function Invoke-PostInstall {
     exitCode = 0
     message = "Instalacion Nativa exitosa."
     data = @{
+      envPath = $envPath
       workflow = @{
         stages = @(
           @{ Name = "Runtime Node LTS"; Badge = "OK"; Status = "Instalado aislado" },

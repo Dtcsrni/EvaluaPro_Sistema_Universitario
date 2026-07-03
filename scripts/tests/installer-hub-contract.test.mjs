@@ -1079,6 +1079,10 @@ test('helper Burn prepara contrato runtime instalado para dashboard docente', ()
   assert.match(helper, /New-InstallerSecret/);
   assert.match(helper, /EVALUAPRO_IMAGE_TAG/);
   assert.match(helper, /Write-InstallerEnvMap/);
+  assert.match(helper, /Import-Module \$operationalConfigModule -Force/);
+  assert.match(helper, /Invoke-EvaluaProOperationalConfiguration/);
+  assert.match(helper, /function Assert-InstallerRuntimeEnv/);
+  assert.match(helper, /Contrato runtime incompleto en \.env/);
   assert.doesNotMatch(helper, /backend\\dist\\index\.js/);
 });
 
