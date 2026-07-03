@@ -1055,6 +1055,15 @@ test('scripts del runtime Burn no usan operadores exclusivos de PowerShell 7', (
   assert.doesNotMatch(prereqInstaller, /\?\?/);
 });
 
+test('helper Burn acepta installDir moderno sin romper StrictMode de PowerShell 5', () => {
+  const helper = fs.readFileSync(burnHelperPath, 'utf8');
+
+  assert.match(helper, /function Get-RequestValue/);
+  assert.match(helper, /function Get-TargetInstallDir/);
+  assert.match(helper, /'TargetDir', 'targetDir', 'InstallDir', 'installDir'/);
+  assert.doesNotMatch(helper, /\$requestJson\.TargetDir/);
+});
+
 test('descarga de prerequisitos usa fallback HttpClient -> BITS -> Invoke-WebRequest', () => {
   const common = fs.readFileSync(path.join(root, 'scripts', 'installer-burn', 'modules', 'Common.psm1'), 'utf8');
   assert.match(common, /Add-Type -AssemblyName 'System\.Net\.Http'/);

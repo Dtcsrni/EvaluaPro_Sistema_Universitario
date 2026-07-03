@@ -19,6 +19,30 @@ function Write-Response {
   [IO.File]::WriteAllText($ResponsePath, $json + [Environment]::NewLine, [System.Text.Encoding]::UTF8)
 }
 
+function Get-RequestValue {
+  param(
+    [Parameter(Mandatory = $true)]
+    [object]$Request,
+    [Parameter(Mandatory = $true)]
+    [string[]]$Names,
+    [object]$DefaultValue = $null
+  )
+
+  foreach ($name in $Names) {
+    $property = $Request.PSObject.Properties.Match($name) | Select-Object -First 1
+    if ($property -and $null -ne $property.Value -and -not [string]::IsNullOrWhiteSpace([string]$property.Value)) {
+      return $property.Value
+    }
+  }
+
+  return $DefaultValue
+}
+
+function Get-TargetInstallDir {
+  param([Parameter(Mandatory = $true)][object]$Request)
+  return [string](Get-RequestValue -Request $Request -Names @('TargetDir', 'targetDir', 'InstallDir', 'installDir') -DefaultValue 'C:\Program Files\EvaluaPro')
+}
+
 function Detect-Prerequisites {
   # Verificar WebView2 (Microsoft Edge nativo)
   $edgeInstalled = $false
@@ -68,10 +92,7 @@ function Invoke-PostInstall {
   Write-Host "Iniciando instalacion nativa de EvaluaPro..."
   
   $requestJson = Get-Content -Raw -Path $RequestPath | ConvertFrom-Json
-  $targetDir = $requestJson.TargetDir
-  if (-not $targetDir) {
-    $targetDir = "C:\Program Files\EvaluaPro"
-  }
+  $targetDir = Get-TargetInstallDir -Request $requestJson
 
   if (-not (Test-Path $targetDir)) {
     New-Item -ItemType Directory -Path $targetDir -Force | Out-Null
@@ -145,10 +166,7 @@ function Invoke-Update {
   Write-Host "Iniciando actualizacion de EvaluaPro..."
   
   $requestJson = Get-Content -Raw -Path $RequestPath | ConvertFrom-Json
-  $targetDir = $requestJson.TargetDir
-  if (-not $targetDir) {
-    $targetDir = "C:\Program Files\EvaluaPro"
-  }
+  $targetDir = Get-TargetInstallDir -Request $requestJson
 
   $appDir = Join-Path $targetDir "app"
   $vbsPath = Join-Path $targetDir "evaluapro-launcher.vbs"
@@ -182,10 +200,7 @@ function Invoke-Uninstall {
   Write-Host "Iniciando desinstalacion nativa de EvaluaPro..."
   
   $requestJson = Get-Content -Raw -Path $RequestPath | ConvertFrom-Json
-  $targetDir = $requestJson.TargetDir
-  if (-not $targetDir) {
-    $targetDir = "C:\Program Files\EvaluaPro"
-  }
+  $targetDir = Get-TargetInstallDir -Request $requestJson
   
   $exportData = $false
   if ($requestJson.PSObject.Properties.Match('ExportData').Count -gt 0) {
