@@ -13,9 +13,19 @@ param(
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
 
-$modulesRoot = Join-Path $PSScriptRoot 'modules'
-$operationalConfigModule = Join-Path $modulesRoot 'OperationalConfig.psm1'
-if (Test-Path -LiteralPath $operationalConfigModule) {
+$moduleRoots = @(
+  (Join-Path $PSScriptRoot 'modules'),
+  $PSScriptRoot
+)
+$operationalConfigModule = $null
+foreach ($moduleRoot in $moduleRoots) {
+  $candidate = Join-Path $moduleRoot 'OperationalConfig.psm1'
+  if (Test-Path -LiteralPath $candidate) {
+    $operationalConfigModule = $candidate
+    break
+  }
+}
+if ($operationalConfigModule) {
   Import-Module $operationalConfigModule -Force
 }
 
@@ -307,6 +317,8 @@ function Invoke-PostInstall {
       param([string]$level, [string]$message)
       Write-Host "[$level] $message"
     } | Out-Null
+  } else {
+    Write-InstallerRuntimeEnv -TargetDir $targetDir -Request $requestJson
   }
   $envPath = Assert-InstallerRuntimeEnv -TargetDir $targetDir
 
