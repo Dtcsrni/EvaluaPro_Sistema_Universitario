@@ -1074,6 +1074,11 @@ test('helper Burn prepara contrato runtime instalado para dashboard docente', ()
   assert.match(helper, /runtime\\node\\node\.exe/);
   assert.match(helper, /scripts\\launcher-broker\.ps1/);
   assert.match(helper, /ConvertTo-VbsStringLiteralContent/);
+  assert.match(helper, /function Write-InstallerRuntimeEnv/);
+  assert.match(helper, /JWT_SECRETO/);
+  assert.match(helper, /New-InstallerSecret/);
+  assert.match(helper, /EVALUAPRO_IMAGE_TAG/);
+  assert.match(helper, /Write-InstallerEnvMap/);
   assert.doesNotMatch(helper, /backend\\dist\\index\.js/);
 });
 
