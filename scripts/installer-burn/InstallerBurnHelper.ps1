@@ -43,6 +43,37 @@ function Get-TargetInstallDir {
   return [string](Get-RequestValue -Request $Request -Names @('TargetDir', 'targetDir', 'InstallDir', 'installDir') -DefaultValue 'C:\Program Files\EvaluaPro')
 }
 
+function ConvertTo-VbsStringLiteralContent {
+  param([Parameter(Mandatory = $true)][string]$Value)
+  return ($Value -replace '"', '""')
+}
+
+function Ensure-InstallerRuntimeContract {
+  param([Parameter(Mandatory = $true)][string]$TargetDir)
+
+  $requiredDirs = @(
+    (Join-Path $TargetDir 'apps\backend\data\examenes_dev'),
+    (Join-Path $TargetDir 'apps\backend\data\examenes_prod'),
+    (Join-Path $TargetDir 'apps\backend\data\examenes_test'),
+    (Join-Path $TargetDir 'logs'),
+    (Join-Path $TargetDir 'runtime\node')
+  )
+
+  foreach ($dir in $requiredDirs) {
+    if (-not (Test-Path -LiteralPath $dir)) {
+      New-Item -ItemType Directory -Path $dir -Force | Out-Null
+    }
+  }
+
+  $nodeTarget = Join-Path $TargetDir 'runtime\node\node.exe'
+  if (-not (Test-Path -LiteralPath $nodeTarget)) {
+    $nodeCommand = Get-Command 'node.exe' -ErrorAction SilentlyContinue
+    if ($nodeCommand -and (Test-Path -LiteralPath $nodeCommand.Source)) {
+      Copy-Item -LiteralPath $nodeCommand.Source -Destination $nodeTarget -Force
+    }
+  }
+}
+
 function Detect-Prerequisites {
   # Verificar WebView2 (Microsoft Edge nativo)
   $edgeInstalled = $false
@@ -97,6 +128,7 @@ function Invoke-PostInstall {
   if (-not (Test-Path $targetDir)) {
     New-Item -ItemType Directory -Path $targetDir -Force | Out-Null
   }
+  Ensure-InstallerRuntimeContract -TargetDir $targetDir
 
   $nodeDir = Join-Path $targetDir "node-lts"
   if (-not (Test-Path $nodeDir)) {
@@ -128,11 +160,14 @@ function Invoke-PostInstall {
 
   # 3. Registrar como Tarea Programada o Servicio
   Write-Host "Configurando servicio de fondo..."
-  $scriptPath = Join-Path $appDir "backend\dist\index.js"
+  $brokerPath = Join-Path $targetDir "scripts\launcher-broker.ps1"
+  $powerShellPath = Join-Path $env:WINDIR "System32\WindowsPowerShell\v1.0\powershell.exe"
   
   # Creamos un launcher vbs silencioso
   $vbsPath = Join-Path $targetDir "evaluapro-launcher.vbs"
-  $vbsContent = "Set WshShell = CreateObject(`"WScript.Shell`")`nWshShell.Run `"`"$nodeExe`" `"$scriptPath`"`", 0, False"
+  $launcherCommand = "`"$powerShellPath`" -NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -File `"$brokerPath`" -Action open-dashboard -Mode prod -NoOpen"
+  $vbsCommand = ConvertTo-VbsStringLiteralContent -Value $launcherCommand
+  $vbsContent = "Set WshShell = CreateObject(`"WScript.Shell`")`nWshShell.Run `"$vbsCommand`", 0, False"
   Set-Content -Path $vbsPath -Value $vbsContent
 
   # Registramos la tarea programada al inicio de sesion (silenciosa sin admin)
