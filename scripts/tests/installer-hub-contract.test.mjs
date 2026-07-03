@@ -379,6 +379,8 @@ test('Installer Hub cumple contrato DESIGN.md de layout y accesibilidad WPF', ()
   assert.match(mainWindowXaml, /Content="_Continuar"/);
   assert.match(mainWindowXaml, /Content="Reiniciar _ahora"/);
   assert.match(mainWindowXaml, /Content="_Cerrar"/);
+  assert.match(mainWindowXaml, /x:Name="AcceptTermsCheckBox"[\s\S]*?Checked="AcceptTermsCheckBox_OnClick"[\s\S]*?Unchecked="AcceptTermsCheckBox_OnClick"/);
+  assert.doesNotMatch(mainWindowXaml, /x:Name="AcceptTermsCheckBox"[\s\S]*?Click="AcceptTermsCheckBox_OnClick"/);
   assert.match(mainWindowCode, /DetectButton\.Focus\(\)/);
   assert.match(mainWindowCode, /GetModeActionLabel\(normalizedMode\)\.Replace\("_", string\.Empty\)/);
   assert.match(mainWindowCode, /enum WizardStep/);

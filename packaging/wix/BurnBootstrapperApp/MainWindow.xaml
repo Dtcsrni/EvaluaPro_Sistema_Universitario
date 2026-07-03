@@ -333,7 +333,7 @@ Por favor, lee atentamente los siguientes términos antes de proceder con la ins
                                         </ScrollViewer>
                                     </Border>
                                     
-                                    <CheckBox x:Name="AcceptTermsCheckBox" Grid.Row="3" Content="Acepto los términos y condiciones de licencia, uso y privacidad de EvaluaPro." IsChecked="False" Margin="0,14,0,0" FontSize="13" FontWeight="SemiBold" ToolTip="Debe marcar esta casilla para poder avanzar." Click="AcceptTermsCheckBox_OnClick" TabIndex="5" />
+                                    <CheckBox x:Name="AcceptTermsCheckBox" Grid.Row="3" Content="Acepto los términos y condiciones de licencia, uso y privacidad de EvaluaPro." IsChecked="False" Margin="0,14,0,0" FontSize="13" FontWeight="SemiBold" ToolTip="Debe marcar esta casilla para poder avanzar." Checked="AcceptTermsCheckBox_OnClick" Unchecked="AcceptTermsCheckBox_OnClick" TabIndex="5" />
                                 </Grid>
                             </Border>
                         </Grid>
