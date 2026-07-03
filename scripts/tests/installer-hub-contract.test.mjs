@@ -1351,6 +1351,7 @@ test('docente-local usa Compose prod image-first y fallback build separado', () 
   assert.match(compose, /web_docente_local:[\s\S]*?profiles:\s*\["dev"\]/);
   assert.match(compose, /api_docente_prod:[\s\S]*?image:\s*\$\{EVALUAPRO_API_DOCENTE_IMAGE:-ghcr\.io\/dtcsrni\/evaluapro_sistema_universitario\/evaluapro-api-docente/);
   assert.match(compose, /web_docente_prod:[\s\S]*?image:\s*\$\{EVALUAPRO_WEB_DOCENTE_IMAGE:-ghcr\.io\/dtcsrni\/evaluapro_sistema_universitario\/evaluapro-web-docente/);
+  assert.match(compose, /EVALUAPRO_IMAGE_TAG:-1\.1\.1/);
   assert.doesNotMatch(compose, /api_docente_prod:[\s\S]*?build:[\s\S]*?profiles:\s*\["prod"\]/);
   assert.doesNotMatch(compose, /web_docente_prod:[\s\S]*?build:[\s\S]*?profiles:\s*\["prod"\]/);
   assert.match(prodBuild, /api_docente_prod:[\s\S]*?build:/);
@@ -1359,6 +1360,7 @@ test('docente-local usa Compose prod image-first y fallback build separado', () 
   assert.match(packageJson.scripts['api:rebuild'], /docker-compose\.prod-build\.yml/);
   assert.doesNotMatch(packageJson.scripts['stack:prod'], /--build/);
   assert.match(packageJson.scripts['stack:prod'], /--no-build -d mongo_local api_docente_prod web_docente_prod/);
+  assert.doesNotMatch(packageJson.scripts['stack:prod'], /detect-host-ip/);
 });
 
 test('package workflow publica imagenes docente GHCR versionadas', () => {
@@ -1712,6 +1714,9 @@ $r | ConvertTo-Json -Depth 8
     assert.match(envRaw, /MONGODB_URI=/);
     assert.match(envRaw, /JWT_SECRETO=/);
     assert.match(envRaw, /EVALUAPRO_FLAVOR=docente-local/);
+    assert.match(envRaw, /EVALUAPRO_IMAGE_TAG=1\.1\.1/);
+    assert.match(envRaw, /BACKEND_DATA_DIR_DEV=\.\/apps\/backend\/data\/examenes_dev/);
+    assert.match(envRaw, /BACKEND_DATA_DIR_PROD=\.\/apps\/backend\/data\/examenes_prod/);
     assert.match(envRaw, /PORTAL_SYNC_REQUIRED=1/);
     assert.match(envRaw, /PORTAL_ALUMNO_API_KEY=portal-key-shared/);
     assert.match(envRaw, /PORTAL_API_KEY=portal-key-shared/);

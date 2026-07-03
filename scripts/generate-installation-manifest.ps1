@@ -380,8 +380,8 @@ $payload = [ordered]@{
     requireLocalPortal = $false
     runtimeTarget = 'wsl2-docker-minimal'
     dockerImages = [ordered]@{
-      apiDocente = if ($env:EVALUAPRO_API_DOCENTE_IMAGE) { [string]$env:EVALUAPRO_API_DOCENTE_IMAGE } else { 'ghcr.io/dtcsrni/evaluapro_sistema_universitario/evaluapro-api-docente:1.0.0' }
-      webDocente = if ($env:EVALUAPRO_WEB_DOCENTE_IMAGE) { [string]$env:EVALUAPRO_WEB_DOCENTE_IMAGE } else { 'ghcr.io/dtcsrni/evaluapro_sistema_universitario/evaluapro-web-docente:1.0.0' }
+      apiDocente = if ($env:EVALUAPRO_API_DOCENTE_IMAGE) { [string]$env:EVALUAPRO_API_DOCENTE_IMAGE } else { 'ghcr.io/dtcsrni/evaluapro_sistema_universitario/evaluapro-api-docente:1.1.1' }
+      webDocente = if ($env:EVALUAPRO_WEB_DOCENTE_IMAGE) { [string]$env:EVALUAPRO_WEB_DOCENTE_IMAGE } else { 'ghcr.io/dtcsrni/evaluapro_sistema_universitario/evaluapro-web-docente:1.1.1' }
       mongo = 'mongo:8.0.23'
     }
     port = $Port
