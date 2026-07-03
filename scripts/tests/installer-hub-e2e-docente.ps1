@@ -395,14 +395,19 @@ function Find-ById {
     [string]$AutomationId,
     [int]$TimeoutSec = 8
   )
+  if ($null -eq $RootElement) { return $null }
   $deadline = (Get-Date).AddSeconds($TimeoutSec)
   $condition = New-Object System.Windows.Automation.PropertyCondition -ArgumentList @(
     [System.Windows.Automation.AutomationElement]::AutomationIdProperty,
     $AutomationId
   )
   do {
-    $element = $RootElement.FindFirst([System.Windows.Automation.TreeScope]::Descendants, $condition)
-    if ($element) { return $element }
+    try {
+      $element = $RootElement.FindFirst([System.Windows.Automation.TreeScope]::Descendants, $condition)
+      if ($element) { return $element }
+    } catch {
+      return $null
+    }
     Start-Sleep -Milliseconds 250
   } while ((Get-Date) -lt $deadline)
   return $null
@@ -414,14 +419,19 @@ function Find-ByName {
     [string]$Name,
     [int]$TimeoutSec = 8
   )
+  if ($null -eq $RootElement) { return $null }
   $deadline = (Get-Date).AddSeconds($TimeoutSec)
   $condition = New-Object System.Windows.Automation.PropertyCondition -ArgumentList @(
     [System.Windows.Automation.AutomationElement]::NameProperty,
     $Name
   )
   do {
-    $element = $RootElement.FindFirst([System.Windows.Automation.TreeScope]::Descendants, $condition)
-    if ($element) { return $element }
+    try {
+      $element = $RootElement.FindFirst([System.Windows.Automation.TreeScope]::Descendants, $condition)
+      if ($element) { return $element }
+    } catch {
+      return $null
+    }
     Start-Sleep -Milliseconds 250
   } while ((Get-Date) -lt $deadline)
   return $null
@@ -765,7 +775,12 @@ function Invoke-InstallerHubMode {
     $nextButton = Wait-ControlEnabled -RootElement $window -AutomationId 'NextButton' -TimeoutSec 180
     Invoke-Control -Element $nextButton
     Start-Sleep -Seconds 1
-    $window = Find-Window -TimeoutSec 10
+    $window = Find-Window -TimeoutSec 20
+    if (-not $window) {
+      $alive = $false
+      try { $alive = -not $process.HasExited } catch {}
+      throw "Installer Hub no disponible tras avanzar a revision mode=$Mode processAlive=$alive"
+    }
   }
 
   Capture-Window -Window $window -Name ("wpf-{0}-03-revisar" -f $Mode) | Out-Null
