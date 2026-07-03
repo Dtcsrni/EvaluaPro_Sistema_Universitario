@@ -286,7 +286,7 @@ test('Installer Hub cumple contrato DESIGN.md de layout y accesibilidad WPF', ()
   assert.match(mainWindowXaml, /x:Name="StepperHost"/);
   assert.match(mainWindowXaml, /x:Name="StepHost"/);
   assert.match(mainWindowXaml, /x:Name="PrepareStepPanel"/);
-  assert.match(mainWindowXaml, /x:Name="ReviewStepPanel"/);
+  assert.match(mainWindowXaml, /<ScrollViewer x:Name="ReviewStepPanel"[\s\S]*?VerticalScrollBarVisibility="Auto"/);
   assert.match(mainWindowXaml, /x:Name="ExecuteStepPanel"/);
   assert.match(mainWindowXaml, /x:Name="ResultStepPanel"/);
   assert.match(mainWindowXaml, /PrimaryButtonStyle/);

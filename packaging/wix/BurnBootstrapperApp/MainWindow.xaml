@@ -424,12 +424,13 @@ Por favor, lee atentamente los siguientes términos antes de proceder con la ins
                             </Grid>
                         </ScrollViewer>
 
-                        <Grid x:Name="ReviewStepPanel" Visibility="Collapsed">
-                            <Grid.ColumnDefinitions>
-                                <ColumnDefinition Width="1.35*" />
-                                <ColumnDefinition Width="0.65*" />
-                            </Grid.ColumnDefinitions>
-                            <Border Style="{StaticResource PanelCardStyle}" Margin="0,0,12,0">
+                        <ScrollViewer x:Name="ReviewStepPanel" Visibility="Collapsed" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+                            <Grid>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="1.35*" />
+                                    <ColumnDefinition Width="0.65*" />
+                                </Grid.ColumnDefinitions>
+                                <Border Style="{StaticResource PanelCardStyle}" Margin="0,0,12,0">
                                 <StackPanel>
                                     <TextBlock Text="Revisar prerequisitos" FontSize="20" FontWeight="SemiBold" Foreground="{StaticResource TextBrush}" />
                                     <TextBlock Style="{StaticResource HelpTextStyle}" Text="Valida requisitos antes de ejecutar la operación seleccionada." />
@@ -526,7 +527,7 @@ Por favor, lee atentamente los siguientes términos antes de proceder con la ins
                                     </ListView>
                                 </StackPanel>
                             </Border>
-                            <Border Style="{StaticResource PanelCardStyle}" Grid.Column="1">
+                                <Border Style="{StaticResource PanelCardStyle}" Grid.Column="1">
                                 <StackPanel>
                                     <TextBlock Text="Decisión" FontSize="18" FontWeight="SemiBold" Foreground="{StaticResource TextBrush}" />
                                     <TextBlock Style="{StaticResource HelpTextStyle}" Text="Si todo está listo, ejecuta la acción primaria. Si algo falta, revisa evidencia y vuelve a detectar." />
@@ -538,8 +539,9 @@ Por favor, lee atentamente los siguientes términos antes de proceder con la ins
                                         </StackPanel>
                                     </Border>
                                 </StackPanel>
-                            </Border>
-                        </Grid>
+                                </Border>
+                            </Grid>
+                        </ScrollViewer>
 
                         <Grid x:Name="ExecuteStepPanel" Visibility="Collapsed">
                             <Grid.ColumnDefinitions>
