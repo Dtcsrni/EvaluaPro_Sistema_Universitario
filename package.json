@@ -1,6 +1,6 @@
 {
   "name": "evaluapro",
-  "description": "Plataforma MERN para evaluación universitaria: generación de exámenes en PDF, vinculación por QR, calificación asistida (OMR) y operación local con docker compose, WSL2 + Docker Engine por defecto y dashboard.",
+  "description": "Plataforma para evaluación universitaria: generación de exámenes en PDF, vinculación por QR, calificación asistida (OMR), operación docente local nativa y dashboard.",
   "version": "1.1.1",
   "author": {
     "name": "I.S.C. Erick Renato Vega Ceron",
@@ -40,6 +40,7 @@
     "dev:frontend:alumno": "npm -C apps/frontend run dev:alumno",
     "dev:frontend:docente": "npm -C apps/frontend run dev:docente",
     "dev:frontend:wait": "node scripts/wait-api.mjs && npm -C apps/frontend run dev",
+    "docente:prod:native": "node scripts/start-docente-native.mjs",
     "dev:portal": "node scripts/guard-env-separation.mjs --mode check --strict && node scripts/start-portal-dev.mjs",
     "portal:prod": "node scripts/guard-env-separation.mjs --mode check --strict && node scripts/start-portal-prod.mjs",
     "stack:dev": "node scripts/guard-env-separation.mjs --mode check --strict && node scripts/start-tray.mjs --mode dev --port 4519 && node scripts/detect-host-ip.mjs && docker compose stop api_docente_prod web_docente_prod && docker compose --profile dev up",

@@ -116,7 +116,6 @@ try {
 
   $env:EVALUAPRO_QA_USER = 'evaluaqa'
   $env:EVALUAPRO_QA_PASS = $qaPass
-  $env:EVALUAPRO_DOCKER_RUNTIME = 'desktop'
 
   $args = @(
     '-NoProfile',

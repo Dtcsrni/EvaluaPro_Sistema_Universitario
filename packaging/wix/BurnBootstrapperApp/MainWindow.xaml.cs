@@ -11,7 +11,7 @@ namespace EvaluaPro.BurnBootstrapperApp;
 
 public partial class MainWindow : Window
 {
-    private const string DefaultMongoUri = "mongodb://mongo_local:27017/evaluapro";
+    private const string DefaultDatabaseUrl = "file:C:/ProgramData/EvaluaPro/data/evaluapro.db";
     private const string DefaultNodeEnv = "production";
     private const string DefaultApiPort = "4000";
     private const string DefaultPortalPort = "4518";
@@ -531,7 +531,7 @@ public partial class MainWindow : Window
             InstallDesktopShortcuts = DesktopShortcutsCheckBox.IsChecked == true,
             InstallStartMenuShortcuts = StartMenuShortcutsCheckBox.IsChecked == true,
             ExportData = ExportDataCheckBox.IsChecked == true,
-            MongoUri = DefaultMongoUri,
+            DatabaseUrl = DefaultDatabaseUrl,
             NodeEnv = DefaultNodeEnv,
             ApiPort = DefaultApiPort,
             PortalPort = DefaultPortalPort,

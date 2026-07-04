@@ -10,8 +10,9 @@ import { resolverNombreDbTest } from './utils/testDbPath';
 const dbFile = resolverNombreDbTest();
 const dataDir = path.resolve(process.cwd(), 'data');
 const dbPath = path.resolve(dataDir, dbFile);
-process.env.DATABASE_URL = `file:${dbPath}`;
-process.env.BACKEND_DATABASE_URL = `file:${dbPath}`;
+const dbUrl = `file:${dbPath.replace(/\\/g, '/')}`;
+process.env.DATABASE_URL = dbUrl;
+process.env.BACKEND_DATABASE_URL = dbUrl;
 
 import { instalarTestHardening } from '../../../test-utils/vitestStrict';
 

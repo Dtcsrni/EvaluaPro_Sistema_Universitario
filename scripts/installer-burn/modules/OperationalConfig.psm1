@@ -47,7 +47,7 @@ function Normalize-OperationalConfig {
     [hashtable]$InputConfig
   )
   $cfg = [ordered]@{
-    mongoUri = [string](Get-InstallerHubConfigValue -InputConfig $InputConfig -Key 'mongoUri' -DefaultValue 'mongodb://mongo_local:27017/evaluapro')
+    databaseUrl = [string](Get-InstallerHubConfigValue -InputConfig $InputConfig -Key 'databaseUrl' -DefaultValue 'file:C:/ProgramData/EvaluaPro/data/evaluapro.db')
     jwtSecreto = [string](Get-InstallerHubConfigValue -InputConfig $InputConfig -Key 'jwtSecreto' -DefaultValue '')
     nodeEnv = [string](Get-InstallerHubConfigValue -InputConfig $InputConfig -Key 'nodeEnv' -DefaultValue 'production')
     puertoApi = [string](Get-InstallerHubConfigValue -InputConfig $InputConfig -Key 'puertoApi' -DefaultValue '4000')
@@ -124,7 +124,7 @@ function Test-OperationalConfig {
     }
   }
 
-  $requiredKeys = @('mongoUri', 'jwtSecreto', 'corsOrigenes')
+  $requiredKeys = @('databaseUrl', 'jwtSecreto', 'corsOrigenes')
   if (-not $Config.deferPortalIntegration) {
     $requiredKeys += @('portalAlumnoUrl', 'portalAlumnoApiKey', 'portalApiKey')
   }
@@ -311,15 +311,14 @@ function Invoke-EvaluaProOperationalConfiguration {
 
   $envPath = Join-Path $InstallDir '.env'
   $envMap = Read-EnvMap -Path $envPath
-  $imageTag = Get-InstalledPackageVersion -InstallDir $InstallDir
-  Set-OrReplaceEnvLine -Map $envMap -Key 'MONGODB_URI' -Value $normalized.mongoUri
+  Set-OrReplaceEnvLine -Map $envMap -Key 'DATABASE_URL' -Value $normalized.databaseUrl
+  Set-OrReplaceEnvLine -Map $envMap -Key 'BACKEND_DATABASE_URL' -Value $normalized.databaseUrl
   Set-OrReplaceEnvLine -Map $envMap -Key 'JWT_SECRETO' -Value $normalized.jwtSecreto
   Set-OrReplaceEnvLine -Map $envMap -Key 'NODE_ENV' -Value $normalized.nodeEnv
   Set-OrReplaceEnvLine -Map $envMap -Key 'PUERTO_API' -Value $normalized.puertoApi
   Set-OrReplaceEnvLine -Map $envMap -Key 'PUERTO_PORTAL' -Value $normalized.puertoPortal
   Set-OrReplaceEnvLine -Map $envMap -Key 'CORS_ORIGENES' -Value $normalized.corsOrigenes
   Set-OrReplaceEnvLine -Map $envMap -Key 'EVALUAPRO_FLAVOR' -Value $normalized.flavorId
-  Set-OrReplaceEnvLine -Map $envMap -Key 'EVALUAPRO_IMAGE_TAG' -Value $imageTag
   Set-OrReplaceEnvLine -Map $envMap -Key 'BACKEND_DATA_DIR_DEV' -Value './apps/backend/data/examenes_dev'
   Set-OrReplaceEnvLine -Map $envMap -Key 'BACKEND_DATA_DIR_PROD' -Value './apps/backend/data/examenes_prod'
   Set-OrReplaceEnvLine -Map $envMap -Key 'PORTAL_SYNC_REQUIRED' -Value ($(if ($normalized.deferPortalIntegration) { '0' } else { '1' }))
@@ -395,7 +394,7 @@ function Invoke-EvaluaProOperationalConfiguration {
     mode = $Mode
     installDir = $InstallDir
     config = [ordered]@{
-      mongoUri = $normalized.mongoUri
+      databaseUrl = $normalized.databaseUrl
       jwtSecretoSet = -not [string]::IsNullOrWhiteSpace($normalized.jwtSecreto)
       corsOrigenes = $normalized.corsOrigenes
       portalAlumnoUrl = $normalized.portalAlumnoUrl

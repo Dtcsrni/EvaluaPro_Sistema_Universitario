@@ -69,12 +69,12 @@ if ([string]::IsNullOrWhiteSpace($ReportDir)) {
 }
 New-Item -ItemType Directory -Force -Path $ReportDir | Out-Null
 $screenshotsDir = Join-Path $ReportDir 'screenshots'
-$dockerDir = Join-Path $ReportDir 'docker'
+$nativeDir = Join-Path $ReportDir 'native'
 $logsDir = Join-Path $ReportDir 'logs'
 $hashesDir = Join-Path $ReportDir 'hashes'
 $manifestDir = Join-Path $ReportDir 'manifest'
 $processesDir = Join-Path $ReportDir 'processes'
-foreach ($dir in @($screenshotsDir, $dockerDir, $logsDir, $hashesDir, $manifestDir, $processesDir)) {
+foreach ($dir in @($screenshotsDir, $nativeDir, $logsDir, $hashesDir, $manifestDir, $processesDir)) {
   New-Item -ItemType Directory -Force -Path $dir | Out-Null
 }
 
@@ -89,8 +89,6 @@ $processes = New-Object System.Collections.Generic.List[System.Diagnostics.Proce
 $failed = $false
 $bundlePath = ''
 $installedRoot = ''
-$LastDockerExitCode = 0
-$script:LastDockerExitCode = 0
 
 function Write-E2ELog {
   param([string]$Message)
@@ -149,7 +147,7 @@ function Save-Report {
 
 function Get-ProcessSnapshot {
   Get-Process |
-    Where-Object { $_.ProcessName -like 'EvaluaPro*' -or $_.ProcessName -like '*docker*' -or $_.ProcessName -like '*wsl*' } |
+    Where-Object { $_.ProcessName -like 'EvaluaPro*' -or $_.ProcessName -like 'node' -or $_.ProcessName -like 'npm' } |
     Select-Object Id, ProcessName, MainWindowTitle, Path
 }
 
@@ -185,7 +183,7 @@ function Minimize-RunnerConsole {
 
 function Export-JsonArtifact {
   param([string]$Name, [object]$Data)
-  $targetDir = if ($Name -match '^processes-') { $processesDir } elseif ($Name -match 'docker|health') { $dockerDir } elseif ($Name -match 'manifest|config|update-status') { $manifestDir } else { $ReportDir }
+  $targetDir = if ($Name -match '^processes-') { $processesDir } elseif ($Name -match 'native|health') { $nativeDir } elseif ($Name -match 'manifest|config|update-status') { $manifestDir } else { $ReportDir }
   $path = Join-Path $targetDir $Name
   $Data | ConvertTo-Json -Depth 12 | Set-Content -Path $path -Encoding UTF8
   $script:artifacts.Add($path) | Out-Null
@@ -882,23 +880,6 @@ function Invoke-CaptureCommand {
   )
   $stdout = Join-Path $ReportDir ("{0}.stdout.log" -f $Name)
   $stderr = Join-Path $ReportDir ("{0}.stderr.log" -f $Name)
-  if ($FilePath -eq 'docker') {
-    $output = @()
-    try {
-      $output = @(Invoke-DockerCli -ArgumentList $ArgumentList -WorkingDirectory $WorkingDirectory 2>&1)
-      $exitCode = [int]$script:LastDockerExitCode
-    } catch {
-      $output = @($_.Exception.Message)
-      $exitCode = 1
-    }
-    $output | Set-Content -Path $stdout -Encoding UTF8
-    '' | Set-Content -Path $stderr -Encoding UTF8
-    Copy-ArtifactIfExists -Path $stdout -Name ("{0}.stdout.log" -f $Name) | Out-Null
-    Copy-ArtifactIfExists -Path $stderr -Name ("{0}.stderr.log" -f $Name) | Out-Null
-    Add-Result -Area 'docker' -Item $Name -Ok ($exitCode -eq 0) -Detail "exit=$exitCode"
-    if ($exitCode -ne 0) { throw "Comando fallo: $Name exit=$exitCode" }
-    return
-  }
   $process = Start-Process -FilePath $FilePath -ArgumentList $ArgumentList -WorkingDirectory $WorkingDirectory -NoNewWindow -PassThru -RedirectStandardOutput $stdout -RedirectStandardError $stderr
   if (-not $process.WaitForExit($TimeoutSec * 1000)) {
     try { Stop-Process -Id $process.Id -Force -ErrorAction SilentlyContinue } catch {}
@@ -916,76 +897,17 @@ function Invoke-CaptureCommand {
     $exitCode = 0
   }
   
-  Add-Result -Area 'docker' -Item $Name -Ok ($exitCode -eq 0) -Detail "exit=$exitCode"
+  Add-Result -Area 'command' -Item $Name -Ok ($exitCode -eq 0) -Detail "exit=$exitCode"
   if ($exitCode -ne 0) { throw "Comando fallo: $Name exit=$exitCode" }
-}
-
-function ConvertTo-WslPath {
-  param([string]$Path)
-  $resolved = (Resolve-Path -LiteralPath $Path).Path
-  if ($resolved -match '^([A-Za-z]):\\(.*)$') {
-    $drive = $matches[1].ToLowerInvariant()
-    $rest = $matches[2] -replace '\\', '/'
-    return "/mnt/$drive/$rest"
-  }
-  return $resolved
-}
-
-function Join-ShellArguments {
-  param([string[]]$ArgumentList)
-  $quoted = foreach ($arg in @($ArgumentList)) {
-    "'" + ([string]$arg).Replace("'", "'\''") + "'"
-  }
-  return ($quoted -join ' ')
-}
-
-function Invoke-DockerCli {
-  param(
-    [string[]]$ArgumentList,
-    [string]$WorkingDirectory = $root
-  )
-  if ([string]$env:EVALUAPRO_DOCKER_RUNTIME -eq 'wsl2-engine') {
-    $wslCwd = ConvertTo-WslPath -Path $WorkingDirectory
-    $dockerArgs = Join-ShellArguments -ArgumentList $ArgumentList
-    $quotedCwd = Join-ShellArguments -ArgumentList @($wslCwd)
-    $bashCommand = "cd $quotedCwd && docker $dockerArgs"
-    $stdout = Join-Path $env:TEMP ("evaluapro-docker-{0}.out.log" -f [Guid]::NewGuid().ToString('N'))
-    $stderr = Join-Path $env:TEMP ("evaluapro-docker-{0}.err.log" -f [Guid]::NewGuid().ToString('N'))
-    try {
-      $wslArgs = @('-d', 'Ubuntu', '-u', 'root', '--', 'bash', '-lc', $bashCommand)
-      $proc = Start-Process -FilePath 'wsl.exe' -ArgumentList $wslArgs -Wait -NoNewWindow -PassThru -RedirectStandardOutput $stdout -RedirectStandardError $stderr
-      $script:LastDockerExitCode = [int]$proc.ExitCode
-      $out = if (Test-Path -LiteralPath $stdout) { @(Get-Content -Path $stdout -ErrorAction SilentlyContinue) } else { @() }
-      $err = if (Test-Path -LiteralPath $stderr) { @(Get-Content -Path $stderr -ErrorAction SilentlyContinue) } else { @() }
-      return @($out + $err)
-    } finally {
-      if (Test-Path -LiteralPath $stdout) { Remove-Item -LiteralPath $stdout -Force -ErrorAction SilentlyContinue }
-      if (Test-Path -LiteralPath $stderr) { Remove-Item -LiteralPath $stderr -Force -ErrorAction SilentlyContinue }
-    }
-  }
-  $output = & docker @ArgumentList
-  $script:LastDockerExitCode = if ($null -eq $LASTEXITCODE) { 0 } else { [int]$LASTEXITCODE }
-  return $output
 }
 
 function Export-RuntimeAudit {
   param([string]$Name)
-  $context = ''
-  $images = ''
-  try {
-    $context = (Invoke-DockerCli -ArgumentList @('context', 'ls', '--format', 'json') 2>&1) -join "`n"
-  } catch {
-    $context = $_.Exception.Message
-  }
-  try {
-    $images = (Invoke-DockerCli -ArgumentList @('images', '--format', 'json') 2>&1) -join "`n"
-  } catch {
-    $images = $_.Exception.Message
-  }
-  $runtimeWarning = if ($env:EVALUAPRO_DOCKER_RUNTIME -ne 'desktop' -and $context -match 'desktop-linux') { 'desktop-unapproved' } else { '' }
   $auditName = if ($Name -eq 'before') { 'runtime-audit-before.json' } else { 'runtime-audit-after.json' }
   Export-JsonArtifact -Name $auditName -Data ([pscustomobject]@{
     generatedAt = (Get-Date).ToString('o')
+    runtime = 'native-node-sqlite'
+    dockerRequired = $false
   }) | Out-Null
 }
 
@@ -1022,7 +944,7 @@ function Assert-NativeStable {
   }
 
   try {
-    $web = Invoke-WebRequest -Uri 'http://127.0.0.1:4000/' -UseBasicParsing -TimeoutSec 10
+    $web = Invoke-WebRequest -Uri 'http://127.0.0.1:4173/' -UseBasicParsing -TimeoutSec 10
     Add-Result -Area 'native' -Item 'web-docente' -Ok ($web.StatusCode -eq 200) -Detail "status=$($web.StatusCode)"
   } catch {
     Add-Result -Area 'native' -Item 'web-docente' -Ok $false -Detail $_.Exception.Message
@@ -1095,11 +1017,11 @@ function Write-TutorialMarkdown {
   $content = @(
     '# Tutorial visual E2E Installer Hub docente-local',
     '',
-    'Este tutorial se genera desde la evidencia real de VM. Muestra el flujo completo install, repair, Docker stable, dashboard y uninstall.',
+    'Este tutorial se genera desde la evidencia real de VM. Muestra el flujo completo install, repair, Plataforma docente nativa, dashboard y uninstall.',
     '',
     '## 1. Preparar',
     '- Confirmar flavor `docente-local`, modo y ruta.',
-    '- Mantener configuracion avanzada colapsada salvo soporte.',
+    '- El Hub docente no expone configuracion avanzada legacy.',
     '- Ejecutar `run-e2e-launcher.ps1 -DryRun` antes del ciclo real si se opera desde host.',
     '- Confirmar `powershell-direct-e2e-launch.json` con `acceptsCredentialParameter=true`.',
     '- Ejecutar el launcher real con `-Credential` y `-QaPassSecureString`; no guardar passwords en archivos, logs ni handoffs.',
@@ -1112,8 +1034,8 @@ function Write-TutorialMarkdown {
     '- Instalar, reparar o desinstalar desde el boton primario.',
     '- No cerrar la ventana mientras exista operacion busy.',
     '',
-    '## 4. Estado estable Docker',
-    '- `mongo_local`, `api_docente_prod` y `web_docente_prod` deben estar `running` y `healthy`.',
+    '## 4. Plataforma docente nativa',
+    '- El launcher nativo debe mantener Node/API y Web docente en ejecucion.',
     '- API: `http://127.0.0.1:4000/api/salud` debe responder 200.',
     '- Web docente: `http://127.0.0.1:4173` debe responder 200.',
     '- Dashboard: `/api/status` debe estar `healthy` o `degraded`, nunca `failed`.',
@@ -1121,7 +1043,7 @@ function Write-TutorialMarkdown {
     '',
     '## 5. Evidencia',
     '- Reporte JSON: `report.json`.',
-    '- Docker: `docker/`.',
+    '- Runtime nativo: `native/`.',
     '- Logs: `logs/`.',
     '- Manifiestos: `manifest/`.',
     '- Procesos: `processes/`.',
@@ -1240,48 +1162,15 @@ try {
     }
   }
 
-  Push-Location $installedRoot
-  try {
-    $dockerConfigFile = Join-Path $env:USERPROFILE '.docker\config.json'
-    if (Test-Path $dockerConfigFile) {
-      try {
-        $cfg = Get-Content $dockerConfigFile -Raw | ConvertFrom-Json -ErrorAction Stop
-        if ($cfg -is [pscustomobject]) {
-          $cfg.credsStore = ""
-          if (-not $cfg.auths) {
-            $cfg | Add-Member -MemberType NoteProperty -Name auths -Value (New-Object PSObject)
-          }
-          $cfg.auths | Add-Member -MemberType NoteProperty -Name "https://index.docker.io/v1/" -Value (New-Object PSObject) -Force
-          $cfg.auths | Add-Member -MemberType NoteProperty -Name "ghcr.io" -Value (New-Object PSObject) -Force
-          $cfg.auths | Add-Member -MemberType NoteProperty -Name "https://ghcr.io" -Value (New-Object PSObject) -Force
-          $cfg | ConvertTo-Json | Set-Content -Path $dockerConfigFile -Encoding Ascii
-          Write-E2ELog "Bypassed credsStore and added empty auth entries in config.json before running docker compose."
-        }
-      } catch {
-        try {
-          '{"credsStore": "", "auths": {"https://index.docker.io/v1/": {}, "ghcr.io": {}, "https://ghcr.io": {}}}' | Set-Content -Path $dockerConfigFile -Encoding Ascii
-        } catch {}
-      }
-    }
-    Invoke-NativeStableStack
-    Assert-NativeStable
-    Export-NativeEvidence
-  } finally {
-    Pop-Location
-  }
+  Invoke-NativeStableStack
+  Assert-NativeStable
+  Export-NativeEvidence
   Export-RuntimeAudit -Name 'after'
   Capture-DashboardScreenshots -BaseUrl $dashboardBase
   Test-UpdateSmoke -BaseUrl $dashboardBase
 
-  Write-E2ELog "Deteniendo el stack de Docker Compose antes de continuar con la reparacion y desinstalacion para liberar bloqueos de archivos..."
-  Push-Location $installedRoot
-  try {
-    Invoke-CaptureCommand -Name 'docker-compose-prod-down' -FilePath 'docker' -ArgumentList @('compose', '--profile', 'prod', 'down', '--volumes', '--remove-orphans') -WorkingDirectory $installedRoot -TimeoutSec 180
-  } catch {
-    Write-E2ELog "Advertencia: no se pudo detener el stack de Docker Compose. Detalle: $_"
-  } finally {
-    Pop-Location
-  }
+  Write-E2ELog "Deteniendo tareas nativas antes de continuar con reparacion y desinstalacion..."
+  Invoke-InstalledBroker -Action 'stop-all' -RunId ("stop-native-{0}" -f ([Guid]::NewGuid().ToString('N')))
 
   Invoke-InstallerHubMode -Mode 'repair' | Out-Null
   Test-InstalledState -Phase 'post-repair'

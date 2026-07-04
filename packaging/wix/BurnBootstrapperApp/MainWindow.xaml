@@ -356,7 +356,7 @@ Por favor, lee atentamente los siguientes términos antes de proceder con la ins
                                             <StackPanel Grid.Column="1">
                                                 <TextBlock x:Name="ModeImpactTitleTextBlock" Text="Instalar o actualizar" FontWeight="Bold" Foreground="{StaticResource AccentBrush}" />
                                                 <TextBlock x:Name="ModeImpactTextBlock" Margin="0,6,0,0" Text="Configura prerequisitos, escribe configuración operativa y crea accesos." TextWrapping="Wrap" Foreground="{StaticResource TextBrush}" />
-                                                <TextBlock x:Name="ModeImpactChecklistTextBlock" Margin="0,6,0,0" Text="Se revisa WSL2/Docker/Node, carpeta destino y accesos." TextWrapping="Wrap" Foreground="{StaticResource MutedTextBrush}" />
+                                                <TextBlock x:Name="ModeImpactChecklistTextBlock" Margin="0,6,0,0" Text="Se revisa Node, carpeta destino, base local y accesos." TextWrapping="Wrap" Foreground="{StaticResource MutedTextBrush}" />
                                             </StackPanel>
                                         </Grid>
                                     </Border>
@@ -648,7 +648,7 @@ Por favor, lee atentamente los siguientes términos antes de proceder con la ins
                         <TextBlock x:Name="FooterNextActionTextBlock" Text="Acepta términos para continuar." Foreground="{StaticResource TextBrush}" FontWeight="SemiBold" Margin="0,4,0,0" TextWrapping="Wrap" />
                     </StackPanel>
                     <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
-                        <Button x:Name="DetectButton" Content="_Revisar equipo" Style="{StaticResource SecondaryButtonStyle}" MinWidth="130" Margin="0,0,8,0" Click="DetectButton_OnClick" ToolTip="Ejecuta nuevamente la revisión de prerequisitos." AutomationProperties.Name="Revisar equipo" AutomationProperties.HelpText="Ejecuta el diagnóstico de prerequisitos de Windows, WSL, Docker y Node." TabIndex="20" />
+                        <Button x:Name="DetectButton" Content="_Revisar equipo" Style="{StaticResource SecondaryButtonStyle}" MinWidth="130" Margin="0,0,8,0" Click="DetectButton_OnClick" ToolTip="Ejecuta nuevamente la revisión de prerequisitos." AutomationProperties.Name="Revisar equipo" AutomationProperties.HelpText="Ejecuta el diagnóstico de prerequisitos de Windows, Node y archivos locales." TabIndex="20" />
                         <Button x:Name="BackButton" Content="_Atrás" Style="{StaticResource SecondaryButtonStyle}" MinWidth="90" Margin="0,0,8,0" Click="BackButton_OnClick" ToolTip="Vuelve al paso anterior." AutomationProperties.Name="Atrás" AutomationProperties.HelpText="Vuelve al paso anterior del asistente." TabIndex="21" />
                         <Button x:Name="NextButton" Content="_Siguiente" Style="{StaticResource SecondaryButtonStyle}" MinWidth="110" Margin="0,0,8,0" Click="NextButton_OnClick" ToolTip="Avanza al siguiente paso." AutomationProperties.Name="Siguiente" AutomationProperties.HelpText="Avanza al siguiente paso del asistente." TabIndex="22" />
                         <Button x:Name="StartButton" Content="_Continuar" Style="{StaticResource PrimaryButtonStyle}" MinWidth="130" Margin="0,0,8,0" Click="StartButton_OnClick" ToolTip="Inicia la operación seleccionada." AutomationProperties.Name="Iniciar operación seleccionada" AutomationProperties.HelpText="Instala, repara o desinstala EvaluaPro según el modo elegido." TabIndex="23" />

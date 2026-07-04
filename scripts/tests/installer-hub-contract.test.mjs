@@ -197,12 +197,14 @@ test('runtime Docker Windows queda abstracto en dashboard, WiX y package scripts
   const packageJson = JSON.parse(fs.readFileSync(path.join(root, 'package.json'), 'utf8'));
 
   assert.match(launcherDashboard, /EVALUAPRO_DOCKER_RUNTIME/);
+  assert.match(launcherDashboard, /native-node-sqlite/);
   assert.match(launcherDashboard, /WSL2 \+ Docker Engine/);
   assert.match(launcherDashboard, /Docker Desktop/);
   assert.match(productWxs, /WSLINSTALLED/);
   assert.match(productWxs, /\<\?if \$\(var\.FlavorId\) != docente-local \?\>/);
   assert.match(productWxs, /Installed OR REQUIRE_INSTALLER_HUB = 1 OR BURNMSIINSTALL = 1/);
   assert.match(productWxs, /SKIP_DOCKER_RUNTIME_CHECK = 1 OR REQUIRE_INSTALLER_HUB = 1 OR BURNMSIINSTALL = 1 OR DOCKERINSTALLED64 OR DOCKERINSTALLEDUSER OR WSLINSTALLED/);
+  assert.match(productWxs, /Distribucion docente local[\s\S]*persistencia SQLite/);
   assert.match(productWxs, /<Directory Id="INSTALLFOLDER" Name="\$\(var\.InstallFolderName\)" \/>/);
   assert.match(bundleWxs, /MsiProperty Name="REQUIRE_INSTALLER_HUB" Value="1"/);
   assert.match(productWxs, /runtime Docker compatible/i);
@@ -501,15 +503,8 @@ test.skip('Installer Hub tiene runner E2E real docente con guardas de VM y evide
   assert.match(runner, /function Get-LatestDetectPrereqsState/);
   assert.match(runner, /detect-response-ready/);
   assert.match(runner, /Get-EvaluaProUninstallEntries/);
-  // assert.match(runner, /Invoke-DockerStableStack/);
-  // assert.match(runner, /function Resolve-DockerWorkingDirectory/);
-  // assert.match(runner, /function Get-DockerComposeArguments/);
-  assert.match(runner, /\$LastDockerExitCode = 0/);
-  // assert.match(runner, /Start-Process -FilePath 'wsl\\.exe'/);
-  assert.match(runner, /\$script:LastDockerExitCode = \[int\]\$proc\.ExitCode/);
-  assert.match(runner, /--env-file/);
-  assert.match(runner, /Assert-DockerStable/);
-  assert.match(runner, /Export-DockerEvidence/);
+  assert.doesNotMatch(runner, /Invoke-DockerStableStack|Assert-DockerStable|Export-DockerEvidence/);
+  assert.doesNotMatch(runner, /LastDockerExitCode|docker compose|docker-ps|docker-inspect|docker-logs|docker-context|docker-images/);
   assert.match(runner, /Capture-DashboardScreenshots/);
   assert.match(runner, /Test-UpdateSmoke/);
   assert.match(runner, /\/api\/update\/status/);
@@ -519,17 +514,10 @@ test.skip('Installer Hub tiene runner E2E real docente con guardas de VM y evide
   assert.match(runner, /restart-required/);
   assert.match(runner, /Write-TutorialMarkdown/);
   assert.match(runner, /Assert-NoActiveEvaluaProAfterUninstall/);
-  assert.match(runner, /docker compose --profile prod up --no-build -d mongo_local api_docente_prod web_docente_prod/);
-  assert.doesNotMatch(runner, /--build', '-d', 'mongo_local', 'api_docente_prod', 'web_docente_prod'/);
+  assert.doesNotMatch(runner, /mongo_local|api_docente_prod|web_docente_prod/);
   assert.match(runner, /runtime-audit-before\.json/);
   assert.match(runner, /runtime-audit-after\.json/);
-  assert.match(runner, /docker-images\.json/);
-  assert.match(runner, /docker-context\.json/);
-  assert.match(runner, /desktop-unapproved/);
-  assert.match(runner, /docker-ps\.json/);
-  assert.match(runner, /docker-inspect\.json/);
   assert.match(runner, /healthchecks\.json/);
-  assert.match(runner, /docker-logs/);
   assert.match(runner, /\/api\/salud/);
   assert.match(runner, /\/api\/status/);
   assert.match(runner, /playwright.*screenshot/s);
@@ -556,7 +544,7 @@ test.skip('Installer Hub tiene runner E2E real docente con guardas de VM y evide
 
   const tutorial = fs.readFileSync(path.join(root, 'docs', 'tutoriales', 'installer-hub-docente-e2e.md'), 'utf8');
   assert.match(tutorial, /Tutorial visual E2E Installer Hub docente-local/);
-  assert.match(tutorial, /Docker stable/);
+  assert.match(tutorial, /Plataforma docente nativa/);
   assert.match(tutorial, /Update smoke/);
   assert.match(tutorial, /run-e2e-launcher\.ps1 -DryRun/);
   assert.match(tutorial, /acceptsCredentialParameter=true/);
@@ -564,11 +552,10 @@ test.skip('Installer Hub tiene runner E2E real docente con guardas de VM y evide
   assert.match(tutorial, /-QaPassSecureString/);
   assert.match(tutorial, /powershell-direct-e2e-launch\.json/);
   assert.match(tutorial, /no guardar passwords/i);
-  assert.doesNotMatch(tutorial, /docker compose --profile prod up --build -d/);
-  assert.match(runner, /docker compose --profile prod up --no-build -d/);
+  assert.doesNotMatch(tutorial, /Docker stable|docker compose|docker\//i);
+  assert.doesNotMatch(runner, /docker compose --profile prod up --no-build -d/);
   assert.match(tutorial, /report\.json/);
   assert.match(tutorial, /## Capturas/);
-  assert.match(tutorial, /docker\//);
 
   assert.match(readiness, /No instala, no repara, no arranca el Hub y no modifica la VM/);
   assert.match(readiness, /Test-WSMan -ComputerName \$ComputerName/);
@@ -633,7 +620,8 @@ test.skip('Installer Hub tiene runner E2E real docente con guardas de VM y evide
   assert.match(hostCanaryLauncher, /ConvertTo-SecureString/);
   assert.match(hostCanaryLauncher, /mutatesHost = \$true/);
   assert.match(hostCanaryLauncher, /Read-Host -AsSecureString -Prompt 'Password QA evaluaqa'/);
-  assert.match(hostCanaryLauncher, /EVALUAPRO_DOCKER_RUNTIME = 'desktop'/);
+  assert.doesNotMatch(hostCanaryLauncher, /EVALUAPRO_DOCKER_RUNTIME/);
+  assert.doesNotMatch(vmInVm, /EVALUAPRO_DOCKER_RUNTIME/);
   assert.match(hostCanaryLauncher, /-AllowHostCanary/);
   assert.match(hostCanaryLauncher, /-SkipSnapshotCheck/);
   assert.match(hostCanaryLauncher, /ZeroFreeBSTR/);
@@ -994,7 +982,8 @@ test.skip('runtime Burn concentra configuracion operativa, prerequisitos y blind
   assert.match(helper, /verificacion_final/);
   assert.match(helper, /blindaje_licencia_local/);
   assert.match(helper, /FlavorId|flavorId/);
-  assert.match(operationalConfig, /MONGODB_URI|mongoUri/);
+  assert.match(operationalConfig, /DATABASE_URL|databaseUrl/);
+  assert.doesNotMatch(operationalConfig, /MONGODB_URI|mongoUri/);
   assert.match(operationalConfig, /NODE_ENV|nodeEnv/);
   assert.match(operationalConfig, /PUERTO_API|puertoApi/);
   assert.match(operationalConfig, /PUERTO_PORTAL|puertoPortal/);
@@ -1077,7 +1066,9 @@ test('helper Burn prepara contrato runtime instalado para dashboard docente', ()
   assert.match(helper, /function Write-InstallerRuntimeEnv/);
   assert.match(helper, /JWT_SECRETO/);
   assert.match(helper, /New-InstallerSecret/);
-  assert.match(helper, /EVALUAPRO_IMAGE_TAG/);
+  assert.match(helper, /DATABASE_URL/);
+  assert.match(helper, /BACKEND_DATABASE_URL/);
+  assert.doesNotMatch(helper, /EVALUAPRO_IMAGE_TAG/);
   assert.match(helper, /Write-InstallerEnvMap/);
   assert.match(helper, /Import-Module \$operationalConfigModule -Force/);
   assert.match(helper, /Invoke-EvaluaProOperationalConfiguration/);
@@ -1207,7 +1198,7 @@ test('configuracion operativa rechaza ajustes inseguros o invalidos (fail-fast)'
   const script = `
 Import-Module -Force -WarningAction SilentlyContinue '${operationalConfigModulePath.replace(/'/g, "''")}'
 $cfg = @{
-  mongoUri='mongodb://mongo_local:27017/evaluapro'
+  databaseUrl='file:C:/ProgramData/EvaluaPro/data/evaluapro.db'
   jwtSecreto='abc123'
   nodeEnv='production'
   puertoApi='0'
@@ -1328,7 +1319,7 @@ $nodeWslPrereq = [pscustomobject]@{
   assert.match(String(parsed.nodeWsl.reason || ''), /no es requerido/i);
 });
 
-test.skip('docente-local prioriza WSL2 si Docker Desktop existe pero daemon no responde', () => {
+test.skip('runtime Docker legacy prioriza WSL2 si Docker Desktop existe pero daemon no responde', () => {
   const detectorModulePath = path.join(root, 'scripts', 'installer-burn', 'modules', 'PrereqDetector.psm1');
   const script = `
 $env:EVALUAPRO_DOCKER_RUNTIME='wsl2-engine'
@@ -1351,7 +1342,7 @@ $runtime | ConvertTo-Json -Depth 8
   assert.match(String(parsed.reason || ''), /prioriza bootstrap WSL2|WSL2 detectado/i);
 });
 
-test('docente-local usa Compose prod image-first y fallback build separado', () => {
+test('Compose legacy conserva image-first y fallback build separado fuera del Hub docente', () => {
   const compose = fs.readFileSync(dockerComposePath, 'utf8');
   const prodBuild = fs.readFileSync(dockerComposeProdBuildPath, 'utf8');
   const packageJson = JSON.parse(fs.readFileSync(path.join(root, 'package.json'), 'utf8'));
@@ -1678,7 +1669,7 @@ test('configuracion operativa escribe .env y update-config endurecido para docen
   const script = `
 Import-Module -Force -WarningAction SilentlyContinue '${operationalConfigModulePath.replace(/'/g, "''")}'
 $cfg = @{
-  mongoUri='mongodb://mongo_local:27017/evaluapro'
+  databaseUrl='file:C:/ProgramData/EvaluaPro/data/evaluapro.db'
   jwtSecreto=''
   nodeEnv='production'
   puertoApi='4000'
@@ -1720,10 +1711,11 @@ $r | ConvertTo-Json -Depth 8
     assert.equal(fs.existsSync(envPath), true);
 
     const envRaw = fs.readFileSync(envPath, 'utf8');
-    assert.match(envRaw, /MONGODB_URI=/);
+    assert.match(envRaw, /DATABASE_URL=/);
+    assert.match(envRaw, /BACKEND_DATABASE_URL=/);
     assert.match(envRaw, /JWT_SECRETO=/);
     assert.match(envRaw, /EVALUAPRO_FLAVOR=docente-local/);
-    assert.match(envRaw, /EVALUAPRO_IMAGE_TAG=1\.1\.1/);
+    assert.doesNotMatch(envRaw, /EVALUAPRO_IMAGE_TAG=/);
     assert.match(envRaw, /BACKEND_DATA_DIR_DEV=\.\/apps\/backend\/data\/examenes_dev/);
     assert.match(envRaw, /BACKEND_DATA_DIR_PROD=\.\/apps\/backend\/data\/examenes_prod/);
     assert.match(envRaw, /PORTAL_SYNC_REQUIRED=1/);
@@ -1842,10 +1834,14 @@ test('launcher broker arranca dashboard preservando rutas instaladas con espacio
   assert.match(broker, /Start-Process -FilePath \$psExe -ArgumentList \(ConvertTo-NativeArgumentString -Arguments \$args\)/);
 });
 
-test('dashboard expone runtime Docker efectivo y alerta Desktop no manual', () => {
+test('dashboard usa runtime nativo en docente-local y conserva Docker solo para flavors que lo requieren', () => {
   const dashboard = fs.readFileSync(path.join(root, 'scripts', 'launcher-dashboard.mjs'), 'utf8');
 
   assert.match(dashboard, /function resolveEffectiveDockerRuntime/);
+  assert.match(dashboard, /native-node-sqlite/);
+  assert.match(dashboard, /function requiresDockerRuntime/);
+  assert.match(dashboard, /docente:prod:native/);
+  assert.match(dashboard, /not-required/);
   assert.match(dashboard, /function dockerCliArgs/);
   assert.match(dashboard, /function dockerCommandForShell/);
   assert.match(dashboard, /wsl', '-d', 'Ubuntu', '-u', 'root'/);
@@ -1854,7 +1850,6 @@ test('dashboard expone runtime Docker efectivo y alerta Desktop no manual', () =
   assert.match(dashboard, /desktop-unapproved/);
   assert.match(dashboard, /EVALUAPRO_DOCKER_RUNTIME=desktop/);
   assert.match(dashboard, /runtime: dockerRuntime/);
-  assert.match(dashboard, /dockerRuntimePreference\(\) === 'desktop' \? 'Docker Desktop' : 'WSL2 \+ Docker Engine'/);
 });
 
 test('step-up local inicializa TOTP y permite sesion elevada con recovery/TOTP', () => {

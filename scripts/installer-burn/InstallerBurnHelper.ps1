@@ -184,13 +184,13 @@ function Write-InstallerRuntimeEnv {
   if ([string]::IsNullOrWhiteSpace($jwt)) { $jwt = New-InstallerSecret }
 
   Set-InstallerEnvValue -Map $envMap -Key 'JWT_SECRETO' -Value $jwt
-  Set-InstallerEnvValue -Map $envMap -Key 'MONGODB_URI' -Value (Get-RequestConfigValue -Request $Request -Name 'mongoUri' -DefaultValue 'mongodb://mongo_local:27017/evaluapro')
+  Set-InstallerEnvValue -Map $envMap -Key 'DATABASE_URL' -Value (Get-RequestConfigValue -Request $Request -Name 'databaseUrl' -DefaultValue 'file:C:/ProgramData/EvaluaPro/data/evaluapro.db')
+  Set-InstallerEnvValue -Map $envMap -Key 'BACKEND_DATABASE_URL' -Value (Get-RequestConfigValue -Request $Request -Name 'databaseUrl' -DefaultValue 'file:C:/ProgramData/EvaluaPro/data/evaluapro.db')
   Set-InstallerEnvValue -Map $envMap -Key 'NODE_ENV' -Value (Get-RequestConfigValue -Request $Request -Name 'nodeEnv' -DefaultValue 'production')
   Set-InstallerEnvValue -Map $envMap -Key 'PUERTO_API' -Value (Get-RequestConfigValue -Request $Request -Name 'puertoApi' -DefaultValue '4000')
   Set-InstallerEnvValue -Map $envMap -Key 'PUERTO_PORTAL' -Value (Get-RequestConfigValue -Request $Request -Name 'puertoPortal' -DefaultValue '4518')
   Set-InstallerEnvValue -Map $envMap -Key 'CORS_ORIGENES' -Value (Get-RequestConfigValue -Request $Request -Name 'corsOrigenes' -DefaultValue 'http://localhost:4173,http://127.0.0.1:4173')
   Set-InstallerEnvValue -Map $envMap -Key 'EVALUAPRO_FLAVOR' -Value (Get-RequestConfigValue -Request $Request -Name 'flavorId' -DefaultValue 'docente-local')
-  Set-InstallerEnvValue -Map $envMap -Key 'EVALUAPRO_IMAGE_TAG' -Value (Get-InstalledPackageVersion -TargetDir $TargetDir)
   Set-InstallerEnvValue -Map $envMap -Key 'BACKEND_DATA_DIR_DEV' -Value './apps/backend/data/examenes_dev'
   Set-InstallerEnvValue -Map $envMap -Key 'BACKEND_DATA_DIR_PROD' -Value './apps/backend/data/examenes_prod'
   Write-InstallerEnvMap -Path $envPath -Map $envMap
@@ -202,12 +202,12 @@ function Assert-InstallerRuntimeEnv {
   $envPath = Join-Path $TargetDir '.env'
   $envMap = Read-InstallerEnvMap -Path $envPath
   $required = @(
-    'MONGODB_URI',
+    'DATABASE_URL',
+    'BACKEND_DATABASE_URL',
     'JWT_SECRETO',
     'NODE_ENV',
     'PUERTO_API',
-    'CORS_ORIGENES',
-    'EVALUAPRO_IMAGE_TAG'
+    'CORS_ORIGENES'
   )
   $missing = @()
   foreach ($key in $required) {
