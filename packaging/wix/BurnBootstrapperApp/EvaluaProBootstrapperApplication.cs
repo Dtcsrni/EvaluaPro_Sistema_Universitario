@@ -1281,6 +1281,8 @@ internal sealed class EvaluaProBootstrapperApplication : BootstrapperApplication
             CreateNoWindow = true,
             RedirectStandardError = true,
             RedirectStandardOutput = true,
+            StandardOutputEncoding = System.Text.Encoding.UTF8,
+            StandardErrorEncoding = System.Text.Encoding.UTF8,
             WorkingDirectory = payloadRoot
         };
 

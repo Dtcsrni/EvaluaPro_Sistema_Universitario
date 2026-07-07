@@ -673,10 +673,11 @@ public partial class MainWindow : Window
     private void SetHubVersionLabel()
     {
         var assembly = typeof(MainWindow).Assembly;
+        var informationalVersion = System.Diagnostics.FileVersionInfo.GetVersionInfo(assembly.Location).ProductVersion;
         var version = assembly.GetName().Version;
-        var versionText = version is null
-            ? "v1.0.0"
-            : $"v{version.Major}.{Math.Max(0, version.Minor)}.{Math.Max(0, version.Build)}";
+        var versionText = !string.IsNullOrWhiteSpace(informationalVersion) 
+            ? informationalVersion 
+            : (version is null ? "vDesconocida" : $"v{version.Major}.{Math.Max(0, version.Minor)}.{Math.Max(0, version.Build)}");
         HubVersionTextBlock.Text = versionText;
         BrandVersionBadgeTextBlock.Text = $"{versionText} · Burn + MSI + helper";
     }
