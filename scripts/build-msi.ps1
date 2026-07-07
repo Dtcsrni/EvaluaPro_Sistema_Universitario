@@ -623,6 +623,20 @@ function Resolve-BurnBootstrapperAppExe {
     [string]$VersionTag
   )
 
+  $dotnetExe = Resolve-DotNetExecutable
+  $bootstrapperProject = Join-Path $RootPath 'packaging\wix\BurnBootstrapperApp\EvaluaPro.BurnBootstrapperApp.csproj'
+  $bootstrapperOut = Join-Path $RootPath 'dist\installer\_internal\burn-bootstrapper-app'
+
+  # Cuando hay VersionTag (build de release), siempre compilar fresh para que el
+  # binario lleve la versión correcta embebida. Nunca reutilizar un binario obsoleto
+  # que podria tener una versión anterior hardcodeada en sus atributos de ensamblado.
+  if (-not [string]::IsNullOrWhiteSpace($VersionTag)) {
+    Write-Host "[msi] Compilando Bootstrapper Application con versión: $VersionTag"
+    return (Publish-BurnBootstrapperApp -DotNetExecutable $dotnetExe -ProjectPath $bootstrapperProject -OutputDirectory $bootstrapperOut -ConfigurationName $ConfigurationName -VersionTag $VersionTag)
+  }
+
+  # Sin VersionTag (desarrollo local): reutilizar binario pre-existente si hay uno
+  # para ahorrar tiempo de compilación.
   $candidatePaths = @(
     (Join-Path $RootPath 'packaging\wix\BurnBootstrapperApp\bin\Release\net8.0-windows\win-x64\publish\EvaluaPro.BurnBootstrapperApp.exe'),
     (Join-Path $RootPath 'packaging\wix\BurnBootstrapperApp\bin\Release\net8.0-windows\win-x64\EvaluaPro.BurnBootstrapperApp.exe'),
@@ -636,9 +650,6 @@ function Resolve-BurnBootstrapperAppExe {
     }
   }
 
-  $dotnetExe = Resolve-DotNetExecutable
-  $bootstrapperProject = Join-Path $RootPath 'packaging\wix\BurnBootstrapperApp\EvaluaPro.BurnBootstrapperApp.csproj'
-  $bootstrapperOut = Join-Path $RootPath 'dist\installer\_internal\burn-bootstrapper-app'
   return (Publish-BurnBootstrapperApp -DotNetExecutable $dotnetExe -ProjectPath $bootstrapperProject -OutputDirectory $bootstrapperOut -ConfigurationName $ConfigurationName -VersionTag $VersionTag)
 }
 
