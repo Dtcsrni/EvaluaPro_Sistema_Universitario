@@ -8,6 +8,10 @@ Este archivo sigue el formato "Keep a Changelog" (alto nivel) y SemVer.
 - Installer Hub (Bootstrapper): Corregida la versión mostrada en el ejecutable a 1.1.1.
 - Installer Hub (Bootstrapper): Actualizado el logo a la versión correcta de alta calidad (`logo_sys.png`).
 - Installer Hub (Bootstrapper): Se retiró el Splash Overlay inicial para garantizar que la pantalla de confirmación de términos y condiciones sea siempre visible como el primer paso antes y durante la detección del entorno.
+- Installer Hub (Bootstrapper): Corregido crash crítico al inicio del asistente visual (WPF) provocado por `assembly.Location` vacío en ejecuciones Single-File, implementando resolución segura de versión mediante reflexión.
+- Installer Hub (Bootstrapper): Corregido fallo silencioso en el inicio cuando la aplicación ya está instalada, agregando detección del paquete principal `EvaluaProMsi` y redirigiendo al modo de mantenimiento (reparación/desinstalación).
+- Installer Hub (Bootstrapper): Corregido crash de interfaz por `InvalidOperationException` al intentar centrar ítems de la línea de tiempo en el árbol visual de WPF, validando herencia mediante `IsDescendantOf`.
+- Installer Hub (Bootstrapper): Asegurada la visibilidad de excepciones críticas de inicio mostrando un diálogo visual (`MessageBox`) al usuario en lugar de colapsar silenciosamente.
 
 
 ## [1.1.1] - 2026-06-30

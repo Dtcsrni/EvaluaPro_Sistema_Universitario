@@ -498,3 +498,16 @@ Version visible objetivo: `1.1.0`
     - `npm run test:portal:ci`
     - `npm run pipeline:contract:check`
     - `npx playwright test -c tests/gui-responsive/playwright.admin.config.cjs`
+
+## 8) Corte operativo 2026-07-11
+- Resiliencia del Bootstrapper del Instalador (WPF):
+  - Solucionado crash inicial por `assembly.Location` vacío en ejecuciones Single-File, implementando lectura segura de versión mediante reflexión.
+  - Implementada interceptación de `OnDetectPackageComplete` para detectar si el paquete `EvaluaProMsi` ya está presente.
+  - El instalador ahora preselecciona el modo de mantenimiento `"repair"` y actualiza la UI correspondientemente en lugar de colapsar o intentar reinstalar.
+  - Añadido diálogo MessageBox para alertar visualmente al usuario sobre excepciones críticas no controladas de inicio de UI en lugar de cerrar el proceso de forma silenciosa.
+  - Evitada la excepción visual en WPF `El Visual especificado no es un antecesor de este Visual` en `CenterTimelineItem` mediante validación `IsDescendantOf`.
+- Estado de validación del repo durante esta sesión:
+  - Contrato de instaladores: OK (`npm run test:installer-hub:contract` en verde).
+  - Compilación y empaquetado WiX: OK (`npm run installer:hub:build` en verde).
+  - Ejecutable docente-local v1.1.1 reconstruido y copiado en `O:\Descargas\EvaluaPro-InstallerHub-docente-local-v1.1.1.exe`.
+

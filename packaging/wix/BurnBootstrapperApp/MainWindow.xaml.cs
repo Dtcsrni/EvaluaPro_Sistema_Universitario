@@ -372,21 +372,28 @@ public partial class MainWindow : Window
 
         Dispatcher.BeginInvoke(() =>
         {
-            if (StageTimelineScrollViewer.ViewportHeight <= 0)
+            if (StageTimelineScrollViewer.ViewportHeight <= 0 || !target.IsDescendantOf(StageTimelineScrollViewer))
             {
                 target.BringIntoView();
                 return;
             }
 
-            var transform = target.TransformToAncestor(StageTimelineScrollViewer);
-            var rect = transform.TransformBounds(new Rect(new Point(0, 0), target.RenderSize));
-            var targetCenter = rect.Top + StageTimelineScrollViewer.VerticalOffset + (rect.Height / 2);
-            var desiredOffset = targetCenter - (StageTimelineScrollViewer.ViewportHeight / 2);
-            if (desiredOffset < 0)
+            try
             {
-                desiredOffset = 0;
+                var transform = target.TransformToAncestor(StageTimelineScrollViewer);
+                var rect = transform.TransformBounds(new Rect(new Point(0, 0), target.RenderSize));
+                var targetCenter = rect.Top + StageTimelineScrollViewer.VerticalOffset + (rect.Height / 2);
+                var desiredOffset = targetCenter - (StageTimelineScrollViewer.ViewportHeight / 2);
+                if (desiredOffset < 0)
+                {
+                    desiredOffset = 0;
+                }
+                StageTimelineScrollViewer.ScrollToVerticalOffset(desiredOffset);
             }
-            StageTimelineScrollViewer.ScrollToVerticalOffset(desiredOffset);
+            catch
+            {
+                target.BringIntoView();
+            }
         }, DispatcherPriority.Background);
     }
 
@@ -673,7 +680,27 @@ public partial class MainWindow : Window
     private void SetHubVersionLabel()
     {
         var assembly = typeof(MainWindow).Assembly;
-        var informationalVersion = System.Diagnostics.FileVersionInfo.GetVersionInfo(assembly.Location).ProductVersion;
+        string? informationalVersion = null;
+        try
+        {
+            if (!string.IsNullOrWhiteSpace(assembly.Location))
+            {
+                informationalVersion = System.Diagnostics.FileVersionInfo.GetVersionInfo(assembly.Location).ProductVersion;
+            }
+        }
+        catch
+        {
+            // Fallback en caso de que la ruta sea inválida u ocurra un error de acceso
+        }
+
+        if (string.IsNullOrWhiteSpace(informationalVersion))
+        {
+            var infoVersionAttr = assembly.GetCustomAttributes(typeof(System.Reflection.AssemblyInformationalVersionAttribute), false)
+                .OfType<System.Reflection.AssemblyInformationalVersionAttribute>()
+                .FirstOrDefault();
+            informationalVersion = infoVersionAttr?.InformationalVersion;
+        }
+
         var version = assembly.GetName().Version;
         var versionText = !string.IsNullOrWhiteSpace(informationalVersion) 
             ? informationalVersion 
