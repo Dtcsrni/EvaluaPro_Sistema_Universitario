@@ -224,6 +224,15 @@ function Find-ByName {
 function Invoke-Control {
   param([System.Windows.Automation.AutomationElement]$Element)
   if (-not $Element) { throw 'Control nulo.' }
+  
+  # Esperar a que el elemento esté habilitado (para sincronizar con operaciones en progreso/busy)
+  $maxWait = 15
+  $waited = 0
+  while (-not $Element.Current.IsEnabled -and $waited -lt $maxWait) {
+    Start-Sleep -Milliseconds 500
+    $waited += 0.5
+  }
+
   $pattern = $null
   if ($Element.TryGetCurrentPattern([System.Windows.Automation.InvokePattern]::Pattern, [ref]$pattern)) {
     $pattern.Invoke()
