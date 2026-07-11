@@ -5,6 +5,12 @@ Version tecnica: `1.1.0`
 Version visible GUI: `1.1.0`
 
 ## Estado vigente
+- Corte 2026-07-11 (Resiliencia y Robustez de WPF Bootstrapper):
+  - **Safe Assembly Version:** Solucionado crash crítico por `assembly.Location` vacío en ejecuciones Single-File, implementando lectura segura de versión mediante reflexión en `MainWindow.xaml.cs`.
+  - **MSI Presence Detection:** Sobrescrito `OnDetectPackageComplete` en `EvaluaProBootstrapperApplication.cs` para detectar presencia de `EvaluaProMsi` (`PackageState.Present`), redirigiendo al usuario al asistente de mantenimiento/reparación de forma consistente.
+  - **Visual Tree Exception:** Solucionada excepción visual `InvalidOperationException` en WPF al centrar elementos de la línea de tiempo, agregando validación con `IsDescendantOf` antes del transform.
+  - **Fatal Exception Dialogs:** Añadidas alertas visuales amigables de tipo `MessageBox` ante cualquier excepción crítica no controlada en el hilo principal de WPF para eliminar cierres silenciosos.
+  - **Gates Verificados:** Se validó localmente con `npm run test:installer-hub:contract` en verde ✅ y `npm run installer:hub:build` en verde ✅. El binario v1.1.1 resíliete fue compilado y cargado exitosamente a la ruta local `O:\Descargas\EvaluaPro-InstallerHub-docente-local-v1.1.1.exe`.
 - Corte 2026-06-30 (Migración a Arquitectura Nativa Docente-Local y Estabilización):
   - **Installer Hub Contract Tests:** Refactorizados los tests de contrato (`scripts/tests/installer-hub-contract.test.mjs`) para omitir aserciones de WSL y Docker Desktop obsoletos, alineándose con la distribución nativa ultra-ligera en Windows basada en Node.js embebido gestionada por `InstallerBurnHelper.ps1`.
   - **Linter Fix:** Corregido error de linter (`@typescript-eslint/no-unused-vars`) en `apps/backend/tests/integracion/classroom.v2.test.ts`.
