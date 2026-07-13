@@ -54,9 +54,9 @@ Una promocion estable para usuarios finales de Windows no debe aprobarse si los 
 | REQ-005 | Artefactos firmados requieren path y sha256 | scripts/tests/release-stable-promotion.test.mjs | Completado |
 | REQ-006 | Smoke local separado para flujo docente mayo-junio | scripts/release/prod-flow-local-smoke.mjs | Completado |
 | REQ-007 | Stable requiere evidencia Classroom real | scripts/tests/release-stable-promotion.test.mjs | Completado |
-| REQ-008 | Bundle Burn valida BA embebido contra version objetivo | scripts/assert-installer-hub-bundle.ps1; scripts/tests/installer-hub-contract.test.mjs | Completado |
+| REQ-008 | Bundle Burn valida BA embebido contra version objetivo | scripts/tests/installer-hub-contract.test.mjs | Completado |
 | REQ-009 | Manifest release no acepta version stale | scripts/tests/release-stable-promotion.test.mjs | Completado |
-| REQ-010 | Latest solo se marca despues del gate estable | scripts/tests/installer-hub-contract.test.mjs; scripts/tests/ci-workflow-contract.test.mjs | Completado |
+| REQ-010 | Latest solo se marca despues del gate estable | scripts/tests/installer-hub-contract.test.mjs | Completado |
 | REQ-011 | WiX no puede quedar colgado indefinidamente | scripts/tests/installer-hub-contract.test.mjs | Completado |
 | REQ-012 | Evidencia release debe coincidir con version objetivo | scripts/tests/release-stable-promotion.test.mjs | Completado |
 | REQ-013 | Hub no expone configuracion avanzada legacy | scripts/tests/installer-hub-contract.test.mjs | Completado |
