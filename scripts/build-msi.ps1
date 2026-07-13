@@ -679,6 +679,7 @@ function Resolve-BurnBootstrapperAppExe {
 
   $dotnetExe = Resolve-DotNetExecutable
   $bootstrapperProject = Join-Path $RootPath 'packaging\wix\BurnBootstrapperApp\EvaluaPro.BurnBootstrapperApp.csproj'
+  $bootstrapperOut = Join-Path $RootPath 'dist\installer\_internal\burn-bootstrapper-app'
   # Cuando hay VersionTag (build de release), siempre compilar fresh para que el
   # binario lleve la versión correcta embebida. Nunca reutilizar un binario obsoleto
   # que podria tener una versión anterior hardcodeada en sus atributos de ensamblado.

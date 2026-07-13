@@ -1,12 +1,12 @@
 {
   "version": "1",
-  "ejecutadoEn": "2026-07-01T20:56:03.802Z",
-  "archivo": "E199CF7D.pdf",
-  "contentDisposition": "attachment; filename=\"evaluapro_examen_Periodo_Global_2026_plantilla-Examen_global_lote-48D71ACD_folio-E199CF7D.pdf\"",
+  "ejecutadoEn": "2026-07-13T08:23:56.303Z",
+  "archivo": "0C58ADF3.pdf",
+  "contentDisposition": "attachment; filename=\"evaluapro_examen_Periodo_Global_2026_plantilla-Examen_global_lote-83BD81C6_folio-0C58ADF3.pdf\"",
   "paginaTamanoCartaOk": true,
   "qrFolioEnTodasLasPaginas": true,
   "reglasTintaOk": true,
-  "hashSha256": "87ec6872ee9358c799b29c159f2e8a89dfbeda1cb70b28e92ee15fdb39027315",
-  "bytes": 111089,
+  "hashSha256": "fe5066988d8b206319928d669d83e5313e27710da43fd2fa931ce84688aa918b",
+  "bytes": 111310,
   "paginas": 1
 }
