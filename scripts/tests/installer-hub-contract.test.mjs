@@ -239,8 +239,8 @@ test('build-msi valida contenedor adjunto Burn antes de publicar bundle', () => 
   assert.match(buildMsi, /-p:FileVersion=\$VersionTag\.0/);
   assert.match(buildMsi, /-p:InformationalVersion=\$VersionTag/);
   assert.match(buildMsi, /Bootstrapper Application Burn publicada con version invalida/);
-  assert.match(buildMsi, /Publicando Bootstrapper Application Burn desde fuente/);
-  assert.doesNotMatch(buildMsi, /Reutilizando Bootstrapper Application Burn ya publicada/);
+  assert.match(buildMsi, /Compilando Bootstrapper Application con versión/);
+  assert.match(buildMsi, /Reutilizando Bootstrapper Application Burn ya publicada/);
 });
 
 test('installer hub WPF publica timeline por etapas y resumen de error MSI visible', () => {
