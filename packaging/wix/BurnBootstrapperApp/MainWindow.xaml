@@ -9,7 +9,7 @@
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         mc:Ignorable="d"
         Title="EvaluaPro Installer Hub"
-        Icon="pack://application:,,,/assets/evaluapro-official-imagotipo.png"
+        Icon="pack://application:,,,/assets/evaluapro-installer-logo.png"
         Width="1040"
         Height="760"
         MinWidth="980"
@@ -179,49 +179,16 @@
                         <ColumnDefinition Width="*" />
                         <ColumnDefinition Width="Auto" />
                     </Grid.ColumnDefinitions>
-                    <Border x:Name="OfficialLogoFrame" Width="76" Height="76" CornerRadius="8" Background="#ECFEFF" BorderBrush="#99F6E4" BorderThickness="1" Padding="8" Margin="0,0,16,0" ToolTip="Logo oficial de EvaluaPro integrado al Installer Hub.">
-                        <Grid>
-                            <Border CornerRadius="8" Background="White" BorderBrush="#CCFBF1" BorderThickness="1" Padding="5">
-                                <Image x:Name="OfficialLogoImage" Source="pack://application:,,,/assets/evaluapro-official-imagotipo.png" Stretch="Uniform" RenderOptions.BitmapScalingMode="HighQuality" AutomationProperties.Name="Logo oficial EvaluaPro" />
-                            </Border>
-                            <Border Width="22" Height="22" CornerRadius="8" Background="#0F766E" BorderBrush="White" BorderThickness="2" HorizontalAlignment="Right" VerticalAlignment="Bottom" Margin="0,0,-4,-4">
-                                <Path Data="M4,11 L9,16 L18,6" Stroke="White" StrokeThickness="2" StrokeStartLineCap="Round" StrokeEndLineCap="Round" Stretch="Uniform" Margin="4" />
-                            </Border>
-                        </Grid>
+                    <Border x:Name="InstallerLogoFrame" Width="76" Height="76" CornerRadius="8" Background="#F8FAFC" BorderBrush="{StaticResource BorderBrushNeutral}" BorderThickness="1" Padding="7" Margin="0,0,16,0" ToolTip="Identidad EvaluaPro del instalador.">
+                        <Image x:Name="InstallerLogoImage" Source="pack://application:,,,/assets/evaluapro-installer-logo.png" Stretch="Uniform" RenderOptions.BitmapScalingMode="HighQuality" AutomationProperties.Name="Logo EvaluaPro Installer Hub" />
                     </Border>
                     <StackPanel Grid.Column="1" VerticalAlignment="Center">
                         <TextBlock Text="EvaluaPro Installer Hub" FontSize="22" FontWeight="SemiBold" Foreground="{StaticResource TextBrush}" />
                         <TextBlock x:Name="BrandStatementTextBlock" Margin="0,2,0,0" FontSize="12" Foreground="{StaticResource MutedTextBrush}" Text="Asistente guiado para instalar, reparar, actualizar y desinstalar con evidencia operativa." TextWrapping="Wrap" />
-                        <WrapPanel x:Name="BrandGraphicStrip" Margin="0,2,0,0">
-                            <Border Style="{StaticResource BrandTileStyle}" ToolTip="Instalación local para uso docente, con prerequisitos validados antes de ejecutar cambios.">
-                                <StackPanel Orientation="Horizontal">
-                                    <Path Width="14" Height="14" Data="M3,4 L11,4 M3,7 L11,7 M3,10 L8,10" Stroke="{StaticResource PrimaryBrush}" StrokeThickness="1.8" StrokeStartLineCap="Round" StrokeEndLineCap="Round" Margin="0,0,6,0" />
-                                    <TextBlock Text="Docente local" FontSize="11" FontWeight="SemiBold" Foreground="{StaticResource TextBrush}" />
-                                </StackPanel>
-                            </Border>
-                            <Border Style="{StaticResource BrandTileStyle}" ToolTip="El Hub mantiene evidencia técnica de detección, ejecución y resultado.">
-                                <StackPanel Orientation="Horizontal">
-                                    <Path Width="14" Height="14" Data="M2,11 L5,8 L8,10 L12,4 M12,4 L12,8 M12,4 L8,4" Stroke="{StaticResource AccentBrush}" StrokeThickness="1.8" StrokeStartLineCap="Round" StrokeEndLineCap="Round" Margin="0,0,6,0" />
-                                    <TextBlock Text="Evidencia" FontSize="11" FontWeight="SemiBold" Foreground="{StaticResource TextBrush}" />
-                                </StackPanel>
-                            </Border>
-                            <Border Style="{StaticResource BrandTileStyle}" ToolTip="Operación con estado claro: preparar, revisar, ejecutar y resultado.">
-                                <StackPanel Orientation="Horizontal">
-                                    <Path Width="14" Height="14" Data="M7,2 L12,5 L12,10 L7,13 L2,10 L2,5 Z M7,5 L7,9" Stroke="{StaticResource WarningBrush}" StrokeThickness="1.7" StrokeStartLineCap="Round" StrokeEndLineCap="Round" StrokeLineJoin="Round" Margin="0,0,6,0" />
-                                    <TextBlock Text="Guiado" FontSize="11" FontWeight="SemiBold" Foreground="{StaticResource TextBrush}" />
-                                </StackPanel>
-                            </Border>
-                        </WrapPanel>
                     </StackPanel>
                     <StackPanel Grid.Column="2" Orientation="Horizontal" VerticalAlignment="Center">
                         <Border Style="{StaticResource StatusBadgeStyle}">
                             <TextBlock x:Name="HubVersionTextBlock" Text="v-" FontSize="12" FontWeight="SemiBold" Foreground="{StaticResource TextBrush}" />
-                        </Border>
-                        <Border Style="{StaticResource StatusBadgeStyle}" Background="#EFF6FF" BorderBrush="#BFDBFE">
-                            <TextBlock x:Name="BrandModeBadgeTextBlock" Text="Instalación" FontSize="12" FontWeight="SemiBold" Foreground="{StaticResource AccentBrush}" />
-                        </Border>
-                        <Border Style="{StaticResource StatusBadgeStyle}" Background="#F8FAFC" BorderBrush="{StaticResource BorderBrushNeutral}">
-                            <TextBlock x:Name="BrandFlavorBadgeTextBlock" Text="EvaluaPro" FontSize="12" FontWeight="SemiBold" Foreground="{StaticResource TextBrush}" />
                         </Border>
                         <Border Style="{StaticResource StatusBadgeStyle}" Visibility="Collapsed">
                             <TextBlock x:Name="BrandVersionBadgeTextBlock" Text="Burn + MSI + helper" />
@@ -366,18 +333,14 @@ Por favor, lee atentamente los siguientes términos antes de proceder con la ins
                                         </ScrollViewer>
                                     </Border>
                                     
-                                    <CheckBox x:Name="AcceptTermsCheckBox" Grid.Row="3" Content="Acepto los términos y condiciones de licencia, uso y privacidad de EvaluaPro." IsChecked="False" Margin="0,14,0,0" FontSize="13" FontWeight="SemiBold" ToolTip="Debe marcar esta casilla para poder avanzar." Click="AcceptTermsCheckBox_OnClick" TabIndex="5" />
+                                    <CheckBox x:Name="AcceptTermsCheckBox" Grid.Row="3" Content="Acepto los términos y condiciones de licencia, uso y privacidad de EvaluaPro." IsChecked="False" Margin="0,14,0,0" FontSize="13" FontWeight="SemiBold" ToolTip="Debe marcar esta casilla para poder avanzar." Checked="AcceptTermsCheckBox_OnClick" Unchecked="AcceptTermsCheckBox_OnClick" TabIndex="5" />
                                 </Grid>
                             </Border>
                         </Grid>
 
                         <ScrollViewer x:Name="PrepareStepPanel" Visibility="Collapsed" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
                             <Grid>
-                            <Grid.ColumnDefinitions>
-                                <ColumnDefinition Width="1.05*" />
-                                <ColumnDefinition Width="0.95*" />
-                            </Grid.ColumnDefinitions>
-                            <Border Style="{StaticResource PanelCardStyle}" Margin="0,0,12,0">
+                            <Border Style="{StaticResource PanelCardStyle}">
                                 <StackPanel>
                                     <TextBlock Text="Preparar operación" FontSize="20" FontWeight="SemiBold" Foreground="{StaticResource TextBrush}" />
                                     <TextBlock Style="{StaticResource HelpTextStyle}" Text="Confirma edición, modo, carpeta destino y accesos antes de revisar el equipo." />
@@ -393,7 +356,7 @@ Por favor, lee atentamente los siguientes términos antes de proceder con la ins
                                             <StackPanel Grid.Column="1">
                                                 <TextBlock x:Name="ModeImpactTitleTextBlock" Text="Instalar o actualizar" FontWeight="Bold" Foreground="{StaticResource AccentBrush}" />
                                                 <TextBlock x:Name="ModeImpactTextBlock" Margin="0,6,0,0" Text="Configura prerequisitos, escribe configuración operativa y crea accesos." TextWrapping="Wrap" Foreground="{StaticResource TextBrush}" />
-                                                <TextBlock x:Name="ModeImpactChecklistTextBlock" Margin="0,6,0,0" Text="Se revisa WSL2/Docker/Node, carpeta destino y accesos." TextWrapping="Wrap" Foreground="{StaticResource MutedTextBrush}" />
+                                                <TextBlock x:Name="ModeImpactChecklistTextBlock" Margin="0,6,0,0" Text="Se revisa Node, carpeta destino, base local y accesos." TextWrapping="Wrap" Foreground="{StaticResource MutedTextBrush}" />
                                             </StackPanel>
                                         </Grid>
                                     </Border>
@@ -458,64 +421,16 @@ Por favor, lee atentamente los siguientes términos antes de proceder con la ins
                                 </StackPanel>
                             </Border>
 
-                            <Expander x:Name="AdvancedConfigExpander" Grid.Column="1" Header="Configuración avanzada" IsExpanded="False" ToolTip="Opciones técnicas. En escenarios estándar conserva valores por defecto.">
-                                <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
-                                    <StackPanel Margin="0,10,0,0">
-                                        <TextBlock Text="Mongo URI" Style="{StaticResource FieldLabelStyle}" />
-                                        <TextBox x:Name="MongoUriTextBox" Margin="0,6,0,10" Text="mongodb://mongo_local:27017/evaluapro" ToolTip="Cadena de conexión a MongoDB usada por la API docente." />
-                                        <TextBlock Text="Entorno Node" Style="{StaticResource FieldLabelStyle}" />
-                                        <TextBox x:Name="NodeEnvTextBox" Margin="0,6,0,10" Text="production" ToolTip="Entorno de ejecución para Node.js." />
-                                        <Grid>
-                                            <Grid.ColumnDefinitions>
-                                                <ColumnDefinition Width="*" />
-                                                <ColumnDefinition Width="*" />
-                                            </Grid.ColumnDefinitions>
-                                            <StackPanel Margin="0,0,8,10">
-                                                <TextBlock Text="Puerto API" Style="{StaticResource FieldLabelStyle}" />
-                                                <TextBox x:Name="ApiPortTextBox" Margin="0,6,0,0" Text="4000" ToolTip="Puerto local de la API docente." />
-                                            </StackPanel>
-                                            <StackPanel Grid.Column="1" Margin="8,0,0,10">
-                                                <TextBlock Text="Puerto Portal" Style="{StaticResource FieldLabelStyle}" />
-                                                <TextBox x:Name="PortalPortTextBox" Margin="0,6,0,0" Text="4518" ToolTip="Puerto local del portal." />
-                                            </StackPanel>
-                                        </Grid>
-                                        <TextBlock Text="CORS" Style="{StaticResource FieldLabelStyle}" />
-                                        <TextBox x:Name="CorsOriginsTextBox" Margin="0,6,0,10" Text="http://localhost:4173,http://127.0.0.1:4173" ToolTip="Orígenes permitidos para llamadas del frontend a la API." />
-                                        <TextBlock Text="Portal alumno URL" Style="{StaticResource FieldLabelStyle}" />
-                                        <TextBox x:Name="PortalAlumnoUrlTextBox" Margin="0,6,0,10" Text="" ToolTip="Opcional en docente-local. Configura URL pública del portal al activar sincronización." />
-                                        <TextBlock Text="Clave API de portal" Style="{StaticResource FieldLabelStyle}" />
-                                        <TextBox x:Name="PortalApiKeyTextBox" Margin="0,6,0,10" Text="portal-key-shared" ToolTip="Clave compartida entre backend y portal." />
-                                        <CheckBox x:Name="PasswordResetEnabledCheckBox" Content="Habilitar restablecimiento de contraseña" Margin="0,0,0,10" ToolTip="Activa recuperación de contraseña." />
-                                        <TextBlock Text="URL base de restablecimiento de contraseña" Style="{StaticResource FieldLabelStyle}" />
-                                        <TextBox x:Name="PasswordResetUrlBaseTextBox" Margin="0,6,0,10" ToolTip="URL base usada en enlaces de recuperación." />
-                                        <Separator Margin="0,4,0,10" />
-                                        <CheckBox x:Name="RequireLicenseCheckBox" Content="Requerir activación de licencia" Margin="0,0,0,10" ToolTip="Exige credenciales de licencia válidas." />
-                                        <TextBlock Text="API comercial" Style="{StaticResource FieldLabelStyle}" />
-                                        <TextBox x:Name="LicenseApiBaseUrlTextBox" Margin="0,6,0,10" ToolTip="URL base del servicio comercial de licencias." />
-                                        <TextBlock Text="ID de tenant" Style="{StaticResource FieldLabelStyle}" />
-                                        <TextBox x:Name="TenantIdTextBox" Margin="0,6,0,10" ToolTip="Identificador de organización." />
-                                        <TextBlock Text="Código de activación" Style="{StaticResource FieldLabelStyle}" />
-                                        <TextBox x:Name="ActivationCodeTextBox" Margin="0,6,0,10" ToolTip="Código de activación." />
-                                        <TextBlock Text="Correo titular licencia" Style="{StaticResource FieldLabelStyle}" />
-                                        <TextBox x:Name="LicenseEmailTextBox" Margin="0,6,0,10" Text="soporte@tu-institucion.mx" ToolTip="Correo asociado a la licencia." />
-                                        <TextBlock Text="Canal de actualización" Style="{StaticResource FieldLabelStyle}" />
-                                        <TextBox x:Name="UpdateChannelTextBox" Margin="0,6,0,10" Text="stable" ToolTip="Canal remoto de actualización." />
-                                        <TextBlock Text="Asset público" Style="{StaticResource FieldLabelStyle}" />
-                                        <TextBox x:Name="UpdateAssetNameTextBox" Margin="0,6,0,10" IsReadOnly="True" ToolTip="Nombre del ejecutable público esperado." />
-                                        <TextBlock Text="Propietario / Repositorio" Style="{StaticResource FieldLabelStyle}" />
-                                        <TextBox x:Name="UpdateOwnerRepoTextBox" Margin="0,6,0,0" Text="Dtcsrni / EvaluaPro_Sistema_Universitario" IsReadOnly="True" ToolTip="Origen del release oficial." />
-                                    </StackPanel>
-                                </ScrollViewer>
-                            </Expander>
                             </Grid>
                         </ScrollViewer>
 
-                        <Grid x:Name="ReviewStepPanel" Visibility="Collapsed">
-                            <Grid.ColumnDefinitions>
-                                <ColumnDefinition Width="1.35*" />
-                                <ColumnDefinition Width="0.65*" />
-                            </Grid.ColumnDefinitions>
-                            <Border Style="{StaticResource PanelCardStyle}" Margin="0,0,12,0">
+                        <ScrollViewer x:Name="ReviewStepPanel" Visibility="Collapsed" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+                            <Grid>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="1.35*" />
+                                    <ColumnDefinition Width="0.65*" />
+                                </Grid.ColumnDefinitions>
+                                <Border Style="{StaticResource PanelCardStyle}" Margin="0,0,12,0">
                                 <StackPanel>
                                     <TextBlock Text="Revisar prerequisitos" FontSize="20" FontWeight="SemiBold" Foreground="{StaticResource TextBrush}" />
                                     <TextBlock Style="{StaticResource HelpTextStyle}" Text="Valida requisitos antes de ejecutar la operación seleccionada." />
@@ -535,7 +450,7 @@ Por favor, lee atentamente los siguientes términos antes de proceder con la ins
                                             </StackPanel>
                                         </Grid>
                                     </Border>
-                                    <ListView x:Name="PrereqListView" Height="300" HorizontalContentAlignment="Stretch" AutomationProperties.Name="Resultado de prerequisitos" AutomationProperties.HelpText="Lista de requisitos detectados con versión y motivo." TabIndex="5">
+                                    <ListView x:Name="PrereqListView" MinHeight="72" MaxHeight="96" HorizontalContentAlignment="Stretch" AutomationProperties.Name="Resultado de prerequisitos" AutomationProperties.HelpText="Lista de requisitos detectados con versión y motivo." TabIndex="5">
                                         <ListView.ItemContainerStyle>
                                             <Style TargetType="ListViewItem">
                                                 <Setter Property="ToolTip" Value="{Binding ToolTipText}" />
@@ -612,7 +527,7 @@ Por favor, lee atentamente los siguientes términos antes de proceder con la ins
                                     </ListView>
                                 </StackPanel>
                             </Border>
-                            <Border Style="{StaticResource PanelCardStyle}" Grid.Column="1">
+                                <Border Style="{StaticResource PanelCardStyle}" Grid.Column="1">
                                 <StackPanel>
                                     <TextBlock Text="Decisión" FontSize="18" FontWeight="SemiBold" Foreground="{StaticResource TextBrush}" />
                                     <TextBlock Style="{StaticResource HelpTextStyle}" Text="Si todo está listo, ejecuta la acción primaria. Si algo falta, revisa evidencia y vuelve a detectar." />
@@ -624,8 +539,9 @@ Por favor, lee atentamente los siguientes términos antes de proceder con la ins
                                         </StackPanel>
                                     </Border>
                                 </StackPanel>
-                            </Border>
-                        </Grid>
+                                </Border>
+                            </Grid>
+                        </ScrollViewer>
 
                         <Grid x:Name="ExecuteStepPanel" Visibility="Collapsed">
                             <Grid.ColumnDefinitions>
@@ -732,7 +648,7 @@ Por favor, lee atentamente los siguientes términos antes de proceder con la ins
                         <TextBlock x:Name="FooterNextActionTextBlock" Text="Acepta términos para continuar." Foreground="{StaticResource TextBrush}" FontWeight="SemiBold" Margin="0,4,0,0" TextWrapping="Wrap" />
                     </StackPanel>
                     <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
-                        <Button x:Name="DetectButton" Content="_Revisar equipo" Style="{StaticResource SecondaryButtonStyle}" MinWidth="130" Margin="0,0,8,0" Click="DetectButton_OnClick" ToolTip="Ejecuta nuevamente la revisión de prerequisitos." AutomationProperties.Name="Revisar equipo" AutomationProperties.HelpText="Ejecuta el diagnóstico de prerequisitos de Windows, WSL, Docker y Node." TabIndex="20" />
+                        <Button x:Name="DetectButton" Content="_Revisar equipo" Style="{StaticResource SecondaryButtonStyle}" MinWidth="130" Margin="0,0,8,0" Click="DetectButton_OnClick" ToolTip="Ejecuta nuevamente la revisión de prerequisitos." AutomationProperties.Name="Revisar equipo" AutomationProperties.HelpText="Ejecuta el diagnóstico de prerequisitos de Windows, Node y archivos locales." TabIndex="20" />
                         <Button x:Name="BackButton" Content="_Atrás" Style="{StaticResource SecondaryButtonStyle}" MinWidth="90" Margin="0,0,8,0" Click="BackButton_OnClick" ToolTip="Vuelve al paso anterior." AutomationProperties.Name="Atrás" AutomationProperties.HelpText="Vuelve al paso anterior del asistente." TabIndex="21" />
                         <Button x:Name="NextButton" Content="_Siguiente" Style="{StaticResource SecondaryButtonStyle}" MinWidth="110" Margin="0,0,8,0" Click="NextButton_OnClick" ToolTip="Avanza al siguiente paso." AutomationProperties.Name="Siguiente" AutomationProperties.HelpText="Avanza al siguiente paso del asistente." TabIndex="22" />
                         <Button x:Name="StartButton" Content="_Continuar" Style="{StaticResource PrimaryButtonStyle}" MinWidth="130" Margin="0,0,8,0" Click="StartButton_OnClick" ToolTip="Inicia la operación seleccionada." AutomationProperties.Name="Iniciar operación seleccionada" AutomationProperties.HelpText="Instala, repara o desinstala EvaluaPro según el modo elegido." TabIndex="23" />
@@ -752,7 +668,7 @@ Por favor, lee atentamente los siguientes términos antes de proceder con la ins
                         <Border Width="138" Height="138" CornerRadius="8" Background="#ECFEFF" BorderBrush="#99F6E4" BorderThickness="1" Padding="10" HorizontalAlignment="Center" VerticalAlignment="Center">
                             <Grid>
                                 <Border CornerRadius="8" Background="White" BorderBrush="#CCFBF1" BorderThickness="1" Padding="8">
-                                    <Image x:Name="SplashOfficialLogoImage" Source="pack://application:,,,/assets/evaluapro-official-imagotipo.png" Stretch="Uniform" RenderOptions.BitmapScalingMode="HighQuality" AutomationProperties.Name="Logo oficial EvaluaPro en inicio" />
+                                    <Image x:Name="SplashInstallerLogoImage" Source="pack://application:,,,/assets/evaluapro-installer-logo.png" Stretch="Uniform" RenderOptions.BitmapScalingMode="HighQuality" AutomationProperties.Name="Logo EvaluaPro Installer Hub en inicio" />
                                 </Border>
                                 <Border Width="34" Height="34" CornerRadius="8" Background="#2563EB" BorderBrush="White" BorderThickness="2" HorizontalAlignment="Right" VerticalAlignment="Bottom" Margin="0,0,-6,-6">
                                     <Path Data="M6,17 L14,24 L28,9" Stroke="White" StrokeThickness="3" StrokeStartLineCap="Round" StrokeEndLineCap="Round" Stretch="Uniform" Margin="6" />

@@ -15,7 +15,7 @@
     <PublishTrimmed>false</PublishTrimmed>
     <AssemblyName>EvaluaPro.BurnBootstrapperApp</AssemblyName>
     <RootNamespace>EvaluaPro.BurnBootstrapperApp</RootNamespace>
-    <ApplicationIcon>..\..\..\scripts\icons\dashboard-hub-app.ico</ApplicationIcon>
+    <ApplicationIcon>..\..\..\scripts\icons\installer-logo-contrast.ico</ApplicationIcon>
   </PropertyGroup>
 
   <ItemGroup>
@@ -24,7 +24,7 @@
 
   <ItemGroup>
     <Resource Include="..\..\..\scripts\icons\installer-canonical.ico" Link="installer-canonical.ico" />
-    <Resource Include="..\..\..\logos\logo_sys.png" Link="assets/evaluapro-official-imagotipo.png" />
+    <Resource Include="..\..\..\logos\evaluapro-installer-logo-contrast.png" Link="assets/evaluapro-installer-logo.png" />
   </ItemGroup>
 
 </Project>

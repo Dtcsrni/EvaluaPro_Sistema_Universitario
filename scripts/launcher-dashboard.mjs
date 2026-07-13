@@ -433,11 +433,17 @@ function resolveFlavorPolicy(manifest = null) {
   const rawFlavorId = String(installation.flavor || updateConfig.flavorId || 'docente-local').trim().toLowerCase();
   const flavorId = rawFlavorId || 'docente-local';
   const requireLocalPortal = installation.requireLocalPortal === true || flavorId !== 'docente-local';
+  const requireDockerRuntime = installation.requireDockerRuntime === true && flavorId !== 'docente-local';
   return {
     flavorId,
     requireLocalPortal,
-    runtimeTarget: String(installation.runtimeTarget || (flavorId === 'docente-local' ? 'wsl2-docker-minimal' : 'docker-compatible'))
+    requireDockerRuntime,
+    runtimeTarget: String(installation.runtimeTarget || (flavorId === 'docente-local' ? 'native-node-sqlite' : 'docker-compatible'))
   };
+}
+
+function requiresDockerRuntime(manifest = null) {
+  return resolveFlavorPolicy(manifest).requireDockerRuntime === true;
 }
 
 function renderVersionInfoPage() {
@@ -1219,6 +1225,7 @@ function setDockerAutostart(patch) {
 }
 
 function dockerDisplayString() {
+  if (!requiresDockerRuntime(readInstallationManifest())) return 'No requerido para docente-local';
   if (dockerAutostart.state === 'starting') return 'Iniciando runtime Docker...';
   if (dockerAutostart.state === 'checking') return 'Comprobando runtime Docker...';
   if (dockerAutostart.state === 'error') return dockerAutostart.lastError || 'El runtime Docker no responde.';
@@ -1249,6 +1256,15 @@ function dockerRuntimePreference() {
 }
 
 function resolveEffectiveDockerRuntime(flavorPolicy = resolveFlavorPolicy(readInstallationManifest())) {
+  if (!flavorPolicy.requireDockerRuntime) {
+    return {
+      mode: 'not-required',
+      label: 'No requerido',
+      context: '',
+      preference: dockerRuntimePreference(),
+      warning: ''
+    };
+  }
   const preference = dockerRuntimePreference();
   const context = tryGetDockerContext();
   const docenteWslTarget = flavorPolicy.flavorId === 'docente-local' && flavorPolicy.runtimeTarget === 'wsl2-docker-minimal';
@@ -1259,7 +1275,7 @@ function resolveEffectiveDockerRuntime(flavorPolicy = resolveFlavorPolicy(readIn
       ? 'desktop-unapproved'
       : 'wsl2-engine';
   const warning = mode === 'desktop-unapproved' && docenteWslTarget
-    ? 'docente-local requiere WSL2 + Docker Engine; Docker Desktop solo se acepta con EVALUAPRO_DOCKER_RUNTIME=desktop.'
+    ? 'Este flavor requiere WSL2 + Docker Engine; Docker Desktop solo se acepta con EVALUAPRO_DOCKER_RUNTIME=desktop.'
     : '';
   return {
     preference: effectivePreference,
@@ -1375,6 +1391,7 @@ function readComposeSnapshot() {
 
 function requestDockerAutostart(reason = 'startup') {
   if (mode !== 'dev' && mode !== 'prod') return;
+  if (!requiresDockerRuntime(readInstallationManifest())) return;
   if (dockerAutostartPromise) return;
 
   dockerAutostartPromise = (async () => {
@@ -1836,9 +1853,10 @@ async function diagnoseRepairStatus() {
   const expectedMode = mode === 'prod' ? 'prod' : (mode === 'dev' ? 'dev' : 'none');
   const manifest = readInstallationManifest();
   const requirePortal = requiresLocalPortal(manifest);
+  const requireDocker = requiresDockerRuntime(manifest);
   const embeddedNodePresent = Boolean(manifest?.runtime?.embeddedNode?.present);
   const nodeMajor = detectNodeMajor(manifest);
-  const dockerVersion = tryGetDockerVersion();
+  const dockerVersion = requireDocker ? tryGetDockerVersion() : '';
   const health = await collectHealth();
   const stackRunning = expectedMode === 'none' ? false : (isStackRunning(expectedMode) || running.includes(expectedMode));
   const portalRunning = running.includes('portal') || Boolean(health?.apiPortal?.ok);
@@ -1851,7 +1869,7 @@ async function diagnoseRepairStatus() {
       autoFixable: false
     });
   }
-  if (!dockerVersion) {
+  if (requireDocker && !dockerVersion) {
     issues.push({
       code: 'prereq.docker.unavailable',
       severity: 'error',
@@ -1871,7 +1889,7 @@ async function diagnoseRepairStatus() {
     issues.push({
       code: 'services.stack.down',
       severity: 'error',
-      message: `Stack ${expectedMode} no esta activo.`,
+      message: `Plataforma ${expectedMode} no esta activa.`,
       autoFixable: true
     });
   }
@@ -1999,11 +2017,11 @@ async function startRepairRun() {
       await runRepairStep('repair_stack', async () => {
         const task = expectedMode === 'prod' ? 'prod' : 'dev';
         const command = getCommand(task);
-        if (!command) throw new Error('No hay comando de stack configurado.');
+        if (!command) throw new Error('No hay comando de plataforma configurado.');
         if (isRunning(task)) restartTask(task);
         else startTask(task, command);
         await sleep(1500);
-        return `Stack ${task} solicitado.`;
+        return `Plataforma ${task} solicitada.`;
       });
 
       if (requirePortal) {
@@ -2029,7 +2047,7 @@ async function startRepairRun() {
         const okApi = Boolean(finalHealth?.apiDocente?.ok);
         const okPortal = !requirePortal || Boolean(finalHealth?.apiPortal?.ok);
         if (!okApi || !okPortal) {
-          if (!okApi) repairState.manualActions.push('API docente sigue sin salud. Revisa Docker/logs del backend.');
+          if (!okApi) repairState.manualActions.push('API docente sigue sin salud. Revisa logs del backend.');
           if (requirePortal && !okPortal) repairState.manualActions.push('Portal sigue sin salud. Revisa logs del portal.');
           throw new Error('Salud final incompleta.');
         }
@@ -2444,7 +2462,8 @@ function readInstallationManifest() {
       installation: {
         flavor: updateConfig.flavorId || 'docente-local',
         requireLocalPortal: false,
-        runtimeTarget: 'wsl2-docker-minimal',
+        requireDockerRuntime: false,
+        runtimeTarget: 'native-node-sqlite',
         installed: false,
         root: root,
         port: Number(portArg || 0) || 0
@@ -2867,7 +2886,7 @@ async function reconcileLifecycle(reason = 'manual') {
       const healthyBefore = isStackHealthyFromServices(servicesBefore, desiredMode, flavorPolicy.requireLocalPortal);
 
       if (!healthyBefore) {
-        if (process.platform === 'win32') {
+        if (process.platform === 'win32' && flavorPolicy.requireDockerRuntime) {
           requestDockerAutostart('lifecycle_reconcile');
         }
 
@@ -3404,8 +3423,9 @@ const baseCommands = {
   dev: 'npm run dev',
   'dev-frontend': 'npm run dev:frontend',
   'dev-backend': 'npm run dev:backend',
-  // En dashboard, PROD debe levantar el stack rapidamente (sin correr verify/tests).
+  // En dashboard, PROD debe levantar la plataforma rapidamente (sin correr verify/tests).
   prod: 'npm run stack:prod',
+  'docente-native': 'npm run docente:prod:native',
   'portal-dev': 'npm run dev:portal',
   'portal-prod': 'npm run portal:prod',
   status: 'npm run status',
@@ -3418,6 +3438,9 @@ function getCommand(taskName) {
   if (!task) return null;
   if (task === 'portal') {
     return mode === 'prod' ? baseCommands['portal-prod'] : baseCommands['portal-dev'];
+  }
+  if (task === 'prod' && !requiresDockerRuntime(readInstallationManifest())) {
+    return baseCommands['docente-native'];
   }
   if (task === 'prod' && dockerRuntimePreference() === 'wsl2-engine') {
     return dockerCommandForShell(['compose', '-f', path.basename(composeFile), '--profile', 'prod', 'up', '--no-build', '-d', 'mongo_local', 'api_docente_prod', 'web_docente_prod']);
@@ -3447,6 +3470,7 @@ function isRunning(name) {
 }
 
 function stackDisplayString(runningList = [], compose = null) {
+  const requireDocker = requiresDockerRuntime(readInstallationManifest());
   const stack = dockerAutostart.stack || {};
   const state = stack.state || 'unknown';
   const lastError = stack.lastError || '';
@@ -3461,15 +3485,15 @@ function stackDisplayString(runningList = [], compose = null) {
   );
   const stackRunning = Boolean(stack.running) || hasStackTask || dockerDetected;
 
-  if (state === 'error') return lastError || 'Error iniciando stack.';
-  if (state === 'checking') return 'Comprobando stack Docker...';
-  if (state === 'skipped') return 'Stack Docker ya esta activo.';
+  if (state === 'error') return lastError || 'Error iniciando plataforma.';
+  if (state === 'checking') return requireDocker ? 'Comprobando stack Docker...' : 'Comprobando plataforma local...';
+  if (state === 'skipped') return requireDocker ? 'Stack Docker ya esta activo.' : 'Plataforma local ya esta activa.';
   if (stackRunning) {
-    if (dockerDetected && !hasStackTask) return 'Stack activo (Docker detectado).';
-    return 'Stack activo (procesos en ejecucion).';
+    if (dockerDetected && !hasStackTask) return requireDocker ? 'Stack activo (Docker detectado).' : 'Plataforma activa.';
+    return 'Plataforma activa (procesos en ejecucion).';
   }
-  if (state === 'starting') return 'Iniciando stack Docker...';
-  return 'Stack detenido.';
+  if (state === 'starting') return requireDocker ? 'Iniciando stack Docker...' : 'Iniciando plataforma local...';
+  return 'Plataforma detenida.';
 }
 
 function restartTask(name, delayMs = 700) {
@@ -3865,7 +3889,7 @@ const server = http.createServer(async (req, res) => {
 
   if (req.method === 'GET' && pathName === '/api/status') {
     // Autostart en background: el endpoint debe responder rapido.
-    if ((mode === 'dev' || mode === 'prod') && dockerAutostart.state === 'idle') {
+    if ((mode === 'dev' || mode === 'prod') && dockerAutostart.state === 'idle' && requiresDockerRuntime(readInstallationManifest())) {
       requestDockerAutostart('api_status');
     }
 
@@ -4357,7 +4381,8 @@ const server = http.createServer(async (req, res) => {
 
     if (task === 'stack') {
       if (mode === 'prod') {
-        const fastRestartCommand = 'npm run stack:restart';
+        const fastRestartCommand = requiresDockerRuntime(readInstallationManifest()) ? 'npm run stack:restart' : getCommand('prod');
+        if (!fastRestartCommand) return sendJson(res, 400, { error: 'Tarea desconocida' });
         if (isRunning('prod')) {
           stopTask('prod');
         }
@@ -4466,8 +4491,8 @@ const server = http.createServer(async (req, res) => {
     writeLock(port);
     logSystem(`Dashboard listo: ${url}`, 'ok', { console: true });
     if (!noOpen) openBrowser(url);
-    // En accesos directos/tray: primero confirma Docker y luego inicia el stack.
-    if (mode === 'dev' || mode === 'prod') requestDockerAutostart('startup');
+    // En accesos directos/tray: solo confirma Docker cuando el flavor lo requiere.
+    if ((mode === 'dev' || mode === 'prod') && requiresDockerRuntime(readInstallationManifest())) requestDockerAutostart('startup');
     configureLifecycleSupervisor();
     configureContinuityScheduler();
     if (lifecycleState.supervisorEnabled) {

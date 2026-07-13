@@ -1,0 +1,215 @@
+{
+  "traceSchemaVersion": "1.0.0",
+  "sessionId": "sesion-2026-07-02T19-43-33.250Z",
+  "status": "draft",
+  "generatedAt": "2026-07-02T19:43:33.250Z",
+  "validationProfile": "quick",
+  "agent": {
+    "name": "unknown",
+    "version": "unknown",
+    "provider": "unknown",
+    "kind": "unknown",
+    "channel": "unknown"
+  },
+  "request": {
+    "summary": "Pendiente de completar por el agente."
+  },
+  "objective": "Pendiente de completar por el agente.",
+  "scope": [],
+  "constraints": [],
+  "actions": [
+    {
+      "type": "validation",
+      "summary": "Ejecucion de lint",
+      "timestamp": "2026-07-02T19:43:33.250Z",
+      "status": "omitido"
+    },
+    {
+      "type": "validation",
+      "summary": "Ejecucion de typecheck",
+      "timestamp": "2026-07-02T19:43:33.250Z",
+      "status": "omitido"
+    },
+    {
+      "type": "validation",
+      "summary": "Ejecucion de test_frontend_ci",
+      "timestamp": "2026-07-02T19:43:33.250Z",
+      "status": "omitido"
+    },
+    {
+      "type": "validation",
+      "summary": "Ejecucion de test_coverage_ci",
+      "timestamp": "2026-07-02T19:43:33.250Z",
+      "status": "omitido"
+    },
+    {
+      "type": "validation",
+      "summary": "Ejecucion de test_tdd_enforcement_ci",
+      "timestamp": "2026-07-02T19:43:33.250Z",
+      "status": "omitido"
+    },
+    {
+      "type": "validation",
+      "summary": "Ejecucion de test_backend_ci",
+      "timestamp": "2026-07-02T19:43:33.250Z",
+      "status": "omitido"
+    },
+    {
+      "type": "validation",
+      "summary": "Ejecucion de test_portal_ci",
+      "timestamp": "2026-07-02T19:43:33.250Z",
+      "status": "omitido"
+    },
+    {
+      "type": "validation",
+      "summary": "Ejecucion de perf_check",
+      "timestamp": "2026-07-02T19:43:33.250Z",
+      "status": "omitido"
+    },
+    {
+      "type": "validation",
+      "summary": "Ejecucion de pipeline_contract_check",
+      "timestamp": "2026-07-02T19:43:33.250Z",
+      "status": "ok"
+    },
+    {
+      "type": "validation",
+      "summary": "Ejecucion de docs_check",
+      "timestamp": "2026-07-02T19:43:33.250Z",
+      "status": "falla"
+    }
+  ],
+  "files": {
+    "read": [],
+    "changed": [
+      ".github/workflows/ci-installer-windows.yml",
+      ".github/workflows/release-stable-gate.yml",
+      "docs/INVENTARIO_CODIGO_EXHAUSTIVO.md",
+      "docs/release/evidencias/1.1.1/rollback_readiness.json",
+      "docs/specs/release_stable_installer_firma.spec.md",
+      "scripts/build-msi.ps1",
+      "scripts/release/validate-stable-promotion.mjs",
+      "scripts/tests/ci-workflow-contract.test.mjs",
+      "scripts/tests/installer-hub-contract.test.mjs",
+      "scripts/tests/release-stable-promotion.test.mjs",
+      "scripts/assert-installer-hub-bundle.ps1"
+    ],
+    "artifacts": [
+      "docs/handoff/sesiones/2026-07-02/sesion-2026-07-02T19-43-33.250Z.json",
+      "docs/handoff/sesiones/2026-07-02/sesion-2026-07-02T19-43-33.250Z.md"
+    ]
+  },
+  "commands": [
+    {
+      "name": "lint",
+      "command": "npm run lint",
+      "status": "omitido",
+      "exitCode": null,
+      "durationMs": 0,
+      "resultSummary": "omitido por perfil quick",
+      "timestamp": "2026-07-02T19:43:33.250Z"
+    },
+    {
+      "name": "typecheck",
+      "command": "npm run typecheck",
+      "status": "omitido",
+      "exitCode": null,
+      "durationMs": 0,
+      "resultSummary": "omitido por perfil quick",
+      "timestamp": "2026-07-02T19:43:33.250Z"
+    },
+    {
+      "name": "test_frontend_ci",
+      "command": "npm run test:frontend:ci",
+      "status": "omitido",
+      "exitCode": null,
+      "durationMs": 0,
+      "resultSummary": "omitido por perfil quick",
+      "timestamp": "2026-07-02T19:43:33.250Z"
+    },
+    {
+      "name": "test_coverage_ci",
+      "command": "npm run test:coverage:ci",
+      "status": "omitido",
+      "exitCode": null,
+      "durationMs": 0,
+      "resultSummary": "omitido por perfil quick",
+      "timestamp": "2026-07-02T19:43:33.250Z"
+    },
+    {
+      "name": "test_tdd_enforcement_ci",
+      "command": "npm run test:tdd:enforcement:ci",
+      "status": "omitido",
+      "exitCode": null,
+      "durationMs": 0,
+      "resultSummary": "omitido por perfil quick",
+      "timestamp": "2026-07-02T19:43:33.250Z"
+    },
+    {
+      "name": "test_backend_ci",
+      "command": "npm run test:backend:ci",
+      "status": "omitido",
+      "exitCode": null,
+      "durationMs": 0,
+      "resultSummary": "omitido por perfil quick",
+      "timestamp": "2026-07-02T19:43:33.250Z"
+    },
+    {
+      "name": "test_portal_ci",
+      "command": "npm run test:portal:ci",
+      "status": "omitido",
+      "exitCode": null,
+      "durationMs": 0,
+      "resultSummary": "omitido por perfil quick",
+      "timestamp": "2026-07-02T19:43:33.250Z"
+    },
+    {
+      "name": "perf_check",
+      "command": "npm run perf:check",
+      "status": "omitido",
+      "exitCode": null,
+      "durationMs": 0,
+      "resultSummary": "omitido por perfil quick",
+      "timestamp": "2026-07-02T19:43:33.250Z"
+    },
+    {
+      "name": "pipeline_contract_check",
+      "command": "npm run pipeline:contract:check",
+      "status": "ok",
+      "exitCode": 0,
+      "durationMs": 505,
+      "resultSummary": "> evaluapro@1.1.1 pipeline:contract:check | > node scripts/pipeline-contract-check.mjs | ✔ ext_perf_arquitectura prepara sharp antes de perf:check (1.7306ms) | ✔ ext_funcionales usa gate OMR TV generico con version configurable (0.2521ms) | ... | ℹ duration_ms 73.9286 | pipeline contract OK",
+      "timestamp": "2026-07-02T19:43:33.250Z"
+    },
+    {
+      "name": "docs_check",
+      "command": "npm run docs:check",
+      "status": "falla",
+      "exitCode": 1,
+      "durationMs": 794,
+      "resultSummary": "> evaluapro@1.1.1 docs:check | > node scripts/docs.mjs --check | [docs] desactualizado: docs/AUTO_ENV.md | [docs] corre: npm run docs:generate | [docs] desactualizado: docs/AUTO_DOCS_INDEX.md | [docs] corre: npm run docs:generate",
+      "timestamp": "2026-07-02T19:43:33.250Z"
+    }
+  ],
+  "decisions": [],
+  "assumptions": [],
+  "risks": [],
+  "nextStep": "Pendiente de completar por el agente.",
+  "completion": {
+    "isComplete": false,
+    "pendingFields": [
+      "request.summary",
+      "objective",
+      "scope",
+      "decisions",
+      "risks",
+      "nextStep"
+    ]
+  },
+  "repo": {
+    "rootDir": "V:\\Software\\EvaluaPro",
+    "branch": "codex/fix-v111-hub-release",
+    "commit": "52f0c062",
+    "workingTreeStatus": "M .github/workflows/ci-installer-windows.yml\n M .github/workflows/release-stable-gate.yml\n M docs/INVENTARIO_CODIGO_EXHAUSTIVO.md\n M docs/release/evidencias/1.1.1/rollback_readiness.json\n M docs/specs/release_stable_installer_firma.spec.md\n M scripts/build-msi.ps1\n M scripts/release/validate-stable-promotion.mjs\n M scripts/tests/ci-workflow-contract.test.mjs\n M scripts/tests/installer-hub-contract.test.mjs\n M scripts/tests/release-stable-promotion.test.mjs\n?? scripts/assert-installer-hub-bundle.ps1"
+  }
+}

@@ -394,6 +394,27 @@ function Assert-BurnBundleAttachedContainer {
   }
 }
 
+function Assert-InstallerHubBundleVersion {
+  param(
+    [Parameter(Mandatory = $true)]
+    [string]$BundlePath,
+    [Parameter(Mandatory = $true)]
+    [string]$ExpectedVersion,
+    [Parameter(Mandatory = $true)]
+    [string]$WixExecutable
+  )
+
+  $guardScript = Join-Path $root 'scripts\assert-installer-hub-bundle.ps1'
+  if (-not (Test-Path -LiteralPath $guardScript)) {
+    throw "No existe guard de bundle Installer Hub: $guardScript"
+  }
+
+  & powershell.exe -NoProfile -ExecutionPolicy Bypass -File $guardScript -BundlePath $BundlePath -ExpectedVersion $ExpectedVersion -WixExecutable $WixExecutable
+  if ($LASTEXITCODE -ne 0) {
+    throw "Falló guard de versión del bundle Installer Hub (exit=$LASTEXITCODE): $BundlePath"
+  }
+}
+
 function Assert-MsiInstallsAppPayload {
   param(
     [Parameter(Mandatory = $true)]
@@ -468,10 +489,29 @@ function Invoke-WixBuildProcess {
     [string[]]$Arguments
   )
 
+  $timeoutSeconds = 540
+  if ($env:EVALUAPRO_WIX_PROCESS_TIMEOUT_SECONDS -match '^\d+$') {
+    $timeoutSeconds = [Math]::Max(60, [int]$env:EVALUAPRO_WIX_PROCESS_TIMEOUT_SECONDS)
+  }
   $wixOut = Join-Path $env:TEMP ("evaluapro-wix-build-{0}.out.log" -f [Guid]::NewGuid().ToString('N'))
   $wixErr = Join-Path $env:TEMP ("evaluapro-wix-build-{0}.err.log" -f [Guid]::NewGuid().ToString('N'))
   try {
-    $proc = Start-Process -FilePath $WixExecutable -ArgumentList $Arguments -Wait -NoNewWindow -PassThru -RedirectStandardOutput $wixOut -RedirectStandardError $wixErr
+    $proc = Start-Process -FilePath $WixExecutable -ArgumentList $Arguments -NoNewWindow -PassThru -RedirectStandardOutput $wixOut -RedirectStandardError $wixErr
+    if (-not $proc.WaitForExit($timeoutSeconds * 1000)) {
+      if (Test-Path -LiteralPath $wixOut) {
+        Get-Content -LiteralPath $wixOut -ErrorAction SilentlyContinue | Out-Host
+      }
+      if (Test-Path -LiteralPath $wixErr) {
+        Get-Content -LiteralPath $wixErr -ErrorAction SilentlyContinue | Out-Host
+      }
+      $children = @(Get-CimInstance Win32_Process -ErrorAction SilentlyContinue | Where-Object { $_.ParentProcessId -eq $proc.Id })
+      foreach ($child in $children) {
+        Stop-Process -Id ([int]$child.ProcessId) -Force -ErrorAction SilentlyContinue
+      }
+      Stop-Process -Id $proc.Id -Force -ErrorAction SilentlyContinue
+      Start-Sleep -Seconds 1
+      throw "WiX excedio timeout de $timeoutSeconds segundos: $WixExecutable $($Arguments -join ' ')"
+    }
     if (Test-Path -LiteralPath $wixOut) {
       Get-Content -LiteralPath $wixOut -ErrorAction SilentlyContinue | Out-Host
     }
@@ -597,7 +637,12 @@ function Publish-BurnBootstrapperApp {
     '-p:EnableCompressionInSingleFile=true'
   )
   if (![string]::IsNullOrEmpty($VersionTag)) {
-    $publishArgs += "-p:Version=$VersionTag"
+    $publishArgs += @(
+      "-p:Version=$VersionTag",
+      "-p:AssemblyVersion=$VersionTag.0",
+      "-p:FileVersion=$VersionTag.0",
+      "-p:InformationalVersion=$VersionTag"
+    )
   }
   $publishArgs += @('-o', $OutputDirectory)
   # Contract marker for installer-hub tests: "$DotNetExecutable publish"
@@ -610,6 +655,15 @@ function Publish-BurnBootstrapperApp {
   $exePath = Join-Path $OutputDirectory 'EvaluaPro.BurnBootstrapperApp.exe'
   if (-not (Test-Path $exePath)) {
     throw "No se genero el ejecutable de la Bootstrapper Application: $exePath"
+  }
+
+  if (![string]::IsNullOrEmpty($VersionTag)) {
+    $fileVersionInfo = [System.Diagnostics.FileVersionInfo]::GetVersionInfo($exePath)
+    $fileVersion = [string]$fileVersionInfo.FileVersion
+    $productVersion = [string]$fileVersionInfo.ProductVersion
+    if ($fileVersion -notlike "$VersionTag*" -or $productVersion -notlike "$VersionTag*") {
+      throw "Bootstrapper Application Burn publicada con version invalida. Esperada=$VersionTag, FileVersion=$fileVersion, ProductVersion=$productVersion, Path=$exePath"
+    }
   }
 
   return $exePath
@@ -625,8 +679,6 @@ function Resolve-BurnBootstrapperAppExe {
 
   $dotnetExe = Resolve-DotNetExecutable
   $bootstrapperProject = Join-Path $RootPath 'packaging\wix\BurnBootstrapperApp\EvaluaPro.BurnBootstrapperApp.csproj'
-  $bootstrapperOut = Join-Path $RootPath 'dist\installer\_internal\burn-bootstrapper-app'
-
   # Cuando hay VersionTag (build de release), siempre compilar fresh para que el
   # binario lleve la versión correcta embebida. Nunca reutilizar un binario obsoleto
   # que podria tener una versión anterior hardcodeada en sus atributos de ensamblado.
@@ -968,6 +1020,7 @@ if ($buildBundle) {
       }
       $msiBytes = (Get-Item -LiteralPath $productOut).Length
       Assert-BurnBundleAttachedContainer -WixExecutable $wixExe -BundlePath $bundleOut -MinimumPayloadBytes ([int64]([Math]::Max(1, [Math]::Floor($msiBytes * 0.75))))
+      Assert-InstallerHubBundleVersion -BundlePath $bundleOut -ExpectedVersion $effectiveVersionTag -WixExecutable $wixExe
       $bundleWixPdb = Join-Path $publicFlavorOut ([System.IO.Path]::GetFileNameWithoutExtension($bundleName) + '.wixpdb')
       if (Test-Path $bundleWixPdb) {
         Move-Item -LiteralPath $bundleWixPdb -Destination (Join-Path $internalFlavorOut (Split-Path -Leaf $bundleWixPdb)) -Force

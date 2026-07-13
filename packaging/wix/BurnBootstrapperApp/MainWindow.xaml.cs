@@ -11,6 +11,18 @@ namespace EvaluaPro.BurnBootstrapperApp;
 
 public partial class MainWindow : Window
 {
+    private const string DefaultDatabaseUrl = "file:C:/ProgramData/EvaluaPro/data/evaluapro.db";
+    private const string DefaultNodeEnv = "production";
+    private const string DefaultApiPort = "4000";
+    private const string DefaultPortalPort = "4518";
+    private const string DefaultCorsOrigins = "http://localhost:4173,http://127.0.0.1:4173";
+    private const string DefaultPortalApiKey = "portal-key-shared";
+    private const string DefaultLicenseEmail = "soporte@tu-institucion.mx";
+    private const string DefaultUpdateChannel = "stable";
+    private const string DefaultUpdateOwner = "Dtcsrni";
+    private const string DefaultUpdateRepo = "EvaluaPro_Sistema_Universitario";
+    private const string DefaultUpdateAssetName = "EvaluaPro-InstallerHub-docente-local.exe";
+
     private static readonly Geometry CheckGeometry = Geometry.Parse("M2,7.5 L5.5,11 L12,3");
     private static readonly Geometry CrossGeometry = Geometry.Parse("M2,2 L12,12 M12,2 L2,12");
     private static readonly Geometry CircleGeometry = Geometry.Parse("M7,2 A5,5 0 1 1 6.99,2");
@@ -46,6 +58,7 @@ public partial class MainWindow : Window
     private DispatcherTimer? splashFallbackTimer;
     private bool suppressModeChangedEvent;
     private WizardStep currentStep = WizardStep.Terms;
+    private string currentUpdateAssetName = DefaultUpdateAssetName;
 
     public MainWindow()
     {
@@ -80,7 +93,7 @@ public partial class MainWindow : Window
 
         InstallDirTextBox.Text = model.InstallDir;
         DetectionSummaryTextBlock.Text = model.Summary;
-        UpdateAssetNameTextBox.Text = model.AssetName;
+        currentUpdateAssetName = string.IsNullOrWhiteSpace(model.AssetName) ? DefaultUpdateAssetName : model.AssetName;
         SetMode(model.Mode);
         RefreshOperationalChrome(model.Mode, FlavorComboBox.SelectedItem as FlavorItem);
         readyToStart = model.Ready;
@@ -129,7 +142,7 @@ public partial class MainWindow : Window
         FlavorComboBox.SelectedItem = selectedFlavor;
         if (!string.IsNullOrWhiteSpace(selectedFlavor?.AssetName))
         {
-            UpdateAssetNameTextBox.Text = selectedFlavor.AssetName;
+            currentUpdateAssetName = selectedFlavor.AssetName;
         }
 
         ApplyFlavorLayout(availableFlavors.Count > 1);
@@ -372,7 +385,12 @@ public partial class MainWindow : Window
 
         Dispatcher.BeginInvoke(() =>
         {
-            if (StageTimelineScrollViewer.ViewportHeight <= 0 || !target.IsDescendantOf(StageTimelineScrollViewer))
+            if (!target.IsVisible || !target.IsDescendantOf(StageTimelineScrollViewer))
+            {
+                return;
+            }
+
+            if (StageTimelineScrollViewer.ViewportHeight <= 0)
             {
                 target.BringIntoView();
                 return;
@@ -388,9 +406,10 @@ public partial class MainWindow : Window
                 {
                     desiredOffset = 0;
                 }
+
                 StageTimelineScrollViewer.ScrollToVerticalOffset(desiredOffset);
             }
-            catch
+            catch (InvalidOperationException)
             {
                 target.BringIntoView();
             }
@@ -500,7 +519,9 @@ public partial class MainWindow : Window
         var mode = modeItem?.Tag?.ToString()
             ?? modeItem?.Content?.ToString()
             ?? "install";
-        var ownerRepo = (UpdateOwnerRepoTextBox.Text ?? string.Empty).Split('/', 2, StringSplitOptions.TrimEntries);
+        var updateAssetName = string.IsNullOrWhiteSpace(currentUpdateAssetName)
+            ? selectedFlavor?.AssetName ?? DefaultUpdateAssetName
+            : currentUpdateAssetName;
 
         return new BootstrapperRequest
         {
@@ -510,25 +531,25 @@ public partial class MainWindow : Window
             InstallDesktopShortcuts = DesktopShortcutsCheckBox.IsChecked == true,
             InstallStartMenuShortcuts = StartMenuShortcutsCheckBox.IsChecked == true,
             ExportData = ExportDataCheckBox.IsChecked == true,
-            MongoUri = MongoUriTextBox.Text.Trim(),
-            NodeEnv = NodeEnvTextBox.Text.Trim(),
-            ApiPort = ApiPortTextBox.Text.Trim(),
-            PortalPort = PortalPortTextBox.Text.Trim(),
-            CorsOrigins = CorsOriginsTextBox.Text.Trim(),
-            PortalAlumnoUrl = PortalAlumnoUrlTextBox.Text.Trim(),
-            PortalApiKey = PortalApiKeyTextBox.Text.Trim(),
-            PasswordResetEnabled = PasswordResetEnabledCheckBox.IsChecked == true,
-            PasswordResetUrlBase = PasswordResetUrlBaseTextBox.Text.Trim(),
-            RequireLicenseActivation = RequireLicenseCheckBox.IsChecked == true,
-            LicenseApiBaseUrl = LicenseApiBaseUrlTextBox.Text.Trim(),
-            TenantId = TenantIdTextBox.Text.Trim(),
-            ActivationCode = ActivationCodeTextBox.Text.Trim(),
-            LicenseAccountEmail = LicenseEmailTextBox.Text.Trim(),
-            UpdateChannel = UpdateChannelTextBox.Text.Trim(),
-            UpdateAssetName = UpdateAssetNameTextBox.Text.Trim(),
-            UpdateOwner = ownerRepo.Length > 0 ? ownerRepo[0] : "Dtcsrni",
-            UpdateRepo = ownerRepo.Length > 1 ? ownerRepo[1] : "EvaluaPro_Sistema_Universitario",
-            UpdateShaAssetName = $"{UpdateAssetNameTextBox.Text.Trim()}.sha256"
+            DatabaseUrl = DefaultDatabaseUrl,
+            NodeEnv = DefaultNodeEnv,
+            ApiPort = DefaultApiPort,
+            PortalPort = DefaultPortalPort,
+            CorsOrigins = DefaultCorsOrigins,
+            PortalAlumnoUrl = string.Empty,
+            PortalApiKey = DefaultPortalApiKey,
+            PasswordResetEnabled = false,
+            PasswordResetUrlBase = string.Empty,
+            RequireLicenseActivation = false,
+            LicenseApiBaseUrl = string.Empty,
+            TenantId = string.Empty,
+            ActivationCode = string.Empty,
+            LicenseAccountEmail = DefaultLicenseEmail,
+            UpdateChannel = DefaultUpdateChannel,
+            UpdateAssetName = updateAssetName,
+            UpdateOwner = DefaultUpdateOwner,
+            UpdateRepo = DefaultUpdateRepo,
+            UpdateShaAssetName = $"{updateAssetName}.sha256"
         };
     }
 
@@ -604,7 +625,7 @@ public partial class MainWindow : Window
             return;
         }
 
-        UpdateAssetNameTextBox.Text = flavor.AssetName;
+        currentUpdateAssetName = flavor.AssetName;
         RefreshOperationalChrome(GetSelectedMode(), flavor);
     }
 
@@ -740,10 +761,7 @@ public partial class MainWindow : Window
     private void RefreshOperationalChrome(string? mode = null, FlavorItem? flavor = null)
     {
         var normalizedMode = string.IsNullOrWhiteSpace(mode) ? GetSelectedMode() : mode;
-        var selectedFlavor = flavor ?? FlavorComboBox.SelectedItem as FlavorItem;
 
-        BrandModeBadgeTextBlock.Text = GetModeLabel(normalizedMode);
-        BrandFlavorBadgeTextBlock.Text = selectedFlavor?.DisplayName ?? "EvaluaPro";
         StartButton.Content = GetModeActionLabel(normalizedMode);
         StartButton.SetValue(System.Windows.Automation.AutomationProperties.NameProperty, GetModeActionLabel(normalizedMode).Replace("_", string.Empty));
         RefreshModeImpact(normalizedMode);

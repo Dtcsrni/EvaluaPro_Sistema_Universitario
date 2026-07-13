@@ -98,7 +98,7 @@ function Invoke-PostInstallVerification {
       $issues += "No se encontro archivo de configuracion operativa: $envPath"
     } else {
       $envRaw = Get-Content -Path $envPath -Raw -Encoding utf8
-      $requiredEnvKeys = @('MONGODB_URI', 'JWT_SECRETO', 'CORS_ORIGENES')
+      $requiredEnvKeys = @('DATABASE_URL', 'BACKEND_DATABASE_URL', 'JWT_SECRETO', 'CORS_ORIGENES')
       if ([string]$Flavor.flavorId -ne 'docente-local') {
         $requiredEnvKeys += @('PORTAL_ALUMNO_URL', 'PORTAL_ALUMNO_API_KEY', 'PORTAL_API_KEY')
       } else {
@@ -128,13 +128,6 @@ function Invoke-PostInstallVerification {
         $issues += 'Runtime Node embebido local no disponible tras instalacion.'
       }
 
-      $runtimeStatus = Get-DockerRuntimeStatus
-      if (-not ([bool]$runtimeStatus.ready -and [string]$runtimeStatus.mode -eq 'desktop')) {
-        $wslNodeMajor = Get-WslNodeMajorVersion
-        if ($wslNodeMajor -lt 24) {
-          $issues += 'Node 24 no provisionado dentro de WSL2 tras instalacion.'
-        }
-      }
     } else {
       $nodeMajor = Get-NodeMajorVersion
       if ($nodeMajor -lt 24) {
