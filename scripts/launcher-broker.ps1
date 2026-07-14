@@ -1,5 +1,5 @@
 # Unified Windows launcher broker for EvaluaPro.
-# Orchestrates dashboard bootstrap, stack start, shortcuts, Hub and splash state.
+# Orchestrates dashboard bootstrap, local platform start, shortcuts, Hub and splash state.
 param(
   [ValidateSet('open-dashboard', 'restart-stack', 'stop-all', 'repair', 'uninstall', 'open-hub', 'verify-installation')]
   [string]$Action = 'open-dashboard',
@@ -293,7 +293,7 @@ function Wait-DesiredHealth([string]$base, [string]$desiredMode, [int]$timeoutMs
 }
 
 function Ensure-StackReady([string]$base, [string]$desiredMode, [int]$timeoutMs = 150000) {
-  Set-BootstrapState -State 'booting_stack' -Message ("Levantando stack {0}." -f $desiredMode.ToUpperInvariant()) -DesiredMode $desiredMode -Meta @{ base = $base }
+  Set-BootstrapState -State 'booting_platform' -Message ("Levantando plataforma {0}." -f $desiredMode.ToUpperInvariant()) -DesiredMode $desiredMode -Meta @{ base = $base }
   try {
     $null = Invoke-JsonPost "$base/api/lifecycle/policy" @{ desiredMode = $desiredMode } 8
   } catch {}
@@ -390,23 +390,23 @@ try {
         Set-BootstrapState -State 'healthy' -Message 'Plataforma docente lista.' -DesiredMode $desiredMode -Meta @{ degraded = [bool]$result.degraded; base = $base }
         Open-Url "$base/"
       } else {
-        Set-BootstrapState -State 'degraded' -Message 'Dashboard activo, pero el stack no alcanzo salud completa.' -DesiredMode $desiredMode -Meta @{ base = $base }
+        Set-BootstrapState -State 'degraded' -Message 'Dashboard activo, pero la plataforma no alcanzo salud completa.' -DesiredMode $desiredMode -Meta @{ base = $base }
         if (-not $NoOpen) { Open-Url "$base/" }
       }
     }
     'restart-stack' {
-      Set-BootstrapState -State 'booting_stack' -Message 'Reiniciando stack local.' -DesiredMode $desiredMode
+      Set-BootstrapState -State 'booting_platform' -Message 'Reiniciando plataforma local.' -DesiredMode $desiredMode
       $null = Invoke-JsonPost "$base/api/restart" @{ task = 'stack' } 8
       $result = Ensure-StackReady -base $base -desiredMode $desiredMode -timeoutMs 150000
       Invoke-ManifestRefresh
       if (-not $result.ok) {
-        throw 'Stack reiniciado pero no saludable.'
+        throw 'Plataforma reiniciada pero no saludable.'
       }
-      Set-BootstrapState -State 'healthy' -Message 'Stack reiniciado y saludable.' -DesiredMode $desiredMode -Meta @{ base = $base }
+      Set-BootstrapState -State 'healthy' -Message 'Plataforma reiniciada y saludable.' -DesiredMode $desiredMode -Meta @{ base = $base }
       Open-Url "$base/"
     }
     'stop-all' {
-      Set-BootstrapState -State 'booting_stack' -Message 'Deteniendo tareas activas.' -DesiredMode $desiredMode
+      Set-BootstrapState -State 'booting_platform' -Message 'Deteniendo tareas activas.' -DesiredMode $desiredMode
       $latest = Invoke-JsonGet "$base/api/status" 4
       foreach ($task in @($latest.running)) {
         try { $null = Invoke-JsonPost "$base/api/stop" @{ task = [string]$task } 8 } catch {}
@@ -416,7 +416,7 @@ try {
       Open-Url "$base/"
     }
     'repair' {
-      Set-BootstrapState -State 'booting_stack' -Message 'Ejecutando reparacion controlada.' -DesiredMode $desiredMode
+      Set-BootstrapState -State 'booting_platform' -Message 'Ejecutando reparacion controlada.' -DesiredMode $desiredMode
       $run = Invoke-JsonPost "$base/api/repair/run" @{} 12
       $runIdRepair = if ($null -ne $run.runId) { [string]$run.runId } else { '' }
       $deadline = (Get-Date).AddMinutes(4)

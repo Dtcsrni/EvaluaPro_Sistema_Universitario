@@ -86,10 +86,12 @@ function writeQaEvidence(baseDir, overrides = {}) {
   return manifestPath;
 }
 
-function writeInstallerManifest(baseDir) {
+function writeInstallerManifest(baseDir, overrides = {}) {
+  const version = overrides.version || '1.0.0';
   const manifest = {
+    version,
     build: {
-      version: '1.0.0',
+      version,
       commit: 'abc123'
     },
     artifacts: [
@@ -106,18 +108,21 @@ function writeInstallerManifest(baseDir) {
     flavors: [
       {
         flavorId: 'saas-completo',
-        assetName: 'EvaluaPro-InstallerHub-saas-completo-v1.0.0.exe',
+        assetName: `EvaluaPro-InstallerHub-saas-completo-v${version}.exe`,
         msiName: 'EvaluaPro-saas-completo.msi',
-        installerHubName: 'EvaluaPro-InstallerHub-saas-completo-v1.0.0.exe'
+        installerHubName: `EvaluaPro-InstallerHub-saas-completo-v${version}.exe`,
+        installerHubVersionedName: `EvaluaPro-InstallerHub-saas-completo-v${version}.exe`
       },
       {
         flavorId: 'docente-local',
-        assetName: 'EvaluaPro-InstallerHub-docente-local-v1.0.0.exe',
+        assetName: `EvaluaPro-InstallerHub-docente-local-v${version}.exe`,
         msiName: 'EvaluaPro-docente-local.msi',
-        installerHubName: 'EvaluaPro-InstallerHub-docente-local-v1.0.0.exe'
+        installerHubName: `EvaluaPro-InstallerHub-docente-local-v${version}.exe`,
+        installerHubVersionedName: `EvaluaPro-InstallerHub-docente-local-v${version}.exe`
       }
     ]
   };
+  Object.assign(manifest, overrides.manifest || {});
   const manifestPath = path.join(baseDir, 'EvaluaPro-release-manifest.json');
   fs.writeFileSync(manifestPath, `${JSON.stringify(manifest, null, 2)}\n`);
   return manifestPath;
@@ -194,6 +199,7 @@ test('stable promotion pasa con evidencia completa, streak y manifest multi-flav
 
   const runs = Array.from({ length: 10 }).map((_, index) => ({ id: index + 1, conclusion: 'success' }));
   const result = evaluateStablePromotion({
+    version: '1.0.0',
     requiredStreak: 10,
     runs,
     evidenceDir,
@@ -219,6 +225,7 @@ test('stable promotion no exige gate humano ni Classroom manual cuando QA automa
 
   const runs = Array.from({ length: 10 }).map((_, index) => ({ id: index + 1, conclusion: 'success' }));
   const result = evaluateStablePromotion({
+    version: '1.0.0',
     requiredStreak: 10,
     runs,
     evidenceDir,
@@ -244,6 +251,7 @@ test('stable promotion falla si el manifest release es incompleto aunque tenga f
 
   const runs = Array.from({ length: 10 }).map((_, index) => ({ id: index + 1, conclusion: 'success' }));
   const result = evaluateStablePromotion({
+    version: '1.0.0',
     requiredStreak: 10,
     runs,
     evidenceDir,
@@ -253,6 +261,117 @@ test('stable promotion falla si el manifest release es incompleto aunque tenga f
 
   assert.equal(result.ok, false);
   assert.equal(result.checks.some((item) => item.id === 'installer-multi-flavor' && item.ok === false), true);
+});
+
+test('stable promotion falla si la evidencia release no corresponde a la version objetivo', () => {
+  const evidenceDir = mkTempDir('evaluapro-stable-evidence-target-version-mismatch-');
+  const installerDir = mkTempDir('evaluapro-installer-manifest-target-version-mismatch-');
+  const qaDir = mkTempDir('evaluapro-qa-evidence-target-version-mismatch-');
+  writeEvidenceDir(evidenceDir);
+  const installerManifestPath = writeInstallerManifest(installerDir, { version: '1.1.1' });
+  const qaManifestPath = writeQaEvidence(qaDir);
+
+  const runs = Array.from({ length: 10 }).map((_, index) => ({ id: index + 1, conclusion: 'success' }));
+  const result = evaluateStablePromotion({
+    version: '1.1.1',
+    requiredStreak: 10,
+    runs,
+    evidenceDir,
+    installerManifestPath,
+    qaManifestPath
+  });
+
+  assert.equal(result.ok, false);
+  assert.equal(
+    result.checks.some((item) => item.id === 'release-evidence' && item.ok === false && /version=1\.0\.0, esperado=1\.1\.1/.test(item.detail)),
+    true
+  );
+});
+
+test('stable promotion falla si el manifest de instalador no corresponde a la version objetivo', () => {
+  const evidenceDir = mkTempDir('evaluapro-stable-evidence-version-mismatch-');
+  const installerDir = mkTempDir('evaluapro-installer-manifest-version-mismatch-');
+  const qaDir = mkTempDir('evaluapro-qa-evidence-version-mismatch-');
+  writeEvidenceDir(evidenceDir);
+  const installerManifestPath = writeInstallerManifest(installerDir, { version: '1.0.0' });
+  const qaManifestPath = writeQaEvidence(qaDir);
+
+  const runs = Array.from({ length: 10 }).map((_, index) => ({ id: index + 1, conclusion: 'success' }));
+  const result = evaluateStablePromotion({
+    version: '1.1.1',
+    requiredStreak: 10,
+    runs,
+    evidenceDir,
+    installerManifestPath,
+    qaManifestPath
+  });
+
+  assert.equal(result.ok, false);
+  assert.equal(
+    result.checks.some((item) => item.id === 'installer-multi-flavor' && item.ok === false && /build\.version=1\.0\.0, esperado=1\.1\.1/.test(item.detail)),
+    true
+  );
+});
+
+test('stable promotion falla si un flavor apunta a asset versionado incorrecto', () => {
+  const evidenceDir = mkTempDir('evaluapro-stable-evidence-asset-version-mismatch-');
+  const installerDir = mkTempDir('evaluapro-installer-manifest-asset-version-mismatch-');
+  const qaDir = mkTempDir('evaluapro-qa-evidence-asset-version-mismatch-');
+  writeEvidenceDir(evidenceDir);
+  const installerManifestPath = writeInstallerManifest(installerDir, { version: '1.1.1' });
+  const qaManifestPath = writeQaEvidence(qaDir);
+  const installerManifest = JSON.parse(fs.readFileSync(installerManifestPath, 'utf8'));
+  installerManifest.flavors[1].installerHubName = 'EvaluaPro-InstallerHub-docente-local-v1.1.0.exe';
+  fs.writeFileSync(installerManifestPath, `${JSON.stringify(installerManifest, null, 2)}\n`);
+
+  const runs = Array.from({ length: 10 }).map((_, index) => ({ id: index + 1, conclusion: 'success' }));
+  const result = evaluateStablePromotion({
+    version: '1.1.1',
+    requiredStreak: 10,
+    runs,
+    evidenceDir,
+    installerManifestPath,
+    qaManifestPath
+  });
+
+  assert.equal(result.ok, false);
+  assert.equal(
+    result.checks.some((item) => item.id === 'installer-multi-flavor' && item.ok === false && /installerHubName invalido/.test(item.detail)),
+    true
+  );
+});
+
+test('stable promotion falla si el catalogo de artefactos contiene un Hub de otra version', () => {
+  const evidenceDir = mkTempDir('evaluapro-stable-evidence-artifact-version-mismatch-');
+  const installerDir = mkTempDir('evaluapro-installer-manifest-artifact-version-mismatch-');
+  const qaDir = mkTempDir('evaluapro-qa-evidence-artifact-version-mismatch-');
+  writeEvidenceDir(evidenceDir);
+  const installerManifestPath = writeInstallerManifest(installerDir, { version: '1.1.1' });
+  const qaManifestPath = writeQaEvidence(qaDir);
+  const installerManifest = JSON.parse(fs.readFileSync(installerManifestPath, 'utf8'));
+  installerManifest.artifacts.push({
+    name: 'EvaluaPro-InstallerHub-docente-local-v1.1.0.exe',
+    path: 'docente-local/EvaluaPro-InstallerHub-docente-local-v1.1.0.exe',
+    sha256: 'abc123',
+    signed: true
+  });
+  fs.writeFileSync(installerManifestPath, `${JSON.stringify(installerManifest, null, 2)}\n`);
+
+  const runs = Array.from({ length: 10 }).map((_, index) => ({ id: index + 1, conclusion: 'success' }));
+  const result = evaluateStablePromotion({
+    version: '1.1.1',
+    requiredStreak: 10,
+    runs,
+    evidenceDir,
+    installerManifestPath,
+    qaManifestPath
+  });
+
+  assert.equal(result.ok, false);
+  assert.equal(
+    result.checks.some((item) => item.id === 'installer-multi-flavor' && item.ok === false && /artefactos Installer Hub de otra version/.test(item.detail)),
+    true
+  );
 });
 
 test('stable promotion falla si algun artefacto de instalador no esta firmado', () => {
@@ -273,6 +392,7 @@ test('stable promotion falla si algun artefacto de instalador no esta firmado', 
 
   const runs = Array.from({ length: 10 }).map((_, index) => ({ id: index + 1, conclusion: 'success' }));
   const result = evaluateStablePromotion({
+    version: '1.0.0',
     requiredStreak: 10,
     runs,
     evidenceDir,
@@ -300,6 +420,7 @@ test('stable promotion falla si un artefacto firmado no tiene path verificable',
 
   const runs = Array.from({ length: 10 }).map((_, index) => ({ id: index + 1, conclusion: 'success' }));
   const result = evaluateStablePromotion({
+    version: '1.0.0',
     requiredStreak: 10,
     runs,
     evidenceDir,
@@ -326,6 +447,7 @@ test('stable promotion falla si falta evidencia automatizada de UX/UI y flujo do
 
   const runs = Array.from({ length: 10 }).map((_, index) => ({ id: index + 1, conclusion: 'success' }));
   const result = evaluateStablePromotion({
+    version: '1.0.0',
     requiredStreak: 10,
     runs,
     evidenceDir,

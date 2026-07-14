@@ -92,6 +92,78 @@ function validateAutomatedQaEvidence(qaManifestPath) {
   return manifestPath;
 }
 
+function validateInstallerReleaseManifest(manifestPathArg, expectedVersion = '') {
+  const manifestPath = path.resolve(process.cwd(), manifestPathArg || 'dist/installer/EvaluaPro-release-manifest.json');
+  const manifest = JSON.parse(readJsonFile(manifestPath));
+  const flavors = Array.isArray(manifest?.flavors) ? manifest.flavors : [];
+  const artifacts = Array.isArray(manifest?.artifacts) ? manifest.artifacts : [];
+  const buildVersion = String(manifest?.build?.version || '').trim();
+  const topLevelVersion = String(manifest?.version || '').trim();
+  const buildCommit = String(manifest?.build?.commit || '').trim();
+  const deploymentTarget = String(manifest?.deployment?.target || '').trim();
+  const required = ['saas-completo', 'docente-local'];
+  const missing = required.filter((flavorId) => !flavors.some((item) => String(item?.flavorId || '') === flavorId));
+
+  if (missing.length > 0) {
+    throw new Error(`Manifest multi-flavor incompleto: ${missing.join(', ')}`);
+  }
+  if (!buildVersion || !buildCommit || !deploymentTarget) {
+    throw new Error('Manifest release incompleto: faltan build.version, build.commit o deployment.target');
+  }
+  if (expectedVersion && buildVersion !== expectedVersion) {
+    throw new Error(`Manifest release version invalida: build.version=${buildVersion}, esperado=${expectedVersion}`);
+  }
+  if (expectedVersion && topLevelVersion && topLevelVersion !== expectedVersion) {
+    throw new Error(`Manifest release version invalida: version=${topLevelVersion}, esperado=${expectedVersion}`);
+  }
+  if (artifacts.length === 0) {
+    throw new Error('Manifest release incompleto: falta catalogo de artifacts');
+  }
+  const incompleteArtifacts = artifacts
+    .filter((artifact) => !String(artifact?.name || '').trim() || !String(artifact?.path || '').trim() || !String(artifact?.sha256 || '').trim())
+    .map((artifact) => String(artifact?.name || '<sin-nombre>'));
+  if (incompleteArtifacts.length > 0) {
+    throw new Error(`Manifest release contiene artefactos sin path o sha256: ${incompleteArtifacts.join(', ')}`);
+  }
+  const unsignedArtifacts = artifacts
+    .filter((artifact) => artifact?.signed !== true)
+    .map((artifact) => String(artifact?.name || '<sin-nombre>'));
+  if (unsignedArtifacts.length > 0) {
+    throw new Error(`Manifest release contiene artefactos sin firma: ${unsignedArtifacts.join(', ')}`);
+  }
+  if (expectedVersion) {
+    const expectedToken = `-v${expectedVersion}.exe`;
+    const staleInstallerArtifacts = artifacts
+      .filter((artifact) => /^EvaluaPro-InstallerHub-.+\.exe$/i.test(String(artifact?.name || '').trim()))
+      .filter((artifact) => !String(artifact?.name || '').trim().endsWith(expectedToken))
+      .map((artifact) => String(artifact?.name || '<sin-nombre>'));
+    if (staleInstallerArtifacts.length > 0) {
+      throw new Error(`Manifest release contiene artefactos Installer Hub de otra version: ${staleInstallerArtifacts.join(', ')}, esperado *${expectedToken}`);
+    }
+  }
+
+  for (const flavor of flavors) {
+    const flavorId = String(flavor?.flavorId || '').trim();
+    const bundleName = String(flavor?.assetName || '').trim();
+    const msiName = String(flavor?.msiName || '').trim();
+    const installerHubName = String(flavor?.installerHubName || '').trim();
+    const installerHubVersionedName = String(flavor?.installerHubVersionedName || '').trim();
+    if (!flavorId || !bundleName || !msiName || !installerHubName) {
+      throw new Error(`Manifest release incompleto para flavor ${flavorId || '<sin-id>'}`);
+    }
+    if (expectedVersion) {
+      const expectedToken = `-v${expectedVersion}.exe`;
+      for (const [label, value] of Object.entries({ assetName: bundleName, installerHubName, installerHubVersionedName })) {
+        if (value && !value.endsWith(expectedToken)) {
+          throw new Error(`Manifest release contiene ${label} invalido para ${flavorId}: ${value}, esperado *${expectedToken}`);
+        }
+      }
+    }
+  }
+
+  return manifestPath;
+}
+
 export function evaluateStablePromotion(options) {
   const checks = [];
   const runs = options.runs || [];
@@ -104,6 +176,14 @@ export function evaluateStablePromotion(options) {
 
   try {
     validateEvidenceContract(options.evidenceDir);
+    if (options.version) {
+      const evidenceManifestPath = path.join(options.evidenceDir, 'manifest.json');
+      const evidenceManifest = JSON.parse(readJsonFile(evidenceManifestPath));
+      const evidenceVersion = String(evidenceManifest?.version || '').trim();
+      if (evidenceVersion !== options.version) {
+        throw new Error(`manifest.json: version no coincide con objetivo stable. version=${evidenceVersion || 'invalida'}, esperado=${options.version}`);
+      }
+    }
     checks.push({ id: 'release-evidence', ok: true, detail: options.evidenceDir });
   } catch (error) {
     checks.push({ id: 'release-evidence', ok: false, detail: String(error?.message || error) });
@@ -117,45 +197,7 @@ export function evaluateStablePromotion(options) {
   }
 
   try {
-    const manifestPath = path.resolve(process.cwd(), options.installerManifestPath || 'dist/installer/EvaluaPro-release-manifest.json');
-    const manifest = JSON.parse(readJsonFile(manifestPath));
-    const flavors = Array.isArray(manifest?.flavors) ? manifest.flavors : [];
-    const artifacts = Array.isArray(manifest?.artifacts) ? manifest.artifacts : [];
-    const buildVersion = String(manifest?.build?.version || '').trim();
-    const buildCommit = String(manifest?.build?.commit || '').trim();
-    const deploymentTarget = String(manifest?.deployment?.target || '').trim();
-    const required = ['saas-completo', 'docente-local'];
-    const missing = required.filter((flavorId) => !flavors.some((item) => String(item?.flavorId || '') === flavorId));
-    if (missing.length > 0) {
-      throw new Error(`Manifest multi-flavor incompleto: ${missing.join(', ')}`);
-    }
-    if (!buildVersion || !buildCommit || !deploymentTarget) {
-      throw new Error('Manifest release incompleto: faltan build.version, build.commit o deployment.target');
-    }
-    if (artifacts.length === 0) {
-      throw new Error('Manifest release incompleto: falta catalogo de artifacts');
-    }
-    const incompleteArtifacts = artifacts
-      .filter((artifact) => !String(artifact?.name || '').trim() || !String(artifact?.path || '').trim() || !String(artifact?.sha256 || '').trim())
-      .map((artifact) => String(artifact?.name || '<sin-nombre>'));
-    if (incompleteArtifacts.length > 0) {
-      throw new Error(`Manifest release contiene artefactos sin path o sha256: ${incompleteArtifacts.join(', ')}`);
-    }
-    const unsignedArtifacts = artifacts
-      .filter((artifact) => artifact?.signed !== true)
-      .map((artifact) => String(artifact?.name || '<sin-nombre>'));
-    if (unsignedArtifacts.length > 0) {
-      throw new Error(`Manifest release contiene artefactos sin firma: ${unsignedArtifacts.join(', ')}`);
-    }
-    for (const flavor of flavors) {
-      const flavorId = String(flavor?.flavorId || '').trim();
-      const bundleName = String(flavor?.assetName || '').trim();
-      const msiName = String(flavor?.msiName || '').trim();
-      const installerHubName = String(flavor?.installerHubName || '').trim();
-      if (!flavorId || !bundleName || !msiName || !installerHubName) {
-        throw new Error(`Manifest release incompleto para flavor ${flavorId || '<sin-id>'}`);
-      }
-    }
+    const manifestPath = validateInstallerReleaseManifest(options.installerManifestPath, options.version || '');
     checks.push({ id: 'installer-multi-flavor', ok: true, detail: manifestPath });
   } catch (error) {
     checks.push({ id: 'installer-multi-flavor', ok: false, detail: String(error?.message || error) });
@@ -216,6 +258,7 @@ export async function main() {
   }
 
   const result = evaluateStablePromotion({
+    version,
     requiredStreak,
     runs,
     evidenceDir,

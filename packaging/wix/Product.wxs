@@ -21,6 +21,7 @@
       <RegistrySearch Root="HKCU" Key="SOFTWARE\Node.js" Name="InstallPath" Type="raw" />
     </Property>
     <?endif?>
+    <?if $(var.FlavorId) != docente-local ?>
     <Property Id="DOCKERINSTALLED64">
       <RegistrySearch Root="HKLM" Key="SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\Docker Desktop" Name="DisplayName" Type="raw" />
     </Property>
@@ -32,13 +33,16 @@
         <FileSearch Id="SearchWslExe" Name="wsl.exe" />
       </DirectorySearch>
     </Property>
+    <?endif?>
     <Property Id="REQUIRE_INSTALLER_HUB" Value="0" />
     <Property Id="SKIP_DOCKER_RUNTIME_CHECK" Value="0" />
     <Launch Condition="Installed OR REQUIRE_INSTALLER_HUB = 1 OR BURNMSIINSTALL = 1" Message="Instalacion directa no permitida. Usa exclusivamente EvaluaPro-InstallerHub para instalar y gestionar prerequisitos de forma segura." />
     <?if $(var.FlavorId) != docente-local ?>
     <Launch Condition="NODEINSTALLED64 OR NODEINSTALLEDUSER" Message="No se detecto Node.js 24+. Instala Node.js antes de usar EvaluaPro." />
     <?endif?>
+    <?if $(var.FlavorId) != docente-local ?>
     <Launch Condition="SKIP_DOCKER_RUNTIME_CHECK = 1 OR REQUIRE_INSTALLER_HUB = 1 OR BURNMSIINSTALL = 1 OR DOCKERINSTALLED64 OR DOCKERINSTALLEDUSER OR WSLINSTALLED" Message="No se detecto un runtime Docker compatible. Instala/habilita WSL2 con Docker Engine o Docker Desktop en compatibilidad. Si prefieres instalacion guiada de requisitos, usa EvaluaPro-InstallerHub." />
+    <?endif?>
 
     <Feature Id="MainFeature" Title="$(var.ProductName)" Level="1">
       <ComponentGroupRef Id="CG.AppFiles" />
@@ -64,7 +68,7 @@
     <Property Id="ARPHELPLINK" Value="https://github.com/Dtcsrni/EvaluaPro_Sistema_Universitario" />
     <Property Id="ARPURLINFOABOUT" Value="https://github.com/Dtcsrni/EvaluaPro_Sistema_Universitario" />
     <?if $(var.FlavorId) = docente-local ?>
-    <Property Id="ARPCOMMENTS" Value="Distribucion estable local ($(var.FlavorId)) con runtime Node embebido en Windows y stack docente centralizado en WSL2 + Docker Engine." />
+    <Property Id="ARPCOMMENTS" Value="Distribucion docente local ($(var.FlavorId)) con runtime Node embebido en Windows, API local, Web docente y persistencia SQLite." />
     <?else?>
     <Property Id="ARPCOMMENTS" Value="Distribucion estable local ($(var.FlavorId)) con autoconfiguracion de stack/portal cuando es posible. Requiere Node.js 24+ y un runtime Docker compatible (WSL2 + Docker Engine por defecto o Docker Desktop en compatibilidad)." />
     <?endif?>

@@ -52,8 +52,7 @@ if (-not (Test-Path -LiteralPath $runnerPath -PathType Leaf)) {
 
 $envLines = @(
   "EVALUAPRO_QA_USER=evaluaqa",
-  ("EVALUAPRO_QA_PASS={0}" -f $QaPass),
-  "EVALUAPRO_DOCKER_RUNTIME=wsl2"
+  ("EVALUAPRO_QA_PASS={0}" -f $QaPass)
 )
 
 ($envLines -join "`n") | Out-File -Encoding UTF8 (Join-Path $ProjectRoot '.env')

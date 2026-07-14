@@ -7,14 +7,13 @@ El contrato visual y UX del Hub vive en `docs/DESIGN.md`.
 ## Objetivo
 
 - Ejecutar instalacion, reparacion o desinstalacion desde una GUI guiada.
-- Verificar y preparar prerequisitos de Windows con runtime Docker compatible.
-- Para `docente-local`, priorizar y remediar `WSL2 + Docker Engine` sin instalar ni requerir `Docker Desktop` en la ruta feliz; si el equipo ya trae `Docker Desktop` instalado y sano, puede aceptarse como compatibilidad para evitar doble runtime o conflicto local.
-- Para `docente-local`, preparar `Node 24` host en Windows y desplegar un runtime Node embebido local para dashboard/tray/shortcuts. `Node 24` dentro de WSL2 es obligatorio para el target `WSL2 + Docker Engine`.
+- Verificar y preparar prerequisitos de Windows segun flavor.
+- Para `docente-local`, preparar `Node 24` host en Windows y desplegar un runtime Node embebido local para dashboard/tray/shortcuts.
 - Encadenar el `MSI` por medio de `Burn` con elevacion, cache, repair/uninstall y logging nativos.
 - Ejecutar configuracion operativa, activacion de licencia y validacion final con helper controlado bajo contrato JSON.
 - Dejar trazabilidad en logs por sesion para soporte tecnico.
-- Para `docente-local`, centralizar el stack minimo en Docker compatible: `MongoDB + API + Web`.
-- Para `docente-local`, arrancar prod en modo image-first: el Hub no compila imagenes en la ruta normal; usa imagenes GHCR versionadas y deja el build local como fallback tecnico.
+- Para `docente-local`, centralizar la plataforma local nativa: `SQLite + API + Web docente`.
+- Docker queda fuera de la ruta `docente-local`; solo aplica a otros flavors o tareas tecnicas no docentes.
 
 ## Flujo funcional
 
@@ -28,8 +27,7 @@ El contrato visual y UX del Hub vive en `docs/DESIGN.md`.
 4. Analisis de requisitos de equipo desde helper Burn (`detect-prereqs`) con estado visual de:
    - SO/arquitectura/disco/red
    - runtime Node embebido local en Windows
-   - `Node 24` dentro de `WSL2` solo si el runtime activo es `WSL2 + Docker Engine`
-   - runtime Docker compatible
+   - persistencia SQLite local
 
 5. Planificacion y ejecucion del chain MSI por Burn.
 6. Configuracion operativa obligatoria en helper post-install (`post-install`).
@@ -117,11 +115,12 @@ En este repo/equipo, el ejecutable recomendado para instalacion docente local qu
 
 ## Configuracion operativa y primer uso
 
-- El Hub detecta automaticamente valores existentes desde `.env` previo (si existe) y los precarga en la UI.
-- Si falta configuracion critica del stack local, el flujo falla en `configuracion_operativa` (fail-fast) y no permite dejar instalacion incompleta.
-- En `docente-local`, portal/sync, OAuth/Classroom, correo y activacion comercial no exigida se difieren al primer uso. El stack local debe poder quedar listo sin URL ni credenciales de portal.
+- El Hub no expone configuracion avanzada en la UI. Para `docente-local`, resuelve la configuracion tecnica con defaults internos y valores existentes cuando aplique, sin mostrar campos de Mongo/puertos/CORS al usuario final.
+- Si falta configuracion critica de la plataforma local, el flujo falla en `configuracion_operativa` (fail-fast) y no permite dejar instalacion incompleta.
+- En `docente-local`, portal/sync, OAuth/Classroom, correo y activacion comercial no exigida se difieren al primer uso. La plataforma local debe poder quedar lista sin URL ni credenciales de portal.
 - Defaults estandar recomendados (si no hay config previa):
-  - `MONGODB_URI=mongodb://mongo_local:27017/evaluapro`
+  - `DATABASE_URL=file:C:/ProgramData/EvaluaPro/data/evaluapro.db`
+  - `BACKEND_DATABASE_URL=file:C:/ProgramData/EvaluaPro/data/evaluapro.db`
   - `NODE_ENV=production`
   - `PUERTO_API=4000`
   - `PUERTO_PORTAL=4518`
@@ -132,8 +131,8 @@ En este repo/equipo, el ejecutable recomendado para instalacion docente local qu
   - `update.channel=stable`, `requireSha256=true`.
 
 - Variables cubiertas por instalador:
-  - backend/portal: `MONGODB_URI`, `JWT_SECRETO`, `CORS_ORIGENES`, `PORTAL_ALUMNO_URL`, `PORTAL_ALUMNO_API_KEY`, `PORTAL_API_KEY`
-  - entorno/stack local: `NODE_ENV`, `PUERTO_API`, `PUERTO_PORTAL`
+  - backend/portal: `DATABASE_URL`, `BACKEND_DATABASE_URL`, `JWT_SECRETO`, `CORS_ORIGENES`, `PORTAL_ALUMNO_URL`, `PORTAL_ALUMNO_API_KEY`, `PORTAL_API_KEY`
+  - entorno/plataforma local: `NODE_ENV`, `PUERTO_API`, `PUERTO_PORTAL`
   - recuperacion segura: `PASSWORD_RESET_ENABLED`, `PASSWORD_RESET_TOKEN_MINUTES`, `PASSWORD_RESET_URL_BASE`
   - OAuth/Google: `GOOGLE_OAUTH_CLIENT_ID`, `GOOGLE_CLASSROOM_CLIENT_ID`, `GOOGLE_CLASSROOM_CLIENT_SECRET`, `GOOGLE_CLASSROOM_REDIRECT_URI`, `REQUIRE_GOOGLE_OAUTH`
   - correo: `CORREO_MODULO_ACTIVO`, `NOTIFICACIONES_WEBHOOK_URL`, `NOTIFICACIONES_WEBHOOK_TOKEN`
@@ -142,9 +141,9 @@ En este repo/equipo, el ejecutable recomendado para instalacion docente local qu
 
 - Runtime operativo reflejado en `logs/installation.manifest.json`:
   - `installation.runtimeTarget`
-  - `installation.dockerImages.apiDocente|webDocente|mongo`
+  - `installation.requireDockerRuntime`
   - `runtime.embeddedNode.present|path|version`
-  - `runtime.wsl.distro|nodeVersion|dockerReady`
+  - `runtime.wsl.distro|nodeVersion|dockerReady` solo cuando el flavor requiere Docker
 
 Baseline no destructivo para comparar footprint/instalacion por corte:
 
@@ -194,24 +193,9 @@ Regla de publicacion:
 
 ## Manejo de fallos y casos limite
 
-- Si falta runtime Docker compatible:
-  - en `docente-local`, priorizar `WSL2 + Docker Engine` cuando no exista runtime compatible sano;
-  - si `Docker Desktop` ya esta instalado y sano, puede preferirse como compatibilidad para no introducir un segundo runtime;
-  - si `Docker Desktop` existe pero causa conflicto o no responde, debe remediarse `WSL2 + Docker Engine`;
-  - generar y seguir la guía local de bootstrap WSL2/Docker Engine emitida por el Hub;
-  - validar siempre por CLI (`docker version`, `docker context`, `wsl --status`) y no por GUI.
-
 - Para `docente-local`, `Node.js` host en Windows queda como prerequisito obligatorio con remediacion automatica:
   - Windows valida y prepara `Node 24` host junto con un runtime Node embebido privado del producto;
-  - si el runtime elegido es `WSL2 + Docker Engine`, la distro objetivo debe quedar con `Node 24` y Docker Engine listos tras el bootstrap.
-  - si soporte activa compatibilidad `Docker Desktop` y su daemon queda sano, `Node 24` dentro de WSL2 puede marcarse como no requerido para esa ejecucion.
-
-- Para `docente-local`, la remediacion se enfoca en habilitar el runtime del stack minimo `Mongo + API + Web`; el portal alumno local no forma parte del criterio de listo.
-- Stack prod docente minimo:
-  - `mongo_local` usa `mongo:8.0.23`;
-  - `api_docente_prod` usa `ghcr.io/dtcsrni/evaluapro_sistema_universitario/evaluapro-api-docente:<tag>`;
-  - `web_docente_prod` usa `ghcr.io/dtcsrni/evaluapro_sistema_universitario/evaluapro-web-docente:<tag>`;
-  - `docker-compose.prod-build.yml` es solo fallback tecnico para rebuild local o gates full-build.
+  - la remediacion se enfoca en dejar API y Web docente activos sobre SQLite local; el portal alumno local no forma parte del criterio de listo.
 - Sin internet: bloqueo temprano y opcion de reintento.
 - Asset o API no disponible: reintentos controlados y mensaje accionable.
 - Hash invalido: aborta y purga artefacto descargado.

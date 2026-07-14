@@ -100,7 +100,7 @@ services:
       - "4173:4173"
 
   api_docente_prod:
-    image: ${EVALUAPRO_API_DOCENTE_IMAGE:-ghcr.io/dtcsrni/evaluapro_sistema_universitario/evaluapro-api-docente:${EVALUAPRO_IMAGE_TAG:-1.0.0}}
+    image: ${EVALUAPRO_API_DOCENTE_IMAGE:-ghcr.io/dtcsrni/evaluapro_sistema_universitario/evaluapro-api-docente:${EVALUAPRO_IMAGE_TAG:-1.1.1}}
     pull_policy: if_not_present
     extra_hosts:
       - "host.docker.internal:host-gateway"
@@ -135,7 +135,7 @@ services:
     profiles: ["prod"]
 
   web_docente_prod:
-    image: ${EVALUAPRO_WEB_DOCENTE_IMAGE:-ghcr.io/dtcsrni/evaluapro_sistema_universitario/evaluapro-web-docente:${EVALUAPRO_IMAGE_TAG:-1.0.0}}
+    image: ${EVALUAPRO_WEB_DOCENTE_IMAGE:-ghcr.io/dtcsrni/evaluapro_sistema_universitario/evaluapro-web-docente:${EVALUAPRO_IMAGE_TAG:-1.1.1}}
     pull_policy: if_not_present
     restart: unless-stopped
     depends_on:

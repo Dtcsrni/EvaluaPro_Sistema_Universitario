@@ -20,10 +20,243 @@ $ErrorActionPreference = 'Stop'
 [Console]::InputEncoding  = [System.Text.Encoding]::UTF8
 $OutputEncoding            = [System.Text.Encoding]::UTF8
 
+$moduleRoots = @(
+  (Join-Path $PSScriptRoot 'modules'),
+  $PSScriptRoot
+)
+$operationalConfigModule = $null
+foreach ($moduleRoot in $moduleRoots) {
+  $candidate = Join-Path $moduleRoot 'OperationalConfig.psm1'
+  if (Test-Path -LiteralPath $candidate) {
+    $operationalConfigModule = $candidate
+    break
+  }
+}
+if ($operationalConfigModule) {
+  Import-Module $operationalConfigModule -Force
+}
+
 function Write-Response {
   param([hashtable]$Payload)
   $json = $Payload | ConvertTo-Json -Depth 10
   [IO.File]::WriteAllText($ResponsePath, $json + [Environment]::NewLine, [System.Text.Encoding]::UTF8)
+}
+
+function Get-RequestValue {
+  param(
+    [Parameter(Mandatory = $true)]
+    [object]$Request,
+    [Parameter(Mandatory = $true)]
+    [string[]]$Names,
+    [object]$DefaultValue = $null
+  )
+
+  foreach ($name in $Names) {
+    $property = $Request.PSObject.Properties.Match($name) | Select-Object -First 1
+    if ($property -and $null -ne $property.Value -and -not [string]::IsNullOrWhiteSpace([string]$property.Value)) {
+      return $property.Value
+    }
+  }
+
+  return $DefaultValue
+}
+
+function Get-TargetInstallDir {
+  param([Parameter(Mandatory = $true)][object]$Request)
+  return [string](Get-RequestValue -Request $Request -Names @('TargetDir', 'targetDir', 'InstallDir', 'installDir') -DefaultValue 'C:\Program Files\EvaluaPro')
+}
+
+function Get-RequestConfigValue {
+  param(
+    [Parameter(Mandatory = $true)]
+    [object]$Request,
+    [Parameter(Mandatory = $true)]
+    [string]$Name,
+    [string]$DefaultValue = ''
+  )
+
+  $config = $null
+  $property = $Request.PSObject.Properties.Match('config') | Select-Object -First 1
+  if ($property) { $config = $property.Value }
+  if ($null -eq $config) { return $DefaultValue }
+  $configProperty = $config.PSObject.Properties.Match($Name) | Select-Object -First 1
+  if ($configProperty -and $null -ne $configProperty.Value -and -not [string]::IsNullOrWhiteSpace([string]$configProperty.Value)) {
+    return [string]$configProperty.Value
+  }
+  return $DefaultValue
+}
+
+function ConvertTo-InstallerHashtable {
+  param([object]$Value)
+
+  if ($null -eq $Value) { return @{} }
+  if ($Value -is [hashtable]) { return $Value }
+
+  $map = @{}
+  foreach ($property in $Value.PSObject.Properties) {
+    $map[$property.Name] = $property.Value
+  }
+  return $map
+}
+
+function Get-RequestConfigMap {
+  param([object]$Request)
+
+  if ($null -eq $Request) { return @{} }
+  $match = $Request.PSObject.Properties.Match('config')
+  if ($match.Count -eq 0 -or $null -eq $match[0].Value) { return @{} }
+  return ConvertTo-InstallerHashtable -Value $match[0].Value
+}
+
+function ConvertTo-VbsStringLiteralContent {
+  param([Parameter(Mandatory = $true)][string]$Value)
+  return ($Value -replace '"', '""')
+}
+
+function New-InstallerSecret {
+  $bytes = New-Object byte[] 32
+  $rng = [Security.Cryptography.RandomNumberGenerator]::Create()
+  try {
+    $rng.GetBytes($bytes)
+  } finally {
+    $rng.Dispose()
+  }
+  return [Convert]::ToBase64String($bytes)
+}
+
+function Set-InstallerEnvValue {
+  param(
+    [hashtable]$Map,
+    [string]$Key,
+    [string]$Value
+  )
+  $Map[$Key] = [string]$Value
+}
+
+function Read-InstallerEnvMap {
+  param([string]$Path)
+  $map = [ordered]@{}
+  if (-not (Test-Path -LiteralPath $Path)) { return $map }
+  foreach ($line in @(Get-Content -LiteralPath $Path -ErrorAction SilentlyContinue)) {
+    if ($line -match '^\s*$' -or $line -match '^\s*#') { continue }
+    $index = $line.IndexOf('=')
+    if ($index -le 0) { continue }
+    $key = $line.Substring(0, $index).Trim()
+    $value = $line.Substring($index + 1)
+    if (-not [string]::IsNullOrWhiteSpace($key)) {
+      $map[$key] = $value
+    }
+  }
+  return $map
+}
+
+function Write-InstallerEnvMap {
+  param(
+    [string]$Path,
+    [hashtable]$Map
+  )
+  $lines = @()
+  foreach ($key in $Map.Keys) {
+    $lines += ("{0}={1}" -f $key, $Map[$key])
+  }
+  [IO.File]::WriteAllText($Path, (($lines -join [Environment]::NewLine) + [Environment]::NewLine), [Text.Encoding]::UTF8)
+}
+
+function Get-InstalledPackageVersion {
+  param([string]$TargetDir)
+  try {
+    $packagePath = Join-Path $TargetDir 'package.json'
+    if (-not (Test-Path -LiteralPath $packagePath)) { return '1.1.1' }
+    $raw = Get-Content -LiteralPath $packagePath -Raw -Encoding utf8
+    if ([string]::IsNullOrWhiteSpace($raw)) { return '1.1.1' }
+    $package = $raw | ConvertFrom-Json
+    $version = [string]$package.version
+    if ([string]::IsNullOrWhiteSpace($version)) { return '1.1.1' }
+    return $version.Trim()
+  } catch {
+    return '1.1.1'
+  }
+}
+
+function Write-InstallerRuntimeEnv {
+  param(
+    [Parameter(Mandatory = $true)][string]$TargetDir,
+    [Parameter(Mandatory = $true)][object]$Request
+  )
+
+  $envPath = Join-Path $TargetDir '.env'
+  $envMap = Read-InstallerEnvMap -Path $envPath
+  $existingJwt = if ($envMap.Contains('JWT_SECRETO')) { [string]$envMap['JWT_SECRETO'] } else { '' }
+  $jwt = Get-RequestConfigValue -Request $Request -Name 'jwtSecreto' -DefaultValue $existingJwt
+  if ([string]::IsNullOrWhiteSpace($jwt)) { $jwt = New-InstallerSecret }
+
+  Set-InstallerEnvValue -Map $envMap -Key 'JWT_SECRETO' -Value $jwt
+  Set-InstallerEnvValue -Map $envMap -Key 'DATABASE_URL' -Value (Get-RequestConfigValue -Request $Request -Name 'databaseUrl' -DefaultValue 'file:C:/ProgramData/EvaluaPro/data/evaluapro.db')
+  Set-InstallerEnvValue -Map $envMap -Key 'BACKEND_DATABASE_URL' -Value (Get-RequestConfigValue -Request $Request -Name 'databaseUrl' -DefaultValue 'file:C:/ProgramData/EvaluaPro/data/evaluapro.db')
+  Set-InstallerEnvValue -Map $envMap -Key 'NODE_ENV' -Value (Get-RequestConfigValue -Request $Request -Name 'nodeEnv' -DefaultValue 'production')
+  Set-InstallerEnvValue -Map $envMap -Key 'PUERTO_API' -Value (Get-RequestConfigValue -Request $Request -Name 'puertoApi' -DefaultValue '4000')
+  Set-InstallerEnvValue -Map $envMap -Key 'PUERTO_PORTAL' -Value (Get-RequestConfigValue -Request $Request -Name 'puertoPortal' -DefaultValue '4518')
+  Set-InstallerEnvValue -Map $envMap -Key 'CORS_ORIGENES' -Value (Get-RequestConfigValue -Request $Request -Name 'corsOrigenes' -DefaultValue 'http://localhost:4173,http://127.0.0.1:4173')
+  Set-InstallerEnvValue -Map $envMap -Key 'EVALUAPRO_FLAVOR' -Value (Get-RequestConfigValue -Request $Request -Name 'flavorId' -DefaultValue 'docente-local')
+  Set-InstallerEnvValue -Map $envMap -Key 'BACKEND_DATA_DIR_DEV' -Value './apps/backend/data/examenes_dev'
+  Set-InstallerEnvValue -Map $envMap -Key 'BACKEND_DATA_DIR_PROD' -Value './apps/backend/data/examenes_prod'
+  Write-InstallerEnvMap -Path $envPath -Map $envMap
+}
+
+function Assert-InstallerRuntimeEnv {
+  param([Parameter(Mandatory = $true)][string]$TargetDir)
+
+  $envPath = Join-Path $TargetDir '.env'
+  $envMap = Read-InstallerEnvMap -Path $envPath
+  $required = @(
+    'DATABASE_URL',
+    'BACKEND_DATABASE_URL',
+    'JWT_SECRETO',
+    'NODE_ENV',
+    'PUERTO_API',
+    'CORS_ORIGENES'
+  )
+  $missing = @()
+  foreach ($key in $required) {
+    if (-not $envMap.Contains($key) -or [string]::IsNullOrWhiteSpace([string]$envMap[$key])) {
+      $missing += $key
+    }
+  }
+  if ($missing.Count -gt 0) {
+    throw "Contrato runtime incompleto en .env. Faltan: $($missing -join ', ')"
+  }
+  return $envPath
+}
+
+function Ensure-InstallerRuntimeContract {
+  param(
+    [Parameter(Mandatory = $true)][string]$TargetDir,
+    [Parameter(Mandatory = $true)][object]$Request
+  )
+
+  $requiredDirs = @(
+    (Join-Path $TargetDir 'apps\backend\data\examenes_dev'),
+    (Join-Path $TargetDir 'apps\backend\data\examenes_prod'),
+    (Join-Path $TargetDir 'apps\backend\data\examenes_test'),
+    (Join-Path $TargetDir 'logs'),
+    (Join-Path $TargetDir 'runtime\node')
+  )
+
+  foreach ($dir in $requiredDirs) {
+    if (-not (Test-Path -LiteralPath $dir)) {
+      New-Item -ItemType Directory -Path $dir -Force | Out-Null
+    }
+  }
+
+  $nodeTarget = Join-Path $TargetDir 'runtime\node\node.exe'
+  if (-not (Test-Path -LiteralPath $nodeTarget)) {
+    $nodeCommand = Get-Command 'node.exe' -ErrorAction SilentlyContinue
+    if ($nodeCommand -and (Test-Path -LiteralPath $nodeCommand.Source)) {
+      Copy-Item -LiteralPath $nodeCommand.Source -Destination $nodeTarget -Force
+    }
+  }
+
+  Write-InstallerRuntimeEnv -TargetDir $TargetDir -Request $Request
 }
 
 function Detect-Prerequisites {
@@ -75,14 +308,26 @@ function Invoke-PostInstall {
   Write-Host "Iniciando instalacion nativa de EvaluaPro..."
   
   $requestJson = Get-Content -Raw -Path $RequestPath | ConvertFrom-Json
-  $targetDir = $requestJson.TargetDir
-  if (-not $targetDir) {
-    $targetDir = "C:\Program Files\EvaluaPro"
-  }
+  $targetDir = Get-TargetInstallDir -Request $requestJson
 
   if (-not (Test-Path $targetDir)) {
     New-Item -ItemType Directory -Path $targetDir -Force | Out-Null
   }
+  Ensure-InstallerRuntimeContract -TargetDir $targetDir -Request $requestJson
+  if (Get-Command Invoke-EvaluaProOperationalConfiguration -ErrorAction SilentlyContinue) {
+    $configMap = Get-RequestConfigMap -Request $requestJson
+    if (-not $configMap.ContainsKey('flavorId')) {
+      $configMap['flavorId'] = [string](Get-RequestValue -Request $requestJson -Names @('flavorId', 'FlavorId') -DefaultValue 'docente-local')
+    }
+    $mode = [string](Get-RequestValue -Request $requestJson -Names @('mode', 'Mode') -DefaultValue 'install')
+    Invoke-EvaluaProOperationalConfiguration -Mode $mode -InstallDir $targetDir -Config $configMap -OnLog {
+      param([string]$level, [string]$message)
+      Write-Host "[$level] $message"
+    } | Out-Null
+  } else {
+    Write-InstallerRuntimeEnv -TargetDir $targetDir -Request $requestJson
+  }
+  $envPath = Assert-InstallerRuntimeEnv -TargetDir $targetDir
 
   $nodeDir = Join-Path $targetDir "node-lts"
   if (-not (Test-Path $nodeDir)) {
@@ -114,11 +359,14 @@ function Invoke-PostInstall {
 
   # 3. Registrar como Tarea Programada o Servicio
   Write-Host "Configurando servicio de fondo..."
-  $scriptPath = Join-Path $appDir "backend\dist\index.js"
+  $brokerPath = Join-Path $targetDir "scripts\launcher-broker.ps1"
+  $powerShellPath = Join-Path $env:WINDIR "System32\WindowsPowerShell\v1.0\powershell.exe"
   
   # Creamos un launcher vbs silencioso
   $vbsPath = Join-Path $targetDir "evaluapro-launcher.vbs"
-  $vbsContent = "Set WshShell = CreateObject(`"WScript.Shell`")`nWshShell.Run `"`"$nodeExe`" `"$scriptPath`"`", 0, False"
+  $launcherCommand = "`"$powerShellPath`" -NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -File `"$brokerPath`" -Action open-dashboard -Mode prod -NoOpen"
+  $vbsCommand = ConvertTo-VbsStringLiteralContent -Value $launcherCommand
+  $vbsContent = "Set WshShell = CreateObject(`"WScript.Shell`")`nWshShell.Run `"$vbsCommand`", 0, False"
   Set-Content -Path $vbsPath -Value $vbsContent
 
   # Registramos la tarea programada al inicio de sesion (silenciosa sin admin)
@@ -138,6 +386,7 @@ function Invoke-PostInstall {
     exitCode = 0
     message = "Instalacion Nativa exitosa."
     data = @{
+      envPath = $envPath
       workflow = @{
         stages = @(
           @{ Name = "Runtime Node LTS"; Badge = "OK"; Status = "Instalado aislado" },
@@ -152,10 +401,7 @@ function Invoke-Update {
   Write-Host "Iniciando actualizacion de EvaluaPro..."
   
   $requestJson = Get-Content -Raw -Path $RequestPath | ConvertFrom-Json
-  $targetDir = $requestJson.TargetDir
-  if (-not $targetDir) {
-    $targetDir = "C:\Program Files\EvaluaPro"
-  }
+  $targetDir = Get-TargetInstallDir -Request $requestJson
 
   $appDir = Join-Path $targetDir "app"
   $vbsPath = Join-Path $targetDir "evaluapro-launcher.vbs"
@@ -189,10 +435,7 @@ function Invoke-Uninstall {
   Write-Host "Iniciando desinstalacion nativa de EvaluaPro..."
   
   $requestJson = Get-Content -Raw -Path $RequestPath | ConvertFrom-Json
-  $targetDir = $requestJson.TargetDir
-  if (-not $targetDir) {
-    $targetDir = "C:\Program Files\EvaluaPro"
-  }
+  $targetDir = Get-TargetInstallDir -Request $requestJson
   
   $exportData = $false
   if ($requestJson.PSObject.Properties.Match('ExportData').Count -gt 0) {

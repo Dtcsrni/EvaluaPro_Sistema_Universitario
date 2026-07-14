@@ -692,7 +692,7 @@ internal sealed class EvaluaProBootstrapperApplication : BootstrapperApplication
             InstallDir = installDir,
             InstallDesktopShortcuts = !IsFalsy(Environment.GetEnvironmentVariable("EVALUAPRO_INSTALL_DESKTOP_SHORTCUTS")),
             InstallStartMenuShortcuts = !IsFalsy(Environment.GetEnvironmentVariable("EVALUAPRO_INSTALL_STARTMENU_SHORTCUTS")),
-            MongoUri = Environment.GetEnvironmentVariable("EVALUAPRO_MONGODB_URI") ?? "mongodb://mongo_local:27017/evaluapro",
+            DatabaseUrl = Environment.GetEnvironmentVariable("EVALUAPRO_DATABASE_URL") ?? "file:C:/ProgramData/EvaluaPro/data/evaluapro.db",
             NodeEnv = Environment.GetEnvironmentVariable("EVALUAPRO_NODE_ENV") ?? "production",
             ApiPort = Environment.GetEnvironmentVariable("EVALUAPRO_API_PORT") ?? "4000",
             PortalPort = Environment.GetEnvironmentVariable("EVALUAPRO_PORTAL_PORT") ?? "4518",
@@ -932,7 +932,7 @@ internal sealed class EvaluaProBootstrapperApplication : BootstrapperApplication
                 ["installDir"] = currentRequest.InstallDir,
                 ["config"] = new Dictionary<string, object?>
                 {
-                    ["mongoUri"] = currentRequest.MongoUri,
+                    ["databaseUrl"] = currentRequest.DatabaseUrl,
                     ["nodeEnv"] = currentRequest.NodeEnv,
                     ["puertoApi"] = currentRequest.ApiPort,
                     ["puertoPortal"] = currentRequest.PortalPort,
@@ -2212,7 +2212,7 @@ public sealed class BootstrapperRequest
     public bool InstallDesktopShortcuts { get; set; } = true;
     public bool InstallStartMenuShortcuts { get; set; } = true;
     public bool ExportData { get; set; }
-    public string MongoUri { get; set; } = "mongodb://mongo_local:27017/evaluapro";
+    public string DatabaseUrl { get; set; } = "file:C:/ProgramData/EvaluaPro/data/evaluapro.db";
     public string NodeEnv { get; set; } = "production";
     public string ApiPort { get; set; } = "4000";
     public string PortalPort { get; set; } = "4518";

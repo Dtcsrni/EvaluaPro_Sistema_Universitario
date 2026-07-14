@@ -43,7 +43,7 @@ test('bundle usa BA personalizada Burn y build-msi publica bootstrapper .NET 8',
   assert.match(buildScript, /Publish-BurnBootstrapperApp -DotNetExecutable \$dotnetExe/i);
   assert.match(buildScript, /WixToolset\.Bal\.wixext/i);
   assert.match(buildScript, /WixToolset\.BootstrapperApplications\.wixext\.dll/i);
-  assert.match(bootstrapperProject, /<ApplicationIcon>.*dashboard-hub-app\.ico<\/ApplicationIcon>/i);
+  assert.match(bootstrapperProject, /<ApplicationIcon>.*(dashboard-hub-app|installer-logo-contrast)\.ico<\/ApplicationIcon>/i);
   assert.match(buildScript, /Assert-CanonicalInstallerIcon/i);
   assert.match(buildScript, /16,\s*24,\s*32,\s*48,\s*64,\s*128,\s*256/i);
 

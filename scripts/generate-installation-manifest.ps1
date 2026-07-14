@@ -363,10 +363,11 @@ if ($null -ne $stepUpConfig -and $null -ne $stepUpConfig.payload -and $null -ne 
 $shortcutPaths = Resolve-ShortcutTargetPaths
 $embeddedNodePath = Get-EmbeddedNodePath -baseDir $root
 $embeddedNodeVersion = Get-EmbeddedNodeVersion -baseDir $root
-$wslDistro = Get-WslPreferredDistro
-$wslNodeVersion = Get-WslNodeVersion -distro $wslDistro
-$wslDockerReady = Test-WslDockerReady -distro $wslDistro
 $flavorId = Resolve-FlavorId
+$requiresDockerRuntime = ($flavorId -ne 'docente-local')
+$wslDistro = Get-WslPreferredDistro
+$wslNodeVersion = if ($requiresDockerRuntime) { Get-WslNodeVersion -distro $wslDistro } else { '' }
+$wslDockerReady = if ($requiresDockerRuntime) { Test-WslDockerReady -distro $wslDistro } else { $false }
 $payload = [ordered]@{
   generatedAt = (Get-Date).ToString('o')
   app = [ordered]@{
@@ -378,12 +379,15 @@ $payload = [ordered]@{
     root = $root
     flavor = $flavorId
     requireLocalPortal = $false
-    runtimeTarget = 'wsl2-docker-minimal'
-    dockerImages = [ordered]@{
-      apiDocente = if ($env:EVALUAPRO_API_DOCENTE_IMAGE) { [string]$env:EVALUAPRO_API_DOCENTE_IMAGE } else { 'ghcr.io/dtcsrni/evaluapro_sistema_universitario/evaluapro-api-docente:1.0.0' }
-      webDocente = if ($env:EVALUAPRO_WEB_DOCENTE_IMAGE) { [string]$env:EVALUAPRO_WEB_DOCENTE_IMAGE } else { 'ghcr.io/dtcsrni/evaluapro_sistema_universitario/evaluapro-web-docente:1.0.0' }
-      mongo = 'mongo:8.0.23'
-    }
+    requireDockerRuntime = [bool]$requiresDockerRuntime
+    runtimeTarget = if ($requiresDockerRuntime) { 'docker-compatible' } else { 'native-node-sqlite' }
+    dockerImages = if ($requiresDockerRuntime) {
+      [ordered]@{
+        apiDocente = if ($env:EVALUAPRO_API_DOCENTE_IMAGE) { [string]$env:EVALUAPRO_API_DOCENTE_IMAGE } else { 'ghcr.io/dtcsrni/evaluapro_sistema_universitario/evaluapro-api-docente:1.1.1' }
+        webDocente = if ($env:EVALUAPRO_WEB_DOCENTE_IMAGE) { [string]$env:EVALUAPRO_WEB_DOCENTE_IMAGE } else { 'ghcr.io/dtcsrni/evaluapro_sistema_universitario/evaluapro-web-docente:1.1.1' }
+        mongo = 'mongo:8.0.23'
+      }
+    } else { [ordered]@{} }
     port = $Port
     installed = Test-Path -LiteralPath $packageJsonPath
     nodePresent = [bool](Get-Command node -ErrorAction SilentlyContinue)

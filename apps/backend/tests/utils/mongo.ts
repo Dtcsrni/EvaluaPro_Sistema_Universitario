@@ -12,16 +12,17 @@ import { resolverNombreDbTest } from './testDbPath';
 const dbFile = resolverNombreDbTest();
 const dataDir = path.resolve(process.cwd(), 'data');
 const dbPath = path.resolve(dataDir, dbFile);
+const dbUrl = `file:${dbPath.replace(/\\/g, '/')}`;
 
 // Set default test DATABASE_URL and BACKEND_DATABASE_URL
-process.env.DATABASE_URL = `file:${dbPath}`;
-process.env.BACKEND_DATABASE_URL = `file:${dbPath}`;
+process.env.DATABASE_URL = dbUrl;
+process.env.BACKEND_DATABASE_URL = dbUrl;
 
 import { prisma } from '../../src/infraestructura/baseDatos/sqlite';
 
 export async function conectarMongoTest() {
-  process.env.DATABASE_URL = `file:${dbPath}`;
-  process.env.BACKEND_DATABASE_URL = `file:${dbPath}`;
+  process.env.DATABASE_URL = dbUrl;
+  process.env.BACKEND_DATABASE_URL = dbUrl;
 
   if (!fs.existsSync(dataDir)) {
     fs.mkdirSync(dataDir, { recursive: true });
