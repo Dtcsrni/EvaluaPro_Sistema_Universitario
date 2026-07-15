@@ -331,6 +331,15 @@ internal sealed class EvaluaProBootstrapperApplication : BootstrapperApplication
             catch (Exception ex)
             {
                 Log("error", $"StartUiThread fatal exception: {ex}");
+                try
+                {
+                    var fatalPath = Path.Combine(Path.GetTempPath(), "EvaluaPro-InstallerHub-fatal.log");
+                    File.WriteAllText(fatalPath, $"{DateTimeOffset.UtcNow:u}{Environment.NewLine}{ex}", Encoding.UTF8);
+                }
+                catch
+                {
+                    // La traza de diagnóstico no debe ocultar ni reemplazar el error original.
+                }
                 if (!headless)
                 {
                     MessageBox.Show(

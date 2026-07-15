@@ -34,6 +34,12 @@ public partial class MainWindow : Window
     private static readonly Geometry RepairGeometry = Geometry.Parse("M10,12 L16,6 L22,12 L18,16 L30,28 L26,32 L14,20 L10,24 L6,20");
     private static readonly Geometry UninstallGeometry = Geometry.Parse("M10,10 L34,34 M34,10 L10,34");
     private static readonly Geometry DocumentGeometry = Geometry.Parse("M11,6 L27,6 L33,12 L33,36 L11,36 Z M27,6 L27,12 L33,12 M15,20 L29,20 M15,26 L29,26 M15,32 L24,32");
+    private static readonly Geometry FeatureInstallGeometry = Geometry.Parse("M12,2 L21,6 V12 C21,18 17,22 12,24 C7,22 3,18 3,12 V6 Z M7,12 L10,15 L17,8");
+    private static readonly Geometry FeatureTeacherGeometry = Geometry.Parse("M2,9 L12,3 L22,9 L12,15 Z M6,12 V17 C9,20 15,20 18,17 V12");
+    private static readonly Geometry FeatureEvaluateGeometry = Geometry.Parse("M6,3 H18 V6 H20 V22 H4 V6 H6 Z M8,10 H16 M8,14 H16 M8,18 H13");
+    private static readonly Geometry FeatureScanGeometry = Geometry.Parse("M4,4 H9 M15,4 H20 M4,20 H9 M15,20 H20 M5,12 H19");
+    private static readonly Geometry FeatureFeedbackGeometry = Geometry.Parse("M4,20 V6 M4,20 H20 M7,16 L11,12 L14,15 L19,9");
+    private static readonly Geometry FeatureRepairGeometry = Geometry.Parse("M6,7 A7,7 0 0 1 18,8 L21,5 M21,5 V10 H16 M18,17 A7,7 0 0 1 6,16 L3,19 M3,19 V14 H8");
 
     private void StartPulseAnimation(UIElement element)
     {
@@ -370,7 +376,9 @@ public partial class MainWindow : Window
                 Margin = new Thickness(0, 2, 0, 0),
                 Text = stage.Summary,
                 Foreground = ToBrush(stage.Foreground),
-                TextWrapping = TextWrapping.NoWrap,
+                FontSize = 13,
+                LineHeight = 19,
+                TextWrapping = TextWrapping.Wrap,
                 TextTrimming = TextTrimming.CharacterEllipsis
             });
 
@@ -379,10 +387,11 @@ public partial class MainWindow : Window
                 stack.Children.Add(new TextBlock
                 {
                     Margin = new Thickness(0, 2, 0, 0),
-                    FontSize = 10,
+                    FontSize = 12,
+                    LineHeight = 18,
                     Text = stage.Detail,
-                    Foreground = ToBrush("#49616F"),
-                    TextWrapping = TextWrapping.NoWrap,
+                    Foreground = ToBrush("#D7E8F5"),
+                    TextWrapping = TextWrapping.Wrap,
                     TextTrimming = TextTrimming.CharacterEllipsis
                 });
             }
@@ -753,14 +762,14 @@ public partial class MainWindow : Window
         DismissSplashOverlay();
     }
 
-    private static readonly (string Title, string Description)[] SplashFeatures =
+    private static readonly (string Title, string Description, Geometry Icon)[] SplashFeatures =
     {
-        ("Instala con confianza", "Revisa requisitos y conserva evidencia de cada etapa."),
-        ("Diseñado para docentes", "El flavor nativo trabaja localmente, ligero y sin VM."),
-        ("Evalúa y califica", "Prepara materias, aplica evaluaciones y conserva resultados trazables."),
-        ("Escaneo OMR", "Captura hojas de respuesta y convierte resultados en información accionable."),
-        ("Retroalimentación útil", "Detecta áreas de oportunidad y comunica avances con reportes claros."),
-        ("Siempre puedes volver", "Repara, actualiza o desinstala con estados claros y reversibles.")
+        ("Instala con confianza", "Revisa requisitos y conserva evidencia de cada etapa.", FeatureInstallGeometry),
+        ("Diseñado para docentes", "El flavor nativo trabaja localmente, ligero y sin VM.", FeatureTeacherGeometry),
+        ("Evalúa y califica", "Prepara materias, aplica evaluaciones y conserva resultados trazables.", FeatureEvaluateGeometry),
+        ("Escaneo OMR", "Captura hojas de respuesta y convierte resultados en información accionable.", FeatureScanGeometry),
+        ("Retroalimentación útil", "Detecta áreas de oportunidad y comunica avances con reportes claros.", FeatureFeedbackGeometry),
+        ("Siempre puedes volver", "Repara, actualiza o desinstala con estados claros y reversibles.", FeatureRepairGeometry)
     };
 
     private void StartSplashCarousel()
@@ -780,13 +789,16 @@ public partial class MainWindow : Window
         var feature = SplashFeatures[splashFeatureIndex];
         SplashFeatureTitleTextBlock.Text = feature.Title;
         SplashFeatureDescriptionTextBlock.Text = feature.Description;
+        SplashFeatureIcon.Data = feature.Icon;
         SplashFeatureIndexTextBlock.Text = $"{splashFeatureIndex + 1} de {SplashFeatures.Length}";
         SplashNextButton.Content = splashFeatureIndex == SplashFeatures.Length - 1 ? "Comenzar" : "Siguiente";
         HeaderFeatureTitleTextBlock.Text = feature.Title;
         HeaderFeatureDescriptionTextBlock.Text = feature.Description;
+        HeaderFeatureIcon.Data = feature.Icon;
         HeaderFeatureIndexTextBlock.Text = $"{splashFeatureIndex + 1} de {SplashFeatures.Length}";
         AnimateCarouselText(SplashFeatureTitleTextBlock, SplashFeatureDescriptionTextBlock,
-            HeaderFeatureTitleTextBlock, HeaderFeatureDescriptionTextBlock);
+            HeaderFeatureTitleTextBlock, HeaderFeatureDescriptionTextBlock,
+            SplashFeatureIcon, HeaderFeatureIcon);
     }
 
     private static void AnimateCarouselText(params UIElement[] elements)

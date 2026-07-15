@@ -32,6 +32,16 @@ El flavor `docente-local` debe instalar un runtime nativo ligero y verificable. 
 - El contrato visual y la matriz de pantallas pasan sin radios oversized ni pantallas omitidas.
 - El runner local produce evidencia de las cuentas, materias y alumnos dummy y valida install, operación, navegación, persistencia y uninstall.
 
+### REQ-016 - Legibilidad completa sobre superficies de vidrio
+
+Todo texto operativo visible del Hub debe conservar contraste suficiente sobre
+cada estado de superficie, incluido vidrio oscuro, éxito, advertencia, error,
+bitácora y tarjetas de la línea de tareas. El cuerpo secundario dinámico debe
+usar como mínimo 12 px, interlineado de 18 px, color claro y ajuste de línea;
+no puede depender de un gris oscuro ni de `NoWrap` para comunicar evidencia.
+Los índices y etiquetas compactas no deben bajar de 12 px. El criterio aplica
+a la ventana completa, no solo a la pantalla inicial.
+
 ## Matriz de Trazabilidad
 
 | ID Requisito | Descripción del Caso | Archivo de Test Vinculado | Estado |
@@ -45,6 +55,7 @@ El flavor `docente-local` debe instalar un runtime nativo ligero y verificable. 
 | REQ-007 | Elevación condicional y payload post-install | `scripts/tests/installer-hub-contract.test.mjs`, `scripts/tests/installer-hub-e2e-docente.ps1` | Implementado; pendiente de E2E local |
 | REQ-008 | Tipografía, marca y superficies accesibles | `docs/DESIGN.md`, `apps/frontend/src/styles.css` | Implementado; pendiente de validación visual |
 | REQ-009 | Intro, carrusel y aceptación auditable | `packaging/wix/BurnBootstrapperApp/MainWindow.xaml`, `MainWindow.xaml.cs` | En implementación |
+| REQ-016 | Legibilidad de textos y estados dinámicos | `scripts/tests/installer-hub-contract.test.mjs`, `MainWindow.xaml.cs` | Implementado |
 ### REQ-010 - Cierre acotado del runner E2E local
 
 El runner E2E del flavor `docente-local` debe registrar el estado final y cerrar
@@ -65,3 +76,28 @@ El helper nativo debe aceptar y enrutar explícitamente `detect-prereqs`,
 `post-install`, `update` y `uninstall`. Ningún modo implementado puede quedar
 fuera de su contrato de parámetros; si una operación no puede ejecutarse, debe
 devolver un envelope JSON accionable y no terminar silenciosamente.
+
+### REQ-013 - Bitácora nativa sin fallo de carga XAML
+
+El control de expansión de la bitácora técnica debe usar únicamente recursos
+WPF compatibles con el cargador nativo del Hub. Debe mostrar encabezado y
+texto con contraste accesible, conservar foco/teclado y no provocar errores de
+`ResourceDictionary.DeferrableContent` al iniciar el ejecutable.
+
+El fallo fatal debe dejar una traza completa (`Exception.ToString`) en una
+ruta temporal local para que el E2E y soporte puedan identificar la causa sin
+exponer secretos ni depender de una consola visible.
+
+### REQ-014 - Resolución robusta de ventana en E2E
+
+El runner debe localizar el Hub por UI Automation semántica y, cuando Burn
+separe el proceso de lanzamiento del BA, usar también el `MainWindowHandle`
+del proceso `EvaluaPro.BurnBootstrapperApp`. La detección debe tolerar la
+carrera de creación entre ambos procesos sin declarar un falso negativo.
+
+### REQ-015 - Evidencia visual y estado de broker resilientes
+
+La captura visual debe intentar `CopyFromScreen` y disponer de fallback
+`PrintWindow` para escritorios sin DC válido. Las acciones del broker deben
+considerarse exitosas únicamente con código cero o con un estado JSON reciente
+`healthy`, registrando explícitamente cuando se usa esa evidencia alternativa.

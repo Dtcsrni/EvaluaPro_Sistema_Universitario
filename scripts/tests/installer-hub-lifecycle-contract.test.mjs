@@ -52,6 +52,12 @@ test('runner limita broker y mata solo su árbol al vencer timeout', () => {
   assert.match(runner, /WaitForExit\(\$TimeoutSec \* 1000\)/);
   assert.match(runner, /taskkill\.exe \/PID \$process\.Id \/T \/F/);
   assert.match(runner, /timeout=\$\{TimeoutSec\}s/);
+  assert.match(runner, /EvaluaPro\.BurnBootstrapperApp/);
+  assert.match(runner, /MainWindowHandle/);
+  assert.match(runner, /AutomationElement\]::FromHandle/);
+  assert.match(runner, /PrintWindow/);
+  assert.match(runner, /estado JSON healthy/);
+  assert.match(runner, /open-dashboard sigue vivo como proceso persistente/);
 });
 
 test('matriz visual cubre lifecycle, contraste y escenarios de recuperación', () => {

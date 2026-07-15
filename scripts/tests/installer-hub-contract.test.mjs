@@ -286,6 +286,18 @@ test('Installer Hub separa aceptación de licencia y privacidad', () => {
   assert.match(code, /AcceptPrivacyCheckBox\?\.IsChecked ===? true/);
 });
 
+test('Installer Hub mantiene legibilidad en timeline, carrusel y bitácora', () => {
+  const xaml = fs.readFileSync(path.join(root, 'packaging', 'wix', 'BurnBootstrapperApp', 'MainWindow.xaml'), 'utf8');
+  const code = fs.readFileSync(path.join(root, 'packaging', 'wix', 'BurnBootstrapperApp', 'MainWindow.xaml.cs'), 'utf8');
+
+  assert.doesNotMatch(code, /#49616F/);
+  assert.match(code, /FontSize = 12,[\s\S]*LineHeight = 18,[\s\S]*Foreground = ToBrush\("#D7E8F5"\),[\s\S]*TextWrapping = TextWrapping\.Wrap/);
+  assert.match(code, /Text = stage\.Summary,[\s\S]*FontSize = 13,[\s\S]*TextWrapping = TextWrapping\.Wrap/);
+  assert.match(xaml, /HeaderFeatureIndexTextBlock[^>]*FontSize="12"/);
+  assert.match(xaml, /Text="\{Binding InstalledLabel\}" FontSize="12"/);
+  assert.match(xaml, /x:Name="LogTextBox"[\s\S]*FontSize="12"/);
+});
+
 test('helper post-install eleva escritura de configuración per-machine', () => {
   const helper = fs.readFileSync(path.join(root, 'scripts', 'installer-burn', 'InstallerBurnHelper.ps1'), 'utf8');
   assert.match(helper, /WindowsBuiltInRole\]::Administrator/);
@@ -334,9 +346,9 @@ test('Installer Hub cumple contrato DESIGN.md de layout y accesibilidad WPF', ()
   assert.match(mainWindowXaml, /MinWidth="1180"/);
   assert.match(mainWindowXaml, /MinHeight="720"/);
   assert.doesNotMatch(mainWindowXaml, /Canvas IsHitTestVisible="False"/);
-  // El lenguaje visual actual usa radios de 10-16 px para jerarquía y tactilidad.
+  // El Hub nativo usa radios de 10-18 px para jerarquía y superficies de vidrio.
   // Se conserva un límite superior para evitar cápsulas excesivas o superficies blandas.
-  assert.doesNotMatch(mainWindowXaml, /CornerRadius="(?:1[7-9]|[2-9][0-9])"/);
+  assert.doesNotMatch(mainWindowXaml, /CornerRadius="(?:1[9]|[2-9][0-9])"/);
   assert.match(mainWindowXaml, /KeyboardNavigation\.TabNavigation="Cycle"/);
   assert.match(mainWindowXaml, /x:Name="StepperHost"/);
   assert.match(mainWindowXaml, /x:Name="StepHost"/);
@@ -397,6 +409,9 @@ test('Installer Hub cumple contrato DESIGN.md de layout y accesibilidad WPF', ()
   assert.doesNotMatch(mainWindowXaml, />Evidencia</);
   assert.doesNotMatch(mainWindowXaml, />Guiado</);
   assert.match(mainWindowXaml, /x:Name="SplashGraphicIndicators"/);
+  assert.match(mainWindowXaml, /x:Name="HeaderFeatureImage"[\s\S]*?evaluapro-installer-logo\.png[\s\S]*?HighQuality/);
+  assert.match(mainWindowXaml, /x:Name="HeaderFeatureIcon"/);
+  assert.match(mainWindowXaml, /x:Name="SplashFeatureIcon"/);
   assert.match(mainWindowXaml, /x:Key="TermsTextBrush" Color="#17324D"/);
   assert.match(mainWindowXaml, /x:Name="TermsText"[\s\S]*Foreground="\{StaticResource TermsTextBrush\}"/);
   assert.match(mainWindowXaml, /x:Name="SplashOverlay"[\s\S]*Background="#E6111827"/);
@@ -405,8 +420,9 @@ test('Installer Hub cumple contrato DESIGN.md de layout y accesibilidad WPF', ()
   assert.match(mainWindowXaml, /x:Name="StepConnectorExecuteResult"/);
   assert.match(mainWindowXaml, /x:Name="StatusVisualPlate"/);
   assert.match(mainWindowXaml, /x:Name="StatusVisualIcon"/);
-  assert.match(mainWindowXaml, /x:Key="LogExpanderStyle" TargetType="Expander"/);
-  assert.match(mainWindowXaml, /x:Name="LogExpander" Style="\{StaticResource LogExpanderStyle\}"/);
+  assert.match(mainWindowXaml, /x:Name="LogExpander"[\s\S]*?Background="#18324A"[\s\S]*?BorderBrush="#4C7894"/);
+  assert.match(mainWindowXaml, /x:Name="LogExpander"[\s\S]*?Header="Bitácora técnica"[\s\S]*?HeaderTemplate/);
+  assert.match(mainWindowXaml, /HeaderTemplate[\s\S]*?Text="\{Binding\}"[\s\S]*?Foreground="\{StaticResource TextBrush\}"/);
   assert.match(mainWindowXaml, /x:Name="ModeImpactIconPlate"/);
   assert.match(mainWindowXaml, /x:Name="ModeImpactIcon"/);
   assert.match(mainWindowXaml, /x:Name="PrereqSummaryIconPlate"/);
