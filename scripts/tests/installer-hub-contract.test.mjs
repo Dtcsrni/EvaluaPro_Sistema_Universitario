@@ -1852,6 +1852,14 @@ test('dashboard usa runtime nativo en docente-local y conserva Docker solo para 
   assert.match(dashboard, /runtime: dockerRuntime/);
 });
 
+test('baseline docente deriva runtime y evita probes Docker innecesarios', () => {
+  const baseline = fs.readFileSync(path.join(root, 'scripts', 'installer-docente-baseline.mjs'), 'utf8');
+  assert.match(baseline, /runtimeTarget: requiresDockerRuntime \? 'docker-compatible' : 'native-node-sqlite'/);
+  assert.match(baseline, /skippedDockerProbe\('runtime nativo docente-local'\)/);
+  assert.match(baseline, /requiredServices: requiresDockerRuntime \? /);
+  assert.match(baseline, /requiredImages: requiresDockerRuntime \? /);
+});
+
 test('step-up local inicializa TOTP y permite sesion elevada con recovery/TOTP', () => {
   if (process.platform !== 'win32') {
     return;

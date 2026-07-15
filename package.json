@@ -183,6 +183,7 @@
     "msi:build": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/build-msi.ps1",
     "installer:hub:build": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/build-msi.ps1 -IncludeBundle -Flavor all",
     "installer:docente:baseline": "node scripts/installer-docente-baseline.mjs --json",
+    "installer:docente:baseline:enforce": "node scripts/installer-docente-baseline.mjs --json --enforce",
     "installer:hashes": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/generate-installer-hashes.ps1",
     "installer:sign": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/sign-installer-artifacts.ps1",
     "installer:sign:internal:init": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/signing/new-internal-signing-cert.ps1",

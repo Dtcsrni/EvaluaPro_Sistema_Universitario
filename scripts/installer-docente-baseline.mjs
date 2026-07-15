@@ -9,6 +9,8 @@ import { spawnSync } from 'node:child_process';
 const root = process.cwd();
 const args = process.argv.slice(2);
 const jsonOnly = args.includes('--json');
+const enforce = args.includes('--enforce');
+const maxBundleBytes = 100 * 1024 * 1024;
 
 function readJson(filePath) {
   try {
@@ -57,28 +59,44 @@ const flavors = readJson(path.join(root, 'config', 'installer-flavors.json'));
 const docente = Array.isArray(flavors?.flavors)
   ? flavors.flavors.find((flavor) => flavor.flavorId === 'docente-local')
   : null;
-const compose = runProbe('docker', ['compose', '-f', 'docker-compose.yml', '--profile', 'prod', 'ps', '--format', 'json']);
-const dockerDf = runProbe('docker', ['system', 'df', '--format', 'json']);
-const dockerContext = runProbe('docker', ['context', 'show']);
-const composeServices = runProbe('docker', ['compose', '-f', 'docker-compose.yml', '--profile', 'prod', 'config', '--services']);
+const requiresDockerRuntime = docente?.requireDockerRuntime === true;
+const skippedDockerProbe = (reason) => ({ ok: true, skipped: true, reason, code: 0, stdout: '', stderr: '' });
+const compose = requiresDockerRuntime
+  ? runProbe('docker', ['compose', '-f', 'docker-compose.yml', '--profile', 'prod', 'ps', '--format', 'json'])
+  : skippedDockerProbe('runtime nativo docente-local');
+const dockerDf = requiresDockerRuntime
+  ? runProbe('docker', ['system', 'df', '--format', 'json'])
+  : skippedDockerProbe('runtime nativo docente-local');
+const dockerContext = requiresDockerRuntime
+  ? runProbe('docker', ['context', 'show'])
+  : skippedDockerProbe('runtime nativo docente-local');
+const composeServices = requiresDockerRuntime
+  ? runProbe('docker', ['compose', '-f', 'docker-compose.yml', '--profile', 'prod', 'config', '--services'])
+  : skippedDockerProbe('runtime nativo docente-local');
 
 const report = {
   generatedAt: new Date().toISOString(),
   flavorId: 'docente-local',
   contract: {
-    runtimeTarget: 'wsl2-docker-minimal',
+    runtimeTarget: requiresDockerRuntime ? 'docker-compatible' : 'native-node-sqlite',
     requireLocalPortal: Boolean(docente?.requireLocalPortal),
-    requiredServices: ['mongo_local', 'api_docente_prod', 'web_docente_prod'],
-    requiredImages: {
+    requiredServices: requiresDockerRuntime ? ['mongo_local', 'api_docente_prod', 'web_docente_prod'] : [],
+    requiredImages: requiresDockerRuntime ? {
       apiDocente: process.env.EVALUAPRO_API_DOCENTE_IMAGE || 'ghcr.io/dtcsrni/evaluapro_sistema_universitario/evaluapro-api-docente:1.1.1',
       webDocente: process.env.EVALUAPRO_WEB_DOCENTE_IMAGE || 'ghcr.io/dtcsrni/evaluapro_sistema_universitario/evaluapro-web-docente:1.1.1',
       mongo: 'mongo:8.0.23'
-    },
+    } : {},
     deferredConfig: ['portal/sync', 'OAuth/Classroom', 'correo', 'licencia si no es obligatoria']
   },
   artifacts: {
     bundles: resolveBundleStats(),
     updateConfig: statIfPresent(path.join(root, 'config', 'update-config.json'))
+  },
+  quality: {
+    maxBundleBytes,
+    bundlePresent: false,
+    bundleWithinLimit: false,
+    ok: false
   },
   probes: {
     dockerComposeProd: compose,
@@ -99,6 +117,15 @@ const report = {
   }
 };
 
+report.quality.bundlePresent = report.artifacts.bundles.length > 0;
+report.quality.bundleWithinLimit = report.artifacts.bundles.every((bundle) => bundle.bytes > 0 && bundle.bytes <= maxBundleBytes);
+report.quality.ok = report.quality.bundlePresent && report.quality.bundleWithinLimit;
+
+if (enforce && !report.quality.ok) {
+  process.stderr.write(`[baseline] FAIL: bundle docente ausente o supera ${maxBundleBytes} bytes.\n`);
+  process.exitCode = 1;
+}
+
 if (jsonOnly) {
   process.stdout.write(`${JSON.stringify(report, null, 2)}\n`);
 } else {
@@ -106,5 +133,6 @@ if (jsonOnly) {
   process.stdout.write(`- Bundle(s): ${report.artifacts.bundles.length}\n`);
   process.stdout.write(`- Portal local requerido: ${report.contract.requireLocalPortal ? 'si' : 'no'}\n`);
   process.stdout.write(`- Docker compose probe: ${compose.ok ? 'ok' : 'no disponible'}\n`);
-  process.stdout.write('\nUsa `--json` para evidencia machine-readable.\n');
+  process.stdout.write(`- Bundle dentro de limite: ${report.quality.bundleWithinLimit ? 'si' : 'no'} (${maxBundleBytes} bytes)\n`);
+  process.stdout.write('\nUsa `--json` para evidencia machine-readable; agrega `--enforce` para bloquear release.\n');
 }
