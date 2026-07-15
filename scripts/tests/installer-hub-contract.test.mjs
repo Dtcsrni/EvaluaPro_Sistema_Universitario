@@ -227,6 +227,8 @@ test('build-msi valida contenedor adjunto Burn antes de publicar bundle', () => 
   assert.match(buildMsi, /function Assert-InstallerHubBundleVersion/);
   assert.match(buildMsi, /assert-installer-hub-bundle\.ps1/);
   assert.match(buildMsi, /Assert-InstallerHubBundleVersion -BundlePath \$bundleOut -ExpectedVersion \$effectiveVersionTag -WixExecutable \$wixExe/);
+  assert.match(buildMsi, /IsolateBundleIdentity/);
+  assert.match(buildMsi, /UpgradeCode y BundleUpgradeCode son temporales/);
   assert.match(bundleGuard, /Bootstrapper Application FileVersion/);
   assert.match(bundleGuard, /Bootstrapper Application ProductVersion/);
   assert.match(bundleGuard, /Regex\]::Escape\(\$Expected\)/);

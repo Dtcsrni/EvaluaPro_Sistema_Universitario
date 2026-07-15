@@ -5,6 +5,7 @@ Este archivo sigue el formato "Keep a Changelog" (alto nivel) y SemVer.
 ## [Unreleased]
 
 ### Fixed
+- E2E docente: agregado modo de build aislado (`-IsolateBundleIdentity`) para no relacionar instalaciones QA con bundles per-machine antiguos; queda explícitamente fuera de publicación.
 - QA UIAutomation: evita referencias nulas cuando el Hub no expone la ventana y conserva el diagnóstico de arranque en vez de reportar un crash del harness.
 - Installer Hub: el carrusel embebido conserva el logo oficial únicamente en el encabezado; sus tarjetas usan iconografía funcional y una prueba de contrato bloquea la redundancia de marca.
 - E2E Installer Hub docente: eliminado el carril VM/Hyper-V/WinRM; el ciclo se ejecuta directamente en la PC y usa `-IUnderstandThisMutatesPc`.

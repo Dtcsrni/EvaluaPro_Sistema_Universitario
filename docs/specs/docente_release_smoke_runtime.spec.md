@@ -194,3 +194,9 @@ El harness UIAutomation debe tratar una ventana no encontrada como un estado
 diagnosticable: no puede invocar métodos sobre raíces nulas, debe conservar el
 reporte y el log, y debe distinguir fallo de arranque del Hub de fallo de un
 control concreto.
+
+El empaquetado debe ofrecer un modo de aislamiento exclusivo para QA local que
+genere `UpgradeCode` y `BundleUpgradeCode` temporales por flavor. Ese modo no
+puede usarse para publicar releases, pero permite probar `docente-local` en una
+PC que conserve instalaciones per-machine antiguas sin provocar una migración
+involuntaria ni elevar el Hub completo.

@@ -7,6 +7,7 @@ param(
   [string]$Version = "",
   [switch]$SkipStabilityChecks,
   [switch]$IncludeBundle,
+  [switch]$IsolateBundleIdentity,
   [string]$Flavor = 'all'
 )
 
@@ -1066,6 +1067,11 @@ if ($buildBundle) {
     $effectiveBundleNamesByFlavor[$flavorId] = $bundleName
     $upgradeCode = [string]$flavorDef.upgradeCode
     $bundleUpgradeCode = [string]$flavorDef.bundleUpgradeCode
+    if ($IsolateBundleIdentity) {
+      $upgradeCode = ([Guid]::NewGuid()).ToString().ToUpperInvariant()
+      $bundleUpgradeCode = ([Guid]::NewGuid()).ToString().ToUpperInvariant()
+      Write-Warning "QA aislado activo para ${flavorId}: no publicar este MSI/Bundle; UpgradeCode y BundleUpgradeCode son temporales."
+    }
     $publicFlavorOut = Join-Path $out $flavorId
     $internalFlavorOut = Join-Path $internalOut $flavorId
     New-Item -ItemType Directory -Path $publicFlavorOut -Force | Out-Null
