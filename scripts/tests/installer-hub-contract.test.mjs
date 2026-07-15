@@ -259,12 +259,16 @@ test('build-msi bloquea helper Burn obsoleto en el staging del bundle', () => {
   assert.match(buildMsi, /staging contiene acceso obsoleto/);
   assert.match(buildMsi, /stagedBurnSource -match '\\\$requestJson\\\.TargetDir'/);
   assert.ok(buildMsi.includes("Get-RequestValue\\s+-Request\\s+\\$Request"));
+  assert.match(buildMsi, /Add-DocenteNativeCompiledPayload/);
+  assert.match(buildMsi, /apps\/frontend\/dist-docente/);
+  assert.match(buildMsi, /apps\/backend\/dist/);
+  assert.match(buildMsi, /Node \+ SQLite; sin VM\/Mongo/);
 });
 
 test('Installer Hub exige resolución mínima y recomienda 1080p', () => {
   const xaml = fs.readFileSync(path.join(root, 'packaging', 'wix', 'BurnBootstrapperApp', 'MainWindow.xaml'), 'utf8');
   const code = fs.readFileSync(path.join(root, 'packaging', 'wix', 'BurnBootstrapperApp', 'MainWindow.xaml.cs'), 'utf8');
-  assert.match(xaml, /Width="1440"[\s\S]*Height="900"[\s\S]*MinWidth="1180"[\s\S]*MinHeight="720"/);
+  assert.match(xaml, /Width="1440"[\s\S]*Height="1020"[\s\S]*MinWidth="1180"[\s\S]*MinHeight="720"/);
   assert.match(xaml, /FontFamily="Segoe UI, Segoe UI Variable Text, Aptos, Arial"/);
   assert.match(xaml, /<Style TargetType="TextBlock">[\s\S]*FontSize" Value="14"/);
   assert.match(xaml, /x:Key="HelpTextStyle"[\s\S]*FontSize" Value="14"[\s\S]*LineHeight" Value="21"/);
@@ -296,6 +300,22 @@ test('Installer Hub mantiene legibilidad en timeline, carrusel y bitácora', () 
   assert.match(xaml, /HeaderFeatureIndexTextBlock[^>]*FontSize="12"/);
   assert.match(xaml, /Text="\{Binding InstalledLabel\}" FontSize="12"/);
   assert.match(xaml, /x:Name="LogTextBox"[\s\S]*FontSize="12"/);
+});
+
+test('launcher docente usa invocación Windows compatible con npm.cmd y Node 24', () => {
+  const launcher = fs.readFileSync(path.join(root, 'scripts', 'start-docente-native.mjs'), 'utf8');
+  assert.match(launcher, /const npmCmd = process\.platform === 'win32' \? 'npm\.cmd' : 'npm';/);
+  assert.match(launcher, /shell: process\.platform === 'win32'/);
+  assert.match(launcher, /Node 24\/Windows no puede ejecutar npm\.cmd/);
+  assert.match(launcher, /proc\.stdout\.on\('data'/);
+  assert.match(launcher, /proc\.stderr\.on\('data'/);
+});
+
+test('E2E bloquea payload docente incompleto antes de abrir broker', () => {
+  const runner = fs.readFileSync(path.join(root, 'scripts', 'tests', 'installer-hub-e2e-docente.ps1'), 'utf8');
+  assert.match(runner, /apps\\backend\\dist\\index\.js/);
+  assert.match(runner, /apps\\frontend\\dist-docente\\index\.html/);
+  assert.match(runner, /Wait-InstalledPayload/);
 });
 
 test('helper post-install eleva escritura de configuración per-machine', () => {
@@ -342,9 +362,13 @@ test('Installer Hub cumple contrato DESIGN.md de layout y accesibilidad WPF', ()
   assert.match(installerHubDocs, /docs\/DESIGN\.md/);
 
   assert.match(mainWindowXaml, /Width="1440"/);
-  assert.match(mainWindowXaml, /Height="900"/);
+  assert.match(mainWindowXaml, /Height="1020"/);
   assert.match(mainWindowXaml, /MinWidth="1180"/);
   assert.match(mainWindowXaml, /MinHeight="720"/);
+  assert.match(mainWindowXaml, /x:Key="OnLightTextBrush"/);
+  assert.match(mainWindowXaml, /x:Name="ProgressPulseTransform"/);
+  assert.match(mainWindowCode, /StartProgressPulseAnimation/);
+  assert.match(mainWindowCode, /StopProgressPulseAnimation/);
   assert.doesNotMatch(mainWindowXaml, /Canvas IsHitTestVisible="False"/);
   // El Hub nativo usa radios de 10-18 px para jerarquía y superficies de vidrio.
   // Se conserva un límite superior para evitar cápsulas excesivas o superficies blandas.

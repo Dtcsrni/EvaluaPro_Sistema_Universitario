@@ -157,6 +157,21 @@ function New-InstallerBuildStagingRoot {
   }
 
   Write-Host "[msi] Staging completado: $copiedCount archivos"
+
+  # Guardrail: never package the obsolete direct JSON property access that
+  # caused published bundles to diverge from the current Burn helper.
+  $stagedBurnHelper = Join-Path $stagingRoot 'scripts/installer-burn/InstallerBurnHelper.ps1'
+  if (-not (Test-Path -LiteralPath $stagedBurnHelper)) {
+    throw "No se encontró InstallerBurnHelper.ps1 en el staging del instalador."
+  }
+  $stagedBurnSource = Get-Content -LiteralPath $stagedBurnHelper -Raw -Encoding utf8
+  if ($stagedBurnSource -match '\$requestJson\.TargetDir') {
+    throw "El staging contiene acceso obsoleto a requestJson.TargetDir; se cancela el empaquetado."
+  }
+  if ($stagedBurnSource -notmatch 'Get-RequestValue\s+-Request\s+\$Request') {
+    throw "El staging no contiene el getter seguro del target de instalación; se cancela el empaquetado."
+  }
+
   return $stagingRoot
 }
 
@@ -179,6 +194,50 @@ function Remove-InstallerBuildStagingRoot {
     } finally {
       $ProgressPreference = $previousProgressPreference
     }
+  }
+}
+
+function Add-DocenteNativeCompiledPayload {
+  param(
+    [Parameter(Mandatory = $true)]
+    [string]$RootPath,
+    [Parameter(Mandatory = $true)]
+    [string]$StagingRoot
+  )
+
+  Write-Host '[msi] Compilando payload nativo docente-local (Node + SQLite; sin VM/Mongo).'
+  Push-Location $RootPath
+  try {
+    $frontendSource = Join-Path $RootPath 'apps/frontend/dist-docente'
+    $backendSource = Join-Path $RootPath 'apps/backend/dist'
+    $npmCommand = if (Get-Command npm.cmd -ErrorAction SilentlyContinue) { 'npm.cmd' } else { 'npm' }
+    if (-not (Test-Path (Join-Path $frontendSource 'index.html'))) {
+      & $npmCommand -C 'apps/frontend' run 'build:docente'
+      if ($LASTEXITCODE -ne 0) { throw "Falló build docente del frontend (exit=$LASTEXITCODE)." }
+    } else {
+      Write-Host '[msi] Reutilizando build docente existente; no se recompila innecesariamente.'
+    }
+    if (-not (Test-Path (Join-Path $backendSource 'index.js'))) {
+      & $npmCommand -C 'apps/backend' run 'build'
+      if ($LASTEXITCODE -ne 0) { throw "Falló build del backend nativo (exit=$LASTEXITCODE)." }
+    } else {
+      Write-Host '[msi] Reutilizando build backend existente; no se recompila innecesariamente.'
+    }
+    if (-not (Test-Path (Join-Path $frontendSource 'index.html'))) {
+      throw "El build docente no generó $frontendSource/index.html."
+    }
+    if (-not (Test-Path (Join-Path $backendSource 'index.js'))) {
+      throw "El build backend no generó $backendSource/index.js."
+    }
+
+    $frontendTarget = Join-Path $StagingRoot 'apps/frontend/dist-docente'
+    $backendTarget = Join-Path $StagingRoot 'apps/backend/dist'
+    New-Item -ItemType Directory -Path $frontendTarget,$backendTarget -Force | Out-Null
+    Copy-Item -Path (Join-Path $frontendSource '*') -Destination $frontendTarget -Recurse -Force
+    Copy-Item -Path (Join-Path $backendSource '*') -Destination $backendTarget -Recurse -Force
+    Write-Host '[msi] Payload compilado agregado al staging.'
+  } finally {
+    Pop-Location
   }
 }
 
@@ -434,7 +493,9 @@ function Assert-MsiInstallsAppPayload {
     }
     $packageCandidates = @(
       (Join-Path $extractRoot ("PFiles64\{0}\package.json" -f $InstallFolderName)),
-      (Join-Path $extractRoot ("ProgramFiles64Folder\{0}\package.json" -f $InstallFolderName))
+      (Join-Path $extractRoot ("ProgramFiles64Folder\{0}\package.json" -f $InstallFolderName)),
+      (Join-Path $extractRoot ("LocalApp\{0}\package.json" -f $InstallFolderName)),
+      (Join-Path $extractRoot ("LocalAppDataFolder\{0}\package.json" -f $InstallFolderName))
     )
     $packageOk = $false
     foreach ($candidate in $packageCandidates) {
@@ -935,6 +996,10 @@ $buildRoot = $null
 try {
   $buildRoot = New-InstallerBuildStagingRoot -RootPath $root
 
+if (@($selectedFlavors.flavorId) -contains 'docente-local') {
+  Add-DocenteNativeCompiledPayload -RootPath $root -StagingRoot $buildRoot
+}
+
 if ($buildBundle) {
   Write-Host "[msi] Resolviendo extension BAL de WiX..."
   $balExtDll = Resolve-BalExtensionDll -WixExecutable $wixExe -WixVersion $wixVersion -RootPath $buildRoot
@@ -1013,9 +1078,13 @@ if ($buildBundle) {
         "-o", (Join-Path $publicFlavorOut $bundleName)
       )
       $bundleArgs += @("-d", "Version=$effectiveVersionTag")
+      # Evita validar un bundle viejo si WiX no puede reemplazar el artefacto (p. ej. archivo bloqueado).
+      $bundleOut = Join-Path $publicFlavorOut $bundleName
+      if (Test-Path -LiteralPath $bundleOut) {
+        Remove-Item -LiteralPath $bundleOut -Force -ErrorAction Stop
+      }
       $bundleExit = Invoke-WixBuildProcess -WixExecutable $wixExe -Arguments $bundleArgs
       if ($bundleExit -ne 0) { throw "Falló build de Bundle.wxs para $flavorId (exit=$bundleExit)" }
-      $bundleOut = Join-Path $publicFlavorOut $bundleName
       if (-not (Test-Path -LiteralPath $bundleOut)) {
         throw "Build de Bundle.wxs para $flavorId no genero bundle esperado: $bundleOut"
       }

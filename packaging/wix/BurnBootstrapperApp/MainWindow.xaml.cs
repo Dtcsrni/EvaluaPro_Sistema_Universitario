@@ -59,6 +59,31 @@ public partial class MainWindow : Window
         element.BeginAnimation(UIElement.OpacityProperty, null);
         element.Opacity = 1.0;
     }
+
+    private void StartProgressPulseAnimation()
+    {
+        if (!SystemParameters.ClientAreaAnimation)
+        {
+            StopProgressPulseAnimation();
+            return;
+        }
+
+        var animation = new DoubleAnimation
+        {
+            From = 1.0,
+            To = 1.14,
+            Duration = new Duration(TimeSpan.FromSeconds(0.9)),
+            AutoReverse = true,
+            RepeatBehavior = RepeatBehavior.Forever
+        };
+        ProgressPulseTransform.BeginAnimation(ScaleTransform.ScaleYProperty, animation);
+    }
+
+    private void StopProgressPulseAnimation()
+    {
+        ProgressPulseTransform.BeginAnimation(ScaleTransform.ScaleYProperty, null);
+        ProgressPulseTransform.ScaleY = 1.0;
+    }
     private bool busy;
     private bool pendingCloseRequest;
     private bool hasDeterminateProgress;
@@ -237,6 +262,14 @@ public partial class MainWindow : Window
         if (isBusy.HasValue)
         {
             busy = isBusy.Value;
+            if (busy)
+            {
+                StartProgressPulseAnimation();
+            }
+            else
+            {
+                StopProgressPulseAnimation();
+            }
             StatusSpinner.Visibility = busy ? Visibility.Visible : Visibility.Collapsed;
             var isInstall = string.Equals(GetSelectedMode(), "install", StringComparison.OrdinalIgnoreCase);
             var isUninstall = string.Equals(GetSelectedMode(), "uninstall", StringComparison.OrdinalIgnoreCase);
@@ -485,6 +518,7 @@ public partial class MainWindow : Window
         busy = false;
         hasDeterminateProgress = false;
         InstallProgressBar.IsIndeterminate = false;
+        StopProgressPulseAnimation();
         StatusTextBlock.Text = message;
         StatusHintTextBlock.Text = success
             ? "La operación terminó y el resultado queda disponible para revisión."
@@ -625,6 +659,7 @@ public partial class MainWindow : Window
         hasDeterminateProgress = false;
         InstallProgressBar.IsIndeterminate = true;
         InstallProgressBar.Value = 0;
+        StartProgressPulseAnimation();
         DetectRequested?.Invoke(this, EventArgs.Empty);
     }
 

@@ -56,6 +56,14 @@ a la ventana completa, no solo a la pantalla inicial.
 | REQ-008 | Tipografía, marca y superficies accesibles | `docs/DESIGN.md`, `apps/frontend/src/styles.css` | Implementado; pendiente de validación visual |
 | REQ-009 | Intro, carrusel y aceptación auditable | `packaging/wix/BurnBootstrapperApp/MainWindow.xaml`, `MainWindow.xaml.cs` | En implementación |
 | REQ-016 | Legibilidad de textos y estados dinámicos | `scripts/tests/installer-hub-contract.test.mjs`, `MainWindow.xaml.cs` | Implementado |
+
+### REQ-017 - Arranque nativo compatible con Node 24 en Windows
+
+El launcher del flavor `docente-local` debe iniciar sus procesos Node mediante
+una estrategia compatible con Windows y Node 24. La ejecución de `npm.cmd` no
+puede depender de `spawn` directo sin shell, porque esa combinación devuelve
+`EINVAL` antes de crear API o frontend. El launcher debe conservar captura de
+stdout/stderr, cierre del árbol de procesos y diagnóstico accionable.
 ### REQ-010 - Cierre acotado del runner E2E local
 
 El runner E2E del flavor `docente-local` debe registrar el estado final y cerrar
@@ -101,3 +109,19 @@ La captura visual debe intentar `CopyFromScreen` y disponer de fallback
 `PrintWindow` para escritorios sin DC válido. Las acciones del broker deben
 considerarse exitosas únicamente con código cero o con un estado JSON reciente
 `healthy`, registrando explícitamente cuando se usa esa evidencia alternativa.
+
+### REQ-018 - Payload ejecutable completo antes de broker
+
+El E2E no puede declarar instalación útil solo por presencia de `package.json`,
+scripts y runtime. Antes de invocar el broker debe verificar el artefacto
+ejecutable del backend (`apps/backend/dist/index.js`) y el build docente del
+frontend (`apps/frontend/dist-docente/index.html`). Si falta cualquiera, la
+prueba debe fallar con ruta exacta y no intentar abrir un dashboard inválido.
+
+### REQ-019 - Superficie visual alta, legible y con movimiento controlado
+
+La ventana inicial del Hub debe abrir con altura suficiente para mostrar el
+flujo completo sin recortes (`Height=1020`, `MinHeight=720`). Las tarjetas de
+contenido claro deben usar texto explícitamente oscuro y contrastado. La barra
+de progreso debe tener una animación sutil durante una operación activa,
+detenerse al finalizar y respetar la preferencia de animaciones del sistema.

@@ -11,7 +11,7 @@
         Title="EvaluaPro Installer Hub"
         Icon="pack://application:,,,/assets/evaluapro-installer-logo.png"
         Width="1440"
-        Height="900"
+        Height="1020"
         MinWidth="1180"
         MinHeight="720"
         WindowStartupLocation="CenterScreen"
@@ -52,6 +52,9 @@
         <SolidColorBrush x:Key="BorderBrushNeutral" Color="#80B8F3F5" />
         <SolidColorBrush x:Key="TextBrush" Color="#F8FAFC" />
         <SolidColorBrush x:Key="MutedTextBrush" Color="#C4D5E8" />
+        <SolidColorBrush x:Key="OnLightTextBrush" Color="#102A43" />
+        <SolidColorBrush x:Key="OnLightMutedTextBrush" Color="#335B74" />
+        <SolidColorBrush x:Key="OnLightAccentBrush" Color="#0B4F71" />
         <SolidColorBrush x:Key="TermsTextBrush" Color="#17324D" />
         <SolidColorBrush x:Key="PrimaryBrush" Color="#14B8A6" />
         <SolidColorBrush x:Key="AccentBrush" Color="#38BDF8" />
@@ -62,7 +65,7 @@
         <SolidColorBrush x:Key="SuccessBrush" Color="#15803D" />
         <SolidColorBrush x:Key="FocusBrush" Color="#7DD3FC" />
         <SolidColorBrush x:Key="GlassHighlightBrush" Color="#66E0F2FE" />
-        <DropShadowEffect x:Key="CardShadow" BlurRadius="32" ShadowDepth="8" Direction="270" Opacity="0.42" Color="#020617" />
+        <DropShadowEffect x:Key="CardShadow" BlurRadius="40" ShadowDepth="10" Direction="270" Opacity="0.58" Color="#020617" />
         <LinearGradientBrush x:Key="SecondaryButtonBrush" StartPoint="0,0" EndPoint="0,1">
             <GradientStop Color="#D9385268" Offset="0" />
             <GradientStop Color="#A81A3045" Offset="1" />
@@ -453,19 +456,19 @@ Por favor, lee atentamente los siguientes términos antes de proceder con la ins
                                 <StackPanel>
                                     <TextBlock Text="Preparar operación" FontSize="20" FontWeight="SemiBold" Foreground="{StaticResource TextBrush}" />
                                     <TextBlock Style="{StaticResource HelpTextStyle}" Text="Confirma edición, modo, carpeta destino y accesos antes de revisar el equipo." />
-                                    <Border x:Name="ModeImpactBorder" Margin="0,14,0,0" Padding="12" CornerRadius="8" Background="#EFF6FF" BorderBrush="#BFDBFE" BorderThickness="1" ToolTip="Resumen práctico del impacto del modo seleccionado antes de ejecutar cambios en este equipo.">
+                                    <Border x:Name="ModeImpactBorder" Margin="0,14,0,0" Padding="12" CornerRadius="10" Background="#E7F1FA" BorderBrush="#7BAED0" BorderThickness="1.2" ToolTip="Resumen práctico del impacto del modo seleccionado antes de ejecutar cambios en este equipo.">
                                         <Grid>
                                             <Grid.ColumnDefinitions>
                                                 <ColumnDefinition Width="Auto" />
                                                 <ColumnDefinition Width="*" />
                                             </Grid.ColumnDefinitions>
                                             <Border x:Name="ModeImpactIconPlate" Style="{StaticResource IconPlateStyle}">
-                                                <Path x:Name="ModeImpactIcon" Data="M6,22 L15,31 L34,12" Stroke="{StaticResource AccentBrush}" StrokeThickness="3" StrokeStartLineCap="Round" StrokeEndLineCap="Round" Stretch="Uniform" Margin="10" />
+                                                <Path x:Name="ModeImpactIcon" Data="M6,22 L15,31 L34,12" Stroke="{StaticResource OnLightAccentBrush}" StrokeThickness="3" StrokeStartLineCap="Round" StrokeEndLineCap="Round" Stretch="Uniform" Margin="10" />
                                             </Border>
                                             <StackPanel Grid.Column="1">
-                                                <TextBlock x:Name="ModeImpactTitleTextBlock" Text="Instalar o actualizar" FontWeight="Bold" Foreground="{StaticResource AccentBrush}" />
-                                                <TextBlock x:Name="ModeImpactTextBlock" Margin="0,6,0,0" Text="Configura prerequisitos, escribe configuración operativa y crea accesos." TextWrapping="Wrap" Foreground="{StaticResource TextBrush}" />
-                                                <TextBlock x:Name="ModeImpactChecklistTextBlock" Margin="0,6,0,0" Text="Se revisa Node, carpeta destino, base local y accesos." TextWrapping="Wrap" Foreground="{StaticResource MutedTextBrush}" />
+                                                <TextBlock x:Name="ModeImpactTitleTextBlock" Text="Instalar o actualizar" FontWeight="Bold" Foreground="{StaticResource OnLightAccentBrush}" />
+                                                <TextBlock x:Name="ModeImpactTextBlock" Margin="0,6,0,0" Text="Configura prerequisitos, escribe configuración operativa y crea accesos." TextWrapping="Wrap" Foreground="{StaticResource OnLightTextBrush}" />
+                                                <TextBlock x:Name="ModeImpactChecklistTextBlock" Margin="0,6,0,0" Text="Se revisa Node, carpeta destino, base local y accesos." TextWrapping="Wrap" Foreground="{StaticResource OnLightMutedTextBrush}" />
                                             </StackPanel>
                                         </Grid>
                                     </Border>
@@ -661,7 +664,11 @@ Por favor, lee atentamente los siguientes términos antes de proceder con la ins
                                 <StackPanel>
                                     <TextBlock x:Name="WorkflowHeaderTitleTextBlock" Text="Ejecutar operación" FontSize="20" FontWeight="SemiBold" Foreground="{StaticResource TextBrush}" />
                                     <TextBlock x:Name="WorkflowHeaderHintTextBlock" Style="{StaticResource HelpTextStyle}" Text="Resumen en vivo de la operación seleccionada." />
-                                    <ProgressBar x:Name="InstallProgressBar" Margin="0,18,0,12" Minimum="0" Maximum="100" ToolTip="Progreso general de la operación." AutomationProperties.Name="Progreso general de la operación" />
+                                    <ProgressBar x:Name="InstallProgressBar" Height="16" Margin="0,18,0,12" Minimum="0" Maximum="100" ToolTip="Progreso general de la operación." AutomationProperties.Name="Progreso general de la operación">
+                                        <ProgressBar.RenderTransform>
+                                            <ScaleTransform x:Name="ProgressPulseTransform" ScaleX="1" ScaleY="1" />
+                                        </ProgressBar.RenderTransform>
+                                    </ProgressBar>
                                     <Border x:Name="FailureSummaryBorder" Margin="0,0,0,10" Padding="12" CornerRadius="8" Background="#FEF2F2" BorderBrush="#FECACA" BorderThickness="1" Visibility="Collapsed">
                                         <StackPanel>
                                             <TextBlock x:Name="FailureSummaryTitleTextBlock" Text="Resumen de error" FontWeight="Bold" Foreground="{StaticResource ErrorBrush}" />
