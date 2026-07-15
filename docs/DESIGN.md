@@ -4,12 +4,25 @@ Fuente de verdad visual y UX para las superficies operativas de EvaluaPro: front
 
 ## Principios
 
+## Imagen de marca y tipografía
+
+EvaluaPro debe comunicar confianza académica, claridad operativa y progreso. La referencia visual observada en el release (tema oscuro, azul eléctrico y superficies sobrias) se evoluciona hacia una identidad híbrida: azul petróleo/teal como acción y confianza, azul profundo como estructura, ámbar como logro y coral únicamente para riesgo.
+
+- Texto principal: `Segoe UI Variable Text`, `Segoe UI`, `Aptos`, `Inter`, `system-ui`.
+- Encabezados: `Segoe UI Variable Display`, `Segoe UI`, `Aptos Display`, `Aptos`.
+- No depender de fuentes remotas: la aplicación instalada debe conservar legibilidad sin Internet.
+- El texto corrido debe usar 16 px como base, altura de línea 1.5–1.6 y ancho aproximado de 65–75 caracteres.
+- El contenido enriquecido debe preservar jerarquía semántica (`h1`–`h4`, listas, citas, código), saltos de línea y foco visible.
+- Glassmorphism como material compuesto: Acrylic/Mica DWM, gradientes lineales discretos, reflejos y sombras de profundidad; conserva fallback, contraste WCAG 2.2, sin texto crítico dependiente solo de transparencia y con `prefers-reduced-motion`.
+
+La imagen no debe copiar literalmente GitHub ni Windows; toma de ellos legibilidad, estados claros, densidad controlada y materiales con degradación segura.
+
 - La UI debe comunicar estado operativo, no decorar. Cada bloque visible debe responder a una pregunta del usuario: que se hara, si el equipo esta listo, que esta pasando y como recuperarse.
 - El flujo primario debe caber en pantallas comunes: desktop, tablet y mobile para web; 1024x768 a 100-125% DPI para soporte Windows. El scroll se reserva para contenido largo, no para corregir desorden visual.
 - Cada pantalla debe tener una accion primaria evidente. Las acciones secundarias deben quedar cerca del contexto que modifican, sin competir con el flujo principal.
 - Toda superficie debe ser usable con teclado, lector de pantalla y alto contraste. Todo control interactivo requiere nombre accesible, ayuda breve y orden de tabulacion predecible.
 - La densidad debe ser operativa: suficiente informacion para decidir sin convertir la pantalla en landing page, dashboard decorativo o panel de tarjetas redundantes.
-- La jerarquia visual debe ser simple, elegante y funcional: titulos compactos en herramientas, espaciado estable, radios contenidos, gradientes sobrios y cero orbes/blobs/decoracion radial.
+- La jerarquia visual debe ser simple, elegante y funcional: titulos legibles, espaciado estable, radios contenidos, gradientes lineales sobrios, reflejos de vidrio controlados y cero orbes/blobs/decoracion radial.
 - El modo avanzado no debe bloquear el caso comun. Configuracion operativa, licencia y update viven colapsados por defecto.
 - Los errores deben mostrar causa accionable y rutas de evidencia: paquete, codigo Windows, log MSI y log BA cuando existan.
 

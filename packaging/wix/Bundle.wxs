@@ -15,7 +15,12 @@
 
     <Variable Name="InstallDesktopShortcuts" Type="numeric" Value="1" Persisted="yes" />
     <Variable Name="InstallStartMenuShortcuts" Type="numeric" Value="1" Persisted="yes" />
+    <?if $(var.FlavorId) = docente-local ?>
+    <!-- El flavor nativo no persiste la ruta: evita reutilizar una ruta per-machine antigua. -->
+    <Variable Name="InstallFolder" Type="string" Value="[LocalAppDataFolder]EvaluaPro" bal:Overridable="yes" />
+    <?else?>
     <Variable Name="InstallFolder" Type="string" Value="C:\Program Files\$(var.InstallFolderName)" Persisted="yes" bal:Overridable="yes" />
+    <?endif?>
     <Variable Name="SelectedFlavorId" Type="string" Value="$(var.FlavorId)" Persisted="yes" />
 
     <ApprovedExeForElevation

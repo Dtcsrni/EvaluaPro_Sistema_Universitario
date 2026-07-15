@@ -50,9 +50,15 @@
       <ComponentGroupRef Id="CG.Cleanup" />
     </Feature>
 
+    <?if $(var.FlavorId) = docente-local ?>
+    <StandardDirectory Id="LocalAppDataFolder">
+      <Directory Id="INSTALLFOLDER" Name="$(var.InstallFolderName)" />
+    </StandardDirectory>
+    <?else?>
     <StandardDirectory Id="ProgramFiles64Folder">
       <Directory Id="INSTALLFOLDER" Name="$(var.InstallFolderName)" />
     </StandardDirectory>
+    <?endif?>
     <StandardDirectory Id="DesktopFolder" />
     <StandardDirectory Id="ProgramMenuFolder" />
 

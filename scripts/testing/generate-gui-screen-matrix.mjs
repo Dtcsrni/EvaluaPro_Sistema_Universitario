@@ -40,8 +40,31 @@ function assertContains(sourceKey, pattern, reason) {
   }
 }
 
-const defaultStates = ['loading', 'empty', 'error', 'warning', 'success'];
+const defaultStates = ['ready', 'loading', 'empty', 'active', 'error', 'warning', 'degraded', 'restart-required', 'success'];
 const defaultViewports = ['desktop', 'tablet', 'mobile'];
+
+const lifecycleScenarios = [
+  { id: 'install-first-run', operation: 'install', state: 'ready', expected: 'Muestra bienvenida, términos/privacidad, prerequisitos y acción Instalar habilitada solo cuando corresponde.' },
+  { id: 'install-detecting', operation: 'install', state: 'loading', expected: 'Muestra spinner, etapa Detección activa, progreso y explicación viva sin permitir mutaciones duplicadas.' },
+  { id: 'install-prerequisite-warning', operation: 'install', state: 'warning', expected: 'Identifica el requisito faltante, explica remediación y muestra si requiere UAC o reinicio.' },
+  { id: 'install-prerequisite-error', operation: 'install', state: 'error', expected: 'Expone causa, evidencia y reintento; no presenta éxito por color ambiguo.' },
+  { id: 'install-executing', operation: 'install', state: 'active', expected: 'Bloquea cierre accidental, muestra etapa MSI y progreso indeterminado/determinado.' },
+  { id: 'install-success', operation: 'install', state: 'success', expected: 'Confirma payload, configuración, shortcuts y siguiente acción útil.' },
+  { id: 'repair-ready', operation: 'repair', state: 'ready', expected: 'Detecta instalación existente y explica alcance de reparar sin borrar datos.' },
+  { id: 'repair-running', operation: 'repair', state: 'active', expected: 'Distingue reparación de instalación y conserva trazabilidad por etapa.' },
+  { id: 'repair-success', operation: 'repair', state: 'success', expected: 'Confirma reparación y verificación de runtime/dashboard.' },
+  { id: 'update-available', operation: 'update', state: 'ready', expected: 'Muestra versión local/remota, hash requerido y decisión Actualizar.' },
+  { id: 'update-downloading', operation: 'update', state: 'active', expected: 'Muestra descarga, verificación SHA-256 y no reemplaza payload antes de validar.' },
+  { id: 'update-rejected-integrity', operation: 'update', state: 'error', expected: 'Detiene actualización si hash/firma no coinciden y conserva la versión funcional.' },
+  { id: 'update-success', operation: 'update', state: 'success', expected: 'Confirma nueva versión, migración y rollback disponible si aplica.' },
+  { id: 'uninstall-choice', operation: 'uninstall', state: 'ready', expected: 'Distingue quitar programa de conservar/exportar datos y solicita confirmación.' },
+  { id: 'uninstall-running', operation: 'uninstall', state: 'active', expected: 'Muestra detención de procesos, limpieza y exportación si fue elegida.' },
+  { id: 'uninstall-uac-rejected', operation: 'uninstall', state: 'error', expected: 'Explica que UAC fue rechazado y deja el sistema intacto o parcialmente documentado.' },
+  { id: 'uninstall-success', operation: 'uninstall', state: 'success', expected: 'Confirma ausencia de registro/procesos y ubicación del respaldo.' },
+  { id: 'restart-required', operation: 'any', state: 'warning', expected: 'Expone motivo, botón Reiniciar ahora y resume de reanudación.' },
+  { id: 'broker-degraded', operation: 'any', state: 'warning', expected: 'Indica broker bajo demanda cuando no se pudo registrar tarea sin elevar.' },
+  { id: 'close-blocked', operation: 'any', state: 'active', expected: 'Explica por qué cerrar está bloqueado mientras una transacción protege el sistema.' }
+];
 
 const primaryActions = new Map([
   ['docente:login', 'Iniciar sesion docente'],
@@ -191,7 +214,8 @@ function screen(id, title, surface, sourceKeys, components, command, artifacts, 
       feedback: 'Mostrar loading/empty/error/warning/success cerca del elemento afectado.',
       accessibility: 'Controles con nombre accesible, foco visible y orden de tabulacion estable.'
     },
-    states,
+  states,
+    lifecycleScenarios: lifecycleScenarios.filter((scenario) => scenario.operation === 'any' || scenario.operation === id.split(':')[0] || (surface === 'installer-hub' && ['install', 'repair', 'update', 'uninstall'].includes(scenario.operation))),
     viewports: defaultViewports,
     evidence: { command, artifacts: [...artifacts, ...screenshotArtifacts(id, surface)] }
   };
@@ -234,7 +258,7 @@ const screens = [
 ];
 
 const matrix = {
-  version: 1,
+  version: 2,
   generatedAt: `${today}T00:00:00-06:00`,
   generatedBy: 'scripts/testing/generate-gui-screen-matrix.mjs',
   designSources: Object.values(sources),
@@ -247,8 +271,12 @@ const matrix = {
     simplicityAndEleganceRequired: true,
     primaryActionPerScreenRequired: true,
     inlineFeedbackRequired: true,
-    vmReleaseLikeRequiredForClosure: true
+    vmReleaseLikeRequiredForClosure: true,
+    lifecycleScenarioCoverageRequired: true,
+    contrastStateCoverageRequired: true,
+    visualEvidenceManifestRequired: true
   },
+  lifecycleScenarios,
   screens
 };
 

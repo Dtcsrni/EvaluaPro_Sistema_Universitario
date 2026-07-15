@@ -29,13 +29,20 @@ test('genera matriz canonica exhaustiva de pantallas GUI', () => {
   assert.equal(fs.existsSync(matrixMarkdownPath), true, 'debe escribir checklist Markdown manual');
 
   const matrix = JSON.parse(fs.readFileSync(matrixJsonPath, 'utf8'));
-  assert.equal(matrix.version, 1);
+  assert.equal(matrix.version, 2);
   assert.equal(matrix.generatedBy, 'scripts/testing/generate-gui-screen-matrix.mjs');
   const removedExternalDesignDoc = ['docs', `GUI_REDISENO_${'FIG'}${'MA'}.md`].join('/');
   assert.equal(matrix.designSources.includes(removedExternalDesignDoc), false, 'la matriz no debe depender de herramienta externa');
   assert.equal(matrix.acceptance.simplicityAndEleganceRequired, true, 'debe exigir simplicidad/elegancia funcional');
   assert.equal(matrix.acceptance.primaryActionPerScreenRequired, true, 'debe exigir accion primaria clara');
   assert.equal(matrix.acceptance.interactiveControlsNoOverlapRequired, true, 'debe exigir controles sin solapes materiales');
+  assert.equal(matrix.acceptance.lifecycleScenarioCoverageRequired, true, 'debe cubrir lifecycle completo');
+  assert.equal(matrix.acceptance.contrastStateCoverageRequired, true, 'debe cubrir contraste por estado');
+  assert.equal(matrix.acceptance.visualEvidenceManifestRequired, true, 'debe exigir manifest de evidencia visual');
+  assert.ok(Array.isArray(matrix.lifecycleScenarios) && matrix.lifecycleScenarios.length >= 20, 'debe cubrir escenarios lifecycle');
+  for (const scenario of matrix.lifecycleScenarios) {
+    assert.ok(scenario.id && scenario.operation && scenario.state && scenario.expected, 'cada escenario debe tener contrato completo');
+  }
   assert.ok(Array.isArray(matrix.screens));
   assert.ok(matrix.screens.length >= 18, 'debe cubrir pantallas web, dashboard e installer hub');
 
@@ -80,6 +87,7 @@ test('genera matriz canonica exhaustiva de pantallas GUI', () => {
     assert.doesNotMatch(screen.uxReview.primaryAction, /estado permisos|version\/update|mensajes inline/i, `${screen.id} no debe usar componentes auxiliares como accion primaria`);
     assert.match(screen.uxReview.simplicity, /jerarquia clara/i, `${screen.id} debe declarar criterio de simplicidad`);
     assert.ok(Array.isArray(screen.states) && screen.states.includes('success'), `${screen.id} debe incluir estados`);
+    assert.ok(Array.isArray(screen.lifecycleScenarios), `${screen.id} debe declarar escenarios lifecycle`);
     assert.deepEqual(screen.viewports, ['desktop', 'tablet', 'mobile'], `${screen.id} debe cubrir viewports`);
     assert.ok(screen.evidence.command, `${screen.id} debe declarar comando de evidencia`);
     assert.ok(screen.evidence.artifacts.length > 0, `${screen.id} debe declarar artefactos`);

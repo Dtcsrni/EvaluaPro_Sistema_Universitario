@@ -232,12 +232,36 @@
 /* --- Estilos Avanzados y Animaciones de EvaluaPro --- */
 
 .glass-card {
-  background: var(--surface-0);
+  /* La superficie sólida garantiza legibilidad aun sin blur/GPU o en high contrast. */
+  background: var(--surface-0, #ffffff);
   backdrop-filter: blur(20px);
   -webkit-backdrop-filter: blur(20px);
   border: 1px solid var(--surface-border-strong);
   box-shadow: var(--shadow-soft);
   transition: background 250ms ease, border-color 250ms ease, box-shadow 250ms ease;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .glass-card,
+  .glass-card-interactive,
+  .anim-fade-in {
+    animation: none !important;
+    transition: none !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+@media (forced-colors: active) {
+  .card,
+  .panel,
+  .subpanel,
+  .item-glass,
+  .glass-card {
+    background: Canvas;
+    border: 1px solid CanvasText;
+    box-shadow: none;
+    forced-color-adjust: auto;
+  }
 }
 
 .glass-card-interactive {

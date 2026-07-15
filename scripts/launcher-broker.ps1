@@ -146,16 +146,18 @@ function Stop-StaleDashboardOnPort([int]$candidatePort) {
   }
 
   foreach ($listener in $listeners) {
-    $pid = [int]$listener.OwningProcess
-    if ($pid -le 0 -or $pid -eq $PID) { continue }
+    # PowerShell reserva $PID; usar otro nombre evita que el broker falle al
+    # limpiar listeners huérfanos antes de abrir el dashboard.
+    $processId = [int]$listener.OwningProcess
+    if ($processId -le 0 -or $processId -eq $PID) { continue }
     try {
-      $process = Get-CimInstance Win32_Process -Filter ("ProcessId={0}" -f $pid) -ErrorAction Stop
+      $process = Get-CimInstance Win32_Process -Filter ("ProcessId={0}" -f $processId) -ErrorAction Stop
       $commandLine = [string]$process.CommandLine
       if ($commandLine -notmatch 'launcher-dashboard\.(mjs|ps1)') { continue }
-      Write-BrokerLog("Cerrando dashboard no responsivo en puerto $candidatePort (pid=$pid).")
-      Stop-Process -Id $pid -Force -ErrorAction SilentlyContinue
+      Write-BrokerLog("Cerrando dashboard no responsivo en puerto $candidatePort (pid=$processId).")
+      Stop-Process -Id $processId -Force -ErrorAction SilentlyContinue
     } catch {
-      Write-BrokerLog("No se pudo cerrar listener no responsivo en puerto $candidatePort (pid=$pid): $($_.Exception.Message)")
+      Write-BrokerLog("No se pudo cerrar listener no responsivo en puerto $candidatePort (pid=$processId): $($_.Exception.Message)")
     }
   }
 }

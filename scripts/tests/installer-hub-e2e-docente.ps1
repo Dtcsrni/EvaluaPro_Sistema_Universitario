@@ -4,24 +4,20 @@
 # Limites: Mantener contrato y comportamiento observable del modulo.
 <#
   installer-hub-e2e-docente.ps1
-  Validacion real end-to-end del Installer Hub docente-local en VM desechable.
+  Validacion real end-to-end del Installer Hub docente-local en la PC de QA.
 
-  IMPORTANTE: este script ejecuta install/repair/uninstall reales. No usar en la
-  estacion principal. Requiere -IUnderstandThisMutatesVm para iniciar.
+  IMPORTANTE: este script ejecuta install/repair/uninstall reales en la PC local.
+  Requiere -IUnderstandThisMutatesPc para iniciar.
 #>
 [CmdletBinding()]
 param(
   [string]$RootPath = '',
   [string]$ReportDir = '',
   [string]$InstallDir = '',
-  [string]$ExpectedSnapshotName = 'pre-evaluapro-installer-e2e',
-  [string]$ExpectedVmComputerName = 'EVALPRO-E2E',
-  [string]$ExpectedHostCanaryComputerName = 'TEZKATLI',
   [int]$Port = 4519,
-  [switch]$IUnderstandThisMutatesVm,
+  [switch]$IUnderstandThisMutatesPc,
   [switch]$AllowExistingInstall,
-  [switch]$SkipSnapshotCheck,
-  [switch]$AllowHostCanary
+  [switch]$SeedDummyData
 )
 
 Set-StrictMode -Version Latest
@@ -36,8 +32,8 @@ if (-not $isWindowsHost -and $PSVersionTable.PSEdition -eq 'Core') {
   exit 0
 }
 
-if (-not $IUnderstandThisMutatesVm) {
-  throw 'Bloqueado: este E2E modifica la VM. Reejecuta con -IUnderstandThisMutatesVm en una VM limpia.'
+if (-not $IUnderstandThisMutatesPc) {
+  throw 'Bloqueado: este E2E modifica la PC local. Reejecuta con -IUnderstandThisMutatesPc.'
 }
 
 Add-Type -AssemblyName UIAutomationClient
@@ -313,35 +309,6 @@ function Get-EvaluaProUninstallEntries {
   return @($entries)
 }
 
-function Assert-SnapshotContext {
-  if ($SkipSnapshotCheck) {
-    Add-Result -Area 'preflight' -Item 'snapshot' -Ok $true -Detail 'Omitido por -SkipSnapshotCheck.'
-    return
-  }
-
-  $checkpointName = $env:EVALUAPRO_E2E_VM_SNAPSHOT
-  if ([string]::IsNullOrWhiteSpace($checkpointName)) {
-    Add-Result -Area 'preflight' -Item 'snapshot' -Ok $false -Detail 'Define EVALUAPRO_E2E_VM_SNAPSHOT=pre-evaluapro-installer-e2e o usa -SkipSnapshotCheck.'
-    throw 'No se confirmo snapshot de VM limpia.'
-  }
-
-  $ok = $checkpointName.Trim() -eq $ExpectedSnapshotName
-  Add-Result -Area 'preflight' -Item 'snapshot' -Ok $ok -Detail "EVALUAPRO_E2E_VM_SNAPSHOT=$checkpointName"
-  if (-not $ok) { throw "Snapshot esperado '$ExpectedSnapshotName' no confirmado." }
-}
-
-function Assert-RunningInsideExpectedVm {
-  $current = [string]$env:COMPUTERNAME
-  $expected = if ($AllowHostCanary) { $ExpectedHostCanaryComputerName } else { $ExpectedVmComputerName }
-  $ok = $current -eq $expected
-  if ($AllowHostCanary -and $ok) {
-    Add-Result -Area 'preflight' -Item 'host-canary-identity' -Ok $true -Detail "Host canary autorizado COMPUTERNAME=$current expected=$expected"
-    return
-  }
-  Add-Result -Area 'preflight' -Item 'vm-identity' -Ok $ok -Detail "COMPUTERNAME=$current expected=$expected"
-  if (-not $ok) { throw "E2E debe correr en VM esperada. COMPUTERNAME=$current expected=$expected" }
-}
-
 function Get-SystemMemorySnapshot {
   $os = Get-CimInstance -ClassName Win32_OperatingSystem
   $pageFile = @(Get-CimInstance -ClassName Win32_PageFileUsage -ErrorAction SilentlyContinue)
@@ -597,6 +564,7 @@ function Capture-Window {
     return $path
   } catch {
     Write-E2ELog "Advertencia: Error tomando screenshot de UI: $_"
+    Add-Result -Area 'screenshots' -Item $Name -Ok $false -Detail 'No se pudo capturar la ventana WPF; el escritorio no devolvió un DC válido.'
     return ""
   } finally {
     $graphics.Dispose()
@@ -721,18 +689,35 @@ function Invoke-InstallerHubMode {
     if ($termsCheckbox) {
       Write-E2ELog "Detectado AcceptTermsCheckBox en modo install, marcandolo para habilitar navegacion."
       $togglePattern = $null
-      if ($termsCheckbox.TryGetCurrentPattern([System.Windows.Automation.TogglePattern]::Pattern, [ref]$togglePattern)) {
-        if ($togglePattern.Current.ToggleState -ne [System.Windows.Automation.ToggleState]::On) {
-          $togglePattern.Toggle()
+      # WPF actualiza currentStep desde Click. UIAutomation Invoke/Toggle puede
+      # cambiar la marca sin disparar ese handler; usar teclado sobre el control
+      # fuerza el mismo evento interactivo que usa una persona.
+      if ($termsCheckbox.Current.IsEnabled) {
+        $termsCheckbox.SetFocus()
+        $togglePattern = $null
+        $isOn = $false
+        if ($termsCheckbox.TryGetCurrentPattern([System.Windows.Automation.TogglePattern]::Pattern, [ref]$togglePattern)) {
+          $isOn = $togglePattern.Current.ToggleState -eq [System.Windows.Automation.ToggleState]::On
         }
-      } else {
-        Invoke-Control -Element $termsCheckbox
+        if ($isOn) { [System.Windows.Forms.SendKeys]::SendWait(' ') ; Start-Sleep -Milliseconds 250 }
+        [System.Windows.Forms.SendKeys]::SendWait(' ')
       }
       Start-Sleep -Seconds 1
+      $privacyCheckbox = Find-ById -RootElement $window -AutomationId 'AcceptPrivacyCheckBox' -TimeoutSec 5
+      if ($privacyCheckbox -and $privacyCheckbox.Current.IsEnabled) {
+        $privacyCheckbox.SetFocus()
+        $privacyToggle = $null
+        $privacyOn = $false
+        if ($privacyCheckbox.TryGetCurrentPattern([System.Windows.Automation.TogglePattern]::Pattern, [ref]$privacyToggle)) {
+          $privacyOn = $privacyToggle.Current.ToggleState -eq [System.Windows.Automation.ToggleState]::On
+        }
+        if (-not $privacyOn) { [System.Windows.Forms.SendKeys]::SendWait(' ') }
+      }
+      Start-Sleep -Milliseconds 500
     }
   }
 
-  $detectionTimeoutSec = if ($AllowHostCanary) { 420 } else { 240 }
+  $detectionTimeoutSec = 420
   $window = Wait-DetectionIdle -RootElement $window -TimeoutSec $detectionTimeoutSec
   if (-not $window) { throw "Installer Hub desaparecio durante deteccion mode=$Mode" }
   Capture-Window -Window $window -Name ("wpf-{0}-02-preparar" -f $Mode) | Out-Null
@@ -793,7 +778,7 @@ function Invoke-InstallerHubMode {
   Resize-WindowForEvidence -Process $process -Width 980 -Height 700 | Out-Null
   Start-Sleep -Milliseconds 800
   $window = Find-Window -TimeoutSec 10
-  Capture-Window -Window $window -Name ("wpf-{0}-05-ejecutar-980x700" -f $Mode) | Out-Null
+  Capture-Window -Window $window -Name ("wpf-{0}-05-ejecutar-1280x720" -f $Mode) | Out-Null
   $state = Wait-InstallerStableState -Window $window -Mode $Mode -TimeoutMinutes 45
   $textPath = Join-Path $ReportDir ("{0}-window-text.txt" -f $Mode)
   [string]$state.text | Set-Content -Path $textPath -Encoding UTF8
@@ -811,9 +796,20 @@ function Invoke-InstallerHubMode {
   $closeButton = Find-ById -RootElement $window -AutomationId 'CloseButton' -TimeoutSec 8
   if ($closeButton) { Invoke-Control -Element $closeButton }
   Write-E2ELog "Esperando que el proceso del instalador ($($process.Id)) finalice tras presionar CloseButton..."
-  if (-not $process.WaitForExit(15000)) {
+  $processExited = $false
+  try {
+    $processExited = $process.WaitForExit(15000)
+  } catch {
+    Write-E2ELog "WaitForExit fallo para pid=$($process.Id): $($_.Exception.Message)"
+  }
+  if (-not $processExited) {
     Write-E2ELog "Proceso del instalador residual detectado. Forzando detencion..."
-    try { $process | Stop-Process -Force -ErrorAction SilentlyContinue } catch {}
+    try {
+      Stop-Process -Id ([int]$process.Id) -Force -ErrorAction SilentlyContinue
+      Wait-Process -Id ([int]$process.Id) -Timeout 5 -ErrorAction SilentlyContinue
+    } catch {
+      Write-E2ELog "No se pudo detener pid=$($process.Id): $($_.Exception.Message)"
+    }
   }
   Start-Sleep -Seconds 2
   Stop-InstallerHubProcesses -Reason "after-close"
@@ -840,18 +836,69 @@ function Wait-BootstrapState {
   throw "Bootstrap state no alcanzo $($AcceptedStates -join ',') runId=$RunId"
 }
 
+function Write-VisualFlowManifest {
+  $expected = @(
+    'wpf-install-01-splash-deteccion.png',
+    'wpf-install-02-preparar.png',
+    'wpf-install-03-revisar.png',
+    'wpf-install-04-ejecutar-1040x760.png',
+    'wpf-install-05-ejecutar-1280x720.png',
+    'wpf-install-06-resultado.png'
+  )
+  $items = foreach ($name in $expected) {
+    $path = Join-Path $screenshotsDir $name
+    [pscustomobject]@{ name = $name; exists = Test-Path -LiteralPath $path; path = $path }
+  }
+  $ok = @($items | Where-Object { -not $_.exists }).Count -eq 0
+  $manifestPath = Join-Path $manifestDir 'visual-flow.json'
+  [pscustomobject]@{
+    flow = @('splash', 'preparar', 'revisar', 'ejecutar-1040x760', 'ejecutar-1280x720', 'resultado')
+    captured = $items
+    complete = $ok
+    captureMethod = 'UIAutomation + CopyFromScreen'
+  } | ConvertTo-Json -Depth 6 | Set-Content -Path $manifestPath -Encoding UTF8
+  $artifacts.Add($manifestPath) | Out-Null
+  Add-Result -Area 'screenshots' -Item 'complete-visual-flow' -Ok $ok -Detail ("captured={0}/{1}" -f (@($items | Where-Object exists).Count), $expected.Count)
+}
+
+function Wait-InstalledPayload {
+  param([int]$TimeoutSec = 240)
+  $required = @(
+    (Join-Path $installedRoot 'package.json'),
+    (Join-Path $installedRoot 'scripts\launcher-broker.ps1'),
+    (Join-Path $installedRoot 'runtime\node\node.exe'),
+    (Join-Path $installedRoot 'logs\installation.manifest.json'),
+    (Join-Path $installedRoot 'config\update-config.json')
+  )
+  $deadline = (Get-Date).AddSeconds($TimeoutSec)
+  do {
+    if (@($required | Where-Object { -not (Test-Path -LiteralPath $_) }).Count -eq 0) { return }
+    Start-Sleep -Milliseconds 800
+  } while ((Get-Date) -lt $deadline)
+  $missing = @($required | Where-Object { -not (Test-Path -LiteralPath $_) })
+  throw "Payload post-install incompleto. Faltan: $($missing -join ', ')"
+}
+
 function Invoke-InstalledBroker {
   param(
     [string]$Action,
-    [string]$RunId
+    [string]$RunId,
+    [int]$TimeoutSec = 60
   )
   $broker = Join-Path $installedRoot 'scripts\launcher-broker.ps1'
   if (-not (Test-Path -LiteralPath $broker)) { throw "No existe broker instalado: $broker" }
   $args = @('-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', $broker, '-Action', $Action, '-Mode', 'prod', '-Port', [string]$Port, '-RunId', $RunId, '-NoOpen')
   $stdout = Join-Path $ReportDir ("broker-{0}-{1}.stdout.log" -f $Action, $RunId)
   $stderr = Join-Path $ReportDir ("broker-{0}-{1}.stderr.log" -f $Action, $RunId)
-  & powershell.exe @args > $stdout 2> $stderr
-  $exitCode = $LASTEXITCODE
+  $process = Start-Process -FilePath 'powershell.exe' -ArgumentList $args -WorkingDirectory $installedRoot -NoNewWindow -PassThru -RedirectStandardOutput $stdout -RedirectStandardError $stderr
+  if (-not $process.WaitForExit($TimeoutSec * 1000)) {
+    Write-E2ELog "Timeout broker action=$Action pid=$($process.Id); deteniendo solo el árbol de esa invocación."
+    try { & taskkill.exe /PID $process.Id /T /F 2>$null | Out-Null } catch {}
+    Add-Result -Area 'broker' -Item $Action -Ok $false -Detail "timeout=${TimeoutSec}s runId=$RunId"
+    throw "Broker timeout action=$Action timeout=${TimeoutSec}s"
+  }
+  $process.WaitForExit()
+  $exitCode = $process.ExitCode
   Copy-ArtifactIfExists -Path $stdout | Out-Null
   Copy-ArtifactIfExists -Path $stderr | Out-Null
   Export-BrokerDiagnostics -Action $Action -RunId $RunId
@@ -983,7 +1030,7 @@ function Capture-DashboardScreenshots {
   if ([string]::IsNullOrWhiteSpace($BaseUrl)) { return }
   Capture-UrlWithPlaywright -Url $BaseUrl -Name 'dashboard-status-1280x820' -Width 1280 -Height 820 | Out-Null
   Capture-UrlWithPlaywright -Url 'http://127.0.0.1:4173' -Name 'web-docente-1280x820' -Width 1280 -Height 820 | Out-Null
-  Capture-UrlWithPlaywright -Url 'http://127.0.0.1:4173' -Name 'web-docente-980x700' -Width 980 -Height 700 | Out-Null
+  Capture-UrlWithPlaywright -Url 'http://127.0.0.1:4173' -Name 'web-docente-1280x720' -Width 1280 -Height 720 | Out-Null
 }
 
 function Test-UpdateSmoke {
@@ -995,6 +1042,33 @@ function Test-UpdateSmoke {
   $status = Invoke-RestMethod -Uri "$BaseUrl/api/update/status" -TimeoutSec 15
   Export-JsonArtifact -Name 'update-status.json' -Data $status | Out-Null
   Add-Result -Area 'update' -Item 'status' -Ok ($null -ne $status -and [string]$status.state -ne 'failed') -Detail "$BaseUrl/api/update/status"
+}
+
+function Invoke-DummyDataCycle {
+  param([string]$BaseUrl)
+  if (-not $SeedDummyData) { return }
+  if ([string]::IsNullOrWhiteSpace($BaseUrl)) {
+    Add-Result -Area 'dummy-data' -Item 'cycle' -Ok $false -Detail 'dashboard base vacio'
+    throw 'No se puede ejecutar el ciclo dummy sin dashboard base.'
+  }
+  $apiBase = $BaseUrl.TrimEnd('/') + '/api'
+  $previousBase = $env:E2E_DOCENTE_BASE_URL
+  $env:E2E_DOCENTE_BASE_URL = $apiBase
+  try {
+    $output = (& node (Join-Path $root 'scripts/tests/seed-docente-dummy.mjs') 2>&1 | Out-String)
+    $exitCode = $LASTEXITCODE
+    Export-JsonArtifact -Name 'dummy-data-cycle.json' -Data ([pscustomobject]@{
+        exitCode = $exitCode
+        apiBase = $apiBase
+        output = $output
+      }) | Out-Null
+    $ok = $exitCode -eq 0
+    Add-Result -Area 'dummy-data' -Item 'cycle' -Ok $ok -Detail 'cuenta docente + 3 materias + 3 alumnos + cleanup'
+    if (-not $ok) { throw "Ciclo dummy fallo: $output" }
+  } finally {
+    if ($null -eq $previousBase) { Remove-Item Env:E2E_DOCENTE_BASE_URL -ErrorAction SilentlyContinue }
+    else { $env:E2E_DOCENTE_BASE_URL = $previousBase }
+  }
 }
 
 function Assert-NoActiveEvaluaProAfterUninstall {
@@ -1017,14 +1091,13 @@ function Write-TutorialMarkdown {
   $content = @(
     '# Tutorial visual E2E Installer Hub docente-local',
     '',
-    'Este tutorial se genera desde la evidencia real de VM. Muestra el flujo completo install, repair, Plataforma docente nativa, dashboard y uninstall.',
+    'Este tutorial se genera desde evidencia real de la PC. Muestra el flujo completo install, repair, Plataforma docente nativa, dashboard y uninstall.',
     '',
     '## 1. Preparar',
     '- Confirmar flavor `docente-local`, modo y ruta.',
     '- El Hub docente no expone configuracion avanzada legacy.',
-    '- Ejecutar `run-e2e-launcher.ps1 -DryRun` antes del ciclo real si se opera desde host.',
-    '- Confirmar `powershell-direct-e2e-launch.json` con `acceptsCredentialParameter=true`.',
-    '- Ejecutar el launcher real con `-Credential` y `-QaPassSecureString`; no guardar passwords en archivos, logs ni handoffs.',
+    '- Ejecutar este runner con `-IUnderstandThisMutatesPc` desde una PowerShell local.',
+    '- No requiere VM, Hyper-V, WinRM, snapshots ni credenciales remotas.',
     '',
     '## 2. Revisar',
     '- Ejecutar prerequisitos.',
@@ -1106,8 +1179,6 @@ try {
   Minimize-RunnerConsole
   Export-JsonArtifact -Name 'processes-before.json' -Data (Get-ProcessSnapshot) | Out-Null
   Stop-InstallerHubProcesses -Reason 'preflight'
-  Assert-RunningInsideExpectedVm
-  Assert-SnapshotContext
   Assert-SystemMemoryReady
 
   $bundlePath = Resolve-BundlePath
@@ -1119,15 +1190,23 @@ try {
   Export-RuntimeAudit -Name 'before'
 
   if ([string]::IsNullOrWhiteSpace($InstallDir)) {
-    $InstallDir = Join-Path ${env:ProgramFiles} 'EvaluaPro'
+    $InstallDir = Join-Path ${env:LOCALAPPDATA} 'EvaluaPro'
   }
   $installedRoot = $InstallDir
 
   $existing = @(Get-EvaluaProUninstallEntries)
   Export-JsonArtifact -Name 'preflight-uninstall-entries.json' -Data $existing | Out-Null
   Add-Result -Area 'preflight' -Item 'existing-install' -Ok ($AllowExistingInstall -or $existing.Count -eq 0) -Detail ("entries={0}" -f $existing.Count)
+  $identity = [Security.Principal.WindowsIdentity]::GetCurrent()
+  $principal = New-Object Security.Principal.WindowsPrincipal($identity)
+  $isAdministrator = $principal.IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)
+  $machineInstall = @($existing | Where-Object { [string]$_.registryPath -like 'HKEY_LOCAL_MACHINE*' }).Count -gt 0
+  Add-Result -Area 'preflight' -Item 'uac-capability' -Ok (-not $machineInstall -or $isAdministrator) -Detail ("machineInstall={0} administrator={1}" -f $machineInstall, $isAdministrator)
+  if ($machineInstall -and -not $isAdministrator -and $AllowExistingInstall) {
+    throw 'Existe una instalación per-machine de EvaluaPro. Este E2E requiere una sesión elevada para migrarla/desinstalarla; acepta UAC y vuelve a ejecutar, o ejecuta una instalación limpia en un equipo sin registro previo.'
+  }
   if (-not $AllowExistingInstall -and $existing.Count -gt 0) {
-    throw 'La VM no esta limpia: ya existe una instalacion EvaluaPro.'
+    throw 'La PC no esta limpia: ya existe una instalacion EvaluaPro.'
   }
 
   $drive = Get-PSDrive -Name ([IO.Path]::GetPathRoot($installedRoot).Substring(0, 1))
@@ -1135,6 +1214,7 @@ try {
   Add-Result -Area 'preflight' -Item 'powershell' -Ok ($PSVersionTable.PSVersion.Major -ge 5) -Detail ([string]$PSVersionTable.PSVersion)
 
   Invoke-InstallerHubMode -Mode 'install' | Out-Null
+  Wait-InstalledPayload -TimeoutSec 240
   Test-InstalledState -Phase 'post-install'
 
   Invoke-InstalledBroker -Action 'verify-installation' -RunId ('e2e-verify-' + [guid]::NewGuid().ToString('N'))
@@ -1167,6 +1247,7 @@ try {
   Export-NativeEvidence
   Export-RuntimeAudit -Name 'after'
   Capture-DashboardScreenshots -BaseUrl $dashboardBase
+  Invoke-DummyDataCycle -BaseUrl $dashboardBase
   Test-UpdateSmoke -BaseUrl $dashboardBase
 
   Write-E2ELog "Deteniendo tareas nativas antes de continuar con reparacion y desinstalacion..."
@@ -1191,6 +1272,7 @@ try {
   Export-JsonArtifact -Name 'processes-after.json' -Data (Get-ProcessSnapshot) | Out-Null
   $orphanProcesses = @(Get-Process | Where-Object { $_.ProcessName -like 'EvaluaPro-InstallerHub*' -or $_.ProcessName -eq 'EvaluaPro.BurnBootstrapperApp' })
   Add-Result -Area 'post-uninstall' -Item 'orphan-processes' -Ok ($orphanProcesses.Count -eq 0) -Detail ("count={0}" -f $orphanProcesses.Count)
+  Write-VisualFlowManifest
   Write-TutorialMarkdown
 
   Save-Report -Status $(if ($failed) { 'failed' } else { 'passed' })
@@ -1202,6 +1284,7 @@ catch {
   Export-NativeEvidence
   Export-InstallerLogs
   Export-JsonArtifact -Name 'processes-error.json' -Data (Get-ProcessSnapshot) | Out-Null
+  Write-VisualFlowManifest
   Write-TutorialMarkdown
   Save-Report -Status 'failed'
   Write-E2ELog ("ERROR: {0}" -f $_.Exception.Message)

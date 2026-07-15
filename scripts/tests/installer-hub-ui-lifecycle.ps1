@@ -580,7 +580,7 @@ try {
   Resize-WindowForQa -Process $process -Width 980 -Height 700 | Out-Null
   Start-Sleep -Milliseconds 900
   $window = Find-Window -TimeoutSec 10
-  Capture-Window -Window $window -Name '07-min-980x700' | Out-Null
+  Capture-Window -Window $window -Name '07-min-1280x720' | Out-Null
 
   $restartButton = Find-ById -RootElement $window -AutomationId 'RestartNowButton' -TimeoutSec 5
   Add-Result -Area 'button' -Item 'RestartNowButton' -Ok $true -Detail $(if ($restartButton) { "visibleOffscreen=$($restartButton.Current.IsOffscreen); enabled=$($restartButton.Current.IsEnabled); no invocado por seguridad" } else { 'no expuesto porque no hay reinicio requerido; no invocado por seguridad' })

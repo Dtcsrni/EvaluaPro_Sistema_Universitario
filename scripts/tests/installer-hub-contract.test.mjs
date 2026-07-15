@@ -207,6 +207,8 @@ test('runtime Docker Windows queda abstracto en dashboard, WiX y package scripts
   assert.match(productWxs, /Distribucion docente local[\s\S]*persistencia SQLite/);
   assert.match(productWxs, /<Directory Id="INSTALLFOLDER" Name="\$\(var\.InstallFolderName\)" \/>/);
   assert.match(bundleWxs, /MsiProperty Name="REQUIRE_INSTALLER_HUB" Value="1"/);
+  assert.match(bundleWxs, /if \$\(var\.FlavorId\) = docente-local \?>[\s\S]*Variable Name="InstallFolder" Type="string" Value="\[LocalAppDataFolder\]EvaluaPro" bal:Overridable="yes" \/>[\s\S]*else\?>/);
+  assert.doesNotMatch(bundleWxs, /Variable Name="InstallFolder" Type="string" Value="\[LocalAppDataFolder\]EvaluaPro" Persisted="yes"/);
   assert.match(productWxs, /runtime Docker compatible/i);
   assert.equal(packageJson.scripts['docker:runtime:check'], 'node scripts/docker-runtime-check.mjs');
 });
@@ -243,6 +245,48 @@ test('build-msi valida contenedor adjunto Burn antes de publicar bundle', () => 
   assert.match(buildMsi, /Reutilizando Bootstrapper Application Burn ya publicada/);
 });
 
+test('docente-local no reutiliza rutas per-machine detectadas por Burn', () => {
+  const source = fs.readFileSync(burnBootstrapperSourcePath, 'utf8');
+
+  assert.match(source, /El flavor nativo docente nunca debe reutilizar una instalación per-machine/);
+  assert.match(source, /Environment\.SpecialFolder\.LocalApplicationData/);
+  assert.match(source, /Path\.GetFullPath\(installDir\)/);
+  assert.match(source, /docenteRoot/);
+});
+
+test('build-msi bloquea helper Burn obsoleto en el staging del bundle', () => {
+  const buildMsi = fs.readFileSync(path.join(root, 'scripts', 'build-msi.ps1'), 'utf8');
+  assert.match(buildMsi, /staging contiene acceso obsoleto/);
+  assert.match(buildMsi, /stagedBurnSource -match '\\\$requestJson\\\.TargetDir'/);
+  assert.ok(buildMsi.includes("Get-RequestValue\\s+-Request\\s+\\$Request"));
+});
+
+test('Installer Hub exige resolución mínima y recomienda 1080p', () => {
+  const xaml = fs.readFileSync(path.join(root, 'packaging', 'wix', 'BurnBootstrapperApp', 'MainWindow.xaml'), 'utf8');
+  const code = fs.readFileSync(path.join(root, 'packaging', 'wix', 'BurnBootstrapperApp', 'MainWindow.xaml.cs'), 'utf8');
+  assert.match(xaml, /Width="1440"[\s\S]*Height="900"[\s\S]*MinWidth="1180"[\s\S]*MinHeight="720"/);
+  assert.match(code, /MinimumScreenWidth = 1280/);
+  assert.match(code, /MinimumScreenHeight = 720/);
+  assert.match(code, /1920×1080/);
+});
+
+test('Installer Hub separa aceptación de licencia y privacidad', () => {
+  const xaml = fs.readFileSync(path.join(root, 'packaging', 'wix', 'BurnBootstrapperApp', 'MainWindow.xaml'), 'utf8');
+  const code = fs.readFileSync(path.join(root, 'packaging', 'wix', 'BurnBootstrapperApp', 'MainWindow.xaml.cs'), 'utf8');
+  assert.match(xaml, /x:Name="AcceptTermsCheckBox"/);
+  assert.match(xaml, /x:Name="AcceptPrivacyCheckBox"/);
+  assert.match(code, /AreTermsAccepted/);
+  assert.match(code, /AcceptTermsCheckBox\?\.IsChecked ===? true/);
+  assert.match(code, /AcceptPrivacyCheckBox\?\.IsChecked ===? true/);
+});
+
+test('helper post-install eleva escritura de configuración per-machine', () => {
+  const helper = fs.readFileSync(path.join(root, 'scripts', 'installer-burn', 'InstallerBurnHelper.ps1'), 'utf8');
+  assert.match(helper, /WindowsBuiltInRole\]::Administrator/);
+  assert.match(helper, /Start-Process -FilePath 'powershell\.exe' -Verb RunAs/);
+  assert.match(helper, /EVALUAPRO_HELPER_ELEVATED/);
+});
+
 test('installer hub WPF publica timeline por etapas y resumen de error MSI visible', () => {
   const bootstrapper = fs.readFileSync(path.join(root, 'packaging', 'wix', 'BurnBootstrapperApp', 'EvaluaProBootstrapperApplication.cs'), 'utf8');
   const mainWindowXaml = fs.readFileSync(path.join(root, 'packaging', 'wix', 'BurnBootstrapperApp', 'MainWindow.xaml'), 'utf8');
@@ -264,6 +308,7 @@ test('Installer Hub cumple contrato DESIGN.md de layout y accesibilidad WPF', ()
   const installerHubDocs = fs.readFileSync(path.join(root, 'docs', 'INSTALLER_HUB.md'), 'utf8');
   const mainWindowXaml = fs.readFileSync(burnBootstrapperWindowPath, 'utf8');
   const mainWindowCode = fs.readFileSync(burnBootstrapperWindowCodePath, 'utf8');
+  const bootstrapperCode = fs.readFileSync(path.join(root, 'packaging', 'wix', 'BurnBootstrapperApp', 'EvaluaProBootstrapperApplication.cs'), 'utf8');
   const bootstrapperProject = fs.readFileSync(burnBootstrapperProjectPath, 'utf8');
 
   assert.match(design, /Fuente de verdad visual y UX para las superficies operativas de EvaluaPro/);
@@ -278,12 +323,14 @@ test('Installer Hub cumple contrato DESIGN.md de layout y accesibilidad WPF', ()
   assert.match(uxCriteria, /docs\/DESIGN\.md/);
   assert.match(installerHubDocs, /docs\/DESIGN\.md/);
 
-  assert.match(mainWindowXaml, /Width="1040"/);
-  assert.match(mainWindowXaml, /Height="760"/);
-  assert.match(mainWindowXaml, /MinWidth="980"/);
-  assert.match(mainWindowXaml, /MinHeight="700"/);
+  assert.match(mainWindowXaml, /Width="1440"/);
+  assert.match(mainWindowXaml, /Height="900"/);
+  assert.match(mainWindowXaml, /MinWidth="1180"/);
+  assert.match(mainWindowXaml, /MinHeight="720"/);
   assert.doesNotMatch(mainWindowXaml, /Canvas IsHitTestVisible="False"/);
-  assert.doesNotMatch(mainWindowXaml, /CornerRadius="(?:1[0-9]|2[0-9])"/);
+  // El lenguaje visual actual usa radios de 10-16 px para jerarquía y tactilidad.
+  // Se conserva un límite superior para evitar cápsulas excesivas o superficies blandas.
+  assert.doesNotMatch(mainWindowXaml, /CornerRadius="(?:1[7-9]|[2-9][0-9])"/);
   assert.match(mainWindowXaml, /KeyboardNavigation\.TabNavigation="Cycle"/);
   assert.match(mainWindowXaml, /x:Name="StepperHost"/);
   assert.match(mainWindowXaml, /x:Name="StepHost"/);
@@ -304,7 +351,9 @@ test('Installer Hub cumple contrato DESIGN.md de layout y accesibilidad WPF', ()
   assert.match(mainWindowXaml, /#B42318/);
   assert.match(mainWindowXaml, /#15803D/);
   assert.doesNotMatch(mainWindowXaml, /#F3EFE7|#F7F2E9|#F4F1EA/);
-  assert.doesNotMatch(mainWindowXaml, /LinearGradientBrush/);
+  assert.match(mainWindowXaml, /LinearGradientBrush/);
+  assert.match(bootstrapperCode, /Guid\.NewGuid\(\)/);
+  assert.match(bootstrapperCode, /correlationId/);
   assert.doesNotMatch(mainWindowXaml, /x:Name="AdvancedConfigExpander"/);
   assert.doesNotMatch(mainWindowXaml, /Configuración avanzada|Mongo URI|MongoDB/i);
   assert.doesNotMatch(mainWindowXaml, /x:Name="MongoUriTextBox"|x:Name="NodeEnvTextBox"|x:Name="ApiPortTextBox"/);
@@ -432,7 +481,7 @@ test('Installer Hub tiene QA UIAutomation no destructivo para ciclo de vida visu
   assert.match(runner, /04-ejecutar-busy/);
   assert.match(runner, /05-resultado/);
   assert.match(runner, /06-avanzado/);
-  assert.match(runner, /07-min-980x700/);
+  assert.match(runner, /07-min-1280x720/);
   assert.match(runner, /MoveWindow/);
   assert.match(runner, /Select-ComboItem/);
   assert.match(runner, /Test-ScrollPattern/);
@@ -447,7 +496,7 @@ test('Installer Hub tiene QA UIAutomation no destructivo para ciclo de vida visu
   assert.match(bootstrapper, /El producto real no fue modificado/);
 });
 
-test.skip('Installer Hub tiene runner E2E real docente con guardas de VM y evidencia completa', () => {
+test.skip('Legacy: Installer Hub tenía runner E2E docente con guardas remotas', () => {
   const packageJson = JSON.parse(fs.readFileSync(path.join(root, 'package.json'), 'utf8'));
   const runner = fs.readFileSync(installerHubE2eDocentePath, 'utf8');
   const readiness = fs.readFileSync(path.join(root, 'scripts', 'installer-hub-vm-readiness.ps1'), 'utf8');
@@ -896,7 +945,9 @@ test.skip('bootstrapper Burn WPF .NET 8 orquesta deteccion, MSI y helper post-in
   assert.match(windowCode, /StartSplashFallbackWatcher/);
   assert.match(windowXaml, /WorkflowHeaderTitleTextBlock/);
 
-  assert.match(helper, /ValidateSet\('detect-prereqs', 'post-install'\)/);
+  assert.match(helper, /ValidateSet\('detect-prereqs', 'post-install', 'update', 'uninstall'\)/);
+  assert.match(helper, /Mode -eq 'update'/);
+  assert.match(helper, /Mode -eq 'uninstall'/);
   assert.match(helper, /configuracion_operativa/);
   assert.match(helper, /verificacion_final/);
   assert.match(helper, /blindaje_licencia_local/);
@@ -1808,15 +1859,16 @@ test('runner E2E acepta post-install helper JSON como estado estable', () => {
 test('runner E2E ejecuta broker instalado preservando rutas con espacios', () => {
   const runner = fs.readFileSync(installerHubE2eDocentePath, 'utf8');
 
-  assert.match(runner, /& powershell\.exe @args > \$stdout 2> \$stderr/);
-  assert.match(runner, /\$exitCode = \$LASTEXITCODE/);
+  assert.match(runner, /Start-Process -FilePath 'powershell\.exe' -ArgumentList \$args/);
+  assert.match(runner, /WaitForExit\(\$TimeoutSec \* 1000\)/);
+  assert.match(runner, /taskkill\.exe \/PID \$process\.Id \/T \/F/);
+  assert.match(runner, /\$exitCode = \$process\.ExitCode/);
   assert.match(runner, /Copy-ArtifactIfExists -Path \$stdout/);
   assert.match(runner, /Export-BrokerDiagnostics -Action \$Action -RunId \$RunId/);
   assert.match(runner, /bootstrap-state-\{0\}\.json/);
-  assert.doesNotMatch(runner, /Start-Process -FilePath 'powershell\.exe' -ArgumentList \$args/);
 });
 
-test('runner E2E falla temprano si memoria o pagefile de VM no alcanzan', () => {
+test('runner E2E local falla temprano si memoria o pagefile no alcanzan', () => {
   const runner = fs.readFileSync(installerHubE2eDocentePath, 'utf8');
 
   assert.match(runner, /function Get-SystemMemorySnapshot/);

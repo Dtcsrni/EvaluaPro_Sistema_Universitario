@@ -17,17 +17,10 @@ test('auditoria de completitud conserva cierre parcial y evidencia requerida', (
   const audit = fs.readFileSync(auditPath, 'utf8');
 
   assert.match(audit, /Estado: `partial`/);
-  assert.match(audit, /E2E real mutante del Installer Hub/);
+  assert.match(audit, /E2E mutativo completo/);
   assert.match(audit, /install.*repair.*update smoke.*uninstall/s);
-  assert.match(audit, /EVALUAPRO_E2E_VM_SNAPSHOT/);
-  assert.match(audit, /-IUnderstandThisMutatesVm/);
-  assert.match(audit, /Get-VM EvaluaPro-E2E-Win11.*Running.*MemoryAssigned=3221225472/s);
-  assert.match(audit, /Test-WSMan EVALPRO-E2E.*responde/s);
-  assert.match(audit, /WinRM con `EVALPRO-E2E\\evaluaqa` vuelve a autenticar/s);
-  assert.match(audit, /%APPDATA%\\EvaluaPro\\e2e-qa-pass\.dpapi/s);
-  assert.match(audit, /reports\/qa\/installer-hub-e2e-docente\/20260602-042758\/report\.json/s);
-  assert.match(audit, /No aparecio Installer Hub para mode=install/s);
-  assert.match(audit, /quser: No User exists/s);
+  assert.match(audit, /ejecutar en esta PC/);
+  assert.match(audit, /-IUnderstandThisMutatesPc/);
 
   for (const command of [
     'npm run test:gui:screen-matrix',
@@ -35,8 +28,7 @@ test('auditoria de completitud conserva cierre parcial y evidencia requerida', (
     'npm run test:gui:responsive:e2e:ci',
     'npm run test:installer-hub:contract',
     'npm run test:installer-hub:ui',
-    'npm run installer:hub:vm-readiness',
-    'npm run installer:hub:e2e:elevated',
+    'npm run installer:hub:e2e:local',
     'npm run test:dashboard:repair',
     'npm run test:dashboard:ui'
   ]) {

@@ -2,7 +2,7 @@
 # Replaces the legacy Docker/WSL orchestration.
 param(
   [Parameter(Mandatory = $true)]
-  [ValidateSet('detect-prereqs', 'post-install')]
+  [ValidateSet('detect-prereqs', 'post-install', 'update', 'uninstall')]
   [string]$Mode,
   [Parameter(Mandatory = $true)]
   [string]$RequestPath,
@@ -279,18 +279,43 @@ function Detect-Prerequisites {
     }
   }
 
+  $generationWord = 'generaci' + [char]0x00F3 + 'n'
+  $examsWord = 'ex' + [char]0x00E1 + 'menes'
+  $visualizationWord = 'visualizaci' + [char]0x00F3 + 'n'
+  $installationWord = 'instalaci' + [char]0x00F3 + 'n'
+  $verificationWord = 'verificaci' + [char]0x00F3 + 'n'
+  $configurationWord = 'configuraci' + [char]0x00F3 + 'n'
+  $diagnosticWord = 'diagn' + [char]0x00F3 + 'stico'
+  $operationWord = 'operaci' + [char]0x00F3 + 'n'
+
   $prereqs = @(
     @{
       Name = "Microsoft Edge WebView2 (Nativo)"
       Installed = $edgeInstalled
       ActualVersion = $edgeVersion
-      Reason = "Permite la generación nativa de exámenes PDF (OMR) y visualización de la interfaz."
+      Reason = "Permite la $generationWord nativa de $examsWord PDF (OMR) y $visualizationWord de la interfaz."
+    },
+    @{
+      Name = "Node.js portable (incluido)"
+      Installed = $true
+      ActualVersion = "Se provisiona en runtime\node durante la $installationWord"
+      Reason = "El Hub instala un runtime aislado; no requiere Node.js global ni modifica el entorno del usuario."
+    },
+    @{
+      Name = "Windows PowerShell 5+"
+      Installed = $PSVersionTable.PSVersion.Major -ge 5
+      ActualVersion = [string]$PSVersionTable.PSVersion
+      Reason = "Ejecuta $verificationWord, $configurationWord y $diagnosticWord local del Hub."
+    },
+    @{
+      Name = "Espacio libre para instalacion"
+      Installed = $true
+      ActualVersion = "Validado por Burn/MSI antes de ejecutar"
+      Reason = "El instalador valida espacio y detiene la $operationWord antes de dejar una $installationWord incompleta."
     }
   )
 
-  # No validamos Node.js globalmente porque inyectamos un LTS portable aislando el runtime.
-
-  $ready = $edgeInstalled
+  $ready = $edgeInstalled -and ($PSVersionTable.PSVersion.Major -ge 5)
 
   Write-Response @{
     ok = $true
@@ -306,9 +331,38 @@ function Detect-Prerequisites {
 
 function Invoke-PostInstall {
   Write-Host "Iniciando instalacion nativa de EvaluaPro..."
-  
+
   $requestJson = Get-Content -Raw -Path $RequestPath | ConvertFrom-Json
   $targetDir = Get-TargetInstallDir -Request $requestJson
+  $targetRoot = [IO.Path]::GetFullPath($targetDir).TrimEnd('\')
+  $protectedRoots = @(
+    [Environment]::GetFolderPath([Environment+SpecialFolder]::ProgramFiles),
+    [Environment]::GetFolderPath([Environment+SpecialFolder]::ProgramFilesX86),
+    [Environment]::GetFolderPath([Environment+SpecialFolder]::Windows)
+  ) | Where-Object { -not [string]::IsNullOrWhiteSpace($_) } | ForEach-Object {
+    [IO.Path]::GetFullPath($_).TrimEnd('\')
+  }
+  $requiresElevation = @($protectedRoots | Where-Object {
+    $targetRoot.StartsWith($_, [StringComparison]::OrdinalIgnoreCase)
+  }).Count -gt 0
+
+  # Burn mantiene la BA en el contexto del usuario mientras eleva el MSI.
+  # Solo elevamos si la ruta final está protegida por Windows.
+  $identity = [Security.Principal.WindowsIdentity]::GetCurrent()
+  $principal = New-Object Security.Principal.WindowsPrincipal($identity)
+  $isAdministrator = $principal.IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)
+  if ($requiresElevation -and -not $isAdministrator -and $env:EVALUAPRO_HELPER_ELEVATED -ne '1') {
+    $env:EVALUAPRO_HELPER_ELEVATED = '1'
+    $childArgs = @(
+      '-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', $PSCommandPath,
+      '-Mode', 'post-install', '-RequestPath', $RequestPath, '-ResponsePath', $ResponsePath
+    )
+    $elevated = Start-Process -FilePath 'powershell.exe' -Verb RunAs -ArgumentList $childArgs -Wait -PassThru
+    if ($elevated.ExitCode -ne 0) {
+      throw "El helper post-install elevado terminó con código $($elevated.ExitCode)."
+    }
+    return
+  }
 
   if (-not (Test-Path $targetDir)) {
     New-Item -ItemType Directory -Path $targetDir -Force | Out-Null
@@ -329,7 +383,7 @@ function Invoke-PostInstall {
   }
   $envPath = Assert-InstallerRuntimeEnv -TargetDir $targetDir
 
-  $nodeDir = Join-Path $targetDir "node-lts"
+  $nodeDir = Join-Path $targetDir "runtime\node"
   if (-not (Test-Path $nodeDir)) {
     New-Item -ItemType Directory -Path $nodeDir -Force | Out-Null
   }
@@ -369,10 +423,19 @@ function Invoke-PostInstall {
   $vbsContent = "Set WshShell = CreateObject(`"WScript.Shell`")`nWshShell.Run `"$vbsCommand`", 0, False"
   Set-Content -Path $vbsPath -Value $vbsContent
 
-  # Registramos la tarea programada al inicio de sesion (silenciosa sin admin)
-  $action = New-ScheduledTaskAction -Execute "wscript.exe" -Argument "`"$vbsPath`"" -WorkingDirectory $appDir
-  $trigger = New-ScheduledTaskTrigger -AtLogOn
-  Register-ScheduledTask -TaskName "EvaluaProNativeBackground" -Action $action -Trigger $trigger -Description "Servicio backend de EvaluaPro" -Force | Out-Null
+  # La persistencia por tarea no debe convertir una instalación de usuario en UAC obligatorio.
+  # Si Windows rechaza el registro, el broker de sesión sigue siendo utilizable y se informa como degradación.
+  $backgroundTaskRegistered = $false
+  $backgroundTaskWarning = $null
+  try {
+    $action = New-ScheduledTaskAction -Execute "wscript.exe" -Argument "`"$vbsPath`"" -WorkingDirectory $appDir
+    $trigger = New-ScheduledTaskTrigger -AtLogOn
+    Register-ScheduledTask -TaskName "EvaluaProNativeBackground" -Action $action -Trigger $trigger -Description "Servicio backend de EvaluaPro" -Force -ErrorAction Stop | Out-Null
+    $backgroundTaskRegistered = $true
+  } catch {
+    $backgroundTaskWarning = "Windows rechazó la persistencia automática del broker; se ejecutará bajo demanda sin elevar: $($_.Exception.Message)"
+    Write-Warning $backgroundTaskWarning
+  }
   
   # Iniciamos ahora
   Start-Process -FilePath "wscript.exe" -ArgumentList "`"$vbsPath`"" -WindowStyle Hidden
@@ -384,13 +447,16 @@ function Invoke-PostInstall {
     ok = $true
     phase = "helper_postinstall"
     exitCode = 0
-    message = "Instalacion Nativa exitosa."
+    message = if ($backgroundTaskRegistered) { "Instalacion Nativa exitosa." } else { "Instalacion Nativa exitosa; broker bajo demanda." }
+    degraded = -not $backgroundTaskRegistered
+    warning = $backgroundTaskWarning
     data = @{
       envPath = $envPath
       workflow = @{
         stages = @(
           @{ Name = "Runtime Node LTS"; Badge = "OK"; Status = "Instalado aislado" },
-          @{ Name = "Aplicacion"; Badge = "OK"; Status = "Extraida y registrada" }
+          @{ Name = "Aplicacion"; Badge = "OK"; Status = "Extraida y registrada" },
+          @{ Name = "Broker de fondo"; Badge = if ($backgroundTaskRegistered) { "OK" } else { "INFO" }; Status = if ($backgroundTaskRegistered) { "Tarea de sesión registrada" } else { "Disponible bajo demanda; no requiere UAC" } }
         )
       }
     }

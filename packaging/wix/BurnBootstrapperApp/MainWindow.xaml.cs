@@ -6,11 +6,14 @@ using System.Windows.Media;
 using System.Windows.Media.Animation;
 using System.Windows.Shapes;
 using System.Windows.Threading;
+using System.Runtime.InteropServices;
 
 namespace EvaluaPro.BurnBootstrapperApp;
 
 public partial class MainWindow : Window
 {
+    private const double MinimumScreenWidth = 1280;
+    private const double MinimumScreenHeight = 720;
     private const string DefaultDatabaseUrl = "file:C:/ProgramData/EvaluaPro/data/evaluapro.db";
     private const string DefaultNodeEnv = "production";
     private const string DefaultApiPort = "4000";
@@ -56,6 +59,8 @@ public partial class MainWindow : Window
     private bool readyToStart;
     private bool splashDismissed;
     private DispatcherTimer? splashFallbackTimer;
+    private DispatcherTimer? splashCarouselTimer;
+    private int splashFeatureIndex;
     private bool suppressModeChangedEvent;
     private WizardStep currentStep = WizardStep.Terms;
     private string currentUpdateAssetName = DefaultUpdateAssetName;
@@ -63,11 +68,55 @@ public partial class MainWindow : Window
     public MainWindow()
     {
         InitializeComponent();
+        ConfigureHardwareRendering();
         ModeComboBox.SelectedIndex = 0;
         SetHubVersionLabel();
         RefreshOperationalChrome();
         SetWizardStep(WizardStep.Terms);
-        StartSplashFallbackWatcher();
+        Loaded += (_, _) => ApplyResolutionGuard();
+        SourceInitialized += (_, _) => ApplyNativeBackdrop();
+        StartSplashCarousel();
+    }
+
+    private void ConfigureHardwareRendering()
+    {
+        System.Windows.Media.RenderOptions.ProcessRenderMode = System.Windows.Interop.RenderMode.Default;
+        var tier = System.Windows.Media.RenderCapability.Tier >> 16;
+        AppendLog($"[info] WPF DirectX render tier={tier}; GPU/DWM activo={tier > 0}.");
+    }
+
+    private void ApplyNativeBackdrop()
+    {
+        if (!OperatingSystem.IsWindowsVersionAtLeast(10, 0, 22000))
+        {
+            return;
+        }
+
+        var hwnd = new System.Windows.Interop.WindowInteropHelper(this).Handle;
+        var backdrop = 2; // DWMSBT_MAINWINDOW: Mica estable; fallback visual propio debajo.
+        _ = DwmSetWindowAttribute(hwnd, 38, ref backdrop, sizeof(int));
+    }
+
+    [DllImport("dwmapi.dll")]
+    private static extern int DwmSetWindowAttribute(IntPtr hwnd, int attribute, ref int value, int valueSize);
+
+    private void ApplyResolutionGuard()
+    {
+        var workArea = SystemParameters.WorkArea;
+        var supported = workArea.Width >= MinimumScreenWidth && workArea.Height >= MinimumScreenHeight;
+        if (!supported)
+        {
+            StartButton.IsEnabled = false;
+            NextButton.IsEnabled = false;
+            FooterStatusTextBlock.Text = $"Resolución no compatible: se requiere como mínimo {MinimumScreenWidth:0}×{MinimumScreenHeight:0}.";
+            FooterStatusTextBlock.Text += " Aumenta la resolución de Windows o conecta un monitor de al menos 1280×720 para continuar.";
+            return;
+        }
+
+        if (workArea.Width < 1920 || workArea.Height < 1080)
+        {
+            FooterStatusTextBlock.Text = "Resolución compatible. Se recomienda 1920×1080 para una visualización óptima.";
+        }
     }
 
     public event EventHandler? DetectRequested;
@@ -109,7 +158,7 @@ public partial class MainWindow : Window
         RefreshPrerequisiteSummary(rows);
         var isInstall = string.Equals(GetSelectedMode(), "install", StringComparison.OrdinalIgnoreCase);
         var isUninstall = string.Equals(GetSelectedMode(), "uninstall", StringComparison.OrdinalIgnoreCase);
-        var accepted = AcceptTermsCheckBox.IsChecked == true;
+        var accepted = AreTermsAccepted();
         StartButton.IsEnabled = (model.Ready || isUninstall) && !busy && (!isInstall || accepted);
         FooterStatusTextBlock.Text = model.Ready
             ? "Equipo listo. Puedes ejecutar la operación seleccionada."
@@ -153,7 +202,7 @@ public partial class MainWindow : Window
     {
         DismissSplashOverlay();
         var isInstall = string.Equals(GetSelectedMode(), "install", StringComparison.OrdinalIgnoreCase);
-        if (isInstall && AcceptTermsCheckBox.IsChecked != true)
+        if (isInstall && !AreTermsAccepted())
         {
             SetWizardStep(WizardStep.Terms);
         }
@@ -185,7 +234,7 @@ public partial class MainWindow : Window
             StatusSpinner.Visibility = busy ? Visibility.Visible : Visibility.Collapsed;
             var isInstall = string.Equals(GetSelectedMode(), "install", StringComparison.OrdinalIgnoreCase);
             var isUninstall = string.Equals(GetSelectedMode(), "uninstall", StringComparison.OrdinalIgnoreCase);
-            var accepted = AcceptTermsCheckBox.IsChecked == true;
+            var accepted = AreTermsAccepted();
             StartButton.IsEnabled = !busy && (readyToStart || isUninstall) && (!isInstall || accepted);
             RestartNowButton.IsEnabled = !busy;
             BackButton.IsEnabled = !busy && currentStep != WizardStep.Terms && (currentStep != WizardStep.Prepare || isInstall);
@@ -522,12 +571,18 @@ public partial class MainWindow : Window
         var updateAssetName = string.IsNullOrWhiteSpace(currentUpdateAssetName)
             ? selectedFlavor?.AssetName ?? DefaultUpdateAssetName
             : currentUpdateAssetName;
+        var installDir = InstallDirTextBox.Text.Trim();
+        if (string.Equals(selectedFlavor?.FlavorId, "docente-local", StringComparison.OrdinalIgnoreCase))
+        {
+            installDir = System.IO.Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "EvaluaPro");
+            InstallDirTextBox.Text = installDir;
+        }
 
         return new BootstrapperRequest
         {
             FlavorId = selectedFlavor?.FlavorId ?? "docente-local",
             Mode = mode,
-            InstallDir = InstallDirTextBox.Text.Trim(),
+            InstallDir = installDir,
             InstallDesktopShortcuts = DesktopShortcutsCheckBox.IsChecked == true,
             InstallStartMenuShortcuts = StartMenuShortcutsCheckBox.IsChecked == true,
             ExportData = ExportDataCheckBox.IsChecked == true,
@@ -674,7 +729,7 @@ public partial class MainWindow : Window
     {
         splashFallbackTimer = new DispatcherTimer
         {
-            Interval = TimeSpan.FromSeconds(15)
+            Interval = TimeSpan.FromSeconds(30)
         };
 
         splashFallbackTimer.Tick += (_, _) =>
@@ -684,6 +739,108 @@ public partial class MainWindow : Window
         };
 
         splashFallbackTimer.Start();
+    }
+
+    private void ShowIntroButton_OnClick(object sender, RoutedEventArgs e)
+    {
+        splashDismissed = false;
+        UpdateSplashFeature();
+        SplashOverlay.Visibility = Visibility.Visible;
+    }
+
+    private void SplashCloseButton_OnClick(object sender, RoutedEventArgs e)
+    {
+        DismissSplashOverlay();
+    }
+
+    private static readonly (string Title, string Description)[] SplashFeatures =
+    {
+        ("Instala con confianza", "Revisa requisitos y conserva evidencia de cada etapa."),
+        ("Diseñado para docentes", "El flavor nativo trabaja localmente, ligero y sin VM."),
+        ("Evalúa y califica", "Prepara materias, aplica evaluaciones y conserva resultados trazables."),
+        ("Escaneo OMR", "Captura hojas de respuesta y convierte resultados en información accionable."),
+        ("Retroalimentación útil", "Detecta áreas de oportunidad y comunica avances con reportes claros."),
+        ("Siempre puedes volver", "Repara, actualiza o desinstala con estados claros y reversibles.")
+    };
+
+    private void StartSplashCarousel()
+    {
+        UpdateSplashFeature();
+        splashCarouselTimer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(6) };
+        splashCarouselTimer.Tick += (_, _) =>
+        {
+            splashFeatureIndex = (splashFeatureIndex + 1) % SplashFeatures.Length;
+            UpdateSplashFeature();
+        };
+        splashCarouselTimer.Start();
+    }
+
+    private void UpdateSplashFeature()
+    {
+        var feature = SplashFeatures[splashFeatureIndex];
+        SplashFeatureTitleTextBlock.Text = feature.Title;
+        SplashFeatureDescriptionTextBlock.Text = feature.Description;
+        SplashFeatureIndexTextBlock.Text = $"{splashFeatureIndex + 1} de {SplashFeatures.Length}";
+        SplashNextButton.Content = splashFeatureIndex == SplashFeatures.Length - 1 ? "Comenzar" : "Siguiente";
+        HeaderFeatureTitleTextBlock.Text = feature.Title;
+        HeaderFeatureDescriptionTextBlock.Text = feature.Description;
+        HeaderFeatureIndexTextBlock.Text = $"{splashFeatureIndex + 1} de {SplashFeatures.Length}";
+        AnimateCarouselText(SplashFeatureTitleTextBlock, SplashFeatureDescriptionTextBlock,
+            HeaderFeatureTitleTextBlock, HeaderFeatureDescriptionTextBlock);
+    }
+
+    private static void AnimateCarouselText(params UIElement[] elements)
+    {
+        foreach (var element in elements)
+        {
+            element.BeginAnimation(UIElement.OpacityProperty, null);
+            element.Opacity = 0.35;
+            element.BeginAnimation(UIElement.OpacityProperty, new DoubleAnimation
+            {
+                From = 0.35,
+                To = 1,
+                Duration = new Duration(TimeSpan.FromMilliseconds(280)),
+                EasingFunction = new QuadraticEase()
+            });
+        }
+    }
+
+    private void SplashPreviousButton_OnClick(object sender, RoutedEventArgs e)
+    {
+        splashCarouselTimer?.Stop();
+        splashFeatureIndex = (splashFeatureIndex + SplashFeatures.Length - 1) % SplashFeatures.Length;
+        UpdateSplashFeature();
+        splashCarouselTimer?.Start();
+    }
+
+    private void SplashNextButton_OnClick(object sender, RoutedEventArgs e)
+    {
+        splashCarouselTimer?.Stop();
+        if (splashFeatureIndex == SplashFeatures.Length - 1)
+        {
+            DismissSplashOverlay();
+            return;
+        }
+
+        splashFeatureIndex = (splashFeatureIndex + 1) % SplashFeatures.Length;
+        UpdateSplashFeature();
+        splashCarouselTimer?.Start();
+    }
+
+    private void HeaderPreviousButton_OnClick(object sender, RoutedEventArgs e)
+    {
+        splashCarouselTimer?.Stop();
+        splashFeatureIndex = (splashFeatureIndex + SplashFeatures.Length - 1) % SplashFeatures.Length;
+        UpdateSplashFeature();
+        splashCarouselTimer?.Start();
+    }
+
+    private void HeaderNextButton_OnClick(object sender, RoutedEventArgs e)
+    {
+        splashCarouselTimer?.Stop();
+        splashFeatureIndex = (splashFeatureIndex + 1) % SplashFeatures.Length;
+        UpdateSplashFeature();
+        splashCarouselTimer?.Start();
     }
 
     private void DismissSplashOverlay()
@@ -704,10 +861,7 @@ public partial class MainWindow : Window
         string? informationalVersion = null;
         try
         {
-            if (!string.IsNullOrWhiteSpace(assembly.Location))
-            {
-                informationalVersion = System.Diagnostics.FileVersionInfo.GetVersionInfo(assembly.Location).ProductVersion;
-            }
+            informationalVersion = typeof(MainWindow).Assembly.GetName().Version?.ToString();
         }
         catch
         {
@@ -883,7 +1037,7 @@ public partial class MainWindow : Window
     {
         var isInstall = string.Equals(GetSelectedMode(), "install", StringComparison.OrdinalIgnoreCase);
         var isUninstall = string.Equals(GetSelectedMode(), "uninstall", StringComparison.OrdinalIgnoreCase);
-        var accepted = AcceptTermsCheckBox.IsChecked == true;
+        var accepted = AreTermsAccepted();
 
         BackButton.IsEnabled = !busy && currentStep != WizardStep.Terms && (currentStep != WizardStep.Prepare || isInstall);
         
@@ -899,7 +1053,38 @@ public partial class MainWindow : Window
         DetectButton.Visibility = currentStep == WizardStep.Review ? Visibility.Visible : Visibility.Collapsed;
         StartButton.Visibility = currentStep is WizardStep.Review or WizardStep.Execute ? Visibility.Visible : Visibility.Collapsed;
         StartButton.IsEnabled = !busy && (readyToStart || isUninstall) && (!isInstall || accepted);
+        RefreshRecommendedActionAnimation(isInstall, isUninstall, accepted);
         RefreshFooterGuidance();
+    }
+
+    private void RefreshRecommendedActionAnimation(bool isInstall, bool isUninstall, bool accepted)
+    {
+        StopPulseAnimation(NextButton);
+        StopPulseAnimation(StartButton);
+        StopPulseAnimation(DetectButton);
+        StopPulseAnimation(AcceptPrivacyCheckBox);
+
+        if (!SystemParameters.ClientAreaAnimation)
+        {
+            return;
+        }
+
+        if (currentStep == WizardStep.Terms && isInstall && !accepted)
+        {
+            StartPulseAnimation(AcceptPrivacyCheckBox);
+        }
+        else if (currentStep == WizardStep.Review && !readyToStart && DetectButton.IsVisible && DetectButton.IsEnabled)
+        {
+            StartPulseAnimation(DetectButton);
+        }
+        else if (StartButton.IsVisible && StartButton.IsEnabled)
+        {
+            StartPulseAnimation(StartButton);
+        }
+        else if (NextButton.IsVisible && NextButton.IsEnabled)
+        {
+            StartPulseAnimation(NextButton);
+        }
     }
 
     private void RefreshFooterGuidance()
@@ -957,7 +1142,7 @@ public partial class MainWindow : Window
     private void AcceptTermsCheckBox_OnClick(object sender, RoutedEventArgs e)
     {
         var isInstall = string.Equals(GetSelectedMode(), "install", StringComparison.OrdinalIgnoreCase);
-        if (isInstall && AcceptTermsCheckBox.IsChecked == true && currentStep == WizardStep.Terms)
+        if (isInstall && AreTermsAccepted() && currentStep == WizardStep.Terms)
         {
             SetWizardStep(WizardStep.Prepare);
         }
@@ -966,6 +1151,9 @@ public partial class MainWindow : Window
             RefreshWizardNavigation();
         }
     }
+
+    private bool AreTermsAccepted()
+        => AcceptTermsCheckBox?.IsChecked == true && AcceptPrivacyCheckBox?.IsChecked == true;
 
     private void UpdateStepperState(bool hasFailure = false)
     {
