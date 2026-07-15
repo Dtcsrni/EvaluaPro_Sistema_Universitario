@@ -5,6 +5,7 @@ Este archivo sigue el formato "Keep a Changelog" (alto nivel) y SemVer.
 ## [Unreleased]
 
 ### Fixed
+- Installer Hub: el carrusel embebido conserva el logo oficial únicamente en el encabezado; sus tarjetas usan iconografía funcional y una prueba de contrato bloquea la redundancia de marca.
 - E2E Installer Hub docente: eliminado el carril VM/Hyper-V/WinRM; el ciclo se ejecuta directamente en la PC y usa `-IUnderstandThisMutatesPc`.
 - E2E docente: añadido seed local aislado para una cuenta, 3 materias y 3 alumnos dummy con verificación y cleanup.
 - E2E UIAutomation: el consentimiento de términos usa interacción de teclado para disparar el handler WPF y evitar estados visualmente marcados pero no navegables.

@@ -182,3 +182,10 @@ El carrusel visible del Hub debe permanecer embebido en el encabezado, cambiar
 automáticamente con pausa suficiente para lectura, permitir navegación manual,
 usar iconografía descriptiva de alta resolución y ofrecer al menos 21 funciones
 relevantes de EvaluaPro con textos breves, claros y accesibles.
+
+La identidad oficial de EvaluaPro debe aparecer una sola vez en el encabezado
+visible del Hub. Las tarjetas del carrusel no deben reutilizar el logo ni una
+miniatura de marca; deben usar únicamente iconografía funcional para evitar
+redundancia visual y conservar espacio para el contenido descriptivo. El logo
+pequeño de la pantalla final de instalación queda permitido como cierre de
+marca contextual.

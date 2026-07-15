@@ -7,6 +7,7 @@ Version visible objetivo: `1.1.0`
 ## 1) Alcance
 - Monorepo completo: `apps/*`, `scripts/*`, `docs/*`, `ci/*`, `.github/workflows/*`.
 - Contrato unico moderno sin rutas/versiones heredadas.
+- UX Installer Hub: marca oficial única en el encabezado; carrusel con iconografía funcional y contrato anti-redundancia.
 
 ## 2) Estructura actual
 - Apps:
@@ -510,4 +511,3 @@ Version visible objetivo: `1.1.0`
   - Contrato de instaladores: OK (`npm run test:installer-hub:contract` en verde).
   - Compilación y empaquetado WiX: OK (`npm run installer:hub:build` en verde).
   - Ejecutable docente-local v1.1.1 reconstruido y copiado en `O:\Descargas\EvaluaPro-InstallerHub-docente-local-v1.1.1.exe`.
-

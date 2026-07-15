@@ -472,6 +472,8 @@ test('Installer Hub cumple contrato DESIGN.md de layout y accesibilidad WPF', ()
   assert.doesNotMatch(mainWindowXaml, /HeaderFeatureImageFrame/);
   assert.match(mainWindowXaml, /x:Name="HeaderFeatureIcon"/);
   assert.match(mainWindowXaml, /x:Name="SplashFeatureIcon"/);
+  const headerCarousel = mainWindowXaml.match(/<Border x:Name="HeaderFeatureIconPlate"[\s\S]*?<\/Border>/)?.[0] ?? '';
+  assert.doesNotMatch(headerCarousel, /<Image\b|evaluapro-(?:installer|official)|logo/i, 'El carrusel embebido no debe repetir el logo oficial.');
   assert.match(mainWindowXaml, /x:Key="TermsTextBrush" Color="#17324D"/);
   assert.match(mainWindowXaml, /x:Name="TermsText"[\s\S]*Foreground="\{StaticResource TermsTextBrush\}"/);
   assert.match(mainWindowXaml, /x:Name="SplashOverlay"[\s\S]*Background="#E6111827"/);
