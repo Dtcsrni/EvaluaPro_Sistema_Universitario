@@ -892,6 +892,8 @@ function Wait-InstalledPayload {
     (Join-Path $installedRoot 'package.json'),
     (Join-Path $installedRoot 'scripts\launcher-broker.ps1'),
     (Join-Path $installedRoot 'runtime\node\node.exe'),
+    (Join-Path $installedRoot 'apps\backend\dist\index.js'),
+    (Join-Path $installedRoot 'apps\frontend\dist-docente\index.html'),
     (Join-Path $installedRoot 'logs\installation.manifest.json'),
     (Join-Path $installedRoot 'config\update-config.json')
   )
@@ -1204,6 +1206,8 @@ function Test-InstalledState {
     (Join-Path $installedRoot 'package.json'),
     (Join-Path $installedRoot 'scripts\launcher-broker.ps1'),
     (Join-Path $installedRoot 'runtime\node\node.exe'),
+    (Join-Path $installedRoot 'apps\backend\dist\index.js'),
+    (Join-Path $installedRoot 'apps\frontend\dist-docente\index.html'),
     $manifest,
     $updateConfig
   )
@@ -1258,8 +1262,21 @@ try {
   $identity = [Security.Principal.WindowsIdentity]::GetCurrent()
   $principal = New-Object Security.Principal.WindowsPrincipal($identity)
   $isAdministrator = $principal.IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)
-  $machineInstall = @($existing | Where-Object { [string]$_.registryPath -like 'HKEY_LOCAL_MACHINE*' }).Count -gt 0
-  Add-Result -Area 'preflight' -Item 'uac-capability' -Ok (-not $machineInstall -or $isAdministrator) -Detail ("machineInstall={0} administrator={1}" -f $machineInstall, $isAdministrator)
+  $normalizedTarget = [IO.Path]::GetFullPath($installedRoot).TrimEnd('\').ToLowerInvariant()
+  $targetMachineEntries = @($existing | Where-Object {
+      [string]$_.registryPath -like 'HKEY_LOCAL_MACHINE*' -and
+      -not [string]::IsNullOrWhiteSpace([string]$_.installLocation) -and
+      ([IO.Path]::GetFullPath([string]$_.installLocation).TrimEnd('\').ToLowerInvariant() -eq $normalizedTarget)
+    })
+  $foreignMachineEntries = @($existing | Where-Object {
+      [string]$_.registryPath -like 'HKEY_LOCAL_MACHINE*' -and
+      $targetMachineEntries -notcontains $_
+    })
+  $machineInstall = $targetMachineEntries.Count -gt 0
+  Add-Result -Area 'preflight' -Item 'uac-capability' -Ok (-not $machineInstall -or $isAdministrator) -Detail ("targetMachineInstall={0} foreignMachineEntries={1} administrator={2}" -f $machineInstall, $foreignMachineEntries.Count, $isAdministrator)
+  if ($foreignMachineEntries.Count -gt 0) {
+    Add-Result -Area 'preflight' -Item 'foreign-install-warning' -Ok $true -Detail ("entries={0}; no bloquean docente-local en {1}" -f $foreignMachineEntries.Count, $installedRoot)
+  }
   if ($machineInstall -and -not $isAdministrator -and $AllowExistingInstall) {
     throw 'Existe una instalación per-machine de EvaluaPro. Este E2E requiere una sesión elevada para migrarla/desinstalarla; acepta UAC y vuelve a ejecutar, o ejecuta una instalación limpia en un equipo sin registro previo.'
   }

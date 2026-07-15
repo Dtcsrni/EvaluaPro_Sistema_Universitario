@@ -263,6 +263,8 @@ test('build-msi bloquea helper Burn obsoleto en el staging del bundle', () => {
   assert.match(buildMsi, /apps\/frontend\/dist-docente/);
   assert.match(buildMsi, /apps\/backend\/dist/);
   assert.match(buildMsi, /Node \+ SQLite; sin VM\/Mongo/);
+  assert.match(buildMsi, /npmCommand ci --omit=dev --ignore-scripts/);
+  assert.match(buildMsi, /InstallerBurnHelper\.ps1/);
 });
 
 test('Installer Hub exige resolución mínima y recomienda 1080p', () => {
@@ -297,18 +299,42 @@ test('Installer Hub mantiene legibilidad en timeline, carrusel y bitácora', () 
   assert.doesNotMatch(code, /#49616F/);
   assert.match(code, /FontSize = 12,[\s\S]*LineHeight = 18,[\s\S]*Foreground = ToBrush\("#D7E8F5"\),[\s\S]*TextWrapping = TextWrapping\.Wrap/);
   assert.match(code, /Text = stage\.Summary,[\s\S]*FontSize = 13,[\s\S]*TextWrapping = TextWrapping\.Wrap/);
-  assert.match(xaml, /HeaderFeatureIndexTextBlock[^>]*FontSize="12"/);
+  assert.match(xaml, /HeaderFeatureIndexTextBlock[^>]*FontSize="14"/);
   assert.match(xaml, /Text="\{Binding InstalledLabel\}" FontSize="12"/);
   assert.match(xaml, /x:Name="LogTextBox"[\s\S]*FontSize="12"/);
 });
 
 test('launcher docente usa invocación Windows compatible con npm.cmd y Node 24', () => {
   const launcher = fs.readFileSync(path.join(root, 'scripts', 'start-docente-native.mjs'), 'utf8');
-  assert.match(launcher, /const npmCmd = process\.platform === 'win32' \? 'npm\.cmd' : 'npm';/);
-  assert.match(launcher, /shell: process\.platform === 'win32'/);
-  assert.match(launcher, /Node 24\/Windows no puede ejecutar npm\.cmd/);
+  assert.match(launcher, /const nodeCommand/);
+  assert.match(launcher, /shell: false/);
+  assert.match(launcher, /apps', 'backend', 'dist', 'index\.js'/);
+  assert.match(launcher, /serve-docente-static\.mjs/);
+  assert.match(launcher, /loadRuntimeEnv/);
+  assert.match(launcher, /start \$\{name\}: node/);
   assert.match(launcher, /proc\.stdout\.on\('data'/);
   assert.match(launcher, /proc\.stderr\.on\('data'/);
+});
+
+test('servidor docente nativo no depende de Vite y bloquea traversal', () => {
+  const server = fs.readFileSync(path.join(root, 'scripts', 'serve-docente-static.mjs'), 'utf8');
+  assert.match(server, /http\.createServer/);
+  assert.match(server, /decodeURIComponent/);
+  assert.match(server, /startsWith\(\x60\$\{publicRoot\}/);
+  assert.match(server, /fallback/);
+  assert.doesNotMatch(server, /vite|npm run/i);
+});
+
+test('bootstrap SQLite docente usa Node nativo y esquema SQL empaquetado', () => {
+  const bootstrap = fs.readFileSync(path.join(root, 'scripts', 'prepare-docente-sqlite.mjs'), 'utf8');
+  const build = fs.readFileSync(path.join(root, 'scripts', 'build-msi.ps1'), 'utf8');
+  const helper = fs.readFileSync(path.join(root, 'scripts', 'installer-burn', 'InstallerBurnHelper.ps1'), 'utf8');
+  assert.match(bootstrap, /node:sqlite/);
+  assert.match(bootstrap, /DatabaseSync/);
+  assert.match(build, /migrate diff --from-empty --to-schema-datamodel/);
+  assert.match(build, /schema\.sql/);
+  assert.match(helper, /prepare-docente-sqlite\.mjs/);
+  assert.match(helper, /Esquema SQLite local preparado con Node nativo/);
 });
 
 test('E2E bloquea payload docente incompleto antes de abrir broker', () => {
@@ -316,6 +342,14 @@ test('E2E bloquea payload docente incompleto antes de abrir broker', () => {
   assert.match(runner, /apps\\backend\\dist\\index\.js/);
   assert.match(runner, /apps\\frontend\\dist-docente\\index\.html/);
   assert.match(runner, /Wait-InstalledPayload/);
+});
+
+test('E2E docente exige elevación solo para el destino per-machine real', () => {
+  const runner = fs.readFileSync(path.join(root, 'scripts', 'tests', 'installer-hub-e2e-docente.ps1'), 'utf8');
+  assert.match(runner, /targetMachineEntries/);
+  assert.match(runner, /foreignMachineEntries/);
+  assert.match(runner, /foreign-install-warning/);
+  assert.match(runner, /targetMachineInstall=\{0\}/);
 });
 
 test('helper post-install eleva escritura de configuración per-machine', () => {
@@ -366,6 +400,7 @@ test('Installer Hub cumple contrato DESIGN.md de layout y accesibilidad WPF', ()
   assert.match(mainWindowXaml, /MinWidth="1180"/);
   assert.match(mainWindowXaml, /MinHeight="720"/);
   assert.match(mainWindowXaml, /x:Key="OnLightTextBrush"/);
+  assert.match(mainWindowXaml, /CardShadow.*BlurRadius="56".*ShadowDepth="14".*Opacity="0\.72"/);
   assert.match(mainWindowXaml, /x:Name="ProgressPulseTransform"/);
   assert.match(mainWindowCode, /StartProgressPulseAnimation/);
   assert.match(mainWindowCode, /StopProgressPulseAnimation/);
@@ -433,7 +468,8 @@ test('Installer Hub cumple contrato DESIGN.md de layout y accesibilidad WPF', ()
   assert.doesNotMatch(mainWindowXaml, />Evidencia</);
   assert.doesNotMatch(mainWindowXaml, />Guiado</);
   assert.match(mainWindowXaml, /x:Name="SplashGraphicIndicators"/);
-  assert.match(mainWindowXaml, /x:Name="HeaderFeatureImage"[\s\S]*?evaluapro-installer-logo\.png[\s\S]*?HighQuality/);
+  assert.doesNotMatch(mainWindowXaml, /x:Name="HeaderFeatureImage"/);
+  assert.doesNotMatch(mainWindowXaml, /HeaderFeatureImageFrame/);
   assert.match(mainWindowXaml, /x:Name="HeaderFeatureIcon"/);
   assert.match(mainWindowXaml, /x:Name="SplashFeatureIcon"/);
   assert.match(mainWindowXaml, /x:Key="TermsTextBrush" Color="#17324D"/);
@@ -1176,6 +1212,13 @@ test('helper Burn prepara contrato runtime instalado para dashboard docente', ()
   assert.match(helper, /Invoke-EvaluaProOperationalConfiguration/);
   assert.match(helper, /function Assert-InstallerRuntimeEnv/);
   assert.match(helper, /Contrato runtime incompleto en \.env/);
+  assert.match(helper, /db push --skip-generate/);
+  assert.match(helper, /Payload docente incompleto: no existe Prisma CLI o schema/);
+  assert.match(helper, /LOCALAPPDATA/);
+  assert.match(helper, /docente-local/);
+  assert.match(helper, /reaplicar el contrato docente/);
+  assert.match(helper, /runtimeEnv = Read-InstallerEnvMap -Path \$envPath/);
+  assert.match(helper, /Ruta SQLite docente/);
   assert.doesNotMatch(helper, /backend\\dist\\index\.js/);
 });
 
@@ -1246,6 +1289,9 @@ test('smoke del bundle Burn publico queda declarado en workflows post-build', ()
 test('launcher broker unifica shortcuts, hub y splash state', () => {
   const broker = fs.readFileSync(path.join(root, 'scripts', 'launcher-broker.ps1'), 'utf8');
   const dashboard = fs.readFileSync(path.join(root, 'scripts', 'launcher-dashboard.mjs'), 'utf8');
+  assert.match(dashboard, /nativeDocenteCommand/);
+  assert.match(dashboard, /start-docente-native\.mjs/);
+  assert.doesNotMatch(dashboard, /'docente-native':\s*'npm run/);
   const trayHidden = fs.readFileSync(path.join(root, 'scripts', 'launcher-tray-hidden.vbs'), 'utf8');
   const shortcuts = fs.readFileSync(path.join(root, 'scripts', 'create-shortcuts.ps1'), 'utf8');
   const manifestScript = fs.readFileSync(path.join(root, 'scripts', 'generate-installation-manifest.ps1'), 'utf8');
@@ -1943,7 +1989,8 @@ test('dashboard usa runtime nativo en docente-local y conserva Docker solo para 
   assert.match(dashboard, /function resolveEffectiveDockerRuntime/);
   assert.match(dashboard, /native-node-sqlite/);
   assert.match(dashboard, /function requiresDockerRuntime/);
-  assert.match(dashboard, /docente:prod:native/);
+  assert.match(dashboard, /nativeDocenteCommand/);
+  assert.match(dashboard, /start-docente-native\.mjs/);
   assert.match(dashboard, /not-required/);
   assert.match(dashboard, /function dockerCliArgs/);
   assert.match(dashboard, /function dockerCommandForShell/);

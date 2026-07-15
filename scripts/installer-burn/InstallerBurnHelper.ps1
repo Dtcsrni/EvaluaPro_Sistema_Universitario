@@ -191,8 +191,18 @@ function Write-InstallerRuntimeEnv {
   if ([string]::IsNullOrWhiteSpace($jwt)) { $jwt = New-InstallerSecret }
 
   Set-InstallerEnvValue -Map $envMap -Key 'JWT_SECRETO' -Value $jwt
-  Set-InstallerEnvValue -Map $envMap -Key 'DATABASE_URL' -Value (Get-RequestConfigValue -Request $Request -Name 'databaseUrl' -DefaultValue 'file:C:/ProgramData/EvaluaPro/data/evaluapro.db')
-  Set-InstallerEnvValue -Map $envMap -Key 'BACKEND_DATABASE_URL' -Value (Get-RequestConfigValue -Request $Request -Name 'databaseUrl' -DefaultValue 'file:C:/ProgramData/EvaluaPro/data/evaluapro.db')
+  $flavorId = [string](Get-RequestConfigValue -Request $Request -Name 'flavorId' -DefaultValue 'docente-local')
+  $localAppData = [string]$env:LOCALAPPDATA
+  if ([string]::IsNullOrWhiteSpace($localAppData)) { $localAppData = Join-Path $env:USERPROFILE 'AppData\Local' }
+  $localDataDir = Join-Path $localAppData 'EvaluaPro\data'
+  if (-not (Test-Path -LiteralPath $localDataDir)) { New-Item -ItemType Directory -Path $localDataDir -Force | Out-Null }
+  $localDatabaseUrl = 'file:' + (($localDataDir -replace '\\', '/') + '/evaluapro.db')
+  $requestedDatabaseUrl = [string](Get-RequestConfigValue -Request $Request -Name 'databaseUrl' -DefaultValue $localDatabaseUrl)
+  if ($flavorId.Trim().ToLowerInvariant() -eq 'docente-local' -and ($requestedDatabaseUrl -match 'ProgramData/EvaluaPro/data/evaluapro\.db|ProgramData\\EvaluaPro\\data\\evaluapro\.db')) {
+    $requestedDatabaseUrl = $localDatabaseUrl
+  }
+  Set-InstallerEnvValue -Map $envMap -Key 'DATABASE_URL' -Value $requestedDatabaseUrl
+  Set-InstallerEnvValue -Map $envMap -Key 'BACKEND_DATABASE_URL' -Value $requestedDatabaseUrl
   Set-InstallerEnvValue -Map $envMap -Key 'NODE_ENV' -Value (Get-RequestConfigValue -Request $Request -Name 'nodeEnv' -DefaultValue 'production')
   Set-InstallerEnvValue -Map $envMap -Key 'PUERTO_API' -Value (Get-RequestConfigValue -Request $Request -Name 'puertoApi' -DefaultValue '4000')
   Set-InstallerEnvValue -Map $envMap -Key 'PUERTO_PORTAL' -Value (Get-RequestConfigValue -Request $Request -Name 'puertoPortal' -DefaultValue '4518')
@@ -381,7 +391,31 @@ function Invoke-PostInstall {
   } else {
     Write-InstallerRuntimeEnv -TargetDir $targetDir -Request $requestJson
   }
+  # La configuración operativa puede regenerar .env con defaults globales;
+  # reaplicar el contrato docente garantiza que SQLite quede en LOCALAPPDATA.
+  Write-InstallerRuntimeEnv -TargetDir $targetDir -Request $requestJson
   $envPath = Assert-InstallerRuntimeEnv -TargetDir $targetDir
+  $runtimeEnv = Read-InstallerEnvMap -Path $envPath
+  $effectiveFlavor = [string]$runtimeEnv['EVALUAPRO_FLAVOR']
+  if ($effectiveFlavor.Trim().ToLowerInvariant() -eq 'docente-local') {
+    $localAppData = [string]$env:LOCALAPPDATA
+    if ([string]::IsNullOrWhiteSpace($localAppData)) { $localAppData = Join-Path $env:USERPROFILE 'AppData\Local' }
+    $localDataDir = Join-Path $localAppData 'EvaluaPro\data'
+    if (-not (Test-Path -LiteralPath $localDataDir)) { New-Item -ItemType Directory -Path $localDataDir -Force | Out-Null }
+    $localDatabaseUrl = 'file:' + (($localDataDir -replace '\\', '/') + '/evaluapro.db')
+    Set-InstallerEnvValue -Map $runtimeEnv -Key 'DATABASE_URL' -Value $localDatabaseUrl
+    Set-InstallerEnvValue -Map $runtimeEnv -Key 'BACKEND_DATABASE_URL' -Value $localDatabaseUrl
+    Write-InstallerEnvMap -Path $envPath -Map $runtimeEnv
+    Write-Host "Ruta SQLite docente: $localDatabaseUrl"
+  }
+  $runtimeEnv = Read-InstallerEnvMap -Path $envPath
+  if ($runtimeEnv.Contains('DATABASE_URL')) {
+    $env:DATABASE_URL = [string]$runtimeEnv['DATABASE_URL']
+  }
+  $runtimeEnv = Read-InstallerEnvMap -Path $envPath
+  if ($runtimeEnv.Contains('DATABASE_URL')) {
+    $env:DATABASE_URL = [string]$runtimeEnv['DATABASE_URL']
+  }
 
   $nodeDir = Join-Path $targetDir "runtime\node"
   if (-not (Test-Path $nodeDir)) {
@@ -397,6 +431,53 @@ function Invoke-PostInstall {
     $nodeUrl = "https://nodejs.org/dist/v20.11.1/win-x64/node.exe"
     Invoke-WebRequest -Uri $nodeUrl -OutFile $nodeExe -UseBasicParsing
   }
+
+  # El bundle docente no lleva historial de migraciones: el esquema SQL
+  # autocontenido se aplica de forma idempotente antes del primer arranque.
+  # En desinstalacion el MSI ya retiro el payload; no bloquear limpieza por DB.
+  $sqliteBootstrap = Join-Path $targetDir 'scripts\prepare-docente-sqlite.mjs'
+  $schemaSql = Join-Path $targetDir 'apps\backend\dist\prisma\schema.sql'
+  if ($Mode -eq 'uninstall') {
+    Write-Host 'Preparacion SQLite omitida en desinstalacion.'
+  } elseif ((Test-Path $sqliteBootstrap) -and (Test-Path $schemaSql)) {
+    & $nodeExe $sqliteBootstrap --database (Join-Path $localDataDir 'evaluapro.db') --schema-sql $schemaSql
+    if ($LASTEXITCODE -ne 0) { throw "No se pudo preparar la base SQLite local con SQL nativo (exit=$LASTEXITCODE)." }
+    Write-Host 'Esquema SQLite local preparado con Node nativo.'
+  } else {
+    throw 'Payload docente incompleto: no existe bootstrap SQLite o esquema SQL.'
+  }
+
+  <#
+  # Fallback Prisma conservado para bundles antiguos; nuevos bundles usan SQL nativo.
+  # El bloque queda deshabilitado hasta retirar compatibilidad con versiones previas.
+  $prismaCli = Join-Path $targetDir 'apps\backend\dist\node_modules\prisma\build\index.js'
+  $prismaSchema = Join-Path $targetDir 'apps\backend\dist\prisma\schema.prisma'
+  if ($Mode -eq 'uninstall') {
+    Write-Host 'Preparacion SQLite omitida en desinstalacion.'
+  } elseif ((Test-Path $prismaCli) -and (Test-Path $prismaSchema)) {
+    $schemaForPush = Join-Path $targetDir 'logs\docente-schema-push.prisma'
+    try {
+      $schemaText = [IO.File]::ReadAllText($prismaSchema)
+      $effectiveDatabaseUrl = [string]$env:DATABASE_URL
+      if ($effectiveFlavor.Trim().ToLowerInvariant() -eq 'docente-local') {
+        $effectiveDatabaseUrl = 'file:' + ((Join-Path $localDataDir 'evaluapro.db') -replace '\\', '/')
+        $schemaText = [Regex]::Replace($schemaText, 'url\s*=\s*env\("DATABASE_URL"\)', ('url = "' + $effectiveDatabaseUrl + '"'))
+      }
+      $utf8NoBom = New-Object System.Text.UTF8Encoding($false)
+      [IO.File]::WriteAllText($schemaForPush, $schemaText, $utf8NoBom)
+      $env:DATABASE_URL = $effectiveDatabaseUrl
+      & $nodeExe $prismaCli db push --skip-generate --schema $schemaForPush
+      if ($LASTEXITCODE -ne 0) {
+        throw "No se pudo preparar la base SQLite local con Prisma (exit=$LASTEXITCODE)."
+      }
+    } finally {
+      Remove-Item -LiteralPath $schemaForPush -Force -ErrorAction SilentlyContinue
+    }
+    Write-Host 'Esquema SQLite local preparado.'
+  } else {
+    throw 'Payload docente incompleto: no existe Prisma CLI o schema para preparar SQLite.'
+  }
+  #>
 
   # 2. Extraer Payload (El MSI deberia soltar el zip, o lo descargamos)
   $repoRoot = Split-Path -Parent (Split-Path -Parent $PSScriptRoot)

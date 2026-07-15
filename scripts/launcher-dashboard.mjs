@@ -26,6 +26,10 @@ import { createUpdateManager } from './update-manager.mjs';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const root = path.resolve(__dirname, '..');
+const nativeNodePath = fs.existsSync(path.join(root, 'runtime', 'node', process.platform === 'win32' ? 'node.exe' : 'node'))
+  ? path.join(root, 'runtime', 'node', process.platform === 'win32' ? 'node.exe' : 'node')
+  : process.execPath;
+const nativeDocenteCommand = `"${nativeNodePath}" "${path.join(root, 'scripts', 'start-docente-native.mjs')}"`;
 
 // CLI options: --mode dev|prod|none, --port <n>, --no-open, --verbose, --full-logs.
 const args = process.argv.slice(2);
@@ -3425,7 +3429,7 @@ const baseCommands = {
   'dev-backend': 'npm run dev:backend',
   // En dashboard, PROD debe levantar la plataforma rapidamente (sin correr verify/tests).
   prod: 'npm run stack:prod',
-  'docente-native': 'npm run docente:prod:native',
+  'docente-native': nativeDocenteCommand,
   'portal-dev': 'npm run dev:portal',
   'portal-prod': 'npm run portal:prod',
   status: 'npm run status',

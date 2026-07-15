@@ -12,6 +12,22 @@ const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const logsDir = path.join(root, 'logs');
 fs.mkdirSync(logsDir, { recursive: true });
 
+function loadRuntimeEnv() {
+  const envPath = path.join(root, '.env');
+  if (!fs.existsSync(envPath)) return;
+  for (const line of fs.readFileSync(envPath, 'utf8').split(/\r?\n/)) {
+    const trimmed = line.trim();
+    if (!trimmed || trimmed.startsWith('#')) continue;
+    const separator = trimmed.indexOf('=');
+    if (separator <= 0) continue;
+    const key = trimmed.slice(0, separator).trim();
+    const value = trimmed.slice(separator + 1).trim().replace(/^['"]|['"]$/g, '');
+    if (key && process.env[key] === undefined) process.env[key] = value;
+  }
+}
+
+loadRuntimeEnv();
+
 const env = {
   ...process.env,
   NODE_ENV: process.env.NODE_ENV || 'production',
@@ -20,21 +36,23 @@ const env = {
   CORS_ORIGENES: process.env.CORS_ORIGENES || 'http://localhost:4173,http://127.0.0.1:4173'
 };
 
-const npmCmd = process.platform === 'win32' ? 'npm.cmd' : 'npm';
+const embeddedNode = path.join(root, 'runtime', 'node', process.platform === 'win32' ? 'node.exe' : 'node');
+const nodeCommand = fs.existsSync(embeddedNode) ? embeddedNode : process.execPath;
 const children = new Map();
 let stopping = false;
 
 function launch(name, args, options = {}) {
-  const proc = spawn(npmCmd, args, {
+  const proc = spawn(options.command || nodeCommand, args, {
     cwd: options.cwd || root,
     env,
     stdio: ['ignore', 'pipe', 'pipe'],
-    windowsHide: true
+    windowsHide: true,
+    shell: false
   });
   children.set(name, proc);
   const logPath = path.join(logsDir, `docente-native-${name}.log`);
   const log = fs.createWriteStream(logPath, { flags: 'a' });
-  log.write(`\n[${new Date().toISOString()}] start ${name}: npm ${args.join(' ')}\n`);
+  log.write(`\n[${new Date().toISOString()}] start ${name}: node ${args.join(' ')}\n`);
   proc.stdout.on('data', (chunk) => {
     process.stdout.write(`[${name}] ${chunk}`);
     log.write(chunk);
@@ -78,7 +96,7 @@ function stopAll(exitCode = 0) {
 process.on('SIGINT', () => stopAll(0));
 process.on('SIGTERM', () => stopAll(0));
 
-launch('api', ['-C', 'apps/backend', 'run', 'start']);
-launch('web', ['-C', 'apps/frontend', 'run', 'preview:docente', '--', '--host', '127.0.0.1', '--port', '4173']);
+launch('api', [path.join('apps', 'backend', 'dist', 'index.js')]);
+launch('web', [path.join('scripts', 'serve-docente-static.mjs')]);
 
 setInterval(() => {}, 60_000).unref();

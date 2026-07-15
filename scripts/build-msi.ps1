@@ -232,9 +232,54 @@ function Add-DocenteNativeCompiledPayload {
 
     $frontendTarget = Join-Path $StagingRoot 'apps/frontend/dist-docente'
     $backendTarget = Join-Path $StagingRoot 'apps/backend/dist'
+    $staticServerSource = Join-Path $RootPath 'scripts/serve-docente-static.mjs'
+    if (-not (Test-Path $staticServerSource)) {
+      throw "Falta el servidor estatico nativo docente: $staticServerSource"
+    }
+    $staticServerTarget = Join-Path $StagingRoot 'scripts/serve-docente-static.mjs'
+    New-Item -ItemType Directory -Path (Split-Path $staticServerTarget -Parent) -Force | Out-Null
+    Copy-Item -LiteralPath $staticServerSource -Destination $staticServerTarget -Force
+    foreach ($nativeScript in @('start-docente-native.mjs', 'launcher-dashboard.mjs')) {
+      $nativeScriptSource = Join-Path $RootPath (Join-Path 'scripts' $nativeScript)
+      if (-not (Test-Path $nativeScriptSource)) { throw "Falta script nativo requerido: $nativeScriptSource" }
+      Copy-Item -LiteralPath $nativeScriptSource -Destination (Join-Path $StagingRoot (Join-Path 'scripts' $nativeScript)) -Force
+    }
+    $helperSource = Join-Path $RootPath 'scripts/installer-burn/InstallerBurnHelper.ps1'
+    if (-not (Test-Path $helperSource)) { throw "Falta helper nativo requerido: $helperSource" }
+    $helperTarget = Join-Path $StagingRoot 'scripts/installer-burn/InstallerBurnHelper.ps1'
+    New-Item -ItemType Directory -Path (Split-Path $helperTarget -Parent) -Force | Out-Null
+    Copy-Item -LiteralPath $helperSource -Destination $helperTarget -Force
+    $sqliteBootstrapSource = Join-Path $RootPath 'scripts/prepare-docente-sqlite.mjs'
+    if (-not (Test-Path $sqliteBootstrapSource)) { throw "Falta bootstrap SQLite requerido: $sqliteBootstrapSource" }
+    Copy-Item -LiteralPath $sqliteBootstrapSource -Destination (Join-Path $StagingRoot 'scripts/prepare-docente-sqlite.mjs') -Force
     New-Item -ItemType Directory -Path $frontendTarget,$backendTarget -Force | Out-Null
     Copy-Item -Path (Join-Path $frontendSource '*') -Destination $frontendTarget -Recurse -Force
     Copy-Item -Path (Join-Path $backendSource '*') -Destination $backendTarget -Recurse -Force
+    Copy-Item -LiteralPath (Join-Path $RootPath 'apps/backend/package.json') -Destination $backendTarget -Force
+    Copy-Item -LiteralPath (Join-Path $RootPath 'apps/backend/package-lock.json') -Destination $backendTarget -Force
+    Copy-Item -LiteralPath (Join-Path $RootPath 'apps/backend/prisma') -Destination $backendTarget -Recurse -Force
+    Push-Location $backendTarget
+    try {
+      & $npmCommand ci --omit=dev --ignore-scripts
+      if ($LASTEXITCODE -ne 0) { throw "Falló instalación de dependencias backend de producción (exit=$LASTEXITCODE)." }
+      $nodeForBuild = if (Test-Path (Join-Path $RootPath 'runtime/node/node.exe')) { Join-Path $RootPath 'runtime/node/node.exe' } else { 'node' }
+      & $nodeForBuild (Join-Path $backendTarget 'node_modules/prisma/build/index.js') generate --schema (Join-Path $backendTarget 'prisma/schema.prisma')
+      if ($LASTEXITCODE -ne 0) { throw "Falló generación del cliente Prisma nativo (exit=$LASTEXITCODE)." }
+      $previousErrorActionPreference = $ErrorActionPreference
+      $ErrorActionPreference = 'Continue'
+      try {
+        $schemaSqlOutput = @(& $nodeForBuild (Join-Path $backendTarget 'node_modules/prisma/build/index.js') migrate diff --from-empty --to-schema-datamodel (Join-Path $backendTarget 'prisma/schema.prisma') --script 2>&1 | ForEach-Object { [string]$_ })
+      } finally {
+        $ErrorActionPreference = $previousErrorActionPreference
+      }
+      if ($LASTEXITCODE -ne 0) { throw "Falló generación del esquema SQL nativo (exit=$LASTEXITCODE)." }
+      $sqlStart = [Array]::IndexOf([string[]]$schemaSqlOutput, '-- CreateTable')
+      if ($sqlStart -lt 0) { throw 'Falló generación del esquema SQL nativo: salida SQL vacía.' }
+      $schemaSqlOutput = @($schemaSqlOutput | Select-Object -Skip $sqlStart)
+      [IO.File]::WriteAllText((Join-Path $backendTarget 'prisma/schema.sql'), ($schemaSqlOutput -join [Environment]::NewLine), (New-Object System.Text.UTF8Encoding($false)))
+    } finally {
+      Pop-Location
+    }
     Write-Host '[msi] Payload compilado agregado al staging.'
   } finally {
     Pop-Location

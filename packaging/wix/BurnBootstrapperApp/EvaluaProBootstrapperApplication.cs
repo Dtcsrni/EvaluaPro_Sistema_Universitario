@@ -306,6 +306,7 @@ internal sealed class EvaluaProBootstrapperApplication : BootstrapperApplication
                 createdWindow.StartRequested += (_, request) => _ = StartBundleOperationAsync(request);
                 createdWindow.CloseRequested += (_, _) => RequestQuit();
                 createdWindow.RestartRequested += (_, _) => RequestSystemRestart();
+                createdWindow.LaunchRequested += (_, _) => LaunchInstalledEvaluaPro();
                 createdWindow.ClosingRequestedDuringBusy += (_, _) => Log("warn", "Se intento cerrar la ventana durante una operacion en progreso.");
 
                 window = createdWindow;
@@ -356,6 +357,41 @@ internal sealed class EvaluaProBootstrapperApplication : BootstrapperApplication
         uiThread.SetApartmentState(ApartmentState.STA);
         uiThread.IsBackground = true;
         uiThread.Start();
+    }
+
+    private void LaunchInstalledEvaluaPro()
+    {
+        var installDir = currentRequest?.InstallDir;
+        if (string.IsNullOrWhiteSpace(installDir))
+        {
+            Log("warn", "No se pudo iniciar EvaluaPro: ruta instalada vacía.");
+            return;
+        }
+
+        var launcher = Path.Combine(installDir, "scripts", "launcher-broker.ps1");
+        if (!File.Exists(launcher))
+        {
+            Log("warn", $"No se pudo iniciar EvaluaPro: falta {launcher}.");
+            return;
+        }
+
+        try
+        {
+            Process.Start(new ProcessStartInfo
+            {
+                FileName = Environment.GetEnvironmentVariable("ComSpec") ?? "powershell.exe",
+                Arguments = $"/c powershell.exe -NoProfile -ExecutionPolicy Bypass -File \"{launcher}\" -Action open-dashboard -Mode prod",
+                WorkingDirectory = installDir,
+                UseShellExecute = false,
+                CreateNoWindow = true,
+                WindowStyle = ProcessWindowStyle.Hidden
+            });
+            Log("info", $"EvaluaPro solicitado desde la pantalla final: {installDir}");
+        }
+        catch (Exception ex)
+        {
+            Log("error", $"No se pudo iniciar EvaluaPro desde el Hub: {ex.Message}");
+        }
     }
 
     private static List<InstallerStageState> CreateDefaultWorkflowStages()

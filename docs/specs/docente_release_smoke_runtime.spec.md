@@ -125,3 +125,60 @@ flujo completo sin recortes (`Height=1020`, `MinHeight=720`). Las tarjetas de
 contenido claro deben usar texto explícitamente oscuro y contrastado. La barra
 de progreso debe tener una animación sutil durante una operación activa,
 detenerse al finalizar y respetar la preferencia de animaciones del sistema.
+
+### REQ-020 - Preflight de elevación por destino real
+
+El E2E docente-local debe distinguir una instalación per-machine antigua de la
+ruta nativa que se va a probar. Una entrada ajena se registra como evidencia y
+advertencia, pero no debe forzar UAC ni bloquear la prueba. Solo se exige
+elevación cuando la ruta objetivo coincide con una instalación per-machine que
+será modificada o desinstalada.
+
+### REQ-021 - Runtime nativo autocontenido y ligero
+
+El flavor docente-local no debe depender de `npm`, Vite, Docker, VM ni
+dependencias de desarrollo en tiempo de ejecución. El launcher debe ejecutar
+el backend compilado con el Node embebido y servir el build docente mediante un
+servidor HTTP estático nativo, con fallback SPA y protección contra traversal.
+El payload solo debe instalar dependencias de producción del backend.
+
+### REQ-022 - Profundidad visual perceptible
+
+Las tarjetas y paneles críticos del Hub deben conservar profundidad visual
+perceptible en tema oscuro y claro: sombra externa suficiente, borde de realce
+y superficies diferenciadas. El estado no puede depender únicamente de
+transparencia o color.
+
+### REQ-023 - Cierre verificable y accionable
+
+La pantalla final de una instalación exitosa debe mostrar el nombre EvaluaPro,
+el logo oficial en tamaño discreto, una verificación de integridad local
+(CRC32 y huella SHA-256 de archivos críticos), confirmación, agradecimiento,
+primeros pasos y acciones visibles para iniciar EvaluaPro o cerrar el Hub.
+
+### REQ-024 - Base local preparada antes del primer uso
+
+El post-install del flavor docente-local debe aplicar el esquema Prisma
+SQLite empaquetado sobre la base local antes de iniciar la API. Si la
+preparación falla, debe devolver error explícito y no reportar instalación lista.
+
+### REQ-025 - Datos docentes sin elevación innecesaria
+
+La base SQLite del flavor docente-local debe residir en una carpeta de datos
+del usuario (`%LOCALAPPDATA%`) con permisos de escritura normales. `ProgramData`
+se reserva para evidencias compartidas y configuración que realmente requiera
+protección; el primer uso docente no debe exigir UAC por escribir la base.
+
+### REQ-026 - Estimación de tiempo restante
+
+Cuando exista progreso determinable, el Hub debe estimar el tiempo restante a
+partir de muestras recientes de avance y tiempo, suavizar fluctuaciones y
+mostrar "calculando" durante la fase insuficiente o indeterminada. Nunca debe
+presentar una precisión falsa ni bloquear la operación por no poder estimar.
+
+### REQ-027 - Carrusel embebido informativo
+
+El carrusel visible del Hub debe permanecer embebido en el encabezado, cambiar
+automáticamente con pausa suficiente para lectura, permitir navegación manual,
+usar iconografía descriptiva de alta resolución y ofrecer al menos 21 funciones
+relevantes de EvaluaPro con textos breves, claros y accesibles.
