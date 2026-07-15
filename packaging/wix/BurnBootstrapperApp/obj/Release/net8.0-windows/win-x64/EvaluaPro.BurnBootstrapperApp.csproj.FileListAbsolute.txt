@@ -479,7 +479,6 @@ C:\Users\evega\EvaluaPro_Sistema_Universitario\packaging\wix\BurnBootstrapperApp
 C:\Users\evega\EvaluaPro_Sistema_Universitario\packaging\wix\BurnBootstrapperApp\obj\Release\net8.0-windows\win-x64\EvaluaPro.BurnBootstrapperApp.pdb
 C:\Users\evega\EvaluaPro_Sistema_Universitario\packaging\wix\BurnBootstrapperApp\obj\Release\net8.0-windows\win-x64\EvaluaPro.BurnBootstrapperApp.genruntimeconfig.cache
 C:\Users\evega\EvaluaPro_Sistema_Universitario\packaging\wix\BurnBootstrapperApp\obj\Release\net8.0-windows\win-x64\ref\EvaluaPro.BurnBootstrapperApp.dll
-C:\Users\evega\EvaluaPro_Sistema_Universitario\packaging\wix\BurnBootstrapperApp\bin\Release\net8.0-windows\win-x64\mscordaccore_amd64_amd64_8.0.2726.22922.dll
 V:\Software\EvaluaPro\packaging\wix\BurnBootstrapperApp\bin\Release\net8.0-windows\win-x64\EvaluaPro.BurnBootstrapperApp.exe
 V:\Software\EvaluaPro\packaging\wix\BurnBootstrapperApp\bin\Release\net8.0-windows\win-x64\EvaluaPro.BurnBootstrapperApp.deps.json
 V:\Software\EvaluaPro\packaging\wix\BurnBootstrapperApp\bin\Release\net8.0-windows\win-x64\EvaluaPro.BurnBootstrapperApp.runtimeconfig.json
@@ -962,3 +961,4 @@ V:\Software\EvaluaPro\packaging\wix\BurnBootstrapperApp\obj\Release\net8.0-windo
 V:\Software\EvaluaPro\packaging\wix\BurnBootstrapperApp\obj\Release\net8.0-windows\win-x64\EvaluaPro.BurnBootstrapperApp.pdb
 V:\Software\EvaluaPro\packaging\wix\BurnBootstrapperApp\obj\Release\net8.0-windows\win-x64\EvaluaPro.BurnBootstrapperApp.genruntimeconfig.cache
 V:\Software\EvaluaPro\packaging\wix\BurnBootstrapperApp\obj\Release\net8.0-windows\win-x64\ref\EvaluaPro.BurnBootstrapperApp.dll
+C:\Users\evega\EvaluaPro_Sistema_Universitario\packaging\wix\BurnBootstrapperApp\bin\Release\net8.0-windows\win-x64\mscordaccore_amd64_amd64_8.0.2826.26413.dll

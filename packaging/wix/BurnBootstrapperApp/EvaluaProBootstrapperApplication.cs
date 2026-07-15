@@ -65,6 +65,7 @@ internal sealed class EvaluaProBootstrapperApplication : BootstrapperApplication
     private BootstrapperRequest? currentRequest;
     private FailureDisplay? failureDisplay;
     private ResumeState? resumeState;
+    private bool msiInstalled;
 
     protected override void Run()
     {
@@ -134,6 +135,16 @@ internal sealed class EvaluaProBootstrapperApplication : BootstrapperApplication
         burnDetectionComplete = true;
         Log(args.Status == 0 ? "info" : "error", $"DetectComplete status={args.Status}");
         EvaluateDetectionState();
+    }
+
+    protected override void OnDetectPackageComplete(DetectPackageCompleteEventArgs args)
+    {
+        base.OnDetectPackageComplete(args);
+        if (args.PackageId == "EvaluaProMsi")
+        {
+            msiInstalled = args.State == PackageState.Present;
+            Log("info", $"DetectPackageComplete package=EvaluaProMsi state={args.State} msiInstalled={msiInstalled}");
+        }
     }
 
     protected override void OnPlanComplete(PlanCompleteEventArgs args)
@@ -249,6 +260,14 @@ internal sealed class EvaluaProBootstrapperApplication : BootstrapperApplication
                 application.DispatcherUnhandledException += (_, eventArgs) =>
                 {
                     Log("error", $"UI DispatcherUnhandledException: {eventArgs.Exception}");
+                    if (!headless)
+                    {
+                        MessageBox.Show(
+                            $"Ocurrió un error inesperado en la interfaz:\n\n{eventArgs.Exception.Message}",
+                            "Error de interfaz",
+                            MessageBoxButton.OK,
+                            MessageBoxImage.Warning);
+                    }
                     eventArgs.Handled = true;
                     requestedExitCode = 50;
                     UpdateUiState(statusText: "El instalador detectó un error de UI. Revisa los logs.", busy: false);
@@ -256,7 +275,17 @@ internal sealed class EvaluaProBootstrapperApplication : BootstrapperApplication
 
                 AppDomain.CurrentDomain.UnhandledException += (_, eventArgs) =>
                 {
-                    Log("error", $"UI UnhandledException: {eventArgs.ExceptionObject}");
+                    var exception = eventArgs.ExceptionObject as Exception;
+                    var msg = exception?.Message ?? eventArgs.ExceptionObject?.ToString() ?? "Desconocido";
+                    Log("error", $"UI UnhandledException: {msg}");
+                    if (!headless)
+                    {
+                        MessageBox.Show(
+                            $"Ocurrió un error no controlado en el instalador:\n\n{msg}",
+                            "Error crítico no controlado",
+                            MessageBoxButton.OK,
+                            MessageBoxImage.Error);
+                    }
                     requestedExitCode = 50;
                 };
 
@@ -302,6 +331,14 @@ internal sealed class EvaluaProBootstrapperApplication : BootstrapperApplication
             catch (Exception ex)
             {
                 Log("error", $"StartUiThread fatal exception: {ex}");
+                if (!headless)
+                {
+                    MessageBox.Show(
+                        $"El instalador detectó un error crítico y no puede continuar.\n\nDetalle: {ex.Message}\n\nRevisa los logs para más detalles.",
+                        "Error fatal de EvaluaPro Installer Hub",
+                        MessageBoxButton.OK,
+                        MessageBoxImage.Error);
+                }
                 requestedExitCode = 50;
                 operationFinished.TrySetResult(requestedExitCode);
             }
@@ -614,7 +651,7 @@ internal sealed class EvaluaProBootstrapperApplication : BootstrapperApplication
         {
             LaunchAction.Repair => "repair",
             LaunchAction.Uninstall or LaunchAction.UnsafeUninstall => "uninstall",
-            _ => payload.RecommendedMode
+            _ => msiInstalled ? "repair" : payload.RecommendedMode
         });
     }
 
@@ -650,7 +687,7 @@ internal sealed class EvaluaProBootstrapperApplication : BootstrapperApplication
                 {
                     LaunchAction.Repair => "repair",
                     LaunchAction.Uninstall or LaunchAction.UnsafeUninstall => "uninstall",
-                    _ => payload.RecommendedMode
+                    _ => msiInstalled ? "repair" : payload.RecommendedMode
                 }),
             InstallDir = installDir,
             InstallDesktopShortcuts = !IsFalsy(Environment.GetEnvironmentVariable("EVALUAPRO_INSTALL_DESKTOP_SHORTCUTS")),
@@ -1281,6 +1318,8 @@ internal sealed class EvaluaProBootstrapperApplication : BootstrapperApplication
             CreateNoWindow = true,
             RedirectStandardError = true,
             RedirectStandardOutput = true,
+            StandardOutputEncoding = System.Text.Encoding.UTF8,
+            StandardErrorEncoding = System.Text.Encoding.UTF8,
             WorkingDirectory = payloadRoot
         };
 
@@ -1423,11 +1462,20 @@ internal sealed class EvaluaProBootstrapperApplication : BootstrapperApplication
 
     private void UpdateWindowFromDetection(DetectionPayload payload)
     {
+        if (payload.Installation is null)
+        {
+            payload.Installation = new InstallationPayload();
+        }
+        if (msiInstalled)
+        {
+            payload.Installation.Installed = true;
+        }
+
         var detectedMode = command?.Action switch
         {
             LaunchAction.Repair => "repair",
             LaunchAction.Uninstall or LaunchAction.UnsafeUninstall => "uninstall",
-            _ => payload.RecommendedMode
+            _ => msiInstalled ? "repair" : payload.RecommendedMode
         };
 
         var installDir = payload.Installation?.InstallLocation;
@@ -1450,7 +1498,9 @@ internal sealed class EvaluaProBootstrapperApplication : BootstrapperApplication
                     : payload.Remediation.RestartReason)
                 : payload.System?.Issues?.Count > 0
                     ? string.Join(" | ", payload.System.Issues)
-                    : payload.Runtime?.Reason ?? "Equipo listo para continuar.",
+                    : msiInstalled
+                        ? "EvaluaPro ya está instalado. El asistente se iniciará en modo de mantenimiento."
+                        : (payload.Runtime?.Reason ?? "Equipo listo para continuar."),
             Ready = payload.Ready,
             AssetName = payload.Flavor?.InstallerHubExeName ?? "EvaluaPro-InstallerHub-docente-local.exe",
             Prerequisites = payload.Prerequisites ?? [],

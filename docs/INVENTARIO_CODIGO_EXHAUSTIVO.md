@@ -1,11 +1,11 @@
 # Inventario Exhaustivo de Codigo
 
-Fecha de generacion: 2026-07-02 13:43:33
+Fecha de generacion: 2026-07-13 02:16:25
 Fuente: git ls-files filtrado por existencia en workspace (solo archivos versionados presentes, excluye node_modules).
 
 ## Resumen
 
-- Total de piezas de codigo/config ejecutable inventariadas: 1174
+- Total de piezas de codigo/config ejecutable inventariadas: 1184
 - Extensiones incluidas: ts, tsx, js, jsx, mjs, cjs, json, yml, yaml, sh, cmd, ps1.
 
 ## Conteo por area
@@ -16,9 +16,9 @@ Fuente: git ls-files filtrado por existencia en workspace (solo archivos version
 | frontend | 135 |
 | portal_alumno_cloud | 67 |
 | ci | 17 |
-| scripts | 177 |
+| scripts | 185 |
 | ops | 3 |
-| docs | 198 |
+| docs | 200 |
 | raiz | 32 |
 
 ## Backend (apps/backend)
@@ -674,6 +674,9 @@ Fuente: git ls-files filtrado por existencia en workspace (solo archivos version
 - scripts/ai-serena-status.mjs
 - scripts/ai-session-start.mjs
 - scripts/ai-skills-mcp-policy-status.mjs
+- scripts/assert-installer-hub-bundle.ps1
+- scripts/build-msi.ps1
+- scripts/build-msi.ps1
 - scripts/build-msi.ps1
 - scripts/build-native-dist.ps1
 - scripts/ci/run-e2e-auto.ps1
@@ -729,6 +732,8 @@ Fuente: git ls-files filtrado por existencia en workspace (solo archivos version
 - scripts/Install-EvaluaPro.ps1
 - scripts/install-maintenance-tasks.ps1
 - scripts/installer-burn/InstallerBurnHelper.ps1
+- scripts/installer-burn/InstallerBurnHelper.ps1
+- scripts/installer-burn/InstallerBurnHelper.ps1
 - scripts/installer-docente-baseline.mjs
 - scripts/installer-hub-vm-readiness.ps1
 - scripts/inventario-codigo.mjs
@@ -773,6 +778,7 @@ Fuente: git ls-files filtrado por existencia en workspace (solo archivos version
 - scripts/sign-installer-artifacts.ps1
 - scripts/signing/install-internal-signing-cert.ps1
 - scripts/signing/new-internal-signing-cert.ps1
+- scripts/start-docente-native.mjs
 - scripts/start-installer-hub-e2e-elevated.ps1
 - scripts/start-portal-dev.mjs
 - scripts/start-portal-prod.mjs
@@ -811,6 +817,8 @@ Fuente: git ls-files filtrado por existencia en workspace (solo archivos version
 - scripts/tests/installer-flavor-diff-resolver.test.mjs
 - scripts/tests/installer-hub-contract.test.mjs
 - scripts/tests/installer-hub-e2e-docente.ps1
+- scripts/tests/installer-hub-ui-lifecycle.ps1
+- scripts/tests/installer-hub-ui-lifecycle.ps1
 - scripts/tests/installer-hub-ui-lifecycle.ps1
 - scripts/tests/marketing-site.smoke.test.mjs
 - scripts/tests/omr-tv-gate-runner.test.mjs
@@ -1021,6 +1029,8 @@ Fuente: git ls-files filtrado por existencia en workspace (solo archivos version
 - docs/handoff/sesiones/2026-07-01/sesion-2026-07-01T20-56-48.676Z.json
 - docs/handoff/sesiones/2026-07-01/sesion-2026-07-01T20-57-15.537Z.json
 - docs/handoff/sesiones/2026-07-01/sesion-2026-07-01T20-57-39.831Z.json
+- docs/handoff/sesiones/2026-07-02/sesion-2026-07-02T19-43-33.250Z.json
+- docs/handoff/sesiones/2026-07-11/sesion-2026-07-11T18-42-50.074Z.json
 - docs/handoff/trace.schema.json
 - docs/perf/baseline.business.json
 - docs/perf/baseline.json

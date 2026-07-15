@@ -701,10 +701,31 @@ public partial class MainWindow : Window
     private void SetHubVersionLabel()
     {
         var assembly = typeof(MainWindow).Assembly;
+        string? informationalVersion = null;
+        try
+        {
+            if (!string.IsNullOrWhiteSpace(assembly.Location))
+            {
+                informationalVersion = System.Diagnostics.FileVersionInfo.GetVersionInfo(assembly.Location).ProductVersion;
+            }
+        }
+        catch
+        {
+            // Fallback en caso de que la ruta sea inválida u ocurra un error de acceso
+        }
+
+        if (string.IsNullOrWhiteSpace(informationalVersion))
+        {
+            var infoVersionAttr = assembly.GetCustomAttributes(typeof(System.Reflection.AssemblyInformationalVersionAttribute), false)
+                .OfType<System.Reflection.AssemblyInformationalVersionAttribute>()
+                .FirstOrDefault();
+            informationalVersion = infoVersionAttr?.InformationalVersion;
+        }
+
         var version = assembly.GetName().Version;
-        var versionText = version is null
-            ? "v1.0.0"
-            : $"v{version.Major}.{Math.Max(0, version.Minor)}.{Math.Max(0, version.Build)}";
+        var versionText = !string.IsNullOrWhiteSpace(informationalVersion) 
+            ? informationalVersion 
+            : (version is null ? "vDesconocida" : $"v{version.Major}.{Math.Max(0, version.Minor)}.{Math.Max(0, version.Build)}");
         HubVersionTextBlock.Text = versionText;
         BrandVersionBadgeTextBlock.Text = $"{versionText} · Burn + MSI + helper";
     }

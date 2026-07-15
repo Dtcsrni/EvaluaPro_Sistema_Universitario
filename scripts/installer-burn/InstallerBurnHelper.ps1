@@ -13,6 +13,13 @@ param(
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
 
+# Forzar UTF-8 en todos los streams de PowerShell para evitar corrupción de
+# caracteres especiales (tildes, eñes) en el JSON de respuesta.
+# Necesario en PowerShell 5.1 (Windows PowerShell) que hereda el encoding de la consola.
+[Console]::OutputEncoding = [System.Text.Encoding]::UTF8
+[Console]::InputEncoding  = [System.Text.Encoding]::UTF8
+$OutputEncoding            = [System.Text.Encoding]::UTF8
+
 $moduleRoots = @(
   (Join-Path $PSScriptRoot 'modules'),
   $PSScriptRoot
