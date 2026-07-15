@@ -189,3 +189,8 @@ miniatura de marca; deben usar únicamente iconografía funcional para evitar
 redundancia visual y conservar espacio para el contenido descriptivo. El logo
 pequeño de la pantalla final de instalación queda permitido como cierre de
 marca contextual.
+
+El harness UIAutomation debe tratar una ventana no encontrada como un estado
+diagnosticable: no puede invocar métodos sobre raíces nulas, debe conservar el
+reporte y el log, y debe distinguir fallo de arranque del Hub de fallo de un
+control concreto.

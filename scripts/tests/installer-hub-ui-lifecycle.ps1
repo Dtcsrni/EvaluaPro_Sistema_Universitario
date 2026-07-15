@@ -189,6 +189,7 @@ function Find-ById {
     [string]$AutomationId,
     [int]$TimeoutSec = 8
   )
+  if (-not $RootElement) { return $null }
   $deadline = (Get-Date).AddSeconds($TimeoutSec)
   $condition = New-Object System.Windows.Automation.PropertyCondition -ArgumentList @(
     [System.Windows.Automation.AutomationElement]::AutomationIdProperty,
@@ -208,6 +209,7 @@ function Find-ByName {
     [string]$Name,
     [int]$TimeoutSec = 8
   )
+  if (-not $RootElement) { return $null }
   $deadline = (Get-Date).AddSeconds($TimeoutSec)
   $condition = New-Object System.Windows.Automation.PropertyCondition -ArgumentList @(
     [System.Windows.Automation.AutomationElement]::NameProperty,
@@ -323,6 +325,10 @@ function Capture-Window {
     [System.Windows.Automation.AutomationElement]$Window,
     [string]$Name
   )
+  if (-not $Window) {
+    Write-QaLog "No se pudo capturar ${Name}: la ventana UIAutomation no está disponible."
+    return ''
+  }
   $rectangle = $Window.Current.BoundingRectangle
   if ($rectangle.Width -le 0 -or $rectangle.Height -le 0) { return '' }
   $x = [int]$rectangle.X
@@ -504,7 +510,12 @@ try {
         $window = Find-Window -TimeoutSec 10
       }
       $startButton = Find-ById -RootElement $window -AutomationId 'StartButton' -TimeoutSec 5
-      Add-Result -Area 'mode' -Item $mode -Ok ($startButton.Current.Name -like "*$mode*") -Detail ("StartButton={0}" -f $startButton.Current.Name)
+      if ($startButton) {
+        $startName = $startButton.Current.Name
+        Add-Result -Area 'mode' -Item $mode -Ok ($startName -like "*$mode*") -Detail ("StartButton={0}" -f $startName)
+      } else {
+        Add-Result -Area 'mode' -Item $mode -Ok $false -Detail 'StartButton no disponible: la ventana del Hub desapareció o no terminó de cargar.'
+      }
       $backButton = Find-ById -RootElement $window -AutomationId 'BackButton' -TimeoutSec 5
       if ($backButton -and $backButton.Current.IsEnabled) {
         Invoke-Control -Element $backButton
