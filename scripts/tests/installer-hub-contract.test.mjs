@@ -265,6 +265,9 @@ test('Installer Hub exige resolución mínima y recomienda 1080p', () => {
   const xaml = fs.readFileSync(path.join(root, 'packaging', 'wix', 'BurnBootstrapperApp', 'MainWindow.xaml'), 'utf8');
   const code = fs.readFileSync(path.join(root, 'packaging', 'wix', 'BurnBootstrapperApp', 'MainWindow.xaml.cs'), 'utf8');
   assert.match(xaml, /Width="1440"[\s\S]*Height="900"[\s\S]*MinWidth="1180"[\s\S]*MinHeight="720"/);
+  assert.match(xaml, /FontFamily="Segoe UI, Segoe UI Variable Text, Aptos, Arial"/);
+  assert.match(xaml, /<Style TargetType="TextBlock">[\s\S]*FontSize" Value="14"/);
+  assert.match(xaml, /x:Key="HelpTextStyle"[\s\S]*FontSize" Value="14"[\s\S]*LineHeight" Value="21"/);
   assert.match(code, /MinimumScreenWidth = 1280/);
   assert.match(code, /MinimumScreenHeight = 720/);
   assert.match(code, /1920×1080/);
@@ -402,6 +405,8 @@ test('Installer Hub cumple contrato DESIGN.md de layout y accesibilidad WPF', ()
   assert.match(mainWindowXaml, /x:Name="StepConnectorExecuteResult"/);
   assert.match(mainWindowXaml, /x:Name="StatusVisualPlate"/);
   assert.match(mainWindowXaml, /x:Name="StatusVisualIcon"/);
+  assert.match(mainWindowXaml, /x:Key="LogExpanderStyle" TargetType="Expander"/);
+  assert.match(mainWindowXaml, /x:Name="LogExpander" Style="\{StaticResource LogExpanderStyle\}"/);
   assert.match(mainWindowXaml, /x:Name="ModeImpactIconPlate"/);
   assert.match(mainWindowXaml, /x:Name="ModeImpactIcon"/);
   assert.match(mainWindowXaml, /x:Name="PrereqSummaryIconPlate"/);
