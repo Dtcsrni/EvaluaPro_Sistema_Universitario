@@ -268,6 +268,9 @@ test('Installer Hub exige resolución mínima y recomienda 1080p', () => {
   assert.match(code, /MinimumScreenWidth = 1280/);
   assert.match(code, /MinimumScreenHeight = 720/);
   assert.match(code, /1920×1080/);
+  assert.match(xaml, /x:Name="HeaderFeatureTitleTextBlock"/);
+  assert.match(xaml, /x:Name="HeaderFeatureIndexTextBlock"/);
+  assert.match(xaml, /x:Name="ShowIntroButton"[\s\S]*Visibility="Collapsed"/);
 });
 
 test('Installer Hub separa aceptación de licencia y privacidad', () => {
@@ -391,6 +394,9 @@ test('Installer Hub cumple contrato DESIGN.md de layout y accesibilidad WPF', ()
   assert.doesNotMatch(mainWindowXaml, />Evidencia</);
   assert.doesNotMatch(mainWindowXaml, />Guiado</);
   assert.match(mainWindowXaml, /x:Name="SplashGraphicIndicators"/);
+  assert.match(mainWindowXaml, /x:Key="TermsTextBrush" Color="#17324D"/);
+  assert.match(mainWindowXaml, /x:Name="TermsText"[\s\S]*Foreground="\{StaticResource TermsTextBrush\}"/);
+  assert.match(mainWindowXaml, /x:Name="SplashOverlay"[\s\S]*Background="#E6111827"/);
   assert.match(mainWindowXaml, /BrandTileStyle/);
   assert.match(mainWindowXaml, /x:Name="StepConnectorTermsPrepare"/);
   assert.match(mainWindowXaml, /x:Name="StepConnectorExecuteResult"/);

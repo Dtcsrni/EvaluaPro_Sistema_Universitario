@@ -41,6 +41,7 @@
         <SolidColorBrush x:Key="BorderBrushNeutral" Color="#80B8F3F5" />
         <SolidColorBrush x:Key="TextBrush" Color="#F8FAFC" />
         <SolidColorBrush x:Key="MutedTextBrush" Color="#C4D5E8" />
+        <SolidColorBrush x:Key="TermsTextBrush" Color="#17324D" />
         <SolidColorBrush x:Key="PrimaryBrush" Color="#14B8A6" />
         <SolidColorBrush x:Key="AccentBrush" Color="#38BDF8" />
         <!-- Tono semántico conservado para estados de éxito calculados en code-behind. -->
@@ -234,7 +235,7 @@
                     <StackPanel Grid.Column="1" VerticalAlignment="Center">
                         <TextBlock Text="EvaluaPro Installer Hub" FontSize="24" FontWeight="Bold" Foreground="{StaticResource TextBrush}" />
                         <TextBlock x:Name="BrandStatementTextBlock" Margin="0,3,0,0" FontSize="14" Foreground="{StaticResource MutedTextBrush}" Text="Asistente guiado para instalar, reparar, actualizar y desinstalar con evidencia operativa." TextWrapping="Wrap" />
-                        <Border Background="#CC0B2038" BorderBrush="#B338DDF5" BorderThickness="1" CornerRadius="12" Padding="12,9" Margin="0,10,0,0" MaxWidth="720" Effect="{StaticResource CardShadow}">
+                        <Border Background="#CC0B2038" BorderBrush="#B338DDF5" BorderThickness="1" CornerRadius="12" Padding="16,12" Margin="0,10,0,0" MaxWidth="860" Effect="{StaticResource CardShadow}">
                             <Grid>
                                 <Grid.ColumnDefinitions>
                                     <ColumnDefinition Width="*" />
@@ -253,7 +254,7 @@
                         </Border>
                     </StackPanel>
                     <StackPanel Grid.Column="2" Orientation="Horizontal" VerticalAlignment="Center">
-                        <Button x:Name="ShowIntroButton" Content="Funciones" Style="{StaticResource SecondaryButtonStyle}" MinWidth="92" Margin="0,0,10,0" Click="ShowIntroButton_OnClick" ToolTip="Muestra las funciones principales de EvaluaPro." AutomationProperties.Name="Mostrar funciones principales" />
+                         <Button x:Name="ShowIntroButton" Content="Funciones" Style="{StaticResource SecondaryButtonStyle}" MinWidth="92" Margin="0,0,10,0" Visibility="Collapsed" Click="ShowIntroButton_OnClick" ToolTip="El carrusel de funciones permanece visible en el encabezado." AutomationProperties.Name="Mostrar funciones principales" />
                         <Border Style="{StaticResource StatusBadgeStyle}">
                             <TextBlock x:Name="HubVersionTextBlock" Text="v-" FontSize="12" FontWeight="SemiBold" Foreground="{StaticResource TextBrush}" />
                         </Border>
@@ -379,7 +380,7 @@
                                     
                                     <Border Grid.Row="2" BorderThickness="1" BorderBrush="{StaticResource BorderBrushNeutral}" CornerRadius="4" Background="White" Padding="12">
                                         <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
-                                            <TextBlock x:Name="TermsText" TextWrapping="Wrap" FontSize="12.5" Foreground="{StaticResource MutedTextBrush}" LineHeight="18" xml:space="preserve">
+                                    <TextBlock x:Name="TermsText" TextWrapping="Wrap" FontSize="12.5" Foreground="{StaticResource TermsTextBrush}" LineHeight="18" xml:space="preserve">
 TÉRMINOS Y CONDICIONES DE LICENCIA Y PRIVACIDAD
 
 Por favor, lee atentamente los siguientes términos antes de proceder con la instalación de EvaluaPro. Al continuar, aceptas estar sujeto a estas condiciones:
@@ -728,8 +729,8 @@ Por favor, lee atentamente los siguientes términos antes de proceder con la ins
                 </Grid>
             </Border>
 
-            <Grid x:Name="SplashOverlay" Grid.RowSpan="3" Panel.ZIndex="99" Background="#99111827" Visibility="Collapsed">
-                <Border Width="760" Height="430" CornerRadius="8" Background="#B30F766E" BorderBrush="#B35EEAD4" BorderThickness="1" Effect="{StaticResource CardShadow}" HorizontalAlignment="Center" VerticalAlignment="Center" Padding="32">
+            <Grid x:Name="SplashOverlay" Grid.RowSpan="3" Panel.ZIndex="99" Background="#E6111827" Visibility="Collapsed">
+                <Border Width="760" Height="430" CornerRadius="12" Background="#F20F766E" BorderBrush="#F05EEAD4" BorderThickness="1" Effect="{StaticResource CardShadow}" HorizontalAlignment="Center" VerticalAlignment="Center" Padding="32">
                     <Grid>
                         <Grid.ColumnDefinitions>
                             <ColumnDefinition Width="170" />
