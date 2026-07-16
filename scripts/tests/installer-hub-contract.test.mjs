@@ -294,6 +294,13 @@ test('build MSI bloquea MSI docente sin bootstrap y esquema SQLite nativos', () 
   assert.match(build, /RequireDocenteNativePayload:.*flavorId/);
 });
 
+test('tag guard solo permite versiones semver estables o prerelease canonicas', () => {
+  const guard = fs.readFileSync(path.join(root, '.github/workflows/tag-release-guard.yml'), 'utf8');
+  assert.match(guard, /v\[0-9\]\+\\\.\[0-9\]\+\\\.\[0-9\]\+/);
+  assert.match(guard, /alpha\|beta\|rc/);
+  assert.match(guard, /Formato de tag no permitido/);
+});
+
 test('helper SQLite aísla solo raíces QA y conserva datos normales', () => {
   const helper = fs.readFileSync(path.join(root, 'scripts', 'installer-burn', 'InstallerBurnHelper.ps1'), 'utf8');
   assert.match(helper, /EvaluaPro-QA-Isolated-/);
