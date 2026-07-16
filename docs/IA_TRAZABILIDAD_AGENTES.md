@@ -111,8 +111,9 @@ Objetivo: continuidad verificable entre agentes heterogeneos con evidencia repro
 9. `npm run pipeline:contract:check`
 
 ## 8) Snapshot operativo vigente
-- Version tecnica objetivo: `1.1.0`
-- Version visible objetivo: `1.1.0`
+- Version técnica actual: `0.0.0-dev`
+- Versión visible actual: `0.0.0-dev`
+- Estado de distribución: QA local; no hay tags ni releases publicados.
 - API activa: `/api/*`
 - Sync activo: schema v2 + fingerprint `sync-v2-lww-updatedAt-schema2`
 - Gate de arquitectura limpia activo en CI

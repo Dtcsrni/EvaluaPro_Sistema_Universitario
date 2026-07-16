@@ -1,9 +1,14 @@
 # Despliegue
 
-## Estrategia general
-- Operacion docente local recomendada con Docker Compose.
-- En Windows, el runtime por defecto es `WSL2 + Docker Engine`; `Docker Desktop` se mantiene como compatibilidad opcional.
-- Portal alumno desacoplado para despliegue cloud.
+## Estado actual y estrategia
+EvaluaPro se encuentra en desarrollo y QA local (`0.0.0-dev`). El camino
+principal del flavor `docente-local` es una aplicación nativa para Windows:
+API local, SQLite/Prisma, frontend docente y runtime Node embebido.
+
+- La operación docente se ejecuta directamente en la PC.
+- El portal alumno conserva su despliegue desacoplado para escenarios cloud.
+- Docker y WSL2 pertenecen a entornos auxiliares o a otros flavors; no forman
+  parte del camino operativo docente actual.
 
 ## Desarrollo local
 Levantar stack base:
@@ -19,12 +24,12 @@ npm run dev:frontend:alumno
 npm run dev:portal
 ```
 
-## Produccion local (ensayo)
+## Operación local de ensayo
 ```bash
 npm run stack:prod
 ```
 
-Portal prod local (sin watch, solo laboratorio o validacion puntual):
+Portal local de ensayo (modo estable, destinado a laboratorio o validación puntual):
 ```bash
 npm run portal:prod
 ```
@@ -32,13 +37,13 @@ npm run portal:prod
 Notas:
 - `portal:prod` compila `apps/portal_alumno_cloud` solo si falta `dist/index.js`.
 - Los accesos directos `EvaluaPro - Dev` y `EvaluaPro - Prod` aplican arranque estricto.
-- Para `docente-local`, el camino feliz es `prod local` sobre `WSL2 + Docker` con salud de `mongo_local + api_docente_prod + web_docente_prod`.
+- Para `docente-local`, el camino feliz es `prod local` sobre Windows con salud
+  de la API local, SQLite/Prisma, frontend docente y runtime embebido.
 - El portal alumno se considera integracion externa/cloud y no bloquea la UI docente local.
 
-## Servicios locales tipicos
-- `docente-local`: `mongo_local`, `api_docente_prod`, `web_docente_prod`
-- `mongo_express_local`: solo soporte/diagnostico mediante profile `support`
-- `portal_alumno_cloud`: no forma parte del stack obligatorio del flavor docente local
+## Servicios locales típicos
+- `docente-local`: API local, SQLite/Prisma, frontend docente y runtime Node embebido.
+- `portal_alumno_cloud`: componente separado para escenarios de consulta y despliegue cloud.
 
 ## Portal alumno cloud
 App objetivo: `apps/portal_alumno_cloud`.
@@ -51,8 +56,7 @@ Recomendaciones:
 5. Programar limpieza/retencion segun politica.
 
 ## Variables clave
-Backend docente:
-- `MONGODB_URI`
+Backend docente local:
 - `JWT_SECRETO`
 - `NODE_ENV`
 - `PUERTO_API`
@@ -70,7 +74,6 @@ Backend docente:
 - `LICENCIA_ACCOUNT_EMAIL` (cuando se exige activacion de licencia)
 
 Portal cloud:
-- `MONGODB_URI`
 - `PORTAL_API_KEY`
 - `CODIGO_ACCESO_HORAS`
 - `CORS_ORIGENES`
@@ -78,9 +81,9 @@ Portal cloud:
 - `NOTIFICACIONES_WEBHOOK_URL` (obligatoria si `CORREO_MODULO_ACTIVO=1`)
 - `NOTIFICACIONES_WEBHOOK_TOKEN` (obligatoria si `CORREO_MODULO_ACTIVO=1`)
 
-Fail-fast en produccion:
-- Backend docente exige `MONGODB_URI`, `JWT_SECRETO`, `PORTAL_ALUMNO_URL`, `PORTAL_ALUMNO_API_KEY`, `CORS_ORIGENES`.
-- Portal cloud exige `MONGODB_URI`, `PORTAL_API_KEY`, `CORS_ORIGENES` y rechaza `CORS_ORIGENES=*`.
+Validación de configuración en producción:
+- Backend docente exige `JWT_SECRETO`, `PORTAL_ALUMNO_URL`, `PORTAL_ALUMNO_API_KEY` y `CORS_ORIGENES` cuando se habilita integración de portal.
+- Portal cloud exige `PORTAL_API_KEY`, `CORS_ORIGENES` y rechaza `CORS_ORIGENES=*`.
 - Si `CORREO_MODULO_ACTIVO=1`, backend exige `NOTIFICACIONES_WEBHOOK_URL` y `NOTIFICACIONES_WEBHOOK_TOKEN`.
 
 Frontend alumno/docente (build separado):
@@ -172,16 +175,16 @@ Artefactos:
 Contrato operativo del bootstrapper Windows:
 - `EvaluaPro-InstallerHub-<flavor>-v<version>.exe` es el entrypoint publico oficial.
 - se genera desde `WiX Burn` con BA personalizada `WPF .NET 8`.
-- el helper `scripts/installer-burn/InstallerBurnHelper.ps1` conserva configuracion operativa, bootstrap de `WSL2` (`Docker Engine + Node 24` para `docente-local`), verificacion y blindaje de licencia.
+- el helper `scripts/installer-burn/InstallerBurnHelper.ps1` conserva
+  configuración operativa, verificación y blindaje de licencia para la ruta
+  nativa de Windows.
 - el legado `scripts/installer-hub/InstallerHub.ps1` fue retirado y no debe invocarse.
 
 Prerequisitos de instalacion:
-- runtime Docker compatible:
-  - `WSL2 + Docker Engine` (default)
-  - `Docker Desktop` (compatibilidad)
 - `docente-local`:
-  - runtime Node embebido local en Windows para launcher/dashboard/tray
-  - `Node 24` provisionado dentro de la distro objetivo de `WSL2`
+  - Windows compatible y permisos de usuario para la instalación elegida
+  - runtime Node embebido local para launcher, dashboard y tray
+  - SQLite/Prisma incluido en el payload nativo
 - `saas-completo`:
   - puede mantener temporalmente dependencia de `Node.js 24+` en host hasta migrar a runtime embebido
 - WiX Toolset v6.0.x estable (solo para generar instalador)
@@ -189,10 +192,12 @@ Prerequisitos de instalacion:
 
 CI de instalador Windows:
 - Workflow: `.github/workflows/ci-installer-windows.yml`.
-- Trigger: tags `v*` y `workflow_dispatch`.
+- Trigger: `workflow_dispatch` y tags con formato canónico conforme a
+  `docs/TAGGING_POLICY.md`. El repositorio actual permanece en QA local y no
+  publica releases automáticamente hasta superar las gates.
 - Valida `test:wix:policy` + `test:installer-hub:contract`.
 - Publica la BA `.NET 8`, compila MSI + bundle Burn (`-SkipStabilityChecks -IncludeBundle`), ejecuta smoke del `.exe` publico, genera hashes/manifiesto y ejecuta signing gate opcional.
-- En tags `v*` publica automáticamente assets en GitHub Releases:
+- En una tag canónica aprobada publica automáticamente assets en GitHub Releases:
   - `EvaluaPro-InstallerHub-saas-completo-v<version>.exe`, `EvaluaPro-InstallerHub-saas-completo-v<version>.exe.sha256`
   - `EvaluaPro-InstallerHub-docente-local-v<version>.exe`, `EvaluaPro-InstallerHub-docente-local-v<version>.exe.sha256`
   - `EvaluaPro-release-manifest.json`
@@ -212,13 +217,12 @@ Accesos directos:
 - solo Installer Hub debe instalarlos o restaurarlos;
 - el dashboard y el broker no deben regenerarlos por fuera de ese flujo.
 
-No autoconfigurable por instalador:
-- provisionamiento completo del runtime Docker fuera del bootstrap guiado.
-- credenciales/secretos de entorno de produccion real.
+Fuera del alcance del instalador:
+- credenciales y secretos de un entorno productivo real
 
 Para `docente-local`:
 - Windows ya no depende de `Node` global para operar launcher/dashboard/tray.
-- `logs/installation.manifest.json` publica `runtime.embeddedNode` y `runtime.wsl` como contrato operativo local.
+- `logs/installation.manifest.json` publica `runtime.embeddedNode` como contrato operativo local.
 
 ## Operacion y verificacion
 - Estado rapido:

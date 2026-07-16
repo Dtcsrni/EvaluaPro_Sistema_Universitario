@@ -1,8 +1,24 @@
 # Engineering Baseline
 
-Fecha de baseline: 2026-06-27
-Version tecnica: `1.1.0`
-Version visible GUI: `1.1.0`
+Fecha de baseline vigente: 2026-07-16
+Version técnica: `0.0.0-dev`
+Versión visible GUI: `0.0.0-dev`
+
+## Corte vigente
+
+EvaluaPro está en desarrollo y QA local. El flavor prioritario es
+`docente-local`, una aplicación nativa para Windows que integra API local,
+SQLite/Prisma, frontend docente y runtime Node embebido. El Installer Hub WPF
+gestiona instalación, reparación, actualización y desinstalación desde la PC.
+
+- El repositorio mantiene cero tags y cero releases publicados mientras se
+  completa el ciclo E2E nativo.
+- Los contratos del Hub incluyen una validación de payload para exigir el
+  bootstrap SQLite y el esquema Prisma antes de generar un MSI docente.
+- La suite de contrato de tags y payload nativo está validada; el E2E completo
+  permanece pendiente de un bundle regenerado que supere esa gate.
+- Las entradas posteriores de este documento son bitácora histórica. El estado
+  anterior sirve como trazabilidad y no representa la distribución actual.
 
 ## Estado vigente
 - Corte 2026-07-11 (Resiliencia y Robustez de WPF Bootstrapper):

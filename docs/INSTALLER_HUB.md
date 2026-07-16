@@ -1,5 +1,8 @@
 # Installer Hub (Windows)
 
+Estado actual: QA local del flavor nativo `docente-local`. El Hub instala,
+repara y desinstala en la PC; todavía no existe un bundle distribuible estable.
+
 Bootstrapper oficial de Windows para instalacion, reparacion y desinstalacion de EvaluaPro.
 La superficie publica ahora es `WiX Burn + Bootstrapper Application WPF .NET 8 + helper PowerShell headless`.
 El contrato visual y UX del Hub vive en `docs/DESIGN.md`.
@@ -8,7 +11,8 @@ El contrato visual y UX del Hub vive en `docs/DESIGN.md`.
 
 - Ejecutar instalacion, reparacion o desinstalacion desde una GUI guiada.
 - Verificar y preparar prerequisitos de Windows segun flavor.
-- Para `docente-local`, preparar `Node 24` host en Windows y desplegar un runtime Node embebido local para dashboard/tray/shortcuts.
+- Para `docente-local`, preparar el runtime Node embebido local para dashboard,
+  tray y accesos directos.
 - Encadenar el `MSI` por medio de `Burn` con elevacion, cache, repair/uninstall y logging nativos.
 - Ejecutar configuracion operativa, activacion de licencia y validacion final con helper controlado bajo contrato JSON.
 - Dejar trazabilidad en logs por sesion para soporte tecnico.
@@ -61,7 +65,9 @@ El contrato visual y UX del Hub vive en `docs/DESIGN.md`.
   - `scripts/installer-burn/modules/PostInstallVerifier.psm1`
   - `scripts/installer-burn/modules/LicenseClientSecurity.psm1`
 
-El script legacy `scripts/installer-hub/InstallerHub.ps1` y la UI WinForms fueron retirados del repositorio. La unica superficie soportada es el bundle Burn publico `EvaluaPro-InstallerHub-<flavor>-v<version>.exe`.
+La superficie soportada es el bundle Burn con BA WPF. El flujo de desarrollo y
+QA usa artefactos locales; el bundle público se habilitará después del cierre
+de las gates.
 
 ## Contratos de release
 

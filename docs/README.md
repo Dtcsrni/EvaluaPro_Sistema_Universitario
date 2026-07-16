@@ -1,11 +1,14 @@
-# docs/
+# Documentación de EvaluaPro
 
-Centro documental de producto, operacion, cumplimiento y arquitectura de EvaluaPro.
+Centro documental de producto, operación, cumplimiento y arquitectura de
+EvaluaPro. La fuente de verdad actual es `docente-local` nativo para Windows,
+en etapa de QA y con release pública pendiente.
 
 ## Lectura por objetivo
 - Negocio/licencia: `comercial/FEATURE_CATALOG.md`, `comercial/LICENSING_TIERS.md`, `comercial/ESTRATEGIA_COMERCIAL.md`, `comercial/playbook-demo-35d.md`.
 - Seguridad/cumplimiento: `SECURITY_POLICY.md`, `CUMPLIMIENTO.md`, `legal/*`.
-- Operacion tecnica: `DESPLIEGUE.md`, `INSTALLER_HUB.md`, `SINCRONIZACION_ENTRE_COMPUTADORAS.md`, `POLITICA_OPTIMIZACION_RECURSOS.md`.
+- Operación técnica: `DESPLIEGUE.md`, `INSTALLER_HUB.md`, `SINCRONIZACION_ENTRE_COMPUTADORAS.md`, `POLITICA_OPTIMIZACION_RECURSOS.md`.
+- Estado de distribución: `RELEASE_STATUS.md`, `TAGGING_POLICY.md`.
 - Arquitectura/calidad: `ARQUITECTURA.md`, `ARQUITECTURA_C4.md`, `DESIGN.md`, `PRUEBAS.md`, `RELEASE_GATE_STABLE.md`.
 - Footprint/limpieza: `POLITICA_OPTIMIZACION_RECURSOS.md` (peso operativo, componentes regenerables y mantenimiento Docker).
 - Utilidades IA: `docs/POLITICA_ECONOMIA_TOKENS_CODEX.md`, `scripts/ai-model-router.mjs` y `npm run ai:model:pick` para seleccionar modelo segun tarea, riesgo y presupuesto.

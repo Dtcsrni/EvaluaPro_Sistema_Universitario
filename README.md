@@ -1,4 +1,10 @@
-# EvaluaPro | Evaluacion Universitaria
+# EvaluaPro | Evaluación universitaria
+
+> Estado actual: desarrollo y QA local (`0.0.0-dev`). El proyecto trabaja en
+> el cierre del flavor nativo `docente-local`; actualmente no existe una
+> release publicada. Consulta [docs/RELEASE_STATUS.md](docs/RELEASE_STATUS.md)
+> y [docs/TAGGING_POLICY.md](docs/TAGGING_POLICY.md) antes de distribuir un
+> artefacto.
 
 EvaluaPro convierte el flujo academico completo en un proceso trazable y repetible: diseno de examen, impresion PDF, aplicacion, lectura OMR, calificacion y publicacion.
 
@@ -74,11 +80,12 @@ Hoja de ruta de producto/ingenieria: [docs/ROADMAP_REQUISITOS.md](docs/ROADMAP_R
 - Releases: [GitHub Releases](https://github.com/Dtcsrni/EvaluaPro_Sistema_Universitario/releases)
 - Instalacion oficial (usuario final): `EvaluaPro-InstallerHub-<flavor>.exe` (fuente unica para instalacion y prerequisitos)
 - Installer Hub (Windows): [docs/INSTALLER_HUB.md](docs/INSTALLER_HUB.md) (`WiX Burn + BA WPF .NET 8 + helper PowerShell headless`)
-- `docente-local` instala/usa `WSL2 + Docker` como runtime del stack, provisiona `Node 24` dentro de la distro objetivo, mantiene `Node 24` host en Windows y usa runtime Node embebido para dashboard/tray.
-- Diagnostico operativo dual:
-  - `npm run env:doctor:wsl` (desarrollo en WSL2)
-  - `npm run env:doctor:windows` (build/smoke en Windows)
-  - `npm run env:doctor` (auto por plataforma)
+- `docente-local` es una aplicación nativa para Windows: API local, SQLite,
+  frontend docente, Node embebido y acceso al dashboard desde la PC.
+- El flujo docente se valida en la PC con `npm run env:doctor:windows` y el
+  runner `scripts/tests/installer-hub-e2e-docente.ps1`.
+- Los componentes de portal y otros flavors se documentan por separado; no
+  forman parte del camino mínimo del flavor docente.
 - Desarrollo local:
 ```bash
 npm install

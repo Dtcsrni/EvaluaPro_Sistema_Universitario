@@ -8,7 +8,7 @@ EvaluaPro usa arquitectura de monorepo con separacion por aplicaciones:
 
 ## Componentes principales
 - Backend docente:
-  - Express + TypeScript + Mongoose.
+  - Express + TypeScript + Prisma + SQLite.
   - Arquitectura modular por dominio (`modulos/*`).
   - Capas compartidas (`compartido/*`) e infraestructura (`infraestructura/*`).
 - Frontend:
@@ -38,9 +38,11 @@ EvaluaPro usa arquitectura de monorepo con separacion por aplicaciones:
 - El portal cloud trata resultados como vista derivada de sincronizacion, no como fuente primaria de escritura academica.
 
 ## Datos y persistencia
-- Fuente primaria local: MongoDB (docentes, examenes, calificaciones, estado operativo).
+- Fuente primaria local del flavor docente: SQLite administrado por Prisma
+  (docentes, materias, alumnos, exámenes, calificaciones y estado operativo).
 - Artefactos locales: PDFs y activos OMR en almacenamiento local del backend.
-- Fuente de consulta alumno: MongoDB cloud en portal, alimentada por sincronizacion.
+- La consulta alumno usa el portal correspondiente cuando el despliegue lo
+  requiere; el sistema docente conserva la fuente operativa local.
 
 ## Diagramas
 - Arquitectura logica: `diagramas/rendered/arquitectura/arquitectura-logica.svg`
