@@ -227,3 +227,10 @@ debe recibirse explícitamente desde el runner, validar que permanezca bajo
 `%LOCALAPPDATA%` y registrar el modo de limpieza. Si el registro inicial falla,
 el reporte debe conservar el endpoint, estado HTTP y diagnóstico sin afirmar
 que el ciclo fue ejecutado.
+
+### REQ-029 - Gate de payload docente completo
+
+El build MSI de `docente-local` debe inspeccionar el MSI extraído y rechazarlo
+si no contiene exactamente un bootstrap `scripts/prepare-docente-sqlite.mjs` y
+un `apps/backend/dist/prisma/schema.sql`. Validar solo `package.json` no es
+suficiente para permitir la publicación o el E2E.

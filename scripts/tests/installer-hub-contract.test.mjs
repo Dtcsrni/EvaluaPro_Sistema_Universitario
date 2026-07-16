@@ -286,6 +286,14 @@ test('build MSI elimina avisos Prisma del esquema SQL nativo', () => {
   assert.match(build, /Falló saneamiento del esquema SQL nativo/);
 });
 
+test('build MSI bloquea MSI docente sin bootstrap y esquema SQLite nativos', () => {
+  const build = fs.readFileSync(path.join(root, 'scripts', 'build-msi.ps1'), 'utf8');
+  assert.match(build, /RequireDocenteNativePayload/);
+  assert.match(build, /prepare-docente-sqlite\.mjs/);
+  assert.match(build, /schema\.sql/);
+  assert.match(build, /RequireDocenteNativePayload:.*flavorId/);
+});
+
 test('helper SQLite aísla solo raíces QA y conserva datos normales', () => {
   const helper = fs.readFileSync(path.join(root, 'scripts', 'installer-burn', 'InstallerBurnHelper.ps1'), 'utf8');
   assert.match(helper, /EvaluaPro-QA-Isolated-/);

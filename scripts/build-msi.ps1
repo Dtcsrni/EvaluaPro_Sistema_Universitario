@@ -576,7 +576,8 @@ function Assert-MsiInstallsAppPayload {
     [Parameter(Mandatory = $true)]
     [string]$MsiPath,
     [Parameter(Mandatory = $true)]
-    [string]$InstallFolderName
+    [string]$InstallFolderName,
+    [switch]$RequireDocenteNativePayload
   )
   if (-not (Test-Path -LiteralPath $MsiPath)) {
     throw "MSI no existe para validar payload instalado: $MsiPath"
@@ -604,6 +605,14 @@ function Assert-MsiInstallsAppPayload {
     if (-not $packageOk) {
       $sample = @(Get-ChildItem -LiteralPath $extractRoot -Recurse -File -ErrorAction SilentlyContinue | Select-Object -First 20 -ExpandProperty FullName)
       throw "MSI no instala package.json bajo carpeta de producto '$InstallFolderName'. Muestras: $($sample -join ' | ')"
+    }
+    if ($RequireDocenteNativePayload) {
+      $nativeBootstrap = @(Get-ChildItem -LiteralPath $extractRoot -Recurse -File -Filter 'prepare-docente-sqlite.mjs' -ErrorAction SilentlyContinue)
+      $nativeSchema = @(Get-ChildItem -LiteralPath $extractRoot -Recurse -File -Filter 'schema.sql' -ErrorAction SilentlyContinue | Where-Object { $_.FullName -match '[\\/]apps[\\/]backend[\\/]dist[\\/]prisma[\\/]schema\.sql$' })
+      if ($nativeBootstrap.Count -ne 1 -or $nativeSchema.Count -ne 1) {
+        $sample = @(Get-ChildItem -LiteralPath $extractRoot -Recurse -File -ErrorAction SilentlyContinue | Where-Object { $_.Name -in @('prepare-docente-sqlite.mjs', 'schema.sql') } | Select-Object -ExpandProperty FullName)
+        throw "MSI docente sin payload nativo completo: bootstrap=$($nativeBootstrap.Count) schema=$($nativeSchema.Count). Muestras: $($sample -join ' | ')"
+      }
     }
     Write-Host "[msi] Payload MSI validado bajo carpeta de producto: $InstallFolderName"
   } finally {
@@ -1151,7 +1160,7 @@ if ($buildBundle) {
     if (-not (Test-Path -LiteralPath $productOut)) {
       throw "Build de Product.wxs para $flavorId no genero MSI esperado: $productOut"
     }
-    Assert-MsiInstallsAppPayload -MsiPath $productOut -InstallFolderName $installFolderName
+    Assert-MsiInstallsAppPayload -MsiPath $productOut -InstallFolderName $installFolderName -RequireDocenteNativePayload:($flavorId -eq 'docente-local')
     $idx += 1
 
     if ($buildBundle) {
