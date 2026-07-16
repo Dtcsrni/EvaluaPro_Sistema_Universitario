@@ -1104,3 +1104,7 @@ Este archivo sigue el formato "Keep a Changelog" (alto nivel) y SemVer.
 
 - El fallback de limpieza del ciclo dummy ahora usa únicamente la SQLite de la instalación QA bajo `%LOCALAPPDATA%`; nunca toca la base del repositorio.
 - El runner propaga la ruta SQLite aislada y conserva el diagnóstico del endpoint cuando el registro inicial falla.
+### Estado de release
+
+- Retiradas las releases estables históricas `v1.0.0` a `v1.1.1` y el tag anómalo `v1b`; no hay una release estable vigente hasta completar el E2E docente-local.
+- Los prereleases beta se conservan como evidencia de QA y no son distribuibles estables.
