@@ -8,8 +8,11 @@ Las releases estables históricas y sus tags (`v1.0.0`, `v1.0.1`, `v1.0.2`,
 `v1.1.0` y `v1.1.1`) fueron retiradas porque el flujo `docente-local` aún no
 ha demostrado un ciclo E2E completo y reproducible en PC nativa.
 
-El trabajo activo se valida como QA/prerelease. No debe descargarse ni
-presentarse ningún artefacto QA como release estable.
+El trabajo activo se valida como QA local. No debe descargarse ni presentarse
+ningún artefacto QA como release estable ni prerelease publicado.
+
+El repositorio está deliberadamente sin tags y sin releases publicados hasta
+que el esquema nuevo y el E2E completo estén listos.
 
 ## Criterio para la próxima estable
 

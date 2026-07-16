@@ -31,6 +31,12 @@ jobs:
           max_attempts=20
           sleep_seconds=30
 
+          if [[ ! "$TAG_NAME" =~ ^v[0-9]+\.[0-9]+\.[0-9]+(-((alpha|beta|rc)\.[0-9]+))?$ ]]; then
+            echo "Formato de tag no permitido: $TAG_NAME" >&2
+            gh api --method DELETE "repos/$REPOSITORY/git/refs/tags/$TAG_NAME"
+            exit 1
+          fi
+
           for attempt in $(seq 1 "$max_attempts"); do
             if gh release view "$TAG_NAME" --repo "$REPOSITORY" > /dev/null 2>&1; then
               echo "Release encontrado para $TAG_NAME"

@@ -1108,3 +1108,4 @@ Este archivo sigue el formato "Keep a Changelog" (alto nivel) y SemVer.
 
 - Retiradas las releases estables históricas `v1.0.0` a `v1.1.1` y el tag anómalo `v1b`; no hay una release estable vigente hasta completar el E2E docente-local.
 - Los prereleases beta se conservan como evidencia de QA y no son distribuibles estables.
+- Retirados también todos los prereleases y tags heredados para reiniciar el esquema de versionado sin aliases ni residuos.
