@@ -12,7 +12,7 @@
           WorkingDirectory="INSTALLFOLDER"
           Icon="EvaluaProIconProd" />
         <RemoveFolder Id="RF.DesktopProd" On="uninstall" />
-        <RegistryValue Root="HKLM" Key="Software\EvaluaPro" Name="DesktopProd" Type="integer" Value="1" KeyPath="yes" />
+        <RegistryValue Root="$(var.ProductRegistryRoot)" Key="Software\EvaluaPro" Name="DesktopProd" Type="integer" Value="1" KeyPath="yes" />
       </Component>
 
       <?if $(var.FlavorId) != docente-local ?>
@@ -26,7 +26,7 @@
           WorkingDirectory="INSTALLFOLDER"
           Icon="EvaluaProIconDev" />
         <RemoveFolder Id="RF.DesktopDev" On="uninstall" />
-        <RegistryValue Root="HKLM" Key="Software\EvaluaPro" Name="DesktopDev" Type="integer" Value="1" KeyPath="yes" />
+        <RegistryValue Root="$(var.ProductRegistryRoot)" Key="Software\EvaluaPro" Name="DesktopDev" Type="integer" Value="1" KeyPath="yes" />
       </Component>
       <?endif?>
 
@@ -39,7 +39,7 @@
           Arguments="//nologo &quot;[INSTALLFOLDER]scripts\launcher-tray-hidden.vbs&quot; prod 4519"
           WorkingDirectory="INSTALLFOLDER"
           Icon="EvaluaProIconProd" />
-        <RegistryValue Root="HKLM" Key="Software\EvaluaPro" Name="MenuProd" Type="integer" Value="1" KeyPath="yes" />
+        <RegistryValue Root="$(var.ProductRegistryRoot)" Key="Software\EvaluaPro" Name="MenuProd" Type="integer" Value="1" KeyPath="yes" />
       </Component>
 
       <?if $(var.FlavorId) != docente-local ?>
@@ -52,7 +52,7 @@
           Arguments="//nologo &quot;[INSTALLFOLDER]scripts\launcher-tray-hidden.vbs&quot; dev 4519"
           WorkingDirectory="INSTALLFOLDER"
           Icon="EvaluaProIconDev" />
-        <RegistryValue Root="HKLM" Key="Software\EvaluaPro" Name="MenuDev" Type="integer" Value="1" KeyPath="yes" />
+        <RegistryValue Root="$(var.ProductRegistryRoot)" Key="Software\EvaluaPro" Name="MenuDev" Type="integer" Value="1" KeyPath="yes" />
       </Component>
       <?endif?>
 
@@ -65,7 +65,7 @@
           Arguments="//nologo &quot;[INSTALLFOLDER]scripts\shortcut-op-hidden.vbs&quot; open-dashboard 4519 auto"
           WorkingDirectory="INSTALLFOLDER"
           Icon="EvaluaProIconOpen" />
-        <RegistryValue Root="HKLM" Key="Software\EvaluaPro" Name="MenuOpenDashboard" Type="integer" Value="1" KeyPath="yes" />
+        <RegistryValue Root="$(var.ProductRegistryRoot)" Key="Software\EvaluaPro" Name="MenuOpenDashboard" Type="integer" Value="1" KeyPath="yes" />
       </Component>
 
       <Component Id="CMP.ShortcutMenuRestartStack" Directory="ProgramMenuFolder" Guid="D6B1CE99-1D23-422E-84F8-CCB675CB0078" Condition="INSTALL_STARTMENU_SHORTCUTS = 1">
@@ -77,7 +77,7 @@
           Arguments="//nologo &quot;[INSTALLFOLDER]scripts\shortcut-op-hidden.vbs&quot; restart-stack 4519 auto"
           WorkingDirectory="INSTALLFOLDER"
           Icon="EvaluaProIconRestart" />
-        <RegistryValue Root="HKLM" Key="Software\EvaluaPro" Name="MenuRestartStack" Type="integer" Value="1" KeyPath="yes" />
+        <RegistryValue Root="$(var.ProductRegistryRoot)" Key="Software\EvaluaPro" Name="MenuRestartStack" Type="integer" Value="1" KeyPath="yes" />
       </Component>
 
       <Component Id="CMP.ShortcutMenuStopAll" Directory="ProgramMenuFolder" Guid="6CB230CC-5F29-4619-A43C-55D8D8326522" Condition="INSTALL_STARTMENU_SHORTCUTS = 1">
@@ -89,7 +89,7 @@
           Arguments="//nologo &quot;[INSTALLFOLDER]scripts\shortcut-op-hidden.vbs&quot; stop-all 4519 auto"
           WorkingDirectory="INSTALLFOLDER"
           Icon="EvaluaProIconStop" />
-        <RegistryValue Root="HKLM" Key="Software\EvaluaPro" Name="MenuStopAll" Type="integer" Value="1" KeyPath="yes" />
+        <RegistryValue Root="$(var.ProductRegistryRoot)" Key="Software\EvaluaPro" Name="MenuStopAll" Type="integer" Value="1" KeyPath="yes" />
       </Component>
 
       <Component Id="CMP.ShortcutMenuUninstall" Directory="ProgramMenuFolder" Guid="C53F9E1E-D33C-48B4-89F4-19FE28B8B307" Condition="INSTALL_STARTMENU_SHORTCUTS = 1">
@@ -101,7 +101,7 @@
           Arguments="//nologo &quot;[INSTALLFOLDER]scripts\shortcut-op-hidden.vbs&quot; uninstall 4519 auto"
           WorkingDirectory="INSTALLFOLDER"
           Icon="EvaluaProIconStop" />
-        <RegistryValue Root="HKLM" Key="Software\EvaluaPro" Name="MenuUninstall" Type="integer" Value="1" KeyPath="yes" />
+        <RegistryValue Root="$(var.ProductRegistryRoot)" Key="Software\EvaluaPro" Name="MenuUninstall" Type="integer" Value="1" KeyPath="yes" />
       </Component>
 
       <Component Id="CMP.ShortcutMenuRepair" Directory="ProgramMenuFolder" Guid="D7CEFD46-16FE-4E5E-BD8A-81FB6B0BE8A8" Condition="INSTALL_STARTMENU_SHORTCUTS = 1">
@@ -113,7 +113,7 @@
           Arguments="//nologo &quot;[INSTALLFOLDER]scripts\shortcut-op-hidden.vbs&quot; repair 4519 auto"
           WorkingDirectory="INSTALLFOLDER"
           Icon="EvaluaProIconRepair" />
-        <RegistryValue Root="HKLM" Key="Software\EvaluaPro" Name="MenuRepair" Type="integer" Value="1" KeyPath="yes" />
+        <RegistryValue Root="$(var.ProductRegistryRoot)" Key="Software\EvaluaPro" Name="MenuRepair" Type="integer" Value="1" KeyPath="yes" />
       </Component>
     </ComponentGroup>
   </Fragment>

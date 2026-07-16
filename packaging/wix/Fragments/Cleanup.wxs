@@ -5,7 +5,7 @@
       <Component Id="CMP.CleanupLogs" Directory="INSTALLFOLDER" Guid="230E00EA-8F5A-47A2-BD4A-298A95CDB91F">
         <CreateFolder />
         <RemoveFile Id="RM.LogDashboard" Name="dashboard.log*" On="uninstall" />
-        <RegistryValue Root="HKLM" Key="Software\EvaluaPro" Name="CleanupLogs" Type="integer" Value="1" KeyPath="yes" />
+        <RegistryValue Root="$(var.ProductRegistryRoot)" Key="Software\EvaluaPro" Name="CleanupLogs" Type="integer" Value="1" KeyPath="yes" />
       </Component>
     </ComponentGroup>
   </Fragment>

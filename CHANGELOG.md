@@ -5,12 +5,16 @@ Este archivo sigue el formato "Keep a Changelog" (alto nivel) y SemVer.
 ## [Unreleased]
 
 ### Fixed
+- Build MSI: `git ls-files` del staging ahora tiene timeout y fallback acotado; una sesión Git bloqueada ya no congela todo el empaquetado.
+- Build docente nativo: el staging genera Prisma únicamente con el engine Windows `native` y evita bloquearse intentando resolver el engine Linux no utilizado por este flavor.
 - E2E docente: agregado modo de build aislado (`-IsolateBundleIdentity`) para no relacionar instalaciones QA con bundles per-machine antiguos; queda explícitamente fuera de publicación.
 - QA UIAutomation: evita referencias nulas cuando el Hub no expone la ventana y conserva el diagnóstico de arranque en vez de reportar un crash del harness.
 - Installer Hub: el carrusel embebido conserva el logo oficial únicamente en el encabezado; sus tarjetas usan iconografía funcional y una prueba de contrato bloquea la redundancia de marca.
 - E2E Installer Hub docente: eliminado el carril VM/Hyper-V/WinRM; el ciclo se ejecuta directamente en la PC y usa `-IUnderstandThisMutatesPc`.
 - E2E docente: añadido seed local aislado para una cuenta, 3 materias y 3 alumnos dummy con verificación y cleanup.
 - E2E UIAutomation: el consentimiento de términos usa interacción de teclado para disparar el handler WPF y evitar estados visualmente marcados pero no navegables.
+- MSI docente `perUser`: marcadores de accesos/limpieza usan HKCU; flavors institucionales conservan HKLM.
+- QA docente: ruta aislada bajo LOCALAPPDATA, SQLite idempotente y saneamiento de avisos ANSI de Prisma; el runner dummy usa el puerto API real (4000), no el puerto web.
 - Gates/documentación: el runtime nativo docente queda explícitamente desacoplado de VM, snapshots y credenciales remotas.
 - Installer Hub (Bootstrapper): Corregida la versión mostrada en el ejecutable a 1.1.1.
 - Installer Hub (Bootstrapper): Actualizado el logo a la versión correcta de alta calidad (`logo_sys.png`).

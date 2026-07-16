@@ -195,8 +195,26 @@ diagnosticable: no puede invocar métodos sobre raíces nulas, debe conservar el
 reporte y el log, y debe distinguir fallo de arranque del Hub de fallo de un
 control concreto.
 
+El staging no debe quedar bloqueado por una invocación de Git sin respuesta:
+la enumeración de archivos versionados debe tener timeout y fallback acotado al
+árbol permitido del payload, dejando una advertencia diagnóstica.
+
+El MSI de `docente-local` debe ser `perUser` y escribir en
+`%LOCALAPPDATA%`; los flavors institucionales pueden permanecer `perMachine`.
+El E2E debe comprobar que una instalación docente limpia no solicite UAC para
+la operación principal y que solo eleve actividades realmente privilegiadas.
+
+El runner E2E puede inyectar `EVALUAPRO_QA_INSTALL_DIR` para aislar cada corrida
+bajo `%LOCALAPPDATA%`; el Hub debe aceptar esa ruta solo para `docente-local` y
+rechazar rutas fuera de ese árbol. La ruta normal del cliente sigue siendo
+`%LOCALAPPDATA%\\EvaluaPro`.
+
 El empaquetado debe ofrecer un modo de aislamiento exclusivo para QA local que
 genere `UpgradeCode` y `BundleUpgradeCode` temporales por flavor. Ese modo no
 puede usarse para publicar releases, pero permite probar `docente-local` en una
 PC que conserve instalaciones per-machine antiguas sin provocar una migración
 involuntaria ni elevar el Hub completo.
+
+Los componentes MSI `perUser` tampoco pueden escribir marcadores de accesos o
+limpieza en `HKLM`; el root de registro debe ser `HKCU` para `docente-local` y
+`HKLM` solo para flavors `perMachine`.

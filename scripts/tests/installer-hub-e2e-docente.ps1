@@ -697,10 +697,17 @@ function Invoke-InstallerHubMode {
     'uninstall' { '/uninstall' }
     default { '' }
   }
+  $previousQaInstallDir = $env:EVALUAPRO_QA_INSTALL_DIR
+  $env:EVALUAPRO_QA_INSTALL_DIR = $installedRoot
   $process = if ($arguments) {
     Start-Process -FilePath $bundlePath -ArgumentList $arguments -PassThru -WindowStyle Normal
   } else {
     Start-Process -FilePath $bundlePath -PassThru -WindowStyle Normal
+  }
+  if ($null -eq $previousQaInstallDir) {
+    Remove-Item Env:EVALUAPRO_QA_INSTALL_DIR -ErrorAction SilentlyContinue
+  } else {
+    $env:EVALUAPRO_QA_INSTALL_DIR = $previousQaInstallDir
   }
   $processes.Add($process) | Out-Null
   Write-E2ELog "Installer Hub iniciado mode=$Mode pid=$($process.Id)"
@@ -1111,7 +1118,13 @@ function Invoke-DummyDataCycle {
     Add-Result -Area 'dummy-data' -Item 'cycle' -Ok $false -Detail 'dashboard base vacio'
     throw 'No se puede ejecutar el ciclo dummy sin dashboard base.'
   }
-  $apiBase = $BaseUrl.TrimEnd('/') + '/api'
+  # Dashboard port sirve UI/control; API docente escucha en PUERTO_API=4000.
+  # Permitir override explícito para hosts QA, sin derivarlo del puerto web.
+  $apiBase = if (-not [string]::IsNullOrWhiteSpace($env:E2E_DOCENTE_API_BASE_URL)) {
+    $env:E2E_DOCENTE_API_BASE_URL.TrimEnd('/')
+  } else {
+    'http://127.0.0.1:4000/api'
+  }
   $previousBase = $env:E2E_DOCENTE_BASE_URL
   $env:E2E_DOCENTE_BASE_URL = $apiBase
   try {

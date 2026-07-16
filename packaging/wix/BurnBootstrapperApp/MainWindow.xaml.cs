@@ -675,7 +675,17 @@ public partial class MainWindow : Window
         var installDir = InstallDirTextBox.Text.Trim();
         if (string.Equals(selectedFlavor?.FlavorId, "docente-local", StringComparison.OrdinalIgnoreCase))
         {
-            installDir = System.IO.Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "EvaluaPro");
+            var localAppData = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData);
+            var qaInstallDir = Environment.GetEnvironmentVariable("EVALUAPRO_QA_INSTALL_DIR");
+            var candidate = string.IsNullOrWhiteSpace(qaInstallDir)
+                ? string.Empty
+                : System.IO.Path.GetFullPath(qaInstallDir.Trim());
+            var localRoot = System.IO.Path.GetFullPath(localAppData).TrimEnd(System.IO.Path.DirectorySeparatorChar) + System.IO.Path.DirectorySeparatorChar;
+            var isSafeQaPath = candidate.StartsWith(localRoot, StringComparison.OrdinalIgnoreCase)
+                && !string.Equals(candidate.TrimEnd(System.IO.Path.DirectorySeparatorChar), localAppData, StringComparison.OrdinalIgnoreCase);
+            installDir = isSafeQaPath
+                ? candidate.TrimEnd(System.IO.Path.DirectorySeparatorChar)
+                : System.IO.Path.Combine(localAppData, "EvaluaPro");
             InstallDirTextBox.Text = installDir;
         }
 

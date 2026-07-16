@@ -400,7 +400,15 @@ function Invoke-PostInstall {
   if ($effectiveFlavor.Trim().ToLowerInvariant() -eq 'docente-local') {
     $localAppData = [string]$env:LOCALAPPDATA
     if ([string]::IsNullOrWhiteSpace($localAppData)) { $localAppData = Join-Path $env:USERPROFILE 'AppData\Local' }
-    $localDataDir = Join-Path $localAppData 'EvaluaPro\data'
+    $defaultDataRoot = Join-Path $localAppData 'EvaluaPro'
+    $qaRootPrefix = (Join-Path $localAppData 'EvaluaPro-QA-Isolated-').TrimEnd('\')
+    $targetFullPath = [IO.Path]::GetFullPath($targetDir).TrimEnd('\')
+    $localDataRoot = if ($targetFullPath.StartsWith($qaRootPrefix, [StringComparison]::OrdinalIgnoreCase)) {
+      $targetFullPath
+    } else {
+      $defaultDataRoot
+    }
+    $localDataDir = Join-Path $localDataRoot 'data'
     if (-not (Test-Path -LiteralPath $localDataDir)) { New-Item -ItemType Directory -Path $localDataDir -Force | Out-Null }
     $localDatabaseUrl = 'file:' + (($localDataDir -replace '\\', '/') + '/evaluapro.db')
     Set-InstallerEnvValue -Map $runtimeEnv -Key 'DATABASE_URL' -Value $localDatabaseUrl

@@ -1,5 +1,10 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <Wix xmlns="http://wixtoolset.org/schemas/v4/wxs">
+  <?if $(var.FlavorId) = docente-local ?>
+    <?define PackageScope="perUser" ?>
+  <?else?>
+    <?define PackageScope="perMachine" ?>
+  <?endif?>
   <Package
     Name="$(var.ProductName)"
     Manufacturer="I.S.C. Erick Renato Vega Ceron"
@@ -7,7 +12,7 @@
     UpgradeCode="$(var.UpgradeCode)"
     InstallerVersion="500"
     Compressed="yes"
-    Scope="perMachine">
+    Scope="$(var.PackageScope)">
 
     <MajorUpgrade DowngradeErrorMessage="Ya existe una versión más reciente de EvaluaPro instalada." />
     <MediaTemplate EmbedCab="yes" />

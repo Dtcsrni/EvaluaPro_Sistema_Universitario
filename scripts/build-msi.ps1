@@ -101,7 +101,7 @@ function New-InstallerBuildStagingRoot {
 
   $gitExe = Resolve-GitExecutable
   Write-Host "[msi] Git para staging: $gitExe"
-  $trackedFiles = @(& $gitExe -C $RootPath ls-files)
+  $trackedFiles = @(Get-TrackedFilesWithTimeout -GitExecutable $gitExe -RootPath $RootPath)
   if ($trackedFiles.Count -eq 0) {
     Write-Host "[msi] Git no devolvió archivos; usando enumeración del árbol de archivos."
     $trackedFiles = @(Get-ChildItem -LiteralPath $RootPath -Recurse -File -Force -ErrorAction SilentlyContinue | ForEach-Object {
@@ -174,6 +174,34 @@ function New-InstallerBuildStagingRoot {
   }
 
   return $stagingRoot
+}
+
+function Get-TrackedFilesWithTimeout {
+  param(
+    [Parameter(Mandatory = $true)]
+    [string]$GitExecutable,
+    [Parameter(Mandatory = $true)]
+    [string]$RootPath,
+    [int]$TimeoutSeconds = 30
+  )
+
+  $stdoutPath = Join-Path $env:TEMP ("evaluapro-git-files-{0}.out" -f [Guid]::NewGuid().ToString('N'))
+  $stderrPath = Join-Path $env:TEMP ("evaluapro-git-files-{0}.err" -f [Guid]::NewGuid().ToString('N'))
+  try {
+    $proc = Start-Process -FilePath $GitExecutable -ArgumentList @('-C', $RootPath, 'ls-files') -NoNewWindow -PassThru -RedirectStandardOutput $stdoutPath -RedirectStandardError $stderrPath
+    if (-not $proc.WaitForExit($TimeoutSeconds * 1000)) {
+      Stop-Process -Id $proc.Id -Force -ErrorAction SilentlyContinue
+      Write-Warning "Git ls-files excedió ${TimeoutSeconds}s; se usará fallback de enumeración acotada."
+      return @()
+    }
+    if ($proc.ExitCode -ne 0) {
+      Write-Warning "Git ls-files terminó con exit=$($proc.ExitCode); se usará fallback de enumeración acotada."
+      return @()
+    }
+    return @(Get-Content -LiteralPath $stdoutPath -Encoding utf8 -ErrorAction SilentlyContinue)
+  } finally {
+    Remove-Item -LiteralPath $stdoutPath,$stderrPath -Force -ErrorAction SilentlyContinue
+  }
 }
 
 function Remove-InstallerBuildStagingRoot {
@@ -264,20 +292,43 @@ function Add-DocenteNativeCompiledPayload {
       & $npmCommand ci --omit=dev --ignore-scripts
       if ($LASTEXITCODE -ne 0) { throw "Falló instalación de dependencias backend de producción (exit=$LASTEXITCODE)." }
       $nodeForBuild = if (Test-Path (Join-Path $RootPath 'runtime/node/node.exe')) { Join-Path $RootPath 'runtime/node/node.exe' } else { 'node' }
-      & $nodeForBuild (Join-Path $backendTarget 'node_modules/prisma/build/index.js') generate --schema (Join-Path $backendTarget 'prisma/schema.prisma')
+      $stagedSchemaPath = Join-Path $backendTarget 'prisma/schema.prisma'
+      $stagedSchema = Get-Content -LiteralPath $stagedSchemaPath -Raw -Encoding utf8
+      if ($stagedSchema -match 'binaryTargets\s*=\s*\[\s*"native"\s*,\s*"debian-openssl-3\.0\.x"\s*\]') {
+        $stagedSchema = $stagedSchema -replace 'binaryTargets\s*=\s*\[\s*"native"\s*,\s*"debian-openssl-3\.0\.x"\s*\]', 'binaryTargets = ["native"]'
+        [IO.File]::WriteAllText($stagedSchemaPath, $stagedSchema, (New-Object System.Text.UTF8Encoding($false)))
+        Write-Host '[msi] Schema docente reducido a engine native (Windows); se omite engine Linux no utilizado.'
+      }
+      & $nodeForBuild (Join-Path $backendTarget 'node_modules/prisma/build/index.js') generate --schema $stagedSchemaPath
       if ($LASTEXITCODE -ne 0) { throw "Falló generación del cliente Prisma nativo (exit=$LASTEXITCODE)." }
       $previousErrorActionPreference = $ErrorActionPreference
       $ErrorActionPreference = 'Continue'
       try {
-        $schemaSqlOutput = @(& $nodeForBuild (Join-Path $backendTarget 'node_modules/prisma/build/index.js') migrate diff --from-empty --to-schema-datamodel (Join-Path $backendTarget 'prisma/schema.prisma') --script 2>&1 | ForEach-Object { [string]$_ })
+        $schemaSqlOutput = @(& $nodeForBuild (Join-Path $backendTarget 'node_modules/prisma/build/index.js') migrate diff --from-empty --to-schema-datamodel $stagedSchemaPath --script 2>&1 | ForEach-Object { [string]$_ })
       } finally {
         $ErrorActionPreference = $previousErrorActionPreference
       }
       if ($LASTEXITCODE -ne 0) { throw "Falló generación del esquema SQL nativo (exit=$LASTEXITCODE)." }
-      $sqlStart = [Array]::IndexOf([string[]]$schemaSqlOutput, '-- CreateTable')
+      $schemaSqlText = $schemaSqlOutput -join [Environment]::NewLine
+      $sqlStart = $schemaSqlText.IndexOf('-- CreateTable', [StringComparison]::Ordinal)
       if ($sqlStart -lt 0) { throw 'Falló generación del esquema SQL nativo: salida SQL vacía.' }
-      $schemaSqlOutput = @($schemaSqlOutput | Select-Object -Skip $sqlStart)
-      [IO.File]::WriteAllText((Join-Path $backendTarget 'prisma/schema.sql'), ($schemaSqlOutput -join [Environment]::NewLine), (New-Object System.Text.UTF8Encoding($false)))
+      $schemaSqlText = $schemaSqlText.Substring($sqlStart)
+      $boxIndex = $schemaSqlText.IndexOf([char]0x250c)
+      if ($boxIndex -ge 0) {
+        $lineStart = $schemaSqlText.LastIndexOf("`n", $boxIndex)
+        $lineStart = if ($lineStart -ge 0) { $lineStart + 1 } else { 0 }
+        $schemaSqlText = $schemaSqlText.Substring(0, $lineStart).TrimEnd()
+      }
+      $updateIndex = $schemaSqlText.IndexOf('Update available', [StringComparison]::Ordinal)
+      if ($updateIndex -ge 0) {
+        $lineStart = $schemaSqlText.LastIndexOf("`n", $updateIndex)
+        $lineStart = if ($lineStart -ge 0) { $lineStart + 1 } else { 0 }
+        $schemaSqlText = $schemaSqlText.Substring(0, $lineStart).TrimEnd()
+      }
+      if ($schemaSqlText.IndexOf([char]0x250c) -ge 0 -or $schemaSqlText -match 'Update available|major update') {
+        throw 'Falló saneamiento del esquema SQL nativo: contiene salida de consola no SQL.'
+      }
+      [IO.File]::WriteAllText((Join-Path $backendTarget 'prisma/schema.sql'), $schemaSqlText, (New-Object System.Text.UTF8Encoding($false)))
     } finally {
       Pop-Location
     }
@@ -1074,6 +1125,7 @@ if ($buildBundle) {
     }
     $publicFlavorOut = Join-Path $out $flavorId
     $internalFlavorOut = Join-Path $internalOut $flavorId
+    $productRegistryRoot = if ($flavorId -eq 'docente-local') { 'HKCU' } else { 'HKLM' }
     New-Item -ItemType Directory -Path $publicFlavorOut -Force | Out-Null
     New-Item -ItemType Directory -Path $internalFlavorOut -Force | Out-Null
 
@@ -1085,6 +1137,7 @@ if ($buildBundle) {
       "-arch", "x64",
       "-d", "SourceRoot=$buildRoot",
       "-d", "FlavorId=$flavorId",
+      "-d", "ProductRegistryRoot=$productRegistryRoot",
       "-d", ("ProductName=`"{0}`"" -f $productName),
       "-d", ("InstallFolderName=`"{0}`"" -f $installFolderName),
       "-d", "UpgradeCode=$upgradeCode",

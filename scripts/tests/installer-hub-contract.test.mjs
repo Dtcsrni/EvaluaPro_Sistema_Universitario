@@ -256,6 +256,51 @@ test('docente-local no reutiliza rutas per-machine detectadas por Burn', () => {
   assert.match(source, /docenteRoot/);
 });
 
+test('E2E docente aísla destino bajo LOCALAPPDATA sin cambiar ruta normal', () => {
+  const windowCode = fs.readFileSync(path.join(root, 'packaging', 'wix', 'BurnBootstrapperApp', 'MainWindow.xaml.cs'), 'utf8');
+  const runner = fs.readFileSync(installerHubE2eDocentePath, 'utf8');
+  assert.match(windowCode, /EVALUAPRO_QA_INSTALL_DIR/);
+  assert.match(windowCode, /StartsWith\(localRoot, StringComparison\.OrdinalIgnoreCase\)/);
+  assert.match(windowCode, /Path\.Combine\(localAppData, "EvaluaPro"\)/);
+  assert.match(runner, /\$env:EVALUAPRO_QA_INSTALL_DIR = \$installedRoot/);
+});
+
+test('MSI docente perUser no escribe marcadores en HKLM', () => {
+  const product = fs.readFileSync(path.join(root, 'packaging', 'wix', 'Product.wxs'), 'utf8');
+  const build = fs.readFileSync(path.join(root, 'scripts', 'build-msi.ps1'), 'utf8');
+  const shortcuts = fs.readFileSync(path.join(root, 'packaging', 'wix', 'Fragments', 'Shortcuts.wxs'), 'utf8');
+  const cleanup = fs.readFileSync(path.join(root, 'packaging', 'wix', 'Fragments', 'Cleanup.wxs'), 'utf8');
+  assert.match(build, /productRegistryRoot = if \(\$flavorId -eq 'docente-local'\) \{ 'HKCU' \} else \{ 'HKLM' \}/);
+  assert.match(build, /ProductRegistryRoot=\$productRegistryRoot/);
+  assert.doesNotMatch(shortcuts, /Root="HKLM"/);
+  assert.doesNotMatch(cleanup, /Root="HKLM"/);
+  assert.match(shortcuts, /Root="\$\(var\.ProductRegistryRoot\)"/);
+  assert.match(cleanup, /Root="\$\(var\.ProductRegistryRoot\)"/);
+});
+
+test('build MSI elimina avisos Prisma del esquema SQL nativo', () => {
+  const build = fs.readFileSync(path.join(root, 'scripts', 'build-msi.ps1'), 'utf8');
+  assert.match(build, /schemaSqlText = \$schemaSqlOutput -join/);
+  assert.match(build, /boxIndex = \$schemaSqlText\.IndexOf\(\[char\]0x250c\)/);
+  assert.match(build, /LastIndexOf\("`n", \$boxIndex\)/);
+  assert.match(build, /Falló saneamiento del esquema SQL nativo/);
+});
+
+test('helper SQLite aísla solo raíces QA y conserva datos normales', () => {
+  const helper = fs.readFileSync(path.join(root, 'scripts', 'installer-burn', 'InstallerBurnHelper.ps1'), 'utf8');
+  assert.match(helper, /EvaluaPro-QA-Isolated-/);
+  assert.match(helper, /defaultDataRoot/);
+  assert.match(helper, /StartsWith\(\$qaRootPrefix/);
+  assert.match(helper, /localDataDir = Join-Path \$localDataRoot 'data'/);
+});
+
+test('runner dummy usa API docente y no confunde puerto web del dashboard', () => {
+  const runner = fs.readFileSync(installerHubE2eDocentePath, 'utf8');
+  assert.match(runner, /E2E_DOCENTE_API_BASE_URL/);
+  assert.match(runner, /http:\/\/127\.0\.0\.1:4000\/api/);
+  assert.match(runner, /Dashboard port sirve UI\/control/);
+});
+
 test('build-msi bloquea helper Burn obsoleto en el staging del bundle', () => {
   const buildMsi = fs.readFileSync(path.join(root, 'scripts', 'build-msi.ps1'), 'utf8');
   assert.match(buildMsi, /staging contiene acceso obsoleto/);
