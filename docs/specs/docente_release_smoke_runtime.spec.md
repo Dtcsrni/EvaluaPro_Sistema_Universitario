@@ -218,3 +218,12 @@ involuntaria ni elevar el Hub completo.
 Los componentes MSI `perUser` tampoco pueden escribir marcadores de accesos o
 limpieza en `HKLM`; el root de registro debe ser `HKCU` para `docente-local` y
 `HKLM` solo para flavors `perMachine`.
+
+### REQ-028 - Limpieza dummy confinada a la instalación QA
+
+El ciclo de datos dummy debe limpiar únicamente la base SQLite de la instancia
+QA instalada y nunca una base del repositorio o de otra instalación. La ruta
+debe recibirse explícitamente desde el runner, validar que permanezca bajo
+`%LOCALAPPDATA%` y registrar el modo de limpieza. Si el registro inicial falla,
+el reporte debe conservar el endpoint, estado HTTP y diagnóstico sin afirmar
+que el ciclo fue ejecutado.

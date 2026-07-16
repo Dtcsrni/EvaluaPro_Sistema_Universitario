@@ -299,6 +299,14 @@ test('runner dummy usa API docente y no confunde puerto web del dashboard', () =
   assert.match(runner, /E2E_DOCENTE_API_BASE_URL/);
   assert.match(runner, /http:\/\/127\.0\.0\.1:4000\/api/);
   assert.match(runner, /Dashboard port sirve UI\/control/);
+  assert.match(runner, /E2E_DOCENTE_SQLITE_PATH/);
+});
+
+test('fallback dummy queda confinado a SQLite bajo LOCALAPPDATA', () => {
+  const seed = fs.readFileSync(path.join(root, 'scripts/tests/seed-docente-dummy.mjs'), 'utf8');
+  assert.doesNotMatch(seed, /V:\/Software\/EvaluaPro\/apps\/backend\/data\/evaluapro\.db/);
+  assert.match(seed, /E2E_DOCENTE_SQLITE_PATH/);
+  assert.match(seed, /LOCALAPPDATA/);
 });
 
 test('build-msi bloquea helper Burn obsoleto en el staging del bundle', () => {

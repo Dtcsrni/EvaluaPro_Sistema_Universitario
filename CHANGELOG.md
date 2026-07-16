@@ -1100,3 +1100,7 @@ Este archivo sigue el formato "Keep a Changelog" (alto nivel) y SemVer.
 - Monorepo inicial (backend, frontend, portal alumno cloud)
 - Hardening base: Helmet, rate limit, sanitización NoSQL, no leakage de mensajes internos en producción
 - Pruebas robustas: `test:ci` con reintentos + harness estricto para warnings/errores
+### QA E2E docente-local
+
+- El fallback de limpieza del ciclo dummy ahora usa únicamente la SQLite de la instalación QA bajo `%LOCALAPPDATA%`; nunca toca la base del repositorio.
+- El runner propaga la ruta SQLite aislada y conserva el diagnóstico del endpoint cuando el registro inicial falla.

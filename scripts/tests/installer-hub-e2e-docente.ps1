@@ -1126,7 +1126,9 @@ function Invoke-DummyDataCycle {
     'http://127.0.0.1:4000/api'
   }
   $previousBase = $env:E2E_DOCENTE_BASE_URL
+  $previousSqlitePath = $env:E2E_DOCENTE_SQLITE_PATH
   $env:E2E_DOCENTE_BASE_URL = $apiBase
+  $env:E2E_DOCENTE_SQLITE_PATH = Join-Path $installedRoot 'data\evaluapro.db'
   try {
     $output = (& node (Join-Path $root 'scripts/tests/seed-docente-dummy.mjs') 2>&1 | Out-String)
     $exitCode = $LASTEXITCODE
@@ -1141,6 +1143,8 @@ function Invoke-DummyDataCycle {
   } finally {
     if ($null -eq $previousBase) { Remove-Item Env:E2E_DOCENTE_BASE_URL -ErrorAction SilentlyContinue }
     else { $env:E2E_DOCENTE_BASE_URL = $previousBase }
+    if ($null -eq $previousSqlitePath) { Remove-Item Env:E2E_DOCENTE_SQLITE_PATH -ErrorAction SilentlyContinue }
+    else { $env:E2E_DOCENTE_SQLITE_PATH = $previousSqlitePath }
   }
 }
 

@@ -14,7 +14,18 @@ async function cleanupLocalFallback() {
   if (!/^https?:\/\/(127\.0\.0\.1|localhost)(:\d+)?\//.test(`${baseUrl}/`)) {
     throw new Error('la limpieza directa solo se permite contra una API localhost');
   }
-  process.env.DATABASE_URL ||= 'file:V:/Software/EvaluaPro/apps/backend/data/evaluapro.db';
+  const sqlitePath = process.env.E2E_DOCENTE_SQLITE_PATH;
+  if (!sqlitePath || !/^[a-zA-Z]:[\\/].*/.test(sqlitePath)) {
+    throw new Error('E2E_DOCENTE_SQLITE_PATH es obligatorio para limpieza local confinada');
+  }
+  const localAppData = process.env.LOCALAPPDATA;
+  const normalizedPath = sqlitePath.replace(/\\/g, '/').toLowerCase();
+  const normalizedRoot = localAppData ? localAppData.replace(/\\/g, '/').toLowerCase().replace(/\/$/, '') : '';
+  if (!normalizedRoot || !(normalizedPath === normalizedRoot || normalizedPath.startsWith(`${normalizedRoot}/`))) {
+    throw new Error('la limpieza local solo permite una base bajo LOCALAPPDATA');
+  }
+  process.env.DATABASE_URL = `file:${sqlitePath.replace(/\\/g, '/')}`;
+  process.env.BACKEND_DATABASE_URL = process.env.DATABASE_URL;
   const { PrismaClient } = await import('@prisma/client');
   const prisma = new PrismaClient();
   try {
@@ -29,7 +40,7 @@ async function cleanupLocalFallback() {
       await prisma.docente.delete({ where: { id: docente.id } });
     }
     resultados.cleanup.push('cuenta:local-db');
-    resultados.cleanupMode = 'api+local-db-fallback';
+    resultados.cleanupMode = 'api+isolated-local-db-fallback';
     resultados.cleanupErrors = [];
   } finally {
     await prisma.$disconnect();
