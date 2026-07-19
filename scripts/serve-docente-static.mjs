@@ -29,6 +29,26 @@ const mimeTypes = Object.freeze({
   '.woff2': 'font/woff2'
 });
 
+function buildAssetIndex(rootDir) {
+  const index = new Map();
+  const walk = (currentDir) => {
+    for (const entry of fs.readdirSync(currentDir, { withFileTypes: true })) {
+      const absolute = path.join(currentDir, entry.name);
+      if (entry.isDirectory()) {
+        walk(absolute);
+      } else if (entry.isFile()) {
+        const relative = path.relative(rootDir, absolute).split(path.sep).join('/');
+        index.set(`/${relative}`, absolute);
+      }
+    }
+  };
+  if (fs.existsSync(rootDir)) walk(rootDir);
+  return index;
+}
+
+const assetIndex = buildAssetIndex(publicRoot);
+const fallback = assetIndex.get('/index.html') || null;
+
 function safePath(urlPath) {
   let decoded;
   try {
@@ -37,9 +57,8 @@ function safePath(urlPath) {
     return null;
   }
   const relative = decoded.replace(/^[/\\]+/, '');
-  const candidate = path.resolve(publicRoot, relative);
-  if (candidate !== publicRoot && !candidate.startsWith(`${publicRoot}${path.sep}`)) return null;
-  return candidate;
+  if (!relative || relative.split(/[\\/]/).includes('..') || relative.includes('\0')) return null;
+  return assetIndex.get(`/${relative}`) || fallback;
 }
 
 function sendFile(response, filePath) {
@@ -66,11 +85,8 @@ const server = http.createServer((request, response) => {
     response.end('Solicitud inválida');
     return;
   }
-  const fallback = path.join(publicRoot, 'index.html');
-  // lgtm[js/path-injection] requested fue validado por safePath antes de la
-  // consulta; candidate conserva requested o el fallback fijo index.html.
-  const candidate = fs.existsSync(requested) && fs.statSync(requested).isFile() ? requested : fallback;
-  if (!fs.existsSync(candidate)) {
+  const candidate = requested;
+  if (!candidate) {
     response.writeHead(503);
     response.end('Build docente no disponible');
     return;

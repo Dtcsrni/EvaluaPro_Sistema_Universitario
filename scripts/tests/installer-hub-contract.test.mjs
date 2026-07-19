@@ -402,7 +402,8 @@ test('servidor docente nativo no depende de Vite y bloquea traversal', () => {
   const server = fs.readFileSync(path.join(root, 'scripts', 'serve-docente-static.mjs'), 'utf8');
   assert.match(server, /http\.createServer/);
   assert.match(server, /decodeURIComponent/);
-  assert.match(server, /startsWith\(\x60\$\{publicRoot\}/);
+  assert.match(server, /buildAssetIndex|assetIndex\.get/);
+  assert.match(server, /includes\('\.\.'\)/);
   assert.match(server, /fallback/);
   assert.doesNotMatch(server, /vite|npm run/i);
 });
