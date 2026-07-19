@@ -122,7 +122,7 @@ jobs:
           npm run docs:check
           npm run diagramas:check
           rm -rf ~/.cache/puppeteer
-          node scripts/install-chrome.mjs
+          npx puppeteer browsers install chrome
           npm run diagramas:render
           npm run diagramas:consistencia:check
           npm run routes:check
