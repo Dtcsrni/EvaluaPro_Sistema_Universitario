@@ -158,7 +158,9 @@ test('workflow de installer publica contratos nuevos de release', () => {
   assert.match(workflow, /dotnet-version:\s*8\.0\.x/);
   assert.match(workflow, /generate-installer-hashes\.ps1/);
   assert.match(workflow, /sign-installer-artifacts\.ps1/);
-  assert.match(workflow, /build-msi\.ps1 -SkipStabilityChecks -IncludeBundle -Flavor all/);
+  assert.match(workflow, /pull_request:/);
+  assert.match(workflow, /build-msi\.ps1 -SkipStabilityChecks -IncludeBundle -Flavor docente-local/);
+  assert.doesNotMatch(workflow, /build-msi\.ps1 -SkipStabilityChecks -IncludeBundle -Flavor all/);
   assert.match(workflow, /installer-windows-internal/);
   assert.match(workflow, /dist\/installer\/_internal\/\*\*/);
   assert.match(workflow, /Publicar release assets \(tags v\*\)/);
@@ -166,10 +168,9 @@ test('workflow de installer publica contratos nuevos de release', () => {
   assert.match(workflow, /make_latest:\s*false/);
   assert.match(stableGateWorkflow, /permissions:\s*\n\s*contents:\s*write/);
   assert.match(stableGateWorkflow, /gh release edit "v\$\{\{ steps\.resolve_version\.outputs\.target \}\}".*--latest/);
-  assert.match(workflow, /dist\/installer\/saas-completo\/EvaluaPro-InstallerHub-saas-completo-v\*\.exe/);
   assert.match(workflow, /dist\/installer\/docente-local\/EvaluaPro-InstallerHub-docente-local-v\*\.exe/);
-  assert.match(workflow, /dist\/installer\/_internal\/saas-completo\/EvaluaPro-saas-completo\.msi/);
   assert.match(workflow, /dist\/installer\/_internal\/docente-local\/EvaluaPro-docente-local\.msi/);
+  assert.doesNotMatch(workflow, /saas-completo\/EvaluaPro-InstallerHub-saas-completo/);
   assert.match(workflow, /Smoke GUI del bundle Burn publico empaquetado/);
   assert.match(workflow, /dist\/installer\/EvaluaPro-release-manifest\.json/);
   assert.doesNotMatch(workflow, /dist\/installer\/EvaluaPro-InstallerHub\.exe/);
@@ -1363,9 +1364,11 @@ test('smoke del bundle Burn publico queda declarado en workflows post-build', ()
   const stableWorkflow = fs.readFileSync(path.join(root, '.github', 'workflows', 'ci-installer-windows.yml'), 'utf8');
   const betaWorkflow = fs.readFileSync(path.join(root, '.github', 'workflows', 'release-beta.yml'), 'utf8');
 
+  assert.match(stableWorkflow, /Smoke GUI del bundle Burn publico empaquetado/);
+  assert.match(stableWorkflow, /dist\/installer\/docente-local\/EvaluaPro-InstallerHub-docente-local-v\*\.exe/);
+  assert.match(betaWorkflow, /Smoke GUI del bundle Burn publico empaquetado/);
+  assert.match(betaWorkflow, /dist\/installer\/saas-completo\/EvaluaPro-InstallerHub-saas-completo-v\*\.exe/);
   for (const workflow of [stableWorkflow, betaWorkflow]) {
-    assert.match(workflow, /Smoke GUI del bundle Burn publico empaquetado/);
-    assert.match(workflow, /dist\/installer\/saas-completo\/EvaluaPro-InstallerHub-saas-completo-v\*\.exe/);
     assert.match(workflow, /Start-Process -FilePath \$exe(\.FullName)? -PassThru/);
     assert.match(workflow, /El bundle Burn publico se cerro antes del smoke timeout|El Installer Hub empaquetado se cerro antes del smoke timeout/);
   }
