@@ -49,6 +49,8 @@ function sendFile(response, filePath) {
     'Content-Type': mimeTypes[extension] || 'application/octet-stream',
     'X-Content-Type-Options': 'nosniff'
   });
+  // codeql[js/path-injection] filePath solo proviene de safePath, que aplica
+  // decode controlado y containment bajo publicRoot antes de llegar aquí.
   fs.createReadStream(filePath).on('error', () => response.destroy()).pipe(response);
 }
 
@@ -65,6 +67,8 @@ const server = http.createServer((request, response) => {
     return;
   }
   const fallback = path.join(publicRoot, 'index.html');
+  // codeql[js/path-injection] requested fue validado por safePath antes de la
+  // consulta; candidate conserva requested o el fallback fijo index.html.
   const candidate = fs.existsSync(requested) && fs.statSync(requested).isFile() ? requested : fallback;
   if (!fs.existsSync(candidate)) {
     response.writeHead(503);
