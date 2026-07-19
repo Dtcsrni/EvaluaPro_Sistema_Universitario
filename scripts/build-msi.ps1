@@ -105,7 +105,8 @@ function New-InstallerBuildStagingRoot {
   $trackedFiles = @(Get-TrackedFilesWithTimeout -GitExecutable $gitExe -RootPath $RootPath)
   if ($trackedFiles.Count -eq 0) {
     Write-Host "[msi] Git no devolvió archivos; usando fallback acotado con rg."
-    $rgExe = (Get-Command rg.exe -ErrorAction SilentlyContinue).Source
+    $rgCommand = Get-Command rg.exe -ErrorAction SilentlyContinue
+    $rgExe = if ($null -ne $rgCommand) { $rgCommand.Path } else { $null }
     if (-not [string]::IsNullOrWhiteSpace($rgExe)) {
       $fallbackArgs = @(
         '--files', '--hidden', '--no-ignore-vcs',
