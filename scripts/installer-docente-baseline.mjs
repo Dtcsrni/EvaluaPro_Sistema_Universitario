@@ -10,7 +10,10 @@ const root = process.cwd();
 const args = process.argv.slice(2);
 const jsonOnly = args.includes('--json');
 const enforce = args.includes('--enforce');
-const maxBundleBytes = 100 * 1024 * 1024;
+// El MSI/payload se limita separadamente; el Bundle incluye además el Hub WPF
+// autocontenido y su runtime .NET para conservar instalación autónoma.
+const maxPayloadBytes = 130 * 1024 * 1024;
+const maxBundleBytes = 200 * 1024 * 1024;
 
 function readJson(filePath) {
   try {
@@ -55,6 +58,11 @@ function resolveBundleStats() {
   return files.map((name) => statIfPresent(path.join(publicDir, name)));
 }
 
+function resolvePayloadStats() {
+  const payloadPath = path.join(root, 'dist', 'installer', '_internal', 'docente-local', 'EvaluaPro-docente-local.msi');
+  return [statIfPresent(payloadPath)];
+}
+
 const flavors = readJson(path.join(root, 'config', 'installer-flavors.json'));
 const docente = Array.isArray(flavors?.flavors)
   ? flavors.flavors.find((flavor) => flavor.flavorId === 'docente-local')
@@ -90,12 +98,16 @@ const report = {
   },
   artifacts: {
     bundles: resolveBundleStats(),
+    payloads: resolvePayloadStats(),
     updateConfig: statIfPresent(path.join(root, 'config', 'update-config.json'))
   },
   quality: {
     maxBundleBytes,
+    maxPayloadBytes,
     bundlePresent: false,
     bundleWithinLimit: false,
+    payloadPresent: false,
+    payloadWithinLimit: false,
     ok: false
   },
   probes: {
@@ -118,11 +130,13 @@ const report = {
 };
 
 report.quality.bundlePresent = report.artifacts.bundles.length > 0;
+report.quality.payloadPresent = report.artifacts.payloads.some((payload) => payload.exists && payload.bytes > 0);
 report.quality.bundleWithinLimit = report.artifacts.bundles.every((bundle) => bundle.bytes > 0 && bundle.bytes <= maxBundleBytes);
-report.quality.ok = report.quality.bundlePresent && report.quality.bundleWithinLimit;
+report.quality.payloadWithinLimit = report.artifacts.payloads.every((payload) => payload.bytes > 0 && payload.bytes <= maxPayloadBytes);
+report.quality.ok = report.quality.bundlePresent && report.quality.bundleWithinLimit && report.quality.payloadPresent && report.quality.payloadWithinLimit;
 
 if (enforce && !report.quality.ok) {
-  process.stderr.write(`[baseline] FAIL: bundle docente ausente o supera ${maxBundleBytes} bytes.\n`);
+  process.stderr.write(`[baseline] FAIL: payload o bundle docente fuera de limite (payload=${maxPayloadBytes}, bundle=${maxBundleBytes} bytes).\n`);
   process.exitCode = 1;
 }
 
@@ -134,5 +148,6 @@ if (jsonOnly) {
   process.stdout.write(`- Portal local requerido: ${report.contract.requireLocalPortal ? 'si' : 'no'}\n`);
   process.stdout.write(`- Docker compose probe: ${compose.ok ? 'ok' : 'no disponible'}\n`);
   process.stdout.write(`- Bundle dentro de limite: ${report.quality.bundleWithinLimit ? 'si' : 'no'} (${maxBundleBytes} bytes)\n`);
+  process.stdout.write(`- Payload MSI dentro de limite: ${report.quality.payloadWithinLimit ? 'si' : 'no'} (${maxPayloadBytes} bytes)\n`);
   process.stdout.write('\nUsa `--json` para evidencia machine-readable; agrega `--enforce` para bloquear release.\n');
 }

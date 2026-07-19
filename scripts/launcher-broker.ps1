@@ -196,7 +196,10 @@ function Wait-DashboardReady([int]$requestedPort, [int]$timeoutMs = 45000) {
 
 function Ensure-DashboardRunning([string]$bootstrapMode, [int]$requestedPort) {
   Set-BootstrapState -State 'booting_dashboard' -Message 'Inicializando control plane local.' -DesiredMode $bootstrapMode
-  $ready = Wait-DashboardReady -requestedPort $requestedPort -timeoutMs 2000
+  # Post-install puede haber iniciado dashboard en segundo plano. Darle una
+  # ventana de arranque antes de tratar lock/listener como obsoleto evita dos
+  # instancias concurrentes y falsos timeouts en equipos lentos.
+  $ready = Wait-DashboardReady -requestedPort $requestedPort -timeoutMs 30000
   if ($ready) { return $ready }
   if (-not (Test-Path -LiteralPath $dashboardLauncher)) {
     throw "No se encontro launcher del dashboard: $dashboardLauncher"
@@ -382,7 +385,14 @@ try {
   switch ($Action) {
     'open-dashboard' {
       $result = Ensure-StackReady -base $base -desiredMode $desiredMode -timeoutMs 150000
-      $finalReady = Wait-DashboardReady -requestedPort $Port -timeoutMs 15000
+      $finalReady = $null
+      for ($attempt = 1; $attempt -le 4 -and -not $finalReady; $attempt += 1) {
+        $finalReady = Wait-DashboardReady -requestedPort $Port -timeoutMs 15000
+        if (-not $finalReady) {
+          Write-BrokerLog("Dashboard todavía no publica estado final; reintento $attempt/4.")
+          Start-Sleep -Seconds 3
+        }
+      }
       if (-not $finalReady) {
         throw 'Dashboard dejo de responder antes de publicar estado final.'
       }

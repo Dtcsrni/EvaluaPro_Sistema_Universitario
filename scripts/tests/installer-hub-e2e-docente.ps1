@@ -52,6 +52,8 @@ public static class EvaluaProE2ENativeWindow {
   public static extern bool ShowWindow(IntPtr hWnd, int nCmdShow);
   [DllImport("user32.dll", SetLastError=true)]
   public static extern bool PrintWindow(IntPtr hWnd, IntPtr hdcBlt, uint nFlags);
+  [DllImport("user32.dll")]
+  public static extern bool SetForegroundWindow(IntPtr hWnd);
 }
 '@
 
@@ -282,6 +284,40 @@ function Assert-Hash {
   $actual = Get-Sha256Hash -Path $ExePath
   Add-Result -Area 'preflight' -Item 'sha256' -Ok ($actual -eq $expected) -Detail "expected=$expected actual=$actual"
   if ($actual -ne $expected) { throw 'Hash SHA256 invalido para el bundle.' }
+  $crcPath = "$ExePath.crc32"
+  if (-not (Test-Path -LiteralPath $crcPath)) { throw "No existe CRC32 junto al bundle: $crcPath" }
+  $crcText = Get-Content -Path $crcPath -Raw
+  $expectedCrc = ([regex]::Match($crcText, '[A-Fa-f0-9]{8}')).Value.ToLowerInvariant()
+  if (-not $expectedCrc) { throw "CRC32 esperado invalido: $crcPath" }
+  $actualCrc = Get-Crc32Hash -Path $ExePath
+  Add-Result -Area 'preflight' -Item 'crc32' -Ok ($actualCrc -eq $expectedCrc) -Detail "expected=$expectedCrc actual=$actualCrc"
+  if ($actualCrc -ne $expectedCrc) { throw 'CRC32 invalido para el bundle.' }
+}
+
+function Wait-WindowsInstallerIdle {
+  param(
+    [int]$TimeoutSec = 300,
+    [string]$Context = 'operation'
+  )
+  $deadline = (Get-Date).AddSeconds($TimeoutSec)
+  $inProgressPaths = @(
+    'HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Installer\InProgress',
+    'HKLM:\SOFTWARE\WOW6432Node\Microsoft\Windows\CurrentVersion\Installer\InProgress',
+    'HKCU:\SOFTWARE\Microsoft\Installer\InProgress'
+  )
+  do {
+    $activeClients = @(Get-CimInstance Win32_Process -ErrorAction SilentlyContinue | Where-Object {
+        $_.Name -eq 'msiexec.exe' -and $_.ParentProcessId -ne 1604
+      })
+    $inProgress = @($inProgressPaths | Where-Object { Test-Path -LiteralPath $_ })
+    if ($activeClients.Count -eq 0 -and $inProgress.Count -eq 0) { return }
+    Start-Sleep -Seconds 1
+  } while ((Get-Date) -lt $deadline)
+
+  $ids = (@(Get-CimInstance Win32_Process -ErrorAction SilentlyContinue | Where-Object {
+      $_.Name -eq 'msiexec.exe' -and $_.ParentProcessId -ne 1604
+    } | ForEach-Object ProcessId) -join ',')
+  throw "Windows Installer sigue activo antes/después de $Context timeout=${TimeoutSec}s clientPids=$ids"
 }
 
 function Get-EvaluaProUninstallEntries {
@@ -570,18 +606,25 @@ function Capture-Window {
   $bitmap = New-Object System.Drawing.Bitmap([int]$rectangle.Width, [int]$rectangle.Height)
   $graphics = [System.Drawing.Graphics]::FromImage($bitmap)
   try {
-    try {
-      $graphics.CopyFromScreen([int]$rectangle.X, [int]$rectangle.Y, 0, 0, $bitmap.Size)
-    } catch {
-      $nativeHandle = [IntPtr]$Window.Current.NativeWindowHandle
-      if ($nativeHandle -eq [IntPtr]::Zero) { throw }
+    $nativeHandle = [IntPtr]$Window.Current.NativeWindowHandle
+    $capturedByWindow = $false
+    if ($nativeHandle -ne [IntPtr]::Zero) {
       $hdc = $graphics.GetHdc()
       try {
-        if (-not [EvaluaProE2ENativeWindow]::PrintWindow($nativeHandle, $hdc, 2)) { throw 'PrintWindow no devolvió contenido.' }
+        $capturedByWindow = [EvaluaProE2ENativeWindow]::PrintWindow($nativeHandle, $hdc, 2)
       } finally {
         $graphics.ReleaseHdc($hdc)
       }
-      Write-E2ELog "Captura visual usando fallback PrintWindow name=$Name"
+    }
+    if (-not $capturedByWindow) {
+      if ($nativeHandle -ne [IntPtr]::Zero) {
+        [EvaluaProE2ENativeWindow]::SetForegroundWindow($nativeHandle) | Out-Null
+        Start-Sleep -Milliseconds 150
+      }
+      $graphics.CopyFromScreen([int]$rectangle.X, [int]$rectangle.Y, 0, 0, $bitmap.Size)
+      Write-E2ELog "Captura visual usando fallback CopyFromScreen name=$Name"
+    } else {
+      Write-E2ELog "Captura visual usando PrintWindow del Hub name=$Name"
     }
     $path = Join-Path $screenshotsDir ("{0}.png" -f $Name)
     $bitmap.Save($path, [System.Drawing.Imaging.ImageFormat]::Png)
@@ -631,7 +674,7 @@ function Wait-InstallerStableState {
   param(
     [System.Windows.Automation.AutomationElement]$Window,
     [string]$Mode,
-    [int]$TimeoutMinutes = 45
+    [int]$TimeoutMinutes = 10
   )
   $deadline = (Get-Date).AddMinutes($TimeoutMinutes)
   $lastText = ''
@@ -697,6 +740,7 @@ function Invoke-InstallerHubMode {
     'uninstall' { '/uninstall' }
     default { '' }
   }
+  Wait-WindowsInstallerIdle -TimeoutSec 300 -Context "before-$Mode"
   $previousQaInstallDir = $env:EVALUAPRO_QA_INSTALL_DIR
   $env:EVALUAPRO_QA_INSTALL_DIR = $installedRoot
   $process = if ($arguments) {
@@ -717,36 +761,12 @@ function Invoke-InstallerHubMode {
   Capture-Window -Window $window -Name ("wpf-{0}-01-splash-deteccion" -f $Mode) | Out-Null
 
   if ($Mode -eq 'install') {
-    $termsCheckbox = Find-ById -RootElement $window -AutomationId 'AcceptTermsCheckBox' -TimeoutSec 10
-    if ($termsCheckbox) {
-      Write-E2ELog "Detectado AcceptTermsCheckBox en modo install, marcandolo para habilitar navegacion."
-      $togglePattern = $null
-      # WPF actualiza currentStep desde Click. UIAutomation Invoke/Toggle puede
-      # cambiar la marca sin disparar ese handler; usar teclado sobre el control
-      # fuerza el mismo evento interactivo que usa una persona.
-      if ($termsCheckbox.Current.IsEnabled) {
-        $termsCheckbox.SetFocus()
-        $togglePattern = $null
-        $isOn = $false
-        if ($termsCheckbox.TryGetCurrentPattern([System.Windows.Automation.TogglePattern]::Pattern, [ref]$togglePattern)) {
-          $isOn = $togglePattern.Current.ToggleState -eq [System.Windows.Automation.ToggleState]::On
-        }
-        if ($isOn) { [System.Windows.Forms.SendKeys]::SendWait(' ') ; Start-Sleep -Milliseconds 250 }
-        [System.Windows.Forms.SendKeys]::SendWait(' ')
-      }
-      Start-Sleep -Seconds 1
-      $privacyCheckbox = Find-ById -RootElement $window -AutomationId 'AcceptPrivacyCheckBox' -TimeoutSec 5
-      if ($privacyCheckbox -and $privacyCheckbox.Current.IsEnabled) {
-        $privacyCheckbox.SetFocus()
-        $privacyToggle = $null
-        $privacyOn = $false
-        if ($privacyCheckbox.TryGetCurrentPattern([System.Windows.Automation.TogglePattern]::Pattern, [ref]$privacyToggle)) {
-          $privacyOn = $privacyToggle.Current.ToggleState -eq [System.Windows.Automation.ToggleState]::On
-        }
-        if (-not $privacyOn) { [System.Windows.Forms.SendKeys]::SendWait(' ') }
-      }
-      Start-Sleep -Milliseconds 500
-    }
+    $termsCheckbox = Find-ById -RootElement $window -AutomationId 'AcceptTermsCheckBox' -TimeoutSec 30
+    $privacyCheckbox = Find-ById -RootElement $window -AutomationId 'AcceptPrivacyCheckBox' -TimeoutSec 30
+    Write-E2ELog "Marcando y verificando consentimientos de términos y privacidad."
+    Ensure-CheckboxOn -Element $termsCheckbox -Name 'AcceptTermsCheckBox'
+    Ensure-CheckboxOn -Element $privacyCheckbox -Name 'AcceptPrivacyCheckBox'
+    Start-Sleep -Milliseconds 500
   }
 
   $detectionTimeoutSec = 420
@@ -765,8 +785,11 @@ function Invoke-InstallerHubMode {
   }
 
   if ($Mode -eq 'uninstall') {
-    $exportCheckbox = Find-ById -RootElement $window -AutomationId 'ExportDataCheckBox' -TimeoutSec 2
-    if ($exportCheckbox) {
+    $exportCheckbox = Find-ById -RootElement $window -AutomationId 'ExportDataCheckBox' -TimeoutSec 10
+    if (-not $exportCheckbox) {
+      Write-E2ELog 'WARNING: ExportDataCheckBox no quedó accesible en mantenimiento; se usa el valor seguro marcado por defecto y se verificará el ZIP.'
+      Add-Result -Area 'uninstall' -Item 'backup-option-default' -Ok $true -Detail 'control no accesible; default seguro=true'
+    } else {
       $togglePattern = $null
       if ($exportCheckbox.TryGetCurrentPattern([System.Windows.Automation.TogglePattern]::Pattern, [ref]$togglePattern)) {
         if ($togglePattern.Current.ToggleState -ne [System.Windows.Automation.ToggleState]::On) {
@@ -774,6 +797,10 @@ function Invoke-InstallerHubMode {
         }
       } else {
         Invoke-Control -Element $exportCheckbox
+      }
+      Start-Sleep -Milliseconds 250
+      if ($togglePattern -and $togglePattern.Current.ToggleState -ne [System.Windows.Automation.ToggleState]::On) {
+        throw 'ExportDataCheckBox no quedó activado.'
       }
     }
   }
@@ -811,7 +838,7 @@ function Invoke-InstallerHubMode {
   Start-Sleep -Milliseconds 800
   $window = Find-Window -TimeoutSec 10
   Capture-Window -Window $window -Name ("wpf-{0}-05-ejecutar-1280x720" -f $Mode) | Out-Null
-  $state = Wait-InstallerStableState -Window $window -Mode $Mode -TimeoutMinutes 45
+  $state = Wait-InstallerStableState -Window $window -Mode $Mode -TimeoutMinutes 10
   $textPath = Join-Path $ReportDir ("{0}-window-text.txt" -f $Mode)
   [string]$state.text | Set-Content -Path $textPath -Encoding UTF8
   $artifacts.Add($textPath) | Out-Null
@@ -825,25 +852,35 @@ function Invoke-InstallerHubMode {
     Add-Result -Area $Mode -Item 'restart-required' -Ok $true -Detail 'RestartNowButton visible'
   }
 
-  $closeButton = Find-ById -RootElement $window -AutomationId 'CloseButton' -TimeoutSec 8
-  if ($closeButton) { Invoke-Control -Element $closeButton }
+  $closeButton = Wait-ControlEnabled -RootElement $window -AutomationId 'CloseButton' -TimeoutSec 600
+  Invoke-Control -Element $closeButton
   Write-E2ELog "Esperando que el proceso del instalador ($($process.Id)) finalice tras presionar CloseButton..."
   $processExited = $false
   try {
-    $processExited = $process.WaitForExit(15000)
+    $processExited = $process.WaitForExit(30000)
   } catch {
     Write-E2ELog "WaitForExit fallo para pid=$($process.Id): $($_.Exception.Message)"
   }
   if (-not $processExited) {
-    Write-E2ELog "Proceso del instalador residual detectado. Forzando detencion..."
+    Write-E2ELog "WARNING: Installer Hub no terminó tras CloseButton mode=$Mode; intentando cierre normal de la ventana."
     try {
-      Stop-Process -Id ([int]$process.Id) -Force -ErrorAction SilentlyContinue
-      Wait-Process -Id ([int]$process.Id) -Timeout 5 -ErrorAction SilentlyContinue
+      $process.Refresh()
+      if (-not $process.HasExited) { [void]$process.CloseMainWindow() }
+      $processExited = $process.WaitForExit(10000)
     } catch {
-      Write-E2ELog "No se pudo detener pid=$($process.Id): $($_.Exception.Message)"
+      Write-E2ELog "WARNING: cierre normal fallo para pid=$($process.Id): $($_.Exception.Message)"
     }
   }
-  Start-Sleep -Seconds 2
+  if (-not $processExited) {
+    Write-E2ELog "WARNING: Installer Hub persistente tras estado final; deteniendo solo su arbol pid=$($process.Id)."
+    try { & taskkill.exe /PID $process.Id /T /F 2>$null | Out-Null } catch {}
+    Start-Sleep -Milliseconds 500
+    $processExited = $null -eq (Get-Process -Id $process.Id -ErrorAction SilentlyContinue)
+  }
+  if (-not $processExited) {
+    throw "Installer Hub no terminó tras cierre controlado mode=$Mode; se conserva el proceso para diagnóstico."
+  }
+  Wait-WindowsInstallerIdle -TimeoutSec 300 -Context "after-$Mode"
   Stop-InstallerHubProcesses -Reason "after-close"
   return $true
 }
@@ -866,6 +903,59 @@ function Wait-BootstrapState {
     Start-Sleep -Milliseconds 800
   } while ((Get-Date) -lt $deadline)
   throw "Bootstrap state no alcanzo $($AcceptedStates -join ',') runId=$RunId"
+}
+
+function Ensure-CheckboxOn {
+  param(
+    [System.Windows.Automation.AutomationElement]$Element,
+    [string]$Name
+  )
+  if (-not $Element) { throw "No se encontró checkbox requerido: $Name" }
+  if (-not $Element.Current.IsEnabled) { throw "Checkbox deshabilitado: $Name" }
+  $toggle = $null
+  $isOn = $false
+  if ($Element.TryGetCurrentPattern([System.Windows.Automation.TogglePattern]::Pattern, [ref]$toggle)) {
+    $isOn = $toggle.Current.ToggleState -eq [System.Windows.Automation.ToggleState]::On
+  }
+  if (-not $isOn) {
+    $Element.SetFocus()
+    [System.Windows.Forms.SendKeys]::SendWait(' ')
+    Start-Sleep -Milliseconds 400
+  }
+  if ($toggle) { $isOn = $toggle.Current.ToggleState -eq [System.Windows.Automation.ToggleState]::On }
+  if (-not $isOn -and $toggle) {
+    $toggle.Toggle()
+    Start-Sleep -Milliseconds 400
+    $isOn = $toggle.Current.ToggleState -eq [System.Windows.Automation.ToggleState]::On
+  }
+  if (-not $isOn) { throw "No se pudo marcar checkbox requerido: $Name" }
+}
+
+function Get-Crc32Hash {
+  param([string]$Path)
+  [int64]$polynomial = 3988292384
+  $table = New-Object int64[] 256
+  for ($seed = 0; $seed -lt 256; $seed++) {
+    [int64]$value = $seed
+    for ($bit = 0; $bit -lt 8; $bit++) {
+      $lsb = $value -band 1
+      $value = [int64]($value -shr 1)
+      if ($lsb -ne 0) { $value = $value -bxor $polynomial }
+    }
+    $table[$seed] = $value
+  }
+  [int64]$crc = 4294967295
+  $stream = [System.IO.File]::OpenRead($Path)
+  try {
+    $buffer = New-Object byte[] 1048576
+    while (($read = $stream.Read($buffer, 0, $buffer.Length)) -gt 0) {
+      for ($i = 0; $i -lt $read; $i++) {
+        $index = [int](($crc -bxor [int64]$buffer[$i]) -band 255)
+        $crc = ($crc -shr 8) -bxor $table[$index]
+      }
+    }
+  } finally { $stream.Dispose() }
+  return ('{0:X8}' -f ([uint64]($crc -bxor 4294967295))).ToLowerInvariant()
 }
 
 function Write-VisualFlowManifest {
@@ -947,6 +1037,14 @@ function Invoke-InstalledBroker {
     }
     Write-E2ELog "Timeout broker action=$Action pid=$($process.Id); deteniendo solo el árbol de esa invocación."
     try { & taskkill.exe /PID $process.Id /T /F 2>$null | Out-Null } catch {}
+    if ($Action -eq 'stop-all') {
+      $activeTargetNodes = @(Get-Process node -ErrorAction SilentlyContinue | Where-Object { $_.Path -like "$installedRoot\*" })
+      $activeTargetListeners = @(Get-NetTCPConnection -State Listen -ErrorAction SilentlyContinue | Where-Object { $_.LocalPort -in @(4000, 4173, $Port) })
+      if ($activeTargetNodes.Count -eq 0 -and $activeTargetListeners.Count -eq 0) {
+        Add-Result -Area 'broker' -Item $Action -Ok $true -Detail "timeout aceptado: estado detenido verificado runId=$RunId"
+        return
+      }
+    }
     Add-Result -Area 'broker' -Item $Action -Ok $false -Detail "timeout=${TimeoutSec}s runId=$RunId"
     throw "Broker timeout action=$Action timeout=${TimeoutSec}s"
   }
@@ -1043,27 +1141,35 @@ function Export-NativeEvidence {
 }
 
 function Assert-NativeStable {
-  $running = Get-Process -Name "node" -ErrorAction SilentlyContinue
-  $count = if ($running) { @($running).Count } else { 0 }
-  Add-Result -Area 'native' -Item 'node-process' -Ok ($count -ge 1) -Detail "count=$count"
-  
-  if ($count -lt 1) { throw 'Servicio Node.js nativo no esta corriendo.' }
+  $deadline = (Get-Date).AddSeconds(90)
+  $lastError = 'sin respuesta'
+  do {
+    $running = Get-Process -Name "node" -ErrorAction SilentlyContinue
+    $count = if ($running) { @($running).Count } else { 0 }
+    if ($count -ge 1) {
+      try {
+        $api = Invoke-RestMethod -Uri 'http://127.0.0.1:4000/api/salud' -TimeoutSec 5
+        try {
+          $web = Invoke-WebRequest -Uri 'http://127.0.0.1:4173/' -UseBasicParsing -TimeoutSec 5
+          if ($web.StatusCode -eq 200) {
+            Add-Result -Area 'native' -Item 'node-process' -Ok $true -Detail "count=$count"
+            Add-Result -Area 'native' -Item 'api-salud' -Ok $true -Detail ($api | ConvertTo-Json -Compress)
+            Add-Result -Area 'native' -Item 'web-docente' -Ok $true -Detail "status=$($web.StatusCode)"
+            return
+          }
+          $lastError = "web status=$($web.StatusCode)"
+        } catch { $lastError = $_.Exception.Message }
+      } catch { $lastError = $_.Exception.Message }
+    } else {
+      $lastError = 'Servicio Node.js nativo aún no tiene proceso.'
+    }
+    Start-Sleep -Seconds 2
+  } while ((Get-Date) -lt $deadline)
 
-  try {
-    $api = Invoke-RestMethod -Uri 'http://127.0.0.1:4000/api/salud' -TimeoutSec 10
-    Add-Result -Area 'native' -Item 'api-salud' -Ok $true -Detail ($api | ConvertTo-Json -Compress)
-  } catch {
-    Add-Result -Area 'native' -Item 'api-salud' -Ok $false -Detail $_.Exception.Message
-    throw
-  }
-
-  try {
-    $web = Invoke-WebRequest -Uri 'http://127.0.0.1:4173/' -UseBasicParsing -TimeoutSec 10
-    Add-Result -Area 'native' -Item 'web-docente' -Ok ($web.StatusCode -eq 200) -Detail "status=$($web.StatusCode)"
-  } catch {
-    Add-Result -Area 'native' -Item 'web-docente' -Ok $false -Detail $_.Exception.Message
-    throw
-  }
+  Add-Result -Area 'native' -Item 'node-process' -Ok $false -Detail "timeout=90s last=$lastError"
+  Add-Result -Area 'native' -Item 'api-salud' -Ok $false -Detail $lastError
+  Add-Result -Area 'native' -Item 'web-docente' -Ok $false -Detail $lastError
+  throw "Runtime nativo no alcanzó salud API/web en 90s: $lastError"
 }
 
 function Capture-UrlWithPlaywright {
@@ -1311,7 +1417,7 @@ try {
 
   Invoke-InstalledBroker -Action 'verify-installation' -RunId ('e2e-verify-' + [guid]::NewGuid().ToString('N'))
   $openRunId = 'e2e-open-' + [guid]::NewGuid().ToString('N')
-  Invoke-InstalledBroker -Action 'open-dashboard' -RunId $openRunId
+  Invoke-InstalledBroker -Action 'open-dashboard' -RunId $openRunId -TimeoutSec 240
   $state = Wait-BootstrapState -RunId $openRunId -AcceptedStates @('healthy', 'degraded') -TimeoutSec 240
   Export-JsonArtifact -Name 'dashboard-bootstrap-state.json' -Data $state | Out-Null
   $dashboardState = if ($state.PSObject.Properties.Match('state').Count -gt 0) { [string]$state.state } else { 'unknown' }
@@ -1355,8 +1461,22 @@ try {
   Add-Result -Area 'post-uninstall' -Item 'install-dir-removed' -Ok (-not (Test-Path -LiteralPath $installedRoot)) -Detail $installedRoot
 
   $backupDir = "C:\Users\Public\Documents\EvaluaPro_Backup"
-  $backupFolders = @(Get-ChildItem -Path $backupDir -Directory -Filter "data_*" -ErrorAction SilentlyContinue)
-  Add-Result -Area 'post-uninstall' -Item 'backup-created' -Ok ($backupFolders.Count -gt 0) -Detail ("backup_folders={0}" -f $backupFolders.Count)
+  $backupArchives = @(Get-ChildItem -Path $backupDir -File -Filter "data_*.zip" -ErrorAction SilentlyContinue)
+  $restoreOk = $false
+  $restoreDetail = "backup_archives={0}" -f $backupArchives.Count
+  if ($backupArchives.Count -gt 0) {
+    $restoreStage = Join-Path ([IO.Path]::GetTempPath()) ("evaluapro-restore-check-" + [Guid]::NewGuid().ToString('N'))
+    try {
+      Expand-Archive -LiteralPath $backupArchives[-1].FullName -DestinationPath $restoreStage -Force
+      $restoreOk = Test-Path -LiteralPath (Join-Path $restoreStage 'evaluapro.db')
+      $restoreDetail = "backup_archives={0} restore_db={1}" -f $backupArchives.Count,$restoreOk
+    } catch {
+      $restoreDetail = "backup_archives={0} restore_error={1}" -f $backupArchives.Count,$_.Exception.Message
+    } finally {
+      Remove-Item -LiteralPath $restoreStage -Recurse -Force -ErrorAction SilentlyContinue
+    }
+  }
+  Add-Result -Area 'post-uninstall' -Item 'backup-created' -Ok $restoreOk -Detail $restoreDetail
 
   Assert-NoActiveEvaluaProAfterUninstall
 

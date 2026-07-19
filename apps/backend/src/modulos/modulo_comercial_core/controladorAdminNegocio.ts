@@ -1,6 +1,7 @@
 import type { Response } from 'express';
 import { randomUUID } from 'node:crypto';
 import { ErrorAplicacion } from '../../compartido/errores/errorAplicacion';
+import { configuracion } from '../../configuracion';
 import { obtenerDocenteId, type SolicitudDocente } from '../modulo_autenticacion/middlewareAutenticacion';
 import {
   AuditoriaComercial,
@@ -570,7 +571,7 @@ export async function generarLicencia(req: SolicitudDocente, res: Response) {
     tokenLicencia,
     tokenLicenciaHash: generarHashSeguro(tokenLicencia),
     expiraEn: req.body.expiraEn,
-    graciaOfflineDias: 7,
+    graciaOfflineDias: configuracion.licenciaGraciaOfflineDias,
     estado: 'generada',
     ultimoCanalRelease: req.body.canalRelease
   });

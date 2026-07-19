@@ -1001,6 +1001,8 @@ internal sealed class EvaluaProBootstrapperApplication : BootstrapperApplication
                 ["mode"] = currentOperation,
                 ["flavorId"] = currentRequest.FlavorId,
                 ["installDir"] = currentRequest.InstallDir,
+                ["exportData"] = currentRequest.ExportData ? "1" : "0",
+                ["dataDir"] = Path.Combine(currentRequest.InstallDir, "data"),
                 ["config"] = new Dictionary<string, object?>
                 {
                     ["databaseUrl"] = currentRequest.DatabaseUrl,
@@ -1028,7 +1030,10 @@ internal sealed class EvaluaProBootstrapperApplication : BootstrapperApplication
                 }
             };
 
-            var envelope = await InvokeHelperAsync<Dictionary<string, object?>>("post-install", requestObject).ConfigureAwait(false);
+            var helperMode = string.Equals(currentOperation, "uninstall", StringComparison.OrdinalIgnoreCase)
+                ? "uninstall"
+                : "post-install";
+            var envelope = await InvokeHelperAsync<Dictionary<string, object?>>(helperMode, requestObject).ConfigureAwait(false);
             helperInFlight = false;
             FlushHelperLogs(envelope.Logs);
 
@@ -1264,7 +1269,34 @@ internal sealed class EvaluaProBootstrapperApplication : BootstrapperApplication
 
         process.BeginOutputReadLine();
         process.BeginErrorReadLine();
-        await process.WaitForExitAsync().ConfigureAwait(false);
+        try
+        {
+            using var timeoutCts = new CancellationTokenSource(GetHelperTimeout(mode));
+            await process.WaitForExitAsync(timeoutCts.Token).ConfigureAwait(false);
+        }
+        catch (OperationCanceledException) when (!process.HasExited)
+        {
+            Log("error", $"Helper {mode} excedió el timeout; cancelando árbol pid={process.Id} request={requestPath} response={responsePath}.");
+            try
+            {
+                process.Kill(entireProcessTree: true);
+            }
+            catch (Exception killException)
+            {
+                Log("warn", $"No se pudo cancelar completamente el árbol del helper {mode} pid={process.Id}: {killException.Message}");
+            }
+
+            try
+            {
+                await process.WaitForExitAsync().WaitAsync(TimeSpan.FromSeconds(5)).ConfigureAwait(false);
+            }
+            catch (Exception waitException)
+            {
+                Log("warn", $"El proceso del helper {mode} no confirmó salida tras la cancelación: {waitException.Message}");
+            }
+
+            throw new TimeoutException($"Helper {mode} excedió su timeout de {GetHelperTimeout(mode).TotalSeconds:0}s. request={requestPath} response={responsePath}");
+        }
         var stdout = string.Join(Environment.NewLine, stdoutLines);
         var stderr = string.Join(Environment.NewLine, stderrLines);
 
@@ -1298,6 +1330,18 @@ internal sealed class EvaluaProBootstrapperApplication : BootstrapperApplication
         {
             throw new TimeoutException($"Helper {mode} no genero respuesta valida en el tiempo esperado. response={responsePath}", timeoutEx);
         }
+    }
+
+    private static TimeSpan GetHelperTimeout(string mode)
+    {
+        return mode switch
+        {
+            "detect-prereqs" => TimeSpan.FromMinutes(5),
+            "remediate-prereqs" => TimeSpan.FromMinutes(10),
+            "uninstall" => TimeSpan.FromMinutes(10),
+            "repair" => TimeSpan.FromMinutes(10),
+            _ => TimeSpan.FromMinutes(10)
+        };
     }
 
     private Process StartPowerShellHelperProcess(

@@ -70,6 +70,7 @@ export interface PaqueteAssembler {
     paqueteBase64: string;
     checksumSha256: string;
     checksumGzipSha256: string;
+    cifrado: boolean;
     exportadoEn: string;
   }>;
 }

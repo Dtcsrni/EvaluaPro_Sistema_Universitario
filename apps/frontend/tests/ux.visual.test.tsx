@@ -77,6 +77,20 @@ afterAll(async () => {
     snapshots: resultados
   };
   const out = path.resolve(process.cwd(), 'reports/qa/latest/ux-visual.json');
-  await fs.mkdir(path.dirname(out), { recursive: true });
-  await fs.writeFile(out, `${JSON.stringify(reporte, null, 2)}\n`, 'utf8');
+  const directory = path.dirname(out);
+  const temporary = path.join(directory, `.ux-visual.${process.pid}.${Date.now()}.tmp`);
+  const payload = `${JSON.stringify(reporte, null, 2)}\n`;
+  await fs.mkdir(directory, { recursive: true });
+  for (let attempt = 1; attempt <= 3; attempt += 1) {
+    try {
+      await fs.writeFile(temporary, payload, 'utf8');
+      await fs.rm(out, { force: true });
+      await fs.rename(temporary, out);
+      break;
+    } catch (error) {
+      await fs.rm(temporary, { force: true }).catch(() => undefined);
+      if (attempt === 3) throw error;
+      await new Promise((resolve) => setTimeout(resolve, attempt * 150));
+    }
+  }
 });

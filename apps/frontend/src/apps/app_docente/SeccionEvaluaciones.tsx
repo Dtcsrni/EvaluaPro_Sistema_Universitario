@@ -276,11 +276,11 @@ export function SeccionEvaluaciones(params: {
           </label>
           <label>
             Calificación
-            <input value={evidenciaCalificacion} onChange={(event) => setEvidenciaCalificacion(event.target.value)} />
+            <input type="number" min="0" max="10" step="0.01" value={evidenciaCalificacion} onChange={(event) => setEvidenciaCalificacion(event.target.value)} />
           </label>
           <label>
             Ponderación
-            <input value={evidenciaPonderacion} onChange={(event) => setEvidenciaPonderacion(event.target.value)} />
+            <input type="number" min="0" max="10" step="0.01" value={evidenciaPonderacion} onChange={(event) => setEvidenciaPonderacion(event.target.value)} />
           </label>
           <label>
             Corte

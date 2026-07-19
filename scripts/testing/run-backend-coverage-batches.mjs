@@ -12,6 +12,7 @@
  * Limites: No altera la seleccion de tests ni los thresholds definidos por Vitest.
  */
 import { spawn } from 'node:child_process';
+import { closeSync, openSync, readdirSync } from 'node:fs';
 import fs from 'node:fs/promises';
 import path from 'node:path';
 import process from 'node:process';
@@ -22,9 +23,15 @@ const __dirname = path.dirname(__filename);
 const rootDir = path.resolve(__dirname, '..', '..');
 const backendDir = path.join(rootDir, 'apps', 'backend');
 const reportsDir = path.join(backendDir, '.vitest-reports', 'backend-coverage-batches');
+const logsDir = path.join(backendDir, '.vitest-reports', 'backend-coverage-logs');
 const vitestEntry = path.join(rootDir, 'node_modules', 'vitest', 'vitest.mjs');
 const batchAttempts = 3;
+const batchConcurrency = 2;
+// Los E2E de flujo docente/OMR instrumentan mucho código y no deben compartir
+// memoria con otros escenarios. Los lotes pequeños hacen el gate reproducible
+// y permiten identificar el caso lento sin perder ninguna prueba.
 const integrationChunkSize = 4;
+const batchTimeoutMs = Number(process.env.BACKEND_COVERAGE_BATCH_TIMEOUT_MS || 8 * 60 * 1000);
 
 const zeroThresholdArgs = [
   '--coverage.thresholds.lines=0',
@@ -75,6 +82,35 @@ const integrationFilesNZ = [
   'tests/integracion/versionadoApiV2Contratos.test.ts'
 ];
 
+// Mantener lotes pequeños evita que Vitest instrumente toda la suite raíz en
+// un único proceso y deja identificar el grupo que exceda tiempo/memoria.
+function listRootCoverageFiles() {
+  const rootTests = readdirSync(path.join(backendDir, 'tests'), { withFileTypes: true })
+    .filter((entry) => entry.isFile() && entry.name.endsWith('.test.ts') && entry.name !== 'calificacion.omr.payload.test.ts')
+    .map((entry) => `tests/${entry.name}`);
+  const nestedTests = readdirSync(path.join(backendDir, 'tests', 'contrato'), { withFileTypes: true })
+    .filter((entry) => entry.isFile() && entry.name.endsWith('.test.ts'))
+    .map((entry) => `tests/contrato/${entry.name}`);
+  const utilityTests = readdirSync(path.join(backendDir, 'tests', 'utils'), { withFileTypes: true })
+    .filter((entry) => entry.isFile() && entry.name.endsWith('.test.ts'))
+    .map((entry) => `tests/utils/${entry.name}`);
+  return [...rootTests, ...nestedTests, ...utilityTests].sort();
+}
+
+function buildRootCoverageBatches() {
+  const files = listRootCoverageFiles();
+  const batches = [];
+  let index = 0;
+  while (index < files.length) {
+    const current = files[index];
+    const chunkSize = current.includes('/omr.') ? 1 : 4;
+    const name = `backend-root-${String(batches.length + 1).padStart(2, '0')}`;
+    batches.push({ name, args: batchArgs(name, files.slice(index, index + chunkSize)) });
+    index += chunkSize;
+  }
+  return batches;
+}
+
 function batchArgs(name, filters) {
   return [
     'vitest',
@@ -92,14 +128,18 @@ function batchArgs(name, filters) {
 function chunkFiles(namePrefix, files, size = integrationChunkSize) {
   const batches = [];
 
-  for (let index = 0; index < files.length; index += size) {
-    const chunk = files.slice(index, index + size);
+  for (let index = 0; index < files.length;) {
+    const current = files[index];
+    const isolated = /flujoDocente(Global|Parcial)E2E|omrV1Workflow|qrEscaneoOmr|pdfImpresionContrato|recoveryBundleGeneracion|recuperacionExamenes/.test(current);
+    const chunkSize = isolated ? 1 : size;
+    const chunk = files.slice(index, index + chunkSize);
     const suffix = String(batches.length + 1).padStart(2, '0');
     const name = `${namePrefix}-${suffix}`;
     batches.push({
       name,
       args: batchArgs(name, chunk)
     });
+    index += chunkSize;
   }
 
   return batches;
@@ -108,15 +148,7 @@ function chunkFiles(namePrefix, files, size = integrationChunkSize) {
 function buildCoveragePlan() {
   return {
     batches: [
-      {
-        name: 'backend-root',
-        args: batchArgs('backend-root', [
-          '--exclude',
-          'tests/integracion/**',
-          '--exclude',
-          'tests/calificacion.omr.payload.test.ts'
-        ])
-      },
+      ...buildRootCoverageBatches(),
       {
         name: 'backend-calificacion-omr-payload',
         args: batchArgs('backend-calificacion-omr-payload', ['tests/calificacion.omr.payload.test.ts'])
@@ -144,20 +176,49 @@ function runVitest(args, name) {
   return new Promise((resolve) => {
     process.stdout.write(`[backend-coverage] ${name}\n`);
     const [, ...vitestArgs] = args;
+    const logFd = openSync(path.join(logsDir, `${name.replace(/[^a-z0-9_-]+/gi, '_')}.log`), 'a');
     const child = spawn(process.execPath, [vitestEntry, ...vitestArgs], {
       cwd: backendDir,
       env: process.env,
-      stdio: 'inherit'
+      stdio: ['ignore', logFd, logFd]
     });
 
-    child.on('error', () => resolve(1));
-    child.on('close', (code) => resolve(typeof code === 'number' ? code : 1));
+    let finalizado = false;
+    const timeout = setTimeout(() => {
+      if (finalizado) return;
+      finalizado = true;
+      process.stderr.write(`[backend-coverage] timeout ${name} tras ${batchTimeoutMs} ms\n`);
+      if (process.platform === 'win32' && child.pid) {
+        spawn('taskkill', ['/PID', String(child.pid), '/T', '/F'], { windowsHide: true, stdio: 'ignore' });
+      } else {
+        child.kill('SIGTERM');
+        setTimeout(() => child.kill('SIGKILL'), 5000).unref();
+      }
+      closeSync(logFd);
+      resolve(124);
+    }, batchTimeoutMs);
+
+    child.on('error', () => {
+      if (finalizado) return;
+      finalizado = true;
+      clearTimeout(timeout);
+      closeSync(logFd);
+      resolve(1);
+    });
+    child.on('close', (code) => {
+      if (finalizado) return;
+      finalizado = true;
+      clearTimeout(timeout);
+      closeSync(logFd);
+      resolve(typeof code === 'number' ? code : 1);
+    });
   });
 }
 
 async function prepareRun() {
   await fs.rm(reportsDir, { recursive: true, force: true });
   await fs.mkdir(reportsDir, { recursive: true });
+  await fs.mkdir(logsDir, { recursive: true });
   await fs.mkdir(path.join(backendDir, 'coverage', '.tmp'), { recursive: true });
 }
 
@@ -190,9 +251,11 @@ async function main() {
   const plan = buildCoveragePlan();
   await prepareRun();
 
-  for (const batch of plan.batches) {
-    const code = await runBatch(batch);
-    if (code !== 0) process.exit(code);
+  for (let index = 0; index < plan.batches.length; index += batchConcurrency) {
+    const wave = plan.batches.slice(index, index + batchConcurrency);
+    const results = await Promise.all(wave.map((batch) => runBatch(batch)));
+    const failed = results.find((code) => code !== 0);
+    if (failed !== undefined) process.exit(failed);
   }
 
   const mergeCode = await runVitest(plan.merge.args, plan.merge.name);

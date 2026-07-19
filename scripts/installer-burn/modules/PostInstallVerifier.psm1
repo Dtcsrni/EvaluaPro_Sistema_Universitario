@@ -125,7 +125,7 @@ function Invoke-PostInstallVerification {
     if ([string]$Flavor.flavorId -eq 'docente-local') {
       $embeddedNodeMajor = Get-EmbeddedNodeMajorVersion -InstallDir $effectiveDir
       if ($embeddedNodeMajor -lt 24) {
-        $issues += 'Runtime Node embebido local no disponible tras instalacion.'
+        $issues += 'Runtime Node embebido local no disponible o incompatible tras instalacion.'
       }
 
     } else {

@@ -32,6 +32,7 @@ type RespuestaExportar = {
   paqueteBase64: string;
   checksumSha256: string;
   checksumGzipSha256?: string;
+  cifrado?: boolean;
   exportadoEn: string;
   conteos: Record<string, number>;
 };
@@ -108,6 +109,7 @@ export function SeccionPaqueteSincronizacion({
   const [ultimoArchivoExportado, setUltimoArchivoExportado] = useState<string | null>(null);
   const [ultimoArchivoImportado, setUltimoArchivoImportado] = useState<string | null>(null);
   const [ultimoChecksum, setUltimoChecksum] = useState<string | null>(null);
+  const [ultimoBackupCifrado, setUltimoBackupCifrado] = useState<boolean | null>(null);
   const [ultimoTamanoImportadoKb, setUltimoTamanoImportadoKb] = useState<number | null>(null);
 
   const conteoTotalUltimoResumen = useMemo(() => {
@@ -143,6 +145,7 @@ export function SeccionPaqueteSincronizacion({
       setUltimoResumen(resp.conteos);
       setUltimoExportEn(resp.exportadoEn);
       setUltimoChecksum(resp.checksumSha256 || null);
+      setUltimoBackupCifrado(resp.cifrado ?? true);
 
       const nombre = `sincronizacion_${(resp.exportadoEn || new Date().toISOString()).replace(/[:.]/g, '-')}.ep-sync.json`;
       const backupMeta = construirBackupMeta(resp.exportadoEn);
@@ -151,6 +154,7 @@ export function SeccionPaqueteSincronizacion({
         exportadoEn: resp.exportadoEn,
         checksumSha256: resp.checksumSha256,
         checksumGzipSha256: resp.checksumGzipSha256,
+        cifrado: resp.cifrado ?? true,
         conteos: resp.conteos,
         paqueteBase64: resp.paqueteBase64,
         backupMeta,
@@ -310,6 +314,10 @@ export function SeccionPaqueteSincronizacion({
               <div className="estado-datos-item">
                 <span className="estado-chip info">Checksum</span>
                 <div className="nota">{ultimoChecksum ? `${ultimoChecksum.slice(0, 12)}...` : '-'}</div>
+              </div>
+              <div className="estado-datos-item">
+                <span className="estado-chip info">Protección</span>
+                <div className="nota">{ultimoBackupCifrado === null ? '-' : ultimoBackupCifrado ? 'Cifrado autenticado' : 'Legado sin cifrar'}</div>
               </div>
               <div className="estado-datos-item">
                 <span className="estado-chip info">Tamaño importado</span>

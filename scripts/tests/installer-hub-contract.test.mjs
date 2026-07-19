@@ -239,8 +239,8 @@ test('build-msi valida contenedor adjunto Burn antes de publicar bundle', () => 
   assert.match(buildMsi, /Assert-MsiInstallsAppPayload -MsiPath \$productOut -InstallFolderName \$installFolderName/);
   assert.match(buildMsi, /'docker-compose\.yml'/);
   assert.match(buildMsi, /'docker-compose\.prod-build\.yml'/);
-  assert.match(buildMsi, /-p:AssemblyVersion=\$VersionTag\.0/);
-  assert.match(buildMsi, /-p:FileVersion=\$VersionTag\.0/);
+  assert.match(buildMsi, /-p:AssemblyVersion=\$dotNetNumericVersion/);
+  assert.match(buildMsi, /-p:FileVersion=\$dotNetNumericVersion/);
   assert.match(buildMsi, /-p:InformationalVersion=\$VersionTag/);
   assert.match(buildMsi, /Bootstrapper Application Burn publicada con version invalida/);
   assert.match(buildMsi, /Compilando Bootstrapper Application con versión/);
@@ -281,8 +281,9 @@ test('MSI docente perUser no escribe marcadores en HKLM', () => {
 test('build MSI elimina avisos Prisma del esquema SQL nativo', () => {
   const build = fs.readFileSync(path.join(root, 'scripts', 'build-msi.ps1'), 'utf8');
   assert.match(build, /schemaSqlText = \$schemaSqlOutput -join/);
-  assert.match(build, /boxIndex = \$schemaSqlText\.IndexOf\(\[char\]0x250c\)/);
-  assert.match(build, /LastIndexOf\("`n", \$boxIndex\)/);
+  assert.match(build, /lastSqlTerminator = \$schemaSqlText\.LastIndexOf\(';\'\)/);
+  assert.match(build, /schemaSqlText = \$schemaSqlText\.Substring\(0, \$lastSqlTerminator \+ 1\)/);
+  assert.match(build, /Update available\|major update/);
   assert.match(build, /Falló saneamiento del esquema SQL nativo/);
 });
 
@@ -384,6 +385,17 @@ test('launcher docente usa invocación Windows compatible con npm.cmd y Node 24'
   assert.match(launcher, /start \$\{name\}: node/);
   assert.match(launcher, /proc\.stdout\.on\('data'/);
   assert.match(launcher, /proc\.stderr\.on\('data'/);
+});
+
+test('launcher docente aísla el ciclo E2E con build sin PWA y SQLite preparado', () => {
+  const launcher = fs.readFileSync(path.join(root, 'scripts', 'start-docente-native.mjs'), 'utf8');
+  assert.match(launcher, /EVALUAPRO_E2E_BUILD/);
+  assert.match(launcher, /VITE_DISABLE_PWA/);
+  assert.match(launcher, /VITE_API_BASE_URL/);
+  assert.match(launcher, /prepareE2EDatabase/);
+  assert.match(launcher, /migrate[\s\S]*diff/);
+  assert.match(launcher, /prepare-docente-sqlite\.mjs/);
+  assert.match(launcher, /E2E_DOCENTE_SQLITE_PATH/);
 });
 
 test('servidor docente nativo no depende de Vite y bloquea traversal', () => {
@@ -1291,7 +1303,7 @@ test('helper Burn prepara contrato runtime instalado para dashboard docente', ()
   assert.match(helper, /reaplicar el contrato docente/);
   assert.match(helper, /runtimeEnv = Read-InstallerEnvMap -Path \$envPath/);
   assert.match(helper, /Ruta SQLite docente/);
-  assert.doesNotMatch(helper, /backend\\dist\\index\.js/);
+  assert.match(helper, /apps\\backend\\dist\\index\.js/);
 });
 
 test('descarga de prerequisitos usa fallback HttpClient -> BITS -> Invoke-WebRequest', () => {
@@ -2006,6 +2018,10 @@ test('blindaje de licencia exige DPAPI local machine e integridad MAC', () => {
   assert.match(securityModule, /Invoke-EvaluaProStepUp/);
   assert.match(securityModule, /Get-EvaluaProCurrentTotpCode/);
   assert.match(securityModule, /recovery_code/);
+  assert.match(securityModule, /Get-EvaluaProCommercialLicenseState/);
+  assert.match(securityModule, /Invoke-EvaluaProLicenseHeartbeatSecure/);
+  assert.match(securityModule, /featureLevel = 'community'/);
+  assert.match(securityModule, /graciaDias = 90/);
 });
 
 test('runner E2E tolera estados finales sin propiedad timeout', () => {

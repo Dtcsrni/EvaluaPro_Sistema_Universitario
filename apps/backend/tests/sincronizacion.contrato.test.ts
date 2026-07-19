@@ -16,7 +16,9 @@ vi.mock('../src/configuracion', () => ({
   configuracion: {
     codigoAccesoHoras: 12,
     portalAlumnoUrl: '',
-    portalApiKey: ''
+    portalApiKey: '',
+    jwtSecreto: 'sync-contract-secret',
+    respaldoCifradoSecreto: 'sync-contract-backup-secret'
   }
 }));
 

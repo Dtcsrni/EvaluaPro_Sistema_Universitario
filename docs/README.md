@@ -2,7 +2,7 @@
 
 Centro documental de producto, operación, cumplimiento y arquitectura de
 EvaluaPro. La fuente de verdad actual es `docente-local` nativo para Windows,
-en etapa de QA y con release pública pendiente.
+en candidata `1.1.1`, pendiente del resultado Go de la gate estable.
 
 ## Lectura por objetivo
 - Negocio/licencia: `comercial/FEATURE_CATALOG.md`, `comercial/LICENSING_TIERS.md`, `comercial/ESTRATEGIA_COMERCIAL.md`, `comercial/playbook-demo-35d.md`.

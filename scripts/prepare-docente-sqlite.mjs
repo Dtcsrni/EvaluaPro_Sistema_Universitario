@@ -24,7 +24,14 @@ fs.mkdirSync(path.dirname(databasePath), { recursive: true });
 const database = new DatabaseSync(databasePath);
 try {
   database.exec('PRAGMA foreign_keys = ON;');
-  database.exec(fs.readFileSync(schemaPath, 'utf8'));
+  // Prisma genera DDL pensado para una base vacía. El instalador también se
+  // usa en repair/update, por lo que convertir objetos existentes en no-op es
+  // obligatorio para no perder datos ni fallar por "already exists".
+  const schema = fs.readFileSync(schemaPath, 'utf8')
+    .replace(/CREATE TABLE(?!\s+IF NOT EXISTS)/gi, 'CREATE TABLE IF NOT EXISTS')
+    .replace(/CREATE UNIQUE INDEX(?!\s+IF NOT EXISTS)/gi, 'CREATE UNIQUE INDEX IF NOT EXISTS')
+    .replace(/CREATE INDEX(?!\s+IF NOT EXISTS)/gi, 'CREATE INDEX IF NOT EXISTS');
+  database.exec(schema);
 } finally {
   database.close();
 }

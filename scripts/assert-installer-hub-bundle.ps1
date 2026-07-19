@@ -30,14 +30,52 @@ function Assert-VersionPrefix {
   }
 }
 
+function ConvertTo-DotNetNumericVersion {
+  param(
+    [Parameter(Mandatory = $true)]
+    [string]$VersionTag
+  )
+
+  $match = [Regex]::Match($VersionTag, '^\s*(\d+)(?:\.(\d+))?(?:\.(\d+))?(?:\.(\d+))?')
+  if (-not $match.Success) {
+    throw "La version esperada no contiene un prefijo numerico compatible con .NET: $VersionTag"
+  }
+  $parts = @(
+    [int64]$match.Groups[1].Value,
+    $(if ($match.Groups[2].Success) { [int64]$match.Groups[2].Value } else { 0 }),
+    $(if ($match.Groups[3].Success) { [int64]$match.Groups[3].Value } else { 0 }),
+    $(if ($match.Groups[4].Success) { [int64]$match.Groups[4].Value } else { 0 })
+  )
+  if ($parts | Where-Object { $_ -gt 65535 }) {
+    throw "La version esperada excede el limite numerico de .NET: $VersionTag"
+  }
+  return ($parts -join '.')
+}
+
+function Assert-NumericVersion {
+  param(
+    [Parameter(Mandatory = $true)]
+    [string]$Label,
+    [AllowEmptyString()]
+    [string]$Actual,
+    [Parameter(Mandatory = $true)]
+    [string]$Expected
+  )
+
+  if ([string]::IsNullOrWhiteSpace($Actual) -or $Actual -notlike "$Expected*") {
+    throw "$Label numerica invalida. Esperada=$Expected, Actual=$Actual"
+  }
+}
+
 if (-not (Test-Path -LiteralPath $BundlePath)) {
   throw "No existe bundle Installer Hub: $BundlePath"
 }
 
 $resolvedBundlePath = (Resolve-Path -LiteralPath $BundlePath).Path
+$expectedNumericVersion = ConvertTo-DotNetNumericVersion -VersionTag $ExpectedVersion
 $bundleInfo = [System.Diagnostics.FileVersionInfo]::GetVersionInfo($resolvedBundlePath)
-Assert-VersionPrefix -Label 'Bundle FileVersion' -Actual ([string]$bundleInfo.FileVersion) -Expected $ExpectedVersion
-Assert-VersionPrefix -Label 'Bundle ProductVersion' -Actual ([string]$bundleInfo.ProductVersion) -Expected $ExpectedVersion
+Assert-NumericVersion -Label 'Bundle FileVersion' -Actual ([string]$bundleInfo.FileVersion) -Expected $expectedNumericVersion
+Assert-NumericVersion -Label 'Bundle ProductVersion' -Actual ([string]$bundleInfo.ProductVersion) -Expected $expectedNumericVersion
 
 $extractRoot = Join-Path $env:TEMP ("evaluapro-bundle-guard-{0}" -f [Guid]::NewGuid().ToString('N'))
 $outDir = Join-Path $extractRoot 'out'
@@ -55,7 +93,7 @@ try {
   }
 
   $baInfo = [System.Diagnostics.FileVersionInfo]::GetVersionInfo($baPath)
-  Assert-VersionPrefix -Label 'Bootstrapper Application FileVersion' -Actual ([string]$baInfo.FileVersion) -Expected $ExpectedVersion
+  Assert-NumericVersion -Label 'Bootstrapper Application FileVersion' -Actual ([string]$baInfo.FileVersion) -Expected $expectedNumericVersion
   Assert-VersionPrefix -Label 'Bootstrapper Application ProductVersion' -Actual ([string]$baInfo.ProductVersion) -Expected $ExpectedVersion
 
   Write-Host "[installer-guard] Bundle OK: $resolvedBundlePath"

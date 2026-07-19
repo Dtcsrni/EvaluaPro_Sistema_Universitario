@@ -8,12 +8,15 @@ import type { SolicitudDocente } from '../src/modulos/modulo_autenticacion/middl
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import { conectarMongoTest, cerrarMongoTest, limpiarMongoTest } from './utils/mongo';
 import { prisma } from '../src/infraestructura/baseDatos/sqlite';
+import { cifrarRespaldo, descifrarRespaldo } from '../src/modulos/modulo_sincronizacion_nube/sincronizacionInterna';
 
 vi.mock('../src/configuracion', () => ({
   configuracion: {
     codigoAccesoHoras: 12,
     portalAlumnoUrl: '',
-    portalApiKey: ''
+    portalApiKey: '',
+    jwtSecreto: 'sync-test-secret',
+    respaldoCifradoSecreto: 'sync-test-backup-secret'
   }
 }));
 
@@ -113,6 +116,17 @@ describe('sincronizacion nube', () => {
     await expect(publicarResultados(req, crearRespuesta())).rejects.toMatchObject({
       codigo: 'PORTAL_NO_CONFIG'
     });
+  });
+
+  it('rechaza respaldo cifrado sin propietario autenticado', () => {
+    expect(() => cifrarRespaldo(Buffer.from('datos'), '')).toThrowError(
+      expect.objectContaining({ codigo: 'SYNC_CIFRADO_NO_CONFIGURADO' })
+    );
+  });
+
+  it('conserva importacion de respaldo gzip legado', () => {
+    const gzip = Buffer.from('no-es-json-gzip');
+    expect(descifrarRespaldo(gzip, 'docente@test.com')).toEqual({ gzipBytes: gzip, cifrado: false });
   });
 
   it('falla push/pull si el servidor de sincronizacion no esta configurado', async () => {

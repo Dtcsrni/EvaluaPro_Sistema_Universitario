@@ -210,6 +210,7 @@ export async function heartbeatLicenciaPublica(req: Request, res: Response) {
   }
 
   const ahora = new Date();
+  const ultimoHeartbeatEn = licencia.ultimoHeartbeatEn?.getTime() ?? null;
   licencia.ultimoHeartbeatEn = ahora;
   licencia.nonceUltimo = nonceNormalizado;
   licencia.contadorHeartbeat = contadorNormalizado;
@@ -222,15 +223,17 @@ export async function heartbeatLicenciaPublica(req: Request, res: Response) {
 
   await licencia.save();
 
-  const horasSinHeartbeat = licencia.ultimoHeartbeatEn
+  const horasSinHeartbeat = ultimoHeartbeatEn === null
     ? 0
-    : configuracion.licenciaHeartbeatHoras + (licencia.graciaOfflineDias * 24);
+    : Math.max(0, (ahora.getTime() - ultimoHeartbeatEn) / (60 * 60 * 1000));
+  const limiteOfflineHoras = configuracion.licenciaHeartbeatHoras + (licencia.graciaOfflineDias * 24);
 
   res.json({
     ok: licencia.estado !== 'revocada',
     estado: licencia.estado,
     expiraEn: licencia.expiraEn,
-    horasSinHeartbeat,
+    horasSinHeartbeat: Math.round(horasSinHeartbeat * 100) / 100,
+    limiteOfflineHoras,
     graciaOfflineDias: licencia.graciaOfflineDias,
     canalRelease: licencia.ultimoCanalRelease
   });

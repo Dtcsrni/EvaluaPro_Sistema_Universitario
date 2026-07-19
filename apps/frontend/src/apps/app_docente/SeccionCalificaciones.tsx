@@ -203,6 +203,70 @@ export function SeccionCalificaciones({
   );
   const [examenesCalificadosPersistidos, setExamenesCalificadosPersistidos] = useState<ExamenEntregado[]>([]);
   const [examenesPorId, setExamenesPorId] = useState<Map<string, ExamenEntregado>>(new Map());
+  const [periodoReporteId, setPeriodoReporteId] = useState('');
+  const [reporteDescargando, setReporteDescargando] = useState<'csv' | 'xlsx' | null>(null);
+  const [mensajeReporte, setMensajeReporte] = useState('');
+
+  useEffect(() => {
+    if (!periodoReporteId && periodos.length > 0) {
+      setPeriodoReporteId(String(periodos[0]?._id ?? '').trim());
+      return;
+    }
+    if (periodoReporteId && !periodos.some((periodo) => String(periodo?._id ?? '').trim() === periodoReporteId)) {
+      setPeriodoReporteId('');
+    }
+  }, [periodoReporteId, periodos]);
+
+  const descargarReporteCalificaciones = useCallback(
+    async (formato: 'csv' | 'xlsx') => {
+      const periodoId = String(periodoReporteId || '').trim();
+      if (!periodoId) {
+        setMensajeReporte('Selecciona una materia antes de descargar el reporte.');
+        return;
+      }
+      const token = obtenerTokenDocente();
+      if (!token) {
+        setMensajeReporte('Sesión no válida. Vuelve a iniciar sesión.');
+        return;
+      }
+
+      try {
+        setReporteDescargando(formato);
+        setMensajeReporte('');
+        const respuesta = await fetch(
+          `${clienteApi.baseApi}/analiticas/calificaciones-${formato}?periodoId=${encodeURIComponent(periodoId)}`,
+          { credentials: 'include', headers: { Authorization: `Bearer ${token}` } }
+        );
+        if (!respuesta.ok) throw new Error(`HTTP ${respuesta.status}`);
+        const archivo = await respuesta.blob();
+        const tipo = formato === 'csv' ? 'csv' : 'xlsx';
+        const url = URL.createObjectURL(archivo);
+        const enlace = document.createElement('a');
+        enlace.href = url;
+        enlace.download = `calificaciones-${periodoId}.${tipo}`;
+        document.body.appendChild(enlace);
+        enlace.click();
+        enlace.remove();
+        URL.revokeObjectURL(url);
+        setMensajeReporte(`Reporte ${formato.toUpperCase()} descargado.`);
+        registrarAccionDocente(`descargar_reporte_calificaciones_${formato}`, true);
+      } catch (error) {
+        const mensaje = mensajeDeError(error, `No se pudo descargar el reporte ${formato.toUpperCase()}`);
+        setMensajeReporte(mensaje);
+        emitToast({
+          level: 'error',
+          title: 'Reporte no disponible',
+          message: mensaje,
+          durationMs: 5200,
+          action: accionToastSesionParaError(error, 'docente')
+        });
+        registrarAccionDocente(`descargar_reporte_calificaciones_${formato}`, false);
+      } finally {
+        setReporteDescargando(null);
+      }
+    },
+    [periodoReporteId]
+  );
   const solicitudesSeguras = useMemo(
     () => (Array.isArray(solicitudesRevision) ? solicitudesRevision : []),
     [solicitudesRevision]
@@ -259,7 +323,7 @@ export function SeccionCalificaciones({
     setErrorEncuadre(null);
     clienteApi.obtener(`/evaluaciones/encuadre/estado/${periodoId}`)
       .then((res: any) => {
-        setEncuadreEstado(res);
+        setEncuadreEstado(res?.inicializado === false ? null : res);
         setLoadingEncuadre(false);
       })
       .catch((err: any) => {
@@ -932,6 +996,40 @@ export function SeccionCalificaciones({
             </span>
           ) : <span className="badge">Sin examen activo</span>}
         </div>
+        <div className="item-actions calificaciones-hero__reports" aria-label="Reportes de calificaciones">
+          <label className="campo">
+            Materia del reporte
+            <select
+              value={periodoReporteId}
+              onChange={(event) => setPeriodoReporteId(event.target.value)}
+              disabled={periodos.length === 0 || reporteDescargando !== null}
+            >
+              <option value="">Selecciona materia</option>
+              {periodos.map((periodo) => (
+                <option key={periodo._id} value={periodo._id}>
+                  {String(periodo.nombre || periodo._id)}
+                </option>
+              ))}
+            </select>
+          </label>
+          <Boton
+            type="button"
+            variante="secundario"
+            disabled={!periodoReporteId || reporteDescargando !== null}
+            onClick={() => void descargarReporteCalificaciones('csv')}
+          >
+            {reporteDescargando === 'csv' ? 'Descargando CSV...' : 'Descargar CSV'}
+          </Boton>
+          <Boton
+            type="button"
+            variante="secundario"
+            disabled={!periodoReporteId || reporteDescargando !== null}
+            onClick={() => void descargarReporteCalificaciones('xlsx')}
+          >
+            {reporteDescargando === 'xlsx' ? 'Descargando XLSX...' : 'Descargar XLSX'}
+          </Boton>
+        </div>
+        {mensajeReporte && <InlineMensaje tipo={esMensajeError(mensajeReporte) ? 'error' : 'info'}>{mensajeReporte}</InlineMensaje>}
         <div className="item-actions calificaciones-hero__actions">
           <label className="campo calificaciones-revisados-select">
             Exámenes revisados/calificados

@@ -940,7 +940,7 @@ model Licencia {
   tokenLicencia            String    @unique
   tokenLicenciaHash        String    @unique
   codigoActivacion         String    @unique
-  graciaOfflineDias        Int       @default(7)
+    graciaOfflineDias        Int       @default(90)
   estado                   String    @default("generada")
   activadaEn               DateTime?
   ultimoHeartbeatEn        DateTime?
