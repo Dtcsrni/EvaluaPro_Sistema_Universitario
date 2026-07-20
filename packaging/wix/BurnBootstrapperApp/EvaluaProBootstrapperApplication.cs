@@ -306,6 +306,7 @@ internal sealed class EvaluaProBootstrapperApplication : BootstrapperApplication
                 createdWindow.StartRequested += (_, request) => _ = StartBundleOperationAsync(request);
                 createdWindow.CloseRequested += (_, _) => RequestQuit();
                 createdWindow.RestartRequested += (_, _) => RequestSystemRestart();
+                createdWindow.LaunchRequested += (_, _) => LaunchInstalledEvaluaPro();
                 createdWindow.ClosingRequestedDuringBusy += (_, _) => Log("warn", "Se intento cerrar la ventana durante una operacion en progreso.");
 
                 window = createdWindow;
@@ -331,6 +332,15 @@ internal sealed class EvaluaProBootstrapperApplication : BootstrapperApplication
             catch (Exception ex)
             {
                 Log("error", $"StartUiThread fatal exception: {ex}");
+                try
+                {
+                    var fatalPath = Path.Combine(Path.GetTempPath(), "EvaluaPro-InstallerHub-fatal.log");
+                    File.WriteAllText(fatalPath, $"{DateTimeOffset.UtcNow:u}{Environment.NewLine}{ex}", Encoding.UTF8);
+                }
+                catch
+                {
+                    // La traza de diagnóstico no debe ocultar ni reemplazar el error original.
+                }
                 if (!headless)
                 {
                     MessageBox.Show(
@@ -347,6 +357,41 @@ internal sealed class EvaluaProBootstrapperApplication : BootstrapperApplication
         uiThread.SetApartmentState(ApartmentState.STA);
         uiThread.IsBackground = true;
         uiThread.Start();
+    }
+
+    private void LaunchInstalledEvaluaPro()
+    {
+        var installDir = currentRequest?.InstallDir;
+        if (string.IsNullOrWhiteSpace(installDir))
+        {
+            Log("warn", "No se pudo iniciar EvaluaPro: ruta instalada vacía.");
+            return;
+        }
+
+        var launcher = Path.Combine(installDir, "scripts", "launcher-broker.ps1");
+        if (!File.Exists(launcher))
+        {
+            Log("warn", $"No se pudo iniciar EvaluaPro: falta {launcher}.");
+            return;
+        }
+
+        try
+        {
+            Process.Start(new ProcessStartInfo
+            {
+                FileName = Environment.GetEnvironmentVariable("ComSpec") ?? "powershell.exe",
+                Arguments = $"/c powershell.exe -NoProfile -ExecutionPolicy Bypass -File \"{launcher}\" -Action open-dashboard -Mode prod",
+                WorkingDirectory = installDir,
+                UseShellExecute = false,
+                CreateNoWindow = true,
+                WindowStyle = ProcessWindowStyle.Hidden
+            });
+            Log("info", $"EvaluaPro solicitado desde la pantalla final: {installDir}");
+        }
+        catch (Exception ex)
+        {
+            Log("error", $"No se pudo iniciar EvaluaPro desde el Hub: {ex.Message}");
+        }
     }
 
     private static List<InstallerStageState> CreateDefaultWorkflowStages()
@@ -445,39 +490,39 @@ internal sealed class EvaluaProBootstrapperApplication : BootstrapperApplication
             HintText = overrideHint ?? BuildHintText(severity, currentStage),
             HeaderBackground = severity switch
             {
-                InstallerUiSeverity.Error => "#D34B5A",
-                InstallerUiSeverity.Success => "#198754",
-                InstallerUiSeverity.Warning => "#E5B85C",
-                _ => "#0C7489"
+                InstallerUiSeverity.Error => "#B4234D",
+                InstallerUiSeverity.Success => "#087F66",
+                InstallerUiSeverity.Warning => "#7A4B0A",
+                _ => "#0B7285"
             },
-            HeaderForeground = severity == InstallerUiSeverity.Warning ? "#2E2413" : "#FFFFFF",
+            HeaderForeground = "#F8FAFC",
             SummaryBackground = severity switch
             {
-                InstallerUiSeverity.Error => "#FFF1F3",
-                InstallerUiSeverity.Success => "#EBF8F0",
-                InstallerUiSeverity.Warning => "#FFF7E2",
-                _ => "#E6F4F8"
+                InstallerUiSeverity.Error => "#4A1D2B",
+                InstallerUiSeverity.Success => "#123F35",
+                InstallerUiSeverity.Warning => "#4A3213",
+                _ => "#123E53"
             },
             SummaryBorder = severity switch
             {
-                InstallerUiSeverity.Error => "#F0B6BE",
-                InstallerUiSeverity.Success => "#A7D8B9",
-                InstallerUiSeverity.Warning => "#F4D28E",
-                _ => "#9BD2DF"
+                InstallerUiSeverity.Error => "#F08AA7",
+                InstallerUiSeverity.Success => "#64D8BA",
+                InstallerUiSeverity.Warning => "#F2B84B",
+                _ => "#55D6ED"
             },
             SummaryForeground = severity switch
             {
-                InstallerUiSeverity.Error => "#8A1733",
-                InstallerUiSeverity.Success => "#14532D",
-                InstallerUiSeverity.Warning => "#8A6116",
-                _ => "#0B4A5A"
+                InstallerUiSeverity.Error => "#FFE8EE",
+                InstallerUiSeverity.Success => "#D8FFF1",
+                InstallerUiSeverity.Warning => "#FFF1C7",
+                _ => "#E6FAFF"
             },
             StageBodyForeground = severity switch
             {
-                InstallerUiSeverity.Error => "#8A1733",
-                InstallerUiSeverity.Success => "#14532D",
-                InstallerUiSeverity.Warning => "#8A6116",
-                _ => "#37576A"
+                InstallerUiSeverity.Error => "#FFD6E2",
+                InstallerUiSeverity.Success => "#C4F5E4",
+                InstallerUiSeverity.Warning => "#FFE5A3",
+                _ => "#CBEFFF"
             },
             WorkflowTitle = $"Trazabilidad y progreso · {GetOperationTitle()}",
             WorkflowHint = GetWorkflowHint(),
@@ -522,9 +567,9 @@ internal sealed class EvaluaProBootstrapperApplication : BootstrapperApplication
                 Badge = "ACTIVA",
                 Summary = stage.Summary,
                 Detail = stage.Detail,
-                Background = "#E6F4F8",
-                Border = "#9BD2DF",
-                Foreground = "#0B4A5A"
+                Background = "#123E53",
+                Border = "#55D6ED",
+                Foreground = "#E6FAFF"
             },
             InstallerStageStatus.Ok => new InstallerStageView
             {
@@ -532,9 +577,9 @@ internal sealed class EvaluaProBootstrapperApplication : BootstrapperApplication
                 Badge = "OK",
                 Summary = stage.Summary,
                 Detail = stage.Detail,
-                Background = "#EBF8F0",
-                Border = "#A7D8B9",
-                Foreground = "#14532D"
+                Background = "#123F35",
+                Border = "#64D8BA",
+                Foreground = "#D8FFF1"
             },
             InstallerStageStatus.Error => new InstallerStageView
             {
@@ -542,9 +587,9 @@ internal sealed class EvaluaProBootstrapperApplication : BootstrapperApplication
                 Badge = "ERROR",
                 Summary = stage.Summary,
                 Detail = stage.Detail,
-                Background = "#FFF1F3",
-                Border = "#F0B6BE",
-                Foreground = "#8A1733"
+                Background = "#4A1D2B",
+                Border = "#F08AA7",
+                Foreground = "#FFE8EE"
             },
             _ => new InstallerStageView
             {
@@ -552,9 +597,9 @@ internal sealed class EvaluaProBootstrapperApplication : BootstrapperApplication
                 Badge = "PENDIENTE",
                 Summary = stage.Summary,
                 Detail = stage.Detail,
-                Background = "#F8FAFC",
-                Border = "#D7DEE5",
-                Foreground = "#334155"
+                Background = "#172A3E",
+                Border = "#6E8BA6",
+                Foreground = "#D7E6F5"
             }
         };
     }
@@ -665,9 +710,31 @@ internal sealed class EvaluaProBootstrapperApplication : BootstrapperApplication
             installDir = payload.Installation?.InstallLocation;
         }
 
+        // El flavor nativo docente nunca debe reutilizar una instalación per-machine
+        // detectada en Program Files; esa ruta puede ser un remanente de una versión
+        // anterior y provocaría que Burn omita o redirija el payload local.
+        if (string.Equals(payload.Flavor?.FlavorId, "docente-local", StringComparison.OrdinalIgnoreCase))
+        {
+            var docenteRoot = Path.Combine(
+                Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+                installFolderName);
+            if (string.IsNullOrWhiteSpace(installDir)
+                || !string.Equals(
+                    Path.GetFullPath(installDir).TrimEnd(Path.DirectorySeparatorChar),
+                    Path.GetFullPath(docenteRoot).TrimEnd(Path.DirectorySeparatorChar),
+                    StringComparison.OrdinalIgnoreCase))
+            {
+                installDir = docenteRoot;
+            }
+        }
+
         if (string.IsNullOrWhiteSpace(installDir))
         {
-            installDir = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ProgramFiles), installFolderName);
+            installDir = Path.Combine(
+                string.Equals(payload.Flavor?.FlavorId, "docente-local", StringComparison.OrdinalIgnoreCase)
+                    ? Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData)
+                    : Environment.GetFolderPath(Environment.SpecialFolder.ProgramFiles),
+                installFolderName);
         }
 
         var requireLicense = IsTruthy(Environment.GetEnvironmentVariable("EVALUAPRO_REQUIRE_LICENSE_ACTIVATION"));
@@ -818,7 +885,11 @@ internal sealed class EvaluaProBootstrapperApplication : BootstrapperApplication
             var installDir = payload.Installation?.InstallLocation;
             if (string.IsNullOrWhiteSpace(installDir))
             {
-                installDir = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ProgramFiles), payload.Flavor?.ProductName ?? "EvaluaPro");
+                installDir = Path.Combine(
+                    string.Equals(payload.Flavor?.FlavorId, "docente-local", StringComparison.OrdinalIgnoreCase)
+                        ? Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData)
+                        : Environment.GetFolderPath(Environment.SpecialFolder.ProgramFiles),
+                    payload.Flavor?.InstallFolderName ?? payload.Flavor?.ProductName ?? "EvaluaPro");
             }
 
             await EnsurePrerequisitesReadyAsync(payload.Flavor?.FlavorId ?? "docente-local", installDir, mode).ConfigureAwait(false);
@@ -930,6 +1001,8 @@ internal sealed class EvaluaProBootstrapperApplication : BootstrapperApplication
                 ["mode"] = currentOperation,
                 ["flavorId"] = currentRequest.FlavorId,
                 ["installDir"] = currentRequest.InstallDir,
+                ["exportData"] = currentRequest.ExportData ? "1" : "0",
+                ["dataDir"] = Path.Combine(currentRequest.InstallDir, "data"),
                 ["config"] = new Dictionary<string, object?>
                 {
                     ["databaseUrl"] = currentRequest.DatabaseUrl,
@@ -957,7 +1030,10 @@ internal sealed class EvaluaProBootstrapperApplication : BootstrapperApplication
                 }
             };
 
-            var envelope = await InvokeHelperAsync<Dictionary<string, object?>>("post-install", requestObject).ConfigureAwait(false);
+            var helperMode = string.Equals(currentOperation, "uninstall", StringComparison.OrdinalIgnoreCase)
+                ? "uninstall"
+                : "post-install";
+            var envelope = await InvokeHelperAsync<Dictionary<string, object?>>(helperMode, requestObject).ConfigureAwait(false);
             helperInFlight = false;
             FlushHelperLogs(envelope.Logs);
 
@@ -1178,11 +1254,14 @@ internal sealed class EvaluaProBootstrapperApplication : BootstrapperApplication
 
     private async Task<HelperEnvelope<TData>> InvokeHelperAsync<TData>(string mode, Dictionary<string, object?> request, Action<HelperProgressEvent>? onProgress = null)
     {
-        var requestPath = Path.Combine(requestRoot, $"{mode}-{DateTime.UtcNow:yyyyMMddHHmmss}.request.json");
-        var responsePath = Path.Combine(requestRoot, $"{mode}-{DateTime.UtcNow:yyyyMMddHHmmss}.response.json");
+        Directory.CreateDirectory(requestRoot);
+        var correlationId = $"{DateTime.UtcNow:yyyyMMddHHmmssfff}-{Guid.NewGuid():N}";
+        var requestPath = Path.Combine(requestRoot, $"{mode}-{correlationId}.request.json");
+        var responsePath = Path.Combine(requestRoot, $"{mode}-{correlationId}.response.json");
         var scriptPath = Path.Combine(payloadRoot, "InstallerBurnHelper.ps1");
 
         await File.WriteAllTextAsync(requestPath, JsonSerializer.Serialize(request, JsonOptions), Encoding.UTF8).ConfigureAwait(false);
+        Log("info", $"[helper:{mode}] correlacion={correlationId}");
 
         var stdoutLines = new List<string>();
         var stderrLines = new List<string>();
@@ -1190,7 +1269,34 @@ internal sealed class EvaluaProBootstrapperApplication : BootstrapperApplication
 
         process.BeginOutputReadLine();
         process.BeginErrorReadLine();
-        await process.WaitForExitAsync().ConfigureAwait(false);
+        try
+        {
+            using var timeoutCts = new CancellationTokenSource(GetHelperTimeout(mode));
+            await process.WaitForExitAsync(timeoutCts.Token).ConfigureAwait(false);
+        }
+        catch (OperationCanceledException) when (!process.HasExited)
+        {
+            Log("error", $"Helper {mode} excedió el timeout; cancelando árbol pid={process.Id} request={requestPath} response={responsePath}.");
+            try
+            {
+                process.Kill(entireProcessTree: true);
+            }
+            catch (Exception killException)
+            {
+                Log("warn", $"No se pudo cancelar completamente el árbol del helper {mode} pid={process.Id}: {killException.Message}");
+            }
+
+            try
+            {
+                await process.WaitForExitAsync().WaitAsync(TimeSpan.FromSeconds(5)).ConfigureAwait(false);
+            }
+            catch (Exception waitException)
+            {
+                Log("warn", $"El proceso del helper {mode} no confirmó salida tras la cancelación: {waitException.Message}");
+            }
+
+            throw new TimeoutException($"Helper {mode} excedió su timeout de {GetHelperTimeout(mode).TotalSeconds:0}s. request={requestPath} response={responsePath}");
+        }
         var stdout = string.Join(Environment.NewLine, stdoutLines);
         var stderr = string.Join(Environment.NewLine, stderrLines);
 
@@ -1224,6 +1330,18 @@ internal sealed class EvaluaProBootstrapperApplication : BootstrapperApplication
         {
             throw new TimeoutException($"Helper {mode} no genero respuesta valida en el tiempo esperado. response={responsePath}", timeoutEx);
         }
+    }
+
+    private static TimeSpan GetHelperTimeout(string mode)
+    {
+        return mode switch
+        {
+            "detect-prereqs" => TimeSpan.FromMinutes(5),
+            "remediate-prereqs" => TimeSpan.FromMinutes(10),
+            "uninstall" => TimeSpan.FromMinutes(10),
+            "repair" => TimeSpan.FromMinutes(10),
+            _ => TimeSpan.FromMinutes(10)
+        };
     }
 
     private Process StartPowerShellHelperProcess(
@@ -1482,7 +1600,9 @@ internal sealed class EvaluaProBootstrapperApplication : BootstrapperApplication
         if (string.IsNullOrWhiteSpace(installDir))
         {
             installDir = Path.Combine(
-                Environment.GetFolderPath(Environment.SpecialFolder.ProgramFiles),
+                string.Equals(payload.Flavor?.FlavorId, "docente-local", StringComparison.OrdinalIgnoreCase)
+                    ? Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData)
+                    : Environment.GetFolderPath(Environment.SpecialFolder.ProgramFiles),
                 payload.Flavor?.InstallFolderName ?? payload.Flavor?.ProductName ?? "EvaluaPro");
         }
 

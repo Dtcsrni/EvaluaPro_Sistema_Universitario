@@ -6,11 +6,15 @@ using System.Windows.Media;
 using System.Windows.Media.Animation;
 using System.Windows.Shapes;
 using System.Windows.Threading;
+using System.Runtime.InteropServices;
+using System.Security.Cryptography;
 
 namespace EvaluaPro.BurnBootstrapperApp;
 
 public partial class MainWindow : Window
 {
+    private const double MinimumScreenWidth = 1280;
+    private const double MinimumScreenHeight = 720;
     private const string DefaultDatabaseUrl = "file:C:/ProgramData/EvaluaPro/data/evaluapro.db";
     private const string DefaultNodeEnv = "production";
     private const string DefaultApiPort = "4000";
@@ -31,6 +35,12 @@ public partial class MainWindow : Window
     private static readonly Geometry RepairGeometry = Geometry.Parse("M10,12 L16,6 L22,12 L18,16 L30,28 L26,32 L14,20 L10,24 L6,20");
     private static readonly Geometry UninstallGeometry = Geometry.Parse("M10,10 L34,34 M34,10 L10,34");
     private static readonly Geometry DocumentGeometry = Geometry.Parse("M11,6 L27,6 L33,12 L33,36 L11,36 Z M27,6 L27,12 L33,12 M15,20 L29,20 M15,26 L29,26 M15,32 L24,32");
+    private static readonly Geometry FeatureInstallGeometry = Geometry.Parse("M12,2 L21,6 V12 C21,18 17,22 12,24 C7,22 3,18 3,12 V6 Z M7,12 L10,15 L17,8");
+    private static readonly Geometry FeatureTeacherGeometry = Geometry.Parse("M2,9 L12,3 L22,9 L12,15 Z M6,12 V17 C9,20 15,20 18,17 V12");
+    private static readonly Geometry FeatureEvaluateGeometry = Geometry.Parse("M6,3 H18 V6 H20 V22 H4 V6 H6 Z M8,10 H16 M8,14 H16 M8,18 H13");
+    private static readonly Geometry FeatureScanGeometry = Geometry.Parse("M4,4 H9 M15,4 H20 M4,20 H9 M15,20 H20 M5,12 H19");
+    private static readonly Geometry FeatureFeedbackGeometry = Geometry.Parse("M4,20 V6 M4,20 H20 M7,16 L11,12 L14,15 L19,9");
+    private static readonly Geometry FeatureRepairGeometry = Geometry.Parse("M6,7 A7,7 0 0 1 18,8 L21,5 M21,5 V10 H16 M18,17 A7,7 0 0 1 6,16 L3,19 M3,19 V14 H8");
 
     private void StartPulseAnimation(UIElement element)
     {
@@ -50,24 +60,98 @@ public partial class MainWindow : Window
         element.BeginAnimation(UIElement.OpacityProperty, null);
         element.Opacity = 1.0;
     }
+
+    private void StartProgressPulseAnimation()
+    {
+        if (!SystemParameters.ClientAreaAnimation)
+        {
+            StopProgressPulseAnimation();
+            return;
+        }
+
+        var animation = new DoubleAnimation
+        {
+            From = 1.0,
+            To = 1.14,
+            Duration = new Duration(TimeSpan.FromSeconds(0.9)),
+            AutoReverse = true,
+            RepeatBehavior = RepeatBehavior.Forever
+        };
+        ProgressPulseTransform.BeginAnimation(ScaleTransform.ScaleYProperty, animation);
+    }
+
+    private void StopProgressPulseAnimation()
+    {
+        ProgressPulseTransform.BeginAnimation(ScaleTransform.ScaleYProperty, null);
+        ProgressPulseTransform.ScaleY = 1.0;
+    }
     private bool busy;
     private bool pendingCloseRequest;
     private bool hasDeterminateProgress;
     private bool readyToStart;
     private bool splashDismissed;
     private DispatcherTimer? splashFallbackTimer;
+    private DispatcherTimer? splashCarouselTimer;
+    private int splashFeatureIndex;
     private bool suppressModeChangedEvent;
     private WizardStep currentStep = WizardStep.Terms;
     private string currentUpdateAssetName = DefaultUpdateAssetName;
+    private readonly Queue<(DateTime At, int Progress)> progressSamples = new();
+    private double? smoothedRemainingSeconds;
+    private DateTime lastProgressAdvanceAt;
 
     public MainWindow()
     {
         InitializeComponent();
+        ConfigureHardwareRendering();
         ModeComboBox.SelectedIndex = 0;
         SetHubVersionLabel();
         RefreshOperationalChrome();
         SetWizardStep(WizardStep.Terms);
-        StartSplashFallbackWatcher();
+        Loaded += (_, _) => ApplyResolutionGuard();
+        SourceInitialized += (_, _) => ApplyNativeBackdrop();
+        StartSplashCarousel();
+    }
+
+    private void ConfigureHardwareRendering()
+    {
+        System.Windows.Media.RenderOptions.ProcessRenderMode = System.Windows.Interop.RenderMode.Default;
+        var tier = System.Windows.Media.RenderCapability.Tier >> 16;
+        AppendLog($"[info] WPF DirectX render tier={tier}; GPU/DWM activo={tier > 0}.");
+    }
+
+    private void ApplyNativeBackdrop()
+    {
+        if (!OperatingSystem.IsWindowsVersionAtLeast(10, 0, 22000))
+        {
+            return;
+        }
+
+        var hwnd = new System.Windows.Interop.WindowInteropHelper(this).Handle;
+        var backdrop = 2; // DWMSBT_MAINWINDOW: Mica estable; fallback visual propio debajo.
+        _ = DwmSetWindowAttribute(hwnd, 38, ref backdrop, sizeof(int));
+    }
+
+    [DllImport("dwmapi.dll")]
+    private static extern int DwmSetWindowAttribute(IntPtr hwnd, int attribute, ref int value, int valueSize);
+
+    private void ApplyResolutionGuard()
+    {
+        var workArea = SystemParameters.WorkArea;
+        var supported = workArea.Width >= MinimumScreenWidth && workArea.Height >= MinimumScreenHeight;
+        if (!supported)
+        {
+            StartButton.IsEnabled = false;
+            NextButton.IsEnabled = false;
+            FooterStatusTextBlock.Text = $"Resolución no compatible: se requiere como mínimo {MinimumScreenWidth:0}×{MinimumScreenHeight:0}.";
+            FooterStatusTextBlock.Text += " Aumenta la resolución de Windows o conecta un monitor de al menos 1280×720 para continuar.";
+            return;
+        }
+
+        if (workArea.Width < 1920 || workArea.Height < 1080)
+        {
+            FooterStatusTextBlock.Text = "Resolución compatible. Se recomienda 1920×1080 para una visualización óptima.";
+        }
     }
 
     public event EventHandler? DetectRequested;
@@ -79,6 +163,8 @@ public partial class MainWindow : Window
     public event EventHandler? ClosingRequestedDuringBusy;
 
     public event EventHandler? RestartRequested;
+
+    public event EventHandler? LaunchRequested;
 
     public event EventHandler<ModeChangedEventArgs>? ModeChanged;
 
@@ -109,7 +195,7 @@ public partial class MainWindow : Window
         RefreshPrerequisiteSummary(rows);
         var isInstall = string.Equals(GetSelectedMode(), "install", StringComparison.OrdinalIgnoreCase);
         var isUninstall = string.Equals(GetSelectedMode(), "uninstall", StringComparison.OrdinalIgnoreCase);
-        var accepted = AcceptTermsCheckBox.IsChecked == true;
+        var accepted = AreTermsAccepted();
         StartButton.IsEnabled = (model.Ready || isUninstall) && !busy && (!isInstall || accepted);
         FooterStatusTextBlock.Text = model.Ready
             ? "Equipo listo. Puedes ejecutar la operación seleccionada."
@@ -153,7 +239,7 @@ public partial class MainWindow : Window
     {
         DismissSplashOverlay();
         var isInstall = string.Equals(GetSelectedMode(), "install", StringComparison.OrdinalIgnoreCase);
-        if (isInstall && AcceptTermsCheckBox.IsChecked != true)
+        if (isInstall && !AreTermsAccepted())
         {
             SetWizardStep(WizardStep.Terms);
         }
@@ -176,16 +262,26 @@ public partial class MainWindow : Window
         {
             hasDeterminateProgress = true;
             InstallProgressBar.IsIndeterminate = false;
-            InstallProgressBar.Value = Math.Max(0, Math.Min(100, progress.Value));
+            var boundedProgress = Math.Max(0, Math.Min(100, progress.Value));
+            InstallProgressBar.Value = boundedProgress;
+            UpdateProgressEstimate(boundedProgress);
         }
 
         if (isBusy.HasValue)
         {
             busy = isBusy.Value;
+            if (busy)
+            {
+                StartProgressPulseAnimation();
+            }
+            else
+            {
+                StopProgressPulseAnimation();
+            }
             StatusSpinner.Visibility = busy ? Visibility.Visible : Visibility.Collapsed;
             var isInstall = string.Equals(GetSelectedMode(), "install", StringComparison.OrdinalIgnoreCase);
             var isUninstall = string.Equals(GetSelectedMode(), "uninstall", StringComparison.OrdinalIgnoreCase);
-            var accepted = AcceptTermsCheckBox.IsChecked == true;
+            var accepted = AreTermsAccepted();
             StartButton.IsEnabled = !busy && (readyToStart || isUninstall) && (!isInstall || accepted);
             RestartNowButton.IsEnabled = !busy;
             BackButton.IsEnabled = !busy && currentStep != WizardStep.Terms && (currentStep != WizardStep.Prepare || isInstall);
@@ -201,11 +297,90 @@ public partial class MainWindow : Window
             if (!busy)
             {
                 InstallProgressBar.IsIndeterminate = false;
+                ProgressEtaTextBlock.Text = hasDeterminateProgress && InstallProgressBar.Value >= 100
+                    ? "Tiempo restante: completado."
+                    : "Tiempo restante: no disponible.";
                 TryHonorPendingCloseRequest();
                 RefreshWizardNavigation();
                 SetLiveExplanation("Listo para continuar", "La tarea activa terminó. Revisa el estado visible y usa la acción recomendada en la parte inferior.");
             }
         }
+    }
+
+    private void UpdateProgressEstimate(int progress)
+    {
+        if (progress <= 0)
+        {
+            progressSamples.Clear();
+            smoothedRemainingSeconds = null;
+            lastProgressAdvanceAt = default;
+            ProgressEtaTextBlock.Text = "Tiempo restante: calculando…";
+            return;
+        }
+
+        var now = DateTime.UtcNow;
+        var previousProgress = progressSamples.Count == 0 ? progress : progressSamples.Last().Progress;
+        if (progress > previousProgress)
+        {
+            lastProgressAdvanceAt = now;
+        }
+        progressSamples.Enqueue((now, progress));
+        while (progressSamples.Count > 0 && (now - progressSamples.Peek().At).TotalSeconds > 45)
+        {
+            progressSamples.Dequeue();
+        }
+
+        var first = progressSamples.FirstOrDefault();
+        var elapsedSeconds = (now - first.At).TotalSeconds;
+        var delta = progress - first.Progress;
+        if (progress >= 100)
+        {
+            smoothedRemainingSeconds = 0;
+            ProgressEtaTextBlock.Text = "Tiempo restante: completado.";
+            return;
+        }
+
+        if (lastProgressAdvanceAt != default && (now - lastProgressAdvanceAt).TotalSeconds >= 8)
+        {
+            ProgressEtaTextBlock.Text = "Tiempo restante: verificando etapa actual…";
+            return;
+        }
+
+        if (first.At == default || elapsedSeconds < 4 || delta < 2)
+        {
+            ProgressEtaTextBlock.Text = "Tiempo restante: calculando…";
+            return;
+        }
+
+        var rawSecondsRemaining = (100 - progress) * elapsedSeconds / delta;
+        if (!double.IsFinite(rawSecondsRemaining) || rawSecondsRemaining < 0 || rawSecondsRemaining > 24 * 60 * 60)
+        {
+            ProgressEtaTextBlock.Text = "Tiempo restante: calculando…";
+            return;
+        }
+
+        // Suaviza ruido de eventos Burn y limita el crecimiento por actualización.
+        // Así la predicción no salta hacia atrás aunque cambie la velocidad de I/O.
+        var previousEstimate = smoothedRemainingSeconds;
+        var boundedRaw = previousEstimate.HasValue
+            ? Math.Min(rawSecondsRemaining, previousEstimate.Value * 1.20)
+            : rawSecondsRemaining;
+        var estimate = previousEstimate.HasValue
+            ? (previousEstimate.Value * 0.70) + (boundedRaw * 0.30)
+            : boundedRaw;
+        smoothedRemainingSeconds = Math.Max(1, estimate);
+
+        var lowerSeconds = Math.Max(1, (int)Math.Round(estimate * 0.85 / 5d) * 5);
+        var upperSeconds = Math.Max(lowerSeconds, (int)Math.Round(estimate * 1.35 / 5d) * 5);
+        ProgressEtaTextBlock.Text = $"Tiempo restante estimado: {FormatDuration(lowerSeconds)} a {FormatDuration(upperSeconds)} · según avance real";
+    }
+
+    private static string FormatDuration(int seconds)
+    {
+        if (seconds < 60) return $"~{seconds} s";
+        var minutes = seconds / 60;
+        var remainingSeconds = seconds % 60;
+        return remainingSeconds == 0 ? $"~{minutes} min" : $"~{minutes} min {remainingSeconds} s";
     }
 
     internal void UpdateWorkflow(InstallerWorkflowView workflow)
@@ -321,7 +496,9 @@ public partial class MainWindow : Window
                 Margin = new Thickness(0, 2, 0, 0),
                 Text = stage.Summary,
                 Foreground = ToBrush(stage.Foreground),
-                TextWrapping = TextWrapping.NoWrap,
+                FontSize = 13,
+                LineHeight = 19,
+                TextWrapping = TextWrapping.Wrap,
                 TextTrimming = TextTrimming.CharacterEllipsis
             });
 
@@ -330,10 +507,11 @@ public partial class MainWindow : Window
                 stack.Children.Add(new TextBlock
                 {
                     Margin = new Thickness(0, 2, 0, 0),
-                    FontSize = 10,
+                    FontSize = 12,
+                    LineHeight = 18,
                     Text = stage.Detail,
-                    Foreground = ToBrush("#49616F"),
-                    TextWrapping = TextWrapping.NoWrap,
+                    Foreground = ToBrush("#D7E8F5"),
+                    TextWrapping = TextWrapping.Wrap,
                     TextTrimming = TextTrimming.CharacterEllipsis
                 });
             }
@@ -426,13 +604,19 @@ public partial class MainWindow : Window
     {
         busy = false;
         hasDeterminateProgress = false;
+        progressSamples.Clear();
         InstallProgressBar.IsIndeterminate = false;
+        StopProgressPulseAnimation();
         StatusTextBlock.Text = message;
         StatusHintTextBlock.Text = success
             ? "La operación terminó y el resultado queda disponible para revisión."
             : "La operación no terminó correctamente. La bitácora técnica queda disponible para diagnóstico.";
         var isUninstall = string.Equals(GetSelectedMode(), "uninstall", StringComparison.OrdinalIgnoreCase);
         StartButton.IsEnabled = !success && (readyToStart || isUninstall);
+        LaunchEvaluaProButton.Visibility = success && !isUninstall ? Visibility.Visible : Visibility.Collapsed;
+        InstallVerificationTextBlock.Text = success && !isUninstall
+            ? ComputeInstallationFingerprint()
+            : "No aplica: la operación no fue una instalación completada.";
         DetectButton.IsEnabled = true;
         RestartNowButton.IsEnabled = true;
         FooterStatusTextBlock.Text = success ? "Operación finalizada correctamente." : "Operación detenida. Revisa la evidencia técnica.";
@@ -522,12 +706,28 @@ public partial class MainWindow : Window
         var updateAssetName = string.IsNullOrWhiteSpace(currentUpdateAssetName)
             ? selectedFlavor?.AssetName ?? DefaultUpdateAssetName
             : currentUpdateAssetName;
+        var installDir = InstallDirTextBox.Text.Trim();
+        if (string.Equals(selectedFlavor?.FlavorId, "docente-local", StringComparison.OrdinalIgnoreCase))
+        {
+            var localAppData = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData);
+            var qaInstallDir = Environment.GetEnvironmentVariable("EVALUAPRO_QA_INSTALL_DIR");
+            var candidate = string.IsNullOrWhiteSpace(qaInstallDir)
+                ? string.Empty
+                : System.IO.Path.GetFullPath(qaInstallDir.Trim());
+            var localRoot = System.IO.Path.GetFullPath(localAppData).TrimEnd(System.IO.Path.DirectorySeparatorChar) + System.IO.Path.DirectorySeparatorChar;
+            var isSafeQaPath = candidate.StartsWith(localRoot, StringComparison.OrdinalIgnoreCase)
+                && !string.Equals(candidate.TrimEnd(System.IO.Path.DirectorySeparatorChar), localAppData, StringComparison.OrdinalIgnoreCase);
+            installDir = isSafeQaPath
+                ? candidate.TrimEnd(System.IO.Path.DirectorySeparatorChar)
+                : System.IO.Path.Combine(localAppData, "EvaluaPro");
+            InstallDirTextBox.Text = installDir;
+        }
 
         return new BootstrapperRequest
         {
             FlavorId = selectedFlavor?.FlavorId ?? "docente-local",
             Mode = mode,
-            InstallDir = InstallDirTextBox.Text.Trim(),
+            InstallDir = installDir,
             InstallDesktopShortcuts = DesktopShortcutsCheckBox.IsChecked == true,
             InstallStartMenuShortcuts = StartMenuShortcutsCheckBox.IsChecked == true,
             ExportData = ExportDataCheckBox.IsChecked == true,
@@ -561,6 +761,7 @@ public partial class MainWindow : Window
         hasDeterminateProgress = false;
         InstallProgressBar.IsIndeterminate = true;
         InstallProgressBar.Value = 0;
+        StartProgressPulseAnimation();
         DetectRequested?.Invoke(this, EventArgs.Empty);
     }
 
@@ -674,7 +875,7 @@ public partial class MainWindow : Window
     {
         splashFallbackTimer = new DispatcherTimer
         {
-            Interval = TimeSpan.FromSeconds(15)
+            Interval = TimeSpan.FromSeconds(30)
         };
 
         splashFallbackTimer.Tick += (_, _) =>
@@ -684,6 +885,175 @@ public partial class MainWindow : Window
         };
 
         splashFallbackTimer.Start();
+    }
+
+    private void LaunchEvaluaProButton_OnClick(object sender, RoutedEventArgs e)
+    {
+        LaunchRequested?.Invoke(this, EventArgs.Empty);
+    }
+
+    private string ComputeInstallationFingerprint()
+    {
+        var root = InstallDirTextBox.Text.Trim();
+        if (string.IsNullOrWhiteSpace(root) || !System.IO.Directory.Exists(root))
+        {
+            return "No se pudo verificar: la carpeta instalada no está disponible.";
+        }
+
+        var files = new[]
+        {
+            System.IO.Path.Combine(root, "runtime", "node", "node.exe"),
+            System.IO.Path.Combine(root, "apps", "backend", "dist", "index.js"),
+            System.IO.Path.Combine(root, "apps", "frontend", "dist-docente", "index.html"),
+            System.IO.Path.Combine(root, "package.json")
+        }.Where(System.IO.File.Exists).OrderBy(path => path, StringComparer.OrdinalIgnoreCase).ToArray();
+        if (files.Length == 0)
+        {
+            return "No se pudo verificar: no hay archivos críticos instalados.";
+        }
+
+        using var sha = IncrementalHash.CreateHash(HashAlgorithmName.SHA256);
+        uint crc = 0xFFFFFFFF;
+        var buffer = new byte[64 * 1024];
+        foreach (var file in files)
+        {
+            using var stream = System.IO.File.OpenRead(file);
+            int read;
+            while ((read = stream.Read(buffer, 0, buffer.Length)) > 0)
+            {
+                sha.AppendData(buffer, 0, read);
+                for (var index = 0; index < read; index++)
+                {
+                    crc ^= buffer[index];
+                    for (var bit = 0; bit < 8; bit++)
+                    {
+                        crc = (crc >> 1) ^ (0xEDB88320u & (uint)-(int)(crc & 1));
+                    }
+                }
+            }
+        }
+
+        return $"CRC32 {~crc:X8} · SHA-256 {Convert.ToHexString(sha.GetHashAndReset())[..16]}… ({files.Length} archivos críticos verificados).";
+    }
+
+    private void ShowIntroButton_OnClick(object sender, RoutedEventArgs e)
+    {
+        splashDismissed = false;
+        UpdateSplashFeature();
+        SplashOverlay.Visibility = Visibility.Visible;
+    }
+
+    private void SplashCloseButton_OnClick(object sender, RoutedEventArgs e)
+    {
+        DismissSplashOverlay();
+    }
+
+    private static readonly (string Title, string Description, Geometry Icon)[] SplashFeatures =
+    {
+        ("Instala con confianza", "Comprueba requisitos, verifica el paquete y conserva evidencia de cada etapa.", FeatureInstallGeometry),
+        ("Diseñado para docentes", "Trabaja en tu equipo, sin máquinas virtuales, con un flujo claro y tus datos bajo control.", FeatureTeacherGeometry),
+        ("Evalúa y califica", "Organiza materias, aplica evaluaciones y conserva resultados consistentes y trazables.", FeatureEvaluateGeometry),
+        ("Escaneo OMR", "Digitaliza hojas de respuesta, revisa lecturas dudosas y convierte marcas en resultados útiles.", FeatureScanGeometry),
+        ("Retroalimentación útil", "Identifica áreas de oportunidad y comunica avances con reportes claros para cada grupo.", FeatureFeedbackGeometry),
+        ("Siempre puedes volver", "Repara, actualiza o desinstala con estados visibles, datos protegidos y pasos reversibles.", FeatureRepairGeometry),
+        ("Materias y periodos", "Organiza ciclos, grupos y materias una sola vez para reutilizar su estructura durante el curso.", DocumentGeometry),
+        ("Alumnos", "Registra o importa alumnos, consulta sus datos y trabaja con listas académicas ordenadas.", FeatureTeacherGeometry),
+        ("Banco de reactivos", "Construye preguntas reutilizables por tema, dificultad y competencia para evaluar mejor.", FeatureEvaluateGeometry),
+        ("Plantillas de examen", "Crea formatos consistentes y genera evaluaciones repetibles sin rehacer tu trabajo.", DocumentGeometry),
+        ("Calificación automática", "Reduce la captura manual, aplica criterios uniformes y conserva la revisión docente.", FeatureEvaluateGeometry),
+        ("Resultados por grupo", "Analiza el desempeño individual, grupal y por periodo para decidir el siguiente paso.", FeatureFeedbackGeometry),
+        ("Reportes PDF", "Genera documentos listos para revisar, archivar, imprimir o compartir con tu comunidad escolar.", DocumentGeometry),
+        ("Exportación", "Lleva calificaciones y reportes a formatos compatibles con tu flujo escolar y tus respaldos.", FeatureScanGeometry),
+        ("Historial trazable", "Consulta qué ocurrió, quién realizó cada acción y cuándo, con evidencia operativa.", FeatureFeedbackGeometry),
+        ("Privacidad local", "Mantén la información académica en tu equipo y controla qué datos se comparten.", FeatureRepairGeometry),
+        ("Copia de seguridad", "Protege tu trabajo con respaldos cifrados y recupera la operación ante incidentes.", FeatureRepairGeometry),
+        ("Actualizaciones seguras", "Valida hashes, conserva tus datos y aplica cambios con recuperación ante fallos.", FeatureInstallGeometry),
+        ("Diagnóstico", "Detecta requisitos, explica los problemas y orienta la corrección antes de continuar.", FeatureScanGeometry),
+        ("Accesibilidad", "Usa textos legibles, navegación por teclado, contraste adecuado y estados comprensibles.", FeatureFeedbackGeometry),
+        ("Primeros pasos", "Crea una materia, registra tus primeros alumnos y prepara tu primera evaluación paso a paso.", FeatureTeacherGeometry)
+    };
+
+    private void StartSplashCarousel()
+    {
+        UpdateSplashFeature();
+        splashCarouselTimer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(10) };
+        splashCarouselTimer.Tick += (_, _) =>
+        {
+            splashFeatureIndex = (splashFeatureIndex + 1) % SplashFeatures.Length;
+            UpdateSplashFeature();
+        };
+        splashCarouselTimer.Start();
+    }
+
+    private void UpdateSplashFeature()
+    {
+        var feature = SplashFeatures[splashFeatureIndex];
+        SplashFeatureTitleTextBlock.Text = feature.Title;
+        SplashFeatureDescriptionTextBlock.Text = feature.Description;
+        SplashFeatureIcon.Data = feature.Icon;
+        SplashFeatureIndexTextBlock.Text = $"{splashFeatureIndex + 1} de {SplashFeatures.Length}";
+        SplashNextButton.Content = splashFeatureIndex == SplashFeatures.Length - 1 ? "Comenzar" : "Siguiente";
+        HeaderFeatureTitleTextBlock.Text = feature.Title;
+        HeaderFeatureDescriptionTextBlock.Text = feature.Description;
+        HeaderFeatureIcon.Data = feature.Icon;
+        HeaderFeatureIndexTextBlock.Text = $"{splashFeatureIndex + 1} de {SplashFeatures.Length}";
+        AnimateCarouselText(SplashFeatureTitleTextBlock, SplashFeatureDescriptionTextBlock,
+            HeaderFeatureTitleTextBlock, HeaderFeatureDescriptionTextBlock,
+            SplashFeatureIcon, HeaderFeatureIcon);
+    }
+
+    private static void AnimateCarouselText(params UIElement[] elements)
+    {
+        foreach (var element in elements)
+        {
+            element.BeginAnimation(UIElement.OpacityProperty, null);
+            element.Opacity = 0.35;
+            element.BeginAnimation(UIElement.OpacityProperty, new DoubleAnimation
+            {
+                From = 0.35,
+                To = 1,
+                Duration = new Duration(TimeSpan.FromMilliseconds(280)),
+                EasingFunction = new QuadraticEase()
+            });
+        }
+    }
+
+    private void SplashPreviousButton_OnClick(object sender, RoutedEventArgs e)
+    {
+        splashCarouselTimer?.Stop();
+        splashFeatureIndex = (splashFeatureIndex + SplashFeatures.Length - 1) % SplashFeatures.Length;
+        UpdateSplashFeature();
+        splashCarouselTimer?.Start();
+    }
+
+    private void SplashNextButton_OnClick(object sender, RoutedEventArgs e)
+    {
+        splashCarouselTimer?.Stop();
+        if (splashFeatureIndex == SplashFeatures.Length - 1)
+        {
+            DismissSplashOverlay();
+            return;
+        }
+
+        splashFeatureIndex = (splashFeatureIndex + 1) % SplashFeatures.Length;
+        UpdateSplashFeature();
+        splashCarouselTimer?.Start();
+    }
+
+    private void HeaderPreviousButton_OnClick(object sender, RoutedEventArgs e)
+    {
+        splashCarouselTimer?.Stop();
+        splashFeatureIndex = (splashFeatureIndex + SplashFeatures.Length - 1) % SplashFeatures.Length;
+        UpdateSplashFeature();
+        splashCarouselTimer?.Start();
+    }
+
+    private void HeaderNextButton_OnClick(object sender, RoutedEventArgs e)
+    {
+        splashCarouselTimer?.Stop();
+        splashFeatureIndex = (splashFeatureIndex + 1) % SplashFeatures.Length;
+        UpdateSplashFeature();
+        splashCarouselTimer?.Start();
     }
 
     private void DismissSplashOverlay()
@@ -704,10 +1074,7 @@ public partial class MainWindow : Window
         string? informationalVersion = null;
         try
         {
-            if (!string.IsNullOrWhiteSpace(assembly.Location))
-            {
-                informationalVersion = System.Diagnostics.FileVersionInfo.GetVersionInfo(assembly.Location).ProductVersion;
-            }
+            informationalVersion = typeof(MainWindow).Assembly.GetName().Version?.ToString();
         }
         catch
         {
@@ -832,6 +1199,8 @@ public partial class MainWindow : Window
         {
             PrereqSummaryTextBlock.Text = "Sin prerequisitos detectados";
             PrereqSummaryHintTextBlock.Text = "Pulsa Revisar equipo para generar una lectura actual del equipo.";
+            PrereqSummaryTextBlock.Foreground = ToBrush("#102A43");
+            PrereqSummaryHintTextBlock.Foreground = ToBrush("#335B74");
             PrereqSummaryBorder.Background = ToBrush("#F8FAFC");
             PrereqSummaryBorder.BorderBrush = ToBrush("#D9E2EA");
             PrereqSummaryIcon.Data = DocumentGeometry;
@@ -847,6 +1216,8 @@ public partial class MainWindow : Window
         {
             PrereqSummaryTextBlock.Text = $"Listo: {readyCount} requisito(s) OK";
             PrereqSummaryHintTextBlock.Text = "Puedes ejecutar la acción primaria o revisar la bitácora si necesitas evidencia.";
+            PrereqSummaryTextBlock.Foreground = ToBrush("#102A43");
+            PrereqSummaryHintTextBlock.Foreground = ToBrush("#335B74");
             PrereqSummaryBorder.Background = ToBrush("#ECFDF5");
             PrereqSummaryBorder.BorderBrush = ToBrush("#A7F3D0");
             PrereqSummaryIcon.Data = CheckGeometry;
@@ -858,6 +1229,8 @@ public partial class MainWindow : Window
 
         PrereqSummaryTextBlock.Text = $"Atención: {missingCount} pendiente(s), {readyCount} OK";
         PrereqSummaryHintTextBlock.Text = "Revisa filas FALTA y corrige antes de instalar o reparar.";
+        PrereqSummaryTextBlock.Foreground = ToBrush("#102A43");
+        PrereqSummaryHintTextBlock.Foreground = ToBrush("#335B74");
         PrereqSummaryBorder.Background = ToBrush("#FEF2F2");
         PrereqSummaryBorder.BorderBrush = ToBrush("#FECACA");
         PrereqSummaryIcon.Data = CrossGeometry;
@@ -883,7 +1256,7 @@ public partial class MainWindow : Window
     {
         var isInstall = string.Equals(GetSelectedMode(), "install", StringComparison.OrdinalIgnoreCase);
         var isUninstall = string.Equals(GetSelectedMode(), "uninstall", StringComparison.OrdinalIgnoreCase);
-        var accepted = AcceptTermsCheckBox.IsChecked == true;
+        var accepted = AreTermsAccepted();
 
         BackButton.IsEnabled = !busy && currentStep != WizardStep.Terms && (currentStep != WizardStep.Prepare || isInstall);
         
@@ -899,7 +1272,38 @@ public partial class MainWindow : Window
         DetectButton.Visibility = currentStep == WizardStep.Review ? Visibility.Visible : Visibility.Collapsed;
         StartButton.Visibility = currentStep is WizardStep.Review or WizardStep.Execute ? Visibility.Visible : Visibility.Collapsed;
         StartButton.IsEnabled = !busy && (readyToStart || isUninstall) && (!isInstall || accepted);
+        RefreshRecommendedActionAnimation(isInstall, isUninstall, accepted);
         RefreshFooterGuidance();
+    }
+
+    private void RefreshRecommendedActionAnimation(bool isInstall, bool isUninstall, bool accepted)
+    {
+        StopPulseAnimation(NextButton);
+        StopPulseAnimation(StartButton);
+        StopPulseAnimation(DetectButton);
+        StopPulseAnimation(AcceptPrivacyCheckBox);
+
+        if (!SystemParameters.ClientAreaAnimation)
+        {
+            return;
+        }
+
+        if (currentStep == WizardStep.Terms && isInstall && !accepted)
+        {
+            StartPulseAnimation(AcceptPrivacyCheckBox);
+        }
+        else if (currentStep == WizardStep.Review && !readyToStart && DetectButton.IsVisible && DetectButton.IsEnabled)
+        {
+            StartPulseAnimation(DetectButton);
+        }
+        else if (StartButton.IsVisible && StartButton.IsEnabled)
+        {
+            StartPulseAnimation(StartButton);
+        }
+        else if (NextButton.IsVisible && NextButton.IsEnabled)
+        {
+            StartPulseAnimation(NextButton);
+        }
     }
 
     private void RefreshFooterGuidance()
@@ -957,7 +1361,7 @@ public partial class MainWindow : Window
     private void AcceptTermsCheckBox_OnClick(object sender, RoutedEventArgs e)
     {
         var isInstall = string.Equals(GetSelectedMode(), "install", StringComparison.OrdinalIgnoreCase);
-        if (isInstall && AcceptTermsCheckBox.IsChecked == true && currentStep == WizardStep.Terms)
+        if (isInstall && AreTermsAccepted() && currentStep == WizardStep.Terms)
         {
             SetWizardStep(WizardStep.Prepare);
         }
@@ -966,6 +1370,9 @@ public partial class MainWindow : Window
             RefreshWizardNavigation();
         }
     }
+
+    private bool AreTermsAccepted()
+        => AcceptTermsCheckBox?.IsChecked == true && AcceptPrivacyCheckBox?.IsChecked == true;
 
     private void UpdateStepperState(bool hasFailure = false)
     {

@@ -36,7 +36,7 @@ Herramientas de operación local (principalmente Windows) para **Sistema EvaluaP
 Arquitectura vigente:
 - `WiX Burn` maneja `UAC`, cache, chain `MSI`, `repair` y `uninstall`.
 - La BA `WPF .NET 8` presenta prerequisitos, modo y progreso.
-- El helper PowerShell aplica configuracion operativa, bootstrap de `WSL2` (`Docker Engine + Node 24` para `docente-local`), verificacion final y blindaje local de licencia.
+- El helper PowerShell aplica configuracion operativa, verificacion final y blindaje local de licencia; `docente-local` usa runtime nativo SQLite y solo flavors Docker requieren bootstrap WSL2.
 - El legado `PowerShell WinForms` fue retirado; no queda un `InstallerHub.ps1` soportado.
 - Para `docente-local`, Windows usa `runtime/node/node.exe` como runtime embebido privado del producto y exige `Node 24` host con remediacion automatica durante la instalacion.
 
@@ -67,7 +67,7 @@ Matriz de uso rapido:
 - Desarrollo diario en WSL2: `npm run env:doctor:wsl`
 - Build/smoke de instalador en PowerShell Windows: `npm run env:doctor:windows`
 - Diagnostico automatico segun host actual: `npm run env:doctor`
-- Usuario final `docente-local`: no se espera ejecutar `env:doctor`; el Installer Hub prepara `WSL2 + Docker + Node 24` y usa runtime Node embebido local para launcher/dashboard/tray.
+- Usuario final `docente-local`: no se espera ejecutar `env:doctor`; Installer Hub usa runtime Node embebido local, SQLite y API/Web docente nativos. WSL2/Docker quedan fuera de este flavor.
 
 ## Configuracion automatica OAuth + Classroom
 - Script: `configurar-oauth-classroom.ps1`

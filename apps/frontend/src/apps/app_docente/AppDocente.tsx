@@ -1209,6 +1209,7 @@ export function AppDocente() {
               paqueteBase64: string;
               checksumSha256: string;
               checksumGzipSha256?: string;
+              cifrado?: boolean;
               exportadoEn: string;
               conteos: Record<string, number>;
             }>('/sincronizaciones/paquete/exportar', payload);

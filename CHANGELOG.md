@@ -5,6 +5,32 @@ Este archivo sigue el formato "Keep a Changelog" (alto nivel) y SemVer.
 ## [Unreleased]
 
 ### Fixed
+- Respaldos manuales docente: el paquete gzip ahora se encapsula con AES-256-GCM, valida propietario y autenticidad antes de restaurar, conserva lectura de paquetes legacy y muestra "Cifrado autenticado" en la UI; el journey visual confirmó exportación/importación.
+- Licenciamiento comercial del Hub: el post-install ejecuta activación cuando se solicita, persiste token con DPAPI/MAC y expone evaluación local activa/gracia/comunitaria; el grace configurable queda con mínimo de 90 días y se conserva ante fallo online.
+- Heartbeat comercial: se corrigió el cálculo de horas desde el último heartbeat y se añadió cliente seguro de heartbeat con nonce/contador.
+- Installer Hub docente: saneamiento determinista del `schema.sql` generado por Prisma; se elimina cualquier aviso de consola recodificado antes de empaquetar SQLite.
+- E2E Installer Hub: cierre controlado del Hub tras estado final (cierre normal y terminación exclusiva de su árbol si persiste), evitando esperas indefinidas entre repair/uninstall.
+- Desinstalación docente: respaldo ZIP seguro por defecto cuando el control WPF no es accesible; Resilient16–18 verifican restauración de `evaluapro.db` y limpieza de instalación/registro.
+- Evidencia QA: tres ciclos consecutivos limpios del flavor `docente-local` (`Resilient27–29`), cada uno con 56 resultados, sin fallos y confirmación visual; SHA-256 y CRC32 válidos. La firma Authenticode queda pendiente por falta de clave privada disponible en este entorno.
+- Resiliencia Hub: el post-install dejó el dashboard bajo demanda para evitar carreras de puerto; el E2E verifica consentimientos con estado UIAutomation y el broker reintenta la publicación final de salud dentro de una ventana acotada.
+- OMR TV3: gate por folio verde con 30 capturas y 208 preguntas; TV4 queda pendiente de capturas y ground truth del piloto real.
+- Build MSI: `git ls-files` del staging ahora tiene timeout y fallback acotado; una sesión Git bloqueada ya no congela todo el empaquetado.
+- Build docente nativo: el staging genera Prisma únicamente con el engine Windows `native` y evita bloquearse intentando resolver el engine Linux no utilizado por este flavor.
+- E2E académico nativo: el launcher prepara una SQLite aislada con el esquema Prisma, construye el frontend docente sin PWA y fija explícitamente la API local; el ciclo visual real de registro, periodo, materia y alumno pasó contra API/web nativos.
+- E2E journey docente integral: el launcher levanta API, web y portal alumno reales con SQLite temporal; tres repeticiones visuales verifican banco, plantilla, generación/descarga OMR, entrega, evaluación, calificación, publicación y código de acceso.
+- Flujo docente-alumno: el E2E levanta también el frontend alumno en `4174`, verifica acceso, folio y detalle contra el portal local real; generar código vuelve a publicar de forma idempotente para que el código recién creado no quede solo en SQLite docente.
+- Runtime nativo E2E: CORS agrega de forma idempotente el origen alumno `4174` solo durante el build de prueba, conservando orígenes explícitos del entorno.
+- Calificación manual: usa la clave persistida y la variante autoritativa del examen generado; el payload manual ya no envía respuestas OMR sin `omrAnalisis`.
+- UI docente: evita finalizar jobs OMR terminales y limita calificación/ponderación de evidencias manuales a 0–10, alineado con validación backend.
+- E2E docente: agregado modo de build aislado (`-IsolateBundleIdentity`) para no relacionar instalaciones QA con bundles per-machine antiguos; queda explícitamente fuera de publicación.
+- QA UIAutomation: evita referencias nulas cuando el Hub no expone la ventana y conserva el diagnóstico de arranque en vez de reportar un crash del harness.
+- Installer Hub: el carrusel embebido conserva el logo oficial únicamente en el encabezado; sus tarjetas usan iconografía funcional y una prueba de contrato bloquea la redundancia de marca.
+- E2E Installer Hub docente: eliminado el carril VM/Hyper-V/WinRM; el ciclo se ejecuta directamente en la PC y usa `-IUnderstandThisMutatesPc`.
+- E2E docente: añadido seed local aislado para una cuenta, 3 materias y 3 alumnos dummy con verificación y cleanup.
+- E2E UIAutomation: el consentimiento de términos usa interacción de teclado para disparar el handler WPF y evitar estados visualmente marcados pero no navegables.
+- MSI docente `perUser`: marcadores de accesos/limpieza usan HKCU; flavors institucionales conservan HKLM.
+- QA docente: ruta aislada bajo LOCALAPPDATA, SQLite idempotente y saneamiento de avisos ANSI de Prisma; el runner dummy usa el puerto API real (4000), no el puerto web.
+- Gates/documentación: el runtime nativo docente queda explícitamente desacoplado de VM, snapshots y credenciales remotas.
 - Installer Hub (Bootstrapper): Corregida la versión mostrada en el ejecutable a 1.1.1.
 - Installer Hub (Bootstrapper): Actualizado el logo a la versión correcta de alta calidad (`logo_sys.png`).
 - Installer Hub (Bootstrapper): Se retiró el Splash Overlay inicial para garantizar que la pantalla de confirmación de términos y condiciones sea siempre visible como el primer paso antes y durante la detección del entorno.
@@ -1089,3 +1115,12 @@ Este archivo sigue el formato "Keep a Changelog" (alto nivel) y SemVer.
 - Monorepo inicial (backend, frontend, portal alumno cloud)
 - Hardening base: Helmet, rate limit, sanitización NoSQL, no leakage de mensajes internos en producción
 - Pruebas robustas: `test:ci` con reintentos + harness estricto para warnings/errores
+### QA E2E docente-local
+
+- El fallback de limpieza del ciclo dummy ahora usa únicamente la SQLite de la instalación QA bajo `%LOCALAPPDATA%`; nunca toca la base del repositorio.
+- El runner propaga la ruta SQLite aislada y conserva el diagnóstico del endpoint cuando el registro inicial falla.
+### Estado de release
+
+- Retiradas las releases estables históricas `v1.0.0` a `v1.1.1` y el tag anómalo `v1b`; no hay una release estable vigente hasta completar el E2E docente-local.
+- Los prereleases beta se conservan como evidencia de QA y no son distribuibles estables.
+- Retirados también todos los prereleases y tags heredados para reiniciar el esquema de versionado sin aliases ni residuos.

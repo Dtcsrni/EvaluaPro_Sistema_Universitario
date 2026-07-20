@@ -157,6 +157,14 @@ describe('portal alumno', () => {
       })
       .expect(200);
 
+    const accesoOtraIdentidad = await request(app)
+      .post('/api/portal/ingresar')
+      .send({ codigo: 'ABC123', matricula: 'CUH512410999' })
+      .expect(404);
+
+    expect(accesoOtraIdentidad.body.error.codigo).toBe('ALUMNO_NO_ENCONTRADO');
+    expect(accesoOtraIdentidad.body.token).toBeUndefined();
+
     const ingreso = await request(app)
       .post('/api/portal/ingresar')
       .send({ codigo: 'ABC123', matricula: 'CUH512410168' })

@@ -7,16 +7,28 @@ test.describe('Ciclo de uso directo completo', () => {
   test('docente registra cuenta, crea ciclo, materia, inscribe alumno', async ({ page }) => {
     // 1. "Da click en el vinculo de acceso directo, ejecuta la aplicacion"
     // The desktop shortcut essentially opens the local server URL.
-    await page.goto('/auth/registro');
+    await page.goto('/acceso');
 
     // 2. "Se registra"
-    await page.click('button:has-text("Registrar")');
+    // El shell puede refrescar la ruta mientras hidrata la sesión; dispara el
+    // evento sobre el control actual sin esperar una navegación inexistente.
+    await page.getByRole('button', { name: 'Registrar', exact: true }).dispatchEvent('click');
+    const registroCorreo = page.getByRole('button', { name: /Registrar con correo/i });
+    if (await registroCorreo.isVisible().catch(() => false)) {
+      await registroCorreo.click();
+    }
     const randomSuffix = Math.floor(Math.random() * 100000);
     await page.fill('input[placeholder="Ej. Juan Carlos"]', 'Maestro');
     await page.fill('input[placeholder="Ej. Perez Lopez"]', 'Prueba');
     await page.fill('input[type="email"]', `maestro_${randomSuffix}@evaluapro.local`);
     await page.fill('input[type="password"]', 'P@ssword123');
-    await page.click('button:has-text("Crear cuenta")');
+    const registroResponsePromise = page.waitForResponse(
+      (response) => response.url().includes('/autenticacion/registrar'),
+      { timeout: 15_000 }
+    );
+    await page.getByRole('button', { name: /Crear cuenta/i }).click({ noWaitAfter: true });
+    const registroResponse = await registroResponsePromise;
+    expect(registroResponse.status(), await registroResponse.text()).toBeLessThan(400);
     // Wait for the app to load and animate
     await page.waitForTimeout(3000);
 

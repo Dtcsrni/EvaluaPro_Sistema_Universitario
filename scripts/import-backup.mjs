@@ -7,9 +7,12 @@
 import { readFileSync, unlinkSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { gunzipSync } from 'node:zlib';
-import { createHmac } from 'node:crypto';
+import { createDecipheriv, createHash, createHmac, scryptSync } from 'node:crypto';
 
 const BACKUP_LOGIC_FINGERPRINT = 'sync-v2-lww-updatedAt-schema2';
+const BACKUP_FORMAT = 'evaluapro-sync-encrypted';
+const BACKUP_VERSION = 1;
+const BACKUP_ALGORITHM = 'aes-256-gcm';
 
 function parseEnvFile(ruta) {
   const contenido = readFileSync(ruta, 'utf8');
@@ -51,8 +54,36 @@ function crearJwt({ secreto, docenteId, roles, expiraHoras }) {
   return `${data}.${firma}`;
 }
 
-function obtenerDocenteIdDesdePaquete(paqueteBase64) {
-  const buffer = Buffer.from(paqueteBase64, 'base64');
+function descifrarPaqueteSiAplica(paqueteBase64, docenteCorreo, secreto) {
+  const payload = Buffer.from(paqueteBase64, 'base64');
+  let envelope;
+  try { envelope = JSON.parse(payload.toString('utf8')); } catch { envelope = null; }
+  if (!envelope || envelope.formato !== BACKUP_FORMAT) return payload;
+  const propietario = String(docenteCorreo || '').trim().toLowerCase();
+  if (!propietario || envelope.version !== BACKUP_VERSION || envelope.algoritmo !== BACKUP_ALGORITHM) {
+    throw new Error('Respaldo cifrado invalido o sin propietario autenticado.');
+  }
+  const propietarioHash = createHash('sha256').update(propietario).digest('hex');
+  if (String(envelope.propietarioHash || '').toLowerCase() !== propietarioHash) {
+    throw new Error('El respaldo cifrado no corresponde al propietario autenticado.');
+  }
+  const clave = scryptSync(String(secreto || '').trim(), `EvaluaPro:backup:${propietario}`, 32, { N: 16_384, r: 8, p: 1 });
+  const aad = Buffer.from(`EvaluaPro:${BACKUP_FORMAT}:v${BACKUP_VERSION}:${propietario}`, 'utf8');
+  try {
+    const decipher = createDecipheriv(BACKUP_ALGORITHM, clave, Buffer.from(String(envelope.iv || ''), 'base64'));
+    decipher.setAAD(aad);
+    decipher.setAuthTag(Buffer.from(String(envelope.authTag || ''), 'base64'));
+    return Buffer.concat([
+      decipher.update(Buffer.from(String(envelope.ciphertext || ''), 'base64')),
+      decipher.final()
+    ]);
+  } catch {
+    throw new Error('El respaldo cifrado no pudo autenticarse; puede estar corrupto o alterado.');
+  }
+}
+
+function obtenerDocenteIdDesdePaquete(paqueteBase64, docenteCorreo, secreto) {
+  const buffer = descifrarPaqueteSiAplica(paqueteBase64, docenteCorreo, secreto);
   const json = gunzipSync(buffer).toString('utf8');
   const paquete = JSON.parse(json);
   return {
@@ -133,7 +164,7 @@ async function main() {
     process.exit(1);
   }
 
-  const { docenteId, docenteCorreo } = obtenerDocenteIdDesdePaquete(paqueteBase64);
+  const { docenteId, docenteCorreo } = obtenerDocenteIdDesdePaquete(paqueteBase64, docenteArchivo, env.EVALUAPRO_BACKUP_CIFRADO_SECRETO || secreto);
   if (!docenteId) {
     console.error('No se pudo obtener docenteId desde el paquete.');
     process.exit(1);

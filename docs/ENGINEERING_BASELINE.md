@@ -1,10 +1,40 @@
 # Engineering Baseline
 
-Fecha de baseline: 2026-06-27
-Version tecnica: `1.1.0`
-Version visible GUI: `1.1.0`
+Fecha de baseline vigente: 2026-07-17
+Version técnica: `0.0.0-dev`
+Versión visible GUI: `0.0.0-dev`
+
+## Corte vigente
+
+EvaluaPro está en desarrollo y QA local. El flavor prioritario es
+`docente-local`, una aplicación nativa para Windows que integra API local,
+SQLite/Prisma, frontend docente y runtime Node embebido. El Installer Hub WPF
+gestiona instalación, reparación, actualización y desinstalación desde la PC.
+
+- El repositorio mantiene cero tags y cero releases publicados mientras se
+  completa el ciclo E2E nativo.
+- Los contratos del Hub incluyen una validación de payload para exigir el
+  bootstrap SQLite y el esquema Prisma antes de generar un MSI docente.
+- La suite de contrato de tags y payload nativo está validada; el E2E completo
+  quedó validado con tres ciclos consecutivos del Bundle docente (`Resilient27–29`).
+- Las entradas posteriores de este documento son bitácora histórica. El estado
+  anterior sirve como trazabilidad y no representa la distribución actual.
 
 ## Estado vigente
+- Corte 2026-07-17 (cierre E2E docente-local):
+  - **Installer Hub:** tres ciclos limpios consecutivos (`Resilient27–29`) con instalación, reparación y desinstalación; 56 resultados por ciclo, sin fallos, con confirmación visual.
+  - **Integridad:** SHA-256 coincidente y CRC32 validado en preflight; Authenticode queda `NotSigned` porque el entorno solo dispone del certificado público y no de la clave privada.
+  - **Datos:** backup ZIP de instalación y restauración de `evaluapro.db` verificados en los tres ciclos; además, el paquete académico manual usa sobre AES-256-GCM, con exportación/importación visual y pruebas de alteración/propietario.
+  - **Flujo funcional:** `test:e2e:docente-alumno:ci`, `test:flujo-docente:ci`, `test:evaluaciones:e2e:ci`, `test:global-grade:ci`, frontend y portal en verde.
+  - **Ciclo visual nativo:** pasó con API/web nativos, build docente aislado sin PWA y SQLite exclusiva del E2E; verificó registro docente, periodo, materia y alumno.
+  - **Journey visual integral:** 3/3 repeticiones contra API/web/portal nativos aislados verificaron banco, plantilla, examen y descarga OMR, entrega, evaluación, calificación, publicación y código de acceso; capturas en `docs/assets/ui/06_journey_*` a `12_journey_*`.
+  - **Portal alumno visual:** el mismo journey compila la superficie alumno en `4174`, consulta el código generado contra el portal SQLite local, muestra resultados/folio y abre el detalle; el flujo pasó 3/3.
+  - **Corrección de consistencia:** generar código vuelve a publicar el read-model de forma idempotente; se eliminó el caso en que el código quedaba local y el alumno recibía 401.
+  - **OMR:** TV3 por folio verde (30 capturas, 208 preguntas); TV4 permanece bloqueado hasta importar el piloto real con imágenes y ground truth.
+  - **Cobertura:** el contrato de lotes y los lotes backend ejecutables están validados, pero el runner completo de cobertura aún no tiene una salida final fiable dentro del límite operativo; no se declara ese gate cerrado.
+  - **Robustez:** el E2E no espera indefinidamente al proceso WPF tras un estado final; intenta cierre normal y detiene solo su árbol persistente.
+  - **Licencia:** activación comercial, persistencia DPAPI/MAC y estados locales activa/gracia/comunitaria están implementados; falta repetir el ciclo Hub comercial online/offline en una instalación limpia.
+  - **Gates focales posteriores:** frontend lint, typecheck completo, encuadre 3/3, dominios docentes 11/11 y portal integración 4/4 en verde; el runner completo de cobertura sigue sin cierre fiable.
 - Corte 2026-07-11 (Resiliencia y Robustez de WPF Bootstrapper):
   - **Safe Assembly Version:** Solucionado crash crítico por `assembly.Location` vacío en ejecuciones Single-File, implementando lectura segura de versión mediante reflexión en `MainWindow.xaml.cs`.
   - **MSI Presence Detection:** Sobrescrito `OnDetectPackageComplete` en `EvaluaProBootstrapperApplication.cs` para detectar presencia de `EvaluaProMsi` (`PackageState.Present`), redirigiendo al usuario al asistente de mantenimiento/reparación de forma consistente.

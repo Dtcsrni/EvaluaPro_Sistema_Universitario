@@ -1,5 +1,10 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <Wix xmlns="http://wixtoolset.org/schemas/v4/wxs">
+  <?if $(var.FlavorId) = docente-local ?>
+    <?define PackageScope="perUser" ?>
+  <?else?>
+    <?define PackageScope="perMachine" ?>
+  <?endif?>
   <Package
     Name="$(var.ProductName)"
     Manufacturer="I.S.C. Erick Renato Vega Ceron"
@@ -7,10 +12,12 @@
     UpgradeCode="$(var.UpgradeCode)"
     InstallerVersion="500"
     Compressed="yes"
-    Scope="perMachine">
+    Scope="$(var.PackageScope)">
 
     <MajorUpgrade DowngradeErrorMessage="Ya existe una versión más reciente de EvaluaPro instalada." />
-    <MediaTemplate EmbedCab="yes" />
+    <!-- Un único CAB embebido: evita referencias a cab2.cab cuando el payload docente
+         supera el límite por defecto de 200 MB sin comprimir. -->
+    <MediaTemplate EmbedCab="yes" CompressionLevel="mszip" MaximumUncompressedMediaSize="2048" />
     <Property Id="INSTALL_DESKTOP_SHORTCUTS" Value="1" />
     <Property Id="INSTALL_STARTMENU_SHORTCUTS" Value="1" />
     <?if $(var.FlavorId) != docente-local ?>
@@ -50,9 +57,15 @@
       <ComponentGroupRef Id="CG.Cleanup" />
     </Feature>
 
+    <?if $(var.FlavorId) = docente-local ?>
+    <StandardDirectory Id="LocalAppDataFolder">
+      <Directory Id="INSTALLFOLDER" Name="$(var.InstallFolderName)" />
+    </StandardDirectory>
+    <?else?>
     <StandardDirectory Id="ProgramFiles64Folder">
       <Directory Id="INSTALLFOLDER" Name="$(var.InstallFolderName)" />
     </StandardDirectory>
+    <?endif?>
     <StandardDirectory Id="DesktopFolder" />
     <StandardDirectory Id="ProgramMenuFolder" />
 

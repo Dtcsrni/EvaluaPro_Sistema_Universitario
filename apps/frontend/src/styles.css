@@ -1,9 +1,12 @@
-@import url('https://fonts.googleapis.com/css2?family=Source+Sans+3:wght@400;600;700&family=Space+Grotesk:wght@500;600;700&display=swap');
-
 /* Estilos globales para apps docente y alumno. */
 :root {
   color-scheme: light;
-  font-family: 'Source Sans 3', 'Segoe UI', system-ui, -apple-system, sans-serif;
+  /* Offline-first: no dependemos de una CDN para que la UI sea legible. */
+  font-family: 'Segoe UI Variable Text', 'Segoe UI', Aptos, Inter, system-ui, sans-serif;
+  font-size: 16px;
+  font-weight: 450;
+  font-variation-settings: 'opsz' 14;
+  text-rendering: optimizeLegibility;
   background:
     radial-gradient(circle at 14% 8%, rgba(213, 167, 58, 0.16) 0, transparent 42%),
     radial-gradient(circle at 86% 12%, rgba(15, 139, 141, 0.16) 0, transparent 36%),
@@ -54,6 +57,17 @@
   --campoBorde: rgba(148, 163, 184, 0.55);
   --campoBordeHover: rgba(13, 148, 136, 0.45);
   --campoPlaceholder: rgba(60, 75, 94, 0.92);
+
+  /* Sistema de superficies compartido por todas las pantallas y estados. */
+  --surface-0: #f8fbff;
+  --surface-1: rgba(255, 255, 255, 0.82);
+  --surface-2: rgba(255, 255, 255, 0.94);
+  --surface-border-strong: rgba(71, 96, 125, 0.28);
+  --shadow-soft: 0 18px 42px -28px rgba(2, 6, 23, 0.42);
+  --shadow-panel: 0 26px 60px -34px rgba(2, 6, 23, 0.55);
+  --app-accent: #0f8b8d;
+  --app-accent-soft: rgba(15, 139, 141, 0.14);
+  --app-highlight: rgba(56, 189, 248, 0.16);
 }
 
 /* Microvariaciones por hora (data-time). */
@@ -119,6 +133,16 @@
   --campoBorde: rgba(148, 163, 184, 0.48);
   --campoBordeHover: rgba(94, 234, 212, 0.55);
   --campoPlaceholder: rgba(231, 238, 246, 0.95);
+
+  --surface-0: #0b1424;
+  --surface-1: rgba(20, 35, 55, 0.78);
+  --surface-2: rgba(28, 49, 73, 0.88);
+  --surface-border-strong: rgba(156, 218, 239, 0.42);
+  --shadow-soft: 0 18px 44px -26px rgba(0, 0, 0, 0.72);
+  --shadow-panel: 0 28px 68px -34px rgba(0, 0, 0, 0.82);
+  --app-accent: #2dd4bf;
+  --app-accent-soft: rgba(45, 212, 191, 0.16);
+  --app-highlight: rgba(56, 189, 248, 0.2);
 }
 
 :root[data-theme="dark"][data-time="dawn"] {
@@ -152,6 +176,42 @@
 
 .icono--muted {
   opacity: 0.75;
+}
+
+/* Reglas globales: foco, selección y superficies legibles en cada pantalla. */
+button:focus-visible,
+a:focus-visible,
+input:focus-visible,
+textarea:focus-visible,
+select:focus-visible,
+[tabindex]:focus-visible {
+  outline: 3px solid color-mix(in srgb, var(--app-accent, var(--primario)) 72%, white 28%);
+  outline-offset: 3px;
+}
+
+::selection {
+  color: #062a35;
+  background: color-mix(in srgb, var(--app-accent, var(--primario)) 48%, white 52%);
+}
+
+::-webkit-scrollbar {
+  width: 12px;
+  height: 12px;
+}
+
+::-webkit-scrollbar-track {
+  background: color-mix(in srgb, var(--surface-0) 82%, transparent);
+}
+
+::-webkit-scrollbar-thumb {
+  border: 3px solid transparent;
+  border-radius: 999px;
+  background-clip: padding-box;
+  background: color-mix(in srgb, var(--app-accent, var(--primario)) 56%, var(--muted) 44%);
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: color-mix(in srgb, var(--app-accent, var(--primario)) 78%, white 22%);
 }
 
 /* Micro-animaciones de iconos (sutiles y consistentes) */
@@ -700,6 +760,28 @@ button:hover svg[data-icono="ok"].icono,
   .toast { animation: none !important; }
   .toast-life { animation: none !important; }
   .toast-btn { transition: none !important; }
+}
+
+/* Tipografía rica y accesible: jerarquía clara, ancho de línea controlado y foco visible. */
+:where(h1, h2, h3, h4, button, .titulo, .encabezado) {
+  font-family: 'Segoe UI Variable Display', 'Segoe UI', Aptos Display, Aptos, system-ui, sans-serif;
+  font-variation-settings: 'opsz' 28, 'wght' 650;
+}
+
+:where(p, li, label, input, textarea, select, [contenteditable='true']) {
+  line-height: 1.55;
+}
+
+:where([contenteditable='true'], .editor, .rich-text, .richText) {
+  max-width: 75ch;
+  overflow-wrap: anywhere;
+  white-space: pre-wrap;
+  tab-size: 4;
+}
+
+:where(a, button, input, textarea, select, [tabindex]):focus-visible {
+  outline: 3px solid color-mix(in srgb, var(--primario) 72%, white);
+  outline-offset: 3px;
 }
 
 .confirm-dialog-backdrop {

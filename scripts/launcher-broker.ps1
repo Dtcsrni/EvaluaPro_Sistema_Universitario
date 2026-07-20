@@ -146,16 +146,18 @@ function Stop-StaleDashboardOnPort([int]$candidatePort) {
   }
 
   foreach ($listener in $listeners) {
-    $pid = [int]$listener.OwningProcess
-    if ($pid -le 0 -or $pid -eq $PID) { continue }
+    # PowerShell reserva $PID; usar otro nombre evita que el broker falle al
+    # limpiar listeners huérfanos antes de abrir el dashboard.
+    $processId = [int]$listener.OwningProcess
+    if ($processId -le 0 -or $processId -eq $PID) { continue }
     try {
-      $process = Get-CimInstance Win32_Process -Filter ("ProcessId={0}" -f $pid) -ErrorAction Stop
+      $process = Get-CimInstance Win32_Process -Filter ("ProcessId={0}" -f $processId) -ErrorAction Stop
       $commandLine = [string]$process.CommandLine
       if ($commandLine -notmatch 'launcher-dashboard\.(mjs|ps1)') { continue }
-      Write-BrokerLog("Cerrando dashboard no responsivo en puerto $candidatePort (pid=$pid).")
-      Stop-Process -Id $pid -Force -ErrorAction SilentlyContinue
+      Write-BrokerLog("Cerrando dashboard no responsivo en puerto $candidatePort (pid=$processId).")
+      Stop-Process -Id $processId -Force -ErrorAction SilentlyContinue
     } catch {
-      Write-BrokerLog("No se pudo cerrar listener no responsivo en puerto $candidatePort (pid=$pid): $($_.Exception.Message)")
+      Write-BrokerLog("No se pudo cerrar listener no responsivo en puerto $candidatePort (pid=$processId): $($_.Exception.Message)")
     }
   }
 }
@@ -194,7 +196,10 @@ function Wait-DashboardReady([int]$requestedPort, [int]$timeoutMs = 45000) {
 
 function Ensure-DashboardRunning([string]$bootstrapMode, [int]$requestedPort) {
   Set-BootstrapState -State 'booting_dashboard' -Message 'Inicializando control plane local.' -DesiredMode $bootstrapMode
-  $ready = Wait-DashboardReady -requestedPort $requestedPort -timeoutMs 2000
+  # Post-install puede haber iniciado dashboard en segundo plano. Darle una
+  # ventana de arranque antes de tratar lock/listener como obsoleto evita dos
+  # instancias concurrentes y falsos timeouts en equipos lentos.
+  $ready = Wait-DashboardReady -requestedPort $requestedPort -timeoutMs 30000
   if ($ready) { return $ready }
   if (-not (Test-Path -LiteralPath $dashboardLauncher)) {
     throw "No se encontro launcher del dashboard: $dashboardLauncher"
@@ -380,7 +385,14 @@ try {
   switch ($Action) {
     'open-dashboard' {
       $result = Ensure-StackReady -base $base -desiredMode $desiredMode -timeoutMs 150000
-      $finalReady = Wait-DashboardReady -requestedPort $Port -timeoutMs 15000
+      $finalReady = $null
+      for ($attempt = 1; $attempt -le 4 -and -not $finalReady; $attempt += 1) {
+        $finalReady = Wait-DashboardReady -requestedPort $Port -timeoutMs 15000
+        if (-not $finalReady) {
+          Write-BrokerLog("Dashboard todavía no publica estado final; reintento $attempt/4.")
+          Start-Sleep -Seconds 3
+        }
+      }
       if (-not $finalReady) {
         throw 'Dashboard dejo de responder antes de publicar estado final.'
       }

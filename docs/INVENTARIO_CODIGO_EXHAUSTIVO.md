@@ -1,11 +1,11 @@
 # Inventario Exhaustivo de Codigo
 
-Fecha de generacion: 2026-07-13 02:16:25
+Fecha de generacion: 2026-07-17 10:59:37
 Fuente: git ls-files filtrado por existencia en workspace (solo archivos versionados presentes, excluye node_modules).
 
 ## Resumen
 
-- Total de piezas de codigo/config ejecutable inventariadas: 1184
+- Total de piezas de codigo/config ejecutable inventariadas: 1171
 - Extensiones incluidas: ts, tsx, js, jsx, mjs, cjs, json, yml, yaml, sh, cmd, ps1.
 
 ## Conteo por area
@@ -16,7 +16,7 @@ Fuente: git ls-files filtrado por existencia en workspace (solo archivos version
 | frontend | 135 |
 | portal_alumno_cloud | 67 |
 | ci | 17 |
-| scripts | 185 |
+| scripts | 172 |
 | ops | 3 |
 | docs | 200 |
 | raiz | 32 |
@@ -676,13 +676,7 @@ Fuente: git ls-files filtrado por existencia en workspace (solo archivos version
 - scripts/ai-skills-mcp-policy-status.mjs
 - scripts/assert-installer-hub-bundle.ps1
 - scripts/build-msi.ps1
-- scripts/build-msi.ps1
-- scripts/build-msi.ps1
 - scripts/build-native-dist.ps1
-- scripts/ci/run-e2e-auto.ps1
-- scripts/ci/run-e2e-host-canary.ps1
-- scripts/ci/run-e2e-in-vm.ps1
-- scripts/ci/run-e2e-launcher.ps1
 - scripts/ci/set-e2e-qa-secret.ps1
 - scripts/classroom-doctor.mjs
 - scripts/clean-architecture-check.mjs
@@ -732,10 +726,7 @@ Fuente: git ls-files filtrado por existencia en workspace (solo archivos version
 - scripts/Install-EvaluaPro.ps1
 - scripts/install-maintenance-tasks.ps1
 - scripts/installer-burn/InstallerBurnHelper.ps1
-- scripts/installer-burn/InstallerBurnHelper.ps1
-- scripts/installer-burn/InstallerBurnHelper.ps1
 - scripts/installer-docente-baseline.mjs
-- scripts/installer-hub-vm-readiness.ps1
 - scripts/inventario-codigo.mjs
 - scripts/launch-dev.cmd
 - scripts/launch-prod.cmd
@@ -750,6 +741,7 @@ Fuente: git ls-files filtrado por existencia en workspace (solo archivos version
 - scripts/perf-collect-business.ts
 - scripts/perf-collect.ts
 - scripts/pipeline-contract-check.mjs
+- scripts/prepare-docente-sqlite.mjs
 - scripts/release/check-ci-streak.mjs
 - scripts/release/check-classroom-e2e-evidence.mjs
 - scripts/release/check-release-evidence.mjs
@@ -761,25 +753,21 @@ Fuente: git ls-files filtrado por existencia en workspace (solo archivos version
 - scripts/release/smoke-piloto-hibrido.mjs
 - scripts/release/validate-beta-promotion.mjs
 - scripts/release/validate-stable-promotion.mjs
-- scripts/reset-evaluaqa-pass.ps1
 - scripts/reset-local.mjs
 - scripts/retry.mjs
 - scripts/routes-check.mjs
-- scripts/run-enable-wsl2-vm.ps1
-- scripts/safe-enable-wsl2.ps1
 - scripts/sanitize-xlsx-template.ps1
 - scripts/sdd-audit.mjs
 - scripts/security-env-check.mjs
 - scripts/serena-mcp.ps1
 - scripts/serena-mcp.sh
+- scripts/serve-docente-static.mjs
 - scripts/setup-qa-credenciales.ps1
-- scripts/setup-wsl2-vm-host.ps1
 - scripts/shortcut-ops.ps1
 - scripts/sign-installer-artifacts.ps1
 - scripts/signing/install-internal-signing-cert.ps1
 - scripts/signing/new-internal-signing-cert.ps1
 - scripts/start-docente-native.mjs
-- scripts/start-installer-hub-e2e-elevated.ps1
 - scripts/start-portal-dev.mjs
 - scripts/start-portal-prod.mjs
 - scripts/start-tray.mjs
@@ -817,8 +805,7 @@ Fuente: git ls-files filtrado por existencia en workspace (solo archivos version
 - scripts/tests/installer-flavor-diff-resolver.test.mjs
 - scripts/tests/installer-hub-contract.test.mjs
 - scripts/tests/installer-hub-e2e-docente.ps1
-- scripts/tests/installer-hub-ui-lifecycle.ps1
-- scripts/tests/installer-hub-ui-lifecycle.ps1
+- scripts/tests/installer-hub-lifecycle-contract.test.mjs
 - scripts/tests/installer-hub-ui-lifecycle.ps1
 - scripts/tests/marketing-site.smoke.test.mjs
 - scripts/tests/omr-tv-gate-runner.test.mjs
@@ -831,6 +818,7 @@ Fuente: git ls-files filtrado por existencia en workspace (solo archivos version
 - scripts/tests/run-real-os-e2e.ps1
 - scripts/tests/sdd-audit.test.mjs
 - scripts/tests/security-workflow-policy.test.mjs
+- scripts/tests/seed-docente-dummy.mjs
 - scripts/tests/stabilization-completion-audit.test.mjs
 - scripts/tests/tray-update-action.test.mjs
 - scripts/tests/update-api.test.mjs
@@ -846,7 +834,6 @@ Fuente: git ls-files filtrado por existencia en workspace (solo archivos version
 - scripts/tmp_reconstruir_lote_desde_pdf.ps1
 - scripts/tmp_validar_identidad_lote.ps1
 - scripts/update-manager.mjs
-- scripts/vm-setup-wsl2.ps1
 - scripts/vscode-prune-extensions.mjs
 - scripts/vscode-tune.mjs
 - scripts/wait-api.mjs

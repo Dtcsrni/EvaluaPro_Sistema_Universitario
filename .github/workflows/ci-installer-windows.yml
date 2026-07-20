@@ -1,6 +1,7 @@
 name: CI Installer Windows
 
 on:
+  pull_request:
   push:
     tags:
       - "v*"
@@ -76,9 +77,12 @@ jobs:
           EVALUAPRO_LICENSE_ACTIVATION_SIMULATE: '1'
         run: npm run test:installer-hub:contract
 
-      - name: Etapa build MSI + Bundle
+      - name: Etapa build MSI + Bundle docente-local
         shell: powershell
-        run: powershell -NoProfile -ExecutionPolicy Bypass -File scripts/build-msi.ps1 -SkipStabilityChecks -IncludeBundle -Flavor all
+        run: powershell -NoProfile -ExecutionPolicy Bypass -File scripts/build-msi.ps1 -SkipStabilityChecks -IncludeBundle -Flavor docente-local
+
+      - name: Gate footprint bundle docente
+        run: npm run installer:docente:baseline:enforce
 
       - name: Smoke GUI del bundle Burn publico empaquetado
         shell: powershell
@@ -111,6 +115,7 @@ jobs:
           powershell -NoProfile -ExecutionPolicy Bypass -File scripts/release/run-defender-scan.ps1 -TargetPath 'dist/installer' -ReportPath 'dist/installer/antivirus-scan-report.txt'
 
       - name: Etapa signing gate (opcional)
+        if: github.event_name != 'pull_request'
         shell: powershell
         env:
           EVALUAPRO_SIGN_CERT_BASE64: ${{ secrets.EVALUAPRO_SIGN_CERT_BASE64 }}
@@ -119,18 +124,19 @@ jobs:
         run: powershell -NoProfile -ExecutionPolicy Bypass -File scripts/sign-installer-artifacts.ps1
 
       - name: Verificar artefactos
+        if: github.event_name == 'pull_request'
         shell: powershell
         run: |
-          $saasExeList = @(Get-ChildItem -LiteralPath 'dist/installer/saas-completo' -Filter 'EvaluaPro-InstallerHub-saas-completo-v*.exe' -File | Sort-Object LastWriteTime -Descending)
-          if ($saasExeList.Count -eq 0) { throw "No existe dist/installer/saas-completo/EvaluaPro-InstallerHub-saas-completo-v*.exe" }
-          $saasExe = $saasExeList[0]
-          # Eliminar versiones viejas residuales
-          for ($i = 1; $i -lt $saasExeList.Count; $i++) {
-              Write-Host "Limpiando version antigua: $($saasExeList[$i].FullName)"
-              Remove-Item -Path $saasExeList[$i].FullName -Force
-              if (Test-Path ($saasExeList[$i].FullName + '.sha256')) { Remove-Item -Path ($saasExeList[$i].FullName + '.sha256') -Force }
-          }
-          
+          $docExeList = @(Get-ChildItem -LiteralPath 'dist/installer/docente-local' -Filter 'EvaluaPro-InstallerHub-docente-local-v*.exe' -File)
+          if ($docExeList.Count -eq 0) { throw "No existe bundle docente-local" }
+          if (-not (Test-Path ($docExeList[0].FullName + '.sha256'))) { throw "No existe hash del bundle docente-local" }
+          if (-not (Test-Path 'dist/installer/EvaluaPro-release-manifest.json')) { throw 'No existe manifiesto de release' }
+          if (-not (Test-Path 'dist/installer/_internal/docente-local/EvaluaPro-docente-local.msi')) { throw 'No existe MSI docente-local' }
+
+      - name: Verificar artefactos de release
+        if: github.event_name != 'pull_request'
+        shell: powershell
+        run: |
           $docExeList = @(Get-ChildItem -LiteralPath 'dist/installer/docente-local' -Filter 'EvaluaPro-InstallerHub-docente-local-v*.exe' -File | Sort-Object LastWriteTime -Descending)
           if ($docExeList.Count -eq 0) { throw "No existe dist/installer/docente-local/EvaluaPro-InstallerHub-docente-local-v*.exe" }
           $docExe = $docExeList[0]
@@ -141,15 +147,11 @@ jobs:
               if (Test-Path ($docExeList[$i].FullName + '.sha256')) { Remove-Item -Path ($docExeList[$i].FullName + '.sha256') -Force }
           }
           
-          if (-not (Test-Path ($saasExe.FullName + '.sha256'))) { throw "No existe hash para $($saasExe.Name)" }
           if (-not (Test-Path ($docExe.FullName + '.sha256'))) { throw "No existe hash para $($docExe.Name)" }
-          if (Test-Path "dist/installer/EvaluaPro-InstallerHub-saas-completo.exe") { throw "No debe existir nombre legacy sin version: dist/installer/EvaluaPro-InstallerHub-saas-completo.exe" }
           if (Test-Path "dist/installer/EvaluaPro-InstallerHub-docente-local.exe") { throw "No debe existir nombre legacy sin version: dist/installer/EvaluaPro-InstallerHub-docente-local.exe" }
           if (-not (Test-Path "dist/installer/EvaluaPro-release-manifest.json")) { throw "No existe dist/installer/EvaluaPro-release-manifest.json" }
           if (-not (Test-Path "dist/installer/antivirus-scan-report.txt")) { throw "No existe dist/installer/antivirus-scan-report.txt" }
-          if (-not (Test-Path "dist/installer/_internal/saas-completo/EvaluaPro-saas-completo.msi")) { throw "No existe dist/installer/_internal/saas-completo/EvaluaPro-saas-completo.msi" }
           if (-not (Test-Path "dist/installer/_internal/docente-local/EvaluaPro-docente-local.msi")) { throw "No existe dist/installer/_internal/docente-local/EvaluaPro-docente-local.msi" }
-          if (Test-Path "dist/installer/EvaluaPro-saas-completo.msi") { throw "MSI tecnico no debe quedar en raiz publica: dist/installer/EvaluaPro-saas-completo.msi" }
           if (Test-Path "dist/installer/EvaluaPro-docente-local.msi") { throw "MSI tecnico no debe quedar en raiz publica: dist/installer/EvaluaPro-docente-local.msi" }
 
       - name: Publicar artefactos instalador
@@ -157,8 +159,6 @@ jobs:
         with:
           name: installer-windows
           path: |
-            dist/installer/saas-completo/EvaluaPro-InstallerHub-saas-completo-v*.exe
-            dist/installer/saas-completo/EvaluaPro-InstallerHub-saas-completo-v*.exe.sha256
             dist/installer/docente-local/EvaluaPro-InstallerHub-docente-local-v*.exe
             dist/installer/docente-local/EvaluaPro-InstallerHub-docente-local-v*.exe.sha256
             dist/installer/antivirus-scan-report.txt

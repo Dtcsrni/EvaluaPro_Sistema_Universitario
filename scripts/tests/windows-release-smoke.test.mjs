@@ -376,7 +376,7 @@ test('smoke activo valida broker, manifest, shortcuts y control plane sin depend
   const manifest = readJson(manifestPath);
   assert.equal(manifest.installation.installed, true);
   assert.equal(manifest.installation.flavor, 'docente-local');
-  assert.equal(manifest.installation.runtimeTarget, 'wsl2-docker-minimal');
+  assert.equal(manifest.installation.runtimeTarget, 'native-node-sqlite');
   assert.equal(typeof manifest.shortcuts, 'object');
   assert.equal(manifest.criticalFiles.some((entry) => normalizeManifestPath(entry.path) === 'scripts/launcher-broker.ps1'), true);
   assert.equal(manifest.criticalFiles.some((entry) => normalizeManifestPath(entry.path).includes('scripts/installer-hub/InstallerHub.ps1')), false);
@@ -402,7 +402,7 @@ test('smoke activo valida broker, manifest, shortcuts y control plane sin depend
   assert.equal(status.body.lifecycle.desiredMode, 'prod');
   assert.equal(status.body.flavorPolicy.flavorId, 'docente-local');
   assert.equal(status.body.flavorPolicy.requireLocalPortal, false);
-  assert.equal(status.body.flavorPolicy.runtimeTarget, 'wsl2-docker-minimal');
+  assert.equal(status.body.flavorPolicy.runtimeTarget, 'native-node-sqlite');
   assert.equal(typeof status.body.installationState, 'object');
   assert.equal(typeof status.body.shortcutState, 'object');
   assert.equal(typeof status.body.licenseState, 'object');

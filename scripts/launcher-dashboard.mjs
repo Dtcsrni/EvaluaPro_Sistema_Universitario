@@ -26,6 +26,10 @@ import { createUpdateManager } from './update-manager.mjs';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const root = path.resolve(__dirname, '..');
+const nativeNodePath = fs.existsSync(path.join(root, 'runtime', 'node', process.platform === 'win32' ? 'node.exe' : 'node'))
+  ? path.join(root, 'runtime', 'node', process.platform === 'win32' ? 'node.exe' : 'node')
+  : process.execPath;
+const nativeDocenteCommand = `"${nativeNodePath}" "${path.join(root, 'scripts', 'start-docente-native.mjs')}"`;
 
 // CLI options: --mode dev|prod|none, --port <n>, --no-open, --verbose, --full-logs.
 const args = process.argv.slice(2);
@@ -2897,12 +2901,11 @@ async function reconcileLifecycle(reason = 'manual') {
         else if (startedPortal) action = 'start:portal';
         else action = 'verify';
 
-        if (startedDesired || startedPortal) {
-          await sleep(1800);
-        }
-
-        const servicesAfter = await collectHealth();
-        const healthyAfter = isStackHealthyFromServices(servicesAfter, desiredMode, flavorPolicy.requireLocalPortal);
+        const startupCheck = startedDesired || startedPortal
+          ? await waitForLifecycleHealth(desiredMode, flavorPolicy.requireLocalPortal, 90_000)
+          : { healthy: false, services: await collectHealth() };
+        const servicesAfter = startupCheck.services;
+        const healthyAfter = startupCheck.healthy;
         if (!healthyAfter) {
           lifecycleState.reconcile.failureCount += 1;
           const now = Date.now();
@@ -2980,6 +2983,22 @@ async function reconcileLifecycle(reason = 'manual') {
   });
 
   return lifecycleReconcilePromise;
+}
+
+async function waitForLifecycleHealth(desiredMode, requireLocalPortal, timeoutMs = 90_000) {
+  const deadline = Date.now() + Math.max(5_000, Number(timeoutMs) || 90_000);
+  let services = {};
+  do {
+    services = await collectHealth();
+    if (isStackHealthyFromServices(services, desiredMode, requireLocalPortal)) {
+      return { healthy: true, services };
+    }
+    const remaining = deadline - Date.now();
+    if (remaining <= 0) break;
+    await sleep(Math.min(2_000, remaining));
+  } while (Date.now() < deadline);
+
+  return { healthy: false, services };
 }
 
 function configureLifecycleSupervisor() {
@@ -3279,10 +3298,16 @@ function startTask(name, command) {
 
   logSystem(`[${name}] iniciar: ${command}`, 'system');
   pushEvent('task_start', name, 'system', 'Inicio solicitado', { command });
-  const proc = spawn('cmd.exe', ['/c', command], {
-    cwd: root,
-    windowsHide: true
-  });
+  const isNativeRuntime = command === nativeDocenteCommand;
+  const proc = isNativeRuntime
+    ? spawn(nativeNodePath, [path.join(root, 'scripts', 'start-docente-native.mjs')], {
+      cwd: root,
+      windowsHide: true
+    })
+    : spawn('cmd.exe', ['/d', '/s', '/c', command], {
+      cwd: root,
+      windowsHide: true
+    });
 
   processes.set(name, { name, command, proc, startedAt: Date.now() });
   logSystem(`[${name}] PID ${proc.pid}`, 'system');
@@ -3425,7 +3450,7 @@ const baseCommands = {
   'dev-backend': 'npm run dev:backend',
   // En dashboard, PROD debe levantar la plataforma rapidamente (sin correr verify/tests).
   prod: 'npm run stack:prod',
-  'docente-native': 'npm run docente:prod:native',
+  'docente-native': nativeDocenteCommand,
   'portal-dev': 'npm run dev:portal',
   'portal-prod': 'npm run portal:prod',
   status: 'npm run status',

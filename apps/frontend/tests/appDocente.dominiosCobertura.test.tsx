@@ -4,7 +4,7 @@
  * Responsabilidad: Modulo interno del sistema.
  * Limites: Mantener contrato y comportamiento observable del modulo.
  */
-import { render, screen } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 import { SeccionAlumnos } from '../src/apps/app_docente/SeccionAlumnos';
 import { SeccionCalificaciones } from '../src/apps/app_docente/SeccionCalificaciones';
@@ -203,6 +203,19 @@ describe('cobertura dominios docente', () => {
       <SeccionPublicar periodos={[periodo]} onPublicar={async () => ({})} onCodigo={async () => ({ codigo: 'ABC123' })} />
     );
     expect(screen.getByRole('heading', { name: /Publicar en portal/i })).toBeInTheDocument();
+  });
+
+  it('genera codigo y sincroniza resultados antes de mostrarlo', async () => {
+    const onCodigo = vi.fn(async () => ({ codigo: 'ABC123', expiraEn: '2026-12-31T00:00:00.000Z' }));
+    const onPublicar = vi.fn(async () => ({}));
+    render(<SeccionPublicar periodos={[periodo]} onPublicar={onPublicar} onCodigo={onCodigo} />);
+
+    fireEvent.change(screen.getByRole('combobox'), { target: { value: 'per-1' } });
+    fireEvent.click(screen.getByRole('button', { name: /Generar codigo/i }));
+
+    await waitFor(() => expect(screen.getByText(/Código generado: ABC123/i)).toBeInTheDocument());
+    expect(onCodigo).toHaveBeenCalledWith('per-1');
+    expect(onPublicar).toHaveBeenCalledWith('per-1');
   });
 
   it('renderiza SeccionPaqueteSincronizacion', () => {
