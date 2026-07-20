@@ -115,6 +115,7 @@ jobs:
           powershell -NoProfile -ExecutionPolicy Bypass -File scripts/release/run-defender-scan.ps1 -TargetPath 'dist/installer' -ReportPath 'dist/installer/antivirus-scan-report.txt'
 
       - name: Etapa signing gate (opcional)
+        if: github.event_name != 'pull_request'
         shell: powershell
         env:
           EVALUAPRO_SIGN_CERT_BASE64: ${{ secrets.EVALUAPRO_SIGN_CERT_BASE64 }}

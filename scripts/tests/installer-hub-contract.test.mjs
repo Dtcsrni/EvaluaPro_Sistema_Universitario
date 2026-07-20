@@ -158,6 +158,7 @@ test('workflow de installer publica contratos nuevos de release', () => {
   assert.match(workflow, /dotnet-version:\s*8\.0\.x/);
   assert.match(workflow, /generate-installer-hashes\.ps1/);
   assert.match(workflow, /sign-installer-artifacts\.ps1/);
+  assert.match(workflow, /name: Etapa signing gate \(opcional\)\s+if: github\.event_name != 'pull_request'/);
   assert.match(workflow, /pull_request:/);
   assert.match(workflow, /build-msi\.ps1 -SkipStabilityChecks -IncludeBundle -Flavor docente-local/);
   assert.doesNotMatch(workflow, /build-msi\.ps1 -SkipStabilityChecks -IncludeBundle -Flavor all/);
