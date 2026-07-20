@@ -875,7 +875,6 @@ test('build-msi publica BA personalizada y conserva contrato de asset publico po
   assert.match(buildScript, /solo se soporta en Windows/);
   assert.match(buildScript, /RuntimeInformation/);
   assert.match(buildScript, /Publish-BurnBootstrapperApp/);
-  assert.match(buildScript, /EnableCompressionInSingleFile=false/);
   assert.match(buildScript, /Remove-StaleInstallerArtifacts/);
   assert.match(buildScript, /Write-InstallerLocalPathsManifest/);
   assert.match(buildScript, /_internal/);

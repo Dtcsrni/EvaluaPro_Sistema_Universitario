@@ -1026,10 +1026,7 @@ function Publish-BurnBootstrapperApp {
     '--self-contained', 'true',
     '-p:PublishSingleFile=true',
     '-p:IncludeNativeLibrariesForSelfExtract=true',
-    # La compresión del single-file hace que el runner Windows quede decenas de
-    # minutos sin progreso durante el publish. Burn ya comprime el bundle final;
-    # conservar la BA sin compresión mejora la terminación reproducible del gate.
-    '-p:EnableCompressionInSingleFile=false'
+    '-p:EnableCompressionInSingleFile=true'
   )
   if (![string]::IsNullOrEmpty($VersionTag)) {
     $publishArgs += @(

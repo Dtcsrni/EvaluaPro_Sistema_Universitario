@@ -1,7 +1,7 @@
 ---
 id: SPEC-RELEASE-STABLE-INSTALLER-FIRMA
 titulo: Gate estable exige instaladores firmados
-version: 1.1.0
+version: 1.0.0
 fecha: 2026-06-27
 autor: Codex / Agente IA
 modulo: release
@@ -27,7 +27,6 @@ Una promocion estable para usuarios finales de Windows no debe aprobarse si los 
 - **REQ-011:** Los procesos WiX del build deben tener timeout interno y limpiar procesos hijos para evitar builds colgados que dejen artefactos parciales.
 - **REQ-012:** `release:validate:stable` debe fallar si `docs/release/evidencias/<version>/manifest.json` no corresponde a la version objetivo.
 - **REQ-013:** El Installer Hub WPF no debe exponer configuracion avanzada legacy ni campos tecnicos de Mongo/puertos/CORS/licencia en la UI de usuario final; el flujo `docente-local` debe usar defaults internos verificables.
-- **REQ-014:** La publicación autocontenida de la Bootstrapper Application debe evitar compresión durante el build para terminar de forma reproducible en runners Windows; la compresión del artefacto final queda a cargo de Burn.
 
 ## Criterios de Aceptación
 - **AC-001 (REQ-001):** Un manifest completo con flavors requeridos y artefactos firmados permite aprobar el check de instalador.
@@ -43,7 +42,6 @@ Una promocion estable para usuarios finales de Windows no debe aprobarse si los 
 - **AC-011 (REQ-011):** `Invoke-WixBuildProcess` respeta `EVALUAPRO_WIX_PROCESS_TIMEOUT_SECONDS` y falla con mensaje accionable si WiX excede el tiempo permitido.
 - **AC-012 (REQ-012):** Una ejecucion con `--version=1.1.1` y evidencia `manifest.json` de `1.0.0` produce `No-Go` en `release-evidence`.
 - **AC-013 (REQ-013):** El contrato del Hub falla si aparecen `AdvancedConfigExpander`, `Configuración avanzada`, `Mongo URI`, `MongoDB` o controles XAML legacy de configuracion avanzada.
-- **AC-014 (REQ-014):** `Publish-BurnBootstrapperApp` usa `EnableCompressionInSingleFile=false` y el contract-check lo verifica.
 
 ## Matriz de Trazabilidad
 
