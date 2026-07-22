@@ -75,6 +75,9 @@ jobs:
         with:
           dotnet-version: 8.0.x
 
+      - name: Smoke servidor estático docente antes de instalar dependencias
+        run: node --test scripts/tests/docente-static-server-smoke.test.mjs
+
       - name: Instalar dependencias
         run: npm ci --foreground-scripts
 
@@ -195,9 +198,6 @@ jobs:
           EVALUAPRO_INSTALLER_AUTO_BOOTSTRAP_WSL: '1'
           EVALUAPRO_LICENSE_ACTIVATION_SIMULATE: '1'
         run: node --test scripts/tests/windows-release-smoke.test.mjs
-
-      - name: Smoke servidor estático docente antes de empaquetar
-        run: node --test scripts/tests/docente-static-server-smoke.test.mjs
 
       - name: Etapa build MSI + Bundle
         shell: powershell
