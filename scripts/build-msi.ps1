@@ -853,7 +853,12 @@ function Publish-BurnBootstrapperApp {
     $fileVersionInfo = [System.Diagnostics.FileVersionInfo]::GetVersionInfo($exePath)
     $fileVersion = [string]$fileVersionInfo.FileVersion
     $productVersion = [string]$fileVersionInfo.ProductVersion
-    if ($fileVersion -notlike "$VersionTag*" -or $productVersion -notlike "$VersionTag*") {
+    $expectedFileVersion = [regex]::Match($VersionTag, '^\d+(?:\.\d+){0,3}').Value
+    if ($expectedFileVersion.Split('.').Count -lt 4) {
+      $expectedFileVersion = "$expectedFileVersion.0"
+    }
+    $productMatches = $productVersion -like "$VersionTag*" -or $productVersion -like "$VersionTag+*"
+    if ($fileVersion -ne $expectedFileVersion -or -not $productMatches) {
       throw "Bootstrapper Application Burn publicada con version invalida. Esperada=$VersionTag, FileVersion=$fileVersion, ProductVersion=$productVersion, Path=$exePath"
     }
   }

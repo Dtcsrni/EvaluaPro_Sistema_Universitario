@@ -47,6 +47,7 @@ Una promocion estable para usuarios finales de Windows no debe aprobarse si los 
 - **AC-015 (REQ-015):** El servidor estático docente se respalda inmediatamente después del checkout, antes de instalaciones o limpiezas que puedan retirar scripts auxiliares.
 - **AC-016 (REQ-016):** En `workflow_dispatch`, el job de publicación hace checkout explícito de `inputs.head_sha`, sin sustituirlo por una salida ambigua del gate.
 - **AC-017 (REQ-017):** El smoke estático del flavor docente construye mediante `build:docente` y valida el directorio `dist-docente` servido por el runtime nativo.
+- **AC-018 (REQ-018):** La validación de la BA .NET compara `FileVersion` con la versión numérica de ensamblado y `ProductVersion` con la versión prerelease completa, incluido build metadata.
 
 ## Matriz de Trazabilidad
 
