@@ -139,7 +139,7 @@ jobs:
         uses: actions/checkout@v6
         with:
           fetch-depth: 0
-          ref: ${{ needs.beta_gate.outputs.head_sha }}
+          ref: ${{ github.event_name == 'workflow_dispatch' && inputs.head_sha || needs.beta_gate.outputs.head_sha }}
 
       - name: Respaldar servidor static docente
         shell: powershell
