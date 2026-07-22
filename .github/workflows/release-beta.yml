@@ -200,7 +200,28 @@ jobs:
         run: npm -C apps/frontend run build
 
       - name: Smoke servidor estático docente antes de empaquetar
-        run: node installer-docente-static-smoke.mjs
+        shell: powershell
+        run: |
+          $smoke = Join-Path $env:RUNNER_TEMP 'installer-docente-static-smoke.mjs'
+          @'
+          import assert from 'node:assert/strict';
+          import { spawn } from 'node:child_process';
+          const port = 4873;
+          const child = spawn(process.execPath, ['scripts/serve-docente-static.mjs'], { env: { ...process.env, PORT: String(port) }, stdio: ['ignore', 'pipe', 'pipe'] });
+          try {
+            const deadline = Date.now() + 10000;
+            let response;
+            while (Date.now() < deadline) {
+              try { response = await fetch(`http://127.0.0.1:${port}/`); break; }
+              catch { await new Promise((resolve) => setTimeout(resolve, 100)); }
+            }
+            assert.ok(response, 'el servidor estático no inició');
+            assert.equal(response.status, 200);
+            assert.match(await response.text(), /<html|<!doctype/i);
+            console.log('Smoke static docente: PASS');
+          } finally { if (!child.killed) child.kill(); }
+          '@ | Set-Content -LiteralPath $smoke -Encoding utf8
+          node $smoke
 
       - name: Etapa build MSI + Bundle
         shell: powershell
