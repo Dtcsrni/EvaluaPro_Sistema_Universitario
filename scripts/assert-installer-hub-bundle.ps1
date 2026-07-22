@@ -24,11 +24,12 @@ function Assert-VersionPrefix {
   )
 
   $expectedForField = $Expected
+  $escapedExpected = [Regex]::Escape($Expected)
   if ($Label -like '*FileVersion') {
     $expectedForField = [Regex]::Match($Expected, '^\d+(?:\.\d+){0,3}').Value
     if ($expectedForField.Split('.').Count -lt 4) { $expectedForField = "$expectedForField.0" }
+    $escapedExpected = [Regex]::Escape($expectedForField)
   }
-  $escapedExpected = [Regex]::Escape($expectedForField)
   $versionPattern = "^{0}($|[.+-])" -f $escapedExpected
   if ([string]::IsNullOrWhiteSpace($Actual) -or -not ([Regex]::IsMatch($Actual, $versionPattern, [System.Text.RegularExpressions.RegexOptions]::IgnoreCase))) {
     throw "$Label invalida. Esperada=$Expected, Actual=$Actual"
