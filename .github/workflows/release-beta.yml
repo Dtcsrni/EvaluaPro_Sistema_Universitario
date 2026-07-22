@@ -141,6 +141,10 @@ jobs:
           fetch-depth: 0
           ref: ${{ needs.beta_gate.outputs.head_sha }}
 
+      - name: Respaldar servidor static docente
+        shell: powershell
+        run: Copy-Item -LiteralPath scripts/serve-docente-static.mjs -Destination (Join-Path $env:RUNNER_TEMP 'serve-docente-static.mjs') -Force
+
       - name: Configurar Node.js
         uses: actions/setup-node@v6
         with:
@@ -187,10 +191,6 @@ jobs:
 
       - name: Etapa contract-check Installer Hub
         run: node --test scripts/tests/installer-hub-contract.test.mjs
-
-      - name: Respaldar servidor static docente
-        shell: powershell
-        run: Copy-Item -LiteralPath scripts/serve-docente-static.mjs -Destination (Join-Path $env:RUNNER_TEMP 'serve-docente-static.mjs') -Force
 
       - name: Etapa windows-release-smoke Installer Hub
         env:
