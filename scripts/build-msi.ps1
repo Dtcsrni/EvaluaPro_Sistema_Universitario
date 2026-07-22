@@ -664,16 +664,34 @@ function Invoke-WixBuildProcess {
   $wixErr = Join-Path $env:TEMP ("evaluapro-wix-build-{0}.err.log" -f [Guid]::NewGuid().ToString('N'))
   try {
     $proc = Start-Process -FilePath $WixExecutable -ArgumentList $Arguments -NoNewWindow -PassThru -RedirectStandardOutput $wixOut -RedirectStandardError $wixErr
-    if (-not $proc.WaitForExit($timeoutSeconds * 1000)) {
+    $deadline = (Get-Date).AddSeconds($timeoutSeconds)
+    while (-not $proc.HasExited -and (Get-Date) -lt $deadline) {
+      Start-Sleep -Milliseconds 250
+      try { $proc.Refresh() } catch { break }
+    }
+    if (-not $proc.HasExited) {
       if (Test-Path -LiteralPath $wixOut) {
         Get-Content -LiteralPath $wixOut -ErrorAction SilentlyContinue | Out-Host
       }
       if (Test-Path -LiteralPath $wixErr) {
         Get-Content -LiteralPath $wixErr -ErrorAction SilentlyContinue | Out-Host
       }
-      $children = @(Get-CimInstance Win32_Process -ErrorAction SilentlyContinue | Where-Object { $_.ParentProcessId -eq $proc.Id })
-      foreach ($child in $children) {
-        Stop-Process -Id ([int]$child.ProcessId) -Force -ErrorAction SilentlyContinue
+      $allProcesses = @(Get-CimInstance Win32_Process -ErrorAction SilentlyContinue)
+      $pending = [System.Collections.Generic.Queue[int]]::new()
+      $pending.Enqueue([int]$proc.Id)
+      $descendants = [System.Collections.Generic.List[int]]::new()
+      while ($pending.Count -gt 0) {
+        $parentId = $pending.Dequeue()
+        foreach ($child in @($allProcesses | Where-Object { [int]$_.ParentProcessId -eq $parentId })) {
+          $childId = [int]$child.ProcessId
+          if (-not $descendants.Contains($childId)) {
+            $descendants.Add($childId)
+            $pending.Enqueue($childId)
+          }
+        }
+      }
+      foreach ($childId in ($descendants | Sort-Object -Descending)) {
+        Stop-Process -Id $childId -Force -ErrorAction SilentlyContinue
       }
       Stop-Process -Id $proc.Id -Force -ErrorAction SilentlyContinue
       Start-Sleep -Seconds 1

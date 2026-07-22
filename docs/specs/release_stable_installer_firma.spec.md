@@ -39,7 +39,7 @@ Una promocion estable para usuarios finales de Windows no debe aprobarse si los 
 - **AC-008 (REQ-008):** `scripts/assert-installer-hub-bundle.ps1` extrae el bundle con WiX y valida metadata del bundle externo y del BA embebido.
 - **AC-009 (REQ-009):** Un manifest firmado pero generado para otra version produce `No-Go` en `installer-multi-flavor`.
 - **AC-010 (REQ-010):** `ci-installer-windows.yml` usa `make_latest:false` y `release-stable-gate.yml` ejecuta `gh release edit ... --latest` solo despues del gate.
-- **AC-011 (REQ-011):** `Invoke-WixBuildProcess` respeta `EVALUAPRO_WIX_PROCESS_TIMEOUT_SECONDS` y falla con mensaje accionable si WiX excede el tiempo permitido.
+- **AC-011 (REQ-011):** `Invoke-WixBuildProcess` respeta `EVALUAPRO_WIX_PROCESS_TIMEOUT_SECONDS`, supervisa el proceso sin quedar bloqueado en `WaitForExit`, limpia descendientes y falla con mensaje accionable incluyendo stdout/stderr si WiX excede el tiempo permitido.
 - **AC-012 (REQ-012):** Una ejecucion con `--version=1.1.1` y evidencia `manifest.json` de `1.0.0` produce `No-Go` en `release-evidence`.
 - **AC-013 (REQ-013):** El contrato del Hub falla si aparecen `AdvancedConfigExpander`, `Configuración avanzada`, `Mongo URI`, `MongoDB` o controles XAML legacy de configuracion avanzada.
 

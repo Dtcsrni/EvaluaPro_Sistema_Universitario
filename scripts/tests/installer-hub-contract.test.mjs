@@ -220,7 +220,8 @@ test('build-msi valida contenedor adjunto Burn antes de publicar bundle', () => 
   assert.match(buildMsi, /function Assert-BurnBundleAttachedContainer/);
   assert.match(buildMsi, /EVALUAPRO_WIX_PROCESS_TIMEOUT_SECONDS/);
   assert.match(buildMsi, /WiX excedio timeout/);
-  assert.match(buildMsi, /ParentProcessId -eq \$proc\.Id/);
+  assert.match(buildMsi, /ParentProcessId -eq \$parentId/);
+  assert.match(buildMsi, /while \(-not \$proc\.HasExited/);
   assert.match(buildMsi, /'burn', 'extract'/);
   assert.match(buildMsi, /MinimumPayloadBytes/);
   assert.match(buildMsi, /Assert-BurnBundleAttachedContainer -WixExecutable \$wixExe -BundlePath \$bundleOut/);
