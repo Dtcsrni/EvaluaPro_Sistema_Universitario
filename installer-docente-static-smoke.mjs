@@ -1,4 +1,4 @@
-/** Smoke de runtime del servidor estático docente-local tras empaquetar. */
+/** Smoke de runtime del servidor estático docente-local. */
 import assert from 'node:assert/strict';
 import { spawn } from 'node:child_process';
 

@@ -200,7 +200,7 @@ jobs:
         run: npm -C apps/frontend run build
 
       - name: Smoke servidor estático docente antes de empaquetar
-        run: node scripts/installer-docente-static-smoke.mjs
+        run: node installer-docente-static-smoke.mjs
 
       - name: Etapa build MSI + Bundle
         shell: powershell
