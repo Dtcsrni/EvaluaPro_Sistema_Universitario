@@ -1,7 +1,7 @@
 {
   "name": "evaluapro",
   "description": "Plataforma para evaluación universitaria: generación de exámenes en PDF, vinculación por QR, calificación asistida (OMR), operación docente local nativa y dashboard.",
-  "version": "1.1.1",
+  "version": "0.0.0-dev",
   "author": {
     "name": "I.S.C. Erick Renato Vega Ceron",
     "email": "armsystechno@gmail.com"

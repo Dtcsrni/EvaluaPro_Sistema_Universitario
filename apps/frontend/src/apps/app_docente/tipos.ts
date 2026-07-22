@@ -492,17 +492,8 @@ export type ExamenGeneradoClave = {
   mapaVariante?: {
     ordenPreguntas?: string[];
     ordenOpcionesPorPregunta?: Record<string, number[]>;
-    versions?: Record<string, {
-      ordenPreguntas?: string[];
-      ordenOpcionesPorPregunta?: Record<string, number[]>;
-    }>;
   };
   preguntasIds?: string[];
-  answerKeySet?: Record<string, Array<{
-    numeroPregunta?: number;
-    idPregunta?: string;
-    correcta?: string | null;
-  }>>;
 };
 
 export type SolicitudRevisionAlumno = {

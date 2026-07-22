@@ -21,64 +21,6 @@ $ZipOutFile = Join-Path $RepoRoot "evaluapro-native-dist.zip"
 
 Write-Host "Iniciando compilacion nativa de EvaluaPro..." -ForegroundColor Cyan
 
-function Stop-ProcessTree {
-    param([Parameter(Mandatory = $true)][int]$ProcessId)
-    $children = @(Get-CimInstance Win32_Process -Filter "ParentProcessId=$ProcessId" -ErrorAction SilentlyContinue)
-    foreach ($child in $children) {
-        Stop-ProcessTree -ProcessId ([int]$child.ProcessId)
-    }
-    Stop-Process -Id $ProcessId -Force -ErrorAction SilentlyContinue
-}
-
-function Invoke-BoundedCommand {
-    param(
-        [Parameter(Mandatory = $true)][string]$FilePath,
-        [Parameter(Mandatory = $true)][string[]]$ArgumentList,
-        [Parameter(Mandatory = $true)][string]$WorkingDirectory,
-        [Parameter(Mandatory = $true)][int]$TimeoutSeconds,
-        [Parameter(Mandatory = $true)][string]$Stage
-    )
-    $psi = New-Object System.Diagnostics.ProcessStartInfo
-    $psi.FileName = $FilePath
-    $psi.WorkingDirectory = $WorkingDirectory
-    $psi.UseShellExecute = $false
-    $psi.CreateNoWindow = $true
-    $psi.RedirectStandardOutput = $true
-    $psi.RedirectStandardError = $true
-    $psi.Arguments = (($ArgumentList | ForEach-Object {
-        $value = [string]$_
-        if ($value -match '[\s"]') { '"' + ($value -replace '"', '\\"') + '"' } else { $value }
-    }) -join ' ')
-    $process = New-Object System.Diagnostics.Process
-    $process.StartInfo = $psi
-    try {
-        Write-Host "[$Stage] iniciado (timeout=${TimeoutSeconds}s)" -ForegroundColor DarkCyan
-        if (-not $process.Start()) { throw "No se pudo iniciar $FilePath" }
-        $stdoutTask = $process.StandardOutput.ReadToEndAsync()
-        $stderrTask = $process.StandardError.ReadToEndAsync()
-        if (-not $process.WaitForExit($TimeoutSeconds * 1000)) {
-            $pid = $process.Id
-            Stop-ProcessTree -ProcessId $pid
-            throw "Etapa '$Stage' excedio ${TimeoutSeconds}s; se termino su arbol de procesos (pid=$pid)."
-        }
-        $stdout = $stdoutTask.GetAwaiter().GetResult()
-        $stderr = $stderrTask.GetAwaiter().GetResult()
-        if ($stdout) { Write-Host $stdout.TrimEnd() }
-        if ($stderr) { Write-Host $stderr.TrimEnd() -ForegroundColor DarkYellow }
-        if ($process.ExitCode -ne 0) {
-            throw "Etapa '$Stage' fallo con exit=$($process.ExitCode)."
-        }
-        Write-Host "[$Stage] completado" -ForegroundColor DarkGreen
-    } finally {
-        $process.Dispose()
-    }
-}
-
-$npmCommand = if ($env:OS -eq 'Windows_NT') {
-    $resolvedNpm = Get-Command npm.cmd -ErrorAction Stop
-    [string]$resolvedNpm.Source
-} else { 'npm' }
-
 # 1. Limpiar directorio previo
 if (Test-Path $DistNativeDir) {
     Remove-Item -Path $DistNativeDir -Recurse -Force
@@ -95,7 +37,7 @@ Write-Host "Compilando Frontend (Perfil Docente)..." -ForegroundColor Yellow
 Set-Location (Join-Path $RepoRoot "apps/frontend")
 # Forzamos que las peticiones vayan al puerto 4000 local del servidor Node
 $env:VITE_API_BASE_URL = "http://localhost:4000/api"
-Invoke-BoundedCommand -FilePath $npmCommand -ArgumentList @('run', 'build:docente') -WorkingDirectory (Get-Location).Path -TimeoutSeconds 300 -Stage 'frontend-build'
+npm run build:docente
 
 Write-Host "Copiando estaticos del frontend..." -ForegroundColor Yellow
 Copy-Item -Path "dist-docente\*" -Destination $FrontendDistDir -Recurse -Force
@@ -103,13 +45,11 @@ Copy-Item -Path "dist-docente\*" -Destination $FrontendDistDir -Recurse -Force
 # 3. Compilar Backend
 Write-Host "Compilando Backend..." -ForegroundColor Yellow
 Set-Location (Join-Path $RepoRoot "apps/backend")
-Invoke-BoundedCommand -FilePath $npmCommand -ArgumentList @('run', 'build') -WorkingDirectory (Get-Location).Path -TimeoutSeconds 300 -Stage 'backend-build'
+npm run build
 
 Write-Host "Preparando payload del backend..." -ForegroundColor Yellow
 # Copiar transpilaos
 Copy-Item -Path "dist\*" -Destination $BackendDistDir -Recurse -Force
-New-Item -ItemType Directory -Path (Join-Path $BackendDistDir "modulos\modulo_analiticas\plantillas") -Force | Out-Null
-Copy-Item -LiteralPath (Join-Path $RepoRoot "apps\backend\src\modulos\modulo_analiticas\plantillas\LIBRO_CALIFICACIONES_PRODUCCION_BASE_SANITIZADA.xlsx") -Destination (Join-Path $BackendDistDir "modulos\modulo_analiticas\plantillas") -Force
 # Copiar configuraciones y esquemas necesarios
 Copy-Item -Path "package.json", "package-lock.json" -Destination $BackendDistDir
 Copy-Item -Path "prisma" -Destination $BackendDistDir -Recurse
@@ -118,8 +58,8 @@ Copy-Item -Path "prisma" -Destination $BackendDistDir -Recurse
 Write-Host "Instalando dependencias de produccion nativas en dist-native..." -ForegroundColor Yellow
 Set-Location $BackendDistDir
 # Instalar dependencias ignorando dev y ejecutando prisma generate para Windows
-Invoke-BoundedCommand -FilePath $npmCommand -ArgumentList @('ci', '--omit=dev', '--ignore-scripts') -WorkingDirectory (Get-Location).Path -TimeoutSeconds 600 -Stage 'native-dependencies'
-Invoke-BoundedCommand -FilePath $npmCommand -ArgumentList @('exec', '--', 'prisma', 'generate') -WorkingDirectory (Get-Location).Path -TimeoutSeconds 180 -Stage 'native-prisma-generate'
+npm ci --omit=dev --ignore-scripts
+npx prisma generate
 
 # 5. Empaquetar
 Write-Host "Generando paquete .zip ($ZipOutFile)..." -ForegroundColor Yellow

@@ -5,23 +5,8 @@ Este archivo sigue el formato "Keep a Changelog" (alto nivel) y SemVer.
 ## [Unreleased]
 
 ### Fixed
-- Respaldos manuales docente: el paquete gzip ahora se encapsula con AES-256-GCM, valida propietario y autenticidad antes de restaurar, conserva lectura de paquetes legacy y muestra "Cifrado autenticado" en la UI; el journey visual confirmó exportación/importación.
-- Licenciamiento comercial del Hub: el post-install ejecuta activación cuando se solicita, persiste token con DPAPI/MAC y expone evaluación local activa/gracia/comunitaria; el grace configurable queda con mínimo de 90 días y se conserva ante fallo online.
-- Heartbeat comercial: se corrigió el cálculo de horas desde el último heartbeat y se añadió cliente seguro de heartbeat con nonce/contador.
-- Installer Hub docente: saneamiento determinista del `schema.sql` generado por Prisma; se elimina cualquier aviso de consola recodificado antes de empaquetar SQLite.
-- E2E Installer Hub: cierre controlado del Hub tras estado final (cierre normal y terminación exclusiva de su árbol si persiste), evitando esperas indefinidas entre repair/uninstall.
-- Desinstalación docente: respaldo ZIP seguro por defecto cuando el control WPF no es accesible; Resilient16–18 verifican restauración de `evaluapro.db` y limpieza de instalación/registro.
-- Evidencia QA: tres ciclos consecutivos limpios del flavor `docente-local` (`Resilient27–29`), cada uno con 56 resultados, sin fallos y confirmación visual; SHA-256 y CRC32 válidos. La firma Authenticode queda pendiente por falta de clave privada disponible en este entorno.
-- Resiliencia Hub: el post-install dejó el dashboard bajo demanda para evitar carreras de puerto; el E2E verifica consentimientos con estado UIAutomation y el broker reintenta la publicación final de salud dentro de una ventana acotada.
-- OMR TV3: gate por folio verde con 30 capturas y 208 preguntas; TV4 queda pendiente de capturas y ground truth del piloto real.
 - Build MSI: `git ls-files` del staging ahora tiene timeout y fallback acotado; una sesión Git bloqueada ya no congela todo el empaquetado.
 - Build docente nativo: el staging genera Prisma únicamente con el engine Windows `native` y evita bloquearse intentando resolver el engine Linux no utilizado por este flavor.
-- E2E académico nativo: el launcher prepara una SQLite aislada con el esquema Prisma, construye el frontend docente sin PWA y fija explícitamente la API local; el ciclo visual real de registro, periodo, materia y alumno pasó contra API/web nativos.
-- E2E journey docente integral: el launcher levanta API, web y portal alumno reales con SQLite temporal; tres repeticiones visuales verifican banco, plantilla, generación/descarga OMR, entrega, evaluación, calificación, publicación y código de acceso.
-- Flujo docente-alumno: el E2E levanta también el frontend alumno en `4174`, verifica acceso, folio y detalle contra el portal local real; generar código vuelve a publicar de forma idempotente para que el código recién creado no quede solo en SQLite docente.
-- Runtime nativo E2E: CORS agrega de forma idempotente el origen alumno `4174` solo durante el build de prueba, conservando orígenes explícitos del entorno.
-- Calificación manual: usa la clave persistida y la variante autoritativa del examen generado; el payload manual ya no envía respuestas OMR sin `omrAnalisis`.
-- UI docente: evita finalizar jobs OMR terminales y limita calificación/ponderación de evidencias manuales a 0–10, alineado con validación backend.
 - E2E docente: agregado modo de build aislado (`-IsolateBundleIdentity`) para no relacionar instalaciones QA con bundles per-machine antiguos; queda explícitamente fuera de publicación.
 - QA UIAutomation: evita referencias nulas cuando el Hub no expone la ventana y conserva el diagnóstico de arranque en vez de reportar un crash del harness.
 - Installer Hub: el carrusel embebido conserva el logo oficial únicamente en el encabezado; sus tarjetas usan iconografía funcional y una prueba de contrato bloquea la redundancia de marca.

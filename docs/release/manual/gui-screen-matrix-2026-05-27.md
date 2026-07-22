@@ -28,7 +28,7 @@ Criterio UX: cada pantalla debe sostener una accion primaria clara, jerarquia vi
 - Accion primaria esperada: Iniciar sesion docente
 - Simplicidad: Mantener jerarquia clara, densidad operativa y evitar decoracion sin funcion.
 - Feedback: Mostrar loading/empty/error/warning/success cerca del elemento afectado.
-- Estados: ready, loading, empty, active, error, warning, degraded, restart-required, success
+- Estados: loading, empty, error, warning, success
 - Viewports: desktop, tablet, mobile
 - Evidencia: `npm run test:gui:responsive:e2e:ci`
 - Artefacto: `reports/qa/latest/gui-docente-login-desktop-lg.png`
@@ -54,7 +54,7 @@ Criterio UX: cada pantalla debe sostener una accion primaria clara, jerarquia vi
 - Accion primaria esperada: Crear o editar materia/periodo
 - Simplicidad: Mantener jerarquia clara, densidad operativa y evitar decoracion sin funcion.
 - Feedback: Mostrar loading/empty/error/warning/success cerca del elemento afectado.
-- Estados: ready, loading, empty, active, error, warning, degraded, restart-required, success
+- Estados: loading, empty, error, warning, success
 - Viewports: desktop, tablet, mobile
 - Evidencia: `npm run test:ux-quality:ci && npm run test:ux-visual:ci`
 - Artefacto: `reports/qa/latest/ux-visual.json`
@@ -80,7 +80,7 @@ Criterio UX: cada pantalla debe sostener una accion primaria clara, jerarquia vi
 - Accion primaria esperada: Registrar o actualizar alumno
 - Simplicidad: Mantener jerarquia clara, densidad operativa y evitar decoracion sin funcion.
 - Feedback: Mostrar loading/empty/error/warning/success cerca del elemento afectado.
-- Estados: ready, loading, empty, active, error, warning, degraded, restart-required, success
+- Estados: loading, empty, error, warning, success
 - Viewports: desktop, tablet, mobile
 - Evidencia: `npm run test:ux-quality:ci && npm run test:ux-visual:ci`
 - Artefacto: `reports/qa/latest/ux-visual.json`
@@ -106,7 +106,7 @@ Criterio UX: cada pantalla debe sostener una accion primaria clara, jerarquia vi
 - Accion primaria esperada: Crear o ajustar pregunta
 - Simplicidad: Mantener jerarquia clara, densidad operativa y evitar decoracion sin funcion.
 - Feedback: Mostrar loading/empty/error/warning/success cerca del elemento afectado.
-- Estados: ready, loading, empty, active, error, warning, degraded, restart-required, success
+- Estados: loading, empty, error, warning, success
 - Viewports: desktop, tablet, mobile
 - Evidencia: `npm run test:ux-quality:ci && npm run test:ux-visual:ci`
 - Artefacto: `reports/qa/latest/ux-visual.json`
@@ -132,7 +132,7 @@ Criterio UX: cada pantalla debe sostener una accion primaria clara, jerarquia vi
 - Accion primaria esperada: Generar o previsualizar plantilla
 - Simplicidad: Mantener jerarquia clara, densidad operativa y evitar decoracion sin funcion.
 - Feedback: Mostrar loading/empty/error/warning/success cerca del elemento afectado.
-- Estados: ready, loading, empty, active, error, warning, degraded, restart-required, success
+- Estados: loading, empty, error, warning, success
 - Viewports: desktop, tablet, mobile
 - Evidencia: `npm run test:ux-quality:ci && npm run test:ux-visual:ci`
 - Artefacto: `reports/qa/latest/ux-visual.json`
@@ -158,7 +158,7 @@ Criterio UX: cada pantalla debe sostener una accion primaria clara, jerarquia vi
 - Accion primaria esperada: Registrar entrega o recuperar lote
 - Simplicidad: Mantener jerarquia clara, densidad operativa y evitar decoracion sin funcion.
 - Feedback: Mostrar loading/empty/error/warning/success cerca del elemento afectado.
-- Estados: ready, loading, empty, active, error, warning, degraded, restart-required, success
+- Estados: loading, empty, error, warning, success
 - Viewports: desktop, tablet, mobile
 - Evidencia: `npm run test:ux-quality:ci && npm run test:ux-visual:ci`
 - Artefacto: `reports/qa/latest/ux-visual.json`
@@ -184,7 +184,7 @@ Criterio UX: cada pantalla debe sostener una accion primaria clara, jerarquia vi
 - Accion primaria esperada: Revisar y publicar calificacion
 - Simplicidad: Mantener jerarquia clara, densidad operativa y evitar decoracion sin funcion.
 - Feedback: Mostrar loading/empty/error/warning/success cerca del elemento afectado.
-- Estados: ready, loading, empty, active, error, warning, degraded, restart-required, success
+- Estados: loading, empty, error, warning, success
 - Viewports: desktop, tablet, mobile
 - Evidencia: `npm run test:ux-quality:ci && npm run test:ux-visual:ci`
 - Artefacto: `reports/qa/latest/ux-visual.json`
@@ -209,7 +209,7 @@ Criterio UX: cada pantalla debe sostener una accion primaria clara, jerarquia vi
 - Accion primaria esperada: Importar lote para rehidratacion
 - Simplicidad: Mantener jerarquia clara, densidad operativa y evitar decoracion sin funcion.
 - Feedback: Mostrar loading/empty/error/warning/success cerca del elemento afectado.
-- Estados: ready, loading, empty, active, error, warning, degraded, restart-required, success
+- Estados: loading, empty, error, warning, success
 - Viewports: desktop, tablet, mobile
 - Evidencia: `npm run test:ux-quality:ci && npm run test:ux-visual:ci`
 - Artefacto: `reports/qa/latest/ux-visual.json`
@@ -235,7 +235,7 @@ Criterio UX: cada pantalla debe sostener una accion primaria clara, jerarquia vi
 - Accion primaria esperada: Configurar o revisar evaluacion
 - Simplicidad: Mantener jerarquia clara, densidad operativa y evitar decoracion sin funcion.
 - Feedback: Mostrar loading/empty/error/warning/success cerca del elemento afectado.
-- Estados: ready, loading, empty, active, error, warning, degraded, restart-required, success
+- Estados: loading, empty, error, warning, success
 - Viewports: desktop, tablet, mobile
 - Evidencia: `npm run test:ux-quality:ci && npm run test:ux-visual:ci`
 - Artefacto: `reports/qa/latest/ux-visual.json`
@@ -261,7 +261,7 @@ Criterio UX: cada pantalla debe sostener una accion primaria clara, jerarquia vi
 - Accion primaria esperada: Publicar o sincronizar datos
 - Simplicidad: Mantener jerarquia clara, densidad operativa y evitar decoracion sin funcion.
 - Feedback: Mostrar loading/empty/error/warning/success cerca del elemento afectado.
-- Estados: ready, loading, empty, active, error, warning, degraded, restart-required, success
+- Estados: loading, empty, error, warning, success
 - Viewports: desktop, tablet, mobile
 - Evidencia: `npm run test:ux-quality:ci && npm run test:ux-visual:ci`
 - Artefacto: `reports/qa/latest/ux-visual.json`
@@ -287,7 +287,7 @@ Criterio UX: cada pantalla debe sostener una accion primaria clara, jerarquia vi
 - Accion primaria esperada: Gestionar sesion docente
 - Simplicidad: Mantener jerarquia clara, densidad operativa y evitar decoracion sin funcion.
 - Feedback: Mostrar loading/empty/error/warning/success cerca del elemento afectado.
-- Estados: ready, loading, empty, active, error, warning, degraded, restart-required, success
+- Estados: loading, empty, error, warning, success
 - Viewports: desktop, tablet, mobile
 - Evidencia: `npm run test:ux-quality:ci && npm run test:ux-visual:ci`
 - Artefacto: `reports/qa/latest/ux-visual.json`
@@ -313,7 +313,7 @@ Criterio UX: cada pantalla debe sostener una accion primaria clara, jerarquia vi
 - Accion primaria esperada: Consultar resultados
 - Simplicidad: Mantener jerarquia clara, densidad operativa y evitar decoracion sin funcion.
 - Feedback: Mostrar loading/empty/error/warning/success cerca del elemento afectado.
-- Estados: ready, loading, empty, active, error, warning, degraded, restart-required, success
+- Estados: loading, empty, error, warning, success
 - Viewports: desktop, tablet, mobile
 - Evidencia: `npm run test:gui:responsive:e2e:ci`
 - Artefacto: `reports/qa/latest/ux-visual.json`
@@ -340,7 +340,7 @@ Criterio UX: cada pantalla debe sostener una accion primaria clara, jerarquia vi
 - Accion primaria esperada: Revisar detalle o solicitar revision
 - Simplicidad: Mantener jerarquia clara, densidad operativa y evitar decoracion sin funcion.
 - Feedback: Mostrar loading/empty/error/warning/success cerca del elemento afectado.
-- Estados: ready, loading, empty, active, error, warning, degraded, restart-required, success
+- Estados: loading, empty, error, warning, success
 - Viewports: desktop, tablet, mobile
 - Evidencia: `npm run test:ux-quality:ci && npm run test:ux-visual:ci`
 - Artefacto: `reports/qa/latest/ux-visual.json`
@@ -367,7 +367,7 @@ Criterio UX: cada pantalla debe sostener una accion primaria clara, jerarquia vi
 - Accion primaria esperada: Recargar tablero de negocio
 - Simplicidad: Mantener jerarquia clara, densidad operativa y evitar decoracion sin funcion.
 - Feedback: Mostrar loading/empty/error/warning/success cerca del elemento afectado.
-- Estados: ready, loading, empty, active, error, warning, degraded, restart-required, success
+- Estados: loading, empty, error, warning, success
 - Viewports: desktop, tablet, mobile
 - Evidencia: `npm run test:gui:responsive:e2e:ci`
 - Artefacto: `reports/qa/latest/ux-visual.json`
@@ -393,7 +393,7 @@ Criterio UX: cada pantalla debe sostener una accion primaria clara, jerarquia vi
 - Accion primaria esperada: Revisar tenant o soporte
 - Simplicidad: Mantener jerarquia clara, densidad operativa y evitar decoracion sin funcion.
 - Feedback: Mostrar loading/empty/error/warning/success cerca del elemento afectado.
-- Estados: ready, loading, empty, active, error, warning, degraded, restart-required, success
+- Estados: loading, empty, error, warning, success
 - Viewports: desktop, tablet, mobile
 - Evidencia: `npm run test:ux-quality:ci && npm run test:ux-visual:ci`
 - Artefacto: `reports/qa/latest/ux-visual.json`
@@ -419,7 +419,7 @@ Criterio UX: cada pantalla debe sostener una accion primaria clara, jerarquia vi
 - Accion primaria esperada: Verificar runtime local
 - Simplicidad: Mantener jerarquia clara, densidad operativa y evitar decoracion sin funcion.
 - Feedback: Mostrar loading/empty/error/warning/success cerca del elemento afectado.
-- Estados: ready, loading, empty, active, error, warning, degraded, restart-required, success
+- Estados: loading, empty, error, warning, success
 - Viewports: desktop, tablet, mobile
 - Evidencia: `npm run test:dashboard:repair && npm run test:dashboard:ui`
 - Artefacto: `reports/qa/latest/manifest.json`
@@ -443,7 +443,7 @@ Criterio UX: cada pantalla debe sostener una accion primaria clara, jerarquia vi
 - Accion primaria esperada: Revisar version o update
 - Simplicidad: Mantener jerarquia clara, densidad operativa y evitar decoracion sin funcion.
 - Feedback: Mostrar loading/empty/error/warning/success cerca del elemento afectado.
-- Estados: ready, loading, empty, active, error, warning, degraded, restart-required, success
+- Estados: loading, empty, error, warning, success
 - Viewports: desktop, tablet, mobile
 - Evidencia: `npm run test:update && npm run test:dashboard:repair`
 - Artefacto: `reports/qa/latest/manifest.json`
@@ -467,7 +467,7 @@ Criterio UX: cada pantalla debe sostener una accion primaria clara, jerarquia vi
 - Accion primaria esperada: Seleccionar modo y continuar
 - Simplicidad: Mantener jerarquia clara, densidad operativa y evitar decoracion sin funcion.
 - Feedback: Mostrar loading/empty/error/warning/success cerca del elemento afectado.
-- Estados: ready, loading, empty, active, error, warning, degraded, restart-required, success
+- Estados: loading, empty, error, warning, success
 - Viewports: desktop, tablet, mobile
 - Evidencia: `npm run test:installer-hub:contract && npm run test:installer-hub:ui`
 - Artefacto: `reports/qa/installer-hub-ui/`
@@ -491,7 +491,7 @@ Criterio UX: cada pantalla debe sostener una accion primaria clara, jerarquia vi
 - Accion primaria esperada: Revisar equipo o remediar requisito
 - Simplicidad: Mantener jerarquia clara, densidad operativa y evitar decoracion sin funcion.
 - Feedback: Mostrar loading/empty/error/warning/success cerca del elemento afectado.
-- Estados: ready, loading, empty, active, error, warning, degraded, restart-required, success
+- Estados: loading, empty, error, warning, success
 - Viewports: desktop, tablet, mobile
 - Evidencia: `npm run test:installer-hub:contract && npm run test:installer-hub:ui`
 - Artefacto: `reports/qa/installer-hub-ui/`
@@ -515,7 +515,7 @@ Criterio UX: cada pantalla debe sostener una accion primaria clara, jerarquia vi
 - Accion primaria esperada: Cerrar, reintentar o abrir evidencia
 - Simplicidad: Mantener jerarquia clara, densidad operativa y evitar decoracion sin funcion.
 - Feedback: Mostrar loading/empty/error/warning/success cerca del elemento afectado.
-- Estados: ready, loading, empty, active, error, warning, degraded, restart-required, success
+- Estados: loading, empty, error, warning, success
 - Viewports: desktop, tablet, mobile
 - Evidencia: `npm run test:installer-hub:contract && npm run test:installer-hub:ui`
 - Artefacto: `reports/qa/installer-hub-ui/`

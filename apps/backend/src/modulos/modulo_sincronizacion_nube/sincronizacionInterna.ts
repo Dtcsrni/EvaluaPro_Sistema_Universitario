@@ -4,15 +4,11 @@
  * Responsabilidad: Modulo interno del sistema.
  * Limites: Mantener contrato y comportamiento observable del modulo.
  */
-import { createCipheriv, createDecipheriv, createHash, randomBytes, scryptSync } from 'crypto';
+import { createHash, randomBytes } from 'crypto';
 import { gzipSync } from 'zlib';
 import { ErrorAplicacion } from '../../compartido/errores/errorAplicacion';
-import { configuracion } from '../../configuracion';
 
 export const MAX_BASE64_CHARS = 60_000_000; // ~45MB binario aprox
-const RESPALDO_CIFRADO_FORMATO = 'evaluapro-sync-encrypted';
-const RESPALDO_CIFRADO_VERSION = 1;
-const RESPALDO_CIFRADO_ALGORITMO = 'aes-256-gcm';
 
 export type PaqueteSincronizacionV2 = {
   schemaVersion: 2;
@@ -78,87 +74,6 @@ export function sha256HexBuffer(buf: Buffer) {
 export function normalizarCorreo(valor: unknown): string {
   if (!valor) return '';
   return String(valor).trim().toLowerCase();
-}
-
-function obtenerClaveRespaldo(docenteCorreo: string): Buffer {
-  const secreto = String(configuracion.respaldoCifradoSecreto || '').trim();
-  const propietario = normalizarCorreo(docenteCorreo);
-  if (!secreto || !propietario) {
-    throw new ErrorAplicacion(
-      'SYNC_CIFRADO_NO_CONFIGURADO',
-      'No se puede cifrar o descifrar el respaldo: falta identificar al propietario',
-      503
-    );
-  }
-  return scryptSync(secreto, `EvaluaPro:backup:${propietario}`, 32, { N: 16_384, r: 8, p: 1 });
-}
-
-/**
- * Cifra el gzip del respaldo con autenticación AEAD. El propietario se usa
- * como contexto de derivación y AAD; no se guarda el correo dentro del sobre.
- */
-export function cifrarRespaldo(gzipBytes: Buffer, docenteCorreo: string): Buffer {
-  const propietario = normalizarCorreo(docenteCorreo);
-  const clave = obtenerClaveRespaldo(propietario);
-  const iv = randomBytes(12);
-  const aad = Buffer.from(`EvaluaPro:${RESPALDO_CIFRADO_FORMATO}:v${RESPALDO_CIFRADO_VERSION}:${propietario}`, 'utf8');
-  const cipher = createCipheriv(RESPALDO_CIFRADO_ALGORITMO, clave, iv);
-  cipher.setAAD(aad);
-  const ciphertext = Buffer.concat([cipher.update(gzipBytes), cipher.final()]);
-  const sobre = {
-    formato: RESPALDO_CIFRADO_FORMATO,
-    version: RESPALDO_CIFRADO_VERSION,
-    algoritmo: RESPALDO_CIFRADO_ALGORITMO,
-    propietarioHash: sha256Hex(propietario),
-    iv: iv.toString('base64'),
-    authTag: cipher.getAuthTag().toString('base64'),
-    ciphertext: ciphertext.toString('base64')
-  };
-  return Buffer.from(JSON.stringify(sobre), 'utf8');
-}
-
-/**
- * Descifra sobres nuevos y conserva importación de gzip plano legado para
- * permitir migrar respaldos anteriores de forma explícita y auditable.
- */
-export function descifrarRespaldo(payload: Buffer, docenteCorreo: string): { gzipBytes: Buffer; cifrado: boolean } {
-  let sobre: {
-    formato?: unknown;
-    version?: unknown;
-    algoritmo?: unknown;
-    propietarioHash?: unknown;
-    iv?: unknown;
-    authTag?: unknown;
-    ciphertext?: unknown;
-  };
-  try {
-    sobre = JSON.parse(payload.toString('utf8')) as typeof sobre;
-  } catch {
-    return { gzipBytes: payload, cifrado: false };
-  }
-  if (sobre?.formato !== RESPALDO_CIFRADO_FORMATO) {
-    return { gzipBytes: payload, cifrado: false };
-  }
-  const propietario = normalizarCorreo(docenteCorreo);
-  if (Number(sobre.version) !== RESPALDO_CIFRADO_VERSION || sobre.algoritmo !== RESPALDO_CIFRADO_ALGORITMO) {
-    throw new ErrorAplicacion('SYNC_CIFRADO_VERSION', 'Version de cifrado de respaldo no soportada', 400);
-  }
-  if (String(sobre.propietarioHash || '').toLowerCase() !== sha256Hex(propietario).toLowerCase()) {
-    throw new ErrorAplicacion('SYNC_CIFRADO_PROPIETARIO', 'El respaldo no corresponde al propietario autenticado', 403);
-  }
-  try {
-    const iv = Buffer.from(String(sobre.iv || ''), 'base64');
-    const authTag = Buffer.from(String(sobre.authTag || ''), 'base64');
-    const ciphertext = Buffer.from(String(sobre.ciphertext || ''), 'base64');
-    if (iv.length !== 12 || authTag.length !== 16 || ciphertext.length === 0) throw new Error('sobre incompleto');
-    const aad = Buffer.from(`EvaluaPro:${RESPALDO_CIFRADO_FORMATO}:v${RESPALDO_CIFRADO_VERSION}:${propietario}`, 'utf8');
-    const decipher = createDecipheriv(RESPALDO_CIFRADO_ALGORITMO, obtenerClaveRespaldo(propietario), iv);
-    decipher.setAAD(aad);
-    decipher.setAuthTag(authTag);
-    return { gzipBytes: Buffer.concat([decipher.update(ciphertext), decipher.final()]), cifrado: true };
-  } catch {
-    throw new ErrorAplicacion('SYNC_CIFRADO_INVALIDO', 'El respaldo no pudo autenticarse; puede estar corrupto o alterado', 400);
-  }
 }
 
 export function obtenerCampo(doc: unknown, campo: string): unknown {

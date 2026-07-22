@@ -2,7 +2,6 @@
  * Exportacion XLSX de calificaciones con formato 1:1 de plantilla productiva.
  */
 import path from 'node:path';
-import fs from 'node:fs';
 import { Workbook, type Worksheet } from 'exceljs';
 
 type AlumnoFila = {
@@ -31,21 +30,10 @@ type OpcionesLibro = {
   calificaciones: CalificacionFila[];
 };
 
-const NOMBRE_PLANTILLA = 'LIBRO_CALIFICACIONES_PRODUCCION_BASE_SANITIZADA.xlsx';
-
-function obtenerRutaPlantilla(): string {
-  const candidatos = [
-    path.resolve(process.cwd(), 'apps/backend/src/modulos/modulo_analiticas/plantillas', NOMBRE_PLANTILLA),
-    path.resolve(process.cwd(), 'src/modulos/modulo_analiticas/plantillas', NOMBRE_PLANTILLA),
-    path.resolve(__dirname, 'plantillas', NOMBRE_PLANTILLA),
-    path.resolve(__dirname, '../../../../src/modulos/modulo_analiticas/plantillas', NOMBRE_PLANTILLA)
-  ];
-  const encontrada = candidatos.find((candidato) => fs.existsSync(candidato));
-  if (!encontrada) {
-    throw new Error(`Plantilla XLSX no encontrada: ${NOMBRE_PLANTILLA}; rutas revisadas: ${candidatos.join(' | ')}`);
-  }
-  return encontrada;
-}
+const RUTA_PLANTILLA = path.resolve(
+  process.cwd(),
+  'src/modulos/modulo_analiticas/plantillas/LIBRO_CALIFICACIONES_PRODUCCION_BASE_SANITIZADA.xlsx'
+);
 
 function numeroSeguro(valor: unknown): number | undefined {
   const n = Number(valor);
@@ -86,7 +74,7 @@ function porAlumno(calificaciones: CalificacionFila[], alumnoId: string) {
 
 export async function generarXlsxCalificacionesProduccion(opts: OpcionesLibro): Promise<Buffer> {
   const wb = new Workbook();
-  await wb.xlsx.readFile(obtenerRutaPlantilla());
+  await wb.xlsx.readFile(RUTA_PLANTILLA);
 
   const ws = wb.getWorksheet('LIBRO DE CALIFICACIONES');
   if (!ws) {

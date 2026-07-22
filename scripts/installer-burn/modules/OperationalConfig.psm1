@@ -445,7 +445,6 @@ function Invoke-EvaluaProOperationalConfiguration {
 }
 
 Export-ModuleMember -Function @(
-  'ConvertTo-InstallerHubBool',
   'Invoke-EvaluaProOperationalConfiguration',
   'Normalize-OperationalConfig',
   'Test-OperationalConfig'

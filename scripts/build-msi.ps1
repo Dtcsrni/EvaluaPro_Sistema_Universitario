@@ -87,7 +87,6 @@ function New-InstallerBuildStagingRoot {
     'config/',
     'logos/',
     'packaging/wix/',
-    'runtime/',
     'scripts/'
   )
   $excludedTrackedPrefixes = @(
@@ -104,34 +103,12 @@ function New-InstallerBuildStagingRoot {
   Write-Host "[msi] Git para staging: $gitExe"
   $trackedFiles = @(Get-TrackedFilesWithTimeout -GitExecutable $gitExe -RootPath $RootPath)
   if ($trackedFiles.Count -eq 0) {
-    Write-Host "[msi] Git no devolvió archivos; usando fallback acotado con rg."
-    $rgCommand = Get-Command rg.exe -ErrorAction SilentlyContinue
-    $rgExe = if ($null -ne $rgCommand) { $rgCommand.Path } else { $null }
-    if (-not [string]::IsNullOrWhiteSpace($rgExe)) {
-      $fallbackArgs = @(
-        '--files', '--hidden', '--no-ignore-vcs',
-        '-g', '!.git/**', '-g', '!**/node_modules/**', '-g', '!**/dist/**', '-g', '!**/dist-*/**',
-        '-g', '!**/bin/**', '-g', '!**/obj/**', '-g', '!**/.serena/**', '-g', '!**/.vitest-reports/**',
-        '-g', '!**/reports/**',
-        '-g', '!**/build/**', '-g', '!**/out/**', '-g', '!**/coverage/**',
-        '-g', '!**/.cache/**', '-g', '!**/.next/**', '-g', '!**/.turbo/**',
-        $RootPath
-      )
-      $trackedFiles = @(& $rgExe @fallbackArgs 2>$null | ForEach-Object {
-        $path = ([string]$_).Trim()
-        if ($path.StartsWith($RootPath, [StringComparison]::OrdinalIgnoreCase)) {
-          $path.Substring($RootPath.Length).TrimStart('\', '/') -replace '\\', '/'
-        } else {
-          $path -replace '\\', '/'
-        }
-      })
-    } else {
-      Write-Warning "rg no está disponible; usando enumeración recursiva lenta como último fallback."
-      $trackedFiles = @(Get-ChildItem -LiteralPath $RootPath -Recurse -File -Force -ErrorAction SilentlyContinue | ForEach-Object {
-        $relative = $_.FullName.Substring($RootPath.Length).TrimStart('\', '/')
-        $relative -replace '\\', '/'
-      })
-    }
+    Write-Host "[msi] Git no devolvió archivos; usando enumeración del árbol de archivos."
+    $trackedFiles = @(Get-ChildItem -LiteralPath $RootPath -Recurse -File -Force -ErrorAction SilentlyContinue | ForEach-Object {
+      $relative = $_.FullName.Substring($RootPath.Length).TrimStart('\', '/')
+      $relative = $relative -replace '\\', '/'
+      $relative
+    })
   }
   $totalTracked = @($trackedFiles).Count
   $copiedCount = 0
@@ -147,14 +124,6 @@ function New-InstallerBuildStagingRoot {
     }
 
     if ($relativePath -match '(^|/)(node_modules|coverage|dist|build|out|\.cache|\.next|\.turbo)(/|$)') {
-      continue
-    }
-
-    # El flavor docente ejecuta artefactos compilados. No propagar al staging
-    # código fuente, pruebas, reportes ni datos de prueba que WiX no debe cosechar.
-    if ($relativePath -match '^apps/[^/]+/(src|tests|reports)/' -or
-        $relativePath -match '^apps/backend/data/' -or
-        $relativePath -match '^scripts/tests/') {
       continue
     }
 
@@ -221,7 +190,7 @@ function Get-TrackedFilesWithTimeout {
   try {
     $proc = Start-Process -FilePath $GitExecutable -ArgumentList @('-C', $RootPath, 'ls-files') -NoNewWindow -PassThru -RedirectStandardOutput $stdoutPath -RedirectStandardError $stderrPath
     if (-not $proc.WaitForExit($TimeoutSeconds * 1000)) {
-      Start-Process -FilePath taskkill.exe -ArgumentList @('/PID', [string]$proc.Id, '/T', '/F') -Wait -WindowStyle Hidden -ErrorAction SilentlyContinue
+      Stop-Process -Id $proc.Id -Force -ErrorAction SilentlyContinue
       Write-Warning "Git ls-files excedió ${TimeoutSeconds}s; se usará fallback de enumeración acotada."
       return @()
     }
@@ -299,22 +268,6 @@ function Add-DocenteNativeCompiledPayload {
     $staticServerTarget = Join-Path $StagingRoot 'scripts/serve-docente-static.mjs'
     New-Item -ItemType Directory -Path (Split-Path $staticServerTarget -Parent) -Force | Out-Null
     Copy-Item -LiteralPath $staticServerSource -Destination $staticServerTarget -Force
-
-    $embeddedNodeSource = Join-Path $RootPath 'runtime/node/node.exe'
-    if (-not (Test-Path -LiteralPath $embeddedNodeSource)) {
-      $hostNode = (Get-Command node.exe -ErrorAction SilentlyContinue).Source
-      if ([string]::IsNullOrWhiteSpace($hostNode)) { throw 'No se encontró Node.js para incluir el runtime embebido docente.' }
-      $nodeVersionText = (& $hostNode --version 2>$null | Select-Object -First 1).Trim()
-      $nodeMajorMatch = [Regex]::Match($nodeVersionText, '^v?(\d+)')
-      if (-not $nodeMajorMatch.Success -or [int]$nodeMajorMatch.Groups[1].Value -lt 24) {
-        throw "Node.js 24+ requerido para el runtime embebido docente; detectado: $nodeVersionText"
-      }
-      $embeddedNodeSource = $hostNode
-    }
-    $embeddedNodeTarget = Join-Path $StagingRoot 'runtime/node/node.exe'
-    New-Item -ItemType Directory -Path (Split-Path $embeddedNodeTarget -Parent) -Force | Out-Null
-    Copy-Item -LiteralPath $embeddedNodeSource -Destination $embeddedNodeTarget -Force
-    Write-Host "[msi] Node.js embebido docente incluido: $embeddedNodeSource"
     foreach ($nativeScript in @('start-docente-native.mjs', 'launcher-dashboard.mjs')) {
       $nativeScriptSource = Join-Path $RootPath (Join-Path 'scripts' $nativeScript)
       if (-not (Test-Path $nativeScriptSource)) { throw "Falta script nativo requerido: $nativeScriptSource" }
@@ -331,23 +284,13 @@ function Add-DocenteNativeCompiledPayload {
     New-Item -ItemType Directory -Path $frontendTarget,$backendTarget -Force | Out-Null
     Copy-Item -Path (Join-Path $frontendSource '*') -Destination $frontendTarget -Recurse -Force
     Copy-Item -Path (Join-Path $backendSource '*') -Destination $backendTarget -Recurse -Force
-    New-Item -ItemType Directory -Path (Join-Path $backendTarget 'modulos/modulo_analiticas/plantillas') -Force | Out-Null
-    Copy-Item -LiteralPath (Join-Path $RootPath 'apps/backend/src/modulos/modulo_analiticas/plantillas/LIBRO_CALIFICACIONES_PRODUCCION_BASE_SANITIZADA.xlsx') -Destination (Join-Path $backendTarget 'modulos/modulo_analiticas/plantillas') -Force
     Copy-Item -LiteralPath (Join-Path $RootPath 'apps/backend/package.json') -Destination $backendTarget -Force
     Copy-Item -LiteralPath (Join-Path $RootPath 'apps/backend/package-lock.json') -Destination $backendTarget -Force
     Copy-Item -LiteralPath (Join-Path $RootPath 'apps/backend/prisma') -Destination $backendTarget -Recurse -Force
-    $prebuiltNodeModules = Join-Path $RootPath 'dist-native/backend/node_modules'
-    $reusePrebuiltDependencies = Test-Path -LiteralPath (Join-Path $prebuiltNodeModules '@prisma/client')
-    if ($reusePrebuiltDependencies) {
-      Write-Host '[msi] Reutilizando node_modules de dist-native; se evita npm ci redundante.'
-      Copy-Item -LiteralPath $prebuiltNodeModules -Destination $backendTarget -Recurse -Force
-    }
     Push-Location $backendTarget
     try {
-      if (-not $reusePrebuiltDependencies) {
-        & $npmCommand ci --omit=dev --ignore-scripts
-        if ($LASTEXITCODE -ne 0) { throw "Falló instalación de dependencias backend de producción (exit=$LASTEXITCODE)." }
-      }
+      & $npmCommand ci --omit=dev --ignore-scripts
+      if ($LASTEXITCODE -ne 0) { throw "Falló instalación de dependencias backend de producción (exit=$LASTEXITCODE)." }
       $nodeForBuild = if (Test-Path (Join-Path $RootPath 'runtime/node/node.exe')) { Join-Path $RootPath 'runtime/node/node.exe' } else { 'node' }
       $stagedSchemaPath = Join-Path $backendTarget 'prisma/schema.prisma'
       $stagedSchema = Get-Content -LiteralPath $stagedSchemaPath -Raw -Encoding utf8
@@ -370,65 +313,22 @@ function Add-DocenteNativeCompiledPayload {
       $sqlStart = $schemaSqlText.IndexOf('-- CreateTable', [StringComparison]::Ordinal)
       if ($sqlStart -lt 0) { throw 'Falló generación del esquema SQL nativo: salida SQL vacía.' }
       $schemaSqlText = $schemaSqlText.Substring($sqlStart)
-      # Prisma puede anexar avisos de consola a la salida SQL. El último
-      # terminador de sentencia es un límite estable, independiente de la
-      # codificación usada por la consola de PowerShell.
-      $lastSqlTerminator = $schemaSqlText.LastIndexOf(';')
-      if ($lastSqlTerminator -lt 0) {
-        throw 'Falló saneamiento del esquema SQL nativo: no hay terminador SQL.'
+      $boxIndex = $schemaSqlText.IndexOf([char]0x250c)
+      if ($boxIndex -ge 0) {
+        $lineStart = $schemaSqlText.LastIndexOf("`n", $boxIndex)
+        $lineStart = if ($lineStart -ge 0) { $lineStart + 1 } else { 0 }
+        $schemaSqlText = $schemaSqlText.Substring(0, $lineStart).TrimEnd()
       }
-      $schemaSqlText = $schemaSqlText.Substring(0, $lastSqlTerminator + 1).Trim()
-      if ($schemaSqlText -match 'Update available|major update|Ôöî|ÔöÇ|ÔöÉ') {
+      $updateIndex = $schemaSqlText.IndexOf('Update available', [StringComparison]::Ordinal)
+      if ($updateIndex -ge 0) {
+        $lineStart = $schemaSqlText.LastIndexOf("`n", $updateIndex)
+        $lineStart = if ($lineStart -ge 0) { $lineStart + 1 } else { 0 }
+        $schemaSqlText = $schemaSqlText.Substring(0, $lineStart).TrimEnd()
+      }
+      if ($schemaSqlText.IndexOf([char]0x250c) -ge 0 -or $schemaSqlText -match 'Update available|major update') {
         throw 'Falló saneamiento del esquema SQL nativo: contiene salida de consola no SQL.'
       }
       [IO.File]::WriteAllText((Join-Path $backendTarget 'prisma/schema.sql'), $schemaSqlText, (New-Object System.Text.UTF8Encoding($false)))
-
-      # El cliente ya fue generado y el esquema SQL ya quedó materializado.
-      # El runtime Windows no necesita la CLI Prisma, sus engines de descarga,
-      # cachés ni los bundles WASM/multiplataforma del cliente publicado.
-      $prunePaths = @(
-        (Join-Path $backendTarget 'node_modules/prisma'),
-        (Join-Path $backendTarget 'node_modules/@prisma/engines'),
-        (Join-Path $backendTarget 'node_modules/@prisma/fetch-engine'),
-        (Join-Path $backendTarget 'node_modules/@prisma/get-platform'),
-        (Join-Path $backendTarget 'node_modules/@prisma/client/runtime/query_engine_bg*'),
-        (Join-Path $backendTarget 'node_modules/@prisma/client/runtime/query_compiler_bg*'),
-        (Join-Path $backendTarget 'node_modules/.prisma/client/query_engine_bg*'),
-        (Join-Path $backendTarget 'node_modules/.prisma/client/query_compiler_bg*'),
-        (Join-Path $backendTarget 'node_modules/.cache')
-      )
-      if (-not $reusePrebuiltDependencies) {
-        foreach ($prunePath in $prunePaths) {
-          Get-ChildItem -Path $prunePath -Force -ErrorAction SilentlyContinue | ForEach-Object {
-            Remove-Item -LiteralPath $_.FullName -Recurse -Force -ErrorAction Stop
-          }
-        }
-      } else {
-        Write-Host '[msi] Se conserva payload preconstruido; dependencias ya son de producción.'
-      }
-      $runtimeNodeModules = Join-Path $backendTarget 'node_modules'
-      $nonRuntimeFiles = @(
-        Get-ChildItem -LiteralPath $runtimeNodeModules -Recurse -File -Force -ErrorAction SilentlyContinue |
-          Where-Object {
-            $_.Name -match '\.(md|markdown|map|ts|tsx|mts|cts)$' -or
-            $_.Name -match '\.d\.(ts|mts|cts)$' -or
-            $_.Name -in @('CHANGELOG', 'CHANGES', 'HISTORY', 'CONTRIBUTING', 'LICENSE', 'LICENCE', 'NOTICE', 'AUTHORS', 'COPYING')
-          }
-      )
-      foreach ($nonRuntimeFile in $nonRuntimeFiles) {
-        Remove-Item -LiteralPath $nonRuntimeFile.FullName -Force -ErrorAction Stop
-      }
-      $nonRuntimeDirectories = @(
-        Get-ChildItem -LiteralPath $runtimeNodeModules -Recurse -Directory -Force -ErrorAction SilentlyContinue |
-          Where-Object { $_.Name -match '^(test|tests|__tests__|docs|examples?|\.github)$' } |
-          Sort-Object FullName -Descending
-      )
-      foreach ($nonRuntimeDirectory in $nonRuntimeDirectories) {
-        if (Test-Path -LiteralPath $nonRuntimeDirectory.FullName) {
-          Remove-Item -LiteralPath $nonRuntimeDirectory.FullName -Recurse -Force -ErrorAction Stop
-        }
-      }
-      Write-Host '[msi] Payload nativo podado: se conserva únicamente Prisma SQLite/Windows y dependencias de ejecución.'
     } finally {
       Pop-Location
     }
@@ -436,37 +336,6 @@ function Add-DocenteNativeCompiledPayload {
   } finally {
     Pop-Location
   }
-}
-
-function New-DocentePayloadArchive {
-  param(
-    [Parameter(Mandatory = $true)][string]$StagingRoot,
-    [Parameter(Mandatory = $true)][string]$OutputPath
-  )
-
-  $required = @(
-    'apps/backend/dist/index.js',
-    'runtime/node/node.exe',
-    'scripts/start-docente-native.mjs'
-  )
-  foreach ($relativePath in $required) {
-    if (-not (Test-Path -LiteralPath (Join-Path $StagingRoot $relativePath))) {
-      throw "Payload nativo incompleto: falta $relativePath"
-    }
-  }
-
-  Add-Type -AssemblyName System.IO.Compression.FileSystem
-  if (Test-Path -LiteralPath $OutputPath) { Remove-Item -LiteralPath $OutputPath -Force }
-  [System.IO.Compression.ZipFile]::CreateFromDirectory(
-    $StagingRoot, $OutputPath,
-    [System.IO.Compression.CompressionLevel]::Optimal, $false
-  )
-  $archiveInfo = Get-Item -LiteralPath $OutputPath
-  if ($archiveInfo.Length -lt 1MB) {
-    throw "Payload ZIP sospechosamente pequeño: $OutputPath ($($archiveInfo.Length) bytes)"
-  }
-  Write-Host "[msi] Payload ZIP autocontenido: $OutputPath ($([Math]::Round($archiveInfo.Length / 1MB, 1)) MB)"
-  return $OutputPath
 }
 
 function Write-InstallerLocalPathsManifest {
@@ -631,40 +500,15 @@ function Invoke-CheckedStep {
     [int]$Index,
     [int]$Total,
     [string]$Title,
-    [string]$Command,
-    [int]$TimeoutSeconds = 900
+    [string]$Command
   )
 
   $pct = [Math]::Floor((($Index - 1) * 100) / [Math]::Max(1, $Total))
   Write-Progress -Activity "EvaluaPro MSI (estable)" -Status $Title -PercentComplete $pct
   Write-Host "[msi][step $Index/$Total] $Title"
-  # Ejecutar npm.cmd directamente evita que una segunda capa cmd.exe propague
-  # de forma intermitente un exit code incorrecto al proceso PowerShell padre.
-  $commandParts = @($Command -split '\s+')
-  $executable = $commandParts[0]
-  $arguments = @($commandParts | Select-Object -Skip 1)
-  if ($executable -eq 'npm') {
-    $npmCommand = Get-Command npm.cmd -ErrorAction Stop
-    $executable = $npmCommand.Source
-  }
-  if ($executable -like '*npm.cmd') {
-    Push-Location $root
-    try {
-      & $executable @arguments
-      $exitCode = if ($null -ne $LASTEXITCODE) { [int]$LASTEXITCODE } else { 1 }
-    } finally {
-      Pop-Location
-    }
-  } else {
-    $proc = Start-Process -FilePath $executable -ArgumentList $arguments -WorkingDirectory $root -NoNewWindow -PassThru
-    $completed = $proc.WaitForExit($TimeoutSeconds * 1000)
-    if (-not $completed) {
-      Write-Warning "Paso '$Title' excedió el límite de $TimeoutSeconds segundos; se terminará su árbol de procesos."
-      & taskkill.exe /PID $proc.Id /T /F 2>$null | Out-Null
-      throw "Timeout en paso '$Title' después de $TimeoutSeconds segundos: $Command"
-    }
-    $exitCode = if ($null -ne $proc -and $null -ne $proc.ExitCode) { [int]$proc.ExitCode } else { 1 }
-  }
+  $cmdExe = if (-not [string]::IsNullOrWhiteSpace($env:ComSpec)) { [string]$env:ComSpec } else { 'cmd.exe' }
+  $proc = Start-Process -FilePath $cmdExe -ArgumentList @('/c', $Command) -Wait -NoNewWindow -PassThru
+  $exitCode = if ($null -ne $proc -and $null -ne $proc.ExitCode) { [int]$proc.ExitCode } else { 1 }
   if ($exitCode -ne 0) {
     throw "Fallo en paso '$Title' (exit=$exitCode): $Command"
   }
@@ -738,80 +582,43 @@ function Assert-MsiInstallsAppPayload {
   if (-not (Test-Path -LiteralPath $MsiPath)) {
     throw "MSI no existe para validar payload instalado: $MsiPath"
   }
-  $extractRoot = Join-Path $env:TEMP ("evaluapro-msi-install-{0}" -f [Guid]::NewGuid().ToString('N'))
-  $msiLog = Join-Path $env:TEMP ("evaluapro-msi-install-{0}.log" -f [Guid]::NewGuid().ToString('N'))
+  $extractRoot = Join-Path $env:TEMP ("evaluapro-msi-admin-{0}" -f [Guid]::NewGuid().ToString('N'))
   New-Item -ItemType Directory -Path $extractRoot -Force | Out-Null
-  $installed = $false
   try {
-    # El flavor docente se valida con instalación real per-user. Los flavors
-    # per-machine se extraen administrativamente para que el gate sea ejecutable
-    # también en hosts sin elevación interactiva.
-    $installMode = if ($RequireDocenteNativePayload) { '/i' } else { '/a' }
-    $installProperty = if ($installMode -eq '/a') { "TARGETDIR=$extractRoot" } else { "INSTALLFOLDER=$extractRoot" }
-    $proc = Start-Process -FilePath 'msiexec.exe' -ArgumentList @($installMode, $MsiPath, $installProperty, 'REQUIRE_INSTALLER_HUB=1', 'BURNMSIINSTALL=1', 'INSTALL_DESKTOP_SHORTCUTS=0', 'INSTALL_STARTMENU_SHORTCUTS=0', '/qn', '/norestart', '/L*v', $msiLog) -NoNewWindow -PassThru
-    if (-not $proc.WaitForExit(300000)) {
-      & taskkill.exe /PID $proc.Id /T /F | Out-Null
-      throw "Instalacion MSI aislada excedio 300 segundos y se canceló: $MsiPath"
+    $proc = Start-Process -FilePath 'msiexec.exe' -ArgumentList @('/a', $MsiPath, "TARGETDIR=$extractRoot", '/qn', '/norestart') -Wait -NoNewWindow -PassThru
+    if ($proc.ExitCode -ne 0) {
+      throw "Extraccion administrativa MSI fallo (exit=$($proc.ExitCode)): $MsiPath"
     }
-    $proc.Refresh()
-    if (-not $proc.HasExited) {
-      throw "Instalacion MSI aislada no confirmó su terminación: $MsiPath"
-    }
-    $installExitCode = [int]$proc.ExitCode
-    $adminExitCode = $installExitCode # compatibilidad con contrato histórico; gate ahora usa instalación real /i
-    if ($installExitCode -ne 0) {
-      throw "Instalacion MSI aislada fallo (exit=$installExitCode). Log: $msiLog"
-    }
-    $installed = $installMode -eq '/i'
     $packageCandidates = @(
-      (Join-Path $extractRoot 'package.json'),
-      (Join-Path $extractRoot 'evaluapro-native-dist.zip')
+      (Join-Path $extractRoot ("PFiles64\{0}\package.json" -f $InstallFolderName)),
+      (Join-Path $extractRoot ("ProgramFiles64Folder\{0}\package.json" -f $InstallFolderName)),
+      (Join-Path $extractRoot ("LocalApp\{0}\package.json" -f $InstallFolderName)),
+      (Join-Path $extractRoot ("LocalAppDataFolder\{0}\package.json" -f $InstallFolderName))
     )
     $packageOk = $false
     foreach ($candidate in $packageCandidates) {
-      if (Test-Path -LiteralPath $candidate -PathType Leaf) {
+      if (Test-Path -LiteralPath $candidate) {
         $packageOk = $true
         break
       }
     }
     if (-not $packageOk) {
-      # Los flavors per-machine quedan bajo INSTALLFOLDER dentro de la raíz
-      # temporal; validar recursivamente evita confundir esa estructura con
-      # un MSI sin payload.
-      $packageOk = @(
-        Get-ChildItem -LiteralPath $extractRoot -Recurse -File -ErrorAction SilentlyContinue |
-          Where-Object { $_.Name -in @('package.json', 'evaluapro-native-dist.zip') } |
-          Select-Object -First 1
-      ).Count -gt 0
-    }
-    if (-not $packageOk) {
       $sample = @(Get-ChildItem -LiteralPath $extractRoot -Recurse -File -ErrorAction SilentlyContinue | Select-Object -First 20 -ExpandProperty FullName)
-      throw "MSI no instala bootstrap/payload bajo carpeta de producto '$InstallFolderName'. Muestras: $($sample -join ' | ')"
+      throw "MSI no instala package.json bajo carpeta de producto '$InstallFolderName'. Muestras: $($sample -join ' | ')"
     }
     if ($RequireDocenteNativePayload) {
-      $payloadCheckRoot = Join-Path $env:TEMP ("evaluapro-msi-payload-check-{0}" -f [Guid]::NewGuid().ToString('N'))
-      New-Item -ItemType Directory -Path $payloadCheckRoot -Force | Out-Null
-      try {
-        Expand-Archive -LiteralPath (Join-Path $extractRoot 'evaluapro-native-dist.zip') -DestinationPath $payloadCheckRoot -Force
-        foreach ($relativePath in @('apps\backend\dist\index.js', 'apps\backend\dist\prisma\schema.sql', 'runtime\node\node.exe', 'scripts\prepare-docente-sqlite.mjs')) {
-          if (-not (Test-Path -LiteralPath (Join-Path $payloadCheckRoot $relativePath))) { throw "MSI docente sin payload nativo completo: falta $relativePath" }
-        }
-      } finally {
-        Remove-Item -LiteralPath $payloadCheckRoot -Recurse -Force -ErrorAction SilentlyContinue
+      $nativeBootstrap = @(Get-ChildItem -LiteralPath $extractRoot -Recurse -File -Filter 'prepare-docente-sqlite.mjs' -ErrorAction SilentlyContinue)
+      $nativeSchema = @(Get-ChildItem -LiteralPath $extractRoot -Recurse -File -Filter 'schema.sql' -ErrorAction SilentlyContinue | Where-Object { $_.FullName -match '[\\/]apps[\\/]backend[\\/]dist[\\/]prisma[\\/]schema\.sql$' })
+      if ($nativeBootstrap.Count -ne 1 -or $nativeSchema.Count -ne 1) {
+        $sample = @(Get-ChildItem -LiteralPath $extractRoot -Recurse -File -ErrorAction SilentlyContinue | Where-Object { $_.Name -in @('prepare-docente-sqlite.mjs', 'schema.sql') } | Select-Object -ExpandProperty FullName)
+        throw "MSI docente sin payload nativo completo: bootstrap=$($nativeBootstrap.Count) schema=$($nativeSchema.Count). Muestras: $($sample -join ' | ')"
       }
     }
-    Write-Host "[msi] Instalacion MSI aislada validada: bootstrap + payload docente íntegro."
+    Write-Host "[msi] Payload MSI validado bajo carpeta de producto: $InstallFolderName"
   } finally {
-    if ($installed) {
-      $uninstall = Start-Process -FilePath 'msiexec.exe' -ArgumentList @('/x', $MsiPath, '/qn', '/norestart') -NoNewWindow -PassThru
-      if (-not $uninstall.WaitForExit(300000)) { & taskkill.exe /PID $uninstall.Id /T /F | Out-Null; throw "Desinstalacion MSI aislada excedio 300 segundos: $MsiPath" }
-      $uninstall.Refresh()
-      if ([int]$uninstall.ExitCode -ne 0) { throw "Desinstalacion MSI aislada fallo (exit=$($uninstall.ExitCode)): $MsiPath" }
-    }
     if (Test-Path -LiteralPath $extractRoot) {
       Remove-Item -LiteralPath $extractRoot -Recurse -Force -ErrorAction SilentlyContinue
     }
-    Remove-Item -LiteralPath $msiLog -Force -ErrorAction SilentlyContinue
   }
 }
 
@@ -877,10 +684,6 @@ function Invoke-WixBuildProcess {
     }
     if (Test-Path -LiteralPath $wixErr) {
       Get-Content -LiteralPath $wixErr -ErrorAction SilentlyContinue | Out-Host
-    }
-    $proc.Refresh()
-    if (-not $proc.HasExited) {
-      throw "WiX no confirmó la terminación del proceso: $WixExecutable $($Arguments -join ' ')"
     }
     return [int]$proc.ExitCode
   } finally {
@@ -969,32 +772,6 @@ function Get-VersionedBundleName {
   return ("{0}-v{1}{2}" -f $stem, $VersionTag, $ext)
 }
 
-function ConvertTo-DotNetNumericVersion {
-  param(
-    [Parameter(Mandatory = $true)]
-    [string]$VersionTag
-  )
-
-  # .NET AssemblyVersion/FileVersion solo admiten hasta cuatro componentes
-  # numericos. Conservamos el semver completo en InformationalVersion y usamos
-  # sus componentes numericos para la identidad binaria.
-  $match = [Regex]::Match($VersionTag, '^\s*(\d+)(?:\.(\d+))?(?:\.(\d+))?(?:\.(\d+))?')
-  if (-not $match.Success) {
-    throw "La version del instalador no contiene un prefijo numerico compatible con .NET: $VersionTag"
-  }
-
-  $parts = @(
-    [int64]$match.Groups[1].Value,
-    $(if ($match.Groups[2].Success) { [int64]$match.Groups[2].Value } else { 0 }),
-    $(if ($match.Groups[3].Success) { [int64]$match.Groups[3].Value } else { 0 }),
-    $(if ($match.Groups[4].Success) { [int64]$match.Groups[4].Value } else { 0 })
-  )
-  if ($parts | Where-Object { $_ -gt 65535 }) {
-    throw "La version del instalador excede el limite numerico de .NET: $VersionTag"
-  }
-  return ($parts -join '.')
-}
-
 function Publish-BurnBootstrapperApp {
   param(
     [Parameter(Mandatory = $true)]
@@ -1016,8 +793,6 @@ function Publish-BurnBootstrapperApp {
   }
   New-Item -ItemType Directory -Path $OutputDirectory -Force | Out-Null
 
-  $dotNetNumericVersion = ConvertTo-DotNetNumericVersion -VersionTag $VersionTag
-
   $publishArgs = @(
     'publish',
     $ProjectPath,
@@ -1031,8 +806,8 @@ function Publish-BurnBootstrapperApp {
   if (![string]::IsNullOrEmpty($VersionTag)) {
     $publishArgs += @(
       "-p:Version=$VersionTag",
-      "-p:AssemblyVersion=$dotNetNumericVersion",
-      "-p:FileVersion=$dotNetNumericVersion",
+      "-p:AssemblyVersion=$VersionTag.0",
+      "-p:FileVersion=$VersionTag.0",
       "-p:InformationalVersion=$VersionTag"
     )
   }
@@ -1053,9 +828,8 @@ function Publish-BurnBootstrapperApp {
     $fileVersionInfo = [System.Diagnostics.FileVersionInfo]::GetVersionInfo($exePath)
     $fileVersion = [string]$fileVersionInfo.FileVersion
     $productVersion = [string]$fileVersionInfo.ProductVersion
-    $dotNetNumericVersion = ConvertTo-DotNetNumericVersion -VersionTag $VersionTag
-    if ($fileVersion -notlike "$dotNetNumericVersion*" -or $productVersion -notlike "$VersionTag*") {
-      throw "Bootstrapper Application Burn publicada con version invalida. Esperada semver=$VersionTag, FileVersion numerica=$dotNetNumericVersion, FileVersion=$fileVersion, ProductVersion=$productVersion, Path=$exePath"
+    if ($fileVersion -notlike "$VersionTag*" -or $productVersion -notlike "$VersionTag*") {
+      throw "Bootstrapper Application Burn publicada con version invalida. Esperada=$VersionTag, FileVersion=$fileVersion, ProductVersion=$productVersion, Path=$exePath"
     }
   }
 
@@ -1310,7 +1084,6 @@ if ($selectedFlavors.Count -eq 0) {
   throw "No se resolvieron flavors para '$Flavor'."
 }
 $effectiveVersionTag = Resolve-InstallerVersionTag -RootPath $root -RequestedVersion $Version
-$effectiveVersionNumeric = ConvertTo-DotNetNumericVersion -VersionTag $effectiveVersionTag
 $effectiveBundleNamesByFlavor = @{}
 
 $stepsPerFlavor = if ($buildBundle) { 2 } else { 1 }
@@ -1331,11 +1104,6 @@ try {
 
 if (@($selectedFlavors.flavorId) -contains 'docente-local') {
   Add-DocenteNativeCompiledPayload -RootPath $root -StagingRoot $buildRoot
-}
-
-$docentePayloadArchive = $null
-if (@($selectedFlavors.flavorId) -contains 'docente-local') {
-  $docentePayloadArchive = New-DocentePayloadArchive -StagingRoot $buildRoot -OutputPath (Join-Path (Split-Path -Parent $buildRoot) 'evaluapro-native-dist.zip')
 }
 
 if ($buildBundle) {
@@ -1372,33 +1140,23 @@ if ($buildBundle) {
 
     Write-Progress -Activity "EvaluaPro MSI (estable)" -Status "Compilar MSI $flavorId" -PercentComplete ([Math]::Floor((($idx - 1) * 100) / [Math]::Max(1, $totalSteps)))
     Write-Host "[msi][step $idx/$totalSteps] Compilar MSI $flavorId"
-    $productOut = Join-Path $internalFlavorOut $msiName
-    $wixProductWorkRoot = Join-Path $buildRoot ("wix-product-{0}" -f $flavorId)
-    $wixCabCache = Join-Path $wixProductWorkRoot 'cab-cache'
-    New-Item -ItemType Directory -Path $wixCabCache -Force | Out-Null
-    if (Test-Path -LiteralPath $productOut) {
-      Remove-Item -LiteralPath $productOut -Force
-    }
     $productArgs = @(
       "build", $product
     ) + $fragmentFiles + @(
       "-arch", "x64",
       "-d", "SourceRoot=$buildRoot",
-      "-d", ("PayloadArchive={0}" -f $docentePayloadArchive),
       "-d", "FlavorId=$flavorId",
       "-d", "ProductRegistryRoot=$productRegistryRoot",
       "-d", ("ProductName=`"{0}`"" -f $productName),
       "-d", ("InstallFolderName=`"{0}`"" -f $installFolderName),
       "-d", "UpgradeCode=$upgradeCode",
       "-d", "BundleName=$bundleName",
-      "-intermediatefolder", $wixProductWorkRoot,
-      "-cabcache", $wixCabCache,
-      "-cabthreads", "1",
       "-o", (Join-Path $internalFlavorOut $msiName)
     )
-    $productArgs += @("-d", "Version=$effectiveVersionNumeric")
+    $productArgs += @("-d", "Version=$effectiveVersionTag")
     $productExit = Invoke-WixBuildProcess -WixExecutable $wixExe -Arguments $productArgs
     if ($productExit -ne 0) { throw "Falló build de Product.wxs para $flavorId (exit=$productExit)" }
+    $productOut = Join-Path $internalFlavorOut $msiName
     if (-not (Test-Path -LiteralPath $productOut)) {
       throw "Build de Product.wxs para $flavorId no genero MSI esperado: $productOut"
     }
@@ -1432,7 +1190,7 @@ if ($buildBundle) {
         "-d", "BundleIconPath=$flavorBundleIconPath",
         "-o", (Join-Path $publicFlavorOut $bundleName)
       )
-      $bundleArgs += @("-d", "Version=$effectiveVersionNumeric")
+      $bundleArgs += @("-d", "Version=$effectiveVersionTag")
       # Evita validar un bundle viejo si WiX no puede reemplazar el artefacto (p. ej. archivo bloqueado).
       $bundleOut = Join-Path $publicFlavorOut $bundleName
       if (Test-Path -LiteralPath $bundleOut) {

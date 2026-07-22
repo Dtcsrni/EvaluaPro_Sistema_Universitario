@@ -15,8 +15,7 @@ type GoldenCase = {
   expected: 'A' | 'B' | 'C' | 'D' | 'E' | null;
 };
 
-// Resolver respecto al archivo evita depender del cwd elegido por Vitest.
-const DATASET_ROOT = path.resolve(__dirname, '../../../omr_samples_tv3_real_por_folio');
+const DATASET_ROOT = path.resolve(process.cwd(), '../../omr_samples_tv3_real_por_folio');
 const GOLDEN_CASES: GoldenCase[] = [
   { captureId: '6A98D91E-P2-C1', question: 204, expected: 'E' },
   { captureId: 'A93D8EFA-P2-C1', question: 202, expected: 'D' },

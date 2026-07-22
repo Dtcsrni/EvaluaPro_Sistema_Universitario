@@ -2,25 +2,9 @@
 <Wix xmlns="http://wixtoolset.org/schemas/v4/wxs">
   <Fragment>
     <ComponentGroup Id="CG.AppFiles" Directory="INSTALLFOLDER">
-      <?if $(var.FlavorId) = docente-local ?>
-      <!-- Bootstrap explícito + payload único. No cosechar el repositorio. -->
-      <Component Id="CMP.AppPayloadArchive" Guid="*">
-        <File Id="F.AppPayloadArchive" Source="$(var.PayloadArchive)" Name="evaluapro-native-dist.zip" KeyPath="yes" />
-      </Component>
-      <Component Id="CMP.RootPackageJson" Guid="*">
-        <File Id="F.RootPackageJson" Source="$(var.SourceRoot)/package.json" KeyPath="yes" />
-      </Component>
-      <Component Id="CMP.BurnHelper" Guid="*">
-        <File Id="F.BurnHelper" Source="$(var.SourceRoot)/scripts/installer-burn/InstallerBurnHelper.ps1" KeyPath="yes" />
-      </Component>
-      <Component Id="CMP.BurnOperationalConfig" Guid="*">
-        <File Id="F.BurnOperationalConfig" Source="$(var.SourceRoot)/scripts/installer-burn/modules/OperationalConfig.psm1" KeyPath="yes" />
-      </Component>
-      <?else?>
-        <Files Include="$(var.SourceRoot)/**">
-          <Exclude Files="$(var.SourceRoot)/packaging/wix/**" />
-        </Files>
-      <?endif?>
+      <Files Include="$(var.SourceRoot)/**">
+        <Exclude Files="$(var.SourceRoot)/packaging/wix/**" />
+      </Files>
     </ComponentGroup>
   </Fragment>
 </Wix>

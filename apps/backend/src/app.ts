@@ -55,9 +55,7 @@ export function crearApp() {
       exposedHeaders: ['Content-Disposition']
     })
   );
-  // Mantiene un límite seguro incluso si una prueba o un entorno parcial
-  // entrega una configuración incompleta tras recargar módulos.
-  app.use(express.json({ limit: configuracion.limiteJson ?? '10mb' }));
+  app.use(express.json({ limit: configuracion.limiteJson }));
   app.use(middlewareContextoRobustez);
   app.use(middlewareIdSolicitud);
   app.use(middlewareRegistroSolicitud);

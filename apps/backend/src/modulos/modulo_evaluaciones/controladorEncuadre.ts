@@ -259,7 +259,7 @@ export async function obtenerEstadoEncuadre(req: SolicitudDocente, res: Response
     });
 
     if (!encuadre) {
-      return res.status(200).json({ periodoId, inicializado: false, encuadre: null });
+      return res.status(404).json({ error: 'No se ha inicializado el encuadre para este periodo' });
     }
 
     if (encuadre.docenteId !== docenteId) {

@@ -10,9 +10,6 @@ import path from 'node:path';
 const root = process.cwd();
 const helper = fs.readFileSync(path.join(root, 'scripts', 'installer-burn', 'InstallerBurnHelper.ps1'), 'utf8');
 const bootstrapper = fs.readFileSync(path.join(root, 'packaging', 'wix', 'BurnBootstrapperApp', 'EvaluaProBootstrapperApplication.cs'), 'utf8');
-const hubWindow = fs.readFileSync(path.join(root, 'packaging', 'wix', 'BurnBootstrapperApp', 'MainWindow.xaml.cs'), 'utf8');
-const productWxs = fs.readFileSync(path.join(root, 'packaging', 'wix', 'Product.wxs'), 'utf8');
-const msiBuild = fs.readFileSync(path.join(root, 'scripts', 'build-msi.ps1'), 'utf8');
 const runner = fs.readFileSync(path.join(root, 'scripts', 'tests', 'installer-hub-e2e-docente.ps1'), 'utf8');
 const matrix = JSON.parse(fs.readFileSync(path.join(root, 'reports', 'qa', 'latest', 'gui-screen-matrix.json'), 'utf8'));
 
@@ -29,21 +26,10 @@ function contrast(foreground, background) {
 }
 
 test('lifecycle helper expone todos los modos implementados', () => {
-  assert.match(helper, /ValidateSet\('detect-prereqs', 'post-install', 'license-heartbeat', 'update', 'uninstall'\)/);
-  for (const mode of ['detect-prereqs', 'post-install', 'license-heartbeat', 'update', 'uninstall']) {
+  assert.match(helper, /ValidateSet\('detect-prereqs', 'post-install', 'update', 'uninstall'\)/);
+  for (const mode of ['detect-prereqs', 'post-install', 'update', 'uninstall']) {
     assert.match(helper, new RegExp(`Mode -eq '${mode}'`));
   }
-});
-
-test('post-install ejecuta activacion comercial solo cuando el flavor la requiere y conserva grace local', () => {
-  assert.match(helper, /Invoke-EvaluaProLicenseActivationSecure/);
-  assert.match(helper, /Get-EvaluaProCommercialLicenseState/);
-  assert.match(helper, /No se pudo validar online; se conserva la licencia local/);
-  assert.match(helper, /requiresLicense/);
-  assert.match(helper, /EvaluaProCommercialLicenseHeartbeat/);
-  assert.match(helper, /Invoke-EvaluaProLicenseHeartbeatSecure/);
-  assert.match(helper, /Unregister-ScheduledTask -TaskName \"EvaluaProCommercialLicenseHeartbeat\"/);
-  assert.match(helper, /state -eq 'comunitaria'/);
 });
 
 test('lifecycle bootstrapper normaliza operaciones peligrosas de forma explícita', () => {
@@ -61,42 +47,6 @@ test('cada invocación de helper tiene correlación y respuesta aisladas', () =>
   assert.match(bootstrapper, /\.response\.json/);
 });
 
-test('helper PowerShell tiene timeout por operación y cancela su árbol', () => {
-  assert.match(bootstrapper, /GetHelperTimeout\(mode\)/);
-  assert.match(bootstrapper, /WaitForExitAsync\(timeoutCts\.Token\)/);
-  assert.match(bootstrapper, /Kill\(entireProcessTree: true\)/);
-  assert.match(bootstrapper, /request=\{requestPath\} response=\{responsePath\}/);
-  assert.match(runner, /\[int\]\$TimeoutMinutes = 10/);
-});
-
-test('runtime nativo tolera arranque lento sin reinicio prematuro', () => {
-  const dashboard = fs.readFileSync(path.join(root, 'scripts', 'launcher-dashboard.mjs'), 'utf8');
-  assert.match(dashboard, /waitForLifecycleHealth\(desiredMode, flavorPolicy\.requireLocalPortal, 90_000\)/);
-  assert.match(dashboard, /async function waitForLifecycleHealth/);
-  assert.match(runner, /\$deadline = \(Get-Date\)\.AddSeconds\(90\)/);
-  assert.match(runner, /Runtime nativo no alcanzó salud API\/web en 90s/);
-});
-
-test('dashboard lanza Node nativo directamente y conserva su árbol', () => {
-  const dashboard = fs.readFileSync(path.join(root, 'scripts', 'launcher-dashboard.mjs'), 'utf8');
-  assert.match(dashboard, /const isNativeRuntime = command === nativeDocenteCommand/);
-  assert.match(dashboard, /spawn\(nativeNodePath, \[path\.join\(root, 'scripts', 'start-docente-native\.mjs'\)\]/);
-  assert.match(dashboard, /spawn\('cmd\.exe', \['\/d', '\/s', '\/c', command\]/);
-});
-
-test('runner serializa Windows Installer y no mata el Hub durante una transacción', () => {
-  assert.match(runner, /function Wait-WindowsInstallerIdle/);
-  assert.match(runner, /Wait-WindowsInstallerIdle -TimeoutSec 300 -Context "before-\$Mode"/);
-  assert.match(runner, /Wait-ControlEnabled -RootElement \$window -AutomationId 'CloseButton' -TimeoutSec 600/);
-  assert.match(runner, /\$process\.WaitForExit\(30000\)/);
-  assert.match(runner, /\$process\.CloseMainWindow\(\)/);
-  assert.match(runner, /persistente tras estado final/);
-  assert.match(runner, /Wait-WindowsInstallerIdle -TimeoutSec 300 -Context "after-\$Mode"/);
-  assert.match(runner, /\[int\]\$TimeoutMinutes = 10/);
-  assert.match(runner, /Installer\\InProgress/);
-  assert.match(runner, /ParentProcessId -ne 1604/);
-});
-
 test('runner limita broker y mata solo su árbol al vencer timeout', () => {
   assert.match(runner, /\$TimeoutSec = 60/);
   assert.match(runner, /WaitForExit\(\$TimeoutSec \* 1000\)/);
@@ -108,37 +58,6 @@ test('runner limita broker y mata solo su árbol al vencer timeout', () => {
   assert.match(runner, /PrintWindow/);
   assert.match(runner, /estado JSON healthy/);
   assert.match(runner, /open-dashboard sigue vivo como proceso persistente/);
-});
-
-test('MSI docente usa un CAB embebido y el build valida su extracción con límite', () => {
-  assert.match(productWxs, /<MediaTemplate EmbedCab="yes" CompressionLevel="mszip" MaximumUncompressedMediaSize="2048" \/>/);
-  assert.match(msiBuild, /WaitForExit\(300000\)/);
-  assert.match(msiBuild, /\$proc\.Refresh\(\)/);
-  assert.match(msiBuild, /WiX no confirmó la terminación del proceso/);
-  assert.match(msiBuild, /\$installExitCode = \[int\]\$proc\.ExitCode/);
-  assert.match(msiBuild, /Instalacion MSI aislada excedio 300 segundos/);
-  assert.match(msiBuild, /Remove-Item -LiteralPath \$productOut -Force/);
-  assert.match(msiBuild, /"-intermediatefolder", \$wixProductWorkRoot/);
-  assert.match(msiBuild, /"-cabcache", \$wixCabCache/);
-  assert.match(msiBuild, /"-cabthreads", "1"/);
-});
-
-test('el authoring del MSI excluye contenido de ingeniería que no se ejecuta', () => {
-  for (const literal of ["$relativePath -match '\\.md$'", "$relativePath -match '^apps/[^/]+/(src|tests|reports)/'", "$relativePath -match '^apps/backend/data/'", "$relativePath -match '^scripts/tests/'"]) {
-    assert.ok(msiBuild.includes(literal), `falta filtro de staging: ${literal}`);
-  }
-  assert.match(msiBuild, /\$runtimeNodeModules = Join-Path \$backendTarget 'node_modules'/);
-  assert.match(msiBuild, /\(md\|markdown\|map\|ts\|tsx\|mts\|cts\)/);
-  assert.match(msiBuild, /'LICENSE', 'LICENCE', 'NOTICE'/);
-  assert.match(msiBuild, /\^\(test\|tests\|__tests__\|docs\|examples\?\|\\\.github\)\$/);
-});
-
-test('la ETA del Hub se deriva del avance real, se suaviza y declara verificación', () => {
-  assert.match(hubWindow, /Queue<\(DateTime At, int Progress\)> progressSamples/);
-  assert.match(hubWindow, /smoothedRemainingSeconds/);
-  assert.match(hubWindow, /previousEstimate\.Value \* 1\.20/);
-  assert.match(hubWindow, /Tiempo restante: verificando etapa actual/);
-  assert.match(hubWindow, /Tiempo restante estimado: \{FormatDuration\(lowerSeconds\)\} a \{FormatDuration\(upperSeconds\)\}/);
 });
 
 test('matriz visual cubre lifecycle, contraste y escenarios de recuperación', () => {

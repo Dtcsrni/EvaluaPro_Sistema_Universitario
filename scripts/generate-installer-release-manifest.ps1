@@ -62,40 +62,13 @@ function Test-ArtifactSigned {
   )
   foreach ($candidate in $signtoolCandidates) {
     if (-not (Test-Path -LiteralPath $candidate)) { continue }
-    try {
-      & $candidate verify /pa $Path *> $null
-      if ($LASTEXITCODE -eq 0) { return $true }
-    } catch { continue }
+    & $candidate verify /pa $Path *> $null
+    if ($LASTEXITCODE -eq 0) {
+      return $true
+    }
   }
 
   return $false
-}
-
-function Get-Crc32Hex {
-  param([Parameter(Mandatory = $true)][string]$Path)
-  [int64]$polynomial = 3988292384
-  $table = New-Object int64[] 256
-  for ($seed = 0; $seed -lt 256; $seed++) {
-    [int64]$value = $seed
-    for ($bit = 0; $bit -lt 8; $bit++) {
-      $lsb = $value -band 1
-      $value = [int64]($value -shr 1)
-      if ($lsb -ne 0) { $value = $value -bxor $polynomial }
-    }
-    $table[$seed] = $value
-  }
-  [int64]$crc = 4294967295
-  $stream = [System.IO.File]::OpenRead($Path)
-  try {
-    $buffer = New-Object byte[] 1048576
-    while (($read = $stream.Read($buffer, 0, $buffer.Length)) -gt 0) {
-      for ($i = 0; $i -lt $read; $i++) {
-        $index = [int](($crc -bxor [int64]$buffer[$i]) -band 255)
-        $crc = ($crc -shr 8) -bxor $table[$index]
-      }
-    }
-  } finally { $stream.Dispose() }
-  return ('{0:X8}' -f ([uint64]($crc -bxor 4294967295))).ToLowerInvariant()
 }
 
 function Resolve-VersionTag {
@@ -250,19 +223,12 @@ foreach ($artifactDescriptor in $allArtifacts) {
   if ([string]::IsNullOrWhiteSpace([string]$artifactPath)) { continue }
   if (-not (Test-Path -LiteralPath $artifactPath)) { continue }
   $sha256 = Get-Sha256Hex -Path $artifactPath
-  $crcPath = "$artifactPath.crc32"
-  $crc32 = if (Test-Path -LiteralPath $crcPath) {
-    ([regex]::Match((Get-Content -LiteralPath $crcPath -Raw), '[A-Fa-f0-9]{8}')).Value.ToLowerInvariant()
-  } else {
-    Get-Crc32Hex -Path $artifactPath
-  }
   $relativePath = Get-RelativeArtifactPath -ArtifactPath $artifactPath -InstallerRoot $installerDir
   $entry = [ordered]@{
     name = $name
     location = if ($artifactPath.StartsWith($internalInstallerDir, [System.StringComparison]::OrdinalIgnoreCase)) { 'internal' } else { 'public' }
     path = ($relativePath -replace '\\', '/')
     sha256 = $sha256
-    crc32 = $crc32
     signed = (Test-ArtifactSigned -Path $artifactPath)
   }
   $artifacts += $entry

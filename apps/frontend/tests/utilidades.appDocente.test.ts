@@ -146,28 +146,6 @@ describe('utilidades app docente', () => {
     });
   });
 
-  it('prioriza answerKeySet persistido y descarta entradas inválidas', () => {
-    const examen = {
-      answerKeySet: {
-        B: [
-          { numeroPregunta: '2', correcta: 'd' },
-          { numeroPregunta: 'x', correcta: 'A' },
-          { numeroPregunta: 0, correcta: 'B' }
-        ],
-        A: [
-          { numeroPregunta: 3, correcta: 'c' },
-          { numeroPregunta: 1, correcta: 'A' },
-          { numeroPregunta: 4, correcta: 'AB' }
-        ]
-      }
-    } as unknown as Parameters<typeof construirClaveCorrectaExamen>[0];
-
-    expect(construirClaveCorrectaExamen(examen, [])).toEqual({
-      claveCorrectaPorNumero: { 1: 'A', 3: 'C' },
-      ordenPreguntas: [1, 3]
-    });
-  });
-
   it('combina respuestas OMR por pagina y consolida resultado', () => {
     const paginas = [
       {

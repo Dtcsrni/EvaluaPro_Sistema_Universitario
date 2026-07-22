@@ -1,7 +1,8 @@
 # EvaluaPro | Evaluación universitaria
 
-> Estado actual: candidata de release `1.1.1`; su publicación queda condicionada
-> al resultado Go de la gate estable. Consulta [docs/RELEASE_STATUS.md](docs/RELEASE_STATUS.md)
+> Estado actual: desarrollo y QA local (`0.0.0-dev`). El proyecto trabaja en
+> el cierre del flavor nativo `docente-local`; actualmente no existe una
+> release publicada. Consulta [docs/RELEASE_STATUS.md](docs/RELEASE_STATUS.md)
 > y [docs/TAGGING_POLICY.md](docs/TAGGING_POLICY.md) antes de distribuir un
 > artefacto.
 

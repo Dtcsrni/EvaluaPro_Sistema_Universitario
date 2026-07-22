@@ -62,10 +62,6 @@ export function SeccionPublicar({
       setGenerando(true);
       setMensaje('');
       const respuesta = await onCodigo(periodoId);
-      // El código se crea en la base local; publicar después vuelve a
-      // sincronizarlo con el read-model del portal. La operación es
-      // idempotente y evita entregar códigos que el alumno no puede usar.
-      await onPublicar(periodoId);
       setCodigo(respuesta.codigo ?? '');
       setExpiraEn(respuesta.expiraEn ?? '');
       setMensaje('Código generado');

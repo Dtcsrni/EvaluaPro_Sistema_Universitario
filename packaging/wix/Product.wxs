@@ -15,9 +15,7 @@
     Scope="$(var.PackageScope)">
 
     <MajorUpgrade DowngradeErrorMessage="Ya existe una versión más reciente de EvaluaPro instalada." />
-    <!-- Un único CAB embebido: evita referencias a cab2.cab cuando el payload docente
-         supera el límite por defecto de 200 MB sin comprimir. -->
-    <MediaTemplate EmbedCab="yes" CompressionLevel="mszip" MaximumUncompressedMediaSize="2048" />
+    <MediaTemplate EmbedCab="yes" />
     <Property Id="INSTALL_DESKTOP_SHORTCUTS" Value="1" />
     <Property Id="INSTALL_STARTMENU_SHORTCUTS" Value="1" />
     <?if $(var.FlavorId) != docente-local ?>

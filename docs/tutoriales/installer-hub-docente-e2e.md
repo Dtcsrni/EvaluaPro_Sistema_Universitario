@@ -1,12 +1,13 @@
 ﻿# Tutorial visual E2E Installer Hub docente-local
 
-Este tutorial se genera desde evidencia real de la PC. Muestra el flujo completo install, repair, Plataforma docente nativa, dashboard y uninstall.
+Este tutorial se genera desde la evidencia real de VM. Muestra el flujo completo install, repair, Plataforma docente nativa, dashboard y uninstall.
 
 ## 1. Preparar
 - Confirmar flavor `docente-local`, modo y ruta.
 - El Hub docente no expone configuracion avanzada legacy.
-- Ejecutar este runner con `-IUnderstandThisMutatesPc` desde una PowerShell local.
-- No requiere VM, Hyper-V, WinRM, snapshots ni credenciales remotas.
+- Ejecutar `run-e2e-launcher.ps1 -DryRun` antes del ciclo real si se opera desde host.
+- Confirmar `powershell-direct-e2e-launch.json` con `acceptsCredentialParameter=true`.
+- Ejecutar el launcher real con `-Credential` y `-QaPassSecureString`; no guardar passwords en archivos, logs ni handoffs.
 
 ## 2. Revisar
 - Ejecutar prerequisitos.
@@ -48,71 +49,11 @@ Este tutorial se genera desde evidencia real de la PC. Muestra el flujo completo
 
 ![](./screenshots/wpf-install-04-ejecutar-1040x760.png)
 
-### wpf-install-05-ejecutar-1280x720
+### wpf-install-05-ejecutar-980x700
 
-![](./screenshots/wpf-install-05-ejecutar-1280x720.png)
+![](./screenshots/wpf-install-05-ejecutar-980x700.png)
 
 ### wpf-install-06-resultado
 
 ![](./screenshots/wpf-install-06-resultado.png)
-
-### dashboard-status-1280x820
-
-![](./screenshots/dashboard-status-1280x820.png)
-
-### web-docente-1280x820
-
-![](./screenshots/web-docente-1280x820.png)
-
-### web-docente-1280x720
-
-![](./screenshots/web-docente-1280x720.png)
-
-### wpf-repair-01-splash-deteccion
-
-![](./screenshots/wpf-repair-01-splash-deteccion.png)
-
-### wpf-repair-02-preparar
-
-![](./screenshots/wpf-repair-02-preparar.png)
-
-### wpf-repair-03-revisar
-
-![](./screenshots/wpf-repair-03-revisar.png)
-
-### wpf-repair-04-ejecutar-1040x760
-
-![](./screenshots/wpf-repair-04-ejecutar-1040x760.png)
-
-### wpf-repair-05-ejecutar-1280x720
-
-![](./screenshots/wpf-repair-05-ejecutar-1280x720.png)
-
-### wpf-repair-06-resultado
-
-![](./screenshots/wpf-repair-06-resultado.png)
-
-### wpf-uninstall-01-splash-deteccion
-
-![](./screenshots/wpf-uninstall-01-splash-deteccion.png)
-
-### wpf-uninstall-02-preparar
-
-![](./screenshots/wpf-uninstall-02-preparar.png)
-
-### wpf-uninstall-03-revisar
-
-![](./screenshots/wpf-uninstall-03-revisar.png)
-
-### wpf-uninstall-04-ejecutar-1040x760
-
-![](./screenshots/wpf-uninstall-04-ejecutar-1040x760.png)
-
-### wpf-uninstall-05-ejecutar-1280x720
-
-![](./screenshots/wpf-uninstall-05-ejecutar-1280x720.png)
-
-### wpf-uninstall-06-resultado
-
-![](./screenshots/wpf-uninstall-06-resultado.png)
 

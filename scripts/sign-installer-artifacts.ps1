@@ -55,8 +55,7 @@ $certBase64 = [string]$env:EVALUAPRO_SIGN_CERT_BASE64
 $certPassword = [string]$env:EVALUAPRO_SIGN_CERT_PASSWORD
 $certThumbprint = [string]$env:EVALUAPRO_SIGN_CERT_THUMBPRINT
 $timestampUrl = [string]$env:EVALUAPRO_SIGN_TIMESTAMP_URL
-$localOnlySigning = $env:EVALUAPRO_SIGN_LOCAL_ONLY -match '^(1|true|yes|si)$'
-if (-not $timestampUrl -and -not $localOnlySigning) {
+if (-not $timestampUrl) {
   $timestampUrl = 'http://timestamp.digicert.com'
 }
 
@@ -174,15 +173,14 @@ function Invoke-SignTool {
     [string]$PfxPath = '',
     [string]$PfxPassword = '',
     [string]$Thumbprint = '',
-    [string]$TimestampUrl = ''
+    [Parameter(Mandatory = $true)]
+    [string]$TimestampUrl
   )
 
-  $timestampArgs = @()
-  if (-not [string]::IsNullOrWhiteSpace($TimestampUrl)) { $timestampArgs = @('/tr', $TimestampUrl, '/td', 'SHA256') }
   if (-not [string]::IsNullOrWhiteSpace($PfxPath)) {
-    & $signtool sign /fd SHA256 /f $PfxPath /p $PfxPassword @timestampArgs $TargetPath
+    & $signtool sign /fd SHA256 /f $PfxPath /p $PfxPassword /tr $TimestampUrl /td SHA256 $TargetPath
   } elseif (-not [string]::IsNullOrWhiteSpace($Thumbprint)) {
-    & $signtool sign /fd SHA256 /sha1 $Thumbprint @timestampArgs $TargetPath
+    & $signtool sign /fd SHA256 /sha1 $Thumbprint /tr $TimestampUrl /td SHA256 $TargetPath
   } else {
     throw 'No se configuro PFX ni thumbprint para firmar.'
   }
@@ -194,14 +192,8 @@ function Invoke-SignTool {
 function Test-AlreadySignedValid {
   param([Parameter(Mandatory = $true)][string]$TargetPath)
 
-  try {
-    $signature = Get-AuthenticodeSignature -FilePath $TargetPath -ErrorAction Stop
-    return $signature.Status -eq 'Valid'
-  } catch {
-    # Algunos hosts Windows PowerShell no pueden cargar el módulo de firma
-    # por colisión de TypeData; signtool seguirá siendo la fuente de verdad.
-    return $false
-  }
+  $signature = Get-AuthenticodeSignature -FilePath $TargetPath
+  return $signature.Status -eq 'Valid'
 }
 
 function Test-IsBurnBundle {
@@ -218,7 +210,8 @@ function Invoke-BurnAwareBundleSigning {
     [string]$PfxPath = '',
     [string]$PfxPassword = '',
     [string]$Thumbprint = '',
-    [string]$TimestampUrl = ''
+    [Parameter(Mandatory = $true)]
+    [string]$TimestampUrl
   )
 
   if (-not $wixtool) {
@@ -247,7 +240,6 @@ function Invoke-BurnAwareBundleSigning {
     }
 
     Invoke-SignTool -TargetPath $finalBundlePath -PfxPath $PfxPath -PfxPassword $PfxPassword -Thumbprint $Thumbprint -TimestampUrl $TimestampUrl
-    Remove-Item -LiteralPath $BundlePath -Force
     Move-Item -LiteralPath $finalBundlePath -Destination $BundlePath -Force
   } finally {
     if (Test-Path -LiteralPath $workDir) {
@@ -285,7 +277,7 @@ try {
       if ($resolved) { $targets += $resolved }
     }
   }
-  $targets = @($targets | Select-Object -Unique | Where-Object { Test-Path $_ })
+  $targets = $targets | Select-Object -Unique | Where-Object { Test-Path $_ }
 
   if ($targets.Count -eq 0) {
     throw 'No hay artefactos para firmar.'

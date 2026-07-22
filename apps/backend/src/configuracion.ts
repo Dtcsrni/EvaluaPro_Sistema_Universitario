@@ -12,11 +12,7 @@ const entorno = process.env.NODE_ENV ?? 'development';
 cargarDotenvRaizSiAplica(entorno);
 
 const puerto = Number(process.env.PUERTO_API ?? process.env.PORT ?? 4000);
-const limiteJsonEntorno = String(process.env.LIMITE_JSON ?? '').trim();
-const limiteJson =
-  !limiteJsonEntorno || limiteJsonEntorno === 'undefined' || limiteJsonEntorno === 'null'
-    ? '10mb'
-    : limiteJsonEntorno;
+const limiteJson = process.env.LIMITE_JSON ?? '10mb';
 const corsOrigenes = parsearListaCsv(process.env.CORS_ORIGENES ?? 'http://localhost:5173');
 const dominiosCorreoPermitidos = parsearListaCsv(process.env.DOMINIOS_CORREO_PERMITIDOS, (dominio) =>
   dominio.toLowerCase().replace(/^@/, '')
@@ -162,10 +158,7 @@ const licenciaJwtLlavesPublicas: Record<string, string> = (() => {
 })();
 const licenciaJwtAlgoritmo = licenciaJwtKidActivo && licenciaJwtLlavePrivadaPem ? 'RS256' : 'HS256';
 const licenciaHeartbeatHoras = parsearNumeroSeguro(process.env.LICENCIA_HEARTBEAT_HORAS, 12, { min: 1, max: 168 });
-// El producto comercial debe tolerar interrupciones prolongadas de conectividad;
-// el minimo contractual es 90 dias y puede ampliarse por configuracion.
-const licenciaGraciaOfflineDias = parsearNumeroSeguro(process.env.LICENCIA_GRACIA_OFFLINE_DIAS, 90, { min: 90, max: 3650 });
-const respaldoCifradoSecreto = String(process.env.EVALUAPRO_BACKUP_CIFRADO_SECRETO ?? jwtSecretoEfectivo).trim();
+const licenciaGraciaOfflineDias = parsearNumeroSeguro(process.env.LICENCIA_GRACIA_OFFLINE_DIAS, 7, { min: 1, max: 30 });
 const cobranzaAutomaticaIntervalMin = parsearNumeroSeguro(process.env.COBRANZA_AUTOMATICA_INTERVAL_MIN, 30, { min: 5, max: 1440 });
 const cobranzaDiasSuspensionParcial = parsearNumeroSeguro(process.env.COBRANZA_DIAS_SUSPENSION_PARCIAL, 3, { min: 1, max: 60 });
 const cobranzaDiasSuspensionTotal = parsearNumeroSeguro(process.env.COBRANZA_DIAS_SUSPENSION_TOTAL, 10, { min: 2, max: 120 });
@@ -241,7 +234,6 @@ export const configuracion = {
   licenciaJwtPermitirLegacyHs256,
   licenciaHeartbeatHoras,
   licenciaGraciaOfflineDias,
-  respaldoCifradoSecreto,
   cobranzaAutomaticaIntervalMin,
   cobranzaDiasSuspensionParcial,
   cobranzaDiasSuspensionTotal,

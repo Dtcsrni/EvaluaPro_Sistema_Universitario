@@ -21,8 +21,6 @@ import {
   obtenerCampo,
   obtenerIdTexto,
   parsearFechaIso,
-  cifrarRespaldo,
-  descifrarRespaldo,
   sha256Hex,
   sha256HexBuffer,
   upsertLwwPorUpdatedAt,
@@ -144,17 +142,10 @@ export class DefaultPaqueteAssembler implements PaqueteAssembler {
     const json = JSON.stringify(paquete);
     const checksumSha256 = sha256Hex(json);
     const gzipBytes = gzipSync(Buffer.from(json));
-    const respaldoCifrado = cifrarRespaldo(gzipBytes, correo);
-    const paqueteBase64 = respaldoCifrado.toString('base64');
+    const checksumGzipSha256 = sha256HexBuffer(gzipBytes);
+    const paqueteBase64 = gzipBytes.toString('base64');
 
-    return {
-      paquete,
-      paqueteBase64,
-      checksumSha256,
-      checksumGzipSha256: sha256HexBuffer(respaldoCifrado),
-      cifrado: true,
-      exportadoEn
-    };
+    return { paquete, paqueteBase64, checksumSha256, checksumGzipSha256, exportadoEn };
   }
 }
 
@@ -170,9 +161,7 @@ export class DefaultPaqueteProcessor implements PaqueteProcessor {
     const { docenteId, paqueteBase64, checksumEsperado, docenteCorreo, dryRun, registroId } = params;
     validarTamanoPaqueteBase64(paqueteBase64);
 
-    const paqueteBytes = Buffer.from(paqueteBase64, 'base64');
-    const correoActual = await obtenerCorreoDocente(String(docenteId));
-    const { gzipBytes } = descifrarRespaldo(paqueteBytes, correoActual);
+    const gzipBytes = Buffer.from(paqueteBase64, 'base64');
     const buffer = gunzipSync(gzipBytes);
     const json = buffer.toString('utf8');
     const parsed = JSON.parse(json) as PaqueteSincronizacionV2;
@@ -192,6 +181,7 @@ export class DefaultPaqueteProcessor implements PaqueteProcessor {
       throw new ErrorAplicacion('SYNC_DOCENTE_MISMATCH', 'El paquete no corresponde a este docente', 403);
     }
 
+    const correoActual = await obtenerCorreoDocente(docenteIdActual);
     const correoPaquete = normalizarCorreo(parsed.docenteCorreo || docenteCorreo);
     const idsCoinciden = docenteIdPaquete === docenteIdActual;
     const correosCoinciden = Boolean(correoPaquete && correoPaquete === correoActual);

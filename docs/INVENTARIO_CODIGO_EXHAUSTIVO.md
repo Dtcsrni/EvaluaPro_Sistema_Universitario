@@ -1,22 +1,22 @@
 # Inventario Exhaustivo de Codigo
 
-Fecha de generacion: 2026-07-17 10:59:37
+Fecha de generacion: 2026-07-21 18:09:55
 Fuente: git ls-files filtrado por existencia en workspace (solo archivos versionados presentes, excluye node_modules).
 
 ## Resumen
 
-- Total de piezas de codigo/config ejecutable inventariadas: 1171
+- Total de piezas de codigo/config ejecutable inventariadas: 1186
 - Extensiones incluidas: ts, tsx, js, jsx, mjs, cjs, json, yml, yaml, sh, cmd, ps1.
 
 ## Conteo por area
 
 | Area | Archivos |
 | --- | ---: |
-| backend | 413 |
+| backend | 414 |
 | frontend | 135 |
 | portal_alumno_cloud | 67 |
 | ci | 17 |
-| scripts | 172 |
+| scripts | 184 |
 | ops | 3 |
 | docs | 200 |
 | raiz | 32 |
@@ -335,6 +335,7 @@ Fuente: git ls-files filtrado por existencia en workspace (solo archivos version
 - apps/backend/tests/calificacion.solicitudes.test.ts
 - apps/backend/tests/calificacion.test.ts
 - apps/backend/tests/comercial.core.test.ts
+- apps/backend/tests/comercial.heartbeat.test.ts
 - apps/backend/tests/configuracion.correo.test.ts
 - apps/backend/tests/configuracion.entorno.test.ts
 - apps/backend/tests/configuracion.produccion.test.ts
@@ -677,6 +678,10 @@ Fuente: git ls-files filtrado por existencia en workspace (solo archivos version
 - scripts/assert-installer-hub-bundle.ps1
 - scripts/build-msi.ps1
 - scripts/build-native-dist.ps1
+- scripts/ci/run-e2e-auto.ps1
+- scripts/ci/run-e2e-host-canary.ps1
+- scripts/ci/run-e2e-in-vm.ps1
+- scripts/ci/run-e2e-launcher.ps1
 - scripts/ci/set-e2e-qa-secret.ps1
 - scripts/classroom-doctor.mjs
 - scripts/clean-architecture-check.mjs
@@ -727,6 +732,7 @@ Fuente: git ls-files filtrado por existencia en workspace (solo archivos version
 - scripts/install-maintenance-tasks.ps1
 - scripts/installer-burn/InstallerBurnHelper.ps1
 - scripts/installer-docente-baseline.mjs
+- scripts/installer-hub-vm-readiness.ps1
 - scripts/inventario-codigo.mjs
 - scripts/launch-dev.cmd
 - scripts/launch-prod.cmd
@@ -753,9 +759,12 @@ Fuente: git ls-files filtrado por existencia en workspace (solo archivos version
 - scripts/release/smoke-piloto-hibrido.mjs
 - scripts/release/validate-beta-promotion.mjs
 - scripts/release/validate-stable-promotion.mjs
+- scripts/reset-evaluaqa-pass.ps1
 - scripts/reset-local.mjs
 - scripts/retry.mjs
 - scripts/routes-check.mjs
+- scripts/run-enable-wsl2-vm.ps1
+- scripts/safe-enable-wsl2.ps1
 - scripts/sanitize-xlsx-template.ps1
 - scripts/sdd-audit.mjs
 - scripts/security-env-check.mjs
@@ -763,11 +772,13 @@ Fuente: git ls-files filtrado por existencia en workspace (solo archivos version
 - scripts/serena-mcp.sh
 - scripts/serve-docente-static.mjs
 - scripts/setup-qa-credenciales.ps1
+- scripts/setup-wsl2-vm-host.ps1
 - scripts/shortcut-ops.ps1
 - scripts/sign-installer-artifacts.ps1
 - scripts/signing/install-internal-signing-cert.ps1
 - scripts/signing/new-internal-signing-cert.ps1
 - scripts/start-docente-native.mjs
+- scripts/start-installer-hub-e2e-elevated.ps1
 - scripts/start-portal-dev.mjs
 - scripts/start-portal-prod.mjs
 - scripts/start-tray.mjs
@@ -810,6 +821,7 @@ Fuente: git ls-files filtrado por existencia en workspace (solo archivos version
 - scripts/tests/marketing-site.smoke.test.mjs
 - scripts/tests/omr-tv-gate-runner.test.mjs
 - scripts/tests/perf-contract.test.mjs
+- scripts/tests/prepare-docente-sqlite.test.mjs
 - scripts/tests/release-beta-promotion.test.mjs
 - scripts/tests/release-ci-streak.test.mjs
 - scripts/tests/release-evidence-contract.test.mjs
@@ -834,6 +846,7 @@ Fuente: git ls-files filtrado por existencia en workspace (solo archivos version
 - scripts/tmp_reconstruir_lote_desde_pdf.ps1
 - scripts/tmp_validar_identidad_lote.ps1
 - scripts/update-manager.mjs
+- scripts/vm-setup-wsl2.ps1
 - scripts/vscode-prune-extensions.mjs
 - scripts/vscode-tune.mjs
 - scripts/wait-api.mjs

@@ -74,7 +74,6 @@ export function PlantillasOmrWorkflow({
     const existente = draftsPorHoja[sheetSerial];
     return existente ?? construirDraftHoja(paginaActiva);
   }, [draftsPorHoja, paginaActiva]);
-  const jobOmrTerminal = ['completed', 'finalized', 'closed'].includes(String(jobOmr?.status ?? '').toLowerCase());
 
   if (!assessmentDetalle) {
     return (
@@ -202,7 +201,7 @@ export function PlantillasOmrWorkflow({
                 type="button"
                 variante="secundario"
                 cargando={procesandoOmr}
-                disabled={!jobOmr.jobId || jobOmrTerminal}
+                disabled={!jobOmr.jobId}
                 onClick={() => void finalizarJobOmr(jobOmr.jobId)}
               >
                 Finalizar job

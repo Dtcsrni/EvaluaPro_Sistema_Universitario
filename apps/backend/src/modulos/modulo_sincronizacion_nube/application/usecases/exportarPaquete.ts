@@ -24,7 +24,7 @@ export async function exportarPaqueteUseCase(params: {
 
   const { desde } = resolverDesdeSincronizacion(desdeRaw);
 
-  const { paquete, paqueteBase64, checksumSha256, checksumGzipSha256, cifrado, exportadoEn } = await assembler.generar({
+  const { paquete, paqueteBase64, checksumSha256, checksumGzipSha256, exportadoEn } = await assembler.generar({
     docenteId: String(docenteId),
     docenteCorreo,
     periodoId: periodoId || undefined,
@@ -44,7 +44,6 @@ export async function exportarPaqueteUseCase(params: {
     paqueteBase64,
     checksumSha256,
     checksumGzipSha256,
-    cifrado,
     exportadoEn,
     conteos: paquete.conteos
   };

@@ -74,49 +74,21 @@ function resolverLetraCorrectaEnOrden(opciones: Array<{ esCorrecta?: boolean }>,
   return String.fromCharCode(65 + posicion);
 }
 
-type ClaveConstruida = { claveCorrectaPorNumero: Record<number, string>; ordenPreguntas: number[] };
-
-function clavePersistida(examen: ExamenGeneradoClave | null | undefined): ClaveConstruida | null {
-  const answerKeySet = examen?.answerKeySet;
-  if (!answerKeySet || typeof answerKeySet !== 'object') return null;
-  const version = answerKeySet.A ?? answerKeySet[Object.keys(answerKeySet).sort()[0] ?? ''] ?? [];
-  const claveCorrectaPorNumero: Record<number, string> = {};
-  const ordenPreguntas: number[] = [];
-  for (const entry of version) {
-    const numero = Number(entry?.numeroPregunta);
-    const letra = String(entry?.correcta ?? '').trim().toUpperCase();
-    if (!Number.isInteger(numero) || numero <= 0 || !/^[A-Z]$/.test(letra)) continue;
-    claveCorrectaPorNumero[numero] = letra;
-    ordenPreguntas.push(numero);
-  }
-  return ordenPreguntas.length > 0
-    ? { claveCorrectaPorNumero, ordenPreguntas: ordenPreguntas.sort((a, b) => a - b) }
-    : null;
-}
-
-function varianteSeleccionada(examen: ExamenGeneradoClave | null | undefined) {
-  const variante = examen?.mapaVariante;
-  return variante?.versions?.A ?? variante?.versions?.[Object.keys(variante?.versions ?? {}).sort()[0] ?? ''];
-}
-
-function ordenIdsDeExamen(examen: ExamenGeneradoClave | null | undefined): string[] {
-  const variante = examen?.mapaVariante;
-  const version = varianteSeleccionada(examen);
-  if (Array.isArray(variante?.ordenPreguntas)) return variante.ordenPreguntas.map(String);
-  if (Array.isArray(version?.ordenPreguntas)) return version.ordenPreguntas.map(String);
-  return Array.isArray(examen?.preguntasIds) ? examen.preguntasIds.map(String) : [];
-}
-
-function claveDesdeBanco(examen: ExamenGeneradoClave | null | undefined, bancoPreguntas: Pregunta[]): ClaveConstruida {
-  const ordenPreguntasIds = ordenIdsDeExamen(examen);
+export function construirClaveCorrectaExamen(
+  examen: ExamenGeneradoClave | null | undefined,
+  bancoPreguntas: Pregunta[]
+): { claveCorrectaPorNumero: Record<number, string>; ordenPreguntas: number[] } {
+  const ordenPreguntasIds = Array.isArray(examen?.mapaVariante?.ordenPreguntas)
+    ? examen!.mapaVariante!.ordenPreguntas!.map((id) => String(id))
+    : Array.isArray(examen?.preguntasIds)
+      ? examen!.preguntasIds!.map((id) => String(id))
+      : [];
   if (ordenPreguntasIds.length === 0) {
     return { claveCorrectaPorNumero: {}, ordenPreguntas: [] };
   }
   const mapaPreguntas = new Map(bancoPreguntas.map((pregunta) => [String(pregunta._id), pregunta]));
   const claveCorrectaPorNumero: Record<number, string> = {};
   const ordenPreguntas: number[] = [];
-  const variante = examen?.mapaVariante;
-  const varianteVersion = varianteSeleccionada(examen);
 
   ordenPreguntasIds.forEach((idPregunta, idx) => {
     const pregunta = mapaPreguntas.get(idPregunta);
@@ -126,9 +98,8 @@ function claveDesdeBanco(examen: ExamenGeneradoClave | null | undefined, bancoPr
       versiones.find((item) => Number(item?.numeroVersion) === Number(pregunta.versionActual)) ??
       versiones[versiones.length - 1];
     const opciones = Array.isArray(version?.opciones) ? version!.opciones! : [];
-    const ordenOpcionesPorPregunta = variante?.ordenOpcionesPorPregunta ?? varianteVersion?.ordenOpcionesPorPregunta;
-    const ordenOpciones = Array.isArray(ordenOpcionesPorPregunta?.[idPregunta])
-      ? (ordenOpcionesPorPregunta[idPregunta] ?? [])
+    const ordenOpciones = Array.isArray(examen?.mapaVariante?.ordenOpcionesPorPregunta?.[idPregunta])
+      ? (examen!.mapaVariante!.ordenOpcionesPorPregunta![idPregunta] ?? [])
       : [0, 1, 2, 3, 4];
     const letra = resolverLetraCorrectaEnOrden(opciones, ordenOpciones);
     if (!letra) return;
@@ -138,13 +109,6 @@ function claveDesdeBanco(examen: ExamenGeneradoClave | null | undefined, bancoPr
   });
 
   return { claveCorrectaPorNumero, ordenPreguntas };
-}
-
-export function construirClaveCorrectaExamen(
-  examen: ExamenGeneradoClave | null | undefined,
-  bancoPreguntas: Pregunta[]
-): ClaveConstruida {
-  return clavePersistida(examen) ?? claveDesdeBanco(examen, bancoPreguntas);
 }
 
 export function combinarRespuestasOmrPaginas(

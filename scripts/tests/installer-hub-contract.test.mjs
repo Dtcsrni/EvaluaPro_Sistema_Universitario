@@ -158,10 +158,7 @@ test('workflow de installer publica contratos nuevos de release', () => {
   assert.match(workflow, /dotnet-version:\s*8\.0\.x/);
   assert.match(workflow, /generate-installer-hashes\.ps1/);
   assert.match(workflow, /sign-installer-artifacts\.ps1/);
-  assert.match(workflow, /name: Etapa signing gate \(opcional\)\s+if: github\.event_name != 'pull_request'/);
-  assert.match(workflow, /pull_request:/);
-  assert.match(workflow, /build-msi\.ps1 -SkipStabilityChecks -IncludeBundle -Flavor docente-local/);
-  assert.doesNotMatch(workflow, /build-msi\.ps1 -SkipStabilityChecks -IncludeBundle -Flavor all/);
+  assert.match(workflow, /build-msi\.ps1 -SkipStabilityChecks -IncludeBundle -Flavor all/);
   assert.match(workflow, /installer-windows-internal/);
   assert.match(workflow, /dist\/installer\/_internal\/\*\*/);
   assert.match(workflow, /Publicar release assets \(tags v\*\)/);
@@ -169,9 +166,10 @@ test('workflow de installer publica contratos nuevos de release', () => {
   assert.match(workflow, /make_latest:\s*false/);
   assert.match(stableGateWorkflow, /permissions:\s*\n\s*contents:\s*write/);
   assert.match(stableGateWorkflow, /gh release edit "v\$\{\{ steps\.resolve_version\.outputs\.target \}\}".*--latest/);
+  assert.match(workflow, /dist\/installer\/saas-completo\/EvaluaPro-InstallerHub-saas-completo-v\*\.exe/);
   assert.match(workflow, /dist\/installer\/docente-local\/EvaluaPro-InstallerHub-docente-local-v\*\.exe/);
+  assert.match(workflow, /dist\/installer\/_internal\/saas-completo\/EvaluaPro-saas-completo\.msi/);
   assert.match(workflow, /dist\/installer\/_internal\/docente-local\/EvaluaPro-docente-local\.msi/);
-  assert.doesNotMatch(workflow, /saas-completo\/EvaluaPro-InstallerHub-saas-completo/);
   assert.match(workflow, /Smoke GUI del bundle Burn publico empaquetado/);
   assert.match(workflow, /dist\/installer\/EvaluaPro-release-manifest\.json/);
   assert.doesNotMatch(workflow, /dist\/installer\/EvaluaPro-InstallerHub\.exe/);
@@ -241,8 +239,8 @@ test('build-msi valida contenedor adjunto Burn antes de publicar bundle', () => 
   assert.match(buildMsi, /Assert-MsiInstallsAppPayload -MsiPath \$productOut -InstallFolderName \$installFolderName/);
   assert.match(buildMsi, /'docker-compose\.yml'/);
   assert.match(buildMsi, /'docker-compose\.prod-build\.yml'/);
-  assert.match(buildMsi, /-p:AssemblyVersion=\$dotNetNumericVersion/);
-  assert.match(buildMsi, /-p:FileVersion=\$dotNetNumericVersion/);
+  assert.match(buildMsi, /-p:AssemblyVersion=\$VersionTag\.0/);
+  assert.match(buildMsi, /-p:FileVersion=\$VersionTag\.0/);
   assert.match(buildMsi, /-p:InformationalVersion=\$VersionTag/);
   assert.match(buildMsi, /Bootstrapper Application Burn publicada con version invalida/);
   assert.match(buildMsi, /Compilando Bootstrapper Application con versión/);
@@ -283,9 +281,8 @@ test('MSI docente perUser no escribe marcadores en HKLM', () => {
 test('build MSI elimina avisos Prisma del esquema SQL nativo', () => {
   const build = fs.readFileSync(path.join(root, 'scripts', 'build-msi.ps1'), 'utf8');
   assert.match(build, /schemaSqlText = \$schemaSqlOutput -join/);
-  assert.match(build, /lastSqlTerminator = \$schemaSqlText\.LastIndexOf\(';\'\)/);
-  assert.match(build, /schemaSqlText = \$schemaSqlText\.Substring\(0, \$lastSqlTerminator \+ 1\)/);
-  assert.match(build, /Update available\|major update/);
+  assert.match(build, /boxIndex = \$schemaSqlText\.IndexOf\(\[char\]0x250c\)/);
+  assert.match(build, /LastIndexOf\("`n", \$boxIndex\)/);
   assert.match(build, /Falló saneamiento del esquema SQL nativo/);
 });
 
@@ -389,23 +386,11 @@ test('launcher docente usa invocación Windows compatible con npm.cmd y Node 24'
   assert.match(launcher, /proc\.stderr\.on\('data'/);
 });
 
-test('launcher docente aísla el ciclo E2E con build sin PWA y SQLite preparado', () => {
-  const launcher = fs.readFileSync(path.join(root, 'scripts', 'start-docente-native.mjs'), 'utf8');
-  assert.match(launcher, /EVALUAPRO_E2E_BUILD/);
-  assert.match(launcher, /VITE_DISABLE_PWA/);
-  assert.match(launcher, /VITE_API_BASE_URL/);
-  assert.match(launcher, /prepareE2EDatabase/);
-  assert.match(launcher, /migrate[\s\S]*diff/);
-  assert.match(launcher, /prepare-docente-sqlite\.mjs/);
-  assert.match(launcher, /E2E_DOCENTE_SQLITE_PATH/);
-});
-
 test('servidor docente nativo no depende de Vite y bloquea traversal', () => {
   const server = fs.readFileSync(path.join(root, 'scripts', 'serve-docente-static.mjs'), 'utf8');
   assert.match(server, /http\.createServer/);
   assert.match(server, /decodeURIComponent/);
-  assert.match(server, /buildAssetIndex|assetIndex\.get/);
-  assert.match(server, /includes\('\.\.'\)/);
+  assert.match(server, /startsWith\(\x60\$\{publicRoot\}/);
   assert.match(server, /fallback/);
   assert.doesNotMatch(server, /vite|npm run/i);
 });
@@ -1306,7 +1291,7 @@ test('helper Burn prepara contrato runtime instalado para dashboard docente', ()
   assert.match(helper, /reaplicar el contrato docente/);
   assert.match(helper, /runtimeEnv = Read-InstallerEnvMap -Path \$envPath/);
   assert.match(helper, /Ruta SQLite docente/);
-  assert.match(helper, /apps\\backend\\dist\\index\.js/);
+  assert.doesNotMatch(helper, /backend\\dist\\index\.js/);
 });
 
 test('descarga de prerequisitos usa fallback HttpClient -> BITS -> Invoke-WebRequest', () => {
@@ -1365,11 +1350,9 @@ test('smoke del bundle Burn publico queda declarado en workflows post-build', ()
   const stableWorkflow = fs.readFileSync(path.join(root, '.github', 'workflows', 'ci-installer-windows.yml'), 'utf8');
   const betaWorkflow = fs.readFileSync(path.join(root, '.github', 'workflows', 'release-beta.yml'), 'utf8');
 
-  assert.match(stableWorkflow, /Smoke GUI del bundle Burn publico empaquetado/);
-  assert.match(stableWorkflow, /dist\/installer\/docente-local\/EvaluaPro-InstallerHub-docente-local-v\*\.exe/);
-  assert.match(betaWorkflow, /Smoke GUI del bundle Burn publico empaquetado/);
-  assert.match(betaWorkflow, /dist\/installer\/saas-completo\/EvaluaPro-InstallerHub-saas-completo-v\*\.exe/);
   for (const workflow of [stableWorkflow, betaWorkflow]) {
+    assert.match(workflow, /Smoke GUI del bundle Burn publico empaquetado/);
+    assert.match(workflow, /dist\/installer\/saas-completo\/EvaluaPro-InstallerHub-saas-completo-v\*\.exe/);
     assert.match(workflow, /Start-Process -FilePath \$exe(\.FullName)? -PassThru/);
     assert.match(workflow, /El bundle Burn publico se cerro antes del smoke timeout|El Installer Hub empaquetado se cerro antes del smoke timeout/);
   }
@@ -2023,10 +2006,6 @@ test('blindaje de licencia exige DPAPI local machine e integridad MAC', () => {
   assert.match(securityModule, /Invoke-EvaluaProStepUp/);
   assert.match(securityModule, /Get-EvaluaProCurrentTotpCode/);
   assert.match(securityModule, /recovery_code/);
-  assert.match(securityModule, /Get-EvaluaProCommercialLicenseState/);
-  assert.match(securityModule, /Invoke-EvaluaProLicenseHeartbeatSecure/);
-  assert.match(securityModule, /featureLevel = 'community'/);
-  assert.match(securityModule, /graciaDias = 90/);
 });
 
 test('runner E2E tolera estados finales sin propiedad timeout', () => {

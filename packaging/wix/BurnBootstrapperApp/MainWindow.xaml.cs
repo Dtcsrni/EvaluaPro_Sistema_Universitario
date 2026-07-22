@@ -97,8 +97,6 @@ public partial class MainWindow : Window
     private WizardStep currentStep = WizardStep.Terms;
     private string currentUpdateAssetName = DefaultUpdateAssetName;
     private readonly Queue<(DateTime At, int Progress)> progressSamples = new();
-    private double? smoothedRemainingSeconds;
-    private DateTime lastProgressAdvanceAt;
 
     public MainWindow()
     {
@@ -312,20 +310,13 @@ public partial class MainWindow : Window
         if (progress <= 0)
         {
             progressSamples.Clear();
-            smoothedRemainingSeconds = null;
-            lastProgressAdvanceAt = default;
             ProgressEtaTextBlock.Text = "Tiempo restante: calculando…";
             return;
         }
 
         var now = DateTime.UtcNow;
-        var previousProgress = progressSamples.Count == 0 ? progress : progressSamples.Last().Progress;
-        if (progress > previousProgress)
-        {
-            lastProgressAdvanceAt = now;
-        }
         progressSamples.Enqueue((now, progress));
-        while (progressSamples.Count > 0 && (now - progressSamples.Peek().At).TotalSeconds > 45)
+        while (progressSamples.Count > 0 && (now - progressSamples.Peek().At).TotalSeconds > 20)
         {
             progressSamples.Dequeue();
         }
@@ -333,46 +324,21 @@ public partial class MainWindow : Window
         var first = progressSamples.FirstOrDefault();
         var elapsedSeconds = (now - first.At).TotalSeconds;
         var delta = progress - first.Progress;
-        if (progress >= 100)
+        if (first.At == default || elapsedSeconds < 2 || delta < 1 || progress >= 100)
         {
-            smoothedRemainingSeconds = 0;
-            ProgressEtaTextBlock.Text = "Tiempo restante: completado.";
+            ProgressEtaTextBlock.Text = progress >= 100 ? "Tiempo restante: completado." : "Tiempo restante: calculando…";
             return;
         }
 
-        if (lastProgressAdvanceAt != default && (now - lastProgressAdvanceAt).TotalSeconds >= 8)
-        {
-            ProgressEtaTextBlock.Text = "Tiempo restante: verificando etapa actual…";
-            return;
-        }
-
-        if (first.At == default || elapsedSeconds < 4 || delta < 2)
+        var secondsRemaining = (100 - progress) * elapsedSeconds / delta;
+        if (!double.IsFinite(secondsRemaining) || secondsRemaining < 0 || secondsRemaining > 24 * 60 * 60)
         {
             ProgressEtaTextBlock.Text = "Tiempo restante: calculando…";
             return;
         }
 
-        var rawSecondsRemaining = (100 - progress) * elapsedSeconds / delta;
-        if (!double.IsFinite(rawSecondsRemaining) || rawSecondsRemaining < 0 || rawSecondsRemaining > 24 * 60 * 60)
-        {
-            ProgressEtaTextBlock.Text = "Tiempo restante: calculando…";
-            return;
-        }
-
-        // Suaviza ruido de eventos Burn y limita el crecimiento por actualización.
-        // Así la predicción no salta hacia atrás aunque cambie la velocidad de I/O.
-        var previousEstimate = smoothedRemainingSeconds;
-        var boundedRaw = previousEstimate.HasValue
-            ? Math.Min(rawSecondsRemaining, previousEstimate.Value * 1.20)
-            : rawSecondsRemaining;
-        var estimate = previousEstimate.HasValue
-            ? (previousEstimate.Value * 0.70) + (boundedRaw * 0.30)
-            : boundedRaw;
-        smoothedRemainingSeconds = Math.Max(1, estimate);
-
-        var lowerSeconds = Math.Max(1, (int)Math.Round(estimate * 0.85 / 5d) * 5);
-        var upperSeconds = Math.Max(lowerSeconds, (int)Math.Round(estimate * 1.35 / 5d) * 5);
-        ProgressEtaTextBlock.Text = $"Tiempo restante estimado: {FormatDuration(lowerSeconds)} a {FormatDuration(upperSeconds)} · según avance real";
+        var roundedSeconds = Math.Max(1, (int)Math.Round(secondsRemaining / 5d) * 5);
+        ProgressEtaTextBlock.Text = $"Tiempo restante estimado: {FormatDuration(roundedSeconds)} · basado en avance reciente";
     }
 
     private static string FormatDuration(int seconds)
@@ -950,27 +916,27 @@ public partial class MainWindow : Window
 
     private static readonly (string Title, string Description, Geometry Icon)[] SplashFeatures =
     {
-        ("Instala con confianza", "Comprueba requisitos, verifica el paquete y conserva evidencia de cada etapa.", FeatureInstallGeometry),
-        ("Diseñado para docentes", "Trabaja en tu equipo, sin máquinas virtuales, con un flujo claro y tus datos bajo control.", FeatureTeacherGeometry),
-        ("Evalúa y califica", "Organiza materias, aplica evaluaciones y conserva resultados consistentes y trazables.", FeatureEvaluateGeometry),
-        ("Escaneo OMR", "Digitaliza hojas de respuesta, revisa lecturas dudosas y convierte marcas en resultados útiles.", FeatureScanGeometry),
-        ("Retroalimentación útil", "Identifica áreas de oportunidad y comunica avances con reportes claros para cada grupo.", FeatureFeedbackGeometry),
-        ("Siempre puedes volver", "Repara, actualiza o desinstala con estados visibles, datos protegidos y pasos reversibles.", FeatureRepairGeometry),
-        ("Materias y periodos", "Organiza ciclos, grupos y materias una sola vez para reutilizar su estructura durante el curso.", DocumentGeometry),
-        ("Alumnos", "Registra o importa alumnos, consulta sus datos y trabaja con listas académicas ordenadas.", FeatureTeacherGeometry),
-        ("Banco de reactivos", "Construye preguntas reutilizables por tema, dificultad y competencia para evaluar mejor.", FeatureEvaluateGeometry),
-        ("Plantillas de examen", "Crea formatos consistentes y genera evaluaciones repetibles sin rehacer tu trabajo.", DocumentGeometry),
-        ("Calificación automática", "Reduce la captura manual, aplica criterios uniformes y conserva la revisión docente.", FeatureEvaluateGeometry),
-        ("Resultados por grupo", "Analiza el desempeño individual, grupal y por periodo para decidir el siguiente paso.", FeatureFeedbackGeometry),
-        ("Reportes PDF", "Genera documentos listos para revisar, archivar, imprimir o compartir con tu comunidad escolar.", DocumentGeometry),
-        ("Exportación", "Lleva calificaciones y reportes a formatos compatibles con tu flujo escolar y tus respaldos.", FeatureScanGeometry),
-        ("Historial trazable", "Consulta qué ocurrió, quién realizó cada acción y cuándo, con evidencia operativa.", FeatureFeedbackGeometry),
-        ("Privacidad local", "Mantén la información académica en tu equipo y controla qué datos se comparten.", FeatureRepairGeometry),
-        ("Copia de seguridad", "Protege tu trabajo con respaldos cifrados y recupera la operación ante incidentes.", FeatureRepairGeometry),
-        ("Actualizaciones seguras", "Valida hashes, conserva tus datos y aplica cambios con recuperación ante fallos.", FeatureInstallGeometry),
-        ("Diagnóstico", "Detecta requisitos, explica los problemas y orienta la corrección antes de continuar.", FeatureScanGeometry),
-        ("Accesibilidad", "Usa textos legibles, navegación por teclado, contraste adecuado y estados comprensibles.", FeatureFeedbackGeometry),
-        ("Primeros pasos", "Crea una materia, registra tus primeros alumnos y prepara tu primera evaluación paso a paso.", FeatureTeacherGeometry)
+        ("Instala con confianza", "Revisa requisitos y conserva evidencia de cada etapa.", FeatureInstallGeometry),
+        ("Diseñado para docentes", "Trabaja localmente, ligero y sin VM, con datos bajo tu control.", FeatureTeacherGeometry),
+        ("Evalúa y califica", "Prepara materias, aplica evaluaciones y conserva resultados trazables.", FeatureEvaluateGeometry),
+        ("Escaneo OMR", "Captura hojas de respuesta y convierte resultados en información accionable.", FeatureScanGeometry),
+        ("Retroalimentación útil", "Detecta áreas de oportunidad y comunica avances con reportes claros.", FeatureFeedbackGeometry),
+        ("Siempre puedes volver", "Repara, actualiza o desinstala con estados claros y reversibles.", FeatureRepairGeometry),
+        ("Materias y periodos", "Organiza ciclos, grupos y materias sin duplicar trabajo.", DocumentGeometry),
+        ("Alumnos", "Registra, importa y consulta grupos de alumnos con rapidez.", FeatureTeacherGeometry),
+        ("Banco de reactivos", "Construye preguntas reutilizables por tema, dificultad y competencia.", FeatureEvaluateGeometry),
+        ("Plantillas de examen", "Crea formatos consistentes para aplicar evaluaciones repetibles.", DocumentGeometry),
+        ("Calificación automática", "Reduce captura manual y conserva criterios uniformes.", FeatureEvaluateGeometry),
+        ("Resultados por grupo", "Compara desempeño individual, grupal y por periodo.", FeatureFeedbackGeometry),
+        ("Reportes PDF", "Genera reportes claros para revisión, archivo y entrega.", DocumentGeometry),
+        ("Exportación", "Lleva resultados a formatos útiles para tu flujo escolar.", FeatureScanGeometry),
+        ("Historial trazable", "Consulta quién hizo qué y cuándo, con evidencia operativa.", FeatureFeedbackGeometry),
+        ("Privacidad local", "Mantén información sensible en tu equipo y controla su uso.", FeatureRepairGeometry),
+        ("Copia de seguridad", "Protege tu trabajo y recupera información ante incidentes.", FeatureRepairGeometry),
+        ("Actualizaciones seguras", "Valida hashes y aplica cambios con pasos reversibles.", FeatureInstallGeometry),
+        ("Diagnóstico", "Detecta requisitos y explica qué corregir antes de continuar.", FeatureScanGeometry),
+        ("Accesibilidad", "Usa textos legibles, navegación por teclado y estados explícitos.", FeatureFeedbackGeometry),
+        ("Primeros pasos", "Comienza con una materia, tres alumnos y tu primera evaluación.", FeatureTeacherGeometry)
     };
 
     private void StartSplashCarousel()
@@ -1199,8 +1165,6 @@ public partial class MainWindow : Window
         {
             PrereqSummaryTextBlock.Text = "Sin prerequisitos detectados";
             PrereqSummaryHintTextBlock.Text = "Pulsa Revisar equipo para generar una lectura actual del equipo.";
-            PrereqSummaryTextBlock.Foreground = ToBrush("#102A43");
-            PrereqSummaryHintTextBlock.Foreground = ToBrush("#335B74");
             PrereqSummaryBorder.Background = ToBrush("#F8FAFC");
             PrereqSummaryBorder.BorderBrush = ToBrush("#D9E2EA");
             PrereqSummaryIcon.Data = DocumentGeometry;
@@ -1216,8 +1180,6 @@ public partial class MainWindow : Window
         {
             PrereqSummaryTextBlock.Text = $"Listo: {readyCount} requisito(s) OK";
             PrereqSummaryHintTextBlock.Text = "Puedes ejecutar la acción primaria o revisar la bitácora si necesitas evidencia.";
-            PrereqSummaryTextBlock.Foreground = ToBrush("#102A43");
-            PrereqSummaryHintTextBlock.Foreground = ToBrush("#335B74");
             PrereqSummaryBorder.Background = ToBrush("#ECFDF5");
             PrereqSummaryBorder.BorderBrush = ToBrush("#A7F3D0");
             PrereqSummaryIcon.Data = CheckGeometry;
@@ -1229,8 +1191,6 @@ public partial class MainWindow : Window
 
         PrereqSummaryTextBlock.Text = $"Atención: {missingCount} pendiente(s), {readyCount} OK";
         PrereqSummaryHintTextBlock.Text = "Revisa filas FALTA y corrige antes de instalar o reparar.";
-        PrereqSummaryTextBlock.Foreground = ToBrush("#102A43");
-        PrereqSummaryHintTextBlock.Foreground = ToBrush("#335B74");
         PrereqSummaryBorder.Background = ToBrush("#FEF2F2");
         PrereqSummaryBorder.BorderBrush = ToBrush("#FECACA");
         PrereqSummaryIcon.Data = CrossGeometry;

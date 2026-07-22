@@ -21,8 +21,7 @@ const obtenerMock = vi.fn();
 vi.mock('../src/apps/app_docente/clienteApiDocente', () => ({
   clienteApi: {
     obtener: (...args: unknown[]) => obtenerMock(...args),
-    baseApi: '/api',
-    registrarEventosUso: vi.fn()
+    baseApi: '/api'
   }
 }));
 
@@ -431,54 +430,5 @@ describe('SeccionCalificaciones manual selector', () => {
     expect(payload.paginas?.map((p) => p.numeroPagina)).toEqual([1, 2]);
     expect(payload.paginas?.[0]?.respuestas.map((r) => r.numeroPregunta)).toEqual([1, 2]);
     expect(payload.paginas?.[1]?.respuestas.map((r) => r.numeroPregunta)).toEqual([3, 4]);
-  });
-
-  it('descarga reporte CSV de la materia seleccionada', async () => {
-    const user = userEvent.setup();
-    localStorage.setItem('tokenDocente', 'token-test');
-    const fetchMock = vi.fn().mockResolvedValue({ ok: true, status: 200, blob: async () => new Blob(['csv']) });
-    vi.stubGlobal('fetch', fetchMock);
-    vi.spyOn(URL, 'createObjectURL').mockReturnValue('blob:test');
-    vi.spyOn(URL, 'revokeObjectURL').mockImplementation(() => {});
-
-    render(
-      <SeccionCalificaciones
-        periodos={[{ _id: 'per-1', nombre: 'Periodo 1' } as never]}
-        alumnos={[alumno]}
-        onAnalizar={async () => ({})}
-        onPrevisualizar={async () => ({ preview: { aciertos: 0, totalReactivos: 0 } as never })}
-        resultado={null}
-        onActualizar={() => {}}
-        onActualizarPregunta={() => {}}
-        revisionOmrConfirmada={false}
-        onConfirmarRevisionOmr={() => {}}
-        revisionesOmr={[]}
-        examenIdActivo={null}
-        paginaActiva={null}
-        onSeleccionarRevision={() => {}}
-        claveCorrectaPorNumero={{}}
-        ordenPreguntasClave={[]}
-        examenId={null}
-        alumnoId={null}
-        resultadoParaCalificar={null}
-        respuestasParaCalificar={[]}
-        onCalificar={async () => ({})}
-        permisos={permisos}
-        avisarSinPermiso={() => {}}
-      />
-    );
-
-    await waitFor(() => expect(screen.getByRole('button', { name: /Descargar CSV/i })).toBeEnabled());
-    await user.click(screen.getByRole('button', { name: /Descargar CSV/i }));
-
-    await waitFor(() => expect(screen.getByText(/Reporte CSV descargado/i)).toBeInTheDocument());
-    expect(fetchMock).toHaveBeenCalledWith(
-      '/api/analiticas/calificaciones-csv?periodoId=per-1',
-      expect.objectContaining({ headers: { Authorization: 'Bearer token-test' } })
-    );
-
-    localStorage.removeItem('tokenDocente');
-    await user.click(screen.getByRole('button', { name: /Descargar CSV/i }));
-    await waitFor(() => expect(screen.getByText(/Sesión no válida/i)).toBeInTheDocument());
   });
 });

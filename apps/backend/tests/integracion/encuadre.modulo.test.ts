@@ -88,17 +88,6 @@ describe('módulo encuadre integración', () => {
     expect(respuesta.body.error).toBeDefined();
   });
 
-  it('debe representar el encuadre no inicializado como estado vacío esperado', async () => {
-    const { periodo, auth } = await crearContexto();
-
-    const respuesta = await request(app)
-      .get(`/api/evaluaciones/encuadre/estado/${periodo.id}`)
-      .set(auth);
-
-    expect(respuesta.status).toBe(200);
-    expect(respuesta.body).toMatchObject({ periodoId: periodo.id, inicializado: false, encuadre: null });
-  });
-
   it('debe inicializar encuadre correctamente con datos válidos', async () => {
     const { periodo, auth } = await crearContexto();
 

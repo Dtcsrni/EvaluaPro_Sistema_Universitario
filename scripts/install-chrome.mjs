@@ -9,6 +9,7 @@ import { createWriteStream, existsSync } from 'node:fs';
 import path from 'node:path';
 import os from 'node:os';
 import { spawn } from 'node:child_process';
+import extract from 'extract-zip';
 
 // Registrar manejadores globales para capturar cualquier comportamiento extraño del proceso
 process.on('exit', (code) => {
@@ -50,7 +51,6 @@ async function downloadFile(url, dest) {
 async function extractZip(zipPath, destDir) {
   if (process.platform === 'win32') {
     console.log('[install-chrome] Usando extract-zip...');
-    const { default: extract } = await import('extract-zip');
     await extract(zipPath, { dir: destDir });
   } else {
     console.log('[install-chrome] Usando unzip nativo...');

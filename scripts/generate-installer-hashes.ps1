@@ -37,33 +37,6 @@ $root = (Resolve-Path (Join-Path $PSScriptRoot '..')).Path
 if (-not $InstallerDir) {
   $InstallerDir = Join-Path $root 'dist\installer'
 }
-
-function Get-Crc32Hex {
-  param([Parameter(Mandatory = $true)][string]$Path)
-  [int64]$polynomial = 3988292384
-  $table = New-Object int64[] 256
-  for ($seed = 0; $seed -lt 256; $seed++) {
-    [int64]$value = $seed
-    for ($bit = 0; $bit -lt 8; $bit++) {
-      $lsb = $value -band 1
-      $value = [int64]($value -shr 1)
-      if ($lsb -ne 0) { $value = $value -bxor $polynomial }
-    }
-    $table[$seed] = $value
-  }
-  [int64]$crc = 4294967295
-  $stream = [System.IO.File]::OpenRead($Path)
-  try {
-    $buffer = New-Object byte[] 1048576
-    while (($read = $stream.Read($buffer, 0, $buffer.Length)) -gt 0) {
-      for ($i = 0; $i -lt $read; $i++) {
-        $index = [int](($crc -bxor [int64]$buffer[$i]) -band 255)
-        $crc = ($crc -shr 8) -bxor $table[$index]
-      }
-    }
-  } finally { $stream.Dispose() }
-  return ('{0:X8}' -f ([uint64]($crc -bxor 4294967295))).ToLowerInvariant()
-}
 $internalInstallerDir = Join-Path $InstallerDir '_internal'
 
 function Resolve-VersionTag {
@@ -171,10 +144,6 @@ foreach ($flavor in $catalog.flavors) {
     $hashPath = Join-Path $artifactDir ($artifactName + '.sha256')
     "$hash  $artifactName" | Set-Content -Path $hashPath -Encoding ascii
     Write-Host "[installer-hash] Generado: $hashPath"
-    $crc32 = Get-Crc32Hex -Path $artifactPath
-    $crcPath = Join-Path $artifactDir ($artifactName + '.crc32')
-    "$crc32  $artifactName" | Set-Content -Path $crcPath -Encoding ascii
-    Write-Host "[installer-hash] Generado: $crcPath"
     if (-not $shasumsByDirectory.ContainsKey($artifactDir)) {
       $shasumsByDirectory[$artifactDir] = New-Object System.Collections.Generic.List[string]
     }

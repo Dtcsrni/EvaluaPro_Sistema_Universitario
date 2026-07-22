@@ -11,14 +11,31 @@ import { buildCoveragePlan } from '../testing/run-backend-coverage-batches.mjs';
 test('cobertura backend separa el lote pesado de aislamiento docente', () => {
   const plan = buildCoveragePlan();
 
-  const payloadIndex = plan.batches.findIndex((batch) => batch.name === 'backend-calificacion-omr-payload');
-  assert.ok(payloadIndex > 0);
-  assert.equal(plan.batches.slice(0, payloadIndex).every((batch) => batch.name.startsWith('backend-root-')), true);
-  assert.equal(plan.batches[payloadIndex].args.includes('tests/calificacion.omr.payload.test.ts'), true);
-  assert.equal(plan.batches.some((batch) => batch.args.includes('tests/integracion/classroom.pull.test.ts')), true);
-  assert.equal(plan.batches.some((batch) => batch.args.includes('tests/integracion/flujoDocenteGlobalE2E.test.ts')), true);
-  assert.equal(plan.batches.some((batch) => batch.args.includes('tests/integracion/qrEscaneoOmr.test.ts')), true);
-  assert.equal(plan.batches.some((batch) => batch.args.includes('tests/integracion/aislamientoDocente.test.ts')), true);
+  assert.deepEqual(
+    plan.batches.map((batch) => batch.name),
+    [
+      'backend-root',
+      'backend-calificacion-omr-payload',
+      'backend-integracion-a-m-01',
+      'backend-integracion-a-m-02',
+      'backend-integracion-a-m-03',
+      'backend-integracion-a-m-04',
+      'backend-integracion-a-m-05',
+      'backend-integracion-n-z-01',
+      'backend-integracion-n-z-02',
+      'backend-integracion-n-z-03',
+      'backend-integracion-n-z-04',
+      'backend-aislamiento'
+    ]
+  );
+  assert.equal(plan.batches[0].args.includes('tests/integracion/**'), true);
+  assert.equal(plan.batches[0].args.includes('tests/calificacion.omr.payload.test.ts'), true);
+  assert.equal(plan.batches[1].args.includes('tests/calificacion.omr.payload.test.ts'), true);
+  assert.equal(plan.batches[2].args.includes('tests/integracion/classroom.pull.test.ts'), false);
+  assert.equal(plan.batches[4].args.includes('tests/integracion/classroom.pull.test.ts'), true);
+  assert.equal(plan.batches[7].args.includes('tests/integracion/flujoDocenteGlobalE2E.test.ts'), true);
+  assert.equal(plan.batches[9].args.includes('tests/integracion/qrEscaneoOmr.test.ts'), true);
+  assert.equal(plan.batches[11].args.includes('tests/integracion/aislamientoDocente.test.ts'), true);
 });
 
 test('cobertura backend conserva umbrales solo en el merge final', () => {

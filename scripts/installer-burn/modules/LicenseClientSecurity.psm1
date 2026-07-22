@@ -304,7 +304,6 @@ function Save-EvaluaProSecureLicenseToken {
   $mac = Get-HmacSha256Hex -Key $sealKey -Data $payloadJson
 
   $envelope = [ordered]@{
-    payloadJson = $payloadJson
     payload = $payload
     mac = $mac
   }
@@ -315,16 +314,6 @@ function Save-EvaluaProSecureLicenseToken {
 
 function Get-EvaluaProSecureLicenseToken {
   param([string]$RootDir = '')
-  $payload = Get-EvaluaProSecureLicensePayload -RootDir $RootDir
-  $fingerprintNow = Get-EvaluaProMachineFingerprintHash
-  $entropy = [System.Text.Encoding]::UTF8.GetBytes($fingerprintNow)
-  $cipher = [Convert]::FromBase64String([string]$payload.tokenCiphertext)
-  $plain = Unprotect-DpapiBytes -Bytes $cipher -Entropy $entropy
-  return [System.Text.Encoding]::UTF8.GetString($plain)
-}
-
-function Get-EvaluaProSecureLicensePayload {
-  param([string]$RootDir = '')
   $root = Get-EvaluaProLicenseSecurityRoot -RootDir $RootDir
   $path = Join-Path $root 'license.secure.json'
   if (-not (Test-Path $path)) {
@@ -332,11 +321,7 @@ function Get-EvaluaProSecureLicensePayload {
   }
   $json = Get-Content -Path $path -Raw -Encoding utf8 | ConvertFrom-Json
   $payload = $json.payload
-  $payloadJson = if ($null -ne $json.PSObject.Properties['payloadJson']) {
-    [string]$json.payloadJson
-  } else {
-    $payload | ConvertTo-Json -Depth 8 -Compress
-  }
+  $payloadJson = $payload | ConvertTo-Json -Depth 8 -Compress
   $sealKey = Get-OrCreate-EvaluaProSealKey -RootDir $root
   $calc = Get-HmacSha256Hex -Key $sealKey -Data $payloadJson
   if ($calc -ne [string]$json.mac) {
@@ -347,87 +332,11 @@ function Get-EvaluaProSecureLicensePayload {
   if ([string]$payload.fingerprintHash -ne $fingerprintNow) {
     throw 'La licencia segura no pertenece a este equipo.'
   }
-  return $payload
-}
 
-function Get-EvaluaProCommercialLicenseState {
-  param(
-    [string]$RootDir = '',
-    [datetime]$Now = (Get-Date)
-  )
-  try {
-    $payload = Get-EvaluaProSecureLicensePayload -RootDir $RootDir
-  } catch {
-    return [pscustomobject]@{ ok = $false; state = 'missing'; featureLevel = 'community'; warning = $_.Exception.Message }
-  }
-
-  $meta = $payload.meta
-  $expiraEn = $null
-  try {
-    if ($meta.expiraEn -is [datetime]) {
-      $expiraEn = ([datetime]$meta.expiraEn).ToUniversalTime()
-    } else {
-      $expiraEn = [datetime]::Parse(
-        [string]$meta.expiraEn,
-        [Globalization.CultureInfo]::InvariantCulture,
-        [Globalization.DateTimeStyles]::AssumeUniversal
-      ).ToUniversalTime()
-    }
-  } catch {}
-  if ($null -eq $expiraEn) {
-    return [pscustomobject]@{ ok = $false; state = 'invalid'; featureLevel = 'community'; warning = 'La licencia segura no contiene fecha de expiracion.' }
-  }
-  $graciaDias = 90
-  try { $graciaDias = [Math]::Max(90, [int]$meta.graciaOfflineDias) } catch {}
-  $graciaHasta = $expiraEn.AddDays($graciaDias)
-  $ahoraUtc = $Now.ToUniversalTime()
-  $estado = if ($ahoraUtc -le $expiraEn) { 'activa' } elseif ($ahoraUtc -le $graciaHasta) { 'gracia' } else { 'comunitaria' }
-  $horasRestantes = [Math]::Round(($graciaHasta - $ahoraUtc).TotalHours, 2)
-  return [pscustomobject]@{
-    ok = $true
-    state = $estado
-    featureLevel = if ($estado -eq 'activa') { 'commercial' } else { 'community' }
-    expiraEn = $expiraEn.ToString('o')
-    graciaOfflineDias = $graciaDias
-    graciaHasta = $graciaHasta.ToString('o')
-    horasRestantes = $horasRestantes
-    notificarVencimiento = (($expiraEn - $ahoraUtc).TotalDays -le 30 -and $ahoraUtc -le $graciaHasta)
-    ultimoHeartbeatEn = [string]$meta.ultimoHeartbeatEn
-  }
-}
-
-function Invoke-EvaluaProLicenseHeartbeatSecure {
-  param(
-    [Parameter(Mandatory = $true)][string]$ApiBaseUrl,
-    [Parameter(Mandatory = $true)][string]$TenantId,
-    [Parameter(Mandatory = $true)][string]$VersionInstalada,
-    [string]$RootDir = ''
-  )
-  $payload = Get-EvaluaProSecureLicensePayload -RootDir $RootDir
-  $token = Get-EvaluaProSecureLicenseToken -RootDir $RootDir
-  $contador = 0
-  try { $contador = [int]$payload.meta.contadorHeartbeat } catch {}
-  $nonce = [Guid]::NewGuid().ToString('N')
-  $uri = ('{0}/api/comercial-publico/licencias/heartbeat' -f $ApiBaseUrl.TrimEnd('/'))
-  $body = @{
-    tokenLicencia = $token
-    tenantId = [string]$TenantId
-    huella = Get-EvaluaProMachineFingerprintHash
-    host = [Environment]::MachineName
-    versionInstalada = $VersionInstalada
-    nonce = $nonce
-    contador = $contador + 1
-  }
-  $resp = Invoke-RestMethod -Uri $uri -Method POST -Body ($body | ConvertTo-Json -Depth 6) -ContentType 'application/json' -TimeoutSec 15
-  $meta = @{}
-  if ($payload.meta) {
-    foreach ($property in $payload.meta.PSObject.Properties) { $meta[$property.Name] = $property.Value }
-  }
-  $meta['ultimoHeartbeatEn'] = (Get-Date).ToUniversalTime().ToString('o')
-  $meta['contadorHeartbeat'] = $contador + 1
-  if ($resp.graciaOfflineDias) { $meta['graciaOfflineDias'] = [int]$resp.graciaOfflineDias }
-  Save-EvaluaProSecureLicenseToken -Token $token -TenantId ([string]$payload.tenantId) -RootDir $RootDir -Meta $meta | Out-Null
-  return [pscustomobject]@{ ok = $true; online = $true; response = $resp; localState = Get-EvaluaProCommercialLicenseState -RootDir $RootDir }
+  $entropy = [System.Text.Encoding]::UTF8.GetBytes($fingerprintNow)
+  $cipher = [Convert]::FromBase64String([string]$payload.tokenCiphertext)
+  $plain = Unprotect-DpapiBytes -Bytes $cipher -Entropy $entropy
+  return [System.Text.Encoding]::UTF8.GetString($plain)
 }
 
 function Register-EvaluaProIntegrityBaseline {
@@ -515,9 +424,7 @@ function Invoke-EvaluaProLicenseActivationSecure {
     $savePath = Save-EvaluaProSecureLicenseToken -Token $token -TenantId $TenantId -RootDir $RootDir -Meta @{
       canalRelease = 'simulated'
       expiraEn = '2099-12-31T23:59:59.000Z'
-      graciaOfflineDias = 90
-      ultimoHeartbeatEn = (Get-Date).ToUniversalTime().ToString('o')
-      contadorHeartbeat = 0
+      graciaOfflineDias = 30
       simulated = $true
     }
     return [pscustomobject]@{
@@ -546,8 +453,6 @@ function Invoke-EvaluaProLicenseActivationSecure {
     canalRelease = [string]$resp.licencia.canalRelease
     expiraEn = [string]$resp.licencia.expiraEn
     graciaOfflineDias = [int]$resp.licencia.graciaOfflineDias
-    ultimoHeartbeatEn = (Get-Date).ToUniversalTime().ToString('o')
-    contadorHeartbeat = 0
   }
   return [pscustomobject]@{
     ok = $true
@@ -791,8 +696,6 @@ Export-ModuleMember -Function @(
   'Get-EvaluaProLicenseSecurityRoot',
   'Save-EvaluaProSecureLicenseToken',
   'Get-EvaluaProSecureLicenseToken',
-  'Get-EvaluaProCommercialLicenseState',
-  'Invoke-EvaluaProLicenseHeartbeatSecure',
   'Register-EvaluaProIntegrityBaseline',
   'Test-EvaluaProIntegrityBaseline',
   'Invoke-EvaluaProLicenseActivationSecure',

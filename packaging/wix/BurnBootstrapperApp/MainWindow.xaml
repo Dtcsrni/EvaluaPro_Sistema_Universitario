@@ -30,15 +30,13 @@
         </LinearGradientBrush>
         <!-- Vidrio compuesto: brillo superior, tinte cromático y fondo DWM. -->
         <LinearGradientBrush x:Key="SurfaceBrush" StartPoint="0,0" EndPoint="0,1">
-            <GradientStop Color="#70D7F3FA" Offset="0" />
-            <GradientStop Color="#5C6B9DB4" Offset="0.18" />
-            <GradientStop Color="#57213C5A" Offset="0.58" />
-            <GradientStop Color="#684B7894" Offset="1" />
+            <GradientStop Color="#A83A6680" Offset="0" />
+            <GradientStop Color="#6B102B45" Offset="0.48" />
+            <GradientStop Color="#8C1F5366" Offset="1" />
         </LinearGradientBrush>
         <LinearGradientBrush x:Key="SubtleSurfaceBrush" StartPoint="0,0" EndPoint="1,1">
-            <GradientStop Color="#65C9EAF4" Offset="0" />
-            <GradientStop Color="#506A8CA6" Offset="0.42" />
-            <GradientStop Color="#594C648F" Offset="1" />
+            <GradientStop Color="#8F37647A" Offset="0" />
+            <GradientStop Color="#5C183E51" Offset="1" />
         </LinearGradientBrush>
         <LinearGradientBrush x:Key="GlassAtmosphereBrush" StartPoint="0,0" EndPoint="1,1">
             <GradientStop Color="#5C79E8FF" Offset="0" />
@@ -51,17 +49,7 @@
             <GradientStop Color="#00FFFFFF" Offset="0.58" />
             <GradientStop Color="#1A7DD3FC" Offset="1" />
         </LinearGradientBrush>
-        <DrawingBrush x:Key="GlassPatternBrush" TileMode="Tile" Viewport="0,0,56,56" ViewportUnits="Absolute" Opacity="0.16">
-            <DrawingBrush.Drawing>
-                <DrawingGroup>
-                    <GeometryDrawing Brush="#80BDEBFA" Geometry="M0,55 L55,0 L56,1 L1,56 Z" />
-                    <GeometryDrawing Brush="#507DD3E8" Geometry="M28,0 L56,28 L56,30 L26,0 Z" />
-                    <GeometryDrawing Brush="#80FFFFFF" Geometry="M8,6.8 A1.2,1.2 0 1 1 8,9.2 A1.2,1.2 0 1 1 8,6.8 Z" />
-                    <GeometryDrawing Brush="#607DD3E8" Geometry="M38,37 A1,1 0 1 1 38,39 A1,1 0 1 1 38,37 Z" />
-                </DrawingGroup>
-            </DrawingBrush.Drawing>
-        </DrawingBrush>
-        <SolidColorBrush x:Key="BorderBrushNeutral" Color="#A8B8F4FA" />
+        <SolidColorBrush x:Key="BorderBrushNeutral" Color="#80B8F3F5" />
         <SolidColorBrush x:Key="TextBrush" Color="#F8FAFC" />
         <SolidColorBrush x:Key="MutedTextBrush" Color="#C4D5E8" />
         <SolidColorBrush x:Key="OnLightTextBrush" Color="#102A43" />
@@ -77,30 +65,27 @@
         <SolidColorBrush x:Key="SuccessBrush" Color="#15803D" />
         <SolidColorBrush x:Key="FocusBrush" Color="#7DD3FC" />
         <SolidColorBrush x:Key="GlassHighlightBrush" Color="#66E0F2FE" />
-        <DropShadowEffect x:Key="CardShadow" BlurRadius="56" ShadowDepth="14" Direction="270" Opacity="0.72" Color="#071426" />
+        <DropShadowEffect x:Key="CardShadow" BlurRadius="56" ShadowDepth="14" Direction="270" Opacity="0.72" Color="#01040B" />
         <LinearGradientBrush x:Key="SecondaryButtonBrush" StartPoint="0,0" EndPoint="0,1">
-            <GradientStop Color="#C9A8D6E8" Offset="0" />
-            <GradientStop Color="#8C56718E" Offset="0.46" />
-            <GradientStop Color="#A83D5879" Offset="1" />
+            <GradientStop Color="#D9385268" Offset="0" />
+            <GradientStop Color="#A81A3045" Offset="1" />
         </LinearGradientBrush>
         <LinearGradientBrush x:Key="PrimaryButtonBrush" StartPoint="0,0" EndPoint="0,1">
-            <GradientStop Color="#9AF6FFFE" Offset="0" />
-            <GradientStop Color="#39B8D2D5" Offset="0.24" />
-            <GradientStop Color="#169A8C" Offset="1" />
+            <GradientStop Color="#2DE0C9" Offset="0" />
+            <GradientStop Color="#079A8C" Offset="1" />
         </LinearGradientBrush>
 
         <Style x:Key="StepCardStyle" TargetType="Border">
             <Setter Property="Background" Value="{StaticResource SurfaceBrush}" />
             <Setter Property="BorderBrush" Value="{StaticResource BorderBrushNeutral}" />
             <Setter Property="BorderThickness" Value="1.2" />
-            <Setter Property="CornerRadius" Value="22" />
-            <Setter Property="ClipToBounds" Value="True" />
-            <Setter Property="Padding" Value="20" />
+            <Setter Property="CornerRadius" Value="18" />
+            <Setter Property="Padding" Value="18" />
             <Setter Property="Effect" Value="{StaticResource CardShadow}" />
         </Style>
 
         <Style x:Key="PanelCardStyle" TargetType="Border" BasedOn="{StaticResource StepCardStyle}">
-            <Setter Property="Padding" Value="16" />
+            <Setter Property="Padding" Value="14" />
             <Setter Property="Background" Value="{StaticResource SubtleSurfaceBrush}" />
         </Style>
 
@@ -195,21 +180,6 @@
             <Setter Property="HasDropShadow" Value="True" />
         </Style>
 
-        <ControlTemplate x:Key="GlassButtonTemplate" TargetType="Button">
-            <Border Background="{TemplateBinding Background}"
-                    BorderBrush="{TemplateBinding BorderBrush}"
-                    BorderThickness="{TemplateBinding BorderThickness}"
-                    CornerRadius="6"
-                    Opacity="{TemplateBinding Opacity}">
-                <ContentPresenter HorizontalAlignment="{TemplateBinding HorizontalContentAlignment}"
-                                  VerticalAlignment="{TemplateBinding VerticalContentAlignment}"
-                                  Margin="{TemplateBinding Padding}"
-                                  TextElement.Foreground="{TemplateBinding Foreground}"
-                                  TextElement.FontWeight="{TemplateBinding FontWeight}"
-                                  RecognizesAccessKey="True" />
-            </Border>
-        </ControlTemplate>
-
         <Style x:Key="SecondaryButtonStyle" TargetType="Button">
             <Setter Property="MinHeight" Value="34" />
             <Setter Property="Padding" Value="14,6" />
@@ -218,7 +188,6 @@
             <Setter Property="Foreground" Value="{StaticResource TextBrush}" />
             <Setter Property="FontWeight" Value="SemiBold" />
             <Setter Property="Cursor" Value="Hand" />
-            <Setter Property="Template" Value="{StaticResource GlassButtonTemplate}" />
             <Style.Triggers>
                 <Trigger Property="IsMouseOver" Value="True">
                     <Setter Property="Background" Value="#E62DE0C9" />
@@ -231,12 +200,6 @@
                 <Trigger Property="IsKeyboardFocusWithin" Value="True">
                     <Setter Property="BorderThickness" Value="2" />
                     <Setter Property="BorderBrush" Value="{StaticResource FocusBrush}" />
-                </Trigger>
-                <Trigger Property="IsEnabled" Value="False">
-                    <Setter Property="Background" Value="#6B8FA5" />
-                    <Setter Property="Foreground" Value="#F8FAFC" />
-                    <Setter Property="BorderBrush" Value="#B9D4E3" />
-                    <Setter Property="Opacity" Value="1" />
                 </Trigger>
             </Style.Triggers>
         </Style>
@@ -251,14 +214,6 @@
             <Setter Property="BorderBrush" Value="{StaticResource PrimaryBrush}" />
             <Setter Property="Background" Value="{StaticResource PrimaryButtonBrush}" />
             <Setter Property="Foreground" Value="White" />
-            <Style.Triggers>
-                <Trigger Property="IsEnabled" Value="False">
-                    <Setter Property="Background" Value="#6B8FA5" />
-                    <Setter Property="Foreground" Value="#F8FAFC" />
-                    <Setter Property="BorderBrush" Value="#B9D4E3" />
-                    <Setter Property="Opacity" Value="1" />
-                </Trigger>
-            </Style.Triggers>
         </Style>
 
         <Style x:Key="DangerButtonStyle" TargetType="Button" BasedOn="{StaticResource SecondaryButtonStyle}">
@@ -280,14 +235,7 @@
                 <BlurEffect Radius="84" />
             </Ellipse.Effect>
         </Ellipse>
-        <Border Background="{StaticResource GlassAtmosphereBrush}" Opacity="0.42" BorderBrush="#3DFFFFFF" BorderThickness="1" CornerRadius="18" IsHitTestVisible="False" Panel.ZIndex="-1" />
-        <Border Background="{StaticResource GlassPatternBrush}" BorderThickness="0" CornerRadius="18" IsHitTestVisible="False" Panel.ZIndex="-1" />
-        <Canvas Panel.ZIndex="-1" Opacity="0.32">
-            <Ellipse Width="116" Height="116" Stroke="#7DE4F7" StrokeThickness="1" Canvas.Left="64" Canvas.Top="92" />
-            <Ellipse Width="42" Height="42" Stroke="#A6F4FF" StrokeThickness="1" Canvas.Left="1010" Canvas.Top="168" />
-            <Path Data="M0,18 L18,0 L36,18 L18,36 Z" Stroke="#74E5D4" StrokeThickness="1.2" Fill="#1438DDF5" Canvas.Left="1150" Canvas.Top="66" />
-            <Path Data="M0,0 L22,0 L22,22" Stroke="#9EEBFF" StrokeThickness="1" Canvas.Left="24" Canvas.Top="640" />
-        </Canvas>
+        <Border Background="{StaticResource GlassAtmosphereBrush}" BorderBrush="#3DFFFFFF" BorderThickness="1" CornerRadius="18" IsHitTestVisible="False" Panel.ZIndex="-1" />
         <Grid x:Name="ContentGrid" KeyboardNavigation.TabNavigation="Cycle">
             <Grid.Triggers>
                 <EventTrigger RoutedEvent="FrameworkElement.Loaded">
@@ -332,8 +280,8 @@
                                     </Border>
                                 </StackPanel>
                                 <StackPanel Grid.Column="1">
-                                    <TextBlock x:Name="HeaderFeatureTitleTextBlock" Text="Instala con confianza" FontSize="20" FontWeight="Bold" Foreground="{StaticResource TextBrush}" />
-                                    <TextBlock x:Name="HeaderFeatureDescriptionTextBlock" Text="Comprueba requisitos, verifica el paquete y conserva evidencia de cada etapa." FontSize="16" Foreground="{StaticResource TextBrush}" TextWrapping="Wrap" LineHeight="24" Margin="0,6,12,0" />
+                                    <TextBlock x:Name="HeaderFeatureTitleTextBlock" Text="Instala con confianza" FontSize="18" FontWeight="Bold" Foreground="{StaticResource TextBrush}" />
+                                    <TextBlock x:Name="HeaderFeatureDescriptionTextBlock" Text="Revisa requisitos y conserva evidencia de cada etapa." FontSize="15" Foreground="{StaticResource TextBrush}" TextWrapping="Wrap" LineHeight="22" Margin="0,5,12,0" />
                                 </StackPanel>
                                 <StackPanel Grid.Column="2" Orientation="Horizontal" VerticalAlignment="Center">
                                     <Button x:Name="HeaderPreviousButton" Style="{StaticResource SecondaryButtonStyle}" Content="‹" Width="34" Height="32" Padding="0" Click="HeaderPreviousButton_OnClick" ToolTip="Función anterior" />
@@ -373,28 +321,28 @@
                             </StackPanel>
                         </Border>
                         <Rectangle x:Name="StepConnectorTermsPrepare" Width="16" Height="2" Fill="#D9E2EA" VerticalAlignment="Center" Margin="-4,0,4,0" RadiusX="1" RadiusY="1" />
-                        <Border x:Name="PrepareStepBorder" Style="{StaticResource StatusBadgeStyle}" MinWidth="118" Background="#6BDAF2FA" BorderBrush="{StaticResource BorderBrushNeutral}">
+                        <Border x:Name="PrepareStepBorder" Style="{StaticResource StatusBadgeStyle}" MinWidth="118" Background="#F8FAFC" BorderBrush="{StaticResource BorderBrushNeutral}">
                             <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
                                 <Path x:Name="PrepareStepIcon" Width="14" Height="14" Margin="0,0,6,0" StrokeThickness="2" StrokeStartLineCap="Round" StrokeEndLineCap="Round" VerticalAlignment="Center" SnapsToDevicePixels="True" />
                                 <TextBlock x:Name="PrepareStepTextBlock" Text="2 Preparar · pendiente" FontWeight="SemiBold" Foreground="{StaticResource MutedTextBrush}" VerticalAlignment="Center" />
                             </StackPanel>
                         </Border>
                         <Rectangle x:Name="StepConnectorPrepareReview" Width="16" Height="2" Fill="#D9E2EA" VerticalAlignment="Center" Margin="-4,0,4,0" RadiusX="1" RadiusY="1" />
-                        <Border x:Name="ReviewStepBorder" Style="{StaticResource StatusBadgeStyle}" MinWidth="118" Background="#6BDAF2FA" BorderBrush="{StaticResource BorderBrushNeutral}">
+                        <Border x:Name="ReviewStepBorder" Style="{StaticResource StatusBadgeStyle}" MinWidth="118" Background="#F8FAFC" BorderBrush="{StaticResource BorderBrushNeutral}">
                             <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
                                 <Path x:Name="ReviewStepIcon" Width="14" Height="14" Margin="0,0,6,0" StrokeThickness="2" StrokeStartLineCap="Round" StrokeEndLineCap="Round" VerticalAlignment="Center" SnapsToDevicePixels="True" />
                                 <TextBlock x:Name="ReviewStepTextBlock" Text="3 Revisar · pendiente" FontWeight="SemiBold" Foreground="{StaticResource MutedTextBrush}" VerticalAlignment="Center" />
                             </StackPanel>
                         </Border>
                         <Rectangle x:Name="StepConnectorReviewExecute" Width="16" Height="2" Fill="#D9E2EA" VerticalAlignment="Center" Margin="-4,0,4,0" RadiusX="1" RadiusY="1" />
-                        <Border x:Name="ExecuteStepBorder" Style="{StaticResource StatusBadgeStyle}" MinWidth="118" Background="#6BDAF2FA" BorderBrush="{StaticResource BorderBrushNeutral}">
+                        <Border x:Name="ExecuteStepBorder" Style="{StaticResource StatusBadgeStyle}" MinWidth="118" Background="#F8FAFC" BorderBrush="{StaticResource BorderBrushNeutral}">
                             <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
                                 <Path x:Name="ExecuteStepIcon" Width="14" Height="14" Margin="0,0,6,0" StrokeThickness="2" StrokeStartLineCap="Round" StrokeEndLineCap="Round" VerticalAlignment="Center" SnapsToDevicePixels="True" />
                                 <TextBlock x:Name="ExecuteStepTextBlock" Text="4 Ejecutar · pendiente" FontWeight="SemiBold" Foreground="{StaticResource MutedTextBrush}" VerticalAlignment="Center" />
                             </StackPanel>
                         </Border>
                         <Rectangle x:Name="StepConnectorExecuteResult" Width="16" Height="2" Fill="#D9E2EA" VerticalAlignment="Center" Margin="-4,0,4,0" RadiusX="1" RadiusY="1" />
-                        <Border x:Name="ResultStepBorder" Style="{StaticResource StatusBadgeStyle}" MinWidth="118" Background="#6BDAF2FA" BorderBrush="{StaticResource BorderBrushNeutral}">
+                        <Border x:Name="ResultStepBorder" Style="{StaticResource StatusBadgeStyle}" MinWidth="118" Background="#F8FAFC" BorderBrush="{StaticResource BorderBrushNeutral}">
                             <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
                                 <Path x:Name="ResultStepIcon" Width="14" Height="14" Margin="0,0,6,0" StrokeThickness="2" StrokeStartLineCap="Round" StrokeEndLineCap="Round" VerticalAlignment="Center" SnapsToDevicePixels="True" />
                                 <TextBlock x:Name="ResultStepTextBlock" Text="5 Resultado · pendiente" FontWeight="SemiBold" Foreground="{StaticResource MutedTextBrush}" VerticalAlignment="Center" />
@@ -575,7 +523,7 @@ Por favor, lee atentamente los siguientes términos antes de proceder con la ins
                                             <WrapPanel Margin="0,12,0,0">
                                                 <CheckBox x:Name="DesktopShortcutsCheckBox" Content="Accesos en escritorio" IsChecked="True" Margin="0,0,18,8" ToolTip="Crea accesos directos en el escritorio." AutomationProperties.Name="Crear accesos en escritorio" TabIndex="3" />
                                                 <CheckBox x:Name="StartMenuShortcutsCheckBox" Content="Accesos en menú Inicio" IsChecked="True" Margin="0,0,18,8" ToolTip="Crea accesos directos en el menú Inicio." AutomationProperties.Name="Crear accesos en menú Inicio" TabIndex="4" />
-                                                <CheckBox x:Name="ExportDataCheckBox" Content="Respaldar mis datos localmente antes de desinstalar" IsChecked="True" Margin="0,0,18,8" ToolTip="Copia la base de datos a Documentos Públicos antes de borrar la instalación." Visibility="Collapsed" AutomationProperties.Name="Respaldar datos" TabIndex="5" Foreground="{StaticResource PrimaryBrush}" FontWeight="SemiBold" />
+                                                <CheckBox x:Name="ExportDataCheckBox" Content="Respaldar mis datos localmente antes de desinstalar" IsChecked="False" Margin="0,0,18,8" ToolTip="Copia la base de datos a Documentos Públicos antes de borrar la instalación." Visibility="Collapsed" AutomationProperties.Name="Respaldar datos" TabIndex="5" Foreground="{StaticResource PrimaryBrush}" FontWeight="SemiBold" />
                                             </WrapPanel>
                                         </StackPanel>
                                     </Border>
@@ -596,7 +544,7 @@ Por favor, lee atentamente los siguientes términos antes de proceder con la ins
                                     <TextBlock Text="Revisar prerequisitos" FontSize="20" FontWeight="SemiBold" Foreground="{StaticResource TextBrush}" />
                                     <TextBlock Style="{StaticResource HelpTextStyle}" Text="Valida requisitos antes de ejecutar la operación seleccionada." />
                                     <TextBlock x:Name="DetectionSummaryTextBlock" Margin="0,12,0,10" TextWrapping="Wrap" ToolTip="Resumen automático del diagnóstico del equipo." />
-                                    <Border x:Name="PrereqSummaryBorder" Margin="0,0,0,10" Padding="12" CornerRadius="8" Background="#5C315A73" BorderBrush="{StaticResource BorderBrushNeutral}" BorderThickness="1" ToolTip="Conteo rápido para decidir si puedes continuar o debes corregir prerequisitos.">
+                                    <Border x:Name="PrereqSummaryBorder" Margin="0,0,0,10" Padding="12" CornerRadius="8" Background="#F8FAFC" BorderBrush="{StaticResource BorderBrushNeutral}" BorderThickness="1" ToolTip="Conteo rápido para decidir si puedes continuar o debes corregir prerequisitos.">
                                         <Grid>
                                             <Grid.ColumnDefinitions>
                                                 <ColumnDefinition Width="Auto" />
@@ -607,7 +555,7 @@ Por favor, lee atentamente los siguientes términos antes de proceder con la ins
                                             </Border>
                                             <StackPanel Grid.Column="1">
                                                 <TextBlock x:Name="PrereqSummaryTextBlock" Text="Sin diagnóstico reciente" FontWeight="Bold" Foreground="{StaticResource TextBrush}" />
-                                            <TextBlock x:Name="PrereqSummaryHintTextBlock" Margin="0,5,0,0" Text="Pulsa Revisar equipo para actualizar el estado." Foreground="{StaticResource MutedTextBrush}" TextWrapping="Wrap" />
+                                                <TextBlock x:Name="PrereqSummaryHintTextBlock" Margin="0,5,0,0" Text="Pulsa Revisar equipo para actualizar el estado." Foreground="{StaticResource MutedTextBrush}" TextWrapping="Wrap" />
                                             </StackPanel>
                                         </Grid>
                                     </Border>
@@ -692,7 +640,7 @@ Por favor, lee atentamente los siguientes términos antes de proceder con la ins
                                 <StackPanel>
                                     <TextBlock Text="Decisión" FontSize="18" FontWeight="SemiBold" Foreground="{StaticResource TextBrush}" />
                                     <TextBlock Style="{StaticResource HelpTextStyle}" Text="Si todo está listo, ejecuta la acción primaria. Si algo falta, revisa evidencia y vuelve a detectar." />
-                                    <Border x:Name="StageSummaryBorder" Margin="0,16,0,0" Padding="12" CornerRadius="8" Background="#5C315A73" BorderBrush="{StaticResource BorderBrushNeutral}" BorderThickness="1">
+                                    <Border x:Name="StageSummaryBorder" Margin="0,16,0,0" Padding="12" CornerRadius="8" Background="#EFF6FF" BorderBrush="#BFDBFE" BorderThickness="1">
                                         <StackPanel>
                                             <TextBlock x:Name="StageSummaryBadgeTextBlock" Text="En curso" FontWeight="Bold" Foreground="{StaticResource AccentBrush}" />
                                             <TextBlock x:Name="StageSummaryTitleTextBlock" Margin="0,6,0,0" Text="Etapa actual: detección" FontSize="15" FontWeight="SemiBold" Foreground="{StaticResource TextBrush}" TextWrapping="Wrap" />
@@ -756,8 +704,8 @@ Por favor, lee atentamente los siguientes términos antes de proceder con la ins
                                     <Border Margin="0,16,0,0" Padding="14" CornerRadius="8" Background="#ECFDF5" BorderBrush="#BBF7D0" BorderThickness="1">
                                         <StackPanel>
                                             <TextBlock Text="{Binding ElementName=StatusBadgeTextBlock, Path=Text}" FontWeight="Bold" Foreground="{StaticResource SuccessBrush}" />
-                                            <TextBlock Text="{Binding ElementName=StatusTextBlock, Path=Text}" Margin="0,6,0,0" FontSize="16" FontWeight="SemiBold" Foreground="{StaticResource OnLightTextBrush}" TextWrapping="Wrap" />
-                                            <TextBlock Text="{Binding ElementName=StatusHintTextBlock, Path=Text}" Margin="0,6,0,0" Foreground="{StaticResource OnLightMutedTextBrush}" TextWrapping="Wrap" />
+                                            <TextBlock Text="{Binding ElementName=StatusTextBlock, Path=Text}" Margin="0,6,0,0" FontSize="16" FontWeight="SemiBold" TextWrapping="Wrap" />
+                                            <TextBlock Text="{Binding ElementName=StatusHintTextBlock, Path=Text}" Margin="0,6,0,0" Foreground="{StaticResource MutedTextBrush}" TextWrapping="Wrap" />
                                         </StackPanel>
                                     </Border>
                                     <Border Margin="0,12,0,0" Padding="12" CornerRadius="8" Background="#E8F7F0" BorderBrush="#7AD9AD" BorderThickness="1">
@@ -778,17 +726,17 @@ Por favor, lee atentamente los siguientes términos antes de proceder con la ins
                                     <TextBlock Text="Rutas y resumen para soporte cuando la operación termina." Style="{StaticResource HelpTextStyle}" />
                                     <Border Margin="0,14,0,0" Padding="12" CornerRadius="8" Background="#F8FAFC" BorderBrush="{StaticResource BorderBrushNeutral}" BorderThickness="1">
                                         <StackPanel>
-                                            <TextBlock Text="Bitácora de sesión" FontWeight="SemiBold" Foreground="{StaticResource OnLightTextBrush}" />
+                                            <TextBlock Text="Bitácora de sesión" FontWeight="SemiBold" Foreground="{StaticResource TextBrush}" />
                                             <TextBox Margin="0,6,0,0"
                                                      Text="%ProgramData%\EvaluaPro\installer-hub\logs"
                                                      IsReadOnly="True"
                                                      BorderThickness="0"
                                                      Background="Transparent"
-                                                     Foreground="{StaticResource OnLightMutedTextBrush}"
+                                                     Foreground="{StaticResource MutedTextBrush}"
                                                      AutomationProperties.Name="Ruta de bitácoras técnicas" />
                                             <TextBlock Margin="0,8,0,0"
                                                        Text="El panel inferior conserva la salida de esta sesión; en error se abre automáticamente."
-                                                       Foreground="{StaticResource OnLightMutedTextBrush}"
+                                                       Foreground="{StaticResource MutedTextBrush}"
                                                        TextWrapping="Wrap" />
                                         </StackPanel>
                                     </Border>
@@ -869,13 +817,13 @@ Por favor, lee atentamente los siguientes términos antes de proceder con la ins
                                     <Border x:Name="SplashFeatureIconPlate" Width="34" Height="34" CornerRadius="10" Background="#7D0E7490" BorderBrush="#B367E8F9" BorderThickness="1" Margin="0,0,10,0">
                                         <Path x:Name="SplashFeatureIcon" Width="22" Height="22" Stretch="Uniform" Stroke="White" StrokeThickness="1.8" StrokeStartLineCap="Round" StrokeEndLineCap="Round" HorizontalAlignment="Center" VerticalAlignment="Center" />
                                     </Border>
-                                    <TextBlock x:Name="SplashFeatureTitleTextBlock" Text="Instala con confianza" Foreground="White" FontSize="18" FontWeight="SemiBold" VerticalAlignment="Center" />
+                                    <TextBlock x:Name="SplashFeatureTitleTextBlock" Text="Instala con confianza" Foreground="White" FontSize="15" FontWeight="SemiBold" VerticalAlignment="Center" />
                                 </StackPanel>
-                            <TextBlock x:Name="SplashFeatureDescriptionTextBlock" Text="Comprueba requisitos, verifica el paquete y conserva evidencia de cada etapa." Foreground="#D9FFFA" FontSize="15" LineHeight="22" MaxWidth="520" TextWrapping="Wrap" Margin="0,8,0,0" />
+                            <TextBlock x:Name="SplashFeatureDescriptionTextBlock" Text="Revisa requisitos y conserva evidencia de cada etapa." Foreground="#D9FFFA" FontSize="13" LineHeight="20" MaxWidth="410" TextWrapping="Wrap" Margin="0,6,0,0" />
                                     <StackPanel Orientation="Horizontal" Margin="0,8,0,0">
                                         <Button x:Name="SplashPreviousButton" Content="‹" Width="30" Height="26" Padding="0" Click="SplashPreviousButton_OnClick" ToolTip="Función anterior" />
                                         <Button x:Name="SplashNextButton" Content="›" Width="30" Height="26" Padding="0" Margin="6,0,0,0" Click="SplashNextButton_OnClick" ToolTip="Siguiente función" />
-                                        <TextBlock x:Name="SplashFeatureIndexTextBlock" Text="1 de 21" FontSize="14" Foreground="#CCFBF1" VerticalAlignment="Center" Margin="10,0,0,0" />
+                                        <TextBlock x:Name="SplashFeatureIndexTextBlock" Text="1 de 3" Foreground="#CCFBF1" VerticalAlignment="Center" Margin="10,0,0,0" />
                                     </StackPanel>
                                 </StackPanel>
                             </Border>

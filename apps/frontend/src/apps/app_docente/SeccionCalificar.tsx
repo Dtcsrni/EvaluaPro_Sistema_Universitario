@@ -270,7 +270,7 @@ export function SeccionCalificar({
         aciertos: resumenDinamico.aciertos,
         totalReactivos: resumenDinamico.total,
         bonoSolicitado: bonusActivo ? bono : 0,
-        ...(resultadoOmr ? { respuestasDetectadas: respuestasTrabajo } : {}),
+        respuestasDetectadas: respuestasTrabajo,
         omrAnalisis: resultadoOmr
           ? {
               estadoAnalisis: resultadoOmr.estadoAnalisis,

@@ -10,10 +10,7 @@ import process from 'node:process';
 import { fileURLToPath } from 'node:url';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
-const configuredDist = String(process.env.DOCENTE_WEB_DIST || '').trim();
-const publicRoot = configuredDist === 'apps/frontend/dist-e2e-docente'
-  ? path.resolve(root, 'apps', 'frontend', 'dist-e2e-docente')
-  : path.resolve(root, 'apps', 'frontend', 'dist-docente');
+const publicRoot = path.resolve(root, 'apps', 'frontend', 'dist-docente');
 const host = process.env.HOST || '127.0.0.1';
 const port = Number(process.env.PUERTO_WEB || process.env.PORT || 4173);
 const mimeTypes = Object.freeze({
@@ -29,26 +26,6 @@ const mimeTypes = Object.freeze({
   '.woff2': 'font/woff2'
 });
 
-function buildAssetIndex(rootDir) {
-  const index = new Map();
-  const walk = (currentDir) => {
-    for (const entry of fs.readdirSync(currentDir, { withFileTypes: true })) {
-      const absolute = path.join(currentDir, entry.name);
-      if (entry.isDirectory()) {
-        walk(absolute);
-      } else if (entry.isFile()) {
-        const relative = path.relative(rootDir, absolute).split(path.sep).join('/');
-        index.set(`/${relative}`, absolute);
-      }
-    }
-  };
-  if (fs.existsSync(rootDir)) walk(rootDir);
-  return index;
-}
-
-const assetIndex = buildAssetIndex(publicRoot);
-const fallback = assetIndex.get('/index.html') || null;
-
 function safePath(urlPath) {
   let decoded;
   try {
@@ -57,8 +34,9 @@ function safePath(urlPath) {
     return null;
   }
   const relative = decoded.replace(/^[/\\]+/, '');
-  if (!relative || relative.split(/[\\/]/).includes('..') || relative.includes('\0')) return null;
-  return assetIndex.get(`/${relative}`) || fallback;
+  const candidate = path.resolve(publicRoot, relative);
+  if (candidate !== publicRoot && !candidate.startsWith(`${publicRoot}${path.sep}`)) return null;
+  return candidate;
 }
 
 function sendFile(response, filePath) {
@@ -68,8 +46,6 @@ function sendFile(response, filePath) {
     'Content-Type': mimeTypes[extension] || 'application/octet-stream',
     'X-Content-Type-Options': 'nosniff'
   });
-  // lgtm[js/path-injection] filePath solo proviene de safePath, que aplica
-  // decode controlado y containment bajo publicRoot antes de llegar aquí.
   fs.createReadStream(filePath).on('error', () => response.destroy()).pipe(response);
 }
 
@@ -85,8 +61,9 @@ const server = http.createServer((request, response) => {
     response.end('Solicitud inválida');
     return;
   }
-  const candidate = requested;
-  if (!candidate) {
+  const fallback = path.join(publicRoot, 'index.html');
+  const candidate = fs.existsSync(requested) && fs.statSync(requested).isFile() ? requested : fallback;
+  if (!fs.existsSync(candidate)) {
     response.writeHead(503);
     response.end('Build docente no disponible');
     return;
