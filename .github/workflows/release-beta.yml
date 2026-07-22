@@ -204,7 +204,7 @@ jobs:
         run: powershell -NoProfile -ExecutionPolicy Bypass -File scripts/build-msi.ps1 -SkipStabilityChecks -IncludeBundle -Flavor all -Version "${{ needs.beta_gate.outputs.beta_version }}"
 
       - name: Gate footprint bundle docente
-        run: npm run installer:docente:baseline:enforce
+        run: node scripts/installer-docente-baseline.mjs --json --enforce
 
       - name: Smoke GUI del bundle Burn publico empaquetado
         shell: powershell
