@@ -804,10 +804,17 @@ function Publish-BurnBootstrapperApp {
     '-p:EnableCompressionInSingleFile=true'
   )
   if (![string]::IsNullOrEmpty($VersionTag)) {
+    # .NET AssemblyVersion/FileVersion solo admiten componentes numéricos;
+    # conservar el sufijo prerelease en Version/InformationalVersion.
+    $assemblyVersion = [regex]::Match($VersionTag, '^\d+(?:\.\d+){0,3}').Value
+    if ([string]::IsNullOrWhiteSpace($assemblyVersion)) {
+      throw "Versión de instalador inválida para atributos .NET: $VersionTag"
+    }
+    $assemblyVersion = "$assemblyVersion.0"
     $publishArgs += @(
       "-p:Version=$VersionTag",
-      "-p:AssemblyVersion=$VersionTag.0",
-      "-p:FileVersion=$VersionTag.0",
+      "-p:AssemblyVersion=$assemblyVersion",
+      "-p:FileVersion=$assemblyVersion",
       "-p:InformationalVersion=$VersionTag"
     )
   }

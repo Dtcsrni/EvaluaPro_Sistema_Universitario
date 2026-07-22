@@ -196,8 +196,9 @@ en México, instituciones públicas/privadas y docentes independientes.
 - **AC-009:** La evidencia visual incluye estado inicial, acción, resultado y error
   accionable en cada pantalla crítica.
 - **AC-010:** Un build de release debe recibir explícitamente la versión SemVer
-  objetivo en el workflow y propagarla a `Version`, `AssemblyVersion` y
-  `FileVersion`; nunca puede compilar el Bundle con `0.0.0-dev.0`.
+  objetivo en el workflow; `Version`/`InformationalVersion` conservan el sufijo
+  prerelease y `AssemblyVersion`/`FileVersion` usan solo el núcleo numérico más
+  `.0`; nunca puede compilar el Bundle con `0.0.0-dev.0` ni un atributo no numérico.
 - **AC-011:** El E2E visual del ciclo académico debe arrancar el runtime nativo
   docente-local (API y web) mediante su configuración de Playwright; no puede
   depender de un servidor ya iniciado ni terminar en `ERR_CONNECTION_REFUSED`.
