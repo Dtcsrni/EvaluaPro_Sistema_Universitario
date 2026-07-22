@@ -46,6 +46,7 @@ Una promocion estable para usuarios finales de Windows no debe aprobarse si los 
 - **AC-014 (REQ-014):** El workflow respalda el servidor estático antes del build frontend, genera en `$RUNNER_TEMP` un smoke que lo ejecuta con `EVALUAPRO_STATIC_ROOT` y valida HTTP 200 en `/` con HTML SPA antes de empaquetar.
 - **AC-015 (REQ-015):** El servidor estático docente se respalda inmediatamente después del checkout, antes de instalaciones o limpiezas que puedan retirar scripts auxiliares.
 - **AC-016 (REQ-016):** En `workflow_dispatch`, el job de publicación hace checkout explícito de `inputs.head_sha`, sin sustituirlo por una salida ambigua del gate.
+- **AC-017 (REQ-017):** El smoke estático del flavor docente construye mediante `build:docente` y valida el directorio `dist-docente` servido por el runtime nativo.
 
 ## Matriz de Trazabilidad
 
