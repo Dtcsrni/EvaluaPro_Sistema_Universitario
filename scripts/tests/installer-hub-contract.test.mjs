@@ -239,8 +239,9 @@ test('build-msi valida contenedor adjunto Burn antes de publicar bundle', () => 
   assert.match(buildMsi, /Assert-MsiInstallsAppPayload -MsiPath \$productOut -InstallFolderName \$installFolderName/);
   assert.match(buildMsi, /'docker-compose\.yml'/);
   assert.match(buildMsi, /'docker-compose\.prod-build\.yml'/);
-  assert.match(buildMsi, /-p:AssemblyVersion=\$VersionTag\.0/);
-  assert.match(buildMsi, /-p:FileVersion=\$VersionTag\.0/);
+  assert.match(buildMsi, /\$assemblyVersion = \[regex\]::Match\(\$VersionTag/);
+  assert.match(buildMsi, /-p:AssemblyVersion=\$assemblyVersion/);
+  assert.match(buildMsi, /-p:FileVersion=\$assemblyVersion/);
   assert.match(buildMsi, /-p:InformationalVersion=\$VersionTag/);
   assert.match(buildMsi, /Bootstrapper Application Burn publicada con version invalida/);
   assert.match(buildMsi, /Compilando Bootstrapper Application con versión/);
