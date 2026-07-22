@@ -188,6 +188,10 @@ jobs:
       - name: Etapa contract-check Installer Hub
         run: node --test scripts/tests/installer-hub-contract.test.mjs
 
+      - name: Respaldar servidor static docente
+        shell: powershell
+        run: Copy-Item -LiteralPath scripts/serve-docente-static.mjs -Destination (Join-Path $env:RUNNER_TEMP 'serve-docente-static.mjs') -Force
+
       - name: Etapa windows-release-smoke Installer Hub
         env:
           EVALUAPRO_INSTALLER_SIMULATE_WSL_BOOTSTRAP: '1'
@@ -197,10 +201,6 @@ jobs:
         run: node --test scripts/tests/windows-release-smoke.test.mjs
 
       - name: Construir frontend docente para smoke estático
-        shell: powershell
-        run: Copy-Item -LiteralPath scripts/serve-docente-static.mjs -Destination (Join-Path $env:RUNNER_TEMP 'serve-docente-static.mjs') -Force
-
-      - name: Ejecutar build frontend docente
         run: npm -C apps/frontend run build
 
       - name: Smoke servidor estático docente antes de empaquetar
