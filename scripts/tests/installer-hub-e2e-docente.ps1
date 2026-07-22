@@ -789,17 +789,29 @@ function Invoke-InstallerHubMode {
 
   Capture-Window -Window $window -Name ("wpf-{0}-03-revisar" -f $Mode) | Out-Null
   $startButton = Find-ById -RootElement $window -AutomationId 'StartButton' -TimeoutSec 15
-  if (-not $startButton) { throw "No se encontro StartButton mode=$Mode" }
-  Add-Result -Area $Mode -Item 'start-button' -Ok $startButton.Current.IsEnabled -Detail "name=$($startButton.Current.Name)"
-  if (-not $startButton.Current.IsEnabled) { throw "StartButton no habilitado mode=$Mode" }
+  if (-not $startButton) {
+    # Burn puede abrir directamente Resultado cuando el producto ya está
+    # registrado (por ejemplo, una repetición idempotente del E2E). En ese
+    # caso exigimos evidencia textual de éxito y continuamos sin simular un
+    # clic de inicio inexistente.
+    $existingText = Get-WindowTextSnapshot -Window $window
+    if ($existingText -match 'Estado completado' -and $existingText -notmatch 'Estado con error|Error fatal') {
+      Add-Result -Area $Mode -Item 'start-button' -Ok $true -Detail 'operacion ya completada; resultado idempotente'
+    } else {
+      throw "No se encontro StartButton mode=$Mode"
+    }
+  } else {
+    Add-Result -Area $Mode -Item 'start-button' -Ok $startButton.Current.IsEnabled -Detail "name=$($startButton.Current.Name)"
+    if (-not $startButton.Current.IsEnabled) { throw "StartButton no habilitado mode=$Mode" }
 
-  Invoke-Control -Element $startButton
-  Start-Sleep -Seconds 2
-  Capture-Window -Window $window -Name ("wpf-{0}-04-ejecutar-1040x760" -f $Mode) | Out-Null
-  Resize-WindowForEvidence -Process $process -Width 980 -Height 700 | Out-Null
-  Start-Sleep -Milliseconds 800
-  $window = Find-Window -TimeoutSec 10
-  Capture-Window -Window $window -Name ("wpf-{0}-05-ejecutar-1280x720" -f $Mode) | Out-Null
+    Invoke-Control -Element $startButton
+    Start-Sleep -Seconds 2
+    Capture-Window -Window $window -Name ("wpf-{0}-04-ejecutar-1040x760" -f $Mode) | Out-Null
+    Resize-WindowForEvidence -Process $process -Width 980 -Height 700 | Out-Null
+    Start-Sleep -Milliseconds 800
+    $window = Find-Window -TimeoutSec 10
+    Capture-Window -Window $window -Name ("wpf-{0}-05-ejecutar-1280x720" -f $Mode) | Out-Null
+  }
   $state = Wait-InstallerStableState -Window $window -Mode $Mode -TimeoutMinutes 45
   $textPath = Join-Path $ReportDir ("{0}-window-text.txt" -f $Mode)
   [string]$state.text | Set-Content -Path $textPath -Encoding UTF8
