@@ -9,7 +9,9 @@ import path from 'node:path';
 import process from 'node:process';
 import { fileURLToPath } from 'node:url';
 
-const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
+const root = process.env.EVALUAPRO_STATIC_ROOT
+  ? path.resolve(process.env.EVALUAPRO_STATIC_ROOT)
+  : path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const publicRoot = path.resolve(root, 'apps', 'frontend', 'dist-docente');
 const host = process.env.HOST || '127.0.0.1';
 const port = Number(process.env.PUERTO_WEB || process.env.PORT || 4173);

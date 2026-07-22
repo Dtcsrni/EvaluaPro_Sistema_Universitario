@@ -43,7 +43,7 @@ Una promocion estable para usuarios finales de Windows no debe aprobarse si los 
 - **AC-012:** Los workflows de release ejecutan el gate de footprint docente mediante el script explícito `scripts/installer-docente-baseline.mjs --json --enforce`, sin depender de que npm resuelva un alias de script.
 - **AC-012 (REQ-012):** Una ejecucion con `--version=1.1.1` y evidencia `manifest.json` de `1.0.0` produce `No-Go` en `release-evidence`.
 - **AC-013 (REQ-013):** El contrato del Hub falla si aparecen `AdvancedConfigExpander`, `Configuración avanzada`, `Mongo URI`, `MongoDB` o controles XAML legacy de configuracion avanzada.
-- **AC-014 (REQ-014):** Tras construir el frontend docente y antes de empaquetar el bundle, el workflow genera en `$RUNNER_TEMP` un smoke que valida que el servidor estático real responda HTTP 200 en `/` y entregue HTML SPA.
+- **AC-014 (REQ-014):** El workflow respalda el servidor estático antes del build frontend, genera en `$RUNNER_TEMP` un smoke que lo ejecuta con `EVALUAPRO_STATIC_ROOT` y valida HTTP 200 en `/` con HTML SPA antes de empaquetar.
 
 ## Matriz de Trazabilidad
 
