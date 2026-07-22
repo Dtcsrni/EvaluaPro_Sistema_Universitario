@@ -336,7 +336,7 @@ function Assert-SystemMemoryReady {
 function Find-Window {
   param([int]$TimeoutSec = 60)
   $deadline = (Get-Date).AddSeconds($TimeoutSec)
-  $nameRegex = '(?i)EvaluaPro.*Installer Hub|InstallerHub|Installer Hub'
+  $nameRegex = '(?i)^EvaluaPro Installer Hub$|^EvaluaPro.*InstallerHub'
   do {
     # Burn crea el BA como proceso separado; su MainWindowHandle es una ruta
     # determinista cuando el escritorio aún no lo expone como primer hijo.
@@ -349,19 +349,8 @@ function Find-Window {
       } catch {}
     }
 
-    $children = [System.Windows.Automation.AutomationElement]::RootElement.FindAll(
-      [System.Windows.Automation.TreeScope]::Children,
-      [System.Windows.Automation.Condition]::TrueCondition
-    )
-    foreach ($child in $children) {
-      try {
-        $name = [string]$child.Current.Name
-        $rect = $child.Current.BoundingRectangle
-        if ($name -match $nameRegex -and $rect.Width -gt 100 -and $rect.Height -gt 100) {
-          return $child
-        }
-      } catch {}
-    }
+    # No usar RootElement como fallback: puede devolver otra ventana (por
+    # ejemplo, navegador/IDE) y producir evidencia falsa del Installer Hub.
     Start-Sleep -Milliseconds 500
   } while ((Get-Date) -lt $deadline)
   return $null
