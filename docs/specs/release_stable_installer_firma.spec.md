@@ -44,6 +44,7 @@ Una promocion estable para usuarios finales de Windows no debe aprobarse si los 
 - **AC-012 (REQ-012):** Una ejecucion con `--version=1.1.1` y evidencia `manifest.json` de `1.0.0` produce `No-Go` en `release-evidence`.
 - **AC-013 (REQ-013):** El contrato del Hub falla si aparecen `AdvancedConfigExpander`, `Configuración avanzada`, `Mongo URI`, `MongoDB` o controles XAML legacy de configuracion avanzada.
 - **AC-014 (REQ-014):** El workflow respalda el servidor estático antes del build frontend, genera en `$RUNNER_TEMP` un smoke que lo ejecuta con `EVALUAPRO_STATIC_ROOT` y valida HTTP 200 en `/` con HTML SPA antes de empaquetar.
+- **AC-015 (REQ-015):** El servidor estático docente está versionado para que un runner limpio pueda respaldarlo y ejecutarlo durante el smoke de release.
 
 ## Matriz de Trazabilidad
 
