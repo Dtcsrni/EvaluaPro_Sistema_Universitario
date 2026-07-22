@@ -201,7 +201,7 @@ jobs:
         run: powershell -NoProfile -ExecutionPolicy Bypass -File scripts/build-msi.ps1 -SkipStabilityChecks -IncludeBundle -Flavor all -Version "${{ needs.beta_gate.outputs.beta_version }}"
 
       - name: Smoke servidor estático docente después de empaquetar
-        run: node --test scripts/tests/docente-static-server-smoke.test.mjs
+        run: node scripts/installer-docente-static-smoke.mjs
 
       - name: Gate footprint bundle docente
         run: node scripts/installer-docente-baseline.mjs --json --enforce
