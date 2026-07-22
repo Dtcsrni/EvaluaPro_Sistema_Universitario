@@ -274,6 +274,9 @@ en México, instituciones públicas/privadas y docentes independientes.
   sin dejar procesos huérfanos. Puede ejecutar como máximo dos lotes
   independientes en paralelo, conservando blobs, logs y directorios de
   cobertura aislados por lote.
+- **AC-030:** Antes de empaquetar una release, el servidor estático docente debe
+  responder `200` para `/` sobre el mismo árbol que alimenta el Bundle; ningún
+  artefacto con respuesta `400` para la raíz puede publicarse.
 - **AC-029:** Cuando el flavor comercial quede activado, el post-install debe
   registrar una tarea periódica de heartbeat que solo use configuración no
   secreta y el token protegido localmente; debe reintentar sin bloquear el

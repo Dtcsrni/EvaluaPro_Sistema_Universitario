@@ -196,6 +196,9 @@ jobs:
           EVALUAPRO_LICENSE_ACTIVATION_SIMULATE: '1'
         run: node --test scripts/tests/windows-release-smoke.test.mjs
 
+      - name: Smoke servidor estático docente antes de empaquetar
+        run: node --test scripts/tests/docente-static-server-smoke.test.mjs
+
       - name: Etapa build MSI + Bundle
         shell: powershell
         run: powershell -NoProfile -ExecutionPolicy Bypass -File scripts/build-msi.ps1 -SkipStabilityChecks -IncludeBundle -Flavor all -Version "${{ needs.beta_gate.outputs.beta_version }}"
