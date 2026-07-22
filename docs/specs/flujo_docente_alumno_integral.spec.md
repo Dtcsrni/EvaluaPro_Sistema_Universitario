@@ -195,9 +195,9 @@ en México, instituciones públicas/privadas y docentes independientes.
 - **AC-008:** Una imagen en cuarentena permanece protegida mientras exista investigación.
 - **AC-009:** La evidencia visual incluye estado inicial, acción, resultado y error
   accionable en cada pantalla crítica.
-- **AC-010:** Un build con versión `0.0.0-dev` y uno con versión prerelease válida
-  publica la Bootstrapper Application sin error de MSBuild, conserva la versión
-  informativa y genera versiones de archivo numéricas válidas.
+- **AC-010:** Un build de release debe recibir explícitamente la versión SemVer
+  objetivo en el workflow y propagarla a `Version`, `AssemblyVersion` y
+  `FileVersion`; nunca puede compilar el Bundle con `0.0.0-dev.0`.
 - **AC-011:** El E2E visual del ciclo académico debe arrancar el runtime nativo
   docente-local (API y web) mediante su configuración de Playwright; no puede
   depender de un servidor ya iniciado ni terminar en `ERR_CONNECTION_REFUSED`.
@@ -333,7 +333,7 @@ en México, instituciones públicas/privadas y docentes independientes.
 | Flujo visual alumno | portal/app alumno | `journey-docente-integral.spec.ts` + pruebas de portal y responsive | `implemented` |
 | Licencia comunitaria/comercial | contratos parciales del Hub | contratos Hub; falta journey comercial | `missing` |
 | Backup cifrado/restauración | exportación/sincronización existente | pruebas de sincronización | `partial` |
-| Versionado semver/.NET del Hub | normalización pendiente en `build-msi.ps1` | `test:wix:bundle` | `partial` |
+| Versionado semver/.NET del Hub | workflow entrega versión objetivo a `build-msi.ps1` y valida atributos numéricos | `test:wix:bundle` | `implemented` |
 | Payload MSI mínimo y autoconsistente | exclusiones de authoring WiX + extracción administrativa | `installer-hub-lifecycle-contract` | `partial` |
 | Ciclo académico visual nativo | registro, materia y alumno mediante Playwright contra API/web nativos | `tests/gui-responsive/ciclo-completo.spec.ts` con `playwright.ciclo.config.cjs` | `implemented` |
 | Journey académico visual integral | banco/plantilla, examen/PDF, entrega, evaluaciones, revisión/calificación y publicación desde la UI docente | `tests/gui-responsive/journey-docente-integral.spec.ts` repetido 3/3 | `implemented` |

@@ -197,7 +197,7 @@ jobs:
 
       - name: Etapa build MSI + Bundle
         shell: powershell
-        run: powershell -NoProfile -ExecutionPolicy Bypass -File scripts/build-msi.ps1 -SkipStabilityChecks -IncludeBundle -Flavor all
+        run: powershell -NoProfile -ExecutionPolicy Bypass -File scripts/build-msi.ps1 -SkipStabilityChecks -IncludeBundle -Flavor all -Version "${{ needs.beta_gate.outputs.beta_version }}"
 
       - name: Gate footprint bundle docente
         run: npm run installer:docente:baseline:enforce
