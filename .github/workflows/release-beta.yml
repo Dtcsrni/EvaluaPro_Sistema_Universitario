@@ -177,8 +177,9 @@ jobs:
           if (-not (Test-Path $wixPath)) {
             throw "No se encontro wix.exe en la carpeta de herramientas .NET global ($dotnetToolsDir)"
           }
-          $wixVersion = (& $wixPath --version | Select-Object -First 1)
-          if ($wixVersion -notmatch '^6\.0\.\d+(?:[+\-].*)?$') { throw "Version WiX no permitida: $wixVersion. Se requiere 6.0.x." }
+          $wixVersion = [string](& $wixPath --version | Select-Object -First 1)
+          $wixVersion = $wixVersion.Trim()
+          if ($wixVersion -notmatch '^6\.0\.\d+([+\-].*)?$') { throw "Version WiX no permitida: $wixVersion. Se requiere 6.0.x." }
           Write-Host "WiX version detectada: $wixVersion"
 
       - name: Etapa policy-check WiX
