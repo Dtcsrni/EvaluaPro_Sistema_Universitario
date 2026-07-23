@@ -1,14 +1,14 @@
 {
   "version": 2,
-  "dgSpecHash": "8LiKfFr+KvM=",
+  "dgSpecHash": "QxRmxVZ7pTc=",
   "success": true,
-  "projectFilePath": "C:\\Users\\evega\\EvaluaPro_Sistema_Universitario\\packaging\\wix\\BurnBootstrapperApp\\EvaluaPro.BurnBootstrapperApp.csproj",
+  "projectFilePath": "V:\\Software\\EvaluaPro\\packaging\\wix\\BurnBootstrapperApp\\EvaluaPro.BurnBootstrapperApp.csproj",
   "expectedPackageFiles": [
-    "C:\\Users\\evega\\.nuget\\packages\\microsoft.net.illink.tasks\\8.0.28\\microsoft.net.illink.tasks.8.0.28.nupkg.sha512",
+    "C:\\Users\\evega\\.nuget\\packages\\microsoft.net.illink.tasks\\8.0.29\\microsoft.net.illink.tasks.8.0.29.nupkg.sha512",
     "C:\\Users\\evega\\.nuget\\packages\\wixtoolset.bootstrapperapplicationapi\\6.0.2\\wixtoolset.bootstrapperapplicationapi.6.0.2.nupkg.sha512",
-    "C:\\Users\\evega\\.nuget\\packages\\microsoft.netcore.app.runtime.win-x64\\8.0.28\\microsoft.netcore.app.runtime.win-x64.8.0.28.nupkg.sha512",
-    "C:\\Users\\evega\\.nuget\\packages\\microsoft.windowsdesktop.app.runtime.win-x64\\8.0.28\\microsoft.windowsdesktop.app.runtime.win-x64.8.0.28.nupkg.sha512",
-    "C:\\Users\\evega\\.nuget\\packages\\microsoft.aspnetcore.app.runtime.win-x64\\8.0.28\\microsoft.aspnetcore.app.runtime.win-x64.8.0.28.nupkg.sha512"
+    "C:\\Users\\evega\\.nuget\\packages\\microsoft.netcore.app.runtime.win-x64\\8.0.29\\microsoft.netcore.app.runtime.win-x64.8.0.29.nupkg.sha512",
+    "C:\\Users\\evega\\.nuget\\packages\\microsoft.windowsdesktop.app.runtime.win-x64\\8.0.29\\microsoft.windowsdesktop.app.runtime.win-x64.8.0.29.nupkg.sha512",
+    "C:\\Users\\evega\\.nuget\\packages\\microsoft.aspnetcore.app.runtime.win-x64\\8.0.29\\microsoft.aspnetcore.app.runtime.win-x64.8.0.29.nupkg.sha512"
   ],
   "logs": []
 }

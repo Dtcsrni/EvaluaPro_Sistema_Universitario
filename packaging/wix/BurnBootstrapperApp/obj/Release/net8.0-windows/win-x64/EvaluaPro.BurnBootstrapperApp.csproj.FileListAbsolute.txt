@@ -715,7 +715,6 @@ V:\Software\EvaluaPro\packaging\wix\BurnBootstrapperApp\bin\Release\net8.0-windo
 V:\Software\EvaluaPro\packaging\wix\BurnBootstrapperApp\bin\Release\net8.0-windows\win-x64\hostfxr.dll
 V:\Software\EvaluaPro\packaging\wix\BurnBootstrapperApp\bin\Release\net8.0-windows\win-x64\hostpolicy.dll
 V:\Software\EvaluaPro\packaging\wix\BurnBootstrapperApp\bin\Release\net8.0-windows\win-x64\mscordaccore.dll
-V:\Software\EvaluaPro\packaging\wix\BurnBootstrapperApp\bin\Release\net8.0-windows\win-x64\mscordaccore_amd64_amd64_8.0.2726.22922.dll
 V:\Software\EvaluaPro\packaging\wix\BurnBootstrapperApp\bin\Release\net8.0-windows\win-x64\mscordbi.dll
 V:\Software\EvaluaPro\packaging\wix\BurnBootstrapperApp\bin\Release\net8.0-windows\win-x64\mscorrc.dll
 V:\Software\EvaluaPro\packaging\wix\BurnBootstrapperApp\bin\Release\net8.0-windows\win-x64\msquic.dll
@@ -962,3 +961,4 @@ V:\Software\EvaluaPro\packaging\wix\BurnBootstrapperApp\obj\Release\net8.0-windo
 V:\Software\EvaluaPro\packaging\wix\BurnBootstrapperApp\obj\Release\net8.0-windows\win-x64\EvaluaPro.BurnBootstrapperApp.genruntimeconfig.cache
 V:\Software\EvaluaPro\packaging\wix\BurnBootstrapperApp\obj\Release\net8.0-windows\win-x64\ref\EvaluaPro.BurnBootstrapperApp.dll
 C:\Users\evega\EvaluaPro_Sistema_Universitario\packaging\wix\BurnBootstrapperApp\bin\Release\net8.0-windows\win-x64\mscordaccore_amd64_amd64_8.0.2826.26413.dll
+V:\Software\EvaluaPro\packaging\wix\BurnBootstrapperApp\bin\Release\net8.0-windows\win-x64\mscordaccore_amd64_amd64_8.0.2926.32403.dll

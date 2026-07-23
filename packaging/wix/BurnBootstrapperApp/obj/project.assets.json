@@ -2,7 +2,7 @@
   "version": 3,
   "targets": {
     "net8.0-windows7.0": {
-      "Microsoft.NET.ILLink.Tasks/8.0.28": {
+      "Microsoft.NET.ILLink.Tasks/8.0.29": {
         "type": "package",
         "build": {
           "build/Microsoft.NET.ILLink.Tasks.props": {}
@@ -40,7 +40,7 @@
       }
     },
     "net8.0-windows7.0/win-x64": {
-      "Microsoft.NET.ILLink.Tasks/8.0.28": {
+      "Microsoft.NET.ILLink.Tasks/8.0.29": {
         "type": "package",
         "build": {
           "build/Microsoft.NET.ILLink.Tasks.props": {}
@@ -68,10 +68,10 @@
     }
   },
   "libraries": {
-    "Microsoft.NET.ILLink.Tasks/8.0.28": {
-      "sha512": "XMqgVjlLxLqWmEh3c49haXLQwsMNtvo6YscUaqfvEGfg1iA8hnYgkUVq3i9Zu9gKeNKMWiiZKVwZExc/qyEAsQ==",
+    "Microsoft.NET.ILLink.Tasks/8.0.29": {
+      "sha512": "HSBTfrkIZijz8z3ybLRKB7E8rHk4QQufFwpHa9fc5CMIgRhRzdn4mBGmlyXZqaueiMPtuJcnjresGvSTfaW8Mg==",
       "type": "package",
-      "path": "microsoft.net.illink.tasks/8.0.28",
+      "path": "microsoft.net.illink.tasks/8.0.29",
       "hasTools": true,
       "files": [
         ".nupkg.metadata",
@@ -85,7 +85,7 @@
         "build/Microsoft.NET.ILLink.Analyzers.props",
         "build/Microsoft.NET.ILLink.Tasks.props",
         "build/Microsoft.NET.ILLink.targets",
-        "microsoft.net.illink.tasks.8.0.28.nupkg.sha512",
+        "microsoft.net.illink.tasks.8.0.29.nupkg.sha512",
         "microsoft.net.illink.tasks.nuspec",
         "tools/net472/ILLink.Tasks.dll",
         "tools/net472/ILLink.Tasks.dll.config",
@@ -158,7 +158,7 @@
   },
   "projectFileDependencyGroups": {
     "net8.0-windows7.0": [
-      "Microsoft.NET.ILLink.Tasks >= 8.0.28",
+      "Microsoft.NET.ILLink.Tasks >= 8.0.29",
       "WixToolset.BootstrapperApplicationApi >= 6.0.2"
     ]
   },
@@ -166,13 +166,13 @@
     "C:\\Users\\evega\\.nuget\\packages\\": {}
   },
   "project": {
-    "version": "1.1.1",
+    "version": "1.1.1-beta.2",
     "restore": {
-      "projectUniqueName": "C:\\Users\\evega\\EvaluaPro_Sistema_Universitario\\packaging\\wix\\BurnBootstrapperApp\\EvaluaPro.BurnBootstrapperApp.csproj",
+      "projectUniqueName": "V:\\Software\\EvaluaPro\\packaging\\wix\\BurnBootstrapperApp\\EvaluaPro.BurnBootstrapperApp.csproj",
       "projectName": "EvaluaPro.BurnBootstrapperApp",
-      "projectPath": "C:\\Users\\evega\\EvaluaPro_Sistema_Universitario\\packaging\\wix\\BurnBootstrapperApp\\EvaluaPro.BurnBootstrapperApp.csproj",
+      "projectPath": "V:\\Software\\EvaluaPro\\packaging\\wix\\BurnBootstrapperApp\\EvaluaPro.BurnBootstrapperApp.csproj",
       "packagesPath": "C:\\Users\\evega\\.nuget\\packages\\",
-      "outputPath": "C:\\Users\\evega\\EvaluaPro_Sistema_Universitario\\packaging\\wix\\BurnBootstrapperApp\\obj\\",
+      "outputPath": "V:\\Software\\EvaluaPro\\packaging\\wix\\BurnBootstrapperApp\\obj\\",
       "projectStyle": "PackageReference",
       "configFilePaths": [
         "C:\\Users\\evega\\AppData\\Roaming\\NuGet\\NuGet.Config"
@@ -207,7 +207,7 @@
           "Microsoft.NET.ILLink.Tasks": {
             "suppressParent": "All",
             "target": "Package",
-            "version": "[8.0.28, )",
+            "version": "[8.0.29, )",
             "autoReferenced": true
           },
           "WixToolset.BootstrapperApplicationApi": {
@@ -229,15 +229,15 @@
         "downloadDependencies": [
           {
             "name": "Microsoft.AspNetCore.App.Runtime.win-x64",
-            "version": "[8.0.28, 8.0.28]"
+            "version": "[8.0.29, 8.0.29]"
           },
           {
             "name": "Microsoft.NETCore.App.Runtime.win-x64",
-            "version": "[8.0.28, 8.0.28]"
+            "version": "[8.0.29, 8.0.29]"
           },
           {
             "name": "Microsoft.WindowsDesktop.App.Runtime.win-x64",
-            "version": "[8.0.28, 8.0.28]"
+            "version": "[8.0.29, 8.0.29]"
           }
         ],
         "frameworkReferences": {
@@ -248,7 +248,7 @@
             "privateAssets": "none"
           }
         },
-        "runtimeIdentifierGraphPath": "C:\\Program Files\\dotnet\\sdk\\8.0.422/PortableRuntimeIdentifierGraph.json"
+        "runtimeIdentifierGraphPath": "C:\\Program Files\\dotnet\\sdk\\8.0.423/PortableRuntimeIdentifierGraph.json"
       }
     },
     "runtimes": {
