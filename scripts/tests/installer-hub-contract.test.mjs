@@ -184,10 +184,9 @@ test('workflow beta publica solo hubs en assets de prerelease', () => {
   assert.match(workflow, /actions\/setup-dotnet@v4/);
   assert.match(workflow, /Smoke GUI del bundle Burn publico empaquetado/);
   assert.match(workflow, /steps\.beta_assets\.outputs\.files/);
-  assert.match(workflow, /dist\/installer\/saas-completo\/EvaluaPro-InstallerHub-saas-completo-v\*\.exe/);
   assert.match(workflow, /dist\/installer\/docente-local\/EvaluaPro-InstallerHub-docente-local-v\*\.exe/);
   assert.match(workflow, /dist\/installer\/EvaluaPro-release-manifest\.json/);
-  assert.match(workflow, /build-msi\.ps1 -SkipStabilityChecks -IncludeBundle -Flavor all/);
+  assert.match(workflow, /build-msi\.ps1 -SkipStabilityChecks -IncludeBundle -Flavor docente-local/);
   assert.doesNotMatch(workflow, /dist\/installer\/EvaluaPro-InstallerHub\.exe/);
   assert.doesNotMatch(workflow, /build-installer-hub\.ps1/);
 });
@@ -1368,7 +1367,7 @@ test('smoke del bundle Burn publico queda declarado en workflows post-build', ()
   assert.match(stableWorkflow, /Smoke GUI del bundle Burn publico empaquetado/);
   assert.match(stableWorkflow, /dist\/installer\/docente-local\/EvaluaPro-InstallerHub-docente-local-v\*\.exe/);
   assert.match(betaWorkflow, /Smoke GUI del bundle Burn publico empaquetado/);
-  assert.match(betaWorkflow, /dist\/installer\/saas-completo\/EvaluaPro-InstallerHub-saas-completo-v\*\.exe/);
+  assert.match(betaWorkflow, /dist\/installer\/docente-local\/EvaluaPro-InstallerHub-docente-local-v\*\.exe/);
   for (const workflow of [stableWorkflow, betaWorkflow]) {
     assert.match(workflow, /Start-Process -FilePath \$exe(\.FullName)? -PassThru/);
     assert.match(workflow, /El bundle Burn publico se cerro antes del smoke timeout|El Installer Hub empaquetado se cerro antes del smoke timeout/);
