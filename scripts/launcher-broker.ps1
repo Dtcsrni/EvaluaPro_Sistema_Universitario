@@ -398,12 +398,24 @@ try {
       }
       $base = [string]$finalReady.base
       Invoke-ManifestRefresh
-      if ($result.ok) {
-        Set-BootstrapState -State 'healthy' -Message 'Plataforma docente lista.' -DesiredMode $desiredMode -Meta @{ degraded = [bool]$result.degraded; base = $base }
-        Open-Url "$base/"
+
+      # REQ-030: En flavor docente-local, el Dashboard UI no debe ser accesible para docentes finales.
+      # Se redirige a la Web Docente nativa (http://127.0.0.1:4173/) a menos que esté en modo depuración/admin.
+      $isDocenteFlavor = (-not (Test-RequiresLocalPortal))
+      $isAdminDebug = ($env:EVALUAPRO_DEBUG -eq '1')
+      $openTargetUrl = if ($isDocenteFlavor -and -not $isAdminDebug) {
+        Write-BrokerLog("Flavor docente-local detectado: redirigiendo apertura a Web Docente (http://127.0.0.1:4173/). UI Dashboard restringida a depuración administrativa.")
+        "http://127.0.0.1:4173/"
       } else {
-        Set-BootstrapState -State 'degraded' -Message 'Dashboard activo, pero la plataforma no alcanzo salud completa.' -DesiredMode $desiredMode -Meta @{ base = $base }
-        if (-not $NoOpen) { Open-Url "$base/" }
+        "$base/"
+      }
+
+      if ($result.ok) {
+        Set-BootstrapState -State 'healthy' -Message 'Plataforma docente lista.' -DesiredMode $desiredMode -Meta @{ degraded = [bool]$result.degraded; base = $base; webUrl = "http://127.0.0.1:4173/" }
+        if (-not $NoOpen) { Open-Url $openTargetUrl }
+      } else {
+        Set-BootstrapState -State 'degraded' -Message 'Dashboard activo, pero la plataforma no alcanzo salud completa.' -DesiredMode $desiredMode -Meta @{ base = $base; webUrl = "http://127.0.0.1:4173/" }
+        if (-not $NoOpen) { Open-Url $openTargetUrl }
       }
     }
     'restart-stack' {
