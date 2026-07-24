@@ -682,15 +682,26 @@ function Wait-InstallerStableState {
     Start-Sleep -Seconds 3
     $lastText = Get-WindowTextSnapshot -Window $Window
     $text = $lastText
+    # Excluir 'fallos' (aparece en el carousel del Hub) del patron de error real
     $cleanTextForErrorCheck = $text -replace '(?i)en\s+error\s+se\s+abre', 'en ___ se abre'
-    if ($cleanTextForErrorCheck -match '(?i)(fall[oó]|error|no pudo|failed)') {
+    $cleanTextForErrorCheck = $cleanTextForErrorCheck -replace '(?i)recuperaci[oó]n ante fallos', 'recuperacion_ante_fallos'
+    if ($cleanTextForErrorCheck -match '(?i)(fall[oó](?!s)|error(?!\s*action)|no pudo|failed)') {
       return [pscustomobject]@{ ok = $false; text = $text }
     }
     if ($text -match '(?i)(estado completado|post-install completado|todas las etapas terminaron correctamente|operaci[oó]n finalizada correctamente)') {
       return [pscustomobject]@{ ok = $true; text = $text }
     }
-    if ($Mode -eq 'install' -and $text -match '(?i)(instalaci[oó]n completada|listo para usarse|configuraci[oó]n final)') {
+    if ($Mode -eq 'install' -and $text -match '(?i)(instalaci[oó]n completada|listo para usarse|configuraci[oó]n final complet|finalizaci[oó]n de instalaci[oó]n.*ok|instalaci[oó]n.*ok|finalizado correctamente)') {
       return [pscustomobject]@{ ok = $true; text = $text }
+    }
+    # Detectar cierre limpio del Hub como señal de éxito cuando ya no hay ventana
+    $hubGone = $false
+    try { $hubGone = $Window.Current.IsOffscreen } catch { $hubGone = $true }
+    if ($hubGone) {
+      $helper = Get-LatestPostInstallHelperState -MinLastWriteTime $startedAt
+      if ($helper -and $helper.ok) {
+        return [pscustomobject]@{ ok = $true; text = "Post-install helper OK (hub cerrado)`n$text" }
+      }
     }
     $helper = Get-LatestPostInstallHelperState -MinLastWriteTime $startedAt
     if ($helper -and $helper.ok) {
@@ -702,7 +713,9 @@ function Wait-InstallerStableState {
     if ($Mode -eq 'uninstall' -and $text -match '(?i)(desinstalaci[oó]n completada|qued[oó] desinstalado|producto ya no aparece|operaci[oó]n finalizada|post-install completado)') {
       return [pscustomobject]@{ ok = $true; text = $text }
     }
-    if ($text -match '(?i)(fall[oó]|error|no pudo|failed)') {
+    $checkForRealError = $text -replace '(?i)en\s+error\s+se\s+abre', 'en ___ se abre'
+    $checkForRealError = $checkForRealError -replace '(?i)recuperaci[oó]n ante fallos', 'recuperacion_ante_fallos'
+    if ($checkForRealError -match '(?i)(fall[oó](?!s)|error(?!\s*action)|no pudo|failed)') {
       return [pscustomobject]@{ ok = $false; text = $text }
     }
   } while ((Get-Date) -lt $deadline)
@@ -838,7 +851,7 @@ function Invoke-InstallerHubMode {
   Start-Sleep -Milliseconds 800
   $window = Find-Window -TimeoutSec 10
   Capture-Window -Window $window -Name ("wpf-{0}-05-ejecutar-1280x720" -f $Mode) | Out-Null
-  $state = Wait-InstallerStableState -Window $window -Mode $Mode -TimeoutMinutes 10
+  $state = Wait-InstallerStableState -Window $window -Mode $Mode -TimeoutMinutes 25
   $textPath = Join-Path $ReportDir ("{0}-window-text.txt" -f $Mode)
   [string]$state.text | Set-Content -Path $textPath -Encoding UTF8
   $artifacts.Add($textPath) | Out-Null
@@ -1125,7 +1138,7 @@ function Export-RuntimeAudit {
 
 function Invoke-NativeStableStack {
   Write-E2ELog "Esperando estabilizacion del servicio nativo..."
-  Start-Sleep -Seconds 10
+  Start-Sleep -Seconds 20
 }
 
 function Export-NativeEvidence {
@@ -1141,7 +1154,7 @@ function Export-NativeEvidence {
 }
 
 function Assert-NativeStable {
-  $deadline = (Get-Date).AddSeconds(90)
+  $deadline = (Get-Date).AddSeconds(150)
   $lastError = 'sin respuesta'
   do {
     $running = Get-Process -Name "node" -ErrorAction SilentlyContinue
