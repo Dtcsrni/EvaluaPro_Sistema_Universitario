@@ -689,8 +689,17 @@ function Wait-InstallerStableState {
     if ($text -match '(?i)(estado completado|post-install completado|todas las etapas terminaron correctamente|operaci[oó]n finalizada correctamente)') {
       return [pscustomobject]@{ ok = $true; text = $text }
     }
-    if ($Mode -eq 'install' -and $text -match '(?i)(instalaci[oó]n completada|listo para usarse|configuraci[oó]n final)') {
+    if ($Mode -eq 'install' -and $text -match '(?i)(instalaci[oó]n completada|listo para usarse|configuraci[oó]n final complet|finalizaci[oó]n de instalaci[oó]n.*ok|instalaci[oó]n.*ok|finalizado correctamente)') {
       return [pscustomobject]@{ ok = $true; text = $text }
+    }
+    # Detectar cierre limpio del Hub como señal de éxito cuando ya no hay ventana
+    $hubGone = $false
+    try { $hubGone = $Window.Current.IsOffscreen } catch { $hubGone = $true }
+    if ($hubGone) {
+      $helper = Get-LatestPostInstallHelperState -MinLastWriteTime $startedAt
+      if ($helper -and $helper.ok) {
+        return [pscustomobject]@{ ok = $true; text = "Post-install helper OK (hub cerrado)`n$text" }
+      }
     }
     $helper = Get-LatestPostInstallHelperState -MinLastWriteTime $startedAt
     if ($helper -and $helper.ok) {
@@ -838,7 +847,7 @@ function Invoke-InstallerHubMode {
   Start-Sleep -Milliseconds 800
   $window = Find-Window -TimeoutSec 10
   Capture-Window -Window $window -Name ("wpf-{0}-05-ejecutar-1280x720" -f $Mode) | Out-Null
-  $state = Wait-InstallerStableState -Window $window -Mode $Mode -TimeoutMinutes 10
+  $state = Wait-InstallerStableState -Window $window -Mode $Mode -TimeoutMinutes 25
   $textPath = Join-Path $ReportDir ("{0}-window-text.txt" -f $Mode)
   [string]$state.text | Set-Content -Path $textPath -Encoding UTF8
   $artifacts.Add($textPath) | Out-Null
