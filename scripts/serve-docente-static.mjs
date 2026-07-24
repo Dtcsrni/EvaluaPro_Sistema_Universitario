@@ -58,7 +58,7 @@ function safePath(urlPath) {
   }
   const relative = decoded.replace(/^[/\\]+/, '');
   // relative vacío = raíz '/': cae directo al fallback (index.html)
-  if (relative.split(/[\\/]/).some(seg => seg === '..') || relative.includes('\0')) return null;
+  if (relative.includes('..') || relative.includes('\0')) return null;
   return assetIndex.get(`/${relative}`) || fallback;
 }
 
