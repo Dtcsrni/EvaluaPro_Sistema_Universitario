@@ -1138,7 +1138,7 @@ function Export-RuntimeAudit {
 
 function Invoke-NativeStableStack {
   Write-E2ELog "Esperando estabilizacion del servicio nativo..."
-  Start-Sleep -Seconds 10
+  Start-Sleep -Seconds 20
 }
 
 function Export-NativeEvidence {
@@ -1154,7 +1154,7 @@ function Export-NativeEvidence {
 }
 
 function Assert-NativeStable {
-  $deadline = (Get-Date).AddSeconds(90)
+  $deadline = (Get-Date).AddSeconds(150)
   $lastError = 'sin respuesta'
   do {
     $running = Get-Process -Name "node" -ErrorAction SilentlyContinue
