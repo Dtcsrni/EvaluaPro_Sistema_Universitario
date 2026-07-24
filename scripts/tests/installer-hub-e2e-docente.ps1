@@ -682,8 +682,10 @@ function Wait-InstallerStableState {
     Start-Sleep -Seconds 3
     $lastText = Get-WindowTextSnapshot -Window $Window
     $text = $lastText
+    # Excluir 'fallos' (aparece en el carousel del Hub) del patron de error real
     $cleanTextForErrorCheck = $text -replace '(?i)en\s+error\s+se\s+abre', 'en ___ se abre'
-    if ($cleanTextForErrorCheck -match '(?i)(fall[oó]|error|no pudo|failed)') {
+    $cleanTextForErrorCheck = $cleanTextForErrorCheck -replace '(?i)recuperaci[oó]n ante fallos', 'recuperacion_ante_fallos'
+    if ($cleanTextForErrorCheck -match '(?i)(fall[oó](?!s)|error(?!\s*action)|no pudo|failed)') {
       return [pscustomobject]@{ ok = $false; text = $text }
     }
     if ($text -match '(?i)(estado completado|post-install completado|todas las etapas terminaron correctamente|operaci[oó]n finalizada correctamente)') {
@@ -711,7 +713,9 @@ function Wait-InstallerStableState {
     if ($Mode -eq 'uninstall' -and $text -match '(?i)(desinstalaci[oó]n completada|qued[oó] desinstalado|producto ya no aparece|operaci[oó]n finalizada|post-install completado)') {
       return [pscustomobject]@{ ok = $true; text = $text }
     }
-    if ($text -match '(?i)(fall[oó]|error|no pudo|failed)') {
+    $checkForRealError = $text -replace '(?i)en\s+error\s+se\s+abre', 'en ___ se abre'
+    $checkForRealError = $checkForRealError -replace '(?i)recuperaci[oó]n ante fallos', 'recuperacion_ante_fallos'
+    if ($checkForRealError -match '(?i)(fall[oó](?!s)|error(?!\s*action)|no pudo|failed)') {
       return [pscustomobject]@{ ok = $false; text = $text }
     }
   } while ((Get-Date) -lt $deadline)
