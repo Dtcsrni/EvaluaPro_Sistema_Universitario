@@ -1,4 +1,4 @@
-# Native Lightweight Helper for the Burn-based EvaluaPro installer.
+﻿# Native Lightweight Helper for the Burn-based EvaluaPro installer.
 # Replaces the legacy Docker/WSL orchestration.
 param(
   [Parameter(Mandatory = $true)]
