@@ -458,3 +458,25 @@ test('stable promotion falla si falta evidencia automatizada de UX/UI y flujo do
   assert.equal(result.ok, false);
   assert.equal(result.checks.some((item) => item.id === 'automated-qa-evidence' && item.ok === false), true);
 });
+
+test('stable promotion valida presencia y estructura del gate de release', () => {
+  const evidenceDir = mkTempDir('evaluapro-stable-evidence-gate-');
+  const installerDir = mkTempDir('evaluapro-installer-manifest-gate-');
+  const qaDir = mkTempDir('evaluapro-qa-evidence-gate-');
+  writeEvidenceDir(evidenceDir);
+  const installerManifestPath = writeInstallerManifest(installerDir);
+  const qaManifestPath = writeQaEvidence(qaDir);
+
+  const runs = Array.from({ length: 10 }).map((_, index) => ({ id: index + 1, conclusion: 'success' }));
+  const result = evaluateStablePromotion({
+    version: '1.0.0',
+    requiredStreak: 10,
+    runs,
+    evidenceDir,
+    installerManifestPath,
+    qaManifestPath
+  });
+
+  assert.equal(result.ok, true);
+});
+

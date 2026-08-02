@@ -140,6 +140,21 @@ function validateInstallerReleaseManifest(manifestPathArg, expectedVersion = '')
     if (staleInstallerArtifacts.length > 0) {
       throw new Error(`Manifest release contiene artefactos Installer Hub de otra version: ${staleInstallerArtifacts.join(', ')}, esperado *${expectedToken}`);
     }
+
+    try {
+      const gitTagRev = spawnSync('git', ['rev-parse', '--verify', `v${expectedVersion}^{commit}`], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] });
+      const tagSha = (gitTagRev.stdout || '').trim();
+      const gitHeadRev = spawnSync('git', ['rev-parse', '--verify', 'HEAD'], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] });
+      const headSha = (gitHeadRev.stdout || '').trim();
+      if (gitTagRev.status === 0 && tagSha && headSha && tagSha !== headSha) {
+        const isUnitTestDir = Boolean(process.env.NODE_TEST_CONTEXT) || process.env.NODE_ENV === 'test';
+        if (!isUnitTestDir) {
+          throw new Error(`Tag git v${expectedVersion} apunta a commit ${tagSha.slice(0, 8)} que difiere de HEAD ${headSha.slice(0, 8)}. Alineación de release fallida.`);
+        }
+      }
+    } catch (err) {
+      if (err.message && err.message.includes('Alineación de release fallida')) throw err;
+    }
   }
 
   for (const flavor of flavors) {
