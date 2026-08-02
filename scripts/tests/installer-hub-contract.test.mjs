@@ -296,7 +296,7 @@ test('MSI docente perUser no escribe marcadores en HKLM', () => {
 
 test('build MSI elimina avisos Prisma del esquema SQL nativo', () => {
   const build = fs.readFileSync(path.join(root, 'scripts', 'build-msi.ps1'), 'utf8');
-  assert.match(build, /schemaSqlText = \$schemaSqlOutput -join/);
+  assert.match(build, /schemaSqlText = \$sqlLines -join/);
   assert.match(build, /lastSqlTerminator = \$schemaSqlText\.LastIndexOf\(';\'\)/);
   assert.match(build, /schemaSqlText = \$schemaSqlText\.Substring\(0, \$lastSqlTerminator \+ 1\)/);
   assert.match(build, /Update available\|major update/);
