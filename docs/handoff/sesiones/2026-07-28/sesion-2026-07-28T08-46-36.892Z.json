@@ -1,0 +1,257 @@
+{
+  "traceSchemaVersion": "1.0.0",
+  "sessionId": "sesion-2026-07-28T08-46-36.892Z",
+  "status": "draft",
+  "generatedAt": "2026-07-28T08:46:36.892Z",
+  "validationProfile": "quick",
+  "agent": {
+    "name": "unknown",
+    "version": "unknown",
+    "provider": "unknown",
+    "kind": "unknown",
+    "channel": "unknown"
+  },
+  "request": {
+    "summary": "Pendiente de completar por el agente."
+  },
+  "objective": "Pendiente de completar por el agente.",
+  "scope": [],
+  "constraints": [],
+  "actions": [
+    {
+      "type": "validation",
+      "summary": "Ejecucion de lint",
+      "timestamp": "2026-07-28T08:46:36.892Z",
+      "status": "omitido"
+    },
+    {
+      "type": "validation",
+      "summary": "Ejecucion de typecheck",
+      "timestamp": "2026-07-28T08:46:36.892Z",
+      "status": "omitido"
+    },
+    {
+      "type": "validation",
+      "summary": "Ejecucion de test_frontend_ci",
+      "timestamp": "2026-07-28T08:46:36.892Z",
+      "status": "omitido"
+    },
+    {
+      "type": "validation",
+      "summary": "Ejecucion de test_coverage_ci",
+      "timestamp": "2026-07-28T08:46:36.892Z",
+      "status": "omitido"
+    },
+    {
+      "type": "validation",
+      "summary": "Ejecucion de test_tdd_enforcement_ci",
+      "timestamp": "2026-07-28T08:46:36.892Z",
+      "status": "omitido"
+    },
+    {
+      "type": "validation",
+      "summary": "Ejecucion de test_backend_ci",
+      "timestamp": "2026-07-28T08:46:36.892Z",
+      "status": "omitido"
+    },
+    {
+      "type": "validation",
+      "summary": "Ejecucion de test_portal_ci",
+      "timestamp": "2026-07-28T08:46:36.892Z",
+      "status": "omitido"
+    },
+    {
+      "type": "validation",
+      "summary": "Ejecucion de perf_check",
+      "timestamp": "2026-07-28T08:46:36.892Z",
+      "status": "omitido"
+    },
+    {
+      "type": "validation",
+      "summary": "Ejecucion de pipeline_contract_check",
+      "timestamp": "2026-07-28T08:46:36.892Z",
+      "status": "ok"
+    },
+    {
+      "type": "validation",
+      "summary": "Ejecucion de docs_check",
+      "timestamp": "2026-07-28T08:46:36.892Z",
+      "status": "ok"
+    }
+  ],
+  "files": {
+    "read": [],
+    "changed": [
+      "CHANGELOG.md",
+      "apps/backend/reports/qa/latest/e2e-docente-alumno.json",
+      "apps/backend/tests/integracion/evaluaciones.modulo.test.ts",
+      "docs/AUTO_DOCS_INDEX.md",
+      "docs/INVENTARIO_CODIGO_EXHAUSTIVO.md",
+      "docs/INVENTARIO_PROYECTO.md",
+      "docs/assets/ui/06_journey_banco.png",
+      "docs/assets/ui/07_journey_plantilla.png",
+      "docs/assets/ui/08_journey_examen_generado.png",
+      "docs/assets/ui/08b_journey_omr_job.png",
+      "docs/assets/ui/09_journey_entrega.png",
+      "docs/assets/ui/10_journey_evaluacion.png",
+      "docs/assets/ui/11_journey_calificaciones.png",
+      "docs/assets/ui/11b_journey_reportes.png",
+      "docs/assets/ui/12_journey_publicacion.png",
+      "docs/assets/ui/12a_journey_backup_cifrado.png",
+      "docs/assets/ui/13_journey_alumno_resultados.png",
+      "docs/assets/ui/14_journey_alumno_detalle.png",
+      "docs/specs/flujo_docente_alumno_integral.spec.md",
+      "docs/specs/installer_bootstrapper_resilience.spec.md",
+      "reports/qa/latest/e2e-docente-alumno.json",
+      "reports/qa/latest/gui-docente-alumnos-desktop-lg.png",
+      "reports/qa/latest/gui-docente-alumnos-mobile.png",
+      "reports/qa/latest/gui-docente-banco-desktop-lg.png",
+      "reports/qa/latest/gui-docente-banco-mobile.png",
+      "reports/qa/latest/gui-docente-calificaciones-desktop-lg.png",
+      "reports/qa/latest/gui-docente-calificaciones-mobile.png",
+      "reports/qa/latest/gui-docente-cuenta-desktop-lg.png",
+      "reports/qa/latest/gui-docente-cuenta-mobile.png",
+      "reports/qa/latest/gui-docente-entrega-desktop-lg.png",
+      "reports/qa/latest/gui-docente-entrega-mobile.png",
+      "reports/qa/latest/gui-docente-evaluaciones-desktop-lg.png",
+      "reports/qa/latest/gui-docente-evaluaciones-mobile.png",
+      "reports/qa/latest/gui-docente-login-desktop-lg.png",
+      "reports/qa/latest/gui-docente-login-mobile.png",
+      "reports/qa/latest/gui-docente-periodos-desktop-lg.png",
+      "reports/qa/latest/gui-docente-periodos-mobile.png",
+      "reports/qa/latest/gui-docente-plantillas-desktop-lg.png",
+      "reports/qa/latest/gui-docente-plantillas-mobile.png",
+      "reports/qa/latest/gui-docente-rehidratacion-desktop-lg.png",
+      "reports/qa/latest/gui-docente-rehidratacion-mobile.png",
+      "reports/qa/latest/gui-docente-sincronizacion-desktop-lg.png",
+      "reports/qa/latest/gui-docente-sincronizacion-mobile.png",
+      "scripts/tests/installer-hub-contract.test.mjs",
+      "apps/backend/tests/integracion/flujoDocenteInventadoSmoke.test.ts",
+      "dist-native/",
+      "docs/MANUAL_USUARIO_DOCENTE.md",
+      "docs/MANUAL_USUARIO_DOCENTE.pdf",
+      "docs/handoff/sesiones/2026-07-27/",
+      "docs/handoff/sesiones/2026-07-28/",
+      "docs/specs/omr_cuarentena_retencion.spec.md",
+      "evaluapro-native-dist.zip",
+      "scripts/tests/flujo-docente-inventado.test.mjs"
+    ],
+    "artifacts": [
+      "docs/handoff/sesiones/2026-07-28/sesion-2026-07-28T08-46-36.892Z.json",
+      "docs/handoff/sesiones/2026-07-28/sesion-2026-07-28T08-46-36.892Z.md"
+    ]
+  },
+  "commands": [
+    {
+      "name": "lint",
+      "command": "npm run lint",
+      "status": "omitido",
+      "exitCode": null,
+      "durationMs": 0,
+      "resultSummary": "omitido por perfil quick",
+      "timestamp": "2026-07-28T08:46:36.892Z"
+    },
+    {
+      "name": "typecheck",
+      "command": "npm run typecheck",
+      "status": "omitido",
+      "exitCode": null,
+      "durationMs": 0,
+      "resultSummary": "omitido por perfil quick",
+      "timestamp": "2026-07-28T08:46:36.892Z"
+    },
+    {
+      "name": "test_frontend_ci",
+      "command": "npm run test:frontend:ci",
+      "status": "omitido",
+      "exitCode": null,
+      "durationMs": 0,
+      "resultSummary": "omitido por perfil quick",
+      "timestamp": "2026-07-28T08:46:36.892Z"
+    },
+    {
+      "name": "test_coverage_ci",
+      "command": "npm run test:coverage:ci",
+      "status": "omitido",
+      "exitCode": null,
+      "durationMs": 0,
+      "resultSummary": "omitido por perfil quick",
+      "timestamp": "2026-07-28T08:46:36.892Z"
+    },
+    {
+      "name": "test_tdd_enforcement_ci",
+      "command": "npm run test:tdd:enforcement:ci",
+      "status": "omitido",
+      "exitCode": null,
+      "durationMs": 0,
+      "resultSummary": "omitido por perfil quick",
+      "timestamp": "2026-07-28T08:46:36.892Z"
+    },
+    {
+      "name": "test_backend_ci",
+      "command": "npm run test:backend:ci",
+      "status": "omitido",
+      "exitCode": null,
+      "durationMs": 0,
+      "resultSummary": "omitido por perfil quick",
+      "timestamp": "2026-07-28T08:46:36.892Z"
+    },
+    {
+      "name": "test_portal_ci",
+      "command": "npm run test:portal:ci",
+      "status": "omitido",
+      "exitCode": null,
+      "durationMs": 0,
+      "resultSummary": "omitido por perfil quick",
+      "timestamp": "2026-07-28T08:46:36.892Z"
+    },
+    {
+      "name": "perf_check",
+      "command": "npm run perf:check",
+      "status": "omitido",
+      "exitCode": null,
+      "durationMs": 0,
+      "resultSummary": "omitido por perfil quick",
+      "timestamp": "2026-07-28T08:46:36.892Z"
+    },
+    {
+      "name": "pipeline_contract_check",
+      "command": "npm run pipeline:contract:check",
+      "status": "ok",
+      "exitCode": 0,
+      "durationMs": 561,
+      "resultSummary": "> evaluapro@1.1.1 pipeline:contract:check | > node scripts/pipeline-contract-check.mjs | ✔ ext_perf_arquitectura prepara sharp antes de perf:check (2.8692ms) | ✔ ext_funcionales usa gate OMR TV generico con version configurable (0.7413ms) | ... | ℹ duration_ms 105.4569 | pipeline contract OK",
+      "timestamp": "2026-07-28T08:46:36.892Z"
+    },
+    {
+      "name": "docs_check",
+      "command": "npm run docs:check",
+      "status": "ok",
+      "exitCode": 0,
+      "durationMs": 895,
+      "resultSummary": "> evaluapro@1.1.1 docs:check | > node scripts/docs.mjs --check | [docs] ok",
+      "timestamp": "2026-07-28T08:46:36.892Z"
+    }
+  ],
+  "decisions": [],
+  "assumptions": [],
+  "risks": [],
+  "nextStep": "Pendiente de completar por el agente.",
+  "completion": {
+    "isComplete": false,
+    "pendingFields": [
+      "request.summary",
+      "objective",
+      "scope",
+      "decisions",
+      "risks",
+      "nextStep"
+    ]
+  },
+  "repo": {
+    "rootDir": "C:\\Users\\evega\\Documents\\EvaluaPro",
+    "branch": "main",
+    "commit": "0f283a42",
+    "workingTreeStatus": "M CHANGELOG.md\n M apps/backend/reports/qa/latest/e2e-docente-alumno.json\n M apps/backend/tests/integracion/evaluaciones.modulo.test.ts\n M docs/AUTO_DOCS_INDEX.md\n M docs/INVENTARIO_CODIGO_EXHAUSTIVO.md\n M docs/INVENTARIO_PROYECTO.md\n M docs/assets/ui/06_journey_banco.png\n M docs/assets/ui/07_journey_plantilla.png\n M docs/assets/ui/08_journey_examen_generado.png\n M docs/assets/ui/08b_journey_omr_job.png\n M docs/assets/ui/09_journey_entrega.png\n M docs/assets/ui/10_journey_evaluacion.png\n M docs/assets/ui/11_journey_calificaciones.png\n M docs/assets/ui/11b_journey_reportes.png\n M docs/assets/ui/12_journey_publicacion.png\n M docs/assets/ui/12a_journey_backup_cifrado.png\n M docs/assets/ui/13_journey_alumno_resultados.png\n M docs/assets/ui/14_journey_alumno_detalle.png\n M docs/specs/flujo_docente_alumno_integral.spec.md\n M docs/specs/installer_bootstrapper_resilience.spec.md\n M reports/qa/latest/e2e-docente-alumno.json\n M reports/qa/latest/gui-docente-alumnos-desktop-lg.png\n M reports/qa/latest/gui-docente-alumnos-mobile.png\n M reports/qa/latest/gui-docente-banco-desktop-lg.png\n M reports/qa/latest/gui-docente-banco-mobile.png\n M reports/qa/latest/gui-docente-calificaciones-desktop-lg.png\n M reports/qa/latest/gui-docente-calificaciones-mobile.png\n M reports/qa/latest/gui-docente-cuenta-desktop-lg.png\n M reports/qa/latest/gui-docente-cuenta-mobile.png\n M reports/qa/latest/gui-docente-entrega-desktop-lg.png\n M reports/qa/latest/gui-docente-entrega-mobile.png\n M reports/qa/latest/gui-docente-evaluaciones-desktop-lg.png\n M reports/qa/latest/gui-docente-evaluaciones-mobile.png\n M reports/qa/latest/gui-docente-login-desktop-lg.png\n M reports/qa/latest/gui-docente-login-mobile.png\n M reports/qa/latest/gui-docente-periodos-desktop-lg.png\n M reports/qa/latest/gui-docente-periodos-mobile.png\n M reports/qa/latest/gui-docente-plantillas-desktop-lg.png\n M reports/qa/latest/gui-docente-plantillas-mobile.png\n M reports/qa/latest/gui-docente-rehidratacion-desktop-lg.png\n M reports/qa/latest/gui-docente-rehidratacion-mobile.png\n M reports/qa/latest/gui-docente-sincronizacion-desktop-lg.png\n M reports/qa/latest/gui-docente-sincronizacion-mobile.png\n M scripts/tests/installer-hub-contract.test.mjs\n?? apps/backend/tests/integracion/flujoDocenteInventadoSmoke.test.ts\n?? dist-native/\n?? docs/MANUAL_USUARIO_DOCENTE.md\n?? docs/MANUAL_USUARIO_DOCENTE.pdf\n?? docs/handoff/sesiones/2026-07-27/\n?? docs/handoff/sesiones/2026-07-28/\n?? docs/specs/omr_cuarentena_retencion.spec.md\n?? evaluapro-native-dist.zip\n?? scripts/tests/flujo-docente-inventado.test.mjs"
+  }
+}

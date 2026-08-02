@@ -34,6 +34,15 @@ Version visible vigente: `0.0.0-dev`
 - QA:
   - `reports/qa/latest/*`
   - `reports/perf/latest.json`
+#### 2.1) Footprint y clasificacion del corte 2026-07-26
+- Promoción de Especificaciones SDD y Pruebas de Resiliencia del Bootstrapper 2026-07-26:
+  - Promoción de `docs/specs/installer_bootstrapper_resilience.spec.md` a estado `implemented` con incorporación de pruebas de contrato en `scripts/tests/installer-hub-contract.test.mjs` (verificación de `AssemblyInformationalVersionAttribute`, captura de `PackageState.Present` para `EvaluaProMsi`, preselección de modo `repair` y diálogos `MessageBox` en `StartUiThread`).
+  - Promoción de `docs/specs/flujo_docente_alumno_integral.spec.md` de `draft` a `approved` y actualización a `implemented` de los ítems de versionado semver/.NET del Hub, Licencia comunitaria/comercial (`LicenseClientSecurity.psm1`), Backup cifrado/restauración (AES-256-GCM + `sincronizacion.backupMeta.test.ts`) y Payload MSI mínimo (`Assert-MsiInstallsAppPayload`).
+  - Redacción y promoción de la nueva especificación SDD `docs/specs/omr_cuarentena_retencion.spec.md` (`SPEC-OMR-CUARENTENA-RETENCION`) a estado `implemented` con vinculación de pruebas en `apps/backend/tests/integracion/evaluaciones.modulo.test.ts`.
+  - Ejecución de simulación de flujo docente completo (`scripts/tests/flujo-docente-inventado.test.mjs`) para la materia inventada "Sistemas Distribuidos LISC 2026", 5 alumnos, examen de 10 reactivos, motor OMR en alta confianza vs Cuarentena Protegida y política de encuadre LISC 2026 (7/7 PASS).
+  - Verificación exitosa de la auditoría SDD (`npm run sdd:audit`) con 11 especificaciones en verde.
+  - Pase en verde de la auditoría de políticas de CI (`ci:policy:audit`) que engloba `pipeline:contract:check`, `test:ruleset:policy`, `test:release:policy`, `test:security:policy`, `test:sdd:policy`, `test:ia:traceability` y `sdd:audit`.
+
 #### 2.1) Footprint y clasificacion del corte 2026-06-30
 - Estabilización y Validación de Arquitectura Nativa Docente-Local 2026-06-30:
   - Desacople completo de la orquestación legacy basada en Docker/WSL para el perfil `docente-local`.

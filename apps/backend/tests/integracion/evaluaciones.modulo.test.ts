@@ -331,5 +331,43 @@ describe('módulo evaluaciones (LISC)', () => {
     expect(resumen.faltantes).toContain('continua.c2.minima');
     expect(resumen.faltantes).toContain('continua.c3.minima');
   });
-});
 
+  describe('política de cuarentena OMR (SPEC-OMR-CUARENTENA-RETENCION)', () => {
+    it('clasifica capturas OMR inestables en cuarentena y prohíbe autocalificación', async () => {
+      const { evaluarAutoCalificableOmr } = await import('../../src/modulos/modulo_escaneo_omr/politicaAutoCalificacionOmr');
+
+      // REQ-001: Baja confianza (0.25 <= 0.30) fuerza hardStop y autocalificableOmr = false
+      const bajaConfianza = evaluarAutoCalificableOmr({
+        estadoAnalisis: 'ok',
+        calidadPagina: 0.8,
+        confianzaPromedioPagina: 0.25,
+        ratioAmbiguas: 0.1,
+        coberturaDeteccion: 0.9
+      });
+      expect(bajaConfianza.hardStop).toBe(true);
+      expect(bajaConfianza.autoCalificableOmr).toBe(false);
+
+      // REQ-001: Ratio de ambiguas alto (0.90 >= 0.85) fuerza hardStop y autocalificableOmr = false
+      const altaAmbiguedad = evaluarAutoCalificableOmr({
+        estadoAnalisis: 'ok',
+        calidadPagina: 0.8,
+        confianzaPromedioPagina: 0.8,
+        ratioAmbiguas: 0.9,
+        coberturaDeteccion: 0.9
+      });
+      expect(altaAmbiguedad.hardStop).toBe(true);
+      expect(altaAmbiguedad.autoCalificableOmr).toBe(false);
+
+      // REQ-001: Rechazado por calidad fuerza hardStop
+      const rechazadoCalidad = evaluarAutoCalificableOmr({
+        estadoAnalisis: 'rechazado_calidad',
+        calidadPagina: 0.3,
+        confianzaPromedioPagina: 0.7,
+        ratioAmbiguas: 0.1,
+        coberturaDeteccion: 0.8
+      });
+      expect(rechazadoCalidad.hardStop).toBe(true);
+      expect(rechazadoCalidad.autoCalificableOmr).toBe(false);
+    });
+  });
+});

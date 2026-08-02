@@ -1,24 +1,24 @@
 # Inventario Exhaustivo de Codigo
 
-Fecha de generacion: 2026-07-17 10:59:37
+Fecha de generacion: 2026-07-31 16:33:00
 Fuente: git ls-files filtrado por existencia en workspace (solo archivos versionados presentes, excluye node_modules).
 
 ## Resumen
 
-- Total de piezas de codigo/config ejecutable inventariadas: 1171
+- Total de piezas de codigo/config ejecutable inventariadas: 1184
 - Extensiones incluidas: ts, tsx, js, jsx, mjs, cjs, json, yml, yaml, sh, cmd, ps1.
 
 ## Conteo por area
 
 | Area | Archivos |
 | --- | ---: |
-| backend | 413 |
+| backend | 414 |
 | frontend | 135 |
 | portal_alumno_cloud | 67 |
 | ci | 17 |
-| scripts | 172 |
+| scripts | 173 |
 | ops | 3 |
-| docs | 200 |
+| docs | 208 |
 | raiz | 32 |
 
 ## Backend (apps/backend)
@@ -335,6 +335,7 @@ Fuente: git ls-files filtrado por existencia en workspace (solo archivos version
 - apps/backend/tests/calificacion.solicitudes.test.ts
 - apps/backend/tests/calificacion.test.ts
 - apps/backend/tests/comercial.core.test.ts
+- apps/backend/tests/comercial.heartbeat.test.ts
 - apps/backend/tests/configuracion.correo.test.ts
 - apps/backend/tests/configuracion.entorno.test.ts
 - apps/backend/tests/configuracion.produccion.test.ts
@@ -810,6 +811,7 @@ Fuente: git ls-files filtrado por existencia en workspace (solo archivos version
 - scripts/tests/marketing-site.smoke.test.mjs
 - scripts/tests/omr-tv-gate-runner.test.mjs
 - scripts/tests/perf-contract.test.mjs
+- scripts/tests/prepare-docente-sqlite.test.mjs
 - scripts/tests/release-beta-promotion.test.mjs
 - scripts/tests/release-ci-streak.test.mjs
 - scripts/tests/release-evidence-contract.test.mjs
@@ -1018,6 +1020,14 @@ Fuente: git ls-files filtrado por existencia en workspace (solo archivos version
 - docs/handoff/sesiones/2026-07-01/sesion-2026-07-01T20-57-39.831Z.json
 - docs/handoff/sesiones/2026-07-02/sesion-2026-07-02T19-43-33.250Z.json
 - docs/handoff/sesiones/2026-07-11/sesion-2026-07-11T18-42-50.074Z.json
+- docs/handoff/sesiones/2026-07-17/sesion-2026-07-17T11-54-16.734Z.json
+- docs/handoff/sesiones/2026-07-17/sesion-2026-07-17T12-31-44.977Z.json
+- docs/handoff/sesiones/2026-07-17/sesion-2026-07-17T13-06-30.102Z.json
+- docs/handoff/sesiones/2026-07-17/sesion-2026-07-17T13-50-41.190Z.json
+- docs/handoff/sesiones/2026-07-17/sesion-2026-07-17T13-54-41.579Z.json
+- docs/handoff/sesiones/2026-07-17/sesion-2026-07-17T16-59-26.348Z.json
+- docs/handoff/sesiones/2026-07-17/sesion-2026-07-17T16-59-34.881Z.json
+- docs/handoff/sesiones/2026-07-19/sesion-2026-07-19T00-07-48.422Z.json
 - docs/handoff/trace.schema.json
 - docs/perf/baseline.business.json
 - docs/perf/baseline.json

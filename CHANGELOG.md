@@ -4,7 +4,12 @@ Este archivo sigue el formato "Keep a Changelog" (alto nivel) y SemVer.
 
 ## [Unreleased]
 
+### Added
+- Especificación SDD de Cuarentena OMR: Redactada la especificación `docs/specs/omr_cuarentena_retencion.spec.md` (`SPEC-OMR-CUARENTENA-RETENCION`) norma la cuarentena protegida para imágenes no confiables, la retención temporal post-cierre (+35 días), opciones interactivas de depuración y bloqueo por disputa activa.
+
 ### Fixed
+- Resiliencia del Bootstrapper WPF: `MainWindow.SetHubVersionLabel()` obtiene la versión del assembly vía reflexión (`AssemblyInformationalVersionAttribute`), `OnDetectPackageComplete` detecta `PackageState.Present` para `EvaluaProMsi`, preselecciona el modo `repair` cuando el paquete ya existe y captura excepciones no controladas en `StartUiThread` mostrando alertas `MessageBox` en modo visual; spec `docs/specs/installer_bootstrapper_resilience.spec.md` promovida a `implemented`.
+- Gobernanza SDD y especificaciones: `docs/specs/flujo_docente_alumno_integral.spec.md` promovida de `draft` a `approved`; auditoría SDD (`npm run sdd:audit`) y pipeline de políticas CI (`npm run ci:policy:audit`) pasaron al 100% en verde.
 - Respaldos manuales docente: el paquete gzip ahora se encapsula con AES-256-GCM, valida propietario y autenticidad antes de restaurar, conserva lectura de paquetes legacy y muestra "Cifrado autenticado" en la UI; el journey visual confirmó exportación/importación.
 - Licenciamiento comercial del Hub: el post-install ejecuta activación cuando se solicita, persiste token con DPAPI/MAC y expone evaluación local activa/gracia/comunitaria; el grace configurable queda con mínimo de 90 días y se conserva ante fallo online.
 - Heartbeat comercial: se corrigió el cálculo de horas desde el último heartbeat y se añadió cliente seguro de heartbeat con nonce/contador.

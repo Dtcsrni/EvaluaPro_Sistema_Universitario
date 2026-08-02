@@ -5,7 +5,7 @@ version: 1.0.0
 fecha: 2026-07-11
 autor: Antigravity / Agente IA
 modulo: devops
-estado: draft
+estado: implemented
 ---
 
 # SPEC-INSTALLER-BOOTSTRAPPER-RESILIENCE: Resiliencia del Bootstrapper del Instalador
@@ -32,7 +32,7 @@ El bootstrapper del instalador de EvaluaPro (BurnBootstrapperApp) ha experimenta
 
 | ID Requisito | Descripción del Caso | Archivo de Test Vinculado | Estado |
 | --- | --- | --- | --- |
-| REQ-001 | Obtención segura de versión del assembly | `scripts/tests/windows-release-smoke.test.mjs` | Pendiente |
-| REQ-002 | Detección de presencia de paquete MSI | `scripts/tests/installer-hub-contract.test.mjs` | Pendiente |
-| REQ-003 | Preselección de modo repair si ya está instalado | `scripts/tests/installer-hub-contract.test.mjs` | Pendiente |
-| REQ-004 | Mostrar alerta visual en excepciones fatales | `scripts/tests/installer-hub-contract.test.mjs` | Pendiente |
+| REQ-001 | Obtención segura de versión del assembly | `scripts/tests/installer-hub-contract.test.mjs` | implemented |
+| REQ-002 | Detección de presencia de paquete MSI | `scripts/tests/installer-hub-contract.test.mjs` | implemented |
+| REQ-003 | Preselección de modo repair si ya está instalado | `scripts/tests/installer-hub-contract.test.mjs` | implemented |
+| REQ-004 | Mostrar alerta visual en excepciones fatales | `scripts/tests/installer-hub-contract.test.mjs` | implemented |
