@@ -369,7 +369,10 @@ function Add-DocenteNativeCompiledPayload {
       }
       if ($LASTEXITCODE -ne 0) { throw "Falló generación del esquema SQL nativo (exit=$LASTEXITCODE)." }
       $sqlLines = $schemaSqlOutput | Where-Object {
-        $_ -notmatch 'Update available|major update|Tip:|npm warn|npm NOTICE|┌|└|│|─|Ôöî|ÔöÇ|ÔöÉ'
+        $lineStr = [string]$_
+        if ($lineStr -match 'Update available|major update|Tip:|npm warn|npm NOTICE') { return $false }
+        if ($lineStr.Contains([char]0x2500) -or $lineStr.Contains([char]0x2502) -or $lineStr.Contains([char]0x250C) -or $lineStr.Contains([char]0x2514)) { return $false }
+        return $true
       }
       $schemaSqlText = $sqlLines -join [Environment]::NewLine
       $sqlStart = $schemaSqlText.IndexOf('-- CreateTable', [StringComparison]::Ordinal)
