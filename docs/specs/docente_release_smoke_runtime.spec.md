@@ -234,3 +234,13 @@ El build MSI de `docente-local` debe inspeccionar el MSI extraído y rechazarlo
 si no contiene exactamente un bootstrap `scripts/prepare-docente-sqlite.mjs` y
 un `apps/backend/dist/prisma/schema.sql`. Validar solo `package.json` no es
 suficiente para permitir la publicación o el E2E.
+
+### REQ-030 - Restricción de Dashboard en flavor docente-local
+
+El Dashboard UI (`dashboard.html` / acción `open-dashboard`) no debe ser directamente
+accesible para usuarios finales del flavor `docente-local`.
+
+1. **Accesos directos**: El instalador de `docente-local` no debe crear el acceso directo de usuario "EvaluaPro - Abrir Dashboard". Los accesos directos principales deben dirigir a la Web Docente nativa (`http://127.0.0.1:4173`).
+2. **Acceso al Dashboard**: En `docente-local`, la apertura del Dashboard UI queda restringida a modo depuración activo (`EVALUAPRO_DEBUG=1` o `-Debug`) Y autenticación administrativa (`step-up` o licencia comercial/administrativa activa).
+3. **Redirección automática**: Si se solicita `open-dashboard` en `docente-local` sin credenciales de depuración/administrativas activas, el broker redirigirá automáticamente a la Web Docente nativa (`http://127.0.0.1:4173`).
+
