@@ -336,13 +336,17 @@ public partial class MainWindow : Window
         if (progress >= 100)
         {
             smoothedRemainingSeconds = 0;
-            ProgressEtaTextBlock.Text = "Tiempo restante: completado.";
+            ProgressEtaTextBlock.Text = busy
+                ? "Tiempo restante: finalizando configuración…"
+                : "Tiempo restante: completado.";
             return;
         }
 
         if (lastProgressAdvanceAt != default && (now - lastProgressAdvanceAt).TotalSeconds >= 8)
         {
-            ProgressEtaTextBlock.Text = "Tiempo restante: verificando etapa actual…";
+            ProgressEtaTextBlock.Text = busy && progress >= 95
+                ? "Tiempo restante: aplicando configuración final…"
+                : "Tiempo restante: verificando etapa actual…";
             return;
         }
 

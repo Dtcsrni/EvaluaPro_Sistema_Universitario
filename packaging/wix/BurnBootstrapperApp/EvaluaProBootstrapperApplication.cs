@@ -229,7 +229,7 @@ internal sealed class EvaluaProBootstrapperApplication : BootstrapperApplication
 
         SetStageState(StageMsi, InstallerStageStatus.Ok, "MSI completado.", $"La {GetOperationNoun()} base terminó y continúa la verificación final.");
         SetStageState(StagePostInstall, InstallerStageStatus.Running, GetPostOperationStageTitle(), GetPostOperationStageDetail());
-        UpdateUiState(statusText: $"{GetOperationProgressVerb()} componentes. Ejecutando verificación final...", progress: 100, busy: true);
+        UpdateUiState(statusText: $"{GetOperationProgressVerb()} componentes. Ejecutando verificación final...", progress: 95, busy: true);
         _ = RunPostInstallHelperAsync();
     }
 
@@ -1033,7 +1033,15 @@ internal sealed class EvaluaProBootstrapperApplication : BootstrapperApplication
             var helperMode = string.Equals(currentOperation, "uninstall", StringComparison.OrdinalIgnoreCase)
                 ? "uninstall"
                 : "post-install";
-            var envelope = await InvokeHelperAsync<Dictionary<string, object?>>(helperMode, requestObject).ConfigureAwait(false);
+            var envelope = await InvokeHelperAsync<Dictionary<string, object?>>(
+                helperMode,
+                requestObject,
+                onProgress: progressEvent =>
+                {
+                    var scaledProgress = 95 + (int)Math.Round((progressEvent.Percent / 100.0) * 4);
+                    var currentText = string.IsNullOrWhiteSpace(progressEvent.Status) ? GetPostOperationStageDetail() : progressEvent.Status;
+                    UpdateUiState(statusText: currentText, progress: Math.Min(99, Math.Max(95, scaledProgress)), busy: true);
+                }).ConfigureAwait(false);
             helperInFlight = false;
             FlushHelperLogs(envelope.Logs);
 
