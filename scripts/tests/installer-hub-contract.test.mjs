@@ -480,7 +480,7 @@ test('bootstrapper Burn WPF implementa resiliencia ante errores, msiInstalled y 
   assert.match(mainWindowCode, /AssemblyInformationalVersionAttribute/);
   assert.match(bootstrapperCode, /OnDetectPackageComplete/);
   assert.match(bootstrapperCode, /PackageState\.Present/);
-  assert.match(bootstrapperCode, /msiInstalled \? "repair" : payload\.RecommendedMode/);
+  assert.match(bootstrapperCode, /(?:isGenuinelyInstalled|msiInstalled) \? "repair" : payload\.RecommendedMode/);
   assert.match(bootstrapperCode, /DispatcherUnhandledException/);
   assert.match(bootstrapperCode, /UnhandledException/);
   assert.match(bootstrapperCode, /MessageBox\.Show/);
