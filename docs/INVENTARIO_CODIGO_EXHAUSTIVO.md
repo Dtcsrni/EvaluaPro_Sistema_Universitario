@@ -1,6 +1,6 @@
 # Inventario Exhaustivo de Codigo
 
-Fecha de generacion: 2026-08-18 01:04:53
+Fecha de generacion: 2026-08-19 16:42:16
 Fuente: git ls-files filtrado por existencia en workspace (solo archivos versionados presentes, excluye node_modules).
 
 ## Resumen
@@ -13,12 +13,12 @@ Fuente: git ls-files filtrado por existencia en workspace (solo archivos version
 | Area | Archivos |
 | --- | ---: |
 | backend | 415 |
-| frontend | 135 |
+| frontend | 134 |
 | portal_alumno_cloud | 67 |
 | ci | 17 |
-| scripts | 174 |
+| scripts | 175 |
 | ops | 3 |
-| docs | 220 |
+| docs | 229 |
 | raiz | 32 |
 
 ## Backend (apps/backend)
@@ -442,7 +442,6 @@ Fuente: git ls-files filtrado por existencia en workspace (solo archivos version
 ## Frontend (apps/frontend)
 
 - apps/frontend/.eslintrc.cjs
-- apps/frontend/dist-alumno/assets/index-C2Dh-_ws.js
 - apps/frontend/dist-alumno/portal-sw.js
 - apps/frontend/eslint.config.cjs
 - apps/frontend/package-lock.json
@@ -712,6 +711,7 @@ Fuente: git ls-files filtrado por existencia en workspace (solo archivos version
 - scripts/docs.mjs
 - scripts/ensure-dev-cert.ps1
 - scripts/env-doctor.mjs
+- scripts/generar-licencia-master.mjs
 - scripts/generar-readmes-carpetas.mjs
 - scripts/generate-installation-manifest.ps1
 - scripts/generate-installer-hashes.ps1
@@ -1042,6 +1042,15 @@ Fuente: git ls-files filtrado por existencia en workspace (solo archivos version
 - docs/handoff/sesiones/2026-07-28/sesion-2026-07-28T08-14-01.008Z.json
 - docs/handoff/sesiones/2026-07-28/sesion-2026-07-28T08-46-36.892Z.json
 - docs/handoff/sesiones/2026-07-31/sesion-2026-07-31T22-33-03.760Z.json
+- docs/handoff/sesiones/2026-08-05/sesion-2026-08-05T08-13-03.555Z.json
+- docs/handoff/sesiones/2026-08-18/sesion-2026-08-18T06-15-27.467Z.json
+- docs/handoff/sesiones/2026-08-18/sesion-2026-08-18T06-20-35.337Z.json
+- docs/handoff/sesiones/2026-08-18/sesion-2026-08-18T06-25-11.185Z.json
+- docs/handoff/sesiones/2026-08-18/sesion-2026-08-18T06-44-33.812Z.json
+- docs/handoff/sesiones/2026-08-18/sesion-2026-08-18T06-58-38.188Z.json
+- docs/handoff/sesiones/2026-08-18/sesion-2026-08-18T07-04-55.579Z.json
+- docs/handoff/sesiones/2026-08-18/sesion-2026-08-18T07-30-44.069Z.json
+- docs/handoff/sesiones/2026-08-19/sesion-2026-08-19T06-00-46.605Z.json
 - docs/handoff/trace.schema.json
 - docs/perf/baseline.business.json
 - docs/perf/baseline.json

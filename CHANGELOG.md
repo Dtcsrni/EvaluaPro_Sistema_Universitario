@@ -5,6 +5,9 @@ Este archivo sigue el formato "Keep a Changelog" (alto nivel) y SemVer.
 ## [Unreleased]
 
 ### Added
+- Flujo de Onboarding Docente Inicial y Licencia (`SPEC-014`): La pantalla de inicio de la app docente por defecto abre en modo registro (`Crear cuenta`) con soporte explícito para capturar la clave institucional de licencia, conservando la alternancia fluida a login tradicional.
+- Script de Licencia Master Administrativa (`scripts/generar-licencia-master.mjs` / `npm run licencia:master`): Emisión directa de licencias offline de nivel `institucional_multisede` con vigencia configurable (por defecto 10 años) y firma criptográfica.
+- Integración con Google Classroom y Google OAuth: Diagnóstico no destructivo `classroom:doctor` validado en verde, soporte de cifrado de tokens con llave militar AES-256 (`CLASSROOM_TOKEN_CIPHER_KEY`) y resolución en memoria de alumnos para grupos grandes.
 - Especificación SDD de Cuarentena OMR: Redactada la especificación `docs/specs/omr_cuarentena_retencion.spec.md` (`SPEC-OMR-CUARENTENA-RETENCION`) norma la cuarentena protegida para imágenes no confiables, la retención temporal post-cierre (+35 días), opciones interactivas de depuración y bloqueo por disputa activa.
 
 ### Fixed
