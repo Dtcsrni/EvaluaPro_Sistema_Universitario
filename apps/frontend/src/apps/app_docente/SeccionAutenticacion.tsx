@@ -25,20 +25,23 @@ export function SeccionAutenticacion({
   oauthGoogleDisponible,
   smtpDisponible,
   requireGoogleOAuth,
-  passwordLoginAllowed
+  passwordLoginAllowed,
+  primerUso
 }: {
   onIngresar: (token: string) => void;
   oauthGoogleDisponible?: boolean;
   smtpDisponible?: boolean;
   requireGoogleOAuth?: boolean;
   passwordLoginAllowed?: boolean;
+  primerUso?: boolean;
 }) {
   const [correo, setCorreo] = useState('');
   const [contrasena, setContrasena] = useState('');
   const [nombres, setNombres] = useState('');
   const [apellidos, setApellidos] = useState('');
+  const [codigoLicencia, setCodigoLicencia] = useState('');
   const [mensaje, setMensaje] = useState('');
-  const [modo, setModo] = useState<'ingresar' | 'registrar'>('ingresar');
+  const [modo, setModo] = useState<'ingresar' | 'registrar'>('registrar');
   const [enviando, setEnviando] = useState(false);
   const [cooldownHasta, setCooldownHasta] = useState<number | null>(null);
   const temporizadorCooldown = useRef<number | null>(null);
@@ -344,13 +347,15 @@ export function SeccionAutenticacion({
             credential: credentialRegistroGoogle,
             nombres: nombres.trim(),
             apellidos: apellidos.trim(),
-            ...(debeEnviarContrasena ? { contrasena } : {})
+            ...(debeEnviarContrasena ? { contrasena } : {}),
+            ...(codigoLicencia.trim() ? { codigoLicencia: codigoLicencia.trim() } : {})
           })
         : await clienteApi.enviar<{ token: string }>('/autenticacion/registrar', {
             nombres: nombres.trim(),
             apellidos: apellidos.trim(),
             correo: correoFinal,
-            contrasena
+            contrasena,
+            ...(codigoLicencia.trim() ? { codigoLicencia: codigoLicencia.trim() } : {})
           });
       onIngresar(respuesta.token);
       emitToast({ level: 'ok', title: 'Cuenta creada', message: 'Sesion iniciada', durationMs: 2800 });
@@ -432,12 +437,18 @@ export function SeccionAutenticacion({
 
       <div className={`auth-form ${modo === 'ingresar' ? 'auth-form--ingresar' : 'auth-form--registrar'}`}>
         <div className="auth-form-head">
-          <p className="eyebrow">{modo === 'ingresar' ? 'Iniciar sesion' : 'Crear cuenta'}</p>
-          <h3>{modo === 'ingresar' ? 'Bienvenido de nuevo' : 'Registro docente'}</h3>
+          <p className="eyebrow">{modo === 'ingresar' ? 'Iniciar sesión' : primerUso ? 'Primer Inicio' : 'Registro y Licencia'}</p>
+          <h3>
+            {modo === 'ingresar'
+              ? 'Bienvenido de nuevo'
+              : primerUso
+                ? 'Configuración inicial y activación de licencia'
+                : 'Registro docente y activación de licencia'}
+          </h3>
           <p className="nota">
             {modo === 'ingresar'
               ? 'Usa tu acceso habitual para volver rápidamente al flujo operativo.'
-              : 'Crea tu cuenta con datos institucionales y mantén la trazabilidad del sistema.'}
+              : 'Crea tu cuenta institucional y establece tu clave de licencia para activar la plataforma.'}
           </p>
         </div>
         {modo === 'registrar' && (
@@ -733,6 +744,22 @@ export function SeccionAutenticacion({
               readOnly={modo === 'registrar' && Boolean(credentialRegistroGoogle)}
             />
             {modo === 'registrar' && credentialRegistroGoogle && <span className="ayuda">Correo bloqueado por Google.</span>}
+          </label>
+        )}
+
+        {modo === 'registrar' && mostrarFormulario && (
+          <label className="campo auth-campo">
+            Clave o Código de Licencia (opcional / institucional)
+            <input
+              value={codigoLicencia}
+              onChange={(event) => setCodigoLicencia(event.target.value)}
+              placeholder="Ej. LIC-2026-DOC-XXXX-XXXX"
+              autoComplete="off"
+              spellCheck={false}
+            />
+            <span className="ayuda">
+              Si cuentas con una clave institucional, ingrésala para activar tu licencia docente de inmediato.
+            </span>
           </label>
         )}
 

@@ -67,7 +67,9 @@
     </StandardDirectory>
     <?endif?>
     <StandardDirectory Id="DesktopFolder" />
-    <StandardDirectory Id="ProgramMenuFolder" />
+    <StandardDirectory Id="ProgramMenuFolder">
+      <Directory Id="ApplicationProgramsFolder" Name="EvaluaPro" />
+    </StandardDirectory>
 
     <Icon Id="EvaluaProIconProd" SourceFile="$(var.SourceRoot)/scripts/icons/dashboard-prod.ico" />
     <Icon Id="EvaluaProIconHub" SourceFile="$(var.SourceRoot)/scripts/icons/installer-canonical.ico" />

@@ -66,6 +66,8 @@ internal sealed class EvaluaProBootstrapperApplication : BootstrapperApplication
     private FailureDisplay? failureDisplay;
     private ResumeState? resumeState;
     private bool msiInstalled;
+    private bool msiAppliedOk;
+    private string? msiProductCodeAfterApply;
 
     protected override void Run()
     {
@@ -227,6 +229,19 @@ internal sealed class EvaluaProBootstrapperApplication : BootstrapperApplication
             return;
         }
 
+        // Marcar que el MSI fue instalado exitosamente por este Apply.
+        // Capturar el ProductCode desde el registro ARP para poder desinstalarlo
+        // limpiamente si el post-install falla (evitar residuos en Windows).
+        if (string.Equals(currentOperation, "install", StringComparison.OrdinalIgnoreCase))
+        {
+            msiAppliedOk = true;
+            msiProductCodeAfterApply = ReadInstalledMsiProductCode();
+            if (!string.IsNullOrWhiteSpace(msiProductCodeAfterApply))
+            {
+                Log("info", $"MSI instalado en esta sesion: ProductCode={msiProductCodeAfterApply}");
+            }
+        }
+
         SetStageState(StageMsi, InstallerStageStatus.Ok, "MSI completado.", $"La {GetOperationNoun()} base terminó y continúa la verificación final.");
         SetStageState(StagePostInstall, InstallerStageStatus.Running, GetPostOperationStageTitle(), GetPostOperationStageDetail());
         UpdateUiState(statusText: $"{GetOperationProgressVerb()} componentes. Ejecutando verificación final...", progress: 95, busy: true);
@@ -364,8 +379,8 @@ internal sealed class EvaluaProBootstrapperApplication : BootstrapperApplication
         var installDir = currentRequest?.InstallDir;
         if (string.IsNullOrWhiteSpace(installDir))
         {
-            Log("warn", "No se pudo iniciar EvaluaPro: ruta instalada vacía.");
-            return;
+            var appData = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData);
+            installDir = Path.Combine(appData, "EvaluaPro");
         }
 
         var launcher = Path.Combine(installDir, "scripts", "launcher-broker.ps1");
@@ -379,19 +394,64 @@ internal sealed class EvaluaProBootstrapperApplication : BootstrapperApplication
         {
             Process.Start(new ProcessStartInfo
             {
-                FileName = Environment.GetEnvironmentVariable("ComSpec") ?? "powershell.exe",
-                Arguments = $"/c powershell.exe -NoProfile -ExecutionPolicy Bypass -File \"{launcher}\" -Action open-dashboard -Mode prod",
+                FileName = "powershell.exe",
+                Arguments = $"-NoProfile -ExecutionPolicy Bypass -File \"{launcher}\" -Action open-dashboard -Mode prod",
                 WorkingDirectory = installDir,
                 UseShellExecute = false,
                 CreateNoWindow = true,
                 WindowStyle = ProcessWindowStyle.Hidden
             });
             Log("info", $"EvaluaPro solicitado desde la pantalla final: {installDir}");
+
+            Task.Run(async () =>
+            {
+                await Task.Delay(2500);
+                OpenNativeAppWindow("http://127.0.0.1:4173/");
+            });
         }
         catch (Exception ex)
         {
             Log("error", $"No se pudo iniciar EvaluaPro desde el Hub: {ex.Message}");
         }
+    }
+
+    private static void OpenNativeAppWindow(string url)
+    {
+        string[] candidates =
+        [
+            Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ProgramFilesX86), @"Microsoft\Edge\Application\msedge.exe"),
+            Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ProgramFiles), @"Microsoft\Edge\Application\msedge.exe"),
+            Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), @"Microsoft\Edge\Application\msedge.exe"),
+            Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ProgramFiles), @"Google\Chrome\Application\chrome.exe"),
+            Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ProgramFilesX86), @"Google\Chrome\Application\chrome.exe"),
+            Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), @"Google\Chrome\Application\chrome.exe")
+        ];
+
+        var appProfile = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "EvaluaPro", "app-profile");
+
+        foreach (var candidate in candidates)
+        {
+            if (File.Exists(candidate))
+            {
+                try
+                {
+                    Process.Start(new ProcessStartInfo
+                    {
+                        FileName = candidate,
+                        Arguments = $"--app=\"{url}\" --user-data-dir=\"{appProfile}\" --window-size=1280,820",
+                        UseShellExecute = true
+                    });
+                    return;
+                }
+                catch { }
+            }
+        }
+
+        try
+        {
+            Process.Start(new ProcessStartInfo { FileName = url, UseShellExecute = true });
+        }
+        catch { }
     }
 
     private static List<InstallerStageState> CreateDefaultWorkflowStages()
@@ -692,11 +752,24 @@ internal sealed class EvaluaProBootstrapperApplication : BootstrapperApplication
 
     private string ResolveDetectedOperationMode(DetectionPayload payload)
     {
+        var installDir = payload.Installation?.InstallLocation;
+        if (string.IsNullOrWhiteSpace(installDir))
+        {
+            installDir = Path.Combine(
+                string.Equals(payload.Flavor?.FlavorId, "docente-local", StringComparison.OrdinalIgnoreCase)
+                    ? Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData)
+                    : Environment.GetFolderPath(Environment.SpecialFolder.ProgramFiles),
+                payload.Flavor?.InstallFolderName ?? payload.Flavor?.ProductName ?? "EvaluaPro");
+        }
+
+        var manifestPath = Path.Combine(installDir, "logs", "installation.manifest.json");
+        var isGenuinelyInstalled = msiInstalled && File.Exists(manifestPath);
+
         return NormalizeMode(command?.Action switch
         {
             LaunchAction.Repair => "repair",
             LaunchAction.Uninstall or LaunchAction.UnsafeUninstall => "uninstall",
-            _ => msiInstalled ? "repair" : payload.RecommendedMode
+            _ => isGenuinelyInstalled ? "repair" : payload.RecommendedMode
         });
     }
 
@@ -745,6 +818,12 @@ internal sealed class EvaluaProBootstrapperApplication : BootstrapperApplication
             requireLicense = true;
         }
 
+        // Validar si la instalación previa está genuinamente completa:
+        // el MSI debe estar registrado en ARP Y el manifiesto de instalación debe existir.
+        // Evita que una instalación fallida (con MSI parcialmente registrado) fuerce el modo "repair".
+        var headlessManifestPath = Path.Combine(installDir, "logs", "installation.manifest.json");
+        var isGenuinelyInstalledHeadless = msiInstalled && File.Exists(headlessManifestPath);
+
         return new BootstrapperRequest
         {
             FlavorId = payload.Flavor?.FlavorId ?? "docente-local",
@@ -754,7 +833,7 @@ internal sealed class EvaluaProBootstrapperApplication : BootstrapperApplication
                 {
                     LaunchAction.Repair => "repair",
                     LaunchAction.Uninstall or LaunchAction.UnsafeUninstall => "uninstall",
-                    _ => msiInstalled ? "repair" : payload.RecommendedMode
+                    _ => isGenuinelyInstalledHeadless ? "repair" : payload.RecommendedMode
                 }),
             InstallDir = installDir,
             InstallDesktopShortcuts = !IsFalsy(Environment.GetEnvironmentVariable("EVALUAPRO_INSTALL_DESKTOP_SHORTCUTS")),
@@ -1588,22 +1667,6 @@ internal sealed class EvaluaProBootstrapperApplication : BootstrapperApplication
 
     private void UpdateWindowFromDetection(DetectionPayload payload)
     {
-        if (payload.Installation is null)
-        {
-            payload.Installation = new InstallationPayload();
-        }
-        if (msiInstalled)
-        {
-            payload.Installation.Installed = true;
-        }
-
-        var detectedMode = command?.Action switch
-        {
-            LaunchAction.Repair => "repair",
-            LaunchAction.Uninstall or LaunchAction.UnsafeUninstall => "uninstall",
-            _ => msiInstalled ? "repair" : payload.RecommendedMode
-        };
-
         var installDir = payload.Installation?.InstallLocation;
         if (string.IsNullOrWhiteSpace(installDir))
         {
@@ -1613,6 +1676,25 @@ internal sealed class EvaluaProBootstrapperApplication : BootstrapperApplication
                     : Environment.GetFolderPath(Environment.SpecialFolder.ProgramFiles),
                 payload.Flavor?.InstallFolderName ?? payload.Flavor?.ProductName ?? "EvaluaPro");
         }
+
+        var manifestPath = Path.Combine(installDir, "logs", "installation.manifest.json");
+        var isGenuinelyInstalled = msiInstalled && File.Exists(manifestPath);
+
+        if (payload.Installation is null)
+        {
+            payload.Installation = new InstallationPayload();
+        }
+        if (isGenuinelyInstalled)
+        {
+            payload.Installation.Installed = true;
+        }
+
+        var detectedMode = command?.Action switch
+        {
+            LaunchAction.Repair => "repair",
+            LaunchAction.Uninstall or LaunchAction.UnsafeUninstall => "uninstall",
+            _ => isGenuinelyInstalled ? "repair" : (string.IsNullOrWhiteSpace(payload.RecommendedMode) ? "install" : payload.RecommendedMode)
+        };
 
         var model = new WindowDetectionModel
         {
@@ -1626,7 +1708,7 @@ internal sealed class EvaluaProBootstrapperApplication : BootstrapperApplication
                     : payload.Remediation.RestartReason)
                 : payload.System?.Issues?.Count > 0
                     ? string.Join(" | ", payload.System.Issues)
-                    : msiInstalled
+                    : isGenuinelyInstalled
                         ? "EvaluaPro ya está instalado. El asistente se iniciará en modo de mantenimiento."
                         : (payload.Runtime?.Reason ?? "Equipo listo para continuar."),
             Ready = payload.Ready,
@@ -2050,6 +2132,113 @@ internal sealed class EvaluaProBootstrapperApplication : BootstrapperApplication
         }
     }
 
+    private void RollbackFailureResidues()
+    {
+        // --- 1. Desinstalar el MSI si fue instalado en esta sesión y el post-install falló ---
+        // Cuando el Apply termina OK pero el helper post-install falla, el MSI queda registrado
+        // en ARP de Windows. Lo desinstalamos silenciosamente para no dejar residuos.
+        if (msiAppliedOk && !string.IsNullOrWhiteSpace(msiProductCodeAfterApply))
+        {
+            try
+            {
+                Log("warn", $"Rollback de seguridad: desinstalando MSI residual ProductCode={msiProductCodeAfterApply}");
+                var psi = new ProcessStartInfo
+                {
+                    FileName = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.System), "msiexec.exe"),
+                    Arguments = $"/x {msiProductCodeAfterApply} /qn /norestart",
+                    UseShellExecute = false,
+                    CreateNoWindow = true
+                };
+                using var proc = Process.Start(psi);
+                proc?.WaitForExit(60_000); // máx 60 s
+                Log("warn", $"Rollback MSI finalizado (exitCode={proc?.ExitCode}).");
+            }
+            catch (Exception ex)
+            {
+                Log("warn", $"No se pudo desinstalar el MSI residual: {ex.Message}");
+            }
+        }
+
+        // --- 2. Limpiar archivos en el directorio de instalación si el manifiesto no existe ---
+        try
+        {
+            var targetDir = currentRequest?.InstallDir;
+            if (!string.IsNullOrWhiteSpace(targetDir) && Directory.Exists(targetDir))
+            {
+                var manifestPath = Path.Combine(targetDir, "logs", "installation.manifest.json");
+                if (!File.Exists(manifestPath))
+                {
+                    Log("warn", $"Rollback de seguridad: limpiando residuos de instalación incompleta en {targetDir}");
+                    foreach (var dir in Directory.EnumerateDirectories(targetDir))
+                    {
+                        var dirName = Path.GetFileName(dir);
+                        if (!string.Equals(dirName, "data", StringComparison.OrdinalIgnoreCase))
+                        {
+                            try { Directory.Delete(dir, recursive: true); } catch { }
+                        }
+                    }
+                    foreach (var file in Directory.EnumerateFiles(targetDir))
+                    {
+                        try { File.Delete(file); } catch { }
+                    }
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            Log("warn", $"No se pudo completar el rollback de residuos: {ex.Message}");
+        }
+    }
+
+    /// <summary>
+    /// Lee el ProductCode del MSI de EvaluaPro desde el registro de Windows ARP.
+    /// Se usa para desinstalación silenciosa de rollback cuando el post-install falla
+    /// después de un Apply exitoso.
+    /// </summary>
+    private string? ReadInstalledMsiProductCode()
+    {
+        var searchRoots = new[]
+        {
+            @"SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall",
+            @"SOFTWARE\WOW6432Node\Microsoft\Windows\CurrentVersion\Uninstall"
+        };
+        var hives = new[] { RegistryHive.LocalMachine, RegistryHive.CurrentUser };
+
+        foreach (var hive in hives)
+        {
+            using var baseKey = RegistryKey.OpenBaseKey(hive, RegistryView.Registry64);
+            foreach (var root in searchRoots)
+            {
+                try
+                {
+                    using var uninstallKey = baseKey.OpenSubKey(root);
+                    if (uninstallKey is null) continue;
+
+                    foreach (var subKeyName in uninstallKey.GetSubKeyNames())
+                    {
+                        try
+                        {
+                            using var subKey = uninstallKey.OpenSubKey(subKeyName);
+                            var displayName = subKey?.GetValue("DisplayName") as string ?? string.Empty;
+                            if (displayName.StartsWith("EvaluaPro", StringComparison.OrdinalIgnoreCase))
+                            {
+                                // subKeyName es el ProductCode para MSIs registrados en ARP
+                                if (subKeyName.StartsWith("{", StringComparison.Ordinal))
+                                {
+                                    return subKeyName;
+                                }
+                            }
+                        }
+                        catch { /* ignorar claves inaccesibles */ }
+                    }
+                }
+                catch { /* ignorar hives inaccesibles */ }
+            }
+        }
+
+        return null;
+    }
+
     private void FinalizeFailure(string phase, int exitCode, string message)
     {
         requestedExitCode = exitCode;
@@ -2058,6 +2247,10 @@ internal sealed class EvaluaProBootstrapperApplication : BootstrapperApplication
         if (exitCode != 3010)
         {
             ClearResumeState();
+        }
+        if (string.Equals(currentOperation, "install", StringComparison.OrdinalIgnoreCase))
+        {
+            RollbackFailureResidues();
         }
         var mappedStage = MapPhaseToStage(phase);
         if (!string.IsNullOrWhiteSpace(mappedStage))

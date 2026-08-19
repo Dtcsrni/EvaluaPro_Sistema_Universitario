@@ -216,7 +216,7 @@ function Resolve-BundlePath {
   }
 
   function Resolve-ManifestBundleCandidate([object]$Entry) {
-    foreach ($propertyName in @('bundlePublicPath', 'executablePath')) {
+    foreach ($propertyName in @('bundlePublicPath', 'executablePath', 'installerHubPath')) {
       $candidate = Get-ManifestStringProperty $Entry $propertyName
       if ($candidate -and (Test-Path -LiteralPath $candidate)) { return $candidate }
     }
@@ -306,16 +306,20 @@ function Wait-WindowsInstallerIdle {
     'HKCU:\SOFTWARE\Microsoft\Installer\InProgress'
   )
   do {
+    $servicesPid = (Get-Process -Name services -ErrorAction SilentlyContinue | Select-Object -First 1 -ExpandProperty Id)
+    if (-not $servicesPid) { $servicesPid = 1604 }
     $activeClients = @(Get-CimInstance Win32_Process -ErrorAction SilentlyContinue | Where-Object {
-        $_.Name -eq 'msiexec.exe' -and $_.ParentProcessId -ne 1604
+        $_.Name -eq 'msiexec.exe' -and $_.ParentProcessId -ne $servicesPid -and $_.ParentProcessId -ne 1604
       })
     $inProgress = @($inProgressPaths | Where-Object { Test-Path -LiteralPath $_ })
     if ($activeClients.Count -eq 0 -and $inProgress.Count -eq 0) { return }
     Start-Sleep -Seconds 1
   } while ((Get-Date) -lt $deadline)
 
+  $servicesPid = (Get-Process -Name services -ErrorAction SilentlyContinue | Select-Object -First 1 -ExpandProperty Id)
+  if (-not $servicesPid) { $servicesPid = 1604 }
   $ids = (@(Get-CimInstance Win32_Process -ErrorAction SilentlyContinue | Where-Object {
-      $_.Name -eq 'msiexec.exe' -and $_.ParentProcessId -ne 1604
+      $_.Name -eq 'msiexec.exe' -and $_.ParentProcessId -ne $servicesPid -and $_.ParentProcessId -ne 1604
     } | ForEach-Object ProcessId) -join ',')
   throw "Windows Installer sigue activo antes/después de $Context timeout=${TimeoutSec}s clientPids=$ids"
 }
@@ -562,23 +566,25 @@ function Select-ComboItem {
   $item = Find-ByName -RootElement $Combo -Name $ItemName -TimeoutSec 2
   if (-not $item) { $item = Find-ByName -RootElement ([System.Windows.Automation.AutomationElement]::RootElement) -Name $ItemName -TimeoutSec 3 }
   if (-not $item) {
-    $Combo.SetFocus()
-    Start-Sleep -Milliseconds 150
-    [System.Windows.Forms.SendKeys]::SendWait('%{DOWN}')
-    Start-Sleep -Milliseconds 150
-    [System.Windows.Forms.SendKeys]::SendWait('{HOME}')
-    $downCount = switch ($ItemName) {
-      'Reparar' { 1 }
-      'Desinstalar' { 2 }
-      default { 0 }
-    }
-    for ($i = 0; $i -lt $downCount; $i++) {
-      [System.Windows.Forms.SendKeys]::SendWait('{DOWN}')
-      Start-Sleep -Milliseconds 100
-    }
-    [System.Windows.Forms.SendKeys]::SendWait('{ENTER}')
-    Start-Sleep -Milliseconds 700
-    return
+    try {
+      $Combo.SetFocus()
+      Start-Sleep -Milliseconds 150
+      [System.Windows.Forms.SendKeys]::SendWait('%{DOWN}')
+      Start-Sleep -Milliseconds 150
+      [System.Windows.Forms.SendKeys]::SendWait('{HOME}')
+      $downCount = switch ($ItemName) {
+        'Reparar' { 1 }
+        'Desinstalar' { 2 }
+        default { 0 }
+      }
+      for ($i = 0; $i -lt $downCount; $i++) {
+        [System.Windows.Forms.SendKeys]::SendWait('{DOWN}')
+        Start-Sleep -Milliseconds 100
+      }
+      [System.Windows.Forms.SendKeys]::SendWait('{ENTER}')
+      Start-Sleep -Milliseconds 700
+      return
+    } catch {}
   }
   $pattern = $null
   if ($item.TryGetCurrentPattern([System.Windows.Automation.SelectionItemPattern]::Pattern, [ref]$pattern)) {
@@ -929,17 +935,36 @@ function Ensure-CheckboxOn {
   $isOn = $false
   if ($Element.TryGetCurrentPattern([System.Windows.Automation.TogglePattern]::Pattern, [ref]$toggle)) {
     $isOn = $toggle.Current.ToggleState -eq [System.Windows.Automation.ToggleState]::On
+    if (-not $isOn) {
+      $toggle.Toggle()
+      Start-Sleep -Milliseconds 400
+      $isOn = $toggle.Current.ToggleState -eq [System.Windows.Automation.ToggleState]::On
+    }
   }
   if (-not $isOn) {
-    $Element.SetFocus()
-    [System.Windows.Forms.SendKeys]::SendWait(' ')
-    Start-Sleep -Milliseconds 400
+    try {
+      $Element.SetFocus()
+      [System.Windows.Forms.SendKeys]::SendWait(' ')
+      Start-Sleep -Milliseconds 400
+    } catch {}
   }
   if ($toggle) { $isOn = $toggle.Current.ToggleState -eq [System.Windows.Automation.ToggleState]::On }
   if (-not $isOn -and $toggle) {
-    $toggle.Toggle()
-    Start-Sleep -Milliseconds 400
-    $isOn = $toggle.Current.ToggleState -eq [System.Windows.Automation.ToggleState]::On
+    try {
+      $toggle.Toggle()
+      Start-Sleep -Milliseconds 400
+      $isOn = $toggle.Current.ToggleState -eq [System.Windows.Automation.ToggleState]::On
+    } catch {}
+  }
+  if (-not $isOn) {
+    $invoke = $null
+    if ($Element.TryGetCurrentPattern([System.Windows.Automation.InvokePattern]::Pattern, [ref]$invoke)) {
+      try {
+        $invoke.Invoke()
+        Start-Sleep -Milliseconds 400
+        if ($toggle) { $isOn = $toggle.Current.ToggleState -eq [System.Windows.Automation.ToggleState]::On }
+      } catch {}
+    }
   }
   if (-not $isOn) { throw "No se pudo marcar checkbox requerido: $Name" }
 }

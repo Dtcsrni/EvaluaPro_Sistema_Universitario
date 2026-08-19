@@ -1,0 +1,155 @@
+[90mstderr[2m | tests/robustez.test.ts[2m > [22m[2mRobustez Endpoints V2 - Ola 3 Fase 2[2m > [22m[2mSistema de Retry[2m > [22m[2mreintenta operaciones que fallan transitorialmente
+[22m[39m[RETRY] {
+  nombre: [32m'test-retry'[39m,
+  intento: [33m1[39m,
+  maxIntentos: [33m3[39m,
+  categoriaError: [32m'timeout'[39m,
+  delayMs: [33m10[39m,
+  mensajeError: [32m'Timeout'[39m
+}
+
+[90mstderr[2m | tests/robustez.test.ts[2m > [22m[2mRobustez Endpoints V2 - Ola 3 Fase 2[2m > [22m[2mSistema de Retry[2m > [22m[2mreintenta operaciones que fallan transitorialmente
+[22m[39m[RETRY] {
+  nombre: [32m'test-retry'[39m,
+  intento: [33m2[39m,
+  maxIntentos: [33m3[39m,
+  categoriaError: [32m'timeout'[39m,
+  delayMs: [33m20[39m,
+  mensajeError: [32m'Timeout'[39m
+}
+
+[90mstderr[2m | tests/robustez.test.ts[2m > [22m[2mRobustez Endpoints V2 - Ola 3 Fase 2[2m > [22m[2mSistema de Retry[2m > [22m[2maplica backoff exponencial
+[22m[39m[RETRY] {
+  nombre: [32m'test-backoff'[39m,
+  intento: [33m1[39m,
+  maxIntentos: [33m4[39m,
+  categoriaError: [32m'timeout'[39m,
+  delayMs: [33m20[39m,
+  mensajeError: [32m'Error'[39m
+}
+
+[90mstderr[2m | tests/robustez.test.ts[2m > [22m[2mRobustez Endpoints V2 - Ola 3 Fase 2[2m > [22m[2mSistema de Retry[2m > [22m[2maplica backoff exponencial
+[22m[39m[RETRY] {
+  nombre: [32m'test-backoff'[39m,
+  intento: [33m2[39m,
+  maxIntentos: [33m4[39m,
+  categoriaError: [32m'timeout'[39m,
+  delayMs: [33m40[39m,
+  mensajeError: [32m'Error'[39m
+}
+
+[90mstderr[2m | tests/robustez.test.ts[2m > [22m[2mRobustez Endpoints V2 - Ola 3 Fase 2[2m > [22m[2mSistema de Retry[2m > [22m[2maplica backoff exponencial
+[22m[39m[RETRY] {
+  nombre: [32m'test-backoff'[39m,
+  intento: [33m3[39m,
+  maxIntentos: [33m4[39m,
+  categoriaError: [32m'timeout'[39m,
+  delayMs: [33m80[39m,
+  mensajeError: [32m'Error'[39m
+}
+
+[90mstderr[2m | tests/robustez.test.ts[2m > [22m[2mRobustez Endpoints V2 - Ola 3 Fase 2[2m > [22m[2mCircuit Breaker[2m > [22m[2mse abre después de alcanzar umbral de errores
+[22m[39m[CIRCUIT_BREAKER] {
+  nombre: [32m'test-cb'[39m,
+  evento: [32m'abierto'[39m,
+  umbral: [33m3[39m,
+  conteo: [33m3[39m,
+  duracionMs: [33m100[39m
+}
+
+[90mstderr[2m | tests/robustez.test.ts[2m > [22m[2mRobustez Endpoints V2 - Ola 3 Fase 2[2m > [22m[2mCircuit Breaker[2m > [22m[2mrechaza operaciones cuando está abierto
+[22m[39m[CIRCUIT_BREAKER] {
+  nombre: [32m'test-cb'[39m,
+  evento: [32m'abierto'[39m,
+  umbral: [33m3[39m,
+  conteo: [33m3[39m,
+  duracionMs: [33m100[39m
+}
+
+[90mstderr[2m | tests/robustez.test.ts[2m > [22m[2mRobustez Endpoints V2 - Ola 3 Fase 2[2m > [22m[2mCircuit Breaker[2m > [22m[2mtransiciona a semiluza después de recuperación
+[22m[39m[CIRCUIT_BREAKER] {
+  nombre: [32m'test-cb'[39m,
+  evento: [32m'abierto'[39m,
+  umbral: [33m3[39m,
+  conteo: [33m3[39m,
+  duracionMs: [33m100[39m
+}
+
+[90mstderr[2m | tests/robustez.test.ts[2m > [22m[2mRobustez Endpoints V2 - Ola 3 Fase 2[2m > [22m[2mIntegración Retry + Circuit Breaker[2m > [22m[2mcircuit breaker abierto después de fallos continuos con retry
+[22m[39m[CIRCUIT_BREAKER] {
+  nombre: [32m'test-integrado'[39m,
+  evento: [32m'abierto'[39m,
+  umbral: [33m2[39m,
+  conteo: [33m2[39m,
+  duracionMs: [33m100[39m
+}
+
+[90mstderr[2m | tests/robustez.test.ts[2m > [22m[2mRobustez Endpoints V2 - Ola 3 Fase 2[2m > [22m[2mIntegración Retry + Circuit Breaker[2m > [22m[2mcircuit breaker abierto después de fallos continuos con retry
+[22m[39m[RETRY] {
+  nombre: [32m'test-integrado'[39m,
+  intento: [33m1[39m,
+  maxIntentos: [33m3[39m,
+  categoriaError: [32m'indisponible'[39m,
+  delayMs: [33m102[39m,
+  mensajeError: [32m'Circuit breaker abierto para test-integrado'[39m
+}
+
+[90mstderr[2m | tests/robustez.test.ts[2m > [22m[2mRobustez Endpoints V2 - Ola 3 Fase 2[2m > [22m[2mIntegración Retry + Circuit Breaker[2m > [22m[2mcircuit breaker abierto después de fallos continuos con retry
+[22m[39m[CIRCUIT_BREAKER] {
+  nombre: [32m'test-integrado'[39m,
+  evento: [32m'abierto'[39m,
+  umbral: [33m2[39m,
+  conteo: [33m3[39m,
+  duracionMs: [33m100[39m
+}
+
+[90mstderr[2m | tests/errores.test.ts[2m > [22m[2mmanejadorErroresPortal[2m > [22m[2men produccion evita filtrar mensajes internos
+[22m[39m{"timestamp":"2026-08-19T05:13:16.326Z","service":"portal-alumno","env":"test","level":"error","message":"Error no controlado en portal","route":"/inesperado","method":"GET","error":{"name":"Error","message":"Falla inesperada","stack":"Error: Falla inesperada\n    at C:/Users/evega/Documents/EvaluaPro/apps/portal_alumno_cloud/tests/errores.test.ts:17:11\n    at Layer.handleRequest (C:\\Users\\evega\\Documents\\EvaluaPro\\node_modules\\router\\lib\\layer.js:152:17)\n    at next (C:\\Users\\evega\\Documents\\EvaluaPro\\node_modules\\router\\lib\\route.js:157:13)\n    at Route.dispatch (C:\\Users\\evega\\Documents\\EvaluaPro\\node_modules\\router\\lib\\route.js:117:3)\n    at handle (C:\\Users\\evega\\Documents\\EvaluaPro\\node_modules\\router\\index.js:435:11)\n    at Layer.handleRequest (C:\\Users\\evega\\Documents\\EvaluaPro\\node_modules\\router\\lib\\layer.js:152:17)\n    at C:\\Users\\evega\\Documents\\EvaluaPro\\node_modules\\router\\index.js:295:15\n    at processParams (C:\\Users\\evega\\Documents\\EvaluaPro\\node_modules\\router\\index.js:582:12)\n    at next (C:\\Users\\evega\\Documents\\EvaluaPro\\node_modules\\router\\index.js:291:5)\n    at router.handle (C:\\Users\\evega\\Documents\\EvaluaPro\\node_modules\\router\\index.js:186:3)"}}
+
+[90mstderr[2m | tests/contrato/validaciones.test.ts[2m > [22m[2mcontrato (portal)[2m > [22m[2mrechaza ingresar sin codigo/matricula
+[22m[39m{"timestamp":"2026-08-19T05:13:16.494Z","service":"portal-alumno","env":"test","level":"warn","message":"HTTP request","requestId":"3baba14e-d4e2-4736-8883-ac033feed81b","route":"/api/portal/ingresar","method":"POST","status":400,"durationMs":8}
+
+[90mstderr[2m | tests/apiKey.test.ts[2m > [22m[2mapi key (portal)[2m > [22m[2mbloquea sincronizar sin x-api-key
+[22m[39m{"timestamp":"2026-08-19T05:13:16.501Z","service":"portal-alumno","env":"test","level":"warn","message":"HTTP request","requestId":"0724ab1a-f20a-4c24-8005-81744002fc02","route":"/api/portal/sincronizar","method":"POST","status":401,"durationMs":9}
+
+[90mstderr[2m | tests/rateLimit.test.ts[2m > [22m[2mrate limit (portal)[2m > [22m[2mresponde 429 al exceder el limite
+[22m[39m{"timestamp":"2026-08-19T05:13:16.502Z","service":"portal-alumno","env":"test","level":"warn","message":"HTTP request","requestId":"ab8cce8a-f32d-4211-8602-92cfdb94f8a3","route":"/api/portal/salud","method":"GET","status":429,"durationMs":0}
+
+[90mstderr[2m | tests/contrato/validaciones.test.ts[2m > [22m[2mcontrato (portal)[2m > [22m[2mrechaza ingresar con campos extra
+[22m[39m{"timestamp":"2026-08-19T05:13:16.504Z","service":"portal-alumno","env":"test","level":"warn","message":"HTTP request","requestId":"d7016e0d-5506-400d-8d4c-075b2aa7b4f4","route":"/api/portal/ingresar","method":"POST","status":400,"durationMs":1}
+
+[90mstderr[2m | tests/apiKey.test.ts[2m > [22m[2mapi key (portal)[2m > [22m[2mbloquea limpiar sin x-api-key
+[22m[39m{"timestamp":"2026-08-19T05:13:16.511Z","service":"portal-alumno","env":"test","level":"warn","message":"HTTP request","requestId":"f9f0ae1d-f613-45d8-99b7-d525f578b36f","route":"/api/portal/limpiar","method":"POST","status":401,"durationMs":1}
+
+[90mstderr[2m | tests/apiKey.test.ts[2m > [22m[2mapi key (portal)[2m > [22m[2mbloquea sincronizar con x-api-key invalida
+[22m[39m{"timestamp":"2026-08-19T05:13:16.518Z","service":"portal-alumno","env":"test","level":"warn","message":"HTTP request","requestId":"983b3c5c-2c34-4a07-8e7f-1bfc0c4e8c3b","route":"/api/portal/sincronizar","method":"POST","status":401,"durationMs":1}
+
+[90mstderr[2m | tests/contrato/validaciones.test.ts[2m > [22m[2mcontrato (portal)[2m > [22m[2mrechaza limpiar con campos extra
+[22m[39m{"timestamp":"2026-08-19T05:13:16.534Z","service":"portal-alumno","env":"test","level":"warn","message":"HTTP request","requestId":"ec326a87-1899-437f-989a-4e90fd2e2147","route":"/api/portal/limpiar","method":"POST","status":400,"durationMs":1}
+
+[90mstderr[2m | tests/contrato/validaciones.test.ts[2m > [22m[2mcontrato (portal)[2m > [22m[2mrechaza sincronizar con campos extra (top-level) y no escribe en DB
+[22m[39m{"timestamp":"2026-08-19T05:13:16.547Z","service":"portal-alumno","env":"test","level":"warn","message":"HTTP request","requestId":"e0cbbeac-6b09-4e4b-bf9a-96955591b2d1","route":"/api/portal/sincronizar","method":"POST","status":400,"durationMs":1}
+
+[90mstderr[2m | tests/contrato/validaciones.test.ts[2m > [22m[2mcontrato (portal)[2m > [22m[2mrechaza sincronizar con campos extra en calificacion y no escribe en DB
+[22m[39m{"timestamp":"2026-08-19T05:13:16.558Z","service":"portal-alumno","env":"test","level":"warn","message":"HTTP request","requestId":"26253aeb-acdc-405a-ae47-4d53f6c317fb","route":"/api/portal/sincronizar","method":"POST","status":400,"durationMs":0}
+
+[90mstderr[2m | tests/contrato/validaciones.test.ts[2m > [22m[2mcontrato (portal)[2m > [22m[2mrechaza eventos-uso con campos extra (top-level)
+[22m[39m{"timestamp":"2026-08-19T05:13:16.569Z","service":"portal-alumno","env":"test","level":"warn","message":"HTTP request","requestId":"eab12503-4f7e-4281-bf6a-aeefcf7fa240","route":"/api/portal/eventos-uso","method":"POST","status":400,"durationMs":1,"userId":"507f1f77bcf86cd799439012"}
+
+[90mstderr[2m | tests/contrato/validaciones.test.ts[2m > [22m[2mcontrato (portal)[2m > [22m[2mrechaza eventos-uso con campos extra en evento
+[22m[39m{"timestamp":"2026-08-19T05:13:16.582Z","service":"portal-alumno","env":"test","level":"warn","message":"HTTP request","requestId":"62cb39d5-948c-497a-946e-adce039a3db4","route":"/api/portal/eventos-uso","method":"POST","status":400,"durationMs":0,"userId":"507f1f77bcf86cd799439012"}
+
+[90mstderr[2m | tests/contrato/validaciones.test.ts[2m > [22m[2mcontrato (portal)[2m > [22m[2mrechaza eventos-uso con meta anidado y no escribe en DB
+[22m[39m{"timestamp":"2026-08-19T05:13:16.593Z","service":"portal-alumno","env":"test","level":"warn","message":"HTTP request","requestId":"cffd52fa-b2be-400e-8860-bc993b8220b1","route":"/api/portal/eventos-uso","method":"POST","status":400,"durationMs":1,"userId":"507f1f77bcf86cd799439012"}
+
+[90mstderr[2m | tests/integracion/portal.test.ts[2m > [22m[2mportal alumno[2m > [22m[2msincroniza y permite consultar resultados
+[22m[39m{"timestamp":"2026-08-19T05:13:17.586Z","service":"portal-alumno","env":"test","level":"warn","message":"HTTP request","requestId":"f05963ee-5297-4964-a683-4a8a226484cf","route":"/api/portal/ingresar","method":"POST","status":404,"durationMs":3}
+
+[90mstderr[2m | tests/integracion/portal.test.ts[2m > [22m[2mportal alumno[2m > [22m[2mrequiere api key para sincronizar
+[22m[39m{"timestamp":"2026-08-19T05:13:17.791Z","service":"portal-alumno","env":"test","level":"warn","message":"HTTP request","requestId":"0d33d9ed-c8e0-4636-ae52-adbd79f5dfe6","route":"/api/portal/sincronizar","method":"POST","status":401,"durationMs":0}
+
+[90mstderr[2m | tests/integracion/portal.test.ts[2m > [22m[2mportal alumno[2m > [22m[2mpermite solicitar revision por pregunta y sincronizarla para docente
+[22m[39m{"timestamp":"2026-08-19T05:13:17.894Z","service":"portal-alumno","env":"test","level":"warn","message":"HTTP request","requestId":"0de74cee-c69e-41c5-b3eb-8fd9f5a51464","route":"/api/portal/solicitudes-revision","method":"POST","status":400,"durationMs":1,"userId":"507f1f77bcf86cd799439022"}
+
+Not implemented: navigation to another Document
+Not implemented: navigation to another Document

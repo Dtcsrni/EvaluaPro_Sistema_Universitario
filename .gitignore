@@ -90,3 +90,5 @@ reports/qa/latest/interactive-e2e-*.json
 reports/qa/latest/vmconnect-*.txt
 dist-native/
 evaluapro-native-dist.zip
+packaging/wix/BurnBootstrapperApp/bin/
+packaging/wix/BurnBootstrapperApp/obj/

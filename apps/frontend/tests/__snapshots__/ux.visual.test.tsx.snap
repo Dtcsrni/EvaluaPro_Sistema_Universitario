@@ -999,7 +999,7 @@ exports[`UX visual regression > docente sin token mantiene layout de acceso 1`] 
           </div>
         </div>
         <div
-          class="auth-form auth-form--ingresar"
+          class="auth-form auth-form--registrar"
         >
           <div
             class="auth-form-head"
@@ -1007,15 +1007,37 @@ exports[`UX visual regression > docente sin token mantiene layout de acceso 1`] 
             <p
               class="eyebrow"
             >
-              Iniciar sesion
+              Registro y Licencia
             </p>
             <h3>
-              Bienvenido de nuevo
+              Registro docente y activación de licencia
             </h3>
             <p
               class="nota"
             >
-              Usa tu acceso habitual para volver rápidamente al flujo operativo.
+              Crea tu cuenta institucional y establece tu clave de licencia para activar la plataforma.
+            </p>
+          </div>
+          <div
+            aria-label="Ayuda de registro"
+            class="panel auth-panel"
+          >
+            <p
+              class="nota"
+            >
+              Para registrar tu cuenta completa 
+              <b>
+                nombres
+              </b>
+              , 
+              <b>
+                apellidos
+              </b>
+               y 
+              <b>
+                correo
+              </b>
+              . La contrasena requiere minimo 8 caracteres.
             </p>
           </div>
           <p
@@ -1064,18 +1086,38 @@ exports[`UX visual regression > docente sin token mantiene layout de acceso 1`] 
             class="acciones auth-tabs"
           >
             <button
-              class="boton auth-tab auth-tab--activo"
+              class="boton secundario auth-tab"
               type="button"
             >
               Ingresar
             </button>
             <button
-              class="boton secundario auth-tab"
+              class="boton auth-tab auth-tab--activo"
               type="button"
             >
               Registrar
             </button>
           </div>
+          <label
+            class="campo auth-campo"
+          >
+            Nombres
+            <input
+              autocomplete="given-name"
+              placeholder="Ej. Juan Carlos"
+              value=""
+            />
+          </label>
+          <label
+            class="campo auth-campo"
+          >
+            Apellidos
+            <input
+              autocomplete="family-name"
+              placeholder="Ej. Perez Lopez"
+              value=""
+            />
+          </label>
           <label
             class="campo auth-campo"
           >
@@ -1089,9 +1131,25 @@ exports[`UX visual regression > docente sin token mantiene layout de acceso 1`] 
           <label
             class="campo auth-campo"
           >
+            Clave o Código de Licencia (opcional / institucional)
+            <input
+              autocomplete="off"
+              placeholder="Ej. LIC-2026-DOC-XXXX-XXXX"
+              spellcheck="false"
+              value=""
+            />
+            <span
+              class="ayuda"
+            >
+              Si cuentas con una clave institucional, ingrésala para activar tu licencia docente de inmediato.
+            </span>
+          </label>
+          <label
+            class="campo auth-campo"
+          >
             Contrasena
             <input
-              autocomplete="current-password"
+              autocomplete="new-password"
               type="password"
               value=""
             />
@@ -1110,7 +1168,7 @@ exports[`UX visual regression > docente sin token mantiene layout de acceso 1`] 
                 <svg
                   aria-hidden="true"
                   class="icono"
-                  data-icono="entrar"
+                  data-icono="nuevo"
                   fill="none"
                   height="18"
                   viewBox="0 0 24 24"
@@ -1118,21 +1176,20 @@ exports[`UX visual regression > docente sin token mantiene layout de acceso 1`] 
                   xmlns="http://www.w3.org/2000/svg"
                 >
                   <path
-                    d="M14 7l1-4H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10l-1-4"
-                    stroke="currentColor"
-                    stroke-linejoin="round"
-                    stroke-width="2"
-                  />
-                  <path
-                    d="M12 12h9"
+                    d="M12 7v10"
                     stroke="currentColor"
                     stroke-linecap="round"
                     stroke-width="2"
                   />
                   <path
-                    d="M18 9l3 3-3 3"
+                    d="M7 12h10"
                     stroke="currentColor"
-                    stroke-linejoin="round"
+                    stroke-linecap="round"
+                    stroke-width="2"
+                  />
+                  <path
+                    d="M12 22a10 10 0 1 0 0-20 10 10 0 0 0 0 20Z"
+                    stroke="currentColor"
                     stroke-width="2"
                   />
                 </svg>
@@ -1140,7 +1197,7 @@ exports[`UX visual regression > docente sin token mantiene layout de acceso 1`] 
               <span
                 class="boton__texto"
               >
-                Ingresar
+                Crear cuenta
               </span>
             </button>
           </div>

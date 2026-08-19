@@ -26,6 +26,9 @@ describe('SeccionAutenticacion', () => {
 
     render(<SeccionAutenticacion onIngresar={onIngresar} />);
 
+    // Alterna a la pestaña Ingresar
+    await user.click(screen.getByRole('button', { name: /^Ingresar$/i }));
+
     fireEvent.change(screen.getByLabelText('Correo'), { target: { value: 'docente@local.test' } });
     fireEvent.change(screen.getByLabelText('Contrasena'), { target: { value: '12345678' } });
     const botonesIngresar = screen.getAllByRole('button', { name: /^Ingresar$/i });
@@ -38,17 +41,17 @@ describe('SeccionAutenticacion', () => {
     expect(onIngresar).toHaveBeenCalledWith('token-prueba');
   });
 
-  it('permite registrar cuenta por formulario', async () => {
+  it('permite registrar cuenta por formulario con codigo de licencia', async () => {
     const user = userEvent.setup();
     const onIngresar = vi.fn();
     vi.spyOn(clienteApi, 'enviar').mockResolvedValueOnce({ token: 'token-registro' });
 
     render(<SeccionAutenticacion onIngresar={onIngresar} />);
-    await user.click(screen.getByRole('button', { name: /^Registrar$/i }));
 
     fireEvent.change(screen.getByLabelText('Nombres'), { target: { value: 'Ana' } });
     fireEvent.change(screen.getByLabelText('Apellidos'), { target: { value: 'Gomez' } });
     fireEvent.change(screen.getByLabelText('Correo'), { target: { value: 'ana@local.test' } });
+    fireEvent.change(screen.getByLabelText(/Clave o Código de Licencia/i), { target: { value: 'LIC-2026-DOC-TEST' } });
     fireEvent.change(screen.getByLabelText('Contrasena'), { target: { value: 'segura123' } });
     await user.click(screen.getByRole('button', { name: /Crear cuenta/i }));
 
@@ -56,15 +59,14 @@ describe('SeccionAutenticacion', () => {
       nombres: 'Ana',
       apellidos: 'Gomez',
       correo: 'ana@local.test',
-      contrasena: 'segura123'
+      contrasena: 'segura123',
+      codigoLicencia: 'LIC-2026-DOC-TEST'
     });
     expect(onIngresar).toHaveBeenCalledWith('token-registro');
   });
 
   it('bloquea crear cuenta cuando faltan datos en registro', async () => {
-    const user = userEvent.setup();
     render(<SeccionAutenticacion onIngresar={() => {}} />);
-    await user.click(screen.getByRole('button', { name: /^Registrar$/i }));
     expect(screen.getByRole('button', { name: /Crear cuenta/i })).toBeDisabled();
   });
 });

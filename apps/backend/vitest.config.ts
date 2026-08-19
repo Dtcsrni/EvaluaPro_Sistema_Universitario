@@ -15,10 +15,8 @@ export default defineConfig({
     include: ['tests/**/*.test.ts'],
     setupFiles: ['tests/setup.ts'],
     pool: 'forks',
-    poolOptions: {
-      forks: {
-        execArgv: ['--max-old-space-size=2048']
-      }
+    forks: {
+      execArgv: ['--max-old-space-size=2048']
     },
     fileParallelism: false,
     maxWorkers: 1,

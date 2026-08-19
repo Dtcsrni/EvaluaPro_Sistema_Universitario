@@ -47,8 +47,8 @@ public partial class MainWindow : Window
         var animation = new DoubleAnimation
         {
             From = 1.0,
-            To = 0.35,
-            Duration = new Duration(TimeSpan.FromSeconds(0.85)),
+            To = 0.82,
+            Duration = new Duration(TimeSpan.FromSeconds(0.9)),
             AutoReverse = true,
             RepeatBehavior = RepeatBehavior.Forever
         };
@@ -893,6 +893,9 @@ public partial class MainWindow : Window
 
     private void LaunchEvaluaProButton_OnClick(object sender, RoutedEventArgs e)
     {
+        LaunchEvaluaProButton.IsEnabled = false;
+        LaunchEvaluaProButton.Content = "Iniciando EvaluaPro...";
+        FooterStatusTextBlock.Text = "Iniciando plataforma EvaluaPro y abriendo navegador...";
         LaunchRequested?.Invoke(this, EventArgs.Empty);
     }
 
@@ -1276,6 +1279,38 @@ public partial class MainWindow : Window
         DetectButton.Visibility = currentStep == WizardStep.Review ? Visibility.Visible : Visibility.Collapsed;
         StartButton.Visibility = currentStep is WizardStep.Review or WizardStep.Execute ? Visibility.Visible : Visibility.Collapsed;
         StartButton.IsEnabled = !busy && (readyToStart || isUninstall) && (!isInstall || accepted);
+
+        if (TryFindResource("PrimaryButtonStyle") is Style primaryStyle &&
+            TryFindResource("SecondaryButtonStyle") is Style secondaryStyle)
+        {
+            if (currentStep is WizardStep.Terms or WizardStep.Prepare)
+            {
+                NextButton.Style = primaryStyle;
+                StartButton.Style = secondaryStyle;
+                DetectButton.Style = secondaryStyle;
+            }
+            else if (currentStep == WizardStep.Review)
+            {
+                NextButton.Style = secondaryStyle;
+                if (!readyToStart && DetectButton.IsVisible && DetectButton.IsEnabled)
+                {
+                    DetectButton.Style = primaryStyle;
+                    StartButton.Style = secondaryStyle;
+                }
+                else
+                {
+                    DetectButton.Style = secondaryStyle;
+                    StartButton.Style = primaryStyle;
+                }
+            }
+            else
+            {
+                NextButton.Style = secondaryStyle;
+                DetectButton.Style = secondaryStyle;
+                StartButton.Style = primaryStyle;
+            }
+        }
+
         RefreshRecommendedActionAnimation(isInstall, isUninstall, accepted);
         RefreshFooterGuidance();
     }

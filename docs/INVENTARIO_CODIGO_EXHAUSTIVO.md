@@ -1,24 +1,24 @@
 # Inventario Exhaustivo de Codigo
 
-Fecha de generacion: 2026-07-31 16:33:00
+Fecha de generacion: 2026-08-18 01:04:53
 Fuente: git ls-files filtrado por existencia en workspace (solo archivos versionados presentes, excluye node_modules).
 
 ## Resumen
 
-- Total de piezas de codigo/config ejecutable inventariadas: 1184
+- Total de piezas de codigo/config ejecutable inventariadas: 1198
 - Extensiones incluidas: ts, tsx, js, jsx, mjs, cjs, json, yml, yaml, sh, cmd, ps1.
 
 ## Conteo por area
 
 | Area | Archivos |
 | --- | ---: |
-| backend | 414 |
+| backend | 415 |
 | frontend | 135 |
 | portal_alumno_cloud | 67 |
 | ci | 17 |
-| scripts | 173 |
+| scripts | 174 |
 | ops | 3 |
-| docs | 208 |
+| docs | 220 |
 | raiz | 32 |
 
 ## Backend (apps/backend)
@@ -370,6 +370,7 @@ Fuente: git ls-files filtrado por existencia en workspace (solo archivos version
 - apps/backend/tests/integracion/examenesRetention.test.ts
 - apps/backend/tests/integracion/flujoDocenteAlumnoProduccionLikeE2E.test.ts
 - apps/backend/tests/integracion/flujoDocenteGlobalE2E.test.ts
+- apps/backend/tests/integracion/flujoDocenteInventadoSmoke.test.ts
 - apps/backend/tests/integracion/flujoDocenteParcialE2E.test.ts
 - apps/backend/tests/integracion/flujoExamen.test.ts
 - apps/backend/tests/integracion/hidratacionCursos.test.ts
@@ -800,6 +801,7 @@ Fuente: git ls-files filtrado por existencia en workspace (solo archivos version
 - scripts/tests/dashboard-sw.test.mjs
 - scripts/tests/dashboard-ui.test.mjs
 - scripts/tests/env-doctor.test.mjs
+- scripts/tests/flujo-docente-inventado.test.mjs
 - scripts/tests/gui-design-contract.test.mjs
 - scripts/tests/gui-screen-matrix.test.mjs
 - scripts/tests/ia-traceability.test.mjs
@@ -1028,6 +1030,18 @@ Fuente: git ls-files filtrado por existencia en workspace (solo archivos version
 - docs/handoff/sesiones/2026-07-17/sesion-2026-07-17T16-59-26.348Z.json
 - docs/handoff/sesiones/2026-07-17/sesion-2026-07-17T16-59-34.881Z.json
 - docs/handoff/sesiones/2026-07-19/sesion-2026-07-19T00-07-48.422Z.json
+- docs/handoff/sesiones/2026-07-27/sesion-2026-07-27T05-43-12.119Z.json
+- docs/handoff/sesiones/2026-07-27/sesion-2026-07-27T05-43-24.929Z.json
+- docs/handoff/sesiones/2026-07-27/sesion-2026-07-27T09-01-57.809Z.json
+- docs/handoff/sesiones/2026-07-27/sesion-2026-07-27T09-44-24.487Z.json
+- docs/handoff/sesiones/2026-07-27/sesion-2026-07-27T10-24-11.315Z.json
+- docs/handoff/sesiones/2026-07-27/sesion-2026-07-27T10-50-18.695Z.json
+- docs/handoff/sesiones/2026-07-27/sesion-2026-07-27T11-11-14.264Z.json
+- docs/handoff/sesiones/2026-07-27/sesion-2026-07-27T11-21-32.874Z.json
+- docs/handoff/sesiones/2026-07-27/sesion-2026-07-27T11-30-55.382Z.json
+- docs/handoff/sesiones/2026-07-28/sesion-2026-07-28T08-14-01.008Z.json
+- docs/handoff/sesiones/2026-07-28/sesion-2026-07-28T08-46-36.892Z.json
+- docs/handoff/sesiones/2026-07-31/sesion-2026-07-31T22-33-03.760Z.json
 - docs/handoff/trace.schema.json
 - docs/perf/baseline.business.json
 - docs/perf/baseline.json

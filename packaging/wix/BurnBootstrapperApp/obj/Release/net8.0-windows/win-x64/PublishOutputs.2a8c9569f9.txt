@@ -1,2 +1,0 @@
-C:\Users\evega\EvaluaPro_Sistema_Universitario\dist\installer\burn-bootstrapper-app\EvaluaPro.BurnBootstrapperApp.pdb
-C:\Users\evega\EvaluaPro_Sistema_Universitario\dist\installer\burn-bootstrapper-app\EvaluaPro.BurnBootstrapperApp.exe

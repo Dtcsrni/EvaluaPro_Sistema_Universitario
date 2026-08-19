@@ -236,9 +236,6 @@ $shortcuts = @(
     IconKey = 'repair'
     Desktop = $false
     StartMenu = $true
-    IconKey = 'repair'
-    Desktop = $false
-    StartMenu = $true
     Target = $targetWscript
     Arguments = "//nologo `"$shortcutOpHiddenVbs`" repair $Port auto"
   }
@@ -266,9 +263,9 @@ if ($env:EVALUAPRO_FLAVOR) {
 }
 $isDocenteFlavor = ($detectedFlavorId.Trim().ToLowerInvariant() -eq 'docente-local')
 if ($isDocenteFlavor -and $env:EVALUAPRO_DEBUG -ne '1') {
-  # REQ-030: En flavor docente-local el Dashboard UI no debe ser accesible ni exponer accesos directos
-  # a usuarios finales docentes; solo para depuración administrativa con credenciales elevadas.
-  $shortcuts = $shortcuts | Where-Object { $_.Name -ne 'EvaluaPro - Abrir Dashboard' }
+  # REQ-030: En flavor docente-local, los accesos del menú y escritorio solo deben contener
+  # la aplicación 'EvaluaPro - Prod' y el asistente 'EvaluaPro - Hub'.
+  $shortcuts = $shortcuts | Where-Object { $_.Name -in @('EvaluaPro - Prod', 'EvaluaPro - Hub') }
 }
 
 $allManagedShortcutNames = @(
@@ -354,6 +351,10 @@ if ($Force) {
   foreach ($dest in $destinations) {
     Remove-LegacyShortcuts -dirPath $dest.Path
   }
+}
+
+if ($startMenuBase -and (Test-Path -LiteralPath $startMenuBase)) {
+  Remove-UnmanagedShortcuts -dirPath $startMenuBase -allowedNames @() -managedNames $allManagedShortcutNames
 }
 
 foreach ($dest in $destinations) {

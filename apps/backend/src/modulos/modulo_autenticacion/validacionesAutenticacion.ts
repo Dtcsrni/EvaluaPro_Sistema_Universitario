@@ -18,7 +18,8 @@ export const esquemaRegistrarDocente = z
     apellidos: z.string().min(1).optional(),
     nombreCompleto: z.string().min(1).optional(),
     correo: z.string().email(),
-    contrasena: z.string().min(8)
+    contrasena: z.string().min(8),
+    codigoLicencia: z.string().optional()
   })
   .strict()
   .superRefine((data, ctx) => {
@@ -90,7 +91,8 @@ export const esquemaRegistrarDocenteGoogle = z
     apellidos: z.string().min(1).optional(),
     nombreCompleto: z.string().min(1).optional(),
     // Opcional: permite crear password para ingresar sin Google.
-    contrasena: z.string().min(8).optional()
+    contrasena: z.string().min(8).optional(),
+    codigoLicencia: z.string().optional()
   })
   .strict()
   .superRefine((data, ctx) => {

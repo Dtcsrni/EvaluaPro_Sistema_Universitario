@@ -311,6 +311,25 @@ function Ensure-StackReady([string]$base, [string]$desiredMode, [int]$timeoutMs 
 
 function Open-Url([string]$url) {
   if ($NoOpen) { return }
+  # Lanzar como aplicación de escritorio nativa dedicada (Standalone App Window)
+  $candidates = @(
+    "${env:ProgramFiles(x86)}\Microsoft\Edge\Application\msedge.exe",
+    "$env:ProgramFiles\Microsoft\Edge\Application\msedge.exe",
+    "${env:LOCALAPPDATA}\Microsoft\Edge\Application\msedge.exe",
+    "$env:ProgramFiles\Google\Chrome\Application\chrome.exe",
+    "${env:ProgramFiles(x86)}\Google\Chrome\Application\chrome.exe",
+    "${env:LOCALAPPDATA}\Google\Chrome\Application\chrome.exe",
+    "$env:ProgramFiles\BraveSoftware\Brave-Browser\Application\brave.exe"
+  )
+  foreach ($candidate in $candidates) {
+    if (Test-Path -LiteralPath $candidate) {
+      try {
+        $userDataDir = Join-Path $env:LOCALAPPDATA 'EvaluaPro\app-profile'
+        Start-Process -FilePath $candidate -ArgumentList @("--app=$url", "--user-data-dir=$userDataDir", "--window-size=1280,820") | Out-Null
+        return
+      } catch {}
+    }
+  }
   Start-Process $url | Out-Null
 }
 

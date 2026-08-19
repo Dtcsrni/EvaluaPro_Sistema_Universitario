@@ -1,0 +1,1001 @@
+[msi] Icono can��nico validado: C:\Users\evega\Documents\EvaluaPro\scripts\icons\installer-canonical.ico (sizes: 16, 24, 32, 48, 64, 128, 256)
+[msi][step 1/10] Lint
+
+> evaluapro@1.1.1 lint
+> npm run --workspaces --if-present lint
+
+
+> backend@1.1.0 lint
+> eslint "src/**/*.ts" "tests/**/*.ts" "scripts/**/*.ts" --max-warnings=0
+
+
+> frontend@1.1.0 lint
+> eslint "src/**/*.{ts,tsx}" "tests/**/*.{ts,tsx}" vite.config.ts --max-warnings=0
+
+
+> portal-alumno-cloud@1.1.0 lint
+> eslint "src/**/*.ts" "tests/**/*.ts" --max-warnings=0
+
+[msi][step 2/10] Typecheck
+
+> evaluapro@1.1.1 typecheck
+> npm run --workspaces --if-present typecheck
+
+
+> backend@1.1.0 typecheck
+> prisma generate && tsc --noEmit --project tsconfig.json --pretty false
+
+Prisma schema loaded from prisma\schema.prisma
+
+✔ Generated Prisma Client (v6.19.3) to .\..\..\node_modules\@prisma\client in 271ms
+
+Start by importing your Prisma Client (See: https://pris.ly/d/importing-client)
+
+Tip: Interested in query caching in just a few lines of code? Try Accelerate today! https://pris.ly/tip-3-accelerate
+
+
+> frontend@1.1.0 typecheck
+> tsc -b --pretty false
+
+
+> portal-alumno-cloud@1.1.0 typecheck
+> tsc --noEmit --project tsconfig.json --pretty false
+
+[msi][step 3/10] Tests backend CI
+
+> evaluapro@1.1.1 test:backend:ci
+> node scripts/testing/run-backend-test-batches.mjs
+
+[backend-tests] backend-root-01 1/3
+
+[1m[30m[46m RUN [49m[39m[22m [36mv4.1.10 [39m[90mC:/Users/evega/Documents/EvaluaPro/apps/backend[39m
+
+ [32m✓[39m tests/autenticacionServicios.test.ts [2m([22m[2m2 tests[22m[2m)[22m[33m 690[2mms[22m[39m
+     [33m[2m✓[22m[39m genera hash y valida contrasenas [33m 683[2mms[22m[39m
+ [32m✓[39m tests/analiticas.xlsx.sv.contract.test.ts [2m([22m[2m2 tests[22m[2m)[22m[32m 145[2mms[22m[39m
+ [32m✓[39m tests/bancoPreguntas.controlador.test.ts [2m([22m[2m13 tests[22m[2m)[22m[32m 13[2mms[22m[39m
+ [32m✓[39m tests/aleatoriedad.test.ts [2m([22m[2m1 test[22m[2m)[22m[32m 5[2mms[22m[39m
+
+[2m Test Files [22m [1m[32m4 passed[39m[22m[90m (4)[39m
+[2m      Tests [22m [1m[32m18 passed[39m[22m[90m (18)[39m
+[2m   Start at [22m 23:08:06
+[2m   Duration [22m 1.97s[2m (transform 136ms, setup 92ms, import 487ms, tests 853ms, environment 1ms)[22m
+
+[backend-tests] backend-root-02 1/3
+
+[1m[30m[46m RUN [49m[39m[22m [36mv4.1.10 [39m[90mC:/Users/evega/Documents/EvaluaPro/apps/backend[39m
+
+ [32m✓[39m tests/calificacion.persistencia.test.ts [2m([22m[2m4 tests[22m[2m)[22m[33m 1698[2mms[22m[39m
+ [32m✓[39m tests/calificacion.solicitudes.test.ts [2m([22m[2m1 test[22m[2m)[22m[33m 1170[2mms[22m[39m
+ [32m✓[39m tests/calificacion.global.reglas.test.ts [2m([22m[2m2 tests[22m[2m)[22m[32m 176[2mms[22m[39m
+ [32m✓[39m tests/calificacion.test.ts [2m([22m[2m3 tests[22m[2m)[22m[32m 6[2mms[22m[39m
+
+[2m Test Files [22m [1m[32m4 passed[39m[22m[90m (4)[39m
+[2m      Tests [22m [1m[32m10 passed[39m[22m[90m (10)[39m
+[2m   Start at [22m 23:08:09
+[2m   Duration [22m 4.04s[2m (transform 154ms, setup 82ms, import 404ms, tests 3.05s, environment 0ms)[22m
+
+[backend-tests] backend-root-03 1/3
+
+[1m[30m[46m RUN [49m[39m[22m [36mv4.1.10 [39m[90mC:/Users/evega/Documents/EvaluaPro/apps/backend[39m
+
+ [32m✓[39m tests/configuracion.correo.test.ts [2m([22m[2m3 tests[22m[2m)[22m[32m 31[2mms[22m[39m
+ [32m✓[39m tests/comercial.heartbeat.test.ts [2m([22m[2m1 test[22m[2m)[22m[32m 23[2mms[22m[39m
+ [32m✓[39m tests/comercial.core.test.ts [2m([22m[2m13 tests[22m[2m)[22m[32m 12[2mms[22m[39m
+ [32m✓[39m tests/configuracion.entorno.test.ts [2m([22m[2m2 tests[22m[2m)[22m[32m 11[2mms[22m[39m
+
+[2m Test Files [22m [1m[32m4 passed[39m[22m[90m (4)[39m
+[2m      Tests [22m [1m[32m19 passed[39m[22m[90m (19)[39m
+[2m   Start at [22m 23:08:13
+[2m   Duration [22m 869ms[2m (transform 174ms, setup 81ms, import 214ms, tests 76ms, environment 0ms)[22m
+
+[backend-tests] backend-root-04 1/3
+
+[1m[30m[46m RUN [49m[39m[22m [36mv4.1.10 [39m[90mC:/Users/evega/Documents/EvaluaPro/apps/backend[39m
+
+ [32m✓[39m tests/contrato/limitesPayload.test.ts [2m([22m[2m2 tests[22m[2m)[22m[33m 3670[2mms[22m[39m
+     [33m[2m✓[22m[39m responde 413 si el JSON excede LIMITE_JSON [33m 2425[2mms[22m[39m
+ [32m✓[39m tests/contrato/validaciones.test.ts [2m([22m[2m30 tests[22m[2m)[22m[33m 1334[2mms[22m[39m
+ [32m✓[39m tests/configuracion.produccion.test.ts [2m([22m[2m6 tests[22m[2m)[22m[32m 21[2mms[22m[39m
+ [32m✓[39m tests/configuracion.test.ts [2m([22m[2m1 test[22m[2m)[22m[32m 4[2mms[22m[39m
+
+[2m Test Files [22m [1m[32m4 passed[39m[22m[90m (4)[39m
+[2m      Tests [22m [1m[32m39 passed[39m[22m[90m (39)[39m
+[2m   Start at [22m 23:08:14
+[2m   Duration [22m 7.09s[2m (transform 1.34s, setup 82ms, import 1.48s, tests 5.03s, environment 0ms)[22m
+
+[backend-tests] backend-root-05 1/3
+
+[1m[30m[46m RUN [49m[39m[22m [36mv4.1.10 [39m[90mC:/Users/evega/Documents/EvaluaPro/apps/backend[39m
+
+ [32m✓[39m tests/errores.test.ts [2m([22m[2m4 tests[22m[2m)[22m[32m 29[2mms[22m[39m
+ [32m✓[39m tests/controladorListadoGenerados.regenerar.test.ts [2m([22m[2m1 test[22m[2m)[22m[32m 6[2mms[22m[39m
+ [32m✓[39m tests/correo.test.ts [2m([22m[2m3 tests[22m[2m)[22m[32m 5[2mms[22m[39m
+ [32m✓[39m tests/csv.test.ts [2m([22m[2m1 test[22m[2m)[22m[32m 4[2mms[22m[39m
+
+[2m Test Files [22m [1m[32m4 passed[39m[22m[90m (4)[39m
+[2m      Tests [22m [1m[32m9 passed[39m[22m[90m (9)[39m
+[2m   Start at [22m 23:08:22
+[2m   Duration [22m 893ms[2m (transform 128ms, setup 82ms, import 270ms, tests 44ms, environment 0ms)[22m
+
+[backend-tests] backend-root-06 1/3
+
+[1m[30m[46m RUN [49m[39m[22m [36mv4.1.10 [39m[90mC:/Users/evega/Documents/EvaluaPro/apps/backend[39m
+
+ [32m✓[39m tests/omr.contrato.test.ts [2m([22m[2m3 tests[22m[2m)[22m[33m 550[2mms[22m[39m
+     [33m[2m✓[22m[39m analizarOmr retorna estructura esperada en imagen blanca [33m 395[2mms[22m[39m
+ [32m✓[39m tests/infraestructura.test.ts [2m([22m[2m2 tests[22m[2m)[22m[32m 8[2mms[22m[39m
+ [32m✓[39m tests/evaluaciones.politicaLisc.test.ts [2m([22m[2m3 tests[22m[2m)[22m[32m 6[2mms[22m[39m
+ [32m✓[39m tests/monetizacion.comunitaria.test.ts [2m([22m[2m4 tests[22m[2m)[22m[32m 5[2mms[22m[39m
+
+[2m Test Files [22m [1m[32m4 passed[39m[22m[90m (4)[39m
+[2m      Tests [22m [1m[32m12 passed[39m[22m[90m (12)[39m
+[2m   Start at [22m 23:08:23
+[2m   Duration [22m 1.47s[2m (transform 224ms, setup 79ms, import 332ms, tests 569ms, environment 0ms)[22m
+
+[backend-tests] backend-root-07 1/3
+
+[1m[30m[46m RUN [49m[39m[22m [36mv4.1.10 [39m[90mC:/Users/evega/Documents/EvaluaPro/apps/backend[39m
+
+ [32m✓[39m tests/omr.core.decision.test.ts [2m([22m[2m3 tests[22m[2m)[22m[32m 6[2mms[22m[39m
+
+[2m Test Files [22m [1m[32m1 passed[39m[22m[90m (1)[39m
+[2m      Tests [22m [1m[32m3 passed[39m[22m[90m (3)[39m
+[2m   Start at [22m 23:08:25
+[2m   Duration [22m 210ms[2m (transform 54ms, setup 48ms, import 26ms, tests 6ms, environment 0ms)[22m
+
+[backend-tests] backend-root-08 1/3
+
+[1m[30m[46m RUN [49m[39m[22m [36mv4.1.10 [39m[90mC:/Users/evega/Documents/EvaluaPro/apps/backend[39m
+
+ [32m✓[39m tests/omr.cv.engine.test.ts [2m([22m[2m5 tests[22m[2m)[22m[32m 15[2mms[22m[39m
+
+[2m Test Files [22m [1m[32m1 passed[39m[22m[90m (1)[39m
+[2m      Tests [22m [1m[32m5 passed[39m[22m[90m (5)[39m
+[2m   Start at [22m 23:08:25
+[2m   Duration [22m 246ms[2m (transform 52ms, setup 50ms, import 54ms, tests 15ms, environment 0ms)[22m
+
+[backend-tests] backend-root-09 1/3
+
+[1m[30m[46m RUN [49m[39m[22m [36mv4.1.10 [39m[90mC:/Users/evega/Documents/EvaluaPro/apps/backend[39m
+
+ [32m✓[39m tests/omr.etapaScoring.fallback.test.ts [2m([22m[2m1 test[22m[2m)[22m[32m 4[2mms[22m[39m
+
+[2m Test Files [22m [1m[32m1 passed[39m[22m[90m (1)[39m
+[2m      Tests [22m [1m[32m1 passed[39m[22m[90m (1)[39m
+[2m   Start at [22m 23:08:26
+[2m   Duration [22m 223ms[2m (transform 54ms, setup 52ms, import 25ms, tests 4ms, environment 0ms)[22m
+
+[backend-tests] backend-root-10 1/3
+
+[1m[30m[46m RUN [49m[39m[22m [36mv4.1.10 [39m[90mC:/Users/evega/Documents/EvaluaPro/apps/backend[39m
+
+ [32m✓[39m tests/omr.politicaAutoCalificacion.test.ts [2m([22m[2m2 tests[22m[2m)[22m[32m 4[2mms[22m[39m
+
+[2m Test Files [22m [1m[32m1 passed[39m[22m[90m (1)[39m
+[2m      Tests [22m [1m[32m2 passed[39m[22m[90m (2)[39m
+[2m   Start at [22m 23:08:27
+[2m   Duration [22m 203ms[2m (transform 46ms, setup 49ms, import 16ms, tests 4ms, environment 0ms)[22m
+
+[backend-tests] backend-root-11 1/3
+
+[1m[30m[46m RUN [49m[39m[22m [36mv4.1.10 [39m[90mC:/Users/evega/Documents/EvaluaPro/apps/backend[39m
+
+ [32m✓[39m tests/omr.porFolioDataset.test.ts [2m([22m[2m5 tests[22m[2m)[22m[32m 17[2mms[22m[39m
+
+[2m Test Files [22m [1m[32m1 passed[39m[22m[90m (1)[39m
+[2m      Tests [22m [1m[32m5 passed[39m[22m[90m (5)[39m
+[2m   Start at [22m 23:08:27
+[2m   Duration [22m 265ms[2m (transform 63ms, setup 48ms, import 67ms, tests 17ms, environment 0ms)[22m
+
+[backend-tests] backend-root-12 1/3
+
+[1m[30m[46m RUN [49m[39m[22m [36mv4.1.10 [39m[90mC:/Users/evega/Documents/EvaluaPro/apps/backend[39m
+
+ [32m✓[39m tests/omr.prevalidacion.test.ts [2m([22m[2m1 test[22m[2m)[22m[32m 18[2mms[22m[39m
+
+[2m Test Files [22m [1m[32m1 passed[39m[22m[90m (1)[39m
+[2m      Tests [22m [1m[32m1 passed[39m[22m[90m (1)[39m
+[2m   Start at [22m 23:08:28
+[2m   Duration [22m 551ms[2m (transform 215ms, setup 48ms, import 355ms, tests 18ms, environment 0ms)[22m
+
+[backend-tests] backend-root-13 1/3
+
+[1m[30m[46m RUN [49m[39m[22m [36mv4.1.10 [39m[90mC:/Users/evega/Documents/EvaluaPro/apps/backend[39m
+
+ [32m✓[39m tests/omr.test.ts [2m([22m[2m6 tests[22m[2m)[22m[33m 1825[2mms[22m[39m
+     [33m[2m✓[22m[39m detecta una opcion marcada con referencias de registro [33m 382[2mms[22m[39m
+     [33m[2m✓[22m[39m marca como ambiguo si hay doble respuesta [33m 330[2mms[22m[39m
+     [33m[2m✓[22m[39m distingue burbuja hueca de burbuja realmente marcada [33m 314[2mms[22m[39m
+     [33m[2m✓[22m[39m penaliza trazos lineales y prioriza relleno central real [32m 300[2mms[22m[39m
+     [33m[2m✓[22m[39m detecta marca azul con dominante de iluminacion calida [33m 401[2mms[22m[39m
+
+[2m Test Files [22m [1m[32m1 passed[39m[22m[90m (1)[39m
+[2m      Tests [22m [1m[32m6 passed[39m[22m[90m (6)[39m
+[2m   Start at [22m 23:08:29
+[2m   Duration [22m 2.27s[2m (transform 180ms, setup 47ms, import 262ms, tests 1.82s, environment 0ms)[22m
+
+[backend-tests] backend-root-14 1/3
+
+[1m[30m[46m RUN [49m[39m[22m [36mv4.1.10 [39m[90mC:/Users/evega/Documents/EvaluaPro/apps/backend[39m
+
+ [32m✓[39m tests/omr.tv3.porFolioValidation.test.ts [2m([22m[2m2 tests[22m[2m)[22m[32m 42[2mms[22m[39m
+
+[2m Test Files [22m [1m[32m1 passed[39m[22m[90m (1)[39m
+[2m      Tests [22m [1m[32m2 passed[39m[22m[90m (2)[39m
+[2m   Start at [22m 23:08:31
+[2m   Duration [22m 240ms[2m (transform 62ms, setup 47ms, import 20ms, tests 42ms, environment 0ms)[22m
+
+[backend-tests] backend-root-15 1/3
+
+[1m[30m[46m RUN [49m[39m[22m [36mv4.1.10 [39m[90mC:/Users/evega/Documents/EvaluaPro/apps/backend[39m
+
+ [32m✓[39m tests/omr.tv3.realGolden.test.ts [2m([22m[2m1 test[22m[2m)[22m[33m 35883[2mms[22m[39m
+     [33m[2m✓[22m[39m resuelve preguntas reales seleccionadas del lote Por Folio sin flags criticos [33m 35880[2mms[22m[39m
+
+[2m Test Files [22m [1m[32m1 passed[39m[22m[90m (1)[39m
+[2m      Tests [22m [1m[32m1 passed[39m[22m[90m (1)[39m
+[2m   Start at [22m 23:08:32
+[2m   Duration [22m 36.34s[2m (transform 176ms, setup 48ms, import 256ms, tests 35.88s, environment 0ms)[22m
+
+[backend-tests] backend-root-16 1/3
+
+[1m[30m[46m RUN [49m[39m[22m [36mv4.1.10 [39m[90mC:/Users/evega/Documents/EvaluaPro/apps/backend[39m
+
+ [32m✓[39m tests/omr.v1.workflow.test.ts [2m([22m[2m4 tests[22m[2m)[22m[32m 8[2mms[22m[39m
+
+[2m Test Files [22m [1m[32m1 passed[39m[22m[90m (1)[39m
+[2m      Tests [22m [1m[32m4 passed[39m[22m[90m (4)[39m
+[2m   Start at [22m 23:09:09
+[2m   Duration [22m 208ms[2m (transform 50ms, setup 48ms, import 22ms, tests 8ms, environment 0ms)[22m
+
+[backend-tests] backend-root-17 1/3
+
+[1m[30m[46m RUN [49m[39m[22m [36mv4.1.10 [39m[90mC:/Users/evega/Documents/EvaluaPro/apps/backend[39m
+
+ [32m✓[39m tests/papelera.controlador.test.ts [2m([22m[2m7 tests[22m[2m)[22m[33m 2167[2mms[22m[39m
+ [32m✓[39m tests/papelera.servicio.test.ts [2m([22m[2m1 test[22m[2m)[22m[33m 1164[2mms[22m[39m
+ [32m✓[39m tests/pdf.image-formats.test.ts [2m([22m[2m1 test[22m[2m)[22m[33m 888[2mms[22m[39m
+     [33m[2m✓[22m[39m renderiza imagen de pregunta en data URL webp [33m 885[2mms[22m[39m
+ [32m✓[39m tests/pdf.engine.resolver.test.ts [2m([22m[2m6 tests[22m[2m)[22m[32m 7[2mms[22m[39m
+
+[2m Test Files [22m [1m[32m4 passed[39m[22m[90m (4)[39m
+[2m      Tests [22m [1m[32m15 passed[39m[22m[90m (15)[39m
+[2m   Start at [22m 23:09:09
+[2m   Duration [22m 5.60s[2m (transform 260ms, setup 82ms, import 781ms, tests 4.23s, environment 0ms)[22m
+
+[backend-tests] backend-root-18 1/3
+
+[1m[30m[46m RUN [49m[39m[22m [36mv4.1.10 [39m[90mC:/Users/evega/Documents/EvaluaPro/apps/backend[39m
+
+ [32m✓[39m tests/pdf.paridad.test.ts [2m([22m[2m2 tests[22m[2m)[22m[33m 1477[2mms[22m[39m
+     [33m[2m✓[22m[39m genera PDF carta válido y mapa OMR TV4 [33m 790[2mms[22m[39m
+     [33m[2m✓[22m[39m mantiene consistencia de QR TV4 por página [33m 684[2mms[22m[39m
+ [32m✓[39m tests/pdf.layout.visual.guard.test.ts [2m([22m[2m1 test[22m[2m)[22m[33m 836[2mms[22m[39m
+     [33m[2m✓[22m[39m valida no solapes, cajas dentro de pagina y densidad controlada por pagina [33m 833[2mms[22m[39m
+ [32m✓[39m tests/pdf.renderer.fallback.test.ts [2m([22m[2m2 tests[22m[2m)[22m[33m 347[2mms[22m[39m
+ [32m✓[39m tests/pdf.numeroPaginasPlantilla.test.ts [2m([22m[2m2 tests[22m[2m)[22m[32m 4[2mms[22m[39m
+
+[2m Test Files [22m [1m[32m4 passed[39m[22m[90m (4)[39m
+[2m      Tests [22m [1m[32m7 passed[39m[22m[90m (7)[39m
+[2m   Start at [22m 23:09:15
+[2m   Duration [22m 4.71s[2m (transform 206ms, setup 81ms, import 1.44s, tests 2.66s, environment 0ms)[22m
+
+[backend-tests] backend-root-19 1/3
+
+[1m[30m[46m RUN [49m[39m[22m [36mv4.1.10 [39m[90mC:/Users/evega/Documents/EvaluaPro/apps/backend[39m
+
+ [32m✓[39m tests/pdf.tv4.compatibilidad.test.ts [2m([22m[2m1 test[22m[2m)[22m[33m 722[2mms[22m[39m
+     [33m[2m✓[22m[39m genera TV4 manteniendo contrato OMR enriquecido [33m 719[2mms[22m[39m
+ [32m✓[39m tests/pdf.tv3.compatibilidad.test.ts [2m([22m[2m2 tests[22m[2m)[22m[33m 756[2mms[22m[39m
+     [33m[2m✓[22m[39m normaliza preguntas de 4 opciones a contrato TV3 de 5 opciones OMR [33m 752[2mms[22m[39m
+ [32m✓[39m tests/porFolioCanonicalSeed.test.ts [2m([22m[2m2 tests[22m[2m)[22m[32m 6[2mms[22m[39m
+ [32m✓[39m tests/pdf.visual.baseline.test.ts [2m([22m[2m1 test[22m[2m)[22m[32m 6[2mms[22m[39m
+
+[2m Test Files [22m [1m[32m4 passed[39m[22m[90m (4)[39m
+[2m      Tests [22m [1m[32m6 passed[39m[22m[90m (6)[39m
+[2m   Start at [22m 23:09:20
+[2m   Duration [22m 3.10s[2m (transform 210ms, setup 81ms, import 1.03s, tests 1.49s, environment 0ms)[22m
+
+[backend-tests] backend-root-20 1/3
+
+[1m[30m[46m RUN [49m[39m[22m [36mv4.1.10 [39m[90mC:/Users/evega/Documents/EvaluaPro/apps/backend[39m
+
+ [32m✓[39m tests/rateLimit.test.ts [2m([22m[2m1 test[22m[2m)[22m[33m 4327[2mms[22m[39m
+     [33m[2m✓[22m[39m responde 429 al exceder el limite [33m 3312[2mms[22m[39m
+[90mstdout[2m | tests/robustez.test.ts[2m > [22m[2mRobustez Endpoints V2 - Ola 3 Fase 2[2m > [22m[2mCircuit Breaker[2m > [22m[2mtransiciona a semiluza después de recuperación
+[22m[39m[CIRCUIT_BREAKER] {
+  nombre: [32m'test-cb'[39m,
+  evento: [32m'transicion_semiluza'[39m,
+  duracionAberturaMs: [33m121[39m
+}
+
+[90mstdout[2m | tests/robustez.test.ts[2m > [22m[2mRobustez Endpoints V2 - Ola 3 Fase 2[2m > [22m[2mCircuit Breaker[2m > [22m[2mtransiciona a semiluza después de recuperación
+[22m[39m[CIRCUIT_BREAKER] { nombre: [32m'test-cb'[39m, evento: [32m'recuperado_cerrado'[39m }
+
+[90mstdout[2m | tests/robustez.test.ts[2m > [22m[2mRobustez Endpoints V2 - Ola 3 Fase 2[2m > [22m[2mIntegración Retry + Circuit Breaker[2m > [22m[2mcircuit breaker abierto después de fallos continuos con retry
+[22m[39m[CIRCUIT_BREAKER] {
+  nombre: [32m'test-integrado'[39m,
+  evento: [32m'transicion_semiluza'[39m,
+  duracionAberturaMs: [33m112[39m
+}
+
+ [32m✓[39m tests/robustez.test.ts [2m([22m[2m20 tests[22m[2m)[22m[33m 653[2mms[22m[39m
+ [32m✓[39m tests/recovery.manifest.test.ts [2m([22m[2m2 tests[22m[2m)[22m[32m 16[2mms[22m[39m
+ [32m✓[39m tests/qr.examen.test.ts [2m([22m[2m1 test[22m[2m)[22m[32m 7[2mms[22m[39m
+
+[2m Test Files [22m [1m[32m4 passed[39m[22m[90m (4)[39m
+[2m      Tests [22m [1m[32m24 passed[39m[22m[90m (24)[39m
+[2m   Start at [22m 23:09:24
+[2m   Duration [22m 5.85s[2m (transform 1.39s, setup 83ms, import 257ms, tests 5.00s, environment 0ms)[22m
+
+[backend-tests] backend-root-21 1/3
+
+[1m[30m[46m RUN [49m[39m[22m [36mv4.1.10 [39m[90mC:/Users/evega/Documents/EvaluaPro/apps/backend[39m
+
+ [32m✓[39m tests/rutasSalud.test.ts [2m([22m[2m6 tests[22m[2m)[22m[32m 90[2mms[22m[39m
+ [32m✓[39m tests/salud.test.ts [2m([22m[2m6 tests[22m[2m)[22m[32m 61[2mms[22m[39m
+ [32m✓[39m tests/servicioClassroomGoogle.test.ts [2m([22m[2m10 tests[22m[2m)[22m[32m 48[2mms[22m[39m
+ [32m✓[39m tests/servicioCorreo.test.ts [2m([22m[2m2 tests[22m[2m)[22m[32m 16[2mms[22m[39m
+
+[2m Test Files [22m [1m[32m4 passed[39m[22m[90m (4)[39m
+[2m      Tests [22m [1m[32m24 passed[39m[22m[90m (24)[39m
+[2m   Start at [22m 23:09:30
+[2m   Duration [22m 3.53s[2m (transform 1.28s, setup 82ms, import 2.70s, tests 214ms, environment 0ms)[22m
+
+[backend-tests] backend-root-22 1/3
+
+[1m[30m[46m RUN [49m[39m[22m [36mv4.1.10 [39m[90mC:/Users/evega/Documents/EvaluaPro/apps/backend[39m
+
+ [32m✓[39m tests/sincronizacion.contrato.test.ts [2m([22m[2m2 tests[22m[2m)[22m[33m 1350[2mms[22m[39m
+ [32m✓[39m tests/sincronizacion.backupMeta.test.ts [2m([22m[2m5 tests[22m[2m)[22m[32m 123[2mms[22m[39m
+ [32m✓[39m tests/servicioEncuadrePdf.test.ts [2m([22m[2m3 tests[22m[2m)[22m[32m 67[2mms[22m[39m
+ [32m✓[39m tests/sincronizacion.desde.test.ts [2m([22m[2m3 tests[22m[2m)[22m[32m 6[2mms[22m[39m
+
+[2m Test Files [22m [1m[32m4 passed[39m[22m[90m (4)[39m
+[2m      Tests [22m [1m[32m13 passed[39m[22m[90m (13)[39m
+[2m   Start at [22m 23:09:34
+[2m   Duration [22m 2.79s[2m (transform 271ms, setup 81ms, import 635ms, tests 1.55s, environment 0ms)[22m
+
+[backend-tests] backend-root-23 1/3
+
+[1m[30m[46m RUN [49m[39m[22m [36mv4.1.10 [39m[90mC:/Users/evega/Documents/EvaluaPro/apps/backend[39m
+
+ [32m✓[39m tests/sincronizacion.test.ts [2m([22m[2m13 tests[22m[2m)[22m[33m 4053[2mms[22m[39m
+     [33m[2m✓[22m[39m permite importar por correo cuando cambia el docenteId [33m 330[2mms[22m[39m
+     [33m[2m✓[22m[39m sincroniza entre computadoras aplicando version mas reciente aunque lleguen paquetes fuera de orden [33m 536[2mms[22m[39m
+ [32m✓[39m tests/validar.test.ts [2m([22m[2m3 tests[22m[2m)[22m[32m 37[2mms[22m[39m
+ [32m✓[39m tests/utils/mongo.test.ts [2m([22m[2m1 test[22m[2m)[22m[32m 5[2mms[22m[39m
+ [32m✓[39m tests/sincronizacion.usecases.cobertura.test.ts [2m([22m[2m1 test[22m[2m)[22m[32m 4[2mms[22m[39m
+
+[2m Test Files [22m [1m[32m4 passed[39m[22m[90m (4)[39m
+[2m      Tests [22m [1m[32m18 passed[39m[22m[90m (18)[39m
+[2m   Start at [22m 23:09:37
+[2m   Duration [22m 5.09s[2m (transform 276ms, setup 82ms, import 395ms, tests 4.10s, environment 0ms)[22m
+
+[backend-tests] backend-root-24 1/3
+
+[1m[30m[46m RUN [49m[39m[22m [36mv4.1.10 [39m[90mC:/Users/evega/Documents/EvaluaPro/apps/backend[39m
+
+ [32m✓[39m tests/vinculacionEntrega.controlador.test.ts [2m([22m[2m8 tests[22m[2m)[22m[32m 10[2mms[22m[39m
+ [32m✓[39m tests/variantes.test.ts [2m([22m[2m1 test[22m[2m)[22m[32m 5[2mms[22m[39m
+
+[2m Test Files [22m [1m[32m2 passed[39m[22m[90m (2)[39m
+[2m      Tests [22m [1m[32m9 passed[39m[22m[90m (9)[39m
+[2m   Start at [22m 23:09:42
+[2m   Duration [22m 393ms[2m (transform 71ms, setup 59ms, import 53ms, tests 15ms, environment 0ms)[22m
+
+[backend-tests] backend-calificacion-omr-payload 1/3
+
+[1m[30m[46m RUN [49m[39m[22m [36mv4.1.10 [39m[90mC:/Users/evega/Documents/EvaluaPro/apps/backend[39m
+
+ [32m✓[39m tests/calificacion.omr.payload.test.ts [2m([22m[2m9 tests[22m[2m)[22m[33m 12328[2mms[22m[39m
+     [33m[2m✓[22m[39m rechaza payload OMR con longitud de respuestas inconsistente [33m 1526[2mms[22m[39m
+     [33m[2m✓[22m[39m rechaza folio de payload que no coincide [33m 1273[2mms[22m[39m
+     [33m[2m✓[22m[39m exige metadata de revisión cuando revisionConfirmada=true y estado!=ok [33m 1203[2mms[22m[39m
+     [33m[2m✓[22m[39m bloquea guardado automatico cuando estadoAnalisis!=ok y no hay revisionConfirmada [33m 1197[2mms[22m[39m
+     [33m[2m✓[22m[39m rechaza paginasOmr sin omrAnalisis completo [33m 1189[2mms[22m[39m
+     [33m[2m✓[22m[39m rechaza qrTexto con variante distinta a la del examen generado [33m 1253[2mms[22m[39m
+     [33m[2m✓[22m[39m rechaza qrTexto con clave correcta distinta a la del examen generado [33m 1172[2mms[22m[39m
+     [33m[2m✓[22m[39m rechaza qrTexto con firma invalida aunque el resto del payload parezca consistente [33m 1189[2mms[22m[39m
+     [33m[2m✓[22m[39m acepta calificación cuando qrTexto enriquecido coincide con la variante y la clave [33m 1238[2mms[22m[39m
+
+[2m Test Files [22m [1m[32m1 passed[39m[22m[90m (1)[39m
+[2m      Tests [22m [1m[32m9 passed[39m[22m[90m (9)[39m
+[2m   Start at [22m 23:09:43
+[2m   Duration [22m 15.09s[2m (transform 1.30s, setup 67ms, import 2.55s, tests 12.33s, environment 0ms)[22m
+
+[backend-tests] backend-integracion-a-m-01 1/3
+
+[1m[30m[46m RUN [49m[39m[22m [36mv4.1.10 [39m[90mC:/Users/evega/Documents/EvaluaPro/apps/backend[39m
+
+ [32m✓[39m tests/integracion/archivarExamenGenerado.test.ts [2m([22m[2m2 tests[22m[2m)[22m[33m 4235[2mms[22m[39m
+     [33m[2m✓[22m[39m permite archivar un examen en estado generado [33m 1591[2mms[22m[39m
+     [33m[2m✓[22m[39m permite archivar un examen entregado [33m 1561[2mms[22m[39m
+ [32m✓[39m tests/integracion/autenticacion.googleOnly.test.ts [2m([22m[2m3 tests[22m[2m)[22m[33m 3088[2mms[22m[39m
+     [33m[2m✓[22m[39m expone capacidades y bloquea flujos por contraseña [33m 1402[2mms[22m[39m
+ [32m✓[39m tests/integracion/asistencia.reglas.test.ts [2m([22m[2m1 test[22m[2m)[22m[33m 1573[2mms[22m[39m
+     [33m[2m✓[22m[39m debe gestionar sesiones de asistencia, pases de lista, reglas y excepciones [33m 506[2mms[22m[39m
+ [32m✓[39m tests/integracion/alumnosEdicion.test.ts [2m([22m[2m1 test[22m[2m)[22m[33m 1532[2mms[22m[39m
+     [33m[2m✓[22m[39m permite actualizar datos del alumno (mismo docente) [33m 467[2mms[22m[39m
+
+[2m Test Files [22m [1m[32m4 passed[39m[22m[90m (4)[39m
+[2m      Tests [22m [1m[32m7 passed[39m[22m[90m (7)[39m
+[2m   Start at [22m 23:09:59
+[2m   Duration [22m 16.29s[2m (transform 1.37s, setup 98ms, import 5.24s, tests 10.43s, environment 0ms)[22m
+
+[backend-tests] backend-integracion-a-m-02 1/3
+
+[1m[30m[46m RUN [49m[39m[22m [36mv4.1.10 [39m[90mC:/Users/evega/Documents/EvaluaPro/apps/backend[39m
+
+ [32m✓[39m tests/integracion/autenticacionSesion.test.ts [2m([22m[2m5 tests[22m[2m)[22m[33m 3430[2mms[22m[39m
+     [33m[2m✓[22m[39m emite refresh cookie al registrar y permite refrescar token [33m 465[2mms[22m[39m
+     [33m[2m✓[22m[39m permite ingresar con Google para un docente existente [33m 414[2mms[22m[39m
+     [33m[2m✓[22m[39m permite definir contrasena despues de registrar con Google [33m 664[2mms[22m[39m
+     [33m[2m✓[22m[39m permite recuperar contrasena via Google y luego ingresar con password [33m 666[2mms[22m[39m
+ [32m✓[39m tests/integracion/autenticacion.recuperacion.test.ts [2m([22m[2m2 tests[22m[2m)[22m[33m 2245[2mms[22m[39m
+     [33m[2m✓[22m[39m solicita recuperacion, restablece y permite login con nueva contrasena [33m 951[2mms[22m[39m
+ [32m✓[39m tests/integracion/bancoPreguntasAsignarMateria.test.ts [2m([22m[2m1 test[22m[2m)[22m[33m 1546[2mms[22m[39m
+     [33m[2m✓[22m[39m ya no expone sinMateria ni asignar-materia [33m 453[2mms[22m[39m
+ [32m✓[39m tests/integracion/autorizacion.test.ts [2m([22m[2m2 tests[22m[2m)[22m[32m 29[2mms[22m[39m
+
+[2m Test Files [22m [1m[32m4 passed[39m[22m[90m (4)[39m
+[2m      Tests [22m [1m[32m10 passed[39m[22m[90m (10)[39m
+[2m   Start at [22m 23:10:15
+[2m   Duration [22m 13.82s[2m (transform 1.30s, setup 79ms, import 5.97s, tests 7.25s, environment 0ms)[22m
+
+[backend-tests] backend-integracion-a-m-03 1/3
+
+[1m[30m[46m RUN [49m[39m[22m [36mv4.1.10 [39m[90mC:/Users/evega/Documents/EvaluaPro/apps/backend[39m
+
+ [32m✓[39m tests/integracion/calificacionGlobalContratoE2E.test.ts [2m([22m[2m1 test[22m[2m)[22m[33m 2671[2mms[22m[39m
+     [33m[2m✓[22m[39m persiste campos globales y exporta columna global/final [33m 1613[2mms[22m[39m
+ [32m✓[39m tests/integracion/calificacionOmrPrioridad.test.ts [2m([22m[2m1 test[22m[2m)[22m[33m 2312[2mms[22m[39m
+     [33m[2m✓[22m[39m ignora aciertos manuales cuando existen respuestasDetectadas [33m 1279[2mms[22m[39m
+ [32m✓[39m tests/integracion/classroom.audit.test.ts [2m([22m[2m4 tests[22m[2m)[22m[33m 1770[2mms[22m[39m
+ [32m✓[39m tests/integracion/classroom.pull.test.ts [2m([22m[2m2 tests[22m[2m)[22m[33m 1416[2mms[22m[39m
+
+[2m Test Files [22m [1m[32m4 passed[39m[22m[90m (4)[39m
+[2m      Tests [22m [1m[32m8 passed[39m[22m[90m (8)[39m
+[2m   Start at [22m 23:10:29
+[2m   Duration [22m 14.97s[2m (transform 1.44s, setup 84ms, import 6.20s, tests 8.17s, environment 0ms)[22m
+
+[backend-tests] backend-integracion-a-m-04 1/3
+
+[1m[30m[46m RUN [49m[39m[22m [36mv4.1.10 [39m[90mC:/Users/evega/Documents/EvaluaPro/apps/backend[39m
+
+ [32m✓[39m tests/integracion/comercial.webhook.mercadopago.firma.test.ts [2m([22m[2m4 tests[22m[2m)[22m[33m 4136[2mms[22m[39m
+ [32m✓[39m tests/integracion/encuadre.modulo.test.ts [2m([22m[2m4 tests[22m[2m)[22m[33m 1866[2mms[22m[39m
+ [32m✓[39m tests/integracion/classroom.v2.test.ts [2m([22m[2m3 tests[22m[2m)[22m[33m 1604[2mms[22m[39m
+ [32m✓[39m tests/integracion/compliance.arco.test.ts [2m([22m[2m2 tests[22m[2m)[22m[33m 1470[2mms[22m[39m
+
+[2m Test Files [22m [1m[32m4 passed[39m[22m[90m (4)[39m
+[2m      Tests [22m [1m[32m13 passed[39m[22m[90m (13)[39m
+[2m   Start at [22m 23:10:45
+[2m   Duration [22m 13.60s[2m (transform 1.39s, setup 89ms, import 3.88s, tests 9.08s, environment 0ms)[22m
+
+[backend-tests] backend-integracion-a-m-05 1/3
+
+[1m[30m[46m RUN [49m[39m[22m [36mv4.1.10 [39m[90mC:/Users/evega/Documents/EvaluaPro/apps/backend[39m
+
+ [32m✓[39m tests/integracion/flujoDocenteAlumnoProduccionLikeE2E.test.ts [2m([22m[2m1 test[22m[2m)[22m[33m 7804[2mms[22m[39m
+     [33m[2m✓[22m[39m encadena flujo parcial/global y valida trazabilidad + metricas [33m 3056[2mms[22m[39m
+ [32m✓[39m tests/integracion/examenesRetention.test.ts [2m([22m[2m2 tests[22m[2m)[22m[33m 6134[2mms[22m[39m
+     [33m[2m✓[22m[39m ejecuta purge dry-run y real, conservando metadata y devolviendo 410 al descargar [33m 1410[2mms[22m[39m
+     [33m[2m✓[22m[39m devuelve 410 al descargar el PDF de lote despues de expurgar sus artefactos [33m 3687[2mms[22m[39m
+ [32m✓[39m tests/integracion/evaluaciones.modulo.test.ts [2m([22m[2m5 tests[22m[2m)[22m[33m 2073[2mms[22m[39m
+
+[2m Test Files [22m [1m[32m3 passed[39m[22m[90m (3)[39m
+[2m      Tests [22m [1m[32m8 passed[39m[22m[90m (8)[39m
+[2m   Start at [22m 23:10:59
+[2m   Duration [22m 19.07s[2m (transform 1.66s, setup 74ms, import 2.59s, tests 16.01s, environment 0ms)[22m
+
+[backend-tests] backend-integracion-n-z-01 1/3
+
+[1m[30m[46m RUN [49m[39m[22m [36mv4.1.10 [39m[90mC:/Users/evega/Documents/EvaluaPro/apps/backend[39m
+
+[90mstdout[2m | tests/integracion/flujoDocenteGlobalE2E.test.ts[2m > [22m[2mflujo docente e2e (global)[2m > [22m[2mcompleta flujo global y exporta CSV/DOCX/firma consistente
+[22m[39m[Cache DOCX] MISS para clave 6a823096-ab3a-474f-bcd9-abf566477be3_1
+
+[90mstdout[2m | tests/integracion/flujoDocenteGlobalE2E.test.ts[2m > [22m[2mflujo docente e2e (global)[2m > [22m[2mcompleta flujo global y exporta CSV/DOCX/firma consistente
+[22m[39m[Cache DOCX] HIT para clave 6a823096-ab3a-474f-bcd9-abf566477be3_1
+
+ [32m✓[39m tests/integracion/flujoDocenteGlobalE2E.test.ts [2m([22m[2m1 test[22m[2m)[22m[33m 2776[2mms[22m[39m
+     [33m[2m✓[22m[39m completa flujo global y exporta CSV/DOCX/firma consistente [33m 1659[2mms[22m[39m
+
+[2m Test Files [22m [1m[32m1 passed[39m[22m[90m (1)[39m
+[2m      Tests [22m [1m[32m1 passed[39m[22m[90m (1)[39m
+[2m   Start at [22m 23:11:18
+[2m   Duration [22m 5.66s[2m (transform 1.37s, setup 50ms, import 2.68s, tests 2.78s, environment 0ms)[22m
+
+[backend-tests] backend-integracion-n-z-02 1/3
+
+[1m[30m[46m RUN [49m[39m[22m [36mv4.1.10 [39m[90mC:/Users/evega/Documents/EvaluaPro/apps/backend[39m
+
+[90mstdout[2m | tests/integracion/flujoDocenteParcialE2E.test.ts[2m > [22m[2mflujo docente e2e (parcial)[2m > [22m[2mcompleta flujo parcial y exporta CSV/DOCX/firma consistente
+[22m[39m[Cache DOCX] MISS para clave c85c4f3a-8b50-4ed4-98f4-bd5b911233bf_1
+
+[90mstdout[2m | tests/integracion/flujoDocenteParcialE2E.test.ts[2m > [22m[2mflujo docente e2e (parcial)[2m > [22m[2mcompleta flujo parcial y exporta CSV/DOCX/firma consistente
+[22m[39m[Cache DOCX] HIT para clave c85c4f3a-8b50-4ed4-98f4-bd5b911233bf_1
+
+ [32m✓[39m tests/integracion/flujoDocenteParcialE2E.test.ts [2m([22m[2m1 test[22m[2m)[22m[33m 2744[2mms[22m[39m
+     [33m[2m✓[22m[39m completa flujo parcial y exporta CSV/DOCX/firma consistente [33m 1666[2mms[22m[39m
+
+[2m Test Files [22m [1m[32m1 passed[39m[22m[90m (1)[39m
+[2m      Tests [22m [1m[32m1 passed[39m[22m[90m (1)[39m
+[2m   Start at [22m 23:11:24
+[2m   Duration [22m 5.39s[2m (transform 1.29s, setup 50ms, import 2.47s, tests 2.74s, environment 0ms)[22m
+
+[backend-tests] backend-integracion-n-z-03 1/3
+
+[1m[30m[46m RUN [49m[39m[22m [36mv4.1.10 [39m[90mC:/Users/evega/Documents/EvaluaPro/apps/backend[39m
+
+[90mstdout[2m | tests/integracion/listaAcademicaContratos.test.ts[2m > [22m[2mcontratos de seguridad y observabilidad de lista academica[2m > [22m[2mpublica contadores de exportacion en /api/metrics
+[22m[39m[Cache DOCX] MISS para clave d1756f4a-a5d1-43fe-bbec-e0cb690fb82f_1
+
+[90mstdout[2m | tests/integracion/listaAcademicaContratos.test.ts[2m > [22m[2mcontratos de seguridad y observabilidad de lista academica[2m > [22m[2mpublica contadores de exportacion en /api/metrics
+[22m[39m[Cache DOCX] HIT para clave d1756f4a-a5d1-43fe-bbec-e0cb690fb82f_1
+
+ [32m✓[39m tests/integracion/listaAcademicaContratos.test.ts [2m([22m[2m3 tests[22m[2m)[22m[33m 6126[2mms[22m[39m
+     [33m[2m✓[22m[39m requiere permiso analiticas:leer y periodoId para exportar [33m 1686[2mms[22m[39m
+     [33m[2m✓[22m[39m publica contadores de exportacion en /api/metrics [33m 1644[2mms[22m[39m
+     [33m[2m✓[22m[39m no expone token o secretos en logs durante exportacion [33m 1707[2mms[22m[39m
+ [32m✓[39m tests/integracion/omrV1Workflow.test.ts [2m([22m[2m4 tests[22m[2m)[22m[33m 3542[2mms[22m[39m
+     [33m[2m✓[22m[39m congela preview/generate con la misma seed y rechaza fingerprint obsoleto [33m 694[2mms[22m[39m
+     [33m[2m✓[22m[39m genera roster con student packets y expone artefactos descargables [33m 653[2mms[22m[39m
+     [33m[2m✓[22m[39m procesa job OMR, rescora una hoja revisada y finaliza resultados [33m 551[2mms[22m[39m
+     [33m[2m✓[22m[39m acepta captura PDF y la expande por página antes del análisis [33m 592[2mms[22m[39m
+ [32m✓[39m tests/integracion/flujoExamen.test.ts [2m([22m[2m1 test[22m[2m)[22m[33m 2832[2mms[22m[39m
+     [33m[2m✓[22m[39m crea periodo, alumno, banco, plantilla, examen, vincula y califica [33m 1779[2mms[22m[39m
+ [32m✓[39m tests/integracion/hidratacionCursos.test.ts [2m([22m[2m2 tests[22m[2m)[22m[33m 2195[2mms[22m[39m
+     [33m[2m✓[22m[39m previsualiza XLSX/DOCX e importa alumnos y evidencias de forma idempotente [33m 625[2mms[22m[39m
+     [33m[2m✓[22m[39m clasifica un examen global DOCX con reactivos como global externo [33m 430[2mms[22m[39m
+
+[2m Test Files [22m [1m[32m4 passed[39m[22m[90m (4)[39m
+[2m      Tests [22m [1m[32m10 passed[39m[22m[90m (10)[39m
+[2m   Start at [22m 23:11:30
+[2m   Duration [22m 21.42s[2m (transform 1.33s, setup 82ms, import 6.10s, tests 14.70s, environment 0ms)[22m
+
+[backend-tests] backend-integracion-n-z-04 1/3
+
+[1m[30m[46m RUN [49m[39m[22m [36mv4.1.10 [39m[90mC:/Users/evega/Documents/EvaluaPro/apps/backend[39m
+
+ [32m✓[39m tests/integracion/pdfImpresionContrato.test.ts [2m([22m[2m1 test[22m[2m)[22m[33m 2707[2mms[22m[39m
+     [33m[2m✓[22m[39m genera PDF carta trazable y eficiente para impresion [33m 1634[2mms[22m[39m
+
+[2m Test Files [22m [1m[32m1 passed[39m[22m[90m (1)[39m
+[2m      Tests [22m [1m[32m1 passed[39m[22m[90m (1)[39m
+[2m   Start at [22m 23:11:52
+[2m   Duration [22m 5.46s[2m (transform 1.34s, setup 49ms, import 2.56s, tests 2.71s, environment 0ms)[22m
+
+[backend-tests] backend-integracion-n-z-05 1/3
+
+[1m[30m[46m RUN [49m[39m[22m [36mv4.1.10 [39m[90mC:/Users/evega/Documents/EvaluaPro/apps/backend[39m
+
+ [32m✓[39m tests/integracion/qrEscaneoOmr.test.ts [2m([22m[2m3 tests[22m[2m)[22m[33m 6656[2mms[22m[39m
+     [33m[2m✓[22m[39m lee el QR esperado de una imagen y lo asocia al folio/pagina [33m 2062[2mms[22m[39m
+     [33m[2m✓[22m[39m si el QR corresponde a otro folio, lo detecta y advierte mismatch [33m 1767[2mms[22m[39m
+     [33m[2m✓[22m[39m rechaza un QR con firma de integridad invalida [33m 1764[2mms[22m[39m
+ [32m✓[39m tests/integracion/plantillasCrudYPreview.test.ts [2m([22m[2m3 tests[22m[2m)[22m[33m 6421[2mms[22m[39m
+     [33m[2m✓[22m[39m permite editar, previsualizar y archivar una plantilla sin examenes generados [33m 2063[2mms[22m[39m
+     [33m[2m✓[22m[39m permite archivar una plantilla con examenes generados [33m 1267[2mms[22m[39m
+     [33m[2m✓[22m[39m invalida cache de preview pdf cuando cambia una pregunta del banco [33m 2082[2mms[22m[39m
+ [32m✓[39m tests/integracion/periodosBorradoDuplicados.test.ts [2m([22m[2m4 tests[22m[2m)[22m[33m 4080[2mms[22m[39m
+     [33m[2m✓[22m[39m evita crear dos materias con el mismo nombre (normalizado) [33m 434[2mms[22m[39m
+     [33m[2m✓[22m[39m archiva una materia y conserva lo asociado [33m 1609[2mms[22m[39m
+     [33m[2m✓[22m[39m archiva una materia (la oculta de activas) y guarda resumen [33m 550[2mms[22m[39m
+     [33m[2m✓[22m[39m permite editar datos de una materia activa [33m 417[2mms[22m[39m
+ [32m✓[39m tests/integracion/plantillasDuplicadas.test.ts [2m([22m[2m2 tests[22m[2m)[22m[33m 1902[2mms[22m[39m
+     [33m[2m✓[22m[39m rechaza crear plantilla duplicada por nombre (case/espacios-insensitive) [33m 442[2mms[22m[39m
+     [33m[2m✓[22m[39m rechaza actualizar plantilla si el nuevo titulo ya existe [33m 442[2mms[22m[39m
+
+[2m Test Files [22m [1m[32m4 passed[39m[22m[90m (4)[39m
+[2m      Tests [22m [1m[32m12 passed[39m[22m[90m (12)[39m
+[2m   Start at [22m 23:11:58
+[2m   Duration [22m 25.60s[2m (transform 1.30s, setup 88ms, import 5.94s, tests 19.06s, environment 0ms)[22m
+
+[backend-tests] backend-integracion-n-z-06 1/3
+
+[1m[30m[46m RUN [49m[39m[22m [36mv4.1.10 [39m[90mC:/Users/evega/Documents/EvaluaPro/apps/backend[39m
+
+ [32m✓[39m tests/integracion/recoveryBundleGeneracion.test.ts [2m([22m[2m3 tests[22m[2m)[22m[33m 5927[2mms[22m[39m
+     [33m[2m✓[22m[39m persiste manifiesto firmado y keyId de QR en examen individual [33m 1378[2mms[22m[39m
+     [33m[2m✓[22m[39m persiste bundle firmado por lote y lo referencia desde los exámenes [33m 2945[2mms[22m[39m
+     [33m[2m✓[22m[39m reporta progreso de lote en estados iniciando, generando y completado [33m 552[2mms[22m[39m
+
+[2m Test Files [22m [1m[32m1 passed[39m[22m[90m (1)[39m
+[2m      Tests [22m [1m[32m3 passed[39m[22m[90m (3)[39m
+[2m   Start at [22m 23:12:24
+[2m   Duration [22m 8.62s[2m (transform 1.30s, setup 48ms, import 2.51s, tests 5.93s, environment 0ms)[22m
+
+[backend-tests] backend-integracion-n-z-07 1/3
+
+[1m[30m[46m RUN [49m[39m[22m [36mv4.1.10 [39m[90mC:/Users/evega/Documents/EvaluaPro/apps/backend[39m
+
+ [32m✓[39m tests/integracion/recuperacionExamenes.test.ts [2m([22m[2m2 tests[22m[2m)[22m[33m 7804[2mms[22m[39m
+     [33m[2m✓[22m[39m verifica y reconstruye un examen desde manifest [33m 2147[2mms[22m[39m
+     [33m[2m✓[22m[39m reconstruye un lote completo desde bundle y conserva idempotencia por manifest [33m 4541[2mms[22m[39m
+
+[2m Test Files [22m [1m[32m1 passed[39m[22m[90m (1)[39m
+[2m      Tests [22m [1m[32m2 passed[39m[22m[90m (2)[39m
+[2m   Start at [22m 23:12:33
+[2m   Duration [22m 10.35s[2m (transform 1.22s, setup 48ms, import 2.37s, tests 7.80s, environment 0ms)[22m
+
+[backend-tests] backend-integracion-n-z-08 1/3
+
+[1m[30m[46m RUN [49m[39m[22m [36mv4.1.10 [39m[90mC:/Users/evega/Documents/EvaluaPro/apps/backend[39m
+
+ [32m✓[39m tests/integracion/regenerarExamenGenerado.test.ts [2m([22m[2m1 test[22m[2m)[22m[33m 3522[2mms[22m[39m
+     [33m[2m✓[22m[39m regenera PDF y recalcula paginas (requiere forzar si ya fue descargado) [33m 2396[2mms[22m[39m
+ [32m✓[39m tests/integracion/temario.pdf.test.ts [2m([22m[2m3 tests[22m[2m)[22m[33m 3280[2mms[22m[39m
+       [33m[2m✓[22m[39m debe parsear correctamente temas y subtemas numerados [33m 605[2mms[22m[39m
+       [33m[2m✓[22m[39m debe crear un temario manualmente, listar nodos, actualizar estado y calcular avance [33m 478[2mms[22m[39m
+       [33m[2m✓[22m[39m debe fallar al intentar parsear un PDF sin texto válido [33m 856[2mms[22m[39m
+ [32m✓[39m tests/integracion/versionadoApiV2Contratos.test.ts [2m([22m[2m1 test[22m[2m)[22m[33m 2598[2mms[22m[39m
+     [33m[2m✓[22m[39m mantiene /api/* y rechaza /api/v2/* [33m 1552[2mms[22m[39m
+ [32m✓[39m tests/integracion/rolesPermisos.test.ts [2m([22m[2m10 tests[22m[2m)[22m[33m 2435[2mms[22m[39m
+
+[2m Test Files [22m [1m[32m4 passed[39m[22m[90m (4)[39m
+[2m      Tests [22m [1m[32m15 passed[39m[22m[90m (15)[39m
+[2m   Start at [22m 23:12:43
+[2m   Duration [22m 18.43s[2m (transform 1.31s, setup 80ms, import 6.01s, tests 11.84s, environment 0ms)[22m
+
+[backend-tests] backend-aislamiento 1/3
+
+[1m[30m[46m RUN [49m[39m[22m [36mv4.1.10 [39m[90mC:/Users/evega/Documents/EvaluaPro/apps/backend[39m
+
+ [32m✓[39m tests/integracion/aislamientoDocente.test.ts [2m([22m[2m5 tests[22m[2m)[22m[33m 9628[2mms[22m[39m
+     [33m[2m✓[22m[39m no lista recursos de otro docente (periodos/alumnos/banco/plantillas) [33m 1783[2mms[22m[39m
+     [33m[2m✓[22m[39m no permite generar un examen con plantilla de otro docente [33m 1815[2mms[22m[39m
+     [33m[2m✓[22m[39m no permite vincular ni calificar examenes de otro docente [33m 1651[2mms[22m[39m
+     [33m[2m✓[22m[39m no lista banderas de otro docente [33m 1670[2mms[22m[39m
+     [33m[2m✓[22m[39m no permite acceder a examenes de otro docente [33m 1666[2mms[22m[39m
+
+[2m Test Files [22m [1m[32m1 passed[39m[22m[90m (1)[39m
+[2m      Tests [22m [1m[32m5 passed[39m[22m[90m (5)[39m
+[2m   Start at [22m 23:13:02
+[2m   Duration [22m 12.12s[2m (transform 1.19s, setup 47ms, import 2.31s, tests 9.63s, environment 0ms)[22m
+
+[msi][step 4/10] Tests portal CI
+
+> evaluapro@1.1.1 test:portal:ci
+> node scripts/retry.mjs --name portal --attempts 3 --delay-ms 750 --command "npm -C apps/portal_alumno_cloud run test"
+
+[retry:portal] intento 1/3: npm -C apps/portal_alumno_cloud run test
+
+> portal-alumno-cloud@1.1.0 test
+> vitest run
+
+
+[1m[30m[46m RUN [49m[39m[22m [36mv4.1.10 [39m[90mC:/Users/evega/Documents/EvaluaPro/apps/portal_alumno_cloud[39m
+
+ [32m✓[39m tests/logger.test.ts [2m([22m[2m2 tests[22m[2m)[22m[32m 40[2mms[22m[39m
+ [32m✓[39m tests/configuracion.entorno.test.ts [2m([22m[2m2 tests[22m[2m)[22m[32m 40[2mms[22m[39m
+ [32m✓[39m tests/sesion.test.ts [2m([22m[2m1 test[22m[2m)[22m[32m 9[2mms[22m[39m
+ [32m✓[39m tests/configuracion.produccion.test.ts [2m([22m[2m2 tests[22m[2m)[22m[32m 87[2mms[22m[39m
+ [32m✓[39m tests/errores.test.ts [2m([22m[2m2 tests[22m[2m)[22m[32m 30[2mms[22m[39m
+[90mstdout[2m | tests/rateLimit.test.ts[2m > [22m[2mrate limit (portal)[2m > [22m[2mresponde 429 al exceder el limite
+[22m[39m{"timestamp":"2026-08-19T05:13:16.488Z","service":"portal-alumno","env":"test","level":"info","message":"HTTP request","requestId":"fb8cf6dd-c259-421b-bc5e-660e0ea8efc5","route":"/api/portal/salud","method":"GET","status":200,"durationMs":11}
+
+[90mstdout[2m | tests/salud.test.ts[2m > [22m[2msalud portal[2m > [22m[2mexpone salud, live y ready
+[22m[39m{"timestamp":"2026-08-19T05:13:16.494Z","service":"portal-alumno","env":"test","level":"info","message":"HTTP request","requestId":"ef948b11-6381-4e9e-a652-e1e383f40b02","route":"/api/portal/salud","method":"GET","status":200,"durationMs":10}
+
+[90mstdout[2m | tests/rateLimit.test.ts[2m > [22m[2mrate limit (portal)[2m > [22m[2mresponde 429 al exceder el limite
+[22m[39m{"timestamp":"2026-08-19T05:13:16.497Z","service":"portal-alumno","env":"test","level":"info","message":"HTTP request","requestId":"d4e8296b-81f0-4639-8c87-1834c2cdf9e8","route":"/api/portal/salud","method":"GET","status":200,"durationMs":0}
+
+[90mstdout[2m | tests/salud.test.ts[2m > [22m[2msalud portal[2m > [22m[2mexpone salud, live y ready
+[22m[39m{"timestamp":"2026-08-19T05:13:16.503Z","service":"portal-alumno","env":"test","level":"info","message":"HTTP request","requestId":"d3c51daf-f3a7-4ee2-99cf-9bffec44cde4","route":"/api/portal/salud/live","method":"GET","status":200,"durationMs":1}
+
+ [32m✓[39m tests/rateLimit.test.ts [2m([22m[2m1 test[22m[2m)[22m[33m 337[2mms[22m[39m
+     [33m[2m✓[22m[39m responde 429 al exceder el limite [33m 332[2mms[22m[39m
+[90mstdout[2m | tests/salud.test.ts[2m > [22m[2msalud portal[2m > [22m[2mexpone salud, live y ready
+[22m[39m{"timestamp":"2026-08-19T05:13:16.514Z","service":"portal-alumno","env":"test","level":"info","message":"HTTP request","requestId":"6af57e61-48bd-465d-b61a-47e481c50c79","route":"/api/portal/salud/ready","method":"GET","status":200,"durationMs":6}
+
+ [32m✓[39m tests/apiKey.test.ts [2m([22m[2m3 tests[22m[2m)[22m[32m 56[2mms[22m[39m
+[90mstdout[2m | tests/contrato/validaciones.test.ts[2m > [22m[2mcontrato (portal)[2m > [22m[2mprotege limpiar con x-api-key y normaliza dias
+[22m[39m{"timestamp":"2026-08-19T05:13:16.521Z","service":"portal-alumno","env":"test","level":"info","message":"HTTP request","requestId":"a45c90d1-ad12-4110-a79e-dd47331a4fc6","route":"/api/portal/limpiar","method":"POST","status":200,"durationMs":1}
+
+[90mstdout[2m | tests/salud.test.ts[2m > [22m[2msalud portal[2m > [22m[2mexpone métricas del portal
+[22m[39m{"timestamp":"2026-08-19T05:13:16.521Z","service":"portal-alumno","env":"test","level":"info","message":"HTTP request","requestId":"c10e9af0-c277-4a68-b415-880a91ac58de","route":"/api/portal/metrics","method":"GET","status":200,"durationMs":1}
+
+[90mstdout[2m | tests/salud.test.ts[2m > [22m[2msalud portal[2m > [22m[2mexpone version en /api/portal/version
+[22m[39m{"timestamp":"2026-08-19T05:13:16.527Z","service":"portal-alumno","env":"test","level":"info","message":"HTTP request","requestId":"4ffd57f6-c159-47eb-913c-587a782d954d","route":"/api/portal/version","method":"GET","status":200,"durationMs":1}
+
+ [32m✓[39m tests/salud.test.ts [2m([22m[2m3 tests[22m[2m)[22m[32m 68[2mms[22m[39m
+ [32m✓[39m tests/contrato/validaciones.test.ts [2m([22m[2m9 tests[22m[2m)[22m[33m 427[2mms[22m[39m
+     [33m[2m✓[22m[39m rechaza ingresar sin codigo/matricula [33m 327[2mms[22m[39m
+[90mstdout[2m | tests/integracion/portal.test.ts[2m > [22m[2mportal alumno[2m > [22m[2msincroniza y permite consultar resultados
+[22m[39m{"timestamp":"2026-08-19T05:13:17.577Z","service":"portal-alumno","env":"test","level":"info","message":"HTTP request","requestId":"4da92887-3bd6-4220-af46-cc94a78d53ee","route":"/api/portal/sincronizar","method":"POST","status":200,"durationMs":70}
+
+ [32m✓[39m tests/middlewareSesion.test.ts [2m([22m[2m3 tests[22m[2m)[22m[33m 1236[2mms[22m[39m
+[90mstdout[2m | tests/integracion/portal.test.ts[2m > [22m[2mportal alumno[2m > [22m[2msincroniza y permite consultar resultados
+[22m[39m{"timestamp":"2026-08-19T05:13:17.606Z","service":"portal-alumno","env":"test","level":"info","message":"HTTP request","requestId":"367a167b-5cf8-474a-abb6-397926833a12","route":"/api/portal/ingresar","method":"POST","status":200,"durationMs":15}
+
+[90mstdout[2m | tests/integracion/portal.test.ts[2m > [22m[2mportal alumno[2m > [22m[2msincroniza y permite consultar resultados
+[22m[39m{"timestamp":"2026-08-19T05:13:17.612Z","service":"portal-alumno","env":"test","level":"info","message":"HTTP request","requestId":"faabebd5-0d17-4847-8dbd-bb9295ef6b3d","route":"/api/portal/resultados","method":"GET","status":200,"durationMs":2,"userId":"507f1f77bcf86cd799439012"}
+
+[90mstdout[2m | tests/integracion/portal.test.ts[2m > [22m[2mportal alumno[2m > [22m[2msincroniza y permite consultar resultados
+[22m[39m{"timestamp":"2026-08-19T05:13:17.617Z","service":"portal-alumno","env":"test","level":"info","message":"HTTP request","requestId":"7fd49c0d-ef42-4cdd-8696-52dc5cc286aa","route":"/api/portal/examen/:folio","method":"GET","status":200,"durationMs":2,"userId":"507f1f77bcf86cd799439012"}
+
+[90mstdout[2m | tests/integracion/portal.test.ts[2m > [22m[2mportal alumno[2m > [22m[2msincroniza y permite consultar resultados
+[22m[39m{"timestamp":"2026-08-19T05:13:17.622Z","service":"portal-alumno","env":"test","level":"info","message":"HTTP request","requestId":"d9fabce2-6115-4ad3-b4c3-d819839c31e3","route":"/api/portal/perfil","method":"GET","status":200,"durationMs":2,"userId":"507f1f77bcf86cd799439012"}
+
+[90mstdout[2m | tests/integracion/portal.test.ts[2m > [22m[2mportal alumno[2m > [22m[2msincroniza y permite consultar resultados
+[22m[39m{"timestamp":"2026-08-19T05:13:17.626Z","service":"portal-alumno","env":"test","level":"info","message":"HTTP request","requestId":"63477973-aad8-4341-830b-5dcab07a4813","route":"/api/portal/materias","method":"GET","status":200,"durationMs":2,"userId":"507f1f77bcf86cd799439012"}
+
+[90mstdout[2m | tests/integracion/portal.test.ts[2m > [22m[2mportal alumno[2m > [22m[2msincroniza y permite consultar resultados
+[22m[39m{"timestamp":"2026-08-19T05:13:17.630Z","service":"portal-alumno","env":"test","level":"info","message":"HTTP request","requestId":"724cbf6e-a01c-433b-bc31-de07ba5c83de","route":"/api/portal/agenda","method":"GET","status":200,"durationMs":1,"userId":"507f1f77bcf86cd799439012"}
+
+[90mstdout[2m | tests/integracion/portal.test.ts[2m > [22m[2mportal alumno[2m > [22m[2msincroniza y permite consultar resultados
+[22m[39m{"timestamp":"2026-08-19T05:13:17.634Z","service":"portal-alumno","env":"test","level":"info","message":"HTTP request","requestId":"51073f7e-ca7b-4844-82d5-d5bf7cc8b3cb","route":"/api/portal/avisos","method":"GET","status":200,"durationMs":2,"userId":"507f1f77bcf86cd799439012"}
+
+[90mstdout[2m | tests/integracion/portal.test.ts[2m > [22m[2mportal alumno[2m > [22m[2msincroniza y permite consultar resultados
+[22m[39m{"timestamp":"2026-08-19T05:13:17.639Z","service":"portal-alumno","env":"test","level":"info","message":"HTTP request","requestId":"efaad97f-7485-45bd-949e-c174e8c1bc97","route":"/api/portal/historial","method":"GET","status":200,"durationMs":2,"userId":"507f1f77bcf86cd799439012"}
+
+[90mstdout[2m | tests/integracion/portal.test.ts[2m > [22m[2mportal alumno[2m > [22m[2macepta y expone desglose de evaluación (final decimal/redondeada)
+[22m[39m{"timestamp":"2026-08-19T05:13:17.713Z","service":"portal-alumno","env":"test","level":"info","message":"HTTP request","requestId":"a4440781-0766-490e-b153-fd4e41817e80","route":"/api/portal/sincronizar","method":"POST","status":200,"durationMs":13}
+
+[90mstdout[2m | tests/integracion/portal.test.ts[2m > [22m[2mportal alumno[2m > [22m[2macepta y expone desglose de evaluación (final decimal/redondeada)
+[22m[39m{"timestamp":"2026-08-19T05:13:17.728Z","service":"portal-alumno","env":"test","level":"info","message":"HTTP request","requestId":"57a11c4a-dbf0-4c2e-82d6-16161f66e7dc","route":"/api/portal/ingresar","method":"POST","status":200,"durationMs":12}
+
+[90mstdout[2m | tests/integracion/portal.test.ts[2m > [22m[2mportal alumno[2m > [22m[2macepta y expone desglose de evaluación (final decimal/redondeada)
+[22m[39m{"timestamp":"2026-08-19T05:13:17.731Z","service":"portal-alumno","env":"test","level":"info","message":"HTTP request","requestId":"8483dc91-711a-459e-964f-2d95ecb62c29","route":"/api/portal/resultados","method":"GET","status":200,"durationMs":1,"userId":"507f1f77bcf86cd799439032"}
+
+[90mstdout[2m | tests/integracion/portal.test.ts[2m > [22m[2mportal alumno[2m > [22m[2mpermite solicitar revision por pregunta y sincronizarla para docente
+[22m[39m{"timestamp":"2026-08-19T05:13:17.865Z","service":"portal-alumno","env":"test","level":"info","message":"HTTP request","requestId":"08bc1047-ea54-4f5d-86c3-dc38b63c665b","route":"/api/portal/sincronizar","method":"POST","status":200,"durationMs":12}
+
+[90mstdout[2m | tests/integracion/portal.test.ts[2m > [22m[2mportal alumno[2m > [22m[2mpermite solicitar revision por pregunta y sincronizarla para docente
+[22m[39m{"timestamp":"2026-08-19T05:13:17.879Z","service":"portal-alumno","env":"test","level":"info","message":"HTTP request","requestId":"a96ff9ca-0c7c-4800-9423-7e2475914f83","route":"/api/portal/ingresar","method":"POST","status":200,"durationMs":12}
+
+[90mstdout[2m | tests/integracion/portal.test.ts[2m > [22m[2mportal alumno[2m > [22m[2mpermite solicitar revision por pregunta y sincronizarla para docente
+[22m[39m{"timestamp":"2026-08-19T05:13:17.891Z","service":"portal-alumno","env":"test","level":"info","message":"HTTP request","requestId":"ab7d6a0a-0292-4dc1-be20-1fec04e058fe","route":"/api/portal/solicitudes-revision","method":"POST","status":201,"durationMs":10,"userId":"507f1f77bcf86cd799439022"}
+
+[90mstdout[2m | tests/integracion/portal.test.ts[2m > [22m[2mportal alumno[2m > [22m[2mpermite solicitar revision por pregunta y sincronizarla para docente
+[22m[39m{"timestamp":"2026-08-19T05:13:17.897Z","service":"portal-alumno","env":"test","level":"info","message":"HTTP request","requestId":"6fd414b5-5baa-47df-8619-6e4d51193c28","route":"/api/portal/sincronizacion-docente/solicitudes-revision/pull","method":"POST","status":200,"durationMs":1}
+
+[90mstdout[2m | tests/integracion/portal.test.ts[2m > [22m[2mportal alumno[2m > [22m[2mpermite solicitar revision por pregunta y sincronizarla para docente
+[22m[39m{"timestamp":"2026-08-19T05:13:17.905Z","service":"portal-alumno","env":"test","level":"info","message":"HTTP request","requestId":"efeb584d-ffa1-4422-8d59-ccd0454b6c87","route":"/api/portal/sincronizacion-docente/solicitudes-revision/update","method":"POST","status":200,"durationMs":6}
+
+ [32m✓[39m tests/integracion/portal.test.ts [2m([22m[2m4 tests[22m[2m)[22m[33m 1435[2mms[22m[39m
+
+[2m Test Files [22m [1m[32m11 passed[39m[22m[90m (11)[39m
+[2m      Tests [22m [1m[32m32 passed[39m[22m[90m (32)[39m
+[2m   Start at [22m 23:13:15
+[2m   Duration [22m 2.20s[2m (transform 1.43s, setup 469ms, import 2.81s, tests 3.76s, environment 1ms)[22m
+
+[retry:portal] ok
+[msi][step 5/10] Tests frontend CI
+
+> evaluapro@1.1.1 test:frontend:ci
+> node scripts/retry.mjs --name frontend --attempts 5 --delay-ms 900 --command "npm -C apps/frontend run test -- --pool=forks --reporter=verbose" --fallback-command "npm -C apps/frontend run test -- --pool=threads --reporter=verbose"
+
+[retry:frontend] intento 1/5: npm -C apps/frontend run test -- --pool=forks --reporter=verbose
+
+> frontend@1.1.0 test
+> vitest run --pool=forks --reporter=verbose
+
+
+[1m[30m[46m RUN [49m[39m[22m [36mv4.1.10 [39m[90mC:/Users/evega/Documents/EvaluaPro/apps/frontend[39m
+
+ [32m✓[39m tests/centroClassroom.behavior.test.tsx[2m > [22mCentroClassroom behavior[2m > [22mmuestra estado no disponible cuando el backend classroom esta deshabilitado[32m 43[2mms[22m[39m
+ [32m✓[39m tests/centroClassroom.behavior.test.tsx[2m > [22mCentroClassroom behavior[2m > [22mmuestra mensaje amigable cuando Classroom no esta configurado en backend[32m 25[2mms[22m[39m
+ [32m✓[39m tests/sincronizacion.behavior.test.tsx[2m > [22msincronizacion UI behavior[2m > [22menvia push y pull con parametros de sincronizacion entre equipos[33m 411[2mms[22m[39m
+ [32m✓[39m tests/sincronizacion.behavior.test.tsx[2m > [22msincronizacion UI behavior[2m > [22mconsulta estado remoto y muestra resumen de sincronizacion[32m 81[2mms[22m[39m
+ [32m✓[39m tests/gui.responsive.contract.test.tsx[2m > [22mGUI responsive contract[2m > [22mcalificaciones conserva contenedores responsive críticos[33m 393[2mms[22m[39m
+ [32m✓[39m tests/gui.responsive.contract.test.tsx[2m > [22mGUI responsive contract[2m > [22malumno mantiene shell principal renderizable[32m 30[2mms[22m[39m
+ [32m✓[39m tests/gui.responsive.contract.test.tsx[2m > [22mGUI responsive contract[2m > [22madmin negocio mantiene shell responsive principal[32m 72[2mms[22m[39m
+ [32m✓[39m tests/gui.responsive.contract.test.tsx[2m > [22mGUI responsive contract[2m > [22mstyles incluye guardas responsive globales[32m 3[2mms[22m[39m
+ [32m✓[39m tests/appDocente.dominiosCobertura.test.tsx[2m > [22mcobertura dominios docente[2m > [22mrenderiza SeccionAlumnos[32m 239[2mms[22m[39m
+ [32m✓[39m tests/plantillas.refactor.test.tsx[2m > [22mplantillas refactor comportamiento[2m > [22mrenderiza formulario, listado y generados[33m 458[2mms[22m[39m
+ [32m✓[39m tests/plantillas.refactor.test.tsx[2m > [22mplantillas refactor comportamiento[2m > [22mbloquea crear y generar cuando faltan permisos de gestión/generación[32m 163[2mms[22m[39m
+ [32m✓[39m tests/plantillas.refactor.test.tsx[2m > [22mplantillas refactor comportamiento[2m > [22maplica filtro de listado por título[32m 74[2mms[22m[39m
+ [32m✓[39m tests/sincronizacion.behavior.test.tsx[2m > [22msincronizacion UI behavior[2m > [22mimporta paquete con validacion dry-run y aplicacion final[32m 182[2mms[22m[39m
+ [32m✓[39m tests/sincronizacion.behavior.test.tsx[2m > [22msincronizacion UI behavior[2m > [22mrechaza backup expirado antes de llamar onImportar[32m 46[2mms[22m[39m
+ [32m✓[39m tests/sincronizacion.behavior.test.tsx[2m > [22msincronizacion UI behavior[2m > [22mrechaza backup invalidado por fingerprint incompatible[32m 46[2mms[22m[39m
+ [32m✓[39m tests/centroClassroom.behavior.test.tsx[2m > [22mCentroClassroom behavior[2m > [22mrecorre el flujo UI de cursos, mapeo, preview, importacion y reconexion oauth[33m 903[2mms[22m[39m
+ [32m✓[39m tests/appDocente.dominiosCobertura.test.tsx[2m > [22mcobertura dominios docente[2m > [22mrenderiza SeccionCuenta[32m 206[2mms[22m[39m
+ [32m✓[39m tests/appDocente.dominiosCobertura.test.tsx[2m > [22mcobertura dominios docente[2m > [22mrenderiza SeccionRegistroEntrega[32m 95[2mms[22m[39m
+ [32m✓[39m tests/appDocente.dominiosCobertura.test.tsx[2m > [22mcobertura dominios docente[2m > [22mrenderiza SeccionEntrega[32m 169[2mms[22m[39m
+ [32m✓[39m tests/appDocente.dominiosCobertura.test.tsx[2m > [22mcobertura dominios docente[2m > [22mrenderiza SeccionCalificar[32m 28[2mms[22m[39m
+ [32m✓[39m tests/appDocente.dominiosCobertura.test.tsx[2m > [22mcobertura dominios docente[2m > [22masigna 5.00 con todos los aciertos y deshabilita bonus[32m 29[2mms[22m[39m
+ [32m✓[39m tests/appDocente.dominiosCobertura.test.tsx[2m > [22mcobertura dominios docente[2m > [22mrenderiza SeccionCalificaciones[32m 87[2mms[22m[39m
+ [32m✓[39m tests/appDocente.dominiosCobertura.test.tsx[2m > [22mcobertura dominios docente[2m > [22mrenderiza SeccionPublicar[32m 38[2mms[22m[39m
+ [32m✓[39m tests/appDocente.dominiosCobertura.test.tsx[2m > [22mcobertura dominios docente[2m > [22mgenera codigo y sincroniza resultados antes de mostrarlo[32m 101[2mms[22m[39m
+ [32m✓[39m tests/appDocente.dominiosCobertura.test.tsx[2m > [22mcobertura dominios docente[2m > [22mrenderiza SeccionPaqueteSincronizacion[32m 39[2mms[22m[39m
+ [32m✓[39m tests/appDocente.dominiosCobertura.test.tsx[2m > [22mcobertura dominios docente[2m > [22mrenderiza SeccionSincronizacionEquipos[32m 40[2mms[22m[39m
+ [32m✓[39m tests/appDocente.dominiosCobertura.test.tsx[2m > [22mcobertura dominios docente[2m > [22mrenderiza SeccionSincronizacion[32m 205[2mms[22m[39m
+ [32m✓[39m tests/escaneo.refactor.test.tsx[2m > [22mescaneo refactor comportamiento[2m > [22mrenderiza la mesa de escaneo con secciones principales[33m 387[2mms[22m[39m
+ [32m✓[39m tests/escaneo.refactor.test.tsx[2m > [22mescaneo refactor comportamiento[2m > [22mexpone QR de acceso móvil[32m 6[2mms[22m[39m
+ [32m✓[39m tests/seccionAutenticacion.test.tsx[2m > [22mSeccionAutenticacion[2m > [22mingresa con correo/contrasena y notifica token[33m 551[2mms[22m[39m
+ [32m✓[39m tests/seccionPeriodos.listasInstitucionales.test.tsx[2m > [22mSeccionPeriodos listas institucionales[2m > [22mpermite descargar XLSX y PDF institucional por periodo activo[33m 966[2mms[22m[39m
+ [32m✓[39m tests/escaneo.refactor.test.tsx[2m > [22mescaneo refactor comportamiento[2m > [22mmantiene la revisión confirmada al cambiar entre páginas[33m 522[2mms[22m[39m
+ [32m✓[39m tests/seccionAutenticacion.test.tsx[2m > [22mSeccionAutenticacion[2m > [22mpermite registrar cuenta por formulario[33m 629[2mms[22m[39m
+ [32m✓[39m tests/updatePanel.behavior.test.tsx[2m > [22mUpdatePanel[2m > [22mhabilita acciones según estado[33m 331[2mms[22m[39m
+ [32m✓[39m tests/updatePanel.behavior.test.tsx[2m > [22mUpdatePanel[2m > [22mmuestra bloqueo y error en fase applying/error[32m 80[2mms[22m[39m
+ [32m✓[39m tests/banco.refactor.test.tsx[2m > [22mbanco refactor comportamiento[2m > [22mrenderiza banco y bloquea edición sin permiso de gestión[33m 636[2mms[22m[39m
+ [32m✓[39m tests/escaneo.refactor.test.tsx[2m > [22mescaneo refactor comportamiento[2m > [22mmantiene confirmación al cambiar página con pills P1/P2[33m 385[2mms[22m[39m
+ [32m✓[39m tests/escaneo.refactor.test.tsx[2m > [22mescaneo refactor comportamiento[2m > [22mmantiene aciertos y calificación globales del examen al cambiar de página[32m 241[2mms[22m[39m
+ [32m✓[39m tests/seccionAutenticacion.test.tsx[2m > [22mSeccionAutenticacion[2m > [22mbloquea crear cuenta cuando faltan datos en registro[33m 319[2mms[22m[39m
+ [32m✓[39m tests/appAdminNegocio.navigation.test.tsx[2m > [22mAppAdminNegocio navigation[2m > [22mexpone etiquetas de vista y permite recargar la vista activa[33m 1587[2mms[22m[39m
+ [32m✓[39m tests/updatePanel.behavior.test.tsx[2m > [22mUpdatePanel[2m > [22musa valores por defecto cuando faltan datos de estado[32m 15[2mms[22m[39m
+ [32m✓[39m tests/updatePanel.behavior.test.tsx[2m > [22mUpdatePanel[2m > [22mbloquea acciones durante checking/downloading y habilita cancelar en descarga[32m 186[2mms[22m[39m
+ [32m✓[39m tests/seccionPeriodos.edit.test.tsx[2m > [22mSeccionPeriodos edición[2m > [22mentra en modo edición de materia[33m 715[2mms[22m[39m
+ [32m✓[39m tests/seccionCalificaciones.manualSelector.test.tsx[2m > [22mSeccionCalificaciones manual selector[2m > [22mmuestra tipo en selector y en encabezado al activar modo manual[33m 1725[2mms[22m[39m
+ [32m✓[39m tests/appDocente.test.tsx[2m > [22mAppDocente[2m > [22mmuestra formulario de acceso cuando no hay token[32m 150[2mms[22m[39m
+ [32m✓[39m tests/seccionEvaluaciones.test.tsx[2m > [22mSeccionEvaluaciones[2m > [22mrenderiza y guarda configuración de política[33m 724[2mms[22m[39m
+ [32m✓[39m tests/seccionEvaluaciones.test.tsx[2m > [22mSeccionEvaluaciones[2m > [22mmaneja fallos de red (offline/500) de forma resiliente sin colapsar[32m 234[2mms[22m[39m
+ [32m✓[39m tests/appDocente.test.tsx[2m > [22mAppDocente[2m > [22mmuestra panel docente cuando existe token[33m 673[2mms[22m[39m
+ [32m✓[39m tests/ux.quality.test.tsx[2m > [22mUX quality contract[2m > [22mdocente sin token muestra acceso guiado y navegacion comprensible[33m 717[2mms[22m[39m
+ [32m✓[39m tests/seccionCalificaciones.manualSelector.test.tsx[2m > [22mSeccionCalificaciones manual selector[2m > [22mevita bucle de reintentos cuando /calificaciones/examen responde 404[33m 332[2mms[22m[39m
+ [32m✓[39m tests/seccionCalificaciones.manualSelector.test.tsx[2m > [22mSeccionCalificaciones manual selector[2m > [22mrehidrata la revisión histórica por páginas al seleccionar examen calificado[32m 71[2mms[22m[39m
+ [32m✓[39m tests/appDocente.test.tsx[2m > [22mAppDocente[2m > [22moculta secciones sin permisos[32m 285[2mms[22m[39m
+ [32m✓[39m tests/seccionAsistencias.test.tsx[2m > [22mSeccionAsistencias (Resiliencia)[2m > [22mmaneja fallos de red al cargar el resumen de asistencias sin colapsar[33m 456[2mms[22m[39m
+ [32m✓[39m tests/seccionCalificaciones.manualSelector.test.tsx[2m > [22mSeccionCalificaciones manual selector[2m > [22mdescarga reporte CSV de la materia seleccionada[33m 638[2mms[22m[39m
+ [32m✓[39m tests/appDocente.previewConsolidado.test.tsx[2m > [22mAppDocente - preview consolidado[2m > [22menvía respuestas consolidadas de todo el examen en soloPreview[33m 1739[2mms[22m[39m
+ [32m✓[39m tests/seccionAsistencias.test.tsx[2m > [22mSeccionAsistencias (Resiliencia)[2m > [22mmaneja fallos al guardar un pase de lista (DB offline)[33m 343[2mms[22m[39m
+ [32m✓[39m tests/appDocente.secciones.test.tsx[2m > [22mAppDocente secciones (refactor)[2m > [22mmuestra tabs principales con token[33m 1814[2mms[22m[39m
+ [32m✓[39m tests/appDocente.test.tsx[2m > [22mAppDocente[2m > [22mpermite crear materia sin crashear el render[33m 783[2mms[22m[39m
+ [32m✓[39m tests/ux.quality.test.tsx[2m > [22mUX quality contract[2m > [22mdocente con token mantiene tabs con iconografia y ayudas por seccion critica[33m 1048[2mms[22m[39m
+ [32m✓[39m tests/ux.quality.test.tsx[2m > [22mUX quality contract[2m > [22malumno sin token muestra login claro con ayuda contextual y acciones visibles[32m 170[2mms[22m[39m
+ [32m✓[39m tests/ux.quality.test.tsx[2m > [22mUX quality contract[2m > [22madmin negocio con permisos muestra ayuda contextual y navegación entendible[32m 95[2mms[22m[39m
+ [32m✓[39m tests/appAlumno.test.tsx[2m > [22mAppAlumno[2m > [22mmuestra formulario de acceso sin token[32m 113[2mms[22m[39m
+ [32m✓[39m tests/appAlumno.test.tsx[2m > [22mAppAlumno[2m > [22mmuestra boton salir con token[32m 20[2mms[22m[39m
+ [32m✓[39m tests/appAlumno.test.tsx[2m > [22mAppAlumno[2m > [22mmuestra estado sin resultados con token[32m 286[2mms[22m[39m
+ [32m✓[39m tests/gui.responsive.audit.test.ts[2m > [22mGUI responsive audit[2m > [22mevita estilos inline en pantallas Docente/Alumno[32m 80[2mms[22m[39m
+ [32m✓[39m tests/seccionAutenticacion.googleOnly.test.tsx[2m > [22mSeccionAutenticacion google-only[2m > [22mmuestra modo Google-only y oculta el login por contraseña[32m 106[2mms[22m[39m
+ [32m✓[39m tests/versionInfo.helpers.test.tsx[2m > [22mversion info helpers[2m > [22mexpone version visible y tecnica desde env y abre popup de version[32m 4[2mms[22m[39m
+ [32m✓[39m tests/versionInfo.helpers.test.tsx[2m > [22mversion info helpers[2m > [22mrenderiza fallback tecnico, portal alumno y mensaje sin tecnologias cuando falta displayVersion[32m 96[2mms[22m[39m
+ [32m✓[39m tests/versionInfoPage.test.tsx[2m > [22mVersionInfoPage[2m > [22mrenderiza repo del desarrollador y tecnologías[33m 395[2mms[22m[39m
+ [32m✓[39m tests/ux.visual.test.tsx[2m > [22mUX visual regression[2m > [22mdocente sin token mantiene layout de acceso[32m 175[2mms[22m[39m
+ [32m✓[39m tests/ux.visual.test.tsx[2m > [22mUX visual regression[2m > [22malumno sin token mantiene layout de acceso[32m 57[2mms[22m[39m
+ [32m✓[39m tests/ux.visual.test.tsx[2m > [22mUX visual regression[2m > [22madmin negocio mantiene layout principal[32m 61[2mms[22m[39m
+ [32m✓[39m tests/pwa.contract.test.ts[2m > [22mPWA frontend contracts[2m > [22mmanifests docente y alumno tienen identidad estable e iconos PNG reales[32m 9[2mms[22m[39m
+ [32m✓[39m tests/pwa.contract.test.ts[2m > [22mPWA frontend contracts[2m > [22mpublica estado observable y sincroniza recursos PWA del destino activo[32m 106[2mms[22m[39m
+ [32m✓[39m tests/pwa.contract.test.ts[2m > [22mPWA frontend contracts[2m > [22momite registro PWA cuando VITE_DISABLE_PWA=1 y mantiene recursos del shell[32m 6[2mms[22m[39m
+ [32m✓[39m tests/banco.estimadores.test.tsx[2m > [22mestimadores banco[2m > [22mestima alto de pregunta con valor positivo[32m 4[2mms[22m[39m
+ [32m✓[39m tests/banco.estimadores.test.tsx[2m > [22mestimadores banco[2m > [22msugiere preguntas a recortar cuando excede paginas objetivo[32m 1[2mms[22m[39m
+ [32m✓[39m tests/banco.estimadores.test.tsx[2m > [22mBancoAjustePreguntas[2m > [22mrenderiza panel de ajuste y permite seleccionar preguntas[33m 522[2mms[22m[39m
+ [32m✓[39m tests/tema.provider.test.ts[2m > [22mtema unificado[2m > [22musa auto por defecto y mantiene ciclo auto/light/dark[32m 3[2mms[22m[39m
+ [32m✓[39m tests/tema.provider.test.ts[2m > [22mtema unificado[2m > [22mresuelve auto contra el sistema y actualiza theme-color[32m 18[2mms[22m[39m
+ [32m✓[39m tests/tema.provider.test.ts[2m > [22mtema unificado[2m > [22mmigra la clave legacy y tolera errores de storage[32m 1[2mms[22m[39m
+ [32m✓[39m tests/utilidades.appDocente.test.ts[2m > [22mutilidades app docente[2m > [22mobtenerVistaInicial respeta vistas validas y aliases[32m 15[2mms[22m[39m
+ [32m✓[39m tests/utilidades.appDocente.test.ts[2m > [22mutilidades app docente[2m > [22mobtenerVersionPregunta usa version actual y fallback a ultima[32m 1[2mms[22m[39m
+ [32m✓[39m tests/utilidades.appDocente.test.ts[2m > [22mutilidades app docente[2m > [22mpreguntaTieneCodigo detecta patrones en enunciado y opciones[32m 1[2mms[22m[39m
+ [32m✓[39m tests/utilidades.appDocente.test.ts[2m > [22mutilidades app docente[2m > [22mconstruirClaveCorrectaExamen arma clave y orden[32m 2[2mms[22m[39m
+ [32m✓[39m tests/utilidades.appDocente.test.ts[2m > [22mutilidades app docente[2m > [22mprioriza answerKeySet persistido y descarta entradas inválidas[32m 1[2mms[22m[39m
+ [32m✓[39m tests/utilidades.appDocente.test.ts[2m > [22mutilidades app docente[2m > [22mcombina respuestas OMR por pagina y consolida resultado[32m 2[2mms[22m[39m
+ [32m✓[39m tests/utilidades.appDocente.test.ts[2m > [22mutilidades app docente[2m > [22mnormaliza resultado OMR con defaults estables[32m 1[2mms[22m[39m
+ [32m✓[39m tests/utilidades.appDocente.test.ts[2m > [22mutilidades app docente[2m > [22mdominios de correo, etiquetas e ids[32m 2[2mms[22m[39m
+ [32m✓[39m tests/utilidades.appDocente.test.ts[2m > [22mutilidades app docente[2m > [22mpatronNombreMateria acepta y rechaza formatos esperados[32m 1[2mms[22m[39m
+ [32m✓[39m tests/plantillas.hooks.test.tsx[2m > [22mhooks de plantillas[2m > [22musePlantillasGeneradosActions avisa cuando no hay permiso para descargar lote[32m 22[2mms[22m[39m
+ [32m✓[39m tests/plantillas.hooks.test.tsx[2m > [22mhooks de plantillas[2m > [22musePlantillasPreviewActions avisa cuando no hay permiso de previsualizacion[32m 3[2mms[22m[39m
+ [32m✓[39m tests/plantillas.hooks.test.tsx[2m > [22mhooks de plantillas[2m > [22musePlantillasOmrV1Actions avisa cuando no hay permiso para analizar OMR[32m 3[2mms[22m[39m
+ [32m✓[39m tests/app.selector.test.tsx[2m > [22mApp selector[2m > [22mrenderiza alumno sin Google OAuth y marca el destino en el shell[32m 69[2mms[22m[39m
+ [32m✓[39m tests/app.selector.test.tsx[2m > [22mApp selector[2m > [22menvuelve admin negocio con Google OAuth cuando hay client id configurado[32m 11[2mms[22m[39m
+ [32m✓[39m tests/app.selector.test.tsx[2m > [22mApp selector[2m > [22mmuestra version info sin tooltip cuando la ruta hash apunta a esa vista[32m 10[2mms[22m[39m
+ [32m✓[39m tests/confirmDialogProvider.test.tsx[2m > [22mConfirmDialogProvider contract[2m > [22mrechaza usar el hook fuera del provider[32m 24[2mms[22m[39m
+ [32m✓[39m tests/clienteComun.test.ts[2m > [22mfetchConManejoErrores[2m > [22mreintenta cuando recibe status retryable y termina en OK[32m 6[2mms[22m[39m
+ [32m✓[39m tests/clienteComun.test.ts[2m > [22mfetchConManejoErrores[2m > [22mreintenta si el fetcher falla por red y termina en OK[32m 1[2mms[22m[39m
+ [32m✓[39m tests/appAlumno.behavior.test.tsx[2m > [22mAppAlumno behavior[2m > [22mpermite ingresar, cargar contexto académico, abrir detalle, solicitar revisión, registrar conformidad y abrir PDF[33m 5220[2mms[22m[39m
+ [32m✓[39m tests/clienteApi.test.tsx[2m > [22mclienteApi[2m > [22madministra tokens en localStorage[32m 3[2mms[22m[39m
+ [32m✓[39m tests/clienteApi.test.tsx[2m > [22mclienteApi[2m > [22mincluye Authorization cuando hay token[32m 3[2mms[22m[39m
+ [32m✓[39m tests/clienteApi.test.tsx[2m > [22mclienteApi[2m > [22mincluye content-type al enviar payload[32m 1[2mms[22m[39m
+ [32m✓[39m tests/clienteApi.test.tsx[2m > [22mclienteApi[2m > [22mlanza error cuando la API no responde OK[32m 2[2mms[22m[39m
+ [32m✓[39m tests/clienteApi.test.tsx[2m > [22mclienteApi[2m > [22mmuestra el mensaje especifico del backend en 409 (envelope error)[32m 1[2mms[22m[39m
+ [32m✓[39m tests/clienteApi.test.tsx[2m > [22mclienteApi[2m > [22musa body texto como mensaje cuando no hay JSON valido[32m 1[2mms[22m[39m
+ [32m✓[39m tests/clientePortal.test.tsx[2m > [22mclientePortal[2m > [22madministra tokens de alumno en localStorage[32m 3[2mms[22m[39m
+ [32m✓[39m tests/clientePortal.test.tsx[2m > [22mclientePortal[2m > [22mincluye Authorization al consultar con token[32m 2[2mms[22m[39m
+ [32m✓[39m tests/clientePortal.test.tsx[2m > [22mclientePortal[2m > [22menvia JSON con content-type al publicar[32m 1[2mms[22m[39m
+ [32m✓[39m tests/clientePortal.test.tsx[2m > [22mclientePortal[2m > [22mlanza error cuando el portal no responde OK[32m 2[2mms[22m[39m
+ [32m✓[39m tests/portalSw.contract.test.ts[2m > [22mportal service worker contract[2m > [22mdeja navegacion como network-only y falla con el error real[32m 5[2mms[22m[39m
+ [32m✓[39m tests/portalSw.contract.test.ts[2m > [22mportal service worker contract[2m > [22mmantiene /api como network-only[32m 1[2mms[22m[39m
+ [32m✓[39m tests/portalSw.contract.test.ts[2m > [22mportal service worker contract[2m > [22musa cache solo para assets seguros del shell PWA cuando falla la red[32m 1[2mms[22m[39m
+ [32m✓[39m tests/clienteComunMensajes.test.ts[2m > [22mmensajeUsuarioDeErrorConSugerencia[2m > [22mevita repetir una sugerencia equivalente al mensaje base[32m 2[2mms[22m[39m
+ [32m✓[39m tests/clienteComunMensajes.test.ts[2m > [22mmensajeUsuarioDeErrorConSugerencia[2m > [22mmuestra mensaje especifico para servidor de sincronizacion no configurado[32m 0[2mms[22m[39m
+ [32m✓[39m tests/mensajeInline.test.ts[2m > [22mtipoMensajeInline[2m > [22mclasifica credenciales incorrectas como error[32m 2[2mms[22m[39m
+ [32m✓[39m tests/mensajeInline.test.ts[2m > [22mtipoMensajeInline[2m > [22mclasifica invitacion a registrar como info[32m 0[2mms[22m[39m
+ [32m✓[39m tests/mensajeInline.test.ts[2m > [22mtipoMensajeInline[2m > [22mclasifica confirmaciones como ok[32m 0[2mms[22m[39m
+ [32m✓[39m tests/mensajeInline.test.ts[2m > [22mtipoMensajeInline[2m > [22mpor defecto usa info[32m 0[2mms[22m[39m
+ [32m✓[39m tests/appAlumno.behavior.test.tsx[2m > [22mAppAlumno behavior[2m > [22maplica cooldown tras tres intentos fallidos de ingreso[33m 678[2mms[22m[39m
+ [32m✓[39m tests/appAlumno.behavior.test.tsx[2m > [22mAppAlumno behavior[2m > [22mcierra la sesión cuando llega una invalidación externa del tipo alumno[32m 62[2mms[22m[39m
+
+[2m Test Files [22m [1m[32m39 passed[39m[22m[90m (39)[39m
+[2m      Tests [22m [1m[32m121 passed[39m[22m[90m (121)[39m
+[2m   Start at [22m 23:13:19
+[2m   Duration [22m 30.99s[2m (transform 10.13s, setup 69.98s, import 31.93s, tests 32.20s, environment 304.99s)[22m
+
+[retry:frontend] ok
+[msi][step 6/10] Clean architecture check
+
+> evaluapro@1.1.1 qa:clean-architecture:check
+> node scripts/clean-architecture-check.mjs
+
+[clean-architecture] OK -> reports\qa\latest\clean-architecture.json
+[msi][step 7/10] Pipeline contract check
+
+> evaluapro@1.1.1 pipeline:contract:check
+> node scripts/pipeline-contract-check.mjs
+
+✔ ext_perf_arquitectura prepara sharp antes de perf:check (3.6185ms)
+✔ ext_funcionales usa gate OMR TV generico con version configurable (0.8ms)
+✔ ext_funcionales ejecuta PDF print y visual juntos (0.6846ms)
+✔ ext_funcionales conserva quality visual y journeys para UX (0.6179ms)
+✔ core backend ejecuta auditoria focal classroom cuando el mapa la activa (0.6722ms)
+✔ core contract valida installer afectado sin depender del bundle release (0.5707ms)
+✔ workflow CI unifica concurrency por repo fuente y branch fuente (0.6921ms)
+✔ workflow CI expone force_full_ci y gating affected-only en extended (0.7861ms)
+✔ workflows core reservan push para ramas de integracion (4.4505ms)
+✔ workflow CI mantiene schedule full para jobs extended (0.735ms)
+✔ jobs extended generan Prisma antes de importar backend (0.7331ms)
+✔ workflows usan actions oficiales compatibles con runtime Node 24 (9.3419ms)
+✔ gate backend CI usa runner por lotes para evitar crashes monoliticos de workers (0.4247ms)
+✔ release stable gate expone GH_TOKEN para gh cli (0.6953ms)
+✔ release stable gate materializa manifest del instalador antes de validar (0.6184ms)
+✔ release stable gate es el unico que promueve Latest despues de validar (1.181ms)
+✔ Dockerfile backend incluye schema Prisma antes del build (0.8816ms)
+ℹ tests 17
+ℹ suites 0
+ℹ pass 17
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 100.2949
+pipeline contract OK
+[msi] Staging temporal: C:\Users\evega\AppData\Local\Temp\evaluapro-installer-staging-e24f8c1360324fe1823d3563a91329eb
+[msi] Git para staging: C:\Program Files\Git\cmd\git.exe
+ADVERTENCIA: Git ls-files termin�� con exit=; se usarǭ fallback de enumeraci��n acotada.
+[msi] Git no devolvi�� archivos; usando fallback acotado con rg.
+ADVERTENCIA: rg no estǭ disponible; usando enumeraci��n recursiva lenta como ǧltimo fallback.
+[msi] Staging 50/71118: apps/backend/scripts/omr-tv3-human-review-ui.html
+[msi] Staging 100/71118: apps/frontend/dist-docente/pwa-docente-512.png
+[msi] Staging 150/71118: apps/frontend/dist-e2e-docente/assets/jsQR-DDv4IP8-.js
+[msi] Staging 200/71118: scripts/build-msi.ps1
+[msi] Staging 250/71118: scripts/perf-check-business.mjs
+[msi] Staging 300/71118: scripts/devops/check-ruleset-main.mjs
+[msi] Staging 350/71118: scripts/testing/run-omr-tv-gate.mjs
+[msi] Staging completado: 352 archivos
+[msi] Compilando payload nativo docente-local (Node + SQLite; sin VM/Mongo).
+[msi] Reutilizando build docente existente; no se recompila innecesariamente.
+[msi] Reutilizando build backend existente; no se recompila innecesariamente.
+[msi] Node.js embebido docente incluido: C:\Program Files\nodejs\node.exe
+[msi] Reutilizando node_modules de dist-native; se evita npm ci redundante.
+[msi] Schema docente reducido a engine native (Windows); se omite engine Linux no utilizado.
+Prisma schema loaded from prisma\schema.prisma
+
+✔ Generated Prisma Client (v6.19.3) to .\node_modules\@prisma\client in 341ms
+
+Start by importing your Prisma Client (See: https://pris.ly/d/importing-client)
+
+Tip: Need your database queries to be 1000x faster? Accelerate offers you that and more: https://pris.ly/tip-2-accelerate
+
+[msi] Se conserva payload preconstruido; dependencias ya son de producci��n.
+[msi] Payload nativo podado: se conserva ǧnicamente Prisma SQLite/Windows y dependencias de ejecuci��n.
+[msi] Payload compilado agregado al staging.
+[msi] Payload ZIP autocontenido: C:\Users\evega\AppData\Local\Temp\evaluapro-native-dist.zip (190.7 MB)
+[msi] Resolviendo extension BAL de WiX...
+[msi] Extension BAL resuelta: C:\Users\evega\AppData\Local\Temp\evaluapro-installer-staging-e24f8c1360324fe1823d3563a91329eb\.wix\extensions\WixToolset.Bal.wixext\6.0.2\wixext6\WixToolset.BootstrapperApplications.wixext.dll
+[msi][step 8/10] Publicar Bootstrapper Application Burn
+[msi] Compilando Bootstrapper Application con versi��n: 1.1.1
+  Determinando los proyectos que se van a restaurar...
+  Todos los proyectos están actualizados para la restauración.
+  EvaluaPro.BurnBootstrapperApp -> C:\Users\evega\Documents\EvaluaPro\packaging\wix\BurnBootstrapperApp\bin\Release\net8.0-windows\win-x64\EvaluaPro.BurnBootstrapperApp.dll
+  EvaluaPro.BurnBootstrapperApp -> C:\Users\evega\Documents\EvaluaPro\dist\installer\_internal\burn-bootstrapper-app\
+[msi] Bootstrapper Application Burn resuelta: C:\Users\evega\Documents\EvaluaPro\dist\installer\_internal\burn-bootstrapper-app\EvaluaPro.BurnBootstrapperApp.exe
+[msi][step 9/10] Compilar MSI docente-local
+[msi] Instalacion MSI aislada validada: bootstrap + payload docente ��ntegro.
+[icons] Icono por flavor generado (Win32-256): C:\Users\evega\Documents\EvaluaPro\dist\installer\_internal\docente-local\bundle-input\icons\installer-icon.docente-local.ico (docente-local)
+[msi] Icono de bundle validado: C:\Users\evega\Documents\EvaluaPro\dist\installer\_internal\docente-local\bundle-input\icons\installer-icon.docente-local.ico (sizes: 256)
+[msi][step 10/10] Compilar bundle docente-local
+[msi] Contenedor Burn validado: C:\Users\evega\Documents\EvaluaPro\dist\installer\docente-local\EvaluaPro-InstallerHub-docente-local-v1.1.1.exe (payloads=1, maxBytes=198721536)
+[installer-guard] Bundle OK: C:\Users\evega\Documents\EvaluaPro\dist\installer\docente-local\EvaluaPro-InstallerHub-docente-local-v1.1.1.exe
+[installer-guard] Bundle FileVersion=1.1.1.0 ProductVersion=1.1.1.0
+[installer-guard] BA FileVersion=1.1.1.0 ProductVersion=1.1.1+598e37b6090c1c95a9d6c545e1e755a985d60d45
+[installer-hash] Generado: C:\Users\evega\Documents\EvaluaPro\dist\installer\_internal\docente-local\EvaluaPro-docente-local.msi.sha256
+[installer-hash] Generado: C:\Users\evega\Documents\EvaluaPro\dist\installer\_internal\docente-local\EvaluaPro-docente-local.msi.crc32
+[installer-hash] Generado: C:\Users\evega\Documents\EvaluaPro\dist\installer\docente-local\EvaluaPro-InstallerHub-docente-local-v1.1.1.exe.sha256
+[installer-hash] Generado: C:\Users\evega\Documents\EvaluaPro\dist\installer\docente-local\EvaluaPro-InstallerHub-docente-local-v1.1.1.exe.crc32
+[installer-hash] Generado: C:\Users\evega\Documents\EvaluaPro\dist\installer\_internal\docente-local\SHASUMS256.txt
+[installer-hash] Generado: C:\Users\evega\Documents\EvaluaPro\dist\installer\docente-local\SHASUMS256.txt
+[installer-manifest] Generado en C:\Users\evega\Documents\EvaluaPro\dist\installer\EvaluaPro-release-manifest.json
+[msi] Artefactos generados en C:\Users\evega\Documents\EvaluaPro\dist\installer para flavors: docente-local
