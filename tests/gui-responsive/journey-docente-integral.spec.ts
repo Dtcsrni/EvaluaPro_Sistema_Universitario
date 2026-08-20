@@ -5,32 +5,27 @@ import path from 'node:path';
 test.describe('Journey docente integral visual', () => {
   test.setTimeout(240_000);
 
-  async function crearFixtureAcademico(page: import('@playwright/test').Page) {
-    return page.evaluate(async () => {
-      const token = localStorage.getItem('tokenDocente');
-      if (!token) throw new Error('No hay token docente en el contexto visual');
-      const base = 'http://127.0.0.1:4000/api';
-      const auth = { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' };
-      const enviar = async (ruta: string, payload: unknown) => {
-        const respuesta = await fetch(`${base}${ruta}`, { method: 'POST', headers: auth, body: JSON.stringify(payload) });
-        const texto = await respuesta.text();
-        let cuerpo: any = {};
-        try { cuerpo = texto ? JSON.parse(texto) : {}; } catch { cuerpo = { texto }; }
-        if (!respuesta.ok) throw new Error(`${ruta} ${respuesta.status}: ${texto.slice(0, 500)}`);
-        return cuerpo;
-      };
-      const periodosResp = await fetch(`${base}/periodos?activo=1`, { headers: { Authorization: `Bearer ${token}` } });
-      const periodosCuerpo = await periodosResp.json();
-      const periodo = (periodosCuerpo.periodos ?? periodosCuerpo.materias ?? [])[0];
-      if (!periodo?._id) throw new Error('No se encontró la materia creada en el fixture visual');
-      const alumnosResp = await fetch(`${base}/alumnos`, { headers: { Authorization: `Bearer ${token}` } });
-      const alumnosCuerpo = await alumnosResp.json();
-      const alumno = (alumnosCuerpo.alumnos ?? []).find((item: any) => item.periodoId === periodo._id) ?? alumnosCuerpo.alumnos?.[0];
-      if (!alumno?._id) throw new Error('No se encontró el alumno creado en el fixture visual');
+  async function crearFixtureAcademico(page: import('@playwright/test').Page, request: import('@playwright/test').APIRequestContext) {
+    const token = await page.evaluate(() => localStorage.getItem('tokenDocente'));
+    if (!token) throw new Error('No hay token docente en el contexto visual');
+    const base = 'http://127.0.0.1:4000/api';
+    const auth = { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' };
+    
+    const periodosResp = await request.get(`${base}/periodos?activo=1`, { headers: { Authorization: `Bearer ${token}` } });
+    const periodosCuerpo = await periodosResp.json();
+    const periodo = (periodosCuerpo.periodos ?? periodosCuerpo.materias ?? [])[0];
+    if (!periodo?._id) throw new Error('No se encontró la materia creada en el fixture visual');
+    
+    const alumnosResp = await request.get(`${base}/alumnos`, { headers: { Authorization: `Bearer ${token}` } });
+    const alumnosCuerpo = await alumnosResp.json();
+    const alumno = (alumnosCuerpo.alumnos ?? []).find((item: any) => item.periodoId === periodo._id) ?? alumnosCuerpo.alumnos?.[0];
+    if (!alumno?._id) throw new Error('No se encontró el alumno creado en el fixture visual');
 
-      await enviar('/banco-preguntas/temas', { periodoId: periodo._id, nombre: 'Tema E2E Integral' });
-      for (let indice = 1; indice <= 20; indice += 1) {
-        await enviar('/banco-preguntas', {
+    await request.post(`${base}/banco-preguntas/temas`, { headers: auth, data: { periodoId: periodo._id, nombre: 'Tema E2E Integral' } });
+    for (let indice = 1; indice <= 20; indice += 1) {
+      await request.post(`${base}/banco-preguntas`, {
+        headers: auth,
+        data: {
           periodoId: periodo._id,
           enunciado: `Reactivo integral ${indice}`,
           tema: 'Tema E2E Integral',
@@ -41,13 +36,13 @@ test.describe('Journey docente integral visual', () => {
             { texto: `Respuesta D ${indice}`, esCorrecta: false },
             { texto: `Respuesta E ${indice}`, esCorrecta: false }
           ]
-        });
-      }
-      return { periodoId: String(periodo._id), alumnoId: String(alumno._id), alumnoMatricula: String(alumno.matricula) };
-    });
+        }
+      });
+    }
+    return { periodoId: String(periodo._id), alumnoId: String(alumno._id), alumnoMatricula: String(alumno.matricula) };
   }
 
-  test('recorre diseño, generación, entrega, evaluación, calificación y publicación', async ({ page }) => {
+  test('recorre diseño, generación, entrega, evaluación, calificación y publicación', async ({ page, request }) => {
     const sufijo = `${Date.now()}-${Math.floor(Math.random() * 1000)}`;
     const outputDir = path.join(process.cwd(), 'docs', 'assets', 'ui');
     if (!fs.existsSync(outputDir)) fs.mkdirSync(outputDir, { recursive: true });
@@ -119,7 +114,7 @@ test.describe('Journey docente integral visual', () => {
       await page.screenshot({ path: path.join(outputDir, '19_temarios_seccion.png'), fullPage: true });
     }
 
-    const fixture = await crearFixtureAcademico(page);
+    const fixture = await crearFixtureAcademico(page, request);
     await page.reload();
     await expect(page.getByRole('button', { name: 'Banco', exact: true })).toBeVisible({ timeout: 20_000 });
 

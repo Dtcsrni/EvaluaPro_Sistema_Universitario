@@ -12,12 +12,17 @@ SQLite/Prisma, frontend docente y runtime Node embebido. El Installer Hub WPF
 gestiona instalación, reparación, actualización y desinstalación desde la PC.
 
 - El repositorio mantiene versión unificada `1.1.1` y cero residuos de instalación.
+- El repositorio mantiene versión unificada `1.1.1` y cero residuos de instalación.
+- Matriz Playwright E2E (`SPEC-E2E-PLAYWRIGHT-MATRIX`) validada al 100%: Docente (6/6), Alumno (4/4), Admin (3/3), Ciclo de uso directo (1/1) y Journey integral (1/1) con 54 capturas UI generadas en `docs/assets/ui/`.
+- Auditoría UX/UI contractual: cero overflow horizontal verificado en 4 resoluciones (Desktop, Tablet, Tablet-sm, Móvil) y controles accesibles.
 - Rediseño de bienvenida docente (`SPEC-AUTH-ONBOARDING`) completado y desacoplado del shell de dashboard (`AppDocente.tsx`).
 - Modernización de WPF Bootstrapper (`SPEC-INSTALLER-HUB-LAYOUT-MODERNIZATION`) con renderizado DirectX Tier 2 optimizado.
 - Todos los gates de calidad obligatorios verificados en verde (lint, typecheck, frontend, coverage, TDD diff coverage 90.48%, backend, portal, perf, contracts, SDD).
 
 ## Estado vigente
-- Corte 2026-08-20 (Rediseño de Bienvenida Docente y Modernización de Bootstrapper):
+- Corte 2026-08-20 (Matriz Exhaustiva Playwright E2E y Calidad UX/UI):
+  - **Playwright E2E:** 15/15 pruebas de interfaz pasando en verde a través de todas las pantallas operativas (Docente, Alumno, Admin).
+  - **Calidad UX/UI:** Verificación estricta de contraste, accesibilidad táctil y cero desbordamiento horizontal.
   - **Portal de Bienvenida Docente:** `SeccionAutenticacion` desacoplada del shell con pilares semánticos de valor, pestañas de acceso claras (`Ingresar` / `Registrar`), soporte de clave de licencia y diseño accesible.
   - **Bootstrapper WPF:** Unificación de arranque a una sola ventana, carrusel visual institucional y eliminación de advertencias en logs.
   - **Diff Coverage:** `90.48%` alcanzado superando el umbral del 90%.

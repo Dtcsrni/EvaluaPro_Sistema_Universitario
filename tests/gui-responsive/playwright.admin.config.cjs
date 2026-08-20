@@ -24,7 +24,7 @@ module.exports = defineConfig({
   webServer: {
     command: `node "${startServerScript}" --port ${port} --destino admin_negocio`,
     url: `http://127.0.0.1:${port}`,
-    reuseExistingServer: !process.env.CI,
+    reuseExistingServer: false,
     timeout: 120_000
   },
   reporter: process.env.CI ? [['github'], ['list']] : [['list']]

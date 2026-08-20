@@ -112,8 +112,12 @@ function Resolve-BundlePath {
   $internalManifestPath = Join-Path $root 'dist\installer\_internal\installer-local-paths.json'
   $selectedManifest = if (Test-Path -LiteralPath $manifestPath) { $manifestPath } elseif (Test-Path -LiteralPath $internalManifestPath) { $internalManifestPath } else { '' }
   if (-not $selectedManifest) {
+    $downloadsCandidates = @(Get-ChildItem -Path (Join-Path $root 'downloads') -Filter 'EvaluaPro-InstallerHub-*.exe' -ErrorAction SilentlyContinue | Sort-Object LastWriteTime -Descending)
+    if ($downloadsCandidates.Count -gt 0) {
+      return $downloadsCandidates[0].FullName
+    }
     if ($AllowMissingBundle) { return '' }
-    throw 'No existe dist\installer\installer-local-paths.json. Ejecuta npm run installer:hub:build antes del QA UI.'
+    throw 'No existe dist\installer\installer-local-paths.json ni bundle en downloads\. Ejecuta npm run installer:hub:build antes del QA UI.'
   }
 
   $manifest = Get-Content -Raw -Path $selectedManifest | ConvertFrom-Json

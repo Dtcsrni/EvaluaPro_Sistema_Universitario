@@ -15,7 +15,7 @@ const publicRoot = configuredDist === 'apps/frontend/dist-e2e-docente'
   ? path.resolve(root, 'apps', 'frontend', 'dist-e2e-docente')
   : path.resolve(root, 'apps', 'frontend', 'dist-docente');
 const host = process.env.HOST || '127.0.0.1';
-const port = Number(process.env.PUERTO_WEB || process.env.PORT || 4173);
+const port = Number(process.env.PUERTO_WEB || 4173);
 const mimeTypes = Object.freeze({
   '.css': 'text/css; charset=utf-8',
   '.html': 'text/html; charset=utf-8',

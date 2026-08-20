@@ -22,26 +22,12 @@ test.describe('Ciclo de uso directo completo', () => {
     await page.fill('input[placeholder="Ej. Perez Lopez"]', 'Prueba');
     await page.fill('input[type="email"]', `maestro_${randomSuffix}@evaluapro.local`);
     await page.fill('input[type="password"]', 'P@ssword123');
-    const registroResponsePromise = page.waitForResponse(
-      (response) => response.url().includes('/autenticacion/registrar'),
-      { timeout: 15_000 }
-    );
     await page.getByRole('button', { name: /Crear cuenta/i }).click({ noWaitAfter: true });
-    const registroResponse = await registroResponsePromise;
-    expect(registroResponse.status(), await registroResponse.text()).toBeLessThan(400);
-    // Wait for the app to load and animate
-    await page.waitForTimeout(3000);
+    await expect(page.getByRole('button', { name: 'Banco', exact: true })).toBeVisible({ timeout: 20_000 });
 
     // Screenshot 1: Dashboard / Home
-    await page.waitForTimeout(1000); // Wait for animations
+    await page.waitForTimeout(500);
     await page.screenshot({ path: 'docs/assets/ui/01_dashboard.png', fullPage: true });
-
-    // Should redirect to dashboard / periods
-    try {
-      await page.waitForURL('**/app/docente**', { timeout: 5000 });
-    } catch(e) {
-      // Just in case the route is /escritorio or /
-    }
     
     // Wait for the Dashboard
     await page.waitForLoadState('networkidle');
