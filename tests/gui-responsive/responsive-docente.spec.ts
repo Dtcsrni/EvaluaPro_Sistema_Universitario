@@ -229,9 +229,9 @@ test.describe('GUI responsive e2e · docente', () => {
       // Ir directo a /acceso para evitar el redirect de react-router
       await page.goto('/acceso', { waitUntil: 'domcontentloaded' });
 
-      await expect(page.getByRole('heading', { name: /Acceso docente/i })).toBeVisible({ timeout: 15_000 });
-      // await assertNoHorizontalOverflow(page, `Docente acceso ${viewport.name}`);
-      // await assertInteractiveControlsAreUsable(page, `Docente acceso ${viewport.name}`);
+      await expect(page.getByRole('heading', { name: /Bienvenido a EvaluaPro|Plataforma Docente|Ingresar|Crear cuenta/i }).first()).toBeVisible({ timeout: 15_000 });
+      await assertNoHorizontalOverflow(page, `Docente acceso ${viewport.name}`);
+      await assertInteractiveControlsAreUsable(page, `Docente acceso ${viewport.name}`);
       if (viewport.name === 'desktop-lg' || viewport.name === 'mobile') {
         await captureEvidence(page, 'docente', 'login', viewport.name);
       }

@@ -41,6 +41,7 @@ const env = {
   NODE_ENV: process.env.NODE_ENV || 'production',
   EVALUAPRO_FLAVOR: process.env.EVALUAPRO_FLAVOR || 'docente-local',
   PUERTO_API: process.env.PUERTO_API || process.env.PORT || '4000',
+  PUERTO_WEB: process.env.PUERTO_WEB || '4173',
   CORS_ORIGENES: origenesConfigurados.join(',')
 };
 

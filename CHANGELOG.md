@@ -5,6 +5,7 @@ Este archivo sigue el formato "Keep a Changelog" (alto nivel) y SemVer.
 ## [Unreleased]
 
 ### Added
+- Matriz Exhaustiva de Pruebas Playwright y Calidad UX/UI (`SPEC-E2E-PLAYWRIGHT-MATRIX`): Validación completa de todas las pantallas y funcionalidades de Docente, Alumno y Admin Negocio mediante Playwright, incluyendo verificación de cero overflow horizontal, accesibilidad en targets táctiles, contraste en temas Claro/Oscuro y generación de 54 capturas de evidencia de alta resolución.
 - Rediseño de Onboarding y Desacoplamiento de Bienvenida Docente (`SPEC-AUTH-ONBOARDING`): Eliminado el dashboard y encabezado "Banco y Exámenes" previo a la autenticación. Desacoplada `SeccionAutenticacion` en un portal de bienvenida institucional autónomo con pilares semánticos de valor, pestañas de acceso (`Ingresar` / `Registrar`), captura opcional de clave de licencia y diseño accesible sin jerga técnica.
 - Modernización de Layout en Bootstrapper WPF Installer Hub (`SPEC-INSTALLER-HUB-LAYOUT-MODERNIZATION`): Rediseñado el carrusel de valor con 3 pilares visuales institucionales, optimización de renderizado DirectX Tier 2 y unificación de lanzamiento en una sola ventana.
 - Flujo de Onboarding Docente Inicial y Licencia (`SPEC-014`): La pantalla de inicio de la app docente por defecto abre en modo registro (`Crear cuenta`) con soporte explícito para capturar la clave institucional de licencia, conservando la alternancia fluida a login tradicional.
