@@ -76,4 +76,23 @@ describe('AppDocente', () => {
 
     expect(await screen.findByText('Materia creada')).toBeInTheDocument();
   });
+
+  it('permite ingresar desde la pantalla de autenticación y carga el perfil docente', async () => {
+    localStorage.removeItem('tokenDocente');
+    const user = userEvent.setup();
+    render(
+      <TemaProvider>
+        <AppDocente />
+      </TemaProvider>
+    );
+
+    await user.click(screen.getByRole('button', { name: /^Ingresar$/i }));
+    fireEvent.change(screen.getByLabelText('Correo'), { target: { value: 'docente@evaluapro.test' } });
+    fireEvent.change(screen.getByLabelText('Contrasena'), { target: { value: '12345678' } });
+
+    const botonesIngresar = screen.getAllByRole('button', { name: /^Ingresar$/i });
+    await user.click(botonesIngresar[botonesIngresar.length - 1]);
+
+    expect(await screen.findByRole('navigation', { name: 'Secciones del portal docente' })).toBeInTheDocument();
+  });
 });

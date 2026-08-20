@@ -688,150 +688,111 @@ exports[`UX visual regression > alumno sin token mantiene layout de acceso 1`] =
 exports[`UX visual regression > docente sin token mantiene layout de acceso 1`] = `
 <DocumentFragment>
   <section
-    class="card anim-entrada shell-docente superficie-app superficie-app--docente"
+    class="auth-portal card anim-entrada superficie-app superficie-app--docente"
   >
-    <div
-      class="shell-docente__hero"
+    <header
+      class="auth-portal__topbar"
     >
       <div
-        class="cabecera shell-docente__header"
+        class="auth-portal__brand"
       >
         <div
-          class="shell-docente__intro"
+          class="auth-portal__logo"
         >
-          <p
-            class="eyebrow"
+          <svg
+            aria-hidden="true"
+            class="icono"
+            data-icono="docente"
+            fill="none"
+            height="18"
+            viewBox="0 0 24 24"
+            width="18"
+            xmlns="http://www.w3.org/2000/svg"
           >
-            <svg
-              aria-hidden="true"
-              class="icono"
-              data-icono="docente"
-              fill="none"
-              height="18"
-              viewBox="0 0 24 24"
-              width="18"
-              xmlns="http://www.w3.org/2000/svg"
-            >
-              <path
-                d="M4 19h16"
-                stroke="currentColor"
-                stroke-linecap="round"
-                stroke-width="2"
-              />
-              <path
-                d="M8 17V7a4 4 0 1 1 8 0v10"
-                stroke="currentColor"
-                stroke-linecap="round"
-                stroke-width="2"
-              />
-            </svg>
-             Plataforma Docente
-          </p>
-          <h1>
-            Banco y Examenes
+            <path
+              d="M4 19h16"
+              stroke="currentColor"
+              stroke-linecap="round"
+              stroke-width="2"
+            />
+            <path
+              d="M8 17V7a4 4 0 1 1 8 0v10"
+              stroke="currentColor"
+              stroke-linecap="round"
+              stroke-width="2"
+            />
+          </svg>
+        </div>
+        <div>
+          <h1
+            class="auth-portal__title"
+          >
+            Plataforma Docente
           </h1>
-          <p
-            class="shell-docente__lead"
+          <span
+            class="auth-portal__subtitle"
           >
-            Diseña, opera y publica evaluaciones con una interfaz más clara, sobria y orientada al trabajo docente.
-          </p>
-        </div>
-        <div
-          class="cabecera__acciones shell-docente__acciones"
-        >
-          <button
-            class="chip chip-version"
-            title="Abrir información de versión"
-            type="button"
-          >
-            v0.0.0
-          </button>
-          <button
-            aria-label="Tema: Auto (Oscuro)"
-            class="boton secundario boton--tema"
-            title="Cambiar tema (Auto / Claro / Oscuro)"
-            type="button"
-          >
-            <svg
-              aria-hidden="true"
-              class="icono"
-              height="18"
-              viewBox="0 0 24 24"
-              width="18"
-            >
-              <path
-                d="M12 4a8 8 0 1 0 0 16V4Z"
-                fill="none"
-                stroke="currentColor"
-                stroke-width="2"
-              />
-              <path
-                d="M12 4a8 8 0 0 1 0 16"
-                fill="none"
-                opacity="0.5"
-                stroke="currentColor"
-                stroke-width="2"
-              />
-            </svg>
-            <span
-              class="boton--temaTexto"
-            >
-              Tema: Auto (Oscuro)
-            </span>
-          </button>
+            EvaluaPro · Sistema Universitario
+          </span>
         </div>
       </div>
       <div
-        aria-label="Resumen visual del portal docente"
-        class="shell-docente__metrics"
+        class="auth-portal__top-actions"
       >
-        <article
-          class="shell-docente__metric"
+        <button
+          class="chip chip-version"
+          title="Abrir información de versión"
+          type="button"
         >
-          <span>
-            Espacio
-          </span>
-          <strong>
-            Operación académica
-          </strong>
-        </article>
-        <article
-          class="shell-docente__metric"
+          v0.0.0
+        </button>
+        <button
+          aria-label="Tema: Auto (Oscuro)"
+          class="boton secundario boton--tema"
+          title="Cambiar tema (Auto / Claro / Oscuro)"
+          type="button"
         >
-          <span>
-            Sesión
+          <svg
+            aria-hidden="true"
+            class="icono"
+            height="18"
+            viewBox="0 0 24 24"
+            width="18"
+          >
+            <path
+              d="M12 4a8 8 0 1 0 0 16V4Z"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+            />
+            <path
+              d="M12 4a8 8 0 0 1 0 16"
+              fill="none"
+              opacity="0.5"
+              stroke="currentColor"
+              stroke-width="2"
+            />
+          </svg>
+          <span
+            class="boton--temaTexto"
+          >
+            Tema: Auto (Oscuro)
           </span>
-          <strong>
-            Modo de acceso
-          </strong>
-        </article>
-        <article
-          class="shell-docente__metric"
-        >
-          <span>
-            Enfoque
-          </span>
-          <strong>
-            Banco, OMR y publicación
-          </strong>
-        </article>
+        </button>
       </div>
-    </div>
+    </header>
     <div
-      class="shell-docente__content"
+      class="auth-grid auth-grid--docente"
     >
       <div
-        class="auth-grid auth-grid--docente"
+        class="auth-hero"
       >
         <div
-          class="auth-hero"
+          class="auth-hero__header"
         >
           <p
             class="eyebrow"
           >
-            Acceso
-          </p>
-          <h2>
             <svg
               aria-hidden="true"
               class="icono"
@@ -856,104 +817,26 @@ exports[`UX visual regression > docente sin token mantiene layout de acceso 1`] 
               />
             </svg>
              Acceso docente
+          </p>
+          <h2>
+            Gestión y Evaluación Académica
           </h2>
           <p
             class="auth-subtitulo"
           >
-            Entra al banco, examenes y calificacion.
+            Diseña evaluaciones estructuradas, automatiza la calificación con hojas OMR y gestiona tus cursos con total privacidad local.
           </p>
-          <div
-            aria-label="Resumen de acceso docente"
-            class="auth-hero-kpis"
+        </div>
+        <ul
+          aria-label="Beneficios"
+          class="auth-feature-list auth-beneficios"
+        >
+          <li
+            class="auth-feature-card"
           >
-            <article
-              class="auth-hero-kpi"
+            <div
+              class="auth-feature-card__icon"
             >
-              <span>
-                Modo
-              </span>
-              <strong>
-                Correo y contrasena
-              </strong>
-            </article>
-            <article
-              class="auth-hero-kpi"
-            >
-              <span>
-                Seguridad
-              </span>
-              <strong>
-                Sesion persistente y controlada
-              </strong>
-            </article>
-            <article
-              class="auth-hero-kpi"
-            >
-              <span>
-                Destino
-              </span>
-              <strong>
-                Banco, OMR y publicación
-              </strong>
-            </article>
-          </div>
-          <div
-            aria-label="Estado de plataforma"
-            class="auth-hero-stats"
-          >
-            <span>
-              Sesion segura
-            </span>
-            <span>
-              Flujo guiado
-            </span>
-          </div>
-          <ul
-            aria-label="Beneficios"
-            class="auth-beneficios"
-          >
-            <li>
-              <svg
-                aria-hidden="true"
-                class="icono"
-                data-icono="ok"
-                fill="none"
-                height="18"
-                viewBox="0 0 24 24"
-                width="18"
-                xmlns="http://www.w3.org/2000/svg"
-              >
-                <path
-                  d="M9 12l2 2 4-5"
-                  stroke="currentColor"
-                  stroke-linecap="round"
-                  stroke-linejoin="round"
-                  stroke-width="2"
-                />
-              </svg>
-               Sesion persistente segura (refresh token httpOnly).
-            </li>
-            <li>
-              <svg
-                aria-hidden="true"
-                class="icono"
-                data-icono="inicio"
-                fill="none"
-                height="18"
-                viewBox="0 0 24 24"
-                width="18"
-                xmlns="http://www.w3.org/2000/svg"
-              >
-                <path
-                  d="M4 11.5 12 4l8 7.5V21a1 1 0 0 1-1 1h-5v-6H10v6H5a1 1 0 0 1-1-1v-9.5Z"
-                  stroke="currentColor"
-                  stroke-linejoin="round"
-                  stroke-width="2"
-                />
-              </svg>
-               Acceso con correo y contrasena.
-            </li>
-            <li>
               <svg
                 aria-hidden="true"
                 class="icono"
@@ -983,74 +866,28 @@ exports[`UX visual regression > docente sin token mantiene layout de acceso 1`] 
                   stroke-width="2"
                 />
               </svg>
-               Todo en un solo panel.
-            </li>
-          </ul>
-          <div
-            aria-hidden="true"
-            class="auth-ilustracion"
+            </div>
+            <div
+              class="auth-feature-card__body"
+            >
+              <strong>
+                Gestión de Cursos y Banco
+              </strong>
+              <p>
+                Organiza materias, listas de alumnos y preguntas por competencias.
+              </p>
+            </div>
+          </li>
+          <li
+            class="auth-feature-card"
           >
             <div
-              class="auth-blob"
-            />
-            <div
-              class="auth-blob auth-blob--2"
-            />
-          </div>
-        </div>
-        <div
-          class="auth-form auth-form--registrar"
-        >
-          <div
-            class="auth-form-head"
-          >
-            <p
-              class="eyebrow"
-            >
-              Registro y Licencia
-            </p>
-            <h3>
-              Registro docente y activación de licencia
-            </h3>
-            <p
-              class="nota"
-            >
-              Crea tu cuenta institucional y establece tu clave de licencia para activar la plataforma.
-            </p>
-          </div>
-          <div
-            aria-label="Ayuda de registro"
-            class="panel auth-panel"
-          >
-            <p
-              class="nota"
-            >
-              Para registrar tu cuenta completa 
-              <b>
-                nombres
-              </b>
-              , 
-              <b>
-                apellidos
-              </b>
-               y 
-              <b>
-                correo
-              </b>
-              . La contrasena requiere minimo 8 caracteres.
-            </p>
-          </div>
-          <p
-            class="mensaje"
-            role="status"
-          >
-            <span
-              class="mensaje__icono"
+              class="auth-feature-card__icon"
             >
               <svg
                 aria-hidden="true"
                 class="icono"
-                data-icono="info"
+                data-icono="escaneo"
                 fill="none"
                 height="18"
                 viewBox="0 0 24 24"
@@ -1058,30 +895,74 @@ exports[`UX visual regression > docente sin token mantiene layout de acceso 1`] 
                 xmlns="http://www.w3.org/2000/svg"
               >
                 <path
-                  d="M12 17v-5"
+                  d="M7 3H5a2 2 0 0 0-2 2v2M17 3h2a2 2 0 0 1 2 2v2M7 21H5a2 2 0 0 1-2-2v-2M17 21h2a2 2 0 0 0 2-2v-2"
                   stroke="currentColor"
                   stroke-linecap="round"
                   stroke-width="2"
                 />
                 <path
-                  d="M12 8h.01"
+                  d="M8 12h8"
                   stroke="currentColor"
                   stroke-linecap="round"
-                  stroke-width="3"
-                />
-                <path
-                  d="M12 22a10 10 0 1 0 0-20 10 10 0 0 0 0 20Z"
-                  stroke="currentColor"
                   stroke-width="2"
                 />
               </svg>
-            </span>
-            <span
-              class="mensaje__contenido"
+            </div>
+            <div
+              class="auth-feature-card__body"
             >
-              Inicio de sesion con Google deshabilitado en este entorno. Para habilitarlo en desarrollo, define VITE_GOOGLE_CLIENT_ID en el .env del root y reinicia Vite.
-            </span>
-          </p>
+              <strong>
+                Calificación OMR Instantánea
+              </strong>
+              <p>
+                Genera exámenes impresos y procesa hojas de respuestas ópticas al instante.
+              </p>
+            </div>
+          </li>
+          <li
+            class="auth-feature-card"
+          >
+            <div
+              class="auth-feature-card__icon"
+            >
+              <svg
+                aria-hidden="true"
+                class="icono"
+                data-icono="ok"
+                fill="none"
+                height="18"
+                viewBox="0 0 24 24"
+                width="18"
+                xmlns="http://www.w3.org/2000/svg"
+              >
+                <path
+                  d="M9 12l2 2 4-5"
+                  stroke="currentColor"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  stroke-width="2"
+                />
+              </svg>
+            </div>
+            <div
+              class="auth-feature-card__body"
+            >
+              <strong>
+                Privacidad y Datos Locales
+              </strong>
+              <p>
+                Tus calificaciones se almacenan de forma segura en tu equipo sin dependencias externas.
+              </p>
+            </div>
+          </li>
+        </ul>
+      </div>
+      <div
+        class="auth-form auth-form--registrar"
+      >
+        <div
+          class="auth-form-head"
+        >
           <div
             class="acciones auth-tabs"
           >
@@ -1098,109 +979,183 @@ exports[`UX visual regression > docente sin token mantiene layout de acceso 1`] 
               Registrar
             </button>
           </div>
-          <label
-            class="campo auth-campo"
+          <h3
+            class="mt-12"
           >
-            Nombres
-            <input
-              autocomplete="given-name"
-              placeholder="Ej. Juan Carlos"
-              value=""
-            />
-          </label>
-          <label
-            class="campo auth-campo"
+            Registro docente y activación de licencia
+          </h3>
+          <p
+            class="nota"
           >
-            Apellidos
-            <input
-              autocomplete="family-name"
-              placeholder="Ej. Perez Lopez"
-              value=""
-            />
-          </label>
-          <label
-            class="campo auth-campo"
+            Crea tu cuenta institucional y establece tu clave de licencia para activar la plataforma.
+          </p>
+        </div>
+        <div
+          aria-label="Ayuda de registro"
+          class="panel auth-panel"
+        >
+          <p
+            class="nota"
           >
-            Correo
-            <input
-              autocomplete="email"
-              type="email"
-              value=""
-            />
-          </label>
-          <label
-            class="campo auth-campo"
+            Para registrar tu cuenta completa 
+            <b>
+              nombres
+            </b>
+            , 
+            <b>
+              apellidos
+            </b>
+             y 
+            <b>
+              correo
+            </b>
+            . La contrasena requiere minimo 8 caracteres.
+          </p>
+        </div>
+        <p
+          class="mensaje"
+          role="status"
+        >
+          <span
+            class="mensaje__icono"
           >
-            Clave o Código de Licencia (opcional / institucional)
-            <input
-              autocomplete="off"
-              placeholder="Ej. LIC-2026-DOC-XXXX-XXXX"
-              spellcheck="false"
-              value=""
-            />
+            <svg
+              aria-hidden="true"
+              class="icono"
+              data-icono="info"
+              fill="none"
+              height="18"
+              viewBox="0 0 24 24"
+              width="18"
+              xmlns="http://www.w3.org/2000/svg"
+            >
+              <path
+                d="M12 17v-5"
+                stroke="currentColor"
+                stroke-linecap="round"
+                stroke-width="2"
+              />
+              <path
+                d="M12 8h.01"
+                stroke="currentColor"
+                stroke-linecap="round"
+                stroke-width="3"
+              />
+              <path
+                d="M12 22a10 10 0 1 0 0-20 10 10 0 0 0 0 20Z"
+                stroke="currentColor"
+                stroke-width="2"
+              />
+            </svg>
+          </span>
+          <span
+            class="mensaje__contenido"
+          >
+            Inicio de sesion con Google deshabilitado en este entorno. Para habilitarlo en desarrollo, define VITE_GOOGLE_CLIENT_ID en el .env del root y reinicia Vite.
+          </span>
+        </p>
+        <label
+          class="campo auth-campo"
+        >
+          Nombres
+          <input
+            autocomplete="given-name"
+            placeholder="Ej. Juan Carlos"
+            value=""
+          />
+        </label>
+        <label
+          class="campo auth-campo"
+        >
+          Apellidos
+          <input
+            autocomplete="family-name"
+            placeholder="Ej. Perez Lopez"
+            value=""
+          />
+        </label>
+        <label
+          class="campo auth-campo"
+        >
+          Correo
+          <input
+            autocomplete="email"
+            type="email"
+            value=""
+          />
+        </label>
+        <label
+          class="campo auth-campo"
+        >
+          Clave o Código de Licencia (opcional / institucional)
+          <input
+            autocomplete="off"
+            placeholder="Ej. LIC-2026-DOC-XXXX-XXXX"
+            spellcheck="false"
+            value=""
+          />
+          <span
+            class="ayuda"
+          >
+            Si cuentas con una clave institucional, ingrésala para activar tu licencia docente de inmediato.
+          </span>
+        </label>
+        <label
+          class="campo auth-campo"
+        >
+          Contrasena
+          <input
+            autocomplete="new-password"
+            type="password"
+            value=""
+          />
+        </label>
+        <div
+          class="acciones auth-submit"
+        >
+          <button
+            class="boton boton--lg boton--con-icono"
+            disabled=""
+            type="button"
+          >
             <span
-              class="ayuda"
+              class="boton__icono"
             >
-              Si cuentas con una clave institucional, ingrésala para activar tu licencia docente de inmediato.
+              <svg
+                aria-hidden="true"
+                class="icono"
+                data-icono="nuevo"
+                fill="none"
+                height="18"
+                viewBox="0 0 24 24"
+                width="18"
+                xmlns="http://www.w3.org/2000/svg"
+              >
+                <path
+                  d="M12 7v10"
+                  stroke="currentColor"
+                  stroke-linecap="round"
+                  stroke-width="2"
+                />
+                <path
+                  d="M7 12h10"
+                  stroke="currentColor"
+                  stroke-linecap="round"
+                  stroke-width="2"
+                />
+                <path
+                  d="M12 22a10 10 0 1 0 0-20 10 10 0 0 0 0 20Z"
+                  stroke="currentColor"
+                  stroke-width="2"
+                />
+              </svg>
             </span>
-          </label>
-          <label
-            class="campo auth-campo"
-          >
-            Contrasena
-            <input
-              autocomplete="new-password"
-              type="password"
-              value=""
-            />
-          </label>
-          <div
-            class="acciones auth-submit"
-          >
-            <button
-              class="boton boton--lg boton--con-icono"
-              disabled=""
-              type="button"
+            <span
+              class="boton__texto"
             >
-              <span
-                class="boton__icono"
-              >
-                <svg
-                  aria-hidden="true"
-                  class="icono"
-                  data-icono="nuevo"
-                  fill="none"
-                  height="18"
-                  viewBox="0 0 24 24"
-                  width="18"
-                  xmlns="http://www.w3.org/2000/svg"
-                >
-                  <path
-                    d="M12 7v10"
-                    stroke="currentColor"
-                    stroke-linecap="round"
-                    stroke-width="2"
-                  />
-                  <path
-                    d="M7 12h10"
-                    stroke="currentColor"
-                    stroke-linecap="round"
-                    stroke-width="2"
-                  />
-                  <path
-                    d="M12 22a10 10 0 1 0 0-20 10 10 0 0 0 0 20Z"
-                    stroke="currentColor"
-                    stroke-width="2"
-                  />
-                </svg>
-              </span>
-              <span
-                class="boton__texto"
-              >
-                Crear cuenta
-              </span>
-            </button>
-          </div>
+              Crear cuenta
+            </span>
+          </button>
         </div>
       </div>
     </div>

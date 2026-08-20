@@ -31,11 +31,11 @@ export function ShellDocente({
         <div className="cabecera shell-docente__header">
           <div className="shell-docente__intro">
             <p className="eyebrow">
-              <Icono nombre="docente" /> Plataforma Docente
+              <Icono nombre="docente" /> EvaluaPro
             </p>
-            <h1>Banco y Examenes</h1>
+            <h1>Plataforma Docente</h1>
             <p className="shell-docente__lead">
-              Diseña, opera y publica evaluaciones con una interfaz más clara, sobria y orientada al trabajo docente.
+              Diseña evaluaciones, administra tus materias y califica exámenes con rapidez y precisión.
             </p>
           </div>
           <div className="cabecera__acciones shell-docente__acciones">

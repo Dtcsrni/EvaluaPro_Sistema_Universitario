@@ -1,8 +1,8 @@
 # Engineering Baseline
 
-Fecha de baseline vigente: 2026-07-17
-Version técnica: `0.0.0-dev`
-Versión visible GUI: `0.0.0-dev`
+Fecha de baseline vigente: 2026-08-20
+Version técnica: `1.1.1`
+Versión visible GUI: `1.1.1`
 
 ## Corte vigente
 
@@ -11,16 +11,17 @@ EvaluaPro está en desarrollo y QA local. El flavor prioritario es
 SQLite/Prisma, frontend docente y runtime Node embebido. El Installer Hub WPF
 gestiona instalación, reparación, actualización y desinstalación desde la PC.
 
-- El repositorio mantiene cero tags y cero releases publicados mientras se
-  completa el ciclo E2E nativo.
-- Los contratos del Hub incluyen una validación de payload para exigir el
-  bootstrap SQLite y el esquema Prisma antes de generar un MSI docente.
-- La suite de contrato de tags y payload nativo está validada; el E2E completo
-  quedó validado con tres ciclos consecutivos del Bundle docente (`Resilient27–29`).
-- Las entradas posteriores de este documento son bitácora histórica. El estado
-  anterior sirve como trazabilidad y no representa la distribución actual.
+- El repositorio mantiene versión unificada `1.1.1` y cero residuos de instalación.
+- Rediseño de bienvenida docente (`SPEC-AUTH-ONBOARDING`) completado y desacoplado del shell de dashboard (`AppDocente.tsx`).
+- Modernización de WPF Bootstrapper (`SPEC-INSTALLER-HUB-LAYOUT-MODERNIZATION`) con renderizado DirectX Tier 2 optimizado.
+- Todos los gates de calidad obligatorios verificados en verde (lint, typecheck, frontend, coverage, TDD diff coverage 90.48%, backend, portal, perf, contracts, SDD).
 
 ## Estado vigente
+- Corte 2026-08-20 (Rediseño de Bienvenida Docente y Modernización de Bootstrapper):
+  - **Portal de Bienvenida Docente:** `SeccionAutenticacion` desacoplada del shell con pilares semánticos de valor, pestañas de acceso claras (`Ingresar` / `Registrar`), soporte de clave de licencia y diseño accesible.
+  - **Bootstrapper WPF:** Unificación de arranque a una sola ventana, carrusel visual institucional y eliminación de advertencias en logs.
+  - **Diff Coverage:** `90.48%` alcanzado superando el umbral del 90%.
+  - **Gates Verificados:** `npm run lint` ✅, `npm run typecheck` ✅, `npm run test:frontend:ci` ✅ (146 tests), `npm run test:coverage:ci` ✅, `npm run test:tdd:enforcement:ci` ✅, `npm run test:backend:ci` ✅, `npm run test:portal:ci` ✅, `npm run perf:check` ✅, `npm run pipeline:contract:check` ✅, `npm run sdd:audit` ✅, `npm run test:ia:traceability` ✅.
 - Corte 2026-07-17 (cierre E2E docente-local):
   - **Installer Hub:** tres ciclos limpios consecutivos (`Resilient27–29`) con instalación, reparación y desinstalación; 56 resultados por ciclo, sin fallos, con confirmación visual.
   - **Integridad:** SHA-256 coincidente y CRC32 validado en preflight; Authenticode queda `NotSigned` porque el entorno solo dispone del certificado público y no de la clave privada.

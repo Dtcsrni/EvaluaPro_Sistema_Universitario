@@ -1156,34 +1156,34 @@ public partial class MainWindow : Window
                 ModeImpactTitleTextBlock.Text = "Reparar instalación";
                 ModeImpactTextBlock.Text = "Revalida runtime, restaura configuración/accesos y conserva datos locales.";
                 ModeImpactChecklistTextBlock.Text = "No borra cursos ni base local; revisa prerequisitos antes de reparar.";
-                ModeImpactBorder.Background = ToBrush("#EFF6FF");
-                ModeImpactBorder.BorderBrush = ToBrush("#BFDBFE");
+                ModeImpactBorder.Background = ToBrush("#7D10304C");
+                ModeImpactBorder.BorderBrush = ToBrush("#8038DDF5");
                 ModeImpactIcon.Data = RepairGeometry;
-                ModeImpactIcon.Stroke = ToBrush("#2563EB");
-                ModeImpactIconPlate.Background = ToBrush("#EFF6FF");
-                ModeImpactIconPlate.BorderBrush = ToBrush("#BFDBFE");
+                ModeImpactIcon.Stroke = ToBrush("#38BDF8");
+                ModeImpactIconPlate.Background = ToBrush("#660B2338");
+                ModeImpactIconPlate.BorderBrush = ToBrush("#8038DDF5");
                 break;
             case "uninstall":
                 ModeImpactTitleTextBlock.Text = "Desinstalar";
                 ModeImpactTextBlock.Text = "Retira componentes instalados por MSI/Burn en este equipo.";
                 ModeImpactChecklistTextBlock.Text = "Revisa respaldo de datos antes de continuar; la operación cambia el estado local.";
-                ModeImpactBorder.Background = ToBrush("#FFFBEB");
-                ModeImpactBorder.BorderBrush = ToBrush("#FDE68A");
+                ModeImpactBorder.Background = ToBrush("#7D3E2410");
+                ModeImpactBorder.BorderBrush = ToBrush("#80F59E0B");
                 ModeImpactIcon.Data = UninstallGeometry;
-                ModeImpactIcon.Stroke = ToBrush("#B45309");
-                ModeImpactIconPlate.Background = ToBrush("#FFFBEB");
-                ModeImpactIconPlate.BorderBrush = ToBrush("#FDE68A");
+                ModeImpactIcon.Stroke = ToBrush("#FBBF24");
+                ModeImpactIconPlate.Background = ToBrush("#662E1A0C");
+                ModeImpactIconPlate.BorderBrush = ToBrush("#80F59E0B");
                 break;
             default:
                 ModeImpactTitleTextBlock.Text = "Instalar o actualizar";
                 ModeImpactTextBlock.Text = "Configura prerequisitos, escribe configuración operativa y crea accesos.";
                 ModeImpactChecklistTextBlock.Text = "Se descargan dependencias nativas, carpeta destino y accesos.";
-                ModeImpactBorder.Background = ToBrush("#EFF6FF");
-                ModeImpactBorder.BorderBrush = ToBrush("#BFDBFE");
+                ModeImpactBorder.Background = ToBrush("#7D10304C");
+                ModeImpactBorder.BorderBrush = ToBrush("#8038DDF5");
                 ModeImpactIcon.Data = InstallGeometry;
-                ModeImpactIcon.Stroke = ToBrush("#2563EB");
-                ModeImpactIconPlate.Background = ToBrush("#EFF6FF");
-                ModeImpactIconPlate.BorderBrush = ToBrush("#BFDBFE");
+                ModeImpactIcon.Stroke = ToBrush("#38BDF8");
+                ModeImpactIconPlate.Background = ToBrush("#660B2338");
+                ModeImpactIconPlate.BorderBrush = ToBrush("#8038DDF5");
                 break;
         }
     }
@@ -1195,9 +1195,9 @@ public partial class MainWindow : Window
             || workflow.SummaryBadge.Contains("error", StringComparison.OrdinalIgnoreCase);
 
         StatusVisualIcon.Data = failed ? CrossGeometry : workflow.Stages.Any(stage => stage.Badge == "ACTIVA") ? CircleGeometry : CheckGeometry;
-        StatusVisualIcon.Stroke = ToBrush(failed ? "#B42318" : workflow.Stages.Any(stage => stage.Badge == "ACTIVA") ? "#2563EB" : "#15803D");
-        StatusVisualPlate.Background = ToBrush(failed ? "#FEF2F2" : workflow.Stages.Any(stage => stage.Badge == "ACTIVA") ? "#EFF6FF" : "#ECFDF5");
-        StatusVisualPlate.BorderBrush = ToBrush(failed ? "#FECACA" : workflow.Stages.Any(stage => stage.Badge == "ACTIVA") ? "#BFDBFE" : "#A7F3D0");
+        StatusVisualIcon.Stroke = ToBrush(failed ? "#EF4444" : workflow.Stages.Any(stage => stage.Badge == "ACTIVA") ? "#38BDF8" : "#34D399");
+        StatusVisualPlate.Background = ToBrush(failed ? "#4D7F1D1D" : workflow.Stages.Any(stage => stage.Badge == "ACTIVA") ? "#4D0C4A6E" : "#4D064E3B");
+        StatusVisualPlate.BorderBrush = ToBrush(failed ? "#99F87171" : workflow.Stages.Any(stage => stage.Badge == "ACTIVA") ? "#9938BDF8" : "#9934D399");
     }
 
     private void RefreshPrerequisiteSummary(IReadOnlyCollection<PrerequisiteRow> rows)
@@ -1206,14 +1206,14 @@ public partial class MainWindow : Window
         {
             PrereqSummaryTextBlock.Text = "Sin prerequisitos detectados";
             PrereqSummaryHintTextBlock.Text = "Pulsa Revisar equipo para generar una lectura actual del equipo.";
-            PrereqSummaryTextBlock.Foreground = ToBrush("#102A43");
-            PrereqSummaryHintTextBlock.Foreground = ToBrush("#335B74");
-            PrereqSummaryBorder.Background = ToBrush("#F8FAFC");
-            PrereqSummaryBorder.BorderBrush = ToBrush("#D9E2EA");
+            PrereqSummaryTextBlock.Foreground = ToBrush("#F8FAFC");
+            PrereqSummaryHintTextBlock.Foreground = ToBrush("#C4D5E8");
+            PrereqSummaryBorder.Background = ToBrush("#660F253E");
+            PrereqSummaryBorder.BorderBrush = ToBrush("#8038DDF5");
             PrereqSummaryIcon.Data = DocumentGeometry;
-            PrereqSummaryIcon.Stroke = ToBrush("#526173");
-            PrereqSummaryIconPlate.Background = ToBrush("#F8FAFC");
-            PrereqSummaryIconPlate.BorderBrush = ToBrush("#D9E2EA");
+            PrereqSummaryIcon.Stroke = ToBrush("#38BDF8");
+            PrereqSummaryIconPlate.Background = ToBrush("#660F253E");
+            PrereqSummaryIconPlate.BorderBrush = ToBrush("#8038DDF5");
             return;
         }
 
@@ -1223,27 +1223,27 @@ public partial class MainWindow : Window
         {
             PrereqSummaryTextBlock.Text = $"Listo: {readyCount} requisito(s) OK";
             PrereqSummaryHintTextBlock.Text = "Puedes ejecutar la acción primaria o revisar la bitácora si necesitas evidencia.";
-            PrereqSummaryTextBlock.Foreground = ToBrush("#102A43");
-            PrereqSummaryHintTextBlock.Foreground = ToBrush("#335B74");
-            PrereqSummaryBorder.Background = ToBrush("#ECFDF5");
-            PrereqSummaryBorder.BorderBrush = ToBrush("#A7F3D0");
+            PrereqSummaryTextBlock.Foreground = ToBrush("#34D399");
+            PrereqSummaryHintTextBlock.Foreground = ToBrush("#C4D5E8");
+            PrereqSummaryBorder.Background = ToBrush("#66064E3B");
+            PrereqSummaryBorder.BorderBrush = ToBrush("#8034D399");
             PrereqSummaryIcon.Data = CheckGeometry;
-            PrereqSummaryIcon.Stroke = ToBrush("#15803D");
-            PrereqSummaryIconPlate.Background = ToBrush("#ECFDF5");
-            PrereqSummaryIconPlate.BorderBrush = ToBrush("#A7F3D0");
+            PrereqSummaryIcon.Stroke = ToBrush("#34D399");
+            PrereqSummaryIconPlate.Background = ToBrush("#80064E3B");
+            PrereqSummaryIconPlate.BorderBrush = ToBrush("#8034D399");
             return;
         }
 
         PrereqSummaryTextBlock.Text = $"Atención: {missingCount} pendiente(s), {readyCount} OK";
         PrereqSummaryHintTextBlock.Text = "Revisa filas FALTA y corrige antes de instalar o reparar.";
-        PrereqSummaryTextBlock.Foreground = ToBrush("#102A43");
-        PrereqSummaryHintTextBlock.Foreground = ToBrush("#335B74");
-        PrereqSummaryBorder.Background = ToBrush("#FEF2F2");
-        PrereqSummaryBorder.BorderBrush = ToBrush("#FECACA");
+        PrereqSummaryTextBlock.Foreground = ToBrush("#F87171");
+        PrereqSummaryHintTextBlock.Foreground = ToBrush("#C4D5E8");
+        PrereqSummaryBorder.Background = ToBrush("#667F1D1D");
+        PrereqSummaryBorder.BorderBrush = ToBrush("#80F87171");
         PrereqSummaryIcon.Data = CrossGeometry;
-        PrereqSummaryIcon.Stroke = ToBrush("#B42318");
-        PrereqSummaryIconPlate.Background = ToBrush("#FEF2F2");
-        PrereqSummaryIconPlate.BorderBrush = ToBrush("#FECACA");
+        PrereqSummaryIcon.Stroke = ToBrush("#F87171");
+        PrereqSummaryIconPlate.Background = ToBrush("#807F1D1D");
+        PrereqSummaryIconPlate.BorderBrush = ToBrush("#80F87171");
     }
 
     private void SetWizardStep(WizardStep step)
@@ -1435,11 +1435,11 @@ public partial class MainWindow : Window
     {
         if (hasFailure && targetStep == WizardStep.Result)
         {
-            connector.Fill = ToBrush("#FECACA");
+            connector.Fill = ToBrush("#F87171");
             return;
         }
 
-        connector.Fill = currentStep >= targetStep ? ToBrush("#A7F3D0") : ToBrush("#D9E2EA");
+        connector.Fill = currentStep >= targetStep ? ToBrush("#34D399") : ToBrush("#334E68");
     }
 
     private void SetStepBadge(Border border, TextBlock textBlock, Path iconPath, string label, WizardStep activeStep, WizardStep step, bool hasFailure)
@@ -1449,9 +1449,9 @@ public partial class MainWindow : Window
         var failedResult = hasFailure && step == WizardStep.Result;
         var state = failedResult ? "error" : active ? "activo" : completed ? "correcto" : "pendiente";
         textBlock.Text = $"{label} · {state}";
-        border.Background = ToBrush(failedResult ? "#FEF2F2" : active ? "#EFF6FF" : completed ? "#ECFDF5" : "#F8FAFC");
-        border.BorderBrush = ToBrush(failedResult ? "#FECACA" : active ? "#BFDBFE" : completed ? "#A7F3D0" : "#D9E2EA");
-        textBlock.Foreground = ToBrush(failedResult ? "#B42318" : active ? "#2563EB" : completed ? "#15803D" : "#526173");
+        border.Background = ToBrush(failedResult ? "#667F1D1D" : active ? "#730C4A6E" : completed ? "#66064E3B" : "#400F253E");
+        border.BorderBrush = ToBrush(failedResult ? "#80F87171" : active ? "#9938BDF8" : completed ? "#8034D399" : "#5038DDF5");
+        textBlock.Foreground = ToBrush(failedResult ? "#F87171" : active ? "#38BDF8" : completed ? "#34D399" : "#94A3B8");
 
         iconPath.Stroke = textBlock.Foreground;
         iconPath.Fill = null;

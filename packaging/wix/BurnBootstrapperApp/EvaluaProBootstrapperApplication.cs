@@ -185,6 +185,13 @@ internal sealed class EvaluaProBootstrapperApplication : BootstrapperApplication
             return;
         }
 
+        if (!string.Equals(args.PackageId, "EvaluaProMsi", StringComparison.OrdinalIgnoreCase) && (args.PackageId?.StartsWith("{") == true))
+        {
+            // Limpieza de bundle previo / RelatedBundle antiguo cuyo cache temporal ya no existe (no fatal para el nuevo MSI)
+            Log("warn", $"ExecutePackageComplete RelatedBundle package={args.PackageId} status={args.Status} ({FormatWindowsStatus(args.Status)})");
+            return;
+        }
+
         applySawPackageFailure = true;
         lastFailedPackageStatus ??= args.Status;
         lastFailedPackageId ??= args.PackageId;
@@ -402,12 +409,6 @@ internal sealed class EvaluaProBootstrapperApplication : BootstrapperApplication
                 WindowStyle = ProcessWindowStyle.Hidden
             });
             Log("info", $"EvaluaPro solicitado desde la pantalla final: {installDir}");
-
-            Task.Run(async () =>
-            {
-                await Task.Delay(2500);
-                OpenNativeAppWindow("http://127.0.0.1:4173/");
-            });
         }
         catch (Exception ex)
         {

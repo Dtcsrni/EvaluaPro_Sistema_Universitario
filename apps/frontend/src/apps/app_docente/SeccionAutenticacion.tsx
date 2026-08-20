@@ -9,8 +9,10 @@ import { GoogleLogin } from '@react-oauth/google';
 import { ErrorRemoto, accionToastSesionParaError } from '../../servicios_api/clienteComun';
 import { emitToast } from '../../ui/toast/toastBus';
 import { Icono } from '../../ui/iconos';
+import { TemaBoton } from '../../tema/TemaBoton';
 import { Boton } from '../../ui/ux/componentes/Boton';
 import { InlineMensaje } from '../../ui/ux/componentes/InlineMensaje';
+import { abrirVentanaVersion, obtenerVersionApp } from '../../ui/version/versionInfo';
 import { clienteApi } from './clienteApiDocente';
 import { tipoMensajeInline } from './mensajeInline';
 import { registrarAccionDocente } from './telemetriaDocente';
@@ -20,10 +22,10 @@ import {
   obtenerDominiosCorreoPermitidosFrontend,
   textoDominiosPermitidos
 } from './utilidades';
+
 export function SeccionAutenticacion({
   onIngresar,
   oauthGoogleDisponible,
-  smtpDisponible,
   requireGoogleOAuth,
   passwordLoginAllowed,
   primerUso
@@ -385,441 +387,461 @@ export function SeccionAutenticacion({
     : Boolean(nombres.trim() && apellidos.trim() && correo.trim() && contrasena.trim());
 
   return (
-    <div className="auth-grid auth-grid--docente">
-      <div className="auth-hero">
-        <p className="eyebrow">Acceso</p>
-        <h2>
-          <Icono nombre="docente" /> Acceso docente
-        </h2>
-        <p className="auth-subtitulo">Entra al banco, examenes y calificacion.</p>
-        <div className="auth-hero-kpis" aria-label="Resumen de acceso docente">
-          <article className="auth-hero-kpi">
-            <span>Modo</span>
-            <strong>{googleOnly ? 'Google institucional' : googleDisponible ? 'Google o correo' : 'Correo y contrasena'}</strong>
-          </article>
-          <article className="auth-hero-kpi">
-            <span>Seguridad</span>
-            <strong>Sesion persistente y controlada</strong>
-          </article>
-          <article className="auth-hero-kpi">
-            <span>Destino</span>
-            <strong>Banco, OMR y publicación</strong>
-          </article>
-        </div>
-        <div className="auth-hero-stats" aria-label="Estado de plataforma">
-          <span>Sesion segura</span>
-          <span>Flujo guiado</span>
-          {googleDisponible && <span>Soporte Google</span>}
-          {Boolean(smtpDisponible) && <span>Soporte SMTP</span>}
-        </div>
-        <ul className="auth-beneficios" aria-label="Beneficios">
-          <li>
-            <Icono nombre="ok" /> Sesion persistente segura (refresh token httpOnly).
-          </li>
-          {googleDisponible ? (
-            <li>
-              <Icono nombre="inicio" /> Acceso rapido con Google (correo institucional).
-            </li>
-          ) : (
-            <li>
-              <Icono nombre="inicio" /> Acceso con correo y contrasena.
-            </li>
-          )}
-          <li>
-            <Icono nombre="banco" /> Todo en un solo panel.
-          </li>
-        </ul>
-        <div className="auth-ilustracion" aria-hidden="true">
-          <div className="auth-blob" />
-          <div className="auth-blob auth-blob--2" />
-        </div>
-      </div>
-
-      <div className={`auth-form ${modo === 'ingresar' ? 'auth-form--ingresar' : 'auth-form--registrar'}`}>
-        <div className="auth-form-head">
-          <p className="eyebrow">{modo === 'ingresar' ? 'Iniciar sesión' : primerUso ? 'Primer Inicio' : 'Registro y Licencia'}</p>
-          <h3>
-            {modo === 'ingresar'
-              ? 'Bienvenido de nuevo'
-              : primerUso
-                ? 'Configuración inicial y activación de licencia'
-                : 'Registro docente y activación de licencia'}
-          </h3>
-          <p className="nota">
-            {modo === 'ingresar'
-              ? 'Usa tu acceso habitual para volver rápidamente al flujo operativo.'
-              : 'Crea tu cuenta institucional y establece tu clave de licencia para activar la plataforma.'}
-          </p>
-        </div>
-        {modo === 'registrar' && (
-          <div className="panel auth-panel" aria-label="Ayuda de registro">
-            <p className="nota">
-              Para registrar tu cuenta completa <b>nombres</b>, <b>apellidos</b> y <b>correo</b>. La contrasena requiere minimo 8 caracteres.
-            </p>
-            {googleOnly && (
-              <p className="nota">Modo Google-only activo: usa tu cuenta institucional para crear o vincular acceso.</p>
-            )}
-            {dominiosPermitidos.length > 0 && (
-              <p className="nota">Correo institucional requerido: {politicaDominiosTexto}</p>
-            )}
+    <section className="auth-portal card anim-entrada superficie-app superficie-app--docente">
+      <header className="auth-portal__topbar">
+        <div className="auth-portal__brand">
+          <div className="auth-portal__logo">
+            <Icono nombre="docente" />
           </div>
-        )}
-
-        {googleOnly && (
-          <InlineMensaje tipo="info">
-            Esta instalación requiere inicio de sesión con Google. Si ya tenías cuenta con este correo institucional, se vinculará al primer acceso.
-          </InlineMensaje>
-        )}
-
-        {!googleDisponible && esDev && (
-          <InlineMensaje tipo="info">
-            Inicio de sesion con Google deshabilitado en este entorno. Para habilitarlo en desarrollo, define
-            {' '}VITE_GOOGLE_CLIENT_ID en el .env del root y reinicia Vite.
-          </InlineMensaje>
-        )}
-        {googleDisponible && modo === 'ingresar' && (
-          <div className="auth-google auth-google--mb auth-panel">
-            <GoogleLogin
-              onSuccess={(cred) => {
-                const token = cred.credential;
-                if (!token) {
-                  setMensaje('No se recibio credencial de Google.');
-                  return;
-                }
-                void ingresarConGoogle(token);
-              }}
-              onError={() => setMensaje('No se pudo iniciar sesion con Google.')}
-              useOneTap
-            />
-            <p className="nota nota--mt">
-              Acceso principal: Google (correo institucional).
-            </p>
-            {dominiosPermitidos.length > 0 && (
-              <p className="nota nota--mt">Solo se permiten: {politicaDominiosTexto}</p>
-            )}
-
-            {passwordDisponible && (
-              <div className="acciones acciones--mt">
-                <button
-                  type="button"
-                  className="chip"
-                  onClick={() => {
-                    setMostrarFormularioIngresar((v) => !v);
-                    setMensaje('');
-                  }}
-                >
-                  {mostrarFormularioIngresar ? 'Ocultar formulario' : 'Ingresar con correo y contrasena'}
-                </button>
-                <button
-                  type="button"
-                  className="chip"
-                  onClick={() => {
-                    setMostrarRecuperar((v) => !v);
-                    setMensaje('');
-                  }}
-                >
-                  {mostrarRecuperar ? 'Cerrar recuperacion' : 'Recuperar contrasena con Google'}
-                </button>
-              </div>
-            )}
-
-            {passwordDisponible && mostrarRecuperar && (
-              <div className="panel mt-10 auth-panel auth-panel--inset">
-                <p className="nota">Si tu cuenta tiene Google vinculado, puedes establecer una nueva contrasena.</p>
-                {dominiosPermitidos.length > 0 && (
-                  <p className="nota nota--mt">Solo se permiten: {politicaDominiosTexto}</p>
-                )}
-                <GoogleLogin
-                  onSuccess={(cred) => {
-                    const token = cred.credential;
-                    if (!token) {
-                      setMensaje('No se recibio credencial de Google.');
-                      return;
-                    }
-                    setCredentialRecuperarGoogle(token);
-                    setMensaje('Google listo. Define tu nueva contrasena.');
-                  }}
-                  onError={() => setMensaje('No se pudo reautenticar con Google.')}
-                />
-                <label className="campo mt-10">
-                  Nueva contrasena
-                  <input
-                    type="password"
-                    value={contrasenaRecuperar}
-                    onChange={(event) => setContrasenaRecuperar(event.target.value)}
-                    autoComplete="new-password"
-                  />
-                  <span className="ayuda">Minimo 8 caracteres.</span>
-                </label>
-                <div className="acciones">
-                  <Boton
-                    type="button"
-                    icono={<Icono nombre="ok" />}
-                    cargando={enviando}
-                    disabled={!credentialRecuperarGoogle || contrasenaRecuperar.trim().length < 8}
-                    onClick={recuperarConGoogle}
-                  >
-                    {enviando ? 'Actualizando…' : 'Actualizar contrasena'}
-                  </Boton>
-                </div>
-              </div>
-            )}
+          <div>
+            <h1 className="auth-portal__title">Plataforma Docente</h1>
+            <span className="auth-portal__subtitle">EvaluaPro · Sistema Universitario</span>
           </div>
-        )}
+        </div>
+        <div className="auth-portal__top-actions">
+          <button
+            type="button"
+            className="chip chip-version"
+            title="Abrir información de versión"
+            onClick={() => abrirVentanaVersion('docente')}
+          >
+            v{obtenerVersionApp()}
+          </button>
+          <TemaBoton />
+        </div>
+      </header>
 
-        <div className="acciones auth-tabs">
-          <button
-            className={modo === 'ingresar' ? 'boton auth-tab auth-tab--activo' : 'boton secundario auth-tab'}
-            type="button"
-            onClick={() => {
-              setModo('ingresar');
-              setCredentialRegistroGoogle(null);
-              setCrearContrasenaAhora(!googleOnly);
-              setMostrarFormularioIngresar(false);
-              setNombres('');
-              setApellidos('');
-              setMensaje('');
-            }}
-          >
-            Ingresar
-          </button>
-          <button
-            className={modo === 'registrar' ? 'boton auth-tab auth-tab--activo' : 'boton secundario auth-tab'}
-            type="button"
-            onClick={() => {
-              setModo('registrar');
-              setCrearContrasenaAhora(!googleOnly);
-              setMostrarFormularioRegistrar(false);
-              setNombres('');
-              setApellidos('');
-              setMensaje('');
-            }}
-          >
-            Registrar
-          </button>
+      <div className="auth-grid auth-grid--docente">
+        <div className="auth-hero">
+          <div className="auth-hero__header">
+            <p className="eyebrow">
+              <Icono nombre="docente" /> Acceso docente
+            </p>
+            <h2>Gestión y Evaluación Académica</h2>
+            <p className="auth-subtitulo">
+              Diseña evaluaciones estructuradas, automatiza la calificación con hojas OMR y gestiona tus cursos con total privacidad local.
+            </p>
+          </div>
+
+          <ul className="auth-feature-list auth-beneficios" aria-label="Beneficios">
+            <li className="auth-feature-card">
+              <div className="auth-feature-card__icon">
+                <Icono nombre="banco" />
+              </div>
+              <div className="auth-feature-card__body">
+                <strong>Gestión de Cursos y Banco</strong>
+                <p>Organiza materias, listas de alumnos y preguntas por competencias.</p>
+              </div>
+            </li>
+
+            <li className="auth-feature-card">
+              <div className="auth-feature-card__icon">
+                <Icono nombre="escaneo" />
+              </div>
+              <div className="auth-feature-card__body">
+                <strong>Calificación OMR Instantánea</strong>
+                <p>Genera exámenes impresos y procesa hojas de respuestas ópticas al instante.</p>
+              </div>
+            </li>
+
+            <li className="auth-feature-card">
+              <div className="auth-feature-card__icon">
+                <Icono nombre="ok" />
+              </div>
+              <div className="auth-feature-card__body">
+                <strong>Privacidad y Datos Locales</strong>
+                <p>Tus calificaciones se almacenan de forma segura en tu equipo sin dependencias externas.</p>
+              </div>
+            </li>
+          </ul>
         </div>
 
-        {googleDisponible && modo === 'registrar' && !(mostrarFormularioRegistrar && passwordDisponible) && (
-          <div className="auth-google auth-google--mb auth-panel">
-            <GoogleLogin
-              onSuccess={(cred) => {
-                const token = cred.credential;
-                if (!token) {
-                  setMensaje('No se recibio credencial de Google.');
-                  return;
-                }
-
-                const payload = decodificarPayloadJwt(token);
-                const correoGoogle = typeof payload?.email === 'string' ? payload.email : undefined;
-                const nombreCompletoGoogle = typeof payload?.name === 'string' ? payload.name : undefined;
-                const nombreGoogle = typeof payload?.given_name === 'string' ? payload.given_name : undefined;
-                const apellidoGoogle = typeof payload?.family_name === 'string' ? payload.family_name : undefined;
-
-                if (correoGoogle && dominiosPermitidos.length > 0 && !correoPermitido(correoGoogle)) {
-                  const msg = `Solo se permiten correos institucionales: ${politicaDominiosTexto}`;
-                  setMensaje(msg);
-                  emitToast({ level: 'error', title: 'Correo no permitido', message: msg, durationMs: 5200 });
-                  return;
-                }
-
-                if (correoGoogle) setCorreo(correoGoogle);
-
-                const nombresActual = nombres.trim();
-                const apellidosActual = apellidos.trim();
-
-                if (nombreGoogle && !nombresActual) setNombres(nombreGoogle);
-                if (apellidoGoogle && !apellidosActual) setApellidos(apellidoGoogle);
-                if (nombreCompletoGoogle && (!nombresActual || !apellidosActual)) {
-                  const partes = nombreCompletoGoogle
-                    .split(' ')
-                    .map((p) => p.trim())
-                    .filter(Boolean);
-                  if (partes.length >= 2) {
-                    if (!nombresActual) setNombres(partes.slice(0, -1).join(' '));
-                    if (!apellidosActual) setApellidos(partes.slice(-1).join(' '));
-                  } else if (partes.length === 1 && !nombresActual) {
-                    setNombres(partes[0]);
-                  }
-                }
-                setCredentialRegistroGoogle(token);
-                setCrearContrasenaAhora(false);
-                setContrasena('');
-                setMensaje('Correo tomado de Google. Completa tus datos para crear la cuenta.');
-              }}
-              onError={() => setMensaje('No se pudo obtener datos de Google.')}
-            />
-            <div className="acciones acciones--mt">
+        <div className={`auth-form ${modo === 'ingresar' ? 'auth-form--ingresar' : 'auth-form--registrar'}`}>
+          <div className="auth-form-head">
+            <div className="acciones auth-tabs">
               <button
-                className={credentialRegistroGoogle ? 'chip' : 'chip'}
+                className={modo === 'ingresar' ? 'boton auth-tab auth-tab--activo' : 'boton secundario auth-tab'}
                 type="button"
                 onClick={() => {
+                  setModo('ingresar');
                   setCredentialRegistroGoogle(null);
-                  setCorreo('');
-                  setCrearContrasenaAhora(true);
+                  setCrearContrasenaAhora(!googleOnly);
+                  setMostrarFormularioIngresar(false);
+                  setNombres('');
+                  setApellidos('');
                   setMensaje('');
                 }}
-                disabled={!credentialRegistroGoogle}
               >
-                Cambiar correo
+                Ingresar
               </button>
+              <button
+                className={modo === 'registrar' ? 'boton auth-tab auth-tab--activo' : 'boton secundario auth-tab'}
+                type="button"
+                onClick={() => {
+                  setModo('registrar');
+                  setCrearContrasenaAhora(!googleOnly);
+                  setMostrarFormularioRegistrar(false);
+                  setNombres('');
+                  setApellidos('');
+                  setMensaje('');
+                }}
+              >
+                Registrar
+              </button>
+            </div>
+
+            <h3 className="mt-12">
+              {modo === 'ingresar'
+                ? 'Bienvenido a EvaluaPro'
+                : primerUso
+                  ? 'Configuración inicial y activación de licencia'
+                  : 'Registro docente y activación de licencia'}
+            </h3>
+            <p className="nota">
+              {modo === 'ingresar'
+                ? 'Ingresa con tu correo institucional o credenciales habituales.'
+                : 'Crea tu cuenta institucional y establece tu clave de licencia para activar la plataforma.'}
+            </p>
+          </div>
+
+          {modo === 'registrar' && (
+            <div className="panel auth-panel" aria-label="Ayuda de registro">
+              <p className="nota">
+                Para registrar tu cuenta completa <b>nombres</b>, <b>apellidos</b> y <b>correo</b>. La contrasena requiere minimo 8 caracteres.
+              </p>
+              {googleOnly && (
+                <p className="nota">Modo Google-only activo: usa tu cuenta institucional para crear o vincular acceso.</p>
+              )}
+              {dominiosPermitidos.length > 0 && (
+                <p className="nota">Correo institucional requerido: {politicaDominiosTexto}</p>
+              )}
+            </div>
+          )}
+
+          {googleOnly && (
+            <InlineMensaje tipo="info">
+              Esta instalación requiere inicio de sesión con Google. Si ya tenías cuenta con este correo institucional, se vinculará al primer acceso.
+            </InlineMensaje>
+          )}
+
+          {!googleDisponible && esDev && (
+            <InlineMensaje tipo="info">
+              Inicio de sesion con Google deshabilitado en este entorno. Para habilitarlo en desarrollo, define
+              {' '}VITE_GOOGLE_CLIENT_ID en el .env del root y reinicia Vite.
+            </InlineMensaje>
+          )}
+
+          {googleDisponible && modo === 'ingresar' && (
+            <div className="auth-google auth-google--mb auth-panel">
+              <GoogleLogin
+                onSuccess={(cred) => {
+                  const token = cred.credential;
+                  if (!token) {
+                    setMensaje('No se recibio credencial de Google.');
+                    return;
+                  }
+                  void ingresarConGoogle(token);
+                }}
+                onError={() => setMensaje('No se pudo iniciar sesion con Google.')}
+                useOneTap
+              />
+              <p className="nota nota--mt">
+                Acceso principal: Google (correo institucional).
+              </p>
+              {dominiosPermitidos.length > 0 && (
+                <p className="nota nota--mt">Solo se permiten: {politicaDominiosTexto}</p>
+              )}
+
               {passwordDisponible && (
+                <div className="acciones acciones--mt">
+                  <button
+                    type="button"
+                    className="chip"
+                    onClick={() => {
+                      setMostrarFormularioIngresar((v) => !v);
+                      setMensaje('');
+                    }}
+                  >
+                    {mostrarFormularioIngresar ? 'Ocultar formulario' : 'Ingresar con correo y contrasena'}
+                  </button>
+                  <button
+                    type="button"
+                    className="chip"
+                    onClick={() => {
+                      setMostrarRecuperar((v) => !v);
+                      setMensaje('');
+                    }}
+                  >
+                    {mostrarRecuperar ? 'Cerrar recuperacion' : 'Recuperar contrasena con Google'}
+                  </button>
+                </div>
+              )}
+
+              {passwordDisponible && mostrarRecuperar && (
+                <div className="panel mt-10 auth-panel auth-panel--inset">
+                  <p className="nota">Si tu cuenta tiene Google vinculado, puedes establecer una nueva contrasena.</p>
+                  {dominiosPermitidos.length > 0 && (
+                    <p className="nota nota--mt">Solo se permiten: {politicaDominiosTexto}</p>
+                  )}
+                  <GoogleLogin
+                    onSuccess={(cred) => {
+                      const token = cred.credential;
+                      if (!token) {
+                        setMensaje('No se recibio credencial de Google.');
+                        return;
+                      }
+                      setCredentialRecuperarGoogle(token);
+                      setMensaje('Google listo. Define tu nueva contrasena.');
+                    }}
+                    onError={() => setMensaje('No se pudo reautenticar con Google.')}
+                  />
+                  <label className="campo mt-10">
+                    Nueva contrasena
+                    <input
+                      type="password"
+                      value={contrasenaRecuperar}
+                      onChange={(event) => setContrasenaRecuperar(event.target.value)}
+                      autoComplete="new-password"
+                    />
+                    <span className="ayuda">Minimo 8 caracteres.</span>
+                  </label>
+                  <div className="acciones">
+                    <Boton
+                      type="button"
+                      icono={<Icono nombre="ok" />}
+                      cargando={enviando}
+                      disabled={!credentialRecuperarGoogle || contrasenaRecuperar.trim().length < 8}
+                      onClick={recuperarConGoogle}
+                    >
+                      {enviando ? 'Actualizando…' : 'Actualizar contrasena'}
+                    </Boton>
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+
+          {googleDisponible && modo === 'registrar' && !(mostrarFormularioRegistrar && passwordDisponible) && (
+            <div className="auth-google auth-google--mb auth-panel">
+              <GoogleLogin
+                onSuccess={(cred) => {
+                  const token = cred.credential;
+                  if (!token) {
+                    setMensaje('No se recibio credencial de Google.');
+                    return;
+                  }
+
+                  const payload = decodificarPayloadJwt(token);
+                  const correoGoogle = typeof payload?.email === 'string' ? payload.email : undefined;
+                  const nombreCompletoGoogle = typeof payload?.name === 'string' ? payload.name : undefined;
+                  const nombreGoogle = typeof payload?.given_name === 'string' ? payload.given_name : undefined;
+                  const apellidoGoogle = typeof payload?.family_name === 'string' ? payload.family_name : undefined;
+
+                  if (correoGoogle && dominiosPermitidos.length > 0 && !correoPermitido(correoGoogle)) {
+                    const msg = `Solo se permiten correos institucionales: ${politicaDominiosTexto}`;
+                    setMensaje(msg);
+                    emitToast({ level: 'error', title: 'Correo no permitido', message: msg, durationMs: 5200 });
+                    return;
+                  }
+
+                  if (correoGoogle) setCorreo(correoGoogle);
+
+                  const nombresActual = nombres.trim();
+                  const apellidosActual = apellidos.trim();
+
+                  if (nombreGoogle && !nombresActual) setNombres(nombreGoogle);
+                  if (apellidoGoogle && !apellidosActual) setApellidos(apellidoGoogle);
+                  if (nombreCompletoGoogle && (!nombresActual || !apellidosActual)) {
+                    const partes = nombreCompletoGoogle
+                      .split(' ')
+                      .map((p) => p.trim())
+                      .filter(Boolean);
+                    if (partes.length >= 2) {
+                      if (!nombresActual) setNombres(partes.slice(0, -1).join(' '));
+                      if (!apellidosActual) setApellidos(partes.slice(-1).join(' '));
+                    } else if (partes.length === 1 && !nombresActual) {
+                      setNombres(partes[0]);
+                    }
+                  }
+                  setCredentialRegistroGoogle(token);
+                  setCrearContrasenaAhora(false);
+                  setContrasena('');
+                  setMensaje('Correo tomado de Google. Completa tus datos para crear la cuenta.');
+                }}
+                onError={() => setMensaje('No se pudo obtener datos de Google.')}
+              />
+              <div className="acciones acciones--mt">
                 <button
-                  className="chip"
+                  className={credentialRegistroGoogle ? 'chip' : 'chip'}
                   type="button"
                   onClick={() => {
-                    setMostrarFormularioRegistrar(true);
                     setCredentialRegistroGoogle(null);
                     setCorreo('');
-                    setNombres('');
-                    setApellidos('');
-                    setContrasena('');
                     setCrearContrasenaAhora(true);
                     setMensaje('');
                   }}
+                  disabled={!credentialRegistroGoogle}
                 >
-                  Registrar con correo y contrasena
+                  Cambiar correo
                 </button>
+                {passwordDisponible && (
+                  <button
+                    className="chip"
+                    type="button"
+                    onClick={() => {
+                      setMostrarFormularioRegistrar(true);
+                      setCredentialRegistroGoogle(null);
+                      setCorreo('');
+                      setNombres('');
+                      setApellidos('');
+                      setContrasena('');
+                      setCrearContrasenaAhora(true);
+                      setMensaje('');
+                    }}
+                  >
+                    Registrar con correo y contrasena
+                  </button>
+                )}
+              </div>
+              <p className="nota nota--mt">
+                Registro principal: Google (correo institucional).
+              </p>
+              {dominiosPermitidos.length > 0 && (
+                <p className="nota nota--mt">Solo se permiten: {politicaDominiosTexto}</p>
               )}
             </div>
-            <p className="nota nota--mt">
-              Registro principal: Google (correo institucional).
-            </p>
-            {dominiosPermitidos.length > 0 && (
-              <p className="nota nota--mt">Solo se permiten: {politicaDominiosTexto}</p>
-            )}
-          </div>
-        )}
+          )}
 
-        {googleDisponible && modo === 'registrar' && passwordDisponible && mostrarFormularioRegistrar && (
-          <div className="panel auth-panel auth-panel--inset">
-            <p className="nota">
-              Registro por formulario (fallback). Recomendado: usa Google para correo institucional.
-            </p>
-            <div className="acciones acciones--mt">
-              <button
-                className="chip"
-                type="button"
-                onClick={() => {
-                  setMostrarFormularioRegistrar(false);
-                  setMensaje('');
-                }}
-              >
-                Volver a Google
-              </button>
+          {googleDisponible && modo === 'registrar' && passwordDisponible && mostrarFormularioRegistrar && (
+            <div className="panel auth-panel auth-panel--inset">
+              <p className="nota">
+                Registro por formulario (fallback). Recomendado: usa Google para correo institucional.
+              </p>
+              <div className="acciones acciones--mt">
+                <button
+                  className="chip"
+                  type="button"
+                  onClick={() => {
+                    setMostrarFormularioRegistrar(false);
+                    setMensaje('');
+                  }}
+                >
+                  Volver a Google
+                </button>
+              </div>
             </div>
-          </div>
-        )}
+          )}
 
-        {modo === 'registrar' && mostrarFormulario && (
-          <>
+          {modo === 'registrar' && mostrarFormulario && (
+            <>
+              <label className="campo auth-campo">
+                Nombres
+                <input
+                  value={nombres}
+                  onChange={(event) => setNombres(event.target.value)}
+                  autoComplete="given-name"
+                  placeholder="Ej. Juan Carlos"
+                />
+              </label>
+              <label className="campo auth-campo">
+                Apellidos
+                <input
+                  value={apellidos}
+                  onChange={(event) => setApellidos(event.target.value)}
+                  autoComplete="family-name"
+                  placeholder="Ej. Perez Lopez"
+                />
+              </label>
+            </>
+          )}
+
+          {mostrarFormulario && (
             <label className="campo auth-campo">
-              Nombres
+              Correo
               <input
-                value={nombres}
-                onChange={(event) => setNombres(event.target.value)}
-                autoComplete="given-name"
-                placeholder="Ej. Juan Carlos"
+                type="email"
+                value={correo}
+                onChange={(event) => setCorreo(event.target.value)}
+                autoComplete="email"
+                readOnly={modo === 'registrar' && Boolean(credentialRegistroGoogle)}
+              />
+              {modo === 'registrar' && credentialRegistroGoogle && <span className="ayuda">Correo bloqueado por Google.</span>}
+            </label>
+          )}
+
+          {modo === 'registrar' && mostrarFormulario && (
+            <label className="campo auth-campo">
+              Clave o Código de Licencia (opcional / institucional)
+              <input
+                value={codigoLicencia}
+                onChange={(event) => setCodigoLicencia(event.target.value)}
+                placeholder="Ej. LIC-2026-DOC-XXXX-XXXX"
+                autoComplete="off"
+                spellCheck={false}
+              />
+              <span className="ayuda">
+                Si cuentas con una clave institucional, ingrésala para activar tu licencia docente de inmediato.
+              </span>
+            </label>
+          )}
+
+          {modo === 'registrar' && credentialRegistroGoogle && mostrarFormulario && passwordDisponible && (
+            <label className="campo auth-campo">
+              Crear contrasena ahora (opcional)
+              <span className="ayuda">Si no, podras definirla luego desde Cuenta.</span>
+              <input
+                type="checkbox"
+                checked={crearContrasenaAhora}
+                onChange={(event) => {
+                  setCrearContrasenaAhora(event.target.checked);
+                  if (!event.target.checked) setContrasena('');
+                }}
               />
             </label>
+          )}
+
+          {mostrarFormulario && passwordDisponible && (modo === 'ingresar' || !credentialRegistroGoogle || crearContrasenaAhora) && (
             <label className="campo auth-campo">
-              Apellidos
-              <input
-                value={apellidos}
-                onChange={(event) => setApellidos(event.target.value)}
-                autoComplete="family-name"
-                placeholder="Ej. Perez Lopez"
-              />
+              Contrasena
+              {modo === 'ingresar' ? (
+                <input
+                  type="password"
+                  value={contrasena}
+                  onChange={(event) => setContrasena(event.target.value)}
+                  autoComplete="current-password"
+                />
+              ) : (
+                <input
+                  type="password"
+                  value={contrasena}
+                  onChange={(event) => setContrasena(event.target.value)}
+                  autoComplete="new-password"
+                />
+              )}
+              {modo === 'registrar' && credentialRegistroGoogle && (
+                <span className="ayuda">Minimo 8 caracteres.</span>
+              )}
             </label>
-          </>
-        )}
+          )}
 
-        {mostrarFormulario && (
-          <label className="campo auth-campo">
-            Correo
-            <input
-              type="email"
-              value={correo}
-              onChange={(event) => setCorreo(event.target.value)}
-              autoComplete="email"
-              readOnly={modo === 'registrar' && Boolean(credentialRegistroGoogle)}
-            />
-            {modo === 'registrar' && credentialRegistroGoogle && <span className="ayuda">Correo bloqueado por Google.</span>}
-          </label>
-        )}
+          {mostrarFormulario && (
+            <div className="acciones auth-submit">
+              <Boton
+                type="button"
+                tamano="lg"
+                icono={<Icono nombre={modo === 'ingresar' ? 'entrar' : 'nuevo'} />}
+                cargando={enviando}
+                disabled={cooldownActivo || (modo === 'ingresar' ? !puedeIngresar : !puedeRegistrar)}
+                onClick={modo === 'ingresar' ? ingresar : registrar}
+              >
+                {modo === 'ingresar' ? (enviando ? 'Ingresando…' : 'Ingresar') : enviando ? 'Creando…' : 'Crear cuenta'}
+              </Boton>
+            </div>
+          )}
 
-        {modo === 'registrar' && mostrarFormulario && (
-          <label className="campo auth-campo">
-            Clave o Código de Licencia (opcional / institucional)
-            <input
-              value={codigoLicencia}
-              onChange={(event) => setCodigoLicencia(event.target.value)}
-              placeholder="Ej. LIC-2026-DOC-XXXX-XXXX"
-              autoComplete="off"
-              spellCheck={false}
-            />
-            <span className="ayuda">
-              Si cuentas con una clave institucional, ingrésala para activar tu licencia docente de inmediato.
-            </span>
-          </label>
-        )}
-
-        {modo === 'registrar' && credentialRegistroGoogle && mostrarFormulario && passwordDisponible && (
-          <label className="campo auth-campo">
-            Crear contrasena ahora (opcional)
-            <span className="ayuda">Si no, podras definirla luego desde Cuenta.</span>
-            <input
-              type="checkbox"
-              checked={crearContrasenaAhora}
-              onChange={(event) => {
-                setCrearContrasenaAhora(event.target.checked);
-                if (!event.target.checked) setContrasena('');
-              }}
-            />
-          </label>
-        )}
-
-        {mostrarFormulario && passwordDisponible && (modo === 'ingresar' || !credentialRegistroGoogle || crearContrasenaAhora) && (
-          <label className="campo auth-campo">
-            Contrasena
-            {modo === 'ingresar' ? (
-              <input
-                type="password"
-                value={contrasena}
-                onChange={(event) => setContrasena(event.target.value)}
-                autoComplete="current-password"
-              />
-            ) : (
-              <input
-                type="password"
-                value={contrasena}
-                onChange={(event) => setContrasena(event.target.value)}
-                autoComplete="new-password"
-              />
-            )}
-            {modo === 'registrar' && credentialRegistroGoogle && (
-              <span className="ayuda">Minimo 8 caracteres.</span>
-            )}
-          </label>
-        )}
-
-        {mostrarFormulario && (
-          <div className="acciones auth-submit">
-            <Boton
-              type="button"
-              tamano="lg"
-              icono={<Icono nombre={modo === 'ingresar' ? 'entrar' : 'nuevo'} />}
-              cargando={enviando}
-              disabled={cooldownActivo || (modo === 'ingresar' ? !puedeIngresar : !puedeRegistrar)}
-              onClick={modo === 'ingresar' ? ingresar : registrar}
-            >
-              {modo === 'ingresar' ? (enviando ? 'Ingresando…' : 'Ingresar') : enviando ? 'Creando…' : 'Crear cuenta'}
-            </Boton>
-          </div>
-        )}
-
-        {mensaje && <InlineMensaje tipo={tipoMensajeInline(mensaje)}>{mensaje}</InlineMensaje>}
+          {mensaje && <InlineMensaje tipo={tipoMensajeInline(mensaje)}>{mensaje}</InlineMensaje>}
+        </div>
       </div>
-    </div>
+    </section>
   );
 }
-

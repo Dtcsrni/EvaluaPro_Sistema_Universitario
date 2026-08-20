@@ -5,12 +5,17 @@ Este archivo sigue el formato "Keep a Changelog" (alto nivel) y SemVer.
 ## [Unreleased]
 
 ### Added
+- Rediseño de Onboarding y Desacoplamiento de Bienvenida Docente (`SPEC-AUTH-ONBOARDING`): Eliminado el dashboard y encabezado "Banco y Exámenes" previo a la autenticación. Desacoplada `SeccionAutenticacion` en un portal de bienvenida institucional autónomo con pilares semánticos de valor, pestañas de acceso (`Ingresar` / `Registrar`), captura opcional de clave de licencia y diseño accesible sin jerga técnica.
+- Modernización de Layout en Bootstrapper WPF Installer Hub (`SPEC-INSTALLER-HUB-LAYOUT-MODERNIZATION`): Rediseñado el carrusel de valor con 3 pilares visuales institucionales, optimización de renderizado DirectX Tier 2 y unificación de lanzamiento en una sola ventana.
 - Flujo de Onboarding Docente Inicial y Licencia (`SPEC-014`): La pantalla de inicio de la app docente por defecto abre en modo registro (`Crear cuenta`) con soporte explícito para capturar la clave institucional de licencia, conservando la alternancia fluida a login tradicional.
 - Script de Licencia Master Administrativa (`scripts/generar-licencia-master.mjs` / `npm run licencia:master`): Emisión directa de licencias offline de nivel `institucional_multisede` con vigencia configurable (por defecto 10 años) y firma criptográfica.
 - Integración con Google Classroom y Google OAuth: Diagnóstico no destructivo `classroom:doctor` validado en verde, soporte de cifrado de tokens con llave militar AES-256 (`CLASSROOM_TOKEN_CIPHER_KEY`) y resolución en memoria de alumnos para grupos grandes.
 - Especificación SDD de Cuarentena OMR: Redactada la especificación `docs/specs/omr_cuarentena_retencion.spec.md` (`SPEC-OMR-CUARENTENA-RETENCION`) norma la cuarentena protegida para imágenes no confiables, la retención temporal post-cierre (+35 días), opciones interactivas de depuración y bloqueo por disputa activa.
 
 ### Fixed
+- Unificación de lanzamiento en Bootstrapper: Eliminado el doble arranque de navegador en `EvaluaProBootstrapperApplication.cs` y silenciadas advertencias de related bundles obsoletos en logs.
+- Versión unificada 1.1.1: Alineado `config/app-version.json` con `"version": "1.1.1"` y `"displayVersion": "1.1.1"`.
+- Resiliencia en tema de frontend: `useTema` con fallback seguro para tests unitarios aislados sin provider.
 - Bootstrapper residuos de instalación fallida: corregido bug crítico `request?.InstallDir` (siempre `null`) → `currentRequest?.InstallDir` en `RollbackFailureResidues()`; ahora los archivos en el directorio de instalación se limpian correctamente tras una instalación fallida. Se añade desinstalación silenciosa del MSI (`msiexec /x {ProductCode} /qn /norestart`) cuando el Apply Burn tiene éxito pero el helper post-install falla, evitando residuos en ARP de Windows. El modo headless `BuildHeadlessRequest` corregido para usar `isGenuinelyInstalledHeadless` (MSI + manifiesto) y no forzar modo "repair" tras una instalación incompleta.
 - Resiliencia del Bootstrapper WPF: `MainWindow.SetHubVersionLabel()` obtiene la versión del assembly vía reflexión (`AssemblyInformationalVersionAttribute`), `OnDetectPackageComplete` detecta `PackageState.Present` para `EvaluaProMsi`, preselecciona el modo `repair` cuando el paquete ya existe y captura excepciones no controladas en `StartUiThread` mostrando alertas `MessageBox` en modo visual; spec `docs/specs/installer_bootstrapper_resilience.spec.md` promovida a `implemented`.
 

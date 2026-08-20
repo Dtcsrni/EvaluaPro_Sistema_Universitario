@@ -586,7 +586,7 @@ test('Installer Hub cumple contrato DESIGN.md de layout y accesibilidad WPF', ()
   assert.match(mainWindowXaml, /x:Name="SplashFeatureIcon"/);
   const headerCarousel = mainWindowXaml.match(/<Border x:Name="HeaderFeatureIconPlate"[\s\S]*?<\/Border>/)?.[0] ?? '';
   assert.doesNotMatch(headerCarousel, /<Image\b|evaluapro-(?:installer|official)|logo/i, 'El carrusel embebido no debe repetir el logo oficial.');
-  assert.match(mainWindowXaml, /x:Key="TermsTextBrush" Color="#17324D"/);
+  assert.match(mainWindowXaml, /x:Key="TermsTextBrush" Color="(?:#17324D|#F1F5F9)"/);
   assert.match(mainWindowXaml, /x:Name="TermsText"[\s\S]*Foreground="\{StaticResource TermsTextBrush\}"/);
   assert.match(mainWindowXaml, /x:Name="SplashOverlay"[\s\S]*Background="#E6111827"/);
   assert.match(mainWindowXaml, /BrandTileStyle/);
@@ -1322,7 +1322,7 @@ test('helper Burn prepara contrato runtime instalado para dashboard docente', ()
   assert.match(helper, /BACKEND_DATABASE_URL/);
   assert.doesNotMatch(helper, /EVALUAPRO_IMAGE_TAG/);
   assert.match(helper, /Write-InstallerEnvMap/);
-  assert.match(helper, /Import-Module \$operationalConfigModule -Force/);
+  assert.match(helper, /Import-Module \$operationalConfigModule(?: -DisableNameChecking)? -Force/);
   assert.match(helper, /Invoke-EvaluaProOperationalConfiguration/);
   assert.match(helper, /function Assert-InstallerRuntimeEnv/);
   assert.match(helper, /Contrato runtime incompleto en \.env/);
