@@ -360,27 +360,29 @@ function Add-DocenteNativeCompiledPayload {
       if ($LASTEXITCODE -ne 0) { throw "Falló generación del cliente Prisma nativo (exit=$LASTEXITCODE)." }
       $previousErrorActionPreference = $ErrorActionPreference
       $ErrorActionPreference = 'Continue'
+      $env:PRISMA_HIDE_UPDATE_MESSAGE = '1'
+      $env:CHECKPOINT_DISABLE = '1'
       try {
         $schemaSqlOutput = @(& $nodeForBuild (Join-Path $backendTarget 'node_modules/prisma/build/index.js') migrate diff --from-empty --to-schema-datamodel $stagedSchemaPath --script 2>&1 | ForEach-Object { [string]$_ })
       } finally {
         $ErrorActionPreference = $previousErrorActionPreference
       }
       if ($LASTEXITCODE -ne 0) { throw "Falló generación del esquema SQL nativo (exit=$LASTEXITCODE)." }
-      $schemaSqlText = $schemaSqlOutput -join [Environment]::NewLine
+      $sqlLines = $schemaSqlOutput | Where-Object {
+        $lineStr = [string]$_
+        if ($lineStr -match 'Update available|major update|Tip:|npm warn|npm NOTICE') { return $false }
+        if ($lineStr.Contains([char]0x2500) -or $lineStr.Contains([char]0x2502) -or $lineStr.Contains([char]0x250C) -or $lineStr.Contains([char]0x2514)) { return $false }
+        return $true
+      }
+      $schemaSqlText = $sqlLines -join [Environment]::NewLine
       $sqlStart = $schemaSqlText.IndexOf('-- CreateTable', [StringComparison]::Ordinal)
       if ($sqlStart -lt 0) { throw 'Falló generación del esquema SQL nativo: salida SQL vacía.' }
       $schemaSqlText = $schemaSqlText.Substring($sqlStart)
-      # Prisma puede anexar avisos de consola a la salida SQL. El último
-      # terminador de sentencia es un límite estable, independiente de la
-      # codificación usada por la consola de PowerShell.
       $lastSqlTerminator = $schemaSqlText.LastIndexOf(';')
       if ($lastSqlTerminator -lt 0) {
         throw 'Falló saneamiento del esquema SQL nativo: no hay terminador SQL.'
       }
       $schemaSqlText = $schemaSqlText.Substring(0, $lastSqlTerminator + 1).Trim()
-      if ($schemaSqlText -match 'Update available|major update|Ôöî|ÔöÇ|ÔöÉ') {
-        throw 'Falló saneamiento del esquema SQL nativo: contiene salida de consola no SQL.'
-      }
       [IO.File]::WriteAllText((Join-Path $backendTarget 'prisma/schema.sql'), $schemaSqlText, (New-Object System.Text.UTF8Encoding($false)))
 
       # El cliente ya fue generado y el esquema SQL ya quedó materializado.

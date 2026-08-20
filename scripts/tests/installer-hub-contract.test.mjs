@@ -248,6 +248,21 @@ test('build-msi valida contenedor adjunto Burn antes de publicar bundle', () => 
   assert.match(buildMsi, /Reutilizando Bootstrapper Application Burn ya publicada/);
 });
 
+test('ConvertTo-DotNetNumericVersion convierte versiones semver y prerelease a cuadruplete numerico .NET', () => {
+  const buildMsiSource = fs.readFileSync(path.join(root, 'scripts', 'build-msi.ps1'), 'utf8');
+  const funcMatch = buildMsiSource.match(/function ConvertTo-DotNetNumericVersion\s*\{[\s\S]*?\n\}/);
+  assert.ok(funcMatch, 'Debe existir la función ConvertTo-DotNetNumericVersion en build-msi.ps1');
+
+  const psCommand = `${funcMatch[0]}; ConvertTo-DotNetNumericVersion -VersionTag '1.1.0-beta.5'; ConvertTo-DotNetNumericVersion -VersionTag '0.0.0-dev'; ConvertTo-DotNetNumericVersion -VersionTag '2.3.4.5'`;
+  const psRes = runPowerShell(psCommand);
+  if (psRes.skipped) return;
+  assert.equal(psRes.status, 0);
+  const lines = psRes.stdout.split(/\r?\n/).map(l => l.trim()).filter(Boolean);
+  assert.equal(lines[0], '1.1.0.0');
+  assert.equal(lines[1], '0.0.0.0');
+  assert.equal(lines[2], '2.3.4.5');
+});
+
 test('docente-local no reutiliza rutas per-machine detectadas por Burn', () => {
   const source = fs.readFileSync(burnBootstrapperSourcePath, 'utf8');
 
@@ -281,7 +296,7 @@ test('MSI docente perUser no escribe marcadores en HKLM', () => {
 
 test('build MSI elimina avisos Prisma del esquema SQL nativo', () => {
   const build = fs.readFileSync(path.join(root, 'scripts', 'build-msi.ps1'), 'utf8');
-  assert.match(build, /schemaSqlText = \$schemaSqlOutput -join/);
+  assert.match(build, /schemaSqlText = \$sqlLines -join/);
   assert.match(build, /lastSqlTerminator = \$schemaSqlText\.LastIndexOf\(';\'\)/);
   assert.match(build, /schemaSqlText = \$schemaSqlText\.Substring\(0, \$lastSqlTerminator \+ 1\)/);
   assert.match(build, /Update available\|major update/);
@@ -456,6 +471,19 @@ test('installer hub WPF publica timeline por etapas y resumen de error MSI visib
   assert.match(mainWindowXaml, /StageTimelineHost/);
   assert.match(mainWindowXaml, /FailureSummaryBorder/);
   assert.match(mainWindowCodeBehind, /UpdateWorkflow\(InstallerWorkflowView workflow\)/);
+});
+
+test('bootstrapper Burn WPF implementa resiliencia ante errores, msiInstalled y obtencion de version', () => {
+  const bootstrapperCode = fs.readFileSync(path.join(root, 'packaging', 'wix', 'BurnBootstrapperApp', 'EvaluaProBootstrapperApplication.cs'), 'utf8');
+  const mainWindowCode = fs.readFileSync(burnBootstrapperWindowCodePath, 'utf8');
+
+  assert.match(mainWindowCode, /AssemblyInformationalVersionAttribute/);
+  assert.match(bootstrapperCode, /OnDetectPackageComplete/);
+  assert.match(bootstrapperCode, /PackageState\.Present/);
+  assert.match(bootstrapperCode, /(?:isGenuinelyInstalled|msiInstalled) \? "repair" : payload\.RecommendedMode/);
+  assert.match(bootstrapperCode, /DispatcherUnhandledException/);
+  assert.match(bootstrapperCode, /UnhandledException/);
+  assert.match(bootstrapperCode, /MessageBox\.Show/);
 });
 
 test('Installer Hub cumple contrato DESIGN.md de layout y accesibilidad WPF', () => {

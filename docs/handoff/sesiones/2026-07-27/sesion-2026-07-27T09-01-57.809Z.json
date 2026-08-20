@@ -1,0 +1,221 @@
+{
+  "traceSchemaVersion": "1.0.0",
+  "sessionId": "sesion-2026-07-27T09-01-57.809Z",
+  "status": "final",
+  "generatedAt": "2026-07-27T09:01:57.809Z",
+  "validationProfile": "quick",
+  "agent": {
+    "name": "Antigravity",
+    "version": "1.0.0",
+    "provider": "Google DeepMind",
+    "kind": "AI Coding Assistant",
+    "channel": "IDE"
+  },
+  "request": {
+    "summary": "Continuar con la prueba e implementación del contrato de versionado semver/.NET del Hub."
+  },
+  "objective": "Añadir prueba unitaria de la función ConvertTo-DotNetNumericVersion en installer-hub-contract.test.mjs y actualizar la matriz de trazabilidad en flujo_docente_alumno_integral.spec.md.",
+  "scope": [
+    "scripts/tests/installer-hub-contract.test.mjs",
+    "docs/specs/flujo_docente_alumno_integral.spec.md",
+    "docs/INVENTARIO_PROYECTO.md",
+    "CHANGELOG.md"
+  ],
+  "constraints": [
+    "Cumplimiento obligatorio de Spec-Driven Development (SDD)",
+    "Pase de ci:policy:audit y sdd:audit sin errores",
+    "Trazabilidad completa mediante contrato JSON canonico"
+  ],
+  "actions": [
+    {
+      "type": "validation",
+      "summary": "Ejecucion de lint",
+      "timestamp": "2026-07-27T09:01:57.809Z",
+      "status": "omitido"
+    },
+    {
+      "type": "validation",
+      "summary": "Ejecucion de typecheck",
+      "timestamp": "2026-07-27T09:01:57.809Z",
+      "status": "omitido"
+    },
+    {
+      "type": "validation",
+      "summary": "Ejecucion de test_frontend_ci",
+      "timestamp": "2026-07-27T09:01:57.809Z",
+      "status": "omitido"
+    },
+    {
+      "type": "validation",
+      "summary": "Ejecucion de test_coverage_ci",
+      "timestamp": "2026-07-27T09:01:57.809Z",
+      "status": "omitido"
+    },
+    {
+      "type": "validation",
+      "summary": "Ejecucion de test_tdd_enforcement_ci",
+      "timestamp": "2026-07-27T09:01:57.809Z",
+      "status": "omitido"
+    },
+    {
+      "type": "validation",
+      "summary": "Ejecucion de test_backend_ci",
+      "timestamp": "2026-07-27T09:01:57.809Z",
+      "status": "omitido"
+    },
+    {
+      "type": "validation",
+      "summary": "Ejecucion de test_portal_ci",
+      "timestamp": "2026-07-27T09:01:57.809Z",
+      "status": "omitido"
+    },
+    {
+      "type": "validation",
+      "summary": "Ejecucion de perf_check",
+      "timestamp": "2026-07-27T09:01:57.809Z",
+      "status": "omitido"
+    },
+    {
+      "type": "validation",
+      "summary": "Ejecucion de pipeline_contract_check",
+      "timestamp": "2026-07-27T09:01:57.809Z",
+      "status": "ok"
+    },
+    {
+      "type": "validation",
+      "summary": "Ejecucion de docs_check",
+      "timestamp": "2026-07-27T09:01:57.809Z",
+      "status": "ok"
+    }
+  ],
+  "files": {
+    "read": [],
+    "changed": [
+      "CHANGELOG.md",
+      "docs/AUTO_ENV.md",
+      "docs/INVENTARIO_CODIGO_EXHAUSTIVO.md",
+      "docs/INVENTARIO_PROYECTO.md",
+      "docs/specs/flujo_docente_alumno_integral.spec.md",
+      "docs/specs/installer_bootstrapper_resilience.spec.md",
+      "scripts/tests/installer-hub-contract.test.mjs",
+      "docs/handoff/sesiones/2026-07-27/"
+    ],
+    "artifacts": [
+      "docs/handoff/sesiones/2026-07-27/sesion-2026-07-27T09-01-57.809Z.json",
+      "docs/handoff/sesiones/2026-07-27/sesion-2026-07-27T09-01-57.809Z.md"
+    ]
+  },
+  "commands": [
+    {
+      "name": "lint",
+      "command": "npm run lint",
+      "status": "omitido",
+      "exitCode": null,
+      "durationMs": 0,
+      "resultSummary": "omitido por perfil quick",
+      "timestamp": "2026-07-27T09:01:57.809Z"
+    },
+    {
+      "name": "typecheck",
+      "command": "npm run typecheck",
+      "status": "omitido",
+      "exitCode": null,
+      "durationMs": 0,
+      "resultSummary": "omitido por perfil quick",
+      "timestamp": "2026-07-27T09:01:57.809Z"
+    },
+    {
+      "name": "test_frontend_ci",
+      "command": "npm run test:frontend:ci",
+      "status": "omitido",
+      "exitCode": null,
+      "durationMs": 0,
+      "resultSummary": "omitido por perfil quick",
+      "timestamp": "2026-07-27T09:01:57.809Z"
+    },
+    {
+      "name": "test_coverage_ci",
+      "command": "npm run test:coverage:ci",
+      "status": "omitido",
+      "exitCode": null,
+      "durationMs": 0,
+      "resultSummary": "omitido por perfil quick",
+      "timestamp": "2026-07-27T09:01:57.809Z"
+    },
+    {
+      "name": "test_tdd_enforcement_ci",
+      "command": "npm run test:tdd:enforcement:ci",
+      "status": "omitido",
+      "exitCode": null,
+      "durationMs": 0,
+      "resultSummary": "omitido por perfil quick",
+      "timestamp": "2026-07-27T09:01:57.809Z"
+    },
+    {
+      "name": "test_backend_ci",
+      "command": "npm run test:backend:ci",
+      "status": "omitido",
+      "exitCode": null,
+      "durationMs": 0,
+      "resultSummary": "omitido por perfil quick",
+      "timestamp": "2026-07-27T09:01:57.809Z"
+    },
+    {
+      "name": "test_portal_ci",
+      "command": "npm run test:portal:ci",
+      "status": "omitido",
+      "exitCode": null,
+      "durationMs": 0,
+      "resultSummary": "omitido por perfil quick",
+      "timestamp": "2026-07-27T09:01:57.809Z"
+    },
+    {
+      "name": "perf_check",
+      "command": "npm run perf:check",
+      "status": "omitido",
+      "exitCode": null,
+      "durationMs": 0,
+      "resultSummary": "omitido por perfil quick",
+      "timestamp": "2026-07-27T09:01:57.809Z"
+    },
+    {
+      "name": "pipeline_contract_check",
+      "command": "npm run pipeline:contract:check",
+      "status": "ok",
+      "exitCode": 0,
+      "durationMs": 495,
+      "resultSummary": "> evaluapro@1.1.1 pipeline:contract:check | > node scripts/pipeline-contract-check.mjs | ✔ ext_perf_arquitectura prepara sharp antes de perf:check (1.5161ms) | ✔ ext_funcionales usa gate OMR TV generico con version configurable (0.5082ms) | ... | ℹ duration_ms 83.548 | pipeline contract OK",
+      "timestamp": "2026-07-27T09:01:57.809Z"
+    },
+    {
+      "name": "docs_check",
+      "command": "npm run docs:check",
+      "status": "ok",
+      "exitCode": 0,
+      "durationMs": 733,
+      "resultSummary": "> evaluapro@1.1.1 docs:check | > node scripts/docs.mjs --check | [docs] ok",
+      "timestamp": "2026-07-27T09:01:57.809Z"
+    }
+  ],
+  "decisions": [
+    "Extraer la definicion de la funcion ConvertTo-DotNetNumericVersion mediante regex desde build-msi.ps1 para probarla de forma aislada en PowerShell sin disparar la compilacion del MSI.",
+    "Actualizar la Matriz de Trazabilidad de SPEC-FLUJO-DOCENTE-ALUMNO-INTEGRAL a implemented para la fila de versionado semver/.NET del Hub."
+  ],
+  "assumptions": [
+    "ConvertTo-DotNetNumericVersion requiere extraer solo los prefijos numericos para AssemblyVersion/FileVersion manteniendo el tag SemVer completo en InformationalVersion."
+  ],
+  "risks": [
+    "Ningun riesgo abierto."
+  ],
+  "nextStep": "Abordar la especificación e implementación del módulo de Cuarentena y Retención de imágenes OMR o Licenciamiento comercial.",
+  "completion": {
+    "isComplete": true,
+    "pendingFields": []
+  },
+  "repo": {
+    "rootDir": "C:\\Users\\evega\\Documents\\EvaluaPro",
+    "branch": "main",
+    "commit": "0f283a42",
+    "workingTreeStatus": "M CHANGELOG.md\n M docs/AUTO_ENV.md\n M docs/INVENTARIO_CODIGO_EXHAUSTIVO.md\n M docs/INVENTARIO_PROYECTO.md\n M docs/specs/flujo_docente_alumno_integral.spec.md\n M docs/specs/installer_bootstrapper_resilience.spec.md\n M scripts/tests/installer-hub-contract.test.mjs\n?? docs/handoff/sesiones/2026-07-27/"
+  }
+}

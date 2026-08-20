@@ -1,0 +1,2 @@
+﻿[2026-08-18 23:06:47Z] === FASE 1: BUILD INSTALLER HUB BUNDLE ===
+[2026-08-18 23:06:48Z] [build-msi] Iniciando: C:\Users\evega\Documents\EvaluaPro\scripts\build-msi.ps1 -IncludeBundle -Flavor docente-local

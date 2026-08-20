@@ -126,7 +126,7 @@ function Resolve-BundlePath {
   }
 
   function Resolve-ManifestBundleCandidate([object]$Entry) {
-    foreach ($propertyName in @('bundlePublicPath', 'executablePath')) {
+    foreach ($propertyName in @('bundlePublicPath', 'executablePath', 'installerHubPath')) {
       $candidate = Get-ManifestStringProperty $Entry $propertyName
       if ($candidate -and (Test-Path -LiteralPath $candidate)) { return $candidate }
     }

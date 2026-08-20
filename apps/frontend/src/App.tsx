@@ -76,7 +76,7 @@ function App() {
 
     let activo = true;
     let assetActual = obtenerAssetPrincipalActual();
-    const versionActual = String(import.meta.env.VITE_APP_DISPLAY_VERSION || import.meta.env.VITE_APP_VERSION || '').trim();
+    let versionManifestInicial: string | null = null;
 
     const verificarCambios = async () => {
       if (!activo) return;
@@ -102,8 +102,12 @@ function App() {
         if (respuestaManifest.ok) {
           const manifest = await respuestaManifest.json().catch(() => null);
           const versionManifest = extraerVersionPwaDesdeManifest(manifest);
-          if (versionManifest && versionActual && versionManifest !== versionActual) {
-            window.location.reload();
+          if (versionManifest) {
+            if (versionManifestInicial === null) {
+              versionManifestInicial = versionManifest;
+            } else if (versionManifest !== versionManifestInicial) {
+              window.location.reload();
+            }
           }
         }
       } catch {

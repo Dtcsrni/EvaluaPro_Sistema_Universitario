@@ -35,9 +35,16 @@ foreach ($moduleRoot in $moduleRoots) {
 if ($operationalConfigModule) {
   Import-Module $operationalConfigModule -Force
 }
-$licenseSecurityModule = Join-Path $PSScriptRoot 'modules\LicenseClientSecurity.psm1'
-if (Test-Path -LiteralPath $licenseSecurityModule) {
-  Import-Module $licenseSecurityModule -Force
+$licenseSecurityModule = $null
+foreach ($moduleRoot in $moduleRoots) {
+  $candidate = Join-Path $moduleRoot 'LicenseClientSecurity.psm1'
+  if (Test-Path -LiteralPath $candidate) {
+    $licenseSecurityModule = $candidate
+    break
+  }
+}
+if ($licenseSecurityModule) {
+  Import-Module $licenseSecurityModule -DisableNameChecking -Force
 }
 
 function Write-Response {
@@ -68,6 +75,44 @@ function Get-RequestValue {
 function Get-TargetInstallDir {
   param([Parameter(Mandatory = $true)][object]$Request)
   return [string](Get-RequestValue -Request $Request -Names @('TargetDir', 'targetDir', 'InstallDir', 'installDir') -DefaultValue 'C:\Program Files\EvaluaPro')
+}
+
+function Resolve-NativePayloadZip {
+  param(
+    [Parameter(Mandatory = $true)][string]$TargetDir,
+    [object]$Request = $null
+  )
+
+  $customZip = if ($Request) { Get-RequestValue -Request $Request -Names @('PayloadZip', 'payloadZip') } else { $null }
+  if ($customZip -and (Test-Path -LiteralPath [string]$customZip)) {
+    return [string]$customZip
+  }
+
+  if ($env:EVALUAPRO_NATIVE_DIST_ZIP -and (Test-Path -LiteralPath $env:EVALUAPRO_NATIVE_DIST_ZIP)) {
+    return $env:EVALUAPRO_NATIVE_DIST_ZIP
+  }
+
+  $localAppData = [string]$env:LOCALAPPDATA
+  if ([string]::IsNullOrWhiteSpace($localAppData)) { $localAppData = Join-Path $env:USERPROFILE 'AppData\Local' }
+
+  $candidates = @(
+    (Join-Path $TargetDir 'evaluapro-native-dist.zip'),
+    (Join-Path $localAppData 'EvaluaPro\evaluapro-native-dist.zip'),
+    (Join-Path $PSScriptRoot 'evaluapro-native-dist.zip'),
+    (Join-Path (Split-Path -Parent $PSScriptRoot) 'evaluapro-native-dist.zip'),
+    (Join-Path (Split-Path -Parent (Split-Path -Parent $PSScriptRoot)) 'evaluapro-native-dist.zip'),
+    (Join-Path (Split-Path -Parent (Split-Path -Parent (Split-Path -Parent $PSScriptRoot))) 'evaluapro-native-dist.zip'),
+    (Join-Path $env:ProgramData 'EvaluaPro\evaluapro-native-dist.zip'),
+    (Join-Path $env:ProgramFiles 'EvaluaPro\evaluapro-native-dist.zip')
+  )
+
+  foreach ($candidate in $candidates) {
+    if (-not [string]::IsNullOrWhiteSpace($candidate) -and (Test-Path -LiteralPath $candidate)) {
+      return $candidate
+    }
+  }
+
+  throw "No existe payload nativo MSI: $($candidates[0])"
 }
 
 function Expand-NativePayload {
@@ -572,8 +617,7 @@ function Invoke-PostInstall {
   }
 
   # 1. Expandir y validar payload antes de preparar SQLite.
-  $repoRoot = Split-Path -Parent (Split-Path -Parent $PSScriptRoot)
-  $payloadZip = Join-Path $repoRoot 'evaluapro-native-dist.zip'
+  $payloadZip = Resolve-NativePayloadZip -TargetDir $targetDir -Request $requestJson
   Expand-NativePayload -TargetDir $targetDir -PayloadZip $payloadZip
 
   # 2. Descargar Node LTS
@@ -711,8 +755,7 @@ function Invoke-Update {
   $targetDir = Get-TargetInstallDir -Request $requestJson
 
   $vbsPath = Join-Path $targetDir "evaluapro-launcher.vbs"
-  $repoRoot = Split-Path -Parent (Split-Path -Parent $PSScriptRoot)
-  $payloadZip = Join-Path $repoRoot 'evaluapro-native-dist.zip'
+  $payloadZip = Resolve-NativePayloadZip -TargetDir $targetDir -Request $requestJson
 
   # Detener Node.js
   Stop-Process -Name "node" -Force -ErrorAction SilentlyContinue
@@ -817,6 +860,18 @@ function Invoke-LicenseHeartbeat {
   }
 }
 
+function Invoke-RollbackOnFailure {
+  param([string]$TargetDirectory)
+  if ([string]::IsNullOrWhiteSpace($TargetDirectory) -or -not (Test-Path -LiteralPath $TargetDirectory)) { return }
+  $manifest = Join-Path $TargetDirectory 'logs\installation.manifest.json'
+  if (-not (Test-Path -LiteralPath $manifest)) {
+    Write-Host "Realizando rollback automático: retirando residuos de instalación incompleta en $TargetDirectory..."
+    Get-ChildItem -LiteralPath $TargetDirectory -Exclude 'data' -ErrorAction SilentlyContinue | ForEach-Object {
+      Remove-Item -LiteralPath $_.FullName -Recurse -Force -ErrorAction SilentlyContinue
+    }
+  }
+}
+
 try {
   if ($Mode -eq 'detect-prereqs') {
     Detect-Prerequisites
@@ -830,6 +885,13 @@ try {
     Invoke-Uninstall
   }
 } catch {
+  if ($Mode -eq 'post-install') {
+    try {
+      $req = if ($RequestPath -and (Test-Path -LiteralPath $RequestPath)) { Get-Content -Raw -Path $RequestPath | ConvertFrom-Json } else { $null }
+      $tDir = if ($req) { Get-TargetInstallDir -Request $req } else { $null }
+      if ($tDir) { Invoke-RollbackOnFailure -TargetDirectory $tDir }
+    } catch { }
+  }
   Write-Response @{
     ok = $false
     phase = "helper_fatal"

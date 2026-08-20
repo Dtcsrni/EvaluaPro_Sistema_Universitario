@@ -79,14 +79,12 @@
         <SolidColorBrush x:Key="GlassHighlightBrush" Color="#66E0F2FE" />
         <DropShadowEffect x:Key="CardShadow" BlurRadius="56" ShadowDepth="14" Direction="270" Opacity="0.72" Color="#071426" />
         <LinearGradientBrush x:Key="SecondaryButtonBrush" StartPoint="0,0" EndPoint="0,1">
-            <GradientStop Color="#C9A8D6E8" Offset="0" />
-            <GradientStop Color="#8C56718E" Offset="0.46" />
-            <GradientStop Color="#A83D5879" Offset="1" />
+            <GradientStop Color="#2A3F55" Offset="0" />
+            <GradientStop Color="#1A2D42" Offset="1" />
         </LinearGradientBrush>
         <LinearGradientBrush x:Key="PrimaryButtonBrush" StartPoint="0,0" EndPoint="0,1">
-            <GradientStop Color="#9AF6FFFE" Offset="0" />
-            <GradientStop Color="#39B8D2D5" Offset="0.24" />
-            <GradientStop Color="#169A8C" Offset="1" />
+            <GradientStop Color="#0D9488" Offset="0" />
+            <GradientStop Color="#0F766E" Offset="1" />
         </LinearGradientBrush>
 
         <Style x:Key="StepCardStyle" TargetType="Border">
@@ -221,8 +219,8 @@
             <Setter Property="Template" Value="{StaticResource GlassButtonTemplate}" />
             <Style.Triggers>
                 <Trigger Property="IsMouseOver" Value="True">
-                    <Setter Property="Background" Value="#E62DE0C9" />
-                    <Setter Property="BorderBrush" Value="#B8F7FF" />
+                    <Setter Property="Background" Value="#334E68" />
+                    <Setter Property="BorderBrush" Value="#38BDF8" />
                     <Setter Property="Effect" Value="{StaticResource CardShadow}" />
                 </Trigger>
                 <Trigger Property="IsPressed" Value="True">
@@ -233,10 +231,10 @@
                     <Setter Property="BorderBrush" Value="{StaticResource FocusBrush}" />
                 </Trigger>
                 <Trigger Property="IsEnabled" Value="False">
-                    <Setter Property="Background" Value="#6B8FA5" />
-                    <Setter Property="Foreground" Value="#F8FAFC" />
-                    <Setter Property="BorderBrush" Value="#B9D4E3" />
-                    <Setter Property="Opacity" Value="1" />
+                    <Setter Property="Background" Value="#1E293B" />
+                    <Setter Property="Foreground" Value="#64748B" />
+                    <Setter Property="BorderBrush" Value="#334155" />
+                    <Setter Property="Opacity" Value="0.7" />
                 </Trigger>
             </Style.Triggers>
         </Style>
@@ -248,23 +246,48 @@
         </Style>
 
         <Style x:Key="PrimaryButtonStyle" TargetType="Button" BasedOn="{StaticResource SecondaryButtonStyle}">
-            <Setter Property="BorderBrush" Value="{StaticResource PrimaryBrush}" />
+            <Setter Property="BorderBrush" Value="#2DD4BF" />
             <Setter Property="Background" Value="{StaticResource PrimaryButtonBrush}" />
-            <Setter Property="Foreground" Value="White" />
+            <Setter Property="Foreground" Value="#FFFFFF" />
+            <Setter Property="FontWeight" Value="Bold" />
+            <Setter Property="BorderThickness" Value="1.5" />
             <Style.Triggers>
+                <Trigger Property="IsMouseOver" Value="True">
+                    <Setter Property="Background" Value="#14B8A6" />
+                    <Setter Property="BorderBrush" Value="#5EEAD4" />
+                    <Setter Property="Effect" Value="{StaticResource CardShadow}" />
+                </Trigger>
+                <Trigger Property="IsPressed" Value="True">
+                    <Setter Property="Background" Value="#115E59" />
+                    <Setter Property="Opacity" Value="0.92" />
+                </Trigger>
+                <Trigger Property="IsKeyboardFocusWithin" Value="True">
+                    <Setter Property="BorderThickness" Value="2" />
+                    <Setter Property="BorderBrush" Value="{StaticResource FocusBrush}" />
+                </Trigger>
                 <Trigger Property="IsEnabled" Value="False">
-                    <Setter Property="Background" Value="#6B8FA5" />
-                    <Setter Property="Foreground" Value="#F8FAFC" />
-                    <Setter Property="BorderBrush" Value="#B9D4E3" />
-                    <Setter Property="Opacity" Value="1" />
+                    <Setter Property="Background" Value="#334155" />
+                    <Setter Property="Foreground" Value="#94A3B8" />
+                    <Setter Property="BorderBrush" Value="#475569" />
+                    <Setter Property="Opacity" Value="0.75" />
                 </Trigger>
             </Style.Triggers>
         </Style>
 
         <Style x:Key="DangerButtonStyle" TargetType="Button" BasedOn="{StaticResource SecondaryButtonStyle}">
-            <Setter Property="BorderBrush" Value="{StaticResource ErrorBrush}" />
-            <Setter Property="Background" Value="{StaticResource ErrorBrush}" />
-            <Setter Property="Foreground" Value="White" />
+            <Setter Property="BorderBrush" Value="#F87171" />
+            <Setter Property="Background" Value="#DC2626" />
+            <Setter Property="Foreground" Value="#FFFFFF" />
+            <Setter Property="FontWeight" Value="Bold" />
+            <Style.Triggers>
+                <Trigger Property="IsMouseOver" Value="True">
+                    <Setter Property="Background" Value="#EF4444" />
+                    <Setter Property="BorderBrush" Value="#FCA5A5" />
+                </Trigger>
+                <Trigger Property="IsPressed" Value="True">
+                    <Setter Property="Background" Value="#991B1B" />
+                </Trigger>
+            </Style.Triggers>
         </Style>
     </Window.Resources>
 
@@ -879,7 +902,7 @@ Por favor, lee atentamente los siguientes términos antes de proceder con la ins
                                     </StackPanel>
                                 </StackPanel>
                             </Border>
-                            <Button x:Name="SplashCloseButton" Content="Continuar al asistente" HorizontalAlignment="Left" Margin="0,14,0,0" Padding="14,7" Click="SplashCloseButton_OnClick" ToolTip="Cierra la introducción y abre el asistente." />
+                            <Button x:Name="SplashCloseButton" Content="Continuar al asistente" Style="{StaticResource PrimaryButtonStyle}" HorizontalAlignment="Left" Margin="0,14,0,0" Padding="16,8" Click="SplashCloseButton_OnClick" ToolTip="Cierra la introducción y abre el asistente." />
                             <UniformGrid x:Name="SplashGraphicIndicators" Columns="3" Margin="0,22,0,0">
                                 <Border CornerRadius="8" Background="#134E4A" BorderBrush="#5EEAD4" BorderThickness="1" Padding="10" Margin="0,0,8,0">
                                     <StackPanel>

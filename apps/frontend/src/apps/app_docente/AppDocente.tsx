@@ -58,6 +58,8 @@ export function AppDocente() {
     smtpBackend: boolean;
     requireGoogleOAuth: boolean;
     passwordLoginAllowed: boolean;
+    primerUso?: boolean;
+    requiereRegistroInicial?: boolean;
   } | null>(null);
   const [vista, setVista] = useState(obtenerVistaInicial());
   const {
@@ -170,6 +172,8 @@ export function AppDocente() {
           smtpBackend?: boolean;
           requireGoogleOAuth?: boolean;
           passwordLoginAllowed?: boolean;
+          primerUso?: boolean;
+          requiereRegistroInicial?: boolean;
         };
       }>('/autenticacion/capacidades-integraciones')
       .then((respuesta) => {
@@ -179,7 +183,9 @@ export function AppDocente() {
           classroomBackend: Boolean(caps?.classroomBackend),
           smtpBackend: Boolean(caps?.smtpBackend),
           requireGoogleOAuth: Boolean(caps?.requireGoogleOAuth),
-          passwordLoginAllowed: caps?.passwordLoginAllowed !== false
+          passwordLoginAllowed: caps?.passwordLoginAllowed !== false,
+          primerUso: Boolean(caps?.primerUso),
+          requiereRegistroInicial: Boolean(caps?.requiereRegistroInicial)
         });
       })
       .catch(() => {
@@ -188,7 +194,9 @@ export function AppDocente() {
           classroomBackend: false,
           smtpBackend: false,
           requireGoogleOAuth: false,
-          passwordLoginAllowed: true
+          passwordLoginAllowed: true,
+          primerUso: true,
+          requiereRegistroInicial: true
         });
       });
   }, []);
@@ -1268,6 +1276,7 @@ export function AppDocente() {
       smtpDisponible={smtpDisponible}
       requireGoogleOAuth={requireGoogleOAuth}
       passwordLoginAllowed={passwordLoginAllowed}
+      primerUso={capacidadesIntegraciones?.primerUso}
       onIngresar={(token) => {
         guardarTokenDocente(token);
         clienteApi

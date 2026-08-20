@@ -1,24 +1,24 @@
 # Inventario Exhaustivo de Codigo
 
-Fecha de generacion: 2026-07-17 10:59:37
+Fecha de generacion: 2026-08-19 16:42:16
 Fuente: git ls-files filtrado por existencia en workspace (solo archivos versionados presentes, excluye node_modules).
 
 ## Resumen
 
-- Total de piezas de codigo/config ejecutable inventariadas: 1171
+- Total de piezas de codigo/config ejecutable inventariadas: 1198
 - Extensiones incluidas: ts, tsx, js, jsx, mjs, cjs, json, yml, yaml, sh, cmd, ps1.
 
 ## Conteo por area
 
 | Area | Archivos |
 | --- | ---: |
-| backend | 413 |
-| frontend | 135 |
+| backend | 415 |
+| frontend | 134 |
 | portal_alumno_cloud | 67 |
 | ci | 17 |
-| scripts | 172 |
+| scripts | 175 |
 | ops | 3 |
-| docs | 200 |
+| docs | 229 |
 | raiz | 32 |
 
 ## Backend (apps/backend)
@@ -335,6 +335,7 @@ Fuente: git ls-files filtrado por existencia en workspace (solo archivos version
 - apps/backend/tests/calificacion.solicitudes.test.ts
 - apps/backend/tests/calificacion.test.ts
 - apps/backend/tests/comercial.core.test.ts
+- apps/backend/tests/comercial.heartbeat.test.ts
 - apps/backend/tests/configuracion.correo.test.ts
 - apps/backend/tests/configuracion.entorno.test.ts
 - apps/backend/tests/configuracion.produccion.test.ts
@@ -369,6 +370,7 @@ Fuente: git ls-files filtrado por existencia en workspace (solo archivos version
 - apps/backend/tests/integracion/examenesRetention.test.ts
 - apps/backend/tests/integracion/flujoDocenteAlumnoProduccionLikeE2E.test.ts
 - apps/backend/tests/integracion/flujoDocenteGlobalE2E.test.ts
+- apps/backend/tests/integracion/flujoDocenteInventadoSmoke.test.ts
 - apps/backend/tests/integracion/flujoDocenteParcialE2E.test.ts
 - apps/backend/tests/integracion/flujoExamen.test.ts
 - apps/backend/tests/integracion/hidratacionCursos.test.ts
@@ -440,7 +442,6 @@ Fuente: git ls-files filtrado por existencia en workspace (solo archivos version
 ## Frontend (apps/frontend)
 
 - apps/frontend/.eslintrc.cjs
-- apps/frontend/dist-alumno/assets/index-C2Dh-_ws.js
 - apps/frontend/dist-alumno/portal-sw.js
 - apps/frontend/eslint.config.cjs
 - apps/frontend/package-lock.json
@@ -710,6 +711,7 @@ Fuente: git ls-files filtrado por existencia en workspace (solo archivos version
 - scripts/docs.mjs
 - scripts/ensure-dev-cert.ps1
 - scripts/env-doctor.mjs
+- scripts/generar-licencia-master.mjs
 - scripts/generar-readmes-carpetas.mjs
 - scripts/generate-installation-manifest.ps1
 - scripts/generate-installer-hashes.ps1
@@ -799,6 +801,7 @@ Fuente: git ls-files filtrado por existencia en workspace (solo archivos version
 - scripts/tests/dashboard-sw.test.mjs
 - scripts/tests/dashboard-ui.test.mjs
 - scripts/tests/env-doctor.test.mjs
+- scripts/tests/flujo-docente-inventado.test.mjs
 - scripts/tests/gui-design-contract.test.mjs
 - scripts/tests/gui-screen-matrix.test.mjs
 - scripts/tests/ia-traceability.test.mjs
@@ -810,6 +813,7 @@ Fuente: git ls-files filtrado por existencia en workspace (solo archivos version
 - scripts/tests/marketing-site.smoke.test.mjs
 - scripts/tests/omr-tv-gate-runner.test.mjs
 - scripts/tests/perf-contract.test.mjs
+- scripts/tests/prepare-docente-sqlite.test.mjs
 - scripts/tests/release-beta-promotion.test.mjs
 - scripts/tests/release-ci-streak.test.mjs
 - scripts/tests/release-evidence-contract.test.mjs
@@ -1018,6 +1022,35 @@ Fuente: git ls-files filtrado por existencia en workspace (solo archivos version
 - docs/handoff/sesiones/2026-07-01/sesion-2026-07-01T20-57-39.831Z.json
 - docs/handoff/sesiones/2026-07-02/sesion-2026-07-02T19-43-33.250Z.json
 - docs/handoff/sesiones/2026-07-11/sesion-2026-07-11T18-42-50.074Z.json
+- docs/handoff/sesiones/2026-07-17/sesion-2026-07-17T11-54-16.734Z.json
+- docs/handoff/sesiones/2026-07-17/sesion-2026-07-17T12-31-44.977Z.json
+- docs/handoff/sesiones/2026-07-17/sesion-2026-07-17T13-06-30.102Z.json
+- docs/handoff/sesiones/2026-07-17/sesion-2026-07-17T13-50-41.190Z.json
+- docs/handoff/sesiones/2026-07-17/sesion-2026-07-17T13-54-41.579Z.json
+- docs/handoff/sesiones/2026-07-17/sesion-2026-07-17T16-59-26.348Z.json
+- docs/handoff/sesiones/2026-07-17/sesion-2026-07-17T16-59-34.881Z.json
+- docs/handoff/sesiones/2026-07-19/sesion-2026-07-19T00-07-48.422Z.json
+- docs/handoff/sesiones/2026-07-27/sesion-2026-07-27T05-43-12.119Z.json
+- docs/handoff/sesiones/2026-07-27/sesion-2026-07-27T05-43-24.929Z.json
+- docs/handoff/sesiones/2026-07-27/sesion-2026-07-27T09-01-57.809Z.json
+- docs/handoff/sesiones/2026-07-27/sesion-2026-07-27T09-44-24.487Z.json
+- docs/handoff/sesiones/2026-07-27/sesion-2026-07-27T10-24-11.315Z.json
+- docs/handoff/sesiones/2026-07-27/sesion-2026-07-27T10-50-18.695Z.json
+- docs/handoff/sesiones/2026-07-27/sesion-2026-07-27T11-11-14.264Z.json
+- docs/handoff/sesiones/2026-07-27/sesion-2026-07-27T11-21-32.874Z.json
+- docs/handoff/sesiones/2026-07-27/sesion-2026-07-27T11-30-55.382Z.json
+- docs/handoff/sesiones/2026-07-28/sesion-2026-07-28T08-14-01.008Z.json
+- docs/handoff/sesiones/2026-07-28/sesion-2026-07-28T08-46-36.892Z.json
+- docs/handoff/sesiones/2026-07-31/sesion-2026-07-31T22-33-03.760Z.json
+- docs/handoff/sesiones/2026-08-05/sesion-2026-08-05T08-13-03.555Z.json
+- docs/handoff/sesiones/2026-08-18/sesion-2026-08-18T06-15-27.467Z.json
+- docs/handoff/sesiones/2026-08-18/sesion-2026-08-18T06-20-35.337Z.json
+- docs/handoff/sesiones/2026-08-18/sesion-2026-08-18T06-25-11.185Z.json
+- docs/handoff/sesiones/2026-08-18/sesion-2026-08-18T06-44-33.812Z.json
+- docs/handoff/sesiones/2026-08-18/sesion-2026-08-18T06-58-38.188Z.json
+- docs/handoff/sesiones/2026-08-18/sesion-2026-08-18T07-04-55.579Z.json
+- docs/handoff/sesiones/2026-08-18/sesion-2026-08-18T07-30-44.069Z.json
+- docs/handoff/sesiones/2026-08-19/sesion-2026-08-19T06-00-46.605Z.json
 - docs/handoff/trace.schema.json
 - docs/perf/baseline.business.json
 - docs/perf/baseline.json

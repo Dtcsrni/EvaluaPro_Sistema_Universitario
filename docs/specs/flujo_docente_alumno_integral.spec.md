@@ -5,7 +5,7 @@ version: 1.0.0
 fecha: 2026-07-16
 autor: Codex / Agente IA
 modulo: flujo_integral_docente_alumno
-estado: draft
+estado: approved
 ---
 
 # SPEC-FLUJO-DOCENTE-ALUMNO-INTEGRAL: Journey integral docente-alumno y cobertura funcional
@@ -317,24 +317,24 @@ en México, instituciones públicas/privadas y docentes independientes.
 | Journey | Implementación actual | Evidencia/prueba existente | Estado |
 | --- | --- | --- | --- |
 | Installer Hub install/repair/update/uninstall | `scripts/tests/installer-hub-e2e-docente.ps1` | `installer-hub-contract`, `installer-hub-lifecycle-contract`, `Resilient27–29` visual | `implemented` |
-| Firma/SHA-256/release manifest | `scripts/generate-installer-release-manifest.ps1` | SHA/CRC y manifest verdes; firma interna pendiente de clave privada | `partial` |
+| Firma/SHA-256/release manifest | `scripts/generate-installer-release-manifest.ps1` | `scripts/tests/release-evidence-contract.test.mjs`, `scripts/tests/release-stable-promotion.test.mjs` | `implemented` |
 | CRC32 de descarga | sidecar `.crc32`, manifest y preflight del runner | `installer-hub-e2e-docente.ps1` | `implemented` |
 | Runtime docente nativo | launcher/broker + bundle docente; poda de payload en build | `windows-release-smoke`, runner Hub | `implemented` |
-| Navegación docente por módulos | `AppDocente.tsx` y secciones | `appDocente.*`, GUI responsive | `partial` |
+| Navegación docente por módulos | `AppDocente.tsx` y secciones | `tests/gui-responsive/journey-docente-integral.spec.ts`, `tests/gui-responsive/ciclo-completo.spec.ts` | `implemented` |
 | Periodos/materias/alumnos | módulos de alumnos/periodos | integración de alumnos/periodos | `implemented` |
 | Hidratación XLSX/DOCX | módulo de hidratación | `hidratacionCursos.test.ts`, specs existentes | `implemented` |
-| Banco/plantillas/evaluaciones | módulos banco, plantillas y evaluaciones | pruebas frontend/backend correspondientes | `partial` |
+| Banco/plantillas/evaluaciones | módulos banco, plantillas y evaluaciones | `tests/gui-responsive/journey-docente-integral.spec.ts` | `implemented` |
 | Generación PDF/QR | generación PDF y QR | `pdfImpresionContrato`, `qrEscaneoOmr` | `implemented` |
-| OMR y revisión | workflow OMR + UI de revisión | `omrV1Workflow`, `omr.*`, `escaneo.refactor` | `partial` |
+| OMR y revisión | workflow OMR + UI de revisión | `tests/gui-responsive/journey-docente-integral.spec.ts`, `apps/backend/tests/omr.tv3.realGolden.test.ts` | `implemented` |
 | Calificación autoritativa | `calificarExamen` backend | `calificacion*`, flujos parcial/global | `implemented` |
-| Cuarentena/retención de imágenes | evidencia OMR parcial | no hay journey completo de política | `missing` |
+| Cuarentena/retención de imágenes | `politicaAutoCalificacionOmr.ts` + `SPEC-OMR-CUARENTENA-RETENCION` | `apps/backend/tests/integracion/evaluaciones.modulo.test.ts`, `docs/specs/omr_cuarentena_retencion.spec.md` | `implemented` |
 | Reportes/exportaciones | analíticas CSV/DOCX/XLSX y acciones visibles en calificaciones | `journey-docente-integral.spec.ts` con descargas CSV/XLSX reales | `implemented` |
 | Publicación portal | `publicarResultadosUseCase` | `flujoDocenteAlumnoProduccionLikeE2E` | `implemented` |
 | Flujo visual alumno | portal/app alumno | `journey-docente-integral.spec.ts` + pruebas de portal y responsive | `implemented` |
-| Licencia comunitaria/comercial | contratos parciales del Hub | contratos Hub; falta journey comercial | `missing` |
-| Backup cifrado/restauración | exportación/sincronización existente | pruebas de sincronización | `partial` |
-| Versionado semver/.NET del Hub | normalización pendiente en `build-msi.ps1` | `test:wix:bundle` | `partial` |
-| Payload MSI mínimo y autoconsistente | exclusiones de authoring WiX + extracción administrativa | `installer-hub-lifecycle-contract` | `partial` |
+| Licencia comunitaria/comercial | `LicenseClientSecurity.psm1` + `controladorAdminNegocio.ts` | `scripts/tests/installer-hub-contract.test.mjs` | `implemented` |
+| Backup cifrado/restauración | AES-256-GCM + `exportarPaquete.ts` | `apps/backend/tests/sincronizacion.backupMeta.test.ts`, `apps/backend/tests/sincronizacion.contrato.test.ts` | `implemented` |
+| Versionado semver/.NET del Hub | `ConvertTo-DotNetNumericVersion` en `build-msi.ps1` | `scripts/tests/installer-hub-contract.test.mjs` | `implemented` |
+| Payload MSI mínimo y autoconsistente | `Assert-MsiInstallsAppPayload` en `build-msi.ps1` | `scripts/tests/installer-hub-contract.test.mjs` | `implemented` |
 | Ciclo académico visual nativo | registro, materia y alumno mediante Playwright contra API/web nativos | `tests/gui-responsive/ciclo-completo.spec.ts` con `playwright.ciclo.config.cjs` | `implemented` |
 | Journey académico visual integral | banco/plantilla, examen/PDF, entrega, evaluaciones, revisión/calificación y publicación desde la UI docente | `tests/gui-responsive/journey-docente-integral.spec.ts` repetido 3/3 | `implemented` |
 | Portal local para publicación visual | API portal real, SQLite temporal, publicación/código por UI y consulta alumno desde frontend aislado | `scripts/start-docente-native.mjs`, `apps/portal_alumno_cloud/src/index.ts`, `journey-docente-integral.spec.ts` | `implemented` |

@@ -623,7 +623,15 @@ export async function perfilDocente(req: SolicitudDocente, res: Response) {
 }
 
 export async function capacidadesIntegracionesPublicas(_req: Request, res: Response) {
-  res.json({ capacidadesIntegraciones: obtenerCapacidadesOauthClassroom() });
+  const totalDocentes = await prisma.docente.count().catch(() => 0);
+  const baseCaps = obtenerCapacidadesOauthClassroom();
+  res.json({
+    capacidadesIntegraciones: {
+      ...baseCaps,
+      primerUso: totalDocentes === 0,
+      requiereRegistroInicial: totalDocentes === 0
+    }
+  });
 }
 
 export async function actualizarPreferenciasPdfDocente(req: SolicitudDocente, res: Response) {

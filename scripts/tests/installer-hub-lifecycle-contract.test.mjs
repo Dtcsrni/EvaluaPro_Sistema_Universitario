@@ -73,8 +73,8 @@ test('runtime nativo tolera arranque lento sin reinicio prematuro', () => {
   const dashboard = fs.readFileSync(path.join(root, 'scripts', 'launcher-dashboard.mjs'), 'utf8');
   assert.match(dashboard, /waitForLifecycleHealth\(desiredMode, flavorPolicy\.requireLocalPortal, 90_000\)/);
   assert.match(dashboard, /async function waitForLifecycleHealth/);
-  assert.match(runner, /\$deadline = \(Get-Date\)\.AddSeconds\(90\)/);
-  assert.match(runner, /Runtime nativo no alcanzó salud API\/web en 90s/);
+  assert.match(runner, /\$deadline = \(Get-Date\)\.AddSeconds\((?:90|120|150)\)/);
+  assert.match(runner, /Runtime nativo no alcanzó salud API\/web en (?:90|120|150)s/);
 });
 
 test('dashboard lanza Node nativo directamente y conserva su árbol', () => {

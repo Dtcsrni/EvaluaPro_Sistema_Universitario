@@ -249,6 +249,25 @@ if (-not $includeDevShortcutEffective) {
   $shortcuts = $shortcuts | Where-Object { $_.Name -ne 'EvaluaPro - Dev' }
 }
 
+$detectedFlavorId = ''
+if ($env:EVALUAPRO_FLAVOR) {
+  $detectedFlavorId = [string]$env:EVALUAPRO_FLAVOR
+} else {
+  $updateConfigPath = Join-Path $root 'config\update-config.json'
+  if (Test-Path -LiteralPath $updateConfigPath) {
+    try {
+      $cfg = Get-Content -LiteralPath $updateConfigPath -Raw -Encoding utf8 | ConvertFrom-Json
+      $detectedFlavorId = [string]$cfg.flavorId
+    } catch {}
+  }
+}
+$isDocenteFlavor = ($detectedFlavorId.Trim().ToLowerInvariant() -eq 'docente-local')
+if ($isDocenteFlavor -and $env:EVALUAPRO_DEBUG -ne '1') {
+  # REQ-030: En flavor docente-local, los accesos del menú y escritorio solo deben contener
+  # la aplicación 'EvaluaPro - Prod' y el asistente 'EvaluaPro - Hub'.
+  $shortcuts = $shortcuts | Where-Object { $_.Name -in @('EvaluaPro - Prod', 'EvaluaPro - Hub') }
+}
+
 $allManagedShortcutNames = @(
   'EvaluaPro - Dev',
   'EvaluaPro - Prod',
@@ -332,6 +351,10 @@ if ($Force) {
   foreach ($dest in $destinations) {
     Remove-LegacyShortcuts -dirPath $dest.Path
   }
+}
+
+if ($startMenuBase -and (Test-Path -LiteralPath $startMenuBase)) {
+  Remove-UnmanagedShortcuts -dirPath $startMenuBase -allowedNames @() -managedNames $allManagedShortcutNames
 }
 
 foreach ($dest in $destinations) {

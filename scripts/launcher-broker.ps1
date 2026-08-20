@@ -311,6 +311,25 @@ function Ensure-StackReady([string]$base, [string]$desiredMode, [int]$timeoutMs 
 
 function Open-Url([string]$url) {
   if ($NoOpen) { return }
+  # Lanzar como aplicación de escritorio nativa dedicada (Standalone App Window)
+  $candidates = @(
+    "${env:ProgramFiles(x86)}\Microsoft\Edge\Application\msedge.exe",
+    "$env:ProgramFiles\Microsoft\Edge\Application\msedge.exe",
+    "${env:LOCALAPPDATA}\Microsoft\Edge\Application\msedge.exe",
+    "$env:ProgramFiles\Google\Chrome\Application\chrome.exe",
+    "${env:ProgramFiles(x86)}\Google\Chrome\Application\chrome.exe",
+    "${env:LOCALAPPDATA}\Google\Chrome\Application\chrome.exe",
+    "$env:ProgramFiles\BraveSoftware\Brave-Browser\Application\brave.exe"
+  )
+  foreach ($candidate in $candidates) {
+    if (Test-Path -LiteralPath $candidate) {
+      try {
+        $userDataDir = Join-Path $env:LOCALAPPDATA 'EvaluaPro\app-profile'
+        Start-Process -FilePath $candidate -ArgumentList @("--app=$url", "--user-data-dir=$userDataDir", "--window-size=1280,820") | Out-Null
+        return
+      } catch {}
+    }
+  }
   Start-Process $url | Out-Null
 }
 
@@ -398,12 +417,24 @@ try {
       }
       $base = [string]$finalReady.base
       Invoke-ManifestRefresh
-      if ($result.ok) {
-        Set-BootstrapState -State 'healthy' -Message 'Plataforma docente lista.' -DesiredMode $desiredMode -Meta @{ degraded = [bool]$result.degraded; base = $base }
-        Open-Url "$base/"
+
+      # REQ-030: En flavor docente-local, el Dashboard UI no debe ser accesible para docentes finales.
+      # Se redirige a la Web Docente nativa (http://127.0.0.1:4173/) a menos que esté en modo depuración/admin.
+      $isDocenteFlavor = (-not (Test-RequiresLocalPortal))
+      $isAdminDebug = ($env:EVALUAPRO_DEBUG -eq '1')
+      $openTargetUrl = if ($isDocenteFlavor -and -not $isAdminDebug) {
+        Write-BrokerLog("Flavor docente-local detectado: redirigiendo apertura a Web Docente (http://127.0.0.1:4173/). UI Dashboard restringida a depuración administrativa.")
+        "http://127.0.0.1:4173/"
       } else {
-        Set-BootstrapState -State 'degraded' -Message 'Dashboard activo, pero la plataforma no alcanzo salud completa.' -DesiredMode $desiredMode -Meta @{ base = $base }
-        if (-not $NoOpen) { Open-Url "$base/" }
+        "$base/"
+      }
+
+      if ($result.ok) {
+        Set-BootstrapState -State 'healthy' -Message 'Plataforma docente lista.' -DesiredMode $desiredMode -Meta @{ degraded = [bool]$result.degraded; base = $base; webUrl = "http://127.0.0.1:4173/" }
+        if (-not $NoOpen) { Open-Url $openTargetUrl }
+      } else {
+        Set-BootstrapState -State 'degraded' -Message 'Dashboard activo, pero la plataforma no alcanzo salud completa.' -DesiredMode $desiredMode -Meta @{ base = $base; webUrl = "http://127.0.0.1:4173/" }
+        if (-not $NoOpen) { Open-Url $openTargetUrl }
       }
     }
     'restart-stack' {
