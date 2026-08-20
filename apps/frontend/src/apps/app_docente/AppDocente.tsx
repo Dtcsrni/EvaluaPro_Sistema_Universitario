@@ -630,12 +630,30 @@ export function AppDocente() {
     setRevisionOmrConfirmada(false);
     setExamenIdOmr(null);
     setExamenAlumnoId(null);
-    setPaginaOmrActiva(null);
     if (habiaElementos) {
       emitToast({ level: 'info', title: 'Escaneo OMR', message: 'Cola de escaneos limpiada', durationMs: 2600 });
     }
   }, [revisionesOmr.length, resultadoOmr]);
-  const contenido = docente ? (
+
+  if (!docente) {
+    return (
+      <SeccionAutenticacion
+        oauthGoogleDisponible={oauthGoogleDisponible}
+        smtpDisponible={smtpDisponible}
+        requireGoogleOAuth={requireGoogleOAuth}
+        passwordLoginAllowed={passwordLoginAllowed}
+        primerUso={capacidadesIntegraciones?.primerUso}
+        onIngresar={(token) => {
+          guardarTokenDocente(token);
+          clienteApi
+            .obtener<{ docente: Docente }>('/autenticacion/perfil')
+            .then((payload) => setDocente(payload.docente));
+        }}
+      />
+    );
+  }
+
+  const contenido = (
     <div className="panel">
       <nav
         className="tabs tabs--scroll tabs--sticky"
@@ -1270,20 +1288,7 @@ export function AppDocente() {
         </div>
       )}
     </div>
-  ) : (
-    <SeccionAutenticacion
-      oauthGoogleDisponible={oauthGoogleDisponible}
-      smtpDisponible={smtpDisponible}
-      requireGoogleOAuth={requireGoogleOAuth}
-      passwordLoginAllowed={passwordLoginAllowed}
-      primerUso={capacidadesIntegraciones?.primerUso}
-      onIngresar={(token) => {
-        guardarTokenDocente(token);
-        clienteApi
-          .obtener<{ docente: Docente }>('/autenticacion/perfil')
-          .then((payload) => setDocente(payload.docente));
-      }}
-    />
   );
+
   return <ShellDocente docente={docente} onCerrarSesion={cerrarSesion}>{contenido}</ShellDocente>;
 }

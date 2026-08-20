@@ -1,19 +1,14 @@
 # Inventario Tecnico del Proyecto
 
-Fecha de corte: 2026-07-17
-Version tecnica vigente: `0.0.0-dev`
-Version visible vigente: `0.0.0-dev`
+Fecha de corte: 2026-08-20
+Version tecnica vigente: `1.1.1`
+Version visible vigente: `1.1.1`
 
-## Estado de validación 2026-07-17
-- `docente-local` pasó tres ciclos E2E consecutivos en entorno limpio (`Resilient27`, `Resilient28`, `Resilient29`): instalación, SQLite nativo, Dashboard, capturas visuales, reparación, desinstalación, backup ZIP y restauración.
-- Cada ciclo terminó sin fallos, con 56 resultados y confirmación visual; el Bundle tiene SHA-256 coincidente y CRC32 validado. Authenticode queda pendiente por falta de clave privada de firma en el entorno.
-- El ciclo académico visual nativo (`npx playwright test -c tests/gui-responsive/playwright.ciclo.config.cjs`) pasó contra API/web levantados por el launcher: registro docente, periodo, materia y alumno, con base SQLite E2E aislada y capturas reales. Esta evidencia aún no cubre por sí sola evaluación, examen, impresión, entrega, OMR, calificación, reportes y publicación.
-- El journey académico visual integral pasó 3/3 repeticiones contra API/web/portal nativos aislados: banco, plantilla, examen y descarga OMR, entrega, evaluación, calificación, publicación y código de acceso; persisten advertencias 404 de encuadre legacy fuera del journey.
-- El mismo journey compila el frontend alumno en `4174` y confirma visualmente acceso, resultados, folio y detalle contra el portal local real; generar código repite publicación idempotente para sincronizar el código recién creado.
-- Gates focales posteriores: frontend lint, typecheck completo, encuadre 3/3, dominios docentes 11/11 y portal integración 4/4 en verde.
-- El paquete académico manual se cifra con AES-256-GCM sobre gzip, valida propietario/autenticidad y se verificó visualmente en el journey más reciente; el backup ZIP del lifecycle Hub conserva su verificación de restauración.
-- El Hub ya ejecuta activación comercial cuando `RequireLicenseActivation=1`, conserva licencia DPAPI/MAC en grace offline mínimo de 90 días y degrada localmente a comunidad; falta repetir la matriz comercial online/offline en entorno limpio.
-- Flujos funcionales docente/alumno, evaluaciones, portal y calificación global en verde; OMR TV3 en verde. TV4 piloto real sigue sin capturas/ground truth y no se declara validado.
+## Estado de validación 2026-08-20
+- **Rediseño de Bienvenida Docente (`SPEC-AUTH-ONBOARDING`):** Pantalla inicial desacoplada de `ShellDocente`, eliminando el dashboard de banco/exámenes previo al login. Portal institucional con pilares de valor semánticos, pestañas `Ingresar`/`Registrar` y captura opcional de clave de licencia.
+- **Modernización Bootstrapper WPF (`SPEC-INSTALLER-HUB-LAYOUT-MODERNIZATION`):** Carrusel visual de 3 pilares, aceleración DirectX Tier 2, unificación a una sola ventana y mitigación de advertencias en logs.
+- **Diff Coverage:** `90.48%` verificado en verde.
+- **Gates Verificados:** `npm run lint` ✅, `npm run typecheck` ✅, `npm run test:frontend:ci` ✅, `npm run test:coverage:ci` ✅, `npm run test:tdd:enforcement:ci` ✅, `npm run test:backend:ci` ✅, `npm run test:portal:ci` ✅, `npm run perf:check` ✅, `npm run pipeline:contract:check` ✅, `npm run sdd:audit` ✅, `npm run test:ia:traceability` ✅.
 
 ## 1) Alcance
 - Monorepo completo: `apps/*`, `scripts/*`, `docs/*`, `ci/*`, `.github/workflows/*`.

@@ -90,6 +90,13 @@ export function TemaProvider({ children }: { children: ReactNode }) {
 
 export function useTema() {
   const ctx = useContext(ContextoTema);
-  if (!ctx) throw new Error('useTema debe usarse dentro de <TemaProvider>');
+  if (!ctx) {
+    return {
+      preferencia: 'auto' as const,
+      setPreferencia: () => {},
+      temaAplicado: 'dark' as const,
+      bucketTiempo: 'dia' as const
+    };
+  }
   return ctx;
 }

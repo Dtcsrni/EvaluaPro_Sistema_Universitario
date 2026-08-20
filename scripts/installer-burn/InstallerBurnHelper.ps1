@@ -33,7 +33,7 @@ foreach ($moduleRoot in $moduleRoots) {
   }
 }
 if ($operationalConfigModule) {
-  Import-Module $operationalConfigModule -Force
+  Import-Module $operationalConfigModule -DisableNameChecking -Force
 }
 $licenseSecurityModule = $null
 foreach ($moduleRoot in $moduleRoots) {
