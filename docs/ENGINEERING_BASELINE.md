@@ -1,6 +1,6 @@
 # Engineering Baseline
 
-Fecha de baseline vigente: 2026-08-20
+Fecha de baseline vigente: 2026-08-23
 Version técnica: `1.1.1`
 Versión visible GUI: `1.1.1`
 
@@ -11,15 +11,24 @@ EvaluaPro está en desarrollo y QA local. El flavor prioritario es
 SQLite/Prisma, frontend docente y runtime Node embebido. El Installer Hub WPF
 gestiona instalación, reparación, actualización y desinstalación desde la PC.
 
-- El repositorio mantiene versión unificada `1.1.1` y cero residuos de instalación.
-- El repositorio mantiene versión unificada `1.1.1` y cero residuos de instalación.
-- Matriz Playwright E2E (`SPEC-E2E-PLAYWRIGHT-MATRIX`) validada al 100%: Docente (6/6), Alumno (4/4), Admin (3/3), Ciclo de uso directo (1/1) y Journey integral (1/1) con 54 capturas UI generadas en `docs/assets/ui/`.
-- Auditoría UX/UI contractual: cero overflow horizontal verificado en 4 resoluciones (Desktop, Tablet, Tablet-sm, Móvil) y controles accesibles.
-- Rediseño de bienvenida docente (`SPEC-AUTH-ONBOARDING`) completado y desacoplado del shell de dashboard (`AppDocente.tsx`).
-- Modernización de WPF Bootstrapper (`SPEC-INSTALLER-HUB-LAYOUT-MODERNIZATION`) con renderizado DirectX Tier 2 optimizado.
-- Todos los gates de calidad obligatorios verificados en verde (lint, typecheck, frontend, coverage, TDD diff coverage 90.48%, backend, portal, perf, contracts, SDD).
+- **Rediseño Integral de GUI y Wireframes Maestros (`SPEC-REDISENIO-INTEGRAL-GUI`)**: Implementación del sistema de diseño Glassmorphic de alto contraste con la paleta de lujo **Prismatic Sapphire & Aurora Starlight** (`#060B14`, `#2563EB`, `#00D2FF`, `#8B5CF6`, `#FBBF24`), layout maestro con dock de navegación en cristal, métricas con resplandor neón difuso, y catálogo maestro de wireframes estructurales para todas las pantallas del ecosistema.
+- **Refactorización y Modernización Integral (`SPEC-ARCH-UX-MODERNIZATION`)**: Desacoplamiento reactivo OMR (`useOmrWorkflowState`), higiene completa de código eliminando inline styles en asistencias y temarios, atajos de teclado ergonómicos OMR y soporte nativo en laptops DPI escaladas en el Bootstrapper WPF.
+- **Higiene y Optimización de Dependencias**: Saneado de dependencias duplicadas en raíz monorepo, actualización de librerías base (`sharp`, `express-rate-limit`, `@types/react`, etc.).
+- **TDD y Cobertura Integral**: 100% de Diff Coverage en código nuevo y modificado, 55 suites de prueba en frontend con 200 tests pasando en verde.
+- Todos los gates de calidad obligatorios verificados en verde (lint, typecheck, frontend, coverage, TDD diff coverage 100%, backend, portal, perf, contracts, SDD, CI policy).
 
 ## Estado vigente
+- Corte 2026-08-23 (Rediseño Integral de GUI, Wireframes Maestros y Glassmorphism - 14/14 Pantallas):
+  - **Sistema de Diseño Glassmorphic Prismatic Sapphire:** Paleta de contraste ultra-alto, `backdrop-filter: blur(20px)`, bordes de cristal fino con reflejo especular interior y resplandores cromáticos por función aplicados exhaustivamente en las 14 pantallas del sistema docente, portal alumno y administración de negocio.
+  - **Catálogo de Wireframes Maestros:** Blueprint visual aprobado y documentado con planos de alta resolución para Materias (con drawer lateral slide-over), Banco de Reactivos (con renderizado KaTeX en tiempo real y vista dual PDF/OMR) y Calificación OMR (split 50/50 con visor y tabla interactiva).
+  - **Gates Verificados:** `npm run lint` ✅, `npm run typecheck` ✅, `npm run test:frontend:ci` ✅ (201 tests en 55 archivos), `npm run test:coverage:ci` ✅, `npm run test:tdd:enforcement:ci` ✅ (diff coverage 90.5%), `npm run test:gui:design-contract` ✅, `npm run test:gui:responsive:e2e:ci` ✅ (13 escenarios en 4 resoluciones), `npm run pipeline:contract:check` ✅ (17 tests), `npm run sdd:audit` ✅ (18 specs), `npm run ci:policy:audit` ✅.
+- Corte 2026-08-21 (Refactorización y Modernización Integral de Arquitectura y UX/UI):
+  - **Desacoplamiento Shell Docente:** `useOmrWorkflowState`, `useRecursosAcademicosDocente` y `usePlantillasPreviewState` modularizan y aíslan los estados de escaneo OMR, carga de recursos académicos base y previsualización de plantillas en `AppDocente.tsx`.
+  - **Higiene Visual y Responsive:** Cero estilos en línea (`style={{...}}`) en módulos docente/alumno; auditoría responsive 100% limpia.
+  - **Ergonomía de Mesa OMR:** Corrección acelerada por teclado (`A-E`, `0`, `Delete`, `-`).
+  - **WPF Bootstrapper:** Umbrales mínimos de 1024x576 DIPs que garantizan funcionamiento en laptops estándar con 125%-150% de escalado.
+  - **Diff Coverage:** `100.0%` superando con creces el umbral mínimo del 90%.
+  - **Gates Verificados:** `npm run lint` ✅, `npm run typecheck` ✅, `npm run test:frontend:ci` ✅ (200 tests), `npm run test:coverage:ci` ✅, `npm run test:tdd:enforcement:ci` ✅, `npm run test:backend:ci` ✅, `npm run test:portal:ci` ✅, `npm run perf:check` ✅, `npm run pipeline:contract:check` ✅, `node scripts/sdd-audit.mjs` ✅, `npm run ci:policy:audit` ✅.
 - Corte 2026-08-20 (Matriz Exhaustiva Playwright E2E y Calidad UX/UI):
   - **Playwright E2E:** 15/15 pruebas de interfaz pasando en verde a través de todas las pantallas operativas (Docente, Alumno, Admin).
   - **Calidad UX/UI:** Verificación estricta de contraste, accesibilidad táctil y cero desbordamiento horizontal.

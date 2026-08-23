@@ -1,4 +1,4 @@
-/**
+﻿/**
  * seccionPeriodos.edit.test
  *
  * Responsabilidad: Modulo interno del sistema.
@@ -48,5 +48,53 @@ describe('SeccionPeriodos edición', () => {
     fireEvent.click(screen.getByRole('button', { name: /Editar/i }));
     expect(screen.getByText(/Guardar cambios/i)).toBeInTheDocument();
     expect(screen.getAllByLabelText(/Nombre de la materia/i).length).toBeGreaterThanOrEqual(2);
+  });
+
+  it('calcula y muestra chips de avance para diversos estados de periodo', () => {
+    const periodos = [
+      {
+        _id: 'p-futuro',
+        nombre: 'Materia Futura',
+        fechaInicio: '2030-01-01',
+        fechaFin: '2030-06-01',
+        grupos: ['A']
+      },
+      {
+        _id: 'p-pasado',
+        nombre: 'Materia Pasada',
+        fechaInicio: '2020-01-01',
+        fechaFin: '2020-06-01',
+        grupos: ['B']
+      },
+      {
+        _id: 'p-invalido',
+        nombre: 'Materia Invalida',
+        fechaInicio: '2026-06-01',
+        fechaFin: '2026-01-01',
+        grupos: ['C']
+      },
+      {
+        _id: 'p-sinfechas',
+        nombre: 'Materia Sin Fechas',
+        grupos: ['D']
+      }
+    ] as unknown as Periodo[];
+
+    render(
+      <SeccionPeriodos
+        periodos={periodos}
+        onRefrescar={vi.fn()}
+        onVerArchivadas={vi.fn()}
+        permisos={permisos}
+        puedeEliminarMateriaDev={false}
+        enviarConPermiso={vi.fn(async () => ({}))}
+        avisarSinPermiso={vi.fn()}
+      />
+    );
+
+    expect(screen.getByText(/Materia Futura/i)).toBeInTheDocument();
+    expect(screen.getByText(/Materia Pasada/i)).toBeInTheDocument();
+    expect(screen.getByText(/Inicia en/i)).toBeInTheDocument();
+    expect(screen.getByText(/Concluido/i)).toBeInTheDocument();
   });
 });

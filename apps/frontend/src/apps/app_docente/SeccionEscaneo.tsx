@@ -888,6 +888,18 @@ export function SeccionEscaneo({
                               onActualizarPregunta(fila.numeroPregunta, event.target.value || null);
                               onConfirmarRevisionOmr(false);
                             }}
+                            onKeyDown={(event) => {
+                              const key = event.key.toUpperCase();
+                              if (['A', 'B', 'C', 'D', 'E'].includes(key)) {
+                                event.preventDefault();
+                                onActualizarPregunta(fila.numeroPregunta, key);
+                                onConfirmarRevisionOmr(false);
+                              } else if (key === 'DELETE' || key === 'BACKSPACE' || key === '0' || key === '-') {
+                                event.preventDefault();
+                                onActualizarPregunta(fila.numeroPregunta, null);
+                                onConfirmarRevisionOmr(false);
+                              }
+                            }}
                           >
                             <option value="">-</option>
                             <option value="A">A</option>

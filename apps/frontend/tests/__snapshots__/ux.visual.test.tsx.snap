@@ -444,14 +444,77 @@ exports[`UX visual regression > alumno sin token mantiene layout de acceso 1`] =
         </div>
         <div
           aria-hidden="true"
-          class="auth-ilustracion"
+          class="auth-hero-illustration"
         >
           <div
-            class="auth-blob"
-          />
-          <div
-            class="auth-blob auth-blob--2"
-          />
+            class="auth-shield-glow"
+          >
+            <svg
+              class="auth-shield-svg"
+              fill="none"
+              viewBox="0 0 120 120"
+              xmlns="http://www.w3.org/2000/svg"
+            >
+              <path
+                d="M60 12L96 28V64C96 88 60 108 60 108C60 108 24 88 24 64V28L60 12Z"
+                fill="rgba(37, 99, 235, 0.12)"
+                stroke="url(#shield-grad)"
+                stroke-width="3"
+              />
+              <path
+                d="M60 42L88 54L60 66L32 54L60 42Z"
+                fill="url(#cap-grad)"
+                stroke="#00d2ff"
+                stroke-width="1.5"
+              />
+              <path
+                d="M44 60V74C44 79 51 83 60 83C69 83 76 79 76 74V60"
+                stroke="#00d2ff"
+                stroke-linecap="round"
+                stroke-width="2"
+              />
+              <path
+                d="M84 56V72"
+                stroke="#a78bfa"
+                stroke-linecap="round"
+                stroke-width="2"
+              />
+              <defs>
+                <lineargradient
+                  gradientUnits="userSpaceOnUse"
+                  id="shield-grad"
+                  x1="24"
+                  x2="96"
+                  y1="12"
+                  y2="108"
+                >
+                  <stop
+                    stop-color="#00d2ff"
+                  />
+                  <stop
+                    offset="1"
+                    stop-color="#8b5cf6"
+                  />
+                </lineargradient>
+                <lineargradient
+                  gradientUnits="userSpaceOnUse"
+                  id="cap-grad"
+                  x1="32"
+                  x2="88"
+                  y1="42"
+                  y2="66"
+                >
+                  <stop
+                    stop-color="#2563eb"
+                  />
+                  <stop
+                    offset="1"
+                    stop-color="#00d2ff"
+                  />
+                </lineargradient>
+              </defs>
+            </svg>
+          </div>
         </div>
       </div>
       <div
@@ -827,6 +890,80 @@ exports[`UX visual regression > docente sin token mantiene layout de acceso 1`] 
             Diseña evaluaciones estructuradas, automatiza la calificación con hojas OMR y gestiona tus cursos con total privacidad local.
           </p>
         </div>
+        <div
+          aria-hidden="true"
+          class="auth-hero-illustration"
+        >
+          <div
+            class="auth-shield-glow"
+          >
+            <svg
+              class="auth-shield-svg"
+              fill="none"
+              viewBox="0 0 120 120"
+              xmlns="http://www.w3.org/2000/svg"
+            >
+              <path
+                d="M60 12L96 28V64C96 88 60 108 60 108C60 108 24 88 24 64V28L60 12Z"
+                fill="rgba(37, 99, 235, 0.12)"
+                stroke="url(#shield-grad-docente)"
+                stroke-width="3"
+              />
+              <path
+                d="M60 42L88 54L60 66L32 54L60 42Z"
+                fill="url(#cap-grad-docente)"
+                stroke="#00d2ff"
+                stroke-width="1.5"
+              />
+              <path
+                d="M44 60V74C44 79 51 83 60 83C69 83 76 79 76 74V60"
+                stroke="#00d2ff"
+                stroke-linecap="round"
+                stroke-width="2"
+              />
+              <path
+                d="M84 56V72"
+                stroke="#a78bfa"
+                stroke-linecap="round"
+                stroke-width="2"
+              />
+              <defs>
+                <lineargradient
+                  gradientUnits="userSpaceOnUse"
+                  id="shield-grad-docente"
+                  x1="24"
+                  x2="96"
+                  y1="12"
+                  y2="108"
+                >
+                  <stop
+                    stop-color="#00d2ff"
+                  />
+                  <stop
+                    offset="1"
+                    stop-color="#8b5cf6"
+                  />
+                </lineargradient>
+                <lineargradient
+                  gradientUnits="userSpaceOnUse"
+                  id="cap-grad-docente"
+                  x1="32"
+                  x2="88"
+                  y1="42"
+                  y2="66"
+                >
+                  <stop
+                    stop-color="#2563eb"
+                  />
+                  <stop
+                    offset="1"
+                    stop-color="#00d2ff"
+                  />
+                </lineargradient>
+              </defs>
+            </svg>
+          </div>
+        </div>
         <ul
           aria-label="Beneficios"
           class="auth-feature-list auth-beneficios"
@@ -1009,7 +1146,7 @@ exports[`UX visual regression > docente sin token mantiene layout de acceso 1`] 
             <b>
               correo
             </b>
-            . La contrasena requiere minimo 8 caracteres.
+            . La contraseña requiere mínimo 8 caracteres.
           </p>
         </div>
         <p
@@ -1051,7 +1188,7 @@ exports[`UX visual regression > docente sin token mantiene layout de acceso 1`] 
           <span
             class="mensaje__contenido"
           >
-            Inicio de sesion con Google deshabilitado en este entorno. Para habilitarlo en desarrollo, define VITE_GOOGLE_CLIENT_ID en el .env del root y reinicia Vite.
+            Inicio de sesión con Google deshabilitado en este entorno. Para habilitarlo en desarrollo, define VITE_GOOGLE_CLIENT_ID en el .env del root y reinicia Vite.
           </span>
         </p>
         <label
@@ -1103,7 +1240,7 @@ exports[`UX visual regression > docente sin token mantiene layout de acceso 1`] 
         <label
           class="campo auth-campo"
         >
-          Contrasena
+          Contraseña
           <input
             autocomplete="new-password"
             type="password"

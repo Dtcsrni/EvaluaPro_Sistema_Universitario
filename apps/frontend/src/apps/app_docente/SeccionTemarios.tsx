@@ -34,12 +34,7 @@ type TemaNode = {
 
 type TabLocal = 'lista' | 'cargar' | 'arbol';
 
-// ─── Estado colores ───────────────────────────────────────────────────────────
-const ESTADO_COLOR: Record<string, string> = {
-  cubierto: 'var(--color-verde, #16a34a)',
-  en_progreso: 'var(--color-naranja, #f59e0b)',
-  pendiente: 'var(--color-texto-secundario, #9ca3af)'
-};
+// ─── Estado iconos ───────────────────────────────────────────────────────────
 const ESTADO_ICON: Record<string, string> = { cubierto: '✅', en_progreso: '🔄', pendiente: '○' };
 const ESTADO_CICLO: Array<TemaNode['estado']> = ['pendiente', 'en_progreso', 'cubierto'];
 
@@ -98,7 +93,7 @@ export function SeccionTemarios({ periodos }: Props) {
   // ─── Cargar PDF ─────────────────────────────────────────────────────────────
   function manejarArchivo(file: File) {
     if (file.type !== 'application/pdf') {
-      emitToast({ level: 'warn', title: 'Archivo inválido', message: 'Solo se aceptan PDFs.' });
+      emitToast({ level: 'warn', title: 'Archivo inválido', message: 'Selecciona un PDF válido.' });
       return;
     }
     setArchivoPdf(file);
@@ -107,29 +102,31 @@ export function SeccionTemarios({ periodos }: Props) {
   }
 
   async function subirPdf() {
-    if (!archivoPdf || !periodoId) {
+    if (!archivoPdf || !periodoId || !nombreNuevo) {
       emitToast({ level: 'warn', title: 'Datos incompletos', message: 'Selecciona periodo y PDF.' });
       return;
     }
     setCargando(true);
     try {
-      const form = new FormData();
-      form.append('archivo', archivoPdf);
-      form.append('periodoId', periodoId);
-      form.append('nombre', nombreNuevo || archivoNombre);
-
-      const data = await clienteApi.enviarFormData<{ temario: Temario; totalNodos: number }>(
-        '/temarios/desde-pdf',
-        form
+      const reader = new FileReader();
+      const base64 = await new Promise<string>((res, rej) => {
+        reader.onload = () => res((reader.result as string).split(',')[1] ?? '');
+        reader.onerror = rej;
+        reader.readAsDataURL(archivoPdf);
+      });
+      const data = await clienteApi.enviar<{ temario: Temario; totalNodos: number }>(
+        '/temarios/pdf',
+        { periodoId, nombre: nombreNuevo, archivoBase64: base64 }
       );
-      emitToast({ level: 'ok', title: 'Temario cargado', message: `${data.totalNodos} temas detectados.` });
+      emitToast({ level: 'ok', title: 'Temario procesado', message: `${data.totalNodos} temas extraídos.` });
       setArchivoPdf(null);
       setArchivoNombre('');
       setNombreNuevo('');
       void cargarTemarios();
       void abrirTemario(data.temario);
-    } catch {
-      emitToast({ level: 'error', title: 'Error al parsear PDF', message: 'Verifique el formato del documento.' });
+    } catch (e: unknown) {
+      const msg = e instanceof Error ? e.message : 'Error al procesar el PDF.';
+      emitToast({ level: 'error', title: 'Error', message: msg });
     } finally {
       setCargando(false);
     }
@@ -183,12 +180,12 @@ export function SeccionTemarios({ periodos }: Props) {
 
   // ─── Render ──────────────────────────────────────────────────────────────────
   return (
-    <section style={ { padding: '1rem 1.5rem' }}>
-      <h2 style={ { margin: '0 0 1rem', fontWeight: 700, fontSize: '1.25rem' }}>📚 Temarios</h2>
+    <section className="temarios-container">
+      <h2 className="eyebrow">📚 Temarios</h2>
 
       {/* Filtro periodo */}
-      <div style={ { marginBottom: '1rem' }}>
-        <select value={periodoId} onChange={(e) => setPeriodoId(e.target.value)} style={estiloSelect}>
+      <div className="temarios-spacing-bottom">
+        <select value={periodoId} onChange={(e) => setPeriodoId(e.target.value)} className="asistencias-select">
           <option value="">— Selecciona periodo —</option>
           {periodos.filter((p) => p.activo).map((p) => (
             <option key={p._id} value={p._id}>{p.nombre}</option>
@@ -197,16 +194,12 @@ export function SeccionTemarios({ periodos }: Props) {
       </div>
 
       {/* Tabs */}
-      <div style={ { display: 'flex', gap: '0.5rem', marginBottom: '1rem' }}>
+      <div className="temarios-tab-bar">
         {(['lista', 'cargar', ...(temarioActual ? ['arbol'] : [])] as const).map((t) => (
           <button
             key={t}
             onClick={() => setTab(t as TabLocal)}
-            style={ {
-              ...estiloTab,
-              background: tab === t ? 'var(--color-primario, #4f46e5)' : 'transparent',
-              color: tab === t ? '#fff' : 'inherit'
-            }}
+            className={`nav-docente-tab ${tab === t ? 'activo' : ''}`}
           >
             {t === 'lista' ? '📋 Mis temarios' : t === 'cargar' ? '➕ Cargar temario' : `🌳 ${temarioActual?.nombre ?? 'Árbol'}`}
           </button>
@@ -217,43 +210,37 @@ export function SeccionTemarios({ periodos }: Props) {
       {tab === 'lista' && (
         <div>
           {temarios.length === 0 ? (
-            <p style={ { color: 'var(--color-texto-secundario, #888)' }}>
+            <p className="nota">
               {periodoId ? 'Sin temarios. Carga uno desde la pestaña ➕.' : 'Selecciona un periodo.'}
             </p>
           ) : (
-            <div style={ { display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+            <div className="temarios-list-stack">
               {temarios.map((t) => (
                 <div
                   key={t._id}
-                  style={estiloTarjeta}
+                  className="temarios-card scale-hover"
                   role="button"
                   tabIndex={0}
                   onClick={() => void abrirTemario(t)}
                   onKeyDown={(e) => { if (e.key === 'Enter') void abrirTemario(t); }}
                   title="Abrir temario"
                 >
-                  <div style={ { display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                    <strong style={ { fontSize: '1rem' }}>{t.nombre}</strong>
-                    <span style={ { fontSize: '0.85rem', color: 'var(--color-texto-secundario, #888)' }}>
+                  <div className="temarios-card-header">
+                    <strong>{t.nombre}</strong>
+                    <span className="nota">
                       {t.totalNodos} temas
                     </span>
                   </div>
                   {/* Barra de progreso */}
-                  <div style={ { marginTop: '0.5rem' }}>
-                    <div style={ { display: 'flex', justifyContent: 'space-between', fontSize: '0.8rem', marginBottom: '0.2rem' }}>
+                  <div className="temarios-btn-margin-top">
+                    <div className="temarios-progress-label-row">
                       <span>Avance</span>
-                      <span style={ { fontWeight: 600, color: t.porcentajeAvance === 100 ? 'var(--color-verde, #16a34a)' : 'inherit' }}>
+                      <span className={t.porcentajeAvance === 100 ? 'temarios-progress-val-success' : undefined}>
                         {t.porcentajeAvance}%
                       </span>
                     </div>
-                    <div style={ { height: '6px', borderRadius: '3px', background: 'var(--color-borde, #e5e7eb)', overflow: 'hidden' }}>
-                      <div style={ {
-                        height: '100%',
-                        width: `${t.porcentajeAvance}%`,
-                        background: t.porcentajeAvance === 100 ? 'var(--color-verde, #16a34a)' : 'var(--color-primario, #4f46e5)',
-                        borderRadius: '3px',
-                        transition: 'width 0.4s ease'
-                      }} />
+                    <div className="temarios-progress-track">
+                      <div className="temarios-progress-bar" />
                     </div>
                   </div>
                 </div>
@@ -265,10 +252,10 @@ export function SeccionTemarios({ periodos }: Props) {
 
       {/* ── CARGAR ── */}
       {tab === 'cargar' && (
-        <div style={ { display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+        <div className="temarios-list-stack">
           {/* Drag & drop PDF */}
-          <div style={estiloTarjeta}>
-            <h3 style={ { margin: '0 0 0.75rem', fontSize: '1rem' }}>📄 Desde PDF</h3>
+          <div className="temarios-card">
+            <h3>📄 Desde PDF</h3>
             <div
               role="button"
               tabIndex={0}
@@ -283,37 +270,29 @@ export function SeccionTemarios({ periodos }: Props) {
                   inputRef.current?.click();
                 }
               }}
-              style={ {
-                border: `2px dashed ${drag ? 'var(--color-primario, #4f46e5)' : 'var(--color-borde, #d1d5db)'}`,
-                borderRadius: '0.5rem',
-                padding: '2rem',
-                textAlign: 'center',
-                cursor: 'pointer',
-                background: drag ? 'rgba(79,70,229,0.04)' : 'transparent',
-                transition: 'all 0.2s'
-              }}
+              className={`temarios-upload-box ${drag ? 'drag-active' : ''}`}
             >
               {archivoPdf ? (
-                <p style={ { margin: 0, fontWeight: 600 }}>📄 {archivoNombre}</p>
+                <p><strong>📄 {archivoNombre}</strong></p>
               ) : (
-                <p style={ { margin: 0, color: 'var(--color-texto-secundario, #888)' }}>
+                <p className="nota">
                   Arrastra tu PDF aquí o haz click para seleccionar
                 </p>
               )}
             </div>
             <input ref={inputRef} type="file" accept="application/pdf" hidden onChange={(e) => { const f = e.target.files?.[0]; if (f) manejarArchivo(f); }} />
-            <div style={ { display: 'flex', gap: '0.5rem', marginTop: '0.5rem' }}>
+            <div className="temarios-tab-bar temarios-btn-margin-top">
               <input
                 type="text"
                 placeholder="Nombre del temario"
                 value={nombreNuevo}
                 onChange={(e) => setNombreNuevo(e.target.value)}
-                style={ { ...estiloInput, flexGrow: 1 }}
+                className="asistencias-input temarios-input-flex"
               />
               <button
                 onClick={() => void subirPdf()}
                 disabled={!archivoPdf || cargando}
-                style={estiloBotonPrimario}
+                className="asistencias-btn-primario"
               >
                 {cargando ? 'Procesando…' : '⬆️ Cargar PDF'}
               </button>
@@ -321,9 +300,9 @@ export function SeccionTemarios({ periodos }: Props) {
           </div>
 
           {/* Manual */}
-          <div style={estiloTarjeta}>
-            <h3 style={ { margin: '0 0 0.5rem', fontSize: '1rem' }}>✍️ Carga manual</h3>
-            <p style={ { fontSize: '0.82rem', color: 'var(--color-texto-secundario, #888)', margin: '0 0 0.5rem' }}>
+          <div className="temarios-card">
+            <h3>✍️ Carga manual</h3>
+            <p className="nota">
               Formato: <code>1 Tema principal</code>, <code>1.1 Subtema</code>, <code>1.1.1 Sub-subtema</code>
             </p>
             <input
@@ -331,16 +310,16 @@ export function SeccionTemarios({ periodos }: Props) {
               placeholder="Nombre del temario"
               value={nombreNuevo}
               onChange={(e) => setNombreNuevo(e.target.value)}
-              style={ { ...estiloInput, width: '100%', marginBottom: '0.5rem', boxSizing: 'border-box' }}
+              className="asistencias-input temarios-input-full"
             />
             <textarea
               placeholder={'1 Introducción\n1.1 Conceptos básicos\n1.1.1 Definiciones\n2 Desarrollo…'}
               value={textoManual}
               onChange={(e) => setTextoManual(e.target.value)}
               rows={10}
-              style={ { ...estiloInput, width: '100%', resize: 'vertical', boxSizing: 'border-box', fontFamily: 'monospace', fontSize: '0.85rem' }}
+              className="asistencias-input font-code temarios-textarea"
             />
-            <button onClick={() => void cargarManual()} disabled={cargando} style={ { ...estiloBotonPrimario, marginTop: '0.5rem' }}>
+            <button onClick={() => void cargarManual()} disabled={cargando} className="asistencias-btn-primario temarios-btn-margin-top">
               {cargando ? 'Cargando…' : '✅ Crear temario'}
             </button>
           </div>
@@ -351,40 +330,31 @@ export function SeccionTemarios({ periodos }: Props) {
       {tab === 'arbol' && temarioActual && (
         <div>
           {/* Cabecera con progreso */}
-          <div style={ { display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.75rem' }}>
-            <h3 style={ { margin: 0, fontSize: '1rem' }}>{temarioActual.nombre}</h3>
-            <span style={ {
-              fontWeight: 700,
-              color: temarioActual.porcentajeAvance === 100 ? 'var(--color-verde, #16a34a)' : 'var(--color-primario, #4f46e5)'
-            }}>
+          <div className="temarios-tree-header">
+            <h3>{temarioActual.nombre}</h3>
+            <span className={temarioActual.porcentajeAvance === 100 ? 'temarios-progress-val-success' : 'temarios-progress-val-accent'}>
               {temarioActual.porcentajeAvance}% completado
             </span>
           </div>
-          <div style={ { height: '8px', borderRadius: '4px', background: 'var(--color-borde, #e5e7eb)', marginBottom: '1rem', overflow: 'hidden' }}>
-            <div style={ {
-              height: '100%',
-              width: `${temarioActual.porcentajeAvance}%`,
-              background: 'var(--color-primario, #4f46e5)',
-              borderRadius: '4px',
-              transition: 'width 0.4s ease'
-            }} />
+          <div className="temarios-progress-track">
+            <div className="temarios-progress-bar" />
           </div>
 
           {/* Leyenda */}
-          <div style={ { display: 'flex', gap: '1rem', fontSize: '0.8rem', marginBottom: '0.75rem' }}>
+          <div className="temarios-tree-legend">
             {(['pendiente', 'en_progreso', 'cubierto'] as const).map((e) => (
               <span key={e}>
-                <span style={ { marginRight: '0.25rem' }}>{ESTADO_ICON[e]}</span>
+                <span>{ESTADO_ICON[e]}</span>{' '}
                 {e === 'pendiente' ? 'Pendiente' : e === 'en_progreso' ? 'En progreso' : 'Cubierto'}
               </span>
             ))}
-            <span style={ { color: 'var(--color-texto-secundario, #888)' }}>· Click para avanzar</span>
+            <span className="nota">· Click para avanzar</span>
           </div>
 
           {cargando ? (
             <p>Cargando árbol…</p>
           ) : (
-            <div style={ { display: 'flex', flexDirection: 'column', gap: '0.2rem' }}>
+            <div className="temarios-tree-stack">
               {nodos.map((nodo) => (
                 <div
                   key={nodo._id}
@@ -397,37 +367,19 @@ export function SeccionTemarios({ periodos }: Props) {
                       if (!guardandoNodo) void ciclarEstadoNodo(nodo);
                     }
                   }}
-                  style={ {
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '0.75rem',
-                    paddingLeft: `${(nodo.nivel - 1) * 1.5 + 0.5}rem`,
-                    paddingRight: '0.75rem',
-                    paddingTop: '0.4rem',
-                    paddingBottom: '0.4rem',
-                    borderRadius: '0.375rem',
-                    cursor: guardandoNodo ? 'wait' : 'pointer',
-                    opacity: guardandoNodo === nodo._id ? 0.5 : 1,
-                    background: nodo.estado === 'cubierto' ? 'rgba(22,163,74,0.06)' : nodo.estado === 'en_progreso' ? 'rgba(245,158,11,0.06)' : 'transparent'
-                  }}
+                  className={`temarios-node-item ${nodo.estado === 'cubierto' ? 'temarios-node-cubierto' : ''}`}
                 >
-                  <span style={ { color: ESTADO_COLOR[nodo.estado], fontSize: nodo.nivel === 1 ? '1.1rem' : '0.9rem' }}>
+                  <span className="temarios-node-icon">
                     {ESTADO_ICON[nodo.estado]}
                   </span>
-                  <span style={ {
-                    fontSize: nodo.nivel === 1 ? '0.95rem' : nodo.nivel === 2 ? '0.88rem' : '0.82rem',
-                    fontWeight: nodo.nivel === 1 ? 700 : nodo.nivel === 2 ? 500 : 400,
-                    color: nodo.estado === 'cubierto' ? 'var(--color-texto-secundario, #9ca3af)' : 'inherit',
-                    textDecoration: nodo.estado === 'cubierto' ? 'line-through' : 'none',
-                    flexGrow: 1
-                  }}>
-                    <span style={ { marginRight: '0.4rem', fontFamily: 'monospace', fontSize: '0.8rem', color: 'var(--color-texto-secundario, #9ca3af)' }}>
-                      {nodo.numero}
+                  <span className={`temarios-node-title ${nodo.nivel === 1 ? 'temarios-node-nivel-1' : nodo.nivel === 2 ? 'temarios-node-nivel-2' : 'temarios-node-nivel-3'}`}>
+                    <span className="font-code nota">
+                      {nodo.numero}{' '}
                     </span>
                     {nodo.titulo}
                   </span>
                   {nodo.cubiertaEn && (
-                    <span style={ { fontSize: '0.72rem', color: 'var(--color-verde, #16a34a)' }}>
+                    <span className="temarios-node-date">
                       {new Date(nodo.cubiertaEn).toLocaleDateString('es-MX', { day: '2-digit', month: 'short' })}
                     </span>
                   )}
@@ -441,44 +393,4 @@ export function SeccionTemarios({ periodos }: Props) {
   );
 }
 
-// ─── Estilos ──────────────────────────────────────────────────────────────────
-const estiloSelect: React.CSSProperties = {
-  padding: '0.4rem 0.6rem',
-  borderRadius: '0.375rem',
-  border: '1px solid var(--color-borde, #d1d5db)',
-  background: 'var(--color-fondo-input, #fff)',
-  fontSize: '0.9rem'
-};
-const estiloInput: React.CSSProperties = {
-  padding: '0.4rem 0.6rem',
-  borderRadius: '0.375rem',
-  border: '1px solid var(--color-borde, #d1d5db)',
-  background: 'var(--color-fondo-input, #fff)',
-  fontSize: '0.9rem'
-};
-const estiloBotonPrimario: React.CSSProperties = {
-  padding: '0.45rem 1rem',
-  borderRadius: '0.375rem',
-  background: 'var(--color-primario, #4f46e5)',
-  color: '#fff',
-  border: 'none',
-  cursor: 'pointer',
-  fontWeight: 600,
-  fontSize: '0.9rem'
-};
-const estiloTab: React.CSSProperties = {
-  padding: '0.4rem 0.9rem',
-  borderRadius: '0.375rem',
-  border: '1px solid var(--color-borde, #d1d5db)',
-  cursor: 'pointer',
-  fontSize: '0.88rem',
-  fontWeight: 500
-};
-const estiloTarjeta: React.CSSProperties = {
-  background: 'var(--color-fondo-2, #f9fafb)',
-  border: '1px solid var(--color-borde, #e5e7eb)',
-  borderRadius: '0.5rem',
-  padding: '1rem',
-  cursor: 'pointer'
-};
 

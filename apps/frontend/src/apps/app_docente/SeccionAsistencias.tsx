@@ -60,18 +60,6 @@ type TabActivo = 'resumen' | 'pase_lista' | 'reglas';
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 const ESTADO_LABEL: Record<string, string> = { P: 'Presente', F: 'Falta', R: 'Retardo', J: 'Justificada' };
-const ESTADO_COLOR: Record<string, string> = {
-  P: 'var(--color-verde)',
-  F: 'var(--color-rojo)',
-  R: 'var(--color-naranja)',
-  J: 'var(--color-azul-claro)'
-};
-
-function semaforoColor(pct: number): string {
-  if (pct >= 85) return 'var(--color-verde)';
-  if (pct >= 70) return 'var(--color-naranja)';
-  return 'var(--color-rojo)';
-}
 
 function formatFecha(iso: string) {
   return new Date(iso).toLocaleDateString('es-MX', { day: '2-digit', month: 'short', year: 'numeric' });
@@ -316,8 +304,8 @@ export function SeccionAsistencias({ periodos, alumnos }: Props) {
         <div className="anim-fade-in">
           {/* Nueva sesión rápida */}
           {periodoId && (
-            <div className="panel" style={ { marginBottom: '1.5rem', padding: '1.25rem' } }>
-              <h3 className="eyebrow" style={ { marginBottom: '0.75rem' } }>➕ Nueva sesión</h3>
+            <div className="panel asistencias-panel-card">
+              <h3 className="eyebrow">➕ Nueva sesión</h3>
               <div className="asistencias-form-crear">
                 <input
                   type="date"
@@ -341,7 +329,6 @@ export function SeccionAsistencias({ periodos, alumnos }: Props) {
                   value={nuevaSesionTema}
                   onChange={(e) => setNuevaSesionTema(e.target.value)}
                   className="asistencias-input"
-                  style={ { flexGrow: 1 }}
                 />
                 <button onClick={() => void crearSesion()} className="asistencias-btn-primario">
                   Crear e iniciar
@@ -354,11 +341,11 @@ export function SeccionAsistencias({ periodos, alumnos }: Props) {
           {cargando ? (
             <p>Cargando…</p>
           ) : resumen.length === 0 ? (
-            <p style={ { color: 'var(--muted)', padding: '1rem 0' } }>
+            <p className="nota">
               {periodoId ? 'Sin sesiones registradas aún.' : 'Selecciona un periodo para ver el resumen.'}
             </p>
           ) : (
-            <div style={ { overflowX: 'auto' } }>
+            <div className="table-scroll-container">
               <table className="asistencias-tabla">
                 <thead>
                   <tr>
@@ -377,32 +364,29 @@ export function SeccionAsistencias({ periodos, alumnos }: Props) {
                 <tbody>
                   {resumen.map((al) => (
                     <tr key={al.alumnoId} className="asistencias-tr">
-                      <td className="asistencias-td" style={ { fontWeight: 600 } }>{al.nombreCompleto}</td>
-                      <td className="asistencias-td" style={ { fontFamily: 'monospace', fontSize: '0.85rem' } }>{al.matricula}</td>
+                      <td className="asistencias-td"><strong>{al.nombreCompleto}</strong></td>
+                      <td className="asistencias-td font-code">{al.matricula}</td>
                       <td className="asistencias-td">{al.grupo}</td>
-                      <td className="asistencias-td" style={ { color: 'var(--color-verde, #16a34a)', fontWeight: 700 } }>{al.presentes}</td>
-                      <td className="asistencias-td" style={ { color: 'var(--color-rojo, #dc2626)', fontWeight: 700 } }>{al.faltas}</td>
-                      <td className="asistencias-td" style={ { color: 'var(--color-naranja, #f59e0b)', fontWeight: 700 } }>{al.retardos}</td>
-                      <td className="asistencias-td" style={ { color: 'var(--color-azul, #2563eb)', fontWeight: 700 } }>{al.justificadas}</td>
+                      <td className="asistencias-td asistencias-p-stat">{al.presentes}</td>
+                      <td className="asistencias-td asistencias-f-stat">{al.faltas}</td>
+                      <td className="asistencias-td asistencias-r-stat">{al.retardos}</td>
+                      <td className="asistencias-td asistencias-j-stat">{al.justificadas}</td>
                       <td className="asistencias-td">
                         <span
-                          className="badge"
-                          style={ {
-                            background: semaforoColor(al.porcentajeAsistencia),
-                            color: '#fff',
-                            fontSize: '0.8rem'
-                          } }
+                          className={`asistencias-pct-badge ${
+                            al.porcentajeAsistencia >= 85 ? 'green' : al.porcentajeAsistencia >= 70 ? 'orange' : 'red'
+                          }`}
                         >
                           {al.porcentajeAsistencia}%
                         </span>
                       </td>
                       <td className="asistencias-td">
                         {al.bloqueadoExamen ? (
-                          <span title="Sin derecho a examen" className="badge" style={ { background: 'var(--peligroBg)', color: 'var(--peligroTexto)', fontSize: '0.85rem' } }>🚫 Sin Derecho</span>
+                          <span title="Sin derecho a examen" className="asistencias-badge-pill sin-derecho">🚫 Sin Derecho</span>
                         ) : al.tieneExcepcion ? (
-                          <span title="Excepción autorizada" className="badge" style={ { background: 'var(--avisoBg)', color: 'var(--avisoTexto)', fontSize: '0.85rem' } }>⚠️ Autorizado</span>
+                          <span title="Excepción autorizada" className="asistencias-badge-pill autorizado">⚠️ Autorizado</span>
                         ) : (
-                          <span title="Con derecho a examen" className="badge" style={ { background: 'var(--exitoBg)', color: 'var(--exitoTexto)', fontSize: '0.85rem' } }>✅ Con Derecho</span>
+                          <span title="Con derecho a examen" className="asistencias-badge-pill con-derecho">✅ Con Derecho</span>
                         )}
                       </td>
                       <td className="asistencias-td">
@@ -425,9 +409,9 @@ export function SeccionAsistencias({ periodos, alumnos }: Props) {
 
           {/* Sesiones anteriores */}
           {sesiones.length > 0 && (
-            <div style={ { marginTop: '1.5rem' } }>
-              <h3 className="eyebrow" style={ { marginBottom: '0.5rem' } }>📅 Sesiones registradas</h3>
-              <div style={ { display: 'flex', flexWrap: 'wrap', gap: '0.5rem' } }>
+            <div className="asistencias-panel-card">
+              <h3 className="eyebrow">📅 Sesiones registradas</h3>
+              <div className="asistencias-chip-grid">
                 {sesiones.map((s) => (
                   <button key={s._id} onClick={() => void abrirSesion(s)} className="asistencias-chip-sesion scale-hover">
                     {formatFecha(s.fecha)} {s.grupo} {s.temaNombre ? `· ${s.temaNombre.slice(0, 20)}` : ''}
@@ -443,17 +427,17 @@ export function SeccionAsistencias({ periodos, alumnos }: Props) {
       {tab === 'pase_lista' && (
         <div className="anim-fade-in">
           {!sesionActual ? (
-            <p style={ { color: 'var(--muted)', textAlign: 'center', padding: '2rem' } }>
+            <p className="nota">
               Crea o selecciona una sesión desde la pestaña Resumen.
             </p>
           ) : (
             <>
-              <div style={ { display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.25rem', flexWrap: 'wrap', gap: '0.75rem' } }>
-                <h3 style={ { margin: 0, fontSize: '1.1rem', fontWeight: 600 } }>
-                  Sesión: <strong style={ { color: 'var(--app-accent)' } }>{formatFecha(sesionActual.fecha)}</strong> — Grupo: <strong>{sesionActual.grupo}</strong>
-                  {sesionActual.temaNombre && <span style={ { marginLeft: '0.5rem', color: 'var(--muted)', fontSize: '0.9rem', fontWeight: 400 } }>({sesionActual.temaNombre})</span>}
+              <div className="asistencias-subpanel-header">
+                <h3>
+                  Sesión: <strong>{formatFecha(sesionActual.fecha)}</strong> — Grupo: <strong>{sesionActual.grupo}</strong>
+                  {sesionActual.temaNombre && <span className="nota"> ({sesionActual.temaNombre})</span>}
                 </h3>
-                <div style={ { display: 'flex', gap: '0.5rem' } }>
+                <div className="asistencias-chip-grid">
                   <button onClick={() => { const all: Record<string, RegistroLocal> = {}; alumnosGrupo.forEach((a) => { all[a._id] = { alumnoId: a._id, estado: 'P' }; }); setRegistros(all); }} className="asistencias-btn-secundario">
                     Todos Presentes
                   </button>
@@ -468,18 +452,18 @@ export function SeccionAsistencias({ periodos, alumnos }: Props) {
               </div>
 
               {/* Leyenda */}
-              <div style={ { display: 'flex', gap: '1rem', marginBottom: '1rem', fontSize: '0.85rem', flexWrap: 'wrap', alignItems: 'center' } }>
+              <div className="asistencias-legend-bar">
                 {(['P', 'F', 'R', 'J'] as const).map((e) => (
-                  <span key={e} style={ { display: 'inline-flex', alignItems: 'center', gap: '0.25rem' } }>
-                    <span style={ { display: 'inline-block', width: '0.8rem', height: '0.8rem', borderRadius: '50%', background: ESTADO_COLOR[e] }} />
-                    <strong style={ { color: 'var(--texto)' } }>{ESTADO_LABEL[e]}</strong>
+                  <span key={e} className="asistencias-chip-grid">
+                    <span className={`asistencias-legend-dot asistencias-badge-dot-${e.toLowerCase()}`} />
+                    <strong>{ESTADO_LABEL[e]}</strong>
                   </span>
                 ))}
-                <span style={ { color: 'var(--muted)' } }>· Click en un alumno para ciclar estado</span>
+                <span className="nota">· Click en un alumno para ciclar estado</span>
               </div>
 
               {/* Lista alumnos */}
-              <div style={ { display: 'grid', gap: '0.5rem' } }>
+              <div className="asistencias-chip-grid">
                 {alumnosGrupo.map((al, idx) => {
                   const reg = registros[al._id] ?? { alumnoId: al._id, estado: 'P' as const };
                   return (
@@ -488,7 +472,6 @@ export function SeccionAsistencias({ periodos, alumnos }: Props) {
                       role="button"
                       tabIndex={0}
                       className={`asistencias-alumno-row anim-fade-in ${reg.estado === 'F' ? 'falta' : reg.estado === 'R' ? 'retardo' : ''}`}
-                      style={ { animationDelay: `${idx * 20}ms` } }
                       onClick={() => ciclarEstado(al._id)}
                       onKeyDown={(e) => {
                         if (e.key === 'Enter' || e.key === ' ') {
@@ -497,20 +480,17 @@ export function SeccionAsistencias({ periodos, alumnos }: Props) {
                         }
                       }}
                     >
-                      <span style={ { color: 'var(--muted)', width: '1.5rem', textAlign: 'right', fontSize: '0.85rem', fontWeight: 600 } }>
+                      <span className="asistencias-alumno-num">
                         {idx + 1}
                       </span>
                       <span
-                        className="asistencias-alumno-badge state-badge-pulse"
+                        className={`asistencias-alumno-badge asistencias-badge-dot-${reg.estado.toLowerCase()} state-badge-pulse`}
                         key={reg.estado}
-                        style={ {
-                          background: ESTADO_COLOR[reg.estado]
-                        } }
                       >
                         {reg.estado}
                       </span>
-                      <span style={ { flexGrow: 1, fontWeight: 600 } }>{al.nombreCompleto}</span>
-                      <span style={ { fontSize: '0.82rem', color: 'var(--muted)', fontFamily: 'monospace' } }>{al.matricula}</span>
+                      <span className="font-code font-bold">{al.nombreCompleto}</span>
+                      <span className="font-code nota">{al.matricula}</span>
                       {reg.estado === 'J' && (
                         <input
                           type="text"
@@ -521,8 +501,7 @@ export function SeccionAsistencias({ periodos, alumnos }: Props) {
                             setRegistros((prev) => ({ ...prev, [al._id]: { ...reg, justificacion: e.target.value } }));
                           }}
                           onClick={(e) => e.stopPropagation()}
-                          className="asistencias-input"
-                          style={ { width: '220px', minHeight: '34px', fontSize: '0.82rem' }}
+                          className="asistencias-input asistencias-alumno-input-justificacion"
                         />
                       )}
                     </div>
@@ -537,10 +516,10 @@ export function SeccionAsistencias({ periodos, alumnos }: Props) {
       {/* ── TAB REGLAS ─── */}
       {tab === 'reglas' && (
         <div className="anim-fade-in">
-          <div className="panel" style={ { padding: '1.25rem' } }>
-            <h3 className="eyebrow" style={ { marginBottom: '1rem' } }>⚙️ Configurar regla de asistencia</h3>
-            <div style={ { display: 'flex', gap: '1rem', flexWrap: 'wrap', alignItems: 'flex-end', marginBottom: '1.25rem' } }>
-              <label style={ { display: 'flex', flexDirection: 'column', gap: '0.35rem', fontSize: '0.85rem', fontWeight: 600 } }>
+          <div className="panel asistencias-panel-card">
+            <h3 className="eyebrow">⚙️ Configurar regla de asistencia</h3>
+            <div className="asistencias-config-grid">
+              <label className="asistencias-form-col">
                 Máximo de faltas permitidas
                 <input
                   type="number"
@@ -548,11 +527,10 @@ export function SeccionAsistencias({ periodos, alumnos }: Props) {
                   max={99}
                   value={nuevaReglaMax}
                   onChange={(e) => setNuevaReglaMax(Number(e.target.value))}
-                  className="asistencias-input"
-                  style={ { width: '90px' }}
+                  className="asistencias-input asistencias-input-num-sm"
                 />
               </label>
-              <label style={ { display: 'flex', flexDirection: 'column', gap: '0.35rem', fontSize: '0.85rem', fontWeight: 600 } }>
+              <label className="asistencias-form-col">
                 Acción al superar el límite
                 <select
                   value={nuevaReglaAccion}
@@ -570,19 +548,18 @@ export function SeccionAsistencias({ periodos, alumnos }: Props) {
 
             {/* ── Sección retardos (opcional, desactivada por default) ── */}
             <div className="asistencias-config-retardo-box">
-              <label style={ { display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer', fontSize: '0.9rem', fontWeight: 700 } }>
+              <label className="asistencias-chip-grid">
                 <input
                   type="checkbox"
                   checked={nuevaReglaContarRetardos}
                   onChange={(e) => setNuevaReglaContarRetardos(e.target.checked)}
-                  style={ { width: '1.1rem', height: '1.1rem', cursor: 'pointer' }}
                 />
                 Contar retardos como faltas equivalentes
-                <span style={ { fontWeight: 400, color: 'var(--muted)', fontSize: '0.8rem' } }>(desactivado por defecto)</span>
+                <span className="nota">(desactivado por defecto)</span>
               </label>
               {nuevaReglaContarRetardos && (
-                <div className="anim-slide-up" style={ { marginTop: '0.75rem', paddingLeft: '1.6rem' } }>
-                  <label style={ { display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '0.88rem', fontWeight: 600 } }>
+                <div className="anim-slide-up">
+                  <label className="asistencias-chip-grid">
                     Retardos equivalentes a 1 falta:
                     <input
                       type="number"
@@ -590,10 +567,9 @@ export function SeccionAsistencias({ periodos, alumnos }: Props) {
                       max={10}
                       value={nuevaReglaRetardosEquivalen}
                       onChange={(e) => setNuevaReglaRetardosEquivalen(Number(e.target.value))}
-                      className="asistencias-input"
-                      style={ { width: '70px' }}
+                      className="asistencias-input asistencias-input-num-xs"
                     />
-                    <span style={ { fontSize: '0.82rem', color: 'var(--muted)', fontWeight: 400 } }>
+                    <span className="nota">
                       ({nuevaReglaRetardosEquivalen} retardos = 1 falta)
                     </span>
                   </label>
@@ -601,26 +577,26 @@ export function SeccionAsistencias({ periodos, alumnos }: Props) {
               )}
             </div>
 
-            <p style={ { fontSize: '0.8rem', color: 'var(--muted)', marginTop: '0.75rem' } }>
+            <p className="nota">
               La regla aplica al periodo {grupo ? `y grupo "${grupo}"` : '(todos los grupos)'}. El docente puede autorizar excepciones individuales desde el Resumen.
             </p>
           </div>
 
           {/* Reglas existentes */}
           {reglas.length > 0 && (
-            <div style={ { marginTop: '1.5rem' } }>
-              <h3 className="eyebrow" style={ { marginBottom: '0.75rem' } }>Reglas activas</h3>
-              <div style={ { display: 'grid', gap: '0.5rem' } }>
+            <div className="asistencias-panel-card">
+              <h3 className="eyebrow">Reglas activas</h3>
+              <div className="asistencias-chip-grid">
                 {reglas.map((r) => (
-                  <div key={r._id} className="panel anim-fade-in" style={ { padding: '1rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center' } }>
+                  <div key={r._id} className="panel anim-fade-in asistencias-regla-row">
                     <div>
-                      <strong style={ { fontSize: '0.95rem' } }>Máx. {r.maxFaltas} faltas</strong>
-                      <span style={ { marginLeft: '0.75rem', color: 'var(--muted)', fontSize: '0.88rem' } }>
+                      <strong>Máx. {r.maxFaltas} faltas</strong>
+                      <span className="nota">
                         → {r.accion === 'bloquear_examen' ? '🚫 Bloquear examen' : '⚠️ Advertir'}
                         {r.grupo ? ` · Grupo: ${r.grupo}` : ' · Todos los grupos'}
                       </span>
                       {r.contarRetardos && (
-                        <span style={ { marginLeft: '0.75rem', fontSize: '0.82rem', color: 'var(--brand-gold)', fontWeight: 700 } }>
+                        <span className="asistencias-r-stat">
                           · ⏱ {r.retardosEquivalenFalta} retardos = 1 falta
                         </span>
                       )}
@@ -635,4 +611,5 @@ export function SeccionAsistencias({ periodos, alumnos }: Props) {
     </section>
   );
 }
+
 

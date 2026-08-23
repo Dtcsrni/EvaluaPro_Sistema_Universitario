@@ -82,6 +82,35 @@ export function SeccionPeriodos({
       .replace(/\s+/g, ' ');
   }
 
+  function calcularProgresoPeriodo(fechaInicio?: string, fechaFin?: string): {
+    porcentaje: number;
+    estado: 'por_iniciar' | 'en_curso' | 'por_finalizar' | 'concluido';
+    etiquetaEstado: string;
+    diasRestantes: number | null;
+  } {
+    if (!fechaInicio || !fechaFin) {
+      return { porcentaje: 0, estado: 'en_curso', etiquetaEstado: 'En curso', diasRestantes: null };
+    }
+    const inicio = new Date(fechaInicio).getTime();
+    const fin = new Date(fechaFin).getTime();
+    const hoy = Date.now();
+    if (Number.isNaN(inicio) || Number.isNaN(fin) || fin <= inicio) {
+      return { porcentaje: 0, estado: 'en_curso', etiquetaEstado: 'En curso', diasRestantes: null };
+    }
+    if (hoy < inicio) {
+      const diasParaInicio = Math.ceil((inicio - hoy) / (1000 * 60 * 60 * 24));
+      return { porcentaje: 0, estado: 'por_iniciar', etiquetaEstado: `Inicia en ${diasParaInicio} d`, diasRestantes: diasParaInicio };
+    }
+    if (hoy > fin) {
+      return { porcentaje: 100, estado: 'concluido', etiquetaEstado: 'Concluido', diasRestantes: 0 };
+    }
+    const diasRestantes = Math.ceil((fin - hoy) / (1000 * 60 * 60 * 24));
+    const porcentaje = Math.min(100, Math.max(0, Math.round(((hoy - inicio) / (fin - inicio)) * 100)));
+    const estado = diasRestantes <= 14 ? 'por_finalizar' : 'en_curso';
+    const etiquetaEstado = estado === 'por_finalizar' ? `Cierra en ${diasRestantes} d` : `En curso (${porcentaje}%)`;
+    return { porcentaje, estado, etiquetaEstado, diasRestantes };
+  }
+
   const nombreValido = useMemo(() => {
     const limpio = normalizarTextoCorto(nombre);
     if (!limpio) return false;
@@ -397,11 +426,11 @@ export function SeccionPeriodos({
           </h2>
           <p className="nota">Administra la estructura académica activa, sus rangos operativos y la agrupación por grupos.</p>
         </div>
-      </div>
-      <div className="acciones">
-        <Boton variante="secundario" type="button" onClick={onVerArchivadas}>
-          Ver materias archivadas
-        </Boton>
+        <div className="acciones">
+          <Boton variante="secundario" type="button" onClick={onVerArchivadas}>
+            Ver materias archivadas
+          </Boton>
+        </div>
       </div>
       <AyudaFormulario titulo="Para que sirve y como llenarlo">
         <p>
@@ -490,81 +519,109 @@ export function SeccionPeriodos({
       )}
       <h3>Materias activas</h3>
       {periodos.length === 0 ? (
-        <InlineMensaje tipo="info">Aún no hay materias activas. Crea la primera para habilitar banco, plantillas y alumnos.</InlineMensaje>
+        <div className="empty-state-card anim-fade-in">
+          <div className="empty-state-card__icon">
+            <Icono nombre="periodos" />
+          </div>
+          <h4>Comienza configurando tu primera materia</h4>
+          <p>Crea tu primer curso o periodo lectivo arriba para desbloquear la gestión de alumnos, el banco de preguntas y la calificación de exámenes.</p>
+        </div>
       ) : (
         <ul className="lista lista-items materias-lista">
-          {periodos.map((periodo) => (
-            <li key={periodo._id}>
-              <div className="item-glass materias-lista__item">
-                <div className="item-row">
-                  <div>
-                    {editandoId === periodo._id ? (
-                      <div className="lista materias-edicion">
-                        <label className="campo">
-                          Nombre de la materia
-                          <input
-                            value={edicionNombre}
-                            onChange={(event) => setEdicionNombre(event.target.value)}
-                            disabled={!puedeGestionar || guardandoEdicionId === periodo._id}
-                          />
-                        </label>
-                        {edicionNombre.trim() && !nombreEdicionValido && (
-                          <InlineMensaje tipo="warning">El nombre debe tener entre 3 y 80 caracteres.</InlineMensaje>
-                        )}
-                        {nombreEdicionDuplicado && (
-                          <InlineMensaje tipo="error">Ya existe una materia activa con ese nombre.</InlineMensaje>
-                        )}
-                        <label className="campo">
-                          Fecha inicio
-                          <input
-                            type="date"
-                            value={edicionFechaInicio}
-                            onChange={(event) => setEdicionFechaInicio(event.target.value)}
-                            disabled={!puedeGestionar || guardandoEdicionId === periodo._id}
-                          />
-                        </label>
-                        <label className="campo">
-                          Fecha fin
-                          <input
-                            type="date"
-                            value={edicionFechaFin}
-                            onChange={(event) => setEdicionFechaFin(event.target.value)}
-                            disabled={!puedeGestionar || guardandoEdicionId === periodo._id}
-                          />
-                        </label>
-                        {edicionFechaInicio && edicionFechaFin && edicionFechaFin < edicionFechaInicio && (
-                          <InlineMensaje tipo="error">La fecha fin debe ser igual o posterior a la fecha inicio.</InlineMensaje>
-                        )}
-                        <label className="campo">
-                          Grupos (separados por coma)
-                          <input
-                            value={edicionGrupos}
-                            onChange={(event) => setEdicionGrupos(event.target.value)}
-                            disabled={!puedeGestionar || guardandoEdicionId === periodo._id}
-                          />
-                        </label>
-                        {!gruposEdicionValidos && edicionGrupos.trim() && (
-                          <InlineMensaje tipo="warning">Revisa grupos: máximo 50 y hasta 40 caracteres por grupo.</InlineMensaje>
-                        )}
-                        {gruposEdicionDuplicados && <InlineMensaje tipo="warning">Hay grupos repetidos.</InlineMensaje>}
-                      </div>
-                    ) : (
-                      <>
-                        <div className="item-title" title={periodo._id}>
-                          {etiquetaMateria(periodo)}
+          {periodos.map((periodo) => {
+            const progreso = calcularProgresoPeriodo(periodo.fechaInicio, periodo.fechaFin);
+            return (
+              <li key={periodo._id}>
+                <div className="item-glass materias-lista__item">
+                  <div className="item-row">
+                    <div>
+                      {editandoId === periodo._id ? (
+                        <div className="lista materias-edicion">
+                          <label className="campo">
+                            Nombre de la materia
+                            <input
+                              value={edicionNombre}
+                              onChange={(event) => setEdicionNombre(event.target.value)}
+                              disabled={!puedeGestionar || guardandoEdicionId === periodo._id}
+                            />
+                          </label>
+                          {edicionNombre.trim() && !nombreEdicionValido && (
+                            <InlineMensaje tipo="warning">El nombre debe tener entre 3 y 80 caracteres.</InlineMensaje>
+                          )}
+                          {nombreEdicionDuplicado && (
+                            <InlineMensaje tipo="error">Ya existe una materia activa con ese nombre.</InlineMensaje>
+                          )}
+                          <label className="campo">
+                            Fecha inicio
+                            <input
+                              type="date"
+                              value={edicionFechaInicio}
+                              onChange={(event) => setEdicionFechaInicio(event.target.value)}
+                              disabled={!puedeGestionar || guardandoEdicionId === periodo._id}
+                            />
+                          </label>
+                          <label className="campo">
+                            Fecha fin
+                            <input
+                              type="date"
+                              value={edicionFechaFin}
+                              onChange={(event) => setEdicionFechaFin(event.target.value)}
+                              disabled={!puedeGestionar || guardandoEdicionId === periodo._id}
+                            />
+                          </label>
+                          {edicionFechaInicio && edicionFechaFin && edicionFechaFin < edicionFechaInicio && (
+                            <InlineMensaje tipo="error">La fecha fin debe ser igual o posterior a la fecha inicio.</InlineMensaje>
+                          )}
+                          <label className="campo">
+                            Grupos (separados por coma)
+                            <input
+                              value={edicionGrupos}
+                              onChange={(event) => setEdicionGrupos(event.target.value)}
+                              disabled={!puedeGestionar || guardandoEdicionId === periodo._id}
+                            />
+                          </label>
+                          {!gruposEdicionValidos && edicionGrupos.trim() && (
+                            <InlineMensaje tipo="warning">Revisa grupos: máximo 50 y hasta 40 caracteres por grupo.</InlineMensaje>
+                          )}
+                          {gruposEdicionDuplicados && <InlineMensaje tipo="warning">Hay grupos repetidos.</InlineMensaje>}
                         </div>
-                        <div className="item-meta">
-                          <span>ID: {idCortoMateria(periodo._id)}</span>
-                          <span>Inicio: {formatearFecha(periodo.fechaInicio)}</span>
-                          <span>Fin: {formatearFecha(periodo.fechaFin)}</span>
-                          <span>
-                            Grupos:{' '}
-                            {Array.isArray(periodo.grupos) && periodo.grupos.length > 0 ? periodo.grupos.join(', ') : '-'}
-                          </span>
-                        </div>
-                      </>
-                    )}
-                  </div>
+                      ) : (
+                        <>
+                          <div className="materia-card-header">
+                            <div>
+                              <div className="item-title" title={periodo._id}>
+                                {etiquetaMateria(periodo)}
+                              </div>
+                              <span className={`chip chip--sm chip--${progreso.estado}`}>
+                                {progreso.etiquetaEstado}
+                              </span>
+                            </div>
+                            <div className="materia-progress-ring" title={`Avance académico: ${progreso.porcentaje}% (${progreso.etiquetaEstado})`}>
+                              <svg viewBox="0 0 36 36" className="circular-chart">
+                                <path className="circle-bg" d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" />
+                                <path
+                                  className="circle-fill"
+                                  strokeDasharray={`${progreso.porcentaje}, 100`}
+                                  d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
+                                />
+                                <text x="18" y="20.35" className="circle-text">
+                                  {progreso.porcentaje}%
+                                </text>
+                              </svg>
+                            </div>
+                          </div>
+                          <div className="item-meta">
+                            <span>ID: {idCortoMateria(periodo._id)}</span>
+                            <span>Inicio: {formatearFecha(periodo.fechaInicio)}</span>
+                            <span>Fin: {formatearFecha(periodo.fechaFin)}</span>
+                            <span>
+                              Grupos:{' '}
+                              {Array.isArray(periodo.grupos) && periodo.grupos.length > 0 ? periodo.grupos.join(', ') : '-'}
+                            </span>
+                          </div>
+                        </>
+                      )}
+                    </div>
                   <div className="item-actions">
                     {editandoId === periodo._id ? (
                       <>
@@ -617,7 +674,8 @@ export function SeccionPeriodos({
                 </div>
               </div>
             </li>
-          ))}
+          );
+        })}
         </ul>
       )}
     </div>

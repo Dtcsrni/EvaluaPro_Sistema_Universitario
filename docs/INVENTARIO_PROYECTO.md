@@ -1,8 +1,26 @@
 # Inventario Tecnico del Proyecto
 
-Fecha de corte: 2026-08-20
+Fecha de corte: 2026-08-23
 Version tecnica vigente: `1.1.1`
 Version visible vigente: `1.1.1`
+
+## Estado de validación 2026-08-23
+- **Rediseño Integral de GUI, Wireframes Maestros y Glassmorphism (`SPEC-REDISENIO-INTEGRAL-GUI`):**
+  - Implementación del sistema de diseño Glassmorphic con la paleta de lujo **Prismatic Sapphire & Aurora Starlight** (`#060B14`, `#2563EB`, `#00D2FF`, `#8B5CF6`, `#FBBF24`).
+  - Navegación Glass Dock con pestañas en gradiente Cobalto-Cian y KPIs multicromáticos con halos difusos.
+  - Catálogo de wireframes maestros aprobado y documentado con planos de alta resolución para Materias (con drawer lateral slide-over), Banco de Reactivos (con renderizado KaTeX en tiempo real y vista dual PDF/OMR) y Calificación OMR (split 50/50 con visor y tabla interactiva).
+  - Aplicación de Glassmorphism unificado a todas las secciones operativas del frontend docente y portal alumno.
+- **Gates Verificados:** `npm run lint` ✅, `npm run typecheck` ✅, `npm run test:frontend:ci` ✅ (200 tests), `npm run test:gui:design-contract` ✅, `npm run test:gui:responsive:e2e:ci` ✅ (13 escenarios en 4 resoluciones), `npm run pipeline:contract:check` ✅ (17 tests), `node scripts/sdd-audit.mjs` ✅ (18 specs), `npm run ci:policy:audit` ✅.
+
+## Estado de validación 2026-08-21
+- **Refactorización y Modernización Integral (`SPEC-ARCH-UX-MODERNIZATION`):**
+  - Desacoplamiento de estado OMR (`useOmrWorkflowState`), recursos académicos base (`useRecursosAcademicosDocente`) y previsualización de plantillas (`usePlantillasPreviewState`) en `AppDocente.tsx`.
+  - Eliminación total de inline styles y colores fijos en `SeccionAsistencias.tsx` y `SeccionTemarios.tsx`, con auditoría responsive limpia (0 fallos).
+  - Atajos de teclado para corrección de reactivos OMR (`A-E`, `0`, `Delete`, `-`).
+  - Umbrales DPI 1024x576 en Bootstrapper WPF para soporte en laptops de 1366x768 con 125%-150% de escala.
+  - Saneamiento y actualización de dependencias (`sharp`, `express-rate-limit`, tipos de React, `@testing-library/user-event`).
+- **Diff Coverage:** `100.0%` verificado en verde.
+- **Gates Verificados:** `npm run lint` ✅, `npm run typecheck` ✅, `npm run test:frontend:ci` ✅ (200 tests), `npm run test:coverage:ci` ✅, `npm run test:tdd:enforcement:ci` ✅, `npm run test:backend:ci` ✅, `npm run test:portal:ci` ✅, `npm run perf:check` ✅, `npm run pipeline:contract:check` ✅, `node scripts/sdd-audit.mjs` ✅ (17 specs), `npm run ci:policy:audit` ✅.
 
 ## Estado de validación 2026-08-20
 - **Rediseño de Bienvenida Docente (`SPEC-AUTH-ONBOARDING`):** Pantalla inicial desacoplada de `ShellDocente`, eliminando el dashboard de banco/exámenes previo al login. Portal institucional con pilares de valor semánticos, pestañas `Ingresar`/`Registrar` y captura opcional de clave de licencia.

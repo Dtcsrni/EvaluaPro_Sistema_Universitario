@@ -1299,10 +1299,10 @@ p {
 }
 
 .tab.activa {
-  background: linear-gradient(135deg, var(--primario), var(--acentoAzul), var(--acentoVioleta));
+  background: linear-gradient(135deg, #0d9488, #0f766e);
   color: #ffffff;
-  border-color: color-mix(in srgb, var(--acentoAzul) 52%, #ffffff);
-  box-shadow: 0 14px 24px color-mix(in srgb, var(--acentoAzul) 34%, transparent), 0 0 0 1px rgba(255, 255, 255, 0.12) inset;
+  border-color: #0d9488;
+  box-shadow: 0 4px 14px -2px rgba(13, 148, 136, 0.35);
   transform: translateY(-1px);
   font-weight: 700;
 }
@@ -2131,19 +2131,24 @@ p {
 }
 
 :root[data-theme="dark"] .tab {
-  background: linear-gradient(155deg, rgba(15, 23, 42, 0.82), rgba(30, 41, 59, 0.74));
-  border-color: rgba(148, 163, 184, 0.34);
+  background: color-mix(in srgb, var(--surface-1) 90%, transparent);
+  border-color: rgba(255, 255, 255, 0.08);
+  color: var(--muted);
 }
 
 :root[data-theme="dark"] .tab:hover {
-  border-color: rgba(125, 211, 252, 0.45);
-  box-shadow: 0 12px 20px rgba(2, 6, 23, 0.45);
+  background: color-mix(in srgb, var(--surface-2) 90%, transparent);
+  border-color: rgba(45, 212, 191, 0.3);
+  color: var(--texto);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.25);
 }
 
 :root[data-theme="dark"] .tab.activa {
-  background: linear-gradient(135deg, #0d9488, #2563eb, #9333ea);
-  border-color: rgba(196, 181, 253, 0.8);
-  box-shadow: 0 16px 30px rgba(2, 6, 23, 0.62), 0 0 0 1px rgba(196, 181, 253, 0.22) inset;
+  background: linear-gradient(135deg, #2563eb, #00d2ff);
+  color: #ffffff;
+  border-color: rgba(0, 210, 255, 0.7);
+  box-shadow: 0 4px 18px -2px rgba(0, 210, 255, 0.45), 0 0 0 1px rgba(255, 255, 255, 0.25) inset;
+  font-weight: 800;
 }
 
 :root[data-theme="dark"] .boton.secundario {

@@ -1,62 +1,22 @@
-/* eslint-disable @typescript-eslint/no-unused-vars */
 /**
  * SeccionRegistroEntrega
  *
- * Responsabilidad: Seccion funcional del shell docente.
- * Limites: Conservar UX y permisos; extraer logica compleja a hooks/components.
- */
-
-/**
- * App docente: panel basico para banco, examenes, entrega y calificacion.
+ * Responsabilidad: Registro y vinculación de folios de examen a alumnos y control de entregas.
  */
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { guardarTokenDocente, limpiarTokenDocente, obtenerTokenDocente } from '../../servicios_api/clienteApi';
-import { accionToastSesionParaError, mensajeUsuarioDeErrorConSugerencia, onSesionInvalidada } from '../../servicios_api/clienteComun';
+import { accionToastSesionParaError, mensajeUsuarioDeErrorConSugerencia } from '../../servicios_api/clienteComun';
 import { emitToast } from '../../ui/toast/toastBus';
 import { Icono, Spinner } from '../../ui/iconos';
 import { Boton } from '../../ui/ux/componentes/Boton';
 import { InlineMensaje } from '../../ui/ux/componentes/InlineMensaje';
-import { TemaBoton } from '../../tema/TemaBoton';
 import { AyudaFormulario } from './AyudaFormulario';
+import { QrAccesoMovil } from './SeccionEscaneo';
 import { clienteApi } from './clienteApiDocente';
-import { SeccionAutenticacion } from './SeccionAutenticacion';
-import { SeccionAlumnos } from './SeccionAlumnos';
-import { SeccionBanco } from './SeccionBanco';
-import { SeccionCuenta } from './SeccionCuenta';
-import { QrAccesoMovil, SeccionEscaneo } from './SeccionEscaneo';
-import { SeccionPlantillas } from './SeccionPlantillas';
-import { SeccionPeriodos, SeccionPeriodosArchivados } from './SeccionPeriodos';
 import { registrarAccionDocente } from './telemetriaDocente';
-import type {
-  Alumno,
-  Docente,
-  EnviarConPermiso,
-  ExamenGeneradoClave,
-  Periodo,
-  PermisosUI,
-  Plantilla,
-  Pregunta,
-  PreviewCalificacion,
-  PreviewPlantilla,
-  RegistroSincronizacion,
-  RespuestaSyncPull,
-  RespuestaSyncPush,
-  ResultadoAnalisisOmr,
-  ResultadoOmr,
-  RevisionExamenOmr,
-  RevisionPaginaOmr
-} from './tipos';
-import {
-  combinarRespuestasOmrPaginas,
-  construirClaveCorrectaExamen,
-  consolidarResultadoOmrExamen,
-  esMensajeError,
-  etiquetaMateria,
-  mensajeDeError,
-  normalizarResultadoOmr,
-  obtenerSesionDocenteId,
-  obtenerVistaInicial,
-} from './utilidades';
+import type { Alumno } from './tipos';
+import { esMensajeError, mensajeDeError } from './utilidades';
+
+
 
 
 export function SeccionRegistroEntrega({

@@ -1,5 +1,5 @@
 /** Shell principal docente: sesion, permisos, carga base y composicion de secciones. */
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { guardarTokenDocente, limpiarTokenDocente } from '../../servicios_api/clienteApi';
 import { emitToast } from '../../ui/toast/toastBus';
 import { Icono, Spinner } from '../../ui/iconos';
@@ -22,27 +22,25 @@ import { SeccionTemarios } from './SeccionTemarios';
 import { usePermisosDocente } from './hooks/usePermisosDocente';
 import { useSesionDocente } from './hooks/useSesionDocente';
 import { useRecordatorioPaseLista } from './hooks/useRecordatorioPaseLista';
+import { useOmrWorkflowState } from './hooks/useOmrWorkflowState';
+import { useRecursosAcademicosDocente } from './hooks/useRecursosAcademicosDocente';
+import { usePlantillasPreviewState } from './hooks/usePlantillasPreviewState';
 import { registrarAccionDocente } from './telemetriaDocente';
 import type {
   Alumno,
   Docente,
   ExamenGeneradoClave,
-  Periodo,
   Plantilla,
   Pregunta,
   PreviewCalificacion,
-  PreviewPlantilla,
   RespuestaSyncPull,
   RespuestaSyncPush,
   ResultadoAnalisisOmr,
-  ResultadoOmr,
-  RevisionExamenOmr,
   RevisionPaginaOmr,
   SolicitudRevisionAlumno
 } from './tipos';
 import {
   combinarRespuestasOmrPaginas,
-  consolidarResultadoOmrExamen,
   construirClaveCorrectaExamen,
   normalizarResultadoOmr,
   normalizarTemplateVersionOmrDetectada,
@@ -90,51 +88,73 @@ export function AppDocente() {
     },
     [avisarSinPermiso, puede]
   );
-  const [alumnos, setAlumnos] = useState<Alumno[]>([]);
-  const [periodos, setPeriodos] = useState<Periodo[]>([]);
-  const [periodosArchivados, setPeriodosArchivados] = useState<Periodo[]>([]);
-  const [plantillas, setPlantillas] = useState<Plantilla[]>([]);
-  const [previewPorPlantillaId, setPreviewPorPlantillaId] = useState<Record<string, PreviewPlantilla>>({});
-  const [cargandoPreviewPlantillaId, setCargandoPreviewPlantillaId] = useState<string | null>(null);
-  const [plantillaPreviewId, setPlantillaPreviewId] = useState<string | null>(null);
-  const [previewPdfUrlPorPlantillaId, setPreviewPdfUrlPorPlantillaId] = useState<Record<string, { booklet?: string; omrSheet?: string }>>({});
-  const [cargandoPreviewPdfPlantillaId, setCargandoPreviewPdfPlantillaId] = useState<string | null>(null);
-  const paginasEstimadasBackendPorTema = useMemo(() => {
-    const mapa = new Map<string, number>();
-    const listaPlantillas = Array.isArray(plantillas) ? plantillas : [];
-    for (const plantilla of listaPlantillas) {
-      const temas = Array.isArray((plantilla as unknown as { temas?: unknown[] }).temas)
-        ? (((plantilla as unknown as { temas?: unknown[] }).temas ?? []) as unknown[])
-            .map((t) => String(t ?? '').trim())
-            .filter(Boolean)
-        : [];
-      if (temas.length !== 1) continue;
-      const preview = previewPorPlantillaId[plantilla._id];
-      if (!preview) continue;
-      const paginas = Number(preview.bookletPreview?.pagesEstimated ?? 0);
-      if (!Number.isFinite(paginas) || paginas <= 0) continue;
-      const key = String(temas[0] ?? '').trim().replace(/\s+/g, ' ').toLowerCase();
-      mapa.set(key, Math.floor(paginas));
-    }
-    return mapa;
-  }, [plantillas, previewPorPlantillaId]);
-  const [preguntas, setPreguntas] = useState<Pregunta[]>([]);
-  const [resultadoOmr, setResultadoOmr] = useState<ResultadoOmr | null>(null);
-  const [respuestasEditadas, setRespuestasEditadas] = useState<
-    Array<{ numeroPregunta: number; opcion: string | null; confianza: number }>
-  >([]);
-  const [borradoresRespuestasOmr, setBorradoresRespuestasOmr] = useState<
-    Record<string, Array<{ numeroPregunta: number; opcion: string | null; confianza: number }>>
-  >({});
-  const [revisionOmrConfirmada, setRevisionOmrConfirmada] = useState(false);
-  const [examenIdOmr, setExamenIdOmr] = useState<string | null>(null);
-  const [examenAlumnoId, setExamenAlumnoId] = useState<string | null>(null);
-  const [paginaOmrActiva, setPaginaOmrActiva] = useState<number | null>(null);
-  const [revisionesOmr, setRevisionesOmr] = useState<RevisionExamenOmr[]>([]);
-  const [solicitudesRevision, setSolicitudesRevision] = useState<SolicitudRevisionAlumno[]>([]);
-  const [marcaActualizacionCalificados, setMarcaActualizacionCalificados] = useState<number>(0);
-  const [cargandoDatos, setCargandoDatos] = useState(false);
-  const [ultimaActualizacionDatos, setUltimaActualizacionDatos] = useState<number | null>(null);
+  const {
+    alumnos,
+    setAlumnos,
+    periodos,
+    periodosArchivados,
+    plantillas,
+    setPlantillas,
+    preguntas,
+    setPreguntas,
+    cargandoDatos,
+    ultimaActualizacionDatos,
+    refrescarMaterias,
+    refrescarDatos
+  } = useRecursosAcademicosDocente({
+    docente,
+    permisosUI,
+    montadoRef
+  });
+  const {
+    previewPorPlantillaId,
+    setPreviewPorPlantillaId,
+    cargandoPreviewPlantillaId,
+    setCargandoPreviewPlantillaId,
+    plantillaPreviewId,
+    setPlantillaPreviewId,
+    previewPdfUrlPorPlantillaId,
+    setPreviewPdfUrlPorPlantillaId,
+    cargandoPreviewPdfPlantillaId,
+    setCargandoPreviewPdfPlantillaId,
+    paginasEstimadasBackendPorTema
+  } = usePlantillasPreviewState(plantillas);
+  const {
+    resultadoOmr,
+    setResultadoOmr,
+    respuestasEditadas,
+    setRespuestasEditadas,
+    borradoresRespuestasOmr,
+    setBorradoresRespuestasOmr,
+    revisionOmrConfirmada,
+    setRevisionOmrConfirmada,
+    examenIdOmr,
+    setExamenIdOmr,
+    examenAlumnoId,
+    setExamenAlumnoId,
+    paginaOmrActiva,
+    setPaginaOmrActiva,
+    revisionesOmr,
+    setRevisionesOmr,
+    solicitudesRevision,
+    setSolicitudesRevision,
+    marcaActualizacionCalificados,
+    setMarcaActualizacionCalificados,
+    claveCorrectaOmrActiva,
+    ordenPreguntasClaveOmrActiva,
+    respuestasCombinadasRevisionOmrActiva,
+    respuestasParaCalificarOmrActiva,
+    resultadoParaCalificarOmrActiva,
+    ordenPreguntasCalificarOmrActiva,
+    claveCorrectaCalificarOmrActiva,
+    hayCambiosPendientesOmrActiva,
+    llaveBorradorOmr,
+    seleccionarRevisionOmr,
+    cargarRevisionHistoricaCalificada,
+    actualizarRespuestasOmrActivas,
+    actualizarRespuestaPreguntaOmrActiva,
+    confirmarRevisionOmrActiva
+  } = useOmrWorkflowState();
   const { recordatorioPaseLista, cerrarRecordatorioPaseLista } = useRecordatorioPaseLista({
     docente,
     permisosUI,
@@ -207,81 +227,6 @@ export function AppDocente() {
   const smtpDisponible = Boolean(capacidadesIntegraciones?.smtpBackend);
   const requireGoogleOAuth = Boolean(capacidadesIntegraciones?.requireGoogleOAuth);
   const passwordLoginAllowed = capacidadesIntegraciones?.passwordLoginAllowed !== false;
-  const refrescarMaterias = useCallback(() => {
-    if (!permisosUI.periodos.leer) {
-      setPeriodos([]);
-      setPeriodosArchivados([]);
-      return Promise.resolve();
-    }
-    return Promise.all([
-      clienteApi.obtener<{ periodos?: Periodo[]; materias?: Periodo[] }>('/periodos?activo=1'),
-      clienteApi.obtener<{ periodos?: Periodo[]; materias?: Periodo[] }>('/periodos?activo=0')
-    ]).then(([peActivas, peArchivadas]) => {
-      if (!montadoRef.current) return;
-      const activas = peActivas.periodos ?? peActivas.materias ?? [];
-      const archivadas = peArchivadas.periodos ?? peArchivadas.materias ?? [];
-      const activasArray = Array.isArray(activas) ? activas : [];
-      const archivadasArray = Array.isArray(archivadas) ? archivadas : [];
-      const ids = (lista: Periodo[]) => lista.map((m) => m._id).filter(Boolean).sort().join('|');
-      const mismoContenido = activasArray.length > 0 && ids(activasArray) === ids(archivadasArray);
-      if (mismoContenido) {
-        setPeriodos(activasArray.filter((m) => m.activo !== false));
-        setPeriodosArchivados(activasArray.filter((m) => m.activo === false));
-      } else {
-        setPeriodos(activasArray);
-        setPeriodosArchivados(archivadasArray);
-      }
-      setUltimaActualizacionDatos(Date.now());
-    });
-  }, [permisosUI.periodos.leer]);
-
-  const refrescarDatos = useCallback(async () => {
-    if (!docente) return;
-    if (montadoRef.current) setCargandoDatos(true);
-    try {
-      const tareas: Array<Promise<void>> = [];
-      if (permisosUI.alumnos.leer) {
-        tareas.push(
-          clienteApi.obtener<{ alumnos: Alumno[] }>('/alumnos').then((al) => {
-            if (montadoRef.current) setAlumnos(al.alumnos);
-          })
-        );
-      } else {
-        setAlumnos([]);
-      }
-      if (permisosUI.periodos.leer) {
-        tareas.push(refrescarMaterias());
-      } else {
-        setPeriodos([]);
-        setPeriodosArchivados([]);
-      }
-      if (permisosUI.plantillas.leer) {
-        tareas.push(
-          clienteApi.obtener<{ plantillas: Plantilla[] }>('/examenes/plantillas').then((pl) => {
-            if (montadoRef.current) setPlantillas(pl.plantillas);
-          })
-        );
-      } else {
-        setPlantillas([]);
-      }
-      if (permisosUI.banco.leer) {
-        tareas.push(
-          clienteApi.obtener<{ preguntas: Pregunta[] }>('/banco-preguntas').then((pr) => {
-            if (montadoRef.current) setPreguntas(pr.preguntas);
-          })
-        );
-      } else {
-        setPreguntas([]);
-      }
-      await Promise.all(tareas);
-      setUltimaActualizacionDatos(Date.now());
-    } finally {
-      if (montadoRef.current) setCargandoDatos(false);
-    }
-  }, [docente, permisosUI.alumnos.leer, permisosUI.banco.leer, permisosUI.periodos.leer, permisosUI.plantillas.leer, refrescarMaterias]);
-  useEffect(() => {
-    void refrescarDatos();
-  }, [refrescarDatos]);
   useEffect(() => {
     if (!docente || vista !== 'calificaciones' || !permisosUI.calificaciones.calificar) return;
     void clienteApi
@@ -292,335 +237,8 @@ export function AppDocente() {
       .catch(() => {
         setSolicitudesRevision([]);
       });
-  }, [docente, permisosUI.calificaciones.calificar, vista]);
-  const examenOmrActivo = useMemo(
-    () => revisionesOmr.find((item) => item.examenId === examenIdOmr) ?? null,
-    [examenIdOmr, revisionesOmr]
-  );
-  const claveCorrectaOmrActiva = useMemo(
-    () => (examenOmrActivo?.claveCorrectaPorNumero ? examenOmrActivo.claveCorrectaPorNumero : {}),
-    [examenOmrActivo]
-  );
-  const ordenPreguntasClaveOmrActiva = useMemo(
-    () =>
-      Array.isArray(examenOmrActivo?.ordenPreguntas)
-        ? examenOmrActivo!.ordenPreguntas
-        : Object.keys(claveCorrectaOmrActiva)
-            .map((n) => Number(n))
-            .filter((n) => Number.isFinite(n))
-            .sort((a, b) => a - b),
-    [claveCorrectaOmrActiva, examenOmrActivo]
-  );
-  const respuestasCombinadasRevisionOmrActiva = useMemo(() => {
-    if (!examenOmrActivo || !Array.isArray(examenOmrActivo.paginas)) return [];
-    const combinadas = examenOmrActivo.paginas.flatMap((pagina) => {
-      const numeroPagina = Number(pagina.numeroPagina);
-      const llave = `${examenOmrActivo.examenId}::${numeroPagina}`;
-      const borrador = borradoresRespuestasOmr[llave];
-      if (Array.isArray(borrador)) return borrador;
-      return Array.isArray(pagina.respuestas) ? pagina.respuestas : [];
-    });
-    return [...combinadas].sort((a, b) => Number(a.numeroPregunta) - Number(b.numeroPregunta));
-  }, [borradoresRespuestasOmr, examenOmrActivo]);
-  const respuestasCombinadasEstablesOmrActiva = useMemo(() => {
-    if (!examenOmrActivo || !Array.isArray(examenOmrActivo.paginas)) return [];
-    return combinarRespuestasOmrPaginas(examenOmrActivo.paginas);
-  }, [examenOmrActivo]);
-  const respuestasParaCalificarOmrActiva = useMemo(
-    () => (Array.isArray(respuestasCombinadasEstablesOmrActiva) ? respuestasCombinadasEstablesOmrActiva : []),
-    [respuestasCombinadasEstablesOmrActiva]
-  );
-  const resultadoParaCalificarOmrActiva = useMemo(() => {
-    if (!examenOmrActivo || !Array.isArray(examenOmrActivo.paginas) || examenOmrActivo.paginas.length === 0) {
-      return resultadoOmr;
-    }
-    return consolidarResultadoOmrExamen(examenOmrActivo.paginas) ?? resultadoOmr;
-  }, [examenOmrActivo, resultadoOmr]);
-  const ordenPreguntasCalificarOmrActiva = useMemo(() => {
-    const numeros = new Set(
-      respuestasParaCalificarOmrActiva
-        .map((item) => Number(item.numeroPregunta))
-        .filter((numero) => Number.isFinite(numero))
-    );
-    const filtrado = ordenPreguntasClaveOmrActiva.filter((numero) => numeros.has(Number(numero)));
-    if (filtrado.length > 0) return filtrado;
-    return [...numeros].sort((a, b) => a - b);
-  }, [ordenPreguntasClaveOmrActiva, respuestasParaCalificarOmrActiva]);
-  const claveCorrectaCalificarOmrActiva = useMemo(() => {
-    const clave: Record<number, string> = {};
-    for (const numero of ordenPreguntasCalificarOmrActiva) {
-      if (claveCorrectaOmrActiva[numero]) clave[numero] = claveCorrectaOmrActiva[numero];
-    }
-    return clave;
-  }, [claveCorrectaOmrActiva, ordenPreguntasCalificarOmrActiva]);
-  const hayCambiosPendientesOmrActiva = useMemo(() => {
-    if (!examenOmrActivo) return false;
-    const paginaActual = Number(paginaOmrActiva);
-    if (!Number.isFinite(paginaActual)) return false;
-    const pagina = examenOmrActivo.paginas.find((item) => Number(item.numeroPagina) === paginaActual);
-    if (!pagina) return false;
-    const firma = (respuestas: Array<{ numeroPregunta: number; opcion: string | null }>) =>
-      [...respuestas]
-        .map((item) => `${Number(item.numeroPregunta)}:${item.opcion ?? ''}`)
-        .sort()
-        .join('|');
-    return firma(respuestasEditadas) !== firma(pagina.respuestas);
-  }, [examenOmrActivo, paginaOmrActiva, respuestasEditadas]);
+  }, [docente, permisosUI.calificaciones.calificar, setSolicitudesRevision, vista]);
 
-  const llaveBorradorOmr = useCallback((examenId: string, numeroPagina: number) => `${examenId}::${numeroPagina}`, []);
-  const seleccionarRevisionOmr = useCallback(
-    (examenId: string, numeroPagina: number) => {
-      const examen = revisionesOmr.find((item) => item.examenId === examenId);
-      if (!examen) return;
-      const paginaObjetivo = Number(numeroPagina);
-      const pagina = examen.paginas.find((item) => Number(item.numeroPagina) === paginaObjetivo);
-      if (!pagina) return;
-      setExamenIdOmr(examen.examenId);
-      setExamenAlumnoId(examen.alumnoId ?? null);
-      setPaginaOmrActiva(Number(pagina.numeroPagina));
-      setResultadoOmr(pagina.resultado);
-      const llave = llaveBorradorOmr(examen.examenId, Number(pagina.numeroPagina));
-      const borrador = borradoresRespuestasOmr[llave];
-      setRespuestasEditadas(Array.isArray(borrador) ? borrador : pagina.respuestas);
-      setRevisionOmrConfirmada(Boolean(examen.revisionConfirmada));
-    },
-    [borradoresRespuestasOmr, llaveBorradorOmr, revisionesOmr]
-  );
-  const cargarRevisionHistoricaCalificada = useCallback(
-    (payload: {
-      examenId: string;
-      folio: string;
-      alumnoId: string | null;
-      numeroPagina: number;
-      respuestas: Array<{ numeroPregunta: number; opcion: string | null; confianza: number }>;
-      paginas?: Array<{
-        numeroPagina: number;
-        respuestas: Array<{ numeroPregunta: number; opcion: string | null; confianza: number }>;
-        resultado: ResultadoOmr;
-        imagenBase64?: string;
-      }>;
-      claveCorrectaPorNumero: Record<number, string>;
-      ordenPreguntas: number[];
-      resultado: ResultadoOmr;
-    }) => {
-      const ahora = Date.now();
-      const paginasEntrada = Array.isArray(payload.paginas) ? payload.paginas : [];
-      const paginasNormalizadas: RevisionPaginaOmr[] =
-        paginasEntrada.length > 0
-          ? paginasEntrada
-              .filter((pagina) => Number.isFinite(Number(pagina?.numeroPagina)) && Number(pagina.numeroPagina) > 0)
-              .map((pagina) => ({
-                numeroPagina: Number(pagina.numeroPagina),
-                resultado: pagina.resultado,
-                respuestas: Array.isArray(pagina.respuestas) ? pagina.respuestas : [],
-                imagenBase64: String(pagina.imagenBase64 ?? '').trim() || undefined,
-                actualizadoEn: ahora
-              }))
-          : [
-              {
-                numeroPagina: Number(payload.numeroPagina),
-                resultado: payload.resultado,
-                respuestas: Array.isArray(payload.respuestas) ? payload.respuestas : [],
-                actualizadoEn: ahora
-              }
-            ];
-      const paginaActivaInicial =
-        [...paginasNormalizadas]
-          .filter((pagina) => Number.isFinite(Number(pagina.numeroPagina)))
-          .sort((a, b) => Number(a.numeroPagina) - Number(b.numeroPagina))[0] ?? null;
-      setRevisionesOmr((prev) => {
-        const indice = prev.findIndex((item) => item.examenId === payload.examenId);
-        if (indice < 0) {
-          return [
-            {
-              examenId: payload.examenId,
-              folio: payload.folio,
-              alumnoId: payload.alumnoId,
-              paginas: paginasNormalizadas,
-              claveCorrectaPorNumero: payload.claveCorrectaPorNumero,
-              ordenPreguntas: payload.ordenPreguntas,
-              revisionConfirmada: true,
-              creadoEn: ahora,
-              actualizadoEn: ahora
-            },
-            ...prev
-          ];
-        }
-        const copia = [...prev];
-        const actual = copia[indice];
-        const paginasActuales = Array.isArray(actual.paginas) ? [...actual.paginas] : [];
-        const mapaPaginas = new Map<number, RevisionPaginaOmr>();
-        for (const pagina of paginasActuales) {
-          const numero = Number(pagina.numeroPagina);
-          if (!Number.isFinite(numero) || numero <= 0) continue;
-          mapaPaginas.set(numero, pagina);
-        }
-        for (const pagina of paginasNormalizadas) {
-          const numero = Number(pagina.numeroPagina);
-          if (!Number.isFinite(numero) || numero <= 0) continue;
-          mapaPaginas.set(numero, pagina);
-        }
-        const paginas = Array.from(mapaPaginas.values());
-        paginas.sort((a, b) => Number(a.numeroPagina) - Number(b.numeroPagina));
-        copia[indice] = {
-          ...actual,
-          folio: payload.folio || actual.folio,
-          alumnoId: payload.alumnoId ?? actual.alumnoId ?? null,
-          paginas,
-          claveCorrectaPorNumero:
-            Object.keys(payload.claveCorrectaPorNumero || {}).length > 0
-              ? payload.claveCorrectaPorNumero
-              : actual.claveCorrectaPorNumero,
-          ordenPreguntas:
-            Array.isArray(payload.ordenPreguntas) && payload.ordenPreguntas.length > 0
-              ? payload.ordenPreguntas
-              : actual.ordenPreguntas,
-          revisionConfirmada: true,
-          actualizadoEn: ahora
-        };
-        return copia;
-      });
-      setExamenIdOmr(payload.examenId);
-      setExamenAlumnoId(payload.alumnoId);
-      setPaginaOmrActiva(Number(paginaActivaInicial?.numeroPagina ?? payload.numeroPagina));
-      setResultadoOmr(paginaActivaInicial?.resultado ?? payload.resultado);
-      setRespuestasEditadas(
-        Array.isArray(paginaActivaInicial?.respuestas)
-          ? paginaActivaInicial.respuestas
-          : Array.isArray(payload.respuestas)
-            ? payload.respuestas
-            : []
-      );
-      setRevisionOmrConfirmada(true);
-      setBorradoresRespuestasOmr((prev) => {
-        const siguiente = { ...prev };
-        let huboCambios = false;
-        for (const pagina of paginasNormalizadas) {
-          const llave = llaveBorradorOmr(payload.examenId, Number(pagina.numeroPagina));
-          if (llave in siguiente) {
-            delete siguiente[llave];
-            huboCambios = true;
-          }
-        }
-        return huboCambios ? siguiente : prev;
-      });
-    },
-    [llaveBorradorOmr]
-  );
-  const actualizarRespuestasOmrActivas = useCallback(
-    (nuevas: Array<{ numeroPregunta: number; opcion: string | null; confianza: number }>) => {
-      setRespuestasEditadas(nuevas);
-      if (!examenIdOmr) return;
-      const paginaObjetivo = Number(paginaOmrActiva);
-      if (Number.isFinite(paginaObjetivo)) {
-        const llave = llaveBorradorOmr(examenIdOmr, paginaObjetivo);
-        setBorradoresRespuestasOmr((prev) => ({ ...prev, [llave]: nuevas }));
-      }
-      setRevisionOmrConfirmada(false);
-      setRevisionesOmr((prev) =>
-        prev.map((examen) => {
-          if (examen.examenId !== examenIdOmr) return examen;
-          return {
-            ...examen,
-            revisionConfirmada: false,
-            actualizadoEn: Date.now()
-          };
-        })
-      );
-    },
-    [examenIdOmr, llaveBorradorOmr, paginaOmrActiva]
-  );
-  const actualizarRespuestaPreguntaOmrActiva = useCallback(
-    (numeroPregunta: number, opcion: string | null) => {
-      const numero = Number(numeroPregunta);
-      if (!Number.isFinite(numero) || numero <= 0) return;
-      setRevisionOmrConfirmada(false);
-      if (examenIdOmr) {
-        setRevisionesOmr((prev) =>
-          prev.map((examen) =>
-            examen.examenId === examenIdOmr
-              ? {
-                  ...examen,
-                  revisionConfirmada: false,
-                  actualizadoEn: Date.now()
-                }
-              : examen
-          )
-        );
-      }
-      setRespuestasEditadas((prev) => {
-        const siguiente = [...prev];
-        const indice = siguiente.findIndex((item) => item.numeroPregunta === numero);
-        if (indice >= 0) {
-          siguiente[indice] = { ...siguiente[indice], opcion };
-        } else {
-          siguiente.push({ numeroPregunta: numero, opcion, confianza: 0 });
-        }
-        siguiente.sort((a, b) => a.numeroPregunta - b.numeroPregunta);
-        if (examenIdOmr && Number.isFinite(Number(paginaOmrActiva))) {
-          const llave = llaveBorradorOmr(examenIdOmr, Number(paginaOmrActiva));
-          setBorradoresRespuestasOmr((actual) => ({ ...actual, [llave]: siguiente }));
-        }
-        return siguiente;
-      });
-    },
-    [examenIdOmr, llaveBorradorOmr, paginaOmrActiva]
-  );
-  const confirmarRevisionOmrActiva = useCallback(
-    (confirmada: boolean) => {
-      setRevisionOmrConfirmada(confirmada);
-      if (!examenIdOmr) return;
-      const paginaObjetivo = Number(paginaOmrActiva);
-      setRevisionesOmr((prev) =>
-        prev.map((examen) => {
-          if (examen.examenId !== examenIdOmr) return examen;
-          if (!confirmada) {
-            return { ...examen, revisionConfirmada: false, actualizadoEn: Date.now() };
-          }
-          const ahora = Date.now();
-          const paginas = examen.paginas.map((pagina) => {
-            const numeroPagina = Number(pagina.numeroPagina);
-            const llave = llaveBorradorOmr(examen.examenId, numeroPagina);
-            const esPaginaActiva = Number.isFinite(paginaObjetivo) && numeroPagina === paginaObjetivo;
-            const respuestasPagina = esPaginaActiva
-              ? respuestasEditadas
-              : Array.isArray(borradoresRespuestasOmr[llave])
-                ? borradoresRespuestasOmr[llave]
-                : null;
-            if (!Array.isArray(respuestasPagina)) return pagina;
-            return {
-              ...pagina,
-              respuestas: respuestasPagina,
-              resultado: {
-                ...pagina.resultado,
-                respuestasDetectadas: respuestasPagina
-              },
-              actualizadoEn: ahora
-            };
-          });
-          return {
-            ...examen,
-            paginas,
-            revisionConfirmada: true,
-            actualizadoEn: ahora
-          };
-        })
-      );
-      if (confirmada) {
-        setBorradoresRespuestasOmr((prev) => {
-          const prefijo = `${examenIdOmr}::`;
-          const llaves = Object.keys(prev).filter((llave) => llave.startsWith(prefijo));
-          if (llaves.length === 0) return prev;
-          const siguiente = { ...prev };
-          for (const llave of llaves) {
-            delete siguiente[llave];
-          }
-          return siguiente;
-        });
-      }
-    },
-    [borradoresRespuestasOmr, examenIdOmr, llaveBorradorOmr, paginaOmrActiva, respuestasEditadas]
-  );
   const limpiarColaEscaneosOmr = useCallback(() => {
     const habiaElementos = revisionesOmr.length > 0 || Boolean(resultadoOmr);
     setRevisionesOmr([]);
@@ -633,7 +251,17 @@ export function AppDocente() {
     if (habiaElementos) {
       emitToast({ level: 'info', title: 'Escaneo OMR', message: 'Cola de escaneos limpiada', durationMs: 2600 });
     }
-  }, [revisionesOmr.length, resultadoOmr]);
+  }, [
+    revisionesOmr.length,
+    resultadoOmr,
+    setBorradoresRespuestasOmr,
+    setExamenAlumnoId,
+    setExamenIdOmr,
+    setRespuestasEditadas,
+    setResultadoOmr,
+    setRevisionOmrConfirmada,
+    setRevisionesOmr
+  ]);
 
   if (!docente) {
     return (
@@ -708,32 +336,22 @@ export function AppDocente() {
         <div
           role="alert"
           aria-live="polite"
-          className="banner-reminder-glass anim-fade-in"
-          style={ {
-            margin: '0.5rem 1rem',
-            padding: '0.75rem 1.25rem',
-            display: 'flex',
-            alignItems: 'center',
-            gap: '0.85rem',
-            fontSize: '0.88rem'
-          } }
+          className="banner-recordatorio-asistencia anim-fade-in"
         >
-          <span className="pulse-glow" style={ { fontSize: '1.25rem', display: 'inline-flex' } }>🗓️</span>
-          <span style={ { flex: 1, fontWeight: 500 } }>
+          <span className="banner-recordatorio-asistencia__icon pulse-glow">🗓️</span>
+          <span className="banner-recordatorio-asistencia__text">
             <strong>Recordatorio de Asistencia:</strong> Aún no has registrado el pase de lista de hoy.
           </span>
           <button
             onClick={() => { cerrarRecordatorioPaseLista(); setVista('asistencias'); }}
             className="asistencias-btn-primario pulse-glow"
-            style={ { minHeight: '32px', paddingInline: '0.9rem', fontSize: '0.82rem' } }
           >
             Pasar lista
           </button>
           <button
             onClick={cerrarRecordatorioPaseLista}
             aria-label="Cerrar recordatorio"
-            className="scale-hover"
-            style={ { background: 'none', border: 'none', cursor: 'pointer', fontSize: '1.25rem', padding: '0 0.25rem', lineHeight: 1, color: 'var(--avisoTexto)' } }
+            className="banner-recordatorio-asistencia__close scale-hover"
           >
             ×
           </button>

@@ -5,7 +5,7 @@ version: 1.0.0
 fecha: 2026-06-23
 autor: Antigravity
 modulo: marketing
-estado: approved
+estado: implemented
 ---
 
 # SPEC-002: Portal de Marketing y Promoción Comercial de EvaluaPro
@@ -34,10 +34,10 @@ EvaluaPro es un sistema robusto de evaluación universitaria que conecta el dise
 
 | ID Requisito | Descripción del Caso | Archivo de Test Vinculado | Estado |
 | --- | --- | --- | --- |
-| REQ-001 | Validación de estructura semántica y tokens requeridos | `scripts/tests/marketing-site.smoke.test.mjs` | Pendiente |
-| REQ-002 | Validación de clases CSS obligatorias | `scripts/tests/marketing-site.smoke.test.mjs` | Pendiente |
-| REQ-003 | Presencia de ID de inicio, llamadas a la acción y mail | `scripts/tests/marketing-site.smoke.test.mjs` | Pendiente |
-| REQ-004 | Inclusión y verificación del carrusel / galería de imágenes | `scripts/tests/marketing-site.smoke.test.mjs` | Pendiente |
-| REQ-005 | Presencia del ID de sección de licencias e información comercial | `scripts/tests/marketing-site.smoke.test.mjs` | Pendiente |
-| REQ-006 | Presencia del ID de FAQ y comportamiento de acordeones | `scripts/tests/marketing-site.smoke.test.mjs` | Pendiente |
-| REQ-007 | Empleo de IntersectionObserver, metric y requestAnimationFrame | `scripts/tests/marketing-site.smoke.test.mjs` | Pendiente |
+| REQ-001 | Validación de estructura semántica y tokens requeridos | `scripts/tests/marketing-site.smoke.test.mjs` | Completado |
+| REQ-002 | Validación de clases CSS obligatorias | `scripts/tests/marketing-site.smoke.test.mjs` | Completado |
+| REQ-003 | Presencia de ID de inicio, llamadas a la acción y mail | `scripts/tests/marketing-site.smoke.test.mjs` | Completado |
+| REQ-004 | Inclusión y verificación del carrusel / galería de imágenes | `scripts/tests/marketing-site.smoke.test.mjs` | Completado |
+| REQ-005 | Presencia del ID de sección de licencias e información comercial | `scripts/tests/marketing-site.smoke.test.mjs` | Completado |
+| REQ-006 | Presencia del ID de FAQ y comportamiento de acordeones | `scripts/tests/marketing-site.smoke.test.mjs` | Completado |
+| REQ-007 | Empleo de IntersectionObserver, metric y requestAnimationFrame | `scripts/tests/marketing-site.smoke.test.mjs` | Completado |

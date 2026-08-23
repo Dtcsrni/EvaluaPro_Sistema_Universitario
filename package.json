@@ -41,6 +41,7 @@
     "dev:frontend:docente": "npm -C apps/frontend run dev:docente",
     "dev:frontend:wait": "node scripts/wait-api.mjs && npm -C apps/frontend run dev",
     "docente:prod:native": "node scripts/start-docente-native.mjs",
+    "icons:generate": "node scripts/icons/generate-all-icons.mjs",
     "licencia:master": "node scripts/generar-licencia-master.mjs",
     "dev:portal": "node scripts/guard-env-separation.mjs --mode check --strict && node scripts/start-portal-dev.mjs",
     "portal:prod": "node scripts/guard-env-separation.mjs --mode check --strict && node scripts/start-portal-prod.mjs",
@@ -251,8 +252,5 @@
     "mongodb": {
       "gcp-metadata": "7.0.1"
     }
-  },
-  "dependencies": {
-    "sharp": "^0.35.3"
   }
 }

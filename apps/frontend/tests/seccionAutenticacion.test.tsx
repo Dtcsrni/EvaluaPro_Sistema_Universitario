@@ -86,7 +86,7 @@ describe('SeccionAutenticacion', () => {
     await user.click(screen.getByRole('button', { name: /^Ingresar$/i }));
 
     fireEvent.change(screen.getByLabelText('Correo'), { target: { value: 'docente@local.test' } });
-    fireEvent.change(screen.getByLabelText('Contrasena'), { target: { value: '12345678' } });
+    fireEvent.change(screen.getByLabelText(/Contrase[nñ]a/i), { target: { value: '12345678' } });
     const botonesIngresar = screen.getAllByRole('button', { name: /^Ingresar$/i });
     await user.click(botonesIngresar[botonesIngresar.length - 1]);
 
@@ -108,7 +108,7 @@ describe('SeccionAutenticacion', () => {
     fireEvent.change(screen.getByLabelText('Apellidos'), { target: { value: 'Gomez' } });
     fireEvent.change(screen.getByLabelText('Correo'), { target: { value: 'ana@local.test' } });
     fireEvent.change(screen.getByLabelText(/Clave o Código de Licencia/i), { target: { value: 'LIC-2026-DOC-TEST' } });
-    fireEvent.change(screen.getByLabelText('Contrasena'), { target: { value: 'segura123' } });
+    fireEvent.change(screen.getByLabelText(/Contrase[nñ]a/i), { target: { value: 'segura123' } });
     await user.click(screen.getByRole('button', { name: /Crear cuenta/i }));
 
     expect(clienteApi.enviar).toHaveBeenCalledWith('/autenticacion/registrar', {
@@ -135,7 +135,7 @@ describe('SeccionAutenticacion', () => {
 
     await user.click(screen.getByRole('button', { name: /^Ingresar$/i }));
     fireEvent.change(screen.getByLabelText('Correo'), { target: { value: 'docente@local.test' } });
-    fireEvent.change(screen.getByLabelText('Contrasena'), { target: { value: '12345678' } });
+    fireEvent.change(screen.getByLabelText(/Contrase[nñ]a/i), { target: { value: '12345678' } });
 
     const botonesIngresar = screen.getAllByRole('button', { name: /^Ingresar$/i });
     await user.click(botonesIngresar[botonesIngresar.length - 1]);
@@ -153,7 +153,7 @@ describe('SeccionAutenticacion', () => {
 
     await user.click(screen.getByRole('button', { name: /^Ingresar$/i }));
     fireEvent.change(screen.getByLabelText('Correo'), { target: { value: 'docente@local.test' } });
-    fireEvent.change(screen.getByLabelText('Contrasena'), { target: { value: '12345678' } });
+    fireEvent.change(screen.getByLabelText(/Contrase[nñ]a/i), { target: { value: '12345678' } });
 
     const botonesIngresar = screen.getAllByRole('button', { name: /^Ingresar$/i });
     await user.click(botonesIngresar[botonesIngresar.length - 1]);
@@ -212,7 +212,7 @@ describe('SeccionAutenticacion', () => {
     expect(screen.getByLabelText('Apellidos')).toHaveValue('Lopez');
     expect(screen.getByLabelText(/Correo/i)).toHaveValue('google@local.test');
 
-    const checkboxContrasena = screen.getByLabelText(/Crear contrasena ahora/i);
+    const checkboxContrasena = screen.getByLabelText(/Crear contrase[nñ]a ahora/i);
     await user.click(checkboxContrasena);
     await user.click(checkboxContrasena);
 
@@ -237,15 +237,15 @@ describe('SeccionAutenticacion', () => {
     render(<SeccionAutenticacion onIngresar={onIngresar} oauthGoogleDisponible />);
 
     await user.click(screen.getByRole('button', { name: /^Ingresar$/i }));
-    await user.click(screen.getByRole('button', { name: /Recuperar contrasena con Google/i }));
+    await user.click(screen.getByRole('button', { name: /Recuperar contrase[nñ]a con Google/i }));
 
     expect(screen.getByText(/Si tu cuenta tiene Google vinculado/i)).toBeInTheDocument();
 
     const googleBtns = screen.getAllByTestId('mock-google-login');
     await user.click(googleBtns[googleBtns.length - 1]);
 
-    fireEvent.change(screen.getByLabelText(/Nueva contrasena/i), { target: { value: 'nueva12345' } });
-    await user.click(screen.getByRole('button', { name: /Actualizar contrasena/i }));
+    fireEvent.change(screen.getByLabelText(/Nueva contrase[nñ]a/i), { target: { value: 'nueva12345' } });
+    await user.click(screen.getByRole('button', { name: /Actualizar contrase[nñ]a/i }));
 
     expect(clienteApi.enviar).toHaveBeenCalledWith('/autenticacion/recuperar-contrasena-google', expect.objectContaining({
       contrasenaNueva: 'nueva12345'
@@ -274,7 +274,7 @@ describe('SeccionAutenticacion', () => {
     // Domain check on ingresar
     await user.click(screen.getByRole('button', { name: /^Ingresar$/i }));
     fireEvent.change(screen.getByLabelText('Correo'), { target: { value: 'docente@externo.com' } });
-    fireEvent.change(screen.getByLabelText('Contrasena'), { target: { value: '12345678' } });
+    fireEvent.change(screen.getByLabelText(/Contrase[nñ]a/i), { target: { value: '12345678' } });
 
     const botonesIngresar = screen.getAllByRole('button', { name: /^Ingresar$/i });
     await user.click(botonesIngresar[botonesIngresar.length - 1]);
@@ -287,7 +287,7 @@ describe('SeccionAutenticacion', () => {
     fireEvent.change(screen.getByLabelText('Nombres'), { target: { value: 'Doc' } });
     fireEvent.change(screen.getByLabelText('Apellidos'), { target: { value: 'Test' } });
     fireEvent.change(screen.getByLabelText('Correo'), { target: { value: 'docente@externo.com' } });
-    fireEvent.change(screen.getByLabelText('Contrasena'), { target: { value: '12345678' } });
+    fireEvent.change(screen.getByLabelText(/Contrase[nñ]a/i), { target: { value: '12345678' } });
 
     await user.click(screen.getByRole('button', { name: /Crear cuenta/i }));
     expect(screen.getByText(/Solo se permiten correos institucionales/i)).toBeInTheDocument();
@@ -297,13 +297,13 @@ describe('SeccionAutenticacion', () => {
     const user = userEvent.setup();
     render(<SeccionAutenticacion onIngresar={() => {}} oauthGoogleDisponible />);
 
-    const registrarFormBtn = screen.getByRole('button', { name: /Registrar con correo y contrasena/i });
+    const registrarFormBtn = screen.getByRole('button', { name: /Registrar con correo y contrase[nñ]a/i });
     await user.click(registrarFormBtn);
 
     expect(screen.getByRole('button', { name: /Volver a Google/i })).toBeInTheDocument();
     await user.click(screen.getByRole('button', { name: /Volver a Google/i }));
 
-    expect(screen.getByRole('button', { name: /Registrar con correo y contrasena/i })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /Registrar con correo y contrase[nñ]a/i })).toBeInTheDocument();
   });
 
   it('permite alternar formulario en modo ingresar con Google', async () => {
@@ -312,7 +312,7 @@ describe('SeccionAutenticacion', () => {
 
     await user.click(screen.getByRole('button', { name: /^Ingresar$/i }));
 
-    const toggleFormBtn = screen.getByRole('button', { name: /Ingresar con correo y contrasena/i });
+    const toggleFormBtn = screen.getByRole('button', { name: /Ingresar con correo y contrase[nñ]a/i });
     await user.click(toggleFormBtn);
 
     expect(screen.getByRole('button', { name: /Ocultar formulario/i })).toBeInTheDocument();
@@ -329,7 +329,7 @@ describe('SeccionAutenticacion', () => {
     fireEvent.change(screen.getByLabelText('Nombres'), { target: { value: 'Ana' } });
     fireEvent.change(screen.getByLabelText('Apellidos'), { target: { value: 'Gomez' } });
     fireEvent.change(screen.getByLabelText('Correo'), { target: { value: 'ana@local.test' } });
-    fireEvent.change(screen.getByLabelText('Contrasena'), { target: { value: 'segura123' } });
+    fireEvent.change(screen.getByLabelText(/Contrase[nñ]a/i), { target: { value: 'segura123' } });
 
     await user.click(screen.getByRole('button', { name: /Crear cuenta/i }));
     expect(screen.getByText(/Demasiadas solicitudes/i)).toBeInTheDocument();
@@ -363,11 +363,11 @@ describe('SeccionAutenticacion', () => {
     expect(screen.getByText(/Solo se permiten correos institucionales/i)).toBeInTheDocument();
 
     // En recuperacion con Google
-    await user.click(screen.getByRole('button', { name: /Recuperar contrasena con Google/i }));
+    await user.click(screen.getByRole('button', { name: /Recuperar contrase[nñ]a con Google/i }));
     const googleBtns = screen.getAllByTestId('mock-google-login');
     await user.click(googleBtns[googleBtns.length - 1]);
-    fireEvent.change(screen.getByLabelText(/Nueva contrasena/i), { target: { value: 'nueva12345' } });
-    await user.click(screen.getByRole('button', { name: /Actualizar contrasena/i }));
+    fireEvent.change(screen.getByLabelText(/Nueva contrase[nñ]a/i), { target: { value: 'nueva12345' } });
+    await user.click(screen.getByRole('button', { name: /Actualizar contrase[nñ]a/i }));
     expect(screen.getByText(/Solo se permiten correos institucionales/i)).toBeInTheDocument();
   });
 
@@ -379,13 +379,13 @@ describe('SeccionAutenticacion', () => {
     render(<SeccionAutenticacion onIngresar={() => {}} oauthGoogleDisponible />);
 
     await user.click(screen.getByRole('button', { name: /^Ingresar$/i }));
-    await user.click(screen.getByRole('button', { name: /Recuperar contrasena con Google/i }));
+    await user.click(screen.getByRole('button', { name: /Recuperar contrase[nñ]a con Google/i }));
 
     const googleBtns = screen.getAllByTestId('mock-google-login');
     await user.click(googleBtns[googleBtns.length - 1]);
 
-    fireEvent.change(screen.getByLabelText(/Nueva contrasena/i), { target: { value: 'nueva12345' } });
-    await user.click(screen.getByRole('button', { name: /Actualizar contrasena/i }));
+    fireEvent.change(screen.getByLabelText(/Nueva contrase[nñ]a/i), { target: { value: 'nueva12345' } });
+    await user.click(screen.getByRole('button', { name: /Actualizar contrase[nñ]a/i }));
 
     expect(screen.getByText(/Demasiadas solicitudes/i)).toBeInTheDocument();
   });
@@ -397,13 +397,13 @@ describe('SeccionAutenticacion', () => {
     fireEvent.change(screen.getByLabelText('Apellidos'), { target: { value: 'Prueba' } });
     fireEvent.change(screen.getByLabelText('Correo'), { target: { value: 'docente@test.com' } });
     fireEvent.change(screen.getByLabelText(/Clave o Código de Licencia/i), { target: { value: 'LIC-123' } });
-    fireEvent.change(screen.getByLabelText('Contrasena'), { target: { value: 'password123' } });
+    fireEvent.change(screen.getByLabelText(/Contrase[nñ]a/i), { target: { value: 'password123' } });
 
     expect(screen.getByLabelText('Nombres')).toHaveValue('Docente');
     expect(screen.getByLabelText('Apellidos')).toHaveValue('Prueba');
     expect(screen.getByLabelText('Correo')).toHaveValue('docente@test.com');
     expect(screen.getByLabelText(/Clave o Código de Licencia/i)).toHaveValue('LIC-123');
-    expect(screen.getByLabelText('Contrasena')).toHaveValue('password123');
+    expect(screen.getByLabelText(/Contrase[nñ]a/i)).toHaveValue('password123');
   });
 
   it('permite editar nombres y clave de licencia tras registro con Google', async () => {
@@ -448,7 +448,7 @@ describe('SeccionAutenticacion', () => {
 
     const emptyBtn = screen.getByTestId('mock-google-login-empty');
     await user.click(emptyBtn);
-    expect(screen.getByText(/No se recibio credencial de Google/i)).toBeInTheDocument();
+    expect(screen.getByText(/No se recibi[oó] credencial de Google/i)).toBeInTheDocument();
   });
 
   it('maneja credencial vacía en registro con Google y alternar contraseña opcional', async () => {
@@ -457,12 +457,12 @@ describe('SeccionAutenticacion', () => {
 
     const emptyBtn = screen.getByTestId('mock-google-login-empty');
     await user.click(emptyBtn);
-    expect(screen.getByText(/No se recibio credencial de Google/i)).toBeInTheDocument();
+    expect(screen.getByText(/No se recibi[oó] credencial de Google/i)).toBeInTheDocument();
 
     const googleBtn = screen.getByTestId('mock-google-login');
     await user.click(googleBtn);
 
-    const checkboxContrasena = screen.getByLabelText(/Crear contrasena ahora/i);
+    const checkboxContrasena = screen.getByLabelText(/Crear contrase[nñ]a ahora/i);
     await user.click(checkboxContrasena);
     expect(checkboxContrasena).toBeChecked();
 

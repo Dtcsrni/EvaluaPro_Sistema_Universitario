@@ -1,4 +1,4 @@
-/**
+﻿/**
  * SeccionEvaluaciones
  *
  * Responsabilidad: Seccion funcional del shell docente.
@@ -194,32 +194,57 @@ export function SeccionEvaluaciones(params: {
   const listaPoliticas = politicas.length > 0 ? politicas : POLITICAS_FALLBACK;
 
   return (
-    <div className="panel">
-      <h3>Evaluaciones y políticas</h3>
+    <div className="panel evaluaciones-panel">
+      <div className="evaluaciones-panel__head">
+        <div>
+          <h2>Evaluaciones y políticas</h2>
+          <p className="nota">Configura políticas de evaluación, ponderaciones, evidencias continuas y consulta de consolidados.</p>
+        </div>
+      </div>
       {estado && <InlineMensaje tipo="info">{estado}</InlineMensaje>}
 
-      <div className="item-row">
-        <Boton type="button" onClick={() => setTabActiva('politica')} disabled={tabActiva === 'politica'}>
+      <div className="tabs evaluaciones-tabs" role="tablist">
+        <Boton
+          variante={tabActiva === 'politica' ? 'primario' : 'secundario'}
+          type="button"
+          onClick={() => setTabActiva('politica')}
+        >
           Política
         </Boton>
-        <Boton type="button" onClick={() => setTabActiva('evidencias')} disabled={tabActiva === 'evidencias'}>
+        <Boton
+          variante={tabActiva === 'evidencias' ? 'primario' : 'secundario'}
+          type="button"
+          onClick={() => setTabActiva('evidencias')}
+        >
           Evidencias
         </Boton>
-        <Boton type="button" onClick={() => setTabActiva('examenes')} disabled={tabActiva === 'examenes'}>
+        <Boton
+          variante={tabActiva === 'examenes' ? 'primario' : 'secundario'}
+          type="button"
+          onClick={() => setTabActiva('examenes')}
+        >
           Exámenes
         </Boton>
         {puedeClassroom && (
-          <Boton type="button" onClick={() => setTabActiva('classroom')} disabled={tabActiva === 'classroom'}>
+          <Boton
+            variante={tabActiva === 'classroom' ? 'primario' : 'secundario'}
+            type="button"
+            onClick={() => setTabActiva('classroom')}
+          >
             Classroom
           </Boton>
         )}
-        <Boton type="button" onClick={() => setTabActiva('resumen')} disabled={tabActiva === 'resumen'}>
+        <Boton
+          variante={tabActiva === 'resumen' ? 'primario' : 'secundario'}
+          type="button"
+          onClick={() => setTabActiva('resumen')}
+        >
           Resumen
         </Boton>
       </div>
 
-      <div className="item-row">
-        <label>
+      <div className="evaluaciones-selectores">
+        <label className="campo">
           Periodo
           <select value={periodoId} onChange={(event) => setPeriodoId(event.target.value)}>
             <option value="">Selecciona periodo</option>
@@ -230,7 +255,7 @@ export function SeccionEvaluaciones(params: {
             ))}
           </select>
         </label>
-        <label>
+        <label className="campo">
           Alumno
           <select value={alumnoId} onChange={(event) => setAlumnoId(event.target.value)}>
             <option value="">Selecciona alumno</option>
@@ -244,8 +269,8 @@ export function SeccionEvaluaciones(params: {
       </div>
 
       {tabActiva === 'politica' && (
-        <div className="item-row">
-          <label>
+        <div className="evaluaciones-form item-glass anim-fade-in">
+          <label className="campo">
             Política
             <select
               value={politicaCodigo}
@@ -258,31 +283,33 @@ export function SeccionEvaluaciones(params: {
               ))}
             </select>
           </label>
-          <label>
+          <label className="campo">
             Versión
             <input type="number" min={1} value={politicaVersion} onChange={(event) => setPoliticaVersion(Number(event.target.value) || 1)} />
           </label>
-          <Boton type="button" disabled={!puedeGestionar || !periodoId || cargando} onClick={() => void guardarPoliticaV2()}>
-            Guardar política
-          </Boton>
+          <div className="acciones">
+            <Boton type="button" disabled={!puedeGestionar || !periodoId || cargando} onClick={() => void guardarPoliticaV2()}>
+              Guardar política
+            </Boton>
+          </div>
         </div>
       )}
 
       {tabActiva === 'evidencias' && (
-        <div className="item-row">
-          <label>
+        <div className="evaluaciones-form item-glass anim-fade-in">
+          <label className="campo">
             Evidencia título
             <input value={evidenciaTitulo} onChange={(event) => setEvidenciaTitulo(event.target.value)} />
           </label>
-          <label>
+          <label className="campo">
             Calificación
             <input type="number" min="0" max="10" step="0.01" value={evidenciaCalificacion} onChange={(event) => setEvidenciaCalificacion(event.target.value)} />
           </label>
-          <label>
+          <label className="campo">
             Ponderación
             <input type="number" min="0" max="10" step="0.01" value={evidenciaPonderacion} onChange={(event) => setEvidenciaPonderacion(event.target.value)} />
           </label>
-          <label>
+          <label className="campo">
             Corte
             <select value={evidenciaCorte} onChange={(event) => setEvidenciaCorte(event.target.value)}>
               <option value="1">C1</option>
@@ -290,15 +317,17 @@ export function SeccionEvaluaciones(params: {
               <option value="3">C3</option>
             </select>
           </label>
-          <Boton type="button" disabled={!puedeGestionar || !periodoId || !alumnoId || cargando} onClick={() => void guardarEvidenciaV2()}>
-            Guardar evidencia
-          </Boton>
+          <div className="acciones">
+            <Boton type="button" disabled={!puedeGestionar || !periodoId || !alumnoId || cargando} onClick={() => void guardarEvidenciaV2()}>
+              Guardar evidencia
+            </Boton>
+          </div>
         </div>
       )}
 
       {tabActiva === 'examenes' && (
-        <div className="item-row">
-          <label>
+        <div className="evaluaciones-form item-glass anim-fade-in">
+          <label className="campo">
             Corte examen
             <select value={corteExamen} onChange={(event) => setCorteExamen(event.target.value as 'parcial1' | 'parcial2' | 'global')}>
               <option value="parcial1">Parcial 1</option>
@@ -306,17 +335,19 @@ export function SeccionEvaluaciones(params: {
               <option value="global">Global</option>
             </select>
           </label>
-          <label>
+          <label className="campo">
             Teórico
             <input value={teorico} onChange={(event) => setTeorico(event.target.value)} />
           </label>
-          <label>
+          <label className="campo">
             Prácticas (csv)
             <input value={practicasCsv} onChange={(event) => setPracticasCsv(event.target.value)} />
           </label>
-          <Boton type="button" disabled={!puedeGestionar || !periodoId || !alumnoId || cargando} onClick={() => void guardarComponenteExamenV2()}>
-            Guardar examen
-          </Boton>
+          <div className="acciones">
+            <Boton type="button" disabled={!puedeGestionar || !periodoId || !alumnoId || cargando} onClick={() => void guardarComponenteExamenV2()}>
+              Guardar examen
+            </Boton>
+          </div>
         </div>
       )}
 
@@ -330,7 +361,7 @@ export function SeccionEvaluaciones(params: {
       )}
 
       {tabActiva === 'resumen' && (
-        <div className="panel">
+        <div className="panel item-glass anim-fade-in">
           <h4>Resumen alumno</h4>
           <div className="item-row">
             <Boton type="button" disabled={!periodoId || !alumnoId || cargando} onClick={() => void consultarResumenV2()}>

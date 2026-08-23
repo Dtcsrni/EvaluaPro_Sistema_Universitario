@@ -88,7 +88,7 @@ describe('AppDocente', () => {
 
     await user.click(screen.getByRole('button', { name: /^Ingresar$/i }));
     fireEvent.change(screen.getByLabelText('Correo'), { target: { value: 'docente@evaluapro.test' } });
-    fireEvent.change(screen.getByLabelText('Contrasena'), { target: { value: '12345678' } });
+    fireEvent.change(screen.getByLabelText(/Contrase[nñ]a/i), { target: { value: '12345678' } });
 
     const botonesIngresar = screen.getAllByRole('button', { name: /^Ingresar$/i });
     await user.click(botonesIngresar[botonesIngresar.length - 1]);

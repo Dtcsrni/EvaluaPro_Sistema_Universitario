@@ -13,8 +13,8 @@ namespace EvaluaPro.BurnBootstrapperApp;
 
 public partial class MainWindow : Window
 {
-    private const double MinimumScreenWidth = 1280;
-    private const double MinimumScreenHeight = 720;
+    private const double MinimumScreenWidth = 1024;
+    private const double MinimumScreenHeight = 576;
     private const string DefaultDatabaseUrl = "file:C:/ProgramData/EvaluaPro/data/evaluapro.db";
     private const string DefaultNodeEnv = "production";
     private const string DefaultApiPort = "4000";
@@ -143,14 +143,14 @@ public partial class MainWindow : Window
         {
             StartButton.IsEnabled = false;
             NextButton.IsEnabled = false;
-            FooterStatusTextBlock.Text = $"Resolución no compatible: se requiere como mínimo {MinimumScreenWidth:0}×{MinimumScreenHeight:0}.";
-            FooterStatusTextBlock.Text += " Aumenta la resolución de Windows o conecta un monitor de al menos 1280×720 para continuar.";
+            FooterStatusTextBlock.Text = $"Resolución no compatible: se requiere como mínimo {MinimumScreenWidth:0}×{MinimumScreenHeight:0} efectivos.";
+            FooterStatusTextBlock.Text += " Ajusta la escala de pantalla de Windows o conecta un monitor compatible para continuar.";
             return;
         }
 
         if (workArea.Width < 1920 || workArea.Height < 1080)
         {
-            FooterStatusTextBlock.Text = "Resolución compatible. Se recomienda 1920×1080 para una visualización óptima.";
+            FooterStatusTextBlock.Text = "Resolución compatible. Se recomienda 1920×1080 (escala 100%) para una visualización óptima.";
         }
     }
 

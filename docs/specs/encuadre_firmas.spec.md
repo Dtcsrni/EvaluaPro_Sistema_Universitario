@@ -5,7 +5,7 @@ version: 1.1.0
 fecha: 2026-06-23
 autor: Antigravity
 modulo: modulo_evaluaciones
-estado: approved
+estado: implemented
 ---
 
 # SPEC-002: Automatizacion de Reglas de Encuadre y Firma Digital Institucional

@@ -292,10 +292,10 @@ export function SeccionAutenticacion({
         contrasenaNueva: contrasenaRecuperar
       });
       onIngresar(respuesta.token);
-      emitToast({ level: 'ok', title: 'Cuenta', message: 'Contrasena actualizada', durationMs: 2600 });
+      emitToast({ level: 'ok', title: 'Cuenta', message: 'Contraseña actualizada', durationMs: 2600 });
       registrarAccionDocente('recuperar_contrasena_google', true, Date.now() - inicio);
     } catch (error) {
-      const msg = mensajeDeError(error, 'No se pudo recuperar la contrasena');
+      const msg = mensajeDeError(error, 'No se pudo recuperar la contraseña');
       setMensaje(msg);
       emitToast({
         level: 'error',
@@ -360,7 +360,7 @@ export function SeccionAutenticacion({
             ...(codigoLicencia.trim() ? { codigoLicencia: codigoLicencia.trim() } : {})
           });
       onIngresar(respuesta.token);
-      emitToast({ level: 'ok', title: 'Cuenta creada', message: 'Sesion iniciada', durationMs: 2800 });
+      emitToast({ level: 'ok', title: 'Cuenta creada', message: 'Sesión iniciada', durationMs: 2800 });
       registrarAccionDocente(credentialRegistroGoogle ? 'registrar_google' : 'registrar', true, Date.now() - inicio);
     } catch (error) {
       const msg = mensajeDeError(error, 'No se pudo registrar');
@@ -421,6 +421,27 @@ export function SeccionAutenticacion({
             <p className="auth-subtitulo">
               Diseña evaluaciones estructuradas, automatiza la calificación con hojas OMR y gestiona tus cursos con total privacidad local.
             </p>
+          </div>
+
+          <div className="auth-hero-illustration" aria-hidden="true">
+            <div className="auth-shield-glow">
+              <svg className="auth-shield-svg" viewBox="0 0 120 120" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <path d="M60 12L96 28V64C96 88 60 108 60 108C60 108 24 88 24 64V28L60 12Z" stroke="url(#shield-grad-docente)" strokeWidth="3" fill="rgba(37, 99, 235, 0.12)" />
+                <path d="M60 42L88 54L60 66L32 54L60 42Z" fill="url(#cap-grad-docente)" stroke="#00d2ff" strokeWidth="1.5" />
+                <path d="M44 60V74C44 79 51 83 60 83C69 83 76 79 76 74V60" stroke="#00d2ff" strokeWidth="2" strokeLinecap="round" />
+                <path d="M84 56V72" stroke="#a78bfa" strokeWidth="2" strokeLinecap="round" />
+                <defs>
+                  <linearGradient id="shield-grad-docente" x1="24" y1="12" x2="96" y2="108" gradientUnits="userSpaceOnUse">
+                    <stop stopColor="#00d2ff" />
+                    <stop offset="1" stopColor="#8b5cf6" />
+                  </linearGradient>
+                  <linearGradient id="cap-grad-docente" x1="32" y1="42" x2="88" y2="66" gradientUnits="userSpaceOnUse">
+                    <stop stopColor="#2563eb" />
+                    <stop offset="1" stopColor="#00d2ff" />
+                  </linearGradient>
+                </defs>
+              </svg>
+            </div>
           </div>
 
           <ul className="auth-feature-list auth-beneficios" aria-label="Beneficios">
@@ -507,7 +528,7 @@ export function SeccionAutenticacion({
           {modo === 'registrar' && (
             <div className="panel auth-panel" aria-label="Ayuda de registro">
               <p className="nota">
-                Para registrar tu cuenta completa <b>nombres</b>, <b>apellidos</b> y <b>correo</b>. La contrasena requiere minimo 8 caracteres.
+                Para registrar tu cuenta completa <b>nombres</b>, <b>apellidos</b> y <b>correo</b>. La contraseña requiere mínimo 8 caracteres.
               </p>
               {googleOnly && (
                 <p className="nota">Modo Google-only activo: usa tu cuenta institucional para crear o vincular acceso.</p>
@@ -526,7 +547,7 @@ export function SeccionAutenticacion({
 
           {!googleDisponible && esDev && (
             <InlineMensaje tipo="info">
-              Inicio de sesion con Google deshabilitado en este entorno. Para habilitarlo en desarrollo, define
+              Inicio de sesión con Google deshabilitado en este entorno. Para habilitarlo en desarrollo, define
               {' '}VITE_GOOGLE_CLIENT_ID en el .env del root y reinicia Vite.
             </InlineMensaje>
           )}
@@ -537,12 +558,12 @@ export function SeccionAutenticacion({
                 onSuccess={(cred) => {
                   const token = cred.credential;
                   if (!token) {
-                    setMensaje('No se recibio credencial de Google.');
+                    setMensaje('No se recibió credencial de Google.');
                     return;
                   }
                   void ingresarConGoogle(token);
                 }}
-                onError={() => setMensaje('No se pudo iniciar sesion con Google.')}
+                onError={() => setMensaje('No se pudo iniciar sesión con Google.')}
                 useOneTap
               />
               <p className="nota nota--mt">
@@ -562,7 +583,7 @@ export function SeccionAutenticacion({
                       setMensaje('');
                     }}
                   >
-                    {mostrarFormularioIngresar ? 'Ocultar formulario' : 'Ingresar con correo y contrasena'}
+                    {mostrarFormularioIngresar ? 'Ocultar formulario' : 'Ingresar con correo y contraseña'}
                   </button>
                   <button
                     type="button"
@@ -572,14 +593,14 @@ export function SeccionAutenticacion({
                       setMensaje('');
                     }}
                   >
-                    {mostrarRecuperar ? 'Cerrar recuperacion' : 'Recuperar contrasena con Google'}
+                    {mostrarRecuperar ? 'Cerrar recuperación' : 'Recuperar contraseña con Google'}
                   </button>
                 </div>
               )}
 
               {passwordDisponible && mostrarRecuperar && (
                 <div className="panel mt-10 auth-panel auth-panel--inset">
-                  <p className="nota">Si tu cuenta tiene Google vinculado, puedes establecer una nueva contrasena.</p>
+                  <p className="nota">Si tu cuenta tiene Google vinculado, puedes establecer una nueva contraseña.</p>
                   {dominiosPermitidos.length > 0 && (
                     <p className="nota nota--mt">Solo se permiten: {politicaDominiosTexto}</p>
                   )}
@@ -587,23 +608,23 @@ export function SeccionAutenticacion({
                     onSuccess={(cred) => {
                       const token = cred.credential;
                       if (!token) {
-                        setMensaje('No se recibio credencial de Google.');
+                        setMensaje('No se recibió credencial de Google.');
                         return;
                       }
                       setCredentialRecuperarGoogle(token);
-                      setMensaje('Google listo. Define tu nueva contrasena.');
+                      setMensaje('Google listo. Define tu nueva contraseña.');
                     }}
                     onError={() => setMensaje('No se pudo reautenticar con Google.')}
                   />
                   <label className="campo mt-10">
-                    Nueva contrasena
+                    Nueva contraseña
                     <input
                       type="password"
                       value={contrasenaRecuperar}
                       onChange={(event) => setContrasenaRecuperar(event.target.value)}
                       autoComplete="new-password"
                     />
-                    <span className="ayuda">Minimo 8 caracteres.</span>
+                    <span className="ayuda">Mínimo 8 caracteres.</span>
                   </label>
                   <div className="acciones">
                     <Boton
@@ -613,7 +634,7 @@ export function SeccionAutenticacion({
                       disabled={!credentialRecuperarGoogle || contrasenaRecuperar.trim().length < 8}
                       onClick={recuperarConGoogle}
                     >
-                      {enviando ? 'Actualizando…' : 'Actualizar contrasena'}
+                      {enviando ? 'Actualizando…' : 'Actualizar contraseña'}
                     </Boton>
                   </div>
                 </div>
@@ -627,7 +648,7 @@ export function SeccionAutenticacion({
                 onSuccess={(cred) => {
                   const token = cred.credential;
                   if (!token) {
-                    setMensaje('No se recibio credencial de Google.');
+                    setMensaje('No se recibió credencial de Google.');
                     return;
                   }
 
@@ -699,7 +720,7 @@ export function SeccionAutenticacion({
                       setMensaje('');
                     }}
                   >
-                    Registrar con correo y contrasena
+                    Registrar con correo y contraseña
                   </button>
                 )}
               </div>
@@ -787,8 +808,8 @@ export function SeccionAutenticacion({
 
           {modo === 'registrar' && credentialRegistroGoogle && mostrarFormulario && passwordDisponible && (
             <label className="campo auth-campo">
-              Crear contrasena ahora (opcional)
-              <span className="ayuda">Si no, podras definirla luego desde Cuenta.</span>
+              Crear contraseña ahora (opcional)
+              <span className="ayuda">Si no, podrás definirla después desde Cuenta.</span>
               <input
                 type="checkbox"
                 checked={crearContrasenaAhora}
@@ -802,7 +823,7 @@ export function SeccionAutenticacion({
 
           {mostrarFormulario && passwordDisponible && (modo === 'ingresar' || !credentialRegistroGoogle || crearContrasenaAhora) && (
             <label className="campo auth-campo">
-              Contrasena
+              Contraseña
               {modo === 'ingresar' ? (
                 <input
                   type="password"
@@ -819,7 +840,7 @@ export function SeccionAutenticacion({
                 />
               )}
               {modo === 'registrar' && credentialRegistroGoogle && (
-                <span className="ayuda">Minimo 8 caracteres.</span>
+                <span className="ayuda">Mínimo 8 caracteres.</span>
               )}
             </label>
           )}

@@ -5,7 +5,7 @@ version: 1.0.0
 fecha: 2026-07-16
 autor: Codex / Agente IA
 modulo: flujo_integral_docente_alumno
-estado: approved
+estado: implemented
 ---
 
 # SPEC-FLUJO-DOCENTE-ALUMNO-INTEGRAL: Journey integral docente-alumno y cobertura funcional

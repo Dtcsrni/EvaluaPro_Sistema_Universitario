@@ -587,10 +587,29 @@ export function SeccionAlumnos({
         </label>
       </div>
       <ul className="lista lista-items alumnos-lista">
-        {!periodoIdLista && <li>Selecciona una materia para ver sus alumnos.</li>}
-        {periodoIdLista && alumnosDeMateria.length === 0 && <li>No hay alumnos registrados en esta materia.</li>}
+        {!periodoIdLista && (
+          <li className="empty-state-card">
+            <div className="empty-state-card__icon">
+              <Icono nombre="alumnos" />
+            </div>
+            <h4>Selecciona una materia</h4>
+            <p>Elige una materia en el selector superior para ver y administrar las listas de estudiantes.</p>
+          </li>
+        )}
+        {periodoIdLista && alumnosDeMateria.length === 0 && (
+          <li className="empty-state-card">
+            <div className="empty-state-card__icon">
+              <Icono nombre="nuevo" />
+            </div>
+            <h4>No hay alumnos registrados en esta materia</h4>
+            <p>Utiliza el formulario superior para registrar alumnos individualmente o importa tu lista.</p>
+          </li>
+        )}
         {periodoIdLista && alumnosDeMateria.length > 0 && alumnosFiltrados.length === 0 && (
-          <li>No hay alumnos que coincidan con los filtros.</li>
+          <li className="empty-state-card">
+            <h4>No hay alumnos que coincidan con los filtros</h4>
+            <p>Intenta ajustar el texto de búsqueda o el grupo seleccionado.</p>
+          </li>
         )}
         {periodoIdLista &&
           alumnosFiltrados.map((alumno) => (
