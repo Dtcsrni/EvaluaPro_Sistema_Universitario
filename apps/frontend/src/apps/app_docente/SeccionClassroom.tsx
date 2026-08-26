@@ -470,7 +470,7 @@ export function SeccionClassroom({
     emitToast({ level: 'info', title: 'Classroom', message: 'Desconectando cuenta...' });
     try {
       await clienteApi.enviar('/evaluaciones/v2/classroom/oauth/desconectar', {});
-      emitToast({ level: 'ok', title: 'Classroom', message: 'Cuenta de Classroom desconectada correctamente.' });
+      emitToast({ level: 'ok', title: 'Classroom', message: 'Cuenta Classroom desconectada' });
       setEstado({ conectado: false });
       setCursos([]);
       setActividades([]);

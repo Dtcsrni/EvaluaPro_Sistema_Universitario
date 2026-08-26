@@ -26,6 +26,7 @@ const periodosMock: Periodo[] = [
 describe('SeccionClassroom', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    vi.mocked(clienteApi.obtener).mockResolvedValue({ cursos: [], estado: { conectado: false } });
   });
 
   it('renderiza la sección y carga el estado de Classroom', async () => {
