@@ -124,4 +124,51 @@ describe('SeccionClassroom', () => {
       );
     });
   });
+
+  it('carga y renderiza estudiantes de Classroom incluso sin materia local seleccionada', async () => {
+    vi.mocked(clienteApi.obtener).mockImplementation((ruta) => {
+      if (ruta === '/evaluaciones/v2/classroom/estado') {
+        return Promise.resolve({
+          estado: { conectado: true, correoGoogle: 'erick.vega@cuh.mx' }
+        });
+      }
+      if (ruta === '/evaluaciones/v2/classroom/cursos') {
+        return Promise.resolve({
+          cursos: [{ id: 'curso-101', name: 'Inteligencia de Negocios', section: 'ISC' }]
+        });
+      }
+      if (ruta.includes('/classroom/cursos/curso-101/alumnos')) {
+        return Promise.resolve({
+          alumnosLocales: [],
+          alumnosClassroom: [
+            {
+              classroomUserId: 'usr-1',
+              fullName: 'Juan Pérez López',
+              emailAddress: 'cuh512410168@cuh.mx'
+            },
+            {
+              classroomUserId: 'usr-2',
+              fullName: 'María González',
+              emailAddress: 'cuh512410199@cuh.mx'
+            }
+          ]
+        });
+      }
+      return Promise.resolve({});
+    });
+
+    render(
+      <SeccionClassroom
+        periodos={[]}
+        puedeClassroomConectar={true}
+        puedeClassroomPull={true}
+        classroomDisponible={true}
+      />
+    );
+
+    await waitFor(() => {
+      expect(screen.getByText(/Juan Pérez López/i)).toBeInTheDocument();
+      expect(screen.getByText(/María González/i)).toBeInTheDocument();
+    });
+  });
 });

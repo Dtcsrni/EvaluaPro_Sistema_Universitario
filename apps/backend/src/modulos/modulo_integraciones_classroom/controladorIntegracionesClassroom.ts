@@ -272,12 +272,13 @@ function responderCallbackHtml(res: Response, exito: boolean, mensaje: string) {
       try {
         window.open('', '_self', '');
         window.close();
-      } catch (e) {
-        window.close();
-      }
+      } catch (e) {}
+      try {
+        self.close();
+      } catch (e) {}
     }
 
-    ${exito ? 'setTimeout(() => { cerrar(); }, 1400);' : ''}
+    ${exito ? 'setTimeout(() => { cerrar(); }, 400);' : ''}
   </script>
 </body>
 </html>`;

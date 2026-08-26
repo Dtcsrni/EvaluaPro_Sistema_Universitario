@@ -204,6 +204,9 @@ export function SeccionClassroom({
         ? respuesta.cursos.filter((c) => !c.courseState || c.courseState.toUpperCase() === 'ACTIVE')
         : [];
       setCursos(lista);
+      if (lista.length === 1 && !courseIdSeleccionado) {
+        setCourseIdSeleccionado(lista[0].id);
+      }
       if (!silencioso) {
         emitToast({
           level: 'ok',
@@ -218,7 +221,7 @@ export function SeccionClassroom({
     } finally {
       setCargandoCursos(false);
     }
-  }, [classroomDisponible, puedeClassroomPull]);
+  }, [classroomDisponible, courseIdSeleccionado, puedeClassroomPull]);
 
   const cargarEstado = useCallback(async (silencioso = false) => {
     if (!puedeClassroomPull) return;
@@ -315,6 +318,14 @@ export function SeccionClassroom({
           ])
         )
       );
+      if (classroom.length > 0) {
+        emitToast({
+          level: 'ok',
+          title: 'Classroom',
+          message: `Se cargaron ${classroom.length} estudiantes del curso de Google Classroom.`,
+          durationMs: 3000
+        });
+      }
     } catch (error) {
       const msg = mensajeDeError(error, 'No se pudo cargar el mapeo de alumnos Classroom.');
       setMensaje(msg);
