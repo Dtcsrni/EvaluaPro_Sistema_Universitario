@@ -40,6 +40,8 @@
     "dev:frontend:alumno": "npm -C apps/frontend run dev:alumno",
     "dev:frontend:docente": "npm -C apps/frontend run dev:docente",
     "dev:frontend:wait": "node scripts/wait-api.mjs && npm -C apps/frontend run dev",
+    "zombi:clean": "node scripts/limpiar-procesos-zombi.mjs",
+    "dev:kill": "node scripts/limpiar-procesos-zombi.mjs",
     "docente:prod:native": "node scripts/start-docente-native.mjs",
     "icons:generate": "node scripts/icons/generate-all-icons.mjs",
     "licencia:master": "node scripts/generar-licencia-master.mjs",
