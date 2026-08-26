@@ -7,13 +7,13 @@
  * Sin estilos inline: Todos los estilos provienen de screens.css y components.css.
  */
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { clienteApi } from '../clienteApiDocente';
-import type { Periodo } from '../tipos';
-import { Boton } from '../../../ui/Boton';
-import { Icono } from '../../../ui/iconos';
-import { InlineMensaje } from '../../../ui/InlineMensaje';
-import { emitToast } from '../../../ui/toast/ToastProvider';
-import { mensajeDeError } from '../utilidadesAppDocente';
+import { clienteApi } from './clienteApiDocente';
+import type { Periodo } from './tipos';
+import { Boton } from '../../ui/ux/componentes/Boton';
+import { Icono } from '../../ui/iconos';
+import { InlineMensaje } from '../../ui/ux/componentes/InlineMensaje';
+import { emitToast } from '../../ui/toast/toastBus';
+import { mensajeDeError } from './utilidades';
 import { GuiaClassroomVisual } from './GuiaClassroomVisual';
 
 type ClassroomEstado = {
@@ -145,11 +145,11 @@ export function SeccionClassroom({
   // Auto-emparejar periodoId si el nombre coincide con el curso seleccionado
   useEffect(() => {
     if (!courseIdSeleccionado || periodos.length === 0) return;
-    const curso = cursos.find((c) => c.id === courseIdSeleccionado);
+    const curso = cursos.find((c: ClassroomCurso) => c.id === courseIdSeleccionado);
     if (!curso) return;
     const nombreNorm = normalizarBusqueda(curso.name);
     const coincidencia = periodos.find(
-      (p) => normalizarBusqueda(p.nombre) === nombreNorm || nombreNorm.includes(normalizarBusqueda(p.nombre))
+      (p: Periodo) => normalizarBusqueda(p.nombre) === nombreNorm || nombreNorm.includes(normalizarBusqueda(p.nombre))
     );
     if (coincidencia && periodoId !== coincidencia._id) {
       setPeriodoId(coincidencia._id);
@@ -169,7 +169,7 @@ export function SeccionClassroom({
   const alumnosClassroomFiltrados = useMemo(() => {
     const busqueda = normalizarBusqueda(busquedaAlumnos);
     if (!busqueda) return alumnosClassroom;
-    return alumnosClassroom.filter((fila) => {
+    return alumnosClassroom.filter((fila: ClassroomAlumnoCurso) => {
       const alumnoLocalId = mapeoEditable[fila.classroomUserId];
       const alumnoLocal = alumnoLocalId ? alumnosLocalesPorId.get(alumnoLocalId) : undefined;
       return [
@@ -256,7 +256,7 @@ export function SeccionClassroom({
       setActividades(lista);
       setEdicionActividades(
         Object.fromEntries(
-          lista.map((actividad) => [
+          lista.map((actividad: ClassroomActividad) => [
             actividad.id,
             {
               courseId,
@@ -294,7 +294,7 @@ export function SeccionClassroom({
       setAlumnosClassroom(classroom);
       setMapeoEditable(
         Object.fromEntries(
-          classroom.map((fila) => [
+          classroom.map((fila: ClassroomAlumnoCurso) => [
             fila.classroomUserId,
             String(fila.alumnoIdConfirmado ?? fila.alumnoIdSugerido ?? '')
           ])
@@ -663,7 +663,7 @@ export function SeccionClassroom({
               <span>Cuenta Google & Sesión</span>
             </span>
             <h3 className="entregas-title-heading">
-              <Icono nombre="seguridad" /> Vinculación de Cuenta Google
+              <Icono nombre="cuenta" /> Vinculación de Cuenta Google
             </h3>
             <p className="nota">
               {estado?.conectado
@@ -901,7 +901,7 @@ export function SeccionClassroom({
           )}
 
           <div className="lista lista--compacta" data-testid="classroom-actividades-lista">
-            {actividades.map((actividad) => {
+            {actividades.map((actividad: ClassroomActividad) => {
               const editable = edicionActividades[actividad.id] || {
                 courseId: courseIdSeleccionado,
                 courseWorkId: actividad.id,
@@ -920,6 +920,7 @@ export function SeccionClassroom({
                       <input
                         type="checkbox"
                         checked={seleccionada}
+                        aria-label={`Seleccionar ${actividad.title}`}
                         onChange={() => toggleActividad(actividad.id)}
                       />
                       <span className="checkbox-ui__box" aria-hidden="true" />
@@ -985,7 +986,7 @@ export function SeccionClassroom({
             <Boton
               type="button"
               variante="primario"
-              icono={<Icono nombre="sincronizar" />}
+              icono={<Icono nombre="recargar" />}
               disabled={ejecutando || cargandoActividades || actividades.length === 0}
               onClick={() => void ejecutarImportacion()}
             >

@@ -1,11 +1,11 @@
 # Inventario Exhaustivo de Codigo
 
-Fecha de generacion: 2026-08-26 06:51:48
+Fecha de generacion: 2026-08-26 13:19:54
 Fuente: git ls-files filtrado por existencia en workspace (solo archivos versionados presentes, excluye node_modules).
 
 ## Resumen
 
-- Total de piezas de codigo/config ejecutable inventariadas: 1265
+- Total de piezas de codigo/config ejecutable inventariadas: 1308
 - Extensiones incluidas: ts, tsx, js, jsx, mjs, cjs, json, yml, yaml, sh, cmd, ps1.
 
 ## Conteo por area
@@ -13,12 +13,12 @@ Fuente: git ls-files filtrado por existencia en workspace (solo archivos version
 | Area | Archivos |
 | --- | ---: |
 | backend | 415 |
-| frontend | 153 |
+| frontend | 167 |
 | portal_alumno_cloud | 67 |
 | ci | 17 |
-| scripts | 176 |
+| scripts | 177 |
 | ops | 3 |
-| docs | 276 |
+| docs | 304 |
 | raiz | 32 |
 
 ## Backend (apps/backend)
@@ -472,6 +472,18 @@ Fuente: git ls-files filtrado por existencia en workspace (solo archivos version
 - apps/frontend/src/apps/app_docente/features/plantillas/hooks/usePlantillasGeneradosActions.ts
 - apps/frontend/src/apps/app_docente/features/plantillas/hooks/usePlantillasOmrV1Actions.ts
 - apps/frontend/src/apps/app_docente/features/plantillas/hooks/usePlantillasPreviewActions.ts
+- apps/frontend/src/apps/app_docente/GuiaAlumnosVisual.tsx
+- apps/frontend/src/apps/app_docente/GuiaAsistenciasVisual.tsx
+- apps/frontend/src/apps/app_docente/GuiaBancoVisual.tsx
+- apps/frontend/src/apps/app_docente/GuiaCalificacionesVisual.tsx
+- apps/frontend/src/apps/app_docente/GuiaClassroomVisual.tsx
+- apps/frontend/src/apps/app_docente/GuiaCuentaVisual.tsx
+- apps/frontend/src/apps/app_docente/GuiaEntregaVisual.tsx
+- apps/frontend/src/apps/app_docente/GuiaEvaluacionesVisual.tsx
+- apps/frontend/src/apps/app_docente/GuiaMateriaVisual.tsx
+- apps/frontend/src/apps/app_docente/GuiaPlantillasVisual.tsx
+- apps/frontend/src/apps/app_docente/GuiaSincronizacionVisual.tsx
+- apps/frontend/src/apps/app_docente/GuiaTemariosVisual.tsx
 - apps/frontend/src/apps/app_docente/hooks/useEstadoSincronizacion.ts
 - apps/frontend/src/apps/app_docente/hooks/useOmrWorkflowState.ts
 - apps/frontend/src/apps/app_docente/hooks/usePermisosDocente.ts
@@ -488,6 +500,7 @@ Fuente: git ls-files filtrado por existencia en workspace (solo archivos version
 - apps/frontend/src/apps/app_docente/SeccionBanco.tsx
 - apps/frontend/src/apps/app_docente/SeccionCalificaciones.tsx
 - apps/frontend/src/apps/app_docente/SeccionCalificar.tsx
+- apps/frontend/src/apps/app_docente/SeccionClassroom.tsx
 - apps/frontend/src/apps/app_docente/SeccionCuenta.tsx
 - apps/frontend/src/apps/app_docente/SeccionEntregaInterna.tsx
 - apps/frontend/src/apps/app_docente/SeccionEscaneo.tsx
@@ -571,6 +584,7 @@ Fuente: git ls-files filtrado por existencia en workspace (solo archivos version
 - apps/frontend/tests/seccionAutenticacion.test.tsx
 - apps/frontend/tests/seccionCalificaciones.manualSelector.test.tsx
 - apps/frontend/tests/seccionCalificar.test.tsx
+- apps/frontend/tests/seccionClassroom.test.tsx
 - apps/frontend/tests/seccionCuenta.test.tsx
 - apps/frontend/tests/seccionEntrega.test.tsx
 - apps/frontend/tests/seccionEvaluaciones.test.tsx
@@ -805,6 +819,7 @@ Fuente: git ls-files filtrado por existencia en workspace (solo archivos version
 - scripts/testing/run-client-proyectos-vite-tests.mjs
 - scripts/testing/run-gate-with-report.mjs
 - scripts/testing/run-omr-tv-gate.mjs
+- scripts/testing/smoke-live-docente.mjs
 - scripts/testing/start-frontend-e2e-server.mjs
 - scripts/testing/validate-anon-fixture.mjs
 - scripts/tests/affected-ci-resolver.test.mjs
@@ -1118,6 +1133,34 @@ Fuente: git ls-files filtrado por existencia en workspace (solo archivos version
 - docs/handoff/sesiones/2026-08-23/sesion-2026-08-23T13-22-24.704Z.json
 - docs/handoff/sesiones/2026-08-23/sesion-2026-08-23T13-23-32.727Z.json
 - docs/handoff/sesiones/2026-08-23/sesion-2026-08-23T14-10-04.641Z.json
+- docs/handoff/sesiones/2026-08-26/sesion-2026-08-26T02-15-13.397Z.json
+- docs/handoff/sesiones/2026-08-26/sesion-2026-08-26T02-19-58.580Z.json
+- docs/handoff/sesiones/2026-08-26/sesion-2026-08-26T03-07-35.075Z.json
+- docs/handoff/sesiones/2026-08-26/sesion-2026-08-26T05-33-19.701Z.json
+- docs/handoff/sesiones/2026-08-26/sesion-2026-08-26T07-09-36.161Z.json
+- docs/handoff/sesiones/2026-08-26/sesion-2026-08-26T07-18-32.431Z.json
+- docs/handoff/sesiones/2026-08-26/sesion-2026-08-26T08-20-42.582Z.json
+- docs/handoff/sesiones/2026-08-26/sesion-2026-08-26T08-37-59.538Z.json
+- docs/handoff/sesiones/2026-08-26/sesion-2026-08-26T08-48-58.005Z.json
+- docs/handoff/sesiones/2026-08-26/sesion-2026-08-26T09-14-51.707Z.json
+- docs/handoff/sesiones/2026-08-26/sesion-2026-08-26T09-32-12.810Z.json
+- docs/handoff/sesiones/2026-08-26/sesion-2026-08-26T09-38-02.108Z.json
+- docs/handoff/sesiones/2026-08-26/sesion-2026-08-26T09-54-10.947Z.json
+- docs/handoff/sesiones/2026-08-26/sesion-2026-08-26T09-55-55.999Z.json
+- docs/handoff/sesiones/2026-08-26/sesion-2026-08-26T10-04-13.560Z.json
+- docs/handoff/sesiones/2026-08-26/sesion-2026-08-26T10-06-45.867Z.json
+- docs/handoff/sesiones/2026-08-26/sesion-2026-08-26T10-24-20.068Z.json
+- docs/handoff/sesiones/2026-08-26/sesion-2026-08-26T10-31-33.321Z.json
+- docs/handoff/sesiones/2026-08-26/sesion-2026-08-26T10-38-27.100Z.json
+- docs/handoff/sesiones/2026-08-26/sesion-2026-08-26T10-39-19.121Z.json
+- docs/handoff/sesiones/2026-08-26/sesion-2026-08-26T10-39-36.544Z.json
+- docs/handoff/sesiones/2026-08-26/sesion-2026-08-26T10-42-21.867Z.json
+- docs/handoff/sesiones/2026-08-26/sesion-2026-08-26T10-43-39.484Z.json
+- docs/handoff/sesiones/2026-08-26/sesion-2026-08-26T10-44-26.814Z.json
+- docs/handoff/sesiones/2026-08-26/sesion-2026-08-26T18-33-50.938Z.json
+- docs/handoff/sesiones/2026-08-26/sesion-2026-08-26T18-34-56.145Z.json
+- docs/handoff/sesiones/2026-08-26/sesion-2026-08-26T18-35-59.861Z.json
+- docs/handoff/sesiones/2026-08-26/sesion-2026-08-26T19-12-27.075Z.json
 - docs/handoff/trace.schema.json
 - docs/perf/baseline.business.json
 - docs/perf/baseline.json
