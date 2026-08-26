@@ -13,6 +13,7 @@ import { Boton } from '../../ui/ux/componentes/Boton';
 import { Icono } from '../../ui/iconos';
 import { InlineMensaje } from '../../ui/ux/componentes/InlineMensaje';
 import { emitToast } from '../../ui/toast/toastBus';
+import { useConfirmDialog } from '../../ui/feedback/ConfirmDialogProvider';
 import { mensajeDeError } from './utilidades';
 import { GuiaClassroomVisual } from './GuiaClassroomVisual';
 
@@ -128,6 +129,7 @@ export function SeccionClassroom({
   const [importandoAlumnos, setImportandoAlumnos] = useState(false);
   const [matriculasEditables, setMatriculasEditables] = useState<Record<string, string>>({});
   const [alumnosSeleccionadosImportar, setAlumnosSeleccionadosImportar] = useState<string[]>([]);
+  const confirm = useConfirmDialog();
   const [desconectando, setDesconectando] = useState(false);
   const [ejecutando, setEjecutando] = useState(false);
   const [mensaje, setMensaje] = useState('');
@@ -424,8 +426,62 @@ export function SeccionClassroom({
   }
 
   async function crearMateriaDesdeCurso() {
-    const curso = cursos.find((c) => c.id === courseIdSeleccionado);
+    const curso = cursos.find((c: ClassroomCurso) => c.id === courseIdSeleccionado);
     if (!curso) return;
+
+    // Verificar si ya existe una materia con nombre similar para evitar duplicados
+    const nombreNorm = normalizarBusqueda(curso.name);
+    const materiaExistente = periodos.find((p: Periodo) => normalizarBusqueda(p.nombre) === nombreNorm);
+
+    if (materiaExistente) {
+      const vincularConfirmado = await confirm({
+        title: 'Materia Existente Detectada',
+        message: `Ya existe la materia "${materiaExistente.nombre}" en EvaluaPro. ¿Deseas vincular este curso de Classroom a tu materia existente para evitar duplicaciones?`,
+        confirmLabel: '✓ Vincular a Materia Existente',
+        cancelLabel: 'Cancelar',
+        tone: 'default',
+        details: [
+          `📚 Materia existente en EvaluaPro: "${materiaExistente.nombre}"`,
+          '🛡️ Protección de datos: Se conservan intactos todos los alumnos, temarios y calificaciones previas.',
+          '🚫 No se crearán materias duplicadas.'
+        ]
+      });
+
+      if (vincularConfirmado) {
+        setPeriodoId(materiaExistente._id);
+        emitToast({
+          level: 'ok',
+          title: 'Materia Vinculada',
+          message: `Curso vinculado a "${materiaExistente.nombre}" sin duplicar datos.`
+        });
+      }
+      return;
+    }
+
+    // Confirmación explícita del docente para crear nueva materia
+    const confirmado = await confirm({
+      title: 'Confirmar Creación de Materia',
+      message: `¿Deseas crear la materia "${curso.name}" en EvaluaPro vinculada a este curso de Google Classroom?`,
+      confirmLabel: '✓ Confirmar y Crear Materia',
+      cancelLabel: 'Cancelar',
+      tone: 'default',
+      details: [
+        `📚 Nombre oficial: "${curso.name}"`,
+        '📅 Periodo cuatrimestral automático de 4 meses.',
+        '🛡️ Verificación de seguridad: No se sobreescribirá ni eliminará ninguna otra materia.',
+        '👥 Podrás cargar e importar la lista de alumnos inmediatamente.'
+      ]
+    });
+
+    if (!confirmado) {
+      emitToast({
+        level: 'info',
+        title: 'Operación Cancelada',
+        message: 'No se creó ninguna materia en EvaluaPro.'
+      });
+      return;
+    }
+
     setCreandoMateria(true);
     emitToast({ level: 'info', title: 'Materia', message: `Creando materia "${curso.name}" en EvaluaPro...` });
     try {

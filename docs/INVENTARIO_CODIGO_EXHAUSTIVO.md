@@ -1,11 +1,11 @@
 # Inventario Exhaustivo de Codigo
 
-Fecha de generacion: 2026-08-26 13:29:11
+Fecha de generacion: 2026-08-26 13:34:47
 Fuente: git ls-files filtrado por existencia en workspace (solo archivos versionados presentes, excluye node_modules).
 
 ## Resumen
 
-- Total de piezas de codigo/config ejecutable inventariadas: 1311
+- Total de piezas de codigo/config ejecutable inventariadas: 1313
 - Extensiones incluidas: ts, tsx, js, jsx, mjs, cjs, json, yml, yaml, sh, cmd, ps1.
 
 ## Conteo por area
@@ -16,9 +16,9 @@ Fuente: git ls-files filtrado por existencia en workspace (solo archivos version
 | frontend | 167 |
 | portal_alumno_cloud | 67 |
 | ci | 17 |
-| scripts | 177 |
+| scripts | 178 |
 | ops | 3 |
-| docs | 307 |
+| docs | 308 |
 | raiz | 32 |
 
 ## Backend (apps/backend)
@@ -770,6 +770,7 @@ Fuente: git ls-files filtrado por existencia en workspace (solo archivos version
 - scripts/launcher-dashboard.mjs
 - scripts/launcher-dashboard.ps1
 - scripts/launcher-tray.ps1
+- scripts/limpiar-procesos-zombi.mjs
 - scripts/ops-maintenance.ps1
 - scripts/perf-baseline.mjs
 - scripts/perf-check-business.mjs
@@ -1164,6 +1165,7 @@ Fuente: git ls-files filtrado por existencia en workspace (solo archivos version
 - docs/handoff/sesiones/2026-08-26/sesion-2026-08-26T19-18-46.542Z.json
 - docs/handoff/sesiones/2026-08-26/sesion-2026-08-26T19-19-56.318Z.json
 - docs/handoff/sesiones/2026-08-26/sesion-2026-08-26T19-21-15.171Z.json
+- docs/handoff/sesiones/2026-08-26/sesion-2026-08-26T19-29-11.479Z.json
 - docs/handoff/trace.schema.json
 - docs/perf/baseline.business.json
 - docs/perf/baseline.json

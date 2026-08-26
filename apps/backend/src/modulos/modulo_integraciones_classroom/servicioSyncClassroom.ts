@@ -859,6 +859,14 @@ export async function importarAlumnosClassroomAEvaluaPro(params: {
     throw new ErrorAplicacion('PERIODO_NO_ENCONTRADO', 'Materia no encontrada', 404);
   }
 
+  // Deduplicación previa del payload de entrada por classroomUserId
+  const alumnosUnicos = new Map<string, (typeof alumnos)[0]>();
+  for (const a of alumnos) {
+    if (a.classroomUserId && !alumnosUnicos.has(a.classroomUserId)) {
+      alumnosUnicos.set(a.classroomUserId, a);
+    }
+  }
+
   const existentes = await prisma.alumno.findMany({
     where: { periodoId }
   });
@@ -869,7 +877,7 @@ export async function importarAlumnosClassroomAEvaluaPro(params: {
   let creados = 0;
   let actualizados = 0;
 
-  for (const item of alumnos) {
+  for (const item of alumnosUnicos.values()) {
     const rawName = normalizarTexto(item.fullName) || 'Estudiante Classroom';
     const rawEmail = normalizarTexto(item.emailAddress || '').toLowerCase() || `${item.classroomUserId}@classroom.google.com`;
     const matriculaLimpia = normalizarTexto(item.matricula || '');
@@ -877,6 +885,7 @@ export async function importarAlumnosClassroomAEvaluaPro(params: {
     let alumno = porCorreo.get(rawEmail) || porNombre.get(rawName.toLowerCase());
 
     if (alumno) {
+      // Si el alumno ya existe, NUNCA se duplica ni se borra; solo se actualiza matrícula si el docente la proveyó
       if (matriculaLimpia && alumno.matricula !== matriculaLimpia) {
         alumno = await prisma.alumno.update({
           where: { id: alumno.id },
@@ -901,6 +910,9 @@ export async function importarAlumnosClassroomAEvaluaPro(params: {
         }
       });
       creados++;
+      // Indexar inmediatamente en mapas locales para evitar duplicados en la misma transacción
+      porCorreo.set(rawEmail, alumno);
+      porNombre.set(rawName.toLowerCase(), alumno);
     }
 
     if (alumno && item.classroomUserId) {
@@ -923,7 +935,8 @@ export async function importarAlumnosClassroomAEvaluaPro(params: {
   return {
     creados,
     actualizados,
-    totalProcesados: alumnos.length,
+    conservados: existentes.length,
+    totalProcesados: alumnosUnicos.size,
     roster: rosterActualizado
   };
 }
