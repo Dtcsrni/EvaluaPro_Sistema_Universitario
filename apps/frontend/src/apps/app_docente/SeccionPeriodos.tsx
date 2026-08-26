@@ -14,6 +14,8 @@ import { InlineMensaje } from '../../ui/ux/componentes/InlineMensaje';
 import { GuiaMateriaVisual } from './GuiaMateriaVisual';
 import { registrarAccionDocente } from './telemetriaDocente';
 import type { EnviarConPermiso, Periodo, PermisosUI } from './tipos';
+import { clienteApi } from './clienteApiDocente';
+import { obtenerTokenDocente } from '../../servicios_api/clienteApi';
 import { esMensajeError, etiquetaMateria, idCortoMateria, mensajeDeError, patronNombreMateria } from './utilidades';
 
 export function SeccionPeriodos({
@@ -82,15 +84,7 @@ export function SeccionPeriodos({
       .replace(/\s+/g, ' ');
   }
 
-  function obtenerInicialesMateria(nombreMateria?: string): string {
-    const palabras = String(nombreMateria || '').trim().split(/\s+/);
-    if (palabras.length === 1) {
-      return palabras[0].substring(0, 2).toUpperCase() || 'MA';
-    }
-    const primera = palabras[0].charAt(0);
-    const segunda = palabras[1].charAt(0);
-    return (primera + segunda).toUpperCase() || 'MA';
-  }
+
 
   function calcularProgresoPeriodo(fechaInicio?: string, fechaFin?: string): {
     porcentaje: number;
@@ -424,14 +418,47 @@ export function SeccionPeriodos({
     }
   }
 
-  function descargarListaInstitucional(periodo: Periodo, formato: 'xlsx' | 'pdf') {
-    const params = new URLSearchParams({
-      periodoId: periodo._id,
-      templateId: 'asistencia_cuh_control',
-      formato
+  async function descargarListaInstitucional(periodo: Periodo, formato: 'xlsx' | 'pdf') {
+    emitToast({
+      level: 'info',
+      title: 'Generando Lista',
+      message: `Descargando lista institucional en formato ${formato.toUpperCase()}...`
     });
-    window.open(`/api/listas-institucionales/generar?${params.toString()}`, '_blank', 'noopener,noreferrer');
-    registrarAccionDocente(`descargar_lista_cuh_${formato}`, true);
+    try {
+      const token = obtenerTokenDocente();
+      const params = new URLSearchParams({
+        periodoId: periodo._id,
+        templateId: 'asistencia_cuh_control',
+        formato,
+        ...(token ? { token } : {})
+      });
+      const url = `${clienteApi.baseApi}/listas-institucionales/generar?${params.toString()}`;
+      const res = await fetch(url, {
+        headers: token ? { Authorization: `Bearer ${token}` } : {}
+      });
+      if (!res.ok) {
+        const errJson = await res.json().catch(() => ({}));
+        throw new Error(errJson.error?.mensaje || 'Error al generar la lista institucional');
+      }
+      const blob = await res.blob();
+      const downloadUrl = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = downloadUrl;
+      a.download = `Lista_${(periodo.nombre || 'Materia').replace(/[^a-zA-Z0-9_-]/g, '_')}.${formato}`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      window.URL.revokeObjectURL(downloadUrl);
+      emitToast({
+        level: 'ok',
+        title: 'Lista Descargada',
+        message: `Lista institucional ${formato.toUpperCase()} descargada con éxito.`
+      });
+      registrarAccionDocente(`descargar_lista_cuh_${formato}`, true);
+    } catch (err) {
+      const msg = mensajeDeError(err, 'No se pudo descargar la lista institucional.');
+      emitToast({ level: 'error', title: 'Error de Descarga', message: msg });
+    }
   }
 
   return (
@@ -655,7 +682,6 @@ export function SeccionPeriodos({
           <ul className="lista lista-items materias-lista">
             {periodos.map((periodo) => {
               const progreso = calcularProgresoPeriodo(periodo.fechaInicio, periodo.fechaFin);
-              const iniciales = obtenerInicialesMateria(periodo.nombre);
               return (
                 <li key={periodo._id} className="anim-slide-up">
                   <div className="item-glass materias-lista__item anim-card-hover">
@@ -679,28 +705,26 @@ export function SeccionPeriodos({
                             {nombreEdicionDuplicado && (
                               <InlineMensaje tipo="error">Ya existe una materia activa con ese nombre.</InlineMensaje>
                             )}
-                            <label className="campo">
-                              <span>Fecha inicio</span>
-                              <div className="auth-input-box auth-input-box--calendar auth-input-box--animated">
+                            <div className="materias-fechas-grid">
+                              <label className="campo">
+                                <span>Fecha inicio</span>
                                 <input
                                   type="date"
                                   value={edicionFechaInicio}
                                   onChange={(event) => setEdicionFechaInicio(event.target.value)}
                                   disabled={!puedeGestionar || guardandoEdicionId === periodo._id}
                                 />
-                              </div>
-                            </label>
-                            <label className="campo">
-                              <span>Fecha fin</span>
-                              <div className="auth-input-box auth-input-box--calendar auth-input-box--animated">
+                              </label>
+                              <label className="campo">
+                                <span>Fecha fin</span>
                                 <input
                                   type="date"
                                   value={edicionFechaFin}
                                   onChange={(event) => setEdicionFechaFin(event.target.value)}
                                   disabled={!puedeGestionar || guardandoEdicionId === periodo._id}
                                 />
-                              </div>
-                            </label>
+                              </label>
+                            </div>
                             {edicionFechaInicio && edicionFechaFin && edicionFechaFin < edicionFechaInicio && (
                               <InlineMensaje tipo="error">La fecha fin debe ser igual o posterior a la fecha inicio.</InlineMensaje>
                             )}
@@ -724,7 +748,7 @@ export function SeccionPeriodos({
                             <div className="materia-card-header">
                               <div className="materia-title-group">
                                 <div className="materia-avatar" aria-hidden="true">
-                                  <span>{iniciales}</span>
+                                  <Icono nombre="periodos" />
                                 </div>
                                 <div>
                                   <div className="item-title" title={periodo._id}>
@@ -750,9 +774,7 @@ export function SeccionPeriodos({
                               </div>
                             </div>
                             <div className="item-meta materia-card-meta">
-                              <span className="materia-meta-tag">
-                                <span className="materia-meta-lbl">ID:</span> {idCortoMateria(periodo._id)}
-                              </span>
+                              
                               <span className="materia-meta-tag">
                                 <span className="materia-meta-lbl">Inicio:</span> {formatearFecha(periodo.fechaInicio)}
                               </span>

@@ -19,9 +19,7 @@ vi.mock('../src/ui/toast/toastBus', () => ({
 }));
 
 vi.mock('../src/ui/feedback/ConfirmDialogProvider', () => ({
-  useConfirmDialog: () => ({
-    confirm: vi.fn().mockResolvedValue(true)
-  })
+  useConfirmDialog: () => vi.fn().mockResolvedValue(true)
 }));
 
 const periodosMock: Periodo[] = [
