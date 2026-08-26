@@ -607,17 +607,19 @@ export function SeccionAlumnos({
           <InlineMensaje tipo="error">Correo no permitido por politicas. Usa un correo institucional.</InlineMensaje>
         )}
 
-        <div className="acciones alumnos-form__actions">
-          {!editandoId ? (
-            <Boton
-              type="button"
-              icono={<Icono nombre="nuevo" />}
-              cargando={creando}
-              disabled={!puedeCrear || bloqueoEdicion}
-              onClick={crearAlumno}
-            >
-              {creando ? 'Creando…' : 'Crear alumno'}
-            </Boton>
+        <div className="alumnos-form__footer">
+          <div className="acciones alumnos-form__actions">
+            {!editandoId ? (
+              <Boton
+                type="button"
+                variante="primario"
+                icono={<Icono nombre="nuevo" />}
+                cargando={creando}
+                disabled={!puedeCrear || bloqueoEdicion}
+                onClick={crearAlumno}
+              >
+                {creando ? 'Creando alumno…' : '✨ Crear Alumno'}
+              </Boton>
           ) : (
             <>
               <Boton
@@ -634,6 +636,10 @@ export function SeccionAlumnos({
               </Boton>
             </>
           )}
+          </div>
+          <div className="alumnos-form__hint">
+            <span>💡 Los alumnos registrados estarán disponibles de inmediato para el pase de lista y evaluación OMR.</span>
+          </div>
         </div>
       </section>
 

@@ -1413,3 +1413,15 @@ table tbody tr:last-child td,
 }
 
 
+
+/* Input Box with Icons inside .campo container */
+.campo .auth-input-box input,
+.campo .auth-input-box select {
+  padding-left: 2.85rem !important;
+  padding-right: 1.25rem !important;
+}
+
+.campo .auth-input-box select {
+  padding-right: 2.2rem !important;
+  cursor: pointer;
+}
