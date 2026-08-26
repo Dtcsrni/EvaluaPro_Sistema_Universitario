@@ -277,6 +277,13 @@ export function SeccionPeriodos({
     setEdicionFechaFin(formatearFechaInput(periodo.fechaFin));
     setEdicionGrupos(Array.isArray(periodo.grupos) ? periodo.grupos.join(', ') : '');
     setMensaje('');
+    emitToast({
+      level: 'info',
+      title: 'Editando Materia',
+      message: `Modificando datos de "${periodo.nombre}". Modifica los campos en la tarjeta.`,
+      durationMs: 3000
+    });
+    registrarAccionDocente('iniciar_edicion_periodo', true);
   }
 
   function cancelarEdicion() {

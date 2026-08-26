@@ -4,7 +4,7 @@
  * Responsabilidad: Seccion funcional del shell docente con diseno Bento Glassmorphic, iconografia rica y animaciones fluidas.
  * Limites: Conservar UX y permisos; extraer logica compleja a hooks/components.
  */
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { accionToastSesionParaError } from '../../servicios_api/clienteComun';
 import { useConfirmDialog } from '../../ui/feedback/ConfirmDialogProvider';
 import { emitToast } from '../../ui/toast/toastBus';
@@ -62,6 +62,9 @@ export function SeccionAlumnos({
   const [filtroGrupo, setFiltroGrupo] = useState('');
   const [resumenAsistencias, setResumenAsistencias] = useState<any[]>([]);
 
+  const formularioRef = useRef<HTMLElement>(null);
+  const matriculaInputRef = useRef<HTMLInputElement>(null);
+
   useEffect(() => {
     if (!periodoIdLista) {
       setResumenAsistencias([]);
@@ -90,7 +93,7 @@ export function SeccionAlumnos({
   const matriculaNormalizada = useMemo(() => normalizarMatricula(matricula), [matricula]);
   const matriculaValida = useMemo(() => {
     if (!matricula.trim()) return true;
-    return /^CUH\d{9}$/.test(matriculaNormalizada);
+    return /^CUH\d+$/i.test(matriculaNormalizada) || /^[\w\-.]{3,30}$/.test(matriculaNormalizada);
   }, [matricula, matriculaNormalizada]);
 
   const dominiosPermitidos = obtenerDominiosCorreoPermitidosFrontend();
@@ -274,6 +277,17 @@ export function SeccionAlumnos({
     setGrupo(alumno.grupo || '');
     setPeriodoIdNuevo(alumno.periodoId || '');
     setMensaje('');
+    emitToast({
+      level: 'info',
+      title: 'Modificando Alumno',
+      message: `Editando datos de ${alumno.nombreCompleto || 'alumno'}. Modifica los campos en el formulario.`,
+      durationMs: 3000
+    });
+    registrarAccionDocente('iniciar_edicion_alumno', true);
+    setTimeout(() => {
+      formularioRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      matriculaInputRef.current?.focus();
+    }, 60);
   }
 
   function cancelarEdicion() {
@@ -456,7 +470,7 @@ export function SeccionAlumnos({
       )}
 
       {/* Formulario Estructurado Panoramico de 2 Filas Claras */}
-      <section className="alumnos-form alumnos-form--glass alumnos-form--panoramico anim-form-card">
+      <section ref={formularioRef} className="alumnos-form alumnos-form--glass alumnos-form--panoramico anim-form-card">
         <div className="alumnos-form__header">
           <h3 className="alumnos-form__title">
             {editandoId ? '✏️ Modificar Alumno Seleccionado' : '✨ Registrar Nuevo Alumno'}
@@ -480,6 +494,7 @@ export function SeccionAlumnos({
               </span>
               <div className="auth-input-box auth-input-box--id auth-input-box--animated">
                 <input
+                  ref={matriculaInputRef}
                   value={matricula}
                   onChange={(event) => {
                     const valor = event.target.value;
