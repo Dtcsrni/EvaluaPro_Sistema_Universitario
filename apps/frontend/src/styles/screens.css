@@ -902,11 +902,12 @@
 .auth-input-box--calendar::before { content: '📅'; }
 .auth-input-box--tags::before { content: '🏷️'; }
 
-.auth-input-box input {
+.auth-input-box input,
+.auth-input-box select {
   width: 100%;
   min-height: 46px;
   border-radius: 12px;
-  padding: 0.7rem 2.5rem 0.7rem 2.45rem;
+  padding: 0.7rem 2.5rem 0.7rem 2.85rem;
   font-size: 0.95rem;
   border: 1.5px solid rgba(255, 255, 255, 0.12);
   background:
@@ -916,7 +917,18 @@
   transition: border-color 0.2s ease, box-shadow 0.2s ease, background 0.2s ease;
 }
 
-.auth-input-box input:focus {
+.auth-input-box select {
+  cursor: pointer;
+  padding-left: 2.85rem;
+}
+
+.auth-input-box select option {
+  background-color: var(--cardBg, #0f172a);
+  color: var(--texto, #f8fafc);
+}
+
+.auth-input-box input:focus,
+.auth-input-box select:focus {
   border-color: var(--campoBordeHover, #38bdf8);
   background:
     linear-gradient(145deg, rgba(56,189,248,0.04) 0%, transparent 100%),
@@ -2295,13 +2307,20 @@
   color: #1e293b;
 }
 
-:root:not([data-theme="dark"]) .auth-input-box input {
+:root:not([data-theme="dark"]) .auth-input-box input,
+:root:not([data-theme="dark"]) .auth-input-box select {
   background: #ffffff;
   border: 1.5px solid #cbd5e1;
   color: #0f172a;
 }
 
-:root:not([data-theme="dark"]) .auth-input-box input:focus {
+:root:not([data-theme="dark"]) .auth-input-box select option {
+  background-color: #ffffff;
+  color: #0f172a;
+}
+
+:root:not([data-theme="dark"]) .auth-input-box input:focus,
+:root:not([data-theme="dark"]) .auth-input-box select:focus {
   border-color: #0284c7;
   background: #ffffff;
   box-shadow: 0 0 0 3.5px rgba(14, 165, 233, 0.2);
@@ -2883,12 +2902,14 @@
 }
 :root:not([data-theme="dark"]) .chip-docente-name { color: var(--texto); }
 
-:root:not([data-theme="dark"]) .auth-input-box input {
+:root:not([data-theme="dark"]) .auth-input-box input,
+:root:not([data-theme="dark"]) .auth-input-box select {
   background: var(--campoBg, rgba(255,255,255,0.92));
   border-color: var(--campoBorde, rgba(148,163,184,0.45));
   color: var(--texto);
 }
-:root:not([data-theme="dark"]) .auth-input-box input:focus {
+:root:not([data-theme="dark"]) .auth-input-box input:focus,
+:root:not([data-theme="dark"]) .auth-input-box select:focus {
   border-color: var(--campoBordeHover, rgba(14,165,233,0.60));
   box-shadow: 0 0 0 3px rgba(14,165,233,0.16);
   background: rgba(255,255,255,0.98);
