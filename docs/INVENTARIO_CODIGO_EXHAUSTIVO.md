@@ -1,11 +1,11 @@
 # Inventario Exhaustivo de Codigo
 
-Fecha de generacion: 2026-08-26 17:43:20
+Fecha de generacion: 2026-08-26 17:45:51
 Fuente: git ls-files filtrado por existencia en workspace (solo archivos versionados presentes, excluye node_modules).
 
 ## Resumen
 
-- Total de piezas de codigo/config ejecutable inventariadas: 1330
+- Total de piezas de codigo/config ejecutable inventariadas: 1336
 - Extensiones incluidas: ts, tsx, js, jsx, mjs, cjs, json, yml, yaml, sh, cmd, ps1.
 
 ## Conteo por area
@@ -13,12 +13,12 @@ Fuente: git ls-files filtrado por existencia en workspace (solo archivos version
 | Area | Archivos |
 | --- | ---: |
 | backend | 415 |
-| frontend | 167 |
+| frontend | 172 |
 | portal_alumno_cloud | 67 |
 | ci | 17 |
 | scripts | 178 |
 | ops | 3 |
-| docs | 325 |
+| docs | 326 |
 | raiz | 32 |
 
 ## Backend (apps/backend)
@@ -465,8 +465,13 @@ Fuente: git ls-files filtrado por existencia en workspace (solo archivos version
 - apps/frontend/src/apps/app_docente/features/banco/hooks/useBancoAjustes.ts
 - apps/frontend/src/apps/app_docente/features/banco/hooks/useBancoPreguntas.ts
 - apps/frontend/src/apps/app_docente/features/banco/hooks/useBancoTemas.ts
+- apps/frontend/src/apps/app_docente/features/plantillas/components/GuiaDisenoExamenesVisual.tsx
+- apps/frontend/src/apps/app_docente/features/plantillas/components/GuiaGeneracionExamenesVisual.tsx
+- apps/frontend/src/apps/app_docente/features/plantillas/components/GuiaHistorialLotesVisual.tsx
+- apps/frontend/src/apps/app_docente/features/plantillas/components/PlantillasConsolaGeneracion.tsx
 - apps/frontend/src/apps/app_docente/features/plantillas/components/PlantillasFormulario.tsx
 - apps/frontend/src/apps/app_docente/features/plantillas/components/PlantillasGenerados.tsx
+- apps/frontend/src/apps/app_docente/features/plantillas/components/PlantillasHistorialLotes.tsx
 - apps/frontend/src/apps/app_docente/features/plantillas/components/PlantillasListado.tsx
 - apps/frontend/src/apps/app_docente/features/plantillas/components/PlantillasOmrWorkflow.tsx
 - apps/frontend/src/apps/app_docente/features/plantillas/hooks/usePlantillasGeneradosActions.ts
@@ -1183,6 +1188,7 @@ Fuente: git ls-files filtrado por existencia en workspace (solo archivos version
 - docs/handoff/sesiones/2026-08-26/sesion-2026-08-26T21-56-01.999Z.json
 - docs/handoff/sesiones/2026-08-26/sesion-2026-08-26T22-07-17.104Z.json
 - docs/handoff/sesiones/2026-08-26/sesion-2026-08-26T22-16-02.787Z.json
+- docs/handoff/sesiones/2026-08-26/sesion-2026-08-26T23-33-10.170Z.json
 - docs/handoff/trace.schema.json
 - docs/perf/baseline.business.json
 - docs/perf/baseline.json

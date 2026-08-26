@@ -13,7 +13,6 @@ import { GuiaHistorialLotesVisual } from './features/plantillas/components/GuiaH
 import { PlantillasConsolaGeneracion } from './features/plantillas/components/PlantillasConsolaGeneracion';
 import { PlantillasHistorialLotes } from './features/plantillas/components/PlantillasHistorialLotes';
 import { PlantillasFormulario } from './features/plantillas/components/PlantillasFormulario';
-import { PlantillasGenerados } from './features/plantillas/components/PlantillasGenerados';
 import { PlantillasListado } from './features/plantillas/components/PlantillasListado';
 import { PlantillasOmrWorkflow } from './features/plantillas/components/PlantillasOmrWorkflow';
 import {

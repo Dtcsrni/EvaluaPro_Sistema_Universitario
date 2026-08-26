@@ -65,7 +65,7 @@ function HarnessPlantillas({
 describe('plantillas refactor y navegación por pestañas (SPEC-034)', () => {
   it('renderiza encabezado principal y pestañas operativas', () => {
     render(<HarnessPlantillas />);
-    expect(screen.getByRole('heading', { name: /Diseño de Exámenes|Plantillas/i })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { level: 2, name: /Diseño de Exámenes/i })).toBeInTheDocument();
     expect(screen.getByRole('tab', { name: /Diseñar Exámenes/i })).toBeInTheDocument();
     expect(screen.getByRole('tab', { name: /Generar Paquete PDF\/OMR/i })).toBeInTheDocument();
     expect(screen.getByRole('tab', { name: /Historial de Lotes/i })).toBeInTheDocument();
@@ -87,7 +87,7 @@ describe('plantillas refactor y navegación por pestañas (SPEC-034)', () => {
 
     // Cambiar a Pestaña 3 (Historial)
     fireEvent.click(screen.getByRole('tab', { name: /Historial de Lotes/i }));
-    expect(screen.getByRole('heading', { name: /Exámenes generados/i })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { level: 3, name: /^Exámenes generados$/i })).toBeInTheDocument();
     expect(screen.getByText(/Custodia, Descargas y Trazabilidad OMR/i)).toBeInTheDocument();
     expect(screen.getByRole('heading', { name: /Flujo OMR V1/i })).toBeInTheDocument();
   });
