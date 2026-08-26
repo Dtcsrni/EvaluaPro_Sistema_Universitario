@@ -879,13 +879,21 @@ export async function importarAlumnosClassroomAEvaluaPro(params: {
 
   for (const item of alumnosUnicos.values()) {
     const rawName = normalizarTexto(item.fullName) || 'Estudiante Classroom';
-    const rawEmail = normalizarTexto(item.emailAddress || '').toLowerCase() || `${item.classroomUserId}@classroom.google.com`;
-    const matriculaLimpia = normalizarTexto(item.matricula || '');
+    const rawEmail = normalizarTexto(item.emailAddress || '').toLowerCase();
+    let matriculaLimpia = normalizarTexto(item.matricula || '');
 
-    let alumno = porCorreo.get(rawEmail) || porNombre.get(rawName.toLowerCase());
+    // Si el docente no ingresó matrícula manual, intentar extraerla si el correo institucional empieza con CUH
+    if (!matriculaLimpia && rawEmail.startsWith('cuh')) {
+      const userPart = rawEmail.split('@')[0];
+      if (userPart) {
+        matriculaLimpia = userPart.toUpperCase();
+      }
+    }
+
+    let alumno = (rawEmail ? porCorreo.get(rawEmail) : null) || porNombre.get(rawName.toLowerCase());
 
     if (alumno) {
-      // Si el alumno ya existe, NUNCA se duplica ni se borra; solo se actualiza matrícula si el docente la proveyó
+      // Si el alumno ya existe, NUNCA se duplica ni se borra; solo se actualiza matrícula si el docente la proveyó o se detectó CUH
       if (matriculaLimpia && alumno.matricula !== matriculaLimpia) {
         alumno = await prisma.alumno.update({
           where: { id: alumno.id },
@@ -898,20 +906,24 @@ export async function importarAlumnosClassroomAEvaluaPro(params: {
       const nombres = partes.slice(0, Math.max(1, partes.length - 2)).join(' ') || partes[0];
       const apellidos = partes.length > 1 ? partes.slice(-2).join(' ') : null;
 
+      const matriculaFinal = matriculaLimpia || item.classroomUserId;
+      const correoFinal = rawEmail || `${item.classroomUserId}@classroom.google.com`;
+
       alumno = await prisma.alumno.create({
         data: {
           periodoId,
-          matricula: matriculaLimpia || `EXP-${item.classroomUserId.slice(-4)}`,
+          matricula: matriculaFinal,
           nombreCompleto: rawName,
           nombres,
           apellidos,
-          correo: rawEmail,
+          correo: correoFinal,
           activo: true
         }
       });
       creados++;
       // Indexar inmediatamente en mapas locales para evitar duplicados en la misma transacción
-      porCorreo.set(rawEmail, alumno);
+      if (rawEmail) porCorreo.set(rawEmail, alumno);
+      porCorreo.set(correoFinal, alumno);
       porNombre.set(rawName.toLowerCase(), alumno);
     }
 

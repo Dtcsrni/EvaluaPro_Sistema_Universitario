@@ -19,7 +19,6 @@ import {
   esCorreoDeDominioPermitidoFrontend,
   esMensajeError,
   etiquetaMateria,
-  idCortoMateria,
   mensajeDeError,
   obtenerDominiosCorreoPermitidosFrontend,
   textoDominiosPermitidos
@@ -776,7 +775,10 @@ export function SeccionAlumnos({
                       {/* Información Principal */}
                       <div className="alumno-info">
                         <div className="item-title alumnos-lista-title-container">
-                          <span className="alumno-nombre">{alumno.matricula} - {alumno.nombreCompleto}</span>
+                          <span className="alumno-nombre">
+                            {alumno.matricula && !/^\d{15,}$/.test(alumno.matricula) ? `${alumno.matricula} - ` : ''}
+                            {alumno.nombreCompleto}
+                          </span>
                           {sinDerecho && (
                             <span className="badge badge-alerta badge-alerta-sin-derecho anim-pulse-fast">
                               ⚠️ SIN DERECHO (4 O MÁS FALTAS)
@@ -785,9 +787,11 @@ export function SeccionAlumnos({
                         </div>
 
                         <div className="item-meta alumnos-card__meta">
-                          <span className="alumno-meta-tag" data-tooltip="Identificador único del expediente">
-                            <span className="alumno-meta-lbl">ID:</span> {idCortoMateria(alumno._id)}
-                          </span>
+                          {alumno.matricula && !/^\d{15,}$/.test(alumno.matricula) && (
+                            <span className="alumno-meta-tag" data-tooltip="Matrícula del estudiante">
+                              <span className="alumno-meta-lbl">Matrícula:</span> {alumno.matricula}
+                            </span>
+                          )}
                           <span className="alumno-meta-tag" data-tooltip="Grupo asignado en la materia">
                             <span className="alumno-meta-lbl">Grupo:</span>{' '}
                             <span className={`badge badge-grupo ${claseBadgeGrupo(alumno.grupo || '')}`}>

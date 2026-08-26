@@ -1034,7 +1034,9 @@ export function SeccionClassroom({
 
             {alumnosClassroomFiltrados.map((fila: ClassroomAlumnoCurso) => {
               const estaSeleccionado = alumnosSeleccionadosImportar.includes(fila.classroomUserId);
-              const matriculaActual = matriculasEditables[fila.classroomUserId] ?? fila.alumnoConfirmado?.matricula ?? '';
+              const emailClean = String(fila.emailAddress || '').trim().toLowerCase();
+              const cuhMatriculaSugerida = emailClean.startsWith('cuh') ? emailClean.split('@')[0].toUpperCase() : '';
+              const matriculaActual = matriculasEditables[fila.classroomUserId] ?? fila.alumnoConfirmado?.matricula ?? cuhMatriculaSugerida ?? '';
               const estaEnEvaluaPro = Boolean(fila.alumnoConfirmado || fila.alumnoIdConfirmado);
 
               return (

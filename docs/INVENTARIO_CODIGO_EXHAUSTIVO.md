@@ -1,11 +1,11 @@
 # Inventario Exhaustivo de Codigo
 
-Fecha de generacion: 2026-08-26 14:05:13
+Fecha de generacion: 2026-08-26 14:10:26
 Fuente: git ls-files filtrado por existencia en workspace (solo archivos versionados presentes, excluye node_modules).
 
 ## Resumen
 
-- Total de piezas de codigo/config ejecutable inventariadas: 1316
+- Total de piezas de codigo/config ejecutable inventariadas: 1317
 - Extensiones incluidas: ts, tsx, js, jsx, mjs, cjs, json, yml, yaml, sh, cmd, ps1.
 
 ## Conteo por area
@@ -18,7 +18,7 @@ Fuente: git ls-files filtrado por existencia en workspace (solo archivos version
 | ci | 17 |
 | scripts | 178 |
 | ops | 3 |
-| docs | 311 |
+| docs | 312 |
 | raiz | 32 |
 
 ## Backend (apps/backend)
@@ -1169,6 +1169,7 @@ Fuente: git ls-files filtrado por existencia en workspace (solo archivos version
 - docs/handoff/sesiones/2026-08-26/sesion-2026-08-26T19-34-48.166Z.json
 - docs/handoff/sesiones/2026-08-26/sesion-2026-08-26T19-47-48.376Z.json
 - docs/handoff/sesiones/2026-08-26/sesion-2026-08-26T20-03-41.669Z.json
+- docs/handoff/sesiones/2026-08-26/sesion-2026-08-26T20-05-13.977Z.json
 - docs/handoff/trace.schema.json
 - docs/perf/baseline.business.json
 - docs/perf/baseline.json
