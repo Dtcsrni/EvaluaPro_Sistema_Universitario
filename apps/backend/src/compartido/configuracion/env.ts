@@ -7,12 +7,22 @@
 import dotenv from 'dotenv';
 import path from 'node:path';
 
+import fs from 'node:fs';
+
 export function cargarDotenvRaizSiAplica(entorno: string) {
   if (entorno === 'production' || entorno === 'test') return;
-  dotenv.config({
-    quiet: true,
-    path: path.resolve(__dirname, '..', '..', '..', '..', '.env')
-  });
+  const candidatos = [
+    path.resolve(process.cwd(), '.env'),
+    path.resolve(process.cwd(), '..', '.env'),
+    path.resolve(__dirname, '..', '..', '..', '..', '.env'),
+    path.resolve(__dirname, '..', '..', '..', '..', '..', '.env')
+  ];
+  for (const ruta of candidatos) {
+    if (fs.existsSync(ruta)) {
+      dotenv.config({ quiet: true, path: ruta });
+      break;
+    }
+  }
 }
 
 export function parsearNumeroSeguro(valor: unknown, porDefecto: number, { min, max }: { min?: number; max?: number } = {}) {

@@ -1,0 +1,284 @@
+{
+  "traceSchemaVersion": "1.0.0",
+  "sessionId": "sesion-2026-08-26T10-06-45.867Z",
+  "status": "draft",
+  "generatedAt": "2026-08-26T10:06:45.867Z",
+  "validationProfile": "quick",
+  "agent": {
+    "name": "unknown",
+    "version": "unknown",
+    "provider": "unknown",
+    "kind": "unknown",
+    "channel": "unknown"
+  },
+  "request": {
+    "summary": "Pendiente de completar por el agente."
+  },
+  "objective": "Pendiente de completar por el agente.",
+  "scope": [],
+  "constraints": [],
+  "actions": [
+    {
+      "type": "validation",
+      "summary": "Ejecucion de lint",
+      "timestamp": "2026-08-26T10:06:45.867Z",
+      "status": "omitido"
+    },
+    {
+      "type": "validation",
+      "summary": "Ejecucion de typecheck",
+      "timestamp": "2026-08-26T10:06:45.867Z",
+      "status": "omitido"
+    },
+    {
+      "type": "validation",
+      "summary": "Ejecucion de test_frontend_ci",
+      "timestamp": "2026-08-26T10:06:45.867Z",
+      "status": "omitido"
+    },
+    {
+      "type": "validation",
+      "summary": "Ejecucion de test_coverage_ci",
+      "timestamp": "2026-08-26T10:06:45.867Z",
+      "status": "omitido"
+    },
+    {
+      "type": "validation",
+      "summary": "Ejecucion de test_tdd_enforcement_ci",
+      "timestamp": "2026-08-26T10:06:45.867Z",
+      "status": "omitido"
+    },
+    {
+      "type": "validation",
+      "summary": "Ejecucion de test_backend_ci",
+      "timestamp": "2026-08-26T10:06:45.867Z",
+      "status": "omitido"
+    },
+    {
+      "type": "validation",
+      "summary": "Ejecucion de test_portal_ci",
+      "timestamp": "2026-08-26T10:06:45.867Z",
+      "status": "omitido"
+    },
+    {
+      "type": "validation",
+      "summary": "Ejecucion de perf_check",
+      "timestamp": "2026-08-26T10:06:45.867Z",
+      "status": "omitido"
+    },
+    {
+      "type": "validation",
+      "summary": "Ejecucion de pipeline_contract_check",
+      "timestamp": "2026-08-26T10:06:45.867Z",
+      "status": "ok"
+    },
+    {
+      "type": "validation",
+      "summary": "Ejecucion de docs_check",
+      "timestamp": "2026-08-26T10:06:45.867Z",
+      "status": "falla"
+    }
+  ],
+  "files": {
+    "read": [],
+    "changed": [
+      "CHANGELOG.md",
+      "apps/backend/reports/qa/latest/e2e-docente-alumno.json",
+      "apps/backend/reports/qa/latest/global-grade.json",
+      "apps/backend/reports/qa/latest/pdf-print.json",
+      "apps/backend/src/compartido/configuracion/env.ts",
+      "apps/backend/src/infraestructura/baseDatos/sqlite.ts",
+      "apps/backend/src/modulos/modulo_integraciones_classroom/controladorIntegracionesClassroom.ts",
+      "apps/frontend/dist-alumno/index.html",
+      "apps/frontend/reports/qa/latest/ux-visual.json",
+      "apps/frontend/src/apps/app_docente/AppDocente.tsx",
+      "apps/frontend/src/apps/app_docente/SeccionAlumnos.tsx",
+      "apps/frontend/src/apps/app_docente/SeccionAsistencias.tsx",
+      "apps/frontend/src/apps/app_docente/SeccionAutenticacion.tsx",
+      "apps/frontend/src/apps/app_docente/SeccionCalificaciones.tsx",
+      "apps/frontend/src/apps/app_docente/SeccionCalificar.tsx",
+      "apps/frontend/src/apps/app_docente/SeccionCuenta.tsx",
+      "apps/frontend/src/apps/app_docente/SeccionEntregaInterna.tsx",
+      "apps/frontend/src/apps/app_docente/SeccionEscaneo.tsx",
+      "apps/frontend/src/apps/app_docente/SeccionEvaluaciones.tsx",
+      "apps/frontend/src/apps/app_docente/SeccionPeriodos.tsx",
+      "apps/frontend/src/apps/app_docente/SeccionPlantillas.tsx",
+      "apps/frontend/src/apps/app_docente/SeccionRegistroEntrega.tsx",
+      "apps/frontend/src/apps/app_docente/SeccionSincronizacion.tsx",
+      "apps/frontend/src/apps/app_docente/SeccionTemarios.tsx",
+      "apps/frontend/src/apps/app_docente/ShellDocente.tsx",
+      "apps/frontend/src/apps/app_docente/features/banco/components/BancoFormularioPregunta.tsx",
+      "apps/frontend/src/apps/app_docente/features/banco/components/BancoGestionTemas.tsx",
+      "apps/frontend/src/apps/app_docente/features/banco/components/BancoListadoPreguntas.tsx",
+      "apps/frontend/src/apps/app_docente/features/plantillas/components/PlantillasFormulario.tsx",
+      "apps/frontend/src/apps/app_docente/features/plantillas/components/PlantillasGenerados.tsx",
+      "apps/frontend/src/apps/app_docente/features/plantillas/components/PlantillasListado.tsx",
+      "apps/frontend/src/apps/app_docente/hooks/usePermisosDocente.ts",
+      "apps/frontend/src/servicios_api/clienteApi.ts",
+      "apps/frontend/src/servicios_api/clienteComun.ts",
+      "apps/frontend/src/styles.css",
+      "apps/frontend/src/styles/components.css",
+      "apps/frontend/src/styles/screens.css",
+      "apps/frontend/src/ui/iconos.tsx",
+      "apps/frontend/src/ui/toast/ToastProvider.tsx",
+      "apps/frontend/src/ui/ux/tooltip/TooltipLayer.tsx",
+      "apps/frontend/src/ui/version/VersionInfoPage.tsx",
+      "apps/frontend/src/ui/version/versionInfo.ts",
+      "apps/frontend/tests/__snapshots__/ux.visual.test.tsx.snap",
+      "apps/frontend/tests/appDocente.test.tsx",
+      "apps/frontend/tests/seccionAutenticacion.test.tsx",
+      "apps/frontend/tests/seccionEvaluaciones.test.tsx",
+      "apps/frontend/tests/versionInfo.helpers.test.tsx",
+      "apps/frontend/tests/versionInfoPage.test.tsx",
+      "config/version-catalog.json",
+      "docs/ENGINEERING_BASELINE.md",
+      "docs/INVENTARIO_CODIGO_EXHAUSTIVO.md",
+      "docs/INVENTARIO_PROYECTO.md",
+      "docs/specs/installer_hub_layout_modernization.spec.md",
+      "package.json",
+      "packaging/wix/BurnBootstrapperApp/EvaluaProBootstrapperApplication.cs",
+      "packaging/wix/BurnBootstrapperApp/MainWindow.xaml",
+      "packaging/wix/BurnBootstrapperApp/MainWindow.xaml.cs",
+      "reports/qa/latest/clean-architecture.json",
+      "scripts/launcher-broker.ps1",
+      "scripts/serve-docente-static.mjs",
+      "scripts/tests/installer-hub-contract.test.mjs",
+      "apps/frontend/src/apps/app_docente/GuiaAlumnosVisual.tsx",
+      "apps/frontend/src/apps/app_docente/GuiaAsistenciasVisual.tsx",
+      "apps/frontend/src/apps/app_docente/GuiaBancoVisual.tsx",
+      "apps/frontend/src/apps/app_docente/GuiaCalificacionesVisual.tsx",
+      "apps/frontend/src/apps/app_docente/GuiaClassroomVisual.tsx",
+      "apps/frontend/src/apps/app_docente/GuiaCuentaVisual.tsx",
+      "apps/frontend/src/apps/app_docente/GuiaEntregaVisual.tsx",
+      "apps/frontend/src/apps/app_docente/GuiaEvaluacionesVisual.tsx",
+      "apps/frontend/src/apps/app_docente/GuiaMateriaVisual.tsx",
+      "apps/frontend/src/apps/app_docente/GuiaPlantillasVisual.tsx",
+      "apps/frontend/src/apps/app_docente/GuiaSincronizacionVisual.tsx",
+      "apps/frontend/src/apps/app_docente/GuiaTemariosVisual.tsx",
+      "apps/frontend/src/apps/app_docente/SeccionClassroom.tsx",
+      "apps/frontend/src/styles/screens.css.bak",
+      "apps/frontend/tests/seccionClassroom.test.tsx",
+      "docs/handoff/sesiones/2026-08-26/",
+      "docs/specs/guardrails-e2e-bootstrap.spec.md",
+      "evaluapro.db",
+      "scripts/testing/smoke-live-docente.mjs"
+    ],
+    "artifacts": [
+      "docs/handoff/sesiones/2026-08-26/sesion-2026-08-26T10-06-45.867Z.json",
+      "docs/handoff/sesiones/2026-08-26/sesion-2026-08-26T10-06-45.867Z.md"
+    ]
+  },
+  "commands": [
+    {
+      "name": "lint",
+      "command": "npm run lint",
+      "status": "omitido",
+      "exitCode": null,
+      "durationMs": 0,
+      "resultSummary": "omitido por perfil quick",
+      "timestamp": "2026-08-26T10:06:45.867Z"
+    },
+    {
+      "name": "typecheck",
+      "command": "npm run typecheck",
+      "status": "omitido",
+      "exitCode": null,
+      "durationMs": 0,
+      "resultSummary": "omitido por perfil quick",
+      "timestamp": "2026-08-26T10:06:45.867Z"
+    },
+    {
+      "name": "test_frontend_ci",
+      "command": "npm run test:frontend:ci",
+      "status": "omitido",
+      "exitCode": null,
+      "durationMs": 0,
+      "resultSummary": "omitido por perfil quick",
+      "timestamp": "2026-08-26T10:06:45.867Z"
+    },
+    {
+      "name": "test_coverage_ci",
+      "command": "npm run test:coverage:ci",
+      "status": "omitido",
+      "exitCode": null,
+      "durationMs": 0,
+      "resultSummary": "omitido por perfil quick",
+      "timestamp": "2026-08-26T10:06:45.867Z"
+    },
+    {
+      "name": "test_tdd_enforcement_ci",
+      "command": "npm run test:tdd:enforcement:ci",
+      "status": "omitido",
+      "exitCode": null,
+      "durationMs": 0,
+      "resultSummary": "omitido por perfil quick",
+      "timestamp": "2026-08-26T10:06:45.867Z"
+    },
+    {
+      "name": "test_backend_ci",
+      "command": "npm run test:backend:ci",
+      "status": "omitido",
+      "exitCode": null,
+      "durationMs": 0,
+      "resultSummary": "omitido por perfil quick",
+      "timestamp": "2026-08-26T10:06:45.867Z"
+    },
+    {
+      "name": "test_portal_ci",
+      "command": "npm run test:portal:ci",
+      "status": "omitido",
+      "exitCode": null,
+      "durationMs": 0,
+      "resultSummary": "omitido por perfil quick",
+      "timestamp": "2026-08-26T10:06:45.867Z"
+    },
+    {
+      "name": "perf_check",
+      "command": "npm run perf:check",
+      "status": "omitido",
+      "exitCode": null,
+      "durationMs": 0,
+      "resultSummary": "omitido por perfil quick",
+      "timestamp": "2026-08-26T10:06:45.867Z"
+    },
+    {
+      "name": "pipeline_contract_check",
+      "command": "npm run pipeline:contract:check",
+      "status": "ok",
+      "exitCode": 0,
+      "durationMs": 497,
+      "resultSummary": "> evaluapro@1.1.1 pipeline:contract:check | > node scripts/pipeline-contract-check.mjs | ✔ ext_perf_arquitectura prepara sharp antes de perf:check (2.2973ms) | ✔ ext_funcionales usa gate OMR TV generico con version configurable (0.7224ms) | ... | ℹ duration_ms 92.7332 | pipeline contract OK",
+      "timestamp": "2026-08-26T10:06:45.867Z"
+    },
+    {
+      "name": "docs_check",
+      "command": "npm run docs:check",
+      "status": "falla",
+      "exitCode": 1,
+      "durationMs": 1044,
+      "resultSummary": "> evaluapro@1.1.1 docs:check | > node scripts/docs.mjs --check | [docs] desactualizado: docs/AUTO_ENV.md | [docs] corre: npm run docs:generate",
+      "timestamp": "2026-08-26T10:06:45.867Z"
+    }
+  ],
+  "decisions": [],
+  "assumptions": [],
+  "risks": [],
+  "nextStep": "Pendiente de completar por el agente.",
+  "completion": {
+    "isComplete": false,
+    "pendingFields": [
+      "request.summary",
+      "objective",
+      "scope",
+      "decisions",
+      "risks",
+      "nextStep"
+    ]
+  },
+  "repo": {
+    "rootDir": "C:\\Users\\evega\\Documents\\EvaluaPro",
+    "branch": "feat/ux-redisenio-integral-1.1.1",
+    "commit": "d6b255d9",
+    "workingTreeStatus": "M CHANGELOG.md\n M apps/backend/reports/qa/latest/e2e-docente-alumno.json\n M apps/backend/reports/qa/latest/global-grade.json\n M apps/backend/reports/qa/latest/pdf-print.json\n M apps/backend/src/compartido/configuracion/env.ts\n M apps/backend/src/infraestructura/baseDatos/sqlite.ts\n M apps/backend/src/modulos/modulo_integraciones_classroom/controladorIntegracionesClassroom.ts\n M apps/frontend/dist-alumno/index.html\n M apps/frontend/reports/qa/latest/ux-visual.json\n M apps/frontend/src/apps/app_docente/AppDocente.tsx\n M apps/frontend/src/apps/app_docente/SeccionAlumnos.tsx\n M apps/frontend/src/apps/app_docente/SeccionAsistencias.tsx\n M apps/frontend/src/apps/app_docente/SeccionAutenticacion.tsx\n M apps/frontend/src/apps/app_docente/SeccionCalificaciones.tsx\n M apps/frontend/src/apps/app_docente/SeccionCalificar.tsx\n M apps/frontend/src/apps/app_docente/SeccionCuenta.tsx\n M apps/frontend/src/apps/app_docente/SeccionEntregaInterna.tsx\n M apps/frontend/src/apps/app_docente/SeccionEscaneo.tsx\n M apps/frontend/src/apps/app_docente/SeccionEvaluaciones.tsx\n M apps/frontend/src/apps/app_docente/SeccionPeriodos.tsx\n M apps/frontend/src/apps/app_docente/SeccionPlantillas.tsx\n M apps/frontend/src/apps/app_docente/SeccionRegistroEntrega.tsx\n M apps/frontend/src/apps/app_docente/SeccionSincronizacion.tsx\n M apps/frontend/src/apps/app_docente/SeccionTemarios.tsx\n M apps/frontend/src/apps/app_docente/ShellDocente.tsx\n M apps/frontend/src/apps/app_docente/features/banco/components/BancoFormularioPregunta.tsx\n M apps/frontend/src/apps/app_docente/features/banco/components/BancoGestionTemas.tsx\n M apps/frontend/src/apps/app_docente/features/banco/components/BancoListadoPreguntas.tsx\n M apps/frontend/src/apps/app_docente/features/plantillas/components/PlantillasFormulario.tsx\n M apps/frontend/src/apps/app_docente/features/plantillas/components/PlantillasGenerados.tsx\n M apps/frontend/src/apps/app_docente/features/plantillas/components/PlantillasListado.tsx\n M apps/frontend/src/apps/app_docente/hooks/usePermisosDocente.ts\n M apps/frontend/src/servicios_api/clienteApi.ts\n M apps/frontend/src/servicios_api/clienteComun.ts\n M apps/frontend/src/styles.css\n M apps/frontend/src/styles/components.css\n M apps/frontend/src/styles/screens.css\n M apps/frontend/src/ui/iconos.tsx\n M apps/frontend/src/ui/toast/ToastProvider.tsx\n M apps/frontend/src/ui/ux/tooltip/TooltipLayer.tsx\n M apps/frontend/src/ui/version/VersionInfoPage.tsx\n M apps/frontend/src/ui/version/versionInfo.ts\n M apps/frontend/tests/__snapshots__/ux.visual.test.tsx.snap\n M apps/frontend/tests/appDocente.test.tsx\n M apps/frontend/tests/seccionAutenticacion.test.tsx\n M apps/frontend/tests/seccionEvaluaciones.test.tsx\n M apps/frontend/tests/versionInfo.helpers.test.tsx\n M apps/frontend/tests/versionInfoPage.test.tsx\n M config/version-catalog.json\n M docs/ENGINEERING_BASELINE.md\n M docs/INVENTARIO_CODIGO_EXHAUSTIVO.md\n M docs/INVENTARIO_PROYECTO.md\n M docs/specs/installer_hub_layout_modernization.spec.md\n M package.json\n M packaging/wix/BurnBootstrapperApp/EvaluaProBootstrapperApplication.cs\n M packaging/wix/BurnBootstrapperApp/MainWindow.xaml\n M packaging/wix/BurnBootstrapperApp/MainWindow.xaml.cs\n M reports/qa/latest/clean-architecture.json\n M scripts/launcher-broker.ps1\n M scripts/serve-docente-static.mjs\n M scripts/tests/installer-hub-contract.test.mjs\n?? apps/frontend/src/apps/app_docente/GuiaAlumnosVisual.tsx\n?? apps/frontend/src/apps/app_docente/GuiaAsistenciasVisual.tsx\n?? apps/frontend/src/apps/app_docente/GuiaBancoVisual.tsx\n?? apps/frontend/src/apps/app_docente/GuiaCalificacionesVisual.tsx\n?? apps/frontend/src/apps/app_docente/GuiaClassroomVisual.tsx\n?? apps/frontend/src/apps/app_docente/GuiaCuentaVisual.tsx\n?? apps/frontend/src/apps/app_docente/GuiaEntregaVisual.tsx\n?? apps/frontend/src/apps/app_docente/GuiaEvaluacionesVisual.tsx\n?? apps/frontend/src/apps/app_docente/GuiaMateriaVisual.tsx\n?? apps/frontend/src/apps/app_docente/GuiaPlantillasVisual.tsx\n?? apps/frontend/src/apps/app_docente/GuiaSincronizacionVisual.tsx\n?? apps/frontend/src/apps/app_docente/GuiaTemariosVisual.tsx\n?? apps/frontend/src/apps/app_docente/SeccionClassroom.tsx\n?? apps/frontend/src/styles/screens.css.bak\n?? apps/frontend/tests/seccionClassroom.test.tsx\n?? docs/handoff/sesiones/2026-08-26/\n?? docs/specs/guardrails-e2e-bootstrap.spec.md\n?? evaluapro.db\n?? scripts/testing/smoke-live-docente.mjs"
+  }
+}

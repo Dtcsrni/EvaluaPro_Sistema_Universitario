@@ -86,7 +86,6 @@ describe('AppDocente', () => {
       </TemaProvider>
     );
 
-    await user.click(screen.getByRole('button', { name: /^Ingresar$/i }));
     fireEvent.change(screen.getByLabelText('Correo'), { target: { value: 'docente@evaluapro.test' } });
     fireEvent.change(screen.getByLabelText(/Contrase[nñ]a/i), { target: { value: '12345678' } });
 

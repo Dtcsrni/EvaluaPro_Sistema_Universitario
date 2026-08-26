@@ -17,6 +17,7 @@ import { SeccionCalificaciones } from './SeccionCalificaciones';
 import { SeccionRehidratacionLotes } from './SeccionRehidratacionLotes';
 import { SeccionSincronizacion } from './SeccionSincronizacion';
 import { SeccionEvaluaciones } from './SeccionEvaluaciones';
+import { SeccionClassroom } from './SeccionClassroom';
 import { SeccionAsistencias } from './SeccionAsistencias';
 import { SeccionTemarios } from './SeccionTemarios';
 import { usePermisosDocente } from './hooks/usePermisosDocente';
@@ -271,8 +272,8 @@ export function AppDocente() {
         requireGoogleOAuth={requireGoogleOAuth}
         passwordLoginAllowed={passwordLoginAllowed}
         primerUso={capacidadesIntegraciones?.primerUso}
-        onIngresar={(token) => {
-          guardarTokenDocente(token);
+        onIngresar={(token, persistente = true) => {
+          guardarTokenDocente(token, persistente);
           clienteApi
             .obtener<{ docente: Docente }>('/autenticacion/perfil')
             .then((payload) => setDocente(payload.docente));
@@ -290,6 +291,22 @@ export function AppDocente() {
         {itemsVista.map((item, idx) => (
           (() => {
             const activa = vista === item.id || (vista === 'periodos_archivados' && item.id === 'periodos');
+            const tooltipsMap: Record<string, string> = {
+              periodos: 'Configura materias, fechas lectivas y grupos',
+              periodos_archivados: 'Consulta materias archivadas de ciclos anteriores',
+              alumnos: 'Gestión de alumnos, matrícula y listas',
+              asistencias: 'Pase de lista diario y reportes institucionales',
+              temarios: 'Planeación didáctica y temas de estudio',
+              banco: 'Banco reactivo de preguntas y dificultad',
+              plantillas: 'Diseña exámenes impresos con códigos QR y burbujas OMR',
+              entrega: 'Control de entrega de exámenes impresos',
+              calificaciones: 'Escaneo óptico OMR de alta velocidad y notas',
+              evaluaciones: 'Criterios y rúbricas de evaluación continua',
+              classroom: 'Sincronización de cursos, alumnos y tareas de Google Classroom',
+              sincronizacion: 'Sincronización y respaldo local / nube',
+              cuenta: 'Perfil docente, licencia y preferencias'
+            };
+            const tooltipTexto = tooltipsMap[item.id] || `Ir a ${item.label}`;
             return (
           <button
             key={item.id}
@@ -299,6 +316,9 @@ export function AppDocente() {
             type="button"
             className={activa ? 'tab activa' : 'tab'}
             aria-current={activa ? 'page' : undefined}
+            data-tooltip={tooltipTexto}
+            title={tooltipTexto}
+            data-icono-tab={item.icono}
             onKeyDown={(event) => {
               if (event.key !== 'ArrowLeft' && event.key !== 'ArrowRight' && event.key !== 'Home' && event.key !== 'End') {
                 return;
@@ -324,7 +344,8 @@ export function AppDocente() {
           })()
         ))}
       </nav>
-      {cargandoDatos && (
+      <div className="shell-docente__main-col">
+        {cargandoDatos && (
         <div className="panel" aria-live="polite">
           <InlineMensaje tipo="info" leading={<Spinner />}>
             Cargando datos…
@@ -814,6 +835,13 @@ export function AppDocente() {
             periodos={periodos}
             alumnos={alumnos}
             puedeGestionar={permisosUI.evaluaciones.gestionar}
+          />
+        </div>
+      )}
+      {vista === 'classroom' && (
+        <div className="anim-fade-in">
+          <SeccionClassroom
+            periodos={periodos}
             puedeClassroomConectar={permisosUI.classroom.conectar}
             puedeClassroomPull={permisosUI.classroom.pull}
             classroomDisponible={classroomDisponible}
@@ -905,6 +933,7 @@ export function AppDocente() {
           />
         </div>
       )}
+      </div>
     </div>
   );
 

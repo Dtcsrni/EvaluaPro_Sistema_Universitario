@@ -61,7 +61,7 @@ function obtenerAyudas(target: HTMLElement) {
 
 function tooltipDesdeElemento(target: HTMLElement) {
   const data = target.getAttribute('data-tooltip');
-  const title = target.getAttribute('title');
+  const title = target.getAttribute('title') || target.getAttribute('data-ep-title');
   const aria = target.getAttribute('aria-label');
   const ayudaTextos = obtenerAyudas(target);
 
@@ -172,6 +172,12 @@ export function TooltipLayer() {
         targetRef.current = null;
         return;
       }
+      // Suprimir tooltip nativo del navegador para que no se duplique
+      if (target.hasAttribute('title')) {
+        const tVal = target.getAttribute('title') || '';
+        target.setAttribute('data-ep-title', tVal);
+        target.removeAttribute('title');
+      }
       targetRef.current = target;
       const info = preferCursor ? posicionPorCursor(texto) : posicionPorElemento(target);
       setState((prev) => ({
@@ -186,6 +192,11 @@ export function TooltipLayer() {
     };
 
     const ocultar = () => {
+      if (targetRef.current && targetRef.current.hasAttribute('data-ep-title')) {
+        const tVal = targetRef.current.getAttribute('data-ep-title') || '';
+        targetRef.current.setAttribute('title', tVal);
+        targetRef.current.removeAttribute('data-ep-title');
+      }
       targetRef.current = null;
       setState((prev) => ({ ...prev, visible: false }));
     };

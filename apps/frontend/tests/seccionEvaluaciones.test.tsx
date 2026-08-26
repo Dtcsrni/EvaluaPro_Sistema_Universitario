@@ -1,4 +1,4 @@
-﻿import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { describe, expect, it, vi, beforeEach } from 'vitest';
 import { SeccionEvaluaciones } from '../src/apps/app_docente/SeccionEvaluaciones';
 import { clienteApi } from '../src/apps/app_docente/clienteApiDocente';
@@ -74,7 +74,7 @@ describe('SeccionEvaluaciones', () => {
     });
     vi.mocked(clienteApi.enviar).mockResolvedValueOnce({});
 
-    const { rerender } = render(
+    render(
       <SeccionEvaluaciones
         periodos={periodosMock}
         alumnos={alumnosMock}
@@ -226,21 +226,13 @@ describe('SeccionEvaluaciones', () => {
         }
       });
 
-    const { rerender } = render(
+    render(
       <SeccionEvaluaciones
         periodos={periodosMock}
         alumnos={alumnosMock}
         puedeGestionar={true}
-        puedeClassroomConectar={true}
-        puedeClassroomPull={true}
-        classroomDisponible={true}
       />
     );
-
-    // Navegar a Classroom
-    const tabClassroom = screen.getByRole('button', { name: /classroom/i });
-    fireEvent.click(tabClassroom);
-    expect(screen.getByTestId('centro-classroom')).toBeInTheDocument();
 
     // Seleccionar alumno y consultar resumen
     const selectAlumno = screen.getByLabelText(/alumno/i);

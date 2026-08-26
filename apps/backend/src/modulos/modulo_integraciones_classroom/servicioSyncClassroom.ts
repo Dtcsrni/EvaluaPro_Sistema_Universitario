@@ -352,14 +352,16 @@ export async function obtenerEstadoClassroom(docenteId: string) {
 export async function listarCursosParaDocente(docenteId: string) {
   const accessToken = await obtenerTokenAccesoClassroom(docenteId);
   const courses = await listarCursosClassroom(accessToken);
-  return courses.map((course) => ({
-    id: normalizarTexto(course.id),
-    name: normalizarTexto(course.name),
-    section: normalizarTexto(course.section) || undefined,
-    descriptionHeading: normalizarTexto(course.descriptionHeading) || undefined,
-    updateTime: normalizarTexto(course.updateTime) || undefined,
-    courseState: normalizarTexto(course.courseState) || undefined
-  }));
+  return courses
+    .filter((course) => !course.courseState || String(course.courseState).trim().toUpperCase() === 'ACTIVE')
+    .map((course) => ({
+      id: normalizarTexto(course.id),
+      name: normalizarTexto(course.name),
+      section: normalizarTexto(course.section) || undefined,
+      descriptionHeading: normalizarTexto(course.descriptionHeading) || undefined,
+      updateTime: normalizarTexto(course.updateTime) || undefined,
+      courseState: normalizarTexto(course.courseState) || 'ACTIVE'
+    }));
 }
 
 export async function listarActividadesPorCurso(docenteId: string, courseId: string, periodoId?: string) {

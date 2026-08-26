@@ -263,6 +263,7 @@ export async function classroomGetAll<T extends Record<string, unknown>>(
 export async function listarCursosClassroom(accessToken: string): Promise<Array<Record<string, unknown>>> {
   return classroomGetAll<Record<string, unknown>>(accessToken, 'courses', 'courses', {
     teacherId: 'me',
+    courseStates: 'ACTIVE',
     pageSize: 100
   });
 }

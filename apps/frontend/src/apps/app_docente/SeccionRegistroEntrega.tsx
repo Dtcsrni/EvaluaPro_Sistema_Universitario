@@ -9,7 +9,6 @@ import { emitToast } from '../../ui/toast/toastBus';
 import { Icono, Spinner } from '../../ui/iconos';
 import { Boton } from '../../ui/ux/componentes/Boton';
 import { InlineMensaje } from '../../ui/ux/componentes/InlineMensaje';
-import { AyudaFormulario } from './AyudaFormulario';
 import { QrAccesoMovil } from './SeccionEscaneo';
 import { clienteApi } from './clienteApiDocente';
 import { registrarAccionDocente } from './telemetriaDocente';
@@ -838,372 +837,388 @@ export function SeccionRegistroEntrega({
   }
 
   return (
-    <div className="panel entregas-panel entregas-panel--registro">
-      <h2>
-        <Icono nombre="recepcion" /> Registro de entrega
-      </h2>
-      <AyudaFormulario titulo="Para que sirve y como llenarlo">
-        <p>
-          <b>Proposito:</b> vincular el folio del examen entregado (papel) con el alumno correcto. Esto evita errores al calificar.
-        </p>
-        <ul className="lista">
-          <li>
-            <b>Folio:</b> copialo exactamente del examen (o del QR).
-          </li>
-          <li>
-            <b>Alumno:</b> selecciona al alumno que entrego ese examen.
-          </li>
-        </ul>
-        <p>
-          Ejemplo: folio <code>FOLIO-000123</code> y alumno <code>2024-001 - Ana Maria</code>.
-        </p>
-      </AyudaFormulario>
-      <div className="subpanel guia-visual entregas-guia">
-        <h3>
-          <Icono nombre="recepcion" /> Guia rapida (movil o manual)
-        </h3>
-        <div className="guia-flujo" aria-hidden="true">
-          <Icono nombre="pdf" />
-          <Icono nombre="chevron" className="icono icono--muted" />
-          <Icono nombre="escaneo" />
-          <Icono nombre="chevron" className="icono icono--muted" />
-          <Icono nombre="alumno" />
-          <span>Examen a folio a alumno</span>
+    <div className="panel entregas-panel entregas-panel--registro anim-fade-in">
+      <div className="banco-section-title">
+        <div className="banco-section-title__wrap">
+          <span className="banco-section-pill">
+            <span className="banco-section-pill__dot" aria-hidden="true" />
+            <span>Mesa de Recepción & Custodia</span>
+          </span>
+          <h2 className="entregas-title-heading"><Icono nombre="recepcion" /> Registro de entrega</h2>
+          <p className="nota">Vincula el folio físico del examen impreso con el alumno correspondiente mediante escaneo QR, lote de imágenes o captura directa.</p>
         </div>
-        <div className="guia-grid">
-          <QrAccesoMovil vista="entrega" />
-          <div className="item-glass guia-card">
-            <div className="guia-card__header">
-              <span className="chip chip-static" aria-hidden="true">
-                <Icono nombre="escaneo" /> Con movil
-              </span>
-            </div>
-            <ul className="guia-pasos">
-              <li className="guia-paso">
-                <span className="paso-num">1</span>
-                <div>
-                  <div className="paso-titulo">Abre la vista en el movil</div>
-                  <p className="nota">
-                    Si ya estas en movil, el QR no se muestra. Si estas en PC, escanea el QR para abrir esta vista en el telefono.
-                  </p>
-                </div>
-              </li>
-              <li className="guia-paso">
-                <span className="paso-num">2</span>
-                <div>
-                  <div className="paso-titulo">Escanea el QR del examen</div>
-                  <p className="nota">
-                    Usa la camara del celular (desde la app o la camara del sistema) para leer el folio.
-                  </p>
-                </div>
-              </li>
-              <li className="guia-paso">
-                <span className="paso-num">3</span>
-                <div>
-                  <div className="paso-titulo">Selecciona al alumno</div>
-                  <p className="nota">Vincula y confirma para evitar errores de calificacion.</p>
-                </div>
-              </li>
-            </ul>
-          </div>
-          <div className="item-glass guia-card">
-            <div className="guia-card__header">
-              <span className="chip chip-static" aria-hidden="true">
-                <Icono nombre="recepcion" /> Manual
-              </span>
-            </div>
-            <ul className="guia-pasos">
-              <li className="guia-paso">
-                <span className="paso-num">1</span>
-                <div>
-                  <div className="paso-titulo">Ubica el folio impreso</div>
-                  <p className="nota">Copialo tal cual aparece en la hoja.</p>
-                </div>
-              </li>
-              <li className="guia-paso">
-                <span className="paso-num">2</span>
-                <div>
-                  <div className="paso-titulo">Captura folio y alumno</div>
-                  <p className="nota">Elige el alumno correcto antes de vincular.</p>
-                </div>
-              </li>
-              <li className="guia-paso">
-                <span className="paso-num">3</span>
-                <div>
-                  <div className="paso-titulo">Vincula y guarda</div>
-                  <p className="nota">Confirma el mensaje de Entrega vinculada.</p>
-                </div>
-              </li>
-            </ul>
-          </div>
+        <div className="banco-section-side-meta">
+          <span className="banco-counter-tag">Alumnos: {alumnos.length}</span>
         </div>
       </div>
-      <div className="subpanel entregas-scan">
-        <div className="item-row">
-          <div>
-            <h3>Escaneo y captura</h3>
-            <p className="nota">Usa cámara en vivo, imagen única o lote de imágenes para acelerar la recepción.</p>
+
+      {/* Bento Grid: QR Móvil y Métodos de Captura */}
+      <div className="entregas-grid-layout">
+        {/* Tarjeta 1: QR Móvil de Acceso Rápido */}
+        <div className="item-glass entregas-qr-companion anim-card-hover">
+          <div className="entregas-qr-companion__header">
+            <span className="banco-section-pill">
+              <Icono nombre="escaneo" /> Conexión Móvil
+            </span>
           </div>
-          <div className="item-actions">
-            <Boton type="button" icono={<Icono nombre="escaneo" />} onClick={abrirCamara}>
-              Escanear QR del examen
-            </Boton>
+          <div className="entregas-qr-companion__body">
+            <QrAccesoMovil vista="entrega" />
+            <div className="entregas-qr-companion__info">
+              <h4 className="entregas-qr-companion__title">Escaneo desde Smartphone</h4>
+              <p className="nota">
+                Abre esta pantalla en tu dispositivo móvil escaneando el código QR para usar la cámara del teléfono como lector de códigos de alta velocidad.
+              </p>
+            </div>
           </div>
         </div>
-        {escaneando && (
-          <div className="item-glass guia-card entregas-scan__camera">
-            <div className="guia-card__header">
-              <span className="chip chip-static" aria-hidden="true">
-                <Icono nombre="escaneo" /> Camara activa
+
+        {/* Tarjeta 2: Escaneo y Captura de Archivos */}
+        <div className="item-glass entregas-scan-box anim-card-hover">
+          <div className="banco-section-title">
+            <div className="banco-section-title__wrap">
+              <span className="banco-section-pill">
+                <Icono nombre="escaneo" /> Captura Digital
               </span>
-              <Boton type="button" variante="secundario" onClick={detenerCamara}>
-                Cerrar camara
-              </Boton>
+              <h3>Escaneo y carga de imágenes</h3>
+              <p className="nota">Usa la cámara en vivo del equipo o procesa lotes de imágenes escaneadas.</p>
             </div>
-            <video ref={videoRef} autoPlay muted playsInline className="registro-entrega-video" />
-            <div className="nota">Apunta al QR del examen para capturar el folio.</div>
           </div>
-        )}
-        <input
-          ref={inputCamRef}
-          className="input-file-oculto"
-          aria-label="Capturar imagen para lectura de QR"
-          type="file"
-          accept="image/*"
-          onChange={(event) => {
-            const file = event.target.files?.[0];
-            if (!file) return;
-            void analizarQrDesdeImagen(file);
-            event.currentTarget.value = '';
-          }}
-        />
-        {scanError && (
-          <InlineMensaje tipo="warning">
-            {scanError}
-          </InlineMensaje>
-        )}
 
-        <label className="campo">
-          Lote de imagenes (bulk)
+          <div className="entregas-scan-actions">
+            <Boton
+              type="button"
+              icono={<Icono nombre="escaneo" />}
+              className="boton--glow"
+              onClick={abrirCamara}
+            >
+              {escaneando ? 'Cámara activa' : 'Escanear QR del examen'}
+            </Boton>
+          </div>
+
+          {escaneando && (
+            <div className="item-glass entregas-scan__camera anim-fade-in">
+              <div className="guia-card__header">
+                <span className="chip chip-static chip--active" aria-hidden="true">
+                  <span className="banco-pulse-dot" /> Cámara en vivo activa
+                </span>
+                <Boton type="button" variante="secundario" onClick={detenerCamara}>
+                  Cerrar cámara
+                </Boton>
+              </div>
+              <div className="entregas-video-wrapper">
+                <video ref={videoRef} autoPlay muted playsInline className="registro-entrega-video" />
+                <div className="entregas-video-crosshair" aria-hidden="true" />
+              </div>
+              <div className="nota">Apunta al código QR impreso en la cabecera del examen para capturar el folio.</div>
+            </div>
+          )}
+
           <input
+            ref={inputCamRef}
+            className="input-file-oculto"
+            aria-label="Capturar imagen para lectura de QR"
             type="file"
             accept="image/*"
-            multiple
-            disabled={bloqueoEdicion || procesandoLote}
             onChange={(event) => {
-              const archivos = Array.from(event.currentTarget.files ?? []);
-              if (archivos.length > 0) {
-                void procesarLoteImagenes(archivos);
-              }
+              const file = event.target.files?.[0];
+              if (!file) return;
+              void analizarQrDesdeImagen(file);
               event.currentTarget.value = '';
             }}
           />
-        </label>
 
-        <label className="campo">
-          Carpeta de imagenes (bulk)
-          <input
-            ref={inputCarpetaRef}
-            type="file"
-            accept="image/*"
-            multiple
-            disabled={bloqueoEdicion || procesandoLote}
-            {...({ webkitdirectory: 'true', directory: 'true' } as unknown as Record<string, string>)}
-            onChange={(event) => {
-              const archivos = Array.from(event.currentTarget.files ?? []).filter((f) => /^image\//i.test(String(f.type || '')));
-              if (archivos.length > 0) {
-                void procesarLoteImagenes(archivos);
-              }
-              event.currentTarget.value = '';
-            }}
-          />
-        </label>
-        {procesandoLote && (
-          <p className="mensaje" role="status">
-            <Spinner /> Procesando lote de imagenes…
-          </p>
-        )}
-        {resultadosLote.length > 0 && (
-          <div className="resultado">
-            <h3>Resultado del lote</h3>
-            {itemMesaActual && (
-              <div className="item-glass entregas-vinculacion__item">
-                <div className="item-row">
-                  <div>
-                    <div className="item-title">Mesa de trabajo · {indiceMesaTrabajo + 1}/{idsPendientesMesa.length}</div>
-                    <div className="item-sub">{itemMesaActual.nombre}</div>
-                    {itemMesaActual.folio && <div className="item-sub">Folio: {itemMesaActual.folio}</div>}
-                    {itemMesaActual.mensaje && <div className="item-sub">{itemMesaActual.mensaje}</div>}
+          {scanError && (
+            <InlineMensaje tipo="warning">
+              {scanError}
+            </InlineMensaje>
+          )}
+
+          <div className="entregas-dropzones-row">
+            <label className="campo entregas-dropzone">
+              <span className="entregas-dropzone__label">
+                <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+                Lote de imágenes (bulk)
+              </span>
+              <input
+                type="file"
+                accept="image/*"
+                multiple
+                disabled={bloqueoEdicion || procesandoLote}
+                onChange={(event) => {
+                  const archivos = Array.from(event.currentTarget.files ?? []);
+                  if (archivos.length > 0) {
+                    void procesarLoteImagenes(archivos);
+                  }
+                  event.currentTarget.value = '';
+                }}
+              />
+            </label>
+
+            <label className="campo entregas-dropzone">
+              <span className="entregas-dropzone__label">
+                <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>
+                Carpeta completa de imágenes
+              </span>
+              <input
+                ref={inputCarpetaRef}
+                type="file"
+                accept="image/*"
+                multiple
+                disabled={bloqueoEdicion || procesandoLote}
+                {...({ webkitdirectory: 'true', directory: 'true' } as unknown as Record<string, string>)}
+                onChange={(event) => {
+                  const archivos = Array.from(event.currentTarget.files ?? []).filter((f) => /^image\//i.test(String(f.type || '')));
+                  if (archivos.length > 0) {
+                    void procesarLoteImagenes(archivos);
+                  }
+                  event.currentTarget.value = '';
+                }}
+              />
+            </label>
+          </div>
+
+          {procesandoLote && (
+            <p className="mensaje anim-pulse" role="status">
+              <Spinner /> Procesando lote de imágenes y reconociendo QR/OCR…
+            </p>
+          )}
+        </div>
+      </div>
+
+      {/* Mesa de Trabajo de Resultados de Lote */}
+      {resultadosLote.length > 0 && (
+        <div className="item-glass entregas-mesa-container anim-fade-in">
+          <div className="banco-section-header">
+            <div className="banco-section-meta">
+              <span className="banco-section-pill">
+                <span className="banco-pulse-dot" aria-hidden="true" />
+                <span>Mesa de Trabajo OMR</span>
+              </span>
+              <span className="banco-counter-tag">Total: {resultadosLote.length}</span>
+              <span className="banco-counter-tag banco-counter-tag--emerald">
+                Vinculados: {resultadosLote.filter((r) => r.estado === 'vinculado').length}
+              </span>
+              <span className="banco-counter-tag banco-counter-tag--amber">
+                Pendientes: {idsPendientesMesa.length}
+              </span>
+            </div>
+            <h3 className="banco-section-title">Resultados del lote de escaneo</h3>
+          </div>
+
+          {itemMesaActual && (
+            <div className="entregas-vinculacion__item anim-card-hover">
+              <div className="item-row entregas-mesa-head">
+                <div>
+                  <div className="item-title">
+                    Mesa de trabajo · <span className="banco-highlight">{indiceMesaTrabajo + 1} de {idsPendientesMesa.length}</span>
                   </div>
-                </div>
-                {(itemMesaActual.previewEncabezadoUrl || itemMesaActual.previewUrl) && (
-                  <div className="entregas-vinculacion__preview">
-                    <div className="item-row entregas-vinculacion__preview-header">
-                      <div className="item-sub">
-                        {verHojaCompletaMesa ? 'Hoja completa' : 'Encabezado del examen (vista ampliada)'}
-                      </div>
-                      <div className="item-actions">
-                        <Boton
-                          type="button"
-                          variante="secundario"
-                          onClick={() => setVerHojaCompletaMesa((v) => !v)}
-                        >
-                          {verHojaCompletaMesa ? 'Ver encabezado' : 'Ver hoja completa'}
-                        </Boton>
-                      </div>
-                    </div>
-                    <img
-                      src={verHojaCompletaMesa
-                        ? itemMesaActual.previewUrl
-                        : (itemMesaActual.previewEncabezadoUrl || itemMesaActual.previewUrl)}
-                      alt={verHojaCompletaMesa ? `Captura completa ${itemMesaActual.nombre}` : `Encabezado ${itemMesaActual.nombre}`}
-                      className="entregas-vinculacion__preview-image"
-                    />
-                  </div>
-                )}
-                <div className="entregas-vinculacion__form entregas-vinculacion__form--spaced">
-                  <label className="campo">
-                    Alumno
-                    <select
-                      value={String(itemMesaActual.alumnoId ?? '')}
-                      onChange={(event) => actualizarItemLote(itemMesaActual.id, { alumnoId: event.target.value })}
-                      disabled={bloqueoEdicion || procesandoLote}
-                    >
-                      <option value="">Selecciona</option>
-                      {alumnos.map((alumno) => (
-                        <option key={alumno._id} value={alumno._id}>
-                          {alumno.matricula} - {alumno.nombreCompleto}
-                        </option>
-                      ))}
-                    </select>
-                  </label>
-                  <label className="campo entregas-vinculacion__checkbox-field">
-                    <span>Acordeón entregado</span>
-                    <label className="entregas-vinculacion__checkbox-label">
-                      <input
-                        type="checkbox"
-                        checked={Boolean(itemMesaActual.acordeonEntregado)}
-                        onChange={(event) =>
-                          actualizarItemLote(itemMesaActual.id, {
-                            acordeonEntregado: event.target.checked,
-                            bonoAcordeon: BONUS_ACORDEON
-                          })
-                        }
-                        disabled={bloqueoEdicion || procesandoLote}
-                      />
-                      <span>Aplicar +{BONUS_ACORDEON.toFixed(2)} en calificación de examen</span>
-                    </label>
-                  </label>
-                </div>
-                <div className="item-actions entregas-vinculacion__nav">
-                  <Boton
-                    type="button"
-                    variante="secundario"
-                    disabled={bloqueoEdicion || procesandoLote || indiceMesaTrabajo <= 0}
-                    onClick={() => setIndiceMesaTrabajo((actual) => Math.max(0, actual - 1))}
-                  >
-                    Anterior
-                  </Boton>
-                  <Boton
-                    type="button"
-                    icono={<Icono nombre="recepcion" />}
-                    disabled={bloqueoEdicion || procesandoLote || !itemMesaActual.folio || !itemMesaActual.alumnoId}
-                    onClick={() => void vincularItemMesaTrabajoActual()}
-                  >
-                    Vincular y continuar
-                  </Boton>
-                  <Boton
-                    type="button"
-                    variante="secundario"
-                    disabled={bloqueoEdicion || procesandoLote || indiceMesaTrabajo >= idsPendientesMesa.length - 1}
-                    onClick={() => setIndiceMesaTrabajo((actual) => Math.min(idsPendientesMesa.length - 1, actual + 1))}
-                  >
-                    Siguiente
-                  </Boton>
+                  <div className="item-sub">Archivo: <strong>{itemMesaActual.nombre}</strong></div>
+                  {itemMesaActual.folio && <div className="item-sub">Folio detectado: <span className="chip chip-static">{itemMesaActual.folio}</span></div>}
+                  {itemMesaActual.mensaje && <div className="item-sub">{itemMesaActual.mensaje}</div>}
                 </div>
               </div>
-            )}
-            <div className="item-actions">
-              {resultadosLote.some((item) => item.estado === 'error') && (
+
+              {(itemMesaActual.previewEncabezadoUrl || itemMesaActual.previewUrl) && (
+                <div className="entregas-vinculacion__preview">
+                  <div className="item-row entregas-vinculacion__preview-header">
+                    <div className="item-sub">
+                      {verHojaCompletaMesa ? 'Hoja completa' : 'Encabezado del examen (vista ampliada)'}
+                    </div>
+                    <div className="item-actions">
+                      <Boton
+                        type="button"
+                        variante="secundario"
+                        onClick={() => setVerHojaCompletaMesa((v) => !v)}
+                      >
+                        {verHojaCompletaMesa ? 'Ver encabezado' : 'Ver hoja completa'}
+                      </Boton>
+                    </div>
+                  </div>
+                  <img
+                    src={verHojaCompletaMesa
+                      ? itemMesaActual.previewUrl
+                      : (itemMesaActual.previewEncabezadoUrl || itemMesaActual.previewUrl)}
+                    alt={verHojaCompletaMesa ? `Captura completa ${itemMesaActual.nombre}` : `Encabezado ${itemMesaActual.nombre}`}
+                    className="entregas-vinculacion__preview-image"
+                  />
+                </div>
+              )}
+
+              <div className="entregas-vinculacion__form entregas-vinculacion__form--spaced">
+                <label className="campo">
+                  Alumno asignado
+                  <select
+                    value={String(itemMesaActual.alumnoId ?? '')}
+                    onChange={(event) => actualizarItemLote(itemMesaActual.id, { alumnoId: event.target.value })}
+                    disabled={bloqueoEdicion || procesandoLote}
+                  >
+                    <option value="">Selecciona un alumno...</option>
+                    {alumnos.map((alumno) => (
+                      <option key={alumno._id} value={alumno._id}>
+                        {alumno.matricula} - {alumno.nombreCompleto} ({alumno.grupo || 'Sin grupo'})
+                      </option>
+                    ))}
+                  </select>
+                </label>
+
+                <label className="campo entregas-vinculacion__checkbox-field">
+                  <span>Bono de acordeón de estudio</span>
+                  <label className="entregas-vinculacion__checkbox-label">
+                    <input
+                      type="checkbox"
+                      checked={Boolean(itemMesaActual.acordeonEntregado)}
+                      onChange={(event) =>
+                        actualizarItemLote(itemMesaActual.id, {
+                          acordeonEntregado: event.target.checked,
+                          bonoAcordeon: BONUS_ACORDEON
+                        })
+                      }
+                      disabled={bloqueoEdicion || procesandoLote}
+                    />
+                    <span>Aplicar bono de +{BONUS_ACORDEON.toFixed(2)} en calificación oficial</span>
+                  </label>
+                </label>
+              </div>
+
+              <div className="item-actions entregas-vinculacion__nav">
                 <Boton
                   type="button"
                   variante="secundario"
-                  disabled={procesandoLote}
-                  onClick={() => void reintentarErroresLote()}
+                  disabled={bloqueoEdicion || procesandoLote || indiceMesaTrabajo <= 0}
+                  onClick={() => setIndiceMesaTrabajo((actual) => Math.max(0, actual - 1))}
                 >
-                  Reintentar solo errores ({resultadosLote.filter((item) => item.estado === 'error').length})
+                  ◀ Anterior
                 </Boton>
-              )}
+                <Boton
+                  type="button"
+                  icono={<Icono nombre="recepcion" />}
+                  className="boton--glow"
+                  disabled={bloqueoEdicion || procesandoLote || !itemMesaActual.folio || !itemMesaActual.alumnoId}
+                  onClick={() => void vincularItemMesaTrabajoActual()}
+                >
+                  Vincular y continuar ▶
+                </Boton>
+                <Boton
+                  type="button"
+                  variante="secundario"
+                  disabled={bloqueoEdicion || procesandoLote || indiceMesaTrabajo >= idsPendientesMesa.length - 1}
+                  onClick={() => setIndiceMesaTrabajo((actual) => Math.min(idsPendientesMesa.length - 1, actual + 1))}
+                >
+                  Siguiente ▶
+                </Boton>
+              </div>
+            </div>
+          )}
+
+          <div className="item-actions entregas-mesa-footer-actions">
+            {resultadosLote.some((item) => item.estado === 'error') && (
               <Boton
                 type="button"
                 variante="secundario"
+                className="boton--peligro"
                 disabled={procesandoLote}
-                onClick={limpiarResultadosLote}
+                onClick={() => void reintentarErroresLote()}
               >
-                Limpiar resultados
+                Reintentar solo errores ({resultadosLote.filter((item) => item.estado === 'error').length})
               </Boton>
-            </div>
-            <ul className="lista lista-items">
-              {resultadosLote.map((item) => (
-                <li key={item.id}>
-                  <div className="item-glass">
-                    <div className="item-row">
-                      <div>
-                        <div className="item-title">{item.nombre}</div>
-                        <div className="item-sub">
+            )}
+            <Boton
+              type="button"
+              variante="secundario"
+              disabled={procesandoLote}
+              onClick={limpiarResultadosLote}
+            >
+              Limpiar resultados
+            </Boton>
+          </div>
+
+          <ul className="lista lista-items entregas-lote-resumen-lista">
+            {resultadosLote.map((item) => (
+              <li key={item.id}>
+                <div className="item-glass entregas-lote-resumen-item">
+                  <div className="item-row">
+                    <div>
+                      <div className="item-title">{item.nombre}</div>
+                      <div className="item-meta">
+                        <span className={`chip chip-static ${item.estado === 'vinculado' ? 'chip--emerald' : item.estado === 'error' ? 'chip--red' : 'chip--amber'}`}>
                           {item.estado === 'procesando' && 'Procesando…'}
-                          {item.estado === 'vinculado' && 'Vinculado'}
-                          {item.estado === 'pendiente_alumno' && 'Pendiente de alumno'}
-                          {item.estado === 'error' && 'Error'}
-                        </div>
-                        {item.folio && <div className="item-sub">Folio: {item.folio}</div>}
-                        {item.alumnoId && <div className="item-sub">Alumno seleccionado: {item.alumnoId}</div>}
-                        {item.acordeonEntregado && <div className="item-sub">Acordeón: +{Number(item.bonoAcordeon || BONUS_ACORDEON).toFixed(2)}</div>}
-                        {item.mensaje && <div className="item-sub">{item.mensaje}</div>}
+                          {item.estado === 'vinculado' && '✓ Vinculado'}
+                          {item.estado === 'pendiente_alumno' && '⏳ Pendiente de alumno'}
+                          {item.estado === 'error' && '✕ Error'}
+                        </span>
+                        {item.folio && <span>Folio: <strong>{item.folio}</strong></span>}
+                        {item.alumnoId && <span>Alumno: {item.alumnoId}</span>}
+                        {item.acordeonEntregado && <span className="chip chip-static">Acordeón: +{Number(item.bonoAcordeon || BONUS_ACORDEON).toFixed(2)}</span>}
+                        {item.mensaje && <span>{item.mensaje}</span>}
                       </div>
                     </div>
                   </div>
-                </li>
-              ))}
-            </ul>
+                </div>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+
+      {/* Tarjeta 3: Vinculación Manual Directa */}
+      <div className="item-glass entregas-manual-card anim-card-hover">
+        <div className="banco-section-title">
+          <div className="banco-section-title__wrap">
+            <span className="banco-section-pill">
+              <Icono nombre="recepcion" /> Captura Manual
+            </span>
+            <h3>Vinculación manual por folio</h3>
+            <p className="nota">Si no cuentas con cámara o lector QR, escribe el folio impreso en la hoja y selecciona al alumno.</p>
           </div>
-        )}
-      </div>
-      <div className="subpanel entregas-vinculacion">
-        <h3>Vinculación manual</h3>
+        </div>
+
         <div className="entregas-vinculacion__form">
           <label className="campo">
-            Folio
-            <input value={folio} onChange={(event) => setFolio(event.target.value)} disabled={bloqueoEdicion} />
+            Folio impreso del examen
+            <input
+              value={folio}
+              onChange={(event) => setFolio(event.target.value.toUpperCase())}
+              disabled={bloqueoEdicion}
+              placeholder="Ej: CUH-MAT101-001"
+              className="campo-input--mono"
+            />
           </label>
+
           <label className="campo">
-            Alumno
-            <select value={alumnoId} onChange={(event) => setAlumnoId(event.target.value)} disabled={bloqueoEdicion}>
-              <option value="">Selecciona</option>
+            Alumno receptor
+            <select
+              value={alumnoId}
+              onChange={(event) => setAlumnoId(event.target.value)}
+              disabled={bloqueoEdicion}
+            >
+              <option value="">Selecciona al alumno...</option>
               {alumnos.map((alumno) => (
                 <option key={alumno._id} value={alumno._id}>
-                  {alumno.matricula} - {alumno.nombreCompleto}
+                  {alumno.matricula} - {alumno.nombreCompleto} ({alumno.grupo || 'Sin grupo'})
                 </option>
               ))}
             </select>
           </label>
         </div>
-        <div className="acciones">
+
+        <div className="entregas-manual-acciones">
           <Boton
             type="button"
             icono={<Icono nombre="recepcion" />}
             cargando={vinculando}
             disabled={!puedeVincular || bloqueoEdicion}
+            className="boton--glow"
             onClick={vincular}
           >
-            {vinculando ? 'Vinculando…' : 'Vincular'}
+            {vinculando ? 'Vinculando examen…' : 'Vincular examen'}
           </Boton>
         </div>
       </div>
+
       {mensaje && (
-        <p className={esMensajeError(mensaje) ? 'mensaje error' : 'mensaje ok'} role="status">
+        <InlineMensaje tipo={esMensajeError(mensaje) ? 'error' : 'ok'}>
           {mensaje}
-        </p>
+        </InlineMensaje>
       )}
     </div>
   );

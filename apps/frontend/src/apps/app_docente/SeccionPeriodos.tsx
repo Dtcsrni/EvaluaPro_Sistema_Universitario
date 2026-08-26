@@ -1,7 +1,7 @@
 /**
  * SeccionPeriodos
  *
- * Responsabilidad: Seccion funcional del shell docente.
+ * Responsabilidad: Seccion funcional del shell docente para gestion de materias con Bento Glassmorphic, iconografia rica y animaciones.
  * Limites: Conservar UX y permisos; extraer logica compleja a hooks/components.
  */
 import { useMemo, useState } from 'react';
@@ -11,7 +11,7 @@ import { emitToast } from '../../ui/toast/toastBus';
 import { Icono } from '../../ui/iconos';
 import { Boton } from '../../ui/ux/componentes/Boton';
 import { InlineMensaje } from '../../ui/ux/componentes/InlineMensaje';
-import { AyudaFormulario } from './AyudaFormulario';
+import { GuiaMateriaVisual } from './GuiaMateriaVisual';
 import { registrarAccionDocente } from './telemetriaDocente';
 import type { EnviarConPermiso, Periodo, PermisosUI } from './tipos';
 import { esMensajeError, etiquetaMateria, idCortoMateria, mensajeDeError, patronNombreMateria } from './utilidades';
@@ -80,6 +80,16 @@ export function SeccionPeriodos({
     return String(valor || '')
       .trim()
       .replace(/\s+/g, ' ');
+  }
+
+  function obtenerInicialesMateria(nombreMateria?: string): string {
+    const palabras = String(nombreMateria || '').trim().split(/\s+/);
+    if (palabras.length === 1) {
+      return palabras[0].substring(0, 2).toUpperCase() || 'MA';
+    }
+    const primera = palabras[0].charAt(0);
+    const segunda = palabras[1].charAt(0);
+    return (primera + segunda).toUpperCase() || 'MA';
   }
 
   function calcularProgresoPeriodo(fechaInicio?: string, fechaFin?: string): {
@@ -203,25 +213,32 @@ export function SeccionPeriodos({
   );
 
   const resumenMaterias = useMemo(() => {
-    const totalMaterias = periodos.length;
-    const totalGrupos = periodos.reduce((acc, item) => acc + (Array.isArray(item.grupos) ? item.grupos.length : 0), 0);
-    const hoy = new Date();
-    const proximasAFinalizar = periodos.filter((item) => {
-      const fecha = item.fechaFin ? new Date(item.fechaFin) : null;
-      if (!fecha || Number.isNaN(fecha.getTime())) return false;
-      const diffDias = (fecha.getTime() - hoy.getTime()) / (1000 * 60 * 60 * 24);
-      return diffDias >= 0 && diffDias <= 14;
-    }).length;
-    return { totalMaterias, totalGrupos, proximasAFinalizar };
+    let proximasAFinalizar = 0;
+    let totalGrupos = 0;
+    for (const periodo of periodos) {
+      const progreso = calcularProgresoPeriodo(periodo.fechaInicio, periodo.fechaFin);
+      if (progreso.estado === 'por_finalizar') {
+        proximasAFinalizar += 1;
+      }
+      if (Array.isArray(periodo.grupos)) {
+        totalGrupos += periodo.grupos.length;
+      }
+    }
+    return {
+      totalMaterias: periodos.length,
+      totalGrupos,
+      proximasAFinalizar
+    };
   }, [periodos]);
 
   async function crearPeriodo() {
     try {
       const inicio = Date.now();
       if (!puedeGestionar) {
-        avisarSinPermiso('No tienes permiso para gestionar materias.');
+        avisarSinPermiso('No tienes permiso para registrar materias.');
         return;
       }
+      if (!puedeCrear) return;
       setCreando(true);
       setMensaje('');
       await enviarConPermiso(
@@ -233,7 +250,7 @@ export function SeccionPeriodos({
           fechaFin,
           grupos: gruposNormalizados
         },
-        'No tienes permiso para crear materias.'
+        'No tienes permiso para registrar materias.'
       );
       setMensaje('Materia creada');
       emitToast({ level: 'ok', title: 'Materias', message: 'Materia creada', durationMs: 2200 });
@@ -244,11 +261,11 @@ export function SeccionPeriodos({
       setGrupos('');
       onRefrescar();
     } catch (error) {
-      const msg = mensajeDeError(error, 'No se pudo crear la materia');
+      const msg = mensajeDeError(error, 'No se pudo registrar la materia');
       setMensaje(msg);
       emitToast({
         level: 'error',
-        title: 'No se pudo crear',
+        title: 'No se pudo registrar',
         message: msg,
         durationMs: 5200,
         action: accionToastSesionParaError(error, 'docente')
@@ -261,7 +278,7 @@ export function SeccionPeriodos({
 
   function iniciarEdicion(periodo: Periodo) {
     setEditandoId(periodo._id);
-    setEdicionNombre(String(periodo.nombre || ''));
+    setEdicionNombre(periodo.nombre || '');
     setEdicionFechaInicio(formatearFechaInput(periodo.fechaInicio));
     setEdicionFechaFin(formatearFechaInput(periodo.fechaFin));
     setEdicionGrupos(Array.isArray(periodo.grupos) ? periodo.grupos.join(', ') : '');
@@ -270,7 +287,6 @@ export function SeccionPeriodos({
 
   function cancelarEdicion() {
     setEditandoId(null);
-    setGuardandoEdicionId(null);
     setEdicionNombre('');
     setEdicionFechaInicio('');
     setEdicionFechaFin('');
@@ -278,10 +294,11 @@ export function SeccionPeriodos({
   }
 
   async function guardarEdicion(periodo: Periodo) {
+    if (!editandoId || editandoId !== periodo._id) return;
     try {
       const inicio = Date.now();
       if (!puedeGestionar) {
-        avisarSinPermiso('No tienes permiso para gestionar materias.');
+        avisarSinPermiso('No tienes permiso para editar materias.');
         return;
       }
       if (!puedeGuardarEdicion) return;
@@ -289,7 +306,7 @@ export function SeccionPeriodos({
       setMensaje('');
       await enviarConPermiso(
         'periodos:gestionar',
-        `/periodos/${periodo._id}/actualizar`,
+        `/periodos/${periodo._id}`,
         {
           nombre: normalizarTextoCorto(edicionNombre),
           fechaInicio: edicionFechaInicio,
@@ -418,266 +435,444 @@ export function SeccionPeriodos({
   }
 
   return (
-    <div className="panel materias-panel">
+    <div className="panel materias-panel anim-fade-in">
+      {/* Cabecera Principal con Mini-KPIs integrados */}
       <div className="materias-panel__head">
-        <div>
-          <h2>
-            <Icono nombre="periodos" /> Materias
-          </h2>
-          <p className="nota">Administra la estructura académica activa, sus rangos operativos y la agrupación por grupos.</p>
+        <div className="materias-panel__lead">
+          <div className="materias-panel__icon-orb anim-icon-pulse" aria-hidden="true">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M4 19.5v-15A2.5 2.5 0 0 1 6.5 2H20v20H6.5a2.5 2.5 0 0 1-2.5-2.5Z" />
+              <path d="M6 6h10" />
+              <path d="M6 10h10" />
+              <path d="M6 14h6" />
+              <path d="M16 2v6l2-1.5 2 1.5V2" />
+            </svg>
+          </div>
+          <div className="materias-panel__text-block">
+            <div className="materias-panel__meta-row">
+              <span className="materias-status-pill">
+                <span className="materias-pulse-dot" aria-hidden="true" />
+                <span>Ciclo Académico</span>
+              </span>
+              <span className="materias-counter-tag">
+                {periodos.length} {periodos.length === 1 ? 'materia registrada' : 'materias registradas'}
+              </span>
+            </div>
+            <h2 className="materias-panel__title">Materias</h2>
+            <p className="nota">Administra tus asignaturas activas, fechas de curso y asignación de grupos.</p>
+          </div>
         </div>
-        <div className="acciones">
-          <Boton variante="secundario" type="button" onClick={onVerArchivadas}>
-            Ver materias archivadas
-          </Boton>
-        </div>
-      </div>
-      <AyudaFormulario titulo="Para que sirve y como llenarlo">
-        <p>
-          <b>Proposito:</b> definir cada <b>materia</b> (unidad de trabajo) a la que pertenecen alumnos, plantillas, examenes y publicaciones.
-        </p>
-        <ul className="lista">
-          <li>
-            <b>Nombre:</b> nombre de la materia (ej. <code>Algebra I</code>, <code>Programacion</code>, <code>Fisica</code>).
-          </li>
-          <li>
-            <b>Fecha inicio/fin:</b> rango de la materia; normalmente dura aproximadamente 30 dias. La fecha fin debe ser mayor o igual a la inicio.
-          </li>
-          <li>
-            <b>Grupos:</b> lista opcional separada por comas.
-          </li>
-        </ul>
-        <p>
-          Ejemplos de grupos: <code>3A,3B,3C</code> o <code>A1,B1</code>.
-        </p>
-        <p>
-          Reglas: nombre entre 3 y 80 caracteres; grupos unicos (max 50) y cada grupo max 40 caracteres.
-        </p>
-      </AyudaFormulario>
-      <div className="materias-resumen" aria-live="polite">
-        <div className="materias-resumen__item">
-          <span>Materias activas</span>
-          <b>{resumenMaterias.totalMaterias}</b>
-        </div>
-        <div className="materias-resumen__item">
-          <span>Grupos vinculados</span>
-          <b>{resumenMaterias.totalGrupos}</b>
-        </div>
-        <div className="materias-resumen__item">
-          <span>Por cerrar (14 dias)</span>
-          <b>{resumenMaterias.proximasAFinalizar}</b>
-        </div>
-      </div>
-      <section className="materias-form">
-        <div className="materias-form__grid">
-          <label className="campo">
-            Nombre de la materia
-            <input value={nombre} onChange={(event) => setNombre(event.target.value)} disabled={bloqueoEdicion} />
-          </label>
-          <label className="campo">
-            Fecha inicio
-            <input type="date" value={fechaInicio} onChange={(event) => setFechaInicio(event.target.value)} disabled={bloqueoEdicion} />
-          </label>
-          <label className="campo">
-            Fecha fin
-            <input type="date" value={fechaFin} onChange={(event) => setFechaFin(event.target.value)} disabled={bloqueoEdicion} />
-          </label>
-        </div>
-        <label className="campo">
-          Grupos (separados por coma)
-          <input value={grupos} onChange={(event) => setGrupos(event.target.value)} disabled={bloqueoEdicion} />
-        </label>
-        {nombre.trim() && !nombreValido && (
-          <InlineMensaje tipo="warning">El nombre debe tener entre 3 y 80 caracteres para poder crear la materia.</InlineMensaje>
-        )}
-        {nombre.trim() && nombreDuplicado && (
-          <InlineMensaje tipo="error">Ya existe una materia con ese nombre. Cambia el nombre para crearla.</InlineMensaje>
-        )}
-        {fechaInicio && fechaFin && fechaFin < fechaInicio && (
-          <InlineMensaje tipo="error">La fecha fin debe ser igual o posterior a la fecha inicio.</InlineMensaje>
-        )}
-        {!gruposValidos && grupos.trim() && (
-          <InlineMensaje tipo="warning">Revisa grupos: máximo 50 y hasta 40 caracteres por grupo para poder crear la materia.</InlineMensaje>
-        )}
-        {gruposDuplicados && <InlineMensaje tipo="warning">Hay grupos repetidos; corrígelo para poder crear la materia.</InlineMensaje>}
-        <div className="acciones">
+
+        <div className="materias-header-kpis" aria-live="polite">
+          <div className="materia-mini-kpi materia-mini-kpi--active anim-kpi-hover" data-tooltip="Total de materias o cursos activos registrados">
+            <span className="materia-mini-kpi__icon" aria-hidden="true">
+              <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2.2">
+                <path d="M4 19.5v-15A2.5 2.5 0 0 1 6.5 2H20v20H6.5a2.5 2.5 0 0 1-2.5-2.5Z" />
+                <path d="M6 6h10M6 10h10" />
+              </svg>
+            </span>
+            <span className="materia-mini-kpi__num">{resumenMaterias.totalMaterias}</span>
+            <span className="materia-mini-kpi__lbl">Materias</span>
+          </div>
+
+          <div className="materia-mini-kpi materia-mini-kpi--groups anim-kpi-hover" data-tooltip="Total de grupos académicos asignados">
+            <span className="materia-mini-kpi__icon" aria-hidden="true">
+              <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2.2">
+                <path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z" />
+                <line x1="7" y1="7" x2="7.01" y2="7" strokeWidth="3" />
+              </svg>
+            </span>
+            <span className="materia-mini-kpi__num">{resumenMaterias.totalGrupos}</span>
+            <span className="materia-mini-kpi__lbl">Grupos</span>
+          </div>
+
+          <div className="materia-mini-kpi materia-mini-kpi--closing anim-kpi-hover" data-tooltip="Materias cuya fecha de término vence en los próximos 14 días">
+            <span className="materia-mini-kpi__icon" aria-hidden="true">
+              <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2.2">
+                <circle cx="12" cy="12" r="10" />
+                <polyline points="12 6 12 12 16 14" />
+              </svg>
+            </span>
+            <span className="materia-mini-kpi__num">{resumenMaterias.proximasAFinalizar}</span>
+            <span className="materia-mini-kpi__lbl">Por cerrar</span>
+          </div>
+
           <Boton
+            variante="secundario"
             type="button"
-            icono={<Icono nombre="nuevo" />}
-            cargando={creando}
-            disabled={!puedeCrear || bloqueoEdicion}
-            onClick={crearPeriodo}
+            onClick={onVerArchivadas}
+            data-tooltip="Consultar materias y cursos finalizados o archivados"
+            icono={
+              <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" strokeWidth="2">
+                <path d="M21 8v13H3V8" />
+                <path d="M1 3h22v5H1z" />
+                <path d="M10 12h4" />
+              </svg>
+            }
           >
-            {creando ? 'Creando…' : 'Crear materia'}
+            Archivadas
           </Boton>
+        </div>
+      </div>
+
+      {/* Guía Rápida Bento Unificada (Sin acordeones redundantes) */}
+      <GuiaMateriaVisual />
+
+      {/* Formulario Estructurado en 2 Filas Claras Sin Solapamientos */}
+      <section className="materias-form materias-form--glass materias-form--panoramico anim-form-card">
+        <div className="materias-form__header">
+          <h3 className="materias-form__title">✨ Registrar Nueva Materia</h3>
+          <p className="materias-form__subtitle">Ingresa la asignatura, grupos y periodo lectivo para habilitar alumnos y evaluaciones.</p>
+        </div>
+
+        <div className="materias-form__fields">
+          {/* Fila 1: Asignatura y Grupos */}
+          <div className="materias-form__row materias-form__row--top">
+            <label className="campo campo--materia">
+              <span>Nombre de la materia</span>
+              <div className="auth-input-box auth-input-box--book auth-input-box--animated">
+                <input
+                  value={nombre}
+                  onChange={(event) => setNombre(event.target.value)}
+                  disabled={bloqueoEdicion}
+                  placeholder="Ej. Álgebra Lineal, Programación Web…"
+                  data-tooltip="Escribe el nombre oficial de la asignatura o periodo académico"
+                />
+              </div>
+            </label>
+
+            <label className="campo campo--grupos">
+              <span>Grupos asignados</span>
+              <div className="auth-input-box auth-input-box--tags auth-input-box--animated">
+                <input
+                  value={grupos}
+                  onChange={(event) => setGrupos(event.target.value)}
+                  disabled={bloqueoEdicion}
+                  placeholder="Ej. 1A, 1B, 2A"
+                  data-tooltip="Lista de grupos separados por coma (ej. 1A, 1B, 2C)"
+                />
+              </div>
+            </label>
+          </div>
+
+          {/* Fila 2: Fechas y Botón de Creación */}
+          <div className="materias-form__row materias-form__row--bottom">
+            <label className="campo campo--fecha">
+              <span>Fecha inicio</span>
+              <div className="auth-input-box auth-input-box--calendar auth-input-box--animated">
+                <input
+                  type="date"
+                  value={fechaInicio}
+                  onChange={(event) => setFechaInicio(event.target.value)}
+                  disabled={bloqueoEdicion}
+                  data-tooltip="Fecha oficial en que da inicio el curso lectivo"
+                />
+              </div>
+            </label>
+
+            <label className="campo campo--fecha">
+              <span>Fecha fin</span>
+              <div className="auth-input-box auth-input-box--calendar auth-input-box--animated">
+                <input
+                  type="date"
+                  value={fechaFin}
+                  onChange={(event) => setFechaFin(event.target.value)}
+                  disabled={bloqueoEdicion}
+                  data-tooltip="Fecha límite programada para la conclusión del curso"
+                />
+              </div>
+            </label>
+
+            <div className="materias-form__cta-col">
+              <Boton
+                type="button"
+                className="boton--crear-materia"
+                icono={<Icono nombre="nuevo" />}
+                cargando={creando}
+                disabled={!puedeCrear || bloqueoEdicion}
+                onClick={crearPeriodo}
+                data-tooltip="Crear y habilitar esta materia para inscribir alumnos y diseñar exámenes"
+              >
+                {creando ? 'Creando…' : 'Crear materia'}
+              </Boton>
+            </div>
+          </div>
+        </div>
+
+        {/* Feedback de validación */}
+        <div className="materias-form__feedback-area">
+          {nombre.trim() && !nombreValido && (
+            <InlineMensaje tipo="warning">El nombre debe tener entre 3 y 80 caracteres para poder crear la materia.</InlineMensaje>
+          )}
+          {nombre.trim() && nombreDuplicado && (
+            <InlineMensaje tipo="error">Ya existe una materia con ese nombre. Cambia el nombre para crearla.</InlineMensaje>
+          )}
+          {fechaInicio && fechaFin && fechaFin < fechaInicio && (
+            <InlineMensaje tipo="error">La fecha fin debe ser igual o posterior a la fecha inicio.</InlineMensaje>
+          )}
+          {!gruposValidos && grupos.trim() && (
+            <InlineMensaje tipo="warning">Revisa grupos: máximo 50 y hasta 40 caracteres por grupo para poder crear la materia.</InlineMensaje>
+          )}
+          {gruposDuplicados && <InlineMensaje tipo="warning">Hay grupos repetidos; corrígelo para poder crear la materia.</InlineMensaje>}
+          {mensaje && (
+            <p className={esMensajeError(mensaje) ? 'mensaje error anim-fade-in' : 'mensaje ok anim-fade-in'} role="status">
+              {mensaje}
+            </p>
+          )}
         </div>
       </section>
-      {mensaje && (
-        <p className={esMensajeError(mensaje) ? 'mensaje error' : 'mensaje ok'} role="status">
-          {mensaje}
-        </p>
-      )}
-      <h3>Materias activas</h3>
-      {periodos.length === 0 ? (
-        <div className="empty-state-card anim-fade-in">
-          <div className="empty-state-card__icon">
-            <Icono nombre="periodos" />
-          </div>
-          <h4>Comienza configurando tu primera materia</h4>
-          <p>Crea tu primer curso o periodo lectivo arriba para desbloquear la gestión de alumnos, el banco de preguntas y la calificación de exámenes.</p>
+
+      {/* Listado de Materias Activas a Ancho Completo */}
+      <div className="materias-seccion-activas anim-fade-in">
+        <div className="materias-seccion-activas__head">
+          <h3 className="materias-section-title">Materias activas ({periodos.length})</h3>
         </div>
-      ) : (
-        <ul className="lista lista-items materias-lista">
-          {periodos.map((periodo) => {
-            const progreso = calcularProgresoPeriodo(periodo.fechaInicio, periodo.fechaFin);
-            return (
-              <li key={periodo._id}>
-                <div className="item-glass materias-lista__item">
-                  <div className="item-row">
-                    <div>
-                      {editandoId === periodo._id ? (
-                        <div className="lista materias-edicion">
-                          <label className="campo">
-                            Nombre de la materia
-                            <input
-                              value={edicionNombre}
-                              onChange={(event) => setEdicionNombre(event.target.value)}
-                              disabled={!puedeGestionar || guardandoEdicionId === periodo._id}
-                            />
-                          </label>
-                          {edicionNombre.trim() && !nombreEdicionValido && (
-                            <InlineMensaje tipo="warning">El nombre debe tener entre 3 y 80 caracteres.</InlineMensaje>
-                          )}
-                          {nombreEdicionDuplicado && (
-                            <InlineMensaje tipo="error">Ya existe una materia activa con ese nombre.</InlineMensaje>
-                          )}
-                          <label className="campo">
-                            Fecha inicio
-                            <input
-                              type="date"
-                              value={edicionFechaInicio}
-                              onChange={(event) => setEdicionFechaInicio(event.target.value)}
-                              disabled={!puedeGestionar || guardandoEdicionId === periodo._id}
-                            />
-                          </label>
-                          <label className="campo">
-                            Fecha fin
-                            <input
-                              type="date"
-                              value={edicionFechaFin}
-                              onChange={(event) => setEdicionFechaFin(event.target.value)}
-                              disabled={!puedeGestionar || guardandoEdicionId === periodo._id}
-                            />
-                          </label>
-                          {edicionFechaInicio && edicionFechaFin && edicionFechaFin < edicionFechaInicio && (
-                            <InlineMensaje tipo="error">La fecha fin debe ser igual o posterior a la fecha inicio.</InlineMensaje>
-                          )}
-                          <label className="campo">
-                            Grupos (separados por coma)
-                            <input
-                              value={edicionGrupos}
-                              onChange={(event) => setEdicionGrupos(event.target.value)}
-                              disabled={!puedeGestionar || guardandoEdicionId === periodo._id}
-                            />
-                          </label>
-                          {!gruposEdicionValidos && edicionGrupos.trim() && (
-                            <InlineMensaje tipo="warning">Revisa grupos: máximo 50 y hasta 40 caracteres por grupo.</InlineMensaje>
-                          )}
-                          {gruposEdicionDuplicados && <InlineMensaje tipo="warning">Hay grupos repetidos.</InlineMensaje>}
-                        </div>
-                      ) : (
-                        <>
-                          <div className="materia-card-header">
-                            <div>
-                              <div className="item-title" title={periodo._id}>
-                                {etiquetaMateria(periodo)}
+        {periodos.length === 0 ? (
+          <div className="empty-state-card anim-fade-in">
+            <div className="empty-state-card__icon anim-icon-pulse">
+              <span aria-hidden="true">🎓</span>
+            </div>
+            <h4>Comienza configurando tu primera materia</h4>
+            <p>Crea tu primer curso arriba para desbloquear la gestión de alumnos, el banco de preguntas y la calificación de exámenes.</p>
+            <div className="empty-state-steps" aria-hidden="true">
+              <div className="empty-step">
+                <span className="empty-step__num">1</span>
+                <span>Registra tu materia y fechas</span>
+              </div>
+              <div className="empty-step__arrow">➔</div>
+              <div className="empty-step">
+                <span className="empty-step__num">2</span>
+                <span>Inscribe a tus alumnos</span>
+              </div>
+              <div className="empty-step__arrow">➔</div>
+              <div className="empty-step">
+                <span className="empty-step__num">3</span>
+                <span>Califica exámenes con OMR</span>
+              </div>
+            </div>
+          </div>
+        ) : (
+          <ul className="lista lista-items materias-lista">
+            {periodos.map((periodo) => {
+              const progreso = calcularProgresoPeriodo(periodo.fechaInicio, periodo.fechaFin);
+              const iniciales = obtenerInicialesMateria(periodo.nombre);
+              return (
+                <li key={periodo._id} className="anim-slide-up">
+                  <div className="item-glass materias-lista__item anim-card-hover">
+                    <div className="item-row">
+                      <div>
+                        {editandoId === periodo._id ? (
+                          <div className="lista materias-edicion anim-fade-in">
+                            <label className="campo">
+                              <span>Nombre de la materia</span>
+                              <div className="auth-input-box auth-input-box--book auth-input-box--animated">
+                                <input
+                                  value={edicionNombre}
+                                  onChange={(event) => setEdicionNombre(event.target.value)}
+                                  disabled={!puedeGestionar || guardandoEdicionId === periodo._id}
+                                />
                               </div>
-                              <span className={`chip chip--sm chip--${progreso.estado}`}>
-                                {progreso.etiquetaEstado}
+                            </label>
+                            {edicionNombre.trim() && !nombreEdicionValido && (
+                              <InlineMensaje tipo="warning">El nombre debe tener entre 3 y 80 caracteres.</InlineMensaje>
+                            )}
+                            {nombreEdicionDuplicado && (
+                              <InlineMensaje tipo="error">Ya existe una materia activa con ese nombre.</InlineMensaje>
+                            )}
+                            <label className="campo">
+                              <span>Fecha inicio</span>
+                              <div className="auth-input-box auth-input-box--calendar auth-input-box--animated">
+                                <input
+                                  type="date"
+                                  value={edicionFechaInicio}
+                                  onChange={(event) => setEdicionFechaInicio(event.target.value)}
+                                  disabled={!puedeGestionar || guardandoEdicionId === periodo._id}
+                                />
+                              </div>
+                            </label>
+                            <label className="campo">
+                              <span>Fecha fin</span>
+                              <div className="auth-input-box auth-input-box--calendar auth-input-box--animated">
+                                <input
+                                  type="date"
+                                  value={edicionFechaFin}
+                                  onChange={(event) => setEdicionFechaFin(event.target.value)}
+                                  disabled={!puedeGestionar || guardandoEdicionId === periodo._id}
+                                />
+                              </div>
+                            </label>
+                            {edicionFechaInicio && edicionFechaFin && edicionFechaFin < edicionFechaInicio && (
+                              <InlineMensaje tipo="error">La fecha fin debe ser igual o posterior a la fecha inicio.</InlineMensaje>
+                            )}
+                            <label className="campo">
+                              <span>Grupos (separados por coma)</span>
+                              <div className="auth-input-box auth-input-box--tags auth-input-box--animated">
+                                <input
+                                  value={edicionGrupos}
+                                  onChange={(event) => setEdicionGrupos(event.target.value)}
+                                  disabled={!puedeGestionar || guardandoEdicionId === periodo._id}
+                                />
+                              </div>
+                            </label>
+                            {!gruposEdicionValidos && edicionGrupos.trim() && (
+                              <InlineMensaje tipo="warning">Revisa grupos: máximo 50 y hasta 40 caracteres por grupo.</InlineMensaje>
+                            )}
+                            {gruposEdicionDuplicados && <InlineMensaje tipo="warning">Hay grupos repetidos.</InlineMensaje>}
+                          </div>
+                        ) : (
+                          <>
+                            <div className="materia-card-header">
+                              <div className="materia-title-group">
+                                <div className="materia-avatar" aria-hidden="true">
+                                  <span>{iniciales}</span>
+                                </div>
+                                <div>
+                                  <div className="item-title" title={periodo._id}>
+                                    {etiquetaMateria(periodo)}
+                                  </div>
+                                  <span className={`chip chip--sm chip--${progreso.estado} anim-badge-in`}>
+                                    {progreso.etiquetaEstado}
+                                  </span>
+                                </div>
+                              </div>
+                              <div className="materia-progress-ring" title={`Avance académico: ${progreso.porcentaje}% (${progreso.etiquetaEstado})`}>
+                                <svg viewBox="0 0 36 36" className="circular-chart">
+                                  <path className="circle-bg" d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" />
+                                  <path
+                                    className="circle-fill"
+                                    strokeDasharray={`${progreso.porcentaje}, 100`}
+                                    d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
+                                  />
+                                  <text x="18" y="20.35" className="circle-text">
+                                    {progreso.porcentaje}%
+                                  </text>
+                                </svg>
+                              </div>
+                            </div>
+                            <div className="item-meta materia-card-meta">
+                              <span className="materia-meta-tag">
+                                <span className="materia-meta-lbl">ID:</span> {idCortoMateria(periodo._id)}
+                              </span>
+                              <span className="materia-meta-tag">
+                                <span className="materia-meta-lbl">Inicio:</span> {formatearFecha(periodo.fechaInicio)}
+                              </span>
+                              <span className="materia-meta-tag">
+                                <span className="materia-meta-lbl">Fin:</span> {formatearFecha(periodo.fechaFin)}
+                              </span>
+                              <span className="materia-meta-tag">
+                                <span className="materia-meta-lbl">Grupos:</span>{' '}
+                                <span className="materia-grupos-badge">
+                                  {Array.isArray(periodo.grupos) && periodo.grupos.length > 0 ? periodo.grupos.join(', ') : '-'}
+                                </span>
                               </span>
                             </div>
-                            <div className="materia-progress-ring" title={`Avance académico: ${progreso.porcentaje}% (${progreso.etiquetaEstado})`}>
-                              <svg viewBox="0 0 36 36" className="circular-chart">
-                                <path className="circle-bg" d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" />
-                                <path
-                                  className="circle-fill"
-                                  strokeDasharray={`${progreso.porcentaje}, 100`}
-                                  d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
-                                />
-                                <text x="18" y="20.35" className="circle-text">
-                                  {progreso.porcentaje}%
-                                </text>
-                              </svg>
-                            </div>
-                          </div>
-                          <div className="item-meta">
-                            <span>ID: {idCortoMateria(periodo._id)}</span>
-                            <span>Inicio: {formatearFecha(periodo.fechaInicio)}</span>
-                            <span>Fin: {formatearFecha(periodo.fechaFin)}</span>
-                            <span>
-                              Grupos:{' '}
-                              {Array.isArray(periodo.grupos) && periodo.grupos.length > 0 ? periodo.grupos.join(', ') : '-'}
-                            </span>
-                          </div>
-                        </>
-                      )}
-                    </div>
-                  <div className="item-actions">
-                    {editandoId === periodo._id ? (
-                      <>
-                        <Boton
-                          type="button"
-                          cargando={guardandoEdicionId === periodo._id}
-                          onClick={() => void guardarEdicion(periodo)}
-                          disabled={!puedeGuardarEdicion || !puedeGestionar}
-                        >
-                          Guardar cambios
-                        </Boton>
-                        <Boton variante="secundario" type="button" onClick={cancelarEdicion} disabled={guardandoEdicionId === periodo._id}>
-                          Cancelar
-                        </Boton>
-                      </>
-                    ) : (
-                      <>
-                        <Boton variante="secundario" type="button" onClick={() => iniciarEdicion(periodo)} disabled={bloqueoEdicion}>
-                          Editar
-                        </Boton>
-                        <Boton
-                          variante="secundario"
-                          type="button"
-                          cargando={archivandoId === periodo._id}
-                          onClick={() => archivarMateria(periodo)}
-                          disabled={!puedeArchivar}
-                        >
-                          Archivar
-                        </Boton>
-                        <Boton variante="secundario" type="button" onClick={() => descargarListaInstitucional(periodo, 'xlsx')}>
-                          Lista CUH XLSX
-                        </Boton>
-                        <Boton variante="secundario" type="button" onClick={() => descargarListaInstitucional(periodo, 'pdf')}>
-                          Lista CUH PDF
-                        </Boton>
-                        {puedeEliminarMateriaDev && (
-                          <Boton
-                            variante="secundario"
-                            type="button"
-                            cargando={eliminandoId === periodo._id}
-                            onClick={() => void eliminarMateriaDev(periodo)}
-                            disabled={!puedeEliminarMateriaDev}
-                          >
-                            Eliminar (DEV)
-                          </Boton>
+                          </>
                         )}
-                      </>
-                    )}
+                      </div>
+                      <div className="item-actions">
+                        {editandoId === periodo._id ? (
+                          <>
+                            <Boton
+                              type="button"
+                              cargando={guardandoEdicionId === periodo._id}
+                              onClick={() => void guardarEdicion(periodo)}
+                              disabled={!puedeGuardarEdicion || !puedeGestionar}
+                              icono={<Icono nombre="ok" />}
+                            >
+                              Guardar cambios
+                            </Boton>
+                            <Boton variante="secundario" type="button" onClick={cancelarEdicion} disabled={guardandoEdicionId === periodo._id}>
+                              Cancelar
+                            </Boton>
+                          </>
+                        ) : (
+                          <>
+                            <Boton
+                              variante="secundario"
+                              type="button"
+                              onClick={() => iniciarEdicion(periodo)}
+                              disabled={bloqueoEdicion}
+                              icono={
+                                <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2">
+                                  <path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z" />
+                                </svg>
+                              }
+                            >
+                              Editar
+                            </Boton>
+                            <Boton
+                              variante="secundario"
+                              type="button"
+                              cargando={archivandoId === periodo._id}
+                              onClick={() => archivarMateria(periodo)}
+                              disabled={!puedeArchivar}
+                              icono={
+                                <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2">
+                                  <path d="M21 8v13H3V8" />
+                                  <path d="M1 3h22v5H1z" />
+                                  <path d="M10 12h4" />
+                                </svg>
+                              }
+                            >
+                              Archivar
+                            </Boton>
+                            <Boton
+                              variante="secundario"
+                              type="button"
+                              onClick={() => descargarListaInstitucional(periodo, 'xlsx')}
+                              icono={
+                                <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2">
+                                  <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+                                  <polyline points="14 2 14 8 20 8" />
+                                  <line x1="8" y1="13" x2="16" y2="13" />
+                                  <line x1="8" y1="17" x2="16" y2="17" />
+                                </svg>
+                              }
+                            >
+                              Lista CUH XLSX
+                            </Boton>
+                            <Boton
+                              variante="secundario"
+                              type="button"
+                              onClick={() => descargarListaInstitucional(periodo, 'pdf')}
+                              icono={
+                                <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2">
+                                  <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+                                  <polyline points="14 2 14 8 20 8" />
+                                  <path d="M9 15h6M9 12h6" />
+                                </svg>
+                              }
+                            >
+                              Lista CUH PDF
+                            </Boton>
+                            {puedeEliminarMateriaDev && (
+                              <Boton
+                                variante="secundario"
+                                type="button"
+                                cargando={eliminandoId === periodo._id}
+                                onClick={() => void eliminarMateriaDev(periodo)}
+                                disabled={!puedeEliminarMateriaDev}
+                                icono={
+                                  <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2">
+                                    <polyline points="3 6 5 6 21 6" />
+                                    <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
+                                  </svg>
+                                }
+                              >
+                                Eliminar (DEV)
+                              </Boton>
+                            )}
+                          </>
+                        )}
+                      </div>
+                    </div>
                   </div>
-                </div>
-              </div>
-            </li>
-          );
-        })}
-        </ul>
-      )}
+                </li>
+              );
+            })}
+          </ul>
+        )}
+      </div>
     </div>
   );
 }
@@ -689,64 +884,126 @@ export function SeccionPeriodosArchivados({
   periodos: Periodo[];
   onVerActivas: () => void;
 }) {
-
   function formatearFechaHora(valor?: string) {
     if (!valor) return '-';
     const d = new Date(valor);
     if (Number.isNaN(d.getTime())) return String(valor);
-    return d.toLocaleString();
+    return d.toLocaleDateString() + ' ' + d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
   }
 
   return (
-    <div className="panel">
-      <h2>
-        <Icono nombre="periodos" /> Materias archivadas
-      </h2>
-      <div className="acciones">
-        <Boton variante="secundario" type="button" onClick={onVerActivas}>
-          Volver a materias activas
-        </Boton>
+    <div className="panel materias-panel anim-fade-in">
+      {/* Encabezado Integrado de Materias Archivadas */}
+      <div className="materias-panel__head">
+        <div className="materias-panel__lead">
+          <div className="materias-panel__icon-orb materias-panel__icon-orb--amber anim-icon-pulse" aria-hidden="true">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M21 8v13H3V8" />
+              <path d="M1 3h22v5H1z" />
+              <path d="M10 12h4" />
+            </svg>
+          </div>
+          <div className="materias-panel__text-block">
+            <div className="materias-panel__meta-row">
+              <span className="materias-status-pill materias-status-pill--amber">
+                <span className="materias-pulse-dot materias-pulse-dot--amber" aria-hidden="true" />
+                <span>Archivo Histórico</span>
+              </span>
+              <span className="materias-counter-tag">
+                {periodos.length} {periodos.length === 1 ? 'materia archivada' : 'materias archivadas'}
+              </span>
+            </div>
+            <h2 className="materias-panel__title">Materias archivadas</h2>
+            <p className="nota">Historial de asignaturas, calificaciones y registros de ciclos lectivos anteriores.</p>
+          </div>
+        </div>
+
+        <div className="acciones">
+          <Boton
+            variante="secundario"
+            type="button"
+            onClick={onVerActivas}
+            data-tooltip="Regresar a la gestión de materias activas"
+            icono={
+              <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2">
+                <line x1="19" y1="12" x2="5" y2="12" />
+                <polyline points="12 19 5 12 12 5" />
+              </svg>
+            }
+          >
+            Volver a materias activas
+          </Boton>
+        </div>
       </div>
 
-      <AyudaFormulario titulo="Que significa archivar">
-        <p>
-          Archivar una materia la marca como <b>inactiva</b> para que no aparezca en listas de trabajo diarias.
-          Los datos quedan guardados (solo se ocultan), y se registra un resumen de lo asociado.
-        </p>
-      </AyudaFormulario>
+      {/* Tarjeta Informativa Glassmorphism */}
+      <div className="archivadas-info-card anim-fade-in" role="region" aria-label="Información sobre archivo de materias">
+        <div className="archivadas-info-card__icon" aria-hidden="true">🛡️</div>
+        <div className="archivadas-info-card__text">
+          <strong>¿Qué ocurre con las materias archivadas?</strong>
+          <p>
+            Al archivar un curso, este se resguarda de forma segura para no saturar tu espacio de trabajo diario.
+            Todos los alumnos inscritos, reactivos, plantillas y calificaciones históricas permanecen intactos y disponibles para consulta o auditoría.
+          </p>
+        </div>
+      </div>
 
-      {periodos.length === 0 ? (
-        <InlineMensaje tipo="info">No hay materias archivadas.</InlineMensaje>
-      ) : (
-        <ul className="lista lista-items">
-          {periodos.map((periodo) => (
-            <li key={periodo._id}>
-              <div className="item-glass">
-                <div className="item-row">
-                  <div>
-                    <div className="item-title" title={periodo._id}>
-                      {etiquetaMateria(periodo)}
-                    </div>
-                    <div className="item-meta">
-                      <span>ID: {idCortoMateria(periodo._id)}</span>
-                      <span>Creada: {formatearFechaHora(periodo.createdAt)}</span>
-                      <span>Archivada: {formatearFechaHora(periodo.archivadoEn)}</span>
-                    </div>
-                    {periodo.resumenArchivado && (
-                      <div className="item-sub">
-                        Resumen: alumnos {periodo.resumenArchivado.alumnos ?? 0}, banco {periodo.resumenArchivado.bancoPreguntas ?? 0},
-                        plantillas {periodo.resumenArchivado.plantillas ?? 0}, generados {periodo.resumenArchivado.examenesGenerados ?? 0},
-                        calificaciones {periodo.resumenArchivado.calificaciones ?? 0}, codigos {periodo.resumenArchivado.codigosAcceso ?? 0}
+      {/* Listado de Materias Archivadas */}
+      <div className="materias-seccion-activas anim-fade-in">
+        <div className="materias-seccion-activas__head">
+          <h3 className="materias-section-title">Registro histórico ({periodos.length})</h3>
+        </div>
+
+        {periodos.length === 0 ? (
+          <div className="empty-state-card anim-fade-in">
+            <div className="empty-state-card__icon anim-icon-pulse">
+              <span aria-hidden="true">📦</span>
+            </div>
+            <h4>No hay materias archivadas</h4>
+            <p>Cuando concluyas un periodo lectivo y lo archives desde la sección de materias activas, aparecerá aquí resguardado con todos sus datos y exámenes.</p>
+          </div>
+        ) : (
+          <ul className="lista lista-items materias-lista">
+            {periodos.map((periodo) => (
+              <li key={periodo._id} className="anim-slide-up">
+                <div className="item-glass materias-lista__item anim-card-hover">
+                  <div className="item-row">
+                    <div>
+                      <div className="materia-card-header">
+                        <div>
+                          <div className="item-title" title={periodo._id}>
+                            {etiquetaMateria(periodo)}
+                          </div>
+                          <span className="chip chip--sm chip--archivado anim-badge-in">Archivada</span>
+                        </div>
                       </div>
-                    )}
+                      <div className="item-meta materia-card-meta">
+                        <span className="materia-meta-tag">
+                          <span className="materia-meta-lbl">ID:</span> {idCortoMateria(periodo._id)}
+                        </span>
+                        <span className="materia-meta-tag">
+                          <span className="materia-meta-lbl">Creada:</span> {formatearFechaHora(periodo.createdAt)}
+                        </span>
+                        <span className="materia-meta-tag">
+                          <span className="materia-meta-lbl">Archivada:</span> {formatearFechaHora(periodo.archivadoEn)}
+                        </span>
+                      </div>
+                      {periodo.resumenArchivado && (
+                        <div className="archivadas-chips-row">
+                          <span className="archivada-chip">👥 {periodo.resumenArchivado.alumnos ?? 0} alumnos</span>
+                          <span className="archivada-chip">📝 {periodo.resumenArchivado.bancoPreguntas ?? 0} reactivos</span>
+                          <span className="archivada-chip">📄 {periodo.resumenArchivado.plantillas ?? 0} plantillas</span>
+                          <span className="archivada-chip">🎖️ {periodo.resumenArchivado.calificaciones ?? 0} calificaciones</span>
+                        </div>
+                      )}
+                    </div>
                   </div>
-                  <div className="item-actions"></div>
                 </div>
-              </div>
-            </li>
-          ))}
-        </ul>
-      )}
+              </li>
+            ))}
+          </ul>
+        )}
+      </div>
     </div>
   );
 }

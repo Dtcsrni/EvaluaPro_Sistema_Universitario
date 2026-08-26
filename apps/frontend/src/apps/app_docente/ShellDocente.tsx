@@ -25,37 +25,54 @@ export function ShellDocente({
     ? ([docente.nombres, docente.apellidos].filter(Boolean).join(' ').trim() || docente.nombreCompleto || (docente as unknown as Record<string, string>).nombre || docente.correo)
     : 'Modo de acceso';
 
+  const iniciales = docente
+    ? [docente.nombres?.[0], docente.apellidos?.[0]].filter(Boolean).join('').toUpperCase() || 'EP'
+    : 'DOC';
+
   return (
     <section className="card anim-entrada shell-docente superficie-app superficie-app--docente">
       <div className="cabecera shell-docente__header">
         <div className="shell-docente__intro">
           <div className="shell-docente__brand-row">
             <span className="shell-docente__logo-icon">
-              <Icono nombre="docente" />
+              <img src="/favicon-docente.svg" alt="EvaluaPro" className="shell-docente__brand-img" />
             </span>
             <div>
               <p className="eyebrow">EvaluaPro · Sistema Universitario</p>
-              <h1>Plataforma Docente</h1>
+              <h1 className="shell-docente__title">Plataforma Docente</h1>
             </div>
           </div>
         </div>
         <div className="cabecera__acciones shell-docente__acciones">
           {docente && (
-            <span className="chip chip-docente-sesion" title={`Sesión activa: ${docente.correo}`}>
-              <Icono nombre="docente" /> {nombreSesion}
-            </span>
+            <div
+              className="chip chip-docente-sesion"
+              data-tooltip={`Docente: ${nombreSesion} (${docente.correo})`}
+              title={`Docente: ${nombreSesion} (${docente.correo})`}
+            >
+              <span className="chip-docente-avatar">{iniciales}</span>
+              <span className="chip-docente-name">{nombreSesion}</span>
+            </div>
           )}
           <button
             type="button"
             className="chip chip-version"
-            title="Abrir información de versión"
+            data-tooltip="Abrir información de versión, tecnologías y changelog"
+            title="Abrir información de versión, tecnologías y changelog"
             onClick={() => abrirVentanaVersion('docente')}
           >
             v{version}
           </button>
           <TemaBoton />
           {docente && (
-            <Boton variante="secundario" type="button" icono={<Icono nombre="salir" />} onClick={onCerrarSesion}>
+            <Boton
+              variante="secundario"
+              type="button"
+              icono={<Icono nombre="salir" />}
+              onClick={onCerrarSesion}
+              data-tooltip="Cerrar sesión de forma segura en este equipo"
+              title="Cerrar sesión de forma segura en este equipo"
+            >
               Salir
             </Boton>
           )}

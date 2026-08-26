@@ -57,9 +57,23 @@ function safePath(urlPath) {
     return null;
   }
   const relative = decoded.replace(/^[/\\]+/, '');
-  // relative vacío = raíz '/': cae directo al fallback (index.html)
   if (relative.includes('..') || relative.includes('\0')) return null;
-  return assetIndex.get(`/${relative}`) || fallback;
+
+  if (relative) {
+    const absolutePath = path.resolve(publicRoot, relative);
+    if (absolutePath.startsWith(publicRoot) && fs.existsSync(absolutePath)) {
+      try {
+        const stat = fs.statSync(absolutePath);
+        if (stat.isFile()) return absolutePath;
+      } catch {
+        // fallback
+      }
+    }
+  }
+
+  const fallbackPath = path.resolve(publicRoot, 'index.html');
+  if (fs.existsSync(fallbackPath)) return fallbackPath;
+  return null;
 }
 
 function sendFile(response, filePath) {
@@ -75,6 +89,30 @@ function sendFile(response, filePath) {
 }
 
 const server = http.createServer((request, response) => {
+  // Proxy reverso transparente para rutas /api hacia el backend nativo
+  if (request.url?.startsWith('/api/')) {
+    const apiPort = Number(process.env.PUERTO_API || 4000);
+    const proxyReq = http.request(
+      {
+        host: '127.0.0.1',
+        port: apiPort,
+        path: request.url,
+        method: request.method,
+        headers: { ...request.headers, host: `127.0.0.1:${apiPort}` }
+      },
+      (proxyRes) => {
+        response.writeHead(proxyRes.statusCode || 200, proxyRes.headers);
+        proxyRes.pipe(response);
+      }
+    );
+    proxyReq.on('error', (err) => {
+      response.writeHead(502, { 'Content-Type': 'application/json' });
+      response.end(JSON.stringify({ error: 'Backend API no disponible', detalle: String(err?.message || err) }));
+    });
+    request.pipe(proxyReq);
+    return;
+  }
+
   if (request.method !== 'GET' && request.method !== 'HEAD') {
     response.writeHead(405, { Allow: 'GET, HEAD' });
     response.end();

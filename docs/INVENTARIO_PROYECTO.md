@@ -1,16 +1,26 @@
 # Inventario Tecnico del Proyecto
 
-Fecha de corte: 2026-08-23
+Fecha de corte: 2026-08-25
 Version tecnica vigente: `1.1.1`
 Version visible vigente: `1.1.1`
 
-## Estado de validación 2026-08-23
-- **Rediseño Integral de GUI, Wireframes Maestros y Glassmorphism (`SPEC-REDISENIO-INTEGRAL-GUI`):**
-  - Implementación del sistema de diseño Glassmorphic con la paleta de lujo **Prismatic Sapphire & Aurora Starlight** (`#060B14`, `#2563EB`, `#00D2FF`, `#8B5CF6`, `#FBBF24`).
-  - Navegación Glass Dock con pestañas en gradiente Cobalto-Cian y KPIs multicromáticos con halos difusos.
-  - Catálogo de wireframes maestros aprobado y documentado con planos de alta resolución para Materias (con drawer lateral slide-over), Banco de Reactivos (con renderizado KaTeX en tiempo real y vista dual PDF/OMR) y Calificación OMR (split 50/50 con visor y tabla interactiva).
-  - Aplicación de Glassmorphism unificado a todas las secciones operativas del frontend docente y portal alumno.
-- **Gates Verificados:** `npm run lint` ✅, `npm run typecheck` ✅, `npm run test:frontend:ci` ✅ (200 tests), `npm run test:gui:design-contract` ✅, `npm run test:gui:responsive:e2e:ci` ✅ (13 escenarios en 4 resoluciones), `npm run pipeline:contract:check` ✅ (17 tests), `node scripts/sdd-audit.mjs` ✅ (18 specs), `npm run ci:policy:audit` ✅.
+## Estado de validación 2026-08-26
+- **Elevación Radical Bento de todas las Pantallas del Shell Docente (`SPEC-BENTO-ELEVATION-ACADEMICA`):**
+  - Reestructuración completa con Hero Headers Bento, orbes neón animados diferenciados, Mini-KPIs vectoriales con hover lift interactivo y eliminación total de acordeones obsoletos/redundantes en las pantallas: `Plantillas`, `Entrega`, `Calificaciones`, `Evaluaciones`, `Sincronización`, `Cuenta`, `Banco de Preguntas`, `Temarios`, `Asistencias`, `Materias` y `Alumnos`.
+  - Creación e integración sistemática de las 6 guías Bento Step Cards de 3 pasos con memoria de colapso persistente (`GuiaPlantillasVisual.tsx`, `GuiaEntregaVisual.tsx`, `GuiaCalificacionesVisual.tsx`, `GuiaEvaluacionesVisual.tsx`, `GuiaSincronizacionVisual.tsx`, `GuiaCuentaVisual.tsx`).
+  - Cumplimiento estricto de cero inline styles en toda la suite de pantallas (`gui.responsive.audit.test.ts` con 0 infracciones).
+  - 12 capturas de validación generadas en Dark y Light mode.
+- **Gates Verificados:** `npm run lint` ✅, `npm run typecheck` ✅, `npm run test:frontend:ci` ✅ (201 tests en 55 archivos), `npm run test:coverage:ci` ✅, `npm run test:tdd:enforcement:ci` ✅, `npm run test:backend:ci` ✅ (24 lotes), `npm run test:portal:ci` ✅ (32 tests), `npm run perf:check` ✅ (4 presupuestos), `npm run pipeline:contract:check` ✅ (17 tests).
+
+## Estado de validación 2026-08-25
+- **Propagación Glassmorphism Integral y Ergonomía Visual Multi-Pantalla (`SPEC-REDISENIO-INTEGRAL-GUI`):**
+  - Propagación de variables `--glass-surface-0/1/2/3`, `--glass-border` y `--glass-shadow` en todas las pantallas y componentes (Shell Docente, Portal Alumno, Autenticación, Materias, Banco, Plantillas, Calificaciones, Asistencias, Version Center y Empty States).
+  - Coherencia en Tema Claro (`:root:not([data-theme="dark"])`) con 105+ reglas que aseguran legibilidad, contraste y saturación.
+  - Formulario Panorámico de Materias en 2 filas limpias y Bento Workspace con aprovechamiento del 100% del viewport sin solapamiento.
+  - Dock/Sidebar docente con 11 paletas cromáticas diferenciadas (`data-icono-tab`), animaciones pop-in e íconos SVG de alta definición.
+  - Barra medidora de contraseñas desacoplada a selectores semánticos (`data-nivel`), logrando 0 inline styles.
+  - Corrección integral de contratos y suites en `VersionInfoPage`, `VersionInfo.helpers`, `SeccionAutenticacion` y `SeccionPeriodos`.
+- **Gates Verificados:** `npm run lint` ✅, `npm run typecheck` ✅, `npm run test:frontend:ci` ✅ (201 tests en 55 archivos), `npm run test:backend:ci` ✅ (24 lotes), `npm run test:portal:ci` ✅ (32 tests), `npm run perf:check` ✅ (4 presupuestos), `npm run pipeline:contract:check` ✅ (17 tests), `npm run test:smoke:live` ✅.
 
 ## Estado de validación 2026-08-21
 - **Refactorización y Modernización Integral (`SPEC-ARCH-UX-MODERNIZATION`):**

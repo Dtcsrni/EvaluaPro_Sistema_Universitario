@@ -83,8 +83,6 @@ describe('SeccionAutenticacion', () => {
 
     render(<SeccionAutenticacion onIngresar={onIngresar} />);
 
-    await user.click(screen.getByRole('button', { name: /^Ingresar$/i }));
-
     fireEvent.change(screen.getByLabelText('Correo'), { target: { value: 'docente@local.test' } });
     fireEvent.change(screen.getByLabelText(/Contrase[nñ]a/i), { target: { value: '12345678' } });
     const botonesIngresar = screen.getAllByRole('button', { name: /^Ingresar$/i });
@@ -94,7 +92,7 @@ describe('SeccionAutenticacion', () => {
       correo: 'docente@local.test',
       contrasena: '12345678'
     });
-    expect(onIngresar).toHaveBeenCalledWith('token-prueba');
+    expect(onIngresar).toHaveBeenCalledWith('token-prueba', true);
   });
 
   it('permite registrar cuenta por formulario con codigo de licencia', async () => {
@@ -118,11 +116,11 @@ describe('SeccionAutenticacion', () => {
       contrasena: 'segura123',
       codigoLicencia: 'LIC-2026-DOC-TEST'
     });
-    expect(onIngresar).toHaveBeenCalledWith('token-registro');
+    expect(onIngresar).toHaveBeenCalledWith('token-registro', true);
   });
 
   it('bloquea crear cuenta cuando faltan datos en registro', async () => {
-    render(<SeccionAutenticacion onIngresar={() => {}} />);
+    render(<SeccionAutenticacion onIngresar={() => {}} modoInicial="registrar" />);
     expect(screen.getByRole('button', { name: /Crear cuenta/i })).toBeDisabled();
   });
 
@@ -133,7 +131,6 @@ describe('SeccionAutenticacion', () => {
 
     render(<SeccionAutenticacion onIngresar={() => {}} />);
 
-    await user.click(screen.getByRole('button', { name: /^Ingresar$/i }));
     fireEvent.change(screen.getByLabelText('Correo'), { target: { value: 'docente@local.test' } });
     fireEvent.change(screen.getByLabelText(/Contrase[nñ]a/i), { target: { value: '12345678' } });
 
@@ -151,7 +148,6 @@ describe('SeccionAutenticacion', () => {
 
     render(<SeccionAutenticacion onIngresar={() => {}} />);
 
-    await user.click(screen.getByRole('button', { name: /^Ingresar$/i }));
     fireEvent.change(screen.getByLabelText('Correo'), { target: { value: 'docente@local.test' } });
     fireEvent.change(screen.getByLabelText(/Contrase[nñ]a/i), { target: { value: '12345678' } });
 
@@ -178,7 +174,7 @@ describe('SeccionAutenticacion', () => {
     expect(clienteApi.enviar).toHaveBeenCalledWith('/autenticacion/google', expect.objectContaining({
       credential: expect.stringContaining('mock.')
     }));
-    expect(onIngresar).toHaveBeenCalledWith('token-google');
+    expect(onIngresar).toHaveBeenCalledWith('token-google', true);
   });
 
   it('maneja error al ingresar con Google cuando el docente no está registrado', async () => {
@@ -203,7 +199,7 @@ describe('SeccionAutenticacion', () => {
     const onIngresar = vi.fn();
     vi.spyOn(clienteApi, 'enviar').mockResolvedValueOnce({ token: 'token-reg-google' });
 
-    render(<SeccionAutenticacion onIngresar={onIngresar} oauthGoogleDisponible />);
+    render(<SeccionAutenticacion onIngresar={onIngresar} oauthGoogleDisponible modoInicial="registrar" />);
 
     const googleBtn = screen.getByTestId('mock-google-login');
     await user.click(googleBtn);
@@ -226,7 +222,7 @@ describe('SeccionAutenticacion', () => {
       nombres: 'Juan Perez',
       apellidos: 'Lopez'
     }));
-    expect(onIngresar).toHaveBeenCalledWith('token-reg-google');
+    expect(onIngresar).toHaveBeenCalledWith('token-reg-google', true);
   });
 
   it('permite alternar recuperación de contraseña con Google', async () => {
@@ -236,7 +232,8 @@ describe('SeccionAutenticacion', () => {
 
     render(<SeccionAutenticacion onIngresar={onIngresar} oauthGoogleDisponible />);
 
-    await user.click(screen.getByRole('button', { name: /^Ingresar$/i }));
+    const botonesIngresar = screen.getAllByRole('button', { name: /^Ingresar$/i });
+    await user.click(botonesIngresar[0]);
     await user.click(screen.getByRole('button', { name: /Recuperar contrase[nñ]a con Google/i }));
 
     expect(screen.getByText(/Si tu cuenta tiene Google vinculado/i)).toBeInTheDocument();
@@ -272,7 +269,6 @@ describe('SeccionAutenticacion', () => {
     render(<SeccionAutenticacion onIngresar={() => {}} />);
 
     // Domain check on ingresar
-    await user.click(screen.getByRole('button', { name: /^Ingresar$/i }));
     fireEvent.change(screen.getByLabelText('Correo'), { target: { value: 'docente@externo.com' } });
     fireEvent.change(screen.getByLabelText(/Contrase[nñ]a/i), { target: { value: '12345678' } });
 
@@ -295,7 +291,7 @@ describe('SeccionAutenticacion', () => {
 
   it('permite alternar entre Google y formulario en modo registrar', async () => {
     const user = userEvent.setup();
-    render(<SeccionAutenticacion onIngresar={() => {}} oauthGoogleDisponible />);
+    render(<SeccionAutenticacion onIngresar={() => {}} oauthGoogleDisponible modoInicial="registrar" />);
 
     const registrarFormBtn = screen.getByRole('button', { name: /Registrar con correo y contrase[nñ]a/i });
     await user.click(registrarFormBtn);
@@ -310,7 +306,8 @@ describe('SeccionAutenticacion', () => {
     const user = userEvent.setup();
     render(<SeccionAutenticacion onIngresar={() => {}} oauthGoogleDisponible />);
 
-    await user.click(screen.getByRole('button', { name: /^Ingresar$/i }));
+    const botonesIngresar = screen.getAllByRole('button', { name: /^Ingresar$/i });
+    await user.click(botonesIngresar[0]);
 
     const toggleFormBtn = screen.getByRole('button', { name: /Ingresar con correo y contrase[nñ]a/i });
     await user.click(toggleFormBtn);
@@ -324,7 +321,7 @@ describe('SeccionAutenticacion', () => {
     const error429 = new ErrorRemoto('Rate limited', { status: 429, error: 'Demasiadas solicitudes' });
     vi.spyOn(clienteApi, 'enviar').mockRejectedValueOnce(error429);
 
-    render(<SeccionAutenticacion onIngresar={() => {}} />);
+    render(<SeccionAutenticacion onIngresar={() => {}} modoInicial="registrar" />);
 
     fireEvent.change(screen.getByLabelText('Nombres'), { target: { value: 'Ana' } });
     fireEvent.change(screen.getByLabelText('Apellidos'), { target: { value: 'Gomez' } });
@@ -337,7 +334,7 @@ describe('SeccionAutenticacion', () => {
 
   it('maneja Google error callbacks y nombres únicos', async () => {
     const user = userEvent.setup();
-    render(<SeccionAutenticacion onIngresar={() => {}} oauthGoogleDisponible />);
+    render(<SeccionAutenticacion onIngresar={() => {}} oauthGoogleDisponible modoInicial="registrar" />);
 
     // Trigger Google Single Name mock
     const singleNameBtn = screen.getByTestId('mock-google-login-single-name');
@@ -357,7 +354,8 @@ describe('SeccionAutenticacion', () => {
     render(<SeccionAutenticacion onIngresar={() => {}} oauthGoogleDisponible />);
 
     // En modo ingresar con Google
-    await user.click(screen.getByRole('button', { name: /^Ingresar$/i }));
+    const botonesIngresar = screen.getAllByRole('button', { name: /^Ingresar$/i });
+    await user.click(botonesIngresar[0]);
     const googleBtn = screen.getByTestId('mock-google-login');
     await user.click(googleBtn);
     expect(screen.getByText(/Solo se permiten correos institucionales/i)).toBeInTheDocument();
@@ -378,7 +376,8 @@ describe('SeccionAutenticacion', () => {
 
     render(<SeccionAutenticacion onIngresar={() => {}} oauthGoogleDisponible />);
 
-    await user.click(screen.getByRole('button', { name: /^Ingresar$/i }));
+    const botonesIngresar = screen.getAllByRole('button', { name: /^Ingresar$/i });
+    await user.click(botonesIngresar[0]);
     await user.click(screen.getByRole('button', { name: /Recuperar contrase[nñ]a con Google/i }));
 
     const googleBtns = screen.getAllByTestId('mock-google-login');
@@ -391,7 +390,7 @@ describe('SeccionAutenticacion', () => {
   });
 
   it('permite modificar todos los campos en modo registro por formulario', async () => {
-    render(<SeccionAutenticacion onIngresar={() => {}} />);
+    render(<SeccionAutenticacion onIngresar={() => {}} modoInicial="registrar" />);
 
     fireEvent.change(screen.getByLabelText('Nombres'), { target: { value: 'Docente' } });
     fireEvent.change(screen.getByLabelText('Apellidos'), { target: { value: 'Prueba' } });
@@ -408,7 +407,7 @@ describe('SeccionAutenticacion', () => {
 
   it('permite editar nombres y clave de licencia tras registro con Google', async () => {
     const user = userEvent.setup();
-    render(<SeccionAutenticacion onIngresar={() => {}} oauthGoogleDisponible />);
+    render(<SeccionAutenticacion onIngresar={() => {}} oauthGoogleDisponible modoInicial="registrar" />);
 
     const googleBtn = screen.getByTestId('mock-google-login');
     await user.click(googleBtn);
@@ -424,7 +423,7 @@ describe('SeccionAutenticacion', () => {
 
   it('valida datos obligatorios de nombres y apellidos en registro', async () => {
     const user = userEvent.setup();
-    render(<SeccionAutenticacion onIngresar={() => {}} oauthGoogleDisponible />);
+    render(<SeccionAutenticacion onIngresar={() => {}} oauthGoogleDisponible modoInicial="registrar" />);
 
     const googleBtn = screen.getByTestId('mock-google-login');
     await user.click(googleBtn);
@@ -453,7 +452,7 @@ describe('SeccionAutenticacion', () => {
 
   it('maneja credencial vacía en registro con Google y alternar contraseña opcional', async () => {
     const user = userEvent.setup();
-    const { container } = render(<SeccionAutenticacion onIngresar={() => {}} oauthGoogleDisponible />);
+    const { container } = render(<SeccionAutenticacion onIngresar={() => {}} oauthGoogleDisponible modoInicial="registrar" />);
 
     const emptyBtn = screen.getByTestId('mock-google-login-empty');
     await user.click(emptyBtn);
@@ -477,7 +476,7 @@ describe('SeccionAutenticacion', () => {
 
   it('procesa nombre compuesto de Google sin given_name ni family_name', async () => {
     const user = userEvent.setup();
-    render(<SeccionAutenticacion onIngresar={() => {}} oauthGoogleDisponible />);
+    render(<SeccionAutenticacion onIngresar={() => {}} oauthGoogleDisponible modoInicial="registrar" />);
 
     const twoPartsBtn = screen.getByTestId('mock-google-login-two-parts');
     await user.click(twoPartsBtn);
@@ -488,7 +487,7 @@ describe('SeccionAutenticacion', () => {
 
   it('maneja JWT con formato invalido sin crashear', async () => {
     const user = userEvent.setup();
-    render(<SeccionAutenticacion onIngresar={() => {}} oauthGoogleDisponible />);
+    render(<SeccionAutenticacion onIngresar={() => {}} oauthGoogleDisponible modoInicial="registrar" />);
 
     const invalidBtn = screen.getByTestId('mock-google-login-invalid-jwt');
     await user.click(invalidBtn);
@@ -503,7 +502,8 @@ describe('SeccionAutenticacion', () => {
 
     render(<SeccionAutenticacion onIngresar={() => {}} oauthGoogleDisponible />);
 
-    await user.click(screen.getByRole('button', { name: /^Ingresar$/i }));
+    const botonesIngresar = screen.getAllByRole('button', { name: /^Ingresar$/i });
+    await user.click(botonesIngresar[0]);
     const twoPartsBtn = screen.getByTestId('mock-google-login-two-parts');
     await user.click(twoPartsBtn);
 
@@ -518,7 +518,7 @@ describe('SeccionAutenticacion', () => {
     const user = userEvent.setup();
     vi.spyOn(utilidadesModule, 'obtenerDominiosCorreoPermitidosFrontend').mockReturnValue(['@institucional.edu']);
 
-    render(<SeccionAutenticacion onIngresar={() => {}} oauthGoogleDisponible />);
+    render(<SeccionAutenticacion onIngresar={() => {}} oauthGoogleDisponible modoInicial="registrar" />);
 
     const googleBtn = screen.getByTestId('mock-google-login');
     await user.click(googleBtn);

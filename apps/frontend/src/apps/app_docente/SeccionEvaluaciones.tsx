@@ -1,4 +1,4 @@
-﻿/**
+/**
  * SeccionEvaluaciones
  *
  * Responsabilidad: Seccion funcional del shell docente.
@@ -9,10 +9,10 @@ import { emitToast } from '../../ui/toast/toastBus';
 import { Boton } from '../../ui/ux/componentes/Boton';
 import { InlineMensaje } from '../../ui/ux/componentes/InlineMensaje';
 import { clienteApi } from './clienteApiDocente';
-import { CentroClassroom } from './CentroClassroom';
+import { GuiaEvaluacionesVisual } from './GuiaEvaluacionesVisual';
 import type { Alumno, Periodo } from './tipos';
 
-type TabEvaluaciones = 'politica' | 'evidencias' | 'examenes' | 'classroom' | 'resumen';
+type TabEvaluaciones = 'politica' | 'evidencias' | 'examenes' | 'resumen';
 
 type Politica = {
   codigo: 'POLICY_SV_EXCEL_2026' | 'POLICY_LISC_ENCUADRE_2026';
@@ -47,12 +47,8 @@ export function SeccionEvaluaciones(params: {
   periodos: Periodo[];
   alumnos: Alumno[];
   puedeGestionar: boolean;
-  puedeClassroomConectar: boolean;
-  puedeClassroomPull: boolean;
-  classroomDisponible?: boolean;
 }) {
-  const { periodos, alumnos, puedeGestionar, puedeClassroomConectar, puedeClassroomPull, classroomDisponible = true } = params;
-  const puedeClassroom = classroomDisponible && (puedeClassroomConectar || puedeClassroomPull);
+  const { periodos, alumnos, puedeGestionar } = params;
 
   const [tabActiva, setTabActiva] = useState<TabEvaluaciones>('politica');
   const [periodoId, setPeriodoId] = useState<string>('');
@@ -105,11 +101,7 @@ export function SeccionEvaluaciones(params: {
     void cargarContexto();
   }, [cargarContexto, periodoId]);
 
-  useEffect(() => {
-    if (!puedeClassroom && tabActiva === 'classroom') {
-      setTabActiva('politica');
-    }
-  }, [puedeClassroom, tabActiva]);
+  
 
   async function guardarPoliticaV2() {
     if (!periodoId) return;
@@ -195,12 +187,58 @@ export function SeccionEvaluaciones(params: {
 
   return (
     <div className="panel evaluaciones-panel">
-      <div className="evaluaciones-panel__head">
-        <div>
-          <h2>Evaluaciones y políticas</h2>
-          <p className="nota">Configura políticas de evaluación, ponderaciones, evidencias continuas y consulta de consolidados.</p>
+      {/* 1. Bento Hero Header */}
+      <div className="banco-panel__head evaluaciones-panel__head anim-fade-in">
+        <div className="banco-panel__lead">
+          <div className="banco-panel__icon-orb evaluaciones-panel__icon-orb anim-icon-pulse" aria-hidden="true">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+              <line x1="18" y1="20" x2="18" y2="10" />
+              <line x1="12" y1="20" x2="12" y2="4" />
+              <line x1="6" y1="20" x2="6" y2="14" />
+            </svg>
+          </div>
+          <div className="banco-panel__text-block">
+            <div className="banco-panel__meta-row">
+              <span className="banco-status-pill evaluaciones-status-pill">
+                <span className="banco-pulse-dot" aria-hidden="true" />
+                <span>Métricas y Analítica Académica</span>
+              </span>
+              <span className="banco-counter-tag">{listaPoliticas.length} políticas activas</span>
+            </div>
+            <h2 className="banco-panel__title eyebrow">Evaluaciones y políticas</h2>
+            <p className="nota">Configura políticas de evaluación, ponderaciones, evidencias continuas y consulta de consolidados.</p>
+          </div>
+        </div>
+
+        {/* Mini-KPIs */}
+        <div className="banco-header-kpis" aria-live="polite">
+          <div className="banco-mini-kpi banco-mini-kpi--preguntas anim-kpi-hover" data-tooltip="Políticas de encuadre registradas">
+            <span className="banco-mini-kpi__icon" aria-hidden="true"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2.2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" /></svg></span>
+            <span className="banco-mini-kpi__num">{listaPoliticas.length}</span>
+            <span className="banco-mini-kpi__lbl">Políticas</span>
+          </div>
+
+          <div className="banco-mini-kpi banco-mini-kpi--temas anim-kpi-hover" data-tooltip="Alumnos en el curso seleccionado">
+            <span className="banco-mini-kpi__icon" aria-hidden="true">
+              <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
+              <circle cx="9" cy="7" r="4" />
+            </span>
+            <span className="banco-mini-kpi__num banco-mini-kpi__num--cyan">{alumnosDelPeriodo.length}</span>
+            <span className="banco-mini-kpi__lbl">Alumnos</span>
+          </div>
+
+          <div className="banco-mini-kpi banco-mini-kpi--temaactual anim-kpi-hover" data-tooltip="Pestaña de analítica activa">
+            <span className="banco-mini-kpi__icon" aria-hidden="true"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2.2"><polyline points="20 6 9 17 4 12" /></svg></span>
+            <span className="banco-mini-kpi__num banco-mini-kpi__num--sm banco-mini-kpi__num--emerald">
+              {tabActiva.toUpperCase()}
+            </span>
+            <span className="banco-mini-kpi__lbl">Sección</span>
+          </div>
         </div>
       </div>
+
+      {/* 2. Bento Visual Guide */}
+      <GuiaEvaluacionesVisual />
       {estado && <InlineMensaje tipo="info">{estado}</InlineMensaje>}
 
       <div className="tabs evaluaciones-tabs" role="tablist">
@@ -225,15 +263,6 @@ export function SeccionEvaluaciones(params: {
         >
           Exámenes
         </Boton>
-        {puedeClassroom && (
-          <Boton
-            variante={tabActiva === 'classroom' ? 'primario' : 'secundario'}
-            type="button"
-            onClick={() => setTabActiva('classroom')}
-          >
-            Classroom
-          </Boton>
-        )}
         <Boton
           variante={tabActiva === 'resumen' ? 'primario' : 'secundario'}
           type="button"
@@ -349,15 +378,6 @@ export function SeccionEvaluaciones(params: {
             </Boton>
           </div>
         </div>
-      )}
-
-      {tabActiva === 'classroom' && (
-        <CentroClassroom
-          periodoId={periodoId}
-          puedeClassroomConectar={puedeClassroomConectar}
-          puedeClassroomPull={puedeClassroomPull}
-          classroomDisponible={classroomDisponible}
-        />
       )}
 
       {tabActiva === 'resumen' && (

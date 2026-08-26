@@ -15,6 +15,7 @@ import { clienteApi } from './clienteApiDocente';
 import { registrarAccionDocente } from './telemetriaDocente';
 import { SeccionEscaneo } from './SeccionEscaneo';
 import { SeccionCalificar } from './SeccionCalificar';
+import { GuiaCalificacionesVisual } from './GuiaCalificacionesVisual';
 import type {
   Alumno,
   ExamenGeneradoClave,
@@ -31,13 +32,14 @@ import type {
 import {
   construirClaveCorrectaExamen,
   esMensajeError,
+  etiquetaMateria,
   mensajeDeError,
   normalizarTemplateVersionOmrDetectada
 } from './utilidades';
 
 export function SeccionCalificaciones({
   periodos = [],
-  alumnos,
+  alumnos = [],
   onAnalizar,
   onPrevisualizar,
   resultado,
@@ -431,7 +433,10 @@ export function SeccionCalificaciones({
     const estado = String(examenManualSeleccionado.estado ?? 'entregado').trim() || 'entregado';
     return { tipo, plantilla: plantillaTitulo, estado };
   }, [examenManualSeleccionado, plantillasPorId]);
-  const mapaAlumnos = useMemo(() => new Map(alumnos.map((item) => [String(item._id), String(item.nombreCompleto ?? '').trim()])), [alumnos]);
+  const mapaAlumnos = useMemo(
+    () => new Map((Array.isArray(alumnos) ? alumnos : []).map((item) => [String(item._id), String(item.nombreCompleto ?? '').trim()])),
+    [alumnos]
+  );
   const resumenSolicitudes = useMemo(() => {
     const pendientes = solicitudesSeguras.filter((s) => s.estado === 'pendiente').length;
     const atendidas = solicitudesSeguras.filter((s) => s.estado === 'atendida').length;
@@ -946,110 +951,171 @@ export function SeccionCalificaciones({
 
   return (
     <>
-      <div className="panel calificaciones-hero">
-        <div className="calificaciones-hero__head">
-          <h2>
-            <Icono nombre="calificar" /> Calificaciones
-          </h2>
-          <p className="nota">
-            Escanea por página, revisa por examen y guarda solo cuando la revisión esté confirmada.
-          </p>
+      {/* 1. Bento Hero Header */}
+      <div className="banco-panel__head calif-panel__head anim-fade-in">
+        <div className="banco-panel__lead">
+          <div className="banco-panel__icon-orb calif-panel__icon-orb anim-icon-pulse" aria-hidden="true">
+            <Icono nombre="calificar" />
+          </div>
+          <div className="banco-panel__text-block">
+            <div className="banco-panel__meta-row">
+              <span className="banco-status-pill calif-status-pill">
+                <span className="banco-pulse-dot" aria-hidden="true" />
+                <span>Mesa de Calificación y Escrutinio OMR</span>
+              </span>
+              <span className="banco-counter-tag">{revisionesSeguras.length} exámenes</span>
+            </div>
+            <h2 className="banco-panel__title eyebrow"><Icono nombre="calificar" /> Calificaciones</h2>
+            <p className="nota">Escanea por página, revisa por examen y guarda solo cuando la revisión esté confirmada.</p>
+          </div>
         </div>
-        <div className="calificaciones-kpi" aria-live="polite">
-          <div className="calificaciones-kpi__item"><span>Exámenes en flujo</span><b>{revisionesSeguras.length}</b></div>
-          <div className="calificaciones-kpi__item"><span>Páginas procesadas</span><b>{totalPaginas}</b></div>
-          <div className="calificaciones-kpi__item"><span>Páginas pendientes</span><b>{paginasPendientes}</b></div>
-          <div className="calificaciones-kpi__item"><span>Revisados/Calificados</span><b>{examenesListos}</b></div>
-          <div className="calificaciones-kpi__item"><span>Solicitudes revisión</span><b>{resumenSolicitudes.total}</b></div>
+
+        {/* Mini-KPIs */}
+        <div className="banco-header-kpis" aria-live="polite">
+          <div className="banco-mini-kpi banco-mini-kpi--preguntas anim-kpi-hover" data-tooltip="Exámenes en flujo de escaneo">
+            <span className="banco-mini-kpi__icon" aria-hidden="true"><Icono nombre="pdf" /></span>
+            <span className="banco-mini-kpi__num">{revisionesSeguras.length}</span>
+            <span className="banco-mini-kpi__lbl">En flujo</span>
+          </div>
+
+          <div className="banco-mini-kpi banco-mini-kpi--paginas anim-kpi-hover" data-tooltip="Páginas totales analizadas">
+            <span className="banco-mini-kpi__icon" aria-hidden="true"><Icono nombre="escaneo" /></span>
+            <span className="banco-mini-kpi__num banco-mini-kpi__num--cyan">{totalPaginas}</span>
+            <span className="banco-mini-kpi__lbl">Procesadas</span>
+          </div>
+
+          <div className="banco-mini-kpi banco-mini-kpi--sintema anim-kpi-hover" data-tooltip="Páginas con revisión pendiente">
+            <span className="banco-mini-kpi__icon" aria-hidden="true"><Icono nombre="alerta" /></span>
+            <span className="banco-mini-kpi__num banco-mini-kpi__num--amber">{paginasPendientes}</span>
+            <span className="banco-mini-kpi__lbl">Pendientes</span>
+          </div>
+
+          <div className="banco-mini-kpi banco-mini-kpi--temaactual anim-kpi-hover" data-tooltip="Exámenes con calificación confirmada">
+            <span className="banco-mini-kpi__icon" aria-hidden="true"><Icono nombre="ok" /></span>
+            <span className="banco-mini-kpi__num banco-mini-kpi__num--emerald">{examenesListos}</span>
+            <span className="banco-mini-kpi__lbl">Calificados</span>
+          </div>
+
+          <div className="banco-mini-kpi banco-mini-kpi--reactivos anim-kpi-hover" data-tooltip="Solicitudes de revisión enviadas por alumnos">
+            <span className="banco-mini-kpi__icon" aria-hidden="true"><Icono nombre="info" /></span>
+            <span className="banco-mini-kpi__num">{resumenSolicitudes.total}</span>
+            <span className="banco-mini-kpi__lbl">Solicitudes</span>
+          </div>
         </div>
-        <div className="item-meta calificaciones-hero__meta">
-          {examenIdActivo ? (
-            <span className={`badge ${hayCambiosPendientesOmrActiva ? 'warning' : 'ok'}`}>
-              {hayCambiosPendientesOmrActiva ? 'Examen activo con cambios pendientes' : 'Examen activo sin cambios pendientes'}
+      </div>
+
+      {/* 2. Bento Visual Guide */}
+      <GuiaCalificacionesVisual />
+
+      {/* Bento Action Deck: Exportación & Escrutinio */}
+      <div className="calif-action-deck anim-fade-in">
+        <div className="calif-deck-card calif-deck-card--reports">
+          <div className="calif-deck-card__header">
+            <span className="banco-section-pill">
+              <span className="banco-section-pill__dot" aria-hidden="true" />
+              <span>Actas & Exportación</span>
             </span>
-          ) : <span className="badge">Sin examen activo</span>}
+            <span className="banco-counter-tag">Formatos: CSV · XLSX</span>
+          </div>
+          <div className="calif-deck-card__body">
+            <label className="campo calif-deck-card__field">
+              <span>Materia del reporte</span>
+              <select value={periodoReporteId} onChange={(event) => setPeriodoReporteId(event.target.value)}>
+                <option value="">Selecciona materia...</option>
+                {periodos.map((periodo) => (
+                  <option key={periodo._id} value={periodo._id}>
+                    {etiquetaMateria(periodo)}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <div className="calif-deck-card__btn-group">
+              <Boton
+                type="button"
+                variante="secundario"
+                icono={<Icono nombre="descargar" />}
+                cargando={reporteDescargando === 'csv'}
+                disabled={!periodoReporteId || reporteDescargando !== null || !puedeCalificar}
+                onClick={() => void descargarReporteCalificaciones('csv')}
+              >
+                Descargar CSV
+              </Boton>
+              <Boton
+                type="button"
+                variante="secundario"
+                icono={<Icono nombre="descargar" />}
+                cargando={reporteDescargando === 'xlsx'}
+                disabled={!periodoReporteId || reporteDescargando !== null || !puedeCalificar}
+                onClick={() => void descargarReporteCalificaciones('xlsx')}
+              >
+                Descargar XLSX
+              </Boton>
+            </div>
+          </div>
+          {mensajeReporte && <InlineMensaje tipo={esMensajeError(mensajeReporte) ? 'error' : 'info'}>{mensajeReporte}</InlineMensaje>}
         </div>
-        <div className="item-actions calificaciones-hero__reports" aria-label="Reportes de calificaciones">
-          <label className="campo">
-            Materia del reporte
-            <select
-              value={periodoReporteId}
-              onChange={(event) => setPeriodoReporteId(event.target.value)}
-              disabled={periodos.length === 0 || reporteDescargando !== null}
-            >
-              <option value="">Selecciona materia</option>
-              {periodos.map((periodo) => (
-                <option key={periodo._id} value={periodo._id}>
-                  {String(periodo.nombre || periodo._id)}
+
+        <div className="calif-deck-card calif-deck-card--history">
+          <div className="calif-deck-card__header">
+            <span className="banco-section-pill banco-section-pill--amber">
+              <span className="banco-section-pill__dot" aria-hidden="true" />
+              <span>Escrutinio & Custodia</span>
+            </span>
+            <span className="banco-counter-tag">
+              {examenIdActivo ? (hayCambiosPendientesOmrActiva ? '⚠️ Cambios pendientes' : '✓ Examen activo') : 'Sin examen activo'}
+            </span>
+          </div>
+          <div className="calif-deck-card__body">
+            <label className="campo calif-deck-card__field">
+              <span>Exámenes revisados/calificados</span>
+              <select
+                value={examenRevisadoSeleccionadoId}
+                onChange={(event) => {
+                  const examenIdDestino = String(event.target.value ?? '').trim();
+                  setExamenRevisadoSeleccionadoId(examenIdDestino);
+                  if (!examenIdDestino) return;
+                  const examen = examenesRevisados.find((item) => item.examenId === examenIdDestino);
+                  if (!examen || !Array.isArray(examen.paginas) || examen.paginas.length === 0) {
+                    void cargarExamenCalificadoPersistido(examenIdDestino);
+                    return;
+                  }
+                  const paginaInicio =
+                    [...examen.paginas]
+                      .filter((pagina) => Number.isFinite(Number(pagina.numeroPagina)))
+                      .sort((a, b) => {
+                        const actualizadoA = Number((a as { actualizadoEn?: unknown }).actualizadoEn ?? 0);
+                        const actualizadoB = Number((b as { actualizadoEn?: unknown }).actualizadoEn ?? 0);
+                        if (actualizadoB !== actualizadoA) return actualizadoB - actualizadoA;
+                        return Number(b.numeroPagina) - Number(a.numeroPagina);
+                      })
+                      .map((pagina) => Number(pagina.numeroPagina))[0] ?? null;
+                  if (!Number.isFinite(Number(paginaInicio))) return;
+                  onSeleccionarRevision(examen.examenId, Number(paginaInicio));
+                }}
+                disabled={opcionesExamenesRevisados.length === 0}
+              >
+                <option value="">
+                  {opcionesExamenesRevisados.length === 0 ? 'Sin exámenes revisados/calificados' : 'Selecciona examen revisado/calificado...'}
                 </option>
-              ))}
-            </select>
-          </label>
-          <Boton
-            type="button"
-            variante="secundario"
-            disabled={!periodoReporteId || reporteDescargando !== null}
-            onClick={() => void descargarReporteCalificaciones('csv')}
-          >
-            {reporteDescargando === 'csv' ? 'Descargando CSV...' : 'Descargar CSV'}
-          </Boton>
-          <Boton
-            type="button"
-            variante="secundario"
-            disabled={!periodoReporteId || reporteDescargando !== null}
-            onClick={() => void descargarReporteCalificaciones('xlsx')}
-          >
-            {reporteDescargando === 'xlsx' ? 'Descargando XLSX...' : 'Descargar XLSX'}
-          </Boton>
-        </div>
-        {mensajeReporte && <InlineMensaje tipo={esMensajeError(mensajeReporte) ? 'error' : 'info'}>{mensajeReporte}</InlineMensaje>}
-        <div className="item-actions calificaciones-hero__actions">
-          <label className="campo calificaciones-revisados-select">
-            Exámenes revisados/calificados
-            <select
-              value={examenRevisadoSeleccionadoId}
-              onChange={(event) => {
-                const examenIdDestino = String(event.target.value ?? '').trim();
-                setExamenRevisadoSeleccionadoId(examenIdDestino);
-                if (!examenIdDestino) return;
-                const examen = examenesRevisados.find((item) => item.examenId === examenIdDestino);
-                if (!examen || !Array.isArray(examen.paginas) || examen.paginas.length === 0) {
-                  void cargarExamenCalificadoPersistido(examenIdDestino);
-                  return;
-                }
-                const paginaInicio =
-                  [...examen.paginas]
-                    .filter((pagina) => Number.isFinite(Number(pagina.numeroPagina)))
-                    .sort((a, b) => {
-                      const actualizadoA = Number((a as { actualizadoEn?: unknown }).actualizadoEn ?? 0);
-                      const actualizadoB = Number((b as { actualizadoEn?: unknown }).actualizadoEn ?? 0);
-                      if (actualizadoB !== actualizadoA) return actualizadoB - actualizadoA;
-                      return Number(b.numeroPagina) - Number(a.numeroPagina);
-                    })
-                    .map((pagina) => Number(pagina.numeroPagina))[0] ?? null;
-                if (!Number.isFinite(Number(paginaInicio))) return;
-                onSeleccionarRevision(examen.examenId, Number(paginaInicio));
-              }}
-              disabled={opcionesExamenesRevisados.length === 0}
-            >
-              <option value="">
-                {opcionesExamenesRevisados.length === 0 ? 'Sin exámenes revisados/calificados' : 'Selecciona examen revisado/calificado'}
-              </option>
-              {opcionesExamenesRevisados.map((examen) => (
-                <option key={examen.id} value={examen.id}>
-                  {`Folio ${examen.folio} · ${examen.fuente === 'cola' ? `${examen.paginas} página(s)` : 'calificado'}`}
-                </option>
-              ))}
-            </select>
-          </label>
-          <Boton
-            type="button"
-            variante="secundario"
-            disabled={revisionesSeguras.length === 0 && !resultado}
-            onClick={onLimpiarColaEscaneos}
-          >
-            <Icono nombre="recargar" /> Limpiar cola de escaneos
-          </Boton>
+                {opcionesExamenesRevisados.map((examen) => (
+                  <option key={examen.id} value={examen.id}>
+                    {`Folio ${examen.folio} · ${examen.fuente === 'cola' ? `${examen.paginas} página(s)` : 'calificado'}`}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <div className="calif-deck-card__btn-group">
+              <Boton
+                type="button"
+                variante="secundario"
+                icono={<Icono nombre="recargar" />}
+                disabled={revisionesSeguras.length === 0 && !resultado}
+                onClick={onLimpiarColaEscaneos}
+              >
+                Limpiar cola
+              </Boton>
+            </div>
+          </div>
         </div>
       </div>
       <div className="calificaciones-layout" data-calificaciones-layout="true">
@@ -1078,11 +1144,19 @@ export function SeccionCalificaciones({
           />
         </div>
         <aside className="calificaciones-layout__aside" aria-label="Panel de calificación">
-          <section className="panel calificaciones-encuadre-panel">
-            <h3>
-              <Icono nombre="pdf" /> Encuadre Académico y Firmas
-            </h3>
-            <p className="nota">Configura el formato de encuadre digital y notifica a los alumnos para su firma desde su correo institucional.</p>
+          <section className="panel calificaciones-encuadre-panel anim-fade-in">
+            <div className="banco-section-title">
+              <div className="banco-section-title__wrap">
+                <span className="banco-section-pill">
+                  <span className="banco-section-pill__dot" aria-hidden="true" />
+                  <span>Instrumentación Académica</span>
+                </span>
+                <h3 className="entregas-title-heading">
+                  <Icono nombre="pdf" /> Encuadre Académico y Firmas
+                </h3>
+                <p className="nota">Configura el formato de encuadre digital y notifica a los alumnos para su firma desde su correo institucional.</p>
+              </div>
+            </div>
             
             <label className="campo">
               Materia / Periodo
@@ -1261,11 +1335,23 @@ export function SeccionCalificaciones({
             )}
           </section>
 
-          <section className="panel calificaciones-manual-panel">
-            <h3>
-              <Icono nombre="alumno" /> Selección manual por entregado
-            </h3>
-            <p className="nota">Selecciona alumno y examen entregado para calificar manualmente cada pregunta.</p>
+          <section className="panel calificaciones-manual-panel anim-fade-in">
+            <div className="banco-section-title">
+              <div className="banco-section-title__wrap">
+                <span className="banco-section-pill">
+                  <span className="banco-section-pill__dot" aria-hidden="true" />
+                  <span>Calificación Directa</span>
+                </span>
+                <h3 className="entregas-title-heading">
+                  <Icono nombre="alumno" /> Selección manual por entregado
+                </h3>
+                <p className="nota">Selecciona alumno y examen entregado para calificar manualmente cada pregunta.</p>
+              </div>
+              <div className="banco-section-side-meta">
+                <span className="banco-counter-tag">Entregados: {examenesManual.length}</span>
+                <span className="banco-counter-tag banco-counter-tag--cyan">Filtrados: {examenesManualFiltrados.length}</span>
+              </div>
+            </div>
             <div className="item-meta">
               <span>Exámenes entregados del alumno: {examenesManual.length}</span>
               <span>Filtrados: {examenesManualFiltrados.length}</span>
@@ -1274,7 +1360,7 @@ export function SeccionCalificaciones({
               Alumno
               <select value={alumnoManualId} onChange={(event) => seleccionarAlumnoManual(event.target.value)}>
                 <option value="">Selecciona</option>
-                {alumnos.map((alumno) => (
+                {(Array.isArray(alumnos) ? alumnos : []).map((alumno) => (
                   <option key={alumno._id} value={alumno._id}>
                     {alumno.matricula} - {alumno.nombreCompleto}
                   </option>
@@ -1386,14 +1472,23 @@ export function SeccionCalificaciones({
           {!mostrarSeccionCalificar ? (
             <InlineMensaje tipo="info">Confirma la revisión OMR en la mesa superior para habilitar la calificación.</InlineMensaje>
           ) : null}
-          <section className="panel calificaciones-revision-panel">
-            <h3>
-              <Icono nombre="info" /> Solicitudes de revisión del alumno
-            </h3>
-            <div className="calificaciones-revision-panel__stats item-meta">
-              <span>Pendientes: {resumenSolicitudes.pendientes}</span>
-              <span>Atendidas: {resumenSolicitudes.atendidas}</span>
-              <span>Rechazadas: {resumenSolicitudes.rechazadas}</span>
+          <section className="panel calificaciones-revision-panel anim-fade-in">
+            <div className="banco-section-title">
+              <div className="banco-section-title__wrap">
+                <span className="banco-section-pill banco-section-pill--amber">
+                  <span className="banco-section-pill__dot" aria-hidden="true" />
+                  <span>Buzón de Aclaraciones</span>
+                </span>
+                <h3 className="entregas-title-heading">
+                  <Icono nombre="info" /> Solicitudes de revisión del alumno
+                </h3>
+                <p className="nota">Atiende solicitudes de aclaración enviadas por los alumnos desde su portal.</p>
+              </div>
+              <div className="banco-section-side-meta">
+                <span className="banco-counter-tag banco-counter-tag--amber">Pendientes: {resumenSolicitudes.pendientes}</span>
+                <span className="banco-counter-tag banco-counter-tag--emerald">Atendidas: {resumenSolicitudes.atendidas}</span>
+                <span className="banco-counter-tag">Rechazadas: {resumenSolicitudes.rechazadas}</span>
+              </div>
             </div>
             <div className="item-actions calificaciones-revision-panel__toolbar">
               <button

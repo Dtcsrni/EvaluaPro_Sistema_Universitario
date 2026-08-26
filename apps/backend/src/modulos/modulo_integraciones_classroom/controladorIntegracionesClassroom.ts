@@ -54,7 +54,7 @@ export async function iniciarOauthClassroom(req: SolicitudDocente, res: Response
   });
 }
 
-function responderCallbackHtml(res: Response, exito: boolean, mensaje: string, targetOrigin?: string | null) {
+function responderCallbackHtml(res: Response, exito: boolean, mensaje: string) {
   const estado = exito ? 'ok' : 'error';
   const detalleEscapado = mensaje
     .replace(/&/g, '&amp;')
@@ -62,24 +62,226 @@ function responderCallbackHtml(res: Response, exito: boolean, mensaje: string, t
     .replace(/>/g, '&gt;')
     .replace(/"/g, '&quot;')
     .replace(/'/g, '&#039;');
-  const originEscapado =
-    String(targetOrigin || '')
-      .replace(/&/g, '&amp;')
-      .replace(/</g, '&lt;')
-      .replace(/>/g, '&gt;')
-      .replace(/"/g, '&quot;')
-      .replace(/'/g, '&#039;') || '*';
-  res
-    .status(exito ? 200 : 400)
-    .type('html')
-    .send(`<!doctype html><html><body><script>
+
+  const html = `<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>${exito ? 'Google Classroom Conectado' : 'Error de Conexión'} · EvaluaPro</title>
+  <style>
+    :root {
+      --bg: #070d1e;
+      --card-bg: rgba(15, 23, 42, 0.88);
+      --border: ${exito ? 'rgba(16, 185, 129, 0.35)' : 'rgba(239, 68, 68, 0.35)'};
+      --text: #f8fafc;
+      --text-muted: #94a3b8;
+      --accent: ${exito ? '#10b981' : '#ef4444'};
+      --accent-glow: ${exito ? 'rgba(16, 185, 129, 0.25)' : 'rgba(239, 68, 68, 0.25)'};
+      --btn-bg: ${exito ? 'linear-gradient(135deg, #10b981, #059669)' : 'linear-gradient(135deg, #ef4444, #dc2626)'};
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; }
+    body {
+      background: radial-gradient(circle at 50% 20%, #172554 0%, #070d1e 100%);
+      color: var(--text);
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 1.5rem;
+    }
+    .card {
+      background: var(--card-bg);
+      border: 1px solid var(--border);
+      border-radius: 24px;
+      padding: 2.4rem 2rem;
+      max-width: 460px;
+      width: 100%;
+      text-align: center;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      box-shadow: 0 24px 48px -12px rgba(0,0,0,0.8), 0 0 40px -5px var(--accent-glow);
+      backdrop-filter: blur(20px);
+      animation: popIn 0.35s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+    @keyframes popIn {
+      from { opacity: 0; transform: scale(0.92) translateY(10px); }
+      to { opacity: 1; transform: scale(1) translateY(0); }
+    }
+    .orb {
+      width: 68px;
+      height: 68px;
+      border-radius: 50%;
+      background: var(--accent-glow);
+      border: 1px solid var(--border);
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      margin-bottom: 1.2rem;
+      color: var(--accent);
+      box-shadow: 0 0 20px var(--accent-glow);
+    }
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.4rem;
+      background: rgba(255,255,255,0.06);
+      border: 1px solid rgba(255,255,255,0.1);
+      border-radius: 999px;
+      padding: 0.3rem 0.8rem;
+      font-size: 0.76rem;
+      font-weight: 700;
+      letter-spacing: 0.05em;
+      text-transform: uppercase;
+      color: var(--text-muted);
+      margin-bottom: 0.8rem;
+    }
+    .badge-dot {
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      background: var(--accent);
+    }
+    h1 {
+      font-size: 1.35rem;
+      font-weight: 800;
+      letter-spacing: -0.02em;
+      margin-bottom: 0.5rem;
+      color: #ffffff;
+    }
+    p.desc {
+      font-size: 0.9rem;
+      color: var(--text-muted);
+      line-height: 1.5;
+      margin-bottom: 1.4rem;
+    }
+    .chip {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 0.6rem;
+      background: rgba(15, 23, 42, 0.8);
+      border: 1px solid rgba(255, 255, 255, 0.14);
+      border-radius: 12px;
+      padding: 0.7rem 1.2rem;
+      font-size: 0.88rem;
+      font-weight: 600;
+      color: #f1f5f9;
+      margin-bottom: 1.5rem;
+      max-width: 100%;
+    }
+    .chip svg {
+      width: 18px;
+      height: 18px;
+      flex-shrink: 0;
+    }
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 0.5rem;
+      width: 100%;
+      padding: 0.75rem 1.2rem;
+      border-radius: 12px;
+      border: none;
+      background: var(--btn-bg);
+      color: #ffffff;
+      font-weight: 700;
+      font-size: 0.92rem;
+      cursor: pointer;
+      box-shadow: 0 4px 14px var(--accent-glow);
+      transition: all 0.2s ease;
+    }
+    .btn:hover {
+      transform: translateY(-1px);
+      filter: brightness(1.1);
+    }
+    .progress-wrap {
+      width: 100%;
+      height: 4px;
+      background: rgba(255,255,255,0.08);
+      border-radius: 999px;
+      overflow: hidden;
+      margin-top: 1.2rem;
+    }
+    .progress-bar {
+      height: 100%;
+      width: 100%;
+      background: var(--accent);
+      animation: countdown 2.2s linear forwards;
+    }
+    @keyframes countdown {
+      from { width: 100%; }
+      to { width: 0%; }
+    }
+    .timer-text {
+      font-size: 0.78rem;
+      color: var(--text-muted);
+      margin-top: 0.5rem;
+    }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <div class="orb">
+      ${exito ? '<svg viewBox="0 0 24 24" width="36" height="36" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>' : '<svg viewBox="0 0 24 24" width="36" height="36" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="8" x2="12" y2="12"></line><line x1="12" y1="16" x2="12.01" y2="16"></line></svg>'}
+    </div>
+    <div class="badge">
+      <span class="badge-dot"></span>
+      <span>Google Workspace · EvaluaPro</span>
+    </div>
+    <h1>${exito ? '¡Vinculación Exitosa!' : 'No se pudo conectar'}</h1>
+    <p class="desc">
+      ${exito ? 'La conexión segura con Google Classroom se ha establecido. Ya puedes sincronizar tus cursos y tareas.' : 'Ocurrió un problema al autorizar la cuenta de Google.'}
+    </p>
+    <div class="chip">
+      <svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 17.93c-3.95-.49-7-3.85-7-7.93 0-.62.08-1.21.21-1.79L9 15v1c0 1.1.9 2 2 2v1.93zm6.9-2.54c-.26-.81-1-1.39-1.9-1.39h-1v-3c0-.55-.45-1-1-1H8v-2h2c.55 0 1-.45 1-1V7h2c1.1 0 2-.9 2-2v-.41c2.93 1.19 5 4.06 5 7.41 0 2.08-.8 3.97-2.1 5.39z"/></svg>
+      <span>${detalleEscapado}</span>
+    </div>
+    <button type="button" class="btn" onclick="cerrar()">
+      Cerrar ventana
+    </button>
+    ${exito ? '<div class="progress-wrap"><div class="progress-bar"></div></div><div class="timer-text">Cerrando automáticamente en breve...</div>' : ''}
+  </div>
+
+  <script>
+    function emitirNotificaciones() {
       try {
-        if (window.opener && typeof window.opener.postMessage === 'function') {
-          window.opener.postMessage({ source: 'classroom-oauth', status: '${estado}', message: '${detalleEscapado}' }, '${originEscapado}');
+        if (window.opener) {
+          window.opener.postMessage({ source: 'classroom-oauth', status: '${estado}', message: '${detalleEscapado}' }, '*');
         }
-      } catch {}
-      window.close();
-    </script><p>${detalleEscapado}</p></body></html>`);
+      } catch (e) {}
+      try {
+        if (typeof BroadcastChannel !== 'undefined') {
+          const bc = new BroadcastChannel('ep_classroom_sync');
+          bc.postMessage({ source: 'classroom-oauth', status: '${estado}', message: '${detalleEscapado}' });
+          bc.close();
+        }
+      } catch (e) {}
+      try {
+        localStorage.setItem('ep.classroom.event', JSON.stringify({ ts: Date.now(), status: '${estado}', message: '${detalleEscapado}' }));
+      } catch (e) {}
+    }
+
+    emitirNotificaciones();
+
+    function cerrar() {
+      emitirNotificaciones();
+      try {
+        window.open('', '_self', '');
+        window.close();
+      } catch (e) {
+        window.close();
+      }
+    }
+
+    ${exito ? 'setTimeout(() => { cerrar(); }, 1400);' : ''}
+  </script>
+</body>
+</html>`;
+
+  res.status(exito ? 200 : 400).type('html').send(html);
 }
 
 export async function callbackOauthClassroom(req: Request, res: Response) {
@@ -96,8 +298,7 @@ export async function callbackOauthClassroom(req: Request, res: Response) {
     responderCallbackHtml(
       res,
       true,
-      `Cuenta Classroom conectada: ${resultado.correoGoogle || 'sin correo'}`,
-      typeof resultado.frontendOrigin === 'string' ? resultado.frontendOrigin : undefined
+      `Cuenta Classroom conectada: ${resultado.correoGoogle || 'sin correo'}`
     );
   } catch (errorCallback) {
     const mensaje =

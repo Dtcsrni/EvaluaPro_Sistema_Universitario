@@ -7,6 +7,7 @@ import { emitToast } from '../../ui/toast/toastBus';
 import { Icono } from '../../ui/iconos';
 import { Boton } from '../../ui/ux/componentes/Boton';
 import { clienteApi } from './clienteApiDocente';
+import { GuiaPlantillasVisual } from './GuiaPlantillasVisual';
 import { PlantillasFormulario } from './features/plantillas/components/PlantillasFormulario';
 import { PlantillasGenerados } from './features/plantillas/components/PlantillasGenerados';
 import { PlantillasListado } from './features/plantillas/components/PlantillasListado';
@@ -902,50 +903,111 @@ export function SeccionPlantillas({
 
   return (
     <div className="panel plantillas-shell">
-      <div className="plantillas-header">
-        <h2>
-          <Icono nombre="plantillas" /> Plantillas
-        </h2>
-        <div className="plantillas-actions">
-          <Boton
-            type="button"
-            variante="secundario"
-            icono={<Icono nombre="recargar" />}
-            cargando={refrescandoPlantillas}
-            onClick={() => void refrescarPlantillas()}
-            data-tooltip="Recarga la lista de plantillas desde el servidor."
-          >
-            {refrescandoPlantillas ? 'Actualizando…' : 'Actualizar'}
-          </Boton>
-          <Boton
-            type="button"
-            variante="secundario"
-            disabled={!filtroPlantillas.trim()}
-            onClick={limpiarFiltroPlantillas}
-            data-tooltip="Quita el filtro de busqueda y muestra todas las plantillas."
-          >
-            Limpiar filtro
-          </Boton>
+      {/* 1. Bento Hero Header */}
+      <div className="banco-panel__head plantillas-panel__head anim-fade-in">
+        <div className="banco-panel__lead">
+          <div className="banco-panel__icon-orb plantillas-panel__icon-orb anim-icon-pulse" aria-hidden="true">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+              <polyline points="14 2 14 8 20 8" />
+              <line x1="16" y1="13" x2="8" y2="13" />
+              <line x1="16" y1="17" x2="8" y2="17" />
+            </svg>
+          </div>
+          <div className="banco-panel__text-block">
+            <div className="banco-panel__meta-row">
+              <span className="banco-status-pill plantillas-status-pill">
+                <span className="banco-pulse-dot" aria-hidden="true" />
+                <span>Motor de Maquetación OMR Activo</span>
+              </span>
+              {filtroPlantillas.trim() ? (
+                <span className="banco-counter-tag">Filtro: {filtroPlantillas.trim()}</span>
+              ) : (
+                <span className="banco-counter-tag">{resumenPlantillas.total} plantillas</span>
+              )}
+            </div>
+            <h2 className="banco-panel__title eyebrow">Plantillas</h2>
+            <p className="nota">Configura estructura, temas y genera paquetes impresos en PDF con códigos QR y hojas OMR.</p>
+          </div>
+        </div>
+
+        {/* Header Actions & Mini-KPIs */}
+        <div className="plantillas-header-right">
+          <div className="plantillas-header-actions">
+            <Boton
+              type="button"
+              variante="secundario"
+              icono={<Icono nombre="recargar" />}
+              cargando={refrescandoPlantillas}
+              onClick={() => void refrescarPlantillas()}
+              data-tooltip="Recarga la lista de plantillas desde el servidor."
+            >
+              {refrescandoPlantillas ? 'Actualizando…' : 'Actualizar'}
+            </Boton>
+            {filtroPlantillas.trim() && (
+              <Boton
+                type="button"
+                variante="secundario"
+                onClick={limpiarFiltroPlantillas}
+                data-tooltip="Quita el filtro de búsqueda."
+              >
+                Limpiar filtro
+              </Boton>
+            )}
+          </div>
+
+          <div className="banco-header-kpis" aria-live="polite">
+            <div className="banco-mini-kpi banco-mini-kpi--preguntas anim-kpi-hover" data-tooltip="Total de plantillas configuradas">
+              <span className="banco-mini-kpi__icon" aria-hidden="true">
+                <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2.2">
+                  <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+                  <polyline points="14 2 14 8 20 8" />
+                </svg>
+              </span>
+              <span className="banco-mini-kpi__num">{resumenPlantillas.total}</span>
+              <span className="banco-mini-kpi__lbl">Plantillas</span>
+            </div>
+
+            <div className="banco-mini-kpi banco-mini-kpi--temas anim-kpi-hover" data-tooltip="Plantillas con unidades temáticas asignadas">
+              <span className="banco-mini-kpi__icon" aria-hidden="true">
+                <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2.2">
+                  <line x1="8" y1="6" x2="21" y2="6" />
+                  <line x1="8" y1="12" x2="21" y2="12" />
+                  <line x1="8" y1="18" x2="21" y2="18" />
+                </svg>
+              </span>
+              <span className="banco-mini-kpi__num">{resumenPlantillas.conTemas}</span>
+              <span className="banco-mini-kpi__lbl">Con temas</span>
+            </div>
+
+            <div className="banco-mini-kpi banco-mini-kpi--temaactual anim-kpi-hover" data-tooltip="Total de temas vinculados en plantillas">
+              <span className="banco-mini-kpi__icon" aria-hidden="true">
+                <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2.2">
+                  <polyline points="20 6 9 17 4 12" />
+                </svg>
+              </span>
+              <span className="banco-mini-kpi__num">{resumenPlantillas.totalTemasSeleccionados}</span>
+              <span className="banco-mini-kpi__lbl">Temas vinc.</span>
+            </div>
+
+            <div className="banco-mini-kpi banco-mini-kpi--paginas anim-kpi-hover" data-tooltip="Estado del filtro de búsqueda">
+              <span className="banco-mini-kpi__icon" aria-hidden="true">
+                <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2.2">
+                  <circle cx="11" cy="11" r="8" />
+                  <line x1="21" y1="21" x2="16.65" y2="16.65" />
+                </svg>
+              </span>
+              <span className="banco-mini-kpi__num banco-mini-kpi__num--sm">
+                {filtroPlantillas.trim() ? 'Activo' : 'Todos'}
+              </span>
+              <span className="banco-mini-kpi__lbl">Filtro</span>
+            </div>
+          </div>
         </div>
       </div>
-      <div className="plantillas-resumen" aria-live="polite">
-        <div className="plantillas-resumen__item">
-          <span>Plantillas</span>
-          <b>{resumenPlantillas.total}</b>
-        </div>
-        <div className="plantillas-resumen__item">
-          <span>Con temas</span>
-          <b>{resumenPlantillas.conTemas}</b>
-        </div>
-        <div className="plantillas-resumen__item">
-          <span>Temas vinculados</span>
-          <b>{resumenPlantillas.totalTemasSeleccionados}</b>
-        </div>
-        <div className="plantillas-resumen__item">
-          <span>Filtro</span>
-          <b>{filtroPlantillas.trim() ? 'Activo' : 'Sin filtro'}</b>
-        </div>
-      </div>
+
+      {/* 2. Bento Visual Guide */}
+      <GuiaPlantillasVisual />
 
       <div className="plantillas-grid">
         <PlantillasFormulario

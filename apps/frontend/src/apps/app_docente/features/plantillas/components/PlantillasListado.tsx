@@ -66,17 +66,22 @@ export function PlantillasListado({
   formatearFechaHora: (valor?: string) => string;
 }) {
   return (
-    <div className="subpanel plantillas-panel plantillas-panel--lista">
-      <div className="plantillas-panel__hero">
-        <div>
+    <div className="subpanel plantillas-panel plantillas-panel--lista anim-fade-in">
+      <div className="banco-section-title">
+        <div className="banco-section-title__wrap">
+          <span className="banco-section-pill">
+            <span className="banco-section-pill__dot" aria-hidden="true" />
+            <span>Catálogo OMR</span>
+          </span>
           <h3>Plantillas existentes</h3>
           <p className="nota">Revisa catálogo, temas, previsualizaciones y fechas sin salir del flujo editorial.</p>
         </div>
+        <div className="plantillas-panel__meta">
+          <span className="banco-tag-preguntas">Total: {totalPlantillasTodas}</span>
+          <span className="banco-tag-paginas">Mostradas: {totalPlantillas}</span>
+        </div>
       </div>
-      <div className="plantillas-panel__meta">
-        <span>Total: {totalPlantillasTodas}</span>
-        <span>Mostradas: {totalPlantillas}</span>
-      </div>
+
       <div className="plantillas-filtro">
         <label className="campo plantillas-filtro__campo">
           Buscar
@@ -248,36 +253,22 @@ export function PlantillasListado({
                                 </div>
                               )}
                               <ul className="lista lista-items plantillas-preview__lista">
-                                {(Array.isArray(preview.paginas) ? preview.paginas : []).map((p) => (
-                                  <li key={p.numero}>
-                                    <div className="item-glass plantillas-preview__page">
-                                      <div className="item-row">
-                                        <div>
-                                          <div className="item-title">Pagina {p.numero}</div>
-                                          <div className="item-meta">
-                                            <span>Preguntas: {p.preguntasDel && p.preguntasAl ? `${p.preguntasDel}–${p.preguntasAl}` : '—'}</span>
-                                            <span>Elementos: {Array.isArray(p.elementos) ? p.elementos.length : 0}</span>
-                                          </div>
-                                          {Array.isArray(p.elementos) && p.elementos.length > 0 && (
-                                            <div className="item-sub">{p.elementos.join(' · ')}</div>
-                                          )}
-                                          {Array.isArray(p.preguntas) && p.preguntas.length > 0 ? (
-                                            <ul className="lista plantillas-preview__preguntas">
-                                              {p.preguntas.map((q) => (
-                                                <li key={q.numero}>
-                                                  <span>
-                                                    <b>{q.numero}.</b> {q.enunciadoCorto}{' '}
-                                                    {q.tieneImagen ? <span className="badge plantillas-preview__badgeImagen">Imagen</span> : null}
-                                                  </span>
-                                                </li>
-                                              ))}
-                                            </ul>
-                                          ) : (
-                                            <div className="ayuda">Sin preguntas (pagina extra o rangos no disponibles).</div>
-                                          )}
-                                        </div>
-                                      </div>
+                                {(preview.paginas ?? []).map((pagina) => (
+                                  <li key={pagina.numero} className="plantillas-preview__page">
+                                    <div className="item-title">Pagina {pagina.numero}</div>
+                                    <div className="item-meta">
+                                      <span>Preguntas: {pagina.preguntas.length}</span>
                                     </div>
+                                    <div className="ayuda">
+                                      Desde #{pagina.preguntasDel} hasta #{pagina.preguntasAl}
+                                    </div>
+                                    <ul className="lista">
+                                      {pagina.preguntas.map((pregunta, idx) => (
+                                        <li key={`${pagina.numero}-${pregunta.id}-${idx}`}>
+                                          <b>#{pregunta.numero}:</b> {pregunta.enunciadoCorto}
+                                        </li>
+                                      ))}
+                                    </ul>
                                   </li>
                                 ))}
                               </ul>
@@ -286,35 +277,34 @@ export function PlantillasListado({
                         </div>
                       )}
                     </div>
-                    <div className="item-actions plantillas-item__actions">
+                    <div className="acciones">
                       <Boton
                         type="button"
                         variante="secundario"
-                        cargando={cargandoPreviewPlantillaId === plantilla._id}
                         onClick={() => void togglePreviewPlantilla(plantilla._id)}
-                        disabled={!puedePrevisualizarPlantillas}
-                        data-tooltip="Muestra u oculta la previsualizacion."
+                        data-tooltip={previewAbierta ? 'Cierra la previsualizacion de la plantilla.' : 'Abre la previsualizacion de la plantilla.'}
                       >
-                        {previewAbierta ? 'Ocultar previsualizacion' : 'Previsualizar'}
+                        {previewAbierta ? 'Cerrar preview' : 'Previsualizar'}
                       </Boton>
                       <Boton
                         type="button"
                         variante="secundario"
                         onClick={() => iniciarEdicion(plantilla)}
                         disabled={!puedeGestionarPlantillas}
-                        data-tooltip="Edita esta plantilla."
+                        data-tooltip="Carga los datos de la plantilla en el formulario para editarlos."
                       >
                         Editar
                       </Boton>
                       <Boton
                         type="button"
                         variante="secundario"
+                        className="boton--peligro"
                         cargando={archivandoPlantillaId === plantilla._id}
-                        onClick={() => void archivarPlantilla(plantilla)}
                         disabled={!puedeArchivarPlantillas}
-                        data-tooltip="Elimina la plantilla con confirmacion previa."
+                        onClick={() => void archivarPlantilla(plantilla)}
+                        data-tooltip="Archiva la plantilla para que no aparezca en la lista activa."
                       >
-                        Eliminar
+                        Archivar
                       </Boton>
                     </div>
                   </div>

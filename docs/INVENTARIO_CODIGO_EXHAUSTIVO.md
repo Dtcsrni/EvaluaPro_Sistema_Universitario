@@ -1,11 +1,11 @@
 # Inventario Exhaustivo de Codigo
 
-Fecha de generacion: 2026-08-23 08:10:12
+Fecha de generacion: 2026-08-26 06:51:48
 Fuente: git ls-files filtrado por existencia en workspace (solo archivos versionados presentes, excluye node_modules).
 
 ## Resumen
 
-- Total de piezas de codigo/config ejecutable inventariadas: 1205
+- Total de piezas de codigo/config ejecutable inventariadas: 1265
 - Extensiones incluidas: ts, tsx, js, jsx, mjs, cjs, json, yml, yaml, sh, cmd, ps1.
 
 ## Conteo por area
@@ -13,12 +13,12 @@ Fuente: git ls-files filtrado por existencia en workspace (solo archivos version
 | Area | Archivos |
 | --- | ---: |
 | backend | 415 |
-| frontend | 134 |
+| frontend | 153 |
 | portal_alumno_cloud | 67 |
 | ci | 17 |
-| scripts | 175 |
+| scripts | 176 |
 | ops | 3 |
-| docs | 236 |
+| docs | 276 |
 | raiz | 32 |
 
 ## Backend (apps/backend)
@@ -473,8 +473,11 @@ Fuente: git ls-files filtrado por existencia en workspace (solo archivos version
 - apps/frontend/src/apps/app_docente/features/plantillas/hooks/usePlantillasOmrV1Actions.ts
 - apps/frontend/src/apps/app_docente/features/plantillas/hooks/usePlantillasPreviewActions.ts
 - apps/frontend/src/apps/app_docente/hooks/useEstadoSincronizacion.ts
+- apps/frontend/src/apps/app_docente/hooks/useOmrWorkflowState.ts
 - apps/frontend/src/apps/app_docente/hooks/usePermisosDocente.ts
+- apps/frontend/src/apps/app_docente/hooks/usePlantillasPreviewState.ts
 - apps/frontend/src/apps/app_docente/hooks/useRecordatorioPaseLista.ts
+- apps/frontend/src/apps/app_docente/hooks/useRecursosAcademicosDocente.ts
 - apps/frontend/src/apps/app_docente/hooks/useSesionDocente.ts
 - apps/frontend/src/apps/app_docente/mensajeInline.ts
 - apps/frontend/src/apps/app_docente/QrAccesoMovil.tsx
@@ -541,6 +544,7 @@ Fuente: git ls-files filtrado por existencia en workspace (solo archivos version
 - apps/frontend/tests/appDocente.test.tsx
 - apps/frontend/tests/banco.estimadores.test.tsx
 - apps/frontend/tests/banco.refactor.test.tsx
+- apps/frontend/tests/bancoGestionTemas.test.tsx
 - apps/frontend/tests/centroClassroom.behavior.test.tsx
 - apps/frontend/tests/clienteApi.test.tsx
 - apps/frontend/tests/clienteComun.test.ts
@@ -551,17 +555,32 @@ Fuente: git ls-files filtrado por existencia en workspace (solo archivos version
 - apps/frontend/tests/gui.responsive.audit.test.ts
 - apps/frontend/tests/gui.responsive.contract.test.tsx
 - apps/frontend/tests/mensajeInline.test.ts
+- apps/frontend/tests/omrWorkflowState.hooks.test.tsx
 - apps/frontend/tests/plantillas.hooks.test.tsx
 - apps/frontend/tests/plantillas.refactor.test.tsx
+- apps/frontend/tests/plantillasGenerados.test.tsx
+- apps/frontend/tests/plantillasOmrWorkflow.test.tsx
+- apps/frontend/tests/plantillasPreviewState.hooks.test.tsx
 - apps/frontend/tests/portalSw.contract.test.ts
 - apps/frontend/tests/pwa.contract.test.ts
+- apps/frontend/tests/qrAccesoMovil.test.tsx
+- apps/frontend/tests/recursosAcademicos.hooks.test.tsx
+- apps/frontend/tests/seccionAlumnos.test.tsx
 - apps/frontend/tests/seccionAsistencias.test.tsx
 - apps/frontend/tests/seccionAutenticacion.googleOnly.test.tsx
 - apps/frontend/tests/seccionAutenticacion.test.tsx
 - apps/frontend/tests/seccionCalificaciones.manualSelector.test.tsx
+- apps/frontend/tests/seccionCalificar.test.tsx
+- apps/frontend/tests/seccionCuenta.test.tsx
+- apps/frontend/tests/seccionEntrega.test.tsx
 - apps/frontend/tests/seccionEvaluaciones.test.tsx
+- apps/frontend/tests/seccionPaqueteSincronizacion.test.tsx
 - apps/frontend/tests/seccionPeriodos.edit.test.tsx
 - apps/frontend/tests/seccionPeriodos.listasInstitucionales.test.tsx
+- apps/frontend/tests/seccionPublicar.test.tsx
+- apps/frontend/tests/seccionRehidratacionLotes.test.tsx
+- apps/frontend/tests/seccionSincronizacionEquipos.test.tsx
+- apps/frontend/tests/seccionTemarios.test.tsx
 - apps/frontend/tests/setup.ts
 - apps/frontend/tests/sincronizacion.behavior.test.tsx
 - apps/frontend/tests/tema.provider.test.ts
@@ -720,6 +739,7 @@ Fuente: git ls-files filtrado por existencia en workspace (solo archivos version
 - scripts/ia-docblocks.mjs
 - scripts/ia-handoff.mjs
 - scripts/ia-traceability.mjs
+- scripts/icons/generate-all-icons.mjs
 - scripts/icons/generate-installer-canonical-icon.ps1
 - scripts/icons/generate-installer-flavor-icon.ps1
 - scripts/icons/generate-official-hero.ps1
@@ -1058,6 +1078,46 @@ Fuente: git ls-files filtrado por existencia en workspace (solo archivos version
 - docs/handoff/sesiones/2026-08-20/sesion-2026-08-20T07-33-23.604Z.json
 - docs/handoff/sesiones/2026-08-20/sesion-2026-08-20T09-00-37.517Z.json
 - docs/handoff/sesiones/2026-08-20/sesion-2026-08-20T09-17-20.709Z.json
+- docs/handoff/sesiones/2026-08-21/sesion-2026-08-21T20-35-58.959Z.json
+- docs/handoff/sesiones/2026-08-21/sesion-2026-08-21T22-57-30.400Z.json
+- docs/handoff/sesiones/2026-08-21/sesion-2026-08-21T23-14-46.581Z.json
+- docs/handoff/sesiones/2026-08-21/sesion-2026-08-21T23-56-43.678Z.json
+- docs/handoff/sesiones/2026-08-22/sesion-2026-08-22T00-15-52.989Z.json
+- docs/handoff/sesiones/2026-08-22/sesion-2026-08-22T00-35-07.486Z.json
+- docs/handoff/sesiones/2026-08-22/sesion-2026-08-22T01-19-03.612Z.json
+- docs/handoff/sesiones/2026-08-22/sesion-2026-08-22T01-29-47.379Z.json
+- docs/handoff/sesiones/2026-08-22/sesion-2026-08-22T03-55-58.782Z.json
+- docs/handoff/sesiones/2026-08-22/sesion-2026-08-22T04-27-55.152Z.json
+- docs/handoff/sesiones/2026-08-22/sesion-2026-08-22T04-48-18.447Z.json
+- docs/handoff/sesiones/2026-08-22/sesion-2026-08-22T05-17-29.394Z.json
+- docs/handoff/sesiones/2026-08-22/sesion-2026-08-22T05-51-36.828Z.json
+- docs/handoff/sesiones/2026-08-22/sesion-2026-08-22T06-00-09.094Z.json
+- docs/handoff/sesiones/2026-08-22/sesion-2026-08-22T06-22-32.259Z.json
+- docs/handoff/sesiones/2026-08-22/sesion-2026-08-22T22-55-11.966Z.json
+- docs/handoff/sesiones/2026-08-22/sesion-2026-08-22T23-33-19.639Z.json
+- docs/handoff/sesiones/2026-08-22/sesion-2026-08-22T23-48-09.605Z.json
+- docs/handoff/sesiones/2026-08-22/sesion-2026-08-22T23-57-57.527Z.json
+- docs/handoff/sesiones/2026-08-23/sesion-2026-08-23T04-54-46.996Z.json
+- docs/handoff/sesiones/2026-08-23/sesion-2026-08-23T04-58-10.244Z.json
+- docs/handoff/sesiones/2026-08-23/sesion-2026-08-23T05-02-01.038Z.json
+- docs/handoff/sesiones/2026-08-23/sesion-2026-08-23T05-29-48.213Z.json
+- docs/handoff/sesiones/2026-08-23/sesion-2026-08-23T05-56-33.172Z.json
+- docs/handoff/sesiones/2026-08-23/sesion-2026-08-23T06-26-03.036Z.json
+- docs/handoff/sesiones/2026-08-23/sesion-2026-08-23T09-56-21.745Z.json
+- docs/handoff/sesiones/2026-08-23/sesion-2026-08-23T10-07-58.310Z.json
+- docs/handoff/sesiones/2026-08-23/sesion-2026-08-23T10-14-35.256Z.json
+- docs/handoff/sesiones/2026-08-23/sesion-2026-08-23T10-18-53.661Z.json
+- docs/handoff/sesiones/2026-08-23/sesion-2026-08-23T10-28-31.072Z.json
+- docs/handoff/sesiones/2026-08-23/sesion-2026-08-23T11-04-49.623Z.json
+- docs/handoff/sesiones/2026-08-23/sesion-2026-08-23T11-08-58.479Z.json
+- docs/handoff/sesiones/2026-08-23/sesion-2026-08-23T11-23-20.190Z.json
+- docs/handoff/sesiones/2026-08-23/sesion-2026-08-23T11-33-59.725Z.json
+- docs/handoff/sesiones/2026-08-23/sesion-2026-08-23T11-42-18.766Z.json
+- docs/handoff/sesiones/2026-08-23/sesion-2026-08-23T11-47-35.035Z.json
+- docs/handoff/sesiones/2026-08-23/sesion-2026-08-23T13-09-01.130Z.json
+- docs/handoff/sesiones/2026-08-23/sesion-2026-08-23T13-22-24.704Z.json
+- docs/handoff/sesiones/2026-08-23/sesion-2026-08-23T13-23-32.727Z.json
+- docs/handoff/sesiones/2026-08-23/sesion-2026-08-23T14-10-04.641Z.json
 - docs/handoff/trace.schema.json
 - docs/perf/baseline.business.json
 - docs/perf/baseline.json
