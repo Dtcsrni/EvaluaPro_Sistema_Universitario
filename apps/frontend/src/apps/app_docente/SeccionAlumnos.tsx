@@ -578,7 +578,7 @@ export function SeccionAlumnos({
 
             <label className="campo campo--materia">
               <span>Materia</span>
-              <div className="auth-input-box auth-input-box--book auth-input-box--animated">
+              <div className="auth-input-box auth-input-box--select auth-input-box--animated">
                 <select
                   value={periodoIdNuevo}
                   onChange={(event) => {
@@ -661,7 +661,7 @@ export function SeccionAlumnos({
         <div className="alumnos-filtros alumnos-filtros--glass">
           <label className="campo campo--materia-select">
             <span>Materia seleccionada</span>
-            <div className="auth-input-box auth-input-box--book auth-input-box--animated">
+            <div className="auth-input-box auth-input-box--select auth-input-box--animated">
               <select value={periodoIdLista} onChange={(event) => setPeriodoIdLista(event.target.value)}>
                 <option value="">Selecciona</option>
                 {periodosTodos
@@ -737,12 +737,51 @@ export function SeccionAlumnos({
         {/* Lista / Grid de Alumnos */}
         <ul className="lista lista-items alumnos-lista">
           {!periodoIdLista && (
-            <li className="empty-state-card anim-fade-in">
+            <li className="empty-state-card alumnos-empty-hero anim-fade-in">
               <div className="empty-state-card__icon anim-icon-pulse">
                 <Icono nombre="alumnos" />
               </div>
-              <h4>Selecciona una materia</h4>
-              <p>Elige una materia en el selector superior para ver y administrar las listas de estudiantes.</p>
+              <h4>Comienza seleccionando una materia</h4>
+              <p>Elige una de tus asignaturas activas para cargar la lista de alumnos, o sincroniza tu roster oficial desde Google Classroom.</p>
+
+              {periodosActivos.length > 0 ? (
+                <div className="alumnos-quick-periodos-grid">
+                  {periodosActivos.map((p) => (
+                    <button
+                      key={p._id}
+                      type="button"
+                      className="alumnos-materia-pick-card anim-card-hover"
+                      onClick={() => setPeriodoIdLista(p._id)}
+                    >
+                      <div className="alumnos-materia-pick-avatar">
+                        <Icono nombre="periodos" />
+                      </div>
+                      <div className="alumnos-materia-pick-info">
+                        <strong>{etiquetaMateria(p)}</strong>
+                        <span>Grupos: {Array.isArray(p.grupos) && p.grupos.length > 0 ? p.grupos.join(', ') : 'General'}</span>
+                      </div>
+                      <div className="alumnos-materia-pick-arrow">➔</div>
+                    </button>
+                  ))}
+                </div>
+              ) : (
+                <div className="empty-state-steps" aria-hidden="true">
+                  <div className="empty-step">
+                    <span className="empty-step__num">1</span>
+                    <span>Configura tu materia</span>
+                  </div>
+                  <div className="empty-step__arrow">➔</div>
+                  <div className="empty-step">
+                    <span className="empty-step__num">2</span>
+                    <span>Registra tus alumnos</span>
+                  </div>
+                  <div className="empty-step__arrow">➔</div>
+                  <div className="empty-step">
+                    <span className="empty-step__num">3</span>
+                    <span>Pasa lista y califica</span>
+                  </div>
+                </div>
+              )}
             </li>
           )}
 
