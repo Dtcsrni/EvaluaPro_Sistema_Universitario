@@ -7,7 +7,11 @@ import { emitToast } from '../../ui/toast/toastBus';
 import { Icono } from '../../ui/iconos';
 import { Boton } from '../../ui/ux/componentes/Boton';
 import { clienteApi } from './clienteApiDocente';
-import { GuiaPlantillasVisual } from './GuiaPlantillasVisual';
+import { GuiaDisenoExamenesVisual } from './features/plantillas/components/GuiaDisenoExamenesVisual';
+import { GuiaGeneracionExamenesVisual } from './features/plantillas/components/GuiaGeneracionExamenesVisual';
+import { GuiaHistorialLotesVisual } from './features/plantillas/components/GuiaHistorialLotesVisual';
+import { PlantillasConsolaGeneracion } from './features/plantillas/components/PlantillasConsolaGeneracion';
+import { PlantillasHistorialLotes } from './features/plantillas/components/PlantillasHistorialLotes';
 import { PlantillasFormulario } from './features/plantillas/components/PlantillasFormulario';
 import { PlantillasGenerados } from './features/plantillas/components/PlantillasGenerados';
 import { PlantillasListado } from './features/plantillas/components/PlantillasListado';
@@ -105,7 +109,8 @@ export function SeccionPlantillas({
   const [plantillaId, setPlantillaId] = useState('');
   const [mensajeGeneracion, setMensajeGeneracion] = useState('');
   const [lotePdfUrl, setLotePdfUrl] = useState<string | null>(null);
-  const [ultimoGenerado, setUltimoGenerado] = useState<ExamenGeneradoResumen | null>(null);
+  // ultimoGenerado
+  const [, setUltimoGenerado] = useState<ExamenGeneradoResumen | null>(null);
   const [assessmentDetalle, setAssessmentDetalle] = useState<GeneratedAssessmentDetalle | null>(null);
   const [cargandoAssessmentId, setCargandoAssessmentId] = useState<string | null>(null);
   const [procesandoOmr, setProcesandoOmr] = useState(false);
@@ -1046,108 +1051,128 @@ export function SeccionPlantillas({
         </button>
       </div>
 
-      {/* 2. Bento Visual Guide */}
-      <GuiaPlantillasVisual />
+      {/* ── PESTAÑA 1: DISEÑAR EXÁMENES ── */}
+      {tabActiva === 'diseno' && (
+        <div className="anim-fade-in" role="tabpanel" aria-label="Diseñar Exámenes">
+          <GuiaDisenoExamenesVisual />
 
-      <div className="plantillas-grid">
-        <PlantillasFormulario
-          modoEdicion={modoEdicion}
-          plantillaEditando={plantillaEditando}
-          titulo={titulo}
-          setTitulo={setTitulo}
-          periodoId={periodoId}
-          setPeriodoId={setPeriodoId}
-          periodos={periodos}
-          bloqueoEdicion={bloqueoEdicion}
-          temasDisponibles={temasDisponibles}
-          temasSeleccionados={temasSeleccionados}
-          setTemasSeleccionados={setTemasSeleccionados}
-          totalDisponiblePorTemas={totalDisponiblePorTemas}
-          creando={creando}
-          puedeCrear={puedeCrear}
-          crear={crear}
-          guardandoPlantilla={guardandoPlantilla}
-          guardarEdicion={guardarEdicion}
-          cancelarEdicion={cancelarEdicion}
-          mensaje={mensaje}
-        />
+          <PlantillasFormulario
+            modoEdicion={modoEdicion}
+            plantillaEditando={plantillaEditando}
+            titulo={titulo}
+            setTitulo={setTitulo}
+            periodoId={periodoId}
+            setPeriodoId={setPeriodoId}
+            periodos={periodos}
+            bloqueoEdicion={bloqueoEdicion}
+            temasDisponibles={temasDisponibles}
+            temasSeleccionados={temasSeleccionados}
+            setTemasSeleccionados={setTemasSeleccionados}
+            totalDisponiblePorTemas={totalDisponiblePorTemas}
+            creando={creando}
+            puedeCrear={puedeCrear}
+            crear={crear}
+            guardandoPlantilla={guardandoPlantilla}
+            guardarEdicion={guardarEdicion}
+            cancelarEdicion={cancelarEdicion}
+            mensaje={mensaje}
+          />
 
-        <PlantillasListado
-          totalPlantillasTodas={totalPlantillasTodas}
-          totalPlantillas={totalPlantillas}
-          filtroPlantillas={filtroPlantillas}
-          setFiltroPlantillas={setFiltroPlantillas}
-          plantillasFiltradas={plantillasFiltradas}
-          periodos={periodos}
-          previewPorPlantillaId={previewPorPlantillaId}
-          plantillaPreviewId={plantillaPreviewId}
-          previewPdfUrlPorPlantillaId={previewPdfUrlPorPlantillaId}
-          cargandoPreviewPlantillaId={cargandoPreviewPlantillaId}
-          cargarPreviewPlantilla={cargarPreviewPlantilla}
-          puedePrevisualizarPlantillas={puedePrevisualizarPlantillas}
-          cargandoPreviewPdfPlantillaId={cargandoPreviewPdfPlantillaId}
-          cargarPreviewPdfPlantilla={cargarPreviewPdfPlantilla}
-          cerrarPreviewPdfPlantilla={cerrarPreviewPdfPlantilla}
-          abrirPdfFullscreen={abrirPdfFullscreen}
-          pdfFullscreenUrl={pdfFullscreenUrl}
-          cerrarPdfFullscreen={cerrarPdfFullscreen}
-          togglePreviewPlantilla={togglePreviewPlantilla}
-          iniciarEdicion={iniciarEdicion}
-          puedeGestionarPlantillas={puedeGestionarPlantillas}
-          archivandoPlantillaId={archivandoPlantillaId}
-          archivarPlantilla={archivarPlantilla}
-          puedeArchivarPlantillas={puedeArchivarPlantillas}
-          formatearFechaHora={formatearFechaHora}
-        />
-      </div>
+          <PlantillasListado
+            totalPlantillasTodas={totalPlantillasTodas}
+            totalPlantillas={totalPlantillas}
+            filtroPlantillas={filtroPlantillas}
+            setFiltroPlantillas={setFiltroPlantillas}
+            plantillasFiltradas={plantillasFiltradas}
+            periodos={periodos}
+            previewPorPlantillaId={previewPorPlantillaId}
+            plantillaPreviewId={plantillaPreviewId}
+            previewPdfUrlPorPlantillaId={previewPdfUrlPorPlantillaId}
+            cargandoPreviewPlantillaId={cargandoPreviewPlantillaId}
+            cargarPreviewPlantilla={cargarPreviewPlantilla}
+            puedePrevisualizarPlantillas={puedePrevisualizarPlantillas}
+            cargandoPreviewPdfPlantillaId={cargandoPreviewPdfPlantillaId}
+            cargarPreviewPdfPlantilla={cargarPreviewPdfPlantilla}
+            cerrarPreviewPdfPlantilla={cerrarPreviewPdfPlantilla}
+            abrirPdfFullscreen={abrirPdfFullscreen}
+            pdfFullscreenUrl={pdfFullscreenUrl}
+            cerrarPdfFullscreen={cerrarPdfFullscreen}
+            togglePreviewPlantilla={togglePreviewPlantilla}
+            iniciarEdicion={iniciarEdicion}
+            puedeGestionarPlantillas={puedeGestionarPlantillas}
+            archivandoPlantillaId={archivandoPlantillaId}
+            archivarPlantilla={archivarPlantilla}
+            puedeArchivarPlantillas={puedeArchivarPlantillas}
+            formatearFechaHora={formatearFechaHora}
+          />
+        </div>
+      )}
 
-      <PlantillasGenerados
-        plantillaId={plantillaId}
-        setPlantillaId={setPlantillaId}
-        plantillas={plantillas}
-        alumnos={alumnos}
-        generando={generando}
-        puedeGenerar={puedeGenerar}
-        onGenerarExamen={generarExamen}
-        generandoLote={generandoLote}
-        plantillaSeleccionada={plantillaSeleccionada}
-        puedeGenerarExamenes={puedeGenerarExamenes}
-        onGenerarExamenesLote={generarExamenesLote}
-        mensajeGeneracion={mensajeGeneracion}
-        lotePdfUrl={lotePdfUrl}
-        descargarPdfLote={descargarPdfLote}
-        ultimoGenerado={ultimoGenerado}
-        formatearFechaHora={formatearFechaHora}
-        cargandoExamenesGenerados={cargandoExamenesGenerados}
-        examenesGenerados={examenesGenerados}
-        alumnosPorId={alumnosPorId}
-        puedeRegenerarExamenes={puedeRegenerarExamenes}
-        descargandoExamenId={descargandoExamenId}
-        archivandoExamenId={archivandoExamenId}
-        regenerarPdfExamen={regenerarPdfExamen}
-        puedeDescargarExamenes={puedeDescargarExamenes}
-        descargarPdfExamen={descargarPdfExamen}
-        eliminarExamenGenerado={eliminarExamenGenerado}
-        regenerandoExamenId={regenerandoExamenId}
-        puedeArchivarExamenes={puedeArchivarExamenes}
-        descargandoLoteId={descargandoLoteId}
-        regenerandoLoteId={regenerandoLoteId}
-        eliminandoLoteId={eliminandoLoteId}
-        onDescargarPaquete={descargarPaquete}
-        onRegenerarPaquete={regenerarPaquete}
-        onEliminarPaquete={eliminarPaquete}
-        progresoLoteGeneracion={progresoLoteGeneracion}
-      />
-      <PlantillasOmrWorkflow
-        assessmentDetalle={assessmentDetalle}
-        jobOmr={jobOmr}
-        cargandoAssessmentId={cargandoAssessmentId}
-        procesandoOmr={procesandoOmr}
-        descargarArtifact={descargarArtifact}
-        crearJobOmr={crearJobOmr}
-        resolverHojaOmr={resolverHojaOmr}
-        finalizarJobOmr={finalizarJobOmr}
-      />
+      {/* ── PESTAÑA 2: GENERAR PAQUETE PDF/OMR ── */}
+      {tabActiva === 'generacion' && (
+        <div className="anim-fade-in" role="tabpanel" aria-label="Generar Paquete PDF/OMR">
+          <GuiaGeneracionExamenesVisual />
+
+          <PlantillasConsolaGeneracion
+            plantillaId={plantillaId}
+            setPlantillaId={setPlantillaId}
+            plantillas={plantillas}
+            alumnos={alumnos}
+            generando={generando}
+            puedeGenerar={puedeGenerar}
+            onGenerarExamen={generarExamen}
+            generandoLote={generandoLote}
+            plantillaSeleccionada={plantillaSeleccionada}
+            puedeGenerarExamenes={puedeGenerarExamenes}
+            onGenerarExamenesLote={generarExamenesLote}
+            mensajeGeneracion={mensajeGeneracion}
+            lotePdfUrl={lotePdfUrl}
+            descargarPdfLote={descargarPdfLote}
+            progresoLoteGeneracion={progresoLoteGeneracion}
+            onIrAHistorial={() => setTabActiva('historial')}
+          />
+        </div>
+      )}
+
+      {/* ── PESTAÑA 3: HISTORIAL DE LOTES ── */}
+      {tabActiva === 'historial' && (
+        <div className="anim-fade-in" role="tabpanel" aria-label="Historial de Lotes">
+          <GuiaHistorialLotesVisual />
+
+          <PlantillasHistorialLotes
+            cargandoExamenesGenerados={cargandoExamenesGenerados}
+            examenesGenerados={examenesGenerados}
+            alumnosPorId={alumnosPorId}
+            formatearFechaHora={formatearFechaHora}
+            puedeRegenerarExamenes={puedeRegenerarExamenes}
+            descargandoExamenId={descargandoExamenId}
+            archivandoExamenId={archivandoExamenId}
+            regenerarPdfExamen={regenerarPdfExamen}
+            puedeDescargarExamenes={puedeDescargarExamenes}
+            descargarPdfExamen={descargarPdfExamen}
+            eliminarExamenGenerado={eliminarExamenGenerado}
+            regenerandoExamenId={regenerandoExamenId}
+            puedeArchivarExamenes={puedeArchivarExamenes}
+            descargandoLoteId={descargandoLoteId}
+            regenerandoLoteId={regenerandoLoteId}
+            eliminandoLoteId={eliminandoLoteId}
+            onDescargarPaquete={descargarPaquete}
+            onRegenerarPaquete={regenerarPaquete}
+            onEliminarPaquete={eliminarPaquete}
+          />
+
+          <PlantillasOmrWorkflow
+            assessmentDetalle={assessmentDetalle}
+            jobOmr={jobOmr}
+            cargandoAssessmentId={cargandoAssessmentId}
+            procesandoOmr={procesandoOmr}
+            descargarArtifact={descargarArtifact}
+            crearJobOmr={crearJobOmr}
+            resolverHojaOmr={resolverHojaOmr}
+            finalizarJobOmr={finalizarJobOmr}
+          />
+        </div>
+      )}
     </div>
   );
 }
