@@ -535,6 +535,23 @@ export function SeccionClassroom({
 
   async function desconectarClassroom() {
     if (!puedeClassroomConectar) return;
+
+    const confirmado = await confirm({
+      title: 'Desconectar Google Classroom',
+      message: '¿Estás seguro de que deseas desconectar tu cuenta de Google Classroom?',
+      confirmLabel: 'Desconectar',
+      cancelLabel: 'Cancelar',
+      tone: 'warning',
+      details: [
+        '🔒 Se cerrará la sesión y el acceso a los cursos de Google Classroom.',
+        '🛡️ Todos los alumnos, materias y calificaciones importados en EvaluaPro se conservan 100% intactos.'
+      ]
+    });
+
+    if (!confirmado) {
+      return;
+    }
+
     setDesconectando(true);
     emitToast({ level: 'info', title: 'Classroom', message: 'Desconectando cuenta...' });
     try {
@@ -638,6 +655,31 @@ export function SeccionClassroom({
       emitToast({ level: 'warn', title: 'Mapeo de Alumnos', message: 'Selecciona una materia en EvaluaPro para guardar el mapeo.' });
       return;
     }
+
+    const cursoNombre = cursos.find((c: ClassroomCurso) => c.id === courseIdSeleccionado)?.name || 'Classroom';
+    const materiaNombre = periodos.find((p: Periodo) => p._id === periodoId)?.nombre || 'Materia seleccionada';
+
+    const confirmado = await confirm({
+      title: 'Confirmar Mapeo Manual de Alumnos',
+      message: `¿Deseas guardar las asignaciones y vinculaciones de alumnos entre "${cursoNombre}" y "${materiaNombre}"?`,
+      confirmLabel: '✓ Confirmar Mapeo',
+      cancelLabel: 'Cancelar',
+      tone: 'default',
+      details: [
+        '🔗 Se actualizarán los enlaces entre cuentas de Classroom y los registros de alumnos en EvaluaPro.',
+        '🛡️ No se alteran ni eliminan alumnos ni calificaciones existentes.'
+      ]
+    });
+
+    if (!confirmado) {
+      emitToast({
+        level: 'info',
+        title: 'Operación Cancelada',
+        message: 'No se guardaron las modificaciones del mapeo.'
+      });
+      return;
+    }
+
     setGuardandoMapeo(true);
     emitToast({ level: 'info', title: 'Mapeo de Alumnos', message: 'Guardando asignaciones...' });
     try {
