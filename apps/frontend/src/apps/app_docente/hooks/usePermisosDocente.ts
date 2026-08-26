@@ -136,7 +136,7 @@ export function usePermisosDocente(docente: Docente | null) {
       { id: 'asistencias', label: 'Asistencias', icono: 'asistencias' as const, mostrar: puede('asistencias:leer') || puede('asistencias:gestionar') || puede('periodos:leer') },
       { id: 'temarios', label: 'Temarios', icono: 'temarios' as const, mostrar: puede('temarios:leer') || puede('temarios:gestionar') || puede('periodos:leer') },
       { id: 'banco', label: 'Banco', icono: 'banco' as const, mostrar: puede('banco:leer') },
-      { id: 'plantillas', label: 'Plantillas', icono: 'plantillas' as const, mostrar: puede('plantillas:leer') },
+      { id: 'plantillas', label: 'Diseño de Exámenes', icono: 'plantillas' as const, mostrar: puede('plantillas:leer') },
       { id: 'entrega', label: 'Entrega', icono: 'recepcion' as const, mostrar: puede('entregas:gestionar') },
       { id: 'calificaciones', label: 'Calificaciones', icono: 'calificar' as const, mostrar: puedeCalificar },
       { id: 'rehidratacion', label: 'Rehidratacion', icono: 'pdf' as const, mostrar: puedeRehidratarLotes },

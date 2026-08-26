@@ -22,7 +22,7 @@ describe('AppDocente secciones (refactor)', () => {
 
     expect(await screen.findByRole('navigation', { name: 'Secciones del portal docente' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Materias' })).toBeInTheDocument();
-    await user.click(screen.getByRole('button', { name: 'Plantillas' }));
-    expect(await screen.findByRole('heading', { name: /^Plantillas$/i })).toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: /Plantillas|Diseño de Exámenes/i }));
+    expect(await screen.findByRole('heading', { name: /Plantillas|Diseño de Exámenes/i })).toBeInTheDocument();
   });
 });

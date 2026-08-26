@@ -128,6 +128,7 @@ export function SeccionPlantillas({
   const [archivandoPlantillaId, setArchivandoPlantillaId] = useState<string | null>(null);
   const [filtroPlantillas, setFiltroPlantillas] = useState('');
   const [refrescandoPlantillas, setRefrescandoPlantillas] = useState(false);
+  const [tabActiva, setTabActiva] = useState<'diseno' | 'generacion' | 'historial'>('diseno');
   const puedeLeerExamenes = permisos.examenes.leer;
   const puedeGenerarExamenes = permisos.examenes.generar;
   const puedeArchivarExamenes = permisos.examenes.archivar;
@@ -926,7 +927,7 @@ export function SeccionPlantillas({
                 <span className="banco-counter-tag">{resumenPlantillas.total} plantillas</span>
               )}
             </div>
-            <h2 className="banco-panel__title eyebrow">Plantillas</h2>
+            <h2 className="banco-panel__title eyebrow">Diseño de Exámenes</h2>
             <p className="nota">Configura estructura, temas y genera paquetes impresos en PDF con códigos QR y hojas OMR.</p>
           </div>
         </div>
@@ -1004,6 +1005,45 @@ export function SeccionPlantillas({
             </div>
           </div>
         </div>
+      </div>
+
+      {/* 2. Glass Tab Navigation Bar */}
+      <div className="plantillas-tabs-bar anim-fade-in" role="tablist" aria-label="Etapas de diseño y generación de exámenes">
+        <button
+          type="button"
+          role="tab"
+          aria-selected={tabActiva === 'diseno'}
+          className={`plantillas-tab-btn ${tabActiva === 'diseno' ? 'plantillas-tab-btn--active' : ''}`}
+          onClick={() => setTabActiva('diseno')}
+        >
+          <span className="plantillas-tab-btn__icon">📐</span>
+          <span className="plantillas-tab-btn__label">Diseñar Exámenes</span>
+          <span className="plantillas-tab-btn__count">{totalPlantillasTodas}</span>
+        </button>
+
+        <button
+          type="button"
+          role="tab"
+          aria-selected={tabActiva === 'generacion'}
+          className={`plantillas-tab-btn ${tabActiva === 'generacion' ? 'plantillas-tab-btn--active' : ''}`}
+          onClick={() => setTabActiva('generacion')}
+        >
+          <span className="plantillas-tab-btn__icon">🚀</span>
+          <span className="plantillas-tab-btn__label">Generar Paquete PDF/OMR</span>
+          {generandoLote && <span className="plantillas-tab-btn__badge pulse">En progreso</span>}
+        </button>
+
+        <button
+          type="button"
+          role="tab"
+          aria-selected={tabActiva === 'historial'}
+          className={`plantillas-tab-btn ${tabActiva === 'historial' ? 'plantillas-tab-btn--active' : ''}`}
+          onClick={() => setTabActiva('historial')}
+        >
+          <span className="plantillas-tab-btn__icon">📦</span>
+          <span className="plantillas-tab-btn__label">Historial de Lotes</span>
+          <span className="plantillas-tab-btn__count">{examenesGenerados.length}</span>
+        </button>
       </div>
 
       {/* 2. Bento Visual Guide */}

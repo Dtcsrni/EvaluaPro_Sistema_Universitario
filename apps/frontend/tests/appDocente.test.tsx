@@ -50,7 +50,7 @@ describe('AppDocente', () => {
     expect(within(nav).getByRole('button', { name: 'Materias' })).toBeInTheDocument();
     expect(within(nav).getByRole('button', { name: 'Cuenta' })).toBeInTheDocument();
     expect(within(nav).queryByRole('button', { name: 'Banco' })).toBeNull();
-    expect(within(nav).queryByRole('button', { name: 'Plantillas' })).toBeNull();
+    expect(within(nav).queryByRole('button', { name: /Plantillas|Diseño de Exámenes/i })).toBeNull();
   });
 
   it('permite crear materia sin crashear el render', async () => {

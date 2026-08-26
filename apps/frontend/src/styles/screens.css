@@ -7737,3 +7737,71 @@ li.empty-state-card {
   gap: 0.65rem;
   flex-wrap: wrap;
 }
+
+/* ══════════════════════════════════════════════════════════════
+   EXECUTIVE STUDIO TABS FOR DISEÑO DE EXÁMENES
+   ══════════════════════════════════════════════════════════════ */
+.plantillas-tabs-bar {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  margin: 1.5rem 0 2rem 0;
+  padding: 0.4rem;
+  background: rgba(15, 23, 42, 0.65);
+  border: 1px solid rgba(56, 189, 248, 0.22);
+  border-radius: 16px;
+  backdrop-filter: blur(20px);
+}
+
+.plantillas-tab-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.6rem;
+  padding: 0.75rem 1.4rem;
+  border-radius: 12px;
+  border: 1px solid transparent;
+  background: transparent;
+  color: #94a3b8;
+  font-size: 0.95rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.plantillas-tab-btn:hover {
+  color: #f8fafc;
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.plantillas-tab-btn--active {
+  color: #38bdf8 !important;
+  background: rgba(56, 189, 248, 0.12) !important;
+  border-color: rgba(56, 189, 248, 0.35) !important;
+  box-shadow: 0 4px 20px -4px rgba(56, 189, 248, 0.25);
+}
+
+.plantillas-tab-btn__icon {
+  font-size: 1.15rem;
+}
+
+.plantillas-tab-btn__count {
+  background: rgba(255, 255, 255, 0.1);
+  color: #cbd5e1;
+  font-size: 0.75rem;
+  padding: 0.15rem 0.5rem;
+  border-radius: 999px;
+  font-weight: 700;
+}
+
+.plantillas-tab-btn--active .plantillas-tab-btn__count {
+  background: rgba(56, 189, 248, 0.25);
+  color: #38bdf8;
+}
+
+.plantillas-tab-panel--hidden {
+  display: none !important;
+}
+
+.plantillas-tab-panel--active {
+  display: block !important;
+}
