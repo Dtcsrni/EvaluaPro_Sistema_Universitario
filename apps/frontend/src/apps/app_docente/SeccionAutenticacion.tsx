@@ -50,6 +50,7 @@ export function SeccionAutenticacion({
   );
   const [enviando, setEnviando] = useState(false);
   const [cooldownHasta, setCooldownHasta] = useState<number | null>(null);
+  const [errorGoogleOauth, setErrorGoogleOauth] = useState(false);
   const temporizadorCooldown = useRef<number | null>(null);
   const [credentialRegistroGoogle, setCredentialRegistroGoogle] = useState<string | null>(null);
   const [crearContrasenaAhora, setCrearContrasenaAhora] = useState(true);
@@ -607,6 +608,38 @@ export function SeccionAutenticacion({
 
           {googleDisponible && modo === 'ingresar' && (
             <div className="auth-google-wrapper">
+              {errorGoogleOauth && (
+                <div className="cuenta-toggle-card anim-fade-in mb-15" role="alert">
+                  <div className="cuenta-toggle-info">
+                    <div className="cuenta-toggle-title">
+                      ⚠️ Origen de JavaScript no autorizado (Error 400: origin_mismatch)
+                    </div>
+                    <div className="cuenta-toggle-desc">
+                      Tu proyecto de Google Cloud Console necesita tener registrado <code>{window.location.origin}</code> en los <b>Orígenes autorizados de JavaScript</b> del Client ID de OAuth 2.0.
+                    </div>
+                    <div className="acciones acciones--mt">
+                      <a
+                        href="https://console.cloud.google.com/apis/credentials"
+                        target="_blank"
+                        rel="noreferrer noopener"
+                        className="boton boton--secundario"
+                      >
+                        🔗 Abrir Credenciales en Google Cloud
+                      </a>
+                      <button
+                        type="button"
+                        className="boton boton--secundario"
+                        onClick={() => {
+                          setMostrarFormularioIngresar(true);
+                          setErrorGoogleOauth(false);
+                        }}
+                      >
+                        ✉️ Usar correo y contraseña
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              )}
               <GoogleLogin
                 onSuccess={(cred) => {
                   const token = cred.credential;
@@ -616,7 +649,10 @@ export function SeccionAutenticacion({
                   }
                   void ingresarConGoogle(token);
                 }}
-                onError={() => setMensaje('No se pudo iniciar sesión con Google.')}
+                onError={() => {
+                  setErrorGoogleOauth(true);
+                  setMensaje('Error de autorización con Google. Verifica los orígenes autorizados de JavaScript en Google Cloud Console.');
+                }}
                 useOneTap
               />
               {dominiosPermitidos.length > 0 && (
