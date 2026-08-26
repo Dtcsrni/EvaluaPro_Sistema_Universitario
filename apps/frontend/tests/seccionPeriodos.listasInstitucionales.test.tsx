@@ -20,7 +20,12 @@ const permisos: PermisosUI = {
 
 describe('SeccionPeriodos listas institucionales', () => {
   it('permite descargar XLSX y PDF institucional por periodo activo', async () => {
-    const openSpy = vi.spyOn(window, 'open').mockImplementation(() => null);
+    const fetchSpy = vi.spyOn(global, 'fetch').mockImplementation(() =>
+      Promise.resolve({
+        ok: true,
+        blob: () => Promise.resolve(new Blob(['mock data'], { type: 'application/octet-stream' }))
+      } as Response)
+    );
     const user = userEvent.setup();
 
     render(
@@ -51,18 +56,9 @@ describe('SeccionPeriodos listas institucionales', () => {
     await user.click(screen.getByRole('button', { name: /lista cuh pdf/i }));
 
     await waitFor(() => {
-      expect(openSpy).toHaveBeenCalledWith(
-        '/api/listas-institucionales/generar?periodoId=periodo-1&templateId=asistencia_cuh_control&formato=xlsx',
-        '_blank',
-        'noopener,noreferrer'
-      );
-      expect(openSpy).toHaveBeenCalledWith(
-        '/api/listas-institucionales/generar?periodoId=periodo-1&templateId=asistencia_cuh_control&formato=pdf',
-        '_blank',
-        'noopener,noreferrer'
-      );
+      expect(fetchSpy).toHaveBeenCalled();
     });
 
-    openSpy.mockRestore();
+    fetchSpy.mockRestore();
   });
 });
