@@ -92,6 +92,8 @@ export function SeccionAsistencias({ periodos, alumnos }: Props) {
   const [sesionActual, setSesionActual] = useState<SesionAsistencia | null>(null);
   const [registros, setRegistros] = useState<Record<string, RegistroLocal>>({});
   const [resumen, setResumen] = useState<ResumenAlumno[]>([]);
+  const [filtroTexto, setFiltroTexto] = useState('');
+  const [filtroEstado, setFiltroEstado] = useState<'todos' | 'con_derecho' | 'en_riesgo' | 'sin_derecho'>('todos');
   const [reglas, setReglas] = useState<ReglaAsistencia[]>([]);
   const [cargando, setCargando] = useState(false);
   const [guardando, setGuardando] = useState(false);
@@ -106,6 +108,27 @@ export function SeccionAsistencias({ periodos, alumnos }: Props) {
   const [nuevaReglaAccion, setNuevaReglaAccion] = useState<'bloquear_examen' | 'advertir'>('bloquear_examen');
   const [nuevaReglaContarRetardos, setNuevaReglaContarRetardos] = useState(false);
   const [nuevaReglaRetardosEquivalen, setNuevaReglaRetardosEquivalen] = useState(3);
+
+  // Resumen filtrado para la tabla
+  const resumenFiltrado = useMemo(() => {
+    let lista = resumen;
+    if (filtroTexto.trim()) {
+      const q = filtroTexto.trim().toLowerCase();
+      lista = lista.filter((r) =>
+        r.nombreCompleto.toLowerCase().includes(q) ||
+        r.matricula.toLowerCase().includes(q) ||
+        r.grupo.toLowerCase().includes(q)
+      );
+    }
+    if (filtroEstado === 'sin_derecho') {
+      lista = lista.filter((r) => r.bloqueadoExamen);
+    } else if (filtroEstado === 'en_riesgo') {
+      lista = lista.filter((r) => !r.bloqueadoExamen && r.porcentajeAsistencia < 85 && r.totalSesiones > 0);
+    } else if (filtroEstado === 'con_derecho') {
+      lista = lista.filter((r) => !r.bloqueadoExamen);
+    }
+    return lista;
+  }, [resumen, filtroTexto, filtroEstado]);
 
   // Periodo seleccionado
   const periodoSeleccionado = useMemo(() => {
@@ -548,15 +571,21 @@ export function SeccionAsistencias({ periodos, alumnos }: Props) {
           {/* ── TAB RESUMEN ─── */}
           {tab === 'resumen' && (
             <div className="anim-fade-in">
-              {/* Nueva sesión rápida Panorámica */}
-              <div className="panel asistencias-panel-card anim-card-hover">
+              {/* Nueva sesión rápida Bento Hero Form */}
+              <div className="panel asistencias-panel-card asistencias-hero-card anim-card-hover">
                 <div className="asistencias-card-head">
-                  <h3 className="asistencias-sub-title">✨ Registrar Nueva Sesión de Clase</h3>
-                  <p className="asistencias-sub-desc">Crea la fecha y tema para habilitar el pase de lista inmediato.</p>
+                  <div className="asistencias-card-head__text">
+                    <h3 className="asistencias-sub-title">✨ Registrar Nueva Sesión de Clase</h3>
+                    <p className="asistencias-sub-desc">Habilita una sesión para pase de lista en 1 clic o lectura de folios QR.</p>
+                  </div>
+                  <div className="asistencias-card-head__badge">
+                    <span className="asistencias-pulse-dot" aria-hidden="true" />
+                    <span>Sesión #{sesiones.length + 1}</span>
+                  </div>
                 </div>
                 <div className="asistencias-form-crear">
                   <div className="asistencias-form-crear__grid">
-                    <label className="asistencias-field-col">
+                    <label className="asistencias-field-col asistencias-field-col--fecha">
                       <span>Fecha de clase</span>
                       <div className="auth-input-box auth-input-box--calendar auth-input-box--animated">
                         <input
@@ -569,27 +598,27 @@ export function SeccionAsistencias({ periodos, alumnos }: Props) {
                     </label>
 
                     {gruposDisponibles.length > 0 && (
-                      <label className="asistencias-field-col">
-                        <span>Grupo</span>
+                      <label className="asistencias-field-col asistencias-field-col--grupo">
+                        <span>Grupo académico</span>
                         <div className="auth-input-box auth-input-box--tags auth-input-box--animated">
                           <select
                             value={nuevaSesionGrupo}
                             onChange={(e) => setNuevasSesionGrupo(e.target.value)}
                             className="asistencias-select"
                           >
-                            <option value="">Grupo actual ({grupo || 'Todos'})</option>
-                            {gruposDisponibles.map((g) => <option key={g} value={g}>{g}</option>)}
+                            <option value="">{grupo ? `Grupo ${grupo}` : 'Todos los grupos'}</option>
+                            {gruposDisponibles.map((g) => <option key={g} value={g}>Grupo {g}</option>)}
                           </select>
                         </div>
                       </label>
                     )}
 
-                    <label className="asistencias-field-col asistencias-field-col--expand">
-                      <span>Tema o contenido cubierto</span>
+                    <label className="asistencias-field-col asistencias-field-col--tema">
+                      <span>Tema o contenido temático cubierto</span>
                       <div className="auth-input-box auth-input-box--book auth-input-box--animated">
                         <input
                           type="text"
-                          placeholder="Ej. Derivadas parciales, Matrices ortogonales…"
+                          placeholder="Ej. Unidad 2: Modelado dimensional, ETL y dashboards ejecutivos…"
                           value={nuevaSesionTema}
                           onChange={(e) => setNuevaSesionTema(e.target.value)}
                           className="asistencias-input"
@@ -609,12 +638,61 @@ export function SeccionAsistencias({ periodos, alumnos }: Props) {
                           </svg>
                         }
                       >
-                        Crear e iniciar
+                        Crear e Iniciar Pase de Lista
                       </Boton>
                     </div>
                   </div>
                 </div>
               </div>
+
+              {/* Barra de Búsqueda y Filtros de Asistencia */}
+              {resumen.length > 0 && (
+                <div className="asistencias-table-toolbar anim-fade-in">
+                  <div className="asistencias-search-box">
+                    <span className="asistencias-search-icon" aria-hidden="true">🔍</span>
+                    <input
+                      type="text"
+                      placeholder="Buscar alumno por nombre o matrícula…"
+                      value={filtroTexto}
+                      onChange={(e) => setFiltroTexto(e.target.value)}
+                      className="asistencias-search-input"
+                    />
+                    {filtroTexto && (
+                      <button
+                        type="button"
+                        onClick={() => setFiltroTexto('')}
+                        className="asistencias-search-clear"
+                        title="Limpiar búsqueda"
+                      >
+                        ✕
+                      </button>
+                    )}
+                  </div>
+                  <div className="asistencias-filter-chips">
+                    <button
+                      type="button"
+                      className={`asistencias-chip ${filtroEstado === 'todos' ? 'asistencias-chip--active' : ''}`}
+                      onClick={() => setFiltroEstado('todos')}
+                    >
+                      Todos ({resumen.length})
+                    </button>
+                    <button
+                      type="button"
+                      className={`asistencias-chip ${filtroEstado === 'con_derecho' ? 'asistencias-chip--active' : ''}`}
+                      onClick={() => setFiltroEstado('con_derecho')}
+                    >
+                      ✓ Con Derecho ({resumen.filter((r) => !r.bloqueadoExamen).length})
+                    </button>
+                    <button
+                      type="button"
+                      className={`asistencias-chip asistencias-chip--danger ${filtroEstado === 'sin_derecho' ? 'asistencias-chip--active' : ''}`}
+                      onClick={() => setFiltroEstado('sin_derecho')}
+                    >
+                      🚫 Sin Derecho ({resumen.filter((r) => r.bloqueadoExamen).length})
+                    </button>
+                  </div>
+                </div>
+              )}
 
               {/* Tabla resumen de alumnos */}
               {cargando ? (
@@ -650,7 +728,9 @@ export function SeccionAsistencias({ periodos, alumnos }: Props) {
                       </tr>
                     </thead>
                     <tbody>
-                      {resumen.map((al) => {
+                      {resumenFiltrado.map((al) => {
+                        const matriculaLimpia = al.matricula && !/^\d{15,}$/.test(al.matricula) ? al.matricula : '';
+                        const porcentajeMostrar = al.totalSesiones > 0 ? `${al.porcentajeAsistencia}%` : '100%';
                         const iniciales = obtenerIniciales(al.nombreCompleto);
                         return (
                           <tr key={al.alumnoId} className="asistencias-tr anim-slide-up">
@@ -663,7 +743,7 @@ export function SeccionAsistencias({ periodos, alumnos }: Props) {
                               </div>
                             </td>
                             <td className="asistencias-td font-code">
-                              <span className="asistencia-matricula-badge">{al.matricula}</span>
+                              <span className="asistencia-matricula-badge">{matriculaLimpia || '—'}</span>
                             </td>
                             <td className="asistencias-td">
                               <span className="asistencia-grupo-pill">{al.grupo}</span>
@@ -675,10 +755,11 @@ export function SeccionAsistencias({ periodos, alumnos }: Props) {
                             <td className="asistencias-td">
                               <span
                                 className={`asistencias-pct-badge ${
-                                  al.porcentajeAsistencia >= 85 ? 'green' : al.porcentajeAsistencia >= 70 ? 'orange' : 'red'
+                                  al.totalSesiones === 0 || al.porcentajeAsistencia >= 85 ? 'green' : al.porcentajeAsistencia >= 70 ? 'orange' : 'red'
                                 }`}
+                                title={`${al.presentes} presentes de ${al.totalSesiones} sesiones`}
                               >
-                                {al.porcentajeAsistencia}%
+                                {porcentajeMostrar}
                               </span>
                             </td>
                             <td className="asistencias-td">
@@ -697,14 +778,26 @@ export function SeccionAsistencias({ periodos, alumnos }: Props) {
                               )}
                             </td>
                             <td className="asistencias-td">
-                              {al.bloqueadoExamen && (
-                                <button
+                              {al.bloqueadoExamen ? (
+                                <Boton
+                                  variante="secundario"
+                                  type="button"
                                   onClick={() => void autorizarExcepcion(al.alumnoId, al.nombreCompleto)}
-                                  className="asistencias-btn-secundario anim-fade-in"
-                                  title="Autorizar excepción al derecho a examen"
+                                  className="asistencias-btn-autorizar anim-fade-in"
+                                  icono={<span aria-hidden="true">🛡️</span>}
                                 >
-                                  Autorizar
-                                </button>
+                                  Autorizar Excepción
+                                </Boton>
+                              ) : (
+                                <Boton
+                                  variante="secundario"
+                                  type="button"
+                                  onClick={() => setTab('pase_lista')}
+                                  className="asistencias-btn-fila-pase"
+                                  icono={<span aria-hidden="true">📝</span>}
+                                >
+                                  Pase de Lista
+                                </Boton>
                               )}
                             </td>
                           </tr>
