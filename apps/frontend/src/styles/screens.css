@@ -7672,3 +7672,68 @@ li.empty-state-card {
   color: #64748b !important;
   font-size: 0.85rem !important;
 }
+
+/* ══════════════════════════════════════════════════════════════
+   PANORAMIC BENTO STUDIO LAYOUT FOR PLANTILLAS
+   ══════════════════════════════════════════════════════════════ */
+.plantillas-form--panoramico {
+  margin-bottom: 2rem !important;
+}
+
+.plantillas-temas-box {
+  background: rgba(15, 23, 42, 0.55);
+  border: 1px solid rgba(56, 189, 248, 0.2);
+  border-radius: 18px;
+  padding: 1.5rem;
+  margin-top: 1.25rem;
+  backdrop-filter: blur(16px);
+}
+
+.plantillas-temas__title {
+  margin: 0 0 0.25rem 0;
+  font-size: 1.1rem;
+  font-weight: 700;
+  color: #f8fafc;
+}
+
+.plantillas-temas__lista {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.65rem;
+  margin-top: 1rem;
+}
+
+.plantillas-catalogo--panoramico {
+  margin-bottom: 2rem !important;
+}
+
+.plantillas-catalogo--panoramico .plantillas-lista {
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+}
+
+.badge-meta {
+  background: rgba(148, 163, 184, 0.12);
+  color: #cbd5e1;
+  border: 1px solid rgba(148, 163, 184, 0.25);
+  font-size: 0.78rem;
+  padding: 0.25rem 0.6rem;
+  border-radius: 8px;
+}
+
+.badge-tema-chip {
+  background: rgba(56, 189, 248, 0.12);
+  color: #38bdf8;
+  border: 1px solid rgba(56, 189, 248, 0.25);
+  font-size: 0.78rem;
+  padding: 0.2rem 0.55rem;
+  border-radius: 8px;
+}
+
+.plantillas-item__actions {
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+  flex-wrap: wrap;
+}

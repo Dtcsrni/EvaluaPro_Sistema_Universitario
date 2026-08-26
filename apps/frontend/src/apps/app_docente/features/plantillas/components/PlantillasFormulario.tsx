@@ -1,8 +1,7 @@
 /**
  * PlantillasFormulario
  *
- * Responsabilidad: Componente de UI del dominio docente (presentacion y eventos de vista).
- * Limites: Evitar acoplar IO directo; preferir hooks/services del feature.
+ * Responsabilidad: Formulario panorámico Bento para diseño y edición de plantillas de examen OMR.
  */
 import { Icono } from '../../../../../ui/iconos';
 import { Boton } from '../../../../../ui/ux/componentes/Boton';
@@ -54,15 +53,19 @@ export function PlantillasFormulario({
   mensaje: string;
 }) {
   return (
-    <div className="subpanel plantillas-panel plantillas-panel--form anim-fade-in">
-      <div className="banco-section-title">
+    <section className="alumnos-form alumnos-form--glass alumnos-form--panoramico plantillas-form--panoramico anim-form-card">
+      <div className="alumnos-form__header">
         <div className="banco-section-title__wrap">
           <span className="banco-section-pill">
             <span className="banco-section-pill__dot" aria-hidden="true" />
             <span>{modoEdicion ? 'Modo Edición' : 'Maquetación OMR'}</span>
           </span>
-          <h3>{modoEdicion ? 'Edición de plantilla' : 'Diseño de plantilla'}</h3>
-          <p className="nota">Configura la estructura del examen por materia y temas antes de pasar a previsualización o generación.</p>
+          <h3 className="alumnos-form__title">
+            {modoEdicion ? 'Edición de plantilla' : 'Diseño de plantilla'}
+          </h3>
+          <p className="alumnos-form__subtitle">
+            Configura la estructura del examen por materia y temas antes de pasar a previsualización o generación.
+          </p>
         </div>
       </div>
 
@@ -76,10 +79,13 @@ export function PlantillasFormulario({
         )}
       </div>
 
-      <div className="plantillas-form-wrap">
-        <div className="plantillas-form">
-          <label className="campo">
-            <span>Titulo</span>
+      <div className="alumnos-form__fields">
+        {/* Fila 1: Título y Materia */}
+        <div className="alumnos-form__row alumnos-form__row--top">
+          <label className="campo campo--titulo">
+            <span className="campo__label-row">
+              <span>Titulo</span>
+            </span>
             <div className="auth-input-box auth-input-box--id auth-input-box--animated">
               <input
                 value={titulo}
@@ -89,10 +95,13 @@ export function PlantillasFormulario({
                 data-tooltip="Nombre visible de la plantilla."
               />
             </div>
+            <span className="ayuda">Nombre representativo para el examen.</span>
           </label>
 
-          <label className="campo">
-            <span>Materia</span>
+          <label className="campo campo--materia">
+            <span className="campo__label-row">
+              <span>Materia</span>
+            </span>
             <div className="auth-input-box auth-input-box--select auth-input-box--animated">
               <select
                 value={periodoId}
@@ -108,13 +117,15 @@ export function PlantillasFormulario({
                 ))}
               </select>
             </div>
+            <span className="ayuda">Asignatura académica asociada.</span>
           </label>
         </div>
 
-        <div className="plantillas-temas">
+        {/* Fila 2: Matriz de Temas */}
+        <div className="plantillas-temas-box">
           <div className="plantillas-temas__header">
             <div>
-              <h4>Temas de la plantilla</h4>
+              <h4 className="plantillas-temas__title">Temas de la plantilla</h4>
               <p className="nota">Selecciona las unidades que alimentarán la composición del examen.</p>
             </div>
             <div className="plantillas-temas__stats">
@@ -124,7 +135,9 @@ export function PlantillasFormulario({
           </div>
 
           {periodoId && temasDisponibles.length === 0 && (
-            <span className="ayuda ayuda--warn">Esta materia no tiene temas con preguntas. Agrega preguntas en “Banco”.</span>
+            <div className="ayuda ayuda--warn mt-10">
+              ⚠️ Esta materia no tiene temas con preguntas en el banco. Agrega preguntas en la sección “Banco”.
+            </div>
           )}
 
           <div className="plantillas-temas__lista" role="group" aria-label="Temas disponibles">
@@ -145,7 +158,7 @@ export function PlantillasFormulario({
                 >
                   <span className="plantillas-tema-chip__dot" aria-hidden="true" />
                   <span className="plantillas-tema-chip__nombre">{td.tema}</span>
-                  <span className="plantillas-tema-chip__count">{td.total}</span>
+                  <span className="plantillas-tema-chip__count">{td.total} reactivos</span>
                 </button>
               );
             })}
@@ -158,43 +171,49 @@ export function PlantillasFormulario({
           )}
         </div>
 
-        <div className="acciones plantillas-form__acciones">
-          {modoEdicion ? (
-            <>
+        {/* Footer con Botones y Ayuda */}
+        <div className="alumnos-form__footer">
+          <div className="acciones alumnos-form__actions">
+            {modoEdicion ? (
+              <>
+                <Boton
+                  type="button"
+                  variante="primario"
+                  icono={<Icono nombre="ok" />}
+                  cargando={guardandoPlantilla}
+                  disabled={!titulo.trim() || !periodoId || temasSeleccionados.length === 0 || bloqueoEdicion}
+                  onClick={() => void guardarEdicion()}
+                >
+                  {guardandoPlantilla ? 'Guardando…' : 'Guardar cambios'}
+                </Boton>
+                <Boton type="button" variante="secundario" onClick={cancelarEdicion}>
+                  Cancelar
+                </Boton>
+              </>
+            ) : (
               <Boton
                 type="button"
                 variante="primario"
                 icono={<Icono nombre="ok" />}
-                cargando={guardandoPlantilla}
-                disabled={!titulo.trim() || !periodoId || temasSeleccionados.length === 0 || bloqueoEdicion}
-                onClick={() => void guardarEdicion()}
+                cargando={creando}
+                disabled={!puedeCrear || bloqueoEdicion}
+                onClick={crear}
               >
-                {guardandoPlantilla ? 'Guardando…' : 'Guardar cambios'}
+                {creando ? 'Creando…' : 'Crear plantilla'}
               </Boton>
-              <Boton type="button" variante="secundario" onClick={cancelarEdicion}>
-                Cancelar
-              </Boton>
-            </>
-          ) : (
-            <Boton
-              type="button"
-              variante="primario"
-              icono={<Icono nombre="ok" />}
-              cargando={creando}
-              disabled={!puedeCrear || bloqueoEdicion}
-              onClick={crear}
-            >
-              {creando ? 'Creando…' : 'Crear plantilla'}
-            </Boton>
-          )}
+            )}
+          </div>
+          <div className="alumnos-form__hint">
+            <span>💡 Las plantillas definen la composición y el formato óptico para la generación y calificación OMR.</span>
+          </div>
         </div>
 
         {mensaje && (
-          <p className={esMensajeError(mensaje) ? 'mensaje error' : 'mensaje ok'} role="status">
+          <p className={esMensajeError(mensaje) ? 'mensaje error anim-fade-in' : 'mensaje ok anim-fade-in'} role="status">
             {mensaje}
           </p>
         )}
       </div>
-    </div>
+    </section>
   );
 }
