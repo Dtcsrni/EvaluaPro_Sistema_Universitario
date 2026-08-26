@@ -40,12 +40,14 @@ export function SeccionClassroom({
   periodos,
   puedeClassroomConectar,
   puedeClassroomPull,
-  classroomDisponible
+  classroomDisponible,
+  onRecargarMaterias
 }: {
   periodos: Periodo[];
   puedeClassroomConectar: boolean;
   puedeClassroomPull: boolean;
   classroomDisponible: boolean;
+  onRecargarMaterias?: () => Promise<void>;
 }) {
   const [periodoId, setPeriodoId] = useState(periodos[0]?._id ?? '');
   const [estado, setEstado] = useState<ClassroomEstado | null>(null);
@@ -66,6 +68,34 @@ export function SeccionClassroom({
   const [guardandoMapeo, setGuardandoMapeo] = useState(false);
   const [ejecutando, setEjecutando] = useState(false);
   const [mensaje, setMensaje] = useState('');
+  const [creandoMateria, setCreandoMateria] = useState(false);
+
+  async function crearMateriaDesdeCurso() {
+    const curso = cursos.find((c) => c.id === courseIdSeleccionado);
+    if (!curso) return;
+    setCreandoMateria(true);
+    try {
+      const ahora = new Date();
+      const fin = new Date();
+      fin.setMonth(fin.getMonth() + 4);
+      const respuesta = await clienteApi.enviar<{ periodo: Periodo }>('/periodos', {
+        nombre: curso.name,
+        fechaInicio: ahora.toISOString().split('T')[0],
+        fechaFin: fin.toISOString().split('T')[0]
+      });
+      emitToast({ level: 'ok', title: 'Materia creada', message: `Materia "${curso.name}" creada exitosamente en EvaluaPro.` });
+      if (onRecargarMaterias) {
+        await onRecargarMaterias();
+      }
+      if (respuesta.periodo?._id) {
+        setPeriodoId(respuesta.periodo._id);
+      }
+    } catch (err) {
+      emitToast({ level: 'error', title: 'Error', message: mensajeDeError(err, 'No se pudo crear la materia.') });
+    } finally {
+      setCreandoMateria(false);
+    }
+  }
 
   // Si cambia periodos y periodoId no es valido, actualizar
   useEffect(() => {
@@ -147,12 +177,13 @@ export function SeccionClassroom({
     }
   }, [cargarCursos, puedeClassroomPull]);
 
-  const cargarActividades = useCallback(async (courseId: string) => {
-    if (!periodoId || !courseId) return;
+  const cargarActividades = useCallback(async (courseId: string, currentPeriodoId?: string) => {
+    if (!courseId) return;
     setCargandoActividades(true);
     try {
+      const queryPeriodo = currentPeriodoId ? `?periodoId=${encodeURIComponent(currentPeriodoId)}` : '';
       const respuesta = await clienteApi.obtener<{ actividades: ClassroomActividad[] }>(
-        `/evaluaciones/v2/classroom/cursos/${encodeURIComponent(courseId)}/actividades?periodoId=${encodeURIComponent(periodoId)}`
+        `/evaluaciones/v2/classroom/cursos/${encodeURIComponent(courseId)}/actividades${queryPeriodo}`
       );
       const lista = Array.isArray(respuesta.actividades) ? respuesta.actividades : [];
       setActividades(lista);
@@ -177,16 +208,17 @@ export function SeccionClassroom({
     } finally {
       setCargandoActividades(false);
     }
-  }, [periodoId]);
+  }, []);
 
-  const cargarRoster = useCallback(async (courseId: string) => {
-    if (!periodoId || !courseId) return;
+  const cargarRoster = useCallback(async (courseId: string, currentPeriodoId?: string) => {
+    if (!courseId) return;
     setCargandoRoster(true);
     try {
+      const queryPeriodo = currentPeriodoId ? `?periodoId=${encodeURIComponent(currentPeriodoId)}` : '';
       const respuesta = await clienteApi.obtener<{
         alumnosLocales: ClassroomAlumnoLocal[];
         alumnosClassroom: ClassroomAlumnoCurso[];
-      }>(`/evaluaciones/v2/classroom/cursos/${encodeURIComponent(courseId)}/alumnos?periodoId=${encodeURIComponent(periodoId)}`);
+      }>(`/evaluaciones/v2/classroom/cursos/${encodeURIComponent(courseId)}/alumnos${queryPeriodo}`);
       const locales = Array.isArray(respuesta.alumnosLocales) ? respuesta.alumnosLocales : [];
       const classroom = Array.isArray(respuesta.alumnosClassroom) ? respuesta.alumnosClassroom : [];
       setAlumnosLocales(locales);
@@ -204,7 +236,7 @@ export function SeccionClassroom({
     } finally {
       setCargandoRoster(false);
     }
-  }, [periodoId]);
+  }, []);
 
   useEffect(() => {
     if (!classroomDisponible || !puedeClassroomPull) return;
@@ -219,6 +251,18 @@ export function SeccionClassroom({
     void cargarCursos();
   }, [cargarCursos, classroomDisponible, estado?.conectado]);
 
+  // Auto-seleccionar materia local si coincide con el nombre del curso de Classroom
+  useEffect(() => {
+    if (!courseIdSeleccionado || periodos.length === 0) return;
+    const curso = cursos.find((c) => c.id === courseIdSeleccionado);
+    if (!curso) return;
+    const nombreNorm = normalizarBusqueda(curso.name);
+    const coincidencia = periodos.find((p) => normalizarBusqueda(p.nombre) === nombreNorm || nombreNorm.includes(normalizarBusqueda(p.nombre)));
+    if (coincidencia && periodoId !== coincidencia._id) {
+      setPeriodoId(coincidencia._id);
+    }
+  }, [courseIdSeleccionado, cursos, periodos, periodoId]);
+
   useEffect(() => {
     setPreview(null);
     setActividadIdsSeleccionados([]);
@@ -226,9 +270,9 @@ export function SeccionClassroom({
     setAlumnosLocales([]);
     setAlumnosClassroom([]);
     setBusquedaAlumnos('');
-    if (!courseIdSeleccionado || !periodoId || !estado?.conectado) return;
-    void cargarActividades(courseIdSeleccionado);
-    void cargarRoster(courseIdSeleccionado);
+    if (!courseIdSeleccionado || !estado?.conectado) return;
+    void cargarActividades(courseIdSeleccionado, periodoId);
+    void cargarRoster(courseIdSeleccionado, periodoId);
   }, [cargarActividades, cargarRoster, courseIdSeleccionado, periodoId, estado?.conectado]);
 
   useEffect(() => {
@@ -570,11 +614,18 @@ export function SeccionClassroom({
             <label className="campo">
               <span>Materia en EvaluaPro</span>
               <select value={periodoId} onChange={(e) => setPeriodoId(e.target.value)}>
-                {periodos.map((p) => (
-                  <option key={p._id} value={p._id}>
-                    {p.nombre}
-                  </option>
-                ))}
+                {periodos.length === 0 ? (
+                  <option value="">-- Sin materias en EvaluaPro --</option>
+                ) : (
+                  <>
+                    <option value="">-- Selecciona una materia local --</option>
+                    {periodos.map((p) => (
+                      <option key={p._id} value={p._id}>
+                        {p.nombre}
+                      </option>
+                    ))}
+                  </>
+                )}
               </select>
             </label>
 
@@ -611,6 +662,17 @@ export function SeccionClassroom({
             >
               {cargandoCursos ? 'Cargando cursos...' : 'Recargar cursos de Classroom'}
             </Boton>
+            {courseIdSeleccionado && !periodoId && (
+              <Boton
+                type="button"
+                variante="primario"
+                icono={<Icono nombre="periodos" />}
+                disabled={creandoMateria}
+                onClick={() => void crearMateriaDesdeCurso()}
+              >
+                {creandoMateria ? 'Creando materia...' : '✨ Crear materia en EvaluaPro desde este curso'}
+              </Boton>
+            )}
           </div>
         </div>
       )}
