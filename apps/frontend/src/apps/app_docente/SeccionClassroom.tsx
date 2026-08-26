@@ -60,6 +60,7 @@ type ClassroomAlumnoCurso = {
   fullName?: string;
   emailAddress?: string;
   alumnoIdConfirmado?: string | null;
+  alumnoConfirmado?: ClassroomAlumnoLocal | null;
   alumnoIdSugerido?: string | null;
   matchStrategy?: string;
   confidence?: number;
@@ -124,6 +125,9 @@ export function SeccionClassroom({
   const [cargandoRoster, setCargandoRoster] = useState(false);
   const [guardandoMapeo, setGuardandoMapeo] = useState(false);
   const [creandoMateria, setCreandoMateria] = useState(false);
+  const [importandoAlumnos, setImportandoAlumnos] = useState(false);
+  const [matriculasEditables, setMatriculasEditables] = useState<Record<string, string>>({});
+  const [alumnosSeleccionadosImportar, setAlumnosSeleccionadosImportar] = useState<string[]>([]);
   const [desconectando, setDesconectando] = useState(false);
   const [ejecutando, setEjecutando] = useState(false);
   const [mensaje, setMensaje] = useState('');
@@ -292,11 +296,20 @@ export function SeccionClassroom({
       const classroom = Array.isArray(respuesta.alumnosClassroom) ? respuesta.alumnosClassroom : [];
       setAlumnosLocales(locales);
       setAlumnosClassroom(classroom);
+      setAlumnosSeleccionadosImportar(classroom.map((c: ClassroomAlumnoCurso) => c.classroomUserId));
       setMapeoEditable(
         Object.fromEntries(
           classroom.map((fila: ClassroomAlumnoCurso) => [
             fila.classroomUserId,
             String(fila.alumnoIdConfirmado ?? fila.alumnoIdSugerido ?? '')
+          ])
+        )
+      );
+      setMatriculasEditables(
+        Object.fromEntries(
+          classroom.map((fila: ClassroomAlumnoCurso) => [
+            fila.classroomUserId,
+            fila.alumnoConfirmado?.matricula || ''
           ])
         )
       );
@@ -481,6 +494,86 @@ export function SeccionClassroom({
       emitToast({ level: 'error', title: 'Error', message: msg });
     } finally {
       setDesconectando(false);
+    }
+  }
+
+  async function importarAlumnosAEvaluaPro() {
+    if (!periodoId) {
+      emitToast({
+        level: 'warn',
+        title: 'Importación de Alumnos',
+        message: 'Selecciona una materia en EvaluaPro para registrar a los alumnos.'
+      });
+      return;
+    }
+    const seleccionados = alumnosClassroom.filter((a: ClassroomAlumnoCurso) =>
+      alumnosSeleccionadosImportar.includes(a.classroomUserId)
+    );
+    if (seleccionados.length === 0) {
+      emitToast({
+        level: 'warn',
+        title: 'Importación de Alumnos',
+        message: 'Selecciona al menos un estudiante de la lista para importar.'
+      });
+      return;
+    }
+    setImportandoAlumnos(true);
+    emitToast({
+      level: 'info',
+      title: 'Importando Alumnos',
+      message: `Registrando ${seleccionados.length} alumnos en EvaluaPro...`
+    });
+    try {
+      const payload = {
+        periodoId,
+        alumnos: seleccionados.map((a: ClassroomAlumnoCurso) => ({
+          classroomUserId: a.classroomUserId,
+          fullName: a.fullName || a.classroomUserId,
+          emailAddress: a.emailAddress || undefined,
+          matricula: matriculasEditables[a.classroomUserId] || undefined
+        }))
+      };
+      const respuesta = await clienteApi.enviar<{
+        creados: number;
+        actualizados: number;
+        totalProcesados: number;
+        roster?: {
+          alumnosLocales: ClassroomAlumnoLocal[];
+          alumnosClassroom: ClassroomAlumnoCurso[];
+        };
+      }>(`/evaluaciones/v2/classroom/cursos/${encodeURIComponent(courseIdSeleccionado)}/importar-alumnos`, payload);
+
+      if (respuesta.roster) {
+        setAlumnosLocales(Array.isArray(respuesta.roster.alumnosLocales) ? respuesta.roster.alumnosLocales : []);
+        setAlumnosClassroom(Array.isArray(respuesta.roster.alumnosClassroom) ? respuesta.roster.alumnosClassroom : []);
+      }
+      emitToast({
+        level: 'ok',
+        title: 'Alumnos Importados',
+        message: `${respuesta.creados} alumnos creados y ${respuesta.actualizados} matrículas actualizadas en EvaluaPro.`
+      });
+      if (onRecargarMaterias) {
+        await onRecargarMaterias();
+      }
+    } catch (error) {
+      const msg = mensajeDeError(error, 'No se pudieron importar los alumnos a EvaluaPro.');
+      emitToast({ level: 'error', title: 'Error al importar alumnos', message: msg });
+    } finally {
+      setImportandoAlumnos(false);
+    }
+  }
+
+  function toggleSeleccionAlumnoImportar(userId: string) {
+    setAlumnosSeleccionadosImportar((prev) =>
+      prev.includes(userId) ? prev.filter((id) => id !== userId) : [...prev, userId]
+    );
+  }
+
+  function alternarSeleccionarTodosAlumnos() {
+    if (alumnosSeleccionadosImportar.length === alumnosClassroom.length) {
+      setAlumnosSeleccionadosImportar([]);
+    } else {
+      setAlumnosSeleccionadosImportar(alumnosClassroom.map((a: ClassroomAlumnoCurso) => a.classroomUserId));
     }
   }
 
@@ -826,42 +919,110 @@ export function SeccionClassroom({
           )}
 
           <div className="lista lista--compacta" data-testid="classroom-mapeo-alumnos">
-            {alumnosClassroomFiltrados.map((fila) => (
-              <div key={fila.classroomUserId} className="item-row item-glass">
-                <div className="classroom-user-col">
-                  <b>{fila.fullName || fila.classroomUserId}</b>
-                  <div className="nota">{fila.emailAddress || 'Sin correo público'}</div>
-                </div>
-                <div className="classroom-select-col">
-                  <select
-                    value={mapeoEditable[fila.classroomUserId] || ''}
-                    onChange={(event) =>
-                      setMapeoEditable((prev) => ({
-                        ...prev,
-                        [fila.classroomUserId]: event.target.value
-                      }))
-                    }
-                  >
-                    <option value="">-- Sin vincular --</option>
-                    {alumnosLocales.map((alumno) => (
-                      <option key={alumno._id} value={alumno._id}>
-                        {alumno.matricula ? `[${alumno.matricula}] ` : ''}{alumno.nombreCompleto}
-                      </option>
-                    ))}
-                  </select>
-                </div>
+            <div className="item-row item-glass classroom-roster-header">
+              <div className="classroom-check-wrap">
+                <label className="checkbox-ui">
+                  <input
+                    type="checkbox"
+                    aria-label="Seleccionar todos los alumnos para importar"
+                    checked={alumnosClassroom.length > 0 && alumnosSeleccionadosImportar.length === alumnosClassroom.length}
+                    onChange={alternarSeleccionarTodosAlumnos}
+                  />
+                  <span className="checkbox-ui__box" aria-hidden="true" />
+                </label>
+                <span>Seleccionar todos ({alumnosSeleccionadosImportar.length}/{alumnosClassroom.length})</span>
               </div>
-            ))}
+            </div>
+
+            {alumnosClassroomFiltrados.map((fila: ClassroomAlumnoCurso) => {
+              const estaSeleccionado = alumnosSeleccionadosImportar.includes(fila.classroomUserId);
+              const matriculaActual = matriculasEditables[fila.classroomUserId] ?? fila.alumnoConfirmado?.matricula ?? '';
+              const estaEnEvaluaPro = Boolean(fila.alumnoConfirmado || fila.alumnoIdConfirmado);
+
+              return (
+                <div key={fila.classroomUserId} className="item-row item-glass">
+                  <div className="classroom-student-info">
+                    <label className="checkbox-ui">
+                      <input
+                        type="checkbox"
+                        aria-label={`Seleccionar ${fila.fullName || fila.classroomUserId}`}
+                        checked={estaSeleccionado}
+                        onChange={() => toggleSeleccionAlumnoImportar(fila.classroomUserId)}
+                      />
+                      <span className="checkbox-ui__box" aria-hidden="true" />
+                    </label>
+                    <div className="classroom-user-col">
+                      <b>{fila.fullName || fila.classroomUserId}</b>
+                      <div className="nota">{fila.emailAddress || 'Sin correo institucional público'}</div>
+                    </div>
+                  </div>
+
+                  <div className="classroom-matricula-col">
+                    <label className="campo">
+                      <span className="classroom-matricula-label">Matrícula (opcional)</span>
+                      <input
+                        type="text"
+                        placeholder="Ej. 2026-ISC-01"
+                        value={matriculaActual}
+                        onChange={(e) => {
+                          const val = e.target.value;
+                          setMatriculasEditables((prev) => ({
+                            ...prev,
+                            [fila.classroomUserId]: val
+                          }));
+                        }}
+                      />
+                    </label>
+                  </div>
+
+                  <div className="classroom-select-col">
+                    <label className="campo">
+                      <span className="classroom-matricula-label">
+                        {estaEnEvaluaPro ? '✓ Vinculado en EvaluaPro' : 'Estado en EvaluaPro'}
+                      </span>
+                      <select
+                        value={mapeoEditable[fila.classroomUserId] || ''}
+                        onChange={(event) =>
+                          setMapeoEditable((prev) => ({
+                            ...prev,
+                            [fila.classroomUserId]: event.target.value
+                          }))
+                        }
+                      >
+                        <option value="">{estaEnEvaluaPro ? '-- Vinculación automática --' : '-- No registrado aún --'}</option>
+                        {alumnosLocales.map((alumno: ClassroomAlumnoLocal) => (
+                          <option key={alumno._id} value={alumno._id}>
+                            {alumno.matricula ? `[${alumno.matricula}] ` : ''}{alumno.nombreCompleto}
+                          </option>
+                        ))}
+                      </select>
+                    </label>
+                  </div>
+                </div>
+              );
+            })}
           </div>
 
           <div className="acciones acciones--mt">
             <Boton
               type="button"
+              variante="primario"
+              icono={<Icono nombre="alumnos" />}
+              disabled={importandoAlumnos || cargandoRoster || alumnosClassroom.length === 0}
+              onClick={() => void importarAlumnosAEvaluaPro()}
+            >
+              {importandoAlumnos
+                ? 'Importando alumnos a EvaluaPro...'
+                : `📥 Importar ${alumnosSeleccionadosImportar.length} Alumnos a EvaluaPro`}
+            </Boton>
+            <Boton
+              type="button"
+              variante="secundario"
               icono={<Icono nombre="ok" />}
               disabled={guardandoMapeo || cargandoRoster || alumnosClassroom.length === 0}
               onClick={() => void guardarMapeoCurso()}
             >
-              {guardandoMapeo ? 'Guardando...' : 'Guardar Mapeo de Alumnos'}
+              {guardandoMapeo ? 'Guardando...' : 'Guardar Mapeo Manual'}
             </Boton>
             <Boton
               type="button"

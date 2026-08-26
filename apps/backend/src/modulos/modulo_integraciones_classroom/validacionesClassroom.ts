@@ -79,3 +79,22 @@ export const esquemaPreviewImportacionClassroom = z
   .strict();
 
 export const esquemaEjecutarImportacionClassroom = esquemaPreviewImportacionClassroom;
+
+export const esquemaImportarAlumnosClassroom = z
+  .object({
+    periodoId: esquemaObjectId,
+    alumnos: z
+      .array(
+        z
+          .object({
+            classroomUserId: z.string().trim().min(1).max(128),
+            fullName: z.string().trim().min(1).max(180),
+            emailAddress: z.string().trim().max(180).optional().nullable(),
+            matricula: z.string().trim().max(64).optional().nullable()
+          })
+          .strict()
+      )
+      .min(1)
+      .max(500)
+  })
+  .strict();

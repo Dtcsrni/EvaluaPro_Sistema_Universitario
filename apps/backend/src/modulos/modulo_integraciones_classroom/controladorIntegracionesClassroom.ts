@@ -17,6 +17,7 @@ import {
 } from './servicioClassroomGoogle';
 import {
   actualizarMapeoAlumnosCurso,
+  importarAlumnosClassroomAEvaluaPro,
   guardarMapeoLegadoYCurso,
   listarActividadesPorCurso,
   listarCursosParaDocente,
@@ -509,4 +510,17 @@ export async function ejecutarPullClassroom(req: SolicitudDocente, res: Response
     errores: resultado.errores,
     deprecado: true
   });
+}
+
+export async function importarAlumnosClassroomController(req: SolicitudDocente, res: Response) {
+  const docenteId = obtenerDocenteId(req);
+  const courseId = normalizarTexto(req.params.courseId);
+  const { periodoId, alumnos } = req.body;
+  const resultado = await importarAlumnosClassroomAEvaluaPro({
+    docenteId,
+    periodoId: normalizarTexto(periodoId),
+    courseId,
+    alumnos: Array.isArray(alumnos) ? alumnos : []
+  });
+  res.status(200).json(resultado);
 }

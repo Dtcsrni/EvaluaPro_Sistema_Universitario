@@ -7017,3 +7017,32 @@
 
 
 
+
+.classroom-roster-header {
+  background: rgba(255, 255, 255, 0.02);
+  font-weight: 600;
+}
+
+.classroom-check-wrap {
+  display: flex;
+  align-items: center;
+  gap: 0.8rem;
+}
+
+.classroom-student-info {
+  display: flex;
+  align-items: center;
+  gap: 0.8rem;
+  min-width: 240px;
+  flex: 1.2;
+}
+
+.classroom-matricula-col {
+  flex: 1;
+  min-width: 170px;
+}
+
+.classroom-matricula-label {
+  font-size: 0.78rem;
+  color: var(--muted);
+}
