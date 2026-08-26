@@ -97,7 +97,30 @@ export function PlantillasListado({
         </div>
       </div>
       {plantillasFiltradas.length === 0 ? (
-        <InlineMensaje tipo="info">No hay plantillas con ese filtro. Ajusta la busqueda o crea una nueva.</InlineMensaje>
+        <div className="empty-state-card anim-fade-in">
+          <div className="empty-state-card__icon anim-icon-pulse">
+            🎓
+          </div>
+          <h4>Comienza configurando tu primera plantilla</h4>
+          <p>
+            {filtroPlantillas.trim()
+              ? 'No hay plantillas que coincidan con la búsqueda. Intenta con otro término.'
+              : 'Crea tu primera plantilla a la izquierda para definir materias, temas y generar exámenes con hoja OMR.'}
+          </p>
+          <div className="empty-state-steps">
+            <div className="empty-step">
+              <span className="empty-step__num">1</span> Define título y materia
+            </div>
+            <span className="empty-step__arrow">→</span>
+            <div className="empty-step">
+              <span className="empty-step__num">2</span> Selecciona temas del banco
+            </div>
+            <span className="empty-step__arrow">→</span>
+            <div className="empty-step">
+              <span className="empty-step__num">3</span> Previsualiza y genera exámenes
+            </div>
+          </div>
+        </div>
       ) : (
         <ul className="lista lista-items plantillas-lista">
           {plantillasFiltradas.map((plantilla) => {

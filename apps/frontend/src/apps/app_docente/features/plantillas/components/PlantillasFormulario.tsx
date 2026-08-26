@@ -79,31 +79,35 @@ export function PlantillasFormulario({
       <div className="plantillas-form-wrap">
         <div className="plantillas-form">
           <label className="campo">
-            Titulo
-            <input
-              value={titulo}
-              onChange={(event) => setTitulo(event.target.value)}
-              disabled={bloqueoEdicion}
-              placeholder="Ej. Parcial 1 - Álgebra"
-              data-tooltip="Nombre visible de la plantilla."
-            />
+            <span>Titulo</span>
+            <div className="auth-input-box auth-input-box--id auth-input-box--animated">
+              <input
+                value={titulo}
+                onChange={(event) => setTitulo(event.target.value)}
+                disabled={bloqueoEdicion}
+                placeholder="Ej. Parcial 1 - Álgebra"
+                data-tooltip="Nombre visible de la plantilla."
+              />
+            </div>
           </label>
 
           <label className="campo">
-            Materia
-            <select
-              value={periodoId}
-              onChange={(event) => setPeriodoId(event.target.value)}
-              disabled={bloqueoEdicion}
-              data-tooltip="Materia a la que pertenece la plantilla."
-            >
-              <option value="">Selecciona</option>
-              {periodos.map((periodo) => (
-                <option key={periodo._id} value={periodo._id} title={periodo._id}>
-                  {etiquetaMateria(periodo)}
-                </option>
-              ))}
-            </select>
+            <span>Materia</span>
+            <div className="auth-input-box auth-input-box--select auth-input-box--animated">
+              <select
+                value={periodoId}
+                onChange={(event) => setPeriodoId(event.target.value)}
+                disabled={bloqueoEdicion}
+                data-tooltip="Materia a la que pertenece la plantilla."
+              >
+                <option value="">Selecciona</option>
+                {periodos.map((periodo) => (
+                  <option key={periodo._id} value={periodo._id} title={periodo._id}>
+                    {etiquetaMateria(periodo)}
+                  </option>
+                ))}
+              </select>
+            </div>
           </label>
         </div>
 
