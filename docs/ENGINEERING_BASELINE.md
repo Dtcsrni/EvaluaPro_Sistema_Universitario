@@ -1,6 +1,6 @@
 # Engineering Baseline
 
-Fecha de baseline vigente: 2026-08-25
+Fecha de baseline vigente: 2026-08-26
 Version técnica: `1.1.1`
 Versión visible GUI: `1.1.1`
 
@@ -11,24 +11,16 @@ EvaluaPro está en desarrollo y QA local. El flavor prioritario es
 SQLite/Prisma, frontend docente y runtime Node embebido. El Installer Hub WPF
 gestiona instalación, reparación, actualización y desinstalación desde la PC.
 
-- **Elevación Radical Bento de todas las Pantallas del Shell Docente (`SPEC-BENTO-ELEVATION-ACADEMICA`)**:
-  - Reestructuración completa con Hero Headers Bento, orbes neón animados diferenciados, Mini-KPIs vectoriales con hover lift interactivo y eliminación total de acordeones obsoletos/redundantes en las pantallas: `Plantillas`, `Entrega`, `Calificaciones`, `Evaluaciones`, `Sincronización`, `Cuenta`, `Banco de Preguntas`, `Temarios`, `Asistencias`, `Materias` y `Alumnos`.
-  - Creación e integración sistemática de las 6 guías Bento Step Cards de 3 pasos con memoria de colapso persistente (`GuiaPlantillasVisual.tsx`, `GuiaEntregaVisual.tsx`, `GuiaCalificacionesVisual.tsx`, `GuiaEvaluacionesVisual.tsx`, `GuiaSincronizacionVisual.tsx`, `GuiaCuentaVisual.tsx`).
-  - Cumplimiento estricto de cero inline styles en toda la suite de pantallas (`gui.responsive.audit.test.ts` con 0 infracciones).
-  - 12 capturas de validación generadas en Dark y Light mode.
-- **Propagación Glassmorphism Integral y Ergonomía Visual Multi-Pantalla (`SPEC-REDISENIO-INTEGRAL-GUI`)**:
-  - Propagación exhaustiva de variables `--glass-surface-0/1/2/3`, `--glass-border` y `--glass-shadow` en todas las pantallas (Shell Docente, Portal Alumno, Autenticación, Materias, Banco, Plantillas, Calificaciones, Asistencias, Version Center y Empty States).
-  - Coherencia en Tema Claro (`:root:not([data-theme="dark"])`) con 105+ reglas específicas que garantizan contraste y legibilidad.
-  - Formulario de Materias panorámico en 2 filas limpias y Bento Workspace con aprovechamiento del 100% del viewport sin solapamientos.
-  - Dock/Sidebar docente con 11 paletas cromáticas diferenciadas (`data-icono-tab`), animaciones pop-in e íconos SVG de alta definición.
-  - Barra medidora de robustez de contraseñas desacoplada a selectores CSS semánticos (`data-nivel`), logrando 0 inline styles en auditoría.
-- **TDD y Cobertura Integral**: 55 suites de prueba en frontend con 201 tests pasando al 100% en verde.
-- **Gates de Calidad Obligatorios**: Verificados en verde (lint, typecheck, frontend CI 201/201, backend CI 24 lotes, portal CI 32/32, perf budgets 4/4, pipeline contracts 17/17, smoke live).
+- **Ecosistema Integral SDD/TDD desde el Hub (`SPEC-034` a `SPEC-049`)**:
+  - Formalización y trazabilidad completa de 15 especificaciones en `docs/specs/` cubriendo: Hub Principal Multi-App & PWA (`SPEC-035`), Autenticación Híbrida y Guardrails Google OAuth (`SPEC-036`), Ciclo de Vida de Materias (`SPEC-037`), Gestión de Alumnos (`SPEC-038`), Control Diario de Asistencias (`SPEC-039`), Temarios Curriculares y Firmas de Encuadre (`SPEC-040`), Banco de Reactivos y Estimador OMR (`SPEC-041`), Producción Masiva OMR y Folios Únicos (`SPEC-042`), Mesa de Recepción y Acordeón (`SPEC-043`), Motor OMR y Escrutinio Visual (`SPEC-044`), Rehidratación Forense (`SPEC-045`), Sincronización Classroom (`SPEC-046`), Portal Alumno Cloud (`SPEC-047`), Sincronización Offline/Cloud (`SPEC-048`), Configuración de Cuenta (`SPEC-049`) y Estudio de Diseño de Exámenes por Pestañas (`SPEC-034`).
+  - Alternancia dinámica interactiva en 3 pestañas operativas de Diseño de Exámenes (`[ 📐 Diseñar Exámenes ]`, `[ 🚀 Generar Paquete PDF/OMR ]`, `[ 📦 Historial de Lotes ]`) con guías Bento contextuales dedicadas.
+- **TDD y Cobertura Integral**: 56 suites de prueba en frontend con 205 tests pasando al 100% en verde.
+- **Gates de Calidad Obligatorios**: Verificados en verde (lint, typecheck, frontend CI 205/205, backend CI 24 lotes, portal CI 32/32, perf budgets 4/4, pipeline contracts 17/17).
 
 ## Estado vigente
-- Corte 2026-08-26 (Elevación Radical Bento del Shell Docente y Guías Visuales Bento Step Cards):
-  - **Reestructuración Bento Completa:** 11 secciones modernizadas con Hero Headers, orbes de gradiente pulsante, Mini-KPIs vectoriales con hover lift reactivo, y Bento Step Cards de 3 pasos con persistencia en `localStorage`.
-  - **Gates Verificados:** `npm run lint` ✅, `npm run typecheck` ✅, `npm run test:frontend:ci` ✅ (201 tests en 55 archivos), `npm run test:coverage:ci` ✅, `npm run test:tdd:enforcement:ci` ✅, `npm run test:backend:ci` ✅ (24 lotes), `npm run test:portal:ci` ✅ (32 tests), `npm run perf:check` ✅ (4 presupuestos), `npm run pipeline:contract:check` ✅ (17 tests).
+- Corte 2026-08-26 (Ecosistema Integral SDD & TDD y Pestañas Dinámicas de Diseño de Exámenes):
+  - **Especificaciones SDD:** 15 especificaciones formales activas con matrices de trazabilidad completadas.
+  - **Gates Verificados:** `npm run lint` ✅, `npm run typecheck` ✅, `npm run test:frontend:ci` ✅ (205 tests en 56 archivos), `npm run test:coverage:ci` ✅, `npm run test:tdd:enforcement:ci` ✅, `npm run test:backend:ci` ✅ (24 lotes), `npm run test:portal:ci` ✅ (32 tests), `npm run perf:check` ✅ (4 presupuestos), `npm run pipeline:contract:check` ✅ (17 tests).
 - Corte 2026-08-25 (Propagación Glassmorphism Integral, Ergonomía Visual y Suite 100% Verde):
   - **Sistema de Diseño Glassmorphic Prismatic Sapphire:** Paleta de contraste ultra-alto, `backdrop-filter: blur(20px)`, bordes de cristal fino con reflejo especular interior y resplandores cromáticos por función aplicados exhaustivamente en las 14 pantallas del sistema docente, portal alumno y administración de negocio.
   - **Gates Verificados:** `npm run lint` ✅, `npm run typecheck` ✅, `npm run test:frontend:ci` ✅ (201 tests en 55 archivos), `npm run test:backend:ci` ✅ (24 lotes), `npm run test:portal:ci` ✅ (32 tests), `npm run perf:check` ✅ (4 presupuestos), `npm run pipeline:contract:check` ✅ (17 tests), `npm run test:smoke:live` ✅.

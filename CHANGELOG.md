@@ -2,9 +2,16 @@
 
 Este archivo sigue el formato "Keep a Changelog" (alto nivel) y SemVer.
 
-## [Unreleased]
+## [1.1.1] - 2026-08-26
 
 ### Added
+- **Ecosistema Integral SDD/TDD desde el Hub (`SPEC-035` a `SPEC-049`)**:
+  - Formalización de 15 especificaciones técnicas de Spec-Driven Development en `docs/specs/` cubriendo la totalidad de los módulos: Hub Principal Multi-App & PWA (`SPEC-035`), Autenticación Híbrida y Guardrails de Google OAuth (`SPEC-036`), Ciclo de Vida de Materias y Periodos (`SPEC-037`), Gestión de Alumnos y Matrícula (`SPEC-038`), Control Diario de Asistencias y Recordatorios (`SPEC-039`), Temarios Curriculares y Firmas de Encuadre (`SPEC-040`), Banco de Reactivos y Estimador OMR (`SPEC-041`), Producción Masiva OMR con Folios Únicos (`SPEC-042`), Mesa de Recepción y Bono de Acordeón (`SPEC-043`), Motor de Calificación OMR y Escrutinio Visual (`SPEC-044`), Rehidratación Forense de Exámenes (`SPEC-045`), Sincronización con Google Classroom (`SPEC-046`), Portal Alumno Cloud (`SPEC-047`), Sincronización Offline/Cloud (`SPEC-048`) y Configuración de Cuenta y Perfil (`SPEC-049`).
+  - Matriz de trazabilidad exhaustiva enlazada a 56 suites y 205 pruebas unitarias/de contrato en Vitest, con 100% de calidad verificada.
+- **Estudio de Diseño de Exámenes con Pestañas Operativas y Guías Contextuales (`SPEC-034`)**:
+  - Renombrado y jerarquía oficial como `"Diseño de Exámenes"` en navegación lateral, hero header y selector de módulos.
+  - Alternancia interactiva y desacoplamiento en 3 pestañas de flujo de trabajo: `[ 📐 Diseñar Exámenes ]` (Catálogo y maquetación), `[ 🚀 Generar Paquete PDF/OMR ]` (Consola de producción con barra de progreso y folios QR únicos) y `[ 📦 Historial de Lotes ]` (Mesa de custodia, descargas ZIP/PDF y diagnóstico OMR).
+  - Tres componentes independientes de Guía Rápida Bento contextual (`GuiaDisenoExamenesVisual`, `GuiaGeneracionExamenesVisual`, `GuiaHistorialLotesVisual`) con persistencia local y soporte multitarea.
 - **Elevación Radical Bento de todas las Pantallas del Shell Docente (`SPEC-BENTO-ELEVATION-ACADEMICA`)**:
   - **Plantillas (`SeccionPlantillas.tsx`, `PlantillasFormulario.tsx`, `PlantillasGenerados.tsx`, `GuiaPlantillasVisual.tsx`)**: Bento Hero Header con orbe magenta/rosa pulsante, status pill de motor OMR activo, Mini-KPIs vectoriales (`Plantillas`, `Con temas`, `Temas vinc.`, `Filtro`), selector de temas interactivo con conteo dinámico de reactivos, guía Bento Step Cards de 3 pasos (*Estructura y Materia*, *Composición Temática*, *Generación & Folios*) y eliminación de acordeones redundantes.
   - **Entrega de Exámenes (`SeccionEntregaInterna.tsx`, `GuiaEntregaVisual.tsx`)**: Bento Hero Header con orbe aqua/cian, status pill de recepción y custodia de folios, Mini-KPIs (`Generados`, `Entregados`, `Pendientes`, `Recepción %`), guía Bento Step Cards (*Selección de Lote*, *Marcación de Folios*, *Paso a Calificación*) y flujo de custodia física de alta velocidad.

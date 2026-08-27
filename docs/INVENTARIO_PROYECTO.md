@@ -1,10 +1,16 @@
 # Inventario Tecnico del Proyecto
 
-Fecha de corte: 2026-08-25
+Fecha de corte: 2026-08-26
 Version tecnica vigente: `1.1.1`
 Version visible vigente: `1.1.1`
 
-## Estado de validación 2026-08-26
+## Estado de validación 2026-08-26 (Corte 2 - Ecosistema SDD & TDD Integral)
+- **Ecosistema Integral SDD/TDD desde el Hub (`SPEC-034` a `SPEC-049`):**
+  - Formalización y trazabilidad completa de 15 especificaciones en `docs/specs/` cubriendo: Hub Principal Multi-App & PWA (`SPEC-035`), Autenticación Híbrida y Guardrails Google OAuth (`SPEC-036`), Ciclo de Vida de Materias (`SPEC-037`), Gestión de Alumnos (`SPEC-038`), Control Diario de Asistencias (`SPEC-039`), Temarios Curriculares y Firmas de Encuadre (`SPEC-040`), Banco de Reactivos y Estimador OMR (`SPEC-041`), Producción Masiva OMR y Folios Únicos (`SPEC-042`), Mesa de Recepción y Acordeón (`SPEC-043`), Motor OMR y Escrutinio Visual (`SPEC-044`), Rehidratación Forense (`SPEC-045`), Sincronización Classroom (`SPEC-046`), Portal Alumno Cloud (`SPEC-047`), Sincronización Offline/Cloud (`SPEC-048`), Configuración de Cuenta (`SPEC-049`) y Estudio de Diseño de Exámenes por Pestañas (`SPEC-034`).
+  - Alternancia dinámica interactiva en 3 pestañas operativas de Diseño de Exámenes (`[ 📐 Diseñar Exámenes ]`, `[ 🚀 Generar Paquete PDF/OMR ]`, `[ 📦 Historial de Lotes ]`) con guías Bento contextuales dedicadas.
+- **Gates Verificados:** `npm run lint` ✅, `npm run typecheck` ✅, `npm run test:frontend:ci` ✅ (205 tests en 56 archivos), `npm run test:coverage:ci` ✅, `npm run test:tdd:enforcement:ci` ✅, `npm run test:backend:ci` ✅ (24 lotes), `npm run test:portal:ci` ✅ (32 tests), `npm run perf:check` ✅ (4 presupuestos), `npm run pipeline:contract:check` ✅ (17 tests).
+
+## Estado de validación 2026-08-26 (Corte 1 - Elevación Bento)
 - **Elevación Radical Bento de todas las Pantallas del Shell Docente (`SPEC-BENTO-ELEVATION-ACADEMICA`):**
   - Reestructuración completa con Hero Headers Bento, orbes neón animados diferenciados, Mini-KPIs vectoriales con hover lift interactivo y eliminación total de acordeones obsoletos/redundantes en las pantallas: `Plantillas`, `Entrega`, `Calificaciones`, `Evaluaciones`, `Sincronización`, `Cuenta`, `Banco de Preguntas`, `Temarios`, `Asistencias`, `Materias` y `Alumnos`.
   - Creación e integración sistemática de las 6 guías Bento Step Cards de 3 pasos con memoria de colapso persistente (`GuiaPlantillasVisual.tsx`, `GuiaEntregaVisual.tsx`, `GuiaCalificacionesVisual.tsx`, `GuiaEvaluacionesVisual.tsx`, `GuiaSincronizacionVisual.tsx`, `GuiaCuentaVisual.tsx`).
