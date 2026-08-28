@@ -8,6 +8,12 @@
 /**
  * run-backend-test-batches
  *
+ * Responsabilidad: Modulo interno del sistema.
+ * Limites: Mantener contrato y comportamiento observable del modulo.
+ */
+/**
+ * run-backend-test-batches
+ *
  * Responsabilidad: Ejecutar la suite backend por lotes para evitar crashes de
  * workers en Windows sin reducir la seleccion de pruebas.
  * Limites: No cambia assertions ni filtros funcionales; solo particiona la ejecucion.

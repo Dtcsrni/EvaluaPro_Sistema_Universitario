@@ -1,7 +1,7 @@
 {
   "name": "backend",
-  "description": "API docente (Express + TypeScript + MongoDB) para gestión de evaluaciones, autenticación y flujo de examen.",
-  "version": "1.1.0",
+  "description": "API docente (Express + TypeScript + SQLite nativo/Prisma) para gestión de evaluaciones, autenticación y flujo de examen OMR.",
+  "version": "1.1.1",
   "license": "AGPL-3.0-or-later",
   "private": true,
   "repository": {
@@ -12,8 +12,9 @@
     "api",
     "express",
     "typescript",
-    "mongodb",
-    "mongoose",
+    "sqlite",
+    "prisma",
+    "omr",
     "evaluacion",
     "docente"
   ],

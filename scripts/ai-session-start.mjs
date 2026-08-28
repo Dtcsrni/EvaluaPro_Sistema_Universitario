@@ -14,6 +14,12 @@
 /**
  * ai-session-start
  *
+ * Responsabilidad: Modulo interno del sistema.
+ * Limites: Mantener contrato y comportamiento observable del modulo.
+ */
+/**
+ * ai-session-start
+ *
  * Responsabilidad: imprimir los recordatorios repo-locales que deben aparecer
  * al iniciar o reanudar una sesion Codex en este workspace.
  * Limites: no modifica estado; solo emite texto explicito para Caveman y Serena.

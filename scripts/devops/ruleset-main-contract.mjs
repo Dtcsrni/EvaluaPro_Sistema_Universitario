@@ -11,6 +11,12 @@
  * Responsabilidad: Modulo interno del sistema.
  * Limites: Mantener contrato y comportamiento observable del modulo.
  */
+/**
+ * ruleset-main-contract
+ *
+ * Responsabilidad: Modulo interno del sistema.
+ * Limites: Mantener contrato y comportamiento observable del modulo.
+ */
 
 export const REQUIRED_STATUS_CHECKS_MAIN = Object.freeze([
   'Verificaciones Core (PR bloqueante)',

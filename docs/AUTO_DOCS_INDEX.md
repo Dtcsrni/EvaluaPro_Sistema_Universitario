@@ -39,7 +39,7 @@ No editar a mano: los cambios se pisan al regenerar.
 - [QA_GATE_CRITERIA.md](QA_GATE_CRITERIA.md) — QA Gate Criteria (`1.0.0-beta.0`)
 - [QA_INSTALLER_HUB_DOCENTE_2026-05-20.md](QA_INSTALLER_HUB_DOCENTE_2026-05-20.md) — QA Installer Hub docente-local - 2026-05-20
 - [QA_VALIDACION_PLAN.md](QA_VALIDACION_PLAN.md) — Plan de validacion QA (manual + automatizada) - Version mejorada
-- [README.md](README.md) — Documentación de EvaluaPro
+- [README.md](README.md) — Centro Documental de EvaluaPro
 - [RELEASE_BIGBANG_1_0_BETA.md](RELEASE_BIGBANG_1_0_BETA.md) — Cierre Beta `1.0.0-beta.0`
 - [RELEASE_GATE_STABLE.md](RELEASE_GATE_STABLE.md) — Gate de Promocion a Estable
 - [RELEASE_STATUS.md](RELEASE_STATUS.md) — Estado de releases

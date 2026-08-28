@@ -17,6 +17,12 @@
  * Responsabilidad: Modulo interno del sistema.
  * Limites: Mantener contrato y comportamiento observable del modulo.
  */
+/**
+ * gate-prod-flow
+ *
+ * Responsabilidad: Modulo interno del sistema.
+ * Limites: Mantener contrato y comportamiento observable del modulo.
+ */
 import crypto from 'node:crypto';
 import fs from 'node:fs/promises';
 import fsSync from 'node:fs';

@@ -22,5 +22,5 @@ npm run omr:tv3:build:por-folio-dataset
 - Edicion Comercial/Institucional: mas automatizacion, soporte SLA, endurecimiento y hoja de ruta prioritaria por nivel.
 - Catalogo dinamico de capacidades: [FEATURE_CATALOG](../docs/comercial/FEATURE_CATALOG.md).
 - Licenciamiento comercial y modalidades de pago: [LICENSING_TIERS](../docs/comercial/LICENSING_TIERS.md).
-- Ultima sincronizacion automatica: 2026-06-23.
+- Ultima sincronizacion automatica: 2026-08-28.
 <!-- AUTO:COMMERCIAL-CONTEXT:END -->

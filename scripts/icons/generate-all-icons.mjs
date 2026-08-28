@@ -1,5 +1,11 @@
 #!/usr/bin/env node
 /**
+ * generate-all-icons
+ *
+ * Responsabilidad: Modulo interno del sistema.
+ * Limites: Mantener contrato y comportamiento observable del modulo.
+ */
+/**
  * generate-all-icons.mjs
  *
  * Genera todos los archivos .ico oficiales de EvaluaPro en formato multi-resolución

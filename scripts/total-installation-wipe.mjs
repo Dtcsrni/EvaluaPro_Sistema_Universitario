@@ -1,3 +1,9 @@
+/**
+ * total-installation-wipe
+ *
+ * Responsabilidad: Modulo interno del sistema.
+ * Limites: Mantener contrato y comportamiento observable del modulo.
+ */
 import fs from 'node:fs';
 import path from 'node:path';
 import { execSync } from 'node:child_process';

@@ -1,11 +1,11 @@
 # Inventario Exhaustivo de Codigo
 
-Fecha de generacion: 2026-08-28 01:30:14
+Fecha de generacion: 2026-08-28 04:23:51
 Fuente: git ls-files filtrado por existencia en workspace (solo archivos versionados presentes, excluye node_modules).
 
 ## Resumen
 
-- Total de piezas de codigo/config ejecutable inventariadas: 1302
+- Total de piezas de codigo/config ejecutable inventariadas: 1314
 - Extensiones incluidas: ts, tsx, js, jsx, mjs, cjs, json, yml, yaml, sh, cmd, ps1.
 
 ## Conteo por area
@@ -16,9 +16,9 @@ Fuente: git ls-files filtrado por existencia en workspace (solo archivos version
 | frontend | 172 |
 | portal_alumno_cloud | 67 |
 | ci | 17 |
-| scripts | 178 |
+| scripts | 180 |
 | ops | 3 |
-| docs | 314 |
+| docs | 324 |
 | raiz | 10 |
 
 ## Backend (apps/backend)
@@ -714,6 +714,7 @@ Fuente: git ls-files filtrado por existencia en workspace (solo archivos version
 - scripts/ai-session-start.mjs
 - scripts/ai-skills-mcp-policy-status.mjs
 - scripts/assert-installer-hub-bundle.ps1
+- scripts/auto-merge-when-ready.mjs
 - scripts/build-msi.ps1
 - scripts/build-native-dist.ps1
 - scripts/ci/set-e2e-qa-secret.ps1
@@ -878,6 +879,7 @@ Fuente: git ls-files filtrado por existencia en workspace (solo archivos version
 - scripts/tmp_reconciliar_folios_orden_omr.ps1
 - scripts/tmp_reconstruir_lote_desde_pdf.ps1
 - scripts/tmp_validar_identidad_lote.ps1
+- scripts/total-installation-wipe.mjs
 - scripts/update-manager.mjs
 - scripts/vscode-prune-extensions.mjs
 - scripts/vscode-tune.mjs
@@ -1193,6 +1195,16 @@ Fuente: git ls-files filtrado por existencia en workspace (solo archivos version
 - docs/handoff/sesiones/2026-08-26/sesion-2026-08-26T23-45-52.921Z.json
 - docs/handoff/sesiones/2026-08-26/sesion-2026-08-26T23-55-52.956Z.json
 - docs/handoff/sesiones/2026-08-27/sesion-2026-08-27T00-11-21.144Z.json
+- docs/handoff/sesiones/2026-08-27/sesion-2026-08-27T01-14-49.434Z.json
+- docs/handoff/sesiones/2026-08-27/sesion-2026-08-27T01-21-39.990Z.json
+- docs/handoff/sesiones/2026-08-27/sesion-2026-08-27T06-20-28.260Z.json
+- docs/handoff/sesiones/2026-08-27/sesion-2026-08-27T07-04-35.911Z.json
+- docs/handoff/sesiones/2026-08-28/sesion-2026-08-28T05-13-56.992Z.json
+- docs/handoff/sesiones/2026-08-28/sesion-2026-08-28T06-41-27.502Z.json
+- docs/handoff/sesiones/2026-08-28/sesion-2026-08-28T06-46-18.012Z.json
+- docs/handoff/sesiones/2026-08-28/sesion-2026-08-28T06-53-31.484Z.json
+- docs/handoff/sesiones/2026-08-28/sesion-2026-08-28T06-56-47.080Z.json
+- docs/handoff/sesiones/2026-08-28/sesion-2026-08-28T07-30-18.842Z.json
 - docs/handoff/trace.schema.json
 - docs/perf/baseline.business.json
 - docs/perf/baseline.json

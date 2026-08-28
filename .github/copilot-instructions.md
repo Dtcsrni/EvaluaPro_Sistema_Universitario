@@ -96,36 +96,35 @@ Estas instrucciones describen convenciones y flujos reales del repo. Prioriza se
 	- Internas (sync/limpieza): requieren `x-api-key` (`PORTAL_API_KEY`). Ej: `POST /api/portal/sincronizar`.
 	- Alumno: requieren sesion (Bearer) emitida tras validar `codigo + matricula`.
 - El endpoint de sync es idempotente y hace upsert por `folio` (ver comentario “Upsert por folio” en [apps/portal_alumno_cloud/src/rutas.ts](../apps/portal_alumno_cloud/src/rutas.ts)). Mantener esta propiedad al modificarlo.
-- El portal aplica defensas “por defecto” (helmet, rate limit, sanitizacion Mongo) igual que el backend (ver [apps/portal_alumno_cloud/src/app.ts](../apps/portal_alumno_cloud/src/app.ts)).
+- El portal aplica defensas “por defecto” (helmet, rate limit, validación de esquemas) igual que el backend (ver [apps/portal_alumno_cloud/src/app.ts](../apps/portal_alumno_cloud/src/app.ts)).
 
 ## Datos, archivos y DB
-- MongoDB: el backend puede omitir conexion si falta `MONGODB_URI` (ver [apps/backend/src/infraestructura/baseDatos/mongoose.ts](../apps/backend/src/infraestructura/baseDatos/mongoose.ts)); no asumas DB disponible si estas ejecutando unit tests o scripts aislados.
+- SQLite nativo con Prisma: el backend docente local opera de forma 100% autónoma y offline-first sobre SQLite embebido (ver [apps/backend/prisma/schema.prisma](../apps/backend/prisma/schema.prisma)), sin requerir servicios de bases de datos externas ni Docker.
 - PDFs/artefactos: se guardan en [apps/backend/data/examenes](../apps/backend/data/examenes) (operativo; no versionar). Varias pruebas generan PDFs en esa ruta (ver [docs/PRUEBAS.md](../docs/PRUEBAS.md)).
 - Sincronizacion local->cloud: backend publica hacia `PORTAL_ALUMNO_URL` con `PORTAL_ALUMNO_API_KEY` (ver variables en [docs/AUTO_ENV.md](../docs/AUTO_ENV.md)).
 
 ## Workflows (comandos que realmente se usan)
 - Instalar deps desde la raiz: `npm install`
 - Desarrollo:
-	- Full: `npm run dev` (docker compose dev backend + vite frontend)
-	- Solo backend (Docker): `npm run dev:backend`
+	- Full: `npm run dev` (API backend + Vite frontend)
+	- Solo backend: `npm run dev:backend`
 	- Solo frontend (Vite): `npm run dev:frontend`
 	- Portal alumno local: `npm run dev:portal`
-- Produccion local (validacion): `npm run verify:prod` (tests + build) y/o `npm run start:prod` (compose profile prod)
+- Produccion local (validacion): `npm run verify:prod` (tests + build) y/o `npm run build`
 - Operacion Windows:
 	- Dashboard: `npm run status` (ver [scripts/dashboard.mjs](../scripts/dashboard.mjs))
-	- Launchers: [scripts/launch-dev.cmd](../scripts/launch-dev.cmd), [scripts/launch-prod.cmd](../scripts/launch-prod.cmd)
+	- Installer Hub: `EvaluaPro-InstallerHub-docente-local-v1.1.1.exe`
 	- Reset operativo: `npm run reset:local` (limpia DB/artefactos/logs/build)
 
 ## Depuracion rapida (VS Code / Windows)
 - Dashboard local:
 	- `npm run status` ejecuta un dashboard de consola que hace health-check a API/Web (ver [scripts/dashboard.mjs](../scripts/dashboard.mjs)).
 	- Si usas los accesos directos, los launchers llaman al “launcher-dashboard” en modo dev/prod (ver [scripts/launch-dev.cmd](../scripts/launch-dev.cmd) y [scripts/launch-prod.cmd](../scripts/launch-prod.cmd)).
-- Backend dentro de Docker vs local:
-	- En el flujo normal, el backend corre en Docker (`npm run dev:backend`), lo cual es ideal para reproducibilidad.
-	- Para depurar con breakpoints TS sin pelearte con contenedores, suele ser mas simple correr el backend directo con `npm -C apps/backend run dev` (tsx watch) y levantar solo Mongo en Docker (ej. `docker compose --profile dev up --build mongo_local`).
-- Script rapido para reproducir un flujo con DB en memoria (sin Docker):
-	- [apps/backend/scripts/debugCrearPeriodo.ts](../apps/backend/scripts/debugCrearPeriodo.ts) crea un docente y un periodo usando `supertest` + `mongodb-memory-server`.
-	- Ejecutalo con `npx tsx apps/backend/scripts/debugCrearPeriodo.ts` (o equivalente con `tsx` si ya lo tienes disponible).
+- Backend local nativo:
+	- El backend corre de forma nativa con `npm run dev:backend` (tsx watch + Prisma SQLite).
+	- Para depurar con breakpoints TS, corre el backend directo con `npm -C apps/backend run dev`.
+- Preparación y validación de base de datos:
+	- `node scripts/prepare-docente-sqlite.mjs` prepara o migra el esquema SQLite local de forma idempotente.
 
 ## Economia de tokens para Codex
 - La politica repo-local vive en [docs/POLITICA_ECONOMIA_TOKENS_CODEX.md](../docs/POLITICA_ECONOMIA_TOKENS_CODEX.md).

@@ -1,3 +1,9 @@
+/**
+ * auto-merge-when-ready
+ *
+ * Responsabilidad: Modulo interno del sistema.
+ * Limites: Mantener contrato y comportamiento observable del modulo.
+ */
 import { spawn } from 'node:child_process';
 
 async function getGitToken() {
