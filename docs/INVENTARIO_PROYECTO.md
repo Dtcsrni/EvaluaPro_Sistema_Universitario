@@ -1,8 +1,22 @@
 # Inventario Tecnico del Proyecto
 
-Fecha de corte: 2026-08-26
+Fecha de corte: 2026-08-28
 Version tecnica vigente: `1.1.1`
 Version visible vigente: `1.1.1`
+
+## Estado de validación 2026-08-28 (Corte 3 - Línea Base Oficial v1.1.1, Íconos Transparentes, Modernización Landing Page y Reestructuración Exhaustiva de READMEs)
+- **Consolidación de Línea Base v1.1.1 y Purga Previa:**
+  - Fijación oficial de `v1.1.1` como primera versión estable reconocida del producto (`docs/VERSIONADO.md`, `CHANGELOG.md`, `docs/release/evidencias/1.1.1/`).
+  - Depuración de evidencias previas en borrador y purga total de datos de prueba pre-instalación.
+- **Íconos Vectoriales Transparentes:**
+  - Nuevos emblemas SVG con canal alfa 100% transparente en esquinas (`dashboard-prod.ico` e `installer-canonical.ico`).
+  - Normalización contractual a 2 accesos directos oficiales: `EvaluaPro` y `EvaluaPro - Hub`.
+- **Modernización Integral de Landing Page (GitHub Pages):**
+  - Despliegue exitoso en `https://dtcsrni.github.io/EvaluaPro_Sistema_Universitario/` con arquitectura Bento Elevation, orbe zafiro, simulador OMR interactivo y showcase de las 3 pestañas del Estudio de Diseño de Exámenes (`SPEC-034`).
+- **Reestructuración y Saneamiento de READMEs y Stack:**
+  - Eliminación definitiva de referencias a MongoDB/MERN y Docker en el flujo docente en favor de **SQLite nativo offline-first con Prisma ORM**.
+  - Modernización visual institucional de `README.md`, `apps/backend/README.md`, `apps/frontend/README.md`, `apps/portal_alumno_cloud/README.md` y `docs/README.md`.
+- **Gates Verificados:** `npm run lint` ✅, `npm run typecheck` ✅, `npm run test:frontend:ci` ✅ (206 tests), `npm run test:coverage:ci` ✅, `npm run test:tdd:enforcement:ci` ✅, `npm run test:backend:ci` ✅, `npm run test:portal:ci` ✅ (32 tests), `npm run perf:check` ✅ (4 presupuestos), `npm run pipeline:contract:check` ✅ (17 tests), `npm run ci:policy:audit` ✅ (36 specs SDD auditadas 100% en verde).
 
 ## Estado de validación 2026-08-27 (Corte 2 - Arquitectura Limpia, Docblocks y Validación SDD/TDD sin Mocks)
 - **Ecosistema Integral SDD/TDD desde el Hub (36 specs 100% implementadas y auditadas):**

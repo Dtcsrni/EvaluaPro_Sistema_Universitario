@@ -1,16 +1,22 @@
 # Engineering Baseline
 
-Fecha de baseline vigente: 2026-08-26
+Fecha de baseline vigente: 2026-08-28
 Version técnica: `1.1.1`
 Versión visible GUI: `1.1.1`
 
 ## Corte vigente
 
-EvaluaPro está en desarrollo y QA local. El flavor prioritario es
+EvaluaPro se encuentra en línea base oficial estable `v1.1.1`. El flavor prioritario es
 `docente-local`, una aplicación nativa para Windows que integra API local,
-SQLite/Prisma, frontend docente y runtime Node embebido. El Installer Hub WPF
+SQLite embebido con Prisma ORM (offline-first), frontend docente React Bento y runtime Node embebido. El Installer Hub WPF
 gestiona instalación, reparación, actualización y desinstalación desde la PC.
 
+- **Consolidación Línea Base Oficial v1.1.1 y Modernización de Documentación**:
+  - Fijación formal de `v1.1.1` como primera versión estable reconocida del producto (`docs/VERSIONADO.md`, `CHANGELOG.md`, `docs/release/evidencias/1.1.1/`).
+  - Nuevos emblemas vectoriales SVG con canal alfa 100% transparente en esquinas para la app docente e Installer Hub.
+  - Landing page oficial en GitHub Pages modernizada con Bento Elevation, orbe zafiro, simulador OMR interactivo y Estudio de Diseño de Exámenes en 3 pestañas (`SPEC-034`).
+  - Eliminación definitiva de referencias a MongoDB/MERN y Docker en el flujo docente en favor de SQLite nativo offline-first con Prisma ORM.
+  - Modernización visual de todos los READMEs modulares (`README.md`, `apps/backend`, `apps/frontend`, `apps/portal_alumno_cloud`, `docs`).
 - **Ecosistema Integral SDD/TDD desde el Hub (`SPEC-034` a `SPEC-049` y 36 specs 100% implementadas)**:
   - Formalización y trazabilidad completa de las 36 especificaciones en `docs/specs/` en estado `implemented`, con criterios de aceptación verificados y matrices de trazabilidad auditadas al 100% vinculadas a pruebas unitarias, de integración y contratos reales en disco.
   - Alternancia dinámica interactiva en 3 pestañas operativas de Diseño de Exámenes (`[ 📐 Diseñar Exámenes ]`, `[ 🚀 Generar Paquete PDF/OMR ]`, `[ 📦 Historial de Lotes ]`) con guías Bento contextuales dedicadas.
@@ -18,6 +24,11 @@ gestiona instalación, reparación, actualización y desinstalación desde la PC
 - **Gates de Calidad Obligatorios**: Verificados en verde (lint, typecheck, frontend CI 206/206 en 56 archivos, backend CI 24 lotes, portal CI 32/32, perf budgets 4/4, pipeline contracts 17/17, SDD audit 36/36 specs, ci:policy:audit verde, Clean Architecture estricta verde, OMR TV3 real dataset verde, 100% diff coverage).
 
 ## Estado vigente
+- Corte 2026-08-28 (Línea Base Oficial v1.1.1, Íconos Transparentes, Modernización Landing Page y Reestructuración Exhaustiva de READMEs):
+  - **Línea Base Estable:** Fijación oficial de `v1.1.1` como primera versión estable reconocida del producto.
+  - **Íconos y Accesos Directos:** Emblemas vectoriales con canal alfa 100% transparente y normalización a 2 accesos directos oficiales (`EvaluaPro` y `EvaluaPro - Hub`).
+  - **Documentación y Stack:** Saneamiento exhaustivo del monorepo hacia SQLite nativo offline-first con Prisma ORM, eliminando referencias a MongoDB/MERN.
+  - **Gates Verificados:** `npm run lint` ✅, `npm run typecheck` ✅, `npm run test:frontend:ci` ✅ (206 tests), `npm run test:coverage:ci` ✅, `npm run test:tdd:enforcement:ci` ✅, `npm run test:backend:ci` ✅, `npm run test:portal:ci` ✅ (32 tests), `npm run perf:check` ✅ (4 presupuestos), `npm run pipeline:contract:check` ✅ (17 tests), `npm run ci:policy:audit` ✅ (36 specs SDD auditadas 100% en verde).
 - Corte 2026-08-27 (Consolidación de Arquitectura Limpia, Docblocks y Validación SDD/TDD sin Mocks):
   - **Especificaciones SDD:** 36 especificaciones formales activas al 100% en estado `implemented` con criterios de aceptación y matrices de trazabilidad auditadas (`npm run sdd:audit` ✅).
   - **Gates Verificados:** `npm run lint` ✅, `npm run typecheck` ✅, `npm run test:frontend:ci` ✅ (206 tests en 56 archivos), `npm run test:coverage:ci` ✅, `npm run test:tdd:enforcement:ci` ✅, `npm run test:backend:ci` ✅ (24 lotes), `npm run test:portal:ci` ✅ (32 tests), `npm run perf:check` ✅ (4 presupuestos), `npm run pipeline:contract:check` ✅ (17 tests), `npm run ci:policy:audit` ✅, `npm run qa:clean-architecture:strict` ✅, `npm run test:omr:tv:gate:ci` ✅ (30 capturas reales, 208 preguntas, 100% precisión).
