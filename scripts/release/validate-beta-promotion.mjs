@@ -14,6 +14,12 @@
 /**
  * validate-beta-promotion
  *
+ * Responsabilidad: Modulo interno del sistema.
+ * Limites: Mantener contrato y comportamiento observable del modulo.
+ */
+/**
+ * validate-beta-promotion
+ *
  * Responsabilidad: decidir si un corte merece publicacion beta automatica.
  * Limites: clasifica alcance y prepara evidencia; no publica artefactos por si mismo.
  */

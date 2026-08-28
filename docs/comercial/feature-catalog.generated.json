@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-06-23T15:08:44.851Z",
+  "generatedAt": "2026-08-28T10:13:38.967Z",
   "mountedPrefixes": [
     "/admin",
     "/admin-negocio",
@@ -17,7 +17,9 @@
     "/evaluaciones",
     "/evaluaciones-publicas",
     "/examenes",
+    "/hidratacion-cursos",
     "/integraciones/classroom",
+    "/listas-institucionales",
     "/metrics",
     "/omr",
     "/papelera",

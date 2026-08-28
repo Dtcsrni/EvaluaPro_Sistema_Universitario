@@ -1,7 +1,7 @@
 {
   "name": "frontend",
-  "description": "UI React (Vite) para portal docente/alumno: autenticación, gestión de evaluaciones y flujos de aplicación/calificación.",
-  "version": "1.1.0",
+  "description": "UI React 18 (Vite + TailwindCSS + Bento Elevation) para portal docente/alumno: autenticación, gestión de evaluaciones, diseño de exámenes y flujos de calificación OMR.",
+  "version": "1.1.1",
   "license": "AGPL-3.0-or-later",
   "private": true,
   "type": "module",

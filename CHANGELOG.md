@@ -5,6 +5,10 @@ Este archivo sigue el formato "Keep a Changelog" (alto nivel) y SemVer.
 ## [1.1.1] - 2026-08-28
 
 ### Added
+- **Modernización y Reestructuración Exhaustiva de READMEs y Documentación (`SPEC-DOCS-MODERNIZATION`)**:
+  - Reestructuración integral del `README.md` raíz con formato visual de código abierto institucional, diagrama de flujo operativo Mermaid (Diseño -> PDF -> OMR -> Forense -> Sincronización), insignias de CI/CD actualizadas, matriz de capacidades de la versión estable `v1.1.1` y guía de inicio rápido para docentes y desarrolladores.
+  - Actualización y saneamiento de todos los READMEs modulares (`apps/backend/README.md`, `apps/frontend/README.md`, `apps/portal_alumno_cloud/README.md`, `docs/README.md`), eliminando referencias obsoletas a MongoDB/MERN y Docker para el flujo docente en favor de la arquitectura real: **SQLite nativo offline-first con Prisma ORM**, **React 18 Bento Elevation & Glassmorphism Prismatic Sapphire** y **WiX Toolset v5 Burn con Installer Hub WPF (.NET 8)**.
+  - Sincronización automática de catálogos comerciales, índices de variables de entorno, diagramas C4 y 100% de cumplimiento en auditoría SDD (36 especificaciones formales).
 - **Modernización Integral de Landing Page y GitHub Pages (`SPEC-002`)**:
   - Actualización completa de `site/index.html` y `site/styles.css` con el sistema de diseño Bento Elevation, orbe neón dinámico, métricas reales de `v1.1.1` (100% precisión OMR, 36 specs SDD, 0 ms latencia offline), showcase interactivo del Estudio de Diseño de Exámenes en 3 pestañas (`SPEC-034`), simulador visual OMR de alta confianza y enlaces directos institucionales.
 - **Íconos Vectoriales Transparentes Multi-Resolución y Normalización de Accesos Directos**:

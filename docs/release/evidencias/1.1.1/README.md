@@ -79,3 +79,14 @@ Comando validado:
   --repo=Dtcsrni/EvaluaPro_Sistema_Universitario `
   --ci-green=13
 ```
+
+<!-- AUTO:COMMERCIAL-CONTEXT:START -->
+## Contexto Comercial y Soporte
+
+- Rol de este documento: Documentacion funcional/operativa para despliegue, seguridad y cumplimiento.
+- Edicion Comunitaria (AGPL): flujo operativo base para uso real.
+- Edicion Comercial/Institucional: mas automatizacion, soporte SLA, endurecimiento y hoja de ruta prioritaria por nivel.
+- Catalogo dinamico de capacidades: [FEATURE_CATALOG](../../../comercial/FEATURE_CATALOG.md).
+- Licenciamiento comercial y modalidades de pago: [LICENSING_TIERS](../../../comercial/LICENSING_TIERS.md).
+- Ultima sincronizacion automatica: 2026-08-28.
+<!-- AUTO:COMMERCIAL-CONTEXT:END -->

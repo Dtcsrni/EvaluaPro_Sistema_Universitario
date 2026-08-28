@@ -8,6 +8,12 @@
 /**
  * sdd-audit
  *
+ * Responsabilidad: Modulo interno del sistema.
+ * Limites: Mantener contrato y comportamiento observable del modulo.
+ */
+/**
+ * sdd-audit
+ *
  * Responsabilidad: Analizar todas las especificaciones bajo docs/specs/ y verificar
  * que cumplan con la política de Spec-Driven Development (SDD).
  * Límites: Solo diagnostica y falla con exit code 1 si hay violaciones.
