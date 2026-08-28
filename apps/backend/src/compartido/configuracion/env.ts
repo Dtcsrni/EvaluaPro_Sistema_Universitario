@@ -20,9 +20,10 @@ export function cargarDotenvRaizSiAplica(entorno: string) {
   for (const ruta of candidatos) {
     if (fs.existsSync(ruta)) {
       dotenv.config({ quiet: true, path: ruta });
-      break;
+      return;
     }
   }
+  dotenv.config({ quiet: true });
 }
 
 export function parsearNumeroSeguro(valor: unknown, porDefecto: number, { min, max }: { min?: number; max?: number } = {}) {
