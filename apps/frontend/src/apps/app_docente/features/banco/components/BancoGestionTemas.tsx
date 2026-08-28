@@ -93,46 +93,104 @@ export function BancoGestionTemas({
       open={temasAbierto}
       onToggle={(event) => setTemasAbierto((event.currentTarget as HTMLDetailsElement).open)}
     >
-      <summary>
-        <b>Temas</b>
-        {periodoId ? ` (${temasBanco.length})` : ''}
+      <summary className="banco-temas-summary">
+        <div className="banco-temas-summary__left">
+          <span className="banco-temas-summary__icon" aria-hidden="true">
+            <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2.2">
+              <line x1="8" y1="6" x2="21" y2="6" />
+              <line x1="8" y1="12" x2="21" y2="12" />
+              <line x1="8" y1="18" x2="21" y2="18" />
+              <line x1="3" y1="6" x2="3.01" y2="6" />
+              <line x1="3" y1="12" x2="3.01" y2="12" />
+              <line x1="3" y1="18" x2="3.01" y2="18" />
+            </svg>
+          </span>
+          <b>Temas</b>
+          {periodoId ? <span className="banco-badge-count">({temasBanco.length})</span> : ''}
+        </div>
       </summary>
       <div className="banco-colapsable__intro">
         <p className="nota">Agrupa preguntas por unidad temática y corrige densidad antes de generar plantillas o PDFs.</p>
       </div>
+
       <div className="campo-inline banco-temas__crear">
-        <input value={temaNuevo} onChange={(event) => setTemaNuevo(event.target.value)} placeholder="Nuevo tema (ej. Funciones)" aria-label="Nuevo tema" disabled={bloqueoEdicion} />
-        <Boton type="button" variante="secundario" cargando={creandoTema} disabled={!periodoId || !temaNuevo.trim() || bloqueoEdicion} onClick={() => void crearTemaBanco()}>Agregar</Boton>
+        <input
+          value={temaNuevo}
+          onChange={(event) => setTemaNuevo(event.target.value)}
+          placeholder="Nuevo tema (ej. Funciones)"
+          aria-label="Nuevo tema"
+          disabled={bloqueoEdicion}
+          className="banco-tema-input-nuevo"
+        />
+        <Boton
+          type="button"
+          variante="secundario"
+          cargando={creandoTema}
+          disabled={!periodoId || !temaNuevo.trim() || bloqueoEdicion}
+          onClick={() => void crearTemaBanco()}
+        >
+          Agregar
+        </Boton>
       </div>
+
       {cargandoTemas && <InlineMensaje tipo="info" leading={<Spinner />}>Cargando temas…</InlineMensaje>}
+
       <ul className="lista lista-items banco-temas__lista">
-        {periodoId && !cargandoTemas && temasBanco.length === 0 && <li>No hay temas. Crea el primero arriba.</li>}
+        {periodoId && !cargandoTemas && temasBanco.length === 0 && (
+          <li className="banco-empty-state">No hay temas. Crea el primero arriba.</li>
+        )}
         {temasBanco.map((t) => (
           <li key={t._id}>
-            <div className="item-glass banco-temas__item">
+            <div className="item-glass banco-temas__item anim-card-hover">
               <div className="item-row">
-                <div>
+                <div className="banco-tema-info">
                   <div className="item-title">{t.nombre}</div>
-                  <div className="item-meta">
-                    <span>Preguntas: {conteoPorTema.get(t.nombre) ?? 0}</span>
-                    <span>
+                  <div className="item-meta banco-tema-meta">
+                    <span className="banco-tag-preguntas">Preguntas: {conteoPorTema.get(t.nombre) ?? 0}</span>
+                    <span className="banco-tag-paginas">
                       Paginas (estimadas): {paginasPorTema.get(normalizarNombreTema(t.nombre).toLowerCase()) ?? 0}
                       {paginasEstimadasBackendPorTema.has(normalizarNombreTema(t.nombre).toLowerCase()) ? ' (preview)' : ''}
                     </span>
                   </div>
                 </div>
-                <div className="item-actions">
+                <div className="item-actions banco-tema-actions">
                   {temaEditandoId === t._id ? (
-                    <>
-                      <input value={temaEditandoNombre} onChange={(event) => setTemaEditandoNombre(event.target.value)} aria-label="Nombre del tema" />
-                      <Boton type="button" variante="secundario" cargando={guardandoTema} disabled={!temaEditandoNombre.trim()} onClick={() => void guardarEdicionTema()}>Guardar</Boton>
-                      <Boton type="button" variante="secundario" onClick={cancelarEdicionTema}>Cancelar</Boton>
-                    </>
+                    <div className="banco-tema-edit-inline">
+                      <input
+                        value={temaEditandoNombre}
+                        onChange={(event) => setTemaEditandoNombre(event.target.value)}
+                        aria-label="Nombre del tema"
+                        className="banco-tema-edit-input"
+                      />
+                      <Boton
+                        type="button"
+                        variante="secundario"
+                        cargando={guardandoTema}
+                        disabled={!temaEditandoNombre.trim()}
+                        onClick={() => void guardarEdicionTema()}
+                      >
+                        Guardar
+                      </Boton>
+                      <Boton type="button" variante="secundario" onClick={cancelarEdicionTema}>
+                        Cancelar
+                      </Boton>
+                    </div>
                   ) : (
                     <>
-                      <Boton type="button" variante="secundario" onClick={() => abrirAjusteTema(t)} disabled={!temaEditando}>Ajustar paginas</Boton>
-                      <Boton type="button" variante="secundario" onClick={() => iniciarEdicionTema(t)} disabled={!temaEditando}>Renombrar</Boton>
-                      <Boton type="button" cargando={archivandoTemaId === t._id} onClick={() => void archivarTemaBanco(t)} disabled={!temaEditando}>Archivar</Boton>
+                      <Boton type="button" variante="secundario" onClick={() => abrirAjusteTema(t)} disabled={!temaEditando}>
+                        Ajustar paginas
+                      </Boton>
+                      <Boton type="button" variante="secundario" onClick={() => iniciarEdicionTema(t)} disabled={!temaEditando}>
+                        Renombrar
+                      </Boton>
+                      <Boton
+                        type="button"
+                        cargando={archivandoTemaId === t._id}
+                        onClick={() => void archivarTemaBanco(t)}
+                        disabled={!temaEditando}
+                      >
+                        Archivar
+                      </Boton>
                     </>
                   )}
                 </div>

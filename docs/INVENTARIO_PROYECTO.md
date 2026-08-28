@@ -1,8 +1,42 @@
 # Inventario Tecnico del Proyecto
 
-Fecha de corte: 2026-08-20
+Fecha de corte: 2026-08-26
 Version tecnica vigente: `1.1.1`
 Version visible vigente: `1.1.1`
+
+## Estado de validación 2026-08-27 (Corte 2 - Arquitectura Limpia, Docblocks y Validación SDD/TDD sin Mocks)
+- **Ecosistema Integral SDD/TDD desde el Hub (36 specs 100% implementadas y auditadas):**
+  - Formalización y trazabilidad completa de 36 especificaciones en `docs/specs/` en estado `implemented`, con criterios de aceptación verificados y matrices de trazabilidad completas vinculadas a pruebas unitarias, de integración y contratos reales en disco: Hub Principal Multi-App & PWA (`SPEC-035`), Autenticación Híbrida y Guardrails Google OAuth (`SPEC-036`), Ciclo de Vida de Materias (`SPEC-037`), Gestión de Alumnos (`SPEC-038`), Control Diario de Asistencias (`SPEC-039`), Temarios Curriculares y Firmas de Encuadre (`SPEC-040`), Banco de Reactivos y Estimador OMR (`SPEC-041`), Producción Masiva OMR y Folios Únicos (`SPEC-042`), Mesa de Recepción y Acordeón (`SPEC-043`), Motor OMR y Escrutinio Visual (`SPEC-044`), Rehidratación Forense (`SPEC-045`), Sincronización Classroom (`SPEC-046`), Portal Alumno Cloud (`SPEC-047`), Sincronización Offline/Cloud (`SPEC-048`), Configuración de Cuenta (`SPEC-049`), Estudio de Diseño de Exámenes por Pestañas (`SPEC-034`) y 20 especificaciones fundamentales del sistema.
+  - Alternancia dinámica interactiva en 3 pestañas operativas de Diseño de Exámenes (`[ 📐 Diseñar Exámenes ]`, `[ 🚀 Generar Paquete PDF/OMR ]`, `[ 📦 Historial de Lotes ]`) con guías Bento contextuales dedicadas.
+- **Gates Verificados:** `npm run lint` ✅, `npm run typecheck` ✅, `npm run test:frontend:ci` ✅ (206 tests en 56 archivos), `npm run test:coverage:ci` ✅, `npm run test:tdd:enforcement:ci` ✅, `npm run test:backend:ci` ✅ (24 lotes), `npm run test:portal:ci` ✅ (32 tests), `npm run perf:check` ✅ (4 presupuestos), `npm run pipeline:contract:check` ✅ (17 tests), `npm run ci:policy:audit` ✅, `npm run qa:clean-architecture:strict` ✅, `npm run test:omr:tv:gate:ci` ✅ (30 capturas reales, 208 reactivos, 100% precisión).
+
+## Estado de validación 2026-08-26 (Corte 1 - Elevación Bento)
+- **Elevación Radical Bento de todas las Pantallas del Shell Docente (`SPEC-BENTO-ELEVATION-ACADEMICA`):**
+  - Reestructuración completa con Hero Headers Bento, orbes neón animados diferenciados, Mini-KPIs vectoriales con hover lift interactivo y eliminación total de acordeones obsoletos/redundantes en las pantallas: `Plantillas`, `Entrega`, `Calificaciones`, `Evaluaciones`, `Sincronización`, `Cuenta`, `Banco de Preguntas`, `Temarios`, `Asistencias`, `Materias` y `Alumnos`.
+  - Creación e integración sistemática de las 6 guías Bento Step Cards de 3 pasos con memoria de colapso persistente (`GuiaPlantillasVisual.tsx`, `GuiaEntregaVisual.tsx`, `GuiaCalificacionesVisual.tsx`, `GuiaEvaluacionesVisual.tsx`, `GuiaSincronizacionVisual.tsx`, `GuiaCuentaVisual.tsx`).
+  - Cumplimiento estricto de cero inline styles en toda la suite de pantallas (`gui.responsive.audit.test.ts` con 0 infracciones).
+  - 12 capturas de validación generadas en Dark y Light mode.
+- **Gates Verificados:** `npm run lint` ✅, `npm run typecheck` ✅, `npm run test:frontend:ci` ✅ (201 tests en 55 archivos), `npm run test:coverage:ci` ✅, `npm run test:tdd:enforcement:ci` ✅, `npm run test:backend:ci` ✅ (24 lotes), `npm run test:portal:ci` ✅ (32 tests), `npm run perf:check` ✅ (4 presupuestos), `npm run pipeline:contract:check` ✅ (17 tests).
+
+## Estado de validación 2026-08-25
+- **Propagación Glassmorphism Integral y Ergonomía Visual Multi-Pantalla (`SPEC-REDISENIO-INTEGRAL-GUI`):**
+  - Propagación de variables `--glass-surface-0/1/2/3`, `--glass-border` y `--glass-shadow` en todas las pantallas y componentes (Shell Docente, Portal Alumno, Autenticación, Materias, Banco, Plantillas, Calificaciones, Asistencias, Version Center y Empty States).
+  - Coherencia en Tema Claro (`:root:not([data-theme="dark"])`) con 105+ reglas que aseguran legibilidad, contraste y saturación.
+  - Formulario Panorámico de Materias en 2 filas limpias y Bento Workspace con aprovechamiento del 100% del viewport sin solapamiento.
+  - Dock/Sidebar docente con 11 paletas cromáticas diferenciadas (`data-icono-tab`), animaciones pop-in e íconos SVG de alta definición.
+  - Barra medidora de contraseñas desacoplada a selectores semánticos (`data-nivel`), logrando 0 inline styles.
+  - Corrección integral de contratos y suites en `VersionInfoPage`, `VersionInfo.helpers`, `SeccionAutenticacion` y `SeccionPeriodos`.
+- **Gates Verificados:** `npm run lint` ✅, `npm run typecheck` ✅, `npm run test:frontend:ci` ✅ (201 tests en 55 archivos), `npm run test:backend:ci` ✅ (24 lotes), `npm run test:portal:ci` ✅ (32 tests), `npm run perf:check` ✅ (4 presupuestos), `npm run pipeline:contract:check` ✅ (17 tests), `npm run test:smoke:live` ✅.
+
+## Estado de validación 2026-08-21
+- **Refactorización y Modernización Integral (`SPEC-ARCH-UX-MODERNIZATION`):**
+  - Desacoplamiento de estado OMR (`useOmrWorkflowState`), recursos académicos base (`useRecursosAcademicosDocente`) y previsualización de plantillas (`usePlantillasPreviewState`) en `AppDocente.tsx`.
+  - Eliminación total de inline styles y colores fijos en `SeccionAsistencias.tsx` y `SeccionTemarios.tsx`, con auditoría responsive limpia (0 fallos).
+  - Atajos de teclado para corrección de reactivos OMR (`A-E`, `0`, `Delete`, `-`).
+  - Umbrales DPI 1024x576 en Bootstrapper WPF para soporte en laptops de 1366x768 con 125%-150% de escala.
+  - Saneamiento y actualización de dependencias (`sharp`, `express-rate-limit`, tipos de React, `@testing-library/user-event`).
+- **Diff Coverage:** `100.0%` verificado en verde.
+- **Gates Verificados:** `npm run lint` ✅, `npm run typecheck` ✅, `npm run test:frontend:ci` ✅ (200 tests), `npm run test:coverage:ci` ✅, `npm run test:tdd:enforcement:ci` ✅, `npm run test:backend:ci` ✅, `npm run test:portal:ci` ✅, `npm run perf:check` ✅, `npm run pipeline:contract:check` ✅, `node scripts/sdd-audit.mjs` ✅ (17 specs), `npm run ci:policy:audit` ✅.
 
 ## Estado de validación 2026-08-20
 - **Rediseño de Bienvenida Docente (`SPEC-AUTH-ONBOARDING`):** Pantalla inicial desacoplada de `ShellDocente`, eliminando el dashboard de banco/exámenes previo al login. Portal institucional con pilares de valor semánticos, pestañas `Ingresar`/`Registrar` y captura opcional de clave de licencia.

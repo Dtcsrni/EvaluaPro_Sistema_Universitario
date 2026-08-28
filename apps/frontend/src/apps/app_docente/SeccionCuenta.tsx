@@ -4,14 +4,14 @@
  * Responsabilidad: Seccion funcional del shell docente.
  * Limites: Conservar UX y permisos; extraer logica compleja a hooks/components.
  */
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { GoogleLogin } from '@react-oauth/google';
 import { accionToastSesionParaError } from '../../servicios_api/clienteComun';
 import { emitToast } from '../../ui/toast/toastBus';
 import { Icono } from '../../ui/iconos';
 import { Boton } from '../../ui/ux/componentes/Boton';
 import { InlineMensaje } from '../../ui/ux/componentes/InlineMensaje';
-import { AyudaFormulario } from './AyudaFormulario';
+import { GuiaCuentaVisual } from './GuiaCuentaVisual';
 import { clienteApi } from './clienteApiDocente';
 import { tipoMensajeInline } from './mensajeInline';
 import { registrarAccionDocente } from './telemetriaDocente';
@@ -23,7 +23,6 @@ export function SeccionCuenta({
   esAdmin,
   esDev,
   oauthGoogleDisponible,
-  classroomDisponible,
   smtpDisponible,
   requireGoogleOAuth
 }: {
@@ -51,47 +50,17 @@ export function SeccionCuenta({
   const [papelera, setPapelera] = useState<Array<Record<string, unknown>>>([]);
   const [cargandoPapelera, setCargandoPapelera] = useState(false);
   const [restaurandoId, setRestaurandoId] = useState<string | null>(null);
-  const [oauthClientId, setOauthClientId] = useState(String(import.meta.env.VITE_GOOGLE_CLIENT_ID || '').trim());
-  const [classroomClientId, setClassroomClientId] = useState(String(import.meta.env.VITE_GOOGLE_CLIENT_ID || '').trim());
-  const [classroomClientSecret, setClassroomClientSecret] = useState('');
-  const [classroomRedirectUri, setClassroomRedirectUri] = useState('http://localhost:4000/api/integraciones/classroom/oauth/callback');
-  const [oauthRequerido, setOauthRequerido] = useState(true);
-  const [copiandoComandoOauth, setCopiandoComandoOauth] = useState(false);
-  const [probandoOauthClassroom, setProbandoOauthClassroom] = useState(false);
 
   const coincide = contrasenaNueva && contrasenaNueva === contrasenaNueva2;
   const requiereContrasenaActual = Boolean(docente.tieneContrasena);
   const requiereGoogle = Boolean(docente.tieneGoogle && !docente.tieneContrasena);
-  const puedeConfigurarOauth = esAdmin;
   const googleOnly = Boolean(requireGoogleOAuth);
 
   const reautenticacionValida = requiereContrasenaActual ? Boolean(contrasenaActual.trim()) : requiereGoogle ? Boolean(credentialReauth) : Boolean(contrasenaActual.trim() || credentialReauth);
   const puedeGuardar = Boolean(contrasenaNueva.trim().length >= 8 && coincide && reautenticacionValida);
-  const faltanCamposOauth = Boolean(
-    !oauthClientId.trim() || !classroomClientId.trim() || !classroomClientSecret.trim() || !classroomRedirectUri.trim()
-  );
-
-  const comandoOauthClassroom = useMemo(() => {
-    const escapar = (valor: string) => `'${String(valor || '').replace(/'/g, "''")}'`;
-    const partes = [
-      'pwsh -File scripts/configurar-oauth-classroom.ps1',
-      `-GoogleOauthClientId ${escapar(oauthClientId.trim())}`,
-      `-GoogleClassroomClientId ${escapar(classroomClientId.trim())}`,
-      `-GoogleClassroomClientSecret ${escapar(classroomClientSecret.trim())}`,
-      `-GoogleClassroomRedirectUri ${escapar(classroomRedirectUri.trim())}`,
-      '-AlsoSetViteGoogleClientId'
-    ];
-    if (!oauthRequerido) {
-      partes.push('-DisableRequireGoogleOAuth');
-    }
-    return partes.join(' ');
-  }, [oauthClientId, classroomClientId, classroomClientSecret, classroomRedirectUri, oauthRequerido]);
-
   const googleDisponible = typeof oauthGoogleDisponible === 'boolean'
     ? oauthGoogleDisponible
     : Boolean(String(import.meta.env.VITE_GOOGLE_CLIENT_ID || '').trim());
-  const classroomConfigDisponible = typeof classroomDisponible === 'boolean' ? classroomDisponible : true;
-  const smtpConfigDisponible = Boolean(smtpDisponible);
 
   async function guardar() {
     try {
@@ -198,46 +167,6 @@ export function SeccionCuenta({
     }
   }
 
-  async function copiarComandoOauth() {
-    try {
-      if (faltanCamposOauth) {
-        setMensaje('Completa Client ID/Secret y Redirect URI para generar el comando.');
-        return;
-      }
-      setCopiandoComandoOauth(true);
-      if (!navigator?.clipboard?.writeText) {
-        throw new Error('Tu navegador no permite copiar al portapapeles automáticamente.');
-      }
-      await navigator.clipboard.writeText(comandoOauthClassroom);
-      emitToast({ level: 'ok', title: 'OAuth + Classroom', message: 'Comando copiado al portapapeles.', durationMs: 2500 });
-    } catch (error) {
-      const msg = mensajeDeError(error, 'No se pudo copiar el comando de configuración.');
-      setMensaje(msg);
-      emitToast({ level: 'error', title: 'OAuth + Classroom', message: msg, durationMs: 5200 });
-    } finally {
-      setCopiandoComandoOauth(false);
-    }
-  }
-
-  async function probarOauthClassroom() {
-    try {
-      setProbandoOauthClassroom(true);
-      const respuesta = await clienteApi.obtener<{ url?: string }>('/evaluaciones/v2/classroom/oauth/iniciar');
-      const url = String(respuesta.url || '').trim();
-      if (!url) {
-        throw new Error('La API no devolvio URL de autorizacion OAuth.');
-      }
-      window.open(url, 'oauth_classroom', 'width=980,height=760');
-      emitToast({ level: 'ok', title: 'OAuth + Classroom', message: 'Abriendo Google OAuth...', durationMs: 2400 });
-    } catch (error) {
-      const msg = mensajeDeError(error, 'No se pudo iniciar OAuth de Classroom.');
-      setMensaje(msg);
-      emitToast({ level: 'error', title: 'OAuth + Classroom', message: msg, durationMs: 5200 });
-    } finally {
-      setProbandoOauthClassroom(false);
-    }
-  }
-
   const cargarPapelera = useCallback(async () => {
     if (!esAdmin || !esDev) return;
     setCargandoPapelera(true);
@@ -288,72 +217,110 @@ export function SeccionCuenta({
 
   return (
     <div className="panel cuenta-panel">
-      <h2>
-        <Icono nombre="info" /> Cuenta
-      </h2>
-      <AyudaFormulario titulo="Para que sirve y como llenarlo">
-        <p>
-          <b>Proposito:</b> definir o cambiar tu contrasena para acceder con correo/contrasena.
-        </p>
-        <ul className="lista">
-          <li>
-            <b>Contrasena actual:</b> requerida si tu cuenta ya tenia contrasena.
-          </li>
-          <li>
-            <b>Nueva contrasena:</b> minimo 8 caracteres.
-          </li>
-          <li>
-            <b>Confirmar contrasena:</b> debe coincidir exactamente.
-          </li>
-          <li>
-            <b>Reautenticacion:</b> si aparece Google, es la opcion recomendada para confirmar identidad.
-          </li>
-        </ul>
-        <p>
-          Ejemplo: nueva contrasena <code>MiClaveSegura2026</code> (no uses contrasenas obvias).
-        </p>
-      </AyudaFormulario>
+      {/* 1. Bento Hero Header */}
+      <div className="banco-panel__head cuenta-panel__head anim-fade-in">
+        <div className="banco-panel__lead">
+          <div className="banco-panel__icon-orb cuenta-panel__icon-orb anim-icon-pulse" aria-hidden="true">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
+              <circle cx="12" cy="7" r="4" />
+            </svg>
+          </div>
+          <div className="banco-panel__text-block">
+            <div className="banco-panel__meta-row">
+              <span className="banco-status-pill cuenta-status-pill">
+                <span className="banco-pulse-dot" aria-hidden="true" />
+                <span>Perfil Docente e Institución</span>
+              </span>
+              <span className="banco-counter-tag">{String(docente.correo || '').trim() || 'Docente'}</span>
+            </div>
+            <h2 className="banco-panel__title eyebrow">Cuenta</h2>
+            <p className="nota">Gestiona tu identidad docente, credenciales, preferencias de PDF institucional e integraciones.</p>
+          </div>
+        </div>
 
-      <div className="cuenta-resumen" aria-label="Estado de la cuenta">
-        <div className="cuenta-resumen__item">
-          <span>Google</span>
-          <b>{docente.tieneGoogle ? 'Vinculado' : 'No vinculado'}</b>
-        </div>
-        <div className="cuenta-resumen__item">
-          <span>Contraseña</span>
-          <b>{docente.tieneContrasena ? 'Definida' : 'No definida'}</b>
-        </div>
-        <div className="cuenta-resumen__item">
-          <span>Cuenta</span>
-          <b>{String(docente.correo || '').trim() || 'Sin correo'}</b>
-        </div>
-        <div className="cuenta-resumen__item">
-          <span>Rol</span>
-          <b>{esAdmin ? 'Administrador' : 'Docente'}</b>
-        </div>
-        <div className="cuenta-resumen__item">
-          <span>SMTP</span>
-          <b>{smtpConfigDisponible ? 'Disponible' : 'No configurado'}</b>
+        {/* Mini-KPIs */}
+        <div className="banco-header-kpis" aria-live="polite">
+          <div className="banco-mini-kpi banco-mini-kpi--preguntas anim-kpi-hover" data-tooltip="Rol institucional activo">
+            <span className="banco-mini-kpi__icon" aria-hidden="true">
+              <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2.2">
+                <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2" />
+              </svg>
+            </span>
+            <span className="banco-mini-kpi__num banco-mini-kpi__num--sm">{esAdmin ? 'Admin' : 'Docente'}</span>
+            <span className="banco-mini-kpi__lbl">Rol</span>
+          </div>
+
+          <div className="banco-mini-kpi banco-mini-kpi--temas anim-kpi-hover" data-tooltip="Estado de vinculación con Google">
+            <span className="banco-mini-kpi__icon" aria-hidden="true"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2.2"><circle cx="12" cy="12" r="10" /></svg></span>
+            <span className={`banco-mini-kpi__num banco-mini-kpi__num--sm ${docente.tieneGoogle ? "banco-mini-kpi__num--emerald" : "banco-mini-kpi__num--slate"}`}>
+              {docente.tieneGoogle ? 'Vinculado' : 'Manual'}
+            </span>
+            <span className="banco-mini-kpi__lbl">Google</span>
+          </div>
+
+          <div className="banco-mini-kpi banco-mini-kpi--temaactual anim-kpi-hover" data-tooltip="Seguridad de contraseña local">
+            <span className="banco-mini-kpi__icon" aria-hidden="true"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2.2"><rect x="3" y="11" width="18" height="11" rx="2" ry="2" /></svg></span>
+            <span className={`banco-mini-kpi__num banco-mini-kpi__num--sm ${docente.tieneContrasena ? "banco-mini-kpi__num--emerald" : "banco-mini-kpi__num--amber"}`}>
+              {docente.tieneContrasena ? 'Definida' : 'Sin clave'}
+            </span>
+            <span className="banco-mini-kpi__lbl">Contraseña</span>
+          </div>
+
+          <div className="banco-mini-kpi banco-mini-kpi--paginas anim-kpi-hover" data-tooltip="Encabezado institucional configurado">
+            <span className="banco-mini-kpi__icon" aria-hidden="true"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2.2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" /></svg></span>
+            <span className="banco-mini-kpi__num banco-mini-kpi__num--sm banco-mini-kpi__num--sky">
+              {institucionPdf.trim() ? 'Activo' : 'Default'}
+            </span>
+            <span className="banco-mini-kpi__lbl">PDF Header</span>
+          </div>
+
+          <div className="banco-mini-kpi banco-mini-kpi--temaactual anim-kpi-hover" data-tooltip="Servicio de correo SMTP">
+            <span className="banco-mini-kpi__icon" aria-hidden="true">
+              <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2.2">
+                <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z" />
+                <polyline points="22,6 12,13 2,6" />
+              </svg>
+            </span>
+            <span className={`banco-mini-kpi__num banco-mini-kpi__num--sm ${smtpDisponible ? "banco-mini-kpi__num--emerald" : "banco-mini-kpi__num--slate"}`}>
+              {smtpDisponible ? 'Disponible' : 'No configurado'}
+            </span>
+            <span className="banco-mini-kpi__lbl">SMTP</span>
+          </div>
         </div>
       </div>
 
-      <div className="subpanel cuenta-seguridad">
-        <h3>
-          <Icono nombre="ok" /> Seguridad de acceso
-        </h3>
+            {/* 2. Bento Visual Guide */}
+      <GuiaCuentaVisual />
+
+      {/* 3. Seguridad de Acceso */}
+      <div className="cuenta-subpanel cuenta-seguridad anim-fade-in">
+        <div className="banco-section-title">
+          <div className="banco-section-title__wrap">
+            <span className="banco-section-pill">
+              <span className="banco-section-pill__dot" aria-hidden="true" />
+              <span>Seguridad & Credenciales</span>
+            </span>
+            <h3 className="entregas-title-heading">
+              <Icono nombre="ok" /> Seguridad de acceso
+            </h3>
+            <p className="nota">Gestiona tu contraseña local y la sincronización de credenciales con Google OAuth.</p>
+          </div>
+          <div className="banco-section-side-meta">
+            <span className={docente.tieneGoogle ? 'banco-counter-tag banco-counter-tag--emerald' : 'banco-counter-tag'}>
+              Google {docente.tieneGoogle ? 'vinculado' : 'no vinculado'}
+            </span>
+            <span className={docente.tieneContrasena ? 'banco-counter-tag banco-counter-tag--emerald' : 'banco-counter-tag banco-counter-tag--amber'}>
+              Contraseña {docente.tieneContrasena ? 'definida' : 'no definida'}
+            </span>
+          </div>
+        </div>
+
         {googleOnly && (
           <InlineMensaje tipo="info">
             Modo Google-only activo: la contraseña local está deshabilitada mientras `REQUIRE_GOOGLE_OAUTH=1`.
           </InlineMensaje>
         )}
-        <div className="meta">
-          <span className={docente.tieneGoogle ? 'badge ok' : 'badge'}>
-            <span className="dot" aria-hidden="true" /> Google {docente.tieneGoogle ? 'vinculado' : 'no vinculado'}
-          </span>
-          <span className={docente.tieneContrasena ? 'badge ok' : 'badge'}>
-            <span className="dot" aria-hidden="true" /> Contraseña {docente.tieneContrasena ? 'definida' : 'no definida'}
-          </span>
-        </div>
 
         {Boolean(!googleOnly && docente.tieneGoogle && googleDisponible) && (
           <div className="auth-google auth-google--mb">
@@ -378,54 +345,56 @@ export function SeccionCuenta({
           </div>
         )}
 
-        {!googleOnly && <div className="cuenta-seguridad__form">
-          {docente.tieneContrasena && (
-            <label className="campo">
-              Contrasena actual
-              <input
-                type="password"
-                value={contrasenaActual}
-                onChange={(event) => setContrasenaActual(event.target.value)}
-                autoComplete="current-password"
-              />
-            </label>
-          )}
-
-          <label className="campo">
-            Nueva contrasena
-            <input
-              type="password"
-              value={contrasenaNueva}
-              onChange={(event) => setContrasenaNueva(event.target.value)}
-              autoComplete="new-password"
-            />
-            <span className="ayuda">Minimo 8 caracteres.</span>
-          </label>
-
-          <label className="campo">
-            Confirmar contrasena
-            {contrasenaNueva2 && !coincide ? (
-              <input
-                type="password"
-                value={contrasenaNueva2}
-                onChange={(event) => setContrasenaNueva2(event.target.value)}
-                autoComplete="new-password"
-                aria-invalid="true"
-              />
-            ) : (
-              <input
-                type="password"
-                value={contrasenaNueva2}
-                onChange={(event) => setContrasenaNueva2(event.target.value)}
-                autoComplete="new-password"
-              />
+        {!googleOnly && (
+          <div className="cuenta-seguridad__form">
+            {docente.tieneContrasena && (
+              <label className="campo">
+                <span>Contrasena actual</span>
+                <input
+                  type="password"
+                  value={contrasenaActual}
+                  onChange={(event) => setContrasenaActual(event.target.value)}
+                  autoComplete="current-password"
+                />
+              </label>
             )}
-            {contrasenaNueva2 && !coincide && <span className="ayuda error">Las contrasenas no coinciden.</span>}
-          </label>
-        </div>}
+
+            <label className="campo">
+              <span>Nueva contrasena</span>
+              <input
+                type="password"
+                value={contrasenaNueva}
+                onChange={(event) => setContrasenaNueva(event.target.value)}
+                autoComplete="new-password"
+              />
+              <span className="ayuda">Minimo 8 caracteres.</span>
+            </label>
+
+            <label className="campo">
+              <span>Confirmar contrasena</span>
+              {contrasenaNueva2 && !coincide ? (
+                <input
+                  type="password"
+                  value={contrasenaNueva2}
+                  onChange={(event) => setContrasenaNueva2(event.target.value)}
+                  autoComplete="new-password"
+                  aria-invalid="true"
+                />
+              ) : (
+                <input
+                  type="password"
+                  value={contrasenaNueva2}
+                  onChange={(event) => setContrasenaNueva2(event.target.value)}
+                  autoComplete="new-password"
+                />
+              )}
+              {contrasenaNueva2 && !coincide && <span className="ayuda error">Las contrasenas no coinciden.</span>}
+            </label>
+          </div>
+        )}
 
         {!googleOnly && (
-          <div className="acciones">
+          <div className="acciones acciones--mt">
             <Boton type="button" icono={<Icono nombre="ok" />} cargando={guardando} disabled={!puedeGuardar} onClick={guardar}>
               {guardando ? 'Guardando…' : 'Guardar contrasena'}
             </Boton>
@@ -433,43 +402,42 @@ export function SeccionCuenta({
         )}
       </div>
 
-      <div className="subpanel cuenta-pdf">
-        <h3>
-          <Icono nombre="pdf" /> PDF institucional
-        </h3>
-        <AyudaFormulario titulo="Como se usa">
-          <p>
-            Estas preferencias se usan para el <b>encabezado institucional</b> del PDF (solo pagina 1). Si no configuras nada,
-            se usan los defaults del sistema.
-          </p>
-          <ul className="lista">
-            <li>
-              <b>Institucion:</b> ej. Centro Universitario Hidalguense
-            </li>
-            <li>
-              <b>Lema:</b> ej. La sabiduria es nuestra fuerza
-            </li>
-            <li>
-              <b>Logos:</b> ruta relativa (ej. <code>logos/logo_cuh.png</code>) o absoluta.
-            </li>
-          </ul>
-        </AyudaFormulario>
+      {/* 4. PDF Institucional */}
+      <div className="cuenta-subpanel cuenta-pdf anim-fade-in">
+        <div className="banco-section-title">
+          <div className="banco-section-title__wrap">
+            <span className="banco-section-pill">
+              <span className="banco-section-pill__dot" aria-hidden="true" />
+              <span>Identidad Gráfica & PDF</span>
+            </span>
+            <h3 className="entregas-title-heading">
+              <Icono nombre="pdf" /> PDF institucional
+            </h3>
+            <p className="nota">Personaliza el membrete oficial, logotipo institucional y lema en exámenes impresos y actas.</p>
+          </div>
+          <div className="banco-section-side-meta">
+            <span className="banco-counter-tag">{institucionPdf.trim() || 'Centro Universitario'}</span>
+          </div>
+        </div>
 
-        <label className="campo">
-          Institucion
-          <input value={institucionPdf} onChange={(e) => setInstitucionPdf(e.target.value)} placeholder="Centro Universitario Hidalguense" />
-        </label>
-        <label className="campo">
-          Lema
-          <input value={lemaPdf} onChange={(e) => setLemaPdf(e.target.value)} placeholder="La sabiduria es nuestra fuerza" />
-        </label>
+        <div className="grid grid--2">
+          <label className="campo">
+            <span>Institucion</span>
+            <input value={institucionPdf} onChange={(e) => setInstitucionPdf(e.target.value)} placeholder="Centro Universitario Hidalguense" />
+          </label>
+          <label className="campo">
+            <span>Lema</span>
+            <input value={lemaPdf} onChange={(e) => setLemaPdf(e.target.value)} placeholder="La sabiduria es nuestra fuerza" />
+          </label>
+        </div>
+
         <div className="grid grid--2 cuenta-pdf__logos">
           <label className="campo">
-            Logo izquierda (path)
+            <span>Logo izquierda (path)</span>
             <input value={logoIzqPdf} onChange={(e) => setLogoIzqPdf(e.target.value)} placeholder="logos/logo_cuh.png" />
           </label>
           <label className="campo">
-            Logo derecha (path)
+            <span>Logo derecha (path)</span>
             <input value={logoDerPdf} onChange={(e) => setLogoDerPdf(e.target.value)} placeholder="logos/logo_sys.png" />
           </label>
         </div>
@@ -481,133 +449,21 @@ export function SeccionCuenta({
         </div>
       </div>
 
-      <div className="subpanel cuenta-oauth">
-        <h3>
-          <Icono nombre="info" /> OAuth + Google Classroom
-        </h3>
-        <AyudaFormulario titulo="Configuracion operativa">
-          <p>
-            Configura las credenciales de Google para login y Classroom desde esta seccion. El sistema genera el comando
-            automático para aplicar cambios en <code>.env</code>.
-          </p>
-          <ul className="lista">
-            <li>
-              <b>Google OAuth Client ID:</b> se usa para inicio de sesion Google.
-            </li>
-            <li>
-              <b>Classroom Client ID / Secret:</b> se usan para sincronizacion Classroom.
-            </li>
-            <li>
-              <b>Redirect URI:</b> debe coincidir exactamente con Google Console.
-            </li>
-          </ul>
-        </AyudaFormulario>
-
-        {!puedeConfigurarOauth && (
-          <InlineMensaje tipo="info">Solo administradores pueden aplicar configuración operativa OAuth/Classroom.</InlineMensaje>
-        )}
-
-        <div className="grid grid--2">
-          <label className="campo">
-            Google OAuth Client ID
-            <input
-              value={oauthClientId}
-              onChange={(event) => setOauthClientId(event.target.value)}
-              placeholder="1234567890-xxxx.apps.googleusercontent.com"
-              disabled={!puedeConfigurarOauth}
-            />
-          </label>
-
-          <label className="campo">
-            Google Classroom Client ID
-            <input
-              value={classroomClientId}
-              onChange={(event) => setClassroomClientId(event.target.value)}
-              placeholder="1234567890-xxxx.apps.googleusercontent.com"
-              disabled={!puedeConfigurarOauth}
-            />
-          </label>
+      {/* 6. Accesos Directos */}
+      <div className="cuenta-subpanel cuenta-accesos anim-fade-in">
+        <div className="banco-section-title">
+          <div className="banco-section-title__wrap">
+            <span className="banco-section-pill">
+              <span className="banco-section-pill__dot" aria-hidden="true" />
+              <span>Sistema Operativo</span>
+            </span>
+            <h3 className="entregas-title-heading">
+              <Icono nombre="recargar" /> Accesos directos
+            </h3>
+            <p className="nota">Regenera los accesos directos de EvaluaPro en Escritorio y Menú Inicio, actualizando iconos de alta resolución.</p>
+          </div>
         </div>
 
-        <div className="grid grid--2">
-          <label className="campo">
-            Google Classroom Client Secret
-            <input
-              type="password"
-              value={classroomClientSecret}
-              onChange={(event) => setClassroomClientSecret(event.target.value)}
-              placeholder="GOCSPX-..."
-              autoComplete="off"
-              disabled={!puedeConfigurarOauth}
-            />
-          </label>
-
-          <label className="campo">
-            Google Classroom Redirect URI
-            <input
-              value={classroomRedirectUri}
-              onChange={(event) => setClassroomRedirectUri(event.target.value)}
-              placeholder="http://localhost:4000/api/integraciones/classroom/oauth/callback"
-              disabled={!puedeConfigurarOauth}
-            />
-          </label>
-        </div>
-
-        <label className="campo campo--inline">
-          <input
-            type="checkbox"
-            checked={oauthRequerido}
-            onChange={(event) => setOauthRequerido(Boolean(event.target.checked))}
-            disabled={!puedeConfigurarOauth}
-          />
-          <span>Habilitar y requerir OAuth Google (REQUIRE_GOOGLE_OAUTH=1)</span>
-        </label>
-
-        <label className="campo">
-          Comando automatico (PowerShell)
-          <textarea
-            className="cuenta-oauth__comando"
-            readOnly
-            value={comandoOauthClassroom}
-            rows={4}
-            aria-label="Comando de configuración OAuth Classroom"
-          />
-          <span className="ayuda">Pega y ejecuta este comando en la raíz del proyecto para aplicar la configuración.</span>
-        </label>
-
-        <div className="acciones acciones--mt">
-          <Boton
-            type="button"
-            variante="secundario"
-            icono={<Icono nombre="ok" />}
-            disabled={!puedeConfigurarOauth || faltanCamposOauth || copiandoComandoOauth}
-            cargando={copiandoComandoOauth}
-            onClick={copiarComandoOauth}
-          >
-            {copiandoComandoOauth ? 'Copiando...' : 'Copiar comando de configuración'}
-          </Boton>
-
-          {classroomConfigDisponible && (
-            <Boton
-              type="button"
-              icono={<Icono nombre="entrar" />}
-              disabled={probandoOauthClassroom}
-              cargando={probandoOauthClassroom}
-              onClick={probarOauthClassroom}
-            >
-              {probandoOauthClassroom ? 'Probando...' : 'Probar conexión OAuth Classroom'}
-            </Boton>
-          )}
-        </div>
-      </div>
-
-      <div className="subpanel cuenta-accesos">
-        <h3>
-          <Icono nombre="recargar" /> Accesos directos
-        </h3>
-        <p className="nota">
-          Regenera los accesos de EvaluaPro en Escritorio y Menú Inicio, incluyendo la actualización de iconos.
-        </p>
         <div className="acciones acciones--mt">
           <Boton
             type="button"
@@ -622,17 +478,31 @@ export function SeccionCuenta({
         </div>
       </div>
 
+      {/* 7. Papelera de Reciclaje (Admin/Dev) */}
       {esAdmin && esDev && (
-        <div className="subpanel cuenta-papelera">
-          <h3>
-            <Icono nombre="info" /> Papelera (dev)
-          </h3>
-          <p className="nota">Elementos eliminados se conservan 45 dias y luego se eliminan automaticamente.</p>
+        <div className="cuenta-subpanel cuenta-papelera anim-fade-in">
+          <div className="banco-section-title">
+            <div className="banco-section-title__wrap">
+              <span className="banco-section-pill banco-section-pill--amber">
+                <span className="banco-section-pill__dot" aria-hidden="true" />
+                <span>Mantenimiento & Recuperación</span>
+              </span>
+              <h3 className="entregas-title-heading">
+                <Icono nombre="info" /> Papelera (dev)
+              </h3>
+              <p className="nota">Los elementos eliminados se conservan 45 días antes de purgarse permanentemente.</p>
+            </div>
+            <div className="banco-section-side-meta">
+              <span className="banco-counter-tag">{papelera.length} elementos</span>
+            </div>
+          </div>
+
           <div className="acciones acciones--mt">
             <Boton type="button" variante="secundario" icono={<Icono nombre="recargar" />} cargando={cargandoPapelera} onClick={cargarPapelera}>
               {cargandoPapelera ? 'Cargando...' : 'Actualizar papelera'}
             </Boton>
           </div>
+
           {!cargandoPapelera && papelera.length === 0 && <InlineMensaje tipo="info">No hay elementos en papelera.</InlineMensaje>}
           {papelera.length > 0 && (
             <div className="lista lista--compacta cuenta-papelera__lista">
@@ -673,4 +543,3 @@ export function SeccionCuenta({
     </div>
   );
 }
-

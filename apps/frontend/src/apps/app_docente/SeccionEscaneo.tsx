@@ -536,60 +536,79 @@ export function SeccionEscaneo({
   }, [analizarLote, bloqueoAnalisis, lote.length, procesandoLote, puedeCalificar]);
 
   return (
-    <div className="panel calif-omr-panel">
-      <div className="calif-header-row">
-        <div>
-          <h2>
+    <div className="panel calif-omr-panel anim-fade-in">
+      <div className="banco-section-title">
+        <div className="banco-section-title__wrap">
+          <span className="banco-section-pill">
+            <span className="banco-section-pill__dot" aria-hidden="true" />
+            <span>Motor Óptico OMR</span>
+          </span>
+          <h2 className="entregas-title-heading">
             <Icono nombre="escaneo" /> Escaneo y revisión OMR
           </h2>
           <p className="nota">Captura por página, revisa por examen y confirma manualmente sólo los casos dudosos.</p>
         </div>
-        <div className="item-meta">
-          <span>{revisionesOrdenadas.length} examen(es) en cola</span>
-          <span>{totalPaginasRevision} página(s) procesadas</span>
-          <span>{paginasPendientes} pendiente(s)</span>
+        <div className="banco-section-side-meta">
+          <span className="banco-counter-tag">{revisionesOrdenadas.length} en cola</span>
+          <span className="banco-counter-tag banco-counter-tag--cyan">{totalPaginasRevision} procesadas</span>
+          <span className="banco-counter-tag banco-counter-tag--amber">{paginasPendientes} pendientes</span>
         </div>
       </div>
+
       <div className="calif-captura-grid">
-        <div className="subpanel calif-captura-panel">
+        <div className="calif-captura-card">
+          <div className="calif-captura-card__head">
+            <span className="banco-section-pill">
+              <span className="banco-section-pill__dot" aria-hidden="true" />
+              <span>Escaneo Individual</span>
+            </span>
+            <span className="banco-counter-tag">Cámara / Archivo</span>
+          </div>
           <h3>Captura individual</h3>
           <div className="grid grid--2">
             <label className="campo">
-              Folio
+              <span>Folio</span>
               <input
                 value={folio}
                 onChange={(event) => setFolio(event.target.value)}
-                placeholder="Si se deja vacio, se lee del QR"
+                placeholder="Auto por QR o escribir..."
                 disabled={bloqueoManual || bloqueoAnalisis}
+                className="calif-folio-input"
               />
             </label>
             <label className="campo">
-              Pagina
+              <span>Página</span>
               <input
                 type="number"
                 min={0}
                 value={numeroPagina}
                 onChange={(event) => setNumeroPagina(Number(event.target.value))}
-                placeholder="0 = detectar por QR"
+                placeholder="0 = detectar QR"
                 disabled={bloqueoManual || bloqueoAnalisis}
               />
             </label>
           </div>
           {bloqueoManual && (
             <InlineMensaje tipo="info">
-              QR detectado: se bloqueo el folio/pagina para evitar errores manuales.
+              QR detectado: se bloqueó el folio/página para evitar errores.
               <button type="button" className="link" onClick={() => setBloqueoManual(false)}>
                 Editar manualmente
               </button>
             </InlineMensaje>
           )}
-          <label className="campo">
-            Imagen
-            <input type="file" accept="image/*" onChange={cargarArchivo} disabled={bloqueoAnalisis} />
-          </label>
+          <div className="calif-dropzone-wrap">
+            <label className="calif-dropzone">
+              <span className="calif-dropzone__icon">
+                <Icono nombre="escaneo" />
+              </span>
+              <span className="calif-dropzone__title">Cargar imagen o foto del examen</span>
+              <span className="calif-dropzone__sub">Formatos JPG, PNG, WEBP de alta resolución</span>
+              <input type="file" accept="image/*" onChange={cargarArchivo} disabled={bloqueoAnalisis} className="calif-dropzone__input" />
+            </label>
+          </div>
           {calidadCaptura && (
             <InlineMensaje tipo={calidadCaptura.aprobada ? 'ok' : 'warning'}>
-              Calidad captura: blur {Math.round(calidadCaptura.blurVar)} · brillo {Math.round(calidadCaptura.brilloMedio)} · hoja{' '}
+              Calidad captura: nitidez {Math.round(calidadCaptura.blurVar)} · brillo {Math.round(calidadCaptura.brilloMedio)} · hoja{' '}
               {(calidadCaptura.areaHojaRatio * 100).toFixed(0)}%.
               {motivosCaptura.length > 0 ? ` ${motivosCaptura.join(' ')}` : ' Lista para analizar.'}
             </InlineMensaje>
@@ -602,16 +621,30 @@ export function SeccionEscaneo({
               disabled={!puedeAnalizar || !puedeAnalizarImagen}
               onClick={analizar}
             >
-              {analizando ? 'Analizando…' : 'Analizar'}
+              {analizando ? 'Analizando…' : 'Analizar página'}
             </Boton>
           </div>
         </div>
-        <div className="subpanel calif-captura-panel">
+
+        <div className="calif-captura-card">
+          <div className="calif-captura-card__head">
+            <span className="banco-section-pill banco-section-pill--amber">
+              <span className="banco-section-pill__dot" aria-hidden="true" />
+              <span>Procesamiento Masivo</span>
+            </span>
+            <span className="banco-counter-tag">Lote ({lote.length})</span>
+          </div>
           <h3>Lote de imagenes</h3>
-          <label className="campo">
-            Lote de imagenes (bulk)
-            <input type="file" accept="image/*" multiple onChange={cargarLote} disabled={bloqueoAnalisis} />
-          </label>
+          <div className="calif-dropzone-wrap">
+            <label className="calif-dropzone">
+              <span className="calif-dropzone__icon">
+                <Icono nombre="pdf" />
+              </span>
+              <span className="calif-dropzone__title">Cargar lote de imágenes escaneadas</span>
+              <span className="calif-dropzone__sub">Selecciona múltiples archivos a la vez</span>
+              <input type="file" accept="image/*" multiple onChange={cargarLote} disabled={bloqueoAnalisis} className="calif-dropzone__input" />
+            </label>
+          </div>
           <div className="item-actions">
             <Boton
               type="button"
@@ -722,9 +755,7 @@ export function SeccionEscaneo({
         </div>
       )}
       {mensaje && (
-        <p className={esMensajeError(mensaje) ? 'mensaje error' : 'mensaje ok'} role="status">
-          {mensaje}
-        </p>
+        <InlineMensaje tipo={esMensajeError(mensaje) ? 'error' : 'ok'}>{mensaje}</InlineMensaje>
       )}
 
       {resultado && (
@@ -887,6 +918,18 @@ export function SeccionEscaneo({
                             onChange={(event) => {
                               onActualizarPregunta(fila.numeroPregunta, event.target.value || null);
                               onConfirmarRevisionOmr(false);
+                            }}
+                            onKeyDown={(event) => {
+                              const key = event.key.toUpperCase();
+                              if (['A', 'B', 'C', 'D', 'E'].includes(key)) {
+                                event.preventDefault();
+                                onActualizarPregunta(fila.numeroPregunta, key);
+                                onConfirmarRevisionOmr(false);
+                              } else if (key === 'DELETE' || key === 'BACKSPACE' || key === '0' || key === '-') {
+                                event.preventDefault();
+                                onActualizarPregunta(fila.numeroPregunta, null);
+                                onConfirmarRevisionOmr(false);
+                              }
                             }}
                           >
                             <option value="">-</option>

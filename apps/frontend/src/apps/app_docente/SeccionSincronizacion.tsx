@@ -8,6 +8,7 @@ import { Icono } from '../../ui/iconos';
 import { Boton } from '../../ui/ux/componentes/Boton';
 import { HelperPanel } from '../../ui/ux/componentes/HelperPanel';
 import { InlineMensaje } from '../../ui/ux/componentes/InlineMensaje';
+import { GuiaSincronizacionVisual } from './GuiaSincronizacionVisual';
 import { SeccionPaqueteSincronizacion } from './SeccionPaqueteSincronizacion';
 import { SeccionSincronizacionEquipos } from './SeccionSincronizacionEquipos';
 import { SeccionPublicar } from './SeccionPublicar';
@@ -74,7 +75,6 @@ export function SeccionSincronizacion({
   const {
     ordenadas,
     historialFiltrado,
-    sincronizacionReciente,
     estadoReciente,
     totalesEstado,
     fechaActualizacion,
@@ -106,27 +106,62 @@ export function SeccionSincronizacion({
 
   return (
     <div className="panel sincronizacion-shell">
-      <div className="sincronizacion-header">
-        <div>
-          <h2>
-            <Icono nombre="publicar" /> Sincronización, backups y estado de datos
-          </h2>
-          <p className="nota">Consolida sincronización con portal, paquetes entre computadoras y trazabilidad del estado operativo.</p>
+      {/* 1. Bento Hero Header */}
+      <div className="banco-panel__head sincronizacion-panel__head anim-fade-in">
+        <div className="banco-panel__lead">
+          <div className="banco-panel__icon-orb sincronizacion-panel__icon-orb anim-icon-pulse" aria-hidden="true">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.57-8.38l5.67-5.67" />
+            </svg>
+          </div>
+          <div className="banco-panel__text-block">
+            <div className="banco-panel__meta-row">
+              <span className="banco-status-pill sincronizacion-status-pill">
+                <span className="banco-pulse-dot" aria-hidden="true" />
+                <span>{estadoReciente.texto}</span>
+              </span>
+              <span className="banco-counter-tag">Actualizado: {fechaActualizacion}</span>
+            </div>
+            <h2 className="banco-panel__title eyebrow"><Icono nombre="publicar" /> Sincronización, backups y estado de datos</h2>
+            <p className="nota">Consolida sincronización con portal, paquetes entre computadoras y trazabilidad del estado operativo.</p>
+          </div>
         </div>
-        <div className="sincronizacion-header__chipWrap" aria-live="polite">
-          <span className={`estado-chip ${estadoReciente.clase}`}>{estadoReciente.texto}</span>
-          <span className="nota">Último evento: {sincronizacionReciente ? formatearFechaSincronizacion(sincronizacionReciente.ejecutadoEn || sincronizacionReciente.createdAt) : 'Sin registros'}</span>
+
+        {/* Mini-KPIs */}
+        <div className="banco-header-kpis" aria-live="polite">
+          <div className="banco-mini-kpi banco-mini-kpi--preguntas anim-kpi-hover" data-tooltip="Materias activas y archivadas">
+            <span className="banco-mini-kpi__icon" aria-hidden="true"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2.2"><path d="M4 19.5v-15A2.5 2.5 0 0 1 6.5 2H20v20H6.5a2.5 2.5 0 0 1-2.5-2.5Z" /></svg></span>
+            <span className="banco-mini-kpi__num">{resumenDatos.materiasActivas}</span>
+            <span className="banco-mini-kpi__lbl">Materias</span>
+          </div>
+
+          <div className="banco-mini-kpi banco-mini-kpi--temas anim-kpi-hover" data-tooltip="Total de alumnos matriculados">
+            <span className="banco-mini-kpi__icon" aria-hidden="true">
+              <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2.2">
+                <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
+                <circle cx="9" cy="7" r="4" />
+              </svg>
+            </span>
+            <span className="banco-mini-kpi__num banco-mini-kpi__num--cyan">{resumenDatos.alumnos}</span>
+            <span className="banco-mini-kpi__lbl">Alumnos</span>
+          </div>
+
+          <div className="banco-mini-kpi banco-mini-kpi--temaactual anim-kpi-hover" data-tooltip="Plantillas y reactivos del banco">
+            <span className="banco-mini-kpi__icon" aria-hidden="true"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2.2"><polyline points="20 6 9 17 4 12" /></svg></span>
+            <span className="banco-mini-kpi__num banco-mini-kpi__num--emerald">{resumenDatos.plantillas}</span>
+            <span className="banco-mini-kpi__lbl">Plantillas</span>
+          </div>
+
+          <div className="banco-mini-kpi banco-mini-kpi--paginas anim-kpi-hover" data-tooltip="Operaciones exitosas registradas">
+            <span className="banco-mini-kpi__icon" aria-hidden="true"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2.2"><polyline points="22 4 12 14.01 9 11.01" /></svg></span>
+            <span className="banco-mini-kpi__num banco-mini-kpi__num--emerald">{totalesEstado.exitosas}</span>
+            <span className="banco-mini-kpi__lbl">Exitosas</span>
+          </div>
         </div>
       </div>
 
-      <div className="sincronizacion-kpi" aria-live="polite">
-        <div className="sincronizacion-kpi__item"><span>Materias activas</span><b>{resumenDatos.materiasActivas}</b></div>
-        <div className="sincronizacion-kpi__item"><span>Materias archivadas</span><b>{resumenDatos.materiasArchivadas}</b></div>
-        <div className="sincronizacion-kpi__item"><span>Alumnos</span><b>{resumenDatos.alumnos}</b></div>
-        <div className="sincronizacion-kpi__item"><span>Plantillas</span><b>{resumenDatos.plantillas}</b></div>
-        <div className="sincronizacion-kpi__item"><span>Banco</span><b>{resumenDatos.banco}</b></div>
-        <div className="sincronizacion-kpi__item"><span>Última actualización local</span><b>{fechaActualizacion}</b></div>
-      </div>
+      {/* 2. Bento Visual Guide */}
+      <GuiaSincronizacionVisual />
 
       <div className="estado-datos-grid sincronizacion-resumen-grid">
         <div className="item-glass estado-datos-card">
@@ -135,7 +170,7 @@ export function SeccionSincronizacion({
               <div className="estado-datos-titulo">Estado de sincronización</div>
               <div className="nota">Monitorea las últimas operaciones de push, pull, publicar y backups.</div>
             </div>
-            <span className={`estado-chip ${estadoReciente.clase}`}>{estadoReciente.texto}</span>
+            <span className={'estado-chip ' + estadoReciente.clase}>{estadoReciente.texto}</span>
           </div>
 
           <div className="estado-datos-cifras">
@@ -168,54 +203,83 @@ export function SeccionSincronizacion({
                 {cargandoEstado ? 'Actualizando...' : 'Actualizar estado'}
               </Boton>
               <label className="campo campo--checkbox sincronizacion-auto-refresh">
-                <input type="checkbox" checked={autoRefresh} onChange={(e) => setAutoRefresh(e.target.checked)} />
-                Auto-refresh 45s
+                <input
+                  type="checkbox"
+                  checked={autoRefresh}
+                  onChange={(e) => setAutoRefresh(e.target.checked)}
+                />
+                Auto-actualizar (45s)
               </label>
             </div>
           </div>
 
-          <div className="estado-datos-lista sincronizacion-timeline">
-            {(historialFiltrado.length ? historialFiltrado : [{} as RegistroSincronizacion]).slice(0, 8).map((item, idx) => {
-              if (!item?.estado) {
-                return (
-                  <div key={`vacio-${idx}`} className="estado-datos-item">
-                    <div className="nota">No hay historial disponible.</div>
-                  </div>
-                );
-              }
-              const estado = normalizarEstadoSincronizacion(item.estado);
-              return (
-                <div key={item._id || `sync-${idx}`} className="estado-datos-item">
-                  <span className={`estado-chip ${estado.clase}`}>{estado.texto}</span>
-                  <div>
-                    <div className="estado-datos-item__titulo">{String(item.tipo || 'sincronizacion').toUpperCase()}</div>
-                    <div className="nota">{formatearFechaSincronizacion(item.ejecutadoEn || item.createdAt)}</div>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
+          {errorEstado && <InlineMensaje tipo="error">{errorEstado}</InlineMensaje>}
 
-          {errorEstado && <InlineMensaje tipo="warning">{errorEstado}</InlineMensaje>}
+          <div className="sincronizacion-historial-wrap">
+            <div className="sincronizacion-historial-head">
+              <div className="sincronizacion-historial-titulo">Historial reciente</div>
+              <div className="nota">Mostrando {historialFiltrado.length} de {ordenadas.length} eventos</div>
+            </div>
+
+            {historialFiltrado.length === 0 ? (
+              <p className="nota">No hay registros de sincronización que coincidan con el filtro.</p>
+            ) : (
+              <ul className="lista lista-items sincronizacion-historial-lista">
+                {historialFiltrado.map((item: RegistroSincronizacion, idx: number) => {
+                  const estadoItem = normalizarEstadoSincronizacion(item.estado);
+                  const fecha = formatearFechaSincronizacion(item.ejecutadoEn || item.createdAt);
+                  const tipo = String(item.tipo || 'evento').toUpperCase();
+                  const resumen = String((item as unknown as { resumen?: string; mensaje?: string }).resumen || item.detalles || (item as unknown as { resumen?: string; mensaje?: string }).mensaje || '-');
+                  return (
+                    <li key={item._id || (item.tipo + '-' + idx)} className="item-glass sincronizacion-historial-item">
+                      <div className="item-row">
+                        <div>
+                          <div className="item-title">{tipo}</div>
+                          <div className="item-meta">
+                            <span>{fecha}</span>
+                            <span className={'estado-chip ' + estadoItem.clase}>{estadoItem.texto}</span>
+                          </div>
+                          <div className="item-sub">{resumen}</div>
+                        </div>
+                      </div>
+                    </li>
+                  );
+                })}
+              </ul>
+            )}
+          </div>
+        </div>
+
+        <div className="item-glass sincronizacion-side-card">
+          <HelperPanel
+            titulo="Centro de backups y publicación"
+            descripcion="Sincroniza directamente con el portal del alumno o exporta/importa paquetes cifrados entre computadoras sin conexión a internet."
+            pasos={[
+              'Publica calificaciones al portal web con un solo clic.',
+              'Exporta paquetes .epbak para respaldar toda tu base de datos.',
+              'Conecta dos laptops en la misma red local mediante PIN.'
+            ]}
+          />
         </div>
       </div>
 
-      <div className="sincronizacion-grid">
-        <HelperPanel
-          titulo="Sincronizacion segura entre computadoras"
-          descripcion="Sigue siempre el mismo orden para evitar duplicados y perdida de cambios."
-          pasos={[
-            '1) Actualiza estado antes de iniciar.',
-            '2) En equipo emisor: exporta o haz push.',
-            '3) En equipo receptor: importa o haz pull y valida conteos.',
-            '4) Revisa historial y resuelve conflictos antes de publicar.'
-          ]}
-          notas={<p className="nota">Si hay errores repetidos, detén la operación y revisa conectividad, reloj del sistema y permisos.</p>}
-        />
-        <SeccionPublicar periodos={periodosSeguros} onPublicar={onPublicar} onCodigo={onCodigo} />
-        <SeccionPaqueteSincronizacion periodos={periodosSeguros} docenteCorreo={docenteCorreo} onExportar={onExportarPaquete} onImportar={onImportarPaquete} />
-        <SeccionSincronizacionEquipos onPushServidor={onPushServidor} onPullServidor={onPullServidor} />
-      </div>
+      <SeccionPublicar
+        periodos={periodosSeguros}
+        onPublicar={onPublicar}
+        onCodigo={onCodigo}
+      />
+
+      <SeccionPaqueteSincronizacion
+        periodos={periodosSeguros}
+        onExportar={onExportarPaquete}
+        onImportar={onImportarPaquete}
+        docenteCorreo={docenteCorreo}
+      />
+
+      <SeccionSincronizacionEquipos
+        onPushServidor={onPushServidor}
+        onPullServidor={onPullServidor}
+      />
     </div>
   );
 }

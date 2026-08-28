@@ -10,6 +10,7 @@ import { requerirPermiso } from '../modulo_autenticacion/middlewarePermisos';
 import { esquemaBodyVacioOpcional } from '../modulo_alumnos/validacionesPeriodos';
 import {
   actualizarMapeoAlumnosCursoController,
+  importarAlumnosClassroomController,
   desconectarOauthClassroomController,
   ejecutarImportacionClassroom,
   iniciarOauthClassroom,
@@ -45,6 +46,7 @@ import {
 } from './validacionesEvaluaciones';
 import {
   esquemaActualizarMapeoAlumnosCurso,
+  esquemaImportarAlumnosClassroom,
   esquemaEjecutarImportacionClassroom,
   esquemaPreviewImportacionClassroom
 } from '../modulo_integraciones_classroom/validacionesClassroom';
@@ -115,6 +117,12 @@ router.post(
 router.get('/v2/classroom/cursos', requerirPermiso('classroom:pull'), listarCursosClassroomController);
 router.get('/v2/classroom/cursos/:courseId/actividades', requerirPermiso('classroom:pull'), listarActividadesClassroomController);
 router.get('/v2/classroom/cursos/:courseId/alumnos', requerirPermiso('classroom:pull'), obtenerAlumnosCursoClassroomController);
+router.post(
+  '/v2/classroom/cursos/:courseId/importar-alumnos',
+  requerirPermiso('classroom:pull'),
+  validarCuerpo(esquemaImportarAlumnosClassroom, { strict: true }),
+  importarAlumnosClassroomController
+);
 router.put(
   '/v2/classroom/cursos/:courseId/mapeo-alumnos',
   requerirPermiso('classroom:pull'),

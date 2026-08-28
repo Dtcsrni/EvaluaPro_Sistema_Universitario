@@ -70,7 +70,7 @@ ul {
 
 /* ---- LAYOUT ---- */
 .container {
-  width: min(1200px, 92vw);
+  width: min(1300px, 94vw);
   margin: 0 auto;
 }
 
@@ -460,7 +460,7 @@ main {
 
 .db-mockup__layout {
   display: flex;
-  height: 380px;
+  height: 440px;
 }
 
 .db-mockup__sidebar {
@@ -1847,3 +1847,297 @@ main {
     gap: 0.5rem;
   }
 }
+
+/* =========================================================
+   ESTILOS ADICIONALES EVALUAPRO v1.1.1 BENTO & EXAM STUDIO
+   ========================================================= */
+
+.brand {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+}
+
+.brand__name {
+  font-family: "Sora", sans-serif;
+  font-weight: 700;
+  font-size: 1.15rem;
+  color: var(--text);
+  letter-spacing: -0.02em;
+}
+
+.brand__badge {
+  font-size: 0.65rem;
+  font-weight: 600;
+  color: var(--accent);
+  background: rgba(23, 201, 164, 0.12);
+  border: 1px solid rgba(23, 201, 164, 0.25);
+  border-radius: 99px;
+  padding: 0.15rem 0.5rem;
+  letter-spacing: 0.02em;
+}
+
+.badge-pulse {
+  display: inline-block;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--accent);
+  box-shadow: 0 0 10px var(--accent);
+  animation: pulse-dot 2s infinite;
+  margin-right: 0.35rem;
+}
+
+@keyframes pulse-dot {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.4; transform: scale(0.85); }
+}
+
+.db-mockup__status-badge {
+  font-size: 0.65rem;
+  color: var(--accent);
+  font-weight: 600;
+  background: rgba(23, 201, 164, 0.1);
+  padding: 0.15rem 0.45rem;
+  border-radius: 4px;
+  border: 1px solid rgba(23, 201, 164, 0.2);
+}
+
+.db-mockup__bento-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  background: rgba(255, 255, 255, 0.02);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 0.6rem 0.8rem;
+  gap: 0.5rem;
+}
+
+.db-mockup__bento-left {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+}
+
+.db-mockup__avatar {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #00a6fb, #6366f1);
+  color: #fff;
+  font-size: 0.68rem;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.db-mockup__welcome {
+  font-size: 0.76rem;
+  color: var(--text);
+}
+
+.db-mockup__subtext {
+  font-size: 0.62rem;
+  color: var(--muted);
+}
+
+.db-mockup__orb {
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: radial-gradient(circle at 35% 35%, #00D2FF, #06111e);
+  box-shadow: 0 0 12px #00D2FF;
+  flex-shrink: 0;
+}
+
+.db-mockup__tabs {
+  display: flex;
+  gap: 0.35rem;
+  border-bottom: 1px solid var(--line);
+  padding-bottom: 0.35rem;
+}
+
+.db-mockup__tab {
+  font-size: 0.65rem;
+  color: var(--muted);
+  padding: 0.25rem 0.5rem;
+  border-radius: 4px;
+  cursor: default;
+}
+
+.db-mockup__tab--active {
+  background: rgba(0, 166, 251, 0.15);
+  color: var(--brand);
+  font-weight: 600;
+  border: 1px solid rgba(0, 166, 251, 0.25);
+}
+
+.db-mockup__list-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 0.65rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--muted);
+  margin-bottom: 0.35rem;
+}
+
+.db-mockup__badge-live {
+  font-size: 0.58rem;
+  color: var(--accent);
+  background: rgba(23, 201, 164, 0.15);
+  padding: 0.1rem 0.35rem;
+  border-radius: 3px;
+  font-weight: 600;
+}
+
+.db-mockup__meta {
+  font-size: 0.6rem;
+  color: var(--muted);
+  display: block;
+  margin-top: 0.15rem;
+}
+
+/* Exam Studio Section */
+.exam-studio-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 1.5rem;
+  margin-top: 2rem;
+}
+
+.exam-studio-card {
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  padding: 1.75rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.85rem;
+  position: relative;
+  transition: transform 200ms ease, border-color 200ms ease, box-shadow 200ms ease;
+}
+
+.exam-studio-card:hover {
+  transform: translateY(-4px);
+  border-color: rgba(0, 166, 251, 0.35);
+  box-shadow: 0 12px 30px rgba(0, 0, 0, 0.4);
+}
+
+.exam-studio-card--featured {
+  border-color: rgba(23, 201, 164, 0.3);
+  background: linear-gradient(170deg, rgba(13, 25, 41, 0.9) 0%, rgba(10, 35, 45, 0.7) 100%);
+}
+
+.exam-studio-badge {
+  align-self: flex-start;
+  font-size: 0.65rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  padding: 0.2rem 0.55rem;
+  border-radius: 4px;
+  background: rgba(0, 166, 251, 0.12);
+  color: var(--brand);
+  border: 1px solid rgba(0, 166, 251, 0.25);
+}
+
+.exam-studio-badge--accent {
+  background: rgba(23, 201, 164, 0.15);
+  color: var(--accent);
+  border-color: rgba(23, 201, 164, 0.3);
+}
+
+.exam-mini-preview {
+  margin-top: auto;
+  background: rgba(0, 0, 0, 0.3);
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  padding: 0.8rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+
+.exam-mini-line {
+  height: 6px;
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 3px;
+}
+
+.exam-mini-line--title {
+  width: 60%;
+  background: var(--brand);
+  opacity: 0.6;
+}
+
+.exam-mini-line--text {
+  width: 90%;
+}
+
+.exam-mini-options {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.3rem;
+  margin-top: 0.4rem;
+  font-size: 0.58rem;
+  color: var(--muted);
+}
+
+.exam-mini-options span {
+  background: rgba(255, 255, 255, 0.04);
+  padding: 0.15rem 0.35rem;
+  border-radius: 3px;
+  border: 1px solid var(--line);
+}
+
+.exam-mini-qr-box {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.exam-mini-qr {
+  width: 36px;
+  height: 36px;
+  background: repeating-conic-gradient(#00D2FF 0% 25%, #06111e 0% 50%) 50% / 8px 8px;
+  border: 1px solid #00D2FF;
+  border-radius: 4px;
+}
+
+.exam-mini-qr-box strong {
+  display: block;
+  font-size: 0.72rem;
+  color: var(--text);
+}
+
+.exam-mini-qr-box small {
+  font-size: 0.62rem;
+  color: var(--accent);
+}
+
+.exam-mini-log {
+  font-size: 0.62rem;
+  color: var(--muted);
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.exam-mini-log span {
+  background: rgba(255, 255, 255, 0.03);
+  padding: 0.2rem 0.4rem;
+  border-radius: 3px;
+  border-left: 2px solid var(--accent);
+}
+
+@media (max-width: 900px) {
+  .exam-studio-grid {
+    grid-template-columns: 1fr;
+  }
+}
+

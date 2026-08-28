@@ -1,17 +1,17 @@
 /**
  * SeccionAlumnos
  *
- * Responsabilidad: Seccion funcional del shell docente.
+ * Responsabilidad: Seccion funcional del shell docente con diseno Bento Glassmorphic, iconografia rica y animaciones fluidas.
  * Limites: Conservar UX y permisos; extraer logica compleja a hooks/components.
  */
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { accionToastSesionParaError } from '../../servicios_api/clienteComun';
 import { useConfirmDialog } from '../../ui/feedback/ConfirmDialogProvider';
 import { emitToast } from '../../ui/toast/toastBus';
 import { Icono } from '../../ui/iconos';
 import { Boton } from '../../ui/ux/componentes/Boton';
 import { InlineMensaje } from '../../ui/ux/componentes/InlineMensaje';
-import { AyudaFormulario } from './AyudaFormulario';
+import { GuiaAlumnosVisual } from './GuiaAlumnosVisual';
 import { registrarAccionDocente } from './telemetriaDocente';
 import type { Alumno, EnviarConPermiso, Periodo, PermisosUI } from './tipos';
 import { clienteApi } from './clienteApiDocente';
@@ -19,11 +19,11 @@ import {
   esCorreoDeDominioPermitidoFrontend,
   esMensajeError,
   etiquetaMateria,
-  idCortoMateria,
   mensajeDeError,
   obtenerDominiosCorreoPermitidosFrontend,
   textoDominiosPermitidos
 } from './utilidades';
+
 export function SeccionAlumnos({
   alumnos,
   periodosActivos,
@@ -62,6 +62,9 @@ export function SeccionAlumnos({
   const [filtroGrupo, setFiltroGrupo] = useState('');
   const [resumenAsistencias, setResumenAsistencias] = useState<any[]>([]);
 
+  const formularioRef = useRef<HTMLElement>(null);
+  const matriculaInputRef = useRef<HTMLInputElement>(null);
+
   useEffect(() => {
     if (!periodoIdLista) {
       setResumenAsistencias([]);
@@ -75,6 +78,7 @@ export function SeccionAlumnos({
         setResumenAsistencias([]);
       });
   }, [periodoIdLista]);
+
   const confirm = useConfirmDialog();
   const puedeGestionar = permisos.alumnos.gestionar;
   const bloqueoEdicion = !puedeGestionar;
@@ -89,7 +93,7 @@ export function SeccionAlumnos({
   const matriculaNormalizada = useMemo(() => normalizarMatricula(matricula), [matricula]);
   const matriculaValida = useMemo(() => {
     if (!matricula.trim()) return true;
-    return /^CUH\d{9}$/.test(matriculaNormalizada);
+    return /^CUH\d+$/i.test(matriculaNormalizada) || /^[\w\-.]{3,30}$/.test(matriculaNormalizada);
   }, [matricula, matriculaNormalizada]);
 
   const dominiosPermitidos = obtenerDominiosCorreoPermitidosFrontend();
@@ -104,6 +108,12 @@ export function SeccionAlumnos({
       hash = (hash * 31 + clave.charCodeAt(i)) >>> 0;
     }
     return `badge-grupo--${hash % 8}`;
+  }
+
+  function obtenerIniciales(nombre?: string, apellido?: string): string {
+    const n = String(nombre || '').trim().charAt(0);
+    const a = String(apellido || '').trim().charAt(0);
+    return (n + a).toUpperCase() || 'AL';
   }
 
   useEffect(() => {
@@ -162,19 +172,13 @@ export function SeccionAlumnos({
       });
   }, [alumnos, periodoIdLista]);
 
-  const nombreMateriaSeleccionada = useMemo(() => {
-    if (!periodoIdLista) return '';
-    const periodo = periodosTodos.find((p) => p._id === periodoIdLista);
-    return periodo ? etiquetaMateria(periodo) : '';
-  }, [periodosTodos, periodoIdLista]);
-
   const gruposDisponibles = useMemo(() => {
     const set = new Set<string>();
-    for (const alumno of alumnosDeMateria) {
-      const g = String(alumno.grupo || '').trim();
+    for (const a of alumnosDeMateria) {
+      const g = String(a.grupo || '').trim();
       if (g) set.add(g);
     }
-    return [...set].sort((a, b) => a.localeCompare(b, 'es'));
+    return Array.from(set).sort((a, b) => a.localeCompare(b, 'es'));
   }, [alumnosDeMateria]);
 
   const alumnosFiltrados = useMemo(() => {
@@ -184,75 +188,75 @@ export function SeccionAlumnos({
       const nombre = String(alumno.nombreCompleto || '').toLowerCase();
       const matriculaAlumno = String(alumno.matricula || '').toLowerCase();
       const correoAlumno = String(alumno.correo || '').toLowerCase();
-      const grupoAlumno = String(alumno.grupo || '').toLowerCase();
+      const grupoAlumno = String(alumno.grupo || '').trim().toLowerCase();
       const byText = !txt || nombre.includes(txt) || matriculaAlumno.includes(txt) || correoAlumno.includes(txt);
       const byGroup = !grp || grupoAlumno === grp;
       return byText && byGroup;
     });
   }, [alumnosDeMateria, filtroAlumno, filtroGrupo]);
 
+  const totalSinDerecho = useMemo(() => {
+    return alumnosDeMateria.filter((alumno) => {
+      const faltas = resumenAsistencias.find((r) => r.alumnoId === alumno._id)?.faltas ?? 0;
+      return faltas >= 4;
+    }).length;
+  }, [alumnosDeMateria, resumenAsistencias]);
+
   const resumenAlumnos = useMemo(() => {
     const total = alumnosDeMateria.length;
-    const conCorreo = alumnosDeMateria.filter((a) => String(a.correo || '').trim()).length;
     const grupos = gruposDisponibles.length;
-    return { total, conCorreo, grupos };
-  }, [alumnosDeMateria, gruposDisponibles.length]);
+    return {
+      total,
+      grupos,
+      sinDerecho: totalSinDerecho,
+      totalGeneral: (Array.isArray(alumnos) ? alumnos : []).length
+    };
+  }, [alumnosDeMateria, gruposDisponibles.length, totalSinDerecho, alumnos]);
+
+  const nombreMateriaSeleccionada = useMemo(() => {
+    const p = (periodosTodos || []).find((item) => item._id === periodoIdLista);
+    return p ? etiquetaMateria(p) : '';
+  }, [periodosTodos, periodoIdLista]);
 
   async function crearAlumno() {
     try {
       const inicio = Date.now();
       if (!puedeGestionar) {
-        avisarSinPermiso('No tienes permiso para gestionar alumnos.');
+        avisarSinPermiso('No tienes permiso para registrar alumnos.');
         return;
       }
-      if (dominiosPermitidos.length > 0 && correo.trim() && !correoValido) {
-        const msg = `Solo se permiten correos institucionales: ${politicaDominiosTexto}`;
-        setMensaje(msg);
-        emitToast({ level: 'error', title: 'Correo no permitido', message: msg, durationMs: 5200 });
-        registrarAccionDocente('crear_alumno', false);
-        return;
-      }
+      if (!puedeCrear) return;
       setCreando(true);
       setMensaje('');
-      const creado = await enviarConPermiso<{ alumno?: Alumno }>(
+      await enviarConPermiso(
         'alumnos:gestionar',
         '/alumnos',
         {
+          periodoId: periodoIdNuevo,
           matricula: matriculaNormalizada,
           nombres: nombres.trim(),
           apellidos: apellidos.trim(),
-          ...(correo.trim() ? { correo: correo.trim() } : {}),
-          ...(grupo.trim() ? { grupo: grupo.trim() } : {}),
-          periodoId: periodoIdNuevo
+          correo: correo.trim() || undefined,
+          grupo: grupo.trim() || undefined
         },
-        'No tienes permiso para crear alumnos.'
+        'No tienes permiso para registrar alumnos.'
       );
-      const alumnoCreado = creado?.alumno;
-      const idCreado = String(alumnoCreado?._id || '').trim();
-      const idTexto = idCreado || 'sin-id';
-      setMensaje(`Alumno creado (ID: ${idTexto})`);
-      emitToast({ level: 'ok', title: 'Alumnos', message: `Alumno creado · ID: ${idTexto}`, durationMs: 2200 });
+      setMensaje('Alumno registrado');
+      emitToast({ level: 'ok', title: 'Alumnos', message: 'Alumno registrado correctamente', durationMs: 2200 });
       registrarAccionDocente('crear_alumno', true, Date.now() - inicio);
-      const periodoReciente = String(alumnoCreado?.periodoId || periodoIdNuevo || '').trim();
-      const grupoReciente = String(alumnoCreado?.grupo || grupo || '').trim();
-      if (periodoReciente) {
-        setUltimoPeriodoIdUsado(periodoReciente);
-        setPeriodoIdNuevo(periodoReciente);
-      }
-      setUltimoGrupoUsado(grupoReciente);
-      setGrupo(grupoReciente);
       setMatricula('');
       setNombres('');
       setApellidos('');
       setCorreo('');
       setCorreoAuto(true);
+      setPeriodoIdLista(periodoIdNuevo);
       onRefrescar();
     } catch (error) {
-      const msg = mensajeDeError(error, 'No se pudo crear el alumno');
+      const msg = mensajeDeError(error, 'No se pudo registrar el alumno');
       setMensaje(msg);
       emitToast({
         level: 'error',
-        title: 'No se pudo crear',
+        title: 'No se pudo registrar',
         message: msg,
         durationMs: 5200,
         action: accionToastSesionParaError(error, 'docente')
@@ -264,75 +268,66 @@ export function SeccionAlumnos({
   }
 
   function iniciarEdicion(alumno: Alumno) {
-    setMensaje('');
     setEditandoId(alumno._id);
     setMatricula(alumno.matricula || '');
     setNombres(alumno.nombres || '');
     setApellidos(alumno.apellidos || '');
-    setGrupo(alumno.grupo || '');
+    setCorreo(alumno.correo || '');
     setCorreoAuto(false);
-    setCorreo(alumno.correo || (alumno.matricula ? `${normalizarMatricula(alumno.matricula)}@cuh.mx` : ''));
+    setGrupo(alumno.grupo || '');
     setPeriodoIdNuevo(alumno.periodoId || '');
+    setMensaje('');
+    emitToast({
+      level: 'info',
+      title: 'Modificando Alumno',
+      message: `Editando datos de ${alumno.nombreCompleto || 'alumno'}. Modifica los campos en el formulario.`,
+      durationMs: 3000
+    });
+    registrarAccionDocente('iniciar_edicion_alumno', true);
+    setTimeout(() => {
+      formularioRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      matriculaInputRef.current?.focus();
+    }, 60);
   }
 
   function cancelarEdicion() {
     setEditandoId(null);
-    setMensaje('');
     setMatricula('');
     setNombres('');
     setApellidos('');
     setCorreo('');
     setCorreoAuto(true);
-    setGrupo('');
-    setPeriodoIdNuevo('');
+    setMensaje('');
   }
 
   async function guardarEdicion() {
     if (!editandoId) return;
-
     try {
       const inicio = Date.now();
       if (!puedeGestionar) {
         avisarSinPermiso('No tienes permiso para editar alumnos.');
         return;
       }
-      if (dominiosPermitidos.length > 0 && correo.trim() && !correoValido) {
-        const msg = `Solo se permiten correos institucionales: ${politicaDominiosTexto}`;
-        setMensaje(msg);
-        emitToast({ level: 'error', title: 'Correo no permitido', message: msg, durationMs: 5200 });
-        registrarAccionDocente('editar_alumno', false);
-        return;
-      }
-
+      if (!puedeGuardarEdicion) return;
       setGuardandoEdicion(true);
       setMensaje('');
       await enviarConPermiso(
         'alumnos:gestionar',
-        `/alumnos/${editandoId}/actualizar`,
+        `/alumnos/${editandoId}`,
         {
+          periodoId: periodoIdNuevo,
           matricula: matriculaNormalizada,
           nombres: nombres.trim(),
           apellidos: apellidos.trim(),
-          ...(correo.trim() ? { correo: correo.trim() } : {}),
-          ...(grupo.trim() ? { grupo: grupo.trim() } : {}),
-          periodoId: periodoIdNuevo
+          correo: correo.trim() || undefined,
+          grupo: grupo.trim() || undefined
         },
         'No tienes permiso para editar alumnos.'
       );
-
       setMensaje('Alumno actualizado');
-      emitToast({ level: 'ok', title: 'Alumnos', message: 'Alumno actualizado', durationMs: 2200 });
-      registrarAccionDocente('editar_alumno', true, Date.now() - inicio);
-      setUltimoGrupoUsado(String(grupo || '').trim());
-      setUltimoPeriodoIdUsado(String(periodoIdNuevo || '').trim());
-      setEditandoId(null);
-      setMatricula('');
-      setNombres('');
-      setApellidos('');
-      setCorreo('');
-      setCorreoAuto(true);
-      setGrupo('');
-      setPeriodoIdNuevo('');
+      emitToast({ level: 'ok', title: 'Alumnos', message: 'Alumno actualizado correctamente', durationMs: 2200 });
+      registrarAccionDocente('actualizar_alumno', true, Date.now() - inicio);
+      cancelarEdicion();
       onRefrescar();
     } catch (error) {
       const msg = mensajeDeError(error, 'No se pudo actualizar el alumno');
@@ -344,7 +339,7 @@ export function SeccionAlumnos({
         durationMs: 5200,
         action: accionToastSesionParaError(error, 'docente')
       });
-      registrarAccionDocente('editar_alumno', false);
+      registrarAccionDocente('actualizar_alumno', false);
     } finally {
       setGuardandoEdicion(false);
     }
@@ -356,9 +351,9 @@ export function SeccionAlumnos({
       return;
     }
     const confirmado = await confirm({
-      title: 'Eliminar alumno',
-      message: `Se eliminará al alumno "${alumno.nombreCompleto}" del entorno de desarrollo.`,
-      details: ['También se borrarán exámenes asociados.', 'Esta acción es solo para limpieza técnica.'],
+      title: 'Eliminar alumno en desarrollo',
+      message: `Se eliminará a "${alumno.nombreCompleto}" (${alumno.matricula}).`,
+      details: ['Esta acción es exclusiva para pruebas locales.', 'Se desvincularán sus asistencias y calificaciones.'],
       confirmLabel: 'Sí, eliminar alumno',
       tone: 'danger'
     });
@@ -377,6 +372,7 @@ export function SeccionAlumnos({
       setMensaje('Alumno eliminado');
       emitToast({ level: 'ok', title: 'Alumnos', message: 'Alumno eliminado', durationMs: 2200 });
       registrarAccionDocente('eliminar_alumno', true, Date.now() - inicio);
+      if (editandoId === alumno._id) cancelarEdicion();
       onRefrescar();
     } catch (error) {
       const msg = mensajeDeError(error, 'No se pudo eliminar el alumno');
@@ -395,130 +391,235 @@ export function SeccionAlumnos({
   }
 
   return (
-    <div className="panel alumnos-panel">
-      <h2>
-        <Icono nombre="alumnos" /> Alumnos
-      </h2>
-      <AyudaFormulario titulo="Para que sirve y como llenarlo">
-        <p>
-          <b>Proposito:</b> registrar alumnos dentro de una materia para poder generar examenes, vincular folios y publicar resultados.
-        </p>
-        <ul className="lista">
-          <li>
-            <b>Matricula:</b> identificador del alumno con formato <code>CUH#########</code> (ej. <code>CUH512410168</code>).
-          </li>
-          <li>
-            <b>Nombres/Apellidos:</b> como aparecen en lista oficial.
-          </li>
-          <li>
-            <b>Correo:</b> opcional; si existe politica institucional, debe ser del dominio permitido.
-          </li>
-          <li>
-            <b>Grupo:</b> opcional (ej. <code>3A</code>).
-          </li>
-          <li>
-            <b>Materia:</b> obligatorio; selecciona la materia correspondiente.
-          </li>
-        </ul>
-        <p>
-          Ejemplo completo: matricula <code>CUH512410168</code>, nombres <code>Ana Maria</code>, apellidos <code>Gomez Ruiz</code>, grupo <code>3A</code>.
-        </p>
-      </AyudaFormulario>
+    <div className="panel alumnos-panel anim-fade-in">
+      {/* Cabecera Ejecutiva Principal con Mini-KPIs animados */}
+      <div className="alumnos-panel__head">
+        <div className="alumnos-panel__lead">
+          <div className="alumnos-panel__icon-orb anim-icon-pulse" aria-hidden="true">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" />
+              <circle cx="9" cy="7" r="4" />
+              <path d="M22 21v-2a4 4 0 0 0-3-3.87" />
+              <path d="M16 3.13a4 4 0 0 1 0 7.75" />
+            </svg>
+          </div>
+          <div className="alumnos-panel__text-block">
+            <div className="alumnos-panel__meta-row">
+              <span className="alumnos-status-pill">
+                <span className="alumnos-pulse-dot" aria-hidden="true" />
+                <span>Control Escolar y Matrículas</span>
+              </span>
+              <span className="alumnos-counter-tag">
+                {resumenAlumnos.totalGeneral} {resumenAlumnos.totalGeneral === 1 ? 'alumno registrado' : 'alumnos registrados'}
+              </span>
+            </div>
+            <h2 className="alumnos-panel__title">
+              <Icono nombre="alumnos" /> Alumnos
+            </h2>
+            <p className="nota">Administra expedientes de estudiantes, matrículas institucionales CUH y asignación por grupos.</p>
+          </div>
+        </div>
+
+        <div className="alumnos-header-kpis" aria-live="polite">
+          <div className="materia-mini-kpi materia-mini-kpi--active anim-kpi-hover" data-tooltip="Total de alumnos matriculados en la materia seleccionada">
+            <span className="materia-mini-kpi__icon" aria-hidden="true">
+              <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2.2">
+                <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
+                <circle cx="9" cy="7" r="4" />
+                <path d="M23 21v-2a4 4 0 0 0-3-3.87" />
+              </svg>
+            </span>
+            <span className="materia-mini-kpi__num">{resumenAlumnos.total}</span>
+            <span className="materia-mini-kpi__lbl">En Materia</span>
+          </div>
+
+          <div className="materia-mini-kpi materia-mini-kpi--groups anim-kpi-hover" data-tooltip="Grupos académicos detectados en la materia seleccionada">
+            <span className="materia-mini-kpi__icon" aria-hidden="true">
+              <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2.2">
+                <path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z" />
+                <line x1="7" y1="7" x2="7.01" y2="7" strokeWidth="3" />
+              </svg>
+            </span>
+            <span className="materia-mini-kpi__num">{resumenAlumnos.grupos}</span>
+            <span className="materia-mini-kpi__lbl">Grupos</span>
+          </div>
+
+          {resumenAlumnos.sinDerecho > 0 && (
+            <div className="materia-mini-kpi materia-mini-kpi--closing anim-kpi-hover" data-tooltip="Alumnos con 4 o más inasistencias en el periodo">
+              <span className="materia-mini-kpi__icon" aria-hidden="true">
+                <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2.2">
+                  <circle cx="12" cy="12" r="10" />
+                  <line x1="12" y1="8" x2="12" y2="12" />
+                  <line x1="12" y1="16" x2="12.01" y2="16" />
+                </svg>
+              </span>
+              <span className="materia-mini-kpi__num">{resumenAlumnos.sinDerecho}</span>
+              <span className="materia-mini-kpi__lbl">Sin Derecho</span>
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* Guía Rápida Bento Interactiva */}
+      <GuiaAlumnosVisual />
+
       {editandoId && (
         <InlineMensaje tipo="info">
-          Editando alumno. Modifica los campos y pulsa &quot;Guardar cambios&quot;.
+          ✏️ Editando alumno. Modifica los campos y pulsa &quot;Guardar cambios&quot;.
         </InlineMensaje>
       )}
-      <section className="alumnos-form">
-        <div className="alumnos-form__grid">
-          <label className="campo">
-            Matricula
-            <input
-              value={matricula}
-              onChange={(event) => {
-                const valor = event.target.value;
-                setMatricula(valor);
-                if (correoAuto) {
-                  const m = normalizarMatricula(valor);
-                  setCorreo(m ? `${m}@cuh.mx` : '');
-                }
-              }}
-              disabled={bloqueoEdicion}
-            />
-            <span className="ayuda">Formato: CUH######### (ej. CUH512410168).</span>
-          </label>
-          <label className="campo">
-            Nombres
-            <input value={nombres} onChange={(event) => setNombres(event.target.value)} disabled={bloqueoEdicion} />
-          </label>
-          <label className="campo">
-            Apellidos
-            <input value={apellidos} onChange={(event) => setApellidos(event.target.value)} disabled={bloqueoEdicion} />
-          </label>
-          <label className="campo">
-            Correo
-            <input
-              value={correo}
-              onChange={(event) => {
-                setCorreoAuto(false);
-                setCorreo(event.target.value);
-              }}
-              disabled={bloqueoEdicion}
-            />
-            {correoAuto && matriculaNormalizada && (
-              <span className="ayuda">Sugerido automaticamente: {matriculaNormalizada}@cuh.mx</span>
-            )}
-            {dominiosPermitidos.length > 0 && <span className="ayuda">Opcional. Solo se permiten: {politicaDominiosTexto}</span>}
-          </label>
-          <label className="campo">
-            Grupo
-            <input
-              value={grupo}
-              onChange={(event) => {
-                const nuevoGrupo = event.target.value;
-                setGrupo(nuevoGrupo);
-                setUltimoGrupoUsado(String(nuevoGrupo || '').trim());
-              }}
-              disabled={bloqueoEdicion}
-            />
-          </label>
-          <label className="campo">
-            Materia
-            <select
-              value={periodoIdNuevo}
-              onChange={(event) => {
-                const nuevoPeriodoId = event.target.value;
-                setPeriodoIdNuevo(nuevoPeriodoId);
-                setUltimoPeriodoIdUsado(String(nuevoPeriodoId || '').trim());
-              }}
-              disabled={bloqueoEdicion}
-            >
-              <option value="">Selecciona</option>
-              {periodosActivos.map((periodo) => (
-                <option key={periodo._id} value={periodo._id} title={periodo._id}>
-                  {etiquetaMateria(periodo)}
-                </option>
-              ))}
-            </select>
-          </label>
+
+      {/* Formulario Estructurado Panoramico de 2 Filas Claras */}
+      <section ref={formularioRef} className="alumnos-form alumnos-form--glass alumnos-form--panoramico anim-form-card">
+        <div className="alumnos-form__header">
+          <h3 className="alumnos-form__title">
+            {editandoId ? '✏️ Modificar Alumno Seleccionado' : '✨ Registrar Nuevo Alumno'}
+          </h3>
+          <p className="alumnos-form__subtitle">
+            Captura la matrícula oficial CUH, nombres, grupo y materia correspondiente.
+          </p>
         </div>
+
+        <div className="alumnos-form__fields">
+          {/* Fila 1: Identidad del Alumno */}
+          <div className="alumnos-form__row alumnos-form__row--top">
+            <label className="campo campo--matricula">
+              <span className="campo__label-row">
+                <span>Matricula</span>
+                {matricula.trim() && (
+                  <span className={`badge-matricula-live anim-badge-in ${matriculaValida ? 'badge-matricula-live--ok' : 'badge-matricula-live--err'}`}>
+                    {matriculaValida ? '✓ Válida' : 'Formato CUH#########'}
+                  </span>
+                )}
+              </span>
+              <div className="auth-input-box auth-input-box--id auth-input-box--animated">
+                <input
+                  ref={matriculaInputRef}
+                  value={matricula}
+                  onChange={(event) => {
+                    const valor = event.target.value;
+                    setMatricula(valor);
+                    if (correoAuto) {
+                      const m = normalizarMatricula(valor);
+                      setCorreo(m ? `${m}@cuh.mx` : '');
+                    }
+                  }}
+                  disabled={bloqueoEdicion}
+                  placeholder="Ej. CUH512410168"
+                  data-tooltip="Formato oficial: CUH seguido de 9 dígitos"
+                />
+              </div>
+              <span className="ayuda">Formato oficial: CUH######### (ej. CUH512410168).</span>
+            </label>
+
+            <label className="campo campo--nombres">
+              <span>Nombres</span>
+              <div className="auth-input-box auth-input-box--user auth-input-box--animated">
+                <input
+                  value={nombres}
+                  onChange={(event) => setNombres(event.target.value)}
+                  disabled={bloqueoEdicion}
+                  placeholder="Ej. Ana María, Carlos Roberto…"
+                />
+              </div>
+            </label>
+
+            <label className="campo campo--apellidos">
+              <span>Apellidos</span>
+              <div className="auth-input-box auth-input-box--user auth-input-box--animated">
+                <input
+                  value={apellidos}
+                  onChange={(event) => setApellidos(event.target.value)}
+                  disabled={bloqueoEdicion}
+                  placeholder="Ej. Gómez Ruiz, López Hernández…"
+                />
+              </div>
+            </label>
+          </div>
+
+          {/* Fila 2: Contacto y Asignación Académica */}
+          <div className="alumnos-form__row alumnos-form__row--bottom">
+            <label className="campo campo--correo">
+              <span>Correo institucional</span>
+              <div className="auth-input-box auth-input-box--mail auth-input-box--animated">
+                <input
+                  value={correo}
+                  onChange={(event) => {
+                    setCorreoAuto(false);
+                    setCorreo(event.target.value);
+                  }}
+                  disabled={bloqueoEdicion}
+                  placeholder="alumno@cuh.mx"
+                />
+              </div>
+              {correoAuto && matriculaNormalizada && (
+                <span className="ayuda">Sugerido automáticamente: {matriculaNormalizada}@cuh.mx</span>
+              )}
+              {dominiosPermitidos.length > 0 && !correoAuto && (
+                <span className="ayuda">Opcional. Dominio permitido: {politicaDominiosTexto}</span>
+              )}
+            </label>
+
+            <label className="campo campo--grupo">
+              <span>Grupo</span>
+              <div className="auth-input-box auth-input-box--group auth-input-box--animated">
+                <input
+                  value={grupo}
+                  onChange={(event) => {
+                    const nuevoGrupo = event.target.value;
+                    setGrupo(nuevoGrupo);
+                    setUltimoGrupoUsado(String(nuevoGrupo || '').trim());
+                  }}
+                  disabled={bloqueoEdicion}
+                  placeholder="Ej. 3A, 101, B…"
+                />
+              </div>
+            </label>
+
+            <label className="campo campo--materia">
+              <span>Materia</span>
+              <div className="auth-input-box auth-input-box--select auth-input-box--animated">
+                <select
+                  value={periodoIdNuevo}
+                  onChange={(event) => {
+                    const nuevoPeriodoId = event.target.value;
+                    setPeriodoIdNuevo(nuevoPeriodoId);
+                    setUltimoPeriodoIdUsado(String(nuevoPeriodoId || '').trim());
+                  }}
+                  disabled={bloqueoEdicion}
+                >
+                  <option value="">Selecciona</option>
+                  {periodosActivos.map((periodo) => (
+                    <option key={periodo._id} value={periodo._id} title={periodo._id}>
+                      {etiquetaMateria(periodo)}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            </label>
+          </div>
+        </div>
+
         {matricula.trim() && !matriculaValida && (
           <InlineMensaje tipo="error">Matricula invalida. Usa el formato CUH#########.</InlineMensaje>
         )}
         {dominiosPermitidos.length > 0 && correo.trim() && !correoValido && (
           <InlineMensaje tipo="error">Correo no permitido por politicas. Usa un correo institucional.</InlineMensaje>
         )}
-        <div className="acciones">
-          {!editandoId ? (
-            <Boton
-              type="button"
-              icono={<Icono nombre="nuevo" />}
-              cargando={creando}
-              disabled={!puedeCrear || bloqueoEdicion}
-              onClick={crearAlumno}
-            >
-              {creando ? 'Creando…' : 'Crear alumno'}
-            </Boton>
+
+        <div className="alumnos-form__footer">
+          <div className="acciones alumnos-form__actions">
+            {!editandoId ? (
+              <Boton
+                type="button"
+                variante="primario"
+                icono={<Icono nombre="nuevo" />}
+                cargando={creando}
+                disabled={!puedeCrear || bloqueoEdicion}
+                onClick={crearAlumno}
+              >
+                {creando ? 'Creando alumno…' : '✨ Crear Alumno'}
+              </Boton>
           ) : (
             <>
               <Boton
@@ -535,110 +636,275 @@ export function SeccionAlumnos({
               </Boton>
             </>
           )}
+          </div>
+          <div className="alumnos-form__hint">
+            <span>💡 Los alumnos registrados estarán disponibles de inmediato para el pase de lista y evaluación OMR.</span>
+          </div>
         </div>
       </section>
+
       {mensaje && (
-        <p className={esMensajeError(mensaje) ? 'mensaje error' : 'mensaje ok'} role="status">
+        <p className={esMensajeError(mensaje) ? 'mensaje error anim-fade-in' : 'mensaje ok anim-fade-in'} role="status">
           {mensaje}
         </p>
       )}
-      <h3>Alumnos de la materia</h3>
-      <div className="alumnos-resumen" aria-live="polite">
-        <div className="alumnos-resumen__item"><span>Total alumnos</span><b>{resumenAlumnos.total}</b></div>
-        <div className="alumnos-resumen__item"><span>Con correo</span><b>{resumenAlumnos.conCorreo}</b></div>
-        <div className="alumnos-resumen__item"><span>Grupos</span><b>{resumenAlumnos.grupos}</b></div>
-      </div>
-      <div className="alumnos-filtros">
-        <label className="campo">
-          Materia seleccionada
-          <select value={periodoIdLista} onChange={(event) => setPeriodoIdLista(event.target.value)}>
-            <option value="">Selecciona</option>
-            {periodosTodos
-              .filter((p) => p.activo !== false)
-              .map((periodo) => (
-                <option key={periodo._id} value={periodo._id} title={periodo._id}>
-                  {etiquetaMateria(periodo)}
-                </option>
-              ))}
-          </select>
-          {Boolean(nombreMateriaSeleccionada) && (
-            <span className="ayuda">Mostrando todos los alumnos de: {nombreMateriaSeleccionada}</span>
-          )}
-        </label>
-        <label className="campo">
-          Buscar alumno
-          <input
-            type="search"
-            value={filtroAlumno}
-            onChange={(event) => setFiltroAlumno(event.target.value)}
-            placeholder="Nombre, matricula o correo"
-          />
-        </label>
-        <label className="campo">
-          Grupo
-          <select value={filtroGrupo} onChange={(event) => setFiltroGrupo(event.target.value)}>
-            <option value="">Todos</option>
-            {gruposDisponibles.map((g) => (
-              <option key={g} value={g}>
-                {g}
-              </option>
-            ))}
-          </select>
-        </label>
-      </div>
-      <ul className="lista lista-items alumnos-lista">
-        {!periodoIdLista && <li>Selecciona una materia para ver sus alumnos.</li>}
-        {periodoIdLista && alumnosDeMateria.length === 0 && <li>No hay alumnos registrados en esta materia.</li>}
-        {periodoIdLista && alumnosDeMateria.length > 0 && alumnosFiltrados.length === 0 && (
-          <li>No hay alumnos que coincidan con los filtros.</li>
+
+      {/* Explorador de Alumnos por Materia */}
+      <section className="alumnos-explorador anim-fade-in" aria-label="Explorador de Alumnos">
+        <div className="alumnos-explorador__header">
+          <div className="alumnos-explorador__title-box">
+            <h3>Alumnos de la materia</h3>
+            {Boolean(nombreMateriaSeleccionada) && (
+              <span className="alumnos-materia-badge anim-badge-in">
+                <span className="alumnos-pulse-dot" aria-hidden="true" />
+                {nombreMateriaSeleccionada}
+              </span>
+            )}
+          </div>
+        </div>
+
+        {/* Barra de Filtros y Búsqueda Glass con Chips Rápidos */}
+        <div className="alumnos-filtros alumnos-filtros--glass">
+          <label className="campo campo--materia-select">
+            <span>Materia seleccionada</span>
+            <div className="auth-input-box auth-input-box--select auth-input-box--animated">
+              <select value={periodoIdLista} onChange={(event) => setPeriodoIdLista(event.target.value)}>
+                <option value="">Selecciona</option>
+                {periodosTodos
+                  .filter((p) => p.activo !== false)
+                  .map((periodo) => (
+                    <option key={periodo._id} value={periodo._id} title={periodo._id}>
+                      {etiquetaMateria(periodo)}
+                    </option>
+                  ))}
+              </select>
+            </div>
+            {Boolean(nombreMateriaSeleccionada) && (
+              <span className="ayuda">Mostrando alumnos de: {nombreMateriaSeleccionada}</span>
+            )}
+          </label>
+
+          <label className="campo campo--search">
+            <span>Buscar alumno</span>
+            <div className="auth-input-box auth-input-box--search auth-input-box--animated">
+              <input
+                type="search"
+                value={filtroAlumno}
+                onChange={(event) => setFiltroAlumno(event.target.value)}
+                placeholder="Nombre, matrícula o correo"
+              />
+            </div>
+          </label>
+
+          <label className="campo campo--grupo-select">
+            <span>Grupo</span>
+            <div className="auth-input-box auth-input-box--group auth-input-box--animated">
+              <select value={filtroGrupo} onChange={(event) => setFiltroGrupo(event.target.value)}>
+                <option value="">Todos</option>
+                {gruposDisponibles.map((g) => (
+                  <option key={g} value={g}>
+                    {g}
+                  </option>
+                ))}
+              </select>
+            </div>
+          </label>
+        </div>
+
+        {/* Quick Group Filter Chips */}
+        {gruposDisponibles.length > 0 && (
+          <div className="alumnos-group-chips-bar" aria-label="Filtro rápido por grupo">
+            <span className="alumnos-group-chips-label">Filtrar por grupo:</span>
+            <button
+              type="button"
+              className={`alumnos-group-chip ${!filtroGrupo ? 'alumnos-group-chip--active' : ''}`}
+              onClick={() => setFiltroGrupo('')}
+            >
+              Todos ({alumnosDeMateria.length})
+            </button>
+            {gruposDisponibles.map((grp) => {
+              const conteo = alumnosDeMateria.filter((a) => String(a.grupo || '').trim() === grp).length;
+              const activo = filtroGrupo.toLowerCase() === grp.toLowerCase();
+              return (
+                <button
+                  key={grp}
+                  type="button"
+                  className={`alumnos-group-chip ${activo ? 'alumnos-group-chip--active' : ''}`}
+                  onClick={() => setFiltroGrupo(activo ? '' : grp)}
+                >
+                  <span className={`badge badge-grupo ${claseBadgeGrupo(grp)}`}>{grp}</span>
+                  <span className="alumnos-group-chip-count">({conteo})</span>
+                </button>
+              );
+            })}
+          </div>
         )}
-        {periodoIdLista &&
-          alumnosFiltrados.map((alumno) => (
-            <li key={alumno._id}>
-              <div className="item-glass alumnos-lista__item">
-                <div className="item-row">
-                  <div>
-                    <div className="item-title alumnos-lista-title-container">
-                      {alumno.matricula} - {alumno.nombreCompleto}
-                      {(resumenAsistencias.find(r => r.alumnoId === alumno._id)?.faltas ?? 0) >= 4 && (
-                        <span className="badge badge-alerta badge-alerta-sin-derecho">
-                          SIN DERECHO (4 O MÁS FALTAS)
-                        </span>
-                      )}
-                    </div>
-                    <div className="item-meta">
-                      <span>ID: {idCortoMateria(alumno._id)}</span>
-                      <span>
-                        Grupo:{' '}
-                        <span className={`badge badge-grupo ${claseBadgeGrupo(alumno.grupo || '')}`}>
-                          {alumno.grupo ? alumno.grupo : '-'}
-                        </span>
-                      </span>
-                      <span>Correo: {alumno.correo ? alumno.correo : '-'}</span>
-                    </div>
+
+        {/* Lista / Grid de Alumnos */}
+        <ul className="lista lista-items alumnos-lista">
+          {!periodoIdLista && (
+            <li className="empty-state-card alumnos-empty-hero anim-fade-in">
+              <div className="empty-state-card__icon anim-icon-pulse">
+                <Icono nombre="alumnos" />
+              </div>
+              <h4>Comienza seleccionando una materia</h4>
+              <p>Elige una de tus asignaturas activas para cargar la lista de alumnos, o sincroniza tu roster oficial desde Google Classroom.</p>
+
+              {periodosActivos.length > 0 ? (
+                <div className="alumnos-quick-periodos-grid">
+                  {periodosActivos.map((p) => (
+                    <button
+                      key={p._id}
+                      type="button"
+                      className="alumnos-materia-pick-card anim-card-hover"
+                      onClick={() => setPeriodoIdLista(p._id)}
+                    >
+                      <div className="alumnos-materia-pick-avatar">
+                        <Icono nombre="periodos" />
+                      </div>
+                      <div className="alumnos-materia-pick-info">
+                        <strong>{etiquetaMateria(p)}</strong>
+                        <span>Grupos: {Array.isArray(p.grupos) && p.grupos.length > 0 ? p.grupos.join(', ') : 'General'}</span>
+                      </div>
+                      <div className="alumnos-materia-pick-arrow">➔</div>
+                    </button>
+                  ))}
+                </div>
+              ) : (
+                <div className="empty-state-steps" aria-hidden="true">
+                  <div className="empty-step">
+                    <span className="empty-step__num">1</span>
+                    <span>Configura tu materia</span>
                   </div>
-                  <div className="item-actions">
-                    <Boton variante="secundario" type="button" onClick={() => iniciarEdicion(alumno)} disabled={bloqueoEdicion}>
-                      Editar
-                    </Boton>
-                    {puedeEliminarAlumnoDev && (
-                      <Boton
-                        variante="secundario"
-                        type="button"
-                        cargando={eliminandoAlumnoId === alumno._id}
-                        onClick={() => void eliminarAlumnoDev(alumno)}
-                        disabled={!puedeEliminarAlumnoDev}
-                      >
-                        Eliminar (DEV)
-                      </Boton>
-                    )}
+                  <div className="empty-step__arrow">➔</div>
+                  <div className="empty-step">
+                    <span className="empty-step__num">2</span>
+                    <span>Registra tus alumnos</span>
+                  </div>
+                  <div className="empty-step__arrow">➔</div>
+                  <div className="empty-step">
+                    <span className="empty-step__num">3</span>
+                    <span>Pasa lista y califica</span>
                   </div>
                 </div>
-              </div>
+              )}
             </li>
-          ))}
-      </ul>
+          )}
+
+          {periodoIdLista && alumnosDeMateria.length === 0 && (
+            <li className="empty-state-card anim-fade-in">
+              <div className="empty-state-card__icon anim-icon-pulse">
+                <Icono nombre="nuevo" />
+              </div>
+              <h4>No hay alumnos registrados en esta materia</h4>
+              <p>Utiliza el formulario superior para registrar alumnos individualmente o importa tu lista oficial.</p>
+            </li>
+          )}
+
+          {periodoIdLista && alumnosDeMateria.length > 0 && alumnosFiltrados.length === 0 && (
+            <li className="empty-state-card anim-fade-in">
+              <div className="empty-state-card__icon anim-icon-pulse">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <circle cx="11" cy="11" r="8" />
+                  <path d="m21 21-4.3-4.3" />
+                </svg>
+              </div>
+              <h4>No hay alumnos que coincidan con los filtros</h4>
+              <p>Intenta ajustar el texto de búsqueda o el grupo seleccionado.</p>
+            </li>
+          )}
+
+          {periodoIdLista &&
+            alumnosFiltrados.map((alumno) => {
+              const faltas = resumenAsistencias.find((r) => r.alumnoId === alumno._id)?.faltas ?? 0;
+              const sinDerecho = faltas >= 4;
+              const iniciales = obtenerIniciales(alumno.nombres, alumno.apellidos);
+
+              return (
+                <li
+                  key={alumno._id}
+                  className="anim-slide-up"
+                >
+                  <div className="item-glass alumnos-lista__item anim-card-hover">
+                    <div className="alumnos-card__body">
+                      {/* Avatar con Iniciales y anillo de grupo */}
+                      <div className={`alumno-avatar alumno-avatar--${claseBadgeGrupo(alumno.grupo || '')}`} aria-hidden="true">
+                        <span>{iniciales}</span>
+                      </div>
+
+                      {/* Información Principal */}
+                      <div className="alumno-info">
+                        <div className="item-title alumnos-lista-title-container">
+                          <span className="alumno-nombre">
+                            {alumno.matricula && !/^\d{15,}$/.test(alumno.matricula) ? `${alumno.matricula} - ` : ''}
+                            {alumno.nombreCompleto}
+                          </span>
+                          {sinDerecho && (
+                            <span className="badge badge-alerta badge-alerta-sin-derecho anim-pulse-fast">
+                              ⚠️ SIN DERECHO (4 O MÁS FALTAS)
+                            </span>
+                          )}
+                        </div>
+
+                        <div className="item-meta alumnos-card__meta">
+                          {alumno.matricula && !/^\d{15,}$/.test(alumno.matricula) && (
+                            <span className="alumno-meta-tag" data-tooltip="Matrícula del estudiante">
+                              <span className="alumno-meta-lbl">Matrícula:</span> {alumno.matricula}
+                            </span>
+                          )}
+                          <span className="alumno-meta-tag" data-tooltip="Grupo asignado en la materia">
+                            <span className="alumno-meta-lbl">Grupo:</span>{' '}
+                            <span className={`badge badge-grupo ${claseBadgeGrupo(alumno.grupo || '')}`}>
+                              {alumno.grupo ? alumno.grupo : '-'}
+                            </span>
+                          </span>
+                          <span className="alumno-meta-tag" data-tooltip="Correo institucional para recepción de folios y calificaciones">
+                            <span className="alumno-meta-lbl">Correo:</span>{' '}
+                            <span className="alumno-correo">{alumno.correo ? alumno.correo : '-'}</span>
+                          </span>
+                        </div>
+                      </div>
+
+                      {/* Acciones con Iconos */}
+                      <div className="item-actions alumnos-card__actions">
+                        <Boton
+                          variante="secundario"
+                          type="button"
+                          onClick={() => iniciarEdicion(alumno)}
+                          disabled={bloqueoEdicion}
+                          icono={
+                            <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2">
+                              <path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z" />
+                            </svg>
+                          }
+                        >
+                          Editar
+                        </Boton>
+                        {puedeEliminarAlumnoDev && (
+                          <Boton
+                            variante="secundario"
+                            type="button"
+                            cargando={eliminandoAlumnoId === alumno._id}
+                            onClick={() => void eliminarAlumnoDev(alumno)}
+                            disabled={!puedeEliminarAlumnoDev}
+                            icono={
+                              <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2">
+                                <polyline points="3 6 5 6 21 6" />
+                                <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
+                              </svg>
+                            }
+                          >
+                            Eliminar (DEV)
+                          </Boton>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                </li>
+              );
+            })}
+        </ul>
+      </section>
     </div>
   );
 }
-

@@ -75,7 +75,7 @@
     "dotenv": "^17.3.1",
     "exceljs": "^4.4.0",
     "express": "^5.2.1",
-    "express-rate-limit": "^8.5.2",
+    "express-rate-limit": "^8.6.2",
     "google-auth-library": "^10.6.1",
     "helmet": "^8.1.0",
     "jsonwebtoken": "^9.0.3",
@@ -85,7 +85,7 @@
     "pdf-parse": "^2.4.5",
     "playwright": "^1.58.2",
     "qrcode": "^1.5.4",
-    "sharp": "^0.35.0",
+    "sharp": "^0.35.3",
     "zod": "^4.3.6"
   },
   "devDependencies": {

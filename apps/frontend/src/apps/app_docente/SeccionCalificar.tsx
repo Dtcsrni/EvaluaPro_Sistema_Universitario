@@ -305,9 +305,13 @@ export function SeccionCalificar({
 
   return (
     <div className="panel calif-grade-card">
-      <div className="calif-section-title">
-        <div>
-          <h2>
+      <div className="banco-section-title">
+        <div className="banco-section-title__wrap">
+          <span className="banco-section-pill">
+            <span className="banco-section-pill__dot" aria-hidden="true" />
+            <span>Mesa de Decisión & Rúbrica</span>
+          </span>
+          <h2 className="entregas-title-heading">
             <Icono nombre="calificar" /> Calificar examen{etiquetaTipoExamen ? ` · ${etiquetaTipoExamen}` : ''}
           </h2>
           <p className="nota">Consolida resultado OMR, validaciones y ajuste final de calificación en una sola tarjeta de decisión.</p>
@@ -390,9 +394,7 @@ export function SeccionCalificar({
         {guardando ? 'Guardando…' : bloqueoPorSoloLectura ? 'Calificación registrada (solo lectura)' : 'Guardar calificación'}
       </Boton>
       {mensaje && (
-        <p className={esMensajeError(mensaje) ? 'mensaje error' : 'mensaje ok'} role="status">
-          {mensaje}
-        </p>
+        <InlineMensaje tipo={esMensajeError(mensaje) ? 'error' : 'ok'}>{mensaje}</InlineMensaje>
       )}
       <details className="colapsable">
         <summary>Ayuda para calificar</summary>

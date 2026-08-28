@@ -1,8 +1,0 @@
-qa_manifest=reports/qa/latest/manifest.json
-clean_architecture=reports/qa/latest/clean-architecture.json
-perf_latest=reports/perf/latest.json
-ci_streak=13/10
-diff_coverage=93.91
-classroom_audit=ok
-prod_flow=pendiente
-installer_signed=false

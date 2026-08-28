@@ -1,3 +1,9 @@
+/**
+ * backend-test-batches.test
+ *
+ * Responsabilidad: Modulo interno del sistema.
+ * Limites: Mantener contrato y comportamiento observable del modulo.
+ */
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { toTestArgs } from '../testing/run-backend-test-batches.mjs';

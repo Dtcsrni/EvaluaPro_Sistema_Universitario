@@ -1,7 +1,7 @@
 {
   "version": "1.1.1",
   "status": "ready",
-  "previousStableVersion": "1.0.2",
+  "previousStableVersion": "none (primera version estable reconocida)",
   "activationCriteria": [
     "Fallo del gate humano productivo docente",
     "Regresion en importacion de Classroom o hidratacion de cursos iniciados",

@@ -1,0 +1,250 @@
+{
+  "traceSchemaVersion": "1.0.0",
+  "sessionId": "sesion-2026-08-27T06-20-28.260Z",
+  "status": "draft",
+  "generatedAt": "2026-08-27T06:20:28.260Z",
+  "validationProfile": "quick",
+  "agent": {
+    "name": "unknown",
+    "version": "unknown",
+    "provider": "unknown",
+    "kind": "unknown",
+    "channel": "unknown"
+  },
+  "request": {
+    "summary": "Pendiente de completar por el agente."
+  },
+  "objective": "Pendiente de completar por el agente.",
+  "scope": [],
+  "constraints": [],
+  "actions": [
+    {
+      "type": "validation",
+      "summary": "Ejecucion de lint",
+      "timestamp": "2026-08-27T06:20:28.260Z",
+      "status": "omitido"
+    },
+    {
+      "type": "validation",
+      "summary": "Ejecucion de typecheck",
+      "timestamp": "2026-08-27T06:20:28.260Z",
+      "status": "omitido"
+    },
+    {
+      "type": "validation",
+      "summary": "Ejecucion de test_frontend_ci",
+      "timestamp": "2026-08-27T06:20:28.260Z",
+      "status": "omitido"
+    },
+    {
+      "type": "validation",
+      "summary": "Ejecucion de test_coverage_ci",
+      "timestamp": "2026-08-27T06:20:28.260Z",
+      "status": "omitido"
+    },
+    {
+      "type": "validation",
+      "summary": "Ejecucion de test_tdd_enforcement_ci",
+      "timestamp": "2026-08-27T06:20:28.260Z",
+      "status": "omitido"
+    },
+    {
+      "type": "validation",
+      "summary": "Ejecucion de test_backend_ci",
+      "timestamp": "2026-08-27T06:20:28.260Z",
+      "status": "omitido"
+    },
+    {
+      "type": "validation",
+      "summary": "Ejecucion de test_portal_ci",
+      "timestamp": "2026-08-27T06:20:28.260Z",
+      "status": "omitido"
+    },
+    {
+      "type": "validation",
+      "summary": "Ejecucion de perf_check",
+      "timestamp": "2026-08-27T06:20:28.260Z",
+      "status": "omitido"
+    },
+    {
+      "type": "validation",
+      "summary": "Ejecucion de pipeline_contract_check",
+      "timestamp": "2026-08-27T06:20:28.260Z",
+      "status": "ok"
+    },
+    {
+      "type": "validation",
+      "summary": "Ejecucion de docs_check",
+      "timestamp": "2026-08-27T06:20:28.260Z",
+      "status": "falla"
+    }
+  ],
+  "files": {
+    "read": [],
+    "changed": [
+      "apps/backend/reports/qa/latest/e2e-docente-alumno.json",
+      "apps/backend/reports/qa/latest/global-grade.json",
+      "apps/backend/reports/qa/latest/pdf-print.json",
+      "apps/frontend/reports/qa/latest/ux-visual.json",
+      "apps/frontend/tests/appDocente.secciones.test.tsx",
+      "docs/ENGINEERING_BASELINE.md",
+      "docs/INVENTARIO_CODIGO_EXHAUSTIVO.md",
+      "docs/INVENTARIO_PROYECTO.md",
+      "docs/specs/SPEC-034_diseno_examenes_tabs.spec.md",
+      "docs/specs/SPEC-037_materias_periodos_lifecycle.spec.md",
+      "docs/specs/SPEC-038_alumnos_roster_management.spec.md",
+      "docs/specs/SPEC-039_asistencias_seguimiento.spec.md",
+      "docs/specs/SPEC-040_temarios_encuadre_firmas.spec.md",
+      "docs/specs/SPEC-041_banco_preguntas_taxonomia.spec.md",
+      "docs/specs/SPEC-042_diseno_produccion_examenes_omr.spec.md",
+      "docs/specs/SPEC-043_entrega_recepcion_acordeon.spec.md",
+      "docs/specs/SPEC-044_calificaciones_motor_omr.spec.md",
+      "docs/specs/SPEC-045_rehidratacion_forense.spec.md",
+      "docs/specs/SPEC-046_google_classroom_sync.spec.md",
+      "docs/specs/SPEC-047_portal_alumno_cloud.spec.md",
+      "docs/specs/SPEC-048_sincronizacion_offline_cloud.spec.md",
+      "docs/specs/SPEC-049_cuenta_perfil_docente.spec.md",
+      "docs/specs/arquitectura_ux_refactor_integral.spec.md",
+      "docs/specs/auth_onboarding_redesign.spec.md",
+      "docs/specs/docente_release_smoke_runtime.spec.md",
+      "docs/specs/e2e_playwright_screen_functional_matrix.spec.md",
+      "docs/specs/encuadre_firmas.spec.md",
+      "docs/specs/flujo_docente_alumno_integral.spec.md",
+      "docs/specs/guardrails-e2e-bootstrap.spec.md",
+      "docs/specs/installer-hub-cleanup-on-failure.spec.md",
+      "docs/specs/installer_hub_layout_modernization.spec.md",
+      "docs/specs/onboarding_registro_licencia.spec.md",
+      "docs/specs/politica_retroalimentacion_botones_y_classroom_sync.spec.md",
+      "reports/qa/latest/dataset-prodlike.json",
+      "reports/qa/latest/e2e-docente-alumno.json",
+      "reports/qa/latest/evaluaciones-e2e.json",
+      "reports/qa/latest/evaluaciones-policy.json",
+      "reports/qa/latest/global-grade.json",
+      "reports/qa/latest/manifest.json",
+      "reports/qa/latest/pdf-print.json",
+      "reports/qa/latest/ux-visual.json",
+      "scripts/sdd-audit.mjs",
+      "docs/handoff/sesiones/2026-08-27/sesion-2026-08-27T01-14-49.434Z.json",
+      "docs/handoff/sesiones/2026-08-27/sesion-2026-08-27T01-14-49.434Z.md",
+      "docs/handoff/sesiones/2026-08-27/sesion-2026-08-27T01-21-39.990Z.json",
+      "docs/handoff/sesiones/2026-08-27/sesion-2026-08-27T01-21-39.990Z.md"
+    ],
+    "artifacts": [
+      "docs/handoff/sesiones/2026-08-27/sesion-2026-08-27T06-20-28.260Z.json",
+      "docs/handoff/sesiones/2026-08-27/sesion-2026-08-27T06-20-28.260Z.md"
+    ]
+  },
+  "commands": [
+    {
+      "name": "lint",
+      "command": "npm run lint",
+      "status": "omitido",
+      "exitCode": null,
+      "durationMs": 0,
+      "resultSummary": "omitido por perfil quick",
+      "timestamp": "2026-08-27T06:20:28.260Z"
+    },
+    {
+      "name": "typecheck",
+      "command": "npm run typecheck",
+      "status": "omitido",
+      "exitCode": null,
+      "durationMs": 0,
+      "resultSummary": "omitido por perfil quick",
+      "timestamp": "2026-08-27T06:20:28.260Z"
+    },
+    {
+      "name": "test_frontend_ci",
+      "command": "npm run test:frontend:ci",
+      "status": "omitido",
+      "exitCode": null,
+      "durationMs": 0,
+      "resultSummary": "omitido por perfil quick",
+      "timestamp": "2026-08-27T06:20:28.260Z"
+    },
+    {
+      "name": "test_coverage_ci",
+      "command": "npm run test:coverage:ci",
+      "status": "omitido",
+      "exitCode": null,
+      "durationMs": 0,
+      "resultSummary": "omitido por perfil quick",
+      "timestamp": "2026-08-27T06:20:28.260Z"
+    },
+    {
+      "name": "test_tdd_enforcement_ci",
+      "command": "npm run test:tdd:enforcement:ci",
+      "status": "omitido",
+      "exitCode": null,
+      "durationMs": 0,
+      "resultSummary": "omitido por perfil quick",
+      "timestamp": "2026-08-27T06:20:28.260Z"
+    },
+    {
+      "name": "test_backend_ci",
+      "command": "npm run test:backend:ci",
+      "status": "omitido",
+      "exitCode": null,
+      "durationMs": 0,
+      "resultSummary": "omitido por perfil quick",
+      "timestamp": "2026-08-27T06:20:28.260Z"
+    },
+    {
+      "name": "test_portal_ci",
+      "command": "npm run test:portal:ci",
+      "status": "omitido",
+      "exitCode": null,
+      "durationMs": 0,
+      "resultSummary": "omitido por perfil quick",
+      "timestamp": "2026-08-27T06:20:28.260Z"
+    },
+    {
+      "name": "perf_check",
+      "command": "npm run perf:check",
+      "status": "omitido",
+      "exitCode": null,
+      "durationMs": 0,
+      "resultSummary": "omitido por perfil quick",
+      "timestamp": "2026-08-27T06:20:28.260Z"
+    },
+    {
+      "name": "pipeline_contract_check",
+      "command": "npm run pipeline:contract:check",
+      "status": "ok",
+      "exitCode": 0,
+      "durationMs": 564,
+      "resultSummary": "> evaluapro@1.1.1 pipeline:contract:check | > node scripts/pipeline-contract-check.mjs | ✔ ext_perf_arquitectura prepara sharp antes de perf:check (1.8125ms) | ✔ ext_funcionales usa gate OMR TV generico con version configurable (0.6168ms) | ... | ℹ duration_ms 97.1608 | pipeline contract OK",
+      "timestamp": "2026-08-27T06:20:28.260Z"
+    },
+    {
+      "name": "docs_check",
+      "command": "npm run docs:check",
+      "status": "falla",
+      "exitCode": 1,
+      "durationMs": 6910,
+      "resultSummary": "> evaluapro@1.1.1 docs:check | > node scripts/docs.mjs --check | [docs] desactualizado: docs/AUTO_ENV.md | [docs] corre: npm run docs:generate",
+      "timestamp": "2026-08-27T06:20:28.260Z"
+    }
+  ],
+  "decisions": [],
+  "assumptions": [],
+  "risks": [],
+  "nextStep": "Pendiente de completar por el agente.",
+  "completion": {
+    "isComplete": false,
+    "pendingFields": [
+      "request.summary",
+      "objective",
+      "scope",
+      "decisions",
+      "risks",
+      "nextStep"
+    ]
+  },
+  "repo": {
+    "rootDir": "C:\\Users\\evega\\Documents\\EvaluaPro",
+    "branch": "feat/ux-redisenio-integral-1.1.1",
+    "commit": "f139a8af",
+    "workingTreeStatus": "M apps/backend/reports/qa/latest/e2e-docente-alumno.json\n M apps/backend/reports/qa/latest/global-grade.json\n M apps/backend/reports/qa/latest/pdf-print.json\n M apps/frontend/reports/qa/latest/ux-visual.json\n M apps/frontend/tests/appDocente.secciones.test.tsx\n M docs/ENGINEERING_BASELINE.md\n M docs/INVENTARIO_CODIGO_EXHAUSTIVO.md\n M docs/INVENTARIO_PROYECTO.md\n M docs/specs/SPEC-034_diseno_examenes_tabs.spec.md\n M docs/specs/SPEC-037_materias_periodos_lifecycle.spec.md\n M docs/specs/SPEC-038_alumnos_roster_management.spec.md\n M docs/specs/SPEC-039_asistencias_seguimiento.spec.md\n M docs/specs/SPEC-040_temarios_encuadre_firmas.spec.md\n M docs/specs/SPEC-041_banco_preguntas_taxonomia.spec.md\n M docs/specs/SPEC-042_diseno_produccion_examenes_omr.spec.md\n M docs/specs/SPEC-043_entrega_recepcion_acordeon.spec.md\n M docs/specs/SPEC-044_calificaciones_motor_omr.spec.md\n M docs/specs/SPEC-045_rehidratacion_forense.spec.md\n M docs/specs/SPEC-046_google_classroom_sync.spec.md\n M docs/specs/SPEC-047_portal_alumno_cloud.spec.md\n M docs/specs/SPEC-048_sincronizacion_offline_cloud.spec.md\n M docs/specs/SPEC-049_cuenta_perfil_docente.spec.md\n M docs/specs/arquitectura_ux_refactor_integral.spec.md\n M docs/specs/auth_onboarding_redesign.spec.md\n M docs/specs/docente_release_smoke_runtime.spec.md\n M docs/specs/e2e_playwright_screen_functional_matrix.spec.md\n M docs/specs/encuadre_firmas.spec.md\n M docs/specs/flujo_docente_alumno_integral.spec.md\n M docs/specs/guardrails-e2e-bootstrap.spec.md\n M docs/specs/installer-hub-cleanup-on-failure.spec.md\n M docs/specs/installer_hub_layout_modernization.spec.md\n M docs/specs/onboarding_registro_licencia.spec.md\n M docs/specs/politica_retroalimentacion_botones_y_classroom_sync.spec.md\n M reports/qa/latest/dataset-prodlike.json\n M reports/qa/latest/e2e-docente-alumno.json\n M reports/qa/latest/evaluaciones-e2e.json\n M reports/qa/latest/evaluaciones-policy.json\n M reports/qa/latest/global-grade.json\n M reports/qa/latest/manifest.json\n M reports/qa/latest/pdf-print.json\n M reports/qa/latest/ux-visual.json\n M scripts/sdd-audit.mjs\n?? docs/handoff/sesiones/2026-08-27/sesion-2026-08-27T01-14-49.434Z.json\n?? docs/handoff/sesiones/2026-08-27/sesion-2026-08-27T01-14-49.434Z.md\n?? docs/handoff/sesiones/2026-08-27/sesion-2026-08-27T01-21-39.990Z.json\n?? docs/handoff/sesiones/2026-08-27/sesion-2026-08-27T01-21-39.990Z.md"
+  }
+}

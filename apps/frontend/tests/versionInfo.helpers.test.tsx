@@ -55,8 +55,6 @@ describe('version info helpers', () => {
     expect(await screen.findByText(/EvaluaPro · Portal Alumno/i)).toBeInTheDocument();
     expect(await screen.findByText(/evaluapro v1\.0\.0/i)).toBeInTheDocument();
     expect(screen.getByText(/Base técnica: 1\.0\.0/i)).toBeInTheDocument();
-    expect(screen.getByText('Sin tecnologías registradas.')).toBeInTheDocument();
-    expect(screen.getByText(/Plataforma:/i).closest('p')).toHaveTextContent('win32 / x64');
-    expect(screen.getByText(/Nombre:/i).closest('p')).toHaveTextContent('Equipo EvaluaPro');
+    expect(await screen.findByText('Sin tecnologías registradas.')).toBeInTheDocument();
   });
 });

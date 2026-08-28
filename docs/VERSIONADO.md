@@ -4,13 +4,11 @@
 Se usa SemVer en raiz del monorepo.
 
 ## Estado actual
-- Version declarada actual: `1.1.0`.
-- Version visible en GUI: `1.1.0`.
-- Canal operativo: estable candidata con hidratacion inicial de curso iniciado.
-- Politica objetivo: `1.0-beta` con cero fallos de gates; promoción a estable con gate humano en produccion.
-- Publicacion beta automatica: activa desde CI/CD cuando `CI Checks` completa en verde sobre `main` y el diff respecto a la version previa es significativo.
-- Gobierno vigente para recortes estructurales/Big Bang: `npm run qa:clean-architecture:strict` es el gate estructural activo en `HEAD` del 2026-03-27; no existen scripts `bigbang:olas:*` publicados en `package.json`.
-- Seguimiento de olas y bloqueos vigente: `docs/INVENTARIO_PROYECTO.md`.
+- Versión declarada actual: `1.1.1`.
+- Versión visible en GUI: `1.1.1`.
+- Canal operativo: Primera versión estable canónica y reconocida del proyecto EvaluaPro (`v1.1.1`).
+- Línea base fundacional: `v1.1.1` consolida la suite completa de 36 especificaciones SDD, arquitectura limpia estricta, motor OMR verificado y distribución nativa Windows/PWA sin dependencias legacy.
+- Seguimiento de calidad vigente: `docs/INVENTARIO_PROYECTO.md` y `docs/ENGINEERING_BASELINE.md`.
 - Trazabilidad de continuidad entre agentes: `AGENTS.md` y `docs/IA_TRAZABILIDAD_AGENTES.md`.
 
 ## Definiciones

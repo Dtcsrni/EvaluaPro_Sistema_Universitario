@@ -9,8 +9,8 @@ import { Icono } from '../../ui/iconos';
 
 export function AyudaFormulario({ titulo, children }: { titulo: string; children: ReactNode }) {
   return (
-    <div className="panel ayuda-formulario">
-      <div className="ayuda-formulario__header">
+    <details className="panel ayuda-formulario">
+      <summary className="ayuda-formulario__header">
         <h3 className="ayuda-formulario__title">
           <span className="ayuda-formulario__icon">
             <Icono nombre="info" />
@@ -19,17 +19,14 @@ export function AyudaFormulario({ titulo, children }: { titulo: string; children
         </h3>
         <div className="ayuda-formulario__chips" aria-hidden="true">
           <span className="ayuda-chip">
-            <Icono nombre="ok" /> Paso
+            <Icono nombre="ok" /> Guía
           </span>
           <span className="ayuda-chip">
-            <Icono nombre="info" /> Tip
-          </span>
-          <span className="ayuda-chip">
-            <Icono nombre="alerta" /> Validación
+            <Icono nombre="info" /> Ver detalles ▾
           </span>
         </div>
-      </div>
+      </summary>
       <div className="nota ayuda-formulario__body">{children}</div>
-    </div>
+    </details>
   );
 }

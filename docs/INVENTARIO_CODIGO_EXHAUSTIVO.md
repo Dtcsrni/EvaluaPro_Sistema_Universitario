@@ -1,11 +1,11 @@
 # Inventario Exhaustivo de Codigo
 
-Fecha de generacion: 2026-08-20 03:17:20
+Fecha de generacion: 2026-08-28 01:30:14
 Fuente: git ls-files filtrado por existencia en workspace (solo archivos versionados presentes, excluye node_modules).
 
 ## Resumen
 
-- Total de piezas de codigo/config ejecutable inventariadas: 1203
+- Total de piezas de codigo/config ejecutable inventariadas: 1302
 - Extensiones incluidas: ts, tsx, js, jsx, mjs, cjs, json, yml, yaml, sh, cmd, ps1.
 
 ## Conteo por area
@@ -13,13 +13,13 @@ Fuente: git ls-files filtrado por existencia en workspace (solo archivos version
 | Area | Archivos |
 | --- | ---: |
 | backend | 415 |
-| frontend | 134 |
+| frontend | 172 |
 | portal_alumno_cloud | 67 |
 | ci | 17 |
-| scripts | 175 |
+| scripts | 178 |
 | ops | 3 |
-| docs | 234 |
-| raiz | 32 |
+| docs | 314 |
+| raiz | 10 |
 
 ## Backend (apps/backend)
 
@@ -465,16 +465,36 @@ Fuente: git ls-files filtrado por existencia en workspace (solo archivos version
 - apps/frontend/src/apps/app_docente/features/banco/hooks/useBancoAjustes.ts
 - apps/frontend/src/apps/app_docente/features/banco/hooks/useBancoPreguntas.ts
 - apps/frontend/src/apps/app_docente/features/banco/hooks/useBancoTemas.ts
+- apps/frontend/src/apps/app_docente/features/plantillas/components/GuiaDisenoExamenesVisual.tsx
+- apps/frontend/src/apps/app_docente/features/plantillas/components/GuiaGeneracionExamenesVisual.tsx
+- apps/frontend/src/apps/app_docente/features/plantillas/components/GuiaHistorialLotesVisual.tsx
+- apps/frontend/src/apps/app_docente/features/plantillas/components/PlantillasConsolaGeneracion.tsx
 - apps/frontend/src/apps/app_docente/features/plantillas/components/PlantillasFormulario.tsx
 - apps/frontend/src/apps/app_docente/features/plantillas/components/PlantillasGenerados.tsx
+- apps/frontend/src/apps/app_docente/features/plantillas/components/PlantillasHistorialLotes.tsx
 - apps/frontend/src/apps/app_docente/features/plantillas/components/PlantillasListado.tsx
 - apps/frontend/src/apps/app_docente/features/plantillas/components/PlantillasOmrWorkflow.tsx
 - apps/frontend/src/apps/app_docente/features/plantillas/hooks/usePlantillasGeneradosActions.ts
 - apps/frontend/src/apps/app_docente/features/plantillas/hooks/usePlantillasOmrV1Actions.ts
 - apps/frontend/src/apps/app_docente/features/plantillas/hooks/usePlantillasPreviewActions.ts
+- apps/frontend/src/apps/app_docente/GuiaAlumnosVisual.tsx
+- apps/frontend/src/apps/app_docente/GuiaAsistenciasVisual.tsx
+- apps/frontend/src/apps/app_docente/GuiaBancoVisual.tsx
+- apps/frontend/src/apps/app_docente/GuiaCalificacionesVisual.tsx
+- apps/frontend/src/apps/app_docente/GuiaClassroomVisual.tsx
+- apps/frontend/src/apps/app_docente/GuiaCuentaVisual.tsx
+- apps/frontend/src/apps/app_docente/GuiaEntregaVisual.tsx
+- apps/frontend/src/apps/app_docente/GuiaEvaluacionesVisual.tsx
+- apps/frontend/src/apps/app_docente/GuiaMateriaVisual.tsx
+- apps/frontend/src/apps/app_docente/GuiaPlantillasVisual.tsx
+- apps/frontend/src/apps/app_docente/GuiaSincronizacionVisual.tsx
+- apps/frontend/src/apps/app_docente/GuiaTemariosVisual.tsx
 - apps/frontend/src/apps/app_docente/hooks/useEstadoSincronizacion.ts
+- apps/frontend/src/apps/app_docente/hooks/useOmrWorkflowState.ts
 - apps/frontend/src/apps/app_docente/hooks/usePermisosDocente.ts
+- apps/frontend/src/apps/app_docente/hooks/usePlantillasPreviewState.ts
 - apps/frontend/src/apps/app_docente/hooks/useRecordatorioPaseLista.ts
+- apps/frontend/src/apps/app_docente/hooks/useRecursosAcademicosDocente.ts
 - apps/frontend/src/apps/app_docente/hooks/useSesionDocente.ts
 - apps/frontend/src/apps/app_docente/mensajeInline.ts
 - apps/frontend/src/apps/app_docente/QrAccesoMovil.tsx
@@ -485,6 +505,7 @@ Fuente: git ls-files filtrado por existencia en workspace (solo archivos version
 - apps/frontend/src/apps/app_docente/SeccionBanco.tsx
 - apps/frontend/src/apps/app_docente/SeccionCalificaciones.tsx
 - apps/frontend/src/apps/app_docente/SeccionCalificar.tsx
+- apps/frontend/src/apps/app_docente/SeccionClassroom.tsx
 - apps/frontend/src/apps/app_docente/SeccionCuenta.tsx
 - apps/frontend/src/apps/app_docente/SeccionEntregaInterna.tsx
 - apps/frontend/src/apps/app_docente/SeccionEscaneo.tsx
@@ -541,6 +562,7 @@ Fuente: git ls-files filtrado por existencia en workspace (solo archivos version
 - apps/frontend/tests/appDocente.test.tsx
 - apps/frontend/tests/banco.estimadores.test.tsx
 - apps/frontend/tests/banco.refactor.test.tsx
+- apps/frontend/tests/bancoGestionTemas.test.tsx
 - apps/frontend/tests/centroClassroom.behavior.test.tsx
 - apps/frontend/tests/clienteApi.test.tsx
 - apps/frontend/tests/clienteComun.test.ts
@@ -551,17 +573,33 @@ Fuente: git ls-files filtrado por existencia en workspace (solo archivos version
 - apps/frontend/tests/gui.responsive.audit.test.ts
 - apps/frontend/tests/gui.responsive.contract.test.tsx
 - apps/frontend/tests/mensajeInline.test.ts
+- apps/frontend/tests/omrWorkflowState.hooks.test.tsx
 - apps/frontend/tests/plantillas.hooks.test.tsx
 - apps/frontend/tests/plantillas.refactor.test.tsx
+- apps/frontend/tests/plantillasGenerados.test.tsx
+- apps/frontend/tests/plantillasOmrWorkflow.test.tsx
+- apps/frontend/tests/plantillasPreviewState.hooks.test.tsx
 - apps/frontend/tests/portalSw.contract.test.ts
 - apps/frontend/tests/pwa.contract.test.ts
+- apps/frontend/tests/qrAccesoMovil.test.tsx
+- apps/frontend/tests/recursosAcademicos.hooks.test.tsx
+- apps/frontend/tests/seccionAlumnos.test.tsx
 - apps/frontend/tests/seccionAsistencias.test.tsx
 - apps/frontend/tests/seccionAutenticacion.googleOnly.test.tsx
 - apps/frontend/tests/seccionAutenticacion.test.tsx
 - apps/frontend/tests/seccionCalificaciones.manualSelector.test.tsx
+- apps/frontend/tests/seccionCalificar.test.tsx
+- apps/frontend/tests/seccionClassroom.test.tsx
+- apps/frontend/tests/seccionCuenta.test.tsx
+- apps/frontend/tests/seccionEntrega.test.tsx
 - apps/frontend/tests/seccionEvaluaciones.test.tsx
+- apps/frontend/tests/seccionPaqueteSincronizacion.test.tsx
 - apps/frontend/tests/seccionPeriodos.edit.test.tsx
 - apps/frontend/tests/seccionPeriodos.listasInstitucionales.test.tsx
+- apps/frontend/tests/seccionPublicar.test.tsx
+- apps/frontend/tests/seccionRehidratacionLotes.test.tsx
+- apps/frontend/tests/seccionSincronizacionEquipos.test.tsx
+- apps/frontend/tests/seccionTemarios.test.tsx
 - apps/frontend/tests/setup.ts
 - apps/frontend/tests/sincronizacion.behavior.test.tsx
 - apps/frontend/tests/tema.provider.test.ts
@@ -720,6 +758,7 @@ Fuente: git ls-files filtrado por existencia en workspace (solo archivos version
 - scripts/ia-docblocks.mjs
 - scripts/ia-handoff.mjs
 - scripts/ia-traceability.mjs
+- scripts/icons/generate-all-icons.mjs
 - scripts/icons/generate-installer-canonical-icon.ps1
 - scripts/icons/generate-installer-flavor-icon.ps1
 - scripts/icons/generate-official-hero.ps1
@@ -736,6 +775,7 @@ Fuente: git ls-files filtrado por existencia en workspace (solo archivos version
 - scripts/launcher-dashboard.mjs
 - scripts/launcher-dashboard.ps1
 - scripts/launcher-tray.ps1
+- scripts/limpiar-procesos-zombi.mjs
 - scripts/ops-maintenance.ps1
 - scripts/perf-baseline.mjs
 - scripts/perf-check-business.mjs
@@ -785,6 +825,7 @@ Fuente: git ls-files filtrado por existencia en workspace (solo archivos version
 - scripts/testing/run-client-proyectos-vite-tests.mjs
 - scripts/testing/run-gate-with-report.mjs
 - scripts/testing/run-omr-tv-gate.mjs
+- scripts/testing/smoke-live-docente.mjs
 - scripts/testing/start-frontend-e2e-server.mjs
 - scripts/testing/validate-anon-fixture.mjs
 - scripts/tests/affected-ci-resolver.test.mjs
@@ -1056,25 +1097,105 @@ Fuente: git ls-files filtrado por existencia en workspace (solo archivos version
 - docs/handoff/sesiones/2026-08-20/sesion-2026-08-20T05-45-02.507Z.json
 - docs/handoff/sesiones/2026-08-20/sesion-2026-08-20T07-26-22.589Z.json
 - docs/handoff/sesiones/2026-08-20/sesion-2026-08-20T07-33-23.604Z.json
+- docs/handoff/sesiones/2026-08-20/sesion-2026-08-20T09-00-37.517Z.json
+- docs/handoff/sesiones/2026-08-20/sesion-2026-08-20T09-17-20.709Z.json
+- docs/handoff/sesiones/2026-08-21/sesion-2026-08-21T20-35-58.959Z.json
+- docs/handoff/sesiones/2026-08-21/sesion-2026-08-21T22-57-30.400Z.json
+- docs/handoff/sesiones/2026-08-21/sesion-2026-08-21T23-14-46.581Z.json
+- docs/handoff/sesiones/2026-08-21/sesion-2026-08-21T23-56-43.678Z.json
+- docs/handoff/sesiones/2026-08-22/sesion-2026-08-22T00-15-52.989Z.json
+- docs/handoff/sesiones/2026-08-22/sesion-2026-08-22T00-35-07.486Z.json
+- docs/handoff/sesiones/2026-08-22/sesion-2026-08-22T01-19-03.612Z.json
+- docs/handoff/sesiones/2026-08-22/sesion-2026-08-22T01-29-47.379Z.json
+- docs/handoff/sesiones/2026-08-22/sesion-2026-08-22T03-55-58.782Z.json
+- docs/handoff/sesiones/2026-08-22/sesion-2026-08-22T04-27-55.152Z.json
+- docs/handoff/sesiones/2026-08-22/sesion-2026-08-22T04-48-18.447Z.json
+- docs/handoff/sesiones/2026-08-22/sesion-2026-08-22T05-17-29.394Z.json
+- docs/handoff/sesiones/2026-08-22/sesion-2026-08-22T05-51-36.828Z.json
+- docs/handoff/sesiones/2026-08-22/sesion-2026-08-22T06-00-09.094Z.json
+- docs/handoff/sesiones/2026-08-22/sesion-2026-08-22T06-22-32.259Z.json
+- docs/handoff/sesiones/2026-08-22/sesion-2026-08-22T22-55-11.966Z.json
+- docs/handoff/sesiones/2026-08-22/sesion-2026-08-22T23-33-19.639Z.json
+- docs/handoff/sesiones/2026-08-22/sesion-2026-08-22T23-48-09.605Z.json
+- docs/handoff/sesiones/2026-08-22/sesion-2026-08-22T23-57-57.527Z.json
+- docs/handoff/sesiones/2026-08-23/sesion-2026-08-23T04-54-46.996Z.json
+- docs/handoff/sesiones/2026-08-23/sesion-2026-08-23T04-58-10.244Z.json
+- docs/handoff/sesiones/2026-08-23/sesion-2026-08-23T05-02-01.038Z.json
+- docs/handoff/sesiones/2026-08-23/sesion-2026-08-23T05-29-48.213Z.json
+- docs/handoff/sesiones/2026-08-23/sesion-2026-08-23T05-56-33.172Z.json
+- docs/handoff/sesiones/2026-08-23/sesion-2026-08-23T06-26-03.036Z.json
+- docs/handoff/sesiones/2026-08-23/sesion-2026-08-23T09-56-21.745Z.json
+- docs/handoff/sesiones/2026-08-23/sesion-2026-08-23T10-07-58.310Z.json
+- docs/handoff/sesiones/2026-08-23/sesion-2026-08-23T10-14-35.256Z.json
+- docs/handoff/sesiones/2026-08-23/sesion-2026-08-23T10-18-53.661Z.json
+- docs/handoff/sesiones/2026-08-23/sesion-2026-08-23T10-28-31.072Z.json
+- docs/handoff/sesiones/2026-08-23/sesion-2026-08-23T11-04-49.623Z.json
+- docs/handoff/sesiones/2026-08-23/sesion-2026-08-23T11-08-58.479Z.json
+- docs/handoff/sesiones/2026-08-23/sesion-2026-08-23T11-23-20.190Z.json
+- docs/handoff/sesiones/2026-08-23/sesion-2026-08-23T11-33-59.725Z.json
+- docs/handoff/sesiones/2026-08-23/sesion-2026-08-23T11-42-18.766Z.json
+- docs/handoff/sesiones/2026-08-23/sesion-2026-08-23T11-47-35.035Z.json
+- docs/handoff/sesiones/2026-08-23/sesion-2026-08-23T13-09-01.130Z.json
+- docs/handoff/sesiones/2026-08-23/sesion-2026-08-23T13-22-24.704Z.json
+- docs/handoff/sesiones/2026-08-23/sesion-2026-08-23T13-23-32.727Z.json
+- docs/handoff/sesiones/2026-08-23/sesion-2026-08-23T14-10-04.641Z.json
+- docs/handoff/sesiones/2026-08-26/sesion-2026-08-26T02-15-13.397Z.json
+- docs/handoff/sesiones/2026-08-26/sesion-2026-08-26T02-19-58.580Z.json
+- docs/handoff/sesiones/2026-08-26/sesion-2026-08-26T03-07-35.075Z.json
+- docs/handoff/sesiones/2026-08-26/sesion-2026-08-26T05-33-19.701Z.json
+- docs/handoff/sesiones/2026-08-26/sesion-2026-08-26T07-09-36.161Z.json
+- docs/handoff/sesiones/2026-08-26/sesion-2026-08-26T07-18-32.431Z.json
+- docs/handoff/sesiones/2026-08-26/sesion-2026-08-26T08-20-42.582Z.json
+- docs/handoff/sesiones/2026-08-26/sesion-2026-08-26T08-37-59.538Z.json
+- docs/handoff/sesiones/2026-08-26/sesion-2026-08-26T08-48-58.005Z.json
+- docs/handoff/sesiones/2026-08-26/sesion-2026-08-26T09-14-51.707Z.json
+- docs/handoff/sesiones/2026-08-26/sesion-2026-08-26T09-32-12.810Z.json
+- docs/handoff/sesiones/2026-08-26/sesion-2026-08-26T09-38-02.108Z.json
+- docs/handoff/sesiones/2026-08-26/sesion-2026-08-26T09-54-10.947Z.json
+- docs/handoff/sesiones/2026-08-26/sesion-2026-08-26T09-55-55.999Z.json
+- docs/handoff/sesiones/2026-08-26/sesion-2026-08-26T10-04-13.560Z.json
+- docs/handoff/sesiones/2026-08-26/sesion-2026-08-26T10-06-45.867Z.json
+- docs/handoff/sesiones/2026-08-26/sesion-2026-08-26T10-24-20.068Z.json
+- docs/handoff/sesiones/2026-08-26/sesion-2026-08-26T10-31-33.321Z.json
+- docs/handoff/sesiones/2026-08-26/sesion-2026-08-26T10-38-27.100Z.json
+- docs/handoff/sesiones/2026-08-26/sesion-2026-08-26T10-39-19.121Z.json
+- docs/handoff/sesiones/2026-08-26/sesion-2026-08-26T10-39-36.544Z.json
+- docs/handoff/sesiones/2026-08-26/sesion-2026-08-26T10-42-21.867Z.json
+- docs/handoff/sesiones/2026-08-26/sesion-2026-08-26T10-43-39.484Z.json
+- docs/handoff/sesiones/2026-08-26/sesion-2026-08-26T10-44-26.814Z.json
+- docs/handoff/sesiones/2026-08-26/sesion-2026-08-26T18-33-50.938Z.json
+- docs/handoff/sesiones/2026-08-26/sesion-2026-08-26T18-34-56.145Z.json
+- docs/handoff/sesiones/2026-08-26/sesion-2026-08-26T18-35-59.861Z.json
+- docs/handoff/sesiones/2026-08-26/sesion-2026-08-26T19-12-27.075Z.json
+- docs/handoff/sesiones/2026-08-26/sesion-2026-08-26T19-18-46.542Z.json
+- docs/handoff/sesiones/2026-08-26/sesion-2026-08-26T19-19-56.318Z.json
+- docs/handoff/sesiones/2026-08-26/sesion-2026-08-26T19-21-15.171Z.json
+- docs/handoff/sesiones/2026-08-26/sesion-2026-08-26T19-29-11.479Z.json
+- docs/handoff/sesiones/2026-08-26/sesion-2026-08-26T19-34-48.166Z.json
+- docs/handoff/sesiones/2026-08-26/sesion-2026-08-26T19-47-48.376Z.json
+- docs/handoff/sesiones/2026-08-26/sesion-2026-08-26T20-03-41.669Z.json
+- docs/handoff/sesiones/2026-08-26/sesion-2026-08-26T20-05-13.977Z.json
+- docs/handoff/sesiones/2026-08-26/sesion-2026-08-26T20-10-26.694Z.json
+- docs/handoff/sesiones/2026-08-26/sesion-2026-08-26T20-13-00.630Z.json
+- docs/handoff/sesiones/2026-08-26/sesion-2026-08-26T20-16-20.742Z.json
+- docs/handoff/sesiones/2026-08-26/sesion-2026-08-26T20-19-32.214Z.json
+- docs/handoff/sesiones/2026-08-26/sesion-2026-08-26T20-48-18.854Z.json
+- docs/handoff/sesiones/2026-08-26/sesion-2026-08-26T20-54-35.485Z.json
+- docs/handoff/sesiones/2026-08-26/sesion-2026-08-26T21-05-53.818Z.json
+- docs/handoff/sesiones/2026-08-26/sesion-2026-08-26T21-15-14.713Z.json
+- docs/handoff/sesiones/2026-08-26/sesion-2026-08-26T21-17-34.129Z.json
+- docs/handoff/sesiones/2026-08-26/sesion-2026-08-26T21-38-32.355Z.json
+- docs/handoff/sesiones/2026-08-26/sesion-2026-08-26T21-56-01.999Z.json
+- docs/handoff/sesiones/2026-08-26/sesion-2026-08-26T22-07-17.104Z.json
+- docs/handoff/sesiones/2026-08-26/sesion-2026-08-26T22-16-02.787Z.json
+- docs/handoff/sesiones/2026-08-26/sesion-2026-08-26T23-33-10.170Z.json
+- docs/handoff/sesiones/2026-08-26/sesion-2026-08-26T23-43-22.603Z.json
+- docs/handoff/sesiones/2026-08-26/sesion-2026-08-26T23-45-52.921Z.json
+- docs/handoff/sesiones/2026-08-26/sesion-2026-08-26T23-55-52.956Z.json
+- docs/handoff/sesiones/2026-08-27/sesion-2026-08-27T00-11-21.144Z.json
 - docs/handoff/trace.schema.json
 - docs/perf/baseline.business.json
 - docs/perf/baseline.json
-- docs/release/evidencias/1.0.0/ci-runs.fixture.json
-- docs/release/evidencias/1.0.0/installer-release-manifest.fixture.json
-- docs/release/evidencias/1.0.0/integridad_sha256.json
-- docs/release/evidencias/1.0.0/manifest.json
-- docs/release/evidencias/1.0.0/rollback_readiness.json
-- docs/release/evidencias/1.0.1/integridad_sha256.json
-- docs/release/evidencias/1.0.1/manifest.json
-- docs/release/evidencias/1.0.1/rollback_readiness.json
-- docs/release/evidencias/1.0.2/integridad_sha256.json
-- docs/release/evidencias/1.0.2/manifest.json
-- docs/release/evidencias/1.0.2/rollback_readiness.json
-- docs/release/evidencias/1.1.0-local.0/integridad_sha256.json
-- docs/release/evidencias/1.1.0-local.0/manifest.json
-- docs/release/evidencias/1.1.0/integridad_sha256.json
-- docs/release/evidencias/1.1.0/manifest.json
-- docs/release/evidencias/1.1.0/rollback_readiness.json
 - docs/release/evidencias/1.1.1/integridad_sha256.json
 - docs/release/evidencias/1.1.1/manifest.json
 - docs/release/evidencias/1.1.1/rollback_readiness.json
@@ -1097,27 +1218,5 @@ Fuente: git ls-files filtrado por existencia en workspace (solo archivos version
 - npm-audit-report.json
 - package-lock.json
 - package.json
-- tmp_compare_installed_scripts.ps1
-- tmp_kill_bundle_processes.ps1
-- tmp_kill_stuck_build.ps1
-- tmp_msi_repair_and_probe.ps1
-- tmp_probe_build_process.ps1
-- tmp_probe_dotnet_times.ps1
-- tmp_probe_installed_during_repair.ps1
-- tmp_probe_installed_shortcuts.ps1
-- tmp_probe_repair_process_v2.ps1
-- tmp_probe_repair_process_v2b.ps1
-- tmp_probe_repair_process.ps1
-- tmp_repair_and_probe_v2.ps1
-- tmp_repair_and_probe.ps1
-- tmp_reset_windows_installer.ps1
-- tmp_reset_wix_cache.ps1
-- tmp_scan_installed_scripts.ps1
-- tmp_tail_msi_log.ps1
-- tmp_tail_repair_log_v2.ps1
-- tmp_tail_repair_log_v2b.ps1
-- tmp_tail_repair_log_v2c.ps1
-- tmp_tail_repair_log.ps1
-- tmp_unlock_bundle.ps1
 - tsconfig.base.json
 - vitest.base.ts

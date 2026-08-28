@@ -7,7 +7,6 @@
 import { Icono, Spinner } from '../../../../../ui/iconos';
 import { Boton } from '../../../../../ui/ux/componentes/Boton';
 import { InlineMensaje } from '../../../../../ui/ux/componentes/InlineMensaje';
-import { AyudaFormulario } from '../../../AyudaFormulario';
 import { useState } from 'react';
 import type { Alumno, Plantilla } from '../../../tipos';
 import { esMensajeError, idCortoMateria } from '../../../utilidades';
@@ -101,79 +100,81 @@ export function PlantillasGenerados({
   descargandoLoteId: string | null;
   regenerandoLoteId: string | null;
   eliminandoLoteId: string | null;
-  onDescargarPaquete: (loteId: string) => Promise<void>;
+  onDescargarPaquete: (loteId: string, examenesLote: ExamenGeneradoResumen[]) => Promise<void>;
   onRegenerarPaquete: (loteId: string, examenesLote: ExamenGeneradoResumen[]) => Promise<void>;
   onEliminarPaquete: (loteId: string, examenesLote: ExamenGeneradoResumen[]) => Promise<void>;
   progresoLoteGeneracion: ProgresoLoteGeneracion | null;
 }) {
   const [modoGeneracion, setModoGeneracion] = useState<'individual' | 'paquete'>('paquete');
-
-  // Normalización defensiva: evita condicionales repetidas en el JSX.
   const listaPlantillas = Array.isArray(plantillas) ? plantillas : [];
   const listaAlumnos = Array.isArray(alumnos) ? alumnos : [];
   const listaExamenesGenerados = Array.isArray(examenesGenerados) ? examenesGenerados : [];
+  const totalDescargados = listaExamenesGenerados.filter((ex) => Boolean(ex.descargadoEn)).length;
   const generandoActivo = modoGeneracion === 'individual' ? generando : generandoLote;
   const puedeGenerarActivo =
-    modoGeneracion === 'individual' ? puedeGenerar : Boolean(plantillaId) && puedeGenerarExamenes;
+    Boolean(plantillaId) && (modoGeneracion === 'individual' ? puedeGenerar : puedeGenerarExamenes && listaAlumnos.length > 0);
+  const etiquetaGeneracion =
+    modoGeneracion === 'individual'
+      ? generando
+        ? 'Generando examen…'
+        : 'Generar examen individual'
+      : generandoLote
+        ? 'Generando paquete…'
+        : 'Generar paquete de examenes';
   const tooltipGeneracion =
     modoGeneracion === 'individual'
-      ? 'Genera un único examen PDF usando la plantilla seleccionada.'
-      : 'Genera un paquete de examenes para alumnos activos de la plantilla seleccionada.';
-  const etiquetaGeneracion = generandoActivo
-    ? modoGeneracion === 'individual'
-      ? 'Generando…'
-      : 'Generando paquete…'
-    : modoGeneracion === 'individual'
-      ? 'Generar examen individual'
-      : 'Generar paquete de examenes';
-  const examenesPorLote = listaExamenesGenerados.reduce<Record<string, ExamenGeneradoResumen[]>>((acumulado, examen) => {
-    const key = String(examen.loteId || '').trim() || `sin-lote-${examen._id}`;
-    if (!Array.isArray(acumulado[key])) acumulado[key] = [];
-    acumulado[key].push(examen);
-    return acumulado;
-  }, {});
-  const lotesOrdenados = Object.entries(examenesPorLote);
-  // Indicador de adopción operativa: exámenes ya descargados por docente.
-  const totalDescargados = listaExamenesGenerados.filter((item) => Boolean(String(item.descargadoEn || '').trim())).length;
+      ? 'Genera un unico examen para la plantilla seleccionada.'
+      : 'Genera un paquete de examenes para los alumnos de la materia.';
+
+  const examenesPorLote = new Map<string, ExamenGeneradoResumen[]>();
+  const examenesIndividuales: ExamenGeneradoResumen[] = [];
+
+  for (const ex of listaExamenesGenerados) {
+    const loteId = String(ex.loteId || '').trim();
+    if (loteId) {
+      const lote = examenesPorLote.get(loteId) || [];
+      lote.push(ex);
+      examenesPorLote.set(loteId, lote);
+    } else {
+      examenesIndividuales.push(ex);
+    }
+  }
+
+  const paquetes = Array.from(examenesPorLote.entries()).map(([loteId, items]) => {
+    const fechas = items
+      .map((i) => i.generadoEn)
+      .filter(Boolean)
+      .map((f) => new Date(String(f)).getTime())
+      .filter((n) => Number.isFinite(n));
+    const fechaMasReciente = fechas.length > 0 ? new Date(Math.max(...fechas)).toISOString() : undefined;
+    const descargados = items.filter((i) => Boolean(i.descargadoEn)).length;
+    return {
+      loteId,
+      items,
+      total: items.length,
+      descargados,
+      generadoEn: fechaMasReciente
+    };
+  });
 
   return (
-    <div className="plantillas-grid plantillas-grid--generacion">
+    <div className="plantillas-grid plantillas-grid--generacion anim-fade-in">
       <div className="subpanel plantillas-panel plantillas-panel--generar">
-        <div className="plantillas-panel__hero">
-          <div>
+        <div className="banco-section-title">
+          <div className="banco-section-title__wrap">
+            <span className="banco-section-pill">
+              <span className="banco-section-pill__dot" aria-hidden="true" />
+              <span>Producción OMR</span>
+            </span>
             <h3>Generación de exámenes</h3>
             <p className="nota">Pasa de plantilla a producción individual o masiva con trazabilidad por folio y paquete.</p>
           </div>
+          <div className="plantillas-generacion__stats">
+            <span className="banco-tag-preguntas">Plantillas: {listaPlantillas.length}</span>
+            <span className="banco-tag-paginas">Alumnos: {listaAlumnos.length}</span>
+          </div>
         </div>
-        <AyudaFormulario titulo="Generación de exámenes (PDF)">
-          <p>
-            <b>Proposito:</b> crear un examen en PDF con <b>folio</b>, <b>QR por pagina</b> y marcas de referencia para lectura OMR.
-          </p>
-          <ul className="lista">
-            <li>
-              <b>Plantilla:</b> obligatoria.
-            </li>
-            <li>
-              <b>Aleatoriedad controlada:</b> el sistema varía orden de preguntas/opciones para reducir copia, manteniendo consistencia por examen.
-            </li>
-            <li>
-              <b>QR y folio:</b> cada página incluye QR y folio para trazabilidad de impresión, entrega y calificación.
-            </li>
-            <li>
-              <b>Fiduciales OMR:</b> se imprimen marcas guía para alineación/corrección geométrica durante escaneo.
-            </li>
-            <li>
-              <b>Vinculacion de alumno:</b> se realiza despues, en la seccion de <b>Entrega</b>, al recibir el examen fisico.
-            </li>
-          </ul>
-          <p>
-            Ejemplo: genera primero los examenes por folio y luego vincula cada folio con su alumno al entregar.
-          </p>
-        </AyudaFormulario>
-        <div className="plantillas-generacion__stats">
-          <span className="badge">Plantillas: {listaPlantillas.length}</span>
-          <span className="badge">Alumnos: {listaAlumnos.length}</span>
-        </div>
+
         <div className="plantillas-form">
           <label className="campo">
             Plantilla
@@ -187,7 +188,8 @@ export function PlantillasGenerados({
             </select>
           </label>
         </div>
-        <div className="acciones acciones--mt">
+
+        <div className="plantillas-modo-toggle" role="group" aria-label="Modo de generación">
           <Boton
             type="button"
             variante={modoGeneracion === 'individual' ? 'primario' : 'secundario'}
@@ -208,9 +210,9 @@ export function PlantillasGenerados({
           </Boton>
         </div>
 
-        <div className="acciones acciones--mt">
+        <div className="acciones plantillas-generar__cta">
           <Boton
-            className="boton"
+            className="boton boton--glow"
             type="button"
             icono={<Icono nombre="pdf" />}
             cargando={generandoActivo}
@@ -229,7 +231,7 @@ export function PlantillasGenerados({
         </div>
 
         {modoGeneracion === 'paquete' && progresoLoteGeneracion && (
-          <div className="resultado" aria-live="polite">
+          <div className="resultado plantillas-progreso-card" aria-live="polite">
             <h4>Progreso de generación del paquete {progresoLoteGeneracion.loteId}</h4>
             <progress
               className="plantillas-progreso-barra"
@@ -264,7 +266,7 @@ export function PlantillasGenerados({
           </p>
         )}
         {lotePdfUrl && (
-          <div className="acciones acciones--mt">
+          <div className="acciones plantillas-lote-download">
             <Boton
               type="button"
               variante="secundario"
@@ -274,29 +276,36 @@ export function PlantillasGenerados({
             >
               Descargar PDF completo
             </Boton>
-            <span className="ayuda">PDF del lote: {lotePdfUrl}</span>
+            <span className="ayuda">PDF del lote listo para imprimir</span>
           </div>
         )}
       </div>
+
       <div className="subpanel plantillas-panel plantillas-panel--generados" id="examenes-generados">
-        <div className="plantillas-panel__hero">
-          <div>
+        <div className="banco-section-title">
+          <div className="banco-section-title__wrap">
+            <span className="banco-section-pill">
+              <span className="banco-section-pill__dot" aria-hidden="true" />
+              <span>Custodia y Descargas</span>
+            </span>
             <h3>Examenes generados</h3>
             <p className="nota">Consulta historial, paquetes, descargas y regeneraciones desde una sola mesa operativa.</p>
           </div>
+          {plantillaSeleccionada && (
+            <div className="plantillas-generacion__stats">
+              <span className="banco-tag-preguntas">Mostrados: {listaExamenesGenerados.length}</span>
+              <span className="banco-tag-paginas">Descargados: {totalDescargados}</span>
+            </div>
+          )}
         </div>
-        {plantillaSeleccionada && (
-          <div className="plantillas-generacion__stats">
-            <span className="badge">Mostrados: {listaExamenesGenerados.length}</span>
-            <span className="badge">Descargados: {totalDescargados}</span>
-          </div>
-        )}
+
         {!plantillaSeleccionada && (
           <InlineMensaje tipo="info">Selecciona una plantilla para ver los examenes generados y su historial.</InlineMensaje>
         )}
+
         {lotePdfUrl && (
           <InlineMensaje tipo="ok">
-            <div className="acciones acciones--mt">
+            <div className="acciones plantillas-lote-download">
               <Boton
                 type="button"
                 variante="secundario"
@@ -306,15 +315,16 @@ export function PlantillasGenerados({
               >
                 Descargar PDF completo
               </Boton>
-              <span className="ayuda">PDF del lote: {lotePdfUrl}</span>
+              <span className="ayuda">PDF del paquete listo</span>
             </div>
           </InlineMensaje>
         )}
+
         {ultimoGenerado && (
-          <div className="resultado" aria-label="Detalle del ultimo examen generado">
+          <div className="resultado plantillas-ultimo-card" aria-label="Detalle del ultimo examen generado">
             <h4>Ultimo examen generado</h4>
             <div className="item-meta">
-              <span>Folio: {ultimoGenerado.folio}</span>
+              <span>Folio: <b>{ultimoGenerado.folio}</b></span>
               <span>ID: {idCortoMateria(ultimoGenerado._id)}</span>
               <span>Generado: {formatearFechaHora(ultimoGenerado.generadoEn)}</span>
             </div>
@@ -322,212 +332,146 @@ export function PlantillasGenerados({
               const paginas = Array.isArray(ultimoGenerado.paginas) ? ultimoGenerado.paginas : [];
               if (paginas.length === 0) return null;
               return (
-                <details>
-                  <summary>Previsualizacion por pagina ({paginas.length})</summary>
-                  {(() => {
-                    const tieneRangos = paginas.some((p) => Number(p.preguntasDel ?? 0) > 0 && Number(p.preguntasAl ?? 0) > 0);
-                    return (
-                      !tieneRangos && (
-                        <div className="ayuda">
-                          Rango por pagina no disponible en este examen (probablemente fue generado con una version anterior). Regenera para
-                          recalcular.
-                        </div>
-                      )
-                    );
-                  })()}
-                  <ul className="lista">
-                    {paginas.map((p) => {
-                      const del = Number(p.preguntasDel ?? 0);
-                      const al = Number(p.preguntasAl ?? 0);
-                      const tieneRangos = paginas.some((x) => Number(x.preguntasDel ?? 0) > 0 && Number(x.preguntasAl ?? 0) > 0);
-                      const rango = del && al ? `Preguntas ${del}–${al}` : tieneRangos ? 'Sin preguntas (pagina extra)' : 'Rango no disponible';
-                      return (
-                        <li key={p.numero}>
-                          Pagina {p.numero}: {rango}
-                        </li>
-                      );
-                    })}
-                  </ul>
-                </details>
+                <div className="plantillas-paginas-grid">
+                  {paginas.map((p) => (
+                    <div key={p.numero} className="plantillas-pagina-chip">
+                      <span className="plantillas-pagina-chip__num">Pág. {p.numero}</span>
+                      <span className="plantillas-pagina-chip__rango">
+                        {p.preguntasDel !== undefined && p.preguntasAl !== undefined
+                          ? `Reactivos ${p.preguntasDel}-${p.preguntasAl}`
+                          : 'Carátula/Instrucciones'}
+                      </span>
+                    </div>
+                  ))}
+                </div>
               );
             })()}
           </div>
         )}
 
-        {plantillaSeleccionada && (
-          <div className="resultado">
-            <h3>Examenes generados (plantilla seleccionada)</h3>
-            <div className="ayuda">Mostrando hasta 50, del mas reciente al mas antiguo. Al descargar se marca como descargado.</div>
-            {cargandoExamenesGenerados && (
-              <InlineMensaje tipo="info" leading={<Spinner />}>
-                Cargando examenes generados…
-              </InlineMensaje>
-            )}
-            <ul className="lista lista-items">
-              {!cargandoExamenesGenerados && listaExamenesGenerados.length === 0 && <li>No hay examenes generados para esta plantilla.</li>}
-              {lotesOrdenados.map(([loteId, examenesLote]) => {
-                const esPaquete = !String(loteId || '').startsWith('sin-lote-');
-                const tituloLote = esPaquete ? `Paquete ${loteId}` : 'Examen individual';
-                const fechaPaquete = examenesLote.reduce<string | undefined>((fecha, examen) => {
-                  const actual = String(examen.generadoEn || '').trim();
-                  if (!actual) return fecha;
-                  if (!fecha) return actual;
-                  const tsActual = new Date(actual).getTime();
-                  const tsFecha = new Date(fecha).getTime();
-                  if (!Number.isFinite(tsActual)) return fecha;
-                  if (!Number.isFinite(tsFecha)) return actual;
-                  return tsActual > tsFecha ? actual : fecha;
-                }, undefined);
+        {cargandoExamenesGenerados && (
+          <div className="cargando cargando--bloque">
+            <Spinner /> Cargando historial de exámenes…
+          </div>
+        )}
+
+        {plantillaSeleccionada && !cargandoExamenesGenerados && listaExamenesGenerados.length === 0 && (
+          <InlineMensaje tipo="info">Esta plantilla aún no tiene exámenes generados.</InlineMensaje>
+        )}
+
+        {paquetes.length > 0 && (
+          <div className="plantillas-paquetes-sec">
+            <h4>Paquetes masivos por grupo</h4>
+            <ul className="lista lista-items plantillas-lista">
+              {paquetes.map((pkg) => (
+                <li key={pkg.loteId}>
+                  <div className="item-glass plantillas-item plantillas-item--paquete">
+                    <div className="item-row">
+                      <div>
+                        <div className="item-title">Paquete: {pkg.loteId}</div>
+                        <div className="item-meta">
+                          <span>Total: {pkg.total} folios</span>
+                          <span>Descargados: {pkg.descargados}</span>
+                          <span>Fecha: {formatearFechaHora(pkg.generadoEn)}</span>
+                        </div>
+                      </div>
+                      <div className="acciones">
+                        <Boton
+                          type="button"
+                          variante="secundario"
+                          icono={<Icono nombre="pdf" />}
+                          cargando={descargandoLoteId === pkg.loteId}
+                          disabled={!puedeDescargarExamenes}
+                          onClick={() => void onDescargarPaquete(pkg.loteId, pkg.items)}
+                          data-tooltip="Descarga el PDF consolidado del paquete."
+                        >
+                          Descargar ZIP / PDF
+                        </Boton>
+                        <Boton
+                          type="button"
+                          variante="secundario"
+                          cargando={regenerandoLoteId === pkg.loteId}
+                          disabled={!puedeRegenerarExamenes}
+                          onClick={() => void onRegenerarPaquete(pkg.loteId, pkg.items)}
+                          data-tooltip="Regenera los PDFs del paquete."
+                        >
+                          Regenerar
+                        </Boton>
+                        <Boton
+                          type="button"
+                          variante="secundario"
+                          className="boton--peligro"
+                          cargando={eliminandoLoteId === pkg.loteId}
+                          disabled={!puedeArchivarExamenes}
+                          onClick={() => void onEliminarPaquete(pkg.loteId, pkg.items)}
+                          data-tooltip="Elimina todos los folios de este paquete."
+                        >
+                          Eliminar
+                        </Boton>
+                      </div>
+                    </div>
+                  </div>
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
+
+        {examenesIndividuales.length > 0 && (
+          <div className="plantillas-individuales-sec">
+            <h4>Exámenes individuales</h4>
+            <ul className="lista lista-items plantillas-lista">
+              {examenesIndividuales.map((ex) => {
+                const alumno = ex.alumnoId ? alumnosPorId.get(ex.alumnoId) : null;
+                const nombreAlumno = alumno?.nombreCompleto || (alumno ? `${alumno.nombres} ${alumno.apellidos}` : 'Sin alumno asignado');
                 return (
-                  <li key={loteId}>
-                    <details>
-                      <summary>
-                        {tituloLote} ({examenesLote.length}) · Generado: {formatearFechaHora(fechaPaquete)}
-                      </summary>
-                      {esPaquete && (
-                        <div className="acciones acciones--mt">
-                          <Boton
-                            type="button"
-                            variante="secundario"
-                            icono={<Icono nombre="recargar" />}
-                            cargando={regenerandoLoteId === loteId}
-                            disabled={!puedeRegenerarExamenes || eliminandoLoteId === loteId || descargandoLoteId === loteId}
-                            onClick={() => void onRegenerarPaquete(loteId, examenesLote)}
-                          >
-                            Regenerar paquete
-                          </Boton>
+                  <li key={ex._id}>
+                    <div className="item-glass plantillas-item">
+                      <div className="item-row">
+                        <div>
+                          <div className="item-title">Folio: {ex.folio}</div>
+                          <div className="item-meta">
+                            <span>Alumno: {nombreAlumno}</span>
+                            <span>Generado: {formatearFechaHora(ex.generadoEn)}</span>
+                            {ex.descargadoEn && <span>Descargado: {formatearFechaHora(ex.descargadoEn)}</span>}
+                          </div>
+                        </div>
+                        <div className="acciones">
                           <Boton
                             type="button"
                             variante="secundario"
                             icono={<Icono nombre="pdf" />}
-                            cargando={descargandoLoteId === loteId}
-                            disabled={!puedeDescargarExamenes || regenerandoLoteId === loteId || eliminandoLoteId === loteId}
-                            onClick={() => void onDescargarPaquete(loteId)}
+                            cargando={descargandoExamenId === ex._id}
+                            disabled={!puedeDescargarExamenes}
+                            onClick={() => void descargarPdfExamen(ex)}
+                            data-tooltip="Descarga el PDF de este examen individual."
                           >
-                            Descargar paquete
+                            PDF
                           </Boton>
                           <Boton
                             type="button"
                             variante="secundario"
-                            className="peligro"
-                            icono={<Icono nombre="alerta" />}
-                            cargando={eliminandoLoteId === loteId}
-                            disabled={!puedeArchivarExamenes || regenerandoLoteId === loteId || descargandoLoteId === loteId}
-                            onClick={() => void onEliminarPaquete(loteId, examenesLote)}
+                            cargando={regenerandoExamenId === ex._id}
+                            disabled={!puedeRegenerarExamenes}
+                            onClick={() => void regenerarPdfExamen(ex)}
+                            data-tooltip="Regenera el PDF de este examen."
                           >
-                            Eliminar paquete
+                            Regenerar
+                          </Boton>
+                          <Boton
+                            type="button"
+                            variante="secundario"
+                            className="boton--peligro"
+                            cargando={archivandoExamenId === ex._id}
+                            disabled={!puedeArchivarExamenes}
+                            onClick={() => void eliminarExamenGenerado(ex)}
+                            data-tooltip="Elimina este folio."
+                          >
+                            Eliminar
                           </Boton>
                         </div>
-                      )}
-                      <ul className="lista lista-items">
-                        {examenesLote.map((examen) => {
-                          const alumno = examen.alumnoId ? alumnosPorId.get(String(examen.alumnoId)) : null;
-                          const descargado = Boolean(String(examen.descargadoEn || '').trim());
-                          const regenerable = !examen.estado || String(examen.estado) === 'generado';
-                          return (
-                            <li key={examen._id}>
-                              <div className="item-glass">
-                                <div className="item-row">
-                                  <div>
-                                    <div className="item-title">Folio: {examen.folio}</div>
-                                    <div className="item-meta">
-                                      <span>ID: {idCortoMateria(examen._id)}</span>
-                                      <span>Generado: {formatearFechaHora(examen.generadoEn)}</span>
-                                      <span>Descargado: {descargado ? formatearFechaHora(examen.descargadoEn) : 'No'}</span>
-                                    </div>
-                                    <div className="item-sub">
-                                      Alumno:{' '}
-                                      {alumno
-                                        ? `${alumno.matricula} - ${alumno.nombreCompleto}`
-                                        : examen.alumnoId
-                                          ? `ID ${idCortoMateria(String(examen.alumnoId))}`
-                                          : 'Sin alumno'}
-                                    </div>
-                                    {(() => {
-                                      const paginas = Array.isArray(examen.paginas) ? examen.paginas : [];
-                                      if (paginas.length === 0) return null;
-                                      return (
-                                        <details>
-                                          <summary>Previsualizacion por pagina ({paginas.length})</summary>
-                                          {(() => {
-                                            const tieneRangos = paginas.some(
-                                              (p) => Number(p.preguntasDel ?? 0) > 0 && Number(p.preguntasAl ?? 0) > 0
-                                            );
-                                            return (
-                                              !tieneRangos && (
-                                                <div className="ayuda">
-                                                  Rango por pagina no disponible en este examen. Regenera si necesitas la previsualizacion.
-                                                </div>
-                                              )
-                                            );
-                                          })()}
-                                          <ul className="lista">
-                                            {paginas.map((p) => {
-                                              const del = Number(p.preguntasDel ?? 0);
-                                              const al = Number(p.preguntasAl ?? 0);
-                                              const tieneRangos = paginas.some(
-                                                (x) => Number(x.preguntasDel ?? 0) > 0 && Number(x.preguntasAl ?? 0) > 0
-                                              );
-                                              const rango = del && al
-                                                ? `Preguntas ${del}–${al}`
-                                                : tieneRangos
-                                                  ? 'Sin preguntas (pagina extra)'
-                                                  : 'Rango no disponible';
-                                              return (
-                                                <li key={p.numero}>
-                                                  Pagina {p.numero}: {rango}
-                                                </li>
-                                              );
-                                            })}
-                                          </ul>
-                                        </details>
-                                      );
-                                    })()}
-                                  </div>
-                                  <div className="item-actions">
-                                    {regenerable && (
-                                      <Boton
-                                        type="button"
-                                        variante="secundario"
-                                        icono={<Icono nombre="recargar" />}
-                                        cargando={regenerandoExamenId === examen._id}
-                                        disabled={!puedeRegenerarExamenes || descargandoExamenId === examen._id || archivandoExamenId === examen._id}
-                                        onClick={() => void regenerarPdfExamen(examen)}
-                                      >
-                                        Regenerar
-                                      </Boton>
-                                    )}
-                                    <Boton
-                                      type="button"
-                                      variante="secundario"
-                                      icono={<Icono nombre="pdf" />}
-                                      cargando={descargandoExamenId === examen._id}
-                                      disabled={!puedeDescargarExamenes || regenerandoExamenId === examen._id || archivandoExamenId === examen._id}
-                                      onClick={() => void descargarPdfExamen(examen)}
-                                    >
-                                      Descargar
-                                    </Boton>
-                                    {regenerable && (
-                                      <Boton
-                                        type="button"
-                                        variante="secundario"
-                                        className="peligro"
-                                        icono={<Icono nombre="alerta" />}
-                                        cargando={archivandoExamenId === examen._id}
-                                        disabled={!puedeArchivarExamenes || descargandoExamenId === examen._id || regenerandoExamenId === examen._id}
-                                        onClick={() => void eliminarExamenGenerado(examen)}
-                                      >
-                                        Eliminar
-                                      </Boton>
-                                    )}
-                                  </div>
-                                </div>
-                              </div>
-                            </li>
-                          );
-                        })}
-                      </ul>
-                    </details>
+                      </div>
+                    </div>
                   </li>
                 );
               })}

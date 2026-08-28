@@ -1,3 +1,9 @@
+/**
+ * journey-docente-integral.spec
+ *
+ * Responsabilidad: Modulo interno del sistema.
+ * Limites: Mantener contrato y comportamiento observable del modulo.
+ */
 import { expect, test } from '@playwright/test';
 import fs from 'node:fs';
 import path from 'node:path';

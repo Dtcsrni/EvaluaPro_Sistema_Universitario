@@ -11,22 +11,29 @@ import {
   mensajeUsuarioDeError
 } from './clienteComun';
 
-const baseApi = import.meta.env.VITE_API_BASE_URL || 'http://localhost:4000/api';
+const baseApi = import.meta.env.VITE_API_BASE_URL || '/api';
 const claveToken = 'tokenDocente';
 
 export type { DetalleErrorRemoto };
 export { ErrorRemoto };
 
-export function guardarTokenDocente(token: string) {
-  localStorage.setItem(claveToken, token);
+export function guardarTokenDocente(token: string, persistente: boolean = true) {
+  if (persistente) {
+    localStorage.setItem(claveToken, token);
+    sessionStorage.removeItem(claveToken);
+  } else {
+    sessionStorage.setItem(claveToken, token);
+    localStorage.removeItem(claveToken);
+  }
 }
 
 export function obtenerTokenDocente() {
-  return localStorage.getItem(claveToken);
+  return localStorage.getItem(claveToken) || sessionStorage.getItem(claveToken);
 }
 
 export function limpiarTokenDocente() {
   localStorage.removeItem(claveToken);
+  sessionStorage.removeItem(claveToken);
 }
 
 export function crearClienteApi() {

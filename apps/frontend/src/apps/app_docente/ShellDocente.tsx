@@ -8,7 +8,6 @@ import type { ReactNode } from 'react';
 import { Icono } from '../../ui/iconos';
 import { TemaBoton } from '../../tema/TemaBoton';
 import { Boton } from '../../ui/ux/componentes/Boton';
-import { InlineMensaje } from '../../ui/ux/componentes/InlineMensaje';
 import { abrirVentanaVersion, obtenerVersionApp } from '../../ui/version/versionInfo';
 import type { Docente } from './tipos';
 
@@ -23,58 +22,62 @@ export function ShellDocente({
 }) {
   const version = obtenerVersionApp();
   const nombreSesion = docente
-    ? ([docente.nombres, docente.apellidos].filter(Boolean).join(' ').trim() || docente.nombreCompleto)
+    ? ([docente.nombres, docente.apellidos].filter(Boolean).join(' ').trim() || docente.nombreCompleto || (docente as unknown as Record<string, string>).nombre || docente.correo)
     : 'Modo de acceso';
+
+  const iniciales = docente
+    ? [docente.nombres?.[0], docente.apellidos?.[0]].filter(Boolean).join('').toUpperCase() || 'EP'
+    : 'DOC';
+
   return (
     <section className="card anim-entrada shell-docente superficie-app superficie-app--docente">
-      <div className="shell-docente__hero">
-        <div className="cabecera shell-docente__header">
-          <div className="shell-docente__intro">
-            <p className="eyebrow">
-              <Icono nombre="docente" /> EvaluaPro
-            </p>
-            <h1>Plataforma Docente</h1>
-            <p className="shell-docente__lead">
-              Diseña evaluaciones, administra tus materias y califica exámenes con rapidez y precisión.
-            </p>
-          </div>
-          <div className="cabecera__acciones shell-docente__acciones">
-            <button
-              type="button"
-              className="chip chip-version"
-              title="Abrir información de versión"
-              onClick={() => abrirVentanaVersion('docente')}
-            >
-              v{version}
-            </button>
-            <TemaBoton />
-            {docente && (
-              <Boton variante="secundario" type="button" icono={<Icono nombre="salir" />} onClick={onCerrarSesion}>
-                Salir
-              </Boton>
-            )}
+      <div className="cabecera shell-docente__header">
+        <div className="shell-docente__intro">
+          <div className="shell-docente__brand-row">
+            <span className="shell-docente__logo-icon">
+              <img src="/favicon-docente.svg" alt="EvaluaPro" className="shell-docente__brand-img" />
+            </span>
+            <div>
+              <p className="eyebrow">EvaluaPro · Sistema Universitario</p>
+              <h1 className="shell-docente__title">Plataforma Docente</h1>
+            </div>
           </div>
         </div>
-        <div className="shell-docente__metrics" aria-label="Resumen visual del portal docente">
-          <article className="shell-docente__metric">
-            <span>Espacio</span>
-            <strong>Operación académica</strong>
-          </article>
-          <article className="shell-docente__metric">
-            <span>Sesión</span>
-            <strong>{nombreSesion}</strong>
-          </article>
-          <article className="shell-docente__metric">
-            <span>Enfoque</span>
-            <strong>Banco, OMR y publicación</strong>
-          </article>
+        <div className="cabecera__acciones shell-docente__acciones">
+          {docente && (
+            <div
+              className="chip chip-docente-sesion"
+              data-tooltip={`Docente: ${nombreSesion} (${docente.correo})`}
+              title={`Docente: ${nombreSesion} (${docente.correo})`}
+            >
+              <span className="chip-docente-avatar">{iniciales}</span>
+              <span className="chip-docente-name">{nombreSesion}</span>
+            </div>
+          )}
+          <button
+            type="button"
+            className="chip chip-version"
+            data-tooltip="Abrir información de versión, tecnologías y changelog"
+            title="Abrir información de versión, tecnologías y changelog"
+            onClick={() => abrirVentanaVersion('docente')}
+          >
+            v{version}
+          </button>
+          <TemaBoton />
+          {docente && (
+            <Boton
+              variante="secundario"
+              type="button"
+              icono={<Icono nombre="salir" />}
+              onClick={onCerrarSesion}
+              data-tooltip="Cerrar sesión de forma segura en este equipo"
+              title="Cerrar sesión de forma segura en este equipo"
+            >
+              Salir
+            </Boton>
+          )}
         </div>
       </div>
-      {docente && (
-        <InlineMensaje tipo="info">
-          Sesion: {nombreSesion} ({docente.correo})
-        </InlineMensaje>
-      )}
       <div className="shell-docente__content">
         {children}
       </div>

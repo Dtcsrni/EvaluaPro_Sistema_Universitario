@@ -1,12 +1,10 @@
 /**
  * PlantillasFormulario
  *
- * Responsabilidad: Componente de UI del dominio docente (presentacion y eventos de vista).
- * Limites: Evitar acoplar IO directo; preferir hooks/services del feature.
+ * Responsabilidad: Formulario panorámico Bento para diseño y edición de plantillas de examen OMR.
  */
 import { Icono } from '../../../../../ui/iconos';
 import { Boton } from '../../../../../ui/ux/componentes/Boton';
-import { AyudaFormulario } from '../../../AyudaFormulario';
 import { esMensajeError, etiquetaMateria, idCortoMateria } from '../../../utilidades';
 import type { Periodo, Plantilla } from '../../../tipos';
 import type { Dispatch, SetStateAction } from 'react';
@@ -55,32 +53,22 @@ export function PlantillasFormulario({
   mensaje: string;
 }) {
   return (
-    <div className="subpanel plantillas-panel plantillas-panel--form">
-      <div className="plantillas-panel__hero">
-        <div>
-          <h3>{modoEdicion ? 'Edición de plantilla' : 'Diseño de plantilla'}</h3>
-          <p className="nota">Configura la estructura del examen por materia y temas antes de pasar a previsualización o generación.</p>
+    <section className="alumnos-form alumnos-form--glass alumnos-form--panoramico plantillas-form--panoramico anim-form-card">
+      <div className="alumnos-form__header">
+        <div className="banco-section-title__wrap">
+          <span className="banco-section-pill">
+            <span className="banco-section-pill__dot" aria-hidden="true" />
+            <span>{modoEdicion ? 'Modo Edición' : 'Maquetación OMR'}</span>
+          </span>
+          <h3 className="alumnos-form__title">
+            {modoEdicion ? 'Edición de plantilla' : 'Diseño de plantilla'}
+          </h3>
+          <p className="alumnos-form__subtitle">
+            Configura la estructura del examen por materia y temas antes de pasar a previsualización o generación.
+          </p>
         </div>
       </div>
-      <AyudaFormulario titulo="Para que sirve y como llenarlo">
-        <p>
-          <b>Proposito:</b> crear una plantilla de examen (estructura + reactivos) para generar examenes en PDF.
-        </p>
-        <ul className="lista">
-          <li>
-            <b>Titulo:</b> nombre descriptivo (ej. <code>Parcial 1 - Algebra</code>).
-          </li>
-          <li>
-            <b>Materia:</b> la materia a la que pertenece.
-          </li>
-          <li>
-            <b>Temas:</b> selecciona uno o mas; el examen toma preguntas al azar de esos temas.
-          </li>
-        </ul>
-        <p>
-          Ejemplo: titulo <code>Parcial 1 - Programacion</code> y temas <code>Arreglos</code> + <code>Funciones</code>.
-        </p>
-      </AyudaFormulario>
+
       <div className="ayuda plantillas-panel__hint">
         {modoEdicion && plantillaEditando ? (
           <>
@@ -90,116 +78,142 @@ export function PlantillasFormulario({
           'Crea plantillas por temas, o edita una existente.'
         )}
       </div>
-      <div className="plantillas-form-wrap">
-        <div className="plantillas-form">
-          <label className="campo">
-            Titulo
-            <input
-              value={titulo}
-              onChange={(event) => setTitulo(event.target.value)}
-              disabled={bloqueoEdicion}
-              data-tooltip="Nombre visible de la plantilla."
-            />
+
+      <div className="alumnos-form__fields">
+        {/* Fila 1: Título y Materia */}
+        <div className="alumnos-form__row alumnos-form__row--top">
+          <label className="campo campo--titulo">
+            <span className="campo__label-row">
+              <span>Titulo</span>
+            </span>
+            <div className="auth-input-box auth-input-box--id auth-input-box--animated">
+              <input
+                value={titulo}
+                onChange={(event) => setTitulo(event.target.value)}
+                disabled={bloqueoEdicion}
+                placeholder="Ej. Parcial 1 - Álgebra"
+                data-tooltip="Nombre visible de la plantilla."
+              />
+            </div>
+            <span className="ayuda">Nombre representativo para el examen.</span>
           </label>
-          <label className="campo">
-            Materia
-            <select
-              value={periodoId}
-              onChange={(event) => setPeriodoId(event.target.value)}
-              disabled={bloqueoEdicion}
-              data-tooltip="Materia a la que pertenece la plantilla."
-            >
-              <option value="">Selecciona</option>
-              {periodos.map((periodo) => (
-                <option key={periodo._id} value={periodo._id} title={periodo._id}>
-                  {etiquetaMateria(periodo)}
-                </option>
-              ))}
-            </select>
+
+          <label className="campo campo--materia">
+            <span className="campo__label-row">
+              <span>Materia</span>
+            </span>
+            <div className="auth-input-box auth-input-box--select auth-input-box--animated">
+              <select
+                value={periodoId}
+                onChange={(event) => setPeriodoId(event.target.value)}
+                disabled={bloqueoEdicion}
+                data-tooltip="Materia a la que pertenece la plantilla."
+              >
+                <option value="">Selecciona</option>
+                {periodos.map((periodo) => (
+                  <option key={periodo._id} value={periodo._id} title={periodo._id}>
+                    {etiquetaMateria(periodo)}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <span className="ayuda">Asignatura académica asociada.</span>
           </label>
         </div>
 
-        <div className="plantillas-temas">
+        {/* Fila 2: Matriz de Temas */}
+        <div className="plantillas-temas-box">
           <div className="plantillas-temas__header">
             <div>
-              <h4>Temas</h4>
+              <h4 className="plantillas-temas__title">Temas de la plantilla</h4>
               <p className="nota">Selecciona las unidades que alimentarán la composición del examen.</p>
             </div>
             <div className="plantillas-temas__stats">
-              <span>Seleccionados: {temasSeleccionados.length}</span>
-              <span>Disponibles: {temasDisponibles.length}</span>
+              <span className="banco-tag-preguntas">Seleccionados: {temasSeleccionados.length}</span>
+              <span className="banco-tag-paginas">Disponibles: {temasDisponibles.length}</span>
             </div>
           </div>
+
           {periodoId && temasDisponibles.length === 0 && (
-            <span className="ayuda">No hay temas para esta materia. Ve a &quot;Banco&quot; y crea preguntas con tema.</span>
-          )}
-          {temasDisponibles.length > 0 && (
-            <div className="plantillas-temas__grid">
-              {temasDisponibles.map((item) => {
-                const checked = temasSeleccionados.some((t) => t.toLowerCase() === item.tema.toLowerCase());
-                return (
-                  <label key={item.tema} className={`plantillas-temas__chip${checked ? ' is-active' : ''}`}>
-                    <input
-                      type="checkbox"
-                      checked={checked}
-                      onChange={() => {
-                        setTemasSeleccionados((prev) =>
-                          checked ? prev.filter((t) => t.toLowerCase() !== item.tema.toLowerCase()) : [...prev, item.tema]
-                        );
-                      }}
-                      disabled={bloqueoEdicion}
-                      data-tooltip="Incluye este tema en la plantilla."
-                    />
-                    <span className="plantillas-temas__name">{item.tema}</span>
-                    <span className="plantillas-temas__count">{item.total}</span>
-                  </label>
-                );
-              })}
+            <div className="ayuda ayuda--warn mt-10">
+              ⚠️ Esta materia no tiene temas con preguntas en el banco. Agrega preguntas en la sección “Banco”.
             </div>
           )}
+
+          <div className="plantillas-temas__lista" role="group" aria-label="Temas disponibles">
+            {temasDisponibles.map((td) => {
+              const seleccionado = temasSeleccionados.includes(td.tema);
+              return (
+                <button
+                  key={td.tema}
+                  type="button"
+                  className={`plantillas-tema-chip ${seleccionado ? 'plantillas-tema-chip--selected' : ''}`}
+                  onClick={() => {
+                    if (bloqueoEdicion) return;
+                    setTemasSeleccionados((prev) =>
+                      prev.includes(td.tema) ? prev.filter((t) => t !== td.tema) : [...prev, td.tema]
+                    );
+                  }}
+                  disabled={bloqueoEdicion}
+                >
+                  <span className="plantillas-tema-chip__dot" aria-hidden="true" />
+                  <span className="plantillas-tema-chip__nombre">{td.tema}</span>
+                  <span className="plantillas-tema-chip__count">{td.total} reactivos</span>
+                </button>
+              );
+            })}
+          </div>
+
           {temasSeleccionados.length > 0 && (
-            <span className="ayuda">
-              Total disponible en temas seleccionados: {totalDisponiblePorTemas}. Si faltan preguntas, el sistema avisara antes de
-              generar.
-            </span>
+            <div className="plantillas-temas__resumen">
+              <span>Reactivos disponibles en temas seleccionados: <b>{totalDisponiblePorTemas}</b></span>
+            </div>
           )}
         </div>
-      </div>
-      <div className="acciones acciones--mt">
-        {!modoEdicion && (
-          <Boton
-            type="button"
-            icono={<Icono nombre="nuevo" />}
-            cargando={creando}
-            disabled={!puedeCrear || bloqueoEdicion}
-            onClick={crear}
-            data-tooltip="Crea una nueva plantilla con los datos actuales."
-          >
-            {creando ? 'Creando…' : 'Crear plantilla'}
-          </Boton>
+
+        {/* Footer con Botones y Ayuda */}
+        <div className="alumnos-form__footer">
+          <div className="acciones alumnos-form__actions">
+            {modoEdicion ? (
+              <>
+                <Boton
+                  type="button"
+                  variante="primario"
+                  icono={<Icono nombre="ok" />}
+                  cargando={guardandoPlantilla}
+                  disabled={!titulo.trim() || !periodoId || temasSeleccionados.length === 0 || bloqueoEdicion}
+                  onClick={() => void guardarEdicion()}
+                >
+                  {guardandoPlantilla ? 'Guardando…' : 'Guardar cambios'}
+                </Boton>
+                <Boton type="button" variante="secundario" onClick={cancelarEdicion}>
+                  Cancelar
+                </Boton>
+              </>
+            ) : (
+              <Boton
+                type="button"
+                variante="primario"
+                icono={<Icono nombre="ok" />}
+                cargando={creando}
+                disabled={!puedeCrear || bloqueoEdicion}
+                onClick={crear}
+              >
+                {creando ? 'Creando…' : 'Crear plantilla'}
+              </Boton>
+            )}
+          </div>
+          <div className="alumnos-form__hint">
+            <span>💡 Las plantillas definen la composición y el formato óptico para la generación y calificación OMR.</span>
+          </div>
+        </div>
+
+        {mensaje && (
+          <p className={esMensajeError(mensaje) ? 'mensaje error anim-fade-in' : 'mensaje ok anim-fade-in'} role="status">
+            {mensaje}
+          </p>
         )}
-        {modoEdicion && (
-          <>
-            <Boton
-              type="button"
-              cargando={guardandoPlantilla}
-              disabled={!titulo.trim() || guardandoPlantilla || bloqueoEdicion}
-              onClick={() => void guardarEdicion()}
-              data-tooltip="Guarda los cambios en la plantilla."
-            >
-              {guardandoPlantilla ? 'Guardando…' : 'Guardar cambios'}
-            </Boton>
-            <Boton type="button" variante="secundario" onClick={cancelarEdicion} data-tooltip="Cancela la edicion actual.">
-              Cancelar
-            </Boton>
-          </>
-        )}
       </div>
-      {mensaje && (
-        <p className={esMensajeError(mensaje) ? 'mensaje error' : 'mensaje ok'} role="status">
-          {mensaje}
-        </p>
-      )}
-    </div>
+    </section>
   );
 }

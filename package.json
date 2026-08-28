@@ -40,7 +40,10 @@
     "dev:frontend:alumno": "npm -C apps/frontend run dev:alumno",
     "dev:frontend:docente": "npm -C apps/frontend run dev:docente",
     "dev:frontend:wait": "node scripts/wait-api.mjs && npm -C apps/frontend run dev",
+    "zombi:clean": "node scripts/limpiar-procesos-zombi.mjs",
+    "dev:kill": "node scripts/limpiar-procesos-zombi.mjs",
     "docente:prod:native": "node scripts/start-docente-native.mjs",
+    "icons:generate": "node scripts/icons/generate-all-icons.mjs",
     "licencia:master": "node scripts/generar-licencia-master.mjs",
     "dev:portal": "node scripts/guard-env-separation.mjs --mode check --strict && node scripts/start-portal-dev.mjs",
     "portal:prod": "node scripts/guard-env-separation.mjs --mode check --strict && node scripts/start-portal-prod.mjs",
@@ -67,6 +70,7 @@
     "test:frontend": "npm -C apps/frontend run test",
     "test:frontend:ci": "node scripts/retry.mjs --name frontend --attempts 5 --delay-ms 900 --command \"npm -C apps/frontend run test -- --pool=forks --reporter=verbose\" --fallback-command \"npm -C apps/frontend run test -- --pool=threads --reporter=verbose\"",
     "test:gui:responsive:e2e:docente": "playwright test -c tests/gui-responsive/playwright.config.cjs",
+    "test:smoke:live": "node scripts/testing/smoke-live-docente.mjs",
     "test:gui:responsive:e2e:alumno": "playwright test -c tests/gui-responsive/playwright.alumno.config.cjs",
     "test:gui:responsive:e2e:admin": "playwright test -c tests/gui-responsive/playwright.admin.config.cjs",
     "test:gui:responsive:e2e": "npm-run-all -s test:gui:responsive:e2e:docente test:gui:responsive:e2e:alumno test:gui:responsive:e2e:admin",
@@ -251,8 +255,5 @@
     "mongodb": {
       "gcp-metadata": "7.0.1"
     }
-  },
-  "dependencies": {
-    "sharp": "^0.35.3"
   }
 }

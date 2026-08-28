@@ -43,12 +43,18 @@ function defaultTitle(level: ToastLevel) {
   return 'Info';
 }
 
-function normalizeDuration(ms: number) {
-  const value = Number.isFinite(ms) ? ms : 2800;
-  if (value >= 5000) return 5200;
-  if (value >= 3600) return 3800;
-  if (value >= 2600) return 2800;
-  return 2200;
+function normalizeDuration(ms?: number, level: ToastLevel = 'info') {
+  if (Number.isFinite(ms) && Number(ms) > 0) {
+    const value = Number(ms);
+    if (value >= 8000) return 8000;
+    if (value >= 6500) return 7500;
+    if (value >= 5000) return 6000;
+    if (value >= 4000) return 5000;
+    return Math.max(3500, value);
+  }
+  if (level === 'error') return 7500;
+  if (level === 'warn') return 6000;
+  return 5000;
 }
 
 export function ToastProvider({ children }: { children: React.ReactNode }) {
@@ -67,7 +73,7 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const schedule = useCallback((key: string, durationMs: number) => {
-    const ms = Math.max(1200, durationMs);
+    const ms = Math.max(2000, durationMs);
     remaining.current.set(key, ms);
     startedAt.current.set(key, Date.now());
     const handle = window.setTimeout(() => dismiss(key), ms);
@@ -82,7 +88,7 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
     window.clearTimeout(handle);
     timers.current.delete(key);
     const elapsed = Date.now() - start;
-    remaining.current.set(key, Math.max(300, rem - elapsed));
+    remaining.current.set(key, Math.max(500, rem - elapsed));
   }, []);
 
   const resume = useCallback((key: string) => {
@@ -90,7 +96,7 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
     const rem = remaining.current.get(key);
     if (rem === undefined) return;
     startedAt.current.set(key, Date.now());
-    const handle = window.setTimeout(() => dismiss(key), Math.max(300, rem));
+    const handle = window.setTimeout(() => dismiss(key), Math.max(500, rem));
     timers.current.set(key, handle);
   }, [dismiss]);
 
@@ -98,7 +104,7 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
     const level = (payload.level || 'info') as ToastLevel;
     const id = typeof payload.id === 'string' ? payload.id : undefined;
     const key = `${Date.now()}-${Math.random().toString(16).slice(2)}`;
-    const durationMs = normalizeDuration(Number(payload.durationMs || 2800));
+    const durationMs = normalizeDuration(payload.durationMs, level);
 
     const title = typeof payload.title === 'string' ? payload.title : defaultTitle(level);
     const message = String(payload.message || '').trim();
@@ -225,7 +231,7 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
                 ×
               </button>
             </div>
-            <div className="toast-life" />
+            <div className="toast-life" style={{ animationDuration: `${t.durationMs}ms` }} />
           </div>
         ))}
       </div>

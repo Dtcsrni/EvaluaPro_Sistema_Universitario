@@ -7,8 +7,12 @@ import { emitToast } from '../../ui/toast/toastBus';
 import { Icono } from '../../ui/iconos';
 import { Boton } from '../../ui/ux/componentes/Boton';
 import { clienteApi } from './clienteApiDocente';
+import { GuiaDisenoExamenesVisual } from './features/plantillas/components/GuiaDisenoExamenesVisual';
+import { GuiaGeneracionExamenesVisual } from './features/plantillas/components/GuiaGeneracionExamenesVisual';
+import { GuiaHistorialLotesVisual } from './features/plantillas/components/GuiaHistorialLotesVisual';
+import { PlantillasConsolaGeneracion } from './features/plantillas/components/PlantillasConsolaGeneracion';
+import { PlantillasHistorialLotes } from './features/plantillas/components/PlantillasHistorialLotes';
 import { PlantillasFormulario } from './features/plantillas/components/PlantillasFormulario';
-import { PlantillasGenerados } from './features/plantillas/components/PlantillasGenerados';
 import { PlantillasListado } from './features/plantillas/components/PlantillasListado';
 import { PlantillasOmrWorkflow } from './features/plantillas/components/PlantillasOmrWorkflow';
 import {
@@ -104,7 +108,8 @@ export function SeccionPlantillas({
   const [plantillaId, setPlantillaId] = useState('');
   const [mensajeGeneracion, setMensajeGeneracion] = useState('');
   const [lotePdfUrl, setLotePdfUrl] = useState<string | null>(null);
-  const [ultimoGenerado, setUltimoGenerado] = useState<ExamenGeneradoResumen | null>(null);
+  // ultimoGenerado
+  const [, setUltimoGenerado] = useState<ExamenGeneradoResumen | null>(null);
   const [assessmentDetalle, setAssessmentDetalle] = useState<GeneratedAssessmentDetalle | null>(null);
   const [cargandoAssessmentId, setCargandoAssessmentId] = useState<string | null>(null);
   const [procesandoOmr, setProcesandoOmr] = useState(false);
@@ -127,6 +132,7 @@ export function SeccionPlantillas({
   const [archivandoPlantillaId, setArchivandoPlantillaId] = useState<string | null>(null);
   const [filtroPlantillas, setFiltroPlantillas] = useState('');
   const [refrescandoPlantillas, setRefrescandoPlantillas] = useState(false);
+  const [tabActiva, setTabActiva] = useState<'diseno' | 'generacion' | 'historial'>('diseno');
   const puedeLeerExamenes = permisos.examenes.leer;
   const puedeGenerarExamenes = permisos.examenes.generar;
   const puedeArchivarExamenes = permisos.examenes.archivar;
@@ -902,150 +908,270 @@ export function SeccionPlantillas({
 
   return (
     <div className="panel plantillas-shell">
-      <div className="plantillas-header">
-        <h2>
-          <Icono nombre="plantillas" /> Plantillas
-        </h2>
-        <div className="plantillas-actions">
-          <Boton
-            type="button"
-            variante="secundario"
-            icono={<Icono nombre="recargar" />}
-            cargando={refrescandoPlantillas}
-            onClick={() => void refrescarPlantillas()}
-            data-tooltip="Recarga la lista de plantillas desde el servidor."
-          >
-            {refrescandoPlantillas ? 'Actualizando…' : 'Actualizar'}
-          </Boton>
-          <Boton
-            type="button"
-            variante="secundario"
-            disabled={!filtroPlantillas.trim()}
-            onClick={limpiarFiltroPlantillas}
-            data-tooltip="Quita el filtro de busqueda y muestra todas las plantillas."
-          >
-            Limpiar filtro
-          </Boton>
+      {/* 1. Bento Hero Header */}
+      <div className="banco-panel__head plantillas-panel__head anim-fade-in">
+        <div className="banco-panel__lead">
+          <div className="banco-panel__icon-orb plantillas-panel__icon-orb anim-icon-pulse" aria-hidden="true">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+              <polyline points="14 2 14 8 20 8" />
+              <line x1="16" y1="13" x2="8" y2="13" />
+              <line x1="16" y1="17" x2="8" y2="17" />
+            </svg>
+          </div>
+          <div className="banco-panel__text-block">
+            <div className="banco-panel__meta-row">
+              <span className="banco-status-pill plantillas-status-pill">
+                <span className="banco-pulse-dot" aria-hidden="true" />
+                <span>Motor de Maquetación OMR Activo</span>
+              </span>
+              {filtroPlantillas.trim() ? (
+                <span className="banco-counter-tag">Filtro: {filtroPlantillas.trim()}</span>
+              ) : (
+                <span className="banco-counter-tag">{resumenPlantillas.total} plantillas</span>
+              )}
+            </div>
+            <h2 className="banco-panel__title eyebrow">Diseño de Exámenes</h2>
+            <p className="nota">Configura estructura, temas y genera paquetes impresos en PDF con códigos QR y hojas OMR.</p>
+          </div>
         </div>
-      </div>
-      <div className="plantillas-resumen" aria-live="polite">
-        <div className="plantillas-resumen__item">
-          <span>Plantillas</span>
-          <b>{resumenPlantillas.total}</b>
-        </div>
-        <div className="plantillas-resumen__item">
-          <span>Con temas</span>
-          <b>{resumenPlantillas.conTemas}</b>
-        </div>
-        <div className="plantillas-resumen__item">
-          <span>Temas vinculados</span>
-          <b>{resumenPlantillas.totalTemasSeleccionados}</b>
-        </div>
-        <div className="plantillas-resumen__item">
-          <span>Filtro</span>
-          <b>{filtroPlantillas.trim() ? 'Activo' : 'Sin filtro'}</b>
+
+        {/* Header Actions & Mini-KPIs */}
+        <div className="plantillas-header-right">
+          <div className="plantillas-header-actions">
+            <Boton
+              type="button"
+              variante="secundario"
+              icono={<Icono nombre="recargar" />}
+              cargando={refrescandoPlantillas}
+              onClick={() => void refrescarPlantillas()}
+              data-tooltip="Recarga la lista de plantillas desde el servidor."
+            >
+              {refrescandoPlantillas ? 'Actualizando…' : 'Actualizar'}
+            </Boton>
+            {filtroPlantillas.trim() && (
+              <Boton
+                type="button"
+                variante="secundario"
+                onClick={limpiarFiltroPlantillas}
+                data-tooltip="Quita el filtro de búsqueda."
+              >
+                Limpiar filtro
+              </Boton>
+            )}
+          </div>
+
+          <div className="banco-header-kpis" aria-live="polite">
+            <div className="banco-mini-kpi banco-mini-kpi--preguntas anim-kpi-hover" data-tooltip="Total de plantillas configuradas">
+              <span className="banco-mini-kpi__icon" aria-hidden="true">
+                <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2.2">
+                  <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+                  <polyline points="14 2 14 8 20 8" />
+                </svg>
+              </span>
+              <span className="banco-mini-kpi__num">{resumenPlantillas.total}</span>
+              <span className="banco-mini-kpi__lbl">Plantillas</span>
+            </div>
+
+            <div className="banco-mini-kpi banco-mini-kpi--temas anim-kpi-hover" data-tooltip="Plantillas con unidades temáticas asignadas">
+              <span className="banco-mini-kpi__icon" aria-hidden="true">
+                <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2.2">
+                  <line x1="8" y1="6" x2="21" y2="6" />
+                  <line x1="8" y1="12" x2="21" y2="12" />
+                  <line x1="8" y1="18" x2="21" y2="18" />
+                </svg>
+              </span>
+              <span className="banco-mini-kpi__num">{resumenPlantillas.conTemas}</span>
+              <span className="banco-mini-kpi__lbl">Con temas</span>
+            </div>
+
+            <div className="banco-mini-kpi banco-mini-kpi--temaactual anim-kpi-hover" data-tooltip="Total de temas vinculados en plantillas">
+              <span className="banco-mini-kpi__icon" aria-hidden="true">
+                <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2.2">
+                  <polyline points="20 6 9 17 4 12" />
+                </svg>
+              </span>
+              <span className="banco-mini-kpi__num">{resumenPlantillas.totalTemasSeleccionados}</span>
+              <span className="banco-mini-kpi__lbl">Temas vinc.</span>
+            </div>
+
+            <div className="banco-mini-kpi banco-mini-kpi--paginas anim-kpi-hover" data-tooltip="Estado del filtro de búsqueda">
+              <span className="banco-mini-kpi__icon" aria-hidden="true">
+                <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2.2">
+                  <circle cx="11" cy="11" r="8" />
+                  <line x1="21" y1="21" x2="16.65" y2="16.65" />
+                </svg>
+              </span>
+              <span className="banco-mini-kpi__num banco-mini-kpi__num--sm">
+                {filtroPlantillas.trim() ? 'Activo' : 'Todos'}
+              </span>
+              <span className="banco-mini-kpi__lbl">Filtro</span>
+            </div>
+          </div>
         </div>
       </div>
 
-      <div className="plantillas-grid">
-        <PlantillasFormulario
-          modoEdicion={modoEdicion}
-          plantillaEditando={plantillaEditando}
-          titulo={titulo}
-          setTitulo={setTitulo}
-          periodoId={periodoId}
-          setPeriodoId={setPeriodoId}
-          periodos={periodos}
-          bloqueoEdicion={bloqueoEdicion}
-          temasDisponibles={temasDisponibles}
-          temasSeleccionados={temasSeleccionados}
-          setTemasSeleccionados={setTemasSeleccionados}
-          totalDisponiblePorTemas={totalDisponiblePorTemas}
-          creando={creando}
-          puedeCrear={puedeCrear}
-          crear={crear}
-          guardandoPlantilla={guardandoPlantilla}
-          guardarEdicion={guardarEdicion}
-          cancelarEdicion={cancelarEdicion}
-          mensaje={mensaje}
-        />
+      {/* 2. Glass Tab Navigation Bar */}
+      <div className="plantillas-tabs-bar anim-fade-in" role="tablist" aria-label="Etapas de diseño y generación de exámenes">
+        <button
+          type="button"
+          role="tab"
+          aria-selected={tabActiva === 'diseno'}
+          className={`plantillas-tab-btn ${tabActiva === 'diseno' ? 'plantillas-tab-btn--active' : ''}`}
+          onClick={() => setTabActiva('diseno')}
+        >
+          <span className="plantillas-tab-btn__icon">📐</span>
+          <span className="plantillas-tab-btn__label">Diseñar Exámenes</span>
+          <span className="plantillas-tab-btn__count">{totalPlantillasTodas}</span>
+        </button>
 
-        <PlantillasListado
-          totalPlantillasTodas={totalPlantillasTodas}
-          totalPlantillas={totalPlantillas}
-          filtroPlantillas={filtroPlantillas}
-          setFiltroPlantillas={setFiltroPlantillas}
-          plantillasFiltradas={plantillasFiltradas}
-          periodos={periodos}
-          previewPorPlantillaId={previewPorPlantillaId}
-          plantillaPreviewId={plantillaPreviewId}
-          previewPdfUrlPorPlantillaId={previewPdfUrlPorPlantillaId}
-          cargandoPreviewPlantillaId={cargandoPreviewPlantillaId}
-          cargarPreviewPlantilla={cargarPreviewPlantilla}
-          puedePrevisualizarPlantillas={puedePrevisualizarPlantillas}
-          cargandoPreviewPdfPlantillaId={cargandoPreviewPdfPlantillaId}
-          cargarPreviewPdfPlantilla={cargarPreviewPdfPlantilla}
-          cerrarPreviewPdfPlantilla={cerrarPreviewPdfPlantilla}
-          abrirPdfFullscreen={abrirPdfFullscreen}
-          pdfFullscreenUrl={pdfFullscreenUrl}
-          cerrarPdfFullscreen={cerrarPdfFullscreen}
-          togglePreviewPlantilla={togglePreviewPlantilla}
-          iniciarEdicion={iniciarEdicion}
-          puedeGestionarPlantillas={puedeGestionarPlantillas}
-          archivandoPlantillaId={archivandoPlantillaId}
-          archivarPlantilla={archivarPlantilla}
-          puedeArchivarPlantillas={puedeArchivarPlantillas}
-          formatearFechaHora={formatearFechaHora}
-        />
+        <button
+          type="button"
+          role="tab"
+          aria-selected={tabActiva === 'generacion'}
+          className={`plantillas-tab-btn ${tabActiva === 'generacion' ? 'plantillas-tab-btn--active' : ''}`}
+          onClick={() => setTabActiva('generacion')}
+        >
+          <span className="plantillas-tab-btn__icon">🚀</span>
+          <span className="plantillas-tab-btn__label">Generar Paquete PDF/OMR</span>
+          {generandoLote && <span className="plantillas-tab-btn__badge pulse">En progreso</span>}
+        </button>
+
+        <button
+          type="button"
+          role="tab"
+          aria-selected={tabActiva === 'historial'}
+          className={`plantillas-tab-btn ${tabActiva === 'historial' ? 'plantillas-tab-btn--active' : ''}`}
+          onClick={() => setTabActiva('historial')}
+        >
+          <span className="plantillas-tab-btn__icon">📦</span>
+          <span className="plantillas-tab-btn__label">Historial de Lotes</span>
+          <span className="plantillas-tab-btn__count">{examenesGenerados.length}</span>
+        </button>
       </div>
 
-      <PlantillasGenerados
-        plantillaId={plantillaId}
-        setPlantillaId={setPlantillaId}
-        plantillas={plantillas}
-        alumnos={alumnos}
-        generando={generando}
-        puedeGenerar={puedeGenerar}
-        onGenerarExamen={generarExamen}
-        generandoLote={generandoLote}
-        plantillaSeleccionada={plantillaSeleccionada}
-        puedeGenerarExamenes={puedeGenerarExamenes}
-        onGenerarExamenesLote={generarExamenesLote}
-        mensajeGeneracion={mensajeGeneracion}
-        lotePdfUrl={lotePdfUrl}
-        descargarPdfLote={descargarPdfLote}
-        ultimoGenerado={ultimoGenerado}
-        formatearFechaHora={formatearFechaHora}
-        cargandoExamenesGenerados={cargandoExamenesGenerados}
-        examenesGenerados={examenesGenerados}
-        alumnosPorId={alumnosPorId}
-        puedeRegenerarExamenes={puedeRegenerarExamenes}
-        descargandoExamenId={descargandoExamenId}
-        archivandoExamenId={archivandoExamenId}
-        regenerarPdfExamen={regenerarPdfExamen}
-        puedeDescargarExamenes={puedeDescargarExamenes}
-        descargarPdfExamen={descargarPdfExamen}
-        eliminarExamenGenerado={eliminarExamenGenerado}
-        regenerandoExamenId={regenerandoExamenId}
-        puedeArchivarExamenes={puedeArchivarExamenes}
-        descargandoLoteId={descargandoLoteId}
-        regenerandoLoteId={regenerandoLoteId}
-        eliminandoLoteId={eliminandoLoteId}
-        onDescargarPaquete={descargarPaquete}
-        onRegenerarPaquete={regenerarPaquete}
-        onEliminarPaquete={eliminarPaquete}
-        progresoLoteGeneracion={progresoLoteGeneracion}
-      />
-      <PlantillasOmrWorkflow
-        assessmentDetalle={assessmentDetalle}
-        jobOmr={jobOmr}
-        cargandoAssessmentId={cargandoAssessmentId}
-        procesandoOmr={procesandoOmr}
-        descargarArtifact={descargarArtifact}
-        crearJobOmr={crearJobOmr}
-        resolverHojaOmr={resolverHojaOmr}
-        finalizarJobOmr={finalizarJobOmr}
-      />
+      {/* ── PESTAÑA 1: DISEÑAR EXÁMENES ── */}
+      {tabActiva === 'diseno' && (
+        <div className="anim-fade-in" role="tabpanel" aria-label="Diseñar Exámenes">
+          <GuiaDisenoExamenesVisual />
+
+          <PlantillasFormulario
+            modoEdicion={modoEdicion}
+            plantillaEditando={plantillaEditando}
+            titulo={titulo}
+            setTitulo={setTitulo}
+            periodoId={periodoId}
+            setPeriodoId={setPeriodoId}
+            periodos={periodos}
+            bloqueoEdicion={bloqueoEdicion}
+            temasDisponibles={temasDisponibles}
+            temasSeleccionados={temasSeleccionados}
+            setTemasSeleccionados={setTemasSeleccionados}
+            totalDisponiblePorTemas={totalDisponiblePorTemas}
+            creando={creando}
+            puedeCrear={puedeCrear}
+            crear={crear}
+            guardandoPlantilla={guardandoPlantilla}
+            guardarEdicion={guardarEdicion}
+            cancelarEdicion={cancelarEdicion}
+            mensaje={mensaje}
+          />
+
+          <PlantillasListado
+            totalPlantillasTodas={totalPlantillasTodas}
+            totalPlantillas={totalPlantillas}
+            filtroPlantillas={filtroPlantillas}
+            setFiltroPlantillas={setFiltroPlantillas}
+            plantillasFiltradas={plantillasFiltradas}
+            periodos={periodos}
+            previewPorPlantillaId={previewPorPlantillaId}
+            plantillaPreviewId={plantillaPreviewId}
+            previewPdfUrlPorPlantillaId={previewPdfUrlPorPlantillaId}
+            cargandoPreviewPlantillaId={cargandoPreviewPlantillaId}
+            cargarPreviewPlantilla={cargarPreviewPlantilla}
+            puedePrevisualizarPlantillas={puedePrevisualizarPlantillas}
+            cargandoPreviewPdfPlantillaId={cargandoPreviewPdfPlantillaId}
+            cargarPreviewPdfPlantilla={cargarPreviewPdfPlantilla}
+            cerrarPreviewPdfPlantilla={cerrarPreviewPdfPlantilla}
+            abrirPdfFullscreen={abrirPdfFullscreen}
+            pdfFullscreenUrl={pdfFullscreenUrl}
+            cerrarPdfFullscreen={cerrarPdfFullscreen}
+            togglePreviewPlantilla={togglePreviewPlantilla}
+            iniciarEdicion={iniciarEdicion}
+            puedeGestionarPlantillas={puedeGestionarPlantillas}
+            archivandoPlantillaId={archivandoPlantillaId}
+            archivarPlantilla={archivarPlantilla}
+            puedeArchivarPlantillas={puedeArchivarPlantillas}
+            formatearFechaHora={formatearFechaHora}
+          />
+        </div>
+      )}
+
+      {/* ── PESTAÑA 2: GENERAR PAQUETE PDF/OMR ── */}
+      {tabActiva === 'generacion' && (
+        <div className="anim-fade-in" role="tabpanel" aria-label="Generar Paquete PDF/OMR">
+          <GuiaGeneracionExamenesVisual />
+
+          <PlantillasConsolaGeneracion
+            plantillaId={plantillaId}
+            setPlantillaId={setPlantillaId}
+            plantillas={plantillas}
+            alumnos={alumnos}
+            generando={generando}
+            puedeGenerar={puedeGenerar}
+            onGenerarExamen={generarExamen}
+            generandoLote={generandoLote}
+            plantillaSeleccionada={plantillaSeleccionada}
+            puedeGenerarExamenes={puedeGenerarExamenes}
+            onGenerarExamenesLote={generarExamenesLote}
+            mensajeGeneracion={mensajeGeneracion}
+            lotePdfUrl={lotePdfUrl}
+            descargarPdfLote={descargarPdfLote}
+            progresoLoteGeneracion={progresoLoteGeneracion}
+            onIrAHistorial={() => setTabActiva('historial')}
+          />
+        </div>
+      )}
+
+      {/* ── PESTAÑA 3: HISTORIAL DE LOTES ── */}
+      {tabActiva === 'historial' && (
+        <div className="anim-fade-in" role="tabpanel" aria-label="Historial de Lotes">
+          <GuiaHistorialLotesVisual />
+
+          <PlantillasHistorialLotes
+            cargandoExamenesGenerados={cargandoExamenesGenerados}
+            examenesGenerados={examenesGenerados}
+            alumnosPorId={alumnosPorId}
+            formatearFechaHora={formatearFechaHora}
+            puedeRegenerarExamenes={puedeRegenerarExamenes}
+            descargandoExamenId={descargandoExamenId}
+            archivandoExamenId={archivandoExamenId}
+            regenerarPdfExamen={regenerarPdfExamen}
+            puedeDescargarExamenes={puedeDescargarExamenes}
+            descargarPdfExamen={descargarPdfExamen}
+            eliminarExamenGenerado={eliminarExamenGenerado}
+            regenerandoExamenId={regenerandoExamenId}
+            puedeArchivarExamenes={puedeArchivarExamenes}
+            descargandoLoteId={descargandoLoteId}
+            regenerandoLoteId={regenerandoLoteId}
+            eliminandoLoteId={eliminandoLoteId}
+            onDescargarPaquete={descargarPaquete}
+            onRegenerarPaquete={regenerarPaquete}
+            onEliminarPaquete={eliminarPaquete}
+          />
+
+          <PlantillasOmrWorkflow
+            assessmentDetalle={assessmentDetalle}
+            jobOmr={jobOmr}
+            cargandoAssessmentId={cargandoAssessmentId}
+            procesandoOmr={procesandoOmr}
+            descargarArtifact={descargarArtifact}
+            crearJobOmr={crearJobOmr}
+            resolverHojaOmr={resolverHojaOmr}
+            finalizarJobOmr={finalizarJobOmr}
+          />
+        </div>
+      )}
     </div>
   );
 }

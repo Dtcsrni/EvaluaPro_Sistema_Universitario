@@ -2,6 +2,12 @@
 /**
  * check-classroom-e2e-evidence
  *
+ * Responsabilidad: Modulo interno del sistema.
+ * Limites: Mantener contrato y comportamiento observable del modulo.
+ */
+/**
+ * check-classroom-e2e-evidence
+ *
  * Responsabilidad: Validar evidencia manual del E2E real de Google Classroom.
  * Limites: No ejecuta Google APIs ni persiste secretos; valida contrato documental.
  */

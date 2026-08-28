@@ -1,6 +1,6 @@
 # Engineering Baseline
 
-Fecha de baseline vigente: 2026-08-20
+Fecha de baseline vigente: 2026-08-26
 Version técnica: `1.1.1`
 Versión visible GUI: `1.1.1`
 
@@ -11,15 +11,26 @@ EvaluaPro está en desarrollo y QA local. El flavor prioritario es
 SQLite/Prisma, frontend docente y runtime Node embebido. El Installer Hub WPF
 gestiona instalación, reparación, actualización y desinstalación desde la PC.
 
-- El repositorio mantiene versión unificada `1.1.1` y cero residuos de instalación.
-- El repositorio mantiene versión unificada `1.1.1` y cero residuos de instalación.
-- Matriz Playwright E2E (`SPEC-E2E-PLAYWRIGHT-MATRIX`) validada al 100%: Docente (6/6), Alumno (4/4), Admin (3/3), Ciclo de uso directo (1/1) y Journey integral (1/1) con 54 capturas UI generadas en `docs/assets/ui/`.
-- Auditoría UX/UI contractual: cero overflow horizontal verificado en 4 resoluciones (Desktop, Tablet, Tablet-sm, Móvil) y controles accesibles.
-- Rediseño de bienvenida docente (`SPEC-AUTH-ONBOARDING`) completado y desacoplado del shell de dashboard (`AppDocente.tsx`).
-- Modernización de WPF Bootstrapper (`SPEC-INSTALLER-HUB-LAYOUT-MODERNIZATION`) con renderizado DirectX Tier 2 optimizado.
-- Todos los gates de calidad obligatorios verificados en verde (lint, typecheck, frontend, coverage, TDD diff coverage 90.48%, backend, portal, perf, contracts, SDD).
+- **Ecosistema Integral SDD/TDD desde el Hub (`SPEC-034` a `SPEC-049` y 36 specs 100% implementadas)**:
+  - Formalización y trazabilidad completa de las 36 especificaciones en `docs/specs/` en estado `implemented`, con criterios de aceptación verificados y matrices de trazabilidad auditadas al 100% vinculadas a pruebas unitarias, de integración y contratos reales en disco.
+  - Alternancia dinámica interactiva en 3 pestañas operativas de Diseño de Exámenes (`[ 📐 Diseñar Exámenes ]`, `[ 🚀 Generar Paquete PDF/OMR ]`, `[ 📦 Historial de Lotes ]`) con guías Bento contextuales dedicadas.
+- **TDD, E2E Real y Cobertura Integral**: 56 suites de prueba en frontend con 206 tests pasando al 100% en verde, suite E2E real docente-alumno prod-like con SQLite y Prisma (`flujoDocenteAlumnoProduccionLikeE2E`), contratos de Installer Hub (70/70), validación OMR TV3 con dataset real (30 capturas, 208 preguntas, 100% de precisión y 0 falsos positivos) y Clean Architecture verificada en modo estricto (`qa:clean-architecture:strict`).
+- **Gates de Calidad Obligatorios**: Verificados en verde (lint, typecheck, frontend CI 206/206 en 56 archivos, backend CI 24 lotes, portal CI 32/32, perf budgets 4/4, pipeline contracts 17/17, SDD audit 36/36 specs, ci:policy:audit verde, Clean Architecture estricta verde, OMR TV3 real dataset verde, 100% diff coverage).
 
 ## Estado vigente
+- Corte 2026-08-27 (Consolidación de Arquitectura Limpia, Docblocks y Validación SDD/TDD sin Mocks):
+  - **Especificaciones SDD:** 36 especificaciones formales activas al 100% en estado `implemented` con criterios de aceptación y matrices de trazabilidad auditadas (`npm run sdd:audit` ✅).
+  - **Gates Verificados:** `npm run lint` ✅, `npm run typecheck` ✅, `npm run test:frontend:ci` ✅ (206 tests en 56 archivos), `npm run test:coverage:ci` ✅, `npm run test:tdd:enforcement:ci` ✅, `npm run test:backend:ci` ✅ (24 lotes), `npm run test:portal:ci` ✅ (32 tests), `npm run perf:check` ✅ (4 presupuestos), `npm run pipeline:contract:check` ✅ (17 tests), `npm run ci:policy:audit` ✅, `npm run qa:clean-architecture:strict` ✅, `npm run test:omr:tv:gate:ci` ✅ (30 capturas reales, 208 preguntas, 100% precisión).
+- Corte 2026-08-25 (Propagación Glassmorphism Integral, Ergonomía Visual y Suite 100% Verde):
+  - **Sistema de Diseño Glassmorphic Prismatic Sapphire:** Paleta de contraste ultra-alto, `backdrop-filter: blur(20px)`, bordes de cristal fino con reflejo especular interior y resplandores cromáticos por función aplicados exhaustivamente en las 14 pantallas del sistema docente, portal alumno y administración de negocio.
+  - **Gates Verificados:** `npm run lint` ✅, `npm run typecheck` ✅, `npm run test:frontend:ci` ✅ (201 tests en 55 archivos), `npm run test:backend:ci` ✅ (24 lotes), `npm run test:portal:ci` ✅ (32 tests), `npm run perf:check` ✅ (4 presupuestos), `npm run pipeline:contract:check` ✅ (17 tests), `npm run test:smoke:live` ✅.
+- Corte 2026-08-21 (Refactorización y Modernización Integral de Arquitectura y UX/UI):
+  - **Desacoplamiento Shell Docente:** `useOmrWorkflowState`, `useRecursosAcademicosDocente` y `usePlantillasPreviewState` modularizan y aíslan los estados de escaneo OMR, carga de recursos académicos base y previsualización de plantillas en `AppDocente.tsx`.
+  - **Higiene Visual y Responsive:** Cero estilos en línea (`style={{...}}`) en módulos docente/alumno; auditoría responsive 100% limpia.
+  - **Ergonomía de Mesa OMR:** Corrección acelerada por teclado (`A-E`, `0`, `Delete`, `-`).
+  - **WPF Bootstrapper:** Umbrales mínimos de 1024x576 DIPs que garantizan funcionamiento en laptops estándar con 125%-150% de escalado.
+  - **Diff Coverage:** `100.0%` superando con creces el umbral mínimo del 90%.
+  - **Gates Verificados:** `npm run lint` ✅, `npm run typecheck` ✅, `npm run test:frontend:ci` ✅ (200 tests), `npm run test:coverage:ci` ✅, `npm run test:tdd:enforcement:ci` ✅, `npm run test:backend:ci` ✅, `npm run test:portal:ci` ✅, `npm run perf:check` ✅, `npm run pipeline:contract:check` ✅, `node scripts/sdd-audit.mjs` ✅, `npm run ci:policy:audit` ✅.
 - Corte 2026-08-20 (Matriz Exhaustiva Playwright E2E y Calidad UX/UI):
   - **Playwright E2E:** 15/15 pruebas de interfaz pasando en verde a través de todas las pantallas operativas (Docente, Alumno, Admin).
   - **Calidad UX/UI:** Verificación estricta de contraste, accesibilidad táctil y cero desbordamiento horizontal.

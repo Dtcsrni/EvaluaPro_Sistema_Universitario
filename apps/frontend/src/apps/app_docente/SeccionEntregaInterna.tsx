@@ -1,3 +1,9 @@
+/**
+ * SeccionEntregaInterna
+ *
+ * Responsabilidad: Seccion funcional del shell docente.
+ * Limites: Conservar UX y permisos; extraer logica compleja a hooks/components.
+ */
 /* eslint-disable @typescript-eslint/no-unused-vars */
 
 /**
@@ -12,7 +18,6 @@ import { Icono, Spinner } from '../../ui/iconos';
 import { Boton } from '../../ui/ux/componentes/Boton';
 import { InlineMensaje } from '../../ui/ux/componentes/InlineMensaje';
 import { TemaBoton } from '../../tema/TemaBoton';
-import { AyudaFormulario } from './AyudaFormulario';
 import { clienteApi } from './clienteApiDocente';
 import { SeccionAutenticacion } from './SeccionAutenticacion';
 import { SeccionAlumnos } from './SeccionAlumnos';
@@ -21,6 +26,7 @@ import { SeccionCuenta } from './SeccionCuenta';
 import { QrAccesoMovil, SeccionEscaneo } from './SeccionEscaneo';
 import { SeccionPlantillas } from './SeccionPlantillas';
 import { SeccionPeriodos, SeccionPeriodosArchivados } from './SeccionPeriodos';
+import { GuiaEntregaVisual } from './GuiaEntregaVisual';
 import { SeccionRegistroEntrega } from './SeccionRegistroEntrega';
 import { registrarAccionDocente } from './telemetriaDocente';
 import type {
@@ -257,43 +263,68 @@ export function SeccionEntrega({
 
   return (
     <>
-      <div className="panel entregas-panel">
-        <h2>
-          <Icono nombre="recepcion" /> Entrega de examenes
-        </h2>
-        <AyudaFormulario titulo="Resumen de entrega">
-          <p>
-            <b>Proposito:</b> registrar entregas y ver el estado de cada examen generado.
-            Los entregados muestran fecha de entrega; los pendientes indican folios sin registro.
-          </p>
-          <ul className="lista">
-            <li>
-              <b>Entregados:</b> estado entregado o calificado.
-            </li>
-            <li>
-              <b>Pendientes:</b> estado generado (aun sin entrega).
-            </li>
-          </ul>
-        </AyudaFormulario>
-        <div className="entregas-resumen" aria-live="polite">
-          <div className="entregas-resumen__item">
-            <span>Total</span>
-            <b>{resumenEntrega.total}</b>
+      {/* 1. Bento Hero Header */}
+      <div className="banco-panel__head entrega-panel__head anim-fade-in">
+        <div className="banco-panel__lead">
+          <div className="banco-panel__icon-orb entrega-panel__icon-orb anim-icon-pulse" aria-hidden="true">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z" />
+              <polyline points="3.27 6.96 12 12.01 20.73 6.96" />
+              <line x1="12" y1="22.08" x2="12" y2="12" />
+            </svg>
           </div>
-          <div className="entregas-resumen__item">
-            <span>Entregados</span>
-            <b>{resumenEntrega.entregadosCount}</b>
+          <div className="banco-panel__text-block">
+            <div className="banco-panel__meta-row">
+              <span className="banco-status-pill entrega-status-pill">
+                <span className="banco-pulse-dot" aria-hidden="true" />
+                <span>Recepción y Custodia de Folios</span>
+              </span>
+              <span className="banco-counter-tag">{resumenEntrega.total} exámenes</span>
+            </div>
+            <h2 className="banco-panel__title eyebrow"><Icono nombre="recepcion" /> Entrega de examenes</h2>
+            <p className="nota">Registra folios físicos recibidos y da seguimiento a la custodia antes del escaneo OMR.</p>
           </div>
-          <div className="entregas-resumen__item">
-            <span>Pendientes</span>
-            <b>{resumenEntrega.pendientesCount}</b>
+        </div>
+
+        {/* Mini-KPIs */}
+        <div className="banco-header-kpis" aria-live="polite">
+          <div className="banco-mini-kpi banco-mini-kpi--preguntas anim-kpi-hover" data-tooltip="Total de exámenes generados en el lote">
+            <span className="banco-mini-kpi__icon" aria-hidden="true">
+              <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2.2">
+                <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+              </svg>
+            </span>
+            <span className="banco-mini-kpi__num">{resumenEntrega.total}</span>
+            <span className="banco-mini-kpi__lbl">Generados</span>
           </div>
-          <div className="entregas-resumen__item">
-            <span>Avance</span>
-            <b>{resumenEntrega.avance}%</b>
+
+          <div className="banco-mini-kpi banco-mini-kpi--temaactual anim-kpi-hover" data-tooltip="Exámenes con entrega física confirmada">
+            <span className="banco-mini-kpi__icon" aria-hidden="true"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2.2"><polyline points="20 6 9 17 4 12" /></svg></span>
+            <span className="banco-mini-kpi__num banco-mini-kpi__num--emerald">{resumenEntrega.entregadosCount}</span>
+            <span className="banco-mini-kpi__lbl">Entregados</span>
+          </div>
+
+          <div className="banco-mini-kpi banco-mini-kpi--sintema anim-kpi-hover" data-tooltip="Folios pendientes de entrega física">
+            <span className="banco-mini-kpi__icon" aria-hidden="true">
+              <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2.2">
+                <circle cx="12" cy="12" r="10" />
+                <line x1="12" y1="8" x2="12" y2="12" />
+              </svg>
+            </span>
+            <span className="banco-mini-kpi__num banco-mini-kpi__num--amber">{resumenEntrega.pendientesCount}</span>
+            <span className="banco-mini-kpi__lbl">Pendientes</span>
+          </div>
+
+          <div className="banco-mini-kpi banco-mini-kpi--paginas anim-kpi-hover" data-tooltip="Porcentaje de recepción completado">
+            <span className="banco-mini-kpi__icon" aria-hidden="true"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2.2"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" /></svg></span>
+            <span className="banco-mini-kpi__num banco-mini-kpi__num--cyan">{resumenEntrega.avance}%</span>
+            <span className="banco-mini-kpi__lbl">Recepción</span>
           </div>
         </div>
       </div>
+
+      {/* 2. Bento Visual Guide */}
+      <GuiaEntregaVisual />
 
       <SeccionRegistroEntrega
         alumnos={alumnos}
@@ -303,24 +334,31 @@ export function SeccionEntrega({
         examenesPorFolio={examenesPorFolio}
       />
 
-      <div className="panel entregas-panel">
-        <div className="item-row">
-          <div>
+      <div className="panel entregas-panel anim-fade-in">
+        <div className="banco-section-title">
+          <div className="banco-section-title__wrap">
+            <span className="banco-section-pill">
+              <span className="banco-section-pill__dot" aria-hidden="true" />
+              <span>Bitácora de Recepción</span>
+            </span>
             <h3>Estado de entregas</h3>
-            <div className="nota">Total: {examenesFiltrados.length} · Entregados: {entregados.length} · Pendientes: {pendientes.length}</div>
+            <p className="nota">Historial en tiempo real de exámenes impresos entregados y folios pendientes por materia.</p>
           </div>
           <div className="item-actions">
+            <span className="banco-counter-tag">Total: {examenesFiltrados.length}</span>
+            <span className="banco-counter-tag banco-counter-tag--emerald">Entregados: {entregados.length}</span>
+            <span className="banco-counter-tag banco-counter-tag--amber">Pendientes: {pendientes.length}</span>
             <Boton type="button" variante="secundario" onClick={() => void cargarExamenes()}>
-              Refrescar
+              <Icono nombre="recargar" /> Refrescar
             </Boton>
           </div>
         </div>
 
         <div className="entregas-filtros">
           <label className="campo">
-            Materia
+            Materia activa
             <select value={periodoId} onChange={(event) => setPeriodoId(event.target.value)}>
-              <option value="">Selecciona</option>
+              <option value="">Selecciona materia...</option>
               {periodos.map((periodo) => (
                 <option key={periodo._id} value={periodo._id}>
                   {periodo.nombre}
@@ -342,95 +380,110 @@ export function SeccionEntrega({
           </p>
         )}
 
-        <div className="resultado entregas-listado">
-          <h3>Entregados</h3>
-          {entregados.length === 0 && !cargando && <p className="nota">Aun no hay entregas registradas.</p>}
-          <ul className="lista lista-items">
-            {entregados.map((examen) => {
-              const alumno = examen.alumnoId ? alumnosPorId.get(examen.alumnoId) : null;
-              const alumnoTexto = alumno ? `${alumno.matricula} - ${alumno.nombreCompleto}` : 'Sin alumno';
-              const plantilla = examen.plantillaId ? plantillasPorId.get(examen.plantillaId) : null;
-              const parcialTexto = plantilla
-                ? (plantilla.tipo === 'parcial'
-                  ? (plantilla.titulo || 'Parcial')
-                  : (plantilla.titulo ? `Global: ${plantilla.titulo}` : 'Global'))
-                : '-';
-              const tieneAcordeon = Boolean(examen.acordeonEntregado);
-              const bonoAcordeon = Number(examen.bonoAcordeon ?? 0);
-              const bloqueando = deshaciendoFolio === examen.folio;
-              return (
-                <li key={examen._id}>
-                  <div className="item-glass entregas-listado__item entregas-listado__item--ok">
-                    <div className="item-row">
-                      <div>
-                        <div className="item-title">Folio {examen.folio}</div>
-                        <div className="item-meta">
-                          <span>Alumno: {alumnoTexto}</span>
-                          <span>Parcial: {parcialTexto}</span>
-                          {tieneAcordeon && <span className="chip chip-static">Acordeón: +{bonoAcordeon.toFixed(2)}</span>}
-                          <span>Entrega: {formatearFechaHora(examen.entregadoEn)}</span>
-                          <span>Estado: {String(examen.estado ?? 'entregado')}</span>
+        <div className="entregas-tables-grid">
+          {/* Columna 1: Entregados */}
+          <div className="item-glass entregas-subpanel entregas-subpanel--entregados">
+            <div className="entregas-subpanel__head">
+              <span className="chip chip-static chip--emerald">
+                ✓ Entregados ({entregados.length})
+              </span>
+            </div>
+            {entregados.length === 0 && !cargando && (
+              <p className="nota">Aún no hay entregas confirmadas para esta materia.</p>
+            )}
+            <ul className="lista lista-items entregas-lista-scroll">
+              {entregados.map((examen) => {
+                const alumno = examen.alumnoId ? alumnosPorId.get(examen.alumnoId) : null;
+                const alumnoTexto = alumno ? `${alumno.matricula} - ${alumno.nombreCompleto}` : 'Sin alumno';
+                const plantilla = examen.plantillaId ? plantillasPorId.get(examen.plantillaId) : null;
+                const parcialTexto = plantilla
+                  ? (plantilla.tipo === 'parcial'
+                    ? (plantilla.titulo || 'Parcial')
+                    : (plantilla.titulo ? `Global: ${plantilla.titulo}` : 'Global'))
+                  : '-';
+                const tieneAcordeon = Boolean(examen.acordeonEntregado);
+                const bonoAcordeon = Number(examen.bonoAcordeon ?? 0);
+                const bloqueando = deshaciendoFolio === examen.folio;
+                return (
+                  <li key={examen._id}>
+                    <div className="item-glass entregas-listado__item entregas-listado__item--ok anim-card-hover">
+                      <div className="item-row">
+                        <div>
+                          <div className="item-title">Folio {examen.folio}</div>
+                          <div className="item-meta">
+                            <span className="chip chip-static">{alumnoTexto}</span>
+                            <span>{parcialTexto}</span>
+                            {tieneAcordeon && <span className="chip chip-static chip--emerald">Acordeón: +{bonoAcordeon.toFixed(2)}</span>}
+                            <span>Entrega: {formatearFechaHora(examen.entregadoEn)}</span>
+                          </div>
+                        </div>
+                        <div className="item-actions">
+                          <Boton
+                            type="button"
+                            variante="secundario"
+                            className="boton--peligro"
+                            disabled={bloqueando || !puedeGestionar}
+                            onClick={() => void deshacerEntrega(examen.folio)}
+                          >
+                            {bloqueando ? (
+                              <>
+                                <Spinner /> Deshaciendo…
+                              </>
+                            ) : (
+                              'Deshacer'
+                            )}
+                          </Boton>
                         </div>
                       </div>
-                      <div className="item-actions">
-                        <Boton
-                          type="button"
-                          variante="secundario"
-                          disabled={bloqueando || !puedeGestionar}
-                          onClick={() => void deshacerEntrega(examen.folio)}
-                        >
-                          {bloqueando ? (
-                            <>
-                              <Spinner /> Deshaciendo…
-                            </>
-                          ) : (
-                            'Deshacer entrega'
-                          )}
-                        </Boton>
-                      </div>
                     </div>
-                  </div>
-                </li>
-              );
-            })}
-          </ul>
-        </div>
+                  </li>
+                );
+              })}
+            </ul>
+          </div>
 
-        <div className="resultado entregas-listado">
-          <h3>Pendientes</h3>
-          {pendientes.length === 0 && !cargando && <p className="nota">No hay pendientes.</p>}
-          <ul className="lista lista-items">
-            {pendientes.map((examen) => {
-              const alumno = examen.alumnoId ? alumnosPorId.get(examen.alumnoId) : null;
-              const alumnoTexto = alumno ? `${alumno.matricula} - ${alumno.nombreCompleto}` : 'Sin alumno';
-              const plantilla = examen.plantillaId ? plantillasPorId.get(examen.plantillaId) : null;
-              const parcialTexto = plantilla
-                ? (plantilla.tipo === 'parcial'
-                  ? (plantilla.titulo || 'Parcial')
-                  : (plantilla.titulo ? `Global: ${plantilla.titulo}` : 'Global'))
-                : '-';
-              const tieneAcordeon = Boolean(examen.acordeonEntregado);
-              const bonoAcordeon = Number(examen.bonoAcordeon ?? 0);
-              return (
-                <li key={examen._id}>
-                  <div className="item-glass entregas-listado__item entregas-listado__item--pending">
-                    <div className="item-row">
-                      <div>
-                        <div className="item-title">Folio {examen.folio}</div>
-                        <div className="item-meta">
-                          <span>Alumno: {alumnoTexto}</span>
-                          <span>Parcial: {parcialTexto}</span>
-                          {tieneAcordeon && <span className="chip chip-static">Acordeón: +{bonoAcordeon.toFixed(2)}</span>}
-                          <span>Generado: {formatearFechaHora(examen.generadoEn)}</span>
-                          <span>Estado: {String(examen.estado ?? 'generado')}</span>
+          {/* Columna 2: Pendientes */}
+          <div className="item-glass entregas-subpanel entregas-subpanel--pendientes">
+            <div className="entregas-subpanel__head">
+              <span className="chip chip-static chip--amber">
+                ⏳ Pendientes ({pendientes.length})
+              </span>
+            </div>
+            {pendientes.length === 0 && !cargando && (
+              <p className="nota">Todos los exámenes del lote han sido entregados con éxito.</p>
+            )}
+            <ul className="lista lista-items entregas-lista-scroll">
+              {pendientes.map((examen) => {
+                const alumno = examen.alumnoId ? alumnosPorId.get(examen.alumnoId) : null;
+                const alumnoTexto = alumno ? `${alumno.matricula} - ${alumno.nombreCompleto}` : 'Sin alumno asignado';
+                const plantilla = examen.plantillaId ? plantillasPorId.get(examen.plantillaId) : null;
+                const parcialTexto = plantilla
+                  ? (plantilla.tipo === 'parcial'
+                    ? (plantilla.titulo || 'Parcial')
+                    : (plantilla.titulo ? `Global: ${plantilla.titulo}` : 'Global'))
+                  : '-';
+                const tieneAcordeon = Boolean(examen.acordeonEntregado);
+                const bonoAcordeon = Number(examen.bonoAcordeon ?? 0);
+                return (
+                  <li key={examen._id}>
+                    <div className="item-glass entregas-listado__item entregas-listado__item--pending anim-card-hover">
+                      <div className="item-row">
+                        <div>
+                          <div className="item-title">Folio {examen.folio}</div>
+                          <div className="item-meta">
+                            <span className="chip chip-static">{alumnoTexto}</span>
+                            <span>{parcialTexto}</span>
+                            {tieneAcordeon && <span className="chip chip-static">Acordeón: +{bonoAcordeon.toFixed(2)}</span>}
+                            <span>Generado: {formatearFechaHora(examen.generadoEn)}</span>
+                          </div>
                         </div>
                       </div>
                     </div>
-                  </div>
-                </li>
-              );
-            })}
-          </ul>
+                  </li>
+                );
+              })}
+            </ul>
+          </div>
         </div>
       </div>
     </>

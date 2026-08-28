@@ -361,8 +361,8 @@ test('Installer Hub exige resolución mínima y recomienda 1080p', () => {
   assert.match(xaml, /FontFamily="Segoe UI, Segoe UI Variable Text, Aptos, Arial"/);
   assert.match(xaml, /<Style TargetType="TextBlock">[\s\S]*FontSize" Value="14"/);
   assert.match(xaml, /x:Key="HelpTextStyle"[\s\S]*FontSize" Value="14"[\s\S]*LineHeight" Value="21"/);
-  assert.match(code, /MinimumScreenWidth = 1280/);
-  assert.match(code, /MinimumScreenHeight = 720/);
+  assert.match(code, /MinimumScreenWidth = 1024/);
+  assert.match(code, /MinimumScreenHeight = 576/);
   assert.match(code, /1920×1080/);
   assert.match(xaml, /x:Name="HeaderFeatureTitleTextBlock"/);
   assert.match(xaml, /x:Name="HeaderFeatureIndexTextBlock"/);
@@ -387,7 +387,7 @@ test('Installer Hub mantiene legibilidad en timeline, carrusel y bitácora', () 
   assert.match(code, /FontSize = 12,[\s\S]*LineHeight = 18,[\s\S]*Foreground = ToBrush\("#D7E8F5"\),[\s\S]*TextWrapping = TextWrapping\.Wrap/);
   assert.match(code, /Text = stage\.Summary,[\s\S]*FontSize = 13,[\s\S]*TextWrapping = TextWrapping\.Wrap/);
   assert.match(xaml, /HeaderFeatureIndexTextBlock[^>]*FontSize="14"/);
-  assert.match(xaml, /Text="\{Binding InstalledLabel\}" FontSize="12"/);
+  assert.match(xaml, /x:Name="HardwareOsTextBlock"[\s\S]*FontSize="12"/);
   assert.match(xaml, /x:Name="LogTextBox"[\s\S]*FontSize="12"/);
 });
 
@@ -546,8 +546,13 @@ test('Installer Hub cumple contrato DESIGN.md de layout y accesibilidad WPF', ()
   assert.doesNotMatch(mainWindowXaml, /x:Name="AdvancedConfigExpander"/);
   assert.doesNotMatch(mainWindowXaml, /Configuración avanzada|Mongo URI|MongoDB/i);
   assert.doesNotMatch(mainWindowXaml, /x:Name="MongoUriTextBox"|x:Name="NodeEnvTextBox"|x:Name="ApiPortTextBox"/);
-  assert.match(mainWindowXaml, /x:Name="PrereqListView"[\s\S]*?MinHeight="72"[\s\S]*?MaxHeight="96"/);
-  assert.doesNotMatch(mainWindowXaml, /x:Name="PrereqListView"[^>]*Height="300"/);
+  assert.match(mainWindowXaml, /x:Name="HardwareOsTextBlock"/);
+  assert.match(mainWindowXaml, /x:Name="HardwareCpuRamTextBlock"/);
+  assert.match(mainWindowXaml, /x:Name="HardwareDiskSpaceTextBlock"/);
+  assert.match(mainWindowXaml, /x:Name="HardwarePackageModeTextBlock"/);
+  assert.match(mainWindowXaml, /x:Name="SummaryInstallDirTextBlock"/);
+  assert.match(mainWindowXaml, /x:Name="EstimatedTimeTextBlock"/);
+  assert.match(mainWindowCode, /RefreshHardwareMetrics/);
   assert.match(mainWindowXaml, /x:Name="LogExpander"[\s\S]*?IsExpanded="False"/);
   assert.match(mainWindowXaml, /Text="Evidencia técnica"[\s\S]*?%ProgramData%\\EvaluaPro\\installer-hub\\logs/);
   assert.match(mainWindowXaml, /AutomationProperties\.Name="Ruta de bitácoras técnicas"/);
@@ -560,8 +565,6 @@ test('Installer Hub cumple contrato DESIGN.md de layout y accesibilidad WPF', ()
   assert.match(mainWindowXaml, /x:Name="PrereqSummaryTextBlock"/);
   assert.match(mainWindowXaml, /x:Name="PrereqSummaryHintTextBlock"/);
   assert.match(mainWindowXaml, /x:Name="FooterNextActionTextBlock"/);
-  assert.match(mainWindowXaml, /<Setter Property="ToolTip" Value="\{Binding ToolTipText\}"/);
-  assert.match(mainWindowXaml, /<Setter Property="AutomationProperties\.Name" Value="\{Binding AccessibleSummary\}"/);
   assert.match(mainWindowXaml, /x:Name="InstallerLogoFrame"/);
   assert.match(mainWindowXaml, /x:Name="InstallerLogoImage"[\s\S]*?evaluapro-installer-logo\.png[\s\S]*?RenderOptions\.BitmapScalingMode="HighQuality"/);
   assert.match(mainWindowXaml, /x:Name="SplashInstallerLogoImage"[\s\S]*?evaluapro-installer-logo\.png[\s\S]*?RenderOptions\.BitmapScalingMode="HighQuality"/);

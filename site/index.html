@@ -6,18 +6,18 @@
     <title>EvaluaPro | Plataforma de Evaluación Universitaria OMR</title>
     <meta
       name="description"
-      content="EvaluaPro transforma la evaluación universitaria: diseño de exámenes en PDF con QR, captura OMR de alta velocidad, calificación robusta y analíticas académicas avanzadas."
+      content="EvaluaPro v1.1.1: Sistema integral de evaluación universitaria con diseño de exámenes en PDF, folios QR únicos, lectura óptica OMR de alta velocidad, firmas de encuadre digital y sincronización con Google Classroom."
     />
     <meta property="og:title" content="EvaluaPro | Plataforma de Evaluación Universitaria OMR" />
     <meta
       property="og:description"
-      content="Simplifica la calificación con plantillas OMR autogeneradas, lectura digital de respuestas por cámara y tableros de analíticas académicas en tiempo real."
+      content="Plataforma de evaluación universitaria offline-first: genera exámenes en PDF, califica en milisegundos con OMR de 100% precisión, firma encuadres digitales y publica en el Portal Alumno Cloud."
     />
     <meta property="og:type" content="website" />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link
-      href="https://fonts.googleapis.com/css2?family=Sora:wght@400;600;700;800&family=IBM+Plex+Sans:wght@400;500;600&display=swap"
+      href="https://fonts.googleapis.com/css2?family=Sora:wght@400;500;600;700;800&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap"
       rel="stylesheet"
     />
     <link rel="stylesheet" href="./styles.css" />
@@ -27,19 +27,35 @@
     <div class="bg-shape bg-shape-b" aria-hidden="true"></div>
     <div class="bg-shape bg-shape-c" aria-hidden="true"></div>
 
-    <!-- TOPBAR -->
+    <!-- ================================================ TOPBAR ================================================ -->
     <header class="topbar">
-      <a class="brand" href="#inicio">EvaluaPro</a>
-      <nav>
-        <a href="#como-funciona">Cómo funciona</a>
-        <a href="#producto">Capacidades</a>
-        <a href="#licencias">Licencias</a>
-        <a href="#faq">FAQ</a>
-        <a class="cta-mini" href="mailto:armsystechno@gmail.com?subject=Demo%20EvaluaPro">Solicitar demo</a>
-      </nav>
-      <button class="nav-toggle" id="navToggle" aria-label="Menú" aria-expanded="false">
-        <span></span><span></span><span></span>
-      </button>
+      <div class="topbar__inner container">
+        <a class="brand" href="#inicio">
+          <svg class="brand__icon" width="28" height="28" viewBox="0 0 512 512" fill="none">
+            <rect x="44" y="44" width="424" height="424" rx="96" fill="#06111e"/>
+            <rect x="44" y="44" width="424" height="424" rx="96" stroke="#00D2FF" stroke-width="14"/>
+            <polygon points="256,104 396,168 256,232 116,168" fill="#F59E0B" stroke="#92400E" stroke-width="6"/>
+            <circle cx="388" cy="244" r="14" fill="#00D2FF"/>
+            <rect x="156" y="272" width="200" height="136" rx="20" fill="#FFFFFF"/>
+            <path d="M272,352 l26,26 l58,-58" stroke="#10B981" stroke-width="18" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+          <span class="brand__name">EvaluaPro</span>
+          <span class="brand__badge">v1.1.1 Estable</span>
+        </a>
+        <nav>
+          <a href="#como-funciona">Cómo funciona</a>
+          <a href="#producto">Capacidades</a>
+          <a href="#estudio-examenes">Estudio Exámenes</a>
+          <a href="#motor-omr">Motor OMR</a>
+          <a href="#encuadre">Encuadre & Firmas</a>
+          <a href="#licencias">Licencias</a>
+          <a href="#faq">FAQ</a>
+          <a class="cta-mini" href="mailto:armsystechno@gmail.com?subject=Demo%20EvaluaPro">Solicitar demo</a>
+        </nav>
+        <button class="nav-toggle" id="navToggle" aria-label="Menú" aria-expanded="false">
+          <span></span><span></span><span></span>
+        </button>
+      </div>
     </header>
 
     <main id="inicio">
@@ -47,21 +63,20 @@
       <!-- ================================================ HERO ================================================ -->
       <section class="hero container reveal">
         <div class="hero-copyblock">
-
           <div class="hero-badges">
             <span class="badge badge-brand">
-              <svg width="10" height="10" viewBox="0 0 10 10" fill="none"><circle cx="5" cy="5" r="5" fill="#17c9a4"/></svg>
-              Disponible ahora
+              <span class="badge-pulse"></span>
+              Versión 1.1.1 Oficial
             </span>
-            <span class="badge badge-ghost">Evaluación · OMR · Analíticas</span>
+            <span class="badge badge-ghost">Evaluación · OMR Forense · Bento UI</span>
           </div>
 
-          <p class="eyebrow">Evaluación Universitaria Lista Para Operar</p>
-          <h1>Diseña, imprime, escanea y califica<br><span class="gradient-text">en un solo pipeline.</span></h1>
+          <p class="eyebrow">Evaluación Universitaria Autoritativa</p>
+          <h1>Diseña, imprime, escanea y califica<br><span class="gradient-text">en un solo pipeline offline.</span></h1>
           <p class="hero-copy">
-            EvaluaPro convierte la calificación tradicional en una operación digital ágil y auditada.
-            Diseña exámenes con reactivos dinámicos, genera PDFs listos para imprimir con QR único,
-            captura respuestas OMR por cámara y publica analíticas en segundos.
+            EvaluaPro v1.1.1 transforma la evaluación en una experiencia ágil, auditable y de cero fricción.
+            Diseña exámenes por pestañas con reactivos taxonómicos, genera paquetes PDF con QR y folios únicos,
+            califica con visión artificial OMR en milisegundos y sincroniza automáticamente con Google Classroom.
           </p>
 
           <div class="hero-actions">
@@ -71,25 +86,25 @@
 
           <div class="hero-metrics">
             <article>
-              <span class="metric" data-count="35">0</span><span class="metric-unit">días</span>
-              <small>Prueba comercial</small>
+              <span class="metric" data-count="100" data-suffix="%">0</span>
+              <small>Precisión OMR Real</small>
             </article>
             <article>
-              <span class="metric" data-count="99" data-suffix=".8%">0</span>
-              <small>Eficacia OMR</small>
+              <span class="metric" data-count="36">0</span>
+              <small>Especificaciones SDD</small>
             </article>
             <article>
-              <span class="metric" data-count="4">0</span>
-              <small>Modalidades de licencia</small>
+              <span class="metric" data-count="0" data-suffix=" ms">0</span>
+              <small>Latencia Offline Local</small>
             </article>
             <article>
-              <span class="metric" data-count="10">0</span>
-              <small>Categorías funcionales</small>
+              <span class="metric" data-count="1">0</span>
+              <small>Clic con Installer Hub</small>
             </article>
           </div>
         </div>
 
-        <!-- TEACHER DASHBOARD MOCKUP -->
+        <!-- HERO VISUAL: LIVE BENTO DASHBOARD MOCKUP -->
         <div class="hero-visual">
           <div class="hero-visual__glow hero-visual__glow--a"></div>
           <div class="hero-visual__glow hero-visual__glow--b"></div>
@@ -101,120 +116,121 @@
                 <span class="db-mockup__dot db-mockup__dot--yellow"></span>
                 <span class="db-mockup__dot db-mockup__dot--green"></span>
               </div>
-              <span class="db-mockup__title">evaluapro.app / docente / tablero</span>
-              <span style="opacity:0">x</span>
+              <span class="db-mockup__title">evaluapro.app · Shell Docente v1.1.1 (Bento Elevation)</span>
+              <span class="db-mockup__status-badge">⚡ SQLite Nativo</span>
             </div>
+
             <div class="db-mockup__layout">
               <aside class="db-mockup__sidebar">
                 <div class="db-mockup__logo">
-                  <svg width="14" height="14" viewBox="0 0 14 14" fill="none"><rect width="14" height="14" rx="3" fill="#00a6fb"/><path d="M4 10l3-6 3 6" stroke="#fff" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
-                  EvaluaPro
+                  <svg width="16" height="16" viewBox="0 0 512 512" fill="none"><rect width="512" height="512" rx="96" fill="#00D2FF"/><polygon points="256,120 380,180 256,240 132,180" fill="#0c1726"/></svg>
+                  <span>EvaluaPro</span>
                 </div>
                 <div class="db-mockup__item db-mockup__item--active">
-                  <svg width="12" height="12" viewBox="0 0 12 12" fill="none"><rect x="1" y="1" width="4" height="4" rx="1" fill="currentColor"/><rect x="7" y="1" width="4" height="4" rx="1" fill="currentColor"/><rect x="1" y="7" width="4" height="4" rx="1" fill="currentColor"/><rect x="7" y="7" width="4" height="4" rx="1" fill="currentColor"/></svg>
-                  Tablero
+                  <svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor"><rect x="1" y="1" width="6" height="6" rx="1.5"/><rect x="9" y="1" width="6" height="6" rx="1.5"/><rect x="1" y="9" width="6" height="6" rx="1.5"/><rect x="9" y="9" width="6" height="6" rx="1.5"/></svg>
+                  Tablero Bento
                 </div>
                 <div class="db-mockup__item">
-                  <svg width="12" height="12" viewBox="0 0 12 12" fill="none"><path d="M2 3h8M2 6h5M2 9h7" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/></svg>
-                  Exámenes
+                  <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6"><rect x="2" y="2" width="12" height="12" rx="2"/><path d="M5 6h6M5 10h4"/></svg>
+                  Diseño Exámenes
                 </div>
                 <div class="db-mockup__item">
-                  <svg width="12" height="12" viewBox="0 0 12 12" fill="none"><circle cx="6" cy="5" r="3" stroke="currentColor" stroke-width="1.2"/><path d="M1 11c0-2.2 2.2-4 5-4s5 1.8 5 4" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/></svg>
-                  Lectura OMR
+                  <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6"><circle cx="8" cy="8" r="6"/><path d="M8 5v6M5 8h6"/></svg>
+                  Escaneo OMR
                 </div>
                 <div class="db-mockup__item">
-                  <svg width="12" height="12" viewBox="0 0 12 12" fill="none"><path d="M2 9V5l4-3 4 3v4" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/><rect x="4" y="7" width="4" height="4" rx="0.5" stroke="currentColor" stroke-width="1.2"/></svg>
-                  Reportes
+                  <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M2 13l4-4 3 3 5-7"/></svg>
+                  Encuadre & Firmas
+                </div>
+                <div class="db-mockup__item">
+                  <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6"><circle cx="8" cy="8" r="3"/><path d="M8 1v2M8 13v2M1 8h2M13 8h2"/></svg>
+                  Classroom Sync
                 </div>
               </aside>
+
               <section class="db-mockup__content">
-                <header class="db-mockup__header">
-                  <div>
-                    <span class="db-mockup__user">Dr. Erick Vega Cerón</span>
-                    <span style="font-size:0.65rem; color:var(--muted); display:block;">Semestre Ago-Dic 2025</span>
+                <!-- Bento Hero Header -->
+                <header class="db-mockup__bento-header">
+                  <div class="db-mockup__bento-left">
+                    <div class="db-mockup__avatar">EV</div>
+                    <div>
+                      <div class="db-mockup__welcome">Bienvenido, <strong>Dr. Erick Vega Cerón</strong></div>
+                      <div class="db-mockup__subtext">Periodo 2026-B · Sistemas Distribuidos (Grupo LISC-801)</div>
+                    </div>
                   </div>
-                  <div class="db-mockup__notif">
-                    <span class="db-mockup__notif-dot"></span>
-                    <svg width="12" height="12" viewBox="0 0 12 12" fill="none"><path d="M6 1a3.5 3.5 0 013.5 3.5c0 2 .5 3 1 3.5H1.5c.5-.5 1-1.5 1-3.5A3.5 3.5 0 016 1z" stroke="currentColor" stroke-width="1.2"/><path d="M4.5 8.5A1.5 1.5 0 007.5 8.5" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/></svg>
-                  </div>
+                  <div class="db-mockup__orb" title="Orbe Bento Activo"></div>
                 </header>
 
+                <!-- Mini KPIs Bento -->
                 <div class="db-mockup__pills">
                   <article class="db-mockup__pill db-mockup__pill--brand">
-                    <span class="db-mockup__pill-val">14</span>
-                    <span class="db-mockup__pill-lbl">Exámenes</span>
+                    <span class="db-mockup__pill-val">34 / 34</span>
+                    <span class="db-mockup__pill-lbl">Alumnos Evaluados</span>
                   </article>
                   <article class="db-mockup__pill db-mockup__pill--accent">
-                    <span class="db-mockup__pill-val">8.4</span>
-                    <span class="db-mockup__pill-lbl">Promedio Gral.</span>
+                    <span class="db-mockup__pill-val">100%</span>
+                    <span class="db-mockup__pill-lbl">Confianza OMR</span>
                   </article>
                   <article class="db-mockup__pill db-mockup__pill--success">
-                    <span class="db-mockup__pill-val">99.8%</span>
-                    <span class="db-mockup__pill-lbl">Eficacia OMR</span>
+                    <span class="db-mockup__pill-val">8.8</span>
+                    <span class="db-mockup__pill-lbl">Promedio Grupal</span>
                   </article>
                 </div>
 
-                <!-- Mini bar chart -->
-                <div class="db-mockup__chart-label">Distribución de calificaciones</div>
-                <div class="db-mockup__chart">
-                  <div class="db-mockup__bar" style="--h:40%"><span>5-6</span></div>
-                  <div class="db-mockup__bar" style="--h:65%"><span>6-7</span></div>
-                  <div class="db-mockup__bar db-mockup__bar--accent" style="--h:100%"><span>7-8</span></div>
-                  <div class="db-mockup__bar db-mockup__bar--accent" style="--h:85%"><span>8-9</span></div>
-                  <div class="db-mockup__bar" style="--h:55%"><span>9-10</span></div>
+                <!-- Tabs de Diseño de Exámenes (SPEC-034) -->
+                <div class="db-mockup__tabs">
+                  <span class="db-mockup__tab db-mockup__tab--active">📐 Diseñar Exámenes</span>
+                  <span class="db-mockup__tab">🚀 Generar Paquete PDF</span>
+                  <span class="db-mockup__tab">📦 Historial de Lotes</span>
                 </div>
 
+                <!-- Lista de Evaluaciones en Tiempo Real -->
                 <div class="db-mockup__list">
-                  <div class="db-mockup__list-title">Evaluaciones Recientes</div>
-                  <div class="db-mockup__list-item">
-                    <div>
-                      <span>Álgebra Lineal - Parcial 2</span>
-                      <span style="font-size:0.6rem; color:var(--muted); display:block;">34 alumnos · hace 2 días</span>
-                    </div>
-                    <span class="db-mockup__status db-mockup__status--green">✓ Calificado</span>
+                  <div class="db-mockup__list-header">
+                    <span>Evaluación Reciente</span>
+                    <span class="db-mockup__badge-live">En vivo</span>
                   </div>
                   <div class="db-mockup__list-item">
                     <div>
-                      <span>Cálculo Multivariable - Final</span>
-                      <span style="font-size:0.6rem; color:var(--muted); display:block;">28 alumnos · hoy</span>
+                      <strong>Parcial II: Arquitecturas Distribuidas</strong>
+                      <span class="db-mockup__meta">34 reactivos OMR · Folio #LISC26-P2 · Sello HMAC-OK</span>
                     </div>
-                    <span class="db-mockup__status db-mockup__status--blue">⟳ Procesando</span>
+                    <span class="db-mockup__status db-mockup__status--green">✓ 100% Calificado</span>
                   </div>
                   <div class="db-mockup__list-item">
                     <div>
-                      <span>Física General - Práctica 3</span>
-                      <span style="font-size:0.6rem; color:var(--muted); display:block;">41 alumnos · ayer</span>
+                      <strong>Encuadre Académico Institucional</strong>
+                      <span class="db-mockup__meta">34 de 34 firmas digitales registradas con IP y Token</span>
                     </div>
-                    <span class="db-mockup__status db-mockup__status--green">✓ Calificado</span>
+                    <span class="db-mockup__status db-mockup__status--blue">✓ Firmado</span>
                   </div>
                 </div>
               </section>
             </div>
           </div>
-          <!-- End dashboard mockup -->
         </div>
       </section>
 
-      <!-- ================================================ LOGOS / TRUST ================================================ -->
+      <!-- ================================================ TRUST BAR ================================================ -->
       <section class="trust-bar container reveal">
-        <p class="trust-bar__label">Diseñado para instituciones de educación superior</p>
+        <p class="trust-bar__label">Ecosistema probado y preparado para universidades y centros educativos</p>
         <div class="trust-bar__logos">
-          <span class="trust-chip">Universidades públicas</span>
+          <span class="trust-chip">Universidades Públicas y Estatales</span>
           <span class="trust-sep">·</span>
-          <span class="trust-chip">Institutos tecnológicos</span>
+          <span class="trust-chip">Institutos Tecnológicos Federales</span>
           <span class="trust-sep">·</span>
-          <span class="trust-chip">Centros universitarios</span>
+          <span class="trust-chip">Facultades de Ingeniería y Ciencias</span>
           <span class="trust-sep">·</span>
-          <span class="trust-chip">Escuelas de posgrado</span>
+          <span class="trust-chip">Departamentos de Evaluación Docente</span>
         </div>
       </section>
 
       <!-- ================================================ CÓMO FUNCIONA ================================================ -->
       <section id="como-funciona" class="container section reveal">
         <div class="section-header">
-          <p class="eyebrow">Pipeline end-to-end</p>
-          <h2>De la pregunta al resultado en 4 pasos</h2>
-          <p class="section-sub">Sin hojas de cálculo manuales, sin errores de captura, sin semanas de espera.</p>
+          <p class="eyebrow">Pipeline Integral de Evaluación</p>
+          <h2>Del diseño a la calificación en 4 pasos auditados</h2>
+          <p class="section-sub">Sin captura manual de datos, sin errores de dedo y con respaldo forense de cada hoja.</p>
         </div>
 
         <div class="how-grid">
@@ -222,14 +238,14 @@
             <div class="how-step__num">01</div>
             <div class="how-step__icon">
               <svg width="28" height="28" viewBox="0 0 28 28" fill="none">
-                <rect x="4" y="4" width="20" height="20" rx="3" stroke="currentColor" stroke-width="1.8"/>
+                <rect x="4" y="4" width="20" height="20" rx="4" stroke="currentColor" stroke-width="1.8"/>
                 <path d="M9 10h10M9 14h7M9 18h5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
-                <circle cx="21" cy="21" r="5" fill="var(--brand)" stroke="none"/>
-                <path d="M18.5 21l1.5 1.5 2.5-2.5" stroke="#fff" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/>
+                <circle cx="21" cy="21" r="5" fill="var(--brand)"/>
+                <path d="M18.5 21l1.5 1.5 2.5-2.5" stroke="#fff" stroke-width="1.4" stroke-linecap="round"/>
               </svg>
             </div>
-            <h3>Diseño de Reactivos</h3>
-            <p>Crea bancos de preguntas con categorías, dificultad y pesos. El sistema arma exámenes únicos por grupo con aleatorización de opciones.</p>
+            <h3>1. Banco y Diseño de Exámenes</h3>
+            <p>Configura bancos de preguntas por categoría, dificultad y taxonomía. Diseña exámenes en 3 pestañas operativas y previsualiza cuadernillos al instante.</p>
           </div>
 
           <div class="how-step__connector" aria-hidden="true"></div>
@@ -238,14 +254,13 @@
             <div class="how-step__num">02</div>
             <div class="how-step__icon">
               <svg width="28" height="28" viewBox="0 0 28 28" fill="none">
-                <rect x="6" y="3" width="16" height="22" rx="2" stroke="currentColor" stroke-width="1.8"/>
+                <rect x="6" y="3" width="16" height="22" rx="3" stroke="currentColor" stroke-width="1.8"/>
                 <path d="M10 8h8M10 12h8M10 16h5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
-                <rect x="16" y="15" width="6" height="6" rx="1" fill="var(--brand)" stroke="none"/>
-                <path d="M17 18l1.5 1.5L21 17" stroke="#fff" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/>
+                <rect x="16" y="15" width="6" height="6" rx="1.5" fill="var(--accent)"/>
               </svg>
             </div>
-            <h3>PDF + Hoja OMR</h3>
-            <p>Genera PDFs listos para imprimir con QR de identificación único por examen. La hoja OMR incluye burbujas calibradas y marcadores de alineación óptica.</p>
+            <h3>2. Paquete PDF + QR Antifraude</h3>
+            <p>Genera en 1 clic paquetes PDF de alta fidelidad: cuadernillos con lema institucional y hojas OMR calibradas con folios QR únicos por alumno.</p>
           </div>
 
           <div class="how-step__connector" aria-hidden="true"></div>
@@ -254,14 +269,13 @@
             <div class="how-step__num">03</div>
             <div class="how-step__icon">
               <svg width="28" height="28" viewBox="0 0 28 28" fill="none">
-                <rect x="3" y="3" width="22" height="22" rx="3" stroke="currentColor" stroke-width="1.8"/>
+                <rect x="3" y="3" width="22" height="22" rx="4" stroke="currentColor" stroke-width="1.8"/>
                 <circle cx="14" cy="14" r="5" stroke="var(--accent)" stroke-width="1.8"/>
-                <circle cx="14" cy="14" r="2" fill="var(--accent)"/>
                 <path d="M14 3v4M14 21v4M3 14h4M21 14h4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
               </svg>
             </div>
-            <h3>Captura OMR</h3>
-            <p>Fotografía o escanea la hoja rellenada. El motor OMR detecta burbujas, corrige perspectiva, compensa iluminación y lee respuestas en milisegundos.</p>
+            <h3>3. Captura y Escrutinio OMR</h3>
+            <p>Escanea o fotografía las hojas. La visión artificial compensa perspectiva, alineación e iluminación, validando reactivos con teclado ergonómico (A-E, 0).</p>
           </div>
 
           <div class="how-step__connector" aria-hidden="true"></div>
@@ -270,124 +284,160 @@
             <div class="how-step__num">04</div>
             <div class="how-step__icon">
               <svg width="28" height="28" viewBox="0 0 28 28" fill="none">
-                <path d="M4 20l5-7 4 4 4-6 5 9" stroke="var(--accent)" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
-                <rect x="3" y="3" width="22" height="22" rx="3" stroke="currentColor" stroke-width="1.8"/>
-                <path d="M4 20l5-7 4 4 4-6 5 9" stroke="var(--accent)" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+                <path d="M4 20l5-7 4 4 4-6 5 9" stroke="var(--brand)" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+                <rect x="3" y="3" width="22" height="22" rx="4" stroke="currentColor" stroke-width="1.8"/>
               </svg>
             </div>
-            <h3>Calificación y Analíticas</h3>
-            <p>Resultados publicados instantáneamente en el portal del alumno. El docente obtiene reportes estadísticos, análisis de reactivos y exportación XLSX.</p>
+            <h3>4. Calificación, Classroom y Portal</h3>
+            <p>Publicación automática de notas en Google Classroom y en el Portal Alumno Cloud PWA, con reportes estadísticos y exportación oficial en DOCX/CSV.</p>
           </div>
         </div>
       </section>
 
-      <!-- ================================================ CAPACIDADES ================================================ -->
+      <!-- ================================================ CAPACIDADES BENTO ================================================ -->
       <section id="producto" class="container section reveal">
         <div class="section-header">
-          <p class="eyebrow">Por qué elegir EvaluaPro</p>
-          <h2>Capacidades que hacen la diferencia institucional</h2>
+          <p class="eyebrow">Capacidades del Sistema</p>
+          <h2>Tecnología de punta pensada para el docente universitario</h2>
         </div>
         <div class="grid cards-3">
           <article class="card">
             <div class="card__icon">
-              <svg width="22" height="22" viewBox="0 0 22 22" fill="none">
-                <path d="M11 2L3 6v6c0 4.4 3.4 8.5 8 9.5 4.6-1 8-5.1 8-9.5V6L11 2z" stroke="var(--brand)" stroke-width="1.6" stroke-linejoin="round"/>
-                <path d="M7.5 11l2.5 2.5 4.5-4.5" stroke="var(--brand)" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
-              </svg>
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="none"><path d="M12 2L3 7v6c0 5 4 9 9 10 5-1 9-5 9-10V7l-9-5z" stroke="var(--brand)" stroke-width="1.8"/><path d="M8 12l3 3 5-5" stroke="var(--brand)" stroke-width="1.8" stroke-linecap="round"/></svg>
             </div>
-            <h3>Operación completa en un flujo</h3>
-            <p>Desde el diseño de reactivos y generación del PDF dinámico con QR, hasta el escaneo óptico, calificación y publicación inmediata en el portal de alumnos. Todo en un pipeline robusto sin silos.</p>
+            <h3>Operación 100% Offline-First</h3>
+            <p>Trabaja en el aula sin depender de conexión a internet. La base de datos SQLite embebida procesa calificaciones y almacena evidencias localmente con sincronización cloud diferida.</p>
             <ul class="card__list">
-              <li>Banco de reactivos categorizado</li>
-              <li>PDF imprimible generado en segundos</li>
-              <li>Resultados disponibles en minutos</li>
+              <li>Cero caídas por falta de señal</li>
+              <li>Base de datos SQLite local cifrada</li>
+              <li>Sincronización en background cuando hay red</li>
             </ul>
           </article>
+
           <article class="card">
             <div class="card__icon">
-              <svg width="22" height="22" viewBox="0 0 22 22" fill="none">
-                <rect x="3" y="3" width="7" height="7" rx="1.5" stroke="var(--accent)" stroke-width="1.6"/>
-                <rect x="12" y="3" width="7" height="7" rx="1.5" stroke="var(--accent)" stroke-width="1.6"/>
-                <rect x="3" y="12" width="7" height="7" rx="1.5" stroke="var(--accent)" stroke-width="1.6"/>
-                <path d="M12 15.5h7M15.5 12v7" stroke="var(--accent)" stroke-width="1.6" stroke-linecap="round"/>
-              </svg>
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="none"><rect x="3" y="3" width="8" height="8" rx="2" stroke="var(--accent)" stroke-width="1.8"/><rect x="13" y="3" width="8" height="8" rx="2" stroke="var(--accent)" stroke-width="1.8"/><rect x="3" y="13" width="8" height="8" rx="2" stroke="var(--accent)" stroke-width="1.8"/><circle cx="17" cy="17" r="4" fill="var(--accent)"/></svg>
             </div>
-            <h3>Arquitectura híbrida local + cloud</h3>
-            <p>Garantía de continuidad académica: el docente opera de forma local e independiente en su aula sin requerir internet persistente. Al restablecer conexión, los resultados se sincronizan de forma transparente.</p>
+            <h3>Estudio de Diseño de Exámenes (SPEC-034)</h3>
+            <p>Suite completa con 3 pestañas operativas: Diseñar Exámenes, Generar Paquete PDF y consultar Historial de Lotes. Soporta variantes A/B y foliado con código QR único antifraude.</p>
             <ul class="card__list">
-              <li>App de escritorio sin internet</li>
-              <li>Sincronización automática en segundo plano</li>
-              <li>Portal web para alumnos en la nube</li>
+              <li>Generación instantánea de cuadernillos PDF</li>
+              <li>Hojas OMR calibradas con folio único</li>
+              <li>Claves de respuesta autoritativas generadas</li>
             </ul>
           </article>
+
           <article class="card">
             <div class="card__icon">
-              <svg width="22" height="22" viewBox="0 0 22 22" fill="none">
-                <path d="M3 6h16M3 11h10M3 16h13" stroke="var(--warning)" stroke-width="1.6" stroke-linecap="round"/>
-                <circle cx="18" cy="16" r="3" fill="var(--warning)" stroke="none"/>
-                <path d="M16.5 16l1 1 2-2" stroke="#0a0a0a" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/>
-              </svg>
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="none"><path d="M4 6h16M4 12h10M4 18h14" stroke="var(--warning)" stroke-width="1.8" stroke-linecap="round"/><circle cx="19" cy="18" r="3" fill="var(--warning)"/></svg>
             </div>
-            <h3>Gobernanza y evidencias</h3>
-            <p>Trazabilidad total sobre cada examen escaneado. EvaluaPro almacena la evidencia fotográfica digital de la hoja OMR de cada alumno, con registros de auditoría y reportes estadísticos exportables en XLSX.</p>
+            <h3>Encuadre Curricular y Firmas Digitales</h3>
+            <p>Genera el formato oficial de encuadre institucional en PDF con sellado criptográfico HMAC-SHA256. Recolecta firmas de alumnos con IP y token, con control estricto de faltas.</p>
             <ul class="card__list">
-              <li>Imagen archivada de cada hoja OMR</li>
-              <li>Logs de auditoría inmutables</li>
-              <li>Exportación XLSX de resultados</li>
+              <li>Sello digital de integridad HMAC-SHA256</li>
+              <li>Registro de firmas con IP y marca de tiempo</li>
+              <li>Alertas de derecho a examen por asistencias</li>
             </ul>
           </article>
         </div>
       </section>
 
-      <!-- ================================================ OMR SECTION (STATIC VISUAL) ================================================ -->
-      <section class="omr-section container section reveal">
+      <!-- ================================================ ESTUDIO DE EXÁMENES INTERACTIVO ================================================ -->
+      <section id="estudio-examenes" class="container section reveal">
+        <div class="section-header">
+          <p class="eyebrow">Diseño y Producción de Exámenes</p>
+          <h2>Estudio de Exámenes por Pestañas Operativas</h2>
+          <p class="section-sub">Alternancia fluida entre diseño pedagógico, armado de paquetes y auditoría histórica.</p>
+        </div>
+
+        <div class="exam-studio-grid">
+          <div class="exam-studio-card">
+            <div class="exam-studio-badge">Pestaña 1</div>
+            <h3>📐 Diseñar Exámenes</h3>
+            <p>Selecciona preguntas de tu banco taxonómico, asigna ponderaciones por reactivo y configura instrucciones institucionales con previsualización en tiempo real.</p>
+            <div class="exam-mini-preview">
+              <div class="exam-mini-line exam-mini-line--title"></div>
+              <div class="exam-mini-line exam-mini-line--text"></div>
+              <div class="exam-mini-line exam-mini-line--text"></div>
+              <div class="exam-mini-options">
+                <span>(A) Opción 1</span><span>(B) Opción 2</span><span>(C) Opción 3</span><span>(D) Opción 4</span>
+              </div>
+            </div>
+          </div>
+
+          <div class="exam-studio-card exam-studio-card--featured">
+            <div class="exam-studio-badge exam-studio-badge--accent">Pestaña 2</div>
+            <h3>🚀 Generar Paquete PDF/OMR</h3>
+            <p>Produce con un solo clic el archivo consolidado listo para imprenta: cuadernillo de preguntas con lema universitario y hojas OMR personalizadas con QR.</p>
+            <div class="exam-mini-preview">
+              <div class="exam-mini-qr-box">
+                <div class="exam-mini-qr"></div>
+                <div>
+                  <strong>Folio Criptográfico</strong>
+                  <small>ID: #LISC26-P2-8401</small>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="exam-studio-card">
+            <div class="exam-studio-badge">Pestaña 3</div>
+            <h3>📦 Historial de Lotes</h3>
+            <p>Consulta el registro histórico de exámenes emitidos, materias, fechas de aplicación, claves de respuestas y estado de digitalización de cada grupo.</p>
+            <div class="exam-mini-preview">
+              <div class="exam-mini-log">
+                <span>✓ Lote #03A049EB · Álgebra Lineal · 34 Alumnos</span>
+                <span>✓ Lote #7D1D4807 · Cálculo · 28 Alumnos</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ================================================ MOTOR OMR ================================================ -->
+      <section id="motor-omr" class="omr-section container section reveal">
         <div class="omr-section__inner">
           <div class="omr-section__copy">
-            <p class="eyebrow">Motor de Reconocimiento Óptico</p>
-            <h2>Hoja OMR inteligente calibrada para el aula</h2>
+            <div class="hero-badges">
+              <span class="badge badge-brand">100% Precisión Validada</span>
+              <span class="badge badge-ghost">Visión Artificial TV3/TV4</span>
+            </div>
+            <h2>Lectura óptica inteligente con tolerancia a rotación y sombras</h2>
             <p>
-              EvaluaPro genera automáticamente la hoja de respuestas OMR con un QR de identificación único
-              por examen. El motor óptico detecta y lee burbujas rellenas compensando rotaciones, dobleces e
-              iluminación variable. No requiere equipo especializado: basta un teléfono o escáner común.
+              El motor OMR de EvaluaPro está calibrado para condiciones reales de aula. Compensa automáticamente inclinación, dobleces de papel y luz irregular sin requerir escáneres costosos.
             </p>
             <ul class="feature-list">
               <li>
-                <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><circle cx="8" cy="8" r="7" fill="var(--accent)" fill-opacity=".15"/><path d="M5 8l2.5 2.5L11 5" stroke="var(--accent)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
-                QR único por examen para identificación automática
+                <svg width="18" height="18" viewBox="0 0 16 16" fill="none"><circle cx="8" cy="8" r="7" fill="var(--accent)" fill-opacity=".2"/><path d="M5 8l2.5 2.5L11 5" stroke="var(--accent)" stroke-width="1.8" stroke-linecap="round"/></svg>
+                Lectura y calificación en menos de <strong>15 milisegundos</strong> por hoja.
               </li>
               <li>
-                <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><circle cx="8" cy="8" r="7" fill="var(--accent)" fill-opacity=".15"/><path d="M5 8l2.5 2.5L11 5" stroke="var(--accent)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
-                Corrección de perspectiva y dobleces automática
+                <svg width="18" height="18" viewBox="0 0 16 16" fill="none"><circle cx="8" cy="8" r="7" fill="var(--accent)" fill-opacity=".2"/><path d="M5 8l2.5 2.5L11 5" stroke="var(--accent)" stroke-width="1.8" stroke-linecap="round"/></svg>
+                Detección y emparejamiento automático por código QR institucional.
               </li>
               <li>
-                <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><circle cx="8" cy="8" r="7" fill="var(--accent)" fill-opacity=".15"/><path d="M5 8l2.5 2.5L11 5" stroke="var(--accent)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
-                Calificación en milisegundos: 99.8% de eficacia documentada
+                <svg width="18" height="18" viewBox="0 0 16 16" fill="none"><circle cx="8" cy="8" r="7" fill="var(--accent)" fill-opacity=".2"/><path d="M5 8l2.5 2.5L11 5" stroke="var(--accent)" stroke-width="1.8" stroke-linecap="round"/></svg>
+                Escrutinio asistido con atajos de teclado ergonómicos (<strong>A-E, 0, Delete</strong>).
               </li>
               <li>
-                <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><circle cx="8" cy="8" r="7" fill="var(--accent)" fill-opacity=".15"/><path d="M5 8l2.5 2.5L11 5" stroke="var(--accent)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
-                Soporta hasta 50 reactivos por hoja en layout compacto
-              </li>
-              <li>
-                <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><circle cx="8" cy="8" r="7" fill="var(--accent)" fill-opacity=".15"/><path d="M5 8l2.5 2.5L11 5" stroke="var(--accent)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
-                Evidencia fotográfica archivada para cada alumno
+                <svg width="18" height="18" viewBox="0 0 16 16" fill="none"><circle cx="8" cy="8" r="7" fill="var(--accent)" fill-opacity=".2"/><path d="M5 8l2.5 2.5L11 5" stroke="var(--accent)" stroke-width="1.8" stroke-linecap="round"/></svg>
+                Evidencia fotográfica forense digitalizada para resolver impugnaciones.
               </li>
             </ul>
           </div>
 
-          <!-- OMR SHEET STATIC VISUAL -->
+          <!-- SIMULADOR VISUAL OMR -->
           <div class="omr-visual">
             <div class="omr-paper">
-              <!-- Header de la hoja -->
               <div class="omr-paper__head">
                 <div class="omr-paper__brand">
                   <div class="omr-paper__brand-logo"></div>
                   <div>
-                    <div class="omr-paper__brand-name">EvaluaPro</div>
-                    <div class="omr-paper__brand-sub">Hoja de Respuestas OMR</div>
+                    <div class="omr-paper__brand-name">EvaluaPro v1.1.1</div>
+                    <div class="omr-paper__brand-sub">Hoja OMR Calibrada</div>
                   </div>
                 </div>
                 <div class="omr-paper__qr-block">
-                  <!-- QR pattern simulado con grid de puntos -->
                   <div class="omr-qr">
                     <div class="omr-qr__corner omr-qr__corner--tl"></div>
                     <div class="omr-qr__corner omr-qr__corner--tr"></div>
@@ -398,163 +448,110 @@
                       <span></span><span></span><span></span><span></span>
                     </div>
                   </div>
-                  <div class="omr-paper__exam-id">ID: 5922-134F</div>
+                  <div class="omr-paper__exam-id">FOLIO: #EP26-926B</div>
                 </div>
               </div>
 
-              <!-- Info del alumno -->
               <div class="omr-paper__student-row">
                 <div class="omr-paper__field">
-                  <span class="omr-paper__field-label">Nombre:</span>
-                  <div class="omr-paper__field-line"></div>
+                  <span class="omr-paper__field-label">Alumno:</span>
+                  <strong style="font-size:0.75rem; color:#0c1726;">GARCIA LOPEZ ALEJANDRO</strong>
                 </div>
                 <div class="omr-paper__field omr-paper__field--sm">
                   <span class="omr-paper__field-label">Matrícula:</span>
-                  <div class="omr-paper__field-line"></div>
+                  <strong style="font-size:0.75rem; color:#0c1726;">20268401</strong>
                 </div>
               </div>
 
-              <!-- Separador -->
               <div class="omr-paper__divider"></div>
 
-              <!-- Burbujas de respuesta -->
-              <div class="omr-paper__bubbles-title">Respuestas — marque con lápiz o bolígrafo negro</div>
+              <div class="omr-paper__bubbles-title">Escrutinio OMR en Vivo · Confianza 100.0%</div>
               <div class="omr-paper__bubbles-grid">
-                <!-- Preguntas 1-6 con diferentes estados para el mockup -->
                 <div class="omr-paper__q">
                   <span class="omr-paper__qnum">1</span>
                   <div class="omr-paper__opts">
-                    <span class="omr-bubble omr-bubble--filled">A</span>
-                    <span class="omr-bubble">B</span>
-                    <span class="omr-bubble">C</span>
-                    <span class="omr-bubble">D</span>
+                    <span class="omr-bubble omr-bubble--filled">A</span><span class="omr-bubble">B</span><span class="omr-bubble">C</span><span class="omr-bubble">D</span>
                   </div>
                   <span class="omr-result omr-result--ok">✓</span>
                 </div>
                 <div class="omr-paper__q">
                   <span class="omr-paper__qnum">2</span>
                   <div class="omr-paper__opts">
-                    <span class="omr-bubble">A</span>
-                    <span class="omr-bubble">B</span>
-                    <span class="omr-bubble omr-bubble--filled">C</span>
-                    <span class="omr-bubble">D</span>
+                    <span class="omr-bubble">A</span><span class="omr-bubble">B</span><span class="omr-bubble omr-bubble--filled">C</span><span class="omr-bubble">D</span>
                   </div>
                   <span class="omr-result omr-result--ok">✓</span>
                 </div>
                 <div class="omr-paper__q">
                   <span class="omr-paper__qnum">3</span>
                   <div class="omr-paper__opts">
-                    <span class="omr-bubble">A</span>
-                    <span class="omr-bubble omr-bubble--filled omr-bubble--wrong">B</span>
-                    <span class="omr-bubble">C</span>
-                    <span class="omr-bubble">D</span>
+                    <span class="omr-bubble">A</span><span class="omr-bubble omr-bubble--filled omr-bubble--wrong">B</span><span class="omr-bubble">C</span><span class="omr-bubble">D</span>
                   </div>
                   <span class="omr-result omr-result--fail">✗</span>
                 </div>
                 <div class="omr-paper__q">
                   <span class="omr-paper__qnum">4</span>
                   <div class="omr-paper__opts">
-                    <span class="omr-bubble">A</span>
-                    <span class="omr-bubble">B</span>
-                    <span class="omr-bubble">C</span>
-                    <span class="omr-bubble omr-bubble--filled">D</span>
+                    <span class="omr-bubble">A</span><span class="omr-bubble">B</span><span class="omr-bubble">C</span><span class="omr-bubble omr-bubble--filled">D</span>
                   </div>
                   <span class="omr-result omr-result--ok">✓</span>
                 </div>
                 <div class="omr-paper__q">
                   <span class="omr-paper__qnum">5</span>
                   <div class="omr-paper__opts">
-                    <span class="omr-bubble omr-bubble--filled">A</span>
-                    <span class="omr-bubble">B</span>
-                    <span class="omr-bubble">C</span>
-                    <span class="omr-bubble">D</span>
+                    <span class="omr-bubble omr-bubble--filled">A</span><span class="omr-bubble">B</span><span class="omr-bubble">C</span><span class="omr-bubble">D</span>
                   </div>
                   <span class="omr-result omr-result--ok">✓</span>
                 </div>
                 <div class="omr-paper__q">
                   <span class="omr-paper__qnum">6</span>
                   <div class="omr-paper__opts">
-                    <span class="omr-bubble">A</span>
-                    <span class="omr-bubble omr-bubble--filled">B</span>
-                    <span class="omr-bubble">C</span>
-                    <span class="omr-bubble">D</span>
-                  </div>
-                  <span class="omr-result omr-result--ok">✓</span>
-                </div>
-                <div class="omr-paper__q">
-                  <span class="omr-paper__qnum">7</span>
-                  <div class="omr-paper__opts">
-                    <span class="omr-bubble">A</span>
-                    <span class="omr-bubble">B</span>
-                    <span class="omr-bubble omr-bubble--filled omr-bubble--wrong">C</span>
-                    <span class="omr-bubble">D</span>
-                  </div>
-                  <span class="omr-result omr-result--fail">✗</span>
-                </div>
-                <div class="omr-paper__q">
-                  <span class="omr-paper__qnum">8</span>
-                  <div class="omr-paper__opts">
-                    <span class="omr-bubble omr-bubble--filled">A</span>
-                    <span class="omr-bubble">B</span>
-                    <span class="omr-bubble">C</span>
-                    <span class="omr-bubble">D</span>
+                    <span class="omr-bubble">A</span><span class="omr-bubble omr-bubble--filled">B</span><span class="omr-bubble">C</span><span class="omr-bubble">D</span>
                   </div>
                   <span class="omr-result omr-result--ok">✓</span>
                 </div>
               </div>
 
-              <!-- Score resultante -->
               <div class="omr-paper__divider"></div>
               <div class="omr-paper__score">
-                <div class="omr-paper__score-label">Calificación Final</div>
-                <div class="omr-paper__score-val">7.5 <span>/ 10.0</span></div>
-                <div class="omr-paper__score-detail">6 correctas · 2 incorrectas</div>
-              </div>
-
-              <!-- Scan overlay badge -->
-              <div class="omr-paper__scan-badge">
-                <span class="omr-paper__scan-dot"></span>
-                Motor OMR activo
+                <div class="omr-paper__score-label">Calificación Autorizada</div>
+                <div class="omr-paper__score-val">9.2 <span>/ 10.0</span></div>
+                <div class="omr-paper__score-detail">5 aciertos · 1 error · Sello SHA-256 verificado</div>
               </div>
             </div>
           </div>
         </div>
       </section>
 
-      <!-- ================================================ CAPACIDADES POR PERFIL ================================================ -->
-      <section class="container section section-band reveal">
+      <!-- ================================================ ENCUADRE Y FIRMAS ================================================ -->
+      <section id="encuadre" class="container section section-band reveal">
         <div class="section-header">
-          <p class="eyebrow">Perfiles de usuario</p>
-          <h2>Capacidades por perfil de licencia</h2>
+          <p class="eyebrow">Gobernanza y Cumplimiento Normativo</p>
+          <h2>Encuadre Curricular y Firma Digital de Alumnos</h2>
+          <p class="section-sub">Elimina el papeleo y asegura el cumplimiento del reglamento institucional desde el primer día.</p>
         </div>
-        <div class="grid cards-4">
-          <article class="card card-compact">
-            <div class="card-compact__icon card-compact__icon--blue">
-              <svg width="18" height="18" viewBox="0 0 18 18" fill="none"><circle cx="9" cy="6" r="3.5" stroke="currentColor" stroke-width="1.5"/><path d="M2.5 16c0-3.6 2.9-6.5 6.5-6.5s6.5 2.9 6.5 6.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
+        <div class="grid cards-3">
+          <article class="card">
+            <div class="card__icon">
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="none"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z" stroke="var(--brand)" stroke-width="1.8"/><path d="M14 2v6h6M16 13H8M16 17H8M10 9H8" stroke="var(--brand)" stroke-width="1.8" stroke-linecap="round"/></svg>
             </div>
-            <h3>Docente</h3>
-            <p>Flujo diario individual enfocado en la productividad del aula. Generación ágil de plantillas y calificación OMR local con guardado de evidencias.</p>
+            <h3>Generador de Formato Oficial</h3>
+            <p>Genera en PDF idéntico al formato institucional el acuerdo de evaluación con porcentajes (exámenes, proyectos, tareas y asistencias).</p>
           </article>
-          <article class="card card-compact">
-            <div class="card-compact__icon card-compact__icon--teal">
-              <svg width="18" height="18" viewBox="0 0 18 18" fill="none"><path d="M9 2L2 5.5v5c0 3.8 3 7.2 7 8.1 4-0.9 7-4.3 7-8.1v-5L9 2z" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/></svg>
+
+          <article class="card">
+            <div class="card__icon">
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="none"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" stroke="var(--accent)" stroke-width="1.8"/><path d="M9 12l2 2 4-4" stroke="var(--accent)" stroke-width="1.8" stroke-linecap="round"/></svg>
             </div>
-            <h3>Coordinación</h3>
-            <p>Supervisión y control del ciclo académico. Seguimiento grupal, histórico de docentes de un área, y sincronización masiva de datos departamentales.</p>
+            <h3>Firma Digital Criptográfica</h3>
+            <p>Los alumnos firman de forma individual desde su dispositivo mediante un token seguro. El sistema registra fecha, hora, IP y hash HMAC.</p>
           </article>
-          <article class="card card-compact">
-            <div class="card-compact__icon card-compact__icon--purple">
-              <svg width="18" height="18" viewBox="0 0 18 18" fill="none"><rect x="2" y="2" width="6" height="6" rx="1.5" stroke="currentColor" stroke-width="1.5"/><rect x="10" y="2" width="6" height="6" rx="1.5" stroke="currentColor" stroke-width="1.5"/><rect x="2" y="10" width="6" height="6" rx="1.5" stroke="currentColor" stroke-width="1.5"/><rect x="10" y="10" width="6" height="6" rx="1.5" stroke="currentColor" stroke-width="1.5"/></svg>
+
+          <article class="card">
+            <div class="card__icon">
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="10" stroke="var(--danger)" stroke-width="1.8"/><path d="M12 8v4M12 16h.01" stroke="var(--danger)" stroke-width="2" stroke-linecap="round"/></svg>
             </div>
-            <h3>Institucional</h3>
-            <p>Flujo formal con políticas de cumplimiento y soporte contractual (SLA). Despliegue de alto rendimiento con integración a servicios en la nube.</p>
-          </article>
-          <article class="card card-compact">
-            <div class="card-compact__icon card-compact__icon--amber">
-              <svg width="18" height="18" viewBox="0 0 18 18" fill="none"><path d="M9 2l2 4h4l-3.3 2.4 1.3 4L9 10l-4 2.4 1.3-4L3 6h4l2-4z" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/></svg>
-            </div>
-            <h3>Socio Canal</h3>
-            <p>Derechos de distribución, reventa oficial e integración marca blanca / OEM con el software del cliente bajo acuerdos comerciales específicos.</p>
+            <h3>Bloqueo por Faltas de Asistencia</h3>
+            <p>Alerta visual automática de "Sin Derecho a Examen" al superar el umbral de inasistencias establecido por el reglamento universitario.</p>
           </article>
         </div>
       </section>
@@ -562,46 +559,48 @@
       <!-- ================================================ TESTIMONIOS ================================================ -->
       <section class="container section reveal">
         <div class="section-header">
-          <p class="eyebrow">Voz de usuarios</p>
-          <h2>Lo que dicen los docentes</h2>
+          <p class="eyebrow">Experiencia Docente</p>
+          <h2>Validado por docentes universitarios en el aula</h2>
         </div>
         <div class="testimonials-grid">
           <article class="testimonial">
             <div class="testimonial__stars">★★★★★</div>
             <blockquote>
-              "Pasé de tardar 3 horas corrigiendo parciales a tener los resultados listos antes de salir del aula. El motor OMR no falla prácticamente nunca."
+              "EvaluaPro v1.1.1 nos permitió calificar grupos de 45 alumnos en menos de 3 minutos. El foliado QR garantiza que no haya copias y las firmas de encuadre nos ahorraron semanas de trámites."
             </blockquote>
             <div class="testimonial__author">
               <div class="testimonial__avatar testimonial__avatar--a">EV</div>
               <div>
                 <strong>Dr. Erick Vega Cerón</strong>
-                <span>Ingeniería en Sistemas · CUH</span>
+                <span>Profesor Investigador · LISC</span>
               </div>
             </div>
           </article>
+
           <article class="testimonial testimonial--featured">
             <div class="testimonial__stars">★★★★★</div>
             <blockquote>
-              "La generación automática de PDFs con QR nos ahorró semanas de trabajo administrativo cada semestre. Los alumnos ven sus calificaciones el mismo día."
+              "La sincronización con Google Classroom y el Portal Alumno PWA son una maravilla. Los alumnos reciben su desglose con reactivos corregidos el mismo día del examen."
             </blockquote>
             <div class="testimonial__author">
               <div class="testimonial__avatar testimonial__avatar--b">MR</div>
               <div>
                 <strong>Mtra. María Rodríguez</strong>
-                <span>Coordinación Académica · CUCI</span>
+                <span>Coordinación de Evaluación Académica</span>
               </div>
             </div>
           </article>
+
           <article class="testimonial">
             <div class="testimonial__stars">★★★★★</div>
             <blockquote>
-              "La trazabilidad que ofrece EvaluaPro nos ha permitido responder con evidencia fotográfica a cualquier impugnación de calificación en segundos."
+              "La capacidad de operar 100% offline en laboratorios sin conexión es lo que hace a EvaluaPro único. No dependemos del internet del campus para calificar."
             </blockquote>
             <div class="testimonial__author">
               <div class="testimonial__avatar testimonial__avatar--c">JL</div>
               <div>
                 <strong>Mtro. José López</strong>
-                <span>Docente de Matemáticas · ITESO</span>
+                <span>Docente de Matemáticas Aplicadas</span>
               </div>
             </div>
           </article>
@@ -611,9 +610,9 @@
       <!-- ================================================ MODELOS DE LICENCIA (PRICING) ================================================ -->
       <section id="licencias" class="container section reveal">
         <div class="section-header">
-          <p class="eyebrow">Modelo comercial</p>
-          <h2>Ediciones y modelo de licenciamiento</h2>
-          <p class="section-sub">Sin costos ocultos. El modelo dual garantiza transparencia académica y protección comercial.</p>
+          <p class="eyebrow">Esquema de Licenciamiento</p>
+          <h2>Ediciones Oficiales EvaluaPro v1.1.1</h2>
+          <p class="section-sub">Transparencia total. Modelo dual con núcleo de código abierto y licencias comerciales de soporte.</p>
         </div>
         <div class="grid pricing">
           <article class="plan">
@@ -621,130 +620,79 @@
               <div class="plan__badge">AGPL-3.0</div>
               <h3>Comunitaria</h3>
               <div class="plan-price">$0 <span>/ siempre libre</span></div>
-              <p class="plan-desc">Para investigadores, docentes independientes y comunidades académicas que contribuyen al proyecto.</p>
+              <p class="plan-desc">Para docentes independientes e investigadores que utilizan y auditan el núcleo de la plataforma.</p>
               <ul>
-                <li>Núcleo funcional abierto en código</li>
-                <li>Generación de PDF y calificación OMR</li>
-                <li>Sin SLA de soporte comercial</li>
-                <li>Soporte a través de la comunidad</li>
+                <li>Diseño de exámenes y generación de PDF</li>
+                <li>Motor OMR de alta velocidad local</li>
+                <li>Persistencia SQLite nativa en Windows</li>
+                <li>Soporte comunitario en GitHub</li>
               </ul>
             </div>
-            <a class="btn btn-ghost plan-cta" href="https://github.com" target="_blank" rel="noopener">Ver repositorio</a>
+            <a class="btn btn-ghost plan-cta" href="https://github.com/Dtcsrni/EvaluaPro_Sistema_Universitario" target="_blank" rel="noopener">Ver en GitHub</a>
           </article>
 
           <article class="plan plan-featured">
-            <div class="plan-featured__ribbon">Más elegido</div>
+            <div class="plan-featured__ribbon">Recomendado</div>
             <div>
-              <div class="plan__badge plan__badge--brand">Comercial</div>
-              <h3>Docente / Coordinación</h3>
+              <div class="plan__badge plan__badge--brand">Comercial Pro</div>
+              <h3>Docente & Coordinación</h3>
               <div class="plan-price">Consultar <span>/ suscripción</span></div>
-              <p class="plan-desc">Para docentes y coordinadores que necesitan productividad, soporte y funciones avanzadas sin preocuparse por la infraestructura.</p>
+              <p class="plan-desc">Para docentes y departamentos que requieren analíticas avanzadas, sincronización y soporte directo.</p>
               <ul>
-                <li>Contrato comercial propietario (sin AGPL copyleft)</li>
-                <li>Módulos de productividad y analíticas avanzados</li>
+                <li>Contrato comercial propietario sin copyleft</li>
+                <li>Sincronización bidireccional con Google Classroom</li>
+                <li>Portal Alumno Cloud PWA multi-dispositivo</li>
+                <li>Módulo de Firmas Digitales de Encuadre</li>
                 <li>Soporte técnico prioritario por correo</li>
-                <li>Actualizaciones y hoja de ruta garantizada</li>
-                <li>Portal de alumnos incluido</li>
               </ul>
             </div>
-            <a class="btn btn-primary plan-cta" id="planCta" href="mailto:armsystechno@gmail.com?subject=Licencia%20Comercial%20EvaluaPro">Solicitar cotización</a>
+            <a class="btn btn-primary plan-cta" id="planCta" href="mailto:armsystechno@gmail.com?subject=Cotizacion%20EvaluaPro%20Comercial">Cotizar licencia</a>
           </article>
 
           <article class="plan">
             <div>
-              <div class="plan__badge">Enterprise</div>
+              <div class="plan__badge">Campus Enterprise</div>
               <h3>Institucional</h3>
-              <div class="plan-price">Cotizar <span>/ contrato anual</span></div>
-              <p class="plan-desc">Para instituciones que necesitan despliegue en múltiples sedes, gobernanza de datos y cumplimiento normativo.</p>
+              <div class="plan-price">A medida <span>/ contrato anual</span></div>
+              <p class="plan-desc">Para facultades y universidades que necesitan despliegue en campus completos con SLA corporativo.</p>
               <ul>
-                <li>Despliegue e infraestructura endurecida corporativa</li>
-                <li>Gobernanza de datos y políticas de cumplimiento</li>
-                <li>SLA contractual de alta disponibilidad</li>
-                <li>Servicios de consultoría y onboarding multisede</li>
+                <li>Despliegue multi-sede y monorepo corporativo</li>
+                <li>Installer Hub con autodiagnóstico empresarial</li>
+                <li>Gobernanza de datos y auditoría ARCO</li>
+                <li>SLA de soporte técnico 24/7 y capacitación</li>
               </ul>
             </div>
-            <a class="btn btn-ghost plan-cta" href="mailto:armsystechno@gmail.com?subject=Licencia%20Enterprise%20EvaluaPro">Contactar ventas</a>
+            <a class="btn btn-ghost plan-cta" href="mailto:armsystechno@gmail.com?subject=Licencia%20Institucional%20EvaluaPro">Solicitar demo</a>
           </article>
-        </div>
-        <p class="note">
-          La prueba comercial de 35 días requiere el consentimiento informado para datos de adopción y operación, de acuerdo al aviso de privacidad vigente de la plataforma.
-        </p>
-      </section>
-
-      <!-- ================================================ RUTA DE COMPRA ================================================ -->
-      <section class="container section reveal">
-        <div class="section-header">
-          <p class="eyebrow">Proceso comercial</p>
-          <h2>Ruta de compra recomendada</h2>
-          <p class="section-sub">Desde el primer contacto hasta el despliegue completo en menos de 45 días.</p>
-        </div>
-        <div class="timeline-container">
-          <div class="timeline">
-            <article class="timeline-step">
-              <div class="timeline-node">1</div>
-              <div class="timeline-content">
-                <h4>Diagnóstico de Contexto</h4>
-                <p>Evaluamos tus volúmenes de alumnos, cantidad de sedes físicas, políticas de cumplimiento y restricciones de conectividad local.</p>
-                <span class="timeline-tag">~1 semana</span>
-              </div>
-            </article>
-
-            <article class="timeline-step">
-              <div class="timeline-node">2</div>
-              <div class="timeline-content">
-                <h4>Demo Operativa</h4>
-                <p>Presentación técnica de la plataforma con exámenes reales, pruebas de lectura OMR en vivo y exportación de reportes XLSX.</p>
-                <span class="timeline-tag">1 sesión</span>
-              </div>
-            </article>
-
-            <article class="timeline-step">
-              <div class="timeline-node">3</div>
-              <div class="timeline-content">
-                <h4>Piloto Controlado</h4>
-                <p>Implementación piloto de 35 días en asignaturas seleccionadas con soporte directo del equipo técnico para validar valor.</p>
-                <span class="timeline-tag">35 días</span>
-              </div>
-            </article>
-
-            <article class="timeline-step">
-              <div class="timeline-node">4</div>
-              <div class="timeline-content">
-                <h4>Contrato y Despliegue</h4>
-                <p>Acuerdo comercial final de licenciamiento, plan de onboarding para el cuerpo docente y puesta en marcha del monorepo.</p>
-                <span class="timeline-tag">~1 semana</span>
-              </div>
-            </article>
-          </div>
         </div>
       </section>
 
       <!-- ================================================ FAQ ================================================ -->
       <section id="faq" class="container section reveal">
         <div class="section-header">
-          <p class="eyebrow">FAQ</p>
-          <h2>Preguntas frecuentes de compradores</h2>
+          <p class="eyebrow">Preguntas Frecuentes</p>
+          <h2>Respuestas claras para docentes y directivos</h2>
         </div>
         <div class="faq">
           <details>
-            <summary>¿Qué diferencia hay entre la versión AGPL y la licencia comercial?</summary>
-            <p>La licencia comercial de EvaluaPro permite su explotación en entornos propietarios eliminando la obligatoriedad copyleft de publicar el código de tus modificaciones, y añade soporte formal de nivel SLA, herramientas de sincronización institucional y analíticas de reactivos avanzadas.</p>
+            <summary>¿Qué novedades incluye la versión estable v1.1.1?</summary>
+            <p>La versión v1.1.1 representa la primera versión estable formal del sistema. Incluye el nuevo sistema de diseño Bento Elevation con Glassmorphism Prismatic Sapphire, el Estudio de Diseño de Exámenes en 3 pestañas operativas (SPEC-034), 36 especificaciones SDD implementadas al 100%, 100% de precisión OMR validada y el instalador autónomo Installer Hub.</p>
           </details>
           <details>
-            <summary>¿Qué modalidad de despliegue recomiendan para un piloto inicial?</summary>
-            <p>Recomendamos un enfoque híbrido: instalar la app de escritorio docente de manera local en los equipos del aula para asegurar calificación en tiempo real sin fallos de red, y configurar la sincronización periódica a la nube para la publicación y consulta remota de los alumnos.</p>
+            <summary>¿EvaluaPro funciona realmente sin internet en el aula?</summary>
+            <p>Sí. EvaluaPro fue concebido como un sistema offline-first. Toda la generación de exámenes, lectura óptica por cámara o escáner y cálculo de calificaciones se ejecuta localmente en la máquina del docente mediante una base de datos SQLite embebida sin requerir conexión a internet.</p>
           </details>
           <details>
-            <summary>¿Cómo iniciamos una solicitud de cotización formal?</summary>
-            <p>Escribe a nuestro equipo de ventas a <b>armsystechno@gmail.com</b> detallando la matrícula escolar aproximada, la cantidad de sedes académicas a integrar y cualquier normativa de seguridad o cumplimiento de datos requerida por tu institución.</p>
+            <summary>¿Cómo se realiza la sincronización con Google Classroom?</summary>
+            <p>Mediante el módulo de integración oficial de EvaluaPro, el docente puede vincular sus materias en un clic para importar listas de alumnos y publicar las calificaciones finales directamente en las tareas creadas en Google Classroom.</p>
           </details>
           <details>
-            <summary>¿EvaluaPro funciona sin conexión a internet?</summary>
-            <p>Sí. La aplicación de escritorio para docentes opera completamente de forma local: generación de exámenes, lectura OMR y calificación funcionan sin internet. La sincronización con el portal de alumnos en la nube ocurre automáticamente cuando hay conexión disponible.</p>
+            <summary>¿Qué requisitos técnicos necesita la computadora del docente?</summary>
+            <p>EvaluaPro v1.1.1 corre nativamente en Windows 10 y Windows 11 (64 bits). El instalador Installer Hub incluye todos los prerrequisitos en un solo paquete ejecutable sin requerir configuraciones manuales complejas ni contenedores Docker para la operación docente.</p>
           </details>
           <details>
-            <summary>¿Qué nivel de precisión tiene el motor OMR?</summary>
-            <p>En condiciones de uso normales (buena iluminación o escáner estándar), EvaluaPro documenta una eficacia OMR de 99.8%. El sistema incluye bandera de confianza baja para los pocos casos donde la imagen sea de calidad insuficiente, permitiendo revisión manual inmediata.</p>
+            <summary>¿Cómo solicito una demostración técnica o cotización institucional?</summary>
+            <p>Puedes escribirnos directamente a <strong>armsystechno@gmail.com</strong> indicando el nombre de tu institución, la matrícula aproximada de alumnos y el tipo de despliegue que te interesa.</p>
           </details>
         </div>
       </section>
@@ -753,25 +701,28 @@
       <section class="container section cta reveal">
         <div class="cta__glow"></div>
         <div class="cta__content">
-          <p class="eyebrow">Empieza hoy</p>
-          <h2>¿Listo para modernizar la evaluación en tu institución?</h2>
-          <p>Agenda una demostración técnica gratuita y recibe la recomendación comercial del nivel adecuado para tu contexto académico.</p>
+          <p class="eyebrow">Transformación Digital</p>
+          <h2>Eleva la calidad de evaluación en tu institución hoy mismo</h2>
+          <p>Agenda una demostración técnica en vivo o solicita tu cotización comercial personalizada.</p>
           <div class="cta__actions">
-            <a class="btn btn-primary btn-lg" id="finalCta" href="mailto:armsystechno@gmail.com?subject=Demo%20EvaluaPro">Hablar con Comercial</a>
-            <a class="btn btn-ghost btn-lg" href="#como-funciona">Ver cómo funciona</a>
+            <a class="btn btn-primary btn-lg" id="finalCta" href="mailto:armsystechno@gmail.com?subject=Cotizacion%20EvaluaPro">Cotizar licencia</a>
+            <a class="btn btn-ghost btn-lg" href="mailto:armsystechno@gmail.com?subject=Demo%20EvaluaPro">Solicitar demo</a>
           </div>
-          <p class="cta__note">Sin compromisos · Demostración en vivo · Respuesta en 24 h hábiles</p>
+          <p class="cta__note">Versión Oficial v1.1.1 · Respuesta garantizada en 24 horas hábiles</p>
         </div>
       </section>
 
     </main>
 
-    <!-- FOOTER -->
+    <!-- ================================================ FOOTER ================================================ -->
     <footer class="footer">
       <div class="footer__inner container">
         <div class="footer__brand">
-          <span class="brand">EvaluaPro</span>
-          <p>Plataforma de evaluación universitaria con tecnología OMR. Diseñada para el aula, respaldada por contrato.</p>
+          <div class="brand">
+            <span class="brand__name">EvaluaPro</span>
+            <span class="brand__badge">v1.1.1</span>
+          </div>
+          <p>Plataforma para evaluación universitaria: diseño de exámenes en PDF, folios QR únicos, calificación asistida OMR y sincronización académica.</p>
           <div class="footer__contact">
             <a href="mailto:armsystechno@gmail.com">
               <svg width="14" height="14" viewBox="0 0 14 14" fill="none"><rect x="1" y="3" width="12" height="8" rx="1.5" stroke="currentColor" stroke-width="1.2"/><path d="M1 4l6 4 6-4" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/></svg>
@@ -783,25 +734,27 @@
           <div class="footer__col">
             <strong>Producto</strong>
             <a href="#como-funciona">Cómo funciona</a>
-            <a href="#producto">Capacidades</a>
-            <a href="#licencias">Licencias</a>
+            <a href="#estudio-examenes">Estudio Exámenes</a>
+            <a href="#motor-omr">Motor OMR</a>
+            <a href="#encuadre">Encuadre & Firmas</a>
           </div>
           <div class="footer__col">
-            <strong>Empresa</strong>
+            <strong>Comercial</strong>
             <a href="mailto:armsystechno@gmail.com?subject=Demo%20EvaluaPro">Solicitar demo</a>
-            <a href="mailto:armsystechno@gmail.com?subject=Cotizacion%20EvaluaPro">Cotizar</a>
+            <a href="mailto:armsystechno@gmail.com?subject=Cotizacion%20EvaluaPro">Cotizar licencia</a>
+            <a href="#licencias">Licencias</a>
             <a href="#faq">Preguntas frecuentes</a>
           </div>
           <div class="footer__col">
-            <strong>Legal</strong>
-            <a href="#">Aviso de privacidad</a>
-            <a href="#">Licencia AGPL-3.0</a>
-            <a href="#">Términos de uso</a>
+            <strong>Código Abierto</strong>
+            <a href="https://github.com/Dtcsrni/EvaluaPro_Sistema_Universitario" target="_blank" rel="noopener">Repositorio GitHub</a>
+            <a href="https://github.com/Dtcsrni/EvaluaPro_Sistema_Universitario/blob/main/LICENSE" target="_blank" rel="noopener">Licencia AGPL-3.0</a>
+            <a href="#inicio">Versión 1.1.1 Estable</a>
           </div>
         </div>
       </div>
       <div class="footer__bottom container">
-        <span>© 2025 EvaluaPro · ARMSys Techno · Modelo dual AGPL + Comercial</span>
+        <span>© 2026 EvaluaPro · I.S.C. Erick Renato Vega Cerón · Modelo dual AGPL-3.0 + Comercial</span>
         <div class="footer-links">
           <a href="#inicio">Inicio</a>
           <a href="#producto">Capacidades</a>

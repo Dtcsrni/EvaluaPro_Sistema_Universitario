@@ -35,7 +35,13 @@ export function Boton({
     .join(' ');
 
   return (
-    <button {...props} type={type} className={clases} disabled={Boolean(disabled) || cargando}>
+    <button
+      {...props}
+      type={type}
+      className={clases}
+      disabled={Boolean(disabled) || cargando}
+      aria-busy={cargando || undefined}
+    >
       {cargando || icono ? <span className="boton__icono">{cargando ? <Spinner /> : icono}</span> : null}
       <span className="boton__texto">{children}</span>
     </button>

@@ -409,6 +409,15 @@ internal sealed class EvaluaProBootstrapperApplication : BootstrapperApplication
                 WindowStyle = ProcessWindowStyle.Hidden
             });
             Log("info", $"EvaluaPro solicitado desde la pantalla final: {installDir}");
+
+            Task.Delay(1500).ContinueWith(_ =>
+            {
+                try
+                {
+                    Process.Start(new ProcessStartInfo("http://127.0.0.1:4173/") { UseShellExecute = true });
+                }
+                catch { }
+            });
         }
         catch (Exception ex)
         {
@@ -428,8 +437,6 @@ internal sealed class EvaluaProBootstrapperApplication : BootstrapperApplication
             Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), @"Google\Chrome\Application\chrome.exe")
         ];
 
-        var appProfile = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "EvaluaPro", "app-profile");
-
         foreach (var candidate in candidates)
         {
             if (File.Exists(candidate))
@@ -439,7 +446,7 @@ internal sealed class EvaluaProBootstrapperApplication : BootstrapperApplication
                     Process.Start(new ProcessStartInfo
                     {
                         FileName = candidate,
-                        Arguments = $"--app=\"{url}\" --user-data-dir=\"{appProfile}\" --window-size=1280,820",
+                        Arguments = $"--app=\"{url}\" --window-size=1280,820",
                         UseShellExecute = true
                     });
                     return;
@@ -450,7 +457,7 @@ internal sealed class EvaluaProBootstrapperApplication : BootstrapperApplication
 
         try
         {
-            Process.Start(new ProcessStartInfo { FileName = url, UseShellExecute = true });
+            Process.Start(new ProcessStartInfo(url) { UseShellExecute = true });
         }
         catch { }
     }

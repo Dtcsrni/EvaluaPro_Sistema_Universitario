@@ -8,6 +8,12 @@
 /**
  * run-backend-coverage-batches
  *
+ * Responsabilidad: Modulo interno del sistema.
+ * Limites: Mantener contrato y comportamiento observable del modulo.
+ */
+/**
+ * run-backend-coverage-batches
+ *
  * Responsabilidad: Ejecutar cobertura backend por lotes y aplicar umbrales en el merge global.
  * Limites: No altera la seleccion de tests ni los thresholds definidos por Vitest.
  */

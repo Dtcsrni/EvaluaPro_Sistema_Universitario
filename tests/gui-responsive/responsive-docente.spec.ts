@@ -283,10 +283,9 @@ test.describe('GUI responsive e2e · docente', () => {
       ];
 
       for (const tab of tabs) {
-        await nav.getByRole('button', { name: tab.label }).dispatchEvent('click');
+        await nav.getByRole('button', { name: tab.label }).click();
         await expect(nav.getByRole('button', { name: tab.label })).toHaveAttribute('aria-current', 'page');
-        // await assertNoHorizontalOverflow(page, `Docente ${tab.label} ${viewport.name}`);
-        // await assertInteractiveControlsAreUsable(page, `Docente ${tab.label} ${viewport.name}`);
+        await page.waitForTimeout(300);
         await captureEvidence(page, 'docente', tab.slug, viewport.name);
       }
     });

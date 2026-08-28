@@ -1,17 +1,19 @@
 /**
  * SeccionAsistencias.tsx
  *
- * Módulo de pase de lista del docente:
- * - Lista de sesiones por periodo/grupo
- * - Pase de lista rápido (Fast-Check): un click = P/F/R
- * - Semáforo visual de asistencia por alumno
- * - Gestión de reglas de inasistencia
- * - Autorización de excepciones individuales
- * - Indicador de derecho a examen
+ * Responsabilidad: Módulo ejecutivo de pase de lista y control de asistencias:
+ * - Cabecera Bento con Mini-KPIs y estado del ciclo lectivo
+ * - Guía visual Bento Step Cards
+ * - Selector interactivo de periodo y chips de grupo rápidos
+ * - Fast-Check 1-Click con semáforo visual (P/F/R/J)
+ * - Semáforo de porcentaje de asistencia y derecho a examen
+ * - Gestión de reglas y autorización de excepciones
  */
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { clienteApi } from './clienteApiDocente';
 import { emitToast } from '../../ui/toast/toastBus';
+import { Boton } from '../../ui/ux/componentes/Boton';
+import { GuiaAsistenciasVisual } from './GuiaAsistenciasVisual';
 import type { Alumno, Periodo } from './tipos';
 
 // ─── Tipos locales ────────────────────────────────────────────────────────────
@@ -60,27 +62,26 @@ type TabActivo = 'resumen' | 'pase_lista' | 'reglas';
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 const ESTADO_LABEL: Record<string, string> = { P: 'Presente', F: 'Falta', R: 'Retardo', J: 'Justificada' };
-const ESTADO_COLOR: Record<string, string> = {
-  P: 'var(--color-verde)',
-  F: 'var(--color-rojo)',
-  R: 'var(--color-naranja)',
-  J: 'var(--color-azul-claro)'
-};
-
-function semaforoColor(pct: number): string {
-  if (pct >= 85) return 'var(--color-verde)';
-  if (pct >= 70) return 'var(--color-naranja)';
-  return 'var(--color-rojo)';
-}
 
 function formatFecha(iso: string) {
   return new Date(iso).toLocaleDateString('es-MX', { day: '2-digit', month: 'short', year: 'numeric' });
+}
+
+function obtenerIniciales(nombre?: string): string {
+  const palabras = String(nombre || '').trim().split(/\s+/);
+  if (palabras.length === 1) {
+    return palabras[0].substring(0, 2).toUpperCase() || 'AL';
+  }
+  const primera = palabras[0].charAt(0);
+  const segunda = palabras[1].charAt(0);
+  return (primera + segunda).toUpperCase() || 'AL';
 }
 
 // ─── Componente principal ─────────────────────────────────────────────────────
 type Props = {
   periodos: Periodo[];
   alumnos: Alumno[];
+  puedeGestionar?: boolean;
 };
 
 export function SeccionAsistencias({ periodos, alumnos }: Props) {
@@ -91,6 +92,8 @@ export function SeccionAsistencias({ periodos, alumnos }: Props) {
   const [sesionActual, setSesionActual] = useState<SesionAsistencia | null>(null);
   const [registros, setRegistros] = useState<Record<string, RegistroLocal>>({});
   const [resumen, setResumen] = useState<ResumenAlumno[]>([]);
+  const [filtroTexto, setFiltroTexto] = useState('');
+  const [filtroEstado, setFiltroEstado] = useState<'todos' | 'con_derecho' | 'en_riesgo' | 'sin_derecho'>('todos');
   const [reglas, setReglas] = useState<ReglaAsistencia[]>([]);
   const [cargando, setCargando] = useState(false);
   const [guardando, setGuardando] = useState(false);
@@ -106,17 +109,63 @@ export function SeccionAsistencias({ periodos, alumnos }: Props) {
   const [nuevaReglaContarRetardos, setNuevaReglaContarRetardos] = useState(false);
   const [nuevaReglaRetardosEquivalen, setNuevaReglaRetardosEquivalen] = useState(3);
 
-  // Grupos del periodo seleccionado
-  const gruposDisponibles = useMemo(() => {
-    const p = periodos.find((per) => per._id === periodoId);
-    return p?.grupos ?? [];
+  // Resumen filtrado para la tabla
+  const resumenFiltrado = useMemo(() => {
+    let lista = resumen;
+    if (filtroTexto.trim()) {
+      const q = filtroTexto.trim().toLowerCase();
+      lista = lista.filter((r) =>
+        r.nombreCompleto.toLowerCase().includes(q) ||
+        r.matricula.toLowerCase().includes(q) ||
+        r.grupo.toLowerCase().includes(q)
+      );
+    }
+    if (filtroEstado === 'sin_derecho') {
+      lista = lista.filter((r) => r.bloqueadoExamen);
+    } else if (filtroEstado === 'en_riesgo') {
+      lista = lista.filter((r) => !r.bloqueadoExamen && r.porcentajeAsistencia < 85 && r.totalSesiones > 0);
+    } else if (filtroEstado === 'con_derecho') {
+      lista = lista.filter((r) => !r.bloqueadoExamen);
+    }
+    return lista;
+  }, [resumen, filtroTexto, filtroEstado]);
+
+  // Periodo seleccionado
+  const periodoSeleccionado = useMemo(() => {
+    return periodos.find((per) => per._id === periodoId);
   }, [periodos, periodoId]);
 
-  // Alumnos del grupo
+  // Grupos del periodo seleccionado
+  const gruposDisponibles = useMemo(() => {
+    return periodoSeleccionado?.grupos ?? [];
+  }, [periodoSeleccionado]);
+
+  // Alumnos del grupo seleccionado
   const alumnosGrupo = useMemo(() => {
     if (!grupo) return alumnos.filter((a) => a.activo !== false);
     return alumnos.filter((a) => a.grupo === grupo && a.activo !== false);
   }, [alumnos, grupo]);
+
+  // KPIs de Asistencia
+  const kpis = useMemo(() => {
+    const totalSesiones = sesiones.length;
+    const totalAlumnos = alumnosGrupo.length;
+    let promedioPct = 0;
+    let sinDerechoCount = 0;
+
+    if (resumen.length > 0) {
+      const sumaPct = resumen.reduce((acc, curr) => acc + curr.porcentajeAsistencia, 0);
+      promedioPct = Math.round(sumaPct / resumen.length);
+      sinDerechoCount = resumen.filter((r) => r.bloqueadoExamen).length;
+    }
+
+    return {
+      totalSesiones,
+      totalAlumnos,
+      promedioPct,
+      sinDerechoCount
+    };
+  }, [sesiones, alumnosGrupo, resumen]);
 
   const cargarSesiones = useCallback(async () => {
     if (!periodoId) return;
@@ -212,7 +261,7 @@ export function SeccionAsistencias({ periodos, alumnos }: Props) {
       await clienteApi.enviar(`/asistencias/sesiones/${sesionActual._id}/registros`, {
         registros: Object.values(registros)
       });
-      emitToast({ level: 'ok', title: 'Lista guardada', message: `${Object.keys(registros).length} registros.` });
+      emitToast({ level: 'ok', title: 'Lista guardada', message: `${Object.keys(registros).length} registros guardados.` });
       void cargarResumen();
       setTab('resumen');
     } catch {
@@ -272,367 +321,796 @@ export function SeccionAsistencias({ periodos, alumnos }: Props) {
     }
   }
 
-  // ─── Render ───────────────────────────────────────────────────────────────────
   return (
-    <section className="asistencias-seccion glass-card anim-slide-up">
-      <h2 className="asistencias-titulo">📋 Asistencias</h2>
+    <div className="panel asistencias-panel anim-fade-in">
+      {/* ── 1. Cabecera Ejecutiva Bento con Mini-KPIs ─── */}
+      <div className="asistencias-panel__head">
+        <div className="asistencias-panel__lead">
+          <div className="asistencias-panel__icon-orb anim-icon-pulse" aria-hidden="true">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M9 11l3 3L22 4" />
+              <path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11" />
+            </svg>
+          </div>
+          <div className="asistencias-panel__text-block">
+            <div className="asistencias-panel__meta-row">
+              <span className="asistencias-status-pill">
+                <span className="asistencias-pulse-dot" aria-hidden="true" />
+                <span>Control de Asistencia Activo</span>
+              </span>
+              <span className="asistencias-counter-tag">
+                {periodoSeleccionado ? periodoSeleccionado.nombre : 'Sin materia seleccionada'}
+              </span>
+            </div>
+            <h2 className="asistencias-panel__title asistencias-titulo">📋 Asistencias</h2>
+            <p className="nota">Pase de lista en 1 clic, semáforo de inasistencias y control automático de derecho a examen.</p>
+          </div>
+        </div>
 
-      {/* Filtros */}
-      <div className="asistencias-filtros">
-        <select
-          value={periodoId}
-          onChange={(e) => { setPeriodoId(e.target.value); setGrupo(''); }}
-          className="asistencias-select"
-        >
-          <option value="">— Selecciona periodo —</option>
-          {periodos.filter((p) => p.activo).map((p) => (
-            <option key={p._id} value={p._id}>{p.nombre}</option>
-          ))}
-        </select>
+        <div className="asistencias-header-kpis" aria-live="polite">
+          <div className="asistencia-mini-kpi asistencia-mini-kpi--sesiones anim-kpi-hover" data-tooltip="Total de sesiones de clase registradas">
+            <span className="asistencia-mini-kpi__icon" aria-hidden="true">
+              <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2.2">
+                <rect width="18" height="18" x="3" y="4" rx="2" />
+                <line x1="16" x2="16" y1="2" y2="6" />
+                <line x1="8" x2="8" y1="2" y2="6" />
+                <line x1="3" x2="21" y1="10" y2="10" />
+              </svg>
+            </span>
+            <span className="asistencia-mini-kpi__num">{kpis.totalSesiones}</span>
+            <span className="asistencia-mini-kpi__lbl">Sesiones</span>
+          </div>
 
+          <div className="asistencia-mini-kpi asistencia-mini-kpi--alumnos anim-kpi-hover" data-tooltip="Total de alumnos en el grupo">
+            <span className="asistencia-mini-kpi__icon" aria-hidden="true">
+              <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2.2">
+                <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" />
+                <circle cx="9" cy="7" r="4" />
+              </svg>
+            </span>
+            <span className="asistencia-mini-kpi__num">{kpis.totalAlumnos}</span>
+            <span className="asistencia-mini-kpi__lbl">Alumnos</span>
+          </div>
+
+          <div className="asistencia-mini-kpi asistencia-mini-kpi--promedio anim-kpi-hover" data-tooltip="Porcentaje promedio de asistencia global">
+            <span className="asistencia-mini-kpi__icon" aria-hidden="true">
+              <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2.2">
+                <circle cx="12" cy="12" r="10" />
+                <path d="M12 6v6l4 2" />
+              </svg>
+            </span>
+            <span className="asistencia-mini-kpi__num">{kpis.promedioPct}%</span>
+            <span className="asistencia-mini-kpi__lbl">% Promedio</span>
+          </div>
+
+          <div className="asistencia-mini-kpi asistencia-mini-kpi--sin-derecho anim-kpi-hover" data-tooltip="Alumnos con riesgo o bloqueo por inasistencias">
+            <span className="asistencia-mini-kpi__icon" aria-hidden="true">
+              <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2.2">
+                <circle cx="12" cy="12" r="10" />
+                <line x1="4.93" y1="4.93" x2="19.07" y2="19.07" />
+              </svg>
+            </span>
+            <span className="asistencia-mini-kpi__num">{kpis.sinDerechoCount}</span>
+            <span className="asistencia-mini-kpi__lbl">Sin Derecho</span>
+          </div>
+        </div>
+      </div>
+
+      {/* ── 2. Guía Visual Bento ─── */}
+      <GuiaAsistenciasVisual />
+
+      {/* ── 3. Barra Panorámica de Selección y Filtros ─── */}
+      <div className="asistencias-filtros-bar anim-form-card">
+        <div className="asistencias-filtros-bar__row">
+          <div className="asistencias-filtros-col">
+            <label className="asistencias-label-field">
+              <span className="asistencias-field-lbl">
+                <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2">
+                  <path d="M4 19.5v-15A2.5 2.5 0 0 1 6.5 2H20v20H6.5a2.5 2.5 0 0 1-2.5-2.5Z" />
+                  <path d="M6 6h10" />
+                </svg>
+                Materia o Periodo Académico
+              </span>
+              <div className="auth-input-box auth-input-box--book auth-input-box--animated">
+                <select
+                  value={periodoId}
+                  onChange={(e) => { setPeriodoId(e.target.value); setGrupo(''); }}
+                  className="asistencias-select-field asistencias-select"
+                >
+                  <option value="">— Selecciona periodo —</option>
+                  {periodos.filter((p) => p.activo !== false).map((p) => (
+                    <option key={p._id} value={p._id}>{p.nombre}</option>
+                  ))}
+                </select>
+              </div>
+            </label>
+          </div>
+
+          {gruposDisponibles.length > 0 && (
+            <div className="asistencias-filtros-col">
+              <label className="asistencias-label-field">
+                <span className="asistencias-field-lbl">
+                  <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2">
+                    <path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z" />
+                  </svg>
+                  Filtrar por Grupo
+                </span>
+                <div className="auth-input-box auth-input-box--tags auth-input-box--animated">
+                  <select
+                    value={grupo}
+                    onChange={(e) => setGrupo(e.target.value)}
+                    className="asistencias-select-field asistencias-select"
+                  >
+                    <option value="">Todos los grupos</option>
+                    {gruposDisponibles.map((g) => <option key={g} value={g}>{g}</option>)}
+                  </select>
+                </div>
+              </label>
+            </div>
+          )}
+        </div>
+
+        {/* Chips de Selección Rápida de Grupo */}
         {gruposDisponibles.length > 0 && (
-          <select value={grupo} onChange={(e) => setGrupo(e.target.value)} className="asistencias-select">
-            <option value="">Todos los grupos</option>
-            {gruposDisponibles.map((g) => <option key={g} value={g}>{g}</option>)}
-          </select>
+          <div className="asistencias-quick-group-chips">
+            <span className="asistencias-quick-label">Grupo rápido:</span>
+            <button
+              type="button"
+              className={`alumnos-group-chip ${grupo === '' ? 'alumnos-group-chip--active' : ''}`}
+              onClick={() => setGrupo('')}
+            >
+              Todos ({alumnos.filter(a => a.activo !== false).length})
+            </button>
+            {gruposDisponibles.map((g) => {
+              const count = alumnos.filter(a => a.grupo === g && a.activo !== false).length;
+              return (
+                <button
+                  key={g}
+                  type="button"
+                  className={`alumnos-group-chip ${grupo === g ? 'alumnos-group-chip--active' : ''}`}
+                  onClick={() => setGrupo(g)}
+                >
+                  {g} ({count})
+                </button>
+              );
+            })}
+          </div>
         )}
       </div>
 
-      {/* Tabs */}
-      <div className="asistencias-tabs">
+      {/* ── 4. Navegación por Tabs Modernizada ─── */}
+      <div className="asistencias-tabs-bar">
         {(['resumen', 'pase_lista', 'reglas'] as const).map((t) => (
           <button
             key={t}
             onClick={() => setTab(t)}
             className={`asistencias-tab-btn ${tab === t ? 'activo' : ''}`}
           >
-            {t === 'resumen' ? '📊 Resumen' : t === 'pase_lista' ? '✍️ Pase de Lista' : '⚙️ Reglas'}
+            {t === 'resumen' && (
+              <>
+                <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2">
+                  <line x1="18" y1="20" x2="18" y2="10" />
+                  <line x1="12" y1="20" x2="12" y2="4" />
+                  <line x1="6" y1="20" x2="6" y2="14" />
+                </svg>
+                <span>Resumen General</span>
+              </>
+            )}
+            {t === 'pase_lista' && (
+              <>
+                <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2">
+                  <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
+                  <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />
+                </svg>
+                <span>Pase de Lista</span>
+              </>
+            )}
+            {t === 'reglas' && (
+              <>
+                <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2">
+                  <circle cx="12" cy="12" r="3" />
+                  <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z" />
+                </svg>
+                <span>Reglas y Tolerancias</span>
+              </>
+            )}
           </button>
         ))}
       </div>
 
-      {/* ── TAB RESUMEN ─── */}
-      {tab === 'resumen' && (
-        <div className="anim-fade-in">
-          {/* Nueva sesión rápida */}
-          {periodoId && (
-            <div className="panel" style={ { marginBottom: '1.5rem', padding: '1.25rem' } }>
-              <h3 className="eyebrow" style={ { marginBottom: '0.75rem' } }>➕ Nueva sesión</h3>
-              <div className="asistencias-form-crear">
-                <input
-                  type="date"
-                  value={nuevaSesionFecha}
-                  onChange={(e) => setNuevaSesionFecha(e.target.value)}
-                  className="asistencias-input"
-                />
-                {gruposDisponibles.length > 0 && (
-                  <select
-                    value={nuevaSesionGrupo}
-                    onChange={(e) => setNuevasSesionGrupo(e.target.value)}
-                    className="asistencias-select"
-                  >
-                    <option value="">Grupo actual</option>
-                    {gruposDisponibles.map((g) => <option key={g} value={g}>{g}</option>)}
-                  </select>
-                )}
-                <input
-                  type="text"
-                  placeholder="Tema cubierto (opcional)"
-                  value={nuevaSesionTema}
-                  onChange={(e) => setNuevaSesionTema(e.target.value)}
-                  className="asistencias-input"
-                  style={ { flexGrow: 1 }}
-                />
-                <button onClick={() => void crearSesion()} className="asistencias-btn-primario">
-                  Crear e iniciar
+      {/* ── 5. Estado Vacío Interactivo cuando No Hay Periodo Seleccionado ─── */}
+      {!periodoId ? (
+        <div className="empty-state-card anim-fade-in">
+          <div className="empty-state-card__icon anim-icon-pulse">
+            <span aria-hidden="true">📋</span>
+          </div>
+          <h4>Comienza seleccionando una materia</h4>
+          <p>Selecciona una de tus asignaturas activas para cargar las listas de asistencia, iniciar el pase de lista y monitorear el derecho a examen.</p>
+
+          {periodos.length > 0 && (
+            <div className="asistencias-quick-periodos-grid">
+              {periodos.filter(p => p.activo !== false).map((p) => (
+                <button
+                  key={p._id}
+                  type="button"
+                  className="asistencia-materia-pick-card anim-card-hover"
+                  onClick={() => setPeriodoId(p._id)}
+                >
+                  <div className="asistencia-materia-pick-avatar">
+                    {obtenerIniciales(p.nombre)}
+                  </div>
+                  <div className="asistencia-materia-pick-info">
+                    <strong>{p.nombre}</strong>
+                    <span>Grupos: {Array.isArray(p.grupos) && p.grupos.length > 0 ? p.grupos.join(', ') : 'General'}</span>
+                  </div>
+                  <div className="asistencia-materia-pick-arrow">➔</div>
                 </button>
-              </div>
+              ))}
             </div>
           )}
 
-          {/* Tabla resumen */}
-          {cargando ? (
-            <p>Cargando…</p>
-          ) : resumen.length === 0 ? (
-            <p style={ { color: 'var(--muted)', padding: '1rem 0' } }>
-              {periodoId ? 'Sin sesiones registradas aún.' : 'Selecciona un periodo para ver el resumen.'}
-            </p>
-          ) : (
-            <div style={ { overflowX: 'auto' } }>
-              <table className="asistencias-tabla">
-                <thead>
-                  <tr>
-                    <th className="asistencias-th">Alumno</th>
-                    <th className="asistencias-th">Matrícula</th>
-                    <th className="asistencias-th">Grupo</th>
-                    <th className="asistencias-th">P</th>
-                    <th className="asistencias-th">F</th>
-                    <th className="asistencias-th">R</th>
-                    <th className="asistencias-th">J</th>
-                    <th className="asistencias-th">% Asist.</th>
-                    <th className="asistencias-th">Examen</th>
-                    <th className="asistencias-th"></th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {resumen.map((al) => (
-                    <tr key={al.alumnoId} className="asistencias-tr">
-                      <td className="asistencias-td" style={ { fontWeight: 600 } }>{al.nombreCompleto}</td>
-                      <td className="asistencias-td" style={ { fontFamily: 'monospace', fontSize: '0.85rem' } }>{al.matricula}</td>
-                      <td className="asistencias-td">{al.grupo}</td>
-                      <td className="asistencias-td" style={ { color: 'var(--color-verde, #16a34a)', fontWeight: 700 } }>{al.presentes}</td>
-                      <td className="asistencias-td" style={ { color: 'var(--color-rojo, #dc2626)', fontWeight: 700 } }>{al.faltas}</td>
-                      <td className="asistencias-td" style={ { color: 'var(--color-naranja, #f59e0b)', fontWeight: 700 } }>{al.retardos}</td>
-                      <td className="asistencias-td" style={ { color: 'var(--color-azul, #2563eb)', fontWeight: 700 } }>{al.justificadas}</td>
-                      <td className="asistencias-td">
-                        <span
-                          className="badge"
-                          style={ {
-                            background: semaforoColor(al.porcentajeAsistencia),
-                            color: '#fff',
-                            fontSize: '0.8rem'
-                          } }
-                        >
-                          {al.porcentajeAsistencia}%
-                        </span>
-                      </td>
-                      <td className="asistencias-td">
-                        {al.bloqueadoExamen ? (
-                          <span title="Sin derecho a examen" className="badge" style={ { background: 'var(--peligroBg)', color: 'var(--peligroTexto)', fontSize: '0.85rem' } }>🚫 Sin Derecho</span>
-                        ) : al.tieneExcepcion ? (
-                          <span title="Excepción autorizada" className="badge" style={ { background: 'var(--avisoBg)', color: 'var(--avisoTexto)', fontSize: '0.85rem' } }>⚠️ Autorizado</span>
-                        ) : (
-                          <span title="Con derecho a examen" className="badge" style={ { background: 'var(--exitoBg)', color: 'var(--exitoTexto)', fontSize: '0.85rem' } }>✅ Con Derecho</span>
-                        )}
-                      </td>
-                      <td className="asistencias-td">
-                        {al.bloqueadoExamen && (
-                          <button
-                            onClick={() => void autorizarExcepcion(al.alumnoId, al.nombreCompleto)}
-                            className="asistencias-btn-secundario anim-fade-in"
-                            title="Autorizar excepción"
-                          >
-                            Autorizar
-                          </button>
-                        )}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+          <div className="empty-state-steps" aria-hidden="true">
+            <div className="empty-step">
+              <span className="empty-step__num">1</span>
+              <span>Selecciona tu materia</span>
             </div>
-          )}
-
-          {/* Sesiones anteriores */}
-          {sesiones.length > 0 && (
-            <div style={ { marginTop: '1.5rem' } }>
-              <h3 className="eyebrow" style={ { marginBottom: '0.5rem' } }>📅 Sesiones registradas</h3>
-              <div style={ { display: 'flex', flexWrap: 'wrap', gap: '0.5rem' } }>
-                {sesiones.map((s) => (
-                  <button key={s._id} onClick={() => void abrirSesion(s)} className="asistencias-chip-sesion scale-hover">
-                    {formatFecha(s.fecha)} {s.grupo} {s.temaNombre ? `· ${s.temaNombre.slice(0, 20)}` : ''}
-                  </button>
-                ))}
-              </div>
+            <div className="empty-step__arrow">➔</div>
+            <div className="empty-step">
+              <span className="empty-step__num">2</span>
+              <span>Pasa lista con 1 clic</span>
             </div>
-          )}
+            <div className="empty-step__arrow">➔</div>
+            <div className="empty-step">
+              <span className="empty-step__num">3</span>
+              <span>Semáforo de examen</span>
+            </div>
+          </div>
         </div>
-      )}
+      ) : (
+        <>
+          {/* ── TAB RESUMEN ─── */}
+          {tab === 'resumen' && (
+            <div className="anim-fade-in">
+              {/* Nueva sesión rápida Bento Hero Form */}
+              <div className="panel asistencias-panel-card asistencias-hero-card anim-card-hover">
+                <div className="asistencias-card-head">
+                  <div className="asistencias-card-head__text">
+                    <h3 className="asistencias-sub-title">✨ Registrar Nueva Sesión de Clase</h3>
+                    <p className="asistencias-sub-desc">Habilita una sesión para pase de lista en 1 clic o lectura de folios QR.</p>
+                  </div>
+                  <div className="asistencias-card-head__badge">
+                    <span className="asistencias-pulse-dot" aria-hidden="true" />
+                    <span>Sesión #{sesiones.length + 1}</span>
+                  </div>
+                </div>
+                <div className="asistencias-form-crear">
+                  <div className="asistencias-form-crear__grid">
+                    <label className="asistencias-field-col asistencias-field-col--fecha">
+                      <span>Fecha de clase</span>
+                      <div className="auth-input-box auth-input-box--calendar auth-input-box--animated">
+                        <input
+                          type="date"
+                          value={nuevaSesionFecha}
+                          onChange={(e) => setNuevaSesionFecha(e.target.value)}
+                          className="asistencias-input"
+                        />
+                      </div>
+                    </label>
 
-      {/* ── TAB PASE DE LISTA ─── */}
-      {tab === 'pase_lista' && (
-        <div className="anim-fade-in">
-          {!sesionActual ? (
-            <p style={ { color: 'var(--muted)', textAlign: 'center', padding: '2rem' } }>
-              Crea o selecciona una sesión desde la pestaña Resumen.
-            </p>
-          ) : (
-            <>
-              <div style={ { display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.25rem', flexWrap: 'wrap', gap: '0.75rem' } }>
-                <h3 style={ { margin: 0, fontSize: '1.1rem', fontWeight: 600 } }>
-                  Sesión: <strong style={ { color: 'var(--app-accent)' } }>{formatFecha(sesionActual.fecha)}</strong> — Grupo: <strong>{sesionActual.grupo}</strong>
-                  {sesionActual.temaNombre && <span style={ { marginLeft: '0.5rem', color: 'var(--muted)', fontSize: '0.9rem', fontWeight: 400 } }>({sesionActual.temaNombre})</span>}
-                </h3>
-                <div style={ { display: 'flex', gap: '0.5rem' } }>
-                  <button onClick={() => { const all: Record<string, RegistroLocal> = {}; alumnosGrupo.forEach((a) => { all[a._id] = { alumnoId: a._id, estado: 'P' }; }); setRegistros(all); }} className="asistencias-btn-secundario">
-                    Todos Presentes
-                  </button>
-                  <button
-                    onClick={() => void guardarPaseLista()}
-                    disabled={guardando}
-                    className="asistencias-btn-primario"
-                  >
-                    {guardando ? 'Guardando…' : '💾 Guardar lista'}
-                  </button>
+                    {gruposDisponibles.length > 0 && (
+                      <label className="asistencias-field-col asistencias-field-col--grupo">
+                        <span>Grupo académico</span>
+                        <div className="auth-input-box auth-input-box--tags auth-input-box--animated">
+                          <select
+                            value={nuevaSesionGrupo}
+                            onChange={(e) => setNuevasSesionGrupo(e.target.value)}
+                            className="asistencias-select"
+                          >
+                            <option value="">{grupo ? `Grupo ${grupo}` : 'Todos los grupos'}</option>
+                            {gruposDisponibles.map((g) => <option key={g} value={g}>Grupo {g}</option>)}
+                          </select>
+                        </div>
+                      </label>
+                    )}
+
+                    <label className="asistencias-field-col asistencias-field-col--tema">
+                      <span>Tema o contenido temático cubierto</span>
+                      <div className="auth-input-box auth-input-box--book auth-input-box--animated">
+                        <input
+                          type="text"
+                          placeholder="Ej. Unidad 2: Modelado dimensional, ETL y dashboards ejecutivos…"
+                          value={nuevaSesionTema}
+                          onChange={(e) => setNuevaSesionTema(e.target.value)}
+                          className="asistencias-input"
+                        />
+                      </div>
+                    </label>
+
+                    <div className="asistencias-field-col asistencias-field-col--cta">
+                      <Boton
+                        type="button"
+                        onClick={() => void crearSesion()}
+                        className="asistencias-btn-primario boton--crear-sesion"
+                        icono={
+                          <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2.2">
+                            <line x1="12" y1="5" x2="12" y2="19" />
+                            <line x1="5" y1="12" x2="19" y2="12" />
+                          </svg>
+                        }
+                      >
+                        Crear e Iniciar Pase de Lista
+                      </Boton>
+                    </div>
+                  </div>
                 </div>
               </div>
 
-              {/* Leyenda */}
-              <div style={ { display: 'flex', gap: '1rem', marginBottom: '1rem', fontSize: '0.85rem', flexWrap: 'wrap', alignItems: 'center' } }>
-                {(['P', 'F', 'R', 'J'] as const).map((e) => (
-                  <span key={e} style={ { display: 'inline-flex', alignItems: 'center', gap: '0.25rem' } }>
-                    <span style={ { display: 'inline-block', width: '0.8rem', height: '0.8rem', borderRadius: '50%', background: ESTADO_COLOR[e] }} />
-                    <strong style={ { color: 'var(--texto)' } }>{ESTADO_LABEL[e]}</strong>
-                  </span>
-                ))}
-                <span style={ { color: 'var(--muted)' } }>· Click en un alumno para ciclar estado</span>
-              </div>
-
-              {/* Lista alumnos */}
-              <div style={ { display: 'grid', gap: '0.5rem' } }>
-                {alumnosGrupo.map((al, idx) => {
-                  const reg = registros[al._id] ?? { alumnoId: al._id, estado: 'P' as const };
-                  return (
-                    <div
-                      key={al._id}
-                      role="button"
-                      tabIndex={0}
-                      className={`asistencias-alumno-row anim-fade-in ${reg.estado === 'F' ? 'falta' : reg.estado === 'R' ? 'retardo' : ''}`}
-                      style={ { animationDelay: `${idx * 20}ms` } }
-                      onClick={() => ciclarEstado(al._id)}
-                      onKeyDown={(e) => {
-                        if (e.key === 'Enter' || e.key === ' ') {
-                          e.preventDefault();
-                          ciclarEstado(al._id);
-                        }
-                      }}
-                    >
-                      <span style={ { color: 'var(--muted)', width: '1.5rem', textAlign: 'right', fontSize: '0.85rem', fontWeight: 600 } }>
-                        {idx + 1}
-                      </span>
-                      <span
-                        className="asistencias-alumno-badge state-badge-pulse"
-                        key={reg.estado}
-                        style={ {
-                          background: ESTADO_COLOR[reg.estado]
-                        } }
-                      >
-                        {reg.estado}
-                      </span>
-                      <span style={ { flexGrow: 1, fontWeight: 600 } }>{al.nombreCompleto}</span>
-                      <span style={ { fontSize: '0.82rem', color: 'var(--muted)', fontFamily: 'monospace' } }>{al.matricula}</span>
-                      {reg.estado === 'J' && (
-                        <input
-                          type="text"
-                          placeholder="Justificación"
-                          value={reg.justificacion ?? ''}
-                          onChange={(e) => {
-                            e.stopPropagation();
-                            setRegistros((prev) => ({ ...prev, [al._id]: { ...reg, justificacion: e.target.value } }));
-                          }}
-                          onClick={(e) => e.stopPropagation()}
-                          className="asistencias-input"
-                          style={ { width: '220px', minHeight: '34px', fontSize: '0.82rem' }}
-                        />
-                      )}
-                    </div>
-                  );
-                })}
-              </div>
-            </>
-          )}
-        </div>
-      )}
-
-      {/* ── TAB REGLAS ─── */}
-      {tab === 'reglas' && (
-        <div className="anim-fade-in">
-          <div className="panel" style={ { padding: '1.25rem' } }>
-            <h3 className="eyebrow" style={ { marginBottom: '1rem' } }>⚙️ Configurar regla de asistencia</h3>
-            <div style={ { display: 'flex', gap: '1rem', flexWrap: 'wrap', alignItems: 'flex-end', marginBottom: '1.25rem' } }>
-              <label style={ { display: 'flex', flexDirection: 'column', gap: '0.35rem', fontSize: '0.85rem', fontWeight: 600 } }>
-                Máximo de faltas permitidas
-                <input
-                  type="number"
-                  min={0}
-                  max={99}
-                  value={nuevaReglaMax}
-                  onChange={(e) => setNuevaReglaMax(Number(e.target.value))}
-                  className="asistencias-input"
-                  style={ { width: '90px' }}
-                />
-              </label>
-              <label style={ { display: 'flex', flexDirection: 'column', gap: '0.35rem', fontSize: '0.85rem', fontWeight: 600 } }>
-                Acción al superar el límite
-                <select
-                  value={nuevaReglaAccion}
-                  onChange={(e) => setNuevaReglaAccion(e.target.value as 'bloquear_examen' | 'advertir')}
-                  className="asistencias-select"
-                >
-                  <option value="bloquear_examen">🚫 Bloquear examen (requiere autorización)</option>
-                  <option value="advertir">⚠️ Solo advertir al docente</option>
-                </select>
-              </label>
-              <button onClick={() => void guardarRegla()} className="asistencias-btn-primario">
-                Guardar regla
-              </button>
-            </div>
-
-            {/* ── Sección retardos (opcional, desactivada por default) ── */}
-            <div className="asistencias-config-retardo-box">
-              <label style={ { display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer', fontSize: '0.9rem', fontWeight: 700 } }>
-                <input
-                  type="checkbox"
-                  checked={nuevaReglaContarRetardos}
-                  onChange={(e) => setNuevaReglaContarRetardos(e.target.checked)}
-                  style={ { width: '1.1rem', height: '1.1rem', cursor: 'pointer' }}
-                />
-                Contar retardos como faltas equivalentes
-                <span style={ { fontWeight: 400, color: 'var(--muted)', fontSize: '0.8rem' } }>(desactivado por defecto)</span>
-              </label>
-              {nuevaReglaContarRetardos && (
-                <div className="anim-slide-up" style={ { marginTop: '0.75rem', paddingLeft: '1.6rem' } }>
-                  <label style={ { display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '0.88rem', fontWeight: 600 } }>
-                    Retardos equivalentes a 1 falta:
+              {/* Barra de Búsqueda y Filtros de Asistencia */}
+              {resumen.length > 0 && (
+                <div className="asistencias-table-toolbar anim-fade-in">
+                  <div className="asistencias-search-box">
+                    <span className="asistencias-search-icon" aria-hidden="true">🔍</span>
                     <input
-                      type="number"
-                      min={2}
-                      max={10}
-                      value={nuevaReglaRetardosEquivalen}
-                      onChange={(e) => setNuevaReglaRetardosEquivalen(Number(e.target.value))}
-                      className="asistencias-input"
-                      style={ { width: '70px' }}
+                      type="text"
+                      placeholder="Buscar alumno por nombre o matrícula…"
+                      value={filtroTexto}
+                      onChange={(e) => setFiltroTexto(e.target.value)}
+                      className="asistencias-search-input"
                     />
-                    <span style={ { fontSize: '0.82rem', color: 'var(--muted)', fontWeight: 400 } }>
-                      ({nuevaReglaRetardosEquivalen} retardos = 1 falta)
-                    </span>
-                  </label>
+                    {filtroTexto && (
+                      <button
+                        type="button"
+                        onClick={() => setFiltroTexto('')}
+                        className="asistencias-search-clear"
+                        title="Limpiar búsqueda"
+                      >
+                        ✕
+                      </button>
+                    )}
+                  </div>
+                  <div className="asistencias-filter-chips">
+                    <button
+                      type="button"
+                      className={`asistencias-chip ${filtroEstado === 'todos' ? 'asistencias-chip--active' : ''}`}
+                      onClick={() => setFiltroEstado('todos')}
+                    >
+                      Todos ({resumen.length})
+                    </button>
+                    <button
+                      type="button"
+                      className={`asistencias-chip ${filtroEstado === 'con_derecho' ? 'asistencias-chip--active' : ''}`}
+                      onClick={() => setFiltroEstado('con_derecho')}
+                    >
+                      ✓ Con Derecho ({resumen.filter((r) => !r.bloqueadoExamen).length})
+                    </button>
+                    <button
+                      type="button"
+                      className={`asistencias-chip asistencias-chip--danger ${filtroEstado === 'sin_derecho' ? 'asistencias-chip--active' : ''}`}
+                      onClick={() => setFiltroEstado('sin_derecho')}
+                    >
+                      🚫 Sin Derecho ({resumen.filter((r) => r.bloqueadoExamen).length})
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              {/* Tabla resumen de alumnos */}
+              {cargando ? (
+                <div className="asistencias-loading-box anim-fade-in">
+                  <div className="asistencias-panel__icon-orb anim-icon-pulse" aria-hidden="true">⏳</div>
+                  <p>Cargando resumen de asistencias…</p>
+                </div>
+              ) : resumen.length === 0 ? (
+                <div className="empty-state-card anim-fade-in">
+                  <div className="empty-state-card__icon anim-icon-pulse">
+                    <span aria-hidden="true">🗓️</span>
+                  </div>
+                  <h4>Sin sesiones registradas aún</h4>
+                  <p className="nota">
+                    Crea tu primera sesión de clase arriba para comenzar a tomar asistencia y calcular el semáforo académico.
+                  </p>
+                </div>
+              ) : (
+                <div className="table-scroll-container anim-fade-in">
+                  <table className="asistencias-tabla">
+                    <thead>
+                      <tr>
+                        <th className="asistencias-th">Alumno</th>
+                        <th className="asistencias-th">Matrícula</th>
+                        <th className="asistencias-th">Grupo</th>
+                        <th className="asistencias-th" title="Presentes">P</th>
+                        <th className="asistencias-th" title="Faltas">F</th>
+                        <th className="asistencias-th" title="Retardos">R</th>
+                        <th className="asistencias-th" title="Justificadas">J</th>
+                        <th className="asistencias-th">% Asist.</th>
+                        <th className="asistencias-th">Derecho a Examen</th>
+                        <th className="asistencias-th">Acciones</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {resumenFiltrado.map((al) => {
+                        const matriculaLimpia = al.matricula && !/^\d{15,}$/.test(al.matricula) ? al.matricula : '';
+                        const porcentajeMostrar = al.totalSesiones > 0 ? `${al.porcentajeAsistencia}%` : '100%';
+                        const iniciales = obtenerIniciales(al.nombreCompleto);
+                        return (
+                          <tr key={al.alumnoId} className="asistencias-tr anim-slide-up">
+                            <td className="asistencias-td">
+                              <div className="asistencia-alumno-cell">
+                                <div className="asistencia-avatar-sm" aria-hidden="true">
+                                  <span>{iniciales}</span>
+                                </div>
+                                <strong>{al.nombreCompleto}</strong>
+                              </div>
+                            </td>
+                            <td className="asistencias-td font-code">
+                              <span className="asistencia-matricula-badge">{matriculaLimpia || '—'}</span>
+                            </td>
+                            <td className="asistencias-td">
+                              <span className="asistencia-grupo-pill">{al.grupo}</span>
+                            </td>
+                            <td className="asistencias-td asistencias-p-stat font-bold">{al.presentes}</td>
+                            <td className="asistencias-td asistencias-f-stat font-bold">{al.faltas}</td>
+                            <td className="asistencias-td asistencias-r-stat font-bold">{al.retardos}</td>
+                            <td className="asistencias-td asistencias-j-stat font-bold">{al.justificadas}</td>
+                            <td className="asistencias-td">
+                              <span
+                                className={`asistencias-pct-badge ${
+                                  al.totalSesiones === 0 || al.porcentajeAsistencia >= 85 ? 'green' : al.porcentajeAsistencia >= 70 ? 'orange' : 'red'
+                                }`}
+                                title={`${al.presentes} presentes de ${al.totalSesiones} sesiones`}
+                              >
+                                {porcentajeMostrar}
+                              </span>
+                            </td>
+                            <td className="asistencias-td">
+                              {al.bloqueadoExamen ? (
+                                <span title="Sin derecho a examen" className="asistencias-badge-pill sin-derecho anim-badge-in">
+                                  🚫 Sin Derecho
+                                </span>
+                              ) : al.tieneExcepcion ? (
+                                <span title="Excepción autorizada" className="asistencias-badge-pill autorizado anim-badge-in">
+                                  ⚠️ Autorizado
+                                </span>
+                              ) : (
+                                <span title="Con derecho a examen" className="asistencias-badge-pill con-derecho anim-badge-in">
+                                  ✅ Con Derecho
+                                </span>
+                              )}
+                            </td>
+                            <td className="asistencias-td">
+                              {al.bloqueadoExamen ? (
+                                <Boton
+                                  variante="secundario"
+                                  type="button"
+                                  onClick={() => void autorizarExcepcion(al.alumnoId, al.nombreCompleto)}
+                                  className="asistencias-btn-autorizar anim-fade-in"
+                                  icono={<span aria-hidden="true">🛡️</span>}
+                                >
+                                  Autorizar Excepción
+                                </Boton>
+                              ) : (
+                                <Boton
+                                  variante="secundario"
+                                  type="button"
+                                  onClick={() => setTab('pase_lista')}
+                                  className="asistencias-btn-fila-pase"
+                                  icono={<span aria-hidden="true">📝</span>}
+                                >
+                                  Pase de Lista
+                                </Boton>
+                              )}
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+
+              {/* Sesiones anteriores */}
+              {sesiones.length > 0 && (
+                <div className="asistencias-panel-card anim-card-hover">
+                  <div className="asistencias-card-head">
+                    <h3 className="asistencias-sub-title">📅 Sesiones Registradas ({sesiones.length})</h3>
+                    <p className="asistencias-sub-desc">Haz clic en cualquier sesión para ver o editar el pase de lista.</p>
+                  </div>
+                  <div className="asistencias-sesiones-grid">
+                    {sesiones.map((s) => (
+                      <button
+                        key={s._id}
+                        onClick={() => void abrirSesion(s)}
+                        className="asistencias-sesion-card anim-card-hover"
+                      >
+                        <div className="asistencias-sesion-card__header">
+                          <span className="asistencias-sesion-card__date">
+                            📅 {formatFecha(s.fecha)}
+                          </span>
+                          <span className="asistencia-grupo-pill">{s.grupo}</span>
+                        </div>
+                        {s.temaNombre && (
+                          <p className="asistencias-sesion-card__topic">{s.temaNombre}</p>
+                        )}
+                        <div className="asistencias-sesion-card__footer">
+                          <span>Editar lista ➔</span>
+                        </div>
+                      </button>
+                    ))}
+                  </div>
                 </div>
               )}
             </div>
+          )}
 
-            <p style={ { fontSize: '0.8rem', color: 'var(--muted)', marginTop: '0.75rem' } }>
-              La regla aplica al periodo {grupo ? `y grupo "${grupo}"` : '(todos los grupos)'}. El docente puede autorizar excepciones individuales desde el Resumen.
-            </p>
-          </div>
-
-          {/* Reglas existentes */}
-          {reglas.length > 0 && (
-            <div style={ { marginTop: '1.5rem' } }>
-              <h3 className="eyebrow" style={ { marginBottom: '0.75rem' } }>Reglas activas</h3>
-              <div style={ { display: 'grid', gap: '0.5rem' } }>
-                {reglas.map((r) => (
-                  <div key={r._id} className="panel anim-fade-in" style={ { padding: '1rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center' } }>
-                    <div>
-                      <strong style={ { fontSize: '0.95rem' } }>Máx. {r.maxFaltas} faltas</strong>
-                      <span style={ { marginLeft: '0.75rem', color: 'var(--muted)', fontSize: '0.88rem' } }>
-                        → {r.accion === 'bloquear_examen' ? '🚫 Bloquear examen' : '⚠️ Advertir'}
-                        {r.grupo ? ` · Grupo: ${r.grupo}` : ' · Todos los grupos'}
+          {/* ── TAB PASE DE LISTA ─── */}
+          {tab === 'pase_lista' && (
+            <div className="anim-fade-in">
+              {!sesionActual ? (
+                <div className="empty-state-card anim-fade-in">
+                  <div className="empty-state-card__icon anim-icon-pulse">
+                    <span aria-hidden="true">✍️</span>
+                  </div>
+                  <h4>No hay sesión seleccionada</h4>
+                  <p className="nota">
+                    Crea una nueva sesión o selecciona una existente desde la pestaña <strong>Resumen</strong> para iniciar el pase de lista.
+                  </p>
+                  <Boton variante="secundario" type="button" onClick={() => setTab('resumen')}>
+                    ⬅ Volver al Resumen
+                  </Boton>
+                </div>
+              ) : (
+                <>
+                  {/* Banner de Sesión Activa con Acciones Rápidas */}
+                  <div className="asistencias-subpanel-header anim-form-card">
+                    <div className="asistencias-sesion-hero-info">
+                      <span className="asistencias-status-pill">
+                        <span className="asistencias-pulse-dot" aria-hidden="true" />
+                        <span>Sesión Activa</span>
                       </span>
-                      {r.contarRetardos && (
-                        <span style={ { marginLeft: '0.75rem', fontSize: '0.82rem', color: 'var(--brand-gold)', fontWeight: 700 } }>
-                          · ⏱ {r.retardosEquivalenFalta} retardos = 1 falta
-                        </span>
-                      )}
+                      <h3>
+                        <strong>{formatFecha(sesionActual.fecha)}</strong> — Grupo <strong>{sesionActual.grupo}</strong>
+                        {sesionActual.temaNombre && <span className="nota"> · {sesionActual.temaNombre}</span>}
+                      </h3>
+                    </div>
+
+                    <div className="asistencias-action-buttons-bar">
+                      <Boton
+                        variante="secundario"
+                        type="button"
+                        onClick={() => {
+                          const all: Record<string, RegistroLocal> = {};
+                          alumnosGrupo.forEach((a) => { all[a._id] = { alumnoId: a._id, estado: 'P' }; });
+                          setRegistros(all);
+                          emitToast({ level: 'info', title: 'Pase rápido', message: 'Todos marcados como Presentes' });
+                        }}
+                        icono={
+                          <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2.2">
+                            <path d="M20 6L9 17l-5-5" />
+                          </svg>
+                        }
+                      >
+                        Todos Presentes
+                      </Boton>
+
+                      <Boton
+                        type="button"
+                        onClick={() => void guardarPaseLista()}
+                        cargando={guardando}
+                        disabled={guardando}
+                        className="asistencias-btn-primario boton--guardar-lista pulse-glow"
+                        icono={
+                          <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2.2">
+                            <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z" />
+                            <polyline points="17 21 17 13 7 13 7 21" />
+                            <polyline points="7 3 7 8 15 8" />
+                          </svg>
+                        }
+                      >
+                        {guardando ? 'Guardando…' : 'Guardar lista'}
+                      </Boton>
                     </div>
                   </div>
-                ))}
-              </div>
+
+                  {/* Barra de Leyenda Interactiva */}
+                  <div className="asistencias-legend-bar anim-fade-in">
+                    <div className="asistencias-legend-items">
+                      {(['P', 'F', 'R', 'J'] as const).map((e) => (
+                        <span key={e} className="asistencias-legend-chip">
+                          <span className={`asistencias-legend-dot asistencias-badge-dot-${e.toLowerCase()}`} />
+                          <strong>{ESTADO_LABEL[e]} ({e})</strong>
+                        </span>
+                      ))}
+                    </div>
+                    <span className="nota asistencias-legend-hint">💡 Haz clic en la fila de un estudiante para ciclar su estado (P ➔ F ➔ R ➔ J)</span>
+                  </div>
+
+                  {/* Lista interactiva Fast-Check */}
+                  <div className="asistencias-fastcheck-grid">
+                    {alumnosGrupo.map((al, idx) => {
+                      const reg = registros[al._id] ?? { alumnoId: al._id, estado: 'P' as const };
+                      const iniciales = obtenerIniciales(al.nombreCompleto);
+                      return (
+                        <div
+                          key={al._id}
+                          role="button"
+                          tabIndex={0}
+                          className={`asistencias-alumno-row anim-slide-up ${reg.estado === 'F' ? 'falta' : reg.estado === 'R' ? 'retardo' : reg.estado === 'J' ? 'justificada' : 'presente'}`}
+                          onClick={() => ciclarEstado(al._id)}
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter' || e.key === ' ') {
+                              e.preventDefault();
+                              ciclarEstado(al._id);
+                            }
+                          }}
+                        >
+                          <span className="asistencias-alumno-num">{idx + 1}</span>
+
+                          <div className="asistencia-avatar-sm" aria-hidden="true">
+                            <span>{iniciales}</span>
+                          </div>
+
+                          <div className="asistencias-alumno-info">
+                            <span className="font-bold asistencias-alumno-name">{al.nombreCompleto}</span>
+                            <span className="font-code nota asistencias-alumno-matricula">{al.matricula}</span>
+                          </div>
+
+                          <span
+                            className={`asistencias-alumno-badge asistencias-badge-dot-${reg.estado.toLowerCase()} state-badge-pulse`}
+                            key={reg.estado}
+                          >
+                            {reg.estado} · {ESTADO_LABEL[reg.estado]}
+                          </span>
+
+                          {reg.estado === 'J' && (
+                            <input
+                              type="text"
+                              placeholder="Motivo de justificación…"
+                              value={reg.justificacion ?? ''}
+                              onChange={(e) => {
+                                e.stopPropagation();
+                                setRegistros((prev) => ({ ...prev, [al._id]: { ...reg, justificacion: e.target.value } }));
+                              }}
+                              onClick={(e) => e.stopPropagation()}
+                              className="asistencias-input asistencias-alumno-input-justificacion anim-fade-in"
+                            />
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                </>
+              )}
             </div>
           )}
-        </div>
+
+          {/* ── TAB REGLAS ─── */}
+          {tab === 'reglas' && (
+            <div className="anim-fade-in">
+              <div className="panel asistencias-panel-card anim-card-hover">
+                <div className="asistencias-card-head">
+                  <h3 className="asistencias-sub-title">⚙️ Configurar Regla de Asistencia y Derecho a Examen</h3>
+                  <p className="asistencias-sub-desc">Establece el número máximo de faltas permitidas antes de bloquear el derecho a examen.</p>
+                </div>
+
+                <div className="asistencias-config-grid">
+                  <label className="asistencias-form-col">
+                    <span className="asistencias-field-lbl">Máximo de faltas permitidas</span>
+                    <div className="auth-input-box auth-input-box--animated">
+                      <input
+                        type="number"
+                        min={0}
+                        max={99}
+                        value={nuevaReglaMax}
+                        onChange={(e) => setNuevaReglaMax(Number(e.target.value))}
+                        className="asistencias-input asistencias-input-num-sm"
+                      />
+                    </div>
+                  </label>
+
+                  <label className="asistencias-form-col">
+                    <span className="asistencias-field-lbl">Acción al superar el límite</span>
+                    <div className="auth-input-box auth-input-box--animated">
+                      <select
+                        value={nuevaReglaAccion}
+                        onChange={(e) => setNuevaReglaAccion(e.target.value as 'bloquear_examen' | 'advertir')}
+                        className="asistencias-select"
+                      >
+                        <option value="bloquear_examen">🚫 Bloquear examen (requiere autorización docente)</option>
+                        <option value="advertir">⚠️ Solo advertir al docente</option>
+                      </select>
+                    </div>
+                  </label>
+
+                  <div className="asistencias-form-col asistencias-form-col--btn">
+                    <Boton
+                      type="button"
+                      onClick={() => void guardarRegla()}
+                      className="asistencias-btn-primario boton--guardar-regla"
+                      icono={
+                        <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2.2">
+                          <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z" />
+                          <polyline points="17 21 17 13 7 13 7 21" />
+                          <polyline points="7 3 7 8 15 8" />
+                        </svg>
+                      }
+                    >
+                      Guardar regla
+                    </Boton>
+                  </div>
+                </div>
+
+                {/* Sección retardos */}
+                <div className="asistencias-config-retardo-box">
+                  <label className="asistencias-checkbox-label">
+                    <input
+                      type="checkbox"
+                      checked={nuevaReglaContarRetardos}
+                      onChange={(e) => setNuevaReglaContarRetardos(e.target.checked)}
+                    />
+                    <span>Contar retardos como faltas equivalentes</span>
+                    <span className="nota">(desactivado por defecto)</span>
+                  </label>
+
+                  {nuevaReglaContarRetardos && (
+                    <div className="asistencias-retardos-details anim-slide-up">
+                      <label className="asistencias-chip-grid">
+                        <span>Retardos equivalentes a 1 falta:</span>
+                        <input
+                          type="number"
+                          min={2}
+                          max={10}
+                          value={nuevaReglaRetardosEquivalen}
+                          onChange={(e) => setNuevaReglaRetardosEquivalen(Number(e.target.value))}
+                          className="asistencias-input asistencias-input-num-xs"
+                        />
+                        <span className="nota">
+                          ({nuevaReglaRetardosEquivalen} retardos = 1 falta acumulada)
+                        </span>
+                      </label>
+                    </div>
+                  )}
+                </div>
+
+                <p className="nota asistencias-regla-footer-hint">
+                  ℹ️ La regla aplica a la materia actual {grupo ? `y al grupo "${grupo}"` : '(todos los grupos)'}. Puedes autorizar excepciones individuales en cualquier momento desde la pestaña Resumen.
+                </p>
+              </div>
+
+              {/* Reglas existentes */}
+              {reglas.length > 0 && (
+                <div className="asistencias-panel-card anim-card-hover">
+                  <div className="asistencias-card-head">
+                    <h3 className="asistencias-sub-title">Reglas Activas ({reglas.length})</h3>
+                  </div>
+                  <div className="asistencias-reglas-grid">
+                    {reglas.map((r) => (
+                      <div key={r._id} className="asistencias-regla-card anim-slide-up">
+                        <div className="asistencias-regla-card__icon" aria-hidden="true">
+                          <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2">
+                            <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
+                          </svg>
+                        </div>
+                        <div className="asistencias-regla-card__body">
+                          <strong>Máximo {r.maxFaltas} faltas</strong>
+                          <span className="nota">
+                            → {r.accion === 'bloquear_examen' ? '🚫 Bloquear examen' : '⚠️ Advertencia'}
+                            {r.grupo ? ` · Grupo: ${r.grupo}` : ' · Todos los grupos'}
+                          </span>
+                          {r.contarRetardos && (
+                            <span className="asistencias-r-stat">
+                              · ⏱ {r.retardosEquivalenFalta} retardos equivalen a 1 falta
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+        </>
       )}
-    </section>
+    </div>
   );
 }
-

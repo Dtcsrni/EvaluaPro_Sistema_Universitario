@@ -167,18 +167,9 @@ foreach ($spec in $iconSpecs) {
 }
 
 $shortcuts = @(
-  @{
-    Name = 'EvaluaPro - Dev'
-    Description = 'Bandeja (tray) modo desarrollo - arranque estricto de stack + portal'
-    IconKey = 'dev'
-    Desktop = $true
-    StartMenu = $true
-    Target = $targetWscript
-    Arguments = "//nologo `"$trayHiddenVbs`" dev $Port"
-  },
-  @{
-    Name = 'EvaluaPro - Prod'
-    Description = 'Bandeja (tray) modo estable - arranque estricto de stack + portal'
+    @{
+    Name = 'EvaluaPro'
+    Description = 'EvaluaPro · Plataforma para evaluación universitaria'
     IconKey = 'prod'
     Desktop = $true
     StartMenu = $true
@@ -187,12 +178,21 @@ $shortcuts = @(
   },
   @{
     Name = 'EvaluaPro - Hub'
-    Description = 'Installer Hub local para instalar, verificar, reparar y operar EvaluaPro'
+    Description = 'EvaluaPro Hub · Asistente local para instalar, verificar, reparar y operar'
     IconKey = 'hub'
     Desktop = $true
     StartMenu = $true
     Target = $targetWscript
     Arguments = "//nologo `"$shortcutOpHiddenVbs`" open-hub $Port auto"
+  },
+  @{
+    Name = 'EvaluaPro - Dev'
+    Description = 'Bandeja (tray) modo desarrollo - arranque estricto de stack + portal'
+    IconKey = 'dev'
+    Desktop = $false
+    StartMenu = $true
+    Target = $targetWscript
+    Arguments = "//nologo `"$trayHiddenVbs`" dev $Port"
   },
   @{
     Name = 'EvaluaPro - Abrir Dashboard'
@@ -242,7 +242,7 @@ $shortcuts = @(
 )
 
 if (-not $IncludeOpsShortcuts) {
-  $shortcuts = $shortcuts | Where-Object { $_.Name -in @('EvaluaPro - Dev', 'EvaluaPro - Prod', 'EvaluaPro - Hub') }
+  $shortcuts = $shortcuts | Where-Object { $_.Name -in @('EvaluaPro', 'EvaluaPro - Hub') }
 }
 
 if (-not $includeDevShortcutEffective) {
@@ -264,13 +264,14 @@ if ($env:EVALUAPRO_FLAVOR) {
 $isDocenteFlavor = ($detectedFlavorId.Trim().ToLowerInvariant() -eq 'docente-local')
 if ($isDocenteFlavor -and $env:EVALUAPRO_DEBUG -ne '1') {
   # REQ-030: En flavor docente-local, los accesos del menú y escritorio solo deben contener
-  # la aplicación 'EvaluaPro - Prod' y el asistente 'EvaluaPro - Hub'.
-  $shortcuts = $shortcuts | Where-Object { $_.Name -in @('EvaluaPro - Prod', 'EvaluaPro - Hub') }
+  # la aplicación 'EvaluaPro' y el asistente 'EvaluaPro - Hub'.
+  $shortcuts = $shortcuts | Where-Object { $_.Name -in @('EvaluaPro', 'EvaluaPro - Hub') }
 }
 
 $allManagedShortcutNames = @(
-  'EvaluaPro - Dev',
+  'EvaluaPro',
   'EvaluaPro - Prod',
+  'EvaluaPro - Dev',
   'EvaluaPro - Hub',
   'EvaluaPro - Abrir Dashboard',
   'EvaluaPro - Reiniciar Stack',

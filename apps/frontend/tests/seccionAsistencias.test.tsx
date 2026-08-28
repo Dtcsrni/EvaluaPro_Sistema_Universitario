@@ -1,3 +1,9 @@
+/**
+ * seccionAsistencias.test
+ *
+ * Responsabilidad: Modulo interno del sistema.
+ * Limites: Mantener contrato y comportamiento observable del modulo.
+ */
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { describe, expect, it, vi, beforeEach } from 'vitest';
 import { SeccionAsistencias } from '../src/apps/app_docente/SeccionAsistencias';
@@ -85,4 +91,87 @@ describe('SeccionAsistencias (Resiliencia)', () => {
 
     expect(screen.getByRole('heading', { name: /Asistencias/i })).toBeInTheDocument();
   });
+
+  it('permite configurar y guardar reglas de asistencia con conteo de retardos', async () => {
+    vi.mocked(clienteApi.obtener).mockResolvedValue({
+      resumen: [],
+      sesiones: [],
+      reglas: [
+        { _id: 'reg-1', maxFaltas: 3, accion: 'bloquear_examen', grupo: 'A', contarRetardos: true, retardosEquivalenFalta: 3 }
+      ]
+    });
+    vi.mocked(clienteApi.enviar).mockResolvedValueOnce({ regla: { _id: 'reg-1', maxFaltas: 4, accion: 'bloquear_examen' } });
+
+    render(
+      <SeccionAsistencias
+        periodos={[{ _id: 'per-1', nombre: 'Periodo 1', activo: true }]}
+        alumnos={[{ _id: 'alu-1', nombreCompleto: 'Alumno 1', matricula: 'A1', periodoId: 'per-1' }]}
+        puedeGestionar={true}
+      />
+    );
+
+    fireEvent.change(screen.getByRole('combobox'), { target: { value: 'per-1' } });
+
+    // Navegar a pestaña reglas
+    const tabReglas = screen.getByRole('button', { name: /Reglas/i });
+    fireEvent.click(tabReglas);
+
+    // Habilitar conteo de retardos
+    const checkboxRetardo = screen.getByRole('checkbox');
+    fireEvent.click(checkboxRetardo);
+
+    const btnGuardar = screen.getByRole('button', { name: /Guardar regla/i });
+    fireEvent.click(btnGuardar);
+
+    await waitFor(() => {
+      expect(clienteApi.enviar).toHaveBeenCalledWith('/asistencias/reglas', expect.objectContaining({
+        periodoId: 'per-1',
+        contarRetardos: true
+      }));
+    });
+  });
+
+  it('permite marcar a todos presentes y guardar el pase de lista', async () => {
+    vi.mocked(clienteApi.obtener).mockImplementation(async (url: string) => {
+      if (url.includes('/asistencias/sesiones/ses-1/registros')) {
+        return { registros: [] };
+      }
+      if (url.includes('/asistencias/sesiones')) {
+        return { sesiones: [{ _id: 'ses-1', fecha: '2026-08-21T12:00:00Z', grupo: 'A' }] };
+      }
+      return { resumen: [], reglas: [] };
+    });
+    vi.mocked(clienteApi.enviar).mockResolvedValueOnce({ guardados: 1 });
+
+    render(
+      <SeccionAsistencias
+        periodos={[{ _id: 'per-1', nombre: 'Periodo 1', activo: true, grupos: ['A'] }]}
+        alumnos={[{ _id: 'alu-1', nombreCompleto: 'Alumno 1', matricula: 'A1', periodoId: 'per-1', grupo: 'A' }]}
+        puedeGestionar={true}
+      />
+    );
+
+    fireEvent.change(screen.getByRole('combobox'), { target: { value: 'per-1' } });
+
+    const btnSesion = await screen.findByRole('button', { name: /21 ago.*A/i });
+    fireEvent.click(btnSesion);
+
+    const btnTodosPresentes = await screen.findByRole('button', { name: /Todos Presentes/i });
+    fireEvent.click(btnTodosPresentes);
+
+    // Ciclar estado alumno con click
+    const rowAlumno = screen.getByText('Alumno 1').closest('.asistencias-alumno-row');
+    if (rowAlumno) fireEvent.click(rowAlumno);
+
+    const btnGuardarLista = screen.getByRole('button', { name: /Guardar lista/i });
+    fireEvent.click(btnGuardarLista);
+
+    await waitFor(() => {
+      expect(clienteApi.enviar).toHaveBeenCalledWith(
+        '/asistencias/sesiones/ses-1/registros',
+        expect.anything()
+      );
+    });
+  });
 });
+

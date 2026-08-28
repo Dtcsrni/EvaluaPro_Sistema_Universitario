@@ -1,3 +1,9 @@
+/**
+ * ciclo-completo.spec
+ *
+ * Responsabilidad: Modulo interno del sistema.
+ * Limites: Mantener contrato y comportamiento observable del modulo.
+ */
 import { test, expect } from '@playwright/test';
 
 test.describe('Ciclo de uso directo completo', () => {

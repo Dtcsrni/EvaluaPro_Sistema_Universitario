@@ -38,5 +38,5 @@ Anteriormente la aplicación abría por defecto en el modo de inicio de sesión 
 | --- | --- | --- | --- |
 | REQ-001 | Pantalla inicial en modo registro | `apps/frontend/tests/seccionAutenticacion.test.tsx` | Completado |
 | REQ-002 | Entrada de código de licencia | `apps/frontend/tests/seccionAutenticacion.test.tsx` | Completado |
-| REQ-003 | Procesamiento de registro con licencia en backend | `apps/backend/tests/validaciones.auth.test.ts` | Completado |
+| REQ-003 | Procesamiento de registro con licencia en backend | `apps/backend/tests/autenticacionServicios.test.ts` | Completado |
 | REQ-004 | Alternancia entre ingresar y registrar | `apps/frontend/tests/seccionAutenticacion.test.tsx` | Completado |

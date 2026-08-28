@@ -4,7 +4,7 @@
  * Responsabilidad: Modulo interno del sistema.
  * Limites: Mantener contrato y comportamiento observable del modulo.
  */
-import { render, screen } from '@testing-library/react';
+import { fireEvent, render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { describe, expect, it, vi } from 'vitest';
 import { QrAccesoMovil, SeccionEscaneo } from '../src/apps/app_docente/SeccionEscaneo';
@@ -316,4 +316,94 @@ describe('escaneo refactor comportamiento', () => {
     expect(screen.getByText(/Aciertos:\s*2\/2/i)).toBeInTheDocument();
     expect(screen.getByText(/Calificación final:\s*5\.00\s*\/\s*5\.00/i)).toBeInTheDocument();
   });
+
+  it('permite modificar opciones OMR mediante atajos de teclado (A-E y Delete)', () => {
+    const onActualizarPregunta = vi.fn();
+    const onConfirmarRevisionOmr = vi.fn();
+
+    render(
+      <SeccionEscaneo
+        alumnos={[]}
+        onAnalizar={async () => ({})}
+        onPrevisualizar={async () => ({ aciertos: 0, totalReactivos: 0 })}
+        resultado={{
+          estadoAnalisis: 'requiere_revision' as const,
+          calidadPagina: 0.9,
+          confianzaPromedioPagina: 0.85,
+          ratioAmbiguas: 0,
+          templateVersionDetectada: 2 as const,
+          qrTexto: 'FOL-1:P1',
+          respuestasDetectadas: [{ numeroPregunta: 1, opcion: 'A' as const, confianza: 0.9 }],
+          advertencias: [],
+          motivosRevision: []
+        }}
+        onActualizar={() => {}}
+        onActualizarPregunta={onActualizarPregunta}
+        onConfirmarRevisionOmr={onConfirmarRevisionOmr}
+        respuestasPaginaEditable={[{ numeroPregunta: 1, opcion: 'A' as const, confianza: 0.9 }]}
+        claveCorrectaPorNumero={{ 1: 'A' }}
+        ordenPreguntasClave={[1]}
+        revisionesOmr={[]}
+        puedeAnalizar
+        puedeCalificar
+        avisarSinPermiso={() => {}}
+      />
+    );
+
+    const select = screen.getByLabelText(/Respuesta alumno pregunta 1/i);
+
+    // Change event
+    fireEvent.change(select, { target: { value: 'C' } });
+    expect(onActualizarPregunta).toHaveBeenCalledWith(1, 'C');
+
+    // Presionar tecla 'B'
+    fireEvent.keyDown(select, { key: 'b' });
+    expect(onActualizarPregunta).toHaveBeenCalledWith(1, 'B');
+    expect(onConfirmarRevisionOmr).toHaveBeenCalledWith(false);
+
+    // Presionar tecla 'Delete'
+    fireEvent.keyDown(select, { key: 'Delete' });
+    expect(onActualizarPregunta).toHaveBeenCalledWith(1, null);
+  });
+
+  it('renderiza advertencias del análisis y permite confirmar la revisión', () => {
+    const onConfirmarRevisionOmr = vi.fn();
+
+    render(
+      <SeccionEscaneo
+        alumnos={[]}
+        onAnalizar={async () => ({})}
+        onPrevisualizar={async () => ({ aciertos: 0, totalReactivos: 0 })}
+        resultado={{
+          estadoAnalisis: 'requiere_revision' as const,
+          calidadPagina: 0.9,
+          confianzaPromedioPagina: 0.85,
+          ratioAmbiguas: 0,
+          templateVersionDetectada: 2 as const,
+          qrTexto: 'FOL-1:P1',
+          respuestasDetectadas: [{ numeroPregunta: 1, opcion: 'A' as const, confianza: 0.9 }],
+          advertencias: ['Iluminación irregular detectada'],
+          motivosRevision: ['Calidad baja']
+        }}
+        onActualizar={() => {}}
+        onActualizarPregunta={() => {}}
+        onConfirmarRevisionOmr={onConfirmarRevisionOmr}
+        respuestasPaginaEditable={[{ numeroPregunta: 1, opcion: 'A' as const, confianza: 0.9 }]}
+        claveCorrectaPorNumero={{ 1: 'A' }}
+        ordenPreguntasClave={[1]}
+        revisionesOmr={[]}
+        puedeAnalizar
+        puedeCalificar
+        avisarSinPermiso={() => {}}
+      />
+    );
+
+    expect(screen.getByText('Iluminación irregular detectada')).toBeInTheDocument();
+
+    const btnConfirmar = screen.getByRole('button', { name: /Confirmar revisión/i });
+    fireEvent.click(btnConfirmar);
+    expect(onConfirmarRevisionOmr).toHaveBeenCalledWith(true);
+  });
 });
+
+

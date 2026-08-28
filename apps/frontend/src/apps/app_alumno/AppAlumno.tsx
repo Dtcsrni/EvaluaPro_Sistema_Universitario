@@ -422,9 +422,25 @@ export function AppAlumno() {
               <span className="portal-alumno-badge"><Icono nombre="pdf" /> PDF</span>
               <span className="portal-alumno-badge"><Icono nombre="info" /> Historial</span>
             </div>
-            <div className="auth-ilustracion" aria-hidden="true">
-              <div className="auth-blob" />
-              <div className="auth-blob auth-blob--2" />
+            <div className="auth-hero-illustration" aria-hidden="true">
+              <div className="auth-shield-glow">
+                <svg className="auth-shield-svg" viewBox="0 0 120 120" fill="none" xmlns="http://www.w3.org/2000/svg">
+                  <path d="M60 12L96 28V64C96 88 60 108 60 108C60 108 24 88 24 64V28L60 12Z" stroke="url(#shield-grad)" strokeWidth="3" fill="rgba(37, 99, 235, 0.12)" />
+                  <path d="M60 42L88 54L60 66L32 54L60 42Z" fill="url(#cap-grad)" stroke="#00d2ff" strokeWidth="1.5" />
+                  <path d="M44 60V74C44 79 51 83 60 83C69 83 76 79 76 74V60" stroke="#00d2ff" strokeWidth="2" strokeLinecap="round" />
+                  <path d="M84 56V72" stroke="#a78bfa" strokeWidth="2" strokeLinecap="round" />
+                  <defs>
+                    <linearGradient id="shield-grad" x1="24" y1="12" x2="96" y2="108" gradientUnits="userSpaceOnUse">
+                      <stop stopColor="#00d2ff" />
+                      <stop offset="1" stopColor="#8b5cf6" />
+                    </linearGradient>
+                    <linearGradient id="cap-grad" x1="32" y1="42" x2="88" y2="66" gradientUnits="userSpaceOnUse">
+                      <stop stopColor="#2563eb" />
+                      <stop offset="1" stopColor="#00d2ff" />
+                    </linearGradient>
+                  </defs>
+                </svg>
+              </div>
             </div>
           </div>
 

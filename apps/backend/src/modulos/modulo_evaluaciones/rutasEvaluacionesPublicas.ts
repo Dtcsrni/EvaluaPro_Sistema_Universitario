@@ -1,3 +1,9 @@
+/**
+ * rutasEvaluacionesPublicas
+ *
+ * Responsabilidad: Registro de rutas HTTP del dominio y aplicacion de middleware de seguridad/validacion.
+ * Limites: No cambiar orden o permisos de rutas sin validar impacto en contratos y tests.
+ */
 import { Router } from 'express';
 import { z } from 'zod';
 import { validarCuerpo } from '../../compartido/validaciones/validar';

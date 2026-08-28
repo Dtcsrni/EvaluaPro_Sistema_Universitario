@@ -20,6 +20,7 @@ Si el proceso de instalacion de EvaluaPro se interrumpe, cancela o falla en cual
 - Fallos en post-install no dejan archivos huerfanos.
 
 ## Matriz de Trazabilidad
-| Requisito | Archivo de Test | Estado |
-| :--- | :--- | :--- |
-| REQ-001 | scripts/tests/installer-hub-contract.test.mjs | Pasa |
+
+| ID Requisito | Descripción del Caso | Archivo de Test Vinculado | Estado |
+| --- | --- | --- | --- |
+| REQ-001 | Rollback automático y limpieza ante fallos | `scripts/tests/installer-hub-contract.test.mjs` | Implementado |

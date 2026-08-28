@@ -1,8 +1,7 @@
 /**
  * plantillas.refactor.test
  *
- * Responsabilidad: Modulo interno del sistema.
- * Limites: Mantener contrato y comportamiento observable del modulo.
+ * Responsabilidad: Pruebas unitarias de navegación por pestañas y guías rápidas en Diseño de Exámenes (SPEC-034).
  */
 import { fireEvent, render, screen } from '@testing-library/react';
 import { useState } from 'react';
@@ -63,13 +62,33 @@ function HarnessPlantillas({
   );
 }
 
-describe('plantillas refactor comportamiento', () => {
-  it('renderiza formulario, listado y generados', () => {
+describe('plantillas refactor y navegación por pestañas (SPEC-034)', () => {
+  it('renderiza encabezado principal y pestañas operativas', () => {
     render(<HarnessPlantillas />);
-    expect(screen.getByRole('heading', { name: /^Plantillas$/i })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { level: 2, name: /Diseño de Exámenes/i })).toBeInTheDocument();
+    expect(screen.getByRole('tab', { name: /Diseñar Exámenes/i })).toBeInTheDocument();
+    expect(screen.getByRole('tab', { name: /Generar Paquete PDF\/OMR/i })).toBeInTheDocument();
+    expect(screen.getByRole('tab', { name: /Historial de Lotes/i })).toBeInTheDocument();
+  });
+
+  it('alterna interactivamente entre pestañas y muestra sus componentes y guías rápidas dedicadas', () => {
+    render(<HarnessPlantillas />);
+
+    // Pestaña 1 (Diseño) activa por defecto
+    expect(screen.getByRole('heading', { name: /Diseño de plantilla/i })).toBeInTheDocument();
     expect(screen.getByRole('heading', { name: /Plantillas existentes/i })).toBeInTheDocument();
-    expect(screen.getByRole('heading', { name: /^Generación de exámenes$/i })).toBeInTheDocument();
-    expect(screen.getByRole('heading', { name: /Examenes generados/i })).toBeInTheDocument();
+    expect(screen.getByText(/Maquetación OMR y Estructura Temática/i)).toBeInTheDocument();
+
+    // Cambiar a Pestaña 2 (Generación)
+    fireEvent.click(screen.getByRole('tab', { name: /Generar Paquete PDF\/OMR/i }));
+    expect(screen.getByRole('heading', { name: /Generación de exámenes/i })).toBeInTheDocument();
+    expect(screen.getByText(/Producción OMR, Folios Únicos y Códigos QR/i)).toBeInTheDocument();
+    expect(screen.queryByRole('heading', { name: /Plantillas existentes/i })).not.toBeInTheDocument();
+
+    // Cambiar a Pestaña 3 (Historial)
+    fireEvent.click(screen.getByRole('tab', { name: /Historial de Lotes/i }));
+    expect(screen.getByRole('heading', { level: 3, name: /^Exámenes generados$/i })).toBeInTheDocument();
+    expect(screen.getByText(/Custodia, Descargas y Trazabilidad OMR/i)).toBeInTheDocument();
     expect(screen.getByRole('heading', { name: /Flujo OMR V1/i })).toBeInTheDocument();
   });
 
@@ -82,10 +101,13 @@ describe('plantillas refactor comportamiento', () => {
 
     render(<HarnessPlantillas permisosEntrada={permisosLimitados} />);
     expect(screen.getByRole('button', { name: /Crear plantilla/i })).toBeDisabled();
-    expect(screen.getByRole('button', { name: /^Generar paquete de examenes$/i })).toBeDisabled();
+
+    // En pestaña de generación
+    fireEvent.click(screen.getByRole('tab', { name: /Generar Paquete PDF\/OMR/i }));
+    expect(screen.getByRole('button', { name: /Generar paquete de exámenes/i })).toBeDisabled();
   });
 
-  it('aplica filtro de listado por título', () => {
+  it('aplica filtro de listado por título en la pestaña de diseño', () => {
     render(
       <HarnessPlantillas
         plantillas={[
@@ -102,5 +124,28 @@ describe('plantillas refactor comportamiento', () => {
     const titulosFiltrados = Array.from(document.querySelectorAll('.plantillas-lista .item-title')).map((node) => node.textContent?.trim());
     expect(titulosFiltrados).toContain('Parcial Algebra');
     expect(titulosFiltrados).not.toContain('Global Fisica');
+  });
+
+  it('permite iniciar la edición de una plantilla cargando sus datos en el formulario', () => {
+    render(
+      <HarnessPlantillas
+        plantillas={[
+          { _id: 'pla-1', titulo: 'Parcial Algebra', tipo: 'parcial', numeroPaginas: 2, periodoId: 'per-1', temas: ['Algebra'] }
+        ]}
+      />
+    );
+
+    const botonEditar = screen.getByRole('button', { name: /Editar/i });
+    fireEvent.click(botonEditar);
+
+    const inputTitulo = screen.getByLabelText(/Titulo/i) as HTMLInputElement;
+    expect(inputTitulo.value).toBe('Parcial Algebra');
+
+    expect(screen.getByRole('button', { name: /Guardar cambios/i })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /^Cancelar$/i })).toBeInTheDocument();
+
+    // Cancelar edición
+    fireEvent.click(screen.getByRole('button', { name: /^Cancelar$/i }));
+    expect(screen.getByRole('button', { name: /Crear plantilla/i })).toBeInTheDocument();
   });
 });

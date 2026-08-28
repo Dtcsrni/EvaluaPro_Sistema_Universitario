@@ -2,6 +2,12 @@
 /**
  * classroom-doctor
  *
+ * Responsabilidad: Modulo interno del sistema.
+ * Limites: Mantener contrato y comportamiento observable del modulo.
+ */
+/**
+ * classroom-doctor
+ *
  * Responsabilidad: Diagnosticar prerequisitos locales de Google Classroom.
  * Limites: No imprime secretos; solo reporta presencia y formato.
  */

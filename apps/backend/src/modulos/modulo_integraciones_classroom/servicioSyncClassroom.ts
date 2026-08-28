@@ -5,6 +5,7 @@
  * Limites: Mantener invariantes del dominio y errores controlados.
  */
 import { ErrorAplicacion } from '../../compartido/errores/errorAplicacion';
+import { prisma } from '../../infraestructura/baseDatos/sqlite';
 import { Alumno } from '../modulo_alumnos/modeloAlumno';
 import { EvidenciaEvaluacion } from '../modulo_evaluaciones/modeloEvidenciaEvaluacion';
 import { IntegracionClassroom } from './modeloIntegracionClassroom';
@@ -352,14 +353,16 @@ export async function obtenerEstadoClassroom(docenteId: string) {
 export async function listarCursosParaDocente(docenteId: string) {
   const accessToken = await obtenerTokenAccesoClassroom(docenteId);
   const courses = await listarCursosClassroom(accessToken);
-  return courses.map((course) => ({
-    id: normalizarTexto(course.id),
-    name: normalizarTexto(course.name),
-    section: normalizarTexto(course.section) || undefined,
-    descriptionHeading: normalizarTexto(course.descriptionHeading) || undefined,
-    updateTime: normalizarTexto(course.updateTime) || undefined,
-    courseState: normalizarTexto(course.courseState) || undefined
-  }));
+  return courses
+    .filter((course) => !course.courseState || String(course.courseState).trim().toUpperCase() === 'ACTIVE')
+    .map((course) => ({
+      id: normalizarTexto(course.id),
+      name: normalizarTexto(course.name),
+      section: normalizarTexto(course.section) || undefined,
+      descriptionHeading: normalizarTexto(course.descriptionHeading) || undefined,
+      updateTime: normalizarTexto(course.updateTime) || undefined,
+      courseState: normalizarTexto(course.courseState) || 'ACTIVE'
+    }));
 }
 
 export async function listarActividadesPorCurso(docenteId: string, courseId: string, periodoId?: string) {
@@ -834,4 +837,118 @@ export async function listarHistorialSyncClassroom(docenteId: string, periodoId:
     errores: Array.isArray(item.errores) ? item.errores : [],
     ejecutadoEn: item.ejecutadoEn ?? item.createdAt ?? null
   }));
+}
+
+export async function importarAlumnosClassroomAEvaluaPro(params: {
+  docenteId: string;
+  periodoId: string;
+  courseId: string;
+  alumnos: Array<{
+    classroomUserId: string;
+    fullName: string;
+    emailAddress?: string | null;
+    matricula?: string | null;
+  }>;
+}) {
+  const { docenteId, periodoId, courseId, alumnos } = params;
+
+  const periodo = await prisma.periodo.findFirst({
+    where: { id: periodoId, docenteId }
+  });
+  if (!periodo) {
+    throw new ErrorAplicacion('PERIODO_NO_ENCONTRADO', 'Materia no encontrada', 404);
+  }
+
+  // Deduplicación previa del payload de entrada por classroomUserId
+  const alumnosUnicos = new Map<string, (typeof alumnos)[0]>();
+  for (const a of alumnos) {
+    if (a.classroomUserId && !alumnosUnicos.has(a.classroomUserId)) {
+      alumnosUnicos.set(a.classroomUserId, a);
+    }
+  }
+
+  const existentes = await prisma.alumno.findMany({
+    where: { periodoId }
+  });
+  const porCorreo = new Map(existentes.filter((a) => a.correo).map((a) => [a.correo.trim().toLowerCase(), a]));
+  const porNombre = new Map(existentes.map((a) => [normalizarTexto(a.nombreCompleto).toLowerCase(), a]));
+
+  const asignaciones: Array<{ classroomUserId: string; alumnoId: string }> = [];
+  let creados = 0;
+  let actualizados = 0;
+
+  for (const item of alumnosUnicos.values()) {
+    const rawName = normalizarTexto(item.fullName) || 'Estudiante Classroom';
+    const rawEmail = normalizarTexto(item.emailAddress || '').toLowerCase();
+    let matriculaLimpia = normalizarTexto(item.matricula || '');
+
+    // Si el docente no ingresó matrícula manual, intentar extraerla si el correo institucional empieza con CUH
+    if (!matriculaLimpia && rawEmail.startsWith('cuh')) {
+      const userPart = rawEmail.split('@')[0];
+      if (userPart) {
+        matriculaLimpia = userPart.toUpperCase();
+      }
+    }
+
+    let alumno = (rawEmail ? porCorreo.get(rawEmail) : null) || porNombre.get(rawName.toLowerCase());
+
+    if (alumno) {
+      // Si el alumno ya existe, NUNCA se duplica ni se borra; solo se actualiza matrícula si el docente la proveyó o se detectó CUH
+      if (matriculaLimpia && alumno.matricula !== matriculaLimpia) {
+        alumno = await prisma.alumno.update({
+          where: { id: alumno.id },
+          data: { matricula: matriculaLimpia }
+        });
+        actualizados++;
+      }
+    } else {
+      const partes = rawName.split(/\s+/);
+      const nombres = partes.slice(0, Math.max(1, partes.length - 2)).join(' ') || partes[0];
+      const apellidos = partes.length > 1 ? partes.slice(-2).join(' ') : null;
+
+      const matriculaFinal = matriculaLimpia || item.classroomUserId;
+      const correoFinal = rawEmail || `${item.classroomUserId}@classroom.google.com`;
+
+      alumno = await prisma.alumno.create({
+        data: {
+          periodoId,
+          matricula: matriculaFinal,
+          nombreCompleto: rawName,
+          nombres,
+          apellidos,
+          correo: correoFinal,
+          activo: true
+        }
+      });
+      creados++;
+      // Indexar inmediatamente en mapas locales para evitar duplicados en la misma transacción
+      if (rawEmail) porCorreo.set(rawEmail, alumno);
+      porCorreo.set(correoFinal, alumno);
+      porNombre.set(rawName.toLowerCase(), alumno);
+    }
+
+    if (alumno && item.classroomUserId) {
+      asignaciones.push({
+        classroomUserId: item.classroomUserId,
+        alumnoId: alumno.id
+      });
+    }
+  }
+
+  await reemplazarMapeoAlumnosCurso({
+    docenteId,
+    periodoId,
+    courseId,
+    asignaciones
+  });
+
+  const rosterActualizado = await obtenerAlumnosCursoClassroom(docenteId, periodoId, courseId);
+
+  return {
+    creados,
+    actualizados,
+    conservados: existentes.length,
+    totalProcesados: alumnosUnicos.size,
+    roster: rosterActualizado
+  };
 }

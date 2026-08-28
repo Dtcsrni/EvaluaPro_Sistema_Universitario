@@ -74,6 +74,10 @@ Si hay conflicto entre documentos, actualizar todos para alinear el estado real 
    - usar GitHub, Codex Security, Browser y Superpowers segun el tipo de tarea,
    - no usar Figma ni Canva por defecto; Excalidraw es la alternativa gratuita para bocetos y la aceptacion UI vive en componentes reales, `docs/DESIGN.md`, `docs/UX_QUALITY_CRITERIA.md` y Playwright.
 13. Cumplimiento obligatorio de Spec-Driven Development (SDD) según `docs/POLITICA_SDD.md`: ningún cambio en código o pruebas se realizará sin redactar o actualizar previamente la especificación de desarrollo correspondiente en `docs/specs/*.spec.md`.
+14. Prevención estricta de procesos colgados/zombi y gestión limpia de tareas:
+   - Antes de iniciar o reintentar suites de pruebas o servidores de desarrollo, verificar el estado de tareas con `manage_task(list)`.
+   - Cancelar y limpiar inmediatamente con `manage_task(kill)` cualquier tarea previa o duplicada que haya quedado en segundo plano.
+   - No acumular procesos de test o scripts en paralelo si superseded; usar `npm run zombi:clean` ante procesos huérfanos en los puertos de desarrollo (4000, 5173, 8080).
 
 ## 2.1) Inventario exhaustivo de instrucciones IA
 1. El inventario oficial vive en:

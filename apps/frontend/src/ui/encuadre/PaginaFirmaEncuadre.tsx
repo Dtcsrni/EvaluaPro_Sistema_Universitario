@@ -1,3 +1,9 @@
+/**
+ * PaginaFirmaEncuadre
+ *
+ * Responsabilidad: Componente/utilidad de UI reutilizable.
+ * Limites: Preservar accesibilidad y contratos de props existentes.
+ */
 import { useEffect, useState } from 'react';
 
 type PaginaFirmaEncuadreProps = {

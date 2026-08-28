@@ -139,6 +139,14 @@ export async function leerErrorRemoto(respuesta: unknown): Promise<DetalleErrorR
         detalles: err['detalles']
       };
     }
+    if (typeof err === 'string') {
+      const detalle = esObjeto(data) ? (data['detalle'] ?? data['detalles']) : undefined;
+      return {
+        ...base,
+        mensaje: err,
+        detalles: detalle !== undefined ? String(detalle) : undefined
+      };
+    }
 
     // Formatos alternativos tolerados: { codigo, mensaje, detalles } o { message }.
     if (esObjeto(data)) {
@@ -245,8 +253,6 @@ export function crearGestorEventosUso<EventoUso>(opts: {
 }
 
 function mensajeAmigablePorStatus(status?: number): string | undefined {
-  // 401 puede ser: sesion/token expiro o credenciales invalidas. Preferimos
-  // resolver por `codigo` cuando este disponible y dejar aqui un fallback neutro.
   if (status === 401) return 'No se pudo autenticar. Verifica tus datos e intenta de nuevo.';
   if (status === 403) return 'No tienes permiso para realizar esta accion.';
   if (status === 404) return 'No se encontro el recurso solicitado.';
@@ -286,14 +292,33 @@ function mensajeAmigablePorCodigo(codigo?: string): string | undefined {
   return undefined;
 }
 
+function limpiarMensajeTecnico(texto?: string): string | undefined {
+  if (!texto) return undefined;
+  const limpio = texto.trim();
+  if (!limpio) return undefined;
+  if (limpio.startsWith('{') && limpio.endsWith('}')) {
+    try {
+      const parsed = JSON.parse(limpio);
+      if (parsed && typeof parsed === 'object') {
+        const msg = parsed['mensaje'] || parsed['error'] || parsed['message'];
+        if (typeof msg === 'string') return limpiarMensajeTecnico(msg);
+      }
+    } catch {
+      // ignore
+    }
+  }
+  if (limpio.includes('ECONNREFUSED') || limpio.includes('Backend API no disponible') || limpio.includes('Failed to fetch')) {
+    return 'Servidor local no disponible. Verifica que el backend de EvaluaPro este iniciado.';
+  }
+  return limpio;
+}
+
 export function mensajeUsuarioDeError(error: unknown, fallback: string): string {
   if (error instanceof ErrorRemoto) {
     const detalle = error.detalle;
     const status = detalle?.status;
     const codigo = typeof detalle?.codigo === 'string' ? detalle.codigo.toUpperCase() : undefined;
 
-    // Caso especial: "NO_AUTORIZADO" se usa tanto para 401 (sesion requerida)
-    // como para 403 (sin permisos). Lo resolvemos considerando el status.
     if (codigo?.includes('NO_AUTORIZ')) {
       if (status === 401) return 'Tu sesion expiro. Inicia sesion de nuevo.';
       if (status === 403) return 'No tienes permiso para realizar esta accion.';
@@ -302,18 +327,22 @@ export function mensajeUsuarioDeError(error: unknown, fallback: string): string 
     const porCodigo = mensajeAmigablePorCodigo(detalle?.codigo);
     if (porCodigo) return porCodigo;
 
-    // Preferimos el mensaje específico del backend (cuando existe)
-    // antes de caer en un mensaje genérico por status (ej: 409).
-    if (detalle?.mensaje) return detalle.mensaje;
+    if (detalle?.mensaje) {
+      const limpio = limpiarMensajeTecnico(detalle.mensaje);
+      if (limpio) return limpio;
+    }
 
     const porStatus = mensajeAmigablePorStatus(detalle?.status);
     if (porStatus) return porStatus;
 
-    if (detalle?.codigo) return `Error: ${detalle.codigo}`;
+    if (detalle?.codigo) return 'Error: ' + detalle.codigo;
     return fallback;
   }
 
-  if (error instanceof Error && error.message) return error.message;
+  if (error instanceof Error && error.message) {
+    const limpio = limpiarMensajeTecnico(error.message);
+    if (limpio) return limpio;
+  }
   return fallback;
 }
 
@@ -322,6 +351,11 @@ export function sugerenciaUsuarioDeError(error: unknown): string | undefined {
     const detalle = error.detalle;
     const status = detalle?.status;
     const codigo = typeof detalle?.codigo === 'string' ? detalle.codigo.toUpperCase() : undefined;
+    const textoError = String(detalle?.mensaje || '') + ' ' + String(detalle?.detalles || '') + ' ' + String(error);
+
+    if (textoError.includes('ECONNREFUSED') || textoError.includes('Backend API no disponible')) {
+      return 'Tip: inicia el servicio backend de EvaluaPro o recarga la pagina.';
+    }
 
     if (codigo?.includes('SYNC_SERVIDOR_NO_CONFIG') || codigo?.includes('PORTAL_NO_CONFIG')) {
       return 'Tip: configura PORTAL_ALUMNO_URL y PORTAL_ALUMNO_API_KEY.';
@@ -346,7 +380,6 @@ export function sugerenciaUsuarioDeError(error: unknown): string | undefined {
     if (status === 429) return 'Tip: espera unos segundos e intenta de nuevo.';
     if (typeof status === 'number' && status >= 500) return 'Tip: intenta mas tarde.';
 
-    // Fallback por codigo cuando no hay status.
     if (codigo?.includes('TOKEN')) return 'Tip: inicia sesion de nuevo.';
     if (codigo?.includes('NO_AUTORIZ')) return 'Tip: revisa tus permisos o el rol.';
     if (codigo?.includes('DATOS_INVALID')) return 'Tip: revisa los campos e intenta de nuevo.';
@@ -371,7 +404,7 @@ export function mensajeUsuarioDeErrorConSugerencia(error: unknown, fallback: str
   const tipNorm = normalizarTextoComparacion(tip);
   if (!tipNorm) return base;
   if (baseNorm.includes(tipNorm) || tipNorm.includes(baseNorm)) return base;
-  return `${base} ${tip}`;
+  return base + ' ' + tip;
 }
 
 export function onSesionInvalidada(handler: (tipo: TipoSesion) => void) {
@@ -437,7 +470,7 @@ export async function fetchConManejoErrores<T>(opts: {
 
       if (esAbortError(error)) {
         const toast = opts.toastTimeout ?? {
-          id: `${opts.toastUnreachable.id}-timeout`,
+          id: opts.toastUnreachable.id + '-timeout',
           title: 'Tiempo de espera',
           message: 'La solicitud tardo demasiado. Intenta de nuevo.'
         };
@@ -536,7 +569,7 @@ export function crearPublicadorEventosUsoJson<EventoUso>(opts: {
       await fetch(opts.url, {
         method: 'POST',
         credentials: opts.credentials,
-        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + token },
         body: JSON.stringify({ eventos: lote }),
         keepalive: true,
         signal: controller.signal
@@ -550,7 +583,7 @@ export function crearPublicadorEventosUsoJson<EventoUso>(opts: {
 export function crearClienteJsonBase(opts: CrearClienteJsonBaseOptions) {
   const withJsonHeaders = (token: string | null, includeJsonContentType: boolean) => ({
     ...(includeJsonContentType ? { 'Content-Type': 'application/json' } : {}),
-    ...(token ? { Authorization: `Bearer ${token}` } : {})
+    ...(token ? { Authorization: 'Bearer ' + token } : {})
   });
 
   const solicitar = async <T>(
@@ -568,7 +601,7 @@ export function crearClienteJsonBase(opts: CrearClienteJsonBaseOptions) {
     return fetchConManejoErrores<T>({
       fetcher: async (signal) => {
         const ejecutar = (activeToken: string | null) =>
-          fetch(`${opts.baseUrl}${ruta}`, {
+          fetch(opts.baseUrl + ruta, {
             method,
             credentials: opts.credentials,
             headers: withJsonHeaders(activeToken, includeJsonContentType),

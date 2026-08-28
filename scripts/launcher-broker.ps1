@@ -311,7 +311,7 @@ function Ensure-StackReady([string]$base, [string]$desiredMode, [int]$timeoutMs 
 
 function Open-Url([string]$url) {
   if ($NoOpen) { return }
-  # Lanzar como aplicación de escritorio nativa dedicada (Standalone App Window)
+  # Lanzar como ventana de aplicación nativa dedicada sin forzar perfil nuevo para evitar pantallas de bienvenida de extensiones
   $candidates = @(
     "${env:ProgramFiles(x86)}\Microsoft\Edge\Application\msedge.exe",
     "$env:ProgramFiles\Microsoft\Edge\Application\msedge.exe",
@@ -324,8 +324,7 @@ function Open-Url([string]$url) {
   foreach ($candidate in $candidates) {
     if (Test-Path -LiteralPath $candidate) {
       try {
-        $userDataDir = Join-Path $env:LOCALAPPDATA 'EvaluaPro\app-profile'
-        Start-Process -FilePath $candidate -ArgumentList @("--app=$url", "--user-data-dir=$userDataDir", "--window-size=1280,820") | Out-Null
+        Start-Process -FilePath $candidate -ArgumentList @("--app=$url", "--window-size=1280,820") | Out-Null
         return
       } catch {}
     }

@@ -27,7 +27,7 @@ function writeEvidenceDir(baseDir) {
     commit: 'abc123',
     ciConsecutivoVerde: 10,
     evidenciaWindows: {
-      path: 'docs/release/evidencias/1.0.0-beta.1/windows-release-smoke-2026-03-20.md'
+      path: 'docs/release/evidencias/1.1.1/windows-release-smoke.md'
     },
     gateHumanoProduccion: {
       periodoId: 'periodo-001',
