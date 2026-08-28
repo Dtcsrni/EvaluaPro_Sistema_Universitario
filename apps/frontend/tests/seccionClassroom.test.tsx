@@ -1,3 +1,9 @@
+/**
+ * seccionClassroom.test
+ *
+ * Responsabilidad: Modulo interno del sistema.
+ * Limites: Mantener contrato y comportamiento observable del modulo.
+ */
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { SeccionClassroom } from '../src/apps/app_docente/SeccionClassroom';

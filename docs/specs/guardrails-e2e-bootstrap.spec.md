@@ -31,9 +31,9 @@ Evitar discrepancias entre las pruebas unitarias en memoria (JSDOM/mocks) y la e
 
 ## Matriz de Trazabilidad
 
-| Requisito | Archivo de Test | Estado |
-| :--- | :--- | :--- |
-| REQ-001 | apps/backend/tests/salud.test.ts | Pasa |
-| REQ-002 | apps/frontend/tests/clienteApi.test.tsx | Pasa |
-| REQ-003 | scripts/testing/smoke-live-docente.mjs | Pasa |
-| REQ-004 | apps/frontend/tests/seccionAutenticacion.test.tsx | Pasa |
+| ID Requisito | Descripción del Caso | Archivo de Test Vinculado | Estado |
+| --- | --- | --- | --- |
+| REQ-001 | Backend bootstrap y salud SQLite | `apps/backend/tests/salud.test.ts` | Implementado |
+| REQ-002 | Frontend base API y proxy | `apps/frontend/tests/clienteApi.test.tsx` | Implementado |
+| REQ-003 | Servidor estático y resolución en disco | `scripts/testing/smoke-live-docente.mjs` | Implementado |
+| REQ-004 | Persistencia de sesión en cliente | `apps/frontend/tests/seccionAutenticacion.test.tsx` | Implementado |

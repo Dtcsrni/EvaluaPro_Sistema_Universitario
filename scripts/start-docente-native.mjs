@@ -1,5 +1,11 @@
 #!/usr/bin/env node
 /**
+ * start-docente-native
+ *
+ * Responsabilidad: Modulo interno del sistema.
+ * Limites: Mantener contrato y comportamiento observable del modulo.
+ */
+/**
  * Arranca el flavor docente-local sin Docker: API Node + Web docente preview.
  */
 import { spawn } from 'node:child_process';

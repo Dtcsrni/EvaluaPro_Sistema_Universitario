@@ -5,7 +5,7 @@ version: 1.0.0
 fecha: 2026-08-26
 autor: Antigravity / EvaluaPro Team
 modulo: modulo_docente
-estado: approved
+estado: implemented
 ---
 
 ## Contexto

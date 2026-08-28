@@ -1,11 +1,11 @@
 # Inventario Exhaustivo de Codigo
 
-Fecha de generacion: 2026-08-26 18:11:20
+Fecha de generacion: 2026-08-28 01:30:14
 Fuente: git ls-files filtrado por existencia en workspace (solo archivos versionados presentes, excluye node_modules).
 
 ## Resumen
 
-- Total de piezas de codigo/config ejecutable inventariadas: 1339
+- Total de piezas de codigo/config ejecutable inventariadas: 1302
 - Extensiones incluidas: ts, tsx, js, jsx, mjs, cjs, json, yml, yaml, sh, cmd, ps1.
 
 ## Conteo por area
@@ -18,8 +18,8 @@ Fuente: git ls-files filtrado por existencia en workspace (solo archivos version
 | ci | 17 |
 | scripts | 178 |
 | ops | 3 |
-| docs | 329 |
-| raiz | 32 |
+| docs | 314 |
+| raiz | 10 |
 
 ## Backend (apps/backend)
 
@@ -1192,25 +1192,10 @@ Fuente: git ls-files filtrado por existencia en workspace (solo archivos version
 - docs/handoff/sesiones/2026-08-26/sesion-2026-08-26T23-43-22.603Z.json
 - docs/handoff/sesiones/2026-08-26/sesion-2026-08-26T23-45-52.921Z.json
 - docs/handoff/sesiones/2026-08-26/sesion-2026-08-26T23-55-52.956Z.json
+- docs/handoff/sesiones/2026-08-27/sesion-2026-08-27T00-11-21.144Z.json
 - docs/handoff/trace.schema.json
 - docs/perf/baseline.business.json
 - docs/perf/baseline.json
-- docs/release/evidencias/1.0.0/ci-runs.fixture.json
-- docs/release/evidencias/1.0.0/installer-release-manifest.fixture.json
-- docs/release/evidencias/1.0.0/integridad_sha256.json
-- docs/release/evidencias/1.0.0/manifest.json
-- docs/release/evidencias/1.0.0/rollback_readiness.json
-- docs/release/evidencias/1.0.1/integridad_sha256.json
-- docs/release/evidencias/1.0.1/manifest.json
-- docs/release/evidencias/1.0.1/rollback_readiness.json
-- docs/release/evidencias/1.0.2/integridad_sha256.json
-- docs/release/evidencias/1.0.2/manifest.json
-- docs/release/evidencias/1.0.2/rollback_readiness.json
-- docs/release/evidencias/1.1.0-local.0/integridad_sha256.json
-- docs/release/evidencias/1.1.0-local.0/manifest.json
-- docs/release/evidencias/1.1.0/integridad_sha256.json
-- docs/release/evidencias/1.1.0/manifest.json
-- docs/release/evidencias/1.1.0/rollback_readiness.json
 - docs/release/evidencias/1.1.1/integridad_sha256.json
 - docs/release/evidencias/1.1.1/manifest.json
 - docs/release/evidencias/1.1.1/rollback_readiness.json
@@ -1233,27 +1218,5 @@ Fuente: git ls-files filtrado por existencia en workspace (solo archivos version
 - npm-audit-report.json
 - package-lock.json
 - package.json
-- tmp_compare_installed_scripts.ps1
-- tmp_kill_bundle_processes.ps1
-- tmp_kill_stuck_build.ps1
-- tmp_msi_repair_and_probe.ps1
-- tmp_probe_build_process.ps1
-- tmp_probe_dotnet_times.ps1
-- tmp_probe_installed_during_repair.ps1
-- tmp_probe_installed_shortcuts.ps1
-- tmp_probe_repair_process_v2.ps1
-- tmp_probe_repair_process_v2b.ps1
-- tmp_probe_repair_process.ps1
-- tmp_repair_and_probe_v2.ps1
-- tmp_repair_and_probe.ps1
-- tmp_reset_windows_installer.ps1
-- tmp_reset_wix_cache.ps1
-- tmp_scan_installed_scripts.ps1
-- tmp_tail_msi_log.ps1
-- tmp_tail_repair_log_v2.ps1
-- tmp_tail_repair_log_v2b.ps1
-- tmp_tail_repair_log_v2c.ps1
-- tmp_tail_repair_log.ps1
-- tmp_unlock_bundle.ps1
 - tsconfig.base.json
 - vitest.base.ts

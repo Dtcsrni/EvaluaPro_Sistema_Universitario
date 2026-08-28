@@ -1,3 +1,9 @@
+/**
+ * seccionCuenta.test
+ *
+ * Responsabilidad: Modulo interno del sistema.
+ * Limites: Mantener contrato y comportamiento observable del modulo.
+ */
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { GoogleOAuthProvider } from '@react-oauth/google';
 import { describe, expect, it, vi, beforeEach } from 'vitest';

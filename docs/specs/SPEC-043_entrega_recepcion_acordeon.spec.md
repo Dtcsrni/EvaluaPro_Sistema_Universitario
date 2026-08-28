@@ -16,10 +16,16 @@ Control presencial en el aula al momento de que los alumnos entregan su examen f
 - **REQ-002 (Bono de Acordeón)**: Registro booleano y ponderación del bono formativo.
 - **REQ-003 (Control de Duplicados)**: Validación para evitar folios dobles o suplantación.
 
+## Criterios de Aceptación
+1. La mesa de recepción asocia rápidamente el folio físico del examen con el alumno correspondiente.
+2. Se registra de forma opcional el bono pedagógico de acordeón de estudio aplicando la bonificación en nota.
+3. Se previene la recepción duplicada de folios o asignaciones inconsistentes.
+4. La suite de pruebas de entrega y flujo docente valida el comportamiento sin errores.
+
 ## Matriz de Trazabilidad
 
 | ID Requisito | Descripción del Caso | Archivo de Test Vinculado | Estado |
 | --- | --- | --- | --- |
-| REQ-001 | Vinculación de entrega | `apps/frontend/tests/appDocente.test.tsx` | Completado |
-| REQ-002 | Bono de acordeón pedagógico | `apps/frontend/tests/appDocente.test.tsx` | Completado |
-| REQ-003 | Contrato de entregas | `apps/frontend/tests/omr.flow.contract.test.ts` | Completado |
+| REQ-001 | Vinculación y recepción de exámenes | `apps/frontend/tests/seccionEntrega.test.tsx` | Completado |
+| REQ-002 | Bono de acordeón pedagógico en shell | `apps/frontend/tests/appDocente.test.tsx` | Completado |
+| REQ-003 | Contrato y flujo de examen | `apps/backend/tests/integracion/flujoExamen.test.ts` | Completado |

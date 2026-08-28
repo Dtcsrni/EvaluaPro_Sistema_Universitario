@@ -1,3 +1,9 @@
+/**
+ * index-browser
+ *
+ * Responsabilidad: Modulo interno del sistema.
+ * Limites: Mantener contrato y comportamiento observable del modulo.
+ */
 declare class AnyNull extends NullTypesEnumValue {
     #private;
 }

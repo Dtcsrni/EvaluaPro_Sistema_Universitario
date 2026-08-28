@@ -2,6 +2,12 @@
 /**
  * prod-flow-local-smoke
  *
+ * Responsabilidad: Modulo interno del sistema.
+ * Limites: Mantener contrato y comportamiento observable del modulo.
+ */
+/**
+ * prod-flow-local-smoke
+ *
  * Responsabilidad: Ejecutar el smoke local del gate de flujo docente mayo-junio.
  * Limites: Usa Vitest/backend test DB y escribe evidencia en version local separada.
  */

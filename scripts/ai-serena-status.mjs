@@ -8,6 +8,12 @@
 /**
  * ai-serena-status
  *
+ * Responsabilidad: Modulo interno del sistema.
+ * Limites: Mantener contrato y comportamiento observable del modulo.
+ */
+/**
+ * ai-serena-status
+ *
  * Responsabilidad: validar si la integracion repo-local de Serena para Codex
  * esta presente y lista para usarse.
  * Limites: solo inspecciona archivos locales y disponibilidad del comando;

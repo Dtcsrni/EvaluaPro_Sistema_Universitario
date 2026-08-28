@@ -5,6 +5,12 @@
  * Responsabilidad: Modulo interno del sistema.
  * Limites: Mantener contrato y comportamiento observable del modulo.
  */
+/**
+ * retention-policy-check
+ *
+ * Responsabilidad: Modulo interno del sistema.
+ * Limites: Mantener contrato y comportamiento observable del modulo.
+ */
 import fs from 'node:fs';
 
 const envExample = fs.readFileSync('.env.example', 'utf8');

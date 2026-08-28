@@ -314,30 +314,24 @@ en México, instituciones públicas/privadas y docentes independientes.
 
 ## Matriz de Trazabilidad
 
-| Journey | Implementación actual | Evidencia/prueba existente | Estado |
+| ID Requisito | Descripción del Caso | Archivo de Test Vinculado | Estado |
 | --- | --- | --- | --- |
-| Installer Hub install/repair/update/uninstall | `scripts/tests/installer-hub-e2e-docente.ps1` | `installer-hub-contract`, `installer-hub-lifecycle-contract`, `Resilient27–29` visual | `implemented` |
-| Firma/SHA-256/release manifest | `scripts/generate-installer-release-manifest.ps1` | `scripts/tests/release-evidence-contract.test.mjs`, `scripts/tests/release-stable-promotion.test.mjs` | `implemented` |
-| CRC32 de descarga | sidecar `.crc32`, manifest y preflight del runner | `installer-hub-e2e-docente.ps1` | `implemented` |
-| Runtime docente nativo | launcher/broker + bundle docente; poda de payload en build | `windows-release-smoke`, runner Hub | `implemented` |
-| Navegación docente por módulos | `AppDocente.tsx` y secciones | `tests/gui-responsive/journey-docente-integral.spec.ts`, `tests/gui-responsive/ciclo-completo.spec.ts` | `implemented` |
-| Periodos/materias/alumnos | módulos de alumnos/periodos | integración de alumnos/periodos | `implemented` |
-| Hidratación XLSX/DOCX | módulo de hidratación | `hidratacionCursos.test.ts`, specs existentes | `implemented` |
-| Banco/plantillas/evaluaciones | módulos banco, plantillas y evaluaciones | `tests/gui-responsive/journey-docente-integral.spec.ts` | `implemented` |
-| Generación PDF/QR | generación PDF y QR | `pdfImpresionContrato`, `qrEscaneoOmr` | `implemented` |
-| OMR y revisión | workflow OMR + UI de revisión | `tests/gui-responsive/journey-docente-integral.spec.ts`, `apps/backend/tests/omr.tv3.realGolden.test.ts` | `implemented` |
-| Calificación autoritativa | `calificarExamen` backend | `calificacion*`, flujos parcial/global | `implemented` |
-| Cuarentena/retención de imágenes | `politicaAutoCalificacionOmr.ts` + `SPEC-OMR-CUARENTENA-RETENCION` | `apps/backend/tests/integracion/evaluaciones.modulo.test.ts`, `docs/specs/omr_cuarentena_retencion.spec.md` | `implemented` |
-| Reportes/exportaciones | analíticas CSV/DOCX/XLSX y acciones visibles en calificaciones | `journey-docente-integral.spec.ts` con descargas CSV/XLSX reales | `implemented` |
-| Publicación portal | `publicarResultadosUseCase` | `flujoDocenteAlumnoProduccionLikeE2E` | `implemented` |
-| Flujo visual alumno | portal/app alumno | `journey-docente-integral.spec.ts` + pruebas de portal y responsive | `implemented` |
-| Licencia comunitaria/comercial | `LicenseClientSecurity.psm1` + `controladorAdminNegocio.ts` | `scripts/tests/installer-hub-contract.test.mjs` | `implemented` |
-| Backup cifrado/restauración | AES-256-GCM + `exportarPaquete.ts` | `apps/backend/tests/sincronizacion.backupMeta.test.ts`, `apps/backend/tests/sincronizacion.contrato.test.ts` | `implemented` |
-| Versionado semver/.NET del Hub | `ConvertTo-DotNetNumericVersion` en `build-msi.ps1` | `scripts/tests/installer-hub-contract.test.mjs` | `implemented` |
-| Payload MSI mínimo y autoconsistente | `Assert-MsiInstallsAppPayload` en `build-msi.ps1` | `scripts/tests/installer-hub-contract.test.mjs` | `implemented` |
-| Ciclo académico visual nativo | registro, materia y alumno mediante Playwright contra API/web nativos | `tests/gui-responsive/ciclo-completo.spec.ts` con `playwright.ciclo.config.cjs` | `implemented` |
-| Journey académico visual integral | banco/plantilla, examen/PDF, entrega, evaluaciones, revisión/calificación y publicación desde la UI docente | `tests/gui-responsive/journey-docente-integral.spec.ts` repetido 3/3 | `implemented` |
-| Portal local para publicación visual | API portal real, SQLite temporal, publicación/código por UI y consulta alumno desde frontend aislado | `scripts/start-docente-native.mjs`, `apps/portal_alumno_cloud/src/index.ts`, `journey-docente-integral.spec.ts` | `implemented` |
+| REQ-001 | Installer Hub y contratos de ciclo de vida | `scripts/tests/installer-hub-contract.test.mjs` | Implementado |
+| REQ-002 | Firma, SHA-256 y evidencia de release | `scripts/tests/release-evidence-contract.test.mjs` | Implementado |
+| REQ-003 | Ciclo de vida y contratos de actualización | `scripts/tests/installer-hub-lifecycle-contract.test.mjs` | Implementado |
+| REQ-004 | Smoke de release para Windows | `scripts/tests/windows-release-smoke.test.mjs` | Implementado |
+| REQ-005 | Navegación docente y auditoría responsive | `apps/frontend/tests/gui.responsive.audit.test.ts` | Implementado |
+| REQ-006 | Edición de alumnos y periodos | `apps/backend/tests/integracion/alumnosEdicion.test.ts` | Implementado |
+| REQ-007 | Hidratación idempotente de cursos | `apps/backend/tests/integracion/hidratacionCursos.test.ts` | Implementado |
+| REQ-008 | Diseño de plantillas y banco de reactivos | `apps/frontend/tests/plantillas.refactor.test.tsx` | Implementado |
+| REQ-009 | Generación e impresión de examen con folio/QR | `apps/backend/tests/integracion/pdfImpresionContrato.test.ts` | Implementado |
+| REQ-010 | Escaneo OMR, lectura QR y verificación | `apps/backend/tests/integracion/qrEscaneoOmr.test.ts` | Implementado |
+| REQ-011 | Calificación autoritativa de flujo global | `apps/backend/tests/integracion/flujoDocenteGlobalE2E.test.ts` | Implementado |
+| REQ-012 | Cuarentena OMR y política de evaluaciones | `apps/backend/tests/integracion/evaluaciones.modulo.test.ts` | Implementado |
+| REQ-013 | Flujo docente parcial de producción | `apps/backend/tests/integracion/flujoDocenteParcialE2E.test.ts` | Implementado |
+| REQ-014 | Publicación y sincronización de resultados | `apps/backend/tests/integracion/flujoDocenteAlumnoProduccionLikeE2E.test.ts` | Implementado |
+| REQ-015 | Integración del portal alumno cloud | `apps/portal_alumno_cloud/tests/integracion/portal.test.ts` | Implementado |
+| REQ-016 | Respaldo cifrado y metadatos de sincronización | `apps/backend/tests/sincronizacion.backupMeta.test.ts` | Implementado |
 
 ## Riesgos y decisiones pendientes
 

@@ -1,3 +1,9 @@
+/**
+ * QrAccesoMovil
+ *
+ * Responsabilidad: Modulo interno del sistema.
+ * Limites: Mantener contrato y comportamiento observable del modulo.
+ */
 /* eslint-disable @typescript-eslint/no-unused-vars */
 /**
  * QrAccesoMovil

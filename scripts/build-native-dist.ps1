@@ -1,3 +1,7 @@
+# build-native-dist.ps1
+#
+# Responsabilidad: Modulo interno del sistema.
+# Limites: Mantener contrato y comportamiento observable del modulo.
 <#
 .SYNOPSIS
     Compila y empaqueta EvaluaPro (Monolito Docente) en un archivo .zip nativo 

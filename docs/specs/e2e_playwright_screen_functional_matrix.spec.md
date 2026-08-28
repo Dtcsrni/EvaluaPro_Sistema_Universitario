@@ -33,17 +33,18 @@ EvaluaPro requiere una validación exhaustiva automatizada de extremo a extremo 
 - Los snapshots y reportes de calidad UX/UI quedan actualizados en `reports/qa/latest/`.
 
 ## Matriz de Trazabilidad
-| Requisito | Archivo de Test | Estado |
-| :--- | :--- | :--- |
-| REQ-001 | tests/gui-responsive/responsive-docente.spec.ts | Pasa |
-| REQ-002 | tests/gui-responsive/ciclo-completo.spec.ts | Pasa |
-| REQ-003 | tests/gui-responsive/journey-docente-integral.spec.ts | Pasa |
-| REQ-004 | tests/gui-responsive/journey-docente-integral.spec.ts | Pasa |
-| REQ-005 | tests/gui-responsive/journey-docente-integral.spec.ts | Pasa |
-| REQ-006 | tests/gui-responsive/journey-docente-integral.spec.ts | Pasa |
-| REQ-007 | tests/gui-responsive/journey-docente-integral.spec.ts | Pasa |
-| REQ-008 | apps/frontend/tests/seccionSincronizacion.test.tsx | Pasa |
-| REQ-009 | apps/frontend/tests/tema.provider.test.ts | Pasa |
-| REQ-010 | tests/gui-responsive/responsive-alumno.spec.ts | Pasa |
-| REQ-011 | tests/gui-responsive/responsive-admin.spec.ts | Pasa |
-| REQ-012 | apps/frontend/tests/gui.responsive.audit.test.ts | Pasa |
+
+| ID Requisito | Descripción del Caso | Archivo de Test Vinculado | Estado |
+| --- | --- | --- | --- |
+| REQ-001 | Docente - Onboarding y acceso | `tests/gui-responsive/responsive-docente.spec.ts` | Implementado |
+| REQ-002 | Docente - Materias y periodos | `tests/gui-responsive/ciclo-completo.spec.ts` | Implementado |
+| REQ-003 | Docente - Alumnos y pase de lista | `tests/gui-responsive/journey-docente-integral.spec.ts` | Implementado |
+| REQ-004 | Docente - Banco de reactivos | `tests/gui-responsive/journey-docente-integral.spec.ts` | Implementado |
+| REQ-005 | Docente - Plantillas y exámenes | `tests/gui-responsive/journey-docente-integral.spec.ts` | Implementado |
+| REQ-006 | Docente - Escaneo y calificación OMR | `tests/gui-responsive/journey-docente-integral.spec.ts` | Implementado |
+| REQ-007 | Docente - Evaluaciones y exportación | `tests/gui-responsive/journey-docente-integral.spec.ts` | Implementado |
+| REQ-008 | Docente - Sincronización y respaldo | `apps/frontend/tests/sincronizacion.behavior.test.tsx` | Implementado |
+| REQ-009 | Docente - Cuenta y temas | `apps/frontend/tests/tema.provider.test.ts` | Implementado |
+| REQ-010 | Alumno - Acceso y consulta | `tests/gui-responsive/responsive-alumno.spec.ts` | Implementado |
+| REQ-011 | Admin - Monitoreo de negocio | `tests/gui-responsive/responsive-admin.spec.ts` | Implementado |
+| REQ-012 | Calidad UX/UI y auditoría responsive | `apps/frontend/tests/gui.responsive.audit.test.ts` | Implementado |

@@ -16,10 +16,16 @@ Capacidad de reconstruir el estado completo de un examen, su clave de respuestas
 - **REQ-002 (Reconstrucción de Clave)**: Reensamble de la clave original del examen.
 - **REQ-003 (Restauración de Evaluación)**: Habilitar la calificación aún sin conexión previa al servidor.
 
+## Criterios de Aceptación
+1. A partir del código QR y folio impreso se decodifican los metadatos necesarios para reconstruir la evaluación.
+2. El sistema recupera la clave de respuestas original asociada al examen sin depender de base de datos previa.
+3. La pantalla de rehidratación permite calificar lotes recuperados en contingencia offline.
+4. Los tests de hidratación de cursos y rehidratación de lotes pasan exitosamente.
+
 ## Matriz de Trazabilidad
 
 | ID Requisito | Descripción del Caso | Archivo de Test Vinculado | Estado |
 | --- | --- | --- | --- |
-| REQ-001 | Rehidratación de lotes iniciados | `docs/specs/hidratacion_curso_iniciado.spec.md` | Completado |
-| REQ-002 | Claves forenses OMR | `apps/frontend/tests/utilidades.appDocente.test.ts` | Completado |
-| REQ-003 | Trazabilidad integral | `apps/frontend/tests/omr.flow.contract.test.ts` | Completado |
+| REQ-001 | Hidratación de cursos y lotes en backend | `apps/backend/tests/integracion/hidratacionCursos.test.ts` | Completado |
+| REQ-002 | Claves forenses y utilidades OMR | `apps/frontend/tests/utilidades.appDocente.test.ts` | Completado |
+| REQ-003 | Interfaz de rehidratación de lotes | `apps/frontend/tests/seccionRehidratacionLotes.test.tsx` | Completado |

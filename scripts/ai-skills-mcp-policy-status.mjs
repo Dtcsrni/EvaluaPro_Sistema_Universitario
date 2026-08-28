@@ -2,6 +2,12 @@
 /**
  * ai-skills-mcp-policy-status
  *
+ * Responsabilidad: Modulo interno del sistema.
+ * Limites: Mantener contrato y comportamiento observable del modulo.
+ */
+/**
+ * ai-skills-mcp-policy-status
+ *
  * Responsabilidad: validar la politica repo-local/global de skills y MCP para EvaluaPro.
  * Limites: solo inspecciona configuracion/archivos; no instala ni corrige estado.
  */

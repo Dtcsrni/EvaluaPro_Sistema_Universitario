@@ -1,5 +1,11 @@
 #!/usr/bin/env node
 /**
+ * serve-docente-static
+ *
+ * Responsabilidad: Modulo interno del sistema.
+ * Limites: Mantener contrato y comportamiento observable del modulo.
+ */
+/**
  * Servidor estático mínimo para el build docente-local.
  * No depende de herramientas ni dependencias de desarrollo.
  */

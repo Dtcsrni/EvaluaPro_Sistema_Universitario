@@ -1,5 +1,0 @@
-ci_checks_conclusion_success 1
-ci_checks_core_jobs_success 5
-ci_checks_extended_jobs_success 4
-release_course_started_global_prep_documented 1
-release_prisma_extended_ci_fix_validated 1

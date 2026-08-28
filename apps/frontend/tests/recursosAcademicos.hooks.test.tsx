@@ -1,3 +1,9 @@
+/**
+ * recursosAcademicos.hooks.test
+ *
+ * Responsabilidad: Modulo interno del sistema.
+ * Limites: Mantener contrato y comportamiento observable del modulo.
+ */
 import { renderHook, waitFor, act } from '@testing-library/react';
 import { describe, expect, it, vi, beforeEach } from 'vitest';
 import { useRecursosAcademicosDocente } from '../src/apps/app_docente/hooks/useRecursosAcademicosDocente';

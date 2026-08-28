@@ -1,3 +1,9 @@
+/**
+ * plantillasPreviewState.hooks.test
+ *
+ * Responsabilidad: Modulo interno del sistema.
+ * Limites: Mantener contrato y comportamiento observable del modulo.
+ */
 import { renderHook, act } from '@testing-library/react';
 import { describe, expect, it } from 'vitest';
 import { usePlantillasPreviewState } from '../src/apps/app_docente/hooks/usePlantillasPreviewState';

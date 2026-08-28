@@ -1,5 +1,11 @@
 #!/usr/bin/env node
 /**
+ * generar-licencia-master
+ *
+ * Responsabilidad: Modulo interno del sistema.
+ * Limites: Mantener contrato y comportamiento observable del modulo.
+ */
+/**
  * scripts/generar-licencia-master.mjs
  *
  * Utilidad para el Creador / Superadministrador de EvaluaPro para emitir

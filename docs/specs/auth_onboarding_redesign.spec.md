@@ -27,11 +27,12 @@ La pantalla inicial de autenticacion y primer uso de EvaluaPro mostraba titulos 
 - Todos los tests de frontend y trazabilidad pasan en verde.
 
 ## Matriz de Trazabilidad
-| Requisito | Archivo de Test | Estado |
-| :--- | :--- | :--- |
-| REQ-001 | apps/frontend/tests/seccionAutenticacion.test.tsx | Pasa |
-| REQ-002 | apps/frontend/tests/seccionAutenticacion.test.tsx | Pasa |
-| REQ-003 | apps/frontend/tests/seccionAutenticacion.test.tsx | Pasa |
-| REQ-004 | apps/frontend/tests/seccionAutenticacion.test.tsx | Pasa |
-| REQ-005 | scripts/tests/installer-hub-contract.test.mjs | Pasa |
-| REQ-006 | apps/frontend/tests/gui.responsive.audit.test.ts | Pasa |
+
+| ID Requisito | Descripción del Caso | Archivo de Test Vinculado | Estado |
+| --- | --- | --- | --- |
+| REQ-001 | Pantalla de acceso desacoplada del shell | `apps/frontend/tests/seccionAutenticacion.test.tsx` | Implementado |
+| REQ-002 | Marca EvaluaPro y pilares de bienvenida | `apps/frontend/tests/seccionAutenticacion.test.tsx` | Implementado |
+| REQ-003 | Alternancia fluida entre login y registro | `apps/frontend/tests/seccionAutenticacion.test.tsx` | Implementado |
+| REQ-004 | Badge de versión estable visible | `apps/frontend/tests/seccionAutenticacion.test.tsx` | Implementado |
+| REQ-005 | Lanzador exclusivo de escritorio | `scripts/tests/installer-hub-contract.test.mjs` | Implementado |
+| REQ-006 | Micro-interacciones y accesibilidad CSS | `apps/frontend/tests/gui.responsive.audit.test.ts` | Implementado |

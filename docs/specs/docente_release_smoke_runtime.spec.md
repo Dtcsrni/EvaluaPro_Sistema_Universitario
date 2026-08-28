@@ -5,7 +5,7 @@ version: 1.0.0
 fecha: 2026-07-14
 autor: Codex
 modulo: installer_hub_docente
-estado: approved
+estado: implemented
 ---
 
 ## Contexto

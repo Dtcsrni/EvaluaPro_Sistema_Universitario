@@ -1,3 +1,9 @@
+/**
+ * publicarResultados
+ *
+ * Responsabilidad: Modulo interno del sistema.
+ * Limites: Mantener contrato y comportamiento observable del modulo.
+ */
 import { promises as fs } from 'fs';
 import { ErrorAplicacion } from '../../../../compartido/errores/errorAplicacion';
 import { Alumno } from '../../../modulo_alumnos/modeloAlumno';

@@ -4,7 +4,7 @@
   "commit": "194d9ad3bc2a40c035b7f25ed07d0f5231298826+worktree",
   "ciConsecutivoVerde": 13,
   "evidenciaWindows": {
-    "path": "docs/release/evidencias/1.0.0-beta.1/windows-release-smoke-2026-03-20.md"
+    "path": "docs/release/evidencias/1.1.1/windows-release-smoke.md"
   },
   "gateHumanoProduccion": {
     "version": "1.1.1",

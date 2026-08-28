@@ -5,6 +5,12 @@
  * Responsabilidad: Modulo interno del sistema.
  * Limites: Mantener contrato y comportamiento observable del modulo.
  */
+/**
+ * validate-stable-promotion
+ *
+ * Responsabilidad: Modulo interno del sistema.
+ * Limites: Mantener contrato y comportamiento observable del modulo.
+ */
 
 import fs from 'node:fs';
 import path from 'node:path';

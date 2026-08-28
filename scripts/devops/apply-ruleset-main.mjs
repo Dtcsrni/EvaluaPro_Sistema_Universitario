@@ -5,6 +5,12 @@
  * Responsabilidad: Modulo interno del sistema.
  * Limites: Mantener contrato y comportamiento observable del modulo.
  */
+/**
+ * apply-ruleset-main
+ *
+ * Responsabilidad: Modulo interno del sistema.
+ * Limites: Mantener contrato y comportamiento observable del modulo.
+ */
 
 import { spawnSync } from 'node:child_process';
 import { pathToFileURL } from 'node:url';

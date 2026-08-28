@@ -1,3 +1,9 @@
+/**
+ * omr-tv3-build-por-folio-dataset
+ *
+ * Responsabilidad: Modulo interno del sistema.
+ * Limites: Mantener contrato y comportamiento observable del modulo.
+ */
 import path from 'node:path';
 import { buildPorFolioDataset } from '../src/modulos/modulo_escaneo_omr/porFolioDataset';
 

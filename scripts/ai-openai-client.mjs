@@ -8,6 +8,12 @@
 /**
  * ai-openai-client
  *
+ * Responsabilidad: Modulo interno del sistema.
+ * Limites: Mantener contrato y comportamiento observable del modulo.
+ */
+/**
+ * ai-openai-client
+ *
  * Responsabilidad: ejecutar una solicitud real a OpenAI usando el modelo elegido por el router.
  * Limites: cliente minimo basado en fetch; no introduce dependencia externa.
  */

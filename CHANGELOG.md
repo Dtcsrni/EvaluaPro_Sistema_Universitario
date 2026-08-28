@@ -2,9 +2,14 @@
 
 Este archivo sigue el formato "Keep a Changelog" (alto nivel) y SemVer.
 
-## [1.1.1] - 2026-08-26
+## [1.1.1] - 2026-08-28
 
 ### Added
+- **Modernización Integral de Landing Page y GitHub Pages (`SPEC-002`)**:
+  - Actualización completa de `site/index.html` y `site/styles.css` con el sistema de diseño Bento Elevation, orbe neón dinámico, métricas reales de `v1.1.1` (100% precisión OMR, 36 specs SDD, 0 ms latencia offline), showcase interactivo del Estudio de Diseño de Exámenes en 3 pestañas (`SPEC-034`), simulador visual OMR de alta confianza y enlaces directos institucionales.
+- **Íconos Vectoriales Transparentes Multi-Resolución y Normalización de Accesos Directos**:
+  - Generación de nuevos emblemas vectoriales SVG con 100% transparencia exterior (Alpha = 0) para la Aplicación Docente (`dashboard-prod.ico`) y el Installer Hub (`installer-canonical.ico`).
+  - Depuración estricta de accesos directos redundantes en Desktop y Start Menu, manteniendo exclusivamente los 2 accesos oficiales `EvaluaPro` y `EvaluaPro - Hub`.
 - **Ecosistema Integral SDD/TDD desde el Hub (`SPEC-035` a `SPEC-049`)**:
   - Formalización de 15 especificaciones técnicas de Spec-Driven Development en `docs/specs/` cubriendo la totalidad de los módulos: Hub Principal Multi-App & PWA (`SPEC-035`), Autenticación Híbrida y Guardrails de Google OAuth (`SPEC-036`), Ciclo de Vida de Materias y Periodos (`SPEC-037`), Gestión de Alumnos y Matrícula (`SPEC-038`), Control Diario de Asistencias y Recordatorios (`SPEC-039`), Temarios Curriculares y Firmas de Encuadre (`SPEC-040`), Banco de Reactivos y Estimador OMR (`SPEC-041`), Producción Masiva OMR con Folios Únicos (`SPEC-042`), Mesa de Recepción y Bono de Acordeón (`SPEC-043`), Motor de Calificación OMR y Escrutinio Visual (`SPEC-044`), Rehidratación Forense de Exámenes (`SPEC-045`), Sincronización con Google Classroom (`SPEC-046`), Portal Alumno Cloud (`SPEC-047`), Sincronización Offline/Cloud (`SPEC-048`) y Configuración de Cuenta y Perfil (`SPEC-049`).
   - Matriz de trazabilidad exhaustiva enlazada a 56 suites y 205 pruebas unitarias/de contrato en Vitest, con 100% de calidad verificada.

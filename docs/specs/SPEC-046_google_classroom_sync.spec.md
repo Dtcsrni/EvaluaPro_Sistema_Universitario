@@ -16,10 +16,16 @@ Sincronización con Google Classroom para importar cursos y alumnos hacia Evalua
 - **REQ-002 (Importación de Cursos y Alumnos)**: Mapeo de cursos de Classroom a Materias locales.
 - **REQ-003 (Publicación de Tareas y Notas)**: Envío de resultados finales a la libreta de Classroom.
 
+## Criterios de Aceptación
+1. El flujo de autenticación OAuth 2.0 conecta de forma segura con la API de Google Classroom.
+2. La importación de cursos sincroniza listas de estudiantes evitando duplicidades y problemas de rendimiento N+1.
+3. El sistema permite exportar calificaciones finales hacia la libreta de calificaciones de Classroom.
+4. La suite de auditoría de Classroom en backend y frontend corre en verde.
+
 ## Matriz de Trazabilidad
 
 | ID Requisito | Descripción del Caso | Archivo de Test Vinculado | Estado |
 | --- | --- | --- | --- |
-| REQ-001 | Flujo de conexión Classroom | `apps/frontend/tests/seccionClassroom.test.tsx` | Completado |
-| REQ-002 | Experiencia de usuario Classroom | `docs/specs/classroom_experiencia_usuario.spec.md` | Completado |
-| REQ-003 | Auditoría de sincronización | `docs/specs/politica_retroalimentacion_botones_y_classroom_sync.spec.md` | Completado |
+| REQ-001 | Flujo de conexión y comportamiento Classroom | `apps/frontend/tests/centroClassroom.behavior.test.tsx` | Completado |
+| REQ-002 | Auditoría y optimización de importaciones | `apps/backend/tests/integracion/classroom.audit.test.ts` | Completado |
+| REQ-003 | Sincronización pull de cursos y notas | `apps/backend/tests/integracion/classroom.pull.test.ts` | Completado |

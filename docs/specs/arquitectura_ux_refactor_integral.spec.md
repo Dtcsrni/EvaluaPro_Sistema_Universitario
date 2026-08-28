@@ -36,6 +36,6 @@ El sistema EvaluaPro requiere saneamiento de deuda técnica acumulada en el fron
 | REQ-ARCH-001 | Higiene de código y linter sin variables no utilizadas | `apps/frontend/tests/appDocente.dominiosCobertura.test.tsx` | Implementado |
 | REQ-UI-002 | Integridad de diseño y tokens CSS sin inline styles | `apps/frontend/tests/ux.quality.test.tsx` | Implementado |
 | REQ-UX-003 | Navegación responsiva y cobertura de vistas docentes | `apps/frontend/tests/gui.responsive.contract.test.tsx` | Implementado |
-| REQ-UX-004 | Estructura de tabla y accesibilidad de calificaciones | `apps/frontend/tests/seccionCalificaciones.test.tsx` | Implementado |
-| REQ-UX-005 | Interacción y revisión de escaneo OMR | `apps/frontend/tests/seccionEscaneo.test.tsx` | Implementado |
-| REQ-ARCH-006 | Estado desacoplado de flujo de escaneo OMR | `apps/frontend/tests/useOmrWorkflowState.test.ts` | Implementado |
+| REQ-UX-004 | Estructura de tabla y accesibilidad de calificaciones | `apps/frontend/tests/seccionCalificar.test.tsx` | Implementado |
+| REQ-UX-005 | Interacción y revisión de escaneo OMR | `apps/frontend/tests/escaneo.refactor.test.tsx` | Implementado |
+| REQ-ARCH-006 | Estado desacoplado de flujo de escaneo OMR | `apps/frontend/tests/omrWorkflowState.hooks.test.tsx` | Implementado |

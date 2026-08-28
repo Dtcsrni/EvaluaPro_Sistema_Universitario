@@ -49,10 +49,10 @@ El servicio debe ser completamente parametrizable para soportar cualquier instit
 
 | ID Requisito | Descripcion | Archivo de Test | Estado |
 | --- | --- | --- | --- |
-| REQ-001 | Persistencia de EncuadreAcademico y FirmaEncuadre | `tests/servicioEncuadrePdf.test.ts` | Completado |
-| REQ-002 | Generar PDF con Formato de Asignatura (replica DOCX) | `tests/servicioEncuadrePdf.test.ts` | Completado |
-| REQ-003 | Envio de tokens por correo a firmantes | `tests/servicioEncuadrePdf.test.ts` | Completado |
-| REQ-004 | Estampar firma digital con pdf-lib en fila del firmante | `tests/servicioEncuadrePdf.test.ts` | Completado |
-| REQ-005 | Validacion de limite de inasistencias (>= 4 faltas) | `tests/evaluaciones.politicaLisc.test.ts` | Completado |
-| REQ-006 | Redondeo institucional (< 6.0 floor, >= 6.0 half-up) | `tests/evaluaciones.politicaLisc.test.ts` | Completado |
-| REQ-007 | Datos institucionales parametrizables (nombre, lema, logo) | `tests/servicioEncuadrePdf.test.ts` | Completado |
+| REQ-001 | Persistencia de EncuadreAcademico y FirmaEncuadre | `apps/backend/tests/servicioEncuadrePdf.test.ts` | Completado |
+| REQ-002 | Generar PDF con Formato de Asignatura (replica DOCX) | `apps/backend/tests/servicioEncuadrePdf.test.ts` | Completado |
+| REQ-003 | Envio de tokens por correo a firmantes | `apps/backend/tests/servicioEncuadrePdf.test.ts` | Completado |
+| REQ-004 | Estampar firma digital con pdf-lib en fila del firmante | `apps/backend/tests/servicioEncuadrePdf.test.ts` | Completado |
+| REQ-005 | Validacion de limite de inasistencias (>= 4 faltas) | `apps/backend/tests/evaluaciones.politicaLisc.test.ts` | Completado |
+| REQ-006 | Redondeo institucional (< 6.0 floor, >= 6.0 half-up) | `apps/backend/tests/evaluaciones.politicaLisc.test.ts` | Completado |
+| REQ-007 | Datos institucionales parametrizables (nombre, lema, logo) | `apps/backend/tests/servicioEncuadrePdf.test.ts` | Completado |

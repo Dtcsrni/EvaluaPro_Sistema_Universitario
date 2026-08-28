@@ -1,5 +1,11 @@
 #!/usr/bin/env node
 /**
+ * smoke-live-docente
+ *
+ * Responsabilidad: Modulo interno del sistema.
+ * Limites: Mantener contrato y comportamiento observable del modulo.
+ */
+/**
  * Smoke test de integracion real para servidor estatico + backend + db.
  * Valida que no haya regresiones de pantalla en negro ni 'Sin conexion'.
  */

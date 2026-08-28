@@ -2,6 +2,12 @@
 /**
  * sdd-audit
  *
+ * Responsabilidad: Modulo interno del sistema.
+ * Limites: Mantener contrato y comportamiento observable del modulo.
+ */
+/**
+ * sdd-audit
+ *
  * Responsabilidad: Analizar todas las especificaciones bajo docs/specs/ y verificar
  * que cumplan con la política de Spec-Driven Development (SDD).
  * Límites: Solo diagnostica y falla con exit code 1 si hay violaciones.
@@ -85,20 +91,18 @@ export function validateSpecContent(filename, content) {
       const parts = line.split('|').map((p) => p.trim());
       if (parts.length >= 4) {
         const potentialTest = parts[3]; // Tercera columna de datos en la tabla (ej. | ID | Desc | Test | Estado |)
-        if (
-          potentialTest &&
-          potentialTest !== 'Archivo de Test Vinculado' && // Ignorar cabecera
-          !potentialTest.startsWith('---') && // Ignorar separador de tabla
-          (potentialTest.endsWith('.ts') ||
-            potentialTest.endsWith('.tsx') ||
-            potentialTest.endsWith('.js') ||
-            potentialTest.endsWith('.jsx') ||
-            potentialTest.endsWith('.mjs') ||
-            potentialTest.endsWith('.cjs'))
-        ) {
-          // Limpiar backticks si los tiene
-          const cleanedPath = potentialTest.replace(/`/g, '');
-          testPathsFound.push(cleanedPath);
+        if (potentialTest && potentialTest !== 'Archivo de Test Vinculado' && !potentialTest.startsWith('---')) {
+          const cleanedPath = potentialTest.replace(/`/g, '').trim();
+          if (
+            cleanedPath.endsWith('.ts') ||
+            cleanedPath.endsWith('.tsx') ||
+            cleanedPath.endsWith('.js') ||
+            cleanedPath.endsWith('.jsx') ||
+            cleanedPath.endsWith('.mjs') ||
+            cleanedPath.endsWith('.cjs')
+          ) {
+            testPathsFound.push(cleanedPath);
+          }
         }
       }
     }

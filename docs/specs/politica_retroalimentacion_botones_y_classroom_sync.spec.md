@@ -1,11 +1,11 @@
 ---
-id: SPEC-042
+id: SPEC-UX-BUTTONS-CLASSROOM-FEEDBACK
 titulo: Política Universal de Retroalimentación en Botones y Validación de Sincronización Classroom
 version: 1.0.0
 fecha: 2026-08-26
 autor: Antigravity
 modulo: frontend_ux_core
-estado: approved
+estado: implemented
 ---
 
 ## Contexto

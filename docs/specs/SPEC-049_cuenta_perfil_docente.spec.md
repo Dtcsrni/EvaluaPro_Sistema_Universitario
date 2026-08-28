@@ -16,10 +16,16 @@ Administración de datos del docente, personalización del nombre de la instituc
 - **REQ-002 (Configuración Institucional)**: Nombre de la universidad/facultad en encabezados de exámenes.
 - **REQ-003 (Cierre de Sesión y Token)**: Cierre de sesión seguro con limpieza de almacenamiento local.
 
+## Criterios de Aceptación
+1. El docente puede actualizar su nombre, credenciales y datos de contacto de manera segura.
+2. Se configuran logos y nombre de la institución que se reflejan en las hojas de examen OMR.
+3. El cierre de sesión destruye la sesión y limpia el almacenamiento local.
+4. Los tests de sección cuenta y autenticación pasan en verde.
+
 ## Matriz de Trazabilidad
 
 | ID Requisito | Descripción del Caso | Archivo de Test Vinculado | Estado |
 | --- | --- | --- | --- |
 | REQ-001 | Perfil y autenticación docente | `apps/frontend/tests/seccionAutenticacion.test.tsx` | Completado |
-| REQ-002 | Datos institucionales | `apps/frontend/tests/appDocente.test.tsx` | Completado |
-| REQ-003 | Cierre de sesión seguro | `apps/frontend/tests/appDocente.test.tsx` | Completado |
+| REQ-002 | Configuración de cuenta e institución | `apps/frontend/tests/seccionCuenta.test.tsx` | Completado |
+| REQ-003 | Cierre de sesión y estado en shell | `apps/frontend/tests/appDocente.test.tsx` | Completado |
