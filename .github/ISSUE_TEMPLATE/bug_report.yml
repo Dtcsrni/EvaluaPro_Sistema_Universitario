@@ -1,0 +1,65 @@
+name: 🐛 Reporte de Error (Bug Report)
+description: Reporta un error o comportamiento inesperado en EvaluaPro
+title: "[Bug]: "
+labels: ["bug", "triage"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Gracias por tomarte el tiempo de reportar un problema en **EvaluaPro v1.1.1**.
+  - type: input
+    id: version
+    attributes:
+      label: Versión de EvaluaPro
+      description: Indica la versión exacta que estás utilizando.
+      placeholder: "v1.1.1"
+      value: "v1.1.1"
+    validations:
+      required: true
+  - type: dropdown
+    id: component
+    attributes:
+      label: Componente afectado
+      options:
+        - "App Docente (Frontend React)"
+        - "API Backend Docente Local"
+        - "Motor de Escaneo OMR (TV3/TV4)"
+        - "Estudio de Diseño de Exámenes (SPEC-034)"
+        - "Installer Hub / WiX Bootstrapper (Windows)"
+        - "Portal Alumno Cloud / PWA"
+        - "Sincronización Classroom / Offline"
+        - "Generación de PDFs y Firmas Digitales"
+    validations:
+      required: true
+  - type: textarea
+    id: description
+    attributes:
+      label: Descripción del problema
+      description: Una explicación clara y concisa de lo que ocurrió.
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Pasos para reproducir
+      description: Lista ordenada de pasos para reproducir el comportamiento.
+      placeholder: |
+        1. Ir a 'Diseño de Exámenes'
+        2. Seleccionar la pestaña 'Generar Paquete PDF'
+        3. Hacer clic en 'Generar Lote'
+        4. Ver el error...
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Comportamiento esperado
+      description: Qué debería haber ocurrido según el contrato o especificación SDD.
+    validations:
+      required: true
+  - type: textarea
+    id: logs
+    attributes:
+      label: Logs o capturas de pantalla
+      description: Salida de consola, archivo de log o capturas de pantalla relevantes (sin datos personales sensibles).
+      render: shell
