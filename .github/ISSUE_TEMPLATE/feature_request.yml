@@ -1,0 +1,38 @@
+name: 💡 Solicitud de Mejora o Capacidad (Feature Request)
+description: Sugiere una nueva funcionalidad o mejora de experiencia de usuario en EvaluaPro
+title: "[Feature]: "
+labels: ["enhancement", "proposal"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Gracias por proponer una mejora para **EvaluaPro**. Toda propuesta pasa por el proceso de evaluación **Spec-Driven Development (SDD)**.
+  - type: textarea
+    id: problem
+    attributes:
+      label: ¿Qué problema resuelve esta propuesta?
+      description: Explica el caso de uso docente o institucional que motiva esta solicitud.
+    validations:
+      required: true
+  - type: textarea
+    id: solution
+    attributes:
+      label: Descripción de la solución propuesta
+      description: Detalla cómo imaginas la funcionalidad y su integración en el flujo de trabajo.
+    validations:
+      required: true
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternativas consideradas
+      description: Qué otras alternativas o soluciones provisionales has evaluado.
+  - type: dropdown
+    id: priority
+    attributes:
+      label: Nivel de impacto
+      options:
+        - "Alta (Impacto directo en productividad u operación de examen)"
+        - "Media (Mejora ergonómica o visual)"
+        - "Baja (Ajuste menor o conveniencia)"
+    validations:
+      required: true

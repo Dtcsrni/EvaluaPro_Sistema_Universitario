@@ -1,0 +1,47 @@
+name: 📋 Propuesta de Especificación SDD (Spec Proposal)
+description: Propón una nueva especificación de desarrollo guiada por contratos (docs/specs/SPEC-XXX.spec.md)
+title: "[SPEC-PROPOSAL]: "
+labels: ["sdd", "spec-proposal"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Toda funcionalidad en EvaluaPro se rige por la política **Spec-Driven Development** ([`docs/POLITICA_SDD.md`](https://github.com/Dtcsrni/EvaluaPro_Sistema_Universitario/blob/main/docs/POLITICA_SDD.md)).
+  - type: input
+    id: spec_id
+    attributes:
+      label: Identificador sugerido de Especificación
+      placeholder: "SPEC-050"
+    validations:
+      required: true
+  - type: input
+    id: spec_title
+    attributes:
+      label: Título de la especificación
+      placeholder: "Nombre descriptivo de la especificación"
+    validations:
+      required: true
+  - type: textarea
+    id: scope
+    attributes:
+      label: Alcance y contratos de dominio
+      description: Qué módulos, contratos de API, esquemas de base de datos o componentes de UI estarán cubiertos.
+    validations:
+      required: true
+  - type: textarea
+    id: acceptance_criteria
+    attributes:
+      label: Criterios de Aceptación (Gherkin / Reglas funcionales)
+      description: |
+        - Dado que...
+        - Cuando...
+        - Entonces...
+    validations:
+      required: true
+  - type: textarea
+    id: test_matrix
+    attributes:
+      label: Matriz de pruebas vinculadas
+      description: Qué pruebas unitarias, de integración o Playwright E2E validarán la especificación.
+    validations:
+      required: true

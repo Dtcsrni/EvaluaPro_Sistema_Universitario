@@ -1,0 +1,8 @@
+blank_issues_enabled: false
+contact_links:
+  - name: 💬 Consultas Comerciales e Implementaciones Institucionales
+    url: mailto:armsystechno@gmail.com
+    about: Escribe a nuestro equipo para soporte empresarial, despliegues a gran escala y licenciamiento.
+  - name: 📖 Centro Documental y Especificaciones
+    url: https://github.com/Dtcsrni/EvaluaPro_Sistema_Universitario/tree/main/docs
+    about: Explora la arquitectura C4, runbooks operativos y las 36 especificaciones SDD.
