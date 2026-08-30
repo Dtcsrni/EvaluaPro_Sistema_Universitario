@@ -33,7 +33,7 @@ const npmScript = mode === 'check' ? 'diagramas:render:check' : 'diagramas:rende
 
 const containerCommand = [
   'apt-get update',
-  'apt-get install -y --no-install-recommends libglib2.0-0 libnss3 libatk1.0-0 libatk-bridge2.0-0 libcups2 libdrm2 libxkbcommon0 libxcomposite1 libxrandr2 libgbm1 libasound2 libpangocairo-1.0-0 libxdamage1 libxfixes3 libx11-6 libx11-xcb1 libxcb1 libxext6 libxrender1 libcairo2 libpango-1.0-0 fonts-liberation ca-certificates',
+  'apt-get install -y --no-install-recommends unzip libglib2.0-0 libnss3 libatk1.0-0 libatk-bridge2.0-0 libcups2 libdrm2 libxkbcommon0 libxcomposite1 libxrandr2 libgbm1 libasound2 libpangocairo-1.0-0 libxdamage1 libxfixes3 libx11-6 libx11-xcb1 libxcb1 libxext6 libxrender1 libcairo2 libpango-1.0-0 fonts-liberation ca-certificates',
   'npm ci --no-audit --no-fund',
   `npm run ${npmScript}`
 ].join(' && ');
