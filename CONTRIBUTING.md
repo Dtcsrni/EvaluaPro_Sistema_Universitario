@@ -1,94 +1,53 @@
-# Guía de Contribución a EvaluaPro
+# Apoyo y Donaciones al Proyecto EvaluaPro
 
-¡Gracias por tu interés en contribuir a **EvaluaPro**! Esta guía detalla el modelo de desarrollo, los estándares de calidad y el flujo obligatorio de trabajo en el repositorio.
+¡Gracias por tu interés en respaldar el desarrollo de **EvaluaPro**!
 
----
+**EvaluaPro** es una plataforma de software diseñada para transformar y dignificar la labor del docente universitario, brindando herramientas avanzadas de diseño de exámenes, calificación automatizada por lectura óptica (OMR), gestión de actas y analítica académica sin depender de conexiones a internet ni suscripciones forzosas.
 
-## 1. Modelo de Repositorio y Gobernanza
-
-- **Núcleo Abierto (*Open Core*):** El núcleo de la plataforma está licenciado bajo [AGPL-3.0-or-later](LICENSE). Los módulos comerciales/institucionales se gestionan bajo acuerdos cerrados.
-- **Spec-Driven Development (SDD):** Ningún cambio funcional o de arquitectura se realiza sin redactar o actualizar previamente la especificación técnica correspondiente en `docs/specs/*.spec.md` (ver [`docs/POLITICA_SDD.md`](docs/POLITICA_SDD.md)).
-- **Trazabilidad y Calidad Rigurosa:** Todo commit debe mantener la trazabilidad de decisiones en `CHANGELOG.md` y cumplir con el 100% de los gates de integración continua.
+Para mantener este proyecto vivo, independiente, seguro y accesible de forma gratuita para profesores e instituciones de todo el mundo, **las contribuciones a EvaluaPro se reciben en forma de donaciones monetarias y patrocinios educativos**.
 
 ---
 
-## 2. Flujo de Trabajo para Contribuir
+## 🎯 ¿A qué se destinan las donaciones?
 
-```mermaid
-flowchart LR
-    A["1. Fork / Rama feat/*"] --> B["2. Redactar / Actualizar SPEC SDD"]
-    B --> C["3. Implementación TDD + Tests"]
-    C --> D["4. Ejecutar Gates Locales"]
-    D --> E["5. Pull Request con Template"]
-```
+Cada aporte económico ayuda directamente a financiar:
 
-### Paso 1: Crear una Rama de Trabajo
-- Convenciones de ramas:
-  - `feat/<nombre-descriptivo>`: Nuevas funcionalidades o mejoras de interfaz.
-  - `fix/<nombre-descriptivo>`: Corrección de errores.
-  - `docs/<nombre-descriptivo>`: Documentación, especificaciones o guías.
-
-```bash
-git checkout -b feat/mi-nueva-mejora
-```
-
-### Paso 2: Alineación con Spec-Driven Development (SDD)
-Si tu cambio introduce o modifica comportamiento funcional:
-1. Crea o actualiza la especificación en `docs/specs/SPEC-XXX_nombre.spec.md`.
-2. Define los criterios de aceptación y vincula la matriz de pruebas.
-3. Valida la especificación localmente con `npm run sdd:audit`.
-
-### Paso 3: Desarrollo Guiado por Pruebas (TDD)
-- Escribe o ajusta las pruebas unitarias e integración en Vitest antes o en paralelo con el código fuente.
-- El umbral de cobertura en líneas modificadas (`diff coverage`) debe ser **≥ 90%**.
-- No introduzcas exclusiones de cobertura ni stubs vacíos.
-
-### Paso 4: Verificación de Gates Locales Obligatorios
-Antes de enviar tu Pull Request, ejecuta la batería de validación en este orden:
-
-```bash
-# 1. Linting y Estilo (ESLint 9 Flat Config)
-npm run lint
-
-# 2. Tipado Estricto TypeScript
-npm run typecheck
-
-# 3. Pruebas de Frontend y Accesibilidad
-npm run test:frontend:ci
-
-# 4. Pruebas de Backend y Persistencia SQLite
-npm run test:backend:ci
-
-# 5. Pruebas del Portal Alumno Cloud
-npm run test:portal:ci
-
-# 6. Cobertura y Cumplimiento TDD
-npm run test:coverage:ci
-npm run test:tdd:enforcement:ci
-
-# 7. Presupuestos de Rendimiento
-npm run perf:check
-
-# 8. Contratos de Pipeline y Auditoría SDD
-npm run pipeline:contract:check
-npm run ci:policy:audit
-```
+1. **Infraestructura y Descargas Gratuitas:** Costos de almacenamiento, ancho de banda y distribución global de los instaladores nativos de Windows y paquetes de actualización.
+2. **Investigación en Visión Computacional:** Desarrollo y optimización continua de los algoritmos de lectura óptica (OMR), detección de anomalías y rehidratación forense en dispositivos de recursos moderados.
+3. **Mantenimiento y Calidad de Software:** Horas de ingeniería dedicadas a resolver incidencias, mantener la cobertura de pruebas automatizadas (TDD), seguridad criptográfica y compatibilidad con nuevos sistemas operativos.
+4. **Capacitación y Recursos para Docentes:** Creación de manuales, guías interactivas, plantillas de exámenes listas para imprimir y soporte a la comunidad académica.
 
 ---
 
-## 3. Guía de Apertura de Pull Requests
+## 💳 Canales Oficiales de Donación y Patrocinio
 
-1. Asegúrate de que todos los commits sigan el formato **Conventional Commits**:
-   - `feat(modulo): descripción clara`
-   - `fix(modulo): descripción de la corrección`
-   - `docs(spec): actualización de especificación`
-2. Abre tu Pull Request completando todos los campos de la plantilla [`.github/pull_request_template.md`](.github/pull_request_template.md).
-3. Verifica que los 22 status checks de GitHub Actions concluyan en verde (`success`).
+Puedes realizar tu donación o patrocinio a través de cualquiera de los siguientes medios:
+
+### 1. GitHub Sponsors (Mensual o Única Vez)
+Apoya directamente al autor y mantenedor del proyecto:
+👉 **[Patrocinar en GitHub Sponsors](https://github.com/sponsors/Dtcsrni)**
+
+### 2. Donaciones Directas (PayPal / Transferencia Bancaria)
+Si prefieres realizar una aportación única vía PayPal o mediante transferencia institucional / interbancaria:
+- **PayPal / Correo de contacto:** `armsystechno@gmail.com`
+- **Concepto sugerido:** *Donación EvaluaPro - Apoyo a la Docencia*
+
+### 3. Patrocinio Institucional o Empresarial
+Si representas a una universidad, facultad, colegio de profesionistas o empresa EdTech y deseas establecer un convenio de mecenazgo, patrocinio con mención institucional o financiamiento de funcionalidades específicas:
+- Escríbenos a: **`armsystechno@gmail.com`**
 
 ---
 
-## 4. Políticas de Seguridad y Privacidad
+## 🏆 Reconocimiento a Donantes y Mecenas
 
-- **Privacidad de Datos:** Está estrictamente prohibido subir datos personales reales, credenciales, tokens o respaldos de bases de datos operativas. Usa exclusivamente fixtures anonimizados generados con `npm run test:anon:fixture`.
-- **Reporte Responsable de Vulnerabilidades:** No abras issues públicos para reportar vulnerabilidades de seguridad activas. Envía un correo detallado a `armsystechno@gmail.com`.
-- Para más información, consulta [`docs/SECURITY_POLICY.md`](docs/SECURITY_POLICY.md) y [`docs/legal/aviso-privacidad-integral.md`](docs/legal/aviso-privacidad-integral.md).
+Como agradecimiento a quienes hacen posible la sustentabilidad del proyecto:
+
+- **Docentes y Donantes Individuales:** Mención en el muro de honor de donantes del repositorio y en las notas de lanzamiento de las siguientes versiones.
+- **Instituciones y Empresas Patrocinadoras:** Inclusión de logotipo institucional y enlace oficial en la sección de patrocinadores del `README.md` y en la landing page oficial de [EvaluaPro](https://dtcsrni.github.io/EvaluaPro_Sistema_Universitario/).
+
+---
+
+## 💬 Soporte y Contacto
+
+¿Tienes dudas sobre cómo realizar tu donación o requieres un recibo/comprobante de aportación educativa?
+Contáctanos directamente en **`armsystechno@gmail.com`**.
