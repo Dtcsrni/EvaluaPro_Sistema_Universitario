@@ -19,17 +19,18 @@ RUN apt-get update \
 COPY package*.json ./
 COPY tsconfig.base.json ./
 COPY apps/backend/package*.json ./apps/backend/
+COPY apps/frontend/package*.json ./apps/frontend/
+COPY apps/portal_alumno_cloud/package*.json ./apps/portal_alumno_cloud/
 COPY apps/backend/tsconfig.json ./apps/backend/
 COPY apps/backend/prisma ./apps/backend/prisma
 COPY apps/backend/scripts ./apps/backend/scripts
 COPY apps/backend/src ./apps/backend/src
-RUN npm install --include=optional \
-  && npm install --include=optional --workspace apps/backend --os=linux --cpu=x64 --no-save sharp \
+RUN npm ci --foreground-scripts \
   && npm --workspace apps/backend run build
 
 # Etapa runtime: solo runtime real del backend y Chromium necesario para PDF.
 FROM node:24-slim AS runner
-WORKDIR /app/apps/backend
+WORKDIR /app
 ARG INSTALL_PLAYWRIGHT=1
 ENV NODE_ENV=production
 ENV PLAYWRIGHT_CHROMIUM_EXECUTABLE=/usr/local/bin/evaluapro-chromium
@@ -40,11 +41,15 @@ RUN if [ "$INSTALL_PLAYWRIGHT" = "1" ]; then \
       && ln -s /usr/bin/chromium /usr/local/bin/evaluapro-chromium \
       && rm -rf /var/lib/apt/lists/*; \
     fi
-COPY apps/backend/package*.json ./
-RUN npm ci --omit=dev --include=optional \
-  && npm install --omit=dev --include=optional --os=linux --cpu=x64 --no-save sharp \
+COPY package*.json ./
+COPY apps/backend/package*.json ./apps/backend/
+COPY apps/frontend/package*.json ./apps/frontend/
+COPY apps/portal_alumno_cloud/package*.json ./apps/portal_alumno_cloud/
+COPY apps/backend/prisma ./apps/backend/prisma
+RUN npm ci --omit=dev --foreground-scripts \
   && npm cache clean --force
-COPY --from=builder /app/apps/backend/dist ./dist
+COPY --from=builder /app/apps/backend/dist ./apps/backend/dist
+WORKDIR /app/apps/backend
 EXPOSE 4000
 CMD ["node", "dist/index.js"]
 

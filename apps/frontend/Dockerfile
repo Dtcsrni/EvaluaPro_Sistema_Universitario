@@ -3,15 +3,16 @@ FROM node:24-alpine AS builder
 WORKDIR /app
 RUN npm install -g npm@11.11.0
 COPY package*.json ./
-COPY package-lock.json ./
 COPY tsconfig.base.json ./
+COPY apps/backend/package*.json ./apps/backend/
 COPY apps/frontend/package*.json ./apps/frontend/
+COPY apps/portal_alumno_cloud/package*.json ./apps/portal_alumno_cloud/
 COPY apps/frontend/tsconfig*.json ./apps/frontend/
 COPY apps/frontend/vite.config.ts ./apps/frontend/
 COPY apps/frontend/index.html ./apps/frontend/
 COPY apps/frontend/public ./apps/frontend/public
 COPY apps/frontend/src ./apps/frontend/src
-RUN npm install --workspace apps/frontend --include=dev --include-workspace-root=false
+RUN npm ci --foreground-scripts
 ARG VITE_API_BASE_URL=http://localhost:4000/api
 ARG VITE_APP_DESTINO=docente
 ARG VITE_PORTAL_BASE_URL=http://localhost:8080/api/portal
