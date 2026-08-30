@@ -23,7 +23,7 @@ import path from 'node:path';
 const root = process.cwd();
 const requiredFiles = [
   'LICENSE',
-  'LICENSE-COMMERCIAL.md',
+  'docs/comercial/LICENSE-COMMERCIAL.md',
   'NOTICE.md',
   'CONTRIBUTING.md',
   'docs/legal/aviso-privacidad-integral.md',

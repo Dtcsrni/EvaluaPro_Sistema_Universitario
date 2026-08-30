@@ -111,4 +111,4 @@
 
 ## Nota Legal
 Este documento es operativo/comercial y no sustituye asesoria juridica.
-Ver siempre `LICENSE`, `LICENSE-COMMERCIAL.md` y anexos contractuales vigentes.
+Ver siempre `LICENSE`, `docs/comercial/LICENSE-COMMERCIAL.md` y anexos contractuales vigentes.
