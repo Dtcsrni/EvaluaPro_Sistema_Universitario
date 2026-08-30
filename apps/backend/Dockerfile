@@ -7,9 +7,11 @@
 # Etapa de build: compila el backend usando el layout del monorepo.
 FROM node:24-slim AS builder
 WORKDIR /app
+ENV PUPPETEER_SKIP_DOWNLOAD=true
 RUN npm install -g npm@11.11.0 node-gyp
 RUN apt-get update \
   && apt-get install -y --no-install-recommends \
+    unzip \
     python3 \
     make \
     g++ \
@@ -33,6 +35,7 @@ FROM node:24-slim AS runner
 WORKDIR /app
 ARG INSTALL_PLAYWRIGHT=1
 ENV NODE_ENV=production
+ENV PUPPETEER_SKIP_DOWNLOAD=true
 ENV PLAYWRIGHT_CHROMIUM_EXECUTABLE=/usr/local/bin/evaluapro-chromium
 RUN npm install -g npm@11.11.0
 RUN if [ "$INSTALL_PLAYWRIGHT" = "1" ]; then \
