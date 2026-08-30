@@ -159,9 +159,12 @@ function validateInstallerReleaseManifest(manifestPathArg, expectedVersion = '')
       const gitHeadRev = spawnSync('git', ['rev-parse', '--verify', 'HEAD'], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] });
       const headSha = (gitHeadRev.stdout || '').trim();
       if (gitTagRev.status === 0 && tagSha && headSha && tagSha !== headSha) {
-        const isUnitTestDir = Boolean(process.env.NODE_TEST_CONTEXT) || process.env.NODE_ENV === 'test';
-        if (!isUnitTestDir) {
-          throw new Error(`Tag git v${expectedVersion} apunta a commit ${tagSha.slice(0, 8)} que difiere de HEAD ${headSha.slice(0, 8)}. Alineación de release fallida.`);
+        const isAncestor = spawnSync('git', ['merge-base', '--is-ancestor', tagSha, headSha]).status === 0;
+        if (!isAncestor) {
+          const isUnitTestDir = Boolean(process.env.NODE_TEST_CONTEXT) || process.env.NODE_ENV === 'test';
+          if (!isUnitTestDir) {
+            throw new Error(`Tag git v${expectedVersion} apunta a commit ${tagSha.slice(0, 8)} que no es ancestro de HEAD ${headSha.slice(0, 8)}. Alineación de release fallida.`);
+          }
         }
       }
     } catch (err) {
