@@ -144,6 +144,20 @@ npm run ci:policy:audit
 
 ---
 
+## ❤️ Apoyo y Donaciones al Proyecto
+
+**EvaluaPro** es un desarrollo enfocado en empoderar la labor del docente universitario mediante tecnología offline-first, accesible e independiente.
+
+Si EvaluaPro te resulta de utilidad y deseas contribuir a la sustentabilidad del proyecto (infraestructura de descargas gratuitas, servidores, investigación en lectura óptica y soporte continuo), puedes apoyarnos a través de:
+
+- 💖 **[Patrocinar en GitHub Sponsors](https://github.com/sponsors/Dtcsrni)**
+- ☕ **[Donaciones Directas vía PayPal o Transferencia](CONTRIBUTING.md)**
+- 🏫 **Convenios de Mecenazgo Institucional:** `armsystechno@gmail.com`
+
+Para consultar el desglose de fondos y reconocimientos a donantes, visita la [Guía de Donaciones y Apoyo al Proyecto](CONTRIBUTING.md).
+
+---
+
 ## Licenciamiento y Ediciones
 
 EvaluaPro opera bajo un modelo de **Núcleo Abierto (*Open Core*)**:
