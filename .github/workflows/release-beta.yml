@@ -1,13 +1,6 @@
 name: Release Beta
 
 on:
-  workflow_run:
-    workflows:
-      - CI Checks
-    types:
-      - completed
-    branches:
-      - main
   workflow_dispatch:
     inputs:
       version:
