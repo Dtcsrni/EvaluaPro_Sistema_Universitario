@@ -762,7 +762,10 @@ internal sealed class EvaluaProBootstrapperApplication : BootstrapperApplication
         }
 
         var manifestPath = Path.Combine(installDir, "logs", "installation.manifest.json");
-        var isGenuinelyInstalled = msiInstalled && File.Exists(manifestPath);
+        var hasInstalledFiles = File.Exists(manifestPath)
+            || File.Exists(Path.Combine(installDir, "scripts", "launcher-broker.ps1"))
+            || Directory.Exists(Path.Combine(installDir, "apps", "frontend", "dist-docente"));
+        var isGenuinelyInstalled = msiInstalled || hasInstalledFiles;
 
         return NormalizeMode(command?.Action switch
         {
@@ -817,11 +820,12 @@ internal sealed class EvaluaProBootstrapperApplication : BootstrapperApplication
             requireLicense = true;
         }
 
-        // Validar si la instalación previa está genuinamente completa:
-        // el MSI debe estar registrado en ARP Y el manifiesto de instalación debe existir.
-        // Evita que una instalación fallida (con MSI parcialmente registrado) fuerce el modo "repair".
+        // Validar si la instalación previa está genuinamente completa
         var headlessManifestPath = Path.Combine(installDir, "logs", "installation.manifest.json");
-        var isGenuinelyInstalledHeadless = msiInstalled && File.Exists(headlessManifestPath);
+        var hasHeadlessInstalledFiles = File.Exists(headlessManifestPath)
+            || File.Exists(Path.Combine(installDir, "scripts", "launcher-broker.ps1"))
+            || Directory.Exists(Path.Combine(installDir, "apps", "frontend", "dist-docente"));
+        var isGenuinelyInstalledHeadless = msiInstalled || hasHeadlessInstalledFiles;
 
         return new BootstrapperRequest
         {
@@ -1677,7 +1681,10 @@ internal sealed class EvaluaProBootstrapperApplication : BootstrapperApplication
         }
 
         var manifestPath = Path.Combine(installDir, "logs", "installation.manifest.json");
-        var isGenuinelyInstalled = msiInstalled && File.Exists(manifestPath);
+        var hasInstalledFiles = File.Exists(manifestPath)
+            || File.Exists(Path.Combine(installDir, "scripts", "launcher-broker.ps1"))
+            || Directory.Exists(Path.Combine(installDir, "apps", "frontend", "dist-docente"));
+        var isGenuinelyInstalled = msiInstalled || hasInstalledFiles;
 
         if (payload.Installation is null)
         {
@@ -1701,6 +1708,7 @@ internal sealed class EvaluaProBootstrapperApplication : BootstrapperApplication
             FlavorLabel = payload.Flavor?.DisplayName ?? "EvaluaPro",
             InstallDir = installDir,
             Mode = NormalizeMode(detectedMode),
+            IsInstalled = isGenuinelyInstalled,
             Summary = payload.Remediation?.RequiresRestart == true
                 ? (string.IsNullOrWhiteSpace(payload.Remediation.RestartReason)
                     ? "La remediación automática requiere reinicio de Windows para continuar."
@@ -1708,7 +1716,7 @@ internal sealed class EvaluaProBootstrapperApplication : BootstrapperApplication
                 : payload.System?.Issues?.Count > 0
                     ? string.Join(" | ", payload.System.Issues)
                     : isGenuinelyInstalled
-                        ? "EvaluaPro ya está instalado. El asistente se iniciará en modo de mantenimiento."
+                        ? "EvaluaPro ya está instalado. El asistente se iniciará en modo de gestión."
                         : (payload.Runtime?.Reason ?? "Equipo listo para continuar."),
             Ready = payload.Ready,
             AssetName = payload.Flavor?.InstallerHubExeName ?? "EvaluaPro-InstallerHub-docente-local.exe",
@@ -2698,6 +2706,7 @@ public sealed class WindowDetectionModel
     public string FlavorLabel { get; set; } = "EvaluaPro";
     public string InstallDir { get; set; } = string.Empty;
     public string Mode { get; set; } = "install";
+    public bool IsInstalled { get; set; }
     public string Summary { get; set; } = string.Empty;
     public bool Ready { get; set; }
     public string AssetName { get; set; } = string.Empty;
