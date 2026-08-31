@@ -325,9 +325,21 @@ function Add-DocenteNativeCompiledPayload {
     $helperTarget = Join-Path $StagingRoot 'scripts/installer-burn/InstallerBurnHelper.ps1'
     New-Item -ItemType Directory -Path (Split-Path $helperTarget -Parent) -Force | Out-Null
     Copy-Item -LiteralPath $helperSource -Destination $helperTarget -Force
-    $sqliteBootstrapSource = Join-Path $RootPath 'scripts/prepare-docente-sqlite.mjs'
-    if (-not (Test-Path $sqliteBootstrapSource)) { throw "Falta bootstrap SQLite requerido: $sqliteBootstrapSource" }
     Copy-Item -LiteralPath $sqliteBootstrapSource -Destination (Join-Path $StagingRoot 'scripts/prepare-docente-sqlite.mjs') -Force
+
+    # Compilar y copiar el Host Nativo de Escritorio (EvaluaPro.exe)
+    $appHostProject = Join-Path $RootPath 'packaging/app-host/EvaluaPro.AppHost.csproj'
+    $appHostPublishDir = Join-Path $RootPath 'packaging/app-host/publish'
+    if (Test-Path -LiteralPath $appHostProject) {
+      $dotnetExe = Resolve-DotNetExecutable
+      Write-Host '[msi] Compilando Host Nativo EvaluaPro.exe (WPF + WebView2)...'
+      & $dotnetExe publish $appHostProject -c Release -r win-x64 --self-contained true -o $appHostPublishDir
+      if (Test-Path -LiteralPath (Join-Path $appHostPublishDir 'EvaluaPro.exe')) {
+        Copy-Item -LiteralPath (Join-Path $appHostPublishDir 'EvaluaPro.exe') -Destination (Join-Path $StagingRoot 'EvaluaPro.exe') -Force
+        Write-Host '[msi] Host Nativo EvaluaPro.exe agregado al staging.'
+      }
+    }
+
     New-Item -ItemType Directory -Path $frontendTarget,$backendTarget -Force | Out-Null
     Copy-Item -Path (Join-Path $frontendSource '*') -Destination $frontendTarget -Recurse -Force
     Copy-Item -Path (Join-Path $backendSource '*') -Destination $backendTarget -Recurse -Force

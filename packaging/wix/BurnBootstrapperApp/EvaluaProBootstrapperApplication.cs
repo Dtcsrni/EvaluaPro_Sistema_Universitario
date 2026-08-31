@@ -390,25 +390,53 @@ internal sealed class EvaluaProBootstrapperApplication : BootstrapperApplication
             installDir = Path.Combine(appData, "EvaluaPro");
         }
 
+        var appExe = Path.Combine(installDir, "EvaluaPro.exe");
+        var trayVbs = Path.Combine(installDir, "scripts", "launcher-tray-hidden.vbs");
         var launcher = Path.Combine(installDir, "scripts", "launcher-broker.ps1");
-        if (!File.Exists(launcher))
-        {
-            Log("warn", $"No se pudo iniciar EvaluaPro: falta {launcher}.");
-            return;
-        }
 
         try
         {
-            Process.Start(new ProcessStartInfo
+            if (File.Exists(appExe))
             {
-                FileName = "powershell.exe",
-                Arguments = $"-NoProfile -ExecutionPolicy Bypass -File \"{launcher}\" -Action open-dashboard -Mode prod",
-                WorkingDirectory = installDir,
-                UseShellExecute = false,
-                CreateNoWindow = true,
-                WindowStyle = ProcessWindowStyle.Hidden
-            });
-            Log("info", $"EvaluaPro solicitado desde la pantalla final: {installDir}");
+                Process.Start(new ProcessStartInfo
+                {
+                    FileName = appExe,
+                    WorkingDirectory = installDir,
+                    UseShellExecute = true
+                });
+                Log("info", $"EvaluaPro nativo iniciado: {appExe}");
+                return;
+            }
+
+            if (File.Exists(trayVbs))
+            {
+                Process.Start(new ProcessStartInfo
+                {
+                    FileName = "wscript.exe",
+                    Arguments = $"//nologo \"{trayVbs}\" prod 4519",
+                    WorkingDirectory = installDir,
+                    UseShellExecute = true,
+                    WindowStyle = ProcessWindowStyle.Hidden
+                });
+                Log("info", $"EvaluaPro iniciado via VBS tray: {trayVbs}");
+                return;
+            }
+
+            if (File.Exists(launcher))
+            {
+                Process.Start(new ProcessStartInfo
+                {
+                    FileName = "powershell.exe",
+                    Arguments = $"-NoProfile -ExecutionPolicy Bypass -File \"{launcher}\" -Action open-dashboard -Mode prod -Port 4519",
+                    WorkingDirectory = installDir,
+                    UseShellExecute = true,
+                    WindowStyle = ProcessWindowStyle.Hidden
+                });
+                Log("info", $"EvaluaPro solicitado desde la pantalla final: {installDir}");
+                return;
+            }
+
+            Log("warn", $"No se pudo iniciar EvaluaPro: falta {launcher}.");
         }
         catch (Exception ex)
         {

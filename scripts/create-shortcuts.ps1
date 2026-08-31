@@ -166,15 +166,24 @@ foreach ($spec in $iconSpecs) {
   $iconPathForLnk[$spec.Key] = Resolve-InstalledShortcutIconPath -IconFileName ([string]$spec.File)
 }
 
+$nativeAppHostExe = Join-Path $root 'EvaluaPro.exe'
+if (-not (Test-Path -LiteralPath $nativeAppHostExe)) {
+  $candidateHost = Join-Path $root 'packaging\app-host\bin\Release\net8.0-windows\win-x64\EvaluaPro.exe'
+  if (Test-Path -LiteralPath $candidateHost) {
+    $nativeAppHostExe = $candidateHost
+  }
+}
+$isNativeHostAvailable = (Test-Path -LiteralPath $nativeAppHostExe)
+
 $shortcuts = @(
-    @{
+  @{
     Name = 'EvaluaPro'
     Description = 'EvaluaPro · Plataforma para evaluación universitaria'
     IconKey = 'prod'
     Desktop = $true
     StartMenu = $true
-    Target = $targetWscript
-    Arguments = "//nologo `"$trayHiddenVbs`" prod $Port"
+    Target = if ($isNativeHostAvailable) { $nativeAppHostExe } else { $targetWscript }
+    Arguments = if ($isNativeHostAvailable) { '' } else { "//nologo `"$trayHiddenVbs`" prod $Port" }
   },
   @{
     Name = 'EvaluaPro - Hub'
