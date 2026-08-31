@@ -325,6 +325,8 @@ function Add-DocenteNativeCompiledPayload {
     $helperTarget = Join-Path $StagingRoot 'scripts/installer-burn/InstallerBurnHelper.ps1'
     New-Item -ItemType Directory -Path (Split-Path $helperTarget -Parent) -Force | Out-Null
     Copy-Item -LiteralPath $helperSource -Destination $helperTarget -Force
+    $sqliteBootstrapSource = Join-Path $RootPath 'scripts/prepare-docente-sqlite.mjs'
+    if (-not (Test-Path $sqliteBootstrapSource)) { throw "Falta bootstrap SQLite requerido: $sqliteBootstrapSource" }
     Copy-Item -LiteralPath $sqliteBootstrapSource -Destination (Join-Path $StagingRoot 'scripts/prepare-docente-sqlite.mjs') -Force
 
     # Compilar y copiar el Host Nativo de Escritorio (EvaluaPro.exe)
