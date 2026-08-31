@@ -2192,3 +2192,56 @@ test('script de release manifest incluye contrato extendido de build/deployment/
   assert.match(script, /SignerCertificate/);
   assert.match(script, /NotSigned/);
 });
+
+test('SPEC-050: host nativo EvaluaPro.exe cuenta con definicion de proyecto WPF, WebView2 y single file host', () => {
+  const csprojPath = path.join(root, 'packaging', 'app-host', 'EvaluaPro.AppHost.csproj');
+  assert.equal(fs.existsSync(csprojPath), true, 'EvaluaPro.AppHost.csproj debe existir');
+  const content = fs.readFileSync(csprojPath, 'utf8');
+
+  assert.match(content, /<TargetFramework>net8\.0-windows<\/TargetFramework>/);
+  assert.match(content, /<UseWPF>true<\/UseWPF>/);
+  assert.match(content, /<AssemblyName>EvaluaPro<\/AssemblyName>/);
+  assert.match(content, /<PackageReference Include="Microsoft\.Web\.WebView2"/);
+  assert.match(content, /<SelfContained>true<\/SelfContained>/);
+  assert.match(content, /<RuntimeIdentifier>win-x64<\/RuntimeIdentifier>/);
+  assert.match(content, /<PublishSingleFile>true<\/PublishSingleFile>/);
+});
+
+test('SPEC-050: host nativo MainWindow.xaml cuenta con splash nativo, WebView2 y custom dark window chrome', () => {
+  const xamlPath = path.join(root, 'packaging', 'app-host', 'MainWindow.xaml');
+  const csPath = path.join(root, 'packaging', 'app-host', 'MainWindow.xaml.cs');
+  assert.equal(fs.existsSync(xamlPath), true, 'MainWindow.xaml debe existir');
+  assert.equal(fs.existsSync(csPath), true, 'MainWindow.xaml.cs debe existir');
+
+  const xaml = fs.readFileSync(xamlPath, 'utf8');
+  const cs = fs.readFileSync(csPath, 'utf8');
+
+  assert.match(xaml, /wpf:WebView2 x:Name="AppWebView"/);
+  assert.match(xaml, /x:Name="SplashOverlay"/);
+  assert.match(xaml, /x:Name="SplashProgressBar"/);
+  assert.match(xaml, /TitleBar_MouseDown/);
+
+  assert.match(cs, /EnsureBackendRunningAsync/);
+  assert.match(cs, /EnsureCoreWebView2Async/);
+  assert.match(cs, /http:\/\/127\.0\.0\.1:4173\//);
+  assert.match(cs, /backendProcess\.Kill\(true\)/);
+});
+
+test('SPEC-050: create-shortcuts prioriza EvaluaPro.exe como destino directo para EvaluaPro.lnk', () => {
+  const script = fs.readFileSync(path.join(root, 'scripts', 'create-shortcuts.ps1'), 'utf8');
+  assert.match(script, /\$nativeAppHostExe\s*=\s*Join-Path \$root 'EvaluaPro\.exe'/);
+  assert.match(script, /\$isNativeHostAvailable/);
+  assert.match(script, /Target\s*=\s*if \(\$isNativeHostAvailable\) \{ \$nativeAppHostExe \} else \{ \$targetWscript \}/);
+});
+
+test('SPEC-050: bootstrapper hub y build-msi integran lanzamiento y empaquetado de EvaluaPro.exe', () => {
+  const bootstrapper = fs.readFileSync(path.join(root, 'packaging', 'wix', 'BurnBootstrapperApp', 'EvaluaProBootstrapperApplication.cs'), 'utf8');
+  const buildMsi = fs.readFileSync(path.join(root, 'scripts', 'build-msi.ps1'), 'utf8');
+
+  assert.match(bootstrapper, /var appExe = Path\.Combine\(installDir, "EvaluaPro\.exe"\);/);
+  assert.match(bootstrapper, /if \(File\.Exists\(appExe\)\)/);
+
+  assert.match(buildMsi, /EvaluaPro\.AppHost\.csproj/);
+  assert.match(buildMsi, /EvaluaPro\.exe/);
+});
+

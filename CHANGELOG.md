@@ -5,6 +5,10 @@ Este archivo sigue el formato "Keep a Changelog" (alto nivel) y SemVer.
 ## [1.1.1] - 2026-08-28
 
 ### Added
+- **Shell Nativo de Escritorio `EvaluaPro.exe` en .NET 8 WPF con WebView2 Embebido (`SPEC-050`)**:
+  - Creación del ejecutable de escritorio autónomo `EvaluaPro.exe` (`packaging/app-host/EvaluaPro.AppHost.csproj`) eliminando dependencias de navegadores externos (`msedge.exe`, `chrome.exe`) y scripts `.vbs` intermediarios.
+  - Interfaz de ventana nativa de alto rendimiento acelerada por DirectX/WPF con *Splash Screen* orbital oscuro integrado y gestión de ciclo de vida limpia que termina subprocesos sin dejar puertos huérfanos.
+  - Actualización de accesos directos (`EvaluaPro.lnk`), instalador WiX Burn y Bootstrapper Application para enlazar directamente el binario nativo `EvaluaPro.exe`.
 - **Gestor Visual de Actualizaciones del Sistema & Installer Hub en GUI (`SeccionCuenta.tsx`, `MainWindow.xaml`)**:
   - Incorporación del subpanel interactivo *"Actualizaciones del Sistema & Installer Hub"* en la sección de Cuenta y Perfil del docente (`SeccionCuenta.tsx`).
   - Consulta interactiva en vivo contra GitHub Releases oficial con detección semver, badge de versión (`v1.1.1 Estable`), enlace de descarga directa al instalador firmado, verificación criptográfica SHA-256 y confirmación de respaldo automático local.

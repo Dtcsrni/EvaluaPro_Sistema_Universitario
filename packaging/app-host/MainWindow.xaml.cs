@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Diagnostics;
 using System.IO;
 using System.Net.Http;
@@ -131,45 +131,42 @@ public partial class MainWindow : Window
             nodeExe = "node";
         }
 
-        var startScript = Path.Combine(appRoot, "scripts", "start-docente-native.mjs");
-        if (!File.Exists(startScript))
+        var dashboardScript = Path.Combine(appRoot, "scripts", "launcher-dashboard.mjs");
+        var brokerScript = Path.Combine(appRoot, "scripts", "launcher-broker.ps1");
+
+        try
         {
-            var brokerScript = Path.Combine(appRoot, "scripts", "launcher-broker.ps1");
-            if (File.Exists(brokerScript))
+            if (File.Exists(dashboardScript))
             {
-                try
+                var psi = new ProcessStartInfo
                 {
-                    backendProcess = Process.Start(new ProcessStartInfo
-                    {
-                        FileName = "powershell.exe",
-                        Arguments = $"-NoProfile -ExecutionPolicy Bypass -File \"{brokerScript}\" -Action open-dashboard -Mode prod -Port 4519 -NoOpen",
-                        WorkingDirectory = appRoot,
-                        UseShellExecute = false,
-                        CreateNoWindow = true,
-                        WindowStyle = ProcessWindowStyle.Hidden
-                    });
-                }
-                catch { }
+                    FileName = nodeExe,
+                    Arguments = $"\"{dashboardScript}\" --mode prod --port 4519 --no-open",
+                    WorkingDirectory = appRoot,
+                    UseShellExecute = false,
+                    CreateNoWindow = true,
+                    WindowStyle = ProcessWindowStyle.Hidden
+                };
+                psi.EnvironmentVariables["NODE_ENV"] = "production";
+                psi.EnvironmentVariables["EVALUAPRO_FLAVOR"] = "docente-local";
+                backendProcess = Process.Start(psi);
             }
-        }
-        else
-        {
-            try
+            else if (File.Exists(brokerScript))
             {
                 backendProcess = Process.Start(new ProcessStartInfo
                 {
-                    FileName = nodeExe,
-                    Arguments = $"\"{startScript}\"",
+                    FileName = "powershell.exe",
+                    Arguments = $"-NoProfile -ExecutionPolicy Bypass -File \"{brokerScript}\" -Action open-dashboard -Mode prod -Port 4519 -NoOpen",
                     WorkingDirectory = appRoot,
                     UseShellExecute = false,
                     CreateNoWindow = true,
                     WindowStyle = ProcessWindowStyle.Hidden
                 });
             }
-            catch (Exception ex)
-            {
-                Debug.WriteLine($"No se pudo iniciar Node directamente: {ex.Message}");
-            }
+        }
+        catch (Exception ex)
+        {
+            Debug.WriteLine($"Error al iniciar backend: {ex.Message}");
         }
 
         // 3. Esperar hasta 25 segundos a que el puerto esté activo
@@ -180,7 +177,7 @@ public partial class MainWindow : Window
             {
                 return true;
             }
-            await Task.Delay(400);
+            await Task.Delay(300);
         }
 
         return false;
