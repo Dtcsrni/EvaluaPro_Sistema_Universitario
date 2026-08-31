@@ -1056,7 +1056,7 @@ public partial class MainWindow : Window
         FooterStatusTextBlock.Text = "Iniciando plataforma EvaluaPro y abriendo navegador...";
         LaunchRequested?.Invoke(this, EventArgs.Empty);
 
-        var timer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(2.5) };
+        var timer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(6.0) };
         timer.Tick += (_, _) =>
         {
             timer.Stop();

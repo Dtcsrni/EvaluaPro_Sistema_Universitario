@@ -409,15 +409,6 @@ internal sealed class EvaluaProBootstrapperApplication : BootstrapperApplication
                 WindowStyle = ProcessWindowStyle.Hidden
             });
             Log("info", $"EvaluaPro solicitado desde la pantalla final: {installDir}");
-
-            Task.Delay(1500).ContinueWith(_ =>
-            {
-                try
-                {
-                    Process.Start(new ProcessStartInfo("http://127.0.0.1:4173/") { UseShellExecute = true });
-                }
-                catch { }
-            });
         }
         catch (Exception ex)
         {
