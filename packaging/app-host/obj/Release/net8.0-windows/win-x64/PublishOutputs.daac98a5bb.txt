@@ -1,5 +1,0 @@
-C:\Users\evega\Documents\EvaluaPro\packaging\app-host\publish\EvaluaPro.pdb
-C:\Users\evega\Documents\EvaluaPro\packaging\app-host\publish\Microsoft.Web.WebView2.Core.xml
-C:\Users\evega\Documents\EvaluaPro\packaging\app-host\publish\Microsoft.Web.WebView2.WinForms.xml
-C:\Users\evega\Documents\EvaluaPro\packaging\app-host\publish\Microsoft.Web.WebView2.Wpf.xml
-C:\Users\evega\Documents\EvaluaPro\packaging\app-host\publish\EvaluaPro.exe

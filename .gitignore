@@ -92,3 +92,7 @@ dist-native/
 evaluapro-native-dist.zip
 packaging/wix/BurnBootstrapperApp/bin/
 packaging/wix/BurnBootstrapperApp/obj/
+# AppHost build artifacts
+packaging/app-host/bin/
+packaging/app-host/obj/
+packaging/app-host/publish/
