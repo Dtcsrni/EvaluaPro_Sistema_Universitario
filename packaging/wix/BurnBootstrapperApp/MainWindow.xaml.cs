@@ -477,7 +477,7 @@ public partial class MainWindow : Window
             progressSamples.Clear();
             smoothedRemainingSeconds = null;
             lastProgressAdvanceAt = default;
-            ProgressEtaTextBlock.Text = "Tiempo restante: calculando…";
+            ProgressEtaTextBlock.Text = "Tiempo restante estimado: ~15 a 25 s (iniciando instalación…)";
             return;
         }
 
@@ -493,9 +493,6 @@ public partial class MainWindow : Window
             progressSamples.Dequeue();
         }
 
-        var first = progressSamples.FirstOrDefault();
-        var elapsedSeconds = (now - first.At).TotalSeconds;
-        var delta = progress - first.Progress;
         if (progress >= 100)
         {
             smoothedRemainingSeconds = 0;
@@ -505,41 +502,47 @@ public partial class MainWindow : Window
             return;
         }
 
-        if (lastProgressAdvanceAt != default && (now - lastProgressAdvanceAt).TotalSeconds >= 8)
+        if (progress >= 90)
         {
-            ProgressEtaTextBlock.Text = busy && progress >= 95
-                ? "Tiempo restante: aplicando configuración final…"
-                : "Tiempo restante: verificando etapa actual…";
+            ProgressEtaTextBlock.Text = "Tiempo restante: finalizando y creando accesos directos (~3 a 5 s)…";
             return;
         }
 
-        if (first.At == default || elapsedSeconds < 4 || delta < 2)
+        if (progress >= 60)
         {
-            ProgressEtaTextBlock.Text = "Tiempo restante: calculando…";
+            ProgressEtaTextBlock.Text = "Tiempo restante estimado: ~8 a 15 s (configurando SQLite y servicios)…";
             return;
         }
 
-        var rawSecondsRemaining = (100 - progress) * elapsedSeconds / delta;
-        if (!double.IsFinite(rawSecondsRemaining) || rawSecondsRemaining < 0 || rawSecondsRemaining > 24 * 60 * 60)
+        if (progress >= 20)
         {
-            ProgressEtaTextBlock.Text = "Tiempo restante: calculando…";
+            ProgressEtaTextBlock.Text = "Tiempo restante estimado: ~12 a 20 s (desempaquetando archivos nativos)…";
             return;
         }
 
-        // Suaviza ruido de eventos Burn y limita el crecimiento por actualización.
-        // Así la predicción no salta hacia atrás aunque cambie la velocidad de I/O.
-        var previousEstimate = smoothedRemainingSeconds;
-        var boundedRaw = previousEstimate.HasValue
-            ? Math.Min(rawSecondsRemaining, previousEstimate.Value * 1.20)
-            : rawSecondsRemaining;
-        var estimate = previousEstimate.HasValue
-            ? (previousEstimate.Value * 0.70) + (boundedRaw * 0.30)
-            : boundedRaw;
-        smoothedRemainingSeconds = Math.Max(1, estimate);
+        var first = progressSamples.FirstOrDefault();
+        var elapsedSeconds = (now - first.At).TotalSeconds;
+        var delta = progress - first.Progress;
 
-        var lowerSeconds = Math.Max(1, (int)Math.Round(estimate * 0.85 / 5d) * 5);
-        var upperSeconds = Math.Max(lowerSeconds, (int)Math.Round(estimate * 1.35 / 5d) * 5);
-        ProgressEtaTextBlock.Text = $"Tiempo restante estimado: {FormatDuration(lowerSeconds)} a {FormatDuration(upperSeconds)} · según avance real";
+        if (delta >= 2 && elapsedSeconds >= 3)
+        {
+            var rawSecondsRemaining = (100 - progress) * elapsedSeconds / delta;
+            if (double.IsFinite(rawSecondsRemaining) && rawSecondsRemaining > 0 && rawSecondsRemaining <= 120)
+            {
+                var previousEstimate = smoothedRemainingSeconds;
+                var estimate = previousEstimate.HasValue
+                    ? (previousEstimate.Value * 0.70) + (rawSecondsRemaining * 0.30)
+                    : rawSecondsRemaining;
+                smoothedRemainingSeconds = Math.Max(1, estimate);
+
+                var lowerSeconds = Math.Max(1, (int)Math.Round(estimate * 0.85 / 5d) * 5);
+                var upperSeconds = Math.Max(lowerSeconds, (int)Math.Round(estimate * 1.35 / 5d) * 5);
+                ProgressEtaTextBlock.Text = $"Tiempo restante estimado: {FormatDuration(lowerSeconds)} a {FormatDuration(upperSeconds)} · según avance real";
+                return;
+            }
+        }
+
+        ProgressEtaTextBlock.Text = "Tiempo restante estimado: ~10 a 20 s (en progreso…)";
     }
 
     private static string FormatDuration(int seconds)
