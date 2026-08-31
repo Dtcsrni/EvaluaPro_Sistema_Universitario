@@ -449,7 +449,6 @@ try {
   switch ($Action) {
     'open-hub' {
       Set-BootstrapState -State 'booting_dashboard' -Message 'Abriendo Installer Hub.' -DesiredMode $bootstrapMode
-      Invoke-ManifestRefresh
       Open-Hub
       Set-BootstrapState -State 'healthy' -Message 'Installer Hub abierto.' -DesiredMode $bootstrapMode
       return
@@ -462,6 +461,22 @@ try {
     }
   }
 
+  # REQ-030: En flavor docente-local, el Dashboard UI no debe ser accesible para docentes finales.
+  # Se redirige a la Web Docente nativa (http://127.0.0.1:4173/) a menos que esté en modo depuración/admin.
+  $isDocenteFlavor = (-not (Test-RequiresLocalPortal))
+  $isAdminDebug = ($env:EVALUAPRO_DEBUG -eq '1')
+  $openTargetUrl = if ($isDocenteFlavor -and -not $isAdminDebug) {
+    Write-BrokerLog("Flavor docente-local detectado: redirigiendo apertura a Web Docente (http://127.0.0.1:4173/). UI Dashboard restringida a depuración administrativa.")
+    "http://127.0.0.1:4173/"
+  } else {
+    "http://127.0.0.1:$Port/"
+  }
+
+  # Apertura inmediata de la ventana nativa (splash integrado) para respuesta instantánea (<1s)
+  if ($Action -eq 'open-dashboard' -and -not $NoOpen) {
+    Open-Url $openTargetUrl
+  }
+
   $ready = Ensure-DashboardRunning -bootstrapMode $bootstrapMode -requestedPort $Port
   $base = [string]$ready.base
   $status = $ready.status
@@ -470,37 +485,11 @@ try {
   switch ($Action) {
     'open-dashboard' {
       $result = Ensure-StackReady -base $base -desiredMode $desiredMode -timeoutMs 150000
-      $finalReady = $null
-      for ($attempt = 1; $attempt -le 4 -and -not $finalReady; $attempt += 1) {
-        $finalReady = Wait-DashboardReady -requestedPort $Port -timeoutMs 15000
-        if (-not $finalReady) {
-          Write-BrokerLog("Dashboard todavía no publica estado final; reintento $attempt/4.")
-          Start-Sleep -Seconds 3
-        }
-      }
-      if (-not $finalReady) {
-        throw 'Dashboard dejo de responder antes de publicar estado final.'
-      }
-      $base = [string]$finalReady.base
-      Invoke-ManifestRefresh
-
-      # REQ-030: En flavor docente-local, el Dashboard UI no debe ser accesible para docentes finales.
-      # Se redirige a la Web Docente nativa (http://127.0.0.1:4173/) a menos que esté en modo depuración/admin.
-      $isDocenteFlavor = (-not (Test-RequiresLocalPortal))
-      $isAdminDebug = ($env:EVALUAPRO_DEBUG -eq '1')
-      $openTargetUrl = if ($isDocenteFlavor -and -not $isAdminDebug) {
-        Write-BrokerLog("Flavor docente-local detectado: redirigiendo apertura a Web Docente (http://127.0.0.1:4173/). UI Dashboard restringida a depuración administrativa.")
-        "http://127.0.0.1:4173/"
-      } else {
-        "$base/"
-      }
-
+      $finalReady = Wait-DashboardReady -requestedPort $Port -timeoutMs 15000
       if ($result.ok) {
         Set-BootstrapState -State 'healthy' -Message 'Plataforma docente lista.' -DesiredMode $desiredMode -Meta @{ degraded = [bool]$result.degraded; base = $base; webUrl = "http://127.0.0.1:4173/" }
-        if (-not $NoOpen) { Open-Url $openTargetUrl }
       } else {
         Set-BootstrapState -State 'degraded' -Message 'Dashboard activo, pero la plataforma no alcanzo salud completa.' -DesiredMode $desiredMode -Meta @{ base = $base; webUrl = "http://127.0.0.1:4173/" }
-        if (-not $NoOpen) { Open-Url $openTargetUrl }
       }
     }
     'restart-stack' {
