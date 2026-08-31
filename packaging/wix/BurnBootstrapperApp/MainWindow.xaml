@@ -888,7 +888,7 @@
                                             <TextBlock Text="• Califica exámenes masivamente mediante lectura óptica (OMR)." FontSize="12" Foreground="{StaticResource TextBrush}" TextWrapping="Wrap" />
                                         </StackPanel>
                                     </Border>
-                                    <Button x:Name="LaunchEvaluaProButton" Content="_Iniciar EvaluaPro ahora" Style="{StaticResource PrimaryButtonStyle}" MinWidth="200" Padding="16,8" Visibility="Collapsed" Click="LaunchEvaluaProButton_OnClick" AutomationProperties.Name="Iniciar EvaluaPro" AutomationProperties.HelpText="Abre el dashboard local de EvaluaPro." />
+                                    <Button x:Name="LaunchEvaluaProButton" Content="_Iniciar EvaluaPro ahora" Style="{StaticResource PrimaryButtonStyle}" MinWidth="200" Padding="16,8" Visibility="Collapsed" Click="LaunchEvaluaProButton_OnClick" AutomationProperties.Name="Iniciar EvaluaPro" AutomationProperties.HelpText="Inicia la plataforma nativa EvaluaPro." />
                                 </StackPanel>
                             </Border>
                         </Grid>

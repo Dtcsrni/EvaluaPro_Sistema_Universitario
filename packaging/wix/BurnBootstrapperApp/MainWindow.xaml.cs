@@ -1053,7 +1053,7 @@ public partial class MainWindow : Window
     {
         LaunchEvaluaProButton.IsEnabled = false;
         LaunchEvaluaProButton.Content = "Iniciando EvaluaPro...";
-        FooterStatusTextBlock.Text = "Iniciando plataforma EvaluaPro y abriendo navegador...";
+        FooterStatusTextBlock.Text = "Iniciando EvaluaPro en su propia ventana...";
         LaunchRequested?.Invoke(this, EventArgs.Empty);
 
         var timer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(6.0) };
@@ -1061,8 +1061,8 @@ public partial class MainWindow : Window
         {
             timer.Stop();
             LaunchEvaluaProButton.IsEnabled = true;
-            LaunchEvaluaProButton.Content = "Abrir EvaluaPro en el navegador";
-            FooterStatusTextBlock.Text = "EvaluaPro está activo. Puedes abrirlo desde tu navegador o accesos directos.";
+            LaunchEvaluaProButton.Content = "Iniciar EvaluaPro";
+            FooterStatusTextBlock.Text = "EvaluaPro está listo. Puedes iniciarlo directamente o desde tus accesos directos.";
         };
         timer.Start();
     }

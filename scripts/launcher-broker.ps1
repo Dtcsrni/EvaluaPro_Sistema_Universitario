@@ -285,7 +285,7 @@ function Wait-DesiredHealth([string]$base, [string]$desiredMode, [int]$timeoutMs
         $portalStarted = $true
       }
     } catch {}
-    Start-Sleep -Milliseconds 1200
+    Start-Sleep -Milliseconds 300
   } while ((Get-Date) -lt $deadline)
 
   $health = $null
