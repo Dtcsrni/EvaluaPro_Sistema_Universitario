@@ -9,8 +9,16 @@
         Height="820" Width="1280"
         MinHeight="600" MinWidth="900"
         WindowStartupLocation="CenterScreen"
+        WindowStyle="None"
         Background="#080e1a"
         Foreground="#f8fafc">
+
+    <WindowChrome.WindowChrome>
+        <WindowChrome CaptionHeight="38"
+                      ResizeBorderThickness="6"
+                      GlassFrameThickness="0"
+                      CornerRadius="0" />
+    </WindowChrome.WindowChrome>
 
     <Window.Resources>
         <SolidColorBrush x:Key="BackgroundBrush" Color="#080e1a" />
@@ -21,6 +29,7 @@
         <SolidColorBrush x:Key="TextMutedBrush" Color="#94a3b8" />
 
         <Style x:Key="WindowActionButtonStyle" TargetType="Button">
+            <Setter Property="WindowChrome.IsHitTestVisibleInChrome" Value="True" />
             <Setter Property="Background" Value="Transparent" />
             <Setter Property="Foreground" Value="#94a3b8" />
             <Setter Property="BorderThickness" Value="0" />
