@@ -333,30 +333,89 @@ function Open-Url([string]$url) {
 }
 
 function Resolve-HubExecutablePath {
-  $manifestPath = if (Test-Path -LiteralPath $hubManifestPath) { $hubManifestPath } elseif (Test-Path -LiteralPath $hubManifestPathInternal) { $hubManifestPathInternal } else { '' }
-  if (-not $manifestPath) {
-    throw "No se encontro manifiesto de hubs: $hubManifestPath ni $hubManifestPathInternal"
+  # 1. Manifiestos locales conocidos
+  $manifestCandidates = @(
+    $hubManifestPath,
+    $hubManifestPathInternal,
+    (Join-Path $root 'config\installer-local-paths.json'),
+    (Join-Path $root 'installer\installer-local-paths.json')
+  )
+  foreach ($mPath in $manifestCandidates) {
+    if (Test-Path -LiteralPath $mPath) {
+      try {
+        $raw = Get-Content -LiteralPath $mPath -Raw
+        if (-not [string]::IsNullOrWhiteSpace($raw)) {
+          $manifest = $raw | ConvertFrom-Json
+          $candidate = [string]$manifest.recommendedHubExecutablePath
+          if ($candidate -and (Test-Path -LiteralPath $candidate)) {
+            return $candidate
+          }
+          if ($manifest.recommended -and $manifest.recommended.bundlePublicPath -and (Test-Path -LiteralPath $manifest.recommended.bundlePublicPath)) {
+            return [string]$manifest.recommended.bundlePublicPath
+          }
+          if ($manifest.artifacts) {
+            foreach ($art in @($manifest.artifacts)) {
+              if ($art.bundlePublicPath -and (Test-Path -LiteralPath $art.bundlePublicPath)) {
+                return [string]$art.bundlePublicPath
+              }
+            }
+          }
+        }
+      } catch {}
+    }
   }
 
-  $raw = Get-Content -LiteralPath $manifestPath -Raw
-  if ([string]::IsNullOrWhiteSpace($raw)) {
-    throw "Manifiesto de hubs vacio: $manifestPath"
+  # 2. Registro de Windows (BundleCachePath / ModifyPath de WiX Burn registrado)
+  try {
+    $regEntries = @(Get-ItemProperty "HKCU:\Software\Microsoft\Windows\CurrentVersion\Uninstall\*", "HKLM:\Software\Microsoft\Windows\CurrentVersion\Uninstall\*" -ErrorAction SilentlyContinue | Where-Object { $_.DisplayName -match 'EvaluaPro' })
+    foreach ($entry in $regEntries) {
+      if ($entry.BundleCachePath -and (Test-Path -LiteralPath $entry.BundleCachePath)) {
+        return [string]$entry.BundleCachePath
+      }
+      if ($entry.ModifyPath -match '"([^"]+EvaluaPro[^"]+\.exe)"') {
+        $p = $matches[1]
+        if (Test-Path -LiteralPath $p) { return $p }
+      }
+    }
+  } catch {}
+
+  # 3. Directorio de Package Cache de Windows
+  $cacheDirs = @(
+    (Join-Path $env:LOCALAPPDATA 'Package Cache'),
+    (Join-Path $env:ProgramData 'Package Cache')
+  )
+  foreach ($cd in $cacheDirs) {
+    if (Test-Path -LiteralPath $cd) {
+      try {
+        $found = Get-ChildItem -Path $cd -Filter "EvaluaPro*.exe" -Recurse -File -ErrorAction SilentlyContinue | Select-Object -First 1
+        if ($found -and (Test-Path -LiteralPath $found.FullName)) {
+          return $found.FullName
+        }
+      } catch {}
+    }
   }
-  $manifest = $raw | ConvertFrom-Json
-  $candidate = [string]$manifest.recommendedHubExecutablePath
-  if ([string]::IsNullOrWhiteSpace($candidate)) {
-    throw "Manifiesto sin recommendedHubExecutablePath: $manifestPath"
+
+  # 4. Rutas de desarrollo y compilación local
+  $devCandidates = @(
+    (Join-Path $root 'packaging\wix\BurnBootstrapperApp\bin\Release\net8.0-windows\win-x64\EvaluaPro.BurnBootstrapperApp.exe'),
+    (Join-Path $root 'packaging\wix\BurnBootstrapperApp\bin\Debug\net8.0-windows\win-x64\EvaluaPro.BurnBootstrapperApp.exe')
+  )
+  foreach ($dc in $devCandidates) {
+    if (Test-Path -LiteralPath $dc) { return $dc }
   }
-  if (-not (Test-Path -LiteralPath $candidate)) {
-    throw "No se encontro EXE del Hub recomendado: $candidate"
-  }
-  return $candidate
+
+  return $null
 }
 
 function Open-Hub {
   $hubExecutablePath = Resolve-HubExecutablePath
-  Write-BrokerLog("Abriendo Hub empaquetado: $hubExecutablePath")
-  Start-Process -FilePath $hubExecutablePath -WorkingDirectory (Split-Path -Path $hubExecutablePath -Parent) | Out-Null
+  if ($hubExecutablePath) {
+    Write-BrokerLog("Abriendo Hub empaquetado: $hubExecutablePath")
+    Start-Process -FilePath $hubExecutablePath -WorkingDirectory (Split-Path -Path $hubExecutablePath -Parent) | Out-Null
+  } else {
+    Write-BrokerLog("No se encontro binario externo de Hub; abriendo seccion de gestion en la aplicacion.")
+    Open-Url "http://127.0.0.1:4173/#/cuenta"
+  }
 }
 
 function Invoke-ManifestRefresh {
