@@ -94,6 +94,7 @@ public partial class MainWindow : Window
     private DispatcherTimer? splashCarouselTimer;
     private int splashFeatureIndex;
     private bool suppressModeChangedEvent;
+    private bool isInstallationDetected;
     private WizardStep currentStep = WizardStep.Terms;
     private string currentUpdateAssetName = DefaultUpdateAssetName;
     private readonly Queue<(DateTime At, int Progress)> progressSamples = new();
@@ -180,6 +181,7 @@ public partial class MainWindow : Window
         InstallDirTextBox.Text = model.InstallDir;
         DetectionSummaryTextBlock.Text = model.Summary;
         currentUpdateAssetName = string.IsNullOrWhiteSpace(model.AssetName) ? DefaultUpdateAssetName : model.AssetName;
+        isInstallationDetected = model.IsInstalled || !string.Equals(model.Mode, "install", StringComparison.OrdinalIgnoreCase);
         SetMode(model.Mode);
         RefreshOperationalChrome(model.Mode, FlavorComboBox.SelectedItem as FlavorItem);
         readyToStart = model.Ready;
@@ -396,14 +398,17 @@ public partial class MainWindow : Window
     public void NotifyInitialDetectionCompleted()
     {
         DismissSplashOverlay();
-        var isInstall = string.Equals(GetSelectedMode(), "install", StringComparison.OrdinalIgnoreCase);
-        if (isInstall && !AreTermsAccepted())
+        if (isInstallationDetected)
+        {
+            SetWizardStep(WizardStep.Prepare);
+        }
+        else if (!AreTermsAccepted())
         {
             SetWizardStep(WizardStep.Terms);
         }
         else
         {
-            SetWizardStep(WizardStep.Review);
+            SetWizardStep(WizardStep.Prepare);
         }
         DetectButton.Focus();
     }
@@ -472,7 +477,7 @@ public partial class MainWindow : Window
             progressSamples.Clear();
             smoothedRemainingSeconds = null;
             lastProgressAdvanceAt = default;
-            ProgressEtaTextBlock.Text = "Tiempo restante: calculando…";
+            ProgressEtaTextBlock.Text = "Tiempo restante estimado: ~15 a 25 s (iniciando instalación…)";
             return;
         }
 
@@ -488,9 +493,6 @@ public partial class MainWindow : Window
             progressSamples.Dequeue();
         }
 
-        var first = progressSamples.FirstOrDefault();
-        var elapsedSeconds = (now - first.At).TotalSeconds;
-        var delta = progress - first.Progress;
         if (progress >= 100)
         {
             smoothedRemainingSeconds = 0;
@@ -500,41 +502,47 @@ public partial class MainWindow : Window
             return;
         }
 
-        if (lastProgressAdvanceAt != default && (now - lastProgressAdvanceAt).TotalSeconds >= 8)
+        if (progress >= 90)
         {
-            ProgressEtaTextBlock.Text = busy && progress >= 95
-                ? "Tiempo restante: aplicando configuración final…"
-                : "Tiempo restante: verificando etapa actual…";
+            ProgressEtaTextBlock.Text = "Tiempo restante: finalizando y creando accesos directos (~3 a 5 s)…";
             return;
         }
 
-        if (first.At == default || elapsedSeconds < 4 || delta < 2)
+        if (progress >= 60)
         {
-            ProgressEtaTextBlock.Text = "Tiempo restante: calculando…";
+            ProgressEtaTextBlock.Text = "Tiempo restante estimado: ~8 a 15 s (configurando SQLite y servicios)…";
             return;
         }
 
-        var rawSecondsRemaining = (100 - progress) * elapsedSeconds / delta;
-        if (!double.IsFinite(rawSecondsRemaining) || rawSecondsRemaining < 0 || rawSecondsRemaining > 24 * 60 * 60)
+        if (progress >= 20)
         {
-            ProgressEtaTextBlock.Text = "Tiempo restante: calculando…";
+            ProgressEtaTextBlock.Text = "Tiempo restante estimado: ~12 a 20 s (desempaquetando archivos nativos)…";
             return;
         }
 
-        // Suaviza ruido de eventos Burn y limita el crecimiento por actualización.
-        // Así la predicción no salta hacia atrás aunque cambie la velocidad de I/O.
-        var previousEstimate = smoothedRemainingSeconds;
-        var boundedRaw = previousEstimate.HasValue
-            ? Math.Min(rawSecondsRemaining, previousEstimate.Value * 1.20)
-            : rawSecondsRemaining;
-        var estimate = previousEstimate.HasValue
-            ? (previousEstimate.Value * 0.70) + (boundedRaw * 0.30)
-            : boundedRaw;
-        smoothedRemainingSeconds = Math.Max(1, estimate);
+        var first = progressSamples.FirstOrDefault();
+        var elapsedSeconds = (now - first.At).TotalSeconds;
+        var delta = progress - first.Progress;
 
-        var lowerSeconds = Math.Max(1, (int)Math.Round(estimate * 0.85 / 5d) * 5);
-        var upperSeconds = Math.Max(lowerSeconds, (int)Math.Round(estimate * 1.35 / 5d) * 5);
-        ProgressEtaTextBlock.Text = $"Tiempo restante estimado: {FormatDuration(lowerSeconds)} a {FormatDuration(upperSeconds)} · según avance real";
+        if (delta >= 2 && elapsedSeconds >= 3)
+        {
+            var rawSecondsRemaining = (100 - progress) * elapsedSeconds / delta;
+            if (double.IsFinite(rawSecondsRemaining) && rawSecondsRemaining > 0 && rawSecondsRemaining <= 120)
+            {
+                var previousEstimate = smoothedRemainingSeconds;
+                var estimate = previousEstimate.HasValue
+                    ? (previousEstimate.Value * 0.70) + (rawSecondsRemaining * 0.30)
+                    : rawSecondsRemaining;
+                smoothedRemainingSeconds = Math.Max(1, estimate);
+
+                var lowerSeconds = Math.Max(1, (int)Math.Round(estimate * 0.85 / 5d) * 5);
+                var upperSeconds = Math.Max(lowerSeconds, (int)Math.Round(estimate * 1.35 / 5d) * 5);
+                ProgressEtaTextBlock.Text = $"Tiempo restante estimado: {FormatDuration(lowerSeconds)} a {FormatDuration(upperSeconds)} · según avance real";
+                return;
+            }
+        }
+
+        ProgressEtaTextBlock.Text = "Tiempo restante estimado: ~10 a 20 s (en progreso…)";
     }
 
     private static string FormatDuration(int seconds)
@@ -952,11 +960,11 @@ public partial class MainWindow : Window
             return;
         }
 
-        var isInstall = string.Equals(GetSelectedMode(), "install", StringComparison.OrdinalIgnoreCase);
+        var isNewInstall = !isInstallationDetected && string.Equals(GetSelectedMode(), "install", StringComparison.OrdinalIgnoreCase);
 
         SetWizardStep(currentStep switch
         {
-            WizardStep.Prepare => isInstall ? WizardStep.Terms : WizardStep.Prepare,
+            WizardStep.Prepare => isNewInstall ? WizardStep.Terms : WizardStep.Prepare,
             WizardStep.Review => WizardStep.Prepare,
             WizardStep.Execute => WizardStep.Review,
             WizardStep.Result => WizardStep.Execute,
@@ -1053,16 +1061,16 @@ public partial class MainWindow : Window
     {
         LaunchEvaluaProButton.IsEnabled = false;
         LaunchEvaluaProButton.Content = "Iniciando EvaluaPro...";
-        FooterStatusTextBlock.Text = "Iniciando plataforma EvaluaPro y abriendo navegador...";
+        FooterStatusTextBlock.Text = "Iniciando EvaluaPro en su propia ventana...";
         LaunchRequested?.Invoke(this, EventArgs.Empty);
 
-        var timer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(2.5) };
+        var timer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(6.0) };
         timer.Tick += (_, _) =>
         {
             timer.Stop();
             LaunchEvaluaProButton.IsEnabled = true;
-            LaunchEvaluaProButton.Content = "Abrir EvaluaPro en el navegador";
-            FooterStatusTextBlock.Text = "EvaluaPro está activo. Puedes abrirlo desde tu navegador o accesos directos.";
+            LaunchEvaluaProButton.Content = "Iniciar EvaluaPro";
+            FooterStatusTextBlock.Text = "EvaluaPro está listo. Puedes iniciarlo directamente o desde tus accesos directos.";
         };
         timer.Start();
     }
@@ -1308,6 +1316,20 @@ public partial class MainWindow : Window
         StartButton.SetValue(System.Windows.Automation.AutomationProperties.NameProperty, GetModeActionLabel(normalizedMode).Replace("_", string.Empty));
         RefreshModeImpact(normalizedMode);
 
+        if (PrepareStepTitleTextBlock != null && PrepareStepSubtitleTextBlock != null)
+        {
+            if (isInstallationDetected)
+            {
+                PrepareStepTitleTextBlock.Text = "Gestión de EvaluaPro · Instalación detectada";
+                PrepareStepSubtitleTextBlock.Text = "Selecciona si deseas reparar componentes, actualizar a una nueva versión o desinstalar la plataforma.";
+            }
+            else
+            {
+                PrepareStepTitleTextBlock.Text = "Preparar operación";
+                PrepareStepSubtitleTextBlock.Text = "Confirma edición, modo, carpeta destino y accesos antes de revisar el equipo.";
+            }
+        }
+
         if (AcceptTermsCheckBox != null)
         {
             var isInstall = string.Equals(normalizedMode, "install", StringComparison.OrdinalIgnoreCase);
@@ -1482,14 +1504,15 @@ public partial class MainWindow : Window
     private void RefreshWizardNavigation()
     {
         var isInstall = string.Equals(GetSelectedMode(), "install", StringComparison.OrdinalIgnoreCase);
+        var isNewInstall = !isInstallationDetected && isInstall;
         var isUninstall = string.Equals(GetSelectedMode(), "uninstall", StringComparison.OrdinalIgnoreCase);
         var accepted = AreTermsAccepted();
 
-        BackButton.IsEnabled = !busy && currentStep != WizardStep.Terms && (currentStep != WizardStep.Prepare || isInstall);
+        BackButton.IsEnabled = !busy && currentStep != WizardStep.Terms && (currentStep != WizardStep.Prepare || isNewInstall);
         
         if (currentStep == WizardStep.Terms)
         {
-            NextButton.IsEnabled = !busy && (!isInstall || accepted);
+            NextButton.IsEnabled = !busy && (!isNewInstall || accepted);
         }
         else
         {
@@ -1498,7 +1521,7 @@ public partial class MainWindow : Window
 
         DetectButton.Visibility = currentStep == WizardStep.Review ? Visibility.Visible : Visibility.Collapsed;
         StartButton.Visibility = currentStep is WizardStep.Review or WizardStep.Execute ? Visibility.Visible : Visibility.Collapsed;
-        StartButton.IsEnabled = !busy && (readyToStart || isUninstall) && (!isInstall || accepted);
+        StartButton.IsEnabled = !busy && (readyToStart || isUninstall) && (!isNewInstall || accepted);
 
         if (TryFindResource("PrimaryButtonStyle") is Style primaryStyle &&
             TryFindResource("SecondaryButtonStyle") is Style secondaryStyle)

@@ -62,7 +62,7 @@ Function ResolvePort(ByVal value, ByVal defaultPort)
     On Error Resume Next
     Dim v, re, n
     v = Trim(CStr(value))
-    If v = "" Then
+    If v = "" Or v = "4000" Or v = "4173" Then
         ResolvePort = defaultPort
         Exit Function
     End If

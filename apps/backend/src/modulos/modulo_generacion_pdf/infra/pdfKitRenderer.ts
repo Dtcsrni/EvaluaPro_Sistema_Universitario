@@ -1631,12 +1631,15 @@ export class PdfKitRenderer {
 
     const pdfBytes = Buffer.from(await pdfDoc.save());
     const preguntasRestantes = Math.max(0, totalPreguntas - indicePregunta);
+    const esPreview = examen.folio === 'PREVIEW';
     const minPreguntasPorPagina = Math.max(
       1,
       Number.parseInt(String(process.env.EXAMEN_MIN_PREGUNTAS_POR_PAGINA ?? '8'), 10) || 8
     );
     const umbralTotal = minPreguntasPorPagina * paginasObjetivo;
-    if (totalPreguntas >= umbralTotal) {
+    // En modo PREVIEW no se lanza error por densidad baja; se permite previsualizar
+    // plantillas con pocas preguntas sin bloquear el flujo editorial.
+    if (!esPreview && totalPreguntas >= umbralTotal) {
       const paginasEsperadas = paginasMeta.slice(0, paginasObjetivo);
       const paginaConBajaDensidad = paginasEsperadas.find((p) => {
         const del = Number(p.preguntasDel ?? 0);

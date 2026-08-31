@@ -545,8 +545,8 @@
                                             <RowDefinition Height="Auto" />
                                             <RowDefinition Height="*" />
                                         </Grid.RowDefinitions>
-                                        <TextBlock Text="Preparar operación" FontSize="18" FontWeight="Bold" Foreground="{StaticResource TextBrush}" />
-                                        <TextBlock Grid.Row="1" Style="{StaticResource HelpTextStyle}" Margin="0,2,0,8" Text="Confirma edición, modo, carpeta destino y accesos antes de revisar el equipo." FontSize="12.5" />
+                                        <TextBlock x:Name="PrepareStepTitleTextBlock" Text="Preparar operación" FontSize="18" FontWeight="Bold" Foreground="{StaticResource TextBrush}" />
+                                        <TextBlock x:Name="PrepareStepSubtitleTextBlock" Grid.Row="1" Style="{StaticResource HelpTextStyle}" Margin="0,2,0,8" Text="Confirma edición, modo, carpeta destino y accesos antes de revisar el equipo." FontSize="12.5" />
                                         <Grid Grid.Row="2" Margin="0,2,0,0">
                                             <Grid.ColumnDefinitions>
                                                 <ColumnDefinition Width="1.15*" />
@@ -604,9 +604,9 @@
                                                                     </StackPanel>
                                                                 </ToolTip>
                                                             </ComboBox.ToolTip>
-                                                            <ComboBoxItem Tag="install" Content="Instalar" />
-                                                            <ComboBoxItem Tag="repair" Content="Reparar" />
-                                                            <ComboBoxItem Tag="uninstall" Content="Desinstalar" />
+                                                            <ComboBoxItem Tag="install" Content="Instalar / Actualizar versión" />
+                                                            <ComboBoxItem Tag="repair" Content="Reparar componentes" />
+                                                            <ComboBoxItem Tag="uninstall" Content="Desinstalar (con respaldo)" />
                                                         </ComboBox>
                                                     </StackPanel>
                                                 </Grid>
@@ -888,7 +888,7 @@
                                             <TextBlock Text="• Califica exámenes masivamente mediante lectura óptica (OMR)." FontSize="12" Foreground="{StaticResource TextBrush}" TextWrapping="Wrap" />
                                         </StackPanel>
                                     </Border>
-                                    <Button x:Name="LaunchEvaluaProButton" Content="_Iniciar EvaluaPro ahora" Style="{StaticResource PrimaryButtonStyle}" MinWidth="200" Padding="16,8" Visibility="Collapsed" Click="LaunchEvaluaProButton_OnClick" AutomationProperties.Name="Iniciar EvaluaPro" AutomationProperties.HelpText="Abre el dashboard local de EvaluaPro." />
+                                    <Button x:Name="LaunchEvaluaProButton" Content="_Iniciar EvaluaPro ahora" Style="{StaticResource PrimaryButtonStyle}" MinWidth="200" Padding="16,8" Visibility="Collapsed" Click="LaunchEvaluaProButton_OnClick" AutomationProperties.Name="Iniciar EvaluaPro" AutomationProperties.HelpText="Inicia la plataforma nativa EvaluaPro." />
                                 </StackPanel>
                             </Border>
                         </Grid>

@@ -14,6 +14,11 @@ param(
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
 
+# Normalizar puerto: si se recibe 4000 (API) o 4173 (Web), normalizar a 4519 (Dashboard control plane)
+if ($Port -eq 4000 -or $Port -eq 4173) {
+  $Port = 4519
+}
+
 $root = (Resolve-Path (Join-Path $PSScriptRoot '..')).Path
 $logDir = Join-Path $root 'logs'
 $logFile = Join-Path $logDir 'launcher-broker.log'
@@ -137,6 +142,8 @@ function Test-DashboardPortResponsive([int]$candidatePort) {
 
 function Stop-StaleDashboardOnPort([int]$candidatePort) {
   if ($candidatePort -lt 1 -or $candidatePort -gt 65535) { return }
+  # Nunca tocar los puertos de la API ni de la Web estática
+  if ($candidatePort -eq 4000 -or $candidatePort -eq 4173) { return }
   if (Test-DashboardPortResponsive $candidatePort) { return }
 
   try {
@@ -151,9 +158,10 @@ function Stop-StaleDashboardOnPort([int]$candidatePort) {
     $processId = [int]$listener.OwningProcess
     if ($processId -le 0 -or $processId -eq $PID) { continue }
     try {
-      $process = Get-CimInstance Win32_Process -Filter ("ProcessId={0}" -f $processId) -ErrorAction Stop
+      $process = Get-CimInstance Win32_Process -Filter ("ProcessId={0}" -f $processId) -ErrorAction SilentlyContinue
+      if (-not $process) { continue }
       $commandLine = [string]$process.CommandLine
-      if ($commandLine -notmatch 'launcher-dashboard\.(mjs|ps1)') { continue }
+      if ($commandLine -and $commandLine -notmatch 'launcher-dashboard\.(mjs|ps1)') { continue }
       Write-BrokerLog("Cerrando dashboard no responsivo en puerto $candidatePort (pid=$processId).")
       Stop-Process -Id $processId -Force -ErrorAction SilentlyContinue
     } catch {
@@ -285,7 +293,7 @@ function Wait-DesiredHealth([string]$base, [string]$desiredMode, [int]$timeoutMs
         $portalStarted = $true
       }
     } catch {}
-    Start-Sleep -Milliseconds 1200
+    Start-Sleep -Milliseconds 300
   } while ((Get-Date) -lt $deadline)
 
   $health = $null
@@ -333,30 +341,89 @@ function Open-Url([string]$url) {
 }
 
 function Resolve-HubExecutablePath {
-  $manifestPath = if (Test-Path -LiteralPath $hubManifestPath) { $hubManifestPath } elseif (Test-Path -LiteralPath $hubManifestPathInternal) { $hubManifestPathInternal } else { '' }
-  if (-not $manifestPath) {
-    throw "No se encontro manifiesto de hubs: $hubManifestPath ni $hubManifestPathInternal"
+  # 1. Manifiestos locales conocidos
+  $manifestCandidates = @(
+    $hubManifestPath,
+    $hubManifestPathInternal,
+    (Join-Path $root 'config\installer-local-paths.json'),
+    (Join-Path $root 'installer\installer-local-paths.json')
+  )
+  foreach ($mPath in $manifestCandidates) {
+    if (Test-Path -LiteralPath $mPath) {
+      try {
+        $raw = Get-Content -LiteralPath $mPath -Raw
+        if (-not [string]::IsNullOrWhiteSpace($raw)) {
+          $manifest = $raw | ConvertFrom-Json
+          $candidate = [string]$manifest.recommendedHubExecutablePath
+          if ($candidate -and (Test-Path -LiteralPath $candidate)) {
+            return $candidate
+          }
+          if ($manifest.recommended -and $manifest.recommended.bundlePublicPath -and (Test-Path -LiteralPath $manifest.recommended.bundlePublicPath)) {
+            return [string]$manifest.recommended.bundlePublicPath
+          }
+          if ($manifest.artifacts) {
+            foreach ($art in @($manifest.artifacts)) {
+              if ($art.bundlePublicPath -and (Test-Path -LiteralPath $art.bundlePublicPath)) {
+                return [string]$art.bundlePublicPath
+              }
+            }
+          }
+        }
+      } catch {}
+    }
   }
 
-  $raw = Get-Content -LiteralPath $manifestPath -Raw
-  if ([string]::IsNullOrWhiteSpace($raw)) {
-    throw "Manifiesto de hubs vacio: $manifestPath"
+  # 2. Registro de Windows (BundleCachePath / ModifyPath de WiX Burn registrado)
+  try {
+    $regEntries = @(Get-ItemProperty "HKCU:\Software\Microsoft\Windows\CurrentVersion\Uninstall\*", "HKLM:\Software\Microsoft\Windows\CurrentVersion\Uninstall\*" -ErrorAction SilentlyContinue | Where-Object { $_.DisplayName -match 'EvaluaPro' })
+    foreach ($entry in $regEntries) {
+      if ($entry.BundleCachePath -and (Test-Path -LiteralPath $entry.BundleCachePath)) {
+        return [string]$entry.BundleCachePath
+      }
+      if ($entry.ModifyPath -match '"([^"]+EvaluaPro[^"]+\.exe)"') {
+        $p = $matches[1]
+        if (Test-Path -LiteralPath $p) { return $p }
+      }
+    }
+  } catch {}
+
+  # 3. Directorio de Package Cache de Windows
+  $cacheDirs = @(
+    (Join-Path $env:LOCALAPPDATA 'Package Cache'),
+    (Join-Path $env:ProgramData 'Package Cache')
+  )
+  foreach ($cd in $cacheDirs) {
+    if (Test-Path -LiteralPath $cd) {
+      try {
+        $found = Get-ChildItem -Path $cd -Filter "EvaluaPro*.exe" -Recurse -File -ErrorAction SilentlyContinue | Select-Object -First 1
+        if ($found -and (Test-Path -LiteralPath $found.FullName)) {
+          return $found.FullName
+        }
+      } catch {}
+    }
   }
-  $manifest = $raw | ConvertFrom-Json
-  $candidate = [string]$manifest.recommendedHubExecutablePath
-  if ([string]::IsNullOrWhiteSpace($candidate)) {
-    throw "Manifiesto sin recommendedHubExecutablePath: $manifestPath"
+
+  # 4. Rutas de desarrollo y compilación local
+  $devCandidates = @(
+    (Join-Path $root 'packaging\wix\BurnBootstrapperApp\bin\Release\net8.0-windows\win-x64\EvaluaPro.BurnBootstrapperApp.exe'),
+    (Join-Path $root 'packaging\wix\BurnBootstrapperApp\bin\Debug\net8.0-windows\win-x64\EvaluaPro.BurnBootstrapperApp.exe')
+  )
+  foreach ($dc in $devCandidates) {
+    if (Test-Path -LiteralPath $dc) { return $dc }
   }
-  if (-not (Test-Path -LiteralPath $candidate)) {
-    throw "No se encontro EXE del Hub recomendado: $candidate"
-  }
-  return $candidate
+
+  return $null
 }
 
 function Open-Hub {
   $hubExecutablePath = Resolve-HubExecutablePath
-  Write-BrokerLog("Abriendo Hub empaquetado: $hubExecutablePath")
-  Start-Process -FilePath $hubExecutablePath -WorkingDirectory (Split-Path -Path $hubExecutablePath -Parent) | Out-Null
+  if ($hubExecutablePath) {
+    Write-BrokerLog("Abriendo Hub empaquetado: $hubExecutablePath")
+    Start-Process -FilePath $hubExecutablePath -WorkingDirectory (Split-Path -Path $hubExecutablePath -Parent) | Out-Null
+  } else {
+    Write-BrokerLog("No se encontro binario externo de Hub; abriendo seccion de gestion en la aplicacion.")
+    Open-Url "http://127.0.0.1:4173/#/cuenta"
+  }
 }
 
 function Invoke-ManifestRefresh {
@@ -382,7 +449,6 @@ try {
   switch ($Action) {
     'open-hub' {
       Set-BootstrapState -State 'booting_dashboard' -Message 'Abriendo Installer Hub.' -DesiredMode $bootstrapMode
-      Invoke-ManifestRefresh
       Open-Hub
       Set-BootstrapState -State 'healthy' -Message 'Installer Hub abierto.' -DesiredMode $bootstrapMode
       return
@@ -395,6 +461,17 @@ try {
     }
   }
 
+  # REQ-030: En flavor docente-local, el Dashboard UI no debe ser accesible para docentes finales.
+  # Se redirige a la Web Docente nativa (http://127.0.0.1:4173/) a menos que esté en modo depuración/admin.
+  $isDocenteFlavor = (-not (Test-RequiresLocalPortal))
+  $isAdminDebug = ($env:EVALUAPRO_DEBUG -eq '1')
+  $openTargetUrl = if ($isDocenteFlavor -and -not $isAdminDebug) {
+    Write-BrokerLog("Flavor docente-local detectado: redirigiendo apertura a Web Docente (http://127.0.0.1:4173/). UI Dashboard restringida a depuración administrativa.")
+    "http://127.0.0.1:4173/"
+  } else {
+    "http://127.0.0.1:$Port/"
+  }
+
   $ready = Ensure-DashboardRunning -bootstrapMode $bootstrapMode -requestedPort $Port
   $base = [string]$ready.base
   $status = $ready.status
@@ -403,31 +480,7 @@ try {
   switch ($Action) {
     'open-dashboard' {
       $result = Ensure-StackReady -base $base -desiredMode $desiredMode -timeoutMs 150000
-      $finalReady = $null
-      for ($attempt = 1; $attempt -le 4 -and -not $finalReady; $attempt += 1) {
-        $finalReady = Wait-DashboardReady -requestedPort $Port -timeoutMs 15000
-        if (-not $finalReady) {
-          Write-BrokerLog("Dashboard todavía no publica estado final; reintento $attempt/4.")
-          Start-Sleep -Seconds 3
-        }
-      }
-      if (-not $finalReady) {
-        throw 'Dashboard dejo de responder antes de publicar estado final.'
-      }
-      $base = [string]$finalReady.base
-      Invoke-ManifestRefresh
-
-      # REQ-030: En flavor docente-local, el Dashboard UI no debe ser accesible para docentes finales.
-      # Se redirige a la Web Docente nativa (http://127.0.0.1:4173/) a menos que esté en modo depuración/admin.
-      $isDocenteFlavor = (-not (Test-RequiresLocalPortal))
-      $isAdminDebug = ($env:EVALUAPRO_DEBUG -eq '1')
-      $openTargetUrl = if ($isDocenteFlavor -and -not $isAdminDebug) {
-        Write-BrokerLog("Flavor docente-local detectado: redirigiendo apertura a Web Docente (http://127.0.0.1:4173/). UI Dashboard restringida a depuración administrativa.")
-        "http://127.0.0.1:4173/"
-      } else {
-        "$base/"
-      }
-
+      $finalReady = Wait-DashboardReady -requestedPort $Port -timeoutMs 15000
       if ($result.ok) {
         Set-BootstrapState -State 'healthy' -Message 'Plataforma docente lista.' -DesiredMode $desiredMode -Meta @{ degraded = [bool]$result.degraded; base = $base; webUrl = "http://127.0.0.1:4173/" }
         if (-not $NoOpen) { Open-Url $openTargetUrl }
