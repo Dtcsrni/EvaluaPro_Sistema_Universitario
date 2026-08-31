@@ -604,9 +604,9 @@
                                                                     </StackPanel>
                                                                 </ToolTip>
                                                             </ComboBox.ToolTip>
-                                                            <ComboBoxItem Tag="install" Content="Instalar" />
-                                                            <ComboBoxItem Tag="repair" Content="Reparar" />
-                                                            <ComboBoxItem Tag="uninstall" Content="Desinstalar" />
+                                                            <ComboBoxItem Tag="install" Content="Instalar / Actualizar versión" />
+                                                            <ComboBoxItem Tag="repair" Content="Reparar componentes" />
+                                                            <ComboBoxItem Tag="uninstall" Content="Desinstalar (con respaldo)" />
                                                         </ComboBox>
                                                     </StackPanel>
                                                 </Grid>

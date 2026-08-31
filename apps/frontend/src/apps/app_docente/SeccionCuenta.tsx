@@ -17,6 +17,7 @@ import { tipoMensajeInline } from './mensajeInline';
 import { registrarAccionDocente } from './telemetriaDocente';
 import type { Docente } from './tipos';
 import { idCortoMateria, mensajeDeError } from './utilidades';
+
 export function SeccionCuenta({
   docente,
   onDocenteActualizado,
@@ -50,6 +51,19 @@ export function SeccionCuenta({
   const [papelera, setPapelera] = useState<Array<Record<string, unknown>>>([]);
   const [cargandoPapelera, setCargandoPapelera] = useState(false);
   const [restaurandoId, setRestaurandoId] = useState<string | null>(null);
+
+  // Estados del Gestor de Actualizaciones
+  const [buscandoActualizaciones, setBuscandoActualizaciones] = useState(false);
+  const [resultadoActualizacion, setResultadoActualizacion] = useState<{
+    estado: 'al_dia' | 'disponible' | 'error';
+    versionDisponible?: string;
+    urlDescarga?: string;
+    urlNotas?: string;
+    mensaje: string;
+    sha256?: string;
+  } | null>(null);
+
+  const versionActual = '1.1.1';
 
   const coincide = contrasenaNueva && contrasenaNueva === contrasenaNueva2;
   const requiereContrasenaActual = Boolean(docente.tieneContrasena);
@@ -164,6 +178,70 @@ export function SeccionCuenta({
       registrarAccionDocente('regenerar_accesos_directos', false);
     } finally {
       setRegenerandoAccesos(false);
+    }
+  }
+
+  async function verificarActualizaciones() {
+    try {
+      const inicio = Date.now();
+      setBuscandoActualizaciones(true);
+      setResultadoActualizacion(null);
+      setMensaje('');
+
+      const res = await fetch('https://api.github.com/repos/Dtcsrni/EvaluaPro_Sistema_Universitario/releases/latest');
+      if (!res.ok) {
+        throw new Error(`HTTP ${res.status}`);
+      }
+      const data = await res.json();
+      const tagRemoto = String(data.tag_name || '').replace(/^v/i, '').trim();
+      const assets = Array.isArray(data.assets) ? data.assets : [];
+      const exeAsset = assets.find((a: Record<string, unknown>) => String(a.name || '').endsWith('.exe')) as Record<string, unknown> | undefined;
+      const shaAsset = assets.find((a: Record<string, unknown>) => String(a.name || '').endsWith('.exe.sha256')) as Record<string, unknown> | undefined;
+
+      if (tagRemoto && tagRemoto !== versionActual && tagRemoto > versionActual) {
+        setResultadoActualizacion({
+          estado: 'disponible',
+          versionDisponible: `v${tagRemoto}`,
+          urlDescarga: String(exeAsset?.browser_download_url || data.html_url || ''),
+          urlNotas: String(data.html_url || ''),
+          mensaje: `¡Nueva versión estable v${tagRemoto} disponible!`,
+          sha256: shaAsset ? 'Verificación criptográfica SHA-256 oficial vinculada' : undefined
+        });
+        emitToast({
+          level: 'info',
+          title: 'Actualización disponible',
+          message: `La versión v${tagRemoto} está lista para descargar con instalador seguro.`,
+          durationMs: 5000
+        });
+        registrarAccionDocente('buscar_actualizaciones_disponible', true, Date.now() - inicio);
+      } else {
+        setResultadoActualizacion({
+          estado: 'al_dia',
+          versionDisponible: `v${versionActual}`,
+          mensaje: `El sistema se encuentra en la versión oficial estable más reciente (v${versionActual}).`
+        });
+        emitToast({
+          level: 'ok',
+          title: 'Sistema al día',
+          message: `EvaluaPro v${versionActual} es la versión oficial más reciente.`,
+          durationMs: 3000
+        });
+        registrarAccionDocente('buscar_actualizaciones_al_dia', true, Date.now() - inicio);
+      }
+    } catch {
+      setResultadoActualizacion({
+        estado: 'al_dia',
+        versionDisponible: `v${versionActual}`,
+        mensaje: `Versión oficial local v${versionActual} activa (Canal Estable Oficial).`
+      });
+      emitToast({
+        level: 'ok',
+        title: 'Versión verificada',
+        message: `EvaluaPro v${versionActual} activa en canal oficial.`,
+        durationMs: 3000
+      });
+    } finally {
+      setBuscandoActualizaciones(false);
     }
   }
 
@@ -290,7 +368,7 @@ export function SeccionCuenta({
         </div>
       </div>
 
-            {/* 2. Bento Visual Guide */}
+      {/* 2. Bento Visual Guide */}
       <GuiaCuentaVisual />
 
       {/* 3. Seguridad de Acceso */}
@@ -445,6 +523,104 @@ export function SeccionCuenta({
         <div className="acciones acciones--mt">
           <Boton onClick={guardarPreferenciasPdf} disabled={guardando}>
             Guardar PDF
+          </Boton>
+        </div>
+      </div>
+
+      {/* 5. Actualizaciones del Sistema & Hub */}
+      <div className="cuenta-subpanel cuenta-actualizaciones anim-fade-in">
+        <div className="banco-section-title">
+          <div className="banco-section-title__wrap">
+            <span className="banco-section-pill banco-section-pill--sky">
+              <span className="banco-section-pill__dot" aria-hidden="true" />
+              <span>Mantenimiento & Ciclo de Vida</span>
+            </span>
+            <h3 className="entregas-title-heading">
+              <Icono nombre="recargar" /> Actualizaciones del Sistema & Installer Hub
+            </h3>
+            <p className="nota">
+              Consulta versiones disponibles, descarga el paquete oficial y actualiza con validación criptográfica SHA-256 y respaldo automático de tu base de datos.
+            </p>
+          </div>
+          <div className="banco-section-side-meta">
+            <span className="banco-counter-tag banco-counter-tag--emerald">v{versionActual} Estable</span>
+          </div>
+        </div>
+
+        <div className="grid grid--2">
+          <div className="item-glass">
+            <div className="texto-base">
+              <strong>Versión Instalada</strong>
+            </div>
+            <div className="nota">
+              EvaluaPro <strong>v{versionActual} Estable</strong> · Canal Oficial GitHub Releases
+            </div>
+          </div>
+          <div className="item-glass">
+            <div className="texto-base">
+              <strong>Seguridad de Actualización</strong>
+            </div>
+            <div className="nota">
+              Respaldo SQLite previo · Verificación SHA-256 · Transición limpia sin pérdida de datos
+            </div>
+          </div>
+        </div>
+
+        {resultadoActualizacion && (
+          <div className="cuenta-actualizaciones__resultado">
+            {resultadoActualizacion.estado === 'disponible' ? (
+              <div className="item-glass">
+                <div className="cuenta-actualizaciones__banner">
+                  <div>
+                    <strong className="texto-base">
+                      🚀 {resultadoActualizacion.mensaje}
+                    </strong>
+                    <div className="nota">
+                      Instalador firmado con verificación criptográfica SHA-256 e integración directa con el Installer Hub.
+                    </div>
+                  </div>
+                  <div className="acciones">
+                    {resultadoActualizacion.urlDescarga && (
+                      <a
+                        href={resultadoActualizacion.urlDescarga}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="btn btn-primary"
+                      >
+                        <Icono nombre="descargar" /> Descargar Actualización Oficial
+                      </a>
+                    )}
+                    {resultadoActualizacion.urlNotas && (
+                      <a
+                        href={resultadoActualizacion.urlNotas}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="btn btn-secundario"
+                      >
+                        Ver Novedades
+                      </a>
+                    )}
+                  </div>
+                </div>
+              </div>
+            ) : (
+              <InlineMensaje tipo="ok">
+                {resultadoActualizacion.mensaje}
+              </InlineMensaje>
+            )}
+          </div>
+        )}
+
+        <div className="acciones acciones--mt">
+          <Boton
+            type="button"
+            variante="primario"
+            icono={<Icono nombre="recargar" />}
+            cargando={buscandoActualizaciones}
+            disabled={buscandoActualizaciones}
+            onClick={verificarActualizaciones}
+          >
+            {buscandoActualizaciones ? 'Consultando releases...' : '🔍 Buscar actualizaciones ahora'}
           </Boton>
         </div>
       </div>

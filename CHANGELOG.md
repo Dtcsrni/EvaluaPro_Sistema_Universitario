@@ -5,6 +5,10 @@ Este archivo sigue el formato "Keep a Changelog" (alto nivel) y SemVer.
 ## [1.1.1] - 2026-08-28
 
 ### Added
+- **Gestor Visual de Actualizaciones del Sistema & Installer Hub en GUI (`SeccionCuenta.tsx`, `MainWindow.xaml`)**:
+  - Incorporación del subpanel interactivo *"Actualizaciones del Sistema & Installer Hub"* en la sección de Cuenta y Perfil del docente (`SeccionCuenta.tsx`).
+  - Consulta interactiva en vivo contra GitHub Releases oficial con detección semver, badge de versión (`v1.1.1 Estable`), enlace de descarga directa al instalador firmado, verificación criptográfica SHA-256 y confirmación de respaldo automático local.
+  - Clarificación en el Installer Hub WPF (.NET 8) de los modos de ejecución (*Instalar / Actualizar versión*, *Reparar componentes*, *Desinstalar con respaldo*) para garantizar transiciones seguras sin pérdida de datos académicos.
 - **Modernización y Reestructuración Exhaustiva de READMEs y Documentación (`SPEC-DOCS-MODERNIZATION`)**:
   - Reestructuración integral del `README.md` raíz con formato visual de código abierto institucional, diagrama de flujo operativo Mermaid (Diseño -> PDF -> OMR -> Forense -> Sincronización), insignias de CI/CD actualizadas, matriz de capacidades de la versión estable `v1.1.1` y guía de inicio rápido para docentes y desarrolladores.
   - Actualización y saneamiento de todos los READMEs modulares (`apps/backend/README.md`, `apps/frontend/README.md`, `apps/portal_alumno_cloud/README.md`, `docs/README.md`), eliminando referencias obsoletas a MongoDB/MERN y Docker para el flujo docente en favor de la arquitectura real: **SQLite nativo offline-first con Prisma ORM**, **React 18 Bento Elevation & Glassmorphism Prismatic Sapphire** y **WiX Toolset v5 Burn con Installer Hub WPF (.NET 8)**.

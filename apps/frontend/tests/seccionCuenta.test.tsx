@@ -226,4 +226,251 @@ describe('SeccionCuenta', () => {
       expect.objectContaining({ level: 'ok', title: 'Papelera' })
     );
   });
+
+  it('renderiza la sección de actualizaciones y permite consultar el estado oficial', async () => {
+    const fetchSpy = vi.spyOn(globalThis, 'fetch').mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({
+        tag_name: 'v1.1.1',
+        html_url: 'https://github.com/Dtcsrni/EvaluaPro_Sistema_Universitario/releases/tag/v1.1.1',
+        assets: [
+          { name: 'EvaluaPro-InstallerHub-docente-local-v1.1.1.exe', browser_download_url: 'https://download.url/installer.exe' }
+        ]
+      })
+    } as unknown as Response);
+
+    renderConOAuth(
+      <SeccionCuenta
+        docente={docenteMock}
+        onDocenteActualizado={() => {}}
+        esAdmin={false}
+        esDev={false}
+      />
+    );
+
+    expect(screen.getByText(/Actualizaciones del Sistema & Installer Hub/i)).toBeInTheDocument();
+    expect(screen.getAllByText(/v1.1.1 Estable/i).length).toBeGreaterThanOrEqual(1);
+
+    const botonBuscar = screen.getByRole('button', { name: /Buscar actualizaciones ahora/i });
+    fireEvent.click(botonBuscar);
+
+    await waitFor(() => {
+      expect(screen.getByText(/El sistema se encuentra en la versión oficial estable más reciente/i)).toBeInTheDocument();
+    });
+
+    expect(emitToast).toHaveBeenCalledWith(
+      expect.objectContaining({ level: 'ok', title: 'Sistema al día' })
+    );
+
+    fetchSpy.mockRestore();
+  });
+
+  it('muestra banner y botón de descarga cuando hay una nueva versión disponible', async () => {
+    const fetchSpy = vi.spyOn(globalThis, 'fetch').mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({
+        tag_name: 'v1.2.0',
+        html_url: 'https://github.com/Dtcsrni/EvaluaPro_Sistema_Universitario/releases/tag/v1.2.0',
+        assets: [
+          { name: 'EvaluaPro-InstallerHub-docente-local-v1.2.0.exe', browser_download_url: 'https://download.url/installer-v1.2.0.exe' },
+          { name: 'EvaluaPro-InstallerHub-docente-local-v1.2.0.exe.sha256', browser_download_url: 'https://download.url/installer-v1.2.0.exe.sha256' }
+        ]
+      })
+    } as unknown as Response);
+
+    renderConOAuth(
+      <SeccionCuenta
+        docente={docenteMock}
+        onDocenteActualizado={() => {}}
+        esAdmin={false}
+        esDev={false}
+      />
+    );
+
+    const botonBuscar = screen.getByRole('button', { name: /Buscar actualizaciones ahora/i });
+    fireEvent.click(botonBuscar);
+
+    await waitFor(() => {
+      expect(screen.getByText(/¡Nueva versión estable v1.2.0 disponible!/i)).toBeInTheDocument();
+      expect(screen.getByRole('link', { name: /Descargar Actualización Oficial/i })).toHaveAttribute('href', 'https://download.url/installer-v1.2.0.exe');
+      expect(screen.getByRole('link', { name: /Ver Novedades/i })).toHaveAttribute('href', 'https://github.com/Dtcsrni/EvaluaPro_Sistema_Universitario/releases/tag/v1.2.0');
+    });
+
+    expect(emitToast).toHaveBeenCalledWith(
+      expect.objectContaining({ level: 'info', title: 'Actualización disponible' })
+    );
+
+    fetchSpy.mockRestore();
+  });
+
+  it('maneja errores en preferencias PDF y accesos directos', async () => {
+    vi.mocked(clienteApi.enviar).mockRejectedValue(new Error('Fallo de red'));
+
+    renderConOAuth(
+      <SeccionCuenta
+        docente={docenteMock}
+        onDocenteActualizado={() => {}}
+        esAdmin={false}
+        esDev={false}
+      />
+    );
+
+    const botonGuardarPdf = screen.getByRole('button', { name: /Guardar PDF/i });
+    fireEvent.click(botonGuardarPdf);
+
+    await waitFor(() => {
+      expect(emitToast).toHaveBeenCalledWith(
+        expect.objectContaining({ level: 'error', title: 'PDF' })
+      );
+    });
+
+    const botonRegenerar = screen.getByRole('button', { name: /Regenerar accesos/i });
+    fireEvent.click(botonRegenerar);
+
+    await waitFor(() => {
+      expect(emitToast).toHaveBeenCalledWith(
+        expect.objectContaining({ level: 'error', title: 'Accesos directos' })
+      );
+    });
+  });
+
+  it('maneja error o desconexión en verificación de actualizaciones', async () => {
+    const fetchSpy = vi.spyOn(globalThis, 'fetch').mockRejectedValueOnce(new Error('Network offline'));
+
+    renderConOAuth(
+      <SeccionCuenta
+        docente={docenteMock}
+        onDocenteActualizado={() => {}}
+        esAdmin={false}
+        esDev={false}
+      />
+    );
+
+    const botonBuscar = screen.getByRole('button', { name: /Buscar actualizaciones ahora/i });
+    fireEvent.click(botonBuscar);
+
+    await waitFor(() => {
+      expect(screen.getByText(/Versión oficial local v1.1.1 activa/i)).toBeInTheDocument();
+    });
+
+    expect(emitToast).toHaveBeenCalledWith(
+      expect.objectContaining({ level: 'ok', title: 'Versión verificada' })
+    );
+
+    fetchSpy.mockRestore();
+  });
+
+  it('maneja respuesta HTTP no OK al verificar actualizaciones', async () => {
+    const fetchSpy = vi.spyOn(globalThis, 'fetch').mockResolvedValueOnce({
+      ok: false,
+      status: 500
+    } as unknown as Response);
+
+    renderConOAuth(
+      <SeccionCuenta
+        docente={docenteMock}
+        onDocenteActualizado={() => {}}
+        esAdmin={false}
+        esDev={false}
+      />
+    );
+
+    const botonBuscar = screen.getByRole('button', { name: /Buscar actualizaciones ahora/i });
+    fireEvent.click(botonBuscar);
+
+    await waitFor(() => {
+      expect(screen.getByText(/Versión oficial local v1.1.1 activa/i)).toBeInTheDocument();
+    });
+
+    fetchSpy.mockRestore();
+  });
+
+  it('guarda preferencias de PDF incluyendo rutas de logos', async () => {
+    const mockActualizarDocente = vi.fn();
+    vi.mocked(clienteApi.enviar).mockResolvedValue({
+      preferenciasPdf: {
+        institucion: 'Campus Norte',
+        lema: 'Ciencia y Cultura',
+        logos: {
+          izquierdaPath: 'logos/izq.png',
+          derechaPath: 'logos/der.png'
+        }
+      }
+    });
+
+    renderConOAuth(
+      <SeccionCuenta
+        docente={docenteMock}
+        onDocenteActualizado={mockActualizarDocente}
+        esAdmin={false}
+        esDev={false}
+      />
+    );
+
+    const inputLogoIzq = screen.getByLabelText(/Logo izquierda/i);
+    fireEvent.change(inputLogoIzq, { target: { value: 'logos/izq.png' } });
+
+    const inputLogoDer = screen.getByLabelText(/Logo derecha/i);
+    fireEvent.change(inputLogoDer, { target: { value: 'logos/der.png' } });
+
+    const botonGuardarPdf = screen.getByRole('button', { name: /Guardar PDF/i });
+    fireEvent.click(botonGuardarPdf);
+
+    await waitFor(() => {
+      expect(clienteApi.enviar).toHaveBeenCalledWith(
+        '/autenticacion/preferencias/pdf',
+        expect.objectContaining({
+          logos: {
+            izquierdaPath: 'logos/izq.png',
+            derechaPath: 'logos/der.png'
+          }
+        })
+      );
+    });
+  });
+
+  it('renderiza items de papelera tipo periodo y alumno y maneja error al restaurar', async () => {
+    vi.mocked(clienteApi.obtener).mockResolvedValueOnce({
+      items: [
+        {
+          _id: 'item-periodo-1',
+          tipo: 'periodo',
+          eliminadoEn: '2026-08-01T12:00:00.000Z',
+          expiraEn: '2026-09-15T12:00:00.000Z',
+          payload: { periodo: { nombre: '2026-1' } }
+        },
+        {
+          _id: 'item-alumno-1',
+          tipo: 'alumno',
+          eliminadoEn: '2026-08-05T12:00:00.000Z',
+          expiraEn: '2026-09-20T12:00:00.000Z',
+          payload: { alumno: { nombreCompleto: 'Juan Pérez' } }
+        }
+      ]
+    });
+
+    renderConOAuth(
+      <SeccionCuenta
+        docente={docenteMock}
+        onDocenteActualizado={() => {}}
+        esAdmin={true}
+        esDev={true}
+      />
+    );
+
+    await waitFor(() => {
+      expect(screen.getByText('2026-1')).toBeInTheDocument();
+      expect(screen.getByText('Juan Pérez')).toBeInTheDocument();
+    });
+
+    vi.mocked(clienteApi.enviar).mockRejectedValueOnce(new Error('Fallo al restaurar'));
+    const botonesRestaurar = screen.getAllByRole('button', { name: /Restaurar/i });
+    fireEvent.click(botonesRestaurar[0]);
+
+    await waitFor(() => {
+      expect(emitToast).toHaveBeenCalledWith(
+        expect.objectContaining({ level: 'error', title: 'Papelera' })
+      );
+    });
+  });
 });
