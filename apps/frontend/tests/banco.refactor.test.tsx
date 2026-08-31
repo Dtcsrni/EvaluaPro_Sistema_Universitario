@@ -4,9 +4,10 @@
  * Responsabilidad: Pruebas de integración y comportamiento para el módulo de Banco de Preguntas.
  * Limites: Mantener contrato y comportamiento observable del módulo.
  */
-import { fireEvent, render, screen } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 import { SeccionBanco } from '../src/apps/app_docente/SeccionBanco';
+import { clienteApi } from '../src/apps/app_docente/clienteApiDocente';
 import type { PermisosUI, Pregunta } from '../src/apps/app_docente/tipos';
 
 const permisosLectura: PermisosUI = {
@@ -146,5 +147,67 @@ describe('banco refactor comportamiento', () => {
 
     expect(screen.getByText('¿Qué es una función cuadrática?')).toBeInTheDocument();
     expect(screen.queryByText('¿Cuál es la primera ley de Newton?')).not.toBeInTheDocument();
+  });
+
+  it('conserva el tema seleccionado al guardar una pregunta para facilitar la captura consecutiva', async () => {
+    const mockEnviar = vi.fn().mockResolvedValue({});
+    vi.spyOn(clienteApi, 'obtener').mockResolvedValue({
+      temas: [{ _id: 't-1', nombre: 'Cookies y sesiones', materiaId: 'per-1' }]
+    });
+
+    const { container } = render(
+      <SeccionBanco
+        preguntas={[] as Pregunta[]}
+        periodos={[{ _id: 'per-1', nombre: 'Desarrollo Web' }]}
+        permisos={permisosCompletos}
+        enviarConPermiso={mockEnviar}
+        avisarSinPermiso={() => {}}
+        onRefrescar={() => {}}
+        onRefrescarPlantillas={() => {}}
+        paginasEstimadasBackendPorTema={new Map()}
+      />
+    );
+
+    const selectMateria = screen.getByLabelText(/^Materia$/i);
+    fireEvent.change(selectMateria, { target: { value: 'per-1' } });
+
+    await waitFor(() => {
+      expect(screen.getByRole('option', { name: 'Cookies y sesiones' })).toBeInTheDocument();
+    });
+
+    const selectTema = container.querySelector('#banco-select-tema') as HTMLSelectElement;
+    expect(selectTema).toBeInTheDocument();
+    fireEvent.change(selectTema, { target: { value: 'Cookies y sesiones' } });
+    expect(selectTema).toHaveValue('Cookies y sesiones');
+
+    const inputEnunciado = screen.getByPlaceholderText(/Redacta una pregunta clara y directa/i);
+    fireEvent.change(inputEnunciado, { target: { value: '¿Qué cabecera HTTP envía una cookie?' } });
+
+    const opcionInputs = screen.getAllByPlaceholderText(/Texto opcion/i);
+    fireEvent.change(opcionInputs[0]!, { target: { value: 'Set-Cookie' } });
+    fireEvent.change(opcionInputs[1]!, { target: { value: 'Cookie-Header' } });
+    fireEvent.change(opcionInputs[2]!, { target: { value: 'Authorization' } });
+    fireEvent.change(opcionInputs[3]!, { target: { value: 'Accept' } });
+    fireEvent.change(opcionInputs[4]!, { target: { value: 'Host' } });
+
+    const btnGuardar = screen.getByRole('button', { name: /^Guardar$/i });
+    fireEvent.click(btnGuardar);
+
+    expect(mockEnviar).toHaveBeenCalledWith(
+      'banco:gestionar',
+      '/banco-preguntas',
+      expect.objectContaining({
+        periodoId: 'per-1',
+        tema: 'Cookies y sesiones',
+        enunciado: '¿Qué cabecera HTTP envía una cookie?'
+      }),
+      expect.any(String)
+    );
+
+    // El enunciado se limpia tras guardar para la siguiente pregunta pero el tema permanece seleccionado
+    await waitFor(() => {
+      expect(inputEnunciado).toHaveValue('');
+    });
+    expect(selectTema).toHaveValue('Cookies y sesiones');
   });
 });
