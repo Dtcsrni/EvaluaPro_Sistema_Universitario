@@ -14,6 +14,11 @@ param(
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
 
+# Normalizar puerto: si se recibe 4000 (API) o 4173 (Web), normalizar a 4519 (Dashboard control plane)
+if ($Port -eq 4000 -or $Port -eq 4173) {
+  $Port = 4519
+}
+
 $root = (Resolve-Path (Join-Path $PSScriptRoot '..')).Path
 $logDir = Join-Path $root 'logs'
 $logFile = Join-Path $logDir 'launcher-broker.log'
@@ -137,6 +142,8 @@ function Test-DashboardPortResponsive([int]$candidatePort) {
 
 function Stop-StaleDashboardOnPort([int]$candidatePort) {
   if ($candidatePort -lt 1 -or $candidatePort -gt 65535) { return }
+  # Nunca tocar los puertos de la API ni de la Web estática
+  if ($candidatePort -eq 4000 -or $candidatePort -eq 4173) { return }
   if (Test-DashboardPortResponsive $candidatePort) { return }
 
   try {
@@ -151,9 +158,10 @@ function Stop-StaleDashboardOnPort([int]$candidatePort) {
     $processId = [int]$listener.OwningProcess
     if ($processId -le 0 -or $processId -eq $PID) { continue }
     try {
-      $process = Get-CimInstance Win32_Process -Filter ("ProcessId={0}" -f $processId) -ErrorAction Stop
+      $process = Get-CimInstance Win32_Process -Filter ("ProcessId={0}" -f $processId) -ErrorAction SilentlyContinue
+      if (-not $process) { continue }
       $commandLine = [string]$process.CommandLine
-      if ($commandLine -notmatch 'launcher-dashboard\.(mjs|ps1)') { continue }
+      if ($commandLine -and $commandLine -notmatch 'launcher-dashboard\.(mjs|ps1)') { continue }
       Write-BrokerLog("Cerrando dashboard no responsivo en puerto $candidatePort (pid=$processId).")
       Stop-Process -Id $processId -Force -ErrorAction SilentlyContinue
     } catch {

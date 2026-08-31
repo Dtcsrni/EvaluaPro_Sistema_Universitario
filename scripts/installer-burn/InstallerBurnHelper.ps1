@@ -715,7 +715,7 @@ function Invoke-PostInstall {
   }
   & $powerShellPath -NoProfile -ExecutionPolicy Bypass -File $shortcutScript `
     -OutputDir 'accesos-directos' -Force `
-    -Port ([int](Get-RequestValue -Request $requestJson -Names @('puertoApi', 'Port') -DefaultValue 4000))
+    -Port 4519
   if ($LASTEXITCODE -ne 0) {
     throw "No se pudieron crear accesos directos/manifiesto de instalación (exit=$LASTEXITCODE)."
   }
