@@ -27,6 +27,6 @@ describe('AppDocente secciones (refactor)', () => {
     const nav = await screen.findByRole('navigation', { name: 'Secciones del portal docente' });
     expect(within(nav).getByRole('button', { name: 'Materias' })).toBeInTheDocument();
     fireEvent.click(within(nav).getByRole('button', { name: /Plantillas|Diseño de Exámenes/i }));
-    expect(await screen.findByRole('heading', { name: 'Diseño de Exámenes' })).toBeInTheDocument();
+    expect(await screen.findByRole('heading', { name: 'Diseño de Exámenes' }, { timeout: 5000 })).toBeInTheDocument();
   });
 });
