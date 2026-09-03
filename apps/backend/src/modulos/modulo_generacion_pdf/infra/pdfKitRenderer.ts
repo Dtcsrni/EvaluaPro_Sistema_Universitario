@@ -1908,7 +1908,7 @@ export class PdfKitRenderer {
       // y dejar la siguiente visualmente vacia. El rango editorial conserva
       // entre 10 y 15 reactivos cuando el contenido lo permite.
       const objetivoBalance = Math.ceil(preguntasRestantesIncluyendoActual / paginasRestantesIncluyendoActual);
-      let topePaginaActual = Math.max(minimoPlanificado, Math.min(maxPreguntasPorPagina, objetivoBalance));
+      const topePaginaActual = Math.max(minimoPlanificado, Math.min(maxPreguntasPorPagina, objetivoBalance));
       const planPagina: Array<{ indice: number; altura: number }> = [];
       let yPlanPagina = cursorY;
       const recalcularPlanPagina = () => {
