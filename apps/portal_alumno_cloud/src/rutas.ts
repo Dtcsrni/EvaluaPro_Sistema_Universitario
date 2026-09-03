@@ -453,7 +453,7 @@ router.post('/sincronizar', async (req, res) => {
     );
   }
 
-  // Read-model académico para portal alumno (TV3 ready).
+  // Read-model académico para portal alumno.
   const perfilLista = Array.isArray(perfilAlumno) ? perfilAlumno : [];
   for (const item of perfilLista) {
     const alumnoId = String((item as { alumnoId?: unknown }).alumnoId ?? '').trim();
