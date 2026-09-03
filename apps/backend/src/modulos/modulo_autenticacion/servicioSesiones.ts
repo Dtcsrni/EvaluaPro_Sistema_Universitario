@@ -23,6 +23,10 @@ function hashToken(token: string) {
   return crypto.createHash('sha256').update(token).digest('hex');
 }
 
+export function debeUsarCookieRefreshSecure(entorno: string, flavorId: string) {
+  return entorno === 'production' && flavorId.trim().toLowerCase() !== 'docente-local';
+}
+
 function leerCookie(req: Request, nombre: string): string | null {
   const header = req.headers.cookie;
   if (!header) return null;
@@ -46,7 +50,10 @@ function leerCookie(req: Request, nombre: string): string | null {
 function opcionesCookieRefresh() {
   return {
     httpOnly: true,
-    secure: configuracion.entorno === 'production',
+    // La edición docente-local se sirve por HTTP en 127.0.0.1. Una cookie
+    // Secure no se almacena ni se envía en ese transporte, rompiendo la
+    // recuperación automática de la sesión después de reiniciar la app.
+    secure: debeUsarCookieRefreshSecure(configuracion.entorno, configuracion.flavorId),
     sameSite: 'lax' as const,
     path: '/api/autenticacion',
     maxAge: msDias(configuracion.refreshTokenDias)
