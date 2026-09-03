@@ -27,13 +27,14 @@ No editar a mano: los cambios se pisan al regenerar.
 - [INVENTARIO_PROYECTO.md](INVENTARIO_PROYECTO.md) — Inventario Tecnico del Proyecto
 - [MANUAL_USUARIO_DOCENTE.md](MANUAL_USUARIO_DOCENTE.md) — Manual de Usuario | EvaluaPro (Flavor Docente)
 - [MANUAL_UX_CAPTURES.md](MANUAL_UX_CAPTURES.md) — Manual UX/UI de EvaluaPro - Capturas de E2E
-- [OMR_GATE_RUNBOOK.md](OMR_GATE_RUNBOOK.md) — Runbook OMR TV Gate
+- [OMR_GATE_RUNBOOK.md](OMR_GATE_RUNBOOK.md) — Runbook OMR canónico
 - [OPERACION_EXAMEN_GLOBAL_PROD.md](OPERACION_EXAMEN_GLOBAL_PROD.md) — Operacion de Examen Global en Produccion
 - [OPERATIONAL_SAFE_REBOOT_POLICY.md](OPERATIONAL_SAFE_REBOOT_POLICY.md)
 - [PILOTO_DIA0_CHECKLIST.md](PILOTO_DIA0_CHECKLIST.md) — Checklist Operativo Dia 0 (Piloto Hibrido)
 - [POLITICA_ECONOMIA_TOKENS_CODEX.md](POLITICA_ECONOMIA_TOKENS_CODEX.md) — Politica Repo-Local de Economia de Tokens para Codex
 - [POLITICA_OPTIMIZACION_RECURSOS.md](POLITICA_OPTIMIZACION_RECURSOS.md) — POLITICA_OPTIMIZACION_RECURSOS
 - [POLITICA_SDD.md](POLITICA_SDD.md) — Política de Spec-Driven Development (SDD)
+- [POLITICA_VERSIONES_CANONICAS.md](POLITICA_VERSIONES_CANONICAS.md) — Política de versiones canónicas
 - [PROCESO_GLOBAL_CURSO_INICIADO.md](PROCESO_GLOBAL_CURSO_INICIADO.md) — Proceso estandar para global desde curso iniciado
 - [PRUEBAS.md](PRUEBAS.md) — Pruebas automatizadas
 - [QA_GATE_CRITERIA.md](QA_GATE_CRITERIA.md) — QA Gate Criteria (`1.0.0-beta.0`)

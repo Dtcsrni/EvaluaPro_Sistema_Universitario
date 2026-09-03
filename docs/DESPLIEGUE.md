@@ -68,6 +68,7 @@ Backend docente local:
 - `PASSWORD_RESET_URL_BASE`
 - `GOOGLE_OAUTH_CLIENT_ID` (si se habilita login Google)
 - `REQUIRE_GOOGLE_OAUTH` (`0`/`1`, exige claves Google/Classroom cuando esta en `1`)
+- `EVALUAPRO_BACKUP_CIFRADO_SECRETO` (secreto compartido entre instalaciones que usen snapshots locales con Google; nunca publicarlo)
 - `GOOGLE_CLASSROOM_CLIENT_ID` (si se habilita Classroom)
 - `GOOGLE_CLASSROOM_CLIENT_SECRET` (si se habilita Classroom)
 - `GOOGLE_CLASSROOM_REDIRECT_URI` (si se habilita Classroom)

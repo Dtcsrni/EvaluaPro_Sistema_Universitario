@@ -96,9 +96,9 @@ Asegurar confiabilidad funcional y de seguridad del sistema completo en cada cam
 - `npm run test:compliance:dsr-flow`
 - `npm run compliance:evidence:generate`
 
-Seleccion de baseline TV activa:
-- por defecto el runner usa `tv3`
-- para cambiar de baseline sin renombrar el gate CI usar `OMR_TV_GATE_VERSION=tv4 npm run test:omr:tv:gate:ci`
+Gate OMR vigente:
+- el runner usa exclusivamente el contrato canónico
+- ejecutar `npm run test:omr:canonical:gate:ci`
 
 ### Gate de promocion estable (tag v* sin prerelease)
 - `npm run release:validate:stable -- --version=<version>`
@@ -174,7 +174,7 @@ npm run test:ci
 - El backend mantiene una bateria amplia de pruebas de contrato e integracion.
 - OMR tiene pruebas unitarias especificas (doble marca, burbuja hueca, trazos lineales, colorimetria).
 - Existen pruebas de integracion para QR/OMR y flujo de examen.
-- OMR en produccion se considera TV4-first para generacion y auto-calificacion.
+- OMR en producción utiliza exclusivamente la plantilla canónica para generación y auto-calificación.
 
 ## Evidencia de auditoria instalador/docente (2026-03-03)
 - Reporte consolidado:
