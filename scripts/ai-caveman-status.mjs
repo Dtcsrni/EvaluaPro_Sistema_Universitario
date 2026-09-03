@@ -51,7 +51,9 @@ function hookHasExpectedCommand(hooks) {
 async function hasCavemanPlugin(root) {
   const candidates = [
     process.env.CAVEMAN_PLUGIN_PATH,
+    path.join(root, '.agents', 'skills', 'caveman', 'SKILL.md'),
     path.join(root, '.codex', 'skills', 'caveman', 'SKILL.md'),
+    path.join(os.homedir(), '.agents', 'skills', 'caveman', 'SKILL.md'),
     path.join(os.homedir(), '.codex', 'skills', 'caveman', 'SKILL.md')
   ].filter(Boolean);
   for (const candidate of candidates) {

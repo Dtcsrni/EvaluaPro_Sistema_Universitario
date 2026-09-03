@@ -21,6 +21,16 @@ test('Caveman configured distingue validacion estructural de plugin instalado', 
   assert.equal(report.ready, false);
 });
 
+test('Caveman reconoce la ruta oficial local .agents/skills', async () => {
+  const root = fixture();
+  const skillPath = path.join(root, '.agents', 'skills', 'caveman', 'SKILL.md');
+  fs.mkdirSync(path.dirname(skillPath), { recursive: true });
+  fs.writeFileSync(skillPath, '# Caveman\n', 'utf8');
+  const report = await checkCavemanIntegration(root);
+  assert.equal(report.pluginInstalled, true);
+  assert.equal(report.ready, true);
+});
+
 test('Caveman rechaza hook SessionStart sin comando esperado', async () => {
   const report = await checkCavemanIntegration(fixture('echo caveman'));
   assert.equal(report.hookValid, false);
