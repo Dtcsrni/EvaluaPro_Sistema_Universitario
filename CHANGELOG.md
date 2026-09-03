@@ -5,6 +5,9 @@ Este archivo sigue el formato "Keep a Changelog" (alto nivel) y SemVer.
 ## [Unreleased] - 2026-09-03
 
 ### Added
+- **Purga de legado OMR/PDF:** se retiraron OMR V1, TV3, renderer HTML/fallback anterior,
+  adaptadores V9/V10, datasets TV3 y utilidades temporales heredadas; el flujo activo conserva
+  exclusivamente el contrato canónico TV4 y sus evidencias sintéticas/piloto.
 - **Handoff interoperable multi-proveedor (`SPEC-055`):** envelope JSON compacto y versionado con estado, contexto mínimo, artefactos con SHA-256, sanitización de secretos, validación estricta, idempotencia y política explícita de no ejecución; el estado de Caveman ahora distingue configuración local, plugin instalado y activación verificable.
 - **Instantánea local docente 1:1 (`SPEC-048` v2.0.0):** exportación de la SQLite canónica y `data/examenes` en un único `.ep-snapshot` cifrado con AES-256-GCM. El desbloqueo admite contraseña de cuenta mediante scrypt o reautenticación Google; la importación valida hashes y `PRAGMA integrity_check`, crea respaldo con rollback y conserva separados los flujos cloud push/pull y paquete parcial.
 - **Trabajo coordinado entre equipos (`SPEC-048` v3.0.0):** lease temporal por docente/equipo, renovación automática, modo solo lectura para equipos sin control, snapshots versionados en carpeta sincronizada y acciones `Publicar y liberar` / `Traer última instantánea`. La SQLite permanece local.

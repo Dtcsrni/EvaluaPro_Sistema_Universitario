@@ -1,25 +1,25 @@
 # Inventario Exhaustivo de Codigo
 
-Fecha de generacion: 2026-08-31 03:11:23
+Fecha de generacion: 2026-09-03 02:58:26
 Fuente: git ls-files filtrado por existencia en workspace (solo archivos versionados presentes, excluye node_modules).
 
 ## Resumen
 
-- Total de piezas de codigo/config ejecutable inventariadas: 1334
+- Total de piezas de codigo/config ejecutable inventariadas: 1258
 - Extensiones incluidas: ts, tsx, js, jsx, mjs, cjs, json, yml, yaml, sh, cmd, ps1.
 
 ## Conteo por area
 
 | Area | Archivos |
 | --- | ---: |
-| backend | 415 |
-| frontend | 172 |
+| backend | 376 |
+| frontend | 178 |
 | portal_alumno_cloud | 67 |
 | ci | 17 |
-| scripts | 181 |
+| scripts | 191 |
 | ops | 3 |
-| docs | 338 |
-| raiz | 10 |
+| docs | 340 |
+| raiz | 11 |
 
 ## Backend (apps/backend)
 
@@ -41,26 +41,6 @@ Fuente: git ls-files filtrado por existencia en workspace (solo archivos version
 - apps/backend/scripts/omr-run.ts
 - apps/backend/scripts/omr-sweep-geometria.ts
 - apps/backend/scripts/omr-sweep-umbrales.ts
-- apps/backend/scripts/omr-tv3-analyze-photo-exam-content.ts
-- apps/backend/scripts/omr-tv3-baseline-snapshot.ts
-- apps/backend/scripts/omr-tv3-build-human-review-pack.ts
-- apps/backend/scripts/omr-tv3-build-por-folio-dataset.ts
-- apps/backend/scripts/omr-tv3-calibrate-real.ts
-- apps/backend/scripts/omr-tv3-connect-por-folio-flow.ts
-- apps/backend/scripts/omr-tv3-diagnose-por-folio.ts
-- apps/backend/scripts/omr-tv3-e2e.ts
-- apps/backend/scripts/omr-tv3-eval-golden.ts
-- apps/backend/scripts/omr-tv3-eval-synthetic.ts
-- apps/backend/scripts/omr-tv3-extract-photo-content-ocr-only.ts
-- apps/backend/scripts/omr-tv3-generate-from-finals.ts
-- apps/backend/scripts/omr-tv3-generate-real-golden.ts
-- apps/backend/scripts/omr-tv3-generate-real-manual-min.ts
-- apps/backend/scripts/omr-tv3-generate-synthetic.ts
-- apps/backend/scripts/omr-tv3-human-review-ui.ts
-- apps/backend/scripts/omr-tv3-optimize-synthetic.ts
-- apps/backend/scripts/omr-tv3-synthetic-lib.ts
-- apps/backend/scripts/omr-tv3-validate-por-folio.ts
-- apps/backend/scripts/omr-tv3-validate-real.ts
 - apps/backend/scripts/omr-tv4-build-pilot-real.ts
 - apps/backend/scripts/omr-tv4-diagnose-pilot-real.ts
 - apps/backend/scripts/omr-tv4-eval-synthetic.ts
@@ -69,7 +49,6 @@ Fuente: git ls-files filtrado por existencia en workspace (solo archivos version
 - apps/backend/scripts/omr-tv4-validate-pilot-real.ts
 - apps/backend/scripts/omr-validate-api.js
 - apps/backend/scripts/omr-validate.ts
-- apps/backend/scripts/organizar-omr-por-alumno.ts
 - apps/backend/scripts/recovery-list-bundles.ts
 - apps/backend/scripts/recovery-reconstruct-bundle.ts
 - apps/backend/scripts/recovery-reconstruct-manifest.ts
@@ -190,8 +169,8 @@ Fuente: git ls-files filtrado por existencia en workspace (solo archivos version
 - apps/backend/src/modulos/modulo_compliance/shared/tiposCompliance.ts
 - apps/backend/src/modulos/modulo_compliance/validacionesCompliance.ts
 - apps/backend/src/modulos/modulo_escaneo_omr/controladorEscaneoOmr.ts
+- apps/backend/src/modulos/modulo_escaneo_omr/infra/imagenProcesamientoCanonico.ts
 - apps/backend/src/modulos/modulo_escaneo_omr/infra/imagenProcesamientoCv.ts
-- apps/backend/src/modulos/modulo_escaneo_omr/infra/imagenProcesamientoLegacy.ts
 - apps/backend/src/modulos/modulo_escaneo_omr/infra/omrCvEngine.ts
 - apps/backend/src/modulos/modulo_escaneo_omr/modeloEscaneoOmrArchivado.ts
 - apps/backend/src/modulos/modulo_escaneo_omr/omr/calidad/etapaCalidad.ts
@@ -228,23 +207,14 @@ Fuente: git ls-files filtrado por existencia en workspace (solo archivos version
 - apps/backend/src/modulos/modulo_generacion_pdf/controladorListadoGenerados.ts
 - apps/backend/src/modulos/modulo_generacion_pdf/domain/examenPdf.ts
 - apps/backend/src/modulos/modulo_generacion_pdf/domain/layoutExamen.ts
-- apps/backend/src/modulos/modulo_generacion_pdf/domain/layoutTemplateV10.ts
-- apps/backend/src/modulos/modulo_generacion_pdf/domain/layoutTemplateV9.ts
 - apps/backend/src/modulos/modulo_generacion_pdf/domain/qrExamen.ts
 - apps/backend/src/modulos/modulo_generacion_pdf/domain/recoveryManifest.ts
 - apps/backend/src/modulos/modulo_generacion_pdf/domain/resolverNumeroPaginasPlantilla.ts
-- apps/backend/src/modulos/modulo_generacion_pdf/domain/templateCompat.ts
-- apps/backend/src/modulos/modulo_generacion_pdf/domain/tv3Compat.ts
-- apps/backend/src/modulos/modulo_generacion_pdf/domain/tv4Compat.ts
+- apps/backend/src/modulos/modulo_generacion_pdf/domain/templateCanonico.ts
 - apps/backend/src/modulos/modulo_generacion_pdf/infra/configuracionLayoutEnv.ts
-- apps/backend/src/modulos/modulo_generacion_pdf/infra/html/examHtmlRenderer.ts
-- apps/backend/src/modulos/modulo_generacion_pdf/infra/html/examImageResolver.ts
-- apps/backend/src/modulos/modulo_generacion_pdf/infra/html/examLayoutTokens.ts
-- apps/backend/src/modulos/modulo_generacion_pdf/infra/html/examPlaywrightPdf.ts
-- apps/backend/src/modulos/modulo_generacion_pdf/infra/html/examPrintTemplate.ts
 - apps/backend/src/modulos/modulo_generacion_pdf/infra/pdfKitRenderer.ts
 - apps/backend/src/modulos/modulo_generacion_pdf/infra/pdfVisualBaseline.ts
-- apps/backend/src/modulos/modulo_generacion_pdf/infra/resolverPdfEngine.ts
+- apps/backend/src/modulos/modulo_generacion_pdf/infra/rasterizadorPdfPreview.ts
 - apps/backend/src/modulos/modulo_generacion_pdf/modeloExamenGenerado.ts
 - apps/backend/src/modulos/modulo_generacion_pdf/modeloExamenPlantilla.ts
 - apps/backend/src/modulos/modulo_generacion_pdf/modeloExamenRecoveryBundle.ts
@@ -274,18 +244,6 @@ Fuente: git ls-files filtrado por existencia en workspace (solo archivos version
 - apps/backend/src/modulos/modulo_listas_institucionales/controladorListasInstitucionales.ts
 - apps/backend/src/modulos/modulo_listas_institucionales/rutasListasInstitucionales.ts
 - apps/backend/src/modulos/modulo_listas_institucionales/servicioListasInstitucionales.ts
-- apps/backend/src/modulos/modulo_omr_v1/contratosOmrV1.ts
-- apps/backend/src/modulos/modulo_omr_v1/controladorOmrV1.ts
-- apps/backend/src/modulos/modulo_omr_v1/familiasOmrV1.ts
-- apps/backend/src/modulos/modulo_omr_v1/modeloOmrScanJob.ts
-- apps/backend/src/modulos/modulo_omr_v1/modeloOmrSheetFamily.ts
-- apps/backend/src/modulos/modulo_omr_v1/modeloOmrSheetRevision.ts
-- apps/backend/src/modulos/modulo_omr_v1/rutasAssessmentsV1.ts
-- apps/backend/src/modulos/modulo_omr_v1/rutasOmrV1.ts
-- apps/backend/src/modulos/modulo_omr_v1/seedOmrV1.ts
-- apps/backend/src/modulos/modulo_omr_v1/servicioRenderOmrV1.ts
-- apps/backend/src/modulos/modulo_omr_v1/validacionesOmrV1.ts
-- apps/backend/src/modulos/modulo_omr_v1/workflowOmrV1.ts
 - apps/backend/src/modulos/modulo_papelera/controladorPapelera.ts
 - apps/backend/src/modulos/modulo_papelera/modeloPapelera.ts
 - apps/backend/src/modulos/modulo_papelera/rutasPapelera.ts
@@ -304,11 +262,15 @@ Fuente: git ls-files filtrado por existencia en workspace (solo archivos version
 - apps/backend/src/modulos/modulo_sincronizacion_nube/application/usecases/traerPaquetesServidor.ts
 - apps/backend/src/modulos/modulo_sincronizacion_nube/controladorSincronizacion.ts
 - apps/backend/src/modulos/modulo_sincronizacion_nube/domain/erroresSincronizacion.ts
+- apps/backend/src/modulos/modulo_sincronizacion_nube/domain/instantaneaLocal.ts
+- apps/backend/src/modulos/modulo_sincronizacion_nube/domain/leaseSincronizacion.ts
 - apps/backend/src/modulos/modulo_sincronizacion_nube/domain/paqueteSincronizacion.ts
 - apps/backend/src/modulos/modulo_sincronizacion_nube/domain/portalAcademicoAssembler.ts
+- apps/backend/src/modulos/modulo_sincronizacion_nube/domain/preferenciasSincronizacion.ts
 - apps/backend/src/modulos/modulo_sincronizacion_nube/infra/omrCapturas.ts
 - apps/backend/src/modulos/modulo_sincronizacion_nube/infra/portalSyncClient.ts
 - apps/backend/src/modulos/modulo_sincronizacion_nube/infra/repositoriosSync.ts
+- apps/backend/src/modulos/modulo_sincronizacion_nube/middlewareLeaseSincronizacion.ts
 - apps/backend/src/modulos/modulo_sincronizacion_nube/modeloCodigoAcceso.ts
 - apps/backend/src/modulos/modulo_sincronizacion_nube/modeloSincronizacion.ts
 - apps/backend/src/modulos/modulo_sincronizacion_nube/rutasSincronizacionNube.ts
@@ -376,7 +338,6 @@ Fuente: git ls-files filtrado por existencia en workspace (solo archivos version
 - apps/backend/tests/integracion/hidratacionCursos.test.ts
 - apps/backend/tests/integracion/listaAcademicaContratos.test.ts
 - apps/backend/tests/integracion/listasInstitucionales.test.ts
-- apps/backend/tests/integracion/omrV1Workflow.test.ts
 - apps/backend/tests/integracion/pdfImpresionContrato.test.ts
 - apps/backend/tests/integracion/periodosBorradoDuplicados.test.ts
 - apps/backend/tests/integracion/plantillasCrudYPreview.test.ts
@@ -398,20 +359,15 @@ Fuente: git ls-files filtrado por existencia en workspace (solo archivos version
 - apps/backend/tests/omr.porFolioDataset.test.ts
 - apps/backend/tests/omr.prevalidacion.test.ts
 - apps/backend/tests/omr.test.ts
-- apps/backend/tests/omr.tv3.porFolioValidation.test.ts
-- apps/backend/tests/omr.tv3.realGolden.test.ts
-- apps/backend/tests/omr.v1.workflow.test.ts
 - apps/backend/tests/papelera.controlador.test.ts
 - apps/backend/tests/papelera.servicio.test.ts
-- apps/backend/tests/pdf.engine.resolver.test.ts
+- apps/backend/tests/pdf.canonico.test.ts
+- apps/backend/tests/pdf.ecofont.test.ts
 - apps/backend/tests/pdf.image-formats.test.ts
 - apps/backend/tests/pdf.layout.visual.guard.test.ts
 - apps/backend/tests/pdf.numeroPaginasPlantilla.test.ts
 - apps/backend/tests/pdf.paridad.test.ts
-- apps/backend/tests/pdf.renderer.fallback.test.ts
-- apps/backend/tests/pdf.tv3.compatibilidad.test.ts
 - apps/backend/tests/pdf.tv4.compatibilidad.test.ts
-- apps/backend/tests/pdf.visual.baseline.test.ts
 - apps/backend/tests/porFolioCanonicalSeed.test.ts
 - apps/backend/tests/qr.examen.test.ts
 - apps/backend/tests/rateLimit.test.ts
@@ -422,10 +378,15 @@ Fuente: git ls-files filtrado por existencia en workspace (solo archivos version
 - apps/backend/tests/servicioClassroomGoogle.test.ts
 - apps/backend/tests/servicioCorreo.test.ts
 - apps/backend/tests/servicioEncuadrePdf.test.ts
+- apps/backend/tests/servicioParserTemario.test.ts
+- apps/backend/tests/servicioSesiones.cookie.test.ts
 - apps/backend/tests/setup.ts
 - apps/backend/tests/sincronizacion.backupMeta.test.ts
 - apps/backend/tests/sincronizacion.contrato.test.ts
 - apps/backend/tests/sincronizacion.desde.test.ts
+- apps/backend/tests/sincronizacion.dos-equipos.e2e.test.ts
+- apps/backend/tests/sincronizacion.lease.test.ts
+- apps/backend/tests/sincronizacion.snapshot.test.ts
 - apps/backend/tests/sincronizacion.test.ts
 - apps/backend/tests/sincronizacion.usecases.cobertura.test.ts
 - apps/backend/tests/utils/mongo.test.ts
@@ -474,8 +435,9 @@ Fuente: git ls-files filtrado por existencia en workspace (solo archivos version
 - apps/frontend/src/apps/app_docente/features/plantillas/components/PlantillasHistorialLotes.tsx
 - apps/frontend/src/apps/app_docente/features/plantillas/components/PlantillasListado.tsx
 - apps/frontend/src/apps/app_docente/features/plantillas/components/PlantillasOmrWorkflow.tsx
+- apps/frontend/src/apps/app_docente/features/plantillas/hooks/estimadorDensidadPlantilla.ts
 - apps/frontend/src/apps/app_docente/features/plantillas/hooks/usePlantillasGeneradosActions.ts
-- apps/frontend/src/apps/app_docente/features/plantillas/hooks/usePlantillasOmrV1Actions.ts
+- apps/frontend/src/apps/app_docente/features/plantillas/hooks/usePlantillasOmrActions.ts
 - apps/frontend/src/apps/app_docente/features/plantillas/hooks/usePlantillasPreviewActions.ts
 - apps/frontend/src/apps/app_docente/GuiaAlumnosVisual.tsx
 - apps/frontend/src/apps/app_docente/GuiaAsistenciasVisual.tsx
@@ -506,10 +468,13 @@ Fuente: git ls-files filtrado por existencia en workspace (solo archivos version
 - apps/frontend/src/apps/app_docente/SeccionCalificaciones.tsx
 - apps/frontend/src/apps/app_docente/SeccionCalificar.tsx
 - apps/frontend/src/apps/app_docente/SeccionClassroom.tsx
+- apps/frontend/src/apps/app_docente/SeccionConfiguracionSincronizacion.tsx
 - apps/frontend/src/apps/app_docente/SeccionCuenta.tsx
 - apps/frontend/src/apps/app_docente/SeccionEntregaInterna.tsx
 - apps/frontend/src/apps/app_docente/SeccionEscaneo.tsx
 - apps/frontend/src/apps/app_docente/SeccionEvaluaciones.tsx
+- apps/frontend/src/apps/app_docente/SeccionInstantaneaLocal.tsx
+- apps/frontend/src/apps/app_docente/SeccionLeaseSincronizacion.tsx
 - apps/frontend/src/apps/app_docente/SeccionPaqueteSincronizacion.tsx
 - apps/frontend/src/apps/app_docente/SeccionPeriodos.tsx
 - apps/frontend/src/apps/app_docente/SeccionPlantillas.tsx
@@ -574,6 +539,7 @@ Fuente: git ls-files filtrado por existencia en workspace (solo archivos version
 - apps/frontend/tests/gui.responsive.contract.test.tsx
 - apps/frontend/tests/mensajeInline.test.ts
 - apps/frontend/tests/omrWorkflowState.hooks.test.tsx
+- apps/frontend/tests/plantillas.densidad.test.ts
 - apps/frontend/tests/plantillas.hooks.test.tsx
 - apps/frontend/tests/plantillas.refactor.test.tsx
 - apps/frontend/tests/plantillasGenerados.test.tsx
@@ -609,6 +575,7 @@ Fuente: git ls-files filtrado por existencia en workspace (solo archivos version
 - apps/frontend/tests/ux.visual.test.tsx
 - apps/frontend/tests/versionInfo.helpers.test.tsx
 - apps/frontend/tests/versionInfoPage.test.tsx
+- apps/frontend/tests/vite.config.test.ts
 - apps/frontend/tsconfig.json
 - apps/frontend/tsconfig.node.json
 - apps/frontend/vite.config.ts
@@ -757,6 +724,7 @@ Fuente: git ls-files filtrado por existencia en workspace (solo archivos version
 - scripts/generate-installer-release-manifest.ps1
 - scripts/guard-env-separation.mjs
 - scripts/ia-docblocks.mjs
+- scripts/ia-handoff-envelope.mjs
 - scripts/ia-handoff.mjs
 - scripts/ia-traceability.mjs
 - scripts/icons/generate-all-icons.mjs
@@ -800,6 +768,7 @@ Fuente: git ls-files filtrado por existencia en workspace (solo archivos version
 - scripts/reset-local.mjs
 - scripts/retry.mjs
 - scripts/routes-check.mjs
+- scripts/runtime-env.mjs
 - scripts/sanitize-xlsx-template.ps1
 - scripts/sdd-audit.mjs
 - scripts/security-env-check.mjs
@@ -815,6 +784,7 @@ Fuente: git ls-files filtrado por existencia en workspace (solo archivos version
 - scripts/start-portal-dev.mjs
 - scripts/start-portal-prod.mjs
 - scripts/start-tray.mjs
+- scripts/sync-docente-experimental-mirrors.ps1
 - scripts/testing/check-coverage-exclusions-debt.mjs
 - scripts/testing/check-diff-coverage.mjs
 - scripts/testing/export-anon-fixture.mjs
@@ -826,27 +796,34 @@ Fuente: git ls-files filtrado por existencia en workspace (solo archivos version
 - scripts/testing/run-backend-test-batches.mjs
 - scripts/testing/run-client-proyectos-vite-tests.mjs
 - scripts/testing/run-gate-with-report.mjs
-- scripts/testing/run-omr-tv-gate.mjs
+- scripts/testing/run-omr-canonical-gate.mjs
 - scripts/testing/smoke-live-docente.mjs
 - scripts/testing/start-frontend-e2e-server.mjs
 - scripts/testing/validate-anon-fixture.mjs
 - scripts/tests/affected-ci-resolver.test.mjs
+- scripts/tests/ai-caveman-status.test.mjs
 - scripts/tests/ai-model-router.test.mjs
 - scripts/tests/ai-openai-client.test.mjs
 - scripts/tests/ai-serena-policy-status.test.mjs
+- scripts/tests/app-host-health.contract.test.mjs
+- scripts/tests/app-host-shutdown.contract.test.mjs
 - scripts/tests/backend-coverage-batches.test.mjs
 - scripts/tests/backend-test-batches.test.mjs
 - scripts/tests/ci-workflow-contract.test.mjs
 - scripts/tests/classroom-doctor.test.mjs
 - scripts/tests/classroom-e2e-evidence.test.mjs
+- scripts/tests/dashboard-native-health.contract.test.mjs
 - scripts/tests/dashboard-pwa-contract.test.mjs
 - scripts/tests/dashboard-repair.test.mjs
 - scripts/tests/dashboard-sw.test.mjs
 - scripts/tests/dashboard-ui.test.mjs
+- scripts/tests/docente-experimental-mirrors.test.mjs
 - scripts/tests/env-doctor.test.mjs
 - scripts/tests/flujo-docente-inventado.test.mjs
+- scripts/tests/frontend-performance.contract.test.mjs
 - scripts/tests/gui-design-contract.test.mjs
 - scripts/tests/gui-screen-matrix.test.mjs
+- scripts/tests/ia-handoff-envelope.test.mjs
 - scripts/tests/ia-traceability.test.mjs
 - scripts/tests/installer-flavor-diff-resolver.test.mjs
 - scripts/tests/installer-hub-contract.test.mjs
@@ -854,34 +831,34 @@ Fuente: git ls-files filtrado por existencia en workspace (solo archivos version
 - scripts/tests/installer-hub-lifecycle-contract.test.mjs
 - scripts/tests/installer-hub-ui-lifecycle.ps1
 - scripts/tests/marketing-site.smoke.test.mjs
-- scripts/tests/omr-tv-gate-runner.test.mjs
+- scripts/tests/native-startup.contract.test.mjs
+- scripts/tests/omr-canonical-gate-runner.test.mjs
+- scripts/tests/omr-version-policy.test.mjs
 - scripts/tests/perf-contract.test.mjs
 - scripts/tests/prepare-docente-sqlite.test.mjs
+- scripts/tests/qa-report-writer.contract.test.mjs
 - scripts/tests/release-beta-promotion.test.mjs
 - scripts/tests/release-ci-streak.test.mjs
 - scripts/tests/release-evidence-contract.test.mjs
 - scripts/tests/release-stable-promotion.test.mjs
 - scripts/tests/ruleset-main.test.mjs
 - scripts/tests/run-real-os-e2e.ps1
+- scripts/tests/runtime-env.test.mjs
 - scripts/tests/sdd-audit.test.mjs
 - scripts/tests/security-workflow-policy.test.mjs
 - scripts/tests/seed-docente-dummy.mjs
 - scripts/tests/stabilization-completion-audit.test.mjs
 - scripts/tests/tray-update-action.test.mjs
+- scripts/tests/ui-cards.contract.test.mjs
+- scripts/tests/ui-contrast-audit.mjs
 - scripts/tests/update-api.test.mjs
 - scripts/tests/update-manager.test.mjs
 - scripts/tests/windows-release-smoke.test.mjs
 - scripts/tests/wix-bundle-build.test.mjs
 - scripts/tests/wix-version-policy.test.mjs
-- scripts/tmp_debug_canon_ids.ps1
-- scripts/tmp_debug_preg_sample.ps1
-- scripts/tmp_fix_folios_orden_from_valid_exam.ps1
-- scripts/tmp_generar_banco_examenes_omr.ps1
-- scripts/tmp_reconciliar_folios_orden_omr.ps1
-- scripts/tmp_reconstruir_lote_desde_pdf.ps1
-- scripts/tmp_validar_identidad_lote.ps1
 - scripts/total-installation-wipe.mjs
 - scripts/update-manager.mjs
+- scripts/vite-build-safe.mjs
 - scripts/vscode-prune-extensions.mjs
 - scripts/vscode-tune.mjs
 - scripts/wait-api.mjs
@@ -901,6 +878,7 @@ Fuente: git ls-files filtrado por existencia en workspace (solo archivos version
 - docs/diagramas/mermaid.config.json
 - docs/diagramas/puppeteer.config.json
 - docs/handoff-input.json
+- docs/handoff/handoff.schema.json
 - docs/handoff/sesiones/2026-03-22/audit-sesion-2026-03-22T11-52-57.961Z.json
 - docs/handoff/sesiones/2026-03-22/implementacion-trazabilidad-agnostica.json
 - docs/handoff/sesiones/2026-03-22/sesion-2026-03-22T10-54-43.380Z.json
@@ -1220,6 +1198,7 @@ Fuente: git ls-files filtrado por existencia en workspace (solo archivos version
 - docs/handoff/sesiones/2026-08-30/sesion-2026-08-30T22-16-28.690Z.json
 - docs/handoff/sesiones/2026-08-31/sesion-2026-08-31T00-12-38.165Z.json
 - docs/handoff/sesiones/2026-08-31/sesion-2026-08-31T07-27-29.304Z.json
+- docs/handoff/sesiones/2026-08-31/sesion-2026-08-31T09-11-24.043Z.json
 - docs/handoff/trace.schema.json
 - docs/perf/baseline.business.json
 - docs/perf/baseline.json
@@ -1245,5 +1224,6 @@ Fuente: git ls-files filtrado por existencia en workspace (solo archivos version
 - npm-audit-report.json
 - package-lock.json
 - package.json
+- skills-lock.json
 - tsconfig.base.json
 - vitest.base.ts

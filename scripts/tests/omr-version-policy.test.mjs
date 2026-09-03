@@ -22,8 +22,6 @@ const shellDocente = leer('apps/frontend/src/apps/app_docente/ShellDocente.tsx')
 const omrWorkflow = leer('apps/frontend/src/apps/app_docente/features/plantillas/components/PlantillasOmrWorkflow.tsx');
 const omrActions = leer('apps/frontend/src/apps/app_docente/features/plantillas/hooks/usePlantillasOmrActions.ts');
 const packageJson = leerJson('package.json');
-const backendTsconfig = leer('apps/backend/tsconfig.json');
-const backendVitestConfig = leer('apps/backend/vitest.config.ts');
 
 test('la política declara una única identidad OMR canónica', () => {
   assert.equal(policy.active.templateVersion, 4);
@@ -59,11 +57,28 @@ test('el gate de política está publicado en el contrato raíz', () => {
   assert.equal(packageJson.scripts['test:omr:version-policy'], 'node --test scripts/tests/omr-version-policy.test.mjs');
 });
 
-test('los artefactos históricos OMR se conservan sin entrar en los gates canónicos', () => {
-  assert.match(backendTsconfig, /modulo_omr_v1\/\*\*/);
-  assert.match(backendTsconfig, /infra\/html\/\*\*/);
-  assert.match(backendTsconfig, /templateCompat\.ts/);
-  assert.match(backendVitestConfig, /omr\.tv3\.porFolioValidation\.test\.ts/);
-  assert.match(backendVitestConfig, /omrV1Workflow\.test\.ts/);
-  assert.match(backendVitestConfig, /pdf\.tv4\.compatibilidad\.test\.ts/);
+test('los artefactos históricos OMR/PDF fueron retirados del árbol activo', () => {
+  const removedPaths = [
+    'apps/backend/src/modulos/modulo_escaneo_omr/infra/imagenProcesamientoLegacy.ts',
+    'apps/backend/src/modulos/modulo_generacion_pdf/domain/layoutTemplateV9.ts',
+    'apps/backend/src/modulos/modulo_generacion_pdf/domain/layoutTemplateV10.ts',
+    'apps/backend/src/modulos/modulo_generacion_pdf/domain/templateCompat.ts',
+    'apps/backend/src/modulos/modulo_generacion_pdf/domain/tv3Compat.ts',
+    'apps/backend/src/modulos/modulo_generacion_pdf/domain/tv4Compat.ts',
+    'apps/backend/src/modulos/modulo_generacion_pdf/infra/html',
+    'apps/backend/src/modulos/modulo_generacion_pdf/infra/resolverPdfEngine.ts',
+    'apps/backend/src/modulos/modulo_omr_v1',
+    'apps/backend/scripts/omr-tv3-e2e.ts',
+    'apps/backend/tests/omr.tv3.realGolden.test.ts',
+    'apps/backend/tests/omr.v1.workflow.test.ts',
+    'scripts/testing/run-omr-tv-gate.mjs',
+    'omr_samples_tv3',
+    'omr_samples_tv3_real_manual_min',
+    'omr_samples_tv3_real_por_folio'
+  ];
+  for (const relativePath of removedPaths) {
+    assert.equal(fs.existsSync(path.join(ROOT, relativePath)), false, relativePath);
+  }
+  assert.doesNotMatch(leer('apps/backend/tsconfig.json'), /modulo_omr_v1|layoutTemplateV9|infra\/html/);
+  assert.doesNotMatch(leer('apps/backend/vitest.config.ts'), /omr\.tv3|omr\.v1|pdf\.renderer\.fallback|pdf\.visual\.baseline/);
 });
