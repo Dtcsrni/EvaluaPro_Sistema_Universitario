@@ -542,7 +542,7 @@ public partial class MainWindow : Window
             }
         }
 
-        ProgressEtaTextBlock.Text = "Tiempo restante estimado: ~10 a 20 s (en progreso…)";
+        ProgressEtaTextBlock.Text = "Tiempo restante: verificando etapa actual…";
     }
 
     private static string FormatDuration(int seconds)
