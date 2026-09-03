@@ -5,7 +5,7 @@
 {"captureId":"TV4-SYNTH-001-P1","numeroPregunta":5,"opcionEsperada":"E","markType":"valid","selectedOptions":["E"]}
 {"captureId":"TV4-SYNTH-001-P1","numeroPregunta":6,"opcionEsperada":"A","markType":"valid","selectedOptions":["A"]}
 {"captureId":"TV4-SYNTH-001-P1","numeroPregunta":7,"opcionEsperada":null,"markType":"blank","selectedOptions":[]}
-{"captureId":"TV4-SYNTH-001-P2","numeroPregunta":8,"opcionEsperada":"C","markType":"valid","selectedOptions":["C"]}
+{"captureId":"TV4-SYNTH-001-P1","numeroPregunta":8,"opcionEsperada":"C","markType":"valid","selectedOptions":["C"]}
 {"captureId":"TV4-SYNTH-001-P2","numeroPregunta":9,"opcionEsperada":"D","markType":"valid","selectedOptions":["D"]}
 {"captureId":"TV4-SYNTH-001-P2","numeroPregunta":10,"opcionEsperada":"E","markType":"valid","selectedOptions":["E"]}
 {"captureId":"TV4-SYNTH-001-P2","numeroPregunta":11,"opcionEsperada":"A","markType":"valid","selectedOptions":["A"]}
@@ -13,6 +13,7 @@
 {"captureId":"TV4-SYNTH-001-P2","numeroPregunta":13,"opcionEsperada":"C","markType":"valid","selectedOptions":["C"]}
 {"captureId":"TV4-SYNTH-001-P2","numeroPregunta":14,"opcionEsperada":"D","markType":"valid","selectedOptions":["D"]}
 {"captureId":"TV4-SYNTH-001-P2","numeroPregunta":15,"opcionEsperada":"E","markType":"valid","selectedOptions":["E"]}
+{"captureId":"TV4-SYNTH-001-P2","numeroPregunta":16,"opcionEsperada":"A","markType":"valid","selectedOptions":["A"]}
 {"captureId":"TV4-SYNTH-002-P1","numeroPregunta":1,"opcionEsperada":"A","markType":"valid","selectedOptions":["A"]}
 {"captureId":"TV4-SYNTH-002-P1","numeroPregunta":2,"opcionEsperada":"B","markType":"valid","selectedOptions":["B"]}
 {"captureId":"TV4-SYNTH-002-P1","numeroPregunta":3,"opcionEsperada":"C","markType":"valid","selectedOptions":["C"]}
@@ -20,7 +21,7 @@
 {"captureId":"TV4-SYNTH-002-P1","numeroPregunta":5,"opcionEsperada":"E","markType":"valid","selectedOptions":["E"]}
 {"captureId":"TV4-SYNTH-002-P1","numeroPregunta":6,"opcionEsperada":"A","markType":"valid","selectedOptions":["A"]}
 {"captureId":"TV4-SYNTH-002-P1","numeroPregunta":7,"opcionEsperada":"B","markType":"valid","selectedOptions":["B"]}
-{"captureId":"TV4-SYNTH-002-P2","numeroPregunta":8,"opcionEsperada":"C","markType":"valid","selectedOptions":["C"]}
+{"captureId":"TV4-SYNTH-002-P1","numeroPregunta":8,"opcionEsperada":"C","markType":"valid","selectedOptions":["C"]}
 {"captureId":"TV4-SYNTH-002-P2","numeroPregunta":9,"opcionEsperada":"D","markType":"valid","selectedOptions":["D"]}
 {"captureId":"TV4-SYNTH-002-P2","numeroPregunta":10,"opcionEsperada":"E","markType":"valid","selectedOptions":["E"]}
 {"captureId":"TV4-SYNTH-002-P2","numeroPregunta":11,"opcionEsperada":"A","markType":"valid","selectedOptions":["A"]}
@@ -28,6 +29,7 @@
 {"captureId":"TV4-SYNTH-002-P2","numeroPregunta":13,"opcionEsperada":"C","markType":"valid","selectedOptions":["C"]}
 {"captureId":"TV4-SYNTH-002-P2","numeroPregunta":14,"opcionEsperada":"D","markType":"valid","selectedOptions":["D"]}
 {"captureId":"TV4-SYNTH-002-P2","numeroPregunta":15,"opcionEsperada":"E","markType":"valid","selectedOptions":["E"]}
+{"captureId":"TV4-SYNTH-002-P2","numeroPregunta":16,"opcionEsperada":"A","markType":"valid","selectedOptions":["A"]}
 {"captureId":"TV4-SYNTH-003-P1","numeroPregunta":1,"opcionEsperada":"B","markType":"valid","selectedOptions":["B"]}
 {"captureId":"TV4-SYNTH-003-P1","numeroPregunta":2,"opcionEsperada":"A","markType":"valid","selectedOptions":["A"]}
 {"captureId":"TV4-SYNTH-003-P1","numeroPregunta":3,"opcionEsperada":"C","markType":"valid","selectedOptions":["C"]}
@@ -35,7 +37,7 @@
 {"captureId":"TV4-SYNTH-003-P1","numeroPregunta":5,"opcionEsperada":null,"markType":"double","selectedOptions":["E","A"]}
 {"captureId":"TV4-SYNTH-003-P1","numeroPregunta":6,"opcionEsperada":"A","markType":"valid","selectedOptions":["A"]}
 {"captureId":"TV4-SYNTH-003-P1","numeroPregunta":7,"opcionEsperada":"B","markType":"valid","selectedOptions":["B"]}
-{"captureId":"TV4-SYNTH-003-P2","numeroPregunta":8,"opcionEsperada":"C","markType":"valid","selectedOptions":["C"]}
+{"captureId":"TV4-SYNTH-003-P1","numeroPregunta":8,"opcionEsperada":"C","markType":"valid","selectedOptions":["C"]}
 {"captureId":"TV4-SYNTH-003-P2","numeroPregunta":9,"opcionEsperada":"C","markType":"valid","selectedOptions":["C"]}
 {"captureId":"TV4-SYNTH-003-P2","numeroPregunta":10,"opcionEsperada":"E","markType":"valid","selectedOptions":["E"]}
 {"captureId":"TV4-SYNTH-003-P2","numeroPregunta":11,"opcionEsperada":null,"markType":"smudge","selectedOptions":[]}
@@ -43,6 +45,7 @@
 {"captureId":"TV4-SYNTH-003-P2","numeroPregunta":13,"opcionEsperada":"C","markType":"valid","selectedOptions":["C"]}
 {"captureId":"TV4-SYNTH-003-P2","numeroPregunta":14,"opcionEsperada":"D","markType":"valid","selectedOptions":["D"]}
 {"captureId":"TV4-SYNTH-003-P2","numeroPregunta":15,"opcionEsperada":"E","markType":"valid","selectedOptions":["E"]}
+{"captureId":"TV4-SYNTH-003-P2","numeroPregunta":16,"opcionEsperada":"A","markType":"valid","selectedOptions":["A"]}
 {"captureId":"TV4-SYNTH-004-P1","numeroPregunta":1,"opcionEsperada":"A","markType":"valid","selectedOptions":["A"]}
 {"captureId":"TV4-SYNTH-004-P1","numeroPregunta":2,"opcionEsperada":"B","markType":"valid","selectedOptions":["B"]}
 {"captureId":"TV4-SYNTH-004-P1","numeroPregunta":3,"opcionEsperada":"C","markType":"valid","selectedOptions":["C"]}
@@ -50,7 +53,7 @@
 {"captureId":"TV4-SYNTH-004-P1","numeroPregunta":5,"opcionEsperada":"E","markType":"valid","selectedOptions":["E"]}
 {"captureId":"TV4-SYNTH-004-P1","numeroPregunta":6,"opcionEsperada":"A","markType":"valid","selectedOptions":["A"]}
 {"captureId":"TV4-SYNTH-004-P1","numeroPregunta":7,"opcionEsperada":"B","markType":"valid","selectedOptions":["B"]}
-{"captureId":"TV4-SYNTH-004-P2","numeroPregunta":8,"opcionEsperada":"C","markType":"valid","selectedOptions":["C"]}
+{"captureId":"TV4-SYNTH-004-P1","numeroPregunta":8,"opcionEsperada":"C","markType":"valid","selectedOptions":["C"]}
 {"captureId":"TV4-SYNTH-004-P2","numeroPregunta":9,"opcionEsperada":"D","markType":"valid","selectedOptions":["D"]}
 {"captureId":"TV4-SYNTH-004-P2","numeroPregunta":10,"opcionEsperada":"E","markType":"valid","selectedOptions":["E"]}
 {"captureId":"TV4-SYNTH-004-P2","numeroPregunta":11,"opcionEsperada":"A","markType":"valid","selectedOptions":["A"]}
@@ -58,6 +61,7 @@
 {"captureId":"TV4-SYNTH-004-P2","numeroPregunta":13,"opcionEsperada":"C","markType":"valid","selectedOptions":["C"]}
 {"captureId":"TV4-SYNTH-004-P2","numeroPregunta":14,"opcionEsperada":"D","markType":"valid","selectedOptions":["D"]}
 {"captureId":"TV4-SYNTH-004-P2","numeroPregunta":15,"opcionEsperada":null,"markType":"double","selectedOptions":["E","A"]}
+{"captureId":"TV4-SYNTH-004-P2","numeroPregunta":16,"opcionEsperada":"A","markType":"valid","selectedOptions":["A"]}
 {"captureId":"TV4-SYNTH-005-P1","numeroPregunta":1,"opcionEsperada":"A","markType":"valid","selectedOptions":["A"]}
 {"captureId":"TV4-SYNTH-005-P1","numeroPregunta":2,"opcionEsperada":"B","markType":"valid","selectedOptions":["B"]}
 {"captureId":"TV4-SYNTH-005-P1","numeroPregunta":3,"opcionEsperada":"B","markType":"valid","selectedOptions":["B"]}
@@ -65,7 +69,7 @@
 {"captureId":"TV4-SYNTH-005-P1","numeroPregunta":5,"opcionEsperada":"E","markType":"valid","selectedOptions":["E"]}
 {"captureId":"TV4-SYNTH-005-P1","numeroPregunta":6,"opcionEsperada":"A","markType":"valid","selectedOptions":["A"]}
 {"captureId":"TV4-SYNTH-005-P1","numeroPregunta":7,"opcionEsperada":"B","markType":"valid","selectedOptions":["B"]}
-{"captureId":"TV4-SYNTH-005-P2","numeroPregunta":8,"opcionEsperada":"C","markType":"valid","selectedOptions":["C"]}
+{"captureId":"TV4-SYNTH-005-P1","numeroPregunta":8,"opcionEsperada":"C","markType":"valid","selectedOptions":["C"]}
 {"captureId":"TV4-SYNTH-005-P2","numeroPregunta":9,"opcionEsperada":"D","markType":"valid","selectedOptions":["D"]}
 {"captureId":"TV4-SYNTH-005-P2","numeroPregunta":10,"opcionEsperada":"E","markType":"valid","selectedOptions":["E"]}
 {"captureId":"TV4-SYNTH-005-P2","numeroPregunta":11,"opcionEsperada":null,"markType":"double","selectedOptions":["A","B"]}
@@ -73,6 +77,7 @@
 {"captureId":"TV4-SYNTH-005-P2","numeroPregunta":13,"opcionEsperada":"C","markType":"valid","selectedOptions":["C"]}
 {"captureId":"TV4-SYNTH-005-P2","numeroPregunta":14,"opcionEsperada":"D","markType":"valid","selectedOptions":["D"]}
 {"captureId":"TV4-SYNTH-005-P2","numeroPregunta":15,"opcionEsperada":"E","markType":"valid","selectedOptions":["E"]}
+{"captureId":"TV4-SYNTH-005-P2","numeroPregunta":16,"opcionEsperada":null,"markType":"smudge","selectedOptions":[]}
 {"captureId":"TV4-SYNTH-006-P1","numeroPregunta":1,"opcionEsperada":"A","markType":"valid","selectedOptions":["A"]}
 {"captureId":"TV4-SYNTH-006-P1","numeroPregunta":2,"opcionEsperada":null,"markType":"double","selectedOptions":["B","A"]}
 {"captureId":"TV4-SYNTH-006-P1","numeroPregunta":3,"opcionEsperada":"C","markType":"valid","selectedOptions":["C"]}
@@ -80,7 +85,7 @@
 {"captureId":"TV4-SYNTH-006-P1","numeroPregunta":5,"opcionEsperada":"E","markType":"valid","selectedOptions":["E"]}
 {"captureId":"TV4-SYNTH-006-P1","numeroPregunta":6,"opcionEsperada":"A","markType":"valid","selectedOptions":["A"]}
 {"captureId":"TV4-SYNTH-006-P1","numeroPregunta":7,"opcionEsperada":"B","markType":"valid","selectedOptions":["B"]}
-{"captureId":"TV4-SYNTH-006-P2","numeroPregunta":8,"opcionEsperada":"C","markType":"valid","selectedOptions":["C"]}
+{"captureId":"TV4-SYNTH-006-P1","numeroPregunta":8,"opcionEsperada":"C","markType":"valid","selectedOptions":["C"]}
 {"captureId":"TV4-SYNTH-006-P2","numeroPregunta":9,"opcionEsperada":null,"markType":"double","selectedOptions":["D","A"]}
 {"captureId":"TV4-SYNTH-006-P2","numeroPregunta":10,"opcionEsperada":"E","markType":"valid","selectedOptions":["E"]}
 {"captureId":"TV4-SYNTH-006-P2","numeroPregunta":11,"opcionEsperada":"A","markType":"valid","selectedOptions":["A"]}
@@ -88,3 +93,4 @@
 {"captureId":"TV4-SYNTH-006-P2","numeroPregunta":13,"opcionEsperada":"C","markType":"valid","selectedOptions":["C"]}
 {"captureId":"TV4-SYNTH-006-P2","numeroPregunta":14,"opcionEsperada":"D","markType":"valid","selectedOptions":["D"]}
 {"captureId":"TV4-SYNTH-006-P2","numeroPregunta":15,"opcionEsperada":"E","markType":"valid","selectedOptions":["E"]}
+{"captureId":"TV4-SYNTH-006-P2","numeroPregunta":16,"opcionEsperada":"A","markType":"valid","selectedOptions":["A"]}

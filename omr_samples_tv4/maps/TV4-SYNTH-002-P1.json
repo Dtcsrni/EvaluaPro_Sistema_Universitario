@@ -1,889 +1,3487 @@
 {
   "numeroPagina": 1,
+  "markerSpec": {
+    "family": "solid_square_4pt_v1",
+    "sizeMm": 1.5,
+    "quietZoneMm": 0.5
+  },
+  "engineHints": {
+    "preferredEngine": "cv",
+    "enableClahe": true,
+    "adaptiveThreshold": true,
+    "conservativeDecision": true,
+    "forceSimpleScale": true,
+    "useMapCoordinatesStrict": false
+  },
   "qr": {
-    "texto": "EXAMEN:TV4-SYNTH-002:P1:TV4:KI:QR-H1-V1:TQ:16:QD:1:QH:7:VH:9F7964074B97:AK:60B424D5475B:QV:A41F34.29EE3A.9041AD.4F439E.325111.C735EB.C8C6C8:OV:01234.01234.01234.01234.01234.01234.01234:SG:H1ECE0043757DCA9EB356D52AF",
-    "x": 505.5,
-    "y": 30,
-    "size": 78,
-    "padding": 6
+    "texto": "EXAMEN:TV4-SYNTH-002:P1:TV4:KI:QR-H1-V1:TQ:16:VH:9F7964074B97:AK:60B424D5475B:QV:A41F34.29EE3A.9041AD.4F439E.325111.C735EB.C8C6C8.C577A8.CE6936.FC76D2.039979.9981C4.9ABA7F.52E9F1.CF7C48.2EBFBA:OV:01234.01234.01234.01234.01234.01234.01234.01234.01234.01234.01234.01234.01234.01234.01234.01234:SG:H1BE8149DE7D1FE1558651793C",
+    "x": 497.28346456692907,
+    "y": 679.2834645669291,
+    "size": 70.86614173228347,
+    "padding": 8.503937007874017
   },
   "marcasPagina": {
-    "tipo": "cuadrados",
-    "size": 10.5,
-    "quietZone": 2.25,
+    "tipo": "lineas",
+    "size": 16.440944881889767,
+    "quietZone": 2.2677165354330713,
     "tl": {
-      "x": 28.5,
-      "y": 28.5
+      "x": 28.34645669291339,
+      "y": 763.6535433070866
     },
     "tr": {
-      "x": 573,
-      "y": 28.5
+      "x": 583.6535433070866,
+      "y": 763.6535433070866
     },
     "bl": {
-      "x": 28.5,
-      "y": 753
+      "x": 28.34645669291339,
+      "y": 28.34645669291339
     },
     "br": {
-      "x": 573,
-      "y": 753
+      "x": 583.6535433070866,
+      "y": 28.34645669291339
     }
   },
   "preguntas": [
     {
       "numeroPregunta": 1,
       "idPregunta": "tv4-q1",
+      "bboxPregunta": {
+        "x": 28.34645669291339,
+        "y": 516.7716535433071,
+        "width": 548.3070866141732,
+        "height": 56.96062992125985
+      },
       "opciones": [
         {
           "letra": "A",
-          "x": 543.75,
-          "y": 153
+          "x": 470.7867456631397,
+          "y": 546.532283464567
         },
         {
           "letra": "B",
-          "x": 543.75,
-          "y": 164.25
+          "x": 492.82917768823813,
+          "y": 546.532283464567
         },
         {
           "letra": "C",
-          "x": 543.75,
-          "y": 175.5
+          "x": 514.8716097133365,
+          "y": 546.532283464567
         },
         {
           "letra": "D",
-          "x": 543.75,
-          "y": 186.75
+          "x": 536.914041738435,
+          "y": 546.532283464567
         },
         {
           "letra": "E",
-          "x": 543.75,
-          "y": 198
+          "x": 558.9564737635334,
+          "y": 546.532283464567
         }
       ],
       "textRuns": [
         {
           "tipo": "texto",
-          "fuente": "Helvetica-Bold",
-          "size": 11.25,
-          "lineHeight": 14.25,
+          "fuente": "Helvetica",
+          "size": 10.6,
+          "lineHeight": 13.2,
           "bbox": {
-            "x": 51,
-            "y": 133.5,
-            "width": 439.5,
-            "height": 42.75
+            "x": 50.34645669291339,
+            "y": 573.732283464567,
+            "width": 48.08818359375,
+            "height": 13.2
+          }
+        },
+        {
+          "tipo": "texto",
+          "fuente": "Helvetica",
+          "size": 10.6,
+          "lineHeight": 13.2,
+          "bbox": {
+            "x": 98.4346402866634,
+            "y": 573.732283464567,
+            "width": 3.36943359375,
+            "height": 13.2
+          }
+        },
+        {
+          "tipo": "texto",
+          "fuente": "Helvetica",
+          "size": 10.6,
+          "lineHeight": 13.2,
+          "bbox": {
+            "x": 101.8040738804134,
+            "y": 573.732283464567,
+            "width": 20.47021484375,
+            "height": 13.2
+          }
+        },
+        {
+          "tipo": "texto",
+          "fuente": "Helvetica",
+          "size": 10.6,
+          "lineHeight": 13.2,
+          "bbox": {
+            "x": 122.2742887241634,
+            "y": 573.732283464567,
+            "width": 3.36943359375,
+            "height": 13.2
+          }
+        },
+        {
+          "tipo": "texto",
+          "fuente": "Helvetica",
+          "size": 10.6,
+          "lineHeight": 13.2,
+          "bbox": {
+            "x": 125.6437223179134,
+            "y": 573.732283464567,
+            "width": 10.31533203125,
+            "height": 13.2
+          }
+        },
+        {
+          "tipo": "texto",
+          "fuente": "Helvetica",
+          "size": 10.6,
+          "lineHeight": 13.2,
+          "bbox": {
+            "x": 135.9590543491634,
+            "y": 573.732283464567,
+            "width": 3.36943359375,
+            "height": 13.2
+          }
+        },
+        {
+          "tipo": "texto",
+          "fuente": "Helvetica",
+          "size": 10.6,
+          "lineHeight": 13.2,
+          "bbox": {
+            "x": 139.3284879429134,
+            "y": 573.732283464567,
+            "width": 55.81044921875,
+            "height": 13.2
+          }
+        },
+        {
+          "tipo": "texto",
+          "fuente": "Helvetica",
+          "size": 10.6,
+          "lineHeight": 13.2,
+          "bbox": {
+            "x": 195.1389371616634,
+            "y": 573.732283464567,
+            "width": 3.36943359375,
+            "height": 13.2
+          }
+        },
+        {
+          "tipo": "texto",
+          "fuente": "Helvetica",
+          "size": 10.6,
+          "lineHeight": 13.2,
+          "bbox": {
+            "x": 198.50837075541338,
+            "y": 573.732283464567,
+            "width": 9.440625,
+            "height": 13.2
+          }
+        },
+        {
+          "tipo": "texto",
+          "fuente": "Helvetica",
+          "size": 10.6,
+          "lineHeight": 13.2,
+          "bbox": {
+            "x": 207.9489957554134,
+            "y": 573.732283464567,
+            "width": 3.36943359375,
+            "height": 13.2
+          }
+        },
+        {
+          "tipo": "texto",
+          "fuente": "Helvetica",
+          "size": 10.6,
+          "lineHeight": 13.2,
+          "bbox": {
+            "x": 211.31842934916338,
+            "y": 573.732283464567,
+            "width": 35.19013671875,
+            "height": 13.2
+          }
+        },
+        {
+          "tipo": "texto",
+          "fuente": "Helvetica",
+          "size": 10.6,
+          "lineHeight": 13.2,
+          "bbox": {
+            "x": 246.50856606791336,
+            "y": 573.732283464567,
+            "width": 3.36943359375,
+            "height": 13.2
+          }
+        },
+        {
+          "tipo": "texto",
+          "fuente": "Helvetica",
+          "size": 10.6,
+          "lineHeight": 13.2,
+          "bbox": {
+            "x": 249.87799966166335,
+            "y": 573.732283464567,
+            "width": 47.3998046875,
+            "height": 13.2
+          }
+        },
+        {
+          "tipo": "texto",
+          "fuente": "Helvetica",
+          "size": 9,
+          "lineHeight": 11.4,
+          "bbox": {
+            "x": 61.84845669291339,
+            "y": 560.532283464567,
+            "width": 31.456054687499996,
+            "height": 11.4
+          }
+        },
+        {
+          "tipo": "texto",
+          "fuente": "Helvetica",
+          "size": 9,
+          "lineHeight": 11.4,
+          "bbox": {
+            "x": 93.30451138041339,
+            "y": 560.532283464567,
+            "width": 2.86083984375,
+            "height": 11.4
+          }
+        },
+        {
+          "tipo": "texto",
+          "fuente": "Helvetica",
+          "size": 9,
+          "lineHeight": 11.4,
+          "bbox": {
+            "x": 96.16535122416339,
+            "y": 560.532283464567,
+            "width": 6.156738281249999,
+            "height": 11.4
+          }
+        },
+        {
+          "tipo": "texto",
+          "fuente": "Helvetica",
+          "size": 9,
+          "lineHeight": 11.4,
+          "bbox": {
+            "x": 61.84845669291339,
+            "y": 548.332283464567,
+            "width": 31.456054687499996,
+            "height": 11.4
+          }
+        },
+        {
+          "tipo": "texto",
+          "fuente": "Helvetica",
+          "size": 9,
+          "lineHeight": 11.4,
+          "bbox": {
+            "x": 93.30451138041339,
+            "y": 548.332283464567,
+            "width": 2.86083984375,
+            "height": 11.4
+          }
+        },
+        {
+          "tipo": "texto",
+          "fuente": "Helvetica",
+          "size": 9,
+          "lineHeight": 11.4,
+          "bbox": {
+            "x": 96.16535122416339,
+            "y": 548.332283464567,
+            "width": 6.174316406249999,
+            "height": 11.4
+          }
+        },
+        {
+          "tipo": "texto",
+          "fuente": "Helvetica",
+          "size": 9,
+          "lineHeight": 11.4,
+          "bbox": {
+            "x": 192.61748556430447,
+            "y": 560.532283464567,
+            "width": 31.456054687499996,
+            "height": 11.4
+          }
+        },
+        {
+          "tipo": "texto",
+          "fuente": "Helvetica",
+          "size": 9,
+          "lineHeight": 11.4,
+          "bbox": {
+            "x": 224.07354025180447,
+            "y": 560.532283464567,
+            "width": 2.86083984375,
+            "height": 11.4
+          }
+        },
+        {
+          "tipo": "texto",
+          "fuente": "Helvetica",
+          "size": 9,
+          "lineHeight": 11.4,
+          "bbox": {
+            "x": 226.93438009555447,
+            "y": 560.532283464567,
+            "width": 6.284179687499999,
+            "height": 11.4
+          }
+        },
+        {
+          "tipo": "texto",
+          "fuente": "Helvetica",
+          "size": 9,
+          "lineHeight": 11.4,
+          "bbox": {
+            "x": 192.61748556430447,
+            "y": 548.332283464567,
+            "width": 31.456054687499996,
+            "height": 11.4
+          }
+        },
+        {
+          "tipo": "texto",
+          "fuente": "Helvetica",
+          "size": 9,
+          "lineHeight": 11.4,
+          "bbox": {
+            "x": 224.07354025180447,
+            "y": 548.332283464567,
+            "width": 2.86083984375,
+            "height": 11.4
+          }
+        },
+        {
+          "tipo": "texto",
+          "fuente": "Helvetica",
+          "size": 9,
+          "lineHeight": 11.4,
+          "bbox": {
+            "x": 226.93438009555447,
+            "y": 548.332283464567,
+            "width": 6.930175781249999,
+            "height": 11.4
+          }
+        },
+        {
+          "tipo": "texto",
+          "fuente": "Helvetica",
+          "size": 9,
+          "lineHeight": 11.4,
+          "bbox": {
+            "x": 323.3865144356956,
+            "y": 560.532283464567,
+            "width": 31.456054687499996,
+            "height": 11.4
+          }
+        },
+        {
+          "tipo": "texto",
+          "fuente": "Helvetica",
+          "size": 9,
+          "lineHeight": 11.4,
+          "bbox": {
+            "x": 354.8425691231956,
+            "y": 560.532283464567,
+            "width": 2.86083984375,
+            "height": 11.4
+          }
+        },
+        {
+          "tipo": "texto",
+          "fuente": "Helvetica",
+          "size": 9,
+          "lineHeight": 11.4,
+          "bbox": {
+            "x": 357.7034089669456,
+            "y": 560.532283464567,
+            "width": 5.6865234375,
+            "height": 11.4
           }
         }
       ],
-      "bboxPregunta": {
-        "x": 21,
-        "y": 133.5,
-        "width": 570,
-        "height": 78
-      },
       "cajaOmr": {
-        "x": 525,
-        "y": 135,
-        "width": 66,
-        "height": 75
+        "x": 444.6535433070866,
+        "y": 534.7291338582677,
+        "width": 132,
+        "height": 31.606299212598515
       },
       "perfilOmr": {
-        "radio": 6,
-        "pasoY": 11.25,
-        "cajaAncho": 66
+        "radio": 6.803149606299213,
+        "pasoY": 11.055118110236222,
+        "cajaAncho": 132
       },
       "fiduciales": {
         "leftTop": {
-          "x": 531,
-          "y": 141
+          "x": 449.39685039370073,
+          "y": 561.592125984252
         },
         "leftBottom": {
-          "x": 531,
-          "y": 204
+          "x": 449.39685039370073,
+          "y": 539.4724409448819
         },
         "rightTop": {
-          "x": 585,
-          "y": 141
+          "x": 571.9102362204724,
+          "y": 561.592125984252
         },
         "rightBottom": {
-          "x": 585,
-          "y": 204
-        },
-        "leftMid": {
-          "x": 531,
-          "y": 172.5
-        },
-        "rightMid": {
-          "x": 585,
-          "y": 172.5
+          "x": 571.9102362204724,
+          "y": 539.4724409448819
         }
       }
     },
     {
       "numeroPregunta": 2,
       "idPregunta": "tv4-q2",
+      "bboxPregunta": {
+        "x": 28.34645669291339,
+        "y": 457.81102362204734,
+        "width": 548.3070866141732,
+        "height": 56.960629921259795
+      },
       "opciones": [
         {
           "letra": "A",
-          "x": 543.75,
-          "y": 235.5
+          "x": 470.7867456631397,
+          "y": 487.57165354330715
         },
         {
           "letra": "B",
-          "x": 543.75,
-          "y": 246.75
+          "x": 492.82917768823813,
+          "y": 487.57165354330715
         },
         {
           "letra": "C",
-          "x": 543.75,
-          "y": 258
+          "x": 514.8716097133365,
+          "y": 487.57165354330715
         },
         {
           "letra": "D",
-          "x": 543.75,
-          "y": 269.25
+          "x": 536.914041738435,
+          "y": 487.57165354330715
         },
         {
           "letra": "E",
-          "x": 543.75,
-          "y": 280.5
+          "x": 558.9564737635334,
+          "y": 487.57165354330715
         }
       ],
       "textRuns": [
         {
           "tipo": "texto",
-          "fuente": "Helvetica-Bold",
-          "size": 11.25,
-          "lineHeight": 14.25,
+          "fuente": "Helvetica",
+          "size": 10.6,
+          "lineHeight": 13.2,
           "bbox": {
-            "x": 51,
-            "y": 216,
-            "width": 439.5,
-            "height": 42.75
+            "x": 50.34645669291339,
+            "y": 514.7716535433071,
+            "width": 48.08818359375,
+            "height": 13.2
+          }
+        },
+        {
+          "tipo": "texto",
+          "fuente": "Helvetica",
+          "size": 10.6,
+          "lineHeight": 13.2,
+          "bbox": {
+            "x": 98.4346402866634,
+            "y": 514.7716535433071,
+            "width": 3.36943359375,
+            "height": 13.2
+          }
+        },
+        {
+          "tipo": "texto",
+          "fuente": "Helvetica",
+          "size": 10.6,
+          "lineHeight": 13.2,
+          "bbox": {
+            "x": 101.8040738804134,
+            "y": 514.7716535433071,
+            "width": 20.47021484375,
+            "height": 13.2
+          }
+        },
+        {
+          "tipo": "texto",
+          "fuente": "Helvetica",
+          "size": 10.6,
+          "lineHeight": 13.2,
+          "bbox": {
+            "x": 122.2742887241634,
+            "y": 514.7716535433071,
+            "width": 3.36943359375,
+            "height": 13.2
+          }
+        },
+        {
+          "tipo": "texto",
+          "fuente": "Helvetica",
+          "size": 10.6,
+          "lineHeight": 13.2,
+          "bbox": {
+            "x": 125.6437223179134,
+            "y": 514.7716535433071,
+            "width": 10.31533203125,
+            "height": 13.2
+          }
+        },
+        {
+          "tipo": "texto",
+          "fuente": "Helvetica",
+          "size": 10.6,
+          "lineHeight": 13.2,
+          "bbox": {
+            "x": 135.9590543491634,
+            "y": 514.7716535433071,
+            "width": 3.36943359375,
+            "height": 13.2
+          }
+        },
+        {
+          "tipo": "texto",
+          "fuente": "Helvetica",
+          "size": 10.6,
+          "lineHeight": 13.2,
+          "bbox": {
+            "x": 139.3284879429134,
+            "y": 514.7716535433071,
+            "width": 55.81044921875,
+            "height": 13.2
+          }
+        },
+        {
+          "tipo": "texto",
+          "fuente": "Helvetica",
+          "size": 10.6,
+          "lineHeight": 13.2,
+          "bbox": {
+            "x": 195.1389371616634,
+            "y": 514.7716535433071,
+            "width": 3.36943359375,
+            "height": 13.2
+          }
+        },
+        {
+          "tipo": "texto",
+          "fuente": "Helvetica",
+          "size": 10.6,
+          "lineHeight": 13.2,
+          "bbox": {
+            "x": 198.50837075541338,
+            "y": 514.7716535433071,
+            "width": 9.440625,
+            "height": 13.2
+          }
+        },
+        {
+          "tipo": "texto",
+          "fuente": "Helvetica",
+          "size": 10.6,
+          "lineHeight": 13.2,
+          "bbox": {
+            "x": 207.9489957554134,
+            "y": 514.7716535433071,
+            "width": 3.36943359375,
+            "height": 13.2
+          }
+        },
+        {
+          "tipo": "texto",
+          "fuente": "Helvetica",
+          "size": 10.6,
+          "lineHeight": 13.2,
+          "bbox": {
+            "x": 211.31842934916338,
+            "y": 514.7716535433071,
+            "width": 35.19013671875,
+            "height": 13.2
+          }
+        },
+        {
+          "tipo": "texto",
+          "fuente": "Helvetica",
+          "size": 10.6,
+          "lineHeight": 13.2,
+          "bbox": {
+            "x": 246.50856606791336,
+            "y": 514.7716535433071,
+            "width": 3.36943359375,
+            "height": 13.2
+          }
+        },
+        {
+          "tipo": "texto",
+          "fuente": "Helvetica",
+          "size": 10.6,
+          "lineHeight": 13.2,
+          "bbox": {
+            "x": 249.87799966166335,
+            "y": 514.7716535433071,
+            "width": 47.3998046875,
+            "height": 13.2
+          }
+        },
+        {
+          "tipo": "texto",
+          "fuente": "Helvetica",
+          "size": 9,
+          "lineHeight": 11.4,
+          "bbox": {
+            "x": 61.84845669291339,
+            "y": 501.57165354330715,
+            "width": 31.456054687499996,
+            "height": 11.4
+          }
+        },
+        {
+          "tipo": "texto",
+          "fuente": "Helvetica",
+          "size": 9,
+          "lineHeight": 11.4,
+          "bbox": {
+            "x": 93.30451138041339,
+            "y": 501.57165354330715,
+            "width": 2.86083984375,
+            "height": 11.4
+          }
+        },
+        {
+          "tipo": "texto",
+          "fuente": "Helvetica",
+          "size": 9,
+          "lineHeight": 11.4,
+          "bbox": {
+            "x": 96.16535122416339,
+            "y": 501.57165354330715,
+            "width": 6.156738281249999,
+            "height": 11.4
+          }
+        },
+        {
+          "tipo": "texto",
+          "fuente": "Helvetica",
+          "size": 9,
+          "lineHeight": 11.4,
+          "bbox": {
+            "x": 61.84845669291339,
+            "y": 489.37165354330716,
+            "width": 31.456054687499996,
+            "height": 11.4
+          }
+        },
+        {
+          "tipo": "texto",
+          "fuente": "Helvetica",
+          "size": 9,
+          "lineHeight": 11.4,
+          "bbox": {
+            "x": 93.30451138041339,
+            "y": 489.37165354330716,
+            "width": 2.86083984375,
+            "height": 11.4
+          }
+        },
+        {
+          "tipo": "texto",
+          "fuente": "Helvetica",
+          "size": 9,
+          "lineHeight": 11.4,
+          "bbox": {
+            "x": 96.16535122416339,
+            "y": 489.37165354330716,
+            "width": 6.174316406249999,
+            "height": 11.4
+          }
+        },
+        {
+          "tipo": "texto",
+          "fuente": "Helvetica",
+          "size": 9,
+          "lineHeight": 11.4,
+          "bbox": {
+            "x": 192.61748556430447,
+            "y": 501.57165354330715,
+            "width": 31.456054687499996,
+            "height": 11.4
+          }
+        },
+        {
+          "tipo": "texto",
+          "fuente": "Helvetica",
+          "size": 9,
+          "lineHeight": 11.4,
+          "bbox": {
+            "x": 224.07354025180447,
+            "y": 501.57165354330715,
+            "width": 2.86083984375,
+            "height": 11.4
+          }
+        },
+        {
+          "tipo": "texto",
+          "fuente": "Helvetica",
+          "size": 9,
+          "lineHeight": 11.4,
+          "bbox": {
+            "x": 226.93438009555447,
+            "y": 501.57165354330715,
+            "width": 6.284179687499999,
+            "height": 11.4
+          }
+        },
+        {
+          "tipo": "texto",
+          "fuente": "Helvetica",
+          "size": 9,
+          "lineHeight": 11.4,
+          "bbox": {
+            "x": 192.61748556430447,
+            "y": 489.37165354330716,
+            "width": 31.456054687499996,
+            "height": 11.4
+          }
+        },
+        {
+          "tipo": "texto",
+          "fuente": "Helvetica",
+          "size": 9,
+          "lineHeight": 11.4,
+          "bbox": {
+            "x": 224.07354025180447,
+            "y": 489.37165354330716,
+            "width": 2.86083984375,
+            "height": 11.4
+          }
+        },
+        {
+          "tipo": "texto",
+          "fuente": "Helvetica",
+          "size": 9,
+          "lineHeight": 11.4,
+          "bbox": {
+            "x": 226.93438009555447,
+            "y": 489.37165354330716,
+            "width": 6.930175781249999,
+            "height": 11.4
+          }
+        },
+        {
+          "tipo": "texto",
+          "fuente": "Helvetica",
+          "size": 9,
+          "lineHeight": 11.4,
+          "bbox": {
+            "x": 323.3865144356956,
+            "y": 501.57165354330715,
+            "width": 31.456054687499996,
+            "height": 11.4
+          }
+        },
+        {
+          "tipo": "texto",
+          "fuente": "Helvetica",
+          "size": 9,
+          "lineHeight": 11.4,
+          "bbox": {
+            "x": 354.8425691231956,
+            "y": 501.57165354330715,
+            "width": 2.86083984375,
+            "height": 11.4
+          }
+        },
+        {
+          "tipo": "texto",
+          "fuente": "Helvetica",
+          "size": 9,
+          "lineHeight": 11.4,
+          "bbox": {
+            "x": 357.7034089669456,
+            "y": 501.57165354330715,
+            "width": 5.6865234375,
+            "height": 11.4
           }
         }
       ],
-      "bboxPregunta": {
-        "x": 21,
-        "y": 216,
-        "width": 570,
-        "height": 78
-      },
       "cajaOmr": {
-        "x": 525,
-        "y": 217.5,
-        "width": 66,
-        "height": 75
+        "x": 444.6535433070866,
+        "y": 475.76850393700795,
+        "width": 132,
+        "height": 31.6062992125984
       },
       "perfilOmr": {
-        "radio": 6,
-        "pasoY": 11.25,
-        "cajaAncho": 66
+        "radio": 6.803149606299213,
+        "pasoY": 11.055118110236222,
+        "cajaAncho": 132
       },
       "fiduciales": {
         "leftTop": {
-          "x": 531,
-          "y": 223.5
+          "x": 449.39685039370073,
+          "y": 502.6314960629922
         },
         "leftBottom": {
-          "x": 531,
-          "y": 286.5
+          "x": 449.39685039370073,
+          "y": 480.5118110236221
         },
         "rightTop": {
-          "x": 585,
-          "y": 223.5
+          "x": 571.9102362204724,
+          "y": 502.6314960629922
         },
         "rightBottom": {
-          "x": 585,
-          "y": 286.5
-        },
-        "leftMid": {
-          "x": 531,
-          "y": 255
-        },
-        "rightMid": {
-          "x": 585,
-          "y": 255
+          "x": 571.9102362204724,
+          "y": 480.5118110236221
         }
       }
     },
     {
       "numeroPregunta": 3,
       "idPregunta": "tv4-q3",
+      "bboxPregunta": {
+        "x": 28.34645669291339,
+        "y": 398.8503937007875,
+        "width": 548.3070866141732,
+        "height": 56.96062992125985
+      },
       "opciones": [
         {
           "letra": "A",
-          "x": 543.75,
-          "y": 318
+          "x": 470.7867456631397,
+          "y": 428.61102362204736
         },
         {
           "letra": "B",
-          "x": 543.75,
-          "y": 329.25
+          "x": 492.82917768823813,
+          "y": 428.61102362204736
         },
         {
           "letra": "C",
-          "x": 543.75,
-          "y": 340.5
+          "x": 514.8716097133365,
+          "y": 428.61102362204736
         },
         {
           "letra": "D",
-          "x": 543.75,
-          "y": 351.75
+          "x": 536.914041738435,
+          "y": 428.61102362204736
         },
         {
           "letra": "E",
-          "x": 543.75,
-          "y": 363
+          "x": 558.9564737635334,
+          "y": 428.61102362204736
         }
       ],
       "textRuns": [
         {
           "tipo": "texto",
-          "fuente": "Helvetica-Bold",
-          "size": 11.25,
-          "lineHeight": 14.25,
+          "fuente": "Helvetica",
+          "size": 10.6,
+          "lineHeight": 13.2,
           "bbox": {
-            "x": 51,
-            "y": 298.5,
-            "width": 439.5,
-            "height": 42.75
+            "x": 50.34645669291339,
+            "y": 455.81102362204734,
+            "width": 48.08818359375,
+            "height": 13.2
+          }
+        },
+        {
+          "tipo": "texto",
+          "fuente": "Helvetica",
+          "size": 10.6,
+          "lineHeight": 13.2,
+          "bbox": {
+            "x": 98.4346402866634,
+            "y": 455.81102362204734,
+            "width": 3.36943359375,
+            "height": 13.2
+          }
+        },
+        {
+          "tipo": "texto",
+          "fuente": "Helvetica",
+          "size": 10.6,
+          "lineHeight": 13.2,
+          "bbox": {
+            "x": 101.8040738804134,
+            "y": 455.81102362204734,
+            "width": 20.47021484375,
+            "height": 13.2
+          }
+        },
+        {
+          "tipo": "texto",
+          "fuente": "Helvetica",
+          "size": 10.6,
+          "lineHeight": 13.2,
+          "bbox": {
+            "x": 122.2742887241634,
+            "y": 455.81102362204734,
+            "width": 3.36943359375,
+            "height": 13.2
+          }
+        },
+        {
+          "tipo": "texto",
+          "fuente": "Helvetica",
+          "size": 10.6,
+          "lineHeight": 13.2,
+          "bbox": {
+            "x": 125.6437223179134,
+            "y": 455.81102362204734,
+            "width": 10.31533203125,
+            "height": 13.2
+          }
+        },
+        {
+          "tipo": "texto",
+          "fuente": "Helvetica",
+          "size": 10.6,
+          "lineHeight": 13.2,
+          "bbox": {
+            "x": 135.9590543491634,
+            "y": 455.81102362204734,
+            "width": 3.36943359375,
+            "height": 13.2
+          }
+        },
+        {
+          "tipo": "texto",
+          "fuente": "Helvetica",
+          "size": 10.6,
+          "lineHeight": 13.2,
+          "bbox": {
+            "x": 139.3284879429134,
+            "y": 455.81102362204734,
+            "width": 55.81044921875,
+            "height": 13.2
+          }
+        },
+        {
+          "tipo": "texto",
+          "fuente": "Helvetica",
+          "size": 10.6,
+          "lineHeight": 13.2,
+          "bbox": {
+            "x": 195.1389371616634,
+            "y": 455.81102362204734,
+            "width": 3.36943359375,
+            "height": 13.2
+          }
+        },
+        {
+          "tipo": "texto",
+          "fuente": "Helvetica",
+          "size": 10.6,
+          "lineHeight": 13.2,
+          "bbox": {
+            "x": 198.50837075541338,
+            "y": 455.81102362204734,
+            "width": 9.440625,
+            "height": 13.2
+          }
+        },
+        {
+          "tipo": "texto",
+          "fuente": "Helvetica",
+          "size": 10.6,
+          "lineHeight": 13.2,
+          "bbox": {
+            "x": 207.9489957554134,
+            "y": 455.81102362204734,
+            "width": 3.36943359375,
+            "height": 13.2
+          }
+        },
+        {
+          "tipo": "texto",
+          "fuente": "Helvetica",
+          "size": 10.6,
+          "lineHeight": 13.2,
+          "bbox": {
+            "x": 211.31842934916338,
+            "y": 455.81102362204734,
+            "width": 35.19013671875,
+            "height": 13.2
+          }
+        },
+        {
+          "tipo": "texto",
+          "fuente": "Helvetica",
+          "size": 10.6,
+          "lineHeight": 13.2,
+          "bbox": {
+            "x": 246.50856606791336,
+            "y": 455.81102362204734,
+            "width": 3.36943359375,
+            "height": 13.2
+          }
+        },
+        {
+          "tipo": "texto",
+          "fuente": "Helvetica",
+          "size": 10.6,
+          "lineHeight": 13.2,
+          "bbox": {
+            "x": 249.87799966166335,
+            "y": 455.81102362204734,
+            "width": 47.3998046875,
+            "height": 13.2
+          }
+        },
+        {
+          "tipo": "texto",
+          "fuente": "Helvetica",
+          "size": 9,
+          "lineHeight": 11.4,
+          "bbox": {
+            "x": 61.84845669291339,
+            "y": 442.61102362204736,
+            "width": 31.456054687499996,
+            "height": 11.4
+          }
+        },
+        {
+          "tipo": "texto",
+          "fuente": "Helvetica",
+          "size": 9,
+          "lineHeight": 11.4,
+          "bbox": {
+            "x": 93.30451138041339,
+            "y": 442.61102362204736,
+            "width": 2.86083984375,
+            "height": 11.4
+          }
+        },
+        {
+          "tipo": "texto",
+          "fuente": "Helvetica",
+          "size": 9,
+          "lineHeight": 11.4,
+          "bbox": {
+            "x": 96.16535122416339,
+            "y": 442.61102362204736,
+            "width": 6.156738281249999,
+            "height": 11.4
+          }
+        },
+        {
+          "tipo": "texto",
+          "fuente": "Helvetica",
+          "size": 9,
+          "lineHeight": 11.4,
+          "bbox": {
+            "x": 61.84845669291339,
+            "y": 430.41102362204737,
+            "width": 31.456054687499996,
+            "height": 11.4
+          }
+        },
+        {
+          "tipo": "texto",
+          "fuente": "Helvetica",
+          "size": 9,
+          "lineHeight": 11.4,
+          "bbox": {
+            "x": 93.30451138041339,
+            "y": 430.41102362204737,
+            "width": 2.86083984375,
+            "height": 11.4
+          }
+        },
+        {
+          "tipo": "texto",
+          "fuente": "Helvetica",
+          "size": 9,
+          "lineHeight": 11.4,
+          "bbox": {
+            "x": 96.16535122416339,
+            "y": 430.41102362204737,
+            "width": 6.174316406249999,
+            "height": 11.4
+          }
+        },
+        {
+          "tipo": "texto",
+          "fuente": "Helvetica",
+          "size": 9,
+          "lineHeight": 11.4,
+          "bbox": {
+            "x": 192.61748556430447,
+            "y": 442.61102362204736,
+            "width": 31.456054687499996,
+            "height": 11.4
+          }
+        },
+        {
+          "tipo": "texto",
+          "fuente": "Helvetica",
+          "size": 9,
+          "lineHeight": 11.4,
+          "bbox": {
+            "x": 224.07354025180447,
+            "y": 442.61102362204736,
+            "width": 2.86083984375,
+            "height": 11.4
+          }
+        },
+        {
+          "tipo": "texto",
+          "fuente": "Helvetica",
+          "size": 9,
+          "lineHeight": 11.4,
+          "bbox": {
+            "x": 226.93438009555447,
+            "y": 442.61102362204736,
+            "width": 6.284179687499999,
+            "height": 11.4
+          }
+        },
+        {
+          "tipo": "texto",
+          "fuente": "Helvetica",
+          "size": 9,
+          "lineHeight": 11.4,
+          "bbox": {
+            "x": 192.61748556430447,
+            "y": 430.41102362204737,
+            "width": 31.456054687499996,
+            "height": 11.4
+          }
+        },
+        {
+          "tipo": "texto",
+          "fuente": "Helvetica",
+          "size": 9,
+          "lineHeight": 11.4,
+          "bbox": {
+            "x": 224.07354025180447,
+            "y": 430.41102362204737,
+            "width": 2.86083984375,
+            "height": 11.4
+          }
+        },
+        {
+          "tipo": "texto",
+          "fuente": "Helvetica",
+          "size": 9,
+          "lineHeight": 11.4,
+          "bbox": {
+            "x": 226.93438009555447,
+            "y": 430.41102362204737,
+            "width": 6.930175781249999,
+            "height": 11.4
+          }
+        },
+        {
+          "tipo": "texto",
+          "fuente": "Helvetica",
+          "size": 9,
+          "lineHeight": 11.4,
+          "bbox": {
+            "x": 323.3865144356956,
+            "y": 442.61102362204736,
+            "width": 31.456054687499996,
+            "height": 11.4
+          }
+        },
+        {
+          "tipo": "texto",
+          "fuente": "Helvetica",
+          "size": 9,
+          "lineHeight": 11.4,
+          "bbox": {
+            "x": 354.8425691231956,
+            "y": 442.61102362204736,
+            "width": 2.86083984375,
+            "height": 11.4
+          }
+        },
+        {
+          "tipo": "texto",
+          "fuente": "Helvetica",
+          "size": 9,
+          "lineHeight": 11.4,
+          "bbox": {
+            "x": 357.7034089669456,
+            "y": 442.61102362204736,
+            "width": 5.6865234375,
+            "height": 11.4
           }
         }
       ],
-      "bboxPregunta": {
-        "x": 21,
-        "y": 298.5,
-        "width": 570,
-        "height": 78
-      },
       "cajaOmr": {
-        "x": 525,
-        "y": 300,
-        "width": 66,
-        "height": 75
+        "x": 444.6535433070866,
+        "y": 416.80787401574815,
+        "width": 132,
+        "height": 31.6062992125984
       },
       "perfilOmr": {
-        "radio": 6,
-        "pasoY": 11.25,
-        "cajaAncho": 66
+        "radio": 6.803149606299213,
+        "pasoY": 11.055118110236222,
+        "cajaAncho": 132
       },
       "fiduciales": {
         "leftTop": {
-          "x": 531,
-          "y": 306
+          "x": 449.39685039370073,
+          "y": 443.6708661417324
         },
         "leftBottom": {
-          "x": 531,
-          "y": 369
+          "x": 449.39685039370073,
+          "y": 421.5511811023623
         },
         "rightTop": {
-          "x": 585,
-          "y": 306
+          "x": 571.9102362204724,
+          "y": 443.6708661417324
         },
         "rightBottom": {
-          "x": 585,
-          "y": 369
-        },
-        "leftMid": {
-          "x": 531,
-          "y": 337.5
-        },
-        "rightMid": {
-          "x": 585,
-          "y": 337.5
+          "x": 571.9102362204724,
+          "y": 421.5511811023623
         }
       }
     },
     {
       "numeroPregunta": 4,
       "idPregunta": "tv4-q4",
+      "bboxPregunta": {
+        "x": 28.34645669291339,
+        "y": 339.88976377952764,
+        "width": 548.3070866141732,
+        "height": 56.96062992125985
+      },
       "opciones": [
         {
           "letra": "A",
-          "x": 543.75,
-          "y": 400.5
+          "x": 470.7867456631397,
+          "y": 369.6503937007875
         },
         {
           "letra": "B",
-          "x": 543.75,
-          "y": 411.75
+          "x": 492.82917768823813,
+          "y": 369.6503937007875
         },
         {
           "letra": "C",
-          "x": 543.75,
-          "y": 423
+          "x": 514.8716097133365,
+          "y": 369.6503937007875
         },
         {
           "letra": "D",
-          "x": 543.75,
-          "y": 434.25
+          "x": 536.914041738435,
+          "y": 369.6503937007875
         },
         {
           "letra": "E",
-          "x": 543.75,
-          "y": 445.5
+          "x": 558.9564737635334,
+          "y": 369.6503937007875
         }
       ],
       "textRuns": [
         {
           "tipo": "texto",
-          "fuente": "Helvetica-Bold",
-          "size": 11.25,
-          "lineHeight": 14.25,
+          "fuente": "Helvetica",
+          "size": 10.6,
+          "lineHeight": 13.2,
           "bbox": {
-            "x": 51,
-            "y": 381,
-            "width": 439.5,
-            "height": 42.75
+            "x": 50.34645669291339,
+            "y": 396.8503937007875,
+            "width": 48.08818359375,
+            "height": 13.2
+          }
+        },
+        {
+          "tipo": "texto",
+          "fuente": "Helvetica",
+          "size": 10.6,
+          "lineHeight": 13.2,
+          "bbox": {
+            "x": 98.4346402866634,
+            "y": 396.8503937007875,
+            "width": 3.36943359375,
+            "height": 13.2
+          }
+        },
+        {
+          "tipo": "texto",
+          "fuente": "Helvetica",
+          "size": 10.6,
+          "lineHeight": 13.2,
+          "bbox": {
+            "x": 101.8040738804134,
+            "y": 396.8503937007875,
+            "width": 20.47021484375,
+            "height": 13.2
+          }
+        },
+        {
+          "tipo": "texto",
+          "fuente": "Helvetica",
+          "size": 10.6,
+          "lineHeight": 13.2,
+          "bbox": {
+            "x": 122.2742887241634,
+            "y": 396.8503937007875,
+            "width": 3.36943359375,
+            "height": 13.2
+          }
+        },
+        {
+          "tipo": "texto",
+          "fuente": "Helvetica",
+          "size": 10.6,
+          "lineHeight": 13.2,
+          "bbox": {
+            "x": 125.6437223179134,
+            "y": 396.8503937007875,
+            "width": 10.31533203125,
+            "height": 13.2
+          }
+        },
+        {
+          "tipo": "texto",
+          "fuente": "Helvetica",
+          "size": 10.6,
+          "lineHeight": 13.2,
+          "bbox": {
+            "x": 135.9590543491634,
+            "y": 396.8503937007875,
+            "width": 3.36943359375,
+            "height": 13.2
+          }
+        },
+        {
+          "tipo": "texto",
+          "fuente": "Helvetica",
+          "size": 10.6,
+          "lineHeight": 13.2,
+          "bbox": {
+            "x": 139.3284879429134,
+            "y": 396.8503937007875,
+            "width": 55.81044921875,
+            "height": 13.2
+          }
+        },
+        {
+          "tipo": "texto",
+          "fuente": "Helvetica",
+          "size": 10.6,
+          "lineHeight": 13.2,
+          "bbox": {
+            "x": 195.1389371616634,
+            "y": 396.8503937007875,
+            "width": 3.36943359375,
+            "height": 13.2
+          }
+        },
+        {
+          "tipo": "texto",
+          "fuente": "Helvetica",
+          "size": 10.6,
+          "lineHeight": 13.2,
+          "bbox": {
+            "x": 198.50837075541338,
+            "y": 396.8503937007875,
+            "width": 9.440625,
+            "height": 13.2
+          }
+        },
+        {
+          "tipo": "texto",
+          "fuente": "Helvetica",
+          "size": 10.6,
+          "lineHeight": 13.2,
+          "bbox": {
+            "x": 207.9489957554134,
+            "y": 396.8503937007875,
+            "width": 3.36943359375,
+            "height": 13.2
+          }
+        },
+        {
+          "tipo": "texto",
+          "fuente": "Helvetica",
+          "size": 10.6,
+          "lineHeight": 13.2,
+          "bbox": {
+            "x": 211.31842934916338,
+            "y": 396.8503937007875,
+            "width": 35.19013671875,
+            "height": 13.2
+          }
+        },
+        {
+          "tipo": "texto",
+          "fuente": "Helvetica",
+          "size": 10.6,
+          "lineHeight": 13.2,
+          "bbox": {
+            "x": 246.50856606791336,
+            "y": 396.8503937007875,
+            "width": 3.36943359375,
+            "height": 13.2
+          }
+        },
+        {
+          "tipo": "texto",
+          "fuente": "Helvetica",
+          "size": 10.6,
+          "lineHeight": 13.2,
+          "bbox": {
+            "x": 249.87799966166335,
+            "y": 396.8503937007875,
+            "width": 47.3998046875,
+            "height": 13.2
+          }
+        },
+        {
+          "tipo": "texto",
+          "fuente": "Helvetica",
+          "size": 9,
+          "lineHeight": 11.4,
+          "bbox": {
+            "x": 61.84845669291339,
+            "y": 383.6503937007875,
+            "width": 31.456054687499996,
+            "height": 11.4
+          }
+        },
+        {
+          "tipo": "texto",
+          "fuente": "Helvetica",
+          "size": 9,
+          "lineHeight": 11.4,
+          "bbox": {
+            "x": 93.30451138041339,
+            "y": 383.6503937007875,
+            "width": 2.86083984375,
+            "height": 11.4
+          }
+        },
+        {
+          "tipo": "texto",
+          "fuente": "Helvetica",
+          "size": 9,
+          "lineHeight": 11.4,
+          "bbox": {
+            "x": 96.16535122416339,
+            "y": 383.6503937007875,
+            "width": 6.156738281249999,
+            "height": 11.4
+          }
+        },
+        {
+          "tipo": "texto",
+          "fuente": "Helvetica",
+          "size": 9,
+          "lineHeight": 11.4,
+          "bbox": {
+            "x": 61.84845669291339,
+            "y": 371.4503937007875,
+            "width": 31.456054687499996,
+            "height": 11.4
+          }
+        },
+        {
+          "tipo": "texto",
+          "fuente": "Helvetica",
+          "size": 9,
+          "lineHeight": 11.4,
+          "bbox": {
+            "x": 93.30451138041339,
+            "y": 371.4503937007875,
+            "width": 2.86083984375,
+            "height": 11.4
+          }
+        },
+        {
+          "tipo": "texto",
+          "fuente": "Helvetica",
+          "size": 9,
+          "lineHeight": 11.4,
+          "bbox": {
+            "x": 96.16535122416339,
+            "y": 371.4503937007875,
+            "width": 6.174316406249999,
+            "height": 11.4
+          }
+        },
+        {
+          "tipo": "texto",
+          "fuente": "Helvetica",
+          "size": 9,
+          "lineHeight": 11.4,
+          "bbox": {
+            "x": 192.61748556430447,
+            "y": 383.6503937007875,
+            "width": 31.456054687499996,
+            "height": 11.4
+          }
+        },
+        {
+          "tipo": "texto",
+          "fuente": "Helvetica",
+          "size": 9,
+          "lineHeight": 11.4,
+          "bbox": {
+            "x": 224.07354025180447,
+            "y": 383.6503937007875,
+            "width": 2.86083984375,
+            "height": 11.4
+          }
+        },
+        {
+          "tipo": "texto",
+          "fuente": "Helvetica",
+          "size": 9,
+          "lineHeight": 11.4,
+          "bbox": {
+            "x": 226.93438009555447,
+            "y": 383.6503937007875,
+            "width": 6.284179687499999,
+            "height": 11.4
+          }
+        },
+        {
+          "tipo": "texto",
+          "fuente": "Helvetica",
+          "size": 9,
+          "lineHeight": 11.4,
+          "bbox": {
+            "x": 192.61748556430447,
+            "y": 371.4503937007875,
+            "width": 31.456054687499996,
+            "height": 11.4
+          }
+        },
+        {
+          "tipo": "texto",
+          "fuente": "Helvetica",
+          "size": 9,
+          "lineHeight": 11.4,
+          "bbox": {
+            "x": 224.07354025180447,
+            "y": 371.4503937007875,
+            "width": 2.86083984375,
+            "height": 11.4
+          }
+        },
+        {
+          "tipo": "texto",
+          "fuente": "Helvetica",
+          "size": 9,
+          "lineHeight": 11.4,
+          "bbox": {
+            "x": 226.93438009555447,
+            "y": 371.4503937007875,
+            "width": 6.930175781249999,
+            "height": 11.4
+          }
+        },
+        {
+          "tipo": "texto",
+          "fuente": "Helvetica",
+          "size": 9,
+          "lineHeight": 11.4,
+          "bbox": {
+            "x": 323.3865144356956,
+            "y": 383.6503937007875,
+            "width": 31.456054687499996,
+            "height": 11.4
+          }
+        },
+        {
+          "tipo": "texto",
+          "fuente": "Helvetica",
+          "size": 9,
+          "lineHeight": 11.4,
+          "bbox": {
+            "x": 354.8425691231956,
+            "y": 383.6503937007875,
+            "width": 2.86083984375,
+            "height": 11.4
+          }
+        },
+        {
+          "tipo": "texto",
+          "fuente": "Helvetica",
+          "size": 9,
+          "lineHeight": 11.4,
+          "bbox": {
+            "x": 357.7034089669456,
+            "y": 383.6503937007875,
+            "width": 5.6865234375,
+            "height": 11.4
           }
         }
       ],
-      "bboxPregunta": {
-        "x": 21,
-        "y": 381,
-        "width": 570,
-        "height": 78
-      },
       "cajaOmr": {
-        "x": 525,
-        "y": 382.5,
-        "width": 66,
-        "height": 75
+        "x": 444.6535433070866,
+        "y": 357.8472440944883,
+        "width": 132,
+        "height": 31.6062992125984
       },
       "perfilOmr": {
-        "radio": 6,
-        "pasoY": 11.25,
-        "cajaAncho": 66
+        "radio": 6.803149606299213,
+        "pasoY": 11.055118110236222,
+        "cajaAncho": 132
       },
       "fiduciales": {
         "leftTop": {
-          "x": 531,
-          "y": 388.5
+          "x": 449.39685039370073,
+          "y": 384.71023622047255
         },
         "leftBottom": {
-          "x": 531,
-          "y": 451.5
+          "x": 449.39685039370073,
+          "y": 362.59055118110246
         },
         "rightTop": {
-          "x": 585,
-          "y": 388.5
+          "x": 571.9102362204724,
+          "y": 384.71023622047255
         },
         "rightBottom": {
-          "x": 585,
-          "y": 451.5
-        },
-        "leftMid": {
-          "x": 531,
-          "y": 420
-        },
-        "rightMid": {
-          "x": 585,
-          "y": 420
+          "x": 571.9102362204724,
+          "y": 362.59055118110246
         }
       }
     },
     {
       "numeroPregunta": 5,
       "idPregunta": "tv4-q5",
+      "bboxPregunta": {
+        "x": 28.34645669291339,
+        "y": 280.9291338582678,
+        "width": 548.3070866141732,
+        "height": 56.96062992125985
+      },
       "opciones": [
         {
           "letra": "A",
-          "x": 543.75,
-          "y": 483
+          "x": 470.7867456631397,
+          "y": 310.68976377952765
         },
         {
           "letra": "B",
-          "x": 543.75,
-          "y": 494.25
+          "x": 492.82917768823813,
+          "y": 310.68976377952765
         },
         {
           "letra": "C",
-          "x": 543.75,
-          "y": 505.5
+          "x": 514.8716097133365,
+          "y": 310.68976377952765
         },
         {
           "letra": "D",
-          "x": 543.75,
-          "y": 516.75
+          "x": 536.914041738435,
+          "y": 310.68976377952765
         },
         {
           "letra": "E",
-          "x": 543.75,
-          "y": 528
+          "x": 558.9564737635334,
+          "y": 310.68976377952765
         }
       ],
       "textRuns": [
         {
           "tipo": "texto",
-          "fuente": "Helvetica-Bold",
-          "size": 11.25,
-          "lineHeight": 14.25,
+          "fuente": "Helvetica",
+          "size": 10.6,
+          "lineHeight": 13.2,
           "bbox": {
-            "x": 51,
-            "y": 463.5,
-            "width": 439.5,
-            "height": 42.75
+            "x": 50.34645669291339,
+            "y": 337.88976377952764,
+            "width": 48.08818359375,
+            "height": 13.2
+          }
+        },
+        {
+          "tipo": "texto",
+          "fuente": "Helvetica",
+          "size": 10.6,
+          "lineHeight": 13.2,
+          "bbox": {
+            "x": 98.4346402866634,
+            "y": 337.88976377952764,
+            "width": 3.36943359375,
+            "height": 13.2
+          }
+        },
+        {
+          "tipo": "texto",
+          "fuente": "Helvetica",
+          "size": 10.6,
+          "lineHeight": 13.2,
+          "bbox": {
+            "x": 101.8040738804134,
+            "y": 337.88976377952764,
+            "width": 20.47021484375,
+            "height": 13.2
+          }
+        },
+        {
+          "tipo": "texto",
+          "fuente": "Helvetica",
+          "size": 10.6,
+          "lineHeight": 13.2,
+          "bbox": {
+            "x": 122.2742887241634,
+            "y": 337.88976377952764,
+            "width": 3.36943359375,
+            "height": 13.2
+          }
+        },
+        {
+          "tipo": "texto",
+          "fuente": "Helvetica",
+          "size": 10.6,
+          "lineHeight": 13.2,
+          "bbox": {
+            "x": 125.6437223179134,
+            "y": 337.88976377952764,
+            "width": 10.31533203125,
+            "height": 13.2
+          }
+        },
+        {
+          "tipo": "texto",
+          "fuente": "Helvetica",
+          "size": 10.6,
+          "lineHeight": 13.2,
+          "bbox": {
+            "x": 135.9590543491634,
+            "y": 337.88976377952764,
+            "width": 3.36943359375,
+            "height": 13.2
+          }
+        },
+        {
+          "tipo": "texto",
+          "fuente": "Helvetica",
+          "size": 10.6,
+          "lineHeight": 13.2,
+          "bbox": {
+            "x": 139.3284879429134,
+            "y": 337.88976377952764,
+            "width": 55.81044921875,
+            "height": 13.2
+          }
+        },
+        {
+          "tipo": "texto",
+          "fuente": "Helvetica",
+          "size": 10.6,
+          "lineHeight": 13.2,
+          "bbox": {
+            "x": 195.1389371616634,
+            "y": 337.88976377952764,
+            "width": 3.36943359375,
+            "height": 13.2
+          }
+        },
+        {
+          "tipo": "texto",
+          "fuente": "Helvetica",
+          "size": 10.6,
+          "lineHeight": 13.2,
+          "bbox": {
+            "x": 198.50837075541338,
+            "y": 337.88976377952764,
+            "width": 9.440625,
+            "height": 13.2
+          }
+        },
+        {
+          "tipo": "texto",
+          "fuente": "Helvetica",
+          "size": 10.6,
+          "lineHeight": 13.2,
+          "bbox": {
+            "x": 207.9489957554134,
+            "y": 337.88976377952764,
+            "width": 3.36943359375,
+            "height": 13.2
+          }
+        },
+        {
+          "tipo": "texto",
+          "fuente": "Helvetica",
+          "size": 10.6,
+          "lineHeight": 13.2,
+          "bbox": {
+            "x": 211.31842934916338,
+            "y": 337.88976377952764,
+            "width": 35.19013671875,
+            "height": 13.2
+          }
+        },
+        {
+          "tipo": "texto",
+          "fuente": "Helvetica",
+          "size": 10.6,
+          "lineHeight": 13.2,
+          "bbox": {
+            "x": 246.50856606791336,
+            "y": 337.88976377952764,
+            "width": 3.36943359375,
+            "height": 13.2
+          }
+        },
+        {
+          "tipo": "texto",
+          "fuente": "Helvetica",
+          "size": 10.6,
+          "lineHeight": 13.2,
+          "bbox": {
+            "x": 249.87799966166335,
+            "y": 337.88976377952764,
+            "width": 47.3998046875,
+            "height": 13.2
+          }
+        },
+        {
+          "tipo": "texto",
+          "fuente": "Helvetica",
+          "size": 9,
+          "lineHeight": 11.4,
+          "bbox": {
+            "x": 61.84845669291339,
+            "y": 324.68976377952765,
+            "width": 31.456054687499996,
+            "height": 11.4
+          }
+        },
+        {
+          "tipo": "texto",
+          "fuente": "Helvetica",
+          "size": 9,
+          "lineHeight": 11.4,
+          "bbox": {
+            "x": 93.30451138041339,
+            "y": 324.68976377952765,
+            "width": 2.86083984375,
+            "height": 11.4
+          }
+        },
+        {
+          "tipo": "texto",
+          "fuente": "Helvetica",
+          "size": 9,
+          "lineHeight": 11.4,
+          "bbox": {
+            "x": 96.16535122416339,
+            "y": 324.68976377952765,
+            "width": 6.156738281249999,
+            "height": 11.4
+          }
+        },
+        {
+          "tipo": "texto",
+          "fuente": "Helvetica",
+          "size": 9,
+          "lineHeight": 11.4,
+          "bbox": {
+            "x": 61.84845669291339,
+            "y": 312.48976377952766,
+            "width": 31.456054687499996,
+            "height": 11.4
+          }
+        },
+        {
+          "tipo": "texto",
+          "fuente": "Helvetica",
+          "size": 9,
+          "lineHeight": 11.4,
+          "bbox": {
+            "x": 93.30451138041339,
+            "y": 312.48976377952766,
+            "width": 2.86083984375,
+            "height": 11.4
+          }
+        },
+        {
+          "tipo": "texto",
+          "fuente": "Helvetica",
+          "size": 9,
+          "lineHeight": 11.4,
+          "bbox": {
+            "x": 96.16535122416339,
+            "y": 312.48976377952766,
+            "width": 6.174316406249999,
+            "height": 11.4
+          }
+        },
+        {
+          "tipo": "texto",
+          "fuente": "Helvetica",
+          "size": 9,
+          "lineHeight": 11.4,
+          "bbox": {
+            "x": 192.61748556430447,
+            "y": 324.68976377952765,
+            "width": 31.456054687499996,
+            "height": 11.4
+          }
+        },
+        {
+          "tipo": "texto",
+          "fuente": "Helvetica",
+          "size": 9,
+          "lineHeight": 11.4,
+          "bbox": {
+            "x": 224.07354025180447,
+            "y": 324.68976377952765,
+            "width": 2.86083984375,
+            "height": 11.4
+          }
+        },
+        {
+          "tipo": "texto",
+          "fuente": "Helvetica",
+          "size": 9,
+          "lineHeight": 11.4,
+          "bbox": {
+            "x": 226.93438009555447,
+            "y": 324.68976377952765,
+            "width": 6.284179687499999,
+            "height": 11.4
+          }
+        },
+        {
+          "tipo": "texto",
+          "fuente": "Helvetica",
+          "size": 9,
+          "lineHeight": 11.4,
+          "bbox": {
+            "x": 192.61748556430447,
+            "y": 312.48976377952766,
+            "width": 31.456054687499996,
+            "height": 11.4
+          }
+        },
+        {
+          "tipo": "texto",
+          "fuente": "Helvetica",
+          "size": 9,
+          "lineHeight": 11.4,
+          "bbox": {
+            "x": 224.07354025180447,
+            "y": 312.48976377952766,
+            "width": 2.86083984375,
+            "height": 11.4
+          }
+        },
+        {
+          "tipo": "texto",
+          "fuente": "Helvetica",
+          "size": 9,
+          "lineHeight": 11.4,
+          "bbox": {
+            "x": 226.93438009555447,
+            "y": 312.48976377952766,
+            "width": 6.930175781249999,
+            "height": 11.4
+          }
+        },
+        {
+          "tipo": "texto",
+          "fuente": "Helvetica",
+          "size": 9,
+          "lineHeight": 11.4,
+          "bbox": {
+            "x": 323.3865144356956,
+            "y": 324.68976377952765,
+            "width": 31.456054687499996,
+            "height": 11.4
+          }
+        },
+        {
+          "tipo": "texto",
+          "fuente": "Helvetica",
+          "size": 9,
+          "lineHeight": 11.4,
+          "bbox": {
+            "x": 354.8425691231956,
+            "y": 324.68976377952765,
+            "width": 2.86083984375,
+            "height": 11.4
+          }
+        },
+        {
+          "tipo": "texto",
+          "fuente": "Helvetica",
+          "size": 9,
+          "lineHeight": 11.4,
+          "bbox": {
+            "x": 357.7034089669456,
+            "y": 324.68976377952765,
+            "width": 5.6865234375,
+            "height": 11.4
           }
         }
       ],
-      "bboxPregunta": {
-        "x": 21,
-        "y": 463.5,
-        "width": 570,
-        "height": 78
-      },
       "cajaOmr": {
-        "x": 525,
-        "y": 465,
-        "width": 66,
-        "height": 75
+        "x": 444.6535433070866,
+        "y": 298.88661417322845,
+        "width": 132,
+        "height": 31.6062992125984
       },
       "perfilOmr": {
-        "radio": 6,
-        "pasoY": 11.25,
-        "cajaAncho": 66
+        "radio": 6.803149606299213,
+        "pasoY": 11.055118110236222,
+        "cajaAncho": 132
       },
       "fiduciales": {
         "leftTop": {
-          "x": 531,
-          "y": 471
+          "x": 449.39685039370073,
+          "y": 325.7496062992127
         },
         "leftBottom": {
-          "x": 531,
-          "y": 534
+          "x": 449.39685039370073,
+          "y": 303.6299212598426
         },
         "rightTop": {
-          "x": 585,
-          "y": 471
+          "x": 571.9102362204724,
+          "y": 325.7496062992127
         },
         "rightBottom": {
-          "x": 585,
-          "y": 534
-        },
-        "leftMid": {
-          "x": 531,
-          "y": 502.5
-        },
-        "rightMid": {
-          "x": 585,
-          "y": 502.5
+          "x": 571.9102362204724,
+          "y": 303.6299212598426
         }
       }
     },
     {
       "numeroPregunta": 6,
       "idPregunta": "tv4-q6",
+      "bboxPregunta": {
+        "x": 28.34645669291339,
+        "y": 221.9685039370079,
+        "width": 548.3070866141732,
+        "height": 56.96062992125988
+      },
       "opciones": [
         {
           "letra": "A",
-          "x": 543.75,
-          "y": 565.5
+          "x": 470.7867456631397,
+          "y": 251.7291338582678
         },
         {
           "letra": "B",
-          "x": 543.75,
-          "y": 576.75
+          "x": 492.82917768823813,
+          "y": 251.7291338582678
         },
         {
           "letra": "C",
-          "x": 543.75,
-          "y": 588
+          "x": 514.8716097133365,
+          "y": 251.7291338582678
         },
         {
           "letra": "D",
-          "x": 543.75,
-          "y": 599.25
+          "x": 536.914041738435,
+          "y": 251.7291338582678
         },
         {
           "letra": "E",
-          "x": 543.75,
-          "y": 610.5
+          "x": 558.9564737635334,
+          "y": 251.7291338582678
         }
       ],
       "textRuns": [
         {
           "tipo": "texto",
-          "fuente": "Helvetica-Bold",
-          "size": 11.25,
-          "lineHeight": 14.25,
+          "fuente": "Helvetica",
+          "size": 10.6,
+          "lineHeight": 13.2,
           "bbox": {
-            "x": 51,
-            "y": 546,
-            "width": 439.5,
-            "height": 42.75
+            "x": 50.34645669291339,
+            "y": 278.9291338582678,
+            "width": 48.08818359375,
+            "height": 13.2
+          }
+        },
+        {
+          "tipo": "texto",
+          "fuente": "Helvetica",
+          "size": 10.6,
+          "lineHeight": 13.2,
+          "bbox": {
+            "x": 98.4346402866634,
+            "y": 278.9291338582678,
+            "width": 3.36943359375,
+            "height": 13.2
+          }
+        },
+        {
+          "tipo": "texto",
+          "fuente": "Helvetica",
+          "size": 10.6,
+          "lineHeight": 13.2,
+          "bbox": {
+            "x": 101.8040738804134,
+            "y": 278.9291338582678,
+            "width": 20.47021484375,
+            "height": 13.2
+          }
+        },
+        {
+          "tipo": "texto",
+          "fuente": "Helvetica",
+          "size": 10.6,
+          "lineHeight": 13.2,
+          "bbox": {
+            "x": 122.2742887241634,
+            "y": 278.9291338582678,
+            "width": 3.36943359375,
+            "height": 13.2
+          }
+        },
+        {
+          "tipo": "texto",
+          "fuente": "Helvetica",
+          "size": 10.6,
+          "lineHeight": 13.2,
+          "bbox": {
+            "x": 125.6437223179134,
+            "y": 278.9291338582678,
+            "width": 10.31533203125,
+            "height": 13.2
+          }
+        },
+        {
+          "tipo": "texto",
+          "fuente": "Helvetica",
+          "size": 10.6,
+          "lineHeight": 13.2,
+          "bbox": {
+            "x": 135.9590543491634,
+            "y": 278.9291338582678,
+            "width": 3.36943359375,
+            "height": 13.2
+          }
+        },
+        {
+          "tipo": "texto",
+          "fuente": "Helvetica",
+          "size": 10.6,
+          "lineHeight": 13.2,
+          "bbox": {
+            "x": 139.3284879429134,
+            "y": 278.9291338582678,
+            "width": 55.81044921875,
+            "height": 13.2
+          }
+        },
+        {
+          "tipo": "texto",
+          "fuente": "Helvetica",
+          "size": 10.6,
+          "lineHeight": 13.2,
+          "bbox": {
+            "x": 195.1389371616634,
+            "y": 278.9291338582678,
+            "width": 3.36943359375,
+            "height": 13.2
+          }
+        },
+        {
+          "tipo": "texto",
+          "fuente": "Helvetica",
+          "size": 10.6,
+          "lineHeight": 13.2,
+          "bbox": {
+            "x": 198.50837075541338,
+            "y": 278.9291338582678,
+            "width": 9.440625,
+            "height": 13.2
+          }
+        },
+        {
+          "tipo": "texto",
+          "fuente": "Helvetica",
+          "size": 10.6,
+          "lineHeight": 13.2,
+          "bbox": {
+            "x": 207.9489957554134,
+            "y": 278.9291338582678,
+            "width": 3.36943359375,
+            "height": 13.2
+          }
+        },
+        {
+          "tipo": "texto",
+          "fuente": "Helvetica",
+          "size": 10.6,
+          "lineHeight": 13.2,
+          "bbox": {
+            "x": 211.31842934916338,
+            "y": 278.9291338582678,
+            "width": 35.19013671875,
+            "height": 13.2
+          }
+        },
+        {
+          "tipo": "texto",
+          "fuente": "Helvetica",
+          "size": 10.6,
+          "lineHeight": 13.2,
+          "bbox": {
+            "x": 246.50856606791336,
+            "y": 278.9291338582678,
+            "width": 3.36943359375,
+            "height": 13.2
+          }
+        },
+        {
+          "tipo": "texto",
+          "fuente": "Helvetica",
+          "size": 10.6,
+          "lineHeight": 13.2,
+          "bbox": {
+            "x": 249.87799966166335,
+            "y": 278.9291338582678,
+            "width": 47.3998046875,
+            "height": 13.2
+          }
+        },
+        {
+          "tipo": "texto",
+          "fuente": "Helvetica",
+          "size": 9,
+          "lineHeight": 11.4,
+          "bbox": {
+            "x": 61.84845669291339,
+            "y": 265.7291338582678,
+            "width": 31.456054687499996,
+            "height": 11.4
+          }
+        },
+        {
+          "tipo": "texto",
+          "fuente": "Helvetica",
+          "size": 9,
+          "lineHeight": 11.4,
+          "bbox": {
+            "x": 93.30451138041339,
+            "y": 265.7291338582678,
+            "width": 2.86083984375,
+            "height": 11.4
+          }
+        },
+        {
+          "tipo": "texto",
+          "fuente": "Helvetica",
+          "size": 9,
+          "lineHeight": 11.4,
+          "bbox": {
+            "x": 96.16535122416339,
+            "y": 265.7291338582678,
+            "width": 6.156738281249999,
+            "height": 11.4
+          }
+        },
+        {
+          "tipo": "texto",
+          "fuente": "Helvetica",
+          "size": 9,
+          "lineHeight": 11.4,
+          "bbox": {
+            "x": 61.84845669291339,
+            "y": 253.52913385826778,
+            "width": 31.456054687499996,
+            "height": 11.4
+          }
+        },
+        {
+          "tipo": "texto",
+          "fuente": "Helvetica",
+          "size": 9,
+          "lineHeight": 11.4,
+          "bbox": {
+            "x": 93.30451138041339,
+            "y": 253.52913385826778,
+            "width": 2.86083984375,
+            "height": 11.4
+          }
+        },
+        {
+          "tipo": "texto",
+          "fuente": "Helvetica",
+          "size": 9,
+          "lineHeight": 11.4,
+          "bbox": {
+            "x": 96.16535122416339,
+            "y": 253.52913385826778,
+            "width": 6.174316406249999,
+            "height": 11.4
+          }
+        },
+        {
+          "tipo": "texto",
+          "fuente": "Helvetica",
+          "size": 9,
+          "lineHeight": 11.4,
+          "bbox": {
+            "x": 192.61748556430447,
+            "y": 265.7291338582678,
+            "width": 31.456054687499996,
+            "height": 11.4
+          }
+        },
+        {
+          "tipo": "texto",
+          "fuente": "Helvetica",
+          "size": 9,
+          "lineHeight": 11.4,
+          "bbox": {
+            "x": 224.07354025180447,
+            "y": 265.7291338582678,
+            "width": 2.86083984375,
+            "height": 11.4
+          }
+        },
+        {
+          "tipo": "texto",
+          "fuente": "Helvetica",
+          "size": 9,
+          "lineHeight": 11.4,
+          "bbox": {
+            "x": 226.93438009555447,
+            "y": 265.7291338582678,
+            "width": 6.284179687499999,
+            "height": 11.4
+          }
+        },
+        {
+          "tipo": "texto",
+          "fuente": "Helvetica",
+          "size": 9,
+          "lineHeight": 11.4,
+          "bbox": {
+            "x": 192.61748556430447,
+            "y": 253.52913385826778,
+            "width": 31.456054687499996,
+            "height": 11.4
+          }
+        },
+        {
+          "tipo": "texto",
+          "fuente": "Helvetica",
+          "size": 9,
+          "lineHeight": 11.4,
+          "bbox": {
+            "x": 224.07354025180447,
+            "y": 253.52913385826778,
+            "width": 2.86083984375,
+            "height": 11.4
+          }
+        },
+        {
+          "tipo": "texto",
+          "fuente": "Helvetica",
+          "size": 9,
+          "lineHeight": 11.4,
+          "bbox": {
+            "x": 226.93438009555447,
+            "y": 253.52913385826778,
+            "width": 6.930175781249999,
+            "height": 11.4
+          }
+        },
+        {
+          "tipo": "texto",
+          "fuente": "Helvetica",
+          "size": 9,
+          "lineHeight": 11.4,
+          "bbox": {
+            "x": 323.3865144356956,
+            "y": 265.7291338582678,
+            "width": 31.456054687499996,
+            "height": 11.4
+          }
+        },
+        {
+          "tipo": "texto",
+          "fuente": "Helvetica",
+          "size": 9,
+          "lineHeight": 11.4,
+          "bbox": {
+            "x": 354.8425691231956,
+            "y": 265.7291338582678,
+            "width": 2.86083984375,
+            "height": 11.4
+          }
+        },
+        {
+          "tipo": "texto",
+          "fuente": "Helvetica",
+          "size": 9,
+          "lineHeight": 11.4,
+          "bbox": {
+            "x": 357.7034089669456,
+            "y": 265.7291338582678,
+            "width": 5.6865234375,
+            "height": 11.4
           }
         }
       ],
-      "bboxPregunta": {
-        "x": 21,
-        "y": 546,
-        "width": 570,
-        "height": 78
-      },
       "cajaOmr": {
-        "x": 525,
-        "y": 547.5,
-        "width": 66,
-        "height": 75
+        "x": 444.6535433070866,
+        "y": 239.9259842519686,
+        "width": 132,
+        "height": 31.6062992125984
       },
       "perfilOmr": {
-        "radio": 6,
-        "pasoY": 11.25,
-        "cajaAncho": 66
+        "radio": 6.803149606299213,
+        "pasoY": 11.055118110236222,
+        "cajaAncho": 132
       },
       "fiduciales": {
         "leftTop": {
-          "x": 531,
-          "y": 553.5
+          "x": 449.39685039370073,
+          "y": 266.78897637795285
         },
         "leftBottom": {
-          "x": 531,
-          "y": 616.5
+          "x": 449.39685039370073,
+          "y": 244.66929133858278
         },
         "rightTop": {
-          "x": 585,
-          "y": 553.5
+          "x": 571.9102362204724,
+          "y": 266.78897637795285
         },
         "rightBottom": {
-          "x": 585,
-          "y": 616.5
-        },
-        "leftMid": {
-          "x": 531,
-          "y": 585
-        },
-        "rightMid": {
-          "x": 585,
-          "y": 585
+          "x": 571.9102362204724,
+          "y": 244.66929133858278
         }
       }
     },
     {
       "numeroPregunta": 7,
       "idPregunta": "tv4-q7",
+      "bboxPregunta": {
+        "x": 28.34645669291339,
+        "y": 163.00787401574806,
+        "width": 548.3070866141732,
+        "height": 56.96062992125985
+      },
       "opciones": [
         {
           "letra": "A",
-          "x": 543.75,
-          "y": 648
+          "x": 470.7867456631397,
+          "y": 192.76850393700792
         },
         {
           "letra": "B",
-          "x": 543.75,
-          "y": 659.25
+          "x": 492.82917768823813,
+          "y": 192.76850393700792
         },
         {
           "letra": "C",
-          "x": 543.75,
-          "y": 670.5
+          "x": 514.8716097133365,
+          "y": 192.76850393700792
         },
         {
           "letra": "D",
-          "x": 543.75,
-          "y": 681.75
+          "x": 536.914041738435,
+          "y": 192.76850393700792
         },
         {
           "letra": "E",
-          "x": 543.75,
-          "y": 693
+          "x": 558.9564737635334,
+          "y": 192.76850393700792
         }
       ],
       "textRuns": [
         {
           "tipo": "texto",
-          "fuente": "Helvetica-Bold",
-          "size": 11.25,
-          "lineHeight": 14.25,
+          "fuente": "Helvetica",
+          "size": 10.6,
+          "lineHeight": 13.2,
           "bbox": {
-            "x": 51,
-            "y": 628.5,
-            "width": 439.5,
-            "height": 42.75
+            "x": 50.34645669291339,
+            "y": 219.9685039370079,
+            "width": 48.08818359375,
+            "height": 13.2
+          }
+        },
+        {
+          "tipo": "texto",
+          "fuente": "Helvetica",
+          "size": 10.6,
+          "lineHeight": 13.2,
+          "bbox": {
+            "x": 98.4346402866634,
+            "y": 219.9685039370079,
+            "width": 3.36943359375,
+            "height": 13.2
+          }
+        },
+        {
+          "tipo": "texto",
+          "fuente": "Helvetica",
+          "size": 10.6,
+          "lineHeight": 13.2,
+          "bbox": {
+            "x": 101.8040738804134,
+            "y": 219.9685039370079,
+            "width": 20.47021484375,
+            "height": 13.2
+          }
+        },
+        {
+          "tipo": "texto",
+          "fuente": "Helvetica",
+          "size": 10.6,
+          "lineHeight": 13.2,
+          "bbox": {
+            "x": 122.2742887241634,
+            "y": 219.9685039370079,
+            "width": 3.36943359375,
+            "height": 13.2
+          }
+        },
+        {
+          "tipo": "texto",
+          "fuente": "Helvetica",
+          "size": 10.6,
+          "lineHeight": 13.2,
+          "bbox": {
+            "x": 125.6437223179134,
+            "y": 219.9685039370079,
+            "width": 10.31533203125,
+            "height": 13.2
+          }
+        },
+        {
+          "tipo": "texto",
+          "fuente": "Helvetica",
+          "size": 10.6,
+          "lineHeight": 13.2,
+          "bbox": {
+            "x": 135.9590543491634,
+            "y": 219.9685039370079,
+            "width": 3.36943359375,
+            "height": 13.2
+          }
+        },
+        {
+          "tipo": "texto",
+          "fuente": "Helvetica",
+          "size": 10.6,
+          "lineHeight": 13.2,
+          "bbox": {
+            "x": 139.3284879429134,
+            "y": 219.9685039370079,
+            "width": 55.81044921875,
+            "height": 13.2
+          }
+        },
+        {
+          "tipo": "texto",
+          "fuente": "Helvetica",
+          "size": 10.6,
+          "lineHeight": 13.2,
+          "bbox": {
+            "x": 195.1389371616634,
+            "y": 219.9685039370079,
+            "width": 3.36943359375,
+            "height": 13.2
+          }
+        },
+        {
+          "tipo": "texto",
+          "fuente": "Helvetica",
+          "size": 10.6,
+          "lineHeight": 13.2,
+          "bbox": {
+            "x": 198.50837075541338,
+            "y": 219.9685039370079,
+            "width": 9.440625,
+            "height": 13.2
+          }
+        },
+        {
+          "tipo": "texto",
+          "fuente": "Helvetica",
+          "size": 10.6,
+          "lineHeight": 13.2,
+          "bbox": {
+            "x": 207.9489957554134,
+            "y": 219.9685039370079,
+            "width": 3.36943359375,
+            "height": 13.2
+          }
+        },
+        {
+          "tipo": "texto",
+          "fuente": "Helvetica",
+          "size": 10.6,
+          "lineHeight": 13.2,
+          "bbox": {
+            "x": 211.31842934916338,
+            "y": 219.9685039370079,
+            "width": 35.19013671875,
+            "height": 13.2
+          }
+        },
+        {
+          "tipo": "texto",
+          "fuente": "Helvetica",
+          "size": 10.6,
+          "lineHeight": 13.2,
+          "bbox": {
+            "x": 246.50856606791336,
+            "y": 219.9685039370079,
+            "width": 3.36943359375,
+            "height": 13.2
+          }
+        },
+        {
+          "tipo": "texto",
+          "fuente": "Helvetica",
+          "size": 10.6,
+          "lineHeight": 13.2,
+          "bbox": {
+            "x": 249.87799966166335,
+            "y": 219.9685039370079,
+            "width": 47.3998046875,
+            "height": 13.2
+          }
+        },
+        {
+          "tipo": "texto",
+          "fuente": "Helvetica",
+          "size": 9,
+          "lineHeight": 11.4,
+          "bbox": {
+            "x": 61.84845669291339,
+            "y": 206.76850393700792,
+            "width": 31.456054687499996,
+            "height": 11.4
+          }
+        },
+        {
+          "tipo": "texto",
+          "fuente": "Helvetica",
+          "size": 9,
+          "lineHeight": 11.4,
+          "bbox": {
+            "x": 93.30451138041339,
+            "y": 206.76850393700792,
+            "width": 2.86083984375,
+            "height": 11.4
+          }
+        },
+        {
+          "tipo": "texto",
+          "fuente": "Helvetica",
+          "size": 9,
+          "lineHeight": 11.4,
+          "bbox": {
+            "x": 96.16535122416339,
+            "y": 206.76850393700792,
+            "width": 6.156738281249999,
+            "height": 11.4
+          }
+        },
+        {
+          "tipo": "texto",
+          "fuente": "Helvetica",
+          "size": 9,
+          "lineHeight": 11.4,
+          "bbox": {
+            "x": 61.84845669291339,
+            "y": 194.5685039370079,
+            "width": 31.456054687499996,
+            "height": 11.4
+          }
+        },
+        {
+          "tipo": "texto",
+          "fuente": "Helvetica",
+          "size": 9,
+          "lineHeight": 11.4,
+          "bbox": {
+            "x": 93.30451138041339,
+            "y": 194.5685039370079,
+            "width": 2.86083984375,
+            "height": 11.4
+          }
+        },
+        {
+          "tipo": "texto",
+          "fuente": "Helvetica",
+          "size": 9,
+          "lineHeight": 11.4,
+          "bbox": {
+            "x": 96.16535122416339,
+            "y": 194.5685039370079,
+            "width": 6.174316406249999,
+            "height": 11.4
+          }
+        },
+        {
+          "tipo": "texto",
+          "fuente": "Helvetica",
+          "size": 9,
+          "lineHeight": 11.4,
+          "bbox": {
+            "x": 192.61748556430447,
+            "y": 206.76850393700792,
+            "width": 31.456054687499996,
+            "height": 11.4
+          }
+        },
+        {
+          "tipo": "texto",
+          "fuente": "Helvetica",
+          "size": 9,
+          "lineHeight": 11.4,
+          "bbox": {
+            "x": 224.07354025180447,
+            "y": 206.76850393700792,
+            "width": 2.86083984375,
+            "height": 11.4
+          }
+        },
+        {
+          "tipo": "texto",
+          "fuente": "Helvetica",
+          "size": 9,
+          "lineHeight": 11.4,
+          "bbox": {
+            "x": 226.93438009555447,
+            "y": 206.76850393700792,
+            "width": 6.284179687499999,
+            "height": 11.4
+          }
+        },
+        {
+          "tipo": "texto",
+          "fuente": "Helvetica",
+          "size": 9,
+          "lineHeight": 11.4,
+          "bbox": {
+            "x": 192.61748556430447,
+            "y": 194.5685039370079,
+            "width": 31.456054687499996,
+            "height": 11.4
+          }
+        },
+        {
+          "tipo": "texto",
+          "fuente": "Helvetica",
+          "size": 9,
+          "lineHeight": 11.4,
+          "bbox": {
+            "x": 224.07354025180447,
+            "y": 194.5685039370079,
+            "width": 2.86083984375,
+            "height": 11.4
+          }
+        },
+        {
+          "tipo": "texto",
+          "fuente": "Helvetica",
+          "size": 9,
+          "lineHeight": 11.4,
+          "bbox": {
+            "x": 226.93438009555447,
+            "y": 194.5685039370079,
+            "width": 6.930175781249999,
+            "height": 11.4
+          }
+        },
+        {
+          "tipo": "texto",
+          "fuente": "Helvetica",
+          "size": 9,
+          "lineHeight": 11.4,
+          "bbox": {
+            "x": 323.3865144356956,
+            "y": 206.76850393700792,
+            "width": 31.456054687499996,
+            "height": 11.4
+          }
+        },
+        {
+          "tipo": "texto",
+          "fuente": "Helvetica",
+          "size": 9,
+          "lineHeight": 11.4,
+          "bbox": {
+            "x": 354.8425691231956,
+            "y": 206.76850393700792,
+            "width": 2.86083984375,
+            "height": 11.4
+          }
+        },
+        {
+          "tipo": "texto",
+          "fuente": "Helvetica",
+          "size": 9,
+          "lineHeight": 11.4,
+          "bbox": {
+            "x": 357.7034089669456,
+            "y": 206.76850393700792,
+            "width": 5.6865234375,
+            "height": 11.4
           }
         }
       ],
-      "bboxPregunta": {
-        "x": 21,
-        "y": 628.5,
-        "width": 570,
-        "height": 78
-      },
       "cajaOmr": {
-        "x": 525,
-        "y": 630,
-        "width": 66,
-        "height": 75
+        "x": 444.6535433070866,
+        "y": 180.96535433070872,
+        "width": 132,
+        "height": 31.6062992125984
       },
       "perfilOmr": {
-        "radio": 6,
-        "pasoY": 11.25,
-        "cajaAncho": 66
+        "radio": 6.803149606299213,
+        "pasoY": 11.055118110236222,
+        "cajaAncho": 132
       },
       "fiduciales": {
         "leftTop": {
-          "x": 531,
-          "y": 636
+          "x": 449.39685039370073,
+          "y": 207.82834645669294
         },
         "leftBottom": {
-          "x": 531,
-          "y": 699
+          "x": 449.39685039370073,
+          "y": 185.7086614173229
         },
         "rightTop": {
-          "x": 585,
-          "y": 636
+          "x": 571.9102362204724,
+          "y": 207.82834645669294
         },
         "rightBottom": {
-          "x": 585,
-          "y": 699
+          "x": 571.9102362204724,
+          "y": 185.7086614173229
+        }
+      }
+    },
+    {
+      "numeroPregunta": 8,
+      "idPregunta": "tv4-q8",
+      "bboxPregunta": {
+        "x": 28.34645669291339,
+        "y": 104.0472440944882,
+        "width": 548.3070866141732,
+        "height": 56.96062992125985
+      },
+      "opciones": [
+        {
+          "letra": "A",
+          "x": 470.7867456631397,
+          "y": 133.80787401574807
         },
-        "leftMid": {
-          "x": 531,
-          "y": 667.5
+        {
+          "letra": "B",
+          "x": 492.82917768823813,
+          "y": 133.80787401574807
         },
-        "rightMid": {
-          "x": 585,
-          "y": 667.5
+        {
+          "letra": "C",
+          "x": 514.8716097133365,
+          "y": 133.80787401574807
+        },
+        {
+          "letra": "D",
+          "x": 536.914041738435,
+          "y": 133.80787401574807
+        },
+        {
+          "letra": "E",
+          "x": 558.9564737635334,
+          "y": 133.80787401574807
+        }
+      ],
+      "textRuns": [
+        {
+          "tipo": "texto",
+          "fuente": "Helvetica",
+          "size": 10.6,
+          "lineHeight": 13.2,
+          "bbox": {
+            "x": 50.34645669291339,
+            "y": 161.00787401574806,
+            "width": 48.08818359375,
+            "height": 13.2
+          }
+        },
+        {
+          "tipo": "texto",
+          "fuente": "Helvetica",
+          "size": 10.6,
+          "lineHeight": 13.2,
+          "bbox": {
+            "x": 98.4346402866634,
+            "y": 161.00787401574806,
+            "width": 3.36943359375,
+            "height": 13.2
+          }
+        },
+        {
+          "tipo": "texto",
+          "fuente": "Helvetica",
+          "size": 10.6,
+          "lineHeight": 13.2,
+          "bbox": {
+            "x": 101.8040738804134,
+            "y": 161.00787401574806,
+            "width": 20.47021484375,
+            "height": 13.2
+          }
+        },
+        {
+          "tipo": "texto",
+          "fuente": "Helvetica",
+          "size": 10.6,
+          "lineHeight": 13.2,
+          "bbox": {
+            "x": 122.2742887241634,
+            "y": 161.00787401574806,
+            "width": 3.36943359375,
+            "height": 13.2
+          }
+        },
+        {
+          "tipo": "texto",
+          "fuente": "Helvetica",
+          "size": 10.6,
+          "lineHeight": 13.2,
+          "bbox": {
+            "x": 125.6437223179134,
+            "y": 161.00787401574806,
+            "width": 10.31533203125,
+            "height": 13.2
+          }
+        },
+        {
+          "tipo": "texto",
+          "fuente": "Helvetica",
+          "size": 10.6,
+          "lineHeight": 13.2,
+          "bbox": {
+            "x": 135.9590543491634,
+            "y": 161.00787401574806,
+            "width": 3.36943359375,
+            "height": 13.2
+          }
+        },
+        {
+          "tipo": "texto",
+          "fuente": "Helvetica",
+          "size": 10.6,
+          "lineHeight": 13.2,
+          "bbox": {
+            "x": 139.3284879429134,
+            "y": 161.00787401574806,
+            "width": 55.81044921875,
+            "height": 13.2
+          }
+        },
+        {
+          "tipo": "texto",
+          "fuente": "Helvetica",
+          "size": 10.6,
+          "lineHeight": 13.2,
+          "bbox": {
+            "x": 195.1389371616634,
+            "y": 161.00787401574806,
+            "width": 3.36943359375,
+            "height": 13.2
+          }
+        },
+        {
+          "tipo": "texto",
+          "fuente": "Helvetica",
+          "size": 10.6,
+          "lineHeight": 13.2,
+          "bbox": {
+            "x": 198.50837075541338,
+            "y": 161.00787401574806,
+            "width": 9.440625,
+            "height": 13.2
+          }
+        },
+        {
+          "tipo": "texto",
+          "fuente": "Helvetica",
+          "size": 10.6,
+          "lineHeight": 13.2,
+          "bbox": {
+            "x": 207.9489957554134,
+            "y": 161.00787401574806,
+            "width": 3.36943359375,
+            "height": 13.2
+          }
+        },
+        {
+          "tipo": "texto",
+          "fuente": "Helvetica",
+          "size": 10.6,
+          "lineHeight": 13.2,
+          "bbox": {
+            "x": 211.31842934916338,
+            "y": 161.00787401574806,
+            "width": 35.19013671875,
+            "height": 13.2
+          }
+        },
+        {
+          "tipo": "texto",
+          "fuente": "Helvetica",
+          "size": 10.6,
+          "lineHeight": 13.2,
+          "bbox": {
+            "x": 246.50856606791336,
+            "y": 161.00787401574806,
+            "width": 3.36943359375,
+            "height": 13.2
+          }
+        },
+        {
+          "tipo": "texto",
+          "fuente": "Helvetica",
+          "size": 10.6,
+          "lineHeight": 13.2,
+          "bbox": {
+            "x": 249.87799966166335,
+            "y": 161.00787401574806,
+            "width": 47.3998046875,
+            "height": 13.2
+          }
+        },
+        {
+          "tipo": "texto",
+          "fuente": "Helvetica",
+          "size": 9,
+          "lineHeight": 11.4,
+          "bbox": {
+            "x": 61.84845669291339,
+            "y": 147.80787401574807,
+            "width": 31.456054687499996,
+            "height": 11.4
+          }
+        },
+        {
+          "tipo": "texto",
+          "fuente": "Helvetica",
+          "size": 9,
+          "lineHeight": 11.4,
+          "bbox": {
+            "x": 93.30451138041339,
+            "y": 147.80787401574807,
+            "width": 2.86083984375,
+            "height": 11.4
+          }
+        },
+        {
+          "tipo": "texto",
+          "fuente": "Helvetica",
+          "size": 9,
+          "lineHeight": 11.4,
+          "bbox": {
+            "x": 96.16535122416339,
+            "y": 147.80787401574807,
+            "width": 6.156738281249999,
+            "height": 11.4
+          }
+        },
+        {
+          "tipo": "texto",
+          "fuente": "Helvetica",
+          "size": 9,
+          "lineHeight": 11.4,
+          "bbox": {
+            "x": 61.84845669291339,
+            "y": 135.60787401574805,
+            "width": 31.456054687499996,
+            "height": 11.4
+          }
+        },
+        {
+          "tipo": "texto",
+          "fuente": "Helvetica",
+          "size": 9,
+          "lineHeight": 11.4,
+          "bbox": {
+            "x": 93.30451138041339,
+            "y": 135.60787401574805,
+            "width": 2.86083984375,
+            "height": 11.4
+          }
+        },
+        {
+          "tipo": "texto",
+          "fuente": "Helvetica",
+          "size": 9,
+          "lineHeight": 11.4,
+          "bbox": {
+            "x": 96.16535122416339,
+            "y": 135.60787401574805,
+            "width": 6.174316406249999,
+            "height": 11.4
+          }
+        },
+        {
+          "tipo": "texto",
+          "fuente": "Helvetica",
+          "size": 9,
+          "lineHeight": 11.4,
+          "bbox": {
+            "x": 192.61748556430447,
+            "y": 147.80787401574807,
+            "width": 31.456054687499996,
+            "height": 11.4
+          }
+        },
+        {
+          "tipo": "texto",
+          "fuente": "Helvetica",
+          "size": 9,
+          "lineHeight": 11.4,
+          "bbox": {
+            "x": 224.07354025180447,
+            "y": 147.80787401574807,
+            "width": 2.86083984375,
+            "height": 11.4
+          }
+        },
+        {
+          "tipo": "texto",
+          "fuente": "Helvetica",
+          "size": 9,
+          "lineHeight": 11.4,
+          "bbox": {
+            "x": 226.93438009555447,
+            "y": 147.80787401574807,
+            "width": 6.284179687499999,
+            "height": 11.4
+          }
+        },
+        {
+          "tipo": "texto",
+          "fuente": "Helvetica",
+          "size": 9,
+          "lineHeight": 11.4,
+          "bbox": {
+            "x": 192.61748556430447,
+            "y": 135.60787401574805,
+            "width": 31.456054687499996,
+            "height": 11.4
+          }
+        },
+        {
+          "tipo": "texto",
+          "fuente": "Helvetica",
+          "size": 9,
+          "lineHeight": 11.4,
+          "bbox": {
+            "x": 224.07354025180447,
+            "y": 135.60787401574805,
+            "width": 2.86083984375,
+            "height": 11.4
+          }
+        },
+        {
+          "tipo": "texto",
+          "fuente": "Helvetica",
+          "size": 9,
+          "lineHeight": 11.4,
+          "bbox": {
+            "x": 226.93438009555447,
+            "y": 135.60787401574805,
+            "width": 6.930175781249999,
+            "height": 11.4
+          }
+        },
+        {
+          "tipo": "texto",
+          "fuente": "Helvetica",
+          "size": 9,
+          "lineHeight": 11.4,
+          "bbox": {
+            "x": 323.3865144356956,
+            "y": 147.80787401574807,
+            "width": 31.456054687499996,
+            "height": 11.4
+          }
+        },
+        {
+          "tipo": "texto",
+          "fuente": "Helvetica",
+          "size": 9,
+          "lineHeight": 11.4,
+          "bbox": {
+            "x": 354.8425691231956,
+            "y": 147.80787401574807,
+            "width": 2.86083984375,
+            "height": 11.4
+          }
+        },
+        {
+          "tipo": "texto",
+          "fuente": "Helvetica",
+          "size": 9,
+          "lineHeight": 11.4,
+          "bbox": {
+            "x": 357.7034089669456,
+            "y": 147.80787401574807,
+            "width": 5.6865234375,
+            "height": 11.4
+          }
+        }
+      ],
+      "cajaOmr": {
+        "x": 444.6535433070866,
+        "y": 122.00472440944885,
+        "width": 132,
+        "height": 31.606299212598415
+      },
+      "perfilOmr": {
+        "radio": 6.803149606299213,
+        "pasoY": 11.055118110236222,
+        "cajaAncho": 132
+      },
+      "fiduciales": {
+        "leftTop": {
+          "x": 449.39685039370073,
+          "y": 148.8677165354331
+        },
+        "leftBottom": {
+          "x": 449.39685039370073,
+          "y": 126.74803149606302
+        },
+        "rightTop": {
+          "x": 571.9102362204724,
+          "y": 148.8677165354331
+        },
+        "rightBottom": {
+          "x": 571.9102362204724,
+          "y": 126.74803149606302
         }
       }
     }
   ],
   "layoutDebug": {
-    "engine": "playwright-html-v1",
-    "layoutTemplateVersion": 10,
-    "pageShell": {
-      "x": 21,
-      "y": 21,
-      "width": 570,
-      "height": 750
-    },
+    "layoutTemplateVersion": 8,
     "header": {
-      "x": 21,
-      "y": 21,
-      "width": 570,
-      "height": 108
+      "x": 32.34645669291339,
+      "y": 667.6535433070866,
+      "width": 547.3070866141733,
+      "height": 96
     },
+    "continuationTextBlocks": [],
     "qr": {
-      "x": 505.5,
-      "y": 30,
-      "width": 78,
-      "height": 78
+      "x": 488.77952755905505,
+      "y": 670.779527559055,
+      "width": 87.8740157480315,
+      "height": 87.8740157480315
     },
+    "instructions": {
+      "x": 38.34645669291339,
+      "y": 591.8535433070866,
+      "width": 392.30708661417316,
+      "height": 67.8
+    },
+    "headerSlots": [
+      {
+        "id": "logo-izquierdo",
+        "x": 42.34645669291339,
+        "y": 701.6535433070866,
+        "width": 50,
+        "height": 50
+      },
+      {
+        "id": "logo-derecho",
+        "x": 420.77952755905505,
+        "y": 701.6535433070866,
+        "width": 50,
+        "height": 50
+      }
+    ],
     "headerTextBlocks": [
       {
-        "id": "logo-izquierdo-box",
-        "x": 34.5,
-        "y": 34.5,
-        "width": 54,
-        "height": 54
+        "id": "institucion-1",
+        "x": 178.91196412598424,
+        "y": 743.8255433070866,
+        "width": 155.302056,
+        "height": 10.828
       },
       {
-        "id": "titulo-box",
-        "x": 99,
-        "y": 30,
-        "width": 295.5,
-        "height": 58.5
+        "id": "titulo-1",
+        "x": 216.32950012598423,
+        "y": 728.7075433070866,
+        "width": 80.466984,
+        "height": 13.168
       },
       {
-        "id": "logo-derecho-box",
-        "x": 445.5,
-        "y": 34.5,
-        "width": 45,
-        "height": 45
+        "id": "lema-1",
+        "x": 206.22116812598424,
+        "y": 718.6595433070866,
+        "width": 100.683648,
+        "height": 8.488
       },
       {
-        "id": "qr-box",
-        "x": 505.5,
-        "y": 30,
-        "width": 78,
-        "height": 78
+        "id": "nombre-etiqueta",
+        "x": 102.34645669291339,
+        "y": 689.1235433070865,
+        "width": 76.91860799999999,
+        "height": 8.956
       },
       {
-        "id": "meta-box",
-        "x": 99,
-        "y": 87,
-        "width": 295.5,
-        "height": 12
+        "id": "grupo-etiqueta",
+        "x": 102.34645669291339,
+        "y": 677.8275433070864,
+        "width": 26.517348,
+        "height": 8.956
+      }
+    ],
+    "headerFieldBoxes": [
+      {
+        "id": "nombre-linea",
+        "x": 150.77952755905505,
+        "y": 686.2235433070865,
+        "width": 260,
+        "height": 0.8
       },
       {
-        "id": "student-box",
-        "x": 99,
-        "y": 102,
-        "width": 400.5,
-        "height": 13.5
-      },
-      {
-        "id": "group-box",
-        "x": 99,
-        "y": 117,
-        "width": 61.5,
-        "height": 13.5
+        "id": "grupo-linea",
+        "x": 140.8638046929134,
+        "y": 674.9275433070865,
+        "width": 42,
+        "height": 0.8
       }
     ],
     "lineHeightViolations": [],
-    "contentStartY": 133.5,
-    "contentEndY": 711,
-    "headerSlots": [
-      {
-        "id": "logo-izquierdo-box",
-        "x": 34.5,
-        "y": 34.5,
-        "width": 54,
-        "height": 54
-      },
-      {
-        "id": "titulo-box",
-        "x": 99,
-        "y": 30,
-        "width": 295.5,
-        "height": 58.5
-      },
-      {
-        "id": "logo-derecho-box",
-        "x": 445.5,
-        "y": 34.5,
-        "width": 45,
-        "height": 45
-      },
-      {
-        "id": "qr-box",
-        "x": 505.5,
-        "y": 30,
-        "width": 78,
-        "height": 78
-      },
-      {
-        "id": "meta-box",
-        "x": 99,
-        "y": 87,
-        "width": 295.5,
-        "height": 12
-      },
-      {
-        "id": "student-box",
-        "x": 99,
-        "y": 102,
-        "width": 400.5,
-        "height": 13.5
-      },
-      {
-        "id": "group-box",
-        "x": 99,
-        "y": 117,
-        "width": 61.5,
-        "height": 13.5
-      }
-    ],
-    "contentShell": {
-      "x": 21,
-      "y": 133.5,
-      "width": 570,
-      "height": 606
-    },
-    "footerShell": {
-      "x": 21,
-      "y": 739.5,
-      "width": 570,
-      "height": 31.5
-    },
+    "contentStartY": 642.8976377952757,
+    "contentEndY": 102.0472440944882,
     "questionBlockBoxes": [
       {
-        "id": "tv4-q1",
-        "x": 21,
-        "y": 133.5,
-        "width": 570,
-        "height": 78
+        "id": "pregunta-1",
+        "x": 28.34645669291339,
+        "y": 516.7716535433071,
+        "width": 548.3070866141732,
+        "height": 56.96062992125985
       },
       {
-        "id": "tv4-q2",
-        "x": 21,
-        "y": 216,
-        "width": 570,
-        "height": 78
+        "id": "pregunta-2",
+        "x": 28.34645669291339,
+        "y": 457.81102362204734,
+        "width": 548.3070866141732,
+        "height": 56.960629921259795
       },
       {
-        "id": "tv4-q3",
-        "x": 21,
-        "y": 298.5,
-        "width": 570,
-        "height": 78
+        "id": "pregunta-3",
+        "x": 28.34645669291339,
+        "y": 398.8503937007875,
+        "width": 548.3070866141732,
+        "height": 56.96062992125985
       },
       {
-        "id": "tv4-q4",
-        "x": 21,
-        "y": 381,
-        "width": 570,
-        "height": 78
+        "id": "pregunta-4",
+        "x": 28.34645669291339,
+        "y": 339.88976377952764,
+        "width": 548.3070866141732,
+        "height": 56.96062992125985
       },
       {
-        "id": "tv4-q5",
-        "x": 21,
-        "y": 463.5,
-        "width": 570,
-        "height": 78
+        "id": "pregunta-5",
+        "x": 28.34645669291339,
+        "y": 280.9291338582678,
+        "width": 548.3070866141732,
+        "height": 56.96062992125985
       },
       {
-        "id": "tv4-q6",
-        "x": 21,
-        "y": 546,
-        "width": 570,
-        "height": 78
+        "id": "pregunta-6",
+        "x": 28.34645669291339,
+        "y": 221.9685039370079,
+        "width": 548.3070866141732,
+        "height": 56.96062992125988
       },
       {
-        "id": "tv4-q7",
-        "x": 21,
-        "y": 628.5,
-        "width": 570,
-        "height": 78
+        "id": "pregunta-7",
+        "x": 28.34645669291339,
+        "y": 163.00787401574806,
+        "width": 548.3070866141732,
+        "height": 56.96062992125985
+      },
+      {
+        "id": "pregunta-8",
+        "x": 28.34645669291339,
+        "y": 104.0472440944882,
+        "width": 548.3070866141732,
+        "height": 56.96062992125985
       }
     ],
     "omrPanelBoxes": [
       {
-        "id": "tv4-q1",
-        "x": 525,
-        "y": 135,
-        "width": 66,
-        "height": 75
+        "id": "omr-1",
+        "x": 443.85354330708657,
+        "y": 533.9291338582677,
+        "width": 133.6,
+        "height": 33.206299212598516
       },
       {
-        "id": "tv4-q2",
-        "x": 525,
-        "y": 217.5,
-        "width": 66,
-        "height": 75
+        "id": "omr-2",
+        "x": 443.85354330708657,
+        "y": 474.96850393700794,
+        "width": 133.6,
+        "height": 33.2062992125984
       },
       {
-        "id": "tv4-q3",
-        "x": 525,
-        "y": 300,
-        "width": 66,
-        "height": 75
+        "id": "omr-3",
+        "x": 443.85354330708657,
+        "y": 416.00787401574814,
+        "width": 133.6,
+        "height": 33.2062992125984
       },
       {
-        "id": "tv4-q4",
-        "x": 525,
-        "y": 382.5,
-        "width": 66,
-        "height": 75
+        "id": "omr-4",
+        "x": 443.85354330708657,
+        "y": 357.0472440944883,
+        "width": 133.6,
+        "height": 33.2062992125984
       },
       {
-        "id": "tv4-q5",
-        "x": 525,
-        "y": 465,
-        "width": 66,
-        "height": 75
+        "id": "omr-5",
+        "x": 443.85354330708657,
+        "y": 298.08661417322844,
+        "width": 133.6,
+        "height": 33.2062992125984
       },
       {
-        "id": "tv4-q6",
-        "x": 525,
-        "y": 547.5,
-        "width": 66,
-        "height": 75
+        "id": "omr-6",
+        "x": 443.85354330708657,
+        "y": 239.1259842519686,
+        "width": 133.6,
+        "height": 33.2062992125984
       },
       {
-        "id": "tv4-q7",
-        "x": 525,
-        "y": 630,
-        "width": 66,
-        "height": 75
+        "id": "omr-7",
+        "x": 443.85354330708657,
+        "y": 180.1653543307087,
+        "width": 133.6,
+        "height": 33.2062992125984
+      },
+      {
+        "id": "omr-8",
+        "x": 443.85354330708657,
+        "y": 121.20472440944886,
+        "width": 133.6,
+        "height": 33.20629921259842
       }
     ],
     "collisionBoxes": []
