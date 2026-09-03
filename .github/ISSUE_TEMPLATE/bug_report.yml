@@ -23,7 +23,7 @@ body:
       options:
         - "App Docente (Frontend React)"
         - "API Backend Docente Local"
-        - "Motor de Escaneo OMR (TV3/TV4)"
+        - "Motor de Escaneo OMR canónico"
         - "Estudio de Diseño de Exámenes (SPEC-034)"
         - "Installer Hub / WiX Bootstrapper (Windows)"
         - "Portal Alumno Cloud / PWA"

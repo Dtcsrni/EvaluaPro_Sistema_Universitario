@@ -77,3 +77,14 @@ test('cambios installer activan contrato en el integrador core', () => {
   assert.equal(result.matchedGroups.installer, true);
   assert.equal(result.matchedJobs.core_contract_docs_gov, true);
 });
+
+test('cambios en carga de env del runtime activan contrato installer', () => {
+  const runtimeEnv = evaluateAffectedChangeSet(config, ['scripts/runtime-env.mjs']);
+  const launcher = evaluateAffectedChangeSet(config, ['scripts/start-docente-native.mjs']);
+
+  for (const result of [runtimeEnv, launcher]) {
+    assert.equal(result.escalation, 'affected');
+    assert.equal(result.matchedGroups.installer, true);
+    assert.equal(result.matchedJobs.core_contract_docs_gov, true);
+  }
+});

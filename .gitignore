@@ -72,11 +72,7 @@ apps/backend/src/assets/
 chrome/
 tmp/
 
-# OMR synthetic artifacts
-omr_samples_tv3/images/
-omr_samples_tv3/maps/
-omr_samples_tv3/reports/
-omr_samples_tv3/answer_key.json
+# OMR QA artifacts
 reports/qa/latest/omr/
 reports/qa/latest/burn-extract-current/
 reports/qa/latest/wsl-offline/

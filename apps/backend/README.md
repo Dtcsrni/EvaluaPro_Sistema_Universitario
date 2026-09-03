@@ -1,6 +1,6 @@
 # apps/backend — API Docente Local de EvaluaPro
 
-API docente centralizada de **Sistema EvaluaPro (EP)**, construida con arquitectura limpia, TypeScript estricto, motor OMR por visión computacional (TV3/TV4) y persistencia nativa con **Prisma ORM sobre SQLite embebido** para operación local offline-first.
+API docente centralizada de **Sistema EvaluaPro (EP)**, construida con arquitectura limpia, TypeScript estricto, motor OMR único por visión computacional y persistencia nativa con **Prisma ORM sobre SQLite embebido** para operación local offline-first.
 
 > **Estado:** Línea base oficial estable `v1.1.1`.  
 > Cumple el 100% de los contratos de Spec-Driven Development (SDD: `SPEC-034` a `SPEC-049`).
@@ -11,7 +11,7 @@ API docente centralizada de **Sistema EvaluaPro (EP)**, construida con arquitect
 - **Runtime:** Node.js 24 (ESM + TypeScript estricto)
 - **Framework Web:** Express con endurecimiento de seguridad (Helmet, CORS restrictivo, Rate Limiting, sanitización Zod)
 - **Persistencia:** Prisma ORM con base de datos nativa SQLite (offline-first local) y compatibilidad multi-motor
-- **Visión Computacional & OMR:** Motor TV3/TV4 con detección de fiduciales, normalización afín, decodificación QR HMAC-SHA256 y umbrales adaptativos
+- **Visión Computacional & OMR:** Motor canónico con detección de fiduciales, normalización afín, decodificación QR HMAC-SHA256 y umbrales adaptativos
 - **Documentos & Reportes:** Generador PDF vectorial de exámenes y hojas de respuesta, exportador XLSX/DOCX sanitizado con firmas criptográficas
 
 ---

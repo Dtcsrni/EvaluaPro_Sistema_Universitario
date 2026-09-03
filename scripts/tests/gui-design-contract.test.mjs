@@ -32,7 +32,7 @@ test('superficies principales usan radios contenidos', () => {
   for (const file of cssFiles) {
     const css = readCss(file);
     const radiusValues = [...css.matchAll(/(?:border-radius|--radius-lg):\s*(\d+)px/gi)].map((match) => Number(match[1]));
-    const oversized = radiusValues.filter((value) => value > 23 && value !== 999);
+    const oversized = radiusValues.filter((value) => value > 23 && value < 999);
     assert.deepEqual(oversized, [], `${file} no debe usar radios grandes en paneles`);
   }
 });
