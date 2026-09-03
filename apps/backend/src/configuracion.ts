@@ -8,7 +8,9 @@ import {
   parsearNumeroSeguro
 } from './compartido/configuracion/env';
 
-const entorno = process.env.NODE_ENV ?? 'development';
+// Produccion es el comportamiento seguro por defecto. Los entornos de
+// desarrollo y pruebas deben declararse explicitamente con NODE_ENV.
+const entorno = process.env.NODE_ENV ?? 'production';
 cargarDotenvRaizSiAplica(entorno);
 
 const puerto = Number(process.env.PUERTO_API ?? process.env.PORT ?? 4000);
@@ -69,10 +71,21 @@ const refreshTokenDias = Number(process.env.REFRESH_TOKEN_DIAS ?? 30);
 const passwordResetTokenMinutes = parsearNumeroSeguro(process.env.PASSWORD_RESET_TOKEN_MINUTES, 30, { min: 5, max: 180 });
 const passwordResetUrlBase = String(process.env.PASSWORD_RESET_URL_BASE ?? '').trim();
 const googleOauthClientId = process.env.GOOGLE_OAUTH_CLIENT_ID ?? '';
-const googleClassroomClientId = process.env.GOOGLE_CLASSROOM_CLIENT_ID ?? process.env.GOOGLE_OAUTH_CLIENT_ID ?? '';
+// Classroom utiliza un OAuth client independiente del inicio de sesión.
+// No reutilizar GOOGLE_OAUTH_CLIENT_ID: son audiencias y consentimientos distintos.
+const googleClassroomClientId = process.env.GOOGLE_CLASSROOM_CLIENT_ID ?? '';
 const googleClassroomClientSecret = process.env.GOOGLE_CLASSROOM_CLIENT_SECRET ?? '';
 const googleClassroomRedirectUri = process.env.GOOGLE_CLASSROOM_REDIRECT_URI ?? '';
 const classroomTokenCipherKey = process.env.CLASSROOM_TOKEN_CIPHER_KEY ?? '';
+const classroomEnabledRaw = String(process.env.CLASSROOM_ENABLED ?? '').trim();
+const classroomEnabled = classroomEnabledRaw
+  ? esBanderaActiva(classroomEnabledRaw)
+  : Boolean(
+      String(googleClassroomClientId).trim() &&
+        String(googleClassroomClientSecret).trim() &&
+        String(googleClassroomRedirectUri).trim() &&
+        String(classroomTokenCipherKey).trim()
+    );
 const requireGoogleOAuth = esBanderaActiva(process.env.REQUIRE_GOOGLE_OAUTH);
 const codigoAccesoHoras = Number(process.env.CODIGO_ACCESO_HORAS ?? 12);
 const portalAlumnoUrl = process.env.PORTAL_ALUMNO_URL ?? '';
@@ -166,6 +179,11 @@ const licenciaHeartbeatHoras = parsearNumeroSeguro(process.env.LICENCIA_HEARTBEA
 // el minimo contractual es 90 dias y puede ampliarse por configuracion.
 const licenciaGraciaOfflineDias = parsearNumeroSeguro(process.env.LICENCIA_GRACIA_OFFLINE_DIAS, 90, { min: 90, max: 3650 });
 const respaldoCifradoSecreto = String(process.env.EVALUAPRO_BACKUP_CIFRADO_SECRETO ?? jwtSecretoEfectivo).trim();
+const sincronizacionNubeDirectorio = String(process.env.EVALUAPRO_SYNC_CLOUD_DIR ?? '').trim();
+const sincronizacionLeaseTtlMs = parsearNumeroSeguro(process.env.EVALUAPRO_SYNC_LEASE_TTL_MS, 90_000, {
+  min: 30_000,
+  max: 900_000
+});
 const cobranzaAutomaticaIntervalMin = parsearNumeroSeguro(process.env.COBRANZA_AUTOMATICA_INTERVAL_MIN, 30, { min: 5, max: 1440 });
 const cobranzaDiasSuspensionParcial = parsearNumeroSeguro(process.env.COBRANZA_DIAS_SUSPENSION_PARCIAL, 3, { min: 1, max: 60 });
 const cobranzaDiasSuspensionTotal = parsearNumeroSeguro(process.env.COBRANZA_DIAS_SUSPENSION_TOTAL, 10, { min: 2, max: 120 });
@@ -209,6 +227,7 @@ export const configuracion = {
   googleClassroomClientSecret,
   googleClassroomRedirectUri,
   classroomTokenCipherKey,
+  classroomEnabled,
   requireGoogleOAuth,
   codigoAccesoHoras,
   flavorId,
@@ -242,6 +261,8 @@ export const configuracion = {
   licenciaHeartbeatHoras,
   licenciaGraciaOfflineDias,
   respaldoCifradoSecreto,
+  sincronizacionNubeDirectorio,
+  sincronizacionLeaseTtlMs,
   cobranzaAutomaticaIntervalMin,
   cobranzaDiasSuspensionParcial,
   cobranzaDiasSuspensionTotal,
