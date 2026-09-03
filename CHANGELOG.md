@@ -2,6 +2,36 @@
 
 Este archivo sigue el formato "Keep a Changelog" (alto nivel) y SemVer.
 
+## [Unreleased] - 2026-09-02
+
+### Added
+- **Instantánea local docente 1:1 (`SPEC-048` v2.0.0):** exportación de la SQLite canónica y `data/examenes` en un único `.ep-snapshot` cifrado con AES-256-GCM. El desbloqueo admite contraseña de cuenta mediante scrypt o reautenticación Google; la importación valida hashes y `PRAGMA integrity_check`, crea respaldo con rollback y conserva separados los flujos cloud push/pull y paquete parcial.
+- **Trabajo coordinado entre equipos (`SPEC-048` v3.0.0):** lease temporal por docente/equipo, renovación automática, modo solo lectura para equipos sin control, snapshots versionados en carpeta sincronizada y acciones `Publicar y liberar` / `Traer última instantánea`. La SQLite permanece local.
+
+### Fixed
+- **Parser de temarios PDF:** `pdf-parse@2.4.5` ahora se consume mediante su API `PDFParse` instalada, conservando compatibilidad con exports callable y liberando el parser aunque falle la extracción.
+- **Empaquetado docente-local:** se eliminan únicamente engines Prisma de Linux, caché y `pdfjs-dist` redundante; se conservan Node, Prisma Windows, Sharp, canvas y el runtime PDF funcional.
+- **Cabecera y composición PDF/OMR:** se reorganizó la primera página en franja institucional de alto contraste, bloque central de título/metadatos y banda inferior independiente para alumno/grupo; además, las continuaciones usan la franja superior izquierda para el primer reactivo, colocan su panel OMR bajo las opciones y distribuyen el sobrante vertical entre reactivos, evitando huecos por la reserva del QR. La cabecera conserva separación al aumentar `fontScale` y las líneas de captura no atraviesan el bloque de metadatos (`SPEC-042` v1.6.0).
+- **Regresión de Google OAuth/Classroom:** las reparaciones del Installer Hub preservan credenciales existentes, separan login Google de Classroom, validan redirect/cipher, cargan correctamente el `.env` instalado aunque existan variables heredadas vacías, ejecutan el doctor contra el `.env` instalado, bloquean la reutilización del client ID de login y hacen fallar el build si OAuth obligatorio no tiene `VITE_GOOGLE_CLIENT_ID` o sus client IDs divergen (`SPEC-053`).
+- **Sesión docente persistida**: se evita montar el flujo de autenticación y el prompt de Google mientras se valida una sesión o cuenta guardada, eliminando el selector emergente cuando el docente ya está conectado.
+- **Suite visual en Windows**: se eliminó la escritura duplicada del reporte desde el worker Vitest; el reporte oficial queda a cargo de `run-gate-with-report.mjs`, evitando `EPERM` al ejecutar la suite completa.
+- **Build frontend en Windows con host activo**: `vite-build-safe.mjs` detecta el puerto web y compila en staging temporal; además, TypeScript dejó de depender de `tsbuildinfo` incremental bloqueable y los reportes QA usan fallback temporal cuando el entorno protege `reports/qa/latest`.
+- **Producción PDF/OMR de plantillas**: se corrigió la distribución por página para aprovechar el espacio disponible y mantener entre 10 y 15 preguntas por página cuando el contenido lo permite, con medición y dibujo usando la misma configuración tipográfica.
+- **Legibilidad y composición**: se añadieron controles de tamaño de fuente y espaciado de línea, cabecera institucional con logos configurables, separación segura de indicaciones y paneles OMR horizontales con identificador y cinco respuestas legibles.
+- **Vista previa**: se reforzó la validación geométrica para evitar solapamientos entre cabecera, indicaciones, reactivos, imágenes, QR y paneles OMR.
+
+### Changed
+- **Presupuesto de distribución:** la baseline enforce acepta el artefacto docente-local medido con Bundle <= 240 MiB y MSI <= 180 MiB, con margen explícito para dependencias funcionales nativas.
+- **Ruta OMR canónica (`SPEC-042` v1.7.0):** generación, previsualización, escaneo, calificación, recuperación y CI quedan alineados con el contrato canónico actual; las rutas y datasets históricos se conservan para trazabilidad y compatibilidad.
+- **Configuración de sincronización:** la carpeta de OneDrive se administra en `Cuenta → Datos y sincronización`, con selector nativo de Windows, estado visible, ruta activa y validación accesible; el panel operativo de Sincronización conserva solo lease, publicación e importación.
+- **Evolución integral del frontend (`SPEC-054` v1.1.0):** se agruparon las vistas docentes por Academia, Evaluación y Operación; los destinos alumno, admin negocio y docente, junto con los módulos docentes pesados, ahora se cargan bajo demanda; se fijaron radios operativos de 8/12/16 px, se añadieron contratos de rendimiento y Vite/Vitest usan `--configLoader runner` para evitar el `EPERM` de Windows al crear temporales en `node_modules/.vite-temp`.
+- **Identidad visual policromática (`SPEC-054` v1.3.0):** se incorporó color semántico por función en la iconografía SVG vectorial, con acentos cian, jade, ámbar, coral, lavanda y menta en ambos temas; el control de identidad docente del encabezado ahora es un botón accesible, muestra avatar/rol/estado, abre directamente `Cuenta` y conserva las acciones del encabezado en una sola fila en escritorio amplio.
+- **Identidad visual Petróleo Prismático (`SPEC-052` v1.6.0):** se consolidaron los tokens de canvas, texto, acentos, superficies y controles para ambos temas; se reforzó el glassmorphism con transparencia, blur y reflejo interno contenido, se estandarizaron tarjetas, paneles, campos y botones, se eliminó la dependencia de Google Fonts para conservar la legibilidad offline-first y se amplió la auditoría WCAG 2.x de contraste a 13 pares.
+- **Tarjetas de alumnos**: se rediseñaron las píldoras de matrícula, grupo y correo como tokens de metadato reutilizables, con jerarquía etiqueta/valor, superficies oscuras de vidrio, acentos semánticos, sombras, wrapping responsive y contraste para modo claro.
+- **Iconografía global**: se normalizaron los SVG y sus superficies en tarjetas, navegación, guías, formularios y estados, con realce óptico, profundidad, hover consistente y soporte para reducción de movimiento.
+- **Tipografía de tarjetas**: se reforzó la jerarquía de títulos, subtítulos, etiquetas y metadatos con contraste, peso, espaciado, sombra tipográfica y wrapping seguro para pantallas responsive.
+- **Superficies de tarjetas**: se aclaró el vidrio del modo oscuro para separar las tarjetas del fondo, se eliminó el acento superior que sobresalía y se conservó la profundidad mediante borde, iluminación interna y sombra controlada.
+
 ## [1.1.1] - 2026-08-28
 
 ### Added
