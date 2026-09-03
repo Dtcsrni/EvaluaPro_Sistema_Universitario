@@ -7,5 +7,16 @@
     "rootDir": "src",
     "outDir": "dist"
   },
-  "include": ["src"]
+  "include": ["src"],
+  "exclude": [
+    "src/modulos/modulo_escaneo_omr/infra/imagenProcesamientoLegacy.ts",
+    "src/modulos/modulo_generacion_pdf/domain/layoutTemplateV9.ts",
+    "src/modulos/modulo_generacion_pdf/domain/layoutTemplateV10.ts",
+    "src/modulos/modulo_generacion_pdf/domain/templateCompat.ts",
+    "src/modulos/modulo_generacion_pdf/domain/tv3Compat.ts",
+    "src/modulos/modulo_generacion_pdf/domain/tv4Compat.ts",
+    "src/modulos/modulo_generacion_pdf/infra/html/**",
+    "src/modulos/modulo_generacion_pdf/infra/resolverPdfEngine.ts",
+    "src/modulos/modulo_omr_v1/**"
+  ]
 }

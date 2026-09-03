@@ -22,6 +22,8 @@ const shellDocente = leer('apps/frontend/src/apps/app_docente/ShellDocente.tsx')
 const omrWorkflow = leer('apps/frontend/src/apps/app_docente/features/plantillas/components/PlantillasOmrWorkflow.tsx');
 const omrActions = leer('apps/frontend/src/apps/app_docente/features/plantillas/hooks/usePlantillasOmrActions.ts');
 const packageJson = leerJson('package.json');
+const backendTsconfig = leer('apps/backend/tsconfig.json');
+const backendVitestConfig = leer('apps/backend/vitest.config.ts');
 
 test('la política declara una única identidad OMR canónica', () => {
   assert.equal(policy.active.templateVersion, 4);
@@ -55,4 +57,13 @@ test('la GUI marca el contrato activo y no presenta OMR V1', () => {
 
 test('el gate de política está publicado en el contrato raíz', () => {
   assert.equal(packageJson.scripts['test:omr:version-policy'], 'node --test scripts/tests/omr-version-policy.test.mjs');
+});
+
+test('los artefactos históricos OMR se conservan sin entrar en los gates canónicos', () => {
+  assert.match(backendTsconfig, /modulo_omr_v1\/\*\*/);
+  assert.match(backendTsconfig, /infra\/html\/\*\*/);
+  assert.match(backendTsconfig, /templateCompat\.ts/);
+  assert.match(backendVitestConfig, /omr\.tv3\.porFolioValidation\.test\.ts/);
+  assert.match(backendVitestConfig, /omrV1Workflow\.test\.ts/);
+  assert.match(backendVitestConfig, /pdf\.tv4\.compatibilidad\.test\.ts/);
 });
