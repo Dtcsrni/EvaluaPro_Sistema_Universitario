@@ -23,9 +23,9 @@ function crearAnalisisOmrOk() {
     calidadPagina: 0.95,
     confianzaPromedioPagina: 0.93,
     ratioAmbiguas: 0,
-    templateVersionDetectada: 3 as const,
+    templateVersionDetectada: 4 as const,
     motivosRevision: [],
-    engineVersion: 'omr-v3-cv',
+    engineVersion: 'omr-cv',
     geomQuality: 0.91,
     photoQuality: 0.92,
     decisionPolicy: 'conservadora_v1'
@@ -152,7 +152,7 @@ describe('calificaciones persistencia', () => {
           }
         }),
         mapaOmr: JSON.stringify({
-          templateVersion: 3,
+          templateVersion: 4,
           paginas: []
         })
       }
@@ -287,7 +287,7 @@ describe('calificaciones persistencia', () => {
           }
         }),
         mapaOmr: JSON.stringify({
-          templateVersion: 3,
+          templateVersion: 4,
           paginas: []
         })
       }
@@ -425,7 +425,7 @@ describe('calificaciones persistencia', () => {
           }
         }),
         mapaOmr: JSON.stringify({
-          templateVersion: 3,
+          templateVersion: 4,
           paginas: []
         })
       }

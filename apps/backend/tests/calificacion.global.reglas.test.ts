@@ -4,6 +4,7 @@
  * Reglas bloqueantes para calificacion global.
  */
 import fs from 'node:fs/promises';
+import os from 'node:os';
 import path from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { calcularCalificacion } from '../src/modulos/modulo_calificacion/servicioCalificacion';
@@ -11,6 +12,37 @@ import { calcularCalificacion } from '../src/modulos/modulo_calificacion/servici
 function numeroSeguro(texto: unknown) {
   const n = Number(String(texto ?? '0'));
   return Number.isFinite(n) ? n : 0;
+}
+
+async function escribirReporteQa(ruta: string, contenido: string) {
+  const directorio = path.dirname(ruta);
+  const temporal = path.join(directorio, `.${path.basename(ruta)}.${process.pid}.${Date.now()}.tmp`);
+  const alterno = path.join(os.tmpdir(), 'evaluapro-qa-reports', `${path.basename(ruta, path.extname(ruta))}-${process.pid}-${Date.now()}.json`);
+  const esErrorPermiso = (error: unknown) => {
+    const codigo = (error as NodeJS.ErrnoException)?.code;
+    return codigo === 'EPERM' || codigo === 'EACCES';
+  };
+  const escribirAlterno = async () => {
+    await fs.mkdir(path.dirname(alterno), { recursive: true });
+    await fs.writeFile(alterno, contenido, 'utf8');
+  };
+  try {
+    try {
+      await fs.writeFile(temporal, contenido, { encoding: 'utf8', flag: 'wx' });
+    } catch (error) {
+      if (!esErrorPermiso(error)) throw error;
+      await escribirAlterno();
+      return;
+    }
+    try {
+      await fs.rename(temporal, ruta);
+    } catch (error) {
+      if (!esErrorPermiso(error)) throw error;
+      await escribirAlterno();
+    }
+  } finally {
+    await fs.rm(temporal, { force: true }).catch(() => undefined);
+  }
 }
 
 describe('calificacion global (reglas)', () => {
@@ -48,7 +80,7 @@ describe('calificacion global (reglas)', () => {
     };
     const out = path.resolve(process.cwd(), 'reports/qa/latest/global-grade.json');
     await fs.mkdir(path.dirname(out), { recursive: true });
-    await fs.writeFile(out, `${JSON.stringify(reporte, null, 2)}\n`, 'utf8');
+    await escribirReporteQa(out, `${JSON.stringify(reporte, null, 2)}\n`);
   });
 });
 

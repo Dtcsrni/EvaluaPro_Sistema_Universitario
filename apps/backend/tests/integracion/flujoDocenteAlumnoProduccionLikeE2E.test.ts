@@ -5,6 +5,7 @@
  * backend docente -> publicacion al portal -> ingreso alumno -> resultados + PDF.
  */
 import fs from 'node:fs/promises';
+import os from 'node:os';
 import path from 'node:path';
 import type { AddressInfo } from 'node:net';
 import request from 'supertest';
@@ -162,7 +163,14 @@ describe('flujo docente->portal->alumno (prod-like)', () => {
         folioParcial: parcial.folio
       }
     };
-    const out = path.resolve(process.cwd(), 'reports/qa/latest/e2e-docente-alumno.json');
+    // La evidencia detallada es auxiliar del test; el gate CI escribe su
+    // propio reporte. Mantenerla en TEMP evita depender de permisos de
+    // escritura sobre el checkout y evita mezclar artefactos entre procesos.
+    const out = path.join(
+      os.tmpdir(),
+      'evaluapro-qa-reports',
+      'e2e-docente-alumno.json'
+    );
     await fs.mkdir(path.dirname(out), { recursive: true });
     await fs.writeFile(out, `${JSON.stringify(reporte, null, 2)}\n`, 'utf8');
   });

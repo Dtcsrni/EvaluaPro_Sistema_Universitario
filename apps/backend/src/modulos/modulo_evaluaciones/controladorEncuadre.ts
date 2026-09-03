@@ -20,6 +20,20 @@ import fs from 'node:fs/promises';
 import path from 'node:path';
 import crypto from 'node:crypto';
 
+function obtenerDirectorioEncuadres() {
+  return path.resolve(String(process.env.EVALUAPRO_ENCUADRES_DIR || 'apps/backend/data/encuadres'));
+}
+
+function resolverPdfEncuadre(rutaPdf: string) {
+  const nombre = path.basename(String(rutaPdf || ''));
+  if (!/^[A-Za-z0-9-]+_encuadre_base\.pdf$/.test(nombre)) return null;
+  const directorio = obtenerDirectorioEncuadres();
+  const ruta = path.resolve(directorio, nombre);
+  const comparar = process.platform === 'win32' ? (valor: string) => valor.toLowerCase() : (valor: string) => valor;
+  if (comparar(path.dirname(ruta)) !== comparar(directorio)) return null;
+  return ruta;
+}
+
 /**
  * Inicializa el encuadre para un periodo.
  */
@@ -134,7 +148,7 @@ export async function inicializarEncuadre(req: SolicitudDocente, res: Response) 
     });
 
     // Guardar archivo PDF en disco local
-    const encuadresDir = path.resolve('apps/backend/data/encuadres');
+    const encuadresDir = obtenerDirectorioEncuadres();
     await fs.mkdir(encuadresDir, { recursive: true });
 
     // Prevenir path traversal en periodoId
@@ -334,9 +348,8 @@ export async function descargarPdfEncuadrePublico(req: Request, res: Response) {
       return res.status(404).json({ error: 'Archivo no encontrado o inválido' });
     }
 
-    const encuadresDir = path.resolve('apps/backend/data/encuadres');
-    const pdfFullPath = path.resolve('apps/backend', firma.encuadre.rutaPdf);
-    if (!pdfFullPath.startsWith(encuadresDir)) {
+    const pdfFullPath = resolverPdfEncuadre(firma.encuadre.rutaPdf);
+    if (!pdfFullPath) {
       return res.status(400).json({ error: 'Acceso denegado a la ruta del archivo' });
     }
     try {
@@ -398,9 +411,8 @@ export async function firmarEncuadrePublico(req: Request, res: Response) {
     }
 
     // Cargar y estampar el PDF
-    const encuadresDir = path.resolve('apps/backend/data/encuadres');
-    const pdfFullPath = path.resolve('apps/backend', firma.encuadre.rutaPdf || '');
-    if (!pdfFullPath.startsWith(encuadresDir)) {
+    const pdfFullPath = resolverPdfEncuadre(firma.encuadre.rutaPdf || '');
+    if (!pdfFullPath) {
       return res.status(400).json({ error: 'Acceso denegado a la ruta del archivo' });
     }
     let pdfBuffer: Buffer;

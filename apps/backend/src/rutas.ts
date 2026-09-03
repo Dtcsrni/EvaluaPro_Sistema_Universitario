@@ -17,8 +17,6 @@ import rutasBancoPreguntas from './modulos/modulo_banco_preguntas/rutasBancoPreg
 import rutasGeneracionPdf from './modulos/modulo_generacion_pdf/rutasGeneracionPdf';
 import rutasVinculacionEntrega from './modulos/modulo_vinculacion_entrega/rutasVinculacionEntrega';
 import rutasEscaneoOmr from './modulos/modulo_escaneo_omr/rutasEscaneoOmr';
-import rutasOmrV1 from './modulos/modulo_omr_v1/rutasOmrV1';
-import rutasAssessmentsV1 from './modulos/modulo_omr_v1/rutasAssessmentsV1';
 import rutasCalificaciones from './modulos/modulo_calificacion/rutasCalificaciones';
 import rutasAnaliticas from './modulos/modulo_analiticas/rutasAnaliticas';
 import rutasSincronizacionNube from './modulos/modulo_sincronizacion_nube/rutasSincronizacionNube';
@@ -38,6 +36,7 @@ import rutasTemarios from './modulos/modulo_temarios/rutasTemarios';
 import rutasHidratacionCursos from './modulos/modulo_hidratacion_cursos/rutasHidratacionCursos';
 import rutasListasInstitucionales from './modulos/modulo_listas_institucionales/rutasListasInstitucionales';
 import { exportarMetricasPrometheus } from './compartido/observabilidad/metrics';
+import { requerirLeaseEscritura } from './modulos/modulo_sincronizacion_nube/middlewareLeaseSincronizacion';
 
 export function crearRouterApi() {
   const router = Router();
@@ -50,6 +49,7 @@ export function crearRouterApi() {
       name: info.app.name,
       version: info.app.version,
       displayVersion: info.app.displayVersion,
+      omr: info.omr,
       build: {
         commit: String(process.env.GITHUB_SHA || '').trim() || 'local',
         generatedAt: info.system.generatedAt
@@ -67,14 +67,14 @@ export function crearRouterApi() {
 
   // A partir de aqui: todas las rutas requieren sesion de docente.
   router.use(requerirDocente);
+  // Si se configura OneDrive, toda escritura requiere el lease del equipo.
+  router.use(requerirLeaseEscritura);
   router.use('/alumnos', rutasAlumnos);
   router.use('/periodos', rutasPeriodos);
   router.use('/banco-preguntas', rutasBancoPreguntas);
   router.use('/examenes', rutasGeneracionPdf);
-  router.use('/assessments', rutasAssessmentsV1);
   router.use('/entregas', rutasVinculacionEntrega);
   router.use('/omr', rutasEscaneoOmr);
-  router.use('/omr', rutasOmrV1);
   router.use('/calificaciones', rutasCalificaciones);
   router.use('/analiticas', rutasAnaliticas);
   router.use('/sincronizaciones', rutasSincronizacionNube);

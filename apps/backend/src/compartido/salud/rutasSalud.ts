@@ -9,6 +9,11 @@ import path from 'node:path';
 import QRCode from 'qrcode';
 import type { RespuestaLiveness, RespuestaReadiness, RespuestaSalud } from '../tipos/observabilidad';
 import { exportarMetricasPrometheus } from '../observabilidad/metrics';
+import {
+  OMR_CANONICAL_CONTRACT_ID,
+  OMR_CANONICAL_DISPLAY_LABEL,
+  TEMPLATE_VERSION_CANONICA
+} from '../../modulos/modulo_generacion_pdf/domain/templateCanonico';
 
 const router = Router();
 type TecnologiaVersion = { id: string; label: string; logoUrl: string; website: string };
@@ -90,7 +95,8 @@ function buscarRaizRepo(inicio: string) {
   for (let i = 0; i < 10; i += 1) {
     const hasPkg = fs.existsSync(path.join(actual, 'package.json'));
     const hasChangelog = fs.existsSync(path.join(actual, 'CHANGELOG.md'));
-    if (hasPkg && hasChangelog) return actual;
+    const hasVersionMetadata = fs.existsSync(path.join(actual, 'config', 'app-version.json'));
+    if (hasPkg && (hasChangelog || hasVersionMetadata)) return actual;
     const next = path.dirname(actual);
     if (next === actual) break;
     actual = next;
@@ -125,9 +131,15 @@ export function obtenerVersionInfo() {
       platform: process.platform,
       arch: process.arch,
       hostname: os.hostname(),
-      env: process.env.NODE_ENV ?? 'development',
+      env: process.env.NODE_ENV ?? 'production',
       uptimeSec: Math.floor(process.uptime()),
       generatedAt: new Date().toISOString()
+    },
+    omr: {
+      contractId: OMR_CANONICAL_CONTRACT_ID,
+      templateVersion: TEMPLATE_VERSION_CANONICA,
+      displayLabel: OMR_CANONICAL_DISPLAY_LABEL,
+      oldVersionsOperational: false
     },
     changelog
   };
@@ -157,7 +169,7 @@ router.get('/live', (_req, res) => {
     estado: 'ok',
     tiempoActivo: process.uptime(),
     servicio: 'api-docente',
-    env: process.env.NODE_ENV ?? 'development'
+    env: process.env.NODE_ENV ?? 'production'
   };
   res.json(payload);
 });

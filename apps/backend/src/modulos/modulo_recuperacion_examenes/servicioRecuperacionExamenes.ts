@@ -695,6 +695,15 @@ async function reconstructFromManifestInternal(params: {
   });
   const mapaVariante = buildMapVariantFromManifest(params.manifest);
   const preguntasBase = buildPreguntasBaseForPdf(dedupeQuestionsFromManifest(params.manifest));
+  const bookletConfig = typeof plantilla.bookletConfig === 'string'
+    ? (() => {
+        try {
+          return JSON.parse(plantilla.bookletConfig) as { fontScale?: number; lineSpacing?: number };
+        } catch {
+          return {};
+        }
+      })()
+    : plantilla.bookletConfig;
   const encabezadoAlumno = {
     nombre: String(alumno.nombreCompleto ?? ''),
     grupo: String(alumno.grupo ?? 'RECOVERY')
@@ -708,6 +717,7 @@ async function reconstructFromManifestInternal(params: {
     tipoExamen: String(plantilla.tipo ?? 'parcial') === 'global' ? 'global' : 'parcial',
     totalPaginas: params.manifest.totalPaginas,
     templateVersion: params.manifest.templateVersion,
+    bookletConfig,
     encabezado: {
       alumno: encabezadoAlumno,
       mostrarInstrucciones: true

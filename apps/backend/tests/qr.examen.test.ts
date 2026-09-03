@@ -69,4 +69,19 @@ describe('qr examen enriquecido', () => {
     expect(resumen?.questionRefs).toHaveLength(2);
     expect(resumen?.optionOrders).toEqual(['20134', '43210']);
   });
+
+  it('rechaza firmas que no pertenezcan al esquema HMAC canónico', () => {
+    const qr = construirTextoQrExamenPagina({
+      folio: 'FOLIO-001',
+      numeroPagina: 1,
+      templateVersion: 4,
+      mapaVariante: { ordenPreguntas: [], ordenOpcionesPorPregunta: {} },
+      preguntas: []
+    });
+    const qrObsoleto = qr.replace(/:SG:H1[A-Z0-9]{24}$/i, ':SG:AAAAAAAAAAAAAAAA');
+    const resumen = extraerResumenQrExamen(qrObsoleto);
+
+    expect(resumen?.payloadSignatureMode).toBe('unsupported');
+    expect(resumen?.payloadSignatureValid).toBe(false);
+  });
 });

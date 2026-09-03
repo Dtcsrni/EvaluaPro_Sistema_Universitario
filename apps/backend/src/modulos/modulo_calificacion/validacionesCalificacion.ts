@@ -33,7 +33,7 @@ const esquemaAnalisisOmr = z
     calidadPagina: z.number().min(0).max(1),
     confianzaPromedioPagina: z.number().min(0).max(1).optional(),
     ratioAmbiguas: z.number().min(0).max(1).optional(),
-    templateVersionDetectada: z.union([z.literal(3), z.literal(4)]).optional(),
+    templateVersionDetectada: z.literal(4).optional(),
     motivosRevision: z.array(z.string().min(1).max(200)).max(50).optional(),
     revisionConfirmada: z.boolean().optional(),
     usuarioRevisor: z.string().trim().min(3).max(120).optional(),
@@ -52,7 +52,7 @@ const esquemaPaginaOmrCalificacion = z
     numeroPagina: z.number().int().positive(),
     imagenBase64: z.string().trim().min(1),
     estadoAnalisis: z.enum(['ok', 'rechazado_calidad', 'requiere_revision']).optional(),
-    templateVersionDetectada: z.union([z.literal(3), z.literal(4)]).optional()
+    templateVersionDetectada: z.literal(4).optional()
   })
   .strict();
 

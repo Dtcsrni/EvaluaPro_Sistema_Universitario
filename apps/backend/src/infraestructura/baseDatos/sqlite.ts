@@ -10,7 +10,8 @@ import path from 'node:path';
 import fs from 'node:fs';
 
 let dataDir = path.resolve(process.cwd(), 'data');
-if (process.env.NODE_ENV === 'production') {
+const entorno = process.env.NODE_ENV ?? 'production';
+if (entorno === 'production') {
   // In native production, always use ProgramData to persist across upgrades/uninstalls and avoid System32
   dataDir = path.resolve(process.env.PROGRAMDATA || 'C:\\ProgramData', 'EvaluaPro', 'data');
 }
@@ -25,7 +26,7 @@ export const prisma = new PrismaClient({
       url: process.env.BACKEND_DATABASE_URL || process.env.DATABASE_URL || `file:${path.resolve(dataDir, 'evaluapro.db').replace(/\\/g, '/')}`
     }
   },
-  log: process.env.NODE_ENV === 'development' ? ['query', 'error', 'warn'] : ['error']
+  log: entorno === 'development' ? ['query', 'error', 'warn'] : ['error']
 });
 
 export async function conectarSqlite(): Promise<void> {

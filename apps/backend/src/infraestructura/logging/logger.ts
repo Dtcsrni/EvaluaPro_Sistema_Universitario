@@ -9,7 +9,7 @@ export type NivelLog = 'info' | 'warn' | 'error' | 'ok' | 'system';
 type Meta = Record<string, unknown>;
 
 const servicio = 'api-docente';
-const env = process.env.NODE_ENV ?? 'development';
+const env = process.env.NODE_ENV ?? 'production';
 
 function logsSilenciados(): boolean {
   const raw = String(process.env.EVALUAPRO_LOG_SILENT || process.env.EVALUAPRO_SILENT_LOGS || '').trim().toLowerCase();

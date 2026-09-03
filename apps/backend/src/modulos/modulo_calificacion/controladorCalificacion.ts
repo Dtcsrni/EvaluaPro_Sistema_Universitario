@@ -43,7 +43,7 @@ type AnalisisOmrCalificacion = {
   calidadPagina: number;
   confianzaPromedioPagina?: number;
   ratioAmbiguas?: number;
-  templateVersionDetectada?: 3 | 4;
+  templateVersionDetectada?: 4;
   motivosRevision?: string[];
   revisionConfirmada?: boolean;
   usuarioRevisor?: string;
@@ -60,7 +60,7 @@ type PaginaOmrCalificacionEntrada = {
   numeroPagina: number;
   imagenBase64: string;
   estadoAnalisis?: 'ok' | 'rechazado_calidad' | 'requiere_revision';
-  templateVersionDetectada?: 3 | 4;
+  templateVersionDetectada?: 4;
 };
 
 function extraerBase64Imagen(base64: string): { mimeType: string; contenido: string } {
@@ -140,7 +140,7 @@ async function archivarPaginasOmrEnCalificacion({
   };
   folio: string;
   estadoAnalisisDefault?: 'ok' | 'rechazado_calidad' | 'requiere_revision';
-  templateVersionDetectadaDefault?: 3 | 4;
+  templateVersionDetectadaDefault?: 4;
   engineVersionDefault?: string;
   motivosRevisionDefault?: string[];
 }) {
@@ -268,11 +268,7 @@ function validarResumenQrContraExamen(params: {
     });
   }
 
-  if (
-    (resumenQr.templateVersion === 3 || resumenQr.templateVersion === 4) &&
-    (templateVersionOmr === 3 || templateVersionOmr === 4) &&
-    resumenQr.templateVersion !== templateVersionOmr
-  ) {
+  if (resumenQr.templateVersion !== 4 || templateVersionOmr !== 4) {
     throw new ErrorAplicacion(
       'OMR_QR_TEMPLATE_NO_COINCIDE',
       'La plantilla detectada por el QR no coincide con la plantilla del examen',
@@ -380,8 +376,8 @@ function validarPayloadCalificacionOmr(params: {
     });
   }
 
-  if (respuestas.length > 0 && templateVersionOmr !== 3 && templateVersionOmr !== 4) {
-    throw new ErrorAplicacion('OMR_TEMPLATE_NO_COMPATIBLE', 'Solo TV3/TV4 pueden guardar calificación OMR automática', 422);
+  if (respuestas.length > 0 && templateVersionOmr !== 4) {
+    throw new ErrorAplicacion('OMR_TEMPLATE_NO_COMPATIBLE', 'Solo la plantilla OMR canónica puede guardar calificación automática', 422);
   }
   if (respuestas.length > 0 && totalPreguntasEsperadas <= 0) {
     throw new ErrorAplicacion(
@@ -436,12 +432,8 @@ function validarPayloadCalificacionOmr(params: {
     throw new ErrorAplicacion('OMR_ANALISIS_REQUERIDO', 'Se requiere omrAnalisis cuando se envían respuestasDetectadas', 422);
   }
   if (!analisisOmr) return;
-  if (
-    analisisOmr.templateVersionDetectada !== undefined &&
-    analisisOmr.templateVersionDetectada !== 3 &&
-    analisisOmr.templateVersionDetectada !== 4
-  ) {
-    throw new ErrorAplicacion('OMR_TEMPLATE_NO_COMPATIBLE', 'El análisis OMR recibido no corresponde a TV3/TV4', 422);
+  if (analisisOmr.templateVersionDetectada !== undefined && analisisOmr.templateVersionDetectada !== 4) {
+    throw new ErrorAplicacion('OMR_TEMPLATE_NO_COMPATIBLE', 'El análisis OMR recibido no corresponde a la plantilla canónica', 422);
   }
   if (analisisOmr.estadoAnalisis !== 'ok' && analisisOmr.revisionConfirmada) {
     const usuarioRevisor = String(analisisOmr.usuarioRevisor ?? '').trim();
