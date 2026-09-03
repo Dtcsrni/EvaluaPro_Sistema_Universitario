@@ -131,6 +131,8 @@ test('el authoring del MSI excluye contenido de ingeniería que no se ejecuta', 
   assert.match(msiBuild, /\(md\|markdown\|map\|ts\|tsx\|mts\|cts\)/);
   assert.match(msiBuild, /'LICENSE', 'LICENCE', 'NOTICE'/);
   assert.match(msiBuild, /\^\(test\|tests\|__tests__\|docs\|examples\?\|\\\.github\)\$/);
+  assert.match(msiBuild, /foreach \(\$prunePath in \$prunePaths\)/);
+  assert.match(msiBuild, /Payload preconstruido reutilizado y podado/);
 });
 
 test('la ETA del Hub se deriva del avance real, se suaviza y declara verificación', () => {

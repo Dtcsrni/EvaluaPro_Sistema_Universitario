@@ -413,14 +413,17 @@ function Add-DocenteNativeCompiledPayload {
         (Join-Path $backendTarget 'node_modules/.prisma/client/query_compiler_bg*'),
         (Join-Path $backendTarget 'node_modules/.cache')
       )
-      if (-not $reusePrebuiltDependencies) {
-        foreach ($prunePath in $prunePaths) {
-          Get-ChildItem -Path $prunePath -Force -ErrorAction SilentlyContinue | ForEach-Object {
-            Remove-Item -LiteralPath $_.FullName -Recurse -Force -ErrorAction Stop
-          }
+      # El staging preconstruido puede contener engines, cachés y herramientas
+      # de desarrollo de la máquina que lo generó. También debe podarse aquí;
+      # de lo contrario el MSI arrastra varias plataformas de Prisma y excede
+      # el presupuesto del instalador aunque npm ci --omit=dev no se ejecute.
+      foreach ($prunePath in $prunePaths) {
+        Get-ChildItem -Path $prunePath -Force -ErrorAction SilentlyContinue | ForEach-Object {
+          Remove-Item -LiteralPath $_.FullName -Recurse -Force -ErrorAction Stop
         }
-      } else {
-        Write-Host '[msi] Se conserva payload preconstruido; dependencias ya son de producción.'
+      }
+      if ($reusePrebuiltDependencies) {
+        Write-Host '[msi] Payload preconstruido reutilizado y podado para runtime Windows.'
       }
       $runtimeNodeModules = Join-Path $backendTarget 'node_modules'
       $nonRuntimeFiles = @(
