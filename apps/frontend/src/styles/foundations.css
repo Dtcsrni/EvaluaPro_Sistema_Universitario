@@ -1,8 +1,7 @@
-@import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@500;600;700;800&family=Inter:wght@400;500;600;700&display=swap');
-
 :root {
-  --font-display: 'Plus Jakarta Sans', 'Inter', 'Segoe UI Variable Display', 'Segoe UI', system-ui, -apple-system, sans-serif;
-  --font-sans: 'Inter', 'Plus Jakarta Sans', 'Segoe UI Variable Text', 'Segoe UI', system-ui, -apple-system, sans-serif;
+  /* Identidad EvaluaPro: confianza institucional, claridad operativa y progreso. */
+  --font-display: 'Segoe UI Variable Display', 'Segoe UI', Aptos Display, Inter, system-ui, sans-serif;
+  --font-sans: 'Segoe UI Variable Text', 'Segoe UI', Aptos, Inter, system-ui, sans-serif;
   --space-1: 0.35rem;
   --space-2: 0.55rem;
   --space-3: 0.8rem;
@@ -37,6 +36,31 @@
   --brand-rose: #f43f5e;
   --gradient-app:
     linear-gradient(145deg, rgba(248, 250, 252, 0.98), rgba(241, 245, 249, 0.98) 46%, rgba(248, 250, 252, 0.98));
+
+  /* Paleta canónica y materiales compartidos. Los colores de texto son opacos
+     para que el contraste no dependa de la transparencia del vidrio. */
+  --ui-canvas: #eef4fa;
+  --ui-canvas-sheen: linear-gradient(135deg, rgba(255, 255, 255, 0.82), transparent 36%), linear-gradient(315deg, rgba(28, 200, 255, 0.08), transparent 42%);
+  --ui-text-primary: #102033;
+  --ui-text-secondary: #334e68;
+  --ui-text-muted: #526b84;
+  --ui-text-placeholder: #5f7891;
+  --ui-accent-primary: #087ea4;
+  --ui-accent-secondary: #6259b8;
+  --ui-accent-success: #087f5b;
+  --ui-accent-warning: #9a5b00;
+  --ui-accent-danger: #b4233e;
+  --ui-glass-surface: rgba(255, 255, 255, 0.58);
+  --ui-glass-surface-strong: rgba(255, 255, 255, 0.72);
+  --ui-glass-border: rgba(66, 101, 130, 0.26);
+  --ui-glass-highlight: rgba(255, 255, 255, 0.78);
+  --ui-glass-blur: 26px;
+  --ui-glass-saturation: 140%;
+  --ui-button-primary-bg: #0b6fa8;
+  --ui-button-primary-hover: #075e91;
+  --ui-button-primary-fg: #ffffff;
+  --ui-button-secondary-bg: rgba(255, 255, 255, 0.38);
+  --ui-button-secondary-fg: #102033;
 }
 
 :root,
@@ -51,6 +75,8 @@ select {
 body {
   min-height: 100vh;
   background-attachment: fixed;
+  background-color: var(--ui-canvas);
+  background-image: var(--ui-canvas-sheen);
 }
 
 h1,
@@ -67,6 +93,15 @@ h3,
   position: relative;
   min-height: 100vh;
   padding: clamp(1rem, 2vw, 1.5rem);
+}
+
+.app-loading {
+  display: grid;
+  min-height: 7rem;
+  place-items: center;
+  margin: 0;
+  color: var(--ui-text-secondary);
+  text-align: center;
 }
 
 .page::before {
@@ -124,6 +159,29 @@ h3,
     linear-gradient(225deg, rgba(0, 210, 255, 0.14) 0%, transparent 45%),
     linear-gradient(315deg, rgba(139, 92, 246, 0.12) 0%, transparent 40%),
     linear-gradient(145deg, #060b14, #0a1324 50%, #060b14);
+
+  --ui-canvas: #07162b;
+  --ui-canvas-sheen: linear-gradient(135deg, rgba(67, 217, 255, 0.16), transparent 34%), linear-gradient(315deg, rgba(124, 108, 255, 0.13), transparent 42%);
+  --ui-text-primary: #f8fbff;
+  --ui-text-secondary: #d9e8f5;
+  --ui-text-muted: #c8d8eb;
+  --ui-text-placeholder: #b9cfe2;
+  --ui-accent-primary: #43d9ff;
+  --ui-accent-secondary: #aaa2ff;
+  --ui-accent-success: #4fe0ae;
+  --ui-accent-warning: #ffd166;
+  --ui-accent-danger: #ff879a;
+  --ui-glass-surface: rgba(21, 55, 86, 0.58);
+  --ui-glass-surface-strong: rgba(33, 68, 100, 0.68);
+  --ui-glass-border: rgba(163, 222, 255, 0.30);
+  --ui-glass-highlight: rgba(224, 248, 255, 0.19);
+  --ui-glass-blur: 30px;
+  --ui-glass-saturation: 155%;
+  --ui-button-primary-bg: #0b6fa8;
+  --ui-button-primary-hover: #087fbd;
+  --ui-button-primary-fg: #ffffff;
+  --ui-button-secondary-bg: rgba(35, 72, 105, 0.56);
+  --ui-button-secondary-fg: #f8fbff;
 }
 
 :root[data-theme="dark"] body {
@@ -132,4 +190,6 @@ h3,
     linear-gradient(225deg, rgba(0, 210, 255, 0.12) 0%, transparent 45%),
     linear-gradient(315deg, rgba(139, 92, 246, 0.12) 0%, transparent 40%),
     #060b14;
+  background-color: var(--ui-canvas);
+  background-image: var(--ui-canvas-sheen);
 }

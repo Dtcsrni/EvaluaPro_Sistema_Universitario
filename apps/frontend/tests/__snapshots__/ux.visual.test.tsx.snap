@@ -1479,6 +1479,35 @@ exports[`UX visual regression > docente sin token mantiene layout de acceso 1`] 
               <div
                 class="auth-input-box auth-input-box--mail"
               >
+                <svg
+                  aria-hidden="true"
+                  class="auth-input-icon"
+                  data-icono="correo"
+                  fill="none"
+                  height="20"
+                  viewBox="0 0 24 24"
+                  width="20"
+                  xmlns="http://www.w3.org/2000/svg"
+                >
+                  <rect
+                    height="16"
+                    rx="2"
+                    stroke="currentColor"
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                    stroke-width="2.2"
+                    width="20"
+                    x="2"
+                    y="4"
+                  />
+                  <path
+                    d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7"
+                    stroke="currentColor"
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                    stroke-width="2.2"
+                  />
+                </svg>
                 <input
                   autocomplete="email"
                   placeholder="docente@universidad.edu.mx"
@@ -1494,6 +1523,35 @@ exports[`UX visual regression > docente sin token mantiene layout de acceso 1`] 
               <div
                 class="auth-input-box auth-input-box--key"
               >
+                <svg
+                  aria-hidden="true"
+                  class="auth-input-icon"
+                  data-icono="candado"
+                  fill="none"
+                  height="20"
+                  viewBox="0 0 24 24"
+                  width="20"
+                  xmlns="http://www.w3.org/2000/svg"
+                >
+                  <rect
+                    height="11"
+                    rx="2"
+                    stroke="currentColor"
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                    stroke-width="2.2"
+                    width="18"
+                    x="3"
+                    y="11"
+                  />
+                  <path
+                    d="M7 11V7a5 5 0 0 1 10 0v4"
+                    stroke="currentColor"
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                    stroke-width="2.2"
+                  />
+                </svg>
                 <input
                   autocomplete="current-password"
                   placeholder="••••••••"
@@ -1503,11 +1561,34 @@ exports[`UX visual regression > docente sin token mantiene layout de acceso 1`] 
                 <button
                   aria-label="Mostrar"
                   class="auth-pwd-toggle"
-                  tabindex="-1"
                   title="Mostrar"
                   type="button"
                 >
-                  👁️
+                  <svg
+                    aria-hidden="true"
+                    class="icono"
+                    data-icono="ojo"
+                    fill="none"
+                    height="18"
+                    viewBox="0 0 24 24"
+                    width="18"
+                    xmlns="http://www.w3.org/2000/svg"
+                  >
+                    <path
+                      d="M2.5 12s3.4-6 9.5-6 9.5 6 9.5 6-3.4 6-9.5 6-9.5-6-9.5-6Z"
+                      stroke="currentColor"
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                      stroke-width="2.2"
+                    />
+                    <circle
+                      cx="12"
+                      cy="12"
+                      r="2.7"
+                      stroke="currentColor"
+                      stroke-width="2.2"
+                    />
+                  </svg>
                 </button>
               </div>
             </label>

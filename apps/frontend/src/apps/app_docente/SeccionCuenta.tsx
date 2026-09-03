@@ -12,11 +12,17 @@ import { Icono } from '../../ui/iconos';
 import { Boton } from '../../ui/ux/componentes/Boton';
 import { InlineMensaje } from '../../ui/ux/componentes/InlineMensaje';
 import { GuiaCuentaVisual } from './GuiaCuentaVisual';
+import { SeccionConfiguracionSincronizacion } from './SeccionConfiguracionSincronizacion';
+import type { EstadoLeaseUI } from './SeccionLeaseSincronizacion';
 import { clienteApi } from './clienteApiDocente';
 import { tipoMensajeInline } from './mensajeInline';
 import { registrarAccionDocente } from './telemetriaDocente';
 import type { Docente } from './tipos';
 import { idCortoMateria, mensajeDeError } from './utilidades';
+
+function esDataUrlImagen(valor: string) {
+  return /^data:image\//i.test(String(valor || '').trim());
+}
 
 export function SeccionCuenta({
   docente,
@@ -25,7 +31,9 @@ export function SeccionCuenta({
   esDev,
   oauthGoogleDisponible,
   smtpDisponible,
-  requireGoogleOAuth
+  requireGoogleOAuth,
+  estadoLease,
+  onConfigurarCarpeta
 }: {
   docente: Docente;
   onDocenteActualizado: (d: Docente) => void;
@@ -35,6 +43,8 @@ export function SeccionCuenta({
   classroomDisponible?: boolean;
   smtpDisponible?: boolean;
   requireGoogleOAuth?: boolean;
+  estadoLease: EstadoLeaseUI | null;
+  onConfigurarCarpeta: (directorio: string) => Promise<EstadoLeaseUI>;
 }) {
   const [contrasenaNueva, setContrasenaNueva] = useState('');
   const [contrasenaNueva2, setContrasenaNueva2] = useState('');
@@ -46,8 +56,12 @@ export function SeccionCuenta({
 
   const [institucionPdf, setInstitucionPdf] = useState(docente.preferenciasPdf?.institucion ?? '');
   const [lemaPdf, setLemaPdf] = useState(docente.preferenciasPdf?.lema ?? '');
-  const [logoIzqPdf, setLogoIzqPdf] = useState(docente.preferenciasPdf?.logos?.izquierdaPath ?? '');
-  const [logoDerPdf, setLogoDerPdf] = useState(docente.preferenciasPdf?.logos?.derechaPath ?? '');
+  const logoIzqInicial = docente.preferenciasPdf?.logos?.izquierdaPath ?? '';
+  const logoDerInicial = docente.preferenciasPdf?.logos?.derechaPath ?? '';
+  const [logoIzqPdf, setLogoIzqPdf] = useState(esDataUrlImagen(logoIzqInicial) ? logoIzqInicial : '');
+  const [logoDerPdf, setLogoDerPdf] = useState(esDataUrlImagen(logoDerInicial) ? logoDerInicial : '');
+  const [logoIzqPdfPath, setLogoIzqPdfPath] = useState(esDataUrlImagen(logoIzqInicial) ? '' : logoIzqInicial);
+  const [logoDerPdfPath, setLogoDerPdfPath] = useState(esDataUrlImagen(logoDerInicial) ? '' : logoDerInicial);
   const [papelera, setPapelera] = useState<Array<Record<string, unknown>>>([]);
   const [cargandoPapelera, setCargandoPapelera] = useState(false);
   const [restaurandoId, setRestaurandoId] = useState<string | null>(null);
@@ -119,10 +133,12 @@ export function SeccionCuenta({
       const cuerpo: Record<string, unknown> = {};
       if (institucionPdf.trim()) cuerpo.institucion = institucionPdf.trim();
       if (lemaPdf.trim()) cuerpo.lema = lemaPdf.trim();
-      if (logoIzqPdf.trim() || logoDerPdf.trim()) {
+      const logoIzquierda = logoIzqPdf.trim() || logoIzqPdfPath.trim();
+      const logoDerecha = logoDerPdf.trim() || logoDerPdfPath.trim();
+      if (logoIzquierda || logoDerecha) {
         cuerpo.logos = {
-          ...(logoIzqPdf.trim() ? { izquierdaPath: logoIzqPdf.trim() } : {}),
-          ...(logoDerPdf.trim() ? { derechaPath: logoDerPdf.trim() } : {})
+          ...(logoIzquierda ? { izquierdaPath: logoIzquierda } : {}),
+          ...(logoDerecha ? { derechaPath: logoDerecha } : {})
         };
       }
 
@@ -149,6 +165,36 @@ export function SeccionCuenta({
     } finally {
       setGuardando(false);
     }
+  }
+
+  function seleccionarLogoPdf(lado: 'izquierda' | 'derecha', archivo?: File) {
+    if (!archivo) return;
+    if (!['image/png', 'image/jpeg', 'image/webp'].includes(archivo.type)) {
+      setMensaje('La imagen debe ser PNG, JPG o WebP.');
+      return;
+    }
+    if (archivo.size > 2 * 1024 * 1024) {
+      setMensaje('La imagen no puede superar 2 MB.');
+      return;
+    }
+    const lector = new FileReader();
+    lector.onload = () => {
+      const dataUrl = String(lector.result ?? '');
+      if (!esDataUrlImagen(dataUrl)) {
+        setMensaje('No se pudo leer la imagen seleccionada.');
+        return;
+      }
+      if (lado === 'izquierda') {
+        setLogoIzqPdf(dataUrl);
+        setLogoIzqPdfPath('');
+      } else {
+        setLogoDerPdf(dataUrl);
+        setLogoDerPdfPath('');
+      }
+      setMensaje('');
+    };
+    lector.onerror = () => setMensaje('No se pudo leer la imagen seleccionada.');
+    lector.readAsDataURL(archivo);
   }
 
   async function regenerarAccesosDirectos() {
@@ -371,7 +417,13 @@ export function SeccionCuenta({
       {/* 2. Bento Visual Guide */}
       <GuiaCuentaVisual />
 
-      {/* 3. Seguridad de Acceso */}
+      {/* 3. Configuracion de sincronizacion */}
+      <SeccionConfiguracionSincronizacion
+        estado={estadoLease}
+        onConfigurar={onConfigurarCarpeta}
+      />
+
+      {/* 4. Seguridad de Acceso */}
       <div className="cuenta-subpanel cuenta-seguridad anim-fade-in">
         <div className="banco-section-title">
           <div className="banco-section-title__wrap">
@@ -510,15 +562,31 @@ export function SeccionCuenta({
         </div>
 
         <div className="grid grid--2 cuenta-pdf__logos">
-          <label className="campo">
-            <span>Logo izquierda (path)</span>
-            <input value={logoIzqPdf} onChange={(e) => setLogoIzqPdf(e.target.value)} placeholder="logos/logo_cuh.png" />
-          </label>
-          <label className="campo">
-            <span>Logo derecha (path)</span>
-            <input value={logoDerPdf} onChange={(e) => setLogoDerPdf(e.target.value)} placeholder="logos/logo_sys.png" />
-          </label>
+          <div className="cuenta-pdf__logo-field">
+            <label className="campo">
+              <span>Imagen institucional izquierda</span>
+              <input type="file" accept="image/png,image/jpeg,image/webp" onChange={(e) => seleccionarLogoPdf('izquierda', e.target.files?.[0])} aria-label="Seleccionar archivo institucional izquierdo" />
+            </label>
+            <label className="campo">
+              <span>Ruta alternativa (opcional)</span>
+              <input value={logoIzqPdfPath} onChange={(e) => { setLogoIzqPdfPath(e.target.value); setLogoIzqPdf(''); }} placeholder="logos/logo_cuh.png" aria-label="Logo izquierda" />
+            </label>
+            {logoIzqPdf && <img className="cuenta-pdf__logo-preview" src={logoIzqPdf} alt="Vista previa del logo izquierdo" />}
+          </div>
+          <div className="cuenta-pdf__logo-field">
+            <label className="campo">
+              <span>Imagen institucional derecha</span>
+              <input type="file" accept="image/png,image/jpeg,image/webp" onChange={(e) => seleccionarLogoPdf('derecha', e.target.files?.[0])} aria-label="Seleccionar archivo institucional derecho" />
+            </label>
+            <label className="campo">
+              <span>Ruta alternativa (opcional)</span>
+              <input value={logoDerPdfPath} onChange={(e) => { setLogoDerPdfPath(e.target.value); setLogoDerPdf(''); }} placeholder="logos/logo_sys.png" aria-label="Logo derecha" />
+            </label>
+            {logoDerPdf && <img className="cuenta-pdf__logo-preview" src={logoDerPdf} alt="Vista previa del logo derecho" />}
+          </div>
         </div>
+
+        <p className="nota cuenta-pdf__logo-help">PNG, JPG o WebP · máximo 2 MB por imagen. Estas imágenes se usarán automáticamente como logos predeterminados en nuevos exámenes.</p>
 
         <div className="acciones acciones--mt">
           <Boton onClick={guardarPreferenciasPdf} disabled={guardando}>

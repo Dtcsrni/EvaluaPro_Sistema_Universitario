@@ -10,6 +10,8 @@ import { HelperPanel } from '../../ui/ux/componentes/HelperPanel';
 import { InlineMensaje } from '../../ui/ux/componentes/InlineMensaje';
 import { GuiaSincronizacionVisual } from './GuiaSincronizacionVisual';
 import { SeccionPaqueteSincronizacion } from './SeccionPaqueteSincronizacion';
+import { SeccionInstantaneaLocal, type MetodoInstantaneaLocal } from './SeccionInstantaneaLocal';
+import { SeccionLeaseSincronizacion, type EstadoLeaseUI } from './SeccionLeaseSincronizacion';
 import { SeccionSincronizacionEquipos } from './SeccionSincronizacionEquipos';
 import { SeccionPublicar } from './SeccionPublicar';
 import type { Periodo, Plantilla, Pregunta, Alumno, RegistroSincronizacion, RespuestaSyncPull, RespuestaSyncPush } from './tipos';
@@ -28,6 +30,15 @@ export function SeccionSincronizacion({
   onCodigo,
   onExportarPaquete,
   onImportarPaquete,
+  onExportarLocal,
+  onImportarLocal,
+  estadoLease,
+  onAdquirirLease,
+  onLiberarLease,
+  onPublicarNube,
+  onImportarNube,
+  puedeUsarContrasena,
+  puedeUsarGoogle,
   onPushServidor,
   onPullServidor
 }: {
@@ -63,6 +74,15 @@ export function SeccionSincronizacion({
     | { mensaje?: string; resultados?: unknown[]; pdfsGuardados?: number }
     | { mensaje?: string; checksumSha256?: string; conteos?: Record<string, number> }
   >;
+  onExportarLocal: (payload: { metodo: MetodoInstantaneaLocal; credencial?: string }) => Promise<{ archivo: Blob; nombreArchivo: string; checksumSha256: string; exportadoEn: string; conteos: { baseDatosBytes: number; archivos: number; archivosBytes: number } }>;
+  onImportarLocal: (payload: { cuerpo: Uint8Array }) => Promise<{ mensaje?: string; checksumSha256?: string; conteos?: { baseDatosBytes: number; archivos: number; archivosBytes: number }; requiereReinicioSesion?: boolean }>;
+  estadoLease: EstadoLeaseUI | null;
+  onAdquirirLease: () => Promise<EstadoLeaseUI>;
+  onLiberarLease: () => Promise<unknown>;
+  onPublicarNube: (payload: { metodo: MetodoInstantaneaLocal; credencial?: string }) => Promise<{ checksumSha256?: string; conteos?: { baseDatosBytes: number; archivos: number; archivosBytes: number }; mensaje?: string }>;
+  onImportarNube: (payload: { metodo: MetodoInstantaneaLocal; credencial?: string; dryRun: boolean }) => Promise<{ checksumSha256?: string; conteos?: { baseDatosBytes: number; archivos: number; archivosBytes: number }; mensaje?: string; requiereReinicioSesion?: boolean }>;
+  puedeUsarContrasena: boolean;
+  puedeUsarGoogle: boolean;
   onPushServidor: (payload: { periodoId?: string; desde?: string; incluirPdfs?: boolean }) => Promise<RespuestaSyncPush>;
   onPullServidor: (payload: { desde?: string; limite?: number }) => Promise<RespuestaSyncPull>;
 }) {
@@ -274,6 +294,23 @@ export function SeccionSincronizacion({
         onExportar={onExportarPaquete}
         onImportar={onImportarPaquete}
         docenteCorreo={docenteCorreo}
+      />
+
+      <SeccionInstantaneaLocal
+        onExportar={onExportarLocal}
+        onImportar={onImportarLocal}
+        puedeUsarContrasena={puedeUsarContrasena}
+        puedeUsarGoogle={puedeUsarGoogle}
+      />
+
+      <SeccionLeaseSincronizacion
+        estado={estadoLease}
+        puedeUsarContrasena={puedeUsarContrasena}
+        puedeUsarGoogle={puedeUsarGoogle}
+        onAdquirir={onAdquirirLease}
+        onLiberar={onLiberarLease}
+        onPublicar={onPublicarNube}
+        onImportar={onImportarNube}
       />
 
       <SeccionSincronizacionEquipos

@@ -7,6 +7,7 @@ import { Spinner } from '../../../../../ui/iconos';
 import { Boton } from '../../../../../ui/ux/componentes/Boton';
 import type { Alumno } from '../../../tipos';
 import { idCortoMateria } from '../../../utilidades';
+import { OMR_CANONICAL_DISPLAY_LABEL } from '../../../../../ui/version/versionInfo';
 
 type ExamenGeneradoResumen = {
   _id: string;
@@ -105,6 +106,9 @@ export function PlantillasHistorialLotes({
           <p className="nota">Consulta historial, descarga paquetes completos en PDF o reimprime folios individuales.</p>
         </div>
         <div className="plantillas-panel__meta">
+          <span className="version-env-badge" title="Contrato único de generación y lectura OMR activo">
+            {OMR_CANONICAL_DISPLAY_LABEL}
+          </span>
           <span className="banco-tag-preguntas">Paquetes: {paquetes.length}</span>
           <span className="banco-tag-paginas">Individuales: {examenesIndividuales.length}</span>
         </div>

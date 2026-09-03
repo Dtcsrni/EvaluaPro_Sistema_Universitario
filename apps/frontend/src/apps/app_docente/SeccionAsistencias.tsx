@@ -12,6 +12,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { clienteApi } from './clienteApiDocente';
 import { emitToast } from '../../ui/toast/toastBus';
+import { Icono } from '../../ui/iconos';
 import { Boton } from '../../ui/ux/componentes/Boton';
 import { GuiaAsistenciasVisual } from './GuiaAsistenciasVisual';
 import type { Alumno, Periodo } from './tipos';
@@ -342,7 +343,7 @@ export function SeccionAsistencias({ periodos, alumnos }: Props) {
                 {periodoSeleccionado ? periodoSeleccionado.nombre : 'Sin materia seleccionada'}
               </span>
             </div>
-            <h2 className="asistencias-panel__title asistencias-titulo">📋 Asistencias</h2>
+            <h2 className="asistencias-panel__title asistencias-titulo"><Icono nombre="asistencias" /> Asistencias</h2>
             <p className="nota">Pase de lista en 1 clic, semáforo de inasistencias y control automático de derecho a examen.</p>
           </div>
         </div>
@@ -522,7 +523,7 @@ export function SeccionAsistencias({ periodos, alumnos }: Props) {
       {!periodoId ? (
         <div className="empty-state-card anim-fade-in">
           <div className="empty-state-card__icon anim-icon-pulse">
-            <span aria-hidden="true">📋</span>
+            <Icono nombre="asistencias" size={28} />
           </div>
           <h4>Comienza seleccionando una materia</h4>
           <p>Selecciona una de tus asignaturas activas para cargar las listas de asistencia, iniciar el pase de lista y monitorear el derecho a examen.</p>
@@ -649,7 +650,7 @@ export function SeccionAsistencias({ periodos, alumnos }: Props) {
               {resumen.length > 0 && (
                 <div className="asistencias-table-toolbar anim-fade-in">
                   <div className="asistencias-search-box">
-                    <span className="asistencias-search-icon" aria-hidden="true">🔍</span>
+                    <span className="asistencias-search-icon" aria-hidden="true"><Icono nombre="buscar" size={18} /></span>
                     <input
                       type="text"
                       placeholder="Buscar alumno por nombre o matrícula…"
@@ -703,7 +704,7 @@ export function SeccionAsistencias({ periodos, alumnos }: Props) {
               ) : resumen.length === 0 ? (
                 <div className="empty-state-card anim-fade-in">
                   <div className="empty-state-card__icon anim-icon-pulse">
-                    <span aria-hidden="true">🗓️</span>
+                    <Icono nombre="asistencias" size={28} />
                   </div>
                   <h4>Sin sesiones registradas aún</h4>
                   <p className="nota">
@@ -812,7 +813,7 @@ export function SeccionAsistencias({ periodos, alumnos }: Props) {
               {sesiones.length > 0 && (
                 <div className="asistencias-panel-card anim-card-hover">
                   <div className="asistencias-card-head">
-                    <h3 className="asistencias-sub-title">📅 Sesiones Registradas ({sesiones.length})</h3>
+                    <h3 className="asistencias-sub-title"><Icono nombre="periodos" /> Sesiones Registradas ({sesiones.length})</h3>
                     <p className="asistencias-sub-desc">Haz clic en cualquier sesión para ver o editar el pase de lista.</p>
                   </div>
                   <div className="asistencias-sesiones-grid">
@@ -824,7 +825,7 @@ export function SeccionAsistencias({ periodos, alumnos }: Props) {
                       >
                         <div className="asistencias-sesion-card__header">
                           <span className="asistencias-sesion-card__date">
-                            📅 {formatFecha(s.fecha)}
+                            <Icono nombre="periodos" size={15} /> {formatFecha(s.fecha)}
                           </span>
                           <span className="asistencia-grupo-pill">{s.grupo}</span>
                         </div>

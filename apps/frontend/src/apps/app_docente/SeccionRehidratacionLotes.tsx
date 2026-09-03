@@ -209,7 +209,7 @@ export function SeccionRehidratacionLotes({
 
   if (!puedeUsar) {
     return (
-      <section className="panel">
+      <section className="panel rehidratacion-panel">
         <InlineMensaje tipo="error">
           Esta capacidad de rehidratacion solo esta disponible para administradores o docentes con recuperacion de lotes habilitada.
         </InlineMensaje>
@@ -223,7 +223,7 @@ export function SeccionRehidratacionLotes({
 
   return (
     <>
-      <section className="panel calificaciones-hero">
+      <section className="panel rehidratacion-panel calificaciones-hero">
         <div className="calificaciones-hero__head">
           <h2>
             <Icono nombre="pdf" /> Rehidratacion canonica del lote
@@ -245,7 +245,7 @@ export function SeccionRehidratacionLotes({
         </div>
       </section>
 
-      <section className="panel">
+      <section className="panel rehidratacion-panel">
         <div className="calificaciones-human-review-panel__head">
           <div className="calificaciones-human-review-panel__title">
             <h3>
@@ -398,7 +398,7 @@ export function SeccionRehidratacionLotes({
         ) : null}
       </section>
 
-      <section className="panel calificaciones-human-review-panel">
+      <section className="panel rehidratacion-panel calificaciones-human-review-panel">
         <div className="calificaciones-human-review-panel__head">
           <div className="calificaciones-human-review-panel__title">
             <h3>
@@ -468,7 +468,7 @@ export function SeccionRehidratacionLotes({
 
         <InlineMensaje tipo="info">
           Si la herramienta visual no abre o no carga dentro del portal, inicia el servidor local con{' '}
-          <code>npm -C apps/backend run omr:tv3:review:ui</code>.
+          <code>npm run test:omr:canonical:gate:ci</code>.
         </InlineMensaje>
       </section>
     </>

@@ -7,6 +7,8 @@
 import { useMemo, useState } from 'react';
 import { Boton } from '../../../../../ui/ux/componentes/Boton';
 import { InlineMensaje } from '../../../../../ui/ux/componentes/InlineMensaje';
+import { emitToast } from '../../../../../ui/toast/toastBus';
+import { OMR_CANONICAL_DISPLAY_LABEL } from '../../../../../ui/version/versionInfo';
 import type { GeneratedAssessmentDetalle, OmrJobDetalle } from '../../../tipos';
 
 type Props = {
@@ -67,7 +69,7 @@ export function PlantillasOmrWorkflow({
     [jobOmr, sheetSerialActivo]
   );
   const [draftsPorHoja, setDraftsPorHoja] = useState<Record<string, DraftHoja>>({});
-  const [resolutionReason, setResolutionReason] = useState('Corrección manual de hoja OMR V1');
+  const [resolutionReason, setResolutionReason] = useState(`Corrección manual de ${OMR_CANONICAL_DISPLAY_LABEL}`);
   const draftActivo = useMemo(() => {
     if (!paginaActiva) return construirDraftHoja(null);
     const sheetSerial = String(paginaActiva.sheetSerial || '').trim();
@@ -78,18 +80,18 @@ export function PlantillasOmrWorkflow({
 
   if (!assessmentDetalle) {
     return (
-      <div className="resultado plantillas-omr-v1">
-        <h4>Flujo OMR V1</h4>
-        <InlineMensaje tipo="info">Genera o carga un assessment V1 para descargar artefactos y operar escaneo/revisión.</InlineMensaje>
+      <div className="resultado plantillas-omr">
+        <h4>{OMR_CANONICAL_DISPLAY_LABEL}</h4>
+        <InlineMensaje tipo="info">Genera o carga un assessment con el contrato OMR canónico para descargar artefactos y operar escaneo/revisión.</InlineMensaje>
       </div>
     );
   }
 
   return (
-    <div className="resultado plantillas-omr-v1">
+    <div className="resultado plantillas-omr">
       <div className="plantillas-panel__hero">
         <div>
-          <h4>Flujo OMR V1</h4>
+          <h4>{OMR_CANONICAL_DISPLAY_LABEL}</h4>
           <p className="nota">Descarga artefactos, procesa capturas y corrige hojas OMR dentro del mismo contexto de assessment.</p>
         </div>
       </div>
@@ -123,23 +125,23 @@ export function PlantillasOmrWorkflow({
         </div>
       )}
       <div className="acciones acciones--mt">
-        <Boton type="button" variante="secundario" onClick={() => void descargarArtifact(assessmentDetalle.assessment.bookletPdfUrl, `${assessmentDetalle.assessment.folio}_booklet_v1.pdf`)}>
+        <Boton type="button" variante="secundario" onClick={() => void descargarArtifact(assessmentDetalle.assessment.bookletPdfUrl, `${assessmentDetalle.assessment.folio}_booklet.pdf`)}>
           Descargar cuadernillo
         </Boton>
-        <Boton type="button" variante="secundario" onClick={() => void descargarArtifact(assessmentDetalle.assessment.omrSheetPdfUrl, `${assessmentDetalle.assessment.folio}_omr_sheet_v1.pdf`)}>
+        <Boton type="button" variante="secundario" onClick={() => void descargarArtifact(assessmentDetalle.assessment.omrSheetPdfUrl, `${assessmentDetalle.assessment.folio}_omr_sheet.pdf`)}>
           Descargar hoja OMR
         </Boton>
-        <Boton type="button" variante="secundario" onClick={() => void descargarArtifact(assessmentDetalle.assessment.answerKeyUrl, `${assessmentDetalle.assessment.folio}_answer_key_v1.json`)}>
+        <Boton type="button" variante="secundario" onClick={() => void descargarArtifact(assessmentDetalle.assessment.answerKeyUrl, `${assessmentDetalle.assessment.folio}_answer_key.json`)}>
           Descargar answer key
         </Boton>
-        <Boton type="button" variante="secundario" onClick={() => void descargarArtifact(assessmentDetalle.assessment.manifestUrl, `${assessmentDetalle.assessment.folio}_manifest_v1.json`)}>
+        <Boton type="button" variante="secundario" onClick={() => void descargarArtifact(assessmentDetalle.assessment.manifestUrl, `${assessmentDetalle.assessment.folio}_manifest.json`)}>
           Descargar manifest
         </Boton>
         <Boton
           type="button"
           variante="secundario"
           disabled={!assessmentDetalle.assessment.studentPacketZipUrl}
-          onClick={() => void descargarArtifact(assessmentDetalle.assessment.studentPacketZipUrl, `${assessmentDetalle.assessment.folio}_student_packets_v1.zip`)}
+          onClick={() => void descargarArtifact(assessmentDetalle.assessment.studentPacketZipUrl, `${assessmentDetalle.assessment.folio}_student_packets.zip`)}
         >
           Descargar packets ZIP
         </Boton>
@@ -152,7 +154,18 @@ export function PlantillasOmrWorkflow({
             type="file"
             multiple
             accept="image/*,application/pdf"
-            onChange={(event) => setFiles(Array.from(event.target.files ?? []))}
+            onChange={(event) => {
+              const seleccionados = Array.from(event.target.files ?? []);
+              setFiles(seleccionados);
+              emitToast({
+                level: seleccionados.length > 0 ? 'ok' : 'info',
+                title: 'OMR',
+                message: seleccionados.length > 0
+                  ? `${seleccionados.length} archivo${seleccionados.length === 1 ? '' : 's'} seleccionado${seleccionados.length === 1 ? '' : 's'}`
+                  : 'Selección de archivos cancelada',
+                durationMs: 1600
+              });
+            }}
           />
         </label>
         <Boton
@@ -160,13 +173,14 @@ export function PlantillasOmrWorkflow({
           variante="secundario"
           cargando={procesandoOmr}
           disabled={files.length === 0}
-          onClick={() =>
+          onClick={() => {
+            emitToast({ level: 'info', title: 'OMR', message: `Procesando ${files.length} archivo${files.length === 1 ? '' : 's'}…`, durationMs: 1800 });
             void crearJobOmr({
               assessmentId: assessmentDetalle.assessment._id,
               files,
               sourceType: files.some((file) => file.type === 'application/pdf') ? 'pdf' : 'image_batch'
-            })
-          }
+            });
+          }}
         >
           Procesar capturas
         </Boton>
@@ -175,7 +189,7 @@ export function PlantillasOmrWorkflow({
 
       {jobOmr && (
         <>
-          <div className="resultado plantillas-omr-v1__job">
+          <div className="resultado plantillas-omr__job">
             <h4>Job OMR</h4>
             <div className="item-meta">
               <span>Estado: {jobOmr.status}</span>
@@ -185,13 +199,16 @@ export function PlantillasOmrWorkflow({
               <span>Auto: {jobOmr.summary?.autoGradable ?? 0}</span>
               <span>Promedio: {jobOmr.summary?.averageScore ?? 0}%</span>
             </div>
-            <div className="plantillas-omr-v1__pages">
+            <div className="plantillas-omr__pages">
               {jobOmr.pages.map((page) => (
                 <button
                   key={`${page.sheetSerial}-${page.pageIndex}`}
                   type="button"
                   className={`badge ${sheetSerialActivo === page.sheetSerial ? 'badge-activo' : ''}`}
-                  onClick={() => setSheetSerialActivo(page.sheetSerial)}
+                  onClick={() => {
+                    setSheetSerialActivo(page.sheetSerial);
+                    emitToast({ level: 'info', title: 'Hoja OMR', message: `Hoja ${page.sheetSerial} seleccionada`, durationMs: 1400 });
+                  }}
                 >
                   {page.sheetSerial} · P{page.pageIndex} · {page.scanStatus}
                 </button>
@@ -211,7 +228,7 @@ export function PlantillasOmrWorkflow({
           </div>
 
           {paginaActiva && (
-            <div className="resultado plantillas-omr-v1__review">
+            <div className="resultado plantillas-omr__review">
               <h4>Review & Fix: {paginaActiva.sheetSerial}</h4>
               <div className="item-meta">
                 <span>Estado: {paginaActiva.scanStatus}</span>
@@ -227,7 +244,7 @@ export function PlantillasOmrWorkflow({
                   ))}
                 </ul>
               )}
-              <div className="plantillas-omr-v1__review-grid">
+              <div className="plantillas-omr__review-grid">
                 <label className="campo">
                   Student ID
                   <input
@@ -262,7 +279,7 @@ export function PlantillasOmrWorkflow({
                   <input value={resolutionReason} onChange={(event) => setResolutionReason(event.target.value)} />
                 </label>
               </div>
-              <div className="plantillas-omr-v1__responses">
+              <div className="plantillas-omr__responses">
                 {draftActivo.responses.map((response, index) => (
                   <label key={`${paginaActiva.sheetSerial}-${response.numeroPregunta}`} className="campo">
                     P{response.numeroPregunta}

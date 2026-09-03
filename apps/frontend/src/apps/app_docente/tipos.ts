@@ -16,6 +16,7 @@ export type Docente = {
   tieneGoogle?: boolean;
   capacidadesIntegraciones?: {
     oauthGoogleBackend?: boolean;
+    snapshotGoogleDisponible?: boolean;
     classroomBackend?: boolean;
     smtpBackend?: boolean;
     requireGoogleOAuth?: boolean;
@@ -74,6 +75,7 @@ export type Plantilla = {
     allowImages?: boolean;
     imageBudgetPolicy?: 'strict' | 'balanced';
     headerStyle?: 'institutional' | 'compact';
+    logos?: { izquierdaPath?: string; derechaPath?: string };
     fontScale?: number;
     lineSpacing?: number;
     separateCoverPage?: boolean;
@@ -115,8 +117,8 @@ export type PreviewPlantilla = {
     preguntas: Array<{ numero: number; id: string; tieneImagen: boolean; enunciadoCorto: string }>;
   }>;
 
-  // OMR V1 (previsualizacion de assessment)
-  omrRuntimeVersion?: 1;
+  // Contrato OMR canónico (previsualización de assessment)
+  omrRuntimeVersion?: 4;
   assessmentTemplateId?: string;
   questionCount?: number;
   proposedGenerationSeed?: string;
@@ -311,7 +313,7 @@ export type ResultadoOmr = {
   calidadPagina: number;
   estadoAnalisis: 'ok' | 'rechazado_calidad' | 'requiere_revision';
   motivosRevision: string[];
-  templateVersionDetectada: 1 | 3 | 4;
+  templateVersionDetectada: 4;
   confianzaPromedioPagina: number;
   ratioAmbiguas: number;
 };
@@ -356,7 +358,7 @@ export type ResultadoAnalisisOmr = {
   folio: string;
   numeroPagina: number;
   alumnoId?: string | null;
-  templateVersionDetectada?: 1 | 3 | 4;
+  templateVersionDetectada?: 4;
 };
 
 export type ClassroomEstado = {

@@ -91,6 +91,28 @@ describe('SeccionAlumnos', () => {
     expect(screen.getByText(/Carlos López Hernández/i)).toBeInTheDocument();
   });
 
+  it('aplica la materia y el grupo recibidos desde una tarjeta', async () => {
+    render(
+      <SeccionAlumnos
+        alumnos={alumnosMock}
+        periodosActivos={periodosMock}
+        periodosTodos={periodosMock}
+        destinoInicial={{ periodoId: 'per-1', grupo: '3B' }}
+        onRefrescar={() => {}}
+        permisos={permisosCompletos}
+        puedeEliminarAlumnoDev={false}
+        enviarConPermiso={async () => ({})}
+        avisarSinPermiso={() => {}}
+      />
+    );
+
+    await waitFor(() => {
+      const selects = screen.getAllByRole('combobox');
+      expect(selects[1]).toHaveValue('per-1');
+      expect(selects[2]).toHaveValue('3B');
+    });
+  });
+
   it('permite registrar un nuevo alumno con matrícula CUH válida y autollenado de correo', async () => {
     const mockEnviar = vi.fn().mockResolvedValue({});
     const mockRefrescar = vi.fn();

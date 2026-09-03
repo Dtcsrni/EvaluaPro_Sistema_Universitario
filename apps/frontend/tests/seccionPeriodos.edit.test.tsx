@@ -24,6 +24,26 @@ const permisos: PermisosUI = {
 };
 
 describe('SeccionPeriodos edición', () => {
+  it('inicia la guía plegada y permite consultarla bajo demanda', () => {
+    localStorage.removeItem('ep.guia.materias.oculta');
+
+    render(
+      <SeccionPeriodos
+        periodos={[]}
+        onRefrescar={vi.fn()}
+        onVerArchivadas={vi.fn()}
+        permisos={permisos}
+        puedeEliminarMateriaDev={false}
+        enviarConPermiso={vi.fn(async () => ({}))}
+        avisarSinPermiso={vi.fn()}
+      />
+    );
+
+    expect(screen.queryByText('PASO 01')).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: /Ver guía rápida de configuración/i }));
+    expect(screen.getByText('PASO 01')).toBeInTheDocument();
+  });
+
   it('entra en modo edición de materia', () => {
     const periodo = {
       _id: 'per-1',
@@ -45,9 +65,40 @@ describe('SeccionPeriodos edición', () => {
       />
     );
 
+    const acciones = screen.getByRole('button', { name: /Mostrar acciones/i });
+    expect(acciones).toHaveAttribute('aria-expanded', 'false');
+    fireEvent.click(acciones);
+    expect(acciones).toHaveAttribute('aria-expanded', 'true');
     fireEvent.click(screen.getByRole('button', { name: /Editar/i }));
     expect(screen.getByText(/Guardar cambios/i)).toBeInTheDocument();
     expect(screen.getAllByLabelText(/Nombre de la materia/i).length).toBeGreaterThanOrEqual(2);
+  });
+
+  it('abre Alumnos con el grupo de la tarjeta', () => {
+    const onAbrirGrupo = vi.fn();
+    const periodo = {
+      _id: 'per-grupo',
+      nombre: 'Diseño Web',
+      fechaInicio: '2026-02-01',
+      fechaFin: '2026-03-01',
+      grupos: ['E512606A']
+    } as unknown as Periodo;
+
+    render(
+      <SeccionPeriodos
+        periodos={[periodo]}
+        onRefrescar={vi.fn()}
+        onVerArchivadas={vi.fn()}
+        onAbrirGrupo={onAbrirGrupo}
+        permisos={permisos}
+        puedeEliminarMateriaDev={false}
+        enviarConPermiso={vi.fn(async () => ({}))}
+        avisarSinPermiso={vi.fn()}
+      />
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: /Abrir grupo E512606A/i }));
+    expect(onAbrirGrupo).toHaveBeenCalledWith('per-grupo', 'E512606A');
   });
 
   it('calcula y muestra chips de avance para diversos estados de periodo', () => {

@@ -8,16 +8,18 @@ import type { ReactNode } from 'react';
 import { Icono } from '../../ui/iconos';
 import { TemaBoton } from '../../tema/TemaBoton';
 import { Boton } from '../../ui/ux/componentes/Boton';
-import { abrirVentanaVersion, obtenerVersionApp } from '../../ui/version/versionInfo';
+import { abrirVentanaVersion, obtenerVersionApp, OMR_CANONICAL_CONTRACT_ID, OMR_CANONICAL_DISPLAY_LABEL } from '../../ui/version/versionInfo';
 import type { Docente } from './tipos';
 
 export function ShellDocente({
   docente,
   onCerrarSesion,
+  onAbrirCuenta,
   children
 }: {
   docente: Docente | null;
   onCerrarSesion: () => void;
+  onAbrirCuenta: () => void;
   children: ReactNode;
 }) {
   const version = obtenerVersionApp();
@@ -45,14 +47,23 @@ export function ShellDocente({
         </div>
         <div className="cabecera__acciones shell-docente__acciones">
           {docente && (
-            <div
+            <button
+              type="button"
               className="chip chip-docente-sesion"
-              data-tooltip={`Docente: ${nombreSesion} (${docente.correo})`}
-              title={`Docente: ${nombreSesion} (${docente.correo})`}
+              data-tooltip="Abrir perfil docente y preferencias"
+              aria-label={`Abrir perfil docente de ${nombreSesion}`}
+              onClick={onAbrirCuenta}
             >
-              <span className="chip-docente-avatar">{iniciales}</span>
-              <span className="chip-docente-name">{nombreSesion}</span>
-            </div>
+              <span className="chip-docente-avatar" aria-hidden="true">
+                <span>{iniciales}</span>
+                <span className="chip-docente-avatar__status" />
+              </span>
+              <span className="chip-docente-copy">
+                <span className="chip-docente-name">{nombreSesion}</span>
+                <span className="chip-docente-role">Docente</span>
+              </span>
+              <Icono nombre="chevron" size={18} className="chip-docente-chevron" />
+            </button>
           )}
           <button
             type="button"
@@ -63,6 +74,14 @@ export function ShellDocente({
           >
             v{version}
           </button>
+          <span
+            className="chip chip-omr-contract"
+            data-testid="omr-canonical-badge"
+            data-tooltip="Contrato OMR activo; las versiones antiguas se rechazan"
+            title={`Contrato activo: ${OMR_CANONICAL_CONTRACT_ID}. Las versiones antiguas se rechazan.`}
+          >
+            {OMR_CANONICAL_DISPLAY_LABEL}
+          </span>
           <TemaBoton />
           {docente && (
             <Boton

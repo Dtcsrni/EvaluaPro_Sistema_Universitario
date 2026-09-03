@@ -1,15 +1,16 @@
 /**
  * Selector de app docente o alumno segun variable de entorno.
  */
-import { useEffect } from 'react';
+import { lazy, Suspense, useEffect } from 'react';
 import { GoogleOAuthProvider } from '@react-oauth/google';
-import { AppAlumno } from './apps/app_alumno/AppAlumno';
-import { AppAdminNegocio } from './apps/app_admin_negocio/AppAdminNegocio';
-import { AppDocente } from './apps/app_docente/AppDocente';
 import { TemaProvider } from './tema/TemaProvider';
 import { TooltipLayer } from './ui/ux/tooltip/TooltipLayer';
-import { VersionInfoPage } from './ui/version/VersionInfoPage';
-import { PaginaFirmaEncuadre } from './ui/encuadre/PaginaFirmaEncuadre';
+
+const AppAlumno = lazy(() => import('./apps/app_alumno/AppAlumno').then(({ AppAlumno: modulo }) => ({ default: modulo })));
+const AppAdminNegocio = lazy(() => import('./apps/app_admin_negocio/AppAdminNegocio').then(({ AppAdminNegocio: modulo }) => ({ default: modulo })));
+const AppDocente = lazy(() => import('./apps/app_docente/AppDocente').then(({ AppDocente: modulo }) => ({ default: modulo })));
+const VersionInfoPage = lazy(() => import('./ui/version/VersionInfoPage').then(({ VersionInfoPage: modulo }) => ({ default: modulo })));
+const PaginaFirmaEncuadre = lazy(() => import('./ui/encuadre/PaginaFirmaEncuadre').then(({ PaginaFirmaEncuadre: modulo }) => ({ default: modulo })));
 
 function normalizarRutaAsset(valor: string): string {
   const limpio = String(valor || '').trim();
@@ -153,11 +154,14 @@ function App() {
     : esFirmaEncuadre
       ? <PaginaFirmaEncuadre token={tokenFirma} />
       : (destino === 'alumno' ? <AppAlumno /> : destino === 'admin_negocio' ? <AppAdminNegocio /> : <AppDocente />);
+  const contenidoProtegido = googleClientId && destino !== 'alumno' ? <GoogleOAuthProvider clientId={googleClientId}>{contenido}</GoogleOAuthProvider> : contenido;
 
   return (
     <TemaProvider>
       <main className={`page page--${destino}`} data-app-destino={destino}>
-        {googleClientId && destino !== 'alumno' ? <GoogleOAuthProvider clientId={googleClientId}>{contenido}</GoogleOAuthProvider> : contenido}
+        <Suspense fallback={<div className="panel app-loading" role="status" aria-live="polite">Cargando EvaluaPro…</div>}>
+          {contenidoProtegido}
+        </Suspense>
       </main>
       {!esVersionInfo ? <TooltipLayer /> : null}
     </TemaProvider>

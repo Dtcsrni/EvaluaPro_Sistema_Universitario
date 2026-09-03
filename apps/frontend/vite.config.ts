@@ -5,7 +5,7 @@
  * Limites: Mantener contrato y comportamiento observable del modulo.
  */
 // Configuracion Vite para el servidor de desarrollo y build.
-import { defineConfig, loadEnv } from 'vite';
+import { defineConfig, loadEnv, type Plugin } from 'vite';
 import react from '@vitejs/plugin-react';
 import fs from 'node:fs';
 import path from 'node:path';
@@ -19,6 +19,14 @@ type MetaApp = {
   displayVersion: string;
   appName: string;
   developerName: string;
+};
+
+type OmrVersionPolicy = {
+  active?: {
+    templateVersion?: number;
+    contractId?: string;
+    displayLabel?: string;
+  };
 };
 
 function leerMetaApp(envDir: string): MetaApp {
@@ -61,15 +69,86 @@ function resolverHttps(env: Record<string, string>) {
   };
 }
 
+function leerPoliticaOmr(envDir: string) {
+  const policyPath = path.join(envDir, 'config', 'omr-version-policy.json');
+  const policy = JSON.parse(fs.readFileSync(policyPath, 'utf8')) as OmrVersionPolicy;
+  const version = Number(policy.active?.templateVersion);
+  const contractId = String(policy.active?.contractId || '').trim();
+  const displayLabel = String(policy.active?.displayLabel || '').trim();
+  if (version !== 4 || contractId !== 'omr-canonical-v4' || displayLabel !== 'OMR canónico · v4') {
+    throw new Error('La política OMR no declara exactamente el contrato canónico activo esperado.');
+  }
+  return { version, contractId, displayLabel };
+}
+
+function sincronizarPublicoSinReemplazo(publicDir: string, outDir: string) {
+  if (!fs.existsSync(publicDir)) return;
+
+  const recorrer = (directorio: string): string[] => fs.readdirSync(directorio, { withFileTypes: true }).flatMap((entrada) => {
+    const absoluto = path.join(directorio, entrada.name);
+    if (entrada.isDirectory()) return recorrer(absoluto);
+    return entrada.isFile() ? [absoluto] : [];
+  });
+
+  for (const origen of recorrer(publicDir)) {
+    const relativo = path.relative(publicDir, origen);
+    const destino = path.join(outDir, relativo);
+    fs.mkdirSync(path.dirname(destino), { recursive: true });
+
+    if (!fs.existsSync(destino)) {
+      fs.copyFileSync(origen, destino);
+      continue;
+    }
+
+    const contenidoOrigen = fs.readFileSync(origen);
+    const contenidoDestino = fs.readFileSync(destino);
+    if (Buffer.compare(contenidoOrigen, contenidoDestino) === 0) continue;
+
+    throw new Error(
+      `El estático público ${relativo} cambió mientras la salida estaba en uso. ` +
+      'Cierra el host que sirve EvaluaPro y vuelve a ejecutar el build.'
+    );
+  }
+}
+
+function pluginPublicoWindowsSeguro(): Plugin {
+  let outDir = '';
+  return {
+    name: 'evaluapro-public-assets-windows-safe',
+    apply: 'build',
+    configResolved(config) {
+      outDir = path.resolve(config.root, config.build.outDir);
+    },
+    writeBundle() {
+      sincronizarPublicoSinReemplazo(path.resolve(__dirname, 'public'), outDir);
+    }
+  };
+}
+
+export function validarGoogleBuild(env: Record<string, string>) {
+  const requireGoogleOAuth = /^(1|true|si|yes|on)$/i.test(String(env.REQUIRE_GOOGLE_OAUTH || '').trim());
+  const clientId = String(env.VITE_GOOGLE_CLIENT_ID || '').trim();
+  const backendClientId = String(env.GOOGLE_OAUTH_CLIENT_ID || '').trim();
+  if (requireGoogleOAuth && !clientId) {
+    throw new Error('REQUIRE_GOOGLE_OAUTH esta activo, pero falta VITE_GOOGLE_CLIENT_ID para el build frontend.');
+  }
+  if (requireGoogleOAuth && backendClientId && clientId !== backendClientId) {
+    throw new Error('VITE_GOOGLE_CLIENT_ID debe coincidir con GOOGLE_OAUTH_CLIENT_ID cuando Google OAuth es obligatorio.');
+  }
+  return { requireGoogleOAuth, configured: Boolean(clientId) };
+}
+
 export default defineConfig(({ mode }) => {
   const envDir = path.resolve(__dirname, '..', '..');
   const env = loadEnv(mode, envDir, '');
+  validarGoogleBuild(env);
   const { appVersion, displayVersion, appName, developerName } = leerMetaApp(envDir);
+  const omrPolicy = leerPoliticaOmr(envDir);
   const developerNameResolved = String(env.EVALUAPRO_DEVELOPER_NAME || developerName || 'Equipo EvaluaPro');
   const developerRoleResolved = String(env.EVALUAPRO_DEVELOPER_ROLE || 'Desarrollo');
   const httpsConfig = resolverHttps(env);
 
-  const plugins = [react()];
+  const plugins = [react(), ...(process.platform === 'win32' ? [pluginPublicoWindowsSeguro()] : [])];
 
   return {
     plugins,
@@ -81,7 +160,10 @@ export default defineConfig(({ mode }) => {
       'import.meta.env.VITE_APP_DISPLAY_VERSION': JSON.stringify(displayVersion),
       'import.meta.env.VITE_APP_NAME': JSON.stringify(appName),
       'import.meta.env.VITE_DEVELOPER_NAME': JSON.stringify(developerNameResolved),
-      'import.meta.env.VITE_DEVELOPER_ROLE': JSON.stringify(developerRoleResolved)
+      'import.meta.env.VITE_DEVELOPER_ROLE': JSON.stringify(developerRoleResolved),
+      'import.meta.env.VITE_OMR_CANONICAL_VERSION': JSON.stringify(String(omrPolicy.version)),
+      'import.meta.env.VITE_OMR_CANONICAL_CONTRACT_ID': JSON.stringify(omrPolicy.contractId),
+      'import.meta.env.VITE_OMR_CANONICAL_DISPLAY_LABEL': JSON.stringify(omrPolicy.displayLabel)
     },
     server: {
       host: true,
@@ -105,6 +187,10 @@ export default defineConfig(({ mode }) => {
       https: httpsConfig
     },
     build: {
+      // En Windows un host estático puede mantener abierto el directorio de salida.
+      // Los assets tienen hash y el index nuevo deja sin referencia los anteriores.
+      emptyOutDir: process.platform !== 'win32',
+      copyPublicDir: process.platform !== 'win32',
       chunkSizeWarningLimit: 600,
       rollupOptions: {
         output: {

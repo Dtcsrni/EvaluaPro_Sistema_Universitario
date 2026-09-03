@@ -7,7 +7,7 @@
  * Mejoras de UX/UI: Aplicación de la guía de diseño avanzado (glassmorphism,
  * transparencias y animaciones de entrada).
  */
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { Fragment, useCallback, useEffect, useMemo, useState } from 'react';
 import { clienteAdminNegocioApi } from './clienteAdminNegocioApi';
 import { emitToast } from '../../ui/toast/toastBus';
 import { Icono } from '../../ui/iconos';
@@ -57,17 +57,17 @@ type DashboardResumen = {
   churnMensual?: number;
 };
 
-const VISTAS: Array<{ id: Vista; label: string }> = [
-  { id: 'dashboard', label: 'Dashboard' },
-  { id: 'tenants', label: 'Tenants' },
-  { id: 'planes', label: 'Planes' },
-  { id: 'suscripciones', label: 'Suscripciones' },
-  { id: 'licencias', label: 'Licencias' },
-  { id: 'cupones', label: 'Cupones' },
-  { id: 'campanas', label: 'Campanas' },
-  { id: 'plantillas_notificacion', label: 'Plantillas Msg' },
-  { id: 'cobranza', label: 'Cobranza' },
-  { id: 'auditoria', label: 'Auditoria' }
+const VISTAS: Array<{ id: Vista; label: string; grupo: string }> = [
+  { id: 'dashboard', label: 'Dashboard', grupo: 'Resumen' },
+  { id: 'tenants', label: 'Tenants', grupo: 'Catálogo comercial' },
+  { id: 'planes', label: 'Planes', grupo: 'Catálogo comercial' },
+  { id: 'suscripciones', label: 'Suscripciones', grupo: 'Catálogo comercial' },
+  { id: 'licencias', label: 'Licencias', grupo: 'Catálogo comercial' },
+  { id: 'cupones', label: 'Cupones', grupo: 'Comunicación' },
+  { id: 'campanas', label: 'Campanas', grupo: 'Comunicación' },
+  { id: 'plantillas_notificacion', label: 'Plantillas Msg', grupo: 'Comunicación' },
+  { id: 'cobranza', label: 'Cobranza', grupo: 'Cobranza y soporte' },
+  { id: 'auditoria', label: 'Auditoria', grupo: 'Cobranza y soporte' }
 ];
 
 const AYUDAS_VISTA: Record<Vista, { descripcion: string; pasos: string[] }> = {
@@ -618,18 +618,20 @@ export function AppAdminNegocio() {
           </div>
 
           <div className="admin-negocio-nav" role="navigation" aria-label="Vistas del panel de negocio">
-            {VISTAS.map((item) => (
-              <button
-                key={item.id}
-                type="button"
-                className={`admin-negocio-nav__item scale-hover${vista === item.id ? ' admin-negocio-nav__item--activo' : ''}`}
-                disabled={cargando}
-                data-tooltip={`Abrir ${item.label}`}
-                onClick={() => setVista(item.id)}
-              >
-                <span className="admin-negocio-nav__title">{item.label}</span>
-                <span className="admin-negocio-nav__meta">{ETIQUETAS_VISTA[item.id]}</span>
-              </button>
+            {VISTAS.map((item, indice) => (
+              <Fragment key={item.id}>
+                {indice === 0 || VISTAS[indice - 1]?.grupo !== item.grupo ? <span className="admin-negocio-nav__group-label" aria-hidden="true">{item.grupo}</span> : null}
+                <button
+                  type="button"
+                  className={`admin-negocio-nav__item scale-hover${vista === item.id ? ' admin-negocio-nav__item--activo' : ''}`}
+                  disabled={cargando}
+                  data-tooltip={`Abrir ${item.label}`}
+                  onClick={() => setVista(item.id)}
+                >
+                  <span className="admin-negocio-nav__title">{item.label}</span>
+                  <span className="admin-negocio-nav__meta">{ETIQUETAS_VISTA[item.id]}</span>
+                </button>
+              </Fragment>
             ))}
             <button
               type="button"

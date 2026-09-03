@@ -429,6 +429,46 @@ describe('SeccionCuenta', () => {
     });
   });
 
+  it('permite cargar logos desde archivo para reutilizarlos en nuevos exámenes', async () => {
+    const mockActualizarDocente = vi.fn();
+    vi.mocked(clienteApi.enviar).mockResolvedValue({
+      preferenciasPdf: {
+        institucion: 'Campus Norte',
+        lema: 'Ciencia y Cultura',
+        logos: {
+          izquierdaPath: 'data:image/png;base64,ZmFrZQ==',
+          derechaPath: 'data:image/png;base64,ZmFrZQ=='
+        }
+      }
+    });
+
+    renderConOAuth(
+      <SeccionCuenta
+        docente={docenteMock}
+        onDocenteActualizado={mockActualizarDocente}
+        esAdmin={false}
+        esDev={false}
+      />
+    );
+
+    const archivo = new File(['logo'], 'logo.png', { type: 'image/png' });
+    fireEvent.change(screen.getByLabelText(/Seleccionar archivo institucional izquierdo/i), {
+      target: { files: [archivo] }
+    });
+
+    await waitFor(() => expect(screen.getByAltText(/Vista previa del logo izquierdo/i)).toBeInTheDocument());
+    fireEvent.click(screen.getByRole('button', { name: /Guardar PDF/i }));
+
+    await waitFor(() => {
+      expect(clienteApi.enviar).toHaveBeenCalledWith(
+        '/autenticacion/preferencias/pdf',
+        expect.objectContaining({
+          logos: expect.objectContaining({ izquierdaPath: expect.stringMatching(/^data:image\/png;base64,/) })
+        })
+      );
+    });
+  });
+
   it('renderiza items de papelera tipo periodo y alumno y maneja error al restaurar', async () => {
     vi.mocked(clienteApi.obtener).mockResolvedValueOnce({
       items: [

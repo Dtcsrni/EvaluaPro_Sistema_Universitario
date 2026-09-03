@@ -4,9 +4,9 @@
  * Responsabilidad: Hook transversal del shell docente.
  * Limites: Mantener estado derivado predecible y efectos idempotentes.
  */
-import { useCallback, useEffect } from 'react';
-import { obtenerTokenDocente } from '../../../servicios_api/clienteApi';
-import { onSesionInvalidada } from '../../../servicios_api/clienteComun';
+import { useCallback, useEffect, useState } from 'react';
+import { limpiarTokenDocente, obtenerTokenDocente } from '../../../servicios_api/clienteApi';
+import { ErrorRemoto, onSesionInvalidada } from '../../../servicios_api/clienteComun';
 import { clienteApi } from '../clienteApiDocente';
 import type { Docente } from '../tipos';
 import { obtenerSesionDocenteId } from '../utilidades';
@@ -20,6 +20,8 @@ type Params = {
 };
 
 export function useSesionDocente({ setDocente, onCerrarSesion, montadoRef }: Params) {
+  const [sesionComprobada, setSesionComprobada] = useState(false);
+
   useEffect(() => {
     return onSesionInvalidada((tipo) => {
       if (tipo !== 'docente') return;
@@ -31,22 +33,27 @@ export function useSesionDocente({ setDocente, onCerrarSesion, montadoRef }: Par
     let activo = true;
 
     (async () => {
-      if (!obtenerTokenDocente()) {
-        await clienteApi.intentarRefrescarToken();
-      }
-      if (!activo) return;
-      if (!obtenerTokenDocente()) return;
+      try {
+        if (!obtenerTokenDocente()) {
+          await clienteApi.intentarRefrescarToken();
+        }
+        if (!activo || !obtenerTokenDocente()) return;
 
-      clienteApi
-        .obtener<{ docente: Docente }>('/autenticacion/perfil')
-        .then((payload) => {
-          if (!activo) return;
-          setDocente(payload.docente);
-        })
-        .catch(() => {
-          if (!activo) return;
-          setDocente(null);
-        });
+        const payload = await clienteApi.obtener<{ docente: Docente }>('/autenticacion/perfil');
+        if (!activo) return;
+        setDocente(payload.docente);
+      } catch (error) {
+        if (!activo) return;
+        // Solo descarta una sesión persistida cuando la API confirma que ya
+        // no es válida; un fallo de red o un 5xx no debe cerrar la sesión.
+        // El cliente ya intentó renovar el token cuando recibió 401.
+        if (error instanceof ErrorRemoto && error.detalle?.status === 401) {
+          limpiarTokenDocente();
+        }
+        setDocente(null);
+      } finally {
+        if (activo) setSesionComprobada(true);
+      }
     })();
 
     return () => {
@@ -86,4 +93,6 @@ export function useSesionDocente({ setDocente, onCerrarSesion, montadoRef }: Par
     if (!obtenerTokenDocente()) return;
     obtenerSesionDocenteId();
   }, []);
+
+  return { sesionComprobada };
 }

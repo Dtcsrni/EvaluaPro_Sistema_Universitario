@@ -13,6 +13,9 @@ import { TemaProvider } from '../src/tema/TemaProvider';
 describe('AppDocente secciones (refactor)', () => {
   it('muestra tabs principales con token', async () => {
     localStorage.setItem('tokenDocente', 'token-falso');
+    // La pestaña interna se conserva durante la sesión real, pero cada caso
+    // debe arrancar en Diseño para no depender del orden/aislamiento del runner.
+    sessionStorage.removeItem('evaluapro.plantillas.tab-activa');
     render(
       <TemaProvider>
         <ConfirmDialogProvider>

@@ -273,7 +273,7 @@ export function SeccionPaqueteSincronizacion({
   }
 
   return (
-    <div className="panel">
+    <div className="panel paquete-sincronizacion-panel">
       <h2>
         <Icono nombre="recargar" /> Backups y exportaciones
       </h2>

@@ -28,6 +28,7 @@ export function SeccionAlumnos({
   alumnos,
   periodosActivos,
   periodosTodos,
+  destinoInicial,
   onRefrescar,
   permisos,
   puedeEliminarAlumnoDev,
@@ -37,6 +38,7 @@ export function SeccionAlumnos({
   alumnos: Alumno[];
   periodosActivos: Periodo[];
   periodosTodos: Periodo[];
+  destinoInicial?: { periodoId: string; grupo?: string } | null;
   onRefrescar: () => void;
   permisos: PermisosUI;
   puedeEliminarAlumnoDev: boolean;
@@ -120,6 +122,12 @@ export function SeccionAlumnos({
     if (!Array.isArray(periodosActivos) || periodosActivos.length === 0) return;
     if (!periodoIdLista) setPeriodoIdLista(periodosActivos[0]._id);
   }, [periodosActivos, periodoIdLista]);
+
+  useEffect(() => {
+    if (!destinoInicial?.periodoId) return;
+    setPeriodoIdLista(destinoInicial.periodoId);
+    setFiltroGrupo(destinoInicial.grupo || '');
+  }, [destinoInicial]);
 
   useEffect(() => {
     const lista = Array.isArray(alumnos) ? alumnos : [];
@@ -848,17 +856,18 @@ export function SeccionAlumnos({
 
                         <div className="item-meta alumnos-card__meta">
                           {alumno.matricula && !/^\d{15,}$/.test(alumno.matricula) && (
-                            <span className="alumno-meta-tag" data-tooltip="Matrícula del estudiante">
-                              <span className="alumno-meta-lbl">Matrícula:</span> {alumno.matricula}
+                            <span className="alumno-meta-tag alumno-meta-tag--matricula" data-tooltip="Matrícula del estudiante">
+                              <span className="alumno-meta-lbl">Matrícula:</span>{' '}
+                              <span className="alumno-meta-value">{alumno.matricula}</span>
                             </span>
                           )}
-                          <span className="alumno-meta-tag" data-tooltip="Grupo asignado en la materia">
+                          <span className="alumno-meta-tag alumno-meta-tag--grupo" data-tooltip="Grupo asignado en la materia">
                             <span className="alumno-meta-lbl">Grupo:</span>{' '}
                             <span className={`badge badge-grupo ${claseBadgeGrupo(alumno.grupo || '')}`}>
                               {alumno.grupo ? alumno.grupo : '-'}
                             </span>
                           </span>
-                          <span className="alumno-meta-tag" data-tooltip="Correo institucional para recepción de folios y calificaciones">
+                          <span className="alumno-meta-tag alumno-meta-tag--correo" data-tooltip="Correo institucional para recepción de folios y calificaciones">
                             <span className="alumno-meta-lbl">Correo:</span>{' '}
                             <span className="alumno-correo">{alumno.correo ? alumno.correo : '-'}</span>
                           </span>

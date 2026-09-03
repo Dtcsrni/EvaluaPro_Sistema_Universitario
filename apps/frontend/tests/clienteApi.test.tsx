@@ -15,12 +15,29 @@ import {
 import { mensajeUsuarioDeError } from '../src/servicios_api/clienteComun';
 
 describe('clienteApi', () => {
-  it('administra tokens en localStorage', () => {
-    guardarTokenDocente('token-prueba');
+  it('administra tokens persistentes y elimina el token de pestaña', () => {
+    sessionStorage.setItem('tokenDocente', 'token-anterior');
+    expect(guardarTokenDocente('token-prueba')).toBe(true);
     expect(obtenerTokenDocente()).toBe('token-prueba');
+    expect(localStorage.getItem('tokenDocente')).toBe('token-prueba');
+    expect(sessionStorage.getItem('tokenDocente')).toBeNull();
 
     limpiarTokenDocente();
     expect(obtenerTokenDocente()).toBeNull();
+  });
+
+  it('mantiene una sesión de pestaña como temporal al refrescar el token', async () => {
+    expect(guardarTokenDocente('token-temporal', false)).toBe(true);
+    vi.mocked(fetch).mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({ token: 'token-refrescado' })
+    } as unknown as Response);
+
+    const cliente = crearClienteApi();
+    await expect(cliente.intentarRefrescarToken()).resolves.toBe('token-refrescado');
+
+    expect(localStorage.getItem('tokenDocente')).toBeNull();
+    expect(sessionStorage.getItem('tokenDocente')).toBe('token-refrescado');
   });
 
   it('incluye Authorization cuando hay token', async () => {
@@ -32,7 +49,8 @@ describe('clienteApi', () => {
     const llamada = vi.mocked(fetch).mock.calls[0];
     const opciones = llamada[1] as RequestInit;
     expect(String(llamada[0])).toContain('/salud');
-    expect(opciones.headers).toEqual({ Authorization: 'Bearer token-prueba' });
+    expect(opciones.headers).toMatchObject({ Authorization: 'Bearer token-prueba' });
+    expect(opciones.headers).toMatchObject({ 'X-EvaluaPro-Equipo': expect.stringMatching(/^web-/) });
   });
 
   it('incluye content-type al enviar payload', async () => {

@@ -4,11 +4,19 @@
  * Responsabilidad: Catálogo panorámico Bento de plantillas existentes con previsualización OMR.
  */
 import { Boton } from '../../../../../ui/ux/componentes/Boton';
+import { emitToast } from '../../../../../ui/toast/toastBus';
+import { createPortal } from 'react-dom';
 import type { Periodo, Plantilla, PreviewPlantilla } from '../../../tipos';
 import { etiquetaMateria, idCortoMateria } from '../../../utilidades';
+import { OMR_CANONICAL_DISPLAY_LABEL } from '../../../../../ui/version/versionInfo';
+import {
+  calcularEstimacionDensidadPlantilla,
+  textoEstimacionDensidadPlantilla
+} from '../hooks/estimadorDensidadPlantilla';
+import type { PreviewPdfPage } from '../hooks/usePlantillasPreviewActions';
 
 type PlantillaPreviewState = Record<string, PreviewPlantilla>;
-type PlantillaPreviewPdfState = Record<string, { booklet?: string; omrSheet?: string }>;
+type PlantillaPreviewPdfState = Record<string, { booklet?: string; omrSheet?: string; bookletPages?: PreviewPdfPage[]; omrSheetPages?: PreviewPdfPage[] }>;
 
 export function PlantillasListado({
   totalPlantillasTodas,
@@ -21,13 +29,13 @@ export function PlantillasListado({
   plantillaPreviewId,
   previewPdfUrlPorPlantillaId,
   cargandoPreviewPlantillaId,
-  cargarPreviewPlantilla,
   puedePrevisualizarPlantillas,
   cargandoPreviewPdfPlantillaId,
   cargarPreviewPdfPlantilla,
   cerrarPreviewPdfPlantilla,
   abrirPdfFullscreen,
   pdfFullscreenUrl,
+  pdfFullscreenPages = [],
   cerrarPdfFullscreen,
   togglePreviewPlantilla,
   iniciarEdicion,
@@ -47,13 +55,13 @@ export function PlantillasListado({
   plantillaPreviewId: string | null;
   previewPdfUrlPorPlantillaId: PlantillaPreviewPdfState;
   cargandoPreviewPlantillaId: string | null;
-  cargarPreviewPlantilla: (plantillaId: string) => Promise<void>;
   puedePrevisualizarPlantillas: boolean;
   cargandoPreviewPdfPlantillaId: string | null;
   cargarPreviewPdfPlantilla: (plantillaId: string, kind?: 'booklet' | 'omrSheet') => Promise<void>;
   cerrarPreviewPdfPlantilla: (plantillaId: string, kind?: 'booklet' | 'omrSheet') => void;
-  abrirPdfFullscreen: (url: string) => void;
+  abrirPdfFullscreen: (url: string, pages?: PreviewPdfPage[]) => void;
   pdfFullscreenUrl: string | null;
+  pdfFullscreenPages?: PreviewPdfPage[];
   cerrarPdfFullscreen: () => void;
   togglePreviewPlantilla: (plantillaId: string) => Promise<void>;
   iniciarEdicion: (plantilla: Plantilla) => void;
@@ -75,6 +83,9 @@ export function PlantillasListado({
           <p className="nota">Revisa catálogo, temas, previsualizaciones y fechas sin salir del flujo editorial.</p>
         </div>
         <div className="plantillas-panel__meta">
+          <span className="version-env-badge" title="Contrato único de generación y lectura OMR activo">
+            {OMR_CANONICAL_DISPLAY_LABEL}
+          </span>
           <span className="banco-tag-preguntas">Total: {totalPlantillasTodas}</span>
           <span className="banco-tag-paginas">Mostradas: {totalPlantillas}</span>
         </div>
@@ -132,11 +143,26 @@ export function PlantillasListado({
             const previewAbierta = plantillaPreviewId === plantilla._id;
             const pdfUrls = previewPdfUrlPorPlantillaId[plantilla._id] ?? {};
             const pdfUrl = pdfUrls.booklet;
+            const pdfPages = pdfUrls.bookletPages ?? [];
+            const totalReactivos = Number(
+              plantilla.reactivosObjetivo
+              ?? plantilla.totalReactivos
+              ?? plantilla.preguntasIds?.length
+              ?? preview?.questionCount
+              ?? 0
+            );
+            const estimacionDensidad = calcularEstimacionDensidadPlantilla({
+              totalReactivos,
+              paginasConfiguradas: Number(plantilla.numeroPaginas ?? plantilla.bookletConfig?.targetPages ?? 1),
+              temasSeleccionados: temas.length,
+              fontScale: plantilla.bookletConfig?.fontScale,
+              lineSpacing: plantilla.bookletConfig?.lineSpacing
+            });
             return (
               <li key={plantilla._id} className="anim-slide-up">
-                <div className="item-glass plantillas-item anim-card-hover">
+                <div className={`item-glass plantillas-item anim-card-hover ${previewAbierta ? 'plantillas-item--preview-abierto' : ''}`}>
                   <div className="item-row">
-                    <div className="flex-1">
+                    <div className="plantillas-item__content">
                       <div className="item-title">{plantilla.titulo}</div>
                       <div className="item-meta">
                         <span className="badge badge-meta">ID: {idCortoMateria(plantilla._id)}</span>
@@ -144,6 +170,7 @@ export function PlantillasListado({
                         <span className="badge badge-meta">Páginas: {Number((plantilla as unknown as { numeroPaginas?: unknown })?.numeroPaginas ?? 0) || '-'}</span>
                         <span className="badge badge-meta">Creada: {formatearFechaHora(plantilla.createdAt)}</span>
                         <span className="badge badge-materia">Materia: {materia ? etiquetaMateria(materia) : '-'}</span>
+                        <span className="badge badge-densidad">{textoEstimacionDensidadPlantilla(estimacionDensidad)}</span>
                       </div>
                       <div className="item-sub plantillas-item__sub">{modo}</div>
                       {temas.length > 0 && (
@@ -155,101 +182,92 @@ export function PlantillasListado({
                           ))}
                         </div>
                       )}
-                      {previewAbierta && (
-                        <div className="resultado plantillas-preview anim-fade-in">
-                          <div className="plantillas-preview__hero">
-                            <div>
-                              <h4 className="plantillas-preview__titulo">Previsualización (boceto por página)</h4>
-                              <p className="nota">Valida estructura, cobertura temática y salida PDF antes de generar exámenes reales.</p>
-                            </div>
-                            <div className="acciones">
-                              <Boton
-                                type="button"
-                                variante="secundario"
-                                onClick={() => void togglePreviewPlantilla(plantilla._id)}
-                              >
-                                Ocultar boceto
-                              </Boton>
-                            </div>
+                    </div>
+                    {previewAbierta && (
+                      <div className="resultado plantillas-preview anim-fade-in">
+                        <div className="plantillas-preview__hero">
+                          <div>
+                            <span className="plantillas-preview__eyebrow">REVISIÓN DEL RESULTADO</span>
+                            <h4 className="plantillas-preview__titulo">Vista previa del examen</h4>
+                            <p className="nota">Confirma estructura, cobertura y legibilidad antes de generar.</p>
                           </div>
+                          <Boton type="button" variante="secundario" onClick={() => {
+                            void togglePreviewPlantilla(plantilla._id);
+                            emitToast({ level: 'info', title: 'Vista previa', message: 'Vista previa visible', durationMs: 1600 });
+                          }}>
+                            Ocultar
+                          </Boton>
+                        </div>
 
-                          <div className="plantillas-preview__pdf-actions">
-                            <Boton
-                              type="button"
-                              variante="primario"
-                              tamano="sm"
-                              cargando={cargandoPreviewPdfPlantillaId === plantilla._id}
-                              onClick={() => void cargarPreviewPdfPlantilla(plantilla._id, 'booklet')}
-                              data-tooltip="Renderiza el PDF real de cuadernillo con el motor del backend."
-                            >
-                              {pdfUrl ? 'Actualizar PDF cuadernillo' : 'Renderizar PDF cuadernillo'}
-                            </Boton>
-                            {pdfUrl && (
-                              <>
-                                <a
-                                  href={pdfUrl}
-                                  target="_blank"
-                                  rel="noreferrer"
-                                  className="boton boton--secundario boton--pequeno"
-                                  data-tooltip="Abre el PDF en una pestaña del navegador."
-                                >
-                                  Abrir PDF en pestaña
-                                </a>
-                                <Boton
-                                  type="button"
-                                  variante="secundario"
-                                  tamano="sm"
-                                  onClick={() => abrirPdfFullscreen(pdfUrl)}
-                                  data-tooltip="Abre el visor en pantalla completa dentro de la app."
-                                >
-                                  Pantalla completa
-                                </Boton>
-                                <Boton
-                                  type="button"
-                                  variante="secundario"
-                                  tamano="sm"
-                                  onClick={() => cerrarPreviewPdfPlantilla(plantilla._id, 'booklet')}
-                                  data-tooltip="Cierra la vista previa PDF."
-                                >
-                                  Cerrar PDF
-                                </Boton>
-                              </>
-                            )}
-                          </div>
-
+                        <div className="plantillas-preview__pdf-actions">
+                          <Boton
+                            type="button"
+                            variante="primario"
+                            tamano="sm"
+                            cargando={cargandoPreviewPdfPlantillaId === plantilla._id}
+                            onClick={() => void cargarPreviewPdfPlantilla(plantilla._id, 'booklet')}
+                            data-tooltip="Renderiza el PDF real de cuadernillo con el motor del backend."
+                          >
+                            {pdfUrl ? 'Actualizar PDF' : 'Generar vista previa PDF'}
+                          </Boton>
                           {pdfUrl && (
-                            <div className="plantillas-preview__pdfWrap">
-                              <iframe
-                                src={pdfUrl}
-                                title={`Previsualización PDF de ${plantilla.titulo}`}
-                                className="plantillas-preview__iframe"
-                              />
-                            </div>
-                          )}
-
-                          {preview && Array.isArray(preview.paginas) && preview.paginas.length > 0 && (
-                            <ul className="lista lista-items plantillas-preview__lista mt-10">
-                              {preview.paginas.map((pagina) => (
-                                <li key={pagina.numero} className="plantillas-preview__page">
-                                  <div className="item-title">Página {pagina.numero}</div>
-                                  <div className="item-meta">
-                                    <span>Preguntas: {pagina.preguntas.length}</span>
-                                    <span>Desde #{pagina.preguntasDel} hasta #{pagina.preguntasAl}</span>
-                                  </div>
-                                  <ul className="lista">
-                                    {pagina.preguntas.map((pregunta, idx) => (
-                                      <li key={`${pagina.numero}-${pregunta.id}-${idx}`}>
-                                        <b>#{pregunta.numero}:</b> {pregunta.enunciadoCorto}
-                                      </li>
-                                    ))}
-                                  </ul>
-                                </li>
-                              ))}
-                            </ul>
+                            <>
+                              <a href={pdfUrl} target="_blank" rel="noreferrer" className="boton boton--secundario boton--pequeno" onClick={() => emitToast({ level: 'info', title: 'Vista previa', message: 'Abriendo PDF en una pestaña nueva', durationMs: 1600 })}>
+                                Abrir en pestaña
+                              </a>
+                              <Boton type="button" variante="secundario" tamano="sm" onClick={() => abrirPdfFullscreen(pdfUrl, pdfPages)}>
+                                Pantalla completa
+                              </Boton>
+                              <Boton type="button" variante="secundario" tamano="sm" onClick={() => {
+                                cerrarPreviewPdfPlantilla(plantilla._id, 'booklet');
+                              }}>
+                                Cerrar PDF
+                              </Boton>
+                            </>
                           )}
                         </div>
-                      )}
-                    </div>
+
+                        {pdfUrl && pdfPages.length > 0 && (
+                          <div className="plantillas-preview__pdfWrap">
+                            <div className="plantillas-preview__pages" aria-label={`Páginas renderizadas de ${plantilla.titulo}`}>
+                              {pdfPages.map((pagina) => (
+                                <figure key={pagina.numero} className="plantillas-preview__pdfPage">
+                                  <img
+                                    src={pagina.dataUrl}
+                                    width={pagina.width}
+                                    height={pagina.height}
+                                    alt={`Página ${pagina.numero} de la previsualización del examen`}
+                                    loading={pagina.numero === 1 ? 'eager' : 'lazy'}
+                                  />
+                                  <figcaption>Página {pagina.numero}</figcaption>
+                                </figure>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+
+                        {preview && Array.isArray(preview.paginas) && preview.paginas.length > 0 && (
+                          <ul className="lista lista-items plantillas-preview__lista mt-10">
+                            {preview.paginas.map((pagina) => (
+                              <li key={pagina.numero} className="plantillas-preview__page">
+                                <div className="item-title">Página {pagina.numero}</div>
+                                <div className="item-meta">
+                                  <span>Preguntas: {pagina.preguntas.length}</span>
+                                  <span>Desde #{pagina.preguntasDel} hasta #{pagina.preguntasAl}</span>
+                                </div>
+                                <ul className="lista">
+                                  {pagina.preguntas.map((pregunta, idx) => (
+                                    <li key={`${pagina.numero}-${pregunta.id}-${idx}`}>
+                                      <b>#{pregunta.numero}:</b> {pregunta.enunciadoCorto}
+                                    </li>
+                                  ))}
+                                </ul>
+                              </li>
+                            ))}
+                          </ul>
+                        )}
+                      </div>
+                    )}
                     <div className="plantillas-item__actions">
                       <Boton
                         type="button"
@@ -257,7 +275,10 @@ export function PlantillasListado({
                         tamano="sm"
                         cargando={cargandoPreviewPlantillaId === plantilla._id}
                         disabled={!puedePrevisualizarPlantillas}
-                        onClick={() => void cargarPreviewPlantilla(plantilla._id)}
+                        onClick={() => {
+                          void togglePreviewPlantilla(plantilla._id);
+                          emitToast({ level: 'info', title: 'Vista previa', message: 'Cargando vista previa…', durationMs: 1600 });
+                        }}
                       >
                         {previewAbierta ? 'Actualizar boceto' : 'Previsualizar'}
                       </Boton>
@@ -289,7 +310,7 @@ export function PlantillasListado({
         </ul>
       )}
 
-      {pdfFullscreenUrl && (
+      {pdfFullscreenUrl && pdfFullscreenPages.length > 0 && typeof document !== 'undefined' && createPortal(
         <div className="pdf-overlay anim-fade-in" role="dialog" aria-modal="true">
           <div className="pdf-overlay__bar">
             <Boton
@@ -301,8 +322,21 @@ export function PlantillasListado({
               Cerrar
             </Boton>
           </div>
-          <iframe className="pdf-overlay__frame" title="PDF (pantalla completa)" src={pdfFullscreenUrl} />
-        </div>
+          <div className="pdf-overlay__pages" aria-label="Páginas de la previsualización a pantalla completa">
+            {pdfFullscreenPages.map((pagina) => (
+              <figure key={pagina.numero} className="pdf-overlay__page">
+                <img
+                  src={pagina.dataUrl}
+                  width={pagina.width}
+                  height={pagina.height}
+                  alt={`Página ${pagina.numero} de la previsualización a pantalla completa`}
+                />
+                <figcaption>Página {pagina.numero}</figcaption>
+              </figure>
+            ))}
+          </div>
+        </div>,
+        document.body
       )}
     </section>
   );

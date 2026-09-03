@@ -55,39 +55,39 @@ describe('App selector', () => {
     window.history.replaceState({}, '', '/');
   });
 
-  it('renderiza alumno sin Google OAuth y marca el destino en el shell', () => {
+  it('renderiza alumno sin Google OAuth y marca el destino en el shell', async () => {
     vi.stubEnv('VITE_APP_DESTINO', 'alumno');
     vi.stubEnv('VITE_GOOGLE_CLIENT_ID', 'google-client-id');
 
     render(<App />);
 
-    expect(screen.getByText('App Alumno Mock')).toBeInTheDocument();
+    expect(await screen.findByText('App Alumno Mock')).toBeInTheDocument();
     expect(screen.queryByTestId('google-provider')).not.toBeInTheDocument();
     expect(document.querySelector('main[data-app-destino="alumno"]')).toHaveClass('page', 'page--alumno');
     expect(screen.getByTestId('tooltip-layer')).toBeInTheDocument();
     expect(document.title).toBe('Portal Alumno - EvaluaPro');
   });
 
-  it('envuelve admin negocio con Google OAuth cuando hay client id configurado', () => {
+  it('envuelve admin negocio con Google OAuth cuando hay client id configurado', async () => {
     vi.stubEnv('VITE_APP_DESTINO', 'admin_negocio');
     vi.stubEnv('VITE_GOOGLE_CLIENT_ID', 'google-client-id');
 
     render(<App />);
 
-    expect(screen.getByText('App Admin Negocio Mock')).toBeInTheDocument();
+    expect(await screen.findByText('App Admin Negocio Mock')).toBeInTheDocument();
     expect(screen.getByTestId('google-provider')).toHaveAttribute('data-client-id', 'google-client-id');
     expect(document.querySelector('main[data-app-destino="admin_negocio"]')).toHaveClass('page--admin_negocio');
     expect(document.title).toBe('Panel de Negocio - EvaluaPro');
   });
 
-  it('muestra version info sin tooltip cuando la ruta hash apunta a esa vista', () => {
+  it('muestra version info sin tooltip cuando la ruta hash apunta a esa vista', async () => {
     vi.stubEnv('VITE_APP_DESTINO', 'docente');
     vi.stubEnv('VITE_GOOGLE_CLIENT_ID', 'google-client-id');
     window.history.replaceState({}, '', '/#/version-info');
 
     render(<App />);
 
-    expect(screen.getByText('Version Info Mock')).toBeInTheDocument();
+    expect(await screen.findByText('Version Info Mock')).toBeInTheDocument();
     expect(screen.queryByTestId('tooltip-layer')).not.toBeInTheDocument();
     expect(screen.getByTestId('google-provider')).toBeInTheDocument();
     expect(document.querySelector('main[data-app-destino="docente"]')).toHaveClass('page--docente');

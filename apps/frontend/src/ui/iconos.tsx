@@ -33,6 +33,7 @@ export type NombreIcono =
   | 'copiar'
   | 'descargar'
   | 'candado'
+  | 'ojo'
   | 'correo'
   | 'qr'
   | 'asistencias'
@@ -190,6 +191,14 @@ export function Icono(props: PropsIcono) {
       );
 
     case 'publicar':
+      return (
+        <SvgBase {...common}>
+          <path d="M12 16V3" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" />
+          <polyline points="7 8 12 3 17 8" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" />
+          <path d="M5 13.5v5a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-5" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" />
+        </SvgBase>
+      );
+
     case 'sincronizacion':
       return (
         <SvgBase {...common}>
@@ -350,6 +359,14 @@ export function Icono(props: PropsIcono) {
         <SvgBase {...common}>
           <rect x="3" y="11" width="18" height="11" rx="2" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" />
           <path d="M7 11V7a5 5 0 0 1 10 0v4" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" />
+        </SvgBase>
+      );
+
+    case 'ojo':
+      return (
+        <SvgBase {...common}>
+          <path d="M2.5 12s3.4-6 9.5-6 9.5 6 9.5 6-3.4 6-9.5 6-9.5-6-9.5-6Z" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" />
+          <circle cx="12" cy="12" r="2.7" stroke="currentColor" strokeWidth="2.2" />
         </SvgBase>
       );
 

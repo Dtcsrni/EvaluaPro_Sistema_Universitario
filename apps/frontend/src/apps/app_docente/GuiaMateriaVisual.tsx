@@ -4,14 +4,15 @@
  * Responsabilidad: Guía interactiva moderna con Bento Step Cards para materias.
  */
 import { useState } from 'react';
+import { Icono } from '../../ui/iconos';
 import { Boton } from '../../ui/ux/componentes/Boton';
 
 export function GuiaMateriaVisual() {
   const [visible, setVisible] = useState(() => {
     try {
-      return localStorage.getItem('ep.guia.materias.oculta') !== 'true';
+      return localStorage.getItem('ep.guia.materias.oculta') === 'false';
     } catch {
-      return true;
+      return false;
     }
   });
 
@@ -34,20 +35,21 @@ export function GuiaMateriaVisual() {
           variante="secundario"
           type="button"
           onClick={toggleGuia}
+          icono={<Icono nombre="info" />}
           data-tooltip="Ver explicación visual de los 3 pasos para configurar una materia"
         >
-          💡 Ver guía rápida de configuración
+          Ver guía rápida de configuración
         </Boton>
       </div>
     );
   }
 
   return (
-    <div className="guia-materia-card anim-fade-in" role="region" aria-label="Ayuda: Para que sirve y como llenarlo">
+    <div className="guia-materia-card anim-fade-in" role="region" aria-label="Ayuda: Para qué sirve y cómo llenarlo">
       <div className="guia-materia-header">
         <div className="guia-materia-badge">
           <span className="guia-pulse-dot" aria-hidden="true" />
-          <span>GUÍA RÁPIDA: Para que sirve y como llenarlo</span>
+          <span>GUÍA RÁPIDA: Para qué sirve y cómo llenarlo</span>
         </div>
         <button
           type="button"
@@ -96,7 +98,7 @@ export function GuiaMateriaVisual() {
             <h4>Rango de Fechas</h4>
             <p>Fija el inicio y fin del curso lectivo para habilitar la entrega de calificaciones.</p>
             <div className="guia-step-examples">
-              <span className="guia-chip-sample guia-chip-sample--date">📅 Inicio ➔ Fin</span>
+              <span className="guia-chip-sample guia-chip-sample--date">Inicio → Fin</span>
             </div>
           </div>
         </div>

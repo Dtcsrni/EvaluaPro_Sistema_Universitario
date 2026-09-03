@@ -4,9 +4,11 @@
  * Responsabilidad: Consola de producción OMR para generación de exámenes masivos e individuales.
  */
 import { Boton } from '../../../../../ui/ux/componentes/Boton';
+import { emitToast } from '../../../../../ui/toast/toastBus';
 import { useState } from 'react';
 import type { Alumno, Plantilla } from '../../../tipos';
 import { esMensajeError, idCortoMateria } from '../../../utilidades';
+import { OMR_CANONICAL_DISPLAY_LABEL } from '../../../../../ui/version/versionInfo';
 
 type ProgresoLoteGeneracion = {
   loteId: string;
@@ -83,6 +85,9 @@ export function PlantillasConsolaGeneracion({
           </p>
         </div>
         <div className="plantillas-generacion__stats">
+          <span className="version-env-badge" title="Contrato único de generación y lectura OMR activo">
+            {OMR_CANONICAL_DISPLAY_LABEL}
+          </span>
           <span className="banco-tag-preguntas">Plantillas: {listaPlantillas.length}</span>
           <span className="banco-tag-paginas">Alumnos en materia: {alumnosMateria.length}</span>
         </div>
@@ -127,7 +132,10 @@ export function PlantillasConsolaGeneracion({
             <button
               type="button"
               className={`boton ${modoGeneracion === 'lote' ? 'boton--primario' : 'boton--secundario'}`}
-              onClick={() => setModoGeneracion('lote')}
+              onClick={() => {
+                setModoGeneracion('lote');
+                emitToast({ level: 'info', title: 'Modalidad', message: 'Paquete masivo seleccionado', durationMs: 1600 });
+              }}
               disabled={!puedeGenerarExamenes}
             >
               📦 Paquete Masivo por Grupo ({alumnosMateria.length} alumnos)
@@ -135,7 +143,10 @@ export function PlantillasConsolaGeneracion({
             <button
               type="button"
               className={`boton ${modoGeneracion === 'individual' ? 'boton--primario' : 'boton--secundario'}`}
-              onClick={() => setModoGeneracion('individual')}
+              onClick={() => {
+                setModoGeneracion('individual');
+                emitToast({ level: 'info', title: 'Modalidad', message: 'Examen individual seleccionado', durationMs: 1600 });
+              }}
               disabled={!puedeGenerarExamenes}
             >
               📄 Examen Individual de Muestra
@@ -204,7 +215,10 @@ export function PlantillasConsolaGeneracion({
               <Boton
                 type="button"
                 variante="secundario"
-                onClick={onIrAHistorial}
+                onClick={() => {
+                  onIrAHistorial();
+                  emitToast({ level: 'info', title: 'Sección', message: 'Mostrando historial de lotes', durationMs: 1800 });
+                }}
               >
                 📦 Ver historial de lotes
               </Boton>

@@ -49,6 +49,7 @@ describe('SeccionPeriodos listas institucionales', () => {
       />
     );
 
+    await user.click(screen.getByRole('button', { name: /mostrar acciones/i }));
     expect(screen.getByRole('button', { name: /lista cuh xlsx/i })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /lista cuh pdf/i })).toBeInTheDocument();
 

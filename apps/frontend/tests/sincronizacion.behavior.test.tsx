@@ -9,6 +9,8 @@ import { describe, expect, it, vi, beforeEach } from 'vitest';
 import { SeccionSincronizacionEquipos } from '../src/apps/app_docente/SeccionSincronizacionEquipos';
 import { SeccionSincronizacion } from '../src/apps/app_docente/SeccionSincronizacion';
 import { SeccionPaqueteSincronizacion } from '../src/apps/app_docente/SeccionPaqueteSincronizacion';
+import { SeccionInstantaneaLocal } from '../src/apps/app_docente/SeccionInstantaneaLocal';
+import { SeccionConfiguracionSincronizacion } from '../src/apps/app_docente/SeccionConfiguracionSincronizacion';
 import { ConfirmDialogProvider } from '../src/ui/feedback/ConfirmDialogProvider';
 
 const obtenerMock = vi.fn();
@@ -23,6 +25,55 @@ vi.mock('../src/apps/app_docente/clienteApiDocente', () => ({
 describe('sincronizacion UI behavior', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+  });
+
+  it('ajusta el método de protección cuando las capacidades llegan de forma asíncrona', async () => {
+    const onExportar = vi.fn(async () => ({
+      archivo: new Blob(['snapshot']),
+      nombreArchivo: 'snapshot.ep-snapshot',
+      checksumSha256: 'a'.repeat(64),
+      exportadoEn: new Date().toISOString(),
+      conteos: { baseDatosBytes: 1, archivos: 0, archivosBytes: 0 }
+    }));
+    const propiedades = {
+      puedeUsarContrasena: false,
+      puedeUsarGoogle: false,
+      onExportar,
+      onImportar: vi.fn(async () => ({ mensaje: 'ok' }))
+    };
+    const vista = render(<SeccionInstantaneaLocal {...propiedades} />);
+    vista.rerender(<SeccionInstantaneaLocal {...propiedades} puedeUsarContrasena />);
+
+    const campo = await screen.findByLabelText(/Contraseña actual/i);
+    fireEvent.change(campo, { target: { value: 'password-docente' } });
+    fireEvent.click(screen.getByRole('button', { name: /Exportar archivo cifrado/i }));
+
+    await waitFor(() => expect(onExportar).toHaveBeenCalledWith({ metodo: 'contrasena', credencial: 'password-docente' }));
+  });
+
+  it('guarda la carpeta de OneDrive desde el panel de configuración', async () => {
+    const onConfigurar = vi.fn(async (directorio: string) => ({
+      configurado: true,
+      directorio,
+      origen: 'docente' as const,
+      proveedor: 'carpeta-sincronizada' as const,
+      ttlMs: 60_000
+    }));
+
+    render(
+      <SeccionConfiguracionSincronizacion
+        estado={{ configurado: false, proveedor: 'carpeta-sincronizada', ttlMs: 60_000 }}
+        onConfigurar={onConfigurar}
+      />
+    );
+
+    fireEvent.change(screen.getByLabelText(/Carpeta local sincronizada por OneDrive/i), {
+      target: { value: 'C:\\Users\\docente\\OneDrive\\EvaluaPro' }
+    });
+    fireEvent.click(screen.getByRole('button', { name: /Guardar carpeta/i }));
+
+    await waitFor(() => expect(onConfigurar).toHaveBeenCalledWith('C:\\Users\\docente\\OneDrive\\EvaluaPro'));
+    expect(screen.getByText(/Carpeta guardada/i)).toBeInTheDocument();
   });
 
   it('envia push y pull con parametros de sincronizacion entre equipos', async () => {
@@ -81,6 +132,21 @@ describe('sincronizacion UI behavior', () => {
         onCodigo={async () => ({ codigo: 'ABC123' })}
         onExportarPaquete={async () => ({ paqueteBase64: 'abc', checksumSha256: 'hash', exportadoEn: new Date().toISOString(), conteos: {} })}
         onImportarPaquete={async () => ({ mensaje: 'ok' })}
+        onExportarLocal={async () => ({
+          archivo: new Blob(),
+          nombreArchivo: 'instantanea.ep-snapshot',
+          checksumSha256: 'hash',
+          exportadoEn: new Date().toISOString(),
+          conteos: { baseDatosBytes: 0, archivos: 0, archivosBytes: 0 }
+        })}
+        onImportarLocal={async () => ({ mensaje: 'ok' })}
+        estadoLease={null}
+        onAdquirirLease={async () => { throw new Error('no usado'); }}
+        onLiberarLease={async () => ({})}
+        onPublicarNube={async () => ({ mensaje: 'ok' })}
+        onImportarNube={async () => ({ mensaje: 'ok' })}
+        puedeUsarContrasena={true}
+        puedeUsarGoogle={false}
         onPushServidor={async () => ({ mensaje: 'ok' })}
         onPullServidor={async () => ({ mensaje: 'ok' })}
       />

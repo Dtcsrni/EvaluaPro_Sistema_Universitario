@@ -24,8 +24,8 @@ describe('PlantillasOmrWorkflow', () => {
       />
     );
 
-    expect(screen.getByRole('heading', { name: /Flujo OMR V1/i })).toBeInTheDocument();
-    expect(screen.getByText(/Genera o carga un assessment V1/i)).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: /OMR canónico · v4/i })).toBeInTheDocument();
+    expect(screen.getByText(/contrato OMR canónico/i)).toBeInTheDocument();
   });
 
   it('renderiza resumen de assessment y job OMR con hojas para revisión', () => {
@@ -36,7 +36,7 @@ describe('PlantillasOmrWorkflow', () => {
         generationSeed: 'seed-xyz',
         title: 'Examen Biología Celular',
         templateId: 'plan-1',
-        templateVersion: 1,
+        templateVersion: 4,
         statisticsSummary: {
           versionCount: 2,
           pageCount: 1,
