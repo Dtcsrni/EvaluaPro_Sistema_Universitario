@@ -25,6 +25,10 @@ const viewports: ViewportCase[] = [
 ];
 
 async function captureEvidence(page: import('@playwright/test').Page, surface: string, screen: string, viewport: string) {
+  // Evita que el tooltip contextual del último control accionado tape la
+  // evidencia visual; la ayuda sigue disponible al pasar el cursor o enfocar.
+  await page.mouse.move(0, 0);
+  await page.waitForTimeout(80);
   await page.screenshot({ path: `reports/qa/latest/gui-${surface}-${screen}-${viewport}.png`, fullPage: false });
 }
 
@@ -90,6 +94,7 @@ async function assertInteractiveControlsAreUsable(page: import('@playwright/test
     const boxes = controls.map((control) => {
       const rect = (control as HTMLElement).getBoundingClientRect();
       return {
+        element: control,
         label: nameFor(control) || control.tagName.toLowerCase(),
         left: rect.left,
         top: rect.top,
@@ -104,6 +109,10 @@ async function assertInteractiveControlsAreUsable(page: import('@playwright/test
       for (let j = i + 1; j < boxes.length; j += 1) {
         const a = boxes[i];
         const b = boxes[j];
+        const passwordRevealOverlay =
+          (a.element.matches('.auth-pwd-toggle') && b.element.matches('.auth-input-box--key input') && a.element.parentElement === b.element.parentElement) ||
+          (b.element.matches('.auth-pwd-toggle') && a.element.matches('.auth-input-box--key input') && a.element.parentElement === b.element.parentElement);
+        if (passwordRevealOverlay) continue;
         const width = Math.max(0, Math.min(a.right, b.right) - Math.max(a.left, b.left));
         const height = Math.max(0, Math.min(a.bottom, b.bottom) - Math.max(a.top, b.top));
         const overlapArea = width * height;
@@ -273,7 +282,7 @@ test.describe('GUI responsive e2e · docente', () => {
         { label: 'Materias', slug: 'periodos' },
         { label: 'Alumnos', slug: 'alumnos' },
         { label: 'Banco', slug: 'banco' },
-        { label: 'Plantillas', slug: 'plantillas' },
+        { label: 'Diseño de Exámenes', slug: 'plantillas' },
         { label: 'Entrega', slug: 'entrega' },
         { label: 'Calificaciones', slug: 'calificaciones' },
         { label: 'Rehidratacion', slug: 'rehidratacion' },

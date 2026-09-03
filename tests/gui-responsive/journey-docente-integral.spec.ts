@@ -131,7 +131,7 @@ test.describe('Journey docente integral visual', () => {
     await page.screenshot({ path: path.join(outputDir, '20_banco_seccion.png'), fullPage: true });
 
     // Paso 5: Plantillas
-    await page.getByRole('button', { name: 'Plantillas', exact: true }).click();
+    await page.getByRole('button', { name: 'Diseño de Exámenes', exact: true }).click();
     await page.screenshot({ path: path.join(outputDir, '24_plantilla_seccion.png'), fullPage: true });
 
     const formularioPlantilla = page.locator('.plantillas-panel--form');
