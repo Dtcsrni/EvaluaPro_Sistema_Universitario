@@ -33,7 +33,7 @@ export type ResumenQrExamen = {
   variantHash?: string;
   answerKeyHash?: string;
   payloadSignature?: string;
-  payloadSignatureMode?: 'hmac-v1' | 'legacy-hash' | 'none';
+  payloadSignatureMode?: 'hmac-v1' | 'unsupported' | 'none';
   payloadSignatureValid?: boolean;
   questionRefs?: string[];
   optionOrders?: string[];
@@ -43,7 +43,6 @@ export type ResumenQrExamen = {
 function hashCorto(valor: string, length = 12) {
   return createHash('sha256').update(valor).digest('hex').slice(0, length).toUpperCase();
 }
-
 function resolverSecretoQrPorKeyId(keyId: string | undefined) {
   const normalizedKeyId = String(keyId ?? '').trim();
   if (!normalizedKeyId) return null;
@@ -187,11 +186,10 @@ function resolverFirmaPayload(
     };
   }
 
-  const esperadaLegacy = hashCorto(segmentosFirmados, 16);
   return {
     payloadSignature: token,
-    payloadSignatureMode: 'legacy-hash',
-    payloadSignatureValid: compararSeguroToken(esperadaLegacy, token)
+    payloadSignatureMode: 'unsupported',
+    payloadSignatureValid: false
   };
 }
 
@@ -202,10 +200,8 @@ export function extraerResumenQrExamen(textoQr?: string): ResumenQrExamen | null
   const folio = String(match[1] ?? '').toUpperCase();
   const numeroPagina = Number(match[2] ?? 0);
   const templateVersionRaw = Number(match[3] ?? 0);
-  const templateVersion =
-    templateVersionRaw === 1 || templateVersionRaw === 3 || templateVersionRaw === 4
-      ? (templateVersionRaw as TemplateVersion)
-      : undefined;
+  if (templateVersionRaw !== 4) return null;
+  const templateVersion: TemplateVersion = 4;
   const resto = String(match[4] ?? '').trim();
   const campos = new Map<string, string>();
   if (resto) {
@@ -251,8 +247,4 @@ export function extraerResumenQrExamen(textoQr?: string): ResumenQrExamen | null
     optionOrders: campos.get('OV') ? campos.get('OV')!.split('.').filter(Boolean) : undefined,
     raw: limpio
   };
-}
-
-export function construirQrExamenLegacy(folio: string, numeroPagina: number, templateVersion: TemplateVersion) {
-  return `EXAMEN:${normalizarToken(folio)}:P${Math.max(1, Number(numeroPagina) || 1)}:TV${templateVersion}`;
 }

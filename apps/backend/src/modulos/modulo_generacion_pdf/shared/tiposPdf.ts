@@ -4,7 +4,8 @@
  * Define DTOs, types y constantes compartidas entre capas del modulo.
  */
 
-export type TemplateVersion = 1 | 3 | 4;
+/** La plataforma genera y procesa una única plantilla OMR canónica. */
+export type TemplateVersion = 4;
 export type TipoExamen = 'parcial' | 'global';
 
 export interface EncabezadoExamen {
@@ -28,6 +29,11 @@ export interface ParametrosGeneracionPdf {
   totalPaginas: number;
   margenMm?: number;
   templateVersion?: TemplateVersion;
+  bookletConfig?: {
+    fontScale?: number;
+    lineSpacing?: number;
+    logos?: { izquierdaPath?: string; derechaPath?: string };
+  };
   encabezado?: EncabezadoExamen;
 }
 
@@ -45,7 +51,7 @@ export interface MapaVariante {
 
 export interface ResultadoGeneracionPdf {
   pdfBytes: Buffer;
-  layoutEngine?: 'pdf-lib-legacy' | 'playwright-html-v1';
+  layoutEngine?: 'pdf-lib-canonical';
   layoutTemplateVersion?: number;
   paginas: Array<{
     numero: number;
@@ -60,6 +66,11 @@ export interface ResultadoGeneracionPdf {
   }>;
   metricasLayout?: {
     minLineHeightApplied: number;
+    fontSizePregunta: number;
+    fontSizeOpcion: number;
+    fontSizeIndicaciones: number;
+    lineHeightPregunta: number;
+    lineHeightOpcion: number;
     preguntasConFormatoRico: number;
     imagenesIntentadas: number;
     imagenesRenderizadas: number;
@@ -90,21 +101,19 @@ export interface MapaOmr {
 }
 
 export interface MarkerSpecOmr {
-  family: 'aruco_4x4_50';
+  /** Fiducial sólido localizado por contraste y posición esperada; no es ArUco. */
+  family: 'solid_square_4pt_v1';
   sizeMm: number;
   quietZoneMm: number;
-  ids?: {
-    tl: number;
-    tr: number;
-    bl: number;
-    br: number;
-  };
 }
 
 export interface BlockSpecOmr {
   preguntasPorBloque: number;
   opcionesPorPregunta: number;
   bubbleDiameterMm: number;
+  /** Paso real entre centros de burbuja en la fila horizontal canónica. */
+  bubblePitchXmm: number;
+  /** Separación vertical de referencia para perfiles apilados; no se usa en v4. */
   bubblePitchYmm: number;
   labelToBubbleMm: number;
   bubbleStrokePt: number;
@@ -115,6 +124,9 @@ export interface EngineHintsOmr {
   enableClahe: boolean;
   adaptiveThreshold: boolean;
   conservativeDecision: boolean;
+  forceSimpleScale?: boolean;
+  useMapCoordinatesStrict?: boolean;
+  localSearchRadiusPx?: number;
 }
 
 export interface PerfilLayoutImpresion {
@@ -137,6 +149,8 @@ export interface PerfilPlantillaOmr {
   burbujaPasoY: number;
   cajaOmrAncho: number;
   fiducialSize: number;
+  fiducialMargin?: number;
+  fiducialQuietZone?: number;
   bubbleStrokePt?: number;
   labelToBubbleMm?: number;
   preguntasPorBloque?: number;
@@ -145,6 +159,8 @@ export interface PerfilPlantillaOmr {
 
 export interface PaginaOmr {
   numeroPagina: number;
+  markerSpec?: MarkerSpecOmr;
+  engineHints?: EngineHintsOmr;
   qr: {
     texto: string;
     x: number;
@@ -173,9 +189,10 @@ export interface PaginaOmr {
       bbox: { x: number; y: number; width: number; height: number };
     }>;
     imageRenderStatus?: 'ok' | 'error';
+    imagen?: { x: number; y: number; width: number; height: number };
     bboxPregunta?: { x: number; y: number; width: number; height: number };
     cajaOmr?: { x: number; y: number; width: number; height: number };
-    perfilOmr?: { radio: number; pasoY: number; cajaAncho: number };
+    perfilOmr?: { radio: number; pasoY: number; pasoX?: number; cajaAncho: number };
     fiduciales?: {
       leftTop: { x: number; y: number };
       leftBottom: { x: number; y: number };
@@ -186,12 +203,16 @@ export interface PaginaOmr {
     };
   }>;
   layoutDebug?: {
-    engine?: 'pdf-lib-legacy' | 'playwright-html-v1';
+    engine?: 'pdf-lib-canonical';
     layoutTemplateVersion?: number;
     pageShell?: { x: number; y: number; width: number; height: number };
     header?: { x: number; y: number; width: number; height: number };
+    continuationBand?: { x: number; y: number; width: number; height: number };
+    continuationTextBlocks?: Array<{ x: number; y: number; width: number; height: number; id: string }>;
     qr?: { x: number; y: number; width: number; height: number };
+    instructions?: { x: number; y: number; width: number; height: number };
     headerTextBlocks?: Array<{ x: number; y: number; width: number; height: number; id: string }>;
+    headerFieldBoxes?: Array<{ id: string; x: number; y: number; width: number; height: number }>;
     lineHeightViolations?: Array<{ preguntaId: string; lineHeight: number; min: number }>;
     contentStartY?: number;
     contentEndY?: number;

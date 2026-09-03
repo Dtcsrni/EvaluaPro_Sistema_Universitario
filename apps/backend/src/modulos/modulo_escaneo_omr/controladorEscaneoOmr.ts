@@ -13,7 +13,7 @@ import sharp from 'sharp';
 import { ErrorAplicacion } from '../../compartido/errores/errorAplicacion';
 import { registrarOmrResultadoAnalisis } from '../../compartido/observabilidad/metrics';
 import { obtenerDocenteId, type SolicitudDocente } from '../modulo_autenticacion/middlewareAutenticacion';
-import { construirQrExamenLegacy, extraerResumenQrExamen } from '../modulo_generacion_pdf/domain/qrExamen';
+import { extraerResumenQrExamen } from '../modulo_generacion_pdf/domain/qrExamen';
 import { prisma } from '../../infraestructura/baseDatos/sqlite';
 import { analizarOmr, leerQrDesdeImagen } from './servicioOmr';
 
@@ -89,15 +89,15 @@ export async function analizarImagen(req: SolicitudDocente, res: Response) {
 
   const templateMapa = Number(examen.mapaOmr?.templateVersion);
   const templateVersionDetectada =
-    templateQr === 3 || templateQr === 4
+    templateQr === 4
       ? templateQr
-      : templateMapa === 3 || templateMapa === 4
+      : templateMapa === 4
         ? templateMapa
         : null;
-  if (templateVersionDetectada !== 3 && templateVersionDetectada !== 4) {
+  if (templateVersionDetectada !== 4) {
     throw new ErrorAplicacion(
       'OMR_TEMPLATE_NO_COMPATIBLE',
-      'Solo las plantillas TV3/TV4 son compatibles con el motor OMR actual',
+      'La plantilla no corresponde al contrato OMR canónico',
       422
     );
   }
@@ -108,8 +108,7 @@ export async function analizarImagen(req: SolicitudDocente, res: Response) {
     : undefined;
   const qrEsperado = [
     String(paginaExamen?.qrTexto ?? '').trim(),
-    String((mapaOmr as { qr?: { texto?: string } }).qr?.texto ?? '').trim(),
-    construirQrExamenLegacy(String(examen.folio ?? ''), pagina, templateVersionDetectada)
+    String((mapaOmr as { qr?: { texto?: string } }).qr?.texto ?? '').trim()
   ].filter((valor): valor is string => Boolean(valor));
   const margenMm = examen.mapaOmr?.margenMm ?? 10;
   const requestId = (req as SolicitudDocente & { requestId?: string }).requestId;
@@ -317,7 +316,7 @@ async function archivarEscaneoOmrIntento({
     plantillaId?: unknown;
   };
   estadoAnalisis?: 'ok' | 'rechazado_calidad' | 'requiere_revision' | string;
-  templateVersionDetectada: 1 | 3 | 4;
+  templateVersionDetectada: 4;
   engineVersion?: string;
   motivosRevision?: string[];
 }) {

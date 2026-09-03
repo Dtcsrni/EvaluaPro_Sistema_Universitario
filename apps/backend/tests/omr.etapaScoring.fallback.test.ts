@@ -36,10 +36,10 @@ describe('etapaScoring reintento tras fallo de preproceso CV', () => {
       calidadPagina: 0.8,
       estadoAnalisis: 'ok',
       motivosRevision: [],
-      templateVersionDetectada: 3,
+      templateVersionDetectada: 4,
       confianzaPromedioPagina: 0.9,
       ratioAmbiguas: 0,
-      engineVersion: 'omr-v3-cv',
+      engineVersion: 'omr-cv',
       geomQuality: 0.9,
       photoQuality: 0.9,
       decisionPolicy: 'conservadora_v1'
@@ -47,12 +47,12 @@ describe('etapaScoring reintento tras fallo de preproceso CV', () => {
 
     const contexto = await ejecutarEtapaScoring({
       imagenBase64: 'data:image/png;base64,AAAA',
-      mapaPagina: { templateVersion: 3, preguntas: [] },
+      mapaPagina: { templateVersion: 4, preguntas: [] },
       margenMm: 10
     });
 
     const resultado = contexto.resultado as { motivosRevision: string[]; engineVersion: string };
-    expect(resultado.engineVersion).toBe('omr-v3-cv');
+    expect(resultado.engineVersion).toBe('omr-cv');
     expect(resultado.motivosRevision.some((motivo) => motivo.startsWith('CV_PREPROCESO_REINTENTO:'))).toBe(true);
   });
 });

@@ -77,6 +77,11 @@ export type GroundTruthRowPorFolio = {
 export type MapaOmrPaginaPorFolio = {
   numeroPagina: number;
   templateVersion: 4;
+  markerSpec: {
+    family: 'solid_square_4pt_v1';
+    sizeMm: 1.5;
+    quietZoneMm: 0.5;
+  };
   engineHints?: {
     preferredEngine?: 'cv';
     conservativeDecision?: boolean;
@@ -232,10 +237,9 @@ function sanitizeCaptureLabel(value: string) {
   return String(value).replace(/[^A-Za-z0-9_-]+/g, '_');
 }
 
-function normalizarQrCanonicoTv4(valor: string | undefined, folio: string, pageNumber: number) {
+function normalizarQrCanonico(valor: string | undefined, folio: string, pageNumber: number) {
   const limpio = String(valor ?? '').trim();
   if (!limpio) return `EXAMEN:${folio}:P${pageNumber}:TV4`;
-  if (/:TV3\b/i.test(limpio)) return limpio.replace(/:TV3\b/i, ':TV4');
   return limpio;
 }
 
@@ -722,7 +726,7 @@ export function buildCaptureSources(
         absoluteImagePath,
         sourceGroup: groupKey,
         templateVersion: 4,
-        expectedQr: normalizarQrCanonicoTv4(item.qrTexto, folio!, pageNumber)
+      expectedQr: normalizarQrCanonico(item.qrTexto, folio!, pageNumber)
       });
     });
   }
@@ -738,7 +742,7 @@ export async function deriveCaptureOmrFromImage(
   questionRange: QuestionRangePorFolio;
   panels: DerivedPanel[];
 }> {
-  const qrCanonico = normalizarQrCanonicoTv4(capture.expectedQr, capture.folio, capture.numeroPagina);
+  const qrCanonico = normalizarQrCanonico(capture.expectedQr, capture.folio, capture.numeroPagina);
   const grayImage = await loadGrayImage(capture.absoluteImagePath);
   const panels = detectOmrPanels(grayImage, profile);
   if (panels.length === 0) {
@@ -809,6 +813,11 @@ export async function deriveCaptureOmrFromImage(
   const mapPage: MapaOmrPaginaPorFolio = {
     numeroPagina: capture.numeroPagina,
     templateVersion: 4,
+    markerSpec: {
+      family: 'solid_square_4pt_v1',
+      sizeMm: 1.5,
+      quietZoneMm: 0.5
+    },
     engineHints: {
       preferredEngine: 'cv',
       conservativeDecision: true,
@@ -905,7 +914,7 @@ export async function buildPorFolioDataset(args: {
   const repoRoot = path.resolve(args.repoRoot);
   const datasetRoot = resolveFromRepoRoot(repoRoot, args.datasetRoot);
   const outputDatasetRoot = `${datasetRoot}.__tmp_build`;
-  const defaultOrganizationPath = path.resolve(repoRoot, 'omr_samples_tv3/images/Por Folio/_organizacion_por_alumno.json');
+  const defaultOrganizationPath = path.resolve(repoRoot, 'omr_samples_tv4/images/Por Folio/_organizacion_por_alumno.json');
   const organizationPath = args.organizationPath
     ? resolveFromRepoRoot(repoRoot, args.organizationPath)
     : fsSync.existsSync(defaultOrganizationPath)
@@ -977,7 +986,7 @@ export async function buildPorFolioDataset(args: {
       sourcePath: capture.sourcePath,
       sourceGroup: capture.sourceGroup,
       templateVersion: 4,
-      expectedQr: normalizarQrCanonicoTv4(capture.expectedQr, capture.folio, capture.numeroPagina)
+      expectedQr: normalizarQrCanonico(capture.expectedQr, capture.folio, capture.numeroPagina)
     });
   }
 
@@ -985,7 +994,7 @@ export async function buildPorFolioDataset(args: {
   const canonicalAnswerKey = await loadCanonicalAnswerKeySnapshot(canonicalAnswerKeyPath);
   const manifest = {
     version: '1',
-    datasetType: 'tv4_real_por_folio',
+    datasetType: 'canonical_real_por_folio',
     thresholds: {
       precisionMin: 1,
       falsePositiveMax: 0,
@@ -1050,9 +1059,9 @@ export async function buildPorFolioDataset(args: {
   );
 
   const readme = [
-    '# OMR TV4 Por Folio',
+    '# OMR canónico por folio',
     '',
-    'Dataset real autocontenido derivado de `omr_samples_tv3/images/Por Folio`, promovido como baseline canonico TV4.',
+    'Dataset real autocontenido derivado de las capturas organizadas por folio de la plantilla canónica.',
     '',
     '- `images/`: copias de las capturas originales.',
     '- `maps/`: mapa OMR por captura derivado por deteccion de paneles laterales.',
@@ -1063,7 +1072,7 @@ export async function buildPorFolioDataset(args: {
     'Regeneracion:',
     '',
     '```bash',
-    'npm run omr:tv3:build:por-folio-dataset',
+    'npm run omr:canonical:build:por-folio-dataset',
     '```',
     ''
   ].join('\n');

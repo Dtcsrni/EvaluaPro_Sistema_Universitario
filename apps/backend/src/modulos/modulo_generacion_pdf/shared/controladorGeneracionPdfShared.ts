@@ -12,13 +12,12 @@ import { barajar } from '../../../compartido/utilidades/aleatoriedad';
 import { ErrorAplicacion } from '../../../compartido/errores/errorAplicacion';
 import { configuracion } from '../../../configuracion';
 import { normalizarParaNombreArchivo } from '../../../compartido/utilidades/texto';
-import { resolverPdfEngine } from '../infra/resolverPdfEngine';
 import { construirFirmaVisualPdf } from '../infra/pdfVisualBaseline';
 import {
-  construirMapaVarianteUsadaTv4,
+  construirMapaVarianteUsadaCanonica,
   extraerPreguntasUsadasMapaOmr,
-  normalizarPreguntasParaTv4
-} from '../domain/tv4Compat';
+  normalizarPreguntasCanonicas
+} from '../domain/templateCanonico';
 import { normalizarTituloPlantilla } from '../modeloExamenPlantilla';
 
 export type MapaVariante = {
@@ -177,21 +176,6 @@ export function construirNombrePdfLote(parametros: {
   return `${partes.join('_')}.pdf`;
 }
 
-export function construirNombrePdfLoteAnterior(parametros: {
-  loteId: string;
-  materiaNombre?: string;
-  plantillaTitulo?: string;
-}): string {
-  const lote = normalizarParaNombreArchivo(parametros.loteId, { maxLen: 16 }) || 'sinlote';
-  const materia = normalizarParaNombreArchivo(parametros.materiaNombre, { maxLen: 36 });
-  const titulo = normalizarParaNombreArchivo(parametros.plantillaTitulo, { maxLen: 36 });
-  const partes = ['evaluapro', 'lote', 'examenes'];
-  if (materia) partes.push(`materia-${materia}`);
-  if (titulo) partes.push(`plantilla-${titulo}`);
-  partes.push(`lote-${lote}`);
-  return `${partes.join('_')}.pdf`;
-}
-
 function formatearDocente(nombreCompleto: unknown): string {
   const nombre = String(nombreCompleto ?? '').trim();
   if (!nombre) return '';
@@ -273,7 +257,7 @@ export function construirMapaVarianteUsadaDesdeOmr(
   mapaOmr: { paginas?: Array<{ preguntas?: Array<{ idPregunta?: string }> }> }
 ) {
   const usados = extraerPreguntasUsadasMapaOmr(mapaOmr as never);
-  return construirMapaVarianteUsadaTv4(mapaVariante as never, usados);
+  return construirMapaVarianteUsadaCanonica(mapaVariante as never, usados);
 }
 
 export function construirFirmaVariante(mapaVariante: MapaVariante): string {
@@ -329,11 +313,9 @@ export function construirFingerprintPreguntasPreview(preguntasDb: BancoPreguntaL
 
 export function construirFingerprintLayoutPreview(): string {
   const variables = [
-    'EXAMEN_PDF_ENGINE',
-    'PLAYWRIGHT_CHROMIUM_EXECUTABLE',
-    'PLAYWRIGHT_BROWSER_CHANNEL',
-    'EXAM_PRINT_PROFILE',
-    'PDF_PRINT_PROFILE',
+    'EXAMEN_FONT_ECOFONT_PATH',
+    'EXAMEN_LOGO_IZQ_PATH',
+    'EXAMEN_LOGO_DER_PATH',
     'EXAMEN_LAYOUT_GRID_MM',
     'EXAMEN_LAYOUT_HEADER_FIRST_MM',
     'EXAMEN_LAYOUT_HEADER_OTHER_MM',
@@ -342,7 +324,7 @@ export function construirFingerprintLayoutPreview(): string {
     'EXAMEN_LAYOUT_USAR_ETIQUETA_OMR_SOLIDA'
   ];
   const base = [
-    resolverPdfEngine(),
+    'pdf-lib-canonical',
     construirFirmaVisualPdf(),
     ...variables.map((nombre) => `${nombre}=${String(process.env[nombre] ?? '').trim()}`)
   ].join('|');
@@ -564,9 +546,39 @@ export function resolverTemasPlantilla(plantilla: { temas?: unknown[] }) {
   return Array.isArray(plantilla.temas) ? (plantilla.temas ?? []).map((tema) => String(tema ?? '').trim()).filter(Boolean) : [];
 }
 
+function limitarPreguntasPorObjetivo(preguntas: any[], objetivoRaw: unknown) {
+  const objetivo = Math.floor(Number(objetivoRaw));
+  if (!Number.isFinite(objetivo) || objetivo <= 0 || preguntas.length <= objetivo) return preguntas;
+
+  // Reparte el objetivo entre los temas para conservar cobertura al reducir
+  // reactivos desde el configurador.
+  const grupos = new Map<string, any[]>();
+  for (const pregunta of preguntas) {
+    const clave = String(pregunta?.tema ?? '').trim().toLocaleLowerCase() || '__sin_tema__';
+    const grupo = grupos.get(clave) ?? [];
+    grupo.push(pregunta);
+    grupos.set(clave, grupo);
+  }
+
+  const seleccionadas: any[] = [];
+  const filas = Array.from(grupos.values());
+  for (let indice = 0; seleccionadas.length < objetivo; indice += 1) {
+    let agregadas = 0;
+    for (const fila of filas) {
+      const pregunta = fila[indice];
+      if (!pregunta) continue;
+      seleccionadas.push(pregunta);
+      agregadas += 1;
+      if (seleccionadas.length >= objetivo) break;
+    }
+    if (agregadas === 0) break;
+  }
+  return seleccionadas;
+}
+
 export async function resolverPreguntasPlantilla(params: {
   docenteId: unknown;
-  plantilla: { id: string; periodoId?: unknown; preguntasIds?: unknown[]; temas?: unknown[] };
+  plantilla: { id: string; periodoId?: unknown; preguntasIds?: unknown[]; temas?: unknown[]; reactivosObjetivo?: unknown };
   ordenarPorRecencia?: boolean;
 }) {
   const docId = String(params.docenteId);
@@ -595,6 +607,7 @@ export async function resolverPreguntasPlantilla(params: {
         ? [{ updatedAt: 'desc' }, { id: 'desc' }]
         : undefined
     });
+    rawPreguntas = limitarPreguntasPorObjetivo(rawPreguntas, params.plantilla.reactivosObjetivo);
   } else {
     let listIds = params.plantilla.preguntasIds as string[];
     if (!listIds || listIds.length === 0) {
@@ -640,7 +653,7 @@ export async function resolverPreguntasPlantilla(params: {
 }
 
 export function mapearPreguntasBase(preguntasDb: BancoPreguntaLean[]) {
-  return normalizarPreguntasParaTv4(
+  return normalizarPreguntasCanonicas(
     preguntasDb.map((pregunta) => {
       const version =
         pregunta.versiones.find((item: { numeroVersion: number }) => item.numeroVersion === pregunta.versionActual) ??

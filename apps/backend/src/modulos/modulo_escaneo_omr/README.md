@@ -29,12 +29,12 @@ Ruta: `apps/backend/src/modulos/modulo_escaneo_omr`.
 - `npm run dev:omr:actual` inicia backend local con perfil base.
 
 ## Runtime OMR único
-- La fachada `servicioOmr.ts` ejecuta el pipeline OMR CV compatible con TV3/TV4 y opera con TV4 como contrato nominal.
+- La fachada `servicioOmr.ts` ejecuta un único pipeline OMR CV sobre la plantilla canónica.
 - El motor operativo se mantiene en `servicioOmrCv.ts` y módulos `omr/*`.
 - No existe fallback runtime alterno.
 
 ## Runtime CV (backend obligatorio)
-- El preproceso CV de OMR para plantillas canónicas TV4 es obligatorio en runtime.
+- El preproceso CV de OMR para la plantilla canónica es obligatorio en runtime.
 - No existe backend alterno ni fallback `simple`.
 - Si el backend CV no está disponible, el backend falla en arranque (smoke test bloqueante).
 - `OMR_CV_ENGINE_ENABLED` solo se respeta en `NODE_ENV=test` para pruebas internas controladas.
@@ -42,26 +42,16 @@ Ruta: `apps/backend/src/modulos/modulo_escaneo_omr`.
 - El scoring principal puede usar imagen preprocesada, pero el rescate `panel_darkness_v1` debe ejecutarse sobre la foto original para no degradar detección de paneles derechos.
 - Verificación local:
   - `npm -C apps/backend run omr:cv:smoke`
-  - `npm -C apps/backend run omr:tv3:eval:synthetic`
-  - `npm -C apps/backend run omr:tv3:build:por-folio-dataset`
-  - `npm -C apps/backend run omr:tv3:validate:por-folio -- --dataset ../../omr_samples_tv3_real_por_folio`
-  - `npm -C apps/backend run omr:tv3:diagnose:por-folio`
-  - `npm -C apps/backend run omr:tv3:generate:real:manual-min`
-  - `npm -C apps/backend run omr:tv3:validate:real:manual-min`
+  - `npm -C apps/backend run omr:eval:synthetic`
+  - `npm -C apps/backend run omr:build:pilot-real`
+  - `npm -C apps/backend run omr:validate:pilot-real`
+  - `npm -C apps/backend run omr:diagnose:pilot-real`
 
-## Gate mixto (release)
-- Gate sintético principal: `omr:tv4:eval:synthetic` (guardrail de regresión controlada).
-- Gate real principal: `omr:tv3:validate:por-folio` sobre baseline `Por Folio` regenerado en TV4.
-- Dataset real principal: `omr_samples_tv3_real_por_folio/` (ruta legacy, contenido canónico TV4).
-- Gate real manual mínimo: `omr:tv3:validate:real:manual-min` como herramienta legacy de diagnóstico.
-- El gate bloqueante en CI backend es `por-folio`.
-- TV4 queda en estado `ready for validation`:
-  - `omr:tv4:generate:synthetic`
-  - `omr:tv4:eval:synthetic`
-  - `omr:tv4:build:pilot-real`
-  - `omr:tv4:validate:pilot-real`
-  - `omr:tv4:diagnose:pilot-real`
-- TV4 ya es el contrato nominal de generación; TV3 queda como compatibilidad de lectura heredada cuando aplique.
+## Gate de release
+- Gate sintético principal: `omr:eval:synthetic` (guardrail de regresión controlada).
+- Gate real principal: `omr:validate:pilot-real` sobre `omr_samples_tv4_pilot_real/`.
+- El gate bloqueante en CI es `npm run test:omr:canonical:gate:ci`.
+- La plantilla canónica se rechaza si el mapa, QR o payload declara otra versión.
 - En `por-folio`, la cobertura se mide por preguntas resueltas:
   - respuesta marcada válida,
   - o resolución confiable de `blank` / `double`.

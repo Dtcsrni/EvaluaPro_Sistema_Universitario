@@ -30,21 +30,21 @@ describe('porFolioDataset', () => {
           folioId: 'folio1',
           pagina: 1,
           metodo: 'qr',
-          destino: 'omr_samples_tv3\\images\\Por Folio\\FOLIO1\\cam1.jpg'
+          destino: 'omr_samples_tv4\\images\\Por Folio\\FOLIO1\\cam1.jpg'
         },
         {
           archivoOriginal: '',
           folioId: 'folio1',
           pagina: 1,
           metodo: 'qr',
-          destino: 'omr_samples_tv3\\images\\Por Folio\\FOLIO1\\cam2.jpg'
+          destino: 'omr_samples_tv4\\images\\Por Folio\\FOLIO1\\cam2.jpg'
         },
         {
           archivoOriginal: 'cam3.jpg',
           folioId: 'folio1',
           pagina: 0,
           metodo: 'qr',
-          destino: 'omr_samples_tv3\\images\\Por Folio\\FOLIO1\\cam3.jpg'
+          destino: 'omr_samples_tv4\\images\\Por Folio\\FOLIO1\\cam3.jpg'
         }
       ]
     });
@@ -68,7 +68,7 @@ describe('porFolioDataset', () => {
           folioId: 'folio1',
           pagina: 1,
           metodo: 'qr',
-          destino: 'omr_samples_tv3\\images\\Por Folio\\FOLIO1\\cam2.jpg'
+          destino: 'omr_samples_tv4\\images\\Por Folio\\FOLIO1\\cam2.jpg'
         },
         {
           archivoOriginal: 'cam1.jpg',
@@ -76,7 +76,7 @@ describe('porFolioDataset', () => {
           folioId: 'folio1',
           pagina: 1,
           metodo: 'qr',
-          destino: 'omr_samples_tv3\\images\\Por Folio\\FOLIO1\\cam1.jpg'
+          destino: 'omr_samples_tv4\\images\\Por Folio\\FOLIO1\\cam1.jpg'
         },
         {
           archivoOriginal: 'cam3.jpg',
@@ -84,7 +84,7 @@ describe('porFolioDataset', () => {
           folioId: 'folio1',
           pagina: 2,
           metodo: 'qr',
-          destino: 'omr_samples_tv3\\images\\Por Folio\\FOLIO1\\cam3.jpg'
+          destino: 'omr_samples_tv4\\images\\Por Folio\\FOLIO1\\cam3.jpg'
         }
       ]
     });
@@ -99,7 +99,7 @@ describe('porFolioDataset', () => {
     expect(captures[0]).toMatchObject({
       sourceGroup: 'FOLIO1:P1',
       expectedQr: 'EXAMEN:FOLIO1:P1:TV4',
-      sourcePath: 'omr_samples_tv3/images/Por Folio/FOLIO1/cam1.jpg'
+      sourcePath: 'omr_samples_tv4/images/Por Folio/FOLIO1/cam1.jpg'
     });
     expect(captures[1]?.expectedQr).toBe('EXAMEN:FOLIO1:P1:TV4');
   });
@@ -120,7 +120,7 @@ describe('porFolioDataset', () => {
             folioId: 'folio1',
             pagina: 1,
             metodo: 'qr',
-            destino: '../../omr_samples_tv3/images/Por Folio/FOLIO1/cam1.jpg'
+            destino: '../../omr_samples_tv4/images/Por Folio/FOLIO1/cam1.jpg'
           }
         ]
       });
@@ -130,7 +130,7 @@ describe('porFolioDataset', () => {
       expect(captures).toHaveLength(1);
       expect(captures[0]).toMatchObject({
         captureId: 'FOLIO1-P1-C1',
-        sourcePath: 'omr_samples_tv3/images/Por Folio/FOLIO1/cam1.jpg'
+        sourcePath: 'omr_samples_tv4/images/Por Folio/FOLIO1/cam1.jpg'
       });
       expect(captures[0]?.absoluteImagePath).toBe(path.join(fallbackDatasetRoot, 'images', 'FOLIO1-P1-C1.jpg'));
     } finally {

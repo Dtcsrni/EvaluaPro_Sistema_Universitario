@@ -73,21 +73,22 @@ export type ResultadoOmr = {
   templateVersionDetectada: TemplateVersion;
   confianzaPromedioPagina: number;
   ratioAmbiguas: number;
-  engineVersion: 'omr-v1-cv' | 'omr-v3-cv' | 'omr-v4-cv';
+  engineVersion: 'omr-cv';
   geomQuality: number;
   photoQuality: number;
   decisionPolicy: 'conservadora_v1';
 };
 
 type Punto = { x: number; y: number };
-type TemplateVersion = 1 | 3 | 4;
+type TemplateVersion = 4;
 type PerfilGeometriaOmr = 'actual' | 'geo_tight_search';
 
 type MapaOmrPagina = {
   numeroPagina: number;
   templateVersion?: TemplateVersion;
+  qr?: { x: number; y: number; size: number };
   markerSpec?: {
-    family?: 'aruco_4x4_50';
+    family?: 'solid_square_4pt_v1';
     sizeMm?: number;
     quietZoneMm?: number;
   };
@@ -131,7 +132,11 @@ type MapaOmrPagina = {
 
 // Geometria base de hoja carta en puntos PDF.
 const ANCHO_CARTA = 612; const ALTO_CARTA = 792;
-const MM_A_PUNTOS = 72 / 25.4; const QR_SIZE_PTS_V1 = 68; const QR_SIZE_PTS_V2 = 88;
+const MM_A_PUNTOS = 72 / 25.4;
+const OMR_FIDUCIAL_SIZE_MM_DEFAULT = 1.5;
+// El QR canónico ocupa 25 mm de matriz más 3 mm de quiet zone por lado:
+// reserva física total de 31 mm, equivalente a la geometría persistida.
+const QR_RESERVA_SIZE_PTS = 31 * MM_A_PUNTOS;
 
 const PERFILES_GEOMETRIA_OMR: Record<PerfilGeometriaOmr, {
   alignRange: number;
@@ -159,7 +164,7 @@ const PERFILES_GEOMETRIA_OMR: Record<PerfilGeometriaOmr, {
 function resolverPerfilGeometriaOmr(): PerfilGeometriaOmr {
   const raw = String(process.env.OMR_GEOMETRY_PROFILE || 'actual').trim().toLowerCase();
   const seleccionado: PerfilGeometriaOmr = raw === 'geo_tight_search' ? 'geo_tight_search' : 'actual';
-  const entorno = String(process.env.NODE_ENV || 'development').toLowerCase();
+  const entorno = String(process.env.NODE_ENV || 'production').toLowerCase();
   const forceProd = String(process.env.OMR_GEOMETRY_PROFILE_FORCE_PROD || '').trim().toLowerCase();
   const puedeEnProd = forceProd === '1' || forceProd === 'true';
   if (entorno === 'production' && seleccionado !== 'actual' && !puedeEnProd) {
@@ -182,7 +187,7 @@ const OMR_VERT_STEP = Number.parseFloat(process.env.OMR_VERT_STEP || '2');
 const OMR_OFFSET_X = Number.parseFloat(process.env.OMR_OFFSET_X || String(GEOMETRIA_OMR_DEFAULT.offsetX));
 const OMR_OFFSET_Y = Number.parseFloat(process.env.OMR_OFFSET_Y || String(GEOMETRIA_OMR_DEFAULT.offsetY));
 const OMR_FID_RIGHT_OFFSET_PTS = Number.parseFloat(process.env.OMR_FID_RIGHT_OFFSET_PTS || '30');
-const OMR_BOX_WIDTH_PTS = Number.parseFloat(process.env.OMR_BOX_WIDTH_PTS || '42');
+const OMR_BOX_WIDTH_PTS = Number.parseFloat(process.env.OMR_BOX_WIDTH_PTS || '132');
 const OMR_LOCAL_DRIFT_PENALTY = Number.parseFloat(process.env.OMR_LOCAL_DRIFT_PENALTY || '0.08');
 const OMR_LOCAL_SEARCH_RATIO = Number.parseFloat(process.env.OMR_LOCAL_SEARCH_RATIO || String(GEOMETRIA_OMR_DEFAULT.localSearchRatio));
 const OMR_MAX_CENTER_DRIFT_RATIO = Number.parseFloat(process.env.OMR_MAX_CENTER_DRIFT_RATIO || '0.42');
@@ -198,6 +203,10 @@ const OMR_AUTO_CONF_MIN = UMBRALES_OMR_AUTO.autoConfMin;
 const OMR_AUTO_AMBIGUAS_MAX = UMBRALES_OMR_AUTO.autoAmbiguasMax;
 const OMR_AUTO_DETECCION_MIN = UMBRALES_OMR_AUTO.autoDeteccionMin;
 const OMR_RESPUESTA_CONF_MIN = Number.parseFloat(process.env.OMR_RESPUESTA_CONF_MIN || '0.4');
+// El panel bruto separa las marcas válidas (>= 0.199 en el dataset real) de
+// los blancos (<= 0.190). Se deja configurable para recalibrar otra cámara
+// sin alterar el umbral principal de detección CV.
+const OMR_PANEL_BLANK_MAX_SCORE = Number.parseFloat(process.env.OMR_PANEL_BLANK_MAX_SCORE || '0.19');
 const OMR_EXPORT_PATCHES = String(process.env.OMR_EXPORT_PATCHES || '').toLowerCase() === 'true' || process.env.OMR_EXPORT_PATCHES === '1';
 const OMR_PATCH_DIR = process.env.OMR_PATCH_DIR || path.resolve(process.cwd(), 'storage', 'omr_patches');
 const OMR_PATCH_SIZE = Math.max(24, Number.parseInt(process.env.OMR_PATCH_SIZE || '56', 10));
@@ -251,85 +260,31 @@ type PerfilDeteccionOmr = {
   reprojectionMaxErrorPx: number;
 };
 
-function resolverPerfilDeteccion(templateVersion: TemplateVersion): PerfilDeteccionOmr {
-  if (templateVersion === 1) {
-    return {
-      version: 1,
-      qrSizePts: 20 * MM_A_PUNTOS,
-      bubbleRadiusPts: (5 * MM_A_PUNTOS) / 2,
-      bubblePitchYPts: 8.8,
-      boxWidthPts: Math.max(54, OMR_BOX_WIDTH_PTS * 1.15),
-      centerToLeftPts: 9.5,
-      alignRange: Math.max(14, OMR_ALIGN_RANGE * 0.72),
-      vertRange: Math.max(8, OMR_VERT_RANGE * 0.72),
-      localSearchRatio: Math.max(0.18, OMR_LOCAL_SEARCH_RATIO * 0.72),
-      localDriftPenalty: Math.max(0.06, OMR_LOCAL_DRIFT_PENALTY * 0.85),
-      maxCenterDriftRatio: Math.max(0.18, OMR_MAX_CENTER_DRIFT_RATIO * 0.6),
-      minSafeRange: Math.max(4, OMR_MIN_SAFE_RANGE),
-      scoreMin: Math.max(0.035, OMR_SCORE_MIN * 0.92),
-      scoreStd: Math.max(0.5, OMR_SCORE_STD * 0.92),
-      strongScore: Math.max(0.05, OMR_STRONG_SCORE * 0.9),
-      secondRatio: Math.max(0.68, OMR_SECOND_RATIO * 0.92),
-      deltaMin: Math.max(0.008, OMR_DELTA_MIN * 0.92),
-      minTopZScore: 0.8,
-      ambiguityRatio: Math.max(0.92, OMR_AMBIGUITY_RATIO * 0.97),
-      minFillDelta: Math.max(0.075, OMR_MIN_FILL_DELTA * 0.88),
-      minCenterGap: Math.max(8.5, OMR_MIN_CENTER_GAP * 0.82),
-      minHybridConf: Math.max(0.2, OMR_MIN_HYBRID_CONF * 0.74),
-      reprojectionMaxErrorPx: 3.6
-    };
-  }
-  if (templateVersion === 4) {
-    return {
-      version: 4,
-      qrSizePts: 31 * MM_A_PUNTOS,
-      bubbleRadiusPts: (6.6 * MM_A_PUNTOS) / 2,
-      bubblePitchYPts: 12.6,
-      boxWidthPts: Math.max(78, OMR_BOX_WIDTH_PTS * 1.72),
-      centerToLeftPts: 15.8,
-      alignRange: Math.max(20, OMR_ALIGN_RANGE),
-      vertRange: Math.max(12, OMR_VERT_RANGE),
-      localSearchRatio: Math.max(0.24, OMR_LOCAL_SEARCH_RATIO * 0.96),
-      localDriftPenalty: Math.max(0.08, OMR_LOCAL_DRIFT_PENALTY),
-      maxCenterDriftRatio: Math.max(0.22, OMR_MAX_CENTER_DRIFT_RATIO * 0.8),
-      minSafeRange: Math.max(4, OMR_MIN_SAFE_RANGE),
-      scoreMin: Math.max(0.038, OMR_SCORE_MIN * 0.96),
-      scoreStd: Math.max(0.56, OMR_SCORE_STD * 0.98),
-      strongScore: Math.max(0.058, OMR_STRONG_SCORE * 0.97),
-      secondRatio: Math.max(0.7, OMR_SECOND_RATIO * 0.96),
-      deltaMin: Math.max(0.009, OMR_DELTA_MIN * 0.96),
-      minTopZScore: 0.88,
-      ambiguityRatio: Math.max(0.94, OMR_AMBIGUITY_RATIO * 0.98),
-      minFillDelta: Math.max(0.085, OMR_MIN_FILL_DELTA * 0.94),
-      minCenterGap: Math.max(10.2, OMR_MIN_CENTER_GAP * 0.94),
-      minHybridConf: Math.max(0.22, OMR_MIN_HYBRID_CONF * 0.82),
-      reprojectionMaxErrorPx: 4
-    };
-  }
+function resolverPerfilDeteccion(): PerfilDeteccionOmr {
   return {
-    version: 3,
-    qrSizePts: 30 * MM_A_PUNTOS,
-    bubbleRadiusPts: (6.2 * MM_A_PUNTOS) / 2,
-    bubblePitchYPts: 11.2,
-    boxWidthPts: Math.max(70, OMR_BOX_WIDTH_PTS * 1.5),
-    centerToLeftPts: 14.2,
-    alignRange: Math.max(18, OMR_ALIGN_RANGE * 0.92),
-    vertRange: Math.max(10, OMR_VERT_RANGE * 0.9),
-    localSearchRatio: Math.max(0.22, OMR_LOCAL_SEARCH_RATIO * 0.9),
+    version: 4,
+    qrSizePts: 31 * MM_A_PUNTOS,
+    bubbleRadiusPts: (4.8 * MM_A_PUNTOS) / 2,
+    bubblePitchYPts: 3.9 * MM_A_PUNTOS,
+    boxWidthPts: Math.max(96, OMR_BOX_WIDTH_PTS),
+    centerToLeftPts: 38,
+    alignRange: Math.max(20, OMR_ALIGN_RANGE),
+    vertRange: Math.max(12, OMR_VERT_RANGE),
+    localSearchRatio: Math.max(0.24, OMR_LOCAL_SEARCH_RATIO * 0.96),
     localDriftPenalty: Math.max(0.08, OMR_LOCAL_DRIFT_PENALTY),
-    maxCenterDriftRatio: Math.max(0.2, OMR_MAX_CENTER_DRIFT_RATIO * 0.74),
+    maxCenterDriftRatio: Math.max(0.22, OMR_MAX_CENTER_DRIFT_RATIO * 0.8),
     minSafeRange: Math.max(4, OMR_MIN_SAFE_RANGE),
-    scoreMin: Math.max(0.04, OMR_SCORE_MIN),
-    scoreStd: Math.max(0.58, OMR_SCORE_STD),
-    strongScore: Math.max(0.06, OMR_STRONG_SCORE),
-    secondRatio: Math.max(0.72, OMR_SECOND_RATIO),
-    deltaMin: Math.max(0.01, OMR_DELTA_MIN),
-    minTopZScore: 0.9,
-    ambiguityRatio: Math.max(0.95, OMR_AMBIGUITY_RATIO),
-    minFillDelta: Math.max(0.09, OMR_MIN_FILL_DELTA),
-    minCenterGap: Math.max(10.5, OMR_MIN_CENTER_GAP * 0.92),
-    minHybridConf: Math.max(0.22, OMR_MIN_HYBRID_CONF * 0.8),
-    reprojectionMaxErrorPx: 4.2
+    scoreMin: Math.max(0.038, OMR_SCORE_MIN * 0.96),
+    scoreStd: Math.max(0.56, OMR_SCORE_STD * 0.98),
+    strongScore: Math.max(0.058, OMR_STRONG_SCORE * 0.97),
+    secondRatio: Math.max(0.7, OMR_SECOND_RATIO * 0.96),
+    deltaMin: Math.max(0.009, OMR_DELTA_MIN * 0.96),
+    minTopZScore: 0.88,
+    ambiguityRatio: Math.max(0.94, OMR_AMBIGUITY_RATIO * 0.98),
+    minFillDelta: Math.max(0.085, OMR_MIN_FILL_DELTA * 0.94),
+    minCenterGap: Math.max(10.2, OMR_MIN_CENTER_GAP * 0.94),
+    minHybridConf: Math.max(0.22, OMR_MIN_HYBRID_CONF * 0.82),
+    reprojectionMaxErrorPx: 4
   };
 }
 
@@ -373,9 +328,9 @@ function ajustarPerfilConMapa(perfilBase: PerfilDeteccionOmr, mapaPagina: MapaOm
     bubblePitchYPts:
       pasoY !== null ? Math.max(6.8, Math.min(16, pasoY)) : perfilBase.bubblePitchYPts,
     boxWidthPts:
-      anchoCaja !== null ? Math.max(32, Math.min(84, anchoCaja)) : perfilBase.boxWidthPts,
+      anchoCaja !== null ? Math.max(32, Math.min(180, anchoCaja)) : perfilBase.boxWidthPts,
     centerToLeftPts:
-      offset !== null ? Math.max(4.5, Math.min(22, offset)) : perfilBase.centerToLeftPts
+      offset !== null ? Math.max(8, Math.min(60, offset)) : perfilBase.centerToLeftPts
   };
 }
 
@@ -441,8 +396,17 @@ type ParametrosBurbuja = {
   paso: number;
 };
 
-function crearParametrosBurbuja(escalaX: number, bubbleRadiusPts: number, bubblePitchYPts: number): ParametrosBurbuja {
-  const radio = Math.max(6, bubbleRadiusPts * escalaX);
+function crearParametrosBurbuja(
+  escalaX: number,
+  bubbleRadiusPts: number,
+  bubblePitchYPts: number,
+  geometriaVerticalCompacta = false
+): ParametrosBurbuja {
+  // El piso de la ROI evita que el marco impreso se interprete como una
+  // marca cuando la captura tiene poca resolución.
+  // Keep the historical floor for horizontal/synthetic fixtures, and use a
+  // small floor only when the map explicitly has the compact vertical shape.
+  const radio = Math.max(geometriaVerticalCompacta ? 3 : 6, bubbleRadiusPts * escalaX);
   const pasoCentroPx = Math.max(radio * 2.4, bubblePitchYPts * escalaX);
   const ringInner = Math.max(radio + 2, Math.min(radio * 1.34, pasoCentroPx * 0.31));
   const ringOuter = Math.max(ringInner + 2, Math.min(radio * 1.88, pasoCentroPx * 0.42));
@@ -1047,6 +1011,11 @@ function ajustarCentrosPorFiduciales(
   const dyReal = detBottom.y - detTop.y;
   if (Math.abs(dyEsperado) < 1) return null;
   const scaleY = dyReal / dyEsperado;
+  // A QR-rectified page may still have mild perspective, but a collapse or
+  // expansion of the fiducial span is not a valid local correction. Without
+  // this guard, a spurious dark component can compress all option centers and
+  // make one question look like five identical marks.
+  if (!Number.isFinite(scaleY) || scaleY < 0.86 || scaleY > 1.16) return null;
   const offsetY = detTop.y - fidTop.y * scaleY;
 
   let scaleX = 1;
@@ -1356,22 +1325,31 @@ function prepararCentrosPregunta(
   estado: EstadoImagenOmr,
   pregunta: MapaOmrPagina['preguntas'][number],
   transformar: (punto: Punto) => Punto,
-  perfil: PerfilDeteccionOmr
+  perfil: PerfilDeteccionOmr,
+  usarCoordenadasEstrictas: boolean,
+  usarGeometriaLocal: boolean,
+  fiducialSizeMm: number
 ): PreparacionPregunta {
   const { gray, integral, width, height, escalaX, paramsBurbuja } = estado;
   const centrosBase = construirCentrosBasePregunta(pregunta, transformar);
-  if (!OMR_LOCAL_GEOMETRY_ENABLED) {
+  if (!usarGeometriaLocal || usarCoordenadasEstrictas) {
     return {
       centros: centrosBase,
       reprojectionErrorPx: null,
       puntosFidDetectados: 0,
       puntosFidEsperados: 0,
       usaRescateCaja: false,
-      motivo: 'Ajuste geometrico local desactivado'
+      motivo: usarCoordenadasEstrictas
+        ? 'Coordenadas estrictas del mapa OMR'
+        : 'Ajuste geometrico local desactivado'
     };
   }
   const fiduciales = normalizarFiducialesPregunta(pregunta.fiduciales, transformar);
-  const fidSizePx = Math.max(6, 7 * escalaX);
+  // El tamano de la ventana de contraste debe corresponder al marcador que
+  // realmente imprime la plantilla. El valor fijo anterior sobredimensionaba
+  // la ventana y podia atraer texto o bordes cercanos en capturas pequenas.
+  const fidSizePt = Math.max(0.4, Number.isFinite(fiducialSizeMm) ? fiducialSizeMm * MM_A_PUNTOS : OMR_FIDUCIAL_SIZE_MM_DEFAULT * MM_A_PUNTOS);
+  const fidSizePx = Math.max(4, fidSizePt * escalaX);
   const ajusteFid = fiduciales
     ? ajustarCentrosPorFiduciales(
         gray,
@@ -1494,9 +1472,6 @@ function prepararCentrosPregunta(
 
 function extraerTemplateVersionDesdeQr(qrTexto?: string): TemplateVersion | undefined {
   if (!qrTexto) return undefined;
-  if (/^OMR1:/i.test(qrTexto)) return 1;
-  if (/:TV1\b/i.test(qrTexto)) return 1;
-  if (/:TV3\b/i.test(qrTexto)) return 3;
   if (/:TV4\b/i.test(qrTexto)) return 4;
   return undefined;
 }
@@ -1586,8 +1561,7 @@ function construirScoresPorOpcion(args: {
 export async function leerQrDesdeImagen(imagenBase64: string): Promise<string | undefined> {
   const { data, gray, width, height } = await decodificarImagen(imagenBase64);
   const qr = detectarQrMejorado(data, gray, width, height, {
-    qrSizePtsV1: QR_SIZE_PTS_V1,
-    qrSizePtsV2: QR_SIZE_PTS_V2,
+    qrSizePts: QR_RESERVA_SIZE_PTS,
     anchoCarta: ANCHO_CARTA
   });
   return qr?.data;
@@ -1687,7 +1661,7 @@ async function aplicarRescatePanelDarkness(
   respuestasDetectadas: ResultadoOmr['respuestasDetectadas'],
   advertencias: string[]
 ) {
-  if (!([3, 4].includes(mapaPagina.templateVersion ?? 3)) || mapaPagina.preguntas.length === 0) return respuestasDetectadas;
+  if (mapaPagina.templateVersion !== 4 || mapaPagina.preguntas.length === 0) return respuestasDetectadas;
   const preguntas = mapaPagina.preguntas.map((pregunta) => pregunta.numeroPregunta);
   const detections = await analyzeOmrPanelsFromImageBuffer(buffer, preguntas);
   if (detections.length === 0) return respuestasDetectadas;
@@ -1700,7 +1674,7 @@ async function aplicarRescatePanelDarkness(
 
     const tieneFlagParcial = respuesta.flags.includes('parcial_detectada');
     const rescueTopScore = Math.max(...Object.values(rescue.rawScores));
-    const blankLimpio = rescue.markType === 'blank' && rescueTopScore <= 0.03;
+    const blankLimpio = rescue.markType === 'blank' && rescueTopScore <= OMR_PANEL_BLANK_MAX_SCORE;
     const debeRescatarValida =
       rescue.markType === 'valid' &&
       rescue.option &&
@@ -1843,29 +1817,40 @@ export async function analizarOmr(
   const bufferRescatePanel = opcionesInternas?.rawImageBase64
     ? Buffer.from(limpiarBase64(opcionesInternas.rawImageBase64), 'base64')
     : buffer;
-  const templateInicial = debugInfo?.templateVersionDetectada ?? mapaPagina.templateVersion ?? 1;
-  const perfilInicial = ajustarPerfilConMapa(resolverPerfilDeteccion(templateInicial), mapaPagina);
+  const perfilInicial = ajustarPerfilConMapa(resolverPerfilDeteccion(), mapaPagina);
   let qrDetalle = detectarQrMejorado(data, gray, width, height, {
     qrSizePtsHint: perfilInicial.qrSizePts,
-    qrSizePtsV1: QR_SIZE_PTS_V1,
-    qrSizePtsV2: QR_SIZE_PTS_V2,
+    qrSizePts: QR_RESERVA_SIZE_PTS,
     anchoCarta: ANCHO_CARTA
   });
   let qrTexto = qrDetalle?.data;
   const templateQr = extraerTemplateVersionDesdeQr(qrTexto);
-  const templateVersionDetectada = templateQr ?? debugInfo?.templateVersionDetectada ?? mapaPagina.templateVersion ?? 3;
-  const perfil = ajustarPerfilConMapa(resolverPerfilDeteccion(templateVersionDetectada), mapaPagina);
+  const templateVersionDetectada = templateQr ?? debugInfo?.templateVersionDetectada ?? mapaPagina.templateVersion ?? 4;
+  const perfil = ajustarPerfilConMapa(resolverPerfilDeteccion(), mapaPagina);
   if (!qrDetalle && perfil.qrSizePts !== perfilInicial.qrSizePts) {
     qrDetalle = detectarQrMejorado(data, gray, width, height, {
       qrSizePtsHint: perfil.qrSizePts,
-      qrSizePtsV1: QR_SIZE_PTS_V1,
-      qrSizePtsV2: QR_SIZE_PTS_V2,
+      qrSizePts: QR_RESERVA_SIZE_PTS,
       anchoCarta: ANCHO_CARTA
     });
     qrTexto = qrDetalle?.data;
   }
   const escalaX = width / ANCHO_CARTA;
-  const paramsBurbuja = crearParametrosBurbuja(escalaX, perfil.bubbleRadiusPts, perfil.bubblePitchYPts);
+  const geometriaVerticalCompacta = mapaPagina.preguntas.some((pregunta) => {
+    if (!pregunta.opciones || pregunta.opciones.length < 2) return false;
+    const xs = pregunta.opciones.map((opcion) => opcion.x);
+    const ys = pregunta.opciones.map((opcion) => opcion.y);
+    const rangoX = Math.max(...xs) - Math.min(...xs);
+    const rangoY = Math.max(...ys) - Math.min(...ys);
+    return rangoY > Math.max(12, rangoX * 1.5);
+  });
+  const paramsBurbuja = crearParametrosBurbuja(
+    escalaX,
+    perfil.bubbleRadiusPts,
+    perfil.bubblePitchYPts,
+    geometriaVerticalCompacta
+  );
+  const usarGeometriaLocal = OMR_LOCAL_GEOMETRY_ENABLED;
 
   if (!qrTexto) {
     advertencias.push('No se detecto QR en la imagen');
@@ -1885,6 +1870,7 @@ export async function analizarOmr(
   const transformacionBase = obtenerTransformacion(gray, width, height, advertencias, qrDetalle, {
     margenMm,
     qrSizePts: perfil.qrSizePts,
+    qrGeometry: mapaPagina.qr,
     anchoCarta: ANCHO_CARTA,
     altoCarta: ALTO_CARTA,
     mmAPuntos: MM_A_PUNTOS
@@ -1901,11 +1887,8 @@ export async function analizarOmr(
       : false;
   const localSearchRadiusPx = useMapCoordinatesStrict
     ? 0
-    : (mapaPagina.engineHints?.localSearchRadiusPx ??
-      (templateVersionDetectada === 3 || templateVersionDetectada === 4
-        ? Math.max(2, Math.round(paramsBurbuja.radio * 0.55))
-        : undefined));
-  const localBubbleSearchRadiusPx = OMR_LOCAL_GEOMETRY_ENABLED ? 0 : localSearchRadiusPx;
+    : (mapaPagina.engineHints?.localSearchRadiusPx ?? Math.max(2, Math.round(paramsBurbuja.radio * 0.55)));
+  const localBubbleSearchRadiusPx = usarGeometriaLocal ? 0 : localSearchRadiusPx;
   let transformar = transformacionBase.transformar;
   if (forceSimpleScale) {
     transformar = transformarEscala;
@@ -1913,8 +1896,12 @@ export async function analizarOmr(
   } else if (transformacionBase.tipo === 'escala') {
     motivosRevision.push('Alineacion global no rectificada (escala simple)');
     advertencias.push('Rectificacion CV no confiable; se mantiene escala simple con ajuste local');
-  } else if (!OMR_LOCAL_GEOMETRY_ENABLED) {
-    advertencias.push('OMR_LOCAL_GEOMETRY_ENABLED=0: se desactiva ajuste local por pregunta');
+  } else if (!usarGeometriaLocal) {
+    advertencias.push(
+      OMR_LOCAL_GEOMETRY_ENABLED
+        ? 'Se usa la geometria persistida sin ajuste local por pregunta'
+        : 'OMR_LOCAL_GEOMETRY_ENABLED=0: se desactiva ajuste local por pregunta'
+    );
   }
 
   const evaluarTransformacion = (transformador: (p: Punto) => Punto) => {
@@ -1970,14 +1957,18 @@ export async function analizarOmr(
     const escalaMejor = ventajaEscala > 0.03;
     const escalaMuyMejor = ventajaEscala > 0.14;
     if (escalaMejor) {
-      motivosRevision.push('Alineacion global inestable (escala simple puntuo mejor)');
+      if (!forceSimpleScale) {
+        motivosRevision.push('Alineacion global inestable (escala simple puntuo mejor)');
+      }
       const permitirFallbackEscala =
         forceSimpleScale ||
-        !OMR_LOCAL_GEOMETRY_ENABLED ||
+        !usarGeometriaLocal ||
         (!opcionesInternas?.rescueFiduciales && escalaMuyMejor) ||
         (transformacionBase.tipo === 'homografia' && escalaMuyMejor && ventajaEscala > 0.18);
       if (permitirFallbackEscala) {
-        advertencias.push('Se eligio transformacion por escala por mayor coherencia de marcas');
+        if (!forceSimpleScale) {
+          advertencias.push('Se eligio transformacion por escala por mayor coherencia de marcas');
+        }
         transformar = transformarEscala;
       } else if (opcionesInternas?.rescueFiduciales !== false) {
         advertencias.push('Rescate fiduciales: se mantiene transformacion base para ajuste local');
@@ -2009,8 +2000,17 @@ export async function analizarOmr(
       }
     : null;
 
+  const usarCoordenadasEstrictas = mapaPagina.engineHints?.useMapCoordinatesStrict === true;
   mapaPagina.preguntas.forEach((pregunta) => {
-    const prep = prepararCentrosPregunta(estado, pregunta, transformar, perfil);
+    const prep = prepararCentrosPregunta(
+      estado,
+      pregunta,
+      transformar,
+      perfil,
+      usarCoordenadasEstrictas,
+      usarGeometriaLocal,
+      mapaPagina.markerSpec?.sizeMm ?? OMR_FIDUCIAL_SIZE_MM_DEFAULT
+    );
     const centros = prep.centros;
     if ((prep.usaRescateCaja || /panel OMR derecho/i.test(String(prep.motivo ?? ''))) && prep.motivo) {
       advertencias.push(`P${pregunta.numeroPregunta}: ${prep.motivo}`);
@@ -2029,7 +2029,7 @@ export async function analizarOmr(
       prep.puntosFidDetectados >= 3 &&
       reprojectionDisponible &&
       (reprojectionError as number) <= perfil.reprojectionMaxErrorPx;
-    const habilitarAjusteLocalPregunta = OMR_LOCAL_GEOMETRY_ENABLED && fiducialConfiable;
+    const habilitarAjusteLocalPregunta = usarGeometriaLocal && fiducialConfiable;
     if (perfil.reprojectionMaxErrorPx < Number.POSITIVE_INFINITY && reprojectionFueraDeRango && bloqueoPorFiducial) {
       motivosRevision.push(`P${pregunta.numeroPregunta}: error geometrico local (fiduciales)`);
       if (opcionesInternas?.rescueFiduciales) {
@@ -2046,7 +2046,7 @@ export async function analizarOmr(
           minSafeRange: perfil.minSafeRange,
           evaluarAlineacionOffset
         });
-    const localSearchRadiusPregunta = !OMR_LOCAL_GEOMETRY_ENABLED
+    const localSearchRadiusPregunta = !usarGeometriaLocal
       ? localSearchRadiusPx
       : habilitarAjusteLocalPregunta
         ? 0
@@ -2295,8 +2295,7 @@ export async function analizarOmr(
     templateVersionDetectada,
     confianzaPromedioPagina: confianzaMedia,
     ratioAmbiguas,
-    engineVersion:
-      templateVersionDetectada === 1 ? 'omr-v1-cv' : templateVersionDetectada === 4 ? 'omr-v4-cv' : 'omr-v3-cv',
+    engineVersion: 'omr-cv',
     geomQuality,
     photoQuality: clamp01(photoQuality),
     decisionPolicy: 'conservadora_v1'

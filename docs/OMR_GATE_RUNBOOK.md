@@ -1,113 +1,63 @@
-# Runbook OMR TV Gate
+# Runbook OMR canónico
 
 ## Objetivo
-Ejecutar y validar el gate canónico OMR por template version (`TV`) sin acoplar el carril CI a una sola versión.
+
+Ejecutar y validar la única plantilla OMR soportada por EvaluaPro, desde la generación del PDF hasta la calificación automática.
 
 ## Prerrequisitos
+
 - Node 24.
 - Dependencias instaladas (`npm ci`).
 - Backend CV operativo (`npm -C apps/backend run omr:cv:smoke`).
-- Dataset real `Por Folio` disponible en `omr_samples_tv3_real_por_folio/`.
-- Dataset real manual mínimo disponible en `omr_samples_tv3_real_manual_min/`.
+- Dataset sintético vigente: `omr_samples_tv4/`.
+- Piloto de captura real: `omr_samples_tv4_pilot_real/`.
 
 ## Flujo operativo
-Carril CI genérico:
+
+Generar y evaluar el dataset sintético:
+
 ```bash
-npm run test:omr:tv:gate:ci
+npm -C apps/backend run omr:generate:synthetic
+npm -C apps/backend run omr:eval:synthetic
 ```
 
-Para cambiar de baseline activo sin renombrar el gate:
+Preparar o validar el piloto real:
+
 ```bash
-OMR_TV_GATE_VERSION=tv4 npm run test:omr:tv:gate:ci
+npm -C apps/backend run omr:build:pilot-real
+npm -C apps/backend run omr:validate:pilot-real
+npm -C apps/backend run omr:diagnose:pilot-real
 ```
 
-Flujos específicos por baseline:
+Ejecutar el gate bloqueante de CI:
 
-1. Generar/actualizar dataset real `Por Folio`:
 ```bash
-npm -C apps/backend run omr:tv3:build:por-folio-dataset
-```
-El nombre del script es legacy, pero la salida regenerada debe quedar en contrato TV4.
-
-2. Generar/actualizar dataset real manual mínimo:
-```bash
-npm -C apps/backend run omr:tv3:generate:real:manual-min
-```
-
-3. Ejecutar gate sintético:
-```bash
-npm -C apps/backend run omr:tv3:eval:synthetic
-```
-
-4. Ejecutar gate real `Por Folio`:
-```bash
-npm -C apps/backend run omr:tv3:validate:por-folio -- --dataset ../../omr_samples_tv3_real_por_folio
-```
-
-5. Ejecutar diagnóstico reproducible del lote `Por Folio`:
-```bash
-npm -C apps/backend run omr:tv3:diagnose:por-folio
-```
-
-6. Ejecutar gate real manual mínimo legado:
-```bash
-npm -C apps/backend run omr:tv3:validate:real:manual-min
-```
-
-7. Capturar baseline reproducible:
-```bash
-npm -C apps/backend run omr:tv3:baseline:snapshot -- --dataset-real-manual ../../omr_samples_tv3_real_manual_min
-```
-
-8. Ejecutar calibración iterativa (solo si falla algún gate):
-```bash
-npm -C apps/backend run omr:tv3:calibrate:real
+npm run test:omr:canonical:gate:ci
 ```
 
 ## Evidencia generada
-- `reports/qa/latest/omr-tv-gate-wrapper.json`
-- `reports/qa/latest/omr/baseline_snapshot.json`
-- `reports/qa/latest/omr/synthetic-eval*.json`
-- `reports/qa/latest/omr/tv3-por-folio-validation*.json`
-- `reports/qa/latest/omr/tv3-por-folio-failures*.json`
-Los artefactos específicos del baseline pueden conservar nombres históricos (`tv3-*`, `tv4-*`) mientras el wrapper CI queda estable y genérico.
-- `reports/qa/latest/omr/por-folio-diagnose/*`
-- `reports/qa/latest/omr/tv3-real-manual-validation*.json`
-- `reports/qa/latest/omr/tv3-real-manual-failure-analysis*.json`
-- `omr_samples_tv3_real_por_folio/*`
-- `reports/qa/latest/omr/real_manual_dataset_generation_report.json`
-- `reports/qa/latest/omr/calibration_iterations.json`
-- `reports/qa/latest/omr/calibration_decision.md`
 
-## Dataset manual mínimo (captura móvil)
-- Base reproducible actual: `omr_samples_tv3_real_manual_min` generado con simulación móvil.
-- Para operar con captura real:
-  - conservar `maps/*`, `manifest.json` y `ground_truth.jsonl`
-  - reemplazar solo `images/*` por fotos reales de móvil (mismo `captureId`)
-  - volver a ejecutar `npm -C apps/backend run omr:tv3:validate:real:manual-min`
+- `reports/qa/latest/omr/canonical-synthetic-eval.json`
+- `reports/qa/latest/omr/canonical-pilot-real-validation.json`
+- `reports/qa/latest/omr/canonical-pilot-real-failures.json`
+- `reports/qa/latest/omr-canonical-gate-wrapper.json`
+
+## Dataset de captura real
+
+El piloto vigente conserva `manifest.json`, mapas y verdad esperada. Para incorporar capturas reales, agrega imágenes con el mismo `captureId`, actualiza la verdad de marcas y ejecuta nuevamente el gate canónico. Un dataset sin capturas no puede declararse validado en condiciones reales.
 
 ## Checklist de liberación
-- Smoke CV `ok`.
-- Gate sintético `ok`.
-- Gate real `Por Folio` `ok`.
-- Gate real manual mínimo se usa solo como diagnóstico legado.
-- `autoCoverageRate == 1.0` en el gate `Por Folio`.
-- Sin regresión en tests OMR críticos.
-- Artefactos OMR publicados en CI backend.
+
+- Smoke CV aprobado.
+- Gate sintético aprobado.
+- Gate de captura real aprobado con imágenes y ground truth reales.
+- `autoCoverageRate == 1.0`.
+- Sin regresiones en las pruebas OMR/PDF críticas.
+- No existen rutas de compatibilidad ni datasets de versiones anteriores.
 
 ## Troubleshooting
-- `falsePositiveRate` alto:
-  - subir `OMR_RESPUESTA_CONF_MIN`
-  - subir `OMR_SCORE_MIN`
-  - subir `OMR_DELTA_MIN`
-- `autoGradeTrustRate` bajo:
-  - ajustar `OMR_AUTO_CONF_MIN`
-  - reducir `OMR_AUTO_AMBIGUAS_MAX`
-  - subir `OMR_AUTO_DETECCION_MIN`
-- `autoCoverageRate < 1.0`:
-  - NO forzar páginas por defecto; mantener `OMR_AUTO_FORCE_ALL_PAGES=0`
-  - usar `OMR_AUTO_FORCE_ALL_PAGES=1` solo en diagnóstico controlado (nunca en producción)
-  - revisar páginas con `mismatches` altos en `tv3-real-*-failure-analysis.json`
-- `fuera_roi`/geometría:
-  - revisar `reports/qa/latest/omr/por-folio-diagnose/*`
-  - revisar perfil geométrico y umbrales `OMR_ALIGN_RANGE`/`OMR_VERT_RANGE`.
+
+- `falsePositiveRate` alto: revisar `OMR_RESPUESTA_CONF_MIN`, `OMR_SCORE_MIN` y `OMR_DELTA_MIN`.
+- `autoGradeTrustRate` bajo: revisar `OMR_AUTO_CONF_MIN`, `OMR_AUTO_AMBIGUAS_MAX` y `OMR_AUTO_DETECCION_MIN`.
+- `autoCoverageRate < 1.0`: revisar calidad, geometría y páginas con mayor número de mismatches; no forzar páginas en producción.
+- `fuera_roi` o errores geométricos: revisar fiduciales, `OMR_ALIGN_RANGE`, `OMR_VERT_RANGE` y el perfil geométrico activo.

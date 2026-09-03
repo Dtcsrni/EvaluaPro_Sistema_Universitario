@@ -32,7 +32,8 @@ import {
   resolverPreguntasPlantilla,
   resolverTemplateVersionOmr
 } from '../../shared/controladorGeneracionPdfShared';
-import { extraerPreguntasUsadasMapaOmr } from '../../domain/tv4Compat';
+import { extraerPreguntasUsadasMapaOmr } from '../../domain/templateCanonico';
+import { rasterizarPdfParaPreview, type PaginaPdfPreviewVisual } from '../../infra/rasterizadorPdfPreview';
 
 function construirPaginasSketch(params: {
   paginas: Array<{ numero: number; preguntasDel?: number; preguntasAl?: number }>;
@@ -149,8 +150,9 @@ export async function previsualizarPlantillaUseCase(params: {
     mapaVariante: contexto.mapaVarianteDet as unknown as ReturnType<typeof generarVariante>,
     tipoExamen: contexto.plantilla.tipo as 'parcial' | 'global',
     totalPaginas: contexto.numeroPaginas,
-    margenMm: contexto.plantilla.configuracionPdf?.margenMm ?? 10,
+    margenMm: contexto.plantilla.configuracionPdf?.margenMm ?? 8,
     templateVersion: contexto.templateVersionOmr,
+    bookletConfig: contexto.plantilla.bookletConfig,
     encabezado: construirEncabezadoPdf({
       periodo: contexto.periodo,
       docenteDb: contexto.docenteDb,
@@ -210,11 +212,12 @@ export async function previsualizarPlantillaUseCase(params: {
 export async function previsualizarPlantillaPdfUseCase(params: {
   docenteId: unknown;
   plantillaId: string;
+  forzarRegeneracion?: boolean;
 }) {
   const contexto = await resolverContextoPreview(params.docenteId, params.plantillaId);
   const esDev = esEntornoDevelopment();
 
-  if (!esDev) {
+  if (!esDev && !params.forzarRegeneracion) {
     await limpiarPreviewTemporales();
   }
 
@@ -257,8 +260,9 @@ export async function previsualizarPlantillaPdfUseCase(params: {
     mapaVariante: contexto.mapaVarianteDet as unknown as ReturnType<typeof generarVariante>,
     tipoExamen: contexto.plantilla.tipo as 'parcial' | 'global',
     totalPaginas: contexto.numeroPaginas,
-    margenMm: contexto.plantilla.configuracionPdf?.margenMm ?? 10,
+    margenMm: contexto.plantilla.configuracionPdf?.margenMm ?? 8,
     templateVersion: contexto.templateVersionOmr,
+    bookletConfig: contexto.plantilla.bookletConfig,
     encabezado: construirEncabezadoPdf({
       periodo: contexto.periodo,
       docenteDb: contexto.docenteDb,
@@ -278,4 +282,24 @@ export async function previsualizarPlantillaPdfUseCase(params: {
   }
 
   return { buffer, fileName };
+}
+
+export async function previsualizarPlantillaPdfVisualUseCase(params: {
+  docenteId: unknown;
+  plantillaId: string;
+  forzarRegeneracion?: boolean;
+}): Promise<{
+  fileName: string;
+  pdfBase64: string;
+  paginas: PaginaPdfPreviewVisual[];
+  paginasTotales: number;
+  paginasOmitidas: number;
+}> {
+  const pdf = await previsualizarPlantillaPdfUseCase(params);
+  const visual = await rasterizarPdfParaPreview(pdf.buffer);
+  return {
+    fileName: pdf.fileName,
+    pdfBase64: pdf.buffer.toString('base64'),
+    ...visual
+  };
 }

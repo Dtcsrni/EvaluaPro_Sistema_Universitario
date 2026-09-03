@@ -44,13 +44,16 @@ function crearParametros(cantidadPreguntas = 12) {
   };
 }
 
-describe('pdf tv4 contract', () => {
-  it('genera PDF carta válido y mapa OMR TV4', async () => {
+describe('pdf OMR canónico', () => {
+  it('genera PDF carta válido y mapa OMR canónico', async () => {
     const resultado = await generarPdfExamen(crearParametros(16));
 
     expect(resultado.pdfBytes.byteLength).toBeGreaterThan(10_000);
     expect(resultado.mapaOmr.templateVersion).toBe(4);
-    expect(resultado.mapaOmr.markerSpec?.family).toBe('aruco_4x4_50');
+    expect(resultado.mapaOmr.markerSpec?.family).toBe('solid_square_4pt_v1');
+    expect(resultado.mapaOmr.markerSpec?.sizeMm).toBeCloseTo(1.5, 2);
+    expect(resultado.mapaOmr.paginas[0]?.markerSpec?.family).toBe('solid_square_4pt_v1');
+    expect(resultado.mapaOmr.paginas[0]?.engineHints?.useMapCoordinatesStrict).toBe(false);
     expect(resultado.mapaOmr.blockSpec?.opcionesPorPregunta).toBe(5);
     expect(resultado.mapaOmr.engineHints?.preferredEngine).toBe('cv');
     expect(Array.isArray(resultado.mapaOmr.paginas)).toBe(true);

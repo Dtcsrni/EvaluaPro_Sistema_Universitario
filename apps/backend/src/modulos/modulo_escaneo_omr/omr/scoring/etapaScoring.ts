@@ -11,8 +11,8 @@ import { debeIntentarMotorCv, describirErrorCv, preprocesarImagenOmrCv } from '.
 export async function ejecutarEtapaScoring(contexto: ContextoPipelineOmr) {
   const mapaPagina = contexto.mapaPagina as Parameters<typeof analizarOmrCv>[1];
   const templateVersion =
-    Number((mapaPagina as { templateVersion?: unknown })?.templateVersion ?? contexto.debugInfo?.templateVersionDetectada ?? 3);
-  const engineVersion = templateVersion === 4 ? 'omr-v4-cv' : templateVersion === 1 ? 'omr-v1-cv' : 'omr-v3-cv';
+    Number((mapaPagina as { templateVersion?: unknown })?.templateVersion ?? contexto.debugInfo?.templateVersionDetectada ?? 4);
+  const engineVersion = 'omr-cv' as const;
 
   let resultado: ResultadoOmr;
   if (debeIntentarMotorCv(templateVersion)) {

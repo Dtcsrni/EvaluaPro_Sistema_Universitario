@@ -128,6 +128,15 @@ describe('plantillas CRUD + previsualizacion', () => {
     const previewPdf = await descargarPreviewPdf(auth, plantillaId);
     expect(String(previewPdf.headers['content-type'] || '')).toContain('application/pdf');
 
+    const previewVisual = await request(app)
+      .get(`/api/examenes/plantillas/${plantillaId}/previsualizar/pdf/visual`)
+      .set(auth)
+      .expect(200);
+    expect(String(previewVisual.headers['content-type'] || '')).toContain('application/json');
+    expect(previewVisual.body?.pdfBase64).toMatch(/^[A-Za-z0-9+/]+=*$/);
+    expect(previewVisual.body?.paginas?.length).toBeGreaterThan(0);
+    expect(previewVisual.body?.paginas?.[0]?.dataUrl).toMatch(/^data:image\/png;base64,/);
+
     const generadosDespuesPreview = await ExamenGenerado.countDocuments({});
     expect(generadosDespuesPreview).toBe(0);
 
