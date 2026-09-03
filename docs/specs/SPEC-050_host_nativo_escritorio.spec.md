@@ -1,5 +1,5 @@
-﻿---
-id: SPEC-050_host_nativo_escritorio
+---
+id: SPEC-050
 titulo: Shell Nativo de Escritorio EvaluaPro.exe (.NET 8 + WebView2)
 version: 1.0.0
 fecha: 2026-08-31
