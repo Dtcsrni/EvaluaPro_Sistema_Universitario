@@ -96,7 +96,9 @@ export function loadEnvForDoctor(envPath = '') {
   const fileEnv = fs.existsSync(resolvedPath) ? parseEnvText(fs.readFileSync(resolvedPath, 'utf8')) : {};
   return {
     envPath: resolvedPath,
-    env: { ...fileEnv, ...process.env }
+    // Una ruta explicita representa el runtime que se esta auditando; no
+    // debe quedar falseado por variables heredadas del proceso padre.
+    env: envPath ? fileEnv : { ...fileEnv, ...process.env }
   };
 }
 

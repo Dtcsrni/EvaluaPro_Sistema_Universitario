@@ -127,6 +127,16 @@ Invoke-BoundedCommand -FilePath $npmCommand -ArgumentList @('exec', '--', 'prism
 
 # 5. Empaquetar
 Write-Host "Generando paquete .zip ($ZipOutFile)..." -ForegroundColor Yellow
+# El launcher nativo importa este modulo en tiempo de ejecucion. Mantenerlo
+# dentro del payload evita que una instalacion actualizada quede inutilizable
+# aunque start-docente-native.mjs si haya sido copiado.
+$runtimeEnvSource = Join-Path $RepoRoot 'scripts/runtime-env.mjs'
+$runtimeEnvTarget = Join-Path $DistNativeDir 'scripts/runtime-env.mjs'
+if (-not (Test-Path -LiteralPath $runtimeEnvSource)) {
+    throw "Falta dependencia requerida del launcher nativo: $runtimeEnvSource"
+}
+New-Item -ItemType Directory -Path (Split-Path $runtimeEnvTarget -Parent) -Force | Out-Null
+Copy-Item -LiteralPath $runtimeEnvSource -Destination $runtimeEnvTarget -Force
 Set-Location $RepoRoot
 Compress-Archive -Path "dist-native\*" -DestinationPath $ZipOutFile -Force
 

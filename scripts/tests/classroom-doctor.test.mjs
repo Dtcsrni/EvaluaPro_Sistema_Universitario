@@ -6,7 +6,10 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import crypto from 'node:crypto';
-import { evaluateClassroomConfig } from '../classroom-doctor.mjs';
+import fs from 'node:fs';
+import os from 'node:os';
+import path from 'node:path';
+import { evaluateClassroomConfig, loadEnvForDoctor } from '../classroom-doctor.mjs';
 
 function validEnv() {
   return {
@@ -44,4 +47,21 @@ test('classroom doctor rechaza llave de cifrado con longitud invalida', () => {
   const result = evaluateClassroomConfig(env);
   assert.equal(result.ok, false);
   assert.equal(result.checks.some((check) => check.id === 'CLASSROOM_TOKEN_CIPHER_KEY_FORMAT' && check.ok === false), true);
+});
+
+test('classroom doctor con ruta explicita no hereda secretos del proceso padre', () => {
+  const tempRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'evaluapro-classroom-doctor-'));
+  const envPath = path.join(tempRoot, '.env');
+  const previousSecret = process.env.GOOGLE_CLASSROOM_CLIENT_SECRET;
+  process.env.GOOGLE_CLASSROOM_CLIENT_SECRET = 'ambient-secret-must-not-be-used';
+  try {
+    fs.writeFileSync(envPath, 'GOOGLE_CLASSROOM_CLIENT_ID=file-client\n', 'utf8');
+    const loaded = loadEnvForDoctor(envPath);
+    assert.equal(loaded.env.GOOGLE_CLASSROOM_CLIENT_ID, 'file-client');
+    assert.equal(loaded.env.GOOGLE_CLASSROOM_CLIENT_SECRET, undefined);
+  } finally {
+    if (previousSecret === undefined) delete process.env.GOOGLE_CLASSROOM_CLIENT_SECRET;
+    else process.env.GOOGLE_CLASSROOM_CLIENT_SECRET = previousSecret;
+    fs.rmSync(tempRoot, { recursive: true, force: true });
+  }
 });

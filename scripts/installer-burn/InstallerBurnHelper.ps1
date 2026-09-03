@@ -128,7 +128,7 @@ function Expand-NativePayload {
   try {
     New-Item -ItemType Directory -Path $payloadStage -Force | Out-Null
     Expand-Archive -LiteralPath $PayloadZip -DestinationPath $payloadStage -Force
-    foreach ($relativePath in @('apps\backend\dist\index.js', 'apps\backend\dist\prisma\schema.sql', 'runtime\node\node.exe', 'scripts\start-docente-native.mjs')) {
+    foreach ($relativePath in @('apps\backend\dist\index.js', 'apps\backend\dist\prisma\schema.sql', 'runtime\node\node.exe', 'scripts\start-docente-native.mjs', 'scripts\runtime-env.mjs')) {
       if (-not (Test-Path -LiteralPath (Join-Path $payloadStage $relativePath))) {
         throw "Payload nativo incompleto: falta $relativePath"
       }
@@ -286,8 +286,11 @@ function Write-InstallerRuntimeEnv {
   $existingJwt = if ($envMap.Contains('JWT_SECRETO')) { [string]$envMap['JWT_SECRETO'] } else { '' }
   $jwt = Get-RequestConfigValue -Request $Request -Name 'jwtSecreto' -DefaultValue $existingJwt
   if ([string]::IsNullOrWhiteSpace($jwt)) { $jwt = New-InstallerSecret }
+  $existingBackupSecret = if ($envMap.Contains('EVALUAPRO_BACKUP_CIFRADO_SECRETO')) { [string]$envMap['EVALUAPRO_BACKUP_CIFRADO_SECRETO'] } else { '' }
+  $backupSecret = Get-RequestConfigValue -Request $Request -Name 'backupCifradoSecreto' -DefaultValue $existingBackupSecret
 
   Set-InstallerEnvValue -Map $envMap -Key 'JWT_SECRETO' -Value $jwt
+  Set-InstallerEnvValue -Map $envMap -Key 'EVALUAPRO_BACKUP_CIFRADO_SECRETO' -Value $backupSecret
   $flavorId = [string](Get-RequestConfigValue -Request $Request -Name 'flavorId' -DefaultValue 'docente-local')
   $localAppData = [string]$env:LOCALAPPDATA
   if ([string]::IsNullOrWhiteSpace($localAppData)) { $localAppData = Join-Path $env:USERPROFILE 'AppData\Local' }
@@ -343,6 +346,14 @@ function Assert-InstallerRuntimeEnv {
   }
   if ($missing.Count -gt 0) {
     throw "Contrato runtime incompleto en .env. Faltan: $($missing -join ', ')"
+  }
+  if (Get-Command Test-InstallerOAuthEnv -ErrorAction SilentlyContinue) {
+    $oauthValidation = Test-InstallerOAuthEnv -EnvMap $envMap
+    if (-not $oauthValidation.ok) {
+      throw "Contrato Google OAuth incompleto o invalido en .env. $($oauthValidation.errors -join ' | ')"
+    }
+  } else {
+    throw 'Contrato runtime incompleto: no se pudo cargar el validador de Google OAuth.'
   }
   return $envPath
 }
