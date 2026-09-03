@@ -2,9 +2,11 @@ using System;
 using System.Diagnostics;
 using System.IO;
 using System.Net.Http;
+using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Windows;
+using Forms = System.Windows.Forms;
 using System.Windows.Input;
 using System.Windows.Media.Animation;
 using Microsoft.Web.WebView2.Core;
@@ -17,12 +19,24 @@ public partial class MainWindow : Window
     private Process? backendProcess;
     private bool isStopping;
     private string appRoot = string.Empty;
-
+    private const int DashboardPortFallback = 4519;
     public MainWindow()
     {
         InitializeComponent();
+        ConfigureInitialWindowBounds();
         Loaded += MainWindow_Loaded;
         Closing += MainWindow_Closing;
+    }
+
+    private void ConfigureInitialWindowBounds()
+    {
+        // Cubre el marco de acceso sin ocupar innecesariamente toda la pantalla.
+        // El ancho conserva presencia visual; la altura queda acotada al contenido inicial.
+        var workArea = SystemParameters.WorkArea;
+        Width = Math.Max(MinWidth, Math.Min(workArea.Width, Math.Floor(workArea.Width * 0.90)));
+        Height = Math.Max(MinHeight, Math.Min(workArea.Height, Math.Floor(Math.Min(workArea.Height * 0.92, 1040))));
+        Left = workArea.Left + Math.Max(0, (workArea.Width - Width) / 2);
+        Top = workArea.Top + Math.Max(0, (workArea.Height - Height) / 2);
     }
 
     private async void MainWindow_Loaded(object sender, RoutedEventArgs e)
@@ -64,6 +78,7 @@ public partial class MainWindow : Window
             AppWebView.CoreWebView2.Settings.IsStatusBarEnabled = false;
             AppWebView.CoreWebView2.Settings.AreDevToolsEnabled = Environment.GetEnvironmentVariable("EVALUAPRO_DEBUG") == "1";
             AppWebView.CoreWebView2.Settings.IsZoomControlEnabled = true;
+            AppWebView.CoreWebView2.WebMessageReceived += AppWebView_WebMessageReceived;
 
             AppWebView.NavigationCompleted += AppWebView_NavigationCompleted;
             AppWebView.Source = new Uri("http://127.0.0.1:4173/");
@@ -118,13 +133,47 @@ public partial class MainWindow : Window
 
     private async Task<bool> EnsureBackendRunningAsync()
     {
-        // 1. Probar si ya está respondiendo
-        if (await ProbePortAsync("http://127.0.0.1:4173/"))
+        const string webHealthUrl = "http://127.0.0.1:4173/";
+        const string apiHealthUrl = "http://127.0.0.1:4000/api/salud";
+        var dashboardPort = ReadDashboardPort();
+
+        // La ventana solo se considera lista cuando web y API responden. Una
+        // página estática viva no garantiza que las operaciones funcionen.
+        if (await ProbePortAsync(webHealthUrl) && await ProbePortAsync(apiHealthUrl))
         {
             return true;
         }
 
-        // 2. Localizar Node
+        // Si el dashboard ya existe, pídele reconciliar su supervisor en vez
+        // de abrir otra instancia. Esto recupera una API caída conservando
+        // singleton y evitando colisiones de puertos.
+        var dashboardUrl = $"http://127.0.0.1:{dashboardPort}";
+        if (await ProbePortAsync(dashboardUrl))
+        {
+            await RequestDashboardReconcileAsync(dashboardUrl);
+        }
+        else
+        {
+            StartDashboard();
+        }
+
+        // Esperar hasta 25 segundos a que web y API estén activas.
+        var cts = new CancellationTokenSource(TimeSpan.FromSeconds(25));
+        while (!cts.IsCancellationRequested)
+        {
+            if (await ProbePortAsync(webHealthUrl) && await ProbePortAsync(apiHealthUrl))
+            {
+                return true;
+            }
+            await Task.Delay(300);
+        }
+
+        return false;
+    }
+
+    private void StartDashboard()
+    {
+        // Localizar Node únicamente cuando no existe un dashboard operativo.
         var nodeExe = Path.Combine(appRoot, "runtime", "node", "node.exe");
         if (!File.Exists(nodeExe))
         {
@@ -168,19 +217,19 @@ public partial class MainWindow : Window
         {
             Debug.WriteLine($"Error al iniciar backend: {ex.Message}");
         }
+    }
 
-        // 3. Esperar hasta 25 segundos a que el puerto esté activo
-        var cts = new CancellationTokenSource(TimeSpan.FromSeconds(25));
-        while (!cts.IsCancellationRequested)
+    private static async Task<bool> RequestDashboardReconcileAsync(string dashboardUrl)
+    {
+        try
         {
-            if (await ProbePortAsync("http://127.0.0.1:4173/"))
-            {
-                return true;
-            }
-            await Task.Delay(300);
+            using var response = await HttpClient.PostAsync($"{dashboardUrl}/api/lifecycle/reconcile", content: null);
+            return response.IsSuccessStatusCode;
         }
-
-        return false;
+        catch
+        {
+            return false;
+        }
     }
 
     private static async Task<bool> ProbePortAsync(string url)
@@ -225,6 +274,38 @@ public partial class MainWindow : Window
     {
         WindowState = WindowState == WindowState.Maximized ? WindowState.Normal : WindowState.Maximized;
         MaximizeBtn.Content = WindowState == WindowState.Maximized ? "🗗" : "🗖";
+        MaximizeBtn.ToolTip = WindowState == WindowState.Maximized ? "Restaurar" : "Maximizar";
+    }
+
+    private void AppWebView_WebMessageReceived(object? sender, CoreWebView2WebMessageReceivedEventArgs e)
+    {
+        if (!e.Source.StartsWith("http://127.0.0.1:4173/", StringComparison.OrdinalIgnoreCase)) return;
+
+        try
+        {
+            using var documento = JsonDocument.Parse(e.WebMessageAsJson);
+            if (!documento.RootElement.TryGetProperty("type", out var tipo) ||
+                tipo.GetString() != "EVALUAPRO_SELECT_SYNC_FOLDER") return;
+
+            using var dialogo = new Forms.FolderBrowserDialog
+            {
+                Description = "Selecciona la carpeta local que OneDrive sincroniza entre tus equipos",
+                ShowNewFolderButton = true,
+                UseDescriptionForTitle = true
+            };
+            var resultado = dialogo.ShowDialog();
+            var respuesta = JsonSerializer.Serialize(new
+            {
+                type = "EVALUAPRO_SYNC_FOLDER_SELECTED",
+                path = resultado == Forms.DialogResult.OK ? dialogo.SelectedPath : null,
+                cancelled = resultado != Forms.DialogResult.OK
+            });
+            AppWebView.CoreWebView2.PostWebMessageAsJson(respuesta);
+        }
+        catch (Exception ex)
+        {
+            Debug.WriteLine($"Error al seleccionar la carpeta de sincronización: {ex.Message}");
+        }
     }
 
     private void CloseButton_Click(object sender, RoutedEventArgs e)
@@ -232,18 +313,69 @@ public partial class MainWindow : Window
         Close();
     }
 
-    private void MainWindow_Closing(object? sender, System.ComponentModel.CancelEventArgs e)
+    private int ReadDashboardPort()
     {
-        if (isStopping) return;
-        isStopping = true;
+        try
+        {
+            var lockPath = Path.Combine(appRoot, "logs", "dashboard.lock.json");
+            if (!File.Exists(lockPath)) return DashboardPortFallback;
+
+            using var document = JsonDocument.Parse(File.ReadAllText(lockPath));
+            if (document.RootElement.TryGetProperty("port", out var portElement) &&
+                portElement.TryGetInt32(out var port) &&
+                port > 0 && port <= 65535)
+            {
+                return port;
+            }
+        }
+        catch
+        {
+            // Use the production default when the lock is absent or invalid.
+        }
+
+        return DashboardPortFallback;
+    }
+
+    private async Task ShutdownServicesAsync()
+    {
+        var dashboardPort = ReadDashboardPort();
+
+        try
+        {
+            using var response = await HttpClient.PostAsync(
+                $"http://127.0.0.1:{dashboardPort}/api/shutdown",
+                content: null);
+
+            if (response.IsSuccessStatusCode)
+            {
+                await Task.Delay(500);
+            }
+        }
+        catch
+        {
+            // The owned-process fallback below handles a dashboard started by this host.
+        }
 
         try
         {
             if (backendProcess != null && !backendProcess.HasExited)
             {
-                backendProcess.Kill(true);
+                backendProcess.Kill(entireProcessTree: true);
             }
         }
-        catch { }
+        catch
+        {
+            // Closing the desktop window must not be blocked by a stale child process.
+        }
+    }
+
+    private async void MainWindow_Closing(object? sender, System.ComponentModel.CancelEventArgs e)
+    {
+        if (isStopping) return;
+        isStopping = true;
+        e.Cancel = true;
+
+        await ShutdownServicesAsync();
+        Close();
     }
 }

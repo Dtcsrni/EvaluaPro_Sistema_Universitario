@@ -71,7 +71,7 @@ test('helper PowerShell tiene timeout por operación y cancela su árbol', () =>
 
 test('runtime nativo tolera arranque lento sin reinicio prematuro', () => {
   const dashboard = fs.readFileSync(path.join(root, 'scripts', 'launcher-dashboard.mjs'), 'utf8');
-  assert.match(dashboard, /waitForLifecycleHealth\(desiredMode, flavorPolicy\.requireLocalPortal, 90_000\)/);
+  assert.match(dashboard, /waitForLifecycleHealth\(\s*desiredMode,\s*flavorPolicy\.requireLocalPortal,\s*flavorPolicy\.requireDockerRuntime,\s*90_000\s*\)/);
   assert.match(dashboard, /async function waitForLifecycleHealth/);
   assert.match(runner, /\$deadline = \(Get-Date\)\.AddSeconds\((?:90|120|150)\)/);
   assert.match(runner, /Runtime nativo no alcanzó salud API\/web en (?:90|120|150)s/);
@@ -136,7 +136,7 @@ test('el authoring del MSI excluye contenido de ingeniería que no se ejecuta', 
 test('la ETA del Hub se deriva del avance real, se suaviza y declara verificación', () => {
   assert.match(hubWindow, /Queue<\(DateTime At, int Progress\)> progressSamples/);
   assert.match(hubWindow, /smoothedRemainingSeconds/);
-  assert.match(hubWindow, /previousEstimate\.Value \* 1\.20/);
+  assert.match(hubWindow, /\(previousEstimate\.Value \* 0\.70\) \+ \(rawSecondsRemaining \* 0\.30\)/);
   assert.match(hubWindow, /Tiempo restante: verificando etapa actual/);
   assert.match(hubWindow, /Tiempo restante estimado: \{FormatDuration\(lowerSeconds\)\} a \{FormatDuration\(upperSeconds\)\}/);
 });

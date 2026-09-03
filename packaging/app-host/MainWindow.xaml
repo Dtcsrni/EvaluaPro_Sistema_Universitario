@@ -8,17 +8,12 @@
         Title="EvaluaPro · Plataforma Docente"
         Height="820" Width="1280"
         MinHeight="600" MinWidth="900"
+        WindowState="Normal"
+        ResizeMode="CanResize"
         WindowStartupLocation="CenterScreen"
-        WindowStyle="None"
+        WindowStyle="SingleBorderWindow"
         Background="#080e1a"
         Foreground="#f8fafc">
-
-    <WindowChrome.WindowChrome>
-        <WindowChrome CaptionHeight="38"
-                      ResizeBorderThickness="6"
-                      GlassFrameThickness="0"
-                      CornerRadius="0" />
-    </WindowChrome.WindowChrome>
 
     <Window.Resources>
         <SolidColorBrush x:Key="BackgroundBrush" Color="#080e1a" />
@@ -81,12 +76,12 @@
 
     <Grid>
         <Grid.RowDefinitions>
-            <RowDefinition Height="38" />
+            <RowDefinition Height="0" />
             <RowDefinition Height="*" />
         </Grid.RowDefinitions>
 
         <!-- Custom Dark Window Header -->
-        <Border Grid.Row="0" Background="#0b1120" BorderBrush="#1e293b" BorderThickness="0,0,0,1" MouseDown="TitleBar_MouseDown">
+        <Border Grid.Row="0" Visibility="Collapsed" Background="#0b1120" BorderBrush="#1e293b" BorderThickness="0,0,0,1" MouseDown="TitleBar_MouseDown">
             <Grid>
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="Auto" />
@@ -158,5 +153,6 @@
                 </StackPanel>
             </Grid>
         </Grid>
+
     </Grid>
 </Window>

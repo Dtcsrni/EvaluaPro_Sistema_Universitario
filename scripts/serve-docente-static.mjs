@@ -150,6 +150,11 @@ const server = http.createServer((request, response) => {
   sendFile(response, candidate);
 });
 
+server.on('error', (error) => {
+  process.stderr.write(`[docente-static] no se pudo iniciar en http://${host}:${port}: ${error?.message || error}\n`);
+  process.exitCode = 1;
+});
+
 server.listen(port, host, () => {
   process.stdout.write(`[docente-static] listo en http://${host}:${port}\n`);
 });
