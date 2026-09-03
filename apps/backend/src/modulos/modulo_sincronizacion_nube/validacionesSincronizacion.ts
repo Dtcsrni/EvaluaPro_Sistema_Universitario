@@ -51,3 +51,35 @@ export const esquemaTraerPaquetesServidor = z.object({
   desde: z.string().datetime().optional(),
   limite: z.number().int().min(1).max(20).optional()
 });
+
+// Instantanea local 1:1. La importacion usa un cuerpo binario autocontenido;
+// este esquema valida la solicitud pequena de exportacion.
+export const esquemaExportarInstantaneaLocal = z.object({
+  metodo: z.enum(['contrasena', 'google']),
+  credencial: z.string().min(1).max(256).optional()
+});
+
+export const esquemaImportarInstantaneaLocal = z.custom<Buffer>(
+  (valor) => Buffer.isBuffer(valor) && valor.length >= 4 && valor.length <= 65 * 1024 * 1024,
+  { message: 'El archivo de instantánea debe ser un Buffer de hasta 65 MB' }
+);
+
+export const esquemaLeaseSincronizacion = z.object({
+  equipoId: z.string().regex(/^[A-Za-z0-9._:-]{8,128}$/),
+  leaseId: z.string().regex(/^[A-Za-z0-9-]{16,128}$/).optional()
+});
+
+export const esquemaPublicarInstantaneaNube = z.object({
+  equipoId: z.string().regex(/^[A-Za-z0-9._:-]{8,128}$/),
+  leaseId: z.string().regex(/^[A-Za-z0-9-]{16,128}$/),
+  metodo: z.enum(['contrasena', 'google']),
+  credencial: z.string().min(1).max(256).optional()
+});
+
+export const esquemaImportarInstantaneaNube = esquemaPublicarInstantaneaNube.extend({
+  dryRun: z.boolean().optional()
+});
+
+export const esquemaConfigurarCarpetaSincronizacion = z.object({
+  directorio: z.string().min(1).max(1024)
+});
