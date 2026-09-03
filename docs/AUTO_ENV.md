@@ -235,6 +235,7 @@ este documento se actualiza automáticamente al regenerar.
 - `APPDATA` (usado en: scripts/detect-host-ip.mjs, scripts/launcher-dashboard.mjs, scripts/total-installation-wipe.mjs, scripts/vscode-tune.mjs)
 - `BACKEND_COVERAGE_BATCH_TIMEOUT_MS` (usado en: scripts/testing/run-backend-coverage-batches.mjs)
 - `BACKEND_DATABASE_URL` (usado en: scripts/perf-collect-business.ts, scripts/start-docente-native.mjs, scripts/tests/seed-docente-dummy.mjs)
+- `CAVEMAN_PLUGIN_PATH` (usado en: scripts/ai-caveman-status.mjs)
 - `CI_STREAK_BRANCH` (usado en: scripts/release/check-ci-streak.mjs, scripts/release/validate-stable-promotion.mjs)
 - `CI_STREAK_REQUIRED` (usado en: scripts/release/check-ci-streak.mjs, scripts/release/validate-stable-promotion.mjs)
 - `CI_STREAK_RUNS_FIXTURE` (usado en: scripts/release/check-ci-streak.mjs, scripts/release/validate-stable-promotion.mjs)

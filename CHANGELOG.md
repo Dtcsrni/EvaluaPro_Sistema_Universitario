@@ -2,9 +2,10 @@
 
 Este archivo sigue el formato "Keep a Changelog" (alto nivel) y SemVer.
 
-## [Unreleased] - 2026-09-02
+## [Unreleased] - 2026-09-03
 
 ### Added
+- **Handoff interoperable multi-proveedor (`SPEC-055`):** envelope JSON compacto y versionado con estado, contexto mínimo, artefactos con SHA-256, sanitización de secretos, validación estricta, idempotencia y política explícita de no ejecución; el estado de Caveman ahora distingue configuración local, plugin instalado y activación verificable.
 - **Instantánea local docente 1:1 (`SPEC-048` v2.0.0):** exportación de la SQLite canónica y `data/examenes` en un único `.ep-snapshot` cifrado con AES-256-GCM. El desbloqueo admite contraseña de cuenta mediante scrypt o reautenticación Google; la importación valida hashes y `PRAGMA integrity_check`, crea respaldo con rollback y conserva separados los flujos cloud push/pull y paquete parcial.
 - **Trabajo coordinado entre equipos (`SPEC-048` v3.0.0):** lease temporal por docente/equipo, renovación automática, modo solo lectura para equipos sin control, snapshots versionados en carpeta sincronizada y acciones `Publicar y liberar` / `Traer última instantánea`. La SQLite permanece local.
 
