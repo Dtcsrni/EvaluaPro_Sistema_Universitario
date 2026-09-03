@@ -2238,6 +2238,8 @@ test('baseline docente deriva runtime y evita probes Docker innecesarios', () =>
   assert.match(baseline, /skippedDockerProbe\('runtime nativo docente-local'\)/);
   assert.match(baseline, /requiredServices: requiresDockerRuntime \? /);
   assert.match(baseline, /requiredImages: requiresDockerRuntime \? /);
+  assert.match(baseline, /const maxPayloadBytes = 180 \* 1024 \* 1024/);
+  assert.match(baseline, /const maxBundleBytes = 240 \* 1024 \* 1024/);
 });
 
 test('step-up local inicializa TOTP y permite sesion elevada con recovery/TOTP', () => {

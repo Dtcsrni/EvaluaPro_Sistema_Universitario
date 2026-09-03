@@ -419,7 +419,15 @@ function Add-DocenteNativeCompiledPayload {
         (Join-Path $backendTarget 'node_modules/@prisma/client/runtime/query_compiler_bg*'),
         (Join-Path $backendTarget 'node_modules/.prisma/client/query_engine_bg*'),
         (Join-Path $backendTarget 'node_modules/.prisma/client/query_compiler_bg*'),
-        (Join-Path $backendTarget 'node_modules/.cache')
+        # Un node_modules reutilizado puede conservar engines de Linux del
+        # perfil Docker. El payload docente es Windows + SQLite y solo usa el
+        # engine native generado arriba (query_engine-windows.dll.node).
+        (Join-Path $backendTarget 'node_modules/.prisma/client/libquery_engine-*.so.node'),
+        (Join-Path $backendTarget 'node_modules/.cache'),
+        # pdf-parse distribuye el bundle CJS autocontenido que usa el backend;
+        # pdfjs-dist queda como dependencia de paquete, pero no es necesario
+        # en el runtime docente y duplica el motor PDF dentro del payload.
+        (Join-Path $backendTarget 'node_modules/pdfjs-dist')
       )
       # El staging preconstruido puede contener engines, cachés y herramientas
       # de desarrollo de la máquina que lo generó. También debe podarse aquí;

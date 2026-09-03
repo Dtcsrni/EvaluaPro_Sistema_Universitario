@@ -154,6 +154,10 @@ En este repo/equipo, el ejecutable recomendado para instalacion docente local qu
 Baseline no destructivo para comparar footprint/instalacion por corte:
 
 - `npm run installer:docente:baseline`
+- Presupuesto vigente del flavor `docente-local`: Bundle <= 240 MiB y payload
+  MSI <= 180 MiB. El margen cubre el runtime nativo de Windows y las
+  dependencias funcionales de PDF/OMR; si el artefacto excede estos valores,
+  debe auditarse antes de retirar cualquier componente.
 - Debe complementarse con E2E VM para tiempos reales, prompts UAC, RAM idle y ciclo `install|repair|update smoke|uninstall`; el runner captura `/api/update/status` como evidencia `manifest/update-status.json`.
 
 Activacion segura opcional al instalar (GUI o headless):
