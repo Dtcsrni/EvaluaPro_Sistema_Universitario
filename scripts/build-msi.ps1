@@ -399,6 +399,14 @@ function Add-DocenteNativeCompiledPayload {
       $schemaSqlText = $schemaSqlText.Substring(0, $lastSqlTerminator + 1).Trim()
       [IO.File]::WriteAllText((Join-Path $backendTarget 'prisma/schema.sql'), $schemaSqlText, (New-Object System.Text.UTF8Encoding($false)))
 
+      # Si se reutilizó un node_modules preconstruido, puede incluir
+      # dependencias de desarrollo aunque el árbol tenga package-lock. Hacer
+      # prune contra el contrato de producción antes de la poda específica de
+      # Prisma evita transportar Vitest, TypeScript u otros paquetes ajenos al
+      # runtime nativo.
+      & $npmCommand prune --omit=dev --ignore-scripts
+      if ($LASTEXITCODE -ne 0) { throw "Falló poda de dependencias de desarrollo (exit=$LASTEXITCODE)." }
+
       # El cliente ya fue generado y el esquema SQL ya quedó materializado.
       # El runtime Windows no necesita la CLI Prisma, sus engines de descarga,
       # cachés ni los bundles WASM/multiplataforma del cliente publicado.
