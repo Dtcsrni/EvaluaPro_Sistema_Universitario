@@ -183,10 +183,10 @@ function resolverDesarrollador(data: VersionInfoPayload | null) {
 
 function resolverAplicacion(data: VersionInfoPayload | null, fallbackVersion: string) {
   const app = data?.app;
-  const fallbackTecnico = obtenerVersionTecnicaApp() || '0.0.0';
+  const fallbackTecnico = obtenerVersionTecnicaApp() || '1.1.1';
   const technicalVersion = comoTexto(app?.version, fallbackTecnico);
   return {
-    version: comoTexto(app?.displayVersion, fallbackVersion || technicalVersion || '0.0.0'),
+    version: comoTexto(app?.displayVersion, fallbackVersion || technicalVersion || '1.1.1'),
     technicalVersion,
     nombre: comoTexto(app?.name, 'evaluapro')
   };
