@@ -109,10 +109,11 @@ export async function exportarInstantaneaLocal(req: SolicitudDocente, res: Respo
 }
 
 function leerSolicitudInstantanea(req: Request): { archivo: Buffer; metodo: MetodoDesbloqueoInstantanea; credencial?: string; dryRun: boolean } {
-  if (!Buffer.isBuffer(req.body)) {
+  const cuerpoRecibido: unknown = req.body;
+  if (!(cuerpoRecibido instanceof Uint8Array)) {
     throw new ErrorAplicacion('SYNC_INSTANTANEA_INVALIDA', 'La solicitud de importación debe ser binaria', 400);
   }
-  const cuerpo: Buffer = req.body;
+  const cuerpo = Buffer.from(cuerpoRecibido);
   if (cuerpo.length < 4) throw new ErrorAplicacion('SYNC_INSTANTANEA_INVALIDA', 'La solicitud de importación está incompleta', 400);
   const longitudCabecera = cuerpo.readUInt32BE(0);
   if (longitudCabecera < 2 || longitudCabecera > 4096 || 4 + longitudCabecera > cuerpo.length) throw new ErrorAplicacion('SYNC_INSTANTANEA_INVALIDA', 'La cabecera de importación es inválida', 400);
