@@ -48,8 +48,10 @@ try {
     console.log(JSON.stringify({ publicado, estado }));
   } else if (op === 'competir') {
     const lease = await modulo.adquirirLease(docenteId, equipoId);
-    const liberado = await modulo.liberarLease(docenteId, equipoId, lease.lease.leaseId);
-    console.log(JSON.stringify({ lease, liberado }));
+    console.log(JSON.stringify({ lease }));
+  } else if (op === 'liberar') {
+    const liberado = await modulo.liberarLease(docenteId, equipoId, process.env.EVALUAPRO_SYNC_E2E_LEASE_ID || '');
+    console.log(JSON.stringify({ liberado }));
   } else if (op === 'importar') {
     const lease = await modulo.adquirirLease(docenteId, equipoId);
     const seco = await modulo.importarInstantaneaNube({ docenteId, equipoId, leaseId: lease.lease.leaseId, metodo: 'contrasena', credencial: password, dryRun: true });
@@ -67,7 +69,7 @@ try {
 }
 `;
 
-function ejecutarWorker(params: { db: string; equipoId?: string; op: 'preparar' | 'publicar' | 'importar' | 'competir'; semilla?: boolean }) {
+function ejecutarWorker(params: { db: string; equipoId?: string; leaseId?: string; op: 'preparar' | 'publicar' | 'importar' | 'competir' | 'liberar'; semilla?: boolean }) {
   return new Promise<Record<string, any>>((resolve, reject) => {
     const child = spawn(process.execPath, ['--import', 'tsx', '--input-type=module', '--eval', worker], {
       cwd: process.cwd(),
@@ -81,6 +83,7 @@ function ejecutarWorker(params: { db: string; equipoId?: string; op: 'preparar' 
         EVALUAPRO_SYNC_E2E_DOCENTE: docenteId,
         EVALUAPRO_SYNC_E2E_PASSWORD: password,
         EVALUAPRO_SYNC_E2E_EQUIPO: params.equipoId || '',
+        EVALUAPRO_SYNC_E2E_LEASE_ID: params.leaseId || '',
         EVALUAPRO_SYNC_E2E_OP: params.op,
         EVALUAPRO_SYNC_E2E_SEMILLA: params.semilla ? '1' : '0'
       },
@@ -130,6 +133,10 @@ describe('sincronización E2E entre dos equipos', () => {
     expect(exitosos).toHaveLength(1);
     expect(fallidos).toHaveLength(1);
     expect(String(fallidos[0].reason?.message || fallidos[0].reason)).toContain('SYNC_LEASE_OCUPADO');
+
+    const ganador = exitosos[0].value.lease.lease;
+    expect(ganador.leaseId).toMatch(/^[A-Za-z0-9-]{16,128}$/);
+    await ejecutarWorker({ db: baseEquipoA, equipoId: ganador.equipoId, leaseId: ganador.leaseId, op: 'liberar' });
   });
 
   it('publica desde A e importa 1:1 en B usando la carpeta compartida', async () => {
