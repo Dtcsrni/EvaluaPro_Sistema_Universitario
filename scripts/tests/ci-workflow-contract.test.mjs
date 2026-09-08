@@ -14,6 +14,7 @@ const workflowPath = path.join(root, '.github', 'workflows', 'ci.yml');
 const workflowDir = path.join(root, '.github', 'workflows');
 const packageJsonPath = path.join(root, 'package.json');
 const backendDockerfilePath = path.join(root, 'apps', 'backend', 'Dockerfile');
+const frontendDockerfilePath = path.join(root, 'apps', 'frontend', 'Dockerfile');
 
 function extractJobBlock(workflow, jobKey) {
   const startMarker = `  ${jobKey}:\n`;
@@ -226,4 +227,13 @@ test('Dockerfile backend incluye schema Prisma antes del build', () => {
 
   assert.ok(prismaIndex >= 0, 'Dockerfile backend debe copiar apps/backend/prisma');
   assert.ok(buildIndex > prismaIndex, 'backend build debe ejecutarse despues de copiar Prisma');
+});
+
+test('Dockerfile frontend incluye el wrapper de build del workspace', () => {
+  const dockerfile = fs.readFileSync(frontendDockerfilePath, 'utf8');
+  const scriptIndex = dockerfile.indexOf('COPY scripts/vite-build-safe.mjs ./scripts/vite-build-safe.mjs');
+  const buildIndex = dockerfile.indexOf('npm --workspace apps/frontend run build');
+
+  assert.ok(scriptIndex >= 0, 'Dockerfile frontend debe copiar scripts/vite-build-safe.mjs');
+  assert.ok(buildIndex > scriptIndex, 'frontend build debe ejecutarse despues de copiar el wrapper');
 });
