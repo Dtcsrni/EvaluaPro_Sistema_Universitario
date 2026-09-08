@@ -84,6 +84,16 @@ test('dashboard lanza Node nativo directamente y conserva su árbol', () => {
   assert.match(dashboard, /spawn\('cmd\.exe', \['\/d', '\/s', '\/c', command\]/);
 });
 
+test('dashboard mantiene TLS, argumentos y timers bajo contratos seguros', () => {
+  const dashboard = fs.readFileSync(path.join(root, 'scripts', 'launcher-dashboard.mjs'), 'utf8');
+  assert.doesNotMatch(dashboard, /rejectUnauthorized\s*:\s*false/);
+  assert.doesNotMatch(dashboard, /function quoteCmdArg/);
+  assert.match(dashboard, /runProcessCapture\(installerPath, \['\/quiet', '\/norestart'\]/);
+  assert.match(dashboard, /runProcessCapture\(resolved\.path, args, 30_000\)/);
+  assert.match(dashboard, /continuityTimer = setInterval\([\s\S]*?DASHBOARD_TIMER_TICK_MS\)/);
+  assert.match(dashboard, /lifecycleSupervisorTimer = setInterval\([\s\S]*?DASHBOARD_TIMER_TICK_MS\)/);
+});
+
 test('runner serializa Windows Installer y no mata el Hub durante una transacción', () => {
   assert.match(runner, /function Wait-WindowsInstallerIdle/);
   assert.match(runner, /Wait-WindowsInstallerIdle -TimeoutSec 300 -Context "before-\$Mode"/);

@@ -176,6 +176,11 @@ const lifecyclePolicyDefaults = Object.freeze({
   repairCooldownMs: 180000
 });
 
+// El supervisor usa un tick fijo; la configuración solo decide cuándo toca
+// ejecutar el trabajo. Así ningún valor persistido controla la cadencia del
+// timer de Node ni puede convertirlo en un hot loop.
+const DASHBOARD_TIMER_TICK_MS = 1_000;
+
 const lifecycleState = {
   desiredMode: lifecyclePolicyDefaults.desiredMode,
   supervisorEnabled: lifecyclePolicyDefaults.supervisorEnabled,
@@ -1474,8 +1479,7 @@ async function checkHealth(url, timeoutMs = 3000) {
         path: u.pathname + (u.search || ''),
         method: 'GET',
         family: 4,
-        timeout: timeoutMs,
-        rejectUnauthorized: false
+        timeout: timeoutMs
       }, (res) => {
         res.resume();
         const ok = res.statusCode >= 200 && res.statusCode < 400;
@@ -1568,8 +1572,8 @@ async function collectHealth() {
   return services;
 }
 
-function runCommandCapture(command, timeoutMs = 20_000) {
-  const result = spawn('cmd.exe', ['/c', command], {
+function runProcessCapture(command, args = [], timeoutMs = 20_000) {
+  const result = spawn(command, args, {
     cwd: root,
     windowsHide: true
   });
@@ -1599,6 +1603,10 @@ function runCommandCapture(command, timeoutMs = 20_000) {
       resolve({ ok: Number(code || 0) === 0, code: Number(code || 0), stdout, stderr });
     });
   });
+}
+
+function runCommandCapture(command, timeoutMs = 20_000) {
+  return runProcessCapture('cmd.exe', ['/c', command], timeoutMs);
 }
 
 async function postJsonWithAuth(url, token, payload, timeoutMs = 30_000) {
@@ -1736,9 +1744,9 @@ async function runInstallerForUpdate(filePath) {
   if (process.platform !== 'win32') {
     return { ok: false, error: 'Actualización automática soportada solo en Windows.' };
   }
-  const quoted = `"${String(filePath || '').replace(/"/g, '\\"')}"`;
-  const command = `${quoted} /quiet /norestart`;
-  const result = await runCommandCapture(command, 10 * 60_000);
+  const installerPath = String(filePath || '').trim();
+  if (!installerPath) return { ok: false, error: 'No se encontró el instalador descargado.' };
+  const result = await runProcessCapture(installerPath, ['/quiet', '/norestart'], 10 * 60_000);
   if (!result.ok) {
     return { ok: false, error: `Instalador falló (code=${result.code})` };
   }
@@ -2419,8 +2427,9 @@ function configureContinuityScheduler() {
   continuityState.updatedAt = Date.now();
 
   continuityTimer = setInterval(() => {
+    if (Date.now() < continuityState.nextRunAt) return;
     runContinuitySync('scheduler').catch(() => undefined);
-  }, intervalMs);
+  }, DASHBOARD_TIMER_TICK_MS);
 }
 
 function detectInstalledProduct() {
@@ -3040,18 +3049,15 @@ function configureLifecycleSupervisor() {
   lifecycleState.lastChangedAt = Date.now();
 
   lifecycleSupervisorTimer = setInterval(() => {
+    if (Date.now() < lifecycleState.reconcile.nextRunAt) return;
     reconcileLifecycle('supervisor_tick').catch(() => undefined);
-  }, intervalMs);
+  }, DASHBOARD_TIMER_TICK_MS);
 }
 
 function getPowerShellPath() {
   const systemPs = path.join(process.env.WINDIR || 'C:\\Windows', 'System32', 'WindowsPowerShell', 'v1.0', 'powershell.exe');
   if (fs.existsSync(systemPs)) return systemPs;
   return 'powershell.exe';
-}
-
-function quoteCmdArg(text) {
-  return `"${String(text || '').replace(/"/g, '\\"')}"`;
 }
 
 async function runInstallerHubMode(modeName) {
@@ -3068,8 +3074,7 @@ async function runInstallerHubMode(modeName) {
   if (action === 'repair') args.push('/repair');
   else if (action === 'uninstall') args.push('/uninstall');
 
-  const command = `${quoteCmdArg(resolved.path)} ${args.join(' ')}`.trim();
-  return runCommandCapture(command, 30_000);
+  return runProcessCapture(resolved.path, args, 30_000);
 }
 
 function readInstallerLocalPathsManifest() {
