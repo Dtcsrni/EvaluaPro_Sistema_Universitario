@@ -51,6 +51,19 @@ async function ensureDatasetManifestExists(relativePath) {
   return absolute;
 }
 
+async function readDatasetManifest(absolutePath) {
+  const raw = await fs.readFile(absolutePath, 'utf8');
+  const manifest = JSON.parse(raw);
+  if (!manifest || typeof manifest !== 'object' || Array.isArray(manifest)) {
+    throw new Error('El manifest del piloto OMR debe ser un objeto JSON.');
+  }
+  return manifest;
+}
+
+function tieneCapturasPiloto(manifest) {
+  return Array.isArray(manifest.capturas) && manifest.capturas.length > 0;
+}
+
 async function writeReport(reportPath, payload) {
   const absolute = path.resolve(process.cwd(), reportPath);
   await fs.mkdir(path.dirname(absolute), { recursive: true });
@@ -75,12 +88,13 @@ function runCommand(command) {
   });
 }
 
-export { resolveConfig };
+export { resolveConfig, tieneCapturasPiloto };
 
 async function main() {
   const { dryRun } = parseArgs(process.argv.slice(2));
   const resolved = resolveConfig();
   const datasetManifestPath = await ensureDatasetManifestExists(resolved.datasetManifest);
+  const manifest = await readDatasetManifest(datasetManifestPath);
 
   if (dryRun) {
     process.stdout.write(`${JSON.stringify({
@@ -88,8 +102,30 @@ async function main() {
       datasetManifest: resolved.datasetManifest,
       datasetManifestPath,
       wrapperReport: resolved.wrapperReport,
-      command: resolved.command
+      command: resolved.command,
+      captureCount: Array.isArray(manifest.capturas) ? manifest.capturas.length : null
     }, null, 2)}\n`);
+    return;
+  }
+
+  if (!tieneCapturasPiloto(manifest)) {
+    const now = new Date().toISOString();
+    await writeReport(resolved.wrapperReport, {
+      version: '1',
+      gate: resolved.gate,
+      datasetManifest: resolved.datasetManifest,
+      datasetManifestPath,
+      command: resolved.command,
+      ok: true,
+      status: 'not_applicable',
+      validated: false,
+      reason: 'dataset_vacio',
+      captureCount: 0,
+      startedAt: now,
+      finishedAt: now,
+      durationMs: 0
+    });
+    process.stdout.write(`[omr-canonical-gate] SKIP (dataset vacio; no validacion real) -> ${resolved.wrapperReport}\n`);
     return;
   }
 
