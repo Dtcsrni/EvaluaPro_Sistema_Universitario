@@ -15,6 +15,10 @@ COPY apps/frontend/src ./apps/frontend/src
 # El script se ejecuta desde el workspace frontend mediante ../../scripts/.
 # Copiarlo explícitamente mantiene reproducible el build con el contexto raíz.
 COPY scripts/vite-build-safe.mjs ./scripts/vite-build-safe.mjs
+# vite.config.ts valida el contrato OMR y lee la metadata visible desde config/.
+# Mantener ambos archivos en el contexto evita que el build dependa de archivos locales.
+COPY config/app-version.json ./config/app-version.json
+COPY config/omr-version-policy.json ./config/omr-version-policy.json
 RUN npm ci --foreground-scripts
 ARG VITE_API_BASE_URL=http://localhost:4000/api
 ARG VITE_APP_DESTINO=docente

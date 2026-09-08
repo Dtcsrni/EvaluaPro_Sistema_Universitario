@@ -229,11 +229,17 @@ test('Dockerfile backend incluye schema Prisma antes del build', () => {
   assert.ok(buildIndex > prismaIndex, 'backend build debe ejecutarse despues de copiar Prisma');
 });
 
-test('Dockerfile frontend incluye el wrapper de build del workspace', () => {
+test('Dockerfile frontend incluye el wrapper y la política de configuración del workspace', () => {
   const dockerfile = fs.readFileSync(frontendDockerfilePath, 'utf8');
   const scriptIndex = dockerfile.indexOf('COPY scripts/vite-build-safe.mjs ./scripts/vite-build-safe.mjs');
+  const appVersionIndex = dockerfile.indexOf('COPY config/app-version.json ./config/app-version.json');
+  const omrPolicyIndex = dockerfile.indexOf('COPY config/omr-version-policy.json ./config/omr-version-policy.json');
   const buildIndex = dockerfile.indexOf('npm --workspace apps/frontend run build');
 
   assert.ok(scriptIndex >= 0, 'Dockerfile frontend debe copiar scripts/vite-build-safe.mjs');
+  assert.ok(appVersionIndex >= 0, 'Dockerfile frontend debe copiar config/app-version.json');
+  assert.ok(omrPolicyIndex >= 0, 'Dockerfile frontend debe copiar config/omr-version-policy.json');
   assert.ok(buildIndex > scriptIndex, 'frontend build debe ejecutarse despues de copiar el wrapper');
+  assert.ok(buildIndex > appVersionIndex, 'frontend build debe ejecutarse despues de copiar app-version');
+  assert.ok(buildIndex > omrPolicyIndex, 'frontend build debe ejecutarse despues de copiar la politica OMR');
 });
