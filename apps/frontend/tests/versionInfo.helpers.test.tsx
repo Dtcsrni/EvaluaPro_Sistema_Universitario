@@ -9,6 +9,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { VersionInfoPage } from '../src/ui/version/VersionInfoPage';
 import {
   abrirVentanaVersion,
+  compararVersiones,
   obtenerVersionApp,
   obtenerVersionTecnicaApp
 } from '../src/ui/version/versionInfo';
@@ -32,6 +33,13 @@ describe('version info helpers', () => {
 
     expect(openSpy).toHaveBeenCalledTimes(1);
     expect(openSpy.mock.calls[0]?.[0]).toContain('#/version-info?portal=alumno');
+  });
+
+  it('compara semver numericamente y respeta precedencia de prerelease', () => {
+    expect(compararVersiones('1.1.10', '1.1.9')).toBe(1);
+    expect(compararVersiones('v1.2.0-beta.2', '1.2.0-beta.10')).toBe(-1);
+    expect(compararVersiones('1.2.0', '1.2.0-rc.1')).toBe(1);
+    expect(compararVersiones('no-semver', '1.2.0')).toBe(0);
   });
 
   it('renderiza fallback tecnico, portal alumno y mensaje sin tecnologias cuando falta displayVersion', async () => {

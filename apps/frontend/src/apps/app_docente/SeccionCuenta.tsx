@@ -14,6 +14,7 @@ import { InlineMensaje } from '../../ui/ux/componentes/InlineMensaje';
 import { GuiaCuentaVisual } from './GuiaCuentaVisual';
 import { SeccionConfiguracionSincronizacion } from './SeccionConfiguracionSincronizacion';
 import type { EstadoLeaseUI } from './SeccionLeaseSincronizacion';
+import { compararVersiones, obtenerVersionTecnicaApp } from '../../ui/version/versionInfo';
 import { clienteApi } from './clienteApiDocente';
 import { tipoMensajeInline } from './mensajeInline';
 import { registrarAccionDocente } from './telemetriaDocente';
@@ -77,7 +78,7 @@ export function SeccionCuenta({
     sha256?: string;
   } | null>(null);
 
-  const versionActual = '1.1.1';
+  const versionActual = obtenerVersionTecnicaApp();
 
   const coincide = contrasenaNueva && contrasenaNueva === contrasenaNueva2;
   const requiereContrasenaActual = Boolean(docente.tieneContrasena);
@@ -244,7 +245,7 @@ export function SeccionCuenta({
       const exeAsset = assets.find((a: Record<string, unknown>) => String(a.name || '').endsWith('.exe')) as Record<string, unknown> | undefined;
       const shaAsset = assets.find((a: Record<string, unknown>) => String(a.name || '').endsWith('.exe.sha256')) as Record<string, unknown> | undefined;
 
-      if (tagRemoto && tagRemoto !== versionActual && tagRemoto > versionActual) {
+      if (tagRemoto && compararVersiones(tagRemoto, versionActual) > 0) {
         setResultadoActualizacion({
           estado: 'disponible',
           versionDisponible: `v${tagRemoto}`,
