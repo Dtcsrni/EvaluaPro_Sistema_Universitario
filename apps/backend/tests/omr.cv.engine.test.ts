@@ -77,7 +77,7 @@ describe('omrCvEngine', () => {
     setCvBackendCheckForTests(async () => ({}));
     const smoke = await ejecutarSmokeTestOmrCv();
     expect(smoke.enabled).toBe(true);
-    expect(debeIntentarMotorCv(3)).toBe(true);
+    expect(debeIntentarMotorCv(4)).toBe(true);
   });
 
   it('preprocesa imagen con backend CV disponible', async () => {

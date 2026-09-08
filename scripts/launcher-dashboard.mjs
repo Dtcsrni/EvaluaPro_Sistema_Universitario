@@ -121,6 +121,7 @@ const noiseStats = new Map();
 
 // Track spawned processes by task name.
 const processes = new Map();
+let isShuttingDown = false;
 
 // Dev convenience: auto-restart tasks when source files change.
 const dashboardConfigDefaults = Object.freeze({
@@ -174,6 +175,11 @@ const lifecyclePolicyDefaults = Object.freeze({
   failureThreshold: 3,
   repairCooldownMs: 180000
 });
+
+// El supervisor usa un tick fijo; la configuración solo decide cuándo toca
+// ejecutar el trabajo. Así ningún valor persistido controla la cadencia del
+// timer de Node ni puede convertirlo en un hot loop.
+const DASHBOARD_TIMER_TICK_MS = 1_000;
 
 const lifecycleState = {
   desiredMode: lifecyclePolicyDefaults.desiredMode,
@@ -1473,8 +1479,7 @@ async function checkHealth(url, timeoutMs = 3000) {
         path: u.pathname + (u.search || ''),
         method: 'GET',
         family: 4,
-        timeout: timeoutMs,
-        rejectUnauthorized: false
+        timeout: timeoutMs
       }, (res) => {
         res.resume();
         const ok = res.statusCode >= 200 && res.statusCode < 400;
@@ -1567,8 +1572,8 @@ async function collectHealth() {
   return services;
 }
 
-function runCommandCapture(command, timeoutMs = 20_000) {
-  const result = spawn('cmd.exe', ['/c', command], {
+function runProcessCapture(command, args = [], timeoutMs = 20_000) {
+  const result = spawn(command, args, {
     cwd: root,
     windowsHide: true
   });
@@ -1598,6 +1603,10 @@ function runCommandCapture(command, timeoutMs = 20_000) {
       resolve({ ok: Number(code || 0) === 0, code: Number(code || 0), stdout, stderr });
     });
   });
+}
+
+function runCommandCapture(command, timeoutMs = 20_000) {
+  return runProcessCapture('cmd.exe', ['/c', command], timeoutMs);
 }
 
 async function postJsonWithAuth(url, token, payload, timeoutMs = 30_000) {
@@ -1735,9 +1744,9 @@ async function runInstallerForUpdate(filePath) {
   if (process.platform !== 'win32') {
     return { ok: false, error: 'Actualización automática soportada solo en Windows.' };
   }
-  const quoted = `"${String(filePath || '').replace(/"/g, '\\"')}"`;
-  const command = `${quoted} /quiet /norestart`;
-  const result = await runCommandCapture(command, 10 * 60_000);
+  const installerPath = String(filePath || '').trim();
+  if (!installerPath) return { ok: false, error: 'No se encontró el instalador descargado.' };
+  const result = await runProcessCapture(installerPath, ['/quiet', '/norestart'], 10 * 60_000);
   if (!result.ok) {
     return { ok: false, error: `Instalador falló (code=${result.code})` };
   }
@@ -2418,8 +2427,9 @@ function configureContinuityScheduler() {
   continuityState.updatedAt = Date.now();
 
   continuityTimer = setInterval(() => {
+    if (Date.now() < continuityState.nextRunAt) return;
     runContinuitySync('scheduler').catch(() => undefined);
-  }, intervalMs);
+  }, DASHBOARD_TIMER_TICK_MS);
 }
 
 function detectInstalledProduct() {
@@ -2783,8 +2793,13 @@ function resolveInstallationState(manifest, installInfo) {
   };
 }
 
-function isStackHealthyFromServices(services, desiredMode = getDesiredLifecycleMode(), requirePortal = requiresLocalPortal()) {
-  const mongoOk = Boolean(services?.mongoLocal?.ok);
+function isStackHealthyFromServices(
+  services,
+  desiredMode = getDesiredLifecycleMode(),
+  requirePortal = requiresLocalPortal(),
+  requireMongo = requiresDockerRuntime()
+) {
+  const mongoOk = !requireMongo || Boolean(services?.mongoLocal?.ok);
   const apiOk = Boolean(services?.apiDocente?.ok);
   const webOk = desiredMode === 'prod'
     ? Boolean(services?.webDocenteProd?.ok)
@@ -2800,7 +2815,9 @@ async function buildLifecycleStatus(includeHealth = true) {
   const manifest = readInstallationManifest();
   const flavorPolicy = resolveFlavorPolicy(manifest);
   const services = includeHealth ? await collectHealth() : {};
-  const healthy = includeHealth ? isStackHealthyFromServices(services, desiredMode, flavorPolicy.requireLocalPortal) : false;
+  const healthy = includeHealth
+    ? isStackHealthyFromServices(services, desiredMode, flavorPolicy.requireLocalPortal, flavorPolicy.requireDockerRuntime)
+    : false;
   const stackManagedRunning = running.includes('dev') || running.includes('prod');
   const desiredRunning = running.includes(desiredMode);
   const portalRunning = running.includes('portal');
@@ -2887,7 +2904,12 @@ async function reconcileLifecycle(reason = 'manual') {
       const servicesBefore = await collectHealth();
       const manifest = readInstallationManifest();
       const flavorPolicy = resolveFlavorPolicy(manifest);
-      const healthyBefore = isStackHealthyFromServices(servicesBefore, desiredMode, flavorPolicy.requireLocalPortal);
+      const healthyBefore = isStackHealthyFromServices(
+        servicesBefore,
+        desiredMode,
+        flavorPolicy.requireLocalPortal,
+        flavorPolicy.requireDockerRuntime
+      );
 
       if (!healthyBefore) {
         if (process.platform === 'win32' && flavorPolicy.requireDockerRuntime) {
@@ -2895,14 +2917,22 @@ async function reconcileLifecycle(reason = 'manual') {
         }
 
         const startedDesired = ensureTaskRunning(desiredMode);
+        const restartedUnhealthyDesired = !startedDesired && shouldRestartUnhealthyTask(desiredMode, servicesBefore, desiredMode);
         const startedPortal = flavorPolicy.requireLocalPortal ? ensureTaskRunning('portal') : false;
         if (startedDesired && startedPortal) action = `start:${desiredMode}+portal`;
         else if (startedDesired) action = `start:${desiredMode}`;
+        else if (restartedUnhealthyDesired && startedPortal) action = `restart:${desiredMode}+start:portal`;
+        else if (restartedUnhealthyDesired) action = `restart:${desiredMode}`;
         else if (startedPortal) action = 'start:portal';
         else action = 'verify';
 
-        const startupCheck = startedDesired || startedPortal
-          ? await waitForLifecycleHealth(desiredMode, flavorPolicy.requireLocalPortal, 90_000)
+        const startupCheck = startedDesired || restartedUnhealthyDesired || startedPortal
+          ? await waitForLifecycleHealth(
+            desiredMode,
+            flavorPolicy.requireLocalPortal,
+            flavorPolicy.requireDockerRuntime,
+            90_000
+          )
           : { healthy: false, services: await collectHealth() };
         const servicesAfter = startupCheck.services;
         const healthyAfter = startupCheck.healthy;
@@ -2985,12 +3015,12 @@ async function reconcileLifecycle(reason = 'manual') {
   return lifecycleReconcilePromise;
 }
 
-async function waitForLifecycleHealth(desiredMode, requireLocalPortal, timeoutMs = 90_000) {
+async function waitForLifecycleHealth(desiredMode, requireLocalPortal, requireMongo, timeoutMs = 90_000) {
   const deadline = Date.now() + Math.max(5_000, Number(timeoutMs) || 90_000);
   let services = {};
   do {
     services = await collectHealth();
-    if (isStackHealthyFromServices(services, desiredMode, requireLocalPortal)) {
+    if (isStackHealthyFromServices(services, desiredMode, requireLocalPortal, requireMongo)) {
       return { healthy: true, services };
     }
     const remaining = deadline - Date.now();
@@ -3019,18 +3049,15 @@ function configureLifecycleSupervisor() {
   lifecycleState.lastChangedAt = Date.now();
 
   lifecycleSupervisorTimer = setInterval(() => {
+    if (Date.now() < lifecycleState.reconcile.nextRunAt) return;
     reconcileLifecycle('supervisor_tick').catch(() => undefined);
-  }, intervalMs);
+  }, DASHBOARD_TIMER_TICK_MS);
 }
 
 function getPowerShellPath() {
   const systemPs = path.join(process.env.WINDIR || 'C:\\Windows', 'System32', 'WindowsPowerShell', 'v1.0', 'powershell.exe');
   if (fs.existsSync(systemPs)) return systemPs;
   return 'powershell.exe';
-}
-
-function quoteCmdArg(text) {
-  return `"${String(text || '').replace(/"/g, '\\"')}"`;
 }
 
 async function runInstallerHubMode(modeName) {
@@ -3047,8 +3074,7 @@ async function runInstallerHubMode(modeName) {
   if (action === 'repair') args.push('/repair');
   else if (action === 'uninstall') args.push('/uninstall');
 
-  const command = `${quoteCmdArg(resolved.path)} ${args.join(' ')}`.trim();
-  return runCommandCapture(command, 30_000);
+  return runProcessCapture(resolved.path, args, 30_000);
 }
 
 function readInstallerLocalPathsManifest() {
@@ -3339,6 +3365,23 @@ function stopTask(name) {
   spawn('taskkill', ['/T', '/F', '/PID', String(entry.proc.pid)], { windowsHide: true });
 }
 
+// Stop every task owned by this dashboard, including each task's process tree.
+function stopAllManagedTasks() {
+  for (const [name, entry] of processes.entries()) {
+    if (!entry?.proc || entry.proc.exitCode !== null || !entry.proc.pid) continue;
+    logSystem(`[${name}] deteniendo por cierre del dashboard`, 'system');
+    pushEvent('task_stop', name, 'warn', 'Detencion solicitada por cierre del dashboard');
+    try {
+      spawn('taskkill', ['/T', '/F', '/PID', String(entry.proc.pid)], {
+        windowsHide: true,
+        stdio: 'ignore'
+      });
+    } catch {
+      // ignore; the host still has its own process-tree fallback
+    }
+  }
+}
+
 // Open the dashboard URL in the default browser.
 function findBrowserExecutable() {
   const candidates = [
@@ -3494,6 +3537,21 @@ function isRunning(name) {
   return Boolean(entry && entry.proc && entry.proc.exitCode === null);
 }
 
+function shouldRestartUnhealthyTask(name, services, desiredMode = getDesiredLifecycleMode()) {
+  if (!isRunning(name)) return false;
+  const entry = processes.get(name);
+  const ageMs = Date.now() - Number(entry?.startedAt || Date.now());
+  const apiDown = !Boolean(services?.apiDocente?.ok);
+  const webKey = desiredMode === 'prod' ? 'webDocenteProd' : 'webDocenteDev';
+  const webDown = !Boolean(services?.[webKey]?.ok);
+  // Durante el arranque inicial se conserva el proceso y se espera a que
+  // alcance salud. Un proceso antiguo con API o web caida es un estado
+  // obsoleto: reiniciarlo permite recuperar sin abrir otro dashboard.
+  if (ageMs < 30_000 || (!apiDown && !webDown)) return false;
+  restartTask(name);
+  return true;
+}
+
 function stackDisplayString(runningList = [], compose = null) {
   const requireDocker = requiresDockerRuntime(readInstallationManifest());
   const stack = dockerAutostart.stack || {};
@@ -3531,7 +3589,18 @@ function restartTask(name, delayMs = 700) {
   const wasRunning = isRunning(name);
   if (wasRunning) stopTask(name);
   pushEvent('task_restart', name, 'warn', 'Reinicio solicitado', { delayMs });
-  setTimeout(() => startTask(name, command), wasRunning ? delayMs : 0);
+  const startAfterStop = (attempt = 0) => {
+    if (isRunning(name)) {
+      if (attempt >= 40) {
+        logSystem(`[${name}] reinicio cancelado: el proceso anterior no termino`, 'error');
+        return;
+      }
+      setTimeout(() => startAfterStop(attempt + 1), 250);
+      return;
+    }
+    startTask(name, command);
+  };
+  setTimeout(() => startAfterStop(), wasRunning ? delayMs : 0);
 }
 
 function restartAll(runningNames) {
@@ -3778,7 +3847,10 @@ function clearLock() {
 }
 
 function handleExit(signal) {
+  if (isShuttingDown) return;
+  isShuttingDown = true;
   if (signal) logSystem(`Cierre solicitado: ${signal}`, 'system');
+  stopAllManagedTasks();
   if (lifecycleSupervisorTimer) {
     clearInterval(lifecycleSupervisorTimer);
     lifecycleSupervisorTimer = null;
@@ -4362,6 +4434,12 @@ const server = http.createServer(async (req, res) => {
     rawLines.length = 0;
     noiseStats.clear();
     sendJson(res, 200, { ok: true });
+    return;
+  }
+
+  if (req.method === 'POST' && pathName === '/api/shutdown') {
+    sendJson(res, 202, { ok: true, shuttingDown: true });
+    setTimeout(() => handleExit('desktop-close'), 0).unref();
     return;
   }
 

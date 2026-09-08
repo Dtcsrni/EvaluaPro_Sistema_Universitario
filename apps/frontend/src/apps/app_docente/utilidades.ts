@@ -167,10 +167,8 @@ export function combinarRespuestasOmrPaginas(
 }
 
 export function normalizarTemplateVersionOmrDetectada(valor: unknown): ResultadoOmr['templateVersionDetectada'] {
-  const version = Number(valor);
-  if (version === 2 || version === 3) return 3;
-  if (version === 4) return 4;
-  return 1;
+  void valor;
+  return 4;
 }
 
 export function consolidarResultadoOmrExamen(paginas: RevisionPaginaOmr[]): ResultadoOmr | null {
@@ -196,9 +194,7 @@ export function consolidarResultadoOmrExamen(paginas: RevisionPaginaOmr[]): Resu
   const calidadPagina = promedio(paginas.map((pagina) => Number(pagina.resultado.calidadPagina || 0)));
   const confianzaPromedioPagina = promedio(paginas.map((pagina) => Number(pagina.resultado.confianzaPromedioPagina || 0)));
   const ratioAmbiguas = promedio(paginas.map((pagina) => Number(pagina.resultado.ratioAmbiguas || 0)));
-  const templateVersionDetectada = paginas
-    .map((pagina) => normalizarTemplateVersionOmrDetectada(pagina.resultado.templateVersionDetectada))
-    .find((version) => version === 4 || version === 3) ?? 1;
+  const templateVersionDetectada = 4;
   const qrTextos = paginas.map((pagina) => pagina.resultado.qrTexto).filter((valor): valor is string => typeof valor === 'string' && valor.length > 0);
 
   return {

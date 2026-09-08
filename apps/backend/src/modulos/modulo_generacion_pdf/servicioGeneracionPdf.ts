@@ -7,9 +7,9 @@ import { generarExamenIndividual } from './application/usecases/generarExamenInd
 import type { MapaVariante, PreguntaBase } from './servicioVariantes';
 import type { TemplateVersion } from './shared/tiposPdf';
 import {
-  resolverTemplateVersionCompatible,
+  resolverTemplateVersionCanonica,
   TEMPLATE_VERSION_DEFAULT
-} from './domain/templateCompat';
+} from './domain/templateCanonico';
 
 /**
  * Fachada que delega al caso de uso modular.
@@ -22,8 +22,9 @@ export async function generarPdfExamen({
   mapaVariante,
   tipoExamen,
   totalPaginas,
-  margenMm = 10,
+  margenMm = 8,
   encabezado,
+  bookletConfig,
   templateVersion = TEMPLATE_VERSION_DEFAULT
 }: {
   titulo: string;
@@ -35,6 +36,11 @@ export async function generarPdfExamen({
   totalPaginas: number;
   margenMm?: number;
   templateVersion?: TemplateVersion;
+  bookletConfig?: {
+    fontScale?: number;
+    lineSpacing?: number;
+    logos?: { izquierdaPath?: string; derechaPath?: string };
+  };
   encabezado?: {
     institucion?: string;
     lema?: string;
@@ -55,8 +61,9 @@ export async function generarPdfExamen({
     tipoExamen,
     totalPaginas,
     margenMm,
+    bookletConfig,
     encabezado,
-    templateVersion: resolverTemplateVersionCompatible(templateVersion)
+    templateVersion: resolverTemplateVersionCanonica(templateVersion)
   });
   return resultado;
 }

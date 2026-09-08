@@ -1,10 +1,18 @@
 # Inventario Tecnico del Proyecto
 
-Fecha de corte: 2026-08-28
+Fecha de corte: 2026-09-03
 Version tecnica vigente: `1.1.1`
 Version visible vigente: `1.1.1`
 
-## Estado de validación 2026-08-28 (Corte 3 - Línea Base Oficial v1.1.1, Íconos Transparentes, Modernización Landing Page y Reestructuración Exhaustiva de READMEs)
+## Estado actual 2026-09-03
+- **Purga de legado OMR/PDF:** retirados OMR V1, TV3, renderer HTML/fallback anterior,
+  adaptadores V9/V10 y utilidades temporales heredadas.
+- **Superficies conservadas:** contrato OMR/PDF canónico TV4, `pdfKitRenderer`, preview,
+  scoring, dataset sintético TV4 y piloto real TV4 vacío para captura futura.
+- **Verificación:** `npm run test:omr:version-policy`, typecheck directo, lint y gates de
+  políticas deben ejecutarse sin fences que oculten archivos históricos.
+
+## Estado histórico 2026-08-28 (Corte 3 - Línea Base Oficial v1.1.1, Íconos Transparentes, Modernización Landing Page y Reestructuración Exhaustiva de READMEs)
 - **Consolidación de Línea Base v1.1.1 y Purga Previa:**
   - Fijación oficial de `v1.1.1` como primera versión estable reconocida del producto (`docs/VERSIONADO.md`, `CHANGELOG.md`, `docs/release/evidencias/1.1.1/`).
   - Depuración de evidencias previas en borrador y purga total de datos de prueba pre-instalación.

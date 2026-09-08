@@ -355,7 +355,7 @@ export function buildPorFolioCanonicalSeed(args: {
 
   return {
     meta: {
-      sourceRoot: 'omr_samples_tv3/images/Por Folio',
+      sourceRoot: 'omr_samples_tv4',
       sourceReports: [
         'reports/qa/latest/por_folio_analysis_from_zero.json',
         'reports/qa/latest/por_folio_answer_key_rationale.json'

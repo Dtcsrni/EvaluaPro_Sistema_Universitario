@@ -107,7 +107,7 @@ export function SeccionCalificar({
       calidadPagina: number;
       confianzaPromedioPagina: number;
       ratioAmbiguas: number;
-      templateVersionDetectada: 1 | 3 | 4;
+      templateVersionDetectada: 4;
       motivosRevision: string[];
       revisionConfirmada: boolean;
       qrTexto?: string;

@@ -71,7 +71,7 @@ test('helper PowerShell tiene timeout por operación y cancela su árbol', () =>
 
 test('runtime nativo tolera arranque lento sin reinicio prematuro', () => {
   const dashboard = fs.readFileSync(path.join(root, 'scripts', 'launcher-dashboard.mjs'), 'utf8');
-  assert.match(dashboard, /waitForLifecycleHealth\(desiredMode, flavorPolicy\.requireLocalPortal, 90_000\)/);
+  assert.match(dashboard, /waitForLifecycleHealth\(\s*desiredMode,\s*flavorPolicy\.requireLocalPortal,\s*flavorPolicy\.requireDockerRuntime,\s*90_000\s*\)/);
   assert.match(dashboard, /async function waitForLifecycleHealth/);
   assert.match(runner, /\$deadline = \(Get-Date\)\.AddSeconds\((?:90|120|150)\)/);
   assert.match(runner, /Runtime nativo no alcanzó salud API\/web en (?:90|120|150)s/);
@@ -82,6 +82,16 @@ test('dashboard lanza Node nativo directamente y conserva su árbol', () => {
   assert.match(dashboard, /const isNativeRuntime = command === nativeDocenteCommand/);
   assert.match(dashboard, /spawn\(nativeNodePath, \[path\.join\(root, 'scripts', 'start-docente-native\.mjs'\)\]/);
   assert.match(dashboard, /spawn\('cmd\.exe', \['\/d', '\/s', '\/c', command\]/);
+});
+
+test('dashboard mantiene TLS, argumentos y timers bajo contratos seguros', () => {
+  const dashboard = fs.readFileSync(path.join(root, 'scripts', 'launcher-dashboard.mjs'), 'utf8');
+  assert.doesNotMatch(dashboard, /rejectUnauthorized\s*:\s*false/);
+  assert.doesNotMatch(dashboard, /function quoteCmdArg/);
+  assert.match(dashboard, /runProcessCapture\(installerPath, \['\/quiet', '\/norestart'\]/);
+  assert.match(dashboard, /runProcessCapture\(resolved\.path, args, 30_000\)/);
+  assert.match(dashboard, /continuityTimer = setInterval\([\s\S]*?DASHBOARD_TIMER_TICK_MS\)/);
+  assert.match(dashboard, /lifecycleSupervisorTimer = setInterval\([\s\S]*?DASHBOARD_TIMER_TICK_MS\)/);
 });
 
 test('runner serializa Windows Installer y no mata el Hub durante una transacción', () => {
@@ -131,12 +141,17 @@ test('el authoring del MSI excluye contenido de ingeniería que no se ejecuta', 
   assert.match(msiBuild, /\(md\|markdown\|map\|ts\|tsx\|mts\|cts\)/);
   assert.match(msiBuild, /'LICENSE', 'LICENCE', 'NOTICE'/);
   assert.match(msiBuild, /\^\(test\|tests\|__tests__\|docs\|examples\?\|\\\.github\)\$/);
+  assert.match(msiBuild, /npmCommand prune --omit=dev --ignore-scripts/);
+  assert.match(msiBuild, /foreach \(\$prunePath in \$prunePaths\)/);
+  assert.match(msiBuild, /node_modules\/\.prisma\/client\/libquery_engine-\*\.so\.node/);
+  assert.match(msiBuild, /node_modules\/pdfjs-dist/);
+  assert.match(msiBuild, /Payload preconstruido reutilizado y podado/);
 });
 
 test('la ETA del Hub se deriva del avance real, se suaviza y declara verificación', () => {
   assert.match(hubWindow, /Queue<\(DateTime At, int Progress\)> progressSamples/);
   assert.match(hubWindow, /smoothedRemainingSeconds/);
-  assert.match(hubWindow, /previousEstimate\.Value \* 1\.20/);
+  assert.match(hubWindow, /\(previousEstimate\.Value \* 0\.70\) \+ \(rawSecondsRemaining \* 0\.30\)/);
   assert.match(hubWindow, /Tiempo restante: verificando etapa actual/);
   assert.match(hubWindow, /Tiempo restante estimado: \{FormatDuration\(lowerSeconds\)\} a \{FormatDuration\(upperSeconds\)\}/);
 });

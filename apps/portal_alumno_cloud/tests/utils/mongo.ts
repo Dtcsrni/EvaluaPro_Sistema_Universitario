@@ -1,16 +1,18 @@
 /**
  * mongo
  *
- * Responsabilidad: Mock de base de datos para pruebas del portal.
- * Redirige llamadas de MongoDB/Mongoose a SQLite/Prisma Client con aislamiento por worker de Vitest.
+ * Responsabilidad: SQLite temporal real para pruebas del portal.
+ * Redirige las llamadas heredadas de MongoDB/Mongoose a SQLite/Prisma Client con aislamiento por worker de Vitest.
  */
 import { execSync } from 'node:child_process';
 import path from 'node:path';
 import fs from 'node:fs';
+import os from 'node:os';
 
 const workerId = process.env.VITEST_WORKER_ID || '1';
 const dbFile = `portal_test_${workerId}.db`;
-const dataDir = path.resolve(process.cwd(), 'data');
+const dataDir = path.resolve(String(process.env.PORTAL_TEST_DATA_DIR || '').trim() || fs.mkdtempSync(path.join(os.tmpdir(), 'evaluapro-portal-test-')));
+process.env.PORTAL_TEST_DATA_DIR = dataDir;
 const dbPath = path.resolve(dataDir, dbFile);
 
 // Configurar la variable de entorno DATABASE_URL para el test runner

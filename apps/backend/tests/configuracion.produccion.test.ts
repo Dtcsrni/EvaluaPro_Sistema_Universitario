@@ -32,6 +32,18 @@ describe('configuracion (produccion)', () => {
     await expect(import('../src/configuracion')).rejects.toThrow('PORTAL_ALUMNO_URL es requerido en producción');
   });
 
+  it('usa production cuando NODE_ENV no se declara', async () => {
+    delete process.env.NODE_ENV;
+    process.env.JWT_SECRETO = 'secret';
+    process.env.MONGODB_URI = 'mongodb://localhost:27017/evaluapro';
+    process.env.CORS_ORIGENES = 'https://docente.example.com';
+    process.env.PORTAL_ALUMNO_URL = 'https://portal.example.com';
+
+    const { configuracion } = await import('../src/configuracion');
+
+    expect(configuracion.entorno).toBe('production');
+  });
+
 
   it('permite diferir portal cloud en flavor docente-local', async () => {
     process.env.NODE_ENV = 'production';
@@ -109,5 +121,37 @@ describe('configuracion (produccion)', () => {
     expect(configuracion.portalAlumnoUrl).toBe('https://portal.test.com');
     expect(configuracion.portalApiKey).toBe('test-api-key');
     expect(configuracion.portalSyncRequired).toBe(true);
+  });
+
+  it('respeta CLASSROOM_ENABLED y conserva compatibilidad sin la bandera', async () => {
+    process.env.NODE_ENV = 'test';
+    process.env.GOOGLE_CLASSROOM_CLIENT_ID = 'classroom-client';
+    process.env.GOOGLE_CLASSROOM_CLIENT_SECRET = 'classroom-secret';
+    process.env.GOOGLE_CLASSROOM_REDIRECT_URI = 'http://localhost:4000/callback';
+    process.env.CLASSROOM_TOKEN_CIPHER_KEY = 'cipher-key';
+
+    const enabled = await import('../src/configuracion');
+    expect(enabled.configuracion.classroomEnabled).toBe(true);
+
+    vi.resetModules();
+    process.env.CLASSROOM_ENABLED = '0';
+    const disabled = await import('../src/configuracion');
+    expect(disabled.configuracion.classroomEnabled).toBe(false);
+  });
+
+  it('no deriva la configuracion de Classroom desde el client id del login Google', async () => {
+    process.env.NODE_ENV = 'test';
+    process.env.GOOGLE_OAUTH_CLIENT_ID = 'login-client';
+    delete process.env.GOOGLE_CLASSROOM_CLIENT_ID;
+    delete process.env.GOOGLE_CLASSROOM_CLIENT_SECRET;
+    delete process.env.GOOGLE_CLASSROOM_REDIRECT_URI;
+    delete process.env.CLASSROOM_TOKEN_CIPHER_KEY;
+    delete process.env.CLASSROOM_ENABLED;
+
+    const { configuracion } = await import('../src/configuracion');
+
+    expect(configuracion.googleOauthClientId).toBe('login-client');
+    expect(configuracion.googleClassroomClientId).toBe('');
+    expect(configuracion.classroomEnabled).toBe(false);
   });
 });

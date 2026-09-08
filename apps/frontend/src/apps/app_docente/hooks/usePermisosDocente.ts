@@ -131,19 +131,19 @@ export function usePermisosDocente(docente: Docente | null) {
     const puedeCalificar = puede('calificaciones:calificar') || puede('omr:analizar');
     const puedePublicar = puede('sincronizacion:listar') || puede('calificaciones:publicar');
     const items = [
-      { id: 'periodos', label: 'Materias', icono: 'periodos' as const, mostrar: puede('periodos:leer') },
-      { id: 'alumnos', label: 'Alumnos', icono: 'alumnos' as const, mostrar: puede('alumnos:leer') },
-      { id: 'asistencias', label: 'Asistencias', icono: 'asistencias' as const, mostrar: puede('asistencias:leer') || puede('asistencias:gestionar') || puede('periodos:leer') },
-      { id: 'temarios', label: 'Temarios', icono: 'temarios' as const, mostrar: puede('temarios:leer') || puede('temarios:gestionar') || puede('periodos:leer') },
-      { id: 'banco', label: 'Banco', icono: 'banco' as const, mostrar: puede('banco:leer') },
-      { id: 'plantillas', label: 'Diseño de Exámenes', icono: 'plantillas' as const, mostrar: puede('plantillas:leer') },
-      { id: 'entrega', label: 'Entrega', icono: 'recepcion' as const, mostrar: puede('entregas:gestionar') },
-      { id: 'calificaciones', label: 'Calificaciones', icono: 'calificar' as const, mostrar: puedeCalificar },
-      { id: 'rehidratacion', label: 'Rehidratacion', icono: 'pdf' as const, mostrar: puedeRehidratarLotes },
-      { id: 'evaluaciones', label: 'Evaluaciones', icono: 'evaluaciones' as const, mostrar: puede('evaluaciones:leer') },
-      { id: 'classroom', label: 'Classroom', icono: 'classroom' as const, mostrar: Boolean(puede('classroom:conectar') || puede('classroom:pull') || puede('periodos:leer')) },
-      { id: 'publicar', label: 'Sincronización', icono: 'sincronizacion' as const, mostrar: puedePublicar },
-      { id: 'cuenta', label: 'Cuenta', icono: 'cuenta' as const, mostrar: puede('cuenta:leer') }
+      { id: 'periodos', grupo: 'academia', label: 'Materias', icono: 'periodos' as const, mostrar: puede('periodos:leer') },
+      { id: 'alumnos', grupo: 'academia', label: 'Alumnos', icono: 'alumnos' as const, mostrar: puede('alumnos:leer') },
+      { id: 'asistencias', grupo: 'academia', label: 'Asistencias', icono: 'asistencias' as const, mostrar: puede('asistencias:leer') || puede('asistencias:gestionar') || puede('periodos:leer') },
+      { id: 'temarios', grupo: 'academia', label: 'Temarios', icono: 'temarios' as const, mostrar: puede('temarios:leer') || puede('temarios:gestionar') || puede('periodos:leer') },
+      { id: 'banco', grupo: 'academia', label: 'Banco', icono: 'banco' as const, mostrar: puede('banco:leer') },
+      { id: 'plantillas', grupo: 'evaluacion', label: 'Diseño de Exámenes', icono: 'plantillas' as const, mostrar: puede('plantillas:leer') },
+      { id: 'entrega', grupo: 'evaluacion', label: 'Entrega', icono: 'recepcion' as const, mostrar: puede('entregas:gestionar') },
+      { id: 'calificaciones', grupo: 'evaluacion', label: 'Calificaciones', icono: 'calificar' as const, mostrar: puedeCalificar },
+      { id: 'evaluaciones', grupo: 'evaluacion', label: 'Evaluaciones', icono: 'evaluaciones' as const, mostrar: puede('evaluaciones:leer') },
+      { id: 'rehidratacion', grupo: 'operacion', label: 'Rehidratacion', icono: 'pdf' as const, mostrar: puedeRehidratarLotes },
+      { id: 'classroom', grupo: 'operacion', label: 'Classroom', icono: 'classroom' as const, mostrar: Boolean(puede('classroom:conectar') || puede('classroom:pull') || puede('periodos:leer')) },
+      { id: 'publicar', grupo: 'operacion', label: 'Sincronización', icono: 'sincronizacion' as const, mostrar: puedePublicar },
+      { id: 'cuenta', grupo: 'operacion', label: 'Cuenta', icono: 'cuenta' as const, mostrar: puede('cuenta:leer') }
     ];
     return items.filter((item) => item.mostrar);
   }, [puede, puedeRehidratarLotes]);

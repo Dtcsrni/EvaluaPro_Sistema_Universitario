@@ -16,9 +16,12 @@
  */
 import { spawn } from 'node:child_process';
 import fs from 'node:fs';
+import http from 'node:http';
+import net from 'node:net';
 import path from 'node:path';
 import process from 'node:process';
 import { fileURLToPath } from 'node:url';
+import { cargarVariablesEnvDesdeArchivo } from './runtime-env.mjs';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const logsDir = path.join(root, 'logs');
@@ -26,16 +29,9 @@ fs.mkdirSync(logsDir, { recursive: true });
 
 function loadRuntimeEnv() {
   const envPath = path.join(root, '.env');
-  if (!fs.existsSync(envPath)) return;
-  for (const line of fs.readFileSync(envPath, 'utf8').split(/\r?\n/)) {
-    const trimmed = line.trim();
-    if (!trimmed || trimmed.startsWith('#')) continue;
-    const separator = trimmed.indexOf('=');
-    if (separator <= 0) continue;
-    const key = trimmed.slice(0, separator).trim();
-    const value = trimmed.slice(separator + 1).trim().replace(/^['"]|['"]$/g, '');
-    if (key && process.env[key] === undefined) process.env[key] = value;
-  }
+  // Un valor vacío heredado no debe ocultar la configuración efectiva del
+  // `.env` instalado; los overrides no vacíos del proceso sí se conservan.
+  cargarVariablesEnvDesdeArchivo(envPath, process.env);
 }
 
 loadRuntimeEnv();
@@ -280,6 +276,52 @@ function stopAll(exitCode = 0) {
   setTimeout(() => process.exit(exitCode), 700).unref();
 }
 
+function probeHttpEndpoint(url, timeoutMs = 900) {
+  return new Promise((resolve) => {
+    let settled = false;
+    const finish = (responding, statusCode = 0) => {
+      if (settled) return;
+      settled = true;
+      resolve({ responding, statusCode });
+    };
+    const request = http.get(url, { timeout: timeoutMs }, (response) => {
+      response.resume();
+      finish(true, Number(response.statusCode || 0));
+    });
+    request.once('timeout', () => request.destroy());
+    request.once('error', () => finish(false));
+  });
+}
+
+function isPortInUse(port, timeoutMs = 500) {
+  return new Promise((resolve) => {
+    const socket = net.createConnection({ host: '127.0.0.1', port });
+    let settled = false;
+    const finish = (inUse) => {
+      if (settled) return;
+      settled = true;
+      socket.destroy();
+      resolve(inUse);
+    };
+    socket.once('connect', () => finish(true));
+    socket.once('error', () => finish(false));
+    socket.setTimeout(timeoutMs, () => finish(false));
+  });
+}
+
+async function canLaunchHttpService(name, url, port) {
+  const endpoint = await probeHttpEndpoint(url);
+  if (endpoint.responding) {
+    console.warn(`[docente-native] ${name} ya responde en ${url}; se evita un segundo proceso.`);
+    return false;
+  }
+  if (await isPortInUse(port)) {
+    console.warn(`[docente-native] puerto ${port} ocupado para ${name}; se espera al proceso existente.`);
+    return false;
+  }
+  return true;
+}
+
 process.on('SIGINT', () => stopAll(0));
 process.on('SIGTERM', () => stopAll(0));
 
@@ -296,11 +338,25 @@ async function main() {
     env.PORTAL_ALUMNO_API_KEY = 'e2e-local-portal-key';
     env.PORTAL_DATABASE_URL = process.env.PORTAL_DATABASE_URL;
   }
-  launch('api', [path.join('apps', 'backend', 'dist', 'index.js')]);
+  const apiPort = Number(env.PUERTO_API || 4000) || 4000;
+  const webPort = Number(env.PUERTO_WEB || 4173) || 4173;
+  // E2E prepara una base aislada y necesita ser dueño de sus procesos aunque
+  // exista otro servicio local en los puertos por defecto.
+  const reuseExistingServices = process.env.EVALUAPRO_E2E_BUILD !== '1';
+  const launchApi = reuseExistingServices
+    ? await canLaunchHttpService('api', `http://127.0.0.1:${apiPort}/api/salud`, apiPort)
+    : true;
+  if (launchApi) launch('api', [path.join('apps', 'backend', 'dist', 'index.js')]);
   if (process.env.EVALUAPRO_E2E_BUILD === '1') {
     launch('portal', [path.join('node_modules', 'tsx', 'dist', 'cli.mjs'), path.join('apps', 'portal_alumno_cloud', 'src', 'index.ts')]);
   }
-  launch('web', [path.join('scripts', 'serve-docente-static.mjs')]);
+  const launchWeb = reuseExistingServices
+    ? await canLaunchHttpService('web', `http://127.0.0.1:${webPort}/`, webPort)
+    : true;
+  if (launchWeb) launch('web', [path.join('scripts', 'serve-docente-static.mjs')]);
+  if (children.size === 0 && process.env.EVALUAPRO_E2E_BUILD !== '1') {
+    console.warn('[docente-native] API y web ya estaban ocupadas; se mantiene el supervisor activo.');
+  }
 }
 
 main().catch((error) => {
@@ -308,4 +364,6 @@ main().catch((error) => {
   stopAll(1);
 });
 
-setInterval(() => {}, 60_000).unref();
+// Mantener vivo el supervisor incluso si los servicios ya estaban levantados.
+// El dashboard puede reiniciarlo si una de esas instancias deja de responder.
+setInterval(() => {}, 60_000);

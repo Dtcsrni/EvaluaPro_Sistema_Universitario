@@ -22,6 +22,7 @@ export function SeccionPeriodos({
   periodos,
   onRefrescar,
   onVerArchivadas,
+  onAbrirGrupo,
   permisos,
   puedeEliminarMateriaDev,
   enviarConPermiso,
@@ -30,6 +31,7 @@ export function SeccionPeriodos({
   periodos: Periodo[];
   onRefrescar: () => void;
   onVerArchivadas: () => void;
+  onAbrirGrupo?: (periodoId: string, grupo?: string) => void;
   permisos: PermisosUI;
   puedeEliminarMateriaDev: boolean;
   enviarConPermiso: EnviarConPermiso;
@@ -44,6 +46,8 @@ export function SeccionPeriodos({
   const [archivandoId, setArchivandoId] = useState<string | null>(null);
   const [eliminandoId, setEliminandoId] = useState<string | null>(null);
   const [editandoId, setEditandoId] = useState<string | null>(null);
+  const [accionesAbiertasId, setAccionesAbiertasId] = useState<string | null>(null);
+  const [registroMateriaAbierto, setRegistroMateriaAbierto] = useState(false);
   const [guardandoEdicionId, setGuardandoEdicionId] = useState<string | null>(null);
   const [edicionNombre, setEdicionNombre] = useState('');
   const [edicionFechaInicio, setEdicionFechaInicio] = useState('');
@@ -272,6 +276,7 @@ export function SeccionPeriodos({
 
   function iniciarEdicion(periodo: Periodo) {
     setEditandoId(periodo._id);
+    setAccionesAbiertasId(periodo._id);
     setEdicionNombre(periodo.nombre || '');
     setEdicionFechaInicio(formatearFechaInput(periodo.fechaInicio));
     setEdicionFechaFin(formatearFechaInput(periodo.fechaFin));
@@ -288,6 +293,7 @@ export function SeccionPeriodos({
 
   function cancelarEdicion() {
     setEditandoId(null);
+    setAccionesAbiertasId(null);
     setEdicionNombre('');
     setEdicionFechaInicio('');
     setEdicionFechaFin('');
@@ -553,12 +559,30 @@ export function SeccionPeriodos({
       <GuiaMateriaVisual />
 
       {/* Formulario Estructurado en 2 Filas Claras Sin Solapamientos */}
-      <section className="materias-form materias-form--glass materias-form--panoramico anim-form-card">
+      <section className={`ui-card ui-card--form materias-form materias-form--glass materias-form--panoramico anim-form-card${registroMateriaAbierto ? ' materias-form--open' : ' materias-form--collapsed'}`}>
         <div className="materias-form__header">
-          <h3 className="materias-form__title">✨ Registrar Nueva Materia</h3>
-          <p className="materias-form__subtitle">Ingresa la asignatura, grupos y periodo lectivo para habilitar alumnos y evaluaciones.</p>
+          <div className="materias-form__header-copy">
+            <h3 className="materias-form__title">✨ Registrar Nueva Materia</h3>
+            <p className="materias-form__subtitle">Ingresa la asignatura, grupos y periodo lectivo para habilitar alumnos y evaluaciones.</p>
+          </div>
+          <button
+            type="button"
+            className="materia-actions-toggle materias-form__toggle"
+            aria-expanded={registroMateriaAbierto}
+            aria-controls="registro-nueva-materia"
+            onClick={() => setRegistroMateriaAbierto((abierto) => !abierto)}
+          >
+            <span className="materia-actions-toggle__label">
+              <span className="materia-actions-toggle__eyebrow">ALTA DE MATERIA</span>
+              <span>{registroMateriaAbierto ? 'Ocultar formulario' : 'Mostrar formulario'}</span>
+            </span>
+            <span className="materia-actions-toggle__icon" aria-hidden="true">
+              <Icono nombre="chevron" />
+            </span>
+          </button>
         </div>
 
+        <div id="registro-nueva-materia" className="materias-form__body" hidden={!registroMateriaAbierto}>
         <div className="materias-form__fields">
           {/* Fila 1: Asignatura y Grupos */}
           <div className="materias-form__row materias-form__row--top">
@@ -654,6 +678,7 @@ export function SeccionPeriodos({
             </p>
           )}
         </div>
+        </div>
       </section>
 
       {/* Listado de Materias Activas a Ancho Completo */}
@@ -662,12 +687,12 @@ export function SeccionPeriodos({
           <h3 className="materias-section-title">Materias activas ({periodos.length})</h3>
         </div>
         {periodos.length === 0 ? (
-          <div className="empty-state-card anim-fade-in">
+          <div className="ui-card ui-card--empty empty-state-card anim-fade-in">
             <div className="empty-state-card__icon anim-icon-pulse">
               <span aria-hidden="true">🎓</span>
             </div>
             <h4>Comienza configurando tu primera materia</h4>
-            <p>Crea tu primer curso arriba para desbloquear la gestión de alumnos, el banco de preguntas y la calificación de exámenes.</p>
+            <p>Usa el formulario inferior para crear tu primer curso y desbloquear la gestión de alumnos, el banco de preguntas y la calificación de exámenes.</p>
             <div className="empty-state-steps" aria-hidden="true">
               <div className="empty-step">
                 <span className="empty-step__num">1</span>
@@ -691,7 +716,10 @@ export function SeccionPeriodos({
               const progreso = calcularProgresoPeriodo(periodo.fechaInicio, periodo.fechaFin);
               return (
                 <li key={periodo._id} className="anim-slide-up">
-                  <div className="item-glass materias-lista__item anim-card-hover">
+                  <article
+                    className="ui-card ui-card--interactive item-glass materias-lista__item materias-lista__item--navigable anim-card-hover"
+                    data-tooltip="Abrir Alumnos con esta materia y grupo seleccionado"
+                  >
                     <div className="item-row">
                       <div>
                         {editandoId === periodo._id ? (
@@ -751,7 +779,12 @@ export function SeccionPeriodos({
                             {gruposEdicionDuplicados && <InlineMensaje tipo="warning">Hay grupos repetidos.</InlineMensaje>}
                           </div>
                         ) : (
-                          <>
+                          <button
+                            type="button"
+                            className="materia-card-surface"
+                            onClick={() => onAbrirGrupo?.(periodo._id, periodo.grupos?.[0])}
+                            aria-label={`Abrir grupo ${periodo.grupos?.[0] || 'general'} de ${etiquetaMateria(periodo)}`}
+                          >
                             <div className="materia-card-header">
                               <div className="materia-title-group">
                                 <div className="materia-avatar" aria-hidden="true">
@@ -782,23 +815,53 @@ export function SeccionPeriodos({
                             </div>
                             <div className="item-meta materia-card-meta">
                               
-                              <span className="materia-meta-tag">
-                                <span className="materia-meta-lbl">Inicio:</span> {formatearFecha(periodo.fechaInicio)}
+                              <span className="materia-meta-tag materia-meta-tag--inicio">
+                                <span className="materia-meta-lbl">Inicio:</span>{' '}
+                                <span className="materia-meta-value">{formatearFecha(periodo.fechaInicio)}</span>
                               </span>
-                              <span className="materia-meta-tag">
-                                <span className="materia-meta-lbl">Fin:</span> {formatearFecha(periodo.fechaFin)}
+                              <span className="materia-meta-tag materia-meta-tag--fin">
+                                <span className="materia-meta-lbl">Fin:</span>{' '}
+                                <span className="materia-meta-value">{formatearFecha(periodo.fechaFin)}</span>
                               </span>
-                              <span className="materia-meta-tag">
+                              <span className="materia-meta-tag materia-meta-tag--grupos">
                                 <span className="materia-meta-lbl">Grupos:</span>{' '}
-                                <span className="materia-grupos-badge">
+                                <span className="materia-meta-value materia-grupos-badge">
                                   {Array.isArray(periodo.grupos) && periodo.grupos.length > 0 ? periodo.grupos.join(', ') : '-'}
                                 </span>
                               </span>
                             </div>
-                          </>
+                            <span className="materia-card-primary-action" aria-hidden="true">
+                              <span className="materia-card-primary-action__copy">
+                                <span className="materia-card-primary-action__eyebrow">Acceso principal</span>
+                                <span>Abrir grupo</span>
+                              </span>
+                              <span className="materia-card-primary-action__icon" aria-hidden="true">
+                                <Icono nombre="chevron" />
+                              </span>
+                            </span>
+                          </button>
                         )}
                       </div>
-                      <div className="item-actions">
+                      <button
+                        type="button"
+                        className="materia-actions-toggle"
+                        aria-expanded={accionesAbiertasId === periodo._id}
+                        aria-controls={`acciones-materia-${periodo._id}`}
+                        onClick={() => setAccionesAbiertasId((actual) => (actual === periodo._id ? null : periodo._id))}
+                      >
+                        <span className="materia-actions-toggle__label">
+                          <span className="materia-actions-toggle__eyebrow">GESTIÓN DE MATERIA</span>
+                          <span>{accionesAbiertasId === periodo._id ? 'Ocultar acciones' : 'Mostrar acciones'}</span>
+                        </span>
+                        <span className="materia-actions-toggle__icon" aria-hidden="true">
+                          <Icono nombre="chevron" />
+                        </span>
+                      </button>
+                      <div
+                        id={`acciones-materia-${periodo._id}`}
+                        className={`item-actions${accionesAbiertasId === periodo._id ? ' item-actions--open' : ''}`}
+                        hidden={accionesAbiertasId !== periodo._id}
+                      >
                         {editandoId === periodo._id ? (
                           <>
                             <Boton
@@ -895,7 +958,7 @@ export function SeccionPeriodos({
                         )}
                       </div>
                     </div>
-                  </div>
+                  </article>
                 </li>
               );
             })}
@@ -984,7 +1047,7 @@ export function SeccionPeriodosArchivados({
         </div>
 
         {periodos.length === 0 ? (
-          <div className="empty-state-card anim-fade-in">
+          <div className="ui-card ui-card--empty empty-state-card anim-fade-in">
             <div className="empty-state-card__icon anim-icon-pulse">
               <span aria-hidden="true">📦</span>
             </div>
@@ -995,7 +1058,7 @@ export function SeccionPeriodosArchivados({
           <ul className="lista lista-items materias-lista">
             {periodos.map((periodo) => (
               <li key={periodo._id} className="anim-slide-up">
-                <div className="item-glass materias-lista__item anim-card-hover">
+                <div className="ui-card ui-card--interactive item-glass materias-lista__item anim-card-hover">
                   <div className="item-row">
                     <div>
                       <div className="materia-card-header">
@@ -1007,14 +1070,17 @@ export function SeccionPeriodosArchivados({
                         </div>
                       </div>
                       <div className="item-meta materia-card-meta">
-                        <span className="materia-meta-tag">
-                          <span className="materia-meta-lbl">ID:</span> {idCortoMateria(periodo._id)}
+                        <span className="materia-meta-tag materia-meta-tag--id">
+                          <span className="materia-meta-lbl">ID:</span>{' '}
+                          <span className="materia-meta-value">{idCortoMateria(periodo._id)}</span>
                         </span>
-                        <span className="materia-meta-tag">
-                          <span className="materia-meta-lbl">Creada:</span> {formatearFechaHora(periodo.createdAt)}
+                        <span className="materia-meta-tag materia-meta-tag--creada">
+                          <span className="materia-meta-lbl">Creada:</span>{' '}
+                          <span className="materia-meta-value">{formatearFechaHora(periodo.createdAt)}</span>
                         </span>
-                        <span className="materia-meta-tag">
-                          <span className="materia-meta-lbl">Archivada:</span> {formatearFechaHora(periodo.archivadoEn)}
+                        <span className="materia-meta-tag materia-meta-tag--archivada">
+                          <span className="materia-meta-lbl">Archivada:</span>{' '}
+                          <span className="materia-meta-value">{formatearFechaHora(periodo.archivadoEn)}</span>
                         </span>
                       </div>
                       {periodo.resumenArchivado && (

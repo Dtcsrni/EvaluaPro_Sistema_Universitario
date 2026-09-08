@@ -52,7 +52,13 @@ export function crearApp() {
       credentials: true,
       // Permite que el frontend lea el nombre real del PDF (Content-Disposition)
       // al descargar via fetch.
-      exposedHeaders: ['Content-Disposition']
+      exposedHeaders: [
+        'Content-Disposition',
+        'X-EvaluaPro-Snapshot-Checksum',
+        'X-EvaluaPro-Snapshot-Exported-At',
+        'X-EvaluaPro-Snapshot-Counts',
+        'X-EvaluaPro-Snapshot-Methods'
+      ]
     })
   );
   // Mantiene un límite seguro incluso si una prueba o un entorno parcial

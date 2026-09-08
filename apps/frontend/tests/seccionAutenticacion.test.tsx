@@ -14,9 +14,14 @@ import * as versionInfoModule from '../src/ui/version/versionInfo';
 import * as utilidadesModule from '../src/apps/app_docente/utilidades';
 
 vi.mock('@react-oauth/google', () => ({
-  GoogleLogin: ({ onSuccess, onError }: { onSuccess: (cred: { credential?: string }) => void; onError?: () => void }) => {
+  GoogleLogin: ({ onSuccess, onError, theme, text }: {
+    onSuccess: (cred: { credential?: string }) => void;
+    onError?: () => void;
+    theme?: string;
+    text?: string;
+  }) => {
     return (
-      <div>
+      <div data-google-theme={theme} data-google-text={text}>
         <button
           type="button"
           data-testid="mock-google-login"
@@ -74,6 +79,14 @@ vi.mock('@react-oauth/google', () => ({
 describe('SeccionAutenticacion', () => {
   beforeEach(() => {
     vi.restoreAllMocks();
+  });
+
+  it('configura el boton oficial de Google con tema y texto de alto contraste', () => {
+    render(<SeccionAutenticacion onIngresar={() => {}} oauthGoogleDisponible />);
+
+    const googleLogin = screen.getByTestId('mock-google-login').parentElement;
+    expect(googleLogin).toHaveAttribute('data-google-theme', 'filled_blue');
+    expect(googleLogin).toHaveAttribute('data-google-text', 'signin_with');
   });
 
   it('ingresa con correo/contrasena y notifica token', async () => {

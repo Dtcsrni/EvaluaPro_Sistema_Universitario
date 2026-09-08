@@ -10,20 +10,15 @@ import type {
   ParametrosGeneracionPdf,
   ResultadoGeneracionPdf
 } from '../../shared/tiposPdf';
-import { logError } from '../../../../infraestructura/logging/logger';
 import { ExamenPdf } from '../../domain/examenPdf';
 import { obtenerPerfilPlantilla } from '../../domain/layoutExamen';
 import { resolverPerfilLayout } from '../../infra/configuracionLayoutEnv';
-import { ExamHtmlRenderer } from '../../infra/html/examHtmlRenderer';
 import { PdfKitRenderer } from '../../infra/pdfKitRenderer';
-import { resolverPdfEngine } from '../../infra/resolverPdfEngine';
 import {
-  resolverTemplateVersionCompatible
-} from '../../domain/templateCompat';
-import {
-  normalizarMapaVarianteTv4,
-  normalizarPreguntasParaTv4
-} from '../../domain/tv4Compat';
+  resolverTemplateVersionCanonica,
+  normalizarMapaVarianteCanonica,
+  normalizarPreguntasCanonicas
+} from '../../domain/templateCanonico';
 
 /**
  * Genera un PDF de examen individual.
@@ -33,9 +28,9 @@ import {
 export async function generarExamenIndividual(
   params: ParametrosGeneracionPdf
 ): Promise<ResultadoGeneracionPdf> {
-  const templateVersion = resolverTemplateVersionCompatible(params.templateVersion);
-  const preguntas = normalizarPreguntasParaTv4(params.preguntas);
-  const mapaVariante = normalizarMapaVarianteTv4(preguntas, params.mapaVariante);
+  const templateVersion = resolverTemplateVersionCanonica(params.templateVersion);
+  const preguntas = normalizarPreguntasCanonicas(params.preguntas);
+  const mapaVariante = normalizarMapaVarianteCanonica(preguntas, params.mapaVariante);
   const totalPaginas = Number.isFinite(params.totalPaginas)
     ? Math.max(1, Math.floor(params.totalPaginas))
     : 1;
@@ -53,39 +48,15 @@ export async function generarExamenIndividual(
     {
       margenMm,
       templateVersion,
-      totalPaginas
+      totalPaginas,
+      fontScale: params.bookletConfig?.fontScale,
+      lineSpacing: params.bookletConfig?.lineSpacing,
+      logos: params.bookletConfig?.logos
     },
     params.encabezado
   );
 
   const perfilOmr = obtenerPerfilPlantilla(templateVersion);
   const perfilLayout = resolverPerfilLayout();
-  const engine = resolverPdfEngine();
-  if (engine === 'pdf-lib-legacy') {
-    return new PdfKitRenderer(perfilOmr, perfilLayout).generarPdf(examen);
-  }
-
-  try {
-    return await new ExamHtmlRenderer(perfilOmr, perfilLayout).generarPdf(examen);
-  } catch (error) {
-    logError('Fallo renderer playwright-html-v1. Se usa fallback pdf-lib-legacy.', error, {
-      modulo: 'modulo_generacion_pdf',
-      folio: examen.folio,
-      templateVersion
-    });
-    const fallback = await new PdfKitRenderer(perfilOmr, perfilLayout).generarPdf(examen);
-    return {
-      ...fallback,
-      layoutEngine: 'pdf-lib-legacy',
-      renderDiagnostics: {
-        preguntasCalculadas: examen.totalPreguntas,
-        preguntasRenderizadas: examen.totalPreguntas - (fallback.preguntasRestantes ?? 0),
-        pageFillRatios: fallback.metricasPaginas.map((item) => Number((1 - item.fraccionVacia).toFixed(4))),
-        collisionsDetected: [],
-        imagesRequested: fallback.metricasLayout?.imagenesIntentadas ?? 0,
-        imagesRendered: fallback.metricasLayout?.imagenesRenderizadas ?? 0,
-        imagesFailed: fallback.metricasLayout?.imagenesFallidas ?? 0
-      }
-    };
-  }
+  return new PdfKitRenderer(perfilOmr, perfilLayout).generarPdf(examen);
 }

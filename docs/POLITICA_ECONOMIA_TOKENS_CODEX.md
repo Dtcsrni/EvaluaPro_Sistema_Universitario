@@ -52,7 +52,8 @@ Esta guia define una politica repo-local para usar Codex en VS Code con menos de
   - `npm run ai:skills-mcp:status -- --json`
 
 ## Integracion Caveman (repo-local)
-- Objetivo: reducir tokens de salida y mejorar legibilidad operativa en sesiones con agentes.
+- Objetivo: reducir salida innecesaria y mejorar legibilidad operativa, sin confundir bytes
+  locales con tokens facturados por un proveedor.
 - Referencia oficial: [JuliusBrussee/caveman](https://github.com/JuliusBrussee/caveman)
 - Estado en este repo:
   - `.codex/config.toml` habilita hooks de Codex.
@@ -62,10 +63,23 @@ Esta guia define una politica repo-local para usar Codex en VS Code con menos de
   - Activar Caveman al inicio de cada sesion (`$caveman`).
   - Mantener Caveman activo durante toda la sesion.
   - Si los hooks no activan Caveman (caso comun en Windows segun plataforma/configuracion), activarlo manualmente al iniciar sesion.
-  - Solo desactivar Caveman temporalmente cuando el usuario lo solicite de forma explicita (`stop caveman` o `normal mode`).
+- Solo desactivar Caveman temporalmente cuando el usuario lo solicite de forma explicita (`stop caveman` o `normal mode`).
+- `npm run ai:caveman:status -- --json` debe distinguir configuracion local (`repoReady`),
+  plugin instalado (`ready`) y activacion efectiva (`active`). La inspeccion estatica no puede
+  declarar `active=true`.
 - Alcance:
   - Esta integracion no instala plugins por si misma.
   - Solo define comportamiento repo-local para sesiones en este workspace.
+
+## Handoff multi-proveedor
+- La traza JSON/Markdown documenta una sesion; `docs/handoff/handoff.schema.json` transporta
+  solo el contexto minimo, estado y referencias a artefactos.
+- El envelope es compacto, versionado, sanitizado, idempotente por `messageId` y no ejecuta
+  comandos importados.
+- A2A se reserva para interoperabilidad agente-a-agente por red; MCP para herramientas,
+  recursos y datos. Ninguno sustituye la evidencia local ni autoriza efectos secundarios.
+- Medir por separado bytes, tokens de entrada/salida, tokens cacheados, coste, latencia,
+  preservacion semantica y tasa de reanudacion.
 
 ## Integracion Serena (repo-local)
 - Objetivo: reducir gasto de tokens por lectura/busqueda repetitiva usando herramientas semanticas de Serena via MCP.

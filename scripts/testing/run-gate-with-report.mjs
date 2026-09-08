@@ -18,6 +18,7 @@
  * Limites: Mantener contrato y comportamiento observable del modulo.
  */
 import fs from 'node:fs/promises';
+import os from 'node:os';
 import path from 'node:path';
 import { spawn } from 'node:child_process';
 
@@ -39,8 +40,47 @@ function parseArgs(argv) {
 
 async function writeReport(reportPath, payload) {
   const absolute = path.resolve(process.cwd(), reportPath);
+  const directory = path.dirname(absolute);
+  const serialized = `${JSON.stringify(payload, null, 2)}\n`;
   await fs.mkdir(path.dirname(absolute), { recursive: true });
-  await fs.writeFile(absolute, `${JSON.stringify(payload, null, 2)}\n`, 'utf8');
+  const temporary = path.join(directory, `.${path.basename(absolute)}.${process.pid}.${Date.now()}.tmp`);
+  const fallback = path.join(directory, `${path.basename(absolute, path.extname(absolute))}.${process.pid}.${Date.now()}.json`);
+  const fallbackPortable = path.join(os.tmpdir(), 'evaluapro-qa-reports', `${path.basename(absolute, path.extname(absolute))}.${process.pid}.${Date.now()}.json`);
+
+  const esErrorPermiso = (error) => {
+    const code = error && typeof error === 'object' && 'code' in error ? error.code : undefined;
+    return code === 'EPERM' || code === 'EACCES';
+  };
+
+  const escribirAlterno = async () => {
+    try {
+      await fs.writeFile(fallback, serialized, 'utf8');
+      process.stderr.write(`[qa-gate-report] WARN: salida en uso; reporte alterno -> ${fallback}\n`);
+      return fallback;
+    } catch (fallbackError) {
+      if (!esErrorPermiso(fallbackError)) throw fallbackError;
+      await fs.mkdir(path.dirname(fallbackPortable), { recursive: true });
+      await fs.writeFile(fallbackPortable, serialized, 'utf8');
+      process.stderr.write(`[qa-gate-report] WARN: evidencia protegida por el entorno; reporte temporal -> ${fallbackPortable}\n`);
+      return fallbackPortable;
+    }
+  };
+
+  try {
+    await fs.writeFile(temporary, serialized, 'utf8');
+  } catch (error) {
+    if (!esErrorPermiso(error)) throw error;
+    return escribirAlterno();
+  }
+  try {
+    await fs.rename(temporary, absolute);
+    return absolute;
+  } catch (error) {
+    await fs.rm(temporary, { force: true }).catch(() => undefined);
+    if (!esErrorPermiso(error)) throw error;
+
+    return escribirAlterno();
+  }
 }
 
 function runCommand(command) {
@@ -83,14 +123,14 @@ async function main() {
     durationMs: finished.getTime() - started.getTime()
   };
 
-  await writeReport(report, payload);
+  const reportWritten = await writeReport(report, payload);
 
   if (result.code !== 0) {
-    process.stderr.write(`[qa-gate-report] FAIL -> ${report}\n`);
+    process.stderr.write(`[qa-gate-report] FAIL -> ${reportWritten}\n`);
     process.exit(result.code);
   }
 
-  process.stdout.write(`[qa-gate-report] OK -> ${report}\n`);
+  process.stdout.write(`[qa-gate-report] OK -> ${reportWritten}\n`);
 }
 
 main().catch((error) => {

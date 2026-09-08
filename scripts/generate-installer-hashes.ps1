@@ -40,29 +40,56 @@ if (-not $InstallerDir) {
 
 function Get-Crc32Hex {
   param([Parameter(Mandatory = $true)][string]$Path)
-  [int64]$polynomial = 3988292384
-  $table = New-Object int64[] 256
-  for ($seed = 0; $seed -lt 256; $seed++) {
-    [int64]$value = $seed
-    for ($bit = 0; $bit -lt 8; $bit++) {
-      $lsb = $value -band 1
-      $value = [int64]($value -shr 1)
-      if ($lsb -ne 0) { $value = $value -bxor $polynomial }
+  # El bucle byte a byte en PowerShell degrada a minutos los bundles grandes.
+  # Compilar el mismo algoritmo una vez mueve el hot path al runtime .NET y
+  # conserva el CRC32 IEEE contractual sin cargar el instalador completo en RAM.
+  if (-not ('EvaluaProInstallerCrc32' -as [type])) {
+    Add-Type -TypeDefinition @'
+using System;
+using System.Globalization;
+using System.IO;
+
+public static class EvaluaProInstallerCrc32
+{
+    private static readonly uint[] Table = BuildTable();
+
+    private static uint[] BuildTable()
+    {
+        var table = new uint[256];
+        const uint polynomial = 0xEDB88320u;
+        for (uint seed = 0; seed < table.Length; seed++)
+        {
+            uint value = seed;
+            for (int bit = 0; bit < 8; bit++)
+            {
+                value = (value & 1u) == 0 ? value >> 1 : (value >> 1) ^ polynomial;
+            }
+            table[seed] = value;
+        }
+        return table;
     }
-    $table[$seed] = $value
+
+    public static string Compute(string path)
+    {
+        uint crc = 0xFFFFFFFFu;
+        var buffer = new byte[1024 * 1024];
+        using (var stream = File.OpenRead(path))
+        {
+            int read;
+            while ((read = stream.Read(buffer, 0, buffer.Length)) > 0)
+            {
+                for (int i = 0; i < read; i++)
+                {
+                    crc = (crc >> 8) ^ Table[(crc ^ buffer[i]) & 0xFFu];
+                }
+            }
+        }
+        return (crc ^ 0xFFFFFFFFu).ToString("x8", CultureInfo.InvariantCulture);
+    }
+}
+'@ -Language CSharp -ErrorAction Stop
   }
-  [int64]$crc = 4294967295
-  $stream = [System.IO.File]::OpenRead($Path)
-  try {
-    $buffer = New-Object byte[] 1048576
-    while (($read = $stream.Read($buffer, 0, $buffer.Length)) -gt 0) {
-      for ($i = 0; $i -lt $read; $i++) {
-        $index = [int](($crc -bxor [int64]$buffer[$i]) -band 255)
-        $crc = ($crc -shr 8) -bxor $table[$index]
-      }
-    }
-  } finally { $stream.Dispose() }
-  return ('{0:X8}' -f ([uint64]($crc -bxor 4294967295))).ToLowerInvariant()
+  return [EvaluaProInstallerCrc32]::Compute($Path)
 }
 $internalInstallerDir = Join-Path $InstallerDir '_internal'
 

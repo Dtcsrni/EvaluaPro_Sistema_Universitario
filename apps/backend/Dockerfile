@@ -40,7 +40,7 @@ ENV PLAYWRIGHT_CHROMIUM_EXECUTABLE=/usr/local/bin/evaluapro-chromium
 RUN npm install -g npm@11.11.0
 RUN if [ "$INSTALL_PLAYWRIGHT" = "1" ]; then \
       apt-get update \
-      && apt-get install -y --no-install-recommends chromium \
+      && apt-get install -y --no-install-recommends chromium poppler-utils \
       && ln -s /usr/bin/chromium /usr/local/bin/evaluapro-chromium \
       && rm -rf /var/lib/apt/lists/*; \
     fi

@@ -17,6 +17,9 @@ export interface LayoutExamenConfig {
   margenMm: number;
   templateVersion: TemplateVersion;
   totalPaginas: number;
+  fontScale?: number;
+  lineSpacing?: number;
+  logos?: { izquierdaPath?: string; derechaPath?: string };
 }
 
 export class ExamenPdf {

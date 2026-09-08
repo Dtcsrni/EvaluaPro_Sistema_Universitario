@@ -186,8 +186,11 @@ export const esquemaActualizarPreferenciasPdf = z
     lema: z.string().min(1).max(160).optional(),
     logos: z
       .object({
-        izquierdaPath: z.string().min(1).max(500).optional(),
-        derechaPath: z.string().min(1).max(500).optional()
+        // Las cargas desde la UI se almacenan como data URL para conservar
+        // la imagen en instalaciones locales sin depender de una ruta del
+        // equipo del docente. El frontend limita cada archivo a 2 MB.
+        izquierdaPath: z.string().min(1).max(4_000_000).optional(),
+        derechaPath: z.string().min(1).max(4_000_000).optional()
       })
       .optional()
   })

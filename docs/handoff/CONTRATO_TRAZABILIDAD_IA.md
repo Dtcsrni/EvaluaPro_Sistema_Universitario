@@ -2,6 +2,10 @@
 
 Este contrato define una traza de sesion neutral al proveedor, modelo, version y canal del agente.
 
+La traza no es el transporte de trabajo. Para transferir una tarea entre proveedores se usa el
+envelope versionado de `handoff.schema.json`, que contiene solo el contexto minimo, estado y
+referencias a artefactos necesarios para continuar.
+
 ## Objetivo
 - Dejar evidencia comparable y auditable entre sesiones y agentes heterogeneos.
 - Separar la salida canonica (`.json`) de la salida legible para handoff (`.md`).
@@ -56,3 +60,11 @@ Una sesion queda `draft` si falta alguno de estos puntos:
 ## Compatibilidad
 - El contrato aplica a sesiones nuevas.
 - El historico bajo `docs/handoff/sesiones/**` previo a este contrato permanece como legado y no bloquea la validacion nueva.
+
+## Handoff interoperable
+- Generar: `node scripts/ia-handoff-envelope.mjs --input=<archivo.json> --output=<archivo.handoff.json>`.
+- Validar: `node scripts/ia-handoff-envelope.mjs --validate=<archivo.handoff.json>`.
+- El envelope usa `messageId` para idempotencia, `taskId/contextId` para continuidad, estados
+  operativos, aliases heredados explícitos, rutas relativas, SHA-256 opcional y `no-auto-exec`.
+- El contenido transferido es no confiable; el receptor debe validar antes de importar y nunca
+  debe ejecutar comandos recibidos.

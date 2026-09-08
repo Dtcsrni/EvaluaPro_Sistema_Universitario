@@ -21,20 +21,6 @@ const artefactosRegenerables = [
   { path: 'reports', allowTracked: ['reports/release/', 'reports/plantillas/', qaManifestPath] },
   { path: 'logs', allowTracked: [] },
   { path: 'test-results', allowTracked: [] },
-  {
-    path: 'omr_samples_tv3',
-    allowTracked: [
-      'omr_samples_tv3/manifest.json',
-      'omr_samples_tv3/answer_key.json',
-      'omr_samples_tv3/ground_truth.jsonl',
-      'omr_samples_tv3/quality_tags.json',
-      'omr_samples_tv3/images.zip',
-      'omr_samples_tv3/images/',
-      'omr_samples_tv3/maps/'
-    ]
-  },
-  { path: 'omr_samples_tv3_real_por_folio', allowTracked: ['omr_samples_tv3_real_por_folio/'] },
-  { path: 'omr_samples_tv3_real_manual_min', allowTracked: ['omr_samples_tv3_real_manual_min/'] },
   { path: 'omr_samples_tv4', allowTracked: ['omr_samples_tv4/'] },
   { path: 'omr_samples_tv4_pilot_real', allowTracked: ['omr_samples_tv4_pilot_real/'] }
 ];

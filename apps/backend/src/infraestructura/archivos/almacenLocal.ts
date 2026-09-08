@@ -12,7 +12,7 @@
 import { promises as fs } from 'fs';
 import path from 'path';
 
-const carpetaBase = path.join(process.cwd(), 'data', 'examenes');
+const carpetaBase = path.resolve(String(process.env.EVALUAPRO_ARCHIVOS_DIR || path.join(process.cwd(), 'data', 'examenes')));
 
 async function asegurarCarpeta() {
   await fs.mkdir(carpetaBase, { recursive: true });

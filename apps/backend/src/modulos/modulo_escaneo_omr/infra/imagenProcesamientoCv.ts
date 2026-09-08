@@ -11,4 +11,4 @@ export {
   extraerSubimagenRgba,
   mediaEnVentana,
   obtenerTransformacion
-} from './imagenProcesamientoLegacy';
+} from './imagenProcesamientoCanonico';

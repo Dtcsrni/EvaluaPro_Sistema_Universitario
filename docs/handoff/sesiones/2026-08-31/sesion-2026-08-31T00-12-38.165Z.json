@@ -1,0 +1,213 @@
+{
+  "traceSchemaVersion": "1.0.0",
+  "sessionId": "sesion-2026-08-31T00-12-38.165Z",
+  "status": "draft",
+  "generatedAt": "2026-08-31T00:12:38.165Z",
+  "validationProfile": "quick",
+  "agent": {
+    "name": "unknown",
+    "version": "unknown",
+    "provider": "unknown",
+    "kind": "unknown",
+    "channel": "unknown"
+  },
+  "request": {
+    "summary": "Pendiente de completar por el agente."
+  },
+  "objective": "Pendiente de completar por el agente.",
+  "scope": [],
+  "constraints": [],
+  "actions": [
+    {
+      "type": "validation",
+      "summary": "Ejecucion de lint",
+      "timestamp": "2026-08-31T00:12:38.165Z",
+      "status": "omitido"
+    },
+    {
+      "type": "validation",
+      "summary": "Ejecucion de typecheck",
+      "timestamp": "2026-08-31T00:12:38.165Z",
+      "status": "omitido"
+    },
+    {
+      "type": "validation",
+      "summary": "Ejecucion de test_frontend_ci",
+      "timestamp": "2026-08-31T00:12:38.165Z",
+      "status": "omitido"
+    },
+    {
+      "type": "validation",
+      "summary": "Ejecucion de test_coverage_ci",
+      "timestamp": "2026-08-31T00:12:38.165Z",
+      "status": "omitido"
+    },
+    {
+      "type": "validation",
+      "summary": "Ejecucion de test_tdd_enforcement_ci",
+      "timestamp": "2026-08-31T00:12:38.165Z",
+      "status": "omitido"
+    },
+    {
+      "type": "validation",
+      "summary": "Ejecucion de test_backend_ci",
+      "timestamp": "2026-08-31T00:12:38.165Z",
+      "status": "omitido"
+    },
+    {
+      "type": "validation",
+      "summary": "Ejecucion de test_portal_ci",
+      "timestamp": "2026-08-31T00:12:38.165Z",
+      "status": "omitido"
+    },
+    {
+      "type": "validation",
+      "summary": "Ejecucion de perf_check",
+      "timestamp": "2026-08-31T00:12:38.165Z",
+      "status": "omitido"
+    },
+    {
+      "type": "validation",
+      "summary": "Ejecucion de pipeline_contract_check",
+      "timestamp": "2026-08-31T00:12:38.165Z",
+      "status": "ok"
+    },
+    {
+      "type": "validation",
+      "summary": "Ejecucion de docs_check",
+      "timestamp": "2026-08-31T00:12:38.165Z",
+      "status": "ok"
+    }
+  ],
+  "files": {
+    "read": [],
+    "changed": [
+      "CHANGELOG.md",
+      "apps/backend/reports/qa/latest/e2e-docente-alumno.json",
+      "apps/backend/reports/qa/latest/global-grade.json",
+      "apps/backend/reports/qa/latest/pdf-print.json",
+      "apps/frontend/reports/qa/latest/ux-visual.json",
+      "apps/frontend/src/apps/app_docente/SeccionCuenta.tsx",
+      "apps/frontend/tests/seccionCuenta.test.tsx",
+      "docs/INVENTARIO_CODIGO_EXHAUSTIVO.md",
+      "packaging/wix/BurnBootstrapperApp/MainWindow.xaml"
+    ],
+    "artifacts": [
+      "docs/handoff/sesiones/2026-08-31/sesion-2026-08-31T00-12-38.165Z.json",
+      "docs/handoff/sesiones/2026-08-31/sesion-2026-08-31T00-12-38.165Z.md"
+    ]
+  },
+  "commands": [
+    {
+      "name": "lint",
+      "command": "npm run lint",
+      "status": "omitido",
+      "exitCode": null,
+      "durationMs": 0,
+      "resultSummary": "omitido por perfil quick",
+      "timestamp": "2026-08-31T00:12:38.165Z"
+    },
+    {
+      "name": "typecheck",
+      "command": "npm run typecheck",
+      "status": "omitido",
+      "exitCode": null,
+      "durationMs": 0,
+      "resultSummary": "omitido por perfil quick",
+      "timestamp": "2026-08-31T00:12:38.165Z"
+    },
+    {
+      "name": "test_frontend_ci",
+      "command": "npm run test:frontend:ci",
+      "status": "omitido",
+      "exitCode": null,
+      "durationMs": 0,
+      "resultSummary": "omitido por perfil quick",
+      "timestamp": "2026-08-31T00:12:38.165Z"
+    },
+    {
+      "name": "test_coverage_ci",
+      "command": "npm run test:coverage:ci",
+      "status": "omitido",
+      "exitCode": null,
+      "durationMs": 0,
+      "resultSummary": "omitido por perfil quick",
+      "timestamp": "2026-08-31T00:12:38.165Z"
+    },
+    {
+      "name": "test_tdd_enforcement_ci",
+      "command": "npm run test:tdd:enforcement:ci",
+      "status": "omitido",
+      "exitCode": null,
+      "durationMs": 0,
+      "resultSummary": "omitido por perfil quick",
+      "timestamp": "2026-08-31T00:12:38.165Z"
+    },
+    {
+      "name": "test_backend_ci",
+      "command": "npm run test:backend:ci",
+      "status": "omitido",
+      "exitCode": null,
+      "durationMs": 0,
+      "resultSummary": "omitido por perfil quick",
+      "timestamp": "2026-08-31T00:12:38.165Z"
+    },
+    {
+      "name": "test_portal_ci",
+      "command": "npm run test:portal:ci",
+      "status": "omitido",
+      "exitCode": null,
+      "durationMs": 0,
+      "resultSummary": "omitido por perfil quick",
+      "timestamp": "2026-08-31T00:12:38.165Z"
+    },
+    {
+      "name": "perf_check",
+      "command": "npm run perf:check",
+      "status": "omitido",
+      "exitCode": null,
+      "durationMs": 0,
+      "resultSummary": "omitido por perfil quick",
+      "timestamp": "2026-08-31T00:12:38.165Z"
+    },
+    {
+      "name": "pipeline_contract_check",
+      "command": "npm run pipeline:contract:check",
+      "status": "ok",
+      "exitCode": 0,
+      "durationMs": 461,
+      "resultSummary": "> evaluapro@1.1.1 pipeline:contract:check | > node scripts/pipeline-contract-check.mjs | ✔ ext_perf_arquitectura prepara sharp antes de perf:check (1.5826ms) | ✔ ext_funcionales usa gate OMR TV generico con version configurable (0.5622ms) | ... | ℹ duration_ms 81.2923 | pipeline contract OK",
+      "timestamp": "2026-08-31T00:12:38.165Z"
+    },
+    {
+      "name": "docs_check",
+      "command": "npm run docs:check",
+      "status": "ok",
+      "exitCode": 0,
+      "durationMs": 5626,
+      "resultSummary": "> evaluapro@1.1.1 docs:check | > node scripts/docs.mjs --check | [docs] ok",
+      "timestamp": "2026-08-31T00:12:38.165Z"
+    }
+  ],
+  "decisions": [],
+  "assumptions": [],
+  "risks": [],
+  "nextStep": "Pendiente de completar por el agente.",
+  "completion": {
+    "isComplete": false,
+    "pendingFields": [
+      "request.summary",
+      "objective",
+      "scope",
+      "decisions",
+      "risks",
+      "nextStep"
+    ]
+  },
+  "repo": {
+    "rootDir": "C:\\Users\\evega\\Documents\\EvaluaPro",
+    "branch": "main",
+    "commit": "308e3f74",
+    "workingTreeStatus": "M CHANGELOG.md\n M apps/backend/reports/qa/latest/e2e-docente-alumno.json\n M apps/backend/reports/qa/latest/global-grade.json\n M apps/backend/reports/qa/latest/pdf-print.json\n M apps/frontend/reports/qa/latest/ux-visual.json\n M apps/frontend/src/apps/app_docente/SeccionCuenta.tsx\n M apps/frontend/tests/seccionCuenta.test.tsx\n M docs/INVENTARIO_CODIGO_EXHAUSTIVO.md\n M packaging/wix/BurnBootstrapperApp/MainWindow.xaml"
+  }
+}

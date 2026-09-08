@@ -5,42 +5,40 @@
  * incluyendo dimensiones, margenes, perfiles OMR, etc.
  */
 import type { PerfilPlantillaOmr, TemplateVersion } from '../shared/tiposPdf';
-import {
-  TEMPLATE_VERSION_TV3,
-  TEMPLATE_VERSION_TV4
-} from './templateCompat';
+import { TEMPLATE_VERSION_CANONICA } from './templateCanonico';
 
 const MM_A_PUNTOS = 72 / 25.4;
 
 /**
- * Perfil OMR v3 (radical): hoja de respuestas robusta para fotografía móvil.
+ * Perfil OMR canónico: hoja de respuestas robusta para fotografía móvil.
  */
-export const PERFIL_OMR_V3: PerfilPlantillaOmr = {
-  qrSize: 27 * MM_A_PUNTOS,
-  qrPadding: 3.8 * MM_A_PUNTOS,
-  qrMarginModulos: 8,
-  marcasEsquina: 'cuadrados',
-  marcaCuadradoSize: 9.2 * MM_A_PUNTOS,
-  marcaCuadradoQuietZone: 1.4 * MM_A_PUNTOS,
-  burbujaRadio: (2.8 * MM_A_PUNTOS) / 2,
-  burbujaPasoY: 2.9 * MM_A_PUNTOS,
-  cajaOmrAncho: 42,
-  fiducialSize: 1.1 * MM_A_PUNTOS,
+export const PERFIL_OMR_CANONICO: PerfilPlantillaOmr = {
+  // El payload por pagina incluye integridad, referencias y orden de
+  // opciones; una superficie fisica mayor conserva mas modulo por pixel.
+  qrSize: 25 * MM_A_PUNTOS,
+  qrPadding: 3 * MM_A_PUNTOS,
+  // Quiet zone de cuatro modulos, mas el padding blanco externo del PDF.
+  qrMarginModulos: 4,
+  marcasEsquina: 'lineas',
+  marcaCuadradoSize: 5.8 * MM_A_PUNTOS,
+  marcaCuadradoQuietZone: 0.8 * MM_A_PUNTOS,
+  // Superficie de marcado ampliada para lectura humana y fotografía móvil.
+  burbujaRadio: (4.8 * MM_A_PUNTOS) / 2,
+  burbujaPasoY: 3.9 * MM_A_PUNTOS,
+  // 132 pt dejan una celda legible para cinco respuestas y permiten que el
+  // mapa persistido coincida con el panel que realmente se imprime.
+  cajaOmrAncho: 132,
+  fiducialSize: 1.5 * MM_A_PUNTOS,
+  fiducialMargin: 0.9,
+  fiducialQuietZone: 0.5 * MM_A_PUNTOS,
   bubbleStrokePt: 1,
-  labelToBubbleMm: 1.6,
+  labelToBubbleMm: 2.2,
   preguntasPorBloque: 10,
   opcionesPorPregunta: 5
 };
 
-export const PERFIL_OMR_V4: PerfilPlantillaOmr = {
-  ...PERFIL_OMR_V3
-};
-
-/**
- * Resuelve el perfil OMR segun la version de template.
- */
+/** Resuelve el único perfil OMR operativo. */
 export function obtenerPerfilPlantilla(templateVersion: TemplateVersion): PerfilPlantillaOmr {
-  if (templateVersion === TEMPLATE_VERSION_TV3) return PERFIL_OMR_V3;
-  if (templateVersion === TEMPLATE_VERSION_TV4) return PERFIL_OMR_V4;
-  throw new Error(`Template version ${String(templateVersion)} no compatible para layout OMR`);
+  if (templateVersion === TEMPLATE_VERSION_CANONICA) return PERFIL_OMR_CANONICO;
+  throw new Error(`Template version ${String(templateVersion)} no compatible para layout OMR canónico`);
 }

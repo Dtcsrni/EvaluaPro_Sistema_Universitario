@@ -16,7 +16,10 @@ import { cerrarMongoTest, conectarMongoTest, limpiarMongoTest } from '../utils/m
 
 describe('retención de exámenes generados', () => {
   const app = crearApp();
-  const dataDir = path.join(process.cwd(), 'data', 'examenes');
+  // El almacenamiento de archivos se aísla en tests/setup.ts. No apuntar a
+  // la carpeta de artefactos del repositorio evita borrar o bloquear datos
+  // del checkout cuando la suite se ejecuta en paralelo con otras tareas.
+  const dataDir = path.resolve(String(process.env.EVALUAPRO_ARCHIVOS_DIR));
 
   beforeAll(async () => {
     await conectarMongoTest();

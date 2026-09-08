@@ -1,16 +1,19 @@
 /**
  * mongo
  *
- * Responsabilidad: Mock de base de datos para pruebas. Redirige llamadas de MongoDB
- * a SQLite/Prisma Client con aislamiento por worker de Vitest.
+ * Responsabilidad: SQLite temporal real para pruebas. Redirige las llamadas
+ * heredadas de MongoDB a Prisma Client con aislamiento por worker de Vitest.
  */
 import { execSync } from 'node:child_process';
 import path from 'node:path';
 import fs from 'node:fs';
+import os from 'node:os';
 import { resolverNombreDbTest } from './testDbPath';
 
 const dbFile = resolverNombreDbTest();
-const dataDir = path.resolve(process.cwd(), 'data');
+const dataDir = String(process.env.EVALUAPRO_TEST_DATA_DIR || '').trim()
+  || fs.mkdtempSync(path.join(os.tmpdir(), 'evaluapro-backend-test-'));
+process.env.EVALUAPRO_TEST_DATA_DIR = dataDir;
 const dbPath = path.resolve(dataDir, dbFile);
 const dbUrl = `file:${dbPath.replace(/\\/g, '/')}`;
 
@@ -139,12 +142,6 @@ export async function limpiarMongoTest() {
 
 export async function cerrarMongoTest() {
   await prisma.$disconnect();
-  // Borrar el archivo de base de datos de pruebas temporal para higiene
-  if (fs.existsSync(dbPath)) {
-    try {
-      fs.unlinkSync(dbPath);
-    } catch {
-      // Ignorar si está bloqueado temporalmente
-    }
-  }
+  // Borrar la base y su carpeta temporal para no contaminar data/ del runtime.
+  try { fs.rmSync(dataDir, { recursive: true, force: true }); } catch { /* higiene best-effort */ }
 }

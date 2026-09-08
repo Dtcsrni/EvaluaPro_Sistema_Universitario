@@ -21,7 +21,7 @@ export type ContextoPipelineOmr = {
   debugInfo?: {
     folio?: string;
     numeroPagina?: number;
-    templateVersionDetectada?: 1 | 3 | 4;
+    templateVersionDetectada?: 4;
   };
   requestId?: string;
   qrTexto?: string;

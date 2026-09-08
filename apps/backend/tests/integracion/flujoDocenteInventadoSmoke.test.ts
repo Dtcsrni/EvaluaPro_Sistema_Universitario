@@ -161,6 +161,6 @@ describe('Flujo Docente Integral Completo (Materia y Alumnos Inventados)', () =>
       .expect(200);
 
     expect(respuestaResumen.body?.resumen).toBeDefined();
-    expect(respuestaResumen.body?.resumen?.notaFinal).toBeGreaterThan(0);
+    expect(Number(respuestaResumen.body?.resumen?.finalDecimal)).toBeGreaterThan(0);
   });
 });

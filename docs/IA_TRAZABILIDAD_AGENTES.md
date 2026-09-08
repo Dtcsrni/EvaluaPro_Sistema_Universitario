@@ -1,6 +1,6 @@
 # Trazabilidad IA del Proyecto
 
-Fecha de corte: 2026-03-22
+Fecha de corte: 2026-09-03
 Objetivo: continuidad verificable entre agentes heterogeneos con evidencia reproducible, comparable y sanitizada.
 
 ## 1) Fuentes de verdad para agentes
@@ -18,6 +18,7 @@ Objetivo: continuidad verificable entre agentes heterogeneos con evidencia repro
 
 ## 2) Contrato canonico de trazabilidad
 - Schema machine-readable: `docs/handoff/trace.schema.json`
+- Envelope interoperable: `docs/handoff/handoff.schema.json`
 - Guia corta de uso: `docs/handoff/CONTRATO_TRAZABILIDAD_IA.md`
 - Plantilla humana: `docs/handoff/PLANTILLA_HANDOFF_IA.md`
 - Generador oficial:
@@ -53,6 +54,10 @@ Objetivo: continuidad verificable entre agentes heterogeneos con evidencia repro
    - `nextStep`
 5. `status=draft` es valido estructuralmente, pero indica campos semanticos pendientes.
 6. `status=final` solo aplica cuando la sesion ya puede ser retomada por otro agente sin decisiones importantes faltantes.
+7. La traza y el handoff tienen responsabilidades distintas: la primera prueba lo ocurrido;
+   el segundo transporta el trabajo minimo necesario para continuarlo.
+8. El handoff interoperable debe conservar `messageId`, `taskId`, `contextId`, estado operativo,
+   capacidades requeridas, artefactos con hash y politica `no-auto-exec`.
 
 ## 4) Politica de datos y sanitizacion
 1. No guardar prompts completos ni instrucciones sensibles.
@@ -89,6 +94,9 @@ Objetivo: continuidad verificable entre agentes heterogeneos con evidencia repro
    - `npm run ci:policy:audit`
 6. Cumplir estrictamente con la política de Spec-Driven Development (SDD). Verificar que toda especificación en `docs/specs/*.spec.md` sea válida ejecutando:
    - `npm run sdd:audit`
+7. Validar handoffs interoperables con:
+   - `npm run test:ia:handoff`
+   - `node scripts/ia-handoff-envelope.mjs --validate=<archivo.json>`
 
 ## 6) Validacion y enforcement
 - Validacion dedicada del contrato IA:

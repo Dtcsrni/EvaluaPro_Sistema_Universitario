@@ -1,6 +1,6 @@
 # Modulo de Generacion de PDF
 
-Estado actual: motor unico moderno TV4 sobre rutas canonicas `/api/examenes/*`.
+Estado actual: único motor OMR canónico sobre rutas `/api/examenes/*`.
 
 ## Arquitectura
 
@@ -19,11 +19,11 @@ modulo_generacion_pdf/
 Principios activos:
 - Sin feature flags de adopcion.
 - Sin motor paralelo antiguo.
-- Contrato unico para layout/paginacion TV4 con paridad visual A050929D.
+- Contrato único para layout/paginación canónica con paridad visual A050929D.
 - Sin compatibilidad de `totalReactivos` en modulo PDF.
-- Compatibilidad TV4 operativa en generacion:
-  - `templateVersion` por defecto en TV4.
-  - preguntas normalizadas a 5 opciones para mapa OMR TV4.
+- Contrato canónico operativo en generación:
+  - `templateVersion` se fija en la versión única soportada.
+  - preguntas normalizadas a 5 opciones para el mapa OMR canónico.
   - preguntas con mas de 5 opciones se rechazan (422).
 - Generacion desacoplada de alumno:
   - el examen se genera sin `alumnoId` asociado.
@@ -39,7 +39,7 @@ Principios activos:
 
 ## Variables de entorno
 
-- `EXAMEN_LAYOUT_VERSION=3`
+- `EXAMEN_LAYOUT_VERSION=4`
 - `EXAMEN_LAYOUT_CONFIGURACION='{}'`
 
 ## Validacion recomendada

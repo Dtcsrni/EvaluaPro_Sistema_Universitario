@@ -11,9 +11,11 @@ const args = process.argv.slice(2);
 const jsonOnly = args.includes('--json');
 const enforce = args.includes('--enforce');
 // El MSI/payload se limita separadamente; el Bundle incluye además el Hub WPF
-// autocontenido y su runtime .NET para conservar instalación autónoma.
-const maxPayloadBytes = 130 * 1024 * 1024;
-const maxBundleBytes = 200 * 1024 * 1024;
+// autocontenido y su runtime .NET para conservar instalación autónoma. Estos
+// presupuestos incluyen margen para el runtime nativo de Windows, Prisma,
+// Sharp y canvas; no autorizan retirar dependencias funcionales.
+const maxPayloadBytes = 180 * 1024 * 1024;
+const maxBundleBytes = 240 * 1024 * 1024;
 
 function readJson(filePath) {
   try {

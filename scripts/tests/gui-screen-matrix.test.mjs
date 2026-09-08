@@ -12,7 +12,7 @@ import { execFileSync } from 'node:child_process';
 
 const root = process.cwd();
 const matrixJsonPath = path.join(root, 'reports', 'qa', 'latest', 'gui-screen-matrix.json');
-const matrixMarkdownPath = path.join(root, 'docs', 'release', 'manual', 'gui-screen-matrix-2026-05-27.md');
+const matrixMarkdownPath = path.join(root, 'docs', 'release', 'manual', 'gui-screen-matrix.md');
 
 function runMatrixGenerator(extraArgs = []) {
   return execFileSync(

@@ -135,7 +135,7 @@ export function SeccionSincronizacionEquipos({
 
   return (
     <div className="shell">
-      <div className="panel shell-main">
+      <div className="panel shell-main shell-main--sync-equipos">
         <h2>
           <Icono nombre="recargar" /> Sincronizacion entre equipos
         </h2>

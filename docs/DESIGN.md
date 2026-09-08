@@ -19,6 +19,31 @@ EvaluaPro debe comunicar confianza académica, claridad operativa y progreso. La
 
 La imagen no debe copiar literalmente GitHub ni Windows; toma de ellos legibilidad, estados claros, densidad controlada y materiales con degradación segura.
 
+### Identidad visual canónica 1.9
+
+EvaluaPro usa una identidad de **Petróleo Prismático**: azul petróleo para la estructura,
+cyan eléctrico para acción y orientación, violeta para navegación secundaria, menta para
+confirmación, ámbar para atención y coral únicamente para riesgo. La paleta es semántica;
+los módulos no deben inventar acentos nuevos.
+
+| Token | Claro | Oscuro | Uso |
+| --- | --- | --- | --- |
+| `--ui-canvas` | `#EEF4FA` | `#07162B` | Fondo de aplicación |
+| `--ui-text-primary` | `#102033` | `#F8FBFF` | Títulos, valores y acciones |
+| `--ui-text-secondary` | `#334E68` | `#D9E8F5` | Descripción y contexto |
+| `--ui-text-muted` | `#526B84` | `#C8D8EB` | Ayuda y metadatos |
+| `--ui-accent-primary` | `#087EA4` | `#43D9FF` | Acción y foco |
+| `--ui-accent-secondary` | `#6259B8` | `#AAA2FF` | Navegación secundaria |
+| `--ui-accent-success` | `#087F5B` | `#4FE0AE` | Éxito y listo |
+| `--ui-accent-warning` | `#9A5B00` | `#FFD166` | Advertencia |
+| `--ui-accent-danger` | `#B4233E` | `#FF879A` | Riesgo o error |
+
+Las tarjetas y paneles usan `--ui-glass-surface` con transparencia, `backdrop-filter`,
+borde translúcido y un reflejo interno recortado al borde. El contenido crítico mantiene
+colores opacos y se valida con una relación mínima de 4.5:1 para texto normal; el vidrio
+es una capa material, nunca el mecanismo que garantiza la legibilidad. La fuente debe
+seguir siendo local para conservar el funcionamiento offline-first.
+
 - La UI debe comunicar estado operativo, no decorar. Cada bloque visible debe responder a una pregunta del usuario: que se hara, si el equipo esta listo, que esta pasando y como recuperarse.
 - El flujo primario debe caber en pantallas comunes: desktop, tablet y mobile para web; 1024x768 a 100-125% DPI para soporte Windows. El scroll se reserva para contenido largo, no para corregir desorden visual.
 - Cada pantalla debe tener una accion primaria evidente. Las acciones secundarias deben quedar cerca del contexto que modifican, sin competir con el flujo principal.

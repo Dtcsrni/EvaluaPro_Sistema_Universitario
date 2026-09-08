@@ -26,6 +26,7 @@ import {
 } from './application/usecases/generacionPlantillas';
 import {
   previsualizarPlantillaPdfUseCase,
+  previsualizarPlantillaPdfVisualUseCase,
   previsualizarPlantillaUseCase
 } from './application/usecases/previsualizacionPlantillas';
 
@@ -83,11 +84,21 @@ export async function previsualizarPlantilla(req: SolicitudDocente, res: Respons
 export async function previsualizarPlantillaPdf(req: SolicitudDocente, res: Response) {
   const payload = await previsualizarPlantillaPdfUseCase({
     docenteId: obtenerDocenteId(req),
-    plantillaId: String(req.params.id || '').trim()
+    plantillaId: String(req.params.id || '').trim(),
+    forzarRegeneracion: ['1', 'true', 'yes', 'si'].includes(String(req.query.refresh ?? '').trim().toLowerCase())
   });
   res.setHeader('Content-Type', 'application/pdf');
   res.setHeader('Content-Disposition', `inline; filename="${payload.fileName}"`);
   res.send(payload.buffer);
+}
+
+export async function previsualizarPlantillaPdfVisual(req: SolicitudDocente, res: Response) {
+  const payload = await previsualizarPlantillaPdfVisualUseCase({
+    docenteId: obtenerDocenteId(req),
+    plantillaId: String(req.params.id || '').trim(),
+    forzarRegeneracion: ['1', 'true', 'yes', 'si'].includes(String(req.query.refresh ?? '').trim().toLowerCase())
+  });
+  res.json(payload);
 }
 
 export async function generarExamen(req: SolicitudDocente, res: Response) {

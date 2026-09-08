@@ -282,6 +282,15 @@ function mensajeAmigablePorCodigo(codigo?: string): string | undefined {
   if (c.includes('SYNC_SERVIDOR_INALCANZABLE')) {
     return 'No se pudo conectar al servidor de sincronizacion. Verifica la URL y que el portal este en linea.';
   }
+  if (c.includes('SYNC_CLOUD_NO_CONFIGURADO')) {
+    return 'La sincronización entre equipos no está configurada. Define la carpeta de OneDrive en el backend.';
+  }
+  if (c.includes('SYNC_LEASE_OCUPADO')) {
+    return 'Otro equipo tiene el control de edición. Esta instalación permanecerá en solo lectura.';
+  }
+  if (c.includes('SYNC_LEASE_REQUERIDO') || c.includes('SYNC_LEASE_EXPIRADO') || c.includes('SYNC_LEASE_PERDIDO')) {
+    return 'Adquiere o renueva el control de edición antes de guardar cambios.';
+  }
   if (c.includes('CLASSROOM_NO_CONFIG')) {
     return 'Google Classroom no esta configurado en el backend. Define GOOGLE_CLASSROOM_CLIENT_ID, GOOGLE_CLASSROOM_CLIENT_SECRET, GOOGLE_CLASSROOM_REDIRECT_URI y CLASSROOM_TOKEN_CIPHER_KEY.';
   }
@@ -550,6 +559,7 @@ type CrearClienteJsonBaseOptions = {
   obtenerToken?: () => string | null;
   refrescarToken?: () => Promise<string | null>;
   credentials?: RequestCredentials;
+  headers?: Record<string, string>;
   retry?: RetryDescriptor;
   silenciarDuranteArranque?: () => boolean;
   toastUnreachable: ToastDescriptor;
@@ -561,6 +571,7 @@ export function crearPublicadorEventosUsoJson<EventoUso>(opts: {
   obtenerToken: () => string | null;
   url: string;
   credentials?: RequestCredentials;
+  headers?: Record<string, string>;
 }) {
   return async (lote: EventoUso[], token: string) => {
     const controller = new AbortController();
@@ -569,7 +580,7 @@ export function crearPublicadorEventosUsoJson<EventoUso>(opts: {
       await fetch(opts.url, {
         method: 'POST',
         credentials: opts.credentials,
-        headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + token },
+        headers: { 'Content-Type': 'application/json', ...(opts.headers || {}), Authorization: 'Bearer ' + token },
         body: JSON.stringify({ eventos: lote }),
         keepalive: true,
         signal: controller.signal
@@ -583,6 +594,7 @@ export function crearPublicadorEventosUsoJson<EventoUso>(opts: {
 export function crearClienteJsonBase(opts: CrearClienteJsonBaseOptions) {
   const withJsonHeaders = (token: string | null, includeJsonContentType: boolean) => ({
     ...(includeJsonContentType ? { 'Content-Type': 'application/json' } : {}),
+    ...(opts.headers || {}),
     ...(token ? { Authorization: 'Bearer ' + token } : {})
   });
 

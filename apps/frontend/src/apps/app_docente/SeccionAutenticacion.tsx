@@ -23,6 +23,39 @@ import {
   textoDominiosPermitidos
 } from './utilidades';
 
+function GoogleLoginConRespaldo({
+  onSuccess,
+  onError,
+  onFallback,
+  etiqueta = 'Acceder con Google'
+}: {
+  onSuccess: (cred: { credential?: string }) => void;
+  onError?: () => void;
+  onFallback: () => void;
+  etiqueta?: string;
+}) {
+  return (
+    <div className="auth-google-control">
+      <div className="auth-google-provider">
+        <GoogleLogin
+          onSuccess={onSuccess}
+          onError={onError}
+          useOneTap={false}
+          theme="filled_blue"
+          size="large"
+          text="signin_with"
+          shape="rectangular"
+          logo_alignment="left"
+        />
+      </div>
+      <button type="button" className="auth-google-fallback" onClick={onFallback}>
+        <span className="auth-google-fallback__mark" aria-hidden="true">G</span>
+        {etiqueta}
+      </button>
+    </div>
+  );
+}
+
 export function SeccionAutenticacion({
   onIngresar,
   oauthGoogleDisponible,
@@ -79,6 +112,12 @@ export function SeccionAutenticacion({
 
   function hayGoogleConfigurado() {
     return Boolean(String(import.meta.env.VITE_GOOGLE_CLIENT_ID || '').trim());
+  }
+
+  function informarGoogleNoDisponible() {
+    const msg = 'El acceso de Google no pudo cargarse. Verifica tu conexión e inténtalo nuevamente.';
+    setMensaje(msg);
+    emitToast({ level: 'error', title: 'Google no disponible', message: msg, durationMs: 5200 });
   }
 
   const googleDisponible = typeof oauthGoogleDisponible === 'boolean' ? oauthGoogleDisponible : hayGoogleConfigurado();
@@ -640,7 +679,7 @@ export function SeccionAutenticacion({
                   </div>
                 </div>
               )}
-              <GoogleLogin
+              <GoogleLoginConRespaldo
                 onSuccess={(cred) => {
                   const token = cred.credential;
                   if (!token) {
@@ -653,7 +692,7 @@ export function SeccionAutenticacion({
                   setErrorGoogleOauth(true);
                   setMensaje('Error de autorización con Google. Verifica los orígenes autorizados de JavaScript en Google Cloud Console.');
                 }}
-                useOneTap
+                onFallback={informarGoogleNoDisponible}
               />
               {dominiosPermitidos.length > 0 && (
                 <p className="nota nota--mt">Solo se permiten: {politicaDominiosTexto}</p>
@@ -687,7 +726,7 @@ export function SeccionAutenticacion({
               {passwordDisponible && mostrarRecuperar && (
                 <div className="auth-recovery-box">
                   <p className="nota">Si tu cuenta tiene Google vinculado, establece tu nueva contraseña.</p>
-                  <GoogleLogin
+                  <GoogleLoginConRespaldo
                     onSuccess={(cred) => {
                       const token = cred.credential;
                       if (!token) {
@@ -698,6 +737,7 @@ export function SeccionAutenticacion({
                       setMensaje('Google listo. Define tu nueva contraseña.');
                     }}
                     onError={() => setMensaje('No se pudo reautenticar con Google.')}
+                    onFallback={informarGoogleNoDisponible}
                   />
                   <label className="campo mt-10">
                     Nueva contraseña
@@ -727,7 +767,7 @@ export function SeccionAutenticacion({
 
           {googleDisponible && modo === 'registrar' && !(mostrarFormularioRegistrar && passwordDisponible) && (
             <div className="auth-google-wrapper">
-              <GoogleLogin
+              <GoogleLoginConRespaldo
                 onSuccess={(cred) => {
                   const token = cred.credential;
                   if (!token) {
@@ -773,6 +813,8 @@ export function SeccionAutenticacion({
                   setMensaje('Correo tomado de Google. Completa tus datos para crear la cuenta.');
                 }}
                 onError={() => setMensaje('No se pudo obtener datos de Google.')}
+                onFallback={informarGoogleNoDisponible}
+                etiqueta="Continuar con Google"
               />
               <div className="auth-divider-row">
                 <button
@@ -836,6 +878,7 @@ export function SeccionAutenticacion({
                   <label className="campo auth-campo">
                     Nombres
                     <div className="auth-input-box auth-input-box--user">
+                      <Icono nombre="alumno" className="auth-input-icon" />
                       <input
                         value={nombres}
                         onChange={(event) => setNombres(event.target.value)}
@@ -847,6 +890,7 @@ export function SeccionAutenticacion({
                   <label className="campo auth-campo">
                     Apellidos
                     <div className="auth-input-box auth-input-box--user">
+                      <Icono nombre="alumno" className="auth-input-icon" />
                       <input
                         value={apellidos}
                         onChange={(event) => setApellidos(event.target.value)}
@@ -861,6 +905,7 @@ export function SeccionAutenticacion({
               <label className="campo auth-campo">
                 Correo
                 <div className="auth-input-box auth-input-box--mail">
+                  <Icono nombre="correo" className="auth-input-icon" />
                   <input
                     type="email"
                     value={correo}
@@ -879,6 +924,7 @@ export function SeccionAutenticacion({
                 <label className="campo auth-campo">
                   Clave o Código de Licencia (opcional / institucional)
                   <div className="auth-input-box auth-input-box--shield">
+                    <Icono nombre="candado" className="auth-input-icon" />
                     <input
                       value={codigoLicencia}
                       onChange={(event) => setCodigoLicencia(event.target.value)}
@@ -913,6 +959,7 @@ export function SeccionAutenticacion({
                 <label className="campo auth-campo">
                   Contraseña
                   <div className="auth-input-box auth-input-box--key">
+                    <Icono nombre="candado" className="auth-input-icon" />
                     <input
                       type={mostrarPassword ? 'text' : 'password'}
                       value={contrasena}
@@ -927,9 +974,8 @@ export function SeccionAutenticacion({
                       onClick={() => setMostrarPassword(!mostrarPassword)}
                       title={mostrarPassword ? 'Ocultar' : 'Mostrar'}
                       aria-label={mostrarPassword ? 'Ocultar' : 'Mostrar'}
-                      tabIndex={-1}
                     >
-                      {mostrarPassword ? '👁️‍🗨️' : '👁️'}
+                      <Icono nombre="ojo" size={18} />
                     </button>
                   </div>
                   {modo === 'registrar' && contrasena.length > 0 && (

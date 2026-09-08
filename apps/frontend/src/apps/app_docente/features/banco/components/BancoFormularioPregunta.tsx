@@ -5,6 +5,7 @@
  * Limites: Evitar acoplar IO directo; preferir hooks/services del feature.
  */
 import { Boton } from '../../../../../ui/ux/componentes/Boton';
+import { Icono } from '../../../../../ui/iconos';
 import { GuiaBancoVisual } from '../../../GuiaBancoVisual';
 import type { Periodo, TemaBancoFormState } from './types';
 import type { Dispatch, SetStateAction } from 'react';
@@ -193,7 +194,7 @@ export function BancoFormularioPregunta({
               </span>
               {nombrePeriodoActivo && <span className="banco-counter-tag">{nombrePeriodoActivo}</span>}
             </div>
-            <h2 className="banco-panel__title eyebrow">🗃️ Banco de preguntas</h2>
+            <h2 className="banco-panel__title eyebrow"><Icono nombre="banco" /> Banco de preguntas</h2>
             <p className="nota">Construye, organiza y depura reactivos con una vista de trabajo más editorial y menos fragmentada.</p>
           </div>
         </div>

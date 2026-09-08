@@ -112,10 +112,10 @@ export function GuiaSincronizacionVisual() {
           </div>
           <div className="guia-step-card__body">
             <span className="guia-step-chip">PASO 03</span>
-            <h4>Fusión No Destructiva</h4>
-            <p>Importa datos fusionando calificaciones y asistencias sin sobreescribir datos recientes.</p>
+            <h4>Cloud coordinado por cambios</h4>
+            <p>El modo cloud conserva LWW por registro; la importación local 1:1 reemplaza la instantánea completa después de validarla.</p>
             <div className="guia-step-examples">
-              <span className="guia-chip-sample">Merge Inteligente</span>
+              <span className="guia-chip-sample">LWW solo en cloud</span>
               <span className="guia-chip-sample">Cero Pérdida</span>
             </div>
           </div>

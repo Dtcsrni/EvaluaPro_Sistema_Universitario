@@ -13,6 +13,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { clienteApi } from './clienteApiDocente';
 import { emitToast } from '../../ui/toast/toastBus';
+import { Icono } from '../../ui/iconos';
 import { Boton } from '../../ui/ux/componentes/Boton';
 import { GuiaTemariosVisual } from './GuiaTemariosVisual';
 import type { Periodo } from './tipos';
@@ -237,7 +238,7 @@ export function SeccionTemarios({ periodos }: Props) {
                 {periodoSeleccionado ? periodoSeleccionado.nombre : 'Sin materia seleccionada'}
               </span>
             </div>
-            <h2 className="temarios-panel__title eyebrow">📚 Temarios</h2>
+            <h2 className="temarios-panel__title eyebrow"><Icono nombre="temarios" /> Temarios</h2>
             <p className="nota">Organización de unidades temáticas, seguimiento de avance lectivo y alineación curricular.</p>
           </div>
         </div>
@@ -370,7 +371,7 @@ export function SeccionTemarios({ periodos }: Props) {
       {!periodoId ? (
         <div className="empty-state-card anim-fade-in">
           <div className="empty-state-card__icon anim-icon-pulse">
-            <span aria-hidden="true">📚</span>
+            <Icono nombre="temarios" size={28} />
           </div>
           <h4>Comienza seleccionando una materia</h4>
           <p className="nota">
@@ -510,7 +511,7 @@ export function SeccionTemarios({ periodos }: Props) {
               {/* Drag & drop PDF */}
               <div className="panel temarios-panel-card anim-card-hover">
                 <div className="asistencias-card-head">
-                  <h3 className="asistencias-sub-title">📄 Extracción Automática desde PDF</h3>
+                  <h3 className="asistencias-sub-title"><Icono nombre="pdf" /> Extracción Automática desde PDF</h3>
                   <p className="asistencias-sub-desc">Sube tu programa de estudios oficial y el sistema extraerá las unidades temáticas de forma estructurada.</p>
                 </div>
 

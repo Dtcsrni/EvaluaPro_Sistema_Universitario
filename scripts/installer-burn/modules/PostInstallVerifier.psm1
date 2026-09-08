@@ -1,6 +1,25 @@
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
 Import-Module (Join-Path $PSScriptRoot 'PrereqDetector.psm1') -DisableNameChecking
+Import-Module (Join-Path $PSScriptRoot 'OperationalConfig.psm1') -DisableNameChecking
+
+function Read-PostInstallEnvMap {
+  param([string]$Path)
+
+  $map = @{}
+  if (-not (Test-Path -LiteralPath $Path)) { return $map }
+  foreach ($line in @(Get-Content -LiteralPath $Path -Encoding utf8)) {
+    if ([string]::IsNullOrWhiteSpace([string]$line)) { continue }
+    $trimmed = ([string]$line).Trim()
+    if ($trimmed.StartsWith('#')) { continue }
+    $separator = $trimmed.IndexOf('=')
+    if ($separator -le 0) { continue }
+    $key = $trimmed.Substring(0, $separator).Trim()
+    if ([string]::IsNullOrWhiteSpace($key)) { continue }
+    $map[$key] = $trimmed.Substring($separator + 1)
+  }
+  return $map
+}
 
 function Get-EmbeddedNodeRuntimePath {
   param([string]$InstallDir)
@@ -24,6 +43,45 @@ function Get-EmbeddedNodeMajorVersion {
   } catch {
     return 0
   }
+}
+
+function Invoke-InstalledClassroomDoctor {
+  param(
+    [string]$InstallDir,
+    [string]$EnvPath,
+    [hashtable]$EnvMap,
+    [bool]$UseEmbeddedNode
+  )
+
+  $classroomConfigured = ConvertTo-InstallerHubBool -Value ([string]$EnvMap['CLASSROOM_ENABLED'])
+  foreach ($key in @('GOOGLE_CLASSROOM_CLIENT_ID', 'GOOGLE_CLASSROOM_CLIENT_SECRET', 'GOOGLE_CLASSROOM_REDIRECT_URI', 'CLASSROOM_TOKEN_CIPHER_KEY')) {
+    if (-not [string]::IsNullOrWhiteSpace([string]$EnvMap[$key])) {
+      $classroomConfigured = $true
+      break
+    }
+  }
+  if (-not $classroomConfigured) { return $null }
+
+  $doctorPath = Join-Path $InstallDir 'scripts\classroom-doctor.mjs'
+  if (-not (Test-Path -LiteralPath $doctorPath)) {
+    return 'No se encontro classroom-doctor.mjs en el runtime instalado.'
+  }
+
+  $nodePath = if ($UseEmbeddedNode) {
+    Get-EmbeddedNodeRuntimePath -InstallDir $InstallDir
+  } else {
+    $nodeCommand = Get-Command node.exe -ErrorAction SilentlyContinue
+    if ($nodeCommand) { [string]$nodeCommand.Source } else { '' }
+  }
+  if ([string]::IsNullOrWhiteSpace($nodePath) -or -not (Test-Path -LiteralPath $nodePath)) {
+    return 'No se encontro Node.js para ejecutar classroom-doctor.mjs.'
+  }
+
+  & $nodePath $doctorPath "--env=$EnvPath" *> $null
+  if ($LASTEXITCODE -ne 0) {
+    return 'classroom-doctor.mjs rechazo la configuracion efectiva del .env instalado.'
+  }
+  return $null
 }
 
 function Invoke-PostInstallVerification {
@@ -98,6 +156,7 @@ function Invoke-PostInstallVerification {
       $issues += "No se encontro archivo de configuracion operativa: $envPath"
     } else {
       $envRaw = Get-Content -Path $envPath -Raw -Encoding utf8
+      $envMap = Read-PostInstallEnvMap -Path $envPath
       $requiredEnvKeys = @('DATABASE_URL', 'BACKEND_DATABASE_URL', 'JWT_SECRETO', 'CORS_ORIGENES')
       if ([string]$Flavor.flavorId -ne 'docente-local') {
         $requiredEnvKeys += @('PORTAL_ALUMNO_URL', 'PORTAL_ALUMNO_API_KEY', 'PORTAL_API_KEY')
@@ -113,12 +172,19 @@ function Invoke-PostInstallVerification {
         }
       }
 
-      if ($envRaw -match '(?m)^\s*REQUIRE_GOOGLE_OAUTH\s*=\s*1\s*$') {
-        foreach ($oauthKey in @('GOOGLE_OAUTH_CLIENT_ID', 'GOOGLE_CLASSROOM_CLIENT_ID', 'GOOGLE_CLASSROOM_CLIENT_SECRET', 'GOOGLE_CLASSROOM_REDIRECT_URI')) {
-          if ($envRaw -notmatch ("(?m)^\s*{0}\s*=" -f [Regex]::Escape($oauthKey))) {
-            $issues += "OAuth requerido y falta variable en .env: $oauthKey"
-          }
+      $oauthValidation = Test-InstallerOAuthEnv -EnvMap $envMap
+      if (-not $oauthValidation.ok) {
+        foreach ($oauthError in @($oauthValidation.errors)) {
+          $issues += "Configuracion Google OAuth invalida: $oauthError"
         }
+      }
+      $doctorIssue = Invoke-InstalledClassroomDoctor `
+        -InstallDir $effectiveDir `
+        -EnvPath $envPath `
+        -EnvMap $envMap `
+        -UseEmbeddedNode ([string]$Flavor.flavorId -eq 'docente-local')
+      if ($doctorIssue) {
+        $issues += "Doctor Classroom: $doctorIssue"
       }
     }
 

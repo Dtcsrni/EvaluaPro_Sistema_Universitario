@@ -16,14 +16,13 @@ import { generarPdfExamen } from '../../servicioGeneracionPdf';
 import { generarVariante } from '../../servicioVariantes';
 import { construirRecoveryBundle, construirRecoveryManifest } from '../../domain/recoveryManifest';
 import { resolverNumeroPaginasPlantilla } from '../../domain/resolverNumeroPaginasPlantilla';
-import { extraerPreguntasUsadasMapaOmr } from '../../domain/tv4Compat';
+import { extraerPreguntasUsadasMapaOmr } from '../../domain/templateCanonico';
 import {
   construirEncabezadoPdf,
   construirFirmaVariante,
   construirMapaVarianteUsadaDesdeOmr,
   construirNombrePdfExamen,
   construirNombrePdfLote,
-  construirNombrePdfLoteAnterior,
   esEntornoTest,
   generarVarianteDeterminista,
   hash32,
@@ -77,8 +76,9 @@ export async function generarExamenUseCase(params: {
     mapaVariante,
     tipoExamen: plantilla.tipo as 'parcial' | 'global',
     totalPaginas: numeroPaginas,
-    margenMm: plantilla.configuracionPdf?.margenMm ?? 10,
+    margenMm: plantilla.configuracionPdf?.margenMm ?? 8,
     templateVersion: templateVersionOmr,
+    bookletConfig: plantilla.bookletConfig,
     encabezado: construirEncabezadoPdf({
       periodo,
       docenteDb,
@@ -273,8 +273,9 @@ export async function generarExamenesLoteUseCase(params: {
       mapaVariante: mapaVariante as unknown as ReturnType<typeof generarVariante>,
       tipoExamen: plantilla.tipo as 'parcial' | 'global',
       totalPaginas: numeroPaginas,
-      margenMm: plantilla.configuracionPdf?.margenMm ?? 10,
+      margenMm: plantilla.configuracionPdf?.margenMm ?? 8,
       templateVersion: templateVersionOmr,
+      bookletConfig: plantilla.bookletConfig,
       encabezado: construirEncabezadoPdf({
         periodo,
         docenteDb,
@@ -345,8 +346,9 @@ export async function generarExamenesLoteUseCase(params: {
           mapaVariante,
           tipoExamen: plantilla.tipo as 'parcial' | 'global',
           totalPaginas: numeroPaginas,
-          margenMm: plantilla.configuracionPdf?.margenMm ?? 10,
+          margenMm: plantilla.configuracionPdf?.margenMm ?? 8,
           templateVersion: templateVersionOmr,
+          bookletConfig: plantilla.bookletConfig,
           encabezado: construirEncabezadoPdf({
             periodo,
             docenteDb,
@@ -609,26 +611,9 @@ export async function descargarPdfLoteUseCase(params: {
     plantillaTitulo: String(plantilla?.titulo ?? ''),
     totalExamenes: Number(totalExamenes ?? 0)
   });
-  const nombreArchivoAnterior = construirNombrePdfLoteAnterior({
-    loteId: lote,
-    materiaNombre: String(periodo?.nombre ?? ''),
-    plantillaTitulo: String(plantilla?.titulo ?? '')
-  });
-
   const ruta = resolverRutaPdfExamen(fileName);
-  const rutaAnterior = resolverRutaPdfExamen(nombreArchivoAnterior);
-  const rutaLegacy = resolverRutaPdfExamen(`examenes-lote-${lote}.pdf`);
   try {
-    let buffer: Buffer;
-    try {
-      buffer = await fs.readFile(ruta);
-    } catch {
-      try {
-        buffer = await fs.readFile(rutaAnterior);
-      } catch {
-        buffer = await fs.readFile(rutaLegacy);
-      }
-    }
+    const buffer = await fs.readFile(ruta);
     return { buffer, fileName };
   } catch {
     throw new ErrorAplicacion('PDF_NO_DISPONIBLE', 'PDF de lote no disponible', 404, { docenteId: docId });

@@ -13,7 +13,9 @@ import type { PreviewPlantilla } from '../../../tipos';
 import { mensajeDeError } from '../../../utilidades';
 import type { Dispatch, SetStateAction } from 'react';
 
-type PreviewPdfUrls = { booklet?: string; omrSheet?: string };
+export type PreviewPdfPage = { numero: number; width: number; height: number; dataUrl: string };
+type PreviewPdfKind = 'booklet' | 'omrSheet';
+export type PreviewPdfUrls = { booklet?: string; omrSheet?: string; bookletPages?: PreviewPdfPage[]; omrSheetPages?: PreviewPdfPage[] };
 
 type Params = {
   puedePrevisualizarPlantillas: boolean;
@@ -53,6 +55,7 @@ export function usePlantillasPreviewActions({
           `/examenes/plantillas/${encodeURIComponent(id)}/previsualizar`
         );
         setPreviewPorPlantillaId((prev) => ({ ...prev, [id]: payload }));
+        emitToast({ level: 'ok', title: 'Previsualización', message: 'Boceto actualizado', durationMs: 1800 });
       } catch (error) {
         const msg = mensajeDeError(error, 'No se pudo generar la previsualizacion de la plantilla');
         emitToast({
@@ -87,7 +90,7 @@ export function usePlantillasPreviewActions({
   );
 
   const cargarPreviewPdfPlantilla = useCallback(
-    async (id: string, kind: keyof PreviewPdfUrls = 'booklet') => {
+    async (id: string, kind: PreviewPdfKind = 'booklet') => {
       if (cargandoPreviewPdfPlantillaId === id) return;
       if (!puedePrevisualizarPlantillas) {
         avisarSinPermiso('No tienes permiso para previsualizar plantillas.');
@@ -100,13 +103,14 @@ export function usePlantillasPreviewActions({
       }
 
       const intentar = async (t: string) =>
-        fetch(`${clienteApi.baseApi}/examenes/plantillas/${encodeURIComponent(id)}/previsualizar/pdf`, {
+        fetch(`${clienteApi.baseApi}/examenes/plantillas/${encodeURIComponent(id)}/previsualizar/pdf/visual?refresh=${Date.now()}`, {
           credentials: 'include',
           headers: { Authorization: `Bearer ${t}` }
         });
 
       try {
         setCargandoPreviewPdfPlantillaId(id);
+        emitToast({ level: 'info', title: 'Previsualización PDF', message: 'Renderizando PDF…', durationMs: 1800 });
         let resp = await intentar(token);
         if (resp.status === 401) {
           const nuevo = await clienteApi.intentarRefrescarToken();
@@ -114,13 +118,22 @@ export function usePlantillasPreviewActions({
         }
         if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
 
-        const blob = await resp.blob();
-        const url = URL.createObjectURL(blob);
+        const payload = (await resp.json()) as {
+          pdfBase64?: string;
+          paginas?: PreviewPdfPage[];
+        };
+        if (!payload.pdfBase64 || !Array.isArray(payload.paginas) || payload.paginas.length === 0) {
+          throw new Error('La previsualización visual no contiene páginas renderizadas.');
+        }
+        const bytes = Uint8Array.from(atob(payload.pdfBase64), (caracter) => caracter.charCodeAt(0));
+        const url = URL.createObjectURL(new Blob([bytes], { type: 'application/pdf' }));
+        const pagesKey = kind === 'booklet' ? 'bookletPages' : 'omrSheetPages';
         setPreviewPdfUrlPorPlantillaId((prev) => {
           const anterior = prev[id]?.[kind];
-          if (anterior) URL.revokeObjectURL(anterior);
-          return { ...prev, [id]: { ...prev[id], booklet: url } };
+          if (typeof anterior === 'string') URL.revokeObjectURL(anterior);
+          return { ...prev, [id]: { ...prev[id], [kind]: url, [pagesKey]: payload.paginas } };
         });
+        emitToast({ level: 'ok', title: 'Previsualización PDF', message: 'PDF actualizado', durationMs: 2200 });
       } catch (error) {
         const msg = mensajeDeError(error, 'No se pudo generar el PDF de previsualizacion');
         emitToast({
@@ -144,7 +157,8 @@ export function usePlantillasPreviewActions({
   );
 
   const cerrarPreviewPdfPlantilla = useCallback(
-    (id: string, kind?: keyof PreviewPdfUrls) => {
+    (id: string, kind?: PreviewPdfKind) => {
+      emitToast({ level: 'info', title: 'Previsualización PDF', message: 'PDF cerrado', durationMs: 1600 });
       setPreviewPdfUrlPorPlantillaId((prev) => {
         const actual = prev[id];
         if (!actual) return prev;
@@ -155,9 +169,10 @@ export function usePlantillasPreviewActions({
           delete copia[id];
           return copia;
         }
-        if (actual[kind]) URL.revokeObjectURL(actual[kind]!);
+        if (typeof actual[kind] === 'string') URL.revokeObjectURL(actual[kind] as string);
         const siguiente = { ...actual };
         delete siguiente[kind];
+        delete siguiente[kind === 'booklet' ? 'bookletPages' : 'omrSheetPages'];
         if (!siguiente.booklet && !siguiente.omrSheet) delete copia[id];
         else copia[id] = siguiente;
         return copia;

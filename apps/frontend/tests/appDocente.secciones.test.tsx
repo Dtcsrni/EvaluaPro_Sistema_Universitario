@@ -13,6 +13,9 @@ import { TemaProvider } from '../src/tema/TemaProvider';
 describe('AppDocente secciones (refactor)', () => {
   it('muestra tabs principales con token', async () => {
     localStorage.setItem('tokenDocente', 'token-falso');
+    // La pestaña interna se conserva durante la sesión real, pero cada caso
+    // debe arrancar en Diseño para no depender del orden/aislamiento del runner.
+    sessionStorage.removeItem('evaluapro.plantillas.tab-activa');
     render(
       <TemaProvider>
         <ConfirmDialogProvider>
@@ -24,6 +27,6 @@ describe('AppDocente secciones (refactor)', () => {
     const nav = await screen.findByRole('navigation', { name: 'Secciones del portal docente' });
     expect(within(nav).getByRole('button', { name: 'Materias' })).toBeInTheDocument();
     fireEvent.click(within(nav).getByRole('button', { name: /Plantillas|Diseño de Exámenes/i }));
-    expect(await screen.findByRole('heading', { name: 'Diseño de Exámenes' })).toBeInTheDocument();
+    expect(await screen.findByRole('heading', { name: 'Diseño de Exámenes' }, { timeout: 5000 })).toBeInTheDocument();
   });
 });

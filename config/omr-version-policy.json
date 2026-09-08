@@ -1,0 +1,12 @@
+{
+  "policyId": "omr-version-policy-v1",
+  "active": {
+    "templateVersion": 4,
+    "contractId": "omr-canonical-v4",
+    "displayLabel": "OMR canónico · v4",
+    "wireMarker": "TV4"
+  },
+  "oldVersionsOperational": false,
+  "selectionRule": "explicit-canonical-only",
+  "rejectionRule": "fail-closed"
+}

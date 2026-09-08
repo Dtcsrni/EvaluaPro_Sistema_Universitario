@@ -13,7 +13,21 @@
     <title>Sistema EvaluaPro</title>
   </head>
   <body>
-    <div id="root"></div>
+    <div id="root">
+      <div id="ep-app-splash" style="display:flex;flex-direction:column;align-items:center;justify-content:center;height:100vh;width:100vw;background:#060b14;color:#f8fafc;font-family:Segoe UI,Segoe UI Variable Text,system-ui,sans-serif;-webkit-user-select:none;user-select:none;">
+        <div style="position:relative;width:56px;height:56px;margin-bottom:18px;">
+          <div style="position:absolute;inset:0;border-radius:50%;border:2.5px solid rgba(56,189,248,0.18);border-top-color:#38bdf8;animation:ep-spin 0.9s cubic-bezier(0.4,0,0.2,1) infinite;"></div>
+          <div style="position:absolute;inset:6px;border-radius:50%;border:2px solid rgba(20,184,166,0.18);border-bottom-color:#14b8a6;animation:ep-spin-rev 1.3s cubic-bezier(0.4,0,0.2,1) infinite;"></div>
+        </div>
+        <div style="font-size:17px;font-weight:700;letter-spacing:-0.01em;color:#f8fafc;">EvaluaPro</div>
+        <div style="font-size:12.5px;color:#94a3b8;margin-top:6px;">Cargando componentes y servicios locales...</div>
+      </div>
+      <style>
+        @keyframes ep-spin { to { transform: rotate(360deg); } }
+        @keyframes ep-spin-rev { to { transform: rotate(-360deg); } }
+        body { margin: 0; background: #060b14; overflow: hidden; }
+      </style>
+    </div>
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>

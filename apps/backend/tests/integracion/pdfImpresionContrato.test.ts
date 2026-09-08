@@ -5,6 +5,7 @@
  */
 import crypto from 'node:crypto';
 import fs from 'node:fs/promises';
+import os from 'node:os';
 import path from 'node:path';
 import { PDFDocument } from 'pdf-lib';
 import request from 'supertest';
@@ -123,7 +124,9 @@ describe('contrato PDF impresion', () => {
       bytes: pdfBuffer.byteLength,
       paginas: totalPaginas
     };
-    const out = path.resolve(process.cwd(), 'reports/qa/latest/pdf-print.json');
+    // La evidencia de detalle es auxiliar del test; el gate CI administra el
+    // reporte contractual y esta salida no debe depender del checkout.
+    const out = path.join(os.tmpdir(), 'evaluapro-qa-reports', 'pdf-print.json');
     await fs.mkdir(path.dirname(out), { recursive: true });
     await fs.writeFile(out, `${JSON.stringify(reporte, null, 2)}\n`, 'utf8');
   });

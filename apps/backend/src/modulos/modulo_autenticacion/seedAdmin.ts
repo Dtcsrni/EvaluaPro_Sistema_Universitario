@@ -7,7 +7,7 @@ import { prisma } from '../../infraestructura/baseDatos/sqlite';
 import { crearHash } from './servicioHash';
 
 function shouldSeed(): boolean {
-  const env = String(process.env.NODE_ENV || '').toLowerCase();
+  const env = String(process.env.NODE_ENV || 'production').toLowerCase();
   if (env !== 'production') return true;
   return String(process.env.SEED_ADMIN_FORCE || '').toLowerCase() === 'true';
 }

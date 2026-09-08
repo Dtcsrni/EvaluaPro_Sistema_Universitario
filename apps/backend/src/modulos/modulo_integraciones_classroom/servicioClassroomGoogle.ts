@@ -23,12 +23,12 @@ const CLASSROOM_SCOPES = [
 const STATE_EXPIRA_SEGUNDOS = 10 * 60;
 
 function obtenerConfigClassroom() {
-  const clientId = String(configuracion.googleClassroomClientId || configuracion.googleOauthClientId || '').trim();
+  const clientId = String(configuracion.googleClassroomClientId || '').trim();
   const clientSecret = String(configuracion.googleClassroomClientSecret || '').trim();
   const redirectUri = String(configuracion.googleClassroomRedirectUri || '').trim();
   const llaveCifrado = String(configuracion.classroomTokenCipherKey || '').trim();
 
-  if (!clientId || !clientSecret || !redirectUri) {
+  if (!configuracion.classroomEnabled || !clientId || !clientSecret || !redirectUri) {
     throw new ErrorAplicacion(
       'CLASSROOM_NO_CONFIG',
       'Google Classroom no está configurado (clientId/clientSecret/redirectUri)',

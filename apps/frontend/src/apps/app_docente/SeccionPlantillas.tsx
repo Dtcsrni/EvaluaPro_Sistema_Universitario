@@ -7,7 +7,6 @@ import { emitToast } from '../../ui/toast/toastBus';
 import { Icono } from '../../ui/iconos';
 import { Boton } from '../../ui/ux/componentes/Boton';
 import { clienteApi } from './clienteApiDocente';
-import { GuiaDisenoExamenesVisual } from './features/plantillas/components/GuiaDisenoExamenesVisual';
 import { GuiaGeneracionExamenesVisual } from './features/plantillas/components/GuiaGeneracionExamenesVisual';
 import { GuiaHistorialLotesVisual } from './features/plantillas/components/GuiaHistorialLotesVisual';
 import { PlantillasConsolaGeneracion } from './features/plantillas/components/PlantillasConsolaGeneracion';
@@ -19,8 +18,12 @@ import {
   usePlantillasGeneradosActions,
   type ExamenGeneradoResumen
 } from './features/plantillas/hooks/usePlantillasGeneradosActions';
-import { usePlantillasOmrV1Actions } from './features/plantillas/hooks/usePlantillasOmrV1Actions';
-import { usePlantillasPreviewActions } from './features/plantillas/hooks/usePlantillasPreviewActions';
+import { usePlantillasOmrActions } from './features/plantillas/hooks/usePlantillasOmrActions';
+import {
+  usePlantillasPreviewActions,
+  type PreviewPdfPage,
+  type PreviewPdfUrls
+} from './features/plantillas/hooks/usePlantillasPreviewActions';
 import { registrarAccionDocente } from './telemetriaDocente';
 import type {
   Alumno,
@@ -31,7 +34,8 @@ import type {
   PermisosUI,
   Plantilla,
   Pregunta,
-  PreviewPlantilla
+  PreviewPlantilla,
+  Docente
 } from './tipos';
 import { idCortoMateria, mensajeDeError } from './utilidades';
 
@@ -44,12 +48,26 @@ type ProgresoLoteGeneracion = {
   estado: 'iniciando' | 'generando' | 'completado';
 };
 
+type TabPlantillas = 'diseno' | 'generacion' | 'historial';
+const PLANTILLAS_TAB_STORAGE_KEY = 'evaluapro.plantillas.tab-activa';
+
+function leerTabPlantillasInicial(): TabPlantillas {
+  if (typeof window === 'undefined') return 'diseno';
+  try {
+    const tab = window.sessionStorage.getItem(PLANTILLAS_TAB_STORAGE_KEY);
+    return tab === 'generacion' || tab === 'historial' || tab === 'diseno' ? tab : 'diseno';
+  } catch {
+    return 'diseno';
+  }
+}
+
 export function SeccionPlantillas({
   plantillas,
   periodos,
   preguntas,
   alumnos,
   permisos,
+  preferenciasPdf,
   enviarConPermiso,
   avisarSinPermiso,
   previewPorPlantillaId,
@@ -69,6 +87,7 @@ export function SeccionPlantillas({
   preguntas: Pregunta[];
   alumnos: Alumno[];
   permisos: PermisosUI;
+  preferenciasPdf?: Docente['preferenciasPdf'];
   enviarConPermiso: EnviarConPermiso;
   avisarSinPermiso: (mensaje: string) => void;
   previewPorPlantillaId: Record<string, PreviewPlantilla>;
@@ -77,8 +96,8 @@ export function SeccionPlantillas({
   setCargandoPreviewPlantillaId: Dispatch<SetStateAction<string | null>>;
   plantillaPreviewId: string | null;
   setPlantillaPreviewId: Dispatch<SetStateAction<string | null>>;
-  previewPdfUrlPorPlantillaId: Record<string, { booklet?: string; omrSheet?: string }>;
-  setPreviewPdfUrlPorPlantillaId: Dispatch<SetStateAction<Record<string, { booklet?: string; omrSheet?: string }>>>;
+  previewPdfUrlPorPlantillaId: Record<string, PreviewPdfUrls>;
+  setPreviewPdfUrlPorPlantillaId: Dispatch<SetStateAction<Record<string, PreviewPdfUrls>>>;
   cargandoPreviewPdfPlantillaId: string | null;
   setCargandoPreviewPdfPlantillaId: Dispatch<SetStateAction<string | null>>;
   onRefrescar: () => void;
@@ -103,6 +122,10 @@ export function SeccionPlantillas({
   const [periodoId, setPeriodoId] = useState('');
   const [numeroPaginas, setNumeroPaginas] = useState(2);
   const [reactivosObjetivo, setReactivosObjetivo] = useState(20);
+  const [fontScale, setFontScale] = useState(1);
+  const [lineSpacing, setLineSpacing] = useState(1.1);
+  const [logoIzquierda, setLogoIzquierda] = useState(preferenciasPdf?.logos?.izquierdaPath ?? '');
+  const [logoDerecha, setLogoDerecha] = useState(preferenciasPdf?.logos?.derechaPath ?? '');
   const [temasSeleccionados, setTemasSeleccionados] = useState<string[]>([]);
   const [mensaje, setMensaje] = useState('');
   const [plantillaId, setPlantillaId] = useState('');
@@ -132,7 +155,7 @@ export function SeccionPlantillas({
   const [archivandoPlantillaId, setArchivandoPlantillaId] = useState<string | null>(null);
   const [filtroPlantillas, setFiltroPlantillas] = useState('');
   const [refrescandoPlantillas, setRefrescandoPlantillas] = useState(false);
-  const [tabActiva, setTabActiva] = useState<'diseno' | 'generacion' | 'historial'>('diseno');
+  const [tabActiva, setTabActiva] = useState<TabPlantillas>(leerTabPlantillasInicial);
   const puedeLeerExamenes = permisos.examenes.leer;
   const puedeGenerarExamenes = permisos.examenes.generar;
   const puedeArchivarExamenes = permisos.examenes.archivar;
@@ -144,17 +167,29 @@ export function SeccionPlantillas({
   const puedePrevisualizarPlantillas = permisos.plantillas.previsualizar;
   const bloqueoEdicion = !puedeGestionarPlantillas;
 
-  // Estado solo de presentación para vista ampliada del preview PDF.
-  const [pdfFullscreenUrl, setPdfFullscreenUrl] = useState<string | null>(null);
+  useEffect(() => {
+    try {
+      window.sessionStorage.setItem(PLANTILLAS_TAB_STORAGE_KEY, tabActiva);
+    } catch {
+      // La navegación sigue funcionando aunque el almacenamiento no esté disponible.
+    }
+  }, [tabActiva]);
 
-  const abrirPdfFullscreen = useCallback((url: string) => {
+  // Estado solo de presentación para vista ampliada del preview PDF.
+  const [pdfFullscreen, setPdfFullscreen] = useState<{ url: string; pages: PreviewPdfPage[] } | null>(null);
+  const pdfFullscreenUrl = pdfFullscreen?.url ?? null;
+  const pdfFullscreenPages = pdfFullscreen?.pages ?? [];
+
+  const abrirPdfFullscreen = useCallback((url: string, pages: PreviewPdfPage[] = []) => {
     const u = String(url || '').trim();
-    if (!u) return;
-    setPdfFullscreenUrl(u);
+    if (!u || pages.length === 0) return;
+    setPdfFullscreen({ url: u, pages });
+    emitToast({ level: 'info', title: 'Vista previa', message: 'PDF abierto en pantalla completa', durationMs: 1800 });
   }, []);
 
   const cerrarPdfFullscreen = useCallback(() => {
-    setPdfFullscreenUrl(null);
+    setPdfFullscreen(null);
+    emitToast({ level: 'info', title: 'Vista previa', message: 'Pantalla completa cerrada', durationMs: 1600 });
   }, []);
 
   const plantillaSeleccionada = useMemo(() => {
@@ -356,7 +391,7 @@ export function SeccionPlantillas({
       setMensajeGeneracion
     ]
   );
-  const { cargarPreviewPlantilla, togglePreviewPlantilla, cargarPreviewPdfPlantilla, cerrarPreviewPdfPlantilla } =
+  const { togglePreviewPlantilla, cargarPreviewPdfPlantilla, cerrarPreviewPdfPlantilla } =
     usePlantillasPreviewActions({
       puedePrevisualizarPlantillas,
       avisarSinPermiso,
@@ -369,7 +404,7 @@ export function SeccionPlantillas({
       setPreviewPdfUrlPorPlantillaId,
       setCargandoPreviewPdfPlantillaId
     });
-  const { cargarAssessmentDetalle, descargarArtifact, crearJobOmr, resolverHojaOmr, finalizarJobOmr } = usePlantillasOmrV1Actions({
+  const { cargarAssessmentDetalle, descargarArtifact, crearJobOmr, resolverHojaOmr, finalizarJobOmr } = usePlantillasOmrActions({
     avisarSinPermiso,
     puedeDescargarExamenes,
     puedeAnalizarOmr,
@@ -413,8 +448,34 @@ export function SeccionPlantillas({
   }, [temasDisponibles, temasSeleccionados]);
 
   useEffect(() => {
-    setTemasSeleccionados([]);
-  }, [periodoId]);
+    if (totalDisponiblePorTemas <= 0) return;
+    setReactivosObjetivo((actual) => Math.min(200, totalDisponiblePorTemas, Math.max(1, actual)));
+  }, [totalDisponiblePorTemas]);
+
+  function seleccionarLogo(lado: 'izquierda' | 'derecha', archivo?: File) {
+    if (!archivo) return;
+    if (!['image/png', 'image/jpeg', 'image/webp'].includes(archivo.type)) {
+      setMensaje('La imagen debe ser PNG, JPG o WebP.');
+      return;
+    }
+    if (archivo.size > 2 * 1024 * 1024) {
+      setMensaje('La imagen no puede superar 2 MB.');
+      return;
+    }
+    const lector = new FileReader();
+    lector.onload = () => {
+      const dataUrl = String(lector.result ?? '');
+      if (!dataUrl.startsWith('data:image/')) {
+        setMensaje('No se pudo leer la imagen seleccionada.');
+        return;
+      }
+      if (lado === 'izquierda') setLogoIzquierda(dataUrl);
+      else setLogoDerecha(dataUrl);
+      setMensaje('');
+    };
+    lector.onerror = () => setMensaje('No se pudo leer la imagen seleccionada.');
+    lector.readAsDataURL(archivo);
+  }
 
   const puedeCrear = Boolean(
     titulo.trim() &&
@@ -467,7 +528,12 @@ export function SeccionPlantillas({
     if (refrescandoPlantillas) return;
     try {
       setRefrescandoPlantillas(true);
+      emitToast({ level: 'info', title: 'Plantillas', message: 'Actualizando el catálogo…', durationMs: 1800 });
       await Promise.resolve(onRefrescar());
+      emitToast({ level: 'ok', title: 'Plantillas', message: 'Catálogo actualizado', durationMs: 2200 });
+    } catch (error) {
+      const msg = mensajeDeError(error, 'No se pudo actualizar el catálogo');
+      emitToast({ level: 'error', title: 'Plantillas', message: msg, durationMs: 5200 });
     } finally {
       setRefrescandoPlantillas(false);
     }
@@ -475,6 +541,7 @@ export function SeccionPlantillas({
 
   function limpiarFiltroPlantillas() {
     setFiltroPlantillas('');
+    emitToast({ level: 'info', title: 'Filtro', message: 'Filtro de plantillas eliminado', durationMs: 1800 });
   }
 
   function iniciarEdicion(plantilla: Plantilla) {
@@ -485,8 +552,13 @@ export function SeccionPlantillas({
     setPeriodoId(String(plantilla.periodoId || ''));
     setNumeroPaginas(Number((plantilla as unknown as { numeroPaginas?: unknown })?.numeroPaginas ?? 1));
     setReactivosObjetivo(Number(plantilla.reactivosObjetivo ?? 20));
+    setFontScale(Number(plantilla.bookletConfig?.fontScale ?? 1));
+    setLineSpacing(Number(plantilla.bookletConfig?.lineSpacing ?? 1.1));
+    setLogoIzquierda(String(plantilla.bookletConfig?.logos?.izquierdaPath ?? preferenciasPdf?.logos?.izquierdaPath ?? ''));
+    setLogoDerecha(String(plantilla.bookletConfig?.logos?.derechaPath ?? preferenciasPdf?.logos?.derechaPath ?? ''));
     setTemasSeleccionados(Array.isArray(plantilla.temas) ? plantilla.temas : []);
     setMensaje('');
+    emitToast({ level: 'info', title: 'Plantillas', message: `Editando “${String(plantilla.titulo || '').trim()}”`, durationMs: 2200 });
   }
 
   function cancelarEdicion() {
@@ -497,8 +569,24 @@ export function SeccionPlantillas({
     setPeriodoId('');
     setNumeroPaginas(2);
     setReactivosObjetivo(20);
+    setFontScale(1);
+    setLineSpacing(1.1);
+    setLogoIzquierda(preferenciasPdf?.logos?.izquierdaPath ?? '');
+    setLogoDerecha(preferenciasPdf?.logos?.derechaPath ?? '');
     setTemasSeleccionados([]);
     setMensaje('');
+    emitToast({ level: 'info', title: 'Plantillas', message: 'Edición cancelada', durationMs: 1800 });
+  }
+
+  function cambiarTab(tab: TabPlantillas) {
+    if (tab === tabActiva) return;
+    const etiquetas: Record<TabPlantillas, string> = {
+      diseno: 'Diseño de exámenes',
+      generacion: 'Generación de paquete PDF/OMR',
+      historial: 'Historial de lotes'
+    };
+    setTabActiva(tab);
+    emitToast({ level: 'info', title: 'Sección', message: `Mostrando ${etiquetas[tab]}`, durationMs: 1800 });
   }
 
   async function guardarEdicion() {
@@ -532,10 +620,15 @@ export function SeccionPlantillas({
           allowImages: true,
           imageBudgetPolicy: 'balanced',
           headerStyle: 'compact',
-          fontScale: 1,
-          lineSpacing: 1.1,
+          logos: {
+            izquierdaPath: logoIzquierda || undefined,
+            derechaPath: logoDerecha || undefined
+          },
+          fontScale,
+          lineSpacing,
           separateCoverPage: false
         },
+        configuracionPdf: { margenMm: 8, layout: 'parcial' },
         omrConfig: {
           sheetFamilyCode: TECNICO_FAMILIA_OMR_DEFAULT,
           prefillMode: TECNICO_PREFILL_DEFAULT,
@@ -662,10 +755,15 @@ export function SeccionPlantillas({
           allowImages: true,
           imageBudgetPolicy: 'balanced',
           headerStyle: 'compact',
-          fontScale: 1,
-          lineSpacing: 1.1,
+          logos: {
+            izquierdaPath: logoIzquierda || undefined,
+            derechaPath: logoDerecha || undefined
+          },
+          fontScale,
+          lineSpacing,
           separateCoverPage: false
         },
+        configuracionPdf: { margenMm: 8, layout: 'parcial' },
         omrConfig: {
           sheetFamilyCode: TECNICO_FAMILIA_OMR_DEFAULT,
           prefillMode: TECNICO_PREFILL_DEFAULT,
@@ -1018,7 +1116,7 @@ export function SeccionPlantillas({
           role="tab"
           aria-selected={tabActiva === 'diseno'}
           className={`plantillas-tab-btn ${tabActiva === 'diseno' ? 'plantillas-tab-btn--active' : ''}`}
-          onClick={() => setTabActiva('diseno')}
+          onClick={() => cambiarTab('diseno')}
         >
           <span className="plantillas-tab-btn__icon">📐</span>
           <span className="plantillas-tab-btn__label">Diseñar Exámenes</span>
@@ -1030,9 +1128,9 @@ export function SeccionPlantillas({
           role="tab"
           aria-selected={tabActiva === 'generacion'}
           className={`plantillas-tab-btn ${tabActiva === 'generacion' ? 'plantillas-tab-btn--active' : ''}`}
-          onClick={() => setTabActiva('generacion')}
+          onClick={() => cambiarTab('generacion')}
         >
-          <span className="plantillas-tab-btn__icon">🚀</span>
+          <span className="plantillas-tab-btn__icon"><Icono nombre="publicar" size={18} /></span>
           <span className="plantillas-tab-btn__label">Generar Paquete PDF/OMR</span>
           {generandoLote && <span className="plantillas-tab-btn__badge pulse">En progreso</span>}
         </button>
@@ -1042,9 +1140,9 @@ export function SeccionPlantillas({
           role="tab"
           aria-selected={tabActiva === 'historial'}
           className={`plantillas-tab-btn ${tabActiva === 'historial' ? 'plantillas-tab-btn--active' : ''}`}
-          onClick={() => setTabActiva('historial')}
+          onClick={() => cambiarTab('historial')}
         >
-          <span className="plantillas-tab-btn__icon">📦</span>
+          <span className="plantillas-tab-btn__icon"><Icono nombre="recargar" size={18} /></span>
           <span className="plantillas-tab-btn__label">Historial de Lotes</span>
           <span className="plantillas-tab-btn__count">{examenesGenerados.length}</span>
         </button>
@@ -1052,8 +1150,20 @@ export function SeccionPlantillas({
 
       {/* ── PESTAÑA 1: DISEÑAR EXÁMENES ── */}
       {tabActiva === 'diseno' && (
-        <div className="anim-fade-in" role="tabpanel" aria-label="Diseñar Exámenes">
-          <GuiaDisenoExamenesVisual />
+        <div className="plantillas-diseno-tab anim-fade-in" role="tabpanel" aria-label="Diseñar Exámenes">
+          <section className="plantillas-studio-intro" aria-labelledby="plantillas-studio-title">
+            <div>
+              <span className="plantillas-studio-kicker">ESTUDIO DE CONSTRUCCIÓN</span>
+              <h3 id="plantillas-studio-title">Construye tu examen paso a paso</h3>
+              <p>Define los datos, asigna preguntas por tema y revisa el PDF antes de generar el paquete.</p>
+            </div>
+            <ol className="plantillas-studio-steps" aria-label="Flujo de diseño">
+              <li className="is-active"><span>1</span><b>Datos</b></li>
+              <li><span>2</span><b>Temas</b></li>
+              <li><span>3</span><b>Formato</b></li>
+              <li><span>4</span><b>Vista previa</b></li>
+            </ol>
+          </section>
 
           <PlantillasFormulario
             modoEdicion={modoEdicion}
@@ -1068,6 +1178,17 @@ export function SeccionPlantillas({
             temasSeleccionados={temasSeleccionados}
             setTemasSeleccionados={setTemasSeleccionados}
             totalDisponiblePorTemas={totalDisponiblePorTemas}
+            numeroPaginas={numeroPaginas}
+            setNumeroPaginas={setNumeroPaginas}
+            reactivosObjetivo={reactivosObjetivo}
+            setReactivosObjetivo={setReactivosObjetivo}
+            logoIzquierda={logoIzquierda}
+            logoDerecha={logoDerecha}
+            seleccionarLogo={seleccionarLogo}
+            fontScale={fontScale}
+            setFontScale={setFontScale}
+            lineSpacing={lineSpacing}
+            setLineSpacing={setLineSpacing}
             creando={creando}
             puedeCrear={puedeCrear}
             crear={crear}
@@ -1088,13 +1209,13 @@ export function SeccionPlantillas({
             plantillaPreviewId={plantillaPreviewId}
             previewPdfUrlPorPlantillaId={previewPdfUrlPorPlantillaId}
             cargandoPreviewPlantillaId={cargandoPreviewPlantillaId}
-            cargarPreviewPlantilla={cargarPreviewPlantilla}
             puedePrevisualizarPlantillas={puedePrevisualizarPlantillas}
             cargandoPreviewPdfPlantillaId={cargandoPreviewPdfPlantillaId}
             cargarPreviewPdfPlantilla={cargarPreviewPdfPlantilla}
             cerrarPreviewPdfPlantilla={cerrarPreviewPdfPlantilla}
             abrirPdfFullscreen={abrirPdfFullscreen}
             pdfFullscreenUrl={pdfFullscreenUrl}
+            pdfFullscreenPages={pdfFullscreenPages}
             cerrarPdfFullscreen={cerrarPdfFullscreen}
             togglePreviewPlantilla={togglePreviewPlantilla}
             iniciarEdicion={iniciarEdicion}
@@ -1128,7 +1249,7 @@ export function SeccionPlantillas({
             lotePdfUrl={lotePdfUrl}
             descargarPdfLote={descargarPdfLote}
             progresoLoteGeneracion={progresoLoteGeneracion}
-            onIrAHistorial={() => setTabActiva('historial')}
+            onIrAHistorial={() => cambiarTab('historial')}
           />
         </div>
       )}

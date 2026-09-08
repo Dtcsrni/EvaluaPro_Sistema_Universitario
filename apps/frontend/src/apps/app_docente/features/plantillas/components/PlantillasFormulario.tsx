@@ -5,9 +5,16 @@
  */
 import { Icono } from '../../../../../ui/iconos';
 import { Boton } from '../../../../../ui/ux/componentes/Boton';
+import { emitToast } from '../../../../../ui/toast/toastBus';
 import { esMensajeError, etiquetaMateria, idCortoMateria } from '../../../utilidades';
 import type { Periodo, Plantilla } from '../../../tipos';
 import type { Dispatch, SetStateAction } from 'react';
+import {
+  calcularEstimacionDensidadPlantilla,
+  MIN_FONT_SCALE_LEGIBLE,
+  textoEstimacionDensidadPlantilla
+} from '../hooks/estimadorDensidadPlantilla';
+import { OMR_CANONICAL_DISPLAY_LABEL } from '../../../../../ui/version/versionInfo';
 
 type TemaDisponible = { tema: string; total: number };
 
@@ -24,6 +31,17 @@ export function PlantillasFormulario({
   temasSeleccionados,
   setTemasSeleccionados,
   totalDisponiblePorTemas,
+  numeroPaginas,
+  setNumeroPaginas,
+  reactivosObjetivo,
+  setReactivosObjetivo,
+  logoIzquierda,
+  logoDerecha,
+  seleccionarLogo,
+  fontScale,
+  setFontScale,
+  lineSpacing,
+  setLineSpacing,
   creando,
   puedeCrear,
   crear,
@@ -44,6 +62,17 @@ export function PlantillasFormulario({
   temasSeleccionados: string[];
   setTemasSeleccionados: Dispatch<SetStateAction<string[]>>;
   totalDisponiblePorTemas: number;
+  numeroPaginas: number;
+  setNumeroPaginas: (value: number) => void;
+  reactivosObjetivo: number;
+  setReactivosObjetivo: (value: number) => void;
+  logoIzquierda: string;
+  logoDerecha: string;
+  seleccionarLogo: (lado: 'izquierda' | 'derecha', archivo: File | undefined) => void;
+  fontScale: number;
+  setFontScale: (value: number) => void;
+  lineSpacing: number;
+  setLineSpacing: (value: number) => void;
   creando: boolean;
   puedeCrear: boolean;
   crear: () => void;
@@ -52,6 +81,35 @@ export function PlantillasFormulario({
   cancelarEdicion: () => void;
   mensaje: string;
 }) {
+  const totalReactivosEstimados = totalDisponiblePorTemas > 0
+    ? Math.min(Math.max(1, Math.floor(reactivosObjetivo || 0)), totalDisponiblePorTemas)
+    : 0;
+  const estimacionDensidad = calcularEstimacionDensidadPlantilla({
+    totalReactivos: totalReactivosEstimados,
+    paginasConfiguradas: numeroPaginas,
+    temasSeleccionados: temasSeleccionados.length,
+    fontScale,
+    lineSpacing
+  });
+  const maxReactivos = Math.min(200, Math.max(1, totalDisponiblePorTemas));
+  const reactivosSugeridos = totalDisponiblePorTemas > 0
+    ? Math.min(maxReactivos, Math.max(1, numeroPaginas * estimacionDensidad.capacidadBasePorPagina))
+    : 0;
+  const reactivosConfigurados = totalDisponiblePorTemas > 0
+    ? Math.min(maxReactivos, Math.max(1, Math.floor(reactivosObjetivo || 1)))
+    : 0;
+  const ajustarReactivos = (delta: number) => {
+    if (bloqueoEdicion || totalDisponiblePorTemas <= 0) return;
+    const siguiente = Math.min(maxReactivos, Math.max(1, reactivosConfigurados + delta));
+    setReactivosObjetivo(siguiente);
+    emitToast({
+      level: 'info',
+      title: 'Preguntas',
+      message: `Cantidad ajustada a ${siguiente} reactivos`,
+      durationMs: 1400
+    });
+  };
+
   return (
     <section className="alumnos-form alumnos-form--glass alumnos-form--panoramico plantillas-form--panoramico anim-form-card">
       <div className="alumnos-form__header">
@@ -66,6 +124,9 @@ export function PlantillasFormulario({
           <p className="alumnos-form__subtitle">
             Configura la estructura del examen por materia y temas antes de pasar a previsualización o generación.
           </p>
+        </div>
+        <div className="plantillas-panel__meta" aria-label="Contrato OMR activo">
+          <span className="version-env-badge">{OMR_CANONICAL_DISPLAY_LABEL}</span>
         </div>
       </div>
 
@@ -105,7 +166,10 @@ export function PlantillasFormulario({
             <div className="auth-input-box auth-input-box--select auth-input-box--animated">
               <select
                 value={periodoId}
-                onChange={(event) => setPeriodoId(event.target.value)}
+                onChange={(event) => {
+                  setPeriodoId(event.target.value);
+                  setTemasSeleccionados([]);
+                }}
                 disabled={bloqueoEdicion}
                 data-tooltip="Materia a la que pertenece la plantilla."
               >
@@ -122,7 +186,7 @@ export function PlantillasFormulario({
         </div>
 
         {/* Fila 2: Matriz de Temas */}
-        <div className="plantillas-temas-box">
+        <div className={`plantillas-temas-box ${temasDisponibles.length === 0 ? 'plantillas-temas-box--empty' : ''}`}>
           <div className="plantillas-temas__header">
             <div>
               <h4 className="plantillas-temas__title">Temas de la plantilla</h4>
@@ -150,9 +214,16 @@ export function PlantillasFormulario({
                   className={`plantillas-tema-chip ${seleccionado ? 'plantillas-tema-chip--selected' : ''}`}
                   onClick={() => {
                     if (bloqueoEdicion) return;
+                    const estabaSeleccionado = temasSeleccionados.includes(td.tema);
                     setTemasSeleccionados((prev) =>
                       prev.includes(td.tema) ? prev.filter((t) => t !== td.tema) : [...prev, td.tema]
                     );
+                    emitToast({
+                      level: 'info',
+                      title: 'Temas',
+                      message: estabaSeleccionado ? `Tema retirado: ${td.tema}` : `Tema agregado: ${td.tema}`,
+                      durationMs: 1600
+                    });
                   }}
                   disabled={bloqueoEdicion}
                 >
@@ -164,11 +235,125 @@ export function PlantillasFormulario({
             })}
           </div>
 
+          {temasDisponibles.length === 0 && (
+            <div className="plantillas-temas-empty" role="status">
+              <span className="plantillas-temas-empty__icon" aria-hidden="true">{periodoId ? '!' : '2'}</span>
+              <div>
+                <b>{periodoId ? 'Aún no hay temas disponibles' : 'Selecciona una materia para comenzar'}</b>
+                <p>{periodoId
+                  ? 'Agrega preguntas clasificadas en Banco para habilitar la selección.'
+                  : 'Los temas se cargarán aquí y podrás elegir cuáles alimentan el examen.'}</p>
+              </div>
+            </div>
+          )}
+
           {temasSeleccionados.length > 0 && (
             <div className="plantillas-temas__resumen">
               <span>Reactivos disponibles en temas seleccionados: <b>{totalDisponiblePorTemas}</b></span>
             </div>
           )}
+        </div>
+
+        <div className="plantillas-formato-box" aria-label="Formato de impresión">
+          <div className="plantillas-formato-box__heading">
+            <div>
+              <span className="plantillas-formato-box__eyebrow">Formato de impresión</span>
+              <h4 className="plantillas-temas__title">Legibilidad y densidad</h4>
+              <p className="nota">Ajusta la lectura sin perder el orden de preguntas ni la precisión OMR.</p>
+            </div>
+            <span className="plantillas-formato-box__badge">
+              {textoEstimacionDensidadPlantilla(estimacionDensidad)}
+            </span>
+          </div>
+          <div className="plantillas-formato-box__controls">
+            <label className="campo plantillas-formato-control">
+              <span className="campo__label-row"><span>Páginas configuradas</span><b>{numeroPaginas}</b></span>
+              <input
+                type="number"
+                min={1}
+                max={50}
+                step={1}
+                value={numeroPaginas}
+                onChange={(event) => {
+                  const valor = Number(event.target.value);
+                  if (Number.isFinite(valor)) setNumeroPaginas(Math.min(50, Math.max(1, Math.floor(valor))));
+                }}
+                disabled={bloqueoEdicion}
+                aria-label="Cantidad de páginas"
+              />
+              <span className="ayuda">Define cuántas páginas debe ocupar aproximadamente el cuadernillo.</span>
+            </label>
+            <div className="campo plantillas-formato-control" aria-label="Cantidad de preguntas">
+              <span className="campo__label-row"><span>Preguntas del examen</span><b>{reactivosConfigurados}</b></span>
+              <div className="plantillas-stepper">
+                <button type="button" className="plantillas-stepper__button" onClick={() => ajustarReactivos(-1)} disabled={bloqueoEdicion || totalDisponiblePorTemas <= 0 || reactivosConfigurados <= 1} aria-label="Quitar una pregunta">−</button>
+                <input
+                  type="number"
+                  min={1}
+                  max={maxReactivos}
+                  step={1}
+                  value={totalDisponiblePorTemas > 0 ? reactivosObjetivo : ''}
+                  onChange={(event) => {
+                    const valor = Number(event.target.value);
+                    if (Number.isFinite(valor)) setReactivosObjetivo(Math.min(maxReactivos, Math.max(1, Math.floor(valor))));
+                  }}
+                  disabled={bloqueoEdicion || totalDisponiblePorTemas <= 0}
+                  aria-label="Preguntas del examen"
+                />
+                <button type="button" className="plantillas-stepper__button" onClick={() => ajustarReactivos(1)} disabled={bloqueoEdicion || totalDisponiblePorTemas <= 0 || reactivosConfigurados >= maxReactivos} aria-label="Agregar una pregunta">+</button>
+              </div>
+              <span className="ayuda">{totalDisponiblePorTemas > 0 ? `Agrega o quita reactivos. Disponibles: ${totalDisponiblePorTemas}. Sugerido: ${reactivosSugeridos}.` : 'Selecciona al menos un tema para habilitar este control.'}</span>
+            </div>
+            <label className="campo plantillas-formato-control">
+              <span className="campo__label-row"><span>Tamaño de fuente</span><b>{Math.round(fontScale * 100)}%</b></span>
+              <select
+                value={fontScale}
+                onChange={(event) => setFontScale(Number(event.target.value))}
+                disabled={bloqueoEdicion}
+                aria-label="Tamaño de fuente"
+              >
+                <option value={String(MIN_FONT_SCALE_LEGIBLE)}>Compacta legible (90%)</option>
+                <option value="1">Normal (100%)</option>
+                <option value="1.1">Grande (110%)</option>
+                <option value="1.2">Muy grande (120%)</option>
+              </select>
+              <span className="ayuda">Se aplica al encabezado, preguntas y opciones.</span>
+            </label>
+            <label className="campo plantillas-formato-control">
+              <span className="campo__label-row"><span>Espaciado de línea</span><b>{lineSpacing.toFixed(1)}×</b></span>
+              <select
+                value={lineSpacing}
+                onChange={(event) => setLineSpacing(Number(event.target.value))}
+                disabled={bloqueoEdicion}
+                aria-label="Espaciado de línea"
+              >
+                <option value="1">Compacto (1.0×)</option>
+                <option value="1.1">Equilibrado (1.1×)</option>
+                <option value="1.2">Amplio (1.2×)</option>
+              </select>
+              <span className="ayuda">El motor revalida cada bloque antes de dibujarlo.</span>
+            </label>
+          </div>
+          <div className="plantillas-formato-box__footer">
+            <span>Estimación orientativa según reactivos, temas, páginas y densidad; el PDF se vuelve a validar al renderizar.</span>
+            <span className="plantillas-formato-box__omr">✓ Panel OMR reservado</span>
+          </div>
+          <div className="plantillas-formato-box__logos" aria-label="Imágenes del encabezado">
+            <div>
+              <span className="plantillas-formato-box__eyebrow">Identidad visual</span>
+              <p className="nota">Carga dos logos o imágenes ilustrativas. Se conservarán en los espacios laterales del encabezado.</p>
+            </div>
+            <label className="campo plantillas-formato-control">
+              <span className="campo__label-row"><span>Imagen izquierda</span><b>{logoIzquierda ? 'Cargada' : 'Ilustrativa'}</b></span>
+              <input type="file" accept="image/png,image/jpeg,image/webp" onChange={(event) => seleccionarLogo('izquierda', event.target.files?.[0])} disabled={bloqueoEdicion} aria-label="Cargar imagen izquierda" />
+              <span className="ayuda">PNG, JPG o WebP · máximo 2 MB.</span>
+            </label>
+            <label className="campo plantillas-formato-control">
+              <span className="campo__label-row"><span>Imagen derecha</span><b>{logoDerecha ? 'Cargada' : 'Ilustrativa'}</b></span>
+              <input type="file" accept="image/png,image/jpeg,image/webp" onChange={(event) => seleccionarLogo('derecha', event.target.files?.[0])} disabled={bloqueoEdicion} aria-label="Cargar imagen derecha" />
+              <span className="ayuda">PNG, JPG o WebP · máximo 2 MB.</span>
+            </label>
+          </div>
         </div>
 
         {/* Footer con Botones y Ayuda */}

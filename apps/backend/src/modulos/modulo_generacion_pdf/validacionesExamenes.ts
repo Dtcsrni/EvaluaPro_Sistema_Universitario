@@ -8,6 +8,12 @@ const normalizarTexto = (valor: string) => valor.trim().replace(/\s+/g, ' ');
 const esquemaTitulo = z.string().trim().min(3).max(120).transform(normalizarTexto);
 const esquemaInstrucciones = z.string().trim().max(2000).transform(normalizarTexto);
 const esquemaTema = z.string().trim().min(1).max(80).transform(normalizarTexto);
+const esquemaLogosBooklet = z
+  .object({
+    izquierdaPath: z.string().trim().max(4_000_000).optional(),
+    derechaPath: z.string().trim().max(4_000_000).optional()
+  })
+  .strict();
 const esquemaBookletConfig = z
   .object({
     targetPages: z.number().int().positive().max(50).optional(),
@@ -15,7 +21,8 @@ const esquemaBookletConfig = z
     allowImages: z.boolean().optional(),
     imageBudgetPolicy: z.enum(['strict', 'balanced']).optional(),
     headerStyle: z.enum(['institutional', 'compact']).optional(),
-    fontScale: z.number().min(0.8).max(1.3).optional(),
+    logos: esquemaLogosBooklet.optional(),
+    fontScale: z.number().min(0.9).max(1.3).optional(),
     lineSpacing: z.number().min(0.9).max(1.6).optional(),
     separateCoverPage: z.boolean().optional()
   })

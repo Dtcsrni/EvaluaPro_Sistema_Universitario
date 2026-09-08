@@ -69,6 +69,7 @@ Objetivo: dejar operativo el piloto (1 institucion, 1-3 docentes) con backend lo
   - [ ] `PASSWORD_RESET_ENABLED` (`0`/`1`)
   - [ ] Si OAuth/Google habilitado: `GOOGLE_OAUTH_CLIENT_ID`
   - [ ] Si OAuth requerido en sitio: `REQUIRE_GOOGLE_OAUTH=1`
+  - [ ] Si se usará Google para snapshots locales: `EVALUAPRO_BACKUP_CIFRADO_SECRETO` igual en todos los equipos del docente
   - [ ] Si Classroom habilitado: `GOOGLE_CLASSROOM_CLIENT_ID`, `GOOGLE_CLASSROOM_CLIENT_SECRET`, `GOOGLE_CLASSROOM_REDIRECT_URI`
   - [ ] `CORREO_MODULO_ACTIVO` (`0`/`1`)
   - [ ] Si correo activo: `NOTIFICACIONES_WEBHOOK_URL` y `NOTIFICACIONES_WEBHOOK_TOKEN`

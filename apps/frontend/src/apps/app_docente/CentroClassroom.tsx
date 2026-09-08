@@ -366,7 +366,7 @@ export function CentroClassroom({
   }
 
   return (
-    <div className="panel">
+    <div className="panel classroom-panel">
       <h4>Google Classroom</h4>
       {mensaje && <InlineMensaje tipo="info">{mensaje}</InlineMensaje>}
 

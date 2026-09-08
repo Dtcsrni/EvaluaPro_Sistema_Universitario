@@ -27,6 +27,7 @@ const SKIP_DIRS = new Set([
   '.git',
   'node_modules',
   'dist',
+  'dist-native',
   'build',
   'coverage',
   'logs',

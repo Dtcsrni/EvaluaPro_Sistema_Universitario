@@ -1,59 +1,245 @@
 {
   "version": "1",
-  "generadoEn": "2026-08-27T01:18:51.789Z",
+  "generadoEn": "2026-09-08T00:07:27.577Z",
   "artefactos": [
     {
       "archivo": "reports/qa/latest/dataset-prodlike.json",
       "existe": true,
       "bytes": 262,
-      "actualizadoEn": "2026-08-27T01:18:14.991Z"
+      "actualizadoEn": "2026-08-28T10:07:21.384Z"
     },
     {
       "archivo": "reports/qa/latest/e2e-docente-alumno.json",
       "existe": true,
       "bytes": 340,
-      "actualizadoEn": "2026-08-27T01:18:22.703Z"
+      "actualizadoEn": "2026-08-28T10:07:21.387Z"
     },
     {
       "archivo": "reports/qa/latest/global-grade.json",
       "existe": true,
       "bytes": 369,
-      "actualizadoEn": "2026-08-27T01:18:28.606Z"
+      "actualizadoEn": "2026-08-28T10:07:21.390Z"
     },
     {
       "archivo": "reports/qa/latest/evaluaciones-policy.json",
       "existe": true,
       "bytes": 401,
-      "actualizadoEn": "2026-08-27T01:18:31.896Z"
+      "actualizadoEn": "2026-08-28T10:07:21.389Z"
     },
     {
       "archivo": "reports/qa/latest/evaluaciones-e2e.json",
       "existe": true,
       "bytes": 553,
-      "actualizadoEn": "2026-08-27T01:18:43.253Z"
+      "actualizadoEn": "2026-08-28T10:07:21.389Z"
     },
     {
       "archivo": "reports/qa/latest/pdf-print.json",
       "existe": true,
       "bytes": 316,
-      "actualizadoEn": "2026-08-27T01:18:48.893Z"
+      "actualizadoEn": "2026-08-28T10:07:21.468Z"
     },
     {
       "archivo": "reports/qa/latest/ux-visual.json",
       "existe": true,
       "bytes": 295,
-      "actualizadoEn": "2026-08-27T01:18:51.563Z"
+      "actualizadoEn": "2026-09-02T07:28:07.765Z"
     },
     {
       "archivo": "reports/qa/latest/clean-architecture.json",
       "existe": true,
-      "bytes": 1030,
-      "actualizadoEn": "2026-08-25T05:16:22.118Z"
+      "bytes": 1029,
+      "actualizadoEn": "2026-09-03T08:12:46.571Z"
+    },
+    {
+      "archivo": "reports/qa/latest/gui-screen-matrix.json",
+      "existe": true,
+      "bytes": 68227,
+      "actualizadoEn": "2026-09-08T00:07:20.852Z"
+    },
+    {
+      "archivo": "reports/qa/latest/gui-admin-dashboard-desktop-lg.png",
+      "existe": true,
+      "bytes": 382488,
+      "actualizadoEn": "2026-08-28T10:07:21.395Z"
+    },
+    {
+      "archivo": "reports/qa/latest/gui-admin-dashboard-mobile.png",
+      "existe": true,
+      "bytes": 165189,
+      "actualizadoEn": "2026-08-28T10:07:21.397Z"
+    },
+    {
+      "archivo": "reports/qa/latest/gui-admin-tenants-desktop-lg.png",
+      "existe": true,
+      "bytes": 387111,
+      "actualizadoEn": "2026-08-28T10:07:21.402Z"
+    },
+    {
+      "archivo": "reports/qa/latest/gui-admin-tenants-mobile.png",
+      "existe": true,
+      "bytes": 126636,
+      "actualizadoEn": "2026-08-28T10:07:21.404Z"
+    },
+    {
+      "archivo": "reports/qa/latest/gui-alumno-login-desktop-lg.png",
+      "existe": true,
+      "bytes": 309369,
+      "actualizadoEn": "2026-08-28T10:07:21.406Z"
+    },
+    {
+      "archivo": "reports/qa/latest/gui-alumno-login-mobile.png",
+      "existe": true,
+      "bytes": 89480,
+      "actualizadoEn": "2026-08-28T10:07:21.407Z"
+    },
+    {
+      "archivo": "reports/qa/latest/gui-alumno-resultados-desktop-lg.png",
+      "existe": true,
+      "bytes": 338818,
+      "actualizadoEn": "2026-08-28T10:07:21.411Z"
+    },
+    {
+      "archivo": "reports/qa/latest/gui-alumno-resultados-mobile.png",
+      "existe": true,
+      "bytes": 106192,
+      "actualizadoEn": "2026-08-28T10:07:21.413Z"
+    },
+    {
+      "archivo": "reports/qa/latest/gui-docente-alumnos-desktop-lg.png",
+      "existe": true,
+      "bytes": 612052,
+      "actualizadoEn": "2026-09-03T06:51:11.816Z"
+    },
+    {
+      "archivo": "reports/qa/latest/gui-docente-alumnos-mobile.png",
+      "existe": true,
+      "bytes": 216666,
+      "actualizadoEn": "2026-09-03T06:51:28.088Z"
+    },
+    {
+      "archivo": "reports/qa/latest/gui-docente-banco-desktop-lg.png",
+      "existe": true,
+      "bytes": 534628,
+      "actualizadoEn": "2026-09-03T06:51:13.628Z"
+    },
+    {
+      "archivo": "reports/qa/latest/gui-docente-banco-mobile.png",
+      "existe": true,
+      "bytes": 238201,
+      "actualizadoEn": "2026-09-03T06:51:29.123Z"
+    },
+    {
+      "archivo": "reports/qa/latest/gui-docente-calificaciones-desktop-lg.png",
+      "existe": true,
+      "bytes": 578664,
+      "actualizadoEn": "2026-09-03T06:51:18.844Z"
+    },
+    {
+      "archivo": "reports/qa/latest/gui-docente-calificaciones-mobile.png",
+      "existe": true,
+      "bytes": 241568,
+      "actualizadoEn": "2026-09-03T06:51:32.242Z"
+    },
+    {
+      "archivo": "reports/qa/latest/gui-docente-cuenta-desktop-lg.png",
+      "existe": true,
+      "bytes": 546306,
+      "actualizadoEn": "2026-09-03T06:51:25.597Z"
+    },
+    {
+      "archivo": "reports/qa/latest/gui-docente-cuenta-mobile.png",
+      "existe": true,
+      "bytes": 247986,
+      "actualizadoEn": "2026-09-03T06:51:36.342Z"
+    },
+    {
+      "archivo": "reports/qa/latest/gui-docente-entrega-desktop-lg.png",
+      "existe": true,
+      "bytes": 584262,
+      "actualizadoEn": "2026-09-03T06:51:17.144Z"
+    },
+    {
+      "archivo": "reports/qa/latest/gui-docente-entrega-mobile.png",
+      "existe": true,
+      "bytes": 243325,
+      "actualizadoEn": "2026-09-03T06:51:31.226Z"
+    },
+    {
+      "archivo": "reports/qa/latest/gui-docente-evaluaciones-desktop-lg.png",
+      "existe": true,
+      "bytes": 530017,
+      "actualizadoEn": "2026-09-03T06:51:21.956Z"
+    },
+    {
+      "archivo": "reports/qa/latest/gui-docente-evaluaciones-mobile.png",
+      "existe": true,
+      "bytes": 247670,
+      "actualizadoEn": "2026-09-03T06:51:34.249Z"
+    },
+    {
+      "archivo": "reports/qa/latest/gui-docente-login-desktop-lg.png",
+      "existe": true,
+      "bytes": 603345,
+      "actualizadoEn": "2026-09-03T06:51:05.586Z"
+    },
+    {
+      "archivo": "reports/qa/latest/gui-docente-login-mobile.png",
+      "existe": true,
+      "bytes": 178779,
+      "actualizadoEn": "2026-09-03T06:51:07.748Z"
+    },
+    {
+      "archivo": "reports/qa/latest/gui-docente-periodos-desktop-lg.png",
+      "existe": true,
+      "bytes": 535488,
+      "actualizadoEn": "2026-09-03T06:51:10.208Z"
+    },
+    {
+      "archivo": "reports/qa/latest/gui-docente-periodos-mobile.png",
+      "existe": true,
+      "bytes": 173589,
+      "actualizadoEn": "2026-09-03T06:51:27.231Z"
+    },
+    {
+      "archivo": "reports/qa/latest/gui-docente-plantillas-desktop-lg.png",
+      "existe": true,
+      "bytes": 530920,
+      "actualizadoEn": "2026-09-03T06:51:15.357Z"
+    },
+    {
+      "archivo": "reports/qa/latest/gui-docente-plantillas-mobile.png",
+      "existe": true,
+      "bytes": 232803,
+      "actualizadoEn": "2026-09-03T06:51:30.169Z"
+    },
+    {
+      "archivo": "reports/qa/latest/gui-docente-rehidratacion-desktop-lg.png",
+      "existe": true,
+      "bytes": 596433,
+      "actualizadoEn": "2026-09-03T06:51:20.425Z"
+    },
+    {
+      "archivo": "reports/qa/latest/gui-docente-rehidratacion-mobile.png",
+      "existe": true,
+      "bytes": 212418,
+      "actualizadoEn": "2026-09-03T06:51:33.190Z"
+    },
+    {
+      "archivo": "reports/qa/latest/gui-docente-sincronizacion-desktop-lg.png",
+      "existe": true,
+      "bytes": 602026,
+      "actualizadoEn": "2026-09-03T06:51:23.777Z"
+    },
+    {
+      "archivo": "reports/qa/latest/gui-docente-sincronizacion-mobile.png",
+      "existe": true,
+      "bytes": 246504,
+      "actualizadoEn": "2026-09-03T06:51:35.289Z"
     }
   ],
   "resumen": {
-    "total": 8,
-    "presentes": 8,
+    "total": 39,
+    "presentes": 39,
     "faltantes": 0,
     "estado": "ok"
   }

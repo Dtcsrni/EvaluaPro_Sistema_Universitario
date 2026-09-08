@@ -22,12 +22,12 @@ function renderConTema(ui: ReactNode) {
 }
 
 describe('UX quality contract', () => {
-  it('docente sin token muestra acceso guiado y navegacion comprensible', () => {
+  it('docente sin token muestra acceso guiado y navegacion comprensible', async () => {
     const { container } = renderConTema(<AppDocente />);
 
-    expect(screen.getByText(/Acceso docente/i)).toBeInTheDocument();
-    expect(screen.getByText(/Plataforma Docente/i)).toBeInTheDocument();
-    expect(screen.getByRole('list', { name: /Beneficios/i })).toBeInTheDocument();
+    expect(await screen.findByText(/Acceso docente/i)).toBeInTheDocument();
+    expect(await screen.findByText(/Plataforma Docente/i)).toBeInTheDocument();
+    expect(await screen.findByRole('list', { name: /Beneficios/i })).toBeInTheDocument();
     expect(container.querySelectorAll('svg[data-icono]').length).toBeGreaterThanOrEqual(4);
   });
 
@@ -44,7 +44,8 @@ describe('UX quality contract', () => {
     }
 
     await user.click(within(nav).getByRole('button', { name: 'Materias' }));
-    expect(await screen.findByText(/Para que sirve y como llenarlo/i)).toBeInTheDocument();
+    await user.click(await screen.findByRole('button', { name: /Ver guía rápida de configuración/i }));
+    expect(await screen.findByText(/Para qué sirve y cómo llenarlo/i)).toBeInTheDocument();
 
     await user.click(within(nav).getByRole('button', { name: 'Sincronización' }));
     expect(await screen.findByText(/Operacion recomendada entre computadoras/i)).toBeInTheDocument();

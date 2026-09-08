@@ -432,11 +432,9 @@ jobs:
         if: github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && inputs.force_full_ci) || needs.detectar_cambios.outputs.gate_dataset_prodlike_check == 'true' || needs.detectar_cambios.outputs.escalation == 'full-extended'
         run: npm run test:dataset-prodlike:ci
 
-      - name: Etapa omr-tv-real-gate
+      - name: Etapa omr-canonical-real-gate
         if: github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && inputs.force_full_ci) || needs.detectar_cambios.outputs.gate_omr_tv_extended_gate == 'true' || needs.detectar_cambios.outputs.escalation == 'full-extended'
-        env:
-          OMR_TV_GATE_VERSION: ${{ vars.OMR_TV_GATE_VERSION || 'tv3' }}
-        run: npm run test:omr:tv:gate:ci
+        run: npm run test:omr:canonical:gate:ci
 
       - name: Etapa docente-alumno-e2e-check
         if: github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && inputs.force_full_ci) || needs.detectar_cambios.outputs.gate_docente_alumno_e2e_check == 'true' || needs.detectar_cambios.outputs.escalation == 'full-extended'

@@ -121,6 +121,7 @@ function assertPasswordAuthDisponible() {
 function obtenerCapacidadesOauthClassroom() {
   const oauthGoogleBackend = Boolean(String(configuracion.googleOauthClientId || '').trim());
   const classroomBackend = Boolean(
+    configuracion.classroomEnabled &&
     String(configuracion.googleClassroomClientId || '').trim() &&
       String(configuracion.googleClassroomClientSecret || '').trim() &&
       String(configuracion.googleClassroomRedirectUri || '').trim() &&
@@ -131,9 +132,15 @@ function obtenerCapacidadesOauthClassroom() {
       String(configuracion.notificacionesWebhookUrl || '').trim() &&
       String(configuracion.notificacionesWebhookToken || '').trim()
   );
+  const snapshotGoogleDisponible = Boolean(
+    oauthGoogleBackend &&
+      String(configuracion.respaldoCifradoSecreto || '').trim() &&
+      (configuracion.entorno !== 'production' || String(process.env.EVALUAPRO_BACKUP_CIFRADO_SECRETO || '').trim())
+  );
 
   return {
     oauthGoogleBackend,
+    snapshotGoogleDisponible,
     classroomBackend,
     smtpBackend,
     requireGoogleOAuth: configuracion.requireGoogleOAuth,

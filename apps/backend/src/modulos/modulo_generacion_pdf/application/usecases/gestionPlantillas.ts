@@ -106,6 +106,10 @@ export async function crearPlantillaUseCase(params: {
     allowImages: (params.body.bookletConfig as any)?.allowImages !== false,
     imageBudgetPolicy: String((params.body.bookletConfig as any)?.imageBudgetPolicy ?? 'balanced'),
     headerStyle: String((params.body.bookletConfig as any)?.headerStyle ?? 'institutional'),
+    logos: {
+      izquierdaPath: String((params.body.bookletConfig as any)?.logos?.izquierdaPath ?? '').trim() || undefined,
+      derechaPath: String((params.body.bookletConfig as any)?.logos?.derechaPath ?? '').trim() || undefined
+    },
     fontScale: Number((params.body.bookletConfig as any)?.fontScale ?? 1) || 1,
     lineSpacing: Number((params.body.bookletConfig as any)?.lineSpacing ?? 1.1) || 1.1,
     separateCoverPage: Boolean((params.body.bookletConfig as any)?.separateCoverPage)
@@ -123,7 +127,7 @@ export async function crearPlantillaUseCase(params: {
   };
 
   const configuracionPdf = {
-    margenMm: Number((params.body.configuracionPdf as any)?.margenMm ?? 10) || 10,
+    margenMm: Number((params.body.configuracionPdf as any)?.margenMm ?? 8) || 8,
     layout: String((params.body.configuracionPdf as any)?.layout ?? 'parcial')
   };
 

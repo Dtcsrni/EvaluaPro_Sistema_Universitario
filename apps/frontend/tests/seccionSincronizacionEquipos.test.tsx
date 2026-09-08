@@ -98,7 +98,7 @@ describe('SeccionSincronizacionEquipos', () => {
       );
     });
 
-    expect(screen.getByText(/Paquetes recibidos: 3 · PDFs guardados: 6/i)).toBeInTheDocument();
+    expect(await screen.findByText(/Paquetes recibidos: 3 · PDFs guardados: 6/i)).toBeInTheDocument();
     expect(emitToast).toHaveBeenCalledWith(
       expect.objectContaining({ level: 'ok', title: 'Sincronizacion' })
     );

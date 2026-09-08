@@ -51,7 +51,8 @@ describe('autenticacion google-only', () => {
     expect(capacidades.body?.capacidadesIntegraciones).toMatchObject({
       requireGoogleOAuth: true,
       passwordLoginAllowed: false,
-      oauthGoogleBackend: true
+      oauthGoogleBackend: true,
+      snapshotGoogleDisponible: true
     });
 
     const registro = await request(app)

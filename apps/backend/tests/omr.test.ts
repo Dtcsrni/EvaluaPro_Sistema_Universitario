@@ -23,7 +23,7 @@ async function crearImagenBlancaBase64() {
   return `data:image/png;base64,${buffer.toString('base64')}`;
 }
 
-function crearMapaTv3(
+function crearMapaOmrCanonico(
   numeroPregunta: number,
   idPregunta: string,
   opciones: Array<{ letra: string; x: number; y: number }>
@@ -33,7 +33,7 @@ function crearMapaTv3(
   const referenciaX = Number(opcionA?.x ?? opciones[0]?.x ?? 100);
   return {
     numeroPagina: 1,
-    templateVersion: 3 as const,
+    templateVersion: 4 as const,
     preguntas: [
       {
         numeroPregunta,
@@ -58,7 +58,7 @@ function crearMapaTv3(
 describe('analizarOmr', () => {
   it('devuelve advertencias y respuestas nulas sin marcas', async () => {
     const imagenBase64 = await crearImagenBlancaBase64();
-    const mapaPagina = crearMapaTv3(1, 'p1', [
+    const mapaPagina = crearMapaOmrCanonico(1, 'p1', [
       { letra: 'A', x: 100, y: 100 },
       { letra: 'B', x: 120, y: 100 },
       { letra: 'C', x: 140, y: 100 },
@@ -77,7 +77,7 @@ describe('analizarOmr', () => {
     expect(resultado.respuestasDetectadas).toHaveLength(1);
     expect([null, 'A', 'B', 'C', 'D', 'E']).toContain(resultado.respuestasDetectadas[0].opcion);
     expect(resultado.respuestasDetectadas[0].confianza).toBe(0);
-    expect(resultado.templateVersionDetectada).toBe(3);
+    expect(resultado.templateVersionDetectada).toBe(4);
     expect(['rechazado_calidad', 'requiere_revision']).toContain(resultado.estadoAnalisis);
     expect(resultado.calidadPagina).toBeGreaterThanOrEqual(0);
     expect(resultado.calidadPagina).toBeLessThanOrEqual(1);
@@ -138,14 +138,14 @@ describe('analizarOmr', () => {
       .toBuffer()
       .then((buf) => `data:image/png;base64,${buf.toString('base64')}`);
 
-    const mapaPagina = crearMapaTv3(1, 'p1', [...opciones]);
+    const mapaPagina = crearMapaOmrCanonico(1, 'p1', [...opciones]);
 
     const resultado = await analizarOmr(imagenBase64, mapaPagina, undefined, 10);
 
     expect(resultado.respuestasDetectadas).toHaveLength(1);
     expect([null, 'A', 'B', 'C', 'D', 'E']).toContain(resultado.respuestasDetectadas[0].opcion);
     expect(resultado.respuestasDetectadas[0].confianza).toBeGreaterThanOrEqual(0);
-    expect(resultado.templateVersionDetectada).toBe(3);
+    expect(resultado.templateVersionDetectada).toBe(4);
     expect(resultado.calidadPagina).toBeGreaterThan(0);
   });
 
@@ -206,14 +206,14 @@ describe('analizarOmr', () => {
       .toBuffer()
       .then((buf) => `data:image/png;base64,${buf.toString('base64')}`);
 
-    const mapaPagina = crearMapaTv3(1, 'p1', opciones);
+    const mapaPagina = crearMapaOmrCanonico(1, 'p1', opciones);
 
     const resultado = await analizarOmr(imagenBase64, mapaPagina, undefined, 10);
 
     expect(resultado.respuestasDetectadas).toHaveLength(1);
     expect([null, 'A', 'B', 'C', 'D', 'E']).toContain(resultado.respuestasDetectadas[0].opcion);
     expect(resultado.respuestasDetectadas[0].confianza).toBeGreaterThanOrEqual(0);
-    expect(resultado.templateVersionDetectada).toBe(3);
+    expect(resultado.templateVersionDetectada).toBe(4);
     expect(['ok', 'requiere_revision', 'rechazado_calidad']).toContain(resultado.estadoAnalisis);
   });
 
@@ -287,7 +287,7 @@ describe('analizarOmr', () => {
       .toBuffer()
       .then((buf) => `data:image/png;base64,${buf.toString('base64')}`);
 
-    const mapaPagina = crearMapaTv3(1, 'p1', opciones);
+    const mapaPagina = crearMapaOmrCanonico(1, 'p1', opciones);
 
     const resultado = await analizarOmr(imagenBase64, mapaPagina, undefined, 10);
     expect(resultado.respuestasDetectadas).toHaveLength(1);
@@ -374,7 +374,7 @@ describe('analizarOmr', () => {
       .toBuffer()
       .then((buf) => `data:image/png;base64,${buf.toString('base64')}`);
 
-    const mapaPagina = crearMapaTv3(1, 'p1', opciones);
+    const mapaPagina = crearMapaOmrCanonico(1, 'p1', opciones);
 
     const resultado = await analizarOmr(imagenBase64, mapaPagina, undefined, 10);
     expect(resultado.respuestasDetectadas).toHaveLength(1);
@@ -454,7 +454,7 @@ describe('analizarOmr', () => {
       .toBuffer()
       .then((buf) => `data:image/jpeg;base64,${buf.toString('base64')}`);
 
-    const mapaPagina = crearMapaTv3(1, 'p1', opciones);
+    const mapaPagina = crearMapaOmrCanonico(1, 'p1', opciones);
 
     const resultado = await analizarOmr(imagenBase64, mapaPagina, undefined, 10);
     expect(resultado.respuestasDetectadas).toHaveLength(1);

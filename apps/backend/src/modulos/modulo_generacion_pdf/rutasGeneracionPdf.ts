@@ -14,7 +14,8 @@ import {
   descargarPdfLote,
   listarPlantillas,
   previsualizarPlantilla,
-  previsualizarPlantillaPdf
+  previsualizarPlantillaPdf,
+  previsualizarPlantillaPdfVisual
 } from './controladorGeneracionPdf';
 import {
   esquemaActualizarPlantilla,
@@ -54,6 +55,7 @@ router.post(
 );
 router.get('/plantillas/:id/previsualizar', requerirPermiso('plantillas:previsualizar'), previsualizarPlantilla);
 router.get('/plantillas/:id/previsualizar/pdf', requerirPermiso('plantillas:previsualizar'), previsualizarPlantillaPdf);
+router.get('/plantillas/:id/previsualizar/pdf/visual', requerirPermiso('plantillas:previsualizar'), previsualizarPlantillaPdfVisual);
 router.get('/generados', requerirPermiso('examenes:leer'), listarExamenesGenerados);
 router.get('/generados/folio/:folio', requerirPermiso('examenes:leer'), obtenerExamenPorFolio);
 router.get('/generados/:id/pdf', requerirPermiso('examenes:descargar'), descargarPdf);

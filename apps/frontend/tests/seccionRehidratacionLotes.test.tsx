@@ -35,7 +35,7 @@ describe('SeccionRehidratacionLotes', () => {
     {
       bundleHash: 'hash-bundle-12345',
       loteId: 'lote-101',
-      templateVersion: 1,
+      templateVersion: 4,
       examCount: 25,
       questionBankCount: 10,
       signatureValid: true,
@@ -66,7 +66,7 @@ describe('SeccionRehidratacionLotes', () => {
     vi.mocked(clienteApi.enviar).mockResolvedValue({
       bundleHash: 'hash-bundle-12345',
       signatureValid: true,
-      templateVersion: 1,
+      templateVersion: 4,
       examCount: 25,
       questionBankCount: 10,
       recoverable: true,

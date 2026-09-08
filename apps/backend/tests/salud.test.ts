@@ -78,6 +78,12 @@ describe('salud', () => {
         name: expect.any(String),
         version: expect.any(String),
         displayVersion: expect.any(String),
+        omr: expect.objectContaining({
+          contractId: 'omr-canonical-v4',
+          templateVersion: 4,
+          displayLabel: 'OMR canónico · v4',
+          oldVersionsOperational: false
+        }),
         build: expect.objectContaining({
           commit: expect.any(String),
           generatedAt: expect.any(String)
@@ -97,7 +103,13 @@ describe('salud', () => {
           displayVersion: expect.any(String)
         }),
         repositoryUrl: expect.any(String),
-        technologies: expect.any(Array)
+        technologies: expect.any(Array),
+        omr: expect.objectContaining({
+          contractId: 'omr-canonical-v4',
+          templateVersion: 4,
+          displayLabel: 'OMR canónico · v4',
+          oldVersionsOperational: false
+        })
       })
     );
     expect(String(res.body.repositoryUrl)).toContain('github.com');

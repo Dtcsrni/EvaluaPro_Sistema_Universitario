@@ -572,7 +572,7 @@ export function SeccionBanco({
       registrarAccionDocente('crear_pregunta', true, Date.now() - inicio);
       setEnunciado('');
       setImagenUrl('');
-      setTema('');
+      // Conservar el tema seleccionado para facilitar la captura consecutiva de reactivos
       setOpciones([
         { texto: '', esCorrecta: true },
         { texto: '', esCorrecta: false },

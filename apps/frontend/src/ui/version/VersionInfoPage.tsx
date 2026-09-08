@@ -5,10 +5,17 @@
  * Limites: Preservar accesibilidad y contratos de props existentes.
  */
 import { useEffect, useMemo, useState } from 'react';
-import { obtenerVersionApp, obtenerVersionTecnicaApp } from './versionInfo';
+import {
+  obtenerVersionApp,
+  obtenerVersionTecnicaApp,
+  OMR_CANONICAL_CONTRACT_ID,
+  OMR_CANONICAL_DISPLAY_LABEL,
+  OMR_CANONICAL_VERSION
+} from './versionInfo';
 
 type VersionInfoPayload = {
   app?: { name?: string; version?: string; displayVersion?: string };
+  omr?: { contractId?: string; templateVersion?: number; displayLabel?: string; oldVersionsOperational?: boolean };
   repositoryUrl?: string;
   technologies?: Array<{ id?: string; label?: string; logoUrl?: string; website?: string }>;
   system?: {
@@ -41,6 +48,10 @@ type VersionViewModel = {
   hostname: string;
   env: string;
   generatedAt: string;
+  omrContractId: string;
+  omrDisplayLabel: string;
+  omrTemplateVersion: number;
+  oldVersionsOperational: boolean;
 };
 
 const TECNOLOGIAS_DEFAULT: TecnologiaVersion[] = [
@@ -170,19 +181,39 @@ function resolverDesarrollador(data: VersionInfoPayload | null) {
   };
 }
 
-function viewModelBase(data: VersionInfoPayload | null, fallbackVersion: string) {
-  const technicalVersion = comoTexto(data?.app?.version, obtenerVersionTecnicaApp() || '1.1.1');
-  const techs = Array.isArray(data?.technologies) ? data.technologies : TECNOLOGIAS_DEFAULT;
-  const changelog = comoTexto(data?.changelog, '').trim() || CHANGELOG_DEFAULT;
-  const version = comoTexto(data?.app?.displayVersion, fallbackVersion || technicalVersion || '1.1.1');
-
+function resolverAplicacion(data: VersionInfoPayload | null, fallbackVersion: string) {
+  const app = data?.app;
+  const fallbackTecnico = obtenerVersionTecnicaApp() || '1.1.1';
+  const technicalVersion = comoTexto(app?.version, fallbackTecnico);
   return {
-    version,
+    version: comoTexto(app?.displayVersion, fallbackVersion || technicalVersion || '1.1.1'),
     technicalVersion,
-    nombre: comoTexto(data?.app?.name, 'evaluapro'),
-    changelog,
-    technologies: techs,
-    ...resolverDesarrollador(data)
+    nombre: comoTexto(app?.name, 'evaluapro')
+  };
+}
+
+function resolverContenido(data: VersionInfoPayload | null) {
+  return {
+    changelog: comoTexto(data?.changelog, '').trim() || CHANGELOG_DEFAULT,
+    technologies: Array.isArray(data?.technologies) ? data.technologies : TECNOLOGIAS_DEFAULT
+  };
+}
+
+function resolverOmr(data: VersionInfoPayload | null) {
+  return {
+    omrContractId: comoTexto(data?.omr?.contractId, OMR_CANONICAL_CONTRACT_ID),
+    omrDisplayLabel: comoTexto(data?.omr?.displayLabel, OMR_CANONICAL_DISPLAY_LABEL),
+    omrTemplateVersion: Number(data?.omr?.templateVersion || OMR_CANONICAL_VERSION),
+    oldVersionsOperational: data?.omr?.oldVersionsOperational === true
+  };
+}
+
+function viewModelBase(data: VersionInfoPayload | null, fallbackVersion: string) {
+  return {
+    ...resolverAplicacion(data, fallbackVersion),
+    ...resolverContenido(data),
+    ...resolverDesarrollador(data),
+    ...resolverOmr(data)
   };
 }
 
@@ -427,6 +458,14 @@ export function VersionInfoPage() {
             <div className="version-info-row">
               <span className="version-info-label">Host de Trabajo:</span>
               <span className="version-info-val">{vm.hostname} (127.0.0.1)</span>
+            </div>
+            <div className="version-info-row">
+              <span className="version-info-label">Contrato OMR:</span>
+              <span className="version-env-badge" title={vm.omrContractId}>{vm.omrDisplayLabel}</span>
+            </div>
+            <div className="version-info-row">
+              <span className="version-info-label">Versiones antiguas:</span>
+              <span className="version-info-val">{vm.oldVersionsOperational ? 'Operativas' : `Rechazadas · solo v${vm.omrTemplateVersion}`}</span>
             </div>
           </div>
         </article>

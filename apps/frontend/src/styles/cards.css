@@ -1,0 +1,3334 @@
+/*
+ * Sistema visual reutilizable de tarjetas.
+ * Centraliza superficie, profundidad, interacción y motion para todos los módulos.
+ * Las clases históricas se mapean aquí para evitar migraciones destructivas.
+ */
+
+:root {
+  --ui-card-radius: 22px;
+  --ui-card-border: color-mix(in srgb, var(--surface-border-strong, #334155) 72%, var(--app-accent, #38bdf8) 28%);
+  --ui-card-surface: color-mix(in srgb, var(--surface-2, #172554) 66%, transparent);
+  --ui-card-surface-strong: color-mix(in srgb, var(--surface-2, #172554) 78%, transparent);
+  --ui-card-shadow: 0 24px 52px -26px rgba(2, 6, 23, 0.9), 0 8px 24px -14px rgba(2, 132, 199, 0.26), inset 0 1px 0 rgba(255, 255, 255, 0.12);
+  --ui-card-shadow-hover: 0 32px 64px -26px rgba(2, 6, 23, 0.94), 0 14px 32px -14px color-mix(in srgb, var(--app-accent, #38bdf8) 42%, transparent), inset 0 1px 0 rgba(255, 255, 255, 0.2);
+  --ui-card-pad: clamp(1.05rem, 1.6vw, 1.45rem);
+  --ui-card-ease: cubic-bezier(0.16, 1, 0.3, 1);
+  --ui-card-blur: 22px;
+}
+
+/* Mapa de compatibilidad: todos estos componentes reciben el mismo lenguaje visual. */
+:is(
+  .ui-card,
+  .item-glass,
+  .materias-resumen__item,
+  .materias-lista__item,
+  .materias-form--glass,
+  .empty-state-card,
+  .guia-materia-card,
+  .guia-step-card,
+  .archivadas-info-card,
+  .alumnos-resumen__item,
+  .alumnos-lista__item,
+  .alumnos-filtros--glass,
+  .banco-file-upload-card,
+  .banco-imagen-preview-card,
+  .banco-opcion-card,
+  .banco-temas__item,
+  .banco-listado__item,
+  .plantillas-item,
+  .plantillas-progreso-card,
+  .plantillas-ultimo-card,
+  .asistencia-materia-pick-card,
+  .asistencias-panel-card,
+  .asistencias-sesion-card,
+  .asistencias-regla-card,
+  .temarios-card,
+  .temarios-panel-card,
+  .temarios-tree-hero-card,
+  .entregas-manual-card,
+  .calif-deck-card,
+  .calif-captura-card,
+  .calif-grade-card,
+  .omr-review-card,
+  .cuenta-toggle-card,
+  .cuenta-hero-stat-card,
+  .alumnos-materia-pick-card,
+  .portal-resultado-card
+) {
+  position: relative;
+  isolation: isolate;
+  border-radius: var(--ui-card-radius);
+  border: 1px solid var(--ui-card-border);
+  background:
+    linear-gradient(135deg, color-mix(in srgb, #ffffff 8%, transparent), transparent 42%),
+    radial-gradient(circle at 100% 0%, color-mix(in srgb, var(--app-accent, #38bdf8) 14%, transparent), transparent 42%),
+    var(--ui-card-surface);
+  background-clip: padding-box;
+  -webkit-backdrop-filter: blur(var(--ui-card-blur)) saturate(165%);
+  backdrop-filter: blur(var(--ui-card-blur)) saturate(165%);
+  box-shadow: var(--ui-card-shadow);
+  transition:
+    transform 260ms var(--ui-card-ease),
+    box-shadow 260ms var(--ui-card-ease),
+    border-color 180ms ease,
+    background 180ms ease;
+}
+
+:is(
+  .ui-card,
+  .item-glass,
+  .materias-resumen__item,
+  .materias-lista__item,
+  .guia-step-card,
+  .archivadas-info-card,
+  .alumnos-resumen__item,
+  .alumnos-lista__item,
+  .banco-file-upload-card,
+  .banco-imagen-preview-card,
+  .banco-opcion-card,
+  .banco-temas__item,
+  .banco-listado__item,
+  .plantillas-item,
+  .plantillas-progreso-card,
+  .plantillas-ultimo-card,
+  .asistencia-materia-pick-card,
+  .asistencias-panel-card,
+  .asistencias-sesion-card,
+  .asistencias-regla-card,
+  .temarios-card,
+  .temarios-panel-card,
+  .temarios-tree-hero-card,
+  .entregas-manual-card,
+  .calif-deck-card,
+  .calif-captura-card,
+  .calif-grade-card,
+  .omr-review-card,
+  .cuenta-toggle-card,
+  .cuenta-hero-stat-card,
+  .alumnos-materia-pick-card,
+  .portal-resultado-card
+)::before {
+  content: '';
+  position: absolute;
+  inset: 1px 1px auto;
+  height: 1px;
+  border-radius: var(--ui-card-radius) var(--ui-card-radius) 0 0;
+  background: linear-gradient(90deg, var(--app-accent, #38bdf8), color-mix(in srgb, var(--app-highlight, #34d399) 78%, #ffffff 22%), transparent 86%);
+  opacity: 0.58;
+  pointer-events: none;
+  z-index: 0;
+  clip-path: inset(0 round var(--ui-card-radius));
+  filter: blur(0.35px);
+}
+
+:is(
+  .ui-card,
+  .item-glass,
+  .materias-resumen__item,
+  .materias-lista__item,
+  .guia-step-card,
+  .archivadas-info-card,
+  .alumnos-resumen__item,
+  .alumnos-lista__item,
+  .banco-file-upload-card,
+  .banco-imagen-preview-card,
+  .banco-opcion-card,
+  .banco-temas__item,
+  .banco-listado__item,
+  .plantillas-item,
+  .plantillas-progreso-card,
+  .plantillas-ultimo-card,
+  .asistencia-materia-pick-card,
+  .asistencias-panel-card,
+  .asistencias-sesion-card,
+  .asistencias-regla-card,
+  .temarios-card,
+  .temarios-panel-card,
+  .temarios-tree-hero-card,
+  .entregas-manual-card,
+  .calif-deck-card,
+  .calif-captura-card,
+  .calif-grade-card,
+  .omr-review-card,
+  .cuenta-toggle-card,
+  .cuenta-hero-stat-card,
+  .alumnos-materia-pick-card,
+  .portal-resultado-card
+)::after {
+  content: '';
+  position: absolute;
+  inset: 1px;
+  border-radius: calc(var(--ui-card-radius) - 1px);
+  background: radial-gradient(circle at 12% 0%, rgba(255, 255, 255, 0.11), transparent 30%);
+  opacity: 0.46;
+  pointer-events: none;
+  z-index: 0;
+  clip-path: inset(0 round calc(var(--ui-card-radius) - 1px));
+}
+
+:is(
+  .ui-card,
+  .item-glass,
+  .materias-resumen__item,
+  .materias-lista__item,
+  .materias-form--glass,
+  .empty-state-card,
+  .guia-materia-card,
+  .guia-step-card,
+  .archivadas-info-card,
+  .alumnos-resumen__item,
+  .alumnos-lista__item,
+  .alumnos-filtros--glass,
+  .banco-file-upload-card,
+  .banco-imagen-preview-card,
+  .banco-opcion-card,
+  .banco-temas__item,
+  .banco-listado__item,
+  .plantillas-item,
+  .plantillas-progreso-card,
+  .plantillas-ultimo-card,
+  .asistencia-materia-pick-card,
+  .asistencias-panel-card,
+  .asistencias-sesion-card,
+  .asistencias-regla-card,
+  .temarios-card,
+  .temarios-panel-card,
+  .temarios-tree-hero-card,
+  .entregas-manual-card,
+  .calif-deck-card,
+  .calif-captura-card,
+  .calif-grade-card,
+  .omr-review-card,
+  .cuenta-toggle-card,
+  .cuenta-hero-stat-card,
+  .alumnos-materia-pick-card,
+  .portal-resultado-card
+) > * {
+  position: relative;
+  z-index: 1;
+}
+
+:is(
+  .ui-card--interactive,
+  .item-glass,
+  .materias-resumen__item,
+  .materias-lista__item,
+  .guia-step-card,
+  .archivadas-info-card,
+  .alumnos-resumen__item,
+  .alumnos-lista__item,
+  .banco-opcion-card,
+  .banco-temas__item,
+  .banco-listado__item,
+  .plantillas-item,
+  .asistencia-materia-pick-card,
+  .asistencias-sesion-card,
+  .asistencias-regla-card,
+  .temarios-card,
+  .entregas-manual-card,
+  .calif-deck-card,
+  .calif-captura-card,
+  .cuenta-toggle-card,
+  .cuenta-hero-stat-card,
+  .alumnos-materia-pick-card,
+  .portal-resultado-card
+):hover {
+  transform: translateY(-5px);
+  border-color: color-mix(in srgb, var(--app-accent, #38bdf8) 72%, #ffffff 28%);
+  box-shadow: var(--ui-card-shadow-hover), inset 0 1px 0 rgba(255, 255, 255, 0.18);
+}
+
+:where(.ui-card, .item-glass, .guia-step-card, .banco-opcion-card, .plantillas-item) :where(button, a, input, select, textarea):focus-visible,
+:where(.ui-card, .item-glass, .guia-step-card, .banco-opcion-card, .plantillas-item):focus-within {
+  outline: 2px solid color-mix(in srgb, var(--app-accent, #38bdf8) 82%, #ffffff 18%);
+  outline-offset: 3px;
+}
+
+.ui-card--featured,
+.materias-form--glass,
+.guia-materia-card {
+  --ui-card-radius: 24px;
+  --ui-card-border: color-mix(in srgb, var(--app-accent, #38bdf8) 50%, var(--surface-border-strong, #334155));
+  --ui-card-surface: color-mix(in srgb, var(--surface-2, #172554) 95%, transparent);
+}
+
+.ui-card--form,
+.materias-form--glass,
+.alumnos-filtros--glass {
+  background:
+    linear-gradient(135deg, color-mix(in srgb, var(--app-accent, #38bdf8) 8%, transparent), transparent 48%),
+    var(--ui-card-surface-strong);
+}
+
+.ui-card--empty,
+.empty-state-card {
+  border-style: dashed;
+  background:
+    linear-gradient(135deg, color-mix(in srgb, var(--app-highlight, #34d399) 10%, transparent), transparent 48%),
+    var(--ui-card-surface);
+}
+
+/* Materias: más estructura vertical, botones alineados y menos espacio muerto. */
+.materias-lista {
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 330px), 1fr));
+  gap: clamp(0.85rem, 1.5vw, 1.25rem);
+}
+
+.materias-lista__item {
+  min-height: 100%;
+  padding: clamp(1.15rem, 1.8vw, 1.55rem);
+}
+
+.materias-lista__item .item-row {
+  min-height: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 1.2rem;
+}
+
+.materias-lista__item .item-row > :first-child {
+  flex: 1 1 auto;
+}
+
+.materias-lista__item--navigable {
+  cursor: pointer;
+}
+
+.materias-lista__item--navigable:focus-visible {
+  outline: 2px solid color-mix(in srgb, var(--app-accent, #38bdf8) 84%, #ffffff 16%);
+  outline-offset: 3px;
+}
+
+.materia-actions-toggle {
+  width: 100%;
+  min-height: 44px;
+  margin-top: 1rem;
+  padding: 0.7rem 0.9rem;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.9rem;
+  border: 1px solid color-mix(in srgb, var(--app-accent, #38bdf8) 36%, var(--glass-border, #334155));
+  border-radius: 14px;
+  background:
+    linear-gradient(135deg, color-mix(in srgb, var(--app-accent, #38bdf8) 13%, transparent), transparent 68%),
+    color-mix(in srgb, var(--surface-1, #0f172a) 72%, transparent);
+  color: var(--texto);
+  font: inherit;
+  font-weight: 750;
+  text-align: left;
+  cursor: pointer;
+  transition: border-color 180ms ease, background 180ms ease, box-shadow 180ms ease;
+}
+
+.materia-actions-toggle:hover {
+  border-color: color-mix(in srgb, var(--app-accent, #38bdf8) 68%, #ffffff 32%);
+  background:
+    linear-gradient(135deg, color-mix(in srgb, var(--app-accent, #38bdf8) 20%, transparent), transparent 68%),
+    color-mix(in srgb, var(--surface-1, #0f172a) 78%, transparent);
+  box-shadow: 0 10px 22px -16px color-mix(in srgb, var(--app-accent, #38bdf8) 72%, transparent);
+}
+
+.materia-actions-toggle:focus-visible {
+  outline: 2px solid color-mix(in srgb, var(--app-accent, #38bdf8) 84%, #ffffff 16%);
+  outline-offset: 3px;
+}
+
+.materia-actions-toggle__label {
+  min-width: 0;
+  display: grid;
+  gap: 0.15rem;
+}
+
+.materia-actions-toggle__eyebrow {
+  color: var(--muted);
+  font-size: 0.64rem;
+  font-weight: 800;
+  letter-spacing: 0.11em;
+  line-height: 1.1;
+  text-transform: uppercase;
+}
+
+.materia-actions-toggle__icon {
+  display: inline-flex;
+  flex: 0 0 auto;
+  color: var(--app-accent, #38bdf8);
+  transition: transform 220ms var(--ui-card-ease), color 180ms ease;
+}
+
+.materia-actions-toggle[aria-expanded="true"] .materia-actions-toggle__icon {
+  transform: rotate(90deg);
+  color: var(--app-highlight, #34d399);
+}
+
+.materias-lista__item .item-actions[hidden] {
+  display: none;
+}
+
+.materias-lista__item .item-actions {
+  width: 100%;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.55rem;
+  padding-top: 0.85rem;
+  border-top: 1px solid color-mix(in srgb, var(--glass-border, #334155) 82%, transparent);
+}
+
+.materias-lista__item .item-actions--open {
+  animation: materia-actions-reveal 220ms var(--ui-card-ease) both;
+}
+
+@keyframes materia-actions-reveal {
+  from {
+    opacity: 0;
+    transform: translateY(-6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.materias-lista__item .item-actions .boton {
+  width: 100%;
+  min-height: 40px;
+  justify-content: center;
+}
+
+.materias-lista__item .item-actions .boton:nth-child(n + 3) {
+  grid-column: 1 / -1;
+}
+
+.materia-card-header {
+  margin-bottom: 0.8rem;
+}
+
+.materia-title-group {
+  align-items: center;
+  min-width: 0;
+}
+
+.materia-title-group > div:last-child {
+  min-width: 0;
+}
+
+.materia-title-group .item-title {
+  display: -webkit-box;
+  overflow: hidden;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 3;
+  font-size: clamp(1rem, 1.6vw, 1.12rem);
+  line-height: 1.32;
+}
+
+.materia-avatar {
+  width: 50px;
+  height: 50px;
+  min-width: 50px;
+  border-radius: 16px;
+  box-shadow: 0 10px 24px -10px color-mix(in srgb, var(--app-accent, #38bdf8) 70%, transparent), inset 0 1px 0 rgba(255, 255, 255, 0.2);
+}
+
+.materia-progress-ring {
+  width: 48px;
+  height: 48px;
+  padding: 0.2rem;
+  border-radius: 50%;
+  background: color-mix(in srgb, var(--surface-1, #0f172a) 72%, transparent);
+}
+
+.materia-card-meta {
+  gap: 0.5rem;
+  margin-top: 0.7rem;
+}
+
+.materia-meta-tag {
+  padding: 0.35rem 0.65rem;
+  border-radius: 10px;
+  line-height: 1.25;
+}
+
+.materias-form--glass,
+.empty-state-card {
+  box-shadow: var(--ui-card-shadow);
+}
+
+/* Guía y tarjetas informativas: presentación por capas, sin saturar el contenido. */
+.guia-step-card,
+.materias-resumen__item,
+.archivadas-info-card {
+  box-shadow: 0 18px 38px -22px rgba(2, 6, 23, 0.92), inset 0 1px 0 rgba(255, 255, 255, 0.13);
+}
+
+.guia-step-card__body,
+.archivadas-info-card__text,
+.materias-resumen__body {
+  position: relative;
+  z-index: 1;
+}
+
+/* Los formularios y paneles no saltan al pasar el mouse: conservan estabilidad. */
+:where(.ui-card--form, .materias-form--glass, .alumnos-filtros--glass):hover {
+  transform: none;
+  border-color: var(--ui-card-border);
+  box-shadow: var(--ui-card-shadow), inset 0 1px 0 rgba(255, 255, 255, 0.14);
+}
+
+@media (max-width: 720px) {
+  :root {
+    --ui-card-radius: 18px;
+    --ui-card-pad: 1rem;
+  }
+
+  .materias-lista__item .item-actions {
+    grid-template-columns: 1fr;
+  }
+
+  .materias-lista__item .item-actions .boton:nth-child(n + 3) {
+    grid-column: auto;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :where(
+    .ui-card,
+    .item-glass,
+    .materias-resumen__item,
+    .guia-step-card,
+    .archivadas-info-card,
+    .alumnos-resumen__item,
+    .alumnos-lista__item,
+    .banco-opcion-card,
+    .banco-temas__item,
+    .banco-listado__item,
+    .plantillas-item,
+    .asistencia-materia-pick-card,
+    .asistencias-sesion-card,
+    .temarios-card,
+    .calif-deck-card,
+    .calif-captura-card,
+    .cuenta-toggle-card,
+    .alumnos-materia-pick-card,
+    .portal-resultado-card
+  ) {
+    animation: none !important;
+    transition: none !important;
+  }
+
+  :where(.ui-card--interactive, .item-glass, .guia-step-card, .banco-opcion-card, .plantillas-item):hover {
+    transform: none !important;
+  }
+
+  .materias-lista__item .item-actions--open,
+  .materia-actions-toggle__icon {
+    animation: none !important;
+    transition: none !important;
+  }
+}
+
+.admin-negocio-nav__group-label {
+  grid-column: 1 / -1;
+  margin: 0.45rem 0 0;
+  color: var(--ui-text-muted);
+  font-size: 0.68rem;
+  font-weight: 800;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.admin-negocio-nav__group-label:first-child {
+  margin-top: 0;
+}
+
+/* ========================================================================
+   RELEASE 1.8 — corrección final de tarjetas de alumnos
+   Debe permanecer al final del archivo: corrige los overrides históricos.
+   ======================================================================== */
+
+:root[data-theme="dark"] {
+  --muted: #c8d8eb;
+  --textoSuave: #e2e8f0;
+  --ui-ink-muted: #c8d8eb;
+}
+
+:root[data-theme="dark"] .alumnos-lista__item {
+  border-top-color: transparent !important;
+  border-color: rgba(126, 190, 232, 0.42) !important;
+  background:
+    linear-gradient(132deg, rgba(74, 126, 163, 0.18), transparent 36%),
+    linear-gradient(156deg, #214464 0%, #1a3858 48%, #132c49 100%) !important;
+  box-shadow:
+    0 26px 56px -30px rgba(0, 0, 0, 0.9),
+    0 10px 26px -16px rgba(20, 129, 193, 0.26),
+    inset 0 1px 0 rgba(255, 255, 255, 0.16),
+    inset 0 -18px 34px -28px rgba(0, 0, 0, 0.58) !important;
+}
+
+:root[data-theme="dark"] .alumnos-lista__item::before,
+:root[data-theme="dark"] .alumnos-lista__item::after {
+  content: none !important;
+  display: none !important;
+}
+
+.alumnos-card__body {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: start;
+  gap: 1rem 1.25rem;
+}
+
+.alumno-info,
+.alumnos-lista-title-container {
+  min-width: 0;
+}
+
+.alumnos-card__meta {
+  display: grid;
+  grid-template-columns: repeat(2, max-content) minmax(0, 1fr);
+  align-items: center;
+  gap: 0.55rem;
+  min-width: 0;
+}
+
+.alumno-meta-tag {
+  min-width: 0;
+  max-width: 100%;
+}
+
+.alumno-meta-tag--correo {
+  flex: 0 1 auto;
+  min-width: 0;
+  max-width: min(100%, 30rem);
+}
+
+.alumno-correo {
+  min-width: 0;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
+
+:root[data-theme="dark"] .alumnos-lista__item :is(.item-title, .alumno-nombre, h1, h2, h3, h4, h5, h6, strong, b) {
+  color: #f8fbff !important;
+}
+
+:root[data-theme="dark"] .alumnos-lista__item :is(.item-meta, .alumnos-card__meta, .alumno-meta-lbl, .alumno-meta-value, .alumno-correo, .nota, small) {
+  color: #d9e8f5 !important;
+}
+
+@media (max-width: 920px) {
+  .alumnos-card__body {
+    grid-template-columns: auto minmax(0, 1fr);
+  }
+
+  .alumnos-card__actions {
+    grid-column: 2;
+    justify-content: flex-start;
+  }
+
+  .alumnos-card__meta {
+    grid-template-columns: repeat(2, minmax(0, max-content));
+  }
+
+  .alumno-meta-tag--correo {
+    grid-column: 1 / -1;
+    max-width: 100%;
+  }
+}
+
+@media (max-width: 720px) {
+  .alumnos-card__body {
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 0.85rem;
+  }
+
+  .alumnos-card__meta {
+    display: flex;
+    align-items: stretch;
+  }
+
+  .alumno-meta-tag,
+  .alumno-meta-tag--correo {
+    flex: 1 1 180px;
+    max-width: 100%;
+  }
+
+  .alumnos-card__actions {
+    width: 100%;
+    justify-content: flex-end;
+  }
+}
+
+/* Cascada final de 1.9: se mantiene al final del archivo para prevalecer sobre
+   los estilos históricos específicos de cada módulo. */
+:root[data-theme] :is(.card, .panel, .subpanel, .item-glass, .glass-card, .ui-card, [class*='-card'], [class*='-panel']) {
+  --ui-card-radius: 12px;
+  border-color: var(--ui-card-border) !important;
+  border-top-color: var(--ui-card-border) !important;
+  border-radius: var(--ui-card-radius) !important;
+  background:
+    linear-gradient(125deg, var(--ui-glass-highlight), transparent 30%),
+    linear-gradient(315deg, color-mix(in srgb, var(--ui-accent-primary) 8%, transparent), transparent 48%),
+    var(--ui-card-surface) !important;
+  box-shadow: var(--ui-card-shadow) !important;
+}
+
+:root[data-theme] :is(.card, .panel, .subpanel, .item-glass, .glass-card, .ui-card, [class*='-card'], [class*='-panel'])::before {
+  content: none !important;
+  display: none !important;
+}
+
+:root[data-theme] :is(.card, .panel, .subpanel, .item-glass, .glass-card, .ui-card, [class*='-card'], [class*='-panel'])::after {
+  content: '';
+  position: absolute;
+  inset: 1px;
+  z-index: 0;
+  pointer-events: none;
+  border-radius: calc(var(--ui-card-radius) - 1px);
+  background: linear-gradient(112deg, rgba(255, 255, 255, 0.20), rgba(255, 255, 255, 0.06) 18%, transparent 47%);
+  opacity: 0.58;
+  clip-path: inset(0 round calc(var(--ui-card-radius) - 1px));
+}
+
+:root[data-theme] :is(.boton, .btn, button.btn, a.btn) {
+  min-height: 44px;
+  border-radius: 8px;
+  background: var(--ui-button-primary-bg) !important;
+  color: var(--ui-button-primary-fg) !important;
+  border-color: color-mix(in srgb, var(--ui-accent-primary) 58%, transparent) !important;
+}
+
+:root[data-theme] :is(.boton, .btn, button.btn, a.btn).secundario,
+:root[data-theme] :is(.boton, .btn, button.btn, a.btn)[class*='secundario'] {
+  background: var(--ui-button-secondary-bg) !important;
+  color: var(--ui-button-secondary-fg) !important;
+  border-color: var(--ui-glass-border) !important;
+}
+
+/* Capa final: las subpartes no son superficies independientes. */
+:root[data-theme] :is(
+  .auth-card-wrapper,
+  .auth-card-header,
+  .auth-card-title,
+  .auth-card-desc,
+  .auth-card-footer,
+  [class*='-card__'],
+  [class*='-panel__']
+) {
+  background-color: transparent !important;
+  background-image: none !important;
+  background-position: initial !important;
+  background-size: initial !important;
+  background-repeat: initial !important;
+  box-shadow: none !important;
+}
+
+/* Cuenta docente: control de identidad visible, accionable y legible. */
+.shell-docente__acciones {
+  align-items: center;
+  gap: 0.7rem;
+}
+
+@media (min-width: 1180px) {
+  .shell-docente__header,
+  .shell-docente__acciones {
+    flex-wrap: nowrap;
+  }
+}
+
+button.chip-docente-sesion {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.7rem;
+  min-width: min(100%, 270px);
+  min-height: 58px;
+  padding: 0.45rem 0.8rem 0.45rem 0.55rem;
+  border: 1px solid rgba(99, 214, 238, 0.4);
+  border-radius: 16px;
+  background:
+    linear-gradient(135deg, rgba(62, 211, 227, 0.18), transparent 42%),
+    linear-gradient(315deg, rgba(139, 92, 246, 0.12), transparent 55%),
+    rgba(7, 24, 42, 0.82);
+  color: #f8fbff;
+  text-align: left;
+  cursor: pointer;
+  box-shadow:
+    0 16px 30px -22px rgba(0, 0, 0, 0.95),
+    0 10px 24px -20px rgba(40, 205, 230, 0.72),
+    inset 0 1px 0 rgba(255, 255, 255, 0.17);
+  transition: transform 180ms var(--ui-card-ease), border-color 180ms ease, background 180ms ease, box-shadow 180ms ease;
+}
+
+button.chip-docente-sesion:hover {
+  transform: translateY(-2px);
+  border-color: rgba(126, 232, 247, 0.82);
+  background:
+    linear-gradient(135deg, rgba(62, 211, 227, 0.25), transparent 42%),
+    linear-gradient(315deg, rgba(139, 92, 246, 0.18), transparent 55%),
+    rgba(10, 34, 57, 0.9);
+  box-shadow:
+    0 20px 34px -22px rgba(0, 0, 0, 0.98),
+    0 12px 28px -18px rgba(40, 205, 230, 0.76),
+    inset 0 1px 0 rgba(255, 255, 255, 0.23);
+}
+
+button.chip-docente-sesion:focus-visible {
+  outline: 3px solid rgba(255, 196, 92, 0.96);
+  outline-offset: 3px;
+}
+
+button.chip-docente-sesion:active {
+  transform: translateY(0) scale(0.985);
+}
+
+.chip-docente-avatar {
+  position: relative;
+  display: grid;
+  place-items: center;
+  flex: 0 0 42px;
+  width: 42px;
+  height: 42px;
+  padding: 2px;
+  border-radius: 13px;
+  background: conic-gradient(from 135deg, #27d7e8, #876dff 36%, #ff986d 68%, #27d7e8);
+  color: #ffffff;
+  font-size: 0.84rem;
+  font-weight: 850;
+  letter-spacing: 0.04em;
+  box-shadow: 0 8px 18px -10px rgba(39, 215, 232, 0.85);
+}
+
+.chip-docente-avatar > span:first-child {
+  display: grid;
+  width: 100%;
+  height: 100%;
+  place-items: center;
+  border-radius: 11px;
+  background: linear-gradient(145deg, #123d57, #15213f 68%, #2c1f4d);
+}
+
+.chip-docente-avatar__status {
+  position: absolute;
+  right: -1px;
+  bottom: -1px;
+  width: 11px;
+  height: 11px;
+  border: 2px solid #07182b;
+  border-radius: 50%;
+  background: #4fe0ae;
+  box-shadow: 0 0 0 2px rgba(79, 224, 174, 0.18), 0 0 10px rgba(79, 224, 174, 0.62);
+}
+
+.chip-docente-copy {
+  min-width: 0;
+  display: grid;
+  gap: 0.12rem;
+  flex: 1 1 auto;
+}
+
+.chip-docente-name {
+  min-width: 0;
+  overflow: hidden;
+  color: #f8fbff !important;
+  font-size: 0.92rem;
+  font-weight: 800;
+  line-height: 1.2;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.chip-docente-role {
+  color: #b9d8e9;
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  line-height: 1.2;
+  text-transform: uppercase;
+}
+
+.chip-docente-chevron {
+  flex: 0 0 auto;
+  color: #8fe9f5;
+  transform: rotate(90deg);
+}
+
+/* Color funcional de iconos SVG: policromia por accion, sin rasterizar. */
+:root[data-theme="dark"] .icono[data-icono="periodos"] { color: #45d9ee; }
+:root[data-theme="dark"] .icono[data-icono="alumnos"] { color: #4fe0ae; }
+:root[data-theme="dark"] .icono[data-icono="asistencias"] { color: #ffc45c; }
+:root[data-theme="dark"] .icono[data-icono="temarios"] { color: #ff9d62; }
+:root[data-theme="dark"] .icono[data-icono="banco"] { color: #b7a1ff; }
+:root[data-theme="dark"] .icono[data-icono="plantillas"] { color: #d4a7ff; }
+:root[data-theme="dark"] .icono[data-icono="recepcion"] { color: #ff9275; }
+:root[data-theme="dark"] .icono[data-icono="calificar"] { color: #a8e86e; }
+:root[data-theme="dark"] .icono[data-icono="evaluaciones"] { color: #69d8ff; }
+:root[data-theme="dark"] .icono[data-icono="pdf"] { color: #ffb76b; }
+:root[data-theme="dark"] .icono[data-icono="classroom"] { color: #ffd166; }
+:root[data-theme="dark"] .icono[data-icono="sincronizacion"] { color: #4ee3d4; }
+:root[data-theme="dark"] .icono[data-icono="cuenta"] { color: #8fdcff; }
+:root[data-theme="dark"] .icono[data-icono="salir"] { color: #ff896f; }
+:root[data-theme="dark"] .icono[data-icono="ok"] { color: #64e6aa; }
+:root[data-theme="dark"] .icono[data-icono="alerta"] { color: #ff9c74; }
+:root[data-theme="dark"] .icono[data-icono="info"] { color: #82ddff; }
+
+:root:not([data-theme="dark"]) .icono[data-icono="periodos"] { color: #087ea4; }
+:root:not([data-theme="dark"]) .icono[data-icono="alumnos"] { color: #087f5b; }
+:root:not([data-theme="dark"]) .icono[data-icono="asistencias"] { color: #9a5b00; }
+:root:not([data-theme="dark"]) .icono[data-icono="temarios"] { color: #b45309; }
+:root:not([data-theme="dark"]) .icono[data-icono="banco"] { color: #6259b8; }
+:root:not([data-theme="dark"]) .icono[data-icono="plantillas"] { color: #8b4bb7; }
+:root:not([data-theme="dark"]) .icono[data-icono="recepcion"] { color: #b04a2f; }
+:root:not([data-theme="dark"]) .icono[data-icono="calificar"] { color: #4f7d18; }
+:root:not([data-theme="dark"]) .icono[data-icono="evaluaciones"] { color: #087ea4; }
+:root:not([data-theme="dark"]) .icono[data-icono="pdf"] { color: #a45a14; }
+:root:not([data-theme="dark"]) .icono[data-icono="classroom"] { color: #946200; }
+:root:not([data-theme="dark"]) .icono[data-icono="sincronizacion"] { color: #087f76; }
+:root:not([data-theme="dark"]) .icono[data-icono="cuenta"] { color: #4f46a5; }
+:root:not([data-theme="dark"]) .icono[data-icono="salir"] { color: #b4233e; }
+:root:not([data-theme="dark"]) .icono[data-icono="ok"] { color: #087f5b; }
+:root:not([data-theme="dark"]) .icono[data-icono="alerta"] { color: #b4233e; }
+:root:not([data-theme="dark"]) .icono[data-icono="info"] { color: #087ea4; }
+
+:root:not([data-theme="dark"]) button.chip-docente-sesion {
+  border-color: rgba(8, 126, 164, 0.38);
+  background:
+    linear-gradient(135deg, rgba(8, 126, 164, 0.12), transparent 42%),
+    linear-gradient(315deg, rgba(98, 89, 184, 0.1), transparent 55%),
+    rgba(255, 255, 255, 0.78);
+  color: #102033;
+  box-shadow:
+    0 14px 28px -22px rgba(15, 23, 42, 0.48),
+    0 8px 20px -18px rgba(8, 126, 164, 0.45),
+    inset 0 1px 0 rgba(255, 255, 255, 0.98);
+}
+
+:root:not([data-theme="dark"]) button.chip-docente-sesion:hover {
+  border-color: rgba(8, 126, 164, 0.68);
+  background:
+    linear-gradient(135deg, rgba(8, 126, 164, 0.18), transparent 42%),
+    linear-gradient(315deg, rgba(98, 89, 184, 0.16), transparent 55%),
+    rgba(255, 255, 255, 0.94);
+}
+
+:root:not([data-theme="dark"]) .chip-docente-avatar > span:first-child {
+  background: linear-gradient(145deg, #d9f6fb, #e9e8ff 68%, #fff0e8);
+  color: #102033;
+}
+
+:root:not([data-theme="dark"]) .chip-docente-avatar__status {
+  border-color: #ffffff;
+}
+
+:root:not([data-theme="dark"]) .chip-docente-name { color: #102033 !important; }
+:root:not([data-theme="dark"]) .chip-docente-role { color: #526b84; }
+:root:not([data-theme="dark"]) .chip-docente-chevron { color: #087ea4; }
+
+.tab:not(.activa) .icono[data-icono],
+.tab[aria-current="page"] .icono[data-icono],
+.materia-avatar > .icono,
+.materias-panel__icon-orb > .icono,
+.boton > .boton__icono > .icono {
+  filter: drop-shadow(0 3px 7px color-mix(in srgb, currentColor 58%, transparent));
+}
+
+@media (max-width: 720px) {
+  button.chip-docente-sesion {
+    min-width: 0;
+    width: 100%;
+  }
+
+  .chip-docente-name {
+    font-size: 0.88rem;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  button.chip-docente-sesion,
+  button.chip-docente-sesion:hover {
+    transform: none;
+    transition: none;
+  }
+}
+
+/* Debe ser la última regla: las subpartes de autenticación no son tarjetas y
+   no deben heredar el tratamiento de superficies por coincidencia de nombre. */
+:root[data-theme] :is(
+  .auth-card-wrapper,
+  .auth-card-header,
+  .auth-card-title,
+  .auth-card-desc,
+  .auth-card-footer,
+  [class*='-card__'],
+  [class*='-panel__']
+) {
+  border: 0 !important;
+  border-top: 0 !important;
+  border-radius: 0 !important;
+  background: transparent !important;
+  box-shadow: none !important;
+  outline: none !important;
+  -webkit-backdrop-filter: none !important;
+  backdrop-filter: none !important;
+}
+
+:root[data-theme] :is(
+  .auth-card-wrapper,
+  .auth-card-header,
+  .auth-card-title,
+  .auth-card-desc,
+  .auth-card-footer,
+  [class*='-card__'],
+  [class*='-panel__']
+)::before,
+:root[data-theme] :is(
+  .auth-card-wrapper,
+  .auth-card-header,
+  .auth-card-title,
+  .auth-card-desc,
+  .auth-card-footer,
+  [class*='-card__'],
+  [class*='-panel__']
+)::after {
+  content: none !important;
+  display: none !important;
+}
+
+/* Declaraciones largas intencionales: algunos minificadores normalizan el
+   shorthand `background: transparent` como posición `0 0`; estas propiedades
+   dejan explícito que la transparencia debe ganar en la cascada final. */
+:root[data-theme] :is(
+  .auth-card-wrapper,
+  .auth-card-header,
+  .auth-card-title,
+  .auth-card-desc,
+  .auth-card-footer,
+  [class*='-card__'],
+  [class*='-panel__']
+) {
+  background-color: transparent !important;
+  background-image: none !important;
+  background-position: initial !important;
+  background-size: initial !important;
+  background-repeat: initial !important;
+  box-shadow: none !important;
+}
+
+/* Navegación agrupada: reduce la carga de una tira larga de pestañas sin
+   cambiar IDs, permisos ni comportamiento de teclado. */
+.tabs__group-label {
+  flex: 0 0 auto;
+  align-self: center;
+  margin: 0.25rem 0.15rem 0.1rem;
+  padding: 0.2rem 0.45rem;
+  color: var(--ui-text-muted);
+  font-size: 0.68rem;
+  font-weight: 800;
+  letter-spacing: 0.12em;
+  line-height: 1.2;
+  text-transform: uppercase;
+}
+
+.tabs .tab {
+  border-radius: 8px;
+  transform: none;
+}
+
+.tabs .tab:hover,
+.tabs .tab.activa,
+.tabs .tab[aria-current='page'] {
+  transform: none;
+}
+
+.tabs .tab.activa,
+.tabs .tab[aria-current='page'] {
+  background: color-mix(in srgb, var(--ui-accent-primary) 82%, var(--ui-canvas) 18%);
+  box-shadow: 0 8px 18px -12px color-mix(in srgb, var(--ui-accent-primary) 70%, transparent), inset 0 1px 0 rgba(255, 255, 255, 0.26);
+  animation: none;
+}
+
+.superficie-app {
+  --ui-card-radius: 16px;
+}
+
+.campo input,
+.campo textarea,
+.campo select {
+  border-radius: 8px !important;
+}
+
+@media (min-width: 1024px) {
+  .shell-docente__content > .panel > .tabs .tabs__group-label {
+    align-self: stretch;
+    margin: 0.7rem 0.35rem 0.1rem;
+    padding-inline: 0.65rem;
+  }
+
+  .shell-docente__content > .panel > .tabs .tabs__group-label:first-child {
+    margin-top: 0.1rem;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .tabs .tab,
+  .tabs .tab:hover,
+  .tabs .tab.activa,
+  .tabs .tab[aria-current='page'] {
+    animation: none !important;
+    transform: none !important;
+    transition: none !important;
+  }
+}
+
+/* Última capa deliberada: algunos módulos conservan overrides históricos con
+   mayor especificidad. Este bloque mantiene una única salida visual efectiva. */
+:root:not([data-theme="dark"]) :is(.card, .panel, .subpanel, .item-glass, .glass-card, .ui-card, [class*='-card'], [class*='-panel']) {
+  border-color: var(--ui-card-border) !important;
+  border-top-color: var(--ui-card-border) !important;
+  background:
+    linear-gradient(125deg, var(--ui-glass-highlight), transparent 30%),
+    linear-gradient(315deg, color-mix(in srgb, var(--ui-accent-primary) 8%, transparent), transparent 48%),
+    var(--ui-card-surface) !important;
+  box-shadow: var(--ui-card-shadow) !important;
+}
+
+:root[data-theme="dark"] :is(.card, .panel, .subpanel, .item-glass, .glass-card, .ui-card, [class*='-card'], [class*='-panel']) {
+  border-color: var(--ui-card-border) !important;
+  border-top-color: var(--ui-card-border) !important;
+  background:
+    linear-gradient(125deg, var(--ui-glass-highlight), transparent 30%),
+    linear-gradient(315deg, color-mix(in srgb, var(--ui-accent-primary) 8%, transparent), transparent 48%),
+    var(--ui-card-surface) !important;
+  box-shadow: var(--ui-card-shadow) !important;
+}
+
+:root[data-theme] :is(.card, .panel, .subpanel, .item-glass, .glass-card, .ui-card, [class*='-card'], [class*='-panel'])::before {
+  content: none !important;
+  display: none !important;
+}
+
+:root[data-theme] :is(.card, .panel, .subpanel, .item-glass, .glass-card, .ui-card, [class*='-card'], [class*='-panel'])::after {
+  content: '';
+  position: absolute;
+  inset: 1px;
+  z-index: 0;
+  pointer-events: none;
+  border-radius: calc(var(--ui-card-radius) - 1px);
+  background: linear-gradient(112deg, rgba(255, 255, 255, 0.20), rgba(255, 255, 255, 0.06) 18%, transparent 47%);
+  opacity: 0.58;
+  clip-path: inset(0 round calc(var(--ui-card-radius) - 1px));
+}
+
+:root[data-theme] :is(.boton, .btn, button.btn, a.btn) {
+  min-height: 44px;
+  border-radius: 12px;
+  background: var(--ui-button-primary-bg) !important;
+  color: var(--ui-button-primary-fg) !important;
+  border-color: color-mix(in srgb, var(--ui-accent-primary) 58%, transparent) !important;
+}
+
+:root[data-theme] :is(.boton, .btn, button.btn, a.btn).secundario,
+:root[data-theme] :is(.boton, .btn, button.btn, a.btn)[class*='secundario'] {
+  background: var(--ui-button-secondary-bg) !important;
+  color: var(--ui-button-secondary-fg) !important;
+  border-color: var(--ui-glass-border) !important;
+}
+
+:root[data-theme] :is(.card, .panel, .subpanel, .item-glass, .glass-card, .ui-card, [class*='-card'], [class*='-panel']) :is(h1, h2, h3, h4, h5, h6, strong, b, label, .item-title, .ui-card-text-title) {
+  color: var(--ui-text-primary) !important;
+}
+
+:root[data-theme] :is(.card, .panel, .subpanel, .item-glass, .glass-card, .ui-card, [class*='-card'], [class*='-panel']) :is(p, small, .item-sub, .item-meta, .nota, .ayuda, .ui-card-text-support, .ui-card-text-description, .ui-card-text-meta, .campo__label-text, .campo > span) {
+  color: var(--ui-text-secondary) !important;
+}
+
+/* ========================================================================
+   RELEASE 1.9 — identidad visual canónica y glassmorphism legible
+   ========================================================================
+   Una sola capa de tokens gobierna tarjetas, paneles y controles. El vidrio
+   aporta transparencia, refracción y reflejo interno; la tipografía permanece
+   opaca para que WCAG no dependa del fondo que se vea detrás.
+*/
+
+:root {
+  --ui-card-radius: 18px;
+  --ui-card-border: var(--ui-glass-border);
+  --ui-card-surface: var(--ui-glass-surface);
+  --ui-card-surface-strong: var(--ui-glass-surface-strong);
+  --ui-card-blur: var(--ui-glass-blur);
+  --ui-card-shadow: 0 24px 56px -28px rgba(15, 42, 68, 0.34), inset 0 1px 0 var(--ui-glass-highlight), inset 0 -1px 0 rgba(15, 42, 68, 0.08);
+  --ui-card-shadow-hover: 0 30px 68px -28px rgba(8, 101, 143, 0.38), 0 0 0 1px rgba(67, 217, 255, 0.16), inset 0 1px 0 rgba(255, 255, 255, 0.30);
+}
+
+:is(.card, .panel, .subpanel, .item-glass, .glass-card, .ui-card, [class*='-card'], [class*='-panel']) {
+  position: relative;
+  isolation: isolate;
+  overflow: hidden;
+  border-radius: var(--ui-card-radius);
+  border: 1px solid var(--ui-card-border) !important;
+  border-top-color: var(--ui-card-border) !important;
+  background:
+    linear-gradient(125deg, var(--ui-glass-highlight), transparent 30%),
+    linear-gradient(315deg, color-mix(in srgb, var(--ui-accent-primary) 8%, transparent), transparent 48%),
+    var(--ui-card-surface) !important;
+  background-clip: padding-box;
+  -webkit-backdrop-filter: blur(var(--ui-card-blur)) saturate(var(--ui-glass-saturation));
+  backdrop-filter: blur(var(--ui-card-blur)) saturate(var(--ui-glass-saturation));
+  box-shadow: var(--ui-card-shadow) !important;
+}
+
+/* Neutraliza el trazo histórico y conserva un reflejo contenido dentro del
+   borde de la superficie. */
+:is(.ui-card, .item-glass)::before,
+:is(.card, .panel, .subpanel, .glass-card, [class*='-card'], [class*='-panel'])::before {
+  content: none !important;
+  display: none !important;
+}
+
+:is(.card, .panel, .subpanel, .item-glass, .glass-card, .ui-card, [class*='-card'], [class*='-panel'])::after {
+  content: '';
+  position: absolute;
+  inset: 1px;
+  z-index: 0;
+  pointer-events: none;
+  border-radius: calc(var(--ui-card-radius) - 1px);
+  background: linear-gradient(112deg, rgba(255, 255, 255, 0.20), rgba(255, 255, 255, 0.06) 18%, transparent 47%);
+  opacity: 0.58;
+  clip-path: inset(0 round calc(var(--ui-card-radius) - 1px));
+}
+
+:is(.card, .panel, .subpanel, .item-glass, .glass-card, .ui-card, [class*='-card'], [class*='-panel']) > * {
+  position: relative;
+  z-index: 1;
+}
+
+:is(.ui-card--interactive, .item-glass, .materias-lista__item, .alumnos-lista__item, .guia-step-card, .plantillas-item, [class*='-card--interactive']):hover {
+  border-color: color-mix(in srgb, var(--ui-accent-primary) 58%, var(--ui-card-border)) !important;
+  box-shadow: var(--ui-card-shadow-hover) !important;
+  transform: translateY(-3px);
+}
+
+:is(.ui-card, .item-glass, .card, .panel, .subpanel, [class*='-card'], [class*='-panel']) :is(h1, h2, h3, h4, h5, h6, strong, b, label, .item-title, .ui-card-text-title) {
+  color: var(--ui-text-primary) !important;
+}
+
+:is(.ui-card, .item-glass, .card, .panel, .subpanel, [class*='-card'], [class*='-panel']) :is(p, small, .item-sub, .item-meta, .nota, .ayuda, .ui-card-text-support, .ui-card-text-description, .ui-card-text-meta, .campo__label-text, .campo > span) {
+  color: var(--ui-text-secondary) !important;
+}
+
+:is(.ui-card, .item-glass, .card, .panel, .subpanel, [class*='-card'], [class*='-panel']) :is(input, textarea, select) {
+  border-color: var(--ui-glass-border) !important;
+  background: color-mix(in srgb, var(--ui-canvas) 42%, transparent) !important;
+  color: var(--ui-text-primary) !important;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.10);
+}
+
+:is(input, textarea, select)::placeholder {
+  color: var(--ui-text-placeholder) !important;
+  opacity: 1;
+}
+
+:is(.boton, .btn, button.btn, a.btn) {
+  min-height: 44px;
+  border: 1px solid color-mix(in srgb, var(--ui-accent-primary) 58%, transparent) !important;
+  border-radius: 12px;
+  padding: 0.68rem 1.05rem;
+  background: var(--ui-button-primary-bg) !important;
+  color: var(--ui-button-primary-fg) !important;
+  box-shadow: 0 10px 24px -14px color-mix(in srgb, var(--ui-accent-primary) 80%, transparent), inset 0 1px 0 rgba(255, 255, 255, 0.22) !important;
+  transition: transform 180ms ease, background 180ms ease, border-color 180ms ease, box-shadow 180ms ease;
+}
+
+:is(.boton, .btn, button.btn, a.btn):hover:not(:disabled) {
+  background: var(--ui-button-primary-hover) !important;
+  border-color: var(--ui-accent-primary) !important;
+  box-shadow: 0 14px 30px -14px color-mix(in srgb, var(--ui-accent-primary) 86%, transparent), inset 0 1px 0 rgba(255, 255, 255, 0.30) !important;
+  transform: translateY(-2px);
+}
+
+:is(.boton, .btn, button.btn, a.btn).secundario,
+:is(.boton, .btn, button.btn, a.btn)[class*='secundario'] {
+  border-color: var(--ui-glass-border) !important;
+  background: var(--ui-button-secondary-bg) !important;
+  color: var(--ui-button-secondary-fg) !important;
+  box-shadow: inset 0 1px 0 var(--ui-glass-highlight), 0 10px 24px -18px rgba(15, 42, 68, 0.34) !important;
+}
+
+:is(.boton, .btn, button.btn, a.btn):disabled {
+  cursor: not-allowed;
+  opacity: 0.58;
+  box-shadow: none !important;
+}
+
+:is(.ui-card, .item-glass, .card, .panel, .subpanel, [class*='-card'], [class*='-panel']):focus-within {
+  outline: 2px solid color-mix(in srgb, var(--ui-accent-primary) 80%, white 20%);
+  outline-offset: 3px;
+}
+
+@media (max-width: 720px) {
+  :is(.boton, .btn, button.btn, a.btn) {
+    min-height: 46px;
+  }
+
+  :is(.card, .panel, .subpanel, .item-glass, .glass-card, .ui-card, [class*='-card'], [class*='-panel']) {
+    border-radius: 16px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :is(.ui-card, .item-glass, .card, .panel, .subpanel, [class*='-card'], [class*='-panel'], .boton, .btn, button.btn, a.btn),
+  :is(.ui-card, .item-glass, .card, .panel, .subpanel, [class*='-card'], [class*='-panel'])::after {
+    transition: none !important;
+  }
+
+  :is(.ui-card--interactive, .item-glass, .materias-lista__item, .alumnos-lista__item, .guia-step-card, .plantillas-item, [class*='-card--interactive']):hover,
+  :is(.boton, .btn, button.btn, a.btn):hover:not(:disabled) {
+    transform: none !important;
+  }
+}
+
+/* La cascada reutilizable solo debe pintar superficies, nunca subpartes de
+   una tarjeta. Los nombres heredados de autenticación y los modificadores
+   BEM contienen "-card" en su clase, pero no son superficies independientes.
+   Este reset evita bordes internos, franjas y sombras duplicadas. */
+:root[data-theme] :is(
+  .auth-card-wrapper,
+  .auth-card-header,
+  .auth-card-title,
+  .auth-card-desc,
+  .auth-card-footer,
+  [class*='-card__'],
+  [class*='-panel__']
+) {
+  border: 0 !important;
+  border-top: 0 !important;
+  border-radius: 0 !important;
+  background: transparent !important;
+  box-shadow: none !important;
+  outline: none !important;
+  -webkit-backdrop-filter: none !important;
+  backdrop-filter: none !important;
+}
+
+:root[data-theme] :is(
+  .auth-card-wrapper,
+  .auth-card-header,
+  .auth-card-title,
+  .auth-card-desc,
+  .auth-card-footer,
+  [class*='-card__'],
+  [class*='-panel__']
+)::before,
+:root[data-theme] :is(
+  .auth-card-wrapper,
+  .auth-card-header,
+  .auth-card-title,
+  .auth-card-desc,
+  .auth-card-footer,
+  [class*='-card__'],
+  [class*='-panel__']
+)::after {
+  content: none !important;
+  display: none !important;
+}
+
+/* Google conserva una acción visible aunque el proveedor externo tarde o no
+   pueda cargar; cuando Google renderiza su iframe oficial, el respaldo se oculta. */
+.auth-google-control {
+  display: grid;
+  place-items: center;
+  width: 100%;
+  min-height: 42px;
+}
+
+.auth-google-provider {
+  display: contents;
+}
+
+.auth-google-fallback {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.55rem;
+  min-height: 42px;
+  padding: 0.65rem 1rem;
+  border: 1px solid rgba(148, 190, 232, 0.7);
+  border-radius: 10px;
+  background: linear-gradient(135deg, #ffffff, #e6eef8);
+  color: #12223a;
+  box-shadow: 0 8px 18px -12px rgba(2, 8, 23, 0.9), inset 0 1px 0 rgba(255, 255, 255, 0.95);
+  font-weight: 800;
+  cursor: pointer;
+  transition: transform 180ms var(--ui-card-ease), box-shadow 180ms ease, border-color 180ms ease;
+}
+
+.auth-google-fallback:hover {
+  transform: translateY(-1px);
+  border-color: #60a5fa;
+  box-shadow: 0 12px 24px -14px rgba(56, 189, 248, 0.75), inset 0 1px 0 rgba(255, 255, 255, 0.98);
+}
+
+.auth-google-fallback:focus-visible {
+  outline: 3px solid rgba(56, 189, 248, 0.72);
+  outline-offset: 3px;
+}
+
+.auth-google-fallback__mark {
+  display: grid;
+  place-items: center;
+  width: 1.35rem;
+  height: 1.35rem;
+  border-radius: 50%;
+  background: conic-gradient(from 45deg, #4285f4 0 25%, #34a853 25% 50%, #fbbc05 50% 75%, #ea4335 75% 100%);
+  color: #ffffff;
+  font-size: 0.78rem;
+  font-weight: 900;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
+}
+
+.auth-google-control:has(iframe) .auth-google-fallback {
+  display: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .auth-google-fallback {
+    transition: none;
+  }
+}
+
+/* ========================================================================
+   RELEASE 1.7 — contraste comprobable y superficies compuestas
+   Esta capa queda al final para que ninguna regla histórica vuelva a
+   blanquear las tarjetas ni a reintroducir el acento superior sobresaliente.
+   ======================================================================== */
+
+:root[data-theme="dark"] {
+  --muted: #c8d8eb;
+  --textoSuave: #e2e8f0;
+  --ui-ink-muted: #c8d8eb;
+  --ui-card-border: rgba(126, 190, 232, 0.42);
+}
+
+:root[data-theme="dark"] body,
+:root[data-theme="dark"] .superficie-app {
+  background:
+    radial-gradient(ellipse 48% 38% at 7% 3%, rgba(34, 105, 149, 0.13), transparent 72%),
+    radial-gradient(ellipse 42% 34% at 94% 14%, rgba(71, 78, 153, 0.09), transparent 74%),
+    radial-gradient(ellipse 46% 40% at 74% 96%, rgba(20, 115, 113, 0.065), transparent 76%),
+    linear-gradient(142deg, #061326 0%, #0a1b33 54%, #040b18 100%);
+}
+
+:root[data-theme="dark"] :is(
+  .card,
+  .panel,
+  .subpanel,
+  .item-glass,
+  .glass-card,
+  .ui-card,
+  .materias-resumen__item,
+  .materias-lista__item,
+  .materias-form--glass,
+  .empty-state-card,
+  .guia-materia-card,
+  .guia-step-card,
+  .archivadas-info-card,
+  .alumnos-resumen__item,
+  .alumnos-lista__item,
+  .alumnos-filtros--glass,
+  .alumnos-form--glass,
+  .banco-file-upload-card,
+  .banco-imagen-preview-card,
+  .banco-opcion-card,
+  .banco-temas__item,
+  .banco-listado__item,
+  .plantillas-item,
+  .plantillas-progreso-card,
+  .plantillas-ultimo-card,
+  .asistencia-materia-pick-card,
+  .asistencias-panel-card,
+  .asistencias-sesion-card,
+  .asistencias-regla-card,
+  .temarios-card,
+  .temarios-panel-card,
+  .temarios-tree-hero-card,
+  .entregas-manual-card,
+  .calif-deck-card,
+  .calif-captura-card,
+  .calif-grade-card,
+  .omr-review-card,
+  .cuenta-toggle-card,
+  .cuenta-hero-stat-card,
+  .alumnos-materia-pick-card,
+  .portal-resultado-card,
+  .superadmin-kpi
+) {
+  border-top-color: transparent !important;
+  border-color: rgba(126, 190, 232, 0.42) !important;
+  background:
+    linear-gradient(132deg, rgba(74, 126, 163, 0.18), transparent 36%),
+    radial-gradient(ellipse at 100% 0%, color-mix(in srgb, var(--screen-accent, #38bdf8) 12%, transparent), transparent 46%),
+    linear-gradient(156deg, #214464 0%, #1a3858 48%, #132c49 100%) !important;
+  box-shadow:
+    0 26px 56px -30px rgba(0, 0, 0, 0.9),
+    0 10px 26px -16px rgba(20, 129, 193, 0.26),
+    inset 0 1px 0 rgba(255, 255, 255, 0.16),
+    inset 0 -18px 34px -28px rgba(0, 0, 0, 0.58) !important;
+  color: #f5f9ff;
+}
+
+:root[data-theme="dark"] :is(
+  .materias-panel,
+  .alumnos-panel,
+  .asistencias-panel,
+  .temarios-panel,
+  .banco-panel,
+  .plantillas-shell,
+  .entregas-panel,
+  .calificaciones-layout,
+  .evaluaciones-panel,
+  .sincronizacion-shell,
+  .cuenta-panel,
+  .admin-negocio-shell,
+  .portal-alumno-shell
+) {
+  background:
+    linear-gradient(120deg, rgba(29, 77, 111, 0.14), transparent 34%),
+    linear-gradient(157deg, rgba(16, 42, 70, 0.96), rgba(9, 26, 47, 0.98)) !important;
+  border-color: rgba(126, 190, 232, 0.28) !important;
+}
+
+/* Se elimina globalmente el pseudoacento que producía la línea que sobresalía. */
+:root[data-theme="dark"] :is(
+  .card,
+  .panel,
+  .subpanel,
+  .item-glass,
+  .glass-card,
+  .ui-card,
+  .materias-resumen__item,
+  .materias-lista__item,
+  .materias-form--glass,
+  .empty-state-card,
+  .guia-materia-card,
+  .guia-step-card,
+  .archivadas-info-card,
+  .alumnos-resumen__item,
+  .alumnos-lista__item,
+  .alumnos-filtros--glass,
+  .alumnos-form--glass,
+  .banco-file-upload-card,
+  .banco-imagen-preview-card,
+  .banco-opcion-card,
+  .banco-temas__item,
+  .banco-listado__item,
+  .plantillas-item,
+  .plantillas-progreso-card,
+  .plantillas-ultimo-card,
+  .asistencia-materia-pick-card,
+  .asistencias-panel-card,
+  .asistencias-sesion-card,
+  .asistencias-regla-card,
+  .temarios-card,
+  .temarios-panel-card,
+  .temarios-tree-hero-card,
+  .entregas-manual-card,
+  .calif-deck-card,
+  .calif-captura-card,
+  .calif-grade-card,
+  .omr-review-card,
+  .cuenta-toggle-card,
+  .cuenta-hero-stat-card,
+  .alumnos-materia-pick-card,
+  .portal-resultado-card,
+  .superadmin-kpi
+)::before,
+:root[data-theme="dark"] :is(
+  .card,
+  .panel,
+  .subpanel,
+  .item-glass,
+  .glass-card,
+  .ui-card,
+  .materias-resumen__item,
+  .materias-lista__item,
+  .materias-form--glass,
+  .empty-state-card,
+  .guia-materia-card,
+  .guia-step-card,
+  .archivadas-info-card,
+  .alumnos-resumen__item,
+  .alumnos-lista__item,
+  .alumnos-filtros--glass,
+  .alumnos-form--glass,
+  .banco-file-upload-card,
+  .banco-imagen-preview-card,
+  .banco-opcion-card,
+  .banco-temas__item,
+  .banco-listado__item,
+  .plantillas-item,
+  .plantillas-progreso-card,
+  .plantillas-ultimo-card,
+  .asistencia-materia-pick-card,
+  .asistencias-panel-card,
+  .asistencias-sesion-card,
+  .asistencias-regla-card,
+  .temarios-card,
+  .temarios-panel-card,
+  .temarios-tree-hero-card,
+  .entregas-manual-card,
+  .calif-deck-card,
+  .calif-captura-card,
+  .calif-grade-card,
+  .omr-review-card,
+  .cuenta-toggle-card,
+  .cuenta-hero-stat-card,
+  .alumnos-materia-pick-card,
+  .portal-resultado-card,
+  .superadmin-kpi
+)::after {
+  content: none !important;
+  display: none !important;
+}
+
+:root[data-theme="dark"] :is(
+  .card,
+  .panel,
+  .subpanel,
+  .item-glass,
+  .glass-card,
+  .ui-card,
+  .guia-step-card,
+  .materias-form--glass,
+  .alumnos-form--glass,
+  .alumnos-filtros--glass
+) :is(h1, h2, h3, h4, h5, h6, strong, b, label, .item-title, .ui-card-text-title, .guia-step-card__body h4) {
+  color: #f8fbff !important;
+}
+
+:root[data-theme="dark"] :is(
+  .card,
+  .panel,
+  .subpanel,
+  .item-glass,
+  .glass-card,
+  .ui-card,
+  .guia-step-card,
+  .materias-form--glass,
+  .alumnos-form--glass,
+  .alumnos-filtros--glass
+) :is(p, small, span, .item-sub, .item-meta, .nota, .ayuda, .ui-card-text-support, .ui-card-text-description, .ui-card-text-meta, .campo__label-text, .campo > span) {
+  color: #d9e8f5 !important;
+}
+
+:root[data-theme="dark"] :is(input, textarea, select)::placeholder {
+  color: #b9cfe2 !important;
+  opacity: 1;
+}
+
+:root[data-theme="dark"] .alumnos-card__meta,
+:root[data-theme="dark"] .materia-card-meta {
+  color: #d9e8f5 !important;
+}
+
+/* ========================================================================
+   CONTRASTE Y ACABADO 1.6 — última capa del sistema visual
+   Las reglas siguientes son intencionalmente transversales: evitan que un
+   override de pantalla vuelva a degradar contraste, superficie o iconografía.
+   ======================================================================== */
+
+:root[data-theme="dark"] body,
+:root[data-theme="dark"] .superficie-app {
+  background:
+    linear-gradient(118deg, rgba(20, 67, 96, 0.2), transparent 34%),
+    linear-gradient(302deg, rgba(42, 45, 100, 0.16), transparent 42%),
+    linear-gradient(168deg, #061326 0%, #0a1b33 54%, #040b18 100%);
+}
+
+:root[data-theme="dark"] body::before,
+:root[data-theme="dark"] .page::before {
+  opacity: 0.12;
+  filter: blur(30px);
+}
+
+:root[data-theme="dark"] :is(
+  .card,
+  .panel,
+  .subpanel,
+  .item-glass,
+  .glass-card,
+  .ui-card,
+  .materias-resumen__item,
+  .materias-lista__item,
+  .materias-form--glass,
+  .empty-state-card,
+  .guia-materia-card,
+  .guia-step-card,
+  .archivadas-info-card,
+  .alumnos-resumen__item,
+  .alumnos-lista__item,
+  .alumnos-filtros--glass,
+  .banco-file-upload-card,
+  .banco-imagen-preview-card,
+  .banco-opcion-card,
+  .banco-temas__item,
+  .banco-listado__item,
+  .plantillas-item,
+  .plantillas-progreso-card,
+  .plantillas-ultimo-card,
+  .asistencia-materia-pick-card,
+  .asistencias-panel-card,
+  .asistencias-sesion-card,
+  .asistencias-regla-card,
+  .temarios-card,
+  .temarios-panel-card,
+  .temarios-tree-hero-card,
+  .entregas-manual-card,
+  .calif-deck-card,
+  .calif-captura-card,
+  .calif-grade-card,
+  .omr-review-card,
+  .cuenta-toggle-card,
+  .cuenta-hero-stat-card,
+  .alumnos-materia-pick-card,
+  .portal-resultado-card,
+  .superadmin-kpi
+) {
+  border-top-color: var(--ui-card-border) !important;
+  background:
+    linear-gradient(132deg, rgba(74, 126, 163, 0.2), transparent 38%),
+    linear-gradient(158deg, rgba(30, 61, 93, 0.98), rgba(14, 34, 59, 0.99)) !important;
+  box-shadow:
+    0 24px 52px -28px rgba(0, 0, 0, 0.88),
+    0 10px 24px -16px rgba(21, 132, 187, 0.24),
+    inset 0 1px 0 rgba(255, 255, 255, 0.15),
+    inset 0 -18px 34px -28px rgba(0, 0, 0, 0.54);
+}
+
+:root[data-theme="dark"] :is(.card, .panel, .subpanel) {
+  background:
+    linear-gradient(132deg, rgba(54, 101, 139, 0.15), transparent 40%),
+    linear-gradient(158deg, rgba(19, 45, 74, 0.97), rgba(10, 27, 49, 0.99)) !important;
+}
+
+:root[data-theme="dark"] :is(.guia-materia-card, .guia-step-card, .materias-form--glass, .alumnos-form--glass, .alumnos-filtros--glass) {
+  background:
+    linear-gradient(132deg, rgba(81, 135, 173, 0.23), transparent 42%),
+    linear-gradient(158deg, rgba(34, 70, 105, 0.98), rgba(19, 44, 72, 0.99)) !important;
+}
+
+/* El acabado ya vive en el borde y la sombra; ningún pseudo-elemento vuelve
+   a dibujar una línea que pueda sobresalir o duplicar el contorno. */
+:is(.card, .panel, .subpanel, .item-glass, .glass-card, .ui-card)::before,
+:is(.card, .panel, .subpanel, .item-glass, .glass-card, .ui-card)::after {
+  content: none !important;
+  display: none !important;
+}
+
+/* Jerarquía de lectura comprobable sobre las superficies compuestas. */
+:root[data-theme="dark"] :is(
+  .card,
+  .panel,
+  .subpanel,
+  .item-glass,
+  .glass-card,
+  .ui-card,
+  .guia-step-card,
+  .materias-form--glass,
+  .alumnos-form--glass,
+  .alumnos-filtros--glass
+) :is(h1, h2, h3, h4, h5, h6, strong, .item-title, .guia-step-card__body h4, .alumnos-form__title) {
+  color: #f8fbff !important;
+}
+
+:root[data-theme="dark"] :is(
+  .guia-step-card__body p,
+  .guia-step-chip,
+  .guia-materia-card .nota,
+  .materias-form--glass .nota,
+  .alumnos-form__subtitle,
+  .alumnos-form__hint,
+  .item-sub,
+  .nota,
+  .ayuda,
+  .campo > span,
+  .campo__label-text,
+  .auth-showcase-desc,
+  .auth-card-desc
+) {
+  color: #d9e8f5 !important;
+}
+
+:root[data-theme="dark"] :is(input, textarea, select)::placeholder {
+  color: #b9cfe2;
+  opacity: 1;
+}
+
+:root[data-theme="dark"] .guia-step-card__body code,
+:root[data-theme="dark"] .guia-chip-sample {
+  color: #eef8ff;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :is(.card, .panel, .subpanel, .item-glass, .glass-card, .ui-card) {
+    transition: none !important;
+  }
+}
+
+/* Cobertura de superficies raíz para módulos que comparten el shell docente. */
+:where(
+  .paquete-sincronizacion-panel,
+  .shell-main--publicar,
+  .shell-main--sync-equipos,
+  .rehidratacion-panel,
+  .classroom-panel,
+  .calif-omr-panel,
+  .calif-grade-card,
+  .calificaciones-encuadre-panel,
+  .calificaciones-manual-panel,
+  .calificaciones-revision-panel,
+  .calif-action-deck
+) {
+  --screen-accent: #60a5fa;
+}
+
+.paquete-sincronizacion-panel,
+.shell-main--sync-equipos {
+  --screen-accent: #2dd4bf;
+}
+
+.shell-main--publicar {
+  --screen-accent: #22d3ee;
+}
+
+.rehidratacion-panel {
+  --screen-accent: #f59e0b;
+}
+
+.classroom-panel {
+  --screen-accent: #34d399;
+}
+
+:where(.calif-omr-panel, .calif-grade-card, .calificaciones-encuadre-panel, .calificaciones-manual-panel, .calificaciones-revision-panel, .calif-action-deck) {
+  --screen-accent: #a3e635;
+}
+
+:where(
+  .paquete-sincronizacion-panel,
+  .shell-main--publicar,
+  .shell-main--sync-equipos,
+  .rehidratacion-panel,
+  .classroom-panel,
+  .calif-omr-panel,
+  .calif-grade-card,
+  .calificaciones-encuadre-panel,
+  .calificaciones-manual-panel,
+  .calificaciones-revision-panel,
+  .calif-action-deck
+) :is(h1, h2, h3, h4, h5, .eyebrow)::after {
+  background: linear-gradient(90deg, color-mix(in srgb, var(--screen-accent) 82%, transparent), transparent);
+}
+
+/* ========================================================================
+   SISTEMA TRANSVERSAL 1.5 — profundidad, jerarquía y lectura por módulo
+   Esta capa se mantiene al final para neutralizar reglas históricas sin
+   cambiar la estructura ni el comportamiento de las pantallas.
+   ======================================================================== */
+
+:root[data-theme="dark"] {
+  --ui-canvas: #07162b;
+  --ui-canvas-deep: #050f20;
+  --ui-ink: #f5f9ff;
+  --ui-ink-soft: #c8d8eb;
+  --ui-ink-muted: #91a8c2;
+  --ui-card-surface: rgba(28, 55, 88, 0.94);
+  --ui-card-surface-strong: rgba(37, 69, 106, 0.97);
+  --ui-card-border: rgba(121, 190, 241, 0.34);
+  --ui-card-shadow:
+    0 26px 58px -28px rgba(0, 0, 0, 0.9),
+    0 10px 24px -14px rgba(20, 129, 193, 0.3),
+    inset 0 1px 0 rgba(255, 255, 255, 0.16),
+    inset 0 -1px 0 rgba(2, 12, 27, 0.38);
+  --ui-card-shadow-hover:
+    0 34px 72px -28px rgba(0, 0, 0, 0.94),
+    0 18px 34px -16px color-mix(in srgb, var(--screen-accent, #38bdf8) 42%, transparent),
+    inset 0 1px 0 rgba(255, 255, 255, 0.22),
+    inset 0 -1px 0 rgba(2, 12, 27, 0.34);
+  --ui-card-radius: 20px;
+}
+
+:root[data-theme="dark"] body {
+  background:
+    radial-gradient(ellipse 58% 44% at 5% 4%, rgba(38, 126, 184, 0.11), transparent 68%),
+    radial-gradient(ellipse 44% 38% at 96% 10%, rgba(77, 100, 197, 0.075), transparent 70%),
+    radial-gradient(ellipse 52% 46% at 82% 96%, rgba(27, 151, 139, 0.06), transparent 72%),
+    linear-gradient(145deg, var(--ui-canvas-deep), var(--ui-canvas) 54%, #081b34);
+  color: var(--ui-ink);
+}
+
+:root[data-theme="dark"] body::before {
+  content: '';
+  position: fixed;
+  inset: -18%;
+  z-index: -1;
+  pointer-events: none;
+  opacity: 0.34;
+  filter: blur(42px) saturate(115%);
+  background:
+    radial-gradient(ellipse at 20% 26%, rgba(69, 185, 231, 0.14), transparent 18%),
+    radial-gradient(ellipse at 73% 17%, rgba(129, 140, 248, 0.11), transparent 21%),
+    radial-gradient(ellipse at 46% 76%, rgba(45, 212, 191, 0.08), transparent 20%),
+    radial-gradient(ellipse at 91% 65%, rgba(167, 139, 250, 0.07), transparent 16%);
+}
+
+:root[data-theme="dark"] .page::before {
+  opacity: 0.22;
+  background:
+    radial-gradient(ellipse at 18% 8%, rgba(125, 211, 252, 0.08), transparent 30%),
+    radial-gradient(ellipse at 82% 36%, rgba(129, 140, 248, 0.055), transparent 32%),
+    linear-gradient(120deg, transparent 0 36%, rgba(255, 255, 255, 0.018) 50%, transparent 64%);
+  filter: blur(18px);
+}
+
+/* Superficies: el fondo queda profundo y las tarjetas se leen como planos
+   elevados, sin la línea superior que anteriormente sobresalía del marco. */
+:is(
+  .card,
+  .panel,
+  .subpanel,
+  .item-glass,
+  .materias-resumen__item,
+  .materias-lista__item,
+  .materias-form--glass,
+  .empty-state-card,
+  .guia-materia-card,
+  .guia-step-card,
+  .archivadas-info-card,
+  .alumnos-resumen__item,
+  .alumnos-lista__item,
+  .alumnos-filtros--glass,
+  .banco-file-upload-card,
+  .banco-imagen-preview-card,
+  .banco-opcion-card,
+  .banco-temas__item,
+  .banco-listado__item,
+  .plantillas-item,
+  .plantillas-progreso-card,
+  .plantillas-ultimo-card,
+  .asistencia-materia-pick-card,
+  .asistencias-panel-card,
+  .asistencias-sesion-card,
+  .asistencias-regla-card,
+  .temarios-card,
+  .temarios-panel-card,
+  .temarios-tree-hero-card,
+  .entregas-manual-card,
+  .calif-deck-card,
+  .calif-captura-card,
+  .calif-grade-card,
+  .omr-review-card,
+  .cuenta-toggle-card,
+  .cuenta-hero-stat-card,
+  .alumnos-materia-pick-card,
+  .portal-resultado-card,
+  .superadmin-kpi
+) {
+  border-top-color: var(--ui-card-border) !important;
+  background:
+    linear-gradient(145deg, rgba(116, 183, 231, 0.14), transparent 33%),
+    radial-gradient(ellipse at 100% 0%, color-mix(in srgb, var(--screen-accent, #38bdf8) 15%, transparent), transparent 42%),
+    linear-gradient(160deg, rgba(42, 75, 113, 0.97), rgba(24, 51, 83, 0.98));
+  box-shadow: var(--ui-card-shadow);
+  color: var(--ui-ink);
+}
+
+:is(
+  .card,
+  .panel,
+  .subpanel,
+  .item-glass,
+  .materias-resumen__item,
+  .materias-lista__item,
+  .materias-form--glass,
+  .empty-state-card,
+  .guia-materia-card,
+  .guia-step-card,
+  .archivadas-info-card,
+  .alumnos-resumen__item,
+  .alumnos-lista__item,
+  .alumnos-filtros--glass,
+  .banco-file-upload-card,
+  .banco-imagen-preview-card,
+  .banco-opcion-card,
+  .banco-temas__item,
+  .banco-listado__item,
+  .plantillas-item,
+  .plantillas-progreso-card,
+  .plantillas-ultimo-card,
+  .asistencia-materia-pick-card,
+  .asistencias-panel-card,
+  .asistencias-sesion-card,
+  .asistencias-regla-card,
+  .temarios-card,
+  .temarios-panel-card,
+  .temarios-tree-hero-card,
+  .entregas-manual-card,
+  .calif-deck-card,
+  .calif-captura-card,
+  .calif-grade-card,
+  .omr-review-card,
+  .cuenta-toggle-card,
+  .cuenta-hero-stat-card,
+  .alumnos-materia-pick-card,
+  .portal-resultado-card,
+  .superadmin-kpi
+)::before {
+  content: none !important;
+  display: none !important;
+}
+
+:is(.card, .panel, .subpanel, .item-glass) {
+  overflow: hidden;
+}
+
+:is(.card, .panel, .subpanel, .item-glass):hover {
+  border-color: color-mix(in srgb, var(--screen-accent, #38bdf8) 58%, rgba(255, 255, 255, 0.22)) !important;
+  box-shadow: var(--ui-card-shadow-hover);
+}
+
+:is(.card, .panel, .subpanel, .item-glass) > :is(h1, h2, h3, h4, p, div, section, ul, ol) {
+  position: relative;
+  z-index: 1;
+}
+
+/* Jerarquía tipográfica transversal. */
+:is(
+  .shell-docente__title,
+  .portal-alumno-shell__title,
+  .materias-panel__title,
+  .alumnos-panel__title,
+  .asistencias-panel__title,
+  .temarios-panel__title,
+  .banco-panel__title,
+  .calif-section-title,
+  .plantillas-panel__hero h3,
+  .admin-negocio-shell h2
+) {
+  color: var(--ui-ink) !important;
+  text-shadow: 0 2px 18px rgba(0, 0, 0, 0.3);
+  letter-spacing: -0.025em;
+}
+
+:is(.item-title, .banco-section-title, .asistencias-sub-title, .cuenta-toggle-title, .plantillas-item__content h3, .portal-card-title) {
+  color: var(--ui-ink) !important;
+  font-weight: 800;
+  letter-spacing: -0.015em;
+}
+
+:is(.nota, .ayuda, .item-sub, .admin-negocio-shell__lead, .auth-showcase-desc, .auth-card-desc) {
+  color: var(--ui-ink-soft) !important;
+}
+
+:is(.eyebrow, .banco-panel__meta-row, .alumnos-panel__meta-row, .asistencias-panel__meta-row, .temarios-panel__meta-row) {
+  color: color-mix(in srgb, var(--screen-accent, #67e8f9) 82%, white 18%) !important;
+}
+
+/* Acento por dominio: permite reconocer el contexto sin duplicar estilos. */
+.materias-panel, .materias-form, .materias-seccion-activas { --screen-accent: #67e8f9; }
+.alumnos-panel, .alumnos-form, .alumnos-explorador { --screen-accent: #34d399; }
+.asistencias-panel, .asistencias-filtros-bar { --screen-accent: #60a5fa; }
+.temarios-panel, .temarios-tree-hero-card { --screen-accent: #fbbf24; }
+.banco-panel, .banco-form, .banco-listado { --screen-accent: #a78bfa; }
+.plantillas-shell, .plantillas-item { --screen-accent: #f472b6; }
+.entregas-panel, .entregas-subpanel { --screen-accent: #fb923c; }
+.calificaciones-layout, .calificaciones-encuadre-panel { --screen-accent: #a3e635; }
+.evaluaciones-panel { --screen-accent: #22d3ee; }
+.sincronizacion-shell { --screen-accent: #2dd4bf; }
+.cuenta-panel, .admin-negocio-shell { --screen-accent: #818cf8; }
+.portal-alumno-shell, .portal-resultados-shell { --screen-accent: #38bdf8; }
+
+/* KPIs y estados: una sola proporción, un solo lenguaje de elevación. */
+:is(.materia-mini-kpi, .banco-mini-kpi, .asistencia-mini-kpi, .temario-mini-kpi, .calificaciones-kpi, .cuenta-hero-stat-card, .superadmin-kpi) {
+  border: 1px solid color-mix(in srgb, var(--screen-accent, #38bdf8) 38%, rgba(255, 255, 255, 0.16)) !important;
+  background:
+    linear-gradient(145deg, rgba(255, 255, 255, 0.12), transparent 38%),
+    color-mix(in srgb, var(--ui-card-surface-strong) 88%, var(--screen-accent, #38bdf8) 12%) !important;
+  box-shadow: 0 18px 34px -24px rgba(0, 0, 0, 0.9), inset 0 1px 0 rgba(255, 255, 255, 0.13) !important;
+}
+
+:is(.materia-mini-kpi__num, .banco-mini-kpi__num, .asistencia-mini-kpi__num, .temario-mini-kpi__num, .cuenta-hero-stat-num, .estado-datos-numero) {
+  color: color-mix(in srgb, var(--screen-accent, #67e8f9) 88%, white 12%) !important;
+  text-shadow: 0 0 18px color-mix(in srgb, var(--screen-accent, #38bdf8) 28%, transparent);
+}
+
+/* Controles: alineación, contraste y feedback táctil consistentes. */
+:is(.boton, .btn, .chip, .tab, .plantillas-tab-btn, .asistencias-tab-btn, .temarios-tab-btn, .admin-negocio-nav__item) {
+  min-height: 40px;
+  border-radius: 12px;
+  font-weight: 750;
+  line-height: 1.15;
+  transition: transform 180ms var(--ui-card-ease), box-shadow 180ms ease, border-color 180ms ease, background 180ms ease, color 180ms ease;
+}
+
+:is(.boton, .btn, .chip):not(:disabled):hover,
+:is(.tab, .plantillas-tab-btn, .asistencias-tab-btn, .temarios-tab-btn, .admin-negocio-nav__item):hover {
+  transform: translateY(-2px);
+  border-color: color-mix(in srgb, var(--screen-accent, #38bdf8) 68%, white 20%) !important;
+  box-shadow: 0 14px 28px -18px color-mix(in srgb, var(--screen-accent, #38bdf8) 72%, transparent);
+}
+
+:is(.boton, .btn, .chip, .tab, .plantillas-tab-btn, .asistencias-tab-btn, .temarios-tab-btn, .admin-negocio-nav__item):focus-visible {
+  outline: 3px solid color-mix(in srgb, var(--screen-accent, #38bdf8) 60%, white 20%);
+  outline-offset: 3px;
+}
+
+:is(.boton, .btn, .chip, .tab, .plantillas-tab-btn, .asistencias-tab-btn, .temarios-tab-btn, .admin-negocio-nav__item):not(:disabled):active {
+  transform: translateY(0) scale(0.985);
+}
+
+:is(.campo input, .campo select, .campo textarea, .auth-input-box, .asistencias-input, .asistencias-select, .banco-search-input) {
+  border-color: rgba(126, 177, 222, 0.28) !important;
+  background: linear-gradient(145deg, rgba(108, 165, 214, 0.1), transparent 44%), rgba(5, 18, 37, 0.7) !important;
+  color: var(--ui-ink) !important;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.09), 0 8px 20px -16px rgba(0, 0, 0, 0.9) !important;
+}
+
+:is(.campo input, .campo select, .campo textarea, .auth-input-box, .asistencias-input, .asistencias-select, .banco-search-input):focus-within,
+:is(.campo input, .campo select, .campo textarea, .asistencias-input, .asistencias-select, .banco-search-input):focus-visible {
+  border-color: color-mix(in srgb, var(--screen-accent, #38bdf8) 66%, white 12%) !important;
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--screen-accent, #38bdf8) 20%, transparent), 0 12px 28px -18px color-mix(in srgb, var(--screen-accent, #38bdf8) 62%, transparent) !important;
+}
+
+/* El icono vive dentro del control; se elimina el pseudoemoji heredado. */
+.auth-input-box::before {
+  content: none !important;
+  display: none !important;
+}
+
+.auth-input-icon {
+  flex: 0 0 auto;
+  width: 18px;
+  height: 18px;
+  color: #71d7ff;
+  filter: drop-shadow(0 2px 5px rgba(56, 189, 248, 0.35));
+}
+
+.auth-pwd-toggle {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 34px;
+  color: #a8c6df;
+  border-radius: 9px;
+}
+
+.auth-pwd-toggle:hover { color: #ffffff; background: rgba(56, 189, 248, 0.14); }
+
+/* Metadatos: no competir con el título, pero conservar lectura inmediata. */
+:is(.materia-card-meta, .alumnos-card__meta, .item-meta, .portal-resultado-card__meta, .rehidratacion-lotes__bundle-meta) {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+  color: var(--ui-ink-soft);
+}
+
+:is(.materia-meta-tag, .alumno-meta-tag, .badge, .banco-counter-tag, .banco-section-pill, .asistencia-grupo-pill, .asistencias-badge-pill, .guia-materia-badge) {
+  border-color: color-mix(in srgb, var(--screen-accent, #38bdf8) 44%, rgba(255, 255, 255, 0.2)) !important;
+  background: color-mix(in srgb, var(--screen-accent, #38bdf8) 13%, rgba(12, 31, 56, 0.78)) !important;
+  color: var(--ui-ink-soft) !important;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.11), 0 8px 16px -14px rgba(0, 0, 0, 0.9);
+}
+
+/* Responsive: conservar ritmo y evitar que el rediseño introduzca overflow. */
+@media (max-width: 1100px) {
+  :is(.card, .panel, .subpanel) { border-radius: 18px; }
+  :is(.materias-panel__head, .alumnos-panel__head, .asistencias-panel__head, .temarios-panel__head, .banco-panel__head) { gap: 1rem; }
+}
+
+@media (max-width: 720px) {
+  :is(.card, .panel, .subpanel, .item-glass) { border-radius: 16px; }
+  :is(.boton, .btn, .chip, .tab, .plantillas-tab-btn, .asistencias-tab-btn, .temarios-tab-btn) { min-height: 42px; }
+  :is(.materia-card-meta, .alumnos-card__meta, .item-meta) { gap: 0.4rem; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :is(.card, .panel, .subpanel, .item-glass, .boton, .btn, .chip, .tab, .plantillas-tab-btn, .asistencias-tab-btn, .temarios-tab-btn, .admin-negocio-nav__item) {
+    transition: none !important;
+  }
+}
+
+/*
+ * Dirección visual 1.4: el canvas queda silencioso y la tarjeta se convierte en
+ * la superficie de trabajo. Este bloque es deliberadamente final para retirar
+ * overrides históricos sin alterar las clases públicas de cada módulo.
+ */
+:root[data-theme="dark"] {
+  background:
+    repeating-linear-gradient(118deg, rgba(148, 197, 231, 0.012) 0 1px, transparent 1px 86px),
+    radial-gradient(ellipse at 10% 8%, rgba(56, 189, 248, 0.11), transparent 32%),
+    radial-gradient(ellipse at 90% 16%, rgba(52, 211, 153, 0.075), transparent 34%),
+    radial-gradient(ellipse at 70% 92%, rgba(129, 140, 248, 0.07), transparent 38%),
+    linear-gradient(145deg, #07172b 0%, #0b2039 48%, #061426 100%);
+  background-attachment: fixed;
+}
+
+:is(.ui-card, .item-glass)::before,
+:is(.ui-card, .item-glass)::after {
+  content: none !important;
+  display: none !important;
+}
+
+:root[data-theme="dark"] :is(.ui-card, .item-glass) {
+  --ui-card-border: rgba(130, 190, 229, 0.42);
+  --ui-card-surface: rgba(37, 72, 108, 0.9);
+  --ui-card-surface-strong: rgba(45, 84, 124, 0.94);
+  background:
+    linear-gradient(145deg, rgba(78, 121, 164, 0.66), rgba(44, 84, 124, 0.9) 58%, rgba(33, 65, 99, 0.94));
+  border-color: var(--ui-card-border);
+  box-shadow:
+    0 24px 50px -28px rgba(0, 0, 0, 0.78),
+    0 10px 24px -16px rgba(14, 165, 233, 0.28),
+    inset 0 1px 0 rgba(255, 255, 255, 0.13),
+    inset 0 -18px 32px -28px rgba(2, 6, 23, 0.52);
+}
+
+:root[data-theme="dark"] :is(.ui-card--form, .materias-form--glass, .guia-materia-card) {
+  background:
+    linear-gradient(145deg, rgba(56, 99, 143, 0.58), rgba(31, 64, 99, 0.84));
+}
+
+.materias-panel {
+  background: rgba(9, 27, 49, 0.42);
+  border-color: rgba(120, 176, 216, 0.2);
+  box-shadow: 0 28px 72px -44px rgba(0, 0, 0, 0.78);
+}
+
+.materias-section-title {
+  margin-top: 1.25rem;
+  margin-bottom: 0.75rem;
+}
+
+.materias-lista__item {
+  padding: clamp(1.1rem, 1.7vw, 1.45rem);
+  border-radius: 20px;
+  cursor: default;
+}
+
+.materias-lista__item:hover {
+  transform: translateY(-3px);
+  border-color: rgba(145, 214, 247, 0.72);
+  box-shadow:
+    0 30px 58px -30px rgba(0, 0, 0, 0.82),
+    0 14px 30px -18px rgba(14, 165, 233, 0.35),
+    inset 0 1px 0 rgba(255, 255, 255, 0.18);
+}
+
+.materia-card-header {
+  margin-bottom: 0.55rem;
+}
+
+.materia-title-group .item-title {
+  font-size: clamp(1.02rem, 1.6vw, 1.18rem);
+  line-height: 1.3;
+  letter-spacing: -0.01em;
+}
+
+.materia-avatar {
+  width: 52px;
+  height: 52px;
+  min-width: 52px;
+  border-radius: 16px;
+  background: linear-gradient(145deg, rgba(41, 145, 210, 0.42), rgba(55, 83, 164, 0.34));
+  border: 1px solid rgba(125, 211, 252, 0.62);
+  box-shadow:
+    0 12px 26px -14px rgba(14, 165, 233, 0.78),
+    inset 0 1px 0 rgba(255, 255, 255, 0.22);
+}
+
+.materia-card-meta {
+  gap: 0.5rem;
+  margin-top: 0.7rem;
+}
+
+.materia-card-meta .materia-meta-tag {
+  min-height: 32px;
+  padding: 0.3rem 0.55rem;
+  border-radius: 11px;
+  background: rgba(9, 28, 51, 0.3);
+  border-color: color-mix(in srgb, var(--materia-meta-accent) 58%, rgba(168, 211, 236, 0.42));
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.08);
+}
+
+.materia-card-meta .materia-meta-tag::before {
+  display: none;
+}
+
+.materia-card-meta .materia-meta-lbl {
+  min-height: auto;
+  padding: 0.16rem 0.35rem;
+  border-radius: 6px;
+  background: color-mix(in srgb, var(--materia-meta-accent) 20%, transparent);
+  color: color-mix(in srgb, var(--materia-meta-accent) 82%, white 18%);
+  font-size: 0.66rem;
+}
+
+.materia-card-meta .materia-meta-value {
+  color: #f4f9ff;
+  font-size: 0.82rem;
+}
+
+.materia-card-surface {
+  width: 100%;
+  margin: 0;
+  padding: 0;
+  display: block;
+  border: 0;
+  color: inherit;
+  background: transparent;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.materia-card-surface:focus-visible {
+  outline: 3px solid rgba(186, 230, 253, 0.94);
+  outline-offset: 5px;
+  border-radius: 14px;
+}
+
+.materia-card-primary-action {
+  width: 100%;
+  min-height: 52px;
+  margin-top: 1rem;
+  padding: 0.72rem 0.9rem;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.85rem;
+  border: 1px solid rgba(125, 211, 252, 0.52);
+  border-radius: 14px;
+  color: #f8fcff;
+  background: linear-gradient(135deg, rgba(14, 165, 233, 0.38), rgba(37, 99, 235, 0.34));
+  box-shadow: 0 12px 24px -18px rgba(14, 165, 233, 0.84), inset 0 1px 0 rgba(255, 255, 255, 0.16);
+  font: inherit;
+  font-weight: 800;
+  text-align: left;
+  cursor: pointer;
+  transition: transform 180ms var(--ui-card-ease), border-color 180ms ease, box-shadow 180ms ease, background 180ms ease;
+}
+
+.materia-card-surface:hover .materia-card-primary-action,
+.materia-card-primary-action:hover {
+  transform: translateY(-2px);
+  border-color: rgba(186, 230, 253, 0.9);
+  background: linear-gradient(135deg, rgba(14, 165, 233, 0.55), rgba(37, 99, 235, 0.48));
+  box-shadow: 0 16px 30px -18px rgba(14, 165, 233, 0.92), inset 0 1px 0 rgba(255, 255, 255, 0.22);
+}
+
+.materia-card-primary-action:focus-visible {
+  outline: none;
+}
+
+.materia-card-primary-action__copy {
+  display: grid;
+  gap: 0.12rem;
+}
+
+.materia-card-primary-action__eyebrow {
+  color: rgba(224, 242, 254, 0.76);
+  font-size: 0.62rem;
+  letter-spacing: 0.1em;
+  line-height: 1.1;
+  text-transform: uppercase;
+}
+
+.materia-card-primary-action__icon {
+  display: inline-flex;
+  color: #dff7ff;
+}
+
+.materias-lista__item .materia-actions-toggle {
+  margin-top: 0.85rem;
+  border-color: rgba(176, 208, 232, 0.28);
+  background: rgba(10, 31, 55, 0.28);
+}
+
+.materias-lista__item .materia-actions-toggle:hover {
+  border-color: rgba(176, 224, 246, 0.6);
+  background: rgba(14, 48, 78, 0.44);
+}
+
+.guia-materia-card {
+  margin-top: 0.55rem;
+  margin-bottom: 1rem;
+  padding: 0.95rem 1.1rem;
+}
+
+.guia-step-card {
+  background: linear-gradient(145deg, rgba(57, 99, 143, 0.56), rgba(25, 57, 91, 0.68));
+  border-color: rgba(148, 201, 232, 0.3);
+}
+
+.guia-step-card:hover {
+  background: linear-gradient(145deg, rgba(71, 119, 165, 0.7), rgba(32, 72, 110, 0.82));
+}
+
+.guia-step-card__body p {
+  max-width: 52ch;
+  font-size: 0.82rem;
+  color: #c5d8e8;
+  line-height: 1.5;
+}
+
+.guia-materia-compact {
+  margin: 0.45rem 0 0.8rem;
+}
+
+@media (max-width: 720px) {
+  .materias-panel {
+    padding: 1rem;
+  }
+
+  .materia-card-meta .materia-meta-tag {
+    flex: 1 1 150px;
+  }
+
+  .materia-card-meta .materia-meta-tag--grupos {
+    flex-basis: 100%;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .materias-lista__item:hover,
+  .materia-card-primary-action:hover {
+    transform: none;
+  }
+}
+
+/* Tipografía global de tarjetas: jerarquía clara, contraste y wrapping seguro. */
+:is(.item-title, .ui-card-text-title) {
+  color: color-mix(in srgb, var(--texto, #f8fafc) 94%, #ffffff 6%);
+  font-family: var(--font-display, inherit);
+  font-weight: 800;
+  letter-spacing: -0.012em;
+  line-height: 1.28;
+  overflow-wrap: anywhere;
+  text-wrap: pretty;
+  text-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.08),
+    0 4px 14px rgba(2, 6, 23, 0.32);
+}
+
+:is(.materia-title-group .item-title, .ui-card-text-title--featured) {
+  font-size: clamp(1.04rem, 1.55vw, 1.22rem);
+  letter-spacing: -0.02em;
+  line-height: 1.24;
+}
+
+:is(.item-sub, .ui-card-text-support, .nota, .ui-card-text-description) {
+  color: color-mix(in srgb, var(--textoSuave, #cbd5e1) 88%, #ffffff 12%);
+  font-weight: 500;
+  line-height: 1.48;
+  overflow-wrap: anywhere;
+  text-wrap: pretty;
+}
+
+:is(.item-meta, .ui-card-text-meta) {
+  color: color-mix(in srgb, var(--textoSuave, #cbd5e1) 90%, #ffffff 10%);
+  font-weight: 600;
+  line-height: 1.36;
+  overflow-wrap: anywhere;
+}
+
+:is(.eyebrow, .ui-card-text-label) {
+  color: color-mix(in srgb, var(--app-accent, #38bdf8) 72%, #ffffff 28%);
+  font-weight: 800;
+  letter-spacing: 0.075em;
+  line-height: 1.2;
+  text-shadow: 0 2px 10px color-mix(in srgb, currentColor 28%, transparent);
+}
+
+:is(.materia-title-group, .alumnos-lista-title-container) {
+  min-width: 0;
+}
+
+:root:not([data-theme="dark"]) :is(.item-title, .ui-card-text-title) {
+  color: color-mix(in srgb, #0f172a 92%, #334155 8%);
+  text-shadow: 0 1px 0 rgba(255, 255, 255, 0.82), 0 3px 10px rgba(15, 23, 42, 0.12);
+}
+
+:root:not([data-theme="dark"]) :is(.item-sub, .ui-card-text-support, .nota, .ui-card-text-description) {
+  color: color-mix(in srgb, #334155 86%, #0f172a 14%);
+}
+
+:root:not([data-theme="dark"]) :is(.item-meta, .ui-card-text-meta) {
+  color: #334155;
+}
+
+@media (max-width: 720px) {
+  :is(.materia-title-group .item-title, .ui-card-text-title--featured) {
+    font-size: clamp(1rem, 4.4vw, 1.1rem);
+    line-height: 1.28;
+  }
+}
+
+:root:not([data-theme="dark"]) {
+  --ui-card-border: color-mix(in srgb, #94a3b8 58%, var(--app-accent, #0284c7) 42%);
+  --ui-card-surface: rgba(255, 255, 255, 0.68);
+  --ui-card-surface-strong: rgba(255, 255, 255, 0.8);
+  --ui-card-shadow: 0 24px 48px -28px rgba(15, 23, 42, 0.42), 0 8px 22px -14px rgba(2, 132, 199, 0.2), inset 0 1px 0 rgba(255, 255, 255, 0.82);
+  --ui-card-shadow-hover: 0 30px 58px -28px rgba(15, 23, 42, 0.46), 0 14px 30px -16px rgba(2, 132, 199, 0.28), inset 0 1px 0 rgba(255, 255, 255, 0.96);
+}
+
+/* Gana a los overrides históricos de tema y mantiene el vidrio translúcido. */
+:root[data-theme="dark"] :is(
+  .ui-card,
+  .item-glass,
+  .materias-resumen__item,
+  .materias-lista__item,
+  .materias-form--glass,
+  .empty-state-card,
+  .guia-materia-card,
+  .guia-step-card,
+  .archivadas-info-card,
+  .alumnos-resumen__item,
+  .alumnos-lista__item,
+  .alumnos-filtros--glass,
+  .banco-file-upload-card,
+  .banco-imagen-preview-card,
+  .banco-opcion-card,
+  .banco-temas__item,
+  .banco-listado__item,
+  .plantillas-item,
+  .plantillas-progreso-card,
+  .plantillas-ultimo-card,
+  .asistencia-materia-pick-card,
+  .asistencias-panel-card,
+  .asistencias-sesion-card,
+  .asistencias-regla-card,
+  .temarios-card,
+  .temarios-panel-card,
+  .temarios-tree-hero-card,
+  .entregas-manual-card,
+  .calif-deck-card,
+  .calif-captura-card,
+  .calif-grade-card,
+  .omr-review-card,
+  .cuenta-toggle-card,
+  .cuenta-hero-stat-card,
+  .alumnos-materia-pick-card,
+  .portal-resultado-card
+) {
+  --ui-card-border: color-mix(in srgb, #67e8f9 48%, #1e3a5f 52%);
+  --ui-card-surface: rgba(39, 68, 107, 0.98);
+  --ui-card-surface-strong: rgba(48, 82, 126, 0.98);
+  background:
+    linear-gradient(180deg, rgba(91, 135, 190, 0.88), rgba(57, 91, 141, 0.98) 68%, rgba(47, 78, 125, 1)),
+    linear-gradient(135deg, rgba(255, 255, 255, 0.16), transparent 42%),
+    radial-gradient(circle at 100% 0%, color-mix(in srgb, var(--app-accent, #38bdf8) 30%, transparent), transparent 46%),
+    var(--ui-card-surface);
+  -webkit-backdrop-filter: blur(26px) saturate(175%);
+  backdrop-filter: blur(26px) saturate(175%);
+  box-shadow: 0 28px 58px -30px rgba(0, 0, 0, 0.78), 0 12px 28px -14px rgba(14, 165, 233, 0.26), inset 0 -18px 34px -28px rgba(0, 0, 0, 0.45);
+}
+
+:root:not([data-theme="dark"]) :is(
+  .ui-card,
+  .item-glass,
+  .materias-resumen__item,
+  .materias-lista__item,
+  .materias-form--glass,
+  .empty-state-card,
+  .guia-materia-card,
+  .guia-step-card,
+  .archivadas-info-card,
+  .alumnos-resumen__item,
+  .alumnos-lista__item,
+  .alumnos-filtros--glass,
+  .banco-file-upload-card,
+  .banco-imagen-preview-card,
+  .banco-opcion-card,
+  .banco-temas__item,
+  .banco-listado__item,
+  .plantillas-item,
+  .plantillas-progreso-card,
+  .plantillas-ultimo-card,
+  .asistencia-materia-pick-card,
+  .asistencias-panel-card,
+  .asistencias-sesion-card,
+  .asistencias-regla-card,
+  .temarios-card,
+  .temarios-panel-card,
+  .temarios-tree-hero-card,
+  .entregas-manual-card,
+  .calif-deck-card,
+  .calif-captura-card,
+  .calif-grade-card,
+  .omr-review-card,
+  .cuenta-toggle-card,
+  .cuenta-hero-stat-card,
+  .alumnos-materia-pick-card,
+  .portal-resultado-card
+) {
+  background:
+    linear-gradient(135deg, rgba(255, 255, 255, 0.32), transparent 44%),
+    radial-gradient(circle at 100% 0%, color-mix(in srgb, var(--app-accent, #0284c7) 10%, transparent), transparent 46%),
+    var(--ui-card-surface);
+  -webkit-backdrop-filter: blur(var(--ui-card-blur)) saturate(155%);
+  backdrop-filter: blur(var(--ui-card-blur)) saturate(155%);
+  box-shadow: var(--ui-card-shadow);
+}
+
+/* El antiguo acento superior no aporta información y sobresalía en algunas composiciones. */
+:is(
+  .ui-card,
+  .item-glass,
+  .materias-resumen__item,
+  .materias-lista__item,
+  .materias-form--glass,
+  .empty-state-card,
+  .guia-materia-card,
+  .guia-step-card,
+  .archivadas-info-card,
+  .alumnos-resumen__item,
+  .alumnos-lista__item,
+  .alumnos-filtros--glass,
+  .banco-file-upload-card,
+  .banco-imagen-preview-card,
+  .banco-opcion-card,
+  .banco-temas__item,
+  .banco-listado__item,
+  .plantillas-item,
+  .plantillas-progreso-card,
+  .plantillas-ultimo-card,
+  .asistencia-materia-pick-card,
+  .asistencias-panel-card,
+  .asistencias-sesion-card,
+  .asistencias-regla-card,
+  .temarios-card,
+  .temarios-panel-card,
+  .temarios-tree-hero-card,
+  .entregas-manual-card,
+  .calif-deck-card,
+  .calif-captura-card,
+  .calif-grade-card,
+  .omr-review-card,
+  .cuenta-toggle-card,
+  .cuenta-hero-stat-card,
+  .alumnos-materia-pick-card,
+  .portal-resultado-card
+)::before {
+  display: none;
+}
+
+/* Conserva el límite de la tarjeta, pero elimina el trazo superior que se percibe como una línea sobresaliente. */
+:is(
+  .ui-card,
+  .item-glass,
+  .materias-resumen__item,
+  .materias-lista__item,
+  .materias-form--glass,
+  .empty-state-card,
+  .guia-materia-card,
+  .guia-step-card,
+  .archivadas-info-card,
+  .alumnos-resumen__item,
+  .alumnos-lista__item,
+  .alumnos-filtros--glass,
+  .banco-file-upload-card,
+  .banco-imagen-preview-card,
+  .banco-opcion-card,
+  .banco-temas__item,
+  .banco-listado__item,
+  .plantillas-item,
+  .plantillas-progreso-card,
+  .plantillas-ultimo-card,
+  .asistencia-materia-pick-card,
+  .asistencias-panel-card,
+  .asistencias-sesion-card,
+  .asistencias-regla-card,
+  .temarios-card,
+  .temarios-panel-card,
+  .temarios-tree-hero-card,
+  .entregas-manual-card,
+  .calif-deck-card,
+  .calif-captura-card,
+  .calif-grade-card,
+  .omr-review-card,
+  .cuenta-toggle-card,
+  .cuenta-hero-stat-card,
+  .alumnos-materia-pick-card,
+  .portal-resultado-card
+) {
+  border-top-color: transparent;
+}
+
+/* Metadatos de alumno: tokens legibles, agrupados y reutilizables. */
+.alumnos-card__meta {
+  display: flex;
+  align-items: stretch;
+  flex-wrap: wrap;
+  gap: 0.65rem;
+  margin-top: 0.7rem;
+  color: var(--muted);
+  font-size: 0.8rem;
+}
+
+.alumno-meta-tag {
+  --alumno-meta-accent: #38bdf8;
+  --alumno-meta-accent-soft: rgba(56, 189, 248, 0.16);
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  min-width: 0;
+  min-height: 38px;
+  gap: 0.55rem;
+  padding: 0.32rem 0.72rem 0.32rem 0.56rem;
+  overflow: hidden;
+  border: 1px solid color-mix(in srgb, var(--alumno-meta-accent) 55%, #334155 45%);
+  border-radius: 13px;
+  background:
+    linear-gradient(135deg, color-mix(in srgb, var(--alumno-meta-accent) 15%, transparent), transparent 58%),
+    linear-gradient(180deg, rgba(15, 23, 42, 0.82), rgba(2, 8, 20, 0.94));
+  box-shadow:
+    0 10px 22px -16px color-mix(in srgb, var(--alumno-meta-accent) 80%, transparent),
+    inset 0 1px 0 rgba(255, 255, 255, 0.13),
+    inset 0 -8px 16px -14px rgba(0, 0, 0, 0.9);
+  transition: transform 180ms var(--ui-card-ease), border-color 180ms ease, box-shadow 180ms ease;
+}
+
+.alumno-meta-tag::before {
+  content: '';
+  width: 3px;
+  align-self: stretch;
+  flex: 0 0 3px;
+  margin: -0.32rem 0 -0.32rem -0.56rem;
+  border-radius: 13px 0 0 13px;
+  background: linear-gradient(180deg, var(--alumno-meta-accent), color-mix(in srgb, var(--alumno-meta-accent) 42%, transparent));
+  box-shadow: 0 0 12px color-mix(in srgb, var(--alumno-meta-accent) 70%, transparent);
+}
+
+.alumno-meta-tag:hover {
+  transform: translateY(-1px);
+  border-color: color-mix(in srgb, var(--alumno-meta-accent) 78%, #ffffff 22%);
+  box-shadow:
+    0 14px 26px -18px color-mix(in srgb, var(--alumno-meta-accent) 92%, transparent),
+    inset 0 1px 0 rgba(255, 255, 255, 0.18),
+    inset 0 -8px 16px -14px rgba(0, 0, 0, 0.9);
+}
+
+.alumno-meta-lbl {
+  display: inline-flex;
+  align-items: center;
+  min-height: 25px;
+  padding: 0.2rem 0.48rem;
+  border: 1px solid color-mix(in srgb, var(--alumno-meta-accent) 38%, transparent);
+  border-radius: 8px;
+  background: var(--alumno-meta-accent-soft);
+  color: color-mix(in srgb, var(--alumno-meta-accent) 72%, #ffffff 28%);
+  font-size: 0.62rem;
+  font-weight: 850;
+  letter-spacing: 0.07em;
+  line-height: 1;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.alumno-meta-value,
+.alumno-meta-tag--grupo .badge.badge-grupo,
+.alumno-correo {
+  min-width: 0;
+  color: #f8fafc;
+  font-weight: 750;
+  line-height: 1.25;
+}
+
+.alumno-meta-tag--matricula {
+  --alumno-meta-accent: #22d3ee;
+  --alumno-meta-accent-soft: rgba(34, 211, 238, 0.15);
+}
+
+.alumno-meta-tag--grupo {
+  --alumno-meta-accent: #a78bfa;
+  --alumno-meta-accent-soft: rgba(167, 139, 250, 0.16);
+}
+
+.alumno-meta-tag--correo {
+  --alumno-meta-accent: #fb7185;
+  --alumno-meta-accent-soft: rgba(251, 113, 133, 0.15);
+  flex: 1 1 260px;
+}
+
+.alumno-meta-tag--grupo .badge.badge-grupo {
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: #ede9fe;
+  font-size: inherit;
+}
+
+.alumno-correo {
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
+
+:root:not([data-theme="dark"]) .alumno-meta-tag {
+  background:
+    linear-gradient(135deg, color-mix(in srgb, var(--alumno-meta-accent) 10%, transparent), transparent 58%),
+    linear-gradient(180deg, rgba(255, 255, 255, 0.92), rgba(241, 245, 249, 0.92));
+  box-shadow:
+    0 10px 22px -18px color-mix(in srgb, var(--alumno-meta-accent) 62%, #0f172a 38%),
+    inset 0 1px 0 rgba(255, 255, 255, 0.96),
+    inset 0 -8px 16px -14px rgba(15, 23, 42, 0.22);
+}
+
+:root:not([data-theme="dark"]) .alumno-meta-value,
+:root:not([data-theme="dark"]) .alumno-meta-tag--grupo .badge.badge-grupo {
+  color: #172033;
+}
+
+:root:not([data-theme="dark"]) .alumno-meta-lbl {
+  color: color-mix(in srgb, var(--alumno-meta-accent) 72%, #0f172a 28%);
+}
+
+:root:not([data-theme="dark"]) .alumno-correo {
+  color: #be123c;
+}
+
+@media (max-width: 720px) {
+  .alumnos-card__meta {
+    gap: 0.5rem;
+  }
+
+  .alumno-meta-tag {
+    flex: 1 1 180px;
+  }
+
+  .alumno-meta-tag--correo {
+    flex-basis: 100%;
+  }
+}
+
+/* Metadatos de materia: misma gramática visual para tarjetas activas y archivadas. */
+.materia-card-meta {
+  display: flex;
+  align-items: stretch;
+  flex-wrap: wrap;
+  gap: 0.65rem;
+  margin-top: 0.7rem;
+}
+
+.materia-card-meta .materia-meta-tag {
+  --materia-meta-accent: #38bdf8;
+  --materia-meta-accent-soft: rgba(56, 189, 248, 0.16);
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  min-width: 0;
+  min-height: 36px;
+  max-width: 100%;
+  gap: 0.55rem;
+  padding: 0.3rem 0.72rem 0.3rem 0.56rem;
+  overflow: hidden;
+  border: 1px solid color-mix(in srgb, var(--materia-meta-accent) 56%, #334155 44%);
+  border-radius: 13px;
+  background:
+    linear-gradient(135deg, color-mix(in srgb, var(--materia-meta-accent) 15%, transparent), transparent 58%),
+    linear-gradient(180deg, rgba(15, 23, 42, 0.82), rgba(2, 8, 20, 0.94));
+  box-shadow:
+    0 10px 22px -16px color-mix(in srgb, var(--materia-meta-accent) 82%, transparent),
+    inset 0 1px 0 rgba(255, 255, 255, 0.13),
+    inset 0 -8px 16px -14px rgba(0, 0, 0, 0.9);
+  color: #f8fafc;
+  font-size: 0.8rem;
+  transition: transform 180ms var(--ui-card-ease), border-color 180ms ease, box-shadow 180ms ease;
+}
+
+.materia-card-meta .materia-meta-tag::before {
+  content: '';
+  width: 3px;
+  align-self: stretch;
+  flex: 0 0 3px;
+  margin: -0.3rem 0 -0.3rem -0.56rem;
+  border-radius: 13px 0 0 13px;
+  background: linear-gradient(180deg, var(--materia-meta-accent), color-mix(in srgb, var(--materia-meta-accent) 42%, transparent));
+  box-shadow: 0 0 12px color-mix(in srgb, var(--materia-meta-accent) 70%, transparent);
+}
+
+.materia-card-meta .materia-meta-tag:hover {
+  transform: translateY(-1px);
+  border-color: color-mix(in srgb, var(--materia-meta-accent) 80%, #ffffff 20%);
+  box-shadow:
+    0 14px 26px -18px color-mix(in srgb, var(--materia-meta-accent) 92%, transparent),
+    inset 0 1px 0 rgba(255, 255, 255, 0.18),
+    inset 0 -8px 16px -14px rgba(0, 0, 0, 0.9);
+}
+
+.materia-card-meta .materia-meta-lbl {
+  display: inline-flex;
+  align-items: center;
+  min-height: 24px;
+  padding: 0.2rem 0.48rem;
+  border: 1px solid color-mix(in srgb, var(--materia-meta-accent) 38%, transparent);
+  border-radius: 8px;
+  background: var(--materia-meta-accent-soft);
+  color: color-mix(in srgb, var(--materia-meta-accent) 72%, #ffffff 28%);
+  font-size: 0.61rem;
+  font-weight: 850;
+  letter-spacing: 0.07em;
+  line-height: 1;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.materia-card-meta .materia-meta-value {
+  min-width: 0;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+  color: #f8fafc;
+  font-weight: 750;
+  line-height: 1.25;
+}
+
+.materia-card-meta .materia-meta-tag--inicio {
+  --materia-meta-accent: #22d3ee;
+  --materia-meta-accent-soft: rgba(34, 211, 238, 0.15);
+}
+
+.materia-card-meta .materia-meta-tag--fin {
+  --materia-meta-accent: #fbbf24;
+  --materia-meta-accent-soft: rgba(251, 191, 36, 0.16);
+}
+
+.materia-card-meta .materia-meta-tag--grupos {
+  --materia-meta-accent: #a78bfa;
+  --materia-meta-accent-soft: rgba(167, 139, 250, 0.16);
+  flex: 0 1 auto;
+}
+
+.materia-card-meta .materia-meta-tag--id {
+  --materia-meta-accent: #38bdf8;
+  --materia-meta-accent-soft: rgba(56, 189, 248, 0.15);
+}
+
+.materia-card-meta .materia-meta-tag--creada {
+  --materia-meta-accent: #34d399;
+  --materia-meta-accent-soft: rgba(52, 211, 153, 0.15);
+}
+
+.materia-card-meta .materia-meta-tag--archivada {
+  --materia-meta-accent: #fb7185;
+  --materia-meta-accent-soft: rgba(251, 113, 133, 0.15);
+}
+
+:root:not([data-theme="dark"]) .materia-card-meta .materia-meta-tag {
+  background:
+    linear-gradient(135deg, color-mix(in srgb, var(--materia-meta-accent) 10%, transparent), transparent 58%),
+    linear-gradient(180deg, rgba(255, 255, 255, 0.92), rgba(241, 245, 249, 0.92));
+  border-color: color-mix(in srgb, var(--materia-meta-accent) 45%, #cbd5e1 55%);
+  box-shadow:
+    0 10px 22px -18px color-mix(in srgb, var(--materia-meta-accent) 62%, #0f172a 38%),
+    inset 0 1px 0 rgba(255, 255, 255, 0.96),
+    inset 0 -8px 16px -14px rgba(15, 23, 42, 0.22);
+  color: #172033;
+}
+
+:root:not([data-theme="dark"]) .materia-card-meta .materia-meta-lbl {
+  color: color-mix(in srgb, var(--materia-meta-accent) 72%, #0f172a 28%);
+}
+
+:root:not([data-theme="dark"]) .materia-card-meta .materia-meta-value {
+  color: #172033;
+}
+
+@media (max-width: 720px) {
+  .materia-card-meta {
+    gap: 0.5rem;
+  }
+
+  .materia-card-meta .materia-meta-tag {
+    flex: 1 1 170px;
+  }
+
+  .materia-card-meta .materia-meta-tag--grupos {
+    flex-basis: 100%;
+  }
+}
+
+/* Fondo de aplicación: textura geométrica variada, tenue y aplicada en un solo plano. */
+:root[data-theme="dark"] .superficie-app {
+  background-image:
+    radial-gradient(ellipse at 8% 14%, rgba(103, 232, 249, 0.035) 0%, transparent 34%),
+    radial-gradient(ellipse at 88% 22%, rgba(129, 140, 248, 0.028) 0%, transparent 38%),
+    radial-gradient(ellipse at 38% 92%, rgba(45, 212, 191, 0.022) 0%, transparent 42%),
+    radial-gradient(ellipse at 74% 76%, rgba(167, 139, 250, 0.018) 0%, transparent 36%),
+    var(--gradient-app);
+  background-size: auto;
+}
+
+/* Iconografía global: nitidez, peso óptico y superficies consistentes. */
+.icono {
+  overflow: visible;
+  shape-rendering: geometricPrecision;
+  filter: drop-shadow(0 2px 5px color-mix(in srgb, currentColor 28%, transparent));
+}
+
+.icono :is(path, circle, line, polyline, polygon, rect) {
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+:is(
+  .materia-avatar,
+  .alumno-avatar,
+  .materias-panel__icon-orb,
+  .alumnos-panel__icon-orb,
+  .materias-resumen__icon,
+  .guia-step-card__icon-orb,
+  .banco-panel__icon-orb,
+  .auth-feature-pill__icon,
+  .empty-state-card__icon,
+  .portal-card-icon,
+  .version-tech-icon-box,
+  .confirm-dialog__icon,
+  .toast-icon
+ ) {
+  position: relative;
+  isolation: isolate;
+  overflow: hidden;
+  border-color: color-mix(in srgb, currentColor 58%, transparent);
+  background:
+    linear-gradient(145deg, color-mix(in srgb, currentColor 24%, transparent), transparent 62%),
+    linear-gradient(180deg, color-mix(in srgb, currentColor 12%, #0f172a 88%), color-mix(in srgb, currentColor 4%, #020617 96%));
+  box-shadow:
+    0 16px 30px -18px color-mix(in srgb, currentColor 86%, transparent),
+    inset 0 1px 0 rgba(255, 255, 255, 0.22),
+    inset 0 -10px 18px -16px rgba(0, 0, 0, 0.95);
+  transition: transform 220ms var(--ui-card-ease), border-color 180ms ease, box-shadow 220ms var(--ui-card-ease), filter 180ms ease;
+}
+
+:is(
+  .materia-avatar,
+  .alumno-avatar,
+  .materias-panel__icon-orb,
+  .alumnos-panel__icon-orb,
+  .materias-resumen__icon,
+  .guia-step-card__icon-orb,
+  .banco-panel__icon-orb,
+  .auth-feature-pill__icon,
+  .empty-state-card__icon,
+  .portal-card-icon,
+  .version-tech-icon-box,
+  .confirm-dialog__icon,
+  .toast-icon
+)::before {
+  content: '';
+  position: absolute;
+  inset: 1px;
+  z-index: 0;
+  border-radius: inherit;
+  background:
+    linear-gradient(135deg, rgba(255, 255, 255, 0.2), transparent 34%),
+    radial-gradient(circle at 82% 16%, color-mix(in srgb, currentColor 30%, transparent), transparent 46%);
+  pointer-events: none;
+}
+
+:is(
+  .materia-avatar,
+  .alumno-avatar,
+  .materias-panel__icon-orb,
+  .alumnos-panel__icon-orb,
+  .materias-resumen__icon,
+  .guia-step-card__icon-orb,
+  .banco-panel__icon-orb,
+  .auth-feature-pill__icon,
+  .empty-state-card__icon,
+  .portal-card-icon,
+  .version-tech-icon-box,
+  .confirm-dialog__icon,
+  .toast-icon
+) > :is(svg, .icono) {
+  position: relative;
+  z-index: 1;
+  filter: drop-shadow(0 3px 6px color-mix(in srgb, currentColor 54%, transparent));
+}
+
+:is(
+  .materia-avatar,
+  .alumno-avatar,
+  .materias-panel__icon-orb,
+  .alumnos-panel__icon-orb,
+  .materias-resumen__icon,
+  .guia-step-card__icon-orb,
+  .banco-panel__icon-orb,
+  .auth-feature-pill__icon,
+  .empty-state-card__icon,
+  .portal-card-icon,
+  .version-tech-icon-box,
+  .confirm-dialog__icon,
+  .toast-icon
+):hover {
+  transform: translateY(-2px) scale(1.04);
+  border-color: color-mix(in srgb, currentColor 78%, #ffffff 22%);
+  box-shadow:
+    0 20px 34px -18px color-mix(in srgb, currentColor 98%, transparent),
+    inset 0 1px 0 rgba(255, 255, 255, 0.3),
+    inset 0 -10px 18px -16px rgba(0, 0, 0, 0.95);
+}
+
+:root:not([data-theme="dark"]) :is(
+  .materia-avatar,
+  .alumno-avatar,
+  .materias-panel__icon-orb,
+  .alumnos-panel__icon-orb,
+  .materias-resumen__icon,
+  .guia-step-card__icon-orb,
+  .banco-panel__icon-orb,
+  .auth-feature-pill__icon,
+  .empty-state-card__icon,
+  .portal-card-icon,
+  .version-tech-icon-box,
+  .confirm-dialog__icon,
+  .toast-icon
+) {
+  background:
+    linear-gradient(145deg, color-mix(in srgb, currentColor 12%, transparent), transparent 62%),
+    linear-gradient(180deg, rgba(255, 255, 255, 0.96), rgba(241, 245, 249, 0.94));
+  box-shadow:
+    0 14px 28px -20px color-mix(in srgb, currentColor 62%, #0f172a 38%),
+    inset 0 1px 0 rgba(255, 255, 255, 0.98),
+    inset 0 -10px 18px -16px rgba(15, 23, 42, 0.22);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :where(
+    .materia-avatar,
+    .alumno-avatar,
+    .materias-panel__icon-orb,
+    .alumnos-panel__icon-orb,
+    .materias-resumen__icon,
+    .guia-step-card__icon-orb,
+    .banco-panel__icon-orb,
+    .auth-feature-pill__icon,
+    .empty-state-card__icon,
+    .portal-card-icon,
+    .version-tech-icon-box,
+    .confirm-dialog__icon,
+    .toast-icon
+  ) {
+    transition: none !important;
+  }
+
+  :where(
+    .materia-avatar,
+    .alumno-avatar,
+    .materias-panel__icon-orb,
+    .alumnos-panel__icon-orb,
+    .materias-resumen__icon,
+    .guia-step-card__icon-orb,
+    .banco-panel__icon-orb,
+    .auth-feature-pill__icon,
+    .empty-state-card__icon,
+    .portal-card-icon,
+    .version-tech-icon-box,
+    .confirm-dialog__icon,
+    .toast-icon
+  ):hover {
+    transform: none !important;
+  }
+}
+
+/* ========================================================================
+   RELEASE 1.8 FINAL — corrección efectiva después de todos los overrides
+   ======================================================================== */
+
+:root[data-theme="dark"] {
+  --muted: #c8d8eb;
+  --textoSuave: #e2e8f0;
+  --ui-ink-muted: #c8d8eb;
+}
+
+:root[data-theme="dark"] :is(.card, .panel, .subpanel, .item-glass, .glass-card, .ui-card) {
+  border-top-color: transparent !important;
+  border-color: rgba(126, 190, 232, 0.42) !important;
+  background:
+    linear-gradient(132deg, rgba(74, 126, 163, 0.18), transparent 36%),
+    linear-gradient(156deg, #214464 0%, #1a3858 48%, #132c49 100%) !important;
+  box-shadow:
+    0 26px 56px -30px rgba(0, 0, 0, 0.9),
+    0 10px 26px -16px rgba(20, 129, 193, 0.26),
+    inset 0 1px 0 rgba(255, 255, 255, 0.16),
+    inset 0 -18px 34px -28px rgba(0, 0, 0, 0.58) !important;
+}
+
+:root[data-theme="dark"] :is(.card, .panel, .subpanel, .item-glass, .glass-card, .ui-card)::before,
+:root[data-theme="dark"] :is(.card, .panel, .subpanel, .item-glass, .glass-card, .ui-card)::after {
+  content: none !important;
+  display: none !important;
+}
+
+:root[data-theme="dark"] :is(.card, .panel, .subpanel, .item-glass, .glass-card, .ui-card) :is(h1, h2, h3, h4, h5, h6, strong, b, label, .item-title, .ui-card-text-title) {
+  color: #f8fbff !important;
+}
+
+:root[data-theme="dark"] :is(.card, .panel, .subpanel, .item-glass, .glass-card, .ui-card) :is(p, small, span, .item-sub, .item-meta, .nota, .ayuda, .ui-card-text-support, .ui-card-text-description, .ui-card-text-meta, .campo__label-text, .campo > span) {
+  color: #d9e8f5 !important;
+}
+
+:root[data-theme="dark"] :is(input, textarea, select)::placeholder {
+  color: #b9cfe2 !important;
+  opacity: 1;
+}
+
+/* La tarjeta de alumno no usa una fila elástica para el correo: cada dato
+   conserva su tamaño natural y las acciones mantienen una columna estable. */
+.alumnos-card__body {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: start;
+  gap: 1rem 1.25rem;
+}
+
+.alumno-info,
+.alumnos-lista-title-container {
+  min-width: 0;
+}
+
+.alumnos-card__meta {
+  display: grid;
+  grid-template-columns: repeat(2, max-content) minmax(0, max-content);
+  align-items: center;
+  justify-content: start;
+  gap: 0.55rem;
+  min-width: 0;
+}
+
+.alumno-meta-tag,
+.alumno-meta-tag--correo {
+  min-width: 0;
+  max-width: 100%;
+}
+
+.alumno-meta-tag--correo {
+  flex: 0 1 auto;
+  inline-size: max-content;
+  max-inline-size: 100%;
+  justify-self: start;
+}
+
+.alumno-correo {
+  min-width: 0;
+  max-width: 100%;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
+
+:root[data-theme="dark"] .alumnos-lista__item {
+  border-top-color: transparent !important;
+}
+
+@media (max-width: 920px) {
+  .alumnos-card__body {
+    grid-template-columns: auto minmax(0, 1fr);
+  }
+
+  .alumnos-card__actions {
+    grid-column: 2;
+    justify-content: flex-start;
+  }
+
+  .alumnos-card__meta {
+    grid-template-columns: repeat(2, minmax(0, max-content));
+  }
+
+  .alumno-meta-tag--correo {
+    grid-column: 1 / -1;
+  }
+}
+
+@media (max-width: 720px) {
+  .alumnos-card__body {
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .alumnos-card__meta {
+    display: flex;
+    align-items: stretch;
+  }
+
+  .alumno-meta-tag,
+  .alumno-meta-tag--correo {
+    flex: 1 1 180px;
+  }
+
+  .alumnos-card__actions {
+    width: 100%;
+    justify-content: flex-end;
+  }
+}
+
+/* Última capa efectiva del sistema visual: se declara después de los
+   overrides específicos para conservar una única lectura transversal. */
+:root[data-theme] :is(.card, .panel, .subpanel, .item-glass, .glass-card, .ui-card, [class*='-card'], [class*='-panel']) {
+  border-color: var(--ui-card-border) !important;
+  border-top-color: var(--ui-card-border) !important;
+  background:
+    linear-gradient(125deg, var(--ui-glass-highlight), transparent 30%),
+    linear-gradient(315deg, color-mix(in srgb, var(--ui-accent-primary) 8%, transparent), transparent 48%),
+    var(--ui-card-surface) !important;
+  box-shadow: var(--ui-card-shadow) !important;
+}
+
+:root[data-theme] :is(.card, .panel, .subpanel, .item-glass, .glass-card, .ui-card, [class*='-card'], [class*='-panel'])::before {
+  content: none !important;
+  display: none !important;
+}
+
+:root[data-theme] :is(.card, .panel, .subpanel, .item-glass, .glass-card, .ui-card, [class*='-card'], [class*='-panel'])::after {
+  content: '';
+  position: absolute;
+  inset: 1px;
+  z-index: 0;
+  pointer-events: none;
+  border-radius: calc(var(--ui-card-radius) - 1px);
+  background: linear-gradient(112deg, rgba(255, 255, 255, 0.20), rgba(255, 255, 255, 0.06) 18%, transparent 47%);
+  opacity: 0.58;
+  clip-path: inset(0 round calc(var(--ui-card-radius) - 1px));
+}
+
+:root[data-theme] :is(.boton, .btn, button.btn, a.btn) {
+  min-height: 44px;
+  border-radius: 12px;
+  background: var(--ui-button-primary-bg) !important;
+  color: var(--ui-button-primary-fg) !important;
+  border-color: color-mix(in srgb, var(--ui-accent-primary) 58%, transparent) !important;
+}
+
+:root[data-theme] :is(.boton, .btn, button.btn, a.btn).secundario,
+:root[data-theme] :is(.boton, .btn, button.btn, a.btn)[class*='secundario'] {
+  background: var(--ui-button-secondary-bg) !important;
+  color: var(--ui-button-secondary-fg) !important;
+  border-color: var(--ui-glass-border) !important;
+}
+
+/* FINAL_SURFACE_SCOPE: estos nodos son estructura, no tarjetas. */
+:root[data-theme] :is(
+  .auth-card-wrapper,
+  .auth-card-header,
+  .auth-card-title,
+  .auth-card-desc,
+  .auth-card-footer,
+  [class*='-card__'],
+  [class*='-panel__']
+) {
+  background-color: transparent !important;
+  background-image: none !important;
+  background-position: initial !important;
+  background-size: initial !important;
+  background-repeat: initial !important;
+  box-shadow: none !important;
+}

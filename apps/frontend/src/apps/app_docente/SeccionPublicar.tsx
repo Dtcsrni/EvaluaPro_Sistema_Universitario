@@ -89,7 +89,7 @@ export function SeccionPublicar({
 
   return (
     <div className="shell">
-      <div className="panel shell-main">
+      <div className="panel shell-main shell-main--publicar">
         <h2>
           <Icono nombre="publicar" /> Publicar en portal
         </h2>

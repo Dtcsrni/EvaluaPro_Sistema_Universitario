@@ -118,14 +118,8 @@ jobs:
       - name: Etapa tests OMR criticos
         run: npm -C apps/backend run test -- --reporter=verbose tests/omr.cv.engine.test.ts tests/omr.etapaScoring.fallback.test.ts tests/omr.prevalidacion.test.ts tests/omr.contrato.test.ts tests/integracion/qrEscaneoOmr.test.ts tests/omr.test.ts
 
-      - name: Etapa benchmark OMR TV gate
-        env:
-          OMR_TV_GATE_VERSION: ${{ vars.OMR_TV_GATE_VERSION || 'tv3' }}
-        run: npm run test:omr:tv:gate:ci
-
-      - name: Etapa benchmark OMR TV3 real manual minimo (legacy diagnostico)
-        continue-on-error: true
-        run: npm -C apps/backend run omr:tv3:validate:real:manual-min -- --report ../../reports/qa/latest/omr/tv3-real-manual-validation.ci.json --failure-report ../../reports/qa/latest/omr/tv3-real-manual-failure-analysis.ci.json --page-pass-min 0 --autograde-trust-min 0 --auto-coverage-min 0
+      - name: Etapa gate OMR canónico
+        run: npm run test:omr:canonical:gate:ci
 
       - name: Publicar artefactos OMR QA
         if: always()
@@ -134,7 +128,7 @@ jobs:
           name: omr-qa-reports
           path: |
             reports/qa/latest/omr/**
-            reports/qa/latest/omr-tv-gate-wrapper.json
+            reports/qa/latest/omr-canonical-gate-wrapper.json
           if-no-files-found: warn
 
       - name: Etapa coverage backend

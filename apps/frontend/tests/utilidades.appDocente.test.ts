@@ -183,7 +183,7 @@ describe('utilidades app docente', () => {
           calidadPagina: 0.8,
           confianzaPromedioPagina: 0.7,
           ratioAmbiguas: 0.1,
-          templateVersionDetectada: 1
+          templateVersionDetectada: 4
         }
       },
       {
@@ -211,7 +211,7 @@ describe('utilidades app docente', () => {
 
     const consolidado = consolidarResultadoOmrExamen(paginas);
     expect(consolidado?.estadoAnalisis).toBe('requiere_revision');
-    expect(consolidado?.templateVersionDetectada).toBe(3);
+    expect(consolidado?.templateVersionDetectada).toBe(4);
     expect(consolidado?.qrTexto).toBe('QR-1');
     expect(consolidado?.advertencias).toEqual(expect.arrayContaining(['A1', 'A2']));
     expect(consolidarResultadoOmrExamen([])).toBeNull();
@@ -230,7 +230,7 @@ describe('utilidades app docente', () => {
       confianza: 0
     });
     expect(normal.estadoAnalisis).toBe('requiere_revision');
-    expect(normal.templateVersionDetectada).toBe(1);
+    expect(normal.templateVersionDetectada).toBe(4);
   });
 
   it('dominios de correo, etiquetas e ids', () => {

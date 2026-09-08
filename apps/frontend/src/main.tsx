@@ -8,6 +8,7 @@ import './styles.css';
 import './styles/foundations.css';
 import './styles/components.css';
 import './styles/screens.css';
+import './styles/cards.css';
 import './pwa';
 import { ConfirmDialogProvider } from './ui/feedback/ConfirmDialogProvider';
 import { ToastProvider } from './ui/toast/ToastProvider';

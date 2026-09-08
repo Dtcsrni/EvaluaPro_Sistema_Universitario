@@ -15,7 +15,7 @@ import { generarPdfExamen } from './servicioGeneracionPdf';
 import { guardarPdfExamen } from '../../infraestructura/archivos/almacenLocal';
 import { normalizarParaNombreArchivo } from '../../compartido/utilidades/texto';
 import { resolverNumeroPaginasPlantilla } from './domain/resolverNumeroPaginasPlantilla';
-import { TEMPLATE_VERSION_TV4 } from './domain/templateCompat';
+import { TEMPLATE_VERSION_CANONICA } from './domain/templateCanonico';
 import {
   asegurarExamenDescargable,
   construirMetadataRetencion,
@@ -384,7 +384,7 @@ export async function regenerarPdfExamen(req: SolicitudDocente, res: Response) {
   ]);
 
   const numeroPaginas = resolverNumeroPaginasPlantilla(plantillaRaw as any);
-  const templateVersion = TEMPLATE_VERSION_TV4;
+  const templateVersion = TEMPLATE_VERSION_CANONICA;
 
   const generarConPaginas = (paginasObjetivo: number) =>
     generarPdfExamen({
@@ -394,8 +394,9 @@ export async function regenerarPdfExamen(req: SolicitudDocente, res: Response) {
       mapaVariante: examen?.mapaVariante as never,
       tipoExamen: plantillaRaw.tipo as 'parcial' | 'global',
       totalPaginas: paginasObjetivo,
-      margenMm: parseJsonSafe<any>(plantillaRaw.configuracionPdf)?.margenMm ?? 10,
+      margenMm: parseJsonSafe<any>(plantillaRaw.configuracionPdf)?.margenMm ?? 8,
       templateVersion,
+      bookletConfig: parseJsonSafe<any>(plantillaRaw.bookletConfig) ?? {},
       encabezado: {
         materia: String(periodo?.nombre ?? ''),
         docente: String(docenteDb?.nombreCompleto ?? ''),

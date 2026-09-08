@@ -64,6 +64,8 @@
         "scripts/generate-installer-release-manifest.ps1",
         "scripts/sign-installer-artifacts.ps1",
         "scripts/Install-EvaluaPro.ps1",
+        "scripts/runtime-env.mjs",
+        "scripts/start-docente-native.mjs",
         "packaging/**",
         "config/installer-*.json",
         "config/update-config.json"

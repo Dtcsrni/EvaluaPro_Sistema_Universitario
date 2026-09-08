@@ -10,7 +10,8 @@ import path from 'node:path';
 import fs from 'node:fs';
 
 let dataDir = path.resolve(process.cwd(), 'data');
-if (process.env.NODE_ENV === 'production') {
+const entorno = process.env.NODE_ENV ?? 'production';
+if (entorno === 'production') {
   // In native production, always use ProgramData to persist across upgrades/uninstalls and avoid System32
   dataDir = path.resolve(process.env.PROGRAMDATA || 'C:\\ProgramData', 'EvaluaPro', 'data');
 }
@@ -25,7 +26,7 @@ export const prisma = new PrismaClient({
       url: process.env.BACKEND_DATABASE_URL || process.env.DATABASE_URL || `file:${path.resolve(dataDir, 'evaluapro.db').replace(/\\/g, '/')}`
     }
   },
-  log: process.env.NODE_ENV === 'development' ? ['query', 'error', 'warn'] : ['error']
+  log: entorno === 'development' ? ['query', 'error', 'warn'] : ['error']
 });
 
 export async function conectarSqlite(): Promise<void> {
@@ -39,13 +40,20 @@ async function asegurarEsquemaSqlite(): Promise<void> {
       "SELECT name FROM sqlite_master WHERE type='table' AND name='docentes';"
     );
     if (!tablas || tablas.length === 0) {
-      const schemaPath = path.resolve(process.cwd(), 'apps', 'backend', 'prisma', 'schema.prisma');
-      const fallbackSchema = path.resolve(process.cwd(), 'prisma', 'schema.prisma');
-      const targetSchema = fs.existsSync(schemaPath) ? schemaPath : (fs.existsSync(fallbackSchema) ? fallbackSchema : null);
+      const schemaCandidates = [
+        path.resolve(process.cwd(), 'apps', 'backend', 'prisma', 'schema.prisma'),
+        path.resolve(process.cwd(), 'prisma', 'schema.prisma'),
+        path.resolve(process.cwd(), '..', '..', 'apps', 'backend', 'prisma', 'schema.prisma')
+      ];
+      const targetSchema = schemaCandidates.find((candidate) => fs.existsSync(candidate)) || null;
       if (targetSchema) {
         const { execSync } = await import('node:child_process');
-        const prismaCli = path.resolve(process.cwd(), 'node_modules', 'prisma', 'build', 'index.js');
-        if (fs.existsSync(prismaCli)) {
+        const prismaCandidates = [
+          path.resolve(process.cwd(), 'node_modules', 'prisma', 'build', 'index.js'),
+          path.resolve(process.cwd(), '..', '..', 'node_modules', 'prisma', 'build', 'index.js')
+        ];
+        const prismaCli = prismaCandidates.find((candidate) => fs.existsSync(candidate));
+        if (prismaCli) {
           execSync(`node "${prismaCli}" db push --schema "${targetSchema}" --skip-generate`, {
             stdio: 'ignore'
           });

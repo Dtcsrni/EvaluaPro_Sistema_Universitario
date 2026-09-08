@@ -1,6 +1,6 @@
 /** Shell principal docente: sesion, permisos, carga base y composicion de secciones. */
-import { useCallback, useEffect, useRef, useState } from 'react';
-import { guardarTokenDocente, limpiarTokenDocente } from '../../servicios_api/clienteApi';
+import { Fragment, lazy, Suspense, useCallback, useEffect, useRef, useState } from 'react';
+import { guardarTokenDocente, limpiarTokenDocente, obtenerIdEquipoSincronizacion } from '../../servicios_api/clienteApi';
 import { emitToast } from '../../ui/toast/toastBus';
 import { Icono, Spinner } from '../../ui/iconos';
 import { InlineMensaje } from '../../ui/ux/componentes/InlineMensaje';
@@ -8,18 +8,8 @@ import { clienteApi } from './clienteApiDocente';
 import { ShellDocente } from './ShellDocente';
 import { SeccionAutenticacion } from './SeccionAutenticacion';
 import { SeccionAlumnos } from './SeccionAlumnos';
-import { SeccionBanco } from './SeccionBanco';
-import { SeccionCuenta } from './SeccionCuenta';
-import { SeccionPlantillas } from './SeccionPlantillas';
 import { SeccionPeriodos, SeccionPeriodosArchivados } from './SeccionPeriodos';
-import { SeccionEntrega } from './SeccionEntregaInterna';
-import { SeccionCalificaciones } from './SeccionCalificaciones';
-import { SeccionRehidratacionLotes } from './SeccionRehidratacionLotes';
-import { SeccionSincronizacion } from './SeccionSincronizacion';
-import { SeccionEvaluaciones } from './SeccionEvaluaciones';
-import { SeccionClassroom } from './SeccionClassroom';
-import { SeccionAsistencias } from './SeccionAsistencias';
-import { SeccionTemarios } from './SeccionTemarios';
+import type { EstadoLeaseUI } from './SeccionLeaseSincronizacion';
 import { usePermisosDocente } from './hooks/usePermisosDocente';
 import { useSesionDocente } from './hooks/useSesionDocente';
 import { useRecordatorioPaseLista } from './hooks/useRecordatorioPaseLista';
@@ -48,11 +38,25 @@ import {
   obtenerVistaInicial,
   normalizarRespuestasDetectadas
 } from './utilidades';
+
+const SeccionBanco = lazy(() => import('./SeccionBanco').then(({ SeccionBanco: modulo }) => ({ default: modulo })));
+const SeccionCuenta = lazy(() => import('./SeccionCuenta').then(({ SeccionCuenta: modulo }) => ({ default: modulo })));
+const SeccionEntrega = lazy(() => import('./SeccionEntregaInterna').then(({ SeccionEntrega: modulo }) => ({ default: modulo })));
+const SeccionCalificaciones = lazy(() => import('./SeccionCalificaciones').then(({ SeccionCalificaciones: modulo }) => ({ default: modulo })));
+const SeccionRehidratacionLotes = lazy(() => import('./SeccionRehidratacionLotes').then(({ SeccionRehidratacionLotes: modulo }) => ({ default: modulo })));
+const SeccionEvaluaciones = lazy(() => import('./SeccionEvaluaciones').then(({ SeccionEvaluaciones: modulo }) => ({ default: modulo })));
+const SeccionClassroom = lazy(() => import('./SeccionClassroom').then(({ SeccionClassroom: modulo }) => ({ default: modulo })));
+const SeccionAsistencias = lazy(() => import('./SeccionAsistencias').then(({ SeccionAsistencias: modulo }) => ({ default: modulo })));
+const SeccionTemarios = lazy(() => import('./SeccionTemarios').then(({ SeccionTemarios: modulo }) => ({ default: modulo })));
+const SeccionPlantillas = lazy(() => import('./SeccionPlantillas').then(({ SeccionPlantillas: modulo }) => ({ default: modulo })));
+const SeccionSincronizacion = lazy(() => import('./SeccionSincronizacion').then(({ SeccionSincronizacion: modulo }) => ({ default: modulo })));
 export function AppDocente() {
   const montadoRef = useRef(true);
   const [docente, setDocente] = useState<Docente | null>(null);
+  const [estadoLease, setEstadoLease] = useState<EstadoLeaseUI | null>(null);
   const [capacidadesIntegraciones, setCapacidadesIntegraciones] = useState<{
     oauthGoogleBackend: boolean;
+    snapshotGoogleDisponible: boolean;
     classroomBackend: boolean;
     smtpBackend: boolean;
     requireGoogleOAuth: boolean;
@@ -61,6 +65,7 @@ export function AppDocente() {
     requiereRegistroInicial?: boolean;
   } | null>(null);
   const [vista, setVista] = useState(obtenerVistaInicial());
+  const [destinoAlumnos, setDestinoAlumnos] = useState<{ periodoId: string; grupo?: string } | null>(null);
   const {
     puede,
     permisosUI,
@@ -177,7 +182,9 @@ export function AppDocente() {
       setVista(itemsVista[0].id);
     }
   }, [itemsVista, vista]);
-  useSesionDocente({ setDocente, onCerrarSesion: cerrarSesion, montadoRef });
+  const { sesionComprobada } = useSesionDocente({ setDocente, onCerrarSesion: cerrarSesion, montadoRef });
+  const equipoIdSincronizacion = obtenerIdEquipoSincronizacion();
+  const docenteIdSincronizacion = docente?.id;
   useEffect(() => {
     montadoRef.current = true;
     return () => {
@@ -185,22 +192,38 @@ export function AppDocente() {
     };
   }, []);
   useEffect(() => {
-    void clienteApi
-      .obtener<{
-        capacidadesIntegraciones?: {
-          oauthGoogleBackend?: boolean;
-          classroomBackend?: boolean;
-          smtpBackend?: boolean;
-          requireGoogleOAuth?: boolean;
-          passwordLoginAllowed?: boolean;
-          primerUso?: boolean;
-          requiereRegistroInicial?: boolean;
-        };
-      }>('/autenticacion/capacidades-integraciones')
-      .then((respuesta) => {
+    let activo = true;
+    let temporizador: number | null = null;
+    const fallback = {
+      oauthGoogleBackend: false,
+      snapshotGoogleDisponible: false,
+      classroomBackend: false,
+      smtpBackend: false,
+      requireGoogleOAuth: false,
+      passwordLoginAllowed: true,
+      primerUso: true,
+      requiereRegistroInicial: true
+    };
+
+    const cargarCapacidades = async (intento = 0): Promise<void> => {
+      try {
+        const respuesta = await clienteApi.obtener<{
+          capacidadesIntegraciones?: {
+            oauthGoogleBackend?: boolean;
+            snapshotGoogleDisponible?: boolean;
+            classroomBackend?: boolean;
+            smtpBackend?: boolean;
+            requireGoogleOAuth?: boolean;
+            passwordLoginAllowed?: boolean;
+            primerUso?: boolean;
+            requiereRegistroInicial?: boolean;
+          };
+        }>('/autenticacion/capacidades-integraciones');
+        if (!activo) return;
         const caps = respuesta?.capacidadesIntegraciones;
         setCapacidadesIntegraciones({
           oauthGoogleBackend: Boolean(caps?.oauthGoogleBackend),
+          snapshotGoogleDisponible: Boolean(caps?.snapshotGoogleDisponible),
           classroomBackend: Boolean(caps?.classroomBackend),
           smtpBackend: Boolean(caps?.smtpBackend),
           requireGoogleOAuth: Boolean(caps?.requireGoogleOAuth),
@@ -208,24 +231,78 @@ export function AppDocente() {
           primerUso: Boolean(caps?.primerUso),
           requiereRegistroInicial: Boolean(caps?.requiereRegistroInicial)
         });
-      })
-      .catch(() => {
-        setCapacidadesIntegraciones({
-          oauthGoogleBackend: false,
-          classroomBackend: false,
-          smtpBackend: false,
-          requireGoogleOAuth: false,
-          passwordLoginAllowed: true,
-          primerUso: true,
-          requiereRegistroInicial: true
-        });
-      });
-  }, []);
+        return;
+      } catch {
+        if (!activo) return;
+        if (intento < 5) {
+          const esperaMs = Math.min(500 * (intento + 1), 2500);
+          temporizador = window.setTimeout(() => {
+            void cargarCapacidades(intento + 1);
+          }, esperaMs);
+          return;
+        }
+        setCapacidadesIntegraciones(fallback);
+      }
+    };
 
+    void cargarCapacidades();
+    return () => {
+      activo = false;
+      if (temporizador !== null) window.clearTimeout(temporizador);
+    };
+  }, []);
+  useEffect(() => {
+    if (!docenteIdSincronizacion || !sesionComprobada) {
+      setEstadoLease(null);
+      return;
+    }
+    let activo = true;
+    const sincronizarEstado = async () => {
+      try {
+        const estado = await clienteApi.obtener<EstadoLeaseUI>('/sincronizaciones/local/lease');
+        if (!activo) return;
+        if (!estado.configurado) {
+          setEstadoLease(estado);
+          return;
+        }
+        try {
+          const adquirido = await clienteApi.enviar<{ lease: EstadoLeaseUI['lease']; ttlMs: number }>('/sincronizaciones/local/lease/adquirir', { equipoId: equipoIdSincronizacion });
+          if (activo) setEstadoLease({ ...estado, modo: 'escritura', ttlMs: adquirido.ttlMs, lease: adquirido.lease });
+        } catch {
+          const actualizado = await clienteApi.obtener<EstadoLeaseUI>('/sincronizaciones/local/lease');
+          if (activo) setEstadoLease(actualizado);
+        }
+      } catch {
+        if (activo) setEstadoLease(null);
+      }
+    };
+    void sincronizarEstado();
+    return () => { activo = false; };
+  }, [docenteIdSincronizacion, equipoIdSincronizacion, sesionComprobada]);
+  useEffect(() => {
+    const leaseId = estadoLease?.lease?.leaseId;
+    const leasePropio = estadoLease?.lease?.propio;
+    if (!estadoLease?.configurado || estadoLease.modo !== 'escritura' || !leasePropio || !leaseId) return;
+    const intervalo = window.setInterval(async () => {
+      try {
+        const respuesta = await clienteApi.enviar<{ lease: EstadoLeaseUI['lease']; ttlMs: number }>('/sincronizaciones/local/lease/renovar', { equipoId: equipoIdSincronizacion, leaseId });
+        setEstadoLease((actual) => actual ? { ...actual, modo: 'escritura', ttlMs: respuesta.ttlMs, lease: respuesta.lease } : actual);
+      } catch {
+        try { setEstadoLease(await clienteApi.obtener<EstadoLeaseUI>('/sincronizaciones/local/lease')); } catch { /* el backend bloqueará escrituras si se pierde el lease */ }
+      }
+    }, Math.max(10_000, Math.floor(estadoLease.ttlMs / 3)));
+    return () => window.clearInterval(intervalo);
+  }, [estadoLease?.configurado, estadoLease?.modo, estadoLease?.lease?.propio, estadoLease?.lease?.leaseId, estadoLease?.ttlMs, equipoIdSincronizacion]);
+
+  const googleFrontendConfigurado = Boolean(String(import.meta.env.VITE_GOOGLE_CLIENT_ID || '').trim());
+  // Mientras se consulta el contrato de capacidades, conserva visible Google
+  // si el build trae Client ID. Ocultarlo durante esa ventana provocaba que la
+  // pantalla pareciera no soportarlo al arrancar la instalación local.
   const oauthGoogleDisponible =
-    Boolean(String(import.meta.env.VITE_GOOGLE_CLIENT_ID || '').trim()) && Boolean(capacidadesIntegraciones?.oauthGoogleBackend);
+    googleFrontendConfigurado && (capacidadesIntegraciones === null || Boolean(capacidadesIntegraciones.oauthGoogleBackend));
   const classroomDisponible = Boolean(capacidadesIntegraciones?.classroomBackend);
   const smtpDisponible = Boolean(capacidadesIntegraciones?.smtpBackend);
+  const snapshotGoogleDisponible = Boolean(capacidadesIntegraciones?.snapshotGoogleDisponible);
   const requireGoogleOAuth = Boolean(capacidadesIntegraciones?.requireGoogleOAuth);
   const passwordLoginAllowed = capacidadesIntegraciones?.passwordLoginAllowed !== false;
   useEffect(() => {
@@ -264,6 +341,73 @@ export function AppDocente() {
     setRevisionesOmr
   ]);
 
+  async function adquirirLeaseDocente(estadoBase: EstadoLeaseUI | null = estadoLease): Promise<EstadoLeaseUI> {
+    const respuesta = await clienteApi.enviar<{ lease: EstadoLeaseUI['lease']; ttlMs: number }>('/sincronizaciones/local/lease/adquirir', { equipoId: equipoIdSincronizacion });
+    const siguiente: EstadoLeaseUI = { configurado: true, directorio: estadoBase?.directorio, origen: estadoBase?.origen, proveedor: 'carpeta-sincronizada', ttlMs: respuesta.ttlMs, modo: 'escritura', lease: respuesta.lease, snapshot: estadoBase?.snapshot };
+    setEstadoLease(siguiente);
+    return siguiente;
+  }
+
+  async function configurarCarpetaSincronizacionDocente(directorio: string): Promise<EstadoLeaseUI> {
+    const respuesta = await clienteApi.enviar<EstadoLeaseUI>('/sincronizaciones/local/configuracion/carpeta', { directorio });
+    setEstadoLease(respuesta);
+    if (respuesta.configurado) {
+      try {
+        return await adquirirLeaseDocente(respuesta);
+      } catch {
+        try {
+          const actualizado = await clienteApi.obtener<EstadoLeaseUI>('/sincronizaciones/local/lease');
+          setEstadoLease(actualizado);
+          return actualizado;
+        } catch {
+          // La carpeta ya quedó guardada; el estado se actualizará al recargar.
+        }
+      }
+    }
+    return respuesta;
+  }
+
+  function exigirLeaseDocente() {
+    const lease = estadoLease?.lease;
+    if (!lease || estadoLease?.modo !== 'escritura') throw new Error('SYNC_LEASE_REQUERIDO');
+    return lease;
+  }
+
+  async function liberarLeaseDocente() {
+    const lease = exigirLeaseDocente();
+    const respuesta = await clienteApi.enviar('/sincronizaciones/local/lease/liberar', { equipoId: equipoIdSincronizacion, leaseId: lease.leaseId });
+    setEstadoLease((actual) => actual ? { ...actual, modo: 'disponible', lease: undefined } : actual);
+    return respuesta;
+  }
+
+  async function publicarNubeDocente(payload: { metodo: 'contrasena' | 'google'; credencial?: string }) {
+    const lease = exigirLeaseDocente();
+    const resultado = await clienteApi.enviar<{ checksumSha256?: string; conteos?: { baseDatosBytes: number; archivos: number; archivosBytes: number }; mensaje?: string; leaseLiberado?: boolean }>('/sincronizaciones/local/nube/publicar', { ...payload, equipoId: equipoIdSincronizacion, leaseId: lease.leaseId });
+    if (resultado.leaseLiberado === false) {
+      setEstadoLease(await clienteApi.obtener<EstadoLeaseUI>('/sincronizaciones/local/lease'));
+    } else {
+      setEstadoLease((actual) => actual ? { ...actual, modo: 'disponible', lease: undefined } : actual);
+    }
+    return resultado;
+  }
+
+  async function importarNubeDocente(payload: { metodo: 'contrasena' | 'google'; credencial?: string; dryRun: boolean }) {
+    const lease = exigirLeaseDocente();
+    const resultado = await clienteApi.enviar<{ checksumSha256?: string; conteos?: { baseDatosBytes: number; archivos: number; archivosBytes: number }; mensaje?: string; requiereReinicioSesion?: boolean }>('/sincronizaciones/local/nube/importar', { ...payload, equipoId: equipoIdSincronizacion, leaseId: lease.leaseId });
+    if (!payload.dryRun) setEstadoLease((actual) => actual ? { ...actual, modo: 'disponible', lease: undefined } : actual);
+    return resultado;
+  }
+
+  if (!sesionComprobada) {
+    return (
+      <div className="panel auth-session-check" role="status" aria-live="polite">
+        <InlineMensaje tipo="info" leading={<Spinner />}>
+          Verificando sesión guardada…
+        </InlineMensaje>
+      </div>
+    );
+  }
+
   if (!docente) {
     return (
       <SeccionAutenticacion
@@ -273,17 +417,35 @@ export function AppDocente() {
         passwordLoginAllowed={passwordLoginAllowed}
         primerUso={capacidadesIntegraciones?.primerUso}
         onIngresar={(token, persistente = true) => {
-          guardarTokenDocente(token, persistente);
-          clienteApi
+          const sesionGuardada = guardarTokenDocente(token, persistente);
+          if (!sesionGuardada) {
+            emitToast({
+              level: 'error',
+              title: 'Sesion no guardada',
+              message: 'No se pudo guardar la sesión en este equipo. Revisa el almacenamiento del navegador.',
+              durationMs: 5200
+            });
+            return;
+          }
+          void clienteApi
             .obtener<{ docente: Docente }>('/autenticacion/perfil')
-            .then((payload) => setDocente(payload.docente));
+            .then((payload) => setDocente(payload.docente))
+            .catch(() => {
+              emitToast({
+                level: 'error',
+                title: 'Sesion no validada',
+                message: 'La sesión se guardó, pero no se pudo validar el perfil con la API.',
+                durationMs: 5200
+              });
+            });
         }}
       />
     );
   }
 
   const contenido = (
-    <div className="panel">
+    <Suspense fallback={<div className="panel app-loading" role="status" aria-live="polite">Cargando módulo…</div>}>
+      <div className="panel">
       <nav
         className="tabs tabs--scroll tabs--sticky"
         aria-label="Secciones del portal docente"
@@ -291,6 +453,8 @@ export function AppDocente() {
         {itemsVista.map((item, idx) => (
           (() => {
             const activa = vista === item.id || (vista === 'periodos_archivados' && item.id === 'periodos');
+            const grupoAnterior = itemsVista[idx - 1]?.grupo;
+            const etiquetaGrupo = item.grupo === 'academia' ? 'Academia' : item.grupo === 'evaluacion' ? 'Evaluación' : 'Operación';
             const tooltipsMap: Record<string, string> = {
               periodos: 'Configura materias, fechas lectivas y grupos',
               periodos_archivados: 'Consulta materias archivadas de ciclos anteriores',
@@ -308,48 +472,55 @@ export function AppDocente() {
             };
             const tooltipTexto = tooltipsMap[item.id] || `Ir a ${item.label}`;
             return (
-          <button
-            key={item.id}
-            ref={(el) => {
-              tabsRef.current[idx] = el;
-            }}
-            type="button"
-            className={activa ? 'tab activa' : 'tab'}
-            aria-current={activa ? 'page' : undefined}
-            data-tooltip={tooltipTexto}
-            title={tooltipTexto}
-            data-icono-tab={item.icono}
-            onKeyDown={(event) => {
-              if (event.key !== 'ArrowLeft' && event.key !== 'ArrowRight' && event.key !== 'Home' && event.key !== 'End') {
-                return;
-              }
-              event.preventDefault();
-              const ultimo = itemsVista.length - 1;
-              let idxNuevo = idx;
-              if (event.key === 'ArrowLeft') idxNuevo = Math.max(0, idx - 1);
-              if (event.key === 'ArrowRight') idxNuevo = Math.min(ultimo, idx + 1);
-              if (event.key === 'Home') idxNuevo = 0;
-              if (event.key === 'End') idxNuevo = ultimo;
-              const nuevoId = itemsVista[idxNuevo]?.id;
-              if (!nuevoId) return;
-              setVista(nuevoId);
-              requestAnimationFrame(() => tabsRef.current[idxNuevo]?.focus());
-            }}
-            onClick={() => setVista(item.id)}
-          >
-            <Icono nombre={item.icono} />
-            {item.label}
-          </button>
+          <Fragment key={item.id}>
+            {grupoAnterior !== item.grupo ? <span className="tabs__group-label" aria-hidden="true">{etiquetaGrupo}</span> : null}
+            <button
+              ref={(el) => {
+                tabsRef.current[idx] = el;
+              }}
+              type="button"
+              className={activa ? 'tab activa' : 'tab'}
+              aria-current={activa ? 'page' : undefined}
+              data-tooltip={tooltipTexto}
+              title={tooltipTexto}
+              data-icono-tab={item.icono}
+              onKeyDown={(event) => {
+                if (event.key !== 'ArrowLeft' && event.key !== 'ArrowRight' && event.key !== 'Home' && event.key !== 'End') {
+                  return;
+                }
+                event.preventDefault();
+                const ultimo = itemsVista.length - 1;
+                let idxNuevo = idx;
+                if (event.key === 'ArrowLeft') idxNuevo = Math.max(0, idx - 1);
+                if (event.key === 'ArrowRight') idxNuevo = Math.min(ultimo, idx + 1);
+                if (event.key === 'Home') idxNuevo = 0;
+                if (event.key === 'End') idxNuevo = ultimo;
+                const nuevoId = itemsVista[idxNuevo]?.id;
+                if (!nuevoId) return;
+                setVista(nuevoId);
+                requestAnimationFrame(() => tabsRef.current[idxNuevo]?.focus());
+              }}
+              onClick={() => setVista(item.id)}
+            >
+              <Icono nombre={item.icono} />
+              {item.label}
+            </button>
+          </Fragment>
             );
           })()
         ))}
       </nav>
       <div className="shell-docente__main-col">
-        {cargandoDatos && (
+      {cargandoDatos && (
         <div className="panel" aria-live="polite">
           <InlineMensaje tipo="info" leading={<Spinner />}>
             Cargando datos…
           </InlineMensaje>
+        </div>
+      )}
+      {estadoLease?.configurado && estadoLease.modo === 'solo_lectura' && (
+        <div className="panel" role="status">
+          <InlineMensaje tipo="warning">Otro equipo está trabajando con esta cuenta. Esta instalación permanece en solo lectura hasta que el control expire o sea liberado.</InlineMensaje>
         </div>
       )}
       {/* ── Banner recordatorio pase de lista ── */}
@@ -359,7 +530,7 @@ export function AppDocente() {
           aria-live="polite"
           className="banner-recordatorio-asistencia anim-fade-in"
         >
-          <span className="banner-recordatorio-asistencia__icon pulse-glow">🗓️</span>
+          <span className="banner-recordatorio-asistencia__icon pulse-glow"><Icono nombre="asistencias" size={20} /></span>
           <span className="banner-recordatorio-asistencia__text">
             <strong>Recordatorio de Asistencia:</strong> Aún no has registrado el pase de lista de hoy.
           </span>
@@ -410,6 +581,10 @@ export function AppDocente() {
             periodos={periodos}
             onRefrescar={refrescarMaterias}
             onVerArchivadas={() => setVista('periodos_archivados')}
+            onAbrirGrupo={(periodoId, grupo) => {
+              setDestinoAlumnos({ periodoId, grupo });
+              setVista('alumnos');
+            }}
             permisos={permisosUI}
             puedeEliminarMateriaDev={puedeEliminarMateriaDev}
             enviarConPermiso={enviarConPermiso}
@@ -431,6 +606,7 @@ export function AppDocente() {
             alumnos={alumnos}
             periodosActivos={periodos}
             periodosTodos={[...periodos, ...periodosArchivados]}
+            destinoInicial={destinoAlumnos}
             permisos={permisosUI}
             puedeEliminarAlumnoDev={puedeEliminarAlumnoDev}
             enviarConPermiso={enviarConPermiso}
@@ -467,6 +643,7 @@ export function AppDocente() {
             periodos={periodos}
             preguntas={preguntas}
             permisos={permisosUI}
+            preferenciasPdf={docente.preferenciasPdf}
             enviarConPermiso={enviarConPermiso}
             avisarSinPermiso={avisarSinPermiso}
             alumnos={alumnos}
@@ -740,7 +917,7 @@ export function AppDocente() {
                 calidadPagina: number;
                 confianzaPromedioPagina?: number;
                 ratioAmbiguas?: number;
-                templateVersionDetectada?: 1 | 3 | 4;
+                templateVersionDetectada?: 4;
                 motivosRevision?: string[];
                 revisionConfirmada?: boolean;
                 qrTexto?: string;
@@ -902,6 +1079,50 @@ export function AppDocente() {
               return respuesta;
             })()
           }
+          onExportarLocal={async (payload) => {
+            if (!permisosUI.sincronizacion.exportar) {
+              avisarSinPermiso('No tienes permiso para exportar una instantánea local.');
+              throw new Error('SIN_PERMISO');
+            }
+            const respuesta = await clienteApi.enviarBinario(
+              '/sincronizaciones/local/exportar',
+              new TextEncoder().encode(JSON.stringify(payload)),
+              { contentType: 'application/json', timeoutMs: 180_000 }
+            );
+            const conteosRaw = respuesta.headers.get('X-EvaluaPro-Snapshot-Counts') || '{}';
+            let conteos = { baseDatosBytes: 0, archivos: 0, archivosBytes: 0 };
+            try { conteos = { ...conteos, ...(JSON.parse(conteosRaw) as Partial<typeof conteos>) }; } catch { /* el backend ya validó el archivo; solo se omite el resumen */ }
+            const nombreHeader = respuesta.headers.get('Content-Disposition') || '';
+            const nombre = /filename="([^"]+)"/i.exec(nombreHeader)?.[1] || `evaluapro_${new Date().toISOString().replace(/[:.]/g, '-')}.ep-snapshot`;
+            return {
+              archivo: await respuesta.blob(),
+              nombreArchivo: nombre,
+              checksumSha256: respuesta.headers.get('X-EvaluaPro-Snapshot-Checksum') || '',
+              exportadoEn: respuesta.headers.get('X-EvaluaPro-Snapshot-Exported-At') || new Date().toISOString(),
+              conteos
+            };
+          }}
+          onImportarLocal={async ({ cuerpo }) => {
+            if (!permisosUI.sincronizacion.importar) {
+              avisarSinPermiso('No tienes permiso para importar una instantánea local.');
+              throw new Error('SIN_PERMISO');
+            }
+            const respuesta = await clienteApi.enviarBinario('/sincronizaciones/local/importar', cuerpo, {
+              contentType: 'application/vnd.evaluapro.snapshot',
+              timeoutMs: 180_000
+            });
+            return respuesta.json();
+          }}
+          estadoLease={estadoLease}
+          onAdquirirLease={adquirirLeaseDocente}
+          onLiberarLease={liberarLeaseDocente}
+          onPublicarNube={publicarNubeDocente}
+          onImportarNube={importarNubeDocente}
+          // La política de acceso puede exigir Google, pero una cuenta que ya
+          // tiene contraseña puede usarla como segunda credencial para el
+          // cifrado local 1:1 después de autenticarse.
+          puedeUsarContrasena={Boolean(docente?.tieneContrasena)}
+          puedeUsarGoogle={snapshotGoogleDisponible}
           onPushServidor={(payload) => {
             if (!permisosUI.sincronizacion.push) {
               avisarSinPermiso('No tienes permiso para enviar al servidor.');
@@ -930,12 +1151,15 @@ export function AppDocente() {
             classroomDisponible={classroomDisponible}
             smtpDisponible={smtpDisponible}
             requireGoogleOAuth={requireGoogleOAuth}
+            estadoLease={estadoLease}
+            onConfigurarCarpeta={configurarCarpetaSincronizacionDocente}
           />
         </div>
       )}
       </div>
-    </div>
+      </div>
+    </Suspense>
   );
 
-  return <ShellDocente docente={docente} onCerrarSesion={cerrarSesion}>{contenido}</ShellDocente>;
+  return <ShellDocente docente={docente} onCerrarSesion={cerrarSesion} onAbrirCuenta={() => setVista('cuenta')}>{contenido}</ShellDocente>;
 }

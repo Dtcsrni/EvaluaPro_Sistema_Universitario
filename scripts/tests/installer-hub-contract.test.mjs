@@ -1476,6 +1476,7 @@ $cfg = @{
   portalApiKey='portal-key'
   passwordResetEnabled='0'
   requireGoogleOAuth='0'
+  backupCifradoSecreto='shared-sync-secret-for-test'
   correoModuloActivo='0'
   requireLicenseActivation='0'
   updateChannel='stable'
@@ -1949,6 +1950,7 @@ $cfg = @{
   passwordResetTokenMinutes='30'
   passwordResetUrlBase=''
   requireGoogleOAuth='0'
+  backupCifradoSecreto='shared-sync-secret-for-test'
   correoModuloActivo='0'
   requireLicenseActivation='0'
   updateChannel='stable'
@@ -1981,6 +1983,7 @@ $r | ConvertTo-Json -Depth 8
     assert.match(envRaw, /DATABASE_URL=/);
     assert.match(envRaw, /BACKEND_DATABASE_URL=/);
     assert.match(envRaw, /JWT_SECRETO=/);
+    assert.match(envRaw, /EVALUAPRO_BACKUP_CIFRADO_SECRETO=shared-sync-secret-for-test/);
     assert.match(envRaw, /EVALUAPRO_FLAVOR=docente-local/);
     assert.doesNotMatch(envRaw, /EVALUAPRO_IMAGE_TAG=/);
     assert.match(envRaw, /BACKEND_DATA_DIR_DEV=\.\/apps\/backend\/data\/examenes_dev/);
@@ -2038,6 +2041,110 @@ $r | ConvertTo-Json -Depth 8
   } finally {
     fs.rmSync(tempRoot, { recursive: true, force: true });
   }
+});
+
+test('configuracion operativa conserva OAuth existente cuando repair no recibe esos campos', () => {
+  const tempRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'evaluapro-installerhub-oauth-preserve-'));
+  const installDir = path.join(tempRoot, 'EvaluaPro');
+  fs.mkdirSync(path.join(installDir, 'config'), { recursive: true });
+  const cipherKey = 'AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=';
+
+  const script = `
+Import-Module -Force -WarningAction SilentlyContinue '${operationalConfigModulePath.replace(/'/g, "''")}'
+$envPath = '${path.join(installDir, '.env').replace(/'/g, "''")}'
+@(
+  'GOOGLE_OAUTH_CLIENT_ID=oauth-existing',
+  'GOOGLE_CLASSROOM_CLIENT_ID=classroom-existing',
+  'GOOGLE_CLASSROOM_CLIENT_SECRET=secret-existing',
+  'GOOGLE_CLASSROOM_REDIRECT_URI=https://example.edu/oauth/callback',
+  'CLASSROOM_TOKEN_CIPHER_KEY=${cipherKey}',
+  'CLASSROOM_ENABLED=1',
+  'EVALUAPRO_BACKUP_CIFRADO_SECRETO=sync-secret-existing',
+  'REQUIRE_GOOGLE_OAUTH=1'
+) | Set-Content -LiteralPath $envPath -Encoding utf8
+$cfg = @{ flavorId='docente-local'; nodeEnv='production'; puertoApi='4000'; puertoPortal='4518'; corsOrigenes='http://localhost:4173'; updateChannel='stable'; updateOwner='Dtcsrni'; updateRepo='EvaluaPro_Sistema_Universitario' }
+Invoke-EvaluaProOperationalConfiguration -Mode repair -InstallDir '${installDir.replace(/'/g, "''")}' -Config $cfg | Out-Null
+$raw = Get-Content -LiteralPath $envPath -Raw
+[pscustomobject]@{
+  oauth = [bool]($raw -match '(?m)^GOOGLE_OAUTH_CLIENT_ID=oauth-existing\r?$')
+  classroomId = [bool]($raw -match '(?m)^GOOGLE_CLASSROOM_CLIENT_ID=classroom-existing\r?$')
+  classroomSecret = [bool]($raw -match '(?m)^GOOGLE_CLASSROOM_CLIENT_SECRET=secret-existing\r?$')
+  redirect = [bool]($raw -match '(?m)^GOOGLE_CLASSROOM_REDIRECT_URI=https://example.edu/oauth/callback\r?$')
+  cipher = [bool]($raw -match '(?m)^CLASSROOM_TOKEN_CIPHER_KEY=${cipherKey}\r?$')
+  enabled = [bool]($raw -match '(?m)^CLASSROOM_ENABLED=1\r?$')
+  required = [bool]($raw -match '(?m)^REQUIRE_GOOGLE_OAUTH=1\r?$')
+  backup = [bool]($raw -match '(?m)^EVALUAPRO_BACKUP_CIFRADO_SECRETO=sync-secret-existing\r?$')
+} | ConvertTo-Json -Compress
+`.trim();
+
+  const result = runPowerShell(script);
+  try {
+    if (result.skipped) return;
+    assert.equal(result.status, 0, result.stderr || result.stdout);
+    const parsed = parseJsonOutput(result.stdout);
+    assert.equal(parsed.oauth, true);
+    assert.equal(parsed.classroomId, true);
+    assert.equal(parsed.classroomSecret, true);
+    assert.equal(parsed.redirect, true);
+    assert.equal(parsed.cipher, true);
+    assert.equal(parsed.enabled, true);
+    assert.equal(parsed.required, true);
+    assert.equal(parsed.backup, true);
+  } finally {
+    fs.rmSync(tempRoot, { recursive: true, force: true });
+  }
+});
+
+test('configuracion operativa separa Google login de Classroom y valida requisitos', () => {
+  const script = `
+Import-Module -Force -WarningAction SilentlyContinue '${operationalConfigModulePath.replace(/'/g, "''")}'
+$login = Normalize-OperationalConfig -InputConfig @{ flavorId='docente-local'; requireGoogleOAuth='1'; googleOauthClientId='login-client'; updateChannel='stable'; updateOwner='Dtcsrni'; updateRepo='EvaluaPro_Sistema_Universitario' }
+$classroom = Normalize-OperationalConfig -InputConfig @{ flavorId='docente-local'; classroomEnabled='1'; googleClassroomClientId='classroom-client'; googleClassroomClientSecret='classroom-secret'; googleClassroomRedirectUri='https://example.edu/oauth/callback'; classroomTokenCipherKey='invalid'; updateChannel='stable'; updateOwner='Dtcsrni'; updateRepo='EvaluaPro_Sistema_Universitario' }
+$loginResult = Test-OperationalConfig -Mode install -Config $login
+$classroomResult = Test-OperationalConfig -Mode install -Config $classroom
+[pscustomobject]@{ loginOk=$loginResult.ok; classroomOk=$classroomResult.ok; classroomError=[bool](($classroomResult.errors -join '|') -match 'classroomTokenCipherKey') } | ConvertTo-Json -Compress
+`.trim();
+
+  const result = runPowerShell(script);
+  if (result.skipped) return;
+  assert.equal(result.status, 0, result.stderr || result.stdout);
+  const parsed = parseJsonOutput(result.stdout);
+  assert.equal(parsed.loginOk, true);
+  assert.equal(parsed.classroomOk, false);
+  assert.equal(parsed.classroomError, true);
+});
+
+test('los contratos de post-instalacion invocan validacion OAuth efectiva', () => {
+  const helper = fs.readFileSync(burnHelperPath, 'utf8');
+  const verifier = fs.readFileSync(path.join(root, 'scripts', 'installer-burn', 'modules', 'PostInstallVerifier.psm1'), 'utf8');
+  const operationalConfig = fs.readFileSync(operationalConfigModulePath, 'utf8');
+
+  assert.match(operationalConfig, /function Test-InstallerOAuthValues/);
+  assert.match(operationalConfig, /CLASSROOM_TOKEN_CIPHER_KEY/);
+  assert.match(operationalConfig, /CLASSROOM_ENABLED/);
+  assert.match(helper, /Test-InstallerOAuthEnv/);
+  assert.match(verifier, /Import-Module .*OperationalConfig\.psm1/);
+  assert.match(verifier, /Test-InstallerOAuthEnv/);
+  assert.match(verifier, /Invoke-InstalledClassroomDoctor/);
+  assert.match(verifier, /classroom-doctor\.mjs/);
+});
+
+test('launcher nativo no deja un override vacio ocultar el .env instalado', () => {
+  const launcher = fs.readFileSync(path.join(root, 'scripts', 'start-docente-native.mjs'), 'utf8');
+  const runtimeEnv = fs.readFileSync(path.join(root, 'scripts', 'runtime-env.mjs'), 'utf8');
+
+  assert.match(launcher, /cargarVariablesEnvDesdeArchivo/);
+  assert.match(runtimeEnv, /target\[key\] === undefined \|\| String\(target\[key\]\)\.trim\(\) === ''/);
+});
+
+test('payload nativo incluye las dependencias directas del launcher docente', () => {
+  const buildNative = fs.readFileSync(path.join(root, 'scripts', 'build-native-dist.ps1'), 'utf8');
+  const buildMsi = fs.readFileSync(path.join(root, 'scripts', 'build-msi.ps1'), 'utf8');
+  const burn = fs.readFileSync(path.join(root, 'scripts', 'installer-burn', 'InstallerBurnHelper.ps1'), 'utf8');
+
+  assert.match(buildNative, /scripts\/runtime-env\.mjs/);
+  assert.match(buildMsi, /runtime-env\.mjs/);
+  assert.match(burn, /scripts\\runtime-env\.mjs/);
 });
 
 test('blindaje de licencia exige DPAPI local machine e integridad MAC', () => {
@@ -2131,6 +2238,8 @@ test('baseline docente deriva runtime y evita probes Docker innecesarios', () =>
   assert.match(baseline, /skippedDockerProbe\('runtime nativo docente-local'\)/);
   assert.match(baseline, /requiredServices: requiresDockerRuntime \? /);
   assert.match(baseline, /requiredImages: requiresDockerRuntime \? /);
+  assert.match(baseline, /const maxPayloadBytes = 180 \* 1024 \* 1024/);
+  assert.match(baseline, /const maxBundleBytes = 240 \* 1024 \* 1024/);
 });
 
 test('step-up local inicializa TOTP y permite sesion elevada con recovery/TOTP', () => {
@@ -2191,4 +2300,56 @@ test('script de release manifest incluye contrato extendido de build/deployment/
   assert.match(script, /target\s*=\s*if \(\$DeploymentTarget\)/);
   assert.match(script, /SignerCertificate/);
   assert.match(script, /NotSigned/);
+});
+
+test('SPEC-050: host nativo EvaluaPro.exe cuenta con definicion de proyecto WPF, WebView2 y single file host', () => {
+  const csprojPath = path.join(root, 'packaging', 'app-host', 'EvaluaPro.AppHost.csproj');
+  assert.equal(fs.existsSync(csprojPath), true, 'EvaluaPro.AppHost.csproj debe existir');
+  const content = fs.readFileSync(csprojPath, 'utf8');
+
+  assert.match(content, /<TargetFramework>net8\.0-windows<\/TargetFramework>/);
+  assert.match(content, /<UseWPF>true<\/UseWPF>/);
+  assert.match(content, /<AssemblyName>EvaluaPro<\/AssemblyName>/);
+  assert.match(content, /<PackageReference Include="Microsoft\.Web\.WebView2"/);
+  assert.match(content, /<SelfContained>true<\/SelfContained>/);
+  assert.match(content, /<RuntimeIdentifier>win-x64<\/RuntimeIdentifier>/);
+  assert.match(content, /<PublishSingleFile>true<\/PublishSingleFile>/);
+});
+
+test('SPEC-050: host nativo MainWindow.xaml cuenta con splash nativo, WebView2 y custom dark window chrome', () => {
+  const xamlPath = path.join(root, 'packaging', 'app-host', 'MainWindow.xaml');
+  const csPath = path.join(root, 'packaging', 'app-host', 'MainWindow.xaml.cs');
+  assert.equal(fs.existsSync(xamlPath), true, 'MainWindow.xaml debe existir');
+  assert.equal(fs.existsSync(csPath), true, 'MainWindow.xaml.cs debe existir');
+
+  const xaml = fs.readFileSync(xamlPath, 'utf8');
+  const cs = fs.readFileSync(csPath, 'utf8');
+
+  assert.match(xaml, /wpf:WebView2 x:Name="AppWebView"/);
+  assert.match(xaml, /x:Name="SplashOverlay"/);
+  assert.match(xaml, /x:Name="SplashProgressBar"/);
+  assert.match(xaml, /TitleBar_MouseDown/);
+
+  assert.match(cs, /EnsureBackendRunningAsync/);
+  assert.match(cs, /EnsureCoreWebView2Async/);
+  assert.match(cs, /http:\/\/127\.0\.0\.1:4173\//);
+  assert.match(cs, /backendProcess\.Kill\((?:true|entireProcessTree\s*:\s*true)\)/);
+});
+
+test('SPEC-050: create-shortcuts prioriza EvaluaPro.exe como destino directo para EvaluaPro.lnk', () => {
+  const script = fs.readFileSync(path.join(root, 'scripts', 'create-shortcuts.ps1'), 'utf8');
+  assert.match(script, /\$nativeAppHostExe\s*=\s*Join-Path \$root 'EvaluaPro\.exe'/);
+  assert.match(script, /\$isNativeHostAvailable/);
+  assert.match(script, /Target\s*=\s*if \(\$isNativeHostAvailable\) \{ \$nativeAppHostExe \} else \{ \$targetWscript \}/);
+});
+
+test('SPEC-050: bootstrapper hub y build-msi integran lanzamiento y empaquetado de EvaluaPro.exe', () => {
+  const bootstrapper = fs.readFileSync(path.join(root, 'packaging', 'wix', 'BurnBootstrapperApp', 'EvaluaProBootstrapperApplication.cs'), 'utf8');
+  const buildMsi = fs.readFileSync(path.join(root, 'scripts', 'build-msi.ps1'), 'utf8');
+
+  assert.match(bootstrapper, /var appExe = Path\.Combine\(installDir, "EvaluaPro\.exe"\);/);
+  assert.match(bootstrapper, /if \(File\.Exists\(appExe\)\)/);
+
+  assert.match(buildMsi, /EvaluaPro\.AppHost\.csproj/);
+  assert.match(buildMsi, /EvaluaPro\.exe/);
 });

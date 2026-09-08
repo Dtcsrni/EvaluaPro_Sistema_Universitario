@@ -37,7 +37,7 @@ Regla: no versionar credenciales. Se almacenan como variables de entorno de usua
 
 Base de checklist:
 - [docs/release/manual/docente-local-prueba-manual-2026-05-27.md](docs/release/manual/docente-local-prueba-manual-2026-05-27.md)
-- [docs/release/manual/gui-screen-matrix-2026-05-27.md](docs/release/manual/gui-screen-matrix-2026-05-27.md)
+- [docs/release/manual/gui-screen-matrix.md](docs/release/manual/gui-screen-matrix.md)
 
 Evidencia requerida:
 - Capturas clave (dashboard, login, calificaciones, exportaciones).

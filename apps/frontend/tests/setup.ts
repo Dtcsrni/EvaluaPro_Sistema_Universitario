@@ -56,6 +56,9 @@ vi.stubGlobal(
   'fetch',
   vi.fn(async (input: RequestInfo) => {
     const url = typeof input === 'string' ? input : input.url;
+    if (url.includes('/autenticacion/ingresar')) {
+      return { ok: true, json: async () => ({ token: 'token-login-prueba' }) };
+    }
     if (url.includes('/salud')) {
       return { ok: true, json: async () => ({ tiempoActivo: 10 }) };
     }
@@ -73,5 +76,6 @@ afterEach(() => {
 
 beforeEach(() => {
   localStorage.clear();
+  sessionStorage.clear();
   delete (globalThis as typeof globalThis & { __TEST_DOCENTE__?: Record<string, unknown> }).__TEST_DOCENTE__;
 });

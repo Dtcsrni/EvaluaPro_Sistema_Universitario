@@ -12,6 +12,7 @@ type ConfigParcial = Partial<{
   googleClassroomClientSecret: string;
   googleClassroomRedirectUri: string;
   classroomTokenCipherKey: string;
+  classroomEnabled: boolean;
   jwtSecreto: string;
 }>;
 
@@ -33,6 +34,7 @@ const configBase = {
   googleClassroomClientSecret: 'classroom-secret',
   googleClassroomRedirectUri: 'https://localhost/classroom/callback',
   classroomTokenCipherKey: 'k'.repeat(32),
+  classroomEnabled: true,
   jwtSecreto: 'jwt-secret'
 };
 
@@ -118,6 +120,26 @@ describe('servicioClassroomGoogle', () => {
     const { mod } = await cargarModulo({
       config: { googleClassroomClientSecret: '' }
     });
+    await expect(() => mod.construirUrlOauthClassroom('docente-1')).toThrow(
+      'Google Classroom no está configurado (clientId/clientSecret/redirectUri)'
+    );
+  });
+
+  it('no reutiliza el client id del login cuando falta el client id propio de classroom', async () => {
+    const { mod } = await cargarModulo({
+      config: { googleClassroomClientId: '' }
+    });
+
+    await expect(() => mod.construirUrlOauthClassroom('docente-1')).toThrow(
+      'Google Classroom no está configurado (clientId/clientSecret/redirectUri)'
+    );
+  });
+
+  it('respeta CLASSROOM_ENABLED=0 aunque existan credenciales completas', async () => {
+    const { mod } = await cargarModulo({
+      config: { classroomEnabled: false }
+    });
+
     await expect(() => mod.construirUrlOauthClassroom('docente-1')).toThrow(
       'Google Classroom no está configurado (clientId/clientSecret/redirectUri)'
     );

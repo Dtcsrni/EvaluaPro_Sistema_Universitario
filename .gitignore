@@ -51,6 +51,8 @@ reports/qa/latest/**/*.bak.json
 reports/qa/installer-hub-ui/
 reports/qa/installer-hub-e2e-docente/
 reports/qa/installer-hub-e2e-host-canary/
+reports/qa/installer-hub-build-e2e/
+reports/qa/generated/
 reports/qa/latest/omr-tv-gate-wrapper.json
 logs/**/*.tmp.json
 logs/**/*.bak.json
@@ -72,11 +74,7 @@ apps/backend/src/assets/
 chrome/
 tmp/
 
-# OMR synthetic artifacts
-omr_samples_tv3/images/
-omr_samples_tv3/maps/
-omr_samples_tv3/reports/
-omr_samples_tv3/answer_key.json
+# OMR QA artifacts
 reports/qa/latest/omr/
 reports/qa/latest/burn-extract-current/
 reports/qa/latest/wsl-offline/
@@ -92,3 +90,7 @@ dist-native/
 evaluapro-native-dist.zip
 packaging/wix/BurnBootstrapperApp/bin/
 packaging/wix/BurnBootstrapperApp/obj/
+# AppHost build artifacts
+packaging/app-host/bin/
+packaging/app-host/obj/
+packaging/app-host/publish/

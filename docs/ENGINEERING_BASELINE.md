@@ -1,10 +1,20 @@
 # Engineering Baseline
 
-Fecha de baseline vigente: 2026-08-28
+Fecha de baseline vigente: 2026-09-03
 Version técnica: `1.1.1`
 Versión visible GUI: `1.1.1`
 
-## Corte vigente
+## Corte vigente 2026-09-03
+
+- **Purga de legado OMR/PDF:** retirados del árbol activo OMR V1, TV3, el renderer HTML y
+  fallback anterior, adaptadores de templates V9/V10 y utilidades temporales heredadas.
+- **Contrato operativo:** generación PDF y escaneo OMR usan únicamente el contrato canónico
+  TV4; se conservan `templateCanonico.ts`, `pdfKitRenderer.ts`, preview, scoring y el dataset
+  sintético/piloto TV4.
+- **Higiene:** se retiraron scripts con rutas externas y credenciales heredadas; los inventarios
+  y gates se actualizaron para no mantener excepciones a archivos eliminados.
+
+## Corte histórico 2026-08-28
 
 EvaluaPro se encuentra en línea base oficial estable `v1.1.1`. El flavor prioritario es
 `docente-local`, una aplicación nativa para Windows que integra API local,

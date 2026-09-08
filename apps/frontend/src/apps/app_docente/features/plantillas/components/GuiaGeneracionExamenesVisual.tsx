@@ -5,6 +5,7 @@
  */
 import { useState } from 'react';
 import { Boton } from '../../../../../ui/ux/componentes/Boton';
+import { emitToast } from '../../../../../ui/toast/toastBus';
 
 export function GuiaGeneracionExamenesVisual() {
   const [visible, setVisible] = useState(() => {
@@ -25,6 +26,7 @@ export function GuiaGeneracionExamenesVisual() {
       }
       return next;
     });
+    emitToast({ level: 'info', title: 'Guía de generación', message: visible ? 'Guía oculta' : 'Guía visible', durationMs: 1600 });
   }
 
   if (!visible) {

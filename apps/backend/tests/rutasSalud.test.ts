@@ -81,6 +81,12 @@ describe('rutasSalud', () => {
     expect(info.app.version).toBeTruthy();
     expect(info.app.displayVersion).toBeTruthy();
     expect(info.repositoryUrl).toBeTruthy();
+    expect(info.omr).toEqual({
+      contractId: 'omr-canonical-v4',
+      templateVersion: 4,
+      displayLabel: 'OMR canónico · v4',
+      oldVersionsOperational: false
+    });
     expect(Array.isArray(info.technologies)).toBe(true);
     expect(info.developer).toEqual({
       nombre: 'QA Bot',
@@ -91,6 +97,7 @@ describe('rutasSalud', () => {
     const respuesta = await request(app).get('/salud/version-info').expect(200);
     expect(respuesta.body.app.displayVersion).toBe(info.app.displayVersion);
     expect(respuesta.body.developer.nombre).toBe('QA Bot');
+    expect(respuesta.body.omr).toEqual(info.omr);
   });
 
   it('prioriza HOST_IP y ordena IPs privadas antes que públicas', async () => {

@@ -1,0 +1,99 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://evaluapro.local/schemas/ia-handoff/handoff.schema.json",
+  "title": "EvaluaPro Interoperable AI Handoff",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["protocol", "protocolVersion", "messageId", "task", "sender", "context", "artifacts", "provenance", "security"],
+  "properties": {
+    "protocol": { "const": "evaluapro.handoff" },
+    "protocolVersion": { "const": "1.0" },
+    "messageId": { "type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$" },
+    "task": {
+      "type": "object", "additionalProperties": false,
+      "required": ["taskId", "contextId", "state", "objective", "acceptanceCriteria"],
+      "properties": {
+        "taskId": { "type": "string", "minLength": 1 },
+        "contextId": { "type": "string", "minLength": 1 },
+        "state": { "enum": ["submitted", "working", "input_required", "completed", "failed", "cancelled", "rejected"] },
+        "objective": { "type": "string", "minLength": 1 },
+        "acceptanceCriteria": { "type": "array", "items": { "type": "string", "minLength": 1 } }
+      }
+    },
+    "sender": { "$ref": "#/$defs/party" },
+    "recipient": { "$ref": "#/$defs/recipient" },
+    "context": {
+      "type": "object", "additionalProperties": false,
+      "required": ["summary", "decisions", "constraints", "assumptions", "risks", "nextStep"],
+      "properties": {
+        "summary": { "type": "string", "minLength": 1 },
+        "decisions": { "type": "array", "items": { "type": "string", "minLength": 1 } },
+        "constraints": { "type": "array", "items": { "type": "string", "minLength": 1 } },
+        "assumptions": { "type": "array", "items": { "type": "string", "minLength": 1 } },
+        "risks": { "type": "array", "items": { "type": "string", "minLength": 1 } },
+        "nextStep": { "type": "string", "minLength": 1 }
+      }
+    },
+    "artifacts": { "type": "array", "items": { "$ref": "#/$defs/artifact" } },
+    "provenance": {
+      "type": "object", "additionalProperties": false,
+      "required": ["generatedAt"],
+      "properties": {
+        "generatedAt": { "type": "string", "format": "date-time" },
+        "traceSessionId": { "type": "string", "minLength": 1 },
+        "parentSessionId": { "type": "string", "minLength": 1 }
+      }
+    },
+    "budget": {
+      "type": "object", "additionalProperties": false,
+      "properties": {
+        "maxBytes": { "type": "integer", "minimum": 1 },
+        "maxInputTokens": { "type": "integer", "minimum": 1 },
+        "maxOutputTokens": { "type": "integer", "minimum": 1 }
+      }
+    },
+    "security": {
+      "type": "object", "additionalProperties": false,
+      "required": ["trust", "executionPolicy", "redactionsApplied"],
+      "properties": {
+        "trust": { "enum": ["untrusted", "trusted_local"] },
+        "executionPolicy": { "const": "no-auto-exec" },
+        "redactionsApplied": { "type": "array", "items": { "type": "string", "minLength": 1 } }
+      }
+    },
+    "warnings": { "type": "array", "items": { "type": "string", "minLength": 1 } }
+  },
+  "$defs": {
+    "party": {
+      "type": "object", "additionalProperties": false,
+      "required": ["provider", "agent", "model", "runtime"],
+      "properties": {
+        "provider": { "type": "string", "minLength": 1 },
+        "agent": { "type": "string", "minLength": 1 },
+        "model": { "type": "string", "minLength": 1 },
+        "runtime": { "type": "string", "minLength": 1 }
+      }
+    },
+    "recipient": {
+      "type": "object", "additionalProperties": false,
+      "required": ["provider", "agent", "capabilitiesRequired"],
+      "properties": {
+        "provider": { "type": "string", "minLength": 1 },
+        "agent": { "type": "string", "minLength": 1 },
+        "capabilitiesRequired": { "type": "array", "items": { "type": "string", "minLength": 1 } }
+      }
+    },
+    "artifact": {
+      "type": "object", "additionalProperties": false,
+      "required": ["id", "path", "mediaType", "bytes", "trust"],
+      "properties": {
+        "id": { "type": "string", "minLength": 1 },
+        "path": { "type": "string", "minLength": 1 },
+        "mediaType": { "type": "string", "minLength": 1 },
+        "bytes": { "type": "integer", "minimum": 0 },
+        "sha256": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
+        "trust": { "enum": ["untrusted", "trusted_local"] }
+      }
+    }
+  }
+}

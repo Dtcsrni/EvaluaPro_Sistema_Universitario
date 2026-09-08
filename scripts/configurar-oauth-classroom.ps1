@@ -105,6 +105,7 @@ Upsert-EnvLine -Key 'GOOGLE_CLASSROOM_CLIENT_ID' -Value $GoogleClassroomClientId
 Upsert-EnvLine -Key 'GOOGLE_CLASSROOM_CLIENT_SECRET' -Value $GoogleClassroomClientSecret
 Upsert-EnvLine -Key 'GOOGLE_CLASSROOM_REDIRECT_URI' -Value $GoogleClassroomRedirectUri
 Upsert-EnvLine -Key 'CLASSROOM_TOKEN_CIPHER_KEY' -Value $classroomTokenKey
+Upsert-EnvLine -Key 'CLASSROOM_ENABLED' -Value '1'
 Upsert-EnvLine -Key 'REQUIRE_GOOGLE_OAUTH' -Value ($(if ($DisableRequireGoogleOAuth) { '0' } else { '1' }))
 
 if ($AlsoSetViteGoogleClientId) {

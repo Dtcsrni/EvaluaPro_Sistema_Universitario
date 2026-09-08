@@ -42,6 +42,43 @@ function Get-InstallerHubConfigValue {
   return $DefaultValue
 }
 
+function Merge-ExistingOAuthConfig {
+  param(
+    [hashtable]$InputConfig,
+    [hashtable]$ExistingEnv
+  )
+
+  $mappings = @(
+    @{ config = 'googleOauthClientId'; env = 'GOOGLE_OAUTH_CLIENT_ID' },
+    @{ config = 'googleClassroomClientId'; env = 'GOOGLE_CLASSROOM_CLIENT_ID' },
+    @{ config = 'googleClassroomClientSecret'; env = 'GOOGLE_CLASSROOM_CLIENT_SECRET' },
+    @{ config = 'googleClassroomRedirectUri'; env = 'GOOGLE_CLASSROOM_REDIRECT_URI' },
+    @{ config = 'classroomTokenCipherKey'; env = 'CLASSROOM_TOKEN_CIPHER_KEY' },
+    @{ config = 'classroomEnabled'; env = 'CLASSROOM_ENABLED' },
+    @{ config = 'requireGoogleOAuth'; env = 'REQUIRE_GOOGLE_OAUTH' },
+    @{ config = 'backupCifradoSecreto'; env = 'EVALUAPRO_BACKUP_CIFRADO_SECRETO' }
+  )
+
+  foreach ($mapping in $mappings) {
+    $incoming = if ($InputConfig.ContainsKey($mapping.config)) { [string]$InputConfig[$mapping.config] } else { '' }
+    $existing = if ($ExistingEnv.ContainsKey($mapping.env)) { [string]$ExistingEnv[$mapping.env] } else { '' }
+    if ([string]::IsNullOrWhiteSpace($incoming) -and -not [string]::IsNullOrWhiteSpace($existing)) {
+      $InputConfig[$mapping.config] = $existing
+    }
+  }
+
+  # Older installations may not have CLASSROOM_ENABLED. Infer enabled only
+  # from an existing non-empty Classroom configuration, never from login OAuth.
+  if (-not $InputConfig.ContainsKey('classroomEnabled') -or [string]::IsNullOrWhiteSpace([string]$InputConfig['classroomEnabled'])) {
+    foreach ($key in @('GOOGLE_CLASSROOM_CLIENT_ID', 'GOOGLE_CLASSROOM_CLIENT_SECRET', 'GOOGLE_CLASSROOM_REDIRECT_URI', 'CLASSROOM_TOKEN_CIPHER_KEY')) {
+      if ($ExistingEnv.ContainsKey($key) -and -not [string]::IsNullOrWhiteSpace([string]$ExistingEnv[$key])) {
+        $InputConfig['classroomEnabled'] = '1'
+        break
+      }
+    }
+  }
+}
+
 function Normalize-OperationalConfig {
   param(
     [hashtable]$InputConfig
@@ -49,6 +86,7 @@ function Normalize-OperationalConfig {
   $cfg = [ordered]@{
     databaseUrl = [string](Get-InstallerHubConfigValue -InputConfig $InputConfig -Key 'databaseUrl' -DefaultValue 'file:C:/ProgramData/EvaluaPro/data/evaluapro.db')
     jwtSecreto = [string](Get-InstallerHubConfigValue -InputConfig $InputConfig -Key 'jwtSecreto' -DefaultValue '')
+    backupCifradoSecreto = [string](Get-InstallerHubConfigValue -InputConfig $InputConfig -Key 'backupCifradoSecreto' -DefaultValue '')
     nodeEnv = [string](Get-InstallerHubConfigValue -InputConfig $InputConfig -Key 'nodeEnv' -DefaultValue 'production')
     puertoApi = [string](Get-InstallerHubConfigValue -InputConfig $InputConfig -Key 'puertoApi' -DefaultValue '4000')
     puertoPortal = [string](Get-InstallerHubConfigValue -InputConfig $InputConfig -Key 'puertoPortal' -DefaultValue '4518')
@@ -63,6 +101,8 @@ function Normalize-OperationalConfig {
     googleClassroomClientId = [string](Get-InstallerHubConfigValue -InputConfig $InputConfig -Key 'googleClassroomClientId' -DefaultValue '')
     googleClassroomClientSecret = [string](Get-InstallerHubConfigValue -InputConfig $InputConfig -Key 'googleClassroomClientSecret' -DefaultValue '')
     googleClassroomRedirectUri = [string](Get-InstallerHubConfigValue -InputConfig $InputConfig -Key 'googleClassroomRedirectUri' -DefaultValue '')
+    classroomTokenCipherKey = [string](Get-InstallerHubConfigValue -InputConfig $InputConfig -Key 'classroomTokenCipherKey' -DefaultValue '')
+    classroomEnabled = ConvertTo-InstallerHubBool -Value ([string](Get-InstallerHubConfigValue -InputConfig $InputConfig -Key 'classroomEnabled' -DefaultValue '0'))
     requireGoogleOAuth = ConvertTo-InstallerHubBool -Value ([string](Get-InstallerHubConfigValue -InputConfig $InputConfig -Key 'requireGoogleOAuth' -DefaultValue '0'))
     correoModuloActivo = ConvertTo-InstallerHubBool -Value ([string](Get-InstallerHubConfigValue -InputConfig $InputConfig -Key 'correoModuloActivo' -DefaultValue '0'))
     notificacionesWebhookUrl = [string](Get-InstallerHubConfigValue -InputConfig $InputConfig -Key 'notificacionesWebhookUrl' -DefaultValue '')
@@ -96,6 +136,85 @@ function Normalize-OperationalConfig {
     $cfg.portalAlumnoApiKey = $sharedPortalKey
   }
   return $cfg
+}
+
+function Test-InstallerOAuthValues {
+  param(
+    [bool]$RequireGoogleOAuth,
+    [string]$GoogleOauthClientId,
+    [bool]$ClassroomEnabled,
+    [string]$GoogleClassroomClientId,
+    [string]$GoogleClassroomClientSecret,
+    [string]$GoogleClassroomRedirectUri,
+    [string]$ClassroomTokenCipherKey
+  )
+
+  $errors = @()
+  if ($RequireGoogleOAuth -and [string]::IsNullOrWhiteSpace($GoogleOauthClientId)) {
+    $errors += 'Google OAuth requerido: falta googleOauthClientId.'
+  }
+
+  $classroomConfigured = $ClassroomEnabled
+  foreach ($value in @($GoogleClassroomClientId, $GoogleClassroomClientSecret, $GoogleClassroomRedirectUri, $ClassroomTokenCipherKey)) {
+    if (-not [string]::IsNullOrWhiteSpace($value)) {
+      $classroomConfigured = $true
+      break
+    }
+  }
+
+  if ($classroomConfigured) {
+    $required = @(
+      @{ key = 'googleClassroomClientId'; value = $GoogleClassroomClientId },
+      @{ key = 'googleClassroomClientSecret'; value = $GoogleClassroomClientSecret },
+      @{ key = 'googleClassroomRedirectUri'; value = $GoogleClassroomRedirectUri },
+      @{ key = 'classroomTokenCipherKey'; value = $ClassroomTokenCipherKey }
+    )
+    foreach ($item in $required) {
+      if ([string]::IsNullOrWhiteSpace([string]$item.value)) {
+        $errors += "Classroom habilitado: falta $($item.key)."
+      }
+    }
+
+    if (-not [string]::IsNullOrWhiteSpace($GoogleClassroomRedirectUri)) {
+      try {
+        $redirectUri = [Uri]::new($GoogleClassroomRedirectUri.Trim())
+        if ($redirectUri.Scheme -notin @('http', 'https') -or [string]::IsNullOrWhiteSpace($redirectUri.Host)) {
+          $errors += 'Classroom habilitado: googleClassroomRedirectUri no es HTTP/HTTPS valido.'
+        }
+      } catch {
+        $errors += 'Classroom habilitado: googleClassroomRedirectUri no es HTTP/HTTPS valido.'
+      }
+    }
+
+    if (-not [string]::IsNullOrWhiteSpace($ClassroomTokenCipherKey)) {
+      try {
+        $decodedKey = [Convert]::FromBase64String($ClassroomTokenCipherKey.Trim())
+        if ($decodedKey.Length -ne 32 -or [Convert]::ToBase64String($decodedKey) -ne $ClassroomTokenCipherKey.Trim()) {
+          $errors += 'Classroom habilitado: classroomTokenCipherKey debe ser Base64 canonico de 32 bytes.'
+        }
+      } catch {
+        $errors += 'Classroom habilitado: classroomTokenCipherKey debe ser Base64 canonico de 32 bytes.'
+      }
+    }
+  }
+
+  return [pscustomobject]@{
+    ok = ($errors.Count -eq 0)
+    errors = $errors
+  }
+}
+
+function Test-InstallerOAuthEnv {
+  param([hashtable]$EnvMap)
+
+  return Test-InstallerOAuthValues `
+    -RequireGoogleOAuth (ConvertTo-InstallerHubBool -Value ([string]$EnvMap['REQUIRE_GOOGLE_OAUTH'])) `
+    -GoogleOauthClientId ([string]$EnvMap['GOOGLE_OAUTH_CLIENT_ID']) `
+    -ClassroomEnabled (ConvertTo-InstallerHubBool -Value ([string]$EnvMap['CLASSROOM_ENABLED'])) `
+    -GoogleClassroomClientId ([string]$EnvMap['GOOGLE_CLASSROOM_CLIENT_ID']) `
+    -GoogleClassroomClientSecret ([string]$EnvMap['GOOGLE_CLASSROOM_CLIENT_SECRET']) `
+    -GoogleClassroomRedirectUri ([string]$EnvMap['GOOGLE_CLASSROOM_REDIRECT_URI']) `
+    -ClassroomTokenCipherKey ([string]$EnvMap['CLASSROOM_TOKEN_CIPHER_KEY'])
 }
 
 function Test-OperationalConfig {
@@ -147,20 +266,15 @@ function Test-OperationalConfig {
     }
   }
 
-  if ($Config.requireGoogleOAuth) {
-    if ([string]::IsNullOrWhiteSpace([string]$Config.googleOauthClientId)) {
-      $errors += 'Google OAuth requerido: falta googleOauthClientId.'
-    }
-    if ([string]::IsNullOrWhiteSpace([string]$Config.googleClassroomClientId)) {
-      $errors += 'Google OAuth requerido: falta googleClassroomClientId.'
-    }
-    if ([string]::IsNullOrWhiteSpace([string]$Config.googleClassroomClientSecret)) {
-      $errors += 'Google OAuth requerido: falta googleClassroomClientSecret.'
-    }
-    if ([string]::IsNullOrWhiteSpace([string]$Config.googleClassroomRedirectUri)) {
-      $errors += 'Google OAuth requerido: falta googleClassroomRedirectUri.'
-    }
-  }
+  $oauthValidation = Test-InstallerOAuthValues `
+    -RequireGoogleOAuth ([bool]$Config.requireGoogleOAuth) `
+    -GoogleOauthClientId ([string]$Config.googleOauthClientId) `
+    -ClassroomEnabled ([bool]$Config.classroomEnabled) `
+    -GoogleClassroomClientId ([string]$Config.googleClassroomClientId) `
+    -GoogleClassroomClientSecret ([string]$Config.googleClassroomClientSecret) `
+    -GoogleClassroomRedirectUri ([string]$Config.googleClassroomRedirectUri) `
+    -ClassroomTokenCipherKey ([string]$Config.classroomTokenCipherKey)
+  $errors += @($oauthValidation.errors)
 
   if ($Config.passwordResetEnabled) {
     if ([string]::IsNullOrWhiteSpace([string]$Config.passwordResetUrlBase)) {
@@ -294,6 +408,11 @@ function Invoke-EvaluaProOperationalConfiguration {
     [hashtable]$Config,
     [scriptblock]$OnLog
   )
+  $envPath = Join-Path $InstallDir '.env'
+  $envMap = if ($Mode -eq 'uninstall') { @{} } else { Read-EnvMap -Path $envPath }
+  if ($Mode -ne 'uninstall') {
+    Merge-ExistingOAuthConfig -InputConfig $Config -ExistingEnv $envMap
+  }
   $normalized = Normalize-OperationalConfig -InputConfig $Config
   $validation = Test-OperationalConfig -Mode $Mode -Config $normalized
   if (-not $validation.ok) {
@@ -309,11 +428,10 @@ function Invoke-EvaluaProOperationalConfiguration {
     throw "No existe carpeta de instalacion para escribir .env: $InstallDir"
   }
 
-  $envPath = Join-Path $InstallDir '.env'
-  $envMap = Read-EnvMap -Path $envPath
   Set-OrReplaceEnvLine -Map $envMap -Key 'DATABASE_URL' -Value $normalized.databaseUrl
   Set-OrReplaceEnvLine -Map $envMap -Key 'BACKEND_DATABASE_URL' -Value $normalized.databaseUrl
   Set-OrReplaceEnvLine -Map $envMap -Key 'JWT_SECRETO' -Value $normalized.jwtSecreto
+  Set-OrReplaceEnvLine -Map $envMap -Key 'EVALUAPRO_BACKUP_CIFRADO_SECRETO' -Value $normalized.backupCifradoSecreto
   Set-OrReplaceEnvLine -Map $envMap -Key 'NODE_ENV' -Value $normalized.nodeEnv
   Set-OrReplaceEnvLine -Map $envMap -Key 'PUERTO_API' -Value $normalized.puertoApi
   Set-OrReplaceEnvLine -Map $envMap -Key 'PUERTO_PORTAL' -Value $normalized.puertoPortal
@@ -332,6 +450,8 @@ function Invoke-EvaluaProOperationalConfiguration {
   Set-OrReplaceEnvLine -Map $envMap -Key 'GOOGLE_CLASSROOM_CLIENT_ID' -Value $normalized.googleClassroomClientId
   Set-OrReplaceEnvLine -Map $envMap -Key 'GOOGLE_CLASSROOM_CLIENT_SECRET' -Value $normalized.googleClassroomClientSecret
   Set-OrReplaceEnvLine -Map $envMap -Key 'GOOGLE_CLASSROOM_REDIRECT_URI' -Value $normalized.googleClassroomRedirectUri
+  Set-OrReplaceEnvLine -Map $envMap -Key 'CLASSROOM_TOKEN_CIPHER_KEY' -Value $normalized.classroomTokenCipherKey
+  Set-OrReplaceEnvLine -Map $envMap -Key 'CLASSROOM_ENABLED' -Value ($(if ($normalized.classroomEnabled) { '1' } else { '0' }))
   Set-OrReplaceEnvLine -Map $envMap -Key 'REQUIRE_GOOGLE_OAUTH' -Value ($(if ($normalized.requireGoogleOAuth) { '1' } else { '0' }))
   Set-OrReplaceEnvLine -Map $envMap -Key 'LICENCIA_ACCOUNT_EMAIL' -Value $normalized.licenciaAccountEmail
   Set-OrReplaceEnvLine -Map $envMap -Key 'CORREO_MODULO_ACTIVO' -Value ($(if ($normalized.correoModuloActivo) { '1' } else { '0' }))
@@ -396,6 +516,7 @@ function Invoke-EvaluaProOperationalConfiguration {
     config = [ordered]@{
       databaseUrl = $normalized.databaseUrl
       jwtSecretoSet = -not [string]::IsNullOrWhiteSpace($normalized.jwtSecreto)
+      backupCifradoSecretoSet = -not [string]::IsNullOrWhiteSpace($normalized.backupCifradoSecreto)
       corsOrigenes = $normalized.corsOrigenes
       portalAlumnoUrl = $normalized.portalAlumnoUrl
       portalIntegrationDeferred = [bool]$normalized.deferPortalIntegration
@@ -408,6 +529,8 @@ function Invoke-EvaluaProOperationalConfiguration {
       googleClassroomClientIdSet = -not [string]::IsNullOrWhiteSpace($normalized.googleClassroomClientId)
       googleClassroomClientSecretSet = -not [string]::IsNullOrWhiteSpace($normalized.googleClassroomClientSecret)
       googleClassroomRedirectUriSet = -not [string]::IsNullOrWhiteSpace($normalized.googleClassroomRedirectUri)
+      classroomTokenCipherKeySet = -not [string]::IsNullOrWhiteSpace($normalized.classroomTokenCipherKey)
+      classroomEnabled = [bool]$normalized.classroomEnabled
       requireGoogleOAuth = [bool]$normalized.requireGoogleOAuth
       correoModuloActivo = [bool]$normalized.correoModuloActivo
       notificacionesWebhookUrl = $normalized.notificacionesWebhookUrl
@@ -448,5 +571,7 @@ Export-ModuleMember -Function @(
   'ConvertTo-InstallerHubBool',
   'Invoke-EvaluaProOperationalConfiguration',
   'Normalize-OperationalConfig',
-  'Test-OperationalConfig'
+  'Test-OperationalConfig',
+  'Test-InstallerOAuthEnv',
+  'Test-InstallerOAuthValues'
 )

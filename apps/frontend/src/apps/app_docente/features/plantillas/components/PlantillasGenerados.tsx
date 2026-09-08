@@ -10,6 +10,7 @@ import { InlineMensaje } from '../../../../../ui/ux/componentes/InlineMensaje';
 import { useState } from 'react';
 import type { Alumno, Plantilla } from '../../../tipos';
 import { esMensajeError, idCortoMateria } from '../../../utilidades';
+import { OMR_CANONICAL_DISPLAY_LABEL } from '../../../../../ui/version/versionInfo';
 
 type ExamenGeneradoResumen = {
   _id: string;
@@ -170,6 +171,9 @@ export function PlantillasGenerados({
             <p className="nota">Pasa de plantilla a producción individual o masiva con trazabilidad por folio y paquete.</p>
           </div>
           <div className="plantillas-generacion__stats">
+            <span className="version-env-badge" title="Contrato único de generación y lectura OMR activo">
+              {OMR_CANONICAL_DISPLAY_LABEL}
+            </span>
             <span className="banco-tag-preguntas">Plantillas: {listaPlantillas.length}</span>
             <span className="banco-tag-paginas">Alumnos: {listaAlumnos.length}</span>
           </div>

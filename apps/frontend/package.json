@@ -18,18 +18,18 @@
     "evaluacion"
   ],
   "scripts": {
-    "dev": "vite",
-    "dev:alumno": "node -e \"const {spawnSync}=require('child_process');const env={...process.env,VITE_APP_DESTINO:'alumno'};const r=spawnSync('vite',[],{stdio:'inherit',shell:true,env});process.exit(r.status??1);\"",
-    "dev:docente": "node -e \"const {spawnSync}=require('child_process');const env={...process.env,VITE_APP_DESTINO:'docente'};const r=spawnSync('vite',[],{stdio:'inherit',shell:true,env});process.exit(r.status??1);\"",
-    "build": "tsc -b && vite build",
+    "dev": "vite --configLoader runner",
+    "dev:alumno": "node -e \"const {spawnSync}=require('child_process');const env={...process.env,VITE_APP_DESTINO:'alumno'};const r=spawnSync('vite',['--configLoader','runner'],{stdio:'inherit',shell:true,env});process.exit(r.status??1);\"",
+    "dev:docente": "node -e \"const {spawnSync}=require('child_process');const env={...process.env,VITE_APP_DESTINO:'docente'};const r=spawnSync('vite',['--configLoader','runner'],{stdio:'inherit',shell:true,env});process.exit(r.status??1);\"",
+    "build": "tsc --noEmit --composite false --incremental false -p tsconfig.json --pretty false && node ../../scripts/vite-build-safe.mjs --configLoader runner",
     "build:alumno": "node -e \"const {spawnSync}=require('child_process');const env={...process.env,VITE_APP_DESTINO:'alumno'};const r=spawnSync('npm',['run','build','--','--outDir','dist-alumno'],{stdio:'inherit',shell:true,env});process.exit(r.status??1);\"",
     "build:docente": "node -e \"const {spawnSync}=require('child_process');const env={...process.env,VITE_APP_DESTINO:'docente'};const r=spawnSync('npm',['run','build','--','--outDir','dist-docente'],{stdio:'inherit',shell:true,env});process.exit(r.status??1);\"",
-    "typecheck": "tsc -b --pretty false",
-    "preview": "vite preview",
-    "preview:alumno": "vite preview --outDir dist-alumno",
-    "preview:docente": "vite preview --outDir dist-docente",
-    "test": "vitest run",
-    "test:coverage": "vitest run --coverage --pool=forks --reporter=verbose",
+    "typecheck": "tsc --noEmit --composite false --incremental false -p tsconfig.json --pretty false",
+    "preview": "vite preview --configLoader runner",
+    "preview:alumno": "vite preview --configLoader runner --outDir dist-alumno",
+    "preview:docente": "vite preview --configLoader runner --outDir dist-docente",
+    "test": "vitest run --configLoader runner",
+    "test:coverage": "vitest run --configLoader runner --coverage --pool=forks --reporter=verbose",
     "lint": "eslint \"src/**/*.{ts,tsx}\" \"tests/**/*.{ts,tsx}\" vite.config.ts --max-warnings=0"
   },
   "dependencies": {

@@ -315,7 +315,7 @@ function Add-DocenteNativeCompiledPayload {
     New-Item -ItemType Directory -Path (Split-Path $embeddedNodeTarget -Parent) -Force | Out-Null
     Copy-Item -LiteralPath $embeddedNodeSource -Destination $embeddedNodeTarget -Force
     Write-Host "[msi] Node.js embebido docente incluido: $embeddedNodeSource"
-    foreach ($nativeScript in @('start-docente-native.mjs', 'launcher-dashboard.mjs')) {
+    foreach ($nativeScript in @('start-docente-native.mjs', 'launcher-dashboard.mjs', 'runtime-env.mjs')) {
       $nativeScriptSource = Join-Path $RootPath (Join-Path 'scripts' $nativeScript)
       if (-not (Test-Path $nativeScriptSource)) { throw "Falta script nativo requerido: $nativeScriptSource" }
       Copy-Item -LiteralPath $nativeScriptSource -Destination (Join-Path $StagingRoot (Join-Path 'scripts' $nativeScript)) -Force
@@ -328,6 +328,20 @@ function Add-DocenteNativeCompiledPayload {
     $sqliteBootstrapSource = Join-Path $RootPath 'scripts/prepare-docente-sqlite.mjs'
     if (-not (Test-Path $sqliteBootstrapSource)) { throw "Falta bootstrap SQLite requerido: $sqliteBootstrapSource" }
     Copy-Item -LiteralPath $sqliteBootstrapSource -Destination (Join-Path $StagingRoot 'scripts/prepare-docente-sqlite.mjs') -Force
+
+    # Compilar y copiar el Host Nativo de Escritorio (EvaluaPro.exe)
+    $appHostProject = Join-Path $RootPath 'packaging/app-host/EvaluaPro.AppHost.csproj'
+    $appHostPublishDir = Join-Path $RootPath 'packaging/app-host/publish'
+    if (Test-Path -LiteralPath $appHostProject) {
+      $dotnetExe = Resolve-DotNetExecutable
+      Write-Host '[msi] Compilando Host Nativo EvaluaPro.exe (WPF + WebView2)...'
+      & $dotnetExe publish $appHostProject -c Release -r win-x64 --self-contained true -o $appHostPublishDir
+      if (Test-Path -LiteralPath (Join-Path $appHostPublishDir 'EvaluaPro.exe')) {
+        Copy-Item -LiteralPath (Join-Path $appHostPublishDir 'EvaluaPro.exe') -Destination (Join-Path $StagingRoot 'EvaluaPro.exe') -Force
+        Write-Host '[msi] Host Nativo EvaluaPro.exe agregado al staging.'
+      }
+    }
+
     New-Item -ItemType Directory -Path $frontendTarget,$backendTarget -Force | Out-Null
     Copy-Item -Path (Join-Path $frontendSource '*') -Destination $frontendTarget -Recurse -Force
     Copy-Item -Path (Join-Path $backendSource '*') -Destination $backendTarget -Recurse -Force
@@ -385,6 +399,14 @@ function Add-DocenteNativeCompiledPayload {
       $schemaSqlText = $schemaSqlText.Substring(0, $lastSqlTerminator + 1).Trim()
       [IO.File]::WriteAllText((Join-Path $backendTarget 'prisma/schema.sql'), $schemaSqlText, (New-Object System.Text.UTF8Encoding($false)))
 
+      # Si se reutilizó un node_modules preconstruido, puede incluir
+      # dependencias de desarrollo aunque el árbol tenga package-lock. Hacer
+      # prune contra el contrato de producción antes de la poda específica de
+      # Prisma evita transportar Vitest, TypeScript u otros paquetes ajenos al
+      # runtime nativo.
+      & $npmCommand prune --omit=dev --ignore-scripts
+      if ($LASTEXITCODE -ne 0) { throw "Falló poda de dependencias de desarrollo (exit=$LASTEXITCODE)." }
+
       # El cliente ya fue generado y el esquema SQL ya quedó materializado.
       # El runtime Windows no necesita la CLI Prisma, sus engines de descarga,
       # cachés ni los bundles WASM/multiplataforma del cliente publicado.
@@ -397,16 +419,27 @@ function Add-DocenteNativeCompiledPayload {
         (Join-Path $backendTarget 'node_modules/@prisma/client/runtime/query_compiler_bg*'),
         (Join-Path $backendTarget 'node_modules/.prisma/client/query_engine_bg*'),
         (Join-Path $backendTarget 'node_modules/.prisma/client/query_compiler_bg*'),
-        (Join-Path $backendTarget 'node_modules/.cache')
+        # Un node_modules reutilizado puede conservar engines de Linux del
+        # perfil Docker. El payload docente es Windows + SQLite y solo usa el
+        # engine native generado arriba (query_engine-windows.dll.node).
+        (Join-Path $backendTarget 'node_modules/.prisma/client/libquery_engine-*.so.node'),
+        (Join-Path $backendTarget 'node_modules/.cache'),
+        # pdf-parse distribuye el bundle CJS autocontenido que usa el backend;
+        # pdfjs-dist queda como dependencia de paquete, pero no es necesario
+        # en el runtime docente y duplica el motor PDF dentro del payload.
+        (Join-Path $backendTarget 'node_modules/pdfjs-dist')
       )
-      if (-not $reusePrebuiltDependencies) {
-        foreach ($prunePath in $prunePaths) {
-          Get-ChildItem -Path $prunePath -Force -ErrorAction SilentlyContinue | ForEach-Object {
-            Remove-Item -LiteralPath $_.FullName -Recurse -Force -ErrorAction Stop
-          }
+      # El staging preconstruido puede contener engines, cachés y herramientas
+      # de desarrollo de la máquina que lo generó. También debe podarse aquí;
+      # de lo contrario el MSI arrastra varias plataformas de Prisma y excede
+      # el presupuesto del instalador aunque npm ci --omit=dev no se ejecute.
+      foreach ($prunePath in $prunePaths) {
+        Get-ChildItem -Path $prunePath -Force -ErrorAction SilentlyContinue | ForEach-Object {
+          Remove-Item -LiteralPath $_.FullName -Recurse -Force -ErrorAction Stop
         }
-      } else {
-        Write-Host '[msi] Se conserva payload preconstruido; dependencias ya son de producción.'
+      }
+      if ($reusePrebuiltDependencies) {
+        Write-Host '[msi] Payload preconstruido reutilizado y podado para runtime Windows.'
       }
       $runtimeNodeModules = Join-Path $backendTarget 'node_modules'
       $nonRuntimeFiles = @(
@@ -795,7 +828,7 @@ function Assert-MsiInstallsAppPayload {
       New-Item -ItemType Directory -Path $payloadCheckRoot -Force | Out-Null
       try {
         Expand-Archive -LiteralPath (Join-Path $extractRoot 'evaluapro-native-dist.zip') -DestinationPath $payloadCheckRoot -Force
-        foreach ($relativePath in @('apps\backend\dist\index.js', 'apps\backend\dist\prisma\schema.sql', 'runtime\node\node.exe', 'scripts\prepare-docente-sqlite.mjs')) {
+        foreach ($relativePath in @('apps\backend\dist\index.js', 'apps\backend\dist\prisma\schema.sql', 'runtime\node\node.exe', 'scripts\prepare-docente-sqlite.mjs', 'scripts\runtime-env.mjs')) {
           if (-not (Test-Path -LiteralPath (Join-Path $payloadCheckRoot $relativePath))) { throw "MSI docente sin payload nativo completo: falta $relativePath" }
         }
       } finally {
