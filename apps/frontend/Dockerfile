@@ -12,6 +12,9 @@ COPY apps/frontend/vite.config.ts ./apps/frontend/
 COPY apps/frontend/index.html ./apps/frontend/
 COPY apps/frontend/public ./apps/frontend/public
 COPY apps/frontend/src ./apps/frontend/src
+# El script se ejecuta desde el workspace frontend mediante ../../scripts/.
+# Copiarlo explícitamente mantiene reproducible el build con el contexto raíz.
+COPY scripts/vite-build-safe.mjs ./scripts/vite-build-safe.mjs
 RUN npm ci --foreground-scripts
 ARG VITE_API_BASE_URL=http://localhost:4000/api
 ARG VITE_APP_DESTINO=docente
