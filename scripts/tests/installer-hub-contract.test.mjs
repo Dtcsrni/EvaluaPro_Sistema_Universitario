@@ -318,6 +318,14 @@ test('tag guard solo permite versiones semver estables o prerelease canonicas', 
   assert.match(guard, /Formato de tag no permitido/);
 });
 
+test('tag guard espera la ventana completa y conserva la tag si el release se retrasa', () => {
+  const guard = fs.readFileSync(path.join(root, '.github/workflows/tag-release-guard.yml'), 'utf8');
+  assert.match(guard, /timeout-minutes: 30/);
+  assert.match(guard, /max_attempts=40/);
+  assert.match(guard, /La tag se conserva para permitir reintento y diagnostico/);
+  assert.doesNotMatch(guard, /No se encontro release.*Eliminando tag remoto/);
+});
+
 test('helper SQLite aísla solo raíces QA y conserva datos normales', () => {
   const helper = fs.readFileSync(path.join(root, 'scripts', 'installer-burn', 'InstallerBurnHelper.ps1'), 'utf8');
   assert.match(helper, /EvaluaPro-QA-Isolated-/);
