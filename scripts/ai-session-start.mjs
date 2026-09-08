@@ -8,7 +8,7 @@
  */
 
 const lines = [
-  'SESSION: Caveman=conciso; Serena=activar antes de codigo; handoff=JSON compacto, sin secretos.'
+  'SESSION: Caveman=full persistente; Serena=activar antes de codigo; handoff=JSON compacto, sin secretos.'
 ];
 
 for (const line of lines) {

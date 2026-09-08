@@ -36,7 +36,9 @@ Docker, WSL, credenciales o integraciones.
   diferir schemas grandes hasta necesitarlos.
 - Caveman es una politica de estilo conciso, no una prueba de ahorro de facturacion.
   Verificar `npm run ai:caveman:status -- --json`; distinguir `repoReady`, `ready` y `active`.
-  Si no hay plugin, aplicar estilo conciso local sin afirmar que Caveman esta activo.
+  Aplicar nivel `full` por defecto y mantenerlo durante la sesion; `stop caveman` o
+  `normal mode` solo por instruccion explicita. Si no hay plugin, aplicar estilo conciso
+  local sin afirmar que Caveman esta activo.
 - Si el runtime no expone proveedor, modelo o version exactos, usar `unknown`.
 - Medir por separado bytes serializados, tokens del proveedor, tokens cacheados, latencia
   y calidad. No presentar una reduccion de caracteres como ahorro remoto de tokens.

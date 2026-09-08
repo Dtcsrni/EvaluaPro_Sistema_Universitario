@@ -19,6 +19,7 @@ test('Caveman configured distingue validacion estructural de plugin instalado', 
   assert.equal(report.hookValid, true);
   assert.equal(report.pluginInstalled, false);
   assert.equal(report.ready, false);
+  assert.equal(report.autoActivationConfigured, false);
 });
 
 test('Caveman reconoce la ruta oficial local .agents/skills', async () => {
@@ -29,6 +30,7 @@ test('Caveman reconoce la ruta oficial local .agents/skills', async () => {
   const report = await checkCavemanIntegration(root);
   assert.equal(report.pluginInstalled, true);
   assert.equal(report.ready, true);
+  assert.equal(report.autoActivationConfigured, true);
 });
 
 test('Caveman rechaza hook SessionStart sin comando esperado', async () => {

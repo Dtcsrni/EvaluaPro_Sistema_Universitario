@@ -73,8 +73,10 @@ export async function checkCavemanIntegration(root = process.cwd()) {
   const configHasHooksFlag = /codex_hooks\s*=\s*true/i.test(configText);
   const hookValid = Boolean(hooks) && hookHasExpectedCommand(hooks);
   const configured = hasConfig && hasHooks && configHasHooksFlag;
+  const autoActivationConfigured = configured && hookValid && pluginInstalled;
   return {
-    ready: configured && hookValid && pluginInstalled,
+    ready: autoActivationConfigured,
+    autoActivationConfigured,
     repoReady: configured && hookValid,
     active: false,
     configured,
@@ -85,7 +87,7 @@ export async function checkCavemanIntegration(root = process.cwd()) {
     usage: { activate: '$caveman', deactivate: 'stop caveman' },
     notes: [
       'repoReady valida la integracion local; ready requiere tambien el plugin instalado.',
-      'active no puede demostrarse con inspeccion estatica; no se declara activo automaticamente.'
+      'autoActivationConfigured indica persistencia por AGENTS y SessionStart; active requiere runtime y no se declara por inspeccion estatica.'
     ]
   };
 }

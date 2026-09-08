@@ -27,6 +27,7 @@ interno, secretos ni rutas absolutas del entorno emisor.
 - **REQ-008:** El normalizador debe aceptar aliases heredados en español y advertir campos desconocidos en lugar de ignorarlos silenciosamente.
 - **REQ-009:** El contrato debe medir bytes de serialización y exponer puntos para tokens/coste reales por proveedor sin inventar métricas.
 - **REQ-010:** AGENTS y Caveman deben distinguir configuración, instalación, smoke y activación verificable; no declarar activo un plugin por coincidencia textual.
+- **REQ-011:** La integración debe dejar configurada la autoactivación por sesión mediante `AGENTS.md` y `SessionStart`, sin afirmar `active` cuando solo existe evidencia estática.
 
 ## Criterios de Aceptación
 
@@ -37,7 +38,8 @@ interno, secretos ni rutas absolutas del entorno emisor.
 5. El fixture heredado conserva `decisiones`, `riesgos` y `siguientePaso` mediante aliases explícitos y reporta campos faltantes.
 6. La prueba de round-trip conserva semánticamente objetivo, decisiones, restricciones, riesgos, siguiente paso y artefactos.
 7. Caveman reporta estados diferenciados y el hook de inicio emite solo el recordatorio mínimo.
-8. Pasan las pruebas específicas, `npm run ci:policy:audit`, lint y typecheck; los gates pesados se reportan por separado si el entorno no los permite.
+8. La política persistente indica estilo Caveman `full` por defecto y permite desactivarlo solo por instrucción explícita.
+9. Pasan las pruebas específicas, `npm run ci:policy:audit`, lint y typecheck; los gates pesados se reportan por separado si el entorno no los permite.
 
 ## Matriz de Trazabilidad
 
@@ -47,6 +49,7 @@ interno, secretos ni rutas absolutas del entorno emisor.
 | REQ-006 a REQ-008 | Importación segura, idempotencia y aliases | `scripts/tests/ia-handoff-envelope.test.mjs` | Completado |
 | REQ-009 | Métricas de bytes y puntos de medición | `scripts/tests/ia-handoff-envelope.test.mjs` | Completado |
 | REQ-010 | Estados verificables de Caveman y hook compacto | `scripts/tests/ai-caveman-status.test.mjs` | Completado |
+| REQ-011 | Autoactivación persistente y diagnóstico honesto de runtime | `scripts/tests/ai-caveman-status.test.mjs` | Completado |
 
 ## Riesgos y limites
 
