@@ -21,7 +21,6 @@ const password = 'Snapshot-Password-123!';
 
 describe('instantanea local 1:1', () => {
   beforeAll(async () => {
-    await fs.copyFile(path.resolve(process.cwd(), '..', '..', 'data', 'evaluapro.db'), db);
     await conectarSqlite();
   });
   beforeEach(async () => {

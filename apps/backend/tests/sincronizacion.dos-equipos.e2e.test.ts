@@ -7,7 +7,6 @@ import { pathToFileURL } from 'node:url';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
 const raiz = await fs.mkdtemp(path.join(os.tmpdir(), 'evaluapro-two-computers-'));
-const baseOrigen = path.resolve(process.cwd(), '..', '..', 'data', 'evaluapro.db');
 const baseEquipoA = path.join(raiz, 'equipo-a', 'evaluapro.db');
 const baseEquipoB = path.join(raiz, 'equipo-b', 'evaluapro.db');
 const carpetaCompartidaConfigurada = String(process.env.EVALUAPRO_SYNC_E2E_CLOUD_DIR || '').trim();
@@ -19,9 +18,9 @@ const password = 'DosEquipos-Password-123!';
 const equipoA = 'equipo-a-e2e-123456';
 const equipoB = 'equipo-b-e2e-123456';
 
-const rutaSqlite = pathToFileURL(path.resolve(process.cwd(), 'dist/infraestructura/baseDatos/sqlite.js')).href;
-const rutaHash = pathToFileURL(path.resolve(process.cwd(), 'dist/modulos/modulo_autenticacion/servicioHash.js')).href;
-const rutaSync = pathToFileURL(path.resolve(process.cwd(), 'dist/modulos/modulo_sincronizacion_nube/domain/leaseSincronizacion.js')).href;
+const rutaSqlite = pathToFileURL(path.resolve(process.cwd(), 'src/infraestructura/baseDatos/sqlite.ts')).href;
+const rutaHash = pathToFileURL(path.resolve(process.cwd(), 'src/modulos/modulo_autenticacion/servicioHash.ts')).href;
+const rutaSync = pathToFileURL(path.resolve(process.cwd(), 'src/modulos/modulo_sincronizacion_nube/domain/leaseSincronizacion.ts')).href;
 
 const worker = `
 const { prisma, conectarSqlite, desconectarSqlite } = await import(${JSON.stringify(rutaSqlite)});
@@ -70,7 +69,7 @@ try {
 
 function ejecutarWorker(params: { db: string; equipoId?: string; op: 'preparar' | 'publicar' | 'importar' | 'competir'; semilla?: boolean }) {
   return new Promise<Record<string, any>>((resolve, reject) => {
-    const child = spawn(process.execPath, ['--input-type=module', '--eval', worker], {
+    const child = spawn(process.execPath, ['--import', 'tsx', '--input-type=module', '--eval', worker], {
       cwd: process.cwd(),
       env: {
         ...process.env,
@@ -111,8 +110,6 @@ describe('sincronización E2E entre dos equipos', () => {
   beforeAll(async () => {
     await fs.mkdir(path.dirname(baseEquipoA), { recursive: true });
     await fs.mkdir(path.dirname(baseEquipoB), { recursive: true });
-    await fs.copyFile(baseOrigen, baseEquipoA);
-    await fs.copyFile(baseOrigen, baseEquipoB);
     await ejecutarWorker({ db: baseEquipoA, op: 'preparar', semilla: true });
     await ejecutarWorker({ db: baseEquipoB, op: 'preparar' });
   });

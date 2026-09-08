@@ -40,13 +40,20 @@ async function asegurarEsquemaSqlite(): Promise<void> {
       "SELECT name FROM sqlite_master WHERE type='table' AND name='docentes';"
     );
     if (!tablas || tablas.length === 0) {
-      const schemaPath = path.resolve(process.cwd(), 'apps', 'backend', 'prisma', 'schema.prisma');
-      const fallbackSchema = path.resolve(process.cwd(), 'prisma', 'schema.prisma');
-      const targetSchema = fs.existsSync(schemaPath) ? schemaPath : (fs.existsSync(fallbackSchema) ? fallbackSchema : null);
+      const schemaCandidates = [
+        path.resolve(process.cwd(), 'apps', 'backend', 'prisma', 'schema.prisma'),
+        path.resolve(process.cwd(), 'prisma', 'schema.prisma'),
+        path.resolve(process.cwd(), '..', '..', 'apps', 'backend', 'prisma', 'schema.prisma')
+      ];
+      const targetSchema = schemaCandidates.find((candidate) => fs.existsSync(candidate)) || null;
       if (targetSchema) {
         const { execSync } = await import('node:child_process');
-        const prismaCli = path.resolve(process.cwd(), 'node_modules', 'prisma', 'build', 'index.js');
-        if (fs.existsSync(prismaCli)) {
+        const prismaCandidates = [
+          path.resolve(process.cwd(), 'node_modules', 'prisma', 'build', 'index.js'),
+          path.resolve(process.cwd(), '..', '..', 'node_modules', 'prisma', 'build', 'index.js')
+        ];
+        const prismaCli = prismaCandidates.find((candidate) => fs.existsSync(candidate));
+        if (prismaCli) {
           execSync(`node "${prismaCli}" db push --schema "${targetSchema}" --skip-generate`, {
             stdio: 'ignore'
           });

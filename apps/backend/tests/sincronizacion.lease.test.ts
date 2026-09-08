@@ -26,7 +26,6 @@ const equipoB = 'equipo-b-123456';
 
 describe('lease de sincronizacion entre equipos', () => {
   beforeAll(async () => {
-    await fs.copyFile(path.resolve(process.cwd(), '..', '..', 'data', 'evaluapro.db'), db);
     await conectarSqlite();
   });
   beforeEach(async () => {
