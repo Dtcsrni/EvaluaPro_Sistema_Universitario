@@ -9,9 +9,9 @@ import path from 'node:path';
 
 const root = process.cwd();
 const write = process.argv.includes('--write');
-const today = '2026-05-27';
+const today = process.env.GUI_MATRIX_DATE || new Date().toISOString().slice(0, 10);
 const jsonPath = path.join(root, 'reports', 'qa', 'latest', 'gui-screen-matrix.json');
-const markdownPath = path.join(root, 'docs', 'release', 'manual', `gui-screen-matrix-${today}.md`);
+const markdownPath = path.join(root, 'docs', 'release', 'manual', 'gui-screen-matrix.md');
 
 const sources = {
   design: 'docs/DESIGN.md',

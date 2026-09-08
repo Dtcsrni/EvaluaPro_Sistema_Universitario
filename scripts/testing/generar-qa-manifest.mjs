@@ -22,7 +22,7 @@ import path from 'node:path';
 
 const outPath = path.resolve(process.cwd(), 'reports/qa/latest/manifest.json');
 
-const artefactos = [
+const artefactosBase = [
   'reports/qa/latest/dataset-prodlike.json',
   'reports/qa/latest/e2e-docente-alumno.json',
   'reports/qa/latest/global-grade.json',
@@ -32,6 +32,44 @@ const artefactos = [
   'reports/qa/latest/ux-visual.json',
   'reports/qa/latest/clean-architecture.json'
 ];
+
+const artefactosVisuales = [
+  'reports/qa/latest/gui-screen-matrix.json',
+  ...[
+    'gui-admin-dashboard-desktop-lg.png',
+    'gui-admin-dashboard-mobile.png',
+    'gui-admin-tenants-desktop-lg.png',
+    'gui-admin-tenants-mobile.png',
+    'gui-alumno-login-desktop-lg.png',
+    'gui-alumno-login-mobile.png',
+    'gui-alumno-resultados-desktop-lg.png',
+    'gui-alumno-resultados-mobile.png',
+    'gui-docente-alumnos-desktop-lg.png',
+    'gui-docente-alumnos-mobile.png',
+    'gui-docente-banco-desktop-lg.png',
+    'gui-docente-banco-mobile.png',
+    'gui-docente-calificaciones-desktop-lg.png',
+    'gui-docente-calificaciones-mobile.png',
+    'gui-docente-cuenta-desktop-lg.png',
+    'gui-docente-cuenta-mobile.png',
+    'gui-docente-entrega-desktop-lg.png',
+    'gui-docente-entrega-mobile.png',
+    'gui-docente-evaluaciones-desktop-lg.png',
+    'gui-docente-evaluaciones-mobile.png',
+    'gui-docente-login-desktop-lg.png',
+    'gui-docente-login-mobile.png',
+    'gui-docente-periodos-desktop-lg.png',
+    'gui-docente-periodos-mobile.png',
+    'gui-docente-plantillas-desktop-lg.png',
+    'gui-docente-plantillas-mobile.png',
+    'gui-docente-rehidratacion-desktop-lg.png',
+    'gui-docente-rehidratacion-mobile.png',
+    'gui-docente-sincronizacion-desktop-lg.png',
+    'gui-docente-sincronizacion-mobile.png'
+  ].map((name) => `reports/qa/latest/${name}`)
+];
+
+const artefactos = [...artefactosBase, ...artefactosVisuales];
 
 async function getInfo(file) {
   const abs = path.resolve(process.cwd(), file);

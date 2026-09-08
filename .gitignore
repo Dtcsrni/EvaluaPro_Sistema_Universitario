@@ -51,6 +51,8 @@ reports/qa/latest/**/*.bak.json
 reports/qa/installer-hub-ui/
 reports/qa/installer-hub-e2e-docente/
 reports/qa/installer-hub-e2e-host-canary/
+reports/qa/installer-hub-build-e2e/
+reports/qa/generated/
 reports/qa/latest/omr-tv-gate-wrapper.json
 logs/**/*.tmp.json
 logs/**/*.bak.json
