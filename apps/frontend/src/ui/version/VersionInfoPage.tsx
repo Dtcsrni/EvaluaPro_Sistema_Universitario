@@ -65,7 +65,7 @@ const TECNOLOGIAS_DEFAULT: TecnologiaVersion[] = [
   { id: 'crypto', label: 'Criptografía AES-256', website: 'https://github.com/Dtcsrni/EvaluaPro_Sistema_Universitario' }
 ];
 
-const CHANGELOG_DEFAULT = `# EvaluaPro Suite Universitaria - v1.1.1 (Estable)
+const CHANGELOG_DEFAULT = `# EvaluaPro Suite Universitaria - v${obtenerVersionApp()} (Estable)
 
 ### Novedades y Optimizaciones
 - UI/UX Docente: Rediseño completo con arquitectura visual panorámica, iconos SVG de alta definición y Bento Workspace de 2 filas.
@@ -183,10 +183,10 @@ function resolverDesarrollador(data: VersionInfoPayload | null) {
 
 function resolverAplicacion(data: VersionInfoPayload | null, fallbackVersion: string) {
   const app = data?.app;
-  const fallbackTecnico = obtenerVersionTecnicaApp() || '1.1.1';
+  const fallbackTecnico = obtenerVersionTecnicaApp() || '0.0.0';
   const technicalVersion = comoTexto(app?.version, fallbackTecnico);
   return {
-    version: comoTexto(app?.displayVersion, fallbackVersion || technicalVersion || '1.1.1'),
+    version: comoTexto(app?.displayVersion, fallbackVersion || technicalVersion || '0.0.0'),
     technicalVersion,
     nombre: comoTexto(app?.name, 'evaluapro')
   };
@@ -269,7 +269,7 @@ function buildViewModel(data: VersionInfoPayload | null, fallbackVersion: string
 
 const RELEASES_NOTAS = [
   {
-    version: 'v1.1.1',
+    version: `v${obtenerVersionApp()}`,
     etiqueta: 'Versión Actual · Estable',
     fecha: 'Agosto 2026',
     tipo: 'major',
