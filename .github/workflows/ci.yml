@@ -461,6 +461,11 @@ jobs:
     name: Extended Perf/Arquitectura
     runs-on: ubuntu-latest
     timeout-minutes: 40
+    env:
+      # Las mediciones ejercitan apps en memoria y no representan un despliegue.
+      # Declarar test evita activar las validaciones de secretos de producción
+      # durante la carga de módulos del backend.
+      NODE_ENV: test
     needs:
       - detectar_cambios
       - verificaciones_core
