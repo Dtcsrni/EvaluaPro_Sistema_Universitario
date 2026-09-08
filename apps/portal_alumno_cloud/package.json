@@ -1,7 +1,7 @@
 {
   "name": "portal-alumno-cloud",
   "description": "API del portal alumno (solo lectura) para consulta de información y resultados; diseñada para despliegue cloud o local.",
-  "version": "1.1.3",
+  "version": "1.1.4",
   "license": "AGPL-3.0-or-later",
   "private": true,
   "repository": {
