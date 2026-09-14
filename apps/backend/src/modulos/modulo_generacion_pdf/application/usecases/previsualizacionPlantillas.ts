@@ -254,7 +254,7 @@ export async function previsualizarPlantillaPdfUseCase(params: {
     try {
       const stat = await fs.stat(archivoPreview);
       const expiraEn = stat.mtimeMs + 10 * 60 * 1000;
-      if (Date.now() < expiraEn) {
+      if (!params.forzarRegeneracion && Date.now() < expiraEn) {
         return {
           buffer: await fs.readFile(archivoPreview),
           fileName

@@ -3413,10 +3413,32 @@ export class PdfKitRenderer {
         1,
         Number.parseInt(String(process.env.EXAMEN_MIN_PREGUNTAS_POR_PAGINA ?? '10'), 10) || 10
       );
-      const maxPreguntasPorPagina = Math.max(
+      const maxPreguntasPorPaginaConfigurado = Math.max(
         1,
         Number.parseInt(String(process.env.EXAMEN_MAX_PREGUNTAS_POR_PAGINA ?? '25'), 10) || 25
       );
+      // Un tope de 25 funciona para bancos de reactivos cortos, pero con
+      // preguntas extensas la estrategia voraz puede reservar nueve bloques
+      // compactos y dejar un solo reactivo en la hoja siguiente. Detectar el
+      // caso por altura real mantiene el orden, conserva la tipografía y
+      // reparte el contenido denso en páginas utilizables.
+      const alturasContenidoEstimadas = preguntasOrdenadas.map((pregunta) =>
+        calcularAlturaPregunta(pregunta, xDerechaTexto)
+      );
+      const alturaPromedioContenido = alturasContenidoEstimadas.length > 0
+        ? alturasContenidoEstimadas.reduce((total, altura) => total + altura, 0) / alturasContenidoEstimadas.length
+        : 0;
+      const longitudPromedioContenido = preguntasOrdenadas.length > 0
+        ? preguntasOrdenadas.reduce((total, pregunta) => total + pregunta.enunciado.length + pregunta.opciones.reduce((subtotal, opcion) => subtotal + opcion.texto.length, 0), 0) / preguntasOrdenadas.length
+        : 0;
+      const bancoExtenso = preguntasOrdenadas.length >= 20 && (
+        alturaPromedioContenido >= 72 || longitudPromedioContenido >= 320
+      );
+      const maxPreguntasPorPagina = bancoExtenso
+        // Limitar a siete evita que la estrategia voraz reserve demasiados
+        // bloques compactos y deje una cola residual en una hoja adicional.
+        ? Math.min(maxPreguntasPorPaginaConfigurado, 7)
+        : maxPreguntasPorPaginaConfigurado;
       // El objetivo editorial es maximizar la capacidad de cada página del
       // par dúplex. La capacidad física decide el corte; `totalPaginas` no
       // puede forzar un reparto equilibrado que expulse reactivos a una hoja
