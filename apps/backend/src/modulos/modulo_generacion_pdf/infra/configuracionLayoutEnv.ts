@@ -4,8 +4,8 @@
  * Centraliza la lectura de variables de entorno EXAMEN_LAYOUT_* y resuelve
  * el perfil de impresion con valores seguros y validados.
  */
-import type { PerfilLayoutImpresion } from '../shared/tiposPdf';
-import { MM_A_PUNTOS } from '../shared/tiposPdf';
+import type { PerfilLayoutImpresion } from '../shared/tiposPdf.js';
+import { MM_A_PUNTOS } from '../shared/tiposPdf.js';
 
 function leerNumeroEnvSeguro(nombre: string, fallback: number, min?: number, max?: number): number {
   const raw = process.env[nombre];
@@ -40,7 +40,9 @@ export function resolverPerfilLayout(): PerfilLayoutImpresion {
   const bottomSafeMm = leerNumeroEnvSeguro('EXAMEN_LAYOUT_BOTTOM_SAFE_MM', 4.5, 3, 16);
 
   const usarRellenosDecorativos = leerBooleanEnv('EXAMEN_LAYOUT_USAR_RELLENOS_DECORATIVOS', true);
-  const usarEtiquetaOmrSolida = leerBooleanEnv('EXAMEN_LAYOUT_USAR_ETIQUETA_OMR_SOLIDA', true);
+  // La insignia numérica no debe competir con los fiduciales ni parecer una
+  // marca al reducir la hoja fotografiada. Se conserva legible como contorno.
+  const usarEtiquetaOmrSolida = leerBooleanEnv('EXAMEN_LAYOUT_USAR_ETIQUETA_OMR_SOLIDA', false);
 
   return {
     gridStepPt: Math.max(0.25, mmAPuntos(gridMm)),
