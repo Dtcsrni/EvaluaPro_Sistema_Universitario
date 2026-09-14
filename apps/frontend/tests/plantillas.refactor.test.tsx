@@ -264,7 +264,8 @@ describe('plantillas refactor y navegación por pestañas (SPEC-034)', () => {
         previewPdfUrlPorPlantillaId={{
           'pla-1': {
             booklet: 'blob://pdf-preview',
-            bookletPages: [{ numero: 1, width: 100, height: 140, dataUrl: 'data:image/png;base64,AAAA' }]
+            bookletPages: [{ numero: 1, width: 100, height: 140, dataUrl: 'data:image/png;base64,AAAA' }],
+            bookletPagesTotal: 4
           }
         }}
         puedePrevisualizarPlantillas={true}
@@ -286,6 +287,8 @@ describe('plantillas refactor y navegación por pestañas (SPEC-034)', () => {
     const pagina = screen.getByAltText('Página 1 de la previsualización del examen');
     expect(pagina).toHaveAttribute('src', 'data:image/png;base64,AAAA');
     expect(screen.getAllByText('Página 1').length).toBeGreaterThanOrEqual(1);
+    expect(screen.getByText('PDF real: 4 páginas')).toBeInTheDocument();
+    expect(screen.getByText('Configuradas: 2 · el contenido requiere 4')).toBeInTheDocument();
   });
 
   it('muestra el PDF debajo del editor cuando la tarjeta está minimizada', () => {

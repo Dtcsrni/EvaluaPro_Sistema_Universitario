@@ -16,7 +16,14 @@ import {
 } from '../hooks/estimadorDensidadPlantilla';
 import type { PreviewPdfPage } from '../hooks/usePlantillasPreviewActions';
 
-type PlantillaPreviewPdfState = Record<string, { booklet?: string; omrSheet?: string; bookletPages?: PreviewPdfPage[]; omrSheetPages?: PreviewPdfPage[] }>;
+type PlantillaPreviewPdfState = Record<string, {
+  booklet?: string;
+  omrSheet?: string;
+  bookletPages?: PreviewPdfPage[];
+  omrSheetPages?: PreviewPdfPage[];
+  bookletPagesTotal?: number;
+  omrSheetPagesTotal?: number;
+}>;
 
 export function PlantillasListado({
   totalPlantillasTodas,
@@ -67,13 +74,25 @@ export function PlantillasListado({
   puedeArchivarPlantillas: boolean;
   formatearFechaHora: (valor?: string) => string;
 }) {
-  const renderVistaPreviaPdf = (plantilla: Plantilla, pdfUrl: string, pdfPages: PreviewPdfPage[]) => (
+  const renderVistaPreviaPdf = (plantilla: Plantilla, pdfUrl: string, pdfPages: PreviewPdfPage[], pdfPagesTotal?: number) => {
+    const paginasConfiguradas = Math.max(1, Math.floor(Number(plantilla.numeroPaginas ?? 1) || 1));
+    const paginasGeneradas = Math.max(1, Math.floor(Number(pdfPagesTotal ?? pdfPages.length) || pdfPages.length));
+    const hayDesborde = paginasGeneradas !== paginasConfiguradas;
+    return (
     <div className="resultado plantillas-preview anim-fade-in">
       <div className="plantillas-preview__hero">
         <div>
           <span className="plantillas-preview__eyebrow">REVISIÓN DEL RESULTADO</span>
           <h4 className="plantillas-preview__titulo">Vista previa PDF</h4>
           <p className="nota">Revisa el PDF real generado por el motor antes de descargar o imprimir.</p>
+          <div className="item-meta plantillas-preview__pdf-meta" aria-live="polite">
+            <span className="badge badge-densidad">PDF real: {paginasGeneradas} {paginasGeneradas === 1 ? 'página' : 'páginas'}</span>
+            {hayDesborde && (
+              <span className="badge warning" role="alert">
+                Configuradas: {paginasConfiguradas} · el contenido requiere {paginasGeneradas}
+              </span>
+            )}
+          </div>
         </div>
       </div>
 
@@ -110,7 +129,8 @@ export function PlantillasListado({
         </div>
       )}
     </div>
-  );
+    );
+  };
 
   return (
     <section className="alumnos-explorador anim-fade-in plantillas-catalogo--panoramico" aria-label="Catálogo de Plantillas">
@@ -220,7 +240,7 @@ export function PlantillasListado({
                         </div>
                       )}
                     </div>
-                    {pdfUrl && renderVistaPreviaPdf(plantilla, pdfUrl, pdfPages)}
+                    {pdfUrl && renderVistaPreviaPdf(plantilla, pdfUrl, pdfPages, pdfUrls.bookletPagesTotal)}
                     <div className="plantillas-item__actions">
                       <Boton
                         type="button"
@@ -264,7 +284,7 @@ export function PlantillasListado({
               )}
               {editando && pdfUrl && (
                 <li className="plantillas-item-preview-inline anim-fade-in" data-testid="plantillas-preview-inline">
-                  {renderVistaPreviaPdf(plantilla, pdfUrl, pdfPages)}
+                  {renderVistaPreviaPdf(plantilla, pdfUrl, pdfPages, pdfUrls.bookletPagesTotal)}
                 </li>
               )}
               </Fragment>

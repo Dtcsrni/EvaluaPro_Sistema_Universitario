@@ -177,7 +177,8 @@ export async function previsualizarPlantillaUseCase(params: {
 
   const totalDisponibles = contexto.preguntasDb.length;
   const totalUsados = extraerPreguntasUsadasMapaOmr(mapaOmr as never).size;
-  const ultima = (Array.isArray(metricasPaginas) ? metricasPaginas : []).find((item) => item.numero === contexto.numeroPaginas);
+  const metricasPaginasSeguras = Array.isArray(metricasPaginas) ? metricasPaginas : [];
+  const ultima = metricasPaginasSeguras[metricasPaginasSeguras.length - 1];
   const fraccionVaciaUltimaPagina = Number(ultima?.fraccionVacia ?? 0);
   const umbralVacioResidual = 0.05;
   const consumioTodas = totalUsados >= totalDisponibles;
@@ -190,8 +191,12 @@ export async function previsualizarPlantillaUseCase(params: {
       ).toFixed(0)}% vacia.`
     );
   }
-  if (paginas.length < contexto.numeroPaginas) {
-    advertencias.push(`Se generaron ${paginas.length} de ${contexto.numeroPaginas} pagina(s) por falta de preguntas.`);
+  if (paginas.length !== contexto.numeroPaginas) {
+    if (paginas.length > contexto.numeroPaginas) {
+      advertencias.push(`El contenido requiere ${paginas.length} pagina(s); la configuración indica ${contexto.numeroPaginas}.`);
+    } else {
+      advertencias.push(`Se generaron ${paginas.length} de ${contexto.numeroPaginas} pagina(s) por falta de preguntas.`);
+    }
   }
   if ((preguntasRestantes ?? 0) > 0) {
     advertencias.push(

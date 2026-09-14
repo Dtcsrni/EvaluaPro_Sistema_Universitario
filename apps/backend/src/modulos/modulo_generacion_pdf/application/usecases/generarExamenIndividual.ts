@@ -74,7 +74,7 @@ export async function generarExamenIndividual(
   const escalas = [...new Set([fontScaleBase, 1, 0.95, 0.9])]
     .filter((value) => value >= 0.9 && value <= fontScaleBase)
     .sort((a, b) => b - a);
-  const espaciados = [...new Set([lineSpacingBase, 1])]
+  const espaciados = [...new Set([lineSpacingBase, 1, 0.95, 0.9])]
     .filter((value) => value >= 0.9 && value <= lineSpacingBase)
     .sort((a, b) => b - a);
 
