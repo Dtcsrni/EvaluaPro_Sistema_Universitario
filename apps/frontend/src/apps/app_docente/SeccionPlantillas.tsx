@@ -390,7 +390,7 @@ export function SeccionPlantillas({
       setMensajeGeneracion
     ]
   );
-  const { togglePreviewPlantilla, cargarPreviewPdfPlantilla, cerrarPreviewPdfPlantilla } =
+  const { cargarPreviewPdfPlantilla, cerrarPreviewPdfPlantilla } =
     usePlantillasPreviewActions({
       puedePrevisualizarPlantillas,
       avisarSinPermiso,
@@ -1198,10 +1198,7 @@ export function SeccionPlantillas({
             setFiltroPlantillas={setFiltroPlantillas}
             plantillasFiltradas={plantillasFiltradas}
             periodos={periodos}
-            previewPorPlantillaId={previewPorPlantillaId}
-            plantillaPreviewId={plantillaPreviewId}
             previewPdfUrlPorPlantillaId={previewPdfUrlPorPlantillaId}
-            cargandoPreviewPlantillaId={cargandoPreviewPlantillaId}
             puedePrevisualizarPlantillas={puedePrevisualizarPlantillas}
             cargandoPreviewPdfPlantillaId={cargandoPreviewPdfPlantillaId}
             cargarPreviewPdfPlantilla={cargarPreviewPdfPlantilla}
@@ -1210,7 +1207,6 @@ export function SeccionPlantillas({
             pdfFullscreenUrl={pdfFullscreenUrl}
             pdfFullscreenPages={pdfFullscreenPages}
             cerrarPdfFullscreen={cerrarPdfFullscreen}
-            togglePreviewPlantilla={togglePreviewPlantilla}
             iniciarEdicion={iniciarEdicion}
             puedeGestionarPlantillas={puedeGestionarPlantillas}
             archivandoPlantillaId={archivandoPlantillaId}

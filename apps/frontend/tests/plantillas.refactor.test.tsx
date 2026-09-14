@@ -186,7 +186,7 @@ describe('plantillas refactor y navegación por pestañas (SPEC-034)', () => {
     const inputTitulo = screen.getByLabelText(/Titulo/i) as HTMLInputElement;
     expect(inputTitulo.value).toBe('Parcial Algebra');
 
-    expect(screen.getByRole('button', { name: /Guardar cambios/i })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /Actualizar plantilla/i })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /^Cancelar$/i })).toBeInTheDocument();
 
     // Cancelar edición
@@ -208,8 +208,8 @@ describe('plantillas refactor y navegación por pestañas (SPEC-034)', () => {
     expect(screen.getByText('Seleccionados: 1')).toBeInTheDocument();
   });
 
-  it('abre el panel al pulsar Previsualizar y delega la carga al toggle del preview', () => {
-    const togglePreviewPlantilla = vi.fn(async () => {});
+  it('carga únicamente la previsualización PDF al pulsar Previsualizar PDF', () => {
+    const cargarPreviewPdfPlantilla = vi.fn(async () => {});
 
     render(
       <PlantillasListado
@@ -221,18 +221,14 @@ describe('plantillas refactor y navegación por pestañas (SPEC-034)', () => {
           { _id: 'pla-1', titulo: 'Parcial Algebra', tipo: 'parcial', numeroPaginas: 2, periodoId: 'per-1', temas: ['Algebra'] } as Plantilla
         ]}
         periodos={[{ _id: 'per-1', nombre: 'Periodo 1', grupos: ['A'] }]}
-        previewPorPlantillaId={{}}
-        plantillaPreviewId={null}
         previewPdfUrlPorPlantillaId={{}}
-        cargandoPreviewPlantillaId={null}
         puedePrevisualizarPlantillas={true}
         cargandoPreviewPdfPlantillaId={null}
-        cargarPreviewPdfPlantilla={async () => {}}
+        cargarPreviewPdfPlantilla={cargarPreviewPdfPlantilla}
         cerrarPreviewPdfPlantilla={() => {}}
         abrirPdfFullscreen={() => {}}
         pdfFullscreenUrl={null}
         cerrarPdfFullscreen={() => {}}
-        togglePreviewPlantilla={togglePreviewPlantilla}
         iniciarEdicion={() => {}}
         puedeGestionarPlantillas={true}
         archivandoPlantillaId={null}
@@ -242,12 +238,12 @@ describe('plantillas refactor y navegación por pestañas (SPEC-034)', () => {
       />
     );
 
-    fireEvent.click(screen.getByRole('button', { name: /^Previsualizar$/i }));
+    fireEvent.click(screen.getByRole('button', { name: /^Previsualizar PDF$/i }));
 
-    expect(togglePreviewPlantilla).toHaveBeenCalledWith('pla-1');
+    expect(cargarPreviewPdfPlantilla).toHaveBeenCalledWith('pla-1', 'booklet');
   });
 
-  it('renderiza las paginas rasterizadas del PDF dentro del boceto', () => {
+  it('renderiza únicamente las páginas rasterizadas del PDF', () => {
     render(
       <PlantillasListado
         totalPlantillasTodas={1}
@@ -258,27 +254,12 @@ describe('plantillas refactor y navegación por pestañas (SPEC-034)', () => {
           { _id: 'pla-1', titulo: 'Parcial Algebra', tipo: 'parcial', numeroPaginas: 2, periodoId: 'per-1', temas: ['Algebra'] } as Plantilla
         ]}
         periodos={[{ _id: 'per-1', nombre: 'Periodo 1', grupos: ['A'] }]}
-        previewPorPlantillaId={{
-          'pla-1': {
-            paginas: [
-              {
-                numero: 1,
-                preguntasDel: 1,
-                preguntasAl: 1,
-                elementos: [],
-                preguntas: [{ numero: 1, id: 'q-1', tieneImagen: false, enunciadoCorto: 'Pregunta de prueba' }]
-              }
-            ]
-          }
-        }}
-        plantillaPreviewId="pla-1"
         previewPdfUrlPorPlantillaId={{
           'pla-1': {
             booklet: 'blob://pdf-preview',
             bookletPages: [{ numero: 1, width: 100, height: 140, dataUrl: 'data:image/png;base64,AAAA' }]
           }
         }}
-        cargandoPreviewPlantillaId={null}
         puedePrevisualizarPlantillas={true}
         cargandoPreviewPdfPlantillaId={null}
         cargarPreviewPdfPlantilla={async () => {}}
@@ -286,7 +267,6 @@ describe('plantillas refactor y navegación por pestañas (SPEC-034)', () => {
         abrirPdfFullscreen={() => {}}
         pdfFullscreenUrl={null}
         cerrarPdfFullscreen={() => {}}
-        togglePreviewPlantilla={async () => {}}
         iniciarEdicion={() => {}}
         puedeGestionarPlantillas={true}
         archivandoPlantillaId={null}

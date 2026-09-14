@@ -372,7 +372,7 @@ export function PlantillasFormulario({
                   disabled={!titulo.trim() || !periodoId || temasSeleccionados.length === 0 || bloqueoEdicion}
                   onClick={() => void guardarEdicion()}
                 >
-                  {guardandoPlantilla ? 'Guardando…' : 'Guardar cambios'}
+                  {guardandoPlantilla ? 'Actualizando…' : 'Actualizar plantilla'}
                 </Boton>
                 <Boton type="button" variante="secundario" onClick={cancelarEdicion}>
                   Cancelar
