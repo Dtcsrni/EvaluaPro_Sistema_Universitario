@@ -291,7 +291,7 @@ export function clavePreviewPlantilla(params: {
   layoutFingerprint?: string;
 }) {
   const base = [
-    'v3-a050929d-baseline',
+    'v4-auto-fit-body-fixed-header',
     String(params.plantillaId || ''),
     String(params.plantillaUpdatedAt || ''),
     String(params.numeroPaginas || 0),

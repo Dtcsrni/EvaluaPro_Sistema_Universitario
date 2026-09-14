@@ -84,6 +84,12 @@ async function resolverContextoPreview(docenteId: unknown, plantillaId: string) 
 
   const numeroPaginas = resolverNumeroPaginasPlantilla(plantilla as { numeroPaginas?: unknown });
   const preguntasBase = mapearPreguntasBase(preguntasDb);
+  const bookletConfig = {
+    ...(plantilla.bookletConfig ?? {}),
+    autoFitPages: true,
+    fontScale: 1,
+    lineSpacing: 1.1
+  };
   const seed = hash32(String(plantilla._id));
   const preguntasCandidatas = ordenarPreguntasDeterminista(preguntasBase, seed);
   const mapaVarianteDet = generarVarianteDeterminista(preguntasCandidatas, `plantilla:${plantilla._id}`);
@@ -107,7 +113,8 @@ async function resolverContextoPreview(docenteId: unknown, plantillaId: string) 
     periodo,
     docenteDb,
     temas,
-    templateVersionOmr
+    templateVersionOmr,
+    bookletConfig
   };
 }
 
@@ -152,7 +159,7 @@ export async function previsualizarPlantillaUseCase(params: {
     totalPaginas: contexto.numeroPaginas,
     margenMm: contexto.plantilla.configuracionPdf?.margenMm ?? 8,
     templateVersion: contexto.templateVersionOmr,
-    bookletConfig: contexto.plantilla.bookletConfig,
+    bookletConfig: contexto.bookletConfig,
     encabezado: construirEncabezadoPdf({
       periodo: contexto.periodo,
       docenteDb: contexto.docenteDb,
@@ -262,7 +269,7 @@ export async function previsualizarPlantillaPdfUseCase(params: {
     totalPaginas: contexto.numeroPaginas,
     margenMm: contexto.plantilla.configuracionPdf?.margenMm ?? 8,
     templateVersion: contexto.templateVersionOmr,
-    bookletConfig: contexto.plantilla.bookletConfig,
+    bookletConfig: contexto.bookletConfig,
     encabezado: construirEncabezadoPdf({
       periodo: contexto.periodo,
       docenteDb: contexto.docenteDb,

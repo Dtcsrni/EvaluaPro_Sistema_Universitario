@@ -429,6 +429,12 @@ export async function regenerarPdfExamen(req: SolicitudDocente, res: Response) {
 
   const numeroPaginas = resolverNumeroPaginasPlantilla(plantillaRaw as any);
   const templateVersion = TEMPLATE_VERSION_CANONICA;
+  const bookletConfig = {
+    ...(parseJsonSafe<any>(plantillaRaw.bookletConfig) ?? {}),
+    autoFitPages: true,
+    fontScale: 1,
+    lineSpacing: 1.1
+  };
 
   const generarConPaginas = (paginasObjetivo: number) =>
     generarPdfExamen({
@@ -440,7 +446,7 @@ export async function regenerarPdfExamen(req: SolicitudDocente, res: Response) {
       totalPaginas: paginasObjetivo,
       margenMm: parseJsonSafe<any>(plantillaRaw.configuracionPdf)?.margenMm ?? 8,
       templateVersion,
-      bookletConfig: parseJsonSafe<any>(plantillaRaw.bookletConfig) ?? {},
+      bookletConfig,
       encabezado: {
         materia: String(periodo?.nombre ?? ''),
         docente: String(docenteDb?.nombreCompleto ?? ''),
