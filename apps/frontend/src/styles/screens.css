@@ -3929,6 +3929,64 @@
   font-weight: 600;
 }
 
+.materia-card-alumnos {
+  margin-top: 0.75rem;
+  padding: 0.65rem 0.75rem;
+  border: 1px solid color-mix(in srgb, var(--app-accent, #38bdf8) 22%, var(--glass-border, rgba(255, 255, 255, 0.1)));
+  border-radius: 12px;
+  background: color-mix(in srgb, var(--glass-surface-2, rgba(15, 23, 42, 0.55)) 72%, transparent);
+}
+
+.materia-card-alumnos__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  margin-bottom: 0.45rem;
+}
+
+.materia-card-alumnos__header strong {
+  color: var(--app-accent, #38bdf8);
+  font-size: 0.9rem;
+}
+
+.materia-card-alumnos__list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+}
+
+.materia-alumno-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  max-width: 100%;
+  padding: 0.24rem 0.5rem;
+  border: 1px solid color-mix(in srgb, var(--app-accent, #38bdf8) 18%, var(--glass-border, rgba(255, 255, 255, 0.1)));
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--glass-surface-1, rgba(30, 41, 59, 0.8)) 78%, transparent);
+  color: var(--texto);
+  font-size: 0.72rem;
+  line-height: 1.2;
+}
+
+.materia-alumno-chip__name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.materia-alumno-chip__group {
+  flex: 0 0 auto;
+  color: var(--app-accent, #38bdf8);
+  font-weight: 800;
+}
+
+.materia-card-alumnos__empty {
+  color: var(--muted);
+  font-size: 0.76rem;
+}
+
 /* Staggered entry animation for materias items */
 .materias-lista li:nth-child(1) { animation-delay: 0.03s; }
 .materias-lista li:nth-child(2) { animation-delay: 0.06s; }
@@ -3950,6 +4008,22 @@
 }
 
 :root:not([data-theme="dark"]) .materia-grupos-badge {
+  color: #0284c7;
+}
+
+:root:not([data-theme="dark"]) .materia-card-alumnos {
+  background: rgba(248, 250, 252, 0.8);
+  border-color: rgba(148, 163, 184, 0.35);
+}
+
+:root:not([data-theme="dark"]) .materia-alumno-chip {
+  background: rgba(255, 255, 255, 0.9);
+  border-color: rgba(148, 163, 184, 0.3);
+  color: #334155;
+}
+
+:root:not([data-theme="dark"]) .materia-alumno-chip__group,
+:root:not([data-theme="dark"]) .materia-card-alumnos__header strong {
   color: #0284c7;
 }
 

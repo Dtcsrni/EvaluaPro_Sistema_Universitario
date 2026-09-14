@@ -13,13 +13,14 @@ import { Boton } from '../../ui/ux/componentes/Boton';
 import { InlineMensaje } from '../../ui/ux/componentes/InlineMensaje';
 import { GuiaMateriaVisual } from './GuiaMateriaVisual';
 import { registrarAccionDocente } from './telemetriaDocente';
-import type { EnviarConPermiso, Periodo, PermisosUI } from './tipos';
+import type { Alumno, EnviarConPermiso, Periodo, PermisosUI } from './tipos';
 import { clienteApi } from './clienteApiDocente';
 import { obtenerTokenDocente } from '../../servicios_api/clienteApi';
 import { esMensajeError, etiquetaMateria, idCortoMateria, mensajeDeError, patronNombreMateria } from './utilidades';
 
 export function SeccionPeriodos({
   periodos,
+  alumnos = [],
   onRefrescar,
   onVerArchivadas,
   onAbrirGrupo,
@@ -29,6 +30,7 @@ export function SeccionPeriodos({
   avisarSinPermiso
 }: {
   periodos: Periodo[];
+  alumnos?: Alumno[];
   onRefrescar: () => void;
   onVerArchivadas: () => void;
   onAbrirGrupo?: (periodoId: string, grupo?: string) => void;
@@ -49,6 +51,21 @@ export function SeccionPeriodos({
   const [accionesAbiertasId, setAccionesAbiertasId] = useState<string | null>(null);
   const [registroMateriaAbierto, setRegistroMateriaAbierto] = useState(false);
   const [guardandoEdicionId, setGuardandoEdicionId] = useState<string | null>(null);
+
+  const alumnosPorPeriodo = useMemo(() => {
+    const mapa = new Map<string, Alumno[]>();
+    for (const alumno of Array.isArray(alumnos) ? alumnos : []) {
+      const periodoId = String(alumno.periodoId || '').trim();
+      if (!periodoId) continue;
+      const lista = mapa.get(periodoId) ?? [];
+      lista.push(alumno);
+      mapa.set(periodoId, lista);
+    }
+    for (const lista of mapa.values()) {
+      lista.sort((a, b) => String(a.nombreCompleto || '').localeCompare(String(b.nombreCompleto || ''), 'es'));
+    }
+    return mapa;
+  }, [alumnos]);
   const [edicionNombre, setEdicionNombre] = useState('');
   const [edicionFechaInicio, setEdicionFechaInicio] = useState('');
   const [edicionFechaFin, setEdicionFechaFin] = useState('');
@@ -714,6 +731,7 @@ export function SeccionPeriodos({
           <ul className="lista lista-items materias-lista">
             {periodos.map((periodo) => {
               const progreso = calcularProgresoPeriodo(periodo.fechaInicio, periodo.fechaFin);
+              const alumnosMateria = alumnosPorPeriodo.get(periodo._id) ?? [];
               return (
                 <li key={periodo._id} className="anim-slide-up">
                   <article
@@ -829,6 +847,28 @@ export function SeccionPeriodos({
                                   {Array.isArray(periodo.grupos) && periodo.grupos.length > 0 ? periodo.grupos.join(', ') : '-'}
                                 </span>
                               </span>
+                            </div>
+                            <div className="materia-card-alumnos" aria-label={`Alumnos de ${etiquetaMateria(periodo)}`}>
+                              <div className="materia-card-alumnos__header">
+                                <span className="materia-meta-lbl">Alumnos</span>
+                                <strong>{alumnosMateria.length}</strong>
+                              </div>
+                              {alumnosMateria.length > 0 ? (
+                                <div className="materia-card-alumnos__list">
+                                  {alumnosMateria.map((alumno) => (
+                                    <span
+                                      key={alumno._id}
+                                      className="materia-alumno-chip"
+                                      title={`${alumno.nombreCompleto}${alumno.grupo ? ` · Grupo ${alumno.grupo}` : ''}`}
+                                    >
+                                      <span className="materia-alumno-chip__name">{alumno.nombreCompleto}</span>
+                                      {alumno.grupo && <span className="materia-alumno-chip__group">{alumno.grupo}</span>}
+                                    </span>
+                                  ))}
+                                </div>
+                              ) : (
+                                <span className="materia-card-alumnos__empty">Sin alumnos registrados</span>
+                              )}
                             </div>
                             <span className="materia-card-primary-action" aria-hidden="true">
                               <span className="materia-card-primary-action__copy">

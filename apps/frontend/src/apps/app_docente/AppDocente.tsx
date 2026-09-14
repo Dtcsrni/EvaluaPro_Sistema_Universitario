@@ -579,6 +579,7 @@ export function AppDocente() {
         <div className="anim-fade-in">
           <SeccionPeriodos
             periodos={periodos}
+            alumnos={alumnos}
             onRefrescar={refrescarMaterias}
             onVerArchivadas={() => setVista('periodos_archivados')}
             onAbrirGrupo={(periodoId, grupo) => {
