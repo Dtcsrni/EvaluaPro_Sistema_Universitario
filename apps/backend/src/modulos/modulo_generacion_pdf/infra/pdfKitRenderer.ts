@@ -1540,6 +1540,58 @@ function dibujarIconoIndicaciones(page: PDFPage, x: number, y: number, color: Re
   return { x, y, width: 12, height: ALTO_ICONO_CABECERA };
 }
 
+function dibujarEjemplosMarca(
+  page: PDFPage,
+  x: number,
+  y: number,
+  fuente: PDFFont,
+  size: number
+): RectBox {
+  const radio = 3.1;
+  const centroY = y + 4.3;
+  const xCorrecta = x + radio;
+  const xIncorrecta = x + 53 + radio;
+  const colorCorrecto = rgb(0.06, 0.4, 0.34);
+  const colorIncorrecto = rgb(0.58, 0.2, 0.18);
+
+  // Correcta: la marca queda centrada y separada del borde.
+  page.drawCircle({
+    x: xCorrecta,
+    y: centroY,
+    size: radio,
+    borderColor: colorCorrecto,
+    borderWidth: 0.7
+  });
+  page.drawCircle({ x: xCorrecta, y: centroY, size: 1.05, color: colorCorrecto });
+  page.drawText('Correcta', { x: x + 8, y, size, font: fuente, color: colorCorrecto });
+
+  // Incorrecta: la marca toca el borde y se tacha suavemente para que el
+  // ejemplo no se confunda con una respuesta válida del examen.
+  page.drawCircle({
+    x: xIncorrecta,
+    y: centroY,
+    size: radio,
+    borderColor: colorIncorrecto,
+    borderWidth: 0.7
+  });
+  page.drawCircle({
+    x: xIncorrecta + radio * 0.68,
+    y: centroY,
+    size: 1.05,
+    color: colorIncorrecto
+  });
+  page.drawLine({
+    start: { x: xIncorrecta - radio - 1.1, y: centroY - radio - 1 },
+    end: { x: xIncorrecta + radio + 1.1, y: centroY + radio + 1 },
+    color: colorIncorrecto,
+    thickness: 0.65,
+    opacity: 0.82
+  });
+  page.drawText('Incorrecta', { x: x + 61, y, size, font: fuente, color: colorIncorrecto });
+
+  return { x, y, width: Math.max(92, 61 + fuente.widthOfTextAtSize('Incorrecta', size)), height: size + 2 };
+}
+
 function dibujarBordePagina(
   page: PDFPage,
   margen: number,
@@ -1839,7 +1891,7 @@ export class PdfKitRenderer {
     const anchoTextoPregunta = Math.max(60, xDerechaTexto - xTextoPregunta);
 
     const instruccionesDefault =
-      'Lea cada reactivo. Marque un solo círculo sin tocar el borde; borre la marca anterior si cambia.';
+      'Lea detenidamente cada reactivo, razone antes de responder y marque una sola respuesta dentro del círculo. Si cambia, borre por completo la marca anterior.';
 
     const defaultInstitucion = 'Centro Universitario Hidalguense';
     const defaultLema = 'Sapientia est nostra fortis';
@@ -1916,6 +1968,9 @@ export class PdfKitRenderer {
         size: tamIndicacionesEstimado
       }).length
       : 0;
+    // Reservar una fila independiente para los ejemplos evita que una
+    // indicación larga comparta renglón con la leyenda visual.
+    const espacioEjemplosIndicaciones = mostrarInstrucciones ? 10 : 0;
     // La reserva QR incluye ahora su leyenda dentro de la tarjeta; dejar un
     // margen estructural evita que un perfil personalizado ligeramente mayor
     // salga de la cabecera y termine recortado al rasterizar.
@@ -1939,7 +1994,7 @@ export class PdfKitRenderer {
       // header cuando la tipografía sube a 7.5 pt o el texto se envuelve.
       baseEncabezadoCompacto + lineasExtraCabecera * 15 + (
         lineasIndicacionesEstimadas > 0
-          ? (lineasIndicacionesEstimadas + 2) * 12
+          ? (lineasIndicacionesEstimadas + 2) * 12 + espacioEjemplosIndicaciones
           : 0
       ),
       // La tarjeta QR se posiciona con una reserva simétrica respecto al
@@ -2405,6 +2460,21 @@ export class PdfKitRenderer {
            escala = Math.max(0.78, escala - 0.06);
          }
 
+         // Anclar la fila de captura a la banda inferior de la cabecera deja
+         // libre la zona institucional superior. La reserva usa el número
+         // estimado de líneas de indicaciones.
+         const lineGapIndicacionesEstimado = Math.max(7.5, 6.4 * fontScale) + 1.2;
+         // La fila de instrucciones necesita una separación completa aun
+         // cuando no se dibuja la identidad institucional.
+         const separacionDatosIndicaciones = 17;
+         const yCamposInferior = yCaja
+           + 1
+           + Math.max(0, lineasIndicacionesEstimadas - 1) * lineGapIndicacionesEstimado
+           + espacioEjemplosIndicaciones
+           + separacionDatosIndicaciones;
+         yNombre = Math.min(yNombre, yCamposInferior);
+         yGrupo = yNombre;
+
          // En perfiles con tipografía ampliada puede no existir separación
          // vertical suficiente entre la fila de captura y la zona bajo el QR.
          // En ese caso se usa el respaldo de una sola fila para no superponer
@@ -2444,15 +2514,8 @@ export class PdfKitRenderer {
            throw new Error('Layout invalido: no queda espacio suficiente para el nombre y el grupo en una sola linea');
          }
         if (fieldBandTopBase > fieldBandBottom) {
-          page.drawRectangle({
-            x: xDatosLeft - 6,
-            y: fieldBandBottom,
-            width: Math.max(120, xDatosRight - xDatosLeft + 12),
-            height: fieldBandTopBase - fieldBandBottom,
-            color: rgb(0.87, 0.95, 0.99),
-            opacity: 0.68
-          });
-
+          // No usar un relleno continuo: la textura punteada conserva la
+          // estética de la cabecera y reduce tinta en la zona manuscrita.
           const rectPatronCaptura: RectBox = {
             x: xDatosLeft - 6,
             y: fieldBandBottom,
@@ -2621,11 +2684,12 @@ export class PdfKitRenderer {
         const xZonaCalificacionFin = xCaja + wCaja - 8;
         // Dos filas compactas conservan ambos campos bajo el QR y recuperan
         // el espacio horizontal que antes se desperdiciaba dentro de su tarjeta.
-        // La tarjeta QR de 28 mm deja la zona más alta que la versión previa;
-        // bajar ligeramente sus dos renglones evita que el primero choque con
-        // la línea de grupo sin sacrificar la sección de calificación.
-        const yReactivosZonaCalificacion = cardY - sizeCampoAux - 12.5;
-        const yCalificacionZona = yReactivosZonaCalificacion - 11.5;
+        // Anclar las dos filas a la base de la cabecera deja libre la franja
+        // superior para nombre y grupo. El marco conserva toda la reserva
+        // vertical bajo el QR, pero el contenido ya no queda flotando cerca
+        // de su borde superior.
+        const yCalificacionZona = yCaja + 5.5;
+        const yReactivosZonaCalificacion = yCalificacionZona + 11.5;
         const etiquetaReactivos = 'Reactivos:';
         const textoConteoReactivos = `/ ${examen.totalPreguntas}`;
         const anchoEtiquetaReactivos = fuenteBold.widthOfTextAtSize(etiquetaReactivos, sizeCampoAux);
@@ -2774,12 +2838,32 @@ export class PdfKitRenderer {
             font: fuente,
             size: tamIndicacionesHeader
           });
-          const yIndicacionesHeader = mostrarMarcaInstitucional
-            ? Math.max(
-              yGrupo - 17,
-              yCaja + 1 + Math.max(0, lineasIndicacionesHeader.length - 1) * lineGapIndicacionesHeader
-            )
-            : yNombre + sizeCampo + 8 + Math.max(0, lineasIndicacionesHeader.length - 1) * lineGapIndicacionesHeader;
+          // Normalizar las líneas físicas antes de posicionarlas evita que un
+          // subenvolvimiento de una línea larga se dibuje sobre la siguiente.
+          const lineasFisicasIndicaciones = lineasIndicacionesHeader.flatMap((linea, indice) => {
+            const xLineaIndicaciones = indice === 0 ? xTextoIndicacionesHeader : xIndicacionesHeader;
+            const anchoLineaDisponible = indice === 0
+              ? anchoIndicacionesHeader
+              : xDerechaIndicaciones - xIndicacionesHeader - 4;
+            const lineasFisicas = indice === 0
+              ? [linea]
+              : partirEnLineas({
+                texto: linea,
+                maxWidth: anchoLineaDisponible,
+                font: fuente,
+                size: tamIndicacionesHeader
+              });
+            return lineasFisicas.map((lineaFisica, subIndice) => ({
+              texto: lineaFisica,
+              x: subIndice === 0 ? xLineaIndicaciones : xIndicacionesHeader
+            }));
+          });
+          // La última línea textual queda encima de una fila propia para la
+          // leyenda, y esa fila sí se apoya en el límite inferior del marco.
+          const yIndicacionesHeader = yCaja
+            + 1
+            + espacioEjemplosIndicaciones
+            + Math.max(0, lineasFisicasIndicaciones.length - 1) * lineGapIndicacionesHeader;
           headerIconBoxes.push({
             id: 'icono-indicaciones',
             ...dibujarIconoIndicaciones(page, xIndicacionesBase, yIndicacionesHeader + 0.2, colorIconoIndicaciones)
@@ -2798,30 +2882,36 @@ export class PdfKitRenderer {
             width: anchoEtiquetaIndicaciones,
             height: tamIndicacionesHeader + 1
           });
-          lineasIndicacionesHeader.forEach((linea, indice) => {
-            const xLineaIndicaciones = indice === 0 ? xTextoIndicacionesHeader : xIndicacionesHeader;
-            const anchoLineaDisponible = indice === 0 ? anchoIndicacionesHeader : xDerechaIndicaciones - xIndicacionesHeader - 4;
-            const lineasFisicas = indice === 0
-              ? [linea]
-              : partirEnLineas({ texto: linea, maxWidth: anchoLineaDisponible, font: fuente, size: tamIndicacionesHeader });
-            lineasFisicas.forEach((lineaFisica, subIndice) => {
-              const yLinea = yIndicacionesHeader - (indice + subIndice) * lineGapIndicacionesHeader;
-              const xLinea = subIndice === 0 ? xLineaIndicaciones : xIndicacionesHeader;
-              page.drawText(lineaFisica, {
-                x: xLinea,
+          lineasFisicasIndicaciones.forEach(({ texto, x }, indice) => {
+              const yLinea = yIndicacionesHeader - indice * lineGapIndicacionesHeader;
+              page.drawText(texto, {
+                x,
                 y: yLinea,
                 size: tamIndicacionesHeader,
                 font: fuente,
                 color: colorTinta
               });
               headerTextBlocks.push({
-                id: `indicaciones-${indice + 1}-${subIndice + 1}`,
-                x: xLinea,
+                id: `indicaciones-${indice + 1}`,
+                x,
                 y: yLinea,
-                width: fuente.widthOfTextAtSize(lineaFisica, tamIndicacionesHeader),
+                width: fuente.widthOfTextAtSize(texto, tamIndicacionesHeader),
                 height: tamIndicacionesHeader + 1
               });
-            });
+          });
+          const yUltimaIndicacion = yCaja + 1;
+          const anchoEjemplosMarca = 100;
+          const xEjemplosMarca = xDerechaIndicaciones - anchoEjemplosMarca;
+          const rectEjemplosMarca = dibujarEjemplosMarca(
+            page,
+            xEjemplosMarca,
+            yUltimaIndicacion,
+            fuente,
+            5.4
+          );
+          headerTextBlocks.push({
+            id: 'ejemplos-marca',
+            ...rectEjemplosMarca
           });
         }
 
@@ -3532,7 +3622,6 @@ export class PdfKitRenderer {
         });
         const textoNumero = String(numero);
         const wNum = anchoInsigniaPregunta;
-        const hNum = 14;
         const xNum = xNumeroPregunta;
         // En la primera pregunta de una continuación horizontal el texto
         // empieza debajo de la zona segura superior, pero el fiducial de la
@@ -3541,30 +3630,14 @@ export class PdfKitRenderer {
         const yNum = cursorY - 1 - (esPrimeraPreguntaContinuacion && omrEsquemaHorizontal ? 9 : 0);
         const sizeNum = textoNumero.length >= 3 ? 8 : 9;
         const numWidth = fuenteBold.widthOfTextAtSize(textoNumero, sizeNum);
-        page.drawRectangle({
-          x: xNum,
-          y: yNum,
-          width: wNum,
-          height: hNum,
-          borderWidth: 0.7,
-          borderColor: estiloPregunta.acento,
-          color: estiloPregunta.acento,
-          opacity: 0.88
-        });
-        // La trama blanca interna aligera el bloque sin convertirlo en un
-        // elemento hueco ni perder la lectura inmediata del numero.
-        for (const punto of [
-          { x: xNum + 3.4, y: yNum + 3.2 },
-          { x: xNum + wNum - 3.4, y: yNum + hNum - 3.2 }
-        ]) {
-          page.drawCircle({ x: punto.x, y: punto.y, size: 0.34, color: rgb(1, 1, 1), opacity: 0.2 });
-        }
+        // El número queda como texto independiente, sin borde ni relleno;
+        // así se elimina una masa sólida innecesaria y no compite con el OMR.
         page.drawText(textoNumero, {
           x: xNum + (wNum - numWidth) / 2,
           y: yNum + 3.2,
           size: sizeNum,
           font: fuenteBold,
-          color: rgb(1, 1, 1)
+          color: estiloPregunta.acento
         });
         const emb = imagenesPregunta.get(pregunta.id);
         const layoutImagen = calcularLayoutImagen(emb, anchoTextoPreguntaActual);
