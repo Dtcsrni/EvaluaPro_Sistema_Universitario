@@ -2222,10 +2222,11 @@ export class PdfKitRenderer {
         // calificación. Cubrir el patrón complejo anterior evita que el
         // mandala se confunda con texto; encima solo se dibuja una retícula
         // de puntos tenue. La tarjeta y su quiet zone siguen blancas.
+        const xZonaCalificacionInicio = Math.max(xCaja + 1, xLimiteZonaCalificacion);
         const zonaCalificacion: RectBox = {
-          x: Math.max(xCaja + 1, xLimiteZonaCalificacion),
+          x: xZonaCalificacionInicio,
           y: yCaja + 1,
-          width: Math.max(1, xCaja + wCaja - Math.max(xCaja + 1, cardX - 36)),
+          width: Math.max(1, xCaja + wCaja - 1 - xZonaCalificacionInicio),
           height: cardY - yCaja - 2
         };
         usarZonaCalificacion = true;
