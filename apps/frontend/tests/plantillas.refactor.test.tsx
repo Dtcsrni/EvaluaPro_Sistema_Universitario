@@ -75,8 +75,10 @@ describe('plantillas refactor y navegación por pestañas (SPEC-034)', () => {
     expect(screen.getByRole('tab', { name: /Diseñar Exámenes/i })).toBeInTheDocument();
     expect(screen.getByRole('tab', { name: /Generar Paquete PDF\/OMR/i })).toBeInTheDocument();
     expect(screen.getByRole('tab', { name: /Historial de Lotes/i })).toBeInTheDocument();
-    expect(screen.getByRole('combobox', { name: /Tamaño de fuente/i })).toHaveValue('1');
-    expect(screen.getByRole('combobox', { name: /Espaciado de línea/i })).toHaveValue('1.1');
+    expect(screen.queryByRole('combobox', { name: /Tamaño de fuente/i })).not.toBeInTheDocument();
+    expect(screen.queryByRole('combobox', { name: /Espaciado de línea/i })).not.toBeInTheDocument();
+    expect(screen.getByText('Tipografía e interlineado')).toBeInTheDocument();
+    expect(screen.getByText('Gestionados por el motor')).toBeInTheDocument();
     expect(screen.getByText('Selecciona una materia para comenzar')).toBeInTheDocument();
   });
 

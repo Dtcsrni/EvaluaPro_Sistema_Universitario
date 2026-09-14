@@ -8298,19 +8298,18 @@ li.empty-state-card {
   grid-column: 1 / -1;
 }
 
-.plantillas-toggle-row {
-  display: flex;
-  align-items: center;
-  gap: 0.55rem;
+.plantillas-auto-status {
+  display: block;
   min-height: 42px;
+  padding: 0.65rem 0.8rem;
+  border: 1px dashed rgba(34, 211, 238, 0.42);
+  border-radius: 0.65rem;
   color: #dbeafe;
+  line-height: 1.35;
 }
 
-.plantillas-toggle-row input[type='checkbox'] {
-  width: 1.15rem;
-  height: 1.15rem;
-  flex: 0 0 auto;
-  accent-color: #22d3ee;
+.plantillas-formato-control--protected {
+  opacity: 0.9;
 }
 
 .plantillas-formato-control select {

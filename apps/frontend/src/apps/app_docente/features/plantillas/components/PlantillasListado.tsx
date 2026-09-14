@@ -192,9 +192,7 @@ export function PlantillasListado({
             const estimacionDensidad = calcularEstimacionDensidadPlantilla({
               totalReactivos,
               paginasConfiguradas: Number(plantilla.numeroPaginas ?? plantilla.bookletConfig?.targetPages ?? 1),
-              temasSeleccionados: temas.length,
-              fontScale: plantilla.bookletConfig?.fontScale,
-              lineSpacing: plantilla.bookletConfig?.lineSpacing
+              temasSeleccionados: temas.length
             });
             return (
               <Fragment key={plantilla._id}>
