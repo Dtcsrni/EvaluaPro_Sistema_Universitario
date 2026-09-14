@@ -158,6 +158,38 @@ describe('pdf OMR canónico', () => {
     ]);
   });
 
+  it('ajusta automáticamente el cuerpo sin modificar la escala de cabecera', async () => {
+    const resultado = await generarPdfExamen({
+      ...crearParametros(25),
+      totalPaginas: 2,
+      bookletConfig: {
+        densityMode: 'compact',
+        autoFitPages: true,
+        fontScale: 1.1,
+        lineSpacing: 1.1
+      }
+    });
+
+    expect(resultado.preguntasRestantes).toBe(0);
+    expect(resultado.paginas.length).toBeLessThanOrEqual(2);
+    expect(resultado.metricasLayout?.fontSizePregunta).toBeCloseTo(10.4 * 1.1, 4);
+    expect(resultado.metricasLayout?.fontSizeIndicaciones).toBeCloseTo(8, 4);
+  });
+
+  it('mantiene la cabecera fija cuando se compacta manualmente el cuerpo', async () => {
+    const resultado = await generarPdfExamen({
+      ...crearParametros(2),
+      bookletConfig: {
+        densityMode: 'compact',
+        fontScale: 0.9,
+        lineSpacing: 1
+      }
+    });
+
+    expect(resultado.metricasLayout?.fontSizePregunta).toBeCloseTo(10.4 * 0.9, 4);
+    expect(resultado.metricasLayout?.fontSizeIndicaciones).toBeCloseTo(8, 4);
+  });
+
   it('omite logos no disponibles sin dibujar sustitutos dentro de la cabecera', async () => {
     const resultado = await generarPdfExamen({
       ...crearParametros(4),

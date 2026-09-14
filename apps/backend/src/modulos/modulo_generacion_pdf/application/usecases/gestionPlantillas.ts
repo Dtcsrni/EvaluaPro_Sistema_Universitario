@@ -103,6 +103,7 @@ export async function crearPlantillaUseCase(params: {
   const bookletConfig = {
     targetPages: Number((params.body.bookletConfig as any)?.targetPages ?? params.body.numeroPaginas ?? 2) || 2,
     densityMode: String((params.body.bookletConfig as any)?.densityMode ?? 'compact'),
+    autoFitPages: (params.body.bookletConfig as any)?.autoFitPages === true,
     allowImages: (params.body.bookletConfig as any)?.allowImages !== false,
     imageBudgetPolicy: String((params.body.bookletConfig as any)?.imageBudgetPolicy ?? 'balanced'),
     headerStyle: String((params.body.bookletConfig as any)?.headerStyle ?? 'institutional'),

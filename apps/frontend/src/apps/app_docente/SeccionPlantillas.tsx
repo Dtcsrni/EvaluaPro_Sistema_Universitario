@@ -121,6 +121,7 @@ export function SeccionPlantillas({
   const [periodoId, setPeriodoId] = useState('');
   const [numeroPaginas, setNumeroPaginas] = useState(2);
   const [reactivosObjetivo, setReactivosObjetivo] = useState(20);
+  const [autoFitPages, setAutoFitPages] = useState(true);
   const [fontScale, setFontScale] = useState(1);
   const [lineSpacing, setLineSpacing] = useState(1.1);
   const [logoIzquierda, setLogoIzquierda] = useState(preferenciasPdf?.logos?.izquierdaPath ?? '');
@@ -555,6 +556,7 @@ export function SeccionPlantillas({
     setPeriodoId(String(plantilla.periodoId || ''));
     setNumeroPaginas(Number((plantilla as unknown as { numeroPaginas?: unknown })?.numeroPaginas ?? 1));
     setReactivosObjetivo(Number(plantilla.reactivosObjetivo ?? 20));
+    setAutoFitPages(plantilla.bookletConfig?.autoFitPages ?? true);
     setFontScale(Number(plantilla.bookletConfig?.fontScale ?? 1));
     setLineSpacing(Number(plantilla.bookletConfig?.lineSpacing ?? 1.1));
     setLogoIzquierda(String(plantilla.bookletConfig?.logos?.izquierdaPath ?? preferenciasPdf?.logos?.izquierdaPath ?? ''));
@@ -572,6 +574,7 @@ export function SeccionPlantillas({
     setPeriodoId('');
     setNumeroPaginas(2);
     setReactivosObjetivo(20);
+    setAutoFitPages(true);
     setFontScale(1);
     setLineSpacing(1.1);
     setLogoIzquierda(preferenciasPdf?.logos?.izquierdaPath ?? '');
@@ -620,6 +623,7 @@ export function SeccionPlantillas({
         bookletConfig: {
           targetPages: Math.max(1, Math.floor(numeroPaginas)),
           densityMode: 'compact',
+          autoFitPages,
           allowImages: true,
           imageBudgetPolicy: 'balanced',
           headerStyle: 'compact',
@@ -754,6 +758,7 @@ export function SeccionPlantillas({
         bookletConfig: {
           targetPages: Math.max(1, Math.floor(numeroPaginas)),
           densityMode: 'compact',
+          autoFitPages,
           allowImages: true,
           imageBudgetPolicy: 'balanced',
           headerStyle: 'compact',
@@ -1019,6 +1024,8 @@ export function SeccionPlantillas({
       setNumeroPaginas={setNumeroPaginas}
       reactivosObjetivo={reactivosObjetivo}
       setReactivosObjetivo={setReactivosObjetivo}
+      autoFitPages={autoFitPages}
+      setAutoFitPages={setAutoFitPages}
       logoIzquierda={logoIzquierda}
       logoDerecha={logoDerecha}
       seleccionarLogo={seleccionarLogo}

@@ -1784,18 +1784,23 @@ export class PdfKitRenderer {
       campoLineOffsetY: -5
     });
 
+    // La configuración de densidad solo compacta el cuerpo del examen. La
+    // cabecera institucional conserva su escala e interlineado para que los
+    // cambios de paginación no alteren su estética ni sus campos OMR.
     const fontScale = Math.min(1.3, Math.max(0.9, Number(examen.layout.fontScale ?? 1) || 1));
     const lineSpacing = Math.min(1.6, Math.max(0.9, Number(examen.layout.lineSpacing ?? 1) || 1));
+    const fontScaleCabecera = 1;
+    const lineSpacingCabecera = 1;
     // La retícula 3+2 libera suficiente ancho para subir ligeramente la
     // tipografía sin perder el objetivo de 20--25 reactivos en dos páginas.
     // La plantilla canónica horizontal conserva la escala tipográfica completa;
     // el ancho liberado por la geometría única evita reducir la legibilidad.
     const escalaPerfilDenso = 1;
-    const sizeTitulo = 17 * fontScale;
+    const sizeTitulo = 17 * fontScaleCabecera;
     // Tipografia de lectura humana. Estos valores recuperan la escala legible
-    // del generador original y mantienen fontScale/lineSpacing configurables;
+    // del generador original y mantienen la escala/interlineado configurables;
     // el OMR se conserva como columna secundaria, no como sustituto del texto.
-    const sizeMeta = 9.3 * fontScale;
+    const sizeMeta = 9.3 * fontScaleCabecera;
     const sizePregunta = 10.4 * fontScale * escalaPerfilDenso;
     const sizeOpcion = 8.8 * fontScale * escalaPerfilDenso;
     const sizeCodigoInline = 8.4 * fontScale * escalaPerfilDenso;
@@ -1940,13 +1945,13 @@ export class PdfKitRenderer {
     );
     const lineasExtraCabecera = Math.max(
       0,
-      estimarLineasCabecera(institucion, fuenteBold, 14.8 * fontScale) - 1
+      estimarLineasCabecera(institucion, fuenteBold, 14.8 * fontScaleCabecera) - 1
     ) + Math.max(
       0,
       estimarLineasCabecera(tituloCabecera, fuenteBold, sizeTitulo) - 1
     ) + Math.max(
       0,
-      estimarLineasCabecera(lema, fuenteItalica, 10.2 * fontScale) - 1
+      estimarLineasCabecera(lema, fuenteItalica, 10.2 * fontScaleCabecera) - 1
     ) + Math.max(
       0,
       lineasMetaEstimadas - 1
@@ -1955,7 +1960,7 @@ export class PdfKitRenderer {
     // Medirlas con el ancho real disponible permite ampliar únicamente las
     // cabeceras excepcionales, evitando tanto el recorte contra el QR como
     // reservar espacio vertical innecesario en exámenes normales.
-    const tamIndicacionesEstimado = Math.max(7.5, 6.4 * fontScale);
+    const tamIndicacionesEstimado = Math.max(7.5, 6.4 * fontScaleCabecera);
     const anchoIndicacionesEstimado = Math.max(
       120,
       xDerechaTexto - (margen + 14) - fuenteBold.widthOfTextAtSize('Indicaciones:', tamIndicacionesEstimado) - 5
@@ -1983,7 +1988,7 @@ export class PdfKitRenderer {
     // del marco al validar el layout.
     // Incluye el descenso de la regla inferior y su grosor, no solo las
     // alturas tipográficas de las dos etiquetas.
-    const altoZonaCalificacionEstimado = Math.max(6.4, 6.4 * fontScale) + 30;
+    const altoZonaCalificacionEstimado = Math.max(6.4, 6.4 * fontScaleCabecera) + 30;
     // Reducir la reserva base recupera el espacio inferior visible sin tocar
     // logos, QR ni tamaños tipográficos; las cabeceras largas conservan su
     // colchón adicional mediante la rama de 96 pt.
@@ -2387,11 +2392,11 @@ export class PdfKitRenderer {
         let instiLineas: string[] = [];
         let titLineas: string[] = [];
         let lemLineas: string[] = [];
-        let sizeInst = 14.2 * fontScale;
+        let sizeInst = 14.2 * fontScaleCabecera;
         let sizeTit = sizeTitulo;
-        let sizeLem = 10 * fontScale;
+        let sizeLem = 10 * fontScaleCabecera;
         let sizeMetaEsc = sizeMeta;
-        let sizeCampo = 9.6 * fontScale;
+        let sizeCampo = 9.6 * fontScaleCabecera;
         let metaLineGap: number = PLANTILLA_PX.metaLine;
         let yInsti = innerTop - sizeInst;
         let yTitulo = yInsti;
@@ -2400,11 +2405,11 @@ export class PdfKitRenderer {
         let yMetaUltima = yMeta;
 
         for (let i = 0; i < 8; i += 1) {
-          sizeInst = 14.8 * fontScale * escala;
+          sizeInst = 14.8 * fontScaleCabecera * escala;
           sizeTit = sizeTitulo * escala;
-          sizeLem = 10.2 * fontScale * escala;
+          sizeLem = 10.2 * fontScaleCabecera * escala;
           sizeMetaEsc = sizeMeta * escala;
-          sizeCampo = 10.6 * fontScale * escala;
+          sizeCampo = 10.6 * fontScaleCabecera * escala;
           metaLineGap = Math.max(PLANTILLA_PX.metaLine * escala, sizeMetaEsc + 1.2);
           instiLineas = ajustarLineas(institucion, fuenteBold, sizeInst);
           titLineas = ajustarLineas(examen.titulo, fuenteBold, sizeTit);
@@ -2447,7 +2452,7 @@ export class PdfKitRenderer {
           const reservaIndicacionesCampos = mostrarMarcaInstitucional
             ? 0
             : Math.max(0, lineasIndicacionesEstimadas - 1)
-              * (Math.max(7.5, 6.1 * fontScale) + 1.2);
+              * (Math.max(7.5, 6.1 * fontScaleCabecera) + 1.2);
           yNombre = Math.min(
             yNombreCalculado,
             yLimiteSuperiorCampos - sizeCampo - 1 - reservaIndicacionesCampos
@@ -2463,7 +2468,7 @@ export class PdfKitRenderer {
          // Anclar la fila de captura a la banda inferior de la cabecera deja
          // libre la zona institucional superior. La reserva usa el número
          // estimado de líneas de indicaciones.
-         const lineGapIndicacionesEstimado = Math.max(7.5, 6.4 * fontScale) + 1.2;
+         const lineGapIndicacionesEstimado = Math.max(7.5, 6.4 * fontScaleCabecera) + 1.2;
          // La fila de instrucciones necesita una separación completa aun
          // cuando no se dibuja la identidad institucional.
          const separacionDatosIndicaciones = 17;
@@ -2679,7 +2684,7 @@ export class PdfKitRenderer {
         // calificación. Mantenerlos aquí elimina una fila saturada a la
         // izquierda y aprovecha un espacio que antes solo tenía decoración.
         if (usarZonaCalificacion) {
-        const sizeCampoAux = Math.max(6.4, 6.4 * fontScale);
+        const sizeCampoAux = Math.max(6.4, 6.4 * fontScaleCabecera);
         const xZonaCalificacion = xLimiteZonaCalificacion;
         const xZonaCalificacionFin = xCaja + wCaja - 8;
         // Dos filas compactas conservan ambos campos bajo el QR y recuperan
@@ -2783,7 +2788,7 @@ export class PdfKitRenderer {
           // Cabeceras compactas sin espacio bajo el QR conservan los campos
           // en la fila izquierda; así el contenido sigue disponible en todos
           // los perfiles sin forzar texto fuera del encabezado.
-           const sizeCampoAux = Math.max(4, 4.2 * fontScale);
+           const sizeCampoAux = Math.max(4, 4.2 * fontScaleCabecera);
            const etiquetaReactivos = 'Reactivos:';
            const xEtiquetaReactivos = xAuxiliarFallback;
           const anchoEtiquetaReactivos = fuenteBold.widthOfTextAtSize(etiquetaReactivos, sizeCampoAux);
@@ -2821,7 +2826,7 @@ export class PdfKitRenderer {
           const textoIndicacionesHeader = instrucciones;
           const xIndicacionesBase = xDatosLeft;
           const xIndicacionesHeader = xIndicacionesBase + 14;
-          const tamIndicacionesHeader = Math.max(7.5, 6.4 * fontScale);
+          const tamIndicacionesHeader = Math.max(7.5, 6.4 * fontScaleCabecera);
           const anchoEtiquetaIndicaciones = fuenteBold.widthOfTextAtSize(etiquetaIndicaciones, tamIndicacionesHeader);
           const xTextoIndicacionesHeader = xIndicacionesHeader + anchoEtiquetaIndicaciones + 5;
           const xDerechaIndicaciones = usarZonaCalificacion
@@ -3324,8 +3329,8 @@ export class PdfKitRenderer {
         let hMin = 30;
         const hMax = Math.max(hMin, hDisponible);
 
-        let sizeIndicaciones = 8 * fontScale;
-        let lineaIndicaciones = 9.6 * fontScale * lineSpacing;
+        let sizeIndicaciones = 8 * fontScaleCabecera;
+        let lineaIndicaciones = 9.6 * fontScaleCabecera * lineSpacingCabecera;
         // Reservar una franja propia para el rotulo evita que la primera
         // linea de instrucciones invada el titulo al renderizar en PDF.
         const offsetPrimeraLinea = 31;
@@ -3380,7 +3385,7 @@ export class PdfKitRenderer {
           thickness: 0.8
         });
 
-        page.drawText('Indicaciones', { x: xInd + 8, y: yTopInd - 16, size: 9 * fontScale, font: fuenteBold, color: colorAcento });
+        page.drawText('Indicaciones', { x: xInd + 8, y: yTopInd - 16, size: 9 * fontScaleCabecera, font: fuenteBold, color: colorAcento });
 
         let yLinea = yTopInd - offsetPrimeraLinea;
         const yMinTexto = yTopInd - hCaja + 8;
@@ -4410,7 +4415,7 @@ export class PdfKitRenderer {
         minLineHeightApplied: Number.isFinite(minLineHeightApplied) ? minLineHeightApplied : lineaOpcion,
         fontSizePregunta: sizePregunta,
         fontSizeOpcion: sizeOpcion,
-        fontSizeIndicaciones: 8 * fontScale,
+        fontSizeIndicaciones: 8 * fontScaleCabecera,
         lineHeightPregunta: lineaPregunta,
         lineHeightOpcion: lineaOpcion,
         preguntasConFormatoRico: preguntasOrdenadas.length,

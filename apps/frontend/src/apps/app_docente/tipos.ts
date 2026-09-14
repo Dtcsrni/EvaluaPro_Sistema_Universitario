@@ -72,6 +72,7 @@ export type Plantilla = {
   bookletConfig?: {
     targetPages?: number;
     densityMode?: 'balanced' | 'compact' | 'relaxed';
+    autoFitPages?: boolean;
     allowImages?: boolean;
     imageBudgetPolicy?: 'strict' | 'balanced';
     headerStyle?: 'institutional' | 'compact';

@@ -33,6 +33,8 @@ export interface ParametrosGeneracionPdf {
   templateVersion?: TemplateVersion;
   bookletConfig?: {
     densityMode?: 'balanced' | 'compact' | 'relaxed';
+    /** Ajusta el cuerpo del examen para intentar encajar en totalPaginas. */
+    autoFitPages?: boolean;
     fontScale?: number;
     lineSpacing?: number;
     logos?: { izquierdaPath?: string; derechaPath?: string };

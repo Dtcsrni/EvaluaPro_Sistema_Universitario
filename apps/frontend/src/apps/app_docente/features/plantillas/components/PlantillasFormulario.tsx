@@ -35,6 +35,8 @@ export function PlantillasFormulario({
   setNumeroPaginas,
   reactivosObjetivo,
   setReactivosObjetivo,
+  autoFitPages,
+  setAutoFitPages,
   logoIzquierda,
   logoDerecha,
   seleccionarLogo,
@@ -68,6 +70,8 @@ export function PlantillasFormulario({
   setNumeroPaginas: (value: number) => void;
   reactivosObjetivo: number;
   setReactivosObjetivo: (value: number) => void;
+  autoFitPages: boolean;
+  setAutoFitPages: (value: boolean) => void;
   logoIzquierda: string;
   logoDerecha: string;
   seleccionarLogo: (lado: 'izquierda' | 'derecha', archivo: File | undefined) => void;
@@ -265,16 +269,18 @@ export function PlantillasFormulario({
           <div className="plantillas-formato-box__heading">
             <div>
               <span className="plantillas-formato-box__eyebrow">Formato de impresión</span>
-              <h4 className="plantillas-temas__title">Legibilidad y densidad</h4>
-              <p className="nota">Ajusta la lectura sin perder el orden de preguntas ni la precisión OMR.</p>
+              <h4 className="plantillas-temas__title">Ajuste de página</h4>
+              <p className="nota">Define el objetivo; el PDF real valida si el contenido cabe sin tocar la cabecera ni el OMR.</p>
             </div>
             <span className="plantillas-formato-box__badge">
-              {textoEstimacionDensidadPlantilla(estimacionDensidad)}
+              {autoFitPages
+                ? `Autoajuste · hasta ${numeroPaginas} ${numeroPaginas === 1 ? 'página' : 'páginas'}`
+                : textoEstimacionDensidadPlantilla(estimacionDensidad)}
             </span>
           </div>
           <div className="plantillas-formato-box__controls">
             <label className="campo plantillas-formato-control">
-              <span className="campo__label-row"><span>Páginas configuradas</span><b>{numeroPaginas}</b></span>
+              <span className="campo__label-row"><span>Páginas objetivo</span><b>{numeroPaginas}</b></span>
               <input
                 type="number"
                 min={1}
@@ -288,7 +294,7 @@ export function PlantillasFormulario({
                 disabled={bloqueoEdicion}
                 aria-label="Cantidad de páginas"
               />
-              <span className="ayuda">Define cuántas páginas debe ocupar aproximadamente el cuadernillo.</span>
+              <span className="ayuda">Cantidad máxima objetivo para el cuadernillo.</span>
             </label>
             <div className="campo plantillas-formato-control" aria-label="Cantidad de preguntas">
               <span className="campo__label-row"><span>Preguntas del examen</span><b>{reactivosConfigurados}</b></span>
@@ -311,8 +317,22 @@ export function PlantillasFormulario({
               </div>
               <span className="ayuda">{totalDisponiblePorTemas > 0 ? `Agrega o quita reactivos. Disponibles: ${totalDisponiblePorTemas}. Sugerido: ${reactivosSugeridos}.` : 'Selecciona al menos un tema para habilitar este control.'}</span>
             </div>
+            <label className="campo plantillas-formato-control plantillas-formato-control--wide">
+              <span className="campo__label-row"><span>Ajustar automáticamente</span><b>{autoFitPages ? 'Activo' : 'Manual'}</b></span>
+              <span className="plantillas-toggle-row">
+                <input
+                  type="checkbox"
+                  checked={autoFitPages}
+                  onChange={(event) => setAutoFitPages(event.target.checked)}
+                  disabled={bloqueoEdicion}
+                  aria-label="Ajustar automáticamente al número de páginas"
+                />
+                <span>Probar la combinación más legible que complete el objetivo.</span>
+              </span>
+              <span className="ayuda">Conserva la cabecera, el QR y la geometría OMR. Si no cabe, no elimina preguntas: muestra la advertencia real.</span>
+            </label>
             <label className="campo plantillas-formato-control">
-              <span className="campo__label-row"><span>Tamaño de fuente</span><b>{Math.round(fontScale * 100)}%</b></span>
+              <span className="campo__label-row"><span>Fuente del cuerpo</span><b>{Math.round(fontScale * 100)}%</b></span>
               <select
                 value={fontScale}
                 onChange={(event) => setFontScale(Number(event.target.value))}
@@ -324,7 +344,7 @@ export function PlantillasFormulario({
                 <option value="1.1">Grande (110%)</option>
                 <option value="1.2">Muy grande (120%)</option>
               </select>
-              <span className="ayuda">Se aplica al encabezado, preguntas y opciones.</span>
+              <span className="ayuda">Solo preguntas y opciones; la cabecera permanece fija.</span>
             </label>
             <label className="campo plantillas-formato-control">
               <span className="campo__label-row"><span>Espaciado de línea</span><b>{lineSpacing.toFixed(1)}×</b></span>
@@ -338,7 +358,7 @@ export function PlantillasFormulario({
                 <option value="1.1">Equilibrado (1.1×)</option>
                 <option value="1.2">Amplio (1.2×)</option>
               </select>
-              <span className="ayuda">El motor revalida cada bloque antes de dibujarlo.</span>
+              <span className="ayuda">Interlineado del cuerpo; el motor revalida cada bloque.</span>
             </label>
           </div>
           <div className="plantillas-formato-box__footer">

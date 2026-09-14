@@ -18,6 +18,7 @@ const esquemaBookletConfig = z
   .object({
     targetPages: z.number().int().positive().max(50).optional(),
     densityMode: z.enum(['balanced', 'compact', 'relaxed']).optional(),
+    autoFitPages: z.boolean().optional(),
     allowImages: z.boolean().optional(),
     imageBudgetPolicy: z.enum(['strict', 'balanced']).optional(),
     headerStyle: z.enum(['institutional', 'compact']).optional(),

@@ -38,7 +38,10 @@ export async function generarExamenIndividual(
     ? Math.max(4.5, Number(params.margenMm))
     : 8;
 
-  const examen = new ExamenPdf(
+  const perfilOmr = obtenerPerfilPlantilla(templateVersion);
+  const perfilLayout = resolverPerfilLayout();
+  const renderer = new PdfKitRenderer(perfilOmr, perfilLayout);
+  const construirExamen = (fontScale: number, lineSpacing: number) => new ExamenPdf(
     params.titulo?.trim() || 'Examen',
     params.folio?.trim() || 'SIN-FOLIO',
     params.examId?.trim(),
@@ -50,14 +53,44 @@ export async function generarExamenIndividual(
       templateVersion,
       totalPaginas,
       densityMode: params.bookletConfig?.densityMode,
-      fontScale: params.bookletConfig?.fontScale,
-      lineSpacing: params.bookletConfig?.lineSpacing,
+      fontScale,
+      lineSpacing,
       logos: params.bookletConfig?.logos
     },
     params.encabezado
   );
 
-  const perfilOmr = obtenerPerfilPlantilla(templateVersion);
-  const perfilLayout = resolverPerfilLayout();
-  return new PdfKitRenderer(perfilOmr, perfilLayout).generarPdf(examen);
+  const fontScaleBase = Math.min(1.3, Math.max(0.9, Number(params.bookletConfig?.fontScale ?? 1) || 1));
+  const lineSpacingBase = Math.min(1.6, Math.max(0.9, Number(params.bookletConfig?.lineSpacing ?? 1.1) || 1.1));
+  const renderizar = (fontScale: number, lineSpacing: number) =>
+    renderer.generarPdf(construirExamen(fontScale, lineSpacing));
+
+  if (params.bookletConfig?.autoFitPages !== true) {
+    return renderizar(fontScaleBase, lineSpacingBase);
+  }
+
+  // Autoajuste conservador: primero intenta conservar la tipografía y solo
+  // compacta el cuerpo del examen. La cabecera queda protegida en el renderer.
+  const escalas = [...new Set([fontScaleBase, 1, 0.95, 0.9])]
+    .filter((value) => value >= 0.9 && value <= fontScaleBase)
+    .sort((a, b) => b - a);
+  const espaciados = [...new Set([lineSpacingBase, 1])]
+    .filter((value) => value >= 0.9 && value <= lineSpacingBase)
+    .sort((a, b) => b - a);
+
+  let ultimoResultado: ResultadoGeneracionPdf | undefined;
+  for (const escala of escalas) {
+    for (const espaciado of espaciados) {
+      const resultado = await renderizar(escala, espaciado);
+      ultimoResultado = resultado;
+      if (resultado.preguntasRestantes === 0 && resultado.paginas.length <= totalPaginas) {
+        return resultado;
+      }
+    }
+  }
+
+  // Nunca se recortan preguntas ni se fuerza una geometría insegura: si el
+  // contenido no cabe, se conserva el mejor intento para que la UI muestre la
+  // advertencia real del motor y sugiera aumentar páginas o editar contenido.
+  return ultimoResultado ?? renderizar(fontScaleBase, lineSpacingBase);
 }
