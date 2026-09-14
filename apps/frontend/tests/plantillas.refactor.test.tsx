@@ -187,6 +187,7 @@ describe('plantillas refactor y navegación por pestañas (SPEC-034)', () => {
     expect(inputTitulo.value).toBe('Parcial Algebra');
 
     expect(screen.getByRole('button', { name: /Actualizar plantilla/i })).toBeInTheDocument();
+    expect(screen.getAllByRole('button', { name: /Previsualizar PDF/i })).toHaveLength(2);
     expect(screen.getByRole('button', { name: /^Cancelar$/i })).toBeInTheDocument();
 
     // Cancelar edición

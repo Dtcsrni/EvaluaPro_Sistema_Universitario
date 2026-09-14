@@ -403,6 +403,10 @@ export function SeccionPlantillas({
       setPreviewPdfUrlPorPlantillaId,
       setCargandoPreviewPdfPlantillaId
     });
+  async function previsualizarPdfEdicion() {
+    if (!plantillaEditandoId) return;
+    await cargarPreviewPdfPlantilla(plantillaEditandoId, 'booklet');
+  }
   const { cargarAssessmentDetalle, descargarArtifact, crearJobOmr, resolverHojaOmr, finalizarJobOmr } = usePlantillasOmrActions({
     avisarSinPermiso,
     puedeDescargarExamenes,
@@ -1186,6 +1190,8 @@ export function SeccionPlantillas({
             puedeCrear={puedeCrear}
             crear={crear}
             guardandoPlantilla={guardandoPlantilla}
+            previsualizarPdf={previsualizarPdfEdicion}
+            previsualizandoPdf={cargandoPreviewPdfPlantillaId === plantillaEditandoId && Boolean(plantillaEditandoId)}
             guardarEdicion={guardarEdicion}
             cancelarEdicion={cancelarEdicion}
             mensaje={mensaje}

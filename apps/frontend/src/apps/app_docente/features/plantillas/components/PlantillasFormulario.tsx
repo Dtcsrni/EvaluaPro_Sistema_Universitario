@@ -46,6 +46,8 @@ export function PlantillasFormulario({
   puedeCrear,
   crear,
   guardandoPlantilla,
+  previsualizarPdf,
+  previsualizandoPdf,
   guardarEdicion,
   cancelarEdicion,
   mensaje
@@ -77,6 +79,8 @@ export function PlantillasFormulario({
   puedeCrear: boolean;
   crear: () => void;
   guardandoPlantilla: boolean;
+  previsualizarPdf: () => Promise<void>;
+  previsualizandoPdf: boolean;
   guardarEdicion: () => Promise<void>;
   cancelarEdicion: () => void;
   mensaje: string;
@@ -373,6 +377,16 @@ export function PlantillasFormulario({
                   onClick={() => void guardarEdicion()}
                 >
                   {guardandoPlantilla ? 'Actualizando…' : 'Actualizar plantilla'}
+                </Boton>
+                <Boton
+                  type="button"
+                  variante="secundario"
+                  cargando={previsualizandoPdf}
+                  disabled={!plantillaEditando || bloqueoEdicion}
+                  onClick={() => void previsualizarPdf()}
+                  data-tooltip="Genera la previsualización del PDF real de la última configuración guardada."
+                >
+                  Previsualizar PDF
                 </Boton>
                 <Boton type="button" variante="secundario" onClick={cancelarEdicion}>
                   Cancelar
