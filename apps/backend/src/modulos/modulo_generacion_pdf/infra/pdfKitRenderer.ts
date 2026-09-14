@@ -2635,13 +2635,11 @@ export class PdfKitRenderer {
         const xLineaReactivosFin = xConteoReactivos - 3;
         const etiquetaCalificacion = 'Calificación (0-5):';
         const anchoEtiquetaCalificacion = fuenteBold.widthOfTextAtSize(etiquetaCalificacion, sizeCampoAux);
-        // La regla va debajo de la etiqueta para conservar el texto completo
-        // incluso en cabeceras con una reserva QR mas angosta.
-        const xLineaCalificacion = xZonaCalificacion + 2;
-        const xLineaCalificacionFin = Math.min(
-          xZonaCalificacionFin,
-          xZonaCalificacion + Math.max(24, anchoEtiquetaCalificacion - 2)
-        );
+        // La regla continúa a la derecha de la etiqueta, como un campo de
+        // captura convencional; antes quedaba debajo del texto y parecía
+        // tacharlo al rasterizar la cabecera.
+        const xLineaCalificacion = xZonaCalificacion + anchoEtiquetaCalificacion + 3;
+        const xLineaCalificacionFin = xZonaCalificacionFin;
         if (
           xLineaReactivosFin <= xLineaReactivos
           || xConteoReactivos + anchoConteoReactivos > xZonaCalificacionFin
