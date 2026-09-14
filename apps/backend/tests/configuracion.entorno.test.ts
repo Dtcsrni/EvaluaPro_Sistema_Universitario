@@ -33,7 +33,7 @@ describe('configuracion (entorno)', () => {
     process.env.PORTAL_ALUMNO_URL = 'http://localhost:8080';
     process.env.PORTAL_ALUMNO_API_KEY = 'portal-key';
 
-    const { configuracion } = await import('../src/configuracion');
+    const { configuracion } = await import('../src/configuracion.js');
 
     expect(configuracion.entorno).toBe('test');
     expect(dotenvConfigMock).not.toHaveBeenCalled();
@@ -42,7 +42,7 @@ describe('configuracion (entorno)', () => {
   it('carga dotenv en desarrollo', async () => {
     process.env.NODE_ENV = 'development';
 
-    const { configuracion } = await import('../src/configuracion');
+    const { configuracion } = await import('../src/configuracion.js');
 
     expect(configuracion.entorno).toBe('development');
     expect(dotenvConfigMock).toHaveBeenCalledTimes(1);

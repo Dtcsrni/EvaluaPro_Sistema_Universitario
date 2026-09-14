@@ -9,6 +9,7 @@ import { Icono } from '../../../../../ui/iconos';
 import { obtenerVersionPregunta } from '../../../utilidades';
 import { estimarPaginasParaPreguntas, normalizarNombreTema, type TemaBanco } from '../../../SeccionBanco.helpers';
 import type { Pregunta } from '../../../tipos';
+import { textoPlanoRico } from './RichTextEditor';
 
 export function BancoAjustePreguntas({
   tema,
@@ -104,7 +105,7 @@ export function BancoAjustePreguntas({
             const version = obtenerVersionPregunta(p);
             const marcado = ajusteSeleccion.has(p._id);
             return (
-              <li key={p._id}><label className="ajuste-check"><input type="checkbox" checked={marcado} onChange={() => setAjusteSeleccion((prev) => { const next = new Set(prev); if (next.has(p._id)) next.delete(p._id); else next.add(p._id); return next; })} /><span>{String(version?.enunciado ?? 'Pregunta').slice(0, 120)}</span></label></li>
+              <li key={p._id}><label className="ajuste-check"><input type="checkbox" checked={marcado} onChange={() => setAjusteSeleccion((prev) => { const next = new Set(prev); if (next.has(p._id)) next.delete(p._id); else next.add(p._id); return next; })} /><span>{textoPlanoRico(String(version?.enunciado ?? 'Pregunta')).slice(0, 120)}</span></label></li>
             );
           })}
         </ul>
@@ -138,7 +139,7 @@ export function BancoAjustePreguntas({
                   const v = obtenerVersionPregunta(p);
                   const marcado = sinTemaSeleccion.has(p._id);
                   return (
-                    <li key={p._id}><label className="ajuste-check"><input type="checkbox" checked={marcado} onChange={() => setSinTemaSeleccion((prev) => { const next = new Set(prev); if (next.has(p._id)) next.delete(p._id); else next.add(p._id); return next; })} /><span>{String(v?.enunciado ?? 'Pregunta').slice(0, 120)}</span></label></li>
+                    <li key={p._id}><label className="ajuste-check"><input type="checkbox" checked={marcado} onChange={() => setSinTemaSeleccion((prev) => { const next = new Set(prev); if (next.has(p._id)) next.delete(p._id); else next.add(p._id); return next; })} /><span>{textoPlanoRico(String(v?.enunciado ?? 'Pregunta')).slice(0, 120)}</span></label></li>
                   );
                 })}
               </ul>

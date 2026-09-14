@@ -1,0 +1,15 @@
+{
+  "algoritmo": "sha256",
+  "csv": {
+    "hashCalculado": "feef70d7c86726b3315202e4c2a660ef5a9e81047c2261e0dbfa4f79e709389c",
+    "hashManifiesto": "feef70d7c86726b3315202e4c2a660ef5a9e81047c2261e0dbfa4f79e709389c",
+    "bytesCalculados": 157,
+    "bytesManifiesto": 157
+  },
+  "docx": {
+    "hashCalculado": "c4fd83a35e54d855f7dd3a7b0229762d6c723f91b3a8fa15efc2e3011f4dadc0",
+    "hashManifiesto": "c4fd83a35e54d855f7dd3a7b0229762d6c723f91b3a8fa15efc2e3011f4dadc0",
+    "bytesCalculados": 8814,
+    "bytesManifiesto": 8814
+  }
+}

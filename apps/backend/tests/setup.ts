@@ -8,7 +8,7 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { afterAll } from 'vitest';
-import { resolverNombreDbTest } from './utils/testDbPath';
+import { resolverNombreDbTest } from './utils/testDbPath.js';
 
 const dbFile = resolverNombreDbTest();
 const configuredDataDir = String(process.env.EVALUAPRO_TEST_DATA_DIR || '').trim();
@@ -26,7 +26,7 @@ async function limpiarDataTest() {
   // mantiene abierta SQLite. Desconectar primero evita residuos temporales.
   if (!configuredDataDir) {
     try {
-      const { prisma } = await import('../src/infraestructura/baseDatos/sqlite');
+      const { prisma } = await import('../src/infraestructura/baseDatos/sqlite.js');
       await prisma.$disconnect();
     } catch {
       // Algunos tests no cargan Prisma; la limpieza del directorio continúa.
@@ -45,7 +45,7 @@ process.on('exit', () => {
   }
 });
 
-import { instalarTestHardening } from '../../../test-utils/vitestStrict';
+import { instalarTestHardening } from '../../../test-utils/vitestStrict.js';
 
 // Setup comun para pruebas del backend.
 process.env.NODE_ENV = 'test';

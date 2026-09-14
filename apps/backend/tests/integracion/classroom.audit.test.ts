@@ -6,20 +6,20 @@
  */
 import request from 'supertest';
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
-import { crearApp } from '../../src/app';
-import { ErrorAplicacion } from '../../src/compartido/errores/errorAplicacion';
-import { Alumno } from '../../src/modulos/modulo_alumnos/modeloAlumno';
-import { Periodo } from '../../src/modulos/modulo_alumnos/modeloPeriodo';
-import { Docente } from '../../src/modulos/modulo_autenticacion/modeloDocente';
-import { crearTokenDocente } from '../../src/modulos/modulo_autenticacion/servicioTokens';
-import { EvidenciaEvaluacion } from '../../src/modulos/modulo_evaluaciones/modeloEvidenciaEvaluacion';
+import { crearApp } from '../../src/app.js';
+import { ErrorAplicacion } from '../../src/compartido/errores/errorAplicacion.js';
+import { Alumno } from '../../src/modulos/modulo_alumnos/modeloAlumno.js';
+import { Periodo } from '../../src/modulos/modulo_alumnos/modeloPeriodo.js';
+import { Docente } from '../../src/modulos/modulo_autenticacion/modeloDocente.js';
+import { crearTokenDocente } from '../../src/modulos/modulo_autenticacion/servicioTokens.js';
+import { EvidenciaEvaluacion } from '../../src/modulos/modulo_evaluaciones/modeloEvidenciaEvaluacion.js';
 import {
   classroomGet,
   listarActividadesClassroom,
   listarCursosClassroom,
   obtenerTokenAccesoClassroom
-} from '../../src/modulos/modulo_integraciones_classroom/servicioClassroomGoogle';
-import { cerrarMongoTest, conectarMongoTest, limpiarMongoTest } from '../utils/mongo';
+} from '../../src/modulos/modulo_integraciones_classroom/servicioClassroomGoogle.js';
+import { cerrarMongoTest, conectarMongoTest, limpiarMongoTest } from '../utils/mongo.js';
 
 vi.mock('../../src/modulos/modulo_integraciones_classroom/servicioClassroomGoogle', () => ({
   construirUrlOauthClassroom: vi.fn(),

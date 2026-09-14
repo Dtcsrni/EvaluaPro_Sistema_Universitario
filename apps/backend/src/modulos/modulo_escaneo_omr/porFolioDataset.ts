@@ -95,6 +95,8 @@ export type MapaOmrPaginaPorFolio = {
     y: number;
     size: number;
     padding: number;
+    marginModules?: number;
+    matrixModules?: number;
   };
   marcasPagina: {
     tipo: 'cuadrados';

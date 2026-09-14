@@ -6,7 +6,7 @@
  */
 import sharp from 'sharp';
 import { describe, expect, it } from 'vitest';
-import { generarPdfExamen } from '../src/modulos/modulo_generacion_pdf/servicioGeneracionPdf';
+import { generarPdfExamen } from '../src/modulos/modulo_generacion_pdf/servicioGeneracionPdf.js';
 
 describe('pdf question image formats', () => {
   it('renderiza imagen de pregunta en data URL webp', async () => {

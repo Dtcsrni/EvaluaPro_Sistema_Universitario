@@ -8,9 +8,9 @@
 import request from 'supertest';
 import QRCode from 'qrcode';
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
-import { crearApp } from '../../src/app';
-import { extraerResumenQrExamen } from '../../src/modulos/modulo_generacion_pdf/domain/qrExamen';
-import { cerrarMongoTest, conectarMongoTest, limpiarMongoTest } from '../utils/mongo';
+import { crearApp } from '../../src/app.js';
+import { extraerResumenQrExamen } from '../../src/modulos/modulo_generacion_pdf/domain/qrExamen.js';
+import { cerrarMongoTest, conectarMongoTest, limpiarMongoTest } from '../utils/mongo.js';
 
 function invalidarFirmaQr(textoQr: string) {
   return String(textoQr).replace(/:SG:[A-Z0-9]+$/i, ':SG:H1AAAAAAAAAAAAAAAAAAAAAAAA');
@@ -137,9 +137,8 @@ describe('escaneo OMR: QR asociado a examen', () => {
     expect(resumenQr?.keyId).toBeTruthy();
     expect(resumenQr?.variantHash).toBeTruthy();
     expect(resumenQr?.answerKeyHash).toBeTruthy();
+    expect(resumenQr?.pageAnswerKey).toMatch(/^[A-E]+$/);
     expect(resumenQr?.payloadSignature).toBeTruthy();
-    expect((resumenQr?.questionRefs ?? []).length).toBeGreaterThan(0);
-    expect((resumenQr?.optionOrders ?? []).length).toBeGreaterThan(0);
 
     const qrParaImagen = String(paginas[0].qrTexto || qrEsperado);
     const imagenBase64 = await QRCode.toDataURL(qrParaImagen, { margin: 1, width: QR_IMAGE_WIDTH });

@@ -146,7 +146,6 @@ export function PlantillasListado({
             const pdfPages = pdfUrls.bookletPages ?? [];
             const totalReactivos = Number(
               plantilla.reactivosObjetivo
-              ?? plantilla.totalReactivos
               ?? plantilla.preguntasIds?.length
               ?? preview?.questionCount
               ?? 0

@@ -42,6 +42,7 @@ este documento se actualiza automáticamente al regenerar.
 - `EVALUAPRO_SYNC_E2E_CLOUD_DIR` (usado en: apps/backend/tests/sincronizacion.dos-equipos.e2e.test.ts)
 - `EVALUAPRO_SYNC_E2E_DOCENTE` (usado en: apps/backend/tests/sincronizacion.dos-equipos.e2e.test.ts)
 - `EVALUAPRO_SYNC_E2E_EQUIPO` (usado en: apps/backend/tests/sincronizacion.dos-equipos.e2e.test.ts)
+- `EVALUAPRO_SYNC_E2E_LEASE_ID` (usado en: apps/backend/tests/sincronizacion.dos-equipos.e2e.test.ts)
 - `EVALUAPRO_SYNC_E2E_OP` (usado en: apps/backend/tests/sincronizacion.dos-equipos.e2e.test.ts)
 - `EVALUAPRO_SYNC_E2E_PASSWORD` (usado en: apps/backend/tests/sincronizacion.dos-equipos.e2e.test.ts)
 - `EVALUAPRO_SYNC_E2E_SEMILLA` (usado en: apps/backend/tests/sincronizacion.dos-equipos.e2e.test.ts)

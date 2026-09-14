@@ -25,6 +25,17 @@ function runMatrixGenerator(extraArgs = []) {
 test('genera matriz canonica exhaustiva de pantallas GUI', () => {
   runMatrixGenerator(['--write']);
 
+  for (const responsiveSpec of [
+    'tests/gui-responsive/responsive-docente.spec.ts',
+    'tests/gui-responsive/responsive-alumno.spec.ts',
+    'tests/gui-responsive/responsive-admin.spec.ts'
+  ]) {
+    const source = fs.readFileSync(path.join(root, responsiveSpec), 'utf8');
+    assert.match(source, /name:\s*'desktop-lg',\s*width:\s*1920,\s*height:\s*1080/, `${responsiveSpec} debe fijar desktop Full HD`);
+  }
+  const cicloConfig = fs.readFileSync(path.join(root, 'tests/gui-responsive/playwright.ciclo.config.mjs'), 'utf8');
+  assert.match(cicloConfig, /viewport:\s*\{\s*width:\s*1920,\s*height:\s*1080\s*\}/, 'el ciclo nativo debe fijar desktop Full HD');
+
   assert.equal(fs.existsSync(matrixJsonPath), true, 'debe escribir JSON de matriz GUI');
   assert.equal(fs.existsSync(matrixMarkdownPath), true, 'debe escribir checklist Markdown manual');
 
@@ -40,6 +51,9 @@ test('genera matriz canonica exhaustiva de pantallas GUI', () => {
   assert.equal(matrix.acceptance.contrastStateCoverageRequired, true, 'debe cubrir contraste por estado');
   assert.equal(matrix.acceptance.visualEvidenceManifestRequired, true, 'debe exigir manifest de evidencia visual');
   assert.ok(Array.isArray(matrix.lifecycleScenarios) && matrix.lifecycleScenarios.length >= 20, 'debe cubrir escenarios lifecycle');
+  assert.deepEqual(matrix.viewportProfiles.desktop, { width: 1920, height: 1080, priority: 'primary' }, 'desktop debe ser Full HD primario');
+  assert.deepEqual(matrix.viewportProfiles.tablet, { width: 1024, height: 768, priority: 'regression' });
+  assert.deepEqual(matrix.viewportProfiles.mobile, { width: 390, height: 844, priority: 'regression' });
   for (const scenario of matrix.lifecycleScenarios) {
     assert.ok(scenario.id && scenario.operation && scenario.state && scenario.expected, 'cada escenario debe tener contrato completo');
   }

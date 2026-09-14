@@ -115,7 +115,6 @@ export function SeccionPlantillas({
   const TECNICO_VERSIONES_DEFAULT = 1;
   const TECNICO_FAMILIA_OMR_DEFAULT = 'S50_5A_ID5_VR6';
   const TECNICO_PREFILL_DEFAULT = 'none' as const;
-  const TECNICO_MODO_VERSION_DEFAULT = 'single' as const;
 
   const [titulo, setTitulo] = useState('');
   const [tipo, setTipo] = useState<'parcial' | 'global'>('parcial');
@@ -616,7 +615,7 @@ export function SeccionPlantillas({
         answerKeyMode: 'digital',
         bookletConfig: {
           targetPages: Math.max(1, Math.floor(numeroPaginas)),
-          densityMode: 'balanced',
+          densityMode: 'compact',
           allowImages: true,
           imageBudgetPolicy: 'balanced',
           headerStyle: 'compact',
@@ -634,7 +633,6 @@ export function SeccionPlantillas({
           prefillMode: TECNICO_PREFILL_DEFAULT,
           identityMode: 'qr_plus_bubbled_id',
           allowBlankGenericSheets: true,
-          versionMode: TECNICO_MODO_VERSION_DEFAULT,
           ignoreUnusedTrailingQuestions: true,
           captureMode: 'pdf_and_mobile'
         },
@@ -751,7 +749,7 @@ export function SeccionPlantillas({
         answerKeyMode: 'digital',
         bookletConfig: {
           targetPages: Math.max(1, Math.floor(numeroPaginas)),
-          densityMode: 'balanced',
+          densityMode: 'compact',
           allowImages: true,
           imageBudgetPolicy: 'balanced',
           headerStyle: 'compact',
@@ -769,7 +767,6 @@ export function SeccionPlantillas({
           prefillMode: TECNICO_PREFILL_DEFAULT,
           identityMode: 'qr_plus_bubbled_id',
           allowBlankGenericSheets: true,
-          versionMode: TECNICO_MODO_VERSION_DEFAULT,
           ignoreUnusedTrailingQuestions: true,
           captureMode: 'pdf_and_mobile'
         }
@@ -819,12 +816,8 @@ export function SeccionPlantillas({
         advertencias?: string[];
       }>(
         'examenes:generar',
-        `/assessments/templates/${encodeURIComponent(plantillaId)}/generate`,
-        {
-          prefillMode: TECNICO_PREFILL_DEFAULT,
-          versionCount: TECNICO_VERSIONES_DEFAULT,
-          sheetFamilyCode: TECNICO_FAMILIA_OMR_DEFAULT
-        },
+        '/examenes/generados',
+        { plantillaId },
         'No tienes permiso para generar examenes.'
       );
       const ex =

@@ -1,7 +1,10 @@
 import fs from 'node:fs';
 import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
-import { extraerTextoPdf, parsearTextoTemario } from '../src/modulos/modulo_temarios/servicioParserTemario';
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+import { extraerTextoPdf, parsearTextoTemario } from '../src/modulos/modulo_temarios/servicioParserTemario.js';
 
 describe('servicioParserTemario', () => {
   it('parsea numeración jerárquica sin backtracking sobre títulos controlados por usuario', () => {

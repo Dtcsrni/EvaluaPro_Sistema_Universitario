@@ -3,7 +3,7 @@
  *
  * Responsabilidad: Singleton del cliente de Prisma para conexion local a SQLite del portal.
  */
-import { PrismaClient } from './generado/cliente';
+import { PrismaClient } from './generado/cliente/client.js';
 import path from 'node:path';
 import fs from 'node:fs';
 

@@ -10,9 +10,9 @@ import fs from 'node:fs/promises';
 import path from 'node:path';
 import request from 'supertest';
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
-import { crearApp } from '../../src/app';
-import { prisma } from '../../src/infraestructura/baseDatos/sqlite';
-import { cerrarMongoTest, conectarMongoTest, limpiarMongoTest } from '../utils/mongo';
+import { crearApp } from '../../src/app.js';
+import { prisma } from '../../src/infraestructura/baseDatos/sqlite.js';
+import { cerrarMongoTest, conectarMongoTest, limpiarMongoTest } from '../utils/mongo.js';
 
 describe('retención de exámenes generados', () => {
   const app = crearApp();

@@ -69,10 +69,10 @@
     "test:portal:ci": "node scripts/retry.mjs --name portal --attempts 3 --delay-ms 750 --command \"npm -C apps/portal_alumno_cloud run test\"",
     "test:frontend": "npm -C apps/frontend run test",
     "test:frontend:ci": "node scripts/retry.mjs --name frontend --attempts 5 --delay-ms 900 --command \"npm -C apps/frontend run test -- --pool=forks --reporter=verbose\" --fallback-command \"npm -C apps/frontend run test -- --pool=threads --reporter=verbose\"",
-    "test:gui:responsive:e2e:docente": "playwright test -c tests/gui-responsive/playwright.config.cjs",
+    "test:gui:responsive:e2e:docente": "playwright test -c tests/gui-responsive/playwright.config.mjs",
     "test:smoke:live": "node scripts/testing/smoke-live-docente.mjs",
-    "test:gui:responsive:e2e:alumno": "playwright test -c tests/gui-responsive/playwright.alumno.config.cjs",
-    "test:gui:responsive:e2e:admin": "playwright test -c tests/gui-responsive/playwright.admin.config.cjs",
+    "test:gui:responsive:e2e:alumno": "playwright test -c tests/gui-responsive/playwright.alumno.config.mjs",
+    "test:gui:responsive:e2e:admin": "playwright test -c tests/gui-responsive/playwright.admin.config.mjs",
     "test:gui:responsive:e2e": "npm-run-all -s test:gui:responsive:e2e:docente test:gui:responsive:e2e:alumno test:gui:responsive:e2e:admin",
     "test:gui:responsive:e2e:ci": "npm-run-all -s test:gui:responsive:e2e:docente test:gui:responsive:e2e:alumno test:gui:responsive:e2e:admin",
     "gui:screen-matrix": "node scripts/testing/generate-gui-screen-matrix.mjs --write",
@@ -238,14 +238,14 @@
     "@types/supertest": "^7.2.0",
     "@typescript-eslint/eslint-plugin": "^8.56.1",
     "@typescript-eslint/parser": "^8.56.1",
-    "@vitest/coverage-v8": "^4.1.9",
+    "@vitest/coverage-v8": "^4.1.11",
     "eslint": "^9.39.1",
     "jsdom": "^28.1.0",
     "npm-run-all": "^4.1.5",
     "supertest": "^7.2.2",
     "tsx": "^4.21.0",
     "typescript": "^5.9.3",
-    "vitest": "^4.1.9"
+    "vitest": "^4.1.11"
   },
   "optionalDependencies": {
     "gcp-metadata": "^7.0.1"

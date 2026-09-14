@@ -2,10 +2,10 @@
  * Controlador del módulo de temarios.
  */
 import type { Response } from 'express';
-import { ErrorAplicacion } from '../../compartido/errores/errorAplicacion';
-import { obtenerDocenteId, type SolicitudDocente } from '../modulo_autenticacion/middlewareAutenticacion';
-import { prisma } from '../../infraestructura/baseDatos/sqlite';
-import { parsearTextoTemario, extraerTextoPdf } from './servicioParserTemario';
+import { ErrorAplicacion } from '../../compartido/errores/errorAplicacion.js';
+import { obtenerDocenteId, type SolicitudDocente } from '../modulo_autenticacion/middlewareAutenticacion.js';
+import { prisma } from '../../infraestructura/baseDatos/sqlite.js';
+import { parsearTextoTemario, extraerTextoPdf } from './servicioParserTemario.js';
 
 // ─── Temarios ─────────────────────────────────────────────────────────────────
 

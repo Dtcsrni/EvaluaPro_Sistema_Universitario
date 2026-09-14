@@ -6,21 +6,21 @@
  * - `descargarPdf` solo sirve PDFs cuyo path proviene del propio documento del examen.
  */
 import type { Response } from 'express';
-import { ErrorAplicacion } from '../../compartido/errores/errorAplicacion';
-import { configuracion } from '../../configuracion';
-import { obtenerDocenteId, type SolicitudDocente } from '../modulo_autenticacion/middlewareAutenticacion';
+import { ErrorAplicacion } from '../../compartido/errores/errorAplicacion.js';
+import { configuracion } from '../../configuracion.js';
+import { obtenerDocenteId, type SolicitudDocente } from '../modulo_autenticacion/middlewareAutenticacion.js';
 import { promises as fs } from 'fs';
-import { prisma } from '../../infraestructura/baseDatos/sqlite';
-import { generarPdfExamen } from './servicioGeneracionPdf';
-import { guardarPdfExamen } from '../../infraestructura/archivos/almacenLocal';
-import { normalizarParaNombreArchivo } from '../../compartido/utilidades/texto';
-import { resolverNumeroPaginasPlantilla } from './domain/resolverNumeroPaginasPlantilla';
-import { TEMPLATE_VERSION_CANONICA } from './domain/templateCanonico';
+import { prisma } from '../../infraestructura/baseDatos/sqlite.js';
+import { generarPdfExamen } from './servicioGeneracionPdf.js';
+import { guardarPdfExamen } from '../../infraestructura/archivos/almacenLocal.js';
+import { normalizarParaNombreArchivo } from '../../compartido/utilidades/texto.js';
+import { resolverNumeroPaginasPlantilla } from './domain/resolverNumeroPaginasPlantilla.js';
+import { TEMPLATE_VERSION_CANONICA } from './domain/templateCanonico.js';
 import {
   asegurarExamenDescargable,
   construirMetadataRetencion,
   ejecutarPurgeExamenesGenerados
-} from './servicioRetencionExamenes';
+} from './servicioRetencionExamenes.js';
 
 type BancoPreguntaLean = {
   _id: unknown;
@@ -222,6 +222,49 @@ export async function obtenerExamenPorFolio(req: SolicitudDocente, res: Response
   }
   const formatted = formatearExamenGeneradoPrisma(raw);
   res.json({ examen: { ...formatted, ...construirMetadataRetencion(formatted) } });
+}
+
+/**
+ * Obtiene el detalle consumido por el workflow OMR moderno.
+ * La respuesta conserva el examen generado existente y expone solo URLs
+ * respaldadas por rutas reales del API.
+ */
+export async function obtenerExamenGeneradoPorId(req: SolicitudDocente, res: Response) {
+  const docenteId = obtenerDocenteId(req);
+  const examenId = String(req.params.id || '').trim();
+  const raw = await prisma.examenGenerado.findFirst({ where: { id: examenId, docenteId } });
+  if (!raw) throw new ErrorAplicacion('EXAMEN_NO_ENCONTRADO', 'Examen no encontrado', 404);
+
+  const formatted = formatearExamenGeneradoPrisma(raw) as any;
+  const versionSet = Array.isArray(formatted.versionSet)
+    ? formatted.versionSet.map((item: any) => ({
+        versionCode: String(item?.versionCode ?? item?.codigo ?? 'A'),
+        questionCount: Number(item?.questionCount ?? item?.preguntas ?? 0)
+      }))
+    : [];
+  const sheetInstances = Array.isArray(formatted.sheetInstances) ? formatted.sheetInstances : [];
+  const rawSummary = formatted.statisticsSummary && typeof formatted.statisticsSummary === 'object' ? formatted.statisticsSummary : {};
+
+  res.json({
+    assessment: {
+      _id: formatted._id,
+      folio: formatted.folio,
+      generationSeed: String(formatted.generationSeed ?? ''),
+      previewFingerprint: String(formatted.previewFingerprint ?? ''),
+      bookletPdfUrl: `/examenes/generados/${encodeURIComponent(formatted._id)}/pdf`,
+      omrSheetPdfUrl: `/examenes/generados/${encodeURIComponent(formatted._id)}/pdf`,
+      versionSet,
+      statisticsSummary: {
+        sheetCount: Number(rawSummary.sheetCount ?? sheetInstances.length),
+        studentPacketCount: Number(rawSummary.studentPacketCount ?? (Array.isArray(formatted.studentPacketArtifacts) ? formatted.studentPacketArtifacts.length : 0)),
+        versionCount: Number(rawSummary.versionCount ?? versionSet.length)
+      }
+    },
+    sheetInstances,
+    statisticsSummary: rawSummary,
+    versionSet,
+    studentPacketArtifacts: Array.isArray(formatted.studentPacketArtifacts) ? formatted.studentPacketArtifacts : []
+  });
 }
 
 /**

@@ -111,7 +111,10 @@ export function PlantillasFormulario({
   };
 
   return (
-    <section className="alumnos-form alumnos-form--glass alumnos-form--panoramico plantillas-form--panoramico anim-form-card">
+    <section
+      className="alumnos-form alumnos-form--glass alumnos-form--panoramico plantillas-form--panoramico anim-form-card"
+      aria-label="Formulario de plantilla"
+    >
       <div className="alumnos-form__header">
         <div className="banco-section-title__wrap">
           <span className="banco-section-pill">

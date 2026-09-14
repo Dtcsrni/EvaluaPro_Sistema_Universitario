@@ -4,11 +4,11 @@
  * Responsabilidad: Modulo interno del sistema.
  * Limites: Mantener contrato y comportamiento observable del modulo.
  */
-import { configuracion } from '../../../../configuracion';
-import { enviarCorreo } from '../../../../infraestructura/correo/servicioCorreo';
-import { CodigoAcceso } from '../../modeloCodigoAcceso';
-import { generarCodigoSimple } from '../../sincronizacionInterna';
-import { syncClock } from '../../infra/repositoriosSync';
+import { configuracion } from '../../../../configuracion.js';
+import { enviarCorreo } from '../../../../infraestructura/correo/servicioCorreo.js';
+import { CodigoAcceso } from '../../modeloCodigoAcceso.js';
+import { generarCodigoSimple } from '../../sincronizacionInterna.js';
+import { syncClock } from '../../infra/repositoriosSync.js';
 
 export async function generarCodigoAccesoUseCase(params: { docenteId: string; periodoId: string }) {
   const { docenteId, periodoId } = params;

@@ -2,7 +2,7 @@
  * Validaciones de vinculacion de entregas.
  */
 import { z } from 'zod';
-import { esquemaObjectId } from '../../compartido/validaciones/esquemas';
+import { esquemaObjectId } from '../../compartido/validaciones/esquemas.js';
 
 export const esquemaVincularEntrega = z.object({
   examenGeneradoId: esquemaObjectId,

@@ -8,9 +8,9 @@
  */
 import { promises as fs } from 'node:fs';
 import path from 'node:path';
-import { prisma } from '../../infraestructura/baseDatos/sqlite';
-import { eliminarArchivoExamen, resolverRutaPdfExamen } from '../../infraestructura/archivos/almacenLocal';
-import { ErrorAplicacion } from '../../compartido/errores/errorAplicacion';
+import { prisma } from '../../infraestructura/baseDatos/sqlite.js';
+import { eliminarArchivoExamen, resolverRutaPdfExamen } from '../../infraestructura/archivos/almacenLocal.js';
+import { ErrorAplicacion } from '../../compartido/errores/errorAplicacion.js';
 
 export type PurgeScope = 'ttl' | 'all';
 export type PurgeReason = 'ttl' | 'manual_initial_cleanup' | 'manual';

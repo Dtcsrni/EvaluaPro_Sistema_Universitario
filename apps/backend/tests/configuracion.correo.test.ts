@@ -24,7 +24,7 @@ describe('configuracion correo', () => {
     process.env.CORREO_MODULO_ACTIVO = '';
     process.env.NOTIFICACIONES_WEBHOOK_URL = '';
     process.env.NOTIFICACIONES_WEBHOOK_TOKEN = '';
-    const mod = await import('../src/configuracion');
+    const mod = await import('../src/configuracion.js');
     expect(mod.configuracion.correoModuloActivo).toBe(false);
   });
 
@@ -33,7 +33,7 @@ describe('configuracion correo', () => {
     process.env.CORREO_MODULO_ACTIVO = '1';
     process.env.NOTIFICACIONES_WEBHOOK_URL = 'https://hooks.example.com/notif';
     process.env.NOTIFICACIONES_WEBHOOK_TOKEN = '';
-    await expect(import('../src/configuracion')).rejects.toThrow(
+    await expect(import('../src/configuracion.js')).rejects.toThrow(
       'CORREO_MODULO_ACTIVO=1 requiere NOTIFICACIONES_WEBHOOK_URL y NOTIFICACIONES_WEBHOOK_TOKEN'
     );
   });
@@ -41,7 +41,7 @@ describe('configuracion correo', () => {
   it('fija allowlist de superadmin solo a cuentas de negocio autorizadas', async () => {
     process.env.NODE_ENV = 'test';
     process.env.SUPERADMIN_GOOGLE_EMAILS = 'otro@dominio.com';
-    const mod = await import('../src/configuracion');
+    const mod = await import('../src/configuracion.js');
     expect(mod.configuracion.superadminGoogleEmails).toEqual([
       'armsystechno@gmail.com',
       'erick.vega@cuh.mx'

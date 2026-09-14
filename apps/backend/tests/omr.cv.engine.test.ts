@@ -11,7 +11,7 @@ import {
   ejecutarSmokeTestOmrCv,
   preprocesarImagenOmrCv,
   setCvBackendCheckForTests
-} from '../src/modulos/modulo_escaneo_omr/infra/omrCvEngine';
+} from '../src/modulos/modulo_escaneo_omr/infra/omrCvEngine.js';
 
 const ENV_BACKUP = {
   OMR_CV_ENGINE_ENABLED: process.env.OMR_CV_ENGINE_ENABLED,

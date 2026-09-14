@@ -5,8 +5,8 @@
 
 import { Request, Response, NextFunction } from 'express';
 import { ZodError } from 'zod';
-import { ErrorCategoria, ErrorRobusto } from './tiposRobustez';
-import { ErrorAplicacion } from '../errores/errorAplicacion';
+import { ErrorCategoria, ErrorRobusto } from './tiposRobustez.js';
+import { ErrorAplicacion } from '../errores/errorAplicacion.js';
 
 declare global {
   // eslint-disable-next-line @typescript-eslint/no-namespace

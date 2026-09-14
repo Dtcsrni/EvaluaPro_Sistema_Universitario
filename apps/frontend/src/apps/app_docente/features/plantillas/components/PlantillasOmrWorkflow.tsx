@@ -125,16 +125,16 @@ export function PlantillasOmrWorkflow({
         </div>
       )}
       <div className="acciones acciones--mt">
-        <Boton type="button" variante="secundario" onClick={() => void descargarArtifact(assessmentDetalle.assessment.bookletPdfUrl, `${assessmentDetalle.assessment.folio}_booklet.pdf`)}>
+        <Boton type="button" variante="secundario" disabled={!assessmentDetalle.assessment.bookletPdfUrl} onClick={() => void descargarArtifact(assessmentDetalle.assessment.bookletPdfUrl, `${assessmentDetalle.assessment.folio}_booklet.pdf`)}>
           Descargar cuadernillo
         </Boton>
-        <Boton type="button" variante="secundario" onClick={() => void descargarArtifact(assessmentDetalle.assessment.omrSheetPdfUrl, `${assessmentDetalle.assessment.folio}_omr_sheet.pdf`)}>
+        <Boton type="button" variante="secundario" disabled={!assessmentDetalle.assessment.omrSheetPdfUrl} onClick={() => void descargarArtifact(assessmentDetalle.assessment.omrSheetPdfUrl, `${assessmentDetalle.assessment.folio}_omr_sheet.pdf`)}>
           Descargar hoja OMR
         </Boton>
-        <Boton type="button" variante="secundario" onClick={() => void descargarArtifact(assessmentDetalle.assessment.answerKeyUrl, `${assessmentDetalle.assessment.folio}_answer_key.json`)}>
+        <Boton type="button" variante="secundario" disabled={!assessmentDetalle.assessment.answerKeyUrl} onClick={() => void descargarArtifact(assessmentDetalle.assessment.answerKeyUrl, `${assessmentDetalle.assessment.folio}_answer_key.json`)}>
           Descargar answer key
         </Boton>
-        <Boton type="button" variante="secundario" onClick={() => void descargarArtifact(assessmentDetalle.assessment.manifestUrl, `${assessmentDetalle.assessment.folio}_manifest.json`)}>
+        <Boton type="button" variante="secundario" disabled={!assessmentDetalle.assessment.manifestUrl} onClick={() => void descargarArtifact(assessmentDetalle.assessment.manifestUrl, `${assessmentDetalle.assessment.folio}_manifest.json`)}>
           Descargar manifest
         </Boton>
         <Boton

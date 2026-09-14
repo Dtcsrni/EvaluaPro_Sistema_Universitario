@@ -2,10 +2,10 @@
  * Validaciones de alumnos.
  */
 import { z } from 'zod';
-import { esquemaObjectId } from '../../compartido/validaciones/esquemas';
-import { esCorreoDeDominioPermitido } from '../../compartido/utilidades/correo';
-import { esMatriculaValida, normalizarEspacios, normalizarMatricula } from '../../compartido/utilidades/texto';
-import { configuracion } from '../../configuracion';
+import { esquemaObjectId } from '../../compartido/validaciones/esquemas.js';
+import { esCorreoDeDominioPermitido } from '../../compartido/utilidades/correo.js';
+import { esMatriculaValida, normalizarEspacios, normalizarMatricula } from '../../compartido/utilidades/texto.js';
+import { configuracion } from '../../configuracion.js';
 
 function partirNombreCompleto(nombreCompleto: string): { nombres: string; apellidos: string } {
   const limpio = String(nombreCompleto || '')

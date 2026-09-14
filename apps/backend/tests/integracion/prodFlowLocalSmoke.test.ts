@@ -7,21 +7,22 @@
 import { spawn } from 'node:child_process';
 import fs from 'node:fs';
 import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
-import { crearApp } from '../../src/app';
-import { cerrarMongoTest, conectarMongoTest, limpiarMongoTest } from '../utils/mongo';
-import { prepararEscenarioFlujo } from './_flujoDocenteHelper';
+import { crearApp } from '../../src/app.js';
+import { cerrarMongoTest, conectarMongoTest, limpiarMongoTest } from '../utils/mongo.js';
+import { prepararEscenarioFlujo } from './_flujoDocenteHelper.js';
 
 const VERSION_LOCAL = '1.1.0-local.0';
 const MANUAL_LOCAL = 'docs/release/manual/prod-flow-1.1.0-mayo-junio.local.json';
 const DOCENTE_ID_LOCAL = 'docente-local-smoke-mayo-junio';
+const REPO_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../../..');
 
 function npmBin() {
   return process.platform === 'win32' ? path.join(path.dirname(process.execPath), 'node_modules', 'npm', 'bin', 'npm-cli.js') : 'npm';
 }
 
 function ejecutarNpmRepo(args: string[], env: NodeJS.ProcessEnv): Promise<{ status: number | null; stdout: string; stderr: string }> {
-  const repoRoot = path.resolve(process.cwd(), '..', '..');
   const comando =
     process.platform === 'win32'
       ? {
@@ -30,7 +31,7 @@ function ejecutarNpmRepo(args: string[], env: NodeJS.ProcessEnv): Promise<{ stat
         }
       : { cmd: npmBin(), args };
   return new Promise((resolve, reject) => {
-    const child = spawn(comando.cmd, comando.args, { cwd: repoRoot, env, stdio: ['ignore', 'pipe', 'pipe'] });
+    const child = spawn(comando.cmd, comando.args, { cwd: REPO_ROOT, env, stdio: ['ignore', 'pipe', 'pipe'] });
     let stdout = '';
     let stderr = '';
     child.stdout.on('data', (chunk) => {
@@ -100,8 +101,7 @@ describe('release prod-flow local smoke mayo-junio', () => {
     expect(resultado.stdout).toContain('"resultado":"ok"');
     expect(resultado.stdout).toContain('1.1.0-local.0');
 
-    const repoRoot = path.resolve(process.cwd(), '..', '..');
-    const manifest = JSON.parse(fs.readFileSync(path.join(repoRoot, 'docs/release/evidencias/1.1.0-local.0/manifest.json'), 'utf8'));
+    const manifest = JSON.parse(fs.readFileSync(path.join(REPO_ROOT, 'docs/release/evidencias/1.1.0-local.0/manifest.json'), 'utf8'));
     expect(manifest.gateHumanoProduccion.entorno).toBe('local-smoke');
     expect(manifest.gateHumanoProduccion.resultado).toBe('ok');
     expect(JSON.stringify(manifest.gateHumanoProduccion.pasos)).not.toContain('docente humano en produccion');

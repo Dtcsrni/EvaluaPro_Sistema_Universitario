@@ -29,7 +29,7 @@ describe('configuracion (produccion)', () => {
     delete process.env.PORTAL_ALUMNO_URL;
     delete process.env.PORTAL_ALUMNO_API_KEY;
 
-    await expect(import('../src/configuracion')).rejects.toThrow('PORTAL_ALUMNO_URL es requerido en producción');
+    await expect(import('../src/configuracion.js')).rejects.toThrow('PORTAL_ALUMNO_URL es requerido en producción');
   });
 
   it('usa production cuando NODE_ENV no se declara', async () => {
@@ -39,7 +39,7 @@ describe('configuracion (produccion)', () => {
     process.env.CORS_ORIGENES = 'https://docente.example.com';
     process.env.PORTAL_ALUMNO_URL = 'https://portal.example.com';
 
-    const { configuracion } = await import('../src/configuracion');
+    const { configuracion } = await import('../src/configuracion.js');
 
     expect(configuracion.entorno).toBe('production');
   });
@@ -54,7 +54,7 @@ describe('configuracion (produccion)', () => {
     delete process.env.PORTAL_ALUMNO_URL;
     delete process.env.PORTAL_ALUMNO_API_KEY;
 
-    const { configuracion } = await import('../src/configuracion');
+    const { configuracion } = await import('../src/configuracion.js');
 
     expect(configuracion.flavorId).toBe('docente-local');
     expect(configuracion.portalSyncRequired).toBe(false);
@@ -72,7 +72,7 @@ describe('configuracion (produccion)', () => {
     delete process.env.PORTAL_ALUMNO_URL;
     delete process.env.PORTAL_ALUMNO_API_KEY;
 
-    await expect(import('../src/configuracion')).rejects.toThrow('PORTAL_ALUMNO_URL es requerido en producción');
+    await expect(import('../src/configuracion.js')).rejects.toThrow('PORTAL_ALUMNO_URL es requerido en producción');
   });
 
   it('falla si falta CORS_ORIGENES en production', async () => {
@@ -83,7 +83,7 @@ describe('configuracion (produccion)', () => {
     process.env.PORTAL_ALUMNO_API_KEY = 'portal-key';
     process.env.CORS_ORIGENES = '';
 
-    await expect(import('../src/configuracion')).rejects.toThrow('CORS_ORIGENES es requerido en producción');
+    await expect(import('../src/configuracion.js')).rejects.toThrow('CORS_ORIGENES es requerido en producción');
   });
 
   it('expone campos del portal y flavor sin exigir PORTAL_ALUMNO_API_KEY en prod', async () => {
@@ -96,7 +96,7 @@ describe('configuracion (produccion)', () => {
     process.env.PORTAL_ALUMNO_URL = 'https://portal.example.com';
     delete process.env.PORTAL_ALUMNO_API_KEY;
 
-    const { configuracion } = await import('../src/configuracion');
+    const { configuracion } = await import('../src/configuracion.js');
 
     expect(configuracion.flavorId).toBe('cloud');
     expect(configuracion.portalAlumnoUrl).toBe('https://portal.example.com');
@@ -113,7 +113,7 @@ describe('configuracion (produccion)', () => {
     process.env.PORTAL_ALUMNO_API_KEY = 'test-api-key';
     process.env.PORTAL_SYNC_REQUIRED = '1';
 
-    const { configuracion } = await import('../src/configuracion');
+    const { configuracion } = await import('../src/configuracion.js');
 
     expect(configuracion.requireGoogleOAuth).toBe(true);
     expect(configuracion.codigoAccesoHoras).toBe(24);
@@ -130,12 +130,12 @@ describe('configuracion (produccion)', () => {
     process.env.GOOGLE_CLASSROOM_REDIRECT_URI = 'http://localhost:4000/callback';
     process.env.CLASSROOM_TOKEN_CIPHER_KEY = 'cipher-key';
 
-    const enabled = await import('../src/configuracion');
+    const enabled = await import('../src/configuracion.js');
     expect(enabled.configuracion.classroomEnabled).toBe(true);
 
     vi.resetModules();
     process.env.CLASSROOM_ENABLED = '0';
-    const disabled = await import('../src/configuracion');
+    const disabled = await import('../src/configuracion.js');
     expect(disabled.configuracion.classroomEnabled).toBe(false);
   });
 
@@ -148,7 +148,7 @@ describe('configuracion (produccion)', () => {
     delete process.env.CLASSROOM_TOKEN_CIPHER_KEY;
     delete process.env.CLASSROOM_ENABLED;
 
-    const { configuracion } = await import('../src/configuracion');
+    const { configuracion } = await import('../src/configuracion.js');
 
     expect(configuracion.googleOauthClientId).toBe('login-client');
     expect(configuracion.googleClassroomClientId).toBe('');

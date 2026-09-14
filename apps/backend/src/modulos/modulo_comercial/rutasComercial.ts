@@ -5,14 +5,14 @@
  * Limites: No cambiar orden o permisos de rutas sin validar impacto en contratos y tests.
  */
 import { Router } from 'express';
-import { validarCuerpo } from '../../compartido/validaciones/validar';
-import { requerirPermiso } from '../modulo_autenticacion/middlewarePermisos';
+import { validarCuerpo } from '../../compartido/validaciones/validar.js';
+import { requerirPermiso } from '../modulo_autenticacion/middlewarePermisos.js';
 import {
   listarEstrategiasMonetizacionComunitaria,
   listarOfertasMonetizacionComunitaria,
   recomendarOfertaMonetizacionComunitaria
-} from './controladorComercial';
-import { esquemaRecomendacionMonetizacion } from './validacionesComercial';
+} from './controladorComercial.js';
+import { esquemaRecomendacionMonetizacion } from './validacionesComercial.js';
 
 const router = Router();
 

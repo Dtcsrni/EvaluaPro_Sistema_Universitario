@@ -7,16 +7,16 @@
 import { randomUUID } from 'crypto';
 import fs from 'node:fs/promises';
 import { PDFDocument } from 'pdf-lib';
-import { prisma } from '../../../../infraestructura/baseDatos/sqlite';
-import { ErrorAplicacion } from '../../../../compartido/errores/errorAplicacion';
-import { guardarPdfExamen, resolverRutaPdfExamen } from '../../../../infraestructura/archivos/almacenLocal';
-import { normalizarParaNombreArchivo } from '../../../../compartido/utilidades/texto';
-import { construirMetadataRetencion } from '../../servicioRetencionExamenes';
-import { generarPdfExamen } from '../../servicioGeneracionPdf';
-import { generarVariante } from '../../servicioVariantes';
-import { construirRecoveryBundle, construirRecoveryManifest } from '../../domain/recoveryManifest';
-import { resolverNumeroPaginasPlantilla } from '../../domain/resolverNumeroPaginasPlantilla';
-import { extraerPreguntasUsadasMapaOmr } from '../../domain/templateCanonico';
+import { prisma } from '../../../../infraestructura/baseDatos/sqlite.js';
+import { ErrorAplicacion } from '../../../../compartido/errores/errorAplicacion.js';
+import { guardarPdfExamen, resolverRutaPdfExamen } from '../../../../infraestructura/archivos/almacenLocal.js';
+import { normalizarParaNombreArchivo } from '../../../../compartido/utilidades/texto.js';
+import { construirMetadataRetencion } from '../../servicioRetencionExamenes.js';
+import { generarPdfExamen } from '../../servicioGeneracionPdf.js';
+import { generarVariante } from '../../servicioVariantes.js';
+import { construirRecoveryBundle, construirRecoveryManifest } from '../../domain/recoveryManifest.js';
+import { resolverNumeroPaginasPlantilla } from '../../domain/resolverNumeroPaginasPlantilla.js';
+import { extraerPreguntasUsadasMapaOmr } from '../../domain/templateCanonico.js';
 import {
   construirEncabezadoPdf,
   construirFirmaVariante,
@@ -35,7 +35,7 @@ import {
   resolverPeriodoPlantillaActivo,
   resolverPreguntasPlantilla,
   resolverTemplateVersionOmr
-} from '../../shared/controladorGeneracionPdfShared';
+} from '../../shared/controladorGeneracionPdfShared.js';
 
 
 export async function generarExamenUseCase(params: {
@@ -146,7 +146,9 @@ export async function generarExamenUseCase(params: {
     preguntas: preguntasCandidatas,
     mapaVariante: mapaVarianteUsada,
     mapaOmr,
-    paginas
+    paginas,
+    pdfBytes,
+    layoutVersion: 4
   });
 
   const raw = await prisma.examenGenerado.create({
@@ -403,7 +405,9 @@ export async function generarExamenesLoteUseCase(params: {
           preguntas: preguntasCandidatas,
           mapaVariante: mapaVarianteUsada,
           mapaOmr,
-          paginas
+          paginas,
+          pdfBytes,
+          layoutVersion: 4
         });
 
         const raw = await prisma.examenGenerado.create({

@@ -4,20 +4,23 @@
 import type { Request, Response } from 'express';
 import fs from 'node:fs';
 import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { spawn } from 'node:child_process';
 import crypto from 'node:crypto';
-import { ErrorAplicacion } from '../../compartido/errores/errorAplicacion';
-import { esCorreoDeDominioPermitido } from '../../compartido/utilidades/correo';
-import { configuracion } from '../../configuracion';
-import { prisma } from '../../infraestructura/baseDatos/sqlite';
-import { crearHash, compararContrasena } from './servicioHash';
-import { crearTokenDocente } from './servicioTokens';
-import { obtenerDocenteId, type SolicitudDocente } from './middlewareAutenticacion';
-import { cerrarSesionDocente, emitirSesionDocente, refrescarSesionDocente, revocarSesionesDocente } from './servicioSesiones';
-import { verificarCredencialGoogle } from './servicioGoogle';
-import { permisosComoLista, normalizarRoles } from '../../infraestructura/seguridad/rbac';
-import { enviarCorreo } from '../../infraestructura/correo/servicioCorreo';
-import { aTituloPropio } from '../../compartido/utilidades/texto';
+import { ErrorAplicacion } from '../../compartido/errores/errorAplicacion.js';
+import { esCorreoDeDominioPermitido } from '../../compartido/utilidades/correo.js';
+import { configuracion } from '../../configuracion.js';
+import { prisma } from '../../infraestructura/baseDatos/sqlite.js';
+import { crearHash, compararContrasena } from './servicioHash.js';
+import { crearTokenDocente } from './servicioTokens.js';
+import { obtenerDocenteId, type SolicitudDocente } from './middlewareAutenticacion.js';
+import { cerrarSesionDocente, emitirSesionDocente, refrescarSesionDocente, revocarSesionesDocente } from './servicioSesiones.js';
+import { verificarCredencialGoogle } from './servicioGoogle.js';
+import { permisosComoLista, normalizarRoles } from '../../infraestructura/seguridad/rbac.js';
+import { enviarCorreo } from '../../infraestructura/correo/servicioCorreo.js';
+import { aTituloPropio } from '../../compartido/utilidades/texto.js';
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 function rolesParaToken(roles: unknown): string[] {
   const normalizados = normalizarRoles(roles);

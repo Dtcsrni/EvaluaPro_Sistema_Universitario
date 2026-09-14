@@ -5,21 +5,21 @@
  * Limites: Mantener contrato y comportamiento observable del modulo.
  */
 import { promises as fs } from 'fs';
-import { ErrorAplicacion } from '../../../../compartido/errores/errorAplicacion';
-import { Alumno } from '../../../modulo_alumnos/modeloAlumno';
-import { Periodo } from '../../../modulo_alumnos/modeloPeriodo';
-import { Calificacion } from '../../../modulo_calificacion/modeloCalificacion';
-import { BancoPregunta } from '../../../modulo_banco_preguntas/modeloBancoPregunta';
-import { ExamenGenerado } from '../../../modulo_generacion_pdf/modeloExamenGenerado';
-import { BanderaRevision } from '../../../modulo_analiticas/modeloBanderaRevision';
-import { ResumenEvaluacionAlumno } from '../../../modulo_evaluaciones/modeloResumenEvaluacionAlumno';
-import { CodigoAcceso } from '../../modeloCodigoAcceso';
-import { Sincronizacion } from '../../modeloSincronizacion';
-import { comprimirBase64, construirComparativaRespuestas } from '../../sincronizacionInterna';
-import { crearClientePortal } from '../../infra/portalSyncClient';
-import { leerCapturasOmrParaPortal } from '../../infra/omrCapturas';
-import { syncClock } from '../../infra/repositoriosSync';
-import { construirColeccionesAcademicasPortal } from '../../domain/portalAcademicoAssembler';
+import { ErrorAplicacion } from '../../../../compartido/errores/errorAplicacion.js';
+import { Alumno } from '../../../modulo_alumnos/modeloAlumno.js';
+import { Periodo } from '../../../modulo_alumnos/modeloPeriodo.js';
+import { Calificacion } from '../../../modulo_calificacion/modeloCalificacion.js';
+import { BancoPregunta } from '../../../modulo_banco_preguntas/modeloBancoPregunta.js';
+import { ExamenGenerado } from '../../../modulo_generacion_pdf/modeloExamenGenerado.js';
+import { BanderaRevision } from '../../../modulo_analiticas/modeloBanderaRevision.js';
+import { ResumenEvaluacionAlumno } from '../../../modulo_evaluaciones/modeloResumenEvaluacionAlumno.js';
+import { CodigoAcceso } from '../../modeloCodigoAcceso.js';
+import { Sincronizacion } from '../../modeloSincronizacion.js';
+import { comprimirBase64, construirComparativaRespuestas } from '../../sincronizacionInterna.js';
+import { crearClientePortal } from '../../infra/portalSyncClient.js';
+import { leerCapturasOmrParaPortal } from '../../infra/omrCapturas.js';
+import { syncClock } from '../../infra/repositoriosSync.js';
+import { construirColeccionesAcademicasPortal } from '../../domain/portalAcademicoAssembler.js';
 
 export async function publicarResultadosUseCase(params: { docenteId: string; periodoId: string }) {
   const { docenteId, periodoId } = params;

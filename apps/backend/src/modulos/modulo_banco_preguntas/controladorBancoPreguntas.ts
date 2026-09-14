@@ -2,10 +2,10 @@
  * Controlador de banco de preguntas.
  */
 import type { Response } from 'express';
-import { ErrorAplicacion } from '../../compartido/errores/errorAplicacion';
-import { obtenerDocenteId } from '../modulo_autenticacion/middlewareAutenticacion';
-import type { SolicitudDocente } from '../modulo_autenticacion/middlewareAutenticacion';
-import { prisma } from '../../infraestructura/baseDatos/sqlite';
+import { ErrorAplicacion } from '../../compartido/errores/errorAplicacion.js';
+import { obtenerDocenteId } from '../modulo_autenticacion/middlewareAutenticacion.js';
+import type { SolicitudDocente } from '../modulo_autenticacion/middlewareAutenticacion.js';
+import { prisma } from '../../infraestructura/baseDatos/sqlite.js';
 
 function normalizarTema(valor: unknown): string | undefined {
   const texto = String(valor ?? '')
@@ -19,10 +19,30 @@ function claveTema(valor: string): string {
 }
 
 function normalizarTextoComparable(valor: unknown): string {
-  return String(valor ?? '')
+  return sanitizarContenidoRico(String(valor ?? ''))
     .trim()
+    .replace(/<[^>]*>/g, '')
     .replace(/\s+/g, ' ')
     .toLowerCase();
+}
+
+// El editor cliente también sanea, pero el límite de confianza es el backend:
+// solo se persisten etiquetas tipográficas y el marcador de fórmula LaTeX.
+function sanitizarContenidoRico(valor: unknown): string {
+  const fuente = String(valor ?? '').replace(/<!--[\s\S]*?-->|<\s*(?:script|style)[^>]*>[\s\S]*?<\s*\/\s*(?:script|style)\s*>/gi, '');
+  return fuente.replace(/<[^>]*>/g, (tag) => {
+    if (/^<\s*br\s*\/?>$/i.test(tag)) return '<br>';
+    const cierre = /^<\s*\/\s*(strong|b|em|i|u|sub|sup|span)\s*>$/i.exec(tag);
+    if (cierre) return `</${cierre[1].toLowerCase()}>`;
+    const etiqueta = /^<\s*(strong|b|em|i|u|sub|sup)\s*>$/i.exec(tag);
+    if (etiqueta) return `<${etiqueta[1].toLowerCase()}>`;
+    if (/^<\s*span\b/i.test(tag) && /data-latex\s*=\s*["'][^"']*["']/i.test(tag)) {
+      const contenido = /data-latex\s*=\s*["']([^"']*)["']/i.exec(tag)?.[1] ?? '';
+      const seguro = contenido.replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+      return `<span data-latex="${seguro}">`;
+    }
+    return '';
+  });
 }
 
 function firmaOpciones(opciones: { texto: string }[]): string {
@@ -107,6 +127,8 @@ export async function listarBancoPreguntas(req: SolicitudDocente, res: Response)
 export async function crearPregunta(req: SolicitudDocente, res: Response) {
   const docenteId = obtenerDocenteId(req);
   const { periodoId, tema, enunciado, imagenUrl, opciones } = req.body;
+  const enunciadoFinal = sanitizarContenidoRico(enunciado);
+  const opcionesFinales = (opciones || []).map((opcion: OpcionBanco) => ({ ...opcion, texto: sanitizarContenidoRico(opcion.texto) }));
 
   const temaFinal = normalizarTema(tema);
   if (temaFinal) {
@@ -122,8 +144,8 @@ export async function crearPregunta(req: SolicitudDocente, res: Response) {
       include: { versiones: { include: { opciones: true } } }
     });
 
-    const enunciadoNuevo = normalizarTextoComparable(enunciado);
-    const opcionesNuevaFirma = firmaOpciones(opciones as OpcionBanco[]);
+    const enunciadoNuevo = normalizarTextoComparable(enunciadoFinal);
+    const opcionesNuevaFirma = firmaOpciones(opcionesFinales);
 
     for (const cand of candidatos) {
       const formatted = formatearPreguntaPrisma(cand);
@@ -152,13 +174,13 @@ export async function crearPregunta(req: SolicitudDocente, res: Response) {
     data: {
       preguntaId: rawPregunta.id,
       numeroVersion: 1,
-      enunciado,
+      enunciado: enunciadoFinal,
       imagenUrl: imagenUrl || null
     }
   });
 
   await prisma.opcionPregunta.createMany({
-    data: (opciones || []).map((o: any) => ({
+    data: opcionesFinales.map((o: any) => ({
       versionPreguntaId: rawVersion.id,
       texto: o.texto,
       esCorrecta: o.esCorrecta
@@ -222,9 +244,11 @@ export async function actualizarPregunta(req: SolicitudDocente, res: Response) {
 
   const nueva = {
     numeroVersion: siguienteNumero,
-    enunciado: enunciado ?? versionActual.enunciado,
+    enunciado: enunciado === undefined ? versionActual.enunciado : sanitizarContenidoRico(enunciado),
     imagenUrl: imagenUrl === undefined ? versionActual.imagenUrl : imagenUrl ?? undefined,
-    opciones: opciones ?? versionActual.opciones
+    opciones: opciones === undefined
+      ? versionActual.opciones
+      : opciones.map((opcion) => ({ ...opcion, texto: sanitizarContenidoRico(opcion.texto) }))
   };
 
   if (temaFinal) {

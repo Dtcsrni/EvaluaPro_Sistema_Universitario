@@ -22,6 +22,7 @@ const shellDocente = leer('apps/frontend/src/apps/app_docente/ShellDocente.tsx')
 const omrWorkflow = leer('apps/frontend/src/apps/app_docente/features/plantillas/components/PlantillasOmrWorkflow.tsx');
 const omrActions = leer('apps/frontend/src/apps/app_docente/features/plantillas/hooks/usePlantillasOmrActions.ts');
 const packageJson = leerJson('package.json');
+const syntheticManifest = leerJson('omr_samples_tv4/manifest.json');
 
 test('la política declara una única identidad OMR canónica', () => {
   assert.equal(policy.active.templateVersion, 4);
@@ -42,7 +43,7 @@ test('backend y frontend usan la misma versión y etiqueta declaradas', () => {
   assert.match(frontendVersion, /omr-canonical-v4/);
   assert.match(frontendVersion, /OMR canónico · v4/);
   assert.match(versionPage, /Contrato OMR:/);
-  assert.match(versionPage, /Versiones antiguas:/);
+  assert.doesNotMatch(versionPage, /Versiones antiguas:/);
 });
 
 test('la GUI marca el contrato activo y no presenta OMR V1', () => {
@@ -81,4 +82,24 @@ test('los artefactos históricos OMR/PDF fueron retirados del árbol activo', ()
   }
   assert.doesNotMatch(leer('apps/backend/tsconfig.json'), /modulo_omr_v1|layoutTemplateV9|infra\/html/);
   assert.doesNotMatch(leer('apps/backend/vitest.config.ts'), /omr\.tv3|omr\.v1|pdf\.renderer\.fallback|pdf\.visual\.baseline/);
+});
+
+test('el fixture sintético activo conserva la geometría OMR canónica', () => {
+  const mmToPt = (mm) => mm * (72 / 25.4);
+  assert.equal(syntheticManifest.datasetType, 'synthetic_tv4');
+  assert.equal(syntheticManifest.examSpec.templateVersion, 4);
+  assert.equal(syntheticManifest.examSpec.totalQuestions, 20);
+  assert.equal(syntheticManifest.examSpec.totalPages, 2);
+  assert.equal(syntheticManifest.capturas.length, 12);
+  assert.ok(Math.abs(syntheticManifest.renderSpec.marginPt - mmToPt(10)) < 0.001);
+  assert.ok(Math.abs(syntheticManifest.renderSpec.cornerMarkerSizePt - mmToPt(7)) < 0.001);
+  assert.ok(Math.abs(syntheticManifest.renderSpec.qrSizePt - mmToPt(31)) < 0.001);
+
+  for (const capture of syntheticManifest.capturas) {
+    assert.equal(capture.templateVersion, 4, capture.captureId);
+    const mapa = JSON.parse(fs.readFileSync(path.join(ROOT, 'omr_samples_tv4', capture.mapaOmrPath), 'utf8'));
+    assert.equal(mapa.templateVersion, 4, capture.captureId);
+    assert.ok(Math.abs(mapa.marcasPagina.size - mmToPt(7)) < 0.001, capture.captureId);
+    assert.ok(Math.abs(mapa.qr.size - mmToPt(31)) < 0.001, capture.captureId);
+  }
 });

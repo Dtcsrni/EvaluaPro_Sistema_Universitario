@@ -6,10 +6,10 @@
  */
 import request from 'supertest';
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
-import { ExamenGenerado } from '../../src/modulos/modulo_generacion_pdf/modeloExamenGenerado';
-import { BancoPregunta } from '../../src/modulos/modulo_banco_preguntas/modeloBancoPregunta';
-import { crearApp } from '../../src/app';
-import { cerrarMongoTest, conectarMongoTest, limpiarMongoTest } from '../utils/mongo';
+import { ExamenGenerado } from '../../src/modulos/modulo_generacion_pdf/modeloExamenGenerado.js';
+import { BancoPregunta } from '../../src/modulos/modulo_banco_preguntas/modeloBancoPregunta.js';
+import { crearApp } from '../../src/app.js';
+import { cerrarMongoTest, conectarMongoTest, limpiarMongoTest } from '../utils/mongo.js';
 
 describe('plantillas CRUD + previsualizacion', () => {
   const app = crearApp();
@@ -221,7 +221,7 @@ describe('plantillas CRUD + previsualizacion', () => {
     expect(pregunta).toBeTruthy();
     
     // Usar prisma directamente para actualizar las versiones de la pregunta
-    const { prisma } = await import('../../src/infraestructura/baseDatos/sqlite');
+    const { prisma } = await import('../../src/infraestructura/baseDatos/sqlite.js');
     await prisma.bancoPregunta.update({
       where: { id: preguntasIds[0] },
       data: {

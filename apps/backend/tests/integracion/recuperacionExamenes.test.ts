@@ -5,14 +5,14 @@
  */
 import request from 'supertest';
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
-import { crearApp } from '../../src/app';
-import { prisma } from '../../src/infraestructura/baseDatos/sqlite';
+import { crearApp } from '../../src/app.js';
+import { prisma } from '../../src/infraestructura/baseDatos/sqlite.js';
 import {
   reconstruirDesdeBundle,
   reconstruirDesdeManifest,
   verificarArtifactsRecuperacion
-} from '../../src/modulos/modulo_recuperacion_examenes/servicioRecuperacionExamenes';
-import { cerrarMongoTest, conectarMongoTest, limpiarMongoTest } from '../utils/mongo';
+} from '../../src/modulos/modulo_recuperacion_examenes/servicioRecuperacionExamenes.js';
+import { cerrarMongoTest, conectarMongoTest, limpiarMongoTest } from '../utils/mongo.js';
 
 describe('recuperacion de examenes', () => {
   const app = crearApp();

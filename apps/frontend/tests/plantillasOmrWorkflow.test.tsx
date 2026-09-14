@@ -29,6 +29,7 @@ describe('PlantillasOmrWorkflow', () => {
   });
 
   it('renderiza resumen de assessment y job OMR con hojas para revisión', () => {
+    const descargarArtifact = vi.fn().mockResolvedValue(undefined);
     const assessmentMock: GeneratedAssessmentDetalle = {
       assessment: {
         _id: 'ass-1',
@@ -37,6 +38,10 @@ describe('PlantillasOmrWorkflow', () => {
         title: 'Examen Biología Celular',
         templateId: 'plan-1',
         templateVersion: 4,
+        bookletPdfUrl: '/examenes/generados/ass-1/pdf',
+        omrSheetPdfUrl: '/examenes/generados/ass-1/pdf?tipo=omr',
+        answerKeyUrl: '/examenes/generados/ass-1/answer-key',
+        manifestUrl: '/examenes/generados/ass-1/manifest',
         statisticsSummary: {
           versionCount: 2,
           pageCount: 1,
@@ -84,7 +89,7 @@ describe('PlantillasOmrWorkflow', () => {
         jobOmr={jobOmrMock}
         cargandoAssessmentId={null}
         procesandoOmr={false}
-        descargarArtifact={vi.fn().mockResolvedValue(undefined)}
+        descargarArtifact={descargarArtifact}
         crearJobOmr={vi.fn().mockResolvedValue(undefined)}
         resolverHojaOmr={mockResolver}
         finalizarJobOmr={mockFinalizar}
@@ -111,5 +116,11 @@ describe('PlantillasOmrWorkflow', () => {
         sheetSerial: 'SH-001'
       })
     );
+
+    fireEvent.click(screen.getByRole('button', { name: 'Descargar cuadernillo' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Descargar hoja OMR' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Descargar answer key' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Descargar manifest' }));
+    expect(descargarArtifact).toHaveBeenCalledTimes(4);
   });
 });

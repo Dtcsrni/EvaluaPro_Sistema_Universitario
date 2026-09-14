@@ -5,7 +5,7 @@
  * Limites: Mantener invariantes del dominio y errores controlados.
  */
 import { Document, Packer, Paragraph, Table, TableCell, TableRow, TextRun, WidthType } from 'docx';
-import type { ListaAcademicaFila } from './tiposListaAcademica';
+import type { ListaAcademicaFila } from './tiposListaAcademica.js';
 
 function celdaEncabezado(texto: string) {
   return new TableCell({

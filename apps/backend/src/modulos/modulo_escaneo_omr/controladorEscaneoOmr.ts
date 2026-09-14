@@ -10,12 +10,12 @@ import { createHash } from 'node:crypto';
 import { gzip } from 'node:zlib';
 import { promisify } from 'node:util';
 import sharp from 'sharp';
-import { ErrorAplicacion } from '../../compartido/errores/errorAplicacion';
-import { registrarOmrResultadoAnalisis } from '../../compartido/observabilidad/metrics';
-import { obtenerDocenteId, type SolicitudDocente } from '../modulo_autenticacion/middlewareAutenticacion';
-import { extraerResumenQrExamen } from '../modulo_generacion_pdf/domain/qrExamen';
-import { prisma } from '../../infraestructura/baseDatos/sqlite';
-import { analizarOmr, leerQrDesdeImagen } from './servicioOmr';
+import { ErrorAplicacion } from '../../compartido/errores/errorAplicacion.js';
+import { registrarOmrResultadoAnalisis } from '../../compartido/observabilidad/metrics.js';
+import { obtenerDocenteId, type SolicitudDocente } from '../modulo_autenticacion/middlewareAutenticacion.js';
+import { extraerResumenQrExamen } from '../modulo_generacion_pdf/domain/qrExamen.js';
+import { prisma } from '../../infraestructura/baseDatos/sqlite.js';
+import { analizarOmr, leerQrDesdeImagen } from './servicioOmr.js';
 
 function parseJsonSafe<T>(val: unknown): T | null {
   if (typeof val === 'string') {
@@ -100,6 +100,31 @@ export async function analizarImagen(req: SolicitudDocente, res: Response) {
       'La plantilla no corresponde al contrato OMR canónico',
       422
     );
+  }
+  if ((mapaOmr as { tipoPagina?: string }).tipoPagina === 'reverso-vacio') {
+    res.json({
+      resultado: {
+        respuestasDetectadas: [],
+        advertencias: ['Reverso dúplex vacío; no contiene datos OMR.'],
+        motivosRevision: [],
+        calidadPagina: 1,
+        estadoAnalisis: 'requiere_revision',
+        templateVersionDetectada: 4,
+        confianzaPromedioPagina: 1,
+        ratioAmbiguas: 0,
+        engineVersion: 'omr-cv',
+        geomQuality: 1,
+        photoQuality: 1,
+        decisionPolicy: 'blank_reverse_v1'
+      },
+      examenId: examen._id,
+      folio: folioNormalizado,
+      numeroPagina: pagina,
+      alumnoId: examen.alumnoId ?? null,
+      templateVersionDetectada,
+      tipoPagina: 'reverso-vacio'
+    });
+    return;
   }
   const paginaExamen = Array.isArray((examen as { paginas?: unknown[] }).paginas)
     ? ((examen as { paginas?: Array<{ numero?: number; qrTexto?: string }> }).paginas ?? []).find(

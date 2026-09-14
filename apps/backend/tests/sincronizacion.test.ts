@@ -4,11 +4,11 @@
  * Responsabilidad: Verificar el correcto funcionamiento del modulo de sincronizacion en nube usando Prisma y SQLite.
  */
 import type { Response } from 'express';
-import type { SolicitudDocente } from '../src/modulos/modulo_autenticacion/middlewareAutenticacion';
+import type { SolicitudDocente } from '../src/modulos/modulo_autenticacion/middlewareAutenticacion.js';
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
-import { conectarMongoTest, cerrarMongoTest, limpiarMongoTest } from './utils/mongo';
-import { prisma } from '../src/infraestructura/baseDatos/sqlite';
-import { cifrarRespaldo, descifrarRespaldo } from '../src/modulos/modulo_sincronizacion_nube/sincronizacionInterna';
+import { conectarMongoTest, cerrarMongoTest, limpiarMongoTest } from './utils/mongo.js';
+import { prisma } from '../src/infraestructura/baseDatos/sqlite.js';
+import { cifrarRespaldo, descifrarRespaldo } from '../src/modulos/modulo_sincronizacion_nube/sincronizacionInterna.js';
 
 vi.mock('../src/configuracion', () => ({
   configuracion: {
@@ -20,12 +20,12 @@ vi.mock('../src/configuracion', () => ({
   }
 }));
 
-let generarCodigoAcceso: typeof import('../src/modulos/modulo_sincronizacion_nube/controladorSincronizacion').generarCodigoAcceso;
-let publicarResultados: typeof import('../src/modulos/modulo_sincronizacion_nube/controladorSincronizacion').publicarResultados;
-let exportarPaquete: typeof import('../src/modulos/modulo_sincronizacion_nube/controladorSincronizacion').exportarPaquete;
-let importarPaquete: typeof import('../src/modulos/modulo_sincronizacion_nube/controladorSincronizacion').importarPaquete;
-let enviarPaqueteServidor: typeof import('../src/modulos/modulo_sincronizacion_nube/controladorSincronizacion').enviarPaqueteServidor;
-let traerPaquetesServidor: typeof import('../src/modulos/modulo_sincronizacion_nube/controladorSincronizacion').traerPaquetesServidor;
+let generarCodigoAcceso: typeof import('../src/modulos/modulo_sincronizacion_nube/controladorSincronizacion.js').generarCodigoAcceso;
+let publicarResultados: typeof import('../src/modulos/modulo_sincronizacion_nube/controladorSincronizacion.js').publicarResultados;
+let exportarPaquete: typeof import('../src/modulos/modulo_sincronizacion_nube/controladorSincronizacion.js').exportarPaquete;
+let importarPaquete: typeof import('../src/modulos/modulo_sincronizacion_nube/controladorSincronizacion.js').importarPaquete;
+let enviarPaqueteServidor: typeof import('../src/modulos/modulo_sincronizacion_nube/controladorSincronizacion.js').enviarPaqueteServidor;
+let traerPaquetesServidor: typeof import('../src/modulos/modulo_sincronizacion_nube/controladorSincronizacion.js').traerPaquetesServidor;
 
 function crearRespuesta() {
   return {
@@ -54,7 +54,7 @@ async function asegurarDocente(docenteId: string, correo: string) {
 
 describe('sincronizacion nube', () => {
   beforeAll(async () => {
-    const controlador = await import('../src/modulos/modulo_sincronizacion_nube/controladorSincronizacion');
+    const controlador = await import('../src/modulos/modulo_sincronizacion_nube/controladorSincronizacion.js');
     generarCodigoAcceso = controlador.generarCodigoAcceso;
     publicarResultados = controlador.publicarResultados;
     exportarPaquete = controlador.exportarPaquete;

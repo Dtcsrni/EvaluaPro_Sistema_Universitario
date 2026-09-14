@@ -5,10 +5,10 @@
  */
 import type { Response } from 'express';
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
-import { conectarMongoTest, cerrarMongoTest, limpiarMongoTest } from './utils/mongo';
-import { prisma } from '../src/infraestructura/baseDatos/sqlite';
-import { ErrorAplicacion } from '../src/compartido/errores/errorAplicacion';
-import { listarPapelera, restaurarPapelera } from '../src/modulos/modulo_papelera/controladorPapelera';
+import { conectarMongoTest, cerrarMongoTest, limpiarMongoTest } from './utils/mongo.js';
+import { prisma } from '../src/infraestructura/baseDatos/sqlite.js';
+import { ErrorAplicacion } from '../src/compartido/errores/errorAplicacion.js';
+import { listarPapelera, restaurarPapelera } from '../src/modulos/modulo_papelera/controladorPapelera.js';
 
 const {
   mockObtenerDocenteId,

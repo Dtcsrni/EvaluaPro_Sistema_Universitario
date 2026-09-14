@@ -18,8 +18,8 @@ vi.mock('../../src/modulos/modulo_autenticacion/servicioGoogle', () => {
   };
 });
 
-import { crearApp } from '../../src/app';
-import { cerrarMongoTest, conectarMongoTest, limpiarMongoTest } from '../utils/mongo';
+import { crearApp } from '../../src/app.js';
+import { cerrarMongoTest, conectarMongoTest, limpiarMongoTest } from '../utils/mongo.js';
 
 describe('autenticacion (sesiones)', () => {
   const app = crearApp();

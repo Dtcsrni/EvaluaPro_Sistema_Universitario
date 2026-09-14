@@ -5,7 +5,7 @@
  * Limites: Mantener contrato y comportamiento observable del modulo.
  */
 import { describe, expect, it } from 'vitest';
-import { construirTextoQrExamenPagina, extraerResumenQrExamen } from '../src/modulos/modulo_generacion_pdf/domain/qrExamen';
+import { construirTextoQrExamenPagina, extraerResumenQrExamen } from '../src/modulos/modulo_generacion_pdf/domain/qrExamen.js';
 
 describe('qr examen enriquecido', () => {
   it('incluye folio, pagina, template, hashes y ordenes de variante', () => {
@@ -63,11 +63,11 @@ describe('qr examen enriquecido', () => {
     expect(resumen?.preguntaHasta).toBe(16);
     expect(resumen?.variantHash).toMatch(/^[A-Z0-9]{12}$/);
     expect(resumen?.answerKeyHash).toMatch(/^[A-Z0-9]{12}$/);
+    expect(resumen?.pageAnswerKey).toBe('AE');
     expect(resumen?.payloadSignature).toMatch(/^H1[A-Z0-9]{24}$/);
     expect(resumen?.payloadSignatureMode).toBe('hmac-v1');
     expect(resumen?.payloadSignatureValid).toBe(true);
-    expect(resumen?.questionRefs).toHaveLength(2);
-    expect(resumen?.optionOrders).toEqual(['20134', '43210']);
+    expect(qr.length).toBeLessThan(210);
   });
 
   it('rechaza firmas que no pertenezcan al esquema HMAC canónico', () => {

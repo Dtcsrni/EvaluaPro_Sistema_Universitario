@@ -6,7 +6,7 @@
  */
 // Pruebas de configuracion.
 import { describe, expect, it } from 'vitest';
-import { configuracion } from '../src/configuracion';
+import { configuracion } from '../src/configuracion.js';
 
 describe('configuracion', () => {
   it('expone valores basicos esperados', () => {

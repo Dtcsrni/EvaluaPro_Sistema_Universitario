@@ -61,7 +61,7 @@ test.describe('Journey docente integral visual', () => {
     const registrarCorreo = page.getByRole('button', { name: /Registrar con correo/i });
     if (await registrarCorreo.isVisible().catch(() => false)) await registrarCorreo.click();
     await page.fill('input[placeholder="Ej. Juan Carlos"]', 'Docente');
-    await page.fill('input[placeholder="Ej. Perez Lopez"]', 'Journey');
+    await page.getByLabel('Apellidos', { exact: true }).fill('Journey');
     await page.fill('input[type="email"]', `journey_${sufijo}@evaluapro.local`);
     await page.fill('input[type="password"]', 'P@ssword123');
     await page.screenshot({ path: path.join(outputDir, '08_acceso_registro_form.png'), fullPage: true });
@@ -75,6 +75,11 @@ test.describe('Journey docente integral visual', () => {
     await page.getByRole('button', { name: 'Materias', exact: true }).click();
     await page.screenshot({ path: path.join(outputDir, '11_materia_seccion.png'), fullPage: true });
 
+    const mostrarFormularioMateria = page.getByRole('button', { name: /Mostrar formulario/i });
+    if (await mostrarFormularioMateria.isVisible().catch(() => false)) {
+      await mostrarFormularioMateria.click();
+    }
+    await expect(page.getByRole('button', { name: 'Crear materia', exact: true })).toBeVisible({ timeout: 15_000 });
     await page.locator('label:has-text("Nombre de la materia") >> input').fill(nombreMateria);
     await page.locator('label:has-text("Fecha inicio") >> input').fill('2026-01-01');
     await page.locator('label:has-text("Fecha fin") >> input').fill('2026-12-31');
@@ -104,7 +109,7 @@ test.describe('Journey docente integral visual', () => {
     await page.locator('label:has-text("Grupo") >> input').fill('Grupo A');
     await page.screenshot({ path: path.join(outputDir, '16_alumno_datos_llenados.png'), fullPage: true });
 
-    await page.getByRole('button', { name: 'Crear alumno', exact: true }).click();
+    await page.getByRole('button', { name: /Crear alumno/i }).click();
     await expect(page.getByText(/Alumno Integral/i).first()).toBeVisible({ timeout: 20_000 });
     await page.screenshot({ path: path.join(outputDir, '17_alumno_creado_lista.png'), fullPage: true });
 
@@ -134,27 +139,40 @@ test.describe('Journey docente integral visual', () => {
     await page.getByRole('button', { name: 'Diseño de Exámenes', exact: true }).click();
     await page.screenshot({ path: path.join(outputDir, '24_plantilla_seccion.png'), fullPage: true });
 
-    const formularioPlantilla = page.locator('.plantillas-panel--form');
-    await formularioPlantilla.locator('input').first().fill(`Plantilla E2E Integral ${sufijo}`);
-    await formularioPlantilla.locator('select').selectOption(fixture.periodoId);
-    await formularioPlantilla.getByRole('checkbox').first().check();
+    const formularioPlantilla = page.getByRole('region', { name: 'Formulario de plantilla' });
+    await formularioPlantilla.getByLabel('Titulo', { exact: false }).fill(`Plantilla E2E Integral ${sufijo}`);
+    await formularioPlantilla.getByLabel('Materia', { exact: false }).selectOption(fixture.periodoId);
+    const temaIntegral = page.getByRole('button', { name: /Tema E2E Integral/i });
+    await expect(temaIntegral).toBeVisible({ timeout: 20_000 });
+    await temaIntegral.click();
+    await expect(temaIntegral).toHaveClass(/plantillas-tema-chip--selected/);
     await page.screenshot({ path: path.join(outputDir, '25_plantilla_formulario.png'), fullPage: true });
 
     await formularioPlantilla.getByRole('button', { name: 'Crear plantilla', exact: true }).click();
     await expect(formularioPlantilla.getByRole('status')).toContainText('Plantilla creada', { timeout: 20_000 });
     await page.screenshot({ path: path.join(outputDir, '26_plantilla_creada_exito.png'), fullPage: true });
 
-    const generacion = page.locator('.plantillas-panel--generar');
+    await page.getByRole('tab', { name: /Generar Paquete PDF\/OMR/i }).click();
+    const generacion = page.getByRole('tabpanel', { name: 'Generar Paquete PDF/OMR' });
+    await expect(generacion).toBeVisible({ timeout: 20_000 });
     const plantillaSelect = generacion.locator('select').first();
-    await plantillaSelect.selectOption({ label: `Plantilla E2E Integral ${sufijo}` });
-    await generacion.getByRole('button', { name: 'Individual', exact: true }).click();
+    const plantillaOption = plantillaSelect.locator('option', { hasText: `Plantilla E2E Integral ${sufijo}` });
+    await expect(plantillaOption).toBeAttached({ timeout: 20_000 });
+    const plantillaId = await plantillaOption.getAttribute('value');
+    expect(plantillaId).toBeTruthy();
+    await plantillaSelect.selectOption(plantillaId!);
+    await generacion.getByRole('button', { name: /Examen Individual de Muestra/i }).click();
     await page.screenshot({ path: path.join(outputDir, '27_plantilla_panel_generar.png'), fullPage: true });
 
-    const generarResponse = page.waitForResponse((response) => response.url().includes('/assessments/templates/') && response.request().method() === 'POST');
+    const generarResponse = page.waitForResponse((response) => response.url().includes('/examenes/generados') && response.request().method() === 'POST');
     await page.getByRole('button', { name: /Generar examen individual/i }).click();
     expect((await generarResponse).status()).toBeLessThan(400);
-    await expect(page.getByText(/Ultimo examen generado/i).first()).toBeVisible({ timeout: 30_000 });
-    await expect(page.getByText(/Folio:/).first()).toBeVisible();
+    await expect(generacion.getByRole('status')).toContainText(/Examen generado/i, { timeout: 30_000 });
+    await expect(generacion.getByRole('button', { name: /Ver historial de lotes/i })).toBeVisible();
+    await generacion.getByRole('button', { name: /Ver historial de lotes/i }).click();
+    const historial = page.getByRole('tabpanel', { name: 'Historial de Lotes' });
+    await expect(historial).toBeVisible({ timeout: 20_000 });
+    await expect(historial.getByText(/Folio:/).first()).toBeVisible({ timeout: 30_000 });
     await page.screenshot({ path: path.join(outputDir, '28_examen_generado_pdf.png'), fullPage: true });
 
     // Paso 6: OMR
@@ -166,7 +184,7 @@ test.describe('Journey docente integral visual', () => {
     if (!omrPath) throw new Error('La descarga de la hoja OMR no produjo ruta temporal');
     await page.screenshot({ path: path.join(outputDir, '29_omr_descarga_hoja.png'), fullPage: true });
 
-    const omrInput = page.locator('.plantillas-omr-v1 input[type="file"]');
+    const omrInput = historial.locator('.plantillas-omr input[type="file"]');
     await omrInput.setInputFiles(omrPath);
     await page.screenshot({ path: path.join(outputDir, '30_omr_panel_carga.png'), fullPage: true });
 
@@ -196,12 +214,12 @@ test.describe('Journey docente integral visual', () => {
     await page.getByRole('button', { name: 'Entrega', exact: true }).click();
     await page.screenshot({ path: path.join(outputDir, '33_entrega_seccion.png'), fullPage: true });
 
-    await page.locator('.entregas-vinculacion input').fill(examen.folio);
-    await page.locator('.entregas-vinculacion select').selectOption(fixture.alumnoId);
+    await page.getByLabel('Folio impreso del examen', { exact: true }).fill(examen.folio);
+    await page.getByRole('combobox', { name: 'Alumno receptor', exact: true }).selectOption(fixture.alumnoId);
     await page.screenshot({ path: path.join(outputDir, '34_entrega_folio_llenado.png'), fullPage: true });
 
     const entregaResponse = page.waitForResponse((response) => response.url().includes('/entregas/vincular-folio'));
-    await page.getByRole('button', { name: 'Vincular', exact: true }).click();
+    await page.getByRole('button', { name: 'Vincular examen', exact: true }).click();
     expect((await entregaResponse).status()).toBeLessThan(400);
     await expect(page.getByText(/Entregados/i).first()).toBeVisible({ timeout: 20_000 });
     await page.screenshot({ path: path.join(outputDir, '35_entrega_vinculada_exito.png'), fullPage: true });
@@ -210,9 +228,9 @@ test.describe('Journey docente integral visual', () => {
     await page.getByRole('button', { name: 'Evaluaciones', exact: true }).click();
     await page.screenshot({ path: path.join(outputDir, '36_evaluaciones_seccion.png'), fullPage: true });
 
-    const evaluaciones = page.getByRole('heading', { name: 'Evaluaciones y políticas' }).locator('..');
-    await evaluaciones.locator('select').nth(0).selectOption(fixture.periodoId);
-    await evaluaciones.locator('select').nth(1).selectOption(fixture.alumnoId);
+    const evaluaciones = page.locator('.evaluaciones-panel');
+    await evaluaciones.getByRole('combobox', { name: 'Periodo', exact: true }).selectOption(fixture.periodoId);
+    await evaluaciones.getByRole('combobox', { name: 'Alumno', exact: true }).selectOption(fixture.alumnoId);
     await evaluaciones.getByRole('button', { name: 'Guardar política', exact: true }).click();
     await expect(evaluaciones).toContainText(/guardada|política/i, { timeout: 20_000 });
     await page.screenshot({ path: path.join(outputDir, '37_evaluaciones_politica_guardada.png'), fullPage: true });
@@ -247,8 +265,8 @@ test.describe('Journey docente integral visual', () => {
     await page.screenshot({ path: path.join(outputDir, '41_calificaciones_guardada_exito.png'), fullPage: true });
 
     // Paso 10: Reportes
-    const reportes = page.getByLabel('Reportes de calificaciones');
-    await reportes.getByLabel('Materia del reporte').selectOption(fixture.periodoId);
+    const reportes = page.locator('.calif-deck-card--reports');
+    await reportes.getByRole('combobox', { name: 'Materia del reporte', exact: true }).selectOption(fixture.periodoId);
     await page.screenshot({ path: path.join(outputDir, '42_reportes_seccion.png'), fullPage: true });
 
     const descargaCsv = page.waitForEvent('download');
@@ -283,8 +301,8 @@ test.describe('Journey docente integral visual', () => {
     await expect(backupPanel).toContainText('Paquete importado', { timeout: 30_000 });
 
     // Paso 12: Publicación
-    const publicar = page.locator('.sincronizacion-grid').getByRole('heading', { name: 'Publicar en portal' }).locator('..');
-    await publicar.locator('select').selectOption(fixture.periodoId);
+    const publicar = page.getByRole('heading', { name: 'Publicar en portal', exact: true }).locator('..');
+    await publicar.getByRole('combobox', { name: 'Materia', exact: true }).selectOption(fixture.periodoId);
     await page.screenshot({ path: path.join(outputDir, '48_publicacion_publicar.png'), fullPage: true });
 
     const publicarResponse = page.waitForResponse((response) => response.url().includes('/sincronizaciones/publicar') && response.request().method() === 'POST');
@@ -321,6 +339,8 @@ test.describe('Journey docente integral visual', () => {
     // Paso 14: Cuenta
     await page.goto('/acceso');
     await page.getByRole('button', { name: 'Cuenta', exact: true }).click();
+    await expect(page.locator('.cuenta-panel')).toBeVisible({ timeout: 30_000 });
+    await expect(page.getByRole('heading', { name: 'Cuenta', exact: true })).toBeVisible({ timeout: 30_000 });
     await page.screenshot({ path: path.join(outputDir, '54_docente_cuenta_perfil.png'), fullPage: true });
   });
 });

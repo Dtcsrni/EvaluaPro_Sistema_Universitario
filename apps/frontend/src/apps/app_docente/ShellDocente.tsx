@@ -77,8 +77,8 @@ export function ShellDocente({
           <span
             className="chip chip-omr-contract"
             data-testid="omr-canonical-badge"
-            data-tooltip="Contrato OMR activo; las versiones antiguas se rechazan"
-            title={`Contrato activo: ${OMR_CANONICAL_CONTRACT_ID}. Las versiones antiguas se rechazan.`}
+            data-tooltip="Contrato OMR canónico activo"
+            title={`Contrato activo: ${OMR_CANONICAL_CONTRACT_ID}.`}
           >
             {OMR_CANONICAL_DISPLAY_LABEL}
           </span>

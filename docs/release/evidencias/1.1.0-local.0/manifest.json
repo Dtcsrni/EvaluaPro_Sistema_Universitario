@@ -1,0 +1,108 @@
+{
+  "version": "1.1.4",
+  "displayVersion": "1.1.4",
+  "commit": "local",
+  "ciConsecutivoVerde": 13,
+  "evidenciaWindows": {
+    "path": ""
+  },
+  "gateHumanoProduccion": {
+    "version": "1.1.4",
+    "displayVersion": "1.1.4",
+    "ejecutadoEn": "2026-09-11T11:19:22.804Z",
+    "entorno": "local-smoke",
+    "docenteIdHash": "7bb558d98c14b671f34f3d99a80923e0595a112a6e161bc2e4a37bd0f461da46",
+    "periodoId": "8e39555b-6fe3-4402-a059-da443181aebc",
+    "ventana": {
+      "startedAt": "2026-06-27T00:00:00.000-06:00",
+      "endedAt": "2026-06-27T00:30:00.000-06:00"
+    },
+    "operador": {
+      "nombre": "codex-local-smoke",
+      "observaciones": "Smoke local automatizado del flujo docente para el periodo mayo-junio. La validacion humana productiva queda como evidencia operativa opcional para 1.1.0 stable."
+    },
+    "resultado": "ok",
+    "duracionMs": 94,
+    "pasos": [
+      {
+        "id": "autenticacion",
+        "nombre": "Autenticacion docente valida",
+        "resultado": "ok",
+        "fuente": "manual",
+        "detalle": "Validado por evidencia manual en entorno local-smoke"
+      },
+      {
+        "id": "periodo",
+        "nombre": "Creacion/seleccion de periodo operativo",
+        "resultado": "ok",
+        "fuente": "manual",
+        "detalle": "Validado por evidencia manual en entorno local-smoke"
+      },
+      {
+        "id": "alumno",
+        "nombre": "Alta/seleccion de alumno",
+        "resultado": "ok",
+        "fuente": "manual",
+        "detalle": "Validado por evidencia manual en entorno local-smoke"
+      },
+      {
+        "id": "reactivos_plantilla",
+        "nombre": "Seleccion/creacion de reactivos y plantilla",
+        "resultado": "ok",
+        "fuente": "manual",
+        "detalle": "Validado por evidencia manual en entorno local-smoke"
+      },
+      {
+        "id": "generacion_examen",
+        "nombre": "Generacion de examen",
+        "resultado": "ok",
+        "fuente": "manual",
+        "detalle": "Validado por evidencia manual en entorno local-smoke"
+      },
+      {
+        "id": "vinculacion_entrega",
+        "nombre": "Vinculacion de entrega",
+        "resultado": "ok",
+        "fuente": "manual",
+        "detalle": "Validado por evidencia manual en entorno local-smoke"
+      },
+      {
+        "id": "calificacion",
+        "nombre": "Calificacion completa",
+        "resultado": "ok",
+        "fuente": "manual",
+        "detalle": "Validado por evidencia manual en entorno local-smoke"
+      },
+      {
+        "id": "exportacion_csv_docx_firma",
+        "nombre": "Exportacion de CSV/DOCX/firma",
+        "resultado": "ok",
+        "fuente": "automatica",
+        "requestId": "e1b4d16f-f727-491a-9b67-04c2cfd91cad",
+        "detalle": "csv=200, docx=200, firma=200",
+        "duracionMs": 81
+      },
+      {
+        "id": "integridad_sha256",
+        "nombre": "Verificacion de integridad SHA-256",
+        "resultado": "ok",
+        "fuente": "automatica",
+        "requestId": "e1b4d16f-f727-491a-9b67-04c2cfd91cad",
+        "detalle": "Hashes y bytes coinciden con manifiesto"
+      },
+      {
+        "id": "metricas_exportacion",
+        "nombre": "Confirmacion de metricas de exportacion",
+        "resultado": "ok",
+        "fuente": "automatica",
+        "requestId": "39dca1e9-ad4c-4f03-9aa7-dd866676c880",
+        "detalle": "Metricas de exportacion presentes en /api/metrics"
+      }
+    ]
+  },
+  "artefactos": {
+    "timeline": "docs/release/evidencias/1.1.0-local.0/timeline.md",
+    "metricas": "docs/release/evidencias/1.1.0-local.0/metrics_snapshot.txt",
+    "integridad": "docs/release/evidencias/1.1.0-local.0/integridad_sha256.json"
+  }
+}

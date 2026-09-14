@@ -2,12 +2,12 @@
  * Controlador de alumnos.
  */
 import type { Response } from 'express';
-import { ErrorAplicacion } from '../../compartido/errores/errorAplicacion';
-import { configuracion } from '../../configuracion';
-import { obtenerDocenteId } from '../modulo_autenticacion/middlewareAutenticacion';
-import type { SolicitudDocente } from '../modulo_autenticacion/middlewareAutenticacion';
-import { prisma } from '../../infraestructura/baseDatos/sqlite';
-import { guardarEnPapelera } from '../modulo_papelera/servicioPapelera';
+import { ErrorAplicacion } from '../../compartido/errores/errorAplicacion.js';
+import { configuracion } from '../../configuracion.js';
+import { obtenerDocenteId } from '../modulo_autenticacion/middlewareAutenticacion.js';
+import type { SolicitudDocente } from '../modulo_autenticacion/middlewareAutenticacion.js';
+import { prisma } from '../../infraestructura/baseDatos/sqlite.js';
+import { guardarEnPapelera } from '../modulo_papelera/servicioPapelera.js';
 
 function validarAdminDev() {
   if (String(configuracion.entorno).toLowerCase() !== 'development') {

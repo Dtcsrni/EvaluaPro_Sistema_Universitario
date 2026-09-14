@@ -6,11 +6,11 @@
  */
 import fs from 'node:fs/promises';
 import path from 'node:path';
-import { ErrorAplicacion } from '../../../../compartido/errores/errorAplicacion';
-import { generarPdfExamen } from '../../servicioGeneracionPdf';
-import { generarVariante } from '../../servicioVariantes';
-import { resolverNumeroPaginasPlantilla } from '../../domain/resolverNumeroPaginasPlantilla';
-import { obtenerPlantillaDocente } from '../../shared/controladorGeneracionPdfShared';
+import { ErrorAplicacion } from '../../../../compartido/errores/errorAplicacion.js';
+import { generarPdfExamen } from '../../servicioGeneracionPdf.js';
+import { generarVariante } from '../../servicioVariantes.js';
+import { resolverNumeroPaginasPlantilla } from '../../domain/resolverNumeroPaginasPlantilla.js';
+import { obtenerPlantillaDocente } from '../../shared/controladorGeneracionPdfShared.js';
 import {
   clavePreviewPlantilla,
   claveTemaPreview,
@@ -31,9 +31,9 @@ import {
   resolverPeriodoPlantillaActivo,
   resolverPreguntasPlantilla,
   resolverTemplateVersionOmr
-} from '../../shared/controladorGeneracionPdfShared';
-import { extraerPreguntasUsadasMapaOmr } from '../../domain/templateCanonico';
-import { rasterizarPdfParaPreview, type PaginaPdfPreviewVisual } from '../../infra/rasterizadorPdfPreview';
+} from '../../shared/controladorGeneracionPdfShared.js';
+import { extraerPreguntasUsadasMapaOmr } from '../../domain/templateCanonico.js';
+import { rasterizarPdfParaPreview, type PaginaPdfPreviewVisual } from '../../infra/rasterizadorPdfPreview.js';
 
 function construirPaginasSketch(params: {
   paginas: Array<{ numero: number; preguntasDel?: number; preguntasAl?: number }>;

@@ -423,11 +423,7 @@ function Add-DocenteNativeCompiledPayload {
         # perfil Docker. El payload docente es Windows + SQLite y solo usa el
         # engine native generado arriba (query_engine-windows.dll.node).
         (Join-Path $backendTarget 'node_modules/.prisma/client/libquery_engine-*.so.node'),
-        (Join-Path $backendTarget 'node_modules/.cache'),
-        # pdf-parse distribuye el bundle CJS autocontenido que usa el backend;
-        # pdfjs-dist queda como dependencia de paquete, pero no es necesario
-        # en el runtime docente y duplica el motor PDF dentro del payload.
-        (Join-Path $backendTarget 'node_modules/pdfjs-dist')
+        (Join-Path $backendTarget 'node_modules/.cache')
       )
       # El staging preconstruido puede contener engines, cachés y herramientas
       # de desarrollo de la máquina que lo generó. También debe podarse aquí;
@@ -436,6 +432,15 @@ function Add-DocenteNativeCompiledPayload {
       foreach ($prunePath in $prunePaths) {
         Get-ChildItem -Path $prunePath -Force -ErrorAction SilentlyContinue | ForEach-Object {
           Remove-Item -LiteralPath $_.FullName -Recurse -Force -ErrorAction Stop
+        }
+      }
+      # pdf-parse importa pdfjs-dist en tiempo de ejecución. Mantener ambos
+      # módulos en el payload evita que la API falle al arrancar después de
+      # instalar el bundle docente-local.
+      foreach ($requiredRuntimeModule in @('pdf-parse', 'pdfjs-dist')) {
+        $requiredRuntimeModulePath = Join-Path $backendTarget ("node_modules/{0}" -f $requiredRuntimeModule)
+        if (-not (Test-Path -LiteralPath $requiredRuntimeModulePath)) {
+          throw "Falta dependencia de runtime requerida por el backend: $requiredRuntimeModulePath"
         }
       }
       if ($reusePrebuiltDependencies) {

@@ -1,6 +1,6 @@
 # Matriz GUI Exhaustiva
 
-Fecha: 2026-09-08
+Fecha: 2026-09-09
 
 Contrato: cada pantalla debe validar componentes visibles, estados, viewports y evidencia antes de declarar cierre UX/UI.
 
@@ -29,7 +29,7 @@ Criterio UX: cada pantalla debe sostener una accion primaria clara, jerarquia vi
 - Simplicidad: Mantener jerarquia clara, densidad operativa y evitar decoracion sin funcion.
 - Feedback: Mostrar loading/empty/error/warning/success cerca del elemento afectado.
 - Estados: ready, loading, empty, active, error, warning, degraded, restart-required, success
-- Viewports: desktop, tablet, mobile
+- Viewports: desktop 1920x1080 (primario), tablet 1024x768, mobile 390x844
 - Evidencia: `npm run test:gui:responsive:e2e:ci`
 - Artefacto: `reports/qa/latest/gui-docente-login-desktop-lg.png`
 - Artefacto: `reports/qa/latest/gui-docente-login-mobile.png`
@@ -55,7 +55,7 @@ Criterio UX: cada pantalla debe sostener una accion primaria clara, jerarquia vi
 - Simplicidad: Mantener jerarquia clara, densidad operativa y evitar decoracion sin funcion.
 - Feedback: Mostrar loading/empty/error/warning/success cerca del elemento afectado.
 - Estados: ready, loading, empty, active, error, warning, degraded, restart-required, success
-- Viewports: desktop, tablet, mobile
+- Viewports: desktop 1920x1080 (primario), tablet 1024x768, mobile 390x844
 - Evidencia: `npm run test:ux-quality:ci && npm run test:ux-visual:ci`
 - Artefacto: `reports/qa/latest/ux-visual.json`
 - Artefacto: `reports/qa/latest/gui-docente-periodos-desktop-lg.png`
@@ -81,7 +81,7 @@ Criterio UX: cada pantalla debe sostener una accion primaria clara, jerarquia vi
 - Simplicidad: Mantener jerarquia clara, densidad operativa y evitar decoracion sin funcion.
 - Feedback: Mostrar loading/empty/error/warning/success cerca del elemento afectado.
 - Estados: ready, loading, empty, active, error, warning, degraded, restart-required, success
-- Viewports: desktop, tablet, mobile
+- Viewports: desktop 1920x1080 (primario), tablet 1024x768, mobile 390x844
 - Evidencia: `npm run test:ux-quality:ci && npm run test:ux-visual:ci`
 - Artefacto: `reports/qa/latest/ux-visual.json`
 - Artefacto: `reports/qa/latest/gui-docente-alumnos-desktop-lg.png`
@@ -107,7 +107,7 @@ Criterio UX: cada pantalla debe sostener una accion primaria clara, jerarquia vi
 - Simplicidad: Mantener jerarquia clara, densidad operativa y evitar decoracion sin funcion.
 - Feedback: Mostrar loading/empty/error/warning/success cerca del elemento afectado.
 - Estados: ready, loading, empty, active, error, warning, degraded, restart-required, success
-- Viewports: desktop, tablet, mobile
+- Viewports: desktop 1920x1080 (primario), tablet 1024x768, mobile 390x844
 - Evidencia: `npm run test:ux-quality:ci && npm run test:ux-visual:ci`
 - Artefacto: `reports/qa/latest/ux-visual.json`
 - Artefacto: `reports/qa/latest/gui-docente-banco-desktop-lg.png`
@@ -133,7 +133,7 @@ Criterio UX: cada pantalla debe sostener una accion primaria clara, jerarquia vi
 - Simplicidad: Mantener jerarquia clara, densidad operativa y evitar decoracion sin funcion.
 - Feedback: Mostrar loading/empty/error/warning/success cerca del elemento afectado.
 - Estados: ready, loading, empty, active, error, warning, degraded, restart-required, success
-- Viewports: desktop, tablet, mobile
+- Viewports: desktop 1920x1080 (primario), tablet 1024x768, mobile 390x844
 - Evidencia: `npm run test:ux-quality:ci && npm run test:ux-visual:ci`
 - Artefacto: `reports/qa/latest/ux-visual.json`
 - Artefacto: `reports/qa/latest/gui-docente-plantillas-desktop-lg.png`
@@ -159,7 +159,7 @@ Criterio UX: cada pantalla debe sostener una accion primaria clara, jerarquia vi
 - Simplicidad: Mantener jerarquia clara, densidad operativa y evitar decoracion sin funcion.
 - Feedback: Mostrar loading/empty/error/warning/success cerca del elemento afectado.
 - Estados: ready, loading, empty, active, error, warning, degraded, restart-required, success
-- Viewports: desktop, tablet, mobile
+- Viewports: desktop 1920x1080 (primario), tablet 1024x768, mobile 390x844
 - Evidencia: `npm run test:ux-quality:ci && npm run test:ux-visual:ci`
 - Artefacto: `reports/qa/latest/ux-visual.json`
 - Artefacto: `reports/qa/latest/gui-docente-entrega-desktop-lg.png`
@@ -185,7 +185,7 @@ Criterio UX: cada pantalla debe sostener una accion primaria clara, jerarquia vi
 - Simplicidad: Mantener jerarquia clara, densidad operativa y evitar decoracion sin funcion.
 - Feedback: Mostrar loading/empty/error/warning/success cerca del elemento afectado.
 - Estados: ready, loading, empty, active, error, warning, degraded, restart-required, success
-- Viewports: desktop, tablet, mobile
+- Viewports: desktop 1920x1080 (primario), tablet 1024x768, mobile 390x844
 - Evidencia: `npm run test:ux-quality:ci && npm run test:ux-visual:ci`
 - Artefacto: `reports/qa/latest/ux-visual.json`
 - Artefacto: `reports/qa/latest/gui-docente-calificaciones-desktop-lg.png`
@@ -210,7 +210,7 @@ Criterio UX: cada pantalla debe sostener una accion primaria clara, jerarquia vi
 - Simplicidad: Mantener jerarquia clara, densidad operativa y evitar decoracion sin funcion.
 - Feedback: Mostrar loading/empty/error/warning/success cerca del elemento afectado.
 - Estados: ready, loading, empty, active, error, warning, degraded, restart-required, success
-- Viewports: desktop, tablet, mobile
+- Viewports: desktop 1920x1080 (primario), tablet 1024x768, mobile 390x844
 - Evidencia: `npm run test:ux-quality:ci && npm run test:ux-visual:ci`
 - Artefacto: `reports/qa/latest/ux-visual.json`
 - Artefacto: `reports/qa/latest/gui-docente-rehidratacion-desktop-lg.png`
@@ -236,7 +236,7 @@ Criterio UX: cada pantalla debe sostener una accion primaria clara, jerarquia vi
 - Simplicidad: Mantener jerarquia clara, densidad operativa y evitar decoracion sin funcion.
 - Feedback: Mostrar loading/empty/error/warning/success cerca del elemento afectado.
 - Estados: ready, loading, empty, active, error, warning, degraded, restart-required, success
-- Viewports: desktop, tablet, mobile
+- Viewports: desktop 1920x1080 (primario), tablet 1024x768, mobile 390x844
 - Evidencia: `npm run test:ux-quality:ci && npm run test:ux-visual:ci`
 - Artefacto: `reports/qa/latest/ux-visual.json`
 - Artefacto: `reports/qa/latest/gui-docente-evaluaciones-desktop-lg.png`
@@ -262,7 +262,7 @@ Criterio UX: cada pantalla debe sostener una accion primaria clara, jerarquia vi
 - Simplicidad: Mantener jerarquia clara, densidad operativa y evitar decoracion sin funcion.
 - Feedback: Mostrar loading/empty/error/warning/success cerca del elemento afectado.
 - Estados: ready, loading, empty, active, error, warning, degraded, restart-required, success
-- Viewports: desktop, tablet, mobile
+- Viewports: desktop 1920x1080 (primario), tablet 1024x768, mobile 390x844
 - Evidencia: `npm run test:ux-quality:ci && npm run test:ux-visual:ci`
 - Artefacto: `reports/qa/latest/ux-visual.json`
 - Artefacto: `reports/qa/latest/gui-docente-sincronizacion-desktop-lg.png`
@@ -288,7 +288,7 @@ Criterio UX: cada pantalla debe sostener una accion primaria clara, jerarquia vi
 - Simplicidad: Mantener jerarquia clara, densidad operativa y evitar decoracion sin funcion.
 - Feedback: Mostrar loading/empty/error/warning/success cerca del elemento afectado.
 - Estados: ready, loading, empty, active, error, warning, degraded, restart-required, success
-- Viewports: desktop, tablet, mobile
+- Viewports: desktop 1920x1080 (primario), tablet 1024x768, mobile 390x844
 - Evidencia: `npm run test:ux-quality:ci && npm run test:ux-visual:ci`
 - Artefacto: `reports/qa/latest/ux-visual.json`
 - Artefacto: `reports/qa/latest/gui-docente-cuenta-desktop-lg.png`
@@ -314,7 +314,7 @@ Criterio UX: cada pantalla debe sostener una accion primaria clara, jerarquia vi
 - Simplicidad: Mantener jerarquia clara, densidad operativa y evitar decoracion sin funcion.
 - Feedback: Mostrar loading/empty/error/warning/success cerca del elemento afectado.
 - Estados: ready, loading, empty, active, error, warning, degraded, restart-required, success
-- Viewports: desktop, tablet, mobile
+- Viewports: desktop 1920x1080 (primario), tablet 1024x768, mobile 390x844
 - Evidencia: `npm run test:gui:responsive:e2e:ci`
 - Artefacto: `reports/qa/latest/ux-visual.json`
 - Artefacto: `reports/qa/latest/gui-alumno-login-desktop-lg.png`
@@ -341,7 +341,7 @@ Criterio UX: cada pantalla debe sostener una accion primaria clara, jerarquia vi
 - Simplicidad: Mantener jerarquia clara, densidad operativa y evitar decoracion sin funcion.
 - Feedback: Mostrar loading/empty/error/warning/success cerca del elemento afectado.
 - Estados: ready, loading, empty, active, error, warning, degraded, restart-required, success
-- Viewports: desktop, tablet, mobile
+- Viewports: desktop 1920x1080 (primario), tablet 1024x768, mobile 390x844
 - Evidencia: `npm run test:ux-quality:ci && npm run test:ux-visual:ci`
 - Artefacto: `reports/qa/latest/ux-visual.json`
 - Artefacto: `reports/qa/latest/gui-alumno-resultados-desktop-lg.png`
@@ -368,7 +368,7 @@ Criterio UX: cada pantalla debe sostener una accion primaria clara, jerarquia vi
 - Simplicidad: Mantener jerarquia clara, densidad operativa y evitar decoracion sin funcion.
 - Feedback: Mostrar loading/empty/error/warning/success cerca del elemento afectado.
 - Estados: ready, loading, empty, active, error, warning, degraded, restart-required, success
-- Viewports: desktop, tablet, mobile
+- Viewports: desktop 1920x1080 (primario), tablet 1024x768, mobile 390x844
 - Evidencia: `npm run test:gui:responsive:e2e:ci`
 - Artefacto: `reports/qa/latest/ux-visual.json`
 - Artefacto: `reports/qa/latest/gui-admin-dashboard-desktop-lg.png`
@@ -394,7 +394,7 @@ Criterio UX: cada pantalla debe sostener una accion primaria clara, jerarquia vi
 - Simplicidad: Mantener jerarquia clara, densidad operativa y evitar decoracion sin funcion.
 - Feedback: Mostrar loading/empty/error/warning/success cerca del elemento afectado.
 - Estados: ready, loading, empty, active, error, warning, degraded, restart-required, success
-- Viewports: desktop, tablet, mobile
+- Viewports: desktop 1920x1080 (primario), tablet 1024x768, mobile 390x844
 - Evidencia: `npm run test:ux-quality:ci && npm run test:ux-visual:ci`
 - Artefacto: `reports/qa/latest/ux-visual.json`
 - Artefacto: `reports/qa/latest/gui-admin-tenants-desktop-lg.png`
@@ -420,7 +420,7 @@ Criterio UX: cada pantalla debe sostener una accion primaria clara, jerarquia vi
 - Simplicidad: Mantener jerarquia clara, densidad operativa y evitar decoracion sin funcion.
 - Feedback: Mostrar loading/empty/error/warning/success cerca del elemento afectado.
 - Estados: ready, loading, empty, active, error, warning, degraded, restart-required, success
-- Viewports: desktop, tablet, mobile
+- Viewports: desktop 1920x1080 (primario), tablet 1024x768, mobile 390x844
 - Evidencia: `npm run test:dashboard:repair && npm run test:dashboard:ui`
 - Artefacto: `reports/qa/latest/manifest.json`
 - [ ] Desktop sin overflow/solape
@@ -444,7 +444,7 @@ Criterio UX: cada pantalla debe sostener una accion primaria clara, jerarquia vi
 - Simplicidad: Mantener jerarquia clara, densidad operativa y evitar decoracion sin funcion.
 - Feedback: Mostrar loading/empty/error/warning/success cerca del elemento afectado.
 - Estados: ready, loading, empty, active, error, warning, degraded, restart-required, success
-- Viewports: desktop, tablet, mobile
+- Viewports: desktop 1920x1080 (primario), tablet 1024x768, mobile 390x844
 - Evidencia: `npm run test:update && npm run test:dashboard:repair`
 - Artefacto: `reports/qa/latest/manifest.json`
 - [ ] Desktop sin overflow/solape
@@ -468,7 +468,7 @@ Criterio UX: cada pantalla debe sostener una accion primaria clara, jerarquia vi
 - Simplicidad: Mantener jerarquia clara, densidad operativa y evitar decoracion sin funcion.
 - Feedback: Mostrar loading/empty/error/warning/success cerca del elemento afectado.
 - Estados: ready, loading, empty, active, error, warning, degraded, restart-required, success
-- Viewports: desktop, tablet, mobile
+- Viewports: desktop 1920x1080 (primario), tablet 1024x768, mobile 390x844
 - Evidencia: `npm run test:installer-hub:contract && npm run test:installer-hub:ui`
 - Artefacto: `reports/qa/installer-hub-ui/`
 - [ ] Desktop sin overflow/solape
@@ -492,7 +492,7 @@ Criterio UX: cada pantalla debe sostener una accion primaria clara, jerarquia vi
 - Simplicidad: Mantener jerarquia clara, densidad operativa y evitar decoracion sin funcion.
 - Feedback: Mostrar loading/empty/error/warning/success cerca del elemento afectado.
 - Estados: ready, loading, empty, active, error, warning, degraded, restart-required, success
-- Viewports: desktop, tablet, mobile
+- Viewports: desktop 1920x1080 (primario), tablet 1024x768, mobile 390x844
 - Evidencia: `npm run test:installer-hub:contract && npm run test:installer-hub:ui`
 - Artefacto: `reports/qa/installer-hub-ui/`
 - [ ] Desktop sin overflow/solape
@@ -516,7 +516,7 @@ Criterio UX: cada pantalla debe sostener una accion primaria clara, jerarquia vi
 - Simplicidad: Mantener jerarquia clara, densidad operativa y evitar decoracion sin funcion.
 - Feedback: Mostrar loading/empty/error/warning/success cerca del elemento afectado.
 - Estados: ready, loading, empty, active, error, warning, degraded, restart-required, success
-- Viewports: desktop, tablet, mobile
+- Viewports: desktop 1920x1080 (primario), tablet 1024x768, mobile 390x844
 - Evidencia: `npm run test:installer-hub:contract && npm run test:installer-hub:ui`
 - Artefacto: `reports/qa/installer-hub-ui/`
 - [ ] Desktop sin overflow/solape

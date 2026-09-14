@@ -5,7 +5,7 @@
  * Limites: No relajar reglas sin actualizar tests y contratos de API.
  */
 import { z } from 'zod';
-import { esquemaObjectId } from '../../compartido/validaciones/esquemas';
+import { esquemaObjectId } from '../../compartido/validaciones/esquemas.js';
 
 export const esquemaMapearClassroom = z
   .object({

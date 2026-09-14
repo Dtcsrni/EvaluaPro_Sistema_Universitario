@@ -4,7 +4,7 @@
  * Responsabilidad: Modulo interno del sistema.
  * Limites: Mantener contrato y comportamiento observable del modulo.
  */
-import { describirErrorCv, ejecutarSmokeTestOmrCv } from '../src/modulos/modulo_escaneo_omr/infra/omrCvEngine';
+import { describirErrorCv, ejecutarSmokeTestOmrCv } from '../src/modulos/modulo_escaneo_omr/infra/omrCvEngine.js';
 
 async function main() {
   const smoke = await ejecutarSmokeTestOmrCv();

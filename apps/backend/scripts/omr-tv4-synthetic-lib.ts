@@ -8,9 +8,11 @@ import crypto from 'node:crypto';
 import fs from 'node:fs/promises';
 import path from 'node:path';
 import sharp from 'sharp';
-import QRCode from 'qrcode';
-import { generarPdfExamen } from '../src/modulos/modulo_generacion_pdf/servicioGeneracionPdf';
-import type { MapaVariante, PaginaOmr, PreguntaBase } from '../src/modulos/modulo_generacion_pdf/shared/tiposPdf';
+import { calcularCalificacionExacta } from '../src/compartido/utilidades/calculoCalificacion.js';
+import { generarPdfExamen } from '../src/modulos/modulo_generacion_pdf/servicioGeneracionPdf.js';
+import { analizarOmr } from '../src/modulos/modulo_escaneo_omr/servicioOmr.js';
+import { rasterizarPdfParaPreview } from '../src/modulos/modulo_generacion_pdf/infra/rasterizadorPdfPreview.js';
+import type { MapaVariante, PaginaOmr, PreguntaBase } from '../src/modulos/modulo_generacion_pdf/shared/tiposPdf.js';
 
 type Opcion = 'A' | 'B' | 'C' | 'D' | 'E';
 type MarkType = 'valid' | 'blank' | 'double' | 'smudge';
@@ -34,6 +36,7 @@ type ExamSpec = {
 type RenderSpec = {
   width: number;
   height: number;
+  dpi: number;
   marginPt: number;
   cornerMarkerSizePt: number;
   qrSizePt: number;
@@ -42,6 +45,7 @@ type RenderSpec = {
 type NoiseSpec = {
   profile: 'tv4_mobile_mix';
   rotationDegMax: number;
+  affineShearMax: number;
   blurSigmaMax: number;
   brightnessMin: number;
   brightnessMax: number;
@@ -56,6 +60,7 @@ type CaptureManifest = {
   captureId: string;
   imagePath: string;
   mapaOmrPath: string;
+  sourcePdfPath: string;
   folio: string;
   numeroPagina: number;
   templateVersion: 4;
@@ -130,6 +135,20 @@ type GenerateDatasetOptions = {
   datasetRoot: string;
   variants: number;
   seed: number;
+  totalQuestions?: number;
+  rasterDpi?: number;
+  affineShearMax?: number;
+  noise?: Partial<Pick<NoiseSpec,
+    | 'rotationDegMax'
+    | 'blurSigmaMax'
+    | 'brightnessMin'
+    | 'brightnessMax'
+    | 'contrastMin'
+    | 'contrastMax'
+    | 'jpegQualityMin'
+    | 'jpegQualityMax'
+    | 'shadowOpacityMax'
+  >>;
 };
 
 type EvaluateDatasetOptions = {
@@ -140,22 +159,24 @@ type EvaluateDatasetOptions = {
 
 const LETTERS: Opcion[] = ['A', 'B', 'C', 'D', 'E'];
 const DEFAULT_EXAM_SPEC: ExamSpec = {
-  totalQuestions: 16,
+  totalQuestions: 20,
   totalPages: 2,
   optionsPerQuestion: 5,
   templateVersion: 4,
-  questionsPerPage: 8
+  questionsPerPage: 10
 };
 const DEFAULT_RENDER_SPEC: RenderSpec = {
-  width: 612,
-  height: 792,
-  marginPt: 28.35,
-  cornerMarkerSizePt: 22,
-  qrSizePt: 96
+  width: 1224,
+  height: 1584,
+  dpi: 144,
+  marginPt: 10 * (72 / 25.4),
+  cornerMarkerSizePt: 7 * (72 / 25.4),
+  qrSizePt: 28 * (72 / 25.4)
 };
 const DEFAULT_NOISE_SPEC: NoiseSpec = {
   profile: 'tv4_mobile_mix',
   rotationDegMax: 0.55,
+  affineShearMax: 0.005,
   blurSigmaMax: 0.26,
   brightnessMin: 0.97,
   brightnessMax: 1.04,
@@ -208,10 +229,6 @@ function hashObject(input: unknown) {
   return crypto.createHash('sha256').update(JSON.stringify(input)).digest('hex');
 }
 
-function yImage(renderSpec: RenderSpec, yPdf: number) {
-  return renderSpec.height - yPdf;
-}
-
 function buildAnswerKey(totalQuestions: number) {
   const answerKey: Record<number, Opcion> = {};
   for (let q = 1; q <= totalQuestions; q += 1) {
@@ -230,9 +247,9 @@ function buildExamInputs(totalQuestions: number) {
     const id = `tv4-q${i}`;
     preguntas.push({
       id,
-      enunciado: `Pregunta TV4 ${i}: selecciona la opcion correcta.`,
+      enunciado: `Pregunta TV4 ${i}: selecciona la opción correcta.`,
       opciones: LETTERS.map((letter) => ({
-        texto: `Opcion ${letter}`,
+        texto: `Opción ${letter}`,
         esCorrecta: answerKey[i] === letter
       }))
     });
@@ -258,8 +275,9 @@ function buildStudentSelection(
   markType: MarkType,
   rng: Rng
 ) {
-  if (markType === 'blank' || markType === 'smudge') return [] as Opcion[];
+  if (markType === 'blank') return [] as Opcion[];
   const correct = answerKey[questionNumber] ?? 'A';
+  if (markType === 'smudge') return [correct];
   if (markType === 'double') {
     const wrong = LETTERS.find((option) => option !== correct) ?? 'B';
     return [correct, wrong];
@@ -270,90 +288,48 @@ function buildStudentSelection(
   return [correct];
 }
 
-function drawBubbleSvg(cx: number, cy: number, selected: boolean, fillOpacity: number) {
-  const ring = `<circle cx="${cx.toFixed(2)}" cy="${cy.toFixed(2)}" r="8.0" fill="none" stroke="#d9d9d9" stroke-width="0.52"/>`;
-  if (!selected) return ring;
-  return `${ring}<circle cx="${cx.toFixed(2)}" cy="${cy.toFixed(2)}" r="7.65" fill="#050505" fill-opacity="${Math.max(0.98, fillOpacity).toFixed(3)}"/>`;
-}
-
-function renderCornerMarkers(page: PaginaOmr, renderSpec: RenderSpec) {
-  const markers = [page.marcasPagina.tl, page.marcasPagina.tr, page.marcasPagina.bl, page.marcasPagina.br];
-  const halfMarker = page.marcasPagina.size / 2;
-  const quiet = page.marcasPagina.quietZone;
-  return markers
-    .map((marker) => {
-      const cx = marker.x;
-      const cy = yImage(renderSpec, marker.y);
-      return [
-        `<rect x="${(cx - halfMarker - quiet).toFixed(2)}" y="${(cy - halfMarker - quiet).toFixed(2)}" width="${(page.marcasPagina.size + quiet * 2).toFixed(2)}" height="${(page.marcasPagina.size + quiet * 2).toFixed(2)}" fill="#ffffff"/>`,
-        `<rect x="${(cx - halfMarker).toFixed(2)}" y="${(cy - halfMarker).toFixed(2)}" width="${page.marcasPagina.size.toFixed(2)}" height="${page.marcasPagina.size.toFixed(2)}" fill="#111111"/>`
-      ].join('');
-    })
-    .join('');
-}
-
-function renderFiducials(page: PaginaOmr, renderSpec: RenderSpec) {
-  const points = page.preguntas.flatMap((question) => {
-    const fid = question.fiduciales;
-    if (!fid) return [];
-    return [
-      fid.leftTop,
-      fid.leftBottom,
-      fid.rightTop,
-      fid.rightBottom,
-      fid.leftMid,
-      fid.rightMid
-    ].filter(Boolean) as Array<{ x: number; y: number }>;
-  });
-  return points
-    .map((point) => {
-      const x = point.x - 3.2;
-      const y = yImage(renderSpec, point.y) - 3.2;
-      return `<rect x="${x.toFixed(2)}" y="${y.toFixed(2)}" width="6.4" height="6.4" fill="#101010"/>`;
-    })
-    .join('');
-}
-
 async function renderPageImage(args: {
   page: PaginaOmr;
+  baseImage: Buffer;
   renderSpec: RenderSpec;
   selectedByQuestion: Map<number, Opcion[]>;
+  markTypeByQuestion: Map<number, MarkType>;
   noiseSpec: NoiseSpec;
   rng: Rng;
 }) {
-  const { page, renderSpec, selectedByQuestion, noiseSpec, rng } = args;
+  const { page, baseImage, renderSpec, selectedByQuestion, markTypeByQuestion, noiseSpec, rng } = args;
+  const metadata = await sharp(baseImage).metadata();
+  const width = Number(metadata.width ?? renderSpec.width);
+  const height = Number(metadata.height ?? renderSpec.height);
+  const scaleX = width / 612;
+  const scaleY = height / 792;
   const questionsSvg = page.preguntas
     .map((question) => {
       const selected = selectedByQuestion.get(question.numeroPregunta) ?? [];
+      const markType = markTypeByQuestion.get(question.numeroPregunta) ?? 'valid';
+      const bubbleRadius = Number(question.perfilOmr?.radio ?? 6.5) * Math.min(scaleX, scaleY);
       return question.opciones
         .map((option) => {
-          const cx = option.x;
-          const cy = yImage(renderSpec, option.y);
+          const cx = option.x * scaleX;
+          const cy = (792 - option.y) * scaleY;
           const isSelected = selected.includes(option.letra as Opcion);
-          const fillOpacity = isSelected ? 0.88 + rng.next() * 0.1 : 0;
-          return drawBubbleSvg(cx, cy, isSelected, fillOpacity);
+          if (!isSelected) return '';
+          if (markType === 'smudge') {
+            const offset = bubbleRadius * 0.2;
+            return `<ellipse cx="${(cx + offset).toFixed(2)}" cy="${(cy - offset).toFixed(2)}" rx="${(bubbleRadius * 0.62).toFixed(2)}" ry="${(bubbleRadius * 0.42).toFixed(2)}" fill="#050505" fill-opacity="0.34"/>`;
+          }
+          const fillOpacity = 0.88 + rng.next() * 0.1;
+          return `<circle cx="${cx.toFixed(2)}" cy="${cy.toFixed(2)}" r="${(bubbleRadius * 0.82).toFixed(2)}" fill="#050505" fill-opacity="${fillOpacity.toFixed(3)}"/>`;
         })
         .join('');
     })
     .join('');
 
-  const baseSvg = `<svg xmlns="http://www.w3.org/2000/svg" width="${renderSpec.width}" height="${renderSpec.height}">
-  <rect width="100%" height="100%" fill="#ffffff"/>
-  ${renderCornerMarkers(page, renderSpec)}
-  ${renderFiducials(page, renderSpec)}
-  ${questionsSvg}
-</svg>`;
-
-  const qrBuffer = await QRCode.toBuffer(page.qr.texto, {
-    type: 'png',
-    width: Math.round(page.qr.size),
-    margin: 1,
-    errorCorrectionLevel: 'H'
-  });
-  const qrTop = Math.round(yImage(renderSpec, page.qr.y + page.qr.size));
-  const qrLeft = Math.round(page.qr.x);
+  const marksOverlay = `<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}">${questionsSvg}</svg>`;
 
   const angle = (rng.next() * 2 - 1) * noiseSpec.rotationDegMax;
+  const shearX = (rng.next() * 2 - 1) * noiseSpec.affineShearMax;
+  const shearY = (rng.next() * 2 - 1) * noiseSpec.affineShearMax;
   const blur = rng.next() * noiseSpec.blurSigmaMax;
   const brightness = noiseSpec.brightnessMin + rng.next() * (noiseSpec.brightnessMax - noiseSpec.brightnessMin);
   const contrast = noiseSpec.contrastMin + rng.next() * (noiseSpec.contrastMax - noiseSpec.contrastMin);
@@ -361,9 +337,9 @@ async function renderPageImage(args: {
     noiseSpec.jpegQualityMin + rng.next() * (noiseSpec.jpegQualityMax - noiseSpec.jpegQualityMin)
   );
   const shadowOpacity = rng.next() * noiseSpec.shadowOpacityMax;
-  const shadowStart = Math.round(rng.next() * renderSpec.width * 0.35);
-  const shadowEnd = Math.round(renderSpec.width - rng.next() * renderSpec.width * 0.2);
-  const shadowOverlay = `<svg xmlns="http://www.w3.org/2000/svg" width="${renderSpec.width}" height="${renderSpec.height}">
+  const shadowStart = Math.round(rng.next() * width * 0.35);
+  const shadowEnd = Math.round(width - rng.next() * width * 0.2);
+  const shadowOverlay = `<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}">
     <defs>
       <linearGradient id="g" x1="0" y1="0" x2="1" y2="0">
         <stop offset="0%" stop-color="rgba(0,0,0,0)"/>
@@ -371,14 +347,17 @@ async function renderPageImage(args: {
         <stop offset="100%" stop-color="rgba(0,0,0,0)"/>
       </linearGradient>
     </defs>
-    <rect x="${shadowStart}" y="0" width="${Math.max(96, shadowEnd - shadowStart)}" height="${renderSpec.height}" fill="url(#g)"/>
+    <rect x="${shadowStart}" y="0" width="${Math.max(96, shadowEnd - shadowStart)}" height="${height}" fill="url(#g)"/>
   </svg>`;
 
-  let pipeline = sharp(Buffer.from(baseSvg))
-    .composite([{ input: qrBuffer, top: qrTop, left: qrLeft }])
-    .composite([{ input: Buffer.from(shadowOverlay), blend: 'multiply' }])
+  let pipeline = sharp(baseImage)
+    .composite([
+      { input: Buffer.from(marksOverlay) },
+      { input: Buffer.from(shadowOverlay), blend: 'multiply' }
+    ])
     .rotate(angle, { background: '#ffffff' })
-    .resize(renderSpec.width, renderSpec.height, { fit: 'fill' })
+    .affine([1, shearX, shearY, 1], { background: '#ffffff' })
+    .resize(width, height, { fit: 'fill' })
     .modulate({ brightness, saturation: 1 })
     .linear(contrast, -6);
 
@@ -391,6 +370,31 @@ async function renderPageImage(args: {
 
 function ensureDir(dirPath: string) {
   return fs.mkdir(dirPath, { recursive: true });
+}
+
+async function limpiarArtefactosSinteticosObsoletos(datasetRoot: string) {
+  const archivosPorDirectorio: Array<{ directorio: string; patron: RegExp }> = [
+    { directorio: 'images', patron: /^TV4-SYNTH-\d+-P\d+\.jpg$/i },
+    { directorio: 'maps', patron: /^TV4-SYNTH-\d+-P\d+\.json$/i },
+    { directorio: 'pdfs', patron: /^TV4-SYNTH-\d+\.pdf$/i }
+  ];
+
+  for (const { directorio, patron } of archivosPorDirectorio) {
+    const rutaDirectorio = path.join(datasetRoot, directorio);
+    const entradas = await fs.readdir(rutaDirectorio, { withFileTypes: true });
+    await Promise.all(
+      entradas
+        .filter((entrada) => entrada.isFile() && patron.test(entrada.name))
+        .map(async (entrada) => {
+          const rutaArchivo = path.join(rutaDirectorio, entrada.name);
+          // En Windows, un archivo vacío precreado permite recuperar una
+          // carpeta que no admite creación directa desde Node; se sobrescribe
+          // después y no necesita pasar por unlink.
+          if ((await fs.stat(rutaArchivo)).size === 0) return;
+          await fs.unlink(rutaArchivo);
+        })
+    );
+  }
 }
 
 async function readJson<T>(filePath: string) {
@@ -414,59 +418,6 @@ function buildIndex(rows: GroundTruthRow[]) {
   return byCapture;
 }
 
-async function detectSyntheticOmr(imagePath: string, mapPage: PaginaOmr) {
-  const { data, info } = await sharp(imagePath).greyscale().raw().toBuffer({ resolveWithObject: true });
-  const width = info.width;
-  const height = info.height;
-  const pixel = (x: number, y: number) => {
-    const xx = Math.max(0, Math.min(width - 1, Math.round(x)));
-    const yy = Math.max(0, Math.min(height - 1, Math.round(y)));
-    return data[yy * width + xx] ?? 255;
-  };
-  const sampleDiskDarkness = (cx: number, cy: number, radius: number) => {
-    let sum = 0;
-    let count = 0;
-    const r2 = radius * radius;
-    for (let dy = -radius; dy <= radius; dy += 1) {
-      for (let dx = -radius; dx <= radius; dx += 1) {
-        if (dx * dx + dy * dy > r2) continue;
-        sum += pixel(cx + dx, cy + dy);
-        count += 1;
-      }
-    }
-    const mean = count > 0 ? sum / count : 255;
-    return 1 - mean / 255;
-  };
-
-  const responses = new Map<number, Opcion | null>();
-  let detectedMarked = 0;
-  for (const question of mapPage.preguntas) {
-    const optionScores = question.opciones
-      .map((option) => ({
-        option: String(option.letra).toUpperCase() as Opcion,
-        darkness: sampleDiskDarkness(option.x, height - option.y, 5)
-      }))
-      .sort((a, b) => b.darkness - a.darkness);
-    const top = optionScores[0];
-    const second = optionScores[1];
-    let selected: Opcion | null = null;
-    if (top && top.darkness >= 0.28) {
-      const secondIsFar = !second || second.darkness <= top.darkness * 0.76;
-      const absoluteGapOk = !second || top.darkness - second.darkness >= 0.08;
-      if (secondIsFar && absoluteGapOk) {
-        selected = top.option;
-      }
-    }
-    if (selected) detectedMarked += 1;
-    responses.set(question.numeroPregunta, selected);
-  }
-
-  const detectionRate = mapPage.preguntas.length > 0 ? detectedMarked / mapPage.preguntas.length : 0;
-  const estadoAnalisis: PerCaptureEval['estadoAnalisis'] =
-    detectionRate >= 0.55 ? 'ok' : detectionRate >= 0.35 ? 'requiere_revision' : 'rechazado_calidad';
-  return { responses, estadoAnalisis };
-}
-
 function countMatchesForScore(answers: Map<number, Opcion | null>, answerKey: Record<number, Opcion>) {
   let score = 0;
   for (const [questionNumber, detected] of answers.entries()) {
@@ -479,11 +430,36 @@ export async function generateSyntheticTv4Dataset(options: GenerateDatasetOption
   const datasetRoot = path.resolve(process.cwd(), options.datasetRoot);
   await ensureDir(path.join(datasetRoot, 'images'));
   await ensureDir(path.join(datasetRoot, 'maps'));
+  await ensureDir(path.join(datasetRoot, 'pdfs'));
   await ensureDir(path.join(datasetRoot, 'reports'));
+  // El dataset es regenerable y sus capturas deben corresponder siempre a la
+  // plantilla canónica vigente; retirar P3/P4 antiguos evita evaluar mapas
+  // de una generación obsoleta que ya no aparece en el manifest.
+  await limpiarArtefactosSinteticosObsoletos(datasetRoot);
 
-  const examSpec = DEFAULT_EXAM_SPEC;
-  const renderSpec = DEFAULT_RENDER_SPEC;
-  const noiseSpec = DEFAULT_NOISE_SPEC;
+  const requestedQuestions = Number(options.totalQuestions ?? DEFAULT_EXAM_SPEC.totalQuestions);
+  const totalQuestions = Number.isFinite(requestedQuestions)
+    ? Math.max(20, Math.min(25, Math.round(requestedQuestions)))
+    : DEFAULT_EXAM_SPEC.totalQuestions;
+  const examSpec: ExamSpec = {
+    ...DEFAULT_EXAM_SPEC,
+    totalQuestions,
+    questionsPerPage: Math.ceil(totalQuestions / DEFAULT_EXAM_SPEC.totalPages)
+  };
+  const rasterDpi = Number.isFinite(options.rasterDpi) ? Math.max(72, Math.min(600, Math.round(options.rasterDpi as number))) : DEFAULT_RENDER_SPEC.dpi;
+  const renderSpec: RenderSpec = {
+    ...DEFAULT_RENDER_SPEC,
+    dpi: rasterDpi,
+    width: Math.round((612 * rasterDpi) / 72),
+    height: Math.round((792 * rasterDpi) / 72)
+  };
+  const noiseSpec: NoiseSpec = {
+    ...DEFAULT_NOISE_SPEC,
+    ...(options.noise ?? {}),
+    affineShearMax: Number.isFinite(options.affineShearMax)
+      ? Math.max(0, Math.min(0.02, Number(options.affineShearMax)))
+      : DEFAULT_NOISE_SPEC.affineShearMax
+  };
   const thresholds = DEFAULT_THRESHOLDS;
   const { preguntas, mapaVariante, answerKey } = buildExamInputs(examSpec.totalQuestions);
   const groundTruthRows: GroundTruthRow[] = [];
@@ -494,22 +470,35 @@ export async function generateSyntheticTv4Dataset(options: GenerateDatasetOption
     const variantRng = new Rng(variantSeed);
     const folio = `TV4-SYNTH-${String(variantIdx + 1).padStart(3, '0')}`;
     const generated = await generarPdfExamen({
-      titulo: 'TV4 Synthetic',
+      titulo: 'Evaluación OMR TV4',
       folio,
       preguntas,
       mapaVariante,
       tipoExamen: 'parcial',
       totalPaginas: examSpec.totalPages,
       margenMm: 10,
-      templateVersion: 4
+      templateVersion: 4,
+      bookletConfig: { densityMode: 'compact' }
     });
+    const sourcePdfPath = path.join('pdfs', `${folio}.pdf`).replaceAll('\\', '/');
+    await fs.writeFile(path.join(datasetRoot, sourcePdfPath), generated.pdfBytes);
+    const rasterized = await rasterizarPdfParaPreview(generated.pdfBytes, { dpi: rasterDpi });
+    const rasterByPage = new Map(rasterized.paginas.map((page) => [page.numero, page]));
+    if (rasterized.paginasTotales < generated.mapaOmr.paginas.length) {
+      throw new Error(
+        `El PDF de prueba tiene ${rasterized.paginasTotales} páginas rasterizadas, ` +
+          `pero el mapa OMR contiene ${generated.mapaOmr.paginas.length}.`
+      );
+    }
 
     for (const page of generated.mapaOmr.paginas) {
       const selectedByQuestion = new Map<number, Opcion[]>();
+      const markTypeByQuestion = new Map<number, MarkType>();
       for (const question of page.preguntas) {
         const markType = decideMarkType(variantRng);
         const selected = buildStudentSelection(question.numeroPregunta, answerKey, markType, variantRng);
         selectedByQuestion.set(question.numeroPregunta, selected);
+        markTypeByQuestion.set(question.numeroPregunta, markType);
         groundTruthRows.push({
           captureId: `${folio}-P${page.numeroPagina}`,
           numeroPregunta: question.numeroPregunta,
@@ -519,10 +508,20 @@ export async function generateSyntheticTv4Dataset(options: GenerateDatasetOption
         });
       }
 
+      const rasterPage = rasterByPage.get(page.numeroPagina);
+      if (!rasterPage) throw new Error(`No se encontró la página rasterizada ${page.numeroPagina}.`);
+      const dataUrlPrefix = 'data:image/png;base64,';
+      if (!rasterPage.dataUrl.startsWith(dataUrlPrefix)) {
+        throw new Error(`Raster inesperado para la página ${page.numeroPagina}.`);
+      }
+      const baseImage = Buffer.from(rasterPage.dataUrl.slice(dataUrlPrefix.length), 'base64');
+
       const imageBuffer = await renderPageImage({
         page,
+        baseImage,
         renderSpec,
         selectedByQuestion,
+        markTypeByQuestion,
         noiseSpec,
         rng: new Rng(variantSeed + page.numeroPagina * 37 + 19)
       });
@@ -536,6 +535,7 @@ export async function generateSyntheticTv4Dataset(options: GenerateDatasetOption
         captureId,
         imagePath,
         mapaOmrPath: mapPath,
+        sourcePdfPath,
         folio,
         numeroPagina: page.numeroPagina,
         templateVersion: 4,
@@ -622,11 +622,30 @@ export async function evaluateSyntheticTv4Dataset(options: EvaluateDatasetOption
 
   for (const capture of manifest.capturas) {
     const mapPage = await readJson<PaginaOmr>(path.join(datasetRoot, capture.mapaOmrPath));
-    const detection = await detectSyntheticOmr(path.join(datasetRoot, capture.imagePath), mapPage);
+    const imageBuffer = await fs.readFile(path.join(datasetRoot, capture.imagePath));
+    const detectionResult = await analizarOmr(
+      `data:image/jpeg;base64,${imageBuffer.toString('base64')}`,
+      mapPage,
+      mapPage.qr.texto,
+      10,
+      {
+        folio: capture.captureId,
+        numeroPagina: mapPage.numeroPagina,
+        templateVersionDetectada: 4
+      },
+      capture.captureId
+    );
+    const detectedByQuestion = new Map<number, Opcion | null>();
+    for (const respuesta of detectionResult.respuestasDetectadas) {
+      const normalized = String(respuesta.opcion ?? '').trim().toUpperCase();
+      detectedByQuestion.set(
+        respuesta.numeroPregunta,
+        LETTERS.includes(normalized as Opcion) ? (normalized as Opcion) : null
+      );
+    }
     const truthForCapture = truthByCapture.get(capture.captureId);
     if (!truthForCapture) throw new Error(`No ground truth for capture ${capture.captureId}`);
 
-    const detectedByQuestion = detection.responses;
     let mismatches = 0;
     const expectedByQuestion = new Map<number, Opcion | null>();
     for (const [questionNumber, truth] of truthForCapture.entries()) {
@@ -667,9 +686,11 @@ export async function evaluateSyntheticTv4Dataset(options: EvaluateDatasetOption
 
     const expectedScore = countMatchesForScore(expectedByQuestion, answerKey);
     const detectedScore = countMatchesForScore(detectedByQuestion, answerKey);
-    if (expectedScore === detectedScore) gradeConsistency += 1;
-
     const totalQuestions = truthForCapture.size;
+    const expectedGrade = calcularCalificacionExacta(expectedScore, totalQuestions, 0).calificacionFinalTexto;
+    const detectedGrade = calcularCalificacionExacta(detectedScore, totalQuestions, 0).calificacionFinalTexto;
+    if (expectedGrade === detectedGrade) gradeConsistency += 1;
+
     const pagePass = totalQuestions > 0 ? mismatches / totalQuestions <= 0.05 : true;
     if (pagePass) pagePasses += 1;
     perCapture.push({
@@ -679,7 +700,7 @@ export async function evaluateSyntheticTv4Dataset(options: EvaluateDatasetOption
       expectedScore,
       detectedScore,
       pagePass,
-      estadoAnalisis: detection.estadoAnalisis
+      estadoAnalisis: detectionResult.estadoAnalisis
     });
   }
 
@@ -700,7 +721,7 @@ export async function evaluateSyntheticTv4Dataset(options: EvaluateDatasetOption
 
   const report: CanonicalReport = {
     runId: `omr-tv4-synth-${Date.now()}`,
-    examId: 'tv4-synthetic-16q-2p',
+    examId: `tv4-synthetic-${manifest.examSpec.totalQuestions}q-${manifest.examSpec.totalPages}p`,
     templateId: 'tv4',
     datasetProfile: manifest.datasetType,
     noiseProfile: manifest.noiseSpec.profile,

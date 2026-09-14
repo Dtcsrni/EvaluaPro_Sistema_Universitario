@@ -5,9 +5,9 @@
  * Limites: Mantener invariantes del dominio y errores controlados.
  */
 import { OAuth2Client } from 'google-auth-library';
-import { ErrorAplicacion } from '../../compartido/errores/errorAplicacion';
-import { esCorreoDeDominioPermitido } from '../../compartido/utilidades/correo';
-import { configuracion } from '../../configuracion';
+import { ErrorAplicacion } from '../../compartido/errores/errorAplicacion.js';
+import { esCorreoDeDominioPermitido } from '../../compartido/utilidades/correo.js';
+import { configuracion } from '../../configuracion.js';
 
 export type PerfilGoogle = {
   correo: string;

@@ -8,7 +8,7 @@
  */
 import type { NextFunction, Request, Response } from 'express';
 import type { ZodSchema } from 'zod';
-import { ErrorAplicacion } from '../errores/errorAplicacion';
+import { ErrorAplicacion } from '../errores/errorAplicacion.js';
 
 export function validarCuerpo(schema: ZodSchema, opciones?: { strict?: boolean }) {
   return (req: Request, _res: Response, next: NextFunction) => {

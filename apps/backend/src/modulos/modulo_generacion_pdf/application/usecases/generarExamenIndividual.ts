@@ -9,16 +9,16 @@
 import type {
   ParametrosGeneracionPdf,
   ResultadoGeneracionPdf
-} from '../../shared/tiposPdf';
-import { ExamenPdf } from '../../domain/examenPdf';
-import { obtenerPerfilPlantilla } from '../../domain/layoutExamen';
-import { resolverPerfilLayout } from '../../infra/configuracionLayoutEnv';
-import { PdfKitRenderer } from '../../infra/pdfKitRenderer';
+} from '../../shared/tiposPdf.js';
+import { ExamenPdf } from '../../domain/examenPdf.js';
+import { obtenerPerfilPlantilla } from '../../domain/layoutExamen.js';
+import { resolverPerfilLayout } from '../../infra/configuracionLayoutEnv.js';
+import { PdfKitRenderer } from '../../infra/pdfKitRenderer.js';
 import {
   resolverTemplateVersionCanonica,
   normalizarMapaVarianteCanonica,
   normalizarPreguntasCanonicas
-} from '../../domain/templateCanonico';
+} from '../../domain/templateCanonico.js';
 
 /**
  * Genera un PDF de examen individual.
@@ -49,6 +49,7 @@ export async function generarExamenIndividual(
       margenMm,
       templateVersion,
       totalPaginas,
+      densityMode: params.bookletConfig?.densityMode,
       fontScale: params.bookletConfig?.fontScale,
       lineSpacing: params.bookletConfig?.lineSpacing,
       logos: params.bookletConfig?.logos

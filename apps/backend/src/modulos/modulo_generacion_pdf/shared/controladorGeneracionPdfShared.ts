@@ -7,18 +7,18 @@
 import fs from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
-import { prisma } from '../../../infraestructura/baseDatos/sqlite';
-import { barajar } from '../../../compartido/utilidades/aleatoriedad';
-import { ErrorAplicacion } from '../../../compartido/errores/errorAplicacion';
-import { configuracion } from '../../../configuracion';
-import { normalizarParaNombreArchivo } from '../../../compartido/utilidades/texto';
-import { construirFirmaVisualPdf } from '../infra/pdfVisualBaseline';
+import { prisma } from '../../../infraestructura/baseDatos/sqlite.js';
+import { barajar } from '../../../compartido/utilidades/aleatoriedad.js';
+import { ErrorAplicacion } from '../../../compartido/errores/errorAplicacion.js';
+import { configuracion } from '../../../configuracion.js';
+import { normalizarParaNombreArchivo } from '../../../compartido/utilidades/texto.js';
+import { construirFirmaVisualPdf } from '../infra/pdfVisualBaseline.js';
 import {
   construirMapaVarianteUsadaCanonica,
   extraerPreguntasUsadasMapaOmr,
   normalizarPreguntasCanonicas
-} from '../domain/templateCanonico';
-import { normalizarTituloPlantilla } from '../modeloExamenPlantilla';
+} from '../domain/templateCanonico.js';
+import { normalizarTituloPlantilla } from '../modeloExamenPlantilla.js';
 
 export type MapaVariante = {
   ordenPreguntas: string[];

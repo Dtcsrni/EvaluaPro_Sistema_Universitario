@@ -11,7 +11,7 @@ import {
   type EstadoImagenOmr,
   type EvaluarConOffsetResultado,
   type ParametrosBurbujaCore
-} from '../src/modulos/modulo_escaneo_omr/omrCore';
+} from '../src/modulos/modulo_escaneo_omr/omrCore.js';
 
 type RasgoMock = {
   score: number;

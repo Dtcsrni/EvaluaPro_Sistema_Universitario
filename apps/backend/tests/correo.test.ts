@@ -5,7 +5,7 @@
  * Limites: Mantener contrato y comportamiento observable del modulo.
  */
 import { describe, expect, it } from 'vitest';
-import { esCorreoDeDominioPermitido, obtenerDominioCorreo } from '../src/compartido/utilidades/correo';
+import { esCorreoDeDominioPermitido, obtenerDominioCorreo } from '../src/compartido/utilidades/correo.js';
 
 describe('correo utilidades', () => {
   it('extrae dominio del correo', () => {

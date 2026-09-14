@@ -144,8 +144,15 @@ test('el authoring del MSI excluye contenido de ingeniería que no se ejecuta', 
   assert.match(msiBuild, /npmCommand prune --omit=dev --ignore-scripts/);
   assert.match(msiBuild, /foreach \(\$prunePath in \$prunePaths\)/);
   assert.match(msiBuild, /node_modules\/\.prisma\/client\/libquery_engine-\*\.so\.node/);
-  assert.match(msiBuild, /node_modules\/pdfjs-dist/);
+  assert.match(msiBuild, /pdf-parse/);
+  assert.match(msiBuild, /pdfjs-dist/);
   assert.match(msiBuild, /Payload preconstruido reutilizado y podado/);
+});
+
+test('el payload docente conserva los módulos PDF requeridos en runtime', () => {
+  assert.match(msiBuild, /foreach \(\$requiredRuntimeModule in @\('pdf-parse', 'pdfjs-dist'\)\)/);
+  assert.match(msiBuild, /Falta dependencia de runtime requerida por el backend/);
+  assert.doesNotMatch(msiBuild, /Join-Path \$backendTarget 'node_modules\/pdfjs-dist'/);
 });
 
 test('la ETA del Hub se deriva del avance real, se suaviza y declara verificación', () => {

@@ -7,7 +7,7 @@
 // Pruebas del servicio OMR.
 import sharp from 'sharp';
 import { describe, expect, it } from 'vitest';
-import { analizarOmr } from '../src/modulos/modulo_escaneo_omr/servicioOmr';
+import { analizarOmr } from '../src/modulos/modulo_escaneo_omr/servicioOmr.js';
 
 async function crearImagenBlancaBase64() {
   const buffer = await sharp({
@@ -71,7 +71,7 @@ describe('analizarOmr', () => {
     expect(resultado.advertencias).toEqual(
       expect.arrayContaining([
         'No se detecto QR en la imagen',
-        'No se detectaron todas las marcas de registro; usando escala simple'
+        'No se detectaron referencias geometricas completas; usando escala simple'
       ])
     );
     expect(resultado.respuestasDetectadas).toHaveLength(1);
@@ -454,7 +454,10 @@ describe('analizarOmr', () => {
       .toBuffer()
       .then((buf) => `data:image/jpeg;base64,${buf.toString('base64')}`);
 
-    const mapaPagina = crearMapaOmrCanonico(1, 'p1', opciones);
+    const mapaPagina = {
+      ...crearMapaOmrCanonico(1, 'p1', opciones),
+      marcasPagina: { tipo: 'cuadrados' as const, size: 18 }
+    };
 
     const resultado = await analizarOmr(imagenBase64, mapaPagina, undefined, 10);
     expect(resultado.respuestasDetectadas).toHaveLength(1);

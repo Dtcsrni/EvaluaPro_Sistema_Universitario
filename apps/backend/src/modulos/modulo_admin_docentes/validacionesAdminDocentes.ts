@@ -2,7 +2,7 @@
  * Validaciones para administracion de docentes.
  */
 import { z } from 'zod';
-import { ROLES } from '../../infraestructura/seguridad/rbac';
+import { ROLES } from '../../infraestructura/seguridad/rbac.js';
 
 const esquemaRoles = z.array(z.enum(ROLES)).min(1);
 

@@ -6,7 +6,7 @@ import {
   esBanderaActiva,
   parsearListaCsv,
   parsearNumeroSeguro
-} from './compartido/configuracion/env';
+} from './compartido/configuracion/env.js';
 
 // Produccion es el comportamiento seguro por defecto. Los entornos de
 // desarrollo y pruebas deben declararse explicitamente con NODE_ENV.

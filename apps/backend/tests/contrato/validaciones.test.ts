@@ -7,11 +7,11 @@
 // Pruebas de validacion de payloads.
 import request from 'supertest';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import { crearApp } from '../../src/app';
-import { Docente } from '../../src/modulos/modulo_autenticacion/modeloDocente';
-import { tokenDocentePrueba } from '../utils/token';
-import { cerrarMongoTest, conectarMongoTest, limpiarMongoTest } from '../utils/mongo';
-import { esquemaActualizarPregunta, esquemaCrearPregunta } from '../../src/modulos/modulo_banco_preguntas/validacionesBancoPreguntas';
+import { crearApp } from '../../src/app.js';
+import { Docente } from '../../src/modulos/modulo_autenticacion/modeloDocente.js';
+import { tokenDocentePrueba } from '../utils/token.js';
+import { cerrarMongoTest, conectarMongoTest, limpiarMongoTest } from '../utils/mongo.js';
+import { esquemaActualizarPregunta, esquemaCrearPregunta } from '../../src/modulos/modulo_banco_preguntas/validacionesBancoPreguntas.js';
 
 describe('validaciones de payload', () => {
   const app = crearApp();

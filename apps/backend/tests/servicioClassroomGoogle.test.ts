@@ -90,7 +90,7 @@ async function cargarModulo(opciones?: {
     }
   }));
 
-  const mod = await import('../src/modulos/modulo_integraciones_classroom/servicioClassroomGoogle');
+  const mod = await import('../src/modulos/modulo_integraciones_classroom/servicioClassroomGoogle.js');
   return { mod, oauth, OAuth2Client, jwtSign, jwtVerify, integracion, cifrarTexto, descifrarTexto };
 }
 

@@ -5,7 +5,7 @@ import {
   calcularCalificacionExacta,
   calcularCalificacionGlobal,
   calcularCalificacionParcial
-} from '../../compartido/utilidades/calculoCalificacion';
+} from '../../compartido/utilidades/calculoCalificacion.js';
 
 export function calcularCalificacion(
   aciertos: number,

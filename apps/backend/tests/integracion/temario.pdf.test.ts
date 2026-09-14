@@ -3,10 +3,10 @@
  */
 import request from 'supertest';
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
-import { crearApp } from '../../src/app';
-import { cerrarMongoTest, conectarMongoTest, limpiarMongoTest } from '../utils/mongo';
-import { registrarDocente } from './_flujoDocenteHelper';
-import { parsearTextoTemario } from '../../src/modulos/modulo_temarios/servicioParserTemario';
+import { crearApp } from '../../src/app.js';
+import { cerrarMongoTest, conectarMongoTest, limpiarMongoTest } from '../utils/mongo.js';
+import { registrarDocente } from './_flujoDocenteHelper.js';
+import { parsearTextoTemario } from '../../src/modulos/modulo_temarios/servicioParserTemario.js';
 
 describe('Integración: Temarios y Parser de PDF', () => {
   const app = crearApp();

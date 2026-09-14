@@ -4,16 +4,16 @@
  * Responsabilidad: concentrar reglas de CRUD de plantillas sin depender de
  * Express, preservando validaciones multi-tenant y consistencia de dominio.
  */
-import { prisma } from '../../../../infraestructura/baseDatos/sqlite';
-import { ErrorAplicacion } from '../../../../compartido/errores/errorAplicacion';
-import { guardarEnPapelera } from '../../../../modulos/modulo_papelera/servicioPapelera';
+import { prisma } from '../../../../infraestructura/baseDatos/sqlite.js';
+import { ErrorAplicacion } from '../../../../compartido/errores/errorAplicacion.js';
+import { guardarEnPapelera } from '../../../../modulos/modulo_papelera/servicioPapelera.js';
 import {
   asegurarPlantillaActiva,
   normalizarTemas,
   obtenerPlantillaDocente,
   validarPeriodoDocenteActivo,
   validarTituloPlantillaDisponible
-} from '../../shared/controladorGeneracionPdfShared';
+} from '../../shared/controladorGeneracionPdfShared.js';
 
 function parseJsonSafe<T>(val: unknown): T | null {
   if (typeof val === 'string') {
@@ -102,7 +102,7 @@ export async function crearPlantillaUseCase(params: {
 
   const bookletConfig = {
     targetPages: Number((params.body.bookletConfig as any)?.targetPages ?? params.body.numeroPaginas ?? 2) || 2,
-    densityMode: String((params.body.bookletConfig as any)?.densityMode ?? 'balanced'),
+    densityMode: String((params.body.bookletConfig as any)?.densityMode ?? 'compact'),
     allowImages: (params.body.bookletConfig as any)?.allowImages !== false,
     imageBudgetPolicy: String((params.body.bookletConfig as any)?.imageBudgetPolicy ?? 'balanced'),
     headerStyle: String((params.body.bookletConfig as any)?.headerStyle ?? 'institutional'),
@@ -121,7 +121,6 @@ export async function crearPlantillaUseCase(params: {
     prefillMode: String((params.body.omrConfig as any)?.prefillMode ?? 'none'),
     identityMode: 'qr_plus_bubbled_id',
     allowBlankGenericSheets: (params.body.omrConfig as any)?.allowBlankGenericSheets !== false,
-    versionMode: String((params.body.omrConfig as any)?.versionMode ?? 'single'),
     ignoreUnusedTrailingQuestions: (params.body.omrConfig as any)?.ignoreUnusedTrailingQuestions !== false,
     captureMode: 'pdf_and_mobile'
   };

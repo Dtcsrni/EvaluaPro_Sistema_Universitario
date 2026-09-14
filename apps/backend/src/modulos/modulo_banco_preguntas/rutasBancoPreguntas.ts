@@ -2,7 +2,7 @@
  * Rutas de banco de preguntas.
  */
 import { Router } from 'express';
-import { validarCuerpo } from '../../compartido/validaciones/validar';
+import { validarCuerpo } from '../../compartido/validaciones/validar.js';
 import {
 	actualizarTemaBanco,
 	actualizarPregunta,
@@ -15,7 +15,7 @@ import {
 	quitarTemaBanco,
 	listarTemasBanco,
 	listarBancoPreguntas
-} from './controladorBancoPreguntas';
+} from './controladorBancoPreguntas.js';
 import {
 	esquemaActualizarPregunta,
 	esquemaActualizarTemaBanco,
@@ -24,8 +24,8 @@ import {
 	esquemaCrearPregunta,
 	esquemaMoverPreguntasTemaBanco,
 	esquemaQuitarTemaBanco
-} from './validacionesBancoPreguntas';
-import { requerirPermiso } from '../modulo_autenticacion/middlewarePermisos';
+} from './validacionesBancoPreguntas.js';
+import { requerirPermiso } from '../modulo_autenticacion/middlewarePermisos.js';
 
 const router = Router();
 

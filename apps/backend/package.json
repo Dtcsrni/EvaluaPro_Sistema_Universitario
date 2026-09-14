@@ -4,6 +4,7 @@
   "version": "1.1.4",
   "license": "AGPL-3.0-or-later",
   "private": true,
+  "type": "module",
   "repository": {
     "type": "git",
     "url": "https://github.com/Dtcsrni/EvaluaPro_Sistema_Universitario"
@@ -37,6 +38,9 @@
     "omr:cv:smoke": "tsx scripts/omr-cv-smoke.ts",
     "omr:generate:synthetic": "tsx scripts/omr-tv4-generate-synthetic.ts --dataset ../../omr_samples_tv4",
     "omr:eval:synthetic": "tsx scripts/omr-tv4-eval-synthetic.ts --dataset ../../omr_samples_tv4 --report ../../reports/qa/latest/omr/canonical-synthetic-eval.json",
+    "omr:camera:qa": "tsx scripts/omr-tv4-camera-qa.ts",
+    "omr:visual:qa": "node scripts/omr-visual-qa-runner.mjs",
+    "omr:stress:qa": "node scripts/omr-visual-qa-runner.mjs --script scripts/omr-tv4-stress-qa.ts",
     "omr:build:pilot-real": "tsx scripts/omr-tv4-build-pilot-real.ts --dataset ../../omr_samples_tv4_pilot_real",
     "omr:validate:pilot-real": "tsx scripts/omr-tv4-validate-pilot-real.ts --dataset ../../omr_samples_tv4_pilot_real --report ../../reports/qa/latest/omr/canonical-pilot-real-validation.json --failure-report ../../reports/qa/latest/omr/canonical-pilot-real-failures.json",
     "omr:diagnose:pilot-real": "tsx scripts/omr-tv4-diagnose-pilot-real.ts --dataset ../../omr_samples_tv4_pilot_real --out-dir ../../reports/qa/latest/omr/canonical-pilot-real-diagnose",

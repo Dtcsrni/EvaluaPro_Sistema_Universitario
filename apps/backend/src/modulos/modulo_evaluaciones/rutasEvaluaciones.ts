@@ -5,9 +5,9 @@
  * Limites: No cambiar orden o permisos de rutas sin validar impacto en contratos y tests.
  */
 import { Router } from 'express';
-import { validarCuerpo } from '../../compartido/validaciones/validar';
-import { requerirPermiso } from '../modulo_autenticacion/middlewarePermisos';
-import { esquemaBodyVacioOpcional } from '../modulo_alumnos/validacionesPeriodos';
+import { validarCuerpo } from '../../compartido/validaciones/validar.js';
+import { requerirPermiso } from '../modulo_autenticacion/middlewarePermisos.js';
+import { esquemaBodyVacioOpcional } from '../modulo_alumnos/validacionesPeriodos.js';
 import {
   actualizarMapeoAlumnosCursoController,
   importarAlumnosClassroomController,
@@ -21,7 +21,7 @@ import {
   obtenerAlumnosCursoClassroomController,
   obtenerEstadoClassroomController,
   previewImportacionClassroom
-} from '../modulo_integraciones_classroom/controladorIntegracionesClassroom';
+} from '../modulo_integraciones_classroom/controladorIntegracionesClassroom.js';
 import {
   crearEvidenciaEvaluacion,
   crearPoliticaCalificacion,
@@ -36,24 +36,24 @@ import {
   obtenerResumenEvaluacionAlumno,
   obtenerResumenEvaluacionesV2,
   upsertComponenteExamen
-} from './controladorEvaluaciones';
+} from './controladorEvaluaciones.js';
 import {
   esquemaComponenteExamen,
   esquemaConfigurarPeriodo,
   esquemaCrearEvidencia,
   esquemaCrearPolitica,
   esquemaInicializarEncuadre
-} from './validacionesEvaluaciones';
+} from './validacionesEvaluaciones.js';
 import {
   esquemaActualizarMapeoAlumnosCurso,
   esquemaImportarAlumnosClassroom,
   esquemaEjecutarImportacionClassroom,
   esquemaPreviewImportacionClassroom
-} from '../modulo_integraciones_classroom/validacionesClassroom';
+} from '../modulo_integraciones_classroom/validacionesClassroom.js';
 import {
   inicializarEncuadre,
   obtenerEstadoEncuadre
-} from './controladorEncuadre';
+} from './controladorEncuadre.js';
 
 const router = Router();
 

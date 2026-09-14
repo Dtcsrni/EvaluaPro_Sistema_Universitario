@@ -4,9 +4,9 @@
  * Responsabilidad: Modulo interno del sistema.
  * Limites: Mantener contrato y comportamiento observable del modulo.
  */
-import { log, logError } from '../../infraestructura/logging/logger';
-import { configuracion } from '../../configuracion';
-import { ejecutarCicloCobranzaAutomatica } from './servicioComercialCore';
+import { log, logError } from '../../infraestructura/logging/logger.js';
+import { configuracion } from '../../configuracion.js';
+import { ejecutarCicloCobranzaAutomatica } from './servicioComercialCore.js';
 
 let timer: NodeJS.Timeout | null = null;
 let enEjecucion = false;

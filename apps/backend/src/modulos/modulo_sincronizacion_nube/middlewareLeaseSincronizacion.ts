@@ -3,10 +3,10 @@
  * Las rutas de adquirir/renovar/liberar lease son las únicas excepciones.
  */
 import type { NextFunction, Request, Response } from 'express';
-import { ErrorAplicacion } from '../../compartido/errores/errorAplicacion';
-import { obtenerDocenteId, type SolicitudDocente } from '../modulo_autenticacion/middlewareAutenticacion';
-import { verificarLeaseEscritura } from './domain/leaseSincronizacion';
-import { obtenerConfiguracionSincronizacion } from './domain/preferenciasSincronizacion';
+import { ErrorAplicacion } from '../../compartido/errores/errorAplicacion.js';
+import { obtenerDocenteId, type SolicitudDocente } from '../modulo_autenticacion/middlewareAutenticacion.js';
+import { verificarLeaseEscritura } from './domain/leaseSincronizacion.js';
+import { obtenerConfiguracionSincronizacion } from './domain/preferenciasSincronizacion.js';
 
 export async function requerirLeaseEscritura(req: Request, _res: Response, next: NextFunction) {
   if (['GET', 'HEAD', 'OPTIONS'].includes(req.method)) {

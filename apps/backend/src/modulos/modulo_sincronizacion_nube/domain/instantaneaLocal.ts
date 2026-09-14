@@ -11,11 +11,11 @@ import fs from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 import { gzipSync, gunzipSync } from 'node:zlib';
-import { configuracion } from '../../../configuracion';
-import { ErrorAplicacion } from '../../../compartido/errores/errorAplicacion';
-import { prisma, conectarSqlite, desconectarSqlite } from '../../../infraestructura/baseDatos/sqlite';
-import { compararContrasena } from '../../modulo_autenticacion/servicioHash';
-import { verificarCredencialGoogle } from '../../modulo_autenticacion/servicioGoogle';
+import { configuracion } from '../../../configuracion.js';
+import { ErrorAplicacion } from '../../../compartido/errores/errorAplicacion.js';
+import { prisma, conectarSqlite, desconectarSqlite } from '../../../infraestructura/baseDatos/sqlite.js';
+import { compararContrasena } from '../../modulo_autenticacion/servicioHash.js';
+import { verificarCredencialGoogle } from '../../modulo_autenticacion/servicioGoogle.js';
 
 export const INSTANTANEA_LOCAL_FORMATO = 'evaluapro-local-snapshot';
 export const INSTANTANEA_LOCAL_VERSION = 1;

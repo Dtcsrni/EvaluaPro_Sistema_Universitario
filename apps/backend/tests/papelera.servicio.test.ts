@@ -4,9 +4,9 @@
  * Responsabilidad: Verificar el contrato del servicio de papelera usando SQLite.
  */
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
-import { conectarMongoTest, cerrarMongoTest, limpiarMongoTest } from './utils/mongo';
-import { prisma } from '../src/infraestructura/baseDatos/sqlite';
-import { guardarEnPapelera } from '../src/modulos/modulo_papelera/servicioPapelera';
+import { conectarMongoTest, cerrarMongoTest, limpiarMongoTest } from './utils/mongo.js';
+import { prisma } from '../src/infraestructura/baseDatos/sqlite.js';
+import { guardarEnPapelera } from '../src/modulos/modulo_papelera/servicioPapelera.js';
 
 describe('servicioPapelera.guardarEnPapelera (integracion)', () => {
   beforeAll(async () => {

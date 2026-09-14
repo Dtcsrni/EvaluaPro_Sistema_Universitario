@@ -3,13 +3,13 @@
  *
  * Fachada del dominio PDF.
  */
-import { generarExamenIndividual } from './application/usecases/generarExamenIndividual';
-import type { MapaVariante, PreguntaBase } from './servicioVariantes';
-import type { TemplateVersion } from './shared/tiposPdf';
+import { generarExamenIndividual } from './application/usecases/generarExamenIndividual.js';
+import type { MapaVariante, PreguntaBase } from './servicioVariantes.js';
+import type { TemplateVersion } from './shared/tiposPdf.js';
 import {
   resolverTemplateVersionCanonica,
   TEMPLATE_VERSION_DEFAULT
-} from './domain/templateCanonico';
+} from './domain/templateCanonico.js';
 
 /**
  * Fachada que delega al caso de uso modular.
@@ -37,6 +37,7 @@ export async function generarPdfExamen({
   margenMm?: number;
   templateVersion?: TemplateVersion;
   bookletConfig?: {
+    densityMode?: 'balanced' | 'compact' | 'relaxed';
     fontScale?: number;
     lineSpacing?: number;
     logos?: { izquierdaPath?: string; derechaPath?: string };
@@ -49,6 +50,7 @@ export async function generarPdfExamen({
     instrucciones?: string;
     alumno?: { nombre?: string; grupo?: string };
     mostrarInstrucciones?: boolean;
+    mostrarMarcaInstitucional?: boolean;
     logos?: { izquierdaPath?: string; derechaPath?: string };
   };
 }) {

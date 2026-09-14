@@ -2,7 +2,7 @@
  * Validaciones de banderas de revision.
  */
 import { z } from 'zod';
-import { esquemaObjectId } from '../../compartido/validaciones/esquemas';
+import { esquemaObjectId } from '../../compartido/validaciones/esquemas.js';
 
 export const esquemaCrearBandera = z
   .object({
