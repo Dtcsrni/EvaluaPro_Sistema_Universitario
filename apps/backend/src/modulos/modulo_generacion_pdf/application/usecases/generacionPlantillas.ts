@@ -57,6 +57,15 @@ export async function generarExamenUseCase(params: {
 
   const numeroPaginas = resolverNumeroPaginasPlantilla(plantilla as { numeroPaginas?: unknown });
   const preguntasBase = mapearPreguntasBase(preguntasDb);
+  // La tipografía y el interlineado ya no son opciones de la plantilla:
+  // todas las generaciones usan el autoajuste dentro de límites legibles.
+  // El renderer mantiene la cabecera y la geometría OMR fuera de este ajuste.
+  const bookletConfig = {
+    ...(plantilla.bookletConfig ?? {}),
+    autoFitPages: true,
+    fontScale: 1,
+    lineSpacing: 1.1
+  };
   const preguntasCandidatas = ordenarPreguntasAleatorio(preguntasBase);
   const mapaVariante = generarVariante(preguntasCandidatas);
   const loteId = randomUUID().split('-')[0].toUpperCase();
@@ -78,7 +87,7 @@ export async function generarExamenUseCase(params: {
     totalPaginas: numeroPaginas,
     margenMm: plantilla.configuracionPdf?.margenMm ?? 8,
     templateVersion: templateVersionOmr,
-    bookletConfig: plantilla.bookletConfig,
+    bookletConfig,
     encabezado: construirEncabezadoPdf({
       periodo,
       docenteDb,
@@ -257,6 +266,12 @@ export async function generarExamenesLoteUseCase(params: {
   });
   const numeroPaginas = resolverNumeroPaginasPlantilla(plantilla as { numeroPaginas?: unknown });
   const preguntasBase = mapearPreguntasBase(preguntasDb);
+  const bookletConfig = {
+    ...(plantilla.bookletConfig ?? {}),
+    autoFitPages: true,
+    fontScale: 1,
+    lineSpacing: 1.1
+  };
   const templateVersionOmr = resolverTemplateVersionOmr({
     docenteId: docId,
     periodoId: plantilla.periodoId,
@@ -277,7 +292,7 @@ export async function generarExamenesLoteUseCase(params: {
       totalPaginas: numeroPaginas,
       margenMm: plantilla.configuracionPdf?.margenMm ?? 8,
       templateVersion: templateVersionOmr,
-      bookletConfig: plantilla.bookletConfig,
+      bookletConfig,
       encabezado: construirEncabezadoPdf({
         periodo,
         docenteDb,
@@ -350,7 +365,7 @@ export async function generarExamenesLoteUseCase(params: {
           totalPaginas: numeroPaginas,
           margenMm: plantilla.configuracionPdf?.margenMm ?? 8,
           templateVersion: templateVersionOmr,
-          bookletConfig: plantilla.bookletConfig,
+          bookletConfig,
           encabezado: construirEncabezadoPdf({
             periodo,
             docenteDb,
