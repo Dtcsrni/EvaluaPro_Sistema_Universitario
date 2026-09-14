@@ -19,6 +19,7 @@ import {
   normalizarPreguntasCanonicas
 } from '../domain/templateCanonico.js';
 import { normalizarTituloPlantilla } from '../modeloExamenPlantilla.js';
+import { normalizarEnunciadoBanco } from '../../modulo_banco_preguntas/normalizarEnunciadoBanco.js';
 
 export type MapaVariante = {
   ordenPreguntas: string[];
@@ -101,7 +102,7 @@ function formatearPreguntaPrisma(raw: any) {
     updatedAt: raw.updatedAt,
     versiones: (raw.versiones || []).map((v: any) => ({
       numeroVersion: v.numeroVersion,
-      enunciado: v.enunciado,
+      enunciado: normalizarEnunciadoBanco(v.enunciado),
       imagenUrl: v.imagenUrl ?? undefined,
       opciones: (v.opciones || []).map((o: any) => ({
         texto: o.texto,

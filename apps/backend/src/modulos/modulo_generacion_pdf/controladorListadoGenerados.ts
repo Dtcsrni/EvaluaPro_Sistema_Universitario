@@ -11,6 +11,7 @@ import { configuracion } from '../../configuracion.js';
 import { obtenerDocenteId, type SolicitudDocente } from '../modulo_autenticacion/middlewareAutenticacion.js';
 import { promises as fs } from 'fs';
 import { prisma } from '../../infraestructura/baseDatos/sqlite.js';
+import { normalizarEnunciadoBanco } from '../modulo_banco_preguntas/normalizarEnunciadoBanco.js';
 import { generarPdfExamen } from './servicioGeneracionPdf.js';
 import { guardarPdfExamen } from '../../infraestructura/archivos/almacenLocal.js';
 import { normalizarParaNombreArchivo } from '../../compartido/utilidades/texto.js';
@@ -107,7 +108,7 @@ function formatearPreguntaPrisma(raw: any) {
     updatedAt: raw.updatedAt,
     versiones: (raw.versiones || []).map((v: any) => ({
       numeroVersion: v.numeroVersion,
-      enunciado: v.enunciado,
+      enunciado: normalizarEnunciadoBanco(v.enunciado),
       imagenUrl: v.imagenUrl ?? undefined,
       opciones: (v.opciones || []).map((o: any) => ({
         texto: o.texto,

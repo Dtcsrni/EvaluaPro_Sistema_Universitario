@@ -6,6 +6,7 @@ import { ErrorAplicacion } from '../../compartido/errores/errorAplicacion.js';
 import { obtenerDocenteId } from '../modulo_autenticacion/middlewareAutenticacion.js';
 import type { SolicitudDocente } from '../modulo_autenticacion/middlewareAutenticacion.js';
 import { prisma } from '../../infraestructura/baseDatos/sqlite.js';
+import { normalizarEnunciadoBanco } from './normalizarEnunciadoBanco.js';
 
 function normalizarTema(valor: unknown): string | undefined {
   const texto = String(valor ?? '')
@@ -75,7 +76,7 @@ function formatearPreguntaPrisma(raw: any) {
     updatedAt: raw.updatedAt,
     versiones: (raw.versiones || []).map((v: any) => ({
       numeroVersion: v.numeroVersion,
-      enunciado: v.enunciado,
+      enunciado: normalizarEnunciadoBanco(v.enunciado),
       imagenUrl: v.imagenUrl ?? undefined,
       opciones: (v.opciones || []).map((o: any) => ({
         texto: o.texto,
@@ -127,7 +128,7 @@ export async function listarBancoPreguntas(req: SolicitudDocente, res: Response)
 export async function crearPregunta(req: SolicitudDocente, res: Response) {
   const docenteId = obtenerDocenteId(req);
   const { periodoId, tema, enunciado, imagenUrl, opciones } = req.body;
-  const enunciadoFinal = sanitizarContenidoRico(enunciado);
+  const enunciadoFinal = normalizarEnunciadoBanco(sanitizarContenidoRico(enunciado));
   const opcionesFinales = (opciones || []).map((opcion: OpcionBanco) => ({ ...opcion, texto: sanitizarContenidoRico(opcion.texto) }));
 
   const temaFinal = normalizarTema(tema);
@@ -244,7 +245,9 @@ export async function actualizarPregunta(req: SolicitudDocente, res: Response) {
 
   const nueva = {
     numeroVersion: siguienteNumero,
-    enunciado: enunciado === undefined ? versionActual.enunciado : sanitizarContenidoRico(enunciado),
+    enunciado: enunciado === undefined
+      ? normalizarEnunciadoBanco(versionActual.enunciado)
+      : normalizarEnunciadoBanco(sanitizarContenidoRico(enunciado)),
     imagenUrl: imagenUrl === undefined ? versionActual.imagenUrl : imagenUrl ?? undefined,
     opciones: opciones === undefined
       ? versionActual.opciones

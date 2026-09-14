@@ -10,6 +10,7 @@ import sharp from 'sharp';
 import { describe, expect, it } from 'vitest';
 import { generarPdfExamen } from '../src/modulos/modulo_generacion_pdf/servicioGeneracionPdf.js';
 import { rasterizarPdfParaPreview } from '../src/modulos/modulo_generacion_pdf/infra/rasterizadorPdfPreview.js';
+import { mapearPreguntasBase } from '../src/modulos/modulo_generacion_pdf/shared/controladorGeneracionPdfShared.js';
 import type { MapaVariante, PreguntaBase } from '../src/modulos/modulo_generacion_pdf/servicioVariantes.js';
 
 function crearParametros(cantidadPreguntas = 12) {
@@ -48,6 +49,45 @@ function crearParametros(cantidadPreguntas = 12) {
 }
 
 describe('pdf OMR canónico', () => {
+  it('limpia prefijos del banco y mantiene todos los reactivos dentro de dos páginas', async () => {
+    const etiquetas = ['HTTP', 'Express', 'API REST', 'JSON', 'MongoDB', 'Mongoose', 'CRUD', 'Node.js', 'Manejo de errores', 'Express', 'CORS', 'JSON', 'HTTP'];
+    const preguntasBanco = etiquetas.map((etiqueta, indice) => ({
+      id: `banco-${indice + 1}`,
+      versionActual: 1,
+      versiones: [{
+        numeroVersion: 1,
+        enunciado: `${indice + 16}. ${etiqueta}\n\nAnaliza el comportamiento descrito y selecciona la respuesta correcta.`,
+        opciones: [
+          { texto: 'Opción correcta', esCorrecta: true },
+          { texto: 'Opción alternativa uno', esCorrecta: false },
+          { texto: 'Opción alternativa dos', esCorrecta: false },
+          { texto: 'Opción alternativa tres', esCorrecta: false },
+          { texto: 'Opción alternativa cuatro', esCorrecta: false }
+        ]
+      }]
+    }));
+    const preguntas = mapearPreguntasBase(preguntasBanco);
+    const resultado = await generarPdfExamen({
+      ...crearParametros(1),
+      preguntas,
+      mapaVariante: {
+        ordenPreguntas: preguntas.map((pregunta) => pregunta.id),
+        ordenOpcionesPorPregunta: Object.fromEntries(preguntas.map((pregunta) => [pregunta.id, [0, 1, 2, 3, 4]]))
+      },
+      totalPaginas: 2,
+      bookletConfig: { densityMode: 'compact' }
+    });
+
+    expect(resultado.paginas.length).toBeLessThanOrEqual(2);
+    expect(resultado.preguntasRestantes).toBe(0);
+    expect(resultado.mapaOmr.paginas.flatMap((pagina) => pagina.preguntas)).toHaveLength(preguntas.length);
+
+    const texto = (await new PDFParse({ data: new Uint8Array(resultado.pdfBytes) }).getText()).text;
+    expect(texto).not.toMatch(/17\.\s*HTTP/);
+    expect(texto).not.toMatch(/18\.\s*Express/);
+    expect(texto).toContain('Analiza el comportamiento descrito');
+  });
+
   it('genera PDF carta válido y mapa OMR canónico', async () => {
     const resultado = await generarPdfExamen(crearParametros(16));
 
