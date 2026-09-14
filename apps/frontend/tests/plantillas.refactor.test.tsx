@@ -188,6 +188,7 @@ describe('plantillas refactor y navegación por pestañas (SPEC-034)', () => {
 
     const editorInline = screen.getByTestId('plantillas-editor-inline');
     expect(editorInline.previousElementSibling).toHaveTextContent('Parcial Algebra');
+    expect(document.querySelector('.plantillas-item--editando')).toHaveTextContent('Parcial Algebra');
 
     expect(screen.getByRole('button', { name: /Actualizar plantilla/i })).toBeInTheDocument();
     expect(screen.getAllByRole('button', { name: /Previsualizar PDF/i })).toHaveLength(2);

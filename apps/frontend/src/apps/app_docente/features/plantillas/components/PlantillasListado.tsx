@@ -132,6 +132,7 @@ export function PlantillasListado({
       ) : (
         <ul className="lista lista-items plantillas-lista">
           {plantillasFiltradas.map((plantilla) => {
+            const editando = plantillaEditandoId === plantilla._id;
             const materia = periodos.find((p) => p._id === plantilla.periodoId);
             const temas = Array.isArray(plantilla.temas) ? plantilla.temas : [];
             const modo = temas.length > 0 ? `Temas: ${temas.join(', ')}` : 'Modo preguntasIds';
@@ -153,7 +154,7 @@ export function PlantillasListado({
             return (
               <Fragment key={plantilla._id}>
               <li className="anim-slide-up">
-                <div className={`item-glass plantillas-item anim-card-hover ${pdfUrl ? 'plantillas-item--preview-abierto' : ''}`}>
+                <div className={`item-glass plantillas-item anim-card-hover ${pdfUrl ? 'plantillas-item--preview-abierto' : ''} ${editando ? 'plantillas-item--editando' : ''}`}>
                   <div className="item-row">
                     <div className="plantillas-item__content">
                       <div className="item-title">{plantilla.titulo}</div>

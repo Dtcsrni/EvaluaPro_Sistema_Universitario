@@ -8686,6 +8686,36 @@ li.empty-state-card {
   align-self: end;
 }
 
+.plantillas-item--editando {
+  padding: 0.45rem 0.7rem;
+  border-color: rgba(56, 189, 248, 0.4);
+}
+
+.plantillas-item--editando .item-row {
+  display: flex;
+  align-items: center;
+  min-height: 2rem;
+}
+
+.plantillas-item--editando .plantillas-item__content {
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+}
+
+.plantillas-item--editando .item-title {
+  font-size: 0.92rem;
+  white-space: nowrap;
+}
+
+.plantillas-item--editando .item-meta,
+.plantillas-item--editando .item-sub,
+.plantillas-item--editando .plantillas-item__temas,
+.plantillas-item--editando .plantillas-preview,
+.plantillas-item--editando .plantillas-item__actions {
+  display: none;
+}
+
 .plantillas-preview__hero {
   align-items: flex-start;
 }
