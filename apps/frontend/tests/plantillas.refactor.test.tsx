@@ -3,7 +3,7 @@
  *
  * Responsabilidad: Pruebas unitarias de navegación por pestañas y guías rápidas en Diseño de Exámenes (SPEC-034).
  */
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { useState } from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { SeccionPlantillas } from '../src/apps/app_docente/SeccionPlantillas';
@@ -284,5 +284,44 @@ describe('plantillas refactor y navegación por pestañas (SPEC-034)', () => {
     const pagina = screen.getByAltText('Página 1 de la previsualización del examen');
     expect(pagina).toHaveAttribute('src', 'data:image/png;base64,AAAA');
     expect(screen.getAllByText('Página 1').length).toBeGreaterThanOrEqual(1);
+  });
+
+  it('muestra el PDF debajo del editor cuando la tarjeta está minimizada', () => {
+    render(
+      <PlantillasListado
+        totalPlantillasTodas={1}
+        totalPlantillas={1}
+        filtroPlantillas=""
+        setFiltroPlantillas={() => {}}
+        plantillasFiltradas={[
+          { _id: 'pla-1', titulo: 'Parcial Algebra', tipo: 'parcial', numeroPaginas: 2, periodoId: 'per-1', temas: ['Algebra'] } as Plantilla
+        ]}
+        periodos={[{ _id: 'per-1', nombre: 'Periodo 1', grupos: ['A'] }]}
+        plantillaEditandoId="pla-1"
+        editorInline={<div>Editor de prueba</div>}
+        previewPdfUrlPorPlantillaId={{
+          'pla-1': {
+            booklet: 'blob://pdf-preview',
+            bookletPages: [{ numero: 1, width: 100, height: 140, dataUrl: 'data:image/png;base64,AAAA' }]
+          }
+        }}
+        puedePrevisualizarPlantillas={true}
+        cargandoPreviewPdfPlantillaId={null}
+        cargarPreviewPdfPlantilla={async () => {}}
+        cerrarPreviewPdfPlantilla={() => {}}
+        abrirPdfFullscreen={() => {}}
+        pdfFullscreenUrl={null}
+        cerrarPdfFullscreen={() => {}}
+        iniciarEdicion={() => {}}
+        puedeGestionarPlantillas={true}
+        archivandoPlantillaId={null}
+        archivarPlantilla={async () => {}}
+        puedeArchivarPlantillas={true}
+        formatearFechaHora={() => '-'}
+      />
+    );
+
+    expect(screen.getByTestId('plantillas-preview-inline')).toBeInTheDocument();
+    expect(within(screen.getByTestId('plantillas-preview-inline')).getByAltText('Página 1 de la previsualización del examen')).toBeInTheDocument();
   });
 });

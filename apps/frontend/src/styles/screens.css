@@ -8655,6 +8655,16 @@ li.empty-state-card {
   margin: 0;
 }
 
+.plantillas-catalogo--panoramico .plantillas-lista > .plantillas-item-preview-inline {
+  display: block;
+  width: 100%;
+  min-width: 0;
+}
+
+.plantillas-catalogo--panoramico .plantillas-item-preview-inline .plantillas-preview {
+  margin: 0;
+}
+
 .plantillas-item .item-row {
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;

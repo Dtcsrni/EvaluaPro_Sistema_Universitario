@@ -67,6 +67,51 @@ export function PlantillasListado({
   puedeArchivarPlantillas: boolean;
   formatearFechaHora: (valor?: string) => string;
 }) {
+  const renderVistaPreviaPdf = (plantilla: Plantilla, pdfUrl: string, pdfPages: PreviewPdfPage[]) => (
+    <div className="resultado plantillas-preview anim-fade-in">
+      <div className="plantillas-preview__hero">
+        <div>
+          <span className="plantillas-preview__eyebrow">REVISIÓN DEL RESULTADO</span>
+          <h4 className="plantillas-preview__titulo">Vista previa PDF</h4>
+          <p className="nota">Revisa el PDF real generado por el motor antes de descargar o imprimir.</p>
+        </div>
+      </div>
+
+      <div className="plantillas-preview__pdf-actions">
+        <a href={pdfUrl} target="_blank" rel="noreferrer" className="boton boton--secundario boton--pequeno" onClick={() => emitToast({ level: 'info', title: 'Vista previa', message: 'Abriendo PDF en una pestaña nueva', durationMs: 1600 })}>
+          Abrir en pestaña
+        </a>
+        <Boton type="button" variante="secundario" tamano="sm" onClick={() => abrirPdfFullscreen(pdfUrl, pdfPages)}>
+          Pantalla completa
+        </Boton>
+        <Boton type="button" variante="secundario" tamano="sm" onClick={() => {
+          cerrarPreviewPdfPlantilla(plantilla._id, 'booklet');
+        }}>
+          Cerrar PDF
+        </Boton>
+      </div>
+
+      {pdfPages.length > 0 && (
+        <div className="plantillas-preview__pdfWrap">
+          <div className="plantillas-preview__pages" aria-label={`Páginas renderizadas de ${plantilla.titulo}`}>
+            {pdfPages.map((pagina) => (
+              <figure key={pagina.numero} className="plantillas-preview__pdfPage">
+                <img
+                  src={pagina.dataUrl}
+                  width={pagina.width}
+                  height={pagina.height}
+                  alt={`Página ${pagina.numero} de la previsualización del examen`}
+                  loading={pagina.numero === 1 ? 'eager' : 'lazy'}
+                />
+                <figcaption>Página {pagina.numero}</figcaption>
+              </figure>
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+
   return (
     <section className="alumnos-explorador anim-fade-in plantillas-catalogo--panoramico" aria-label="Catálogo de Plantillas">
       <div className="alumnos-explorador__header">
@@ -177,51 +222,7 @@ export function PlantillasListado({
                         </div>
                       )}
                     </div>
-                    {pdfUrl && (
-                      <div className="resultado plantillas-preview anim-fade-in">
-                        <div className="plantillas-preview__hero">
-                          <div>
-                            <span className="plantillas-preview__eyebrow">REVISIÓN DEL RESULTADO</span>
-                            <h4 className="plantillas-preview__titulo">Vista previa PDF</h4>
-                            <p className="nota">Revisa el PDF real generado por el motor antes de descargar o imprimir.</p>
-                          </div>
-                        </div>
-
-                        <div className="plantillas-preview__pdf-actions">
-                          <a href={pdfUrl} target="_blank" rel="noreferrer" className="boton boton--secundario boton--pequeno" onClick={() => emitToast({ level: 'info', title: 'Vista previa', message: 'Abriendo PDF en una pestaña nueva', durationMs: 1600 })}>
-                            Abrir en pestaña
-                          </a>
-                          <Boton type="button" variante="secundario" tamano="sm" onClick={() => abrirPdfFullscreen(pdfUrl, pdfPages)}>
-                            Pantalla completa
-                          </Boton>
-                          <Boton type="button" variante="secundario" tamano="sm" onClick={() => {
-                            cerrarPreviewPdfPlantilla(plantilla._id, 'booklet');
-                          }}>
-                            Cerrar PDF
-                          </Boton>
-                        </div>
-
-                        {pdfUrl && pdfPages.length > 0 && (
-                          <div className="plantillas-preview__pdfWrap">
-                            <div className="plantillas-preview__pages" aria-label={`Páginas renderizadas de ${plantilla.titulo}`}>
-                              {pdfPages.map((pagina) => (
-                                <figure key={pagina.numero} className="plantillas-preview__pdfPage">
-                                  <img
-                                    src={pagina.dataUrl}
-                                    width={pagina.width}
-                                    height={pagina.height}
-                                    alt={`Página ${pagina.numero} de la previsualización del examen`}
-                                    loading={pagina.numero === 1 ? 'eager' : 'lazy'}
-                                  />
-                                  <figcaption>Página {pagina.numero}</figcaption>
-                                </figure>
-                              ))}
-                            </div>
-                          </div>
-                        )}
-
-                      </div>
-                    )}
+                    {pdfUrl && renderVistaPreviaPdf(plantilla, pdfUrl, pdfPages)}
                     <div className="plantillas-item__actions">
                       <Boton
                         type="button"
@@ -261,6 +262,11 @@ export function PlantillasListado({
               {plantillaEditandoId === plantilla._id && editorInline && (
                 <li className="plantillas-item-editor anim-fade-in" data-testid="plantillas-editor-inline">
                   {editorInline}
+                </li>
+              )}
+              {editando && pdfUrl && (
+                <li className="plantillas-item-preview-inline anim-fade-in" data-testid="plantillas-preview-inline">
+                  {renderVistaPreviaPdf(plantilla, pdfUrl, pdfPages)}
                 </li>
               )}
               </Fragment>
