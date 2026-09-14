@@ -1001,6 +1001,43 @@ export function SeccionPlantillas({
     puedeGenerarExamenes,
   ]);
 
+  const formularioPlantilla = (
+    <PlantillasFormulario
+      modoEdicion={modoEdicion}
+      plantillaEditando={plantillaEditando}
+      titulo={titulo}
+      setTitulo={setTitulo}
+      periodoId={periodoId}
+      setPeriodoId={setPeriodoId}
+      periodos={periodos}
+      bloqueoEdicion={bloqueoEdicion}
+      temasDisponibles={temasDisponibles}
+      temasSeleccionados={temasSeleccionados}
+      setTemasSeleccionados={setTemasSeleccionados}
+      totalDisponiblePorTemas={totalDisponiblePorTemas}
+      numeroPaginas={numeroPaginas}
+      setNumeroPaginas={setNumeroPaginas}
+      reactivosObjetivo={reactivosObjetivo}
+      setReactivosObjetivo={setReactivosObjetivo}
+      logoIzquierda={logoIzquierda}
+      logoDerecha={logoDerecha}
+      seleccionarLogo={seleccionarLogo}
+      fontScale={fontScale}
+      setFontScale={setFontScale}
+      lineSpacing={lineSpacing}
+      setLineSpacing={setLineSpacing}
+      creando={creando}
+      puedeCrear={puedeCrear}
+      crear={crear}
+      guardandoPlantilla={guardandoPlantilla}
+      previsualizarPdf={previsualizarPdfEdicion}
+      previsualizandoPdf={cargandoPreviewPdfPlantillaId === plantillaEditandoId && Boolean(plantillaEditandoId)}
+      guardarEdicion={guardarEdicion}
+      cancelarEdicion={cancelarEdicion}
+      mensaje={mensaje}
+    />
+  );
+
   return (
     <div className="panel plantillas-shell">
       {/* 1. Bento Hero Header */}
@@ -1162,40 +1199,7 @@ export function SeccionPlantillas({
             </ol>
           </section>
 
-          <PlantillasFormulario
-            modoEdicion={modoEdicion}
-            plantillaEditando={plantillaEditando}
-            titulo={titulo}
-            setTitulo={setTitulo}
-            periodoId={periodoId}
-            setPeriodoId={setPeriodoId}
-            periodos={periodos}
-            bloqueoEdicion={bloqueoEdicion}
-            temasDisponibles={temasDisponibles}
-            temasSeleccionados={temasSeleccionados}
-            setTemasSeleccionados={setTemasSeleccionados}
-            totalDisponiblePorTemas={totalDisponiblePorTemas}
-            numeroPaginas={numeroPaginas}
-            setNumeroPaginas={setNumeroPaginas}
-            reactivosObjetivo={reactivosObjetivo}
-            setReactivosObjetivo={setReactivosObjetivo}
-            logoIzquierda={logoIzquierda}
-            logoDerecha={logoDerecha}
-            seleccionarLogo={seleccionarLogo}
-            fontScale={fontScale}
-            setFontScale={setFontScale}
-            lineSpacing={lineSpacing}
-            setLineSpacing={setLineSpacing}
-            creando={creando}
-            puedeCrear={puedeCrear}
-            crear={crear}
-            guardandoPlantilla={guardandoPlantilla}
-            previsualizarPdf={previsualizarPdfEdicion}
-            previsualizandoPdf={cargandoPreviewPdfPlantillaId === plantillaEditandoId && Boolean(plantillaEditandoId)}
-            guardarEdicion={guardarEdicion}
-            cancelarEdicion={cancelarEdicion}
-            mensaje={mensaje}
-          />
+          {!modoEdicion && formularioPlantilla}
 
           <PlantillasListado
             totalPlantillasTodas={totalPlantillasTodas}
@@ -1204,6 +1208,8 @@ export function SeccionPlantillas({
             setFiltroPlantillas={setFiltroPlantillas}
             plantillasFiltradas={plantillasFiltradas}
             periodos={periodos}
+            plantillaEditandoId={plantillaEditandoId}
+            editorInline={modoEdicion ? formularioPlantilla : null}
             previewPdfUrlPorPlantillaId={previewPdfUrlPorPlantillaId}
             puedePrevisualizarPlantillas={puedePrevisualizarPlantillas}
             cargandoPreviewPdfPlantillaId={cargandoPreviewPdfPlantillaId}

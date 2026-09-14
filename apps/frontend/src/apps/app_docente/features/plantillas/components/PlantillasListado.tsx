@@ -5,6 +5,7 @@
  */
 import { Boton } from '../../../../../ui/ux/componentes/Boton';
 import { emitToast } from '../../../../../ui/toast/toastBus';
+import { Fragment, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
 import type { Periodo, Plantilla } from '../../../tipos';
 import { etiquetaMateria, idCortoMateria } from '../../../utilidades';
@@ -24,6 +25,8 @@ export function PlantillasListado({
   setFiltroPlantillas,
   plantillasFiltradas,
   periodos,
+  plantillaEditandoId,
+  editorInline,
   previewPdfUrlPorPlantillaId,
   puedePrevisualizarPlantillas,
   cargandoPreviewPdfPlantillaId,
@@ -46,6 +49,8 @@ export function PlantillasListado({
   setFiltroPlantillas: (value: string) => void;
   plantillasFiltradas: Plantilla[];
   periodos: Periodo[];
+  plantillaEditandoId?: string | null;
+  editorInline?: ReactNode;
   previewPdfUrlPorPlantillaId: PlantillaPreviewPdfState;
   puedePrevisualizarPlantillas: boolean;
   cargandoPreviewPdfPlantillaId: string | null;
@@ -146,7 +151,8 @@ export function PlantillasListado({
               lineSpacing: plantilla.bookletConfig?.lineSpacing
             });
             return (
-              <li key={plantilla._id} className="anim-slide-up">
+              <Fragment key={plantilla._id}>
+              <li className="anim-slide-up">
                 <div className={`item-glass plantillas-item anim-card-hover ${pdfUrl ? 'plantillas-item--preview-abierto' : ''}`}>
                   <div className="item-row">
                     <div className="plantillas-item__content">
@@ -251,6 +257,12 @@ export function PlantillasListado({
                   </div>
                 </div>
               </li>
+              {plantillaEditandoId === plantilla._id && editorInline && (
+                <li className="plantillas-item-editor anim-fade-in" data-testid="plantillas-editor-inline">
+                  {editorInline}
+                </li>
+              )}
+              </Fragment>
             );
           })}
         </ul>

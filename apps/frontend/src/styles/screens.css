@@ -8645,6 +8645,16 @@ li.empty-state-card {
   gap: 0.85rem;
 }
 
+.plantillas-catalogo--panoramico .plantillas-lista > .plantillas-item-editor {
+  display: block;
+  width: 100%;
+  min-width: 0;
+}
+
+.plantillas-catalogo--panoramico .plantillas-item-editor > .alumnos-form {
+  margin: 0;
+}
+
 .plantillas-item .item-row {
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;
