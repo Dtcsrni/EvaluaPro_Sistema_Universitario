@@ -274,6 +274,11 @@ function assertPreguntasLayout(pagina: Awaited<ReturnType<typeof generarPdfExame
     if (i > 0 && preguntas[i - 1]?.bboxPregunta) {
       const prev = preguntas[i - 1]!.bboxPregunta as Rect;
       expect(interseca(prev, bbox), `solape en preguntas ${preguntas[i - 1]?.numeroPregunta} y ${actual.numeroPregunta}`).toBe(false);
+      const separacionReal = prev.y - (bbox.y + bbox.height);
+      // El hueco editorial adicional debe ser cero; queda únicamente la
+      // separación funcional de la línea divisoria y la guarda tipográfica.
+      expect(separacionReal).toBeGreaterThanOrEqual(-0.01);
+      expect(separacionReal).toBeLessThanOrEqual(8);
     }
   }
 }

@@ -20,6 +20,15 @@ describe('normalizarEnunciadoBanco', () => {
       .toBe('¿Qué encabezado corresponde?');
   });
 
+  it('quita etiquetas de tema pegadas en la misma línea', () => {
+    expect(normalizarEnunciadoBanco('28. CORS ¿Qué encabezado es fundamental?'))
+      .toBe('¿Qué encabezado es fundamental?');
+    expect(normalizarEnunciadoBanco('27. Express Si existe primero una ruta parametrizada...'))
+      .toBe('Si existe primero una ruta parametrizada...');
+    expect(normalizarEnunciadoBanco('26. Manejo de errores Una consulta falla.'))
+      .toBe('Una consulta falla.');
+  });
+
   it('quita solo el número editorial y conserva números del contenido', () => {
     expect(normalizarEnunciadoBanco('12. ¿Cuál es el resultado de 2.5 + 1?'))
       .toBe('¿Cuál es el resultado de 2.5 + 1?');
@@ -30,5 +39,7 @@ describe('normalizarEnunciadoBanco', () => {
   it('limpia bloques HTML de una línea sin perder el enunciado', () => {
     expect(normalizarEnunciadoBanco('<p>28. CORS</p><p>¿Qué encabezado debe enviarse?</p>'))
       .toBe('<p>¿Qué encabezado debe enviarse?</p>');
+    expect(normalizarEnunciadoBanco('<strong>28.</strong> <strong>CORS</strong> ¿Qué encabezado debe enviarse?'))
+      .toBe('¿Qué encabezado debe enviarse?');
   });
 });

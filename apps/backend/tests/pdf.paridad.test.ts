@@ -274,6 +274,23 @@ describe('pdf OMR canónico', () => {
     expect(resultado.mapaOmr.paginas[0]?.layoutDebug?.collisionBoxes ?? []).toHaveLength(0);
   });
 
+  it('retira prefijos numericos y etiquetas editoriales del banco sin tocar el contenido', async () => {
+    const parametros = crearParametros(3);
+    parametros.preguntas[0]!.enunciado = '28. CORS ¿Qué encabezado permite el acceso?';
+    parametros.preguntas[1]!.enunciado = '27. Express Si existe primero una ruta parametrizada...';
+    parametros.preguntas[2]!.enunciado = '26. Manejo de errores Una consulta falla.';
+
+    const resultado = await generarPdfExamen(parametros);
+    const texto = await new PDFParse({ data: new Uint8Array(resultado.pdfBytes) }).getText();
+
+    expect(texto.text).toContain('¿Qué encabezado permite el acceso?');
+    expect(texto.text).toContain('Si existe primero una ruta parametrizada');
+    expect(texto.text).toContain('Una consulta falla.');
+    expect(texto.text).not.toContain('28. CORS');
+    expect(texto.text).not.toContain('27. Express');
+    expect(texto.text).not.toContain('26. Manejo de errores');
+  });
+
   it('conserva marcas y QR distinguibles al rasterizar a 150 y 300 DPI', async () => {
     const resultado = await generarPdfExamen(crearParametros(16));
     const paginasMapa = resultado.mapaOmr.paginas;

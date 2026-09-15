@@ -40,6 +40,7 @@ import {
 import { PERFIL_OMR_CANONICO } from '../domain/layoutExamen.js';
 import { TEMPLATE_VERSION_CANONICA } from '../domain/templateCanonico.js';
 import { PDF_VISUAL_BASELINE_RGB } from './pdfVisualBaseline.js';
+import { normalizarEnunciadoBanco } from '../../modulo_banco_preguntas/normalizarEnunciadoBanco.js';
 
 type PerfilPlantillaRender = PerfilPlantillaOmr & {
   version: 4;
@@ -154,13 +155,14 @@ function normalizarEspacios(valor: string) {
 }
 
 function quitarPrefijoReactivo(texto: string, numero: number) {
+  const textoNormalizado = normalizarEnunciadoBanco(texto);
   const numeroEsperado = String(numero).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
   const prefijoEtiquetado = new RegExp(
     `^\\s*<([a-z][\\w-]*)(?:\\s[^>]*)?>\\s*Reactivo\\s+${numeroEsperado}\\s*[.:)\\-]?\\s*</\\1>\\s*[.:)\\-]?\\s*`,
     'i'
   );
   const prefijoPlano = new RegExp(`^\\s*Reactivo\\s+${numeroEsperado}\\s*[.:)\\-]?\\s*`, 'i');
-  return texto.replace(prefijoEtiquetado, '').replace(prefijoPlano, '');
+  return textoNormalizado.replace(prefijoEtiquetado, '').replace(prefijoPlano, '');
 }
 
 function sanitizarTextoPdf(valor: string) {
@@ -3311,15 +3313,11 @@ export class PdfKitRenderer {
         // redondea a la retícula. Esta reserva adicional mantiene paridad
         // entre el plan y el render real, evitando que una hoja final quede
         // con un solo reactivo por acumulación de redondeos.
-        // La reserva adicional cubre el ajuste de retícula sin alterar la
-        // geometría validada de la primera hoja. El panel lateral de una
-        // continuación se verifica al renderizar y no se usa para mover
-        // preguntas de páginas ya calibradas.
-        // La posicion final se ajusta a una reticula de impresion despues de
-        // dibujar el bloque. Esta holgura de 2 pt evita que el planificador
-        // acepte un ultimo reactivo por una fraccion de punto que el renderer
-        // real ya no puede colocar sobre el margen seguro.
-        alto += separacionPregunta + (examen.totalPreguntas > 20 ? 0 : 1) + 2;
+        // La posición final se ajusta a una retícula de impresión después de
+        // dibujar el bloque. El planificador no agrega una holgura ficticia:
+        // el separador real y las comprobaciones geométricas del renderer son
+        // la guarda contra colisiones y permiten aprovechar toda la altura.
+        alto += separacionPregunta + (examen.totalPreguntas > 20 ? 0 : 1);
         return alto;
       };
 
@@ -3448,38 +3446,17 @@ export class PdfKitRenderer {
       // puede forzar un reparto equilibrado que expulse reactivos a una hoja
       // adicional. Si las dos caras no bastan, el bucle abre otra página real.
       const topePaginaActual = maxPreguntasPorPagina;
-      // En páginas densas el espacio entre reactivos es mínimo. Si una página
-      // corta solo contiene hasta cuatro reactivos, el sobrante se distribuye
-      // para no dejar una mitad inferior inútil.
-      // En una hoja corta el sobrante se reparte entre pocos reactivos para
-      // evitar un bloque comprimido arriba y una zona blanca desproporcionada
-      // abajo. Las páginas densas siguen limitadas a una separación mínima.
-      const maxSeparacionExtraPagina = 60;
-      // En el perfil vertical cuatro reactivos son la unidad editorial de las
-      // continuaciones cortas. Este límite deja el contenido cerca del borde
-      // inferior seguro sin abrir un hueco tan grande que rompa la paridad.
-      const maxSeparacionVerticalCorta = 50;
-      // La holgura tipográfica de cada bloque ya mantiene aisladas las
-      // tarjetas OMR. La planificación añade solo 2 pt para conservar la
-      // capacidad física y evitar que una fracción de punto abra otra hoja.
-      const separacionCompactaPlan = 2;
-      // La planificación usa una holgura mínima para no reducir la capacidad
-      // física. Una vez fijado el corte, el sobrante real puede repartirse con
-      // una holgura mayor, evitando una gran zona blanca al pie de la hoja.
-      const maxSeparacionCompacta = 18;
+      // La separación funcional ya está contenida en `separacionPregunta` y
+      // en la línea divisoria. No se redistribuye el sobrante de la página:
+      // hacerlo producía huecos grandes entre reactivos, especialmente cuando
+      // la última página tenía pocos bloques. El plan y el render usan cero
+      // separación editorial adicional, conservando las guardas tipográficas.
       const planPagina: Array<{ indice: number; altura: number }> = [];
       let yPlanPagina = cursorY;
       const recalcularPlanPagina = () => {
         let yBase = cursorY;
         for (const item of planPagina) yBase = ajustarCursorRender(yBase - item.altura);
-        const separacionExtraPlan = planPagina.length > 1
-          ? Math.min(
-            planPagina.length <= 4
-              ? (omrEsquemaHorizontal ? maxSeparacionExtraPagina : maxSeparacionVerticalCorta)
-              : separacionCompactaPlan,
-            Math.max(0, (yBase - alturaDisponibleMin) / (planPagina.length - 1) - GRID_STEP)
-          )
-          : 0;
+        const separacionExtraPlan = 0;
         let yRender = cursorY;
         for (let indice = 0; indice < planPagina.length; indice += 1) {
           const item = planPagina[indice]!;
@@ -3520,11 +3497,13 @@ export class PdfKitRenderer {
       // ultimo reactivo no siempre cabe porque la primera pregunta de una
       // continuación tiene una reserva lateral para el QR; probar una cola
       // mayor evita conservar una hoja casi vacía por una falsa dicotomía.
-      if (!esPrimera && !omrEsquemaHorizontal && planPagina.length > 2) {
+      if (!esPrimera && planPagina.length > 2) {
         const restantesTrasPlan = preguntasOrdenadas.length - (indicePregunta + planPagina.length);
         if (restantesTrasPlan > 0 && restantesTrasPlan <= Math.max(minPreguntasPorPagina, planPagina.length)) {
-           const yInicioNuevaContinuacion = snapToGrid(
-         Math.min(yTop - 8, limiteContenidoContinuacion)
+          const yInicioNuevaContinuacion = snapToGrid(
+            omrEsquemaHorizontal
+              ? Math.min(yTopContinuacionSeguro, limiteContenidoContinuacion)
+              : Math.min(yTop - 8, limiteContenidoContinuacion)
            );
           const maxReactivosParaMover = Math.min(planPagina.length - 2, 5);
           let movimientoElegido = 0;
@@ -3575,24 +3554,7 @@ export class PdfKitRenderer {
       // bloques al limite. No se reutiliza como espacio dibujable: hacerlo
       // puede provocar una hoja adicional en bancos que parecen cortos pero
       // tienen opciones de dos lineas.
-      const espacioLibrePagina = Math.max(0, yPlanPagina - alturaDisponibleMin);
-      const bloqueVerticalUniforme = planPagina.length > 0 && Math.max(...planPagina.map((item) => item.altura)) <= 130;
-      const separacionExtraPagina = planPagina.length > 1
-        ? omrEsquemaHorizontal
-          ? Math.min(planPagina.length <= 4 ? maxSeparacionExtraPagina : maxSeparacionCompacta, espacioLibrePagina / (planPagina.length - 1))
-          : bloqueVerticalUniforme
-            // Mantener la misma separación que simuló el planificador. La
-            // separación vertical fija de 45 pt dejaba huecos enormes y,
-            // además, hacía que el renderer dibujara menos filas que las
-            // reservadas por el plan.
-            ? Math.min(
-              planPagina.length <= 4
-                ? (omrEsquemaHorizontal ? maxSeparacionExtraPagina : maxSeparacionVerticalCorta)
-                : separacionCompactaPlan,
-              Math.max(0, espacioLibrePagina / (planPagina.length - 1) - GRID_STEP)
-            )
-            : 0
-        : 0;
+      const separacionExtraPagina = 0;
       while (indicePregunta < preguntasOrdenadas.length && cursorY > alturaDisponibleMin) {
         if (mapaPagina.length >= planPagina.length) break;
         const pregunta = preguntasOrdenadas[indicePregunta];
@@ -3781,6 +3743,10 @@ export class PdfKitRenderer {
           opacity: 0.28,
           borderWidth: 0
         });
+        // Contraste ligero para reconocer la zona de respuestas sin crear una
+        // trama densa bajo los glifos. El panel OMR queda fuera de esta caja y
+        // conserva su superficie limpia para el detector.
+        dibujarPatronPunteadoReactivo(page, fondoRespuestas, estiloPregunta.acento);
 
         const opcionesOmr: Array<{ letra: string; x: number; y: number }> = [];
         let yFinOpciones = yInicioOpciones;

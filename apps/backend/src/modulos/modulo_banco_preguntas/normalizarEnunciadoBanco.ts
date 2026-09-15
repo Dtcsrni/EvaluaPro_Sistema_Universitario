@@ -43,14 +43,35 @@ function quitarNumeroInicial(valor: string): string {
   return valor.replace(/^\s*\d+\s*[.)-]\s+(?=\S)/, '');
 }
 
+function quitarEtiquetaTemaInicial(valor: string): string {
+  // Estas etiquetas son metadatos editoriales que quedaron pegados al
+  // enunciado al importar preguntas. Solo se quitan cuando el texto siguiente
+  // tiene forma clara de enunciado; así no se altera una pregunta que empieza
+  // realmente con el nombre de una tecnología.
+  const inicioEnunciado = '(?=(?:¿|Qué\\b|Cuál\\b|Cómo\\b|Si\\b|Una\\b|Un\\b|En\\b|Después\\b|Se\\b|Para\\b|El\\b|La\\b))';
+  const etiquetaEnriquecida = new RegExp(
+    `^\\s*<([a-z][\\w-]*)(?:\\s[^>]*)?>\\s*(?:${ETIQUETAS_TEMA_RE})\\s*</\\1>\\s*`,
+    'i'
+  );
+  const sinEtiquetaEnriquecida = valor.replace(etiquetaEnriquecida, '');
+  return sinEtiquetaEnriquecida.replace(
+    new RegExp(`^\\s*(?:${ETIQUETAS_TEMA_RE})\\s*[:.)-]?\\s+${inicioEnunciado}`, 'i'),
+    ''
+  );
+}
+
 /**
- * Quita etiquetas como "17. HTTP" o "CORS, JSON, etc." al inicio.
+ * Quita etiquetas como "17. HTTP", "HTTP Una..." o "CORS, JSON, etc." al inicio.
  * También quita un número aislado al inicio ("17. ¿...").
  * Solo se considera una etiqueta cuando ocupa su propia línea o bloque,
  * para no alterar números legítimos dentro del enunciado.
  */
 export function normalizarEnunciadoBanco(valor: unknown): string {
   let texto = String(valor ?? '').trim();
+
+  // El editor puede conservar el número editorial dentro de una etiqueta
+  // HTML. Se elimina solo en el inicio para no tocar números del contenido.
+  texto = texto.replace(/^\s*<([a-z][\w-]*)(?:\s[^>]*)?>\s*\d+\s*[.)-]?\s*<\/\1>\s*/i, '');
 
   const bloqueInicial = /^\s*<(p|div|li)\b[^>]*>([\s\S]*?)<\/\1>\s*/i.exec(texto);
   if (bloqueInicial && esEtiquetaTema(bloqueInicial[2] ?? '')) {
@@ -71,6 +92,8 @@ export function normalizarEnunciadoBanco(valor: unknown): string {
   } else {
     texto = quitarNumeroInicial(texto).trim();
   }
+
+  texto = quitarEtiquetaTemaInicial(texto).trim();
 
   return texto;
 }
