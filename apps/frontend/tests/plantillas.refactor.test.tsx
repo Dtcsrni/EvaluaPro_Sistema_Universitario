@@ -286,7 +286,7 @@ describe('plantillas refactor y navegación por pestañas (SPEC-034)', () => {
 
     const pagina = screen.getByAltText('Página 1 de la previsualización del examen');
     expect(pagina).toHaveAttribute('src', 'data:image/png;base64,AAAA');
-    expect(screen.getAllByText('Página 1').length).toBeGreaterThanOrEqual(1);
+    expect(screen.queryAllByText('Página 1')).toHaveLength(0);
     expect(screen.getByText('PDF real: 4 páginas')).toBeInTheDocument();
     expect(screen.getByText('Configuradas: 2 · el contenido requiere 4')).toBeInTheDocument();
   });

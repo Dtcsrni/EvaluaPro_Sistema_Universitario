@@ -3637,14 +3637,6 @@ p {
   height: auto;
 }
 
-.pdf-overlay__page figcaption {
-  margin-top: 0.5rem;
-  color: #334155;
-  font-size: 0.78rem;
-  font-weight: 800;
-  text-align: center;
-}
-
 .plantillas-generacion__stats {
   display: flex;
   gap: 0.4rem;

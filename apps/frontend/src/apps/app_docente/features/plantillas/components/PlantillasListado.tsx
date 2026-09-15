@@ -122,7 +122,6 @@ export function PlantillasListado({
                   alt={`Página ${pagina.numero} de la previsualización del examen`}
                   loading={pagina.numero === 1 ? 'eager' : 'lazy'}
                 />
-                <figcaption>Página {pagina.numero}</figcaption>
               </figure>
             ))}
           </div>
@@ -314,7 +313,6 @@ export function PlantillasListado({
                   height={pagina.height}
                   alt={`Página ${pagina.numero} de la previsualización a pantalla completa`}
                 />
-                <figcaption>Página {pagina.numero}</figcaption>
               </figure>
             ))}
           </div>

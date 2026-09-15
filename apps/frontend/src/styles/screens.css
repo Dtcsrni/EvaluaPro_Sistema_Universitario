@@ -8799,14 +8799,6 @@ li.empty-state-card {
   background: #fff;
 }
 
-.plantillas-preview__pdfPage figcaption {
-  margin-top: 0.45rem;
-  color: #334155;
-  font-size: 0.75rem;
-  font-weight: 800;
-  text-align: center;
-}
-
 .cuenta-pdf__logo-field {
   display: grid;
   grid-template-columns: minmax(0, 1fr) 120px;
