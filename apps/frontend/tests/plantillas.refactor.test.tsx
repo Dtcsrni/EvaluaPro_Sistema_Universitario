@@ -229,6 +229,37 @@ describe('plantillas refactor y navegación por pestañas (SPEC-034)', () => {
     expect(screen.getByText('Seleccionados: 1')).toBeInTheDocument();
   });
 
+  it('identifica la materia en el selector de generación además del id de la plantilla', () => {
+    render(
+      <HarnessPlantillas
+        plantillas={[
+          { _id: 'pla-1', titulo: 'Segundo Parcial', tipo: 'parcial', numeroPaginas: 2, periodoId: 'per-1', temas: ['Algebra'] }
+        ]}
+      />
+    );
+
+    fireEvent.click(screen.getByRole('tab', { name: /Generar Paquete PDF\/OMR/i }));
+
+    expect(screen.getByRole('option', { name: 'Periodo 1 · Segundo Parcial (ID: pla-1)' })).toBeInTheDocument();
+  });
+
+  it('cambia a Actualizar PDF cuando se modifica la configuración de una plantilla', () => {
+    render(
+      <HarnessPlantillas
+        plantillas={[
+          { _id: 'pla-1', titulo: 'Parcial Algebra', tipo: 'parcial', numeroPaginas: 2, periodoId: 'per-1', temas: ['Algebra'] }
+        ]}
+      />
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: /Editar/i }));
+    fireEvent.change(screen.getByLabelText('Cantidad de páginas'), { target: { value: '3' } });
+
+    const editorInline = screen.getByTestId('plantillas-editor-inline');
+    expect(within(editorInline).getByRole('button', { name: /^Actualizar PDF$/i })).toBeInTheDocument();
+    expect(within(editorInline).queryByRole('button', { name: /^Previsualizar PDF$/i })).not.toBeInTheDocument();
+  });
+
   it('carga únicamente la previsualización PDF al pulsar Previsualizar PDF', () => {
     const cargarPreviewPdfPlantilla = vi.fn(async () => {});
 

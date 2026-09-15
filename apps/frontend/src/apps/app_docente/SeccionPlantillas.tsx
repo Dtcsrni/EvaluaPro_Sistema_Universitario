@@ -218,6 +218,37 @@ export function SeccionPlantillas({
     return (Array.isArray(plantillas) ? plantillas : []).find((p) => p._id === plantillaEditandoId) ?? null;
   }, [plantillas, plantillaEditandoId]);
 
+  const edicionPlantillaModificada = useMemo(() => {
+    if (!modoEdicion || !plantillaEditando) return false;
+    const temasActuales = Array.isArray(temasSeleccionados) ? temasSeleccionados : [];
+    const temasOriginales = Array.isArray(plantillaEditando.temas) ? plantillaEditando.temas : [];
+    const mismoContenido = temasActuales.length === temasOriginales.length &&
+      temasActuales.every((tema, indice) => tema === temasOriginales[indice]);
+    const paginasOriginales = Number(plantillaEditando.numeroPaginas ?? plantillaEditando.bookletConfig?.targetPages ?? 1);
+    const reactivosOriginales = Number(plantillaEditando.reactivosObjetivo ?? 20);
+    const logoIzquierdaOriginal = String(plantillaEditando.bookletConfig?.logos?.izquierdaPath ?? '');
+    const logoDerechaOriginal = String(plantillaEditando.bookletConfig?.logos?.derechaPath ?? '');
+    return titulo.trim() !== String(plantillaEditando.titulo || '').trim() ||
+      tipo !== plantillaEditando.tipo ||
+      periodoId !== String(plantillaEditando.periodoId || '') ||
+      numeroPaginas !== paginasOriginales ||
+      reactivosObjetivo !== reactivosOriginales ||
+      !mismoContenido ||
+      logoIzquierda !== logoIzquierdaOriginal ||
+      logoDerecha !== logoDerechaOriginal;
+  }, [
+    logoDerecha,
+    logoIzquierda,
+    modoEdicion,
+    numeroPaginas,
+    periodoId,
+    plantillaEditando,
+    reactivosObjetivo,
+    temasSeleccionados,
+    tipo,
+    titulo
+  ]);
+
   // Índice local para resolver alumno por id sin búsquedas O(n) repetidas al renderizar listados.
   const alumnosPorId = useMemo(() => {
     const mapa = new Map<string, Alumno>();
@@ -599,13 +630,13 @@ export function SeccionPlantillas({
     emitToast({ level: 'info', title: 'Sección', message: `Mostrando ${etiquetas[tab]}`, durationMs: 1800 });
   }
 
-  async function guardarEdicion() {
-    if (!plantillaEditandoId || guardandoPlantilla) return;
+  async function guardarEdicion(): Promise<boolean> {
+    if (!plantillaEditandoId || guardandoPlantilla) return false;
     try {
       const inicio = Date.now();
       if (!puedeGestionarPlantillas) {
         avisarSinPermiso('No tienes permiso para editar plantillas.');
-        return;
+        return false;
       }
       setGuardandoPlantilla(true);
       setMensaje('');
@@ -614,7 +645,7 @@ export function SeccionPlantillas({
         const msgDup = 'Ya existe una plantilla activa con ese nombre.';
         setMensaje(msgDup);
         emitToast({ level: 'warn', title: 'Plantillas', message: msgDup, durationMs: 4200 });
-        return;
+        return false;
       }
 
       const payload: Record<string, unknown> = {
@@ -670,6 +701,7 @@ export function SeccionPlantillas({
       registrarAccionDocente('actualizar_plantilla', true, Date.now() - inicio);
       cancelarEdicion();
       onRefrescar();
+      return true;
     } catch (error) {
       const msg = mensajeDeError(error, 'No se pudo actualizar la plantilla');
       setMensaje(msg);
@@ -681,9 +713,17 @@ export function SeccionPlantillas({
         action: accionToastSesionParaError(error, 'docente')
       });
       registrarAccionDocente('actualizar_plantilla', false);
+      return false;
     } finally {
       setGuardandoPlantilla(false);
     }
+  }
+
+  async function actualizarPdfEdicion() {
+    const id = plantillaEditandoId;
+    if (!id) return;
+    const actualizado = await guardarEdicion();
+    if (actualizado) await cargarPreviewPdfPlantilla(id, 'booklet');
   }
 
   async function archivarPlantilla(plantilla: Plantilla) {
@@ -1041,6 +1081,8 @@ export function SeccionPlantillas({
       previsualizarPdf={previsualizarPdfEdicion}
       previsualizandoPdf={cargandoPreviewPdfPlantillaId === plantillaEditandoId && Boolean(plantillaEditandoId)}
       guardarEdicion={guardarEdicion}
+      actualizarPdf={actualizarPdfEdicion}
+      edicionPlantillaModificada={edicionPlantillaModificada}
       cancelarEdicion={cancelarEdicion}
       mensaje={mensaje}
     />
@@ -1252,6 +1294,7 @@ export function SeccionPlantillas({
             onGenerarExamen={generarExamen}
             generandoLote={generandoLote}
             plantillaSeleccionada={plantillaSeleccionada}
+            periodos={periodos}
             puedeGenerarExamenes={puedeGenerarExamenes}
             onGenerarExamenesLote={generarExamenesLote}
             mensajeGeneracion={mensajeGeneracion}
