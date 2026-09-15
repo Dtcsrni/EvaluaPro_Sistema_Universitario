@@ -56,14 +56,14 @@ async function rasterizarConPoppler(buffer: Buffer, paginasTotales: number, pagi
     for (const ejecutable of candidatos) {
       try {
         const paginas: PaginaPdfPreviewVisual[] = [];
+        const prefijoSalida = path.join(dirTemporal, 'pagina');
+        await execFileAsync(
+          ejecutable,
+          ['-png', '-r', String(dpi), '-f', '1', '-l', String(paginasARenderizar), rutaPdf, prefijoSalida],
+          { windowsHide: true, maxBuffer: 1024 * 1024 }
+        );
         for (let indice = 0; indice < paginasARenderizar; indice += 1) {
-          const prefijoSalida = path.join(dirTemporal, `pagina-${indice + 1}`);
-          await execFileAsync(
-            ejecutable,
-            ['-png', '-r', String(dpi), '-f', String(indice + 1), '-l', String(indice + 1), '-singlefile', rutaPdf, prefijoSalida],
-            { windowsHide: true, maxBuffer: 1024 * 1024 }
-          );
-          const imagen = await fs.readFile(`${prefijoSalida}.png`);
+          const imagen = await fs.readFile(`${prefijoSalida}-${indice + 1}.png`);
           const metadata = await sharp(imagen).metadata();
           paginas.push({
             numero: indice + 1,

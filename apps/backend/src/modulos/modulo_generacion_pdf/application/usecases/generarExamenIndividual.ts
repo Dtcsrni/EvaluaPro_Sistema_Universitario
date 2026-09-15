@@ -20,6 +20,76 @@ import {
   normalizarPreguntasCanonicas
 } from '../../domain/templateCanonico.js';
 
+type PistaAutoFit = { escala: number; espaciado: number };
+
+// El autoajuste se ejecuta repetidamente al previsualizar la misma plantilla.
+// La clave incluye los datos que afectan al layout, por lo que una pregunta,
+// encabezado o configuración diferente no reutiliza una pista vieja.
+const pistasAutoFit = new Map<string, PistaAutoFit>();
+const MAX_PISTAS_AUTOFIT = 32;
+
+function construirClaveAutoFit(params: ParametrosGeneracionPdf, templateVersion: number) {
+  return JSON.stringify({
+    titulo: params.titulo,
+    tipoExamen: params.tipoExamen,
+    totalPaginas: params.totalPaginas,
+    margenMm: params.margenMm,
+    templateVersion,
+    preguntas: params.preguntas,
+    mapaVariante: params.mapaVariante,
+    bookletConfig: params.bookletConfig,
+    encabezado: params.encabezado
+  });
+}
+
+function priorizarPista(valores: number[], pista: number | undefined) {
+  if (!Number.isFinite(pista) || !valores.includes(pista as number)) return valores;
+  return [pista as number, ...valores.filter((valor) => valor !== pista)];
+}
+
+function construirCombinacionesAutoFit(
+  escalas: number[],
+  espaciados: number[],
+  pista?: PistaAutoFit
+) {
+  const combinaciones: PistaAutoFit[] = [];
+  const agregada = new Set<string>();
+  const agregar = (escala: number, espaciado: number) => {
+    const clave = `${escala}:${espaciado}`;
+    if (agregada.has(clave)) return;
+    agregada.add(clave);
+    combinaciones.push({ escala, espaciado });
+  };
+
+  // Una pista válida resuelve la siguiente vista en un solo render. En el
+  // primer cálculo, estas sondas cubren los extremos y valores intermedios
+  // habituales antes de entrar a la matriz completa de respaldo.
+  if (pista) agregar(pista.escala, pista.espaciado);
+  agregar(escalas[0] ?? 1, espaciados[0] ?? 1.1);
+  agregar(escalas[0] ?? 1, espaciados[espaciados.length - 1] ?? 0.75);
+  agregar(escalas[escalas.length - 1] ?? 0.75, espaciados[0] ?? 1.1);
+  for (const valor of [0.9, 0.8, 0.75]) {
+    if (escalas.includes(valor) && espaciados.includes(valor)) agregar(valor, valor);
+  }
+
+  // Respaldo exacto: conserva la prioridad original (mayor legibilidad
+  // primero) para bancos atípicos que no entren con las sondas anteriores.
+  for (const escala of escalas) {
+    for (const espaciado of espaciados) agregar(escala, espaciado);
+  }
+  return combinaciones;
+}
+
+function guardarPistaAutoFit(clave: string, pista: PistaAutoFit) {
+  pistasAutoFit.delete(clave);
+  pistasAutoFit.set(clave, pista);
+  while (pistasAutoFit.size > MAX_PISTAS_AUTOFIT) {
+    const primera = pistasAutoFit.keys().next().value;
+    if (typeof primera !== 'string') break;
+    pistasAutoFit.delete(primera);
+  }
+}
+
 /**
  * Genera un PDF de examen individual.
  * 
@@ -69,23 +139,28 @@ export async function generarExamenIndividual(
     return renderizar(fontScaleBase, lineSpacingBase);
   }
 
+  const claveAutoFit = construirClaveAutoFit(params, templateVersion);
+  const pista = pistasAutoFit.get(claveAutoFit);
+
   // Autoajuste conservador: primero intenta conservar la tipografía y solo
   // compacta el cuerpo del examen. La cabecera queda protegida en el renderer.
-  const escalas = [...new Set([fontScaleBase, 1, 0.95, 0.9, 0.85, 0.8, 0.75])]
+  const escalasBase = [...new Set([fontScaleBase, 1, 0.95, 0.9, 0.85, 0.8, 0.75])]
     .filter((value) => value >= 0.75 && value <= fontScaleBase)
     .sort((a, b) => b - a);
-  const espaciados = [...new Set([lineSpacingBase, 1, 0.95, 0.9, 0.85, 0.8, 0.75])]
+  const espaciadosBase = [...new Set([lineSpacingBase, 1, 0.95, 0.9, 0.85, 0.8, 0.75])]
     .filter((value) => value >= 0.75 && value <= lineSpacingBase)
     .sort((a, b) => b - a);
+  const escalas = priorizarPista(escalasBase, pista?.escala);
+  const espaciados = priorizarPista(espaciadosBase, pista?.espaciado);
+  const combinaciones = construirCombinacionesAutoFit(escalas, espaciados, pista);
 
   let ultimoResultado: ResultadoGeneracionPdf | undefined;
-  for (const escala of escalas) {
-    for (const espaciado of espaciados) {
-      const resultado = await renderizar(escala, espaciado);
-      ultimoResultado = resultado;
-      if (resultado.preguntasRestantes === 0 && resultado.paginas.length <= totalPaginas) {
-        return resultado;
-      }
+  for (const combinacion of combinaciones) {
+    const resultado = await renderizar(combinacion.escala, combinacion.espaciado);
+    ultimoResultado = resultado;
+    if (resultado.preguntasRestantes === 0 && resultado.paginas.length <= totalPaginas) {
+      guardarPistaAutoFit(claveAutoFit, combinacion);
+      return resultado;
     }
   }
 

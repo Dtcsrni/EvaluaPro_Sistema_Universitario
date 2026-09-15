@@ -110,7 +110,7 @@ export function usePlantillasPreviewActions({
       }
 
       const intentar = async (t: string) =>
-        fetch(`${clienteApi.baseApi}/examenes/plantillas/${encodeURIComponent(id)}/previsualizar/pdf/visual?refresh=${Date.now()}`, {
+        fetch(`${clienteApi.baseApi}/examenes/plantillas/${encodeURIComponent(id)}/previsualizar/pdf/visual`, {
           credentials: 'include',
           headers: { Authorization: `Bearer ${t}` }
         });
