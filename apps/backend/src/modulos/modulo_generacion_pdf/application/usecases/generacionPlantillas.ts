@@ -24,13 +24,10 @@ import {
   construirNombrePdfExamen,
   construirNombrePdfLote,
   esEntornoTest,
-  generarVarianteDeterminista,
-  hash32,
   mapearPreguntasBase,
   normalizarLoteId,
   obtenerPlantillaDocente,
   ordenarPreguntasAleatorio,
-  ordenarPreguntasDeterminista,
   resolverDocentePdf,
   resolverPeriodoPlantillaActivo,
   resolverPreguntasPlantilla,
@@ -269,9 +266,10 @@ export async function generarExamenesLoteUseCase(params: {
   const preguntasBase = mapearPreguntasBase(preguntasDb);
   const bookletConfig = {
     ...(plantilla.bookletConfig ?? {}),
-    autoFitPages: true,
-    fontScale: 1,
-    lineSpacing: 1.1
+    // En producción masiva se consume la configuración ya validada de la
+    // plantilla. No se ejecuta el auto-fit ni se prueban variantes de layout.
+    autoFitPages: false,
+    autoFitTypography: false
   };
   const templateVersionOmr = resolverTemplateVersionOmr({
     docenteId: docId,
@@ -279,70 +277,13 @@ export async function generarExamenesLoteUseCase(params: {
     plantillaId: plantilla.id
   });
 
-  let preguntasBaseLote: ReturnType<typeof mapearPreguntasBase> = [];
-  let reactivosTotalesLote = 0;
-  {
-    const preguntasCandidatas = ordenarPreguntasDeterminista(preguntasBase, hash32(`${String(plantilla.id)}:${loteId}:lote-base`));
-    const mapaVariante = generarVarianteDeterminista(preguntasCandidatas, `plantilla:${plantilla.id}:lote-base:${loteId}`);
-    const { metricasPaginas, mapaOmr, preguntasRestantes } = await generarPdfExamen({
-      titulo: plantilla.titulo,
-      folio: 'PRECHECK',
-      preguntas: preguntasCandidatas,
-      mapaVariante: mapaVariante as unknown as ReturnType<typeof generarVariante>,
-      tipoExamen: plantilla.tipo as 'parcial' | 'global',
-      totalPaginas: numeroPaginas,
-      margenMm: plantilla.configuracionPdf?.margenMm ?? 8,
-      templateVersion: templateVersionOmr,
-      bookletConfig,
-      encabezado: construirEncabezadoPdf({
-        periodo,
-        docenteDb,
-        instrucciones: plantilla.instrucciones,
-        incluirPrefijosDocente: true
-      })
-    });
-    if ((preguntasRestantes ?? 0) > 0) {
-      throw new ErrorAplicacion(
-        'PAGINAS_INSUFICIENTES_POR_EXCESO',
-        `No caben ${preguntasRestantes} pregunta(s) en ${numeroPaginas} pagina(s). Aumenta el numero de paginas.`,
-        409,
-        { preguntasRestantes, numeroPaginas }
-      );
-    }
-
-    const mapaVarianteUsada = construirMapaVarianteUsadaDesdeOmr(mapaVariante, mapaOmr);
-    const idsPreguntasLote = Array.from(
-      new Set(
-        (Array.isArray(mapaVarianteUsada.ordenPreguntas) ? mapaVarianteUsada.ordenPreguntas : [])
-          .map((id) => String(id ?? '').trim())
-          .filter(Boolean)
-      )
-    );
-    if (idsPreguntasLote.length === 0) {
-      throw new ErrorAplicacion('SIN_PREGUNTAS', 'No se pudo determinar el set de preguntas del lote', 409);
-    }
-
-    const preguntasPorId = new Map(preguntasBase.map((pregunta) => [String(pregunta.id), pregunta]));
-    preguntasBaseLote = idsPreguntasLote
-      .map((id) => preguntasPorId.get(id))
-      .filter((pregunta): pregunta is NonNullable<typeof pregunta> => Boolean(pregunta));
-    reactivosTotalesLote = preguntasBaseLote.length;
-    if (reactivosTotalesLote !== idsPreguntasLote.length) {
-      throw new ErrorAplicacion('PREGUNTAS_NO_DISPONIBLES', 'No se pudieron resolver todas las preguntas seleccionadas para el lote.', 409);
-    }
-
-    const usadosSet = new Set(idsPreguntasLote);
-    const ultima = (Array.isArray(metricasPaginas) ? metricasPaginas : []).find((item) => item.numero === numeroPaginas);
-    const fraccionVaciaUltimaPagina = Number(ultima?.fraccionVacia ?? 0);
-    const consumioTodas = usadosSet.size >= reactivosTotalesLote;
-    if (!esTest && consumioTodas && fraccionVaciaUltimaPagina > 0.5) {
-      throw new ErrorAplicacion(
-        'PAGINAS_INSUFICIENTES',
-        `No hay suficientes preguntas para llenar ${numeroPaginas} pagina(s). La ultima pagina queda ${(fraccionVaciaUltimaPagina * 100).toFixed(0)}% vacia.`,
-        409,
-        { fraccionVaciaUltimaPagina, numeroPaginas }
-      );
-    }
+  // El conjunto de reactivos también forma parte de la plantilla. El lote no
+  // hace una previsualización técnica para decidir qué preguntas conservar:
+  // imprime exactamente las preguntas resueltas desde ella.
+  const preguntasBaseLote = preguntasBase;
+  const reactivosTotalesLote = preguntasBaseLote.length;
+  if (reactivosTotalesLote === 0) {
+    throw new ErrorAplicacion('SIN_PREGUNTAS', 'No se pudo determinar el set de preguntas del lote', 409);
   }
 
   const firmasVariantesLote = new Set<string>();
@@ -379,7 +320,6 @@ export async function generarExamenesLoteUseCase(params: {
         const mapaVarianteUsada = construirMapaVarianteUsadaDesdeOmr(mapaVariante, mapaOmr);
         const reactivosUsados = Array.isArray(mapaVarianteUsada.ordenPreguntas) ? mapaVarianteUsada.ordenPreguntas.length : 0;
         if ((preguntasRestantes ?? 0) > 0 || reactivosUsados !== reactivosTotalesLote) {
-          if (!esUltimoIntentoVariante) continue;
           throw new ErrorAplicacion(
             'LOTE_VARIANTE_INCONSISTENTE',
             `No se pudo mantener un lote consistente de ${reactivosTotalesLote} reactivos en ${numeroPaginas} pagina(s).`,

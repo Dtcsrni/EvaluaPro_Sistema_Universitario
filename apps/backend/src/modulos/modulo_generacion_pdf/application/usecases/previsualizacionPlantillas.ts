@@ -35,6 +35,39 @@ import {
 import { extraerPreguntasUsadasMapaOmr } from '../../domain/templateCanonico.js';
 import { rasterizarPdfParaPreview, type PaginaPdfPreviewVisual } from '../../infra/rasterizadorPdfPreview.js';
 
+const PREVIEW_MEMORIA_TTL_MS = 10 * 60 * 1000;
+const MAX_PREVIEWS_MEMORIA = 8;
+
+type PreviewPdfMemoria = {
+  buffer: Buffer;
+  fileName: string;
+  expiraEn: number;
+};
+
+type PreviewVisualMemoria = {
+  expiraEn: number;
+  payload: {
+    fileName: string;
+    pdfBase64: string;
+    paginas: PaginaPdfPreviewVisual[];
+    paginasTotales: number;
+    paginasOmitidas: number;
+  };
+};
+
+const previewsPdfMemoria = new Map<string, PreviewPdfMemoria>();
+const previewsVisualesMemoria = new Map<string, PreviewVisualMemoria>();
+
+function guardarPreviewMemoria<T>(mapa: Map<string, T>, clave: string, valor: T) {
+  mapa.delete(clave);
+  mapa.set(clave, valor);
+  while (mapa.size > MAX_PREVIEWS_MEMORIA) {
+    const primera = mapa.keys().next().value;
+    if (typeof primera !== 'string') break;
+    mapa.delete(primera);
+  }
+}
+
 function construirPaginasSketch(params: {
   paginas: Array<{ numero: number; preguntasDel?: number; preguntasAl?: number }>;
   preguntasOrdenadas: Array<{ id: string; enunciado: string; imagenUrl?: string }>;
@@ -251,19 +284,28 @@ export async function previsualizarPlantillaPdfUseCase(params: {
   });
   const archivoPreview = path.join(dirPreview, fileName);
 
-  if (!esDev) {
-    try {
-      const stat = await fs.stat(archivoPreview);
-      const expiraEn = stat.mtimeMs + 10 * 60 * 1000;
-      if (!params.forzarRegeneracion && Date.now() < expiraEn) {
-        return {
-          buffer: await fs.readFile(archivoPreview),
-          fileName
-        };
-      }
-    } catch {
-      // Se regenera.
+  if (!params.forzarRegeneracion) {
+    const memoria = previewsPdfMemoria.get(fileName);
+    if (memoria && Date.now() < memoria.expiraEn) {
+      return { buffer: Buffer.from(memoria.buffer), fileName: memoria.fileName };
     }
+    if (memoria) previewsPdfMemoria.delete(fileName);
+  }
+
+  try {
+    const stat = await fs.stat(archivoPreview);
+    const expiraEn = stat.mtimeMs + PREVIEW_MEMORIA_TTL_MS;
+    if (!params.forzarRegeneracion && Date.now() < expiraEn) {
+      const buffer = await fs.readFile(archivoPreview);
+      guardarPreviewMemoria(previewsPdfMemoria, fileName, {
+        buffer,
+        fileName,
+        expiraEn
+      });
+      return { buffer, fileName };
+    }
+  } catch {
+    // Se regenera.
   }
 
   const previewResultado = await generarPdfExamen({
@@ -285,7 +327,13 @@ export async function previsualizarPlantillaPdfUseCase(params: {
   });
 
   const buffer = Buffer.from(previewResultado.pdfBytes);
-  if (!esDev) {
+  previewsVisualesMemoria.delete(fileName);
+  guardarPreviewMemoria(previewsPdfMemoria, fileName, {
+    buffer,
+    fileName,
+    expiraEn: Date.now() + PREVIEW_MEMORIA_TTL_MS
+  });
+  if (!params.forzarRegeneracion) {
     try {
       await fs.mkdir(dirPreview, { recursive: true });
       await fs.writeFile(archivoPreview, buffer);
@@ -309,10 +357,20 @@ export async function previsualizarPlantillaPdfVisualUseCase(params: {
   paginasOmitidas: number;
 }> {
   const pdf = await previsualizarPlantillaPdfUseCase(params);
+  if (!params.forzarRegeneracion) {
+    const memoria = previewsVisualesMemoria.get(pdf.fileName);
+    if (memoria && Date.now() < memoria.expiraEn) return memoria.payload;
+    if (memoria) previewsVisualesMemoria.delete(pdf.fileName);
+  }
   const visual = await rasterizarPdfParaPreview(pdf.buffer);
-  return {
+  const payload = {
     fileName: pdf.fileName,
     pdfBase64: pdf.buffer.toString('base64'),
     ...visual
   };
+  guardarPreviewMemoria(previewsVisualesMemoria, pdf.fileName, {
+    expiraEn: Date.now() + PREVIEW_MEMORIA_TTL_MS,
+    payload
+  });
+  return payload;
 }

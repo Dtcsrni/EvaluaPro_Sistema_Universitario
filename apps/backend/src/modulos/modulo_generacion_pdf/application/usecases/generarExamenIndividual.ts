@@ -60,18 +60,12 @@ function construirCombinacionesAutoFit(
     combinaciones.push({ escala, espaciado });
   };
 
-  // Se prueban primero los extremos superiores, pero la matriz completa debe
-  // conservar el orden descendente de escala. No se antepone una escala
-  // mínima: hacerlo podía aceptar 0.75x antes de evaluar una tipografía mayor.
-  agregar(escalas[0] ?? 1, espaciados[0] ?? 1.1);
-  agregar(escalas[0] ?? 1, espaciados[espaciados.length - 1] ?? 0.75);
-
-  // Respaldo acotado: por cada tamaño se prueban el interlineado solicitado y
-  // el mínimo automático. Los valores intermedios aportan renders costosos
-  // sin mejorar la prioridad editorial: primero importa conservar la letra.
+  // La prioridad editorial es el tamaño de letra; el interlineado se ajusta
+  // automáticamente al mínimo seguro. Probar la matriz completa repetía el
+  // render del PDF y hacía lenta la preview sin aumentar el tamaño elegido.
+  const espaciadoMinimo = espaciados[espaciados.length - 1] ?? 0.75;
   for (const escala of escalas) {
-    agregar(escala, espaciados[0] ?? 1.1);
-    agregar(escala, espaciados[espaciados.length - 1] ?? 0.75);
+    agregar(escala, espaciadoMinimo);
   }
   return combinaciones;
 }
@@ -146,9 +140,11 @@ export async function generarExamenIndividual(
     ? [1.3, 1.25, 1.2, 1.15, 1.1, 1.05, fontScaleBase]
     : [fontScaleBase];
   const limiteEscala = autoFitTypography ? 1.3 : fontScaleBase;
-  const escalasBase = [...new Set([...escalasMaximas, 1, 0.95, 0.9, 0.85, 0.8, 0.75])]
-    .filter((value) => value >= 0.75 && value <= limiteEscala)
-    .sort((a, b) => b - a);
+  const escalasBase = autoFitTypography
+    ? [...new Set([...escalasMaximas, 1, 0.95, 0.9, 0.85, 0.8, 0.75])]
+        .filter((value) => value >= 0.75 && value <= limiteEscala)
+        .sort((a, b) => b - a)
+    : [fontScaleBase];
   const espaciadosBase = [...new Set([lineSpacingBase, 1, 0.95, 0.9, 0.85, 0.8, 0.75])]
     .filter((value) => value >= 0.75 && value <= lineSpacingBase)
     .sort((a, b) => b - a);

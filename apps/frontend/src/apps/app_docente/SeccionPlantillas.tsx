@@ -896,9 +896,11 @@ export function SeccionPlantillas({
     });
 
     let sondeoActivo = true;
+    let sondeoEnCurso = false;
     const consultarProgreso = async (loteId: string) => {
       const lote = String(loteId || '').trim();
-      if (!lote || !sondeoActivo) return;
+      if (!lote || !sondeoActivo || sondeoEnCurso) return;
+      sondeoEnCurso = true;
       try {
         const progreso = await clienteApi.obtener<ProgresoLoteGeneracion>(
           `/examenes/generados/lote/${encodeURIComponent(lote)}/progreso?plantillaId=${encodeURIComponent(plantillaId)}`
@@ -916,13 +918,14 @@ export function SeccionPlantillas({
         }));
       } catch {
         // no-op: el sondeo puede arrancar antes de que exista el primer examen del lote.
+      } finally {
+        sondeoEnCurso = false;
       }
     };
 
     const timerSondeo = globalThis.setInterval(() => {
       void consultarProgreso(loteCliente);
-    }, 1200);
-    void consultarProgreso(loteCliente);
+    }, 5000);
 
     try {
       const inicio = Date.now();
@@ -947,7 +950,7 @@ export function SeccionPlantillas({
         },
         'No tienes permiso para generar examenes.',
         {
-        timeoutMs: 120_000
+          timeoutMs: 900_000
         }
       );
       const totalAlumnos = Number(payload?.totalAlumnos ?? 0);

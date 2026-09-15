@@ -70,6 +70,16 @@ export function PlantillasConsolaGeneracion({
       : generandoLote
         ? 'Generando paquete masivo…'
         : `Generar paquete de exámenes (${alumnosMateria.length} alumnos)`;
+  const progresoVisible = progresoLoteGeneracion ?? (generandoLote
+    ? {
+        loteId: 'en curso',
+        totalEsperado: alumnosMateria.length,
+        generados: 0,
+        porcentaje: 0,
+        completado: false,
+        estado: 'iniciando' as const
+      }
+    : null);
 
   return (
     <section className="alumnos-form alumnos-form--glass alumnos-form--panoramico anim-form-card" aria-label="Consola de Producción OMR">
@@ -161,16 +171,17 @@ export function PlantillasConsolaGeneracion({
         </div>
 
         {/* Barra de Progreso si está en curso */}
-        {progresoLoteGeneracion && !progresoLoteGeneracion.completado && (
+        {progresoVisible && (!progresoVisible.completado || generandoLote) && (
           <div className="progreso-lote-card anim-fade-in mt-15">
             <div className="progreso-lote-card__header">
               <span>⚡ Generando paquete masivo en el servidor...</span>
-              <span><b>{progresoLoteGeneracion.generados}</b> / {progresoLoteGeneracion.totalEsperado} ({progresoLoteGeneracion.porcentaje}%)</span>
+              <span><b>{progresoVisible.generados}</b> / {progresoVisible.totalEsperado} ({progresoVisible.porcentaje}%)</span>
             </div>
             <div className="progreso-lote-card__track">
               <div
                 className="progreso-lote-card__bar"
-                data-pct={progresoLoteGeneracion.porcentaje}
+                data-pct={progresoVisible.porcentaje}
+                style={{ width: `${Math.max(0, Math.min(100, progresoVisible.porcentaje))}%` }}
               />
             </div>
           </div>
