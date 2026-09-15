@@ -1782,7 +1782,9 @@ export class PdfKitRenderer {
       // de linea base; asi se evita que el texto de una fila invada la otra.
       // La banda de captura necesita aire propio: con tres puntos el ultimo
       // metadato quedaba visualmente pegado a la regla superior de Nombre.
-      camposGapTop: 3,
+      // Holgura mínima entre el último metadato y la fila de captura; la
+      // altura real de las cajas se valida por separado contra colisiones.
+      camposGapTop: 0.6,
       campoRowGap: 4,
       // La linea del campo queda claramente debajo del glifo, no pegada a la
       // etiqueta ni confundida con una regla de fondo al rasterizar. Un
@@ -2451,7 +2453,10 @@ export class PdfKitRenderer {
            // Los campos de captura comparten una sola línea: el grupo conserva
            // una reserva corta para cuatro letras manuscritas y el resto queda
            // disponible para el nombre del alumno.
-          const yLimiteSuperiorCampos = yMetaUlt - 10 - 4;
+          // `yMetaUlt` ya es la línea base del último metadato. La versión
+          // anterior volvía a descontar la altura del campo más adelante y
+          // empujaba nombre/grupo hacia abajo, creando una franja vacía.
+          const yLimiteSuperiorCampos = yMetaUlt - 0.5;
           // En la cabecera institucional las indicaciones ya tienen una
           // banda propia debajo de los campos. No desplazar nombre/grupo
           // hacia el borde inferior al aumentar el texto: la altura extra de
@@ -2480,7 +2485,10 @@ export class PdfKitRenderer {
          const lineGapIndicacionesEstimado = Math.max(7.5, 6.4 * fontScaleCabecera) + 1.2;
          // La fila de instrucciones necesita una separación completa aun
          // cuando no se dibuja la identidad institucional.
-         const separacionDatosIndicaciones = 17;
+         // Los campos se acercan al último metadato para eliminar la franja
+         // vacía superior. Las indicaciones y sus ejemplos conservan su
+         // propia banda inferior, por lo que este ajuste no invade texto.
+         const separacionDatosIndicaciones = 38;
          const yCamposInferior = yCaja
            + 1
            + Math.max(0, lineasIndicacionesEstimadas - 1) * lineGapIndicacionesEstimado
