@@ -1747,6 +1747,16 @@ async function runInstallerForUpdate(filePath) {
   }
   const installerPath = String(filePath || '').trim();
   if (!installerPath) return { ok: false, error: 'No se encontró el instalador descargado.' };
+  const legacyProfilePath = path.join(root, 'webview2-profile');
+  const stableProfilePath = path.join(path.dirname(root), 'EvaluaPro-UserData', 'webview2-profile');
+  try {
+    if (fs.existsSync(legacyProfilePath) && !fs.existsSync(stableProfilePath)) {
+      fs.mkdirSync(path.dirname(stableProfilePath), { recursive: true });
+      fs.cpSync(legacyProfilePath, stableProfilePath, { recursive: true, force: false, errorOnExist: false });
+    }
+  } catch (error) {
+    return { ok: false, error: `No se pudo preservar la sesión WebView2: ${error?.message || 'error de copia'}` };
+  }
   const installerEnv = {
     ...process.env,
     EVALUAPRO_BURN_INSTALLDIR: root,

@@ -67,10 +67,7 @@ public partial class MainWindow : Window
             {
                 AllowSingleSignOnUsingOSPrimaryAccount = true
             };
-            var userDataFolder = Path.Combine(
-                Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
-                "EvaluaPro",
-                "webview2-profile");
+            var userDataFolder = ResolveWebView2UserDataFolder();
             
             var webViewEnvironment = await CoreWebView2Environment.CreateAsync(null, userDataFolder, envOptions);
             await AppWebView.EnsureCoreWebView2Async(webViewEnvironment);
@@ -87,6 +84,15 @@ public partial class MainWindow : Window
         {
             ShowError($"Error al inicializar la ventana: {ex.Message}");
         }
+    }
+
+    private static string ResolveWebView2UserDataFolder()
+    {
+        var localAppData = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData);
+        var stableProfile = Path.Combine(localAppData, "EvaluaPro-UserData", "webview2-profile");
+        if (Directory.Exists(stableProfile)) return stableProfile;
+
+        return Path.Combine(localAppData, "EvaluaPro", "webview2-profile");
     }
 
     private void AppWebView_NavigationCompleted(object? sender, CoreWebView2NavigationCompletedEventArgs e)
