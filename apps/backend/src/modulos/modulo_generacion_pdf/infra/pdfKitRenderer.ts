@@ -4042,15 +4042,9 @@ export class PdfKitRenderer {
             color: rgb(1, 1, 1)
           });
         } else {
-          page.drawRectangle({
-            x: xTag,
-            y: yTag,
-            width: wTag,
-            height: hTag,
-            borderWidth: 0.85,
-            borderColor: colorLinea,
-            color: rgb(1, 1, 1)
-          });
+          // El número queda directamente sobre el fondo del panel: la caja
+          // se conserva solo como reserva lógica para proteger la burbuja,
+          // pero ya no se imprime su rectángulo.
           const anchoNumero = fuenteBold.widthOfTextAtSize(String(numero), perfilOmr.omrTagFontSize);
           page.drawText(String(numero), {
             x: xTag + Math.max(0.8, (wTag - anchoNumero) / 2),
