@@ -2342,21 +2342,18 @@ export class PdfKitRenderer {
       // recupera espacio útil sin alterar la reserva física del QR.
       const limiteContenidoContinuacion = Number.POSITIVE_INFINITY;
 
-      page.drawText(folioQr, { x: margen, y: margen - 16, size: 8.5, font: fuenteBold, color: colorPrimario });
-      page.drawText(`PAG ${numeroPagina}`, { x: margen, y: margen - 26, size: 8, font: fuente, color: colorGris });
-      page.drawText(`Pagina ${numeroPagina}`, {
-        x: ANCHO_CARTA - margen - 120,
-        y: margen - 16,
-        size: 8.5,
-        font: fuente,
-        color: colorGris
-      });
-      page.drawLine({
-        start: { x: margen, y: margen - 6 },
-        end: { x: ANCHO_CARTA - margen, y: margen - 6 },
-        color: this.perfilLayout.usarRellenosDecorativos ? colorAcentoSuave : colorLinea,
-        thickness: 0.75
-      });
+      // El pie anterior usaba coordenadas negativas (`margen - n`): el texto
+      // quedaba fuera de la hoja y el visor lo mostraba cortado. Mantener una
+      // sola leyenda centrada conserva la identificación de preview/folio,
+      // evita las esquinas OMR y queda dentro del margen imprimible.
+      const pieTexto = `${folioQr} · Pagina ${numeroPagina}`;
+      const pieSize = 7;
+      const pieY = margen + 2;
+      const pieWidth = fuenteBold.widthOfTextAtSize(pieTexto, pieSize);
+      const pieX = Math.max(0, (ANCHO_CARTA - pieWidth) / 2);
+      const pieRect: RectBox = { x: pieX, y: Math.max(0, pieY - 1), width: pieWidth, height: pieSize + 2 };
+      assertRectDentroPagina(pieRect, `pie de pagina ${numeroPagina}`);
+      page.drawText(pieTexto, { x: pieX, y: pieY, size: pieSize, font: fuenteBold, color: colorGris });
 
       if (esPrimera) {
         const headerLeft = xCaja + 8;

@@ -325,7 +325,10 @@ export function construirFingerprintLayoutPreview(): string {
     'EXAMEN_LAYOUT_USAR_ETIQUETA_OMR_SOLIDA'
   ];
   const base = [
-    'pdf-lib-canonical',
+    // Versionar explícitamente el contrato de composición. Así un PDF
+    // cacheado antes de un cambio geométrico (por ejemplo, el pie fuera de
+    // página) nunca se reutiliza como si fuera una preview actual.
+    'pdf-lib-canonical-layout-20260915-safe-footer',
     construirFirmaVisualPdf(),
     ...variables.map((nombre) => `${nombre}=${String(process.env[nombre] ?? '').trim()}`)
   ].join('|');
