@@ -40,7 +40,10 @@ import {
 import { PERFIL_OMR_CANONICO } from '../domain/layoutExamen.js';
 import { TEMPLATE_VERSION_CANONICA } from '../domain/templateCanonico.js';
 import { PDF_VISUAL_BASELINE_RGB } from './pdfVisualBaseline.js';
-import { normalizarEnunciadoBanco } from '../../modulo_banco_preguntas/normalizarEnunciadoBanco.js';
+import {
+  compactarOpcionBancoParaPdf,
+  normalizarEnunciadoBanco
+} from '../../modulo_banco_preguntas/normalizarEnunciadoBanco.js';
 
 type PerfilPlantillaRender = PerfilPlantillaOmr & {
   version: 4;
@@ -1822,7 +1825,7 @@ export class PdfKitRenderer {
     // Separacion corta pero visible: el ritmo lo aporta la linea divisoria y
     // el bloque numerado, no un hueco vertical que robe reactivos legibles.
     const separacionPregunta = perfilOmr.orientacion === 'horizontal'
-      ? 0.6 * lineSpacing
+      ? 0.25 * lineSpacing
       : 1.2 * lineSpacing;
     // El fondo del reactivo se extiende una línea por encima de su caja
     // tipográfica. Un margen inferior corto conserva la separación imprimible
@@ -1834,7 +1837,7 @@ export class PdfKitRenderer {
     // En la retícula 3+2, 1 pt separa las dos filas sin convertir cada
     // reactivo corto en una reserva vertical innecesaria. La holgura de las
     // líneas y el fondo único del reactivo siguen evitando contactos visuales.
-    const separacionTarjetaOpcion = perfilOmr.orientacion === 'horizontal' ? 1 : 3;
+    const separacionTarjetaOpcion = perfilOmr.orientacion === 'horizontal' ? 0.6 : 3;
     const omrTotalLetras = 5;
     const omrRadio = perfilOmr.burbujaRadio;
     const omrPasoY = perfilOmr.burbujaPasoY;
@@ -3093,18 +3096,18 @@ export class PdfKitRenderer {
         const prefixWidth = fuenteBold.widthOfTextAtSize('E) ', sizeOpcion) + 3;
         if (omrEsquemaHorizontal && totalOpciones === 5) {
           const indicePrincipal = ordenOpciones.reduce((mejor, indiceOpcion) => {
-            const actual = String(pregunta.opciones[indiceOpcion]?.texto ?? '').length;
-            const anterior = String(pregunta.opciones[mejor]?.texto ?? '').length;
+            const actual = compactarOpcionBancoParaPdf(pregunta.opciones[indiceOpcion]?.texto).length;
+            const anterior = compactarOpcionBancoParaPdf(pregunta.opciones[mejor]?.texto).length;
             return actual > anterior ? indiceOpcion : mejor;
           }, ordenOpciones[0] ?? 0);
-          const longitudPrincipal = String(pregunta.opciones[indicePrincipal]?.texto ?? '').length;
+          const longitudPrincipal = compactarOpcionBancoParaPdf(pregunta.opciones[indicePrincipal]?.texto).length;
            // Mantener el orden natural A-B-C-D-E para opciones ricas. Solo una
            // respuesta excepcionalmente extensa merece ocupar una fila propia;
            // con textos normales, promover la opción más larga desordena la
            // lectura y hace parecer que los fondos están desalineados.
            if (longitudPrincipal >= 90) {
             const lineasPrincipal = envolverTextoMixto({
-              texto: String(pregunta.opciones[indicePrincipal]?.texto ?? ''),
+              texto: compactarOpcionBancoParaPdf(pregunta.opciones[indicePrincipal]?.texto),
               maxWidth: Math.max(80, anchoOpcionesTotal - 6 - prefixWidth),
               fuente,
               fuenteBold,
@@ -3126,7 +3129,7 @@ export class PdfKitRenderer {
             const gutter = 4;
             const anchoRestante = (anchoOpcionesTotal - gutter * 3) / 4;
             const lineasRestantes = restantes.map((item) => envolverTextoMixto({
-              texto: String(pregunta.opciones[item.indiceOpcion]?.texto ?? ''),
+              texto: compactarOpcionBancoParaPdf(pregunta.opciones[item.indiceOpcion]?.texto),
               maxWidth: Math.max(20, anchoRestante - prefixWidth),
               fuente,
               fuenteBold,
@@ -3192,7 +3195,7 @@ export class PdfKitRenderer {
             const alturasPorColumna = cols.map((col) => col.map((indiceOpcion) => {
               const opcion = pregunta.opciones[indiceOpcion];
               const lineas = envolverTextoMixto({
-                texto: opcion?.texto ?? '',
+                texto: compactarOpcionBancoParaPdf(opcion?.texto),
                 maxWidth: Math.max(30, colWidth - prefixWidth),
                 fuente,
                 fuenteBold,
@@ -3429,7 +3432,7 @@ export class PdfKitRenderer {
         ? alturasContenidoEstimadas.reduce((total, altura) => total + altura, 0) / alturasContenidoEstimadas.length
         : 0;
       const longitudPromedioContenido = preguntasOrdenadas.length > 0
-        ? preguntasOrdenadas.reduce((total, pregunta) => total + pregunta.enunciado.length + pregunta.opciones.reduce((subtotal, opcion) => subtotal + opcion.texto.length, 0), 0) / preguntasOrdenadas.length
+        ? preguntasOrdenadas.reduce((total, pregunta) => total + pregunta.enunciado.length + pregunta.opciones.reduce((subtotal, opcion) => subtotal + compactarOpcionBancoParaPdf(opcion.texto).length, 0), 0) / preguntasOrdenadas.length
         : 0;
       const bancoExtenso = preguntasOrdenadas.length >= 20 && (
         alturaPromedioContenido >= 72 || longitudPromedioContenido >= 320
@@ -3827,7 +3830,7 @@ export class PdfKitRenderer {
 
         const opcionesRender = itemsCols.map((items) => items.map((item) => {
           const opcion = pregunta.opciones[item.indiceOpcion];
-          const textoOpcion = String(opcion?.texto ?? '');
+          const textoOpcion = compactarOpcionBancoParaPdf(opcion?.texto);
           const textoLimpio = sanitizarTextoPdf(textoOpcion);
           const lineasOpcion = envolverTextoMixto({
             texto: textoLimpio,

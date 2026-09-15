@@ -1,6 +1,7 @@
 /**
  * Limpieza de prefijos editoriales que llegan al banco desde texto pegado.
- * No modifica el contenido de la pregunta ni sus opciones.
+ * No modifica el contenido persistido del banco. La salida de opciones puede
+ * compactarse de forma conservadora únicamente al maquetar el PDF.
  */
 
 const ETIQUETAS_TEMA = [
@@ -20,6 +21,8 @@ const ETIQUETAS_TEMA_RE = ETIQUETAS_TEMA
   .sort((a, b) => b.length - a.length)
   .map((etiqueta) => etiqueta.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'))
   .join('|');
+
+const FORMATO_RICO_RE = /<\s*(?:strong|em|u|sub|sup|span)\b|```|`[^`]+`|\*\*|__|\*[^*]+\*/i;
 
 function textoPlanoInicial(valor: string): string {
   return valor
@@ -96,4 +99,20 @@ export function normalizarEnunciadoBanco(valor: unknown): string {
   texto = quitarEtiquetaTemaInicial(texto).trim();
 
   return texto;
+}
+
+/**
+ * Reduce redundancia editorial de una opción sin resumir su contenido
+ * semántico. Solo se aplica a texto plano: el formato rico y el código se
+ * dejan intactos para no alterar su sintaxis ni sus segmentos visuales.
+ */
+export function compactarOpcionBancoParaPdf(valor: unknown): string {
+  const texto = String(valor ?? '').trim();
+  if (!texto || FORMATO_RICO_RE.test(texto)) return texto;
+
+  return texto
+    .replace(/^\s*(?:opci[oó]n|respuesta)\s*[A-E]\s*[:.)-]\s*/i, '')
+    .replace(/,\s+porque\s+/gi, ': ')
+    .replace(/\s+/g, ' ')
+    .trim();
 }

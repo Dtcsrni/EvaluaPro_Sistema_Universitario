@@ -2,10 +2,13 @@
  * normalizarEnunciadoBanco.test
  *
  * Responsabilidad: evitar que etiquetas editoriales pegadas desde el banco
- * aparezcan como parte del enunciado del examen.
+ * aparezcan en el PDF y compactar redundancias seguras en las opciones.
  */
 import { describe, expect, it } from 'vitest';
-import { normalizarEnunciadoBanco } from '../src/modulos/modulo_banco_preguntas/normalizarEnunciadoBanco.js';
+import {
+  compactarOpcionBancoParaPdf,
+  normalizarEnunciadoBanco
+} from '../src/modulos/modulo_banco_preguntas/normalizarEnunciadoBanco.js';
 
 describe('normalizarEnunciadoBanco', () => {
   it('quita número y etiqueta de tema en texto pegado', () => {
@@ -41,5 +44,12 @@ describe('normalizarEnunciadoBanco', () => {
       .toBe('<p>¿Qué encabezado debe enviarse?</p>');
     expect(normalizarEnunciadoBanco('<strong>28.</strong> <strong>CORS</strong> ¿Qué encabezado debe enviarse?'))
       .toBe('¿Qué encabezado debe enviarse?');
+  });
+
+  it('compacta solo redundancias seguras de opciones de texto plano', () => {
+    expect(compactarOpcionBancoParaPdf('Opción A: En req.query.id, porque identifica la consulta.'))
+      .toBe('En req.query.id: identifica la consulta.');
+    expect(compactarOpcionBancoParaPdf('**Opción A:** conserva el formato rico, porque debe preservarse.'))
+      .toBe('**Opción A:** conserva el formato rico, porque debe preservarse.');
   });
 });
