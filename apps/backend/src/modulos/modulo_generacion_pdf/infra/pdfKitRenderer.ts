@@ -1834,10 +1834,10 @@ export class PdfKitRenderer {
       // página sin perder la separación mínima entre glifos y divisores.
       ? (examen.totalPreguntas > 20 ? 5 : 3) * lineSpacing
       : 1.2 * lineSpacing;
-    // Separación tipográfica mínima entre la regla punteada del enunciado y
+    // Separación tipográfica visible entre la regla punteada del enunciado y
     // el inicio de las respuestas. La reserva se comparte con el planificador
     // para que el aire visible no cause desbordes ni páginas adicionales.
-    const separacionEnunciadoOpciones = 0.5;
+    const separacionEnunciadoOpciones = 1.4;
     // El fondo del reactivo se extiende una línea por encima de su caja
     // tipográfica. Un margen inferior corto conserva la separación imprimible
     // y entrega el resto del hueco directamente al área de reactivos.
@@ -3584,9 +3584,10 @@ export class PdfKitRenderer {
         // El reactivo completo es la unidad visual: un fondo tenue alternado
         // contiene enunciado, imagen y respuestas. El OMR permanece fuera de
         // esta tarjeta, con fondo blanco para proteger su lectura.
-        // Los bbox de texto parten de la linea base; reservar el interlineado
-        // superior evita que los glifos del enunciado queden sobre blanco.
-        const reservaSuperiorFondo = Math.max(2, lineaPregunta);
+        // Los bbox de texto parten de la línea base; reservar el interlineado
+        // superior más una holgura corta evita que el filete punteado quede
+        // pegado a los ascendentes del primer renglón.
+        const reservaSuperiorFondo = Math.max(2, lineaPregunta + 2.5);
         const altoFondoPregunta = Math.max(
           1,
           alturaNecesaria - separacionPregunta - (examen.totalPreguntas > 20 ? 0 : 1)
@@ -3654,7 +3655,11 @@ export class PdfKitRenderer {
         });
         const altoEnunciado = lineasEnunciado.reduce((total, linea) => total + linea.lineHeight, 0);
         const interlineadoUltimoEnunciado = lineasEnunciado[lineasEnunciado.length - 1]?.lineHeight ?? lineaPregunta;
-        const separacionPreguntaRespuesta = Math.max(2.5, sizePregunta * 0.3);
+        // La línea inferior del enunciado no debe rozar los descendentes del
+        // último renglón. El pequeño margen superior mantiene la misma lectura
+        // cuando el filete superior del fondo queda cerca del primer renglón.
+        const separacionPreguntaRespuesta = Math.max(4.5, sizePregunta * 0.4);
+        const separacionSuperiorCajaPregunta = 3.5;
         const cajaPregunta: RectBox = {
           x: xTextoPregunta - 2.5,
           // El borde inferior se calcula desde la última línea real del
@@ -3664,7 +3669,7 @@ export class PdfKitRenderer {
           width: Math.max(30, anchoEnunciado + 2.5),
           height: Math.max(
             4,
-            altoEnunciado - interlineadoUltimoEnunciado + separacionPreguntaRespuesta + 2.2
+            altoEnunciado - interlineadoUltimoEnunciado + separacionPreguntaRespuesta + separacionSuperiorCajaPregunta
           )
         };
         assertRectDentroPagina(cajaPregunta, `caja de pregunta ${numero}`);
