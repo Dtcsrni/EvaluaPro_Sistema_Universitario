@@ -232,7 +232,7 @@ describe('pdf OMR canónico', () => {
     // conserva la forma histórica "/ 4 reactivos".
     expect(texto.text).toMatch(/\/ 4(?:\s+reactivos)?/);
     expect(texto.text).toContain('Calificación (0-5):');
-    expect(texto.text).toContain('Lea detenidamente cada reactivo');
+    expect(texto.text).toContain('Lea y razone cada reactivo');
     expect(texto.text).toContain('Correcta');
     expect(texto.text).toContain('Incorrecta');
     expect(texto.text).not.toContain('Examen =');

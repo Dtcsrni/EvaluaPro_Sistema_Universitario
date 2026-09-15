@@ -1767,17 +1767,19 @@ export class PdfKitRenderer {
     ];
     // Plantilla base en puntos (1pt ~= 1px a 72dpi) para posicionamiento estable.
     const PLANTILLA_PX = Object.freeze({
-      headerPadTop: 10,
-      headerPadBottom: 10,
-      titleGap: 2.5,
-      lemaGap: 2,
-      metaGapTop: 2,
-      metaLine: 10.8,
+      headerPadTop: 7,
+      headerPadBottom: 7,
+      titleGap: 1.2,
+      lemaGap: 1,
+      metaGapTop: 1,
+      // El icono de docente se alinea a la izquierda de su metadato; esta
+      // holgura mínima evita que su caja invada la línea de Materia.
+      metaLine: 10.6,
       // Estos valores son separaciones entre cajas tipograficas, no distancias
       // de linea base; asi se evita que el texto de una fila invada la otra.
       // La banda de captura necesita aire propio: con tres puntos el ultimo
       // metadato quedaba visualmente pegado a la regla superior de Nombre.
-      camposGapTop: 5,
+      camposGapTop: 3,
       campoRowGap: 4,
       // La linea del campo queda claramente debajo del glifo, no pegada a la
       // etiqueta ni confundida con una regla de fondo al rasterizar. Un
@@ -1787,22 +1789,19 @@ export class PdfKitRenderer {
     });
 
     // La configuración de densidad solo compacta el cuerpo del examen. La
-    // cabecera institucional conserva su escala e interlineado para que los
-    // cambios de paginación no alteren su estética ni sus campos OMR.
+    // cabecera institucional usa una escala propia y estable para que los
+    // cambios de paginación no alteren sus campos OMR.
     const fontScale = Math.min(1.3, Math.max(0.9, Number(examen.layout.fontScale ?? 1) || 1));
     const lineSpacing = Math.min(1.6, Math.max(0.9, Number(examen.layout.lineSpacing ?? 1) || 1));
     const fontScaleCabecera = 1;
     const lineSpacingCabecera = 1;
-    // La retícula 3+2 libera suficiente ancho para subir ligeramente la
-    // tipografía sin perder el objetivo de 20--25 reactivos en dos páginas.
-    // La plantilla canónica horizontal conserva la escala tipográfica completa;
-    // el ancho liberado por la geometría única evita reducir la legibilidad.
+    // La retícula 3+2 libera suficiente ancho para conservar una tipografía
+    // legible mientras la cabecera usa una escala más contenida.
     const escalaPerfilDenso = 1;
-    const sizeTitulo = 17 * fontScaleCabecera;
-    // Tipografia de lectura humana. Estos valores recuperan la escala legible
-    // del generador original y mantienen la escala/interlineado configurables;
-    // el OMR se conserva como columna secundaria, no como sustituto del texto.
-    const sizeMeta = 9.3 * fontScaleCabecera;
+    const sizeTitulo = 15.5 * fontScaleCabecera;
+    // Tipografía de lectura humana. La escala del encabezado es deliberadamente
+    // independiente de los ajustes automáticos del cuerpo y del OMR.
+    const sizeMeta = 8.6 * fontScaleCabecera;
     const sizePregunta = 10.4 * fontScale * escalaPerfilDenso;
     const sizeOpcion = 8.8 * fontScale * escalaPerfilDenso;
     const sizeCodigoInline = 8.4 * fontScale * escalaPerfilDenso;
@@ -1901,7 +1900,7 @@ export class PdfKitRenderer {
     const anchoTextoPregunta = Math.max(60, xDerechaTexto - xTextoPregunta);
 
     const instruccionesDefault =
-      'Lea detenidamente cada reactivo, razone antes de responder y marque una sola respuesta dentro del círculo. Si cambia, borre por completo la marca anterior.';
+      'Lea y razone cada reactivo. Marque un solo círculo sin tocar el borde; si cambia, borre la marca anterior.';
 
     const defaultInstitucion = 'Centro Universitario Hidalguense';
     const defaultLema = 'Sapientia est nostra fortis';
@@ -1950,13 +1949,13 @@ export class PdfKitRenderer {
     );
     const lineasExtraCabecera = Math.max(
       0,
-      estimarLineasCabecera(institucion, fuenteBold, 14.8 * fontScaleCabecera) - 1
+      estimarLineasCabecera(institucion, fuenteBold, 13.6 * fontScaleCabecera) - 1
     ) + Math.max(
       0,
       estimarLineasCabecera(tituloCabecera, fuenteBold, sizeTitulo) - 1
     ) + Math.max(
       0,
-      estimarLineasCabecera(lema, fuenteItalica, 10.2 * fontScaleCabecera) - 1
+      estimarLineasCabecera(lema, fuenteItalica, 9.2 * fontScaleCabecera) - 1
     ) + Math.max(
       0,
       lineasMetaEstimadas - 1
@@ -1993,12 +1992,11 @@ export class PdfKitRenderer {
     // del marco al validar el layout.
     // Incluye el descenso de la regla inferior y su grosor, no solo las
     // alturas tipográficas de las dos etiquetas.
-    const altoZonaCalificacionEstimado = Math.max(6.4, 6.4 * fontScaleCabecera) + 30;
-    // Reducir la reserva base recupera 15 pt (5.3 mm) de espacio para el
-    // primer reactivo sin tocar logos, QR ni tamaños tipográficos. La rama
-    // larga conserva 6 pt adicionales y ambas quedan protegidas por las
-    // aserciones de colisión y contención del layout.
-    const baseEncabezadoCompacto = lineasExtraCabecera <= 2 && lineasIndicacionesEstimadas <= 2 ? 72 : 78;
+    const altoZonaCalificacionEstimado = Math.max(6.4, 6.4 * fontScaleCabecera) + 21;
+    // Reducir la reserva base recupera espacio para el primer reactivo sin
+    // tocar logos, QR ni la geometría OMR. La rama larga conserva holgura
+    // adicional y ambas quedan protegidas por las aserciones de colisión.
+    const baseEncabezadoCompacto = lineasExtraCabecera <= 2 && lineasIndicacionesEstimadas <= 2 ? 64 : 70;
     const altoEncabezadoPrimeraMinimo = Math.max(
       // La fila inferior puede ocupar varias líneas; reservar el interlineado
       // efectivo más un colchón evita que la última línea caiga fuera del
@@ -2398,11 +2396,11 @@ export class PdfKitRenderer {
         let instiLineas: string[] = [];
         let titLineas: string[] = [];
         let lemLineas: string[] = [];
-        let sizeInst = 14.2 * fontScaleCabecera;
+        let sizeInst = 13.2 * fontScaleCabecera;
         let sizeTit = sizeTitulo;
-        let sizeLem = 10 * fontScaleCabecera;
+        let sizeLem = 9 * fontScaleCabecera;
         let sizeMetaEsc = sizeMeta;
-        let sizeCampo = 9.6 * fontScaleCabecera;
+        let sizeCampo = 9.8 * fontScaleCabecera;
         let metaLineGap: number = PLANTILLA_PX.metaLine;
         let yInsti = innerTop - sizeInst;
         let yTitulo = yInsti;
@@ -2411,11 +2409,11 @@ export class PdfKitRenderer {
         let yMetaUltima = yMeta;
 
         for (let i = 0; i < 8; i += 1) {
-          sizeInst = 14.8 * fontScaleCabecera * escala;
+          sizeInst = 13.6 * fontScaleCabecera * escala;
           sizeTit = sizeTitulo * escala;
-          sizeLem = 10.2 * fontScaleCabecera * escala;
+          sizeLem = 9.2 * fontScaleCabecera * escala;
           sizeMetaEsc = sizeMeta * escala;
-          sizeCampo = 10.6 * fontScaleCabecera * escala;
+          sizeCampo = 9.8 * fontScaleCabecera * escala;
           metaLineGap = Math.max(PLANTILLA_PX.metaLine * escala, sizeMetaEsc + 1.2);
           instiLineas = ajustarLineas(institucion, fuenteBold, sizeInst);
           titLineas = ajustarLineas(examen.titulo, fuenteBold, sizeTit);
@@ -3492,12 +3490,11 @@ export class PdfKitRenderer {
       if (process.env.DEBUG_PDF_BALANCE === '1') {
         console.error(`[pdf-plan-final] pagina=${numeroPagina} n=${planPagina.length} yBase=${yPlanPagina.toFixed(2)} yRender=${recalcularPlanPagina().yRender.toFixed(2)}`);
       }
-      // Si el corte natural dejaria uno, dos o tres reactivos en una pagina
-      // adicional, probar colas crecientes del plan actual. Mover solo el
-      // ultimo reactivo no siempre cabe porque la primera pregunta de una
-      // continuación tiene una reserva lateral para el QR; probar una cola
-      // mayor evita conservar una hoja casi vacía por una falsa dicotomía.
-      if (!esPrimera && planPagina.length > 2) {
+      // Si el corte natural deja una partición muy desigual, probar colas
+      // crecientes del plan actual. Esto también se aplica al salto de la
+      // primera página: la primera pregunta de la siguiente cara tiene una
+      // reserva lateral para el QR y debe validarse con esa geometría real.
+      if (planPagina.length > 2 && (!esPrimera || numeroPagina < paginasObjetivo)) {
         const restantesTrasPlan = preguntasOrdenadas.length - (indicePregunta + planPagina.length);
         if (restantesTrasPlan > 0 && restantesTrasPlan <= Math.max(minPreguntasPorPagina, planPagina.length)) {
           const yInicioNuevaContinuacion = snapToGrid(
