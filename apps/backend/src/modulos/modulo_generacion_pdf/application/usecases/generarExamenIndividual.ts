@@ -60,8 +60,8 @@ export async function generarExamenIndividual(
     params.encabezado
   );
 
-  const fontScaleBase = Math.min(1.3, Math.max(0.9, Number(params.bookletConfig?.fontScale ?? 1) || 1));
-  const lineSpacingBase = Math.min(1.6, Math.max(0.9, Number(params.bookletConfig?.lineSpacing ?? 1.1) || 1.1));
+  const fontScaleBase = Math.min(1.3, Math.max(0.75, Number(params.bookletConfig?.fontScale ?? 1) || 1));
+  const lineSpacingBase = Math.min(1.6, Math.max(0.75, Number(params.bookletConfig?.lineSpacing ?? 1.1) || 1.1));
   const renderizar = (fontScale: number, lineSpacing: number) =>
     renderer.generarPdf(construirExamen(fontScale, lineSpacing));
 
@@ -71,11 +71,11 @@ export async function generarExamenIndividual(
 
   // Autoajuste conservador: primero intenta conservar la tipografía y solo
   // compacta el cuerpo del examen. La cabecera queda protegida en el renderer.
-  const escalas = [...new Set([fontScaleBase, 1, 0.95, 0.9])]
-    .filter((value) => value >= 0.9 && value <= fontScaleBase)
+  const escalas = [...new Set([fontScaleBase, 1, 0.95, 0.9, 0.85, 0.8, 0.75])]
+    .filter((value) => value >= 0.75 && value <= fontScaleBase)
     .sort((a, b) => b - a);
-  const espaciados = [...new Set([lineSpacingBase, 1, 0.95, 0.9])]
-    .filter((value) => value >= 0.9 && value <= lineSpacingBase)
+  const espaciados = [...new Set([lineSpacingBase, 1, 0.95, 0.9, 0.85, 0.8, 0.75])]
+    .filter((value) => value >= 0.75 && value <= lineSpacingBase)
     .sort((a, b) => b - a);
 
   let ultimoResultado: ResultadoGeneracionPdf | undefined;

@@ -48,7 +48,7 @@ describe('normalizarEnunciadoBanco', () => {
 
   it('compacta solo redundancias seguras de opciones de texto plano', () => {
     expect(compactarOpcionBancoParaPdf('Opción A: En req.query.id, porque identifica la consulta.'))
-      .toBe('En req.query.id: identifica la consulta.');
+      .toBe('En req.query.id');
     expect(compactarOpcionBancoParaPdf('**Opción A:** conserva el formato rico, porque debe preservarse.'))
       .toBe('**Opción A:** conserva el formato rico, porque debe preservarse.');
   });

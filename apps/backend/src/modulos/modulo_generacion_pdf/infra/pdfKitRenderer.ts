@@ -1796,8 +1796,8 @@ export class PdfKitRenderer {
     // La configuración de densidad solo compacta el cuerpo del examen. La
     // cabecera institucional usa una escala propia y estable para que los
     // cambios de paginación no alteren sus campos OMR.
-    const fontScale = Math.min(1.3, Math.max(0.9, Number(examen.layout.fontScale ?? 1) || 1));
-    const lineSpacing = Math.min(1.6, Math.max(0.9, Number(examen.layout.lineSpacing ?? 1) || 1));
+    const fontScale = Math.min(1.3, Math.max(0.75, Number(examen.layout.fontScale ?? 1) || 1));
+    const lineSpacing = Math.min(1.6, Math.max(0.75, Number(examen.layout.lineSpacing ?? 1) || 1));
     const fontScaleCabecera = 1;
     const lineSpacingCabecera = 1;
     // La retícula 3+2 libera suficiente ancho para conservar una tipografía
@@ -3430,28 +3430,11 @@ export class PdfKitRenderer {
         1,
         Number.parseInt(String(process.env.EXAMEN_MAX_PREGUNTAS_POR_PAGINA ?? '25'), 10) || 25
       );
-      // Un tope de 25 funciona para bancos de reactivos cortos, pero con
-      // preguntas extensas la estrategia voraz puede reservar nueve bloques
-      // compactos y dejar un solo reactivo en la hoja siguiente. Detectar el
-      // caso por altura real mantiene el orden, conserva la tipografía y
-      // reparte el contenido denso en páginas utilizables.
-      const alturasContenidoEstimadas = preguntasOrdenadas.map((pregunta) =>
-        calcularAlturaPregunta(pregunta, xDerechaTexto)
-      );
-      const alturaPromedioContenido = alturasContenidoEstimadas.length > 0
-        ? alturasContenidoEstimadas.reduce((total, altura) => total + altura, 0) / alturasContenidoEstimadas.length
-        : 0;
-      const longitudPromedioContenido = preguntasOrdenadas.length > 0
-        ? preguntasOrdenadas.reduce((total, pregunta) => total + pregunta.enunciado.length + pregunta.opciones.reduce((subtotal, opcion) => subtotal + compactarOpcionBancoParaPdf(opcion.texto).length, 0), 0) / preguntasOrdenadas.length
-        : 0;
-      const bancoExtenso = preguntasOrdenadas.length >= 20 && (
-        alturaPromedioContenido >= 72 || longitudPromedioContenido >= 320
-      );
-      const maxPreguntasPorPagina = bancoExtenso
-        // Limitar a siete evita que la estrategia voraz reserve demasiados
-        // bloques compactos y deje una cola residual en una hoja adicional.
-        ? Math.min(maxPreguntasPorPaginaConfigurado, 7)
-        : maxPreguntasPorPaginaConfigurado;
+      // La altura real de cada reactivo, calculada arriba con el mismo layout
+      // que usa el dibujo, decide el corte. Un tope fijo para bancos extensos
+      // convertía mecánicamente 25 preguntas en 4 páginas aunque el cuerpo
+      // cupiera en las 2 páginas objetivo después del autoajuste tipográfico.
+      const maxPreguntasPorPagina = maxPreguntasPorPaginaConfigurado;
       // El objetivo editorial es maximizar la capacidad de cada página del
       // par dúplex. La capacidad física decide el corte; `totalPaginas` no
       // puede forzar un reparto equilibrado que expulse reactivos a una hoja

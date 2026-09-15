@@ -102,9 +102,10 @@ export function normalizarEnunciadoBanco(valor: unknown): string {
 }
 
 /**
- * Reduce redundancia editorial de una opción sin resumir su contenido
- * semántico. Solo se aplica a texto plano: el formato rico y el código se
- * dejan intactos para no alterar su sintaxis ni sus segmentos visuales.
+ * Reduce redundancia editorial de una opción para el PDF sin modificar el
+ * banco persistido. En texto plano conserva la proposición inicial y omite la
+ * justificación repetitiva posterior a "porque"; el formato rico y el código
+ * se dejan intactos para no alterar su sintaxis ni sus segmentos visuales.
  */
 export function compactarOpcionBancoParaPdf(valor: unknown): string {
   const texto = String(valor ?? '').trim();
@@ -112,7 +113,11 @@ export function compactarOpcionBancoParaPdf(valor: unknown): string {
 
   return texto
     .replace(/^\s*(?:opci[oó]n|respuesta)\s*[A-E]\s*[:.)-]\s*/i, '')
-    .replace(/,\s+porque\s+/gi, ': ')
+    // La justificación repetía el mismo patrón en casi todas las opciones y
+    // añadía varias líneas a cada reactivo. El segmento previo a "porque"
+    // sigue siendo la alternativa evaluable; no se aplica a "porque" al
+    // inicio ni a contenido con formato rico.
+    .replace(/,\s+porque\s+[\s\S]*$/i, '')
     .replace(/\s+/g, ' ')
     .trim();
 }
