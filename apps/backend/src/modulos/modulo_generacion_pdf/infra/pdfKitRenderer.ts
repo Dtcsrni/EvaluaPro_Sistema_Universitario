@@ -2487,10 +2487,10 @@ export class PdfKitRenderer {
          const lineGapIndicacionesEstimado = Math.max(7.5, 6.4 * fontScaleCabecera) + 1.2;
          // La fila de instrucciones necesita una separación completa aun
          // cuando no se dibuja la identidad institucional.
-         // Los campos se acercan al último metadato para eliminar la franja
-         // vacía superior. Las indicaciones y sus ejemplos conservan su
-         // propia banda inferior, por lo que este ajuste no invade texto.
-         const separacionDatosIndicaciones = 38;
+         // La fila de captura baja dentro de la franja libre: así conserva
+         // aire respecto de los logotipos y aprovecha el espacio antes de las
+         // indicaciones sin invadir su primera línea ni sus ejemplos.
+         const separacionDatosIndicaciones = 22;
          const yCamposInferior = yCaja
            + 1
            + Math.max(0, lineasIndicacionesEstimadas - 1) * lineGapIndicacionesEstimado

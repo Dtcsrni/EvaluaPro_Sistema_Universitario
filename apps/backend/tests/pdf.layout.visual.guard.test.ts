@@ -386,6 +386,38 @@ describe('pdf layout visual guard', () => {
     }
   });
 
+  it('separa la fila de datos del alumno de los logotipos', async () => {
+    const resultado = await generarPdfExamen({
+      ...crearParametros(4),
+      totalPaginas: 1,
+      encabezado: {
+        institucion: 'Centro Universitario Hidalguense',
+        lema: 'La sabiduria es nuestra fuerza',
+        materia: 'Diseño y Desarrollo de Aplicaciones Web',
+        docente: 'Erick Renato Vega Ceron',
+        instrucciones: 'Rellene un solo circulo por pregunta y evite marcas fuera del area.',
+        mostrarMarcaInstitucional: true
+      }
+    });
+
+    const primeraPagina = resultado.mapaOmr.paginas[0]!;
+    const bloques = primeraPagina.layoutDebug?.headerTextBlocks ?? [];
+    const slots = primeraPagina.layoutDebug?.headerSlots ?? [];
+    const nombre = bloques.find((bloque) => bloque.id === 'nombre-etiqueta');
+    const grupo = bloques.find((bloque) => bloque.id === 'grupo-etiqueta');
+    const logos = slots.filter((slot) => slot.id === 'logo-izquierdo' || slot.id === 'logo-derecho');
+
+    expect(nombre).toBeDefined();
+    expect(grupo).toBeDefined();
+    expect(logos).toHaveLength(2);
+    const bordeInferiorLogos = Math.min(...logos.map((logo) => Number(logo.y)));
+    expect(bordeInferiorLogos - Number(nombre?.y ?? 0) - Number(nombre?.height ?? 0))
+      .toBeGreaterThanOrEqual(6);
+    expect(bordeInferiorLogos - Number(grupo?.y ?? 0) - Number(grupo?.height ?? 0))
+      .toBeGreaterThanOrEqual(6);
+    expect(primeraPagina.layoutDebug?.collisionBoxes ?? []).toHaveLength(0);
+  });
+
   it('mantiene el encabezado compacto libre de identidad institucional oculta', async () => {
     const resultado = await generarPdfExamen({
       ...crearParametros(12),
