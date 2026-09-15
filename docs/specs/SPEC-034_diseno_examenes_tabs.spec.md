@@ -29,6 +29,7 @@ Presentar todas las herramientas simultáneamente en una sola vista causa sobrec
 - **REQ-004 (Previsualización de Plantillas)**: El botón `Previsualizar` del catálogo debe cargar el boceto JSON y abrir inmediatamente el panel de previsualización de la plantilla seleccionada. Si el panel ya está abierto, el mismo botón debe actualizar el boceto sin dejar la interfaz en un estado aparentemente inerte.
 - **REQ-005 (Layout del Boceto)**: Cada página del boceto debe presentar su cabecera y listado de preguntas en una composición vertical, legible y responsive; los metadatos no deben estirarse ni desplazar horizontalmente las preguntas por reglas genéricas de listados.
 - **REQ-006 (Visor PDF Legible)**: El PDF generado desde el boceto debe mostrarse en un visor embebido que use el ancho disponible y una altura suficiente para leer la página sin quedar reducido al tamaño por defecto del elemento `iframe`.
+- **REQ-007 (Alcance de títulos de plantilla)**: Los títulos de plantillas activas deben ser únicos por docente dentro de la misma materia (`periodoId`); el mismo título se permite en materias distintas.
 
 ## Criterios de Aceptación
 1. Al renderizar la vista, la pestaña por defecto es `Diseñar Exámenes`.
@@ -38,7 +39,8 @@ Presentar todas las herramientas simultáneamente en una sola vista causa sobrec
 5. Al hacer clic en `Previsualizar`, el panel `Previsualización (boceto por página)` queda visible y se solicita el boceto de la plantilla seleccionada.
 6. Cada bloque `Página N` muestra sus metadatos arriba y sus preguntas debajo, sin chips verticalmente estirados ni solapamiento del texto.
 7. El visor PDF ocupa el ancho del contenedor y mantiene una altura mínima legible, con ajuste para pantallas pequeñas.
-8. El 100% de los tests unitarios y de integración de Vitest pasan en verde en CI.
+8. El mismo título activo puede crearse en dos materias distintas, pero se rechaza si ya existe en la misma materia sin importar mayúsculas o espacios.
+9. El 100% de los tests unitarios y de integración de Vitest pasan en verde en CI.
 
 ## Matriz de Trazabilidad
 
@@ -50,3 +52,4 @@ Presentar todas las herramientas simultáneamente en una sola vista causa sobrec
 | REQ-004 | El botón Previsualizar abre el panel y solicita el boceto | `apps/frontend/tests/plantillas.refactor.test.tsx` | Completado |
 | REQ-005 | La página del boceto conserva una composición vertical legible | `apps/frontend/src/styles/screens.css` | Completado |
 | REQ-006 | El visor PDF usa un tamaño legible y responsive | `apps/frontend/tests/plantillas.refactor.test.tsx` | Completado |
+| REQ-007 | Unicidad de título acotada a la materia | `apps/backend/tests/integracion/plantillasDuplicadas.test.ts` | Completado |

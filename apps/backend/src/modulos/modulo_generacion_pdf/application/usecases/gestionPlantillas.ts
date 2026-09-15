@@ -98,7 +98,7 @@ export async function crearPlantillaUseCase(params: {
   }
 
   const temas = normalizarTemas(params.body.temas);
-  await validarTituloPlantillaDisponible({ docenteId: docId, titulo });
+  await validarTituloPlantillaDisponible({ docenteId: docId, titulo, periodoId: periodoId ?? null });
 
   const bookletConfig = {
     targetPages: Number((params.body.bookletConfig as any)?.targetPages ?? params.body.numeroPaginas ?? 2) || 2,
@@ -216,6 +216,7 @@ export async function actualizarPlantillaUseCase(params: {
   await validarTituloPlantillaDisponible({
     docenteId: docId,
     titulo: merged.titulo,
+    periodoId: merged.periodoId ?? null,
     excluirPlantillaId: params.plantillaId
   });
 

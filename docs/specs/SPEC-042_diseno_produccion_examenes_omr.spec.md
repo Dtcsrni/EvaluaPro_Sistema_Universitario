@@ -182,6 +182,7 @@ Los requisitos de esta sección son normativos y prevalecen sobre ejemplos visua
 38. La generación masiva conserva un indicador de progreso desde el inicio hasta la respuesta final, no emite sondeos solapados y no falla por el timeout fijo de una generación individual.
 39. La generación masiva reutiliza la configuración y el conjunto de reactivos de la plantilla sin preprueba ni auto-fit por alumno; una plantilla no apta falla explícitamente sin descartar reactivos ni cambiar su layout.
 40. Cada examen de producción masiva muestra las iniciales del alumno correspondiente y conserva su `alumnoId` asociado; las iniciales no generan colisiones en la cabecera ni alteran la paginación o el mapa OMR.
+41. La resolución del conjunto de reactivos en producción masiva coincide con la resolución usada por la previsualización cuando `reactivosObjetivo` limita el banco; una previsualización válida no se rechaza por seleccionar subconjuntos distintos.
 
 ## Matriz de Trazabilidad
 
@@ -218,3 +219,4 @@ Los requisitos de esta sección son normativos y prevalecen sobre ejemplos visua
 | REQ-028 | Retiro de generaciones obsoletas sin borrar recovery autorizado | `scripts/tests/omr-version-policy.test.mjs` | Completado |
 | REQ-029 | Secuencia dúplex sin páginas vacías artificiales | `apps/backend/tests/pdf.paridad.test.ts` | Completado |
 | REQ-030 | Iniciales visibles y asociación del examen al alumno en producción masiva | `apps/backend/tests/pdf.layout.visual.guard.test.ts` + `apps/backend/tests/inicialesAlumno.test.ts` | Completado |
+| REQ-031 | Resolución consistente de reactivos limitados entre preview y lote | `apps/backend/tests/integracion/plantillasCrudYPreview.test.ts` | Completado |

@@ -51,6 +51,22 @@ type ProgresoLoteGeneracion = {
 type TabPlantillas = 'diseno' | 'generacion' | 'historial';
 const PLANTILLAS_TAB_STORAGE_KEY = 'evaluapro.plantillas.tab-activa';
 
+export function existeTituloPlantillaDuplicadoPorPeriodo(
+  plantillas: Plantilla[],
+  tituloCandidato: string,
+  periodoId: string,
+  excluirId?: string
+): boolean {
+  const candidato = String(tituloCandidato || '').trim().replace(/\s+/g, ' ').toLowerCase();
+  if (!candidato) return false;
+  const periodoCandidato = String(periodoId || '').trim();
+  return (Array.isArray(plantillas) ? plantillas : []).some((plantilla) => {
+    if (excluirId && plantilla._id === excluirId) return false;
+    if (String(plantilla.periodoId || '').trim() !== periodoCandidato) return false;
+    return String(plantilla.titulo || '').trim().replace(/\s+/g, ' ').toLowerCase() === candidato;
+  });
+}
+
 function leerTabPlantillasInicial(): TabPlantillas {
   if (typeof window === 'undefined') return 'diseno';
   try {
@@ -171,6 +187,10 @@ export function SeccionPlantillas({
       // La navegación sigue funcionando aunque el almacenamiento no esté disponible.
     }
   }, [tabActiva]);
+
+  useEffect(() => {
+    setMensaje('');
+  }, [periodoId]);
 
   // Estado solo de presentación para vista ampliada del preview PDF.
   const [pdfFullscreen, setPdfFullscreen] = useState<{ url: string; pages: PreviewPdfPage[] } | null>(null);
@@ -486,15 +506,8 @@ export function SeccionPlantillas({
       reactivosObjetivo > 0
   );
   const puedeGenerar = Boolean(plantillaId) && puedeGenerarExamenes;
-  const normalizarTituloPlantillaUi = (valor: string) => String(valor || '').trim().replace(/\s+/g, ' ').toLowerCase();
   const existeTituloPlantillaDuplicado = (tituloCandidato: string, excluirId?: string) => {
-    const candidato = normalizarTituloPlantillaUi(tituloCandidato);
-    if (!candidato) return false;
-    const lista = Array.isArray(plantillas) ? plantillas : [];
-    return lista.some((p) => {
-      if (excluirId && p._id === excluirId) return false;
-      return normalizarTituloPlantillaUi(String(p.titulo || '')) === candidato;
-    });
+    return existeTituloPlantillaDuplicadoPorPeriodo(plantillas, tituloCandidato, periodoId, excluirId);
   };
 
   // Búsqueda local por título/id/temas (case-insensitive) para UX reactiva.

@@ -40,21 +40,23 @@ describe('plantillas CRUD + previsualizacion', () => {
     return respuesta.body.token as string;
   }
 
-  async function crearPreguntas(params: { auth: { Authorization: string }; periodoId: string; total: number }) {
+  async function crearPreguntas(params: { auth: { Authorization: string }; periodoId: string; total: number; tema?: string }) {
     const preguntasIds: string[] = [];
     for (let i = 0; i < params.total; i += 1) {
+      const sufijoOpciones = params.tema ? ` ${i + 1}` : '';
       const preguntaResp = await request(app)
         .post('/api/banco-preguntas')
         .set(params.auth)
         .send({
           periodoId: params.periodoId,
           enunciado: `Pregunta ${i + 1}`,
+          ...(params.tema ? { tema: params.tema } : {}),
           opciones: [
-            { texto: 'Opcion A', esCorrecta: true },
-            { texto: 'Opcion B', esCorrecta: false },
-            { texto: 'Opcion C', esCorrecta: false },
-            { texto: 'Opcion D', esCorrecta: false },
-            { texto: 'Opcion E', esCorrecta: false }
+            { texto: `Opcion A${sufijoOpciones}`, esCorrecta: true },
+            { texto: `Opcion B${sufijoOpciones}`, esCorrecta: false },
+            { texto: `Opcion C${sufijoOpciones}`, esCorrecta: false },
+            { texto: `Opcion D${sufijoOpciones}`, esCorrecta: false },
+            { texto: `Opcion E${sufijoOpciones}`, esCorrecta: false }
           ]
         })
         .expect(201);
@@ -248,5 +250,77 @@ describe('plantillas CRUD + previsualizacion', () => {
 
     expect(String(previewAntes.headers['content-disposition'] || '')).not.toBe(String(previewDespues.headers['content-disposition'] || ''));
     expect(Buffer.compare(previewAntes.body as Buffer, previewDespues.body as Buffer)).not.toBe(0);
+  }, TEST_TIMEOUT_PLANTILLAS_MS);
+
+  it('permite generar en lote despues de previsualizar una plantilla limitada por objetivo', async () => {
+    const token = await registrarDocente();
+    const auth = { Authorization: `Bearer ${token}` };
+
+    const periodoResp = await request(app)
+      .post('/api/periodos')
+      .set(auth)
+      .send({
+        nombre: 'Inteligencia de Negocios',
+        fechaInicio: '2026-01-01',
+        fechaFin: '2026-06-01',
+        grupos: ['A']
+      })
+      .expect(201);
+    const periodoId = periodoResp.body.periodo._id as string;
+
+    await request(app)
+      .post('/api/alumnos')
+      .set(auth)
+      .send({
+        periodoId,
+        matricula: 'CUH512410199',
+        nombreCompleto: 'Alumno Lote Preview',
+        correo: 'alumno-lote-preview@prueba.test',
+        grupo: 'A'
+      })
+      .expect(201);
+
+    await request(app)
+      .post('/api/banco-preguntas/temas')
+      .set(auth)
+      .send({ periodoId, nombre: 'Segundo Parcial' })
+      .expect(201);
+
+    const preguntasIds = await crearPreguntas({ auth, periodoId, total: 8, tema: 'Segundo Parcial' });
+    const { prisma } = await import('../../src/infraestructura/baseDatos/sqlite.js');
+    for (const [indice, preguntaId] of preguntasIds.entries()) {
+      await prisma.bancoPregunta.update({
+        where: { id: preguntaId },
+        data: { updatedAt: new Date(Date.UTC(2026, 0, indice + 1)) }
+      });
+    }
+
+    const plantillaResp = await request(app)
+      .post('/api/examenes/plantillas')
+      .set(auth)
+      .send({
+        periodoId,
+        tipo: 'parcial',
+        titulo: 'Segundo Parcial',
+        numeroPaginas: 1,
+        reactivosObjetivo: 1,
+        temas: ['Segundo Parcial']
+      })
+      .expect(201);
+    const plantillaId = plantillaResp.body.plantilla._id as string;
+
+    await request(app)
+      .get(`/api/examenes/plantillas/${plantillaId}/previsualizar/pdf/visual`)
+      .set(auth)
+      .expect(200);
+
+    const lote = await request(app)
+      .post('/api/examenes/generados/lote')
+      .set(auth)
+      .send({ plantillaId, loteId: 'LOT_PREVIEW_01' });
+    expect(lote.status, JSON.stringify(lote.body)).toBe(201);
+
+    expect(lote.body?.loteId).toBe('LOT_PREVIEW_01');
+    expect(lote.body?.examenesGenerados).toHaveLength(1);
   }, TEST_TIMEOUT_PLANTILLAS_MS);
 });

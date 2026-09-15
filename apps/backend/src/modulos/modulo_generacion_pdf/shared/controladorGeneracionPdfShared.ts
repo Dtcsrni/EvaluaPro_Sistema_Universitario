@@ -257,6 +257,7 @@ export function construirEncabezadoPdf(params: {
 export async function validarTituloPlantillaDisponible(params: {
   docenteId: unknown;
   titulo: unknown;
+  periodoId?: unknown;
   excluirPlantillaId?: string;
 }) {
   const titulo = String(params.titulo ?? '').trim();
@@ -272,6 +273,9 @@ export async function validarTituloPlantillaDisponible(params: {
       { titulo: { equals: titulo } }
     ]
   };
+  if (params.periodoId !== undefined) {
+    where.periodoId = params.periodoId === null ? null : String(params.periodoId).trim() || null;
+  }
   if (params.excluirPlantillaId) {
     where.id = { not: params.excluirPlantillaId };
   }

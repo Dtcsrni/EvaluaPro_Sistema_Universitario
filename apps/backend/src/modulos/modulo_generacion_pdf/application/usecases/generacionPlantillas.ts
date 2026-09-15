@@ -262,7 +262,11 @@ export async function generarExamenesLoteUseCase(params: {
 
   const { preguntasDb, temas } = await resolverPreguntasPlantilla({
     docenteId: docId,
-    plantilla: plantilla as any
+    plantilla: plantilla as any,
+    // Debe coincidir con la resolución usada por la previsualización. Cuando
+    // reactivosObjetivo limita un banco, el orden de la consulta determina el
+    // subconjunto y, por tanto, su fingerprint de layout validado.
+    ordenarPorRecencia: true
   });
   const numeroPaginas = resolverNumeroPaginasPlantilla(plantilla as { numeroPaginas?: unknown });
   const preguntasBase = mapearPreguntasBase(preguntasDb);

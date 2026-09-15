@@ -6,7 +6,10 @@
 import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { useState } from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { SeccionPlantillas } from '../src/apps/app_docente/SeccionPlantillas';
+import {
+  existeTituloPlantillaDuplicadoPorPeriodo,
+  SeccionPlantillas
+} from '../src/apps/app_docente/SeccionPlantillas';
 import { PlantillasListado } from '../src/apps/app_docente/features/plantillas/components/PlantillasListado';
 import type { PreviewPdfUrls } from '../src/apps/app_docente/features/plantillas/hooks/usePlantillasPreviewActions';
 import type { PermisosUI, Plantilla, PreviewPlantilla } from '../src/apps/app_docente/tipos';
@@ -67,6 +70,17 @@ function HarnessPlantillas({
 describe('plantillas refactor y navegación por pestañas (SPEC-034)', () => {
   beforeEach(() => {
     sessionStorage.removeItem('evaluapro.plantillas.tab-activa');
+  });
+
+  it('acota la validación de títulos a la materia seleccionada', () => {
+    const plantillas = [
+      { _id: 'pla-uno', titulo: 'Segundo Parcial', tipo: 'parcial', numeroPaginas: 2, periodoId: 'per-uno' },
+      { _id: 'pla-dos', titulo: 'Segundo Parcial', tipo: 'parcial', numeroPaginas: 2, periodoId: 'per-dos' }
+    ] as Plantilla[];
+
+    expect(existeTituloPlantillaDuplicadoPorPeriodo(plantillas, '  segundo   parcial ', 'per-uno')).toBe(true);
+    expect(existeTituloPlantillaDuplicadoPorPeriodo(plantillas, '  segundo   parcial ', 'per-tres')).toBe(false);
+    expect(existeTituloPlantillaDuplicadoPorPeriodo(plantillas, 'Segundo Parcial', 'per-dos', 'pla-dos')).toBe(false);
   });
 
   it('renderiza encabezado principal y pestañas operativas', () => {
