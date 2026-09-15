@@ -329,7 +329,8 @@ test('tag guard espera la ventana completa y conserva la tag si el release se re
 test('helper SQLite aísla solo raíces QA y conserva datos normales', () => {
   const helper = fs.readFileSync(path.join(root, 'scripts', 'installer-burn', 'InstallerBurnHelper.ps1'), 'utf8');
   assert.match(helper, /EvaluaPro-QA-Isolated-/);
-  assert.match(helper, /defaultDataRoot/);
+  assert.match(helper, /programDataRoot/);
+  assert.match(helper, /Join-Path \$programDataRoot 'EvaluaPro'/);
   assert.match(helper, /StartsWith\(\$qaRootPrefix/);
   assert.match(helper, /localDataDir = Join-Path \$localDataRoot 'data'/);
 });
