@@ -196,4 +196,18 @@ jobs:
         with:
           prerelease: ${{ contains(github.ref_name, 'alpha') || contains(github.ref_name, 'beta') || contains(github.ref_name, 'rc') }}
           make_latest: false
+          overwrite_files: true
           files: ${{ steps.stable_release_assets.outputs.files }}
+
+      - name: Retirar release estable anterior v1.1.5
+        if: github.ref == 'refs/tags/v1.1.6'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          if gh release view v1.1.5 --repo "${GITHUB_REPOSITORY}" >/dev/null 2>&1; then
+            gh release delete v1.1.5 --repo "${GITHUB_REPOSITORY}" --yes
+          else
+            echo 'El release v1.1.5 ya no existe; no hay nada que retirar.'
+          fi
