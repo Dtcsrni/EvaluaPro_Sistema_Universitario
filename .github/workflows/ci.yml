@@ -256,6 +256,9 @@ jobs:
       - name: Etapa lint frontend
         run: npm -C apps/frontend run lint
 
+      - name: Guardrail WCAG
+        run: npm run guard:wcag -- --skip-lint
+
       - name: Etapa typecheck frontend
         run: npm -C apps/frontend run typecheck
 

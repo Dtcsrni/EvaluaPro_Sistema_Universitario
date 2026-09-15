@@ -14,6 +14,10 @@ on:
       - "vitest.base.ts"
       - "scripts/retry.mjs"
       - "scripts/testing/**"
+      - "scripts/wcag-guard.mjs"
+      - "scripts/tests/ui-contrast-audit.mjs"
+      - "scripts/tests/wcag-guard.contract.test.mjs"
+      - "docs/WCAG_UI_POLICY.md"
       - ".github/workflows/ci-frontend.yml"
   pull_request:
     paths:
@@ -85,6 +89,9 @@ jobs:
 
       - name: Etapa lint frontend
         run: npm -C apps/frontend run lint
+
+      - name: Guardrail WCAG
+        run: npm run guard:wcag -- --skip-lint
 
       - name: Etapa typecheck frontend
         run: npm -C apps/frontend run typecheck

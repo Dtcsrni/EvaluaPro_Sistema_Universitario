@@ -124,6 +124,8 @@ function promoverStaging(staging, destino) {
       staging,
       destino,
       '/E',
+      '/IS',
+      '/IT',
       '/COPY:DAT',
       '/DCOPY:DAT',
       '/R:2',

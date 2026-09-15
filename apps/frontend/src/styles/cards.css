@@ -4761,8 +4761,7 @@ button.chip-docente-sesion:active {
 
 :root[data-theme] :is(
   .boton,
-  .asistencias-btn-primario,
-  .plantillas-stepper__button
+  .asistencias-btn-primario
 ):not(.secundario):not(.boton--secundario):not(.boton--peligro):not(.boton--disabled) {
   background:
     linear-gradient(145deg, rgba(142, 199, 190, 0.86), rgba(78, 145, 143, 0.88) 54%, rgba(53, 111, 114, 0.92)) !important;
@@ -4776,8 +4775,7 @@ button.chip-docente-sesion:active {
 
 :root[data-theme] :is(
   .boton,
-  .asistencias-btn-primario,
-  .plantillas-stepper__button
+  .asistencias-btn-primario
 ):not(.secundario):not(.boton--secundario):not(.boton--peligro):not(.boton--disabled):hover {
   transform: translateY(-2px);
   background:
@@ -4791,8 +4789,7 @@ button.chip-docente-sesion:active {
 
 :root[data-theme] :is(
   .boton,
-  .asistencias-btn-primario,
-  .plantillas-stepper__button
+  .asistencias-btn-primario
 ):not(.secundario):not(.boton--secundario):not(.boton--peligro):not(.boton--disabled):active {
   transform: translateY(1px) scale(0.985);
   box-shadow:
@@ -5770,4 +5767,101 @@ button.chip-docente-sesion:active {
   :root[data-theme="dark"] .page--docente .plantillas-form--panoramico .plantillas-formato-box__logos {
     grid-template-columns: 1fr;
   }
+}
+
+/* WCAG AA: el contador de alumnos usa una superficie mineral clara; el texto
+   oscuro mantiene al menos 4.5:1 sin depender de transparencias externas. */
+:root[data-theme="dark"] .page--docente .materia-card-alumnos__header strong {
+  color: #122326 !important;
+  background: #75b4ba !important;
+  text-shadow: none !important;
+}
+
+/* WCAG AA: los estados guiados y los controles del estudio deben conservar
+   lectura clara aun cuando el glass aplique transparencias o gradientes. */
+:root[data-theme="dark"] .empty-step__num,
+:root[data-theme="dark"] .plantillas-studio-steps li > span {
+  color: #f8fbff !important;
+  background: #075e91 !important;
+  border-color: #7dd3fc !important;
+  text-shadow: none !important;
+}
+
+/* Mayor especificidad para neutralizar tokens de texto heredados en la vista
+   de estado vacío. */
+html[data-theme="dark"] body .empty-step__num {
+  color: #ffffff !important;
+}
+
+:root[data-theme="dark"] .empty-step__arrow {
+  color: #d9e8f5 !important;
+}
+
+:root[data-theme="dark"] .plantillas-stepper__button:not(:disabled) {
+  color: #f8fbff !important;
+  background: #0b6fa8 !important;
+  border-color: #7dd3fc !important;
+  text-shadow: none !important;
+}
+
+:root[data-theme="dark"] .plantillas-stepper__button:disabled {
+  color: #c8d8eb !important;
+  background: #334e68 !important;
+  border-color: #7b91a8 !important;
+  opacity: 1 !important;
+  text-shadow: none !important;
+}
+
+/* WCAG AA: los mismos estados deben conservar texto y bordes legibles en tema claro. */
+:root:not([data-theme="dark"]) .empty-step__num,
+:root:not([data-theme="dark"]) .plantillas-studio-steps li > span {
+  color: #ffffff !important;
+  background: #0b6fa8 !important;
+  border-color: #075e91 !important;
+  text-shadow: none !important;
+}
+
+:root:not([data-theme="dark"]) .empty-step__arrow {
+  color: #334155 !important;
+}
+
+:root:not([data-theme="dark"]) .plantillas-stepper__button:not(:disabled) {
+  color: #ffffff !important;
+  background: #0b6fa8 !important;
+  border-color: #075e91 !important;
+  text-shadow: none !important;
+}
+
+:root:not([data-theme="dark"]) .plantillas-stepper__button:disabled {
+  color: #334155 !important;
+  background: #d9e8f5 !important;
+  border-color: #64748b !important;
+  opacity: 1 !important;
+  text-shadow: none !important;
+}
+
+/* WCAG AA en superficies claras: la navegación vive sobre vidrio blanco y
+   no debe reutilizar el texto menta reservado para superficies oscuras. */
+:root:not([data-theme="dark"]) .tabs .tab {
+  color: #16303a !important;
+  background: transparent !important;
+  text-shadow: none !important;
+}
+
+:root:not([data-theme="dark"]) .tabs .tab:hover {
+  color: #0b4050 !important;
+  background: rgba(11, 111, 168, 0.10) !important;
+}
+
+:root:not([data-theme="dark"]) .tabs .tab.activa,
+:root:not([data-theme="dark"]) .tabs .tab[aria-current="page"] {
+  color: #ffffff !important;
+  background: #0b6fa8 !important;
+  border-color: #075e91 !important;
+  text-shadow: none !important;
+}
+
+:root:not([data-theme="dark"]) .materias-panel .materia-card-primary-action__eyebrow {
+  color: #16303a !important;
+  text-shadow: none !important;
 }

@@ -1,7 +1,7 @@
 {
   "name": "evaluapro",
   "description": "Plataforma para evaluación universitaria: generación de exámenes en PDF, vinculación por QR, calificación asistida (OMR), operación docente local nativa y dashboard.",
-  "version": "1.1.5",
+  "version": "1.1.6",
   "author": {
     "name": "I.S.C. Erick Renato Vega Ceron",
     "email": "armsystechno@gmail.com"
@@ -178,11 +178,13 @@
     "pipeline:contract:check": "node scripts/pipeline-contract-check.mjs",
     "ci:policy:audit": "npm-run-all -s pipeline:contract:check test:ruleset:policy test:release:policy test:security:policy test:sdd:policy test:ia:traceability test:ia:handoff test:ai:caveman sdd:audit",
     "ci:policy:audit:remote": "npm-run-all -s ci:policy:audit \"ruleset:check -- --repo=Dtcsrni/EvaluaPro_Sistema_Universitario\"",
-    "test:ci": "npm run lint && npm run typecheck && npm run build && npm run docs:generate && npm run docs:check && npm run diagramas:check && npm run diagramas:render:check && npm run diagramas:consistencia:check && npm run routes:check && npm run test:backend:ci && npm run test:portal:ci && npm run test:frontend:ci && npm run test:client:proyectos:ci && npm run test:coverage:exclusions:debt && npm run test:compliance:policy",
+    "test:ci": "npm run lint && npm run guard:wcag -- --skip-lint && npm run typecheck && npm run build && npm run docs:generate && npm run docs:check && npm run diagramas:check && npm run diagramas:render:check && npm run diagramas:consistencia:check && npm run routes:check && npm run test:backend:ci && npm run test:portal:ci && npm run test:frontend:ci && npm run test:client:proyectos:ci && npm run test:coverage:exclusions:debt && npm run test:compliance:policy",
     "build": "npm run --workspaces --if-present build",
     "build:frontend:alumno": "npm -C apps/frontend run build:alumno",
     "build:frontend:docente": "npm -C apps/frontend run build:docente",
     "verify:docente:bundle": "node scripts/verify-docente-bundle.mjs",
+    "guard:wcag": "node scripts/wcag-guard.mjs",
+    "test:wcag:policy": "node --test scripts/tests/wcag-guard.contract.test.mjs scripts/tests/ui-contrast-audit.mjs",
     "lint": "npm run --workspaces --if-present lint",
     "verify:prod": "npm run test:backend:ci && npm run test:frontend:ci && npm run build",
     "start:prod": "npm run verify:prod && npm run stack:prod",

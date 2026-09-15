@@ -466,3 +466,58 @@ test('dashboard UI recupera el foco en la pestana activa tras recarga', async ()
     dom.window.close();
   }
 });
+
+test('dashboard UI muestra Actualizar y abre el flujo de update al detectar una versión', async () => {
+  let checkCalls = 0;
+  let downloadCalls = 0;
+  let applyCalls = 0;
+  const routes = createRoutes({
+    status: {
+      app: { name: 'evaluapro', version: '1.0.0', displayVersion: '1.0.0' },
+      running: [],
+      mode: 'prod',
+      modeConfig: 'prod',
+      installationState: { state: 'ok', issues: [] },
+      shortcutState: { state: 'ok', missing: [] },
+      pwaPolicy: { installable: false, launcherPreferred: true, offlineCapable: false },
+      config: { autoRestart: false, showFullLogs: false, autoScroll: true, pauseUpdates: false, refreshForegroundMs: 3000, refreshBackgroundMs: 20000 }
+    },
+    health: { services: {} }
+  });
+  routes['/api/update/status'] = {
+    state: 'available',
+    channel: 'stable',
+    currentVersion: '1.0.0',
+    availableVersion: '1.1.0',
+    download: { bytesTotal: 0, bytesReceived: 0, percent: 0 }
+  };
+  routes['/api/update/download'] = () => {
+    downloadCalls += 1;
+    return routes['/api/update/status'];
+  };
+  routes['/api/update/check'] = () => {
+    checkCalls += 1;
+    return routes['/api/update/status'];
+  };
+  routes['/api/update/apply'] = () => {
+    applyCalls += 1;
+    return routes['/api/update/status'];
+  };
+
+  const dom = await renderDashboard(routes);
+  try {
+    const toastAction = dom.window.document.querySelector('[data-id="update-available-1.1.0"] [data-toast-action]');
+    assert.equal(toastAction?.textContent, 'Actualizar');
+    toastAction?.click();
+    await new Promise((resolve) => setTimeout(resolve, 20));
+
+    assert.equal(checkCalls, 1);
+    assert.equal(downloadCalls, 1);
+    assert.equal(applyCalls, 0);
+    assert.equal(dom.window.document.getElementById('tab-status')?.classList.contains('active'), true);
+    assert.equal(dom.window.document.getElementById('panel-status')?.hidden, false);
+    assert.equal(dom.window.document.getElementById('update-download-btn')?.textContent?.trim(), 'Actualizar');
+  } finally {
+    dom.window.close();
+  }
+});

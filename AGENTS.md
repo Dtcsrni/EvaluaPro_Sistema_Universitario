@@ -11,6 +11,7 @@ detalladas viven en los documentos enlazados; no duplicarlas aqui.
 4. `docs/POLITICA_ECONOMIA_TOKENS_CODEX.md`.
 5. `docs/IA_SKILLS_MCP_POLICY.md`.
 6. `.github/copilot-instructions.md`, contratos CI y gates de release.
+7. `docs/WCAG_UI_POLICY.md` para cualquier cambio visual o interactivo.
 
 Antes de actuar, leer `README.md`, `docs/README.md`, trazabilidad, SDD y las instrucciones
 del IDE aplicables. Verificar el estado real del repositorio; no asumir gates, runtime,
@@ -58,16 +59,17 @@ Docker, WSL, credenciales o integraciones.
 
 Ejecutar en orden y reportar cada resultado:
 
-1. `npm run lint`
-2. `npm run typecheck`
-3. `npm run test:frontend:ci`
-4. `npm run test:coverage:ci`
-5. `npm run test:tdd:enforcement:ci`
-6. `npm run test:backend:ci`
-7. `npm run test:portal:ci`
-8. `npm run perf:check`
-9. `npm run pipeline:contract:check`
-10. `npm run ci:policy:audit` si se toca gobernanza, handoff, SDD o politicas.
+1. `npm run guard:wcag` si se toca frontend, estilos o componentes.
+2. `npm run lint`
+3. `npm run typecheck`
+4. `npm run test:frontend:ci`
+5. `npm run test:coverage:ci`
+6. `npm run test:tdd:enforcement:ci`
+7. `npm run test:backend:ci`
+8. `npm run test:portal:ci`
+9. `npm run perf:check`
+10. `npm run pipeline:contract:check`
+11. `npm run ci:policy:audit` si se toca gobernanza, handoff, SDD o politicas.
 
 Actualizar, cuando aplique, `docs/INVENTARIO_PROYECTO.md`, `docs/ENGINEERING_BASELINE.md`,
 `CHANGELOG.md`, el handoff y `docs/INVENTARIO_CODIGO_EXHAUSTIVO.md`. No declarar completitud
