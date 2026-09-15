@@ -3563,6 +3563,7 @@ export class PdfKitRenderer {
         const numero = indicePregunta + 1;
         const yPreguntaTop = cursorY;
         const textRunsPregunta: TextRunDebug[] = [];
+        const textRunsEnunciado: TextRunDebug[] = [];
         let imagenPregunta: RectBox | undefined;
         const esPrimeraPreguntaContinuacion = !esPrimera && mapaPagina.length === 0;
         const limiteDerechoPregunta = esPrimeraPreguntaContinuacion ? xDerechaTextoContinuacion : xDerechaTexto;
@@ -3708,7 +3709,10 @@ export class PdfKitRenderer {
           x: xTextoPregunta,
           y: cursorY,
           reforzarPeso: true,
-          registrarRuns: (run) => textRunsPregunta.push(run)
+          registrarRuns: (run) => {
+            textRunsPregunta.push(run);
+            textRunsEnunciado.push(run);
+          }
         });
 
         if (emb) {
@@ -3767,6 +3771,19 @@ export class PdfKitRenderer {
             color: colorPrimario
           } as const;
           dibujarTextoConPesoVisual(page, etiqueta, { x, y, ...estiloEtiqueta }, true);
+          const altoEtiqueta = Math.max(estiloEtiqueta.size * 1.18, estiloEtiqueta.size + 1);
+          textRunsPregunta.push({
+            tipo: 'texto',
+            fuente: FUENTE_ECOFONT_FAMILIA,
+            size: estiloEtiqueta.size,
+            lineHeight: altoEtiqueta,
+            bbox: {
+              x,
+              y,
+              width: fuenteBold.widthOfTextAtSize(etiqueta, estiloEtiqueta.size),
+              height: altoEtiqueta
+            }
+          });
         };
         if (opcionesCompactas) {
           const lineasFlujo: LineaSegmentos[] = 'lineasFlujo' in layoutOpciones
@@ -4188,6 +4205,20 @@ export class PdfKitRenderer {
           if (rectInterseca(run.bbox, panelRect)) {
             collisionBoxes.push({ pagina: numeroPagina, a: `texto-${numero}`, b: `omr-${numero}` });
           }
+        }
+        for (const run of textRunsPregunta) {
+          if (!textRunsEnunciado.includes(run) && rectInterseca(run.bbox, cajaPregunta)) {
+            collisionBoxes.push({ pagina: numeroPagina, a: `respuestas-${numero}`, b: `caja-pregunta-${numero}` });
+          }
+        }
+        if (rectInterseca(cajaPregunta, panelOuterRect)) {
+          collisionBoxes.push({ pagina: numeroPagina, a: `caja-pregunta-${numero}`, b: `omr-${numero}` });
+        }
+        if (rectInterseca(fondoPregunta, panelOuterRect)) {
+          collisionBoxes.push({ pagina: numeroPagina, a: `fondo-pregunta-${numero}`, b: `omr-${numero}` });
+        }
+        if (rectInterseca(fondoRespuestas, panelOuterRect)) {
+          collisionBoxes.push({ pagina: numeroPagina, a: `fondo-respuestas-${numero}`, b: `omr-${numero}` });
         }
         for (const previo of omrPanelBoxes) {
           if (omrEsquemaHorizontal && previo.id !== `omr-${numero}` && rectInterseca(previo, panelOuterRect)) {

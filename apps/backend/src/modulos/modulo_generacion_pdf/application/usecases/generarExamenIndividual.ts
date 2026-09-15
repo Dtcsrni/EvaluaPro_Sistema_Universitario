@@ -49,8 +49,7 @@ function priorizarPista(valores: number[], pista: number | undefined) {
 
 function construirCombinacionesAutoFit(
   escalas: number[],
-  espaciados: number[],
-  pista?: PistaAutoFit
+  espaciados: number[]
 ) {
   const combinaciones: PistaAutoFit[] = [];
   const agregada = new Set<string>();
@@ -61,21 +60,18 @@ function construirCombinacionesAutoFit(
     combinaciones.push({ escala, espaciado });
   };
 
-  // Una pista válida resuelve la siguiente vista en un solo render. En el
-  // primer cálculo, estas sondas cubren los extremos y valores intermedios
-  // habituales antes de entrar a la matriz completa de respaldo.
-  if (pista) agregar(pista.escala, pista.espaciado);
+  // Se prueban primero los extremos superiores, pero la matriz completa debe
+  // conservar el orden descendente de escala. No se antepone una escala
+  // mínima: hacerlo podía aceptar 0.75x antes de evaluar una tipografía mayor.
   agregar(escalas[0] ?? 1, espaciados[0] ?? 1.1);
   agregar(escalas[0] ?? 1, espaciados[espaciados.length - 1] ?? 0.75);
-  agregar(escalas[escalas.length - 1] ?? 0.75, espaciados[0] ?? 1.1);
-  for (const valor of [0.9, 0.8, 0.75]) {
-    if (escalas.includes(valor) && espaciados.includes(valor)) agregar(valor, valor);
-  }
 
-  // Respaldo exacto: conserva la prioridad original (mayor legibilidad
-  // primero) para bancos atípicos que no entren con las sondas anteriores.
+  // Respaldo acotado: por cada tamaño se prueban el interlineado solicitado y
+  // el mínimo automático. Los valores intermedios aportan renders costosos
+  // sin mejorar la prioridad editorial: primero importa conservar la letra.
   for (const escala of escalas) {
-    for (const espaciado of espaciados) agregar(escala, espaciado);
+    agregar(escala, espaciados[0] ?? 1.1);
+    agregar(escala, espaciados[espaciados.length - 1] ?? 0.75);
   }
   return combinaciones;
 }
@@ -156,22 +152,34 @@ export async function generarExamenIndividual(
   const espaciadosBase = [...new Set([lineSpacingBase, 1, 0.95, 0.9, 0.85, 0.8, 0.75])]
     .filter((value) => value >= 0.75 && value <= lineSpacingBase)
     .sort((a, b) => b - a);
-  const escalas = priorizarPista(escalasBase, pista?.escala);
-  const espaciados = priorizarPista(espaciadosBase, pista?.espaciado);
-  const combinaciones = construirCombinacionesAutoFit(escalas, espaciados, pista);
+  // Una pista antigua puede corresponder a una escala menor que la óptima;
+  // solo se reutiliza el interlineado si la pista conserva la escala máxima
+  // actualmente disponible. Nunca se salta una escala tipográfica superior.
+  const pistaEscalaMaxima = pista?.escala === escalasBase[0] ? pista : undefined;
+  const escalas = escalasBase;
+  const espaciados = priorizarPista(espaciadosBase, pistaEscalaMaxima?.espaciado);
+  const combinaciones = construirCombinacionesAutoFit(escalas, espaciados);
 
   let ultimoResultado: ResultadoGeneracionPdf | undefined;
+  let ultimoError: unknown;
   for (const combinacion of combinaciones) {
-    const resultado = await renderizar(combinacion.escala, combinacion.espaciado);
-    ultimoResultado = resultado;
-    if (resultado.preguntasRestantes === 0 && resultado.paginas.length <= totalPaginas) {
-      guardarPistaAutoFit(claveAutoFit, combinacion);
-      return resultado;
+    try {
+      const resultado = await renderizar(combinacion.escala, combinacion.espaciado);
+      ultimoResultado = resultado;
+      if (resultado.preguntasRestantes === 0 && resultado.paginas.length <= totalPaginas) {
+        guardarPistaAutoFit(claveAutoFit, combinacion);
+        return resultado;
+      }
+    } catch (error) {
+      if (!autoFitTypography) throw error;
+      ultimoError = error;
     }
   }
 
   // Nunca se recortan preguntas ni se fuerza una geometría insegura: si el
   // contenido no cabe, se conserva el mejor intento para que la UI muestre la
   // advertencia real del motor y sugiera aumentar páginas o editar contenido.
-  return ultimoResultado ?? renderizar(fontScaleBase, lineSpacingBase);
+  if (ultimoResultado) return ultimoResultado;
+  if (ultimoError) throw ultimoError;
+  return renderizar(fontScaleBase, lineSpacingBase);
 }

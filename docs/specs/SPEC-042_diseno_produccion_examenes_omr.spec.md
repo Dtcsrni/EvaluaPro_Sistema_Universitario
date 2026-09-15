@@ -1,7 +1,7 @@
 ---
 id: SPEC-042
 titulo: Estudio de Diseño de Exámenes y Producción Masiva con Folios Únicos
-version: 1.25.0
+version: 1.26.0
 fecha: 2026-09-12
 autor: Antigravity / EvaluaPro Team
 modulo: modulo_diseno_examenes
@@ -62,6 +62,7 @@ Los requisitos de esta sección son normativos y prevalecen sobre ejemplos visua
 - La separación entre reactivos debe ser mínima pero visible (`0.6 pt` en compacto, con la retícula y la holgura tipográfica efectiva); jamás se permite contacto entre glifos, reglas, fondos, insignias o paneles.
 - Para distribuir sobrante vertical sin reducir la capacidad física, el planificador reserva `2 pt` entre bloques; una vez fijado el corte, el renderer puede repartir el espacio libre hasta `18 pt` por separación en el perfil horizontal cuando existan más de cuatro reactivos, siempre limitado por el margen inferior seguro. Los bloques cortos de hasta cuatro reactivos pueden usar hasta `60 pt` si el espacio disponible lo permite. Esta redistribución no puede abrir una hoja adicional ni alterar la paridad plan-render.
 - El objetivo primario es maximizar los reactivos dentro de cada par dúplex de dos páginas consecutivas. El planificador debe llenar cada página hasta su capacidad física antes de abrir la siguiente; `totalPaginas` funciona como meta editorial y no como motivo para balancear artificialmente o expulsar reactivos que todavía caben en el par actual.
+- Cuando `autoFitPages` y `autoFitTypography` están activos, el motor prueba candidatas de mayor a menor escala y solo acepta una candidata si conserva todos los reactivos dentro del objetivo de páginas y las cajas de enunciado, respuestas, imágenes y OMR no tienen intersecciones. Una colisión invalida esa candidata y permite continuar con la siguiente escala menor; nunca se solapan elementos para conservar el tamaño de letra.
 - Cada reactivo conserva una reserva mínima de dos pistas verticales para evitar encabezados comprimidos; con cinco opciones corresponde a la retícula 3+2 y no añade espacio vacío en la plantilla base.
 - El máximo editorial configurable por defecto es `25` reactivos por página, pero la capacidad real la determina la geometría y la altura del contenido. En la plantilla compacta corta, 25 reactivos deben caber en dos páginas como línea base; en contenido rico, el resultado depende de imágenes, fórmulas, código y envolvimiento, y debe reportarse.
 
@@ -173,6 +174,7 @@ Los requisitos de esta sección son normativos y prevalecen sobre ejemplos visua
 33. La generación de un examen enriquecido de 25 reactivos con JavaScript, fórmulas y diagramas conserva todos los reactivos, reporta la distribución real por página y no declara como cabida una pregunta que el renderer no dibujó.
 34. El código activo de generación, preview, escaneo, calificación, recuperación y QA usa ESM; no se introduce `require`, CommonJS ni importación por extensión histórica.
 35. Cada página persiste su correspondencia frente/reverso y el mapa declara el modo dúplex por borde largo; un examen de tres páginas usa dos hojas físicas y el PDF conserva exactamente tres páginas, sin añadir una cuarta página vacía.
+36. Para un banco compacto de 25 reactivos con objetivo de dos páginas, el autoajuste conserva los 25 reactivos, selecciona la mayor escala tipográfica que supera las guardas geométricas y rechaza cualquier candidata que cruce texto con cajas punteadas, imágenes o paneles OMR.
 
 ## Matriz de Trazabilidad
 

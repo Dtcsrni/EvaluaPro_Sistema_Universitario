@@ -724,6 +724,8 @@ describe('pdf layout visual guard', () => {
     expect(resultado.preguntasRestantes).toBe(0);
     expect(resultado.metricasLayout?.fontSizePregunta ?? 0).toBeGreaterThan(10.4);
     expect(resultado.metricasLayout?.fontSizeOpcion ?? 0).toBeGreaterThan(8.8);
+    expect(resultado.metricasLayout?.fontSizePregunta ?? 0).toBeCloseTo(10.4 * 1.3, 2);
+    expect(resultado.metricasLayout?.fontSizeOpcion ?? 0).toBeCloseTo(8.8 * 1.3, 2);
     expect(paginas.every((pagina) => (pagina.layoutDebug?.collisionBoxes ?? []).length === 0)).toBe(true);
   });
 
