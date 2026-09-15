@@ -1572,10 +1572,11 @@ async function collectHealth() {
   return services;
 }
 
-function runProcessCapture(command, args = [], timeoutMs = 20_000) {
+function runProcessCapture(command, args = [], timeoutMs = 20_000, spawnOptions = {}) {
   const result = spawn(command, args, {
     cwd: root,
-    windowsHide: true
+    windowsHide: true,
+    ...spawnOptions
   });
   return new Promise((resolve) => {
     let stdout = '';
@@ -1746,7 +1747,14 @@ async function runInstallerForUpdate(filePath) {
   }
   const installerPath = String(filePath || '').trim();
   if (!installerPath) return { ok: false, error: 'No se encontró el instalador descargado.' };
-  const result = await runProcessCapture(installerPath, ['/quiet', '/norestart'], 10 * 60_000);
+  const installerEnv = {
+    ...process.env,
+    EVALUAPRO_BURN_INSTALLDIR: root,
+    EVALUAPRO_FLAVOR_ID: String(updateConfig.flavorId || 'docente-local').trim().toLowerCase()
+  };
+  const result = await runProcessCapture(installerPath, ['/quiet', '/norestart'], 10 * 60_000, {
+    env: installerEnv
+  });
   if (!result.ok) {
     return { ok: false, error: `Instalador falló (code=${result.code})` };
   }

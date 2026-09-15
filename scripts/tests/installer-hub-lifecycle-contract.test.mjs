@@ -89,6 +89,9 @@ test('dashboard mantiene TLS, argumentos y timers bajo contratos seguros', () =>
   assert.doesNotMatch(dashboard, /rejectUnauthorized\s*:\s*false/);
   assert.doesNotMatch(dashboard, /function quoteCmdArg/);
   assert.match(dashboard, /runProcessCapture\(installerPath, \['\/quiet', '\/norestart'\]/);
+  assert.match(dashboard, /EVALUAPRO_BURN_INSTALLDIR:\s*root/);
+  assert.match(dashboard, /EVALUAPRO_FLAVOR_ID:\s*String\(updateConfig\.flavorId/);
+  assert.match(dashboard, /runProcessCapture\(installerPath, \['\/quiet', '\/norestart'\], 10 \* 60_000, \{\s*env: installerEnv\s*\}\)/);
   assert.match(dashboard, /runProcessCapture\(resolved\.path, args, 30_000\)/);
   assert.match(dashboard, /continuityTimer = setInterval\([\s\S]*?DASHBOARD_TIMER_TICK_MS\)/);
   assert.match(dashboard, /lifecycleSupervisorTimer = setInterval\([\s\S]*?DASHBOARD_TIMER_TICK_MS\)/);
