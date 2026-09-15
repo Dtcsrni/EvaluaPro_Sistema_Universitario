@@ -213,6 +213,13 @@ function assertPreguntasLayout(pagina: Awaited<ReturnType<typeof generarPdfExame
       assertRectDentroPagina(cajaPregunta);
       expect(contiene(fondoPregunta, cajaPregunta, 0.05)).toBe(true);
       expect(cajaPregunta.height).toBeLessThan(fondoPregunta.height);
+      for (const run of actual.textRuns ?? []) {
+        const cruzaBordeInferior = run.bbox.y < cajaPregunta.y && run.bbox.y + run.bbox.height > cajaPregunta.y;
+        expect(
+          cruzaBordeInferior,
+          `el texto del reactivo ${actual.numeroPregunta} cruza el borde inferior punteado`
+        ).toBe(false);
+      }
     }
     if (!actual.bboxPregunta) continue;
     const bbox = actual.bboxPregunta;

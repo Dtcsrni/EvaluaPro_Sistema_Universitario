@@ -1832,12 +1832,12 @@ export class PdfKitRenderer {
       // respuestas y al siguiente enunciado. Los bancos extensos necesitan un
       // poco más de aire; los bancos cortos conservan su contrato de una sola
       // página sin perder la separación mínima entre glifos y divisores.
-      ? (examen.totalPreguntas > 20 ? 5 : 3) * lineSpacing
+      ? (examen.totalPreguntas > 20 ? 4 : 2) * lineSpacing
       : 1.2 * lineSpacing;
     // Separación tipográfica visible entre la regla punteada del enunciado y
     // el inicio de las respuestas. La reserva se comparte con el planificador
     // para que el aire visible no cause desbordes ni páginas adicionales.
-    const separacionEnunciadoOpciones = 1.4;
+    const separacionEnunciadoOpciones = 2.5;
     // El fondo del reactivo se extiende una línea por encima de su caja
     // tipográfica. Un margen inferior corto conserva la separación imprimible
     // y entrega el resto del hueco directamente al área de reactivos.
@@ -3658,7 +3658,7 @@ export class PdfKitRenderer {
         // La línea inferior del enunciado no debe rozar los descendentes del
         // último renglón. El pequeño margen superior mantiene la misma lectura
         // cuando el filete superior del fondo queda cerca del primer renglón.
-        const separacionPreguntaRespuesta = Math.max(4.5, sizePregunta * 0.4);
+        const separacionPreguntaRespuesta = Math.max(0.5, sizePregunta * 0.04);
         const separacionSuperiorCajaPregunta = 3.5;
         const cajaPregunta: RectBox = {
           x: xTextoPregunta - 2.5,
