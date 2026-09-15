@@ -1834,6 +1834,10 @@ export class PdfKitRenderer {
       // página sin perder la separación mínima entre glifos y divisores.
       ? (examen.totalPreguntas > 20 ? 5 : 3) * lineSpacing
       : 1.2 * lineSpacing;
+    // Separación tipográfica mínima entre la regla punteada del enunciado y
+    // el inicio de las respuestas. La reserva se comparte con el planificador
+    // para que el aire visible no cause desbordes ni páginas adicionales.
+    const separacionEnunciadoOpciones = 0.5;
     // El fondo del reactivo se extiende una línea por encima de su caja
     // tipográfica. Un margen inferior corto conserva la separación imprimible
     // y entrega el resto del hueco directamente al área de reactivos.
@@ -3330,7 +3334,7 @@ export class PdfKitRenderer {
         // dibujar el bloque. El planificador no agrega una holgura ficticia:
         // el separador real y las comprobaciones geométricas del renderer son
         // la guarda contra colisiones y permiten aprovechar toda la altura.
-        alto += separacionPregunta + (examen.totalPreguntas > 20 ? 0 : 1);
+        alto += separacionEnunciadoOpciones + separacionPregunta + (examen.totalPreguntas > 20 ? 0 : 1);
         return alto;
       };
 
@@ -3722,7 +3726,7 @@ export class PdfKitRenderer {
         const xCols = Array.from({ length: columnas }, (_valor, idx) => xTextoPregunta + idx * (colWidth + gutterCols));
         const prefixWidth = fuenteBold.widthOfTextAtSize('E) ', sizeOpcion) + 3;
 
-        const yInicioOpciones = cursorY;
+        const yInicioOpciones = cursorY - separacionEnunciadoOpciones;
         // Las respuestas reciben una banda propia, ligeramente diferenciada
         // del enunciado. Se dibuja antes del texto y no cambia la geometría,
         // por lo que no reduce capacidad ni altera el ROI OMR.
