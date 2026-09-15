@@ -2357,7 +2357,10 @@ export class PdfKitRenderer {
       // evita las esquinas OMR y queda dentro del margen imprimible.
       const pieTexto = `${folioQr} · Pagina ${numeroPagina}`;
       const pieSize = 7;
-      const pieY = margen + 2;
+      // El borde inferior se dibuja en `margen + 3.5`; colocar la línea base
+      // por encima de ese borde evita que los ascendentes del texto lo crucen
+      // al rasterizar o imprimir a tamaño carta.
+      const pieY = margen + 9;
       const pieWidth = fuenteBold.widthOfTextAtSize(pieTexto, pieSize);
       const pieX = Math.max(0, (ANCHO_CARTA - pieWidth) / 2);
       const pieRect: RectBox = { x: pieX, y: Math.max(0, pieY - 1), width: pieWidth, height: pieSize + 2 };
