@@ -1827,7 +1827,12 @@ export class PdfKitRenderer {
     // Separacion corta pero visible: el ritmo lo aporta la linea divisoria y
     // el bloque numerado, no un hueco vertical que robe reactivos legibles.
     const separacionPregunta = perfilOmr.orientacion === 'horizontal'
-      ? 0.25 * lineSpacing
+      // La separación subpunto anterior ahorraba espacio, pero a tamaño real
+      // hacía que el separador quedara visualmente pegado a la última línea de
+      // respuestas y al siguiente enunciado. Los bancos extensos necesitan un
+      // poco más de aire; los bancos cortos conservan su contrato de una sola
+      // página sin perder la separación mínima entre glifos y divisores.
+      ? (examen.totalPreguntas > 20 ? 5 : 3) * lineSpacing
       : 1.2 * lineSpacing;
     // El fondo del reactivo se extiende una línea por encima de su caja
     // tipográfica. Un margen inferior corto conserva la separación imprimible
