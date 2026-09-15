@@ -142,10 +142,16 @@ export async function generarExamenIndividual(
   const claveAutoFit = construirClaveAutoFit(params, templateVersion);
   const pista = pistasAutoFit.get(claveAutoFit);
 
-  // Autoajuste conservador: primero intenta conservar la tipografía y solo
-  // compacta el cuerpo del examen. La cabecera queda protegida en el renderer.
-  const escalasBase = [...new Set([fontScaleBase, 1, 0.95, 0.9, 0.85, 0.8, 0.75])]
-    .filter((value) => value >= 0.75 && value <= fontScaleBase)
+  // El modo editorial puede solicitar que el autoajuste use también el aire
+  // disponible para ampliar el texto. Las configuraciones manuales conservan
+  // su límite superior histórico; la cabecera y el OMR siguen protegidos.
+  const autoFitTypography = params.bookletConfig?.autoFitTypography === true;
+  const escalasMaximas = autoFitTypography
+    ? [1.3, 1.25, 1.2, 1.15, 1.1, 1.05, fontScaleBase]
+    : [fontScaleBase];
+  const limiteEscala = autoFitTypography ? 1.3 : fontScaleBase;
+  const escalasBase = [...new Set([...escalasMaximas, 1, 0.95, 0.9, 0.85, 0.8, 0.75])]
+    .filter((value) => value >= 0.75 && value <= limiteEscala)
     .sort((a, b) => b - a);
   const espaciadosBase = [...new Set([lineSpacingBase, 1, 0.95, 0.9, 0.85, 0.8, 0.75])]
     .filter((value) => value >= 0.75 && value <= lineSpacingBase)

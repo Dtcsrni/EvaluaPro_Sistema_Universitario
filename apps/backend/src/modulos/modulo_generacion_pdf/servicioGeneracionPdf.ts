@@ -39,6 +39,7 @@ export async function generarPdfExamen({
   bookletConfig?: {
     densityMode?: 'balanced' | 'compact' | 'relaxed';
     autoFitPages?: boolean;
+    autoFitTypography?: boolean;
     fontScale?: number;
     lineSpacing?: number;
     logos?: { izquierdaPath?: string; derechaPath?: string };

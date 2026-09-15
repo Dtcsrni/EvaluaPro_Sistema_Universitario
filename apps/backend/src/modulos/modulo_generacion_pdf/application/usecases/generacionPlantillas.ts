@@ -63,6 +63,7 @@ export async function generarExamenUseCase(params: {
   const bookletConfig = {
     ...(plantilla.bookletConfig ?? {}),
     autoFitPages: true,
+    autoFitTypography: true,
     fontScale: 1,
     lineSpacing: 1.1
   };

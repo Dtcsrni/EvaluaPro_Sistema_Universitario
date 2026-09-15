@@ -698,6 +698,28 @@ describe('pdf layout visual guard', () => {
     }
   });
 
+  it('amplia automáticamente la tipografía hasta el mayor tamaño que conserva 25 reactivos en dos páginas', async () => {
+    const resultado = await generarPdfExamen({
+      ...crearParametros(25),
+      totalPaginas: 2,
+      bookletConfig: {
+        densityMode: 'compact',
+        autoFitPages: true,
+        autoFitTypography: true,
+        fontScale: 1,
+        lineSpacing: 1.1
+      }
+    });
+
+    const paginas = resultado.mapaOmr.paginas.filter((pagina) => pagina.tipoPagina !== 'reverso-vacio');
+    expect(paginas).toHaveLength(2);
+    expect(paginas.reduce((total, pagina) => total + pagina.preguntas.length, 0)).toBe(25);
+    expect(resultado.preguntasRestantes).toBe(0);
+    expect(resultado.metricasLayout?.fontSizePregunta ?? 0).toBeGreaterThan(10.4);
+    expect(resultado.metricasLayout?.fontSizeOpcion ?? 0).toBeGreaterThan(8.8);
+    expect(paginas.every((pagina) => (pagina.layoutDebug?.collisionBoxes ?? []).length === 0)).toBe(true);
+  });
+
   it('llena cada página antes de abrir otra cuando el contenido rico obliga a continuar', async () => {
     const parametros = crearParametros(25);
     for (const [indice, pregunta] of parametros.preguntas.entries()) {

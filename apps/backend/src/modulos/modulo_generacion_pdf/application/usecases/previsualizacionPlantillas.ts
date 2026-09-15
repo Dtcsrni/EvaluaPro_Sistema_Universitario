@@ -87,6 +87,7 @@ async function resolverContextoPreview(docenteId: unknown, plantillaId: string) 
   const bookletConfig = {
     ...(plantilla.bookletConfig ?? {}),
     autoFitPages: true,
+    autoFitTypography: true,
     fontScale: 1,
     lineSpacing: 1.1
   };

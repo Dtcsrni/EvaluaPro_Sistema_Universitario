@@ -35,6 +35,8 @@ export interface ParametrosGeneracionPdf {
     densityMode?: 'balanced' | 'compact' | 'relaxed';
     /** Ajusta el cuerpo del examen para intentar encajar en totalPaginas. */
     autoFitPages?: boolean;
+    /** Permite al autoajuste ampliar la tipografía cuando aún hay capacidad. */
+    autoFitTypography?: boolean;
     fontScale?: number;
     lineSpacing?: number;
     logos?: { izquierdaPath?: string; derechaPath?: string };
