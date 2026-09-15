@@ -89,6 +89,8 @@ describe('SeccionAlumnos', () => {
     expect(screen.getByRole('heading', { name: /Alumnos de la materia/i })).toBeInTheDocument();
     expect(screen.getByText(/Ana María Gómez Ruiz/i)).toBeInTheDocument();
     expect(screen.getByText(/Carlos López Hernández/i)).toBeInTheDocument();
+    expect(screen.getByText('AMGR')).toBeInTheDocument();
+    expect(screen.getByText('CLH')).toBeInTheDocument();
   });
 
   it('aplica la materia y el grupo recibidos desde una tarjeta', async () => {

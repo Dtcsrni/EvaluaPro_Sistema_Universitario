@@ -25,6 +25,23 @@ const VISTAS_VALIDAS = new Set([
 
 export const patronNombreMateria = /^[\p{L}\p{N}][\p{L}\p{N}\s\-_.()#&/]*$/u;
 
+/** Iniciales consistentes con las que se imprimen en los exámenes masivos. */
+export function obtenerInicialesAlumno(nombreCompleto?: string): string {
+  const particulas = new Set(['a', 'da', 'de', 'del', 'do', 'dos', 'la', 'las', 'los', 'y']);
+  const palabras = String(nombreCompleto ?? '')
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLocaleLowerCase()
+    .match(/[a-z0-9]+/g) ?? [];
+  const significativas = palabras.filter((palabra) => !particulas.has(palabra));
+  const iniciales = (significativas.length > 0 ? significativas : palabras)
+    .map((palabra) => palabra.charAt(0))
+    .join('')
+    .toUpperCase();
+  if (iniciales.length <= 6) return iniciales;
+  return `${iniciales.slice(0, 3)}${iniciales.slice(-3)}`;
+}
+
 export function obtenerVistaInicial(): string {
   if (typeof window === 'undefined') return 'periodos';
   const params = new URLSearchParams(window.location.search);

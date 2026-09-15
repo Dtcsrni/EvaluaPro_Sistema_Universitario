@@ -21,6 +21,7 @@ import {
   etiquetaMateria,
   mensajeDeError,
   obtenerDominiosCorreoPermitidosFrontend,
+  obtenerInicialesAlumno,
   textoDominiosPermitidos
 } from './utilidades';
 
@@ -113,12 +114,6 @@ export function SeccionAlumnos({
       hash = (hash * 31 + clave.charCodeAt(i)) >>> 0;
     }
     return `badge-grupo--${hash % 8}`;
-  }
-
-  function obtenerIniciales(nombre?: string, apellido?: string): string {
-    const n = String(nombre || '').trim().charAt(0);
-    const a = String(apellido || '').trim().charAt(0);
-    return (n + a).toUpperCase() || 'AL';
   }
 
   useEffect(() => {
@@ -829,7 +824,7 @@ export function SeccionAlumnos({
             alumnosFiltrados.map((alumno) => {
               const faltas = resumenAsistencias.find((r) => r.alumnoId === alumno._id)?.faltas ?? 0;
               const sinDerecho = faltas >= 4;
-              const iniciales = obtenerIniciales(alumno.nombres, alumno.apellidos);
+              const iniciales = obtenerInicialesAlumno(alumno.nombreCompleto);
 
               return (
                 <li
