@@ -107,6 +107,11 @@ describe('generación PDF: recovery manifest y bundle', () => {
       })
       .expect(201);
 
+    await request(app)
+      .get(`/api/examenes/plantillas/${plantilla.body.plantilla._id}/previsualizar/pdf`)
+      .set(auth)
+      .expect(200);
+
     return { auth, periodoId, plantillaId: String(plantilla.body.plantilla._id) };
   }
 

@@ -58,6 +58,9 @@ export interface MapaVariante {
 
 export interface ResultadoGeneracionPdf {
   pdfBytes: Buffer;
+  /** Valores efectivos que eligió el autoajuste, si estuvo activo. */
+  fontScaleAplicada?: number;
+  lineSpacingAplicado?: number;
   layoutEngine?: 'pdf-lib-canonical';
   layoutTemplateVersion?: number;
   paginas: Array<{

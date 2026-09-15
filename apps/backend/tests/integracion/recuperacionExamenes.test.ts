@@ -101,6 +101,11 @@ describe('recuperacion de examenes', () => {
       })
       .expect(201);
 
+    await request(app)
+      .get(`/api/examenes/plantillas/${plantilla.body.plantilla._id}/previsualizar/pdf`)
+      .set(auth)
+      .expect(200);
+
     return { auth, docenteId, periodoId, plantillaId: String(plantilla.body.plantilla._id) };
   }
 

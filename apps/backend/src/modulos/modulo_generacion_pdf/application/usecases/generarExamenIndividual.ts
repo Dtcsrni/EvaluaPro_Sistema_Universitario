@@ -122,8 +122,14 @@ export async function generarExamenIndividual(
 
   const fontScaleBase = Math.min(1.3, Math.max(0.75, Number(params.bookletConfig?.fontScale ?? 1) || 1));
   const lineSpacingBase = Math.min(1.6, Math.max(0.75, Number(params.bookletConfig?.lineSpacing ?? 1.1) || 1.1));
-  const renderizar = (fontScale: number, lineSpacing: number) =>
-    renderer.generarPdf(construirExamen(fontScale, lineSpacing));
+  const renderizar = async (fontScale: number, lineSpacing: number) => {
+    const resultado = await renderer.generarPdf(construirExamen(fontScale, lineSpacing));
+    return {
+      ...resultado,
+      fontScaleAplicada: fontScale,
+      lineSpacingAplicado: lineSpacing
+    };
+  };
 
   if (params.bookletConfig?.autoFitPages !== true) {
     return renderizar(fontScaleBase, lineSpacingBase);

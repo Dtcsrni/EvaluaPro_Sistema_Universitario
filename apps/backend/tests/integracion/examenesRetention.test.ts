@@ -94,6 +94,11 @@ describe('retención de exámenes generados', () => {
       })
       .expect(201);
 
+    await request(app)
+      .get(`/api/examenes/plantillas/${plantillaResp.body.plantilla._id}/previsualizar/pdf`)
+      .set(auth)
+      .expect(200);
+
     const examenResp = await request(app)
       .post('/api/examenes/generados')
       .set(auth)

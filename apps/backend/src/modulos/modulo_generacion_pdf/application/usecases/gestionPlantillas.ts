@@ -224,6 +224,13 @@ export async function actualizarPlantillaUseCase(params: {
     .replace(/\s+/g, ' ')
     .toLowerCase();
 
+  // Cualquier cambio editorial invalida el ajuste automático persistido; la
+  // siguiente previsualización deberá volver a validarlo antes de producción.
+  const bookletConfigActualizado = {
+    ...((merged.bookletConfig ?? {}) as Record<string, unknown>)
+  };
+  delete bookletConfigActualizado.resolvedLayout;
+
   const data: any = {
     tipo: String(merged.tipo),
     titulo: String(merged.titulo),
@@ -233,7 +240,7 @@ export async function actualizarPlantillaUseCase(params: {
     reactivosObjetivo: Number(merged.reactivosObjetivo) || 20,
     defaultVersionCount: Number(merged.defaultVersionCount) || 1,
     answerKeyMode: String(merged.answerKeyMode),
-    bookletConfig: JSON.stringify(merged.bookletConfig),
+    bookletConfig: JSON.stringify(bookletConfigActualizado),
     omrConfig: JSON.stringify(merged.omrConfig),
     configuracionPdf: JSON.stringify(merged.configuracionPdf),
     temas: JSON.stringify(temasMerged)

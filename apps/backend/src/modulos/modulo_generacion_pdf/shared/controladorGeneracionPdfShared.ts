@@ -304,11 +304,16 @@ export function clavePreviewPlantilla(params: {
 }
 
 export function construirFingerprintPreguntasPreview(preguntasDb: BancoPreguntaLean[]): string {
-  const partes = preguntasDb.map((pregunta) => {
+  // El fingerprint describe el conjunto y sus versiones, no el orden de una
+  // consulta concreta: preview puede ordenar por recencia y producción por
+  // los IDs de la plantilla.
+  const partes = [...preguntasDb]
+    .sort((a, b) => String(a.id ?? '').localeCompare(String(b.id ?? '')))
+    .map((pregunta) => {
     const version = Number(pregunta.versionActual ?? 0);
     const updatedAt = String(pregunta.updatedAt ?? '');
     return `${String(pregunta.id ?? '')}:${version}:${updatedAt}`;
-  });
+    });
   return hash32(partes.join('|')).toString(16);
 }
 

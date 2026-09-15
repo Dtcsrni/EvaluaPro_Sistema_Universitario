@@ -21,6 +21,8 @@ import {
   construirEncabezadoPdf,
   construirFirmaVariante,
   construirMapaVarianteUsadaDesdeOmr,
+  construirFingerprintLayoutPreview,
+  construirFingerprintPreguntasPreview,
   construirNombrePdfExamen,
   construirNombrePdfLote,
   esEntornoTest,
@@ -264,12 +266,41 @@ export async function generarExamenesLoteUseCase(params: {
   });
   const numeroPaginas = resolverNumeroPaginasPlantilla(plantilla as { numeroPaginas?: unknown });
   const preguntasBase = mapearPreguntasBase(preguntasDb);
+  const bookletConfigPlantilla = (plantilla.bookletConfig ?? {}) as Record<string, unknown>;
+  const layoutValidado = bookletConfigPlantilla.resolvedLayout as {
+    version?: number;
+    fontScale?: number;
+    lineSpacing?: number;
+    preguntasFingerprint?: string;
+    layoutFingerprint?: string;
+    numeroPaginas?: number;
+    totalPreguntas?: number;
+    temas?: string[];
+  } | undefined;
+  const layoutVigente = layoutValidado?.version === 1 &&
+    layoutValidado.preguntasFingerprint === construirFingerprintPreguntasPreview(preguntasDb) &&
+    layoutValidado.layoutFingerprint === construirFingerprintLayoutPreview() &&
+    Number(layoutValidado.numeroPaginas) === numeroPaginas &&
+    Number(layoutValidado.totalPreguntas) === preguntasBase.length &&
+    JSON.stringify(layoutValidado.temas ?? []) === JSON.stringify(temas) &&
+    Number.isFinite(Number(layoutValidado.fontScale)) &&
+    Number.isFinite(Number(layoutValidado.lineSpacing));
+  if (!layoutVigente) {
+    throw new ErrorAplicacion(
+      'PLANTILLA_NO_VALIDADA',
+      'La plantilla no tiene una previsualización PDF válida para el banco actual. Previsualiza el PDF antes de generar el paquete.',
+      409,
+      { plantillaId: plantilla.id, numeroPaginas, totalPreguntas: preguntasBase.length }
+    );
+  }
   const bookletConfig = {
-    ...(plantilla.bookletConfig ?? {}),
+    ...bookletConfigPlantilla,
     // En producción masiva se consume la configuración ya validada de la
     // plantilla. No se ejecuta el auto-fit ni se prueban variantes de layout.
     autoFitPages: false,
-    autoFitTypography: false
+    autoFitTypography: false,
+    fontScale: Number(layoutValidado?.fontScale),
+    lineSpacing: Number(layoutValidado?.lineSpacing)
   };
   const templateVersionOmr = resolverTemplateVersionOmr({
     docenteId: docId,
