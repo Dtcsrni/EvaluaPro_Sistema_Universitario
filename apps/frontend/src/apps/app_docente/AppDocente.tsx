@@ -610,6 +610,7 @@ export function AppDocente() {
             destinoInicial={destinoAlumnos}
             permisos={permisosUI}
             puedeEliminarAlumnoDev={puedeEliminarAlumnoDev}
+            docenteCorreo={docente?.correo}
             enviarConPermiso={enviarConPermiso}
             avisarSinPermiso={avisarSinPermiso}
             onRefrescar={() => {

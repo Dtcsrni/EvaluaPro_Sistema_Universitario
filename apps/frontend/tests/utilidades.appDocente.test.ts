@@ -248,6 +248,19 @@ describe('utilidades app docente', () => {
     expect(etiquetaMateria({ _id: '', nombre: '' })).toBe('-');
   });
 
+  it('deriva el dominio predeterminado del correo docente', () => {
+    vi.stubEnv('VITE_DOMINIOS_CORREO_PERMITIDOS', '');
+    expect(obtenerDominiosCorreoPermitidosFrontend('docente@cuh.mx')).toEqual(['cuh.mx']);
+    expect(obtenerDominiosCorreoPermitidosFrontend('docente@otra.edu')).toEqual(['otra.edu']);
+  });
+
+  it('usa cuh.mx cuando no se declara otro dominio en frontend', () => {
+    vi.stubEnv('VITE_DOMINIOS_CORREO_PERMITIDOS', '');
+    expect(obtenerDominiosCorreoPermitidosFrontend()).toEqual(['cuh.mx']);
+    expect(esCorreoDeDominioPermitidoFrontend('docente@cuh.mx', obtenerDominiosCorreoPermitidosFrontend())).toBe(true);
+    expect(esCorreoDeDominioPermitidoFrontend('docente@otro.mx', obtenerDominiosCorreoPermitidosFrontend())).toBe(false);
+  });
+
   it('patronNombreMateria acepta y rechaza formatos esperados', () => {
     expect(patronNombreMateria.test('Calculo I')).toBe(true);
     expect(patronNombreMateria.test('IA-2026 (grupo A)')).toBe(true);

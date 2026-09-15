@@ -491,6 +491,10 @@ export function SeccionPeriodos({
     }
   }
 
+  function abrirRegistroMateria() {
+    setRegistroMateriaAbierto(true);
+  }
+
   return (
     <div className="panel materias-panel anim-fade-in">
       {/* Cabecera Principal con Mini-KPIs integrados */}
@@ -520,7 +524,18 @@ export function SeccionPeriodos({
           </div>
         </div>
 
-        <div className="materias-header-kpis" aria-live="polite">
+        <div className="materias-header-actions">
+          <Boton
+            type="button"
+            className="materias-header-primary"
+            icono={<Icono nombre="nuevo" />}
+            onClick={abrirRegistroMateria}
+            data-tooltip="Abrir el formulario para registrar una materia"
+          >
+            Registrar materia
+          </Boton>
+
+          <div className="materias-header-kpis" aria-live="polite">
           <div className="materia-mini-kpi materia-mini-kpi--active anim-kpi-hover" data-tooltip="Total de materias o cursos activos registrados">
             <span className="materia-mini-kpi__icon" aria-hidden="true">
               <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2.2">
@@ -569,6 +584,7 @@ export function SeccionPeriodos({
           >
             Archivadas
           </Boton>
+          </div>
         </div>
       </div>
 
@@ -815,6 +831,16 @@ export function SeccionPeriodos({
                                   <span className={`chip chip--sm chip--${progreso.estado} anim-badge-in`}>
                                     {progreso.etiquetaEstado}
                                   </span>
+                                  <div
+                                    className="materia-progress-bar"
+                                    role="progressbar"
+                                    aria-valuemin={0}
+                                    aria-valuemax={100}
+                                    aria-valuenow={progreso.porcentaje}
+                                    aria-label={`Avance de ${etiquetaMateria(periodo)}: ${progreso.porcentaje}%`}
+                                  >
+                                    <span style={{ width: `${progreso.porcentaje}%` }} />
+                                  </div>
                                 </div>
                               </div>
                               <div className="materia-progress-ring" title={`Avance académico: ${progreso.porcentaje}% (${progreso.etiquetaEstado})`}>

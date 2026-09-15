@@ -20,12 +20,15 @@ import http from 'node:http';
 import path from 'node:path';
 import process from 'node:process';
 import { fileURLToPath } from 'node:url';
+import { assertDocenteBundle } from './docente-bundle-guard.mjs';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const configuredDist = String(process.env.DOCENTE_WEB_DIST || '').trim();
 const publicRoot = configuredDist === 'apps/frontend/dist-e2e-docente'
   ? path.resolve(root, 'apps', 'frontend', 'dist-e2e-docente')
   : path.resolve(root, 'apps', 'frontend', 'dist-docente');
+const bundleGuard = assertDocenteBundle({ distRoot: publicRoot });
+process.stdout.write(`[docente-static] bundle validado: ${bundleGuard.contract}\n`);
 const host = process.env.HOST || '127.0.0.1';
 const port = Number(process.env.PUERTO_WEB || 4173);
 const mimeTypes = Object.freeze({

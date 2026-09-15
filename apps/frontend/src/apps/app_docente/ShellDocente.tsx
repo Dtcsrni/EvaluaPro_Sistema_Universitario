@@ -8,7 +8,7 @@ import type { ReactNode } from 'react';
 import { Icono } from '../../ui/iconos';
 import { TemaBoton } from '../../tema/TemaBoton';
 import { Boton } from '../../ui/ux/componentes/Boton';
-import { abrirVentanaVersion, obtenerVersionApp, OMR_CANONICAL_CONTRACT_ID, OMR_CANONICAL_DISPLAY_LABEL } from '../../ui/version/versionInfo';
+import { abrirVentanaVersion, obtenerVersionApp } from '../../ui/version/versionInfo';
 import type { Docente } from './tipos';
 
 export function ShellDocente({
@@ -74,14 +74,6 @@ export function ShellDocente({
           >
             v{version}
           </button>
-          <span
-            className="chip chip-omr-contract"
-            data-testid="omr-canonical-badge"
-            data-tooltip="Contrato OMR canónico activo"
-            title={`Contrato activo: ${OMR_CANONICAL_CONTRACT_ID}.`}
-          >
-            {OMR_CANONICAL_DISPLAY_LABEL}
-          </span>
           <TemaBoton />
           {docente && (
             <Boton

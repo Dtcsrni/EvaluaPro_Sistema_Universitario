@@ -31,7 +31,14 @@ function loadRuntimeEnv() {
   const envPath = path.join(root, '.env');
   // Un valor vacío heredado no debe ocultar la configuración efectiva del
   // `.env` instalado; los overrides no vacíos del proceso sí se conservan.
-  cargarVariablesEnvDesdeArchivo(envPath, process.env);
+  // En la ejecución nativa local, las URLs SQLite del archivo instalado son
+  // la fuente de verdad: el host de escritorio puede heredar una URL relativa
+  // del entorno que lo abrió y hacer que Prisma apunte fuera de la instalación.
+  const isNativeLocalProduction = (process.env.NODE_ENV || 'production') === 'production'
+    && (process.env.EVALUAPRO_FLAVOR || 'docente-local') === 'docente-local';
+  cargarVariablesEnvDesdeArchivo(envPath, process.env, {
+    overrideKeys: isNativeLocalProduction ? ['DATABASE_URL', 'BACKEND_DATABASE_URL'] : []
+  });
 }
 
 loadRuntimeEnv();

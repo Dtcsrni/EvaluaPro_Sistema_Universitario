@@ -33,7 +33,8 @@ export function SeccionAlumnos({
   permisos,
   puedeEliminarAlumnoDev,
   enviarConPermiso,
-  avisarSinPermiso
+  avisarSinPermiso,
+  docenteCorreo
 }: {
   alumnos: Alumno[];
   periodosActivos: Periodo[];
@@ -44,6 +45,7 @@ export function SeccionAlumnos({
   puedeEliminarAlumnoDev: boolean;
   enviarConPermiso: EnviarConPermiso;
   avisarSinPermiso: (mensaje: string) => void;
+  docenteCorreo?: string;
 }) {
   const [matricula, setMatricula] = useState('');
   const [nombres, setNombres] = useState('');
@@ -98,7 +100,8 @@ export function SeccionAlumnos({
     return /^CUH\d+$/i.test(matriculaNormalizada) || /^[\w\-.]{3,30}$/.test(matriculaNormalizada);
   }, [matricula, matriculaNormalizada]);
 
-  const dominiosPermitidos = obtenerDominiosCorreoPermitidosFrontend();
+  const dominiosPermitidos = obtenerDominiosCorreoPermitidosFrontend(docenteCorreo);
+  const dominioCorreoPredeterminado = dominiosPermitidos[0] || 'cuh.mx';
   const politicaDominiosTexto = dominiosPermitidos.length > 0 ? textoDominiosPermitidos(dominiosPermitidos) : '';
   const correoValido = !correo.trim() || esCorreoDeDominioPermitidoFrontend(correo, dominiosPermitidos);
 
@@ -509,7 +512,7 @@ export function SeccionAlumnos({
                     setMatricula(valor);
                     if (correoAuto) {
                       const m = normalizarMatricula(valor);
-                      setCorreo(m ? `${m}@cuh.mx` : '');
+                      setCorreo(m ? `${m}@${dominioCorreoPredeterminado}` : '');
                     }
                   }}
                   disabled={bloqueoEdicion}
@@ -557,11 +560,11 @@ export function SeccionAlumnos({
                     setCorreo(event.target.value);
                   }}
                   disabled={bloqueoEdicion}
-                  placeholder="alumno@cuh.mx"
+                  placeholder={`alumno@${dominioCorreoPredeterminado}`}
                 />
               </div>
               {correoAuto && matriculaNormalizada && (
-                <span className="ayuda">Sugerido automáticamente: {matriculaNormalizada}@cuh.mx</span>
+                <span className="ayuda">Sugerido automáticamente: {matriculaNormalizada}@{dominioCorreoPredeterminado}</span>
               )}
               {dominiosPermitidos.length > 0 && !correoAuto && (
                 <span className="ayuda">Opcional. Dominio permitido: {politicaDominiosTexto}</span>

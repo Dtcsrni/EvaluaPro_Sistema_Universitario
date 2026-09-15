@@ -268,11 +268,13 @@ export function esMensajeError(texto: string): boolean {
   return tipoMensajeInline(texto) === 'error';
 }
 
-export function obtenerDominiosCorreoPermitidosFrontend(): string[] {
-  return String(import.meta.env.VITE_DOMINIOS_CORREO_PERMITIDOS || '')
+export function obtenerDominiosCorreoPermitidosFrontend(correoDocente?: string): string[] {
+  const configurados = String(import.meta.env.VITE_DOMINIOS_CORREO_PERMITIDOS || '')
     .split(',')
     .map((d) => d.trim().toLowerCase().replace(/^@/, ''))
     .filter(Boolean);
+  if (configurados.length > 0) return configurados;
+  return [obtenerDominioCorreo(correoDocente || '') || 'cuh.mx'];
 }
 
 function obtenerDominioCorreo(correo: string): string | null {

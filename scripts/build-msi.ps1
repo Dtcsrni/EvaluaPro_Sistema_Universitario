@@ -293,12 +293,18 @@ function Add-DocenteNativeCompiledPayload {
     $frontendTarget = Join-Path $StagingRoot 'apps/frontend/dist-docente'
     $backendTarget = Join-Path $StagingRoot 'apps/backend/dist'
     $staticServerSource = Join-Path $RootPath 'scripts/serve-docente-static.mjs'
+    $bundleGuardSource = Join-Path $RootPath 'scripts/docente-bundle-guard.mjs'
     if (-not (Test-Path $staticServerSource)) {
       throw "Falta el servidor estatico nativo docente: $staticServerSource"
     }
+    if (-not (Test-Path $bundleGuardSource)) {
+      throw "Falta la guardia del bundle docente: $bundleGuardSource"
+    }
     $staticServerTarget = Join-Path $StagingRoot 'scripts/serve-docente-static.mjs'
+    $bundleGuardTarget = Join-Path $StagingRoot 'scripts/docente-bundle-guard.mjs'
     New-Item -ItemType Directory -Path (Split-Path $staticServerTarget -Parent) -Force | Out-Null
     Copy-Item -LiteralPath $staticServerSource -Destination $staticServerTarget -Force
+    Copy-Item -LiteralPath $bundleGuardSource -Destination $bundleGuardTarget -Force
 
     $embeddedNodeSource = Join-Path $RootPath 'runtime/node/node.exe'
     if (-not (Test-Path -LiteralPath $embeddedNodeSource)) {

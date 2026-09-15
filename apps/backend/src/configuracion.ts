@@ -20,7 +20,7 @@ const limiteJson =
     ? '10mb'
     : limiteJsonEntorno;
 const corsOrigenes = parsearListaCsv(process.env.CORS_ORIGENES ?? 'http://localhost:5173');
-const dominiosCorreoPermitidos = parsearListaCsv(process.env.DOMINIOS_CORREO_PERMITIDOS, (dominio) =>
+const dominiosCorreoPermitidos = parsearListaCsv(process.env.DOMINIOS_CORREO_PERMITIDOS ?? 'cuh.mx', (dominio) =>
   dominio.toLowerCase().replace(/^@/, '')
 );
 // En producción, el secreto JWT debe ser proporcionado por entorno.

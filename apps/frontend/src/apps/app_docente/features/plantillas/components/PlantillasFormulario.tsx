@@ -10,7 +10,6 @@ import { esMensajeError, etiquetaMateria, idCortoMateria } from '../../../utilid
 import type { Periodo, Plantilla } from '../../../tipos';
 import type { Dispatch, SetStateAction } from 'react';
 import { calcularEstimacionDensidadPlantilla } from '../hooks/estimadorDensidadPlantilla';
-import { OMR_CANONICAL_DISPLAY_LABEL } from '../../../../../ui/version/versionInfo';
 
 type TemaDisponible = { tema: string; total: number };
 
@@ -111,7 +110,7 @@ export function PlantillasFormulario({
         <div className="banco-section-title__wrap">
           <span className="banco-section-pill">
             <span className="banco-section-pill__dot" aria-hidden="true" />
-            <span>{modoEdicion ? 'Modo Edición' : 'Maquetación OMR'}</span>
+            <span>{modoEdicion ? 'Modo Edición' : 'Constructor de examen'}</span>
           </span>
           <h3 className="alumnos-form__title">
             {modoEdicion ? 'Edición de plantilla' : 'Diseño de plantilla'}
@@ -119,9 +118,6 @@ export function PlantillasFormulario({
           <p className="alumnos-form__subtitle">
             Configura la estructura del examen por materia y temas antes de pasar a previsualización o generación.
           </p>
-        </div>
-        <div className="plantillas-panel__meta" aria-label="Contrato OMR activo">
-          <span className="version-env-badge">{OMR_CANONICAL_DISPLAY_LABEL}</span>
         </div>
       </div>
 

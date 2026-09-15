@@ -182,6 +182,7 @@
     "build": "npm run --workspaces --if-present build",
     "build:frontend:alumno": "npm -C apps/frontend run build:alumno",
     "build:frontend:docente": "npm -C apps/frontend run build:docente",
+    "verify:docente:bundle": "node scripts/verify-docente-bundle.mjs",
     "lint": "npm run --workspaces --if-present lint",
     "verify:prod": "npm run test:backend:ci && npm run test:frontend:ci && npm run build",
     "start:prod": "npm run verify:prod && npm run stack:prod",

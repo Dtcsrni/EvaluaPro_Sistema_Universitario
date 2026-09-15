@@ -724,6 +724,830 @@
   box-shadow: none !important;
 }
 
+/* SPEC-057 / FINAL MATERIAS OVERRIDE: debe quedar después de la capa global
+   anterior para que el contenido no vuelva a convertirse en mosaico. */
+.materias-panel {
+  background:
+    linear-gradient(135deg, rgba(117, 180, 186, 0.12), transparent 28%),
+    linear-gradient(315deg, rgba(176, 164, 201, 0.11), transparent 42%),
+    var(--materia-surface, rgba(27, 39, 51, 0.34)) !important;
+  border: 1px solid var(--materia-edge-soft, rgba(199, 213, 218, 0.25)) !important;
+  box-shadow:
+    0 28px 64px -40px var(--materia-shadow, rgba(3, 10, 16, 0.72)),
+    inset 0 1px 0 rgba(255, 255, 255, 0.24),
+    inset 0 -1px 0 rgba(8, 15, 21, 0.42) !important;
+  backdrop-filter: blur(30px) saturate(122%);
+  -webkit-backdrop-filter: blur(30px) saturate(122%);
+}
+
+.materias-panel::before {
+  content: '' !important;
+  display: block !important;
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  border-radius: inherit;
+  background: linear-gradient(118deg, rgba(255, 255, 255, 0.18), transparent 22%, transparent 72%, rgba(117, 180, 186, 0.08));
+  opacity: 0.72;
+}
+
+.materias-panel::after {
+  content: '' !important;
+  display: block !important;
+  position: absolute;
+  inset: 1px;
+  z-index: 0;
+  pointer-events: none;
+  border-radius: inherit;
+  background: linear-gradient(112deg, rgba(255, 255, 255, 0.23), rgba(255, 255, 255, 0.04) 17%, transparent 45%);
+  opacity: 0.62;
+}
+
+.materias-lista {
+  align-items: start;
+}
+
+.materias-lista__item {
+  --materia-card-surface: rgba(35, 51, 64, 0.64);
+  align-self: start;
+  position: relative;
+  overflow: hidden;
+  border: 1px solid color-mix(in srgb, var(--materia-accent, #75b4ba) 56%, var(--materia-edge-soft, rgba(199, 213, 218, 0.25))) !important;
+  background:
+    linear-gradient(132deg, color-mix(in srgb, var(--materia-accent, #75b4ba) 16%, transparent), transparent 34%),
+    linear-gradient(315deg, rgba(255, 255, 255, 0.05), transparent 46%),
+    var(--materia-card-surface) !important;
+  box-shadow:
+    0 22px 38px -28px var(--materia-shadow, rgba(3, 10, 16, 0.72)),
+    0 8px 14px -14px color-mix(in srgb, var(--materia-accent, #75b4ba) 32%, transparent),
+    inset 0 1px 0 rgba(255, 255, 255, 0.22),
+    inset 0 -1px 0 rgba(9, 18, 25, 0.36) !important;
+  backdrop-filter: blur(26px) saturate(124%);
+  -webkit-backdrop-filter: blur(26px) saturate(124%);
+}
+
+.materias-lista__item:nth-child(even) {
+  --materia-accent: #b0a4c9;
+  --materia-card-surface: rgba(43, 42, 63, 0.62);
+}
+
+.materias-lista__item::before {
+  content: '' !important;
+  display: block !important;
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  border-radius: inherit;
+  background: linear-gradient(116deg, rgba(255, 255, 255, 0.22), transparent 19%, transparent 78%, color-mix(in srgb, var(--materia-accent, #75b4ba) 16%, transparent));
+}
+
+.materias-lista__item::after {
+  content: '' !important;
+  display: block !important;
+  position: absolute;
+  inset: 1px;
+  pointer-events: none;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: inherit;
+  background: transparent;
+}
+
+.materias-panel :is(
+  .materia-card-surface,
+  .materia-card-header,
+  .materia-card-meta,
+  .materia-card-alumnos
+) {
+  border: 0 !important;
+  background: transparent !important;
+  background-image: none !important;
+  box-shadow: none !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+}
+
+.materias-panel :is(
+  .materia-card-surface,
+  .materia-card-header,
+  .materia-card-meta,
+  .materia-card-alumnos
+)::before,
+.materias-panel :is(
+  .materia-card-surface,
+  .materia-card-header,
+  .materia-card-meta,
+  .materia-card-alumnos
+)::after {
+  content: none !important;
+  display: none !important;
+}
+
+.materia-card-surface {
+  position: relative;
+  border-radius: 0;
+  background: transparent !important;
+  background-image: none !important;
+  box-shadow: none !important;
+}
+
+.materia-card-meta {
+  padding: 0.68rem 0;
+  border-top: 1px solid var(--materia-edge-soft) !important;
+  border-bottom: 1px solid var(--materia-edge-soft) !important;
+}
+
+.materia-card-meta .materia-meta-tag {
+  min-height: auto;
+  padding: 0.18rem 0.7rem;
+  border: 0 !important;
+  border-radius: 0;
+  background: transparent !important;
+  background-image: none !important;
+  box-shadow: none !important;
+}
+
+.materia-card-meta .materia-meta-tag + .materia-meta-tag {
+  border-left: 1px solid var(--materia-edge-soft) !important;
+}
+
+.materia-card-alumnos {
+  padding: 0.78rem 0 0;
+}
+
+.materia-card-alumnos__header {
+  padding-bottom: 0.42rem;
+  border-bottom: 1px solid var(--materia-edge-soft);
+}
+
+.materia-card-alumnos__list {
+  gap: 0.15rem 0;
+  padding-top: 0.32rem;
+}
+
+.materia-alumno-chip {
+  min-width: 0;
+  padding: 0.18rem 0.42rem;
+  border: 0 !important;
+  border-radius: 0;
+  background: transparent !important;
+  background-image: none !important;
+  box-shadow: none !important;
+}
+
+.materia-alumno-chip + .materia-alumno-chip {
+  border-left: 1px solid var(--materia-edge-soft) !important;
+}
+
+.materia-card-primary-action,
+.materia-card-primary-action:hover {
+  border: 1px solid color-mix(in srgb, var(--materia-accent, #75b4ba) 72%, white 28%) !important;
+  color: #152328 !important;
+  background: var(--materia-accent, #75b4ba) !important;
+  background-image: none !important;
+  box-shadow:
+    0 14px 22px -18px var(--materia-shadow, rgba(3, 10, 16, 0.72)),
+    inset 0 1px 0 rgba(255, 255, 255, 0.38) !important;
+  transform: none;
+}
+
+.materia-actions-toggle {
+  margin-top: 1rem;
+  padding: 0.72rem 0 0;
+  border: 0 !important;
+  border-top: 1px solid var(--materia-edge-soft) !important;
+  border-radius: 0;
+  background: transparent !important;
+  background-image: none !important;
+  box-shadow: none !important;
+}
+
+.guia-materia-compact {
+  padding: 0.35rem 0;
+  border: 0;
+  border-bottom: 1px solid var(--materia-edge-soft);
+  border-radius: 0;
+  background: transparent !important;
+  background-image: none !important;
+  box-shadow: none !important;
+}
+
+:root:not([data-theme="dark"]) .materias-panel {
+  --materia-surface: rgba(255, 255, 255, 0.34);
+  --materia-edge-soft: rgba(36, 49, 58, 0.19);
+  --materia-shadow: rgba(44, 50, 53, 0.3);
+}
+
+:root:not([data-theme="dark"]) .materias-lista__item {
+  --materia-card-surface: rgba(255, 255, 255, 0.62);
+}
+
+:root:not([data-theme="dark"]) .materias-lista__item:nth-child(even) {
+  --materia-card-surface: rgba(249, 247, 252, 0.64);
+}
+
+/* SPEC-057: Materias / Liquid Mineral Glass.
+   La transparencia se usa en la estructura; los datos operativos reciben una
+   capa mineral de mayor densidad para conservar lectura y contraste. */
+.materias-panel {
+  --materia-canvas: #111a24;
+  --materia-text: #f1f3f2;
+  --materia-text-secondary: #c7d0d7;
+  --materia-text-muted: #9eadb8;
+  --materia-surface: rgba(27, 39, 51, 0.34);
+  --materia-surface-strong: rgba(35, 51, 64, 0.72);
+  --materia-surface-data: rgba(24, 39, 51, 0.84);
+  --materia-edge: rgba(220, 232, 234, 0.48);
+  --materia-edge-soft: rgba(199, 213, 218, 0.25);
+  --materia-accent: #75b4ba;
+  --materia-accent-alt: #b0a4c9;
+  --materia-success: #88b79b;
+  --materia-warning: #d1aa6b;
+  --materia-danger: #c98787;
+  --materia-shadow: rgba(3, 10, 16, 0.72);
+  color: var(--materia-text);
+  background:
+    linear-gradient(135deg, rgba(117, 180, 186, 0.12), transparent 28%),
+    linear-gradient(315deg, rgba(176, 164, 201, 0.11), transparent 42%),
+    var(--materia-surface) !important;
+  border: 1px solid var(--materia-edge-soft) !important;
+  box-shadow:
+    0 28px 64px -40px var(--materia-shadow),
+    inset 0 1px 0 rgba(255, 255, 255, 0.24),
+    inset 0 -1px 0 rgba(8, 15, 21, 0.42) !important;
+  backdrop-filter: blur(30px) saturate(122%);
+  -webkit-backdrop-filter: blur(30px) saturate(122%);
+}
+
+.materias-panel::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  border-radius: inherit;
+  background: linear-gradient(118deg, rgba(255, 255, 255, 0.18), transparent 22%, transparent 72%, rgba(117, 180, 186, 0.08));
+  opacity: 0.72;
+}
+
+.materias-panel::after {
+  inset: 1px;
+  border-radius: inherit;
+  background: linear-gradient(112deg, rgba(255, 255, 255, 0.23), rgba(255, 255, 255, 0.04) 17%, transparent 45%);
+  opacity: 0.62;
+}
+
+.materias-panel > * {
+  position: relative;
+  z-index: 1;
+}
+
+.materias-panel__head {
+  align-items: flex-start;
+  gap: 1.5rem;
+  padding: 0.25rem 0 1.15rem;
+  border-bottom-color: var(--materia-edge-soft);
+}
+
+.materias-panel__meta-row,
+.materias-panel__subtitle,
+.materias-panel__description {
+  color: var(--materia-text-secondary);
+}
+
+.materias-panel__title {
+  color: var(--materia-text);
+  letter-spacing: -0.025em;
+}
+
+.materias-panel__icon-orb {
+  color: var(--materia-accent) !important;
+  background: linear-gradient(145deg, rgba(117, 180, 186, 0.33), rgba(35, 51, 64, 0.56)) !important;
+  border-color: rgba(199, 213, 218, 0.52) !important;
+  box-shadow:
+    0 14px 24px -18px var(--materia-shadow),
+    inset 0 1px 0 rgba(255, 255, 255, 0.28) !important;
+  filter: none !important;
+}
+
+.materias-header-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 0.65rem;
+  flex-wrap: wrap;
+}
+
+.materias-header-kpis {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.materias-header-primary,
+.materias-header-primary:hover {
+  min-height: 44px;
+  border: 1px solid rgba(220, 232, 234, 0.56) !important;
+  border-radius: 12px;
+  color: #102126 !important;
+  background: var(--materia-accent) !important;
+  box-shadow:
+    0 12px 22px -18px var(--materia-shadow),
+    inset 0 1px 0 rgba(255, 255, 255, 0.38) !important;
+  filter: none !important;
+}
+
+.materia-mini-kpi {
+  min-height: 42px;
+  border: 1px solid var(--materia-edge-soft) !important;
+  border-radius: 12px !important;
+  color: var(--materia-text-secondary) !important;
+  background: rgba(27, 39, 51, 0.42) !important;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.16) !important;
+  filter: none !important;
+}
+
+.materia-mini-kpi strong,
+.materia-mini-kpi__value,
+.materia-mini-kpi__label {
+  color: var(--materia-text) !important;
+}
+
+.materia-mini-kpi__icon {
+  color: var(--materia-accent) !important;
+}
+
+.guia-materia-compact {
+  margin: 0.7rem 0 1rem;
+  border: 1px solid var(--materia-edge-soft);
+  border-radius: 14px;
+  background: rgba(27, 39, 51, 0.22);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.12);
+  backdrop-filter: blur(22px) saturate(118%);
+  -webkit-backdrop-filter: blur(22px) saturate(118%);
+}
+
+.guia-materia-compact .boton {
+  color: var(--materia-text-secondary) !important;
+  border-color: var(--materia-edge-soft) !important;
+  background: transparent !important;
+}
+
+.materias-form--panoramico {
+  border-color: var(--materia-edge-soft) !important;
+  background: var(--materia-surface-strong) !important;
+  box-shadow:
+    0 18px 34px -28px var(--materia-shadow),
+    inset 0 1px 0 rgba(255, 255, 255, 0.18) !important;
+}
+
+.materias-form__title,
+.materias-form__subtitle,
+.materias-form .campo > span {
+  color: var(--materia-text);
+}
+
+.materias-form__subtitle {
+  color: var(--materia-text-secondary);
+}
+
+.materias-section-title,
+.materias-seccion-activas__head h3 {
+  color: var(--materia-text);
+}
+
+.materias-seccion-activas__head {
+  border-bottom-color: var(--materia-edge-soft) !important;
+}
+
+.materias-lista__item {
+  --materia-accent: #75b4ba;
+  --materia-card-surface: rgba(35, 51, 64, 0.64);
+  position: relative;
+  overflow: hidden;
+  padding: clamp(1rem, 1.7vw, 1.35rem);
+  border: 1px solid color-mix(in srgb, var(--materia-accent) 56%, var(--materia-edge-soft)) !important;
+  border-radius: 18px;
+  background:
+    linear-gradient(132deg, color-mix(in srgb, var(--materia-accent) 16%, transparent), transparent 34%),
+    linear-gradient(315deg, rgba(255, 255, 255, 0.05), transparent 46%),
+    var(--materia-card-surface) !important;
+  box-shadow:
+    0 22px 38px -28px var(--materia-shadow),
+    0 8px 14px -14px color-mix(in srgb, var(--materia-accent) 32%, transparent),
+    inset 0 1px 0 rgba(255, 255, 255, 0.22),
+    inset 0 -1px 0 rgba(9, 18, 25, 0.36) !important;
+  backdrop-filter: blur(26px) saturate(124%);
+  -webkit-backdrop-filter: blur(26px) saturate(124%);
+  transition: transform 180ms ease, border-color 180ms ease, box-shadow 180ms ease;
+}
+
+.materias-lista {
+  align-items: start;
+}
+
+.materias-lista__item {
+  align-self: start;
+}
+
+.materias-lista__item::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  border-radius: inherit;
+  background: linear-gradient(116deg, rgba(255, 255, 255, 0.22), transparent 19%, transparent 78%, color-mix(in srgb, var(--materia-accent) 16%, transparent));
+}
+
+.materias-lista__item::after {
+  content: '';
+  position: absolute;
+  inset: 1px;
+  pointer-events: none;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 17px;
+}
+
+.materias-lista__item > * {
+  position: relative;
+  z-index: 1;
+}
+
+.materias-lista__item:nth-child(even) {
+  --materia-accent: #b0a4c9;
+  --materia-card-surface: rgba(43, 42, 63, 0.62);
+}
+
+.materias-lista__item:hover {
+  transform: translateY(-3px);
+  border-color: color-mix(in srgb, var(--materia-accent) 82%, white 18%) !important;
+  box-shadow:
+    0 28px 44px -28px var(--materia-shadow),
+    0 10px 18px -14px color-mix(in srgb, var(--materia-accent) 42%, transparent),
+    inset 0 1px 0 rgba(255, 255, 255, 0.3) !important;
+}
+
+.materia-card-header {
+  align-items: flex-start;
+  margin-bottom: 0.8rem;
+}
+
+.materia-title-group .item-title {
+  color: var(--materia-text) !important;
+  font-size: clamp(1.02rem, 1.55vw, 1.18rem);
+  line-height: 1.3;
+}
+
+.materia-title-group .chip {
+  color: #172329 !important;
+  border-color: transparent !important;
+  background: var(--materia-success) !important;
+  box-shadow: none !important;
+}
+
+.materia-title-group .chip--por_iniciar,
+.materia-title-group .chip--por_finalizar {
+  color: #2e2415 !important;
+  background: var(--materia-warning) !important;
+}
+
+.materia-title-group .chip--concluido {
+  color: #251b1b !important;
+  background: var(--materia-danger) !important;
+}
+
+.materia-avatar {
+  color: var(--materia-accent) !important;
+  background: linear-gradient(145deg, color-mix(in srgb, var(--materia-accent) 34%, transparent), rgba(13, 23, 31, 0.48)) !important;
+  border-color: color-mix(in srgb, var(--materia-accent) 62%, var(--materia-edge)) !important;
+  box-shadow:
+    0 12px 22px -18px var(--materia-shadow),
+    inset 0 1px 0 rgba(255, 255, 255, 0.3) !important;
+  filter: none !important;
+}
+
+.materia-progress-bar {
+  width: min(18rem, 100%);
+  height: 6px;
+  margin-top: 0.62rem;
+  overflow: hidden;
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  border-radius: 999px;
+  background: rgba(8, 16, 23, 0.46);
+}
+
+.materia-progress-bar span {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: var(--materia-accent);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.34);
+}
+
+.materia-progress-ring {
+  flex: 0 0 auto;
+}
+
+.materia-progress-ring .circle-bg {
+  stroke: rgba(220, 232, 234, 0.18) !important;
+}
+
+.materia-progress-ring .circle-fill {
+  stroke: var(--materia-accent) !important;
+  filter: none !important;
+}
+
+.materia-progress-ring .circle-text {
+  fill: var(--materia-text) !important;
+  font-weight: 800;
+}
+
+.materia-card-meta {
+  gap: 0.5rem;
+  margin-top: 0.7rem;
+}
+
+.materia-card-meta .materia-meta-tag {
+  min-height: 34px;
+  padding: 0.34rem 0.58rem;
+  border: 1px solid color-mix(in srgb, var(--materia-meta-accent, var(--materia-accent)) 64%, var(--materia-edge-soft)) !important;
+  border-radius: 10px;
+  color: var(--materia-text-secondary) !important;
+  background: rgba(20, 32, 42, 0.58) !important;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.14) !important;
+}
+
+.materia-card-meta .materia-meta-lbl {
+  color: var(--materia-text-muted) !important;
+}
+
+.materia-card-meta .materia-meta-value,
+.materia-card-meta .materia-grupos-badge {
+  color: var(--materia-text) !important;
+  font-weight: 800;
+}
+
+.materia-card-alumnos {
+  margin-top: 0.8rem;
+  padding: 0.7rem 0.8rem;
+  border: 1px solid var(--materia-edge-soft) !important;
+  border-radius: 12px;
+  background: var(--materia-surface-data) !important;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.13) !important;
+}
+
+.materia-card-alumnos__header {
+  color: var(--materia-text-secondary);
+}
+
+.materia-card-alumnos__header strong {
+  color: var(--materia-accent) !important;
+  font-size: 1rem;
+}
+
+.materia-alumno-chip {
+  border-color: rgba(199, 213, 218, 0.2) !important;
+  border-radius: 8px;
+  color: var(--materia-text) !important;
+  background: rgba(55, 70, 79, 0.62) !important;
+}
+
+.materia-alumno-chip__group {
+  color: var(--materia-accent) !important;
+}
+
+.materia-card-primary-action,
+.materia-card-primary-action:hover {
+  min-height: 50px;
+  margin-top: 1rem;
+  border: 1px solid color-mix(in srgb, var(--materia-accent) 72%, white 28%) !important;
+  border-radius: 12px;
+  color: #152328 !important;
+  background: var(--materia-accent) !important;
+  box-shadow:
+    0 14px 22px -18px var(--materia-shadow),
+    inset 0 1px 0 rgba(255, 255, 255, 0.38) !important;
+  transform: none;
+  filter: none !important;
+}
+
+.materia-card-primary-action__eyebrow,
+.materia-card-primary-action__icon {
+  color: rgba(21, 35, 40, 0.72) !important;
+}
+
+.materia-actions-toggle {
+  color: var(--materia-text-secondary) !important;
+  border-color: var(--materia-edge-soft) !important;
+  background: rgba(27, 39, 51, 0.24) !important;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.12) !important;
+}
+
+.materia-actions-toggle:hover {
+  color: var(--materia-text) !important;
+  border-color: var(--materia-edge) !important;
+  background: rgba(42, 58, 69, 0.48) !important;
+}
+
+:root:not([data-theme="dark"]) .materias-panel {
+  --materia-canvas: #f3f1ed;
+  --materia-text: #24313a;
+  --materia-text-secondary: #42515a;
+  --materia-text-muted: #5e6b73;
+  --materia-surface: rgba(255, 255, 255, 0.34);
+  --materia-surface-strong: rgba(255, 255, 255, 0.74);
+  --materia-surface-data: rgba(245, 247, 246, 0.82);
+  --materia-edge: rgba(36, 49, 58, 0.34);
+  --materia-edge-soft: rgba(36, 49, 58, 0.19);
+  --materia-accent: #316f78;
+  --materia-accent-alt: #655d85;
+  --materia-success: #3d7459;
+  --materia-warning: #8c642d;
+  --materia-danger: #934b4b;
+  --materia-shadow: rgba(44, 50, 53, 0.3);
+  background:
+    linear-gradient(135deg, rgba(49, 111, 120, 0.1), transparent 28%),
+    linear-gradient(315deg, rgba(101, 93, 133, 0.1), transparent 42%),
+    var(--materia-surface) !important;
+}
+
+:root:not([data-theme="dark"]) .materias-lista__item {
+  --materia-card-surface: rgba(255, 255, 255, 0.62);
+}
+
+:root:not([data-theme="dark"]) .materias-lista__item:nth-child(even) {
+  --materia-card-surface: rgba(249, 247, 252, 0.64);
+}
+
+:root:not([data-theme="dark"]) .materia-card-meta .materia-meta-tag {
+  background: rgba(255, 255, 255, 0.72) !important;
+}
+
+:root:not([data-theme="dark"]) .materia-card-alumnos {
+  background: var(--materia-surface-data) !important;
+}
+
+:root:not([data-theme="dark"]) .materia-alumno-chip {
+  color: var(--materia-text) !important;
+  background: rgba(231, 236, 234, 0.78) !important;
+}
+
+:root:not([data-theme="dark"]) .materia-progress-bar {
+  background: rgba(36, 49, 58, 0.16);
+}
+
+@media (max-width: 860px) {
+  .materias-header-actions,
+  .materias-header-kpis {
+    width: 100%;
+    justify-content: flex-start;
+  }
+
+  .materias-header-primary {
+    flex: 1 1 100%;
+  }
+}
+
+@media (max-width: 720px) {
+  .materias-lista__item {
+    border-radius: 15px;
+  }
+
+  .materia-progress-bar {
+    width: 100%;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .materias-panel,
+  .materias-lista__item,
+  .materia-card-primary-action,
+  .materia-card-primary-action:hover {
+    transition: none !important;
+    transform: none !important;
+  }
+}
+
+/* Desagrupación de datos: una materia conserva una superficie principal;
+   la información interna se lee como composición editorial, no como mosaico
+   de tarjetas anidadas. */
+.materias-panel :is(
+  .materia-card-surface,
+  .materia-card-header,
+  .materia-card-meta,
+  .materia-card-alumnos
+) {
+  border: 0 !important;
+  background: transparent !important;
+  box-shadow: none !important;
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+}
+
+.materias-panel :is(
+  .materia-card-surface,
+  .materia-card-header,
+  .materia-card-meta,
+  .materia-card-alumnos
+)::before,
+.materias-panel :is(
+  .materia-card-surface,
+  .materia-card-header,
+  .materia-card-meta,
+  .materia-card-alumnos
+)::after {
+  content: none !important;
+  display: none !important;
+}
+
+.materia-card-surface {
+  position: relative;
+  border-radius: 0;
+  background: transparent !important;
+  box-shadow: none !important;
+}
+
+.materia-card-header {
+  padding-bottom: 0.15rem;
+}
+
+.materia-card-meta {
+  padding: 0.68rem 0;
+  border-top: 1px solid var(--materia-edge-soft) !important;
+  border-bottom: 1px solid var(--materia-edge-soft) !important;
+}
+
+.materia-card-meta .materia-meta-tag {
+  min-height: auto;
+  padding: 0.18rem 0.7rem;
+  border: 0 !important;
+  border-radius: 0;
+  background: transparent !important;
+  box-shadow: none !important;
+}
+
+.materia-card-meta .materia-meta-tag + .materia-meta-tag {
+  border-left: 1px solid var(--materia-edge-soft) !important;
+}
+
+.materia-card-meta .materia-meta-lbl {
+  padding: 0;
+  background: transparent !important;
+  letter-spacing: 0.08em;
+}
+
+.materia-card-alumnos {
+  padding: 0.78rem 0 0;
+}
+
+.materia-card-alumnos__header {
+  padding-bottom: 0.42rem;
+  border-bottom: 1px solid var(--materia-edge-soft);
+}
+
+.materia-card-alumnos__list {
+  gap: 0.15rem 0;
+  padding-top: 0.32rem;
+}
+
+.materia-alumno-chip {
+  min-width: 0;
+  padding: 0.18rem 0.42rem;
+  border: 0 !important;
+  border-radius: 0;
+  background: transparent !important;
+  box-shadow: none !important;
+}
+
+.materia-alumno-chip + .materia-alumno-chip {
+  border-left: 1px solid var(--materia-edge-soft) !important;
+}
+
+.materia-actions-toggle {
+  margin-top: 1rem;
+  padding: 0.72rem 0 0;
+  border: 0 !important;
+  border-top: 1px solid var(--materia-edge-soft) !important;
+  border-radius: 0;
+  background: transparent !important;
+  box-shadow: none !important;
+}
+
+.materia-actions-toggle:hover {
+  background: transparent !important;
+  border-color: var(--materia-edge) !important;
+}
+
+.guia-materia-compact {
+  padding: 0.35rem 0;
+  border: 0;
+  border-bottom: 1px solid var(--materia-edge-soft);
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+}
+
 /* Cuenta docente: control de identidad visible, accionable y legible. */
 .shell-docente__acciones {
   align-items: center;
@@ -3331,4 +4155,1619 @@ button.chip-docente-sesion:active {
   background-size: initial !important;
   background-repeat: initial !important;
   box-shadow: none !important;
+}
+
+/* SPEC-057 / TRUE LAST LAYER: composición abierta para Materias. */
+.materias-panel {
+  background:
+    linear-gradient(135deg, rgba(117, 180, 186, 0.12), transparent 28%),
+    linear-gradient(315deg, rgba(176, 164, 201, 0.11), transparent 42%),
+    var(--materia-surface, rgba(27, 39, 51, 0.34)) !important;
+  border: 1px solid var(--materia-edge-soft, rgba(199, 213, 218, 0.25)) !important;
+  box-shadow:
+    0 28px 64px -40px var(--materia-shadow, rgba(3, 10, 16, 0.72)),
+    inset 0 1px 0 rgba(255, 255, 255, 0.24),
+    inset 0 -1px 0 rgba(8, 15, 21, 0.42) !important;
+  backdrop-filter: blur(30px) saturate(122%);
+  -webkit-backdrop-filter: blur(30px) saturate(122%);
+}
+
+.materias-lista {
+  align-items: start;
+}
+
+.materias-lista__item {
+  align-self: start;
+  border: 1px solid color-mix(in srgb, var(--materia-accent, #75b4ba) 56%, var(--materia-edge-soft, rgba(199, 213, 218, 0.25))) !important;
+  background:
+    linear-gradient(132deg, color-mix(in srgb, var(--materia-accent, #75b4ba) 16%, transparent), transparent 34%),
+    linear-gradient(315deg, rgba(255, 255, 255, 0.05), transparent 46%),
+    var(--materia-card-surface, rgba(35, 51, 64, 0.64)) !important;
+  box-shadow:
+    0 22px 38px -28px var(--materia-shadow, rgba(3, 10, 16, 0.72)),
+    inset 0 1px 0 rgba(255, 255, 255, 0.22),
+    inset 0 -1px 0 rgba(9, 18, 25, 0.36) !important;
+  backdrop-filter: blur(26px) saturate(124%);
+  -webkit-backdrop-filter: blur(26px) saturate(124%);
+}
+
+.materias-panel :is(.materia-card-surface, .materia-card-header, .materia-card-meta, .materia-card-alumnos) {
+  border: 0 !important;
+  background: transparent !important;
+  background-image: none !important;
+  box-shadow: none !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+}
+
+.materias-panel :is(.materia-card-surface, .materia-card-header, .materia-card-meta, .materia-card-alumnos)::before,
+.materias-panel :is(.materia-card-surface, .materia-card-header, .materia-card-meta, .materia-card-alumnos)::after {
+  content: none !important;
+  display: none !important;
+}
+
+.materia-card-surface {
+  position: relative;
+  border-radius: 0;
+  background: transparent !important;
+  background-image: none !important;
+  box-shadow: none !important;
+}
+
+.materia-card-meta {
+  padding: 0.68rem 0;
+  border-top: 1px solid var(--materia-edge-soft) !important;
+  border-bottom: 1px solid var(--materia-edge-soft) !important;
+}
+
+.materia-card-meta .materia-meta-tag {
+  padding: 0.18rem 0.7rem;
+  border: 0 !important;
+  border-radius: 0;
+  background: transparent !important;
+  box-shadow: none !important;
+}
+
+.materia-card-meta .materia-meta-tag + .materia-meta-tag {
+  border-left: 1px solid var(--materia-edge-soft) !important;
+}
+
+.materia-card-alumnos {
+  padding: 0.78rem 0 0;
+}
+
+.materia-card-alumnos__header {
+  padding-bottom: 0.42rem;
+  border-bottom: 1px solid var(--materia-edge-soft);
+}
+
+.materia-alumno-chip {
+  padding: 0.18rem 0.42rem;
+  border: 0 !important;
+  border-radius: 0;
+  background: transparent !important;
+  box-shadow: none !important;
+}
+
+.materia-alumno-chip + .materia-alumno-chip {
+  border-left: 1px solid var(--materia-edge-soft) !important;
+}
+
+.materia-card-primary-action,
+.materia-card-primary-action:hover {
+  border: 1px solid color-mix(in srgb, var(--materia-accent, #75b4ba) 72%, white 28%) !important;
+  color: #152328 !important;
+  background: var(--materia-accent, #75b4ba) !important;
+  background-image: none !important;
+  box-shadow:
+    0 14px 22px -18px var(--materia-shadow, rgba(3, 10, 16, 0.72)),
+    inset 0 1px 0 rgba(255, 255, 255, 0.38) !important;
+}
+
+.materia-actions-toggle,
+.materia-actions-toggle:hover,
+.guia-materia-compact {
+  border-color: var(--materia-edge-soft) !important;
+  border-radius: 0;
+  background: transparent !important;
+  background-image: none !important;
+  box-shadow: none !important;
+}
+
+/* La regla global usa una especificidad mayor; este prefijo la supera sin
+   afectar las tarjetas de las demás secciones. */
+:root[data-theme] .materias-panel {
+  background:
+    linear-gradient(135deg, rgba(117, 180, 186, 0.12), transparent 28%),
+    linear-gradient(315deg, rgba(176, 164, 201, 0.11), transparent 42%),
+    var(--materia-surface, rgba(27, 39, 51, 0.34)) !important;
+  border-color: var(--materia-edge-soft, rgba(199, 213, 218, 0.25)) !important;
+  box-shadow:
+    0 28px 64px -40px var(--materia-shadow, rgba(3, 10, 16, 0.72)),
+    inset 0 1px 0 rgba(255, 255, 255, 0.24),
+    inset 0 -1px 0 rgba(8, 15, 21, 0.42) !important;
+}
+
+:root[data-theme] .materias-panel .materias-lista__item {
+  border-color: color-mix(in srgb, var(--materia-accent, #75b4ba) 56%, var(--materia-edge-soft, rgba(199, 213, 218, 0.25))) !important;
+  background:
+    linear-gradient(132deg, color-mix(in srgb, var(--materia-accent, #75b4ba) 16%, transparent), transparent 34%),
+    linear-gradient(315deg, rgba(255, 255, 255, 0.05), transparent 46%),
+    var(--materia-card-surface, rgba(35, 51, 64, 0.64)) !important;
+  box-shadow:
+    0 22px 38px -28px var(--materia-shadow, rgba(3, 10, 16, 0.72)),
+    inset 0 1px 0 rgba(255, 255, 255, 0.22),
+    inset 0 -1px 0 rgba(9, 18, 25, 0.36) !important;
+}
+
+:root[data-theme] .materias-panel :is(.materia-card-surface, .materia-card-header, .materia-card-meta, .materia-card-alumnos) {
+  border: 0 !important;
+  background: transparent !important;
+  background-image: none !important;
+  box-shadow: none !important;
+}
+
+:root[data-theme] .materias-panel :is(.materia-card-surface, .materia-card-header, .materia-card-meta, .materia-card-alumnos)::before,
+:root[data-theme] .materias-panel :is(.materia-card-surface, .materia-card-header, .materia-card-meta, .materia-card-alumnos)::after {
+  content: none !important;
+  display: none !important;
+}
+
+:root[data-theme] .materias-panel .materia-card-primary-action,
+:root[data-theme] .materias-panel .materia-card-primary-action:hover {
+  border-color: color-mix(in srgb, var(--materia-accent, #75b4ba) 72%, white 28%) !important;
+  background: var(--materia-accent, #75b4ba) !important;
+  background-image: none !important;
+  box-shadow:
+    0 14px 22px -18px var(--materia-shadow, rgba(3, 10, 16, 0.72)),
+    inset 0 1px 0 rgba(255, 255, 255, 0.38) !important;
+}
+
+:root[data-theme] .materias-panel :is(
+  .materia-card-alumnos__header,
+  .materia-card-alumnos__list,
+  .materia-card-alumnos__empty,
+  .materia-card-primary-action__copy,
+  .materia-card-primary-action__eyebrow,
+  .materia-card-primary-action__icon
+) {
+  border: 0 !important;
+  background: transparent !important;
+  background-image: none !important;
+  box-shadow: none !important;
+}
+
+:root[data-theme] .materias-panel :is(
+  .materia-card-alumnos__header,
+  .materia-card-alumnos__list,
+  .materia-card-alumnos__empty,
+  .materia-card-primary-action__copy,
+  .materia-card-primary-action__eyebrow,
+  .materia-card-primary-action__icon
+)::before,
+:root[data-theme] .materias-panel :is(
+  .materia-card-alumnos__header,
+  .materia-card-alumnos__list,
+  .materia-card-alumnos__empty,
+  .materia-card-primary-action__copy,
+  .materia-card-primary-action__eyebrow,
+  .materia-card-primary-action__icon
+)::after {
+  content: none !important;
+  display: none !important;
+}
+
+/* SPEC-057 / FROSTED GLASS ITERATION: transparencia material visible en la
+   superficie de Materias, con contraste reservado para los datos consultados. */
+:root[data-theme] .materias-panel {
+  position: relative;
+  isolation: isolate;
+  background:
+    linear-gradient(118deg, rgba(255, 255, 255, 0.12), transparent 18%, rgba(117, 180, 186, 0.08) 48%, transparent 70%),
+    linear-gradient(292deg, rgba(176, 164, 201, 0.12), transparent 34%),
+    linear-gradient(155deg, rgba(26, 42, 52, 0.28), rgba(30, 48, 60, 0.12) 52%, rgba(11, 24, 32, 0.24)) !important;
+  border-color: rgba(225, 239, 238, 0.34) !important;
+  box-shadow:
+    0 34px 78px -44px rgba(2, 8, 14, 0.82),
+    inset 0 1px 0 rgba(255, 255, 255, 0.38),
+    inset 0 -1px 0 rgba(8, 15, 21, 0.48),
+    inset 1px 0 0 rgba(188, 226, 222, 0.12) !important;
+  backdrop-filter: blur(42px) saturate(148%) !important;
+  -webkit-backdrop-filter: blur(42px) saturate(148%) !important;
+}
+
+:root[data-theme] .materias-panel .materias-lista__item {
+  position: relative;
+  overflow: hidden;
+  border-color: color-mix(in srgb, var(--materia-accent, #75b4ba) 62%, rgba(235, 246, 244, 0.64)) !important;
+  background:
+    linear-gradient(118deg, rgba(255, 255, 255, 0.20), rgba(255, 255, 255, 0.055) 16%, transparent 38%),
+    linear-gradient(160deg, color-mix(in srgb, var(--materia-accent, #75b4ba) 20%, transparent), transparent 52%),
+    linear-gradient(320deg, rgba(190, 170, 214, 0.17), transparent 58%),
+    linear-gradient(145deg, rgba(39, 60, 69, 0.38), rgba(27, 43, 53, 0.20) 56%, rgba(12, 27, 34, 0.30)) !important;
+  box-shadow:
+    0 30px 54px -34px rgba(2, 8, 14, 0.86),
+    inset 0 1px 0 rgba(255, 255, 255, 0.42),
+    inset 0 -1px 0 rgba(6, 15, 20, 0.58),
+    inset 1px 0 0 rgba(204, 235, 230, 0.16) !important;
+  backdrop-filter: blur(38px) saturate(154%) !important;
+  -webkit-backdrop-filter: blur(38px) saturate(154%) !important;
+}
+
+:root[data-theme] .materias-panel .materias-lista__item::before {
+  content: '' !important;
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  border-radius: inherit;
+  background:
+    linear-gradient(126deg, rgba(255, 255, 255, 0.24), transparent 20%, transparent 62%, rgba(255, 255, 255, 0.06) 82%, transparent 96%);
+  opacity: 0.82;
+}
+
+:root[data-theme] .materias-panel .materias-lista__item::after {
+  content: '' !important;
+  position: absolute;
+  inset: 1px;
+  z-index: 0;
+  pointer-events: none;
+  border: 1px solid rgba(237, 248, 245, 0.18);
+  border-radius: calc(var(--ui-card-radius, 12px) - 1px);
+  background: transparent !important;
+  box-shadow: inset 0 0 0 1px rgba(7, 20, 27, 0.12);
+  opacity: 1 !important;
+}
+
+:root[data-theme] .materias-panel .materias-lista__item > * {
+  position: relative;
+  z-index: 1;
+}
+
+:root[data-theme] .materias-panel .materia-card-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.38rem;
+  padding: 0.72rem 0 0.78rem;
+  border-top: 1px solid rgba(226, 242, 239, 0.30) !important;
+  border-bottom: 1px solid rgba(8, 22, 28, 0.34) !important;
+}
+
+:root[data-theme] .materias-panel .materia-card-meta .materia-meta-tag {
+  padding: 0.24rem 0.64rem;
+  border: 1px solid rgba(220, 239, 235, 0.24) !important;
+  border-radius: 999px;
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.15), rgba(255, 255, 255, 0.035)) !important;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.24),
+    0 5px 14px -12px rgba(2, 8, 14, 0.92) !important;
+}
+
+:root[data-theme] .materias-panel .materia-card-meta .materia-meta-tag + .materia-meta-tag {
+  border-left: 1px solid rgba(220, 239, 235, 0.24) !important;
+}
+
+:root[data-theme] .materias-panel .materia-card-meta .materia-meta-lbl {
+  color: rgba(220, 244, 239, 0.72) !important;
+}
+
+:root[data-theme] .materias-panel .materia-card-meta .materia-meta-value {
+  color: #f5fbf8 !important;
+  text-shadow: 0 1px 12px rgba(4, 12, 16, 0.48);
+}
+
+:root[data-theme] .materias-panel .materia-card-alumnos {
+  padding: 0.86rem 0.78rem 0.08rem;
+  border-radius: 14px;
+  background: linear-gradient(112deg, rgba(255, 255, 255, 0.09), rgba(255, 255, 255, 0.018) 44%, rgba(9, 24, 31, 0.10)) !important;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.16),
+    inset 0 -1px 0 rgba(4, 15, 21, 0.20) !important;
+}
+
+:root[data-theme] .materias-panel .materia-card-alumnos__header {
+  padding-bottom: 0.50rem;
+  border-bottom: 1px solid rgba(226, 242, 239, 0.25) !important;
+}
+
+:root[data-theme] .materias-panel .materia-card-alumnos__header strong {
+  color: #ffffff !important;
+  font-size: 1.15em;
+  text-shadow: 0 1px 12px rgba(4, 12, 16, 0.56);
+}
+
+:root[data-theme] .materias-panel .materia-alumno-chip {
+  border: 0 !important;
+  border-radius: 0;
+  background: transparent !important;
+  box-shadow: none !important;
+}
+
+:root[data-theme] .materias-panel .materia-alumno-chip + .materia-alumno-chip {
+  border-left: 1px solid rgba(226, 242, 239, 0.20) !important;
+}
+
+:root[data-theme] .materias-panel .materia-alumno-chip__name {
+  color: rgba(246, 252, 249, 0.92) !important;
+}
+
+:root[data-theme] .materias-panel .materia-alumno-chip__group {
+  color: #d8f3ee !important;
+  text-shadow: 0 1px 8px rgba(4, 12, 16, 0.46);
+}
+
+:root[data-theme] .materias-panel .materia-card-primary-action,
+:root[data-theme] .materias-panel .materia-card-primary-action:hover {
+  border-color: color-mix(in srgb, var(--materia-accent, #75b4ba) 72%, rgba(245, 255, 250, 0.74)) !important;
+  color: #102328 !important;
+  background:
+    linear-gradient(128deg, rgba(137, 207, 205, 0.76), rgba(135, 183, 187, 0.52) 44%, rgba(197, 179, 218, 0.48)) !important;
+  box-shadow:
+    0 18px 28px -20px rgba(2, 8, 14, 0.84),
+    inset 0 1px 0 rgba(255, 255, 255, 0.58),
+    inset 0 -1px 0 rgba(11, 35, 42, 0.22) !important;
+  backdrop-filter: blur(20px) saturate(150%) !important;
+  -webkit-backdrop-filter: blur(20px) saturate(150%) !important;
+}
+
+:root[data-theme] .materias-panel .materia-card-primary-action__eyebrow {
+  color: rgba(16, 35, 40, 0.74) !important;
+}
+
+/* SPEC-057 / OPEN CARD PASS: una sola superficie exterior; el contenido se
+   organiza por ritmo, separadores y tipografía, no por paneles anidados. */
+:root[data-theme] .materias-panel .materia-card-meta {
+  gap: 0.7rem;
+  padding: 0.78rem 0 0.82rem;
+  border-top: 1px solid rgba(226, 242, 239, 0.28) !important;
+  border-bottom: 1px solid rgba(8, 22, 28, 0.34) !important;
+  border-radius: 0 !important;
+  background: transparent !important;
+  background-image: none !important;
+  box-shadow: none !important;
+}
+
+:root[data-theme] .materias-panel .materia-card-meta .materia-meta-tag {
+  padding: 0.08rem 0;
+  border: 0 !important;
+  border-radius: 0 !important;
+  background: transparent !important;
+  background-image: none !important;
+  box-shadow: none !important;
+}
+
+:root[data-theme] .materias-panel .materia-card-meta .materia-meta-tag + .materia-meta-tag {
+  padding-left: 0.85rem;
+  border-left: 1px solid rgba(226, 242, 239, 0.20) !important;
+}
+
+:root[data-theme] .materias-panel .materia-card-alumnos {
+  padding: 0.92rem 0 0.12rem;
+  border: 0 !important;
+  border-radius: 0 !important;
+  background: transparent !important;
+  background-image: none !important;
+  box-shadow: none !important;
+}
+
+:root[data-theme] .materias-panel .materia-card-alumnos__header {
+  padding-bottom: 0.48rem;
+  border-bottom: 1px solid rgba(226, 242, 239, 0.24) !important;
+}
+
+:root[data-theme] .materias-panel .materia-card-alumnos__list {
+  padding-top: 0.46rem;
+  border: 0 !important;
+  border-radius: 0 !important;
+  background: transparent !important;
+  background-image: none !important;
+  box-shadow: none !important;
+}
+
+:root[data-theme] .materias-panel .materia-alumno-chip {
+  padding: 0.12rem 0.42rem 0.12rem 0;
+}
+
+:root[data-theme] .materias-panel .materia-alumno-chip + .materia-alumno-chip {
+  border-left: 0 !important;
+}
+
+:root[data-theme] .materias-panel .materia-card-primary-action,
+:root[data-theme] .materias-panel .materia-card-primary-action:hover {
+  display: flex;
+  width: 100%;
+  min-height: 0;
+  margin-top: 0.72rem;
+  padding: 0.76rem 0 0.16rem;
+  border: 0 !important;
+  border-top: 1px solid rgba(226, 242, 239, 0.28) !important;
+  border-radius: 0 !important;
+  background: transparent !important;
+  background-image: none !important;
+  color: #d8f3ee !important;
+  box-shadow: none !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+}
+
+:root[data-theme] .materias-panel .materia-card-primary-action__copy {
+  padding-left: 0.68rem;
+  border-left: 2px solid var(--materia-accent, #75b4ba) !important;
+}
+
+:root[data-theme] .materias-panel .materia-card-primary-action__eyebrow {
+  color: rgba(216, 243, 238, 0.66) !important;
+}
+
+:root[data-theme] .materias-panel .materia-card-primary-action__icon {
+  border: 0 !important;
+  background: transparent !important;
+  color: var(--materia-accent, #75b4ba) !important;
+  box-shadow: none !important;
+}
+
+/* SPEC-059 / PRIMARY CARD CTA: el acceso se percibe como un control único,
+   compacto y táctil, sin convertir toda la fila en otra tarjeta. */
+:root[data-theme] .materias-panel .materia-card-primary-action,
+:root[data-theme] .materias-panel .materia-card-primary-action:hover {
+  align-items: center;
+  gap: 1rem;
+  margin-top: 0.9rem;
+  padding: 0.82rem 0.18rem 0.08rem;
+  border-top: 1px solid rgba(226, 242, 239, 0.25) !important;
+  color: #eaf7f3 !important;
+}
+
+:root[data-theme] .materias-panel .materia-card-primary-action__copy {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.72rem;
+  min-height: 44px;
+  padding: 0.52rem 1rem !important;
+  border: 1px solid rgba(207, 235, 226, 0.52) !important;
+  border-radius: 999px !important;
+  background:
+    linear-gradient(145deg, rgba(152, 197, 187, 0.58), rgba(79, 126, 127, 0.54)) !important;
+  color: #f3fbf8 !important;
+  box-shadow:
+    0 12px 22px -18px rgba(2, 10, 14, 0.95),
+    inset 0 1px 0 rgba(255, 255, 255, 0.42),
+    inset 0 -1px 0 rgba(8, 32, 36, 0.28) !important;
+  backdrop-filter: blur(16px) saturate(128%) !important;
+  -webkit-backdrop-filter: blur(16px) saturate(128%) !important;
+  transition: transform 160ms ease, border-color 160ms ease, background 160ms ease, box-shadow 160ms ease;
+}
+
+:root[data-theme] .materias-panel .materia-card-surface:hover .materia-card-primary-action__copy {
+  transform: translateY(-1px);
+  border-color: rgba(229, 247, 239, 0.76) !important;
+  background:
+    linear-gradient(145deg, rgba(172, 213, 201, 0.72), rgba(92, 145, 143, 0.66)) !important;
+  box-shadow:
+    0 16px 28px -18px rgba(2, 10, 14, 0.98),
+    inset 0 1px 0 rgba(255, 255, 255, 0.52),
+    inset 0 -1px 0 rgba(8, 32, 36, 0.24) !important;
+}
+
+:root[data-theme] .materias-panel .materia-card-primary-action__eyebrow {
+  padding: 0 !important;
+  border: 0 !important;
+  background: transparent !important;
+  background-image: none !important;
+  color: rgba(233, 248, 242, 0.72) !important;
+  font-size: 0.61rem;
+  letter-spacing: 0.085em;
+}
+
+:root[data-theme] .materias-panel .materia-card-primary-action__copy > span:last-child {
+  color: #f7fffc !important;
+  font-size: 0.96rem;
+  font-weight: 820;
+  letter-spacing: -0.01em;
+  white-space: nowrap;
+}
+
+:root[data-theme] .materias-panel .materia-card-primary-action__icon {
+  display: inline-grid;
+  flex: 0 0 34px;
+  width: 34px;
+  height: 34px;
+  place-items: center;
+  border: 1px solid rgba(211, 237, 228, 0.42) !important;
+  border-radius: 50% !important;
+  background: rgba(24, 58, 63, 0.42) !important;
+  color: #effcf7 !important;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.26),
+    0 8px 16px -14px rgba(0, 0, 0, 0.9) !important;
+  transition: transform 160ms ease, background 160ms ease, border-color 160ms ease;
+}
+
+:root[data-theme] .materias-panel .materia-card-surface:hover .materia-card-primary-action__icon {
+  transform: translateX(2px);
+  border-color: rgba(233, 249, 241, 0.68) !important;
+  background: rgba(43, 91, 92, 0.58) !important;
+}
+
+:root[data-theme] .materias-panel .materia-card-surface:focus-visible .materia-card-primary-action__copy {
+  outline: 3px solid rgba(221, 190, 123, 0.92);
+  outline-offset: 3px;
+}
+
+/* SPEC-061 / CTA HIGH-CONTRAST: el acceso vuelve a ser reconocible como botón,
+   con una sola cápsula mate de vidrio y sin convertir la fila completa en otra tarjeta. */
+:root[data-theme] .materias-panel .materia-card-primary-action__copy,
+:root[data-theme] .materias-panel .materia-card-surface:hover .materia-card-primary-action__copy {
+  min-height: 48px;
+  padding: 0.62rem 1.08rem !important;
+  border: 1px solid rgba(222, 242, 236, 0.62) !important;
+  border-radius: 999px !important;
+  background: rgba(45, 89, 93, 0.78) !important;
+  background-image: none !important;
+  box-shadow:
+    0 10px 20px -16px rgba(3, 15, 18, 0.95),
+    inset 0 1px 0 rgba(255, 255, 255, 0.36),
+    inset 0 -1px 0 rgba(7, 31, 34, 0.42) !important;
+  backdrop-filter: blur(18px) saturate(132%) !important;
+  -webkit-backdrop-filter: blur(18px) saturate(132%) !important;
+  transform: translateY(-1px);
+}
+
+:root[data-theme] .materias-panel .materia-card-surface:hover .materia-card-primary-action__copy {
+  border-color: rgba(241, 251, 246, 0.86) !important;
+  background: rgba(61, 117, 117, 0.9) !important;
+  box-shadow:
+    0 14px 24px -16px rgba(3, 15, 18, 0.98),
+    inset 0 1px 0 rgba(255, 255, 255, 0.48),
+    inset 0 -1px 0 rgba(7, 31, 34, 0.34) !important;
+}
+
+:root[data-theme] .materias-panel .materia-card-primary-action__copy > span:last-child {
+  color: #f4fffb !important;
+  font-size: 1rem;
+  font-weight: 820;
+  letter-spacing: -0.01em;
+  text-decoration: none;
+}
+
+:root[data-theme] .materias-panel .materia-card-primary-action::before,
+:root[data-theme] .materias-panel .materia-card-primary-action::after {
+  content: none !important;
+  display: none !important;
+}
+
+/* SPEC-058 / BUTTON SYSTEM: jerarquía táctil coherente, superficies mates y
+   estados legibles. Se excluyen las acciones abiertas de Materias y el perfil
+   docente, que tienen composición propia. */
+:root[data-theme] :is(
+  .boton,
+  .asistencias-btn-primario,
+  .asistencias-btn-secundario,
+  .plantillas-stepper__button,
+  .guia-materia-compact
+):not(.materia-card-primary-action) {
+  min-height: 44px;
+  border-radius: 13px;
+  border: 1px solid rgba(185, 220, 213, 0.34) !important;
+  font-weight: 780;
+  letter-spacing: 0.005em;
+  transition:
+    transform 160ms ease,
+    background 160ms ease,
+    border-color 160ms ease,
+    box-shadow 160ms ease,
+    color 160ms ease;
+}
+
+:root[data-theme] :is(
+  .boton,
+  .asistencias-btn-primario,
+  .plantillas-stepper__button
+):not(.secundario):not(.boton--secundario):not(.boton--peligro):not(.boton--disabled) {
+  background:
+    linear-gradient(145deg, rgba(142, 199, 190, 0.86), rgba(78, 145, 143, 0.88) 54%, rgba(53, 111, 114, 0.92)) !important;
+  color: #102b2e !important;
+  border-color: rgba(205, 235, 226, 0.62) !important;
+  box-shadow:
+    0 14px 26px -18px rgba(2, 10, 14, 0.92),
+    inset 0 1px 0 rgba(255, 255, 255, 0.48),
+    inset 0 -1px 0 rgba(9, 40, 44, 0.26) !important;
+}
+
+:root[data-theme] :is(
+  .boton,
+  .asistencias-btn-primario,
+  .plantillas-stepper__button
+):not(.secundario):not(.boton--secundario):not(.boton--peligro):not(.boton--disabled):hover {
+  transform: translateY(-2px);
+  background:
+    linear-gradient(145deg, rgba(161, 211, 201, 0.94), rgba(91, 163, 158, 0.94) 54%, rgba(66, 127, 127, 0.96)) !important;
+  border-color: rgba(226, 246, 238, 0.82) !important;
+  box-shadow:
+    0 18px 30px -18px rgba(2, 10, 14, 0.96),
+    inset 0 1px 0 rgba(255, 255, 255, 0.58),
+    inset 0 -1px 0 rgba(9, 40, 44, 0.22) !important;
+}
+
+:root[data-theme] :is(
+  .boton,
+  .asistencias-btn-primario,
+  .plantillas-stepper__button
+):not(.secundario):not(.boton--secundario):not(.boton--peligro):not(.boton--disabled):active {
+  transform: translateY(1px) scale(0.985);
+  box-shadow:
+    0 6px 12px -10px rgba(2, 10, 14, 0.88),
+    inset 0 1px 2px rgba(8, 33, 37, 0.28) !important;
+}
+
+:root[data-theme] :is(
+  .boton.secundario,
+  .boton--secundario,
+  .asistencias-btn-secundario,
+  .guia-materia-compact
+) {
+  background:
+    linear-gradient(145deg, rgba(221, 239, 235, 0.15), rgba(75, 108, 112, 0.30) 52%, rgba(24, 47, 57, 0.42)) !important;
+  color: #e8f5f1 !important;
+  border-color: rgba(183, 218, 211, 0.34) !important;
+  box-shadow:
+    0 12px 24px -20px rgba(2, 10, 14, 0.92),
+    inset 0 1px 0 rgba(255, 255, 255, 0.24),
+    inset 0 -1px 0 rgba(5, 18, 24, 0.28) !important;
+  backdrop-filter: blur(18px) saturate(120%) !important;
+  -webkit-backdrop-filter: blur(18px) saturate(120%) !important;
+}
+
+:root[data-theme] :is(
+  .boton.secundario,
+  .boton--secundario,
+  .asistencias-btn-secundario,
+  .guia-materia-compact
+):hover {
+  transform: translateY(-1px);
+  background:
+    linear-gradient(145deg, rgba(232, 246, 241, 0.22), rgba(92, 133, 135, 0.38) 52%, rgba(27, 54, 62, 0.52)) !important;
+  border-color: rgba(215, 237, 229, 0.58) !important;
+  box-shadow:
+    0 16px 28px -20px rgba(2, 10, 14, 0.96),
+    inset 0 1px 0 rgba(255, 255, 255, 0.32),
+    inset 0 -1px 0 rgba(5, 18, 24, 0.26) !important;
+}
+
+:root[data-theme] :is(.boton.peligro, .boton--peligro) {
+  background: rgba(154, 73, 71, 0.42) !important;
+  color: #ffe8e3 !important;
+  border-color: rgba(245, 165, 151, 0.52) !important;
+  box-shadow:
+    0 12px 24px -20px rgba(94, 17, 22, 0.92),
+    inset 0 1px 0 rgba(255, 221, 213, 0.24) !important;
+}
+
+:root[data-theme] :is(.boton.peligro, .boton--peligro):hover {
+  background: rgba(178, 78, 72, 0.58) !important;
+  border-color: rgba(255, 190, 175, 0.72) !important;
+}
+
+:root[data-theme] .boton--glow {
+  animation: none !important;
+  filter: none !important;
+}
+
+:root[data-theme] :is(.chip, .badge):not(.chip-docente-sesion) {
+  min-height: 40px;
+  border-radius: 11px;
+  border-color: rgba(185, 220, 213, 0.30) !important;
+  background: rgba(59, 91, 97, 0.34) !important;
+  color: #e8f5f1 !important;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.20),
+    inset 0 -1px 0 rgba(5, 18, 24, 0.24) !important;
+}
+
+:root[data-theme] :is(.chip, .badge):not(.chip-docente-sesion):hover {
+  transform: translateY(-1px);
+  border-color: rgba(215, 237, 229, 0.52) !important;
+  background: rgba(79, 119, 121, 0.46) !important;
+  box-shadow:
+    0 12px 22px -18px rgba(2, 10, 14, 0.92),
+    inset 0 1px 0 rgba(255, 255, 255, 0.28) !important;
+}
+
+:root[data-theme] .tabs .tab {
+  min-height: 42px;
+  border: 1px solid transparent !important;
+  border-radius: 11px;
+  background: transparent !important;
+  color: rgba(220, 239, 234, 0.78) !important;
+  box-shadow: none !important;
+  animation: none !important;
+  transform: none !important;
+}
+
+:root[data-theme] .tabs .tab:hover {
+  border-color: rgba(183, 218, 211, 0.22) !important;
+  background: rgba(119, 158, 157, 0.14) !important;
+  color: #f2faf7 !important;
+  transform: translateX(2px) !important;
+}
+
+:root[data-theme] .tabs .tab.activa,
+:root[data-theme] .tabs .tab[aria-current='page'] {
+  border-color: rgba(190, 227, 218, 0.44) !important;
+  background: rgba(105, 169, 164, 0.34) !important;
+  color: #f6fbf8 !important;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.28),
+    inset 0 -1px 0 rgba(12, 46, 49, 0.28) !important;
+}
+
+:root[data-theme] .tabs .tab.activa::before,
+:root[data-theme] .tabs .tab[aria-current='page']::before {
+  width: 3px;
+  background: #d3e8dd !important;
+  box-shadow: none !important;
+}
+
+:root[data-theme] :is(
+  button,
+  a.boton,
+  .tabs .tab
+):focus-visible {
+  outline: 3px solid rgba(221, 190, 123, 0.92) !important;
+  outline-offset: 3px;
+}
+
+:root[data-theme] :is(.boton, .chip, .badge, .tab)[disabled],
+:root[data-theme] :is(.boton, .chip, .badge, .tab).boton--disabled {
+  cursor: not-allowed;
+  opacity: 0.48;
+  filter: saturate(0.42);
+  transform: none !important;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :root[data-theme] :is(.boton, .chip, .badge, .tab, .asistencias-btn-primario, .asistencias-btn-secundario) {
+    transition: none;
+  }
+}
+
+/* SPEC-057 / HEADER REFINEMENT: identidad docente sobria, sin policromía
+   decorativa ni glow animado en controles informativos. */
+:root[data-theme] button.chip-docente-sesion {
+  min-width: min(100%, 292px);
+  min-height: 62px;
+  padding: 0.48rem 0.82rem 0.48rem 0.58rem;
+  border: 1px solid rgba(183, 220, 213, 0.38) !important;
+  border-radius: 18px;
+  background:
+    linear-gradient(132deg, rgba(126, 174, 169, 0.22), transparent 38%),
+    linear-gradient(318deg, rgba(34, 59, 68, 0.52), rgba(11, 26, 36, 0.68)) !important;
+  color: #f2faf7 !important;
+  box-shadow:
+    0 18px 34px -24px rgba(2, 8, 14, 0.92),
+    inset 0 1px 0 rgba(255, 255, 255, 0.32),
+    inset 0 -1px 0 rgba(4, 15, 20, 0.42) !important;
+  backdrop-filter: blur(28px) saturate(124%) !important;
+  -webkit-backdrop-filter: blur(28px) saturate(124%) !important;
+}
+
+:root[data-theme] button.chip-docente-sesion:hover {
+  transform: translateY(-1px);
+  border-color: rgba(202, 231, 223, 0.62) !important;
+  background:
+    linear-gradient(132deg, rgba(145, 193, 186, 0.28), transparent 38%),
+    linear-gradient(318deg, rgba(42, 70, 77, 0.58), rgba(13, 31, 41, 0.72)) !important;
+  box-shadow:
+    0 20px 38px -24px rgba(2, 8, 14, 0.96),
+    inset 0 1px 0 rgba(255, 255, 255, 0.40),
+    inset 0 -1px 0 rgba(4, 15, 20, 0.42) !important;
+}
+
+:root[data-theme] .chip-docente-avatar {
+  flex-basis: 44px;
+  width: 44px;
+  height: 44px;
+  padding: 2px;
+  border: 1px solid rgba(190, 226, 218, 0.42);
+  border-radius: 14px;
+  background: linear-gradient(145deg, rgba(137, 187, 180, 0.64), rgba(54, 82, 85, 0.76)) !important;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.34),
+    0 8px 18px -14px rgba(3, 15, 20, 0.88) !important;
+}
+
+:root[data-theme] .chip-docente-avatar > span:first-child {
+  border-radius: 11px;
+  background: rgba(11, 30, 39, 0.86) !important;
+  color: #e4f4ef !important;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.18);
+}
+
+:root[data-theme] .chip-docente-avatar__status {
+  border-color: #102630 !important;
+  background: #9dccaa !important;
+  box-shadow: 0 0 0 2px rgba(157, 204, 170, 0.14) !important;
+}
+
+:root[data-theme] .chip-docente-name {
+  color: #f4faf7 !important;
+  font-size: 0.95rem;
+  letter-spacing: -0.01em;
+}
+
+:root[data-theme] .chip-docente-role {
+  color: #a9d1ca !important;
+  font-size: 0.68rem;
+  letter-spacing: 0.13em;
+}
+
+:root[data-theme] .chip-docente-chevron {
+  color: #a9d1ca !important;
+}
+
+:root[data-theme] button.chip-version {
+  border-color: rgba(177, 211, 208, 0.28) !important;
+  background: rgba(36, 61, 70, 0.46) !important;
+  color: #d5e8e4 !important;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.18) !important;
+  animation: none !important;
+}
+
+/* SPEC-062: Frosted Editorial.
+   Reduce la sensación de "cajas sobre cajas": la materia conserva una sola
+   superficie de vidrio, mientras que sus datos se leen como composición
+   editorial con acentos mate funcionales. */
+:root[data-theme="dark"] .materias-panel {
+  --materia-text: #f4f6f2;
+  --materia-text-secondary: #c4d0ca;
+  --materia-text-muted: #9eafa9;
+  --materia-edge: rgba(202, 225, 216, 0.38);
+  --materia-edge-soft: rgba(174, 201, 192, 0.19);
+  --materia-accent: #8fbdb0;
+  --materia-accent-alt: #c6b08d;
+  --materia-success: #9fc4a3;
+  --materia-warning: #d5b278;
+  --materia-shadow: rgba(3, 12, 16, 0.78);
+  background: transparent !important;
+  border: 0 !important;
+  box-shadow: none !important;
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+}
+
+:root[data-theme="dark"] .materias-panel::before,
+:root[data-theme="dark"] .materias-panel::after {
+  display: none !important;
+}
+
+:root[data-theme="dark"] .materias-panel__head {
+  padding-bottom: 1.35rem;
+  border-bottom: 0 !important;
+}
+
+:root[data-theme="dark"] .materias-panel .materias-lista__item {
+  --materia-card-surface: rgba(18, 31, 35, 0.42);
+  padding: clamp(1.15rem, 2vw, 1.6rem);
+  border: 1px solid rgba(190, 218, 208, 0.34) !important;
+  border-radius: 22px;
+  background:
+    linear-gradient(145deg, rgba(247, 245, 235, 0.075), transparent 34%),
+    linear-gradient(315deg, rgba(198, 176, 141, 0.07), transparent 48%),
+    var(--materia-card-surface) !important;
+  box-shadow:
+    0 26px 48px -36px var(--materia-shadow),
+    inset 0 1px 0 rgba(247, 255, 251, 0.22),
+    inset 0 -1px 0 rgba(4, 14, 18, 0.48) !important;
+  backdrop-filter: blur(32px) saturate(112%);
+  -webkit-backdrop-filter: blur(32px) saturate(112%);
+}
+
+:root[data-theme="dark"] .materias-lista__item::before {
+  display: none !important;
+}
+
+:root[data-theme="dark"] .materias-lista__item::after {
+  display: none !important;
+}
+
+:root[data-theme="dark"] .materias-lista__item:nth-child(even) {
+  --materia-accent: #b9a8c2;
+  --materia-card-surface: rgba(28, 27, 43, 0.38);
+}
+
+:root[data-theme="dark"] .materias-lista__item:hover {
+  transform: translateY(-2px);
+  border-color: rgba(218, 235, 226, 0.52) !important;
+  box-shadow:
+    0 30px 52px -38px var(--materia-shadow),
+    inset 0 1px 0 rgba(247, 255, 251, 0.28) !important;
+}
+
+:root[data-theme="dark"] .materia-card-header {
+  margin-bottom: 1rem;
+}
+
+:root[data-theme="dark"] .materia-title-group .item-title {
+  font-size: clamp(1.06rem, 1.55vw, 1.22rem);
+  letter-spacing: -0.035em;
+}
+
+:root[data-theme="dark"] .materia-card-meta {
+  gap: 0.35rem;
+  padding: 0.72rem 0;
+  border-top: 1px solid rgba(194, 220, 210, 0.18) !important;
+  border-bottom: 0 !important;
+}
+
+:root[data-theme="dark"] .materia-card-meta .materia-meta-tag {
+  padding-inline: 0.62rem;
+}
+
+:root[data-theme="dark"] .materia-card-meta .materia-meta-tag + .materia-meta-tag {
+  border-left-color: rgba(194, 220, 210, 0.16) !important;
+}
+
+:root[data-theme="dark"] .materia-card-alumnos {
+  margin-top: 0.35rem;
+  padding-top: 0.85rem;
+}
+
+:root[data-theme="dark"] .materia-card-alumnos__header {
+  padding-bottom: 0.5rem;
+  border-bottom: 0;
+}
+
+:root[data-theme="dark"] .materia-card-alumnos__header strong {
+  display: inline-grid;
+  min-width: 2rem;
+  min-height: 2rem;
+  place-items: center;
+  margin-left: 0.35rem;
+  border: 1px solid color-mix(in srgb, var(--materia-accent) 60%, transparent);
+  border-radius: 9px;
+  color: #132326 !important;
+  background: var(--materia-accent) !important;
+  font-size: 0.84rem;
+}
+
+:root[data-theme="dark"] .materia-card-alumnos__list {
+  gap: 0.14rem 0;
+  padding-top: 0.1rem;
+}
+
+:root[data-theme="dark"] .materia-alumno-chip {
+  padding: 0.28rem 0.45rem;
+  color: var(--materia-text-secondary) !important;
+}
+
+:root[data-theme="dark"] .materia-alumno-chip + .materia-alumno-chip {
+  border-left-color: rgba(194, 220, 210, 0.12) !important;
+}
+
+:root[data-theme="dark"] .materia-card-primary-action,
+:root[data-theme="dark"] .materia-card-primary-action:hover {
+  min-height: 48px;
+  margin-top: 1.15rem;
+  border: 1px solid color-mix(in srgb, var(--materia-accent) 68%, white 32%) !important;
+  border-radius: 11px;
+  color: #132326 !important;
+  background: linear-gradient(135deg, var(--materia-accent), color-mix(in srgb, var(--materia-accent) 72%, #d9c7a5)) !important;
+  box-shadow:
+    0 16px 26px -22px var(--materia-shadow),
+    inset 0 1px 0 rgba(255, 255, 255, 0.48) !important;
+}
+
+:root[data-theme="dark"] .materia-card-primary-action:hover {
+  filter: brightness(1.06) !important;
+  transform: translateY(-1px);
+}
+
+:root[data-theme="dark"] .materia-card-primary-action__eyebrow,
+:root[data-theme="dark"] .materia-card-primary-action__icon {
+  color: rgba(19, 35, 38, 0.72) !important;
+}
+
+:root[data-theme="dark"] .materia-actions-toggle {
+  margin-top: 1.05rem;
+  padding-top: 0.86rem;
+  border-top-color: rgba(194, 220, 210, 0.17) !important;
+}
+
+/* SPEC-063: Encabezado editorial de Materias.
+   La cabecera gana jerarquía sin añadir otra superficie contenedora. */
+:root[data-theme="dark"] .materias-panel__head {
+  position: relative;
+  align-items: flex-start;
+  padding: 0.55rem 0.35rem 1.45rem;
+  margin-bottom: 1.35rem;
+  border-bottom: 1px solid rgba(205, 225, 218, 0.17) !important;
+}
+
+:root[data-theme="dark"] .materias-panel__head::after {
+  content: '';
+  position: absolute;
+  left: 0.35rem;
+  bottom: -1px;
+  width: 4.5rem;
+  height: 2px;
+  border-radius: 999px;
+  background: linear-gradient(90deg, #9fcabd, rgba(159, 202, 189, 0));
+}
+
+:root[data-theme="dark"] .materias-panel__lead {
+  align-items: flex-start;
+  gap: 1.05rem;
+  min-width: 0;
+}
+
+:root[data-theme="dark"] .materias-panel__icon-orb {
+  width: 3.35rem;
+  height: 3.35rem;
+  min-width: 3.35rem;
+  margin-top: 0.2rem;
+  border: 1px solid rgba(198, 224, 215, 0.3) !important;
+  border-radius: 1.15rem;
+  color: #b1d7c9;
+  background: rgba(143, 189, 176, 0.1) !important;
+  box-shadow:
+    inset 0 1px 0 rgba(247, 255, 251, 0.22),
+    0 14px 26px -22px rgba(143, 189, 176, 0.8) !important;
+}
+
+:root[data-theme="dark"] .materias-panel__icon-orb svg {
+  width: 1.55rem;
+  height: 1.55rem;
+}
+
+:root[data-theme="dark"] .materias-panel__text-block {
+  gap: 0.28rem;
+  min-width: 0;
+}
+
+:root[data-theme="dark"] .materias-panel__meta-row {
+  gap: 0.78rem;
+  margin: 0 0 0.08rem;
+}
+
+:root[data-theme="dark"] .materias-status-pill {
+  padding: 0 !important;
+  border: 0 !important;
+  border-radius: 0;
+  color: #a9d0c1 !important;
+  background: transparent !important;
+  font-size: 0.64rem;
+  font-weight: 800;
+  letter-spacing: 0.13em;
+  text-transform: uppercase;
+}
+
+:root[data-theme="dark"] .materias-pulse-dot {
+  width: 0.38rem;
+  height: 0.38rem;
+  box-shadow: 0 0 0 3px rgba(159, 202, 189, 0.1), 0 0 9px rgba(159, 202, 189, 0.7);
+}
+
+:root[data-theme="dark"] .materias-counter-tag {
+  padding: 0.06rem 0 0.06rem 0.78rem;
+  border: 0;
+  border-left: 1px solid rgba(205, 225, 218, 0.25);
+  border-radius: 0;
+  color: #b8c9c2 !important;
+  background: transparent !important;
+  font-size: 0.7rem;
+}
+
+:root[data-theme="dark"] .materias-panel__title {
+  margin: 0.08rem 0 0;
+  color: #f6faf7 !important;
+  font-size: clamp(2rem, 3.1vw, 2.65rem);
+  font-weight: 850;
+  letter-spacing: -0.06em;
+  line-height: 1.02;
+  text-shadow: 0 5px 18px rgba(3, 12, 16, 0.28);
+}
+
+:root[data-theme="dark"] .materias-panel__text-block > .nota {
+  max-width: 42rem;
+  margin: 0.36rem 0 0;
+  color: #bdcdc6 !important;
+  font-size: 0.94rem;
+  line-height: 1.45;
+}
+
+:root[data-theme="dark"] .materias-header-actions {
+  align-self: flex-start;
+  padding-top: 0.08rem;
+}
+
+@media (max-width: 860px) {
+  :root[data-theme="dark"] .materias-panel__head {
+    padding-bottom: 1.2rem;
+  }
+
+  :root[data-theme="dark"] .materias-panel__title {
+    font-size: clamp(1.85rem, 8vw, 2.3rem);
+  }
+}
+
+/* SPEC-064: Sistema Frosted Editorial global para el portal docente.
+   Todas las pantallas comparten materiales, jerarquía y controles; los
+   colores semánticos de estados se conservan en sus componentes concretos. */
+:root[data-theme="dark"] .page--docente {
+  --docente-style-contract: docente-frosted-editorial-v2;
+  --docente-ink: #f4f7f4;
+  --docente-ink-soft: #c3d0ca;
+  --docente-ink-muted: #91a39c;
+  --docente-glass: rgba(17, 29, 34, 0.44);
+  --docente-glass-soft: rgba(20, 34, 40, 0.28);
+  --docente-edge: rgba(202, 225, 216, 0.28);
+  --docente-edge-soft: rgba(202, 225, 216, 0.15);
+  --docente-teal: #9fcabd;
+  --docente-amber: #d5b278;
+}
+
+:root[data-theme="dark"] .page--docente .shell-docente {
+  border-color: rgba(202, 225, 216, 0.24) !important;
+  background:
+    linear-gradient(145deg, rgba(247, 245, 235, 0.07), transparent 24%),
+    linear-gradient(315deg, rgba(190, 170, 214, 0.06), transparent 48%),
+    rgba(10, 23, 29, 0.52) !important;
+  box-shadow:
+    0 38px 76px -48px rgba(0, 0, 0, 0.9),
+    inset 0 1px 0 rgba(247, 255, 251, 0.2),
+    inset 0 -1px 0 rgba(4, 13, 17, 0.48) !important;
+  backdrop-filter: blur(40px) saturate(124%) !important;
+  -webkit-backdrop-filter: blur(40px) saturate(124%) !important;
+}
+
+:root[data-theme="dark"] .page--docente .shell-docente__header {
+  border-bottom-color: rgba(202, 225, 216, 0.16) !important;
+}
+
+:root[data-theme="dark"] .page--docente .shell-docente__content > .panel {
+  padding: 0;
+  border: 0 !important;
+  background: transparent !important;
+  box-shadow: none !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+}
+
+:root[data-theme="dark"] .page--docente .tabs.tabs--sticky {
+  border-color: rgba(202, 225, 216, 0.16) !important;
+  background: rgba(11, 25, 31, 0.42) !important;
+  box-shadow:
+    inset 0 1px 0 rgba(247, 255, 251, 0.12),
+    0 18px 34px -28px rgba(0, 0, 0, 0.82) !important;
+  backdrop-filter: blur(24px) saturate(118%) !important;
+  -webkit-backdrop-filter: blur(24px) saturate(118%) !important;
+}
+
+:root[data-theme="dark"] .page--docente .tabs .tab {
+  border-color: transparent !important;
+  border-radius: 11px;
+  color: #aebdb7 !important;
+  background: transparent !important;
+  box-shadow: none !important;
+}
+
+:root[data-theme="dark"] .page--docente .tabs .tab:hover {
+  color: var(--docente-ink) !important;
+  background: rgba(159, 202, 189, 0.09) !important;
+}
+
+:root[data-theme="dark"] .page--docente .tabs .tab[aria-current="page"] {
+  border-color: rgba(159, 202, 189, 0.36) !important;
+  color: #eff8f3 !important;
+  background: rgba(159, 202, 189, 0.16) !important;
+  box-shadow:
+    inset 0 1px 0 rgba(247, 255, 251, 0.2),
+    0 12px 24px -22px rgba(159, 202, 189, 0.9) !important;
+}
+
+:root[data-theme="dark"] .page--docente .tabs__group-label {
+  color: #7f958d !important;
+  letter-spacing: 0.14em;
+}
+
+:root[data-theme="dark"] .page--docente .banner-recordatorio-asistencia {
+  border-color: rgba(213, 178, 120, 0.3) !important;
+  background: rgba(18, 32, 38, 0.48) !important;
+  box-shadow:
+    inset 0 1px 0 rgba(247, 255, 251, 0.12),
+    0 18px 34px -30px rgba(0, 0, 0, 0.86) !important;
+  backdrop-filter: blur(24px) saturate(118%) !important;
+  -webkit-backdrop-filter: blur(24px) saturate(118%) !important;
+}
+
+:root[data-theme="dark"] .page--docente .shell-docente__main-col > .anim-fade-in > .panel,
+:root[data-theme="dark"] .page--docente .shell-docente__main-col > .panel:not(.app-loading) {
+  border-color: var(--docente-edge) !important;
+  background:
+    linear-gradient(145deg, rgba(247, 245, 235, 0.06), transparent 28%),
+    rgba(17, 29, 34, 0.38) !important;
+  box-shadow:
+    0 26px 54px -38px rgba(0, 0, 0, 0.86),
+    inset 0 1px 0 rgba(247, 255, 251, 0.16),
+    inset 0 -1px 0 rgba(4, 13, 17, 0.36) !important;
+  backdrop-filter: blur(30px) saturate(118%) !important;
+  -webkit-backdrop-filter: blur(30px) saturate(118%) !important;
+}
+
+:root[data-theme="dark"] .page--docente :is(
+  .item-glass,
+  .card-glass,
+  .subpanel,
+  .resultado,
+  .empty-state-card,
+  .guia-materia-card,
+  .guia-step-card,
+  .banco-file-upload-card,
+  .banco-opcion-card,
+  .plantillas-item,
+  .asistencias-sesion-card,
+  .calif-grade-card,
+  .omr-review-card,
+  .classroom-card
+) {
+  border-color: var(--docente-edge-soft) !important;
+  background:
+    linear-gradient(145deg, rgba(247, 245, 235, 0.055), transparent 30%),
+    rgba(17, 29, 34, 0.34) !important;
+  box-shadow:
+    0 20px 42px -34px rgba(0, 0, 0, 0.82),
+    inset 0 1px 0 rgba(247, 255, 251, 0.14),
+    inset 0 -1px 0 rgba(4, 13, 17, 0.34) !important;
+  backdrop-filter: blur(26px) saturate(116%) !important;
+  -webkit-backdrop-filter: blur(26px) saturate(116%) !important;
+}
+
+:root[data-theme="dark"] .page--docente :is(
+  [class*="panel__head"],
+  [class*="section__head"],
+  [class*="explorador__header"]
+) {
+  position: relative;
+  align-items: flex-start;
+  border-bottom-color: var(--docente-edge-soft) !important;
+  background: transparent !important;
+  box-shadow: none !important;
+}
+
+:root[data-theme="dark"] .page--docente :is(
+  [class*="panel__head"],
+  [class*="section__head"],
+  [class*="explorador__header"]
+)::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  bottom: -1px;
+  width: 3.5rem;
+  height: 2px;
+  border-radius: 999px;
+  background: linear-gradient(90deg, var(--docente-teal), transparent);
+}
+
+:root[data-theme="dark"] .page--docente :is(
+  [class*="panel__icon-orb"],
+  [class*="section__icon"],
+  .empty-state-card__icon
+) {
+  border-color: rgba(198, 224, 215, 0.28) !important;
+  color: var(--docente-teal) !important;
+  background: rgba(159, 202, 189, 0.09) !important;
+  box-shadow:
+    inset 0 1px 0 rgba(247, 255, 251, 0.18),
+    0 14px 26px -22px rgba(159, 202, 189, 0.72) !important;
+}
+
+:root[data-theme="dark"] .page--docente :is(
+  [class*="panel__title"],
+  [class*="section-title"],
+  [class*="explorador__title"],
+  .item-title
+) {
+  color: var(--docente-ink) !important;
+  text-shadow: 0 5px 18px rgba(3, 12, 16, 0.24);
+}
+
+:root[data-theme="dark"] .page--docente :is(.nota, .ayuda, [class*="__subtitle"], [class*="__description"], [class*="__hint"]) {
+  color: var(--docente-ink-soft) !important;
+}
+
+:root[data-theme="dark"] .page--docente :is(.boton:not(.secundario):not(.boton--secundario):not(.boton--peligro):not(.boton--disabled), .asistencias-btn-primario) {
+  border-color: rgba(198, 224, 215, 0.4) !important;
+  border-radius: 11px;
+  color: #122326 !important;
+  background:
+    linear-gradient(135deg, rgba(119, 181, 174, 0.96), rgba(159, 202, 189, 0.92)) !important;
+  box-shadow:
+    0 16px 28px -24px rgba(159, 202, 189, 0.9),
+    inset 0 1px 0 rgba(255, 255, 255, 0.48) !important;
+}
+
+:root[data-theme="dark"] .page--docente :is(.boton:not(.secundario):not(.boton--secundario):not(.boton--peligro):not(.boton--disabled):hover, .asistencias-btn-primario:hover) {
+  filter: brightness(1.06);
+  transform: translateY(-1px);
+}
+
+:root[data-theme="dark"] .page--docente :is(.boton.secundario, .boton--secundario, .chip, .badge) {
+  color: var(--docente-ink-soft) !important;
+  background: rgba(20, 34, 40, 0.36) !important;
+  border-color: var(--docente-edge-soft) !important;
+  box-shadow: inset 0 1px 0 rgba(247, 255, 251, 0.1) !important;
+}
+
+:root[data-theme="dark"] .page--docente :is(input, textarea, select) {
+  border-color: rgba(202, 225, 216, 0.22) !important;
+  background: rgba(7, 18, 24, 0.46) !important;
+  box-shadow:
+    inset 0 1px 0 rgba(247, 255, 251, 0.08),
+    inset 0 -1px 0 rgba(4, 13, 17, 0.34) !important;
+}
+
+:root[data-theme="dark"] .page--docente :is(input, textarea, select):focus-visible {
+  border-color: rgba(159, 202, 189, 0.68) !important;
+  box-shadow:
+    0 0 0 3px rgba(159, 202, 189, 0.13),
+    inset 0 1px 0 rgba(247, 255, 251, 0.12) !important;
+}
+
+/* SPEC-065: Workspace de diseño OMR.
+   Recompone el formulario como una superficie continua y elimina el vacío
+   producido por columnas con alturas incompatibles. */
+:root[data-theme="dark"] .page--docente .plantillas-shell {
+  padding: clamp(1.1rem, 2vw, 1.7rem) !important;
+  border: 0 !important;
+  background: transparent !important;
+  box-shadow: none !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+}
+
+:root[data-theme="dark"] .page--docente .plantillas-studio-intro {
+  border: 0;
+  border-bottom: 1px solid var(--docente-edge-soft);
+  border-radius: 0;
+  padding: 0 0 1.15rem;
+  background: transparent;
+}
+
+:root[data-theme="dark"] .page--docente .plantillas-studio-intro h3 {
+  color: var(--docente-ink) !important;
+  font-size: clamp(1.35rem, 2vw, 1.8rem);
+  letter-spacing: -0.04em;
+}
+
+:root[data-theme="dark"] .page--docente .plantillas-studio-intro p {
+  color: var(--docente-ink-soft);
+}
+
+:root[data-theme="dark"] .page--docente .plantillas-studio-steps li {
+  border-bottom-color: var(--docente-edge-soft);
+  color: var(--docente-ink-muted);
+}
+
+:root[data-theme="dark"] .page--docente .plantillas-studio-steps li.is-active {
+  border-color: var(--docente-teal);
+  color: var(--docente-ink);
+}
+
+:root[data-theme="dark"] .page--docente .plantillas-studio-steps li.is-active span {
+  border-color: var(--docente-teal);
+  color: #132326;
+  background: var(--docente-teal);
+}
+
+:root[data-theme="dark"] .page--docente .plantillas-form--panoramico {
+  margin-bottom: 0 !important;
+  border-color: var(--docente-edge) !important;
+  border-radius: 22px;
+  background:
+    linear-gradient(145deg, rgba(247, 245, 235, 0.065), transparent 26%),
+    rgba(17, 29, 34, 0.42) !important;
+  box-shadow:
+    0 28px 56px -40px rgba(0, 0, 0, 0.9),
+    inset 0 1px 0 rgba(247, 255, 251, 0.17),
+    inset 0 -1px 0 rgba(4, 13, 17, 0.4) !important;
+  backdrop-filter: blur(30px) saturate(118%) !important;
+  -webkit-backdrop-filter: blur(30px) saturate(118%) !important;
+}
+
+:root[data-theme="dark"] .page--docente .plantillas-form--panoramico .alumnos-form__header {
+  padding-bottom: 1.1rem;
+  border-bottom: 1px solid var(--docente-edge-soft);
+}
+
+:root[data-theme="dark"] .page--docente .plantillas-form--panoramico .alumnos-form__title {
+  color: var(--docente-ink) !important;
+  font-size: clamp(1.45rem, 2.3vw, 2rem);
+  letter-spacing: -0.045em;
+}
+
+:root[data-theme="dark"] .page--docente .plantillas-form--panoramico .alumnos-form__subtitle {
+  color: var(--docente-ink-soft) !important;
+}
+
+:root[data-theme="dark"] .page--docente .plantillas-form--panoramico .plantillas-panel__hint {
+  margin: 1rem 0 0;
+  border: 0 !important;
+  border-left: 2px solid var(--docente-teal) !important;
+  border-radius: 0;
+  padding: 0.35rem 0 0.35rem 0.85rem;
+  color: var(--docente-ink-soft) !important;
+  background: transparent !important;
+  box-shadow: none !important;
+}
+
+:root[data-theme="dark"] .page--docente .plantillas-form--panoramico .alumnos-form__fields {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0;
+}
+
+:root[data-theme="dark"] .page--docente .plantillas-form--panoramico .alumnos-form__row--top {
+  grid-column: 1 / -1;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 1rem;
+  padding: 1.2rem 0 1.35rem;
+}
+
+:root[data-theme="dark"] .page--docente .plantillas-form--panoramico .plantillas-temas-box,
+:root[data-theme="dark"] .page--docente .plantillas-form--panoramico .plantillas-formato-box {
+  grid-column: 1 / -1;
+  grid-row: auto;
+  width: 100%;
+  margin: 0;
+  border: 0 !important;
+  border-top: 1px solid var(--docente-edge-soft) !important;
+  border-radius: 0;
+  padding: 1.35rem 0 0;
+  background: transparent !important;
+  box-shadow: none !important;
+}
+
+:root[data-theme="dark"] .page--docente .plantillas-form--panoramico .plantillas-temas__header,
+:root[data-theme="dark"] .page--docente .plantillas-form--panoramico .plantillas-formato-box__heading {
+  align-items: flex-start;
+}
+
+:root[data-theme="dark"] .page--docente .plantillas-form--panoramico .plantillas-temas__title {
+  color: var(--docente-ink) !important;
+  font-size: 1.22rem;
+  letter-spacing: -0.025em;
+}
+
+:root[data-theme="dark"] .page--docente .plantillas-form--panoramico .plantillas-temas__lista {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 0.6rem;
+}
+
+:root[data-theme="dark"] .page--docente .plantillas-form--panoramico .plantillas-tema-chip {
+  min-height: 48px;
+  border-color: var(--docente-edge-soft) !important;
+  border-radius: 12px;
+  color: var(--docente-ink-soft) !important;
+  background: rgba(20, 34, 40, 0.3) !important;
+  box-shadow: inset 0 1px 0 rgba(247, 255, 251, 0.08) !important;
+}
+
+:root[data-theme="dark"] .page--docente .plantillas-form--panoramico .plantillas-tema-chip:hover,
+:root[data-theme="dark"] .page--docente .plantillas-form--panoramico .plantillas-tema-chip--selected {
+  border-color: rgba(159, 202, 189, 0.58) !important;
+  color: #eff8f3 !important;
+  background: rgba(159, 202, 189, 0.15) !important;
+}
+
+:root[data-theme="dark"] .page--docente .plantillas-form--panoramico .plantillas-temas-empty {
+  min-height: 5.2rem;
+  border-color: rgba(159, 202, 189, 0.34) !important;
+  border-radius: 14px;
+  background: rgba(20, 34, 40, 0.2) !important;
+}
+
+:root[data-theme="dark"] .page--docente .plantillas-form--panoramico .plantillas-formato-box__controls {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 1rem;
+}
+
+:root[data-theme="dark"] .page--docente .plantillas-form--panoramico .plantillas-auto-status {
+  border-color: rgba(159, 202, 189, 0.34);
+  color: var(--docente-ink-soft);
+  background: rgba(20, 34, 40, 0.2);
+}
+
+:root[data-theme="dark"] .page--docente .plantillas-form--panoramico .plantillas-formato-box__logos,
+:root[data-theme="dark"] .page--docente .plantillas-form--panoramico .plantillas-formato-box__footer {
+  border-top-color: var(--docente-edge-soft);
+}
+
+:root[data-theme="dark"] .page--docente .plantillas-form--panoramico .alumnos-form__footer {
+  grid-column: 1 / -1;
+  border-top: 1px solid var(--docente-edge-soft);
+  margin-top: 1.25rem;
+  padding-top: 1.25rem;
+}
+
+@media (max-width: 900px) {
+  :root[data-theme="dark"] .page--docente .plantillas-form--panoramico .plantillas-formato-box__controls {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 720px) {
+  :root[data-theme="dark"] .page--docente .plantillas-form--panoramico .alumnos-form__row--top,
+  :root[data-theme="dark"] .page--docente .plantillas-form--panoramico .plantillas-formato-box__controls {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* SPEC-066: Secciones editoriales explícitas.
+   Marca el recorrido del formulario sin crear paneles anidados. */
+:root[data-theme="dark"] .page--docente .plantillas-form--panoramico .alumnos-form__row--top,
+:root[data-theme="dark"] .page--docente .plantillas-form--panoramico .plantillas-temas-box,
+:root[data-theme="dark"] .page--docente .plantillas-form--panoramico .plantillas-formato-box {
+  position: relative;
+}
+
+:root[data-theme="dark"] .page--docente .plantillas-form--panoramico .alumnos-form__row--top {
+  margin-top: 0.55rem;
+  border-top: 1px solid var(--docente-edge-soft);
+  padding-top: 2.55rem;
+}
+
+:root[data-theme="dark"] .page--docente .plantillas-form--panoramico .alumnos-form__row--top::before,
+:root[data-theme="dark"] .page--docente .plantillas-form--panoramico .plantillas-temas-box::before,
+:root[data-theme="dark"] .page--docente .plantillas-form--panoramico .plantillas-formato-box::before,
+:root[data-theme="dark"] .page--docente .plantillas-form--panoramico .plantillas-formato-box__logos::before {
+  display: block;
+  color: var(--docente-ink-muted);
+  font-size: 0.68rem;
+  font-weight: 850;
+  letter-spacing: 0.11em;
+  line-height: 1;
+  text-transform: uppercase;
+}
+
+:root[data-theme="dark"] .page--docente .plantillas-form--panoramico .alumnos-form__row--top::before {
+  grid-column: 1 / -1;
+  content: "01 · Datos del examen";
+  color: var(--docente-teal);
+}
+
+:root[data-theme="dark"] .page--docente .plantillas-form--panoramico .plantillas-temas-box::before {
+  content: "02 · Temas y cobertura";
+  margin-bottom: 0.8rem;
+  color: var(--docente-teal);
+}
+
+:root[data-theme="dark"] .page--docente .plantillas-form--panoramico .plantillas-formato-box::before {
+  content: "03 · Formato del cuadernillo";
+  margin-bottom: 0.8rem;
+  color: #c7b9ef;
+}
+
+:root[data-theme="dark"] .page--docente .plantillas-form--panoramico .plantillas-formato-box__logos {
+  position: relative;
+  grid-template-columns: minmax(180px, 1.1fr) repeat(2, minmax(0, 1fr));
+  padding-top: 2.35rem;
+}
+
+:root[data-theme="dark"] .page--docente .plantillas-form--panoramico .plantillas-formato-box__logos::before {
+  grid-column: 1 / -1;
+  content: "04 · Identidad visual";
+  color: var(--docente-teal);
+}
+
+:root[data-theme="dark"] .page--docente .plantillas-form--panoramico .plantillas-formato-box__heading > div > .plantillas-formato-box__eyebrow,
+:root[data-theme="dark"] .page--docente .plantillas-form--panoramico .plantillas-formato-box__logos .plantillas-formato-box__eyebrow {
+  display: none;
+}
+
+@media (max-width: 720px) {
+  :root[data-theme="dark"] .page--docente .plantillas-form--panoramico .plantillas-formato-box__logos {
+    grid-template-columns: 1fr;
+  }
 }
