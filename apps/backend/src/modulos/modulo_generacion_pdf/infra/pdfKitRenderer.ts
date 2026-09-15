@@ -1878,8 +1878,11 @@ export class PdfKitRenderer {
     // ancho para el texto sin acercarlo al panel OMR ni cambiar su geometría.
     const gutterRespuesta = 6;
     // El panel y su halo blanco deben quedar dentro del borde imprimible.
-    // Antes se alineaban con el margen nominal y cruzaban el marco interior.
-    const safeRight = ANCHO_CARTA - margen - 7;
+    // Alinearlo con la reserva derecha del QR recupera espacio para el texto
+    // sin apoyarlo en el borde físico: se conservan 4 pt (~1.4 mm) además
+    // del margen nominal configurado para la plantilla.
+    const margenExtraDerechoPanel = 4;
+    const safeRight = ANCHO_CARTA - margen - margenExtraDerechoPanel;
     const xColRespuesta = safeRight - anchoColRespuesta;
     const xDerechaTexto = xColRespuesta - gutterRespuesta;
 

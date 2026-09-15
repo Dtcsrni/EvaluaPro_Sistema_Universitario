@@ -222,6 +222,10 @@ function assertPreguntasLayout(pagina: Awaited<ReturnType<typeof generarPdfExame
     if (omr) {
       expect(omr.x + omr.width).toBeLessThanOrEqual(ANCHO_CARTA - 6.9);
       if (actual.perfilOmr?.orientacion === 'horizontal') {
+        // El panel debe usar la reserva derecha prevista, sin invadir el
+        // margen nominal ni volver a quedar innecesariamente separado del
+        // borde imprimible.
+        expect(omr.x + omr.width).toBeCloseTo(ANCHO_CARTA - (10 * 72 / 25.4) - 4, 5);
         // La compactación solo elimina aire estructural; el diámetro, el
         // paso y las quiet zones de las marcas se validan debajo sin cambiar.
         expect(omr.height).toBeGreaterThanOrEqual(30);
@@ -483,7 +487,7 @@ describe('pdf layout visual guard', () => {
     const resultado = await generarPdfExamen(parametros);
 
     expect(resultado.pdfBytes.byteLength).toBeGreaterThan(0);
-    expect(resultado.mapaOmr.blockSpec?.bubbleDiameterMm).toBeGreaterThanOrEqual(4.8);
+    expect(resultado.mapaOmr.blockSpec?.bubbleDiameterMm).toBe(6);
     expect(resultado.mapaOmr.perfil.cajaOmrAncho).toBe(137);
     expect(resultado.mapaOmr.blockSpec?.bubblePitchXmm).toBe(8.82);
     expect(resultado.mapaOmr.blockSpec?.orientation).toBe('horizontal');
