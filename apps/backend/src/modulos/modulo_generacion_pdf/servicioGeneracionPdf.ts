@@ -50,7 +50,7 @@ export async function generarPdfExamen({
     materia?: string;
     docente?: string;
     instrucciones?: string;
-    alumno?: { nombre?: string; grupo?: string };
+    alumno?: { nombre?: string; grupo?: string; iniciales?: string };
     mostrarInstrucciones?: boolean;
     mostrarMarcaInstitucional?: boolean;
     logos?: { izquierdaPath?: string; derechaPath?: string };

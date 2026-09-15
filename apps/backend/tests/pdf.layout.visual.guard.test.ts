@@ -403,6 +403,7 @@ describe('pdf layout visual guard', () => {
         materia: 'Diseño y Desarrollo de Aplicaciones Web',
         docente: 'Erick Renato Vega Ceron',
         instrucciones: 'Rellene un solo circulo por pregunta y evite marcas fuera del area.',
+        alumno: { iniciales: 'ERVC', grupo: 'E512606A' },
         mostrarMarcaInstitucional: true
       }
     });
@@ -412,10 +413,13 @@ describe('pdf layout visual guard', () => {
     const slots = primeraPagina.layoutDebug?.headerSlots ?? [];
     const nombre = bloques.find((bloque) => bloque.id === 'nombre-etiqueta');
     const grupo = bloques.find((bloque) => bloque.id === 'grupo-etiqueta');
+    const iniciales = bloques.find((bloque) => bloque.id === 'alumno-iniciales');
     const logos = slots.filter((slot) => slot.id === 'logo-izquierdo' || slot.id === 'logo-derecho');
 
     expect(nombre).toBeDefined();
     expect(grupo).toBeDefined();
+    expect(iniciales).toBeDefined();
+    expect(Number(iniciales?.x ?? 0)).toBeGreaterThanOrEqual(Number(nombre?.x ?? 0));
     expect(logos).toHaveLength(2);
     const bordeInferiorLogos = Math.min(...logos.map((logo) => Number(logo.y)));
     expect(bordeInferiorLogos - Number(nombre?.y ?? 0) - Number(nombre?.height ?? 0))

@@ -14,7 +14,7 @@ export interface EncabezadoExamen {
   materia?: string;
   docente?: string;
   instrucciones?: string;
-  alumno?: { nombre?: string; grupo?: string };
+  alumno?: { nombre?: string; grupo?: string; iniciales?: string };
   mostrarInstrucciones?: boolean;
   /** La identidad se muestra por defecto cuando existe `encabezado`; puede omitirse explícitamente. */
   mostrarMarcaInstitucional?: boolean;

@@ -320,7 +320,7 @@ export async function generarExamenesLoteUseCase(params: {
   const firmasVariantesLote = new Set<string>();
   const maxIntentosVarianteUnica = Math.min(36, Math.max(10, totalAlumnos * 2));
 
-  const crearExamenSinAlumno = async () => {
+  const crearExamenSinAlumno = async (alumno: { id: string; nombreCompleto?: unknown; grupo?: unknown }) => {
     for (let intento = 0; intento < maxIntentosVarianteUnica; intento += 1) {
       const preguntasCandidatas = ordenarPreguntasAleatorio(preguntasBaseLote);
       const mapaVariante = generarVariante(preguntasCandidatas);
@@ -343,7 +343,8 @@ export async function generarExamenesLoteUseCase(params: {
             periodo,
             docenteDb,
             instrucciones: plantilla.instrucciones,
-            incluirPrefijosDocente: true
+            incluirPrefijosDocente: true,
+            alumno
           })
         });
 
@@ -403,6 +404,7 @@ export async function generarExamenesLoteUseCase(params: {
             docenteId: docId,
             periodoId: plantilla.periodoId ? String(plantilla.periodoId) : null,
             plantillaId: String(plantilla.id),
+            alumnoId: String(alumno.id),
             loteId,
             origenGeneracion: 'lote',
             folio,
@@ -453,7 +455,8 @@ export async function generarExamenesLoteUseCase(params: {
   const pdfsLote: Uint8Array[] = [];
   const recoveryManifests: Array<ReturnType<typeof construirRecoveryManifest>> = [];
   for (let indice = 0; indice < totalAlumnos; indice += 1) {
-    const { examenGenerado, pdfBytes, recoveryManifest } = await crearExamenSinAlumno();
+    const alumno = alumnos[indice] as { id: string; nombreCompleto?: unknown; grupo?: unknown };
+    const { examenGenerado, pdfBytes, recoveryManifest } = await crearExamenSinAlumno(alumno);
     examenesGenerados.push({
       _id: String(examenGenerado.id),
       folio: examenGenerado.folio,

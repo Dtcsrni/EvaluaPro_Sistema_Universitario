@@ -2524,6 +2524,7 @@ export class PdfKitRenderer {
         const fieldBandTopBase = Math.min(panelCentralBottom - 1, logoY - 7);
         const etiquetaNombre = 'Nombre del alumno:';
         const etiquetaGrupo = 'Grupo:';
+        const inicialesAlumno = String(examen.encabezado?.alumno?.iniciales ?? '').trim();
         const anchoEtiquetaNombre = fuenteBold.widthOfTextAtSize(etiquetaNombre, sizeCampo);
         const anchoEtiquetaGrupo = fuenteBold.widthOfTextAtSize(etiquetaGrupo, sizeCampo);
         const iconoCapturaX = xDatosLeft;
@@ -2671,6 +2672,29 @@ export class PdfKitRenderer {
           width: Math.max(0, xLineaNombreFin - xLineaNombre),
           height: 0.8
         });
+
+        if (inicialesAlumno) {
+          const etiquetaIniciales = `Iniciales: ${inicialesAlumno}`;
+          const sizeIniciales = Math.max(5.8, 6.2 * fontScaleCabecera);
+          const anchoIniciales = fuenteBold.widthOfTextAtSize(etiquetaIniciales, sizeIniciales);
+          const xIniciales = Math.max(xLineaNombre + 4, xLineaNombreFin - anchoIniciales);
+          const yIniciales = yNombre + 2.5;
+          page.drawText(etiquetaIniciales, {
+            x: xIniciales,
+            y: yIniciales,
+            size: sizeIniciales,
+            font: fuenteBold,
+            color: colorAcento
+          });
+          headerTextBlocks.push({
+            id: 'alumno-iniciales',
+            x: xIniciales,
+            y: yIniciales,
+            width: anchoIniciales,
+            height: sizeIniciales + 1
+          });
+        }
+
          headerIconBoxes.push({ id: 'icono-grupo', ...dibujarIconoGrupo(page, xIconoGrupo, yGrupo + 0.4, colorIconoGrupo) });
          page.drawText(etiquetaGrupo, { x: xEtiquetasGrupo, y: yGrupo, size: sizeCampo, font: fuenteBold, color: colorPrimario });
          headerTextBlocks.push({

@@ -189,11 +189,33 @@ export function resolverTemplateVersionOmr(params: { docenteId: unknown; periodo
   return 4;
 }
 
+/**
+ * Construye un identificador breve y legible para imprimir en cada examen.
+ * Se omiten partículas habituales de nombres hispanos para no desperdiciar
+ * espacio (p. ej. "de la"), conservando como máximo seis iniciales.
+ */
+export function construirInicialesAlumno(nombreCompleto: unknown): string {
+  const particulas = new Set(['a', 'da', 'de', 'del', 'do', 'dos', 'la', 'las', 'los', 'y']);
+  const palabras = String(nombreCompleto ?? '')
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLocaleLowerCase()
+    .match(/[a-z0-9]+/g) ?? [];
+  const significativas = palabras.filter((palabra) => !particulas.has(palabra));
+  const iniciales = (significativas.length > 0 ? significativas : palabras)
+    .map((palabra) => palabra.charAt(0))
+    .join('')
+    .toUpperCase();
+  if (iniciales.length <= 6) return iniciales;
+  return `${iniciales.slice(0, 3)}${iniciales.slice(-3)}`;
+}
+
 export function construirEncabezadoPdf(params: {
   periodo: unknown;
   docenteDb: unknown;
   instrucciones: unknown;
   incluirPrefijosDocente?: boolean;
+  alumno?: { nombreCompleto?: unknown; grupo?: unknown };
 }) {
   const periodo = params.periodo as { nombre?: unknown } | null | undefined;
   const docente = params.docenteDb as
@@ -218,6 +240,13 @@ export function construirEncabezadoPdf(params: {
     instrucciones: String(params.instrucciones ?? ''),
     institucion: String(docente?.preferenciasPdf?.institucion ?? '').trim() || undefined,
     lema: String(docente?.preferenciasPdf?.lema ?? '').trim() || undefined,
+    alumno: params.alumno
+      ? {
+          nombre: String(params.alumno.nombreCompleto ?? '').trim() || undefined,
+          grupo: String(params.alumno.grupo ?? '').trim() || undefined,
+          iniciales: construirInicialesAlumno(params.alumno.nombreCompleto)
+        }
+      : undefined,
     logos: {
       izquierdaPath: String(docente?.preferenciasPdf?.logos?.izquierdaPath ?? '').trim() || undefined,
       derechaPath: String(docente?.preferenciasPdf?.logos?.derechaPath ?? '').trim() || undefined

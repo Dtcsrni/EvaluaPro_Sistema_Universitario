@@ -37,6 +37,7 @@ Los requisitos de esta sección son normativos y prevalecen sobre ejemplos visua
 - Los logotipos deben provenir de imágenes con canal alfa cuando exista transparencia; no se agrega fondo blanco, marco ni borde artificial alrededor de ellos. Si un logo no está disponible, se omite y se registra el diagnóstico; no se inventa un logo sustituto dentro de un marco.
 - El QR tiene una reserva blanca independiente solo para preservar contraste y quiet zone. Debe incluir leyenda breve de folio/página sin añadir una franja blanca innecesaria debajo.
 - Las líneas de `Nombre del alumno` y `Grupo` viven en una banda propia, debajo del título funcional, y nunca coinciden con una línea decorativa. La misma banda incluye dos campos manuales independientes: `Reactivos` con línea para anotar el conteo contestado, admitiendo medios reactivos (`0.5`), seguido del total dinámico `/ N reactivos`; y `Calificación (0-5)` con su propia línea continua. La calificación del examen se obtiene mediante `(reactivos contestados / total de reactivos) x 5`; los 5 puntos restantes corresponden a evaluación continua.
+- En los exámenes de producción masiva, la banda de identificación imprime las iniciales derivadas del nombre del alumno junto a la línea de captura del nombre; el texto es breve, visible y no invade grupo, indicaciones, QR ni geometría OMR.
 - Los campos `Nombre del alumno`, `Grupo` e `Indicaciones` incluyen iconos funcionales vectoriales, de trazo simple y alto contraste; no dependen de emojis ni de fuentes externas, quedan contenidos en la cabecera y no pueden invadir etiquetas, líneas, QR, logos o texto.
 - La banda de captura incluye una textura geométrica secundaria continua y de baja opacidad, con malla fina, rombos, círculos y cruces alternadas; cubre todo el bloque para evitar zonas visualmente abandonadas, pero excluye únicamente las franjas de escritura para conservarlas despejadas.
 - El texto de indicaciones se coloca en la banda inferior del encabezado, en una fila propia debajo de nombre, grupo, conteo de reactivos y calificación, con etiqueta visible y colchón tipográfico; incluye lectura completa, una sola marca por reactivo, relleno con tinta oscura, corrección mediante borrado total, revisión de datos, registro de medios reactivos (`0.5`), fórmula de conversión a escala de 0 a 5 y protección de fiduciales/QR. No se reserva una caja independiente que desplace artificialmente el primer reactivo ni comparte fila con los campos de captura.
@@ -138,6 +139,7 @@ Los requisitos de esta sección son normativos y prevalecen sobre ejemplos visua
 - **REQ-027 (Implementación ESM)**: El código activo de generación PDF, preview, escaneo, calificación, recuperación y QA debe usar ES modules; no se admiten nuevos módulos CommonJS, `require` ni fallbacks de importación.
 - **REQ-028 (Retiro de obsoletos)**: Las generaciones anteriores, temporales y documentos operativos obsoletos deben retirarse del árbol activo y de las rutas de ejecución; la evidencia histórica autorizada se conserva únicamente dentro de los bundles/manifiestos de recuperación verificables.
 - **REQ-029 (Pares dúplex)**: La salida canónica debe organizar sus páginas consecutivas en pares frente/reverso para impresión a doble cara por borde largo, sin insertar páginas en blanco. Si falta el reverso del último par, la última hoja puede conservar solo el frente; el mapa OMR debe declarar la hoja física y el lado de cada página existente.
+- **REQ-030 (Identidad del alumno)**: Cada examen de producción masiva debe mostrar las iniciales derivadas del nombre del alumno en la cabecera y persistir el `alumnoId` correspondiente; la identificación no debe invadir campos, QR, reactivos ni geometría OMR.
 
 ## Criterios de Aceptación
 1. El asistente de diseño permite seleccionar materias, temas y distribución de preguntas para el examen.
@@ -179,6 +181,7 @@ Los requisitos de esta sección son normativos y prevalecen sobre ejemplos visua
 37. Una previsualización PDF repetida sin cambios devuelve el artefacto cacheado en memoria y no vuelve a ejecutar generación ni rasterización; cualquier cambio de plantilla, preguntas o layout invalida esa entrada.
 38. La generación masiva conserva un indicador de progreso desde el inicio hasta la respuesta final, no emite sondeos solapados y no falla por el timeout fijo de una generación individual.
 39. La generación masiva reutiliza la configuración y el conjunto de reactivos de la plantilla sin preprueba ni auto-fit por alumno; una plantilla no apta falla explícitamente sin descartar reactivos ni cambiar su layout.
+40. Cada examen de producción masiva muestra las iniciales del alumno correspondiente y conserva su `alumnoId` asociado; las iniciales no generan colisiones en la cabecera ni alteran la paginación o el mapa OMR.
 
 ## Matriz de Trazabilidad
 
@@ -214,3 +217,4 @@ Los requisitos de esta sección son normativos y prevalecen sobre ejemplos visua
 | REQ-027 | Uso exclusivo de ES modules en el flujo PDF/OMR | `apps/backend/tests/pdf.paridad.test.ts` + lint/typecheck | Completado |
 | REQ-028 | Retiro de generaciones obsoletas sin borrar recovery autorizado | `scripts/tests/omr-version-policy.test.mjs` | Completado |
 | REQ-029 | Secuencia dúplex sin páginas vacías artificiales | `apps/backend/tests/pdf.paridad.test.ts` | Completado |
+| REQ-030 | Iniciales visibles y asociación del examen al alumno en producción masiva | `apps/backend/tests/pdf.layout.visual.guard.test.ts` + `apps/backend/tests/inicialesAlumno.test.ts` | Completado |
