@@ -1992,10 +1992,11 @@ export class PdfKitRenderer {
     // Incluye el descenso de la regla inferior y su grosor, no solo las
     // alturas tipográficas de las dos etiquetas.
     const altoZonaCalificacionEstimado = Math.max(6.4, 6.4 * fontScaleCabecera) + 30;
-    // Reducir la reserva base recupera el espacio inferior visible sin tocar
-    // logos, QR ni tamaños tipográficos; las cabeceras largas conservan su
-    // colchón adicional mediante la rama de 96 pt.
-    const baseEncabezadoCompacto = lineasExtraCabecera <= 2 && lineasIndicacionesEstimadas <= 2 ? 87 : 93;
+    // Reducir la reserva base recupera 15 pt (5.3 mm) de espacio para el
+    // primer reactivo sin tocar logos, QR ni tamaños tipográficos. La rama
+    // larga conserva 6 pt adicionales y ambas quedan protegidas por las
+    // aserciones de colisión y contención del layout.
+    const baseEncabezadoCompacto = lineasExtraCabecera <= 2 && lineasIndicacionesEstimadas <= 2 ? 72 : 78;
     const altoEncabezadoPrimeraMinimo = Math.max(
       // La fila inferior puede ocupar varias líneas; reservar el interlineado
       // efectivo más un colchón evita que la última línea caiga fuera del

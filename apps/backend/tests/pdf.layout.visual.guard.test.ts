@@ -371,6 +371,11 @@ describe('pdf layout visual guard', () => {
       expect(dbg).toBeTruthy();
       const header = dbg?.header as Rect;
       assertBloquesHeader(pagina, header);
+      if (pagina.numeroPagina === 1) {
+        // La cabecera estándar usa la reserva compacta; este límite evita que
+        // una modificación futura vuelva a consumir el espacio recuperado.
+        expect(header.height).toBeLessThanOrEqual(160.01);
+      }
       assertPreguntasLayout(pagina);
       assertPrimeraPreguntaDebajoDelHeader(pagina, header);
     }
