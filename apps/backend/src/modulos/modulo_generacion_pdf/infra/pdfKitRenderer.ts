@@ -1834,10 +1834,12 @@ export class PdfKitRenderer {
     // Holgura compartida por el planificador y el renderer entre tarjetas de
     // opciones. Mantener un unico valor evita que el plan reserve menos alto
     // del que finalmente consume una opcion de varias lineas.
-    // En la retícula 3+2, 1 pt separa las dos filas sin convertir cada
-    // reactivo corto en una reserva vertical innecesaria. La holgura de las
-    // líneas y el fondo único del reactivo siguen evitando contactos visuales.
-    const separacionTarjetaOpcion = perfilOmr.orientacion === 'horizontal' ? 0.6 : 3;
+    // La retícula 3+2 conserva solo una holgura subpunto entre filas. La altura
+    // de cada fila mantiene una reserva tipográfica mínima independiente para
+    // que el ahorro no acerque los glifos al separador ni al fondo siguiente.
+    const separacionTarjetaOpcion = perfilOmr.orientacion === 'horizontal' ? 0.25 : 3;
+    const rellenoVerticalOpcion = 2;
+    const alturaMinimaFilaOpcion = sizeOpcion + 3;
     const omrTotalLetras = 5;
     const omrRadio = perfilOmr.burbujaRadio;
     const omrPasoY = perfilOmr.burbujaPasoY;
@@ -3141,10 +3143,10 @@ export class PdfKitRenderer {
               lineHeightTexto: lineaOpcion,
               lineHeightCodigo: lineaCodigoBloque
             }));
-            const altoPrincipal = Math.max(sizeOpcion + 3, lineasPrincipal.reduce((total, linea) => total + linea.lineHeight, 0) + 2);
+            const altoPrincipal = Math.max(alturaMinimaFilaOpcion, lineasPrincipal.reduce((total, linea) => total + linea.lineHeight, 0) + rellenoVerticalOpcion);
             const altoRestantes = Math.max(
-              sizeOpcion + 3,
-              ...lineasRestantes.map((lineas) => lineas.reduce((total, linea) => total + linea.lineHeight, 0) + 2)
+              alturaMinimaFilaOpcion,
+              ...lineasRestantes.map((lineas) => lineas.reduce((total, linea) => total + linea.lineHeight, 0) + rellenoVerticalOpcion)
             );
             return {
               columnas: 4,
@@ -3208,7 +3210,7 @@ export class PdfKitRenderer {
                 lineHeightCodigo: lineaCodigoBloque
               });
               const altoTexto = lineas.reduce((acc, linea) => acc + linea.lineHeight, 0);
-              return Math.max(sizeOpcion + 3, altoTexto + 2);
+              return Math.max(alturaMinimaFilaOpcion, altoTexto + rellenoVerticalOpcion);
             }));
             const alturas = alturasPorColumna.map((col) => col.reduce(
               (total, altoFila) => total + altoFila + separacionTarjetaOpcion,
@@ -3218,7 +3220,7 @@ export class PdfKitRenderer {
             // cada pista es el máximo de sus dos celdas; así los fondos de A-D,
             // B-E, etc. terminan exactamente en el mismo eje.
             const alturaGrid = Array.from({ length: porColumna }, (_valor, indiceFila) => Math.max(
-              sizeOpcion + 3,
+              alturaMinimaFilaOpcion,
               ...alturasPorColumna.map((col) => col[indiceFila] ?? 0)
             )).reduce((total, altoFila) => total + altoFila + separacionTarjetaOpcion, 0);
 
@@ -3765,7 +3767,7 @@ export class PdfKitRenderer {
           const lineasFlujo: LineaSegmentos[] = 'lineasFlujo' in layoutOpciones
             ? (layoutOpciones as { lineasFlujo: LineaSegmentos[] }).lineasFlujo
             : [];
-          const altoFlujo = lineasFlujo.reduce((total: number, linea: LineaSegmentos) => total + linea.lineHeight, 0) + 2;
+          const altoFlujo = lineasFlujo.reduce((total: number, linea: LineaSegmentos) => total + linea.lineHeight, 0) + rellenoVerticalOpcion;
           dibujarLineasMixtas({
             page,
             lineas: lineasFlujo,
@@ -3861,11 +3863,11 @@ export class PdfKitRenderer {
             }
           }
           const altoTextoOpcion = lineasOpcion.reduce((acc, linea) => acc + linea.lineHeight, 0);
-          const altoFilaOpcion = Math.max(sizeOpcion + 3, altoTextoOpcion + 2);
+          const altoFilaOpcion = Math.max(alturaMinimaFilaOpcion, altoTextoOpcion + rellenoVerticalOpcion);
           return { item, lineasOpcion, altoFilaOpcion };
         }));
         const alturasFilas = Array.from({ length: porColumna }, (_valor, indiceFila) => Math.max(
-          sizeOpcion + 3,
+          alturaMinimaFilaOpcion,
           ...opcionesRender.map((col) => col[indiceFila]?.altoFilaOpcion ?? 0)
         ));
         let yFilaGrid = yInicioOpciones;
