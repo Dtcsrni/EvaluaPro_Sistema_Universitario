@@ -51,13 +51,15 @@ public partial class MainWindow : Window
         SplashStatusTextBlock.Text = "Iniciando servicios locales...";
 
         ResolveAppRoot();
+        await ReconcileShortcutsAsync();
 
         try
         {
             var isReady = await EnsureBackendRunningAsync();
             if (!isReady)
             {
-                ShowError("No se pudo iniciar la plataforma local. Revisa los logs de instalación.");
+                WriteStartupDiagnostic("El servicio local no alcanzó salud web/API dentro del tiempo límite.");
+                ShowError("No se pudo iniciar la plataforma local. Revisa logs/app-host.log y vuelve a intentar.");
                 return;
             }
 
@@ -115,6 +117,14 @@ public partial class MainWindow : Window
     private void ResolveAppRoot()
     {
         var baseDir = AppDomain.CurrentDomain.BaseDirectory.TrimEnd(Path.DirectorySeparatorChar);
+        var canonicalRoot = ResolveCanonicalInstallRoot();
+        if (!string.IsNullOrWhiteSpace(canonicalRoot) && !PathsEqual(baseDir, canonicalRoot))
+        {
+            appRoot = canonicalRoot;
+            WriteStartupDiagnostic($"Se ignoró una copia no canónica: base='{baseDir}', canónica='{appRoot}'.");
+            return;
+        }
+
         var candidates = new[]
         {
             baseDir,
@@ -135,6 +145,91 @@ public partial class MainWindow : Window
         }
 
         appRoot = baseDir;
+        WriteStartupDiagnostic($"No se encontró un payload completo; se usará baseDir='{appRoot}'.");
+    }
+
+    private static string? ResolveCanonicalInstallRoot()
+    {
+        var localAppData = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData);
+        if (string.IsNullOrWhiteSpace(localAppData)) return null;
+
+        var candidate = Path.Combine(localAppData, "EvaluaPro");
+        return HasNativePayload(candidate) ? candidate : null;
+    }
+
+    private static bool HasNativePayload(string root)
+    {
+        return File.Exists(Path.Combine(root, "scripts", "start-docente-native.mjs")) &&
+               File.Exists(Path.Combine(root, "scripts", "launcher-dashboard.mjs"));
+    }
+
+    private static bool PathsEqual(string left, string right)
+    {
+        return string.Equals(
+            Path.GetFullPath(left).TrimEnd(Path.DirectorySeparatorChar),
+            Path.GetFullPath(right).TrimEnd(Path.DirectorySeparatorChar),
+            StringComparison.OrdinalIgnoreCase);
+    }
+
+    private async Task ReconcileShortcutsAsync()
+    {
+        var shortcutScript = Path.Combine(appRoot, "scripts", "create-shortcuts.ps1");
+        if (!File.Exists(shortcutScript))
+        {
+            WriteStartupDiagnostic($"No existe el reconciliador de accesos: '{shortcutScript}'.");
+            return;
+        }
+
+        try
+        {
+            var powershell = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.System), "WindowsPowerShell", "v1.0", "powershell.exe");
+            if (!File.Exists(powershell)) powershell = "powershell.exe";
+
+            using var process = Process.Start(new ProcessStartInfo
+            {
+                FileName = powershell,
+                Arguments = $"-NoProfile -ExecutionPolicy Bypass -File \"{shortcutScript}\" -Force -Port {DashboardPortFallback}",
+                WorkingDirectory = appRoot,
+                UseShellExecute = false,
+                CreateNoWindow = true,
+                WindowStyle = ProcessWindowStyle.Hidden
+            });
+
+            if (process is null)
+            {
+                WriteStartupDiagnostic("No se pudo crear el proceso de reconciliación de accesos.");
+                return;
+            }
+
+            await Task.Run(() => process.WaitForExit(10_000));
+            if (!process.HasExited)
+            {
+                try { process.Kill(entireProcessTree: true); } catch { }
+                WriteStartupDiagnostic("La reconciliación de accesos excedió 10 segundos.");
+                return;
+            }
+
+            WriteStartupDiagnostic($"Reconciliación de accesos finalizada con código {process.ExitCode}.");
+        }
+        catch (Exception ex)
+        {
+            WriteStartupDiagnostic($"Falló la reconciliación de accesos: {ex.Message}");
+        }
+    }
+
+    private void WriteStartupDiagnostic(string message)
+    {
+        try
+        {
+            var logDir = Path.Combine(appRoot, "logs");
+            Directory.CreateDirectory(logDir);
+            var logPath = Path.Combine(logDir, "app-host.log");
+            File.AppendAllText(logPath, $"[{DateTimeOffset.Now:O}] {message}{Environment.NewLine}");
+        }
+        catch
+        {
+            Debug.WriteLine(message);
+        }
     }
 
     private async Task<bool> EnsureBackendRunningAsync()
@@ -142,6 +237,7 @@ public partial class MainWindow : Window
         const string webHealthUrl = "http://127.0.0.1:4173/";
         const string apiHealthUrl = "http://127.0.0.1:4000/api/salud";
         var dashboardPort = ReadDashboardPort();
+        WriteStartupDiagnostic($"Validando servicios: root='{appRoot}', dashboardPort={dashboardPort}.");
 
         // La ventana solo se considera lista cuando web y API responden. Una
         // página estática viva no garantiza que las operaciones funcionen.
@@ -174,6 +270,7 @@ public partial class MainWindow : Window
             await Task.Delay(300);
         }
 
+        WriteStartupDiagnostic("Timeout esperando web/API locales.");
         return false;
     }
 
@@ -188,6 +285,7 @@ public partial class MainWindow : Window
 
         var dashboardScript = Path.Combine(appRoot, "scripts", "launcher-dashboard.mjs");
         var brokerScript = Path.Combine(appRoot, "scripts", "launcher-broker.ps1");
+        WriteStartupDiagnostic($"Iniciando dashboard: node='{nodeExe}', script='{dashboardScript}', cwd='{appRoot}'.");
 
         try
         {
@@ -221,6 +319,7 @@ public partial class MainWindow : Window
         }
         catch (Exception ex)
         {
+            WriteStartupDiagnostic($"Error al iniciar dashboard: {ex.Message}");
             Debug.WriteLine($"Error al iniciar backend: {ex.Message}");
         }
     }

@@ -2383,6 +2383,14 @@ test('SPEC-050: el generador de iconos no puede crear shortcuts', () => {
   assert.equal(packageJson.scripts['icons:generate'], 'node scripts/icons/generate-all-icons.mjs');
 });
 
+test('SPEC-050: una copia de staging no puede sobrescribir accesos de la instalación canónica', () => {
+  const script = fs.readFileSync(path.join(root, 'scripts', 'create-shortcuts.ps1'), 'utf8');
+  assert.match(script, /AppData\\\\Local\\\\Packages/);
+  assert.match(script, /LocalCache\\\\Local\\\\EvaluaPro/);
+  assert.match(script, /reconciliación desde una copia de staging/);
+  assert.match(script, /shortcuts-manifest\.json/);
+});
+
 test('SPEC-050: cada acceso declarado tiene launcher e icono canónicos', () => {
   const manifest = JSON.parse(fs.readFileSync(path.join(root, 'config', 'shortcuts-manifest.json'), 'utf8'));
   const allowedLaunchers = new Set(['native', 'tray', 'operation']);

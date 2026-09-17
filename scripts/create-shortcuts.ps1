@@ -17,6 +17,17 @@ Set-StrictMode -Version Latest
 $ErrorActionPreference = "Stop"
 
 $root = (Resolve-Path (Join-Path $PSScriptRoot "..")).Path
+$canonicalRoot = if ($env:LOCALAPPDATA) {
+  [System.IO.Path]::GetFullPath((Join-Path $env:LOCALAPPDATA 'EvaluaPro')).TrimEnd('\')
+} else { $null }
+$normalizedRoot = [System.IO.Path]::GetFullPath($root).TrimEnd('\')
+$isPackageStagingCopy = $normalizedRoot -match '\\AppData\\Local\\Packages\\[^\\]+\\LocalCache\\Local\\EvaluaPro$'
+if ($isPackageStagingCopy -and $canonicalRoot -and
+    -not [string]::Equals($normalizedRoot, $canonicalRoot, [System.StringComparison]::OrdinalIgnoreCase) -and
+    (Test-Path -LiteralPath (Join-Path $canonicalRoot 'config\shortcuts-manifest.json'))) {
+  throw "Se rechazó la reconciliación desde una copia de staging de Codex. Use la instalación canónica: $canonicalRoot"
+}
+
 $shortcutManifestPath = Join-Path $root 'config\shortcuts-manifest.json'
 if (-not (Test-Path -LiteralPath $shortcutManifestPath)) {
   throw "No se encontró el manifiesto canónico de accesos directos: $shortcutManifestPath"
