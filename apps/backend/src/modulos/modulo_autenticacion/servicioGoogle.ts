@@ -6,7 +6,6 @@
  */
 import { OAuth2Client } from 'google-auth-library';
 import { ErrorAplicacion } from '../../compartido/errores/errorAplicacion.js';
-import { esCorreoDeDominioPermitido } from '../../compartido/utilidades/correo.js';
 import { configuracion } from '../../configuracion.js';
 
 export type PerfilGoogle = {
@@ -51,18 +50,6 @@ export async function verificarCredencialGoogle(credential: string): Promise<Per
   }
 
   const correoFinal = String(correo).toLowerCase();
-  if (
-    Array.isArray(configuracion.dominiosCorreoPermitidos) &&
-    configuracion.dominiosCorreoPermitidos.length > 0 &&
-    !esCorreoDeDominioPermitido(correoFinal, configuracion.dominiosCorreoPermitidos)
-  ) {
-    throw new ErrorAplicacion(
-      'DOMINIO_CORREO_NO_PERMITIDO',
-      'Correo no permitido por politicas. Usa tu correo institucional.',
-      403
-    );
-  }
-
   return {
     correo: correoFinal,
     sub: String(sub),

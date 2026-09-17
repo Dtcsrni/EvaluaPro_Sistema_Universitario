@@ -8,7 +8,6 @@ import { fileURLToPath } from 'node:url';
 import { spawn } from 'node:child_process';
 import crypto from 'node:crypto';
 import { ErrorAplicacion } from '../../compartido/errores/errorAplicacion.js';
-import { esCorreoDeDominioPermitido } from '../../compartido/utilidades/correo.js';
 import { configuracion } from '../../configuracion.js';
 import { prisma } from '../../infraestructura/baseDatos/sqlite.js';
 import { crearHash, compararContrasena } from './servicioHash.js';
@@ -183,18 +182,6 @@ export async function registrarDocente(req: Request, res: Response) {
   const { nombres, apellidos, nombreCompleto, correo, contrasena } = req.body;
   const correoFinal = String(correo || '').toLowerCase();
 
-  if (
-    Array.isArray(configuracion.dominiosCorreoPermitidos) &&
-    configuracion.dominiosCorreoPermitidos.length > 0 &&
-    !esCorreoDeDominioPermitido(correoFinal, configuracion.dominiosCorreoPermitidos)
-  ) {
-    throw new ErrorAplicacion(
-      'DOMINIO_CORREO_NO_PERMITIDO',
-      'Correo no permitido por politicas. Usa tu correo institucional.',
-      403
-    );
-  }
-
   const existente = await prisma.docente.findUnique({ where: { correo: correoFinal } });
   if (existente) {
     throw new ErrorAplicacion('DOCENTE_EXISTE', 'El correo ya esta registrado', 409);
@@ -289,18 +276,6 @@ export async function ingresarDocente(req: Request, res: Response) {
   assertPasswordAuthDisponible();
   const { correo, contrasena } = req.body;
   const correoFinal = String(correo || '').toLowerCase();
-
-  if (
-    Array.isArray(configuracion.dominiosCorreoPermitidos) &&
-    configuracion.dominiosCorreoPermitidos.length > 0 &&
-    !esCorreoDeDominioPermitido(correoFinal, configuracion.dominiosCorreoPermitidos)
-  ) {
-    throw new ErrorAplicacion(
-      'DOMINIO_CORREO_NO_PERMITIDO',
-      'Correo no permitido por politicas. Usa tu correo institucional.',
-      403
-    );
-  }
 
   const docente = await prisma.docente.findUnique({ where: { correo: correoFinal } });
   if (!docente) {

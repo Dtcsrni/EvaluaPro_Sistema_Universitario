@@ -66,7 +66,7 @@ describe('autenticacion google-only', () => {
     expect(registro.body?.error?.codigo).toBe('GOOGLE_OAUTH_REQUIRED');
   });
 
-  it('autovincula por correo institucional en el primer login Google', async () => {
+  it('autovincula por correo verificado en el primer login Google', async () => {
     const app = await crearAppGoogleOnly();
     const docente = await Docente.create({
       nombreCompleto: 'Docente Existente',

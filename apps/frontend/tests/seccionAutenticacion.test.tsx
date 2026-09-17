@@ -11,7 +11,6 @@ import { SeccionAutenticacion } from '../src/apps/app_docente/SeccionAutenticaci
 import { clienteApi } from '../src/apps/app_docente/clienteApiDocente';
 import { ErrorRemoto } from '../src/servicios_api/clienteComun';
 import * as versionInfoModule from '../src/ui/version/versionInfo';
-import * as utilidadesModule from '../src/apps/app_docente/utilidades';
 
 vi.mock('@react-oauth/google', () => ({
   GoogleLogin: ({ onSuccess, onError, theme, text }: {
@@ -120,6 +119,26 @@ describe('SeccionAutenticacion', () => {
       contrasena: '12345678'
     });
     expect(onIngresar).toHaveBeenCalledWith('token-prueba', true);
+  });
+
+  it('acepta correos de cualquier dominio sin mostrar una política institucional', async () => {
+    const user = userEvent.setup();
+    vi.spyOn(clienteApi, 'enviar').mockResolvedValueOnce({ token: 'token-externo' });
+
+    render(<SeccionAutenticacion onIngresar={() => {}} oauthGoogleDisponible={false} />);
+
+    fireEvent.change(screen.getByLabelText('Correo'), { target: { value: 'docente@externo.test' } });
+    fireEvent.change(screen.getByLabelText(/Contrase[nñ]a/i), { target: { value: '12345678' } });
+    const botonesIngresar = screen.getAllByRole('button', { name: /^Ingresar$/i });
+    await user.click(botonesIngresar[botonesIngresar.length - 1]);
+
+    await waitFor(() => {
+      expect(clienteApi.enviar).toHaveBeenCalledWith('/autenticacion/ingresar', {
+        correo: 'docente@externo.test',
+        contrasena: '12345678'
+      });
+    });
+    expect(screen.queryByText(/Solo se permiten/i)).not.toBeInTheDocument();
   });
 
   it('permite registrar cuenta por formulario con codigo de licencia', async () => {
@@ -289,33 +308,6 @@ describe('SeccionAutenticacion', () => {
     expect(spyVersion).toHaveBeenCalledWith('docente');
   });
 
-  it('valida politicas de dominio institucional en ingresar y registrar', async () => {
-    const user = userEvent.setup();
-    vi.spyOn(utilidadesModule, 'obtenerDominiosCorreoPermitidosFrontend').mockReturnValue(['@universidad.edu.mx']);
-
-    render(<SeccionAutenticacion onIngresar={() => {}} />);
-
-    // Domain check on ingresar
-    fireEvent.change(screen.getByLabelText('Correo'), { target: { value: 'docente@externo.com' } });
-    fireEvent.change(screen.getByLabelText(/Contrase[nñ]a/i), { target: { value: '12345678' } });
-
-    const botonesIngresar = screen.getAllByRole('button', { name: /^Ingresar$/i });
-    await user.click(botonesIngresar[botonesIngresar.length - 1]);
-
-    expect(screen.getByText(/Solo se permiten correos institucionales/i)).toBeInTheDocument();
-
-    // Domain check on registrar
-    await user.click(screen.getByRole('button', { name: /^Registrar$/i }));
-
-    fireEvent.change(screen.getByLabelText('Nombres'), { target: { value: 'Doc' } });
-    fireEvent.change(screen.getByLabelText('Apellidos'), { target: { value: 'Test' } });
-    fireEvent.change(screen.getByLabelText('Correo'), { target: { value: 'docente@externo.com' } });
-    fireEvent.change(screen.getByLabelText(/Contrase[nñ]a/i), { target: { value: '12345678' } });
-
-    await user.click(screen.getByRole('button', { name: /Crear cuenta/i }));
-    expect(screen.getByText(/Solo se permiten correos institucionales/i)).toBeInTheDocument();
-  });
-
   it('permite alternar entre Google y formulario en modo registrar', async () => {
     const user = userEvent.setup();
     render(<SeccionAutenticacion onIngresar={() => {}} oauthGoogleDisponible modoInicial="registrar" />);
@@ -372,28 +364,6 @@ describe('SeccionAutenticacion', () => {
     const errorBtn = screen.getByTestId('mock-google-error');
     await user.click(errorBtn);
     expect(screen.getByText(/No se pudo obtener datos de Google/i)).toBeInTheDocument();
-  });
-
-  it('valida dominio institucional en login y recuperacion con Google', async () => {
-    const user = userEvent.setup();
-    vi.spyOn(utilidadesModule, 'obtenerDominiosCorreoPermitidosFrontend').mockReturnValue(['@institucional.edu']);
-
-    render(<SeccionAutenticacion onIngresar={() => {}} oauthGoogleDisponible />);
-
-    // En modo ingresar con Google
-    const botonesIngresar = screen.getAllByRole('button', { name: /^Ingresar$/i });
-    await user.click(botonesIngresar[0]);
-    const googleBtn = screen.getByTestId('mock-google-login');
-    await user.click(googleBtn);
-    expect(screen.getByText(/Solo se permiten correos institucionales/i)).toBeInTheDocument();
-
-    // En recuperacion con Google
-    await user.click(screen.getByRole('button', { name: /Recuperar contrase[nñ]a con Google/i }));
-    const googleBtns = screen.getAllByTestId('mock-google-login');
-    await user.click(googleBtns[googleBtns.length - 1]);
-    fireEvent.change(screen.getByLabelText(/Nueva contrase[nñ]a/i), { target: { value: 'nueva12345' } });
-    await user.click(screen.getByRole('button', { name: /Actualizar contrase[nñ]a/i }));
-    expect(screen.getByText(/Solo se permiten correos institucionales/i)).toBeInTheDocument();
   });
 
   it('maneja error 429 al recuperar contrasena con Google', async () => {
@@ -541,15 +511,4 @@ describe('SeccionAutenticacion', () => {
     expect(screen.getByLabelText('Apellidos')).toHaveValue('Sanchez');
   });
 
-  it('rechaza registro con Google si el correo de Google no cumple el dominio permitido', async () => {
-    const user = userEvent.setup();
-    vi.spyOn(utilidadesModule, 'obtenerDominiosCorreoPermitidosFrontend').mockReturnValue(['@institucional.edu']);
-
-    render(<SeccionAutenticacion onIngresar={() => {}} oauthGoogleDisponible modoInicial="registrar" />);
-
-    const googleBtn = screen.getByTestId('mock-google-login');
-    await user.click(googleBtn);
-
-    expect(screen.getByText(/Solo se permiten correos institucionales/i)).toBeInTheDocument();
-  });
 });

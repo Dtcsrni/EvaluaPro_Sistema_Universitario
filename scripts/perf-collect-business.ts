@@ -57,12 +57,7 @@ function percentil(valores: number[], q: number): number {
 }
 
 async function registrarDocente(app: { (): unknown } | unknown): Promise<string> {
-  const dominioPermitido =
-    String(process.env.DOMINIOS_CORREO_PERMITIDOS || '')
-      .split(',')
-      .map((item) => item.trim().replace(/^@/, ''))
-      .find(Boolean) || 'evaluapro.mx';
-  const correo = `perf_${Date.now()}_${randomUUID().slice(0, 8)}@${dominioPermitido}`;
+  const correo = `perf_${Date.now()}_${randomUUID().slice(0, 8)}@evaluapro.mx`;
   const password = 'Perf_Valid_2026!';
   const respuesta = await request(app).post('/api/autenticacion/registrar').send({
     correo,

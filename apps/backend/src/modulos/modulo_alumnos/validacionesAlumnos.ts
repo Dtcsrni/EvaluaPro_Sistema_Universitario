@@ -3,9 +3,7 @@
  */
 import { z } from 'zod';
 import { esquemaObjectId } from '../../compartido/validaciones/esquemas.js';
-import { esCorreoDeDominioPermitido } from '../../compartido/utilidades/correo.js';
 import { esMatriculaValida, normalizarEspacios, normalizarMatricula } from '../../compartido/utilidades/texto.js';
-import { configuracion } from '../../configuracion.js';
 
 function partirNombreCompleto(nombreCompleto: string): { nombres: string; apellidos: string } {
   const limpio = String(nombreCompleto || '')
@@ -66,20 +64,6 @@ export const esquemaCrearAlumno = z
       }
     }
 
-    const correo = typeof data.correo === 'string' ? data.correo : '';
-    const correoEfectivo = correo.trim() ? correo.trim() : `${matriculaNormalizada}@cuh.mx`;
-
-    if (
-      Array.isArray(configuracion.dominiosCorreoPermitidos) &&
-      configuracion.dominiosCorreoPermitidos.length > 0 &&
-      !esCorreoDeDominioPermitido(correoEfectivo, configuracion.dominiosCorreoPermitidos)
-    ) {
-      ctx.addIssue({
-        code: z.ZodIssueCode.custom,
-        path: ['correo'],
-        message: 'Correo no permitido por politicas. Usa un correo institucional.'
-      });
-    }
   })
   .transform((data) => {
     const matricula = normalizarMatricula(String(data.matricula || ''));
@@ -163,20 +147,6 @@ export const esquemaActualizarAlumno = z
       }
     }
 
-    const correo = typeof data.correo === 'string' ? data.correo : '';
-    const correoEfectivo = correo.trim() ? correo.trim() : `${matriculaNormalizada}@cuh.mx`;
-
-    if (
-      Array.isArray(configuracion.dominiosCorreoPermitidos) &&
-      configuracion.dominiosCorreoPermitidos.length > 0 &&
-      !esCorreoDeDominioPermitido(correoEfectivo, configuracion.dominiosCorreoPermitidos)
-    ) {
-      ctx.addIssue({
-        code: z.ZodIssueCode.custom,
-        path: ['correo'],
-        message: 'Correo no permitido por politicas. Usa un correo institucional.'
-      });
-    }
   })
   .transform((data) => {
     const matricula = normalizarMatricula(String(data.matricula || ''));

@@ -285,35 +285,6 @@ export function esMensajeError(texto: string): boolean {
   return tipoMensajeInline(texto) === 'error';
 }
 
-export function obtenerDominiosCorreoPermitidosFrontend(correoDocente?: string): string[] {
-  const configurados = String(import.meta.env.VITE_DOMINIOS_CORREO_PERMITIDOS || '')
-    .split(',')
-    .map((d) => d.trim().toLowerCase().replace(/^@/, ''))
-    .filter(Boolean);
-  if (configurados.length > 0) return configurados;
-  return [obtenerDominioCorreo(correoDocente || '') || 'cuh.mx'];
-}
-
-function obtenerDominioCorreo(correo: string): string | null {
-  const valor = String(correo || '').trim().toLowerCase();
-  const at = valor.lastIndexOf('@');
-  if (at < 0) return null;
-  const dominio = valor.slice(at + 1).trim();
-  return dominio ? dominio : null;
-}
-
-export function esCorreoDeDominioPermitidoFrontend(correo: string, dominiosPermitidos: string[]): boolean {
-  const lista = Array.isArray(dominiosPermitidos) ? dominiosPermitidos : [];
-  if (lista.length === 0) return true;
-  const dominio = obtenerDominioCorreo(correo);
-  if (!dominio) return false;
-  return lista.includes(dominio);
-}
-
-export function textoDominiosPermitidos(dominios: string[]): string {
-  return dominios.map((d) => `@${d}`).join(', ');
-}
-
 const LARGO_ID_MATERIA = 8;
 
 export function idCortoMateria(id?: string, largo = LARGO_ID_MATERIA): string {

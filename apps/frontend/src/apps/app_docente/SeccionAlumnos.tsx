@@ -16,13 +16,10 @@ import { registrarAccionDocente } from './telemetriaDocente';
 import type { Alumno, EnviarConPermiso, Periodo, PermisosUI } from './tipos';
 import { clienteApi } from './clienteApiDocente';
 import {
-  esCorreoDeDominioPermitidoFrontend,
   esMensajeError,
   etiquetaMateria,
   mensajeDeError,
-  obtenerDominiosCorreoPermitidosFrontend,
-  obtenerInicialesAlumno,
-  textoDominiosPermitidos
+  obtenerInicialesAlumno
 } from './utilidades';
 
 export function SeccionAlumnos({
@@ -34,8 +31,7 @@ export function SeccionAlumnos({
   permisos,
   puedeEliminarAlumnoDev,
   enviarConPermiso,
-  avisarSinPermiso,
-  docenteCorreo
+  avisarSinPermiso
 }: {
   alumnos: Alumno[];
   periodosActivos: Periodo[];
@@ -46,7 +42,6 @@ export function SeccionAlumnos({
   puedeEliminarAlumnoDev: boolean;
   enviarConPermiso: EnviarConPermiso;
   avisarSinPermiso: (mensaje: string) => void;
-  docenteCorreo?: string;
 }) {
   const [matricula, setMatricula] = useState('');
   const [nombres, setNombres] = useState('');
@@ -101,10 +96,7 @@ export function SeccionAlumnos({
     return /^CUH\d+$/i.test(matriculaNormalizada) || /^[\w\-.]{3,30}$/.test(matriculaNormalizada);
   }, [matricula, matriculaNormalizada]);
 
-  const dominiosPermitidos = obtenerDominiosCorreoPermitidosFrontend(docenteCorreo);
-  const dominioCorreoPredeterminado = dominiosPermitidos[0] || 'cuh.mx';
-  const politicaDominiosTexto = dominiosPermitidos.length > 0 ? textoDominiosPermitidos(dominiosPermitidos) : '';
-  const correoValido = !correo.trim() || esCorreoDeDominioPermitidoFrontend(correo, dominiosPermitidos);
+  const dominioCorreoPredeterminado = 'cuh.mx';
 
   function claseBadgeGrupo(grupoAlumno: string): string {
     const clave = String(grupoAlumno || '').trim().toUpperCase();
@@ -158,12 +150,11 @@ export function SeccionAlumnos({
       nombres.trim() &&
       apellidos.trim() &&
       periodoIdNuevo &&
-      correoValido &&
       !editandoId
   );
 
   const puedeGuardarEdicion = Boolean(
-    editandoId && matricula.trim() && matriculaValida && nombres.trim() && apellidos.trim() && periodoIdNuevo && correoValido
+    editandoId && matricula.trim() && matriculaValida && nombres.trim() && apellidos.trim() && periodoIdNuevo
   );
 
   const alumnosDeMateria = useMemo(() => {
@@ -546,7 +537,7 @@ export function SeccionAlumnos({
           {/* Fila 2: Contacto y Asignación Académica */}
           <div className="alumnos-form__row alumnos-form__row--bottom">
             <label className="campo campo--correo">
-              <span>Correo institucional</span>
+              <span>Correo</span>
               <div className="auth-input-box auth-input-box--mail auth-input-box--animated">
                 <input
                   value={correo}
@@ -560,9 +551,6 @@ export function SeccionAlumnos({
               </div>
               {correoAuto && matriculaNormalizada && (
                 <span className="ayuda">Sugerido automáticamente: {matriculaNormalizada}@{dominioCorreoPredeterminado}</span>
-              )}
-              {dominiosPermitidos.length > 0 && !correoAuto && (
-                <span className="ayuda">Opcional. Dominio permitido: {politicaDominiosTexto}</span>
               )}
             </label>
 
@@ -608,9 +596,6 @@ export function SeccionAlumnos({
 
         {matricula.trim() && !matriculaValida && (
           <InlineMensaje tipo="error">Matricula invalida. Usa el formato CUH#########.</InlineMensaje>
-        )}
-        {dominiosPermitidos.length > 0 && correo.trim() && !correoValido && (
-          <InlineMensaje tipo="error">Correo no permitido por politicas. Usa un correo institucional.</InlineMensaje>
         )}
 
         <div className="alumnos-form__footer">

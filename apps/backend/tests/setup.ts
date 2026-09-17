@@ -55,9 +55,6 @@ process.env.NODE_ENV = 'test';
 process.env.RATE_LIMIT_LIMIT = '100000';
 process.env.EVALUAPRO_LOG_SILENT = '1';
 
-// En pruebas se permiten correos de cualquier dominio.
-process.env.DOMINIOS_CORREO_PERMITIDOS = '';
-
 instalarTestHardening({
   // Node 24 emite este warning transitorio desde dependencias de terceros
   // durante tests HTTP; no representa fallo funcional del sistema.
